@@ -216,3 +216,8 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Reasonix（AI 工具运行时文件）
+.reasonix/
+reasonix.toml
+
