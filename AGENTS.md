@@ -12,6 +12,8 @@
 
 本项目通过知识图谱（graphify-out/）辅助代码理解与架构分析，已启用中文查询分词。
 
+当用户输入 `/graphify` 时，先使用已安装的 graphify skill（`.opencode/skills/graphify/SKILL.md`）或下述规则，再做其他事。
+
 规则：
 - 代码库相关问题，当 graphify-out/graph.json 存在时，先运行 `graphify query "<问题>"`（可直接用中文）。关系用 `graphify path "<A>" "<B>"`，概念用 `graphify explain "<概念>"`。返回的是范围受限的子图，通常比 GRAPH_REPORT.md 或原始 grep 输出小得多。
 - 钩子或增量更新后 graphify-out/ 文件变脏属正常现象，不应因此跳过 graphify。只有任务涉及过期或错误的图输出、或用户明确不用时，才跳过。
