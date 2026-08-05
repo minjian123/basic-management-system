@@ -175,7 +175,7 @@
       <h3 id="general-case">2.1 大小写风格</h3>
       <table>
         <tr><th>风格</th><th>写法</th><th>用于</th></tr>
-        <tr><td>snake_case</td><td><code>user_name</code></td><td>Python 标识符、文件、表/字段、Redis key</td></tr>
+        <tr><td>snake_case</td><td><code>user_name</code></td><td>Python 标识符、文件、表/字段</td></tr>
         <tr><td>camelCase</td><td><code>userName</code></td><td>TS/JS 变量与函数</td></tr>
         <tr><td>PascalCase</td><td><code>UserService</code></td><td>Python/TS 类、Vue 组件、类型与接口、路由 name</td></tr>
         <tr><td>kebab-case</td><td><code>user-management</code></td><td>前端路由 path、HTML 属性、CSS 类名</td></tr>
@@ -195,7 +195,7 @@
       <ul>
         <li>仓库与根目录：<code>bms</code></li>
         <li>顶层目录：<code>backend/</code>、<code>frontend/</code>、<code>deploy/</code>、<code>文档/</code>（全小写英文，文档目录用中文）</li>
-        <li>后端：<code>app/core</code>、<code>app/api</code>、<code>app/models</code>、<code>app/schemas</code>、<code>app/services</code>、<code>app/repositories</code>、<code>app/db</code>、<code>alembic/</code>、<code>tests/</code>，均小写</li>
+        <li>后端：<code>app/core</code>、<code>app/api</code>、<code>app/models</code>、<code>app/schemas</code>、<code>app/services</code>、<code>app/repositories</code>、<code>app/db</code>、<code>app/tasks</code>（Celery）、<code>app/ws</code>（Socket.IO）、<code>app/i18n</code>（国际化）、<code>alembic/</code>、<code>tests/</code>，均小写</li>
         <li>前端：<code>src/api</code>、<code>src/router</code>、<code>src/stores</code>、<code>src/views</code>、<code>src/layouts</code>、<code>src/components</code>、<code>src/i18n</code>、<code>src/utils</code></li>
         <li>按模块分组：模块目录用单数名词（<code>views/user/</code>、<code>app/api/user/</code>、<code>app/models/user.py</code>）</li>
       </ul>
@@ -234,12 +234,12 @@
 
       <h2 id="db">7. 数据库命名</h2>
       <ul>
-        <li>库：<code>bms_dev</code> / <code>bms_test</code> / <code>bms_prod</code>；业务库按业务名（如 <code>bms_log</code>）</li>
-        <li>表前缀：<code>sys_</code> 系统、<code>wf_</code> 工作流、<code>biz_</code> 业务；表名单数 snake_case：<code>sys_user</code>、<code>biz_purchase_apply</code>、<code>wf_task</code></li>
+        <li>库：平台库 <code>bms_platform</code>、租户库 <code>bms_tenant_{code}</code>（一租户一库）、归档库 <code>bms_archive</code>；环境库 <code>bms_dev</code> / <code>bms_test</code> / <code>bms_prod</code></li>
+        <li>表前缀：<code>sys_</code> 系统（含权限体系：用户/岗位/角色/菜单/表单/字段/按钮/业务/动作/数据范围）、<code>wf_</code> 工作流、<code>biz_</code> 业务、<code>rpt_</code> 报表、<code>ai_</code> AI 域；表名单数 snake_case：<code>sys_user</code>、<code>sys_post</code>、<code>biz_purchase_apply</code>、<code>wf_task</code>、<code>rpt_report</code>、<code>ai_chat_log</code></li>
         <li>字段：snake_case；主键统一 <code>id</code>；外键 <code>目标表名_id</code>（<code>dept_id</code>、<code>role_id</code>）；布尔 <code>is_</code> 前缀；时间 <code>xxx_at</code>（<code>created_at</code>）；审计 <code>created_by</code> / <code>updated_by</code>；通用 <code>deleted_at</code>、<code>version</code>、<code>status</code>、<code>sort</code>、<code>remark</code></li>
         <li>索引：普通 <code>idx_字段</code>（<code>idx_dept_id</code>）、唯一 <code>uq_字段</code>（<code>uq_username</code>）</li>
-        <li>关联表：两表名单词连接（<code>sys_user_role</code>），联合主键，不设 id</li>
-        <li>枚举值：UPPER_SNAKE 或小写数字标识（<code>data_scope = 'ALL' | 'DEPT' | 'SELF'</code>），统一用字典管理</li>
+        <li>关联表：两表名单词连接（<code>sys_user_post</code>、<code>sys_role_permission</code>），联合主键，不设 id；通用主体角色绑定 <code>sys_role_assign</code>（subject_type + subject_id + role_id）</li>
+        <li>枚举值：小写 snake_case 或 UPPER_SNAKE（<code>subject_type = 'user' | 'post' | 'dept'</code>、<code>scope_type = 'all' | 'dept_and_below' | 'dept' | 'self'</code>、<code>button.type = 'toolbar' | 'interface'</code>），统一用字典管理</li>
       </ul>
 
       <h2 id="api">8. API 命名</h2>
@@ -248,8 +248,8 @@
         <li>资源：复数名词（<code>/users</code>、<code>/departments</code>），子资源嵌套（<code>/users/{id}/roles</code>）</li>
         <li>动词交给 HTTP 方法：GET 查、POST 建、PUT 全量改、PATCH 部分改、DELETE 删；动作类接口动词短语（<code>/auth/login</code>、<code>/users/{id}/reset-password</code>）</li>
         <li>参数：分页 <code>page</code>、<code>size</code>；排序 <code>order_by</code>；筛选 <code>模块字段名</code>（<code>status</code>、<code>keyword</code>）；游标分页 <code>cursor</code>、<code>limit</code></li>
-        <li>权限码：<code>模块:动作</code>（<code>user:create</code>、<code>wf:approve</code>、<code>open:manage</code>）</li>
-        <li>错误码：5 位数字按模块分段（1xxxx 通用、2xxxx 认证、3xxxx 用户、4xxxx 工作流、5xxxx 文件…），稳定不变</li>
+        <li>权限码：<code>业务:动作</code>——业务对应业务权限（sys_business，如 <code>user</code>、<code>wf</code>、<code>open</code>），动作对应动作权限（sys_action，如 <code>create</code>、<code>approve</code>、<code>manage</code>）；组合示例 <code>user:create</code>、<code>wf:approve</code>、<code>open:call</code></li>
+        <li>错误码：5 位数字按模块分段（1xxxx 通用、2xxxx 认证、3xxxx 用户与组织、4xxxx 系统配置、5xxxx 文件、6xxxx 工作流、7xxxx 通知/邮件/任务、8xxxx 开放接口/租户/SSO、9xxxx 报表/审计/归档/监控），稳定不变</li>
         <li>统一响应 <code>{code, message, data}</code>，分页响应 <code>{list, total, page, size}</code></li>
         <li>幂等键请求头 <code>Idempotency-Key</code></li>
       </ul>
@@ -266,6 +266,7 @@
         <tr><td>常量</td><td>UPPER_SNAKE</td><td><code>ACCESS_TOKEN_KEY</code></td></tr>
         <tr><td>类型/接口</td><td>PascalCase</td><td><code>interface UserInfo</code>、<code>type ApiResponse</code></td></tr>
         <tr><td>API 模块</td><td>src/api/模块.ts，函数 get/query/create/update/delete 开头</td><td><code>api/user.ts</code> → <code>getUserList()</code></td></tr>
+        <tr><td>权限指令</td><td><code>v-perm="'业务:动作'"</code> 按钮/字段显隐</td><td><code>v-perm="'user:create'"</code>、<code>v-perm="'wf:approve'"</code></td></tr>
         <tr><td>CSS 类</td><td>kebab-case，BEM 简化</td><td><code>.user-form</code>、<code>.sidebar-menu</code></td></tr>
         <tr><td>图片等资源</td><td>kebab-case</td><td><code>logo-bms.png</code></td></tr>
       </table>
@@ -273,15 +274,17 @@
       <h2 id="infra">10. 基础设施命名</h2>
       <table>
         <tr><th>对象</th><th>约定</th><th>示例</th></tr>
-        <tr><td>Compose 服务名</td><td>小写单名，与组件同名</td><td><code>backend</code>、<code>frontend</code>、<code>redis</code>、<code>rabbitmq</code>、<code>minio</code>、<code>mysql</code>、<code>prometheus</code></td></tr>
+        <tr><td>Compose 服务名</td><td>小写单名，与组件同名</td><td><code>backend</code>、<code>frontend</code>、<code>redis</code>、<code>rocketmq</code>、<code>elasticsearch</code>、<code>milvus</code>、<code>etcd</code>、<code>minio</code>、<code>celery-worker</code>、<code>celery-beat</code>、<code>event-worker</code>、<code>mysql</code>、<code>prometheus</code></td></tr>
         <tr><td>镜像名</td><td><code>bms-组件</code></td><td><code>bms-backend:latest</code>、<code>bms-frontend:v1.2.0</code></td></tr>
-        <tr><td>环境变量</td><td><code>BMS_</code> 前缀 UPPER_SNAKE</td><td><code>BMS_ENV</code>、<code>BMS_DB_URL</code>、<code>BMS_JWT_SECRET</code></td></tr>
-        <tr><td>config.toml 小节</td><td>小写英文</td><td><code>[database]</code>、<code>[redis]</code>、<code>[auth]</code>、<code>[minio]</code></td></tr>
-        <tr><td>Redis key</td><td><code>模块:业务:标识</code></td><td><code>captcha:{uuid}</code>、<code>token:blacklist:{jti}</code>、<code>rate:login:{ip}</code>、<code>dict:{type}</code>、<code>lock:xxx</code></td></tr>
-        <tr><td>RabbitMQ</td><td><code>bms.事件域.事件</code> 点分小写</td><td><code>bms.log.operation</code>、<code>bms.event.purchase</code></td></tr>
+        <tr><td>环境变量</td><td><code>BMS_</code> 前缀 UPPER_SNAKE</td><td><code>BMS_ENV</code>、<code>BMS_DB_URL</code>、<code>BMS_JWT_SECRET</code>、<code>BMS_AI_API_KEY</code></td></tr>
+        <tr><td>config.toml 小节</td><td>小写英文</td><td><code>[database]</code>、<code>[redis]</code>、<code>[auth]</code>、<code>[minio]</code>、<code>[rocketmq]</code>、<code>[ai]</code></td></tr>
+        <tr><td>Redis key</td><td><code>bms:{租户|global}:{域}:{业务键}</code> 全小写冒号分隔</td><td><code>bms:global:captcha:{uuid}</code>、<code>bms:global:token:blacklist:{jti}</code>、<code>bms:{tenant}:sess:{session_id}</code>、<code>bms:{tenant}:dict:{locale}:{type}</code>、<code>bms:global:rate:{维度}:{目标}</code></td></tr>
+        <tr><td>RocketMQ topic</td><td><code>bms.事件域.事件</code> 点分小写</td><td><code>bms.log.operation</code>、<code>bms.wf.task</code>、<code>bms.event.purchase</code></td></tr>
         <tr><td>Socket.IO 事件</td><td>点分小写，领域.动作</td><td><code>approval.todo</code>、<code>session.revoked</code>、<code>notification.new</code></td></tr>
-        <tr><td>Webhook 事件</td><td>点分小写，业务.对象.动作</td><td><code>purchase.apply.approved</code>、<code>user.updated</code></td></tr>
-        <tr><td>MinIO bucket</td><td>小写连字符</td><td><code>bms-files</code>、<code>bms-backup</code></td></tr>
+        <tr><td>事件总线/Webhook 事件</td><td>点分小写，域.对象.动作</td><td><code>user.updated</code>、<code>wf.task.completed</code>、<code>wf.instance.rejected</code>、<code>purchase.order.created</code></td></tr>
+        <tr><td>ES 索引</td><td><code>bms-{用途}</code> 小写连字符；日志按月 <code>bms-log-{类型}-{yyyyMM}</code></td><td><code>bms-main</code>（主数据）、<code>bms-log-operation-202608</code>、<code>bms-file</code></td></tr>
+        <tr><td>Milvus collection</td><td><code>bms-{租户}-{用途}</code> 小写连字符，按租户隔离</td><td><code>bms-{tenant}-doc</code>、<code>bms-{tenant}-embedding</code></td></tr>
+        <tr><td>MinIO bucket</td><td>小写连字符，按租户前缀隔离</td><td><code>bms-files</code>、<code>bms-backup</code>、<code>bms-{tenant}</code></td></tr>
         <tr><td>分片键</td><td>语义名：tenant / date</td><td>按租户 <code>tenant</code>、按时间 <code>date</code></td></tr>
       </table>
 
@@ -305,9 +308,9 @@
         <li>□ 无拼音、无缩写不明、无中英混排标识符</li>
         <li>□ 风格与第 2.1 节对照一致（各语言各自的风格）</li>
         <li>□ 数据库字段名与后端模型、前端参数同名映射</li>
-        <li>□ 表前缀 sys_/wf_/biz_ 使用正确；外键 <code>表_id</code>、索引 idx_/uq_ 前缀</li>
-        <li>□ API 资源复数、权限码 <code>模块:动作</code>、错误码分段正确</li>
-        <li>□ Redis key / MQ / 事件名符合点分或冒号约定</li>
+        <li>□ 表前缀 sys_/wf_/biz_/rpt_/ai_ 使用正确；外键 <code>表_id</code>、索引 idx_/uq_ 前缀</li>
+        <li>□ API 资源复数、权限码 <code>业务:动作</code>（业务/动作两级）、错误码分段正确</li>
+        <li>□ Redis key 符合 <code>bms:{租户|global}:{域}:{键}</code>；RocketMQ topic / 事件 / ES 索引 / Milvus collection 符合点分或连字符约定</li>
         <li>□ 环境变量带 <code>BMS_</code> 前缀；密钥仅环境变量</li>
         <li>□ 提交信息 <code>type(scope): 中文描述</code>；分支 <code>类型/描述</code></li>
       </ul>
