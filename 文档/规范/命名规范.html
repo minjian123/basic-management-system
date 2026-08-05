@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>命名规范</title>
+<style>
+  :root {
+    --bg: #f7f8fa;
+    --fg: #1f2328;
+    --muted: #57606a;
+    --border: #d0d7de;
+    --accent: #0969da;
+    --accent-bg: #ddf4ff;
+    --code-bg: #f6f8fa;
+    --warn-bg: #fff8c5;
+    --warn-border: #d4a72c;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+    line-height: 1.75;
+  }
+  .layout { display: flex; height: 100vh; overflow: hidden; }
+  .sidebar {
+    width: 280px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+  }
+  .sidebar .brand {
+    background: linear-gradient(135deg, #1f2328, #32383f);
+    color: #fff;
+    padding: 1.4rem 1.2rem 1.1rem;
+    border-bottom: 3px solid var(--accent);
+    flex-shrink: 0;
+  }
+  .sidebar .brand h1 { margin: 0 0 .35rem; font-size: 1.15rem; line-height: 1.4; }
+  .sidebar .brand p { margin: 0; color: #b6bec6; font-size: .78rem; }
+  .sidebar nav { padding: .8rem .6rem 1.5rem; font-size: .9rem; }
+  .sidebar nav ul { list-style: none; margin: 0; padding: 0; }
+  .sidebar nav li { margin: .15rem 0; }
+  .sidebar nav a {
+    display: block;
+    padding: .3rem .7rem;
+    border-radius: 5px;
+    color: var(--fg);
+    text-decoration: none;
+  }
+  .sidebar nav a:hover { background: var(--accent-bg); color: var(--accent); }
+  .sidebar nav .sub { padding-left: 1.6rem; font-size: .85rem; color: var(--muted); }
+  .content { flex: 1; overflow-y: auto; }
+  main {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1.5rem 2rem 4rem;
+  }
+  h2 {
+    margin-top: 2.5rem;
+    padding-bottom: .4rem;
+    border-bottom: 2px solid var(--border);
+    font-size: 1.35rem;
+  }
+  h3 { margin-top: 1.6rem; font-size: 1.1rem; }
+  p { margin: .6rem 0; }
+  ul, ol { margin: .6rem 0; padding-left: 1.6rem; }
+  li { margin: .3rem 0; }
+  code {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: .1em .35em;
+    font-family: Consolas, "Cascadia Mono", monospace;
+    font-size: .9em;
+  }
+  pre {
+    background: #0d1117;
+    color: #e6edf3;
+    border-radius: 8px;
+    padding: .9rem 1.1rem;
+    overflow-x: auto;
+    font-size: .88rem;
+    line-height: 1.6;
+  }
+  pre code { background: none; border: none; padding: 0; color: inherit; }
+  .note, .warn {
+    border-radius: 6px;
+    padding: .7rem 1rem;
+    margin: 1rem 0;
+    font-size: .95rem;
+  }
+  .note { background: var(--accent-bg); border-left: 4px solid var(--accent); }
+  .warn { background: var(--warn-bg); border-left: 4px solid var(--warn-border); }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1rem 0;
+    font-size: .92rem;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: .45rem .7rem;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: #eef1f4; white-space: nowrap; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  footer {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1rem 2rem 3rem;
+    color: var(--muted);
+    font-size: .85rem;
+    border-top: 1px solid var(--border);
+  }
+  @media (max-width: 768px) {
+    .layout { flex-direction: column; height: auto; overflow: visible; }
+    .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); max-height: 40vh; }
+    .content { overflow: visible; }
+  }
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>命名规范</h1>
+      <p>BMS 项目全量命名约定</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#purpose">1. 目的与适用范围</a></li>
+        <li><a href="#general">2. 通用原则</a>
+          <ul class="sub">
+            <li><a href="#general-case">2.1 大小写风格</a></li>
+            <li><a href="#general-rule">2.2 命名规则</a></li>
+          </ul>
+        </li>
+        <li><a href="#project">3. 项目与目录命名</a></li>
+        <li><a href="#docs">4. 文档命名</a></li>
+        <li><a href="#git">5. Git 命名</a></li>
+        <li><a href="#python">6. 后端命名（Python）</a></li>
+        <li><a href="#db">7. 数据库命名</a></li>
+        <li><a href="#api">8. API 命名</a></li>
+        <li><a href="#frontend">9. 前端命名</a></li>
+        <li><a href="#infra">10. 基础设施命名</a></li>
+        <li><a href="#test">11. 测试命名</a></li>
+        <li><a href="#i18n">12. 国际化命名</a></li>
+        <li><a href="#checklist">13. 检查清单</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="purpose">1. 目的与适用范围</h2>
+      <p>
+        统一 BMS 项目内全部标识符与资源的命名方式，保证代码、数据库、API、基础设施与文档风格一致，
+        降低理解成本。适用于本仓库全部代码、配置、部署文件与文档；与《文档生成规范》《项目规划说明》配套使用。
+      </p>
+
+      <h2 id="general">2. 通用原则</h2>
+
+      <h3 id="general-case">2.1 大小写风格</h3>
+      <table>
+        <tr><th>风格</th><th>写法</th><th>用于</th></tr>
+        <tr><td>snake_case</td><td><code>user_name</code></td><td>Python 标识符、文件、表/字段、Redis key</td></tr>
+        <tr><td>camelCase</td><td><code>userName</code></td><td>TS/JS 变量与函数</td></tr>
+        <tr><td>PascalCase</td><td><code>UserService</code></td><td>Python/TS 类、Vue 组件、类型与接口、路由 name</td></tr>
+        <tr><td>kebab-case</td><td><code>user-management</code></td><td>前端路由 path、HTML 属性、CSS 类名</td></tr>
+        <tr><td>UPPER_SNAKE</td><td><code>BMS_DB_URL</code></td><td>常量、环境变量、枚举值</td></tr>
+      </table>
+
+      <h3 id="general-rule">2.2 命名规则</h3>
+      <ul>
+        <li><strong>语义优先</strong>：名称表达用途，不表达实现（用 <code>get_user_by_id</code> 而非 <code>query_user_1</code>）</li>
+        <li><strong>完整单词</strong>：禁止随意缩写；仅使用公认缩写（id、url、config、auth、msg）</li>
+        <li><strong>语言分工</strong>：代码标识符一律英文；注释、文档、提交信息、数据库 comment 用中文</li>
+        <li><strong>风格一致性</strong>：同一实体在代码/数据库/API/前端各层保持同名映射（如 <code>dept_id</code> / <code>deptId</code> / <code>/departments/{id}</code>）</li>
+        <li><strong>禁止</strong>：拼音命名、无意义命名（a/b/c）、与保留字冲突、中文变量名</li>
+      </ul>
+
+      <h2 id="project">3. 项目与目录命名</h2>
+      <ul>
+        <li>仓库与根目录：<code>bms</code></li>
+        <li>顶层目录：<code>backend/</code>、<code>frontend/</code>、<code>deploy/</code>、<code>文档/</code>（全小写英文，文档目录用中文）</li>
+        <li>后端：<code>app/core</code>、<code>app/api</code>、<code>app/models</code>、<code>app/schemas</code>、<code>app/services</code>、<code>app/repositories</code>、<code>app/db</code>、<code>alembic/</code>、<code>tests/</code>，均小写</li>
+        <li>前端：<code>src/api</code>、<code>src/router</code>、<code>src/stores</code>、<code>src/views</code>、<code>src/layouts</code>、<code>src/components</code>、<code>src/i18n</code>、<code>src/utils</code></li>
+        <li>按模块分组：模块目录用单数名词（<code>views/user/</code>、<code>app/api/user/</code>、<code>app/models/user.py</code>）</li>
+      </ul>
+
+      <h2 id="docs">4. 文档命名</h2>
+      <ul>
+        <li>文件：中文、主题一致（<code>项目规划说明.md</code>、<code>graphify部署使用说明.html</code>），不叠加多余后缀</li>
+        <li>格式分工：用户手写 .md；AI 生成 .html</li>
+        <li>资源：HTML 的图片等资源放同级 <code>资源/文档名/</code> 同名子目录</li>
+        <li>章节编号：1. / 1.1 阿拉伯数字逐级编号，目录与正文一致</li>
+      </ul>
+
+      <h2 id="git">5. Git 命名</h2>
+      <table>
+        <tr><th>对象</th><th>约定</th><th>示例</th></tr>
+        <tr><td>分支</td><td><code>类型/描述</code>（feature/fix/docs/chore/refactor）</td><td><code>feature/workflow-engine</code></td></tr>
+        <tr><td>提交信息</td><td><code>type(scope): 中文描述</code></td><td><code>docs: 补充命名规范</code></td></tr>
+        <tr><td>里程碑</td><td>tag 语义化版本</td><td><code>v1.0.0</code></td></tr>
+      </table>
+
+      <h2 id="python">6. 后端命名（Python）</h2>
+      <table>
+        <tr><th>对象</th><th>风格</th><th>示例</th></tr>
+        <tr><td>包/模块</td><td>snake_case，模块名名词</td><td><code>app/services/user_service.py</code></td></tr>
+        <tr><td>类</td><td>PascalCase</td><td><code>UserService</code>、<code>AsyncSessionFactory</code></td></tr>
+        <tr><td>函数/方法</td><td>snake_case 动词开头</td><td><code>create_user()</code>、<code>get_user_by_id()</code></td></tr>
+        <tr><td>变量/参数</td><td>snake_case</td><td><code>dept_id</code>、<code>apply_no</code></td></tr>
+        <tr><td>常量</td><td>UPPER_SNAKE</td><td><code>ACCESS_TOKEN_TTL</code></td></tr>
+        <tr><td>私有成员</td><td>单下划线前缀</td><td><code>_build_engine()</code></td></tr>
+        <tr><td>依赖注入</td><td>小写驼峰参数名</td><td><code>db: AsyncSession</code>、<code>redis: Redis</code></td></tr>
+        <tr><td>Pydantic 模型</td><td>PascalCase 后缀 Schema/Request/Response</td><td><code>UserCreateRequest</code>、<code>UserResponse</code></td></tr>
+        <tr><td>SQLAlchemy 模型</td><td>PascalCase，类名与表名映射</td><td><code>class User</code> → <code>sys_user</code></td></tr>
+        <tr><td>Celery 任务</td><td>snake_case 动词短语</td><td><code>cleanup_orphan_parts</code></td></tr>
+      </table>
+      <div class="note">所有函数与公开成员必须有类型注解（pyright 严格模式校验）。</div>
+
+      <h2 id="db">7. 数据库命名</h2>
+      <ul>
+        <li>库：<code>bms_dev</code> / <code>bms_test</code> / <code>bms_prod</code>；业务库按业务名（如 <code>bms_log</code>）</li>
+        <li>表前缀：<code>sys_</code> 系统、<code>wf_</code> 工作流、<code>biz_</code> 业务；表名单数 snake_case：<code>sys_user</code>、<code>biz_purchase_apply</code>、<code>wf_task</code></li>
+        <li>字段：snake_case；主键统一 <code>id</code>；外键 <code>目标表名_id</code>（<code>dept_id</code>、<code>role_id</code>）；布尔 <code>is_</code> 前缀；时间 <code>xxx_at</code>（<code>created_at</code>）；审计 <code>created_by</code> / <code>updated_by</code>；通用 <code>deleted_at</code>、<code>version</code>、<code>status</code>、<code>sort</code>、<code>remark</code></li>
+        <li>索引：普通 <code>idx_字段</code>（<code>idx_dept_id</code>）、唯一 <code>uq_字段</code>（<code>uq_username</code>）</li>
+        <li>关联表：两表名单词连接（<code>sys_user_role</code>），联合主键，不设 id</li>
+        <li>枚举值：UPPER_SNAKE 或小写数字标识（<code>data_scope = 'ALL' | 'DEPT' | 'SELF'</code>），统一用字典管理</li>
+      </ul>
+
+      <h2 id="api">8. API 命名</h2>
+      <ul>
+        <li>前缀：内部 <code>/api/v1</code>，开放 <code>/api/open</code></li>
+        <li>资源：复数名词（<code>/users</code>、<code>/departments</code>），子资源嵌套（<code>/users/{id}/roles</code>）</li>
+        <li>动词交给 HTTP 方法：GET 查、POST 建、PUT 全量改、PATCH 部分改、DELETE 删；动作类接口动词短语（<code>/auth/login</code>、<code>/users/{id}/reset-password</code>）</li>
+        <li>参数：分页 <code>page</code>、<code>size</code>；排序 <code>order_by</code>；筛选 <code>模块字段名</code>（<code>status</code>、<code>keyword</code>）；游标分页 <code>cursor</code>、<code>limit</code></li>
+        <li>权限码：<code>模块:动作</code>（<code>user:create</code>、<code>wf:approve</code>、<code>open:manage</code>）</li>
+        <li>错误码：5 位数字按模块分段（1xxxx 通用、2xxxx 认证、3xxxx 用户、4xxxx 工作流、5xxxx 文件…），稳定不变</li>
+        <li>统一响应 <code>{code, message, data}</code>，分页响应 <code>{list, total, page, size}</code></li>
+        <li>幂等键请求头 <code>Idempotency-Key</code></li>
+      </ul>
+
+      <h2 id="frontend">9. 前端命名</h2>
+      <table>
+        <tr><th>对象</th><th>风格</th><th>示例</th></tr>
+        <tr><td>Vue 组件文件/名</td><td>PascalCase 单数名词</td><td><code>UserForm.vue</code>、<code>DeptTree.vue</code></td></tr>
+        <tr><td>页面文件</td><td>views/模块/页面 PascalCase</td><td><code>views/user/UserList.vue</code>、<code>UserEdit.vue</code></td></tr>
+        <tr><td>路由 path</td><td>kebab-case</td><td><code>/user-management</code>、<code>/purchase/apply</code></td></tr>
+        <tr><td>路由 name</td><td>PascalCase 与页面对应</td><td><code>UserManagement</code></td></tr>
+        <tr><td>Pinia store</td><td>use + 模块 + Store</td><td><code>useUserStore</code>、<code>useDictStore</code></td></tr>
+        <tr><td>变量/函数</td><td>camelCase</td><td><code>userList</code>、<code>fetchUserList()</code></td></tr>
+        <tr><td>常量</td><td>UPPER_SNAKE</td><td><code>ACCESS_TOKEN_KEY</code></td></tr>
+        <tr><td>类型/接口</td><td>PascalCase</td><td><code>interface UserInfo</code>、<code>type ApiResponse</code></td></tr>
+        <tr><td>API 模块</td><td>src/api/模块.ts，函数 get/query/create/update/delete 开头</td><td><code>api/user.ts</code> → <code>getUserList()</code></td></tr>
+        <tr><td>CSS 类</td><td>kebab-case，BEM 简化</td><td><code>.user-form</code>、<code>.sidebar-menu</code></td></tr>
+        <tr><td>图片等资源</td><td>kebab-case</td><td><code>logo-bms.png</code></td></tr>
+      </table>
+
+      <h2 id="infra">10. 基础设施命名</h2>
+      <table>
+        <tr><th>对象</th><th>约定</th><th>示例</th></tr>
+        <tr><td>Compose 服务名</td><td>小写单名，与组件同名</td><td><code>backend</code>、<code>frontend</code>、<code>redis</code>、<code>rabbitmq</code>、<code>minio</code>、<code>mysql</code>、<code>prometheus</code></td></tr>
+        <tr><td>镜像名</td><td><code>bms-组件</code></td><td><code>bms-backend:latest</code>、<code>bms-frontend:v1.2.0</code></td></tr>
+        <tr><td>环境变量</td><td><code>BMS_</code> 前缀 UPPER_SNAKE</td><td><code>BMS_ENV</code>、<code>BMS_DB_URL</code>、<code>BMS_JWT_SECRET</code></td></tr>
+        <tr><td>config.toml 小节</td><td>小写英文</td><td><code>[database]</code>、<code>[redis]</code>、<code>[auth]</code>、<code>[minio]</code></td></tr>
+        <tr><td>Redis key</td><td><code>模块:业务:标识</code></td><td><code>captcha:{uuid}</code>、<code>token:blacklist:{jti}</code>、<code>rate:login:{ip}</code>、<code>dict:{type}</code>、<code>lock:xxx</code></td></tr>
+        <tr><td>RabbitMQ</td><td><code>bms.事件域.事件</code> 点分小写</td><td><code>bms.log.operation</code>、<code>bms.event.purchase</code></td></tr>
+        <tr><td>Socket.IO 事件</td><td>点分小写，领域.动作</td><td><code>approval.todo</code>、<code>session.revoked</code>、<code>notification.new</code></td></tr>
+        <tr><td>Webhook 事件</td><td>点分小写，业务.对象.动作</td><td><code>purchase.apply.approved</code>、<code>user.updated</code></td></tr>
+        <tr><td>MinIO bucket</td><td>小写连字符</td><td><code>bms-files</code>、<code>bms-backup</code></td></tr>
+        <tr><td>分片键</td><td>语义名：tenant / date</td><td>按租户 <code>tenant</code>、按时间 <code>date</code></td></tr>
+      </table>
+
+      <h2 id="test">11. 测试命名</h2>
+      <ul>
+        <li>后端测试文件：<code>test_模块.py</code>（<code>test_user_api.py</code>）；测试类 <code>TestXxx</code>；测试函数 <code>test_行为_期望</code>（<code>test_create_user_returns_201</code>）</li>
+        <li>前端测试文件：<code>组件名.spec.ts</code>（<code>UserForm.spec.ts</code>）；E2E 用功能描述 <code>login.spec.ts</code></li>
+        <li>测试数据：<code>tests/fixtures/</code> 与 <code>tests/seeds/</code>，种子文件 <code>seed_xxx.py</code></li>
+        <li>压测脚本：<code>loadtest/</code> 目录，<code>scenario_登录.py</code></li>
+      </ul>
+
+      <h2 id="i18n">12. 国际化命名</h2>
+      <ul>
+        <li>前端 locale：<code>zh-CN.ts</code>、<code>en-US.ts</code>；i18n key 用点分：<code>模块.页面.字段</code>（<code>user.form.username</code>、<code>common.confirm</code>）</li>
+        <li>后端 po 文件：<code>zh_CN/LC_MESSAGES/messages.po</code>、<code>en_US/...</code>；msgid 用英文原文，msgstr 本地化</li>
+        <li>错误码文案：前端按错误码映射 i18n key（<code>error.20001</code>），不硬编码</li>
+      </ul>
+
+      <h2 id="checklist">13. 检查清单</h2>
+      <ul>
+        <li>□ 无拼音、无缩写不明、无中英混排标识符</li>
+        <li>□ 风格与第 2.1 节对照一致（各语言各自的风格）</li>
+        <li>□ 数据库字段名与后端模型、前端参数同名映射</li>
+        <li>□ 表前缀 sys_/wf_/biz_ 使用正确；外键 <code>表_id</code>、索引 idx_/uq_ 前缀</li>
+        <li>□ API 资源复数、权限码 <code>模块:动作</code>、错误码分段正确</li>
+        <li>□ Redis key / MQ / 事件名符合点分或冒号约定</li>
+        <li>□ 环境变量带 <code>BMS_</code> 前缀；密钥仅环境变量</li>
+        <li>□ 提交信息 <code>type(scope): 中文描述</code>；分支 <code>类型/描述</code></li>
+      </ul>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 依《文档生成规范》编写 · 与《项目规划说明》配套 · 生成日期：2026-08-05
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>
