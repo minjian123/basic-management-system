@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>前端开发规范</title>
+<style>
+  :root {
+    --bg: #f7f8fa;
+    --fg: #1f2328;
+    --muted: #57606a;
+    --border: #d0d7de;
+    --accent: #0969da;
+    --accent-bg: #ddf4ff;
+    --code-bg: #f6f8fa;
+    --warn-bg: #fff8c5;
+    --warn-border: #d4a72c;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+    line-height: 1.75;
+  }
+  .layout { display: flex; height: 100vh; overflow: hidden; }
+  .sidebar {
+    width: 280px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+  }
+  .sidebar .brand {
+    background: linear-gradient(135deg, #1f2328, #32383f);
+    color: #fff;
+    padding: 1.4rem 1.2rem 1.1rem;
+    border-bottom: 3px solid var(--accent);
+    flex-shrink: 0;
+  }
+  .sidebar .brand h1 { margin: 0 0 .35rem; font-size: 1.15rem; line-height: 1.4; }
+  .sidebar .brand p { margin: 0; color: #b6bec6; font-size: .78rem; }
+  .sidebar nav { padding: .8rem .6rem 1.5rem; font-size: .9rem; }
+  .sidebar nav ul { list-style: none; margin: 0; padding: 0; }
+  .sidebar nav li { margin: .15rem 0; }
+  .sidebar nav a {
+    display: block;
+    padding: .3rem .7rem;
+    border-radius: 5px;
+    color: var(--fg);
+    text-decoration: none;
+  }
+  .sidebar nav a:hover { background: var(--accent-bg); color: var(--accent); }
+  .sidebar nav .sub { padding-left: 1.6rem; font-size: .85rem; color: var(--muted); }
+  .content { flex: 1; overflow-y: auto; }
+  main {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1.5rem 2rem 4rem;
+  }
+  h2 {
+    margin-top: 2.5rem;
+    padding-bottom: .4rem;
+    border-bottom: 2px solid var(--border);
+    font-size: 1.35rem;
+  }
+  h3 { margin-top: 1.6rem; font-size: 1.1rem; }
+  p { margin: .6rem 0; }
+  ul, ol { margin: .6rem 0; padding-left: 1.6rem; }
+  li { margin: .3rem 0; }
+  code {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: .1em .35em;
+    font-family: Consolas, "Cascadia Mono", monospace;
+    font-size: .9em;
+  }
+  pre {
+    background: #0d1117;
+    color: #e6edf3;
+    border-radius: 8px;
+    padding: .9rem 1.1rem;
+    overflow-x: auto;
+    font-size: .88rem;
+    line-height: 1.6;
+  }
+  pre code { background: none; border: none; padding: 0; color: inherit; }
+  .note, .warn {
+    border-radius: 6px;
+    padding: .7rem 1rem;
+    margin: 1rem 0;
+    font-size: .95rem;
+  }
+  .note { background: var(--accent-bg); border-left: 4px solid var(--accent); }
+  .warn { background: var(--warn-bg); border-left: 4px solid var(--warn-border); }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1rem 0;
+    font-size: .92rem;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: .45rem .7rem;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: #eef1f4; white-space: nowrap; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  footer {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1rem 2rem 3rem;
+    color: var(--muted);
+    font-size: .85rem;
+    border-top: 1px solid var(--border);
+  }
+  @media (max-width: 768px) {
+    .layout { flex-direction: column; height: auto; overflow: visible; }
+    .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); max-height: 40vh; }
+    .content { overflow: visible; }
+  }
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>前端开发规范</h1>
+      <p>BMS 前端（PC + 移动端）编码与协作约定</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#purpose">1. 目的与适用范围</a></li>
+        <li><a href="#structure">2. 工程结构</a></li>
+        <li><a href="#component">3. 组件规范</a></li>
+        <li><a href="#page">4. 页面与路由</a></li>
+        <li><a href="#permission">5. 权限控制</a></li>
+        <li><a href="#store">6. 状态管理</a></li>
+        <li><a href="#api">7. API 层</a></li>
+        <li><a href="#i18n">8. 国际化</a></li>
+        <li><a href="#style">9. 样式规范</a></li>
+        <li><a href="#code">10. 代码风格</a></li>
+        <li><a href="#testing">11. 测试规范</a></li>
+        <li><a href="#git">12. 提交与协作规范</a></li>
+        <li><a href="#checklist">13. 检查清单</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="purpose">1. 目的与适用范围</h2>
+      <p>
+        统一 BMS 前端两个工程（frontend PC 管理端、frontend-mobile 移动端 H5）的开发方式。
+        两工程同源同规：本文档约定对两者同时生效，差异处单独标注。
+        与《命名规范》《项目规划说明》配套；后端约定见《后端开发规范》。
+      </p>
+
+      <h2 id="structure">2. 工程结构</h2>
+      <ul>
+        <li>frontend 与 frontend-mobile 组成 pnpm workspace：共享 ESLint/Prettier/TS 基础配置包，源码各自独立</li>
+        <li>src 目录固定分层（两工程一致）：<code>api</code> / <code>router</code> / <code>stores</code> / <code>views</code> / <code>layouts</code> / <code>components</code> / <code>i18n</code> / <code>utils</code></li>
+        <li>views 与 components 按模块分组：<code>views/user/UserList.vue</code>、<code>components/xxx/</code>；模块目录用单数名词</li>
+        <li>业务代码禁止放 utils 之外的非约定目录；新增目录需在代码评审中说明理由</li>
+      </ul>
+
+      <h2 id="component">3. 组件规范</h2>
+      <ul>
+        <li>单文件组件（SFC），组合式 API（<code>&lt;script setup&gt;</code>）；组件名 PascalCase 单数名词（<code>UserForm.vue</code>、<code>DeptTree.vue</code>）</li>
+        <li>通用组件放 <code>components/common/</code>（可复用、无业务依赖）；业务组件就近放模块下，禁止跨模块乱放</li>
+        <li>props 用 <code>defineProps</code> + 类型声明，必填项标注 required；事件用 <code>defineEmits</code> 且动词命名（<code>submit</code>、<code>cancel</code>）</li>
+        <li>组件尽量无副作用：数据获取放页面层或 composable，组件内部不直接调 API（通用组件尤其严格）</li>
+        <li>Element Plus 组件二次封装遵循原有 API 命名习惯，不另起名字</li>
+      </ul>
+
+      <h2 id="page">4. 页面与路由</h2>
+      <ul>
+        <li>页面文件 <code>views/模块/页面.vue</code>（PascalCase）；一个菜单/表单对应一个页面组件（对应后端 sys_menu/sys_form 挂接）</li>
+        <li>路由动态生成：由后端菜单接口返回的菜单树注册，前端不硬编码路由表；路由 path 用 kebab-case、name 用 PascalCase</li>
+        <li>路由守卫：登录态校验（无 token 跳登录）；菜单级权限已由后端过滤，守卫只做兜底</li>
+        <li>页面骨架：列表页（筛选区 + 表格 + 分页 + 工具栏）、表单页（表单 + 校验 + 提交）统一模式，复用通用封装</li>
+      </ul>
+
+      <h2 id="permission">5. 权限控制</h2>
+      <ul>
+        <li>按钮与操作显隐用 <code>v-perm="'业务:动作'"</code> 指令（默认无按钮权限，未授权即隐藏）；字段显隐/禁用由表单元数据中的字段权限状态驱动</li>
+        <li>菜单可见性：后端已按业务权限过滤菜单树，前端不得自行放行无权限入口</li>
+        <li>权限码只作为显隐依据，接口安全由后端强制校验；前端隐藏不等于安全</li>
+        <li>权限相关配置（业务码/动作码）改动走平台侧菜单管理，前端不硬编码权限码清单（除通用动作常量）</li>
+      </ul>
+
+      <h2 id="store">6. 状态管理</h2>
+      <ul>
+        <li>Pinia store 命名 <code>useXxxStore</code>（<code>useUserStore</code>、<code>useDictStore</code>）；按领域模块化，禁止巨型 store</li>
+        <li>服务端数据不进 store（页面内 <code>onMounted</code> 拉取或 composable），store 只存跨页面共享态（用户信息、菜单树、字典、语言偏好）</li>
+        <li>持久化仅限必要项（语言偏好 localStorage）；token 存内存，refresh token 走 httpOnly cookie（不落前端存储）</li>
+      </ul>
+
+      <h2 id="api">7. API 层</h2>
+      <ul>
+        <li><code>src/api/模块.ts</code>，函数命名 <code>getXxxList</code> / <code>getXxx</code> / <code>createXxx</code> / <code>updateXxx</code> / <code>deleteXxx</code>，与后端 RESTful 对应</li>
+        <li>Axios 统一封装（<code>utils/request.ts</code>）：注入 access token、401 静默刷新、统一错误提示（按错误码映射 i18n）、请求取消支持</li>
+        <li>类型契约：经 openapi-typescript 由后端 OpenAPI schema 自动生成 TS 类型，禁止手写与后端重复的接口类型；后端字段变更同步再生成</li>
+        <li>分页请求/响应类型统一（<code>PageResult</code>），列表页封装统一分页逻辑</li>
+      </ul>
+
+      <h2 id="i18n">8. 国际化</h2>
+      <ul>
+        <li>vue-i18n：语言包运行时从后端拉取（/api/v1/i18n/messages），localStorage 缓存语言偏好；新增语言免发版</li>
+        <li>key 命名点分：<code>模块.页面.字段</code>（<code>user.form.username</code>、<code>common.confirm</code>、<code>error.20001</code>）</li>
+        <li>界面文案禁止硬编码；后端返回的提示文案不做二次翻译（后端文案已入库维护）</li>
+        <li>RTL 语言由 <code>sys_i18n_locale.rtl</code> 标记驱动布局切换，样式开发时考虑 RTL 兼容</li>
+      </ul>
+
+      <h2 id="style">9. 样式规范</h2>
+      <ul>
+        <li>SCSS：Element Plus 主题变量定制放全局 <code>styles/</code>；组件样式 <code>&lt;style scoped lang="scss"&gt;</code></li>
+        <li>类名 kebab-case，BEM 简化（<code>.user-form__title</code>）；禁止内联 style（动态值除外，动态值用 CSS 变量）</li>
+        <li>移动端（Vant）与 PC（Element Plus）主题分别维护，公共样式放 workspace 共享包</li>
+        <li>响应式：PC 管理端桌面优先；H5 移动优先；公用断点变量统一声明</li>
+      </ul>
+
+      <h2 id="code">10. 代码风格</h2>
+      <ul>
+        <li>ESLint + Prettier（vue 官方插件链）；TS 严格模式；CI 与本地提交前必须通过</li>
+        <li>命名：变量/函数 camelCase、组件/类型 PascalCase、常量 UPPER_SNAKE、路由 path/CSS kebab-case（见《命名规范》）</li>
+        <li>函数单一职责，禁止超长函数（超 60 行拆分）；注释中文，说明「为什么」</li>
+        <li>禁止：<code>any</code> 滥用（确需时注明原因）、console.log 遗留、未使用的导入与变量</li>
+      </ul>
+
+      <h2 id="testing">11. 测试规范</h2>
+      <ul>
+        <li>Vitest：组件测试文件 <code>组件名.spec.ts</code>（<code>UserForm.spec.ts</code>）；覆盖 props/事件/校验逻辑，API 用 mock</li>
+        <li>Playwright E2E：<code>功能.spec.ts</code>（<code>login.spec.ts</code>）；覆盖登录、主体链 RBAC 权限（按钮/字段显隐）、核心 CRUD 主流程；移动端用视口模拟</li>
+        <li>E2E 环境：CI 起 backend（SQLite）与前端产物；测试数据独立种子</li>
+        <li>前端类型变更触发 API 类型重新生成后，相关页面编译错误即 CI 拦截，不得跳过</li>
+      </ul>
+
+      <h2 id="git">12. 提交与协作规范</h2>
+      <table>
+        <tr><th>对象</th><th>约定</th><th>示例</th></tr>
+        <tr><td>提交信息</td><td><code>type(scope): 中文描述</code></td><td><code>feat(user): 用户列表页</code>、<code>fix(auth): 401 刷新竞态</code></td></tr>
+        <tr><td>分支</td><td><code>类型/描述</code>（feature/fix/docs/chore/refactor）</td><td><code>feature/user-page</code></td></tr>
+        <tr><td>合并</td><td>PR 合入 main，CI（lint + 单测 + 构建 + E2E）通过方可合并</td><td>PR 描述关联规划阶段与验收项</td></tr>
+      </table>
+      <p>提交前自查：无调试代码、无 console.log、lint + 类型检查通过、相关测试已跑。</p>
+
+      <h2 id="checklist">13. 检查清单</h2>
+      <ul>
+        <li>□ 目录与命名符合《命名规范》与第 2 节结构</li>
+        <li>□ 组件 props/emits 类型完整，通用组件无业务 API 调用</li>
+        <li>□ 权限：按钮 v-perm、字段按元数据控制、无硬编码权限码清单</li>
+        <li>□ API 类型来自 openapi-typescript 生成，无手写重复类型</li>
+        <li>□ 文案无硬编码（走 i18n key），语言偏好持久化合规</li>
+        <li>□ 无 any 滥用、无 console.log、lint + TS 通过</li>
+        <li>□ 组件测试与 E2E 覆盖核心路径，CI 全绿</li>
+        <li>□ 提交信息 <code>type(scope): 中文</code></li>
+      </ul>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 依《文档生成规范》编写 · 与《命名规范》《项目规划说明》配套 · 生成日期：2026-08-05
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>

@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>后端开发规范</title>
+<style>
+  :root {
+    --bg: #f7f8fa;
+    --fg: #1f2328;
+    --muted: #57606a;
+    --border: #d0d7de;
+    --accent: #0969da;
+    --accent-bg: #ddf4ff;
+    --code-bg: #f6f8fa;
+    --warn-bg: #fff8c5;
+    --warn-border: #d4a72c;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+    line-height: 1.75;
+  }
+  .layout { display: flex; height: 100vh; overflow: hidden; }
+  .sidebar {
+    width: 280px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+  }
+  .sidebar .brand {
+    background: linear-gradient(135deg, #1f2328, #32383f);
+    color: #fff;
+    padding: 1.4rem 1.2rem 1.1rem;
+    border-bottom: 3px solid var(--accent);
+    flex-shrink: 0;
+  }
+  .sidebar .brand h1 { margin: 0 0 .35rem; font-size: 1.15rem; line-height: 1.4; }
+  .sidebar .brand p { margin: 0; color: #b6bec6; font-size: .78rem; }
+  .sidebar nav { padding: .8rem .6rem 1.5rem; font-size: .9rem; }
+  .sidebar nav ul { list-style: none; margin: 0; padding: 0; }
+  .sidebar nav li { margin: .15rem 0; }
+  .sidebar nav a {
+    display: block;
+    padding: .3rem .7rem;
+    border-radius: 5px;
+    color: var(--fg);
+    text-decoration: none;
+  }
+  .sidebar nav a:hover { background: var(--accent-bg); color: var(--accent); }
+  .sidebar nav .sub { padding-left: 1.6rem; font-size: .85rem; color: var(--muted); }
+  .content { flex: 1; overflow-y: auto; }
+  main {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1.5rem 2rem 4rem;
+  }
+  h2 {
+    margin-top: 2.5rem;
+    padding-bottom: .4rem;
+    border-bottom: 2px solid var(--border);
+    font-size: 1.35rem;
+  }
+  h3 { margin-top: 1.6rem; font-size: 1.1rem; }
+  p { margin: .6rem 0; }
+  ul, ol { margin: .6rem 0; padding-left: 1.6rem; }
+  li { margin: .3rem 0; }
+  code {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: .1em .35em;
+    font-family: Consolas, "Cascadia Mono", monospace;
+    font-size: .9em;
+  }
+  pre {
+    background: #0d1117;
+    color: #e6edf3;
+    border-radius: 8px;
+    padding: .9rem 1.1rem;
+    overflow-x: auto;
+    font-size: .88rem;
+    line-height: 1.6;
+  }
+  pre code { background: none; border: none; padding: 0; color: inherit; }
+  .note, .warn {
+    border-radius: 6px;
+    padding: .7rem 1rem;
+    margin: 1rem 0;
+    font-size: .95rem;
+  }
+  .note { background: var(--accent-bg); border-left: 4px solid var(--accent); }
+  .warn { background: var(--warn-bg); border-left: 4px solid var(--warn-border); }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1rem 0;
+    font-size: .92rem;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: .45rem .7rem;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: #eef1f4; white-space: nowrap; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  footer {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1rem 2rem 3rem;
+    color: var(--muted);
+    font-size: .85rem;
+    border-top: 1px solid var(--border);
+  }
+  @media (max-width: 768px) {
+    .layout { flex-direction: column; height: auto; overflow: visible; }
+    .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); max-height: 40vh; }
+    .content { overflow: visible; }
+  }
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>后端开发规范</h1>
+      <p>BMS 后端分层、编码与协作约定</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#purpose">1. 目的与适用范围</a></li>
+        <li><a href="#layers">2. 分层职责</a></li>
+        <li><a href="#style">3. 代码风格</a></li>
+        <li><a href="#config">4. 配置规范</a></li>
+        <li><a href="#logging">5. 日志规范</a></li>
+        <li><a href="#errors">6. 异常与错误码</a></li>
+        <li><a href="#api">7. API 规范</a></li>
+        <li><a href="#database">8. 数据库规范</a></li>
+        <li><a href="#sql">9. SQL 与查询规范</a></li>
+        <li><a href="#async">10. 异步规范</a></li>
+        <li><a href="#testing">11. 测试规范</a></li>
+        <li><a href="#migration">12. 迁移规范</a></li>
+        <li><a href="#git">13. 提交与协作规范</a></li>
+        <li><a href="#checklist">14. 检查清单</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="purpose">1. 目的与适用范围</h2>
+      <p>
+        统一 BMS 后端（backend/，FastAPI + SQLAlchemy）的开发方式，保证代码质量与协作效率。
+        与《命名规范》《项目规划说明》《阶段一项目骨架说明》配套；本文档只约束后端，前端见《前端开发规范》。
+      </p>
+
+      <h2 id="layers">2. 分层职责</h2>
+      <table>
+        <tr><th>层</th><th>目录</th><th>职责</th><th>禁止</th></tr>
+        <tr><td>接口层</td><td><code>app/api/</code></td><td>路由定义、参数校验（Pydantic）、鉴权与权限依赖、响应组装</td><td>业务逻辑、直接操作模型</td></tr>
+        <tr><td>业务层</td><td><code>app/services/</code></td><td>业务规则、事务编排、跨仓储调用</td><td>操作 Request/Response 对象、拼 SQL</td></tr>
+        <tr><td>数据层</td><td><code>app/repositories/</code></td><td>数据访问、多数据源与分片路由、查询组装</td><td>业务规则、权限校验</td></tr>
+        <tr><td>模型层</td><td><code>app/models/</code></td><td>SQLAlchemy 模型声明（继承 db/base.py 基类）</td><td>业务逻辑、对外暴露模型对象（用 schema 转换）</td></tr>
+        <tr><td>契约层</td><td><code>app/schemas/</code></td><td>Pydantic 请求/响应模型</td><td>数据库字段直接透传（敏感字段必须显式声明）</td></tr>
+        <tr><td>基础设施</td><td><code>app/core/</code>、<code>app/db/</code></td><td>配置、日志、上下文、引擎、会话、模型基类</td><td>业务代码</td></tr>
+      </table>
+      <p>依赖方向：api → services → repositories → db；模型与 schema 是横切契约。禁止跨层调用（api 不得直接调 repositories）。</p>
+
+      <h2 id="style">3. 代码风格</h2>
+      <ul>
+        <li>格式与检查：ruff（lint + format 一体化），行宽 120；类型检查 pyright 严格模式，CI 与本地均需通过</li>
+        <li>类型注解：所有函数与公开成员必须标注类型（含返回值）；禁止 <code>Any</code> 滥用（确需时注释原因）</li>
+        <li>命名：遵循《命名规范》（snake_case 函数/变量、PascalCase 类、UPPER_SNAKE 常量）</li>
+        <li>文档注释：公共函数/类写 docstring（中文，简述作用与参数）；模块头注明模块职责</li>
+        <li>注释：代码内注释用中文；注释说明「为什么」，不重复「是什么」；配置类文件必须写注释说明（见第 4 节）</li>
+        <li>禁止：print 调试（用 logger）、eval、全局可变状态、隐式异常吞掉</li>
+      </ul>
+
+      <h2 id="config">4. 配置规范</h2>
+      <ul>
+        <li>config.toml 必须带注释说明：每个键注释「含义 + 可选值/示例」，新加配置必须同步注释（见阶段一文档第 4 节示例）</li>
+        <li>加载顺序：config.toml 公共段 → 环境段（BMS_ENV）→ 环境变量 BMS_*（最高）</li>
+        <li>密钥类（DB/Redis 密码、JWT secret、MinIO 凭据、短信 AK/SK、AI API key）只走环境变量，不落 config.toml、不落库、不入镜像</li>
+        <li>新增配置必须过 <code>core/config.py</code> 的 Settings 模型声明，禁止散落 <code>os.getenv</code></li>
+        <li>.env.example 同步更新（只给变量名与占位值）</li>
+      </ul>
+
+      <h2 id="logging">5. 日志规范</h2>
+      <ul>
+        <li>统一 structlog：生产 JSON（Loki 聚合），dev 可读格式；禁止 print</li>
+        <li>request_id 贯穿请求链路；异步任务（Celery/event-worker）日志带任务 ID 或关联 request_id</li>
+        <li>敏感数据脱敏：密码、token、密钥、身份证、手机号等不落日志；错误对象脱敏后记录</li>
+        <li>日志级别使用规范：DEBUG 调试细节；INFO 业务关键事件（登录、审批、配置变更）；WARNING 可恢复异常；ERROR 需要处理的异常</li>
+        <li>异常日志必须含上下文：操作对象 ID、租户、错误码，便于定位</li>
+      </ul>
+
+      <h2 id="errors">6. 异常与错误码</h2>
+      <ul>
+        <li>统一响应 <code>{code, message, data}</code>；code=0 成功，非 0 业务错误码；HTTP 状态码与业务错误码分离（4xx/5xx 表示传输层，业务错误用 200 + 业务码或 4xx + 业务码）</li>
+        <li>业务异常抛 <code>BizError(code, message)</code>，由全局异常处理器统一转换；未知异常转 500 并记 ERROR 日志</li>
+        <li>错误码：5 位，万位为模块段（分段表见规划「API 设计规范」节），段内递增；新增错误码必须先登记进错误码表（随接口契约维护），禁止复用旧码</li>
+        <li>错误文案由前端按 i18n 映射，后端不拼装用户文案（message 给开发与联调用）</li>
+        <li>参数校验错误用 Pydantic 默认校验 + 统一格式化，错误码归 1xxxx 段</li>
+      </ul>
+
+      <h2 id="api">7. API 规范</h2>
+      <ul>
+        <li>内部接口一律 <code>/api/v1</code> 前缀；对外开放 <code>/api/open</code>（见规划「系统集成」节）</li>
+        <li>RESTful 资源式：GET/POST/PUT/DELETE；列表筛选用查询参数；分页 <code>page</code>/<code>size</code>，响应 <code>{list, total, page, size}</code></li>
+        <li>鉴权：除登录/刷新/健康检查外一律 Bearer token；权限校验用 <code>require_permission("业务:动作")</code> 依赖（两级校验：业务权限 + 动作权限，见规划「权限模型」节）</li>
+        <li>写接口（审批提交、导入等）支持幂等键 <code>Idempotency-Key</code> 请求头</li>
+        <li>Schema 用 <code>*Request</code>/<code>*Response</code> 后缀（Pydantic）；响应字段显式声明，禁止直接返回 ORM 对象</li>
+      </ul>
+
+      <h2 id="database">8. 数据库规范</h2>
+      <ul>
+        <li>模型必须继承 <code>db/base.py</code> 基类（雪花 ID / 审计字段 / 软删除 / 乐观锁），禁止自建 id 与审计字段</li>
+        <li>表/字段命名遵循《命名规范》：表前缀 sys_/wf_/biz_/rpt_/ai_，snake_case，外键 <code>目标表_id</code>，布尔 <code>is_</code>，时间 <code>xxx_at</code></li>
+        <li>软删除表唯一约束建 (唯一字段, deleted_at) 复合索引；查询默认过滤 deleted_at（仓储层统一实现）</li>
+        <li>多语言展示字段不入主表，按 {主表}_i18n 附表规范（见规划「核心数据表清单」）</li>
+        <li>分片表：逻辑表名不带后缀，物理表带 yyyyMM；访问经 ShardingRouter，禁止直接拼物理表名</li>
+        <li>索引：排序字段、外键、数据权限过滤字段必须建索引；唯一约束用唯一索引；索引命名 idx_/uq_ 前缀</li>
+        <li>时间统一 UTC 存储；MySQL utf8mb4 / PostgreSQL UTF8；字符集差异由 ORM 层屏蔽，禁止方言特有类型</li>
+      </ul>
+
+      <h2 id="sql">9. SQL 与查询规范</h2>
+      <ul>
+        <li>优先 ORM/Core 查询；动态查询用查询构造器，禁止字符串拼接 SQL</li>
+        <li>禁止 <code>SELECT *</code>（指定列）；批量写入用 bulk；事务尽量短，禁止长事务</li>
+        <li>防止 N+1：循环内查询必须走 selectinload/join 或批量取数；代码走查重点项</li>
+        <li>大列表游标分页（last_id + 排序键索引），常规列表 limit/offset 限深 100 页</li>
+        <li>慢查询日志开启，定期走查；SQL 变更影响大表时先评估索引</li>
+      </ul>
+
+      <h2 id="async">10. 异步规范</h2>
+      <ul>
+        <li>会话生命周期：每次请求经 <code>get_db()</code> 依赖创建与关闭；禁止跨请求共享 AsyncSession</li>
+        <li>禁止在异步代码中直接调用阻塞 IO（requests、同步驱动、文件读写），确需时用线程池（asyncio.to_thread）</li>
+        <li>Celery worker 为同步进程：任务内异步业务用 asyncio.run 或独立事件循环，禁止复用请求事件循环的连接/会话</li>
+        <li>并发控制：乐观锁 version 比对；需要强互斥的场景用 Redis SETNX 分布式锁（key 遵循 bms:{租户|global}:{域}:{键}）</li>
+        <li>跨服务调用设置超时（httpx 短超时 + 重试），失败走降级路径，禁止无限等待</li>
+      </ul>
+
+      <h2 id="testing">11. 测试规范</h2>
+      <ul>
+        <li>分层：tests/unit（纯逻辑）、tests/integration（DB/Redis/路由）；命名 <code>test_模块.py</code>、函数 <code>test_行为_期望</code></li>
+        <li>单元测试禁止依赖真实 DB/Redis（用依赖覆盖或 mock）；集成测试用 SQLite 模拟多库，CI 中 MySQL/PostgreSQL 验证方言</li>
+        <li>测试数据放 tests/fixtures 与 tests/seeds，独立种子脚本，不与初始化数据混用</li>
+        <li>覆盖要求：service 层业务分支全覆盖；api 层覆盖成功 + 失败（越权、参数错、错误码）路径</li>
+        <li>涉及权限的测试必须覆盖：无权限拒绝、字段权限（读过滤/写拒绝）、数据范围边界</li>
+      </ul>
+
+      <h2 id="migration">12. 迁移规范</h2>
+      <ul>
+        <li>平台库与租户库各自维护 Alembic 迁移脚本（双套环境），互不干扰</li>
+        <li>脚本命名：<code>{序号}_{说明}.py</code>，说明用英文短句；一个变更一个迁移，禁止合并无关变更</li>
+        <li>迁移脚本必须双库（MySQL/PostgreSQL）验证通过方可合入；禁止手改生产库 schema</li>
+        <li>SQLite 开发库自动建表（create_all），不维护 SQLite 迁移；方言敏感操作（如部分索引）在迁移内显式区分</li>
+        <li>破坏性变更（删表/删列）走「新列共存 → 数据迁移 → 下线」流程，与 API 版本演进节奏一致</li>
+      </ul>
+
+      <h2 id="git">13. 提交与协作规范</h2>
+      <table>
+        <tr><th>对象</th><th>约定</th><th>示例</th></tr>
+        <tr><td>提交信息</td><td><code>type(scope): 中文描述</code></td><td><code>feat(user): 用户 CRUD 接口</code>、<code>fix(auth): 刷新 token 并发竞态</code></td></tr>
+        <tr><td>分支</td><td><code>类型/描述</code>（feature/fix/docs/chore/refactor）</td><td><code>feature/user-module</code></td></tr>
+        <tr><td>合并</td><td>feature 分支经 PR 合入 main，CI 通过方可合并</td><td>PR 描述关联规划阶段与验收项</td></tr>
+      </table>
+      <p>提交前自查：无调试代码、无敏感信息、CI 本地已通过（ruff + pytest）。</p>
+
+      <h2 id="checklist">14. 检查清单</h2>
+      <ul>
+        <li>□ 分层调用符合第 2 节（无跨层、无 api 直连模型）</li>
+        <li>□ ruff + pyright 通过，类型注解完整</li>
+        <li>□ 新增配置带注释、密钥走环境变量</li>
+        <li>□ 日志结构化 + 脱敏；异常带错误码与上下文</li>
+        <li>□ 模型继承基类、命名与索引符合第 8 节</li>
+        <li>□ 无 SELECT *、无 N+1、事务边界清晰</li>
+        <li>□ 测试覆盖成功与失败路径，CI 全绿</li>
+        <li>□ 提交信息符合 <code>type(scope): 中文</code></li>
+      </ul>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 依《文档生成规范》编写 · 与《命名规范》《项目规划说明》配套 · 生成日期：2026-08-05
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>

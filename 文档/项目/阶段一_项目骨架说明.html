@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>阶段一 · 项目骨架说明</title>
+<style>
+  :root {
+    --bg: #f7f8fa;
+    --fg: #1f2328;
+    --muted: #57606a;
+    --border: #d0d7de;
+    --accent: #0969da;
+    --accent-bg: #ddf4ff;
+    --code-bg: #f6f8fa;
+    --warn-bg: #fff8c5;
+    --warn-border: #d4a72c;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+    line-height: 1.75;
+  }
+  .layout { display: flex; height: 100vh; overflow: hidden; }
+  .sidebar {
+    width: 280px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+  }
+  .sidebar .brand {
+    background: linear-gradient(135deg, #1f2328, #32383f);
+    color: #fff;
+    padding: 1.4rem 1.2rem 1.1rem;
+    border-bottom: 3px solid var(--accent);
+    flex-shrink: 0;
+  }
+  .sidebar .brand h1 { margin: 0 0 .35rem; font-size: 1.15rem; line-height: 1.4; }
+  .sidebar .brand p { margin: 0; color: #b6bec6; font-size: .78rem; }
+  .sidebar nav { padding: .8rem .6rem 1.5rem; font-size: .9rem; }
+  .sidebar nav ul { list-style: none; margin: 0; padding: 0; }
+  .sidebar nav li { margin: .15rem 0; }
+  .sidebar nav a {
+    display: block;
+    padding: .3rem .7rem;
+    border-radius: 5px;
+    color: var(--fg);
+    text-decoration: none;
+  }
+  .sidebar nav a:hover { background: var(--accent-bg); color: var(--accent); }
+  .sidebar nav .sub { padding-left: 1.6rem; font-size: .85rem; color: var(--muted); }
+  .content { flex: 1; overflow-y: auto; }
+  main {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1.5rem 2rem 4rem;
+  }
+  h2 {
+    margin-top: 2.5rem;
+    padding-bottom: .4rem;
+    border-bottom: 2px solid var(--border);
+    font-size: 1.35rem;
+  }
+  h3 { margin-top: 1.6rem; font-size: 1.1rem; }
+  p { margin: .6rem 0; }
+  ul, ol { margin: .6rem 0; padding-left: 1.6rem; }
+  li { margin: .3rem 0; }
+  code {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: .1em .35em;
+    font-family: Consolas, "Cascadia Mono", monospace;
+    font-size: .9em;
+  }
+  pre {
+    background: #0d1117;
+    color: #e6edf3;
+    border-radius: 8px;
+    padding: .9rem 1.1rem;
+    overflow-x: auto;
+    font-size: .88rem;
+    line-height: 1.6;
+  }
+  pre code { background: none; border: none; padding: 0; color: inherit; }
+  .note, .warn {
+    border-radius: 6px;
+    padding: .7rem 1rem;
+    margin: 1rem 0;
+    font-size: .95rem;
+  }
+  .note { background: var(--accent-bg); border-left: 4px solid var(--accent); }
+  .warn { background: var(--warn-bg); border-left: 4px solid var(--warn-border); }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1rem 0;
+    font-size: .92rem;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: .45rem .7rem;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: #eef1f4; white-space: nowrap; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  footer {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1rem 2rem 3rem;
+    color: var(--muted);
+    font-size: .85rem;
+    border-top: 1px solid var(--border);
+  }
+  @media (max-width: 768px) {
+    .layout { flex-direction: column; height: auto; overflow: visible; }
+    .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); max-height: 40vh; }
+    .content { overflow: visible; }
+  }
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>阶段一 · 项目骨架说明</h1>
+      <p>BMS 开发计划阶段一设计与实施依据</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#scope">1. 目标与范围</a></li>
+        <li><a href="#accept">2. 完成标准与验收</a></li>
+        <li><a href="#structure">3. 目录结构</a></li>
+        <li><a href="#config">4. 配置设计</a></li>
+        <li><a href="#logging">5. 日志设计</a></li>
+        <li><a href="#health">6. 健康检查</a></li>
+        <li><a href="#database">7. 数据库接入</a>
+          <ul class="sub">
+            <li><a href="#db-topology">7.1 库拓扑</a></li>
+            <li><a href="#db-engine">7.2 异步引擎工厂</a></li>
+            <li><a href="#db-session">7.3 会话与请求上下文</a></li>
+            <li><a href="#db-tenant">7.4 租户解析</a></li>
+            <li><a href="#db-base">7.5 模型基类</a></li>
+          </ul>
+        </li>
+        <li><a href="#migration">8. 迁移工具</a></li>
+        <li><a href="#frontend">9. 前端工程骨架</a></li>
+        <li><a href="#ci">10. CI 流水线</a></li>
+        <li><a href="#testing">11. 测试设计</a></li>
+        <li><a href="#tasks">12. 实施任务清单</a></li>
+        <li><a href="#risks">13. 风险与注意事项</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="scope">1. 目标与范围</h2>
+      <p>
+        阶段一落地一个可运行、可测试、可交付的工程骨架，为后续 13 个阶段提供稳定基座。
+        本文档是阶段一的实施依据，与《项目规划说明》配套：规划定方向，本文档定本阶段细节。
+      </p>
+      <p>本阶段范围：</p>
+      <ul>
+        <li>monorepo 初始化：backend / frontend / frontend-mobile / deploy / scripts / .github</li>
+        <li>配置体系：config.toml 按环境分层 + 环境变量覆盖（pydantic-settings 实现）</li>
+        <li>日志体系：structlog 结构化日志 + request_id 链路贯穿</li>
+        <li>健康检查：/healthz（存活）、/readyz（依赖就绪）</li>
+        <li>SQLAlchemy 2.0 异步接入：多数据源引擎工厂、AsyncSession、平台库/租户库拓扑与租户解析、模型基类（雪花 ID/审计/软删/乐观锁）</li>
+        <li>Redis 接入（redis.asyncio），/readyz 纳入连通性检查</li>
+        <li>Alembic 双套迁移环境 + 批量迁移工具框架 + SQLite 开发库自动建表</li>
+        <li>前端双工程完整初始化（pnpm workspace），不写业务页面</li>
+        <li>CI 流水线（GitHub Actions）：后端 ruff + pytest + 双库集成测试，前端 lint + Vitest + 双端构建</li>
+      </ul>
+      <p>不在本阶段：认证与权限（阶段二/三）、任何业务模块（阶段四起）。</p>
+
+      <h2 id="accept">2. 完成标准与验收</h2>
+      <table>
+        <tr><th>#</th><th>完成标准（来自规划）</th><th>验证方式</th></tr>
+        <tr><td>1</td><td>本地起服务</td><td><code>uv run uvicorn app.main:app</code> 启动；两个前端 <code>pnpm dev</code> 可访问</td></tr>
+        <tr><td>2</td><td>/healthz /readyz 正常</td><td>curl 返回 200；/readyz 在 Redis 停止时返回 503，恢复后自动转 200</td></tr>
+        <tr><td>3</td><td>双库拓扑可路由</td><td>平台库与租户库各建一张验证表，按租户上下文写入/读取成功（集成测试覆盖）</td></tr>
+        <tr><td>4</td><td>CI 通过</td><td>PR 触发：ruff、pytest（SQLite 单测）、MySQL/PostgreSQL 服务容器集成测试、前端 lint + Vitest + 双端构建全部绿</td></tr>
+        <tr><td>5</td><td>配置/日志可用</td><td>BMS_ENV 切换环境生效；环境变量覆盖生效；请求日志含 request_id 且为 JSON 格式</td></tr>
+        <tr><td>6</td><td>迁移工具可用</td><td>Alembic 可对平台库/租户库分别升级；批量迁移脚本遍历已注册租户</td></tr>
+      </table>
+      <div class="note">本阶段验收通过后，阶段二（认证与安全）方可启动。</div>
+
+      <h2 id="structure">3. 目录结构</h2>
+      <p>monorepo 顶层沿用规划文档布局，backend 内部按分层职责细化：</p>
+      <pre><code>bms/
+├── backend/                    # FastAPI 后端
+│   ├── app/
+│   │   ├── main.py             # 应用工厂，注册中间件与路由
+│   │   ├── core/
+│   │   │   ├── config.py       # pydantic-settings 配置加载
+│   │   │   ├── logging.py      # structlog 配置
+│   │   │   ├── errors.py       # 统一异常与响应包装
+│   │   │   ├── context.py      # request_id / tenant 上下文（contextvars）
+│   │   │   ├── middleware.py   # 请求中间件（request_id、租户解析）
+│   │   │   └── tenant.py       # 租户解析规则
+│   │   ├── api/
+│   │   │   ├── router.py       # 全局路由注册（/api/v1 前缀）
+│   │   │   └── v1/
+│   │   │       ├── health.py   # /healthz /readyz
+│   │   │       └── system.py   # 版本/环境信息（调试用）
+│   │   ├── db/
+│   │   │   ├── engine.py       # 多数据源异步引擎工厂（懒加载/池上限）
+│   │   │   ├── session.py      # AsyncSession 工厂（读写分离预留）
+│   │   │   ├── router.py       # 数据源路由（按租户上下文选库）
+│   │   │   ├── base.py         # 模型基类（雪花ID/审计/软删/乐观锁）
+│   │   │   └── redis.py        # Redis 异步客户端封装
+│   │   ├── models/             # SQLAlchemy 模型（阶段一仅验证表）
+│   │   ├── schemas/            # Pydantic 模型
+│   │   ├── services/           # 业务逻辑（阶段一为空骨架）
+│   │   ├── repositories/       # 数据访问（阶段一为空骨架）
+│   │   └── migrations/         # Alembic 脚本（见第 8 节）
+│   ├── alembic/                # 公共迁移环境配置
+│   ├── tests/
+│   │   ├── unit/               # 单测（配置/日志/上下文）
+│   │   ├── integration/        # 集成测试（双库路由/健康检查）
+│   │   └── conftest.py
+│   ├── config.toml
+│   ├── pyproject.toml
+│   ├── .python-version         # 3.14
+│   └── .env.example            # 环境变量样例（不含真实密钥）
+├── frontend/                   # Vue 3 + Vite + TS（PC）
+│   ├── src/{api,router,stores,views,layouts,components,i18n,utils}
+│   ├── package.json
+│   └── .nvmrc                  # ≥ 20.19
+├── frontend-mobile/            # Vue 3 + Vite + TS（H5，Vant）
+│   ├── src/
+│   ├── package.json
+│   └── .nvmrc
+├── pnpm-workspace.yaml         # 双前端共享配置（ESLint/TS 基础包）
+├── deploy/                     # Docker Compose（redis 等）、nginx 配置
+├── scripts/                    # 迁移租户、种子等运维脚本
+├── .github/workflows/ci.yml
+├── 文档/
+└── graphify-out/</code></pre>
+      <p>分层职责沿用规划：api 层只做参数校验与路由分发；services 承载业务逻辑；repositories 承载数据访问与数据源路由；禁止在 api 层直接操作模型。</p>
+
+      <h2 id="config">4. 配置设计</h2>
+      <p>采用 pydantic-settings 实现「config.toml 按环境分层 + 环境变量覆盖」，加载顺序（后者覆盖前者）：</p>
+      <ol>
+        <li><code>config.toml</code> 公共段（<code>[app]</code>、<code>[database]</code>、<code>[redis]</code> 等）</li>
+        <li><code>config.toml</code> 环境段（<code>[env.dev]</code> / <code>[env.test]</code> / <code>[env.prod]</code>），由 <code>BMS_ENV</code> 指定选哪个</li>
+        <li>环境变量 <code>BMS_*</code>（最高优先级，敏感项必须走环境变量，不落配置文件）</li>
+      </ol>
+      <p>config.toml 结构示例（TOML 支持 <code>#</code> 注释，配置必须带注释说明，见下）：</p>
+      <pre><code># ==================== BMS 配置文件 ====================
+# 加载顺序（后者覆盖前者）：
+#   1. 本文件公共段（[app] [log] [database] [redis] 等）
+#   2. 环境段（[env.dev] / [env.test] / [env.prod]），由 BMS_ENV 指定选哪个
+#   3. 环境变量 BMS_*（最高优先级；密钥类只走环境变量，不写入本文件）
+
+[app]
+env = "dev"                # 运行环境：dev / test / prod（BMS_ENV 可覆盖）
+debug = true               # 调试模式：开启后输出详细错误、开启 Swagger 文档；生产必须 false
+
+[log]
+level = "INFO"             # 日志级别：DEBUG / INFO / WARNING / ERROR
+
+[database]
+# 平台库连接串（生产必填环境变量 BMS_DATABASE_PLATFORM_URL 覆盖）
+# SQLite（开发/测试）：sqlite+aiosqlite:///./data/platform.db
+# MySQL 8.x（生产）：  mysql+aiomysql://bms:密码@主机:3306/bms_platform
+# PostgreSQL 16+（生产）：postgresql+psycopg://bms:密码@主机:5432/bms_platform
+platform_url = "sqlite+aiosqlite:///./data/platform.db"
+
+# 租户库连接串模板：{code} 占位符在运行时替换为租户编码，一租户一库
+# 例：sqlite+aiosqlite:///./data/tenant_{code}.db（开发）
+#    mysql+aiomysql://bms:密码@主机:3306/bms_tenant_{code}（生产）
+tenant_url_template = "sqlite+aiosqlite:///./data/tenant_{code}.db"
+
+pool_size = 5              # 每个数据源连接池大小（多 worker 部署时按规划公式核算总量）
+max_overflow = 10          # 连接池上限之外的额外连接数
+echo = false               # 是否打印 SQL 日志（仅调试用，生产保持 false）
+
+[redis]
+url = "redis://localhost:6379/0"   # Redis 连接串（生产用 BMS_REDIS_URL 覆盖）
+timeout = 0.5              # 单次操作超时（秒），Redis 故障快速失败，避免拖垮请求
+
+[env.test]
+debug = false              # 测试环境覆盖项
+
+[env.prod]
+debug = false              # 生产环境覆盖项（密钥一律走环境变量）</code></pre>
+      <p>环境变量约定（全部 <code>BMS_</code> 前缀，UPPER_SNAKE）：</p>
+      <table>
+        <tr><th>变量</th><th>说明</th><th>示例</th></tr>
+        <tr><td><code>BMS_ENV</code></td><td>环境（dev/test/prod）</td><td><code>dev</code></td></tr>
+        <tr><td><code>BMS_DATABASE_PLATFORM_URL</code></td><td>平台库连接串（生产必填）</td><td><code>mysql+aiomysql://bms:xxx@host:3306/bms_platform</code></td></tr>
+        <tr><td><code>BMS_REDIS_URL</code></td><td>Redis 连接串</td><td><code>redis://host:6379/0</code></td></tr>
+        <tr><td><code>BMS_LOG_LEVEL</code></td><td>日志级别</td><td><code>INFO</code></td></tr>
+      </table>
+      <div class="note">密钥类（DB 密码、Redis 密码、后续的 JWT secret/MinIO 凭据）一律只走环境变量，config.toml 不存；.env.example 只给变量名与占位值。</div>
+
+      <h2 id="logging">5. 日志设计</h2>
+      <ul>
+        <li>structlog 结构化日志：生产输出 JSON（一行一条，Loki 可直接聚合），dev 环境输出可读控制台格式</li>
+        <li><code>request_id</code>：请求进入时生成（或沿用客户端 X-Request-ID），存入 contextvars，贯穿请求全链路；异常响应同样携带</li>
+        <li>与标准 logging 集成：第三方库（uvicorn、SQLAlchemy 等）日志汇入同一管线，统一字段注入</li>
+        <li>公共字段：<code>timestamp</code>、<code>level</code>、<code>logger</code>、<code>request_id</code>、<code>env</code>；请求日志含 <code>method</code>、<code>path</code>、<code>status</code>、<code>cost_ms</code></li>
+        <li>敏感字段（密码、token、密钥）一律脱敏，不落原始值（与认证与安全节一致）</li>
+      </ul>
+      <p>日志 JSON 示例：</p>
+      <pre><code>{"timestamp":"2026-08-05T10:00:00Z","level":"info","logger":"bms.api","request_id":"9f8e2c1a","method":"GET","path":"/healthz","status":200,"cost_ms":3,"env":"dev"}</code></pre>
+
+      <h2 id="health">6. 健康检查</h2>
+      <table>
+        <tr><th>端点</th><th>语义</th><th>行为</th></tr>
+        <tr><td><code>GET /healthz</code></td><td>存活探针</td><td>进程活着即 200，不检查依赖（供容器重启判断）</td></tr>
+        <tr><td><code>GET /readyz</code></td><td>就绪探针</td><td>检查平台库 DB 连通（SELECT 1）与 Redis PING；全部通过 200，任一失败 503（供滚动发布与流量摘除）</td></tr>
+      </table>
+      <div class="note">/readyz 每次实时探测（DB/Redis 操作短超时快速失败，Redis 500ms），不做缓存，保证编排系统判断准确。</div>
+
+      <h2 id="database">7. 数据库接入</h2>
+
+      <h3 id="db-topology">7.1 库拓扑</h3>
+      <table>
+        <tr><th>库</th><th>命名</th><th>阶段一实现</th></tr>
+        <tr><td>平台库</td><td><code>bms_platform</code></td><td>SQLite 文件 <code>backend/data/platform.db</code>（生产 MySQL/PostgreSQL）</td></tr>
+        <tr><td>租户库</td><td><code>bms_tenant_{code}</code></td><td>SQLite 文件 <code>backend/data/tenant_{code}.db</code>，URL 由模板生成</td></tr>
+        <tr><td>归档库</td><td><code>bms_archive</code></td><td>仅预留配置位，阶段四启用</td></tr>
+      </table>
+      <p>租户库连接串由 <code>tenant_url_template</code> 模板生成；阶段三引入 <code>sys_tenant.db_key</code> 后改为按注册表路由（本阶段用模板，机制预留）。</p>
+
+      <h3 id="db-engine">7.2 异步引擎工厂</h3>
+      <ul>
+        <li><code>EngineRegistry</code>：按数据源 key 懒加载 <code>AsyncEngine</code>（首次访问创建，字典缓存），避免全量租户连接常驻</li>
+        <li>连接池：<code>pool_size</code> / <code>max_overflow</code> 从配置读取；多 worker 部署时按 总连接数 = worker × (pool_size + max_overflow) ≤ DB max_connections 70% 规划（见规划"部署规模与连接规划"）</li>
+        <li>闲置回收：engine 空闲超过阈值自动 dispose，释放连接</li>
+        <li>阶段一实现 <code>get_platform_engine()</code> 与 <code>get_tenant_engine(tenant_code)</code> 两个入口，读写分离留待阶段八</li>
+      </ul>
+
+      <h3 id="db-session">7.3 会话与请求上下文</h3>
+      <ul>
+        <li><code>AsyncSessionFactory</code>：每次请求创建独立会话，请求结束关闭；异步会话禁止跨请求共享</li>
+        <li>请求上下文（contextvars）：<code>request_id</code>、<code>tenant_code</code>、<code>tenant_id</code>（user_id 阶段二加入）；中间件写入，repositories 路由读取</li>
+        <li>依赖注入：<code>get_db()</code> 依赖按当前租户上下文返回对应库的会话</li>
+        <li>事务边界：FastAPI 依赖粒度事务（请求内显式 commit/rollback），大事务显式声明边界</li>
+      </ul>
+
+      <h3 id="db-tenant">7.4 租户解析</h3>
+      <p>解析顺序（优先级从高到低，阶段一实现前两级，token 兜底阶段二加入）：</p>
+      <ol>
+        <li><code>X-Tenant-ID</code> 请求头：一人多租户切换时前端携带（最终与 token 内 tenant_id 校验一致）</li>
+        <li>子域名：<code>{tenant}.bms.example.com</code>（生产），dev 环境不启用</li>
+        <li>access token 内 <code>tenant_id</code>（阶段二认证接入后启用）</li>
+      </ol>
+      <p>解析失败或租户未注册时返回明确错误码（租户相关错误归 8xxxx 段）；平台级请求（如租户开通）不经过租户解析。</p>
+
+      <h3 id="db-base">7.5 模型基类</h3>
+      <p><code>db/base.py</code> 提供四类混入与统一基类，后续所有模型继承：</p>
+      <table>
+        <tr><th>混入</th><th>字段</th><th>说明</th></tr>
+        <tr><td><code>SnowflakeIdMixin</code></td><td><code>id</code></td><td>雪花 ID 主键（yitter/IdGenerator），Python 侧生成，时钟回拨按配置处理</td></tr>
+        <tr><td><code>AuditMixin</code></td><td><code>created_at / created_by / updated_at / updated_by</code></td><td>ORM 事件自动填充；UTC 存储</td></tr>
+        <tr><td><code>SoftDeleteMixin</code></td><td><code>deleted_at</code></td><td>软删除；查询默认过滤；唯一约束按 (唯一字段, deleted_at) 复合索引（三库兼容）</td></tr>
+        <tr><td><code>OptimisticLockMixin</code></td><td><code>version</code></td><td>乐观锁，更新时比对</td></tr>
+      </table>
+      <p>阶段一以验证表（平台库 <code>sys_migration_probe</code> 一类）验证基类与路由链路，业务表阶段二起按模块建立。</p>
+
+      <h2 id="migration">8. 迁移工具</h2>
+      <ul>
+        <li>双套 Alembic 环境：<code>alembic_platform.ini</code>（平台库）+ <code>alembic_tenant.ini</code>（租户库），迁移脚本分目录存放（<code>app/migrations/platform/</code> 与 <code>app/migrations/tenant/</code>），互不干扰</li>
+        <li>SQLite 开发库自动建表：开发/测试环境启动时经 <code>Base.metadata.create_all</code> 建表，不维护 SQLite 迁移脚本（规划约定）；MySQL/PostgreSQL 必须走 Alembic 迁移</li>
+        <li>批量迁移工具 <code>scripts/migrate_tenants.py</code>：读取平台库 <code>sys_tenant</code> 注册表，逐个租户库执行升级（阶段三有 sys_tenant 表后完整启用；阶段一实现框架与单租户演练路径）</li>
+        <li>MySQL / PostgreSQL 方言差异：迁移脚本分方言验证（CI 集成测试覆盖双库）</li>
+      </ul>
+
+      <h2 id="frontend">9. 前端工程骨架</h2>
+      <ul>
+        <li>pnpm workspace：<code>pnpm-workspace.yaml</code> 纳入 frontend 与 frontend-mobile，共享 ESLint/Prettier/TS 基础配置包，源码各自独立</li>
+        <li>frontend（PC）：Vite + Vue 3 + TypeScript + Element Plus（按需引入）+ vue-router + pinia + axios（封装骨架）+ vue-i18n 占位；src 按 api/router/stores/views/layouts/components/i18n/utils 分层；阶段一只提供「健康检查」演示页与主布局占位，不写业务页面</li>
+        <li>frontend-mobile（H5）：Vite + Vue 3 + TypeScript + Vant，目录分层同 PC</li>
+        <li><code>.nvmrc</code> 固定 Node ≥ 20.19；vitest 空跑通过；ESLint + Prettier 配置完成</li>
+        <li>前端依赖后端契约：OpenAPI 类型生成（openapi-typescript）在阶段二后端 schema 稳定后接入，阶段一不引入</li>
+      </ul>
+
+      <h2 id="ci">10. CI 流水线</h2>
+      <p><code>.github/workflows/ci.yml</code>，PR 触发，两个独立 job：</p>
+      <table>
+        <tr><th>job</th><th>步骤</th><th>服务容器</th></tr>
+        <tr><td>backend</td><td>setup-uv → <code>uv sync</code>（uv.lock 锁定）→ ruff check → pytest（SQLite 单测 + 双库路由集成测试）</td><td>mysql:8 + postgres:16（集成测试连接真实双库验证平台/租户路由与方言）</td></tr>
+        <tr><td>frontend</td><td>setup-node（读取 .nvmrc）→ pnpm install → eslint → vitest run → 双端 build（frontend + frontend-mobile）</td><td>无</td></tr>
+      </table>
+      <ul>
+        <li>缓存：uv 缓存、pnpm store 缓存，缩短流水线时间</li>
+        <li>main 分支构建镜像推送：阶段八引入镜像仓库后加入，阶段一只做 PR 检查</li>
+        <li>dependabot 依赖升级配置随仓库初始化一并提交</li>
+      </ul>
+
+      <h2 id="testing">11. 测试设计</h2>
+      <table>
+        <tr><th>层级</th><th>内容</th><th>运行环境</th></tr>
+        <tr><td>单元测试</td><td>配置加载（BMS_ENV 切换、环境变量覆盖）、日志格式、上下文（request_id/tenant）、错误码</td><td>SQLite + Redis 本地</td></tr>
+        <tr><td>集成测试</td><td>健康检查（/readyz 依赖故障 503）、双库拓扑路由（平台库/租户库写入读取）、租户解析（X-Tenant-ID）、模型基类（雪花 ID 唯一、审计字段填充、软删过滤、乐观锁冲突）</td><td>SQLite 模拟多库；CI 中 MySQL/PostgreSQL 双库验证</td></tr>
+      </table>
+      <ul>
+        <li>conftest：app fixture（依赖覆盖：测试库与测试 Redis）、client fixture（ASGITransport）</li>
+        <li>测试数据独立种子，不与初始化数据混用</li>
+      </ul>
+
+      <h2 id="tasks">12. 实施任务清单</h2>
+      <p>按依赖顺序执行，每项附产出物与验收点；全部完成后按第 2 节完成标准逐条核对。</p>
+      <table>
+        <tr><th>#</th><th>任务</th><th>产出物</th><th>验收点</th></tr>
+        <tr><td>1</td><td>仓库骨架初始化</td><td>backend（uv init，Python 3.14 验证）、frontend/frontend-mobile（pnpm 初始化）、pnpm-workspace.yaml、deploy/scripts/.github、.gitignore、README 骨架</td><td>三端工程可空跑；Python 3.14 下核心依赖（FastAPI/SQLAlchemy/pydantic）安装成功</td></tr>
+        <tr><td>2</td><td>配置模块</td><td>core/config.py、config.toml、.env.example</td><td>BMS_ENV 切换生效；环境变量覆盖生效；密钥不落库</td></tr>
+        <tr><td>3</td><td>日志体系</td><td>core/logging.py、core/context.py、request_id 中间件</td><td>请求日志 JSON + request_id 贯穿；dev 可读格式</td></tr>
+        <tr><td>4</td><td>异常与统一响应骨架</td><td>core/errors.py、统一响应结构</td><td>业务错误码与 HTTP 状态分离；异常带 request_id</td></tr>
+        <tr><td>5</td><td>健康检查</td><td>api/v1/health.py</td><td>/healthz 200；/readyz 依赖故障 503、恢复 200</td></tr>
+        <tr><td>6</td><td>数据库接入</td><td>db/engine.py、db/session.py、db/router.py、db/base.py、db/redis.py、验证模型</td><td>双库路由可用；模型基类字段与行为符合 7.5 节</td></tr>
+        <tr><td>7</td><td>租户解析与应用组装</td><td>core/tenant.py、core/middleware.py、main.py 应用工厂</td><td>X-Tenant-ID/子域名解析写入上下文；平台请求免解析</td></tr>
+        <tr><td>8</td><td>迁移工具</td><td>双套 Alembic 环境、scripts/migrate_tenants.py、SQLite 自动建表钩子</td><td>平台/租户迁移独立升级；SQLite 启动自动建表</td></tr>
+        <tr><td>9</td><td>测试骨架</td><td>tests/unit、tests/integration、conftest</td><td>覆盖第 11 节用例；本地全绿</td></tr>
+        <tr><td>10</td><td>CI 流水线与前端工程收尾</td><td>.github/workflows/ci.yml、前端 lint/vitest/build 配置</td><td>推送 PR 后 CI 全绿（含 MySQL/PG 集成 job）</td></tr>
+      </table>
+
+      <h2 id="risks">13. 风险与注意事项</h2>
+      <table>
+        <tr><th>风险</th><th>应对</th></tr>
+        <tr><td>Python 3.14 生态兼容（FastAPI/SQLAlchemy/pydantic/psycopg 等 C 扩展与新版适配期）</td><td>任务 1 即逐依赖验证；任一核心依赖不兼容则按规划回退机制整体退回 3.13（.python-version 与 CI 同步调整）</td></tr>
+        <tr><td>异步会话误用（跨请求共享、循环内多次查询）</td><td>会话仅经 get_db 依赖获取；代码走查与测试覆盖；开发规范（阶段一交付）明示限制</td></tr>
+        <tr><td>SQLite 自动建表与 MySQL/PG 迁移双轨差异</td><td>方言敏感语法禁用；CI 集成测试以真实 MySQL/PostgreSQL 兜底验证迁移与路由</td></tr>
+        <tr><td>Windows 本地开发差异（路径、服务）</td><td>deploy/compose 提供 Redis；SQLite 相对路径统一从 backend 目录解析；文档给出 PowerShell 命令</td></tr>
+        <tr><td>租户解析在无 token 阶段的误用</td><td>阶段一只信任 X-Tenant-ID 与子域名；阶段二 token 接入后统一校验（token 内 tenant_id 为准）</td></tr>
+      </table>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 依《文档生成规范》编写 · 与《项目规划说明》《命名规范》配套 · 生成日期：2026-08-05
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>
