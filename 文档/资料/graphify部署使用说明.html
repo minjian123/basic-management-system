@@ -1,353 +1,335 @@
 <!DOCTYPE html>
-<html xmlns="http://www.w3.org/1999/xhtml">
+<html lang="zh-CN">
 <head>
-  <meta charset="utf-8" />
-  <meta name="generator" content="pandoc" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
-  <title>graphify 部署与使用说明</title>
-  <style>
-    /* Default styles provided by pandoc.
-    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
-    */
-    span.smallcaps{font-variant: small-caps;}
-    div.columns{display: flex; gap: min(4vw, 1.5em);}
-    div.column{flex: auto; overflow-x: auto;}
-    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
-    /* The extra [class] is a hack that increases specificity enough to
-       override a similar rule in reveal.js */
-    ul.task-list[class]{list-style: none;}
-    ul.task-list li input[type="checkbox"] {
-      font-size: inherit;
-      width: 0.8em;
-      margin: 0 0.8em 0.2em -1.6em;
-      vertical-align: middle;
-    }
-    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
-    /* CSS for syntax highlighting */
-    html { -webkit-text-size-adjust: 100%; }
-    pre > code.sourceCode { white-space: pre; position: relative; }
-    pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
-    pre > code.sourceCode > span:empty { height: 1.2em; }
-    .sourceCode { overflow: visible; }
-    code.sourceCode > span { color: inherit; text-decoration: inherit; }
-    div.sourceCode { margin: 1em 0; }
-    pre.sourceCode { margin: 0; }
-    @media screen {
-    div.sourceCode { overflow: auto; }
-    }
-    @media print {
-    pre > code.sourceCode { white-space: pre-wrap; }
-    pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
-    }
-    pre.numberSource code
-      { counter-reset: source-line 0; }
-    pre.numberSource code > span
-      { position: relative; left: -4em; counter-increment: source-line; }
-    pre.numberSource code > span > a:first-child::before
-      { content: counter(source-line);
-        position: relative; left: -1em; text-align: right; vertical-align: baseline;
-        border: none; display: inline-block;
-        -webkit-touch-callout: none; -webkit-user-select: none;
-        -khtml-user-select: none; -moz-user-select: none;
-        -ms-user-select: none; user-select: none;
-        padding: 0 4px; width: 4em;
-        color: #aaaaaa;
-      }
-    pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
-    div.sourceCode
-      {   }
-    @media screen {
-    pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
-    }
-    code span.al { color: #ff0000; font-weight: bold; } /* Alert */
-    code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
-    code span.at { color: #7d9029; } /* Attribute */
-    code span.bn { color: #40a070; } /* BaseN */
-    code span.bu { color: #008000; } /* BuiltIn */
-    code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
-    code span.ch { color: #4070a0; } /* Char */
-    code span.cn { color: #880000; } /* Constant */
-    code span.co { color: #60a0b0; font-style: italic; } /* Comment */
-    code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
-    code span.do { color: #ba2121; font-style: italic; } /* Documentation */
-    code span.dt { color: #902000; } /* DataType */
-    code span.dv { color: #40a070; } /* DecVal */
-    code span.er { color: #ff0000; font-weight: bold; } /* Error */
-    code span.ex { } /* Extension */
-    code span.fl { color: #40a070; } /* Float */
-    code span.fu { color: #06287e; } /* Function */
-    code span.im { color: #008000; font-weight: bold; } /* Import */
-    code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
-    code span.kw { color: #007020; font-weight: bold; } /* Keyword */
-    code span.op { color: #666666; } /* Operator */
-    code span.ot { color: #007020; } /* Other */
-    code span.pp { color: #bc7a00; } /* Preprocessor */
-    code span.sc { color: #4070a0; } /* SpecialChar */
-    code span.ss { color: #bb6688; } /* SpecialString */
-    code span.st { color: #4070a0; } /* String */
-    code span.va { color: #19177c; } /* Variable */
-    code span.vs { color: #4070a0; } /* VerbatimString */
-    code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
-  </style>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/github-markdown-css@5/github-markdown.min.css" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>graphify 部署与使用说明</title>
+<style>
+  :root {
+    --bg: #f7f8fa;
+    --fg: #1f2328;
+    --muted: #57606a;
+    --border: #d0d7de;
+    --accent: #0969da;
+    --accent-bg: #ddf4ff;
+    --code-bg: #f6f8fa;
+    --ok: #1a7f37;
+    --warn-bg: #fff8c5;
+    --warn-border: #d4a72c;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+    line-height: 1.75;
+  }
+  .layout { display: flex; height: 100vh; overflow: hidden; }
+  .sidebar {
+    width: 280px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+  }
+  .sidebar .brand {
+    background: linear-gradient(135deg, #1f2328, #32383f);
+    color: #fff;
+    padding: 1.4rem 1.2rem 1.1rem;
+    border-bottom: 3px solid var(--accent);
+    flex-shrink: 0;
+  }
+  .sidebar .brand h1 { margin: 0 0 .35rem; font-size: 1.15rem; line-height: 1.4; }
+  .sidebar .brand p { margin: 0; color: #b6bec6; font-size: .78rem; }
+  .sidebar nav { padding: .8rem .6rem 1.5rem; font-size: .9rem; }
+  .sidebar nav ul { list-style: none; margin: 0; padding: 0; }
+  .sidebar nav li { margin: .15rem 0; }
+  .sidebar nav a {
+    display: block;
+    padding: .3rem .7rem;
+    border-radius: 5px;
+    color: var(--fg);
+    text-decoration: none;
+  }
+  .sidebar nav a:hover { background: var(--accent-bg); color: var(--accent); }
+  .sidebar nav .sub { padding-left: 1.6rem; font-size: .85rem; color: var(--muted); }
+  .content { flex: 1; overflow-y: auto; }
+  main {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1.5rem 2rem 4rem;
+  }
+  h2 {
+    margin-top: 2.5rem;
+    padding-bottom: .4rem;
+    border-bottom: 2px solid var(--border);
+    font-size: 1.35rem;
+  }
+  h3 { margin-top: 1.6rem; font-size: 1.1rem; }
+  p { margin: .6rem 0; }
+  ul, ol { margin: .6rem 0; padding-left: 1.6rem; }
+  li { margin: .3rem 0; }
+  code {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: .1em .35em;
+    font-family: Consolas, "Cascadia Mono", monospace;
+    font-size: .9em;
+  }
+  pre {
+    background: #0d1117;
+    color: #e6edf3;
+    border-radius: 8px;
+    padding: .9rem 1.1rem;
+    overflow-x: auto;
+    font-size: .88rem;
+    line-height: 1.6;
+  }
+  pre code { background: none; border: none; padding: 0; color: inherit; }
+  .note, .warn {
+    border-radius: 6px;
+    padding: .7rem 1rem;
+    margin: 1rem 0;
+    font-size: .95rem;
+  }
+  .note { background: var(--accent-bg); border-left: 4px solid var(--accent); }
+  .warn { background: var(--warn-bg); border-left: 4px solid var(--warn-border); }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1rem 0;
+    font-size: .92rem;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: .45rem .7rem;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: #eef1f4; white-space: nowrap; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  footer {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1rem 2rem 3rem;
+    color: var(--muted);
+    font-size: .85rem;
+    border-top: 1px solid var(--border);
+  }
+  @media (max-width: 768px) {
+    .layout { flex-direction: column; height: auto; overflow: visible; }
+    .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); max-height: 40vh; }
+    .content { overflow: visible; }
+  }
+</style>
 </head>
-<body class="markdown-body">
-<h1 id="graphify-部署与使用说明">graphify 部署与使用说明</h1>
-<blockquote>
-<p>适用版本：graphify 0.9.32（PyPI 包名 <code>graphifyy</code>，CLI
-命令为 <code>graphify</code>） 适用范围：BMS 项目（Windows
-开发机，bash/PowerShell 均适用）</p>
-</blockquote>
-<h2 id="1-概述">1. 概述</h2>
-<p>graphify
-是一个把整个代码库（代码、文档、PDF、图片、视频）映射成<strong>可查询知识图谱</strong>的工具，用来替代在原始文件里
-grep 式的搜索。</p>
-<ul>
-<li><strong>代码免费且完全本地化</strong>：代码用 tree-sitter 做 AST
-解析，确定性输出，不调用 LLM，数据不出本机。</li>
-<li><strong>每条边都有出处</strong>：连接都带
-<code>EXTRACTED</code>（源码中明确存在）或
-<code>INFERRED</code>（graphify 推导）标签。</li>
-<li><strong>不是向量索引</strong>：没有
-embedding、没有向量库，是真正的图，可做查询（query）、路径（path）、概念解释（explain）。</li>
-<li>文档/PDF/图片/视频的语义抽取可选配 <code>GEMINI_API_KEY</code> 走
-Gemini；不配 key 时由 AI 助手（宿主模型）代为抽取，代码库场景不需要任何
-key。</li>
-</ul>
-<p>官方信息：</p>
-<ul>
-<li>GitHub：<a
-href="https://github.com/Graphify-Labs/graphify">https://github.com/Graphify-Labs/graphify</a></li>
-<li>官网：<a href="https://graphify.com">https://graphify.com</a></li>
-<li>PyPI：<a
-href="https://pypi.org/project/graphifyy/">https://pypi.org/project/graphifyy/</a></li>
-</ul>
-<h2 id="2-部署安装">2. 部署（安装）</h2>
-<h3 id="21-前置条件">2.1 前置条件</h3>
-<table>
-<thead>
-<tr>
-<th>依赖</th>
-<th>最低版本</th>
-<th>检查命令</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Python</td>
-<td>3.10+</td>
-<td><code>python --version</code></td>
-</tr>
-<tr>
-<td>uv（推荐）或 pipx</td>
-<td>任意</td>
-<td><code>uv --version</code> / <code>pipx --version</code></td>
-</tr>
-</tbody>
-</table>
-<p>Windows 下安装 uv：</p>
-<div class="sourceCode" id="cb1"><pre
-class="sourceCode powershell"><code class="sourceCode powershell"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>winget install astral-sh<span class="op">.</span><span class="fu">uv</span></span></code></pre></div>
-<h3 id="22-安装-cli">2.2 安装 CLI</h3>
-<blockquote>
-<p><strong>注意</strong>：PyPI 上的官方包名是
-<code>graphifyy</code>（两个 y），其他 <code>graphify*</code>
-包均与本工具无关；安装后命令行命令仍是 <code>graphify</code>。</p>
-</blockquote>
-<div class="sourceCode" id="cb2"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 推荐：uv 隔离安装（本机已采用此方式）</span></span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="ex">uv</span> tool install graphifyy</span>
-<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="co"># 备选</span></span>
-<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="ex">pipx</span> install graphifyy</span>
-<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="ex">pip</span> install graphifyy   <span class="co"># 可能需要手动配置 PATH</span></span></code></pre></div>
-<p>如安装后提示 <code>graphify: command not found</code>，运行
-<code>uv tool update-shell</code>（或
-<code>pipx ensurepath</code>）后重开终端。</p>
-<p>升级：</p>
-<div class="sourceCode" id="cb3"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="ex">uv</span> tool install <span class="at">--upgrade</span> graphifyy</span></code></pre></div>
-<h3 id="23-验证安装">2.3 验证安装</h3>
-<div class="sourceCode" id="cb4"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="ex">graphify</span> <span class="at">--version</span></span>
-<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="co"># 期望输出：0.9.32（或更新版本）</span></span></code></pre></div>
-<blockquote>
-<p>本机现状：<code>uv 0.11.7</code> + <code>graphify 0.9.32</code>
-已安装于 <code>~/.local/bin</code>，版本与项目内
-<code>.opencode/skills/graphify/.graphify_version</code> 一致。</p>
-</blockquote>
-<h3 id="24-与-ai-助手集成">2.4 与 AI 助手集成</h3>
-<p>graphify 通过 skill + 钩子让 AI 助手"先查图、再读码"。OpenCode
-平台的注册命令：</p>
-<div class="sourceCode" id="cb5"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="ex">graphify</span> install <span class="at">--platform</span> opencode</span></code></pre></div>
-<p><strong>本项目已完成集成</strong>（<code>.opencode/</code> 目录，属
-graphify 安装脚本生成，勿手动修改）：</p>
-<ul>
-<li><code>.opencode/opencode.json</code>：注册插件
-<code>.opencode/plugins/graphify.js</code>——图存在时，会在每次 bash
-调用前提示优先用 <code>graphify query</code>。</li>
-<li><code>.opencode/skills/graphify/</code>：graphify 的 skill（SKILL.md
-+ references/），供助手按步骤构建、更新、查询图谱。</li>
-<li><code>.opencode/skills/graphify/.graphify_version</code>：当前 skill
-版本 <code>0.9.32</code>。</li>
-</ul>
-<p>若以后升级 graphify，请同步刷新上述文件（重新执行
-<code>graphify install --platform opencode</code>
-或按官方说明更新）。</p>
-<h2 id="3-构建知识图谱">3. 构建知识图谱</h2>
-<h3 id="31-首次全量构建">3.1 首次全量构建</h3>
-<p>在项目根目录执行：</p>
-<div class="sourceCode" id="cb6"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="ex">graphify</span> .        <span class="co"># PowerShell 中不要写 /graphify .（斜杠会被当作路径分隔符）</span></span></code></pre></div>
-<p>常用参数：</p>
-<table>
-<thead>
-<tr>
-<th>参数</th>
-<th>作用</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>&lt;path&gt;</code></td>
-<td>指定扫描目录（默认当前目录）</td>
-</tr>
-<tr>
-<td><code>--mode deep</code></td>
-<td>深度抽取，产出更多 INFERRED 边</td>
-</tr>
-<tr>
-<td><code>--directed</code></td>
-<td>构建有向图（保留 source→target 方向）</td>
-</tr>
-<tr>
-<td><code>--no-cluster</code></td>
-<td>跳过社区发现（大语料可提速）</td>
-</tr>
-<tr>
-<td><code>--no-viz</code></td>
-<td>不生成可视化 HTML</td>
-</tr>
-<tr>
-<td><code>--svg</code> / <code>--graphml</code></td>
-<td>额外导出 graph.svg / graph.graphml</td>
-</tr>
-<tr>
-<td><code>--wiki</code></td>
-<td>生成 agent 可爬取的 wiki（index.md + 每社区一篇）</td>
-</tr>
-<tr>
-<td><code>--watch</code></td>
-<td>监视目录，代码变动自动重建</td>
-</tr>
-<tr>
-<td><code>--force</code></td>
-<td>强制重写（图变小被拒时用，如确实删除了文件）</td>
-</tr>
-</tbody>
-</table>
-<h3 id="32-输出产物graphify-out">3.2 输出产物（graphify-out/）</h3>
-<pre class="text"><code>graphify-out/
-├── graph.html       # 交互式图谱，浏览器打开可点击、筛选、搜索
-├── GRAPH_REPORT.md  # 审计报告：关键概念、意外连接、建议问题
-├── graph.json       # 完整图谱数据，随时可查询（无需重读源码）
-├── graph.svg        # （仅 --svg 时生成）
-├── wiki/            # （仅 --wiki 时生成）
-└── .graphify_*      # 运行状态文件（解释器路径、清单等，勿手动改）</code></pre>
-<h3 id="33-增量更新">3.3 增量更新</h3>
-<p>代码/文档变更后，只重新抽取变更文件（省时省 token）：</p>
-<div class="sourceCode" id="cb8"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="ex">graphify</span> update .           <span class="co"># 等价于 /graphify --update，增量重建</span></span>
-<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="ex">graphify</span> update <span class="at">--force</span> .   <span class="co"># 如提示拒绝缩小图，确认删除文件属实则强制重建</span></span></code></pre></div>
-<blockquote>
-<p>本项目约定（见 AGENTS.md）：修改代码后应运行
-<code>graphify update .</code> 保持图谱最新。增量更新后
-<code>graphify-out/</code> 内文件变脏属正常现象。</p>
-</blockquote>
-<h2 id="4-日常使用">4. 日常使用</h2>
-<blockquote>
-<p>以下命令在 <code>graphify-out/graph.json</code>
-存在时即可使用，无需重建图谱。
-查询可用中文（本项目已启用中文查询分词）。</p>
-</blockquote>
-<h3 id="41-提问查询query">4.1 提问查询（query）</h3>
-<div class="sourceCode" id="cb9"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="ex">graphify</span> query <span class="st">&quot;登录认证是怎么实现的&quot;</span></span>
-<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a><span class="ex">graphify</span> query <span class="st">&quot;数据校验&quot;</span> <span class="at">--dfs</span>        <span class="co"># DFS 追踪具体链路</span></span>
-<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a><span class="ex">graphify</span> query <span class="st">&quot;用户模块&quot;</span> <span class="at">--budget</span> 1500 <span class="co"># 限制回答长度（token）</span></span></code></pre></div>
-<p>默认 BFS 遍历，取邻近上下文；<code>--dfs</code>
-适合追踪一条调用/依赖链。</p>
-<h3 id="42-最短路径path">4.2 最短路径（path）</h3>
-<div class="sourceCode" id="cb10"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="ex">graphify</span> path <span class="st">&quot;UserModel&quot;</span> <span class="st">&quot;AuthService&quot;</span></span>
-<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="co"># 输出形如：UserModel --uses--&gt; ... &lt;--references-- AuthService</span></span></code></pre></div>
-<h3 id="43-概念解释explain">4.3 概念解释（explain）</h3>
-<div class="sourceCode" id="cb11"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="ex">graphify</span> explain <span class="st">&quot;JWT&quot;</span></span>
-<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a><span class="co"># 输出：节点来源、社区、度数、连接列表（带 EXTRACTED/INFERRED 标签）</span></span></code></pre></div>
-<h3 id="44-其他子命令">4.4 其他子命令</h3>
-<div class="sourceCode" id="cb12"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="ex">graphify</span> add <span class="op">&lt;</span>url<span class="op">&gt;</span>              <span class="co"># 抓取 URL 加入语料并更新图</span></span>
-<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a><span class="ex">graphify</span> cluster-only .         <span class="co"># 只对现有图重跑社区发现</span></span>
-<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a><span class="ex">graphify</span> hook install           <span class="co"># 装 post-commit 钩子：每次提交自动重建（仅代码）</span></span>
-<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a><span class="ex">graphify</span> claude install         <span class="co"># 把 graphify 写进 CLAUDE.md（Claude Code 专用）</span></span></code></pre></div>
-<h2 id="5-本项目的使用约定来自-agentsmd">5. 本项目的使用约定（来自
-AGENTS.md）</h2>
-<ol type="1">
-<li><strong>先查图</strong>：代码库相关问题，当
-<code>graphify-out/graph.json</code> 存在时，先运行
-<code>graphify query "&lt;问题&gt;"</code>（可直接用中文）。关系用
-<code>graphify path "&lt;A&gt;" "&lt;B&gt;"</code>，概念用
-<code>graphify explain "&lt;概念&gt;"</code>。返回的是范围受限的子图，通常比
-GRAPH_REPORT.md 或原始 grep 输出小得多。</li>
-<li><strong>钩子或增量更新后 <code>graphify-out/</code>
-变脏属正常</strong>，不应因此跳过 graphify。</li>
-<li>若 <code>graphify-out/wiki/index.md</code>
-存在，用它做广域导航，避免直接浏览源码。</li>
-<li>仅在做宏观架构审查、或 query/path/explain 信息不足时，才读
-<code>graphify-out/GRAPH_REPORT.md</code>。</li>
-<li>修改代码后运行 <code>graphify update .</code> 保持图谱最新。</li>
-</ol>
-<h2 id="6-常见问题排查">6. 常见问题排查</h2>
-<table>
-<thead>
-<tr>
-<th>现象</th>
-<th>处理</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>graphify: command not found</code></td>
-<td>运行 <code>uv tool update-shell</code> 或
-<code>pipx ensurepath</code>，重开终端</td>
-</tr>
-<tr>
-<td><code>ModuleNotFoundError: No module named 'graphify'</code></td>
-<td>用 <code>uv tool install</code>/<code>pipx</code> 隔离安装，避免 pip
-与运行环境不一致</td>
-</tr>
-<tr>
-<td>增量更新报"refused to shrink graph.json"</td>
-<td>确认确实删除了文件后，用 <code>graphify update --force .</code>
-全量重建</td>
-</tr>
-<tr>
-<td><code>ERROR: Graph is empty</code></td>
-<td>语料全被跳过或抽取失败，检查扫描路径与文件类型</td>
-</tr>
-<tr>
-<td>图过大（&gt;5000 节点）生成 HTML 卡顿</td>
-<td>加 <code>--no-viz</code> 跳过可视化，或按子目录缩小扫描范围</td>
-</tr>
-<tr>
-<td>想用 Gemini 做文档语义抽取</td>
-<td>设置 <code>GEMINI_API_KEY</code>/<code>GOOGLE_API_KEY</code>，安装
-<code>graphifyy[gemini]</code>；不设置时由 AI 助手代抽，代码库场景无需
-key</td>
-</tr>
-</tbody>
-</table>
-<style>body.markdown-body{box-sizing:border-box;min-width:200px;max-width:900px;margin:0 auto;padding:32px 24px 64px;line-height:1.7}h1,h2,h3{padding-bottom:.3em;border-bottom:1px solid #eaecef}h1{margin-top:0}blockquote{color:#57606a}.sourceCode{background:#f6f8fa;border-radius:6px;padding:12px 16px}table{display:block;width:100%;overflow-x:auto}</style></body>
+<body>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>graphify 部署与使用说明</h1>
+      <p>Windows 环境 · 基于 graphify 0.9.32</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#intro">1. 什么是 graphify</a></li>
+        <li><a href="#prereq">2. 环境要求</a></li>
+        <li><a href="#install">3. 安装与部署</a>
+          <ul class="sub">
+            <li><a href="#install-uv">3.1 安装 graphify</a></li>
+            <li><a href="#install-gemini">3.2 配置 Gemini</a></li>
+            <li><a href="#install-agent">3.3 集成 AI 助手</a></li>
+          </ul>
+        </li>
+        <li><a href="#first-run">4. 首次构建图谱</a></li>
+        <li><a href="#outputs">5. 输出产物说明</a></li>
+        <li><a href="#daily">6. 日常使用</a>
+          <ul class="sub">
+            <li><a href="#daily-query">6.1 自然语言查询</a></li>
+            <li><a href="#daily-path">6.2 路径与概念</a></li>
+            <li><a href="#daily-affected">6.3 影响面与枢纽</a></li>
+            <li><a href="#daily-incremental">6.4 增量构建参数</a></li>
+          </ul>
+        </li>
+        <li><a href="#maintain">7. 维护与更新</a></li>
+        <li><a href="#agent">8. 与 AI 编程助手的集成</a></li>
+        <li><a href="#faq">9. 常见问题</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="intro">1. 什么是 graphify</h2>
+      <p>
+        graphify 是一个开源命令行工具（Python 包名 <code>graphifyy</code>），能把任意目录下的
+        代码、文档、论文、图片、视频自动转换为持久化的知识图谱，并附带社区检测、审计追踪，
+        产出三种结果：交互式 HTML 可视化、GraphRAG 就绪的 JSON、以及人话版的 GRAPH_REPORT.md。
+      </p>
+      <p>核心特性：</p>
+      <ul>
+        <li><strong>纯 AST 结构化抽取</strong>：代码文件用 Python AST 分析，确定性、免费、无需 API Key。</li>
+        <li><strong>语义抽取</strong>：文档/论文/图片可选用 Gemini API，未配置时由 AI 助手自身完成。</li>
+        <li><strong>诚实审计</strong>：每条关系标注 EXTRACTED（事实）／INFERRED（推断）／AMBIGUOUS（模糊）。</li>
+        <li><strong>持久化</strong>：图谱跨会话保留在 <code>graphify-out/</code>，之后直接用 <code>query</code> 查询，不必重建。</li>
+        <li><strong>增量更新</strong>：<code>--update</code> / <code>graphify update</code> 只重新抽取新增或变更的文件。</li>
+      </ul>
+
+      <h2 id="prereq">2. 环境要求</h2>
+      <p>本机（Windows + PowerShell 7）已验证的环境：</p>
+      <table>
+        <tr><th>组件</th><th>要求</th><th>本机版本</th></tr>
+        <tr><td>Python</td><td>≥ 3.10</td><td>3.14.4</td></tr>
+        <tr><td>uv</td><td>推荐（工具安装/隔离环境）</td><td>0.11.7</td></tr>
+        <tr><td>git</td><td>克隆 GitHub 仓库时使用</td><td>2.54.0</td></tr>
+        <tr><td>graphify</td><td>pip 或 uv 安装</td><td>0.9.32</td></tr>
+      </table>
+      <div class="note">graphify 本身<strong>不需要任何 API Key</strong>。只有对文档/论文/图片做语义抽取时才可选配 Gemini Key；纯代码目录（最常见的场景）完全免费离线运行。</div>
+
+      <h2 id="install">3. 安装与部署</h2>
+
+      <h3 id="install-uv">3.1 安装 graphify（推荐用 uv）</h3>
+      <pre><code># 方式一：uv 安装（推荐，本机采用此方式）
+uv tool install graphifyy
+
+# 方式二：pip 安装
+python -m pip install graphifyy
+
+# 验证安装
+graphify --version</code></pre>
+      <p>uv 方式安装后，graphify 被隔离在 <code>C:\Users\minji\AppData\Roaming\uv\tools\graphifyy\</code>，全局可调用 <code>graphify</code> 命令。</p>
+
+      <h3 id="install-gemini">3.2 （可选）配置 Gemini 语义抽取</h3>
+      <pre><code># 先安装 gemini 扩展，再设置环境变量
+uv tool install graphifyy --extra gemini
+setx GEMINI_API_KEY "你的Key"   # 或 GOOGLE_API_KEY</code></pre>
+      <p>设置后重启终端生效。未配置时语义抽取自动降级为由 AI 助手自身完成，不影响代码图谱。</p>
+
+      <h3 id="install-agent">3.3 集成到 AI 编程助手</h3>
+      <p>graphify 内置了对主流编程助手的安装命令，可把 skill 与钩子写入对应平台配置：</p>
+      <pre><code>graphify install opencode   # 写入 AGENTS.md 说明 + tool.execute.before 插件
+graphify install claude     # 写入 CLAUDE.md + PreToolUse 钩子
+graphify install cursor     # 写入 .cursor/rules/graphify.mdc
+graphify uninstall opencode # 卸载（--purge 可同时删除 graphify-out/）</code></pre>
+      <div class="note">本项目已通过 opencode 集成（<code>graphify install opencode</code>），skill 位于 <code>C:\Users\minji\.config\opencode\skills\graphify\</code>，项目内由 <code>.opencode/</code> 插件支撑。</div>
+
+      <h2 id="first-run">4. 首次构建图谱</h2>
+      <p>在项目根目录执行完整构建（推荐在 AI 助手中用 <code>/graphify</code> 触发，或命令行直跑）：</p>
+      <pre><code># 在 AI 助手中
+/graphify .                          # 对当前目录全流程构建
+
+# 命令行直跑（无 LLM，纯代码目录）
+graphify extract . --code-only
+
+# 指定路径 / 深度模式 / 只建报告不建可视化
+graphify extract 文档/ --mode deep
+graphify extract . --no-cluster</code></pre>
+      <p>构建流程分四步：</p>
+      <ol>
+        <li><strong>检测</strong>：扫描目录，分类统计代码/文档/论文/图片/视频文件。</li>
+        <li><strong>抽取</strong>：代码走 AST（免费快速），文档/图片走语义抽取（可选 Gemini）。</li>
+        <li><strong>聚类与分析</strong>：社区检测、凝聚度评分、枢纽节点（god nodes）识别。</li>
+        <li><strong>输出</strong>：生成 graph.html、graph.json、GRAPH_REPORT.md 及分析侧车文件。</li>
+      </ol>
+      <div class="warn"><strong>注意</strong>：目录超过 500 个文件或 200 万词时，graphify 会提示收敛范围；建议按子目录分别构建。超过 5000 节点时 HTML 可视化会自动聚合到社区视图，不要用 <code>--no-viz</code> 之外的方式强行渲染。</div>
+
+      <h2 id="outputs">5. 输出产物说明</h2>
+      <p>所有产物都在 <code>graphify-out/</code> 目录下：</p>
+      <table>
+        <tr><th>文件</th><th>说明</th></tr>
+        <tr><td><code>graph.html</code></td><td>交互式图谱，浏览器直接打开，可缩放、点节点看详情。</td></tr>
+        <tr><td><code>graph.json</code></td><td>原始图数据（GraphRAG 就绪），供 query/path/explain 等命令查询。</td></tr>
+        <tr><td><code>GRAPH_REPORT.md</code></td><td>人话版审计报告：God Nodes、意外关联、建议问题、token 成本。</td></tr>
+        <tr><td><code>manifest.json</code></td><td>文件清单与语义哈希，<code>update</code> 增量更新依赖它。</td></tr>
+        <tr><td><code>cost.json</code></td><td>累计 token 成本跟踪。</td></tr>
+        <tr><td><code>.graphify_python</code></td><td>记录本次使用的 Python 解释器路径（skill 内部使用）。</td></tr>
+        <tr><td><code>.graphify_root</code></td><td>记录的扫描根目录，供无参 <code>update</code> 使用。</td></tr>
+        <tr><td><code>cache/</code></td><td>语义抽取缓存，未变更文件不重复抽取。</td></tr>
+      </table>
+
+      <h2 id="daily">6. 日常使用</h2>
+
+      <h3 id="daily-query">6.1 自然语言查询</h3>
+      <pre><code>graphify query "认证流程如何处理token刷新？"   # BFS 广度遍历
+graphify query "数据如何流入审计模块？" --dfs   # DFS 深度追踪
+graphify query "……" --budget 1500              # 限制回答 token 数</code></pre>
+
+      <h3 id="daily-path">6.2 路径与概念</h3>
+      <pre><code>graphify path "AuthModule" "Database"   # 两概念间最短路径
+graphify explain "JWT"                  # 用大白话解释某节点及其邻居</code></pre>
+
+      <h3 id="daily-affected">6.3 影响面与枢纽</h3>
+      <pre><code>graphify affected "UserService" --depth 2   # 反向遍历：谁会被它影响
+graphify god-nodes --top 10                 # 架构枢纽节点排行</code></pre>
+
+      <h3 id="daily-incremental">6.4 增量构建常用参数</h3>
+      <pre><code>graphify update .                  # 只抽取新增/变更代码，免费无 LLM
+graphify update . --force          # 重建后节点数变少时覆盖（大重构后使用）
+graphify watch 文档/               # 监视目录，代码变更自动重建
+graphify cluster-only .            # 只重跑聚类和报告</code></pre>
+
+      <h2 id="maintain">7. 维护与更新</h2>
+      <ul>
+        <li><strong>代码改动后</strong>：运行 <code>graphify update .</code> 保持图谱最新（纯 AST，无 API 开销）。本项目 AGENTS.md 已约定：修改代码后运行 <code>graphify update .</code>。</li>
+        <li><strong>大重构删除了代码</strong>：<code>graphify update . --force</code>（防止旧图谱残留导致误判）。</li>
+        <li><strong>提交钩子</strong>：<code>graphify hook install</code> 安装 post-commit 自动重建钩子。</li>
+        <li><strong>全局图谱</strong>：多个项目可合并到全局图 <code>graphify global add 项目路径</code>，跨仓库查询。</li>
+      </ul>
+
+      <h2 id="agent">8. 与 AI 编程助手的集成</h2>
+      <p>项目根目录 <code>AGENTS.md</code> 中已写入 graphify 使用规则，AI 助手会遵循：</p>
+      <ul>
+        <li>代码库问题优先 <code>graphify query "&lt;问题&gt;"</code>，关系用 <code>graphify path</code>，概念用 <code>graphify explain</code>——返回的子图比全文 grep 小得多。</li>
+        <li>有 <code>graphify-out/wiki/index.md</code> 时用其做广域导航。</li>
+        <li>钩子或增量更新后 graphify-out/ 变脏属正常现象，不跳过 graphify。</li>
+      </ul>
+
+      <h2 id="faq">9. 常见问题</h2>
+      <table>
+        <tr><th>问题</th><th>处理</th></tr>
+        <tr>
+          <td>提示需要 API Key？</td>
+          <td>纯代码目录不需要。文档/图片语义抽取可选配 <code>GEMINI_API_KEY</code>，否则由 AI 助手自身完成，绝不要配置 ANTHROPIC/OPENAI Key——graphify 不读取它们。</td>
+        </tr>
+        <tr>
+          <td>构建时报 “Graph is empty”？</td>
+          <td>抽取未产出节点。检查目录是否全为不支持的类型（如纯二进制），或抽取步骤失败。</td>
+        </tr>
+        <tr>
+          <td>update 后节点变少、拒绝覆盖？</td>
+          <td>graphify 有防缩保护（#479）。确实删了代码请加 <code>--force</code>。</td>
+        </tr>
+        <tr>
+          <td>报告提示 Graph Health Warning？</td>
+          <td>存在悬空/折叠边，图可能不完整但可用；用 <code>graphify diagnose multigraph</code> 排查。</td>
+        </tr>
+        <tr>
+          <td>目录太大跑不动？</td>
+          <td>按子目录分次构建，或加 <code>--no-cluster</code> 跳过昂贵的聚类步骤。</td>
+        </tr>
+        <tr>
+          <td>如何彻底卸载？</td>
+          <td><code>uv tool uninstall graphifyy</code>；连同图谱一并删除用 <code>graphify uninstall --purge</code>。</td>
+        </tr>
+      </table>
+
+    </main>
+
+    <footer>
+      本文档基于 graphify 0.9.32（Windows / PowerShell 7 环境）编写。项目：<a href="https://github.com/safishamsi/graphify">github.com/safishamsi/graphify</a> · 生成日期：2026-08-05
+    </footer>
+  </div>
+
+</div>
+
+</body>
 </html>
