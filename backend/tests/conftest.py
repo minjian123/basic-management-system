@@ -24,6 +24,7 @@ DATA_DIR = Path(__file__).resolve().parents[1] / "data"
 @pytest.fixture(scope="session", autouse=True)
 def _prepare_test_db() -> None:
     """清理测试库文件并用同步引擎建表（平台库 + dev_tenants 租户库）。"""
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
     for f in DATA_DIR.glob("test_*.db"):
         f.unlink(missing_ok=True)
 
