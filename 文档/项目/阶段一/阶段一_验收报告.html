@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>阶段一 · 验收报告</title>
+<style>
+  :root {
+    --bg: #f7f8fa;
+    --fg: #1f2328;
+    --muted: #57606a;
+    --border: #d0d7de;
+    --accent: #0969da;
+    --accent-bg: #ddf4ff;
+    --code-bg: #f6f8fa;
+    --warn-bg: #fff8c5;
+    --warn-border: #d4a72c;
+    --ok-bg: #dafbe1;
+    --ok-border: #1a7f37;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+    line-height: 1.75;
+  }
+  .layout { display: flex; height: 100vh; overflow: hidden; }
+  .sidebar {
+    width: 280px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+  }
+  .sidebar .brand {
+    background: linear-gradient(135deg, #1f2328, #32383f);
+    color: #fff;
+    padding: 1.4rem 1.2rem 1.1rem;
+    border-bottom: 3px solid var(--accent);
+    flex-shrink: 0;
+  }
+  .sidebar .brand h1 { margin: 0 0 .35rem; font-size: 1.15rem; line-height: 1.4; }
+  .sidebar .brand p { margin: 0; color: #b6bec6; font-size: .78rem; }
+  .sidebar nav { padding: .8rem .6rem 1.5rem; font-size: .9rem; }
+  .sidebar nav ul { list-style: none; margin: 0; padding: 0; }
+  .sidebar nav li { margin: .15rem 0; }
+  .sidebar nav a {
+    display: block;
+    padding: .3rem .7rem;
+    border-radius: 5px;
+    color: var(--fg);
+    text-decoration: none;
+  }
+  .sidebar nav a:hover { background: var(--accent-bg); color: var(--accent); }
+  .sidebar nav .sub { padding-left: 1.6rem; font-size: .85rem; color: var(--muted); }
+  .content { flex: 1; overflow-y: auto; }
+  main {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1.5rem 2rem 4rem;
+  }
+  h2 {
+    margin-top: 2.5rem;
+    padding-bottom: .4rem;
+    border-bottom: 2px solid var(--border);
+    font-size: 1.35rem;
+  }
+  h3 { margin-top: 1.6rem; font-size: 1.1rem; }
+  p { margin: .6rem 0; }
+  ul, ol { margin: .6rem 0; padding-left: 1.6rem; }
+  li { margin: .3rem 0; }
+  code {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: .1em .35em;
+    font-family: Consolas, "Cascadia Mono", monospace;
+    font-size: .9em;
+  }
+  pre {
+    background: #0d1117;
+    color: #e6edf3;
+    border-radius: 8px;
+    padding: .9rem 1.1rem;
+    overflow-x: auto;
+    font-size: .88rem;
+    line-height: 1.6;
+  }
+  pre code { background: none; border: none; padding: 0; color: inherit; }
+  .note, .warn, .ok {
+    border-radius: 6px;
+    padding: .7rem 1rem;
+    margin: 1rem 0;
+    font-size: .95rem;
+  }
+  .note { background: var(--accent-bg); border-left: 4px solid var(--accent); }
+  .warn { background: var(--warn-bg); border-left: 4px solid var(--warn-border); }
+  .ok { background: var(--ok-bg); border-left: 4px solid var(--ok-border); }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1rem 0;
+    font-size: .92rem;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: .45rem .7rem;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: #eef1f4; white-space: nowrap; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  footer {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1rem 2rem 3rem;
+    color: var(--muted);
+    font-size: .85rem;
+    border-top: 1px solid var(--border);
+  }
+  @media (max-width: 768px) {
+    .layout { flex-direction: column; height: auto; overflow: visible; }
+    .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); max-height: 40vh; }
+    .content { overflow: visible; }
+  }
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>阶段一 · 验收报告</h1>
+      <p>对照完成标准逐项核对与结论</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#summary">1. 验收结论总览</a></li>
+        <li><a href="#items">2. 完成标准逐项验收</a>
+          <ul class="sub">
+            <li><a href="#i1">2.1 本地起服务</a></li>
+            <li><a href="#i2">2.2 /healthz /readyz 正常</a></li>
+            <li><a href="#i3">2.3 双库拓扑可路由</a></li>
+            <li><a href="#i4">2.4 CI 通过</a></li>
+            <li><a href="#i5">2.5 配置/日志可用</a></li>
+            <li><a href="#i6">2.6 迁移工具可用</a></li>
+          </ul>
+        </li>
+        <li><a href="#issues">3. 遗留问题清单</a></li>
+        <li><a href="#conclusion">4. 结论与放行建议</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="summary">1. 验收结论总览</h2>
+      <table>
+        <tr><th>#</th><th>完成标准</th><th>状态</th></tr>
+        <tr><td>1</td><td>本地起服务</td><td><strong>未通过</strong>（应用工厂未实现）</td></tr>
+        <tr><td>2</td><td>/healthz /readyz 正常</td><td><strong>未通过</strong>（健康检查未实现）</td></tr>
+        <tr><td>3</td><td>双库拓扑可路由</td><td><strong>未通过</strong>（db 层未实现）</td></tr>
+        <tr><td>4</td><td>CI 通过</td><td><strong>未通过</strong>（.github 未建立、前端未初始化）</td></tr>
+        <tr><td>5</td><td>配置/日志可用</td><td><strong>部分通过</strong>（配置可用；日志未实现）</td></tr>
+        <tr><td>6</td><td>迁移工具可用</td><td><strong>未通过</strong>（Alembic 双套环境未建立）</td></tr>
+      </table>
+      <div class="warn"><strong>总体结论：阶段一尚未通过验收。</strong>当前进度约 2/10 任务（配置模块完成、仓库骨架部分完成），剩余 8 项任务完成后须回归本报告逐条复核。阶段二（认证与安全）按设计文档约定暂不启动。</div>
+
+      <h2 id="items">2. 完成标准逐项验收</h2>
+      <p>验收依据：《阶段一_项目骨架说明.html》第 2 节（完成标准与验收），验收日期 2026-08-05，代码基线 commit <code>c224c08</code>。</p>
+
+      <h3 id="i1">2.1 本地起服务 —— 未通过</h3>
+      <table>
+        <tr><th>标准原文</th><td><code>uv run uvicorn app.main:app</code> 启动；两个前端 <code>pnpm dev</code> 可访问</td></tr>
+        <tr><th>实际状态</th><td><code>app/main.py</code> 不存在（应用工厂、路由注册未实现）；frontend / frontend-mobile 工程未创建</td></tr>
+        <tr><th>差距原因</th><td>实施记录第 5 节：任务 1 部分完成、任务 5 未开始</td></tr>
+        <tr><th>达成前置</th><td>任务 3~7（日志、异常、健康检查、db 层、租户解析与应用组装）+ 前端双工程初始化</td></tr>
+      </table>
+
+      <h3 id="i2">2.2 /healthz /readyz 正常 —— 未通过</h3>
+      <table>
+        <tr><th>标准原文</th><td>curl 返回 200；/readyz 在 Redis 停止时返回 503，恢复后自动转 200</td></tr>
+        <tr><th>实际状态</th><td>健康检查端点与 db/redis 连通性检查均未实现</td></tr>
+        <tr><th>差距原因</th><td>任务 5 未开始</td></tr>
+        <tr><th>达成前置</th><td>任务 5（api/v1/health.py）+ 任务 6（db/redis 接入）</td></tr>
+      </table>
+
+      <h3 id="i3">2.3 双库拓扑可路由 —— 未通过</h3>
+      <table>
+        <tr><th>标准原文</th><td>平台库与租户库各建一张验证表，按租户上下文写入/读取成功（集成测试覆盖）</td></tr>
+        <tr><th>实际状态</th><td>db 层（engine/session/router/base）与验证模型均未实现；配置侧已具备 <code>platform_url</code> / <code>tenant_url_template</code> / <code>dev_tenants</code>（差异见实施记录第 4 节）</td></tr>
+        <tr><th>差距原因</th><td>任务 6、7 未开始</td></tr>
+        <tr><th>达成前置</th><td>任务 6（多数据源引擎工厂、会话、模型基类、Redis 封装）+ 任务 7（租户解析）+ 任务 9（集成测试）</td></tr>
+      </table>
+
+      <h3 id="i4">2.4 CI 通过 —— 未通过</h3>
+      <table>
+        <tr><th>标准原文</th><td>PR 触发：ruff、pytest（SQLite 单测）、MySQL/PostgreSQL 服务容器集成测试、前端 lint + Vitest + 双端构建全部绿</td></tr>
+        <tr><th>实际状态</th><td><code>.github/workflows/ci.yml</code> 未创建；测试骨架未建立；前端工程未初始化</td></tr>
+        <tr><th>差距原因</th><td>任务 9、10 未开始；任务 1 部分完成</td></tr>
+        <tr><th>达成前置</th><td>任务 9（测试骨架）+ 任务 10（CI 流水线与前端工程收尾）</td></tr>
+      </table>
+
+      <h3 id="i5">2.5 配置/日志可用 —— 部分通过</h3>
+      <table>
+        <tr><th>标准原文</th><td>BMS_ENV 切换环境生效；环境变量覆盖生效；请求日志含 request_id 且为 JSON 格式</td></tr>
+        <tr><th>实际状态</th><td><strong>配置项通过</strong>：BMS_ENV 切换、BMS_* 环境变量覆盖已实现且实测可用（见《阶段一_启动指南》2.2 节）。<strong>日志项未通过</strong>：structlog 配置、request_id 上下文、中间件均未实现</td></tr>
+        <tr><th>差距原因</th><td>任务 2 完成、任务 3 未开始</td></tr>
+        <tr><th>达成前置</th><td>任务 3（core/logging.py、core/context.py、request_id 中间件）</td></tr>
+      </table>
+
+      <h3 id="i6">2.6 迁移工具可用 —— 未通过</h3>
+      <table>
+        <tr><th>标准原文</th><td>Alembic 可对平台库/租户库分别升级；批量迁移脚本遍历已注册租户</td></tr>
+        <tr><th>实际状态</th><td>alembic 依赖已在 pyproject 中就位，但双套 Alembic 环境（alembic_platform.ini / alembic_tenant.ini）、迁移脚本目录与 <code>scripts/migrate_tenants.py</code> 均未创建</td></tr>
+        <tr><th>差距原因</th><td>任务 8 未开始</td></tr>
+        <tr><th>达成前置</th><td>任务 8（双套 Alembic 环境、批量迁移工具框架、SQLite 自动建表钩子）</td></tr>
+      </table>
+
+      <h2 id="issues">3. 遗留问题清单</h2>
+      <p>验收中发现的、须在阶段一收尾前处理的问题（不含「未开始任务」本身）：</p>
+      <table>
+        <tr><th>#</th><th>问题</th><th>影响</th><th>处理要求</th></tr>
+        <tr><td>1</td><td>pyright strict 在 <code>app/core/config.py</code> 有 2 个类型错误（105 行 <code>next()</code> 实参类型部分未知，<code>dict[Unknown, Unknown]</code>）</td><td>类型检查不绿，任务 9/10 建立 CI 后流水线必失败</td><td>任务 9 前清零（修复方向见《阶段一_实施记录》第 6 节）</td></tr>
+        <tr><td>2</td><td>frontend / frontend-mobile 未初始化，规划要求的 pnpm workspace 结构未落地</td><td>完成标准 1、4 无法达成</td><td>任务 1 补完：双工程初始化 + pnpm-workspace.yaml + .nvmrc</td></tr>
+        <tr><td>3</td><td>README 此前仅 3 行简介，未按规划「阶段一起持续更新」</td><td>新成员无法按文档快速上手</td><td>随本批文档一并更新（本次已处理，见仓库 README.md）</td></tr>
+      </table>
+
+      <h2 id="conclusion">4. 结论与放行建议</h2>
+      <ul>
+        <li><strong>验收结论：未通过。</strong>6 项完成标准中 1 项部分通过（配置部分）、5 项未通过；不存在「已通过」项。</li>
+        <li>已完成的实施工作（配置模块、依赖基线、工具链）质量合格、与设计一致（差异项已登记），可作为后续任务的基础继续推进，无需返工。</li>
+        <li><strong>放行建议：</strong>允许继续实施阶段一剩余任务（按《阶段一_项目骨架说明》第 12 节任务 3~10 顺序）；全部任务完成后，本报告须逐条回归复核，6 项全绿方可签署阶段一验收、启动阶段二。</li>
+        <li>本报告每次回归后更新「实际状态」列与验收日期，保留历史结论作为演进依据。</li>
+      </ul>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 依《文档生成规范》编写 · 与《阶段一_实施记录》《阶段一_启动指南》配套 · 生成日期：2026-08-05
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>
