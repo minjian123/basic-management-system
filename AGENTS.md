@@ -8,6 +8,10 @@
 - 文档目录使用中文名（`文档/`），README 与规划文档均为中文；回复与文档保持中文。
 - `.opencode/`（opencode.json、plugins/graphify.js 等）由 graphify 安装脚本生成，勿手动修改。
 
+## 文档要求
+
+在“文档”目录下的文档，md文档是用户写的，AI生成的文档使用html。html的相关css、js、图片等资源文件统一放到同级目录的“资源”文件夹下。
+
 ## graphify
 
 本项目通过知识图谱（graphify-out/）辅助代码理解与架构分析，已启用中文查询分词。
