@@ -1,0 +1,46 @@
+[project]
+name = "bms-backend"
+version = "0.1.0"
+description = "BMS 基础管理系统后端（FastAPI + SQLAlchemy 异步）"
+requires-python = ">=3.14"
+dependencies = [
+    "aiosqlite>=0.22.1",
+    "alembic>=1.19.0",
+    "fastapi>=0.141.1",
+    "pydantic-settings>=2.14.2",
+    "redis>=8.1.0",
+    "sqlalchemy[asyncio]>=2.0.51",
+    "structlog>=26.1.0",
+    "uvicorn[standard]>=0.52.1",
+]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "pyright>=1.1.411",
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+    "ruff>=0.16.1",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py314"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "ASYNC", "S", "N"]
+ignore = ["S101"]
+
+[tool.ruff.lint.per-file-ignores]
+# vendor 的雪花算法源码（yitter/IdGenerator，MIT），保持算法原样，不强制格式
+"app/core/snowflake/*.py" = ["E501", "UP", "B", "S", "N", "ASYNC"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+addopts = "-ra"
+
+[tool.pyright]
+typeCheckingMode = "strict"
+include = ["app", "tests", "scripts"]
+pythonVersion = "3.14"

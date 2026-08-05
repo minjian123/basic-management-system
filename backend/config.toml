@@ -1,0 +1,46 @@
+# ==================== BMS 配置文件 ====================
+# 加载顺序（后者覆盖前者）：
+#   1. 本文件公共段（[app] [log] [database] [redis] [snowflake] 等）
+#   2. 环境段（[env.dev] / [env.test] / [env.prod]），由 BMS_ENV 指定选哪个
+#   3. 环境变量 BMS_*（最高优先级；密钥类只走环境变量，不写入本文件）
+
+[app]
+env = "dev"                # 运行环境：dev / test / prod（BMS_ENV 可覆盖）
+debug = true               # 调试模式：开启后输出详细错误、开启 Swagger 文档；生产必须 false
+name = "bms"               # 应用名（日志、健康检查等场景展示用）
+
+[log]
+level = "INFO"             # 日志级别：DEBUG / INFO / WARNING / ERROR
+
+[database]
+# 平台库连接串（生产必填环境变量 BMS_DATABASE_PLATFORM_URL 覆盖）
+# SQLite（开发/测试）：sqlite+aiosqlite:///./data/platform.db
+# MySQL 8.x（生产）：  mysql+aiomysql://bms:密码@主机:3306/bms_platform
+# PostgreSQL 16+（生产）：postgresql+psycopg://bms:密码@主机:5432/bms_platform
+platform_url = "sqlite+aiosqlite:///./data/platform.db"
+
+# 租户库连接串模板：{code} 占位符在运行时替换为租户编码，一租户一库
+# 例：sqlite+aiosqlite:///./data/tenant_{code}.db（开发）
+#    mysql+aiomysql://bms:密码@主机:3306/bms_tenant_{code}（生产）
+tenant_url_template = "sqlite+aiosqlite:///./data/tenant_{code}.db"
+
+pool_size = 5              # 每个数据源连接池大小（多 worker 部署时按规划公式核算总量）
+max_overflow = 10          # 连接池上限之外的额外连接数
+echo = false               # 是否打印 SQL 日志（仅调试用，生产保持 false）
+
+# 开发环境预注册租户列表（阶段一用于演练双库路由与批量迁移；阶段三起以 sys_tenant 注册表为准）
+dev_tenants = ["demo"]
+
+[redis]
+url = "redis://localhost:6379/0"   # Redis 连接串（生产用 BMS_REDIS_URL 覆盖）
+timeout = 0.5              # 单次操作超时（秒），Redis 故障快速失败，避免拖垮请求
+
+[snowflake]
+worker_id = 0              # 雪花 ID 机器码，同一应用域内必须全局唯一（最大值 2^6-1=63）
+                           # 多实例部署时按实例配置不同值；自动注册留待阶段八
+
+[env.test]
+debug = false              # 测试环境覆盖项
+
+[env.prod]
+debug = false              # 生产环境覆盖项（密钥一律走环境变量）
