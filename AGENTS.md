@@ -4,13 +4,15 @@
 
 ## 项目现状
 
-- BMS（基础管理系统）：后端管理用途。当前**尚无源代码**，处于规划阶段；技术栈方向（FastAPI + SQLAlchemy + Redis + JWT / Vue 3 + Vite）见 `文档/规划/项目规划说明.md`，动手写代码前先读该文件。
+- BMS（基础管理系统）：后端管理用途。当前**尚无源代码**，规划已定案；技术栈、功能模块、开发计划与验收标准见 `文档/规划/项目规划说明.md`，**动手写代码前先读该文件**。
 - 文档目录使用中文名（`文档/`），README 与规划文档均为中文；回复与文档保持中文。
-- `.opencode/`（opencode.json、plugins/graphify.js 等）由 graphify 安装脚本生成，勿手动修改。
+- `.opencode/`（opencode.json、plugins/graphify.js 等）由 graphify 安装脚本生成；`.reasonix/`、reasonix.toml 由 IDE 工具生成——均勿手动修改。
 
 ## 文档要求
 
-在“文档”目录下的文档，md文档是用户写的，AI生成的文档使用html。html的相关图片、音频、视频等资源文件统一放到同级目录的“资源”文件夹下的同名目录中。
+- md 文档是用户写的，AI 生成的文档使用 html；格式与布局遵循 `文档/规范/文档生成规范.html`，**生成文档前先读该文件**。
+- html 的相关图片、音频、视频等资源文件统一放到同级目录的"资源"文件夹下的同名目录中。
+- 项目内全部命名（代码、数据库、API、基础设施）遵循 `文档/规范/命名规范.html`。
 
 ## 讨论与确认
 
@@ -25,6 +27,7 @@
 当用户输入 `/graphify` 时，先使用已安装的 graphify skill（`.opencode/skills/graphify/SKILL.md`）或下述规则，再做其他事。
 
 规则：
+
 - 代码库相关问题，当 graphify-out/graph.json 存在时，先运行 `graphify query "<问题>"`（可直接用中文）。关系用 `graphify path "<A>" "<B>"`，概念用 `graphify explain "<概念>"`。返回的是范围受限的子图，通常比 GRAPH_REPORT.md 或原始 grep 输出小得多。
 - 钩子或增量更新后 graphify-out/ 文件变脏属正常现象，不应因此跳过 graphify。只有任务涉及过期或错误的图输出、或用户明确不用时，才跳过。
 - 若 graphify-out/wiki/index.md 存在，用它做广域导航，避免直接浏览源码。
