@@ -239,7 +239,7 @@
         <li>字段：snake_case；主键统一 <code>id</code>；外键 <code>目标表名_id</code>（<code>dept_id</code>、<code>role_id</code>）；布尔 <code>is_</code> 前缀；时间 <code>xxx_at</code>（<code>created_at</code>）；审计 <code>created_by</code> / <code>updated_by</code>；通用 <code>deleted_at</code>、<code>version</code>、<code>status</code>、<code>sort</code>、<code>remark</code></li>
         <li>索引：普通 <code>idx_字段</code>（<code>idx_dept_id</code>）、唯一 <code>uq_字段</code>（<code>uq_username</code>）</li>
         <li>关联表：两表名单词连接（<code>sys_user_post</code>、<code>sys_role_permission</code>），联合主键，不设 id；通用主体角色绑定 <code>sys_role_assign</code>（subject_type + subject_id + role_id）</li>
-        <li>枚举值：小写 snake_case 或 UPPER_SNAKE（<code>subject_type = 'user' | 'post' | 'dept'</code>、<code>scope_type = 'all' | 'dept_and_below' | 'dept' | 'self'</code>、<code>button.type = 'toolbar' | 'interface'</code>），统一用字典管理</li>
+        <li>枚举值：小写 snake_case 或 UPPER_SNAKE（<code>subject_type = 'user' | 'post' | 'dept'</code>、<code>scope_type = 'all' | 'dept_and_below' | 'dept' | 'self'</code>、<code>button.type = 'toolbar' | 'interface'</code>、<code>lock_type = 'fail_limit' | 'inactive' | 'manual'</code>、<code>sms.channel = 'aliyun' | 'tencent'</code>、<code>quota_key = 'user_count' | 'storage_bytes' | 'open_calls'</code>），统一用字典管理</li>
       </ul>
 
       <h2 id="api">8. API 命名</h2>
