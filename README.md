@@ -6,7 +6,7 @@
 
 ## 当前状态
 
-阶段一（项目骨架）实施中，详见 [阶段一_实施记录](文档/项目/阶段一/阶段一_实施记录.html)。
+阶段一（项目骨架）已完成并通过验收，详见 [阶段一_实施记录](文档/项目/阶段一/阶段一_实施记录.html) 与 [阶段一_验收报告](文档/项目/阶段一/阶段一_验收报告.html)。下一步：阶段二（认证与安全）。
 
 ## 快速开始
 
@@ -16,13 +16,15 @@
 # 后端
 cd backend
 uv sync
-uv run ruff check .
+uv run uvicorn app.main:app --reload --port 8000
+# 验证：http://localhost:8000/healthz、/readyz（需 Redis，可用 docker compose -f deploy/compose.yml up -d）
 ```
 
 ```bash
-# 前端（工程初始化后生效）
+# 前端
 pnpm install
 pnpm --filter frontend dev
+pnpm --filter frontend-mobile dev
 ```
 
 ## 目录结构
@@ -30,11 +32,16 @@ pnpm --filter frontend dev
 ```
 bms/
 ├── backend/          # FastAPI 后端（uv 管理，Python 3.14）
-├── frontend/         # Vue 3 + Vite（PC 管理端，未初始化）
-├── frontend-mobile/  # Vue 3 + Vant（移动端 H5，未初始化）
-├── deploy/           # Docker Compose、nginx 配置（未创建）
-├── scripts/          # 迁移、种子等运维脚本（未创建）
-├── .github/          # CI 工作流（未创建）
+│   ├── app/          # core/db/models/schemas/api/services/repositories/migrations
+│   ├── alembic_*.ini # 平台库/租户库双套迁移环境
+│   ├── scripts/      # 运维脚本（如 migrate_tenants.py 批量迁移租户库）
+│   └── tests/        # unit + integration
+├── frontend/         # Vue 3 + Vite（PC 管理端）
+├── frontend-mobile/  # Vue 3 + Vant（移动端 H5）
+├── pnpm-workspace.yaml
+├── deploy/           # Docker Compose（Redis 等依赖服务）
+├── scripts/          # 顶层运维脚本（阶段三起补充）
+├── .github/workflows/ci.yml
 ├── 文档/             # 规划、规范、项目阶段文档
 └── graphify-out/     # 知识图谱输出
 ```

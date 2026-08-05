@@ -224,3 +224,11 @@ reasonix.toml
 
 # graphify 运行产物（图谱可随时重建，含本机绝对路径，不入库）
 graphify-out/
+
+# Node.js / frontend
+node_modules/
+dist/
+
+# SQLite 本地数据文件（平台库/租户库/测试库）
+data/
+

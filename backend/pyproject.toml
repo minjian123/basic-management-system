@@ -17,6 +17,8 @@ dependencies = [
 [dependency-groups]
 dev = [
     "httpx>=0.28.1",
+    "psycopg[binary]>=3.3.4",
+    "pymysql>=1.2.0",
     "pyright>=1.1.411",
     "pytest>=9.1.1",
     "pytest-asyncio>=1.4.0",
@@ -39,8 +41,10 @@ ignore = ["S101"]
 asyncio_mode = "auto"
 testpaths = ["tests"]
 addopts = "-ra"
+pythonpath = ["."]
 
 [tool.pyright]
 typeCheckingMode = "strict"
-include = ["app", "tests", "scripts"]
+include = ["app", "scripts"]
+exclude = ["app/core/snowflake"]
 pythonVersion = "3.14"

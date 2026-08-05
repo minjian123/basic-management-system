@@ -42,5 +42,11 @@ worker_id = 0              # 雪花 ID 机器码，同一应用域内必须全�
 [env.test]
 debug = false              # 测试环境覆盖项
 
+# 测试环境数据库：SQLite 多文件模拟平台库/租户库（含两个演练租户，覆盖租户间隔离测试）
+[env.test.database]
+platform_url = "sqlite+aiosqlite:///./data/test_platform.db"
+tenant_url_template = "sqlite+aiosqlite:///./data/test_tenant_{code}.db"
+dev_tenants = ["demo", "demo2"]
+
 [env.prod]
 debug = false              # 生产环境覆盖项（密钥一律走环境变量）

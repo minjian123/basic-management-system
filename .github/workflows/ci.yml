@@ -1,0 +1,107 @@
+# BMS CI 流水线（阶段一任务 10）
+#
+# PR 触发：后端 ruff + pyright + pytest（SQLite），MySQL/PostgreSQL 服务容器做双库方言迁移验证；
+# 前端 eslint + vitest + 双端构建。main 分支镜像构建与 swagger.json 导出随阶段八引入。
+
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  backend:
+    name: backend (ruff/pyright/pytest + 双库迁移)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      mysql:
+        image: mysql:8
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: bms_platform
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: bms
+          POSTGRES_PASSWORD: bms
+          POSTGRES_DB: bms_platform
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U bms"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: 安装依赖（uv.lock 锁定）
+        run: uv sync --frozen
+      - name: ruff 检查
+        run: uv run ruff check .
+      - name: pyright 类型检查（strict）
+        run: uv run pyright
+      - name: pytest（SQLite 单测 + 集成测试）
+        run: uv run pytest
+
+      - name: 平台库迁移方言验证（MySQL）
+        env:
+          BMS_ENV: test
+          BMS_DATABASE_PLATFORM_URL: mysql+aiomysql://root:root@127.0.0.1:3306/bms_platform
+        run: uv run alembic -c alembic_platform.ini upgrade head
+
+      - name: 平台库迁移方言验证（PostgreSQL）
+        env:
+          BMS_ENV: test
+          BMS_DATABASE_PLATFORM_URL: postgresql+psycopg://bms:bms@127.0.0.1:5432/bms_platform
+        run: uv run alembic -c alembic_platform.ini upgrade head
+
+      - name: 租户库批量迁移（MySQL 方言）
+        env:
+          BMS_ENV: test
+          BMS_DATABASE_TENANT_URL_TEMPLATE: mysql+aiomysql://root:root@127.0.0.1:3306/bms_tenant_{code}
+        run: |
+          uv run python -c "import pymysql; c=pymysql.connect(host='127.0.0.1',user='root',password='root',port=3306); cur=c.cursor(); cur.execute('CREATE DATABASE IF NOT EXISTS bms_tenant_demo CHARACTER SET utf8mb4'); c.commit()"
+          uv run python scripts/migrate_tenants.py --tenant demo
+
+      - name: 租户库批量迁移（PostgreSQL 方言）
+        env:
+          BMS_ENV: test
+          BMS_DATABASE_TENANT_URL_TEMPLATE: postgresql+psycopg://bms:bms@127.0.0.1:5432/bms_tenant_{code}
+        run: |
+          uv run python -c "import psycopg; c=psycopg.connect('postgresql://bms:bms@127.0.0.1:5432/postgres'); c.autocommit=True; c.execute('CREATE DATABASE bms_tenant_demo')"
+          uv run python scripts/migrate_tenants.py --tenant demo
+
+  frontend:
+    name: frontend (eslint/vitest/双端构建)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.20.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: frontend/.nvmrc
+          cache: pnpm
+      - name: 安装依赖（锁文件）
+        run: pnpm install --frozen-lockfile
+      - name: frontend eslint
+        run: pnpm --filter frontend exec eslint .
+      - name: frontend vitest
+        run: pnpm --filter frontend exec vitest run
+      - name: frontend-mobile eslint
+        run: pnpm --filter frontend-mobile exec eslint .
+      - name: frontend-mobile vitest
+        run: pnpm --filter frontend-mobile exec vitest run
+      - name: frontend 构建
+        run: pnpm --filter frontend build
+      - name: frontend-mobile 构建
+        run: pnpm --filter frontend-mobile build

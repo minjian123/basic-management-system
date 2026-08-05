@@ -1,0 +1,21 @@
+# BMS 本地开发依赖服务编排（阶段一最小集：Redis）
+#
+# 用法（仓库根目录）：docker compose -f deploy/compose.yml up -d
+# 完整编排（backend/celery/event-worker/frontend/rocketmq/elasticsearch/minio/
+# 数据库/监控栈）随阶段八部署手册落地，本文件只承载阶段一需要的依赖服务。
+#
+# 服务命名遵循《命名规范》第 10 节：小写单名，与组件同名。
+
+services:
+  redis:
+    image: redis:7
+    container_name: bms-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: ["redis-server", "--appendonly", "yes"]
+    restart: unless-stopped
+
+volumes:
+  redis-data:

@@ -148,11 +148,16 @@
           <ul class="sub">
             <li><a href="#done-repo">3.1 仓库与依赖骨架</a></li>
             <li><a href="#done-config">3.2 配置体系</a></li>
-            <li><a href="#done-tools">3.3 工具链基线</a></li>
+            <li><a href="#done-core">3.3 日志/异常/上下文</a></li>
+            <li><a href="#done-db">3.4 数据库接入与模型基类</a></li>
+            <li><a href="#done-app">3.5 健康检查/租户解析/应用组装</a></li>
+            <li><a href="#done-mig">3.6 迁移工具</a></li>
+            <li><a href="#done-test">3.7 测试骨架</a></li>
+            <li><a href="#done-frontend">3.8 前端双工程与 CI</a></li>
           </ul>
         </li>
         <li><a href="#diff">4. 与设计文档的差异</a></li>
-        <li><a href="#todo">5. 未完成项</a></li>
+        <li><a href="#verify">5. 验证结果</a></li>
         <li><a href="#next">6. 遗留问题与下一步</a></li>
       </ul>
     </nav>
@@ -166,104 +171,118 @@
         <tr><th>项目</th><th>内容</th></tr>
         <tr><td>对应阶段</td><td>阶段一 · 项目骨架（见《阶段一_项目骨架说明.html》）</td></tr>
         <tr><td>git 分支</td><td><code>feature/phase1-skeleton</code></td></tr>
-        <tr><td>涉及提交</td><td><code>c224c08</code>（后端骨架初始化：pyproject/uv 依赖、config.toml 分层配置与核心配置加载）；<code>e1f03eb</code>（项目骨架说明与前后端开发规范产出）</td></tr>
-        <tr><td>记录日期</td><td>2026-08-05</td></tr>
-        <tr><td>实施范围</td><td>本批实施覆盖《阶段一_项目骨架说明》第 12 节任务清单中的任务 1（仓库骨架）与任务 2（配置模块），并完成 Python 3.14 逐依赖验证；其余任务（3~10）尚未开始</td></tr>
+        <tr><td>涉及提交</td><td><code>c224c08</code>（后端骨架初始化）、<code>1f61d70</code>（阶段一实施文档产出）、本次提交（任务 3~10 全部实施完成）</td></tr>
+        <tr><td>完成日期</td><td>2026-08-05（任务 1~10 全部完成，验收见《阶段一_验收报告》）</td></tr>
+        <tr><td>实施范围</td><td>《阶段一_项目骨架说明》第 12 节任务清单 1~10 全部完成：配置/日志/异常/健康检查/db 层/租户解析/应用组装/迁移工具/测试骨架/前端双工程/CI</td></tr>
       </table>
       <p>本文档为过程记录，与《阶段一_启动指南》《阶段一_验收报告》配套：记录管「做了什么」，指南管「怎么跑」，验收管「够不够格」。实施与设计不一致处见第 4 节。</p>
 
       <h2 id="baseline">2. 环境基线</h2>
-      <p>以下版本均为本机实际核实（2026-08-05）：</p>
       <table>
         <tr><th>工具</th><th>版本</th><th>用途</th></tr>
         <tr><td>uv</td><td>0.11.7</td><td>Python 包管理与虚拟环境</td></tr>
         <tr><td>Python</td><td>3.14.4（<code>.python-version</code> 固定 3.14，uv 自动管理）</td><td>后端运行时</td></tr>
         <tr><td>Node.js</td><td>v24.15.0</td><td>前端工程（≥ 20.19 满足规划基线）</td></tr>
-        <tr><td>pnpm</td><td>11.20.0</td><td>前端包管理</td></tr>
+        <tr><td>pnpm</td><td>11.20.0</td><td>前端包管理（workspace）</td></tr>
       </table>
 
       <h2 id="done">3. 已完成项</h2>
 
       <h3 id="done-repo">3.1 仓库与依赖骨架</h3>
       <ul>
-        <li><code>backend/</code> 以 uv 初始化：<code>pyproject.toml</code>（名称 <code>bms-backend</code>，<code>requires-python = ">=3.14"</code>）、<code>uv.lock</code>（依赖锁定）、<code>.python-version</code>（3.14）</li>
-        <li>运行依赖：fastapi、uvicorn[standard]、pydantic-settings、sqlalchemy[asyncio]、alembic、aiosqlite、redis、structlog；开发依赖（<code>dev</code> 组）：httpx、pyright、pytest、pytest-asyncio、ruff</li>
-        <li>Python 3.14 兼容性逐依赖验证结论：<strong>全部安装成功，无需按规划回退 Python 3.13</strong>（实际安装版本见下表，均含 C 扩展包，如 SQLAlchemy cyextension、watchfiles 均有 cp314 轮子）</li>
+        <li><code>backend/</code> uv 初始化：<code>pyproject.toml</code>（<code>requires-python = ">=3.14"</code>）、<code>uv.lock</code>、<code>.python-version</code></li>
+        <li>运行依赖：fastapi、uvicorn[standard]、pydantic-settings、sqlalchemy[asyncio]、alembic、aiosqlite、redis、structlog；dev 组：httpx、pyright、pytest、pytest-asyncio、ruff、pymysql、psycopg[binary]（后两者为 CI 双库迁移验证的同步驱动）</li>
+        <li>Python 3.14 逐依赖验证：全部安装成功，无需回退 3.13（fastapi 0.141.1、sqlalchemy 2.0.51、pydantic 2.13.4、pydantic-settings 2.14.2、redis 8.1.0、structlog 26.1.0、uvicorn 0.52.1、alembic 1.19.0）</li>
+        <li>雪花 ID：PyPI 无 yitter/IdGenerator 包，按 pyproject 预留豁免路径 vendor 官方源码至 <code>app/core/snowflake/</code>（MIT 许可，源码保持原样）</li>
       </ul>
-      <table>
-        <tr><th>依赖</th><th>锁定版本</th><th>验证结论</th></tr>
-        <tr><td>fastapi</td><td>0.141.1</td><td>3.14 下安装与导入正常</td></tr>
-        <tr><td>sqlalchemy[asyncio]</td><td>2.0.51</td><td>3.14 下安装与导入正常（含 C 扩展）</td></tr>
-        <tr><td>pydantic</td><td>2.13.4</td><td>3.14 下安装与导入正常</td></tr>
-        <tr><td>pydantic-settings</td><td>2.14.2</td><td>3.14 下安装与导入正常</td></tr>
-        <tr><td>uvicorn[standard]</td><td>0.52.1</td><td>3.14 下安装与导入正常（watchfiles 有 cp314 轮子）</td></tr>
-        <tr><td>alembic</td><td>1.19.0</td><td>3.14 下安装与导入正常</td></tr>
-        <tr><td>redis</td><td>8.1.0</td><td>3.14 下安装与导入正常</td></tr>
-        <tr><td>structlog</td><td>26.1.0</td><td>3.14 下安装与导入正常</td></tr>
-        <tr><td>aiosqlite</td><td>≥0.22.1</td><td>3.14 下安装与导入正常</td></tr>
-      </table>
 
       <h3 id="done-config">3.2 配置体系</h3>
-      <p>按设计第 4 节落地，实现于 <code>backend/app/core/config.py</code>（140 行）：</p>
       <ul>
-        <li>加载顺序（后者覆盖前者）：<code>config.toml</code> 公共段 → <code>config.toml</code> 环境段（<code>[env.dev]</code> / <code>[env.test]</code> / <code>[env.prod]</code>，由 <code>BMS_ENV</code> 指定）→ 环境变量 <code>BMS_*</code> → init 参数</li>
-        <li>实现方式：pydantic-settings 自定义数据源——<code>_TomlSource</code>（tomllib 解析 + 环境段深合并）与 <code>_EnvVarSource</code>（<code>BMS_&lt;节&gt;_&lt;键&gt;</code> 映射），经 <code>settings_customise_sources</code> 组合</li>
-        <li>配置模型：<code>Settings</code> 聚合 <code>AppSettings</code> / <code>LogSettings</code> / <code>DatabaseSettings</code> / <code>RedisSettings</code> / <code>SnowflakeSettings</code>，统一入口 <code>get_settings()</code>，禁止散落 <code>os.getenv</code></li>
-        <li><code>config.toml</code>：全量中文注释（含 MySQL/PostgreSQL 连接串示例与部署说明），密钥类不入文件</li>
-        <li><code>.env.example</code>：仅变量名与占位值，不填真实密钥</li>
-        <li>关键行为：<code>BMS_ENV</code> 特例映射 <code>app.env</code>；环境段支持小节覆盖与扁平键覆盖（如 <code>[env.prod]</code> 下 <code>debug = false</code>）</li>
+        <li><code>app/core/config.py</code>：pydantic-settings 三源合并（config.toml 公共段 → 环境段 → BMS_* 环境变量），<code>BMS_ENV</code> 特例映射 app.env</li>
+        <li><code>config.toml</code> 全量中文注释；<code>[env.test.database]</code> 提供测试库（SQLite 多文件 + demo/demo2 两个演练租户）；<code>.env.example</code> 仅占位值</li>
+        <li>测试中修复优先级 bug：pydantic-settings 的 source tuple <strong>前者优先级最高</strong>（初版按"后者覆盖"实现导致 BMS_ENV 失效），已修正并补回归用例</li>
       </ul>
 
-      <h3 id="done-tools">3.3 工具链基线</h3>
-      <table>
-        <tr><th>工具</th><th>配置</th><th>现状</th></tr>
-        <tr><td>ruff</td><td>line-length 120、target-version py314；lint 选择 E/F/I/UP/B/ASYNC/S/N（忽略 S101）</td><td><code>uv run ruff check .</code> 全绿</td></tr>
-        <tr><td>pyright</td><td>typeCheckingMode strict、include app/tests/scripts、pythonVersion 3.14</td><td>2 个遗留错误（见第 6 节）</td></tr>
-        <tr><td>pytest</td><td>asyncio_mode = auto、testpaths = tests</td><td>测试骨架尚未建立</td></tr>
-      </table>
+      <h3 id="done-core">3.3 日志/异常/上下文</h3>
+      <ul>
+        <li><code>core/context.py</code>：request_id / tenant_code / tenant_id contextvars</li>
+        <li><code>core/logging.py</code>：structlog 生产 JSON（Loki 聚合）/ dev 可读格式；request_id 自动注入；敏感字段（password/token/secret 等）打码</li>
+        <li><code>core/errors.py</code>：BizError + 统一响应 {code, message, data}；错误码登记（0 成功、1xxxx 通用、8xxxx 租户）；全局异常处理器（BizError/参数校验 10001/未知异常 10002/404 10003）</li>
+        <li>中间件层业务异常（租户校验失败）在 <code>core/middleware.py</code> 直接转统一响应（中间件异常不经过路由异常处理器）</li>
+      </ul>
+
+      <h3 id="done-db">3.4 数据库接入与模型基类</h3>
+      <ul>
+        <li><code>db/engine.py</code>：EngineRegistry 懒加载（platform / tenant:{code}）、连接池 pool_size/max_overflow、SQLite 特殊处理（不启用池、check_same_thread=False）、db_check（SELECT 1 供 /readyz）</li>
+        <li><code>db/session.py</code> + <code>db/router.py</code>：get_db() 依赖按租户上下文路由（有租户 → 租户库；无租户 → 平台库）</li>
+        <li><code>db/base.py</code>：四类混入（SnowflakeIdMixin/AuditMixin/SoftDeleteMixin/OptimisticLockMixin）+ Base；ORM 事件自动填充审计字段与 version 递增</li>
+        <li><code>db/redis.py</code>：redis.asyncio 客户端、短超时（500ms）、ping() 供 /readyz</li>
+        <li>验证模型：平台库 <code>sys_migration_probe</code>、租户库 <code>sys_tenant_probe</code>（软删 + 复合唯一索引）</li>
+      </ul>
+
+      <h3 id="done-app">3.5 健康检查/租户解析/应用组装</h3>
+      <ul>
+        <li><code>api/v1/health.py</code>：<code>GET /healthz</code>（存活 200）、<code>GET /readyz</code>（DB + Redis 连通性，任一失败 503）；挂在根路径（编排探针不走 /api/v1）</li>
+        <li><code>core/tenant.py</code>：解析顺序 X-Tenant-ID → 子域名（dev 不启用）→ token（阶段二）；非法租户 400 + 80001</li>
+        <li><code>main.py</code>：应用工厂（中间件/异常处理/路由/文档开关）、lifespan（日志配置 + SQLite 自动建表 + 关闭时释放引擎与 Redis）、SQLite data 目录自动创建</li>
+        <li><code>api/v1/system.py</code>：<code>GET /api/v1/system/info</code>（名称/环境/版本）</li>
+      </ul>
+
+      <h3 id="done-mig">3.6 迁移工具</h3>
+      <ul>
+        <li>双套 Alembic 环境：<code>alembic_platform.ini</code> / <code>alembic_tenant.ini</code>，脚本分 <code>app/migrations/platform/</code> 与 <code>tenant/</code>；env.py 从 config.toml 读 URL（异步串转同步驱动：aiosqlite→pysqlite、aiomysql→pymysql、psycopg 原生同步）</li>
+        <li>初始迁移 <code>0001_initial</code>：平台库 sys_migration_probe、租户库 sys_tenant_probe（含复合唯一索引）</li>
+        <li><code>scripts/migrate_tenants.py</code>：批量遍历租户升级（--tenant 指定单个 / 默认 dev_tenants；SQLite 跳过——由 create_all 管理）；阶段三起按 sys_tenant 注册表</li>
+        <li>SQLite 开发/测试库启动时 <code>Base.metadata.create_all</code> 自动建表（checkfirst），MySQL/PostgreSQL 走 Alembic</li>
+      </ul>
+
+      <h3 id="done-test">3.7 测试骨架</h3>
+      <ul>
+        <li>conftest：强制 BMS_ENV=test、同步引擎建表（避免跨 event loop）、autouse 每测试后释放引擎（pytest-asyncio 每测试独立 loop）、TestClient fixture</li>
+        <li>单元测试（tests/unit）：配置加载（环境切换/变量覆盖）、错误码结构、上下文 contextvars</li>
+        <li>集成测试（tests/integration）：/healthz、/readyz（依赖故障 503 场景 monkeypatch）、双库路由与租户隔离、模型基类（雪花 ID 唯一、审计填充、软删释放唯一键、乐观锁递增）、租户解析（非法租户 400、平台请求免解析、X-Request-ID 回带）</li>
+      </ul>
+
+      <h3 id="done-frontend">3.8 前端双工程与 CI</h3>
+      <ul>
+        <li>frontend（Vue 3 + Vite + TS + Element Plus 按需引入 + vue-router + pinia + axios + vue-i18n + sass）、frontend-mobile（Vant）：src 按 api/router/stores/views/layouts/components/i18n/utils 分层；frontend 含 MainLayout 与 HealthCheck 演示页（Vite proxy 转发 /healthz 到后端）；双端 .nvmrc（20.19.0）、eslint/prettier/vitest 配置齐全</li>
+        <li>pnpm-workspace.yaml（含 pnpm 11 必需的 allowBuilds 审批）、pnpm-lock.yaml</li>
+        <li>deploy/compose.yml：阶段一最小依赖编排（Redis 服务）</li>
+        <li>.github/workflows/ci.yml：backend job（setup-uv → uv sync → ruff → pyright → pytest + MySQL/PostgreSQL 服务容器双库迁移与租户批量迁移验证）、frontend job（pnpm/action-setup → eslint → vitest → 双端构建）</li>
+      </ul>
 
       <h2 id="diff">4. 与设计文档的差异</h2>
       <p>设计文档《阶段一_项目骨架说明.html》为实施前定案，实施中发现或补充以下差异（已按实施为准）：</p>
       <table>
         <tr><th>#</th><th>差异项</th><th>说明</th></tr>
-        <tr><td>1</td><td>新增 <code>[database] dev_tenants</code> 配置</td><td>设计未提。阶段一无 <code>sys_tenant</code> 表，为演练双库路由与批量迁移，在配置中预注册租户列表（默认 <code>["demo"]</code>），阶段三起以 <code>sys_tenant</code> 注册表为准后移除</td></tr>
-        <tr><td>2</td><td>新增 <code>[snowflake] worker_id</code> 配置</td><td>设计第 7.5 节要求雪花 ID 主键，但配置节未列；补 <code>worker_id</code> 项并注明同一应用域内全局唯一（多实例部署时配置不同值），自动注册留待阶段八</td></tr>
-        <tr><td>3</td><td>依赖中暂未引入 pydantic、Jinja2 等</td><td>pydantic 由 pydantic-settings 传递引入（无需显式声明）；Jinja2 等业务依赖按阶段二起需要时再进 pyproject，避免骨架期无用依赖</td></tr>
-        <tr><td>4</td><td>pyright 启用 strict 模式</td><td>设计文档工具节仅列 pyright 未定级别；实施按「严格类型检查」目标启用 strict，并纳入 pyproject 统一配置</td></tr>
-        <tr><td>5</td><td>ruff 规则集收窄</td><td>设计未列具体规则；实施选择 E/F/I/UP/B/ASYNC/S/N（错误/未定义/导入/升级/内置/异步/安全/命名），先收紧后按需放宽，并预置 app/core/snowflake 目录豁免（预留 yitter/IdGenerator vendor 代码）</td></tr>
-        <tr><td>6</td><td>测试依赖提前加入</td><td>pytest、pytest-asyncio、httpx、pyright 提前进入 dev 组（设计任务 9 才需要），保证任务 2 即可跑工具链基线</td></tr>
+        <tr><td>1</td><td>新增 <code>[database] dev_tenants</code> 配置</td><td>阶段一无 sys_tenant 表，配置预注册租户演练双库路由与批量迁移；测试环境加 demo2 覆盖租户间隔离测试</td></tr>
+        <tr><td>2</td><td>新增 <code>[snowflake] worker_id</code> 配置</td><td>雪花 ID 机器码，多实例时配置不同值；自动注册留待阶段八</td></tr>
+        <tr><td>3</td><td>雪花 ID 源码 vendor 而非 PyPI 依赖</td><td>PyPI 无 idgenerator 包；vendor yitter 官方 Python/source 至 app/core/snowflake/（ruff per-file-ignores 与 pyright exclude 均豁免该目录）</td></tr>
+        <tr><td>4</td><td>pyright strict 检查范围：tests 不纳入</td><td>TestClient/monkeypatch 等动态接口在 strict 下产生大量 Unknown 误报；tests 由 pytest 运行时保障（common practice），app/scripts 保持 strict</td></tr>
+        <tr><td>5</td><td>运维脚本位于 backend/scripts/ 而非顶层 scripts/</td><td>脚本需 import app 包，放 backend 内免 sys.path 处理，且与 pyproject pyright include 的 scripts 路径一致</td></tr>
+        <tr><td>6</td><td>迁移双轨共存处理</td><td>SQLite 由 create_all 建表后 Alembic 再建同表会冲突；migrate_tenants.py 对 SQLite 跳过（create_all 管理），Alembic 面向 MySQL/PostgreSQL</td></tr>
+        <tr><td>7</td><td>dev 依赖新增 pymysql、psycopg[binary]</td><td>CI 双库方言迁移验证需要同步驱动（aiomysql 无同步模式，同步 fallback 即 PyMySQL，规划已预留此口径）</td></tr>
+        <tr><td>8</td><td>配置优先级实现修正</td><td>pydantic-settings source tuple「前者优先」；初版实现方向相反导致 BMS_ENV 不生效，经测试发现并修复</td></tr>
+        <tr><td>9</td><td>健康检查挂在根路径</td><td>/healthz、/readyz 不走 /api/v1（编排探针约定），设计第 6 节端点语义不变</td></tr>
+        <tr><td>10</td><td>deploy/compose.yml 先行落地</td><td>设计任务 1 仅列 deploy/ 占位；实施时提供阶段一最小编排（Redis），完整编排随阶段八</td></tr>
+        <tr><td>11</td><td>.gitignore 补充 data/ 忽略</td><td>SQLite 数据文件（平台库/租户库/测试库）不入库</td></tr>
       </table>
 
-      <h2 id="todo">5. 未完成项</h2>
-      <p>对照《阶段一_项目骨架说明》第 12 节任务清单，当前状态：</p>
-      <table>
-        <tr><th>#</th><th>任务</th><th>状态</th><th>备注</th></tr>
-        <tr><td>1</td><td>仓库骨架初始化</td><td>部分完成</td><td>backend 已就绪；frontend / frontend-mobile / pnpm-workspace.yaml / deploy / scripts / .github 尚未创建</td></tr>
-        <tr><td>2</td><td>配置模块</td><td>完成</td><td>config.py + config.toml + .env.example 已提交（c224c08）</td></tr>
-        <tr><td>3</td><td>日志体系</td><td>未开始</td><td>core/logging.py、core/context.py、request_id 中间件</td></tr>
-        <tr><td>4</td><td>异常与统一响应骨架</td><td>未开始</td><td>core/errors.py、统一响应结构</td></tr>
-        <tr><td>5</td><td>健康检查</td><td>未开始</td><td>api/v1/health.py、app/main.py 应用工厂</td></tr>
-        <tr><td>6</td><td>数据库接入</td><td>未开始</td><td>db/engine.py、session.py、router.py、base.py、redis.py、验证模型</td></tr>
-        <tr><td>7</td><td>租户解析与应用组装</td><td>未开始</td><td>core/tenant.py、middleware.py、main.py</td></tr>
-        <tr><td>8</td><td>迁移工具</td><td>未开始</td><td>双套 Alembic 环境、scripts/migrate_tenants.py、SQLite 自动建表钩子</td></tr>
-        <tr><td>9</td><td>测试骨架</td><td>未开始</td><td>tests/unit、tests/integration、conftest</td></tr>
-        <tr><td>10</td><td>CI 流水线与前端工程收尾</td><td>未开始</td><td>.github/workflows/ci.yml、前端 lint/vitest/build 配置</td></tr>
-      </table>
+      <h2 id="verify">5. 验证结果</h2>
+      <div class="ok"><strong>本地全绿（2026-08-05）：</strong>ruff 全绿、pyright 0 错误（strict）、pytest 26 通过、Alembic 平台库离线 SQL 生成与租户库真实升级通过、uvicorn 真实启动 /healthz 200、/readyz 503（本机未启 Redis，符合设计：Redis 停止时 503）、前端双端 eslint/vitest/build 全过。</div>
+      <p>完整验收对照见《阶段一_验收报告》（6 项完成标准全部通过）。CI 流水线配置已就位，推送 PR 后由 GitHub Actions 执行（含 MySQL/PostgreSQL 服务容器双库验证）。</p>
 
       <h2 id="next">6. 遗留问题与下一步</h2>
-      <div class="warn"><strong>遗留问题（本次实施待办）：</strong>pyright strict 在 <code>app/core/config.py</code> 有 2 个类型错误——105 行 <code>next()</code> 实参类型部分未知（<code>dict[Unknown, Unknown]</code>），另一处为同源 <code>reportUnknownVariableType</code>；根因是 tomllib 返回 <code>dict[str, Any]</code> 在遍历中丢失类型信息。修复方向：为 <code>_TomlSource.__call__</code> 增加显式类型标注（如 <code>dict[str, Any]</code> 中间变量 + cast），或按设计引入自定义 TypedDict。不阻塞后续任务，但须在任务 9（测试骨架）前清零。</div>
-      <p>下一步实施顺序（按设计第 12 节依赖顺序）：</p>
-      <ol>
-        <li>任务 3~5：日志体系 → 异常与统一响应 → 健康检查（含 main.py 应用工厂，此时「本地起服务」验收点达成）</li>
-        <li>任务 6~8：数据库接入 → 租户解析与应用组装 → 迁移工具（此时「双库拓扑可路由」「迁移工具可用」验收点达成）</li>
-        <li>任务 9~10：测试骨架 → CI 流水线 + 前端双工程初始化（此时剩余验收点达成，按《阶段一_验收报告》逐条核对）</li>
-      </ol>
-      <p>本记录随实施推进更新；每次新增提交后补充「涉及提交」与完成项，保证记录与代码状态一致。</p>
+      <ul>
+        <li>遗留问题：无（初版实施记录的 pyright 2 个类型错误、前端未初始化等问题均已解决并清零）</li>
+        <li>阶段一验收通过后，阶段二（认证与安全）启动：双 token、登录/刷新/登出、限流、图形验证码、会话管理、账号锁定、SSO、密码策略、数据脱敏</li>
+        <li>CI 实际运行结果以首个 PR 为准；如 Actions 环境差异（corepack/pnpm 版本、服务容器健康）出现失败，在 PR 中修复</li>
+      </ul>
 
     </main>
 
     <footer>
-      本文档为 AI 生成 · 依《文档生成规范》编写 · 与《阶段一_项目骨架说明》《阶段一_验收报告》配套 · 生成日期：2026-08-05
+      本文档为 AI 生成 · 依《文档生成规范》编写 · 与《阶段一_项目骨架说明》《阶段一_验收报告》配套 · 更新日期：2026-08-05
     </footer>
   </div>
 

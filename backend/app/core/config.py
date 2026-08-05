@@ -14,12 +14,25 @@ from __future__ import annotations
 import os
 import tomllib
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 from pydantic import BaseModel
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource
 
 CONFIG_FILE = Path("config.toml")
+
+
+def _as_dict(value: Any) -> dict[str, Any]:
+    """将任意值收窄为字典，非字典返回空字典（tomllib 嵌套结构类型丢失时的收窄助手）。"""
+    return cast(dict[str, Any], value) if isinstance(value, dict) else {}
+
+
+def _find_section(merged: dict[str, Any], key: str) -> dict[str, Any] | None:
+    """在公共段各小节中查找含指定键的小节（覆盖目标）。"""
+    for section in merged.values():
+        if isinstance(section, dict) and key in section:
+            return cast(dict[str, Any], section)
+    return None
 
 
 class AppSettings(BaseModel):
@@ -78,8 +91,8 @@ class Settings(BaseSettings):
         dotenv_settings: PydanticBaseSettingsSource,
         file_secret_settings: PydanticBaseSettingsSource,
     ) -> tuple[PydanticBaseSettingsSource, ...]:
-        # 优先级（tuple 靠后者覆盖前者）：config.toml < 环境变量 < init 参数
-        return _TomlSource(settings_cls), _EnvVarSource(settings_cls), init_settings
+        # 优先级（tuple 前者最高）：init 参数 > BMS_* 环境变量 > config.toml
+        return init_settings, _EnvVarSource(settings_cls), _TomlSource(settings_cls)
 
 
 class _TomlSource(PydanticBaseSettingsSource):
@@ -92,19 +105,16 @@ class _TomlSource(PydanticBaseSettingsSource):
         if not CONFIG_FILE.exists():
             return {}
         with CONFIG_FILE.open("rb") as f:
-            data = tomllib.load(f)
+            data: dict[str, Any] = tomllib.load(f)
         env_name = os.environ.get("BMS_ENV") or str(data.get("app", {}).get("env", "dev"))
         merged: dict[str, Any] = {k: v for k, v in data.items() if k != "env"}
-        env_section = data.get("env", {}).get(env_name, {})
+        env_section = _as_dict(_as_dict(data.get("env")).get(env_name))
         for key, value in env_section.items():
             if isinstance(value, dict) and key in merged and isinstance(merged[key], dict):
                 merged[key] = {**merged[key], **value}
                 continue
             # 扁平键（如 [env.prod] 下的 debug）：覆盖公共段含同名键的小节，找不到则并入 [app]
-            target = next(
-                (section for section in merged.values() if isinstance(section, dict) and key in section),
-                None,
-            )
+            target = _find_section(merged, key)
             if target is None:
                 target = merged.setdefault("app", {})
             target[key] = value
