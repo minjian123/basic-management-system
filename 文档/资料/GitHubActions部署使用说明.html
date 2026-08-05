@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GitHub Actions 部署与使用说明</title>
+<style>
+  :root {
+    --bg: #f7f8fa;
+    --fg: #1f2328;
+    --muted: #57606a;
+    --border: #d0d7de;
+    --accent: #0969da;
+    --accent-bg: #ddf4ff;
+    --code-bg: #f6f8fa;
+    --warn-bg: #fff8c5;
+    --warn-border: #d4a72c;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+    line-height: 1.75;
+  }
+  .layout { display: flex; height: 100vh; overflow: hidden; }
+  .sidebar {
+    width: 280px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+  }
+  .sidebar .brand {
+    background: linear-gradient(135deg, #1f2328, #32383f);
+    color: #fff;
+    padding: 1.4rem 1.2rem 1.1rem;
+    border-bottom: 3px solid var(--accent);
+    flex-shrink: 0;
+  }
+  .sidebar .brand h1 { margin: 0 0 .35rem; font-size: 1.15rem; line-height: 1.4; }
+  .sidebar .brand p { margin: 0; color: #b6bec6; font-size: .78rem; }
+  .sidebar nav { padding: .8rem .6rem 1.5rem; font-size: .9rem; }
+  .sidebar nav ul { list-style: none; margin: 0; padding: 0; }
+  .sidebar nav li { margin: .15rem 0; }
+  .sidebar nav a {
+    display: block;
+    padding: .3rem .7rem;
+    border-radius: 5px;
+    color: var(--fg);
+    text-decoration: none;
+  }
+  .sidebar nav a:hover { background: var(--accent-bg); color: var(--accent); }
+  .sidebar nav .sub { padding-left: 1.6rem; font-size: .85rem; color: var(--muted); }
+  .content { flex: 1; overflow-y: auto; }
+  main {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1.5rem 2rem 4rem;
+  }
+  h2 {
+    margin-top: 2.5rem;
+    padding-bottom: .4rem;
+    border-bottom: 2px solid var(--border);
+    font-size: 1.35rem;
+  }
+  h3 { margin-top: 1.6rem; font-size: 1.1rem; }
+  p { margin: .6rem 0; }
+  ul, ol { margin: .6rem 0; padding-left: 1.6rem; }
+  li { margin: .3rem 0; }
+  code {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: .1em .35em;
+    font-family: Consolas, "Cascadia Mono", monospace;
+    font-size: .9em;
+  }
+  pre {
+    background: #0d1117;
+    color: #e6edf3;
+    border-radius: 8px;
+    padding: .9rem 1.1rem;
+    overflow-x: auto;
+    font-size: .88rem;
+    line-height: 1.6;
+  }
+  pre code { background: none; border: none; padding: 0; color: inherit; }
+  .note, .warn {
+    border-radius: 6px;
+    padding: .7rem 1rem;
+    margin: 1rem 0;
+    font-size: .95rem;
+  }
+  .note { background: var(--accent-bg); border-left: 4px solid var(--accent); }
+  .warn { background: var(--warn-bg); border-left: 4px solid var(--warn-border); }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1rem 0;
+    font-size: .92rem;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: .45rem .7rem;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: #eef1f4; white-space: nowrap; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  footer {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1rem 2rem 3rem;
+    color: var(--muted);
+    font-size: .85rem;
+    border-top: 1px solid var(--border);
+  }
+  @media (max-width: 768px) {
+    .layout { flex-direction: column; height: auto; overflow: visible; }
+    .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); max-height: 40vh; }
+    .content { overflow: visible; }
+  }
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>GitHub Actions 部署与使用说明</h1>
+      <p>BMS 持续集成流水线</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#intro">1. 简介与选型理由</a></li>
+        <li><a href="#install">2. 启用与基本结构</a></li>
+        <li><a href="#usage">3. 常用做法</a>
+          <ul class="sub">
+            <li><a href="#usage-trigger">3.1 触发条件</a></li>
+            <li><a href="#usage-service">3.2 服务容器</a></li>
+            <li><a href="#usage-cache">3.3 缓存</a></li>
+          </ul>
+        </li>
+        <li><a href="#bms">4. 与 BMS 的集成</a>
+          <ul class="sub">
+            <li><a href="#bms-ci">4.1 ci.yml 设计</a></li>
+            <li><a href="#bms-main">4.2 main 分支发布</a></li>
+            <li><a href="#bms-dependabot">4.3 dependabot</a></li>
+          </ul>
+        </li>
+        <li><a href="#faq">5. 常见问题</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="intro">1. 简介与选型理由</h2>
+      <p>GitHub Actions 是 GitHub 自带的 CI/CD，把工作流文件放进仓库的 <code>.github/workflows/</code>，推送或提 PR 时自动跑。BMS 选它的原因：</p>
+      <ul>
+        <li>与代码仓库一体，PR 的 CI 状态直接显示在合并按钮上，「CI 通过方可合并」的执行成本最低</li>
+        <li>公共仓库免费额度够用；工作流用 YAML 写在仓库里，改 CI 本身就是一次代码评审</li>
+        <li>支持服务容器（跑 MySQL/PostgreSQL 集成测试）和依赖缓存，适合 monorepo 的双端检查</li>
+      </ul>
+      <p>当前仓库 .github/workflows/ 尚未创建，CI 属于阶段一任务 10，以下为设计约定。</p>
+
+      <h2 id="install">2. 启用与基本结构</h2>
+      <p>工作流文件放在仓库根目录 <code>.github/workflows/</code>（如 ci.yml），推送到默认分支后 GitHub 自动识别。基本骨架：</p>
+      <pre><code>name: CI
+on:
+  pull_request:
+  push:
+    branches: [main]
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: 运行检查
+        run: echo "hello"
+      - run: echo "job 内每个 step 独立 shell"</code></pre>
+      <p>结构就三层：<code>on</code> 声明什么时候触发，<code>jobs</code> 声明跑什么（可多个 job 并行），每个 job 里是依次执行的 <code>steps</code>。每个 job 是全新环境，job 之间不共享文件，需要共享的东西走缓存或产物。</p>
+
+      <h2 id="usage">3. 常用做法</h2>
+
+      <h3 id="usage-trigger">3.1 触发条件</h3>
+      <pre><code>on:
+  pull_request:              # PR 触发（含更新）
+  push:
+    branches: [main]         # main 分支推送触发（发布用）
+  schedule:                  # 定时触发（如 dependabot 之外的定期检查）
+    - cron: "0 2 * * 1"</code></pre>
+
+      <h3 id="usage-service">3.2 服务容器</h3>
+      <p>在 job 里声明 <code>services</code>，runner 上会起一个容器供测试连接：</p>
+      <pre><code>services:
+  mysql:
+    image: mysql:8
+    env:
+      MYSQL_ROOT_PASSWORD: root
+    ports: ["3306:3306"]
+  postgres:
+    image: postgres:16
+    env:
+      POSTGRES_PASSWORD: postgres
+    ports: ["5432:5432"]</code></pre>
+      <p>集成测试连 <code>127.0.0.1</code> 的映射端口即可。</p>
+
+      <h3 id="usage-cache">3.3 缓存</h3>
+      <pre><code>- uses: actions/cache@v4
+  with:
+    path: ~/.cache/uv        # uv 缓存目录（Windows 为 %LOCALAPPDATA%\uv\cache）
+    key: uv-${{ runner.os }}-${{ hashFiles('backend/uv.lock') }}</code></pre>
+      <p>锁文件变了才换缓存 key；pnpm store 缓存同理（key 用 <code>pnpm-lock.yaml</code>）。缓存命中能把流水线从几分钟压到几十秒。</p>
+
+      <h2 id="bms">4. 与 BMS 的集成</h2>
+      <div class="warn">CI 阶段一任务 10 未开始，.github/workflows/ 尚未创建。以下为《阶段一·项目骨架说明》第 10 节的设计约定。</div>
+
+      <h3 id="bms-ci">4.1 ci.yml 设计</h3>
+      <p>PR 触发，两个独立 job：</p>
+      <table>
+        <tr><th>job</th><th>步骤</th><th>服务容器</th></tr>
+        <tr><td>backend</td><td>setup-uv → <code>uv sync</code>（uv.lock 锁定）→ <code>uv run ruff check</code> → <code>uv run pytest</code>（SQLite 单测 + 双库路由集成测试）</td><td>mysql:8 + postgres:16，集成测试连真实双库验证平台/租户路由与方言差异</td></tr>
+        <tr><td>frontend</td><td>setup-node（读取 .nvmrc 的 Node ≥ 20.19）→ <code>pnpm install</code> → eslint → <code>vitest run</code> → 双端 build（frontend + frontend-mobile）</td><td>无</td></tr>
+      </table>
+      <p>工具版本：Node 本机 v24.15.0 已核；pnpm 11.20.0 已核；Python 3.14 由 uv 管理（setup-uv 后 <code>uv sync</code> 自动装解释器）。缓存：uv 缓存 + pnpm store 缓存。</p>
+      <p>步骤示意（frontend job）：</p>
+      <pre><code>steps:
+  - uses: actions/checkout@v4
+  - uses: actions/setup-node@v4
+    with:
+      node-version-file: frontend/.nvmrc
+  - uses: pnpm/action-setup@v4      # 安装 pnpm（版本见 packageManager 字段）
+  - run: pnpm install
+  - run: pnpm lint
+  - run: pnpm --filter frontend --filter frontend-mobile exec vitest run
+  - run: pnpm -F frontend build && pnpm -F frontend-mobile build</code></pre>
+      <p>阶段十起的 Playwright E2E 作为独立 job：服务容器起 backend（SQLite）与前端产物，覆盖登录/RBAC/核心 CRUD 主流程（规划约定）。</p>
+
+      <h3 id="bms-main">4.2 main 分支发布</h3>
+      <p>阶段八引入镜像仓库后：main 分支推送触发构建镜像并推送仓库，同时导出后端 swagger.json 契约快照；阶段一只做 PR 检查，不做发布。</p>
+
+      <h3 id="bms-dependabot">4.3 dependabot</h3>
+      <p>随仓库初始化一并提交 <code>.github/dependabot.yml</code>，自动提依赖升级 PR：</p>
+      <pre><code>version: 2
+updates:
+  - package-ecosystem: "npm"        # 前端依赖
+    directory: "/"
+    schedule: { interval: "weekly" }
+  - package-ecosystem: "pip"        # 后端依赖
+    directory: "/backend"
+    schedule: { interval: "weekly" }</code></pre>
+      <p>依赖升级 PR 同样走 CI 检查，通过才可合并；漏洞扫描也靠它兜底（规划安全节提及）。</p>
+
+      <h2 id="faq">5. 常见问题</h2>
+      <table>
+        <tr><th>现象</th><th>处理</th></tr>
+        <tr><td>PR 更新后工作流没跑</td><td>确认触发条件写的是 <code>pull_request</code> 而不是别的；.github/workflows 文件本身改动可能不触发，推到 PR 分支任意提交即可</td></tr>
+        <tr><td>setup-node 报 Node 版本不满足</td><td><code>node-version-file</code> 指向的 .nvmrc 内容应为版本号（BMS 是 ≥ 20.19 的固定版本），或直接给 node-version</td></tr>
+        <tr><td>集成测试连不上 MySQL/PG</td><td>服务容器连 127.0.0.1 映射端口；确认数据库就绪（加 <code>health-options</code> 或用轮询脚本）再跑测试</td></tr>
+        <tr><td>缓存不生效</td><td>key 里的锁文件哈希变了就会 miss，这是正常的；缓存目录写错也会 miss，先看 cache 目录对不对</td></tr>
+        <tr><td>需要密钥（镜像仓库登录等）</td><td>在仓库 Settings → Secrets 配置，工作流里用 <code>secrets.xxx</code> 引用，明文不落仓库（阶段八用）</td></tr>
+        <tr><td>job 之间要传文件（如 swagger.json）</td><td>用 <code>actions/upload-artifact</code> / <code>download-artifact</code>，job 环境是隔离的</td></tr>
+      </table>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 依《文档生成规范》编写 · 与本目录下其他「部署与使用说明」配套 · 生成日期：2026-08-05
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>

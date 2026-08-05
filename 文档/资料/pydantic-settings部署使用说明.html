@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>pydantic-settings 部署与使用说明</title>
+<style>
+  :root {
+    --bg: #f7f8fa;
+    --fg: #1f2328;
+    --muted: #57606a;
+    --border: #d0d7de;
+    --accent: #0969da;
+    --accent-bg: #ddf4ff;
+    --code-bg: #f6f8fa;
+    --warn-bg: #fff8c5;
+    --warn-border: #d4a72c;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+    line-height: 1.75;
+  }
+  .layout { display: flex; height: 100vh; overflow: hidden; }
+  .sidebar {
+    width: 280px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+  }
+  .sidebar .brand {
+    background: linear-gradient(135deg, #1f2328, #32383f);
+    color: #fff;
+    padding: 1.4rem 1.2rem 1.1rem;
+    border-bottom: 3px solid var(--accent);
+    flex-shrink: 0;
+  }
+  .sidebar .brand h1 { margin: 0 0 .35rem; font-size: 1.15rem; line-height: 1.4; }
+  .sidebar .brand p { margin: 0; color: #b6bec6; font-size: .78rem; }
+  .sidebar nav { padding: .8rem .6rem 1.5rem; font-size: .9rem; }
+  .sidebar nav ul { list-style: none; margin: 0; padding: 0; }
+  .sidebar nav li { margin: .15rem 0; }
+  .sidebar nav a {
+    display: block;
+    padding: .3rem .7rem;
+    border-radius: 5px;
+    color: var(--fg);
+    text-decoration: none;
+  }
+  .sidebar nav a:hover { background: var(--accent-bg); color: var(--accent); }
+  .sidebar nav .sub { padding-left: 1.6rem; font-size: .85rem; color: var(--muted); }
+  .content { flex: 1; overflow-y: auto; }
+  main {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1.5rem 2rem 4rem;
+  }
+  h2 {
+    margin-top: 2.5rem;
+    padding-bottom: .4rem;
+    border-bottom: 2px solid var(--border);
+    font-size: 1.35rem;
+  }
+  h3 { margin-top: 1.6rem; font-size: 1.1rem; }
+  p { margin: .6rem 0; }
+  ul, ol { margin: .6rem 0; padding-left: 1.6rem; }
+  li { margin: .3rem 0; }
+  code {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: .1em .35em;
+    font-family: Consolas, "Cascadia Mono", monospace;
+    font-size: .9em;
+  }
+  pre {
+    background: #0d1117;
+    color: #e6edf3;
+    border-radius: 8px;
+    padding: .9rem 1.1rem;
+    overflow-x: auto;
+    font-size: .88rem;
+    line-height: 1.6;
+  }
+  pre code { background: none; border: none; padding: 0; color: inherit; }
+  .note, .warn {
+    border-radius: 6px;
+    padding: .7rem 1rem;
+    margin: 1rem 0;
+    font-size: .95rem;
+  }
+  .note { background: var(--accent-bg); border-left: 4px solid var(--accent); }
+  .warn { background: var(--warn-bg); border-left: 4px solid var(--warn-border); }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1rem 0;
+    font-size: .92rem;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: .45rem .7rem;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: #eef1f4; white-space: nowrap; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  footer {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1rem 2rem 3rem;
+    color: var(--muted);
+    font-size: .85rem;
+    border-top: 1px solid var(--border);
+  }
+  @media (max-width: 768px) {
+    .layout { flex-direction: column; height: auto; overflow: visible; }
+    .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); max-height: 40vh; }
+    .content { overflow: visible; }
+  }
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>pydantic-settings 部署与使用说明</h1>
+      <p>配置管理 · config.toml + 环境变量覆盖</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#intro">1. 简介与选型理由</a></li>
+        <li><a href="#install">2. 安装</a></li>
+        <li><a href="#usage">3. 使用方法</a>
+          <ul class="sub">
+            <li><a href="#usage-basic">3.1 基本用法</a></li>
+            <li><a href="#usage-source">3.2 自定义数据源</a></li>
+            <li><a href="#usage-get">3.3 获取配置</a></li>
+          </ul>
+        </li>
+        <li><a href="#bms">4. 与 BMS 的集成</a>
+          <ul class="sub">
+            <li><a href="#bms-order">4.1 三个数据源与加载顺序</a></li>
+            <li><a href="#bms-env">4.2 BMS_ENV 特例</a></li>
+            <li><a href="#bms-var">4.3 环境变量命名约定</a></li>
+            <li><a href="#bms-secret">4.4 密钥只走环境变量</a></li>
+          </ul>
+        </li>
+        <li><a href="#faq">5. 常见问题</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="intro">1. 简介与选型理由</h2>
+      <p>pydantic-settings 是 Pydantic 官方的配置管理库：配置模型还是普通 Pydantic 模型（自动类型校验），额外引入"数据源"机制——环境变量、文件、初始化参数按优先级合并，省掉手写 <code>os.getenv</code> 和手工解析的活。BMS 用它实现「config.toml 按环境分层 + 环境变量覆盖」（见《项目规划说明》：单配置文件易读，部署时用环境变量覆盖敏感项，遵循 12-factor）。</p>
+      <p>本机实测版本：pydantic-settings 2.14.2，底层 pydantic 2.13.4（2026-08-05）。</p>
+
+      <h2 id="install">2. 安装</h2>
+      <p>依赖已写进 <code>backend/pyproject.toml</code>（<code>pydantic-settings&gt;=2.14.2</code>），在 backend 目录执行 <code>uv sync</code> 即可。验证：</p>
+      <pre><code>cd backend
+uv sync
+uv run python -c "import pydantic_settings; print(pydantic_settings.__version__)"</code></pre>
+
+      <h2 id="usage">3. 使用方法</h2>
+
+      <h3 id="usage-basic">3.1 基本用法</h3>
+      <pre><code>from pydantic_settings import BaseSettings
+
+class Settings(BaseSettings):
+    app_name: str = "bms"      # 字段默认值；无默认值且没配来源则启动报错
+    debug: bool = True         # 环境变量字符串自动转布尔
+
+s = Settings()                 # 默认自动读环境变量（大小写不敏感、前缀可配）</code></pre>
+      <p>BMS 没有走默认的 env 前缀机制，而是用自定义数据源接管（见下节），因为配置主体来自 <code>config.toml</code> 而不是默认的 .env 文件。</p>
+
+      <h3 id="usage-source">3.2 自定义数据源</h3>
+      <p>通过类方法 <code>settings_customise_sources</code> 声明数据源列表，每个数据源是 <code>PydanticBaseSettingsSource</code> 的子类，实现 <code>__call__</code> 返回一个 dict。优先级规则：tuple 里靠后的覆盖靠前的。BMS 的 <code>app/core/config.py</code> 就是这么写的（源码摘录）：</p>
+      <pre><code>@classmethod
+def settings_customise_sources(cls, settings_cls, init_settings, env_settings,
+                               dotenv_settings, file_secret_settings):
+    # 优先级（tuple 靠后者覆盖前者）：config.toml &lt; 环境变量 &lt; init 参数
+    return _TomlSource(settings_cls), _EnvVarSource(settings_cls), init_settings</code></pre>
+
+      <h3 id="usage-get">3.3 获取配置</h3>
+      <p>应用内统一走 <code>get_settings()</code> 入口，禁止散落 <code>os.getenv</code>（config.py 文档字符串与《后端开发规范》约定），保证所有配置项都经过 Settings 模型声明与校验。</p>
+
+      <h2 id="bms">4. 与 BMS 的集成</h2>
+
+      <h3 id="bms-order">4.1 三个数据源与加载顺序</h3>
+      <p>BMS 配置加载顺序（后者覆盖前者，已实现于 <code>app/core/config.py</code>）：</p>
+      <ol>
+        <li><code>_TomlSource</code>：读 <code>config.toml</code>——公共段（<code>[app]</code>、<code>[log]</code>、<code>[database]</code>、<code>[redis]</code>、<code>[snowflake]</code>）+ 环境段（<code>[env.dev]</code> / <code>[env.test]</code> / <code>[env.prod]</code>）按 <code>BMS_ENV</code> 合并；扁平键（如 <code>[env.prod]</code> 下的 <code>debug</code>）覆盖同名小节里的值，找不到目标节则并入 <code>[app]</code></li>
+        <li><code>_EnvVarSource</code>：<code>BMS_</code> 前缀环境变量，映射成嵌套字典</li>
+        <li><code>init_settings</code>：实例化时传入的参数（测试覆盖配置用）</li>
+      </ol>
+      <div class="note">config.toml 开头有同款加载顺序说明注释；测试里也依赖这个优先级做依赖覆盖（conftest 的 app fixture）。</div>
+
+      <h3 id="bms-env">4.2 BMS_ENV 特例</h3>
+      <ul>
+        <li><code>_TomlSource</code>：先看环境变量 <code>BMS_ENV</code>，没有则回退 config.toml 里 <code>[app].env</code>（默认 dev），决定合并哪个环境段</li>
+        <li><code>_EnvVarSource</code>：<code>BMS_ENV</code> 不按"节_键"拆分，而是特例映射到 <code>app.env</code></li>
+        <li>取值必须是 <code>dev</code> / <code>test</code> / <code>prod</code> 三选一（Settings 里 <code>env</code> 字段是 Literal 类型，写错启动即报错）</li>
+      </ul>
+
+      <h3 id="bms-var">4.3 环境变量命名约定</h3>
+      <p>约定 <code>BMS_&lt;节&gt;_&lt;键&gt;</code>，全大写（UPPER_SNAKE），节限 <code>app</code> / <code>log</code> / <code>database</code> / <code>redis</code> / <code>snowflake</code> 五个，其他前缀一律忽略不报错。环境变量值都是字符串，由 Pydantic 自动转成字段类型。示例：</p>
+      <table>
+        <tr><th>环境变量</th><th>映射</th></tr>
+        <tr><td><code>BMS_ENV</code></td><td><code>app.env</code>（特例）</td></tr>
+        <tr><td><code>BMS_DATABASE_PLATFORM_URL</code></td><td><code>database.platform_url</code>（生产必填）</td></tr>
+        <tr><td><code>BMS_DATABASE_POOL_SIZE</code></td><td><code>database.pool_size</code></td></tr>
+        <tr><td><code>BMS_REDIS_URL</code></td><td><code>redis.url</code></td></tr>
+        <tr><td><code>BMS_LOG_LEVEL</code></td><td><code>log.level</code></td></tr>
+      </table>
+      <p>PowerShell 设置示例：<code>$env:BMS_ENV = "prod"</code>（仅当前会话生效；长期配置写入系统环境变量）。</p>
+
+      <h3 id="bms-secret">4.4 密钥只走环境变量</h3>
+      <p>密钥类配置（数据库密码、Redis 密码，后续的 JWT secret、MinIO 凭据）一律只走环境变量，config.toml 不存放任何真实密钥；<code>.env.example</code> 只给变量名与占位值。生产环境必须用 <code>BMS_DATABASE_PLATFORM_URL</code>、<code>BMS_REDIS_URL</code> 覆盖连接串（config.toml 里默认是本地 SQLite / localhost）。</p>
+
+      <h2 id="faq">5. 常见问题</h2>
+      <table>
+        <tr><th>现象</th><th>处理</th></tr>
+        <tr><td>改了 config.toml 不生效</td><td>配置在进程启动时加载；uvicorn <code>--reload</code> 模式改动后会自动重启生效</td></tr>
+        <tr><td>写了 <code>.env</code> 文件不生效</td><td>BMS 没接入 dotenv 数据源（<code>settings_customise_sources</code> 只有 toml / env / init 三个），必须设真实环境变量：PowerShell <code>$env:BMS_ENV = "prod"</code></td></tr>
+        <tr><td>环境变量设了但没覆盖</td><td>检查前缀 <code>BMS_</code>、全大写、节名在 app/log/database/redis/snowflake 内；拼错不会报错，只是被忽略</td></tr>
+        <tr><td>启动报 env 字段校验错误</td><td><code>BMS_ENV</code> 必须 dev / test / prod 三选一，Literal 校验不过会直接抛错</td></tr>
+        <tr><td>布尔值怎么传</td><td>Pydantic 自动转换，建议统一用 <code>true</code> / <code>false</code> 字符串</td></tr>
+        <tr><td>列表类型（如 <code>dev_tenants</code>）怎么传</td><td>按 JSON 数组格式传值，如 <code>$env:BMS_DATABASE_DEV_TENANTS = '["demo","t1"]'</code>，由 Pydantic 解析</td></tr>
+        <tr><td>密钥误写入 config.toml</td><td>立即删除并轮换该密钥；仓库内已提交则检查 git 历史并清理（config.toml 已入库）</td></tr>
+      </table>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 依《文档生成规范》编写 · 与本目录下其他「部署与使用说明」配套 · 生成日期：2026-08-05
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>

@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Git 部署与使用说明</title>
+<style>
+  :root {
+    --bg: #f7f8fa;
+    --fg: #1f2328;
+    --muted: #57606a;
+    --border: #d0d7de;
+    --accent: #0969da;
+    --accent-bg: #ddf4ff;
+    --code-bg: #f6f8fa;
+    --warn-bg: #fff8c5;
+    --warn-border: #d4a72c;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+    line-height: 1.75;
+  }
+  .layout { display: flex; height: 100vh; overflow: hidden; }
+  .sidebar {
+    width: 280px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+  }
+  .sidebar .brand {
+    background: linear-gradient(135deg, #1f2328, #32383f);
+    color: #fff;
+    padding: 1.4rem 1.2rem 1.1rem;
+    border-bottom: 3px solid var(--accent);
+    flex-shrink: 0;
+  }
+  .sidebar .brand h1 { margin: 0 0 .35rem; font-size: 1.15rem; line-height: 1.4; }
+  .sidebar .brand p { margin: 0; color: #b6bec6; font-size: .78rem; }
+  .sidebar nav { padding: .8rem .6rem 1.5rem; font-size: .9rem; }
+  .sidebar nav ul { list-style: none; margin: 0; padding: 0; }
+  .sidebar nav li { margin: .15rem 0; }
+  .sidebar nav a {
+    display: block;
+    padding: .3rem .7rem;
+    border-radius: 5px;
+    color: var(--fg);
+    text-decoration: none;
+  }
+  .sidebar nav a:hover { background: var(--accent-bg); color: var(--accent); }
+  .sidebar nav .sub { padding-left: 1.6rem; font-size: .85rem; color: var(--muted); }
+  .content { flex: 1; overflow-y: auto; }
+  main {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1.5rem 2rem 4rem;
+  }
+  h2 {
+    margin-top: 2.5rem;
+    padding-bottom: .4rem;
+    border-bottom: 2px solid var(--border);
+    font-size: 1.35rem;
+  }
+  h3 { margin-top: 1.6rem; font-size: 1.1rem; }
+  p { margin: .6rem 0; }
+  ul, ol { margin: .6rem 0; padding-left: 1.6rem; }
+  li { margin: .3rem 0; }
+  code {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: .1em .35em;
+    font-family: Consolas, "Cascadia Mono", monospace;
+    font-size: .9em;
+  }
+  pre {
+    background: #0d1117;
+    color: #e6edf3;
+    border-radius: 8px;
+    padding: .9rem 1.1rem;
+    overflow-x: auto;
+    font-size: .88rem;
+    line-height: 1.6;
+  }
+  pre code { background: none; border: none; padding: 0; color: inherit; }
+  .note, .warn {
+    border-radius: 6px;
+    padding: .7rem 1rem;
+    margin: 1rem 0;
+    font-size: .95rem;
+  }
+  .note { background: var(--accent-bg); border-left: 4px solid var(--accent); }
+  .warn { background: var(--warn-bg); border-left: 4px solid var(--warn-border); }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1rem 0;
+    font-size: .92rem;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: .45rem .7rem;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: #eef1f4; white-space: nowrap; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  footer {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1rem 2rem 3rem;
+    color: var(--muted);
+    font-size: .85rem;
+    border-top: 1px solid var(--border);
+  }
+  @media (max-width: 768px) {
+    .layout { flex-direction: column; height: auto; overflow: visible; }
+    .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); max-height: 40vh; }
+    .content { overflow: visible; }
+  }
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>Git 部署与使用说明</h1>
+      <p>BMS 版本控制与协作规范</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#intro">1. 简介与协作模型</a></li>
+        <li><a href="#install">2. 安装与初始配置</a></li>
+        <li><a href="#usage">3. 常用命令</a>
+          <ul class="sub">
+            <li><a href="#usage-basic">3.1 日常提交</a></li>
+            <li><a href="#usage-branch">3.2 分支与合并</a></li>
+            <li><a href="#usage-undo">3.3 回退与修复</a></li>
+          </ul>
+        </li>
+        <li><a href="#bms">4. 与 BMS 的集成</a>
+          <ul class="sub">
+            <li><a href="#bms-branch">4.1 分支模型</a></li>
+            <li><a href="#bms-commit">4.2 提交规范</a></li>
+            <li><a href="#bms-ignore">4.3 .gitignore</a></li>
+          </ul>
+        </li>
+        <li><a href="#faq">5. 常见问题</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="intro">1. 简介与协作模型</h2>
+      <p>Git 是分布式版本控制系统，仓库在每个人本地有一份完整历史，可以离线提交，再通过远端（GitHub）交换。BMS 用 Git 管理整个 monorepo（backend、frontend、frontend-mobile、deploy、文档全在一个仓库里）。</p>
+      <p>协作模型：main 是唯一的保护分支，日常改动在 feature 分支上进行，经 Pull Request 合入 main，CI 通过才能合并（详见第 4 节）。</p>
+
+      <h2 id="install">2. 安装与初始配置</h2>
+      <pre><code># Windows（winget）/ macOS（brew）
+winget install Git.Git
+brew install git
+
+# 首次配置（用户名与邮箱会写进每次提交）
+git config --global user.name "你的名字"
+git config --global user.email "you@example.com"
+
+# 克隆 BMS 仓库
+git clone &lt;仓库地址&gt;</code></pre>
+      <p>Windows 上装完 Git 自带 Git Bash，PowerShell 里也能直接用 git 命令。</p>
+
+      <h2 id="usage">3. 常用命令</h2>
+
+      <h3 id="usage-basic">3.1 日常提交</h3>
+      <pre><code>git status         # 看改了哪些文件
+git diff           # 看未暂存的具体改动
+git add 文件名      # 暂存（只提交想提交的，别 git add . 一把梭）
+git commit -m "feat: 描述"
+git push           # 推送到远端</code></pre>
+
+      <h3 id="usage-branch">3.2 分支与合并</h3>
+      <pre><code>git switch main            # 切到 main
+git switch -c feature/xxx  # 从当前分支开新分支
+git pull                   # 拉取远端更新（提交前先 pull 保持同步）
+git push -u origin feature/xxx   # 推送新分支并建立跟踪
+# 合入 main 一律走 PR，不用本地 merge（见 4.1）</code></pre>
+
+      <h3 id="usage-undo">3.3 回退与修复</h3>
+      <pre><code>git restore 文件名         # 丢弃工作区改动（未暂存）
+git restore --staged 文件名 # 取消暂存
+git commit --amend         # 修正最近一次提交信息（未推送时用）
+git log --oneline          # 看提交历史</code></pre>
+
+      <h2 id="bms">4. 与 BMS 的集成</h2>
+
+      <h3 id="bms-branch">4.1 分支模型</h3>
+      <ul>
+        <li><strong>main</strong>：保护分支，禁止直接推送，只能通过 PR 合入</li>
+        <li><strong>feature 分支</strong>：命名如 <code>feature/阶段任务或模块名</code>，从 main 拉出，改完提 PR</li>
+        <li><strong>合并条件</strong>：CI 通过方可合并（GitHub Actions 状态会直接显示在 PR 上）；PR 含评审与讨论记录</li>
+      </ul>
+
+      <h3 id="bms-commit">4.2 提交规范</h3>
+      <p>本仓库提交信息格式为「类型: 中文说明」，类型前缀取自 <code>docs</code> / <code>feat</code> / <code>fix</code> 等，说明用中文描述改了什么。仓库实际历史示例：</p>
+      <pre><code>docs: 阶段一实施文档产出——实施记录/启动指南/验收报告，骨架说明移入阶段一目录
+feat: 后端骨架初始化——pyproject/uv 依赖、config.toml 分层配置与核心配置加载</code></pre>
+      <p>习惯：一次提交只做一件事，说明写清楚「做了什么」，别堆一堆无关改动。提交规范细节见《前端开发规范》（阶段一已产出）中的提交规范部分。</p>
+
+      <h3 id="bms-ignore">4.3 .gitignore</h3>
+      <p>仓库根 .gitignore 已核实包含：<code>.venv/</code>、<code>.env</code>、<code>__pycache__/</code>、<code>*.log</code>、<code>.pytest_cache/</code>、<code>.ruff_cache/</code>、<code>.coverage</code>、<code>dist/</code>、<code>.reasonix/</code>、<code>graphify-out/</code>（图谱产物含本机绝对路径，不入库）等。</p>
+      <div class="note">当前 .gitignore 是 Python 侧模板，还没有前端条目；前端工程初始化时应补上 <code>node_modules/</code>、<code>pnpm-lock.yaml 除外</code>（锁文件必须入库）等规则，注意别把 <code>.nvmrc</code>、<code>.python-version</code> 这类固定版本的文件忽略掉。</div>
+
+      <h2 id="faq">5. 常见问题</h2>
+      <table>
+        <tr><th>现象</th><th>处理</th></tr>
+        <tr><td>把不该提交的文件 add 了</td><td><code>git restore --staged 文件名</code> 取消暂存；若已提交但未推送，<code>git commit --amend</code> 修正</td></tr>
+        <tr><td>提交到 main 了</td><td>保护分支默认禁止直接推送；万一进了，用 PR 评审流程回退（git revert 保留历史）</td></tr>
+        <tr><td>终端中文乱码</td><td>Windows PowerShell 设 <code>[Console]::OutputEncoding = [Text.Encoding]::UTF8</code>；或装新版 Git for Windows 默认 UTF-8</td></tr>
+        <tr><td>推送要输密码/凭证失效</td><td>Windows 用 Git Credential Manager（装 Git 时自带）或 SSH key 认证：<code>ssh-keygen</code> 后把公钥加到 GitHub</td></tr>
+        <tr><td>合并冲突</td><td>按文件手动取舍后 <code>git add</code> 并继续合并；拿不准的先问涉及该模块的人</td></tr>
+        <tr><td>换行符警告（CRLF/LF）</td><td>Windows 上配 <code>git config --global core.autocrlf true</code>，团队统一，避免整个文件被当成改动</td></tr>
+        <tr><td>误删了文件</td><td>还没提交的话 <code>git restore 文件名</code>；已提交的从历史里找：<code>git log --oneline -- 文件名</code></td></tr>
+      </table>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 依《文档生成规范》编写 · 与本目录下其他「部署与使用说明」配套 · 生成日期：2026-08-05
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>

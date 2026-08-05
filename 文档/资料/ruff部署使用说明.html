@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ruff 部署与使用说明</title>
+<style>
+  :root {
+    --bg: #f7f8fa;
+    --fg: #1f2328;
+    --muted: #57606a;
+    --border: #d0d7de;
+    --accent: #0969da;
+    --accent-bg: #ddf4ff;
+    --code-bg: #f6f8fa;
+    --warn-bg: #fff8c5;
+    --warn-border: #d4a72c;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+    line-height: 1.75;
+  }
+  .layout { display: flex; height: 100vh; overflow: hidden; }
+  .sidebar {
+    width: 280px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+  }
+  .sidebar .brand {
+    background: linear-gradient(135deg, #1f2328, #32383f);
+    color: #fff;
+    padding: 1.4rem 1.2rem 1.1rem;
+    border-bottom: 3px solid var(--accent);
+    flex-shrink: 0;
+  }
+  .sidebar .brand h1 { margin: 0 0 .35rem; font-size: 1.15rem; line-height: 1.4; }
+  .sidebar .brand p { margin: 0; color: #b6bec6; font-size: .78rem; }
+  .sidebar nav { padding: .8rem .6rem 1.5rem; font-size: .9rem; }
+  .sidebar nav ul { list-style: none; margin: 0; padding: 0; }
+  .sidebar nav li { margin: .15rem 0; }
+  .sidebar nav a {
+    display: block;
+    padding: .3rem .7rem;
+    border-radius: 5px;
+    color: var(--fg);
+    text-decoration: none;
+  }
+  .sidebar nav a:hover { background: var(--accent-bg); color: var(--accent); }
+  .sidebar nav .sub { padding-left: 1.6rem; font-size: .85rem; color: var(--muted); }
+  .content { flex: 1; overflow-y: auto; }
+  main {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1.5rem 2rem 4rem;
+  }
+  h2 {
+    margin-top: 2.5rem;
+    padding-bottom: .4rem;
+    border-bottom: 2px solid var(--border);
+    font-size: 1.35rem;
+  }
+  h3 { margin-top: 1.6rem; font-size: 1.1rem; }
+  p { margin: .6rem 0; }
+  ul, ol { margin: .6rem 0; padding-left: 1.6rem; }
+  li { margin: .3rem 0; }
+  code {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: .1em .35em;
+    font-family: Consolas, "Cascadia Mono", monospace;
+    font-size: .9em;
+  }
+  pre {
+    background: #0d1117;
+    color: #e6edf3;
+    border-radius: 8px;
+    padding: .9rem 1.1rem;
+    overflow-x: auto;
+    font-size: .88rem;
+    line-height: 1.6;
+  }
+  pre code { background: none; border: none; padding: 0; color: inherit; }
+  .note, .warn {
+    border-radius: 6px;
+    padding: .7rem 1rem;
+    margin: 1rem 0;
+    font-size: .95rem;
+  }
+  .note { background: var(--accent-bg); border-left: 4px solid var(--accent); }
+  .warn { background: var(--warn-bg); border-left: 4px solid var(--warn-border); }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1rem 0;
+    font-size: .92rem;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: .45rem .7rem;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: #eef1f4; white-space: nowrap; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  footer {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1rem 2rem 3rem;
+    color: var(--muted);
+    font-size: .85rem;
+    border-top: 1px solid var(--border);
+  }
+  @media (max-width: 768px) {
+    .layout { flex-direction: column; height: auto; overflow: visible; }
+    .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); max-height: 40vh; }
+    .content { overflow: visible; }
+  }
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>ruff 部署与使用说明</h1>
+      <p>Python 代码检查与格式化工具</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#intro">1. 简介与选型理由</a></li>
+        <li><a href="#install">2. 安装</a></li>
+        <li><a href="#usage">3. 常用命令</a>
+          <ul class="sub">
+            <li><a href="#usage-check">3.1 检查</a></li>
+            <li><a href="#usage-fix">3.2 自动修复</a></li>
+            <li><a href="#usage-format">3.3 格式化</a></li>
+            <li><a href="#usage-target">3.4 指定文件检查</a></li>
+          </ul>
+        </li>
+        <li><a href="#bms">4. 与 BMS 的集成</a></li>
+        <li><a href="#faq">5. 常见问题</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="intro">1. 简介与选型理由</h2>
+      <p>ruff 是 Astral 出品的 Python lint + 格式化一体化工具（Rust 实现），一套替代 flake8 / black / isort 三件套。检查与格式化都很快，规则默认对标主流工具，不需要额外维护多份配置。</p>
+      <p>BMS 规划选型 ruff 的理由：lint + format 一体化，性能极高，工程化配置集中在 <code>pyproject.toml</code> 一处，CI 里一条命令跑完。</p>
+      <p>本机实测版本：ruff 0.16.1（2026-08-05）。</p>
+
+      <h2 id="install">2. 安装</h2>
+      <p>BMS 后端已声明开发依赖 <code>ruff&gt;=0.16.1</code>（dev 组），backend 目录执行 <code>uv sync</code> 即装好。</p>
+      <p>新项目手动添加（PowerShell）：</p>
+      <pre><code>uv add --dev ruff</code></pre>
+      <p>验证安装：</p>
+      <pre><code>uv run ruff --version</code></pre>
+
+      <h2 id="usage">3. 常用命令</h2>
+
+      <h3 id="usage-check">3.1 检查</h3>
+      <pre><code>uv run ruff check .</code></pre>
+      <p>对当前目录全部 Python 文件做 lint。有违规时逐条列出<code>文件:行:列 规则代码 说明</code>，退出码非 0。BMS 的 CI 后端 job 就是跑这条。</p>
+
+      <h3 id="usage-fix">3.2 自动修复</h3>
+      <pre><code>uv run ruff check . --fix</code></pre>
+      <p>能安全自动修的直接改掉（如 import 排序、未用变量删除等），剩下的需要手工处理。<code>--show-fixes</code> 可列出这次实际修了哪些。</p>
+
+      <h3 id="usage-format">3.3 格式化</h3>
+      <pre><code>uv run ruff format .          # 直接格式化
+uv run ruff format --check .  # 只检查格式是否符合，不改文件（CI 用）</code></pre>
+
+      <h3 id="usage-target">3.4 指定文件检查</h3>
+      <pre><code>uv run ruff check app/core/config.py
+uv run ruff format app/core/config.py</code></pre>
+
+      <h2 id="bms">4. 与 BMS 的集成</h2>
+      <p>配置全部写在 <code>backend/pyproject.toml</code> 的 <code>[tool.ruff]</code> 段：</p>
+      <table>
+        <tr><th>配置项</th><th>值</th><th>含义</th></tr>
+        <tr><td><code>[tool.ruff] line-length</code></td><td>120</td><td>行长上限 120 字符</td></tr>
+        <tr><td><code>[tool.ruff] target-version</code></td><td>py314</td><td>按 Python 3.14 语法特性做检查</td></tr>
+        <tr><td><code>[tool.ruff.lint] select</code></td><td>E F I UP B ASYNC S N</td><td>启用的规则集：E pycodestyle 风格、F pyflakes 错误、I import 排序、UP pyupgrade 新语法、B bugbear 常见坑、ASYNC 异步写法、S bandit 安全、N 命名规范</td></tr>
+        <tr><td><code>[tool.ruff.lint] ignore</code></td><td>S101</td><td>豁免 assert 使用（测试里常用）</td></tr>
+        <tr><td><code>[tool.ruff.lint.per-file-ignores]</code></td><td><code>"app/core/snowflake/*.py"</code></td><td>豁免 E501/UP/B/S/N/ASYNC——vendor 的雪花算法源码（yitter/IdGenerator，MIT），保持算法原样，不强制格式</td></tr>
+      </table>
+      <p>实施状态：当前 <code>uv run ruff check .</code> 全绿（2026-08-05 本机核实）；CI（阶段一任务 10）在 backend job 中以 <code>uv run ruff check .</code> 作为 PR 门禁。</p>
+
+      <h2 id="faq">5. 常见问题</h2>
+      <table>
+        <tr><th>现象</th><th>处理</th></tr>
+        <tr><td>check 和 format 分工不清楚</td><td>format 只重排代码格式、不改语义；import 排序归 I 规则，要靠 <code>check . --fix</code> 修</td></tr>
+        <tr><td>报错很多，看着吓人</td><td>先 <code>ruff check . --fix</code> 自动修掉能修的，剩下的逐条看；大部分是 E 系列的空白/行长问题</td></tr>
+        <tr><td>snowflake 目录的代码被强制改动</td><td>该目录在 per-file-ignores 已豁免大部分规则，vendor 代码保持原样，不要手动改格式</td></tr>
+        <tr><td>改完代码 CI 仍报错</td><td>CI 用 <code>ruff check .</code>，本地务必先跑一遍同一条命令，不要只看编辑器提示</td></tr>
+        <tr><td>IDE 里想实时提示</td><td>安装 Ruff 官方 VS Code 扩展，可配置保存时自动 format，与 pyproject 配置同源</td></tr>
+      </table>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 依《文档生成规范》编写 · 与本目录下其他「部署与使用说明」配套 · 生成日期：2026-08-05
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>

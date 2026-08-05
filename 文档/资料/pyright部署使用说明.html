@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>pyright 部署与使用说明</title>
+<style>
+  :root {
+    --bg: #f7f8fa;
+    --fg: #1f2328;
+    --muted: #57606a;
+    --border: #d0d7de;
+    --accent: #0969da;
+    --accent-bg: #ddf4ff;
+    --code-bg: #f6f8fa;
+    --warn-bg: #fff8c5;
+    --warn-border: #d4a72c;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+    line-height: 1.75;
+  }
+  .layout { display: flex; height: 100vh; overflow: hidden; }
+  .sidebar {
+    width: 280px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+  }
+  .sidebar .brand {
+    background: linear-gradient(135deg, #1f2328, #32383f);
+    color: #fff;
+    padding: 1.4rem 1.2rem 1.1rem;
+    border-bottom: 3px solid var(--accent);
+    flex-shrink: 0;
+  }
+  .sidebar .brand h1 { margin: 0 0 .35rem; font-size: 1.15rem; line-height: 1.4; }
+  .sidebar .brand p { margin: 0; color: #b6bec6; font-size: .78rem; }
+  .sidebar nav { padding: .8rem .6rem 1.5rem; font-size: .9rem; }
+  .sidebar nav ul { list-style: none; margin: 0; padding: 0; }
+  .sidebar nav li { margin: .15rem 0; }
+  .sidebar nav a {
+    display: block;
+    padding: .3rem .7rem;
+    border-radius: 5px;
+    color: var(--fg);
+    text-decoration: none;
+  }
+  .sidebar nav a:hover { background: var(--accent-bg); color: var(--accent); }
+  .sidebar nav .sub { padding-left: 1.6rem; font-size: .85rem; color: var(--muted); }
+  .content { flex: 1; overflow-y: auto; }
+  main {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1.5rem 2rem 4rem;
+  }
+  h2 {
+    margin-top: 2.5rem;
+    padding-bottom: .4rem;
+    border-bottom: 2px solid var(--border);
+    font-size: 1.35rem;
+  }
+  h3 { margin-top: 1.6rem; font-size: 1.1rem; }
+  p { margin: .6rem 0; }
+  ul, ol { margin: .6rem 0; padding-left: 1.6rem; }
+  li { margin: .3rem 0; }
+  code {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: .1em .35em;
+    font-family: Consolas, "Cascadia Mono", monospace;
+    font-size: .9em;
+  }
+  pre {
+    background: #0d1117;
+    color: #e6edf3;
+    border-radius: 8px;
+    padding: .9rem 1.1rem;
+    overflow-x: auto;
+    font-size: .88rem;
+    line-height: 1.6;
+  }
+  pre code { background: none; border: none; padding: 0; color: inherit; }
+  .note, .warn {
+    border-radius: 6px;
+    padding: .7rem 1rem;
+    margin: 1rem 0;
+    font-size: .95rem;
+  }
+  .note { background: var(--accent-bg); border-left: 4px solid var(--accent); }
+  .warn { background: var(--warn-bg); border-left: 4px solid var(--warn-border); }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1rem 0;
+    font-size: .92rem;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: .45rem .7rem;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: #eef1f4; white-space: nowrap; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  footer {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1rem 2rem 3rem;
+    color: var(--muted);
+    font-size: .85rem;
+    border-top: 1px solid var(--border);
+  }
+  @media (max-width: 768px) {
+    .layout { flex-direction: column; height: auto; overflow: visible; }
+    .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); max-height: 40vh; }
+    .content { overflow: visible; }
+  }
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>pyright 部署与使用说明</h1>
+      <p>Python 严格类型检查器</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#intro">1. 简介与选型理由</a></li>
+        <li><a href="#install">2. 安装</a></li>
+        <li><a href="#usage">3. 常用命令</a>
+          <ul class="sub">
+            <li><a href="#usage-full">3.1 全量检查</a></li>
+            <li><a href="#usage-file">3.2 单文件检查</a></li>
+            <li><a href="#usage-ide">3.3 IDE 集成</a></li>
+          </ul>
+        </li>
+        <li><a href="#bms">4. 与 BMS 的集成</a></li>
+        <li><a href="#faq">5. 常见问题</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="intro">1. 简介与选型理由</h2>
+      <p>pyright 是微软出品的 Python 静态类型检查器（TypeScript 实现），以严格模式（strict）闻名：对任何「类型未知」的情况都要报告，逼着把类型写明白。VS Code 的 Pylance 就是基于它。</p>
+      <p>BMS 规划选型 pyright 的理由：严格类型检查，与 Pydantic v2 模型配合，可在 IDE 中即时发现类型错误，不必等运行时报错。</p>
+      <p>本机版本：pyproject.toml 声明 <code>pyright&gt;=1.1.411</code>（2026-08-05 核实，pyright 版本持续以 1.1.x 递增发布，实际安装版本以 uv.lock 为准）。</p>
+
+      <h2 id="install">2. 安装</h2>
+      <p>BMS 后端已声明开发依赖 <code>pyright&gt;=1.1.411</code>（dev 组），backend 目录执行 <code>uv sync</code> 即装好。</p>
+      <p>新项目手动添加（PowerShell）：</p>
+      <pre><code>uv add --dev pyright</code></pre>
+      <p>验证安装：</p>
+      <pre><code>uv run pyright --version</code></pre>
+
+      <h2 id="usage">3. 常用命令</h2>
+
+      <h3 id="usage-full">3.1 全量检查</h3>
+      <pre><code>uv run pyright</code></pre>
+      <p>按 pyproject 的 <code>[tool.pyright]</code> 配置扫描全部纳入范围的文件。有错误时逐条输出<code>文件:行:列 - error: 说明</code>，退出码非 0。</p>
+
+      <h3 id="usage-file">3.2 单文件检查</h3>
+      <pre><code>uv run pyright app/core/config.py</code></pre>
+      <p>只查指定文件，改代码时快速看某处类型对不对用得上。</p>
+
+      <h3 id="usage-ide">3.3 IDE 集成</h3>
+      <p>VS Code 装 Pylance 扩展即可：它读同一份 <code>[tool.pyright]</code> 配置，编辑时实时报类型错误，与命令行结果一致。</p>
+
+      <h2 id="bms">4. 与 BMS 的集成</h2>
+      <p>配置写在 <code>backend/pyproject.toml</code> 的 <code>[tool.pyright]</code> 段：</p>
+      <table>
+        <tr><th>配置项</th><th>值</th><th>含义</th></tr>
+        <tr><td><code>typeCheckingMode</code></td><td>strict</td><td>严格模式：所有 Unknown 类型、缺失类型、隐式 any 都报告</td></tr>
+        <tr><td><code>include</code></td><td><code>["app", "tests", "scripts"]</code></td><td>检查范围；tests / scripts 目录当前尚不存在，属阶段一后续任务</td></tr>
+        <tr><td><code>pythonVersion</code></td><td>3.14</td><td>按 Python 3.14 语义分析</td></tr>
+      </table>
+      <div class="warn">当前遗留问题（2026-08-05 本机核实）：<code>app/core/config.py</code> 有 2 个类型错误，位于 104-105 行——<code>target</code> 与 <code>next()</code> 实参被判定为 <code>dict[Unknown, Unknown]</code>（reportUnknownVariableType / reportUnknownArgumentType）。root cause：<code>tomllib.load()</code> 返回的嵌套 dict 在遍历合并过程中类型信息丢失。此问题须在阶段一任务 9 之前清零。</div>
+      <p>当前 pyright 检查结果（完整输出）：</p>
+      <pre><code>d:\Develop\bms\backend\app\core\config.py
+  d:\Develop\bms\backend\app\core\config.py:104:13 - error: Type of "target" is partially unknown
+    Type of "target" is "dict[Unknown, Unknown] | None" (reportUnknownVariableType)
+  d:\Develop\bms\backend\app\core\config.py:105:17 - error: Argument type is partially unknown
+    Argument corresponds to parameter "i" in function "next"
+    Argument type is "Generator[dict[Unknown, Unknown], None, None]" (reportUnknownArgumentType)
+2 errors, 0 warnings, 0 informations</code></pre>
+      <p>修复方向（建议）：给 <code>_TomlSource.__call__()</code> 里的中间字典补显式类型注解（如 <code>dict[str, Any]</code>），消除遍历中的类型推断丢失。修复后 <code>uv run pyright</code> 应为 0 errors。</p>
+
+      <h2 id="faq">5. 常见问题</h2>
+      <table>
+        <tr><th>现象</th><th>处理</th></tr>
+        <tr><td>strict 一开，全是 reportUnknown* 报错</td><td>Unknown 表示「pyright 无法确定类型」，逐层补显式注解（<code>dict[str, Any]</code> 等）即可消掉，这是严格模式的常态工作</td></tr>
+        <tr><td>第三方库报「no type stub」类错误</td><td>库未带类型标注；可用 <code># type: ignore[reportXxx]</code> 局部豁免并写明原因，或给库补类型 stub</td></tr>
+        <tr><td>IDE 里不报、命令行报（或反过来）</td><td>确认两边读的是同一个 <code>pyproject.toml</code>；VS Code 若开了别的 Python 解释器需切换为项目 <code>.venv</code></td></tr>
+        <tr><td>config.py 的两个错误现在能不能放着不管</td><td>不能：规划要求阶段一任务 9 前清零，测试骨架（任务 9）和 CI 都会把它当门禁</td></tr>
+        <tr><td>改了配置没生效</td><td>pyright 每次运行独立读取配置，无缓存概念；改完 <code>pyproject.toml</code> 重跑即可</td></tr>
+      </table>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 依《文档生成规范》编写 · 与本目录下其他「部署与使用说明」配套 · 生成日期：2026-08-05
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>

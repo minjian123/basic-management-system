@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>uv 部署与使用说明</title>
+<style>
+  :root {
+    --bg: #f7f8fa;
+    --fg: #1f2328;
+    --muted: #57606a;
+    --border: #d0d7de;
+    --accent: #0969da;
+    --accent-bg: #ddf4ff;
+    --code-bg: #f6f8fa;
+    --warn-bg: #fff8c5;
+    --warn-border: #d4a72c;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+    line-height: 1.75;
+  }
+  .layout { display: flex; height: 100vh; overflow: hidden; }
+  .sidebar {
+    width: 280px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+  }
+  .sidebar .brand {
+    background: linear-gradient(135deg, #1f2328, #32383f);
+    color: #fff;
+    padding: 1.4rem 1.2rem 1.1rem;
+    border-bottom: 3px solid var(--accent);
+    flex-shrink: 0;
+  }
+  .sidebar .brand h1 { margin: 0 0 .35rem; font-size: 1.15rem; line-height: 1.4; }
+  .sidebar .brand p { margin: 0; color: #b6bec6; font-size: .78rem; }
+  .sidebar nav { padding: .8rem .6rem 1.5rem; font-size: .9rem; }
+  .sidebar nav ul { list-style: none; margin: 0; padding: 0; }
+  .sidebar nav li { margin: .15rem 0; }
+  .sidebar nav a {
+    display: block;
+    padding: .3rem .7rem;
+    border-radius: 5px;
+    color: var(--fg);
+    text-decoration: none;
+  }
+  .sidebar nav a:hover { background: var(--accent-bg); color: var(--accent); }
+  .sidebar nav .sub { padding-left: 1.6rem; font-size: .85rem; color: var(--muted); }
+  .content { flex: 1; overflow-y: auto; }
+  main {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1.5rem 2rem 4rem;
+  }
+  h2 {
+    margin-top: 2.5rem;
+    padding-bottom: .4rem;
+    border-bottom: 2px solid var(--border);
+    font-size: 1.35rem;
+  }
+  h3 { margin-top: 1.6rem; font-size: 1.1rem; }
+  p { margin: .6rem 0; }
+  ul, ol { margin: .6rem 0; padding-left: 1.6rem; }
+  li { margin: .3rem 0; }
+  code {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: .1em .35em;
+    font-family: Consolas, "Cascadia Mono", monospace;
+    font-size: .9em;
+  }
+  pre {
+    background: #0d1117;
+    color: #e6edf3;
+    border-radius: 8px;
+    padding: .9rem 1.1rem;
+    overflow-x: auto;
+    font-size: .88rem;
+    line-height: 1.6;
+  }
+  pre code { background: none; border: none; padding: 0; color: inherit; }
+  .note, .warn {
+    border-radius: 6px;
+    padding: .7rem 1rem;
+    margin: 1rem 0;
+    font-size: .95rem;
+  }
+  .note { background: var(--accent-bg); border-left: 4px solid var(--accent); }
+  .warn { background: var(--warn-bg); border-left: 4px solid var(--warn-border); }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1rem 0;
+    font-size: .92rem;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: .45rem .7rem;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: #eef1f4; white-space: nowrap; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  footer {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1rem 2rem 3rem;
+    color: var(--muted);
+    font-size: .85rem;
+    border-top: 1px solid var(--border);
+  }
+  @media (max-width: 768px) {
+    .layout { flex-direction: column; height: auto; overflow: visible; }
+    .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); max-height: 40vh; }
+    .content { overflow: visible; }
+  }
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>uv 部署与使用说明</h1>
+      <p>Python 包管理与虚拟环境工具</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#intro">1. 简介与选型理由</a></li>
+        <li><a href="#install">2. 安装</a></li>
+        <li><a href="#usage">3. 常用命令</a>
+          <ul class="sub">
+            <li><a href="#usage-sync">3.1 依赖同步</a></li>
+            <li><a href="#usage-dep">3.2 依赖增删</a></li>
+            <li><a href="#usage-run">3.3 运行命令</a></li>
+            <li><a href="#usage-py">3.4 Python 版本管理</a></li>
+          </ul>
+        </li>
+        <li><a href="#bms">4. 与 BMS 的集成</a></li>
+        <li><a href="#faq">5. 常见问题</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="intro">1. 简介与选型理由</h2>
+      <p>uv 是 Astral 出品的 Python 包管理与虚拟环境一体化工具（Rust 实现），兼具 pip / pip-tools / virtualenv / pyenv 的能力。BMS 规划选型 uv 的理由：速度远超 pip、<code>pyproject.toml</code> 集中声明依赖与工具配置、<code>uv.lock</code> 锁定全量依赖保证可复现构建、解释器版本自动管理。</p>
+      <p>本机实测版本：uv 0.11.7（2026-08-05）。</p>
+
+      <h2 id="install">2. 安装</h2>
+      <p>Windows（PowerShell，推荐 winget 或官方脚本其一即可）：</p>
+      <pre><code>winget install astral-sh.uv
+# 或官方安装脚本：
+irm https://astral.sh/uv/install.ps1 | iex</code></pre>
+      <p>macOS / Linux：</p>
+      <pre><code>brew install uv
+# 或 curl -LsSf https://astral.sh/uv/install.sh | sh</code></pre>
+      <p>安装后验证：</p>
+      <pre><code>uv --version</code></pre>
+
+      <h2 id="usage">3. 常用命令</h2>
+
+      <h3 id="usage-sync">3.1 依赖同步</h3>
+      <pre><code>uv sync</code></pre>
+      <p>按 <code>pyproject.toml</code> + <code>uv.lock</code> 创建 <code>.venv</code> 并安装全部依赖（含 dev 组）。BMS 后端所有命令统一带 <code>uv run</code> 前缀，无需手动激活虚拟环境。</p>
+
+      <h3 id="usage-dep">3.2 依赖增删</h3>
+      <pre><code>uv add fastapi            # 添加运行依赖
+uv add --dev pytest        # 添加开发依赖
+uv remove structlog        # 移除依赖
+uv lock                    # 仅更新锁文件（如手动改过 pyproject.toml）</code></pre>
+
+      <h3 id="usage-run">3.3 运行命令</h3>
+      <pre><code>uv run python -c "print('hi')"        # 在虚拟环境中执行
+uv run uvicorn app.main:app --reload  # 运行项目命令
+uv run ruff check .                    # 运行工具（ruff/pyright/pytest 等同理）</code></pre>
+
+      <h3 id="usage-py">3.4 Python 版本管理</h3>
+      <pre><code>uv python install 3.14    # 安装指定解释器（按需，首次 uv sync 也会自动下载）
+uv python list             # 查看已安装解释器</code></pre>
+      <p>解释器版本由项目根 <code>.python-version</code> 固定（BMS 为 3.14），uv 自动选择对应版本，无需手动管理 PATH。</p>
+
+      <h2 id="bms">4. 与 BMS 的集成</h2>
+      <table>
+        <tr><th>位置</th><th>说明</th></tr>
+        <tr><td><code>backend/pyproject.toml</code></td><td>项目元数据（name <code>bms-backend</code>）、运行依赖、<code>[dependency-groups] dev</code> 开发依赖组、ruff/pyright/pytest 工具配置集中于此</td></tr>
+        <tr><td><code>backend/uv.lock</code></td><td>全量依赖锁定（含传递依赖与哈希），CI 中 <code>uv sync</code> 据此可复现安装</td></tr>
+        <tr><td><code>backend/.python-version</code></td><td>固定 3.14；若阶段依赖验证失败需按规划回退 3.13，改此文件与 pyproject 的 <code>requires-python</code> 并同步 CI</td></tr>
+        <tr><td><code>.github/workflows/ci.yml</code>（阶段一任务 10）</td><td>CI 后端 job 用 setup-uv → <code>uv sync</code> → <code>uv run ruff</code> / <code>uv run pytest</code></td></tr>
+      </table>
+
+      <h2 id="faq">5. 常见问题</h2>
+      <table>
+        <tr><th>现象</th><th>处理</th></tr>
+        <tr><td>首次 <code>uv sync</code> 下载解释器较慢</td><td>仅首次发生；或先 <code>uv python install 3.14</code> 手动预装</td></tr>
+        <tr><td>依赖变更后锁文件与 pyproject 不一致</td><td>执行 <code>uv lock</code> 更新锁文件，再 <code>uv sync</code></td></tr>
+        <tr><td>国内网络下载 PyPI 包慢</td><td>设置镜像源：<code>$env:UV_DEFAULT_INDEX = "https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple"</code>（PowerShell）或写入环境变量</td></tr>
+        <tr><td>Windows 缓存目录占用磁盘大</td><td>默认缓存 <code>%LOCALAPPDATA%\uv\cache</code>，可 <code>uv cache dir</code> 查看、<code>uv cache clean</code> 清理</td></tr>
+      </table>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 依《文档生成规范》编写 · 与本目录下其他「部署与使用说明」配套 · 生成日期：2026-08-05
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>

@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vue 3 + Vite 部署与使用说明</title>
+<style>
+  :root {
+    --bg: #f7f8fa;
+    --fg: #1f2328;
+    --muted: #57606a;
+    --border: #d0d7de;
+    --accent: #0969da;
+    --accent-bg: #ddf4ff;
+    --code-bg: #f6f8fa;
+    --warn-bg: #fff8c5;
+    --warn-border: #d4a72c;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+    line-height: 1.75;
+  }
+  .layout { display: flex; height: 100vh; overflow: hidden; }
+  .sidebar {
+    width: 280px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+  }
+  .sidebar .brand {
+    background: linear-gradient(135deg, #1f2328, #32383f);
+    color: #fff;
+    padding: 1.4rem 1.2rem 1.1rem;
+    border-bottom: 3px solid var(--accent);
+    flex-shrink: 0;
+  }
+  .sidebar .brand h1 { margin: 0 0 .35rem; font-size: 1.15rem; line-height: 1.4; }
+  .sidebar .brand p { margin: 0; color: #b6bec6; font-size: .78rem; }
+  .sidebar nav { padding: .8rem .6rem 1.5rem; font-size: .9rem; }
+  .sidebar nav ul { list-style: none; margin: 0; padding: 0; }
+  .sidebar nav li { margin: .15rem 0; }
+  .sidebar nav a {
+    display: block;
+    padding: .3rem .7rem;
+    border-radius: 5px;
+    color: var(--fg);
+    text-decoration: none;
+  }
+  .sidebar nav a:hover { background: var(--accent-bg); color: var(--accent); }
+  .sidebar nav .sub { padding-left: 1.6rem; font-size: .85rem; color: var(--muted); }
+  .content { flex: 1; overflow-y: auto; }
+  main {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1.5rem 2rem 4rem;
+  }
+  h2 {
+    margin-top: 2.5rem;
+    padding-bottom: .4rem;
+    border-bottom: 2px solid var(--border);
+    font-size: 1.35rem;
+  }
+  h3 { margin-top: 1.6rem; font-size: 1.1rem; }
+  p { margin: .6rem 0; }
+  ul, ol { margin: .6rem 0; padding-left: 1.6rem; }
+  li { margin: .3rem 0; }
+  code {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: .1em .35em;
+    font-family: Consolas, "Cascadia Mono", monospace;
+    font-size: .9em;
+  }
+  pre {
+    background: #0d1117;
+    color: #e6edf3;
+    border-radius: 8px;
+    padding: .9rem 1.1rem;
+    overflow-x: auto;
+    font-size: .88rem;
+    line-height: 1.6;
+  }
+  pre code { background: none; border: none; padding: 0; color: inherit; }
+  .note, .warn {
+    border-radius: 6px;
+    padding: .7rem 1rem;
+    margin: 1rem 0;
+    font-size: .95rem;
+  }
+  .note { background: var(--accent-bg); border-left: 4px solid var(--accent); }
+  .warn { background: var(--warn-bg); border-left: 4px solid var(--warn-border); }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1rem 0;
+    font-size: .92rem;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: .45rem .7rem;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: #eef1f4; white-space: nowrap; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  footer {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1rem 2rem 3rem;
+    color: var(--muted);
+    font-size: .85rem;
+    border-top: 1px solid var(--border);
+  }
+  @media (max-width: 768px) {
+    .layout { flex-direction: column; height: auto; overflow: visible; }
+    .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); max-height: 40vh; }
+    .content { overflow: visible; }
+  }
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>Vue 3 + Vite 部署与使用说明</h1>
+      <p>BMS 前端工程基础框架</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#intro">1. 简介与选型理由</a></li>
+        <li><a href="#install">2. 安装与工程初始化</a></li>
+        <li><a href="#usage">3. 常用命令</a>
+          <ul class="sub">
+            <li><a href="#usage-dev">3.1 本地开发</a></li>
+            <li><a href="#usage-build">3.2 构建与预览</a></li>
+            <li><a href="#usage-lint">3.3 检查与测试</a></li>
+          </ul>
+        </li>
+        <li><a href="#bms">4. 与 BMS 的集成</a>
+          <ul class="sub">
+            <li><a href="#bms-dual">4.1 双工程结构</a></li>
+            <li><a href="#bms-src">4.2 src 目录分层</a></li>
+            <li><a href="#bms-api">4.3 类型契约</a></li>
+            <li><a href="#bms-conv">4.4 编码约定</a></li>
+          </ul>
+        </li>
+        <li><a href="#faq">5. 常见问题</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="intro">1. 简介与选型理由</h2>
+      <p>Vue 3 + Vite + TypeScript 是 BMS 前端的基础技术栈。选它的原因：</p>
+      <ul>
+        <li><strong>组合式 API</strong>：中后台页面逻辑按功能聚合，比选项式 API 好维护，也方便把共用逻辑抽成可复用的组合函数</li>
+        <li><strong>Vite 冷启动快</strong>：开发服务器按需编译，大型项目也不用等；原生 ESM 与 HMR 配合，改代码即时生效</li>
+        <li><strong>TypeScript</strong>：前后端契约可以靠 openapi-typescript 从后端 OpenAPI schema 自动生成 TS 类型，接口改了类型马上对不上，编译期就能发现</li>
+      </ul>
+      <p>BMS 是 monorepo，前端分两个工程：<code>frontend</code>（PC 管理端）和 <code>frontend-mobile</code>（移动端 H5，用 Vant）。两个工程同一套技术栈，共享基础配置，源码各自独立。</p>
+
+      <h2 id="install">2. 安装与工程初始化</h2>
+      <p>前置要求：Node.js ≥ 20.19（本机实测 v24.15.0，2026-08-05），包管理器 pnpm 11.20.0。版本由工程根 <code>.nvmrc</code> 固定，用 fnm / volta 等工具自动切换。</p>
+      <pre><code># 检查版本（两者都要达标）
+node -v
+pnpm -v
+
+# 用官方脚手架创建新工程（Vue 3 + TS 模板）
+pnpm create vue@latest
+# 交互选择：TypeScript + Router + Pinia + Vitest 均选 Yes</code></pre>
+      <p>创建后安装依赖并启动：</p>
+      <pre><code>pnpm install
+pnpm dev</code></pre>
+      <p>生产构建与本地预览：</p>
+      <pre><code>pnpm build
+pnpm preview</code></pre>
+
+      <h2 id="usage">3. 常用命令</h2>
+
+      <h3 id="usage-dev">3.1 本地开发</h3>
+      <pre><code>pnpm dev          # 启动开发服务器，默认 http://localhost:5173
+pnpm dev --host   # 局域网可访问（调试手机端时用）</code></pre>
+      <p>Vite 开发服务器默认代理配置见 <code>vite.config.ts</code> 的 <code>server.proxy</code>，BMS 中把 <code>/api</code> 代理到本地后端（开发环境跨域问题靠这个解决，生产则由 nginx 同源反代）。</p>
+
+      <h3 id="usage-build">3.2 构建与预览</h3>
+      <pre><code>pnpm build          # 产物输出到 dist/，可配 base 路径
+pnpm preview        # 本地起静态服务验证 dist/ 产物
+pnpm build --mode prod   # 指定模式加载对应 .env.production</code></pre>
+      <p>环境变量：Vite 只暴露 <code>import.meta.env</code> 中 <code>VITE_</code> 前缀的变量，如 <code>VITE_API_BASE</code>（后端接口地址）。</p>
+
+      <h3 id="usage-lint">3.3 检查与测试</h3>
+      <pre><code>pnpm lint          # ESLint 检查
+pnpm test          # Vitest 单测/组件测试（BMS 前端 job 中用 vitest run）
+pnpm type-check    # vue-tsc 全量类型检查（CI 可加此步骤）</code></pre>
+
+      <h2 id="bms">4. 与 BMS 的集成</h2>
+      <div class="warn">前端工程阶段一尚未初始化，以下为设计约定，来自《阶段一·项目骨架说明》第 9 节与《项目规划说明》。</div>
+
+      <h3 id="bms-dual">4.1 双工程结构</h3>
+      <p>monorepo 下两个前端工程，通过 pnpm workspace 纳入 <code>pnpm-workspace.yaml</code>：</p>
+      <pre><code>frontend/                # PC 管理端：Vite + Vue 3 + TS + Element Plus
+frontend-mobile/         # 移动端 H5：Vite + Vue 3 + TS + Vant
+pnpm-workspace.yaml      # 两工程共享 ESLint/Prettier/TS 基础配置包</code></pre>
+      <p>两工程各自维护 <code>package.json</code> 与 <code>.nvmrc</code>（固定 Node ≥ 20.19），运行方式都是 <code>pnpm --filter frontend dev</code> 一类。</p>
+
+      <h3 id="bms-src">4.2 src 目录分层</h3>
+      <pre><code>frontend/
+├── .nvmrc                    # 固定 Node ≥ 20.19
+├── vite.config.ts            # 插件、代理、构建配置
+├── package.json
+└── src/
+    ├── main.ts               # 入口：注册 pinia / router / i18n / Element Plus
+    ├── App.vue
+    ├── api/                  # 接口封装：axios 实例 + 各模块 API 函数 + 类型
+    ├── router/               # 路由表与守卫（路由懒加载、权限守卫）
+    ├── stores/               # Pinia 状态（用户、权限、全局 UI 状态）
+    ├── views/                # 页面组件
+    ├── layouts/              # 主布局（侧边栏、顶栏、标签页等）
+    ├── components/           # 通用业务组件
+    ├── i18n/                 # 语言包加载与初始化
+    └── utils/                # 工具函数（请求封装、格式化等）</code></pre>
+      <p>分层职责：<code>api/</code> 只管请求与类型，<code>stores/</code> 管状态，页面组件在 <code>views/</code> 下按菜单结构组织。菜单树由后端动态下发，前端据此动态注册路由与生成侧边栏，不硬编码路由表（阶段十实现）。</p>
+
+      <h3 id="bms-api">4.3 类型契约</h3>
+      <p>后端提供 OpenAPI schema，前端用 openapi-typescript 生成 TS 类型，保持前后端契约一致。阶段一后端 schema 尚未稳定，不引入；阶段二接入：</p>
+      <pre><code># 从本地后端导出 schema 并生成类型（阶段二起执行）
+pnpm dlx openapi-typescript http://localhost:8000/openapi.json -o src/api/schema.d.ts</code></pre>
+
+      <h3 id="bms-conv">4.4 编码约定</h3>
+      <ul>
+        <li>统一使用组合式 API（<code>&lt;script setup&gt;</code>），状态管理用 Pinia</li>
+        <li>路由懒加载：<code>component: () =&gt; import('@/views/user/index.vue')</code>，配合静态资源 gzip/brotli 压缩，控制首屏体积</li>
+        <li>文案不硬编码：页面文案走 vue-i18n，语言包运行时从后端 <code>GET /api/v1/i18n/messages</code> 拉取（Redis + localStorage 缓存）</li>
+        <li>Element Plus 按需引入，主题用 SCSS 变量定制（见《Element Plus 部署与使用说明》）</li>
+        <li>移动端复用后端 API 与会话体系，企业微信/钉钉内免登（规划约定）</li>
+      </ul>
+
+      <h2 id="faq">5. 常见问题</h2>
+      <table>
+        <tr><th>现象</th><th>处理</th></tr>
+        <tr><td><code>pnpm dev</code> 提示 Node 版本不满足要求</td><td>先看 <code>.nvmrc</code> 要求的版本（≥ 20.19），用 fnm/volta 切换到对应版本再跑；不要强行用低版本运行</td></tr>
+        <tr><td>5173 端口被占用</td><td>Vite 会自动换端口并在终端提示；或手动 <code>pnpm dev --port 5174</code></td></tr>
+        <tr><td>接口请求报跨域</td><td>开发环境在 <code>vite.config.ts</code> 配 <code>server.proxy</code> 把 <code>/api</code> 代理到后端；生产由 nginx 同源反代，不存在跨域</td></tr>
+        <tr><td>构建产物在子路径部署打不开</td><td>在 <code>vite.config.ts</code> 设 <code>base</code> 为部署子路径，否则资源路径会 404</td></tr>
+        <tr><td>改了 <code>.env</code> 不生效</td><td>环境变量在 dev server 启动时读取，改动后需重启 <code>pnpm dev</code></td></tr>
+        <tr><td>依赖装得慢</td><td>换 npm 镜像源：<code>pnpm config set registry https://registry.npmmirror.com</code>（pnpm 自身也走该镜像）</td></tr>
+      </table>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 依《文档生成规范》编写 · 与本目录下其他「部署与使用说明」配套 · 生成日期：2026-08-05
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>

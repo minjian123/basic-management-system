@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FastAPI 部署与使用说明</title>
+<style>
+  :root {
+    --bg: #f7f8fa;
+    --fg: #1f2328;
+    --muted: #57606a;
+    --border: #d0d7de;
+    --accent: #0969da;
+    --accent-bg: #ddf4ff;
+    --code-bg: #f6f8fa;
+    --warn-bg: #fff8c5;
+    --warn-border: #d4a72c;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+    line-height: 1.75;
+  }
+  .layout { display: flex; height: 100vh; overflow: hidden; }
+  .sidebar {
+    width: 280px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+  }
+  .sidebar .brand {
+    background: linear-gradient(135deg, #1f2328, #32383f);
+    color: #fff;
+    padding: 1.4rem 1.2rem 1.1rem;
+    border-bottom: 3px solid var(--accent);
+    flex-shrink: 0;
+  }
+  .sidebar .brand h1 { margin: 0 0 .35rem; font-size: 1.15rem; line-height: 1.4; }
+  .sidebar .brand p { margin: 0; color: #b6bec6; font-size: .78rem; }
+  .sidebar nav { padding: .8rem .6rem 1.5rem; font-size: .9rem; }
+  .sidebar nav ul { list-style: none; margin: 0; padding: 0; }
+  .sidebar nav li { margin: .15rem 0; }
+  .sidebar nav a {
+    display: block;
+    padding: .3rem .7rem;
+    border-radius: 5px;
+    color: var(--fg);
+    text-decoration: none;
+  }
+  .sidebar nav a:hover { background: var(--accent-bg); color: var(--accent); }
+  .sidebar nav .sub { padding-left: 1.6rem; font-size: .85rem; color: var(--muted); }
+  .content { flex: 1; overflow-y: auto; }
+  main {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1.5rem 2rem 4rem;
+  }
+  h2 {
+    margin-top: 2.5rem;
+    padding-bottom: .4rem;
+    border-bottom: 2px solid var(--border);
+    font-size: 1.35rem;
+  }
+  h3 { margin-top: 1.6rem; font-size: 1.1rem; }
+  p { margin: .6rem 0; }
+  ul, ol { margin: .6rem 0; padding-left: 1.6rem; }
+  li { margin: .3rem 0; }
+  code {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: .1em .35em;
+    font-family: Consolas, "Cascadia Mono", monospace;
+    font-size: .9em;
+  }
+  pre {
+    background: #0d1117;
+    color: #e6edf3;
+    border-radius: 8px;
+    padding: .9rem 1.1rem;
+    overflow-x: auto;
+    font-size: .88rem;
+    line-height: 1.6;
+  }
+  pre code { background: none; border: none; padding: 0; color: inherit; }
+  .note, .warn {
+    border-radius: 6px;
+    padding: .7rem 1rem;
+    margin: 1rem 0;
+    font-size: .95rem;
+  }
+  .note { background: var(--accent-bg); border-left: 4px solid var(--accent); }
+  .warn { background: var(--warn-bg); border-left: 4px solid var(--warn-border); }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1rem 0;
+    font-size: .92rem;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: .45rem .7rem;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: #eef1f4; white-space: nowrap; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  footer {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1rem 2rem 3rem;
+    color: var(--muted);
+    font-size: .85rem;
+    border-top: 1px solid var(--border);
+  }
+  @media (max-width: 768px) {
+    .layout { flex-direction: column; height: auto; overflow: visible; }
+    .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); max-height: 40vh; }
+    .content { overflow: visible; }
+  }
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>FastAPI 部署与使用说明</h1>
+      <p>Web 框架 · 原生异步 · 自动 OpenAPI</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#intro">1. 简介与选型理由</a></li>
+        <li><a href="#install">2. 安装</a></li>
+        <li><a href="#usage">3. 使用方法</a>
+          <ul class="sub">
+            <li><a href="#usage-route">3.1 路由与依赖注入</a></li>
+            <li><a href="#usage-doc">3.2 文档与调试</a></li>
+          </ul>
+        </li>
+        <li><a href="#bms">4. 与 BMS 的集成</a>
+          <ul class="sub">
+            <li><a href="#bms-layer">4.1 api 分层与路由前缀</a></li>
+            <li><a href="#bms-response">4.2 统一响应与错误码</a></li>
+            <li><a href="#bms-auth">4.3 权限校验（阶段二）</a></li>
+            <li><a href="#bms-test">4.4 测试方式</a></li>
+          </ul>
+        </li>
+        <li><a href="#faq">5. 常见问题</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="intro">1. 简介与选型理由</h2>
+      <p>FastAPI 是 Python 的 Web 框架，三个核心点：原生异步、靠类型注解自动生成 OpenAPI 文档、参数校验交给 Pydantic。BMS 规划选它的理由（见《项目规划说明》）：原生异步与异步 SQLAlchemy 天然契合；接口文档（Swagger UI / ReDoc）随代码自动生成，调试接口零成本。</p>
+      <p>本机实测版本：FastAPI 0.141.1，配套校验引擎 pydantic 2.13.4（2026-08-05）。</p>
+
+      <h2 id="install">2. 安装</h2>
+      <p>FastAPI 依赖已写进 <code>backend/pyproject.toml</code>（<code>fastapi&gt;=0.141.1</code>），不用单独装，在 backend 目录执行一次 <code>uv sync</code> 就全部装齐。单独升级或调整版本用：</p>
+      <pre><code>cd backend
+uv sync                # 按 pyproject.toml + uv.lock 安装全部依赖
+uv add fastapi         # 升级/固定 FastAPI 版本（会同步更新锁文件）
+uv run python -c "import fastapi; print(fastapi.__version__)"   # 验证版本</code></pre>
+      <div class="note">表单与文件上传功能需要 <code>python-multipart</code>（规划已列入选型），目前尚未加入 pyproject.toml，阶段用到上传功能时再 <code>uv add python-multipart</code>。本机命令均为 PowerShell 语法。</div>
+
+      <h2 id="usage">3. 使用方法</h2>
+
+      <h3 id="usage-route">3.1 路由与依赖注入</h3>
+      <p>FastAPI 本身没有独立的命令行，应用靠 uvicorn 等 ASGI 服务器跑起来。入口文件 <code>backend/app/main.py</code>（应用工厂）由阶段一任务 7 产出，当前仓库尚未实现，下面的路由示例仅作通用写法参考：</p>
+      <pre><code># 路由模块：APIRouter 组织，FastAPI 自动校验与生成文档
+from fastapi import APIRouter, Depends
+
+router = APIRouter(prefix="/api/v1", tags=["示例"])
+
+@router.get("/items/{item_id}")
+async def get_item(item_id: int, db=Depends(get_db)):
+    # item_id 非 int 时直接返回 422，不用手写校验
+    return {"code": 0, "message": "ok", "data": {"id": item_id}}</code></pre>
+      <ul>
+        <li>依赖注入 <code>Depends(...)</code>：BMS 的 <code>get_db()</code> 依赖按当前租户上下文返回对应库的会话（阶段一 7.3 节设计，当前未实现）</li>
+        <li>路由函数推荐写 <code>async def</code>；含同步阻塞操作（慢 SQL、第三方调用）的函数用普通 <code>def</code> 声明，FastAPI 会丢线程池执行，不卡事件循环</li>
+      </ul>
+
+      <h3 id="usage-doc">3.2 文档与调试</h3>
+      <table>
+        <tr><th>端点</th><th>说明</th></tr>
+        <tr><td><code>/docs</code></td><td>Swagger UI 交互式调试页</td></tr>
+        <tr><td><code>/redoc</code></td><td>ReDoc 文档页</td></tr>
+        <tr><td><code>/openapi.json</code></td><td>OpenAPI 契约原始 JSON</td></tr>
+      </table>
+      <p>BMS 约定：<code>app.debug = true</code>（config.toml 默认）时开启 Swagger；生产环境必须关闭在线文档（<code>debug = false</code>），OpenAPI 契约改由 CI 构建时导出 <code>swagger.json</code> 快照存档、随版本分发给外部系统（见《项目规划说明》"系统集成"节）。</p>
+
+      <h2 id="bms">4. 与 BMS 的集成</h2>
+
+      <h3 id="bms-layer">4.1 api 分层与路由前缀</h3>
+      <p>后端接口统一挂在 <code>/api/v1</code> 前缀下（规划约定"全部接口 /api/v1"），路由注册在 <code>app/api/router.py</code>，各模块路由放 <code>app/api/v1/</code>（阶段一为 <code>health.py</code> 与 <code>system.py</code>）。分层职责（规划 + 阶段一约定）：</p>
+      <table>
+        <tr><th>层</th><th>职责</th><th>位置</th></tr>
+        <tr><td>api</td><td>只做参数校验与路由分发，禁止直接操作模型</td><td><code>app/api/</code></td></tr>
+        <tr><td>services</td><td>业务逻辑</td><td><code>app/services/</code>（阶段一为空骨架）</td></tr>
+        <tr><td>repositories</td><td>数据访问与数据源路由</td><td><code>app/repositories/</code>（阶段一为空骨架）</td></tr>
+      </table>
+      <p>启动方式（详见《uvicorn 部署使用说明》）：<code>uv run uvicorn app.main:app --reload --port 8000</code>——<code>app/main.py</code> 阶段一尚未实现，该命令待任务 7（应用组装）实现后生效。</p>
+
+      <h3 id="bms-response">4.2 统一响应与错误码</h3>
+      <p>BMS 全部接口统一响应结构 <code>{code, message, data}</code>（<code>app/core/errors.py</code> 统一包装，阶段一任务 4 产出）：</p>
+      <ul>
+        <li><code>code = 0</code> 成功；非 0 为业务错误码</li>
+        <li>HTTP 状态码与业务错误码分离：HTTP 只表达传输层面的结果，业务成败看 body 里的 code</li>
+        <li>错误码为 5 位数字，万位为模块段、后 4 位为段内序号，一经发布稳定不变；文案由前端按 i18n 映射，后端不承担文案拼装</li>
+        <li>错误码分段示例：<code>8xxxx</code>（80001-89999）为开放接口/Webhook/租户/SSO 段</li>
+        <li>异常响应携带 <code>request_id</code>，便于日志链路排查</li>
+      </ul>
+
+      <h3 id="bms-auth">4.3 权限校验（阶段二）</h3>
+      <p>阶段二实现，当前未实现。规划约定：</p>
+      <ul>
+        <li>后端接口用依赖注入 <code>require_permission(...)</code> 强制校验，前端按权限码控制菜单/按钮/字段显隐只是第一层，后端兜底强制</li>
+        <li>两级校验：业务权限校验表单入口与数据表访问，动作权限校验按钮对应接口</li>
+        <li>除登录/刷新/健康检查外，一律 Bearer access token 鉴权</li>
+      </ul>
+
+      <h3 id="bms-test">4.4 测试方式</h3>
+      <p>测试用 pytest + httpx 的 <code>ASGITransport</code>，免启服务器直连应用（规划"测试设计"节）：<code>conftest.py</code> 提供 app fixture（依赖覆盖：测试库与测试 Redis）与 client fixture，测试库统一 SQLite。</p>
+
+      <h2 id="faq">5. 常见问题</h2>
+      <table>
+        <tr><th>现象</th><th>处理</th></tr>
+        <tr><td>启动报 <code>ModuleNotFoundError: app.main</code></td><td>工作目录必须是 <code>backend/</code>，再执行 <code>uv run uvicorn app.main:app</code></td></tr>
+        <tr><td>视图里用了 <code>time.sleep</code> / 同步 requests，并发请求全部变慢</td><td>路由函数改用普通 <code>def</code> 声明，FastAPI 自动放进线程池执行，不阻塞事件循环</td></tr>
+        <tr><td><code>/docs</code> 打不开</td><td>生产配置 <code>debug = false</code> 已关闭在线文档，属预期行为；开发环境把 config.toml 的 <code>[app] debug</code> 恢复为 <code>true</code></td></tr>
+        <tr><td>改了代码不生效</td><td>启动命令加 <code>--reload</code> 热重载；改了 pyproject.toml 需重新 <code>uv sync</code></td></tr>
+        <tr><td>接口 422 报错</td><td>参数类型/校验不过，FastAPI 默认行为；按 body 里的校验明细改参数</td></tr>
+      </table>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 依《文档生成规范》编写 · 与本目录下其他「部署与使用说明」配套 · 生成日期：2026-08-05
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>

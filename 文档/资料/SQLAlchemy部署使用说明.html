@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SQLAlchemy 部署与使用说明</title>
+<style>
+  :root {
+    --bg: #f7f8fa;
+    --fg: #1f2328;
+    --muted: #57606a;
+    --border: #d0d7de;
+    --accent: #0969da;
+    --accent-bg: #ddf4ff;
+    --code-bg: #f6f8fa;
+    --warn-bg: #fff8c5;
+    --warn-border: #d4a72c;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+    line-height: 1.75;
+  }
+  .layout { display: flex; height: 100vh; overflow: hidden; }
+  .sidebar {
+    width: 280px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+  }
+  .sidebar .brand {
+    background: linear-gradient(135deg, #1f2328, #32383f);
+    color: #fff;
+    padding: 1.4rem 1.2rem 1.1rem;
+    border-bottom: 3px solid var(--accent);
+    flex-shrink: 0;
+  }
+  .sidebar .brand h1 { margin: 0 0 .35rem; font-size: 1.15rem; line-height: 1.4; }
+  .sidebar .brand p { margin: 0; color: #b6bec6; font-size: .78rem; }
+  .sidebar nav { padding: .8rem .6rem 1.5rem; font-size: .9rem; }
+  .sidebar nav ul { list-style: none; margin: 0; padding: 0; }
+  .sidebar nav li { margin: .15rem 0; }
+  .sidebar nav a {
+    display: block;
+    padding: .3rem .7rem;
+    border-radius: 5px;
+    color: var(--fg);
+    text-decoration: none;
+  }
+  .sidebar nav a:hover { background: var(--accent-bg); color: var(--accent); }
+  .sidebar nav .sub { padding-left: 1.6rem; font-size: .85rem; color: var(--muted); }
+  .content { flex: 1; overflow-y: auto; }
+  main {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1.5rem 2rem 4rem;
+  }
+  h2 {
+    margin-top: 2.5rem;
+    padding-bottom: .4rem;
+    border-bottom: 2px solid var(--border);
+    font-size: 1.35rem;
+  }
+  h3 { margin-top: 1.6rem; font-size: 1.1rem; }
+  p { margin: .6rem 0; }
+  ul, ol { margin: .6rem 0; padding-left: 1.6rem; }
+  li { margin: .3rem 0; }
+  code {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: .1em .35em;
+    font-family: Consolas, "Cascadia Mono", monospace;
+    font-size: .9em;
+  }
+  pre {
+    background: #0d1117;
+    color: #e6edf3;
+    border-radius: 8px;
+    padding: .9rem 1.1rem;
+    overflow-x: auto;
+    font-size: .88rem;
+    line-height: 1.6;
+  }
+  pre code { background: none; border: none; padding: 0; color: inherit; }
+  .note, .warn {
+    border-radius: 6px;
+    padding: .7rem 1rem;
+    margin: 1rem 0;
+    font-size: .95rem;
+  }
+  .note { background: var(--accent-bg); border-left: 4px solid var(--accent); }
+  .warn { background: var(--warn-bg); border-left: 4px solid var(--warn-border); }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1rem 0;
+    font-size: .92rem;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: .45rem .7rem;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: #eef1f4; white-space: nowrap; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  footer {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1rem 2rem 3rem;
+    color: var(--muted);
+    font-size: .85rem;
+    border-top: 1px solid var(--border);
+  }
+  @media (max-width: 768px) {
+    .layout { flex-direction: column; height: auto; overflow: visible; }
+    .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); max-height: 40vh; }
+    .content { overflow: visible; }
+  }
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>SQLAlchemy 部署与使用说明</h1>
+      <p>BMS 后端 ORM 与异步数据访问层</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#intro">1. 简介与选型理由</a></li>
+        <li><a href="#install">2. 安装</a></li>
+        <li><a href="#usage">3. 常用用法</a>
+          <ul class="sub">
+            <li><a href="#usage-engine">3.1 连接串与引擎</a></li>
+            <li><a href="#usage-session">3.2 会话与增删改查</a></li>
+            <li><a href="#usage-query">3.3 查询写法</a></li>
+            <li><a href="#usage-debug">3.4 调试开关</a></li>
+          </ul>
+        </li>
+        <li><a href="#bms">4. 与 BMS 的集成</a></li>
+        <li><a href="#faq">5. 常见问题</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="intro">1. 简介与选型理由</h2>
+      <p>SQLAlchemy 是 Python 生态里用得最多的 ORM 库，2.0 开始把异步支持做成了一等公民：<code>AsyncEngine</code>、<code>AsyncSession</code> 和同步写法基本同构，学一套会两套。BMS 后端是 FastAPI 异步栈，选它主要看中几点：</p>
+      <ul>
+        <li>原生异步：aiosqlite、aiomysql、psycopg（async）这些驱动都能直接挂到 <code>AsyncEngine</code> 上，请求全程不阻塞事件循环</li>
+        <li>ORM + Core 两层：业务代码用 ORM 模型，批量写入、复杂统计可以退回 Core 表达式，不用换库</li>
+        <li>方言体系：同一套模型能在 SQLite / MySQL / PostgreSQL 三库间切换，正是 BMS「开发用 SQLite、生产用 MySQL/PostgreSQL」策略的支撑</li>
+        <li>官方配套 Alembic：schema 演进有同源迁移工具（见《Alembic部署使用说明》）</li>
+      </ul>
+      <p>本机核实版本：SQLAlchemy 2.0.51，运行于 Python 3.14.4；aiosqlite 在 pyproject.toml 中的约束为 ≥0.22.1。</p>
+
+      <h2 id="install">2. 安装</h2>
+      <p>依赖已经写进 <code>backend/pyproject.toml</code>（<code>sqlalchemy[asyncio]>=2.0.51</code> 与 <code>aiosqlite>=0.22.1</code>），Windows PowerShell 里进 backend 目录执行一次同步即可：</p>
+      <pre><code>cd backend
+uv sync</code></pre>
+      <p>验证安装：</p>
+      <pre><code>uv run python -c "import sqlalchemy, aiosqlite; print(sqlalchemy.__version__)"</code></pre>
+      <p>生产方言驱动说明：config.toml 注释里给了 MySQL（<code>mysql+aiomysql</code>）和 PostgreSQL（<code>postgresql+psycopg</code>）的连接串写法，但这两个驱动（aiomysql、psycopg）目前还没有加进 pyproject.toml，等生产接入时用 <code>uv add</code> 补上。</p>
+
+      <h2 id="usage">3. 常用用法</h2>
+
+      <h3 id="usage-engine">3.1 连接串与引擎</h3>
+      <p>连接串格式按库不同，都是 <code>dialect+driver://</code> 开头：</p>
+      <table>
+        <tr><th>目标库</th><th>连接串</th><th>用途</th></tr>
+        <tr><td>SQLite</td><td><code>sqlite+aiosqlite:///./data/platform.db</code></td><td>开发/测试；aiosqlite 是异步驱动</td></tr>
+        <tr><td>MySQL 8.x</td><td><code>mysql+aiomysql://bms:密码@主机:3306/bms_platform</code></td><td>生产；aiomysql 异步驱动</td></tr>
+        <tr><td>PostgreSQL 16+</td><td><code>postgresql+psycopg://bms:密码@主机:5432/bms_platform</code></td><td>生产；psycopg3 原生支持 async</td></tr>
+      </table>
+      <p>写独立脚本时建引擎与会话：</p>
+      <pre><code>from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
+
+engine = create_async_engine("sqlite+aiosqlite:///./data/platform.db")
+Session = async_sessionmaker(engine, expire_on_commit=False)
+
+async def demo():
+    async with Session() as session:
+        # 用 session 做事
+        pass</code></pre>
+      <p>注意：<code>create_async_engine</code> 的 URL 必须带异步方言（写 <code>sqlite+aiosqlite</code> 而不是 <code>sqlite://</code>），否则实际走的是同步驱动，在事件循环里会阻塞。</p>
+
+      <h3 id="usage-session">3.2 会话与增删改查</h3>
+      <pre><code>async def crud(session):
+    user = User(name="张三")              # 新增
+    session.add(user)
+    await session.commit()
+
+    u = await session.get(User, user.id)  # 查询
+    u.name = "李四"                        # 修改
+    await session.commit()
+
+    await session.delete(u)               # 删除
+    await session.commit()</code></pre>
+      <p>写操作要显式 <code>commit()</code>，事务边界自己控制；一个请求尽量只开一个会话，别在循环里反复开。</p>
+
+      <h3 id="usage-query">3.3 查询写法</h3>
+      <pre><code>from sqlalchemy import select, func
+
+result = await session.execute(select(User).where(User.dept_id == 1))
+users = result.scalars().all()
+
+count = await session.scalar(select(func.count()).select_from(User))</code></pre>
+      <p>有关联关系的查询用 <code>selectinload()</code> 或 <code>joinedload()</code> 提前加载，避免 N+1 查询；BMS 规范里禁 <code>SELECT *</code>，列一律显式写。</p>
+
+      <h3 id="usage-debug">3.4 调试开关</h3>
+      <p>想看到每一条执行的 SQL，建引擎时加 <code>echo=True</code>，或者把日志级别调到 DEBUG：</p>
+      <pre><code>engine = create_async_engine(url, echo=True)      # 打印所有 SQL
+import logging
+logging.getLogger("sqlalchemy.engine").setLevel(logging.DEBUG)</code></pre>
+      <p>config.toml 里的 <code>echo</code> 配置项就是干这个的，仅调试用，生产保持 false。</p>
+
+      <h2 id="bms">4. 与 BMS 的集成</h2>
+      <div class="warn">db 层（<code>db/engine.py</code>、<code>db/session.py</code>、<code>db/router.py</code>、<code>db/base.py</code>）属于阶段一任务 6「数据库接入」，目前尚未实现。下面写的是规划形态，待任务 6 落地后生效。</div>
+      <p>相关位置一览：</p>
+      <table>
+        <tr><th>位置</th><th>说明</th></tr>
+        <tr><td><code>backend/pyproject.toml</code></td><td>声明 <code>sqlalchemy[asyncio]>=2.0.51</code>、<code>aiosqlite>=0.22.1</code></td></tr>
+        <tr><td><code>backend/config.toml</code>（[database] 段）</td><td><code>platform_url</code>、<code>tenant_url_template</code>、<code>pool_size</code>、<code>max_overflow</code>、<code>echo</code>；生产用环境变量 <code>BMS_DATABASE_PLATFORM_URL</code> 覆盖平台库连接串（密码不走配置文件）</td></tr>
+        <tr><td><code>app/db/engine.py</code></td><td><code>EngineRegistry</code> 多数据源异步引擎工厂（懒加载）</td></tr>
+        <tr><td><code>app/db/session.py</code></td><td><code>AsyncSession</code> 工厂，按租户上下文提供会话</td></tr>
+        <tr><td><code>app/db/router.py</code></td><td>数据源路由：请求按租户上下文选平台库还是租户库</td></tr>
+        <tr><td><code>app/db/base.py</code></td><td>四类模型混入 + 统一模型基类，后续所有模型继承</td></tr>
+      </table>
+      <p>库拓扑（<code>platform_url</code> / <code>tenant_url_template</code>）：开发环境用多个 SQLite 文件模拟三库，生产切 MySQL/PostgreSQL 只改连接串，代码不动。</p>
+      <table>
+        <tr><th>库</th><th>开发（SQLite 模拟）</th><th>生产</th></tr>
+        <tr><td>平台库</td><td><code>backend/data/platform.db</code></td><td><code>bms_platform</code>（MySQL 8.x / PostgreSQL 16+）</td></tr>
+        <tr><td>租户库</td><td><code>backend/data/tenant_{code}.db</code>，一租户一库</td><td><code>bms_tenant_{code}</code>，<code>{code}</code> 运行时替换为租户编码</td></tr>
+        <tr><td>归档库</td><td>仅预留配置位</td><td>阶段四启用</td></tr>
+      </table>
+      <ul>
+        <li><strong>EngineRegistry 懒加载</strong>：按数据源 key 缓存 <code>AsyncEngine</code>，首次访问才创建，避免全量租户连接常驻；入口两个——<code>get_platform_engine()</code> 与 <code>get_tenant_engine(tenant_code)</code>；engine 空闲超阈值自动 dispose 释放连接</li>
+        <li><strong>连接池</strong>：<code>pool_size=5</code>、<code>max_overflow=10</code>（config.toml）；多 worker 部署按 总连接数 = worker × (pool_size + max_overflow) ≤ 数据库 max_connections 的 70% 核算</li>
+        <li><strong>AsyncSession 工厂</strong>：每次请求创建独立会话、请求结束关闭，异步会话禁止跨请求共享；<code>get_db()</code> 依赖按当前租户上下文返回对应库的会话；事务为请求依赖粒度，显式 commit/rollback</li>
+        <li><strong>模型基类</strong>（<code>db/base.py</code> 四类混入）：</li>
+      </ul>
+      <table>
+        <tr><th>混入</th><th>字段</th><th>说明</th></tr>
+        <tr><td><code>SnowflakeIdMixin</code></td><td><code>id</code></td><td>雪花 ID 主键（yitter/IdGenerator），Python 侧生成，时钟回拨按配置处理</td></tr>
+        <tr><td><code>AuditMixin</code></td><td><code>created_at / created_by / updated_at / updated_by</code></td><td>ORM 事件自动填充；时间统一 UTC 存储</td></tr>
+        <tr><td><code>SoftDeleteMixin</code></td><td><code>deleted_at</code></td><td>软删除，查询默认过滤；业务唯一约束建为 (唯一字段, deleted_at) 复合唯一索引</td></tr>
+        <tr><td><code>OptimisticLockMixin</code></td><td><code>version</code></td><td>乐观锁，更新时比对 version，防止多实例并发覆盖</td></tr>
+      </table>
+      <p>软删除复合唯一索引的原理：未删行 <code>deleted_at</code> 为 NULL，SQLite / MySQL / PostgreSQL 三库都允许多个 NULL 不冲突；删除时写入时间戳即释放唯一键，恢复时清掉 <code>deleted_at</code>。PostgreSQL 可另加部分唯一索引优化。</p>
+      <ul>
+        <li><strong>数据库兼容</strong>：ORM 层禁用方言特有功能——JSON 等类型用跨方言通用类型，分页统一 limit/offset，字符集 MySQL utf8mb4 / PostgreSQL UTF8，禁用 <code>SELECT *</code>，参数化查询防 SQL 注入；这样同一套代码三库都能跑</li>
+      </ul>
+
+      <h2 id="faq">5. 常见问题</h2>
+      <table>
+        <tr><th>现象</th><th>处理</th></tr>
+        <tr><td>URL 写 <code>sqlite://</code> 挂在异步代码里，事件循环被卡住</td><td>改用 <code>sqlite+aiosqlite://</code>；MySQL/PG 同理必须带异步驱动名</td></tr>
+        <tr><td>会话没关，连接池被占满，请求超时</td><td>会话只在请求内创建、结束时关闭；不要跨请求共享，也别在循环里开会话不关</td></tr>
+        <tr><td>日志里出现 "greenlet" / 跨事件循环报错</td><td>多半是同步 Session 混进了异步代码，统一走 AsyncSession</td></tr>
+        <tr><td>想看的 SQL 没打印</td><td><code>echo=true</code> 或 <code>sqlalchemy.engine</code> 日志调 DEBUG，用完关掉</td></tr>
+        <tr><td>时间字段对不上时区</td><td>BMS 规范统一 UTC 存储，前端按本地时区展示，入库前先转 UTC</td></tr>
+        <tr><td>Windows 下 SQLite 文件找不到</td><td>相对路径统一从 backend 目录解析（config.toml 里 <code>./data/platform.db</code>），启动命令的工作目录放在 backend</td></tr>
+      </table>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 依《文档生成规范》编写 · 与本目录下其他「部署与使用说明」配套 · 生成日期：2026-08-05
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>

@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Element Plus 部署与使用说明</title>
+<style>
+  :root {
+    --bg: #f7f8fa;
+    --fg: #1f2328;
+    --muted: #57606a;
+    --border: #d0d7de;
+    --accent: #0969da;
+    --accent-bg: #ddf4ff;
+    --code-bg: #f6f8fa;
+    --warn-bg: #fff8c5;
+    --warn-border: #d4a72c;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+    line-height: 1.75;
+  }
+  .layout { display: flex; height: 100vh; overflow: hidden; }
+  .sidebar {
+    width: 280px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+  }
+  .sidebar .brand {
+    background: linear-gradient(135deg, #1f2328, #32383f);
+    color: #fff;
+    padding: 1.4rem 1.2rem 1.1rem;
+    border-bottom: 3px solid var(--accent);
+    flex-shrink: 0;
+  }
+  .sidebar .brand h1 { margin: 0 0 .35rem; font-size: 1.15rem; line-height: 1.4; }
+  .sidebar .brand p { margin: 0; color: #b6bec6; font-size: .78rem; }
+  .sidebar nav { padding: .8rem .6rem 1.5rem; font-size: .9rem; }
+  .sidebar nav ul { list-style: none; margin: 0; padding: 0; }
+  .sidebar nav li { margin: .15rem 0; }
+  .sidebar nav a {
+    display: block;
+    padding: .3rem .7rem;
+    border-radius: 5px;
+    color: var(--fg);
+    text-decoration: none;
+  }
+  .sidebar nav a:hover { background: var(--accent-bg); color: var(--accent); }
+  .sidebar nav .sub { padding-left: 1.6rem; font-size: .85rem; color: var(--muted); }
+  .content { flex: 1; overflow-y: auto; }
+  main {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1.5rem 2rem 4rem;
+  }
+  h2 {
+    margin-top: 2.5rem;
+    padding-bottom: .4rem;
+    border-bottom: 2px solid var(--border);
+    font-size: 1.35rem;
+  }
+  h3 { margin-top: 1.6rem; font-size: 1.1rem; }
+  p { margin: .6rem 0; }
+  ul, ol { margin: .6rem 0; padding-left: 1.6rem; }
+  li { margin: .3rem 0; }
+  code {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: .1em .35em;
+    font-family: Consolas, "Cascadia Mono", monospace;
+    font-size: .9em;
+  }
+  pre {
+    background: #0d1117;
+    color: #e6edf3;
+    border-radius: 8px;
+    padding: .9rem 1.1rem;
+    overflow-x: auto;
+    font-size: .88rem;
+    line-height: 1.6;
+  }
+  pre code { background: none; border: none; padding: 0; color: inherit; }
+  .note, .warn {
+    border-radius: 6px;
+    padding: .7rem 1rem;
+    margin: 1rem 0;
+    font-size: .95rem;
+  }
+  .note { background: var(--accent-bg); border-left: 4px solid var(--accent); }
+  .warn { background: var(--warn-bg); border-left: 4px solid var(--warn-border); }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1rem 0;
+    font-size: .92rem;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: .45rem .7rem;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: #eef1f4; white-space: nowrap; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  footer {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1rem 2rem 3rem;
+    color: var(--muted);
+    font-size: .85rem;
+    border-top: 1px solid var(--border);
+  }
+  @media (max-width: 768px) {
+    .layout { flex-direction: column; height: auto; overflow: visible; }
+    .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); max-height: 40vh; }
+    .content { overflow: visible; }
+  }
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>Element Plus 部署与使用说明</h1>
+      <p>BMS PC 管理端 UI 组件库</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#intro">1. 简介与选型理由</a></li>
+        <li><a href="#install">2. 安装与按需引入</a></li>
+        <li><a href="#usage">3. 使用方法</a>
+          <ul class="sub">
+            <li><a href="#usage-component">3.1 组件与图标</a></li>
+            <li><a href="#usage-theme">3.2 主题定制</a></li>
+            <li><a href="#usage-i18n">3.3 国际化配合</a></li>
+          </ul>
+        </li>
+        <li><a href="#bms">4. 与 BMS 的集成</a></li>
+        <li><a href="#faq">5. 常见问题</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="intro">1. 简介与选型理由</h2>
+      <p>Element Plus 是 Vue 3 生态里中文社区用得最多的后台组件库。BMS 选它的原因：</p>
+      <ul>
+        <li>后台管理常用组件齐全：表格、表单、树、弹窗、分页、日期选择等开箱即用，不用自己造轮子</li>
+        <li>主题可定制：样式基于 SCSS 变量，改几个变量就能换整套颜色，配合 BMS 的品牌色很容易</li>
+        <li>与 Vue 3 同源维护，升级节奏跟得上；文档和社区资料都是中文，遇到问题好查</li>
+        <li>默认转义输出，能挡住常见的 XSS 注入（规划"基础防护"节明确列了这一点）</li>
+      </ul>
+      <p>BMS 里只有 PC 管理端（frontend）用 Element Plus；移动端 H5 用的是 Vant，两边组件库不混用。</p>
+
+      <h2 id="install">2. 安装与按需引入</h2>
+      <pre><code># 安装组件库本体
+pnpm add element-plus
+
+# 安装按需引入插件（开发依赖）
+pnpm add -D unplugin-vue-components unplugin-auto-import</code></pre>
+      <p>在 <code>vite.config.ts</code> 里配置插件：</p>
+      <pre><code>import AutoImport from 'unplugin-auto-import/vite'
+import Components from 'unplugin-vue-components/vite'
+import { ElementPlusResolver } from 'unplugin-vue-components/resolvers'
+
+export default defineConfig({
+  plugins: [
+    AutoImport({ resolvers: [ElementPlusResolver()] }),
+    Components({ resolvers: [ElementPlusResolver()] }),
+  ],
+})</code></pre>
+      <p>配好之后，模板里直接用组件名（如 <code>&lt;el-button&gt;</code>）即可，组件与对应样式会自动按需引入，不用手动 import。图标建议显式引入，方便打包工具做 tree-shaking：</p>
+      <pre><code>pnpm add @element-plus/icons-vue</code></pre>
+      <div class="note">按需引入后，Element Plus 的样式只打包用到的那部分，首屏体积明显小。这是规划「前端性能」节的要求，不要改成全量引入。</div>
+
+      <h2 id="usage">3. 使用方法</h2>
+
+      <h3 id="usage-component">3.1 组件与图标</h3>
+      <pre><code>&lt;template&gt;
+  &lt;el-button type="primary" @click="submit"&gt;保存&lt;/el-button&gt;
+  &lt;el-table :data="rows"&gt;
+    &lt;el-table-column prop="name" label="名称" /&gt;
+    &lt;el-table-column prop="status" label="状态" /&gt;
+  &lt;/el-table&gt;
+&lt;/template&gt;</code></pre>
+      <p>表单场景建议用 <code>el-form</code> 的校验规则：</p>
+      <pre><code>const formRef = ref&lt;FormInstance&gt;()
+const rules: FormRules = {
+  name: [{ required: true, message: '请输入名称', trigger: 'blur' }],
+}
+await formRef.value.validate()</code></pre>
+
+      <h3 id="usage-theme">3.2 主题定制</h3>
+      <p>BMS 用 SCSS 变量覆盖的方式定制主题（规划「样式：SCSS（Element Plus 主题定制）」）。做法是建一个 <code>src/styles/element/index.scss</code>：</p>
+      <pre><code>// 覆盖 Element Plus 的 SCSS 变量，再引入完整主题样式
+@forward 'element-plus/theme-chalk/src/common/var.scss' with (
+  $colors: (
+    'primary': ('base': #0969da),   // 主色改成 BMS 品牌色
+  ),
+  $border-radius: (
+    'base': 6px,
+  ),
+);</code></pre>
+      <p>然后在 <code>vite.config.ts</code> 里用 scss 的 <code>additionalData</code> 引入这个文件：</p>
+      <pre><code>css: {
+  preprocessorOptions: {
+    scss: {
+      additionalData: `@use "@/styles/element/index.scss" as *;`,
+    },
+  },
+}</code></pre>
+      <p>注意：一旦用 SCSS 变量覆盖主题，该文件就必须用 <code>@forward ... with</code> 方式引入完整主题样式，跟按需引入配合时按 Element Plus 官方「按需引入 + 主题定制」章节的写法来，两个插件配置里加上对应处理，否则变量覆盖不生效。</p>
+
+      <h3 id="usage-i18n">3.3 国际化配合</h3>
+      <p>Element Plus 自带内置语言包，与 vue-i18n 切换：</p>
+      <pre><code>import zhCn from 'element-plus/es/locale/lang/zh-cn'
+import en from 'element-plus/es/locale/lang/en'
+
+// 组件内置文案（分页、日期选择器里的"确定/取消"等）随语言切换
+app.use(ElementPlus, { locale: zhCn })</code></pre>
+      <p>业务文案不走这里，统一由 vue-i18n 管理，运行时从后端语言包下发（见下节）。</p>
+
+      <h2 id="bms">4. 与 BMS 的集成</h2>
+      <div class="warn">前端工程阶段一尚未初始化，以下为设计约定，来自《项目规划说明》前端选型与前端页面清单节。</div>
+      <table>
+        <tr><th>事项</th><th>约定</th></tr>
+        <tr><td>引入方式</td><td>按需引入（unplugin-vue-components + unplugin-auto-import），只用到的组件进打包产物</td></tr>
+        <tr><td>主题定制</td><td>SCSS 变量覆盖主色与圆角等；品牌色统一在主题文件里维护，页面里不散写颜色值</td></tr>
+        <tr><td>vue-i18n 配合</td><td>组件内置文案用 Element Plus 语言包随 locale 切换；业务文案走 vue-i18n，从后端 <code>GET /api/v1/i18n/messages</code> 拉取（Redis + localStorage 缓存），前端不硬编码文案</td></tr>
+        <tr><td>表单与权限</td><td>表单元数据（按钮/字段定义）随菜单接口下发，按钮显隐走动作权限；默认无按钮权限，需后端授权后显示</td></tr>
+        <tr><td>安全</td><td>Element Plus 默认转义输出，作为 XSS 基础防护之一；渲染后端返回的富文本（如公告内容）时按后端脱敏规则处理，不直接 v-html 未经清洗的内容</td></tr>
+        <tr><td>业务组件</td><td>高频场景（分片上传、审批流相关）在 components/ 下封装为通用组件，页面复用，不各写各的</td></tr>
+      </table>
+
+      <h2 id="faq">5. 常见问题</h2>
+      <table>
+        <tr><th>现象</th><th>处理</th></tr>
+        <tr><td>组件有功能但样式全裸</td><td>按需引入没生效：检查 vite.config.ts 两个 unplugin 插件是否配置、resolver 是否用 ElementPlusResolver</td></tr>
+        <tr><td>改了 SCSS 变量不生效</td><td>主题覆盖必须用 <code>@forward ... with</code> 并保证该文件被引入；另外重启 dev server（scss 预处理器配置改动需要重启）</td></tr>
+        <tr><td>图标显示不出来</td><td>确认已装 <code>@element-plus/icons-vue</code>；按需场景下图标推荐显式 import 使用</td></tr>
+        <tr><td>中文组件文案变成英文</td><td>Element Plus 默认 locale 是英文，需要在入口显式传入 zh-cn 语言包</td></tr>
+        <tr><td>表单校验不触发</td><td>el-form-item 的 prop 必须与 el-form 的 model 字段名一致；rules 放在 el-form 的 :rules 或 rules 对象里</td></tr>
+        <tr><td>生产环境体积大</td><td>确认是按需引入而非全量 <code>app.use(ElementPlus)</code>；构建时开启 gzip/brotli 压缩（规划要求）</td></tr>
+      </table>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 依《文档生成规范》编写 · 与本目录下其他「部署与使用说明」配套 · 生成日期：2026-08-05
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>

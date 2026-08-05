@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>structlog 部署与使用说明</title>
+<style>
+  :root {
+    --bg: #f7f8fa;
+    --fg: #1f2328;
+    --muted: #57606a;
+    --border: #d0d7de;
+    --accent: #0969da;
+    --accent-bg: #ddf4ff;
+    --code-bg: #f6f8fa;
+    --warn-bg: #fff8c5;
+    --warn-border: #d4a72c;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+    line-height: 1.75;
+  }
+  .layout { display: flex; height: 100vh; overflow: hidden; }
+  .sidebar {
+    width: 280px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+  }
+  .sidebar .brand {
+    background: linear-gradient(135deg, #1f2328, #32383f);
+    color: #fff;
+    padding: 1.4rem 1.2rem 1.1rem;
+    border-bottom: 3px solid var(--accent);
+    flex-shrink: 0;
+  }
+  .sidebar .brand h1 { margin: 0 0 .35rem; font-size: 1.15rem; line-height: 1.4; }
+  .sidebar .brand p { margin: 0; color: #b6bec6; font-size: .78rem; }
+  .sidebar nav { padding: .8rem .6rem 1.5rem; font-size: .9rem; }
+  .sidebar nav ul { list-style: none; margin: 0; padding: 0; }
+  .sidebar nav li { margin: .15rem 0; }
+  .sidebar nav a {
+    display: block;
+    padding: .3rem .7rem;
+    border-radius: 5px;
+    color: var(--fg);
+    text-decoration: none;
+  }
+  .sidebar nav a:hover { background: var(--accent-bg); color: var(--accent); }
+  .sidebar nav .sub { padding-left: 1.6rem; font-size: .85rem; color: var(--muted); }
+  .content { flex: 1; overflow-y: auto; }
+  main {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1.5rem 2rem 4rem;
+  }
+  h2 {
+    margin-top: 2.5rem;
+    padding-bottom: .4rem;
+    border-bottom: 2px solid var(--border);
+    font-size: 1.35rem;
+  }
+  h3 { margin-top: 1.6rem; font-size: 1.1rem; }
+  p { margin: .6rem 0; }
+  ul, ol { margin: .6rem 0; padding-left: 1.6rem; }
+  li { margin: .3rem 0; }
+  code {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: .1em .35em;
+    font-family: Consolas, "Cascadia Mono", monospace;
+    font-size: .9em;
+  }
+  pre {
+    background: #0d1117;
+    color: #e6edf3;
+    border-radius: 8px;
+    padding: .9rem 1.1rem;
+    overflow-x: auto;
+    font-size: .88rem;
+    line-height: 1.6;
+  }
+  pre code { background: none; border: none; padding: 0; color: inherit; }
+  .note, .warn {
+    border-radius: 6px;
+    padding: .7rem 1rem;
+    margin: 1rem 0;
+    font-size: .95rem;
+  }
+  .note { background: var(--accent-bg); border-left: 4px solid var(--accent); }
+  .warn { background: var(--warn-bg); border-left: 4px solid var(--warn-border); }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1rem 0;
+    font-size: .92rem;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: .45rem .7rem;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: #eef1f4; white-space: nowrap; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  footer {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1rem 2rem 3rem;
+    color: var(--muted);
+    font-size: .85rem;
+    border-top: 1px solid var(--border);
+  }
+  @media (max-width: 768px) {
+    .layout { flex-direction: column; height: auto; overflow: visible; }
+    .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); max-height: 40vh; }
+    .content { overflow: visible; }
+  }
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>structlog 部署与使用说明</h1>
+      <p>Python 结构化日志库</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#intro">1. 简介与选型理由</a></li>
+        <li><a href="#install">2. 安装</a></li>
+        <li><a href="#usage">3. 基本用法</a>
+          <ul class="sub">
+            <li><a href="#usage-basic">3.1 直接记日志</a></li>
+            <li><a href="#usage-bind">3.2 绑定上下文</a></li>
+            <li><a href="#usage-print">3.3 打印调试</a></li>
+          </ul>
+        </li>
+        <li><a href="#bms">4. 与 BMS 的集成</a></li>
+        <li><a href="#faq">5. 常见问题</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="intro">1. 简介与选型理由</h2>
+      <p>structlog 是 Python 的结构化日志库：记日志时把键值对直接写进日志条目，再统一渲染成 JSON 等机器易读的格式，和标准库 logging 兼容。它解决了传统日志「拼字符串、日志一多就没法查」的问题。</p>
+      <p>BMS 规划选型 structlog 的理由：生产环境输出 JSON，一行一条，Loki 可直接聚合检索；<code>request_id</code> 贯穿请求全链路，跨实例排查问题靠它串起上下游；与标准 logging 集成后不影响第三方库（uvicorn、SQLAlchemy 等）的日志输出。</p>
+      <p>本机实测版本：structlog 26.1.0（2026-08-05）。注意 structlog 属于 BMS 的<strong>运行依赖</strong>（在 <code>pyproject.toml</code> 的 <code>dependencies</code> 中，不在 dev 组），因为它不只服务开发调试。</p>
+
+      <h2 id="install">2. 安装</h2>
+      <p>BMS 后端已在 <code>backend/pyproject.toml</code> 声明 <code>structlog&gt;=26.1.0</code>，在 backend 目录执行 <code>uv sync</code> 即完成安装，无需单独操作。</p>
+      <p>新项目手动添加（PowerShell）：</p>
+      <pre><code>uv add structlog</code></pre>
+      <p>验证安装：</p>
+      <pre><code>uv run python -c "import structlog; print(structlog.__version__)"</code></pre>
+
+      <h2 id="usage">3. 基本用法</h2>
+
+      <h3 id="usage-basic">3.1 直接记日志</h3>
+      <p>用键值对代替字符串拼接，输出由渲染器决定：</p>
+      <pre><code>import structlog
+
+log = structlog.get_logger()
+
+log.info("request_start", method="GET", path="/healthz")
+log.warning("db_timeout", host="redis", timeout=0.5)
+log.error("tenant_not_found", tenant="abc", code=80001)</code></pre>
+
+      <h3 id="usage-bind">3.2 绑定上下文</h3>
+      <p>用 <code>bind_contextvars</code> 把贯穿整个请求的字段（如 request_id）挂上去，之后所有日志自动携带，请求结束再清理：</p>
+      <pre><code>from structlog.contextvars import bind_contextvars, clear_contextvars
+
+bind_contextvars(request_id="9f8e2c1a")
+log = structlog.get_logger()
+log.info("hello")   # 这条自动带 request_id
+clear_contextvars() # 请求结束清理，防止泄漏到下一个请求</code></pre>
+      <p>这是 BMS 里 request_id 贯穿的关键机制：中间件绑定、请求结束清理，全程不需要手工传参。</p>
+
+      <h3 id="usage-print">3.3 打印调试</h3>
+      <p>开发环境如果还没配渲染器，可以用 <code>print_logger</code> 直接打印键值对：</p>
+      <pre><code>log = structlog.print_logger()
+log.info("debug_value", value=42)</code></pre>
+
+      <h2 id="bms">4. 与 BMS 的集成</h2>
+      <div class="warn">当前实施状态：<code>app/core/logging.py</code> 属阶段一任务 3，尚未开始，以下为设计约定（依据《阶段一_项目骨架说明》第 5 节）。</div>
+      <table>
+        <tr><th>要点</th><th>约定</th></tr>
+        <tr><td>输出格式</td><td>生产环境 JSONRenderer，一行一条，Loki 直接聚合；dev 环境 ConsoleRenderer，可读的控制台文本</td></tr>
+        <tr><td>request_id 贯穿</td><td>请求进入时生成（或沿用客户端 <code>X-Request-ID</code>），写入 contextvars（<code>app/core/context.py</code>），由请求中间件（<code>app/core/middleware.py</code>）绑定与清理；异常响应同样携带 request_id</td></tr>
+        <tr><td>标准 logging 集成</td><td>经 <code>structlog.stdlib</code> 的 ProcessorFormatter 挂到标准 logging，uvicorn、SQLAlchemy 等第三方库日志汇入同一管线，统一注入公共字段</td></tr>
+        <tr><td>公共字段</td><td><code>timestamp</code>、<code>level</code>、<code>logger</code>、<code>request_id</code>、<code>env</code>；请求日志另含 <code>method</code>、<code>path</code>、<code>status</code>、<code>cost_ms</code></td></tr>
+        <tr><td>敏感字段</td><td>密码、token、密钥一律脱敏，不落原始值</td></tr>
+      </table>
+      <p>日志 JSON 示例（来自阶段一设计）：</p>
+      <pre><code>{"timestamp":"2026-08-05T10:00:00Z","level":"info","logger":"bms.api","request_id":"9f8e2c1a","method":"GET","path":"/healthz","status":200,"cost_ms":3,"env":"dev"}</code></pre>
+      <p>日志级别由配置 <code>[log] level</code> 控制，环境变量 <code>BMS_LOG_LEVEL</code> 可覆盖（见《阶段一_项目骨架说明》第 4 节）。</p>
+
+      <h2 id="faq">5. 常见问题</h2>
+      <table>
+        <tr><th>现象</th><th>处理</th></tr>
+        <tr><td>JSON 输出中文变成 \uXXXX 转义</td><td>JSONRenderer 默认 <code>ensure_ascii=True</code>，如需可读中文可传 <code>JSONRenderer(ensure_ascii=False)</code>（一般仅调试用，生产保留转义更稳）</td></tr>
+        <tr><td>日志出现两份/重复输出</td><td>多因日志处理器挂载了多次，集中在配置入口做一次 <code>logging.config.dictConfig</code>，勿在多个模块重复配置</td></tr>
+        <tr><td>记的是 dict 而不是 JSON 字符串</td><td>没走渲染器链，或加载了错误的配置（如 dev 配置上了生产）；确认渲染器处理器已挂到根 logger</td></tr>
+        <tr><td>生产日志级别不对</td><td>检查 <code>[log] level</code> 与环境变量 <code>BMS_LOG_LEVEL</code>，环境变量优先</td></tr>
+        <tr><td>第三方库（uvicorn/SQLAlchemy）日志不带公共字段</td><td>属于预期内的集成问题，需等 <code>core/logging.py</code> 落地 ProcessorFormatter 后统一注入，当前阶段无此实现</td></tr>
+      </table>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 依《文档生成规范》编写 · 与本目录下其他「部署与使用说明」配套 · 生成日期：2026-08-05
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>

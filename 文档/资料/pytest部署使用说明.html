@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>pytest 部署与使用说明</title>
+<style>
+  :root {
+    --bg: #f7f8fa;
+    --fg: #1f2328;
+    --muted: #57606a;
+    --border: #d0d7de;
+    --accent: #0969da;
+    --accent-bg: #ddf4ff;
+    --code-bg: #f6f8fa;
+    --warn-bg: #fff8c5;
+    --warn-border: #d4a72c;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+    line-height: 1.75;
+  }
+  .layout { display: flex; height: 100vh; overflow: hidden; }
+  .sidebar {
+    width: 280px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+  }
+  .sidebar .brand {
+    background: linear-gradient(135deg, #1f2328, #32383f);
+    color: #fff;
+    padding: 1.4rem 1.2rem 1.1rem;
+    border-bottom: 3px solid var(--accent);
+    flex-shrink: 0;
+  }
+  .sidebar .brand h1 { margin: 0 0 .35rem; font-size: 1.15rem; line-height: 1.4; }
+  .sidebar .brand p { margin: 0; color: #b6bec6; font-size: .78rem; }
+  .sidebar nav { padding: .8rem .6rem 1.5rem; font-size: .9rem; }
+  .sidebar nav ul { list-style: none; margin: 0; padding: 0; }
+  .sidebar nav li { margin: .15rem 0; }
+  .sidebar nav a {
+    display: block;
+    padding: .3rem .7rem;
+    border-radius: 5px;
+    color: var(--fg);
+    text-decoration: none;
+  }
+  .sidebar nav a:hover { background: var(--accent-bg); color: var(--accent); }
+  .sidebar nav .sub { padding-left: 1.6rem; font-size: .85rem; color: var(--muted); }
+  .content { flex: 1; overflow-y: auto; }
+  main {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1.5rem 2rem 4rem;
+  }
+  h2 {
+    margin-top: 2.5rem;
+    padding-bottom: .4rem;
+    border-bottom: 2px solid var(--border);
+    font-size: 1.35rem;
+  }
+  h3 { margin-top: 1.6rem; font-size: 1.1rem; }
+  p { margin: .6rem 0; }
+  ul, ol { margin: .6rem 0; padding-left: 1.6rem; }
+  li { margin: .3rem 0; }
+  code {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: .1em .35em;
+    font-family: Consolas, "Cascadia Mono", monospace;
+    font-size: .9em;
+  }
+  pre {
+    background: #0d1117;
+    color: #e6edf3;
+    border-radius: 8px;
+    padding: .9rem 1.1rem;
+    overflow-x: auto;
+    font-size: .88rem;
+    line-height: 1.6;
+  }
+  pre code { background: none; border: none; padding: 0; color: inherit; }
+  .note, .warn {
+    border-radius: 6px;
+    padding: .7rem 1rem;
+    margin: 1rem 0;
+    font-size: .95rem;
+  }
+  .note { background: var(--accent-bg); border-left: 4px solid var(--accent); }
+  .warn { background: var(--warn-bg); border-left: 4px solid var(--warn-border); }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1rem 0;
+    font-size: .92rem;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: .45rem .7rem;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: #eef1f4; white-space: nowrap; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  footer {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1rem 2rem 3rem;
+    color: var(--muted);
+    font-size: .85rem;
+    border-top: 1px solid var(--border);
+  }
+  @media (max-width: 768px) {
+    .layout { flex-direction: column; height: auto; overflow: visible; }
+    .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); max-height: 40vh; }
+    .content { overflow: visible; }
+  }
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>pytest 部署与使用说明</h1>
+      <p>Python 测试框架（pytest-asyncio / httpx）</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#intro">1. 简介与选型理由</a></li>
+        <li><a href="#install">2. 安装</a></li>
+        <li><a href="#usage">3. 常用命令</a>
+          <ul class="sub">
+            <li><a href="#usage-all">3.1 全量运行</a></li>
+            <li><a href="#usage-sel">3.2 指定目录与筛选</a></li>
+            <li><a href="#usage-verbose">3.3 详细输出</a></li>
+          </ul>
+        </li>
+        <li><a href="#bms">4. 与 BMS 的集成</a></li>
+        <li><a href="#faq">5. 常见问题</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="intro">1. 简介与选型理由</h2>
+      <p>pytest 是 Python 事实标准的测试框架；pytest-asyncio 让它能直接运行 <code>async def</code> 测试函数；httpx 提供 <code>ASGITransport</code>——把 FastAPI 应用当 HTTP 服务直接调用，测接口不用真的起服务器。</p>
+      <p>BMS 规划选型理由：FastAPI 测试用 ASGITransport 免启服务器；测试库统一 SQLite 保证可移植；CI 每次 PR 跑后端测试。</p>
+      <p>本机版本（pyproject.toml dev 组声明）：pytest&gt;=9.1.1、pytest-asyncio&gt;=1.4.0、httpx&gt;=0.28.1；Python 3.14.4（2026-08-05 核实）。</p>
+
+      <h2 id="install">2. 安装</h2>
+      <p>BMS 后端已声明开发依赖（dev 组），backend 目录执行 <code>uv sync</code> 即装好三个包。</p>
+      <p>新项目手动添加（PowerShell）：</p>
+      <pre><code>uv add --dev pytest pytest-asyncio httpx</code></pre>
+      <p>验证安装：</p>
+      <pre><code>uv run pytest --version</code></pre>
+
+      <h2 id="usage">3. 常用命令</h2>
+
+      <h3 id="usage-all">3.1 全量运行</h3>
+      <pre><code>uv run pytest</code></pre>
+      <p>按 <code>testpaths</code> 配置（BMS 为 <code>tests</code>）收集全部测试并运行。结束输出汇总：<code>N passed / M failed / K skipped</code>，有失败时列出失败项与 <code>-ra</code> 汇总摘要。</p>
+
+      <h3 id="usage-sel">3.2 指定目录与筛选</h3>
+      <pre><code>uv run pytest tests/unit                  # 只跑单测
+uv run pytest tests/integration            # 只跑集成测试
+uv run pytest tests/unit -k "config"       # 按名称筛选
+uv run pytest --maxfail=1                  # 首个失败即停（排错时省时间）</code></pre>
+
+      <h3 id="usage-verbose">3.3 详细输出</h3>
+      <pre><code>uv run pytest -v    # 每个用例一行
+uv run pytest -s    # 显示测试里的 print 输出（调试时用）</code></pre>
+
+      <h2 id="bms">4. 与 BMS 的集成</h2>
+      <div class="warn">当前实施状态：测试骨架属阶段一任务 9，尚未开始（<code>backend/tests/</code> 目录尚不存在，2026-08-05 核实），以下为设计约定（依据《阶段一_项目骨架说明》第 11 节与《项目规划说明》测试策略节）。</div>
+      <p>配置写在 <code>backend/pyproject.toml</code> 的 <code>[tool.pytest.ini_options]</code> 段：</p>
+      <table>
+        <tr><th>配置项</th><th>值</th><th>含义</th></tr>
+        <tr><td><code>asyncio_mode</code></td><td>auto</td><td>pytest-asyncio 自动运行 <code>async def</code> 测试，不用逐个加装饰器</td></tr>
+        <tr><td><code>testpaths</code></td><td>["tests"]</td><td>默认收集目录</td></tr>
+        <tr><td><code>addopts</code></td><td>-ra</td><td>结束时汇总显示失败/跳过/错误的原因</td></tr>
+      </table>
+      <p>目录与测试设计：</p>
+      <ul>
+        <li><code>tests/unit/</code>：单测——配置加载（BMS_ENV 切换、环境变量覆盖）、日志格式、上下文（request_id/tenant）、错误码；SQLite + Redis 本地</li>
+        <li><code>tests/integration/</code>：集成测试——健康检查（/readyz 依赖故障返回 503）、双库拓扑路由（平台库/租户库读写）、租户解析（X-Tenant-ID）、模型基类（雪花 ID 唯一、审计字段、软删过滤、乐观锁冲突）；SQLite 模拟多库，CI 中另起 MySQL/PostgreSQL 容器验证真实双库</li>
+        <li><code>conftest.py</code>：app fixture（依赖覆盖：测试库与测试 Redis）、client fixture（<code>httpx.AsyncClient</code> + ASGITransport，免起服务器）</li>
+        <li>测试数据：独立种子，不与初始化数据混用</li>
+      </ul>
+      <p>接口测试写法示例（设计约定，测试骨架落地后可用）：</p>
+      <pre><code>import httpx
+from httpx import ASGITransport
+from app.main import app
+
+
+async def test_health(client: httpx.AsyncClient):
+    r = await client.get("/healthz")
+    assert r.status_code == 200</code></pre>
+
+      <h2 id="faq">5. 常见问题</h2>
+      <table>
+        <tr><th>现象</th><th>处理</th></tr>
+        <tr><td>async 测试函数没执行/报 coroutine 相关错误</td><td>确认已装 pytest-asyncio 且 <code>asyncio_mode = "auto"</code> 生效；asyncio_mode 缺省是 strict，需显式配置</td></tr>
+        <tr><td>ASGITransport 请求 404</td><td>transport 挂的是 ASGI 应用而非真实地址，确认传的是 <code>app</code> 对象而非 URL；路径要含完整前缀（BMS 为 /api/v1）</td></tr>
+        <tr><td>SQLite 内存库（:memory:）数据对不上</td><td>每个连接的内存库相互独立，多连接场景要用文件型测试库（BMS 用 <code>backend/data/</code> 下文件 SQLite），避免 in-memory 陷阱</td></tr>
+        <tr><td>用例间数据污染</td><td>BMS 约定测试数据独立种子、不混用初始化数据；跨用例共享状态应放 conftest fixture 并在用例间清理</td></tr>
+        <tr><td>-ra 没看到摘要</td><td>摘要只在存在失败/跳过/错误时显示；全部通过时只有 <code>N passed</code></td></tr>
+        <tr><td>本地全绿但 CI 挂</td><td>CI（阶段一任务 10）还跑真实 MySQL/PostgreSQL 集成 job，方言相关失败本地 SQLite 复现不了，看 CI 日志对应 job</td></tr>
+      </table>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 依《文档生成规范》编写 · 与本目录下其他「部署与使用说明」配套 · 生成日期：2026-08-05
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>

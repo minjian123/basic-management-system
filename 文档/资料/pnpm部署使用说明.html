@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>pnpm 部署与使用说明</title>
+<style>
+  :root {
+    --bg: #f7f8fa;
+    --fg: #1f2328;
+    --muted: #57606a;
+    --border: #d0d7de;
+    --accent: #0969da;
+    --accent-bg: #ddf4ff;
+    --code-bg: #f6f8fa;
+    --warn-bg: #fff8c5;
+    --warn-border: #d4a72c;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+    line-height: 1.75;
+  }
+  .layout { display: flex; height: 100vh; overflow: hidden; }
+  .sidebar {
+    width: 280px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+  }
+  .sidebar .brand {
+    background: linear-gradient(135deg, #1f2328, #32383f);
+    color: #fff;
+    padding: 1.4rem 1.2rem 1.1rem;
+    border-bottom: 3px solid var(--accent);
+    flex-shrink: 0;
+  }
+  .sidebar .brand h1 { margin: 0 0 .35rem; font-size: 1.15rem; line-height: 1.4; }
+  .sidebar .brand p { margin: 0; color: #b6bec6; font-size: .78rem; }
+  .sidebar nav { padding: .8rem .6rem 1.5rem; font-size: .9rem; }
+  .sidebar nav ul { list-style: none; margin: 0; padding: 0; }
+  .sidebar nav li { margin: .15rem 0; }
+  .sidebar nav a {
+    display: block;
+    padding: .3rem .7rem;
+    border-radius: 5px;
+    color: var(--fg);
+    text-decoration: none;
+  }
+  .sidebar nav a:hover { background: var(--accent-bg); color: var(--accent); }
+  .sidebar nav .sub { padding-left: 1.6rem; font-size: .85rem; color: var(--muted); }
+  .content { flex: 1; overflow-y: auto; }
+  main {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1.5rem 2rem 4rem;
+  }
+  h2 {
+    margin-top: 2.5rem;
+    padding-bottom: .4rem;
+    border-bottom: 2px solid var(--border);
+    font-size: 1.35rem;
+  }
+  h3 { margin-top: 1.6rem; font-size: 1.1rem; }
+  p { margin: .6rem 0; }
+  ul, ol { margin: .6rem 0; padding-left: 1.6rem; }
+  li { margin: .3rem 0; }
+  code {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: .1em .35em;
+    font-family: Consolas, "Cascadia Mono", monospace;
+    font-size: .9em;
+  }
+  pre {
+    background: #0d1117;
+    color: #e6edf3;
+    border-radius: 8px;
+    padding: .9rem 1.1rem;
+    overflow-x: auto;
+    font-size: .88rem;
+    line-height: 1.6;
+  }
+  pre code { background: none; border: none; padding: 0; color: inherit; }
+  .note, .warn {
+    border-radius: 6px;
+    padding: .7rem 1rem;
+    margin: 1rem 0;
+    font-size: .95rem;
+  }
+  .note { background: var(--accent-bg); border-left: 4px solid var(--accent); }
+  .warn { background: var(--warn-bg); border-left: 4px solid var(--warn-border); }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1rem 0;
+    font-size: .92rem;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: .45rem .7rem;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: #eef1f4; white-space: nowrap; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  footer {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1rem 2rem 3rem;
+    color: var(--muted);
+    font-size: .85rem;
+    border-top: 1px solid var(--border);
+  }
+  @media (max-width: 768px) {
+    .layout { flex-direction: column; height: auto; overflow: visible; }
+    .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); max-height: 40vh; }
+    .content { overflow: visible; }
+  }
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>pnpm 部署与使用说明</h1>
+      <p>BMS 前端包管理器与 workspace 工具</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#intro">1. 简介与选型理由</a></li>
+        <li><a href="#install">2. 安装</a></li>
+        <li><a href="#usage">3. 常用命令</a>
+          <ul class="sub">
+            <li><a href="#usage-install">3.1 依赖安装</a></li>
+            <li><a href="#usage-filter">3.2 workspace 与 filter</a></li>
+            <li><a href="#usage-maintain">3.3 日常维护</a></li>
+          </ul>
+        </li>
+        <li><a href="#bms">4. 与 BMS 的集成</a></li>
+        <li><a href="#faq">5. 常见问题</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="intro">1. 简介与选型理由</h2>
+      <p>pnpm 是 npm 之外常用的 Node 包管理器。它跟 npm/yarn 最大的区别在存储方式：所有包内容存在一个全局 store 里，项目通过硬链接引用，磁盘占用小、装得快。BMS 选它的原因：</p>
+      <ul>
+        <li><strong>省磁盘</strong>：两个前端工程（frontend、frontend-mobile）很多依赖是重复的，硬链接后只占一份空间</li>
+        <li><strong>依赖隔离严格</strong>：不会出现「本机装得上、CI 装不上」的幽灵依赖问题，装什么就声明什么</li>
+        <li><strong>workspace 原生支持</strong>：一个仓库管多个工程，共享配置包不需要单独发布</li>
+      </ul>
+      <p>本机实测版本：pnpm 11.20.0（2026-08-05），运行于 Node v24.15.0。</p>
+
+      <h2 id="install">2. 安装</h2>
+      <p>Windows / macOS / Linux 都可用 corepack（Node 自带）或 npm 全局安装：</p>
+      <pre><code># 方式一：npm 全局安装（最直接）
+npm install -g pnpm
+
+# 方式二：corepack 启用（Node 自带，版本由 package.json 的 packageManager 字段固定）
+corepack enable pnpm</code></pre>
+      <p>安装后验证：</p>
+      <pre><code>pnpm --version</code></pre>
+
+      <h2 id="usage">3. 常用命令</h2>
+
+      <h3 id="usage-install">3.1 依赖安装</h3>
+      <pre><code>pnpm install          # 按 pnpm-lock.yaml 安装全部 workspace 依赖
+pnpm add element-plus      # 给当前工程加依赖
+pnpm add -D vitest         # 开发依赖
+pnpm remove axios          # 移除依赖
+pnpm up                   # 升级依赖</code></pre>
+      <p><code>pnpm install</code> 会读取 workspace 根部的 <code>pnpm-lock.yaml</code>，锁文件必须提交到 git，保证每个人和 CI 装出来的依赖一致。</p>
+
+      <h3 id="usage-filter">3.2 workspace 与 filter</h3>
+      <p>BMS 仓库根部有 <code>pnpm-workspace.yaml</code>，声明了两个前端工程属于同一个 workspace。之后用 <code>--filter</code>（简写 <code>-F</code>）指定对哪个工程操作：</p>
+      <pre><code>pnpm -F frontend dev              # 启动 PC 端开发服务器
+pnpm -F frontend-mobile dev       # 启动移动端开发服务器
+pnpm -F frontend add axios        # 只给 PC 端装依赖
+pnpm -F frontend build            # 只构建 PC 端
+pnpm --filter frontend --filter frontend-mobile build   # 双端都构建</code></pre>
+
+      <h3 id="usage-maintain">3.3 日常维护</h3>
+      <pre><code>pnpm store path        # 查看全局 store 位置
+pnpm store prune       # 清理不再被引用的缓存内容
+pnpm ls                # 查看当前工程依赖树
+pnpm why element-plus  # 谁依赖了它、为什么装进来了
+pnpm config set registry https://registry.npmmirror.com   # 换国内镜像源</code></pre>
+
+      <h2 id="bms">4. 与 BMS 的集成</h2>
+      <div class="warn">前端工程阶段一尚未初始化，以下为设计约定，来自《阶段一·项目骨架说明》第 9 节与《项目规划说明》。</div>
+      <table>
+        <tr><th>事项</th><th>约定</th></tr>
+        <tr><td>workspace 纳入双前端</td><td>根部 <code>pnpm-workspace.yaml</code> 声明 <code>packages: [frontend, frontend-mobile]</code>，一次 <code>pnpm install</code> 装完两个工程</td></tr>
+        <tr><td>共享基础配置</td><td>ESLint / Prettier / TS 基础配置做成 workspace 内共享包，两个工程引用同一份规则，不各写各的（源码目录各自独立）</td></tr>
+        <tr><td>日常开发</td><td><code>pnpm --filter frontend dev</code> 起 PC 端；<code>pnpm --filter frontend-mobile dev</code> 起移动端</td></tr>
+        <tr><td>Node 版本</td><td>两工程各自有 <code>.nvmrc</code>（≥ 20.19），pnpm 运行在 Node v24.15.0（本机已核）</td></tr>
+        <tr><td>CI 用法</td><td>frontend job 步骤为：setup-node（读 .nvmrc）→ <code>pnpm install</code> → eslint → vitest run → 双端 build；pnpm store 缓存以缩短流水线（见《GitHub Actions 部署与使用说明》）</td></tr>
+        <tr><td>锁文件</td><td><code>pnpm-lock.yaml</code> 提交入库；CI 里 <code>pnpm install --frozen-lockfile</code> 检查 lock 与 package.json 是否一致</td></tr>
+      </table>
+
+      <h2 id="faq">5. 常见问题</h2>
+      <table>
+        <tr><th>现象</th><th>处理</th></tr>
+        <tr><td>装完后项目里找得到文件，但磁盘占用没省</td><td>硬链接在 Windows 上对跨盘符目录不生效；确认 store 与工程在同一个盘（如都放 D 盘），或看 <code>pnpm store path</code></td></tr>
+        <tr><td>某个包「本机能用、CI 报找不到」</td><td>多半是幽灵依赖：代码用了没声明的包。把该包加进对应工程的 <code>package.json</code> 再 <code>pnpm install</code></td></tr>
+        <tr><td><code>pnpm install</code> 报 lock 文件与 package.json 不一致</td><td>有人改了依赖没更新锁文件。拉最新代码后 <code>pnpm install</code> 重新生成，或加 <code>--frozen-lockfile</code> 先查差异</td></tr>
+        <tr><td>store 目录越来越大</td><td><code>pnpm store prune</code> 清理；目录位置 Windows 上通常在 <code>%LOCALAPPDATA%\pnpm\store</code></td></tr>
+        <tr><td>装包慢</td><td><code>pnpm config set registry https://registry.npmmirror.com</code>，或用环境变量 <code>PNPM_REGISTRY</code>；CI 里同理配置</td></tr>
+        <tr><td>忘了在哪个工程执行命令</td><td>先看当前目录：命令默认作用于「最近的 package.json 所在工程」；跨工程操作务必带 <code>-F 工程名</code></td></tr>
+      </table>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 依《文档生成规范》编写 · 与本目录下其他「部署与使用说明」配套 · 生成日期：2026-08-05
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>

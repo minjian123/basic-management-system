@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Docker Compose 部署与使用说明</title>
+<style>
+  :root {
+    --bg: #f7f8fa;
+    --fg: #1f2328;
+    --muted: #57606a;
+    --border: #d0d7de;
+    --accent: #0969da;
+    --accent-bg: #ddf4ff;
+    --code-bg: #f6f8fa;
+    --warn-bg: #fff8c5;
+    --warn-border: #d4a72c;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+    line-height: 1.75;
+  }
+  .layout { display: flex; height: 100vh; overflow: hidden; }
+  .sidebar {
+    width: 280px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+  }
+  .sidebar .brand {
+    background: linear-gradient(135deg, #1f2328, #32383f);
+    color: #fff;
+    padding: 1.4rem 1.2rem 1.1rem;
+    border-bottom: 3px solid var(--accent);
+    flex-shrink: 0;
+  }
+  .sidebar .brand h1 { margin: 0 0 .35rem; font-size: 1.15rem; line-height: 1.4; }
+  .sidebar .brand p { margin: 0; color: #b6bec6; font-size: .78rem; }
+  .sidebar nav { padding: .8rem .6rem 1.5rem; font-size: .9rem; }
+  .sidebar nav ul { list-style: none; margin: 0; padding: 0; }
+  .sidebar nav li { margin: .15rem 0; }
+  .sidebar nav a {
+    display: block;
+    padding: .3rem .7rem;
+    border-radius: 5px;
+    color: var(--fg);
+    text-decoration: none;
+  }
+  .sidebar nav a:hover { background: var(--accent-bg); color: var(--accent); }
+  .sidebar nav .sub { padding-left: 1.6rem; font-size: .85rem; color: var(--muted); }
+  .content { flex: 1; overflow-y: auto; }
+  main {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1.5rem 2rem 4rem;
+  }
+  h2 {
+    margin-top: 2.5rem;
+    padding-bottom: .4rem;
+    border-bottom: 2px solid var(--border);
+    font-size: 1.35rem;
+  }
+  h3 { margin-top: 1.6rem; font-size: 1.1rem; }
+  p { margin: .6rem 0; }
+  ul, ol { margin: .6rem 0; padding-left: 1.6rem; }
+  li { margin: .3rem 0; }
+  code {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: .1em .35em;
+    font-family: Consolas, "Cascadia Mono", monospace;
+    font-size: .9em;
+  }
+  pre {
+    background: #0d1117;
+    color: #e6edf3;
+    border-radius: 8px;
+    padding: .9rem 1.1rem;
+    overflow-x: auto;
+    font-size: .88rem;
+    line-height: 1.6;
+  }
+  pre code { background: none; border: none; padding: 0; color: inherit; }
+  .note, .warn {
+    border-radius: 6px;
+    padding: .7rem 1rem;
+    margin: 1rem 0;
+    font-size: .95rem;
+  }
+  .note { background: var(--accent-bg); border-left: 4px solid var(--accent); }
+  .warn { background: var(--warn-bg); border-left: 4px solid var(--warn-border); }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1rem 0;
+    font-size: .92rem;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: .45rem .7rem;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: #eef1f4; white-space: nowrap; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  footer {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1rem 2rem 3rem;
+    color: var(--muted);
+    font-size: .85rem;
+    border-top: 1px solid var(--border);
+  }
+  @media (max-width: 768px) {
+    .layout { flex-direction: column; height: auto; overflow: visible; }
+    .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); max-height: 40vh; }
+    .content { overflow: visible; }
+  }
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>Docker Compose 部署与使用说明</h1>
+      <p>BMS 服务编排与一键部署工具</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#intro">1. 简介与选型理由</a></li>
+        <li><a href="#install">2. 安装</a></li>
+        <li><a href="#usage">3. 常用命令</a>
+          <ul class="sub">
+            <li><a href="#usage-lifecycle">3.1 生命周期管理</a></li>
+            <li><a href="#usage-inspect">3.2 查看与排障</a></li>
+            <li><a href="#usage-file">3.3 compose 文件要点</a></li>
+          </ul>
+        </li>
+        <li><a href="#bms">4. 与 BMS 的集成</a>
+          <ul class="sub">
+            <li><a href="#bms-stack">4.1 服务编排清单</a></li>
+            <li><a href="#bms-nginx">4.2 nginx 与 WebSocket</a></li>
+            <li><a href="#bms-health">4.3 健康检查与优雅停机</a></li>
+          </ul>
+        </li>
+        <li><a href="#faq">5. 常见问题</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="intro">1. 简介与选型理由</h2>
+      <p>Docker Compose 用一份 YAML 文件声明一组容器服务，一条命令全部起停。BMS 选它的原因：</p>
+      <ul>
+        <li>后端、前端、数据库、Redis、消息队列等一堆服务，用 Compose 一次性编排，本地开发和服务器部署用同一套配置，环境不打架</li>
+        <li>开发环境需要的中间件（Redis、RocketMQ、ElasticSearch、MinIO）由 Compose 统一提供，本机不用装原生服务</li>
+        <li>MVP 阶段部署规模不大，Compose 足够；等数据量或规模上来，再按规划演进路线迁到 Kubernetes</li>
+      </ul>
+      <p>当前仓库尚无 compose 文件，deploy/ 目录按规划在阶段八完善，本节讲通用用法，第 4 节是 BMS 的设计约定。</p>
+
+      <h2 id="install">2. 安装</h2>
+      <p>Windows 装 Docker Desktop（自带 Docker Engine + Compose v2）：</p>
+      <pre><code># 或命令行安装（winget）
+winget install Docker.DockerDesktop</code></pre>
+      <p>macOS / Linux：</p>
+      <pre><code>brew install --cask docker        # macOS
+# Linux 用发行版包管理器装 docker 与 docker-compose-plugin</code></pre>
+      <p>安装后验证（Compose 现在通常是 docker 的子命令）：</p>
+      <pre><code>docker --version
+docker compose version</code></pre>
+
+      <h2 id="usage">3. 常用命令</h2>
+
+      <h3 id="usage-lifecycle">3.1 生命周期管理</h3>
+      <pre><code>docker compose up -d          # 按 compose.yaml 启动全部服务（后台）
+docker compose up -d backend  # 只启动某个服务（含它的依赖）
+docker compose down           # 停止并移除容器（默认保留数据卷）
+docker compose down -v        # 连同数据卷一起删（慎用，会丢数据）
+docker compose restart backend # 重启单个服务
+docker compose pull           # 拉取镜像更新</code></pre>
+
+      <h3 id="usage-inspect">3.2 查看与排障</h3>
+      <pre><code>docker compose ps             # 各服务运行状态
+docker compose logs -f backend # 跟踪某个服务的日志
+docker compose exec backend sh # 进容器执行命令
+docker compose config          # 校验并展开 compose 文件（合并 .env 后）</code></pre>
+
+      <h3 id="usage-file">3.3 compose 文件要点</h3>
+      <pre><code>services:
+  backend:
+    build: ./backend
+    environment:
+      - BMS_ENV=prod
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/readyz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    stop_grace_period: 10s      # 优雅停机宽限期
+    depends_on:
+      redis:
+        condition: service_healthy
+  redis:
+    image: redis:7
+    volumes:
+      - redis-data:/data
+volumes:
+  redis-data:</code></pre>
+      <p>要点：<code>environment</code> 里的密钥类变量从 <code>.env</code> 或宿主环境注入，不写死在 compose 文件；数据要落盘的（数据库、Redis、MinIO、ES）一律挂数据卷；<code>depends_on</code> 配合 <code>condition: service_healthy</code> 才能等依赖真正就绪而不是「容器起了就冲」。</p>
+
+      <h2 id="bms">4. 与 BMS 的集成</h2>
+      <div class="warn">deploy/ 目录尚未创建，以下为规划约定，阶段八完善落地。</div>
+
+      <h3 id="bms-stack">4.1 服务编排清单</h3>
+      <table>
+        <tr><th>服务</th><th>说明</th></tr>
+        <tr><td><code>backend</code></td><td>FastAPI 后端，多副本无状态、可横向扩展（规划部署拓扑：nginx → backend 多副本）</td></tr>
+        <tr><td><code>celery-worker</code> / <code>celery-beat</code></td><td>异步任务 worker 多副本、定时调度单副本；broker 用 Redis（RocketMQ 替换 RabbitMQ 后，Celery broker 改用 Redis，见规划消息队列节）</td></tr>
+        <tr><td><code>event-worker</code></td><td>RocketMQ 事件消费者，多副本；审计链按租户分区有序消费</td></tr>
+        <tr><td><code>frontend</code></td><td>nginx 镜像：托管 PC + 移动端静态资源，反代 /api 到 backend，负载均衡 / TLS 终止 / 子域名租户路由</td></tr>
+        <tr><td><code>redis</code></td><td>缓存、会话、Celery broker、限流计数</td></tr>
+        <tr><td><code>rocketmq</code></td><td>nameserver + broker，事件总线（分区有序）</td></tr>
+        <tr><td><code>elasticsearch</code></td><td>全文检索（主数据/审计日志/文件内容），事件驱动异步同步</td></tr>
+        <tr><td><code>minio</code></td><td>对象存储（文件、分片上传、备份归档）；Milvus 复用 MinIO</td></tr>
+        <tr><td><code>数据库</code></td><td>按环境选 MySQL 或 PostgreSQL（双库 CI 均验证）</td></tr>
+        <tr><td>监控栈</td><td>Prometheus / Loki / Grafana / Alertmanager（指标、日志聚合、告警）</td></tr>
+      </table>
+      <p>本机开发时 Compose 只提供中间件（Redis、RocketMQ、ES、MinIO），应用以源码方式跑（uv 起后端、pnpm dev 起前端）；完整编排在部署环境用。</p>
+
+      <h3 id="bms-nginx">4.2 nginx 与 WebSocket</h3>
+      <p>Socket.IO 长连接必须放行升级头，并且连接固定在同一后端实例，否则多实例下连接会抖动断线：</p>
+      <pre><code># nginx 配置要点（规划约定）
+location /socket.io/ {
+    proxy_pass http://backend_upstream;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+}
+# 上游亲和：ip_hash 或 Cookie 亲和（sticky session）二选一</code></pre>
+      <p>另有 TLS 与安全响应头（CSP、HSTS、X-Frame-Options 等）在 nginx 层统一配置，cookie Secure 标志随环境启用。</p>
+
+      <h3 id="bms-health">4.3 健康检查与优雅停机</h3>
+      <ul>
+        <li>后端提供 <code>/healthz</code>（存活）与 <code>/readyz</code>（依赖就绪，DB/Redis 连通），compose 的 healthcheck 用 /readyz 判断依赖就绪，编排滚动发布与流量摘除也靠它</li>
+        <li>backend 等服务的 <code>stop_grace_period</code> 设足够时长，让进程处理完在途请求再退出（优雅停机）</li>
+        <li>/readyz 实时探测不缓存，保证编排判断准确（阶段一已实现）</li>
+      </ul>
+
+      <h2 id="faq">5. 常见问题</h2>
+      <table>
+        <tr><th>现象</th><th>处理</th></tr>
+        <tr><td>端口冲突（3306/6379 被本机服务占用）</td><td>改 compose 里映射的宿主端口（如 <code>"16379:6379"</code>），应用连接串同步改；或停掉本机原生服务</td></tr>
+        <tr><td><code>docker compose down</code> 后数据没了</td><td>确认数据是否挂了 named volume；没挂卷的容器数据删了就没了。要保留数据必须声明 volumes</td></tr>
+        <tr><td>后端连不上 Redis/数据库</td><td>容器内要连「服务名」而不是 localhost（compose 网络里每个服务名即 DNS）；检查 depends_on 的 health 条件</td></tr>
+        <tr><td>服务一直 unhealthy</td><td>看 healthcheck 命令在容器内是否可用（如镜像里没有 curl，换 wget 或 python）；再 <code>docker compose logs 服务名</code> 看具体报错</td></tr>
+        <tr><td>构建慢/拉镜像慢</td><td>Docker Desktop 设置里配国内镜像加速；后端依赖层做好缓存，代码变更不触发全量重装</td></tr>
+        <tr><td>磁盘占用大</td><td><code>docker system prune</code> 清理悬空镜像与无用缓存（有数据卷的不要带 -a 删卷）</td></tr>
+        <tr><td>多副本下 WebSocket 频繁断线</td><td>确认 /socket.io 放行 Upgrade/Connection 头，且上游启用了 ip_hash 或 Cookie 亲和（见 4.2）</td></tr>
+      </table>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 依《文档生成规范》编写 · 与本目录下其他「部署与使用说明」配套 · 生成日期：2026-08-05
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>
