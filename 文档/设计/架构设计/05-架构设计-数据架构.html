@@ -247,6 +247,7 @@
         <tr><td>sys_task / sys_task_log</td><td>定时任务定义与执行记录</td></tr>
         <tr><td rowspan="3">通用能力</td><td>sys_file、sys_notification、sys_notice / sys_notice_read</td><td>文件元数据（分片状态跟踪）；站内信/待办；公告与已读回执</td></tr>
         <tr><td>sys_mail_template / sys_mail_log、sys_sms_template / sys_sms_log</td><td>邮件/短信模板（页面在线编辑）与发送记录</td></tr>
+        <tr><td>sys_help_category、sys_help_article、sys_help_article_i18n、sys_help_feedback</td><td>帮助分类树；帮助文章（target_type/target_key 挂页面内帮助、状态机 draft/published/offline、阅读与反馈计数）；文章多语言（title/content）；阅读反馈（联合主键防重复）</td></tr>
         <tr><td>sys_i18n_locale、sys_i18n_message</td><td>语言清单（rtl 标记）；前后端固定文案语言包</td></tr>
         <tr><td rowspan="2">工作流与业务</td><td>wf_process、wf_instance、wf_task、wf_record</td><td>流程定义（definition_key+version 唯一）、实例、待办、审批记录</td></tr>
         <tr><td>biz_purchase_apply、biz_purchase_order、biz_supplier</td><td>采购申请单、采购订单、供应商档案</td></tr>
