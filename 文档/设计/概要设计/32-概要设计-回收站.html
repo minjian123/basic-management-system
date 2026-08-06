@@ -191,8 +191,8 @@
     <main>
 
       <p>
-        本节对应《项目规划说明》「功能模块」之<strong>回收站</strong>模块，与「数据规范（软删除）」
-        「权限模型」「核心数据表清单」「测试策略」等章节；架构设计依据《架构设计》08-数据访问与分片
+        本节对应<a href="../../规划/项目规划说明.md">《项目规划说明》</a>「功能模块」之<strong>回收站</strong>模块，与「数据规范（软删除）」
+        「权限模型」「核心数据表清单」「测试策略」等章节；架构设计依据<a href="../架构设计/01-架构设计.html">《架构设计》</a>08-数据访问与分片
         节点（事务边界与查询规范）。
       </p>
 
@@ -203,13 +203,13 @@
       </p>
       <ul>
         <li><strong>软删除数据查看</strong>：复用 deleted_at，无独立表；查询各业务表 <code>deleted_at</code> 非空数据</li>
-        <li><strong>恢复动作</strong>：清除 <code>deleted_at</code>，落操作日志与字段级审计（<code>sys_data_audit_log</code>）</li>
+        <li><strong>恢复动作</strong>：清除 <code>deleted_at</code>，落<a href="10-概要设计-操作日志.html">操作日志</a>与字段级审计（<code>sys_data_audit_log</code>）</li>
         <li><strong>唯一约束配合</strong>：业务唯一约束建为 (唯一字段, deleted_at) 复合唯一索引——未删行 NULL 多行不冲突，删除写入时间戳释放唯一键；PostgreSQL 可加部分唯一索引优化</li>
         <li><strong>物理清理</strong>：过期数据由 Celery 定时物理清理（与归档清理任务衔接），清理记录备查</li>
         <li><strong>按模块展示</strong>：回收站按模块展示，可筛选业务表</li>
       </ul>
       <p>职责边界：本模块不新增任何独立表（无独立新表），只提供对软删除数据的统一查看、恢复与清理入口；恢复动作本身由对应业务模块的 repository 层执行（清除 deleted_at）。</p>
-      <p>相邻模块协作：与<strong>审计合规</strong>协作（恢复动作落操作日志与字段级审计）；与<strong>归档管理</strong>衔接物理清理任务；与<strong>任务调度</strong>协作（清理任务入库 sys_task）；与<strong>数据访问与分片</strong>协作（软删除查询默认过滤规则、唯一索引约束）。</p>
+      <p>相邻模块协作：与<strong><a href="28-概要设计-审计合规.html">审计合规</a></strong>协作（恢复动作落操作日志与字段级审计）；与<strong><a href="30-概要设计-归档管理.html">归档管理</a></strong>衔接物理清理任务；与<strong><a href="23-概要设计-任务调度.html">任务调度</a></strong>协作（清理任务入库 sys_task）；与<strong>数据访问与分片</strong>协作（软删除查询默认过滤规则、唯一索引约束）。</p>
 
       <h2 id="functions">2. 功能分解与业务流程</h2>
 
