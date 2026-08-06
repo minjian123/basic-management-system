@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>架构设计 · 子系统 · 事件总线</title>
+<style>
+  :root {
+    --bg: #f7f8fa;
+    --fg: #1f2328;
+    --muted: #57606a;
+    --border: #d0d7de;
+    --accent: #0969da;
+    --accent-bg: #ddf4ff;
+    --code-bg: #f6f8fa;
+    --warn-bg: #fff8c5;
+    --warn-border: #d4a72c;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+    line-height: 1.75;
+  }
+  .layout { display: flex; height: 100vh; overflow: hidden; }
+  .sidebar {
+    width: 280px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+  }
+  .sidebar .brand {
+    background: linear-gradient(135deg, #1f2328, #32383f);
+    color: #fff;
+    padding: 1.4rem 1.2rem 1.1rem;
+    border-bottom: 3px solid var(--accent);
+    flex-shrink: 0;
+  }
+  .sidebar .brand h1 { margin: 0 0 .35rem; font-size: 1.15rem; line-height: 1.4; }
+  .sidebar .brand p { margin: 0; color: #b6bec6; font-size: .78rem; }
+  .sidebar nav { padding: .8rem .6rem 1.5rem; font-size: .9rem; }
+  .sidebar nav ul { list-style: none; margin: 0; padding: 0; }
+  .sidebar nav li { margin: .15rem 0; }
+  .sidebar nav a {
+    display: block;
+    padding: .3rem .7rem;
+    border-radius: 5px;
+    color: var(--fg);
+    text-decoration: none;
+  }
+  .sidebar nav a:hover { background: var(--accent-bg); color: var(--accent); }
+  .sidebar nav .sub { padding-left: 1.6rem; font-size: .85rem; color: var(--muted); }
+  .content { flex: 1; overflow-y: auto; }
+  main {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1.5rem 2rem 4rem;
+  }
+  h2 {
+    margin-top: 2.5rem;
+    padding-bottom: .4rem;
+    border-bottom: 2px solid var(--border);
+    font-size: 1.35rem;
+  }
+  h3 { margin-top: 1.6rem; font-size: 1.1rem; }
+  p { margin: .6rem 0; }
+  ul, ol { margin: .6rem 0; padding-left: 1.6rem; }
+  li { margin: .3rem 0; }
+  code {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: .1em .35em;
+    font-family: Consolas, "Cascadia Mono", monospace;
+    font-size: .9em;
+  }
+  pre {
+    background: #0d1117;
+    color: #e6edf3;
+    border-radius: 8px;
+    padding: .9rem 1.1rem;
+    overflow-x: auto;
+    font-size: .88rem;
+    line-height: 1.6;
+  }
+  pre code { background: none; border: none; padding: 0; color: inherit; }
+  .note, .warn {
+    border-radius: 6px;
+    padding: .7rem 1rem;
+    margin: 1rem 0;
+    font-size: .95rem;
+  }
+  .note { background: var(--accent-bg); border-left: 4px solid var(--accent); }
+  .warn { background: var(--warn-bg); border-left: 4px solid var(--warn-border); }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1rem 0;
+    font-size: .92rem;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: .45rem .7rem;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: #eef1f4; white-space: nowrap; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  footer {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1rem 2rem 3rem;
+    color: var(--muted);
+    font-size: .85rem;
+    border-top: 1px solid var(--border);
+  }
+  @media (max-width: 768px) {
+    .layout { flex-direction: column; height: auto; overflow: visible; }
+    .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); max-height: 40vh; }
+    .content { overflow: visible; }
+  }
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>架构设计 · 子系统 · 事件总线</h1>
+      <p>BMS · RocketMQ 事件模型、消费与推送</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#overview">1. 概述</a></li>
+        <li><a href="#model">2. 事件模型</a></li>
+        <li><a href="#produce">3. 生产一致性</a></li>
+        <li><a href="#consume">4. 消费组架构</a></li>
+        <li><a href="#reliability">5. 幂等与重试</a></li>
+        <li><a href="#webhook">6. Webhook 推送</a></li>
+        <li><a href="#coordination">7. 与其他子系统的协调</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="overview">1. 概述</h2>
+      <p>
+        事件总线基于 RocketMQ 5.x：作事件总线承载操作日志异步化、Webhook 推送、审计链分区有序消费、
+        模块解耦与跨域数据同步。对应《项目规划说明》的「消息队列」「事件总线事件模型」「Webhook 管理」章节。
+      </p>
+
+      <h2 id="model">2. 事件模型</h2>
+      <ul>
+        <li>事件信封 EventEnvelope：event_id（幂等键）、type（<code>{域}.{对象}.{动作}</code>）、tenant_id、occurred_at、payload</li>
+        <li>topic 命名：<code>bms.{事件域}.{事件}</code>（如 bms.log.operation、bms.wf.task、bms.event.purchase）</li>
+        <li>事件命名：<code>user.updated</code>、<code>wf.task.completed</code>、<code>purchase.order.created</code> 等（完整清单见 06-接口与集成节点）</li>
+        <li>默认清单开发期可扩展；Webhook 订阅按事件名匹配</li>
+      </ul>
+
+      <h2 id="produce">3. 生产一致性</h2>
+      <ul>
+        <li>RocketMQ 事务消息：半消息 → 本地业务事务提交回调 → 确认发送 / 回滚——本地事务与消息发送原子一致，避免丢事件</li>
+        <li>生产者封装统一事件发布组件，业务代码不直接操作 MQ 客户端</li>
+      </ul>
+
+      <h2 id="consume">4. 消费组架构</h2>
+      <table>
+        <tr><th>消费组</th><th>职责</th><th>有序性</th></tr>
+        <tr><td>审计链组</td><td>审计日志（操作/登录/开放接口/数据变更）串行追加 + 哈希链计算</td><td>分区有序（分区键=租户）</td></tr>
+        <tr><td>日志落库组</td><td>操作日志/登录日志异步落库（降低主库写压力）</td><td>并行</td></tr>
+        <tr><td>Webhook 推送组</td><td>事件按订阅匹配推送（HMAC 签名、退避重试）</td><td>并行</td></tr>
+        <tr><td>通知组</td><td>站内信落库 + 触发 Socket.IO 推送</td><td>并行</td></tr>
+        <tr><td>ES 同步组（阶段十三）</td><td>主数据/审计日志/文件内容索引同步</td><td>并行</td></tr>
+        <tr><td>embedding 组（阶段十四）</td><td>文件分段向量化入 Milvus</td><td>并行</td></tr>
+      </table>
+
+      <h2 id="reliability">5. 幂等与重试</h2>
+      <ul>
+        <li>幂等：event_id 去重——Redis SETNX 短窗口 + 业务唯一约束兜底（如日志表事件 id 唯一），重试不产生重复副作用</li>
+        <li>重试：消费失败指数退避重试（有限次）→ 转死信 topic 落库标记，监控告警人工介入</li>
+        <li>审计链消费分区键 = 租户：保证同租户日志串行追加，哈希链不乱序（见审计哈希链子系统）</li>
+      </ul>
+
+      <h2 id="webhook">6. Webhook 推送</h2>
+      <ul>
+        <li>订阅管理：sys_webhook（name、url、events、secret、status、fail_count），Webhook 管理页面注册（open 业务）</li>
+        <li>推送：HMAC 签名校验（sha256(secret, body)）；指数退避重试；失败记录 sys_webhook_log（webhook_id、event、payload、status、retry_count、next_retry_at、error_msg）</li>
+        <li>出站调用统一 httpx 封装（超时/重试/熔断）</li>
+      </ul>
+
+      <h2 id="coordination">7. 与其他子系统的协调</h2>
+      <ul>
+        <li><strong>审计哈希链</strong>：审计事件经本总线分区有序消费，保证链序</li>
+        <li><strong>通知公告</strong>：通知类事件（notification.sent）触发站内信与推送</li>
+        <li><strong>工作流</strong>：wf.* 事件（deployed/started/task.completed/rejected/finished）驱动待办提醒与外部订阅</li>
+        <li><strong>全文检索</strong>：事件驱动 ES 索引同步与重建（重放事件流）</li>
+        <li><strong>任务调度</strong>：任务执行完成落 task.completed 事件（与 Celery 任务队列解耦，互不干扰）</li>
+        <li><strong>故障降级</strong>：RocketMQ 故障时审计/日志降级为同步直写（标记降级时段，恢复后补发）</li>
+      </ul>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 架构设计节点 · 与《项目规划说明》《文档生成规范》《命名规范》配套 · 生成日期：2026-08-06
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>

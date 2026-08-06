@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>架构设计 · 目标与约束</title>
+<style>
+  :root {
+    --bg: #f7f8fa;
+    --fg: #1f2328;
+    --muted: #57606a;
+    --border: #d0d7de;
+    --accent: #0969da;
+    --accent-bg: #ddf4ff;
+    --code-bg: #f6f8fa;
+    --warn-bg: #fff8c5;
+    --warn-border: #d4a72c;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+    line-height: 1.75;
+  }
+  .layout { display: flex; height: 100vh; overflow: hidden; }
+  .sidebar {
+    width: 280px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+  }
+  .sidebar .brand {
+    background: linear-gradient(135deg, #1f2328, #32383f);
+    color: #fff;
+    padding: 1.4rem 1.2rem 1.1rem;
+    border-bottom: 3px solid var(--accent);
+    flex-shrink: 0;
+  }
+  .sidebar .brand h1 { margin: 0 0 .35rem; font-size: 1.15rem; line-height: 1.4; }
+  .sidebar .brand p { margin: 0; color: #b6bec6; font-size: .78rem; }
+  .sidebar nav { padding: .8rem .6rem 1.5rem; font-size: .9rem; }
+  .sidebar nav ul { list-style: none; margin: 0; padding: 0; }
+  .sidebar nav li { margin: .15rem 0; }
+  .sidebar nav a {
+    display: block;
+    padding: .3rem .7rem;
+    border-radius: 5px;
+    color: var(--fg);
+    text-decoration: none;
+  }
+  .sidebar nav a:hover { background: var(--accent-bg); color: var(--accent); }
+  .sidebar nav .sub { padding-left: 1.6rem; font-size: .85rem; color: var(--muted); }
+  .content { flex: 1; overflow-y: auto; }
+  main {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1.5rem 2rem 4rem;
+  }
+  h2 {
+    margin-top: 2.5rem;
+    padding-bottom: .4rem;
+    border-bottom: 2px solid var(--border);
+    font-size: 1.35rem;
+  }
+  h3 { margin-top: 1.6rem; font-size: 1.1rem; }
+  p { margin: .6rem 0; }
+  ul, ol { margin: .6rem 0; padding-left: 1.6rem; }
+  li { margin: .3rem 0; }
+  code {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: .1em .35em;
+    font-family: Consolas, "Cascadia Mono", monospace;
+    font-size: .9em;
+  }
+  pre {
+    background: #0d1117;
+    color: #e6edf3;
+    border-radius: 8px;
+    padding: .9rem 1.1rem;
+    overflow-x: auto;
+    font-size: .88rem;
+    line-height: 1.6;
+  }
+  pre code { background: none; border: none; padding: 0; color: inherit; }
+  .note, .warn {
+    border-radius: 6px;
+    padding: .7rem 1rem;
+    margin: 1rem 0;
+    font-size: .95rem;
+  }
+  .note { background: var(--accent-bg); border-left: 4px solid var(--accent); }
+  .warn { background: var(--warn-bg); border-left: 4px solid var(--warn-border); }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1rem 0;
+    font-size: .92rem;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: .45rem .7rem;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: #eef1f4; white-space: nowrap; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  footer {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1rem 2rem 3rem;
+    color: var(--muted);
+    font-size: .85rem;
+    border-top: 1px solid var(--border);
+  }
+  @media (max-width: 768px) {
+    .layout { flex-direction: column; height: auto; overflow: visible; }
+    .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); max-height: 40vh; }
+    .content { overflow: visible; }
+  }
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>架构设计 · 目标与约束</h1>
+      <p>BMS · 质量属性与设计约束</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#overview">1. 概述</a></li>
+        <li><a href="#quality">2. 质量属性</a></li>
+        <li><a href="#constraints">3. 技术约束</a>
+          <ul class="sub">
+            <li><a href="#constraints-lang">3.1 语言与生态</a></li>
+            <li><a href="#constraints-db">3.2 数据库兼容</a></li>
+            <li><a href="#constraints-shape">3.3 系统形态</a></li>
+          </ul>
+        </li>
+        <li><a href="#not-adopted">4. 明确不采用</a></li>
+        <li><a href="#trace">5. 与规划文档的对应</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="overview">1. 概述</h2>
+      <p>
+        本节点定义 BMS 架构设计必须满足的质量属性与技术约束，以及规划阶段<strong>明确不采用</strong>的技术
+        （防止后续反复讨论）。所有子系统设计均以此为准绳，任何违反约束的设计需先修订本节点。
+      </p>
+
+      <h2 id="quality">2. 质量属性</h2>
+      <table>
+        <tr><th>质量属性</th><th>目标</th><th>架构落地</th></tr>
+        <tr><td>性能</td><td>≥ 500 并发用户；P99 ≤ 1s（登录、列表查询、审批提交主链路），验收前压测验证</td><td>异步全栈（FastAPI + 异步 SQLAlchemy + redis.asyncio）；Redis 缓存三防；操作日志/登录日志经 RocketMQ 异步写入降低主库压力；慢查询日志定期走查</td></tr>
+        <tr><td>可用性</td><td>RTO ≤ 4 小时、RPO ≤ 1 小时；故障可降级</td><td>无状态多副本；故障应对表（见部署与运维节点）；数据库每日全量备份 + Binlog/WAL（PITR）</td></tr>
+        <tr><td>安全性</td><td>等保管理要求对齐</td><td>三权分立；审计哈希链防篡改；数据脱敏；双 token + Redis 会话校验；密码策略合规</td></tr>
+        <tr><td>多租户隔离</td><td>租户间数据绝对隔离</td><td>一租户一独立库物理隔离 + 查询强制 tenant 过滤 + 跨租户访问拒绝测试</td></tr>
+        <tr><td>可扩展性</td><td>集群横向扩展，实例可随时停机/扩容</td><td>无状态设计（会话/黑名单/限流计数存 Redis，文件存 MinIO）；租户引擎懒加载控制连接成本；事件驱动模块解耦</td></tr>
+        <tr><td>可维护性</td><td>代码可理解、可定位</td><td>单体模块化 + 分层（api/services/repositories/db）；知识图谱（graphify）辅助代码理解与架构分析</td></tr>
+      </table>
+
+      <h2 id="constraints">3. 技术约束</h2>
+
+      <h3 id="constraints-lang">3.1 语言与生态</h3>
+      <ul>
+        <li>Python 3.14+，uv 管理依赖与虚拟环境；版本兼容口径：阶段一逐依赖验证（FastAPI/SQLAlchemy/Pydantic/psycopg/Celery/SpiffWorkflow 等），任一核心依赖不兼容则整体回退 Python 3.13</li>
+        <li>前端 Node 版本由 <code>.nvmrc</code> 固定（≥ 20.19），volta/fnm 管理；包管理 npm，frontend 与 frontend-mobile 双工程彻底独立（各自 lock 与 ESLint/Prettier/TS 配置，不共享、不生成额外配置文件）</li>
+        <li>测试环境与开发环境一致使用 SQLite（aiosqlite）</li>
+      </ul>
+
+      <h3 id="constraints-db">3.2 数据库兼容</h3>
+      <ul>
+        <li>开发/测试 SQLite；生产同时支持 MySQL 8.x 与 PostgreSQL 16+ 双库并行</li>
+        <li>ORM 层禁用方言特有功能：JSON 等类型使用跨方言通用类型，分页统一 limit/offset</li>
+        <li>Alembic 维护 MySQL / PostgreSQL 两套方言迁移；SQLite 开发库自动建表；CI 双库方言集成测试</li>
+      </ul>
+
+      <h3 id="constraints-shape">3.3 系统形态</h3>
+      <ul>
+        <li>多租户 SaaS（租户独立库）为既定形态，见多租户路由子系统</li>
+        <li>单体模块化 + 独立 worker 进程（celery-worker / celery-beat / event-worker），跨域调用走事件总线</li>
+        <li>配置：config.toml 按环境分层（BMS_ENV）+ 环境变量覆盖；密钥只走环境变量 / Secret 管理</li>
+        <li>部署：Docker Compose 编排，数据量或规模增长后演进 Kubernetes</li>
+      </ul>
+
+      <h2 id="not-adopted">4. 明确不采用</h2>
+      <table>
+        <tr><th>技术</th><th>不采用理由</th><th>重新评估条件</th></tr>
+        <tr><td>Kubernetes</td><td>MVP 用 Docker Compose 部署即可满足</td><td>数据量或部署规模增长后</td></tr>
+        <tr><td>Kafka</td><td>消息量级未到，RocketMQ 已覆盖事件总线，Redis 已覆盖任务队列</td><td>消息量级显著增长</td></tr>
+        <tr><td>MFA / 2FA</td><td>账号密码 + 图形验证码 + 找回密码双通道 + 限流已满足 MVP 安全基线</td><td>安全基线升级需求</td></tr>
+        <tr><td>原生 WebSocket</td><td>统一采用 Socket.IO（自动重连、Redis 跨实例广播）</td><td>性能瓶颈且协议约束无法满足</td></tr>
+        <tr><td>APNs / FCM 移动端系统推送</td><td>MVP 站内信 + 企业微信/钉钉内免登即达</td><td>移动端独立 App 场景</td></tr>
+        <tr><td>微服务拆分</td><td>保持单体模块化 + 独立 worker 进程</td><td>团队规模/部署边界需要时</td></tr>
+        <tr><td>前端 SSR / Nuxt</td><td>管理端与 H5 均为 SPA</td><td>SEO 需求出现</td></tr>
+      </table>
+
+      <h2 id="trace">5. 与规划文档的对应</h2>
+      <p>本节点对应《项目规划说明》的「项目概述」「选型说明」「性能目标」「明确不采用」等章节。后续每个节点文件开头均标注其对应的规划文档章节，保证规划 → 架构可追溯。</p>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 架构设计节点 · 与《项目规划说明》《文档生成规范》《命名规范》配套 · 生成日期：2026-08-06
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>

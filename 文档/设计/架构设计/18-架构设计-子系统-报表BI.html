@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>架构设计 · 子系统 · 报表 BI</title>
+<style>
+  :root {
+    --bg: #f7f8fa;
+    --fg: #1f2328;
+    --muted: #57606a;
+    --border: #d0d7de;
+    --accent: #0969da;
+    --accent-bg: #ddf4ff;
+    --code-bg: #f6f8fa;
+    --warn-bg: #fff8c5;
+    --warn-border: #d4a72c;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+    line-height: 1.75;
+  }
+  .layout { display: flex; height: 100vh; overflow: hidden; }
+  .sidebar {
+    width: 280px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+  }
+  .sidebar .brand {
+    background: linear-gradient(135deg, #1f2328, #32383f);
+    color: #fff;
+    padding: 1.4rem 1.2rem 1.1rem;
+    border-bottom: 3px solid var(--accent);
+    flex-shrink: 0;
+  }
+  .sidebar .brand h1 { margin: 0 0 .35rem; font-size: 1.15rem; line-height: 1.4; }
+  .sidebar .brand p { margin: 0; color: #b6bec6; font-size: .78rem; }
+  .sidebar nav { padding: .8rem .6rem 1.5rem; font-size: .9rem; }
+  .sidebar nav ul { list-style: none; margin: 0; padding: 0; }
+  .sidebar nav li { margin: .15rem 0; }
+  .sidebar nav a {
+    display: block;
+    padding: .3rem .7rem;
+    border-radius: 5px;
+    color: var(--fg);
+    text-decoration: none;
+  }
+  .sidebar nav a:hover { background: var(--accent-bg); color: var(--accent); }
+  .sidebar nav .sub { padding-left: 1.6rem; font-size: .85rem; color: var(--muted); }
+  .content { flex: 1; overflow-y: auto; }
+  main {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1.5rem 2rem 4rem;
+  }
+  h2 {
+    margin-top: 2.5rem;
+    padding-bottom: .4rem;
+    border-bottom: 2px solid var(--border);
+    font-size: 1.35rem;
+  }
+  h3 { margin-top: 1.6rem; font-size: 1.1rem; }
+  p { margin: .6rem 0; }
+  ul, ol { margin: .6rem 0; padding-left: 1.6rem; }
+  li { margin: .3rem 0; }
+  code {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: .1em .35em;
+    font-family: Consolas, "Cascadia Mono", monospace;
+    font-size: .9em;
+  }
+  pre {
+    background: #0d1117;
+    color: #e6edf3;
+    border-radius: 8px;
+    padding: .9rem 1.1rem;
+    overflow-x: auto;
+    font-size: .88rem;
+    line-height: 1.6;
+  }
+  pre code { background: none; border: none; padding: 0; color: inherit; }
+  .note, .warn {
+    border-radius: 6px;
+    padding: .7rem 1rem;
+    margin: 1rem 0;
+    font-size: .95rem;
+  }
+  .note { background: var(--accent-bg); border-left: 4px solid var(--accent); }
+  .warn { background: var(--warn-bg); border-left: 4px solid var(--warn-border); }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1rem 0;
+    font-size: .92rem;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: .45rem .7rem;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: #eef1f4; white-space: nowrap; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  footer {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1rem 2rem 3rem;
+    color: var(--muted);
+    font-size: .85rem;
+    border-top: 1px solid var(--border);
+  }
+  @media (max-width: 768px) {
+    .layout { flex-direction: column; height: auto; overflow: visible; }
+    .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); max-height: 40vh; }
+    .content { overflow: visible; }
+  }
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>架构设计 · 子系统 · 报表 BI</h1>
+      <p>BMS · 数据集、报表与大屏</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#overview">1. 概述</a></li>
+        <li><a href="#dataset">2. 数据集管理</a></li>
+        <li><a href="#report">3. 报表设计器</a></li>
+        <li><a href="#screen">4. 可视化大屏</a></li>
+        <li><a href="#security">5. SQL 安全执行</a></li>
+        <li><a href="#coordination">6. 与其他子系统的协调</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="overview">1. 概述</h2>
+      <p>
+        报表 BI 子系统提供数据集管理（SQL 建模）、拖拽报表设计器（ECharts）与可视化大屏。
+        对应《项目规划说明》的「报表中心」章节，覆盖数据集管理、报表设计器、报表查看、大屏设计器与播放模块。
+      </p>
+
+      <h2 id="dataset">2. 数据集管理</h2>
+      <ul>
+        <li>rpt_dataset：code、name、source_key（只读从库数据源）、sql_text、fields、status——SQL 建模，页面配置</li>
+        <li>执行模型：只读从库强制执行（隔离生产读写）；字段清单（fields）声明，禁止返回未声明字段</li>
+        <li>权限码 rpt:design（设计）、rpt:view（查看）</li>
+      </ul>
+
+      <h2 id="report">3. 报表设计器</h2>
+      <ul>
+        <li>rpt_report：code、name、dataset_id、chart_config、layout、status——拖拽设计（ECharts 图表类型全覆盖）</li>
+        <li>报表查看：按数据集参数查询渲染；移动端可查看（数据查询）</li>
+        <li>报表移动端查看纳入移动端 H5（数据查询页）</li>
+      </ul>
+
+      <h2 id="screen">4. 可视化大屏</h2>
+      <ul>
+        <li>rpt_screen：code、name、canvas_config、status——自由画布设计器 + 轮播播放</li>
+        <li>大屏播放页独立路由（无需登录态可配置分享；默认需权限）</li>
+      </ul>
+
+      <h2 id="security">5. SQL 安全执行</h2>
+      <ul>
+        <li>数据集白名单：仅可执行平台审核过的数据集 SQL；页面禁止任意 SQL 输入</li>
+        <li>只读从库执行：强制 read-only 连接（禁用写语句）；SQL 注入防护：参数化 + 语句类别白名单（仅 SELECT）</li>
+        <li>超时与限流：数据集执行超时限制、接口限流（slowapi）</li>
+        <li>租户隔离：数据集属租户库，执行绑定当前租户数据源</li>
+        <li>AI 问数（阶段十四）：NL2SQL 仅在数据集白名单 + 只读从库 + 安全校验范围内生成与执行</li>
+      </ul>
+
+      <h2 id="coordination">6. 与其他子系统的协调</h2>
+      <ul>
+        <li><strong>数据访问与分片</strong>：报表查询走只读从库（读写分离路由）</li>
+        <li><strong>权限计算引擎</strong>：报表/大屏按权限码与数据范围过滤</li>
+        <li><strong>前端架构</strong>：ECharts 渲染；大屏设计器（拖拽画布）</li>
+        <li><strong>AI 服务（阶段十四）</strong>：智能报表助手（NL2SQL 问数，结果图表化）</li>
+        <li><strong>可观测性</strong>：数据集慢查询纳入慢查询日志走查</li>
+      </ul>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 架构设计节点 · 与《项目规划说明》《文档生成规范》《命名规范》配套 · 生成日期：2026-08-06
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>

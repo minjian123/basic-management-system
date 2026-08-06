@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>架构设计 · 子系统 · 多租户路由</title>
+<style>
+  :root {
+    --bg: #f7f8fa;
+    --fg: #1f2328;
+    --muted: #57606a;
+    --border: #d0d7de;
+    --accent: #0969da;
+    --accent-bg: #ddf4ff;
+    --code-bg: #f6f8fa;
+    --warn-bg: #fff8c5;
+    --warn-border: #d4a72c;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+    line-height: 1.75;
+  }
+  .layout { display: flex; height: 100vh; overflow: hidden; }
+  .sidebar {
+    width: 280px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+  }
+  .sidebar .brand {
+    background: linear-gradient(135deg, #1f2328, #32383f);
+    color: #fff;
+    padding: 1.4rem 1.2rem 1.1rem;
+    border-bottom: 3px solid var(--accent);
+    flex-shrink: 0;
+  }
+  .sidebar .brand h1 { margin: 0 0 .35rem; font-size: 1.15rem; line-height: 1.4; }
+  .sidebar .brand p { margin: 0; color: #b6bec6; font-size: .78rem; }
+  .sidebar nav { padding: .8rem .6rem 1.5rem; font-size: .9rem; }
+  .sidebar nav ul { list-style: none; margin: 0; padding: 0; }
+  .sidebar nav li { margin: .15rem 0; }
+  .sidebar nav a {
+    display: block;
+    padding: .3rem .7rem;
+    border-radius: 5px;
+    color: var(--fg);
+    text-decoration: none;
+  }
+  .sidebar nav a:hover { background: var(--accent-bg); color: var(--accent); }
+  .sidebar nav .sub { padding-left: 1.6rem; font-size: .85rem; color: var(--muted); }
+  .content { flex: 1; overflow-y: auto; }
+  main {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1.5rem 2rem 4rem;
+  }
+  h2 {
+    margin-top: 2.5rem;
+    padding-bottom: .4rem;
+    border-bottom: 2px solid var(--border);
+    font-size: 1.35rem;
+  }
+  h3 { margin-top: 1.6rem; font-size: 1.1rem; }
+  p { margin: .6rem 0; }
+  ul, ol { margin: .6rem 0; padding-left: 1.6rem; }
+  li { margin: .3rem 0; }
+  code {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: .1em .35em;
+    font-family: Consolas, "Cascadia Mono", monospace;
+    font-size: .9em;
+  }
+  pre {
+    background: #0d1117;
+    color: #e6edf3;
+    border-radius: 8px;
+    padding: .9rem 1.1rem;
+    overflow-x: auto;
+    font-size: .88rem;
+    line-height: 1.6;
+  }
+  pre code { background: none; border: none; padding: 0; color: inherit; }
+  .note, .warn {
+    border-radius: 6px;
+    padding: .7rem 1rem;
+    margin: 1rem 0;
+    font-size: .95rem;
+  }
+  .note { background: var(--accent-bg); border-left: 4px solid var(--accent); }
+  .warn { background: var(--warn-bg); border-left: 4px solid var(--warn-border); }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1rem 0;
+    font-size: .92rem;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: .45rem .7rem;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: #eef1f4; white-space: nowrap; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  footer {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1rem 2rem 3rem;
+    color: var(--muted);
+    font-size: .85rem;
+    border-top: 1px solid var(--border);
+  }
+  @media (max-width: 768px) {
+    .layout { flex-direction: column; height: auto; overflow: visible; }
+    .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); max-height: 40vh; }
+    .content { overflow: visible; }
+  }
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>架构设计 · 子系统 · 多租户路由</h1>
+      <p>BMS · 租户解析、引擎管理与隔离</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#overview">1. 概述</a></li>
+        <li><a href="#resolve">2. 租户解析链</a></li>
+        <li><a href="#engine">3. 引擎注册表与生命周期</a></li>
+        <li><a href="#provision">4. 租户开通/停用</a></li>
+        <li><a href="#quota">5. 配额管理</a></li>
+        <li><a href="#isolation">6. 隔离边界</a></li>
+        <li><a href="#coordination">7. 与其他子系统的协调</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="overview">1. 概述</h2>
+      <p>
+        多租户路由子系统承载 BMS 的 SaaS 多租户形态：请求级确定目标租户与数据库引擎，管理引擎
+        生命周期与连接预算，执行租户开通/停用与配额治理。对应《项目规划说明》的「多数据源策略」
+        「租户管理」「认证与安全（租户识别）」章节，覆盖租户管理模块与平台超管运营视图。
+      </p>
+
+      <h2 id="resolve">2. 租户解析链</h2>
+      <table>
+        <tr><th>来源</th><th>场景</th><th>优先级</th></tr>
+        <tr><td>子域名 <code>{tenant}.bms.example.com</code></td><td>生产环境（泛域名 DNS + 泛 TLS 证书）</td><td>1</td></tr>
+        <tr><td><code>X-Tenant-ID</code> 请求头</td><td>一人多租户切换（切换后重发 token）</td><td>2</td></tr>
+        <tr><td>access token 内 tenant_id</td><td>开发环境兜底</td><td>3</td></tr>
+      </table>
+      <p>解析结果构造 TenantContext（tenant_code、db_key、引擎引用），经 FastAPI 依赖注入传入 services/repositories；禁止全局单例持有租户引擎。子域名查 <code>sys_tenant.domain</code>（平台库），命中缓存（短 TTL）。</p>
+
+      <h2 id="engine">3. 引擎注册表与生命周期</h2>
+      <table>
+        <tr><th>机制</th><th>设计</th></tr>
+        <tr><td>EngineRegistry</td><td>注册表 <code>{db_key → AsyncEngine}</code>；平台引擎常驻（bms_platform）；租户引擎懒加载（首次访问创建，连接参数来自 config.toml 数据源声明）</td></tr>
+        <tr><td>闲置回收</td><td>LRU + 最后使用时间：超时未访问的租户引擎 dispose 回收；停用租户强制回收；控制活跃租户引擎数上限</td></tr>
+        <tr><td>连接预算</td><td>总连接 = worker 数 × (pool_size + max_overflow) ≤ 数据库 max_connections 的 70%（预留其他客户端）；多租户按活跃租户数规划，避免全量租户连接常驻</td></tr>
+        <tr><td>并发保护</td><td>引擎创建加锁（进程内锁 + Redis 锁），防多实例同时为同一租户建引擎；创建失败快速失败并告警</td></tr>
+      </table>
+
+      <h2 id="provision">4. 租户开通/停用</h2>
+      <ul>
+        <li>开通流程（平台超管 <code>tenant:manage</code>）：校验 code 唯一 → 建库 <code>bms_tenant_{code}</code> → 双套 Alembic 迁移（按目标库方言）→ 批量种子（三类内置管理员角色 + 初始系统管理员账号（首次登录强制改密）+ 默认 IdP 占位 + 归档策略 + 平台统一菜单/表单/按钮/字段挂接与权限码）→ 注册 sys_tenant → 预热引擎（可选）→ 落 tenant.created 事件</li>
+        <li>停用：租户引擎全部回收、会话标记失效（按租户前缀批量清理 Redis）、登录拦截；启用：恢复正常 + 落 tenant.activated 事件</li>
+        <li>租户库批量迁移：Alembic 遍历 sys_tenant 逐库执行（运维脚本 scripts/）</li>
+      </ul>
+
+      <h2 id="quota">5. 配额管理</h2>
+      <ul>
+        <li>配额维度（sys_tenant_quota.quota_key）：user_count / storage_bytes / open_calls</li>
+        <li>超限拦截：创建用户/上传文件/开放接口调用前校验配额，超限拒绝并告警；used_value 计数落库</li>
+        <li>配额变更由平台超管运营视图配置（tenant:quota）</li>
+      </ul>
+
+      <h2 id="isolation">6. 隔离边界</h2>
+      <ul>
+        <li>第一层：引擎物理隔离（一租户一独立库，库级隔离）</li>
+        <li>第二层：查询强制 tenant 过滤（repository 统一注入 tenant_id 条件）</li>
+        <li>第三层：跨库引用走 code 逻辑外键（不建物理外键）；业务/动作权限码跨库引用同理</li>
+        <li>验证：跨租户访问拒绝测试纳入 CI（安全专项用例集）</li>
+      </ul>
+
+      <h2 id="coordination">7. 与其他子系统的协调</h2>
+      <ul>
+        <li><strong>认证与会话</strong>：token 携带 tenant_id，会话 key 带租户前缀；踢出/锁定按租户维度生效</li>
+        <li><strong>数据访问与分片</strong>：TenantContext 决定数据源路由；分片键支持按租户（预留）</li>
+        <li><strong>事件总线</strong>：事件信封携带 tenant_id，审计链分区键 = 租户（保证租户内有序）</li>
+        <li><strong>缓存架构</strong>：租户数据 key 必含租户前缀，平台数据用 global</li>
+        <li><strong>权限计算引擎</strong>：权限码租户侧可见、可分配、不可增删（平台统一维护）</li>
+      </ul>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 架构设计节点 · 与《项目规划说明》《文档生成规范》《命名规范》配套 · 生成日期：2026-08-06
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>

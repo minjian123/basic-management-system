@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>架构设计 · 部署与运维</title>
+<style>
+  :root {
+    --bg: #f7f8fa;
+    --fg: #1f2328;
+    --muted: #57606a;
+    --border: #d0d7de;
+    --accent: #0969da;
+    --accent-bg: #ddf4ff;
+    --code-bg: #f6f8fa;
+    --warn-bg: #fff8c5;
+    --warn-border: #d4a72c;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+    line-height: 1.75;
+  }
+  .layout { display: flex; height: 100vh; overflow: hidden; }
+  .sidebar {
+    width: 280px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+  }
+  .sidebar .brand {
+    background: linear-gradient(135deg, #1f2328, #32383f);
+    color: #fff;
+    padding: 1.4rem 1.2rem 1.1rem;
+    border-bottom: 3px solid var(--accent);
+    flex-shrink: 0;
+  }
+  .sidebar .brand h1 { margin: 0 0 .35rem; font-size: 1.15rem; line-height: 1.4; }
+  .sidebar .brand p { margin: 0; color: #b6bec6; font-size: .78rem; }
+  .sidebar nav { padding: .8rem .6rem 1.5rem; font-size: .9rem; }
+  .sidebar nav ul { list-style: none; margin: 0; padding: 0; }
+  .sidebar nav li { margin: .15rem 0; }
+  .sidebar nav a {
+    display: block;
+    padding: .3rem .7rem;
+    border-radius: 5px;
+    color: var(--fg);
+    text-decoration: none;
+  }
+  .sidebar nav a:hover { background: var(--accent-bg); color: var(--accent); }
+  .sidebar nav .sub { padding-left: 1.6rem; font-size: .85rem; color: var(--muted); }
+  .content { flex: 1; overflow-y: auto; }
+  main {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1.5rem 2rem 4rem;
+  }
+  h2 {
+    margin-top: 2.5rem;
+    padding-bottom: .4rem;
+    border-bottom: 2px solid var(--border);
+    font-size: 1.35rem;
+  }
+  h3 { margin-top: 1.6rem; font-size: 1.1rem; }
+  p { margin: .6rem 0; }
+  ul, ol { margin: .6rem 0; padding-left: 1.6rem; }
+  li { margin: .3rem 0; }
+  code {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: .1em .35em;
+    font-family: Consolas, "Cascadia Mono", monospace;
+    font-size: .9em;
+  }
+  pre {
+    background: #0d1117;
+    color: #e6edf3;
+    border-radius: 8px;
+    padding: .9rem 1.1rem;
+    overflow-x: auto;
+    font-size: .88rem;
+    line-height: 1.6;
+  }
+  pre code { background: none; border: none; padding: 0; color: inherit; }
+  .note, .warn {
+    border-radius: 6px;
+    padding: .7rem 1rem;
+    margin: 1rem 0;
+    font-size: .95rem;
+  }
+  .note { background: var(--accent-bg); border-left: 4px solid var(--accent); }
+  .warn { background: var(--warn-bg); border-left: 4px solid var(--warn-border); }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1rem 0;
+    font-size: .92rem;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: .45rem .7rem;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: #eef1f4; white-space: nowrap; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  footer {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1rem 2rem 3rem;
+    color: var(--muted);
+    font-size: .85rem;
+    border-top: 1px solid var(--border);
+  }
+  @media (max-width: 768px) {
+    .layout { flex-direction: column; height: auto; overflow: visible; }
+    .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); max-height: 40vh; }
+    .content { overflow: visible; }
+  }
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>架构设计 · 部署与运维</h1>
+      <p>BMS · 拓扑、集群、配置、初始化与容灾</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#overview">1. 概述</a></li>
+        <li><a href="#topo">2. 部署拓扑</a></li>
+        <li><a href="#cluster">3. 集群设计要点</a></li>
+        <li><a href="#compose">4. 基础设施编排</a></li>
+        <li><a href="#config">5. 配置分层</a></li>
+        <li><a href="#seed">6. 初始化数据</a></li>
+        <li><a href="#failover">7. 故障应对</a></li>
+        <li><a href="#backup">8. 备份与恢复</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="overview">1. 概述</h2>
+      <p>
+        本节点定义部署与运维架构：部署拓扑、集群设计要点、基础设施编排、配置分层、初始化数据、
+        故障应对与备份恢复。对应《项目规划说明》的「部署与运维」「集群设计要点」「基础设施编排」
+        「环境与配置」「初始化数据」「备份与恢复」章节。
+      </p>
+
+      <h2 id="topo">2. 部署拓扑</h2>
+      <pre><code>nginx（TLS 终止 / 静态资源 / /api 反代 / 租户子域名 / WebSocket 亲和）
+  ├── backend × N（无状态，uvicorn 多 worker）
+  ├── celery-worker × N ── celery-beat × 1（Redis 锁防重）
+  ├── event-worker × N（RocketMQ 消费）
+  ├── MySQL / PostgreSQL 主从（1 平台库 + N 租户库 + 1 归档库）
+  ├── Redis（Sentinel/Cluster 高可用，key 含租户前缀）
+  ├── RocketMQ（nameserver + broker 多副本）
+  ├── MinIO（按租户 bucket 前缀隔离，归档文件亦存于此）
+  ├── ElasticSearch（MVP 单节点，生产集群多副本）
+  ├── Milvus（阶段十四，milvus + etcd + MinIO 复用）
+  └── 监控：Prometheus / Loki / Grafana / Alertmanager / Jaeger / otel-collector</code></pre>
+
+      <h2 id="cluster">3. 集群设计要点</h2>
+      <ul>
+        <li>无状态：JWT 无状态（会话标记存 Redis，鉴权顺带校验）；token 黑名单、限流计数存 Redis；文件存 MinIO；定时任务分布式执行——任一实例可随时停机、随时扩容</li>
+        <li>缓存一致性：统一走 Redis，不引入本地内存缓存</li>
+        <li>分布式锁：Redis SETNX（幂等前置去重、beat 防重、引擎创建防重）</li>
+        <li>实时推送：Socket.IO 经 Redis 适配器广播；nginx ip_hash / Cookie 亲和</li>
+        <li>连接池：pool_size / max_overflow 按 worker 数规划，总连接数 ≤ 数据库 max_connections 的 70%</li>
+        <li>数据库高可用：主从 + 故障切换；主库故障预案（从库提升、只读模式）</li>
+        <li>消息队列高可用：RocketMQ 多副本（主从、同步刷盘 + 消息持久化）；Celery beat 单副本 + 锁</li>
+        <li>检索高可用：ES 多节点集群（多副本、故障自动分片迁移）；事件重放全量重建；故障降级 DB 模糊查询</li>
+        <li>安全响应头：nginx 统一配置 CSP、HSTS（dev 关闭）、X-Frame-Options（SAMEORIGIN，兼容 Grafana 嵌入）、X-Content-Type-Options、Referrer-Policy、Permissions-Policy</li>
+        <li>优雅停机：SIGTERM 后停止接收新请求、等待在途请求完成</li>
+      </ul>
+
+      <h2 id="compose">4. 基础设施编排</h2>
+      <ul>
+        <li>初版 Docker Compose：backend（多副本）+ celery-worker（多副本）+ celery-beat（单副本）+ event-worker（多副本）+ frontend（nginx，托管 PC + 移动端静态资源）+ redis + rocketmq（nameserver + broker）+ elasticsearch + milvus（含 etcd，MinIO 复用）+ minio + 数据库（按环境选择 MySQL 或 PostgreSQL）+ 监控（Prometheus/Loki/Grafana/Alertmanager）+ jaeger（trace）+ otel-collector</li>
+        <li>nginx 需支持 WebSocket：/socket.io 路径放行 Upgrade/Connection 头</li>
+        <li>健康检查：/healthz（存活）、/readyz（依赖就绪），供编排系统滚动发布</li>
+        <li>TLS 与 HTTPS：nginx 层配置，cookie Secure 标志随环境启用</li>
+        <li>演进：数据量或部署规模增长后迁移 Kubernetes</li>
+      </ul>
+
+      <h2 id="config">5. 配置分层</h2>
+      <ul>
+        <li>三套环境 dev / test / prod，config.toml 按环境分层（BMS_ENV 指定）+ 环境变量覆盖</li>
+        <li>密钥（DB/Redis 密码、JWT secret、MinIO 凭据、短信/AI key）走 Secret 管理（K8s Secret / Docker secrets），不落库不入镜像</li>
+        <li>开发环境依赖（Redis/RocketMQ/ES/MinIO）由 Docker Compose 统一提供；Milvus 随阶段十四加入</li>
+        <li>Python 版本 .python-version 固定 3.14（uv 管理）；前端 Node 版本 .nvmrc 固定</li>
+        <li>CORS：dev 放行前端跨域；生产 nginx 同源反代不开放跨域</li>
+        <li>租户域名：生产泛域名 DNS（*.bms.example.com）+ 泛 TLS 证书</li>
+        <li>git 分支：main 保护分支，feature 分支经 PR 合入（CI 通过方可合并）</li>
+      </ul>
+
+      <h2 id="seed">6. 初始化数据</h2>
+      <ul>
+        <li>初始菜单/表单/按钮/字段与业务/动作种子（后端模块定义与 sys_menu/sys_form/sys_button/sys_field/sys_business/sys_action 对齐，含 i18n 附表英文文案）</li>
+        <li>基础字典种子（状态、类型等通用字典，含 i18n）</li>
+        <li>初始工作流定义种子：采购申请三级审批流程模板</li>
+        <li>基础邮件模板种子（审批提醒、告警通知，中英文）</li>
+        <li>初始定时任务种子（孤儿分片清理、日志归档、分片表预创建、每日全量备份）</li>
+        <li>平台库种子：平台超管账号（首次启动创建，强制改密）、平台统一菜单/表单/按钮/字段挂接与权限码、平台默认字典/参数/邮件模板</li>
+        <li>租户开通种子：三类内置管理员角色（权限互斥，分别预授权限）与初始系统管理员账号、默认 IdP 占位、归档策略（四类审计日志 90 天）</li>
+        <li>语言包种子：中文/英文语言与前后端文案</li>
+      </ul>
+
+      <h2 id="failover">7. 故障应对</h2>
+      <table>
+        <tr><th>故障</th><th>应对</th></tr>
+        <tr><td>Redis 故障</td><td>缓存失效直连 DB + 日志告警；限流降级 memory 后端（slowapi）；会话校验降级（凭 access token 有效期）并告警</td></tr>
+        <tr><td>主库故障</td><td>只读模式：从库响应查询，写接口返回明确错误；从库提升预案</td></tr>
+        <tr><td>RocketMQ 故障</td><td>审计/日志写入降级为同步直写（标记降级时段，恢复后补发）；业务主流程不受影响</td></tr>
+        <tr><td>ElasticSearch 故障</td><td>检索降级数据库模糊查询兜底；恢复后重放事件重建索引</td></tr>
+        <tr><td>MinIO 故障</td><td>上传/下载接口报错 + 告警；预签名依赖 MinIO，故障期间文件不可用</td></tr>
+        <tr><td>邮件/短信渠道故障</td><td>发送记录标记失败，重试策略生效；告警渠道可降级企业微信/钉钉</td></tr>
+        <tr><td>依赖接口故障</td><td>httpx 短超时 + 熔断快速失败；Webhook 指数退避重试</td></tr>
+      </table>
+
+      <h2 id="backup">8. 备份与恢复</h2>
+      <ul>
+        <li>数据库：每日全量备份 + 开启 Binlog/WAL（时间点恢复 PITR）；保留 30 天，异机存储；归档库纳入备份范围</li>
+        <li>备份任务与记录由页面管理（sys_backup_task / sys_backup_log，Celery 调度，支持手动备份与恢复演练登记）</li>
+        <li>MinIO：对象数据定期增量备份 + 生命周期策略；元数据随数据库备份</li>
+        <li>恢复：定期演练恢复流程，目标 RTO ≤ 4 小时、RPO ≤ 1 小时</li>
+        <li>数据归档：全表可配归档策略（sys_archive_policy），两段式流转（热表 → 归档库可在线查询 → 对象存储冷化）；过期归档文件与软删除残留由 Celery 物理清理</li>
+      </ul>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 架构设计节点 · 与《项目规划说明》《文档生成规范》《命名规范》配套 · 生成日期：2026-08-06
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>

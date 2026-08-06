@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>架构设计 · 测试与质量</title>
+<style>
+  :root {
+    --bg: #f7f8fa;
+    --fg: #1f2328;
+    --muted: #57606a;
+    --border: #d0d7de;
+    --accent: #0969da;
+    --accent-bg: #ddf4ff;
+    --code-bg: #f6f8fa;
+    --warn-bg: #fff8c5;
+    --warn-border: #d4a72c;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+    line-height: 1.75;
+  }
+  .layout { display: flex; height: 100vh; overflow: hidden; }
+  .sidebar {
+    width: 280px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+  }
+  .sidebar .brand {
+    background: linear-gradient(135deg, #1f2328, #32383f);
+    color: #fff;
+    padding: 1.4rem 1.2rem 1.1rem;
+    border-bottom: 3px solid var(--accent);
+    flex-shrink: 0;
+  }
+  .sidebar .brand h1 { margin: 0 0 .35rem; font-size: 1.15rem; line-height: 1.4; }
+  .sidebar .brand p { margin: 0; color: #b6bec6; font-size: .78rem; }
+  .sidebar nav { padding: .8rem .6rem 1.5rem; font-size: .9rem; }
+  .sidebar nav ul { list-style: none; margin: 0; padding: 0; }
+  .sidebar nav li { margin: .15rem 0; }
+  .sidebar nav a {
+    display: block;
+    padding: .3rem .7rem;
+    border-radius: 5px;
+    color: var(--fg);
+    text-decoration: none;
+  }
+  .sidebar nav a:hover { background: var(--accent-bg); color: var(--accent); }
+  .sidebar nav .sub { padding-left: 1.6rem; font-size: .85rem; color: var(--muted); }
+  .content { flex: 1; overflow-y: auto; }
+  main {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1.5rem 2rem 4rem;
+  }
+  h2 {
+    margin-top: 2.5rem;
+    padding-bottom: .4rem;
+    border-bottom: 2px solid var(--border);
+    font-size: 1.35rem;
+  }
+  h3 { margin-top: 1.6rem; font-size: 1.1rem; }
+  p { margin: .6rem 0; }
+  ul, ol { margin: .6rem 0; padding-left: 1.6rem; }
+  li { margin: .3rem 0; }
+  code {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: .1em .35em;
+    font-family: Consolas, "Cascadia Mono", monospace;
+    font-size: .9em;
+  }
+  pre {
+    background: #0d1117;
+    color: #e6edf3;
+    border-radius: 8px;
+    padding: .9rem 1.1rem;
+    overflow-x: auto;
+    font-size: .88rem;
+    line-height: 1.6;
+  }
+  pre code { background: none; border: none; padding: 0; color: inherit; }
+  .note, .warn {
+    border-radius: 6px;
+    padding: .7rem 1rem;
+    margin: 1rem 0;
+    font-size: .95rem;
+  }
+  .note { background: var(--accent-bg); border-left: 4px solid var(--accent); }
+  .warn { background: var(--warn-bg); border-left: 4px solid var(--warn-border); }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1rem 0;
+    font-size: .92rem;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: .45rem .7rem;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: #eef1f4; white-space: nowrap; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  footer {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1rem 2rem 3rem;
+    color: var(--muted);
+    font-size: .85rem;
+    border-top: 1px solid var(--border);
+  }
+  @media (max-width: 768px) {
+    .layout { flex-direction: column; height: auto; overflow: visible; }
+    .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); max-height: 40vh; }
+    .content { overflow: visible; }
+  }
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>架构设计 · 测试与质量</h1>
+      <p>BMS · 测试策略、CI 流水线与质量门禁</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#overview">1. 概述</a></li>
+        <li><a href="#pyramid">2. 测试金字塔</a></li>
+        <li><a href="#coverage">3. 新功能覆盖</a></li>
+        <li><a href="#load">4. 压测</a></li>
+        <li><a href="#security-test">5. 安全专项</a></li>
+        <li><a href="#compat">6. 兼容性基线</a></li>
+        <li><a href="#ci">7. CI 流水线</a></li>
+        <li><a href="#quality">8. 代码质量门禁</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="overview">1. 概述</h2>
+      <p>
+        本节点定义测试策略与质量门禁：测试金字塔、新功能覆盖、压测、安全专项、兼容性基线、
+        CI 流水线与代码规范。对应《项目规划说明》的「测试策略」「工程化与质量」「CI/CD」章节。
+      </p>
+
+      <h2 id="pyramid">2. 测试金字塔</h2>
+      <table>
+        <tr><th>层级</th><th>工具</th><th>内容</th></tr>
+        <tr><td>单元/接口测试</td><td>pytest + httpx（ASGITransport 免启服务器）</td><td>SQLite 库，CI 每次 PR 执行</td></tr>
+        <tr><td>集成测试</td><td>GitHub Actions 服务容器（MySQL/PostgreSQL）</td><td>多数据源、读写分离路由、真实分片规则、双库方言迁移</td></tr>
+        <tr><td>前端组件/单元</td><td>Vitest</td><td>组件与单元测试（零配置，Vite 同构）</td></tr>
+        <tr><td>E2E</td><td>Playwright</td><td>登录、主体链 RBAC 权限（含按钮显隐与字段权限）、核心 CRUD 主流程；服务容器起 backend（SQLite）与前端产物</td></tr>
+        <tr><td>压测</td><td>locust</td><td>登录、列表查询、审批提交场景，验收前执行（500 并发 / P99 ≤ 1s）</td></tr>
+      </table>
+
+      <h2 id="coverage">3. 新功能覆盖</h2>
+      <p>以下场景均纳入测试（随阶段推进）：Socket.IO 广播与断线重连、分片上传断点续传、图形验证码逻辑、OAuth2 开放接口与 Webhook 推送、消息队列事件流转、真实分片规则（双日志表按月分片）、任务调度入库与手动触发、邮件模板在线编辑渲染、短信发送记录、公告发布与已读回执、通知批量已读、缓存清理与热数据刷新、账号锁定与解锁审计、租户配额超限拦截、备份任务执行与恢复演练登记、回收站恢复（审计留痕）、附件在线预览、会话踢出即时生效、多租户隔离（跨租户访问拒绝）、SSO 登录与 JIT 建号、报表 SQL 安全执行、移动端审批链路（含附件预览与个人中心）、字段级审计与哈希链校验（含跨归档链校验）、密码策略与数据脱敏、字段权限（读时过滤/写时校验）、多语言动态扩展与 RTL、归档流转（热表→归档库→对象存储→物理清理）、全文检索（事件同步与索引重建、检索权限租户隔离、文件内容解析）、AI 能力（NL2SQL 安全执行、RAG 检索与问答租户隔离、AI 交互审计落库、OCR 解析）、链路追踪（Jaeger 链路可见）。</p>
+
+      <h2 id="load">4. 压测</h2>
+      <ul>
+        <li>locust 脚本（loadtest/scenario_登录.py 等）：登录、列表查询、审批提交场景</li>
+        <li>阶段九验收：达到 500 并发 / P99 ≤ 1s；压测报告归档</li>
+      </ul>
+
+      <h2 id="security-test">5. 安全专项</h2>
+      <ul>
+        <li>集中用例集：越权、注入、XSS、上传绕过、限流爆破、脱敏泄露、会话劫持</li>
+        <li>CI 定期执行；依赖漏洞扫描（dependabot）</li>
+        <li>专项验证：跨租户访问拒绝、字段权限读写双向、哈希链校验</li>
+      </ul>
+
+      <h2 id="compat">6. 兼容性基线</h2>
+      <ul>
+        <li>PC 浏览器：Chrome / Edge / Firefox / Safari 最新版</li>
+        <li>移动端：Android / iOS 主流机型真机/模拟器 + 微信/钉钉内嵌 WebView</li>
+        <li>数据库：SQLite（开发/测试）+ MySQL / PostgreSQL 双库 CI 通过</li>
+      </ul>
+
+      <h2 id="ci">7. CI 流水线</h2>
+      <ul>
+        <li>PR 触发：后端 ruff + pytest；前端 ESLint + Vitest + 双端构建（frontend / frontend-mobile）</li>
+        <li>Playwright E2E 独立 job：服务容器起 backend（SQLite）与前端产物，覆盖登录/RBAC/核心 CRUD 主流程</li>
+        <li>MySQL/PostgreSQL 双库方言集成测试（服务容器）</li>
+        <li>main 分支：构建镜像推送仓库 + 导出 swagger.json 契约快照</li>
+        <li>dependabot 依赖升级；main 保护分支，PR 合入需 CI 通过</li>
+      </ul>
+
+      <h2 id="quality">8. 代码质量门禁</h2>
+      <ul>
+        <li>后端：ruff（lint + format 一体化）+ pyright 严格模式类型检查（CI 强制）</li>
+        <li>前端：ESLint + Prettier；TS 严格</li>
+        <li>测试数据：独立种子脚本（tests/seeds），不与初始化数据混用</li>
+        <li>测试命名：test_模块.py / TestXxx / test_行为_期望；组件.spec.ts</li>
+      </ul>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 架构设计节点 · 与《项目规划说明》《文档生成规范》《命名规范》配套 · 生成日期：2026-08-06
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>

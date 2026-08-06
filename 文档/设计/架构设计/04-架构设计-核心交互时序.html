@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>架构设计 · 核心交互时序</title>
+<style>
+  :root {
+    --bg: #f7f8fa;
+    --fg: #1f2328;
+    --muted: #57606a;
+    --border: #d0d7de;
+    --accent: #0969da;
+    --accent-bg: #ddf4ff;
+    --code-bg: #f6f8fa;
+    --warn-bg: #fff8c5;
+    --warn-border: #d4a72c;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+    line-height: 1.75;
+  }
+  .layout { display: flex; height: 100vh; overflow: hidden; }
+  .sidebar {
+    width: 280px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+  }
+  .sidebar .brand {
+    background: linear-gradient(135deg, #1f2328, #32383f);
+    color: #fff;
+    padding: 1.4rem 1.2rem 1.1rem;
+    border-bottom: 3px solid var(--accent);
+    flex-shrink: 0;
+  }
+  .sidebar .brand h1 { margin: 0 0 .35rem; font-size: 1.15rem; line-height: 1.4; }
+  .sidebar .brand p { margin: 0; color: #b6bec6; font-size: .78rem; }
+  .sidebar nav { padding: .8rem .6rem 1.5rem; font-size: .9rem; }
+  .sidebar nav ul { list-style: none; margin: 0; padding: 0; }
+  .sidebar nav li { margin: .15rem 0; }
+  .sidebar nav a {
+    display: block;
+    padding: .3rem .7rem;
+    border-radius: 5px;
+    color: var(--fg);
+    text-decoration: none;
+  }
+  .sidebar nav a:hover { background: var(--accent-bg); color: var(--accent); }
+  .sidebar nav .sub { padding-left: 1.6rem; font-size: .85rem; color: var(--muted); }
+  .content { flex: 1; overflow-y: auto; }
+  main {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1.5rem 2rem 4rem;
+  }
+  h2 {
+    margin-top: 2.5rem;
+    padding-bottom: .4rem;
+    border-bottom: 2px solid var(--border);
+    font-size: 1.35rem;
+  }
+  h3 { margin-top: 1.6rem; font-size: 1.1rem; }
+  p { margin: .6rem 0; }
+  ul, ol { margin: .6rem 0; padding-left: 1.6rem; }
+  li { margin: .3rem 0; }
+  code {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: .1em .35em;
+    font-family: Consolas, "Cascadia Mono", monospace;
+    font-size: .9em;
+  }
+  pre {
+    background: #0d1117;
+    color: #e6edf3;
+    border-radius: 8px;
+    padding: .9rem 1.1rem;
+    overflow-x: auto;
+    font-size: .88rem;
+    line-height: 1.6;
+  }
+  pre code { background: none; border: none; padding: 0; color: inherit; }
+  .note, .warn {
+    border-radius: 6px;
+    padding: .7rem 1rem;
+    margin: 1rem 0;
+    font-size: .95rem;
+  }
+  .note { background: var(--accent-bg); border-left: 4px solid var(--accent); }
+  .warn { background: var(--warn-bg); border-left: 4px solid var(--warn-border); }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1rem 0;
+    font-size: .92rem;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: .45rem .7rem;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: #eef1f4; white-space: nowrap; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  footer {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1rem 2rem 3rem;
+    color: var(--muted);
+    font-size: .85rem;
+    border-top: 1px solid var(--border);
+  }
+  @media (max-width: 768px) {
+    .layout { flex-direction: column; height: auto; overflow: visible; }
+    .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); max-height: 40vh; }
+    .content { overflow: visible; }
+  }
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>架构设计 · 核心交互时序</h1>
+      <p>BMS · 关键路径交互流程</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#overview">1. 概述</a></li>
+        <li><a href="#seq-request">2. 请求生命周期</a></li>
+        <li><a href="#seq-login">3. 登录与双 token</a></li>
+        <li><a href="#seq-sso">4. SSO 登录</a></li>
+        <li><a href="#seq-kick">5. 会话踢出</a></li>
+        <li><a href="#seq-tenant">6. 租户开通</a></li>
+        <li><a href="#seq-approval">7. 审批流程执行</a></li>
+        <li><a href="#seq-audit">8. 审计链写入</a></li>
+        <li><a href="#seq-cache">9. 缓存一致性协议</a></li>
+        <li><a href="#seq-upload">10. 文件分片上传</a></li>
+        <li><a href="#seq-archive">11. 归档流转</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="overview">1. 概述</h2>
+      <p>
+        本节点描述 BMS 的关键交互时序，体现各子系统如何协调运作。每个时序标注参与的子系统，
+        对应《项目规划说明》的「认证与安全」「多数据源策略」「审计合规」等章节。
+        概要设计将照此展开为更细的步骤级流程与接口调用。
+      </p>
+
+      <h2 id="seq-request">2. 请求生命周期</h2>
+      <pre><code>请求 → nginx（租户子域名解析 {tenant}.bms.example.com）
+  → backend 中间件：验签 access token → Redis 会话标记校验 → 构造 TenantContext/UserContext
+  → 权限引擎加载权限码集合（缓存命中或计算）→ require_permission(业务:动作) 校验
+  → slowapi 接口限流检查（IP/用户维度）
+  → services 执行业务（显式事务边界）→ repositories 按数据源/分片路由访问
+  → 响应序列化：字段权限过滤（不可见字段不返回）+ 数据脱敏（掩码）
+  → 写操作后删缓存；关键操作发事件（RocketMQ 事务消息）；ORM 事件捕获审计变更
+  → 响应头携带 trace_id / request_id</code></pre>
+      <p>参与子系统：多租户路由、认证与会话、权限计算引擎、数据访问与分片、事件总线、审计哈希链、可观测性。</p>
+
+      <h2 id="seq-login">3. 登录与双 token</h2>
+      <pre><code>用户 → 登录页（连续失败 3 次后强制图形验证码）
+  → POST /api/v1/auth/login（slowapi 限流：5 次失败锁 15 分钟）
+  → 校验图形验证码（Redis bms:global:captcha:{uuid}，TTL 5 分钟，单次有效）
+  → PBKDF2 校验密码（标准库）→ 检查账号状态（停用/锁定/强制改密标记）
+  → 签发双 token：
+       access token（30 分钟，载荷 sub/tenant_id/jti/type=access）
+       refresh token（14 天滚动轮换，httpOnly + Secure + SameSite cookie）
+  → 建会话：写 sys_session + Redis 标记 bms:{tenant}:sess:{session_id}（TTL 14 天）
+  → 写 sys_login_log（成功/失败，异步经 RocketMQ）→ 返回用户概要 + 菜单与权限概要
+登出：refresh 入黑名单（bms:global:token:blacklist:{jti}）即时失效
+找回密码：邮箱/企微钉钉双通道 → 短时效 token（Redis TTL 15 分钟单次有效）→ 重置后强制失效全部会话</code></pre>
+      <p>参与子系统：认证与会话、权限计算引擎、事件总线、任务调度（未登录锁定扫描）、可观测性。</p>
+
+      <h2 id="seq-sso">4. SSO 登录</h2>
+      <pre><code>用户 → 登录页选择 IdP 入口（sys_identity_provider，OIDC/CAS/企微/钉钉）
+  → 跳转外部 IdP 认证 → 回跳携带授权码/身份凭证
+  → authlib 校验凭证 → 按 idp_key + external_id 查 sys_user_identity 全局映射
+  → 命中 → 定位租户与用户；未命中 → JIT 自动建号（唯一约束防并发重复建号）
+  → 落 sso.user.jit_created 事件 → 签发 BMS 双 token → 进入系统
+本地账号密码登录并存（超管应急通道，防 IdP 故障锁死）
+BMS 兼作 IdP：第三方系统经 OIDC 授权码流程以 BMS 用户体系登录（客户端注册 sys_client）</code></pre>
+
+      <h2 id="seq-kick">5. 会话踢出</h2>
+      <pre><code>管理端 → POST /api/v1/sessions/{id}/kick（require_permission("session:kick")）
+  → 删 Redis 会话标记 bms:{tenant}:sess:{session_id}
+  → 吊销 refresh（入黑名单）→ sys_session.revoked_at 落库
+  → Socket.IO 广播 session.revoked → 该会话全部实时连接关闭（Redis 适配器跨实例）
+  → HTTP 侧：下一请求因会话标记缺失被拦截（即时生效）
+并发会话上限（默认 5）：超出自动作废最旧会话</code></pre>
+
+      <h2 id="seq-tenant">6. 租户开通</h2>
+      <pre><code>平台超管 → 创建租户（code/名称/域名/配额，require_permission("tenant:manage")）
+  → 校验 code 唯一 → 建库 bms_tenant_{code}
+  → 双套 Alembic 迁移（按目标库方言执行）→ 批量种子：
+      三类内置管理员角色 + 初始系统管理员（首次登录强制改密）+ 默认 IdP 占位
+      + 归档策略种子 + 平台统一菜单/表单/按钮/字段挂接与业务/动作权限码
+  → 注册 sys_tenant（db_key）→ 预热租户引擎（可选）
+  → 落 tenant.created 事件（Webhook 可订阅）
+停用：租户引擎全部回收、会话标记失效、登录拦截；启用恢复正常</code></pre>
+
+      <h2 id="seq-approval">7. 审批流程执行</h2>
+      <pre><code>申请人 → 提交采购申请（Idempotency-Key 幂等去重）→ 落 biz_purchase_apply（待审批）
+  → 启动流程实例（三级审批模板：部门经理 → 财务 → 分管领导；SpiffWorkflow 线程池执行）
+  → 生成 wf_task 待办 → 事件总线 → 通知中心站内信 + Socket.IO 推送（approval.todo）
+  → 审批人同意/驳回/评论（会签/或签按流程定义；写接口幂等键防重复）
+  → wf_record 记录审批轨迹 → 全部通过 → 生成采购订单（biz_purchase_order）
+  → 落 purchase.order.created 事件 → Webhook 订阅方收到推送
+  → 驳回：流程退回指定节点，申请人可修改后重新提交</code></pre>
+      <p>参与子系统：工作流、通知公告、事件总线、实时推送、审计哈希链。</p>
+
+      <h2 id="seq-audit">8. 审计链写入</h2>
+      <pre><code>业务写操作 → ORM 事件捕获字段级变更（sys_data_audit_log，关键表清单见数据架构节点）
+  → 审计事件发 RocketMQ（分区键 = 租户）
+  → event-worker 串行消费 → record_hash = SHA256(prev_hash + 规范化记录内容)
+  → 按月分片落库（sys_operation_log_yyyyMM 等；跨月首条 prev_hash = 上月末条哈希）
+  → 定期巡检校验；归档前链完整性校验；合规销毁记录销毁日志</code></pre>
+
+      <h2 id="seq-cache">9. 缓存一致性协议</h2>
+      <pre><code>写路径：事务提交 → 删除缓存 key（DEL）→ 后续读重建（短 TTL + 随机偏移）
+  → 删除失败由短 TTL 兜底收敛（最终一致）
+  → 写后同一会话内读主库（避免从库延迟）
+  → 权限类变更：权限版本号 +1 → 用户权限缓存按版本校验即时失效
+  → 三防：穿透（空值缓存）/ 击穿（SETNX 互斥锁重建）/ 雪崩（TTL 随机偏移）</code></pre>
+
+      <h2 id="seq-upload">10. 文件分片上传</h2>
+      <pre><code>≤20MB：整包上传（类型白名单 + SHA256 校验）→ MinIO 私有桶 → 写 sys_file（状态=完成）
+  >20MB：初始化上传（sys_file 状态=上传中，upload_id）→ 逐分片上传
+    （分片临时对象 .part 标识 + 逐片 SHA256 校验 + 断点续传：按 part_no 重传缺失片）
+  → 全部上传 → 合并为最终对象并清理分片 → 状态=完成 → 落 file.uploaded 事件
+  → 下载走预签名 URL（限时有效），后端不代理文件流
+  → 中断遗留孤儿分片（超时 .part / 超期上传中）由 Celery 定时回收</code></pre>
+
+      <h2 id="seq-archive">11. 归档流转</h2>
+      <pre><code>归档策略（sys_archive_policy）→ Celery 调度执行：
+  ① 热表超阈值（如 90 天）→ 链完整性校验 → 迁归档库（bms_archive，可在线查询）
+  ② 归档库数据按保留期 → 转对象存储冷化（MinIO）
+  ③ 过期归档文件与软删除残留 → Celery 物理清理
+  → 归档执行记录 sys_archive_log；哈希链随归档导出供事后校验
+  → 回收站：软删除数据查看/恢复（恢复动作落操作日志与字段级审计），过期物理清理</code></pre>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 架构设计节点 · 与《项目规划说明》《文档生成规范》《命名规范》配套 · 生成日期：2026-08-06
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>
