@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>架构设计 · 子系统 · 可观测性</title>
+<style>
+  :root {
+    --bg: #f7f8fa;
+    --fg: #1f2328;
+    --muted: #57606a;
+    --border: #d0d7de;
+    --accent: #0969da;
+    --accent-bg: #ddf4ff;
+    --code-bg: #f6f8fa;
+    --warn-bg: #fff8c5;
+    --warn-border: #d4a72c;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+    line-height: 1.75;
+  }
+  .layout { display: flex; height: 100vh; overflow: hidden; }
+  .sidebar {
+    width: 280px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+  }
+  .sidebar .brand {
+    background: linear-gradient(135deg, #1f2328, #32383f);
+    color: #fff;
+    padding: 1.4rem 1.2rem 1.1rem;
+    border-bottom: 3px solid var(--accent);
+    flex-shrink: 0;
+  }
+  .sidebar .brand h1 { margin: 0 0 .35rem; font-size: 1.15rem; line-height: 1.4; }
+  .sidebar .brand p { margin: 0; color: #b6bec6; font-size: .78rem; }
+  .sidebar nav { padding: .8rem .6rem 1.5rem; font-size: .9rem; }
+  .sidebar nav ul { list-style: none; margin: 0; padding: 0; }
+  .sidebar nav li { margin: .15rem 0; }
+  .sidebar nav a {
+    display: block;
+    padding: .3rem .7rem;
+    border-radius: 5px;
+    color: var(--fg);
+    text-decoration: none;
+  }
+  .sidebar nav a:hover { background: var(--accent-bg); color: var(--accent); }
+  .sidebar nav .sub { padding-left: 1.6rem; font-size: .85rem; color: var(--muted); }
+  .content { flex: 1; overflow-y: auto; }
+  main {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1.5rem 2rem 4rem;
+  }
+  h2 {
+    margin-top: 2.5rem;
+    padding-bottom: .4rem;
+    border-bottom: 2px solid var(--border);
+    font-size: 1.35rem;
+  }
+  h3 { margin-top: 1.6rem; font-size: 1.1rem; }
+  p { margin: .6rem 0; }
+  ul, ol { margin: .6rem 0; padding-left: 1.6rem; }
+  li { margin: .3rem 0; }
+  code {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: .1em .35em;
+    font-family: Consolas, "Cascadia Mono", monospace;
+    font-size: .9em;
+  }
+  pre {
+    background: #0d1117;
+    color: #e6edf3;
+    border-radius: 8px;
+    padding: .9rem 1.1rem;
+    overflow-x: auto;
+    font-size: .88rem;
+    line-height: 1.6;
+  }
+  pre code { background: none; border: none; padding: 0; color: inherit; }
+  .note, .warn {
+    border-radius: 6px;
+    padding: .7rem 1rem;
+    margin: 1rem 0;
+    font-size: .95rem;
+  }
+  .note { background: var(--accent-bg); border-left: 4px solid var(--accent); }
+  .warn { background: var(--warn-bg); border-left: 4px solid var(--warn-border); }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1rem 0;
+    font-size: .92rem;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: .45rem .7rem;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: #eef1f4; white-space: nowrap; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  footer {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1rem 2rem 3rem;
+    color: var(--muted);
+    font-size: .85rem;
+    border-top: 1px solid var(--border);
+  }
+  @media (max-width: 768px) {
+    .layout { flex-direction: column; height: auto; overflow: visible; }
+    .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); max-height: 40vh; }
+    .content { overflow: visible; }
+  }
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>架构设计 · 子系统 · 可观测性</h1>
+      <p>BMS · 日志、指标、链路、告警与健康检查</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#overview">1. 概述</a></li>
+        <li><a href="#log">2. 结构化日志</a></li>
+        <li><a href="#metrics">3. 指标采集</a></li>
+        <li><a href="#trace">4. 链路追踪</a></li>
+        <li><a href="#alert">5. 告警</a></li>
+        <li><a href="#health">6. 健康检查与优雅停机</a></li>
+        <li><a href="#monitor-module">7. 系统监控模块</a></li>
+        <li><a href="#coordination">8. 与其他子系统的协调</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="overview">1. 概述</h2>
+      <p>
+        可观测性子系统统一承载日志、指标、链路、告警与健康检查，支撑跨实例运维。对应《项目规划说明》
+        的「日志」「链路追踪」「系统监控」「监控」章节。技术栈：structlog + Prometheus + Loki + Grafana
+        + Alertmanager + OpenTelemetry（Jaeger）。
+      </p>
+
+      <h2 id="log">2. 结构化日志</h2>
+      <ul>
+        <li>structlog 结构化 JSON 日志，携带 request_id 贯穿请求链路，配合 Loki 跨实例聚合检索</li>
+        <li>与标准 logging 集成，不影响第三方库输出</li>
+        <li>敏感字段（密码、token、密钥）脱敏后记录，不落原始值</li>
+      </ul>
+
+      <h2 id="metrics">3. 指标采集</h2>
+      <ul>
+        <li>Prometheus 采集 /metrics：请求量、延迟、依赖状态（DB/Redis/MinIO）、Socket.IO 连接数、RocketMQ 消费积压、AI 成本（阶段十四）</li>
+        <li>Grafana 统一展示（指标 + 日志 + 告警面板 + Jaeger 数据源）</li>
+      </ul>
+
+      <h2 id="trace">4. 链路追踪</h2>
+      <ul>
+        <li>OpenTelemetry：应用经 otel-collector 上报 trace 至 Jaeger 存储展示（MVP 即接入）</li>
+        <li>trace_id 与 structlog 的 request_id 关联；Grafana 以 Jaeger 数据源统一可视化</li>
+        <li>追踪数据随 Prometheus/Loki 采集展示（指标/日志/链路三合一）</li>
+      </ul>
+
+      <h2 id="alert">5. 告警</h2>
+      <ul>
+        <li>Alertmanager 推送：邮件走原生 SMTP receiver；企业微信/钉钉群机器人经 webhook receiver 转 BMS 内部接口转换格式后推送；短信经 BMS 内部接口（sys_sms_template 渠道）</li>
+        <li>告警面板同步可见（Grafana）</li>
+      </ul>
+
+      <h2 id="health">6. 健康检查与优雅停机</h2>
+      <ul>
+        <li>/healthz（存活探针）：进程存活即返回</li>
+        <li>/readyz（就绪探针）：检查依赖（DB/Redis）连通性，供编排系统滚动发布</li>
+        <li>优雅停机：SIGTERM 后停止接收新请求、等待在途请求完成（配合 K8s preStop / terminationGracePeriod）</li>
+      </ul>
+
+      <h2 id="monitor-module">7. 系统监控模块</h2>
+      <ul>
+        <li>依赖状态：DB/Redis/MinIO 健康检查展示</li>
+        <li>缓存管理：Redis key 分布/内存占用、按前缀清理、热数据一键刷新（monitor:cache）</li>
+        <li>Grafana 独立部署，BMS 内页面跳转/嵌入（X-Frame-Options SAMEORIGIN 兼容）</li>
+        <li>权限码：monitor:view、monitor:cache</li>
+      </ul>
+
+      <h2 id="coordination">8. 与其他子系统的协调</h2>
+      <ul>
+        <li><strong>全部子系统</strong>：日志/链路贯穿所有请求与任务；trace_id 随请求传递</li>
+        <li><strong>任务调度</strong>：任务执行耗时/失败指标</li>
+        <li><strong>事件总线</strong>：消费积压与死信监控</li>
+        <li><strong>认证与会话</strong>：登录失败率、会话数指标；踢出等关键操作日志</li>
+        <li><strong>部署与运维</strong>：告警路由配置、运维手册配套</li>
+      </ul>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 架构设计节点 · 与《项目规划说明》《文档生成规范》《命名规范》配套 · 生成日期：2026-08-06
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>

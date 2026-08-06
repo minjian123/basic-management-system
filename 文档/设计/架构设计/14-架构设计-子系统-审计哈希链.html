@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>架构设计 · 子系统 · 审计哈希链</title>
+<style>
+  :root {
+    --bg: #f7f8fa;
+    --fg: #1f2328;
+    --muted: #57606a;
+    --border: #d0d7de;
+    --accent: #0969da;
+    --accent-bg: #ddf4ff;
+    --code-bg: #f6f8fa;
+    --warn-bg: #fff8c5;
+    --warn-border: #d4a72c;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+    line-height: 1.75;
+  }
+  .layout { display: flex; height: 100vh; overflow: hidden; }
+  .sidebar {
+    width: 280px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+  }
+  .sidebar .brand {
+    background: linear-gradient(135deg, #1f2328, #32383f);
+    color: #fff;
+    padding: 1.4rem 1.2rem 1.1rem;
+    border-bottom: 3px solid var(--accent);
+    flex-shrink: 0;
+  }
+  .sidebar .brand h1 { margin: 0 0 .35rem; font-size: 1.15rem; line-height: 1.4; }
+  .sidebar .brand p { margin: 0; color: #b6bec6; font-size: .78rem; }
+  .sidebar nav { padding: .8rem .6rem 1.5rem; font-size: .9rem; }
+  .sidebar nav ul { list-style: none; margin: 0; padding: 0; }
+  .sidebar nav li { margin: .15rem 0; }
+  .sidebar nav a {
+    display: block;
+    padding: .3rem .7rem;
+    border-radius: 5px;
+    color: var(--fg);
+    text-decoration: none;
+  }
+  .sidebar nav a:hover { background: var(--accent-bg); color: var(--accent); }
+  .sidebar nav .sub { padding-left: 1.6rem; font-size: .85rem; color: var(--muted); }
+  .content { flex: 1; overflow-y: auto; }
+  main {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1.5rem 2rem 4rem;
+  }
+  h2 {
+    margin-top: 2.5rem;
+    padding-bottom: .4rem;
+    border-bottom: 2px solid var(--border);
+    font-size: 1.35rem;
+  }
+  h3 { margin-top: 1.6rem; font-size: 1.1rem; }
+  p { margin: .6rem 0; }
+  ul, ol { margin: .6rem 0; padding-left: 1.6rem; }
+  li { margin: .3rem 0; }
+  code {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: .1em .35em;
+    font-family: Consolas, "Cascadia Mono", monospace;
+    font-size: .9em;
+  }
+  pre {
+    background: #0d1117;
+    color: #e6edf3;
+    border-radius: 8px;
+    padding: .9rem 1.1rem;
+    overflow-x: auto;
+    font-size: .88rem;
+    line-height: 1.6;
+  }
+  pre code { background: none; border: none; padding: 0; color: inherit; }
+  .note, .warn {
+    border-radius: 6px;
+    padding: .7rem 1rem;
+    margin: 1rem 0;
+    font-size: .95rem;
+  }
+  .note { background: var(--accent-bg); border-left: 4px solid var(--accent); }
+  .warn { background: var(--warn-bg); border-left: 4px solid var(--warn-border); }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1rem 0;
+    font-size: .92rem;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: .45rem .7rem;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: #eef1f4; white-space: nowrap; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  footer {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1rem 2rem 3rem;
+    color: var(--muted);
+    font-size: .85rem;
+    border-top: 1px solid var(--border);
+  }
+  @media (max-width: 768px) {
+    .layout { flex-direction: column; height: auto; overflow: visible; }
+    .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); max-height: 40vh; }
+    .content { overflow: visible; }
+  }
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>架构设计 · 子系统 · 审计哈希链</h1>
+      <p>BMS · 审计记录防篡改与完整性校验</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#overview">1. 概述</a></li>
+        <li><a href="#capture">2. 审计捕获</a></li>
+        <li><a href="#chain">3. 哈希链构造</a></li>
+        <li><a href="#order">4. 写入顺序保证</a></li>
+        <li><a href="#verify">5. 校验与巡检</a></li>
+        <li><a href="#retention">6. 留存与销毁</a></li>
+        <li><a href="#coordination">7. 与其他子系统的协调</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="overview">1. 概述</h2>
+      <p>
+        审计哈希链子系统保证审计记录不可篡改：操作日志、登录日志、开放接口日志与字段级变更审计
+        逐条哈希串联，配合 RocketMQ 分区有序消费保证链序。对应《项目规划说明》的「审计合规」
+        「操作日志」「登录日志」章节，覆盖操作日志、登录日志、数据变更审计模块。
+      </p>
+
+      <h2 id="capture">2. 审计捕获</h2>
+      <ul>
+        <li>字段级变更审计：关键表（sys_user、sys_role、sys_role_assign、sys_role_permission、sys_role_field、sys_post、sys_dept、sys_notice、sys_tenant_quota、biz_supplier、wf_process、biz_purchase_* 等）经 ORM 事件自动记录旧值/新值至 sys_data_audit_log（table_name、record_id、field、old_value、new_value、operator_id）</li>
+        <li>操作日志：action 记录权限码（业务:动作，与权限体系对齐）；敏感字段（密码、token、密钥）脱敏后记录，不落原始值</li>
+        <li>登录日志：成功/失败记录（username、ip、user_agent、status、fail_reason）</li>
+      </ul>
+
+      <h2 id="chain">3. 哈希链构造</h2>
+      <ul>
+        <li><code>record_hash = SHA256(prev_hash + 规范化记录内容)</code>；prev_hash 取当前分片表末条 record_hash</li>
+        <li>跨月衔接：新分片表首条 prev_hash = 上月末条 record_hash（分片表内成链、跨月表首尾衔接）</li>
+        <li>链头：各分片表首条记录的 prev_hash 为上一月链尾哈希（首月链头为约定初始值）</li>
+      </ul>
+
+      <h2 id="order">4. 写入顺序保证</h2>
+      <ul>
+        <li>审计事件经 RocketMQ 分区有序消费（分区键 = 租户）→ 同租户串行追加，杜绝并发写乱序破坏 prev_hash 衔接</li>
+        <li>跨月切换由事件消费逻辑保证（新月份分片表已由任务预创建）</li>
+      </ul>
+
+      <h2 id="verify">5. 校验与巡检</h2>
+      <ul>
+        <li>链校验工具：逐条重算 record_hash 与 prev_hash 比对，定位被篡改记录</li>
+        <li>定期巡检（内置任务）+ 归档前强制校验（链完整方可归档）</li>
+        <li>校验结果与异常告警接入系统监控</li>
+      </ul>
+
+      <h2 id="retention">6. 留存与销毁</h2>
+      <ul>
+        <li>合规留存：审计数据 90 天热表 + 归档冷存储（两段式归档，见核心交互时序-归档流转）</li>
+        <li>哈希链随归档一并导出（含链头尾哈希），供事后独立校验</li>
+        <li>合规销毁（含审计数据销毁）记录销毁日志备查</li>
+        <li>归档数据查询：只读（bms_archive 库），审计管理员权限</li>
+      </ul>
+
+      <h2 id="coordination">7. 与其他子系统的协调</h2>
+      <ul>
+        <li><strong>事件总线</strong>：审计事件生产与分区有序消费（链序保证）</li>
+        <li><strong>数据访问与分片</strong>：审计日志按月分片落库（分片键=时间）</li>
+        <li><strong>任务调度</strong>：归档、链校验巡检为内置任务</li>
+        <li><strong>权限计算引擎</strong>：三权分立中审计管理员只读全部日志与审计数据（log 业务）</li>
+        <li><strong>全文检索</strong>：审计日志经事件同步至 ES 按月索引（阶段十三）</li>
+      </ul>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 架构设计节点 · 与《项目规划说明》《文档生成规范》《命名规范》配套 · 生成日期：2026-08-06
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>
