@@ -220,11 +220,11 @@
 
       <h2 id="coordination">7. 与其他子系统的协调</h2>
       <ul>
-        <li><strong>事件总线</strong>：同步管线经事件驱动；重建经事件重放</li>
-        <li><strong>审计哈希链</strong>：审计日志按月索引与分片表归档对齐（归档后索引同步裁剪）</li>
-        <li><strong>文件管理</strong>：文件内容解析依赖文件元数据与 MinIO 对象</li>
+        <li><strong><a href="11-架构设计-子系统-事件总线.html">事件总线</a></strong>：同步管线经事件驱动；重建经事件重放</li>
+        <li><strong><a href="14-架构设计-子系统-审计哈希链.html">审计哈希链</a></strong>：审计日志按月索引与分片表归档对齐（归档后索引同步裁剪）</li>
+        <li><strong><a href="15-架构设计-子系统-文件管理.html">文件管理</a></strong>：文件内容解析依赖文件元数据与 MinIO 对象</li>
         <li><strong>AI 服务（阶段十四）</strong>：OCR 与文件自动分类衔接文本解析；语义搜索与文件问答走 Milvus（独立向量检索）</li>
-        <li><strong>可观测性</strong>：索引健康、同步积压纳入监控</li>
+        <li><strong><a href="22-架构设计-子系统-可观测性.html">可观测性</a></strong>：索引健康、同步积压纳入监控</li>
       </ul>
 
     </main>

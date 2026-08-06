@@ -227,11 +227,11 @@
 
       <h2 id="coordination">7. 与其他子系统的协调</h2>
       <ul>
-        <li><strong>认证与会话</strong>：token 携带 tenant_id，会话 key 带租户前缀；踢出/锁定按租户维度生效</li>
-        <li><strong>数据访问与分片</strong>：TenantContext 决定数据源路由；分片键支持按租户（预留）</li>
-        <li><strong>事件总线</strong>：事件信封携带 tenant_id，审计链分区键 = 租户（保证租户内有序）</li>
-        <li><strong>缓存架构</strong>：租户数据 key 必含租户前缀，平台数据用 global</li>
-        <li><strong>权限计算引擎</strong>：权限码租户侧可见、可分配、不可增删（平台统一维护）</li>
+        <li><strong><a href="09-架构设计-子系统-认证与会话.html">认证与会话</a></strong>：token 携带 tenant_id，会话 key 带租户前缀；踢出/锁定按租户维度生效</li>
+        <li><strong><a href="08-架构设计-子系统-数据访问与分片.html">数据访问与分片</a></strong>：TenantContext 决定数据源路由；分片键支持按租户（预留）</li>
+        <li><strong><a href="11-架构设计-子系统-事件总线.html">事件总线</a></strong>：事件信封携带 tenant_id，审计链分区键 = 租户（保证租户内有序）</li>
+        <li><strong><a href="05-架构设计-数据架构.html">缓存架构</a></strong>：租户数据 key 必含租户前缀，平台数据用 global</li>
+        <li><strong><a href="10-架构设计-子系统-权限计算引擎.html">权限计算引擎</a></strong>：权限码租户侧可见、可分配、不可增删（平台统一维护）</li>
       </ul>
 
     </main>

@@ -266,6 +266,16 @@
         <li>数据归档：全表可配归档策略（sys_archive_policy），两段式流转（热表 → 归档库可在线查询 → 对象存储冷化）；过期归档文件与软删除残留由 Celery 物理清理</li>
       </ul>
 
+      <h2 id="related">9. 关联节点</h2>
+      <ul>
+        <li><a href="07-架构设计-子系统-多租户路由.html">多租户路由</a>：子域名与泛域名 TLS</li>
+        <li><a href="11-架构设计-子系统-事件总线.html">事件总线</a>：event-worker 消费组</li>
+        <li><a href="12-架构设计-子系统-任务调度.html">任务调度</a>：celery-beat 单副本</li>
+        <li><a href="22-架构设计-子系统-可观测性.html">可观测性</a>：监控组件编排</li>
+        <li><a href="24-架构设计-性能与安全.html">性能与安全</a>：降级矩阵/安全响应头</li>
+        <li><a href="25-架构设计-前端架构.html">前端架构</a>：nginx 静态托管与 WebSocket 亲和</li>
+      </ul>
+
     </main>
 
     <footer>

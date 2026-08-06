@@ -217,11 +217,11 @@
 
       <h2 id="coordination">6. 与其他子系统的协调</h2>
       <ul>
-        <li><strong>事件总线</strong>：wf.process.deployed / wf.instance.started / wf.task.completed / wf.instance.rejected / wf.instance.finished（Webhook 可订阅）</li>
-        <li><strong>通知公告与实时推送</strong>：待办生成 → 站内信 + Socket.IO（approval.todo）</li>
-        <li><strong>权限计算引擎</strong>：审批人由流程定义 + 主体链解析（部门经理 = 部门负责人角色等）</li>
+        <li><strong><a href="11-架构设计-子系统-事件总线.html">事件总线</a></strong>：wf.process.deployed / wf.instance.started / wf.task.completed / wf.instance.rejected / wf.instance.finished（Webhook 可订阅）</li>
+        <li><strong><a href="17-架构设计-子系统-通知公告.html">通知公告</a>与<a href="13-架构设计-子系统-实时推送.html">实时推送</a></strong>：待办生成 → 站内信 + Socket.IO（approval.todo）</li>
+        <li><strong><a href="10-架构设计-子系统-权限计算引擎.html">权限计算引擎</a></strong>：审批人由流程定义 + 主体链解析（部门经理 = 部门负责人角色等）</li>
         <li><strong>AI 服务（阶段十四）</strong>：智能审批辅助（RAG 参考意见）与 AI 自动审批（开关默认关闭，白名单 + 二次确认 + 可撤销）</li>
-        <li><strong>审计哈希链</strong>：审批记录关键操作落操作日志与字段级审计</li>
+        <li><strong><a href="14-架构设计-子系统-审计哈希链.html">审计哈希链</a></strong>：审批记录关键操作落操作日志与字段级审计</li>
       </ul>
 
     </main>

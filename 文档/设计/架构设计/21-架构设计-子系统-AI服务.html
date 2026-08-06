@@ -230,11 +230,11 @@
 
       <h2 id="coordination">7. 与其他子系统的协调</h2>
       <ul>
-        <li><strong>权限计算引擎</strong>：AI 对话权限码 ai:chat；模型配置 ai:manage；RAG 上下文遵守数据权限</li>
-        <li><strong>事件总线</strong>：embedding 管线事件驱动；AI 生成内容事件（可选 Webhook）</li>
-        <li><strong>审计哈希链</strong>：ai_chat_log 按月分片；审计异常检测输入源</li>
-        <li><strong>全文检索</strong>：OCR 衔接文本解析；语义检索与关键词检索互补</li>
-        <li><strong>可观测性</strong>：AI 成本/延迟指标；告警接 Alertmanager</li>
+        <li><strong><a href="10-架构设计-子系统-权限计算引擎.html">权限计算引擎</a></strong>：AI 对话权限码 ai:chat；模型配置 ai:manage；RAG 上下文遵守数据权限</li>
+        <li><strong><a href="11-架构设计-子系统-事件总线.html">事件总线</a></strong>：embedding 管线事件驱动；AI 生成内容事件（可选 Webhook）</li>
+        <li><strong><a href="14-架构设计-子系统-审计哈希链.html">审计哈希链</a></strong>：ai_chat_log 按月分片；审计异常检测输入源</li>
+        <li><strong><a href="20-架构设计-子系统-全文检索.html">全文检索</a></strong>：OCR 衔接文本解析；语义检索与关键词检索互补</li>
+        <li><strong><a href="22-架构设计-子系统-可观测性.html">可观测性</a></strong>：AI 成本/延迟指标；告警接 Alertmanager</li>
       </ul>
 
     </main>

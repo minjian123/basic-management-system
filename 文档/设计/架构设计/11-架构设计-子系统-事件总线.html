@@ -188,7 +188,7 @@
       <ul>
         <li>事件信封 EventEnvelope：event_id（幂等键）、type（<code>{域}.{对象}.{动作}</code>）、tenant_id、occurred_at、payload</li>
         <li>topic 命名：<code>bms.{事件域}.{事件}</code>（如 bms.log.operation、bms.wf.task、bms.event.purchase）</li>
-        <li>事件命名：<code>user.updated</code>、<code>wf.task.completed</code>、<code>purchase.order.created</code> 等（完整清单见 06-接口与集成节点）</li>
+        <li>事件命名：<code>user.updated</code>、<code>wf.task.completed</code>、<code>purchase.order.created</code> 等（完整清单见 <a href="06-架构设计-接口与集成.html">06-接口与集成节点</a>）</li>
         <li>默认清单开发期可扩展；Webhook 订阅按事件名匹配</li>
       </ul>
 
@@ -225,12 +225,12 @@
 
       <h2 id="coordination">7. 与其他子系统的协调</h2>
       <ul>
-        <li><strong>审计哈希链</strong>：审计事件经本总线分区有序消费，保证链序</li>
-        <li><strong>通知公告</strong>：通知类事件（notification.sent）触发站内信与推送</li>
-        <li><strong>工作流</strong>：wf.* 事件（deployed/started/task.completed/rejected/finished）驱动待办提醒与外部订阅</li>
-        <li><strong>全文检索</strong>：事件驱动 ES 索引同步与重建（重放事件流）</li>
-        <li><strong>任务调度</strong>：任务执行完成落 task.completed 事件（与 Celery 任务队列解耦，互不干扰）</li>
-        <li><strong>故障降级</strong>：RocketMQ 故障时审计/日志降级为同步直写（标记降级时段，恢复后补发）</li>
+        <li><strong><a href="14-架构设计-子系统-审计哈希链.html">审计哈希链</a></strong>：审计事件经本总线分区有序消费，保证链序</li>
+        <li><strong><a href="17-架构设计-子系统-通知公告.html">通知公告</a></strong>：通知类事件（notification.sent）触发站内信与推送</li>
+        <li><strong><a href="16-架构设计-子系统-工作流.html">工作流</a></strong>：wf.* 事件（deployed/started/task.completed/rejected/finished）驱动待办提醒与外部订阅</li>
+        <li><strong><a href="20-架构设计-子系统-全文检索.html">全文检索</a></strong>：事件驱动 ES 索引同步与重建（重放事件流）</li>
+        <li><strong><a href="12-架构设计-子系统-任务调度.html">任务调度</a></strong>：任务执行完成落 task.completed 事件（与 Celery 任务队列解耦，互不干扰）</li>
+        <li><strong><a href="24-架构设计-性能与安全.html">故障降级</a></strong>：RocketMQ 故障时审计/日志降级为同步直写（标记降级时段，恢复后补发）</li>
       </ul>
 
     </main>
