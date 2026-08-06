@@ -97,6 +97,25 @@
     font-size: .95rem;
   }
   .note { background: var(--accent-bg); border-left: 4px solid var(--accent); }
+  .topnav {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: .4rem;
+    background: #fff;
+    border-bottom: 1px solid var(--border);
+    padding: .5rem 1rem;
+    font-size: .85rem;
+  }
+  .topnav .topnav-side { margin-left: auto; }
+  .topnav a { color: var(--accent); text-decoration: none; }
+  .topnav a:hover { text-decoration: underline; }
+  @media (max-width: 768px) {
+    .topnav .topnav-side { display: none; }
+  }
   .warn { background: var(--warn-bg); border-left: 4px solid var(--warn-border); }
   table {
     border-collapse: collapse;
@@ -129,6 +148,12 @@
 </style>
 </head>
 <body>
+
+<div class="topnav">
+  <a href="01-架构设计.html">架构设计</a> › <span>06-接口与集成</span>
+  <span class="topnav-side"><a href="05-架构设计-数据架构.html">← 05-数据架构</a> · <a href="07-架构设计-子系统-多租户路由.html">07-多租户路由 →</a></span>
+</div>
+
 
 <div class="layout">
 
