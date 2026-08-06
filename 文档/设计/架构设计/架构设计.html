@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>架构设计</title>
+<style>
+  :root {
+    --bg: #f7f8fa;
+    --fg: #1f2328;
+    --muted: #57606a;
+    --border: #d0d7de;
+    --accent: #0969da;
+    --accent-bg: #ddf4ff;
+    --code-bg: #f6f8fa;
+    --warn-bg: #fff8c5;
+    --warn-border: #d4a72c;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+    line-height: 1.75;
+  }
+  .layout { display: flex; height: 100vh; overflow: hidden; }
+  .sidebar {
+    width: 280px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+  }
+  .sidebar .brand {
+    background: linear-gradient(135deg, #1f2328, #32383f);
+    color: #fff;
+    padding: 1.4rem 1.2rem 1.1rem;
+    border-bottom: 3px solid var(--accent);
+    flex-shrink: 0;
+  }
+  .sidebar .brand h1 { margin: 0 0 .35rem; font-size: 1.15rem; line-height: 1.4; }
+  .sidebar .brand p { margin: 0; color: #b6bec6; font-size: .78rem; }
+  .sidebar nav { padding: .8rem .6rem 1.5rem; font-size: .9rem; }
+  .sidebar nav ul { list-style: none; margin: 0; padding: 0; }
+  .sidebar nav li { margin: .15rem 0; }
+  .sidebar nav a {
+    display: block;
+    padding: .3rem .7rem;
+    border-radius: 5px;
+    color: var(--fg);
+    text-decoration: none;
+  }
+  .sidebar nav a:hover { background: var(--accent-bg); color: var(--accent); }
+  .sidebar nav .sub { padding-left: 1.6rem; font-size: .85rem; color: var(--muted); }
+  .content { flex: 1; overflow-y: auto; }
+  main {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1.5rem 2rem 4rem;
+  }
+  h2 {
+    margin-top: 2.5rem;
+    padding-bottom: .4rem;
+    border-bottom: 2px solid var(--border);
+    font-size: 1.35rem;
+  }
+  h3 { margin-top: 1.6rem; font-size: 1.1rem; }
+  p { margin: .6rem 0; }
+  ul, ol { margin: .6rem 0; padding-left: 1.6rem; }
+  li { margin: .3rem 0; }
+  code {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: .1em .35em;
+    font-family: Consolas, "Cascadia Mono", monospace;
+    font-size: .9em;
+  }
+  pre {
+    background: #0d1117;
+    color: #e6edf3;
+    border-radius: 8px;
+    padding: .9rem 1.1rem;
+    overflow-x: auto;
+    font-size: .88rem;
+    line-height: 1.6;
+  }
+  pre code { background: none; border: none; padding: 0; color: inherit; }
+  .note, .warn {
+    border-radius: 6px;
+    padding: .7rem 1rem;
+    margin: 1rem 0;
+    font-size: .95rem;
+  }
+  .note { background: var(--accent-bg); border-left: 4px solid var(--accent); }
+  .warn { background: var(--warn-bg); border-left: 4px solid var(--warn-border); }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1rem 0;
+    font-size: .92rem;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: .45rem .7rem;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: #eef1f4; white-space: nowrap; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  footer {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1rem 2rem 3rem;
+    color: var(--muted);
+    font-size: .85rem;
+    border-top: 1px solid var(--border);
+  }
+  @media (max-width: 768px) {
+    .layout { flex-direction: column; height: auto; overflow: visible; }
+    .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); max-height: 40vh; }
+    .content { overflow: visible; }
+  }
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>架构设计</h1>
+      <p>BMS 基础管理系统 · 架构设计说明</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#overview">1. 概述</a></li>
+        <li><a href="#principles">2. 设计目标与原则</a></li>
+        <li><a href="#overall">3. 总体架构</a>
+          <ul class="sub">
+            <li><a href="#overall-layers">3.1 分层视图</a></li>
+            <li><a href="#overall-process">3.2 进程模型</a></li>
+          </ul>
+        </li>
+        <li><a href="#multi-tenant">4. 多租户架构</a>
+          <ul class="sub">
+            <li><a href="#mt-db">4.1 库划分</a></li>
+            <li><a href="#mt-route">4.2 租户路由</a></li>
+            <li><a href="#mt-provision">4.3 租户开通与配额</a></li>
+          </ul>
+        </li>
+        <li><a href="#backend">5. 后端应用架构</a>
+          <ul class="sub">
+            <li><a href="#be-layers">5.1 分层职责</a></li>
+            <li><a href="#be-async">5.2 异步数据访问</a></li>
+            <li><a href="#be-modules">5.3 模块组织</a></li>
+          </ul>
+        </li>
+        <li><a href="#data">6. 数据架构</a>
+          <ul class="sub">
+            <li><a href="#data-rule">6.1 数据规范</a></li>
+            <li><a href="#data-source">6.2 多数据源与读写分离</a></li>
+            <li><a href="#data-shard">6.3 分片策略</a></li>
+            <li><a href="#data-cache">6.4 缓存策略</a></li>
+            <li><a href="#data-audit">6.5 审计与归档</a></li>
+          </ul>
+        </li>
+        <li><a href="#messaging">7. 消息与异步架构</a>
+          <ul class="sub">
+            <li><a href="#msg-event">7.1 事件总线</a></li>
+            <li><a href="#msg-task">7.2 任务调度</a></li>
+            <li><a href="#msg-order">7.3 审计链有序性</a></li>
+          </ul>
+        </li>
+        <li><a href="#security">8. 权限与安全架构</a>
+          <ul class="sub">
+            <li><a href="#sec-perm">8.1 权限模型</a></li>
+            <li><a href="#sec-auth">8.2 认证与会话</a></li>
+            <li><a href="#sec-baseline">8.3 安全基线</a></li>
+          </ul>
+        </li>
+        <li><a href="#frontend">9. 前端架构</a>
+          <ul class="sub">
+            <li><a href="#fe-engines">9.1 双工程结构</a></li>
+            <li><a href="#fe-menu">9.2 动态菜单与权限渲染</a></li>
+            <li><a href="#fe-realtime">9.3 实时推送与国际化</a></li>
+          </ul>
+        </li>
+        <li><a href="#observability">10. 可观测性</a></li>
+        <li><a href="#deploy">11. 部署架构</a>
+          <ul class="sub">
+            <li><a href="#deploy-topo">11.1 部署拓扑</a></li>
+            <li><a href="#deploy-cluster">11.2 集群设计要点</a></li>
+            <li><a href="#deploy-backup">11.3 备份与恢复</a></li>
+          </ul>
+        </li>
+        <li><a href="#decisions">12. 关键架构决策</a></li>
+        <li><a href="#roadmap">13. 演进路线</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="overview">1. 概述</h2>
+      <p>
+        本文档描述 BMS（基础管理系统）的总体架构设计，是《项目规划说明》（<code>文档/规划/项目规划说明.md</code>）
+        的架构层面展开，供开发、测试、运维人员理解系统结构，也是后续实施与演进的设计依据。
+      </p>
+      <p>
+        BMS 定位为多租户 SaaS 形态的后端管理系统：支持分布式、集群部署，租户独立库隔离，内置
+        RBAC 权限体系、工作流、报表 BI、全文检索与 AI 能力；前端含 PC 管理端与移动端 H5 两个独立工程。
+      </p>
+      <div class="note">本文档与《项目规划说明》《文档生成规范》《命名规范》配套阅读；文档中涉及的代码、数据库、API 命名均遵循《命名规范》。</div>
+
+      <h2 id="principles">2. 设计目标与原则</h2>
+      <table>
+        <tr><th>原则</th><th>落地方式</th></tr>
+        <tr><td>多租户隔离</td><td>一租户一独立库（<code>bms_tenant_{code}</code>），平台数据独立平台库（<code>bms_platform</code>）；跨租户访问一律拒绝</td></tr>
+        <tr><td>无状态可扩展</td><td>JWT 认证 + Redis 会话标记；文件存 MinIO；任一实例可随时停机、随时横向扩容</td></tr>
+        <tr><td>单体模块化 + 独立进程</td><td>后端保持单体应用，任务与事件消费拆为 celery-worker、celery-beat、event-worker 独立进程，跨域调用走事件总线</td></tr>
+        <tr><td>数据库兼容</td><td>开发/测试用 SQLite，生产支持 MySQL 8.x 与 PostgreSQL 16+ 双库并行，ORM 层禁用方言特有功能</td></tr>
+        <tr><td>安全合规</td><td>三权分立、审计日志哈希链防篡改、数据脱敏、等保管理要求对齐</td></tr>
+        <tr><td>性能目标</td><td>≥ 500 并发用户，P99 响应 ≤ 1s（登录、列表查询、审批提交主链路）</td></tr>
+      </table>
+
+      <h2 id="overall">3. 总体架构</h2>
+
+      <h3 id="overall-layers">3.1 分层视图</h3>
+      <pre><code>┌──────────────────────────────────────────────────────────────┐
+│  客户端层  浏览器（PC / H5） · 企业微信 / 钉钉内嵌 · 外部系统        │
+└───────────────────────────────┬──────────────────────────────┘
+                                │ HTTPS
+┌───────────────────────────────▼──────────────────────────────┐
+│  接入层    nginx：TLS 终止 / 前端静态资源 / /api 反代 /          │
+│            子域名租户路由（{tenant}.bms.example.com）/ WebSocket │
+└───────────────────────────────┬──────────────────────────────┘
+                                │
+┌───────────────────────────────▼──────────────────────────────┐
+│  应用层    backend（FastAPI 多副本）                            │
+│            celery-worker · celery-beat · event-worker         │
+└───────┬───────────────┬───────────────┬──────────────┬───────┘
+        │               │               │              │
+┌───────▼───────┐ ┌─────▼──────┐ ┌──────▼───────┐ ┌────▼────────┐
+│ 数据层         │ │ 缓存/队列   │ │ 存储/检索     │ │ AI（阶段十四）│
+│ MySQL / PG     │ │ Redis      │ │ MinIO        │ │ Milvus      │
+│ 平台库+租户库   │ │ RocketMQ   │ │ ElasticSearch│ │ PaddleOCR   │
+│ +归档库 主从    │ │            │ │              │ │ LLM 适配层   │
+└───────────────┘ └────────────┘ └──────────────┘ └─────────────┘
+        ┌─────────────────────────────────────────────────────┐
+        │ 可观测性  Prometheus + Loki + Grafana + Alertmanager │
+        │           + Jaeger（otel-collector 采集链路）          │
+        └─────────────────────────────────────────────────────┘</code></pre>
+
+      <h3 id="overall-process">3.2 进程模型</h3>
+      <table>
+        <tr><th>进程</th><th>职责</th><th>部署形态</th></tr>
+        <tr><td>backend</td><td>FastAPI 应用：REST API、Socket.IO、动态数据源路由</td><td>多副本（uvicorn 多 worker）</td></tr>
+        <tr><td>celery-worker</td><td>定时/异步任务：孤儿分片清理、日志归档、分片表预创建、备份等</td><td>多副本</td></tr>
+        <tr><td>celery-beat</td><td>定时调度：任务定义入库（<code>sys_task</code>），自研数据库调度器</td><td>单副本（避免重复调度）</td></tr>
+        <tr><td>event-worker</td><td>RocketMQ 事件消费者：操作日志异步化、Webhook 推送、审计链串行消费、ES 索引同步</td><td>多副本</td></tr>
+        <tr><td>frontend / frontend-mobile</td><td>构建产物由 nginx 托管</td><td>静态资源</td></tr>
+      </table>
+
+      <h2 id="multi-tenant">4. 多租户架构</h2>
+
+      <h3 id="mt-db">4.1 库划分</h3>
+      <ul>
+        <li><strong>平台库</strong> <code>bms_platform</code>：租户注册（<code>sys_tenant</code>）、平台超管（<code>sys_admin</code>）、SSO 全局身份映射（<code>sys_user_identity</code>）、平台统一维护的菜单/表单/按钮/字段与业务/动作权限码</li>
+        <li><strong>租户库</strong> <code>bms_tenant_{code}</code>：一租户一库，承载该租户全部业务数据（未标注【平台库】的表均在此）</li>
+        <li><strong>归档库</strong> <code>bms_archive</code>：统一收存各租户归档数据（带 tenant_id 与原库表标识，只读查询）</li>
+        <li>跨库引用一律用逻辑外键（code），不建物理外键</li>
+      </ul>
+
+      <h3 id="mt-route">4.2 租户路由</h3>
+      <ul>
+        <li>生产环境按子域名解析租户（<code>{tenant}.bms.example.com</code>），泛域名 DNS + 泛 TLS 证书</li>
+        <li>开发环境以 access token 内 tenant_id 兜底；一人多租户经 <code>X-Tenant-ID</code> 请求头切换</li>
+        <li>租户库按 tenant 动态路由异步 engine：懒加载创建、闲置回收、池上限控制，避免全量租户连接常驻</li>
+        <li>租户隔离三层校验：数据库物理隔离 → 查询强制 tenant 过滤 → 跨租户访问拒绝测试</li>
+      </ul>
+
+      <h3 id="mt-provision">4.3 租户开通与配额</h3>
+      <ul>
+        <li>租户开通自动执行：建库 → 双套 Alembic 迁移 → 种子数据（三类内置管理员角色、初始系统管理员账号、默认 IdP 占位、归档策略、菜单/表单/按钮/字段挂接）</li>
+        <li>租户库批量迁移：Alembic 遍历 <code>sys_tenant</code> 逐库执行</li>
+        <li>配额管理（<code>sys_tenant_quota</code>）：用户数 / 存储 / 开放接口调用量，超限拦截与告警</li>
+      </ul>
+
+      <h2 id="backend">5. 后端应用架构</h2>
+
+      <h3 id="be-layers">5.1 分层职责</h3>
+      <table>
+        <tr><th>层</th><th>目录</th><th>职责与约束</th></tr>
+        <tr><td>接口层</td><td><code>app/api</code></td><td>参数校验与路由分发、依赖注入（<code>require_permission</code> 等），禁止在此直接操作模型</td></tr>
+        <tr><td>业务层</td><td><code>app/services</code></td><td>业务逻辑与事务边界</td></tr>
+        <tr><td>数据访问层</td><td><code>app/repositories</code></td><td>数据访问与数据源路由、分片路由，禁止在 api 层直接操作模型</td></tr>
+        <tr><td>基础设施层</td><td><code>app/db</code>、<code>app/core</code></td><td>异步引擎、AsyncSession 工厂、读写分离路由、配置、安全、异常处理</td></tr>
+        <tr><td>任务与事件</td><td><code>app/tasks</code>、<code>app/ws</code>、<code>app/i18n</code></td><td>Celery 任务定义、Socket.IO 事件、国际化管理</td></tr>
+      </table>
+
+      <h3 id="be-async">5.2 异步数据访问</h3>
+      <ul>
+        <li>全链路异步栈：FastAPI + SQLAlchemy 2.0 异步 + aiomysql / psycopg 3（异步方言）+ redis.asyncio</li>
+        <li>异步会话不可跨请求共享；避免循环内多次查询（N+1），大事务显式声明边界</li>
+        <li>多数据源用多个异步 engine 管理；AsyncSession 工厂按读写标记选择主/从引擎</li>
+        <li>写操作与事务强制走主库；写后同一会话内读主库，避免读到从库旧数据</li>
+      </ul>
+
+      <h3 id="be-modules">5.3 模块组织</h3>
+      <ul>
+        <li>monorepo 布局：<code>backend/</code>、<code>frontend/</code>、<code>frontend-mobile/</code>、<code>deploy/</code>、<code>scripts/</code>、<code>.github/</code>、<code>文档/</code></li>
+        <li>后端按模块分组（<code>app/api/user/</code>、<code>app/models/user.py</code>），模块目录用单数名词</li>
+        <li>配置：<code>config.toml</code> 分层（dev/test/prod 由 <code>BMS_ENV</code> 指定）+ 环境变量覆盖（密钥类只走环境变量）</li>
+        <li>ID 生成：yitter/IdGenerator 雪花算法，配置时钟回拨处理</li>
+      </ul>
+
+      <h2 id="data">6. 数据架构</h2>
+
+      <h3 id="data-rule">6.1 数据规范</h3>
+      <ul>
+        <li>主键：业务表雪花 ID（<code>id</code>），关联表唯一联合主键；表前缀 <code>sys_</code>/<code>wf_</code>/<code>biz_</code>/<code>rpt_</code>/<code>ai_</code>，表名单数 snake_case</li>
+        <li>软删除：业务数据 <code>deleted_at</code>；唯一约束统一建为 (唯一字段, <code>deleted_at</code>) 复合唯一索引，三库均允许多 NULL；回收站复用 <code>deleted_at</code>，过期残留由 Celery 物理清理</li>
+        <li>审计字段 <code>created_at/created_by/updated_at/updated_by</code>（ORM 事件自动填充）+ 乐观锁 <code>version</code>；时间统一 UTC</li>
+        <li>多语言：固定文案存 <code>sys_i18n_message</code>（页面维护、运行时下发）；业务展示文案走 <code>{主表}_i18n</code> 附表（主表 ID + locale 联合主键），缺省回退主表默认文案</li>
+      </ul>
+
+      <h3 id="data-source">6.2 多数据源与读写分离</h3>
+      <ul>
+        <li>config.toml 声明多个数据源，每库可配主从连接；repositories 层按模块指定数据源</li>
+        <li>主从读写分离：写与事务强制走主库，查询走从库（可配）；主库故障时降级只读模式</li>
+        <li>迁移：Alembic 按数据源分别维护 MySQL / PostgreSQL 两套方言迁移脚本；SQLite 开发库自动建表</li>
+      </ul>
+
+      <h3 id="data-shard">6.3 分片策略</h3>
+      <ul>
+        <li>Python 生态无成熟分片中间件，采用应用层自研 <code>ShardingRouter</code>（分片键 → 物理库/表解析）</li>
+        <li>MVP 真实分片规则：<code>sys_operation_log</code>、<code>sys_open_log</code> 按月分表（物理表名带 <code>yyyyMM</code> 后缀），新月份分片表由 Celery 提前创建</li>
+        <li>分片键支持按租户 / 按时间，由接入模块声明</li>
+      </ul>
+
+      <h3 id="data-cache">6.4 缓存策略</h3>
+      <ul>
+        <li>统一 Redis 缓存，弃用本地内存缓存（多实例内存独立会造成数据不一致）</li>
+        <li>只读热数据（字典、系统参数、菜单树、权限码）短 TTL 缓存；key 携带租户前缀（<code>bms:{租户|global}:{域}:{键}</code>），全部 key 必须带 TTL</li>
+        <li>三防：穿透（空值缓存）、击穿（SETNX 互斥锁重建）、雪崩（TTL 随机偏移）</li>
+        <li>一致性：先写库后删缓存</li>
+      </ul>
+
+      <h3 id="data-audit">6.5 审计与归档</h3>
+      <ul>
+        <li>审计日志（操作/登录/开放接口/数据变更）逐条哈希串联（<code>prev_hash + record_hash</code>）防篡改，分片表内成链、跨月表首尾衔接</li>
+        <li>归档两段式：热表超阈值迁归档库（可在线查询）→ 按保留期转对象存储冷化；归档前执行链完整性校验</li>
+        <li>合规留存：审计数据 90 天热表 + 归档冷存储，哈希链随归档导出供事后校验；合规销毁记录销毁日志</li>
+      </ul>
+
+      <h2 id="messaging">7. 消息与异步架构</h2>
+
+      <h3 id="msg-event">7.1 事件总线</h3>
+      <ul>
+        <li>RocketMQ 5.x 作事件总线：操作日志异步化、Webhook 推送、审计链串行消费、模块解耦；分区有序消息保证审计链顺序，事务消息兜底</li>
+        <li>事件命名 <code>{域}.{对象}.{动作}</code>（如 <code>user.created</code>、<code>wf.task.completed</code>、<code>purchase.order.created</code>），Webhook 订阅按事件名匹配</li>
+        <li>topic 命名 <code>bms.{事件域}.{事件}</code>；数据同步（如 ES 索引）走事件驱动异步消费，独立 event-worker 进程，索引重建时重放事件</li>
+        <li>消息量级远未到 Kafka 场景，RocketMQ 已覆盖事件总线；任务队列独立走 Redis broker（Celery 官方不支持 RocketMQ）</li>
+      </ul>
+
+      <h3 id="msg-task">7.2 任务调度</h3>
+      <ul>
+        <li>Celery 分布式任务队列，broker 用 Redis；任务定义入库 <code>sys_task</code>，自研数据库调度器（beat 启动时加载、任务变更事件触发重载），页面可动态增删改与启停</li>
+        <li>执行历史落 <code>sys_task_log</code>；失败自动重试、ack 确认</li>
+        <li>内置任务：孤儿分片清理、日志归档、分片表预创建、每日全量备份</li>
+        <li>worker 为同步进程，任务内执行异步业务须用 asyncio.run 或独立引擎，禁止跨事件循环复用连接/会话；beat 单副本运行避免重复调度</li>
+      </ul>
+
+      <h3 id="msg-order">7.3 审计链有序性</h3>
+      <p>
+        审计日志哈希链对写入顺序敏感：写入经 RocketMQ 按租户分区有序消费（分区有序消息）保证链序，
+        避免多 worker 并发写乱序破坏 prev_hash 衔接；链校验工具定期巡检，归档前校验链完整性。
+      </p>
+
+      <h2 id="security">8. 权限与安全架构</h2>
+
+      <h3 id="sec-perm">8.1 权限模型</h3>
+      <ul>
+        <li><strong>主体链 RBAC</strong>：用户与角色间可插入任意中间实体（岗位、部门等），链条任意长度；最终权限计算统一收敛为 用户 → 角色，多链取并集去重；主体角色绑定用通用表 <code>sys_role_assign</code>（subject_type + subject_id + role_id）</li>
+        <li><strong>权限分层</strong>：菜单 → 表单 → 业务、按钮 → 动作、字段（visible/editable）；授权业务权限隐含对应表单与菜单权限；按钮权限默认全无，字段权限默认全可见可编辑、授予后收窄</li>
+        <li><strong>数据权限</strong>：动作级配置（<code>sys_data_scope</code>），默认无数据权限；四种范围（全部 / 本部门及以下 / 本部门 / 仅本人），读载入时与写保存时双向校验</li>
+        <li><strong>权限码</strong>：<code>业务:动作</code>（如 <code>user:create</code>、<code>wf:approve</code>）；业务/动作码平台统一维护，租户可见、可分配、不可增删</li>
+        <li><strong>双重控制</strong>：前端按权限码显隐菜单/按钮/字段，后端接口用 <code>require_permission</code> 依赖强制校验</li>
+        <li><strong>三权分立</strong>：租户侧系统管理员 / 安全管理员 / 审计管理员权限互斥；平台超管（<code>sys_admin</code>）独立于租户体系</li>
+      </ul>
+
+      <h3 id="sec-auth">8.2 认证与会话</h3>
+      <ul>
+        <li>双 token：access token（30 分钟，仅存前端内存）+ refresh token（14 天滚动轮换，httpOnly + Secure + SameSite cookie）</li>
+        <li>鉴权时随 access token 一并校验 Redis 会话有效标记（每请求一次 Redis 读，毫秒级），强制踢出即时生效</li>
+        <li>SSO：OIDC 为主 + CAS 兼容；外部 IdP 认证回跳后经 <code>sys_user_identity</code> 全局映射定位租户并 JIT 自动建号；BMS 兼作 IdP 供第三方系统登录；本地账号密码并存（超管应急通道）</li>
+        <li>密码：PBKDF2 哈希（标准库）+ 登录失败限流（slowapi，Redis 后端，如 5 次锁 15 分钟）+ 连续失败 3 次强制图形验证码 + 密码策略（复杂度/90 天有效期/近 5 次历史/180 天未登录锁定）</li>
+        <li>多端会话：并发登录上限（默认 5，最旧失效）；会话管理可强制踢出并广播"会话失效"</li>
+      </ul>
+
+      <h3 id="sec-baseline">8.3 安全基线</h3>
+      <ul>
+        <li>数据脱敏：敏感字段注册标记，序列化层默认掩码（<code>138****5678</code>），持 <code>data:plain</code> 权限码方可查看明文</li>
+        <li>上传安全：类型白名单 + 大小上限 + 分片 SHA256 校验；存储于 MinIO 私有桶，下载用限时预签名 URL，后端不代理文件流</li>
+        <li>限流：slowapi（limits 库，Redis 后端，IP / 用户 / client 维度），登录限流优先；Redis 故障降级 memory 后端</li>
+        <li>防护：ORM 参数化防 SQL 注入、前端框架默认转义防 XSS、接口级限流、JWT secret 轮换、密钥走 Secret 管理</li>
+        <li>AI 安全（阶段十四）：交互全量审计、提示词与数据不出租户边界、prompt 注入防护、AI 结果默认仅辅助展示、自动写操作/自动审批独立开关默认关闭</li>
+      </ul>
+
+      <h2 id="frontend">9. 前端架构</h2>
+
+      <h3 id="fe-engines">9.1 双工程结构</h3>
+      <ul>
+        <li>PC 管理端 <code>frontend/</code>（Vue 3 + Vite + TypeScript + Element Plus）与移动端 <code>frontend-mobile/</code>（Vue 3 + Vant）为两个彻底独立的工程：各自维护 package.json / lock 文件与 ESLint/Prettier/TS 配置，不共享基础配置与公共类型</li>
+        <li>包管理用 npm（Node 官方自带，不生成额外配置文件）；CI 用 <code>npm ci</code> 锁定安装</li>
+        <li>前后端契约：后端 OpenAPI schema 经 openapi-typescript 自动生成 TS 类型，保持契约一致</li>
+        <li>移动端复用后端 API 与会话体系，企业微信 / 钉钉内嵌免登</li>
+      </ul>
+
+      <h3 id="fe-menu">9.2 动态菜单与权限渲染</h3>
+      <ul>
+        <li>菜单树由后端按用户业务权限动态返回（<code>sys_menu</code> + <code>sys_form</code> 挂接业务权限过滤，按当前 locale 关联 i18n 附表返回翻译文案）</li>
+        <li>表单元数据（按钮/字段定义与当前用户可见/可编辑状态）随菜单接口一并下发；前端根据菜单树动态注册路由与生成侧边栏，不硬编码路由表，新增菜单/表单/按钮/字段无需发版</li>
+        <li>按钮按动作权限显隐（默认无）、字段按字段权限控制显隐与可编辑；权限指令 <code>v-perm="'业务:动作'"</code></li>
+      </ul>
+
+      <h3 id="fe-realtime">9.3 实时推送与国际化</h3>
+      <ul>
+        <li>Socket.IO（socket.io-client）接收待办/通知实时到达、会话失效广播；集群经 Redis 适配器跨实例广播</li>
+        <li>vue-i18n：语言包运行时从后端拉取（Redis 缓存 + localStorage 二次缓存），文案不硬编码；RTL 由 <code>sys_i18n_locale.rtl</code> 标记驱动布局切换；用户时区偏好按 <code>Intl</code> 本地化</li>
+      </ul>
+
+      <h2 id="observability">10. 可观测性</h2>
+      <ul>
+        <li>日志：structlog 结构化 JSON（携带 request_id），Loki 聚合跨实例检索</li>
+        <li>指标：Prometheus 采集 /metrics（请求量、延迟、依赖状态）</li>
+        <li>链路：OpenTelemetry，应用经 otel-collector 上报 trace 至 Jaeger 存储展示；trace_id 与 request_id 关联，Grafana 以 Jaeger 数据源统一可视化</li>
+        <li>告警：Alertmanager 推送邮件 / 企业微信 / 钉钉 / 短信（经 BMS 内部接口转换格式）</li>
+        <li>健康检查：/healthz（存活）、/readyz（就绪，检查 DB/Redis 连通性），供编排系统滚动发布</li>
+      </ul>
+
+      <h2 id="deploy">11. 部署架构</h2>
+
+      <h3 id="deploy-topo">11.1 部署拓扑</h3>
+      <pre><code>nginx（TLS 终止 / 静态资源 / /api 反代 / 租户子域名 / WebSocket 亲和）
+  ├── backend × N（无状态）
+  ├── celery-worker × N ── celery-beat × 1
+  ├── event-worker × N（RocketMQ 消费）
+  ├── MySQL / PostgreSQL 主从（1 平台库 + N 租户库 + 1 归档库）
+  ├── Redis（Sentinel/Cluster 高可用）
+  ├── RocketMQ（nameserver + broker）
+  ├── MinIO（按租户 bucket 前缀隔离，归档文件亦存于此）
+  ├── ElasticSearch（MVP 单节点，生产集群）
+  └── 监控：Prometheus / Loki / Grafana / Alertmanager / Jaeger / otel-collector</code></pre>
+
+      <h3 id="deploy-cluster">11.2 集群设计要点</h3>
+      <ul>
+        <li>无状态：会话标记、token 黑名单、限流计数存 Redis；文件存 MinIO；定时任务分布式执行</li>
+        <li>实时推送：Socket.IO 经 Redis 适配器广播，任一实例可推送至任意用户；nginx 对 /socket.io 放行 Upgrade/Connection 头，并用 ip_hash / Cookie 亲和保证连接升级后固定在同一实例</li>
+        <li>分布式锁：Redis SETNX，用于防并发与幂等拦截（幂等键前置去重 + 唯一约束兜底）</li>
+        <li>连接池：pool_size / max_overflow 按 worker 数规划，总连接数 ≤ 数据库 max_connections 的 70%；多租户引擎懒加载 + 闲置回收</li>
+        <li>消息队列高可用：RocketMQ 多副本（主从、同步刷盘、持久化）；Celery beat 单副本</li>
+        <li>检索高可用：ES 多节点集群（多副本）；检索故障降级为数据库模糊查询兜底，数据可经事件重放全量重建</li>
+        <li>数据库高可用：主从 + 故障切换；主库故障预案（从库提升、只读模式）</li>
+        <li>安全响应头：nginx 统一配置 CSP、HSTS、X-Frame-Options、X-Content-Type-Options、Referrer-Policy、Permissions-Policy</li>
+      </ul>
+
+      <h3 id="deploy-backup">11.3 备份与恢复</h3>
+      <ul>
+        <li>数据库：每日全量备份 + Binlog/WAL（PITR），保留 30 天异机存储；备份任务与记录由页面管理（<code>sys_backup_task</code>/<code>sys_backup_log</code>，Celery 调度，支持手动备份与恢复演练登记）</li>
+        <li>MinIO：定期增量备份 + 生命周期策略；元数据随数据库备份</li>
+        <li>目标：RTO ≤ 4 小时、RPO ≤ 1 小时，定期演练</li>
+      </ul>
+
+      <h2 id="decisions">12. 关键架构决策</h2>
+      <table>
+        <tr><th>决策点</th><th>选择</th><th>理由</th></tr>
+        <tr><td>多租户落地方式</td><td>一租户一独立库</td><td>数据隔离最强、备份恢复与迁移独立；配合引擎懒加载控制连接成本</td></tr>
+        <tr><td>微服务 vs 单体</td><td>单体模块化 + 独立 worker 进程</td><td>业务量级无需微服务，跨域调用走事件总线解耦</td></tr>
+        <tr><td>任务队列</td><td>Celery（Redis broker）+ 自研数据库调度器</td><td>生态成熟；任务定义入库、页面动态管理</td></tr>
+        <tr><td>事件总线</td><td>RocketMQ 5.x</td><td>分区有序保证审计链顺序、事务消息兜底；保留生态与扩展空间</td></tr>
+        <tr><td>全文检索</td><td>ElasticSearch 8.x</td><td>覆盖主数据/审计日志/文件内容三类检索；事件驱动异步同步、可重放重建</td></tr>
+        <tr><td>向量检索</td><td>Milvus（阶段十四）</td><td>亿级向量能力，独立部署（etcd + MinIO 复用）</td></tr>
+        <tr><td>认证</td><td>JWT 双 token + Redis 会话标记</td><td>无状态可扩展 + 强制踢出即时生效</td></tr>
+        <tr><td>密码哈希</td><td>PBKDF2（标准库）</td><td>零依赖，高迭代次数下满足安全基线</td></tr>
+        <tr><td>接口限流</td><td>slowapi（limits 库，Redis 后端）</td><td>装饰器声明、集群共享计数、Redis 故障降级 memory</td></tr>
+        <tr><td>实时推送</td><td>Socket.IO + Redis 适配器</td><td>自动重连、跨实例广播；替代原生 WebSocket</td></tr>
+        <tr><td>分片方案</td><td>应用层自研 ShardingRouter</td><td>Python 生态无成熟中间件；MVP 仅审计类日志按月分片</td></tr>
+        <tr><td>前端包管理</td><td>npm（双工程彻底独立）</td><td>官方自带、零额外配置；不引入 workspace 机制</td></tr>
+        <tr><td>数据库支持</td><td>SQLite / MySQL / PostgreSQL 三库兼容</td><td>开发零部署，生产双库并行，ORM 层禁用方言特有功能</td></tr>
+        <tr><td>链路追踪</td><td>OpenTelemetry + Jaeger</td><td>otel-collector 统一采集，Grafana Jaeger 数据源统一可视化</td></tr>
+      </table>
+
+      <h2 id="roadmap">13. 演进路线</h2>
+      <ul>
+        <li>Kubernetes 化部署（当前 Docker Compose，数据量或规模增长后迁移）</li>
+        <li>AI 能力落地（阶段十四）：LLM 适配层、Milvus 向量库、OCR、智能报表助手、智能审批辅助、知识库问答</li>
+        <li>全文检索（阶段十三）：ES 接入、文件内容解析、全局搜索页面</li>
+        <li>持续演进点：消息量级增长时评估 Kafka；数据规模增长时评估分片范围扩展与专用向量库升级</li>
+      </ul>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 依《文档生成规范》编写 · 与《项目规划说明》《命名规范》配套 · 生成日期：2026-08-06
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>
