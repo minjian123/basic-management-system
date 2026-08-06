@@ -226,11 +226,11 @@
         <tr><td>核心交互时序</td><td><a href="04-架构设计-核心交互时序.html">04-架构设计-核心交互时序.html</a></td><td>请求生命周期、登录/SSO/踢出、租户开通、审批、审计链、缓存一致性等时序</td></tr>
         <tr><td>数据架构</td><td><a href="05-架构设计-数据架构.html">05-架构设计-数据架构.html</a></td><td>数据分布、核心表清单、数据规范、缓存架构</td></tr>
         <tr><td>接口与集成</td><td><a href="06-架构设计-接口与集成.html">06-架构设计-接口与集成.html</a></td><td>API 规范、错误码、开放接口、Webhook、事件模型清单</td></tr>
-        <tr><td>性能与安全</td><td><a href="23-架构设计-性能与安全.html">23-架构设计-性能与安全.html</a></td><td>性能目标与连接规划、限流降级、安全架构</td></tr>
-        <tr><td>前端架构</td><td><a href="24-架构设计-前端架构.html">24-架构设计-前端架构.html</a></td><td>双工程、技术栈、动态菜单、页面清单、移动端</td></tr>
-        <tr><td>测试与质量</td><td><a href="25-架构设计-测试与质量.html">25-架构设计-测试与质量.html</a></td><td>测试金字塔、CI 流水线、压测、安全专项、兼容性</td></tr>
-        <tr><td>部署与运维</td><td><a href="26-架构设计-部署与运维.html">26-架构设计-部署与运维.html</a></td><td>部署拓扑、集群要点、配置、初始化数据、故障应对、备份恢复</td></tr>
-        <tr><td>决策与风险</td><td><a href="27-架构设计-决策与风险.html">27-架构设计-决策与风险.html</a></td><td>架构决策记录（ADR）、风险与应对、演进路线</td></tr>
+        <tr><td>性能与安全</td><td><a href="24-架构设计-性能与安全.html">24-架构设计-性能与安全.html</a></td><td>性能目标与连接规划、限流降级、安全架构</td></tr>
+        <tr><td>前端架构</td><td><a href="25-架构设计-前端架构.html">25-架构设计-前端架构.html</a></td><td>双工程、技术栈、动态菜单、页面清单、移动端</td></tr>
+        <tr><td>测试与质量</td><td><a href="26-架构设计-测试与质量.html">26-架构设计-测试与质量.html</a></td><td>测试金字塔、CI 流水线、压测、安全专项、兼容性</td></tr>
+        <tr><td>部署与运维</td><td><a href="27-架构设计-部署与运维.html">27-架构设计-部署与运维.html</a></td><td>部署拓扑、集群要点、配置、初始化数据、故障应对、备份恢复</td></tr>
+        <tr><td>决策与风险</td><td><a href="28-架构设计-决策与风险.html">28-架构设计-决策与风险.html</a></td><td>架构决策记录（ADR）、风险与应对、演进路线</td></tr>
       </table>
 
       <h3 id="structure-subsystems">4.2 子系统设计节点</h3>
@@ -252,14 +252,15 @@
         <tr><td>全文检索</td><td><a href="20-架构设计-子系统-全文检索.html">20-架构设计-子系统-全文检索.html</a></td><td>ES 索引、同步管线、重建降级</td></tr>
         <tr><td>AI 服务</td><td><a href="21-架构设计-子系统-AI服务.html">21-架构设计-子系统-AI服务.html</a></td><td>LLM 适配、RAG、OCR、AI 审计</td></tr>
         <tr><td>可观测性</td><td><a href="22-架构设计-子系统-可观测性.html">22-架构设计-子系统-可观测性.html</a></td><td>日志、指标、链路、告警、健康检查</td></tr>
+        <tr><td>帮助中心</td><td><a href="23-架构设计-子系统-帮助中心.html">23-架构设计-子系统-帮助中心.html</a></td><td>帮助分类/文章维护、页面内帮助、反馈统计</td></tr>
       </table>
 
       <h3 id="structure-cross">4.3 横切设计节点</h3>
       <ul>
-        <li><strong>性能与安全</strong>（<a href="23-架构设计-性能与安全.html">23-架构设计-性能与安全.html</a>）：横切全部子系统</li>
-        <li><strong>测试与质量</strong>（<a href="25-架构设计-测试与质量.html">25-架构设计-测试与质量.html</a>）：验收与质量门禁</li>
-        <li><strong>部署与运维</strong>（<a href="26-架构设计-部署与运维.html">26-架构设计-部署与运维.html</a>）：运行期架构</li>
-        <li><strong>决策与风险</strong>（<a href="27-架构设计-决策与风险.html">27-架构设计-决策与风险.html</a>）：历史决策与演进</li>
+        <li><strong>性能与安全</strong>（<a href="24-架构设计-性能与安全.html">24-架构设计-性能与安全.html</a>）：横切全部子系统</li>
+        <li><strong>测试与质量</strong>（<a href="26-架构设计-测试与质量.html">26-架构设计-测试与质量.html</a>）：验收与质量门禁</li>
+        <li><strong>部署与运维</strong>（<a href="27-架构设计-部署与运维.html">27-架构设计-部署与运维.html</a>）：运行期架构</li>
+        <li><strong>决策与风险</strong>（<a href="28-架构设计-决策与风险.html">28-架构设计-决策与风险.html</a>）：历史决策与演进</li>
       </ul>
 
       <h2 id="reading">5. 阅读指南</h2>

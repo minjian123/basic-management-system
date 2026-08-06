@@ -187,7 +187,7 @@
       <h2 id="index">2. 索引规划</h2>
       <table>
         <tr><th>索引</th><th>内容</th><th>说明</th></tr>
-        <tr><td><code>bms-main</code></td><td>主数据：用户/部门/角色/字典/采购单据/文件元数据</td><td>按用途分索引；均含 tenant_id 字段，查询强制租户隔离与数据权限过滤</td></tr>
+        <tr><td><code>bms-main</code></td><td>主数据：用户/部门/角色/字典/采购单据/文件元数据/帮助文章</td><td>按用途分索引；均含 tenant_id 字段，查询强制租户隔离与数据权限过滤</td></tr>
         <tr><td><code>bms-log-{类型}-{yyyyMM}</code></td><td>审计日志（操作/登录/开放接口/数据变更）</td><td>按月索引，与分片表对齐</td></tr>
         <tr><td><code>bms-file</code></td><td>文件内容（PDF/Word/Excel/TXT 解析文本）</td><td>扫描件 OCR 由阶段十四 AI 支持</td></tr>
       </table>

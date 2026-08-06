@@ -187,7 +187,7 @@
 
       <h2 id="capture">2. 审计捕获</h2>
       <ul>
-        <li>字段级变更审计：关键表（sys_user、sys_role、sys_role_assign、sys_role_permission、sys_role_field、sys_post、sys_dept、sys_notice、sys_tenant_quota、biz_supplier、wf_process、biz_purchase_* 等）经 ORM 事件自动记录旧值/新值至 sys_data_audit_log（table_name、record_id、field、old_value、new_value、operator_id）</li>
+        <li>字段级变更审计：关键表（sys_user、sys_role、sys_role_assign、sys_role_permission、sys_role_field、sys_post、sys_dept、sys_notice、sys_help_article、sys_tenant_quota、biz_supplier、wf_process、biz_purchase_* 等）经 ORM 事件自动记录旧值/新值至 sys_data_audit_log（table_name、record_id、field、old_value、new_value、operator_id）</li>
         <li>操作日志：action 记录权限码（业务:动作，与权限体系对齐）；敏感字段（密码、token、密钥）脱敏后记录，不落原始值</li>
         <li>登录日志：成功/失败记录（username、ip、user_agent、status、fail_reason）</li>
       </ul>
