@@ -237,7 +237,7 @@
         <tr><th>域</th><th>表</th><th>说明</th></tr>
         <tr><td rowspan="6">组织与权限</td><td>sys_user、sys_post、sys_user_post、sys_dept</td><td>用户（含密码策略字段/语言时区偏好）、岗位、用户-岗位、部门树</td></tr>
         <tr><td>sys_role、sys_role_assign</td><td>角色；主体-角色通用绑定（subject_type + subject_id + role_id，支持任意主体链）</td></tr>
-        <tr><td>sys_role_permission、sys_role_field</td><td>角色授予业务/动作权限；字段权限（visible/editable，默认全部可见可编辑）</td></tr>
+        <tr><td>sys_role_permission、sys_role_field</td><td>角色授予菜单/表单权限（业务权限按表单→业务对照关系推导）/动作权限；字段权限（visible/editable，默认全部可见可编辑）</td></tr>
         <tr><td>sys_data_scope</td><td>动作级数据范围（all/dept_and_below/dept/self）</td></tr>
         <tr><td>sys_dict_type / sys_dict_item</td><td>字典（平台默认、租户覆盖/自建）；多语言 label 走 _i18n 附表</td></tr>
         <tr><td>sys_config</td><td>系统参数（平台默认、租户覆盖）</td></tr>
