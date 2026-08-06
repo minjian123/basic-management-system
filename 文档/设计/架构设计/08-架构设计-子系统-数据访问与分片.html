@@ -228,11 +228,11 @@
 
       <h2 id="coordination">7. 与其他子系统的协调</h2>
       <ul>
-        <li><strong>多租户路由</strong>：TenantContext 决定数据源与引擎选择（路由第一跳）</li>
-        <li><strong>权限计算引擎</strong>：数据范围（sys_data_scope 规则表达式）解析为 SQL 条件注入查询（读），写前校验（写）</li>
-        <li><strong>审计哈希链</strong>：审计日志按月分片落库在此层完成；归档流转经归档库（bms_archive 只读）</li>
-        <li><strong>事件总线</strong>：写操作日志/登录日志经 RocketMQ 异步化，降低主库写压力</li>
-        <li><strong>任务调度</strong>：分片表预创建、归档、物理清理任务经 Celery 执行</li>
+        <li><strong><a href="07-架构设计-子系统-多租户路由.html">多租户路由</a></strong>：TenantContext 决定数据源与引擎选择（路由第一跳）</li>
+        <li><strong><a href="10-架构设计-子系统-权限计算引擎.html">权限计算引擎</a></strong>：数据范围（sys_data_scope 规则表达式）解析为 SQL 条件注入查询（读），写前校验（写）</li>
+        <li><strong><a href="14-架构设计-子系统-审计哈希链.html">审计哈希链</a></strong>：审计日志按月分片落库在此层完成；归档流转经归档库（bms_archive 只读）</li>
+        <li><strong><a href="11-架构设计-子系统-事件总线.html">事件总线</a></strong>：写操作日志/登录日志经 RocketMQ 异步化，降低主库写压力</li>
+        <li><strong><a href="12-架构设计-子系统-任务调度.html">任务调度</a></strong>：分片表预创建、归档、物理清理任务经 Celery 执行</li>
       </ul>
 
     </main>

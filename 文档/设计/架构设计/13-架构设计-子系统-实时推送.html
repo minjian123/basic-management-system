@@ -220,10 +220,10 @@
 
       <h2 id="coordination">7. 与其他子系统的协调</h2>
       <ul>
-        <li><strong>认证与会话</strong>：握手校验 token；踢出广播 session.revoked 关闭该会话全部实时连接（HTTP 侧由 Redis 会话标记校验同步拦截）</li>
-        <li><strong>通知公告</strong>：站内信/待办落库后触发本子系统推送；批量已读后同步角标状态</li>
-        <li><strong>工作流</strong>：审批待办生成事件 → 通知组消费 → 本子系统推送（approval.todo）</li>
-        <li><strong>可观测性</strong>：Socket.IO 连接数监控（Prometheus 指标）</li>
+        <li><strong><a href="09-架构设计-子系统-认证与会话.html">认证与会话</a></strong>：握手校验 token；踢出广播 session.revoked 关闭该会话全部实时连接（HTTP 侧由 Redis 会话标记校验同步拦截）</li>
+        <li><strong><a href="17-架构设计-子系统-通知公告.html">通知公告</a></strong>：站内信/待办落库后触发本子系统推送；批量已读后同步角标状态</li>
+        <li><strong><a href="16-架构设计-子系统-工作流.html">工作流</a></strong>：审批待办生成事件 → 通知组消费 → 本子系统推送（approval.todo）</li>
+        <li><strong><a href="22-架构设计-子系统-可观测性.html">可观测性</a></strong>：Socket.IO 连接数监控（Prometheus 指标）</li>
       </ul>
 
     </main>

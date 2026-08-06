@@ -231,11 +231,11 @@
 
       <h2 id="coordination">7. 与其他子系统的协调</h2>
       <ul>
-        <li><strong>权限计算引擎</strong>：认证通过后加载权限码集合；两级校验在依赖注入层协作</li>
-        <li><strong>实时推送</strong>：Socket.IO 握手复用 token 校验；踢出时广播 session.revoked</li>
-        <li><strong>事件总线</strong>：登录日志异步落库；sso.user.jit_created 事件通知</li>
-        <li><strong>任务调度</strong>：180 天未登录账号锁定扫描为内置任务</li>
-        <li><strong>可观测性</strong>：登录/踢出等关键操作落操作日志（日志脱敏：密码/token/密钥不落原始值）</li>
+        <li><strong><a href="10-架构设计-子系统-权限计算引擎.html">权限计算引擎</a></strong>：认证通过后加载权限码集合；两级校验在依赖注入层协作</li>
+        <li><strong><a href="13-架构设计-子系统-实时推送.html">实时推送</a></strong>：Socket.IO 握手复用 token 校验；踢出时广播 session.revoked</li>
+        <li><strong><a href="11-架构设计-子系统-事件总线.html">事件总线</a></strong>：登录日志异步落库；sso.user.jit_created 事件通知</li>
+        <li><strong><a href="12-架构设计-子系统-任务调度.html">任务调度</a></strong>：180 天未登录账号锁定扫描为内置任务</li>
+        <li><strong><a href="22-架构设计-子系统-可观测性.html">可观测性</a></strong>：登录/踢出等关键操作落操作日志（日志脱敏：密码/token/密钥不落原始值）</li>
       </ul>
 
     </main>

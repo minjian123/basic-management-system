@@ -222,11 +222,11 @@
 
       <h2 id="coordination">7. 与其他子系统的协调</h2>
       <ul>
-        <li><strong>事件总线</strong>：审计事件生产与分区有序消费（链序保证）</li>
-        <li><strong>数据访问与分片</strong>：审计日志按月分片落库（分片键=时间）</li>
-        <li><strong>任务调度</strong>：归档、链校验巡检为内置任务</li>
-        <li><strong>权限计算引擎</strong>：三权分立中审计管理员只读全部日志与审计数据（log 业务）</li>
-        <li><strong>全文检索</strong>：审计日志经事件同步至 ES 按月索引（阶段十三）</li>
+        <li><strong><a href="11-架构设计-子系统-事件总线.html">事件总线</a></strong>：审计事件生产与分区有序消费（链序保证）</li>
+        <li><strong><a href="08-架构设计-子系统-数据访问与分片.html">数据访问与分片</a></strong>：审计日志按月分片落库（分片键=时间）</li>
+        <li><strong><a href="12-架构设计-子系统-任务调度.html">任务调度</a></strong>：归档、链校验巡检为内置任务</li>
+        <li><strong><a href="10-架构设计-子系统-权限计算引擎.html">权限计算引擎</a></strong>：三权分立中审计管理员只读全部日志与审计数据（log 业务）</li>
+        <li><strong><a href="20-架构设计-子系统-全文检索.html">全文检索</a></strong>：审计日志经事件同步至 ES 按月索引（阶段十三）</li>
       </ul>
 
     </main>

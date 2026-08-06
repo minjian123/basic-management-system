@@ -219,10 +219,10 @@
 
       <h2 id="coordination">6. 与其他子系统的协调</h2>
       <ul>
-        <li><strong>文件管理</strong>：孤儿分片回收由本子系统执行</li>
-        <li><strong>审计哈希链</strong>：日志归档任务执行前做链完整性校验</li>
-        <li><strong>部署与运维</strong>：备份任务（sys_backup_task）与恢复演练登记由本子系统调度</li>
-        <li><strong>事件总线</strong>：任务完成落事件；与 RocketMQ 事件总线互不干扰（独立 broker）</li>
+        <li><strong><a href="15-架构设计-子系统-文件管理.html">文件管理</a></strong>：孤儿分片回收由本子系统执行</li>
+        <li><strong><a href="14-架构设计-子系统-审计哈希链.html">审计哈希链</a></strong>：日志归档任务执行前做链完整性校验</li>
+        <li><strong><a href="27-架构设计-部署与运维.html">部署与运维</a></strong>：备份任务（sys_backup_task）与恢复演练登记由本子系统调度</li>
+        <li><strong><a href="11-架构设计-子系统-事件总线.html">事件总线</a></strong>：任务完成落事件；与 RocketMQ 事件总线互不干扰（独立 broker）</li>
       </ul>
 
     </main>

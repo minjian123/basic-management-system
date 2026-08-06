@@ -244,11 +244,11 @@
 
       <h2 id="coordination">9. 与其他子系统的协调</h2>
       <ul>
-        <li><strong>认证与会话</strong>：登录后首次加载权限概要；token 不内嵌权限（权限变更即时生效依赖版本失效机制）</li>
-        <li><strong>数据访问与分片</strong>：数据范围条件注入 repository 查询</li>
-        <li><strong>多租户路由</strong>：业务/动作码跨库引用用 code 逻辑外键（平台库统一维护）</li>
-        <li><strong>前端架构</strong>：动态菜单按业务权限下发；v-perm 指令按动作权限显隐按钮；字段权限控制表单字段</li>
-        <li><strong>审计哈希链</strong>：角色/授权变更落字段级审计</li>
+        <li><strong><a href="09-架构设计-子系统-认证与会话.html">认证与会话</a></strong>：登录后首次加载权限概要；token 不内嵌权限（权限变更即时生效依赖版本失效机制）</li>
+        <li><strong><a href="08-架构设计-子系统-数据访问与分片.html">数据访问与分片</a></strong>：数据范围条件注入 repository 查询</li>
+        <li><strong><a href="07-架构设计-子系统-多租户路由.html">多租户路由</a></strong>：业务/动作码跨库引用用 code 逻辑外键（平台库统一维护）</li>
+        <li><strong><a href="25-架构设计-前端架构.html">前端架构</a></strong>：动态菜单按业务权限下发；v-perm 指令按动作权限显隐按钮；字段权限控制表单字段</li>
+        <li><strong><a href="14-架构设计-子系统-审计哈希链.html">审计哈希链</a></strong>：角色/授权变更落字段级审计</li>
       </ul>
 
     </main>
