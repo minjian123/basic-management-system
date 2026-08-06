@@ -188,6 +188,7 @@
       <ul>
         <li>sys_notification：user_id、title、content、type、biz_type、biz_id、is_read（个人维度）</li>
         <li>生成路径：业务事件 → 通知组消费 → 站内信落库 + 触发实时推送（notification.new）</li>
+        <li>渠道偏好过滤：发送前按用户通知偏好（sys_user_preference）过滤渠道（站内信/邮件/短信开关）与免打扰时段，被过滤渠道不发送</li>
         <li>待办提醒：审批待办生成 → 站内信 + Socket.IO（approval.todo）+ 待办角标</li>
         <li>批量已读/全部已读（PC + 移动端）</li>
       </ul>
