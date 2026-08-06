@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>概要设计</title>
+<style>
+  :root {
+    --bg: #f7f8fa;
+    --fg: #1f2328;
+    --muted: #57606a;
+    --border: #d0d7de;
+    --accent: #0969da;
+    --accent-bg: #ddf4ff;
+    --code-bg: #f6f8fa;
+    --warn-bg: #fff8c5;
+    --warn-border: #d4a72c;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+    line-height: 1.75;
+  }
+  .layout { display: flex; height: 100vh; overflow: hidden; }
+  .sidebar {
+    width: 280px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+  }
+  .sidebar .brand {
+    background: linear-gradient(135deg, #1f2328, #32383f);
+    color: #fff;
+    padding: 1.4rem 1.2rem 1.1rem;
+    border-bottom: 3px solid var(--accent);
+    flex-shrink: 0;
+  }
+  .sidebar .brand h1 { margin: 0 0 .35rem; font-size: 1.15rem; line-height: 1.4; }
+  .sidebar .brand p { margin: 0; color: #b6bec6; font-size: .78rem; }
+  .sidebar nav { padding: .8rem .6rem 1.5rem; font-size: .9rem; }
+  .sidebar nav ul { list-style: none; margin: 0; padding: 0; }
+  .sidebar nav li { margin: .15rem 0; }
+  .sidebar nav a {
+    display: block;
+    padding: .3rem .7rem;
+    border-radius: 5px;
+    color: var(--fg);
+    text-decoration: none;
+  }
+  .sidebar nav a:hover { background: var(--accent-bg); color: var(--accent); }
+  .sidebar nav .sub { padding-left: 1.6rem; font-size: .85rem; color: var(--muted); }
+  .content { flex: 1; overflow-y: auto; }
+  main {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1.5rem 2rem 4rem;
+  }
+  h2 {
+    margin-top: 2.5rem;
+    padding-bottom: .4rem;
+    border-bottom: 2px solid var(--border);
+    font-size: 1.35rem;
+  }
+  h3 { margin-top: 1.6rem; font-size: 1.1rem; }
+  p { margin: .6rem 0; }
+  ul, ol { margin: .6rem 0; padding-left: 1.6rem; }
+  li { margin: .3rem 0; }
+  code {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: .1em .35em;
+    font-family: Consolas, "Cascadia Mono", monospace;
+    font-size: .9em;
+  }
+  pre {
+    background: #0d1117;
+    color: #e6edf3;
+    border-radius: 8px;
+    padding: .9rem 1.1rem;
+    overflow-x: auto;
+    font-size: .88rem;
+    line-height: 1.6;
+  }
+  pre code { background: none; border: none; padding: 0; color: inherit; }
+  .note, .warn {
+    border-radius: 6px;
+    padding: .7rem 1rem;
+    margin: 1rem 0;
+    font-size: .95rem;
+  }
+  .note { background: var(--accent-bg); border-left: 4px solid var(--accent); }
+  .warn { background: var(--warn-bg); border-left: 4px solid var(--warn-border); }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1rem 0;
+    font-size: .92rem;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: .45rem .7rem;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: #eef1f4; white-space: nowrap; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  footer {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1rem 2rem 3rem;
+    color: var(--muted);
+    font-size: .85rem;
+    border-top: 1px solid var(--border);
+  }
+  @media (max-width: 768px) {
+    .layout { flex-direction: column; height: auto; overflow: visible; }
+    .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); max-height: 40vh; }
+    .content { overflow: visible; }
+  }
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>概要设计</h1>
+      <p>BMS 基础管理系统 · 模块与流程设计说明</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#overview">1. 概述</a></li>
+        <li><a href="#modules">2. 功能模块划分</a>
+          <ul class="sub">
+            <li><a href="#modules-mvp">2.1 MVP 模块清单</a></li>
+            <li><a href="#modules-role">2.2 模块归属与权限码</a></li>
+          </ul>
+        </li>
+        <li><a href="#relations">3. 模块间关系</a></li>
+        <li><a href="#flows">4. 核心业务流程</a>
+          <ul class="sub">
+            <li><a href="#flow-login">4.1 账号密码登录</a></li>
+            <li><a href="#flow-sso">4.2 SSO 登录</a></li>
+            <li><a href="#flow-perm">4.3 请求鉴权与权限校验</a></li>
+            <li><a href="#flow-tenant">4.4 租户开通</a></li>
+            <li><a href="#flow-approval">4.5 采购审批工作流</a></li>
+            <li><a href="#flow-audit">4.6 审计日志与归档</a></li>
+            <li><a href="#flow-upload">4.7 文件分片上传</a></li>
+            <li><a href="#flow-webhook">4.8 通知与 Webhook 推送</a></li>
+            <li><a href="#flow-search">4.9 全文检索同步（阶段十三）</a></li>
+            <li><a href="#flow-ai">4.10 AI 交互（阶段十四）</a></li>
+          </ul>
+        </li>
+        <li><a href="#api">5. 接口概要设计</a>
+          <ul class="sub">
+            <li><a href="#api-common">5.1 公共约定</a></li>
+            <li><a href="#api-group">5.2 接口分组</a></li>
+            <li><a href="#api-open">5.3 开放接口</a></li>
+          </ul>
+        </li>
+        <li><a href="#data">6. 数据概要设计</a>
+          <ul class="sub">
+            <li><a href="#data-domain">6.1 数据域划分</a></li>
+            <li><a href="#data-key">6.2 关键数据要点</a></li>
+          </ul>
+        </li>
+        <li><a href="#frontend">7. 前端概要设计</a>
+          <ul class="sub">
+            <li><a href="#fe-pages">7.1 页面清单</a></li>
+            <li><a href="#fe-flow">7.2 前端关键机制</a></li>
+          </ul>
+        </li>
+        <li><a href="#integration">8. 系统集成概要</a></li>
+        <li><a href="#runtime">9. 部署运行概要</a></li>
+        <li><a href="#detail-guidance">10. 详细设计指引</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="overview">1. 概述</h2>
+      <p>
+        本文档是 BMS 基础管理系统的概要设计，在《架构设计》（<code>文档/设计/架构设计/架构设计.html</code>）基础上，
+        描述功能模块划分、模块间关系、核心业务流程与接口/数据/前端概要，作为详细设计（数据库表结构、
+        接口参数、页面交互）的实施依据。
+      </p>
+      <div class="note">本文档为设计阶段文档，与《项目规划说明》《命名规范》配套；文中接口路径、表名、权限码命名均遵循《命名规范》。</div>
+
+      <h2 id="modules">2. 功能模块划分</h2>
+
+      <h3 id="modules-mvp">2.1 MVP 模块清单</h3>
+      <table>
+        <tr><th>域</th><th>模块</th><th>说明</th></tr>
+        <tr><td rowspan="6">组织与权限</td><td>用户管理</td><td>增删改查、启用/停用、重置密码、分配岗位、主体角色绑定、SSO 身份绑定查看、账号锁定/解锁</td></tr>
+        <tr><td>岗位 / 部门管理</td><td>岗位归属部门；部门组织树；两者均可作为主体链中间实体分配角色</td></tr>
+        <tr><td>角色管理</td><td>角色增删改查、主体绑定、业务权限（隐含菜单+表单）、动作权限（按钮级）、动作数据范围配置</td></tr>
+        <tr><td>菜单管理</td><td>菜单/表单/按钮/字段维护，字段权限授予（visible/editable）；业务/动作码平台统一</td></tr>
+        <tr><td>字典管理 / 系统参数</td><td>通用数据字典；系统级参数配置</td></tr>
+        <tr><td>会话管理</td><td>在线会话查看、强制踢出</td></tr>
+        <tr><td rowspan="4">通用能力</td><td>文件管理</td><td>上传/下载与在线预览（图片/PDF），分片上传+断点续传，预签名 URL 限时下载</td></tr>
+        <tr><td>导入导出</td><td>Excel 批量导入（用户等）、列表导出</td></tr>
+        <tr><td>通知中心 / 公告管理</td><td>站内信与待办提醒（Socket.IO 实时）、批量已读；全员公告发布/置顶/过期下线/已读回执</td></tr>
+        <tr><td>邮件短信通知</td><td>邮件/短信模板入库在线编辑（Jinja2），SMTP 发送、短信渠道（阿里云/腾讯云）、发送记录</td></tr>
+        <tr><td rowspan="4">业务与流程</td><td>采购管理</td><td>采购申请单提交与三级审批、审批通过生成采购订单、供应商档案维护</td></tr>
+        <tr><td>工作流管理</td><td>BPMN 流程定义（bpmn-js 建模）、流程实例、待办/已办、审批记录、会签/或签、流程版本管理</td></tr>
+        <tr><td>报表中心</td><td>数据集管理（SQL 建模、只读从库执行）、拖拽报表设计器（ECharts）、可视化大屏</td></tr>
+        <tr><td>回收站</td><td>软删除数据查看与恢复（审计留痕）、过期数据物理清理</td></tr>
+        <tr><td rowspan="6">平台与治理</td><td>租户管理</td><td>租户开通（自动建库+迁移+种子）、停用/启用、域名配置、配额管理、平台超管运营视图</td></tr>
+        <tr><td>身份认证（SSO）</td><td>外部 IdP 配置（OIDC/CAS/企业微信/钉钉）、JIT 自动建号、BMS 兼作 IdP、本地登录并存</td></tr>
+        <tr><td>审计合规</td><td>字段级变更审计、审计日志哈希链防篡改与校验、三权分立、合规留存归档</td></tr>
+        <tr><td>国际化管理</td><td>语言清单维护（含 RTL 标记）、语言包页面维护、用户时区偏好</td></tr>
+        <tr><td>归档 / 备份管理</td><td>归档策略配置与两段式归档；备份任务配置、手动备份、恢复演练登记</td></tr>
+        <tr><td>任务调度 / 系统监控</td><td>定时任务入库页面管理；健康检查、指标/日志/告警、缓存管理</td></tr>
+        <tr><td rowspan="3">集成与日志</td><td>开放接口管理</td><td>第三方应用注册、scope 分配、IP 白名单、调用日志</td></tr>
+        <tr><td>Webhook 管理</td><td>事件订阅注册、推送状态与重试记录</td></tr>
+        <tr><td>操作 / 登录日志</td><td>关键操作与登录审计，RocketMQ 异步写入，按月分片</td></tr>
+        <tr><td colspan="2">全文检索（阶段十三）</td><td>主数据/审计日志/文件内容检索，RocketMQ 事件驱动异步同步、索引重建</td></tr>
+        <tr><td colspan="2">AI 能力（阶段十四）</td><td>智能报表助手、智能审批辅助、AI 内容生成、语义搜索与文件问答、OCR、审计异常检测、知识库问答</td></tr>
+      </table>
+
+      <h3 id="modules-role">2.2 模块归属与权限码</h3>
+      <ul>
+        <li>每个模块以「业务权限码」标识（<code>sys_business</code>），如 <code>user</code>、<code>wf</code>、<code>purchase</code>、<code>rpt</code>；动作权限码归属业务（<code>sys_action</code>），如 <code>user:create</code>、<code>wf:approve</code>、<code>file:upload</code></li>
+        <li>默认归属：平台超管（<code>sys</code>/<code>tenant</code>/<code>menu</code>/<code>business</code>/<code>action</code>）、系统管理员（用户/岗位/部门/字典/配置/文件/会话/邮件/任务/归档/i18n/SSO/回收站/备份）、安全管理员（角色/开放接口/IdP/数据脱敏）、审计管理员（<code>log</code>）、普通角色（工作流/公告/采购/通知/报表/监控/导入导出/AI 对话）</li>
+        <li>租户开通种子：三类内置管理员角色（系统/安全/审计，权限互斥）预授对应权限码</li>
+      </ul>
+
+      <h2 id="relations">3. 模块间关系</h2>
+      <pre><code>┌──────────────────────── 权限与组织域（被依赖基座） ────────────────────────┐
+│ 用户 ← 岗位/部门（主体链）→ 角色 → 业务/动作权限 → 菜单/表单/按钮/字段 → 数据范围 │
+└───────────────────────────────┬──────────────────────────────────────────┘
+        ▲ 被所有业务模块依赖（接口级 require_permission 校验）
+┌───────┼───────────────────────────────────────────────────────────────────┐
+│       ▼                                                                   │
+│ 通用能力域：文件 / 导入导出 / 通知公告 / 邮件短信 / 字典 / 参数 / 国际化      │
+│       ▲ ▲ ▲                                                               │
+│       │ │ │ 依赖（附件、审批提醒、模板渲染）                               │
+│ 业务流程域：工作流 ←→ 采购管理（审批生成订单、Webhook 事件）                   │
+│            报表中心（只读从库 + 数据集安全执行）                             │
+└───────┼───────────────────────────────────────────────────────────────────┘
+        ▼
+┌─────────────────────────────── 治理域 ─────────────────────────────────────┐
+│ 审计日志（操作/登录/数据变更，哈希链） ← 全部模块事件                         │
+│ 归档/备份/回收站/任务调度/系统监控/租户配额                                   │
+│ 事件总线（RocketMQ）：操作日志异步化 · Webhook · ES 同步 · 审计链串行消费      │
+└─────────────────────────────────────────────────────────────────────────────┘</code></pre>
+      <ul>
+        <li>权限与组织域是全部业务模块的基座：接口鉴权、菜单动态下发、数据范围过滤都依赖它</li>
+        <li>工作流与采购管理强关联：审批通过事件（<code>wf.task.completed</code>）驱动生成采购订单；审批待办实时推送到通知中心</li>
+        <li>治理域横向贯穿：所有模块的关键操作经事件总线落审计日志；归档/备份任务统一由任务调度驱动</li>
+      </ul>
+
+      <h2 id="flows">4. 核心业务流程</h2>
+
+      <h3 id="flow-login">4.1 账号密码登录</h3>
+      <pre><code>用户 → 登录页（连续失败 3 次后显示图形验证码）
+  → POST /api/v1/auth/login（slowapi 限流：5 次失败锁 15 分钟）
+  → PBKDF2 校验密码 → 检查账号状态（停用/锁定）
+  → 签发双 token（access 30 分钟内存态 + refresh 14 天 httpOnly cookie）
+  → 写 sys_login_log（成功/失败，异步经 RocketMQ）→ 写 sys_session → 返回用户与权限概要</code></pre>
+      <p>登出：refresh token 加入 Redis 黑名单即时失效；refresh 轮换滚动续期；重置密码后强制失效该账号全部会话。</p>
+
+      <h3 id="flow-sso">4.2 SSO 登录</h3>
+      <pre><code>用户 → 登录页选择 IdP 入口（sys_identity_provider，OIDC/CAS/企微/钉钉）
+  → 外部 IdP 认证 → 回跳携带身份凭证
+  → 经 sys_user_identity 全局映射定位租户与用户
+  → 未绑定则 JIT 自动建号（并落 sso.user.jit_created 事件）
+  → 签发 BMS 双 token，进入系统
+本地账号密码登录并存（超管应急通道，防 IdP 故障锁死）</code></pre>
+
+      <h3 id="flow-perm">4.3 请求鉴权与权限校验</h3>
+      <pre><code>请求 → nginx 解析租户子域名 → backend 中间件
+  → Bearer access token 校验 → Redis 会话有效标记校验（踢出即时生效）
+  → 解析主体链（用户→角色取并集）→ 汇总权限码集合
+  → 路由级 require_permission(业务:动作) 校验（动作级数据范围读校验）
+  → 响应序列化（字段权限：不可见字段过滤、脱敏字段掩码）
+写入类请求在保存前再做一次数据范围校验</code></pre>
+
+      <h3 id="flow-tenant">4.4 租户开通</h3>
+      <pre><code>平台超管 → 租户管理创建租户（录入 code/名称/域名）
+  → 自动建库 bms_tenant_{code} → 双套 Alembic 迁移
+  → 种子：三类内置管理员角色 + 初始系统管理员账号 + 默认 IdP 占位
+         + 归档策略 + 平台统一菜单/表单/按钮/字段挂接与权限码
+  → 落 tenant.created 事件 → 租户侧可登录使用
+停用/启用/配额调整同理走平台超管运营视图</code></pre>
+
+      <h3 id="flow-approval">4.5 采购审批工作流</h3>
+      <pre><code>申请人 → 提交采购申请（幂等键去重）
+  → 启动流程实例（采购三级审批模板：部门经理 → 财务 → 分管领导）
+  → 审批人收到待办（Socket.IO 实时 + 站内信）→ 同意/驳回/评论（会签/或签按流程定义）
+  → 全部通过 → 生成采购订单（biz_purchase_order）→ 落 purchase.order.created 事件
+  → Webhook 订阅方收到推送；审批记录与流程轨迹全量落库</code></pre>
+
+      <h3 id="flow-audit">4.6 审计日志与归档</h3>
+      <pre><code>业务写操作 → ORM 事件捕获字段级变更（sys_data_audit_log）
+  → 审计事件经 RocketMQ 按租户分区有序消费 → 逐条哈希串联（prev_hash + record_hash）
+  → 按月分片落库（sys_operation_log_yyyyMM 等）
+  → 90 天归档策略触发：链完整性校验 → 迁归档库（可在线查询）→ 转对象存储冷化
+  → 归档文件随哈希链导出，供事后校验；合规销毁记录销毁日志</code></pre>
+
+      <h3 id="flow-upload">4.7 文件分片上传</h3>
+      <pre><code>≤20MB：整包上传（类型白名单 + SHA256 校验）→ MinIO 私有桶 → 记录 sys_file 元数据
+  >20MB：初始化 upload_id（sys_file 状态=上传中）→ 逐分片上传
+  （分片临时对象 .part 标识，逐片 SHA256 校验，支持断点续传）
+  → 全部完成后合并为最终对象并清理分片 → 状态=完成 → 落 file.uploaded 事件
+  → 下载走预签名 URL（限时有效）；中断遗留孤儿分片由 Celery 定时回收</code></pre>
+
+      <h3 id="flow-webhook">4.8 通知与 Webhook 推送</h3>
+      <pre><code>业务事件 → RocketMQ 事件总线（事件命名 {域}.{对象}.{动作}）
+  → event-worker 消费：
+      · 通知类（审批待办等）→ 站内信落库 + Socket.IO 实时推送（Redis 适配器广播）
+      · 邮件/短信 → 模板渲染（Jinja2，按收件人 locale）→ aiosmtplib/短信渠道发送 → 发送记录
+      · Webhook 订阅 → 匹配事件名 → HMAC 签名推送 → 指数退避重试 → 失败记录</code></pre>
+
+      <h3 id="flow-search">4.9 全文检索同步（阶段十三）</h3>
+      <pre><code>主数据/审计日志/文件内容变更 → RocketMQ 事件 → event-worker 消费
+  → 解析文件文本（PDF/Word/Excel/TXT，扫描件走 OCR）→ 写入 ES 索引
+  → 查询：ES 命中返回业务 ID + 高亮 → 回查数据库取最新数据（避免双写一致性问题）
+  → 索引重建：重放事件流；ES 故障降级数据库模糊查询兜底
+  → 检索强制租户隔离（索引含 tenant_id 字段 + 数据权限过滤）</code></pre>
+
+      <h3 id="flow-ai">4.10 AI 交互（阶段十四）</h3>
+      <pre><code>用户提问（智能问数/审批辅助/文档问答）→ LLM 适配层（外部 API/私有化可切）
+  → 全量落 ai_chat_log 审计（提示词/响应/模型/成本）
+  → RAG 检索（Milvus 向量库，按租户隔离）遵守动作级数据权限范围
+  → 结果仅辅助展示；自动执行写操作/自动审批默认关闭（开关开启需白名单 + 二次确认 + 可撤销）</code></pre>
+
+      <h2 id="api">5. 接口概要设计</h2>
+
+      <h3 id="api-common">5.1 公共约定</h3>
+      <ul>
+        <li>前缀：内部 <code>/api/v1</code>，开放 <code>/api/open</code>；统一响应 <code>{code, message, data}</code>，code=0 成功</li>
+        <li>错误码 5 位分段：1xxxx 通用 / 2xxxx 认证 / 3xxxx 用户与组织 / 4xxxx 系统配置 / 5xxxx 文件 / 6xxxx 工作流 / 7xxxx 通知邮件任务 / 8xxxx 开放接口租户 SSO / 9xxxx 报表审计归档监控；文案前端按 i18n 映射</li>
+        <li>分页参数 <code>page</code>/<code>size</code>，响应 <code>{list, total, page, size}</code>；大数据量列表游标分页（<code>cursor</code>/<code>limit</code>）</li>
+        <li>鉴权：除登录/刷新/健康检查外一律 Bearer access token；权限校验 <code>require_permission</code> 依赖</li>
+        <li>写接口支持幂等键（请求头 <code>Idempotency-Key</code>，Redis SETNX 前置 + 唯一约束兜底）</li>
+        <li>RESTful 资源式：<code>GET /users</code>、<code>POST /users</code>、<code>PUT /users/{id}</code>、<code>DELETE /users/{id}</code>；动作类 <code>/auth/login</code>、<code>/users/{id}/reset-password</code></li>
+      </ul>
+
+      <h3 id="api-group">5.2 接口分组</h3>
+      <table>
+        <tr><th>分组</th><th>典型接口</th></tr>
+        <tr><td>认证</td><td><code>POST /api/v1/auth/login</code>、<code>/auth/refresh</code>、<code>/auth/logout</code>、<code>/auth/captcha</code>、<code>/auth/forgot-password</code></td></tr>
+        <tr><td>用户与组织</td><td><code>/users</code>（含锁定/解锁/重置密码/绑定角色）、<code>/posts</code>、<code>/departments</code>、<code>/roles</code>（含授权/数据范围）</td></tr>
+        <tr><td>系统配置</td><td><code>/menus</code>（含表单/按钮/字段）、<code>/business</code>、<code>/actions</code>、<code>/dicts</code>、<code>/configs</code>、<code>/i18n/messages</code></td></tr>
+        <tr><td>文件</td><td><code>/files</code>（上传/分片/合并/下载/预览）</td></tr>
+        <tr><td>工作流</td><td><code>/wf/processes</code>（定义/版本）、<code>/wf/instances</code>、<code>/wf/tasks</code>（待办/审批）</td></tr>
+        <tr><td>业务</td><td><code>/purchase/applies</code>、<code>/purchase/orders</code>、<code>/purchase/suppliers</code></td></tr>
+        <tr><td>通知与任务</td><td><code>/notifications</code>（批量已读）、<code>/notices</code>（已读回执）、<code>/mails</code>、<code>/sms</code>、<code>/tasks</code>（调度管理/触发）</td></tr>
+        <tr><td>平台</td><td><code>/tenants</code>（开通/停用/配额）、<code>/idps</code>、<code>/sessions</code>（踢出）、<code>/webhooks</code>、<code>/open/clients</code></td></tr>
+        <tr><td>治理</td><td><code>/logs</code>（操作/登录/审计）、<code>/archives</code>（策略/记录）、<code>/backups</code>、<code>/recycle</code>（恢复）、<code>/monitor</code>（健康/缓存）</td></tr>
+        <tr><td>报表</td><td><code>/rpt/datasets</code>、<code>/rpt/reports</code>、<code>/rpt/screens</code></td></tr>
+        <tr><td>AI（阶段十四）</td><td><code>/ai/chat</code>、<code>/ai/assist</code>、<code>/ai/search</code>、<code>/ai/ocr</code>、<code>/ai/providers</code></td></tr>
+      </table>
+
+      <h3 id="api-open">5.3 开放接口</h3>
+      <ul>
+        <li>OAuth2 Client Credentials：client_id/secret 换取 access token（自签 JWT 短 TTL），支持 scope 最小化分配，写接口需显式授予</li>
+        <li>独立前缀 <code>/api/open</code>，按 client 维度独立限流，全量调用审计（<code>sys_open_log</code> 按月分片 + 哈希链）</li>
+        <li>契约：OpenAPI（swagger.json）CI 导出快照存档分发；生产关闭在线文档端点</li>
+        <li>BMS 兼作 IdP：对外提供 OIDC Provider（授权码流程），第三方系统以 BMS 用户体系实现单点登录</li>
+      </ul>
+
+      <h2 id="data">6. 数据概要设计</h2>
+
+      <h3 id="data-domain">6.1 数据域划分</h3>
+      <table>
+        <tr><th>域</th><th>核心表</th><th>说明</th></tr>
+        <tr><td>组织与权限</td><td><code>sys_user</code>、<code>sys_post</code>、<code>sys_user_post</code>、<code>sys_dept</code>、<code>sys_role</code>、<code>sys_role_assign</code>、<code>sys_business</code>、<code>sys_action</code>、<code>sys_role_permission</code>、<code>sys_menu</code>、<code>sys_form</code>、<code>sys_field</code>、<code>sys_role_field</code>、<code>sys_button</code>、<code>sys_data_scope</code>【平台库：菜单/表单/字段/按钮/业务/动作】</td><td>RBAC 主体链 + 权限分层基座；用户/角色等表启用字段级变更审计</td></tr>
+        <tr><td>认证与会话</td><td><code>sys_session</code>、<code>sys_account_lock</code>、<code>sys_user_identity</code>【平台库】、<code>sys_identity_provider</code>、<code>sys_admin</code>【平台库】</td><td>会话记录、锁定记录、SSO 身份映射</td></tr>
+        <tr><td>通用能力</td><td><code>sys_dict_type</code>/<code>sys_dict_item</code>、<code>sys_config</code>、<code>sys_file</code>、<code>sys_notification</code>、<code>sys_notice</code>/<code>sys_notice_read</code>、<code>sys_mail_template</code>/<code>sys_mail_log</code>、<code>sys_sms_template</code>/<code>sys_sms_log</code></td><td>字典（平台默认、租户覆盖）、参数、文件元数据、通知公告、邮件短信</td></tr>
+        <tr><td>工作流与业务</td><td><code>wf_process</code>、<code>wf_instance</code>、<code>wf_task</code>、<code>wf_record</code>；<code>biz_purchase_apply</code>、<code>biz_purchase_order</code>、<code>biz_supplier</code></td><td>BPMN 定义与执行、采购链路</td></tr>
+        <tr><td>审计日志</td><td><code>sys_operation_log</code>、<code>sys_login_log</code>、<code>sys_open_log</code>、<code>sys_data_audit_log</code></td><td>按月分片 + 哈希链防篡改 + 90 天归档</td></tr>
+        <tr><td>治理</td><td><code>sys_tenant</code>、<code>sys_tenant_quota</code>【平台库】、<code>sys_webhook</code>/<code>sys_webhook_log</code>、<code>sys_client</code>、<code>sys_task</code>/<code>sys_task_log</code>、<code>sys_archive_policy</code>/<code>sys_archive_log</code>、<code>sys_backup_task</code>/<code>sys_backup_log</code></td><td>租户、Webhook、开放接口、调度、归档、备份</td></tr>
+        <tr><td>报表与 AI</td><td><code>rpt_dataset</code>、<code>rpt_report</code>、<code>rpt_screen</code>；<code>sys_ai_provider</code>【平台库】、<code>ai_chat_log</code>、<code>ai_file_segment</code></td><td>报表建模与展示配置；AI 端点配置、交互审计、文件分段</td></tr>
+      </table>
+
+      <h3 id="data-key">6.2 关键数据要点</h3>
+      <ul>
+        <li>多语言附表：<code>{主表}_i18n</code>（菜单/业务/动作/字段/字典/邮件模板），联合主键（主表 ID + locale），查询按当前 locale 关联、缺省回退主表默认文案</li>
+        <li>软删除统一 <code>deleted_at</code>；唯一约束 (唯一字段, <code>deleted_at</code>) 复合唯一索引；回收站复用软删除字段，无独立表</li>
+        <li>审计类表按月分片（物理表名 <code>yyyyMM</code> 后缀），分片表由 Celery 预创建；跨月哈希链首尾衔接</li>
+        <li>全部业务表统一：雪花 ID 主键、审计字段、乐观锁 <code>version</code>、时间 UTC；关联表联合主键不设 id</li>
+      </ul>
+
+      <h2 id="frontend">7. 前端概要设计</h2>
+
+      <h3 id="fe-pages">7.1 页面清单</h3>
+      <ul>
+        <li>PC 管理端（frontend）：登录页、主布局、用户/岗位/角色/部门/菜单（含表单/按钮/字段维护与字段权限配置）/业务权限/动作权限/字典/系统参数、操作日志/登录日志、文件管理、会话管理、公告管理、流程建模/流程实例/我的待办/已办、通知中心、采购申请/订单/供应商档案、开放接口/Webhook 管理、系统监控（Grafana 跳转 + 依赖状态 + 缓存管理）、任务调度、邮件模板/邮件日志/短信记录、租户管理（含配额）、IdP 配置、数据集/报表设计器/报表查看/大屏设计器/大屏播放、数据变更审计、语言管理/语言包维护、归档策略/执行记录、备份管理、回收站、归档数据查询、全局搜索（阶段十三）、AI 助手/模型配置（阶段十四）、个人中心</li>
+        <li>移动端 H5（frontend-mobile）：登录（账号密码/SSO/企微钉钉免登）、我的待办/已办、审批操作（附件在线预览）、通知列表（批量已读）、公告查看、我发起的、数据查询、个人中心</li>
+      </ul>
+
+      <h3 id="fe-flow">7.2 前端关键机制</h3>
+      <ul>
+        <li>动态路由：菜单树按业务权限由后端下发（含 locale 翻译），前端据此注册路由与侧边栏；表单元数据（按钮/字段可见可编辑状态）随菜单接口下发；前端不硬编码路由表</li>
+        <li>权限渲染：<code>v-perm="'业务:动作'"</code> 指令控制按钮显隐，字段权限控制表单字段可见/可编辑；Axios 拦截器注入 token、401 自动刷新</li>
+        <li>实时推送：socket.io-client 接收待办/通知/会话失效；验证码登录、分片上传组件</li>
+        <li>国际化：语言包运行时拉取（Redis 缓存 + localStorage 二次缓存）、RTL 布局切换、用户时区偏好</li>
+        <li>性能：Element Plus 按需引入、路由懒加载、静态资源 gzip/brotli + 缓存头</li>
+      </ul>
+
+      <h2 id="integration">8. 系统集成概要</h2>
+      <table>
+        <tr><th>集成方向</th><th>方式</th><th>要点</th></tr>
+        <tr><td>外部系统调 BMS</td><td>OAuth2 Client Credentials + <code>/api/open</code></td><td>scope 最小化、IP 白名单、调用审计、swagger.json 契约快照</td></tr>
+        <tr><td>BMS 兼作 IdP</td><td>OIDC Provider（授权码）</td><td>第三方系统以 BMS 用户体系 SSO；客户端注册复用 <code>sys_client</code></td></tr>
+        <tr><td>BMS 调外部（同步）</td><td>httpx 统一封装</td><td>超时/重试/熔断</td></tr>
+        <tr><td>BMS 调外部（异步）</td><td>Webhook 事件推送</td><td>HMAC 签名、指数退避重试、失败记录</td></tr>
+        <tr><td>企业微信 / 钉钉</td><td>OAuth 免登 + 群机器人告警</td><td>复用外部身份框架；告警经 BMS 内部接口转换格式推送</td></tr>
+        <tr><td>短信渠道</td><td>阿里云 / 腾讯云</td><td>验证码与告警，模板入库，发送记录</td></tr>
+      </table>
+
+      <h2 id="runtime">9. 部署运行概要</h2>
+      <ul>
+        <li>进程：backend（FastAPI 多副本）+ celery-worker（多副本）+ celery-beat（单副本）+ event-worker（多副本）+ frontend/frontend-mobile（nginx 托管）</li>
+        <li>基础设施：Redis + RocketMQ（nameserver + broker）+ MinIO + ElasticSearch + Milvus（阶段十四）+ MySQL/PostgreSQL + 监控（Prometheus/Loki/Grafana/Alertmanager/Jaeger/otel-collector）</li>
+        <li>环境：dev/test/prod 三套，config.toml 按 <code>BMS_ENV</code> 分层 + 环境变量覆盖；密钥只走环境变量</li>
+        <li>健康检查：/healthz 存活、/readyz 就绪（DB/Redis 连通）</li>
+        <li>CI/CD：GitHub Actions（后端 ruff + pytest、前端 ESLint + Vitest + 双端构建、Playwright E2E、双库方言集成测试、镜像构建、swagger.json 快照）</li>
+      </ul>
+
+      <h2 id="detail-guidance">10. 详细设计指引</h2>
+      <p>概要设计定稿后，详细设计按以下范围展开（各阶段实施时随《开发计划与验收标准》推进）：</p>
+      <ul>
+        <li>数据库：逐表字段级设计（类型、索引、约束、i18n 附表、分片键）与双套 Alembic 迁移脚本</li>
+        <li>接口：逐接口请求/响应 Schema（Pydantic）、错误码清单、权限码与数据范围声明、幂等键语义</li>
+        <li>权限：权限计算引擎（主体链收敛）算法与缓存策略、字段权限读写校验点、数据范围过滤实现</li>
+        <li>事件：事件清单字段级定义、消费者幂等与重试、审计链串行消费与跨月衔接</li>
+        <li>前端：组件清单、动态路由与权限指令实现、页面交互状态机（如分片上传）、E2E 用例</li>
+        <li>部署：Compose 编排细节、nginx 配置（租户子域名、WebSocket 亲和、安全响应头）、备份恢复演练步骤</li>
+      </ul>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 依《文档生成规范》编写 · 与《项目规划说明》《架构设计》《命名规范》配套 · 生成日期：2026-08-06
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>
