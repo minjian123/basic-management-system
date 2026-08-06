@@ -261,6 +261,7 @@
         <tr><td>file.uploaded</td><td>文件上传完成</td><td>file_id、sha256、size</td><td>否</td></tr>
         <tr><td>notification.sent</td><td>通知/邮件/短信发送</td><td>user_id、type、biz_type</td><td>否</td></tr>
         <tr><td>notice.published</td><td>公告发布/更新/下线</td><td>notice_id、title、is_top</td><td>是</td></tr>
+        <tr><td>form.updated</td><td>菜单/表单/字段/按钮变更（平台统一维护）</td><td>form_id、menu_id、business_id、changed_type</td><td>否（AI 帮助更新触发）</td></tr>
         <tr><td>help.article.published / help.article.updated / help.article.deleted</td><td>帮助文章发布/更新/删除</td><td>article_id、category_id、target_key</td><td>否</td></tr>
         <tr><td>task.completed</td><td>定时任务执行完成</td><td>task_id、status</td><td>否</td></tr>
         <tr><td>tenant.created / tenant.suspended / tenant.activated</td><td>租户开通/停用/启用</td><td>tenant code、db_key、status</td><td>是</td></tr>

@@ -181,7 +181,8 @@
         </li>
         <li><a href="#feedback">5. 阅读反馈与统计</a></li>
         <li><a href="#search-ai">6. 检索与 AI 联动</a></li>
-        <li><a href="#coordination">7. 与其他子系统的协调</a></li>
+        <li><a href="#ai-maintain">7. AI 智能维护（阶段十四）</a></li>
+        <li><a href="#coordination">8. 与其他子系统的协调</a></li>
       </ul>
     </nav>
   </aside>
@@ -254,12 +255,23 @@
         <li>草稿/下架文章不进入检索与 AI 知识源</li>
       </ul>
 
-      <h2 id="coordination">7. 与其他子系统的协调</h2>
+      <h2 id="ai-maintain">7. AI 智能维护（阶段十四）</h2>
+      <p>帮助文档智能维护为阶段十四 AI 第八项能力（见 21-AI服务节点）：</p>
       <ul>
-        <li><strong>事件总线</strong>：help.article.* 事件（Webhook 订阅：否；ES 同步：是）</li>
+        <li><strong>输入源</strong>：功能代码（graphify 知识图谱/代码结构）+ 设计文档（架构/布局/规划）+ 表单元数据（sys_form/sys_field/业务权限码清单）——AI 可读取真实实现，保证帮助内容与系统现状一致</li>
+        <li><strong>手动触发</strong>：帮助管理页对当前分类/文章点击"AI 生成/更新草稿"，按目标上下文（target_type/target_key）生成内容</li>
+        <li><strong>变更事件自动触发</strong>：菜单/表单/字段/按钮变更（form.updated 事件）→ AI 生成对应更新草稿并通知维护人审核（不自动覆盖已发布文章）</li>
+        <li><strong>质量评估</strong>：定时任务周期扫描已发布文章，评估陈旧度（与表单元数据/代码结构对比）、完整性、准确性，生成改进建议报告</li>
+        <li><strong>发布流程</strong>：AI 结果一律为草稿（draft），人工审核后发布；全量落 ai_chat_log 审计，符合"AI 结果默认仅辅助"约束</li>
+      </ul>
+
+      <h2 id="coordination">8. 与其他子系统的协调</h2>
+      <ul>
+        <li><strong>事件总线</strong>：help.article.* 事件（Webhook 订阅：否；ES 同步：是）；form.updated 事件驱动 AI 更新</li>
+        <li><strong>AI 服务</strong>：帮助文档智能维护能力（阶段十四）；帮助文章为知识库问答知识源</li>
+        <li><strong>任务调度</strong>：帮助文章质量评估扫描为内置任务（阶段十四）</li>
         <li><strong>权限计算引擎</strong>：业务码 help（帮助中心管理），动作 manage；前台阅读无需权限</li>
         <li><strong>全文检索</strong>：bms-main 索引含帮助文章（阶段十三）</li>
-        <li><strong>AI 服务</strong>：帮助文章为知识库问答知识源（阶段十四）</li>
         <li><strong>审计哈希链</strong>：文章内容变更落字段级审计（内容合规可追溯）</li>
         <li><strong>数据架构</strong>：表存租户库（租户维护各自帮助），i18n 附表遵循统一规范</li>
         <li><strong>初始化数据</strong>：初始帮助分类与基础文章种子（快速上手/系统管理/业务操作）</li>
