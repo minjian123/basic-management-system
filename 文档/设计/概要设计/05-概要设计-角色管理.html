@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>概要设计 · 角色管理</title>
+<style>
+  :root {
+    --bg: #f7f8fa;
+    --fg: #1f2328;
+    --muted: #57606a;
+    --border: #d0d7de;
+    --accent: #0969da;
+    --accent-bg: #ddf4ff;
+    --code-bg: #f6f8fa;
+    --warn-bg: #fff8c5;
+    --warn-border: #d4a72c;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+    line-height: 1.75;
+  }
+  .layout { display: flex; height: 100vh; overflow: hidden; }
+  .sidebar {
+    width: 280px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+  }
+  .sidebar .brand {
+    background: linear-gradient(135deg, #1f2328, #32383f);
+    color: #fff;
+    padding: 1.4rem 1.2rem 1.1rem;
+    border-bottom: 3px solid var(--accent);
+    flex-shrink: 0;
+  }
+  .sidebar .brand h1 { margin: 0 0 .35rem; font-size: 1.15rem; line-height: 1.4; }
+  .sidebar .brand p { margin: 0; color: #b6bec6; font-size: .78rem; }
+  .sidebar nav { padding: .8rem .6rem 1.5rem; font-size: .9rem; }
+  .sidebar nav ul { list-style: none; margin: 0; padding: 0; }
+  .sidebar nav li { margin: .15rem 0; }
+  .sidebar nav a {
+    display: block;
+    padding: .3rem .7rem;
+    border-radius: 5px;
+    color: var(--fg);
+    text-decoration: none;
+  }
+  .sidebar nav a:hover { background: var(--accent-bg); color: var(--accent); }
+  .sidebar nav .sub { padding-left: 1.6rem; font-size: .85rem; color: var(--muted); }
+  .content { flex: 1; overflow-y: auto; }
+  main {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1.5rem 2rem 4rem;
+  }
+  h2 {
+    margin-top: 2.5rem;
+    padding-bottom: .4rem;
+    border-bottom: 2px solid var(--border);
+    font-size: 1.35rem;
+  }
+  h3 { margin-top: 1.6rem; font-size: 1.1rem; }
+  p { margin: .6rem 0; }
+  ul, ol { margin: .6rem 0; padding-left: 1.6rem; }
+  li { margin: .3rem 0; }
+  code {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: .1em .35em;
+    font-family: Consolas, "Cascadia Mono", monospace;
+    font-size: .9em;
+  }
+  pre {
+    background: #0d1117;
+    color: #e6edf3;
+    border-radius: 8px;
+    padding: .9rem 1.1rem;
+    overflow-x: auto;
+    font-size: .88rem;
+    line-height: 1.6;
+  }
+  pre code { background: none; border: none; padding: 0; color: inherit; }
+  .note, .warn {
+    border-radius: 6px;
+    padding: .7rem 1rem;
+    margin: 1rem 0;
+    font-size: .95rem;
+  }
+  .note { background: var(--accent-bg); border-left: 4px solid var(--accent); }
+  .topnav {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: .4rem;
+    background: #fff;
+    border-bottom: 1px solid var(--border);
+    padding: .5rem 1rem;
+    font-size: .85rem;
+  }
+  .topnav .topnav-side { margin-left: auto; }
+  .topnav a { color: var(--accent); text-decoration: none; }
+  .topnav a:hover { text-decoration: underline; }
+  @media (max-width: 768px) {
+    .topnav .topnav-side { display: none; }
+  }
+  .warn { background: var(--warn-bg); border-left: 4px solid var(--warn-border); }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1rem 0;
+    font-size: .92rem;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: .45rem .7rem;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: #eef1f4; white-space: nowrap; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  footer {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1rem 2rem 3rem;
+    color: var(--muted);
+    font-size: .85rem;
+    border-top: 1px solid var(--border);
+  }
+  @media (max-width: 768px) {
+    .layout { flex-direction: column; height: auto; overflow: visible; }
+    .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); max-height: 40vh; }
+    .content { overflow: visible; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topnav">
+  <a href="01-概要设计.html">概要设计</a> › <span>05-角色管理</span>
+  <span class="topnav-side"><a href="04-概要设计-岗位管理.html">← 04-岗位管理</a> · <a href="06-概要设计-菜单管理.html">06-菜单管理 →</a></span>
+</div>
+
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>概要设计 · 角色管理</h1>
+      <p>BMS · 角色、授权与数据范围</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#overview">1. 模块概述与职责</a></li>
+        <li><a href="#func">2. 功能分解与业务流程</a>
+          <ul class="sub">
+            <li><a href="#func-list">2.1 功能点分解</a></li>
+            <li><a href="#func-rules">2.2 业务规则</a></li>
+            <li><a href="#func-flow">2.3 流程步骤</a></li>
+          </ul>
+        </li>
+        <li><a href="#sequence">3. 关键时序与协作</a></li>
+        <li><a href="#data">4. 数据模型与表设计</a>
+          <ul class="sub">
+            <li><a href="#data-tables">4.1 核心表</a></li>
+            <li><a href="#data-index">4.2 索引与唯一约束</a></li>
+            <li><a href="#data-flow">4.3 数据流转</a></li>
+          </ul>
+        </li>
+        <li><a href="#api">5. 接口设计</a>
+          <ul class="sub">
+            <li><a href="#api-list">5.1 接口清单</a></li>
+            <li><a href="#api-rule">5.2 分页/幂等/限流</a></li>
+            <li><a href="#api-events">5.3 事件发布</a></li>
+          </ul>
+        </li>
+        <li><a href="#perm">6. 权限与配置</a>
+          <ul class="sub">
+            <li><a href="#perm-codes">6.1 权限码</a></li>
+            <li><a href="#perm-menu">6.2 菜单挂接</a></li>
+            <li><a href="#perm-config">6.3 sys_config 参数</a></li>
+            <li><a href="#perm-seed">6.4 种子数据</a></li>
+          </ul>
+        </li>
+        <li><a href="#error">7. 错误码与异常处理</a></li>
+        <li><a href="#page">8. 页面清单与验收要点</a>
+          <ul class="sub">
+            <li><a href="#page-list">8.1 页面清单</a></li>
+            <li><a href="#page-accept">8.2 验收标准</a></li>
+          </ul>
+        </li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="overview">1. 模块概述与职责</h2>
+      <p>
+        本节对应《项目规划说明》「功能模块」之<strong>角色管理</strong>模块，与「权限模型」「业务与动作清单（权限码总表）」
+        「核心数据表清单」「审计合规」（三权分立）章节。架构设计依据《架构设计》10-权限计算引擎节点。
+      </p>
+      <p>
+        角色管理负责角色定义（<code>code / name / status</code>）、主体绑定（sys_role_assign，用户/岗位/部门任意主体链）、
+        菜单/表单权限授予（业务权限按表单→业务对照关系推导）、动作权限授予（按钮级，默认无）、
+        动作数据范围配置（sys_data_scope，默认无）与字段权限授予（sys_role_field，默认全部可见可编辑）。
+      </p>
+      <p>
+        职责边界：角色管理归<strong>安全管理员</strong>（三权分立），权限码命名 <code>业务:动作</code>；
+        角色只做授权不承载业务数据；权限计算（主体链收敛、缓存与版本失效）由权限计算引擎承担，本模块仅维护授权数据。
+      </p>
+
+      <h2 id="func">2. 功能分解与业务流程</h2>
+
+      <h3 id="func-list">2.1 功能点分解</h3>
+      <table>
+        <tr><th>功能点</th><th>说明</th><th>权限码</th></tr>
+        <tr><td>角色列表/详情</td><td>按 code/name/status 筛选分页</td><td>role:query</td></tr>
+        <tr><td>新建/修改/删除角色</td><td>code/name/status；删除前校验引用</td><td>role:create / role:update / role:delete</td></tr>
+        <tr><td>主体绑定</td><td>sys_role_assign：subject_type（user/post/dept…）+ subject_id + role_id，任意主体链；新增实体仅扩枚举</td><td>role:grant</td></tr>
+        <tr><td>菜单/表单权限授予</td><td>sys_role_permission perm_type=menu/form；业务权限按「表单→业务」对照关系推导</td><td>role:grant</td></tr>
+        <tr><td>动作权限授予</td><td>perm_type=action（按钮级），默认无任何按钮权限</td><td>role:grant</td></tr>
+        <tr><td>动作数据范围配置</td><td>sys_data_scope：动作→范围规则（字段+运算符+预置变量），默认无数据权限，写读双向校验</td><td>role:grant</td></tr>
+        <tr><td>字段权限授予</td><td>sys_role_field：visible/editable，默认全部可见可编辑，授予后收窄</td><td>role:grant</td></tr>
+      </table>
+
+      <h3 id="func-rules">2.2 业务规则</h3>
+      <ul>
+        <li>角色 code 租户内唯一（复合唯一索引 <code>(code, deleted_at)</code>）；内置角色（系统/安全/审计管理员）不可删改归属业务域</li>
+        <li>三权分立：三类内置管理员角色权限互斥、同一用户不得兼任；安全管理员管理角色时不得授予/修改自己的越权权限</li>
+        <li>权限分层不可越级：菜单权限隐含表单权限，表单权限隐含业务权限；业务权限不直接授予，由对照关系推导</li>
+        <li>动作权限默认全无：未授予按钮级动作的角色不显示任何按钮（前端显隐 + 后端 require_permission 双重控制）</li>
+        <li>数据范围默认无：未配置 sys_data_scope 的动作不附加数据范围条件；规则解析结果强制叠加租户过滤，不得跨租户</li>
+        <li>字段权限默认全开：未授予 sys_role_field 的字段全部可见可编辑；授予后不可见字段读时过滤（不返回不渲染）、不可编辑字段写时拒绝</li>
+        <li>授权变更即时生效：角色/授权/主体绑定变更 → 权限版本号 +1 并清理对应用户缓存</li>
+        <li>防止自锁：删除/停用角色前校验是否仍有主体绑定与有效授权引用</li>
+      </ul>
+
+      <h3 id="func-flow">2.3 流程步骤</h3>
+      <ol>
+        <li><strong>创建角色</strong>：填写 code/name → 唯一性校验 → 入库 → 授权页面逐步授予菜单/表单/动作/字段权限与数据范围</li>
+        <li><strong>主体绑定</strong>：选择主体类型（用户/岗位/部门）与主体 → 写入 sys_role_assign → 权限版本 +1 → 该主体关联用户缓存失效</li>
+        <li><strong>权限授予</strong>：勾选菜单/表单树（自动推导业务权限）→ 勾选按钮动作（默认空）→ 批量写入 sys_role_permission</li>
+        <li><strong>数据范围配置</strong>：选择动作 → 配置规则表达式（如 dept_id = @current_dept）→ 保存 sys_data_scope</li>
+        <li><strong>异常分支</strong>：授予的菜单隐含表单/业务存在缺失（平台未挂接）→ 提示先完成菜单挂接；规则表达式非法 → 拒绝保存；版本递增失败 → 回滚</li>
+      </ol>
+
+      <h2 id="sequence">3. 关键时序与协作</h2>
+      <pre><code>安全管理员      角色服务        DB          权限计算引擎       用户请求
+  | POST /roles   |             |                |               |
+  |--------------&gt;| 校验+写入    |                |               |
+  |               |------------&gt;| insert sys_role|               |
+  |  绑定主体      |             |                |               |
+  |---------------|------------&gt;| insert sys_role_assign        |
+  |               |-------------|----------------&gt;| 版本 +1 清理缓存
+  |  授予菜单/动作 |             |                |               |
+  |---------------|------------&gt;| insert sys_role_permission    |
+  |               |-------------|----------------&gt;| 版本 +1      |
+  |               |             |                |               |
+  |  用户访问接口  |             |                | 读取缓存/重算 | 校验通过/拒绝</code></pre>
+      <p>
+        协作要点：授权数据写入后经版本失效即时生效（用户下次请求重算权限并回填缓存 <code>bms:{tenant}:perm:{user_id}:{version}</code>）；
+        数据范围规则在数据访问层注入（读时）与写入口校验（写时）；角色/授权变更落字段级审计（审计哈希链）。
+      </p>
+
+      <h2 id="data">4. 数据模型与表设计</h2>
+
+      <h3 id="data-tables">4.1 核心表</h3>
+      <table>
+        <tr><th>表</th><th>关键字段</th><th>说明</th></tr>
+        <tr><td>sys_role</td><td>code、name、status</td><td>角色主表（租户库）；数据范围已移至动作级 sys_data_scope；软删除 + 审计字段 + version</td></tr>
+        <tr><td>sys_role_assign</td><td>subject_type（user/post/dept…）、subject_id、role_id</td><td>主体-角色通用绑定，联合主键（subject_type+subject_id+role_id）；权限计算收敛为用户→角色</td></tr>
+        <tr><td>sys_role_permission</td><td>role_id、perm_type（menu/form/action）、target_id</td><td>角色授予菜单/表单/动作权限；业务权限按表单→业务对照推导；target_id 跨库逻辑引用平台码</td></tr>
+        <tr><td>sys_role_field</td><td>role_id、form_id、field_id、visible、editable</td><td>角色字段权限，联合主键（role_id+form_id+field_id）；默认全部可见可编辑，授予后收窄</td></tr>
+        <tr><td>sys_data_scope</td><td>action_id、config（规则表达式）</td><td>动作级数据范围配置（动作→范围规则），写读双向校验，默认无数据权限</td></tr>
+      </table>
+
+      <h3 id="data-index">4.2 索引与唯一约束</h3>
+      <ul>
+        <li><code>sys_role</code>：复合唯一索引 <code>(code, deleted_at)</code>；索引 status</li>
+        <li><code>sys_role_assign</code>：联合主键 (subject_type, subject_id, role_id)；索引 (role_id)、索引 (subject_type, subject_id)</li>
+        <li><code>sys_role_permission</code>：索引 (role_id, perm_type)、索引 (target_id)（反查授权引用）</li>
+        <li><code>sys_role_field</code>：联合主键 (role_id, form_id, field_id)</li>
+        <li><code>sys_data_scope</code>：action_id 唯一（一动作一条范围规则）</li>
+      </ul>
+
+      <h3 id="data-flow">4.3 数据流转</h3>
+      <ul>
+        <li>角色/授权/主体绑定/字段权限/数据范围全部关键表，经 ORM 事件自动落字段级变更审计（sys_data_audit_log，按月分表）</li>
+        <li>角色软删除进回收站（recycle 恢复）；删除前清理解绑引用，恢复后授权数据不自动回补（按回收语义人工重授）</li>
+        <li>角色数据纳入全文检索主数据索引（阶段十三）</li>
+      </ul>
+
+      <h2 id="api">5. 接口设计</h2>
+
+      <h3 id="api-list">5.1 接口清单</h3>
+      <table>
+        <tr><th>方法</th><th>路径</th><th>说明</th><th>权限码</th></tr>
+        <tr><td>GET</td><td>/api/v1/roles</td><td>角色列表（code/name/status 筛选）</td><td>role:query</td></tr>
+        <tr><td>POST</td><td>/api/v1/roles</td><td>新建角色</td><td>role:create</td></tr>
+        <tr><td>GET</td><td>/api/v1/roles/{id}</td><td>角色详情（含授权摘要）</td><td>role:query</td></tr>
+        <tr><td>PUT</td><td>/api/v1/roles/{id}</td><td>修改角色（version 乐观锁）</td><td>role:update</td></tr>
+        <tr><td>DELETE</td><td>/api/v1/roles/{id}</td><td>删除角色（有主体绑定拒绝）</td><td>role:delete</td></tr>
+        <tr><td>GET</td><td>/api/v1/roles/{id}/subjects</td><td>主体绑定列表</td><td>role:query</td></tr>
+        <tr><td>POST</td><td>/api/v1/roles/{id}/subjects</td><td>绑定主体（user/post/dept…）</td><td>role:grant</td></tr>
+        <tr><td>DELETE</td><td>/api/v1/roles/{id}/subjects/{subject_type}/{subject_id}</td><td>解绑主体</td><td>role:grant</td></tr>
+        <tr><td>GET</td><td>/api/v1/roles/{id}/permissions</td><td>菜单/表单/动作授权列表</td><td>role:query</td></tr>
+        <tr><td>PUT</td><td>/api/v1/roles/{id}/permissions</td><td>批量授予/撤销菜单/表单/动作</td><td>role:grant</td></tr>
+        <tr><td>GET</td><td>/api/v1/roles/{id}/fields</td><td>字段权限列表</td><td>role:query</td></tr>
+        <tr><td>PUT</td><td>/api/v1/roles/{id}/fields</td><td>批量设置字段权限（visible/editable）</td><td>role:grant</td></tr>
+        <tr><td>GET</td><td>/api/v1/roles/{id}/data-scopes</td><td>动作数据范围列表</td><td>role:query</td></tr>
+        <tr><td>PUT</td><td>/api/v1/roles/{id}/data-scopes</td><td>配置动作数据范围规则</td><td>role:grant</td></tr>
+      </table>
+
+      <h3 id="api-rule">5.2 分页/幂等/限流</h3>
+      <ul>
+        <li>列表分页 <code>page/size</code>，响应 <code>{list, total, page, size}</code>；批量授予/绑定接口支持 <code>Idempotency-Key</code> 幂等</li>
+        <li>批量授权为单事务全量覆盖提交（先删后插），失败整体回滚；变更后统一触发权限版本 +1（一次递增，避免多次失效）</li>
+        <li>限流：角色写操作按安全管理员维度叠加 slowapi 限制；授权接口敏感操作落操作日志（含操作前后权限概要）</li>
+      </ul>
+
+      <h3 id="api-events">5.3 事件发布</h3>
+      <p>
+        本模块不发布领域事件；授权变更经权限版本失效机制即时生效，变更明细落字段级审计（sys_data_audit_log）与操作日志，
+        审计链按租户分区有序消费保证顺序。
+      </p>
+
+      <h2 id="perm">6. 权限与配置</h2>
+
+      <h3 id="perm-codes">6.1 权限码</h3>
+      <p>
+        本模块对应 <code>role</code> 业务（默认归属<strong>安全管理员</strong>），动作：<code>role:query</code>（查询）、
+        <code>role:create / role:update / role:delete</code>（增删改）、<code>role:grant</code>（授权/分配：主体绑定、菜单/表单/动作授予、
+        字段权限、数据范围）。权限码命名统一 <code>业务:动作</code>。
+      </p>
+
+      <h3 id="perm-menu">6.2 菜单挂接</h3>
+      <ul>
+        <li>菜单「角色管理」（form=role_form，挂 role 业务），含主体绑定、数据范围配置页签</li>
+        <li>按钮挂接：新增/编辑/删除、绑定主体/解绑（grant）、菜单/表单授权（grant）、字段权限（grant）、数据范围（grant）</li>
+        <li>三权分立：role 业务仅安全管理员内置角色持有；系统管理员/审计管理员互斥不可越权授予</li>
+      </ul>
+
+      <h3 id="perm-config">6.3 sys_config 参数</h3>
+      <table>
+        <tr><th>参数</th><th>默认</th><th>说明</th></tr>
+        <tr><td>role.code_pattern</td><td>^[a-z][a-z0-9_-]{1,31}$</td><td>角色 code 格式约束</td></tr>
+        <tr><td>role.max_per_subject</td><td>20</td><td>单主体可绑定角色数上限</td></tr>
+        <tr><td>role.protected_codes</td><td>system_admin、security_admin、audit_admin</td><td>内置角色 code，禁删禁改归属</td></tr>
+      </table>
+
+      <h3 id="perm-seed">6.4 种子数据</h3>
+      <ul>
+        <li>平台库种子：role 业务码与动作码（query/create/update/delete/grant）、角色管理菜单/表单/按钮/字段挂接与 i18n 文案</li>
+        <li>租户开通种子：三类内置管理员角色（系统/安全/审计，权限互斥）分别预授菜单/表单/动作权限；初始系统管理员账号由开通流程创建，由其创建另两类管理员</li>
+      </ul>
+
+      <h2 id="error">7. 错误码与异常处理</h2>
+      <p>本模块错误码段 3xxxx（用户与组织），文案由前端按 i18n 映射。</p>
+      <table>
+        <tr><th>错误码</th><th>说明</th></tr>
+        <tr><td>30041</td><td>角色不存在</td></tr>
+        <tr><td>30042</td><td>角色 code 已存在</td></tr>
+        <tr><td>30043</td><td>内置角色不可删除/停用/变更归属</td></tr>
+        <tr><td>30044</td><td>角色仍存在主体绑定，禁止删除</td></tr>
+        <tr><td>30045</td><td>主体不存在或已停用（绑定校验）</td></tr>
+        <tr><td>30046</td><td>授权目标不存在或未挂接（菜单缺表单/表单缺业务）</td></tr>
+        <tr><td>30047</td><td>数据范围规则表达式非法或引用未注册字段</td></tr>
+        <tr><td>30048</td><td>三权分立冲突：授予操作将造成管理员职责互斥或兼任</td></tr>
+        <tr><td>30049</td><td>字段权限配置与表单字段实体不匹配</td></tr>
+      </table>
+      <p>
+        异常处理要求：批量授权单事务回滚；版本递增与授权写入同事务（权限变更强一致）；
+        授权接口为高敏感操作，记录操作人、前后差异与 IP；规则表达式保存前做沙箱解析校验，防止注入。
+      </p>
+
+      <h2 id="page">8. 页面清单与验收要点</h2>
+
+      <h3 id="page-list">8.1 页面清单</h3>
+      <table>
+        <tr><th>页面</th><th>端</th><th>说明</th></tr>
+        <tr><td>角色管理</td><td>PC</td><td>角色列表、新建/编辑/删除、主体绑定、菜单/表单/动作授予、字段权限配置、数据范围配置</td></tr>
+      </table>
+
+      <h3 id="page-accept">8.2 验收标准</h3>
+      <ul>
+        <li>主体链任意长度（用户→岗位→角色、用户→部门→角色、多链并集）权限计算正确，越权访问被拒验证通过</li>
+        <li>菜单→表单→业务推导正确：授予菜单即隐含表单与业务权限；动作权限默认无，按钮显隐验证通过</li>
+        <li>数据范围默认无；配置规则后读时过滤/写时校验双向生效；跨租户规则拒绝</li>
+        <li>字段权限默认全开；收窄后不可见字段读时过滤（响应不返回）、不可编辑字段写时拒绝</li>
+        <li>授权变更即时生效（版本失效）；三权分立互斥（同一用户不得兼任两类管理员）验证通过</li>
+        <li>角色/授权变更字段级审计与哈希链校验通过；批量授予幂等验证通过</li>
+      </ul>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 概要设计节点 · 与《项目规划说明》《架构设计》《文档生成规范》《命名规范》配套 · 生成日期：2026-08-06
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>

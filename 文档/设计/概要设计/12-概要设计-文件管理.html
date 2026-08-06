@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>概要设计 · 文件管理</title>
+<style>
+  :root {
+    --bg: #f7f8fa;
+    --fg: #1f2328;
+    --muted: #57606a;
+    --border: #d0d7de;
+    --accent: #0969da;
+    --accent-bg: #ddf4ff;
+    --code-bg: #f6f8fa;
+    --warn-bg: #fff8c5;
+    --warn-border: #d4a72c;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+    line-height: 1.75;
+  }
+  .layout { display: flex; height: 100vh; overflow: hidden; }
+  .sidebar {
+    width: 280px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+  }
+  .sidebar .brand {
+    background: linear-gradient(135deg, #1f2328, #32383f);
+    color: #fff;
+    padding: 1.4rem 1.2rem 1.1rem;
+    border-bottom: 3px solid var(--accent);
+    flex-shrink: 0;
+  }
+  .sidebar .brand h1 { margin: 0 0 .35rem; font-size: 1.15rem; line-height: 1.4; }
+  .sidebar .brand p { margin: 0; color: #b6bec6; font-size: .78rem; }
+  .sidebar nav { padding: .8rem .6rem 1.5rem; font-size: .9rem; }
+  .sidebar nav ul { list-style: none; margin: 0; padding: 0; }
+  .sidebar nav li { margin: .15rem 0; }
+  .sidebar nav a {
+    display: block;
+    padding: .3rem .7rem;
+    border-radius: 5px;
+    color: var(--fg);
+    text-decoration: none;
+  }
+  .sidebar nav a:hover { background: var(--accent-bg); color: var(--accent); }
+  .sidebar nav .sub { padding-left: 1.6rem; font-size: .85rem; color: var(--muted); }
+  .content { flex: 1; overflow-y: auto; }
+  main {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1.5rem 2rem 4rem;
+  }
+  h2 {
+    margin-top: 2.5rem;
+    padding-bottom: .4rem;
+    border-bottom: 2px solid var(--border);
+    font-size: 1.35rem;
+  }
+  h3 { margin-top: 1.6rem; font-size: 1.1rem; }
+  p { margin: .6rem 0; }
+  ul, ol { margin: .6rem 0; padding-left: 1.6rem; }
+  li { margin: .3rem 0; }
+  code {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: .1em .35em;
+    font-family: Consolas, "Cascadia Mono", monospace;
+    font-size: .9em;
+  }
+  pre {
+    background: #0d1117;
+    color: #e6edf3;
+    border-radius: 8px;
+    padding: .9rem 1.1rem;
+    overflow-x: auto;
+    font-size: .88rem;
+    line-height: 1.6;
+  }
+  pre code { background: none; border: none; padding: 0; color: inherit; }
+  .note, .warn {
+    border-radius: 6px;
+    padding: .7rem 1rem;
+    margin: 1rem 0;
+    font-size: .95rem;
+  }
+  .note { background: var(--accent-bg); border-left: 4px solid var(--accent); }
+  .warn { background: var(--warn-bg); border-left: 4px solid var(--warn-border); }
+  .topnav {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: .4rem;
+    background: #fff;
+    border-bottom: 1px solid var(--border);
+    padding: .5rem 1rem;
+    font-size: .85rem;
+  }
+  .topnav .topnav-side { margin-left: auto; }
+  .topnav a { color: var(--accent); text-decoration: none; }
+  .topnav a:hover { text-decoration: underline; }
+  @media (max-width: 768px) {
+    .topnav .topnav-side { display: none; }
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1rem 0;
+    font-size: .92rem;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: .45rem .7rem;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: #eef1f4; white-space: nowrap; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  footer {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1rem 2rem 3rem;
+    color: var(--muted);
+    font-size: .85rem;
+    border-top: 1px solid var(--border);
+  }
+  @media (max-width: 768px) {
+    .layout { flex-direction: column; height: auto; overflow: visible; }
+    .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); max-height: 40vh; }
+    .content { overflow: visible; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topnav">
+  <a href="01-概要设计.html">概要设计</a> › <span>12-文件管理</span>
+  <span class="topnav-side"><a href="11-概要设计-登录日志.html">← 11-登录日志</a> · <a href="13-概要设计-会话管理.html">13-会话管理 →</a></span>
+</div>
+
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>概要设计 · 文件管理</h1>
+      <p>BMS · 文件上传/下载与在线预览</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#overview">1. 模块概述与职责</a></li>
+        <li><a href="#function">2. 功能分解与业务流程</a>
+          <ul class="sub">
+            <li><a href="#function-table">2.1 功能点分解</a></li>
+            <li><a href="#function-rules">2.2 业务规则与状态机</a></li>
+            <li><a href="#function-flow">2.3 流程步骤与异常分支</a></li>
+          </ul>
+        </li>
+        <li><a href="#sequence">3. 关键时序与协作</a></li>
+        <li><a href="#data">4. 数据模型与表设计</a>
+          <ul class="sub">
+            <li><a href="#data-table">4.1 核心表</a></li>
+            <li><a href="#data-index">4.2 索引与存储策略</a></li>
+            <li><a href="#data-flow">4.3 数据流转</a></li>
+          </ul>
+        </li>
+        <li><a href="#api">5. 接口设计</a>
+          <ul class="sub">
+            <li><a href="#api-list">5.1 接口清单</a></li>
+            <li><a href="#api-rules">5.2 分页/幂等/限流</a></li>
+            <li><a href="#api-event">5.3 事件</a></li>
+          </ul>
+        </li>
+        <li><a href="#permission">6. 权限与配置</a>
+          <ul class="sub">
+            <li><a href="#permission-code">6.1 权限码分配</a></li>
+            <li><a href="#permission-menu">6.2 菜单挂接</a></li>
+            <li><a href="#permission-config">6.3 sys_config 参数</a></li>
+            <li><a href="#permission-seed">6.4 种子数据</a></li>
+          </ul>
+        </li>
+        <li><a href="#error">7. 错误码与异常处理</a></li>
+        <li><a href="#page">8. 页面清单与验收要点</a>
+          <ul class="sub">
+            <li><a href="#page-list">8.1 页面清单</a></li>
+            <li><a href="#page-accept">8.2 验收标准</a></li>
+          </ul>
+        </li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="overview">1. 模块概述与职责</h2>
+      <p>
+        本节对应《项目规划说明》「功能模块」之<strong>文件管理</strong>模块，与「核心数据表清单」「认证与安全（上传安全）」
+        「选型说明（MinIO）」「初始化数据」等章节；架构设计依据《架构设计》
+        <strong>15-文件管理</strong>节点（分片状态机、安全控制、在线预览与下载）与 <strong>12-任务调度</strong>、
+        <strong>11-事件总线</strong>节点。
+      </p>
+      <p>
+        文件管理承载文件上传/下载与在线预览（图片/PDF 预签名 URL 直开）：内容存储于 MinIO/S3 对象存储
+        （私有桶、按租户 bucket 前缀隔离、多实例共享无本地磁盘依赖），数据库只存元数据（sys_file）。
+        类型白名单 + 大小上限（默认 20MB，超限分片上传 + 断点续传，单文件上限可配置如 2GB），
+        下载/预览走预签名 URL 限时直开，后端不代理文件流。
+      </p>
+      <table>
+        <tr><th>维度</th><th>说明</th></tr>
+        <tr><td>模块定位</td><td>文件元数据管理、整包/分片上传、断点续传、预签名下载与在线预览、孤儿分片回收</td></tr>
+        <tr><td>职责边界</td><td>只负责文件存取本身；业务模块（审批附件、帮助图片等）经文件服务上传并持有 file_id 引用</td></tr>
+        <tr><td>架构依据</td><td>15-文件管理（分片状态机、安全控制、预览下载）、12-任务调度（孤儿分片清理）、11-事件总线（file.uploaded）、07-多租户路由（存储配额）</td></tr>
+        <tr><td>相邻协作</td><td>租户管理（storage_bytes 存储配额超限拦截）、任务调度（孤儿分片回收）、审计哈希链（上传/下载关键操作落操作日志）、全文检索（阶段十三文件内容索引）</td></tr>
+      </table>
+
+      <h2 id="function">2. 功能分解与业务流程</h2>
+
+      <h3 id="function-table">2.1 功能点分解</h3>
+      <table>
+        <tr><th>功能点</th><th>说明</th><th>权限码</th></tr>
+        <tr><td>整包上传</td><td>≤20MB 文件一次性上传（类型白名单 + 大小校验）</td><td>file:upload</td></tr>
+        <tr><td>分片上传</td><td>超限文件分片上传：初始化 → 逐片上传（SHA256 校验）→ 合并</td><td>file:upload</td></tr>
+        <tr><td>断点续传</td><td>按 part_no 状态列表仅重传缺失片</td><td>file:upload</td></tr>
+        <tr><td>下载</td><td>预签名 URL 限时下载（后端不代理文件流）</td><td>file:download</td></tr>
+        <tr><td>在线预览</td><td>图片/PDF 预签名 URL 直开预览（PC + 移动端）</td><td>file:download</td></tr>
+        <tr><td>文件列表与删除</td><td>文件元数据列表查询；删除（含对象清理）</td><td>file:manage / file:delete</td></tr>
+        <tr><td>孤儿分片回收</td><td>Celery 定时任务扫描超时 .part 与超期 uploading 记录并清理</td><td>系统内部任务</td></tr>
+      </table>
+
+      <h3 id="function-rules">2.2 业务规则与状态机</h3>
+      <table>
+        <tr><th>状态</th><th>迁移</th><th>说明</th></tr>
+        <tr><td>上传中（uploading）</td><td>初始化上传 → 上传中</td><td>记录 upload_id、total_parts；sys_file 跟踪每片状态</td></tr>
+        <tr><td>完成（completed）</td><td>全部片校验通过合并后 → 完成</td><td>合并为最终对象并清理 .part；落 file.uploaded 事件</td></tr>
+        <tr><td>失败（failed）</td><td>校验失败/合并失败 → 失败</td><td>清理临时对象；允许重新初始化上传</td></tr>
+        <tr><td>孤儿（orphan）</td><td>超时未完成 → 回收</td><td>Celery 扫描超时 .part 与超期 uploading 记录，物理清理</td></tr>
+      </table>
+      <ul>
+        <li><strong>大小规则</strong>：≤20MB 整包上传；超限分片上传 + 断点续传；单文件上限可配置（如 2GB）</li>
+        <li><strong>类型白名单</strong>：上传前校验文件类型（MIME 白名单），禁止绕过上传（安全专项用例覆盖上传绕过）</li>
+        <li><strong>校验</strong>：分片 SHA256 校验 + 整文件校验；文件元数据记录 sha256</li>
+        <li><strong>对象标识</strong>：分片临时对象 key 加 <code>.part</code> 标识；全部上传后合并为最终对象并清理分片；合并用 MinIO 组合对象</li>
+        <li><strong>租户隔离</strong>：私有桶（bms-files），按租户 bucket 前缀隔离；查询强制租户过滤</li>
+        <li><strong>配额联动</strong>：上传前校验租户存储配额（storage_bytes），超限拦截与告警</li>
+        <li><strong>下载安全</strong>：预签名 URL 限时有效；类型与大小检查在下载前复核；后端不代理文件流</li>
+      </ul>
+
+      <h3 id="function-flow">2.3 流程步骤与异常分支</h3>
+      <ol>
+        <li><strong>整包上传</strong>：类型白名单 + 大小（≤20MB）校验 → 上传至 MinIO 私有桶（租户前缀）→ 记录 sys_file（status=completed）→ 发布 file.uploaded；异常：类型/大小不合法 → 拒绝</li>
+        <li><strong>分片上传</strong>：初始化（返回 upload_id、total_parts、分片大小）→ 逐片上传（每片 SHA256 校验，key 带 .part 标识）→ 全部完成后合并为最终对象 → 清理 .part → 整文件校验 → status=completed → 发布 file.uploaded；异常：某片校验失败 → 前端仅重传该片（断点续传）</li>
+        <li><strong>断点续传</strong>：前端按 part_no 状态列表仅重传缺失片；中断遗留的分片由 Celery 定时回收（孤儿分片）</li>
+        <li><strong>下载/预览</strong>：file:download 鉴权 → 生成限时预签名 URL（图片/PDF 直开预览）→ 客户端直连 MinIO；异常：对象不存在/超限 → 明确错误</li>
+        <li><strong>删除</strong>：软删除元数据（回收站可恢复）→ 对象清理（或按回收策略延迟清理）；删除动作落操作日志</li>
+      </ol>
+
+      <h2 id="sequence">3. 关键时序与协作</h2>
+      <pre><code>分片上传（>20MB）
+  前端 ── POST /files/multipart（初始化）──► 后端：校验白名单/大小/配额 → 返回 upload_id、total_parts
+  前端 ── PUT /files/multipart/{upload_id}/parts（逐片）──► 后端：分片 SHA256 校验 → MinIO 存 .part 临时对象
+  前端 ── POST /files/multipart/{upload_id}/complete ──► 后端：合并为最终对象（MinIO 组合对象）→ 清理 .part
+          → 整文件校验（sha256）→ sys_file status=completed → 发布 file.uploaded（Webhook 订阅：否）
+          → 归档数据（sys_file 元数据）与对象（MinIO 按租户前缀）
+
+下载/预览
+  客户端 ── GET /files/{id}/download-url（file:download）──► 后端：鉴权 + 复核 → 返回限时预签名 URL
+  客户端 ── 直连 MinIO 预签名 URL ──► 后端不代理文件流
+
+孤儿分片回收（Celery 定时任务）
+  扫描超时 .part 临时对象与超期 uploading 记录 → 物理清理 → 落执行记录（sys_task_log）</code></pre>
+      <div class="note">上传前校验租户存储配额（storage_bytes）；对象存储故障时上传/下载接口报错并告警（故障应对见部署与运维节点）。</div>
+
+      <h2 id="data">4. 数据模型与表设计</h2>
+
+      <h3 id="data-table">4.1 核心表</h3>
+      <table>
+        <tr><th>表</th><th>关键字段</th><th>说明</th></tr>
+        <tr><td>sys_file</td><td>id（雪花）、name、bucket、object_key、size、mime_type、sha256、uploader_id、upload_id、total_parts、status（上传中/完成）、deleted_at、审计字段、version</td><td>文件元数据（租户库）；内容存 MinIO 私有桶；分片上传状态跟踪</td></tr>
+      </table>
+
+      <h3 id="data-index">4.2 索引与存储策略</h3>
+      <ul>
+        <li>索引：sys_file (uploader_id)、status、created_at（排序键）、sha256；查询强制租户过滤</li>
+        <li>对象存储：MinIO 私有桶 bms-files，按租户 bucket 前缀隔离（如 <code>tenant_{code}/…</code>）；分片临时对象 key 加 <code>.part</code> 标识；多实例共享存储、无本地磁盘依赖（无状态）</li>
+        <li>归档：文件对象不进入数据库归档流转；MinIO 对象数据定期增量备份 + 生命周期策略，元数据随数据库备份</li>
+        <li>配额：上传前校验 sys_tenant_quota（quota_key=storage_bytes）超限拦截</li>
+      </ul>
+
+      <h3 id="data-flow">4.3 数据流转</h3>
+      <p>
+        上传（整包/分片）→ MinIO 对象（租户前缀）→ sys_file 元数据落库（uploading → completed）→
+        业务模块持有 file_id 引用 → 下载/预览经预签名 URL 直开 → 删除软删除进回收站 → 对象清理。
+        阶段十三全文检索经 file.uploaded 事件驱动文件内容解析（PDF/Word/Excel/TXT）入 ES 索引。
+      </p>
+
+      <h2 id="api">5. 接口设计</h2>
+
+      <h3 id="api-list">5.1 接口清单</h3>
+      <p>全部接口前缀 <code>/api/v1</code>，统一响应 <code>{code, message, data}</code>，鉴权 Bearer access token：</p>
+      <table>
+        <tr><th>方法</th><th>路径</th><th>说明</th><th>权限码</th></tr>
+        <tr><td>POST</td><td>/files</td><td>整包上传（≤20MB；类型白名单 + 大小校验 + 配额校验）</td><td>file:upload</td></tr>
+        <tr><td>POST</td><td>/files/multipart</td><td>分片上传初始化（返回 upload_id、total_parts）</td><td>file:upload</td></tr>
+        <tr><td>PUT</td><td>/files/multipart/{upload_id}/parts</td><td>上传单个分片（part_no + SHA256 校验）</td><td>file:upload</td></tr>
+        <tr><td>POST</td><td>/files/multipart/{upload_id}/complete</td><td>合并完成（整文件校验 → 合并 → 清理 .part）</td><td>file:upload</td></tr>
+        <tr><td>GET</td><td>/files</td><td>文件列表分页查询（筛选：名称/类型/上传人/状态/时间范围）</td><td>file:manage</td></tr>
+        <tr><td>GET</td><td>/files/{id}/download-url</td><td>获取限时预签名下载 URL（下载前复核类型/大小）</td><td>file:download</td></tr>
+        <tr><td>GET</td><td>/files/{id}/preview-url</td><td>获取限时预签名预览 URL（图片/PDF 直开，PC + 移动端）</td><td>file:download</td></tr>
+        <tr><td>DELETE</td><td>/files/{id}</td><td>删除文件（软删除元数据 + 对象清理）</td><td>file:delete</td></tr>
+      </table>
+
+      <h3 id="api-rules">5.2 分页/幂等/限流</h3>
+      <ul>
+        <li>分页：查询参数 <code>page</code>（从 1 起）、<code>size</code>；响应 <code>{list, total, page, size}</code>；limit/offset 分页限深 100 页</li>
+        <li>幂等：分片上传的 complete 为关键写操作，支持幂等键（Idempotency-Key），Redis SETNX 前置拦截 + upload_id 唯一约束兜底</li>
+        <li>限流：上传/下载接口接口级限流（slowapi，Redis 后端，IP/用户维度）；分片上传独立限流防止滥用</li>
+        <li>上传安全：类型白名单 + 大小上限（默认 20MB，超限分片）+ 分片 SHA256 校验 + 整文件校验</li>
+      </ul>
+
+      <h3 id="api-event">5.3 事件</h3>
+      <table>
+        <tr><th>事件</th><th>触发时机</th><th>主要载荷</th><th>Webhook 订阅</th></tr>
+        <tr><td>file.uploaded</td><td>文件上传完成（整包完成 / 分片合并完成）</td><td>file_id、sha256、size</td><td>否</td></tr>
+      </table>
+      <p>file.uploaded 供全文检索文件内容解析（阶段十三）等内部消费，不开放 Webhook 订阅。</p>
+
+      <h2 id="permission">6. 权限与配置</h2>
+
+      <h3 id="permission-code">6.1 权限码分配</h3>
+      <table>
+        <tr><th>权限码</th><th>业务</th><th>动作</th><th>默认归属</th></tr>
+        <tr><td>file:upload</td><td>file（文件管理）</td><td>upload（上传）</td><td>按角色分配</td></tr>
+        <tr><td>file:download</td><td>file（文件管理）</td><td>download（下载/预览）</td><td>按角色分配</td></tr>
+        <tr><td>file:delete</td><td>file（文件管理）</td><td>delete（删除）</td><td>系统管理员</td></tr>
+        <tr><td>file:manage</td><td>file（文件管理）</td><td>manage（列表查询与维护）</td><td>系统管理员</td></tr>
+      </table>
+      <p>file 业务码平台统一维护；上传/下载按业务角色授予（如审批附件、帮助图片场景），删除与管理默认系统管理员。</p>
+
+      <h3 id="permission-menu">6.2 菜单挂接</h3>
+      <p>
+        菜单「文件管理」→ 表单挂接 file 业务；表单按钮挂接 upload/download/delete/manage 动作；
+        上传/下载按钮按角色授予动作权限后显隐。
+      </p>
+
+      <h3 id="permission-config">6.3 sys_config 参数</h3>
+      <table>
+        <tr><th>config_key（示意）</th><th>默认值</th><th>说明</th></tr>
+        <tr><td>file.upload.max_size</td><td>20971520（20MB）</td><td>整包上传大小上限，超限走分片上传（sys_config 可配）</td></tr>
+        <tr><td>file.upload.max_file_size</td><td>2147483648（2GB）</td><td>单文件上传上限（分片上传）</td></tr>
+        <tr><td>file.upload.whitelist</td><td>图片/PDF/Office 等 MIME 白名单</td><td>类型白名单（sys_config 可配项，详细设计确定清单）</td></tr>
+      </table>
+
+      <h3 id="permission-seed">6.4 种子数据</h3>
+      <ul>
+        <li>初始定时任务种子：孤儿分片清理任务（清理中断遗留的 .part 对象与超期 uploading 记录）</li>
+        <li>上传上限等默认参数随平台库默认参数种子下发（见 09-系统参数节点）</li>
+      </ul>
+
+      <h2 id="error">7. 错误码与异常处理</h2>
+      <table>
+        <tr><th>段</th><th>区间</th><th>覆盖模块</th><th>本模块建议分配</th></tr>
+        <tr><td>5xxxx</td><td>50001-59999</td><td>文件（上传/下载/分片/导入导出）</td><td>501xx 段（示例：50101 文件类型不允许、50102 文件大小超限、50103 分片校验失败、50104 分片不存在或已合并、50105 存储配额超限、50106 文件不存在、50107 预签名 URL 已过期）</td></tr>
+      </table>
+      <ul>
+        <li>错误码一经发布稳定不变；文案由前端按 i18n 映射</li>
+        <li>上传绕过安全专项：类型伪造/超限绕过/分片校验缺失集中用例集验证</li>
+        <li>对象存储故障：上传/下载接口报错并告警；下载前复核类型与大小</li>
+        <li>配额超限：上传前拦截并告警（租户配额超限拦截）</li>
+      </ul>
+
+      <h2 id="page">8. 页面清单与验收要点</h2>
+
+      <h3 id="page-list">8.1 页面清单</h3>
+      <table>
+        <tr><th>端</th><th>页面</th><th>说明</th></tr>
+        <tr><td>PC 管理端</td><td>文件管理</td><td>文件列表（名称/类型/大小/上传人/状态/时间）；上传（整包 + 分片进度）；下载；图片/PDF 在线预览；删除</td></tr>
+        <tr><td>PC 管理端（嵌入）</td><td>业务附件上传组件</td><td>分片上传组件供审批、帮助等业务模块复用（断点续传）</td></tr>
+        <tr><td>移动端 H5</td><td>附件预览</td><td>审批附件图片/PDF 经预签名 URL 在线预览（移动端审批链路）</td></tr>
+      </table>
+
+      <h3 id="page-accept">8.2 验收标准</h3>
+      <ul>
+        <li>整包上传（≤20MB）与分片上传（>20MB，含断点续传）全链路可用；单文件上限（2GB 可配）拦截生效</li>
+        <li>分片 SHA256 校验 + 整文件校验生效；伪造类型/超限绕过被拒（上传绕过安全用例）</li>
+        <li>分片临时对象 .part 标识正确，合并后清理；孤儿分片由 Celery 定时回收（执行记录可查）</li>
+        <li>预签名 URL 限时下载/预览（图片/PDF 直开）可用，过期失效；后端不代理文件流</li>
+        <li>存储配额（storage_bytes）超限拦截与告警生效</li>
+        <li>file.uploaded 事件发布正确（Webhook 不订阅）；上传/下载关键操作落操作日志</li>
+        <li>租户隔离：跨租户访问文件被拒；移动端附件预览可用</li>
+      </ul>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 概要设计节点 · 与《项目规划说明》《架构设计》《文档生成规范》《命名规范》配套 · 生成日期：2026-08-06
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>
