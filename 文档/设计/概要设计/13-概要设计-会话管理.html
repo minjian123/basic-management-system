@@ -184,8 +184,8 @@
     <main>
 
       <p>
-        本节对应《项目规划说明》「功能模块」之<strong>会话管理</strong>模块与「认证与安全」章节
-        （多端会话、会话有效标记、强制踢出），架构设计依据《架构设计》09-认证与会话节点与 13-实时推送节点。
+        本节对应<a href="../../规划/项目规划说明.md">《项目规划说明》</a>「功能模块」之<strong>会话管理</strong>模块与「认证与安全」章节
+        （多端会话、会话有效标记、强制踢出），架构设计依据<a href="../架构设计/01-架构设计.html">《架构设计》</a>09-认证与会话节点与 13-实时推送节点。
       </p>
 
       <h2 id="overview">1. 模块概述与职责</h2>
@@ -199,9 +199,9 @@
         <li><strong>职责边界</strong>：在线会话列表查询、会话详情、强制踢出；多端并发上限控制由登录链路执行，本模块只做展示与提示</li>
         <li><strong>协作关系</strong>：
           <ul>
-            <li>认证与会话（架构 09）：读写 <code>sys_session</code> 与会话 Redis 标记 <code>bms:{tenant}:sess:{session_id}</code></li>
-            <li>实时推送（架构 13）：踢出时广播 <code>session.revoked</code> 事件关闭该会话全部实时连接</li>
-            <li>操作日志：踢出动作落操作日志（action 记录权限码 <code>session:kick</code>），敏感字段脱敏</li>
+            <li>认证与会话（<a href="../架构设计/09-架构设计-子系统-认证与会话.html">架构 09</a>）：读写 <code>sys_session</code> 与会话 Redis 标记 <code>bms:{tenant}:sess:{session_id}</code></li>
+            <li>实时推送（<a href="../架构设计/13-架构设计-子系统-实时推送.html">架构 13</a>）：踢出时广播 <code>session.revoked</code> 事件关闭该会话全部实时连接</li>
+            <li><a href="10-概要设计-操作日志.html">操作日志</a>：踢出动作落操作日志（action 记录权限码 <code>session:kick</code>），敏感字段脱敏</li>
           </ul>
         </li>
       </ul>
@@ -299,7 +299,7 @@
           <table>
             <tr><th>config_key</th><th>默认值</th><th>说明</th></tr>
             <tr><td>session.max_active</td><td>5</td><td>同一账号活跃会话上限，登录时超限自动作废最旧会话</td></tr>
-            <tr><td>session.device_check</td><td>false</td><td>是否开启设备/IP 一致性校验（可选强度，见架构 09）</td></tr>
+            <tr><td>session.device_check</td><td>false</td><td>是否开启设备/IP 一致性校验（可选强度，见<a href="../架构设计/09-架构设计-子系统-认证与会话.html">架构 09</a>）</td></tr>
           </table>
         </li>
         <li><strong>种子数据</strong>：业务码 session、动作码 query/kick 入平台库种子（sys_business/sys_action）；三类内置角色中系统管理员预授本模块菜单/表单权限</li>
