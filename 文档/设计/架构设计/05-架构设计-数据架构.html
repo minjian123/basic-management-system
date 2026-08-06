@@ -236,6 +236,7 @@
       <table>
         <tr><th>域</th><th>表</th><th>说明</th></tr>
         <tr><td rowspan="6">组织与权限</td><td>sys_user、sys_post、sys_user_post、sys_dept</td><td>用户（含密码策略字段/语言时区偏好）、岗位、用户-岗位、部门树</td></tr>
+        <tr><td>sys_user_preference</td><td>用户喜好（主题/列表页个性化/通知偏好/工作台自定义），user_id + pref_key 联合主键，pref_value 存 JSON，跨端同步</td></tr>
         <tr><td>sys_role、sys_role_assign</td><td>角色；主体-角色通用绑定（subject_type + subject_id + role_id，支持任意主体链）</td></tr>
         <tr><td>sys_role_permission、sys_role_field</td><td>角色授予菜单/表单权限（业务权限按表单→业务对照关系推导）/动作权限；字段权限（visible/editable，默认全部可见可编辑）</td></tr>
         <tr><td>sys_data_scope</td><td>动作级数据范围（规则表达式存 config，见权限设计文档）</td></tr>
