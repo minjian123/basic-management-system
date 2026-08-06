@@ -97,6 +97,25 @@
     font-size: .95rem;
   }
   .note { background: var(--accent-bg); border-left: 4px solid var(--accent); }
+  .topnav {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: .4rem;
+    background: #fff;
+    border-bottom: 1px solid var(--border);
+    padding: .5rem 1rem;
+    font-size: .85rem;
+  }
+  .topnav .topnav-side { margin-left: auto; }
+  .topnav a { color: var(--accent); text-decoration: none; }
+  .topnav a:hover { text-decoration: underline; }
+  @media (max-width: 768px) {
+    .topnav .topnav-side { display: none; }
+  }
   .warn { background: var(--warn-bg); border-left: 4px solid var(--warn-border); }
   table {
     border-collapse: collapse;
@@ -129,6 +148,12 @@
 </style>
 </head>
 <body>
+
+<div class="topnav">
+  <a href="01-架构设计.html">架构设计</a> › <span>14-审计哈希链</span>
+  <span class="topnav-side"><a href="13-架构设计-子系统-实时推送.html">← 13-实时推送</a> · <a href="15-架构设计-子系统-文件管理.html">15-文件管理 →</a></span>
+</div>
+
 
 <div class="layout">
 

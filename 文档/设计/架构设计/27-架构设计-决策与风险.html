@@ -97,6 +97,25 @@
     font-size: .95rem;
   }
   .note { background: var(--accent-bg); border-left: 4px solid var(--accent); }
+  .topnav {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: .4rem;
+    background: #fff;
+    border-bottom: 1px solid var(--border);
+    padding: .5rem 1rem;
+    font-size: .85rem;
+  }
+  .topnav .topnav-side { margin-left: auto; }
+  .topnav a { color: var(--accent); text-decoration: none; }
+  .topnav a:hover { text-decoration: underline; }
+  @media (max-width: 768px) {
+    .topnav .topnav-side { display: none; }
+  }
   .warn { background: var(--warn-bg); border-left: 4px solid var(--warn-border); }
   table {
     border-collapse: collapse;
@@ -130,6 +149,12 @@
 </head>
 <body>
 
+<div class="topnav">
+  <a href="01-架构设计.html">架构设计</a> › <span>27-决策与风险</span>
+  <span class="topnav-side"><a href="26-架构设计-部署与运维.html">← 26-部署与运维</a></span>
+</div>
+
+
 <div class="layout">
 
   <aside class="sidebar">
@@ -140,7 +165,11 @@
     <nav>
       <ul>
         <li><a href="#overview">1. 概述</a></li>
-        <li><a href="#adr">2. 架构决策记录（ADR）</a></li>
+        <li><a href="#adr">2. 架构决策记录（ADR）</a>
+          <ul class="sub">
+            <li><a href="#adr-micro">2.1 微服务拆分评估</a></li>
+          </ul>
+        </li>
         <li><a href="#risks">3. 架构风险与应对</a></li>
         <li><a href="#roadmap">4. 演进路线</a></li>
         <li><a href="#process">5. 架构变更流程</a></li>
@@ -181,6 +210,21 @@
         <tr><td>i18n 方案</td><td>文案入库 + i18n 附表 + Babel 提取</td><td>新增语言免发版；业务文案与固定文案分层管理</td></tr>
         <tr><td>软删除与唯一约束</td><td>(唯一字段, deleted_at) 复合唯一索引</td><td>三库多 NULL 不冲突，删除即释放唯一键，回收站复用</td></tr>
       </table>
+
+      <h3 id="adr-micro">2.1 微服务拆分评估</h3>
+      <p>「微服务 vs 单体」决策的完整评估（规划「明确不采用」的展开）：</p>
+      <table>
+        <tr><th>维度</th><th>收益（若拆分）</th><th>代价（对本项目）</th></tr>
+        <tr><td>部署与伸缩</td><td>独立部署、按模块扩缩容</td><td>worker 进程已提供独立伸缩；拆服务需每服务维护租户路由、连接预算、部署编排</td></tr>
+        <tr><td>故障隔离</td><td>单服务故障不扩散</td><td>依赖链（审批→通知→审计）跨服务后故障面反而扩大；熔断/重试复杂度上升</td></tr>
+        <tr><td>数据一致性</td><td>服务自治存储</td><td>分布式事务：审计哈希链串行追加、软删除 (唯一字段, deleted_at) 复合唯一约束、乐观锁、事务消息均为强一致场景，拆分后需 Saga/两阶段提交</td></tr>
+        <tr><td>性能</td><td>按热点独立优化</td><td>跨服务网络调用威胁 P99 ≤ 1s 目标（审批链路穿 3-4 个服务）；单体内同进程调用零开销</td></tr>
+        <tr><td>权限与租户</td><td>服务级安全边界</td><td>require_permission 贯穿全部模块、数据范围过滤注入查询、一租户一库路由均为横切基座，拆分后难以统一</td></tr>
+        <tr><td>运维与监控</td><td>故障定位到服务</td><td>基础设施已 8+ 组件（RocketMQ/ES/Milvus/Redis/MinIO/双库/监控），再拆分服务令 Compose/监控/链路追踪规模爆炸</td></tr>
+        <tr><td>团队协作</td><td>服务边界=团队边界</td><td>小团队（单团队）维护单体更高效；知识图谱辅助理解单体结构</td></tr>
+        <tr><td>测试</td><td>服务内独立验证</td><td>集成/E2E/安全专项需跨服务编排，成本显著上升</td></tr>
+      </table>
+      <p><strong>结论</strong>：单体模块化 + 独立 worker 进程已通过事件总线（RocketMQ）获得模块解耦与独立伸缩的大部分收益，同时避开分布式事务与网络开销；维持不拆分，演进条件见第 4 章。</p>
 
       <h2 id="risks">3. 架构风险与应对</h2>
       <table>
