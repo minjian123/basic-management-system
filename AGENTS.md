@@ -11,17 +11,8 @@
 
 ## 开发环境与远程操作
 
-- 两台 Windows 11 机器：**mjbk**（192.168.0.107，开发服务器，常开：GitLab CE 8080、开发依赖服务、常驻 MySQL 8 / PostgreSQL 16 / 达梦 DM8 三库）；**mjpc**（192.168.0.124，开发机，日常编码）。
-- 远程 mjbk 两条通道：**WinRM**（5985）与 **SSH**（22，密钥免密）。WinRM 模板（mjpc 本机）：
-  ```powershell
-  $pw = ConvertTo-SecureString "密码" -AsPlainText -Force
-  $cred = New-Object System.Management.Automation.PSCredential("minjian", $pw)
-  Invoke-Command -ComputerName 192.168.0.107 -Credential $cred -ScriptBlock { ... }
-  ```
-- SSH 登录后**默认 shell 是 cmd**：远程执行 PowerShell 命令必须写成 `powershell -NoProfile -Command "..."`。
-- `ssh-keygen` 生成密钥时**禁止写 `-N '""'`**（PowerShell 会把字面引号设为私钥密码，BatchMode 下认证静默失败）；详见部署使用说明第 5.1 节。
+- 开发服务器 **mjbk**（192.168.0.107，常开：GitLab CE、开发依赖服务、MySQL/PostgreSQL/达梦 DM8 三库）与开发机 **mjpc**（192.168.0.124）。远程操作方式、SSH/WinRM 凭据与命令模板见 `文档/资料/开发服务器部署使用说明.html`，需要时再读，不常驻上下文。
 - 机器凭据见 `文档/资料/本地资源.md`（已 gitignore，**勿恢复跟踪、勿提交、勿写入其他文档**）。
-- 开发期数据库默认 SQLite（本地零部署）；需验证方言时经环境变量连 mjbk 三库（dmPython 对 Python 3.14 兼容性属阶段一验证项）。
 
 ## 文档要求
 
