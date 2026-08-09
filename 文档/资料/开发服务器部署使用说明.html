@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>开发服务器部署使用说明</title>
+<style>
+  :root {
+    --bg: #f7f8fa;
+    --fg: #1f2328;
+    --muted: #57606a;
+    --border: #d0d7de;
+    --accent: #0969da;
+    --accent-bg: #ddf4ff;
+    --code-bg: #f6f8fa;
+    --warn-bg: #fff8c5;
+    --warn-border: #d4a72c;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+    line-height: 1.75;
+  }
+  .layout { display: flex; height: 100vh; overflow: hidden; }
+  .sidebar {
+    width: 280px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+  }
+  .sidebar .brand {
+    background: linear-gradient(135deg, #1f2328, #32383f);
+    color: #fff;
+    padding: 1.4rem 1.2rem 1.1rem;
+    border-bottom: 3px solid var(--accent);
+    flex-shrink: 0;
+  }
+  .sidebar .brand h1 { margin: 0 0 .35rem; font-size: 1.15rem; line-height: 1.4; }
+  .sidebar .brand p { margin: 0; color: #b6bec6; font-size: .78rem; }
+  .sidebar nav { padding: .8rem .6rem 1.5rem; font-size: .9rem; }
+  .sidebar nav ul { list-style: none; margin: 0; padding: 0; }
+  .sidebar nav li { margin: .15rem 0; }
+  .sidebar nav a {
+    display: block;
+    padding: .3rem .7rem;
+    border-radius: 5px;
+    color: var(--fg);
+    text-decoration: none;
+  }
+  .sidebar nav a:hover { background: var(--accent-bg); color: var(--accent); }
+  .sidebar nav .sub { padding-left: 1.6rem; font-size: .85rem; color: var(--muted); }
+  .content { flex: 1; overflow-y: auto; }
+  main {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1.5rem 2rem 4rem;
+  }
+  h2 {
+    margin-top: 2.5rem;
+    padding-bottom: .4rem;
+    border-bottom: 2px solid var(--border);
+    font-size: 1.35rem;
+  }
+  h3 { margin-top: 1.6rem; font-size: 1.1rem; }
+  p { margin: .6rem 0; }
+  ul, ol { margin: .6rem 0; padding-left: 1.6rem; }
+  li { margin: .3rem 0; }
+  code {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: .1em .35em;
+    font-family: Consolas, "Cascadia Mono", monospace;
+    font-size: .9em;
+  }
+  pre {
+    background: #0d1117;
+    color: #e6edf3;
+    border-radius: 8px;
+    padding: .9rem 1.1rem;
+    overflow-x: auto;
+    font-size: .88rem;
+    line-height: 1.6;
+  }
+  pre code { background: none; border: none; padding: 0; color: inherit; }
+  .note, .warn {
+    border-radius: 6px;
+    padding: .7rem 1rem;
+    margin: 1rem 0;
+    font-size: .95rem;
+  }
+  .note { background: var(--accent-bg); border-left: 4px solid var(--accent); }
+  .warn { background: var(--warn-bg); border-left: 4px solid var(--warn-border); }
+  .topnav {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: .4rem;
+    background: #fff;
+    border-bottom: 1px solid var(--border);
+    padding: .5rem 1rem;
+    font-size: .85rem;
+  }
+  .topnav .topnav-side { margin-left: auto; }
+  .topnav a { color: var(--accent); text-decoration: none; }
+  .topnav a:hover { text-decoration: underline; }
+  @media (max-width: 768px) {
+    .topnav .topnav-side { display: none; }
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1rem 0;
+    font-size: .92rem;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: .45rem .7rem;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: #eef1f4; white-space: nowrap; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  footer {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1rem 2rem 3rem;
+    color: var(--muted);
+    font-size: .85rem;
+    border-top: 1px solid var(--border);
+  }
+  @media (max-width: 768px) {
+    .layout { flex-direction: column; height: auto; overflow: visible; }
+    .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); max-height: 40vh; }
+    .content { overflow: visible; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topnav">
+  <a href="../../README.md">文档首页</a> ›
+  <span>资料</span> ›
+  <span>开发服务器部署使用说明</span>
+  <span class="topnav-side">
+    <a href="graphify部署使用说明.html">同级：graphify 部署使用说明 →</a>
+  </span>
+</div>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>开发服务器部署使用说明</h1>
+      <p>mjbk 远程通道开通与 OpenSSH 部署实录</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#purpose">1. 目的与适用范围</a></li>
+        <li><a href="#env">2. 环境概览</a></li>
+        <li><a href="#winrm">3. WinRM 远程通道开通</a>
+          <ul class="sub">
+            <li><a href="#winrm-server">3.1 mjbk 侧启用</a></li>
+            <li><a href="#winrm-client">3.2 mjpc 侧配置</a></li>
+            <li><a href="#winrm-verify">3.3 连通性验证</a></li>
+          </ul>
+        </li>
+        <li><a href="#openssh">4. OpenSSH Server 安装</a>
+          <ul class="sub">
+            <li><a href="#openssh-fail">4.1 系统组件方式失败原因</a></li>
+            <li><a href="#openssh-install">4.2 镜像下载与手动安装</a></li>
+            <li><a href="#openssh-firewall">4.3 防火墙放行</a></li>
+          </ul>
+        </li>
+        <li><a href="#keyauth">5. SSH 密钥认证配置</a>
+          <ul class="sub">
+            <li><a href="#key-client">5.1 客户端密钥生成</a></li>
+            <li><a href="#key-deploy">5.2 公钥部署与权限</a></li>
+            <li><a href="#key-verify">5.3 验证</a></li>
+          </ul>
+        </li>
+        <li><a href="#troubleshoot">6. 排障记录</a>
+          <ul class="sub">
+            <li><a href="#trouble-1">6.1 防火墙规则不生效</a></li>
+            <li><a href="#trouble-2">6.2 公钥认证 preauth 失败</a></li>
+            <li><a href="#trouble-3">6.3 私钥意外带密码</a></li>
+            <li><a href="#trouble-4">6.4 其他坑点</a></li>
+          </ul>
+        </li>
+        <li><a href="#ops">7. 日常运维操作</a></li>
+        <li><a href="#notes">8. 已知问题与安全提示</a></li>
+        <li><a href="#related">9. 关联文档</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="purpose">1. 目的与适用范围</h2>
+      <p>
+        本文档记录 BMS 开发服务器 mjbk（192.168.0.107）远程管理通道的开通过程、部署命令与排障经验，
+        供后续在开发机 mjpc 上远程操作 mjbk 时参照。硬件与账号信息见《<a href="本地资源.md">本地资源</a>》，
+        开发环境的整体部署方案见《<a href="../规划/开发部署规划.html">开发部署规划</a>》。
+      </p>
+      <p>当前已打通两条远程通道：</p>
+      <ul>
+        <li><strong>WinRM</strong>（PowerShell 远程，HTTP 5985）：批量脚本与自动化操作</li>
+        <li><strong>OpenSSH Server</strong>（端口 22）：跨平台命令行登录（v10.0.0.0p2，手动安装）</li>
+      </ul>
+
+      <h2 id="env">2. 环境概览</h2>
+      <table>
+        <tr><th>机器</th><th>IP</th><th>系统</th><th>角色</th></tr>
+        <tr><td>mjbk</td><td>192.168.0.107</td><td>Windows 11 专业版（26200）</td><td>开发服务器（WiFi 接入）</td></tr>
+        <tr><td>mjpc</td><td>192.168.0.124</td><td>Windows 11 专业版</td><td>开发机（有线接入）</td></tr>
+      </table>
+      <div class="note">两台机器网关均为 192.168.0.1（TP-LINK 路由器）。WinRM 走 HTTP 5985；SSH 走 22。</div>
+
+      <h2 id="winrm">3. WinRM 远程通道开通</h2>
+
+      <h3 id="winrm-server">3.1 mjbk 侧启用</h3>
+      <p>通过 RDP 登录 mjbk，管理员 PowerShell 执行（首次只需一次）：</p>
+      <pre><code>Enable-PSRemoting -Force</code></pre>
+      <p>输出应包含「WinRM 已更新为接收请求」「WinRM 防火墙异常已启用」。若防火墙规则显示未启用，补充执行：</p>
+      <pre><code>Get-NetConnectionProfile | Select-Object Name, InterfaceAlias, NetworkCategory
+Set-NetFirewallRule -Name "WINRM-HTTP-In-TCP" -Enabled True</code></pre>
+
+      <h3 id="winrm-client">3.2 mjpc 侧配置</h3>
+      <p>mjpc 管理员 PowerShell 执行（首次只需一次）：</p>
+      <pre><code>Set-Service WinRM -StartupType Automatic
+Start-Service WinRM
+Set-Item WSMan:\localhost\Client\TrustedHosts -Value "192.168.0.107" -Force</code></pre>
+      <div class="warn">
+        坑点 1：mjpc 本机 WinRM 服务默认是 <strong>Stopped</strong>，不先启动则 TrustedHosts 路径不存在、写入报错；
+        且以上命令需要<strong>管理员权限</strong>（非管理员报 Access denied）。
+      </div>
+
+      <h3 id="winrm-verify">3.3 连通性验证</h3>
+      <pre><code>Test-NetConnection -ComputerName 192.168.0.107 -Port 5985
+
+$pw = ConvertTo-SecureString "密码" -AsPlainText -Force
+$cred = New-Object System.Management.Automation.PSCredential("minjian", $pw)
+Invoke-Command -ComputerName 192.168.0.107 -Credential $cred -ScriptBlock { hostname }</code></pre>
+      <p>返回 <code>MJBK</code> 即打通。日常远程操作模板：</p>
+      <pre><code>$pw = ConvertTo-SecureString "密码" -AsPlainText -Force
+$cred = New-Object System.Management.Automation.PSCredential("minjian", $pw)
+Invoke-Command -ComputerName 192.168.0.107 -Credential $cred -ScriptBlock { 任意 PowerShell 命令 }</code></pre>
+
+      <h2 id="openssh">4. OpenSSH Server 安装</h2>
+
+      <h3 id="openssh-fail">4.1 系统组件方式失败原因</h3>
+      <p>最初尝试 Windows 可选功能方式安装，两个环节失败：</p>
+      <ul>
+        <li><strong>远程会话权限不足</strong>：WinRM 会话内执行 <code>Add-WindowsCapability -Online -Name OpenSSH.Server</code> 报「拒绝访问」；改为计划任务以 <strong>SYSTEM 身份</strong>运行（<code>schtasks /create /ru SYSTEM /rl HIGHEST</code>）可解决权限，但：</li>
+        <li><strong>微软源下载极慢</strong>：组件安装卡在 Windows Update 下载超过 10 分钟无进展（DismHost/TiWorker 活跃但无网络吞吐），遂终止，改用国内镜像手动安装（见 4.2）。</li>
+      </ul>
+      <div class="note">依据《AGENTS.md》网络与镜像规则：默认源（微软 CDN）不畅时立即切换国内镜像，不长时间等待。实测 <code>update.microsoft.com</code> 可连通但下载速度极慢，镜像源 <code>gh-proxy.com</code> 约 1.4–4 MB/s。</div>
+
+      <h3 id="openssh-install">4.2 镜像下载与手动安装</h3>
+      <p>步骤 1：用国内镜像代理下载 Win32-OpenSSH 官方二进制（mjbk 上执行）：</p>
+      <pre><code>curl.exe -sL --max-time 180 -o C:\bms-tmp\OpenSSH-Win64.zip `
+  "https://gh-proxy.com/https://github.com/PowerShell/Win32-OpenSSH/releases/download/10.0.0.0p2-Preview/OpenSSH-Win64.zip"</code></pre>
+      <p>可用镜像代理（2026-08 实测）：<code>gh-proxy.com</code>（最快）、<code>ghfast.top</code>；<code>ghproxy.net</code> 慢、<code>ghproxy.cc</code> 不可用。GitHub 直连仅约 8 KB/s。</p>
+      <p>步骤 2：解压安装并注册服务（mjbk，管理员 PowerShell）：</p>
+      <pre><code>Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
+Expand-Archive C:\bms-tmp\OpenSSH-Win64.zip -DestinationPath "$env:TEMP\oss-x" -Force
+Copy-Item "$env:TEMP\oss-x\OpenSSH-Win64" "C:\Program Files\OpenSSH" -Recurse -Force
+sc.exe stop sshd 2&gt;$null; sc.exe delete sshd 2&gt;$null
+& "C:\Program Files\OpenSSH\install-sshd.ps1"
+Set-Service sshd -StartupType Automatic
+Start-Service sshd
+& "C:\Program Files\OpenSSH\ssh.exe" -V</code></pre>
+      <div class="warn">
+        坑点 2：install-sshd.ps1 需在允许脚本执行的环境中运行（<code>Set-ExecutionPolicy -Scope Process Bypass</code>），
+        否则报「禁止运行脚本」。
+      </div>
+
+      <h3 id="openssh-firewall">4.3 防火墙放行</h3>
+      <pre><code>New-NetFirewallRule -Name "OpenSSH-Server-In-TCP" -DisplayName "OpenSSH SSH Server (sshd)" `
+  -Enabled True -Direction Inbound -Protocol TCP -Action Allow -LocalPort 22 `
+  -RemoteAddress 192.168.0.0/24 -Profile Any</code></pre>
+      <p>验证：<code>Get-NetTCPConnection -LocalPort 22 -State Listen</code> 应显示 0.0.0.0:22 与 [::]:22 监听。</p>
+
+      <h2 id="keyauth">5. SSH 密钥认证配置</h2>
+
+      <h3 id="key-client">5.1 客户端密钥生成</h3>
+      <p>mjpc 上生成（已生成，可跳过）：</p>
+      <pre><code>ssh-keygen -t ed25519 -N "" -f "$env:USERPROFILE\.ssh\id_ed25519" -C "minjian@mjpc"</code></pre>
+      <div class="warn">
+        坑点 3（重要）：<strong>不要写成 <code>-N '""'</code></strong>。PowerShell 中 <code>'""'</code> 会把两个
+        字面双引号字符作为密码传给 ssh-keygen，私钥因此<strong>意外带密码</strong>；批处理模式（BatchMode）下无法输密码，
+        导致签名失败、认证被拒（见 6.3）。生成后务必验证：
+        <pre><code>ssh-keygen -y -P "" -f "$env:USERPROFILE\.ssh\id_ed25519"</code></pre>
+        能输出公钥才说明私钥无密码。
+      </div>
+
+      <h3 id="key-deploy">5.2 公钥部署与权限</h3>
+      <p>将公钥写入 mjbk 的用户 authorized_keys（本次绕过了默认的 <code>Match Group administrators</code> 专用文件，直接使用普通用户路径，配置更简洁）：</p>
+      <pre><code># mjbk 上执行：注释掉 sshd_config 中的 Match 块，改用普通文件
+$c = [IO.File]::ReadAllText("C:\ProgramData\ssh\sshd_config")
+$c = $c.Replace("Match Group administrators", "#Match Group administrators")
+[IO.File]::WriteAllText("C:\ProgramData\ssh\sshd_config", $c, [Text.Encoding]::ASCII)
+
+# 写入公钥（多个密钥逐行追加）
+[IO.File]::WriteAllText("C:\Users\minjian\.ssh\authorized_keys",
+  "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMlSnUNRBgq3+MBwLTILhdig5MOeEAc9RrYKwDT0ZM2Q minjian@mjpc`n",
+  [Text.Encoding]::ASCII)
+
+# 权限：仅用户本人与 SYSTEM 可访问
+icacls "C:\Users\minjian\.ssh\authorized_keys" /inheritance:r /grant:r "minjian:(R,W)" "NT AUTHORITY\SYSTEM:(F)"
+Restart-Service sshd</code></pre>
+
+      <h3 id="key-verify">5.3 验证</h3>
+      <pre><code>ssh -i "$env:USERPROFILE\.ssh\id_ed25519" minjian@192.168.0.107 "hostname"</code></pre>
+      <p>返回 <code>mjbk</code> 即成功。免密登录（本机默认密钥名时可直接 <code>ssh minjian@192.168.0.107</code>）。</p>
+
+      <h2 id="troubleshoot">6. 排障记录</h2>
+
+      <h3 id="trouble-1">6.1 防火墙规则不生效</h3>
+      <p>
+        <strong>现象</strong>：sshd 监听正常、规则显示 Enabled/Allow/Profile=Any/端口 22，但外部连接 TCP 超时；
+        临时禁用防火墙后即通。
+      </p>
+      <p><strong>处理</strong>：删除并重建规则后恢复正常：</p>
+      <pre><code>Remove-NetFirewallRule -Name "OpenSSH-Server-In-TCP"
+New-NetFirewallRule -Name "OpenSSH-Server-In-TCP" -DisplayName "OpenSSH SSH Server (sshd)" `
+  -Enabled True -Direction Inbound -Protocol TCP -Action Allow -LocalPort 22 `
+  -RemoteAddress 192.168.0.0/24 -Profile Any</code></pre>
+      <div class="note">该规则疑似在组件安装残留的异常半激活状态，<code>Get-NetFirewallRule -All</code> 可见 Inactive 状态为空；重建规则即生效。</div>
+
+      <h3 id="trouble-2">6.2 公钥认证 preauth 失败</h3>
+      <p>
+        <strong>现象</strong>：公钥认证返回 Permission denied；服务端日志出现
+        <code>Accepted key ... found at ...</code> → <code>Postponed publickey</code> →
+        <code>ssh_dispatch_run_fatal: Unknown error [preauth]</code>。
+      </p>
+      <p><strong>排查路径</strong>（逐层排除）：</p>
+      <ol>
+        <li>客户端 <code>ssh -vvv</code>：确认「Server accepts key」后出现 <code>we did not send a packet, disable method</code>——客户端签名失败、未发送签名请求，随即 RST（服务端表现为 10054 连接重置）。</li>
+        <li>服务端回环测试（本机 127.0.0.1 公钥认证）<strong>成功</strong>——排除服务端与系统问题。</li>
+        <li>mjpc 换 v10 客户端仍失败、换端口仍失败、停 Defender 仍失败——排除客户端版本/端口/杀软。</li>
+        <li>pktmon 抓包（管理员）：确认 RST 由 mjpc 本机发出（<code>Flags [R.]</code>，源 MAC 为 mjpc 网卡）。</li>
+        <li><strong>最终定位</strong>：私钥意外带密码（见 6.3），BatchMode 签名失败。</li>
+      </ol>
+
+      <h3 id="trouble-3">6.3 私钥意外带密码</h3>
+      <p>
+        <strong>根因</strong>：<code>ssh-keygen -N '""'</code> 的 PowerShell 传参问题——单引号内的 <code>""</code> 是两个字面字符，
+        被当作密码写入私钥。验证方法：
+      </p>
+      <pre><code>ssh-keygen -y -P ""  -f id_ed25519   # 报 incorrect passphrase = 私钥有密码
+ssh-keygen -y -P '""' -f id_ed25519   # 能输出公钥 = 密码是 "" 两个字面引号</code></pre>
+      <p><strong>修复</strong>（将密码移除）：</p>
+      <pre><code>ssh-keygen -p -f "$env:USERPROFILE\.ssh\id_ed25519" -P '""' -N ""</code></pre>
+
+      <h3 id="trouble-4">6.4 其他坑点</h3>
+      <table>
+        <tr><th>坑点</th><th>现象</th><th>处理</th></tr>
+        <tr>
+          <td>ssh_host 事件日志无文本</td>
+          <td>手动安装 v10 后 OpenSSH 事件日志「无法检索事件消息文本」</td>
+          <td>消息 DLL 未注册，不影响功能；排查用 <code>sshd -ddd</code> 前台抓日志</td>
+        </tr>
+        <tr>
+          <td>sshd 只监听 2222</td>
+          <td>配置追加 <code>Port 2222</code> 后 22 端口丢失</td>
+          <td>sshd 配置中存在 Port 指令时只监听指定端口，移除多余 Port 行</td>
+        </tr>
+        <tr>
+          <td>WinRM 会话被杀</td>
+          <td>远程 Start-Process 启动的 sshd -ddd 随会话结束被终止</td>
+          <td>长驻前台进程用计划任务（/ru SYSTEM）运行</td>
+        </tr>
+        <tr>
+          <td>安装脚本禁跑</td>
+          <td>install-sshd.ps1 报「禁止运行脚本」</td>
+          <td>Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force</td>
+        </tr>
+      </table>
+
+      <h2 id="ops">7. 日常运维操作</h2>
+      <table>
+        <tr><th>操作</th><th>命令</th></tr>
+        <tr><td>SSH 登录（密钥）</td><td><code>ssh minjian@192.168.0.107</code></td></tr>
+        <tr><td>远程执行命令</td><td><code>ssh minjian@192.168.0.107 "Get-Service sshd"</code></td></tr>
+        <tr><td>重启 sshd</td><td><code>ssh minjian@192.168.0.107 "Restart-Service sshd"</code></td></tr>
+        <tr><td>查看 SSH 事件日志</td><td><code>Get-WinEvent -LogName "OpenSSH/Operational" -MaxEvents 20</code></td></tr>
+        <tr><td>WinRM 批量命令</td><td>见 3.3 模板</td></tr>
+      </table>
+
+      <h2 id="notes">8. 已知问题与安全提示</h2>
+      <ul>
+        <li><strong>id_rsa 私钥</strong>（排查过程中生成）仍带密码未修复，未使用；如需删除请执行 <code>Remove-Item "$env:USERPROFILE\.ssh\id_rsa*"</code>。</li>
+        <li>SSH 同时启用密码认证（默认），远程凭据按《<a href="本地资源.md">本地资源</a>》管理；建议后续在 mjbk 上为 minjian 设置强密码。</li>
+        <li>防火墙仅放行 192.168.0.0/24 内网访问 22/5985；密钥文件仅 SYSTEM 与用户本人可读。</li>
+        <li>OpenSSH 为手动安装的 10.0.0.0p2（官方 Preview 通道），如需随 Windows 更新管理可改回系统组件方式（需先卸载当前版本，且解决微软源下载慢问题）。</li>
+        <li>mjbk 通过 WiFi 接入，若后续排查网络相关问题注意 AP 侧因素（本次排障已排除 WiFi 影响）。</li>
+      </ul>
+
+      <h2 id="related">9. 关联文档</h2>
+      <ul>
+        <li>《<a href="本地资源.md">本地资源</a>》：机器硬件与账号</li>
+        <li>《<a href="../规划/开发部署规划.html">开发部署规划</a>》：开发环境整体部署方案（Rancher Desktop、GitLab、三库常驻等）</li>
+        <li>《<a href="../规划/项目规划说明.md">项目规划说明</a>》：技术与部署选型</li>
+        <li>《<a href="../规范/文档生成规范.html">文档生成规范</a>》与《<a href="../规范/命名规范.html">命名规范</a>》：本文档遵循的规范</li>
+        <li>《<a href="graphify部署使用说明.html">graphify 部署使用说明</a>》：知识图谱工具（同级文档）</li>
+      </ul>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 依《文档生成规范》编写 · 记录 2026-08-09 实际部署过程与排障结论
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>
