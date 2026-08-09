@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>开发部署规划</title>
+<style>
+  :root {
+    --bg: #f7f8fa;
+    --fg: #1f2328;
+    --muted: #57606a;
+    --border: #d0d7de;
+    --accent: #0969da;
+    --accent-bg: #ddf4ff;
+    --code-bg: #f6f8fa;
+    --warn-bg: #fff8c5;
+    --warn-border: #d4a72c;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+    line-height: 1.75;
+  }
+  .layout { display: flex; height: 100vh; overflow: hidden; }
+  .sidebar {
+    width: 280px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+  }
+  .sidebar .brand {
+    background: linear-gradient(135deg, #1f2328, #32383f);
+    color: #fff;
+    padding: 1.4rem 1.2rem 1.1rem;
+    border-bottom: 3px solid var(--accent);
+    flex-shrink: 0;
+  }
+  .sidebar .brand h1 { margin: 0 0 .35rem; font-size: 1.15rem; line-height: 1.4; }
+  .sidebar .brand p { margin: 0; color: #b6bec6; font-size: .78rem; }
+  .sidebar nav { padding: .8rem .6rem 1.5rem; font-size: .9rem; }
+  .sidebar nav ul { list-style: none; margin: 0; padding: 0; }
+  .sidebar nav li { margin: .15rem 0; }
+  .sidebar nav a {
+    display: block;
+    padding: .3rem .7rem;
+    border-radius: 5px;
+    color: var(--fg);
+    text-decoration: none;
+  }
+  .sidebar nav a:hover { background: var(--accent-bg); color: var(--accent); }
+  .sidebar nav .sub { padding-left: 1.6rem; font-size: .85rem; color: var(--muted); }
+  .content { flex: 1; overflow-y: auto; }
+  main {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1.5rem 2rem 4rem;
+  }
+  h2 {
+    margin-top: 2.5rem;
+    padding-bottom: .4rem;
+    border-bottom: 2px solid var(--border);
+    font-size: 1.35rem;
+  }
+  h3 { margin-top: 1.6rem; font-size: 1.1rem; }
+  p { margin: .6rem 0; }
+  ul, ol { margin: .6rem 0; padding-left: 1.6rem; }
+  li { margin: .3rem 0; }
+  code {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: .1em .35em;
+    font-family: Consolas, "Cascadia Mono", monospace;
+    font-size: .9em;
+  }
+  pre {
+    background: #0d1117;
+    color: #e6edf3;
+    border-radius: 8px;
+    padding: .9rem 1.1rem;
+    overflow-x: auto;
+    font-size: .88rem;
+    line-height: 1.6;
+  }
+  pre code { background: none; border: none; padding: 0; color: inherit; }
+  .note, .warn {
+    border-radius: 6px;
+    padding: .7rem 1rem;
+    margin: 1rem 0;
+    font-size: .95rem;
+  }
+  .note { background: var(--accent-bg); border-left: 4px solid var(--accent); }
+  .warn { background: var(--warn-bg); border-left: 4px solid var(--warn-border); }
+  .topnav {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: .4rem;
+    background: #fff;
+    border-bottom: 1px solid var(--border);
+    padding: .5rem 1rem;
+    font-size: .85rem;
+  }
+  .topnav .topnav-side { margin-left: auto; }
+  .topnav a { color: var(--accent); text-decoration: none; }
+  .topnav a:hover { text-decoration: underline; }
+  @media (max-width: 768px) {
+    .topnav .topnav-side { display: none; }
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1rem 0;
+    font-size: .92rem;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: .45rem .7rem;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: #eef1f4; white-space: nowrap; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  footer {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1rem 2rem 3rem;
+    color: var(--muted);
+    font-size: .85rem;
+    border-top: 1px solid var(--border);
+  }
+  @media (max-width: 768px) {
+    .layout { flex-direction: column; height: auto; overflow: visible; }
+    .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); max-height: 40vh; }
+    .content { overflow: visible; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topnav">
+  <a href="../../README.md">文档首页</a> ›
+  <a href="项目规划说明.md">规划</a> ›
+  <span>开发部署规划</span>
+  <span class="topnav-side">
+    <a href="项目规划说明.md">同级：项目规划说明 →</a>
+  </span>
+</div>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>开发部署规划</h1>
+      <p>BMS 开发环境部署方案 · 两台机器分工</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#purpose">1. 目的与依据</a></li>
+        <li><a href="#overview">2. 环境总览与职责分工</a>
+          <ul class="sub">
+            <li><a href="#hardware">2.1 硬件资源</a></li>
+            <li><a href="#duty">2.2 职责分工</a></li>
+            <li><a href="#topology">2.3 网络拓扑</a></li>
+          </ul>
+        </li>
+        <li><a href="#decision">3. 关键决策记录</a></li>
+        <li><a href="#server">4. 开发服务器 mjbk 部署</a>
+          <ul class="sub">
+            <li><a href="#server-base">4.1 基础环境准备</a></li>
+            <li><a href="#server-disk">4.2 磁盘规划</a></li>
+            <li><a href="#server-services">4.3 基础设施服务</a></li>
+            <li><a href="#server-db">4.4 常驻数据库</a></li>
+            <li><a href="#server-gitlab">4.5 GitLab 与 CI 基础设施</a></li>
+            <li><a href="#server-firewall">4.6 防火墙与访问控制</a></li>
+          </ul>
+        </li>
+        <li><a href="#devpc">5. 开发机 mjpc 环境</a>
+          <ul class="sub">
+            <li><a href="#devpc-tools">5.1 工具链</a></li>
+            <li><a href="#devpc-repo">5.2 仓库获取</a></li>
+            <li><a href="#devpc-backend">5.3 后端开发运行</a></li>
+            <li><a href="#devpc-frontend">5.4 前端开发运行</a></li>
+            <li><a href="#devpc-integrate">5.5 联调配置</a></li>
+          </ul>
+        </li>
+        <li><a href="#config">6. 配置与凭据管理</a></li>
+        <li><a href="#workflow">7. 开发工作流与 CI</a></li>
+        <li><a href="#backup">8. 备份与恢复</a></li>
+        <li><a href="#ports">9. 端口与网络规划</a></li>
+        <li><a href="#schedule">10. 分阶段落地计划</a></li>
+        <li><a href="#risk">11. 风险与注意事项</a></li>
+        <li><a href="#handoff">12. 与后续文档的衔接</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="purpose">1. 目的与依据</h2>
+      <p>
+        本文档规划 BMS 项目开发环境的整体部署方案：在《<a href="../资料/本地资源.md">本地资源</a>》记载的两台 Windows 11 机器上，
+        搭建可支撑《<a href="项目规划说明.md">项目规划说明</a>》全部 14 个开发阶段、直至 MVP 验收（含 500 并发压测）的完整开发环境，
+        包括代码托管与 CI/CD、开发依赖服务、常驻数据库、监控与备份。
+      </p>
+      <p>依据与约束：</p>
+      <ul>
+        <li>《项目规划说明》「环境与配置」「部署与运维」「开发计划与验收标准」各节的技术选型与阶段划分</li>
+        <li>《<a href="../设计/架构设计/27-架构设计-部署与运维.html">架构设计-部署与运维</a>》的部署拓扑与集群设计要点</li>
+        <li>《<a href="../规范/命名规范.html">命名规范</a>》对基础设施命名（Compose 服务名、环境变量、数据库、容器镜像）的约定</li>
+        <li>《<a href="../规范/文档生成规范.html">文档生成规范</a>》对文档格式与布局的要求</li>
+      </ul>
+      <p>
+        本文档为规划性质，确定方案、目录、端口与落地节奏；命令级细节（Compose 文件内容、环境变量清单、备份恢复演练步骤）由阶段八交付的《部署手册》细化。
+      </p>
+
+      <h2 id="overview">2. 环境总览与职责分工</h2>
+
+      <h3 id="hardware">2.1 硬件资源</h3>
+      <table>
+        <tr><th>项目</th><th>mjbk（开发服务器）</th><th>mjpc（开发机）</th></tr>
+        <tr><td>IP 地址</td><td>192.168.0.107</td><td>192.168.0.124</td></tr>
+        <tr><td>操作系统</td><td>Windows 11 专业版</td><td>Windows 11 专业版</td></tr>
+        <tr><td>处理器</td><td>i7-8750H，6 核 12 线程</td><td>i7-13700K，16 核 24 线程</td></tr>
+        <tr><td>内存</td><td>32 GB</td><td>64 GB</td></tr>
+        <tr><td>硬盘</td><td>C 512 GB SSD + D 1 TB HDD</td><td>C 512 GB SSD + D 4 TB SSD</td></tr>
+      </table>
+
+      <h3 id="duty">2.2 职责分工</h3>
+      <p>采用「一台常开服务器承载全部服务、一台高性能开发机纯本地开发」的模式：</p>
+      <table>
+        <tr><th>职责</th><th>mjbk</th><th>mjpc</th></tr>
+        <tr>
+          <td>代码托管与 CI/CD</td>
+          <td>GitLab CE（HTTP 8080 + Registry 5050）、gitlab-runner（Docker executor）</td>
+          <td>git 客户端，推送与 MR</td>
+        </tr>
+        <tr>
+          <td>开发依赖服务</td>
+          <td>Redis、RocketMQ、MinIO、ElasticSearch（按阶段引入，见第 10 节）</td>
+          <td>不装原生服务，内网访问 mjbk</td>
+        </tr>
+        <tr>
+          <td>常驻数据库</td>
+          <td>MySQL 8 + PostgreSQL 16 + 达梦 DM8（开发联调与 CI 三库测试共用）</td>
+          <td>日常开发默认 SQLite（本地零依赖）</td>
+        </tr>
+        <tr>
+          <td>监控与追踪（阶段八）</td>
+          <td>Prometheus、Loki、Grafana、Alertmanager、Jaeger、otel-collector</td>
+          <td>浏览器查看 Grafana / Jaeger</td>
+        </tr>
+        <tr>
+          <td>AI 基础设施（阶段十四）</td>
+          <td>Milvus + etcd（MinIO 复用），PaddleOCR 可选</td>
+          <td>—</td>
+        </tr>
+        <tr>
+          <td>日常开发</td>
+          <td>—</td>
+          <td>编辑代码、uv 后端开发服务器、Vite 前端开发服务器、本地 SQLite、压测客户端（阶段九）</td>
+        </tr>
+      </table>
+      <div class="note">
+        选择依据：mjbk 定位常开服务器（GitLab CE 要求内存 ≥4GB，32GB 总量够用）；mjpc 硬件更强（16 核 / 64GB / 4T SSD），
+        适合承担编译、前端构建、压测等计算密集工作。mjpc 关机不影响 mjbk 上共享服务与 CI 的持续运行。
+      </div>
+
+      <h3 id="topology">2.3 网络拓扑</h3>
+      <ul>
+        <li>两台机器同处 192.168.0.0/24 内网网段，直连互访，无需域名与证书。</li>
+        <li>开发期租户识别不启用子域名（《项目规划说明》已定：dev 环境以 token 内租户标识替代子域名），因此不需要泛域名 DNS 与泛 TLS 证书。</li>
+        <li>mjpc 后端/前端开发服务器指向 mjbk 的 192.168.0.107 各服务端口；mjbk 上 Windows 防火墙按第 4.6 节放行。</li>
+        <li>mjbk 需可访问外网（下载容器镜像、GitLab 向 GitHub 的 push mirror 同步、Renovate 拉取依赖更新）；不可达时镜像同步与依赖升级暂缓，见第 11 节。</li>
+      </ul>
+
+      <h2 id="decision">3. 关键决策记录</h2>
+      <p>以下决策已逐项与项目方确认，作为本方案的实施依据：</p>
+      <table>
+        <tr><th>决策点</th><th>选择</th><th>理由</th></tr>
+        <tr><td>机器职责分工</td><td>mjbk 跑全部服务（GitLab + CI + 基础设施全家桶），mjpc 纯开发机</td><td>共享服务常开不中断，开发机专注编码，互不抢占资源</td></tr>
+        <tr><td>容器引擎</td><td>Rancher Desktop（WSL2 后端，dockerd 运行时）</td><td>免费开源（Apache-2.0），无订阅限制；选择 dockerd 后端保证 docker / docker compose 行为与规划一致</td></tr>
+        <tr><td>开发期数据库</td><td>dev 默认 SQLite（零部署）；mjbk 常驻 MySQL 8 + PostgreSQL 16 + 达梦 DM8（官方镜像）供联调</td><td>日常开发零数据库依赖；方言问题尽早暴露，CI 三库测试复用常驻库</td></tr>
+        <tr><td>数据落盘</td><td>IO 敏感数据走 C 盘 SSD（MySQL/PostgreSQL/ES/MinIO 数据卷）；大容量数据走 D 盘 HDD（容器镜像、GitLab 数据、备份）</td><td>数据库与检索引擎对 IO 敏感；镜像与仓库容量大但读多写少，HDD 可承受</td></tr>
+        <tr><td>开发机开发方式</td><td>mjpc 本地开发 + 内网访问 mjbk 服务</td><td>开发机性能强、与运行环境分离；代码经 git push 上 mjbk GitLab 触发 CI</td></tr>
+        <tr><td>gitlab-runner 安装方式</td><td>容器化运行（gitlab/gitlab-runner 镜像，挂载 docker.sock，executor=docker）</td><td>官方推荐做法，升级简单、行为跨平台一致</td></tr>
+        <tr><td>CI 三库方言测试</td><td>复用 mjbk 常驻 MySQL/PostgreSQL/达梦 DM8，job 内建独立测试库（bms_test 前缀）执行迁移与集成测试后清理</td><td>免去每次 job 拉镜像起容器，速度快、省资源；测试库隔离不污染开发数据</td></tr>
+        <tr><td>GitLab 端口</td><td>HTTP 8080（容器内 80 映射）+ Registry 5050</td><td>避免与 Windows 上可能占用的 80 端口冲突，内网开发无标准端口诉求</td></tr>
+      </table>
+
+      <h2 id="server">4. 开发服务器 mjbk 部署</h2>
+
+      <h3 id="server-base">4.1 基础环境准备</h3>
+      <ol>
+        <li>
+          <strong>确认 WSL2</strong>：Windows 11 专业版已内置支持。PowerShell 检查：
+          <pre><code>wsl --version</code></pre>
+          输出为 WSL 2.x 即可；若提示未安装，执行 <code>wsl --install</code> 后重启。
+        </li>
+        <li>
+          <strong>安装 Rancher Desktop</strong>（官网 <a href="https://rancherdesktop.io/">rancherdesktop.io</a>，或 winget）：
+          <pre><code>winget install RancherDesktop.RancherDesktop</code></pre>
+        </li>
+        <li>
+          <strong>切换容器运行时为 dockerd</strong>：Rancher Desktop 默认使用 containerd 运行时，需在
+          「设置 → Container Engine → Docker (dockerd)」切换为 dockerd（moby），保证 <code>docker</code> 与
+          <code>docker compose</code> 命令及行为与规划一致。切换后验证：
+          <pre><code>docker info
+docker compose version</code></pre>
+        </li>
+        <li>
+          <strong>数据目录重定向</strong>：Rancher Desktop 的镜像与虚拟机磁盘默认落在 C 盘 AppData，在
+          「设置 → General → Data directory」改为 <code>D:\bms-data\rancher</code>，避免 C 盘膨胀（见 4.2）。
+        </li>
+        <li>
+          <strong>WSL2 内存上限</strong>：mjbk 上 WSL2 默认最多占宿主机 50% 内存，按需限制。在
+          <code>%UserProfile%\.wslconfig</code> 写入：
+          <pre><code>[wsl2]
+memory=24GB
+processors=8
+swap=4GB</code></pre>
+          保存后执行 <code>wsl --shutdown</code> 使配置生效。24GB 上限为容器与 GitLab 预留，同时保住宿主机可用内存。
+        </li>
+        <li>
+          <strong>开机自启</strong>：设置 Rancher Desktop 开机自启（设置 → General → Start on login），保证开发依赖服务常开。
+        </li>
+      </ol>
+
+      <h3 id="server-disk">4.2 磁盘规划</h3>
+      <table>
+        <tr><th>盘</th><th>容量</th><th>存放内容</th><th>目录约定</th></tr>
+        <tr>
+          <td>C 盘（SSD）</td>
+          <td>512 GB</td>
+          <td>MySQL / PostgreSQL / 达梦 DM8 数据卷、ES 数据、MinIO 数据、Redis 持久化（IO 敏感）</td>
+          <td>Compose 命名卷（<code>mysql_data</code>、<code>postgres_data</code> 等）</td>
+        </tr>
+        <tr>
+          <td>D 盘（HDD）</td>
+          <td>1 TB</td>
+          <td>容器镜像存储（Rancher Desktop data）、GitLab 数据、CI 构建缓存、数据库备份</td>
+          <td>
+            <code>D:\bms-data\rancher</code>（引擎数据）<br>
+            <code>D:\bms-data\gitlab</code>（gitlab 数据卷挂载目录）<br>
+            <code>D:\bms-data\backup</code>（备份，见第 8 节）
+          </td>
+        </tr>
+      </table>
+      <div class="warn">
+        ES 与数据库数据严禁放 HDD：ES 段合并、数据库随机读写会明显拖慢开发联调体验。镜像与 GitLab 仓库读多写少、顺序读写占比高，HDD 可承受。
+      </div>
+
+      <h3 id="server-services">4.3 基础设施服务</h3>
+      <p>
+        Compose 编排文件统一放在仓库 <code>deploy/</code> 目录（与《项目规划说明》目录结构一致，随代码版本管理）：
+      </p>
+      <pre><code>deploy/
+├── compose/
+│   ├── base.yml        # redis、mysql、postgres、minio、rocketmq、elasticsearch
+│   ├── monitor.yml     # prometheus、loki、grafana、alertmanager、jaeger、otel-collector（阶段八）
+│   ├── ai.yml          # milvus、etcd（阶段十四，MinIO 复用）
+│   └── gitlab.yml      # gitlab、gitlab-runner、renovate
+├── .env.example        # 环境变量模板（BMS_ 前缀）
+└── nginx/              # 生产形态配置（阶段八部署手册细化）</code></pre>
+      <p>mjbk 上启动（以 base 组为例）：</p>
+      <pre><code>docker compose -f deploy/compose/base.yml --env-file deploy/.env up -d</code></pre>
+      <p>服务清单（服务名遵循《命名规范》第 10 节「Compose 服务名小写单名、与组件同名」）：</p>
+      <table>
+        <tr><th>服务</th><th>镜像</th><th>端口</th><th>数据位置</th><th>内存预算</th><th>引入阶段</th></tr>
+        <tr><td>redis</td><td>redis:8</td><td>6379</td><td>命名卷（C 盘 SSD）</td><td>0.5 GB</td><td>阶段一</td></tr>
+        <tr><td>mysql</td><td>mysql:8.4</td><td>3306</td><td>命名卷（C 盘 SSD）</td><td>1.5 GB</td><td>阶段一</td></tr>
+        <tr><td>postgres</td><td>postgres:16</td><td>5432</td><td>命名卷（C 盘 SSD）</td><td>1 GB</td><td>阶段一</td></tr>
+        <tr><td>dameng</td><td>dmdbms/dm8（官方镜像，含试用授权）</td><td>5236</td><td>命名卷（C 盘 SSD）</td><td>2 GB</td><td>阶段一</td></tr>
+        <tr><td>minio</td><td>minio/minio</td><td>9000 / 9001（控制台）</td><td>命名卷（C 盘 SSD）</td><td>0.5 GB</td><td>阶段一</td></tr>
+        <tr><td>rocketmq</td><td>apache/rocketmq:5.x（nameserver + broker 两个容器）</td><td>9876 / 10911</td><td>命名卷（C 盘 SSD）</td><td>1 GB</td><td>阶段四</td></tr>
+        <tr><td>elasticsearch</td><td>docker.elastic.co/elasticsearch/elasticsearch:8.x（single-node）</td><td>9200 / 9300</td><td>命名卷（C 盘 SSD）</td><td>2 GB（堆 1–2 GB）</td><td>阶段十三（可提前）</td></tr>
+        <tr><td>prometheus</td><td>prom/prometheus</td><td>9090</td><td>命名卷</td><td rowspan="2">2.5 GB（合计）</td><td rowspan="2">阶段八</td></tr>
+        <tr><td>loki / grafana / alertmanager</td><td>grafana/loki、grafana/grafana、prom/alertmanager</td><td>3100 / 3000 / 9093</td><td>命名卷</td></tr>
+        <tr><td>jaeger / otel-collector</td><td>jaegertracing/all-in-one、otel/opentelemetry-collector</td><td>16686 / 4317、4318</td><td>—</td><td>1 GB</td><td>阶段八</td></tr>
+        <tr><td>milvus / etcd</td><td>milvusdb/milvus、quay.io/coreos/etcd</td><td>19530 / 2379（内部）</td><td>命名卷（etcd 数据 C 盘 SSD）</td><td>4 GB</td><td>阶段十四</td></tr>
+      </table>
+      <div class="note">
+        ES 按《项目规划说明》「环境与配置」节属开发环境依赖，阶段一即可随 base 组拉起（单节点、
+        <code>discovery.type=single-node</code>、生产安全认证配置不启用），也可推迟至阶段十三按需引入；上表按内存预算给出两种节奏，见第 10 节。
+      </div>
+      <p>内存合计：阶段一约 8 GB，阶段八后约 15 GB，阶段十四后约 19 GB；叠加 GitLab（4 GB）与 Windows/WSL 开销（约 8 GB），峰值约 31 GB，紧贴 32 GB 预算，部署后监控实际占用并按第 11 节调优。</p>
+
+      <h3 id="server-db">4.4 常驻数据库</h3>
+      <ul>
+        <li>MySQL 8、PostgreSQL 16 与达梦 DM8 三库常驻 mjbk，供开发联调与 CI 三库方言集成测试共用（决策 3、决策 7）。达梦用官方镜像 <code>dmdbms/dm8</code>（含试用授权，商业交付需采购商业许可）。</li>
+        <li>日常开发仍以本地 SQLite 为主（零部署）；需要验证方言行为时，后端以环境变量覆盖数据源连接指向 mjbk 三库。</li>
+        <li>库名遵循《命名规范》第 7 节环境库约定与多租户库划分（达梦以模式 schema 承载库语义）：</li>
+      </ul>
+      <table>
+        <tr><th>用途</th><th>MySQL / PostgreSQL / 达梦库名</th><th>说明</th></tr>
+        <tr><td>开发联调</td><td><code>bms_dev</code>（平台库 + 租户库模拟可再建 <code>bms_platform</code>、<code>bms_tenant_*</code>、<code>bms_archive</code>）</td><td>开发期按需创建，模拟多数据源拓扑</td></tr>
+        <tr><td>CI 集成测试</td><td><code>bms_test</code> 前缀（job 内建库 → 迁移 → 测试 → 删库）</td><td>每次 job 独立、互不污染，与开发数据隔离</td></tr>
+      </table>
+      <ul>
+        <li>账号与密码只写入 <code>deploy/.env</code>（不入库、不入镜像、不写入本文档），详见第 6 节。</li>
+        <li>三库均开启慢查询日志（开发联调排查用）；MySQL 字符集 <code>utf8mb4</code>、PostgreSQL 与达梦 <code>UTF8</code>（规划「数据规范」节约定）。</li>
+        <li>达梦 Python 驱动 dmPython 为官方同步驱动（dialect <code>dm+dmPython</code>），对 Python 3.14 兼容性未知，纳入阶段一逐依赖验证，不兼容则按规划口径整体回退 Python 3.13。</li>
+      </ul>
+
+      <h3 id="server-gitlab">4.5 GitLab 与 CI 基础设施</h3>
+      <ol>
+        <li>
+          <strong>GitLab CE 容器</strong>（<code>deploy/compose/gitlab.yml</code>）：
+          <ul>
+            <li>镜像 <code>gitlab/gitlab-ce</code>，端口映射 HTTP 8080（容器内 80）、Registry 5050；SSH 22 端口可选映射 2222（内网开发走 HTTP 即可，不强制）。</li>
+            <li>数据目录挂载 <code>D:\bms-data\gitlab</code>（配置、仓库数据、备份），避免 C 盘膨胀。</li>
+            <li>首次访问 <code>http://192.168.0.107:8080</code> 设置 root 密码；访问地址需写入容器 <code>external_url</code> 配置，否则 GitLab 生成的仓库/克隆 URL 不正确。</li>
+            <li>GitLab 内存 ≥ 4GB 预算（《项目规划说明》要求），mjbk 32GB 满足。</li>
+          </ul>
+        </li>
+        <li>
+          <strong>gitlab-runner 容器</strong>（同文件）：
+          <ul>
+            <li>镜像 <code>gitlab/gitlab-runner</code>，挂载宿主机 docker.sock 供 executor=docker 使用。</li>
+            <li>注册命令（token 在 GitLab 管理界面生成）：</li>
+          </ul>
+          <pre><code>docker exec -it gitlab-runner gitlab-runner register \
+  --url http://192.168.0.107:8080 \
+  --token &lt;runner-registration-token&gt; \
+  --executor docker \
+  --docker-image python:3.14-slim \
+  --docker-volumes /var/run/docker.sock:/var/run/docker.sock \
+  --tag-list bms,docker</code></pre>
+          <ul>
+            <li>runner 并发限制：mjbk 为 6 核 12 线程，注册后设置并发上限（config.toml 中 <code>concurrent = 2</code>），避免 CI 抢占 GitLab 与开发服务的资源。</li>
+          </ul>
+        </li>
+        <li>
+          <strong>Renovate</strong>：阶段二起以容器方式随 gitlab.yml 编排，自动提依赖升级 MR；需 mjbk 可访问外网。
+        </li>
+        <li>
+          <strong>GitHub 归档镜像</strong>：GitLab 配置 push mirror 将 main 单向同步至 GitHub 归档仓库；同样依赖外网，不可达时暂缓。
+        </li>
+      </ol>
+
+      <h3 id="server-firewall">4.6 防火墙与访问控制</h3>
+      <ul>
+        <li>Windows 防火墙仅对 <strong>192.168.0.0/24 内网</strong>放行第 9 节端口清单（PowerShell 管理员执行，示例）：</li>
+      </ul>
+      <pre><code>New-NetFirewallRule -DisplayName "BMS-Dev-LAN" -Direction Inbound `
+  -Protocol TCP -LocalPort 8080,5050,3306,5432,5236,6379,9000,9001,9876,10911,9200,9090,3100,3000,9093,16686,4317,4318 `
+  -RemoteAddress 192.168.0.0/24 -Action Allow</code></pre>
+      <ul>
+        <li>各容器仅绑定内网可访问范围（Compose 端口映射默认 0.0.0.0，配合防火墙限制来源即可）。</li>
+        <li>敏感端口（MySQL/PostgreSQL/达梦/Redis）密码强度按第 6 节管理，避免仅靠防火墙单点防护。</li>
+      </ul>
+
+      <h2 id="devpc">5. 开发机 mjpc 环境</h2>
+
+      <h3 id="devpc-tools">5.1 工具链</h3>
+      <table>
+        <tr><th>工具</th><th>版本</th><th>说明</th></tr>
+        <tr><td>uv</td><td>最新稳定版</td><td>Python 依赖管理与虚拟环境一体化；<code>uv python install 3.14</code> 安装项目固定解释器（<code>.python-version</code> 已锁定 3.14）</td></tr>
+        <tr><td>Node.js</td><td>≥ 20.19（<code>.nvmrc</code> 锁定）</td><td>用 fnm 或 volta 管理，自动读取 <code>.nvmrc</code> 切换版本</td></tr>
+        <tr><td>VSCode</td><td>最新稳定版</td><td>扩展：Python、pyright、ruff、Vue-Official（Volar）、ESLint、Prettier</td></tr>
+        <tr><td>Git for Windows</td><td>最新稳定版</td><td>凭证保存 GitLab HTTP 凭据</td></tr>
+      </table>
+      <pre><code>uv python install 3.14
+fnm install --use-on-cd   # 或 volta install node</code></pre>
+
+      <h3 id="devpc-repo">5.2 仓库获取</h3>
+      <pre><code>git clone http://192.168.0.107:8080/bms/bms.git
+cd bms
+git checkout -b feature/xxx</code></pre>
+
+      <h3 id="devpc-backend">5.3 后端开发运行</h3>
+      <ul>
+        <li>依赖安装与虚拟环境由 uv 管理（<code>pyproject.toml</code>），日常命令：</li>
+      </ul>
+      <pre><code>uv sync                          # 安装依赖
+uv run uvicorn app.main:app --reload --port 8000</code></pre>
+      <ul>
+        <li>数据库：<code>BMS_ENV=dev</code> 默认 SQLite（本地文件，多个 SQLite 文件模拟平台库 / 租户库 / 归档库，与规划「多数据源策略」一致）；需要验证 MySQL/PostgreSQL/达梦方言时以环境变量覆盖数据源连接指向 mjbk：</li>
+      </ul>
+      <pre><code>$env:BMS_DB_URL = "mysql+aiomysql://bms_dev:&lt;password&gt;@192.168.0.107:3306/bms_dev"
+$env:BMS_DB_URL = "postgresql+psycopg://bms_dev:&lt;password&gt;@192.168.0.107:5432/bms_dev"
+$env:BMS_DB_URL = "dm+dmPython://bms_dev:&lt;password&gt;@192.168.0.107:5236/bms_dev"</code></pre>
+      <ul>
+        <li>接口调试：FastAPI 自带 Swagger UI（<code>http://localhost:8000/docs</code>）。</li>
+        <li>测试：<code>uv run pytest</code>（SQLite 库，与 CI 同源）。</li>
+      </ul>
+
+      <h3 id="devpc-frontend">5.4 前端开发运行</h3>
+      <p>frontend 与 frontend-mobile 双工程独立，各自安装与启动：</p>
+      <pre><code>cd frontend
+npm ci
+npm run dev            # Vite 开发服务器，默认 5173</code></pre>
+      <pre><code>cd frontend-mobile
+npm ci
+npm run dev</code></pre>
+      <ul>
+        <li>开发服务器跨域由后端 dev 配置放行（规划「环境与配置」节：CORS dev 放行前端开发服务器，生产不开放）。</li>
+        <li>类型契约：后端 OpenAPI 经 openapi-typescript 生成 TS 类型，保持前后端一致。</li>
+      </ul>
+
+      <h3 id="devpc-integrate">5.5 联调配置</h3>
+      <p>mjpc 本地后端需要消费 mjbk 共享服务时，通过环境变量覆盖 config.toml（连接地址均为 mjbk 的 192.168.0.107）：</p>
+      <table>
+        <tr><th>依赖</th><th>环境变量</th><th>开发值示例</th></tr>
+        <tr><td>Redis</td><td><code>BMS_REDIS_URL</code></td><td><code>redis://192.168.0.107:6379/0</code></td></tr>
+        <tr><td>RocketMQ</td><td><code>BMS_ROCKETMQ_NAMESERVER</code></td><td><code>192.168.0.107:9876</code></td></tr>
+        <tr><td>MinIO</td><td><code>BMS_MINIO_ENDPOINT</code> 等</td><td><code>http://192.168.0.107:9000</code></td></tr>
+        <tr><td>ElasticSearch</td><td><code>BMS_ES_URL</code></td><td><code>http://192.168.0.107:9200</code></td></tr>
+        <tr><td>MySQL / PostgreSQL / 达梦</td><td><code>BMS_DB_URL</code>（按数据源）</td><td>见 5.3</td></tr>
+      </table>
+      <div class="note">
+        环境变量名以仓库 config 实现为准，上表为规划口径（均带 <code>BMS_</code> 前缀，符合《命名规范》第 10 节）；
+        完整清单随《部署手册》交付。
+      </div>
+
+      <h2 id="config">6. 配置与凭据管理</h2>
+      <ul>
+        <li>三套环境 dev / test / prod 由 <code>BMS_ENV</code> 指定，config.toml 按环境分层 + 环境变量覆盖（《项目规划说明》「环境与配置」节）。</li>
+        <li>仓库只提交 <code>deploy/.env.example</code>（键名模板、无真实值）；真实 <code>deploy/.env</code> 加入 <code>.gitignore</code>，仅存在于 mjbk。</li>
+        <li>密钥类配置（DB/Redis 密码、JWT secret、MinIO 凭据、GitLab token）只走环境变量，不落配置文件、不入库、不入镜像、不写入本文档。</li>
+        <li>机器登录凭据以《<a href="../资料/本地资源.md">本地资源</a>》为准，本文档不重复记载。</li>
+        <li>GitLab root 密码、runner 注册 token、数据库账号初始密码在首次部署时生成并记录于 mjbk 本地密码管理器（或仅限本机的密钥文件），不随文档与仓库流转。</li>
+      </ul>
+
+      <h2 id="workflow">7. 开发工作流与 CI</h2>
+      <ol>
+        <li><strong>分支模型</strong>：<code>main</code> 保护分支；开发在 <code>feature/xxx</code> 分支进行，push 至 mjbk GitLab 后提 Merge Request。</li>
+        <li><strong>MR 流水线</strong>（gitlab-runner 在 mjbk 执行）：
+          <ul>
+            <li>后端：ruff 检查 + pytest（SQLite）</li>
+            <li>前端：ESLint + Vitest + frontend / frontend-mobile 双端构建</li>
+          </ul>
+        </li>
+        <li><strong>main 流水线</strong>（MR 合入后）：
+          <ul>
+            <li>Playwright E2E（服务容器起 backend（SQLite）与前端产物）</li>
+            <li>MySQL/PostgreSQL/达梦 DM8 三库方言集成测试：job 连 mjbk 常驻三库，建 <code>bms_test</code> 前缀测试库 → Alembic 迁移 → 集成测试 → 删库清理</li>
+            <li>构建 <code>bms-backend</code>、<code>bms-frontend</code> 镜像推送 GitLab Registry（5050）</li>
+            <li>导出 swagger.json 契约快照存档</li>
+          </ul>
+        </li>
+        <li><strong>依赖升级</strong>：Renovate 自动提升级 MR（原生支持自托管 GitLab）。</li>
+        <li><strong>GitHub 归档</strong>：GitLab push mirror 单向同步 main 至 GitHub 只读归档仓库。</li>
+      </ol>
+
+      <h2 id="backup">8. 备份与恢复</h2>
+      <p>开发服务器的数据同样需要防丢失（《项目规划说明》「备份与恢复」节针对产品功能，本节约束开发服务器自身运维）：</p>
+      <table>
+        <tr><th>对象</th><th>策略</th><th>保留</th></tr>
+        <tr><td>MySQL / PostgreSQL / 达梦</td><td>每日 dump 至 <code>D:\bms-data\backup\{mysql,postgres,dameng}\</code>（达梦用 dmrman，Windows 任务计划程序 + <code>scripts/</code> 目录 PowerShell 脚本）</td><td>7 天</td></tr>
+        <tr><td>GitLab</td><td>每日 <code>gitlab-backup</code>（容器内命令），备份文件落 <code>D:\bms-data\backup\gitlab\</code></td><td>7 天</td></tr>
+        <tr><td>MinIO / ES 数据</td><td>开发期数据量小，随 Docker 命名卷所在盘做整机级镜像即可；不单独做增量</td><td>—</td></tr>
+        <tr><td>恢复演练</td><td>每季度一次从备份目录恢复验证（与产品「恢复演练登记」流程分开，开发服务器单独登记）</td><td>—</td></tr>
+      </table>
+      <div class="warn">
+        开发服务器数据虽非生产数据，但 GitLab 仓库与 CI 记录丢失代价高（代码、MR 历史、镜像）。每日备份脚本在 mjbk 上落地部署时即应就位。
+      </div>
+
+      <h2 id="ports">9. 端口与网络规划</h2>
+      <table>
+        <tr><th>端口</th><th>服务</th><th>说明</th></tr>
+        <tr><td>8080</td><td>GitLab HTTP</td><td>容器内 80 映射</td></tr>
+        <tr><td>5050</td><td>GitLab Registry</td><td>容器镜像仓库</td></tr>
+        <tr><td>3306 / 5432 / 5236</td><td>MySQL 8 / PostgreSQL 16 / 达梦 DM8</td><td>mjbk 常驻，仅内网</td></tr>
+        <tr><td>6379</td><td>Redis</td><td>仅内网</td></tr>
+        <tr><td>9000 / 9001</td><td>MinIO API / 控制台</td><td>仅内网</td></tr>
+        <tr><td>9876 / 10911</td><td>RocketMQ nameserver / broker</td><td>阶段四起，仅内网</td></tr>
+        <tr><td>9200 / 9300</td><td>ElasticSearch HTTP / 节点通信</td><td>阶段十三起（可提前），仅内网</td></tr>
+        <tr><td>9090 / 3100 / 3000 / 9093</td><td>Prometheus / Loki / Grafana / Alertmanager</td><td>阶段八起，仅内网</td></tr>
+        <tr><td>16686 / 4317 / 4318</td><td>Jaeger UI / otel-collector OTLP</td><td>阶段八起，仅内网</td></tr>
+        <tr><td>19530</td><td>Milvus</td><td>阶段十四起，仅内网</td></tr>
+        <tr><td>8000 / 5173</td><td>uvicorn / Vite（mjpc 本地）</td><td>仅本机，不对外放行</td></tr>
+      </table>
+      <div class="note">
+        若 mjbk 上某端口已被本机服务占用（如 IIS 占 80、已有 MySQL 占 3306），Compose 映射改端口并同步调整后端配置；上表为默认规划值。
+      </div>
+
+      <h2 id="schedule">10. 分阶段落地计划</h2>
+      <p>与《项目规划说明》「开发计划与验收标准」的阶段对齐，环境按需引入、避免一次性拉满：</p>
+      <table>
+        <tr><th>阶段</th><th>环境准备动作</th><th>对应项目阶段</th></tr>
+        <tr><td>准备期</td><td>mjbk：WSL2 + Rancher Desktop（dockerd）+ 磁盘目录 + 防火墙；mjpc：uv / Node / VSCode 工具链</td><td>阶段一前</td></tr>
+        <tr><td>第一批</td><td>mjbk：redis、mysql、postgres、dameng、minio 容器 + GitLab CE + gitlab-runner + 仓库初始化 + .gitlab-ci.yml 落地（达梦 dmPython 驱动兼容性同步验证）</td><td>阶段一</td></tr>
+        <tr><td>第二批</td><td>mjbk：rocketmq（nameserver + broker）</td><td>阶段四（消息与任务基础设施）</td></tr>
+        <tr><td>第三批</td><td>mjbk：monitor 组（prometheus / loki / grafana / alertmanager / jaeger / otel-collector）+ 开发服务器备份脚本</td><td>阶段八（分布式与监控）</td></tr>
+        <tr><td>第四批</td><td>mjbk：elasticsearch（单节点）；若已提前引入则无需动作</td><td>阶段十三（全文检索）</td></tr>
+        <tr><td>第五批</td><td>mjbk：milvus + etcd（MinIO 复用）；PaddleOCR 按需本地部署（可选）</td><td>阶段十四（AI 能力）</td></tr>
+      </table>
+      <p>每批环境就位后，对应阶段验收标准中的「环境相关项」即可验证（如阶段一 /healthz /readyz、阶段八监控链路与追踪可见、阶段九压测在 mjpc 发起、目标 500 并发 / P99 ≤ 1s）。</p>
+
+      <h2 id="risk">11. 风险与注意事项</h2>
+      <table>
+        <tr><th>风险 / 注意项</th><th>应对</th></tr>
+        <tr>
+          <td>Rancher Desktop 默认 containerd 运行时与 docker compose 行为差异</td>
+          <td>部署时切换 dockerd（moby）后端，切换后以 <code>docker info</code>、<code>docker compose version</code> 验证</td>
+        </tr>
+        <tr>
+          <td>mjbk D 盘为 HDD，ES / 数据库随机读写慢</td>
+          <td>严格按 4.2 磁盘规划：IO 敏感数据全走 C 盘 SSD 命名卷</td>
+        </tr>
+        <tr>
+          <td>内存预算逼近 32 GB（三库常驻后峰值约 31 GB）</td>
+          <td>ES 堆限 1–2 GB；GitLab 4 GB 封顶；达梦仅联调与 CI 时段可停（docker compose stop dameng）；按需关闭 Grafana/Loki（阶段八前不启动）；部署后监控 <code>docker stats</code> 与实际占用</td>
+        </tr>
+        <tr>
+          <td>dmPython 对 Python 3.14 兼容性未知</td>
+          <td>纳入阶段一逐依赖验证；不兼容则按规划既定口径整体回退 Python 3.13（`.python-version` 同步调整）</td>
+        </tr>
+        <tr>
+          <td>Python 3.14 与核心依赖兼容性（规划已定回退口径）</td>
+          <td>阶段一骨架阶段逐依赖验证，任一核心依赖不兼容整体回退 Python 3.13（`.python-version` 同步调整）</td>
+        </tr>
+        <tr>
+          <td>mjbk 外网不可达（GitHub mirror、Renovate、镜像拉取）</td>
+          <td>镜像提前缓存到 mjbk；GitHub 归档镜像与 Renovate 暂缓，待网络恢复后启用，不影响内网开发主链路</td>
+        </tr>
+        <tr>
+          <td>Windows 更新 / 重启导致常驻服务中断</td>
+          <td>Rancher Desktop 开机自启；Windows 更新设置在维护时段；重启后验证脚本一键拉起全部容器</td>
+        </tr>
+        <tr>
+          <td>CI 与开发服务抢资源（mjbk 6 核 12 线程）</td>
+          <td>runner <code>concurrent = 2</code> 限制并发；压测与大规模构建避开 CI 高峰时段</td>
+        </tr>
+        <tr>
+          <td>runner 容器挂载 docker.sock 的安全边界</td>
+          <td>仅内网开发环境使用；GitLab runner 注册 token 严格保密，runner 只注册本项目</td>
+        </tr>
+      </table>
+
+      <h2 id="handoff">12. 与后续文档的衔接</h2>
+      <ul>
+        <li>本文档确定方案与节奏；<strong>《部署手册》</strong>（阶段八交付，规划「文档计划」节）细化 Compose 文件、环境变量清单、备份恢复演练步骤、安全响应头说明。</li>
+        <li><strong>《运维手册》</strong>（阶段八）覆盖监控告警配置、日志检索、常见故障排查。</li>
+        <li>Compose 编排与环境变量模板随代码仓库 <code>deploy/</code> 目录版本管理，与《<a href="../规范/命名规范.html">命名规范</a>》保持一致。</li>
+        <li>文档变更后运行 <code>graphify update .</code> 保持知识图谱最新；graphify 工具使用见《<a href="../资料/graphify部署使用说明.html">graphify 部署使用说明</a>》。</li>
+      </ul>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 依《文档生成规范》编写 · 关键决策已逐项确认 · 生成日期：2026-08-09
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>

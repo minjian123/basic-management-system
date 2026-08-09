@@ -205,10 +205,10 @@
         <tr><td>事件生产一致性</td><td>RocketMQ 事务消息</td><td>本地事务与消息发送原子一致，避免丢事件</td></tr>
         <tr><td>工作流引擎</td><td>SpiffWorkflow（BPMN 2.0）</td><td>Python 生态最成熟 BPMN 引擎；线程池运行于异步栈；Python 3.14 兼容风险有回退预案</td></tr>
         <tr><td>前端包管理</td><td>npm（双工程彻底独立）</td><td>官方自带、零额外配置、不生成额外配置文件；不引入 workspace 机制</td></tr>
-        <tr><td>数据库支持</td><td>SQLite / MySQL / PostgreSQL 三库兼容</td><td>开发零部署，生产双库并行，ORM 层禁用方言特有功能</td></tr>
+        <tr><td>数据库支持</td><td>SQLite / MySQL / PostgreSQL / 达梦 DM8 四库兼容</td><td>开发零部署，生产三库并行（达梦信创选配），ORM 层禁用方言特有功能</td></tr>
         <tr><td>链路追踪</td><td>OpenTelemetry + Jaeger</td><td>otel-collector 统一采集，Grafana Jaeger 数据源统一可视化</td></tr>
         <tr><td>i18n 方案</td><td>文案入库 + i18n 附表 + Babel 提取</td><td>新增语言免发版；业务文案与固定文案分层管理</td></tr>
-        <tr><td>软删除与唯一约束</td><td>(唯一字段, deleted_at) 复合唯一索引</td><td>三库多 NULL 不冲突，删除即释放唯一键，回收站复用</td></tr>
+        <tr><td>软删除与唯一约束</td><td>(唯一字段, deleted_at) 复合唯一索引</td><td>四库多 NULL 不冲突（达梦按 Oracle 兼容口径，阶段一验证），删除即释放唯一键，回收站复用</td></tr>
       </table>
 
       <h3 id="adr-micro">2.1 微服务拆分评估</h3>
@@ -220,7 +220,7 @@
         <tr><td>数据一致性</td><td>服务自治存储</td><td>分布式事务：审计哈希链串行追加、软删除 (唯一字段, deleted_at) 复合唯一约束、乐观锁、事务消息均为强一致场景，拆分后需 Saga/两阶段提交</td></tr>
         <tr><td>性能</td><td>按热点独立优化</td><td>跨服务网络调用威胁 P99 ≤ 1s 目标（审批链路穿 3-4 个服务）；单体内同进程调用零开销</td></tr>
         <tr><td>权限与租户</td><td>服务级安全边界</td><td>require_permission 贯穿全部模块、数据范围过滤注入查询、一租户一库路由均为横切基座，拆分后难以统一</td></tr>
-        <tr><td>运维与监控</td><td>故障定位到服务</td><td>基础设施已 8+ 组件（RocketMQ/ES/Milvus/Redis/MinIO/双库/监控），再拆分服务令 Compose/监控/链路追踪规模爆炸</td></tr>
+        <tr><td>运维与监控</td><td>故障定位到服务</td><td>基础设施已 8+ 组件（RocketMQ/ES/Milvus/Redis/MinIO/三库/监控），再拆分服务令 Compose/监控/链路追踪规模爆炸</td></tr>
         <tr><td>团队协作</td><td>服务边界=团队边界</td><td>小团队（单团队）维护单体更高效；知识图谱辅助理解单体结构</td></tr>
         <tr><td>测试</td><td>服务内独立验证</td><td>集成/E2E/安全专项需跨服务编排，成本显著上升</td></tr>
       </table>
@@ -229,9 +229,9 @@
       <h2 id="risks">3. 架构风险与应对</h2>
       <table>
         <tr><th>风险</th><th>影响</th><th>应对</th></tr>
-        <tr><td>Python 3.14 生态兼容</td><td>核心依赖（FastAPI/SQLAlchemy/psycopg/Celery/SpiffWorkflow）未适配</td><td>阶段一逐依赖验证，任一不兼容整体回退 3.13（已定口径）</td></tr>
+        <tr><td>Python 3.14 生态兼容</td><td>核心依赖（FastAPI/SQLAlchemy/psycopg/Celery/SpiffWorkflow/dmPython）未适配</td><td>阶段一逐依赖验证，任一不兼容整体回退 3.13（已定口径）</td></tr>
         <tr><td>RocketMQ 运维复杂度</td><td>nameserver + broker 部署与调优成本</td><td>Compose 标准化部署；MVP 单机起步，生产集群化；故障降级同步直写</td></tr>
-        <tr><td>双库方言维护</td><td>MySQL/PostgreSQL 两套迁移与方言差异</td><td>ORM 层禁用方言特性；CI 双库集成测试；SQLite 自动建表</td></tr>
+        <tr><td>三库方言维护</td><td>MySQL/PostgreSQL/达梦 DM8 三套迁移与方言差异</td><td>ORM 层禁用方言特性；CI 三库集成测试（达梦复用 mjbk 常驻库）；SQLite 自动建表</td></tr>
         <tr><td>多租户引擎连接膨胀</td><td>租户库增多后连接数失控</td><td>懒加载 + 闲置回收 + 池上限 + 活跃租户数上限；连接预算公式约束</td></tr>
         <tr><td>ES 资源占用</td><td>单节点内存需求高</td><td>MVP 单节点按需分配；索引按月拆分可裁剪；故障降级兜底</td></tr>
         <tr><td>审计链性能瓶颈</td><td>串行消费限制写入吞吐</td><td>单租户日志量级有限；跨租户分区并行；必要时按表拆分消费组（链内保持有序）</td></tr>

@@ -189,8 +189,8 @@
       <ul>
         <li>config.toml 声明多个数据源（每库含主从连接）；多租户落地于本层：一租户一独立库，见多租户路由子系统</li>
         <li>多异步 bind：SQLAlchemy 2.0 多引擎管理；repositories 层按模块指定数据源</li>
-        <li>驱动：MySQL 用 aiomysql（异步；同步 fallback 可换 PyMySQL，aiomysql 底层即其移植；备选 asyncmy——性能更好但维护活跃度一般）；PostgreSQL 用 psycopg 3（原生异步）；开发/测试 SQLite 用 aiosqlite</li>
-        <li>数据库兼容：ORM 层禁用方言特有功能（JSON 等类型用跨方言通用类型，分页统一 limit/offset）；Alembic 维护两套方言迁移；SQLite 开发库自动建表</li>
+        <li>驱动：MySQL 用 aiomysql（异步；同步 fallback 可换 PyMySQL，aiomysql 底层即其移植；备选 asyncmy——性能更好但维护活跃度一般）；PostgreSQL 用 psycopg 3（原生异步）；达梦 DM8 用 dmPython（官方同步驱动，dialect <code>dm+dmPython</code>，Python 3.14 兼容性纳入阶段一验证）；开发/测试 SQLite 用 aiosqlite</li>
+        <li>数据库兼容：ORM 层禁用方言特有功能（JSON 等类型用跨方言通用类型，分页统一 limit/offset）；Alembic 维护三套方言迁移；SQLite 开发库自动建表</li>
       </ul>
 
       <h2 id="rw-separation">3. 读写分离</h2>
