@@ -269,11 +269,11 @@
       <h2 id="rules">4. 数据规范</h2>
       <ul>
         <li>主键：业务表雪花 ID（yitter/IdGenerator）；关联表用唯一联合主键，不设 id</li>
-        <li>软删除：业务数据 deleted_at；唯一约束统一建为 (唯一字段, deleted_at) 复合唯一索引——未删行 deleted_at 为 NULL，SQLite/MySQL/PostgreSQL 三库均允许多个 NULL 不冲突；PostgreSQL 可另加部分唯一索引优化</li>
+        <li>软删除：业务数据 deleted_at；唯一约束统一建为 (唯一字段, deleted_at) 复合唯一索引——未删行 deleted_at 为 NULL，SQLite/MySQL/PostgreSQL/达梦 DM8 四库均允许多个 NULL 不冲突（达梦按 Oracle 兼容口径，阶段一验证）；PostgreSQL 可另加部分唯一索引优化</li>
         <li>审计字段：created_at / created_by / updated_at / updated_by，由 ORM 事件自动填充</li>
         <li>乐观锁：version 字段，更新时比对，防止多实例并发覆盖</li>
         <li>时间：统一 UTC 存储，前端按本地时区展示</li>
-        <li>字符集：MySQL utf8mb4、PostgreSQL UTF8</li>
+        <li>字符集：MySQL utf8mb4、PostgreSQL UTF8、达梦 DM8 UTF8</li>
         <li>索引：排序字段、外键、数据权限过滤字段必须建索引；唯一性约束用唯一索引（idx_/uq_ 前缀）</li>
         <li>SQL 规范：禁止 SELECT *；批量写入用 bulk；事务尽量短；定期走查慢查询日志</li>
       </ul>
@@ -318,10 +318,10 @@
 
       <h2 id="migration">6. 迁移策略</h2>
       <ul>
-        <li>Alembic 按数据源分别维护迁移脚本，只管理各库 schema；MySQL / PostgreSQL 两套方言迁移脚本</li>
+        <li>Alembic 按数据源分别维护迁移脚本，只管理各库 schema；MySQL / PostgreSQL / 达梦 DM8 三套方言迁移脚本</li>
         <li>租户库批量迁移：遍历 sys_tenant 逐库执行（批量迁移脚本）；新租户开通自动执行</li>
         <li>SQLite 开发库自动建表（不依赖迁移脚本）</li>
-        <li>测试环境与开发环境一致使用 SQLite；双库方言差异以 CI 集成测试覆盖</li>
+        <li>测试环境与开发环境一致使用 SQLite；三库方言差异以 CI 集成测试覆盖</li>
       </ul>
 
       <h2 id="related">7. 关联节点</h2>

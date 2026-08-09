@@ -214,8 +214,9 @@
 ┌───────▼───────┐ ┌─────▼──────┐ ┌──────▼───────┐ ┌────▼────────┐
 │ 数据层         │ │ 缓存/队列   │ │ 存储/检索     │ │ AI（阶段十四）│
 │ MySQL / PG     │ │ Redis      │ │ MinIO        │ │ Milvus      │
-│ 平台库+租户库   │ │ RocketMQ   │ │ ElasticSearch│ │ PaddleOCR   │
-│ +归档库 主从    │ │            │ │              │ │ LLM 适配层   │
+│ / 达梦 DM8     │ │ RocketMQ   │ │ ElasticSearch│ │ PaddleOCR   │
+│ 平台库+租户库   │ │            │ │              │ │ LLM 适配层   │
+│ +归档库 主从    │ │            │ │              │ │             │
 └───────────────┘ └────────────┘ └──────────────┘ └─────────────┘
         ┌─────────────────────────────────────────────────────┐
         │ 可观测性  Prometheus + Loki + Grafana + Alertmanager │
@@ -273,7 +274,7 @@
 │   │   ├── tasks/            # Celery 任务定义
 │   │   ├── ws/               # Socket.IO 连接与会话事件
 │   │   └── i18n/             # 国际化管理（语言包接口、运行时翻译）
-│   ├── alembic/              # 迁移脚本（双套方言）
+│   ├── alembic/              # 迁移脚本（三套方言）
 │   ├── tests/                # pytest
 │   ├── config.toml
 │   └── pyproject.toml
@@ -290,9 +291,10 @@
 │   ├── package.json
 │   └── .nvmrc
 ├── frontend-mobile/          # Vue 3 + Vant（移动端 H5：审批、通知、数据查询）
-├── deploy/                   # Docker Compose、nginx 配置
+├── deploy/                   # Docker Compose、nginx 配置（含 GitLab CE、gitlab-runner、Renovate 编排）
 ├── scripts/                  # 种子数据、备份恢复等运维脚本
-├── .github/                  # CI 工作流（GitHub Actions）、dependabot
+├── .gitlab-ci.yml            # CI 流水线定义（GitLab CE）
+├── .github/                  # GitHub 归档镜像辅助文件（README 说明等）
 ├── 文档/                     # 规划/规范/设计/资料
 └── graphify-out/             # 知识图谱产物（勿手动修改）</code></pre>
 
@@ -305,8 +307,8 @@
         <tr><td>Web 框架</td><td>FastAPI（uvicorn 多 worker 部署）</td></tr>
         <tr><td>数据校验</td><td>Pydantic v2</td></tr>
         <tr><td>数据库抽象</td><td>SQLAlchemy 2.0+（异步 ORM/Core，多数据源）</td></tr>
-        <tr><td>数据库迁移</td><td>Alembic（双套方言，URL 来自 config.toml）</td></tr>
-        <tr><td>数据库</td><td>SQLite（开发/测试，aiosqlite）/ MySQL 8.x（aiomysql）/ PostgreSQL 16+（psycopg 3）</td></tr>
+        <tr><td>数据库迁移</td><td>Alembic（三套方言，URL 来自 config.toml）</td></tr>
+        <tr><td>数据库</td><td>SQLite（开发/测试，aiosqlite）/ MySQL 8.x（aiomysql）/ PostgreSQL 16+（psycopg 3）/ 达梦 DM8（dmPython，信创选配）</td></tr>
         <tr><td>缓存</td><td>Redis（redis-py 异步客户端，集群统一缓存）</td></tr>
         <tr><td>认证</td><td>JWT（PyJWT）+ Redis 会话状态校验 + PBKDF2 密码哈希（标准库）</td></tr>
         <tr><td>SSO</td><td>authlib（OIDC 客户端/Provider + CAS 客户端；企业微信/钉钉免登）</td></tr>
@@ -371,7 +373,7 @@
         <tr><td>检索</td><td>ElasticSearch 8.x（MVP 单节点，生产集群多副本）</td></tr>
         <tr><td>AI（阶段十四）</td><td>Milvus（milvus + etcd，MinIO 复用）、PaddleOCR（可选）</td></tr>
         <tr><td>健康检查</td><td>/healthz、/readyz</td></tr>
-        <tr><td>CI/CD</td><td>GitHub Actions（ruff + pytest + 前端双端构建 + Playwright E2E + 双库集成测试 + 镜像 + swagger.json 快照）+ dependabot</td></tr>
+        <tr><td>CI/CD</td><td>GitLab CE（自托管，仓库 + MR + CI + Registry 一体，gitlab-runner 容器化挂载 docker.sock；ruff + pytest + 前端双端构建 + Playwright E2E + 三库集成测试（复用开发服务器常驻库）+ 镜像 + swagger.json 快照）+ Renovate 依赖升级；GitHub push mirror 只读归档</td></tr>
       </table>
 
       <h2 id="phases">7. 阶段映射</h2>
@@ -410,7 +412,7 @@
         <li>归档管理可用（策略执行、归档数据在线查询、物理清理生效、审计链跨归档校验通过）；备份任务与记录可查、恢复演练登记可用</li>
         <li>Excel 导入导出可用；分片上传与断点续传可用；短信发送记录可用</li>
         <li>安全专项用例集通过；浏览器与移动端真机兼容基线通过</li>
-        <li>压测达到 500 并发 / P99 ≤ 1s；MySQL 与 PostgreSQL 双库 CI 通过；Docker Compose 一键部署成功</li>
+        <li>压测达到 500 并发 / P99 ≤ 1s；MySQL/PostgreSQL/达梦 DM8 三库 CI 通过；Docker Compose 一键部署成功</li>
       </ul>
 
       <h2 id="related">8. 关联节点</h2>

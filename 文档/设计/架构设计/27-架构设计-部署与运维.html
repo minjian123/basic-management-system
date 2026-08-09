@@ -191,7 +191,7 @@
   ├── backend × N（无状态，uvicorn 多 worker）
   ├── celery-worker × N ── celery-beat × 1（Redis 锁防重）
   ├── event-worker × N（RocketMQ 消费）
-  ├── MySQL / PostgreSQL 主从（1 平台库 + N 租户库 + 1 归档库）
+  ├── MySQL / PostgreSQL 主从（1 平台库 + N 租户库 + 1 归档库）/ 达梦 DM8（信创选配，DM 数据守护主从）
   ├── Redis（Sentinel/Cluster 高可用，key 含租户前缀）
   ├── RocketMQ（nameserver + broker 多副本）
   ├── MinIO（按租户 bucket 前缀隔离，归档文件亦存于此）
@@ -215,7 +215,7 @@
 
       <h2 id="compose">4. 基础设施编排</h2>
       <ul>
-        <li>初版 Docker Compose：backend（多副本）+ celery-worker（多副本）+ celery-beat（单副本）+ event-worker（多副本）+ frontend（nginx，托管 PC + 移动端静态资源）+ redis + rocketmq（nameserver + broker）+ elasticsearch + milvus（含 etcd，MinIO 复用）+ minio + 数据库（按环境选择 MySQL 或 PostgreSQL）+ 监控（Prometheus/Loki/Grafana/Alertmanager）+ jaeger（trace）+ otel-collector</li>
+        <li>初版 Docker Compose：backend（多副本）+ celery-worker（多副本）+ celery-beat（单副本）+ event-worker（多副本）+ frontend（nginx，托管 PC + 移动端静态资源）+ redis + rocketmq（nameserver + broker）+ elasticsearch + milvus（含 etcd，MinIO 复用）+ minio + 数据库（按环境选择 MySQL、PostgreSQL 或达梦 DM8）+ 监控（Prometheus/Loki/Grafana/Alertmanager）+ jaeger（trace）+ otel-collector</li>
         <li>nginx 需支持 WebSocket：/socket.io 路径放行 Upgrade/Connection 头</li>
         <li>健康检查：/healthz（存活）、/readyz（依赖就绪），供编排系统滚动发布</li>
         <li>TLS 与 HTTPS：nginx 层配置，cookie Secure 标志随环境启用</li>
@@ -226,7 +226,7 @@
       <ul>
         <li>三套环境 dev / test / prod，config.toml 按环境分层（BMS_ENV 指定）+ 环境变量覆盖</li>
         <li>密钥（DB/Redis 密码、JWT secret、MinIO 凭据、短信/AI key）走 Secret 管理（K8s Secret / Docker secrets），不落库不入镜像</li>
-        <li>开发环境依赖（Redis/RocketMQ/ES/MinIO）由 Docker Compose 统一提供；Milvus 随阶段十四加入</li>
+        <li>开发环境依赖（Redis/RocketMQ/ES/MinIO）由 Docker Compose 统一提供；Milvus 随阶段十四加入；MySQL/PostgreSQL/达梦 DM8 三库常驻开发服务器（见《<a href="../../规划/开发部署规划.html">开发部署规划</a>》）</li>
         <li>Python 版本 .python-version 固定 3.14（uv 管理）；前端 Node 版本 .nvmrc 固定</li>
         <li>CORS：dev 放行前端跨域；生产 nginx 同源反代不开放跨域</li>
         <li>租户域名：生产泛域名 DNS（*.bms.example.com）+ 泛 TLS 证书</li>
@@ -259,7 +259,7 @@
 
       <h2 id="backup">8. 备份与恢复</h2>
       <ul>
-        <li>数据库：每日全量备份 + 开启 Binlog/WAL（时间点恢复 PITR）；保留 30 天，异机存储；归档库纳入备份范围</li>
+        <li>数据库：每日全量备份 + 开启 Binlog/WAL（时间点恢复 PITR），达梦 DM8 用 dmrman 备份/归档；保留 30 天，异机存储；归档库纳入备份范围</li>
         <li>备份任务与记录由页面管理（sys_backup_task / sys_backup_log，Celery 调度，支持手动备份与恢复演练登记）</li>
         <li>MinIO：对象数据定期增量备份 + 生命周期策略；元数据随数据库备份</li>
         <li>恢复：定期演练恢复流程，目标 RTO ≤ 4 小时、RPO ≤ 1 小时</li>
