@@ -1,0 +1,112 @@
+services:
+  redis:
+    image: redis:8
+    container_name: bms-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+
+  mysql:
+    image: mysql:8.4
+    container_name: bms-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      TZ: Asia/Shanghai
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+
+  postgres:
+    image: postgres:16
+    container_name: bms-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      TZ: Asia/Shanghai
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  dameng:
+    image: dmdbms/dm8:latest
+    container_name: bms-dameng
+    restart: unless-stopped
+    ports:
+      - "5236:5236"
+    volumes:
+      - dameng-data:/opt/dmdbms/data
+
+  minio:
+    image: minio/minio:latest
+    container_name: bms-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio-data:/data
+
+  rocketmq-nameserver:
+    image: apache/rocketmq:5.3.2
+    container_name: bms-rocketmq-nameserver
+    restart: unless-stopped
+    command: sh mqnamesrv
+    environment:
+      JAVA_OPT_EXT: "-Xms512m -Xmx512m -Xmn256m"
+    ports:
+      - "9876:9876"
+    volumes:
+      - rocketmq-ns-data:/home/rocketmq/logs
+
+  rocketmq-broker:
+    image: apache/rocketmq:5.3.2
+    container_name: bms-rocketmq-broker
+    restart: unless-stopped
+    depends_on:
+      - rocketmq-nameserver
+    environment:
+      JAVA_OPT_EXT: "-Xms1g -Xmx1g -Xmn512m"
+      NAMESRV_ADDR: "rocketmq-nameserver:9876"
+    command: sh mqbroker -n rocketmq-nameserver:9876 --enable-proxy
+    ports:
+      - "10911:10911"
+      - "10909:10909"
+    volumes:
+      - rocketmq-broker-data:/home/rocketmq/store
+      - rocketmq-broker-logs:/home/rocketmq/logs
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.17.4
+    container_name: bms-elasticsearch
+    restart: unless-stopped
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms1g -Xmx1g
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    volumes:
+      - es-data:/usr/share/elasticsearch/data
+
+volumes:
+  redis-data:
+  mysql-data:
+  postgres-data:
+  dameng-data:
+  minio-data:
+  rocketmq-ns-data:
+  rocketmq-broker-data:
+  rocketmq-broker-logs:
+  es-data:

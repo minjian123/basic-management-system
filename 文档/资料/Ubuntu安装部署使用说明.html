@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ubuntu安装部署使用说明</title>
+<style>
+  :root {
+    --bg: #f7f8fa;
+    --fg: #1f2328;
+    --muted: #57606a;
+    --border: #d0d7de;
+    --accent: #0969da;
+    --accent-bg: #ddf4ff;
+    --code-bg: #f6f8fa;
+    --warn-bg: #fff8c5;
+    --warn-border: #d4a72c;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+    line-height: 1.75;
+  }
+  .layout { display: flex; height: 100vh; overflow: hidden; }
+  .sidebar {
+    width: 280px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+  }
+  .sidebar .brand {
+    background: linear-gradient(135deg, #1f2328, #32383f);
+    color: #fff;
+    padding: 1.4rem 1.2rem 1.1rem;
+    border-bottom: 3px solid var(--accent);
+    flex-shrink: 0;
+  }
+  .sidebar .brand h1 { margin: 0 0 .35rem; font-size: 1.15rem; line-height: 1.4; }
+  .sidebar .brand p { margin: 0; color: #b6bec6; font-size: .78rem; }
+  .sidebar nav { padding: .8rem .6rem 1.5rem; font-size: .9rem; }
+  .sidebar nav ul { list-style: none; margin: 0; padding: 0; }
+  .sidebar nav li { margin: .15rem 0; }
+  .sidebar nav a {
+    display: block;
+    padding: .3rem .7rem;
+    border-radius: 5px;
+    color: var(--fg);
+    text-decoration: none;
+  }
+  .sidebar nav a:hover { background: var(--accent-bg); color: var(--accent); }
+  .sidebar nav .sub { padding-left: 1.6rem; font-size: .85rem; color: var(--muted); }
+  .content { flex: 1; overflow-y: auto; }
+  main {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1.5rem 2rem 4rem;
+  }
+  h2 {
+    margin-top: 2.5rem;
+    padding-bottom: .4rem;
+    border-bottom: 2px solid var(--border);
+    font-size: 1.35rem;
+  }
+  h3 { margin-top: 1.6rem; font-size: 1.1rem; }
+  p { margin: .6rem 0; }
+  ul, ol { margin: .6rem 0; padding-left: 1.6rem; }
+  li { margin: .3rem 0; }
+  code {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: .1em .35em;
+    font-family: Consolas, "Cascadia Mono", monospace;
+    font-size: .9em;
+  }
+  pre {
+    background: #0d1117;
+    color: #e6edf3;
+    border-radius: 8px;
+    padding: .9rem 1.1rem;
+    overflow-x: auto;
+    font-size: .88rem;
+    line-height: 1.6;
+  }
+  pre code { background: none; border: none; padding: 0; color: inherit; }
+  .note, .warn {
+    border-radius: 6px;
+    padding: .7rem 1rem;
+    margin: 1rem 0;
+    font-size: .95rem;
+  }
+  .note { background: var(--accent-bg); border-left: 4px solid var(--accent); }
+  .warn { background: var(--warn-bg); border-left: 4px solid var(--warn-border); }
+  .topnav {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: .4rem;
+    background: #fff;
+    border-bottom: 1px solid var(--border);
+    padding: .5rem 1rem;
+    font-size: .85rem;
+  }
+  .topnav .topnav-side { margin-left: auto; }
+  .topnav a { color: var(--accent); text-decoration: none; }
+  .topnav a:hover { text-decoration: underline; }
+  @media (max-width: 768px) {
+    .topnav .topnav-side { display: none; }
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1rem 0;
+    font-size: .92rem;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: .45rem .7rem;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: #eef1f4; white-space: nowrap; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  footer {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1rem 2rem 3rem;
+    color: var(--muted);
+    font-size: .85rem;
+    border-top: 1px solid var(--border);
+  }
+  @media (max-width: 768px) {
+    .layout { flex-direction: column; height: auto; overflow: visible; }
+    .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); max-height: 40vh; }
+    .content { overflow: visible; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topnav">
+  <a href="../../README.md">文档首页</a> ›
+  <span>资料</span> ›
+  <span>Ubuntu 安装部署使用说明</span>
+  <span class="topnav-side">
+    <a href="graphify部署使用说明.html">同级：graphify 部署使用说明 →</a>
+  </span>
+</div>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>Ubuntu 安装部署使用说明</h1>
+      <p>mjbk 开发服务器换装 Ubuntu 22.04 实操步骤</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#purpose">1. 目的与适用范围</a></li>
+        <li><a href="#prereq">2. 前置准备</a></li>
+        <li><a href="#usb">3. 制作启动盘（Rufus）</a></li>
+        <li><a href="#install">4. 安装 Ubuntu Server</a>
+          <ul class="sub">
+            <li><a href="#install-boot">4.1 开机启动</a></li>
+            <li><a href="#install-wizard">4.2 安装向导步骤</a></li>
+          </ul>
+        </li>
+        <li><a href="#verify">5. 安装后验证</a></li>
+        <li><a href="#deploy">6. 服务部署衔接</a></li>
+        <li><a href="#trouble">7. 常见问题</a></li>
+        <li><a href="#related">8. 关联文档</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="purpose">1. 目的与适用范围</h2>
+      <p>
+        本文档指导将开发服务器 <strong>mjbk</strong>（192.168.0.107）从 Windows 11 全盘换装为
+        <strong>Ubuntu 22.04 LTS Server</strong>（有线网络接入），以便在其上稳定运行开发服务
+        （Docker + MySQL/PostgreSQL/Redis/MinIO/RocketMQ/ElasticSearch + GitLab CE）。
+      </p>
+      <div class="warn">
+        <strong>注意：全盘安装会清空 mjbk 现有 Windows 系统与全部数据，操作前确认无需要保留的内容。</strong>
+      </div>
+
+      <h2 id="prereq">2. 前置准备</h2>
+      <table>
+        <tr><th>项目</th><th>要求</th><th>说明</th></tr>
+        <tr><td>U 盘</td><td>≥ 4GB（会被清空）</td><td>制作 Ubuntu 启动盘</td></tr>
+        <tr><td>ISO 镜像</td><td>已下载</td><td><code>D:\bms-install\ubuntu-22.04.5-bms-autoinstall.iso</code>（已内置自动安装参数，2.1GB）</td></tr>
+        <tr><td>Rufus</td><td>mjpc 上安装</td><td><code>winget install Rufus.Rufus</code> 或官网 rufus.ie</td></tr>
+        <tr><td>网线</td><td>一根</td><td>服务器用有线接入路由器，安装后使用</td></tr>
+      </table>
+      <div class="note">
+        <strong>自动安装已内置的参数</strong>（无需手工填写）：静态 IP <code>192.168.0.107/24</code>、网关 <code>192.168.0.1</code>、DNS <code>114.114.114.114</code>；
+        apt 镜像源 <code>https://mirrors.tuna.tsinghua.edu.cn/ubuntu/</code>；全盘 LVM 分区（512GB SSD）；
+        用户 <code>minjian</code> / 密码 <code>minjian_123</code>；主机名 <code>mjbk</code>；安装并启用 OpenSSH；时区 Asia/Shanghai。
+      </div>
+
+      <h2 id="usb">3. 制作启动盘（Rufus）</h2>
+      <ol>
+        <li>插入 U 盘（内容会被清空）。</li>
+        <li>打开 Rufus：
+          <ul>
+            <li>设备：选择 U 盘</li>
+            <li>引导类型选择：点「选择」→ 选中 <code>D:\bms-install\ubuntu-22.04.5-bms-autoinstall.iso</code></li>
+            <li>分区类型：<strong>GPT</strong>；目标系统：<strong>UEFI（非 CSM）</strong>（默认即可，mjbk 为 UEFI 机型）</li>
+            <li>点「开始」→ 弹出提示选「以 ISO 镜像模式写入」（推荐）→ 等待完成</li>
+          </ul>
+        </li>
+      </ol>
+
+      <h2 id="install">4. 安装 Ubuntu Server</h2>
+
+      <h3 id="install-boot">4.1 开机启动</h3>
+      <ol>
+        <li>mjbk 关机，插入启动 U 盘。</li>
+        <li>开机，反复按 <strong>F12</strong> 进入启动菜单（若无效，开机按 Del/F2 进 BIOS，在 Boot 菜单把 U 盘调到第一位）。</li>
+        <li>选择 U 盘启动项（含 "UEFI" 字样的 USB 设备），回车。</li>
+        <li>出现 GRUB 菜单后，直接回车选择 <strong>Try or Install Ubuntu Server</strong>。</li>
+        <li><strong>之后安装全程自动进行</strong>（约 10-15 分钟），无需任何键盘操作；完成后自动重启。</li>
+      </ol>
+
+      <h3 id="install-wizard">4.2 自动安装内容</h3>
+      <p>ISO 已内置 autoinstall 应答文件，安装器将自动完成以下配置：</p>
+      <table>
+        <tr><th>项目</th><th>自动配置值</th></tr>
+        <tr><td>网络</td><td>静态 IP <code>192.168.0.107/24</code>，网关 <code>192.168.0.1</code>，DNS <code>114.114.114.114</code>（有线网卡）</td></tr>
+        <tr><td>apt 镜像源</td><td><code>https://mirrors.tuna.tsinghua.edu.cn/ubuntu/</code></td></tr>
+        <tr><td>磁盘</td><td>全盘 LVM（512GB SSD）</td></tr>
+        <tr><td>用户</td><td><code>minjian</code> / 密码 <code>minjian_123</code>（与《<a href="本地资源.md">本地资源</a>》一致）</td></tr>
+        <tr><td>主机名</td><td><code>mjbk</code></td></tr>
+        <tr><td>SSH</td><td>安装并启用 OpenSSH server（允许密码登录）</td></tr>
+        <tr><td>时区</td><td>Asia/Shanghai（安装完成时自动设置）</td></tr>
+        <tr><td>语言/键盘</td><td>en_US.UTF-8 / us</td></tr>
+      </table>
+      <div class="warn">
+        安装结束自动重启时，若提示拔 U 盘请拔出（部分机型重启时会再次从 U 盘引导，进入 GRUB 后选第一项硬盘启动即可）。
+      </div>
+
+      <h2 id="verify">5. 安装后验证</h2>
+      <ol>
+        <li>确认 mjbk 网线已插好，系统开机完成（出现 <code>mjbk login:</code> 提示）。</li>
+        <li>mjpc 上验证网络与 SSH：
+          <pre><code>ping 192.168.0.107
+ssh minjian@192.168.0.107</code></pre>
+        </li>
+        <li>SSH 登录成功后确认基本环境：
+          <pre><code>cat /etc/os-release | head -2
+ip addr | grep "inet 192.168"
+sudo apt-get update -qq &amp;&amp; echo APT-OK</code></pre>
+        </li>
+      </ol>
+
+      <h2 id="deploy">6. 服务部署衔接</h2>
+      <p>系统就绪后，由自动化脚本完成后续部署（仓库 <code>deploy/setup/install-all.sh</code>），内容包括：</p>
+      <ul>
+        <li>apt 清华源、基础工具、Docker Engine（清华 docker-ce 源 + 国内镜像加速 + vfs 存储）</li>
+        <li>MySQL（原生服务）、PostgreSQL、Redis、MinIO、RocketMQ、ElasticSearch（Docker Compose）</li>
+        <li>GitLab CE（清华 deb 直装，8080 端口，已降配）+ gitlab-runner</li>
+        <li>防火墙（ufw）放行、时区 Asia/Shanghai、主机名 mjbk</li>
+      </ul>
+      <div class="note">部署脚本与 Compose 文件从代码仓库获取（<code>deploy/</code> 目录），部署详情见《<a href="开发服务器/开发服务器部署使用说明.html">开发服务器部署使用说明</a>》。</div>
+
+      <h2 id="trouble">7. 常见问题</h2>
+      <table>
+        <tr><th>问题</th><th>处理</th></tr>
+        <tr><td>开机不出现启动菜单</td><td>确认 BIOS 的 Secure Boot 开启与否均可启动；U 盘需为 UEFI 启动（Rufus GPT）；尝试 Del/F2 进 BIOS 手动改启动顺序</td></tr>
+        <tr><td>有线网卡未识别（Network 界面无 eth0）</td><td>等待几秒刷新；确认网线已插且路由器灯亮；若确实无驱动，记录网卡型号反馈处理（多数 Intel/Realtek 有线网卡内核原生支持）</td></tr>
+        <tr><td>镜像源访问慢</td><td>第 5 步必须改为清华源，否则安装可能很慢</td></tr>
+        <tr><td>安装后 ping 不通</td><td>检查网线、路由器；确认静态 IP/网关/DNS 填写正确；<code>ip addr</code> 查看网卡状态</td></tr>
+        <tr><td>SSH 连接被拒</td><td>确认第 9 步勾选了 OpenSSH；未勾选可在控制台执行 <code>sudo apt install openssh-server</code></td></tr>
+      </table>
+
+      <h2 id="related">8. 关联文档</h2>
+      <ul>
+        <li>《<a href="本地资源.md">本地资源</a>》：机器硬件与账号信息</li>
+        <li>《<a href="开发服务器/开发服务器部署使用说明.html">开发服务器部署使用说明</a>》：部署后服务使用与运维</li>
+        <li>《<a href="../规划/开发部署规划.html">开发部署规划</a>》：开发环境整体方案</li>
+        <li>《<a href="../规范/文档生成规范.html">文档生成规范</a>》：本文档遵循的格式规范</li>
+      </ul>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 依《文档生成规范》编写 · ISO 已下载至 D:\bms-install\ · 生成日期：2026-08-09
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>
