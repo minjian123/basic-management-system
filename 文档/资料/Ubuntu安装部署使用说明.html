@@ -178,10 +178,21 @@
           </ul>
         </li>
         <li><a href="#mjbk-params">5. mjbk 服务器参数速查</a></li>
-        <li><a href="#verify">6. 安装后验证</a></li>
-        <li><a href="#deploy">7. 服务部署衔接</a></li>
-        <li><a href="#trouble">8. 常见问题</a></li>
-        <li><a href="#related">9. 关联文档</a></li>
+        <li><a href="#verify">6. 安装后验证与基础配置</a>
+          <ul class="sub">
+            <li><a href="#verify-ssh">6.1 SSH 免密登录</a></li>
+            <li><a href="#verify-apt">6.2 apt 镜像源更换清华</a></li>
+          </ul>
+        </li>
+        <li><a href="#laptop">7. 笔记本（mjbk）作为服务器注意事项</a>
+          <ul class="sub">
+            <li><a href="#lid-sleep">7.1 合盖不休眠</a></li>
+            <li><a href="#lid-black">7.2 合盖黑屏恢复</a></li>
+          </ul>
+        </li>
+        <li><a href="#deploy">8. 服务部署衔接</a></li>
+        <li><a href="#trouble">9. 常见问题</a></li>
+        <li><a href="#related">10. 关联文档</a></li>
       </ul>
     </nav>
   </aside>
@@ -259,7 +270,7 @@
       <ol>
         <li><strong>欢迎界面</strong>：左侧选语言「简体中文」，点「安装 Ubuntu」（也可先点「试用 Ubuntu」进系统查看硬件，确认后再双击桌面的「安装 Ubuntu」）。</li>
         <li><strong>键盘布局</strong>：默认 English (US) 即可，中文输入法安装系统后另配；点「继续」。</li>
-        <li><strong>网络连接</strong>：选择有线网卡，默认 DHCP 自动获取；若需固定 IP（如 mjbk），点网卡右侧的齿轮手动配置：IPv4 → 手动 → 填 IP / 掩码 / 网关 / DNS，点「应用」。可暂用 DHCP，装完再改（见第 8 节静态 IP 条目）。</li>
+        <li><strong>网络连接</strong>：选择有线网卡，默认 DHCP 自动获取；若需固定 IP（如 mjbk），点网卡右侧的齿轮手动配置：IPv4 → 手动 → 填 IP / 掩码 / 网关 / DNS，点「应用」。可暂用 DHCP，装完再改（见第 9 节静态 IP 条目）。</li>
         <li><strong>代理服务器</strong>：留空，点「完成」。</li>
         <li><strong>镜像源</strong>：默认官方源在国内慢，下拉选择「中国」后镜像地址会换成国内源；也可点「高级」手工填清华源 <code>http://mirrors.tuna.tsinghua.edu.cn/ubuntu/</code>。此时安装器会向网络请求软件包列表，需保持联网。</li>
         <li><strong>磁盘分区</strong>（⚠ 此步会清空目标盘）：
@@ -299,8 +310,13 @@
         <tr><td>键盘 / 语言</td><td>English (US) / 简体中文</td></tr>
       </table>
       <div class="note">账号密码等机器凭据统一维护在《<a href="本地资源.md">本地资源</a>》中，本文档不重复记录。</div>
+      <div class="note">
+        <strong>当前状态（2026-08-10）</strong>：mjbk 已按上表完成安装——系统为 Ubuntu 24.04.4 LTS 桌面版，
+        静态 IP、时区、主机名均已核实；mjpc 的 ed25519 公钥免密登录已配置；apt 源已换清华源并通过
+        <code>apt-get update</code> 验证；笔记本合盖不休眠设置见第 7 节。
+      </div>
 
-      <h2 id="verify">6. 安装后验证</h2>
+      <h2 id="verify">6. 安装后验证与基础配置</h2>
       <ol>
         <li>确认目标机器网线已插好，桌面右上角网络图标正常。</li>
         <li>mjbk 场景下，在 mjpc 上验证网络与 SSH：
@@ -320,7 +336,54 @@ sudo ufw allow 22/tcp</code></pre>
       </ol>
       <div class="note">桌面版自带 GNOME 桌面，日常管理可远程桌面（设置 → 共享 → 远程桌面）；命令行管理推荐直接 SSH。</div>
 
-      <h2 id="deploy">7. 服务部署衔接</h2>
+      <h3 id="verify-ssh">6.1 SSH 免密登录（mjpc → mjbk，推荐）</h3>
+      <p>日常管理使用公钥免密，避免每次输密码。在 mjpc（Windows PowerShell）上操作：</p>
+      <ol>
+        <li>若无密钥先生成：<code>ssh-keygen -t ed25519</code>（一路回车即可，默认存 <code>~/.ssh/</code>）。</li>
+        <li>把公钥装到 mjbk：
+          <pre><code>type $env:USERPROFILE\.ssh\id_ed25519.pub | ssh minjian@192.168.0.107 "mkdir -p ~/.ssh &amp;&amp; cat &gt;&gt; ~/.ssh/authorized_keys &amp;&amp; chmod 700 ~/.ssh &amp;&amp; chmod 600 ~/.ssh/authorized_keys"</code></pre>
+        </li>
+        <li>验证：<code>ssh minjian@192.168.0.107</code> 直接进入即成功。</li>
+      </ol>
+
+      <h3 id="verify-apt">6.2 apt 镜像源确认 / 更换为清华源</h3>
+      <p>安装向导第 4.2 步若未选清华源（默认选「中国」会落到官方 <code>cn.archive.ubuntu.com</code>），装完后可再改。Ubuntu 24.04 的源文件是 DEB822 格式：</p>
+      <pre><code>sudo cp /etc/apt/sources.list.d/ubuntu.sources /etc/apt/sources.list.d/ubuntu.sources.bak
+sudo sed -i 's|http://cn.archive.ubuntu.com/ubuntu/|https://mirrors.tuna.tsinghua.edu.cn/ubuntu/|; s|http://security.ubuntu.com/ubuntu/|https://mirrors.tuna.tsinghua.edu.cn/ubuntu/|' /etc/apt/sources.list.d/ubuntu.sources
+sudo apt-get update</code></pre>
+      <div class="note">mjbk 已完成此配置（4 个仓库全部命中清华源），确认命令：<code>grep URIs /etc/apt/sources.list.d/ubuntu.sources</code>。</div>
+
+      <h2 id="laptop">7. 笔记本（mjbk）作为服务器注意事项</h2>
+      <p>mjbk 是笔记本（i7-8750H + GTX 1060），作为 7×24 服务器需处理两个默认行为：合盖休眠与合盖黑屏。</p>
+
+      <h3 id="lid-sleep">7.1 合盖不休眠（已配置）</h3>
+      <p>默认合盖会挂起（GNOME 电源插件层直接触发 suspend，仅改 logind 不够）。需在 logind 与 GNOME 两层同时设置：</p>
+      <pre><code># 1. logind 层：合盖不执行电源动作
+sudo sed -i 's/^#HandleLidSwitch=.*/HandleLidSwitch=ignore/' /etc/systemd/logind.conf
+sudo sed -i 's/^#HandleLidSwitchExternalPower=.*/HandleLidSwitchExternalPower=ignore/' /etc/systemd/logind.conf
+sudo systemctl restart systemd-logind
+
+# 2. GNOME 层：合盖不动作、不关屏（注意此键没有 ignore 值，用 nothing；SSH 中设置需带用户总线）
+export DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
+gsettings set org.gnome.settings-daemon.plugins.power lid-close-ac-action nothing
+gsettings set org.gnome.settings-daemon.plugins.power lid-close-battery-action nothing
+gsettings set org.gnome.settings-daemon.plugins.power lid-close-suspend-with-external-monitor false</code></pre>
+      <div class="warn">GNOME 层若仍为 <code>suspend</code>（默认值），合盖依然会休眠；必须改为 <code>nothing</code>。修改后合盖屏幕保持常亮，不再触发关屏。</div>
+
+      <h3 id="lid-black">7.2 合盖后屏幕黑屏的恢复</h3>
+      <p>历史故障：合盖打开后完全黑屏（背光与面板均正常，但显示输出未唤醒，nouveau 驱动典型问题）。恢复步骤：</p>
+      <ol>
+        <li>先尝试唤醒显示（SSH 远程执行）：
+          <pre><code>sudo env DISPLAY=:1 XAUTHORITY=/run/user/1000/gdm/Xauthority xset dpms force on
+sudo chvt 1 &amp;&amp; sleep 1 &amp;&amp; sudo chvt 2</code></pre>
+        </li>
+        <li>无效则重启图形会话（桌面会退出，重新登录即可；SSH 不受影响）：
+          <pre><code>sudo systemctl restart gdm3</code></pre>
+        </li>
+      </ol>
+      <div class="note">按 7.1 配置为 <code>nothing</code> 后合盖不再关屏，此问题不再出现；本小节仅作故障排查参考。</div>
+
+      <h2 id="deploy">8. 服务部署衔接</h2>
       <p>系统就绪后，由自动化脚本完成后续部署（仓库 <code>deploy/setup/install-all.sh</code>），内容包括：</p>
       <ul>
         <li>apt 清华源、基础工具、Docker Engine（清华 docker-ce 源 + 国内镜像加速）</li>
@@ -330,19 +393,20 @@ sudo ufw allow 22/tcp</code></pre>
       </ul>
       <div class="note">部署脚本与 Compose 文件从代码仓库获取（<code>deploy/</code> 目录），部署详情见《<a href="开发服务器/开发服务器部署使用说明.html">开发服务器部署使用说明</a>》。</div>
 
-      <h2 id="trouble">8. 常见问题</h2>
+      <h2 id="trouble">9. 常见问题</h2>
       <table>
         <tr><th>问题</th><th>处理</th></tr>
         <tr><td>开机不出现启动菜单</td><td>U 盘需为 UEFI 启动（Rufus 选 GPT + UEFI）；尝试 Del/F2 进 BIOS 手动改启动顺序；Secure Boot 开/关均可启动</td></tr>
         <tr><td>有线网卡未识别</td><td>确认网线已插且路由器灯亮；多数 Intel/Realtek 有线网卡内核原生支持；若确实无驱动，记录网卡型号反馈处理</td></tr>
-        <tr><td>镜像源访问慢</td><td>安装第 4.2 步必须改国内镜像源，否则安装过程可能很慢或失败</td></tr>
+        <tr><td>镜像源访问慢</td><td>安装第 4.2 步必须改国内镜像源，否则安装过程可能很慢或失败；装完后按第 6.2 节更换</td></tr>
         <tr><td>安装后 ping 不通</td><td>检查网线、路由器；<code>ip addr</code> 查看网卡 IP；动态 IP 与预期不符时按下条改静态 IP</td></tr>
         <tr><td>改静态 IP</td><td>安装后修改 netplan：<code>sudo nano /etc/netplan/50-cloud-init.yaml</code>，将 dhcp4 改为静态 <code>addresses / routes / nameservers</code>，然后 <code>sudo netplan apply</code></td></tr>
         <tr><td>SSH 连接被拒</td><td>桌面版默认未装 OpenSSH，先执行第 6 节第 4 步安装启用；确认 ufw 放行 22 端口</td></tr>
+        <tr><td>合盖后休眠 / 黑屏</td><td>按第 7.1 节设置 logind + GNOME 两层；已黑屏按第 7.2 节恢复（重启 gdm3）</td></tr>
         <tr><td>忘记 root / sudo 密码</td><td>桌面版平时用普通用户 + sudo，无需 root 密码；忘记普通用户密码需在 GRUB 进恢复模式重置</td></tr>
       </table>
 
-      <h2 id="related">9. 关联文档</h2>
+      <h2 id="related">10. 关联文档</h2>
       <ul>
         <li>《<a href="本地资源.md">本地资源</a>》：机器硬件与账号信息</li>
         <li>《<a href="开发服务器/开发服务器部署使用说明.html">开发服务器部署使用说明</a>》：部署后服务使用与运维</li>
@@ -354,7 +418,7 @@ sudo ufw allow 22/tcp</code></pre>
     </main>
 
     <footer>
-      本文档为 AI 生成 · 依《文档生成规范》编写 · ISO 来自清华 TUNA 镜像（SHA256 已校验，存放于项目外本地目录） · 生成日期：2026-08-10
+      本文档为 AI 生成 · 依《文档生成规范》编写 · ISO 来自清华 TUNA 镜像（SHA256 已校验，存放于项目外本地目录） · 更新日期：2026-08-10
     </footer>
   </div>
 
