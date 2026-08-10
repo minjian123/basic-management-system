@@ -182,6 +182,7 @@
           <ul class="sub">
             <li><a href="#verify-ssh">6.1 SSH 免密登录</a></li>
             <li><a href="#verify-apt">6.2 apt 镜像源更换清华</a></li>
+            <li><a href="#verify-disk">6.3 数据盘分区与挂载</a></li>
           </ul>
         </li>
         <li><a href="#laptop">7. 笔记本（mjbk）作为服务器注意事项</a>
@@ -303,7 +304,7 @@
         <tr><td>镜像</td><td>主力 <code>ubuntu-24.04.4-desktop-amd64.iso</code>（24.04 LTS）</td></tr>
         <tr><td>网络</td><td>静态 IP <code>192.168.0.107/24</code>，网关 <code>192.168.0.1</code>，DNS <code>114.114.114.114</code>（有线网卡）</td></tr>
         <tr><td>apt 镜像源</td><td><code>http://mirrors.tuna.tsinghua.edu.cn/ubuntu/</code></td></tr>
-        <tr><td>磁盘</td><td>全盘安装（512GB SSD，不加密）</td></tr>
+        <tr><td>磁盘</td><td>全盘安装（512GB SSD 系统盘）；1TB HDD 数据盘挂载 <code>/mnt/data</code>（ext4，步骤见 6.3）</td></tr>
         <tr><td>主机名</td><td><code>mjbk</code></td></tr>
         <tr><td>用户名</td><td><code>minjian</code>（密码见《<a href="本地资源.md">本地资源</a>》）</td></tr>
         <tr><td>时区</td><td>Asia/Shanghai（上海）</td></tr>
@@ -313,7 +314,8 @@
       <div class="note">
         <strong>当前状态（2026-08-10）</strong>：mjbk 已按上表完成安装——系统为 Ubuntu 24.04.4 LTS 桌面版，
         静态 IP、时区、主机名均已核实；mjpc 的 ed25519 公钥免密登录已配置；apt 源已换清华源并通过
-        <code>apt-get update</code> 验证；笔记本合盖不休眠设置见第 7 节。
+        <code>apt-get update</code> 验证；1TB HDD 数据盘已格式化（ext4）并挂载 <code>/mnt/data</code>（fstab 自动挂载）；
+        笔记本合盖不休眠设置见第 7 节。
       </div>
 
       <h2 id="verify">6. 安装后验证与基础配置</h2>
@@ -352,6 +354,31 @@ sudo ufw allow 22/tcp</code></pre>
 sudo sed -i 's|http://cn.archive.ubuntu.com/ubuntu/|https://mirrors.tuna.tsinghua.edu.cn/ubuntu/|; s|http://security.ubuntu.com/ubuntu/|https://mirrors.tuna.tsinghua.edu.cn/ubuntu/|' /etc/apt/sources.list.d/ubuntu.sources
 sudo apt-get update</code></pre>
       <div class="note">mjbk 已完成此配置（4 个仓库全部命中清华源），确认命令：<code>grep URIs /etc/apt/sources.list.d/ubuntu.sources</code>。</div>
+
+      <h3 id="verify-disk">6.3 数据盘分区与挂载（机械盘 / 原 Windows D 盘）</h3>
+      <p>笔记本常见双盘：系统盘（SSD）装 Ubuntu，另一块机械盘（HDD）作数据盘（容器数据卷、GitLab 数据、备份等大容量、读多写少的数据）。以下以 mjbk 的 1TB HDD（<code>/dev/sda</code>）为例。</p>
+      <ol>
+        <li>查看磁盘与文件系统：
+          <pre><code>lsblk -o NAME,SIZE,TYPE,FSTYPE,MOUNTPOINT</code></pre>
+        </li>
+        <li>原 Windows D 盘通常为 NTFS 或 BitLocker 加密卷（<code>TYPE="BitLocker"</code>），Linux 无法直接挂载；确认盘内数据无用后重建分区并格式化（<strong>注意：会清空该盘全部数据</strong>）：
+          <pre><code>sudo parted /dev/sda --script mklabel gpt
+sudo parted /dev/sda --script mkpart primary ext4 0% 100%
+sudo mkfs.ext4 -L bms-data /dev/sda1</code></pre>
+        </li>
+        <li>创建挂载点并挂载：
+          <pre><code>sudo mkdir -p /mnt/data
+sudo mount /dev/sda1 /mnt/data</code></pre>
+        </li>
+        <li>写入 <code>/etc/fstab</code> 实现开机自动挂载（用 UUID，避免盘符漂移）：
+          <pre><code>echo "UUID=$(sudo blkid -s UUID -o value /dev/sda1) /mnt/data ext4 defaults,noatime 0 2" | sudo tee -a /etc/fstab</code></pre>
+        </li>
+        <li>验证：
+          <pre><code>df -h /mnt/data
+lsblk -o NAME,SIZE,FSTYPE,MOUNTPOINT /dev/sda</code></pre>
+        </li>
+      </ol>
+      <div class="note">mjbk 已完成此配置：<code>/dev/sda1</code>（931.5G，ext4，卷标 <code>bms-data</code>）挂载于 <code>/mnt/data</code>，fstab 按 UUID 自动挂载。</div>
 
       <h2 id="laptop">7. 笔记本（mjbk）作为服务器注意事项</h2>
       <p>mjbk 是笔记本（i7-8750H + GTX 1060），作为 7×24 服务器需处理两个默认行为：合盖休眠与合盖黑屏。</p>
