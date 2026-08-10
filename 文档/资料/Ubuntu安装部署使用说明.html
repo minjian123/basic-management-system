@@ -185,15 +185,21 @@
             <li><a href="#verify-disk">6.3 数据盘分区与挂载</a></li>
           </ul>
         </li>
-        <li><a href="#laptop">7. 笔记本（mjbk）作为服务器注意事项</a>
+        <li><a href="#backup">7. 备份与恢复（Timeshift）</a>
           <ul class="sub">
-            <li><a href="#lid-sleep">7.1 合盖不休眠</a></li>
-            <li><a href="#lid-black">7.2 合盖黑屏恢复</a></li>
+            <li><a href="#backup-config">7.1 安装与配置</a></li>
+            <li><a href="#backup-restore">7.2 系统还原</a></li>
           </ul>
         </li>
-        <li><a href="#deploy">8. 服务部署衔接</a></li>
-        <li><a href="#trouble">9. 常见问题</a></li>
-        <li><a href="#related">10. 关联文档</a></li>
+        <li><a href="#laptop">8. 笔记本（mjbk）作为服务器注意事项</a>
+          <ul class="sub">
+            <li><a href="#lid-sleep">8.1 合盖不休眠</a></li>
+            <li><a href="#lid-black">8.2 合盖黑屏恢复</a></li>
+          </ul>
+        </li>
+        <li><a href="#deploy">9. 服务部署衔接</a></li>
+        <li><a href="#trouble">10. 常见问题</a></li>
+        <li><a href="#related">11. 关联文档</a></li>
       </ul>
     </nav>
   </aside>
@@ -271,7 +277,7 @@
       <ol>
         <li><strong>欢迎界面</strong>：左侧选语言「简体中文」，点「安装 Ubuntu」（也可先点「试用 Ubuntu」进系统查看硬件，确认后再双击桌面的「安装 Ubuntu」）。</li>
         <li><strong>键盘布局</strong>：默认 English (US) 即可，中文输入法安装系统后另配；点「继续」。</li>
-        <li><strong>网络连接</strong>：选择有线网卡，默认 DHCP 自动获取；若需固定 IP（如 mjbk），点网卡右侧的齿轮手动配置：IPv4 → 手动 → 填 IP / 掩码 / 网关 / DNS，点「应用」。可暂用 DHCP，装完再改（见第 9 节静态 IP 条目）。</li>
+        <li><strong>网络连接</strong>：选择有线网卡，默认 DHCP 自动获取；若需固定 IP（如 mjbk），点网卡右侧的齿轮手动配置：IPv4 → 手动 → 填 IP / 掩码 / 网关 / DNS，点「应用」。可暂用 DHCP，装完再改（见第 10 节静态 IP 条目）。</li>
         <li><strong>代理服务器</strong>：留空，点「完成」。</li>
         <li><strong>镜像源</strong>：默认官方源在国内慢，下拉选择「中国」后镜像地址会换成国内源；也可点「高级」手工填清华源 <code>http://mirrors.tuna.tsinghua.edu.cn/ubuntu/</code>。此时安装器会向网络请求软件包列表，需保持联网。</li>
         <li><strong>磁盘分区</strong>（⚠ 此步会清空目标盘）：
@@ -315,7 +321,7 @@
         <strong>当前状态（2026-08-10）</strong>：mjbk 已按上表完成安装——系统为 Ubuntu 24.04.4 LTS 桌面版，
         静态 IP、时区、主机名均已核实；mjpc 的 ed25519 公钥免密登录已配置；apt 源已换清华源并通过
         <code>apt-get update</code> 验证；1TB HDD 数据盘已格式化（ext4）并挂载 <code>/mnt/data</code>（fstab 自动挂载）；
-        笔记本合盖不休眠设置见第 7 节。
+        笔记本合盖不休眠设置见第 8 节。
       </div>
 
       <h2 id="verify">6. 安装后验证与基础配置</h2>
@@ -380,10 +386,50 @@ lsblk -o NAME,SIZE,FSTYPE,MOUNTPOINT /dev/sda</code></pre>
       </ol>
       <div class="note">mjbk 已完成此配置：<code>/dev/sda1</code>（931.5G，ext4，卷标 <code>bms-data</code>）挂载于 <code>/mnt/data</code>，fstab 按 UUID 自动挂载。</div>
 
-      <h2 id="laptop">7. 笔记本（mjbk）作为服务器注意事项</h2>
+      <h2 id="backup">7. 备份与恢复（Timeshift 系统快照）</h2>
+      <p>服务器环境（系统、配置、已装软件）装坏后需要能快速还原。mjbk 使用 <strong>Timeshift</strong>（rsync 模式）做整系统快照，快照存数据盘 HDD（<code>/mnt/data</code>），系统装坏时用安装 U 盘启动即可恢复到快照时间点。</p>
+
+      <h3 id="backup-config">7.1 安装与配置（mjbk 已完成）</h3>
+      <ol>
+        <li>安装（清华源已配置，直接安装）：
+          <pre><code>sudo apt install -y timeshift</code></pre>
+        </li>
+        <li>确认快照存放设备 UUID（数据盘，如 HDD <code>/dev/sda1</code>）：
+          <pre><code>sudo blkid -s UUID -o value /dev/sda1</code></pre>
+        </li>
+        <li>写入配置 <code>/etc/timeshift/timeshift.json</code>（关键字段）：
+          <pre><code>{
+  "backup_device_uuid": "&lt;数据盘 UUID&gt;",
+  "do_first_run": "false",
+  "schedule_daily": "true",
+  "count_daily": "5",
+  "exclude": ["/mnt/data/**", "/var/lib/docker/**", "/snap/**"]
+}</code></pre>
+        </li>
+        <li>创建首个全量快照：
+          <pre><code>sudo timeshift --create --comments "初始快照" --scripted</code></pre>
+        </li>
+        <li>自动调度：Timeshift 自动创建 <code>/etc/cron.d/timeshift-hourly</code>，每小时执行 <code>timeshift --check --scripted</code>——按 <code>schedule_daily</code> 每天创建一份，超出 <code>count_daily</code> 的旧快照自动清理。</li>
+        <li>验证：<code>sudo timeshift --list</code> 应显示快照列表。</li>
+      </ol>
+      <div class="note">
+        Timeshift 快照固定存放在备份设备根目录的 <code>timeshift/snapshots/</code>（mjbk 为 <code>/mnt/data/timeshift/snapshots/</code>）。
+        排除项必须包含数据盘挂载点（<code>/mnt/data/**</code>），否则快照会递归备份自身。
+        mjbk 当前已创建初始快照 <code>2026-08-10_21-30-58</code>（约 9.2GB），此后每日自动快照、保留 5 份。
+      </div>
+
+      <h3 id="backup-restore">7.2 系统还原</h3>
+      <ol>
+        <li>用制作好的 Ubuntu 安装 U 盘启动，在 GRUB 菜单选择 <strong>Try or Install Ubuntu</strong>，进入「试用 Ubuntu」桌面。</li>
+        <li>打开终端执行 <code>sudo timeshift --restore</code>（或图形界面打开 Timeshift 程序点「恢复」）。</li>
+        <li>选择要恢复的快照（按日期时间识别），确认恢复目标设备后开始还原，完成后重启。</li>
+      </ol>
+      <div class="warn">恢复会覆盖当前系统到快照时间点，快照之后的新增内容会丢失；还原前确认 HDD 数据盘已正确识别（快照在其上，不会被覆盖）。</div>
+
+      <h2 id="laptop">8. 笔记本（mjbk）作为服务器注意事项</h2>
       <p>mjbk 是笔记本（i7-8750H + GTX 1060），作为 7×24 服务器需处理两个默认行为：合盖休眠与合盖黑屏。</p>
 
-      <h3 id="lid-sleep">7.1 合盖不休眠（已配置）</h3>
+      <h3 id="lid-sleep">8.1 合盖不休眠（已配置）</h3>
       <p>默认合盖会挂起（GNOME 电源插件层直接触发 suspend，仅改 logind 不够）。需在 logind 与 GNOME 两层同时设置：</p>
       <pre><code># 1. logind 层：合盖不执行电源动作
 sudo sed -i 's/^#HandleLidSwitch=.*/HandleLidSwitch=ignore/' /etc/systemd/logind.conf
@@ -397,7 +443,7 @@ gsettings set org.gnome.settings-daemon.plugins.power lid-close-battery-action n
 gsettings set org.gnome.settings-daemon.plugins.power lid-close-suspend-with-external-monitor false</code></pre>
       <div class="warn">GNOME 层若仍为 <code>suspend</code>（默认值），合盖依然会休眠；必须改为 <code>nothing</code>。修改后合盖屏幕保持常亮，不再触发关屏。</div>
 
-      <h3 id="lid-black">7.2 合盖后屏幕黑屏的恢复</h3>
+      <h3 id="lid-black">8.2 合盖后屏幕黑屏的恢复</h3>
       <p>历史故障：合盖打开后完全黑屏（背光与面板均正常，但显示输出未唤醒，nouveau 驱动典型问题）。恢复步骤：</p>
       <ol>
         <li>先尝试唤醒显示（SSH 远程执行）：
@@ -408,9 +454,9 @@ sudo chvt 1 &amp;&amp; sleep 1 &amp;&amp; sudo chvt 2</code></pre>
           <pre><code>sudo systemctl restart gdm3</code></pre>
         </li>
       </ol>
-      <div class="note">按 7.1 配置为 <code>nothing</code> 后合盖不再关屏，此问题不再出现；本小节仅作故障排查参考。</div>
+      <div class="note">按 8.1 配置为 <code>nothing</code> 后合盖不再关屏，此问题不再出现；本小节仅作故障排查参考。</div>
 
-      <h2 id="deploy">8. 服务部署衔接</h2>
+      <h2 id="deploy">9. 服务部署衔接</h2>
       <p>系统就绪后，由自动化脚本完成后续部署（仓库 <code>deploy/setup/install-all.sh</code>），内容包括：</p>
       <ul>
         <li>apt 清华源、基础工具、Docker Engine（清华 docker-ce 源 + 国内镜像加速）</li>
@@ -420,7 +466,7 @@ sudo chvt 1 &amp;&amp; sleep 1 &amp;&amp; sudo chvt 2</code></pre>
       </ul>
       <div class="note">部署脚本与 Compose 文件从代码仓库获取（<code>deploy/</code> 目录），部署详情见《<a href="开发服务器/开发服务器部署使用说明.html">开发服务器部署使用说明</a>》。</div>
 
-      <h2 id="trouble">9. 常见问题</h2>
+      <h2 id="trouble">10. 常见问题</h2>
       <table>
         <tr><th>问题</th><th>处理</th></tr>
         <tr><td>开机不出现启动菜单</td><td>U 盘需为 UEFI 启动（Rufus 选 GPT + UEFI）；尝试 Del/F2 进 BIOS 手动改启动顺序；Secure Boot 开/关均可启动</td></tr>
@@ -429,11 +475,11 @@ sudo chvt 1 &amp;&amp; sleep 1 &amp;&amp; sudo chvt 2</code></pre>
         <tr><td>安装后 ping 不通</td><td>检查网线、路由器；<code>ip addr</code> 查看网卡 IP；动态 IP 与预期不符时按下条改静态 IP</td></tr>
         <tr><td>改静态 IP</td><td>安装后修改 netplan：<code>sudo nano /etc/netplan/50-cloud-init.yaml</code>，将 dhcp4 改为静态 <code>addresses / routes / nameservers</code>，然后 <code>sudo netplan apply</code></td></tr>
         <tr><td>SSH 连接被拒</td><td>桌面版默认未装 OpenSSH，先执行第 6 节第 4 步安装启用；确认 ufw 放行 22 端口</td></tr>
-        <tr><td>合盖后休眠 / 黑屏</td><td>按第 7.1 节设置 logind + GNOME 两层；已黑屏按第 7.2 节恢复（重启 gdm3）</td></tr>
+        <tr><td>合盖后休眠 / 黑屏</td><td>按第 8.1 节设置 logind + GNOME 两层；已黑屏按第 8.2 节恢复（重启 gdm3）</td></tr>
         <tr><td>忘记 root / sudo 密码</td><td>桌面版平时用普通用户 + sudo，无需 root 密码；忘记普通用户密码需在 GRUB 进恢复模式重置</td></tr>
       </table>
 
-      <h2 id="related">10. 关联文档</h2>
+      <h2 id="related">11. 关联文档</h2>
       <ul>
         <li>《<a href="本地资源.md">本地资源</a>》：机器硬件与账号信息</li>
         <li>《<a href="开发服务器/开发服务器部署使用说明.html">开发服务器部署使用说明</a>》：部署后服务使用与运维</li>
