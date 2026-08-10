@@ -211,7 +211,8 @@
 
       <h2 id="purpose">1. 目的与依据</h2>
       <p>
-        本文档规划 BMS 项目开发环境的整体部署方案：在《<a href="../资料/本地资源.md">本地资源</a>》记载的两台 Windows 11 机器上，
+        本文档规划 BMS 项目开发环境的整体部署方案：在《<a href="../资料/本地资源.md">本地资源</a>》记载的两台机器上
+        （开发服务器 <strong>mjbk</strong> 已装 Ubuntu 24.04.4 LTS 桌面版，开发机 mjpc 为 Windows 11），
         搭建可支撑《<a href="项目规划说明.md">项目规划说明</a>》全部 14 个开发阶段、直至 MVP 验收（含 500 并发压测）的完整开发环境，
         包括代码托管与 CI/CD、开发依赖服务、常驻数据库、监控与备份。
       </p>
@@ -232,10 +233,10 @@
       <table>
         <tr><th>项目</th><th>mjbk（开发服务器）</th><th>mjpc（开发机）</th></tr>
         <tr><td>IP 地址</td><td>192.168.0.107</td><td>192.168.0.124</td></tr>
-        <tr><td>操作系统</td><td>Windows 11 专业版</td><td>Windows 11 专业版</td></tr>
+        <tr><td>操作系统</td><td>Ubuntu 24.04.4 LTS（桌面版）</td><td>Windows 11 专业版</td></tr>
         <tr><td>处理器</td><td>i7-8750H，6 核 12 线程</td><td>i7-13700K，16 核 24 线程</td></tr>
         <tr><td>内存</td><td>32 GB</td><td>64 GB</td></tr>
-        <tr><td>硬盘</td><td>C 512 GB SSD + D 1 TB HDD</td><td>C 512 GB SSD + D 4 TB SSD</td></tr>
+        <tr><td>硬盘</td><td>512 GB SSD（<code>/</code>）+ 1 TB HDD（<code>/mnt/data</code>，ext4）</td><td>C 512 GB SSD + D 4 TB SSD</td></tr>
       </table>
 
       <h3 id="duty">2.2 职责分工</h3>
@@ -282,7 +283,7 @@
       <ul>
         <li>两台机器同处 192.168.0.0/24 内网网段，直连互访，无需域名与证书。</li>
         <li>开发期租户识别不启用子域名（《项目规划说明》已定：dev 环境以 token 内租户标识替代子域名），因此不需要泛域名 DNS 与泛 TLS 证书。</li>
-        <li>mjpc 后端/前端开发服务器指向 mjbk 的 192.168.0.107 各服务端口；mjbk 上 Windows 防火墙按第 4.6 节放行。</li>
+        <li>mjpc 后端/前端开发服务器指向 mjbk 的 192.168.0.107 各服务端口；mjbk 上 ufw 防火墙按第 4.6 节放行。</li>
         <li>mjbk 需可访问外网（下载容器镜像、GitLab 向 GitHub 的 push mirror 同步、Renovate 拉取依赖更新）；不可达时镜像同步与依赖升级暂缓，见第 11 节。</li>
       </ul>
 
@@ -291,75 +292,74 @@
       <table>
         <tr><th>决策点</th><th>选择</th><th>理由</th></tr>
         <tr><td>机器职责分工</td><td>mjbk 跑全部服务（GitLab + CI + 基础设施全家桶），mjpc 纯开发机</td><td>共享服务常开不中断，开发机专注编码，互不抢占资源</td></tr>
-        <tr><td>容器引擎</td><td>Rancher Desktop（WSL2 后端，dockerd 运行时）</td><td>免费开源（Apache-2.0），无订阅限制；选择 dockerd 后端保证 docker / docker compose 行为与规划一致</td></tr>
+        <tr><td>容器引擎</td><td>Docker Engine（apt 清华 docker-ce 源直装）</td><td>Linux 原生标准方案，docker / docker compose 行为与生产一致；系统已换装 Ubuntu，Rancher Desktop（Windows/WSL2 方案）不再适用</td></tr>
         <tr><td>开发期数据库</td><td>dev 默认 SQLite（零部署）；mjbk 常驻 MySQL 8 + PostgreSQL 16 + 达梦 DM8（官方镜像）供联调</td><td>日常开发零数据库依赖；方言问题尽早暴露，CI 三库测试复用常驻库</td></tr>
-        <tr><td>数据落盘</td><td>IO 敏感数据走 C 盘 SSD（MySQL/PostgreSQL/ES/MinIO 数据卷）；大容量数据走 D 盘 HDD（容器镜像、GitLab 数据、备份）</td><td>数据库与检索引擎对 IO 敏感；镜像与仓库容量大但读多写少，HDD 可承受</td></tr>
+        <tr><td>数据落盘</td><td>IO 敏感数据与 Docker 镜像走 SSD（默认 <code>/var/lib/docker</code> 命名卷）；大容量数据走 HDD <code>/mnt/data</code>（GitLab 数据、备份）</td><td>SSD 512GB 装镜像与数据库绰绰有余；HDD 1TB 承接仓库与备份等读多写少数据</td></tr>
         <tr><td>开发机开发方式</td><td>mjpc 本地开发 + 内网访问 mjbk 服务</td><td>开发机性能强、与运行环境分离；代码经 git push 上 mjbk GitLab 触发 CI</td></tr>
         <tr><td>gitlab-runner 安装方式</td><td>容器化运行（gitlab/gitlab-runner 镜像，挂载 docker.sock，executor=docker）</td><td>官方推荐做法，升级简单、行为跨平台一致</td></tr>
         <tr><td>CI 三库方言测试</td><td>复用 mjbk 常驻 MySQL/PostgreSQL/达梦 DM8，job 内建独立测试库（bms_test 前缀）执行迁移与集成测试后清理</td><td>免去每次 job 拉镜像起容器，速度快、省资源；测试库隔离不污染开发数据</td></tr>
-        <tr><td>GitLab 端口</td><td>HTTP 8080（容器内 80 映射）+ Registry 5050</td><td>避免与 Windows 上可能占用的 80 端口冲突，内网开发无标准端口诉求</td></tr>
+        <tr><td>GitLab 端口</td><td>HTTP 8080（容器内 80 映射）+ Registry 5050；SSH 2222（容器内 22）</td><td>系统 SSH 已占用宿主 22 端口，GitLab SSH 映射 2222；内网开发无标准端口诉求</td></tr>
       </table>
 
       <h2 id="server">4. 开发服务器 mjbk 部署</h2>
 
       <h3 id="server-base">4.1 基础环境准备</h3>
+      <p>mjbk 已完成系统层准备：Ubuntu 24.04.4 LTS（桌面版）、静态 IP <code>192.168.0.107/24</code>、SSH 免密（mjpc 公钥）、apt 清华源、数据盘 <code>/mnt/data</code>（HDD，ext4，fstab 自动挂载）、Timeshift 系统快照（见《<a href="../资料/Ubuntu安装部署使用说明.html">Ubuntu安装部署使用说明</a>》第 7 节）。本节点安装容器引擎：</p>
       <ol>
         <li>
-          <strong>确认 WSL2</strong>：Windows 11 专业版已内置支持。PowerShell 检查：
-          <pre><code>wsl --version</code></pre>
-          输出为 WSL 2.x 即可；若提示未安装，执行 <code>wsl --install</code> 后重启。
+          <strong>添加清华 docker-ce 源</strong>并安装 Docker Engine：
+          <pre><code>sudo apt install -y ca-certificates curl
+sudo install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://mirrors.tuna.tsinghua.edu.cn/docker-ce/linux/ubuntu/gpg | sudo tee /etc/apt/keyrings/docker.asc > /dev/null
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://mirrors.tuna.tsinghua.edu.cn/docker-ce/linux/ubuntu noble stable" | sudo tee /etc/apt/sources.list.d/docker.list
+sudo apt update
+sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin</code></pre>
         </li>
         <li>
-          <strong>安装 Rancher Desktop</strong>（官网 <a href="https://rancherdesktop.io/">rancherdesktop.io</a>，或 winget）：
-          <pre><code>winget install RancherDesktop.RancherDesktop</code></pre>
+          <strong>开机自启</strong>：Docker 服务由 systemd 管理，确认开机自启并立即启动：
+          <pre><code>sudo systemctl enable --now docker</code></pre>
         </li>
         <li>
-          <strong>切换容器运行时为 dockerd</strong>：Rancher Desktop 默认使用 containerd 运行时，需在
-          「设置 → Container Engine → Docker (dockerd)」切换为 dockerd（moby），保证 <code>docker</code> 与
-          <code>docker compose</code> 命令及行为与规划一致。切换后验证：
+          <strong>镜像加速</strong>：配置国内镜像加速器（拉取官方镜像更快），写入 <code>/etc/docker/daemon.json</code> 后重启 docker：
+          <pre><code>sudo mkdir -p /etc/docker
+echo '{ "registry-mirrors": ["https://docker.m.daocloud.io"] }' | sudo tee /etc/docker/daemon.json
+sudo systemctl restart docker</code></pre>
+        </li>
+        <li>
+          <strong>验证</strong>：
           <pre><code>docker info
 docker compose version</code></pre>
         </li>
         <li>
-          <strong>数据目录重定向</strong>：Rancher Desktop 的镜像与虚拟机磁盘默认落在 C 盘 AppData，在
-          「设置 → General → Data directory」改为 <code>D:\bms-data\rancher</code>，避免 C 盘膨胀（见 4.2）。
-        </li>
-        <li>
-          <strong>WSL2 内存上限</strong>：mjbk 上 WSL2 默认最多占宿主机 50% 内存，按需限制。在
-          <code>%UserProfile%\.wslconfig</code> 写入：
-          <pre><code>[wsl2]
-memory=24GB
-processors=8
-swap=4GB</code></pre>
-          保存后执行 <code>wsl --shutdown</code> 使配置生效。24GB 上限为容器与 GitLab 预留，同时保住宿主机可用内存。
-        </li>
-        <li>
-          <strong>开机自启</strong>：设置 Rancher Desktop 开机自启（设置 → General → Start on login），保证开发依赖服务常开。
+          <strong>docker 用户组</strong>（可选）：当前用户免 sudo 执行 docker：
+          <pre><code>sudo usermod -aG docker minjian</code></pre>
         </li>
       </ol>
+      <div class="note">镜像与容器数据默认存 SSD（<code>/var/lib/docker</code>，512GB 充足）；GitLab 等大容量数据以 bind mount 指向 <code>/mnt/data</code>（见 4.2、4.5）。</div>
 
       <h3 id="server-disk">4.2 磁盘规划</h3>
       <table>
         <tr><th>盘</th><th>容量</th><th>存放内容</th><th>目录约定</th></tr>
         <tr>
-          <td>C 盘（SSD）</td>
+          <td>SSD（挂载 <code>/</code>）</td>
           <td>512 GB</td>
-          <td>MySQL / PostgreSQL / 达梦 DM8 数据卷、ES 数据、MinIO 数据、Redis 持久化（IO 敏感）</td>
-          <td>Compose 命名卷（<code>mysql_data</code>、<code>postgres_data</code> 等）</td>
+          <td>系统 + Docker 镜像与容器 + IO 敏感数据卷（MySQL / PostgreSQL / 达梦 DM8 / ES / MinIO / Redis）</td>
+          <td>Docker 默认 <code>/var/lib/docker</code>；数据库等用 Compose 命名卷（<code>mysql_data</code>、<code>postgres_data</code> 等，默认即在 SSD）</td>
         </tr>
         <tr>
-          <td>D 盘（HDD）</td>
+          <td>HDD（挂载 <code>/mnt/data</code>，ext4）</td>
           <td>1 TB</td>
-          <td>容器镜像存储（Rancher Desktop data）、GitLab 数据、CI 构建缓存、数据库备份</td>
+          <td>GitLab 数据（仓库、配置、备份产物）、开发服务器备份、Timeshift 系统快照</td>
           <td>
-            <code>D:\bms-data\rancher</code>（引擎数据）<br>
-            <code>D:\bms-data\gitlab</code>（gitlab 数据卷挂载目录）<br>
-            <code>D:\bms-data\backup</code>（备份，见第 8 节）
+            <code>/mnt/data/gitlab</code>（gitlab 数据卷 bind mount）<br>
+            <code>/mnt/data/backup</code>（备份，见第 8 节）<br>
+            <code>/mnt/data/timeshift</code>（系统快照，Timeshift 默认位置）
           </td>
         </tr>
       </table>
       <div class="warn">
-        ES 与数据库数据严禁放 HDD：ES 段合并、数据库随机读写会明显拖慢开发联调体验。镜像与 GitLab 仓库读多写少、顺序读写占比高，HDD 可承受。
+        ES 与数据库数据严禁放 HDD：ES 段合并、数据库随机读写会明显拖慢开发联调体验。Compose 中数据库/检索服务一律使用命名卷
+        （默认在 SSD），仅 GitLab 等大容量仓库数据 bind mount 到 <code>/mnt/data</code>。
       </div>
 
       <h3 id="server-services">4.3 基础设施服务</h3>
@@ -395,7 +395,7 @@ swap=4GB</code></pre>
         ES 按《项目规划说明》「环境与配置」节属开发环境依赖，阶段一即可随 base 组拉起（单节点、
         <code>discovery.type=single-node</code>、生产安全认证配置不启用），也可推迟至阶段十三按需引入；上表按内存预算给出两种节奏，见第 10 节。
       </div>
-      <p>内存合计：阶段一约 8 GB，阶段八后约 15 GB，阶段十四后约 19 GB；叠加 GitLab（4 GB）与 Windows/WSL 开销（约 8 GB），峰值约 31 GB，紧贴 32 GB 预算，部署后监控实际占用并按第 11 节调优。</p>
+      <p>内存合计：阶段一约 8 GB，阶段八后约 15 GB，阶段十四后约 19 GB；叠加 GitLab（4 GB）与 Ubuntu 桌面 + Docker 开销（约 5 GB），峰值约 28 GB，32 GB 预算内留有余量，部署后监控实际占用并按第 11 节调优。</p>
 
       <h3 id="server-db">4.4 常驻数据库</h3>
       <ul>
@@ -419,8 +419,8 @@ swap=4GB</code></pre>
         <li>
           <strong>GitLab CE 容器</strong>（<code>deploy/compose/gitlab.yml</code>）：
           <ul>
-            <li>镜像 <code>gitlab/gitlab-ce</code>，端口映射 HTTP 8080（容器内 80）、Registry 5050；SSH 22 端口可选映射 2222（内网开发走 HTTP 即可，不强制）。</li>
-            <li>数据目录挂载 <code>D:\bms-data\gitlab</code>（配置、仓库数据、备份），避免 C 盘膨胀。</li>
+            <li>镜像 <code>gitlab/gitlab-ce</code>，端口映射 HTTP 8080（容器内 80）、Registry 5050；SSH 22 映射宿主机 2222（系统 SSH 已占用宿主 22）。</li>
+            <li>数据目录 bind mount <code>/mnt/data/gitlab</code>（配置、仓库数据、备份），避免占用 SSD。</li>
             <li>首次访问 <code>http://192.168.0.107:8080</code> 设置 root 密码；访问地址需写入容器 <code>external_url</code> 配置，否则 GitLab 生成的仓库/克隆 URL 不正确。</li>
             <li>GitLab 内存 ≥ 4GB 预算（《项目规划说明》要求），mjbk 32GB 满足。</li>
           </ul>
@@ -452,13 +452,12 @@ swap=4GB</code></pre>
 
       <h3 id="server-firewall">4.6 防火墙与访问控制</h3>
       <ul>
-        <li>Windows 防火墙仅对 <strong>192.168.0.0/24 内网</strong>放行第 9 节端口清单（PowerShell 管理员执行，示例）：</li>
+        <li>ufw 仅对 <strong>192.168.0.0/24 内网</strong>放行第 9 节端口清单（SSH 22 已在系统安装时放行）：</li>
       </ul>
-      <pre><code>New-NetFirewallRule -DisplayName "BMS-Dev-LAN" -Direction Inbound `
-  -Protocol TCP -LocalPort 8080,5050,3306,5432,5236,6379,9000,9001,9876,10911,9200,9090,3100,3000,9093,16686,4317,4318 `
-  -RemoteAddress 192.168.0.0/24 -Action Allow</code></pre>
+      <pre><code>sudo ufw allow from 192.168.0.0/24 to any port 8080,5050,2222,3306,5432,5236,6379,9000,9001,9876,10911,9200,9090,3100,3000,9093,16686,4317,4318 proto tcp
+sudo ufw enable</code></pre>
       <ul>
-        <li>各容器仅绑定内网可访问范围（Compose 端口映射默认 0.0.0.0，配合防火墙限制来源即可）。</li>
+        <li>容器端口映射默认绑定 0.0.0.0，以 ufw 限制来源即可；需外网访问的服务再单独放行。</li>
         <li>敏感端口（MySQL/PostgreSQL/达梦/Redis）密码强度按第 6 节管理，避免仅靠防火墙单点防护。</li>
       </ul>
 
@@ -559,8 +558,9 @@ npm run dev</code></pre>
       <p>开发服务器的数据同样需要防丢失（《项目规划说明》「备份与恢复」节针对产品功能，本节约束开发服务器自身运维）：</p>
       <table>
         <tr><th>对象</th><th>策略</th><th>保留</th></tr>
-        <tr><td>MySQL / PostgreSQL / 达梦</td><td>每日 dump 至 <code>D:\bms-data\backup\{mysql,postgres,dameng}\</code>（达梦用 dmrman，Windows 任务计划程序 + <code>scripts/</code> 目录 PowerShell 脚本）</td><td>7 天</td></tr>
-        <tr><td>GitLab</td><td>每日 <code>gitlab-backup</code>（容器内命令），备份文件落 <code>D:\bms-data\backup\gitlab\</code></td><td>7 天</td></tr>
+        <tr><td>系统（装坏还原）</td><td>Timeshift 系统快照已部署（每日自动、保留 5 份，存 HDD <code>/mnt/data/timeshift</code>），装坏环境用安装 U 盘 <code>sudo timeshift --restore</code> 还原，详见《<a href="../资料/Ubuntu安装部署使用说明.html">Ubuntu安装部署使用说明</a>》第 7 节</td><td>5 份</td></tr>
+        <tr><td>MySQL / PostgreSQL / 达梦</td><td>每日 dump 至 <code>/mnt/data/backup/{mysql,postgres,dameng}/</code>（达梦用 dmrman；cron 每日 2 点执行 <code>scripts/</code> 目录 shell 脚本）</td><td>7 天</td></tr>
+        <tr><td>GitLab</td><td>每日 <code>gitlab-backup</code>（容器内命令），备份文件落 <code>/mnt/data/backup/gitlab/</code></td><td>7 天</td></tr>
         <tr><td>MinIO / ES 数据</td><td>开发期数据量小，随 Docker 命名卷所在盘做整机级镜像即可；不单独做增量</td><td>—</td></tr>
         <tr><td>恢复演练</td><td>每季度一次从备份目录恢复验证（与产品「恢复演练登记」流程分开，开发服务器单独登记）</td><td>—</td></tr>
       </table>
@@ -571,8 +571,7 @@ npm run dev</code></pre>
       <h2 id="ports">9. 端口与网络规划</h2>
       <table>
         <tr><th>端口</th><th>服务</th><th>说明</th></tr>
-        <tr><td>8080</td><td>GitLab HTTP</td><td>容器内 80 映射</td></tr>
-        <tr><td>5050</td><td>GitLab Registry</td><td>容器镜像仓库</td></tr>
+        <tr><td>8080 / 5050 / 2222</td><td>GitLab HTTP / Registry / SSH</td><td>容器内 80 / 5000 / 22 映射；2222 为 GitLab SSH（系统 SSH 占 22）</td></tr>
         <tr><td>3306 / 5432 / 5236</td><td>MySQL 8 / PostgreSQL 16 / 达梦 DM8</td><td>mjbk 常驻，仅内网</td></tr>
         <tr><td>6379</td><td>Redis</td><td>仅内网</td></tr>
         <tr><td>9000 / 9001</td><td>MinIO API / 控制台</td><td>仅内网</td></tr>
@@ -591,7 +590,7 @@ npm run dev</code></pre>
       <p>与《项目规划说明》「开发计划与验收标准」的阶段对齐，环境按需引入、避免一次性拉满：</p>
       <table>
         <tr><th>阶段</th><th>环境准备动作</th><th>对应项目阶段</th></tr>
-        <tr><td>准备期</td><td>mjbk：WSL2 + Rancher Desktop（dockerd）+ 磁盘目录 + 防火墙；mjpc：uv / Node / VSCode 工具链</td><td>阶段一前</td></tr>
+        <tr><td>准备期</td><td>mjbk：Ubuntu 基础（静态 IP / 清华源 / SSH 免密 / HDD 挂载 / Timeshift，均已完成）+ Docker Engine 安装（清华 docker-ce 源）+ 防火墙 ufw；mjpc：uv / Node / VSCode 工具链</td><td>阶段一前</td></tr>
         <tr><td>第一批</td><td>mjbk：redis、mysql、postgres、dameng、minio 容器 + GitLab CE + gitlab-runner + 仓库初始化 + .gitlab-ci.yml 落地（达梦 dmPython 驱动兼容性同步验证）</td><td>阶段一</td></tr>
         <tr><td>第二批</td><td>mjbk：rocketmq（nameserver + broker）</td><td>阶段四（消息与任务基础设施）</td></tr>
         <tr><td>第三批</td><td>mjbk：monitor 组（prometheus / loki / grafana / alertmanager / jaeger / otel-collector）+ 开发服务器备份脚本</td><td>阶段八（分布式与监控）</td></tr>
@@ -604,15 +603,15 @@ npm run dev</code></pre>
       <table>
         <tr><th>风险 / 注意项</th><th>应对</th></tr>
         <tr>
-          <td>Rancher Desktop 默认 containerd 运行时与 docker compose 行为差异</td>
-          <td>部署时切换 dockerd（moby）后端，切换后以 <code>docker info</code>、<code>docker compose version</code> 验证</td>
+          <td>Docker 官方源/镜像拉取慢</td>
+          <td>docker-ce 使用清华源安装；镜像拉取配置国内加速器（daemon.json registry-mirrors）；必要时提前拉取所需镜像</td>
         </tr>
         <tr>
-          <td>mjbk D 盘为 HDD，ES / 数据库随机读写慢</td>
-          <td>严格按 4.2 磁盘规划：IO 敏感数据全走 C 盘 SSD 命名卷</td>
+          <td>mjbk HDD 为机械盘，ES / 数据库随机读写慢</td>
+          <td>严格按 4.2 磁盘规划：IO 敏感数据与 Docker 数据全在 SSD 命名卷，HDD 仅承接 GitLab 数据与备份</td>
         </tr>
         <tr>
-          <td>内存预算逼近 32 GB（三库常驻后峰值约 31 GB）</td>
+          <td>内存预算约 28 GB（三库常驻 + 桌面 + Docker）</td>
           <td>ES 堆限 1–2 GB；GitLab 4 GB 封顶；达梦仅联调与 CI 时段可停（docker compose stop dameng）；按需关闭 Grafana/Loki（阶段八前不启动）；部署后监控 <code>docker stats</code> 与实际占用</td>
         </tr>
         <tr>
@@ -628,8 +627,8 @@ npm run dev</code></pre>
           <td>镜像提前缓存到 mjbk；GitHub 归档镜像与 Renovate 暂缓，待网络恢复后启用，不影响内网开发主链路</td>
         </tr>
         <tr>
-          <td>Windows 更新 / 重启导致常驻服务中断</td>
-          <td>Rancher Desktop 开机自启；Windows 更新设置在维护时段；重启后验证脚本一键拉起全部容器</td>
+          <td>Ubuntu 安全更新 / 重启导致常驻服务中断</td>
+          <td>Docker 服务 systemd 开机自启；系统更新安排在维护时段；重启后验证脚本一键拉起全部容器；系统装坏由 Timeshift 快照还原</td>
         </tr>
         <tr>
           <td>CI 与开发服务抢资源（mjbk 6 核 12 线程）</td>
@@ -652,7 +651,7 @@ npm run dev</code></pre>
     </main>
 
     <footer>
-      本文档为 AI 生成 · 依《文档生成规范》编写 · 关键决策已逐项确认 · 生成日期：2026-08-09
+      本文档为 AI 生成 · 依《文档生成规范》编写 · 关键决策已逐项确认 · 更新日期：2026-08-10（mjbk 换装 Ubuntu 后调整）
     </footer>
   </div>
 
