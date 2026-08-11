@@ -8,26 +8,26 @@ services:
       GITLAB_OMNIBUS_CONFIG: |
         external_url 'http://192.168.0.107:8080'
         gitlab_rails['gitlab_shell_ssh_port'] = 2222
+        puma['listen'] = '127.0.0.1'
+        puma['port'] = 8081
         puma['worker_processes'] = 2
         puma['max_threads'] = 4
         sidekiq['max_concurrency'] = 5
         postgresql['shared_buffers'] = "256MB"
         prometheus_monitoring['enable'] = false
-        grafana['enable'] = false
         alertmanager['enable'] = false
         node_exporter['enable'] = false
         redis_exporter['enable'] = false
         gitlab_exporter['enable'] = false
     ports:
-      - "8080:80"
+      - "8080:8080"
       - "5050:5050"
       - "2222:22"
     volumes:
-      - gitlab-config:/etc/gitlab
-      - gitlab-logs:/var/log/gitlab
-      - gitlab-data:/var/opt/gitlab
+      - /mnt/data/gitlab/config:/etc/gitlab
+      - /mnt/data/gitlab/logs:/var/log/gitlab
+      - /mnt/data/gitlab/data:/var/opt/gitlab
     shm_size: "256m"
-
   gitlab-runner:
     image: gitlab/gitlab-runner:latest
     container_name: bms-gitlab-runner
@@ -42,7 +42,4 @@ services:
       - RUNNER_DOCKER_IMAGE=python:3.14-slim
 
 volumes:
-  gitlab-config:
-  gitlab-logs:
-  gitlab-data:
   runner-config:

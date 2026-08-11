@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MinIO部署使用说明</title>
+<style>
+  :root {
+    --bg: #f7f8fa;
+    --fg: #1f2328;
+    --muted: #57606a;
+    --border: #d0d7de;
+    --accent: #0969da;
+    --accent-bg: #ddf4ff;
+    --code-bg: #f6f8fa;
+    --warn-bg: #fff8c5;
+    --warn-border: #d4a72c;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+    line-height: 1.75;
+  }
+  .layout { display: flex; height: 100vh; overflow: hidden; }
+  .sidebar {
+    width: 280px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+  }
+  .sidebar .brand {
+    background: linear-gradient(135deg, #1f2328, #32383f);
+    color: #fff;
+    padding: 1.4rem 1.2rem 1.1rem;
+    border-bottom: 3px solid var(--accent);
+    flex-shrink: 0;
+  }
+  .sidebar .brand h1 { margin: 0 0 .35rem; font-size: 1.15rem; line-height: 1.4; }
+  .sidebar .brand p { margin: 0; color: #b6bec6; font-size: .78rem; }
+  .sidebar nav { padding: .8rem .6rem 1.5rem; font-size: .9rem; }
+  .sidebar nav ul { list-style: none; margin: 0; padding: 0; }
+  .sidebar nav li { margin: .15rem 0; }
+  .sidebar nav a {
+    display: block;
+    padding: .3rem .7rem;
+    border-radius: 5px;
+    color: var(--fg);
+    text-decoration: none;
+  }
+  .sidebar nav a:hover { background: var(--accent-bg); color: var(--accent); }
+  .sidebar nav .sub { padding-left: 1.6rem; font-size: .85rem; color: var(--muted); }
+  .content { flex: 1; overflow-y: auto; }
+  main {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1.5rem 2rem 4rem;
+  }
+  h2 {
+    margin-top: 2.5rem;
+    padding-bottom: .4rem;
+    border-bottom: 2px solid var(--border);
+    font-size: 1.35rem;
+  }
+  h3 { margin-top: 1.6rem; font-size: 1.1rem; }
+  p { margin: .6rem 0; }
+  ul, ol { margin: .6rem 0; padding-left: 1.6rem; }
+  li { margin: .3rem 0; }
+  code {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: .1em .35em;
+    font-family: Consolas, "Cascadia Mono", monospace;
+    font-size: .9em;
+  }
+  pre {
+    background: #0d1117;
+    color: #e6edf3;
+    border-radius: 8px;
+    padding: .9rem 1.1rem;
+    overflow-x: auto;
+    font-size: .88rem;
+    line-height: 1.6;
+  }
+  pre code { background: none; border: none; padding: 0; color: inherit; }
+  .note, .warn {
+    border-radius: 6px;
+    padding: .7rem 1rem;
+    margin: 1rem 0;
+    font-size: .95rem;
+  }
+  .note { background: var(--accent-bg); border-left: 4px solid var(--accent); }
+  .warn { background: var(--warn-bg); border-left: 4px solid var(--warn-border); }
+  .topnav {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: .4rem;
+    background: #fff;
+    border-bottom: 1px solid var(--border);
+    padding: .5rem 1rem;
+    font-size: .85rem;
+  }
+  .topnav .topnav-side { margin-left: auto; }
+  .topnav a { color: var(--accent); text-decoration: none; }
+  .topnav a:hover { text-decoration: underline; }
+  @media (max-width: 768px) {
+    .topnav .topnav-side { display: none; }
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1rem 0;
+    font-size: .92rem;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: .45rem .7rem;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: #eef1f4; white-space: nowrap; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  footer {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1rem 2rem 3rem;
+    color: var(--muted);
+    font-size: .85rem;
+    border-top: 1px solid var(--border);
+  }
+  @media (max-width: 768px) {
+    .layout { flex-direction: column; height: auto; overflow: visible; }
+    .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); max-height: 40vh; }
+    .content { overflow: visible; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topnav">
+  <a href="../../README.md">文档首页</a> ›
+  <a href="../Ubuntu安装部署使用说明.html">资料</a> ›
+  <a href="开发服务器部署使用说明.html">开发服务器部署使用说明</a> ›
+  <span>MinIO 部署使用说明</span>
+  <span class="topnav-side">
+    <a href="PostgreSQL部署使用说明.html">← 上一个：PostgreSQL</a>
+    <a href="GitLab部署使用说明.html">下一个：GitLab →</a>
+  </span>
+</div>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>MinIO 部署使用说明</h1>
+      <p>mjbk 对象存储部署实录 · 2026-08-10</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#purpose">1. 目的与适用范围</a></li>
+        <li><a href="#compose">2. Compose 配置</a></li>
+        <li><a href="#deploy">3. 部署步骤</a></li>
+        <li><a href="#verify">4. 验证</a></li>
+        <li><a href="#use">5. 使用说明（bucket 规划）</a></li>
+        <li><a href="#ops">6. 日常运维</a></li>
+        <li><a href="#related">7. 关联文档</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="purpose">1. 目的与适用范围</h2>
+      <p>
+        mjbk 上的 MinIO（容器 <code>bms-minio</code>）提供 S3 兼容对象存储，承载 BMS 文件管理、
+        归档冷化对象与 Milvus（阶段十四）数据，是开发依赖服务之一（《<a href="../../规划/开发部署规划.html">开发部署规划</a>》4.3 base 组）。
+      </p>
+
+      <h2 id="compose">2. Compose 配置</h2>
+      <p>定义于仓库 <code>deploy/compose/base.yml</code>：</p>
+      <pre><code>minio:
+  image: minio/minio:latest
+  container_name: bms-minio
+  restart: unless-stopped
+  command: server /data --console-address ":9001"
+  environment:
+    MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+    MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+  ports:
+    - "9000:9000"
+    - "9001:9001"
+  volumes:
+    - minio-data:/data</code></pre>
+      <div class="note">
+        root 账号来自 <code>deploy/.env</code>（<code>MINIO_ROOT_USER=minioadmin</code>，密码随机）。
+        数据卷 <code>minio-data</code> 为命名卷（SSD）。9000 为 S3 API，9001 为控制台。
+      </div>
+
+      <h2 id="deploy">3. 部署步骤</h2>
+      <pre><code>cd ~/deploy
+docker compose -f compose/base.yml --env-file .env up -d minio</code></pre>
+
+      <h2 id="verify">4. 验证</h2>
+      <pre><code>curl -s http://192.168.0.107:9000/minio/health/live -o /dev/null -w "%{http_code}"   # 200
+docker exec bms-minio mc alias set local http://127.0.0.1:9000 minioadmin "&lt;密码&gt;"
+docker exec bms-minio mc ls local</code></pre>
+      <p>本次部署结果：API 与控制台均 200，mc 客户端可访问，<code>bms-files</code> 桶已创建。</p>
+
+      <h2 id="use">5. 使用说明（bucket 规划）</h2>
+      <p>bucket 命名遵循《<a href="../../规范/命名规范.html">命名规范</a>》：小写连字符，按租户前缀隔离。</p>
+      <table>
+        <tr><th>bucket</th><th>用途</th><th>状态</th></tr>
+        <tr><td><code>bms-files</code></td><td>BMS 文件管理模块（默认）</td><td>已创建</td></tr>
+        <tr><td><code>bms-backup</code></td><td>数据备份存储（规划，按需创建）</td><td>待创建</td></tr>
+        <tr><td><code>bms-{租户}</code></td><td>按租户隔离 bucket</td><td>租户开通时创建</td></tr>
+      </table>
+      <ul>
+        <li>控制台：<code>http://192.168.0.107:9001</code>（root 凭据见 <code>~/deploy/.env</code>）</li>
+        <li>访问地址（后端配置）：<code>http://192.168.0.107:9000</code></li>
+      </ul>
+
+      <h2 id="ops">6. 日常运维</h2>
+      <table>
+        <tr><th>操作</th><th>命令</th></tr>
+        <tr><td>查看状态</td><td><code>docker ps --filter name=bms-minio</code></td></tr>
+        <tr><td>查看日志</td><td><code>docker logs -f bms-minio</code></td></tr>
+        <tr><td>mc 操作</td><td><code>docker exec bms-minio mc ls local</code>（alias 已配 <code>local</code>）</td></tr>
+        <tr><td>创建桶</td><td><code>docker exec bms-minio mc mb -p local/bms-backup</code></td></tr>
+        <tr><td>重启</td><td><code>docker restart bms-minio</code></td></tr>
+      </table>
+
+      <h2 id="related">7. 关联文档</h2>
+      <ul>
+        <li>《<a href="开发服务器部署使用说明.html">开发服务器部署使用说明</a>》：服务部署总览</li>
+        <li>《<a href="DockerEngine部署使用说明.html">DockerEngine部署使用说明</a>》：容器引擎与镜像加速（DaoCloud 白名单限制说明）</li>
+        <li>《<a href="../../规划/开发部署规划.html">开发部署规划</a>》：4.3 服务清单</li>
+        <li>《<a href="../../规范/命名规范.html">命名规范</a>》：MinIO bucket 命名约定</li>
+      </ul>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 依《文档生成规范》编写 · 记录 2026-08-10 实际部署过程 · 更新日期：2026-08-10
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>

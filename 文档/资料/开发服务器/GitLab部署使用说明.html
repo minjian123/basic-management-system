@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GitLab部署使用说明</title>
+<style>
+  :root {
+    --bg: #f7f8fa;
+    --fg: #1f2328;
+    --muted: #57606a;
+    --border: #d0d7de;
+    --accent: #0969da;
+    --accent-bg: #ddf4ff;
+    --code-bg: #f6f8fa;
+    --warn-bg: #fff8c5;
+    --warn-border: #d4a72c;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+    line-height: 1.75;
+  }
+  .layout { display: flex; height: 100vh; overflow: hidden; }
+  .sidebar {
+    width: 280px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+  }
+  .sidebar .brand {
+    background: linear-gradient(135deg, #1f2328, #32383f);
+    color: #fff;
+    padding: 1.4rem 1.2rem 1.1rem;
+    border-bottom: 3px solid var(--accent);
+    flex-shrink: 0;
+  }
+  .sidebar .brand h1 { margin: 0 0 .35rem; font-size: 1.15rem; line-height: 1.4; }
+  .sidebar .brand p { margin: 0; color: #b6bec6; font-size: .78rem; }
+  .sidebar nav { padding: .8rem .6rem 1.5rem; font-size: .9rem; }
+  .sidebar nav ul { list-style: none; margin: 0; padding: 0; }
+  .sidebar nav li { margin: .15rem 0; }
+  .sidebar nav a {
+    display: block;
+    padding: .3rem .7rem;
+    border-radius: 5px;
+    color: var(--fg);
+    text-decoration: none;
+  }
+  .sidebar nav a:hover { background: var(--accent-bg); color: var(--accent); }
+  .sidebar nav .sub { padding-left: 1.6rem; font-size: .85rem; color: var(--muted); }
+  .content { flex: 1; overflow-y: auto; }
+  main {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1.5rem 2rem 4rem;
+  }
+  h2 {
+    margin-top: 2.5rem;
+    padding-bottom: .4rem;
+    border-bottom: 2px solid var(--border);
+    font-size: 1.35rem;
+  }
+  h3 { margin-top: 1.6rem; font-size: 1.1rem; }
+  p { margin: .6rem 0; }
+  ul, ol { margin: .6rem 0; padding-left: 1.6rem; }
+  li { margin: .3rem 0; }
+  code {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: .1em .35em;
+    font-family: Consolas, "Cascadia Mono", monospace;
+    font-size: .9em;
+  }
+  pre {
+    background: #0d1117;
+    color: #e6edf3;
+    border-radius: 8px;
+    padding: .9rem 1.1rem;
+    overflow-x: auto;
+    font-size: .88rem;
+    line-height: 1.6;
+  }
+  pre code { background: none; border: none; padding: 0; color: inherit; }
+  .note, .warn {
+    border-radius: 6px;
+    padding: .7rem 1rem;
+    margin: 1rem 0;
+    font-size: .95rem;
+  }
+  .note { background: var(--accent-bg); border-left: 4px solid var(--accent); }
+  .warn { background: var(--warn-bg); border-left: 4px solid var(--warn-border); }
+  .topnav {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: .4rem;
+    background: #fff;
+    border-bottom: 1px solid var(--border);
+    padding: .5rem 1rem;
+    font-size: .85rem;
+  }
+  .topnav .topnav-side { margin-left: auto; }
+  .topnav a { color: var(--accent); text-decoration: none; }
+  .topnav a:hover { text-decoration: underline; }
+  @media (max-width: 768px) {
+    .topnav .topnav-side { display: none; }
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1rem 0;
+    font-size: .92rem;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: .45rem .7rem;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: #eef1f4; white-space: nowrap; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  footer {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1rem 2rem 3rem;
+    color: var(--muted);
+    font-size: .85rem;
+    border-top: 1px solid var(--border);
+  }
+  @media (max-width: 768px) {
+    .layout { flex-direction: column; height: auto; overflow: visible; }
+    .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); max-height: 40vh; }
+    .content { overflow: visible; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topnav">
+  <a href="../../README.md">文档首页</a> ›
+  <a href="../Ubuntu安装部署使用说明.html">资料</a> ›
+  <a href="开发服务器部署使用说明.html">开发服务器部署使用说明</a> ›
+  <span>GitLab 部署使用说明</span>
+  <span class="topnav-side">
+    <a href="MinIO部署使用说明.html">← 上一个：MinIO</a>
+  </span>
+</div>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>GitLab 部署使用说明</h1>
+      <p>mjbk 代码托管 + CI 部署实录 · 2026-08-10</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#purpose">1. 目的与适用范围</a></li>
+        <li><a href="#compose">2. Compose 配置</a></li>
+        <li><a href="#deploy">3. 部署步骤</a></li>
+        <li><a href="#verify">4. 验证</a></li>
+        <li><a href="#use">5. 使用说明</a></li>
+        <li><a href="#runner">6. gitlab-runner 注册</a></li>
+        <li><a href="#ops">7. 日常运维</a></li>
+        <li><a href="#trouble">8. 排障记录</a></li>
+        <li><a href="#related">9. 关联文档</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="purpose">1. 目的与适用范围</h2>
+      <p>
+        mjbk 上的 GitLab CE（容器 <code>bms-gitlab</code>）承载 BMS 代码仓库、MR、CI 流水线与容器 Registry；
+        <code>bms-gitlab-runner</code> 以 Docker executor 执行 CI 任务（《<a href="../../规划/开发部署规划.html">开发部署规划</a>》4.5）。
+      </p>
+
+      <h2 id="compose">2. Compose 配置</h2>
+      <p>定义于仓库 <code>deploy/compose/gitlab.yml</code>（已同步至 mjbk <code>~/deploy/compose/gitlab.yml</code>）：</p>
+      <pre><code>gitlab:
+  image: gitlab/gitlab-ce:latest
+  container_name: bms-gitlab
+  hostname: 192.168.0.107
+  ports:
+    - "8080:8080"    # HTTP（容器内 nginx listen_port=8080）
+    - "5050:5050"    # Registry
+    - "2222:22"      # SSH（系统 SSH 占 22）
+  volumes:
+    - /mnt/data/gitlab/config:/etc/gitlab
+    - /mnt/data/gitlab/logs:/var/log/gitlab
+    - /mnt/data/gitlab/data:/var/opt/gitlab
+  shm_size: "256m"
+
+gitlab-runner:
+  image: gitlab/gitlab-runner:latest
+  volumes:
+    - /var/run/docker.sock:/var/run/docker.sock
+    - runner-config:/etc/gitlab-runner</code></pre>
+      <div class="warn">
+        <strong>GitLab 数据必须放 HDD</strong>（<code>/mnt/data/gitlab</code>，bind mount，规划 4.2）：
+        仓库数据与备份容量大、读多写少，避免占用 SSD。
+      </div>
+
+      <h2 id="deploy">3. 部署步骤</h2>
+      <pre><code># 1. 拉取镜像（DaoCloud 加速器支持 gitlab/gitlab-ce）
+docker pull gitlab/gitlab-ce:latest
+
+# 2. 启动（首次 reconfigure 初始化约 3-6 分钟）
+cd ~/deploy
+docker compose -f compose/gitlab.yml up -d gitlab
+
+# 3. 等待 HTTP 就绪（200/302）
+curl -s -o /dev/null -w "%{http_code}" http://192.168.0.107:8080/users/sign_in</code></pre>
+      <div class="note">
+        初始 root 密码：容器内 <code>/etc/gitlab/initial_root_password</code>（本次部署已记录至
+        <code>~/deploy/.env</code> 的 <code>GITLAB_ROOT_PASSWORD</code>，首次登录后应修改）。
+      </div>
+
+      <h2 id="verify">4. 验证</h2>
+      <pre><code>curl -s http://192.168.0.107:8080/users/sign_in | grep "&lt;title&gt;"   # Sign in · GitLab
+docker exec bms-gitlab gitlab-ctl status      # 全部 run 状态</code></pre>
+      <p>本次部署结果：登录页正常（HTTP 200），gitaly / nginx / puma(8081) / postgresql / redis / sidekiq / sshd 全部运行。</p>
+
+      <h2 id="use">5. 使用说明</h2>
+      <table>
+        <tr><th>项目</th><th>值</th></tr>
+        <tr><td>访问地址</td><td><code>http://192.168.0.107:8080</code></td></tr>
+        <tr><td>仓库克隆地址</td><td><code>http://192.168.0.107:8080/&lt;group&gt;/&lt;repo&gt;.git</code> 或 <code>ssh://git@192.168.0.107:2222/...</code></td></tr>
+        <tr><td>Registry</td><td><code>192.168.0.107:5050</code>（容器镜像仓库，随项目启用）</td></tr>
+        <tr><td>管理员账号</td><td><code>root</code>（密码见 <code>~/deploy/.env</code> 的 <code>GITLAB_ROOT_PASSWORD</code>）</td></tr>
+      </table>
+
+      <h2 id="runner">6. gitlab-runner 注册</h2>
+      <p>runner 容器已启动并注册（2026-08-10，runner <code>bacf4fd652a2</code>，concurrent=2）。注册步骤记录如下：</p>
+      <ol>
+        <li>GitLab 界面获取认证 token：<strong>管理区域 → CI/CD → Runners → 新建实例 runner</strong>（勾选「允许未标记的作业」），得到 <code>glrt-...</code> token。</li>
+        <li>注册（注意：新版 gitlab-runner 用认证 token 注册时<strong>不能带 --tag-list / --run-untagged / --locked 等参数</strong>，这些需在 GitLab 界面配置）：
+          <pre><code>docker exec bms-gitlab-runner gitlab-runner register --non-interactive \
+  --url http://192.168.0.107:8080 \
+  --token &lt;glrt-token&gt; \
+  --executor docker \
+  --docker-image python:3.14-slim \
+  --docker-volumes /var/run/docker.sock:/var/run/docker.sock</code></pre>
+        </li>
+        <li>并发上限（mjbk 6 核 12 线程，规划 4.5）：
+          <pre><code>docker exec bms-gitlab-runner sed -i "s/concurrent = 1/concurrent = 2/" /etc/gitlab-runner/config.toml
+docker restart bms-gitlab-runner
+docker exec bms-gitlab-runner gitlab-runner verify</code></pre>
+        </li>
+        <li>验证：管理区域 Runners 页面显示 <strong>在线</strong>。</li>
+      </ol>
+
+      <h2 id="ops">7. 日常运维</h2>
+      <table>
+        <tr><th>操作</th><th>命令</th></tr>
+        <tr><td>查看状态</td><td><code>docker ps --filter name=bms-gitlab</code></td></tr>
+        <tr><td>查看日志</td><td><code>docker logs -f bms-gitlab</code></td></tr>
+        <tr><td>重启</td><td><code>docker restart bms-gitlab</code>（reconfigure 会重新执行）</td></tr>
+        <tr><td>内部服务状态</td><td><code>docker exec bms-gitlab gitlab-ctl status</code></td></tr>
+        <tr><td>配置修改</td><td>编辑 <code>/mnt/data/gitlab/config/gitlab.rb</code>（root 权限）→ <code>docker restart bms-gitlab</code></td></tr>
+        <tr><td>备份（每日 cron 2 点）</td><td><code>docker exec bms-gitlab gitlab-backup create</code>，备份落 <code>/mnt/data/gitlab/data/backups/</code>，同步至 <code>/mnt/data/backup/gitlab/</code></td></tr>
+      </table>
+
+      <h2 id="trouble">8. 排障记录</h2>
+      <table>
+        <tr><th>问题</th><th>现象</th><th>处理</th></tr>
+        <tr>
+          <td>reconfigure 报 Grafana 配置不支持</td>
+          <td><code>Reading unsupported config value grafana</code></td>
+          <td>新版 GitLab 移除内置 Grafana，删除 <code>grafana['enable']</code> 配置项</td>
+        </tr>
+        <tr>
+          <td>puma 崩溃循环（端口冲突）</td>
+          <td><code>EADDRINUSE bind 127.0.0.1:8080</code>，CPU 100%</td>
+          <td>GitLab 18 默认 puma 监听 TCP 8080；将 puma 端口改为独立端口 8081（<code>puma['listen']/['port']</code>）</td>
+        </tr>
+        <tr>
+          <td>GITLAB_OMNIBUS_CONFIG 不生效</td>
+          <td>容器重建后 gitlab.rb 仍是默认模板</td>
+          <td>该环境变量只在首次生成 gitlab.rb 时写入；后续修改直接编辑 <code>/mnt/data/gitlab/config/gitlab.rb</code>（bind mount 持久化）</td>
+        </tr>
+        <tr>
+          <td>宿主机访问 8080 不通</td>
+          <td>容器内 200、宿主 000（曾 RST）</td>
+          <td>nginx <code>listen_port=8080</code> 后容器内监听 8080，docker 端口映射必须为 <code>8080:8080</code>（而非 8080:80）</td>
+        </tr>
+        <tr>
+          <td>跳转链接缺少端口号</td>
+          <td>页面链接均为 <code>http://192.168.0.107/...</code>（无 :8080），登录/导航跳转后打不开</td>
+          <td><code>external_url</code> 必须带端口：<code>external_url 'http://192.168.0.107:8080'</code>，不再单独设置 <code>nginx['listen_port']</code>；配合 puma 独立端口 8081 避免端口冲突</td>
+        </tr>
+        <tr>
+          <td>外部访问容器端口全部不通</td>
+          <td>Docker 发布端口对外不可达</td>
+          <td>ufw 启用后需 <code>sudo ufw default allow routed</code>（FORWARD 链）并放行目标端口；本机访问用 <code>docker restart</code> 重建容器网络后验证</td>
+        </tr>
+      </table>
+
+      <h2 id="related">9. 关联文档</h2>
+      <ul>
+        <li>《<a href="开发服务器部署使用说明.html">开发服务器部署使用说明</a>》：服务部署总览</li>
+        <li>《<a href="DockerEngine部署使用说明.html">DockerEngine部署使用说明</a>》：容器引擎与镜像加速</li>
+        <li>《<a href="../../规划/开发部署规划.html">开发部署规划</a>》：4.5 GitLab 与 CI 基础设施</li>
+        <li>《<a href="../../规范/命名规范.html">命名规范</a>》：镜像名 <code>bms-组件</code>、Registry 规划</li>
+      </ul>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 依《文档生成规范》编写 · 记录 2026-08-10 实际部署过程 · 更新日期：2026-08-10
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>

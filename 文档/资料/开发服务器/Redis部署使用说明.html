@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Redis部署使用说明</title>
+<style>
+  :root {
+    --bg: #f7f8fa;
+    --fg: #1f2328;
+    --muted: #57606a;
+    --border: #d0d7de;
+    --accent: #0969da;
+    --accent-bg: #ddf4ff;
+    --code-bg: #f6f8fa;
+    --warn-bg: #fff8c5;
+    --warn-border: #d4a72c;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+    line-height: 1.75;
+  }
+  .layout { display: flex; height: 100vh; overflow: hidden; }
+  .sidebar {
+    width: 280px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+  }
+  .sidebar .brand {
+    background: linear-gradient(135deg, #1f2328, #32383f);
+    color: #fff;
+    padding: 1.4rem 1.2rem 1.1rem;
+    border-bottom: 3px solid var(--accent);
+    flex-shrink: 0;
+  }
+  .sidebar .brand h1 { margin: 0 0 .35rem; font-size: 1.15rem; line-height: 1.4; }
+  .sidebar .brand p { margin: 0; color: #b6bec6; font-size: .78rem; }
+  .sidebar nav { padding: .8rem .6rem 1.5rem; font-size: .9rem; }
+  .sidebar nav ul { list-style: none; margin: 0; padding: 0; }
+  .sidebar nav li { margin: .15rem 0; }
+  .sidebar nav a {
+    display: block;
+    padding: .3rem .7rem;
+    border-radius: 5px;
+    color: var(--fg);
+    text-decoration: none;
+  }
+  .sidebar nav a:hover { background: var(--accent-bg); color: var(--accent); }
+  .sidebar nav .sub { padding-left: 1.6rem; font-size: .85rem; color: var(--muted); }
+  .content { flex: 1; overflow-y: auto; }
+  main {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1.5rem 2rem 4rem;
+  }
+  h2 {
+    margin-top: 2.5rem;
+    padding-bottom: .4rem;
+    border-bottom: 2px solid var(--border);
+    font-size: 1.35rem;
+  }
+  h3 { margin-top: 1.6rem; font-size: 1.1rem; }
+  p { margin: .6rem 0; }
+  ul, ol { margin: .6rem 0; padding-left: 1.6rem; }
+  li { margin: .3rem 0; }
+  code {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: .1em .35em;
+    font-family: Consolas, "Cascadia Mono", monospace;
+    font-size: .9em;
+  }
+  pre {
+    background: #0d1117;
+    color: #e6edf3;
+    border-radius: 8px;
+    padding: .9rem 1.1rem;
+    overflow-x: auto;
+    font-size: .88rem;
+    line-height: 1.6;
+  }
+  pre code { background: none; border: none; padding: 0; color: inherit; }
+  .note, .warn {
+    border-radius: 6px;
+    padding: .7rem 1rem;
+    margin: 1rem 0;
+    font-size: .95rem;
+  }
+  .note { background: var(--accent-bg); border-left: 4px solid var(--accent); }
+  .warn { background: var(--warn-bg); border-left: 4px solid var(--warn-border); }
+  .topnav {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: .4rem;
+    background: #fff;
+    border-bottom: 1px solid var(--border);
+    padding: .5rem 1rem;
+    font-size: .85rem;
+  }
+  .topnav .topnav-side { margin-left: auto; }
+  .topnav a { color: var(--accent); text-decoration: none; }
+  .topnav a:hover { text-decoration: underline; }
+  @media (max-width: 768px) {
+    .topnav .topnav-side { display: none; }
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1rem 0;
+    font-size: .92rem;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: .45rem .7rem;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: #eef1f4; white-space: nowrap; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  footer {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1rem 2rem 3rem;
+    color: var(--muted);
+    font-size: .85rem;
+    border-top: 1px solid var(--border);
+  }
+  @media (max-width: 768px) {
+    .layout { flex-direction: column; height: auto; overflow: visible; }
+    .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); max-height: 40vh; }
+    .content { overflow: visible; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topnav">
+  <a href="../../README.md">文档首页</a> ›
+  <a href="../Ubuntu安装部署使用说明.html">资料</a> ›
+  <a href="开发服务器部署使用说明.html">开发服务器部署使用说明</a> ›
+  <span>Redis 部署使用说明</span>
+  <span class="topnav-side">
+    <a href="DockerEngine部署使用说明.html">← 上一个：Docker Engine</a>
+    <a href="MySQL部署使用说明.html">下一个：MySQL →</a>
+  </span>
+</div>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>Redis 部署使用说明</h1>
+      <p>mjbk 缓存服务部署实录 · 2026-08-10</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#purpose">1. 目的与适用范围</a></li>
+        <li><a href="#compose">2. Compose 配置</a></li>
+        <li><a href="#deploy">3. 部署步骤</a></li>
+        <li><a href="#verify">4. 验证</a></li>
+        <li><a href="#use">5. 使用说明</a></li>
+        <li><a href="#ops">6. 日常运维</a></li>
+        <li><a href="#related">7. 关联文档</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="purpose">1. 目的与适用范围</h2>
+      <p>
+        mjbk 上的 Redis（容器 <code>bms-redis</code>）承载 BMS 的缓存、token 黑名单、分布式锁、限流计数等，
+        是开发依赖服务之一（《<a href="../../规划/开发部署规划.html">开发部署规划</a>》4.3 base 组）。
+      </p>
+
+      <h2 id="compose">2. Compose 配置</h2>
+      <p>定义于仓库 <code>deploy/compose/base.yml</code>（已同步至 mjbk <code>~/deploy/compose/base.yml</code>）：</p>
+      <pre><code>redis:
+  image: redis:8
+  container_name: bms-redis
+  restart: unless-stopped
+  ports:
+    - "6379:6379"
+  volumes:
+    - redis-data:/data
+  command: redis-server --appendonly yes</code></pre>
+      <div class="note">
+        数据卷 <code>redis-data</code> 为 Docker 命名卷（默认存 SSD <code>/var/lib/docker/volumes</code>），
+        开启 AOF 持久化（<code>--appendonly yes</code>）。命名规范：容器名 <code>bms-组件</code>。
+      </div>
+
+      <h2 id="deploy">3. 部署步骤</h2>
+      <pre><code># mjbk 上（deploy 目录已同步）
+cd ~/deploy
+docker compose -f compose/base.yml up -d redis</code></pre>
+
+      <h2 id="verify">4. 验证</h2>
+      <pre><code>docker ps --filter name=bms-redis
+redis-cli -h 192.168.0.107 -p 6379 ping   # 返回 PONG
+docker exec bms-redis redis-cli INFO persistence  # aof_enabled:1</code></pre>
+      <p>本次部署结果：<code>PONG</code>，AOF 开启，RDB 备份正常。</p>
+
+      <h2 id="use">5. 使用说明</h2>
+      <table>
+        <tr><th>项目</th><th>值</th></tr>
+        <tr><td>连接地址</td><td><code>redis://192.168.0.107:6379/0</code>（内网，无密码，仅 ufw 内网放行）</td></tr>
+        <tr><td>容器名</td><td><code>bms-redis</code></td></tr>
+        <tr><td>数据持久化</td><td>AOF（appendonly）+ RDB 快照，数据卷 <code>redis-data</code></td></tr>
+      </table>
+      <div class="warn">开发环境未设密码（内网防火墙隔离）。BMS 的 Redis key 遵循《<a href="../../规范/命名规范.html">命名规范</a>》：<code>bms:{租户|global}:{域}:{业务键}</code>。</div>
+
+      <h2 id="ops">6. 日常运维</h2>
+      <table>
+        <tr><th>操作</th><th>命令</th></tr>
+        <tr><td>查看状态</td><td><code>docker ps --filter name=bms-redis</code></td></tr>
+        <tr><td>查看日志</td><td><code>docker logs -f bms-redis</code></td></tr>
+        <tr><td>重启</td><td><code>docker restart bms-redis</code></td></tr>
+        <tr><td>进入客户端</td><td><code>docker exec -it bms-redis redis-cli</code></td></tr>
+        <tr><td>清除全部缓存（慎用）</td><td><code>docker exec bms-redis redis-cli FLUSHALL</code></td></tr>
+      </table>
+
+      <h2 id="related">7. 关联文档</h2>
+      <ul>
+        <li>《<a href="开发服务器部署使用说明.html">开发服务器部署使用说明</a>》：服务部署总览</li>
+        <li>《<a href="DockerEngine部署使用说明.html">DockerEngine部署使用说明</a>》：容器引擎</li>
+        <li>《<a href="../../规划/开发部署规划.html">开发部署规划</a>》：4.3 服务清单与磁盘规划</li>
+        <li>《<a href="../../规范/命名规范.html">命名规范</a>》：Redis key 约定</li>
+      </ul>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 依《文档生成规范》编写 · 记录 2026-08-10 实际部署过程 · 更新日期：2026-08-10
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>
