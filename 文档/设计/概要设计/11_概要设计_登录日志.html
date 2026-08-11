@@ -122,23 +122,23 @@
       </ol>
 
       <h2 id="sequence">3. 关键时序与协作</h2>
-      <pre><code>用户登录
-  └─ 认证域校验（限流/图形验证码/密码/锁定状态）
-       ├─ 成功 → 双 token + 会话记录（sys_session）
-       └─ 失败 → 判定 fail_reason；连续失败达阈值 → 账号锁定（fail_limit，sys_account_lock）
-  └─ 发布登录审计事件 → RocketMQ（分区键 = 租户，分区有序）
-       └─ event-worker 分区有序消费
-            ├─ 定位分片表 sys_login_log_{yyyyMM}（Celery 已预创建）
-            ├─ prev_hash = 末条 record_hash
-            ├─ record_hash = SHA256(prev_hash + 规范化记录内容)
-            └─ 写入分片表（分片表内成链；跨月首尾衔接）
-
-审计管理员（三权分立）
-  └─ GET /api/v1/login-logs → 按月分片路由查询
-  └─ 链校验工具：定期巡检 + 归档前强制校验
-
-归档任务（Celery）
-  └─ 90 天保留期超期 → 链完整性校验通过 → 两段式归档（热表→归档库→对象存储）</code></pre>
+      <div class="seq">
+        <table>
+          <tr><th>用户登录</th><th>认证域</th><th>RocketMQ / event-worker</th><th>分片表</th></tr>
+          <tr><td class="s-arrow">登录请求 →</td><td class="s-note">认证域校验（限流/图形验证码/密码/锁定状态）</td><td></td><td></td></tr>
+          <tr><td></td><td class="s-arrow">成功 →</td><td class="s-note">双 token + 会话记录（sys_session）</td><td></td></tr>
+          <tr><td></td><td class="s-note">失败 → 判定 fail_reason；连续失败达阈值 → 账号锁定（fail_limit，sys_account_lock）</td><td></td><td></td></tr>
+          <tr><td></td><td class="s-arrow">发布登录审计事件 →</td><td class="s-note">分区键 = 租户，分区有序</td><td></td></tr>
+          <tr><td></td><td></td><td class="s-arrow">分区有序消费 →</td><td></td></tr>
+          <tr><td></td><td></td><td class="s-arrow">定位分片表 →</td><td class="s-note">sys_login_log_{yyyyMM}（Celery 已预创建）</td></tr>
+          <tr><td></td><td></td><td class="s-arrow">prev_hash = 末条 record_hash →</td><td></td></tr>
+          <tr><td></td><td></td><td class="s-arrow">record_hash = SHA256(prev_hash + 规范化记录内容) →</td><td></td></tr>
+          <tr><td></td><td></td><td class="s-arrow">写入分片表 →</td><td class="s-note">分片表内成链；跨月首尾衔接</td></tr>
+          <tr><td class="s-note">审计管理员（三权分立）</td><td class="s-arrow">GET /api/v1/login-logs →</td><td></td><td class="s-note">按月分片路由查询</td></tr>
+          <tr><td></td><td class="s-arrow">链校验工具 →</td><td></td><td class="s-note">定期巡检 + 归档前强制校验</td></tr>
+          <tr><td class="s-note">归档任务（Celery）</td><td class="s-arrow">90 天保留期超期 →</td><td class="s-note">链完整性校验通过 →</td><td class="s-note">两段式归档（热表→归档库→对象存储）</td></tr>
+        </table>
+      </div>
       <div class="note">登录失败信息与账号锁定（fail_limit）联动：日志提供失败事实，锁定策略与解锁由认证域与用户管理模块执行，本模块不越权处置。</div>
 
       <h2 id="data">4. 数据模型与表设计</h2>

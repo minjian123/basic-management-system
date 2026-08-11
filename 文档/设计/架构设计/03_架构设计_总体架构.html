@@ -56,31 +56,21 @@
       </p>
 
       <h2 id="layers">2. 分层视图</h2>
-      <pre><code>┌──────────────────────────────────────────────────────────────┐
-│  客户端层  浏览器（PC / H5） · 企业微信 / 钉钉内嵌 · 外部系统        │
-└───────────────────────────────┬──────────────────────────────┘
-                                │ HTTPS
-┌───────────────────────────────▼──────────────────────────────┐
-│  接入层    nginx：TLS 终止 / 前端静态资源 / /api 反代 /          │
-│            子域名租户路由（{tenant}.bms.example.com）/ WebSocket │
-└───────────────────────────────┬──────────────────────────────┘
-                                │
-┌───────────────────────────────▼──────────────────────────────┐
-│  应用层    backend（FastAPI 多副本）                            │
-│            celery-worker · celery-beat · event-worker         │
-└───────┬───────────────┬───────────────┬──────────────┬───────┘
-        │               │               │              │
-┌───────▼───────┐ ┌─────▼──────┐ ┌──────▼───────┐ ┌────▼────────┐
-│ 数据层         │ │ 缓存/队列   │ │ 存储/检索     │ │ AI（阶段十四）│
-│ MySQL / PG     │ │ Redis      │ │ MinIO        │ │ Milvus      │
-│ / 达梦 DM8     │ │ RocketMQ   │ │ ElasticSearch│ │ PaddleOCR   │
-│ 平台库+租户库   │ │            │ │              │ │ LLM 适配层   │
-│ +归档库 主从    │ │            │ │              │ │             │
-└───────────────┘ └────────────┘ └──────────────┘ └─────────────┘
-        ┌─────────────────────────────────────────────────────┐
-        │ 可观测性  Prometheus + Loki + Grafana + Alertmanager │
-        │           + Jaeger（otel-collector 采集链路）          │
-        └─────────────────────────────────────────────────────┘</code></pre>
+      <div class="layer">
+        <div class="l-box"><span class="l-title">客户端层</span>：浏览器（PC / H5）· 企业微信 / 钉钉内嵌 · 外部系统</div>
+        <div class="l-arrow">▼ HTTPS</div>
+        <div class="l-box"><span class="l-title">接入层</span>：nginx——TLS 终止 / 前端静态资源 / /api 反代 / 子域名租户路由（{tenant}.bms.example.com）/ WebSocket</div>
+        <div class="l-arrow">▼</div>
+        <div class="l-box"><span class="l-title">应用层</span>：backend（FastAPI 多副本）· celery-worker · celery-beat · event-worker</div>
+        <div class="l-arrow">▼</div>
+        <div class="l-row">
+          <div class="l-box"><span class="l-title">数据层</span><br>MySQL / PG / 达梦 DM8<br>平台库+租户库+归档库 主从</div>
+          <div class="l-box"><span class="l-title">缓存/队列</span><br>Redis<br>RocketMQ</div>
+          <div class="l-box"><span class="l-title">存储/检索</span><br>MinIO<br>ElasticSearch</div>
+          <div class="l-box"><span class="l-title">AI（阶段十四）</span><br>Milvus<br>PaddleOCR<br>LLM 适配层</div>
+        </div>
+        <div class="l-box"><span class="l-title">可观测性</span>：Prometheus + Loki + Grafana + Alertmanager + Jaeger（otel-collector 采集链路）</div>
+      </div>
 
       <h2 id="process">3. 进程模型</h2>
       <table>
@@ -93,24 +83,31 @@
       </table>
 
       <h2 id="components">4. 组件视图与协作</h2>
-      <pre><code>┌──────────────────────────── backend 内部组件 ─────────────────────────────┐
-│                                                                          │
-│  ┌───────────┐  ┌───────────┐  ┌──────────────┐  ┌────────────────────┐ │
-│  │ 认证组件   │  │ 权限引擎   │  │ 租户路由组件   │  │ 事件生产组件        │ │
-│  │ JWT/会话  │→ │ 主体链收敛 │← │ 引擎注册表    │  │ RocketMQ 事务消息   │ │
-│  └───────────┘  └───────────┘  └──────┬───────┘  └─────────┬──────────┘ │
-│                                       ▼                    │            │
-│  ┌───────────┐  ┌───────────┐  ┌──────────────┐  ┌─────────▼──────────┐ │
-│  │ 文件组件   │  │ 工作流组件 │  │ 数据访问组件   │  │ 实时推送组件        │ │
-│  │ 分片状态机 │  │ SpiffWork │  │ 读写分离/分片  │  │ Socket.IO+Redis   │ │
-│  └───────────┘  └───────────┘  └──────────────┘  └────────────────────┘ │
-│  api（路由/校验）→ services（业务/事务）→ repositories（访问/路由）→ db    │
-└────────────────────────────────────┬─────────────────────────────────────┘
-        │ 统一经 Redis 缓存 · RocketMQ 事件 · MinIO · ES · 审计链
-┌───────▼──────────────────────────────────────────────────────────────────┐
-│  基础设施组件：Redis（缓存/会话/限流/锁/幂等）· RocketMQ（事件总线）          │
-│                MinIO（对象存储）· ES（检索）· Milvus（向量）                │
-└───────────────────────────────────────────────────────────────────────────┘</code></pre>
+      <div class="layer">
+        <div class="l-box">
+          <span class="l-title">backend 内部组件</span>
+          <div class="l-row" style="margin-top:.5rem">
+            <div class="l-box"><span class="l-title">认证组件</span><br>JWT/会话</div>
+            <div class="l-box"><span class="l-title">权限引擎</span><br>主体链收敛</div>
+            <div class="l-box"><span class="l-title">租户路由组件</span><br>引擎注册表</div>
+            <div class="l-box"><span class="l-title">事件生产组件</span><br>RocketMQ 事务消息</div>
+          </div>
+          <div class="l-arrow">▼（租户路由 → 数据访问；事件生产 → 实时推送）</div>
+          <div class="l-row">
+            <div class="l-box"><span class="l-title">文件组件</span><br>分片状态机</div>
+            <div class="l-box"><span class="l-title">工作流组件</span><br>SpiffWork</div>
+            <div class="l-box"><span class="l-title">数据访问组件</span><br>读写分离/分片</div>
+            <div class="l-box"><span class="l-title">实时推送组件</span><br>Socket.IO+Redis</div>
+          </div>
+          <div class="l-box" style="margin-top:.5rem;background:var(--code-bg)">
+            api（路由/校验）→ services（业务/事务）→ repositories（访问/路由）→ db
+          </div>
+        </div>
+        <div class="l-arrow">▼ 统一经 Redis 缓存 · RocketMQ 事件 · MinIO · ES · 审计链</div>
+        <div class="l-box">
+          <span class="l-title">基础设施组件</span>：Redis（缓存/会话/限流/锁/幂等）· RocketMQ（事件总线）· MinIO（对象存储）· ES（检索）· Milvus（向量）
+        </div>
+      </div>
       <p><strong>协作规则</strong>：</p>
       <ul>
         <li>分层职责：api 层只做参数校验与路由分发；services 承载业务逻辑与事务边界；repositories 承载数据访问与数据源/分片路由，禁止在 api 层直接操作模型</li>
@@ -120,42 +117,61 @@
       </ul>
 
       <h2 id="structure">5. Monorepo 目录结构</h2>
-      <pre><code>bms/
-├── backend/                  # FastAPI 后端
-│   ├── app/
-│   │   ├── core/             # 配置、安全、异常处理
-│   │   ├── api/              # 路由层（按模块），依赖注入
-│   │   ├── models/           # SQLAlchemy 模型
-│   │   ├── schemas/          # Pydantic 请求/响应模型
-│   │   ├── services/         # 业务逻辑
-│   │   ├── repositories/     # 数据访问，多数据源/分片路由
-│   │   ├── db/               # 异步引擎、AsyncSession、读写分离路由
-│   │   ├── tasks/            # Celery 任务定义
-│   │   ├── ws/               # Socket.IO 连接与会话事件
-│   │   └── i18n/             # 国际化管理（语言包接口、运行时翻译）
-│   ├── alembic/              # 迁移脚本（三套方言）
-│   ├── tests/                # pytest
-│   ├── config.toml
-│   └── pyproject.toml
-├── frontend/                 # Vue 3 + Vite（PC 管理端）
-│   ├── src/
-│   │   ├── api/              # Axios 封装与接口定义
-│   │   ├── router/           # 动态路由生成
-│   │   ├── stores/           # Pinia
-│   │   ├── views/            # 页面（按模块）
-│   │   ├── layouts/          # 主布局
-│   │   ├── components/       # 通用组件
-│   │   ├── i18n/             # 中英文文案
-│   │   └── utils/
-│   ├── package.json
-│   └── .nvmrc
-├── frontend-mobile/          # Vue 3 + Vant（移动端 H5：审批、通知、数据查询）
-├── deploy/                   # Docker Compose、nginx 配置（含 GitLab CE、gitlab-runner、Renovate 编排）
-├── scripts/                  # 种子数据、备份恢复等运维脚本
-├── .gitlab-ci.yml            # CI 流水线定义（GitLab CE）
-├── .github/                  # GitHub 归档镜像辅助文件（README 说明等）
-├── 文档/                     # 规划/规范/设计/资料
-└── graphify-out/             # 知识图谱产物（勿手动修改）</code></pre>
+      <div class="tree">
+        <ul>
+          <li>bms/
+            <ul>
+              <li>backend/ <span class="t-note">FastAPI 后端</span>
+                <ul>
+                  <li>app/
+                    <ul>
+                      <li>core/ <span class="t-note">配置、安全、异常处理</span></li>
+                      <li>api/ <span class="t-note">路由层（按模块），依赖注入</span></li>
+                      <li>models/ <span class="t-note">SQLAlchemy 模型</span></li>
+                      <li>schemas/ <span class="t-note">Pydantic 请求/响应模型</span></li>
+                      <li>services/ <span class="t-note">业务逻辑</span></li>
+                      <li>repositories/ <span class="t-note">数据访问，多数据源/分片路由</span></li>
+                      <li>db/ <span class="t-note">异步引擎、AsyncSession、读写分离路由</span></li>
+                      <li>tasks/ <span class="t-note">Celery 任务定义</span></li>
+                      <li>ws/ <span class="t-note">Socket.IO 连接与会话事件</span></li>
+                      <li>i18n/ <span class="t-note">国际化管理（语言包接口、运行时翻译）</span></li>
+                    </ul>
+                  </li>
+                  <li>alembic/ <span class="t-note">迁移脚本（三套方言）</span></li>
+                  <li>tests/ <span class="t-note">pytest</span></li>
+                  <li>config.toml</li>
+                  <li>pyproject.toml</li>
+                </ul>
+              </li>
+              <li>frontend/ <span class="t-note">Vue 3 + Vite（PC 管理端）</span>
+                <ul>
+                  <li>src/
+                    <ul>
+                      <li>api/ <span class="t-note">Axios 封装与接口定义</span></li>
+                      <li>router/ <span class="t-note">动态路由生成</span></li>
+                      <li>stores/ <span class="t-note">Pinia</span></li>
+                      <li>views/ <span class="t-note">页面（按模块）</span></li>
+                      <li>layouts/ <span class="t-note">主布局</span></li>
+                      <li>components/ <span class="t-note">通用组件</span></li>
+                      <li>i18n/ <span class="t-note">中英文文案</span></li>
+                      <li>utils/</li>
+                    </ul>
+                  </li>
+                  <li>package.json</li>
+                  <li>.nvmrc</li>
+                </ul>
+              </li>
+              <li>frontend-mobile/ <span class="t-note">Vue 3 + Vant（移动端 H5：审批、通知、数据查询）</span></li>
+              <li>deploy/ <span class="t-note">Docker Compose、nginx 配置（含 GitLab CE、gitlab-runner、Renovate 编排）</span></li>
+              <li>scripts/ <span class="t-note">种子数据、备份恢复等运维脚本</span></li>
+              <li>.gitlab-ci.yml <span class="t-note">CI 流水线定义（GitLab CE）</span></li>
+              <li>.github/ <span class="t-note">GitHub 归档镜像辅助文件（README 说明等）</span></li>
+              <li>文档/ <span class="t-note">规划/规范/设计/资料</span></li>
+              <li>graphify-out/ <span class="t-note">知识图谱产物（勿手动修改）</span></li>
+            </ul>
+          </li>
+        </ul>
+      </div>
 
       <h2 id="stack">6. 技术栈全景</h2>
 

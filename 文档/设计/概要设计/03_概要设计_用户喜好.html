@@ -114,18 +114,21 @@
       </ol>
 
       <h2 id="sequence">3. 关键时序与协作</h2>
-      <pre><code>用户       前端(PC/H5)     偏好服务        Redis         DB          通知中心
-  |  调整偏好   |               |             |            |              |
-  |-----------&gt;| PUT /preferences/{key} |      |            |              |
-  |            |--------------&gt;| upsert 校验  |            |              |
-  |            |               |---------------------------&gt;| 写库        |
-  |            |               |             | 删缓存     |              |
-  |            |&lt;--------------| ok          |&lt;-----------|              |
-  |  发通知     |               |             |            |              |
-  |            |               |             |            |  读偏好(渠道/免打扰)
-  |            |               |&lt;---------------------------|--------------|
-  |            |               |             |&lt;-----------| 缓存命中/DB  |
-  |            |               |             |            |  命中则延迟/跳过</code></pre>
+      <div class="seq">
+        <table>
+          <tr><th>用户</th><th>前端(PC/H5)</th><th>偏好服务</th><th>Redis</th><th>DB</th><th>通知中心</th></tr>
+          <tr><td class="s-arrow">调整偏好 →</td><td></td><td></td><td></td><td></td><td></td></tr>
+          <tr><td class="s-arrow">PUT /preferences/{key} →</td><td></td><td></td><td></td><td></td><td></td></tr>
+          <tr><td></td><td class="s-arrow">upsert 校验 →</td><td></td><td></td><td></td><td></td></tr>
+          <tr><td></td><td></td><td class="s-arrow">写库 →</td><td></td><td>upsert sys_user_preference</td><td></td></tr>
+          <tr><td></td><td></td><td class="s-arrow">删缓存 →</td><td>DEL bms:{tenant}:pref:{user_id}</td><td></td><td></td></tr>
+          <tr><td></td><td class="s-arrow">← ok</td><td class="s-arrow">← Redis 返回</td><td></td><td></td><td></td></tr>
+          <tr><td class="s-note">发通知</td><td></td><td></td><td></td><td></td><td></td></tr>
+          <tr><td></td><td></td><td class="s-arrow">读偏好(渠道/免打扰) ←</td><td></td><td></td><td class="s-arrow">读偏好(渠道/免打扰) →</td></tr>
+          <tr><td></td><td></td><td class="s-arrow">查缓存 →</td><td>GET bms:{tenant}:pref:{user_id}</td><td class="s-note">缓存命中/DB 回源</td><td></td></tr>
+          <tr><td></td><td></td><td class="s-arrow">← 命中</td><td></td><td class="s-note">命中免打扰时段则延迟/跳过</td><td></td></tr>
+        </table>
+      </div>
       <p>
         协作要点：偏好读写与「通知中心」协作（发送前按渠道开关与免打扰时段过滤/重排）；
         与「前端架构」协作（主题变量、表格列配置、工作台卡片均按偏好 JSON 渲染）；

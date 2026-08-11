@@ -120,17 +120,20 @@
 
       <h2 id="sequence">3. 关键时序与协作</h2>
       <p>参数写入与读取时序（短 TTL 缓存 + 三防）：</p>
-      <pre><code>维护人员（PC 管理端）
-  └─ PUT /api/v1/configs/{id}
-       └─ 租户库 DB 写入（乐观锁/审计字段/软删除）
-       └─ Redis DEL bms:{tenant}:config:{config_key}
-       └─ 变更留痕：操作日志 + 字段级审计（sys_data_audit_log）
-
-消费模块（认证/文件/会话…）
-  └─ config 服务读取 bms:{tenant}:config:{config_key}
-       ├─ 命中 → 返回参数值（短 TTL + 随机偏移）
-       └─ 未命中 → SETNX 互斥锁 → DB 回源（租户覆盖 → 平台默认兜底）
-            → 写缓存 → 返回（不存在缓存空值防穿透）</code></pre>
+      <div class="seq">
+        <table>
+          <tr><th>维护人员 / 消费模块</th><th>config 服务</th><th>DB</th><th>Redis 缓存</th></tr>
+          <tr><td class="s-arrow">PUT /api/v1/configs/{id} →</td><td></td><td></td><td></td></tr>
+          <tr><td></td><td class="s-arrow">写库 →</td><td class="s-note">乐观锁/审计字段/软删除</td><td></td></tr>
+          <tr><td></td><td class="s-arrow">删缓存 →</td><td></td><td>DEL bms:{tenant}:config:{config_key}</td></tr>
+          <tr><td></td><td class="s-note">变更留痕：操作日志 + 字段级审计（sys_data_audit_log）</td><td></td><td></td></tr>
+          <tr><td class="s-arrow">读取参数（消费模块）→</td><td></td><td></td><td></td></tr>
+          <tr><td></td><td class="s-arrow">GET bms:{tenant}:config:{config_key} →</td><td></td><td></td></tr>
+          <tr><td></td><td class="s-arrow">← 命中</td><td></td><td class="s-note">返回参数值（短 TTL + 随机偏移）</td></tr>
+          <tr><td></td><td class="s-arrow">SETNX 互斥锁 → DB 回源 →</td><td class="s-note">租户覆盖 → 平台默认兜底</td><td></td></tr>
+          <tr><td></td><td class="s-arrow">写缓存 →</td><td></td><td class="s-note">不存在缓存空值防穿透</td></tr>
+        </table>
+      </div>
       <div class="note">参数缓存键含租户前缀，租户间隔离；Redis 故障时直连 DB 并告警（降级协议）。</div>
 
       <h2 id="data">4. 数据模型与表设计</h2>

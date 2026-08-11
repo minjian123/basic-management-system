@@ -123,18 +123,19 @@
       </ol>
 
       <h2 id="sequence">3. 关键时序与协作</h2>
-      <pre><code>管理员         用户服务           DB              认证/会话           事件总线
-  |  POST /users   |                 |                  |                |
-  |---------------&gt;| PBKDF2+校验     |                  |                |
-  |                |----------------&gt;| insert sys_user  |                |
-  |                |&lt;----------------|                  |                |
-  |                | 分配岗位写关联   | insert user_post |                |
-  |                | 发布事件         |                  |                |
-  |                |-----------------------------------|----------------&gt;| user.created
-  |                |-----------------------------------| 失效全部会话    |
-  |  PUT 密码重置   |----------------&gt;| 更新密码字段     |                |
-  |                |-----------------------------------|----------------&gt;| user.password_reset
-  |                |-----------------------------------| 广播 session.revoked</code></pre>
+      <div class="seq">
+        <table>
+          <tr><th>管理员</th><th>用户服务</th><th>DB</th><th>认证/会话</th><th>事件总线</th></tr>
+          <tr><td class="s-arrow">POST /users →</td><td></td><td></td><td></td><td></td></tr>
+          <tr><td></td><td class="s-arrow">PBKDF2+校验 →</td><td>insert sys_user</td><td></td><td></td></tr>
+          <tr><td></td><td class="s-arrow">← 返回</td><td></td><td></td><td></td></tr>
+          <tr><td></td><td class="s-arrow">分配岗位写关联 →</td><td>insert user_post</td><td></td><td></td></tr>
+          <tr><td></td><td class="s-arrow">发布事件 →</td><td></td><td></td><td class="s-arrow">user.created</td></tr>
+          <tr><td></td><td class="s-arrow">失效全部会话 →</td><td></td><td>广播 session.revoked</td><td></td></tr>
+          <tr><td class="s-arrow">PUT 密码重置 →</td><td class="s-arrow">更新密码字段 →</td><td>password_hash / pwd_history</td><td></td><td></td></tr>
+          <tr><td></td><td class="s-arrow">发布事件 →</td><td></td><td></td><td class="s-arrow">user.password_reset</td></tr>
+        </table>
+      </div>
       <p>
         协作要点：重置密码/停用/删除的会话失效复用《认证与会话》的踢出通道（Redis 会话标记删除 +
         refresh 吊销 + Socket.IO 广播），本模块仅发起动作；用户变更影响权限计算时，权限引擎按

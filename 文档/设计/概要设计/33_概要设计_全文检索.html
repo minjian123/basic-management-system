@@ -147,37 +147,31 @@
       <h2 id="timing">3. 关键时序与协作</h2>
 
       <h3 id="timing-sync">3.1 事件同步时序</h3>
-      <pre><code>业务服务                 RocketMQ                event-worker(ES 同步组)        Celery                ES
-  │ 事务提交后发布事件         │                         │                         │                  │
-  │ user.created / file.uploaded 等                       │                         │                  │
-  │────────────────────────>│                         │                         │                  │
-  │                         │ 分区有序消费              │                         │                  │
-  │                         │────────────────────────>│                         │                  │
-  │                         │  文件类? 提交文本解析任务   │                         │                  │
-  │                         │                         │────────────────────────>│                  │
-  │                         │                         │  提取文本（PDF/Word/Excel/TXT）                 │
-  │                         │                         │─────────────────────────────────────────────>│
-  │                         │  组装索引文档并 upsert     │                         │                  │
-  │                         │──────────────────────────────────────────────────────────────────────>│
-  │                         │  失败: 重试 N 次 → 标记 + 告警；扫描件标记 ocr_pending（阶段十四 OCR 衔接）     │
-</code></pre>
+      <div class="seq">
+        <table>
+          <tr><th>业务服务</th><th>RocketMQ</th><th>event-worker（ES 同步组）</th><th>Celery</th><th>ES</th></tr>
+          <tr><td class="s-arrow">事务提交后发布事件（user.created / file.uploaded 等）→</td><td></td><td></td><td></td><td></td></tr>
+          <tr><td></td><td class="s-arrow">分区有序消费 →</td><td></td><td></td><td></td></tr>
+          <tr><td></td><td></td><td class="s-arrow">文件类? 提交文本解析任务 →</td><td></td><td></td></tr>
+          <tr><td></td><td></td><td></td><td class="s-arrow">提取文本（PDF/Word/Excel/TXT）→</td><td></td></tr>
+          <tr><td></td><td></td><td class="s-arrow">组装索引文档并 upsert →</td><td></td><td></td></tr>
+          <tr><td colspan="5" class="s-note">失败: 重试 N 次 → 标记 + 告警；扫描件标记 ocr_pending（阶段十四 OCR 衔接）</td></tr>
+        </table>
+      </div>
 
       <h3 id="timing-query">3.2 查询与降级时序</h3>
-      <pre><code>用户(PC/移动端)           检索服务                权限引擎                ES              业务库(DB)
-  │  GET /search/global      │                     │                     │                  │
-  │─────────────────────────>│                     │                     │                  │
-  │                          │ 租户过滤 + 目标域既有权限/数据范围过滤        │                  │
-  │                          │────────────────────>│                     │                  │
-  │                          │ 检索（term tenant_id + 数据范围 filter）      │                  │
-  │                          │────────────────────────────────────────────>│                  │
-  │                          │ 返回 业务ID+高亮（不返回全量数据）              │                  │
-  │                          │─────────────────────────────────────────────│                  │
-  │                          │ 回查详情取最新数据（按业务 ID）                                    │
-  │                          │───────────────────────────────────────────────────────────────>│
-  │  <────────────────────────┤ 命中按域分组 + 高亮返回                        │                  │
-  │                          │                                              │                  │
-  │  ES 故障时: 降级数据库模糊查询（LIKE 兜底 + 页面降级提示），恢复后重放事件重建索引                  │
-</code></pre>
+      <div class="seq">
+        <table>
+          <tr><th>用户（PC/移动端）</th><th>检索服务</th><th>权限引擎</th><th>ES</th><th>业务库（DB）</th></tr>
+          <tr><td class="s-arrow">GET /search/global →</td><td></td><td></td><td></td><td></td></tr>
+          <tr><td></td><td class="s-arrow">租户过滤 + 目标域既有权限/数据范围过滤 →</td><td></td><td></td><td></td></tr>
+          <tr><td></td><td class="s-arrow">检索（term tenant_id + 数据范围 filter）→</td><td></td><td></td><td></td></tr>
+          <tr><td></td><td class="s-arrow">← 返回 业务ID+高亮（不返回全量数据）</td><td></td><td></td><td></td></tr>
+          <tr><td></td><td class="s-arrow">回查详情取最新数据（按业务 ID）→</td><td></td><td></td><td></td></tr>
+          <tr><td class="s-arrow">← 命中按域分组 + 高亮返回</td><td></td><td></td><td></td><td></td></tr>
+          <tr><td colspan="5" class="s-note">ES 故障时: 降级数据库模糊查询（LIKE 兜底 + 页面降级提示），恢复后重放事件重建索引</td></tr>
+        </table>
+      </div>
 
       <h2 id="data">4. 数据模型与表设计</h2>
       <p>

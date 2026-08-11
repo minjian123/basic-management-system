@@ -92,22 +92,20 @@
       </ol>
 
       <h2 id="timing">3. 关键时序与协作</h2>
-      <pre><code>业务模块          事件总线(通知组)        通知服务              sys_notification      Socket.IO
-  │  业务事件        │                     │                      │                    │
-  │────────────────>│  消费+渠道偏好过滤    │                      │                    │
-  │                 │────────────────────>│                      │                    │
-  │                 │                     │  站内信落库           │                    │
-  │                 │                     │─────────────────────>│                    │
-  │                 │                     │  发布 notification.sent                    │
-  │                 │                     │────────────────────────────────────────────>
-  │                 │                     │  广播 notification.new / approval.todo      │
-  │                 │                     │────────────────────────────────────────────>│
-  │                 │                     │                      │  前端角标即时+1        │
-  │  用户: 列表已读   │                     │  批量已读(bulk)        │                    │
-  │                 │                     │─────────────────────>│                    │
-  │                 │                     │  同步角标状态          │                    │
-  │                 │                     │────────────────────────────────────────────>│
-</code></pre>
+      <div class="seq">
+        <table>
+          <tr><th>业务模块</th><th>事件总线(通知组)</th><th>通知服务</th><th>sys_notification</th><th>Socket.IO</th></tr>
+          <tr><td class="s-arrow">业务事件 →</td><td></td><td></td><td></td><td></td></tr>
+          <tr><td></td><td class="s-arrow">消费+渠道偏好过滤 →</td><td></td><td></td><td></td></tr>
+          <tr><td></td><td></td><td class="s-arrow">站内信落库 →</td><td></td><td></td></tr>
+          <tr><td></td><td></td><td class="s-arrow">发布 notification.sent →</td><td></td><td></td></tr>
+          <tr><td></td><td></td><td class="s-arrow">广播 notification.new / approval.todo →</td><td></td><td></td></tr>
+          <tr><td></td><td></td><td></td><td></td><td>前端角标即时+1</td></tr>
+          <tr><td class="s-arrow">用户：列表已读 →</td><td></td><td></td><td></td><td></td></tr>
+          <tr><td></td><td></td><td class="s-arrow">批量已读(bulk) →</td><td>UPDATE sys_notification</td><td></td></tr>
+          <tr><td></td><td></td><td class="s-arrow">同步角标状态 →</td><td></td><td></td></tr>
+        </table>
+      </div>
       <p>
         协作要点：通知生成与业务主链路异步解耦（事件总线消费），主链路不等待；推送目标按 user_id 路由
         （RedisManager 跨实例广播）；断线补偿由前端重连后拉取未读数完成，不引入可靠投递协议。

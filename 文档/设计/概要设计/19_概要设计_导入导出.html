@@ -96,19 +96,26 @@
       </ol>
 
       <h2 id="sequence">3. 关键时序与协作</h2>
-      <pre><code>批量导入（用户等主数据）：
-  列表页 ──GET 模板下载──▶ 后端 ──openpyxl 生成模板──▶ 前端本地保存
-  列表页 ──POST /api/v1/imports/{biz}/execute（Idempotency-Key）──▶ 后端
-      后端 ──Redis SETNX 幂等键前置拦截──▶ Redis
-      后端 ──openpyxl 解析校验 + 逐行落库（事务）──▶ 租户库业务表
-      后端 ──写入操作日志（module/action/导入结果）──▶ RocketMQ ──异步落库──▶ sys_operation_log
-      后端 ──返回成功行数 + 错误行报告（行号/原因）──▶ 前端对话框展示
-
-列表导出：
-  列表页 ──GET /api/v1/{biz}/export?当前筛选条件──▶ 后端
-      后端 ──查询列表数据（与列表同口径）──▶ 租户库
-      后端 ──敏感字段脱敏处理──▶ openpyxl 生成 xlsx ──▶ 前端下载
-      后端 ──写入操作日志（导出动作）──▶ sys_operation_log</code></pre>
+      <div class="seq">
+        <table>
+          <tr><th>列表页</th><th>后端</th><th>Redis</th><th>租户库业务表</th><th>RocketMQ</th><th>sys_operation_log</th><th>前端</th></tr>
+          <tr><td colspan="7" class="s-note">批量导入（用户等主数据）</td></tr>
+          <tr><td class="s-arrow">GET 模板下载 →</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+          <tr><td></td><td class="s-arrow">openpyxl 生成模板 →</td><td></td><td></td><td></td><td></td><td>本地保存</td></tr>
+          <tr><td class="s-arrow">POST /api/v1/imports/{biz}/execute（Idempotency-Key）→</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+          <tr><td></td><td class="s-arrow">Redis SETNX 幂等键前置拦截 →</td><td></td><td></td><td></td><td></td><td></td></tr>
+          <tr><td></td><td class="s-arrow">openpyxl 解析校验 + 逐行落库（事务）→</td><td></td><td></td><td></td><td></td><td></td></tr>
+          <tr><td></td><td class="s-arrow">写入操作日志（module/action/导入结果）→</td><td></td><td></td><td></td><td></td><td></td></tr>
+          <tr><td></td><td></td><td></td><td></td><td class="s-arrow">异步落库 →</td><td></td><td></td></tr>
+          <tr><td></td><td class="s-arrow">← 返回成功行数 + 错误行报告（行号/原因）</td><td></td><td></td><td></td><td></td><td>对话框展示</td></tr>
+          <tr><td colspan="7" class="s-note">列表导出</td></tr>
+          <tr><td class="s-arrow">GET /api/v1/{biz}/export?当前筛选条件 →</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+          <tr><td></td><td class="s-arrow">查询列表数据（与列表同口径）→</td><td></td><td></td><td></td><td></td><td></td></tr>
+          <tr><td></td><td class="s-arrow">敏感字段脱敏处理 →</td><td></td><td></td><td></td><td></td><td></td></tr>
+          <tr><td></td><td class="s-arrow">openpyxl 生成 xlsx →</td><td></td><td></td><td></td><td></td><td>前端下载</td></tr>
+          <tr><td></td><td class="s-arrow">写入操作日志（导出动作）→</td><td></td><td></td><td></td><td></td><td></td></tr>
+        </table>
+      </div>
       <p>
         与缓存/限流协作要点：导入幂等键为 Redis 持久状态类 key（TTL 与业务有效期对齐）；导入导出接口级限流（slowapi，Redis 后端）防批量滥用；
         操作日志经 RocketMQ 异步写入降低主库写压力（日志落库组）。

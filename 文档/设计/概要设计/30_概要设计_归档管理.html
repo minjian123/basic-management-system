@@ -117,29 +117,44 @@
       <h2 id="sequence">3. 关键时序与协作</h2>
 
       <h3 id="sequence-archive">3.1 两段式归档流转</h3>
-      <pre><code>Celery 定时任务（内置归档任务，任务定义入库 sys_task）
-     │ 读取 sys_archive_policy（启用的策略）
-     │ 审计类数据：先执行链完整性校验（14-审计哈希链）
-     ├─ 校验失败 ──► 中止归档 + 告警（Alertmanager）
-     └─ 校验通过 ──► 第一段归档
-            │ 按 batch_size 迁移超阈值数据
-            ▼
-       归档库 bms_archive（带 tenant_id + 原库表标识，只读在线查询）
-            │ 第二段归档：按保留期导出文件
-            ▼
-       MinIO 对象存储（file_key 关联，冷化存储，按租户 bucket 前缀隔离）
-            │
-            ▼
-       sys_archive_log 落执行记录 → 发布 archive.completed 事件（否订阅）</code></pre>
+      <div class="layer">
+        <div class="l-box">
+          <div class="l-title">Celery 定时任务（内置归档任务，任务定义入库 sys_task）</div>
+          <div class="l-sub">读取 sys_archive_policy（启用的策略）；审计类数据：先执行链完整性校验（14-审计哈希链）</div>
+          <div class="l-sub">├─ 校验失败 → 中止归档 + 告警（Alertmanager）</div>
+          <div class="l-sub">└─ 校验通过 → 第一段归档</div>
+        </div>
+        <div class="l-arrow">▼ 按 batch_size 迁移超阈值数据</div>
+        <div class="l-box">
+          <div class="l-title">归档库 bms_archive</div>
+          <div class="l-sub">带 tenant_id + 原库表标识，只读在线查询</div>
+        </div>
+        <div class="l-arrow">▼ 第二段归档：按保留期导出文件</div>
+        <div class="l-box">
+          <div class="l-title">MinIO 对象存储</div>
+          <div class="l-sub">file_key 关联，冷化存储，按租户 bucket 前缀隔离</div>
+        </div>
+        <div class="l-arrow">▼</div>
+        <div class="l-box">
+          <div class="l-title">sys_archive_log</div>
+          <div class="l-sub">落执行记录 → 发布 archive.completed 事件（否订阅）</div>
+        </div>
+      </div>
 
       <h3 id="sequence-clean">3.2 物理清理与合规销毁</h3>
-      <pre><code>Celery 物理清理任务（与回收站清理任务衔接）
-     │ 1) 过期归档文件：file_key 过期（保留期已满）→ 删除 MinIO 对象
-     │ 2) 软删除残留：业务表 deleted_at 超期数据 → 物理删除
-     │ 3) 合规销毁（含审计数据销毁）→ 记录销毁日志备查
-     ▼
-sys_archive_log 物理清理记录 / 销毁日志
-     └─► 失败重试 + 告警接入系统监控</code></pre>
+      <div class="layer">
+        <div class="l-box">
+          <div class="l-title">Celery 物理清理任务（与回收站清理任务衔接）</div>
+          <div class="l-sub">1) 过期归档文件：file_key 过期（保留期已满）→ 删除 MinIO 对象</div>
+          <div class="l-sub">2) 软删除残留：业务表 deleted_at 超期数据 → 物理删除</div>
+          <div class="l-sub">3) 合规销毁（含审计数据销毁）→ 记录销毁日志备查</div>
+        </div>
+        <div class="l-arrow">▼</div>
+        <div class="l-box">
+          <div class="l-title">sys_archive_log 物理清理记录 / 销毁日志</div>
+          <div class="l-sub">失败重试 + 告警接入系统监控</div>
+        </div>
+      </div>
       <p>协作组件：<strong>MinIO</strong> 承载冷化归档文件（按租户 bucket 前缀隔离，与备份文件同存储体系，生命周期策略配合）；<strong>Celery</strong>（Redis broker）调度执行归档与物理清理，任务定义入库 sys_task 可页面管理；<strong>事件总线</strong>发布 archive.completed（否订阅）。</p>
 
       <h2 id="data">4. 数据模型与表设计</h2>
