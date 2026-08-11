@@ -123,19 +123,27 @@
       </ol>
 
       <h2 id="sequence">3. 关键时序与协作</h2>
-      <div class="seq" style="--n:5">
-        <div class="s-head">
-          <span>管理员</span><span>用户服务</span><span>DB</span><span>认证/会话</span><span>事件总线</span>
-        </div>
-        <div class="s-row"><span class="s-line" style="grid-column:1/2"></span><span class="s-txt">POST /users</span></div>
-        <div class="s-row"><span class="s-line" style="grid-column:2/3"></span><span class="s-txt">PBKDF2+校验 → insert sys_user</span></div>
-        <div class="s-row"><span class="s-line s-rev" style="grid-column:2/3"></span><span class="s-txt">返回</span></div>
-        <div class="s-row"><span class="s-line" style="grid-column:2/3"></span><span class="s-txt">分配岗位写关联 → insert user_post</span></div>
-        <div class="s-row"><span class="s-line" style="grid-column:2/5"></span><span class="s-txt">发布事件 → user.created</span></div>
-        <div class="s-row"><span class="s-line" style="grid-column:2/4"></span><span class="s-txt">失效全部会话 → 广播 session.revoked</span></div>
-        <div class="s-row"><span class="s-line" style="grid-column:1/3"></span><span class="s-txt">PUT 密码重置 → 更新密码字段</span></div>
-        <div class="s-row s-note-row"><span class="s-txt">更新 password_hash / pwd_history，发布 user.password_reset（Webhook 可订阅）</span></div>
-      </div>
+      <pre class="mermaid">
+sequenceDiagram
+    autonumber
+    participant 管理员
+    participant 用户服务
+    participant DB
+    participant 认证会话 as 认证/会话
+    participant 事件总线
+
+    管理员->>用户服务: POST /users
+    用户服务->>DB: PBKDF2+校验 → insert sys_user
+    DB-->>用户服务: 返回
+    用户服务->>DB: 分配岗位写关联 → insert user_post
+    用户服务->>事件总线: 发布事件 → user.created
+    用户服务->>认证会话: 失效全部会话 → 广播 session.revoked
+    管理员->>用户服务: PUT 密码重置 → 更新密码字段
+    用户服务->>事件总线: 发布 user.password_reset（Webhook 可订阅）
+    Note over 用户服务: 更新 password_hash / pwd_history
+      </pre>
+      <script src="../../资源/mermaid.min.js"></script>
+      <script src="../../资源/mermaid-init.js"></script>
       <p>
         协作要点：重置密码/停用/删除的会话失效复用《认证与会话》的踢出通道（Redis 会话标记删除 +
         refresh 吊销 + Socket.IO 广播），本模块仅发起动作；用户变更影响权限计算时，权限引擎按
