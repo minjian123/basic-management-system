@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>移动端布局细化</title>
+<style>
+  :root {
+    --bg: #f7f8fa;
+    --fg: #1f2328;
+    --muted: #57606a;
+    --border: #d0d7de;
+    --accent: #0969da;
+    --accent-bg: #ddf4ff;
+    --code-bg: #f6f8fa;
+    --warn-bg: #fff8c5;
+    --warn-border: #d4a72c;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+    line-height: 1.75;
+  }
+  .layout { display: flex; height: 100vh; overflow: hidden; }
+  .sidebar {
+    width: 280px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+  }
+  .sidebar .brand {
+    background: linear-gradient(135deg, #1f2328, #32383f);
+    color: #fff;
+    padding: 1.4rem 1.2rem 1.1rem;
+    border-bottom: 3px solid var(--accent);
+    flex-shrink: 0;
+  }
+  .sidebar .brand h1 { margin: 0 0 .35rem; font-size: 1.15rem; line-height: 1.4; }
+  .sidebar .brand p { margin: 0; color: #b6bec6; font-size: .78rem; }
+  .sidebar nav { padding: .8rem .6rem 1.5rem; font-size: .9rem; }
+  .sidebar nav ul { list-style: none; margin: 0; padding: 0; }
+  .sidebar nav li { margin: .15rem 0; }
+  .sidebar nav a {
+    display: block;
+    padding: .3rem .7rem;
+    border-radius: 5px;
+    color: var(--fg);
+    text-decoration: none;
+  }
+  .sidebar nav a:hover { background: var(--accent-bg); color: var(--accent); }
+  .sidebar nav .sub { padding-left: 1.6rem; font-size: .85rem; color: var(--muted); }
+  .content { flex: 1; overflow-y: auto; }
+  main {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1.5rem 2rem 4rem;
+  }
+  h2 {
+    margin-top: 2.5rem;
+    padding-bottom: .4rem;
+    border-bottom: 2px solid var(--border);
+    font-size: 1.35rem;
+  }
+  h3 { margin-top: 1.6rem; font-size: 1.1rem; }
+  p { margin: .6rem 0; }
+  ul, ol { margin: .6rem 0; padding-left: 1.6rem; }
+  li { margin: .3rem 0; }
+  code {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: .1em .35em;
+    font-family: Consolas, "Cascadia Mono", monospace;
+    font-size: .9em;
+  }
+  pre {
+    background: #0d1117;
+    color: #e6edf3;
+    border-radius: 8px;
+    padding: .9rem 1.1rem;
+    overflow-x: auto;
+    font-size: .88rem;
+    line-height: 1.6;
+  }
+  pre code { background: none; border: none; padding: 0; color: inherit; }
+  .note, .warn {
+    border-radius: 6px;
+    padding: .7rem 1rem;
+    margin: 1rem 0;
+    font-size: .95rem;
+  }
+  .note { background: var(--accent-bg); border-left: 4px solid var(--accent); }
+  .warn { background: var(--warn-bg); border-left: 4px solid var(--warn-border); }
+  .topnav {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: .4rem;
+    background: #fff;
+    border-bottom: 1px solid var(--border);
+    padding: .5rem 1rem;
+    font-size: .85rem;
+  }
+  .topnav .topnav-side { margin-left: auto; }
+  .topnav a { color: var(--accent); text-decoration: none; }
+  .topnav a:hover { text-decoration: underline; }
+  @media (max-width: 768px) {
+    .topnav .topnav-side { display: none; }
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1rem 0;
+    font-size: .92rem;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: .45rem .7rem;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: #eef1f4; white-space: nowrap; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  footer {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1rem 2rem 3rem;
+    color: var(--muted);
+    font-size: .85rem;
+    border-top: 1px solid var(--border);
+  }
+  @media (max-width: 768px) {
+    .layout { flex-direction: column; height: auto; overflow: visible; }
+    .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); max-height: 40vh; }
+    .content { overflow: visible; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topnav">
+  <a href="../../文档首页.html">文档首页</a> ›
+  <a href="../../设计/架构设计/01-架构设计.html">设计</a> ›
+  <a href="移动端布局设计.html">布局设计</a> ›
+  <span>移动端布局细化</span>
+  <span class="topnav-side">
+    <a href="响应式适配设计.html">← 上一个：响应式适配</a>
+    <a href="异常与空状态布局.html">下一个：异常与空状态 →</a>
+  </span>
+</div>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>移动端布局细化</h1>
+      <p>TabBar · 导航栏 · 列表卡片化 · 表单页（Vant）</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#purpose">1. 目的与适用范围</a></li>
+        <li><a href="#tabbar">2. 底部 TabBar</a></li>
+        <li><a href="#navbar">3. 导航栏</a></li>
+        <li><a href="#list">4. 列表页（卡片化）</a></li>
+        <li><a href="#detail">5. 详情页</a></li>
+        <li><a href="#form">6. 表单页</a></li>
+        <li><a href="#feedback">7. 反馈与加载</a></li>
+        <li><a href="#checklist">8. 检查清单</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="purpose">1. 目的与适用范围</h2>
+      <p>
+        细化 BMS 移动端 H5（Vant 4）的页面布局：TabBar、导航栏、列表、详情、表单与交互反馈，
+        是《<a href="移动端布局设计.html">移动端布局设计</a>》的落地细化。浏览器基线：Android/iOS 主流机型 + 微信/钉钉内嵌 WebView（《<a href="../../规划/项目规划说明.md">项目规划说明</a>》）。
+      </p>
+
+      <h2 id="tabbar">2. 底部 TabBar</h2>
+      <ul>
+        <li>主导航 3-5 个 Tab：首页、待办、消息、我的（图标 + 文字，激活态主色）。</li>
+        <li>待办/消息带未读角标（Socket.IO 推送实时更新，见《<a href="../../设计/概要设计/16-概要设计-通知中心.html">通知中心</a>》）。</li>
+        <li>Tab 内页面使用 <code>keep-alive</code> 缓存，切换不重建。</li>
+      </ul>
+
+      <h2 id="navbar">3. 导航栏</h2>
+      <table>
+        <tr><th>场景</th><th>约定</th></tr>
+        <tr><td>Tab 页</td><td>无返回按钮，居中标题 + 右侧可选图标（搜索/更多）</td></tr>
+        <tr><td>二级页</td><td>左返回箭头（返回上一页）、居中标题（&lt; 6 字）</td></tr>
+        <tr><td>沉浸式</td><td>详情/大图页可沉浸（透明导航），返回手势保留</td></tr>
+      </table>
+      <div class="note">安全区适配：导航栏/底部栏自动避让刘海与 Home 指示条（<code>safe-area-inset-*</code>）。</div>
+
+      <h2 id="list">4. 列表页（卡片化）</h2>
+      <ul>
+        <li>列表项卡片化：白底卡片（圆角 <code>--radius-md</code>），列表页间距 <code>--space-lg</code>，卡片内 <code>--space-md</code>。</li>
+        <li>审批/业务列表：状态 tag 右上角（语义色），标题 16px、摘要 13px 次要色、时间 12px。</li>
+        <li>加载：首屏骨架屏 + 上拉加载更多（触底分页，<code>page</code>/<code>size</code> 约定同 PC）+ 下拉刷新。</li>
+        <li>无更多时底部「没有更多了」；空数据显示插画 + 引导按钮。</li>
+      </ul>
+
+      <h2 id="detail">5. 详情页</h2>
+      <ul>
+        <li>审批详情：状态条（进度/结果）+ 关键信息卡 + 流转记录（时间线）+ 底部操作栏（同意/驳回/转交）。</li>
+        <li>信息展示用描述列表（label 次要色左列），分组用区块标题。</li>
+        <li>附件/图片支持预览（<code>van-image-preview</code>）。</li>
+      </ul>
+
+      <h2 id="form">6. 表单页</h2>
+      <ul>
+        <li>表单单列布局（<code>van-cell-group</code>），输入项自动调起对应键盘（数字/文本）。</li>
+        <li>提交按钮固定在底部（安全区避让），loading 防重复；校验错误红字提示（i18n）。</li>
+        <li>选择类（部门/字典）用弹出面板（ActionSheet / Popup）或跳转选择页。</li>
+      </ul>
+
+      <h2 id="feedback">7. 反馈与加载</h2>
+      <table>
+        <tr><th>类型</th><th>组件</th><th>说明</th></tr>
+        <tr><td>轻提示</td><td>Toast</td><td>成功/失败 2s，居中</td></tr>
+        <tr><td>确认</td><td>Dialog</td><td>删除/驳回等危险操作二次确认</td></tr>
+        <tr><td>加载</td><td>Loading + 骨架屏</td><td>页面级加载用骨架屏，按钮内用转圈</td></tr>
+      </table>
+
+      <h2 id="checklist">8. 检查清单</h2>
+      <ul>
+        <li>□ TabBar ≤ 5 项，角标实时</li>
+        <li>□ 安全区适配（刘海/Home 条）正确</li>
+        <li>□ 列表卡片化 + 分页/刷新/空态完整</li>
+        <li>□ 表单键盘类型与校验反馈正确</li>
+        <li>□ 微信/钉钉内嵌 WebView 实测无异常</li>
+      </ul>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 依《文档生成规范》编写 · 与《移动端布局设计》《异常与空状态布局》配套 · 生成日期：2026-08-11
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>
