@@ -28,7 +28,12 @@
     </div>
     <nav>
       <ul>
-        <li><a href="#frame">1. 表单框架（FormFrame）</a></li>
+        <li><a href="#frame">1. 表单框架（FormFrame）</a>
+          <ul class="sub">
+            <li><a href="#frame-list">1.1 列表 Tab 形态</a></li>
+            <li><a href="#frame-detail">1.2 表单 Tab 形态</a></li>
+          </ul>
+        </li>
         <li><a href="#separation">2. 职责分离（列表页与表单页）</a></li>
         <li><a href="#panel">3. 表单页内部结构（FormDetailPanel）</a>
           <ul class="sub">
@@ -55,31 +60,44 @@
     <main>
 
       <h2 id="frame">1. 表单框架（FormFrame）</h2>
-      <p>用来在「内容栏」中展示表单具体界面内容的布局，分为上下两部分：</p>
+      <p>用来在「内容栏」中展示表单具体界面内容的布局，分为上下两部分：表单 Tab 页栏 + 表单内容栏。表单内容栏按激活的 Tab 分两种形态：<strong>列表页形态</strong>（列表 Tab）与<strong>表单页形态</strong>（记录 Tab）。</p>
+
+      <h3 id="frame-list">1.1 列表 Tab 形态</h3>
       <div class="diagram">
-        <div class="d-box d-title">FormFrame 结构</div>
+        <div class="d-box d-title">FormFrame · 列表 Tab 形态</div>
         <div class="d-box d-tabs">表单 Tab 页栏：<span class="d-fixed" style="padding:0 .3rem">列表（固定）</span> │ 记录A × │ 记录B ×</div>
+        <div class="d-box d-toolbar">工具栏：新增 / 刷新 / 关闭（左）· 导出 / 更多（右）</div>
+        <div class="d-box d-flex"><span>关键字 + 常用条件 + 查询/重置（可折叠）</span><span class="d-note">筛选区</span></div>
+        <div class="d-box d-table">表格：多选列 + 数据列（<strong>无操作列</strong>，双击行打开表单 Tab）<span class="d-note" style="display:block;margin-top:.3rem">空状态 / 加载遮罩 / 骨架屏</span></div>
+        <div class="d-box d-flex"><span>总数 + 页码 + 每页条数</span><span class="d-note">分页区</span></div>
+      </div>
+      <ul>
+        <li>列表 Tab 为第一个 Tab，<strong>不可在表单栏内关闭</strong>，始终保持打开，可随整个表单管理页面关闭而关闭。</li>
+        <li>双击列表数据行 → 新增打开一个 Tab 展示对应表单；已打开则切换到对应 Tab。</li>
+      </ul>
+
+      <h3 id="frame-detail">1.2 表单 Tab 形态</h3>
+      <div class="diagram">
+        <div class="d-box d-title">FormFrame · 表单 Tab 形态（记录A）</div>
+        <div class="d-box d-tabs">表单 Tab 页栏：列表（固定） │ <span class="d-fixed" style="padding:0 .3rem">记录A ×（激活）</span> │ 记录B ×</div>
+        <div class="d-box d-toolbar">工具栏：修改 / 删除 / 刷新 / 关闭（只读态）· 保存（编辑态）</div>
         <div class="d-box d-body">
-          <div><strong>列表 Tab</strong>：列表页（自带工具栏：新增/刷新 + 表格，无操作列，双击行打开表单）</div>
-          <div class="d-sub" style="margin-top:.5rem">
-            <div><strong>详情 Tab</strong>：表单页（默认只读查看，点「修改」进入编辑态）</div>
+          <div>信息栏：<span class="d-fixed" style="padding:0 .3rem">详细信息</span> │ 系统信息</div>
+          <div class="d-sub" style="margin-top:.4rem">
+            <div><strong>详细信息</strong>（主表字段区 + 明细区）</div>
             <div class="d-subtab">
-              信息栏：<span class="d-fixed" style="padding:0 .3rem">详细信息</span> │ 系统信息<br>
-              <span class="d-note">详细信息 = 主表字段区 + 明细 Tab 页区（明细A/明细B）<br>系统信息 = ID / 创建时间 / 修改时间（只读）</span>
+              主表字段区（label 右对齐，栅格两列为主）<br>
+              明细 Tab 页区：明细A │ 明细B（行内编辑，仅编辑态可用）
             </div>
+            <div style="margin-top:.4rem"><strong>系统信息</strong>：ID / 创建时间 / 修改时间（只读）</div>
           </div>
         </div>
       </div>
-      <ol>
-        <li><strong>表单 Tab 页栏</strong>：可分多个 Tab 页显示不同表单内容。
-          <ul>
-            <li>第一个 Tab 为列表内容（列表页），<strong>不可在表单栏内关闭</strong>，始终保持打开，可随整个表单管理页面关闭而关闭。</li>
-            <li>双击列表数据行，新增打开一个 Tab 展示对应表单；已打开则切换到对应 Tab。</li>
-            <li>详情 Tab 标题取记录标识字段（如名称），新增未保存前显示「新建xxx」。</li>
-          </ul>
-        </li>
-        <li><strong>表单内容栏</strong>：列表 Tab 渲染列表页组件；每个详情 Tab 渲染一个独立的表单页组件实例（可同时打开多条记录）。</li>
-      </ol>
+      <ul>
+        <li>表单页默认<strong>只读查看</strong>，点工具栏「修改」进入编辑态；新增 Tab 打开即编辑态（保存后回填 id）。</li>
+        <li>详情 Tab 标题取记录标识字段（如名称），新增未保存前显示「新建xxx」。</li>
+        <li>每个详情 Tab 渲染一个独立的表单页组件实例（可同时打开多条记录）。</li>
+      </ul>
 
       <h2 id="separation">2. 职责分离（列表页与表单页各自独立）</h2>
       <p>列表页与表单页为<strong>独立组件文件</strong>，各自承载业务逻辑，将来可各自添加权限控制，互不渗透。二者仅通过约定事件与暴露的方法与表单框架交互：</p>
