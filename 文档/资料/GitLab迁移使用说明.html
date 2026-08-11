@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GitLab迁移使用说明</title>
+<style>
+  :root {
+    --bg: #f7f8fa;
+    --fg: #1f2328;
+    --muted: #57606a;
+    --border: #d0d7de;
+    --accent: #0969da;
+    --accent-bg: #ddf4ff;
+    --code-bg: #f6f8fa;
+    --warn-bg: #fff8c5;
+    --warn-border: #d4a72c;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+    line-height: 1.75;
+  }
+  .layout { display: flex; height: 100vh; overflow: hidden; }
+  .sidebar {
+    width: 280px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+  }
+  .sidebar .brand {
+    background: linear-gradient(135deg, #1f2328, #32383f);
+    color: #fff;
+    padding: 1.4rem 1.2rem 1.1rem;
+    border-bottom: 3px solid var(--accent);
+    flex-shrink: 0;
+  }
+  .sidebar .brand h1 { margin: 0 0 .35rem; font-size: 1.15rem; line-height: 1.4; }
+  .sidebar .brand p { margin: 0; color: #b6bec6; font-size: .78rem; }
+  .sidebar nav { padding: .8rem .6rem 1.5rem; font-size: .9rem; }
+  .sidebar nav ul { list-style: none; margin: 0; padding: 0; }
+  .sidebar nav li { margin: .15rem 0; }
+  .sidebar nav a {
+    display: block;
+    padding: .3rem .7rem;
+    border-radius: 5px;
+    color: var(--fg);
+    text-decoration: none;
+  }
+  .sidebar nav a:hover { background: var(--accent-bg); color: var(--accent); }
+  .sidebar nav .sub { padding-left: 1.6rem; font-size: .85rem; color: var(--muted); }
+  .content { flex: 1; overflow-y: auto; }
+  main {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1.5rem 2rem 4rem;
+  }
+  h2 {
+    margin-top: 2.5rem;
+    padding-bottom: .4rem;
+    border-bottom: 2px solid var(--border);
+    font-size: 1.35rem;
+  }
+  h3 { margin-top: 1.6rem; font-size: 1.1rem; }
+  p { margin: .6rem 0; }
+  ul, ol { margin: .6rem 0; padding-left: 1.6rem; }
+  li { margin: .3rem 0; }
+  code {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: .1em .35em;
+    font-family: Consolas, "Cascadia Mono", monospace;
+    font-size: .9em;
+  }
+  pre {
+    background: #0d1117;
+    color: #e6edf3;
+    border-radius: 8px;
+    padding: .9rem 1.1rem;
+    overflow-x: auto;
+    font-size: .88rem;
+    line-height: 1.6;
+  }
+  pre code { background: none; border: none; padding: 0; color: inherit; }
+  .note, .warn {
+    border-radius: 6px;
+    padding: .7rem 1rem;
+    margin: 1rem 0;
+    font-size: .95rem;
+  }
+  .note { background: var(--accent-bg); border-left: 4px solid var(--accent); }
+  .warn { background: var(--warn-bg); border-left: 4px solid var(--warn-border); }
+  .topnav {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: .4rem;
+    background: #fff;
+    border-bottom: 1px solid var(--border);
+    padding: .5rem 1rem;
+    font-size: .85rem;
+  }
+  .topnav .topnav-side { margin-left: auto; }
+  .topnav a { color: var(--accent); text-decoration: none; }
+  .topnav a:hover { text-decoration: underline; }
+  @media (max-width: 768px) {
+    .topnav .topnav-side { display: none; }
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1rem 0;
+    font-size: .92rem;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: .45rem .7rem;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: #eef1f4; white-space: nowrap; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  footer {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1rem 2rem 3rem;
+    color: var(--muted);
+    font-size: .85rem;
+    border-top: 1px solid var(--border);
+  }
+  @media (max-width: 768px) {
+    .layout { flex-direction: column; height: auto; overflow: visible; }
+    .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); max-height: 40vh; }
+    .content { overflow: visible; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topnav">
+  <a href="../文档首页.html">文档首页</a> ›
+  <a href="开发服务器/开发服务器部署使用说明.html">资料</a> ›
+  <span>GitLab 迁移使用说明</span>
+  <span class="topnav-side">
+    <a href="开发服务器/GitLab部署使用说明.html">同级：GitLab 部署使用说明 →</a>
+  </span>
+</div>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>GitLab 迁移使用说明</h1>
+      <p>BMS 仓库迁移至 GitLab · GitHub 归档同步实录 · 2026-08-11</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#purpose">1. 目的与现状</a></li>
+        <li><a href="#migrate">2. 迁移步骤</a>
+          <ul class="sub">
+            <li><a href="#prepare">2.1 前置条件</a></li>
+            <li><a href="#create">2.2 创建组与项目</a></li>
+            <li><a href="#push">2.3 本地推送</a></li>
+            <li><a href="#mirror">2.4 GitHub push mirror</a></li>
+            <li><a href="#protect">2.5 main 保护分支</a></li>
+          </ul>
+        </li>
+        <li><a href="#verify">3. 验证结果</a></li>
+        <li><a href="#workflow">4. 日常使用流程</a></li>
+        <li><a href="#creds">5. 凭据管理</a></li>
+        <li><a href="#trouble">6. 排障记录</a></li>
+        <li><a href="#related">7. 关联文档</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="purpose">1. 目的与现状</h2>
+      <p>
+        按《<a href="../规划/开发部署规划.html">开发部署规划</a>》第 4.5、7 节，BMS 代码仓库以<strong>自托管 GitLab 为主仓库</strong>
+        （MR 评审 + CI），<strong>GitHub 作只读归档同步</strong>（push mirror 单向）。
+      </p>
+      <table>
+        <tr><th>仓库</th><th>地址</th><th>角色</th></tr>
+        <tr><td>GitLab（主）</td><td><code>http://192.168.0.107:8080/bms/bms.git</code></td><td>代码托管、MR、CI、Registry</td></tr>
+        <tr><td>GitHub（归档）</td><td><code>https://github.com/minjian123/basic-management-system.git</code></td><td>push mirror 单向同步，只读</td></tr>
+      </table>
+
+      <h2 id="migrate">2. 迁移步骤</h2>
+
+      <h3 id="prepare">2.1 前置条件</h3>
+      <ul>
+        <li>GitLab CE 已部署并可用（见《<a href="开发服务器/GitLab部署使用说明.html">GitLab部署使用说明</a>》）。</li>
+        <li>GitHub 目标仓库已存在（<code>minjian123/basic-management-system</code>）。</li>
+        <li>GitLab 管理员 PAT（api + write_repository 权限）：用 rails runner 生成：</li>
+      </ul>
+      <pre><code>docker exec bms-gitlab gitlab-rails runner "
+u = User.find_by_username('root')
+tok = u.personal_access_tokens.create!(name: 'migration-api', scopes: [:api, :write_repository], expires_at: 1.year.from_now)
+puts tok.token"</code></pre>
+
+      <h3 id="create">2.2 创建组与项目</h3>
+      <p>使用 GitLab REST API（HTTP 头 <code>PRIVATE-TOKEN: &lt;PAT&gt;</code>）：</p>
+      <pre><code># 创建组 bms
+POST /api/v4/groups                {"name": "bms", "path": "bms"}
+# 创建项目 bms/bms（private，默认分支 main）
+POST /api/v4/projects             {"name": "bms", "path": "bms", "namespace_id": &lt;组id&gt;,
+                                   "visibility": "private", "default_branch": "main"}</code></pre>
+      <div class="note">本次部署：组 id=37，项目 id=2，路径 <code>bms/bms</code>（与规划 5.2 克隆示例一致）。</div>
+
+      <h3 id="push">2.3 本地推送</h3>
+      <pre><code>git remote add gitlab http://root:&lt;PAT&gt;@192.168.0.107:8080/bms/bms.git
+git push gitlab --all      # 全部历史分支
+git push gitlab --tags</code></pre>
+      <div class="note">本地 remote 现状：<code>origin</code> = GitHub（原主），<code>gitlab</code> = GitLab（现主）。origin 保留用于对照，日常推送走 gitlab。</div>
+
+      <h3 id="mirror">2.4 GitHub push mirror</h3>
+      <p>在 GitLab 项目设置中配置 push mirror（或 API）：</p>
+      <pre><code>POST /api/v4/projects/2/remote_mirrors
+{"url": "https://minjian123:&lt;GitHub PAT&gt;@github.com/minjian123/basic-management-system.git",
+ "enabled": true}</code></pre>
+      <div class="warn">
+        push mirror 需要 GitHub PAT（repo 权限）；GitLab 推送 main 后自动同步至 GitHub。
+        若 API 手动触发同步端点 404（GitLab 18），可用 rails runner 触发：
+        <pre><code>docker exec bms-gitlab gitlab-rails runner "Project.find(2).remote_mirrors.first.sync"</code></pre>
+      </div>
+
+      <h3 id="protect">2.5 main 保护分支</h3>
+      <p>GitLab 新项目默认保护 main（推送/合并仅 Maintainers），与规划第 7 节一致——开发者 push feature 分支、经 MR 合入。确认命令：</p>
+      <pre><code>GET /api/v4/projects/2/protected_branches   # main: push=Maintainers merge=Maintainers</code></pre>
+
+      <h2 id="verify">3. 验证结果</h2>
+      <table>
+        <tr><th>项目</th><th>结果</th></tr>
+        <tr><td>GitLab 仓库内容</td><td>7 项（.opencode / deploy / 文档 / .gitignore / AGENTS.md / LICENSE / README.md）</td></tr>
+        <tr><td>GitHub 同步</td><td>最新提交 <code>1d4681a</code> 已镜像（GitHub API 确认）</td></tr>
+        <tr><td>main 保护</td><td>push=Maintainers、merge=Maintainers</td></tr>
+        <tr><td>本地 remote</td><td>origin=GitHub、gitlab=GitLab（双远端就位）</td></tr>
+      </table>
+
+      <h2 id="workflow">4. 日常使用流程</h2>
+      <ol>
+        <li>开发：<code>git checkout -b feature/xxx</code> 分支开发。</li>
+        <li>推送：<code>git push gitlab feature/xxx</code> → GitLab 提 Merge Request（CI 通过方可合并）。</li>
+        <li>合入：MR 合入 main（maintainers）后，GitLab 自动 push mirror 同步至 GitHub 归档。</li>
+        <li>同步验证：<code>git fetch origin</code> 可见 GitHub 上 main 已更新。</li>
+      </ol>
+      <div class="warn">GitHub 为只读归档，禁止直接向 origin 推送代码（避免与 mirror 冲突）。</div>
+
+      <h2 id="creds">5. 凭据管理</h2>
+      <ul>
+        <li>GitLab PAT（migration-api）：root 名下，有效期 1 年，存 mjbk <code>~/deploy/.env</code>（<code>GITLAB_PAT</code>）。</li>
+        <li>本地 remote URL 内嵌 PAT：仅本机可见；如需更换 token 用 <code>git remote set-url gitlab &lt;新地址&gt;</code>。</li>
+        <li>GitHub PAT：用户本人持有，凭据同时配置在 GitLab push mirror 中。</li>
+        <li>凭据汇总见《<a href="本地资源.md">本地资源</a>》（已 gitignore，不入库）。</li>
+      </ul>
+
+      <h2 id="trouble">6. 排障记录</h2>
+      <table>
+        <tr><th>问题</th><th>现象</th><th>处理</th></tr>
+        <tr>
+          <td>mirror 手动同步 API 404</td>
+          <td><code>POST /projects/2/remote_mirrors/1/update</code> 返回 404</td>
+          <td>GitLab 18 该端点不可用；改用 rails runner <code>remote_mirrors.first.sync</code> 触发；日常同步由 GitLab 自动执行</td>
+        </tr>
+        <tr>
+          <td>保护分支配置 409</td>
+          <td><code>POST protected_branches</code> 返回 409 Conflict</td>
+          <td>新项目默认已保护 main（Maintainers），无需重复创建，GET 确认即可</td>
+        </tr>
+      </table>
+
+      <h2 id="related">7. 关联文档</h2>
+      <ul>
+        <li>《<a href="开发服务器/GitLab部署使用说明.html">GitLab部署使用说明</a>》：GitLab 部署与 runner 注册</li>
+        <li>《<a href="../规划/开发部署规划.html">开发部署规划</a>》：4.5 GitLab 与 CI、第 7 节开发工作流</li>
+        <li>《<a href="本地资源.md">本地资源</a>》：凭据汇总</li>
+        <li>《<a href="../文档首页.html">文档首页</a>》：全量文档索引</li>
+      </ul>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 依《文档生成规范》编写 · 记录 2026-08-11 实际迁移过程 · 更新日期：2026-08-11
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>
