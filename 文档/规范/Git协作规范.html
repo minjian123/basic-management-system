@@ -50,10 +50,9 @@
       <h2 id="repo">2. 仓库与远端</h2>
       <table>
         <tr><th>远端</th><th>地址</th><th>角色</th></tr>
-        <tr><td><code>gitlab</code>（主）</td><td><code>http://192.168.0.107:8080/bms/bms.git</code></td><td>开发、MR、CI、Registry（日常推送目标）</td></tr>
-        <tr><td><code>origin</code>（归档）</td><td><code>https://github.com/minjian123/basic-management-system.git</code></td><td>只读归档，禁止直推</td></tr>
+        <tr><td><code>gitlab</code>（主）</td><td><code>http://192.168.0.107:8080/bms/bms.git</code></td><td>开发、MR、CI、Registry（唯一远端，日常推送目标）</td></tr>
       </table>
-      <div class="warn">开发一律推送 <code>gitlab</code> 远端；<code>origin</code> 由 GitLab push mirror 单向同步，直接向其推送会导致冲突。</div>
+      <div class="note">本地仅配置 <code>gitlab</code> 一个远端；GitHub 只读归档由 GitLab 端 push mirror 自动同步，本地不配置 GitHub remote，避免误推。</div>
 
       <h2 id="branch">3. 分支模型</h2>
       <table>
@@ -127,7 +126,7 @@ chore(deps): 升级 fastapi 至 0.115
         <li>□ 分支名符合「类型/描述」，从最新 main 切出</li>
         <li>□ 提交信息 <code>type(scope): 中文描述</code>，单提交单职责</li>
         <li>□ MR 标题与描述规范，CI 全绿，评审通过后 Squash 合并</li>
-        <li>□ 不直推 main、不直推 origin（GitHub）</li>
+        <li>□ 不直推 main；本地仅配置 gitlab 远端，GitHub 归档走 push mirror 自动同步</li>
         <li>□ 发布标签语义化 <code>vX.Y.Z</code>，与镜像版本一致</li>
       </ul>
 
