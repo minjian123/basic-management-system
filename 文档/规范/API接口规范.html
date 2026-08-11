@@ -187,7 +187,7 @@
       <h2 id="purpose">1. 目的与适用范围</h2>
       <p>
         统一 BMS 后端 API 的设计与实现约定，保证前后端联调顺畅、外部开放接口稳定。
-        命名规则见《<a href="命名规范.html">命名规范</a>》第 8 节，本文档为其落地约束；与《<a href="../规划/项目规划说明.md">项目规划说明</a>》「API 设计规范」一致。
+        命名规则见《<a href="命名规范.html">命名规范</a>》第 8 节，本文档为其落地约束；与《<a href="../规划/项目规划说明.html">项目规划说明</a>》「API 设计规范」一致。
       </p>
 
       <h2 id="design">2. URL 与资源设计</h2>
@@ -259,7 +259,7 @@
 
       <h2 id="robust">7. 幂等 / 限流 / 审计</h2>
       <ul>
-        <li><strong>幂等</strong>：写接口（POST/PUT）支持 <code>Idempotency-Key</code> 请求头，Redis 前置去重 + 唯一约束兜底（见《<a href="../规划/项目规划说明.md">项目规划说明</a>》「限流与降级」）。</li>
+        <li><strong>幂等</strong>：写接口（POST/PUT）支持 <code>Idempotency-Key</code> 请求头，Redis 前置去重 + 唯一约束兜底（见《<a href="../规划/项目规划说明.html">项目规划说明</a>》「限流与降级」）。</li>
         <li><strong>限流</strong>：登录防爆破（失败次数锁定）、开放接口按 AppId 限流、通用接口按用户限流（slowapi/limits，Redis 后端，见规划）。</li>
         <li><strong>审计</strong>：操作日志（<code>sys_operation_log</code>）记录用户、IP、请求、结果、耗时；敏感操作（删除、导出、授权变更）必记；正文脱敏（见《<a href="安全开发规范.html">安全开发规范</a>》）。</li>
       </ul>
