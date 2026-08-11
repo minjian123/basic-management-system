@@ -415,6 +415,69 @@ systemctl --user restart gnome-remote-desktop</code></pre>
       <p>客户端连接（mjpc）：<code>mstsc</code> → 计算机 <code>192.168.0.107</code> → 证书警告选「仍然连接」→ 用户 <code>minjian</code> / 密码。验证监听：<code>ss -tlnp | grep 3389</code>。</p>
       <div class="note">RDP 镜像主屏（mirror-primary），共享当前桌面会话；mjbk 已配合盖不休眠，可随时远程。证书为自签名，首次连接出现警告属正常。</div>
 
+      <h3>6.4.1 注意事项与排障</h3>
+      <table>
+        <tr><th>问题</th><th>现象</th><th>处理</th></tr>
+        <tr>
+          <td>mstsc 直接断开（NLA 协商失败）</td>
+          <td>日志 <code>transport_accept_nla: client authentication failure</code>、<code>CONNECTION_STATE_NEGO</code> 失败</td>
+          <td>mstsc「显示选项 → 高级」勾选「允许运行任意版本远程桌面的计算机连接」；确认桌面会话未锁屏（锁屏会 <code>Session creation inhibited</code>，用 <code>loginctl unlock-session &lt;会话号&gt;</code> 解锁）</td>
+        </tr>
+        <tr>
+          <td>headless 登录后桌面空白</td>
+          <td>系统级服务（grdctl --system）登录后停在 GDM 界面，用户会话未启动</td>
+          <td>Ubuntu 24.04 headless RDP 为实验功能，不建议使用；回退镜像模式：停系统级服务、启用用户级服务（见下）</td>
+        </tr>
+        <tr>
+          <td>分辨率不跟随窗口</td>
+          <td>镜像模式分辨率固定为物理屏（1920×1080）</td>
+          <td>全屏使用（Ctrl+Alt+Break）；headless 动态分辨率模式暂不可用（见上行）</td>
+        </tr>
+        <tr>
+          <td>本地桌面会话意外退出后 RDP 不可用</td>
+          <td>3389 无监听（镜像模式依赖桌面会话）</td>
+          <td>配置 GDM 自动登录（见下），重启 gdm3 自动恢复桌面与会话</td>
+        </tr>
+      </table>
+      <p><strong>回退镜像模式命令</strong>（headless 切换失败时）：</p>
+      <pre><code>sudo systemctl disable --now gnome-remote-desktop        # 停系统级（headless）
+export DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
+systemctl --user enable --now gnome-remote-desktop        # 启用户级（镜像）</code></pre>
+      <p><strong>GDM 自动登录</strong>（无人值守服务器，镜像模式的前提）：</p>
+      <pre><code>sudo tee /etc/gdm3/custom.conf &lt;&lt; EOF
+[daemon]
+AutomaticLoginEnable=true
+AutomaticLogin=minjian
+EOF
+sudo systemctl restart gdm3</code></pre>
+
+      <h3>6.4.2 xrdp 方案（推荐，动态分辨率）</h3>
+      <p>GNOME 自带 RDP 为镜像模式（分辨率固定），headless 模式（实验性）登录后空白、凭据依赖 keyring 易失效。
+        <strong>最终采用 xrdp</strong>：独立 Xorg 会话、系统账号认证、分辨率随窗口自适应。mjbk 已配置：</p>
+      <pre><code># 1. 安装
+sudo apt install -y xrdp xorgxrdp dbus-x11
+
+# 2. 会话配置（GNOME on X11，独立 dbus，避免与现有图形会话冲突）
+sudo tee /etc/xrdp/startwm.sh &lt;&lt; EOF
+#!/bin/sh
+unset DBUS_SESSION_BUS_ADDRESS
+unset XDG_RUNTIME_DIR
+export XDG_SESSION_TYPE=x11
+export XDG_CURRENT_DESKTOP=GNOME
+exec dbus-launch --exit-with-session /usr/bin/gnome-session
+EOF
+sudo chmod +x /etc/xrdp/startwm.sh
+
+# 3. 停用 GNOME 自带 RDP（避免 3389 冲突），启用 xrdp
+systemctl --user disable --now gnome-remote-desktop
+sudo systemctl enable --now xrdp</code></pre>
+      <div class="note">
+        客户端连接：mstsc → <code>192.168.0.107</code> → xrdp 登录界面输入 <code>minjian</code> / 密码 →
+        进入独立桌面，<strong>分辨率随窗口动态调整</strong>。
+        排障要点：会话 1 秒退出查 <code>sudo tail /var/log/xrdp-sesman.log</code>；
+        退出码 127 = 缺 <code>dbus-x11</code>；退出码 1 = dbus 冲突（需按第 2 步隔离会话环境）。
+      </div>
+
       <h2 id="backup">7. 备份与恢复（Timeshift 系统快照）</h2>
       <p>服务器环境（系统、配置、已装软件）装坏后需要能快速还原。mjbk 使用 <strong>Timeshift</strong>（rsync 模式）做整系统快照，快照存数据盘 HDD（<code>/mnt/data</code>），系统装坏时用安装 U 盘启动即可恢复到快照时间点。</p>
 
