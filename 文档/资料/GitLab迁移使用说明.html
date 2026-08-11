@@ -85,7 +85,7 @@ POST /api/v4/projects             {"name": "bms", "path": "bms", "namespace_id":
       <pre><code>git remote add gitlab http://root:&lt;PAT&gt;@192.168.0.107:8080/bms/bms.git
 git push gitlab --all      # 全部历史分支
 git push gitlab --tags</code></pre>
-      <div class="note">本地 remote 现状：<code>origin</code> = GitHub（原主），<code>gitlab</code> = GitLab（现主）。origin 保留用于对照，日常推送走 gitlab。</div>
+      <div class="note">本地 remote 现状：<code>origin</code>（GitHub，原主）已删除，仅保留 <code>gitlab</code> = GitLab（现主）。GitHub 归档由 GitLab 端 push mirror 自动完成，本地不配置 GitHub remote 避免误推。</div>
 
       <h3 id="mirror">2.4 GitHub push mirror</h3>
       <p>在 GitLab 项目设置中配置 push mirror（或 API）：</p>
@@ -108,7 +108,7 @@ git push gitlab --tags</code></pre>
         <tr><td>GitLab 仓库内容</td><td>7 项（.opencode / deploy / 文档 / .gitignore / AGENTS.md / LICENSE / README.md）</td></tr>
         <tr><td>GitHub 同步</td><td>最新提交 <code>1d4681a</code> 已镜像（GitHub API 确认）</td></tr>
         <tr><td>main 保护</td><td>push=Maintainers、merge=Maintainers</td></tr>
-        <tr><td>本地 remote</td><td>origin=GitHub、gitlab=GitLab（双远端就位）</td></tr>
+        <tr><td>本地 remote</td><td>gitlab=GitLab（唯一远端），origin（GitHub）已删除</td></tr>
       </table>
 
       <h2 id="workflow">4. 日常使用流程</h2>
@@ -116,9 +116,9 @@ git push gitlab --tags</code></pre>
         <li>开发：<code>git checkout -b feature/xxx</code> 分支开发。</li>
         <li>推送：<code>git push gitlab feature/xxx</code> → GitLab 提 Merge Request（CI 通过方可合并）。</li>
         <li>合入：MR 合入 main（maintainers）后，GitLab 自动 push mirror 同步至 GitHub 归档。</li>
-        <li>同步验证：<code>git fetch origin</code> 可见 GitHub 上 main 已更新。</li>
+        <li>同步验证：GitHub 网页查看 main 是否已更新（本地无 origin 远端，不 fetch GitHub）。</li>
       </ol>
-      <div class="warn">GitHub 为只读归档，禁止直接向 origin 推送代码（避免与 mirror 冲突）。</div>
+      <div class="warn">GitHub 为只读归档，镜像由 GitLab 端 push mirror 自动完成；本地不配置 GitHub remote，禁止直接向 GitHub 推送代码（避免与 mirror 冲突）。</div>
 
       <h2 id="creds">5. 凭据管理</h2>
       <ul>
