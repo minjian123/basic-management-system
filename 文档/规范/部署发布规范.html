@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>部署发布规范</title>
+<style>
+  :root {
+    --bg: #f7f8fa;
+    --fg: #1f2328;
+    --muted: #57606a;
+    --border: #d0d7de;
+    --accent: #0969da;
+    --accent-bg: #ddf4ff;
+    --code-bg: #f6f8fa;
+    --warn-bg: #fff8c5;
+    --warn-border: #d4a72c;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+    line-height: 1.75;
+  }
+  .layout { display: flex; height: 100vh; overflow: hidden; }
+  .sidebar {
+    width: 280px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+  }
+  .sidebar .brand {
+    background: linear-gradient(135deg, #1f2328, #32383f);
+    color: #fff;
+    padding: 1.4rem 1.2rem 1.1rem;
+    border-bottom: 3px solid var(--accent);
+    flex-shrink: 0;
+  }
+  .sidebar .brand h1 { margin: 0 0 .35rem; font-size: 1.15rem; line-height: 1.4; }
+  .sidebar .brand p { margin: 0; color: #b6bec6; font-size: .78rem; }
+  .sidebar nav { padding: .8rem .6rem 1.5rem; font-size: .9rem; }
+  .sidebar nav ul { list-style: none; margin: 0; padding: 0; }
+  .sidebar nav li { margin: .15rem 0; }
+  .sidebar nav a {
+    display: block;
+    padding: .3rem .7rem;
+    border-radius: 5px;
+    color: var(--fg);
+    text-decoration: none;
+  }
+  .sidebar nav a:hover { background: var(--accent-bg); color: var(--accent); }
+  .sidebar nav .sub { padding-left: 1.6rem; font-size: .85rem; color: var(--muted); }
+  .content { flex: 1; overflow-y: auto; }
+  main {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1.5rem 2rem 4rem;
+  }
+  h2 {
+    margin-top: 2.5rem;
+    padding-bottom: .4rem;
+    border-bottom: 2px solid var(--border);
+    font-size: 1.35rem;
+  }
+  h3 { margin-top: 1.6rem; font-size: 1.1rem; }
+  p { margin: .6rem 0; }
+  ul, ol { margin: .6rem 0; padding-left: 1.6rem; }
+  li { margin: .3rem 0; }
+  code {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: .1em .35em;
+    font-family: Consolas, "Cascadia Mono", monospace;
+    font-size: .9em;
+  }
+  pre {
+    background: #0d1117;
+    color: #e6edf3;
+    border-radius: 8px;
+    padding: .9rem 1.1rem;
+    overflow-x: auto;
+    font-size: .88rem;
+    line-height: 1.6;
+  }
+  pre code { background: none; border: none; padding: 0; color: inherit; }
+  .note, .warn {
+    border-radius: 6px;
+    padding: .7rem 1rem;
+    margin: 1rem 0;
+    font-size: .95rem;
+  }
+  .note { background: var(--accent-bg); border-left: 4px solid var(--accent); }
+  .warn { background: var(--warn-bg); border-left: 4px solid var(--warn-border); }
+  .topnav {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: .4rem;
+    background: #fff;
+    border-bottom: 1px solid var(--border);
+    padding: .5rem 1rem;
+    font-size: .85rem;
+  }
+  .topnav .topnav-side { margin-left: auto; }
+  .topnav a { color: var(--accent); text-decoration: none; }
+  .topnav a:hover { text-decoration: underline; }
+  @media (max-width: 768px) {
+    .topnav .topnav-side { display: none; }
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1rem 0;
+    font-size: .92rem;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: .45rem .7rem;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: #eef1f4; white-space: nowrap; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  footer {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1rem 2rem 3rem;
+    color: var(--muted);
+    font-size: .85rem;
+    border-top: 1px solid var(--border);
+  }
+  @media (max-width: 768px) {
+    .layout { flex-direction: column; height: auto; overflow: visible; }
+    .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); max-height: 40vh; }
+    .content { overflow: visible; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topnav">
+  <a href="../文档首页.html">文档首页</a> ›
+  <a href="文档生成规范.html">规范</a> ›
+  <span>部署发布规范</span>
+  <span class="topnav-side">
+    <a href="国际化规范.html">← 上一个：国际化</a>
+    <a href="../规划/开发部署规划.html">开发部署规划 →</a>
+  </span>
+</div>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>部署发布规范</h1>
+      <p>环境管理 · 发布流程 · 版本与回滚</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#purpose">1. 目的与适用范围</a></li>
+        <li><a href="#env">2. 环境管理</a></li>
+        <li><a href="#version">3. 镜像与版本</a></li>
+        <li><a href="#release">4. 发布流程</a></li>
+        <li><a href="#rollback">5. 回滚</a></li>
+        <li><a href="#check">6. 发布前检查</a></li>
+        <li><a href="#checklist">7. 检查清单</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="purpose">1. 目的与适用范围</h2>
+      <p>
+        规范 BMS 各环境的部署与发布：环境分层、镜像版本、发布与回滚流程，保证可重复、可追溯。
+        部署拓扑与编排见《<a href="../规划/开发部署规划.html">开发部署规划</a>》第 7/9/10 节与《<a href="../设计/架构设计/27-架构设计-部署与运维.html">架构设计-部署与运维</a>》。
+      </p>
+
+      <h2 id="env">2. 环境管理</h2>
+      <table>
+        <tr><th>环境</th><th>标识</th><th>用途</th><th>数据</th></tr>
+        <tr><td>开发</td><td><code>BMS_ENV=dev</code></td><td>本地开发（mjpc），内网访问 mjbk 共享服务</td><td>SQLite / bms_dev</td></tr>
+        <tr><td>测试</td><td><code>BMS_ENV=test</code></td><td>CI 三库集成、E2E</td><td>bms_test 前缀库（用完即删）</td></tr>
+        <tr><td>生产</td><td><code>BMS_ENV=prod</code></td><td>客户交付（MVP 验收、信创环境）</td><td>正式库（备份策略见第 5 节）</td></tr>
+      </table>
+      <ul>
+        <li>配置分层：<code>config.toml</code> 按环境 + 环境变量覆盖（<code>BMS_</code> 前缀，见《<a href="../规划/项目规划说明.md">项目规划说明</a>》「环境与配置」）。</li>
+        <li>环境间数据与配置隔离，密钥仅存在对应环境。</li>
+      </ul>
+
+      <h2 id="version">3. 镜像与版本</h2>
+      <ul>
+        <li>镜像命名：<code>bms-backend</code>、<code>bms-frontend</code>（《<a href="命名规范.html">命名规范</a>》第 10 节）。</li>
+        <li>镜像标签与 Git 标签一致：<code>bms-backend:v1.2.0</code>；临时构建用 <code>main-&lt;短sha&gt;</code>，禁以 latest 覆盖发布版本。</li>
+        <li>镜像存 GitLab Registry（<code>192.168.0.107:5050</code>）；生产拉取走内网或镜像同步。</li>
+        <li>构建产物可复现：Dockerfile 多阶段构建 + 依赖锁定（uv.lock / package-lock.json）。</li>
+      </ul>
+
+      <h2 id="release">4. 发布流程</h2>
+      <ol>
+        <li><strong>准备</strong>：main 合入发布提交；打标签 <code>vX.Y.Z</code>（《<a href="Git协作规范.html">Git协作规范</a>》第 6 节）。</li>
+        <li><strong>构建</strong>：CI main 流水线构建 <code>bms-backend</code>/<code>bms-frontend</code> 镜像并推送 Registry（见《<a href="../规划/开发部署规划.html">开发部署规划</a>》第 7 节）。</li>
+        <li><strong>迁移</strong>：先执行数据库迁移（Alembic），再发布应用（迁移先行，应用向后兼容一个版本）。</li>
+        <li><strong>部署</strong>：Compose 滚动更新（backend 多副本逐个替换）；前端静态资源由 nginx 托管。</li>
+        <li><strong>验证</strong>：<code>/healthz</code>、<code>/readyz</code> 通过；核心冒烟用例（登录 → 主体链 CRUD）执行。</li>
+        <li><strong>记录</strong>：发布记录（版本、时间、变更、负责人）登记；发布后监控关键指标 30 分钟（阶段八起）。</li>
+      </ol>
+      <div class="note">演进：数据量或规模增长后迁移 Kubernetes（规划第 7 节），发布流程平移为滚动/蓝绿。</div>
+
+      <h2 id="rollback">5. 回滚</h2>
+      <ul>
+        <li>应用回滚：Compose 回退镜像标签至上一版本（<code>bms-backend:v1.1.0</code>），重启完成。</li>
+        <li>数据库回滚：迁移先行策略下应用回滚即可；结构回退需评估（破坏性迁移不可逆时走数据修复脚本）。</li>
+        <li>数据备份前置：生产发布前数据库每日备份 + PITR（Binlog/WAL）；归档库纳入备份（《<a href="../规划/项目规划说明.md">项目规划说明</a>》「备份与恢复」）。</li>
+        <li>回滚时限：发现严重问题 30 分钟内回滚；回滚后复盘根因并补充回归用例。</li>
+      </ul>
+
+      <h2 id="check">6. 发布前检查</h2>
+      <ul>
+        <li>□ 代码评审通过、CI 全绿、三库集成测试通过</li>
+        <li>□ 迁移脚本已评审并在测试环境执行过</li>
+        <li>□ 镜像标签与 Git 标签对应，Registry 可访问</li>
+        <li>□ 环境变量与密钥就位（<code>BMS_ENV</code> 正确）</li>
+        <li>□ 备份任务正常、可回滚版本确认</li>
+        <li>□ 发布窗口与值班人确认（生产）</li>
+      </ul>
+
+      <h2 id="checklist">7. 检查清单</h2>
+      <ul>
+        <li>□ 环境配置分层正确，密钥不入代码</li>
+        <li>□ 镜像标签语义化，构建可复现</li>
+        <li>□ 迁移先行、应用兼容上一版本</li>
+        <li>□ 健康检查与冒烟验证通过，发布有记录</li>
+        <li>□ 回滚方案与备份就绪</li>
+      </ul>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 依《文档生成规范》编写 · 与《开发部署规划》《Git协作规范》配套 · 生成日期：2026-08-11
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>

@@ -296,14 +296,14 @@
         <li>实现：纯 HTML + CSS（无 JavaScript），样式沿用统一 CSS 变量（<code>--bg</code>、<code>--border</code>、<code>--accent</code> 等）；链接一律相对路径。</li>
         <li>首页 / 总纲文档无面包屑上级时省略上级链接，但保留同级导航入口。</li>
       </ul>
-      <p>结构示例（面包屑 + 同级导航）：</p>
+      <p>结构示例（面包屑 + 同级导航，示例为「架构设计」多文件体系）：</p>
       <pre><code>&lt;div class="topnav"&gt;
   &lt;a href="../文档首页.html"&gt;文档首页&lt;/a&gt; ›
-  &lt;a href="01-架构设计.html"&gt;架构设计&lt;/a&gt; ›
+  &lt;a href="../设计/架构设计/01-架构设计.html"&gt;架构设计&lt;/a&gt; ›
   &lt;span&gt;05-数据架构&lt;/span&gt;
   &lt;span class="topnav-side"&gt;
-    &lt;a href="04-架构设计-核心交互时序.html"&gt;← 上一页&lt;/a&gt;
-    &lt;a href="06-架构设计-接口与集成.html"&gt;下一页 →&lt;/a&gt;
+    &lt;a href="../设计/架构设计/04-架构设计-核心交互时序.html"&gt;← 上一页&lt;/a&gt;
+    &lt;a href="../设计/架构设计/06-架构设计-接口与集成.html"&gt;下一页 →&lt;/a&gt;
   &lt;/span&gt;
 &lt;/div&gt;</code></pre>
 

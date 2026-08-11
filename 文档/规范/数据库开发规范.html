@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>数据库开发规范</title>
+<style>
+  :root {
+    --bg: #f7f8fa;
+    --fg: #1f2328;
+    --muted: #57606a;
+    --border: #d0d7de;
+    --accent: #0969da;
+    --accent-bg: #ddf4ff;
+    --code-bg: #f6f8fa;
+    --warn-bg: #fff8c5;
+    --warn-border: #d4a72c;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+    line-height: 1.75;
+  }
+  .layout { display: flex; height: 100vh; overflow: hidden; }
+  .sidebar {
+    width: 280px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+  }
+  .sidebar .brand {
+    background: linear-gradient(135deg, #1f2328, #32383f);
+    color: #fff;
+    padding: 1.4rem 1.2rem 1.1rem;
+    border-bottom: 3px solid var(--accent);
+    flex-shrink: 0;
+  }
+  .sidebar .brand h1 { margin: 0 0 .35rem; font-size: 1.15rem; line-height: 1.4; }
+  .sidebar .brand p { margin: 0; color: #b6bec6; font-size: .78rem; }
+  .sidebar nav { padding: .8rem .6rem 1.5rem; font-size: .9rem; }
+  .sidebar nav ul { list-style: none; margin: 0; padding: 0; }
+  .sidebar nav li { margin: .15rem 0; }
+  .sidebar nav a {
+    display: block;
+    padding: .3rem .7rem;
+    border-radius: 5px;
+    color: var(--fg);
+    text-decoration: none;
+  }
+  .sidebar nav a:hover { background: var(--accent-bg); color: var(--accent); }
+  .sidebar nav .sub { padding-left: 1.6rem; font-size: .85rem; color: var(--muted); }
+  .content { flex: 1; overflow-y: auto; }
+  main {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1.5rem 2rem 4rem;
+  }
+  h2 {
+    margin-top: 2.5rem;
+    padding-bottom: .4rem;
+    border-bottom: 2px solid var(--border);
+    font-size: 1.35rem;
+  }
+  h3 { margin-top: 1.6rem; font-size: 1.1rem; }
+  p { margin: .6rem 0; }
+  ul, ol { margin: .6rem 0; padding-left: 1.6rem; }
+  li { margin: .3rem 0; }
+  code {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: .1em .35em;
+    font-family: Consolas, "Cascadia Mono", monospace;
+    font-size: .9em;
+  }
+  pre {
+    background: #0d1117;
+    color: #e6edf3;
+    border-radius: 8px;
+    padding: .9rem 1.1rem;
+    overflow-x: auto;
+    font-size: .88rem;
+    line-height: 1.6;
+  }
+  pre code { background: none; border: none; padding: 0; color: inherit; }
+  .note, .warn {
+    border-radius: 6px;
+    padding: .7rem 1rem;
+    margin: 1rem 0;
+    font-size: .95rem;
+  }
+  .note { background: var(--accent-bg); border-left: 4px solid var(--accent); }
+  .warn { background: var(--warn-bg); border-left: 4px solid var(--warn-border); }
+  .topnav {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: .4rem;
+    background: #fff;
+    border-bottom: 1px solid var(--border);
+    padding: .5rem 1rem;
+    font-size: .85rem;
+  }
+  .topnav .topnav-side { margin-left: auto; }
+  .topnav a { color: var(--accent); text-decoration: none; }
+  .topnav a:hover { text-decoration: underline; }
+  @media (max-width: 768px) {
+    .topnav .topnav-side { display: none; }
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1rem 0;
+    font-size: .92rem;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: .45rem .7rem;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: #eef1f4; white-space: nowrap; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  footer {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1rem 2rem 3rem;
+    color: var(--muted);
+    font-size: .85rem;
+    border-top: 1px solid var(--border);
+  }
+  @media (max-width: 768px) {
+    .layout { flex-direction: column; height: auto; overflow: visible; }
+    .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); max-height: 40vh; }
+    .content { overflow: visible; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topnav">
+  <a href="../文档首页.html">文档首页</a> ›
+  <a href="文档生成规范.html">规范</a> ›
+  <span>数据库开发规范</span>
+  <span class="topnav-side">
+    <a href="Git协作规范.html">← 上一个：Git 协作</a>
+    <a href="API接口规范.html">下一个：API 接口 →</a>
+  </span>
+</div>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>数据库开发规范</h1>
+      <p>表设计 · 索引 · 迁移 · 三库兼容 SQL</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#purpose">1. 目的与适用范围</a></li>
+        <li><a href="#design">2. 表结构设计</a></li>
+        <li><a href="#field">3. 字段规范</a></li>
+        <li><a href="#index">4. 索引规范</a></li>
+        <li><a href="#migrate">5. 迁移规范（Alembic）</a></li>
+        <li><a href="#sql">6. SQL 编写（三库兼容）</a></li>
+        <li><a href="#tenant">7. 多租户与分片</a></li>
+        <li><a href="#perf">8. 性能要求</a></li>
+        <li><a href="#checklist">9. 检查清单</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="purpose">1. 目的与适用范围</h2>
+      <p>
+        规范 BMS 数据库的表设计、索引、迁移与 SQL 编写，保证 MySQL 8 / PostgreSQL 16 / 达梦 DM8 三库
+        方言兼容（CI 三库测试要求）。命名约定见《<a href="命名规范.html">命名规范</a>》第 7 节，本文档在其基础上
+        约束结构与写法。
+      </p>
+
+      <h2 id="design">2. 表结构设计</h2>
+      <ul>
+        <li>表前缀：<code>sys_</code>（系统/权限）、<code>wf_</code>（工作流）、<code>biz_</code>（业务）、<code>rpt_</code>（报表）、<code>ai_</code>（AI 域）；表名单数 snake_case。</li>
+        <li>主键统一 <code>id</code>；关联表（<code>sys_user_post</code> 等）联合主键、不设 id。</li>
+        <li>每表必备审计字段：<code>created_at</code>、<code>created_by</code>、<code>updated_at</code>、<code>updated_by</code>；软删除表加 <code>deleted_at</code>、并发控制加 <code>version</code>。</li>
+        <li>金额用 DECIMAL/NUMERIC，禁止 FLOAT/DOUBLE；状态、类型用 <code>status</code>、<code>type</code> 短整型或枚举，配合字典管理（不写死魔法值）。</li>
+        <li>大字段（BLOB/TEXT/JSON）独立成表或明确评估：主表行宽保持可控，避免索引失效。</li>
+        <li>表与字段必须带 COMMENT（中文），与《<a href="../规划/项目规划说明.md">项目规划说明</a>》「数据规范」一致。</li>
+      </ul>
+
+      <h2 id="field">3. 字段规范</h2>
+      <table>
+        <tr><th>类别</th><th>约定</th><th>示例</th></tr>
+        <tr><td>主键</td><td><code>id</code>（自增/BIGINT，达梦可用自增列）</td><td><code>id</code></td></tr>
+        <tr><td>外键</td><td><code>目标表名_id</code>；逻辑外键为主（避免物理外键拖累性能），必要时加索引</td><td><code>dept_id</code>、<code>role_id</code></td></tr>
+        <tr><td>布尔</td><td><code>is_</code> 前缀（tinyint/smallint/BOOLEAN）</td><td><code>is_enabled</code></td></tr>
+        <tr><td>时间</td><td><code>xxx_at</code>（DATETIME/TIMESTAMP，统一存储时区时间）</td><td><code>expired_at</code></td></tr>
+        <tr><td>枚举/状态</td><td>字典表管理，字段存 code 字符串或短整型</td><td><code>status</code>、<code>subject_type</code></td></tr>
+        <tr><td>通用</td><td><code>sort</code>、<code>remark</code>、<code>version</code></td><td>—</td></tr>
+      </table>
+      <div class="warn">字段类型尽量三库通用：字符串 VARCHAR、整数 BIGINT/INT、金额 NUMERIC(20,4)；避免 MySQL 专用 <code>ENUM</code>/<code>JSON</code>、PG 专用 <code>SERIAL</code> 等方言类型。</div>
+
+      <h2 id="index">4. 索引规范</h2>
+      <ul>
+        <li>普通索引 <code>idx_字段</code>（多列 <code>idx_a_b</code>）、唯一索引 <code>uq_字段</code>。</li>
+        <li>外键列、高频查询过滤列、排序列（<code>sort</code>、<code>created_at</code>）建索引；复合索引遵循最左前缀。</li>
+        <li>禁止冗余索引（已有 <code>idx_a_b</code> 不再建 <code>idx_a</code>）；索引数量每表不超过 5 个（联调阶段从严）。</li>
+        <li>软删除查询注意 <code>deleted_at</code> 参与条件；大表按分片键设计索引（见第 7 节）。</li>
+      </ul>
+
+      <h2 id="migrate">5. 迁移规范（Alembic）</h2>
+      <ul>
+        <li>所有结构变更走 Alembic 迁移脚本，禁止手工 DDL（开发库可临时，但必须随后补迁移）。</li>
+        <li>迁移文件命名：<code>修订号_描述.py</code>（如 <code>0003_add_wf_approval.sql</code> 风格由 Alembic 自动生成），提交信息 <code>feat(db): ...</code>。</li>
+        <li>迁移脚本必须三库可执行：不写方言 SQL；达梦注意 schema 前缀（<code>bms_dev</code>）。</li>
+        <li>CI 三库测试流程：job 内建 <code>bms_test</code> 前缀库 → 迁移 → 集成测试 → 删库（复用 mjbk 常驻三库，见《<a href="../规划/开发部署规划.html">开发部署规划</a>》4.4）。</li>
+        <li>数据变更（种子、修复数据）单独脚本，与结构迁移分离，可重复执行（幂等）。</li>
+      </ul>
+
+      <h2 id="sql">6. SQL 编写（三库兼容）</h2>
+      <table>
+        <tr><th>事项</th><th>要求</th><th>反例</th></tr>
+        <tr><td>分页</td><td>统一 LIMIT/OFFSET 语法（三库均支持）；分页参数 <code>page/size</code></td><td>MySQL 方言 <code>LIMIT a, b</code></td></tr>
+        <tr><td>字符串拼接</td><td>避免方言函数（CONCAT 三库支持）；达梦用 <code>||</code> 需评估</td><td><code>GROUP_CONCAT</code>/<code>STRING_AGG</code>（各库不同）</td></tr>
+        <tr><td>日期</td><td>参数化传入时间戳/ISO 字符串，避免 <code>NOW()</code> 差异</td><td><code>DATE_FORMAT</code>/<code>to_char</code> 混用</td></tr>
+        <tr><td>大小写</td><td>标识符统一小写；达梦默认大写存储，查询时注意引用</td><td>混合大小写列名</td></tr>
+        <tr><td>布尔/空值</td><td>用 <code>= 0/1</code> 或显式 <code>IS NULL</code>，不用方言布尔字面量</td><td>MySQL <code>TRUE</code> 与 PG <code>TRUE</code> 语义</td></tr>
+      </table>
+      <ul>
+        <li>SQL 一律参数化（ORM 传参），禁止字符串拼接（防注入，见《<a href="安全开发规范.html">安全开发规范</a>》）。</li>
+        <li>ORM 为主（SQLAlchemy），原生 SQL 仅限复杂统计且必须写方言兼容版本并在三库测试。</li>
+      </ul>
+
+      <h2 id="tenant">7. 多租户与分片</h2>
+      <ul>
+        <li>库拓扑：平台库 <code>bms_platform</code> + 租户库 <code>bms_tenant_{code}</code> + 归档库 <code>bms_archive</code>；开发环境 <code>bms_dev</code>（见《<a href="命名规范.html">命名规范</a>》第 7 节）。</li>
+        <li>租户隔离优先库级（一租户一库）；同库场景所有表必须含 <code>tenant_id</code> 且查询强制过滤。</li>
+        <li>分片键：语义名 <code>tenant</code> / <code>date</code>；分片表预创建由定时任务维护（孤儿分片清理见规划）。</li>
+        <li>跨库查询禁止 JOIN，改服务层聚合或事件同步（见《<a href="../设计/架构设计/07-架构设计-子系统-多租户路由.html">多租户路由</a>》）。</li>
+      </ul>
+
+      <h2 id="perf">8. 性能要求</h2>
+      <ul>
+        <li>新增/修改查询需 EXPLAIN 确认走索引；禁止全表扫描的列表查询。</li>
+        <li>列表查询禁止 N+1（ORM 关系预加载 selectin/joinedload）。</li>
+        <li>批量写（导入、归档）分批提交（每批 ≤ 500 行），禁止单事务超大集合。</li>
+        <li>慢查询（> 1s）登记并优化；三库均开启慢查询日志（开发环境已配置）。</li>
+      </ul>
+
+      <h2 id="checklist">9. 检查清单</h2>
+      <ul>
+        <li>□ 表前缀/字段命名符合《命名规范》，含审计字段与 COMMENT</li>
+        <li>□ 字段类型三库通用，无方言专用类型</li>
+        <li>□ 索引命名与数量合规，无冗余索引</li>
+        <li>□ 结构变更已生成 Alembic 迁移并在三库通过</li>
+        <li>□ SQL 参数化、方言兼容、分页统一</li>
+        <li>□ 租户隔离与分片键处理正确，无跨库 JOIN</li>
+        <li>□ 列表查询无 N+1，EXPLAIN 走索引</li>
+      </ul>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 依《文档生成规范》编写 · 与《命名规范》《安全开发规范》配套 · 生成日期：2026-08-11
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>

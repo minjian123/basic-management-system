@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>安全开发规范</title>
+<style>
+  :root {
+    --bg: #f7f8fa;
+    --fg: #1f2328;
+    --muted: #57606a;
+    --border: #d0d7de;
+    --accent: #0969da;
+    --accent-bg: #ddf4ff;
+    --code-bg: #f6f8fa;
+    --warn-bg: #fff8c5;
+    --warn-border: #d4a72c;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+    line-height: 1.75;
+  }
+  .layout { display: flex; height: 100vh; overflow: hidden; }
+  .sidebar {
+    width: 280px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+  }
+  .sidebar .brand {
+    background: linear-gradient(135deg, #1f2328, #32383f);
+    color: #fff;
+    padding: 1.4rem 1.2rem 1.1rem;
+    border-bottom: 3px solid var(--accent);
+    flex-shrink: 0;
+  }
+  .sidebar .brand h1 { margin: 0 0 .35rem; font-size: 1.15rem; line-height: 1.4; }
+  .sidebar .brand p { margin: 0; color: #b6bec6; font-size: .78rem; }
+  .sidebar nav { padding: .8rem .6rem 1.5rem; font-size: .9rem; }
+  .sidebar nav ul { list-style: none; margin: 0; padding: 0; }
+  .sidebar nav li { margin: .15rem 0; }
+  .sidebar nav a {
+    display: block;
+    padding: .3rem .7rem;
+    border-radius: 5px;
+    color: var(--fg);
+    text-decoration: none;
+  }
+  .sidebar nav a:hover { background: var(--accent-bg); color: var(--accent); }
+  .sidebar nav .sub { padding-left: 1.6rem; font-size: .85rem; color: var(--muted); }
+  .content { flex: 1; overflow-y: auto; }
+  main {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1.5rem 2rem 4rem;
+  }
+  h2 {
+    margin-top: 2.5rem;
+    padding-bottom: .4rem;
+    border-bottom: 2px solid var(--border);
+    font-size: 1.35rem;
+  }
+  h3 { margin-top: 1.6rem; font-size: 1.1rem; }
+  p { margin: .6rem 0; }
+  ul, ol { margin: .6rem 0; padding-left: 1.6rem; }
+  li { margin: .3rem 0; }
+  code {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: .1em .35em;
+    font-family: Consolas, "Cascadia Mono", monospace;
+    font-size: .9em;
+  }
+  pre {
+    background: #0d1117;
+    color: #e6edf3;
+    border-radius: 8px;
+    padding: .9rem 1.1rem;
+    overflow-x: auto;
+    font-size: .88rem;
+    line-height: 1.6;
+  }
+  pre code { background: none; border: none; padding: 0; color: inherit; }
+  .note, .warn {
+    border-radius: 6px;
+    padding: .7rem 1rem;
+    margin: 1rem 0;
+    font-size: .95rem;
+  }
+  .note { background: var(--accent-bg); border-left: 4px solid var(--accent); }
+  .warn { background: var(--warn-bg); border-left: 4px solid var(--warn-border); }
+  .topnav {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: .4rem;
+    background: #fff;
+    border-bottom: 1px solid var(--border);
+    padding: .5rem 1rem;
+    font-size: .85rem;
+  }
+  .topnav .topnav-side { margin-left: auto; }
+  .topnav a { color: var(--accent); text-decoration: none; }
+  .topnav a:hover { text-decoration: underline; }
+  @media (max-width: 768px) {
+    .topnav .topnav-side { display: none; }
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1rem 0;
+    font-size: .92rem;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: .45rem .7rem;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: #eef1f4; white-space: nowrap; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  footer {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1rem 2rem 3rem;
+    color: var(--muted);
+    font-size: .85rem;
+    border-top: 1px solid var(--border);
+  }
+  @media (max-width: 768px) {
+    .layout { flex-direction: column; height: auto; overflow: visible; }
+    .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); max-height: 40vh; }
+    .content { overflow: visible; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topnav">
+  <a href="../文档首页.html">文档首页</a> ›
+  <a href="文档生成规范.html">规范</a> ›
+  <span>安全开发规范</span>
+  <span class="topnav-side">
+    <a href="API接口规范.html">← 上一个：API 接口</a>
+    <a href="测试规范.html">下一个：测试规范 →</a>
+  </span>
+</div>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>安全开发规范</h1>
+      <p>OWASP 基础 · 密钥与脱敏 · 审计与合规</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#purpose">1. 目的与适用范围</a></li>
+        <li><a href="#secret">2. 密钥与配置安全</a></li>
+        <li><a href="#auth">3. 认证与会话安全</a></li>
+        <li><a href="#inject">4. 注入与输入校验</a></li>
+        <li><a href="#web">5. Web 常见漏洞</a></li>
+        <li><a href="#mask">6. 敏感数据与脱敏</a></li>
+        <li><a href="#audit">7. 审计与合规</a></li>
+        <li><a href="#deps">8. 依赖与供应链</a></li>
+        <li><a href="#checklist">9. 检查清单</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="purpose">1. 目的与适用范围</h2>
+      <p>
+        约束 BMS 开发过程中的安全实践（参考 OWASP Top 10），覆盖密钥管理、认证授权、输入输出、审计合规，
+        支撑项目的审计合规与信创交付要求。涉及架构的安全机制见《<a href="../设计/架构设计/24-架构设计-性能与安全.html">性能与安全</a>》与《<a href="../规划/项目规划说明.md">项目规划说明</a>》「认证与安全」节。
+      </p>
+
+      <h2 id="secret">2. 密钥与配置安全</h2>
+      <ul>
+        <li>密钥（DB/Redis 密码、JWT secret、MinIO 凭据、第三方 API Key）<strong>只走环境变量</strong>（<code>BMS_</code> 前缀），不入代码、不入配置仓库、不入镜像。</li>
+        <li>仓库只提交 <code>.env.example</code>（键名模板）；真实 <code>.env</code> 加入 <code>.gitignore</code>（参考《<a href="../规划/开发部署规划.html">开发部署规划</a>》第 6 节）。</li>
+        <li>密码强度：数据库等 ≥ 12 位混合字符；生产密钥用 Secret 管理（K8s Secret / Docker secrets）。</li>
+        <li>令牌轮换：GitLab/GitHub PAT、开放接口 AppSecret 定期轮换；泄露立即撤销。</li>
+      </ul>
+
+      <h2 id="auth">3. 认证与会话安全</h2>
+      <ul>
+        <li>密码存储：bcrypt/argon2 哈希，禁止明文与 MD5/SHA1；登录防爆破（失败计数 + 锁定，见《<a href="../设计/概要设计/13-概要设计-会话管理.html">会话管理</a>》）。</li>
+        <li>双 token：access 短时（分钟级）+ refresh 长时（可吊销）；token 黑名单（登出/强踢）落 Redis。</li>
+        <li>会话：强制踢出广播「会话失效」事件；会话列表可管理（见《<a href="../设计/概要设计/13-概要设计-会话管理.html">会话管理</a>》）。</li>
+        <li>SSO：OIDC/CAS 对接遵循《<a href="../设计/概要设计/26-概要设计-身份认证SSO.html">身份认证SSO</a>》设计；JIT 建号校验域名/租户白名单。</li>
+        <li>接口鉴权用权限码（<code>业务:动作</code>），禁止仅靠路由隐藏（详见《<a href="API接口规范.html">API接口规范</a>》）。</li>
+      </ul>
+
+      <h2 id="inject">4. 注入与输入校验</h2>
+      <table>
+        <tr><th>风险</th><th>要求</th></tr>
+        <tr><td>SQL 注入</td><td>ORM 参数化，禁止字符串拼接 SQL；原生 SQL 必须绑定参数</td></tr>
+        <tr><td>命令注入</td><td>禁止 shell=True 拼接用户输入；文件操作白名单路径</td></tr>
+        <tr><td>XXE / 任意文件</td><td>XML 解析禁用外部实体；上传文件校验类型/大小/魔数，随机存储名</td></tr>
+        <tr><td>SSRF</td><td>URL 抓取类功能校验协议与目标（禁止内网段），开放接口重点排查</td></tr>
+        <tr><td>参数校验</td><td>Pydantic Schema 全量校验（类型/长度/枚举/格式），错误信息不泄露内部细节</td></tr>
+      </table>
+
+      <h2 id="web">5. Web 常见漏洞</h2>
+      <ul>
+        <li><strong>越权</strong>：接口必须做归属校验（资源属于当前租户/用户），CRUD 禁止仅凭 id 访问他人数据；越权用例入 CI（见《<a href="测试规范.html">测试规范</a>》）。</li>
+        <li><strong>XSS</strong>：前端框架默认转义，禁止 <code>v-html</code> 渲染不可信内容；富文本走白名单清洗。</li>
+        <li><strong>CSRF</strong>：前后端分离 + Bearer 令牌已天然免疫；Cookie 场景启用 SameSite/CSRF Token。</li>
+        <li><strong>上传安全</strong>：文件服务限类型/大小/数量，下载走鉴权 URL，禁目录穿越。</li>
+        <li><strong>安全响应头</strong>：nginx 统一 CSP、HSTS（dev 关）、X-Frame-Options、X-Content-Type-Options、Referrer-Policy、Permissions-Policy（见《<a href="../规划/开发部署规划.html">开发部署规划</a>》「基础设施编排」）。</li>
+      </ul>
+
+      <h2 id="mask">6. 敏感数据与脱敏</h2>
+      <ul>
+        <li>敏感字段（手机号、邮箱、身份证、银行卡、密码、token）出接口必须脱敏（掩码 <code>138****1234</code>）；脱敏规则配置化（见《<a href="../设计/概要设计/09-概要设计-系统参数.html">系统参数</a>》）。</li>
+        <li>日志、审计、导出文件同样脱敏；导出大文件记录审计。</li>
+        <li>密码/密钥类字段永不出现在响应与日志中（Pydantic 序列化排除）。</li>
+        <li>静态资源与 MinIO 对象按租户隔离（bucket 前缀，见《<a href="命名规范.html">命名规范</a>》）。</li>
+      </ul>
+
+      <h2 id="audit">7. 审计与合规</h2>
+      <ul>
+        <li>操作日志/登录日志/开放接口日志/数据变更日志四类审计（见《<a href="../设计/概要设计/28-概要设计-审计合规.html">审计合规</a>》），90 天归档策略。</li>
+        <li>审计日志防篡改：哈希链（见《<a href="../设计/架构设计/14-架构设计-子系统-审计哈希链.html">审计哈希链</a>》）。</li>
+        <li>管理员操作（授权、导出、删除、改密）必须留痕；解锁/锁定账号记录审计。</li>
+        <li>合规：信创交付注意达梦等组件许可合规（见《<a href="../规划/项目规划说明.md">项目规划说明</a>》许可章节）。</li>
+      </ul>
+
+      <h2 id="deps">8. 依赖与供应链</h2>
+      <ul>
+        <li>依赖锁定版本（uv.lock / package-lock.json），Renovate 自动升级并提 MR（见《<a href="../规划/开发部署规划.html">开发部署规划</a>》第 7 节）。</li>
+        <li>CI 集成依赖漏洞扫描（GitLab Dependency Scanning），高危漏洞阻断合入。</li>
+        <li>禁止引入来源不明的第三方包；内网环境拉取依赖走国内镜像。</li>
+      </ul>
+
+      <h2 id="checklist">9. 检查清单</h2>
+      <ul>
+        <li>□ 无密钥/凭据入代码、入库、入镜像；环境变量 <code>BMS_</code> 前缀</li>
+        <li>□ 密码 bcrypt/argon2，接口鉴权权限码完备</li>
+        <li>□ SQL/命令/文件/URL 均参数化或白名单</li>
+        <li>□ 接口归属校验（越权防护），敏感字段脱敏</li>
+        <li>□ 上传与下载安全，安全响应头就位</li>
+        <li>□ 审计日志覆盖敏感操作且防篡改</li>
+        <li>□ 依赖版本锁定 + 漏洞扫描无高危</li>
+      </ul>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 依《文档生成规范》编写 · 与《API接口规范》《测试规范》配套 · 生成日期：2026-08-11
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>
