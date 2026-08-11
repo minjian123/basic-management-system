@@ -4,148 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>文档生成规范</title>
-<style>
-  :root {
-    --bg: #f7f8fa;
-    --fg: #1f2328;
-    --muted: #57606a;
-    --border: #d0d7de;
-    --accent: #0969da;
-    --accent-bg: #ddf4ff;
-    --code-bg: #f6f8fa;
-    --warn-bg: #fff8c5;
-    --warn-border: #d4a72c;
-  }
-  * { box-sizing: border-box; }
-  html, body { height: 100%; }
-  body {
-    margin: 0;
-    background: var(--bg);
-    color: var(--fg);
-    font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
-    line-height: 1.75;
-  }
-  .layout { display: flex; height: 100vh; overflow: hidden; }
-  .sidebar {
-    width: 280px;
-    flex-shrink: 0;
-    display: flex;
-    flex-direction: column;
-    background: #fff;
-    border-right: 1px solid var(--border);
-    overflow-y: auto;
-  }
-  .sidebar .brand {
-    background: linear-gradient(135deg, #1f2328, #32383f);
-    color: #fff;
-    padding: 1.4rem 1.2rem 1.1rem;
-    border-bottom: 3px solid var(--accent);
-    flex-shrink: 0;
-  }
-  .sidebar .brand h1 { margin: 0 0 .35rem; font-size: 1.15rem; line-height: 1.4; }
-  .sidebar .brand p { margin: 0; color: #b6bec6; font-size: .78rem; }
-  .sidebar nav { padding: .8rem .6rem 1.5rem; font-size: .9rem; }
-  .sidebar nav ul { list-style: none; margin: 0; padding: 0; }
-  .sidebar nav li { margin: .15rem 0; }
-  .sidebar nav a {
-    display: block;
-    padding: .3rem .7rem;
-    border-radius: 5px;
-    color: var(--fg);
-    text-decoration: none;
-  }
-  .sidebar nav a:hover { background: var(--accent-bg); color: var(--accent); }
-  .sidebar nav .sub { padding-left: 1.6rem; font-size: .85rem; color: var(--muted); }
-  .content { flex: 1; overflow-y: auto; }
-  main {
-    max-width: 960px;
-    margin: 0 auto;
-    padding: 1.5rem 2rem 4rem;
-  }
-  h2 {
-    margin-top: 2.5rem;
-    padding-bottom: .4rem;
-    border-bottom: 2px solid var(--border);
-    font-size: 1.35rem;
-  }
-  h3 { margin-top: 1.6rem; font-size: 1.1rem; }
-  p { margin: .6rem 0; }
-  ul, ol { margin: .6rem 0; padding-left: 1.6rem; }
-  li { margin: .3rem 0; }
-  code {
-    background: var(--code-bg);
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    padding: .1em .35em;
-    font-family: Consolas, "Cascadia Mono", monospace;
-    font-size: .9em;
-  }
-  pre {
-    background: #0d1117;
-    color: #e6edf3;
-    border-radius: 8px;
-    padding: .9rem 1.1rem;
-    overflow-x: auto;
-    font-size: .88rem;
-    line-height: 1.6;
-  }
-  pre code { background: none; border: none; padding: 0; color: inherit; }
-  .note, .warn {
-    border-radius: 6px;
-    padding: .7rem 1rem;
-    margin: 1rem 0;
-    font-size: .95rem;
-  }
-  .note { background: var(--accent-bg); border-left: 4px solid var(--accent); }
-  .warn { background: var(--warn-bg); border-left: 4px solid var(--warn-border); }
-  .topnav {
-    position: sticky;
-    top: 0;
-    z-index: 10;
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: .4rem;
-    background: #fff;
-    border-bottom: 1px solid var(--border);
-    padding: .5rem 1rem;
-    font-size: .85rem;
-  }
-  .topnav .topnav-side { margin-left: auto; }
-  .topnav a { color: var(--accent); text-decoration: none; }
-  .topnav a:hover { text-decoration: underline; }
-  @media (max-width: 768px) {
-    .topnav .topnav-side { display: none; }
-  }
-  table {
-    border-collapse: collapse;
-    width: 100%;
-    margin: 1rem 0;
-    font-size: .92rem;
-  }
-  th, td {
-    border: 1px solid var(--border);
-    padding: .45rem .7rem;
-    text-align: left;
-    vertical-align: top;
-  }
-  th { background: #eef1f4; white-space: nowrap; }
-  a { color: var(--accent); text-decoration: none; }
-  a:hover { text-decoration: underline; }
-  footer {
-    max-width: 960px;
-    margin: 0 auto;
-    padding: 1rem 2rem 3rem;
-    color: var(--muted);
-    font-size: .85rem;
-    border-top: 1px solid var(--border);
-  }
-  @media (max-width: 768px) {
-    .layout { flex-direction: column; height: auto; overflow: visible; }
-    .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); max-height: 40vh; }
-    .content { overflow: visible; }
-  }
-</style>
+<link rel="stylesheet" href="../资源/文档样式.css">
 </head>
 <body>
 
@@ -234,6 +93,7 @@
         <li>例：<code>文档/资料/graphify部署使用说明.html</code> 的图片放在 <code>文档/资料/资源/graphify部署使用说明/</code>。</li>
         <li>子目录名与文档主文件名保持一致（不含扩展名），便于关联与清理。</li>
         <li>引用时使用相对路径（<code>资源/文档名/xxx.png</code>），保证目录整体迁移后仍可显示。</li>
+        <li><strong>公共资源</strong>（全站共享，非单文档专属）：直接放 <code>文档/资源/</code> 根下，如公共样式 <code>资源/文档样式.css</code>（见第 7.2 节），各文档按相对深度引用。</li>
         <li>无资源依赖时不要创建空的资源目录；优先使用纯 CSS 方案（图标、分隔线等），减少外部文件。</li>
       </ul>
 
@@ -264,12 +124,23 @@
         <li>目录含两级结构（章节 + 子节），点击锚点跳转，当前阅读位置无需翻回顶部即可切换章节。</li>
       </ul>
 
-      <h3 id="self-contained">7.2 自包含性</h3>
+      <h3 id="self-contained">7.2 公共样式共享</h3>
       <ul>
-        <li>CSS 全部内联在 <code>&lt;style&gt;</code> 中，不依赖外链样式表、CDN 或字体。</li>
+        <li>全部文档<strong>不再内联 CSS</strong>，统一引用公共样式文件 <code>资源/文档样式.css</code>（位于 <code>文档/资源/</code>），仅保留一行 <code>&lt;link&gt;</code>，避免每份文档重复携带样式。</li>
+        <li>引用写法（相对路径，按文档所在层级）：</li>
+      </ul>
+      <pre><code>&lt;!-- 文档/ 根级（如文档首页） --&gt;
+&lt;link rel="stylesheet" href="资源/文档样式.css"&gt;
+&lt;!-- 文档/一级子目录/（规范、规划、资料） --&gt;
+&lt;link rel="stylesheet" href="../资源/文档样式.css"&gt;
+&lt;!-- 文档/二级子目录/（资料/开发服务器、设计/架构设计 等） --&gt;
+&lt;link rel="stylesheet" href="../../资源/文档样式.css"&gt;</code></pre>
+      <ul>
+        <li>公共样式覆盖全部通用组件（布局、导航、表格、代码块、note/warn 等）；<strong>布局示意图</strong>（diagram 系列，布局设计文档用）与<strong>窄图变体</strong>（<code>diagram-mobile</code>）已内置。</li>
+        <li>新增通用样式（多个文档复用）时：先加入 <code>文档样式.css</code>，再在各文档使用；<strong>仅单个文档使用</strong>的私有样式才允许内联 <code>&lt;style&gt;</code>。</li>
         <li>不使用 JavaScript（除非交互必需）；锚点跳转靠原生 <code>id</code> 实现。</li>
-        <li>中文字体栈：<code>"Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif</code>；代码字体：<code>Consolas, "Cascadia Mono", monospace</code>。</li>
-        <li>配色使用统一的 CSS 变量（<code>--accent</code>、<code>--border</code> 等），全站风格一致。</li>
+        <li>中文字体栈：<code>"Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif</code>；代码字体：<code>Consolas, "Cascadia Mono", monospace</code>（已含于公共样式）。</li>
+        <li>配色使用统一的 CSS 变量（<code>--accent</code>、<code>--border</code> 等），全站风格一致（已含于公共样式）。</li>
       </ul>
 
       <h3 id="anchors">7.3 锚点导航</h3>
@@ -326,7 +197,7 @@
             <li>□ 左侧目录与正文标题、编号完全一致</li>
             <li>□ 所有锚点链接可跳转（点击验证）</li>
             <li>□ 代码块可完整复制，Windows 路径正确</li>
-            <li>□ 无外链 CSS / JS / 字体，无失效相对路径</li>
+            <li>□ 已引用公共样式 <code>资源/文档样式.css</code>（相对路径正确，无失效路径），无内联大段样式（仅单文档私有样式可内联）</li>
             <li>□ 若引用了图片等资源，已放入「资源/同名子目录」</li>
             <li>□ 文件与标题命名符合本文档第 5 节及《命名规范》</li>
             <li>□ 中文通顺，无 AI 味措辞</li>
