@@ -199,6 +199,7 @@ graph TD
 &lt;script src="../../资源/mermaid-init.js"&gt;&lt;/script&gt;</code></pre>
           <code>mermaid.min.js</code>（UMD 版，约 2.5MB）与 <code>mermaid-init.js</code>（全局初始化配置：字号/线色/字体，保证全站图样式统一）放 <code>文档/资源/</code> 共享，本地 file:// 打开亦可渲染；不得引用外部 CDN（离线不可用）。</li>
         <li><strong>时序图语法</strong>：<code>sequenceDiagram</code>，<code>participant</code> 声明参与者（中文名直接写，含特殊字符用 <code>as</code> 起别名），实线 <code>-&gt;&gt;</code>、返回虚线 <code>--&gt;&gt;</code>、注释 <code>Note over</code>；消息文本内避免 <code>&lt;</code> <code>&gt;</code>（需写为 <code>&amp;lt;</code> <code>&amp;gt;</code>）。</li>
+        <li><strong>flowchart 注意</strong>：节点文本用 <code>["..."]</code> 引号包裹（含 <code>/</code>、<code>:</code>、括号等字符时必需）；<strong>边标签 <code>|...|</code> 内出现花括号 <code>{}</code>（如 <code>bms:{tenant}:i18n:{locale}</code>）必须用双引号包裹整个标签</code></code></li>
         <li>时序图的语义必须完整保留：消息名、方向（发送/返回）、条件分支、数据流；纯命令/配置代码块保持 <code>&lt;pre&gt;&lt;code&gt;</code> 不动。</li>
         <li>布局设计类文档的线框示意图（主框架、移动端）继续使用 <code>diagram</code> / <code>diagram-mobile</code> CSS 系列，不适用 mermaid。</li>
       </ul>
