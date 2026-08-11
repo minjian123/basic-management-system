@@ -91,23 +91,19 @@
       </ol>
 
       <h2 id="timing">3. 关键时序与协作</h2>
-      <pre><code>管理员                会话管理服务              Redis               sys_session        Socket.IO
-  │   POST /sessions/{id}/kick   │                  │                  │                  │
-  │─────────────────────────────>│                  │                  │                  │
-  │                              │ 校验 session:kick │                  │                  │
-  │                              │───────────────────                  │                  │
-  │                              │ 黑名单 jti（SET）                     │                  │
-  │                              │──────────────────>│                  │                  │
-  │                              │ 删除 bms:{t}:sess:{sid}              │                  │
-  │                              │──────────────────>│                  │                  │
-  │                              │ 更新 revoked_at                       │                  │
-  │                              │─────────────────────────────────────>│                  │
-  │                              │ 广播 session.revoked（目标会话）        │                  │
-  │                              │──────────────────────────────────────────────────────>│
-  │                              │                                         被踢端立即断开实时连接 │
-  │   <──────────────────────────┤                                                       │
-  │   返回成功（被踢端下一 HTTP 请求被拦截，即时生效）                                        │
-</code></pre>
+      <div class="seq">
+        <table>
+          <tr><th>管理员</th><th>会话管理服务</th><th>Redis</th><th>sys_session</th><th>Socket.IO</th></tr>
+          <tr><td class="s-arrow">POST /sessions/{id}/kick →</td><td></td><td></td><td></td><td></td></tr>
+          <tr><td></td><td class="s-arrow">校验 session:kick（内部）</td><td></td><td></td><td></td></tr>
+          <tr><td></td><td class="s-arrow">黑名单 jti（SET）→</td><td>SET bms:global:token:blacklist:{jti}</td><td></td><td></td></tr>
+          <tr><td></td><td class="s-arrow">删除会话标记 →</td><td>DEL bms:{tenant}:sess:{session_id}</td><td></td><td></td></tr>
+          <tr><td></td><td class="s-arrow">更新 revoked_at →</td><td></td><td>UPDATE sys_session.revoked_at</td><td></td></tr>
+          <tr><td></td><td class="s-arrow">广播 session.revoked →</td><td></td><td></td><td>目标会话全部连接</td></tr>
+          <tr><td></td><td></td><td></td><td></td><td>被踢端立即断开实时连接</td></tr>
+          <tr><td></td><td class="s-arrow">← 返回成功（被踢端下一 HTTP 请求被拦截，即时生效）</td><td></td><td></td><td></td></tr>
+        </table>
+      </div>
       <p>
         协作要点：HTTP 侧拦截不依赖广播——被踢端携带的 access token 每次请求都校验 Redis 会话标记
         （每请求一次 Redis 读，毫秒级），标记删除后下一请求即拒绝（401 且不触发静默刷新）；Socket.IO 广播仅用于

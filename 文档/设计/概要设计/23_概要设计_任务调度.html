@@ -82,20 +82,21 @@
       </ol>
 
       <h2 id="sequence">3. 关键时序与协作</h2>
-      <pre><code>任务定义变更（页面）          beat 调度器                worker                 DB / Redis / MQ
-      |                          |                          |                      |
-      |-- CRUD/启停 API ---------&gt;|                          |                      |
-      |                          |-- Redis pub/sub 变更通知--|                      |
-      |                          |-- 重载任务列表 -----------|                      |
-      |                          |-- 周期扫描（cron 计算）---|                      |
-      |                          |-- 到期投递 (Redis broker)-&gt;|                     |
-      |                          |-- 更新 last_run_at ------|--&gt; sys_task         |
-      |                          |                          |-- 执行               |
-      |                          |                          |-- 成功/失败 ---------&gt; sys_task_log |
-      |                          |                          |-- 失败有限次重试      |
-      |                          |&lt;-- task.completed 事件 ---|                      |
-      |                          |                          |--&gt; RocketMQ（事件总线）|
-      </code></pre>
+      <div class="seq">
+        <table>
+          <tr><th>任务定义变更（页面）</th><th>beat 调度器</th><th>worker</th><th>DB / Redis / MQ</th><th>RocketMQ（事件总线）</th></tr>
+          <tr><td class="s-arrow">CRUD/启停 API →</td><td></td><td></td><td></td><td></td></tr>
+          <tr><td></td><td class="s-arrow">Redis pub/sub 变更通知 →</td><td>重载任务列表</td><td></td><td></td></tr>
+          <tr><td></td><td class="s-note">周期扫描（cron 计算）</td><td></td><td></td><td></td></tr>
+          <tr><td></td><td class="s-arrow">到期投递（Redis broker）→</td><td></td><td></td><td></td></tr>
+          <tr><td></td><td></td><td class="s-arrow">更新 last_run_at →</td><td>sys_task</td><td></td></tr>
+          <tr><td></td><td></td><td class="s-note">执行</td><td></td><td></td></tr>
+          <tr><td></td><td></td><td class="s-arrow">成功/失败 →</td><td>sys_task_log</td><td></td></tr>
+          <tr><td></td><td></td><td class="s-note">失败有限次重试</td><td></td><td></td></tr>
+          <tr><td></td><td></td><td class="s-arrow">← task.completed 事件</td><td></td><td></td></tr>
+          <tr><td></td><td></td><td class="s-arrow">发布事件 →</td><td></td><td>RocketMQ（事件总线）</td></tr>
+        </table>
+      </div>
       <ul>
         <li><strong>与缓存协作</strong>：分布式锁、pub/sub 变更通知走 Redis（key 前缀 <code>bms:global:</code>，锁 TTL 与 beat 心跳对齐）</li>
         <li><strong>与消息队列协作</strong>：任务队列走 Redis broker；执行完成事件经 RocketMQ 事件总线发布（task.completed，Webhook 默认不可订阅）——两套通道互不干扰</li>

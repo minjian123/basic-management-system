@@ -111,31 +111,46 @@
       <h2 id="sequence">3. 关键时序与协作</h2>
 
       <h3 id="sequence-write">3.1 审计写入与链序保证</h3>
-      <pre><code>业务模块 ──写事务提交──► ORM 事件捕获字段旧值/新值
-     │
-     │ 发布审计事件（table_name/record_id/field/old/new/operator_id）
-     ▼
-RocketMQ 事件总线（分区键 = 租户，分区有序消息）
-     │
-     ▼
-event-worker 消费者（同租户串行追加，保证 prev_hash 衔接）
-     │ 读当月分片表末条 record_hash 作为 prev_hash
-     │ record_hash = SHA256(prev_hash + 规范化记录内容)
-     ▼
-sys_data_audit_log_yyyyMM（按月分片，新月份表由 Celery 预创建）</code></pre>
+      <div class="layer">
+        <div class="l-box">
+          <div class="l-title">业务模块</div>
+          <div class="l-sub">写事务提交 → ORM 事件捕获字段旧值/新值 → 发布审计事件（table_name/record_id/field/old/new/operator_id）</div>
+        </div>
+        <div class="l-arrow">▼</div>
+        <div class="l-box">
+          <div class="l-title">RocketMQ 事件总线</div>
+          <div class="l-sub">分区键 = 租户，分区有序消息</div>
+        </div>
+        <div class="l-arrow">▼</div>
+        <div class="l-box">
+          <div class="l-title">event-worker 消费者</div>
+          <div class="l-sub">同租户串行追加，保证 prev_hash 衔接；读当月分片表末条 record_hash 作为 prev_hash；record_hash = SHA256(prev_hash + 规范化记录内容)</div>
+        </div>
+        <div class="l-arrow">▼</div>
+        <div class="l-box">
+          <div class="l-title">sys_data_audit_log_yyyyMM</div>
+          <div class="l-sub">按月分片，新月份表由 Celery 预创建</div>
+        </div>
+      </div>
       <p>与缓存/任务队列协作：审计写入全程不读缓存、不经过 Redis（避免缓存引入链序不确定）；Celery 承担分片表预创建与链校验巡检任务；链校验结果与异常告警接入系统监控（Alertmanager）。</p>
 
       <h3 id="sequence-verify">3.2 链校验与归档衔接</h3>
-      <pre><code>审计管理员 ──触发链校验（页面/内置任务）──► 链校验工具
-     │ 逐条重算 record_hash、prev_hash 比对
-     ├─ 通过 ──► 校验结果正常（记录巡检日志）
-     └─ 异常 ──► 定位被篡改记录 + 告警接入系统监控
-
-归档管理模块 ──执行归档批次──► 归档前置校验：链完整方可归档
-     │
-     ├─ 通过 ──► 两段式归档（热表 → 归档库 bms_archive → MinIO）
-     │          哈希链随归档导出（含链头尾哈希），供事后独立校验
-     └─ 不通过 ─► 中止归档，返回链异常明细，归档记录标记失败</code></pre>
+      <div class="layer">
+        <div class="l-row">
+          <div class="l-box">
+            <div class="l-title">链校验通道</div>
+            <div class="l-sub">审计管理员 → 触发链校验（页面/内置任务）→ 链校验工具：逐条重算 record_hash、prev_hash 比对</div>
+            <div class="l-sub">├─ 通过 → 校验结果正常（记录巡检日志）</div>
+            <div class="l-sub">└─ 异常 → 定位被篡改记录 + 告警接入系统监控</div>
+          </div>
+          <div class="l-box">
+            <div class="l-title">归档衔接通道</div>
+            <div class="l-sub">归档管理模块 → 执行归档批次 → 归档前置校验：链完整方可归档</div>
+            <div class="l-sub">├─ 通过 → 两段式归档（热表 → 归档库 bms_archive → MinIO）；哈希链随归档导出（含链头尾哈希），供事后独立校验</div>
+            <div class="l-sub">└─ 不通过 → 中止归档，返回链异常明细，归档记录标记失败</div>
+          </div>
+        </div>
+      </div>
 
       <h2 id="data">4. 数据模型与表设计</h2>
       <p>核心表：<code>sys_data_audit_log</code>（租户库，按月分片，物理表名带 yyyyMM 后缀，逻辑表名不带后缀）。审计数据物理保留、不做软删除，统一 UTC 时间存储，雪花 ID 主键。</p>

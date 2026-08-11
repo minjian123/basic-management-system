@@ -96,16 +96,23 @@
       </ol>
 
       <h2 id="sequence">3. 关键时序与协作</h2>
-      <pre><code>事件推送主链路：
-  业务模块 ──发布事件（事务消息，event_id 幂等键）──▶ RocketMQ 事件总线
-      RocketMQ ──Webhook 推送组并行消费──▶ 按订阅 events 匹配
-      推送组 ──HTTP POST（HMAC 签名）──▶ 外部订阅 URL
-      推送组 ──写推送记录──▶ sys_webhook_log（status/retry_count/next_retry_at/error_msg）
-      推送失败 ──指数退避重试（有限次）──▶ 重试耗尽标记失败 ──▶ 告警（Alertmanager）
-
-手动重试：
-  Webhook 管理页 ──查看失败推送──▶ sys_webhook_log
-  管理页 ──手动重试──▶ 推送组重新推送 ──▶ 外部 URL ──结果更新──▶ sys_webhook_log</code></pre>
+      <div class="seq">
+        <table>
+          <tr><th>业务模块</th><th>RocketMQ 事件总线</th><th>Webhook 推送组</th><th>外部订阅 URL</th><th>sys_webhook_log</th><th>告警（Alertmanager）</th><th>Webhook 管理页</th></tr>
+          <tr><td colspan="7" class="s-note">事件推送主链路</td></tr>
+          <tr><td class="s-arrow">发布事件（事务消息，event_id 幂等键）→</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+          <tr><td></td><td class="s-arrow">Webhook 推送组并行消费 →</td><td>按订阅 events 匹配</td><td></td><td></td><td></td><td></td></tr>
+          <tr><td></td><td></td><td class="s-arrow">HTTP POST（HMAC 签名）→</td><td></td><td></td><td></td><td></td></tr>
+          <tr><td></td><td></td><td class="s-arrow">写推送记录 →</td><td></td><td>status/retry_count/next_retry_at/error_msg</td><td></td><td></td></tr>
+          <tr><td colspan="7" class="s-note">推送失败：指数退避重试（有限次）</td></tr>
+          <tr><td></td><td></td><td class="s-arrow">重试耗尽标记失败 → 告警 →</td><td></td><td></td><td></td><td></td></tr>
+          <tr><td colspan="7" class="s-note">手动重试</td></tr>
+          <tr><td></td><td></td><td></td><td></td><td></td><td></td><td class="s-arrow">查看失败推送 →</td></tr>
+          <tr><td></td><td></td><td></td><td></td><td></td><td></td><td class="s-arrow">手动重试 →</td></tr>
+          <tr><td></td><td></td><td class="s-arrow">重新推送 →</td><td></td><td></td><td></td><td></td></tr>
+          <tr><td></td><td></td><td class="s-arrow">结果更新 →</td><td></td><td></td><td></td><td></td></tr>
+        </table>
+      </div>
       <p>
         与事件总线协作要点：Webhook 推送组为并行消费组，与审计链组（分区有序）互不影响；消费失败指数退避重试（有限次）后转死信 topic 落库标记，监控告警人工介入。
         与监控协作要点：推送失败率、积压量纳入监控指标与告警渠道。

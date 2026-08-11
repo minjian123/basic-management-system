@@ -117,31 +117,42 @@
       <h2 id="sequence">3. 关键时序与协作</h2>
 
       <h3 id="sequence-messages">3.1 语言包运行时下发</h3>
-      <pre><code>前端（vue-i18n 初始化）
-     │ GET /api/v1/i18n/messages?locale=zh-CN
-     ▼
-后端 i18n 接口
-     │ 1) 查 Redis 缓存（键含 locale 维度，bms:{tenant}:i18n:{locale}）
-     ├─ 命中 ──► 直接返回语言包
-     └─ 未命中 ─► 查 sys_i18n_message（msg_key + locale）→ 回写 Redis（短 TTL）
-     ▼
-前端：localStorage 二次缓存 → vue-i18n 注入语言包渲染
-     │ 语言包维护页面保存 → 失效 Redis 缓存 → 下次请求重新下发</code></pre>
+      <div class="layer">
+        <div class="l-box">
+          <div class="l-title">前端（vue-i18n 初始化）</div>
+          <div class="l-sub">GET /api/v1/i18n/messages?locale=zh-CN</div>
+        </div>
+        <div class="l-arrow">▼</div>
+        <div class="l-box">
+          <div class="l-title">后端 i18n 接口</div>
+          <div class="l-sub">1) 查 Redis 缓存（键含 locale 维度，bms:{tenant}:i18n:{locale}）</div>
+          <div class="l-sub">├─ 命中 → 直接返回语言包</div>
+          <div class="l-sub">└─ 未命中 → 查 sys_i18n_message（msg_key + locale）→ 回写 Redis（短 TTL）</div>
+        </div>
+        <div class="l-arrow">▼</div>
+        <div class="l-box">
+          <div class="l-title">前端渲染</div>
+          <div class="l-sub">localStorage 二次缓存 → vue-i18n 注入语言包渲染；语言包维护页面保存 → 失效 Redis 缓存 → 下次请求重新下发</div>
+        </div>
+      </div>
 
       <h3 id="sequence-runtime">3.2 业务文案与通知渲染</h3>
-      <pre><code>动态菜单接口（按用户权限计算菜单树）
-     │ 按当前 locale 关联 sys_menu_i18n
-     └─► 返回翻译文案（缺省回退主表默认文案）→ 前端动态路由与侧边栏
-
-通知/邮件发送链路（邮件通知模块）
-     │ 按收件人 locale（sys_user.locale）→ gettext 翻译运行时内容
-     │ 邮件模板多语言走 sys_mail_template_i18n（subject、content）
-     └─► 审批提醒/告警通知按收件人语言送达
-
-展示层
-     │ 时间字段（UTC 存储）→ 按 sys_user.timezone 格式化（Intl API）
-     │ 数字/日期格式经 Intl API 本地化；RTL 语言由 sys_i18n_locale.rtl 驱动布局切换
-     └─► 用户偏好时区/语言展示</code></pre>
+      <div class="layer">
+        <div class="l-row">
+          <div class="l-box">
+            <div class="l-title">动态菜单接口</div>
+            <div class="l-sub">按用户权限计算菜单树 → 按当前 locale 关联 sys_menu_i18n → 返回翻译文案（缺省回退主表默认文案）→ 前端动态路由与侧边栏</div>
+          </div>
+          <div class="l-box">
+            <div class="l-title">通知/邮件发送链路（邮件通知模块）</div>
+            <div class="l-sub">按收件人 locale（sys_user.locale）→ gettext 翻译运行时内容；邮件模板多语言走 sys_mail_template_i18n（subject、content）→ 审批提醒/告警通知按收件人语言送达</div>
+          </div>
+          <div class="l-box">
+            <div class="l-title">展示层</div>
+            <div class="l-sub">时间字段（UTC 存储）→ 按 sys_user.timezone 格式化（Intl API）；数字/日期格式经 Intl API 本地化；RTL 语言由 sys_i18n_locale.rtl 驱动布局切换 → 用户偏好时区/语言展示</div>
+          </div>
+        </div>
+      </div>
 
       <h2 id="data">4. 数据模型与表设计</h2>
       <p>核心表：<code>sys_i18n_locale</code>（语言清单）、<code>sys_i18n_message</code>（固定文案语言包），均位于租户库；i18n 附表与主表同库（联合主键）。</p>

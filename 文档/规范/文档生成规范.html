@@ -40,6 +40,7 @@
             <li><a href="#responsive">7.4 移动端适配</a></li>
             <li><a href="#topnav">7.5 顶部导航栏</a></li>
             <li><a href="#related-links">7.6 关联文档链接</a></li>
+            <li><a href="#diagrams">7.7 图形与示意图</a></li>
           </ul>
         </li>
         <li><a href="#flow">8. 生成流程与检查清单</a></li>
@@ -79,12 +80,22 @@
       <div class="note">判断依据：文档内容来源。AI 全新撰写 → html；在既有 md 上修改 → 保持 md。</div>
 
       <h2 id="structure">3. 目录结构</h2>
-      <pre><code>文档/
-├── 规划/       # 项目规划、技术选型说明（用户 md）
-├── 规范/       # 各类规范文档（文档生成规范、命名规范等）
-├── 资料/       # 参考资料、工具说明、AI 生成的各类文档
-│   └── 资源/   # 图片、音频、视频等资源文件（见第 4 节）
-└── 其他主题目录 # 按需新增，语义清晰即可</code></pre>
+      <div class="tree">
+        <ul>
+          <li>文档/
+            <ul>
+              <li>规划/ <span class="t-note">项目规划、技术选型说明（用户 md）</span></li>
+              <li>规范/ <span class="t-note">各类规范文档（文档生成规范、命名规范等）</span></li>
+              <li>资料/ <span class="t-note">参考资料、工具说明、AI 生成的各类文档</span>
+                <ul>
+                  <li>资源/ <span class="t-note">图片、音频、视频等资源文件（见第 4 节）</span></li>
+                </ul>
+              </li>
+              <li>其他主题目录 <span class="t-note">按需新增，语义清晰即可</span></li>
+            </ul>
+          </li>
+        </ul>
+      </div>
       <p>新增主题目录时遵循「功能即名字」原则，目录名用中文、简短、无歧义。</p>
 
       <h2 id="resources">4. 资源文件管理</h2>
@@ -171,7 +182,7 @@
       <pre><code>&lt;div class="topnav"&gt;
   &lt;a href="../文档首页.html"&gt;文档首页&lt;/a&gt; ›
   &lt;a href="../设计/架构设计/01_架构设计_总览.html"&gt;架构设计&lt;/a&gt; ›
-  &lt;span&gt;05-数据架构&lt;/span&gt;
+  &lt;span&gt;05_架构设计_数据架构&lt;/span&gt;
   &lt;span class="topnav-side"&gt;
     &lt;a href="../设计/架构设计/04_架构设计_核心交互时序.html"&gt;← 上一页&lt;/a&gt;
     &lt;a href="../设计/架构设计/06_架构设计_接口与集成.html"&gt;下一页 →&lt;/a&gt;
@@ -186,6 +197,21 @@
         <li>检查标准：正文中出现「《xxx》」或「xxx 文档」字样的首次位置应能点击跳转；生成后逐个点击验证。</li>
       </ul>
       <div class="note">本规范自身即遵循此条：正文首次提及《命名规范》处（第 5 节）即提供相对路径链接。</div>
+
+      <h3 id="diagrams">7.7 图形与示意图</h3>
+      <ul>
+        <li><strong>禁止用 Markdown / ASCII 方式画图</strong>：HTML 文档中不得使用 <code>&lt;pre&gt;&lt;code&gt;</code> 代码块内嵌框线字符（<code>┌┐└┘├┤│─═</code>）绘制时序图、流程图、架构图、目录树等图形（如 <code>|------&gt;|</code> 消息线、<code>├──</code> 树分支）。<code>&lt;pre&gt;&lt;code&gt;</code> 仅用于命令、配置、代码等<strong>可复制文本</strong>。</li>
+        <li><strong>统一使用 HTML 结构图</strong>，公共样式 <code>文档样式.css</code> 已内置三类通用图样式（2026-08-11 起全站应用）：
+          <ul>
+            <li><strong>时序图</strong> <code>&lt;div class="seq"&gt;</code> + <code>&lt;table&gt;</code>：表头 <code>&lt;th&gt;</code> 为参与者列，每行一个消息，发送方单元格 <code>class="s-arrow"</code>（内容带 <code>→</code>），返回用 <code>←</code>，注释/条件分支用 <code>class="s-note"</code>（<code>colspan</code> 全宽行）。</li>
+            <li><strong>树状 / 目录 / 拓扑图</strong> <code>&lt;div class="tree"&gt;</code> + 嵌套 <code>&lt;ul&gt;&lt;li&gt;</code>：节点注释用 <code>&lt;span class="t-note"&gt;</code>。</li>
+            <li><strong>分层 / 流程示意图</strong> <code>&lt;div class="layer"&gt;</code>：层盒 <code>class="l-box"</code>（标题 <code>l-title</code>、说明 <code>l-sub</code>）、连接箭头 <code>class="l-arrow"</code>（<code>▼</code>）、并排盒 <code>class="l-row"</code>。</li>
+          </ul>
+        </li>
+        <li>布局设计类文档继续使用 <code>diagram</code> / <code>diagram-mobile</code> 系列（线框示意图专用）。</li>
+        <li>图内箭头统一用全角 <code>→</code> / <code>←</code>，避免半角 <code>&gt;</code> 触发 HTML 转义问题。</li>
+        <li>图的语义必须完整保留：消息名、条件分支、数据流、节点注释等不得在转换中丢失；纯命令/配置代码块保持 <code>&lt;pre&gt;&lt;code&gt;</code> 不动。</li>
+      </ul>
 
       <h2 id="flow">8. 生成流程与检查清单</h2>
       <ol>
@@ -202,6 +228,7 @@
             <li>□ 文件与标题命名符合本文档第 5 节及《命名规范》</li>
             <li>□ 中文通顺，无 AI 味措辞</li>
             <li>□ 顶部导航栏存在，面包屑与同级链接均有效</li>
+            <li>□ 图形使用 HTML 结构图（seq/tree/layer/diagram），无 ASCII 框线图（7.7 节）</li>
             <li>□ 提及的关联文档均提供可点击链接（相对路径），首次提及处可跳转</li>
           </ul>
         </li>

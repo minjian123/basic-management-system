@@ -120,17 +120,20 @@
       </ol>
 
       <h2 id="sequence">3. 关键时序与协作</h2>
-      <pre><code>平台超管      菜单服务        DB(平台库)      缓存       前端        AI 帮助
-  | 维护菜单/表单 |              |             |          |            |
-  |-------------&gt;| 挂接校验+写入 |             |          |            |
-  |              |-------------&gt;| 变更菜单/表单/按钮/字段           |
-  |              |             |-------------&gt;| 失效菜单树缓存 |
-  |              | 发布事件      |             |          |            |
-  |              |-----------------------------------|------------&gt;| form.updated
-  |              |             |             |          |            |
-  |  用户访问     |             |             |          |            |
-  |              | GET /menus/my |             |          |            |
-  |              |&lt;---------------------------|---------&gt;| 过滤+元数据 | 注册路由/侧边栏</code></pre>
+      <div class="seq">
+        <table>
+          <tr><th>平台超管</th><th>菜单服务</th><th>DB(平台库)</th><th>缓存</th><th>前端</th><th>AI 帮助</th></tr>
+          <tr><td class="s-arrow">维护菜单/表单 →</td><td></td><td></td><td></td><td></td><td></td></tr>
+          <tr><td class="s-arrow">挂接校验+写入 →</td><td></td><td></td><td></td><td></td><td></td></tr>
+          <tr><td></td><td class="s-arrow">变更菜单/表单/按钮/字段 →</td><td></td><td></td><td></td><td></td></tr>
+          <tr><td></td><td></td><td class="s-arrow">失效菜单树缓存 →</td><td></td><td></td><td></td></tr>
+          <tr><td></td><td class="s-arrow">发布事件 →</td><td></td><td></td><td></td><td class="s-arrow">form.updated</td></tr>
+          <tr><td class="s-note">用户访问</td><td></td><td></td><td></td><td></td><td></td></tr>
+          <tr><td></td><td class="s-arrow">GET /menus/my →</td><td></td><td></td><td></td><td></td></tr>
+          <tr><td></td><td class="s-arrow">← 菜单树数据</td><td></td><td class="s-arrow">读取缓存 →</td><td></td><td></td></tr>
+          <tr><td></td><td></td><td></td><td></td><td class="s-arrow">过滤+元数据 →</td><td class="s-note">注册路由/侧边栏</td></tr>
+        </table>
+      </div>
       <p>
         协作要点：菜单树与表单元数据是前端动态路由与侧边栏的唯一依据（前端不硬编码路由表，新增菜单/表单/按钮/字段无需发版）；
         form.updated 事件驱动 AI 帮助文档智能维护（自动生成更新草稿并通知维护人，人工审核后发布）；

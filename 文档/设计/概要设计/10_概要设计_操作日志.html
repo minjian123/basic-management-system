@@ -123,23 +123,23 @@
       </ol>
 
       <h2 id="sequence">3. 关键时序与协作</h2>
-      <pre><code>业务请求
-  └─ 中间件捕获上下文（user_id/module/action/method/path/params/ip/user_agent/cost_time/status/error_msg）
-  └─ params 脱敏（密码/token/密钥不落原始值）
-  └─ 发布 audit 事件 → RocketMQ（分区键 = 租户，分区有序）
-       └─ event-worker 分区有序消费
-            ├─ 定位分片表 sys_operation_log_{yyyyMM}（Celery 已预创建）
-            ├─ 取末条 record_hash 作为 prev_hash
-            ├─ record_hash = SHA256(prev_hash + 规范化记录内容)
-            └─ 写入分片表（分片表内成链）
-       └─ 次月首条 prev_hash = 上月末条 record_hash（跨月表首尾衔接）
-
-审计管理员（审计管理员，三权分立）
-  └─ GET /api/v1/operation-logs → 按月分片路由查询
-  └─ 链校验工具：逐条重算 record_hash/prev_hash 比对（定期巡检 + 归档前强制校验）
-
-归档任务（Celery）
-  └─ 90 天保留期超期 → 链完整性校验通过 → 两段式归档（热表→归档库→对象存储）</code></pre>
+      <div class="seq">
+        <table>
+          <tr><th>业务请求</th><th>审计服务</th><th>RocketMQ / event-worker</th><th>分片表</th></tr>
+          <tr><td class="s-arrow">请求 →</td><td class="s-note">中间件捕获上下文（user_id/module/action/method/path/params/ip/user_agent/cost_time/status/error_msg）</td><td></td><td></td></tr>
+          <tr><td></td><td class="s-note">params 脱敏（密码/token/密钥不落原始值）</td><td></td><td></td></tr>
+          <tr><td></td><td class="s-arrow">发布 audit 事件 →</td><td class="s-note">分区键 = 租户，分区有序</td><td></td></tr>
+          <tr><td></td><td></td><td class="s-arrow">分区有序消费 →</td><td></td></tr>
+          <tr><td></td><td></td><td class="s-arrow">定位分片表 →</td><td class="s-note">sys_operation_log_{yyyyMM}（Celery 已预创建）</td></tr>
+          <tr><td></td><td></td><td class="s-arrow">取末条 record_hash 作为 prev_hash →</td><td></td></tr>
+          <tr><td></td><td></td><td class="s-arrow">record_hash = SHA256(prev_hash + 规范化记录内容) →</td><td></td></tr>
+          <tr><td></td><td></td><td class="s-arrow">写入分片表 →</td><td class="s-note">分片表内成链</td></tr>
+          <tr><td></td><td></td><td class="s-note">次月首条 prev_hash = 上月末条 record_hash（跨月表首尾衔接）</td><td></td></tr>
+          <tr><td class="s-note">审计管理员（三权分立）</td><td class="s-arrow">GET /api/v1/operation-logs →</td><td></td><td class="s-note">按月分片路由查询</td></tr>
+          <tr><td></td><td class="s-arrow">链校验工具 →</td><td></td><td class="s-note">逐条重算 record_hash/prev_hash 比对（定期巡检 + 归档前强制校验）</td></tr>
+          <tr><td class="s-note">归档任务（Celery）</td><td class="s-arrow">90 天保留期超期 →</td><td class="s-note">链完整性校验通过 →</td><td class="s-note">两段式归档（热表→归档库→对象存储）</td></tr>
+        </table>
+      </div>
       <div class="note">写入经 RocketMQ 分区有序消费保证链序；接口侧异步化（先发布事件后返回）显著降低主库写压力（规划「超时与资源」节）。</div>
 
       <h2 id="data">4. 数据模型与表设计</h2>

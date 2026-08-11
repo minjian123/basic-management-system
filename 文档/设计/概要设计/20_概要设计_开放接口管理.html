@@ -97,21 +97,26 @@
       </ol>
 
       <h2 id="sequence">3. 关键时序与协作</h2>
-      <pre><code>Client Credentials 换 token：
-  外部系统 ──POST /api/open/token（client_id + client_secret）──▶ 后端
-      后端 ──校验凭证 / IP 白名单 / 应用状态──▶ sys_client（租户库）
-      后端 ──签发自签 JWT（短 TTL，scope 内嵌）──▶ 外部系统
-
-开放接口调用：
-  外部系统 ──GET /api/open/{biz}（Bearer JWT）──▶ 后端
-      后端 ──校验 token 与 scope（未授予拒绝）──▶ 鉴权层
-      后端 ──按 client 独立限流──▶ Redis（slowapi）
-      后端 ──执行业务接口──▶ 业务模块
-      后端 ──落调用审计（client_id/method/path/ip/status/cost_time）──▶ RocketMQ ──分区有序──▶ sys_open_log 月度分片表
-      后端 ──配额扣减 open_calls──▶ sys_tenant_quota（超限拦截 + 告警）
-
-token 撤销：
-  管理页 ──撤销操作──▶ 后端 ──写入撤销状态──▶ Redis（即时生效，短 TTL 对齐）</code></pre>
+      <div class="seq">
+        <table>
+          <tr><th>外部系统</th><th>后端</th><th>租户库</th><th>鉴权层</th><th>Redis</th><th>业务模块</th><th>RocketMQ</th><th>sys_open_log</th><th>管理页</th></tr>
+          <tr><td colspan="9" class="s-note">Client Credentials 换 token</td></tr>
+          <tr><td class="s-arrow">POST /api/open/token（client_id + client_secret）→</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+          <tr><td></td><td class="s-arrow">校验凭证 / IP 白名单 / 应用状态 →</td><td>sys_client</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+          <tr><td>← 签发自签 JWT（短 TTL，scope 内嵌）</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+          <tr><td colspan="9" class="s-note">开放接口调用</td></tr>
+          <tr><td class="s-arrow">GET /api/open/{biz}（Bearer JWT）→</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+          <tr><td></td><td class="s-arrow">校验 token 与 scope（未授予拒绝）→</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+          <tr><td></td><td class="s-arrow">按 client 独立限流 →</td><td></td><td></td><td>slowapi</td><td></td><td></td><td></td><td></td></tr>
+          <tr><td></td><td class="s-arrow">执行业务接口 →</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+          <tr><td></td><td class="s-arrow">落调用审计（client_id/method/path/ip/status/cost_time）→</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+          <tr><td></td><td></td><td></td><td></td><td></td><td></td><td class="s-arrow">分区有序 →</td><td>sys_open_log 月度分片表</td><td></td></tr>
+          <tr><td></td><td class="s-arrow">配额扣减 open_calls →</td><td>sys_tenant_quota（超限拦截 + 告警）</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+          <tr><td colspan="9" class="s-note">token 撤销</td></tr>
+          <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td class="s-arrow">撤销操作 →</td></tr>
+          <tr><td></td><td class="s-arrow">写入撤销状态 →</td><td></td><td></td><td>即时生效，短 TTL 对齐</td><td></td><td></td><td></td><td></td></tr>
+        </table>
+      </div>
       <p>
         与事件总线协作要点：调用审计经 RocketMQ 按租户分区有序消费（审计链组），保证哈希链不乱序；审计链跨月表首尾衔接，
         归档前执行链完整性校验。与监控协作要点：开放接口调用量/失败率纳入监控指标与告警（Alertmanager 渠道）。

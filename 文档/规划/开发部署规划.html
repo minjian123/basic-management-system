@@ -225,14 +225,24 @@ docker compose version</code></pre>
       <p>
         Compose 编排文件统一放在仓库 <code>deploy/</code> 目录（与《项目规划说明》目录结构一致，随代码版本管理）：
       </p>
-      <pre><code>deploy/
-├── compose/
-│   ├── base.yml        # redis、mysql、postgres、minio、rocketmq、elasticsearch
-│   ├── monitor.yml     # prometheus、loki、grafana、alertmanager、jaeger、otel-collector（阶段八）
-│   ├── ai.yml          # milvus、etcd（阶段十四，MinIO 复用）
-│   └── gitlab.yml      # gitlab、gitlab-runner、renovate
-├── .env.example        # 环境变量模板（BMS_ 前缀）
-└── nginx/              # 生产形态配置（阶段八部署手册细化）</code></pre>
+      <div class="tree">
+        <ul>
+          <li>deploy/
+            <ul>
+              <li>compose/
+                <ul>
+                  <li>base.yml <span class="t-note">redis、mysql、postgres、minio、rocketmq、elasticsearch</span></li>
+                  <li>monitor.yml <span class="t-note">prometheus、loki、grafana、alertmanager、jaeger、otel-collector（阶段八）</span></li>
+                  <li>ai.yml <span class="t-note">milvus、etcd（阶段十四，MinIO 复用）</span></li>
+                  <li>gitlab.yml <span class="t-note">gitlab、gitlab-runner、renovate</span></li>
+                </ul>
+              </li>
+              <li>.env.example <span class="t-note">环境变量模板（BMS_ 前缀）</span></li>
+              <li>nginx/ <span class="t-note">生产形态配置（阶段八部署手册细化）</span></li>
+            </ul>
+          </li>
+        </ul>
+      </div>
       <p>mjbk 上启动（以 base 组为例）：</p>
       <pre><code>docker compose -f deploy/compose/base.yml --env-file deploy/.env up -d</code></pre>
       <p>服务清单（服务名遵循《命名规范》第 10 节「Compose 服务名小写单名、与组件同名」）：</p>

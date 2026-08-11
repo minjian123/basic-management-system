@@ -116,16 +116,19 @@
       </ol>
 
       <h2 id="sequence">3. 关键时序与协作</h2>
-      <pre><code>管理员      部门服务        DB          权限计算引擎        事件总线       业务查询
-  | 移动部门   |              |                |                |              |
-  |----------&gt;| 防环校验+级联 |                |                |              |
-  |           |-------------&gt;| 更新 ancestors |                |              |
-  |           |              |----------------&gt;| 版本 +1       |              |
-  |           |              |                |----------------&gt;| dept.changed
-  |           |              |                |                |              |
-  |  业务列表  |              |                |                |              |
-  |           |              | 数据范围规则 dept_id=@dept_subtree  |              |
-  |           |&lt;----------------------------------------------|---- 注入子树过滤</code></pre>
+      <div class="seq">
+        <table>
+          <tr><th>管理员</th><th>部门服务</th><th>DB</th><th>权限计算引擎</th><th>事件总线</th><th>业务查询</th></tr>
+          <tr><td class="s-arrow">移动部门 →</td><td></td><td></td><td></td><td></td><td></td></tr>
+          <tr><td class="s-arrow">防环校验+级联 →</td><td></td><td></td><td></td><td></td><td></td></tr>
+          <tr><td></td><td class="s-arrow">更新 ancestors →</td><td></td><td></td><td></td><td></td></tr>
+          <tr><td></td><td></td><td class="s-arrow">权限版本 +1 →</td><td></td><td></td><td></td></tr>
+          <tr><td></td><td></td><td></td><td class="s-arrow">发布事件 →</td><td class="s-arrow">dept.changed</td><td></td></tr>
+          <tr><td class="s-note">业务列表</td><td></td><td></td><td></td><td></td><td></td></tr>
+          <tr><td></td><td></td><td class="s-note">数据范围规则 dept_id=@dept_subtree</td><td></td><td></td><td></td></tr>
+          <tr><td></td><td class="s-arrow">← 注入子树过滤</td><td></td><td></td><td></td><td class="s-arrow">注入子树过滤 →</td></tr>
+        </table>
+      </div>
       <p>
         协作要点：数据范围规则按部门维度下钻（@dept_subtree 展开为子树 id 集合注入查询）；
         部门角色绑定收敛与权限版本失效由权限计算引擎统一处理；dept.changed 事件供全文检索索引同步等消费

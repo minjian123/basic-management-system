@@ -119,18 +119,19 @@
       </ol>
 
       <h2 id="sequence">3. 关键时序与协作</h2>
-      <pre><code>安全管理员      角色服务        DB          权限计算引擎       用户请求
-  | POST /roles   |             |                |               |
-  |--------------&gt;| 校验+写入    |                |               |
-  |               |------------&gt;| insert sys_role|               |
-  |  绑定主体      |             |                |               |
-  |---------------|------------&gt;| insert sys_role_assign        |
-  |               |-------------|----------------&gt;| 版本 +1 清理缓存
-  |  授予菜单/动作 |             |                |               |
-  |---------------|------------&gt;| insert sys_role_permission    |
-  |               |-------------|----------------&gt;| 版本 +1      |
-  |               |             |                |               |
-  |  用户访问接口  |             |                | 读取缓存/重算 | 校验通过/拒绝</code></pre>
+      <div class="seq">
+        <table>
+          <tr><th>安全管理员</th><th>角色服务</th><th>DB</th><th>权限计算引擎</th><th>用户请求</th></tr>
+          <tr><td class="s-arrow">POST /roles →</td><td></td><td></td><td></td><td></td></tr>
+          <tr><td class="s-arrow">校验+写入 →</td><td></td><td></td><td></td><td></td></tr>
+          <tr><td></td><td class="s-arrow">insert sys_role →</td><td></td><td></td><td></td></tr>
+          <tr><td class="s-arrow">绑定主体 →</td><td></td><td>insert sys_role_assign</td><td></td><td></td></tr>
+          <tr><td></td><td class="s-arrow">版本 +1 清理缓存 →</td><td></td><td></td><td></td></tr>
+          <tr><td class="s-arrow">授予菜单/动作 →</td><td></td><td>insert sys_role_permission</td><td></td><td></td></tr>
+          <tr><td></td><td class="s-arrow">版本 +1 →</td><td></td><td></td><td></td></tr>
+          <tr><td class="s-note">用户访问接口</td><td></td><td></td><td class="s-arrow">读取缓存/重算 →</td><td class="s-note">校验通过/拒绝</td></tr>
+        </table>
+      </div>
       <p>
         协作要点：授权数据写入后经版本失效即时生效（用户下次请求重算权限并回填缓存 <code>bms:{tenant}:perm:{user_id}:{version}</code>）；
         数据范围规则在数据访问层注入（读时）与写入口校验（写时）；角色/授权变更落字段级审计（审计哈希链）。

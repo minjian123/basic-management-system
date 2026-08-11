@@ -67,18 +67,28 @@
       </p>
 
       <h2 id="structure">2. 目录约定</h2>
-      <pre><code>frontend/
-├── src/
-│   ├── api/               # Axios 封装与接口定义（api/user.ts → getUserList()）
-│   ├── router/            # 动态路由生成（不硬编码路由表）
-│   ├── stores/            # Pinia（useUserStore / useDictStore）
-│   ├── views/             # 页面（views/user/UserList.vue）
-│   ├── layouts/           # 主布局（侧边栏 + Tab 栏 + 内容区）
-│   ├── components/        # 通用组件（PascalCase 单数名词，如 UserForm.vue）
-│   ├── i18n/              # 中英文文案（zh-CN.ts / en-US.ts）
-│   └── utils/             # 通用工具（useTabs 等组合式函数）
-├── package.json
-└── .nvmrc</code></pre>
+      <div class="tree">
+        <ul>
+          <li>frontend/
+            <ul>
+              <li>src/
+                <ul>
+                  <li>api/ <span class="t-note">Axios 封装与接口定义（api/user.ts → getUserList()）</span></li>
+                  <li>router/ <span class="t-note">动态路由生成（不硬编码路由表）</span></li>
+                  <li>stores/ <span class="t-note">Pinia（useUserStore / useDictStore）</span></li>
+                  <li>views/ <span class="t-note">页面（views/user/UserList.vue）</span></li>
+                  <li>layouts/ <span class="t-note">主布局（侧边栏 + Tab 栏 + 内容区）</span></li>
+                  <li>components/ <span class="t-note">通用组件（PascalCase 单数名词，如 UserForm.vue）</span></li>
+                  <li>i18n/ <span class="t-note">中英文文案（zh-CN.ts / en-US.ts）</span></li>
+                  <li>utils/ <span class="t-note">通用工具（useTabs 等组合式函数）</span></li>
+                </ul>
+              </li>
+              <li>package.json</li>
+              <li>.nvmrc</li>
+            </ul>
+          </li>
+        </ul>
+      </div>
       <ul>
         <li>双工程独立：frontend 与 frontend-mobile 各自 package.json / lock 与 ESLint/Prettier/TS 配置，互不共享；npm 管理</li>
         <li>路由 path kebab-case（/user-management）；路由 name PascalCase 与页面组件对应（UserManagement）</li>

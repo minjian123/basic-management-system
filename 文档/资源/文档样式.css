@@ -180,3 +180,57 @@ footer {
 .diagram-mobile .d-nav { background: #eef1f4; font-weight: 600; }
 .diagram-mobile .d-tabbar { background: var(--accent-bg); }
 .diagram-mobile .d-tabbar b { font-weight: 600; }
+
+/* 时序图（sequence，参与者列 + 消息行） */
+.seq {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow-x: auto;
+  margin: 1rem 0;
+  background: #fff;
+  font-size: .86rem;
+}
+.seq table { margin: 0; min-width: 640px; }
+.seq th {
+  background: #1f2328;
+  color: #fff;
+  text-align: center;
+  white-space: nowrap;
+  font-weight: 600;
+}
+.seq td { text-align: center; white-space: nowrap; }
+.seq td.s-arrow { color: var(--accent); }
+.seq td.s-note { color: var(--muted); font-size: .8rem; text-align: left; }
+.seq tr.s-header td { background: #eef1f4; font-weight: 600; text-align: center; }
+.seq tr.s-alt td { background: var(--code-bg); }
+
+/* 树状/拓扑示意图（tree，嵌套列表） */
+.tree {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin: 1rem 0;
+  background: #fff;
+  padding: .8rem 1rem .8rem 1.6rem;
+  font-size: .88rem;
+  overflow-x: auto;
+}
+.tree ul { list-style: none; margin: 0; padding-left: 1.2rem; border-left: 1px dashed var(--border); }
+.tree > ul { border-left: none; padding-left: 0; }
+.tree li { margin: .2rem 0; position: relative; }
+.tree li::before { content: "▸ "; color: var(--accent); }
+.tree .t-note { color: var(--muted); font-size: .8rem; margin-left: .4rem; }
+
+/* 分层架构示意图（layer，纵向层盒 + 箭头） */
+.layer { margin: 1rem 0; font-size: .88rem; }
+.layer .l-box {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fff;
+  padding: .5rem .9rem;
+  margin: .3rem 0;
+}
+.layer .l-box .l-title { font-weight: 600; }
+.layer .l-box .l-sub { color: var(--muted); font-size: .82rem; }
+.layer .l-arrow { text-align: center; color: var(--accent); margin: .1rem 0; }
+.layer .l-row { display: flex; gap: .5rem; }
+.layer .l-row .l-box { flex: 1; margin: 0; }

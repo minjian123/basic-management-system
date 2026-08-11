@@ -81,19 +81,20 @@
       </ol>
 
       <h2 id="sequence">3. 关键时序与协作</h2>
-      <pre><code>平台超管（sys_admin）      租户管理模块            DB（平台库/租户库）         引擎注册表
-      |                       |                    |                         |
-      |-- 开通请求 -----------&gt;|                    |                         |
-      |                       |-- 建库 bms_tenant_{code} --&gt;|                  |
-      |                       |-- Alembic 双套迁移 ---&gt;|                       |
-      |                       |-- 批量种子（角色/账号/IdP/归档策略）--&gt;|        |
-      |                       |-- 注册 sys_tenant ---&gt;|                       |
-      |                       |-- 预热引擎（可选）----|-----------------------&gt; EngineRegistry |
-      |                       |-- tenant.created 事件 |                       |
-      |                       |--------------------------&gt; RocketMQ（Webhook 可订阅）|
-      |                       |-- 停用：引擎回收/会话失效/登录拦截 |
-      |                       |-- tenant.suspended/activated 事件 --&gt; RocketMQ |
-      </code></pre>
+      <div class="seq">
+        <table>
+          <tr><th>平台超管（sys_admin）</th><th>租户管理模块</th><th>DB（平台库/租户库）</th><th>引擎注册表</th><th>RocketMQ</th></tr>
+          <tr><td class="s-arrow">开通请求 →</td><td></td><td></td><td></td><td></td></tr>
+          <tr><td></td><td class="s-arrow">建库 bms_tenant_{code} →</td><td></td><td></td><td></td></tr>
+          <tr><td></td><td class="s-arrow">Alembic 双套迁移 →</td><td></td><td></td><td></td></tr>
+          <tr><td></td><td class="s-arrow">批量种子（角色/账号/IdP/归档策略）→</td><td></td><td></td><td></td></tr>
+          <tr><td></td><td class="s-arrow">注册 sys_tenant →</td><td></td><td></td><td></td></tr>
+          <tr><td></td><td class="s-arrow">预热引擎（可选）→</td><td></td><td class="s-arrow">EngineRegistry</td><td></td></tr>
+          <tr><td></td><td class="s-arrow">tenant.created 事件 →</td><td></td><td></td><td class="s-arrow">Webhook 可订阅</td></tr>
+          <tr><td colspan="5" class="s-note">停用：引擎回收 / 会话失效 / 登录拦截</td></tr>
+          <tr><td></td><td class="s-arrow">tenant.suspended / tenant.activated 事件 →</td><td></td><td></td><td class="s-arrow">RocketMQ</td></tr>
+        </table>
+      </div>
       <ul>
         <li><strong>与引擎注册表协作</strong>：租户引擎懒加载（首次访问创建，连接参数来自 config.toml 数据源声明）；LRU + 最后使用时间闲置回收；活跃租户引擎数上限控制；创建加锁（进程内锁 + Redis 锁）防多实例同时建引擎</li>
         <li><strong>与缓存协作</strong>：子域名查 sys_tenant.domain 命中缓存（短 TTL）；停用按租户前缀批量清理 Redis 会话标记</li>
