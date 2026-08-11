@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>国际化规范</title>
+<style>
+  :root {
+    --bg: #f7f8fa;
+    --fg: #1f2328;
+    --muted: #57606a;
+    --border: #d0d7de;
+    --accent: #0969da;
+    --accent-bg: #ddf4ff;
+    --code-bg: #f6f8fa;
+    --warn-bg: #fff8c5;
+    --warn-border: #d4a72c;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+    line-height: 1.75;
+  }
+  .layout { display: flex; height: 100vh; overflow: hidden; }
+  .sidebar {
+    width: 280px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+  }
+  .sidebar .brand {
+    background: linear-gradient(135deg, #1f2328, #32383f);
+    color: #fff;
+    padding: 1.4rem 1.2rem 1.1rem;
+    border-bottom: 3px solid var(--accent);
+    flex-shrink: 0;
+  }
+  .sidebar .brand h1 { margin: 0 0 .35rem; font-size: 1.15rem; line-height: 1.4; }
+  .sidebar .brand p { margin: 0; color: #b6bec6; font-size: .78rem; }
+  .sidebar nav { padding: .8rem .6rem 1.5rem; font-size: .9rem; }
+  .sidebar nav ul { list-style: none; margin: 0; padding: 0; }
+  .sidebar nav li { margin: .15rem 0; }
+  .sidebar nav a {
+    display: block;
+    padding: .3rem .7rem;
+    border-radius: 5px;
+    color: var(--fg);
+    text-decoration: none;
+  }
+  .sidebar nav a:hover { background: var(--accent-bg); color: var(--accent); }
+  .sidebar nav .sub { padding-left: 1.6rem; font-size: .85rem; color: var(--muted); }
+  .content { flex: 1; overflow-y: auto; }
+  main {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1.5rem 2rem 4rem;
+  }
+  h2 {
+    margin-top: 2.5rem;
+    padding-bottom: .4rem;
+    border-bottom: 2px solid var(--border);
+    font-size: 1.35rem;
+  }
+  h3 { margin-top: 1.6rem; font-size: 1.1rem; }
+  p { margin: .6rem 0; }
+  ul, ol { margin: .6rem 0; padding-left: 1.6rem; }
+  li { margin: .3rem 0; }
+  code {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: .1em .35em;
+    font-family: Consolas, "Cascadia Mono", monospace;
+    font-size: .9em;
+  }
+  pre {
+    background: #0d1117;
+    color: #e6edf3;
+    border-radius: 8px;
+    padding: .9rem 1.1rem;
+    overflow-x: auto;
+    font-size: .88rem;
+    line-height: 1.6;
+  }
+  pre code { background: none; border: none; padding: 0; color: inherit; }
+  .note, .warn {
+    border-radius: 6px;
+    padding: .7rem 1rem;
+    margin: 1rem 0;
+    font-size: .95rem;
+  }
+  .note { background: var(--accent-bg); border-left: 4px solid var(--accent); }
+  .warn { background: var(--warn-bg); border-left: 4px solid var(--warn-border); }
+  .topnav {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: .4rem;
+    background: #fff;
+    border-bottom: 1px solid var(--border);
+    padding: .5rem 1rem;
+    font-size: .85rem;
+  }
+  .topnav .topnav-side { margin-left: auto; }
+  .topnav a { color: var(--accent); text-decoration: none; }
+  .topnav a:hover { text-decoration: underline; }
+  @media (max-width: 768px) {
+    .topnav .topnav-side { display: none; }
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1rem 0;
+    font-size: .92rem;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: .45rem .7rem;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: #eef1f4; white-space: nowrap; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  footer {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1rem 2rem 3rem;
+    color: var(--muted);
+    font-size: .85rem;
+    border-top: 1px solid var(--border);
+  }
+  @media (max-width: 768px) {
+    .layout { flex-direction: column; height: auto; overflow: visible; }
+    .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); max-height: 40vh; }
+    .content { overflow: visible; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topnav">
+  <a href="../文档首页.html">文档首页</a> ›
+  <a href="文档生成规范.html">规范</a> ›
+  <span>国际化规范</span>
+  <span class="topnav-side">
+    <a href="代码评审规范.html">← 上一个：代码评审</a>
+    <a href="部署发布规范.html">下一个：部署发布 →</a>
+  </span>
+</div>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>国际化规范</h1>
+      <p>i18n 键管理 · 语言包 · 文案约定</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#purpose">1. 目的与适用范围</a></li>
+        <li><a href="#key">2. i18n key 约定</a></li>
+        <li><a href="#frontend">3. 前端语言包</a></li>
+        <li><a href="#backend">4. 后端文案</a></li>
+        <li><a href="#error">5. 错误码文案</a></li>
+        <li><a href="#data">6. 数据与字典国际化</a></li>
+        <li><a href="#format">7. 文案与格式约定</a></li>
+        <li><a href="#checklist">8. 检查清单</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="purpose">1. 目的与适用范围</h2>
+      <p>
+        规范 BMS 前后端的国际化（i18n）组织方式：key 命名、语言包管理、文案约定与多语言数据。
+        与《<a href="../设计/概要设计/29-概要设计-国际化管理.html">国际化管理</a>》设计配套；
+        命名约定见《<a href="命名规范.html">命名规范</a>》第 12 节。
+      </p>
+
+      <h2 id="key">2. i18n key 约定</h2>
+      <ul>
+        <li>key 用点分命名：<code>模块.页面.字段</code>，如 <code>user.form.username</code>、<code>common.confirm</code>、<code>wf.task.title</code>。</li>
+        <li>顶层按域：<code>common</code>、<code>user</code>、<code>dept</code>、<code>wf</code>、<code>open</code>、<code>error</code>、<code>login</code> 等；与模块目录对应。</li>
+        <li>全小写 + 点分，禁止混合大小写与中文 key；key 语义化（<code>form.username</code> 而非 <code>f1</code>）。</li>
+        <li>新增文案必须同时补中英文两个语言包，CI 检查 key 对齐（缺失即失败）。</li>
+      </ul>
+
+      <h2 id="frontend">3. 前端语言包</h2>
+      <table>
+        <tr><th>文件</th><th>语言</th></tr>
+        <tr><td><code>src/i18n/locales/zh-CN.ts</code></td><td>简体中文（默认）</td></tr>
+        <tr><td><code>src/i18n/locales/en-US.ts</code></td><td>英文</td></tr>
+      </table>
+      <ul>
+        <li>组件内文案一律 <code>t('key')</code>（vue-i18n），禁止硬编码中文/英文。</li>
+        <li>页面级 key 与路由/页面名对应（<code>user.form.*</code>）；跨页通用文案放 <code>common.*</code>。</li>
+        <li>动态文案用插值（<code>确认删除「{name}」？</code>），不用字符串拼接，保证语序正确。</li>
+        <li>复数/占位符：英文复数用 ICU（<code>{count} items</code> 由库处理），中文按需。</li>
+      </ul>
+
+      <h2 id="backend">4. 后端文案</h2>
+      <ul>
+        <li>后端（FastAPI）用 gettext：<code>zh_CN/LC_MESSAGES/messages.po</code>、<code>en_US/...</code>；msgid 用英文原文，msgstr 本地化。</li>
+        <li>业务提示（<code>message</code>）与校验错误输出本地化文案；接口层按请求语言（Accept-Language / 租户配置）选择。</li>
+        <li>邮件模板、通知消息（审批提醒、告警）中英文双版本（见《<a href="../规划/项目规划说明.md">项目规划说明</a>》初始化数据）。</li>
+        <li>服务端异常错误信息对用户隐藏内部细节，仅提示通用文案（《<a href="安全开发规范.html">安全开发规范</a>》第 4 节）。</li>
+      </ul>
+
+      <h2 id="error">5. 错误码文案</h2>
+      <ul>
+        <li>错误码（<code>20001</code> 等）与文案分离：后端返回 <code>code</code>，前端按 <code>error.20001</code> 映射文案（《<a href="API接口规范.html">API接口规范</a>》第 4 节）。</li>
+        <li>文案 key 与错误码一一对应：<code>error.20001: 用户名或密码错误</code> / <code>Invalid username or password</code>。</li>
+        <li>新增错误码同时补 <code>error.*</code> 中英文 key。</li>
+      </ul>
+
+      <h2 id="data">6. 数据与字典国际化</h2>
+      <ul>
+        <li>字典/菜单/表单标签等多语言数据存 <code>sys_i18n_locale</code> + <code>sys_i18n_message</code>（租户级可覆盖，见《<a href="../设计/概要设计/29-概要设计-国际化管理.html">国际化管理</a>》）。</li>
+        <li>字典值（状态、类型）显示文案走字典 + i18n，不硬编码在前端。</li>
+        <li>初始化数据种子：菜单/表单/字段/字典/帮助/邮件模板含中英文附表（《<a href="../规划/项目规划说明.md">项目规划说明</a>》「初始化数据」）。</li>
+      </ul>
+
+      <h2 id="format">7. 文案与格式约定</h2>
+      <ul>
+        <li>占位符统一 <code>{var}</code>；日期时间用 Intl/ICU 格式化（<code>2026-08-11 09:30</code> / <code>Aug 11, 2026</code>），不硬编码格式串。</li>
+        <li>数字/金额按 locale 格式化（千分位、小数点）；货币符号随语言。</li>
+        <li>中文文案用全角标点；中英混排规范（数字与英文两侧留空格）。</li>
+        <li>英文文案首字母大写规则遵循句子式（sentence case）。</li>
+      </ul>
+
+      <h2 id="checklist">8. 检查清单</h2>
+      <ul>
+        <li>□ 无硬编码文案（前后端），全部走 i18n</li>
+        <li>□ key 命名 <code>模块.页面.字段</code>，中英文语言包同步</li>
+        <li>□ 错误码文案映射 <code>error.xxxxx</code> 完整</li>
+        <li>□ 字典/菜单等多语言数据在语言表有种子</li>
+        <li>□ 动态文案用插值，日期数字按 locale 格式化</li>
+      </ul>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 依《文档生成规范》编写 · 与《命名规范》《国际化管理》配套 · 生成日期：2026-08-11
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>
