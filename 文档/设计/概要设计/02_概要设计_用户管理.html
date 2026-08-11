@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>概要设计 · 用户管理</title>
+<link rel="stylesheet" href="../../资源/文档样式.css">
+</head>
+<body>
+
+<div class="topnav">
+  <a href="01_概要设计_总览.html">概要设计</a> › <span>02-用户管理</span>
+  <span class="topnav-side"><a href="01_概要设计_总览.html">← 01-概要设计（总纲）</a> · <a href="03_概要设计_用户喜好.html">03-用户喜好 →</a></span>
+</div>
+
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>概要设计 · 用户管理</h1>
+      <p>BMS · 用户生命周期与账号治理</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#overview">1. 模块概述与职责</a></li>
+        <li><a href="#func">2. 功能分解与业务流程</a>
+          <ul class="sub">
+            <li><a href="#func-list">2.1 功能点分解</a></li>
+            <li><a href="#func-rules">2.2 业务规则</a></li>
+            <li><a href="#func-flow">2.3 流程步骤</a></li>
+          </ul>
+        </li>
+        <li><a href="#sequence">3. 关键时序与协作</a></li>
+        <li><a href="#data">4. 数据模型与表设计</a>
+          <ul class="sub">
+            <li><a href="#data-tables">4.1 核心表</a></li>
+            <li><a href="#data-index">4.2 索引与唯一约束</a></li>
+            <li><a href="#data-flow">4.3 数据流转</a></li>
+          </ul>
+        </li>
+        <li><a href="#api">5. 接口设计</a>
+          <ul class="sub">
+            <li><a href="#api-list">5.1 接口清单</a></li>
+            <li><a href="#api-rule">5.2 分页/幂等/限流</a></li>
+            <li><a href="#api-events">5.3 事件发布</a></li>
+          </ul>
+        </li>
+        <li><a href="#perm">6. 权限与配置</a>
+          <ul class="sub">
+            <li><a href="#perm-codes">6.1 权限码</a></li>
+            <li><a href="#perm-menu">6.2 菜单挂接</a></li>
+            <li><a href="#perm-config">6.3 sys_config 参数</a></li>
+            <li><a href="#perm-seed">6.4 种子数据</a></li>
+          </ul>
+        </li>
+        <li><a href="#error">7. 错误码与异常处理</a></li>
+        <li><a href="#page">8. 页面清单与验收要点</a>
+          <ul class="sub">
+            <li><a href="#page-list">8.1 页面清单</a></li>
+            <li><a href="#page-accept">8.2 验收标准</a></li>
+          </ul>
+        </li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="overview">1. 模块概述与职责</h2>
+      <p>
+        本节对应<a href="../../规划/项目规划说明.html">《项目规划说明》</a>「功能模块」之<strong>用户管理</strong>模块，与「核心数据表清单」「认证与安全」「权限模型」「事件总线事件模型」章节。
+        架构设计依据<a href="../架构设计/01_架构设计_总览.html">《架构设计》</a>09-认证与会话、10-权限计算引擎节点。
+      </p>
+      <p>
+        用户管理负责用户生命周期的全量治理：账号的增删改查、启用/停用、密码重置、岗位分配、
+        主体角色绑定、SSO 身份绑定查看，以及账号锁定/解锁（锁定列表、手动解锁、解锁记录审计）。
+        模块承载 <code>sys_user</code> 密码策略字段（<code>pwd_reset_required / pwd_changed_at / pwd_history / last_login_at</code>）
+        与个人化字段（<code>locale / timezone</code>），并衔接 Excel 批量导入（<code>import:execute</code>）。
+      </p>
+      <p>
+        职责边界：密码的哈希与校验（PBKDF2）、登录防爆破、双 token 签发、会话生命周期属于《认证与会话》子系统；
+        本模块只负责账号数据治理与密码重置动作，不触碰会话实现细节。角色授予本体在<a href="05_概要设计_角色管理.html">角色管理</a>（<code>role:grant</code>），
+        本模块提供「主体角色绑定」的功能入口并按 <code>user</code> 业务收敛权限码。
+      </p>
+
+      <h2 id="func">2. 功能分解与业务流程</h2>
+
+      <h3 id="func-list">2.1 功能点分解</h3>
+      <table>
+        <tr><th>功能点</th><th>说明</th><th>权限码</th></tr>
+        <tr><td>用户列表/详情</td><td>筛选（username/nickname/email/phone/status/dept_id/岗位）、分页查询</td><td>user:query</td></tr>
+        <tr><td>新建用户</td><td>创建账号并初始化密码（哈希存储）；可选分配部门/岗位；强制首登改密开关</td><td>user:create</td></tr>
+        <tr><td>修改用户</td><td>昵称/邮箱/手机/部门/语言/时区等基础信息维护；<code>locale/timezone</code> 供时区与多语言展示</td><td>user:update</td></tr>
+        <tr><td>启用/停用</td><td>status 切换；停用即时失效会话（踢出），复用会话子系统能力</td><td>user:update</td></tr>
+        <tr><td>删除用户</td><td>软删除（deleted_at）；同步清理账号锁定记录并注销在线会话</td><td>user:delete</td></tr>
+        <tr><td>重置密码</td><td>管理员重置：PBKDF2 重新哈希、强制首登改密、失效全部会话、可发通知</td><td>user:reset_pwd</td></tr>
+        <tr><td>分配岗位</td><td>维护 sys_user_post 多对多关系，关联岗位部门级联展示</td><td>user:assign_role</td></tr>
+        <tr><td>主体角色绑定</td><td>查看/维护该用户直接绑定的角色（角色管理侧亦可按主体维度绑定）</td><td>user:assign_role</td></tr>
+        <tr><td>SSO 身份绑定查看</td><td>查看 sys_user_identity 全局身份映射（IdP、外部账号）；绑定管理在 sso 业务</td><td>user:query</td></tr>
+        <tr><td>锁定列表/手动解锁</td><td>查询 sys_account_lock 锁定记录，手动解锁（记录解锁人与时间）</td><td>user:unlock</td></tr>
+        <tr><td>Excel 批量导入</td><td>衔接导入导出模块（<code>import:execute</code>），模板校验后批量建号</td><td>import:execute</td></tr>
+      </table>
+
+      <h3 id="func-rules">2.2 业务规则</h3>
+      <ul>
+        <li>唯一性：<code>username</code> 唯一，采用 <code>(username, deleted_at)</code> 复合唯一索引——删除即释放用户名，三库均允许多个 NULL 不冲突</li>
+        <li>密码策略（sys_config 可配）：复杂度校验（长度/字符组合）、90 天有效期强制改密（<code>pwd_changed_at</code> 驱动）、近 5 次历史密码不可重复（<code>pwd_history</code>）、180 天未登录自动锁定（定时任务扫描 <code>last_login_at</code>）</li>
+        <li>账号锁定类型：<code>fail_limit</code>（登录失败触发，认证子系统写入）/ <code>inactive</code>（长期未登录，任务写入）/ <code>manual</code>（管理员手动锁定）；本模块负责查看与手动解锁</li>
+        <li>停用/锁定/删除的用户：登录即被拒绝；停用与删除时注销该用户全部在线会话（删 Redis 会话标记 + 吊销 refresh）</li>
+        <li>安全约束：不得停用/删除当前操作人自身；内置管理员（系统/安全/审计）不得被停用删除，且同一用户不得兼任两类管理员（三权分立）</li>
+        <li>重置密码后强制失效该账号全部会话；被重置用户 <code>pwd_reset_required=true</code>，下次登录必须改密</li>
+        <li>批量导入：同模板字段校验（用户名唯一、格式校验），逐行失败可跳过并输出失败明细，整体提交用幂等键防重</li>
+      </ul>
+
+      <h3 id="func-flow">2.3 流程步骤</h3>
+      <ol>
+        <li><strong>新建用户</strong>：填表单（含初始密码/强制改密标志）→ 校验用户名唯一与密码复杂度 → PBKDF2 哈希入库 → 分配岗位 → 发布 <code>user.created</code> → 落操作日志与字段级审计</li>
+        <li><strong>重置密码</strong>：校验操作人权限（user:reset_pwd）→ 新密码策略校验 → 更新 <code>password_hash / pwd_changed_at / pwd_history / pwd_reset_required</code> → 作废全部会话 → 发布 <code>user.password_reset</code>（Webhook 可订阅）</li>
+        <li><strong>解锁</strong>：查看锁定列表（含锁定类型/时间/原因）→ 手动解锁 → 写 <code>sys_account_lock.unlock_at / unlock_by</code> → 落操作日志（解锁动作审计）</li>
+        <li><strong>异常分支</strong>：用户名冲突（30002）→ 提示修改；账号已锁定/已停用仍可维护资料但不可登录；删除失败（存在未解除的引用或内置管理员）→ 明确错误码返回，不做部分提交</li>
+      </ol>
+
+      <h2 id="sequence">3. 关键时序与协作</h2>
+      <pre><code>管理员         用户服务           DB              认证/会话           事件总线
+  |  POST /users   |                 |                  |                |
+  |---------------&gt;| PBKDF2+校验     |                  |                |
+  |                |----------------&gt;| insert sys_user  |                |
+  |                |&lt;----------------|                  |                |
+  |                | 分配岗位写关联   | insert user_post |                |
+  |                | 发布事件         |                  |                |
+  |                |-----------------------------------|----------------&gt;| user.created
+  |                |-----------------------------------| 失效全部会话    |
+  |  PUT 密码重置   |----------------&gt;| 更新密码字段     |                |
+  |                |-----------------------------------|----------------&gt;| user.password_reset
+  |                |-----------------------------------| 广播 session.revoked</code></pre>
+      <p>
+        协作要点：重置密码/停用/删除的会话失效复用《认证与会话》的踢出通道（Redis 会话标记删除 +
+        refresh 吊销 + Socket.IO 广播），本模块仅发起动作；用户变更影响权限计算时，权限引擎按
+        <code>sys_role_assign</code> 主体绑定变化触发权限版本 +1，保证权限变更即时生效。
+      </p>
+
+      <h2 id="data">4. 数据模型与表设计</h2>
+
+      <h3 id="data-tables">4.1 核心表</h3>
+      <table>
+        <tr><th>表</th><th>关键字段</th><th>说明</th></tr>
+        <tr><td>sys_user</td><td>username、password_hash、nickname、email、phone、status、dept_id、avatar、pwd_reset_required、pwd_changed_at、pwd_history、last_login_at、locale、timezone</td><td>用户主表（租户库）；密码策略字段与语言/时区偏好；软删除 + 审计字段 + version 乐观锁</td></tr>
+        <tr><td>sys_user_post</td><td>user_id、post_id</td><td>用户-岗位多对多关联，联合主键；岗位归属部门经 sys_post.dept_id 派生</td></tr>
+        <tr><td>sys_role_assign</td><td>subject_type（user/post/dept…）、subject_id、role_id</td><td>主体-角色通用绑定，subject_type=user 即本模块主体绑定记录；权限计算收敛为用户→角色</td></tr>
+        <tr><td>sys_account_lock</td><td>user_id、lock_type（fail_limit/inactive/manual）、locked_at、unlock_at、unlock_by</td><td>账号锁定/解锁记录（解锁操作审计依据）</td></tr>
+        <tr><td>sys_user_identity</td><td>idp_key、external_id、tenant_id、user_id</td><td>【平台库】SSO 全局身份映射，本模块只读展示（sso:bind 管理）</td></tr>
+      </table>
+
+      <h3 id="data-index">4.2 索引与唯一约束</h3>
+      <ul>
+        <li><code>sys_user</code>：复合唯一索引 <code>(username, deleted_at)</code>；索引 <code>dept_id</code>、<code>status</code>、<code>last_login_at</code>（未登录扫描任务用）</li>
+        <li><code>sys_user_post</code>：联合主键 (user_id, post_id)，另建 post_id 反向索引支撑「岗位下用户」查询</li>
+        <li><code>sys_role_assign</code>：索引 (subject_type, subject_id) 与 (role_id)，支撑主体链收敛与角色反向查询</li>
+        <li><code>sys_account_lock</code>：索引 (user_id, locked_at) 与 (unlock_by)；解锁记录保留 90 天后随审计归档</li>
+      </ul>
+
+      <h3 id="data-flow">4.3 数据流转</h3>
+      <ul>
+        <li>创建/更新/删除经 ORM 事件自动落审计字段与字段级变更审计（sys_data_audit_log，按月分表）</li>
+        <li>用户变更经 RocketMQ 事件驱动：操作日志异步落库、Webhook 推送、全文检索主数据索引同步（阶段十三）</li>
+        <li>删除为软删除：数据进回收站（recycle 业务查看/恢复）；过期残留由 Celery 定时物理清理</li>
+        <li>解锁记录与字段级审计同属审计域：90 天热表后按归档策略冷化，哈希链随归档导出</li>
+      </ul>
+
+      <h2 id="api">5. 接口设计</h2>
+
+      <h3 id="api-list">5.1 接口清单</h3>
+      <table>
+        <tr><th>方法</th><th>路径</th><th>说明</th><th>权限码</th></tr>
+        <tr><td>GET</td><td>/api/v1/users</td><td>用户列表（page/size；username/nickname/status/dept_id/岗位筛选）</td><td>user:query</td></tr>
+        <tr><td>POST</td><td>/api/v1/users</td><td>新建用户（支持 Idempotency-Key）</td><td>user:create</td></tr>
+        <tr><td>GET</td><td>/api/v1/users/{id}</td><td>用户详情（含部门/岗位/角色绑定摘要）</td><td>user:query</td></tr>
+        <tr><td>PUT</td><td>/api/v1/users/{id}</td><td>修改用户（version 乐观锁）</td><td>user:update</td></tr>
+        <tr><td>DELETE</td><td>/api/v1/users/{id}</td><td>软删除用户</td><td>user:delete</td></tr>
+        <tr><td>PUT</td><td>/api/v1/users/{id}/status</td><td>启用/停用（停用即时失效会话）</td><td>user:update</td></tr>
+        <tr><td>PUT</td><td>/api/v1/users/{id}/password</td><td>重置密码（强制改密、失效会话）</td><td>user:reset_pwd</td></tr>
+        <tr><td>PUT</td><td>/api/v1/users/{id}/posts</td><td>分配岗位（全量覆盖提交）</td><td>user:assign_role</td></tr>
+        <tr><td>GET</td><td>/api/v1/users/{id}/roles</td><td>主体角色绑定查看</td><td>user:query</td></tr>
+        <tr><td>GET</td><td>/api/v1/users/{id}/identities</td><td>SSO 身份绑定查看（sys_user_identity）</td><td>user:query</td></tr>
+        <tr><td>GET</td><td>/api/v1/locks</td><td>账号锁定列表（类型/时间/解锁状态筛选）</td><td>user:query</td></tr>
+        <tr><td>PUT</td><td>/api/v1/locks/{id}/unlock</td><td>手动解锁（记录 unlock_by）</td><td>user:unlock</td></tr>
+        <tr><td>POST</td><td>/api/v1/imports/users</td><td>Excel 批量导入（衔接导入导出模块）</td><td>import:execute</td></tr>
+      </table>
+
+      <h3 id="api-rule">5.2 分页/幂等/限流</h3>
+      <ul>
+        <li>分页统一 <code>page</code>（从 1 起）/ <code>size</code>，响应 <code>{list, total, page, size}</code>；常规列表 limit/offset（限深 100 页）</li>
+        <li>幂等：新建用户、批量导入等写接口支持请求头 <code>Idempotency-Key</code>——Redis SETNX 前置拦截 + 幂等键字段唯一约束兜底</li>
+        <li>限流：用户列表按用户维度限流（slowapi，Redis 后端）；重置密码、导入接口叠加更严限流防滥用</li>
+        <li>统一响应 <code>{code, message, data}</code>；登录/刷新外的全部接口 Bearer access token + <code>require_permission</code> 两级校验</li>
+      </ul>
+
+      <h3 id="api-events">5.3 事件发布</h3>
+      <table>
+        <tr><th>事件</th><th>触发时机</th><th>主要载荷</th><th>Webhook 订阅</th></tr>
+        <tr><td>user.created / user.updated / user.deleted</td><td>用户创建/修改/删除后</td><td>用户 ID、username、dept_id、status</td><td>是</td></tr>
+        <tr><td>user.password_reset</td><td>管理员重置密码或自助找回后</td><td>用户 ID</td><td>是</td></tr>
+        <tr><td>sso.user.jit_created</td><td>SSO 首登自动建号</td><td>user_id、idp_key</td><td>是</td></tr>
+      </table>
+
+      <h2 id="perm">6. 权限与配置</h2>
+
+      <h3 id="perm-codes">6.1 权限码</h3>
+      <p>
+        本模块对应 <code>user</code> 业务（sys_business 平台库维护，默认归属系统管理员），动作按 sys_action 分配：
+      </p>
+      <table>
+        <tr><th>权限码</th><th>动作</th><th>说明</th></tr>
+        <tr><td>user:query</td><td>query</td><td>列表/详情/锁定列表/SSO 绑定查看</td></tr>
+        <tr><td>user:create / user:update / user:delete</td><td>create / update / delete</td><td>账号增删改与启停</td></tr>
+        <tr><td>user:reset_pwd</td><td>reset_pwd</td><td>重置密码</td></tr>
+        <tr><td>user:unlock</td><td>unlock</td><td>手动解锁</td></tr>
+        <tr><td>user:assign_role</td><td>grant</td><td>分配岗位/主体角色绑定</td></tr>
+        <tr><td>import:execute</td><td>execute</td><td>Excel 批量导入（import 业务）</td></tr>
+      </table>
+
+      <h3 id="perm-menu">6.2 菜单挂接</h3>
+      <ul>
+        <li>菜单「用户管理」（form=user_form，挂 user 业务）与「账号锁定」（form=lock_form）</li>
+        <li>按钮挂接：新增/编辑/删除（create/update/delete）、重置密码（reset_pwd）、启用/停用（update）、分配岗位（grant）、解锁（unlock）、导入（import:execute）——默认无按钮权限，按角色授予后显隐</li>
+        <li>字段权限：手机号/邮箱等敏感字段注册脱敏标记（data:plain 查看明文）；字段可见可编辑由 sys_role_field 按角色收窄</li>
+      </ul>
+
+      <h3 id="perm-config">6.3 sys_config 参数</h3>
+      <table>
+        <tr><th>参数</th><th>默认</th><th>说明</th></tr>
+        <tr><td>pwd.min_length / pwd.complexity</td><td>8 / 字母+数字</td><td>密码复杂度</td></tr>
+        <tr><td>pwd.expire_days</td><td>90</td><td>密码有效期，pwd_changed_at 驱动强制改密</td></tr>
+        <tr><td>pwd.history_count</td><td>5</td><td>历史密码不可重复数</td></tr>
+        <tr><td>pwd.lock_inactive_days</td><td>180</td><td>未登录自动锁定阈值（定时任务扫描 last_login_at）</td></tr>
+        <tr><td>session.max_active</td><td>5</td><td>活跃会话上限（多端并发）</td></tr>
+      </table>
+
+      <h3 id="perm-seed">6.4 种子数据</h3>
+      <ul>
+        <li>平台库种子：user 业务码与动作码（create/update/delete/query/reset_pwd/unlock/grant）、用户管理/账号锁定菜单表单按钮字段挂接与 i18n 文案</li>
+        <li>租户开通种子：初始系统管理员账号（租户开通首建，由其创建安全/审计管理员）、内置三类管理员角色互斥预授</li>
+      </ul>
+
+      <h2 id="error">7. 错误码与异常处理</h2>
+      <p>本模块错误码段 3xxxx（用户与组织）。非 0 即业务错误，文案由前端按 i18n 映射，后端不承担文案拼装。</p>
+      <table>
+        <tr><th>错误码</th><th>说明</th></tr>
+        <tr><td>30001</td><td>用户不存在</td></tr>
+        <tr><td>30002</td><td>用户名已存在</td></tr>
+        <tr><td>30003</td><td>账号已锁定</td></tr>
+        <tr><td>30004</td><td>账号已停用</td></tr>
+        <tr><td>30005</td><td>密码不符合复杂度策略</td></tr>
+        <tr><td>30006</td><td>新密码与近 5 次历史密码重复</td></tr>
+        <tr><td>30007</td><td>锁定记录不存在或已解锁</td></tr>
+        <tr><td>30008</td><td>用户已删除（软删除）</td></tr>
+        <tr><td>30009</td><td>内置管理员不可停用/删除，或操作人不得操作自身</td></tr>
+        <tr><td>30010</td><td>三权分立约束：同一用户不得兼任两类管理员</td></tr>
+        <tr><td>30011</td><td>用户仍被角色/流程引用，禁止删除</td></tr>
+      </table>
+      <p>
+        异常处理要求：多步骤写操作（建号+分配岗位）显式事务边界，任一步失败整体回滚；并发冲突用 version 乐观锁返回 30001 上下文错误；
+        敏感字段（密码、token）日志脱敏，不落原始值；导入文件逐行失败收集明细，不中断整体。
+      </p>
+
+      <h2 id="page">8. 页面清单与验收要点</h2>
+
+      <h3 id="page-list">8.1 页面清单</h3>
+      <table>
+        <tr><th>页面</th><th>端</th><th>说明</th></tr>
+        <tr><td>用户管理</td><td>PC</td><td>列表筛选、新建/编辑/删除、启停、重置密码、分配岗位、主体角色绑定、SSO 身份绑定查看、导入入口</td></tr>
+        <tr><td>账号锁定</td><td>PC</td><td>锁定列表（类型/时间/解锁状态）、手动解锁、解锁记录</td></tr>
+      </table>
+
+      <h3 id="page-accept">8.2 验收标准</h3>
+      <ul>
+        <li>用户 CRUD 全链路可用，软删除后回收站可见、username 可复用（复合唯一索引生效）</li>
+        <li>重置密码后强制改密生效、全部会话失效；停用/删除即时踢出（Redis 标记 + Socket.IO）</li>
+        <li>锁定列表/手动解锁可用、解锁记录（unlock_by/unlock_at）可查，解锁动作落操作日志</li>
+        <li>分配岗位后权限计算即时生效（权限版本 +1）；三权分立互斥校验通过</li>
+        <li>批量导入成功/失败明细可查，幂等键防重提交验证通过；user.* 事件 Webhook 推送成功</li>
+        <li>密码策略（复杂度/90 天/近 5 次历史/180 天未登录锁定）强制执行；字段级审计与哈希链校验通过</li>
+      </ul>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 概要设计节点 · 与《项目规划说明》《架构设计》《文档生成规范》《命名规范》配套 · 生成日期：2026-08-06
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>

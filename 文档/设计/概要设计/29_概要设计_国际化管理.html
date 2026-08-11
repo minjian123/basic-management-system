@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>概要设计 · 国际化管理</title>
+<link rel="stylesheet" href="../../资源/文档样式.css">
+</head>
+<body>
+
+<div class="topnav">
+  <a href="01_概要设计_总览.html">概要设计</a> › <span>29-国际化管理</span>
+  <span class="topnav-side"><a href="28_概要设计_审计合规.html">← 28-审计合规</a> · <a href="30_概要设计_归档管理.html">30-归档管理 →</a></span>
+</div>
+
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>概要设计 · 国际化管理</h1>
+      <p>BMS · 语言包、i18n 附表、RTL 与时区</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#overview">1. 模块概述与职责</a></li>
+        <li><a href="#functions">2. 功能分解与业务流程</a>
+          <ul class="sub">
+            <li><a href="#functions-breakdown">2.1 功能点分解</a></li>
+            <li><a href="#functions-rules">2.2 业务规则</a></li>
+            <li><a href="#functions-flow">2.3 流程步骤</a></li>
+          </ul>
+        </li>
+        <li><a href="#sequence">3. 关键时序与协作</a>
+          <ul class="sub">
+            <li><a href="#sequence-messages">3.1 语言包运行时下发</a></li>
+            <li><a href="#sequence-runtime">3.2 业务文案与通知渲染</a></li>
+          </ul>
+        </li>
+        <li><a href="#data">4. 数据模型与表设计</a></li>
+        <li><a href="#api">5. 接口设计</a></li>
+        <li><a href="#permission">6. 权限与配置</a></li>
+        <li><a href="#errors">7. 错误码与异常处理</a></li>
+        <li><a href="#pages">8. 页面清单与验收要点</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <p>
+        本节对应<a href="../../规划/项目规划说明.html">《项目规划说明》</a>「功能模块」之<strong>国际化管理</strong>模块，与「后端国际化」
+        「多语言数据规范」「核心数据表清单」「认证与安全」「前端页面清单与菜单机制」等章节；
+        架构设计依据<a href="../架构设计/01_架构设计_总览.html">《架构设计》</a>19-国际化节点。
+      </p>
+
+      <h2 id="overview">1. 模块概述与职责</h2>
+      <p>
+        国际化管理模块统一承载前后端固定文案与业务数据文案的多语言能力：语言清单动态扩展（含 RTL 标记）、
+        语言包页面在线维护、i18n 附表、用户时区偏好与运行时渲染。目标为<strong>新增语言免发版</strong>——
+        语言与文案全部入库维护，运行时下发。
+      </p>
+      <ul>
+        <li><strong>语言清单维护</strong>：<code>sys_i18n_locale</code>（code、name、rtl、status）动态扩展，rtl 标记驱动前端布局切换</li>
+        <li><strong>语言包页面维护</strong>：<code>sys_i18n_message</code>（msg_key + locale 联合主键），前后端固定文案统一存储，页面在线维护，新增语言免发版</li>
+        <li><strong>开发期提取</strong>：后端 Babel 仅开发期提取消息 key 入库（gettext 机制），Accept-Language 驱动请求语言</li>
+        <li><strong>业务文案 i18n 附表</strong>：需多语言的展示文案不入主表，由 <code>{主表}_i18n</code> 附表存储，查询按当前 locale 关联、缺省回退主表默认文案</li>
+        <li><strong>用户时区偏好</strong>：<code>sys_user.timezone</code>，时间统一 UTC 存储、前端按用户偏好时区展示，数字/日期格式经 Intl API 本地化</li>
+        <li><strong>运行时渲染</strong>：运行时通知内容由 gettext 按收件人语言翻译；前端 vue-i18n 语言包运行时拉取与 RTL 适配</li>
+      </ul>
+      <p>职责边界：本模块只管理语言能力（清单、语言包、时区、渲染规则），不负责具体业务文案内容的录入（由各业务模块经 i18n 附表提供）；邮件/短信模板多语言内容由<a href="24_概要设计_邮件通知.html">邮件通知</a>模块走 <code>sys_mail_template_i18n</code>。</p>
+      <p>相邻模块协作：与<strong>权限计算引擎</strong>协作返回菜单/权限码多语言名称；与<strong>通知公告</strong>协作按收件人 locale 渲染内容；与<strong>认证与会话</strong>协作在登录返回用户语言/时区偏好；与<strong>前端架构</strong>协作实现运行时拉取 + RTL 布局 + 时区格式化。</p>
+
+      <h2 id="functions">2. 功能分解与业务流程</h2>
+
+      <h3 id="functions-breakdown">2.1 功能点分解</h3>
+      <table>
+        <tr><th>功能点</th><th>说明</th><th>归属业务码</th></tr>
+        <tr><td>语言清单维护</td><td>语言增改/启停（code、name、rtl、status），动态扩展，rtl 标记驱动布局切换</td><td>i18n</td></tr>
+        <tr><td>语言包维护</td><td><code>sys_i18n_message</code> 页面在线维护（msg_key 增删、各语言 value 编辑），新增语言免发版</td><td>i18n</td></tr>
+        <tr><td>语言包运行时下发</td><td>GET /api/v1/i18n/messages，Redis 缓存 + 前端 localStorage 二次缓存</td><td>i18n</td></tr>
+        <tr><td>Babel 提取</td><td>开发期提取消息 key 入库（gettext，Accept-Language 驱动）</td><td>i18n（开发期）</td></tr>
+        <tr><td>业务文案 i18n 附表</td><td><code>{主表}_i18n</code> 按 locale 存储翻译，查询关联当前 locale、缺省回退主表默认文案</td><td>各业务 + i18n</td></tr>
+        <tr><td>用户时区偏好</td><td>个人中心维护 <code>sys_user.timezone</code>，时间按偏好时区展示，Intl API 本地化数字/日期</td><td>user</td></tr>
+      </table>
+
+      <h3 id="functions-rules">2.2 业务规则</h3>
+      <ul>
+        <li>固定文案（错误消息、按钮、提示）统一存 <code>sys_i18n_message</code>，页面在线维护、运行时下发（Redis 缓存），新增语言免发版</li>
+        <li>i18n key 命名：<code>模块.页面.字段</code>（如 user.form.username、common.confirm）；错误码文案按 <code>error.{code}</code> 映射</li>
+        <li>Babel 仅开发期提取消息 key 入库，运行时翻译走 gettext 机制，Accept-Language 驱动请求语言</li>
+        <li>业务展示文案不入主表，由 <code>{主表}_i18n</code> 附表存储（主表 ID + locale + 翻译字段，联合主键）；查询按当前 locale 关联，缺省回退主表默认文案；覆盖 sys_menu_i18n（name）、sys_business_i18n、sys_action_i18n、sys_field_i18n、sys_dict_type_i18n、sys_dict_item_i18n、sys_mail_template_i18n（subject、content）</li>
+        <li>语言清单 <code>sys_i18n_locale</code> 动态扩展；rtl 标记驱动前端布局切换；语言偏好 localStorage 持久化；用户级语言偏好 <code>sys_user.locale</code></li>
+        <li>时间统一 UTC 存储，按用户时区（<code>sys_user.timezone</code>）展示；数字/日期格式经 Intl API 本地化</li>
+        <li>运行时生成的通知内容不走附表，由 gettext 按收件人语言翻译（如审批提醒邮件、告警短信）；邮件模板多语言内容走 <code>sys_mail_template_i18n</code></li>
+        <li>菜单树按当前 locale 关联 i18n 附表返回翻译文案（动态菜单接口）</li>
+        <li>前端不硬编码文案；多语言数据（字典、菜单树）缓存键含 locale 维度；租户数据缓存键含 tenant 前缀</li>
+      </ul>
+
+      <h3 id="functions-flow">2.3 流程步骤</h3>
+      <p>新增语言主流程（含异常分支）：</p>
+      <ol>
+        <li>系统管理员在「语言管理」页面新增语言（code、name、rtl、status）</li>
+        <li>语言包维护页面出现新语言列，可为各 msg_key 补充该语言 value；批量维护亦可经导入导出</li>
+        <li>保存后失效 Redis 语言包缓存，前端下次拉取 GET /api/v1/i18n/messages 即得新语言
+          <ul>
+            <li>异常分支：缓存未及时失效 → 语言包短 TTL + 主动失效兜底</li>
+            <li>异常分支：某 msg_key 缺该语言翻译 → 前端回退默认语言（缺省回退主表/默认 locale 文案），不阻塞渲染</li>
+          </ul>
+        </li>
+        <li>用户切换语言（顶栏/个人中心）→ 偏好写 <code>sys_user.locale</code> + localStorage 持久化 → 按 RTL 标记切换布局方向</li>
+        <li>业务查询（菜单树/字典）按当前 locale 关联 i18n 附表返回翻译文案，缺省回退主表默认文案</li>
+        <li>通知/邮件发送时按收件人 locale 经 gettext 渲染内容</li>
+      </ol>
+
+      <h2 id="sequence">3. 关键时序与协作</h2>
+
+      <h3 id="sequence-messages">3.1 语言包运行时下发</h3>
+      <pre><code>前端（vue-i18n 初始化）
+     │ GET /api/v1/i18n/messages?locale=zh-CN
+     ▼
+后端 i18n 接口
+     │ 1) 查 Redis 缓存（键含 locale 维度，bms:{tenant}:i18n:{locale}）
+     ├─ 命中 ──► 直接返回语言包
+     └─ 未命中 ─► 查 sys_i18n_message（msg_key + locale）→ 回写 Redis（短 TTL）
+     ▼
+前端：localStorage 二次缓存 → vue-i18n 注入语言包渲染
+     │ 语言包维护页面保存 → 失效 Redis 缓存 → 下次请求重新下发</code></pre>
+
+      <h3 id="sequence-runtime">3.2 业务文案与通知渲染</h3>
+      <pre><code>动态菜单接口（按用户权限计算菜单树）
+     │ 按当前 locale 关联 sys_menu_i18n
+     └─► 返回翻译文案（缺省回退主表默认文案）→ 前端动态路由与侧边栏
+
+通知/邮件发送链路（邮件通知模块）
+     │ 按收件人 locale（sys_user.locale）→ gettext 翻译运行时内容
+     │ 邮件模板多语言走 sys_mail_template_i18n（subject、content）
+     └─► 审批提醒/告警通知按收件人语言送达
+
+展示层
+     │ 时间字段（UTC 存储）→ 按 sys_user.timezone 格式化（Intl API）
+     │ 数字/日期格式经 Intl API 本地化；RTL 语言由 sys_i18n_locale.rtl 驱动布局切换
+     └─► 用户偏好时区/语言展示</code></pre>
+
+      <h2 id="data">4. 数据模型与表设计</h2>
+      <p>核心表：<code>sys_i18n_locale</code>（语言清单）、<code>sys_i18n_message</code>（固定文案语言包），均位于租户库；i18n 附表与主表同库（联合主键）。</p>
+      <table>
+        <tr><th>表</th><th>关键字段</th><th>说明</th></tr>
+        <tr><td>sys_i18n_locale</td><td>code、name、rtl、status</td><td>语言清单，动态扩展；rtl 标记驱动前端布局切换</td></tr>
+        <tr><td>sys_i18n_message</td><td>msg_key、locale、value</td><td>前后端固定文案语言包，联合主键（msg_key + locale），页面维护、运行时下发</td></tr>
+        <tr><td>{主表}_i18n 附表</td><td>主表 ID、locale、翻译字段</td><td>sys_menu_i18n（name）、sys_business_i18n（name）、sys_action_i18n（name）、sys_field_i18n（name）、sys_dict_type_i18n（label）、sys_dict_item_i18n（label）、sys_mail_template_i18n（subject、content）；联合主键（主表 ID + locale）</td></tr>
+        <tr><td>sys_user（偏好字段）</td><td>locale、timezone</td><td>用户级语言/时区偏好，登录返回，个人中心可修改</td></tr>
+      </table>
+      <ul>
+        <li><strong>索引</strong>：<code>sys_i18n_message</code> 联合主键即查询键（msg_key + locale）；<code>sys_i18n_locale</code> code 唯一</li>
+        <li><strong>缓存</strong>：语言包 Redis 缓存（键含 locale 维度 + 租户前缀，短 TTL）+ 前端 localStorage 二次缓存；多语言数据（字典、菜单树）缓存键含 locale 维度</li>
+        <li><strong>归档/分片</strong>：语言包数据量小、变更低频，不分片不归档；仅语言包变更本身经 ORM 事件落入数据变更审计（sys_data_audit_log）</li>
+        <li><strong>数据流转</strong>：开发期 Babel 提取 key 入库 → 页面在线维护 value → 运行时 Redis/localStorage 下发 → 渲染时按 locale 关联（附表缺省回退主表默认文案）</li>
+      </ul>
+      <div class="note">
+        语言清单动态扩展（新增语言免发版）为既定能力：前端语言包全部运行时拉取，代码内不硬编码文案；RTL 语言经 sys_i18n_locale.rtl 标记驱动布局切换，无需前端发版。
+      </div>
+
+      <h2 id="api">5. 接口设计</h2>
+      <table>
+        <tr><th>方法</th><th>路径</th><th>说明</th><th>权限码</th></tr>
+        <tr><td>GET</td><td>/api/v1/i18n/messages</td><td>语言包运行时下发（按请求语言，Redis 缓存 + localStorage 二次缓存配合）</td><td>登录即可访问</td></tr>
+        <tr><td>GET</td><td>/api/v1/i18n/locales</td><td>语言清单分页查询</td><td>i18n:manage</td></tr>
+        <tr><td>POST</td><td>/api/v1/i18n/locales</td><td>新增语言（code、name、rtl、status）</td><td>i18n:manage</td></tr>
+        <tr><td>PUT</td><td>/api/v1/i18n/locales/{code}</td><td>修改语言（名称/rtl/启停）</td><td>i18n:manage</td></tr>
+        <tr><td>GET</td><td>/api/v1/i18n/messages/manage</td><td>语言包维护列表（按 msg_key + locale 查询/筛选）</td><td>i18n:manage</td></tr>
+        <tr><td>PUT</td><td>/api/v1/i18n/messages</td><td>语言包批量保存（msg_key 增删、各语言 value 编辑）</td><td>i18n:manage</td></tr>
+        <tr><td>PUT</td><td>/api/v1/i18n/cache/invalidate</td><td>语言包缓存主动失效（维护后触发）</td><td>i18n:manage</td></tr>
+      </table>
+      <ul>
+        <li>分页：查询参数 <code>page</code>（从 1 起）、<code>size</code>；响应 <code>{list, total, page, size}</code></li>
+        <li>语言包下发接口（GET /api/v1/i18n/messages）无独立权限码，登录即可访问（前端初始化必须）；维护类接口 require_permission（i18n:manage）强制校验</li>
+        <li>幂等：语言包批量保存支持幂等键（请求头 Idempotency-Key，Redis SETNX 前置拦截 + 唯一约束兜底）</li>
+        <li>限流：slowapi 接口级限流（IP / 用户维度）；语言包下发接口可放宽（高频只读）</li>
+        <li>发布事件：<strong>无独立事件</strong>；语言包/语言清单变更经 ORM 事件落入字段级审计（审计合规模块消费）</li>
+      </ul>
+
+      <h2 id="permission">6. 权限与配置</h2>
+      <table>
+        <tr><th>权限码</th><th>业务:动作</th><th>说明</th><th>默认归属</th></tr>
+        <tr><td>语言管理</td><td>i18n:manage</td><td>语言清单与语言包维护（含缓存失效）</td><td>系统管理员</td></tr>
+        <tr><td>偏好维护</td><td>user:update（本人）/ user:manage</td><td>个人中心修改语言/时区偏好</td><td>普通用户本人</td></tr>
+      </table>
+      <ul>
+        <li><strong>菜单挂接</strong>：语言管理、语言包维护菜单挂「国际化」表单（业务码 i18n），按钮挂动作（查询/新建/编辑 → i18n:manage）；菜单名多语言走 sys_menu_i18n</li>
+        <li><strong>sys_config 参数</strong>（建议键名）：语言包缓存 TTL（默认短 TTL）、默认语言（zh-CN）、是否允许用户自定义时区</li>
+        <li><strong>种子数据</strong>（初始化数据）：中文/英文语言（sys_i18n_locale：zh-CN / en-US）与前后端文案（sys_i18n_message）；初始菜单/字典等种子含 i18n 附表英文文案；邮件模板种子中英文</li>
+        <li>用户语言偏好（sys_user.locale）由登录接口返回，前端初始化即拉取对应语言包</li>
+      </ul>
+
+      <h2 id="errors">7. 错误码与异常处理</h2>
+      <p>按《项目规划说明》5 位错误码分段表，国际化语言包属<strong>系统配置段 4xxxx</strong>（40001-49999，覆盖菜单/字典/系统参数/国际化语言包），段内序号一经发布稳定不变。建议段内分配（44001 起为国际化模块保留）：</p>
+      <table>
+        <tr><th>错误码</th><th>含义</th><th>处理要求</th></tr>
+        <tr><td>44001</td><td>语言 code 已存在</td><td>新增语言唯一性校验失败，提示更换 code</td></tr>
+        <tr><td>44002</td><td>语言存在关联语言包数据，不可删除</td><td>仅允许停用（status），防止语言包孤儿数据</td></tr>
+        <tr><td>44003</td><td>msg_key 格式非法</td><td>校验 <code>模块.页面.字段</code> 命名规范</td></tr>
+        <tr><td>44004</td><td>至少保留一种启用的语言</td><td>停用语言时校验，防止无可用语言</td></tr>
+        <tr><td>44005</td><td>默认语言不可停用</td><td>默认语言（zh-CN）保护</td></tr>
+      </table>
+      <ul>
+        <li>文案由前端按 i18n 映射（<code>error.44001</code>），后端不承担文案拼装——错误码文案本身即走语言包</li>
+        <li>异常处理：语言包缓存失效失败降级短 TTL 兜底；翻译缺失不回退为空白而是缺省回退默认语言文案</li>
+        <li>「错误码文案按 error.{code} 映射」与本模块互相印证：错误码体系即国际化语言包的消费方之一</li>
+      </ul>
+
+      <h2 id="pages">8. 页面清单与验收要点</h2>
+      <table>
+        <tr><th>端</th><th>页面</th><th>说明</th></tr>
+        <tr><td>PC</td><td>语言管理</td><td>语言清单维护（code/name/rtl/status，新增/编辑/启停）</td></tr>
+        <tr><td>PC</td><td>语言包维护</td><td>msg_key 与各语言 value 在线编辑、批量保存、缓存失效</td></tr>
+        <tr><td>PC</td><td>个人中心 · 语言/时区偏好</td><td>语言切换（写 sys_user.locale + localStorage）、时区选择（sys_user.timezone）</td></tr>
+        <tr><td>PC</td><td>顶栏语言切换</td><td>主布局顶栏语言切换入口（vue-i18n 运行时拉取 + RTL 适配）</td></tr>
+        <tr><td>移动端</td><td>个人中心 · 语言/时区偏好</td><td>移动端偏好维护与语言切换（复用后端 API）</td></tr>
+      </table>
+      <p>验收要点：</p>
+      <ul>
+        <li>多语言动态扩展与 RTL：动态新增语言（含 RTL 语言）后前端免发版切换生效</li>
+        <li>语言包页面维护：前后端固定文案统一入库、在线编辑、运行时下发（Redis 缓存 + localStorage 二次缓存）</li>
+        <li>用户时区与 RTL 切换：时间按偏好时区展示、Intl API 数字/日期本地化、RTL 布局切换</li>
+        <li>i18n 附表缺省回退正确：菜单树/字典按 locale 关联，缺翻译回退主表默认文案</li>
+        <li>运行时通知按收件人语言渲染（审批提醒邮件、告警短信）</li>
+        <li>测试覆盖：多语言动态扩展与 RTL、密码策略与数据脱敏等纳入测试策略（《项目规划说明》测试策略节）</li>
+      </ul>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 概要设计节点 · 与《项目规划说明》《架构设计》《文档生成规范》《命名规范》配套 · 生成日期：2026-08-06
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>

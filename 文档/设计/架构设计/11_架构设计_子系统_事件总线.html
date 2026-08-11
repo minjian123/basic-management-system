@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>架构设计 · 子系统 · 事件总线</title>
+<link rel="stylesheet" href="../../资源/文档样式.css">
+</head>
+<body>
+
+<div class="topnav">
+  <a href="01_架构设计_总览.html">架构设计</a> › <span>11-事件总线</span>
+  <span class="topnav-side"><a href="10_架构设计_子系统_权限计算引擎.html">← 10-权限计算引擎</a> · <a href="12_架构设计_子系统_任务调度.html">12-任务调度 →</a></span>
+</div>
+
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>架构设计 · 子系统 · 事件总线</h1>
+      <p>BMS · RocketMQ 事件模型、消费与推送</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#overview">1. 概述</a></li>
+        <li><a href="#model">2. 事件模型</a></li>
+        <li><a href="#produce">3. 生产一致性</a></li>
+        <li><a href="#consume">4. 消费组架构</a></li>
+        <li><a href="#reliability">5. 幂等与重试</a></li>
+        <li><a href="#webhook">6. Webhook 推送</a></li>
+        <li><a href="#coordination">7. 与其他子系统的协调</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="overview">1. 概述</h2>
+      <p>
+        事件总线基于 RocketMQ 5.x：作事件总线承载操作日志异步化、Webhook 推送、审计链分区有序消费、
+        模块解耦与跨域数据同步。对应<a href="../../规划/项目规划说明.html">《项目规划说明》</a>的「消息队列」「事件总线事件模型」「Webhook 管理」章节。
+      </p>
+
+      <h2 id="model">2. 事件模型</h2>
+      <ul>
+        <li>事件信封 EventEnvelope：event_id（幂等键）、type（<code>{域}.{对象}.{动作}</code>）、tenant_id、occurred_at、payload</li>
+        <li>topic 命名：<code>bms.{事件域}.{事件}</code>（如 bms.log.operation、bms.wf.task、bms.event.purchase）</li>
+        <li>事件命名：<code>user.updated</code>、<code>wf.task.completed</code>、<code>purchase.order.created</code> 等（完整清单见 <a href="06_架构设计_接口与集成.html">06-接口与集成节点</a>）</li>
+        <li>默认清单开发期可扩展；Webhook 订阅按事件名匹配</li>
+      </ul>
+
+      <h2 id="produce">3. 生产一致性</h2>
+      <ul>
+        <li>RocketMQ 事务消息：半消息 → 本地业务事务提交回调 → 确认发送 / 回滚——本地事务与消息发送原子一致，避免丢事件</li>
+        <li>生产者封装统一事件发布组件，业务代码不直接操作 MQ 客户端</li>
+      </ul>
+
+      <h2 id="consume">4. 消费组架构</h2>
+      <table>
+        <tr><th>消费组</th><th>职责</th><th>有序性</th></tr>
+        <tr><td>审计链组</td><td>审计日志（操作/登录/开放接口/数据变更）串行追加 + 哈希链计算</td><td>分区有序（分区键=租户）</td></tr>
+        <tr><td>日志落库组</td><td>操作日志/登录日志异步落库（降低主库写压力）</td><td>并行</td></tr>
+        <tr><td>Webhook 推送组</td><td>事件按订阅匹配推送（HMAC 签名、退避重试）</td><td>并行</td></tr>
+        <tr><td>通知组</td><td>站内信落库 + 触发 Socket.IO 推送</td><td>并行</td></tr>
+        <tr><td>ES 同步组（阶段十三）</td><td>主数据/审计日志/文件内容索引同步</td><td>并行</td></tr>
+        <tr><td>embedding 组（阶段十四）</td><td>文件分段向量化入 Milvus</td><td>并行</td></tr>
+      </table>
+
+      <h2 id="reliability">5. 幂等与重试</h2>
+      <ul>
+        <li>幂等：event_id 去重——Redis SETNX 短窗口 + 业务唯一约束兜底（如日志表事件 id 唯一），重试不产生重复副作用</li>
+        <li>重试：消费失败指数退避重试（有限次）→ 转死信 topic 落库标记，监控告警人工介入</li>
+        <li>审计链消费分区键 = 租户：保证同租户日志串行追加，哈希链不乱序（见审计哈希链子系统）</li>
+      </ul>
+
+      <h2 id="webhook">6. Webhook 推送</h2>
+      <ul>
+        <li>订阅管理：sys_webhook（name、url、events、secret、status、fail_count），Webhook 管理页面注册（open 业务）</li>
+        <li>推送：HMAC 签名校验（sha256(secret, body)）；指数退避重试；失败记录 sys_webhook_log（webhook_id、event、payload、status、retry_count、next_retry_at、error_msg）</li>
+        <li>出站调用统一 httpx 封装（超时/重试/熔断）</li>
+      </ul>
+
+      <h2 id="coordination">7. 与其他子系统的协调</h2>
+      <ul>
+        <li><strong><a href="14_架构设计_子系统_审计哈希链.html">审计哈希链</a></strong>：审计事件经本总线分区有序消费，保证链序</li>
+        <li><strong><a href="17_架构设计_子系统_通知公告.html">通知公告</a></strong>：通知类事件（notification.sent）触发站内信与推送</li>
+        <li><strong><a href="16_架构设计_子系统_工作流.html">工作流</a></strong>：wf.* 事件（deployed/started/task.completed/rejected/finished）驱动待办提醒与外部订阅</li>
+        <li><strong><a href="20_架构设计_子系统_全文检索.html">全文检索</a></strong>：事件驱动 ES 索引同步与重建（重放事件流）</li>
+        <li><strong><a href="12_架构设计_子系统_任务调度.html">任务调度</a></strong>：任务执行完成落 task.completed 事件（与 Celery 任务队列解耦，互不干扰）</li>
+        <li><strong><a href="24_架构设计_性能与安全.html">故障降级</a></strong>：RocketMQ 故障时审计/日志降级为同步直写（标记降级时段，恢复后补发）</li>
+      </ul>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 架构设计节点 · 与《项目规划说明》《文档生成规范》《命名规范》配套 · 生成日期：2026-08-06
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>

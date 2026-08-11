@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>异常与空状态布局</title>
+<link rel="stylesheet" href="../../资源/文档样式.css">
+</head>
+<body>
+
+<div class="topnav">
+  <a href="../../文档首页.html">文档首页</a> ›
+  <a href="../../规划/项目规划说明.html">项目规划说明</a> ›
+  <a href="01_布局设计_总览.html">布局设计</a> ›
+  <span>异常与空状态布局</span>
+  <span class="topnav-side">
+    <a href="09_布局设计_响应式适配.html">← 上一个：响应式适配</a>
+    <a href="11_布局设计_移动端.html">下一个：移动端 →</a>
+  </span>
+</div>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>异常与空状态布局</h1>
+      <p>404/403/500 · 空数据 · 骨架屏 · 离线与超时</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#purpose">1. 目的与适用范围</a></li>
+        <li><a href="#error-page">2. 错误页（404/403/500）</a></li>
+        <li><a href="#empty">3. 空状态</a></li>
+        <li><a href="#loading">4. 加载状态</a></li>
+        <li><a href="#exception">5. 异常兜底</a></li>
+        <li><a href="#checklist">6. 检查清单</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="purpose">1. 目的与适用范围</h2>
+      <p>
+        规范 BMS 前后端的异常页面、空状态与加载反馈，保证任何场景下用户都有明确引导、
+        系统不出现白屏或无反馈。与《<a href="../../规范/前端开发规范.html">前端开发规范</a>》配套。
+      </p>
+
+      <h2 id="error-page">2. 错误页（404/403/500）</h2>
+      <table>
+        <tr><th>页面</th><th>文案</th><th>操作</th></tr>
+        <tr><td>404</td><td>页面不存在（或已被移除）</td><td>返回首页</td></tr>
+        <tr><td>403</td><td>没有访问权限（如需申请请联系管理员）</td><td>返回首页 / 联系管理员</td></tr>
+        <tr><td>500</td><td>服务开小差了（请稍后重试）</td><td>刷新重试 / 返回首页</td></tr>
+      </table>
+      <ul>
+        <li>布局：居中插画（SVG）+ 标题 + 说明 + 主操作按钮；不展示技术堆栈信息（《<a href="../../规范/安全开发规范.html">安全开发规范</a>》）。</li>
+        <li>未登录访问受保护路由：跳登录页并携带回跳参数（登录成功后返回原页面）。</li>
+      </ul>
+
+      <h2 id="empty">3. 空状态</h2>
+      <table>
+        <tr><th>场景</th><th>表现</th></tr>
+        <tr><td>列表无数据</td><td>空插画 + 「暂无数据」；有权限时提供「去创建」主按钮（如新建部门）</td></tr>
+        <tr><td>搜索无结果</td><td>「未找到相关内容」+ 清除筛选/重置按钮</td></tr>
+        <tr><td>待办为空</td><td>「暂无待办，享受这一刻」正向引导</td></tr>
+        <tr><td>消息为空</td><td>「暂无消息」</td></tr>
+      </table>
+      <div class="note">空状态插画统一维护于 <code>src/assets/images/empty-*.svg</code>（kebab-case 命名）；业务空态优先文案引导而非纯插画。</div>
+
+      <h2 id="loading">4. 加载状态</h2>
+      <table>
+        <tr><th>场景</th><th>表现</th></tr>
+        <tr><td>首屏/页面级</td><td>骨架屏（skeleton，与内容结构一致）</td></tr>
+        <tr><td>局部刷新（表格）</td><td>内容区遮罩 loading（不整页闪烁）</td></tr>
+        <tr><td>按钮提交</td><td>按钮内 loading，防重复点击</td></tr>
+        <tr><td>移动端列表</td><td>首屏骨架 + 触底加载 + 下拉刷新（见《<a href="12_布局设计_移动端细化.html">移动端布局细化</a>》）</td></tr>
+      </table>
+
+      <h2 id="exception">5. 异常兜底</h2>
+      <ul>
+        <li>接口错误统一拦截（axios 拦截器）：401 跳登录、403 提示无权限、5xx 提示稍后重试；业务错误按 <code>message</code> 展示（《<a href="../../规范/API接口规范.html">API接口规范</a>》）。</li>
+        <li>前端运行时错误：全局错误处理器捕获，开发环境控制台详报、生产记录前端监控日志（阶段八）。</li>
+        <li>断网/超时：提示「网络异常，请检查连接」+ 重试按钮；关键页面支持本地缓存回显（草稿）。</li>
+        <li>长时间任务（导入/导出）：进度反馈 + 完成通知，页面不超时假死。</li>
+      </ul>
+
+      <h2 id="checklist">6. 检查清单</h2>
+      <ul>
+        <li>□ 404/403/500 三页齐全，文案与操作正确</li>
+        <li>□ 空状态覆盖列表/搜索/待办/消息场景</li>
+        <li>□ 加载分级（骨架/遮罩/按钮内）使用正确</li>
+        <li>□ 接口错误统一拦截，无白屏与裸错误</li>
+        <li>□ 断网/超时/长任务有反馈与重试</li>
+      </ul>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 依《文档生成规范》编写 · 与《API接口规范》《安全开发规范》配套 · 生成日期：2026-08-11
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>

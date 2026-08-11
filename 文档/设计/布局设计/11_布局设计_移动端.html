@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>移动端布局设计</title>
+<link rel="stylesheet" href="../../资源/文档样式.css">
+</head>
+<body>
+
+<div class="topnav">
+  <a href="../../文档首页.html">文档首页</a> ›
+  <a href="../../规划/项目规划说明.html">项目规划说明</a> ›
+  <a href="01_布局设计_总览.html">布局设计</a> ›
+  <span>移动端布局设计</span>
+  <span class="topnav-side">
+    <a href="10_布局设计_异常与空状态.html">← 上一个：异常与空状态</a>
+    <a href="12_布局设计_移动端细化.html">下一个：移动端细化 →</a>
+  </span>
+</div>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>移动端布局设计</h1>
+      <p>BMS · frontend-mobile（Vue 3 + Vant）</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#overview">1. 概述</a>
+          <ul class="sub">
+            <li><a href="#scope">1.1 适用范围</a></li>
+            <li><a href="#relation">1.2 与 PC 端的关系</a></li>
+          </ul>
+        </li>
+        <li><a href="#overall">2. 总体布局</a>
+          <ul class="sub">
+            <li><a href="#layout-structure">2.1 布局结构</a></li>
+            <li><a href="#nav-mode">2.2 导航模式</a></li>
+          </ul>
+        </li>
+        <li><a href="#tabbar">3. 底部主导航（TabBar）</a></li>
+        <li><a href="#navbar">4. 页面导航（NavBar）</a></li>
+        <li><a href="#pages">5. 核心页面布局</a>
+          <ul class="sub">
+            <li><a href="#page-login">5.1 登录页</a></li>
+            <li><a href="#page-workbench">5.2 工作台</a></li>
+            <li><a href="#page-todo">5.3 我的待办/已办</a></li>
+            <li><a href="#page-approve">5.4 审批操作页</a></li>
+            <li><a href="#page-notice">5.5 通知列表</a></li>
+            <li><a href="#page-announce">5.6 公告查看</a></li>
+            <li><a href="#page-query">5.7 数据查询</a></li>
+            <li><a href="#page-profile">5.8 个人中心</a></li>
+          </ul>
+        </li>
+        <li><a href="#form">6. 移动端表单</a></li>
+        <li><a href="#preview">7. 附件预览</a></li>
+        <li><a href="#embed">8. 内嵌适配（企业微信/钉钉）</a></li>
+        <li><a href="#interaction">9. 交互规范</a></li>
+        <li><a href="#tech">10. 技术要点</a></li>
+        <li><a href="#mapping">11. 与 PC 端布局对照</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="overview">1. 概述</h2>
+
+      <h3 id="scope">1.1 适用范围</h3>
+      <p>
+        本文档定义 BMS 移动端 H5（frontend-mobile 工程，Vue 3 + Vant）的布局设计。
+        移动端面向审批、通知、公告、数据查询、个人中心等高频移动场景，与 PC 管理端共享后端 API 与会话体系。
+      </p>
+
+      <h3 id="relation">1.2 与 PC 端的关系</h3>
+      <table>
+        <tr><th>维度</th><th>PC 管理端（frontend）</th><th>移动端（frontend-mobile）</th></tr>
+        <tr><td>导航模式</td><td>左侧树状导航 + 多 Tab 页</td><td>底部 TabBar + 页面栈（单页展开）</td></tr>
+        <tr><td>页面容器</td><td>FormFrame（列表/详情多 Tab）</td><td>单页表单（列表 → 详情页跳转）</td></tr>
+        <tr><td>权限体系</td><td>动态菜单 + v-perm + 字段权限</td><td>同一权限体系，按需渲染入口与按钮</td></tr>
+        <tr><td>工程</td><td>frontend（独立工程）</td><td>frontend-mobile（独立工程，npm 各自管理）</td></tr>
+      </table>
+      <div class="note">移动端不采用 PC 端的主框架/Tab 布局（见《主框架布局设计》《表单栏布局设计》），两者相互独立、互不影响。</div>
+
+      <h2 id="overall">2. 总体布局</h2>
+
+      <h3 id="layout-structure">2.1 布局结构</h3>
+      <div class="diagram diagram-mobile">
+        <div class="d-box d-safe">安全区（iPhone 刘海 / 状态栏适配）</div>
+        <div class="d-box d-nav">NavBar（导航头）：返回 / 标题 / 右侧操作</div>
+        <div class="d-box d-body">页面内容区（滚动）<span class="d-note">列表 / 表单 / 详情 / 公告 / 数据查询</span></div>
+        <div class="d-box d-tabbar">TabBar（底部主导航，仅 Tab 根页面显示）<span class="d-note"><b>工作台</b> │ <b>待办</b> │ <b>通知</b> │ <b>我的</b></span></div>
+        <div class="d-box d-safe">安全区（iPhone 底部 Home 条适配）</div>
+      </div>
+      <ul>
+        <li>页面分两类：<strong>Tab 根页面</strong>（工作台/待办/通知/我的，带底部 TabBar）与<strong>子页面</strong>（审批详情、通知列表详情、公告详情、数据查询详情等，无 TabBar，NavBar 显示返回）</li>
+        <li>安全区适配：顶部状态栏与底部 Home 条用 <code>env(safe-area-inset-*)</code> 撑开，避免刘海与手势条遮挡</li>
+      </ul>
+
+      <h3 id="nav-mode">2.2 导航模式</h3>
+      <ul>
+        <li><strong>Tab 切换</strong>：底部 TabBar 在四个根页面间切换（路由切换，非页面栈 push）</li>
+        <li><strong>页面栈</strong>：子页面用路由 push（如 待办列表 → 审批操作页），NavBar 返回 pop；支持浏览器返回手势</li>
+        <li><strong>返回拦截</strong>：子页面存在未保存修改（dirty）时，返回前弹确认（与 PC 端脏数据保护一致）</li>
+        <li>每个子页面与 URL 一一对应，支持分享/收藏直达（无 TabBar 环境显示 NavBar 返回）</li>
+      </ul>
+
+      <h2 id="tabbar">3. 底部主导航（TabBar）</h2>
+      <table>
+        <tr><th>Tab</th><th>路由</th><th>内容</th><th>角标</th></tr>
+        <tr><td>工作台</td><td><code>/home</code></td><td>欢迎横幅、快捷入口（我的待办/通知/公告/数据查询）、系统信息</td><td>—</td></tr>
+        <tr><td>待办</td><td><code>/todos</code></td><td>我的待办/已办列表（分段切换）</td><td>待办数（badge 实时）</td></tr>
+        <tr><td>通知</td><td><code>/notifications</code></td><td>站内信列表（批量已读）</td><td>未读数（badge 实时）</td></tr>
+        <tr><td>我的</td><td><code>/profile</code></td><td>个人中心：改密/语言/时区/退出登录</td><td>—</td></tr>
+      </table>
+      <ul>
+        <li>TabBar 固定 4 项，图标 + 文字，激活态高亮（Vant <code>Tabbar</code> 组件）</li>
+        <li>角标数据来源：Socket.IO 实时事件（approval.todo / notification.new）增量更新 + 进入页面拉取兜底</li>
+        <li>仅登录后显示；登录页/审批页等子页面隐藏 TabBar</li>
+      </ul>
+
+      <h2 id="navbar">4. 页面导航（NavBar）</h2>
+      <ul>
+        <li>子页面顶部 NavBar：左侧返回（页面栈 pop）、中间标题、右侧操作（如审批"提交"、通知"全部已读"）</li>
+        <li>标题取路由 meta.title（多语言，见第 10 节）；固定吸顶，内容滚动</li>
+        <li>返回行为：无未保存修改直接 pop；有 dirty 弹确认；从外部（分享直达/免登进入）无栈可退时隐藏返回或回工作台</li>
+      </ul>
+
+      <h2 id="pages">5. 核心页面布局</h2>
+
+      <h3 id="page-login">5.1 登录页</h3>
+      <ul>
+        <li>账号密码登录（含图形验证码，连续失败 3 次后强制）+ SSO 入口（企业微信/钉钉免登按钮、OIDC 跳转）</li>
+        <li>登录成功后进入工作台（首页）；本地登录与免登并存</li>
+      </ul>
+
+      <h3 id="page-workbench">5.2 工作台</h3>
+      <ul>
+        <li>欢迎横幅（用户名 + 日期）、快捷入口卡片（待办/通知/公告/数据查询，无权限的入口不渲染）</li>
+        <li>待办/未读角标展示（与 TabBar 角标数据同源）</li>
+      </ul>
+
+      <h3 id="page-todo">5.3 我的待办/已办</h3>
+      <ul>
+        <li>分段切换：待办 / 已办；列表项：业务类型、标题、发起人、时间、状态标签（待审批/已通过/已驳回）</li>
+        <li>下拉刷新 + 上拉加载（分页 page/size）；点击待办项进入审批操作页</li>
+        <li>我发起的入口（工作台快捷入口）</li>
+      </ul>
+
+      <h3 id="page-approve">5.4 审批操作页</h3>
+      <pre><code>NavBar：返回 / 审批详情 / 提交
+─────────────────────────────
+申请信息（只读字段区，脱敏规则同上）
+附件列表（点击预览，见第 7 节）
+审批轨迹（时间线：节点/审批人/意见）
+── 底部操作栏（仅待办可见）──
+[驳回]              [同意]
+（评论输入框展开于操作栏上方）</code></pre>
+      <ul>
+        <li>只读查看申请详情 + 附件在线预览；操作栏"同意/驳回"固定底部</li>
+        <li>驳回需填写意见；提交防重复（幂等键）；提交后返回列表并刷新</li>
+        <li>已办视图：无操作栏，仅展示详情与审批轨迹</li>
+      </ul>
+
+      <h3 id="page-notice">5.5 通知列表</h3>
+      <ul>
+        <li>站内信列表（类型图标 + 标题 + 时间，未读高亮）；左滑删除（Vant SwipeCell）</li>
+        <li>批量已读/全部已读（NavBar 右侧操作）；未读数角标联动</li>
+      </ul>
+
+      <h3 id="page-announce">5.6 公告查看</h3>
+      <ul>
+        <li>公告列表（置顶标识、过期不展示）→ 公告详情（正文、发布时间、已读回执自动上报）</li>
+        <li>打开详情即上报已读（sys_notice_read）</li>
+      </ul>
+
+      <h3 id="page-query">5.7 数据查询</h3>
+      <ul>
+        <li>报表查看（复用后端 rpt 数据源与权限）；列表 → 详情/图表渲染（ECharts 移动端适配）</li>
+        <li>查询条件表单 + 结果列表分页加载</li>
+      </ul>
+
+      <h3 id="page-profile">5.8 个人中心</h3>
+      <ul>
+        <li>用户信息卡片（头像/昵称/部门）；菜单列表：修改密码、语言偏好、时区偏好、退出登录</li>
+        <li>修改密码：原密码 + 新密码（含策略校验提示）；退出登录走登出流程（refresh 黑名单即时失效）</li>
+      </ul>
+
+      <h2 id="form">6. 移动端表单</h2>
+      <ul>
+        <li>Vant Form 组件：单元格式表单布局（字段 label 左侧、内容右侧），编辑态字段可编辑</li>
+        <li><strong>字段权限联动</strong>：表单元数据接口下发的字段权限——<code>visible=false</code> 不渲染、<code>editable=false</code> 编辑态也禁用（与 PC 端一致）</li>
+        <li><strong>脱敏展示</strong>：敏感字段默认掩码（138****5678），持 <code>data:plain</code> 权限查看明文</li>
+        <li><strong>i18n</strong>：字段标签/标题取当前 locale 翻译；错误提示走错误码 i18n 映射</li>
+        <li>文件类字段：通用上传组件（分片上传/断点续传、预签名预览下载）</li>
+        <li>乐观锁：保存携带 version，冲突提示重新加载（与 PC 端一致）</li>
+      </ul>
+
+      <h2 id="preview">7. 附件预览</h2>
+      <ul>
+        <li>图片/PDF 经预签名 URL 直开（限时有效）；移动端审批附件、申请附件均支持</li>
+        <li>大图缩放/双指手势（Vant ImagePreview）；PDF 内嵌浏览器打开或 App 内 webview 渲染</li>
+        <li>文件类型白名单与大小限制与后端文件接口一致</li>
+      </ul>
+
+      <h2 id="embed">8. 内嵌适配（企业微信/钉钉）</h2>
+      <ul>
+        <li>企微/钉钉工作台内嵌 H5：经各自 OAuth 免登（复用外部身份框架，JIT 建号），免登录直接进入工作台</li>
+        <li>WebView 环境：禁用手势刷新（避免页面刷新丢会话）、适配 WebView 顶部高度（避免双导航条）</li>
+        <li>手机浏览器直接访问：走账号密码 / SSO 登录</li>
+        <li>安全区与横屏：企微/钉钉内嵌均按竖屏适配，横屏不承诺支持</li>
+      </ul>
+
+      <h2 id="interaction">9. 交互规范</h2>
+      <table>
+        <tr><th>交互</th><th>规范</th></tr>
+        <tr><td>下拉刷新</td><td>列表页统一下拉刷新（重新拉取第一页）</td></tr>
+        <tr><td>上拉加载</td><td>分页加载更多（page/size，加载完显示"没有更多了"）</td></tr>
+        <tr><td>加载状态</td><td>首屏骨架屏；局部操作 Loading；请求失败 Toast + 重试按钮</td></tr>
+        <tr><td>轻提示</td><td>Toast（成功/失败）、Dialog（确认/危险操作）、ActionSheet（操作菜单）</td></tr>
+        <tr><td>空状态</td><td>列表空时显示空态插图 + 提示文案</td></tr>
+        <tr><td>脏数据保护</td><td>表单未保存返回/切换时 Dialog 确认（与 PC 端一致）</td></tr>
+        <tr><td>手势</td><td>列表行左滑（SwipeCell）用于删除等操作</td></tr>
+      </table>
+
+      <h2 id="tech">10. 技术要点</h2>
+      <ul>
+        <li>Vant 4 组件库：Tabbar / NavBar / Form / Field / List / PullRefresh / SwipeCell / ImagePreview 等</li>
+        <li>路由：Vue Router（Tab 根页 + 页面栈子页），路由守卫校验权限（无权限跳 403/提示）</li>
+        <li>权限：入口/按钮按权限码显隐（<code>v-perm="'业务:动作'"</code>），与后端 require_permission 双重控制</li>
+        <li>实时角标：socket.io-client 接收 approval.todo / notification.new / session.revoked，增量更新 badge</li>
+        <li>会话：access token 内存态 + refresh cookie；401 静默刷新；session.revoked 强制登出</li>
+        <li>i18n：语言包运行时拉取（localStorage 缓存），RTL 布局切换，时区按用户偏好（Intl）</li>
+        <li>状态管理：Pinia（用户会话、角标计数、全局配置）</li>
+      </ul>
+
+      <h2 id="mapping">11. 与 PC 端布局对照</h2>
+      <table>
+        <tr><th>场景</th><th>PC 端</th><th>移动端</th></tr>
+        <tr><td>主导航</td><td>左侧树状导航（搜索过滤、折叠记忆）</td><td>底部 TabBar（4 项固定）</td></tr>
+        <tr><td>多页面</td><td>顶层多 Tab（keep-alive、localStorage 恢复）</td><td>页面栈（无多开，返回即销毁）</td></tr>
+        <tr><td>列表-详情</td><td>表单内 Tab（列表固定 + 详情多开）</td><td>列表页 → 详情页 push</td></tr>
+        <tr><td>工具栏</td><td>统一工具栏（新增/修改/保存/删除/刷新/关闭）</td><td>NavBar 操作 + 底部操作栏（审批同意/驳回）</td></tr>
+        <tr><td>数据刷新</td><td>keep-alive 时效自动刷新 + 手动刷新</td><td>下拉刷新 + 上拉加载</td></tr>
+        <tr><td>权限/脱敏/i18n</td><td>同权限体系</td><td>同权限体系（复用后端表单元数据）</td></tr>
+        <tr><td>脏数据保护</td><td>Tab 关闭确认</td><td>返回拦截确认</td></tr>
+      </table>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 依《文档生成规范》编写 · 与《03-布局设计-主框架》《05-布局设计-表单栏》《架构设计》配套 · 生成日期：2026-08-06
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>

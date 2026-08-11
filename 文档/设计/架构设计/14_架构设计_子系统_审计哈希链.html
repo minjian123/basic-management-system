@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>架构设计 · 子系统 · 审计哈希链</title>
+<link rel="stylesheet" href="../../资源/文档样式.css">
+</head>
+<body>
+
+<div class="topnav">
+  <a href="01_架构设计_总览.html">架构设计</a> › <span>14-审计哈希链</span>
+  <span class="topnav-side"><a href="13_架构设计_子系统_实时推送.html">← 13-实时推送</a> · <a href="15_架构设计_子系统_文件管理.html">15-文件管理 →</a></span>
+</div>
+
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>架构设计 · 子系统 · 审计哈希链</h1>
+      <p>BMS · 审计记录防篡改与完整性校验</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#overview">1. 概述</a></li>
+        <li><a href="#capture">2. 审计捕获</a></li>
+        <li><a href="#chain">3. 哈希链构造</a></li>
+        <li><a href="#order">4. 写入顺序保证</a></li>
+        <li><a href="#verify">5. 校验与巡检</a></li>
+        <li><a href="#retention">6. 留存与销毁</a></li>
+        <li><a href="#coordination">7. 与其他子系统的协调</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="overview">1. 概述</h2>
+      <p>
+        审计哈希链子系统保证审计记录不可篡改：操作日志、登录日志、开放接口日志与字段级变更审计
+        逐条哈希串联，配合 RocketMQ 分区有序消费保证链序。对应<a href="../../规划/项目规划说明.html">《项目规划说明》</a>的「审计合规」
+        「操作日志」「登录日志」章节，覆盖操作日志、登录日志、数据变更审计模块。
+      </p>
+
+      <h2 id="capture">2. 审计捕获</h2>
+      <ul>
+        <li>字段级变更审计：关键表（sys_user、sys_role、sys_role_assign、sys_role_permission、sys_role_field、sys_post、sys_dept、sys_notice、sys_help_article、sys_tenant_quota、biz_supplier、wf_process、biz_purchase_* 等）经 ORM 事件自动记录旧值/新值至 sys_data_audit_log（table_name、record_id、field、old_value、new_value、operator_id）</li>
+        <li>操作日志：action 记录权限码（业务:动作，与权限体系对齐）；敏感字段（密码、token、密钥）脱敏后记录，不落原始值</li>
+        <li>登录日志：成功/失败记录（username、ip、user_agent、status、fail_reason）</li>
+      </ul>
+
+      <h2 id="chain">3. 哈希链构造</h2>
+      <ul>
+        <li><code>record_hash = SHA256(prev_hash + 规范化记录内容)</code>；prev_hash 取当前分片表末条 record_hash</li>
+        <li>跨月衔接：新分片表首条 prev_hash = 上月末条 record_hash（分片表内成链、跨月表首尾衔接）</li>
+        <li>链头：各分片表首条记录的 prev_hash 为上一月链尾哈希（首月链头为约定初始值）</li>
+      </ul>
+
+      <h2 id="order">4. 写入顺序保证</h2>
+      <ul>
+        <li>审计事件经 RocketMQ 分区有序消费（分区键 = 租户）→ 同租户串行追加，杜绝并发写乱序破坏 prev_hash 衔接</li>
+        <li>跨月切换由事件消费逻辑保证（新月份分片表已由任务预创建）</li>
+      </ul>
+
+      <h2 id="verify">5. 校验与巡检</h2>
+      <ul>
+        <li>链校验工具：逐条重算 record_hash 与 prev_hash 比对，定位被篡改记录</li>
+        <li>定期巡检（内置任务）+ 归档前强制校验（链完整方可归档）</li>
+        <li>校验结果与异常告警接入系统监控</li>
+      </ul>
+
+      <h2 id="retention">6. 留存与销毁</h2>
+      <ul>
+        <li>合规留存：审计数据 90 天热表 + 归档冷存储（两段式归档，见核心交互时序-归档流转）</li>
+        <li>哈希链随归档一并导出（含链头尾哈希），供事后独立校验</li>
+        <li>合规销毁（含审计数据销毁）记录销毁日志备查</li>
+        <li>归档数据查询：只读（bms_archive 库），审计管理员权限</li>
+      </ul>
+
+      <h2 id="coordination">7. 与其他子系统的协调</h2>
+      <ul>
+        <li><strong><a href="11_架构设计_子系统_事件总线.html">事件总线</a></strong>：审计事件生产与分区有序消费（链序保证）</li>
+        <li><strong><a href="08_架构设计_子系统_数据访问与分片.html">数据访问与分片</a></strong>：审计日志按月分片落库（分片键=时间）</li>
+        <li><strong><a href="12_架构设计_子系统_任务调度.html">任务调度</a></strong>：归档、链校验巡检为内置任务</li>
+        <li><strong><a href="10_架构设计_子系统_权限计算引擎.html">权限计算引擎</a></strong>：三权分立中审计管理员只读全部日志与审计数据（log 业务）</li>
+        <li><strong><a href="20_架构设计_子系统_全文检索.html">全文检索</a></strong>：审计日志经事件同步至 ES 按月索引（阶段十三）</li>
+      </ul>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 架构设计节点 · 与《项目规划说明》《文档生成规范》《命名规范》配套 · 生成日期：2026-08-06
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>

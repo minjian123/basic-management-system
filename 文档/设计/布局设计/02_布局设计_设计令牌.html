@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>全局设计令牌</title>
+<link rel="stylesheet" href="../../资源/文档样式.css">
+</head>
+<body>
+
+<div class="topnav">
+  <a href="../../文档首页.html">文档首页</a> ›
+  <a href="../../规划/项目规划说明.html">项目规划说明</a> ›
+  <a href="01_布局设计_总览.html">布局设计</a> ›
+  <span>全局设计令牌</span>
+  <span class="topnav-side">
+    <a href="03_布局设计_主框架.html">下一个：主框架 →</a>
+  </span>
+</div>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>全局设计令牌</h1>
+      <p>Design Tokens · 色板/字体/间距/栅格/圆角/阴影/图标</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#purpose">1. 目的与适用范围</a></li>
+        <li><a href="#color">2. 色彩令牌</a></li>
+        <li><a href="#font">3. 字体令牌</a></li>
+        <li><a href="#space">4. 间距与栅格</a></li>
+        <li><a href="#radius">5. 圆角与阴影</a></li>
+        <li><a href="#icon">6. 图标与图片</a></li>
+        <li><a href="#token">7. 令牌落地（CSS 变量）</a></li>
+        <li><a href="#checklist">8. 检查清单</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="purpose">1. 目的与适用范围</h2>
+      <p>
+        定义 BMS 前端（PC 管理端 Element Plus + 移动端 H5 Vant）的<strong>设计令牌</strong>（Design Tokens）：
+        色彩、字体、间距、栅格、圆角、阴影、图标等基础规范，作为全部布局与组件样式的单一事实来源。
+        与《<a href="../../规范/前端开发规范.html">前端开发规范</a>》配套。
+      </p>
+
+      <h2 id="color">2. 色彩令牌</h2>
+      <table>
+        <tr><th>令牌</th><th>用途</th><th>默认值</th></tr>
+        <tr><td><code>--color-primary</code></td><td>主色（品牌、主按钮、选中态）</td><td><code>#0969da</code>（可租户覆盖）</td></tr>
+        <tr><td><code>--color-success</code></td><td>成功/已通过</td><td><code>#2da44e</code></td></tr>
+        <tr><td><code>--color-warning</code></td><td>警告/待审批</td><td><code>#d4a72c</code></td></tr>
+        <tr><td><code>--color-danger</code></td><td>危险/驳回/删除</td><td><code>#cf222e</code></td></tr>
+        <tr><td><code>--color-info</code></td><td>信息/次要</td><td><code>#57606a</code></td></tr>
+        <tr><td><code>--color-bg</code> / <code>--color-bg-page</code></td><td>页面/卡片背景</td><td><code>#f7f8fa</code> / <code>#ffffff</code></td></tr>
+        <tr><td><code>--color-border</code></td><td>边框/分隔线</td><td><code>#d0d7de</code></td></tr>
+        <tr><td><code>--color-text</code> / <code>--color-text-secondary</code></td><td>正文/次要文字</td><td><code>#1f2328</code> / <code>#57606a</code></td></tr>
+      </table>
+      <ul>
+        <li>状态色语义固定：<strong>审批/流程状态</strong>（通过=success、待审=warning、驳回=danger）全局统一，不因模块改色。</li>
+        <li>主色允许租户覆盖（品牌化，见《<a href="08_布局设计_主题与租户品牌化.html">主题与租户品牌化</a>》）。</li>
+        <li>禁止在组件内硬编码色值，一律引用令牌。</li>
+      </ul>
+
+      <h2 id="font">3. 字体令牌</h2>
+      <table>
+        <tr><th>令牌</th><th>值</th></tr>
+        <tr><td><code>--font-family</code></td><td><code>"Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif</code></td></tr>
+        <tr><td><code>--font-family-mono</code></td><td><code>Consolas, "Cascadia Mono", monospace</code></td></tr>
+        <tr><td><code>--font-size-xs / sm / base / lg / xl / xxl</code></td><td>12 / 13 / 14 / 16 / 20 / 24 px</td></tr>
+        <tr><td><code>--font-weight-*</code></td><td>400 常规 / 500 中 / 600 标题 / 700 强调</td></tr>
+        <tr><td><code>--line-height-*</code></td><td>紧凑 1.5 / 常规 1.75 / 宽松 2</td></tr>
+      </table>
+      <div class="note">字号阶梯 12→24 够用；管理端表格/表单用 14px 为主，正文说明 13px，页面标题 16px+。</div>
+
+      <h2 id="space">4. 间距与栅格</h2>
+      <table>
+        <tr><th>令牌</th><th>值</th><th>典型用途</th></tr>
+        <tr><td><code>--space-xs</code></td><td>4px</td><td>图标与文字、行内元素</td></tr>
+        <tr><td><code>--space-sm</code></td><td>8px</td><td>按钮组、标签内间距</td></tr>
+        <tr><td><code>--space-md</code></td><td>12px</td><td>表单项间距、列表单元</td></tr>
+        <tr><td><code>--space-lg</code></td><td>16px</td><td>卡片内边距、区块间距</td></tr>
+        <tr><td><code>--space-xl</code></td><td>24px</td><td>页面边距、卡片间距</td></tr>
+        <tr><td><code>--space-xxl</code></td><td>32px</td><td>大区块分隔</td></tr>
+      </table>
+      <ul>
+        <li>栅格：PC 12/24 列（Element Plus el-row/el-col），内容最大宽度 1600px 居中；间距遵循 4px 基准（4/8/12/16/24/32）。</li>
+        <li>页面内容区边距：PC 24px（<code>--space-xl</code>），移动端 16px。</li>
+        <li>禁止散落魔法间距值（如 13px、21px），一律取令牌。</li>
+      </ul>
+
+      <h2 id="radius">5. 圆角与阴影</h2>
+      <table>
+        <tr><th>令牌</th><th>值</th><th>用途</th></tr>
+        <tr><td><code>--radius-sm</code></td><td>4px</td><td>输入框、按钮、标签</td></tr>
+        <tr><td><code>--radius-md</code></td><td>6px</td><td>卡片、下拉、弹窗</td></tr>
+        <tr><td><code>--radius-lg</code></td><td>8px</td><td>大卡片、抽屉</td></tr>
+        <tr><td><code>--shadow-sm / md / lg</code></td><td>层级递进</td><td>悬浮卡片 / 弹窗 / 抽屉遮罩层叠</td></tr>
+      </table>
+
+      <h2 id="icon">6. 图标与图片</h2>
+      <ul>
+        <li>图标统一 @element-plus/icons-vue（PC）与 Vant 图标（移动端）；业务图标自绘放 <code>src/assets/icons/</code>，kebab-case 命名（《<a href="../../规范/命名规范.html">命名规范</a>》第 9 节）。</li>
+        <li>图标尺寸随字号：14px 内联图标、16px 菜单图标、20px 按钮图标；不拉伸变形。</li>
+        <li>图片资源（logo 等）放 <code>src/assets/images/</code>，SVG 优先。</li>
+      </ul>
+
+      <h2 id="token">7. 令牌落地（CSS 变量）</h2>
+      <pre><code>/* src/styles/tokens.css */
+:root {
+  --color-primary: #0969da;
+  --color-success: #2da44e;
+  /* ... 全部令牌 */
+}
+/* 映射到 Element Plus 变量 */
+:root {
+  --el-color-primary: var(--color-primary);
+  --el-border-radius-base: var(--radius-md);
+}</code></pre>
+      <ul>
+        <li>令牌定义唯一来源：<code>src/styles/tokens.css</code>；暗色模式与租户主题通过 <code>[data-theme]</code> / <code>[data-tenant]</code> 覆盖（见《<a href="08_布局设计_主题与租户品牌化.html">主题与租户品牌化</a>》）。</li>
+        <li>新令牌必须在此文件登记后使用；组件样式不复制令牌值。</li>
+      </ul>
+
+      <h2 id="checklist">8. 检查清单</h2>
+      <ul>
+        <li>□ 无硬编码色值/字号/间距（全部走令牌）</li>
+        <li>□ 状态色语义全局统一（通过/待审/驳回）</li>
+        <li>□ 间距符合 4px 基准阶梯，栅格 24 列</li>
+        <li>□ 图标/图片资源命名与目录规范</li>
+        <li>□ 新令牌已登记 tokens.css 并映射组件库</li>
+      </ul>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 依《文档生成规范》编写 · 与《前端开发规范》《06-布局设计-列表页》配套 · 生成日期：2026-08-11
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>

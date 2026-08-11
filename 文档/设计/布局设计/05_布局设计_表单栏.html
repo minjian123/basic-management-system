@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>表单栏布局设计</title>
+<link rel="stylesheet" href="../../资源/文档样式.css">
+</head>
+<body>
+
+<div class="topnav">
+  <a href="../../文档首页.html">文档首页</a> ›
+  <a href="../../规划/项目规划说明.html">项目规划说明</a> ›
+  <a href="01_布局设计_总览.html">布局设计</a> ›
+  <span>表单栏布局设计</span>
+  <span class="topnav-side">
+    <a href="04_布局设计_导航.html">← 上一个：导航</a>
+    <a href="06_布局设计_列表页.html">下一个：列表页 →</a>
+  </span>
+</div>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>表单栏布局设计</h1>
+      <p>FormFrame · 列表/详情 Tab · 只读/编辑分态 · 工具栏</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#frame">1. 表单框架（FormFrame）</a></li>
+        <li><a href="#separation">2. 职责分离（列表页与表单页）</a></li>
+        <li><a href="#panel">3. 表单页内部结构（FormDetailPanel）</a>
+          <ul class="sub">
+            <li><a href="#file-field">3.1 文件类字段</a></li>
+          </ul>
+        </li>
+        <li><a href="#interaction">4. 交互细节</a>
+          <ul class="sub">
+            <li><a href="#lifecycle">4.1 详情 Tab 生命周期</a></li>
+            <li><a href="#save">4.2 保存与事务</a></li>
+          </ul>
+        </li>
+        <li><a href="#toolbar">5. 工具栏</a>
+          <ul class="sub">
+            <li><a href="#detail-rows">5.1 明细区交互</a></li>
+          </ul>
+        </li>
+        <li><a href="#tech">6. 技术要点</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="frame">1. 表单框架（FormFrame）</h2>
+      <p>用来在「内容栏」中展示表单具体界面内容的布局，分为上下两部分：</p>
+      <div class="diagram">
+        <div class="d-box d-title">FormFrame 结构</div>
+        <div class="d-box d-tabs">表单 Tab 页栏：<span class="d-fixed" style="padding:0 .3rem">列表（固定）</span> │ 记录A × │ 记录B ×</div>
+        <div class="d-box d-body">
+          <div><strong>列表 Tab</strong>：列表页（自带工具栏：新增/刷新 + 表格，无操作列，双击行打开表单）</div>
+          <div class="d-sub" style="margin-top:.5rem">
+            <div><strong>详情 Tab</strong>：表单页（默认只读查看，点「修改」进入编辑态）</div>
+            <div class="d-subtab">
+              信息栏：<span class="d-fixed" style="padding:0 .3rem">详细信息</span> │ 系统信息<br>
+              <span class="d-note">详细信息 = 主表字段区 + 明细 Tab 页区（明细A/明细B）<br>系统信息 = ID / 创建时间 / 修改时间（只读）</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <ol>
+        <li><strong>表单 Tab 页栏</strong>：可分多个 Tab 页显示不同表单内容。
+          <ul>
+            <li>第一个 Tab 为列表内容（列表页），<strong>不可在表单栏内关闭</strong>，始终保持打开，可随整个表单管理页面关闭而关闭。</li>
+            <li>双击列表数据行，新增打开一个 Tab 展示对应表单；已打开则切换到对应 Tab。</li>
+            <li>详情 Tab 标题取记录标识字段（如名称），新增未保存前显示「新建xxx」。</li>
+          </ul>
+        </li>
+        <li><strong>表单内容栏</strong>：列表 Tab 渲染列表页组件；每个详情 Tab 渲染一个独立的表单页组件实例（可同时打开多条记录）。</li>
+      </ol>
+
+      <h2 id="separation">2. 职责分离（列表页与表单页各自独立）</h2>
+      <p>列表页与表单页为<strong>独立组件文件</strong>，各自承载业务逻辑，将来可各自添加权限控制，互不渗透。二者仅通过约定事件与暴露的方法与表单框架交互：</p>
+      <table>
+        <tr><th>交互</th><th>方向</th><th>约定</th></tr>
+        <tr><td>打开详情 Tab</td><td>列表页 → FormFrame</td><td><code>emit("open-detail", item)</code>（null 表示新增）</td></tr>
+        <tr><td>刷新列表</td><td>FormFrame → 列表页</td><td>保存/删除成功后调用列表页暴露的 <code>fetchList()</code></td></tr>
+        <tr><td>记录标识</td><td>FormFrame → 表单页</td><td>prop <code>main-id</code>（Number，null 表示新增）</td></tr>
+        <tr><td>保存/删除/标题</td><td>表单页 → FormFrame</td><td><code>emit("saved", id)</code> / <code>emit("deleted")</code> / <code>emit("title-change", 名称)</code></td></tr>
+        <tr><td>脏数据状态</td><td>FormFrame ← 表单页</td><td>表单页 <code>expose dirty</code>（切换/关闭 Tab 时拦截确认）</td></tr>
+      </table>
+      <ul>
+        <li>路由：实体页面路由组件为 <code>FormFrame</code>，通过路由 <code>props</code> 注入 <code>title</code> / <code>listComponent</code> / <code>detailComponent</code>。</li>
+        <li><strong>动态组件解析</strong>：<code>listComponent</code> / <code>detailComponent</code> 为动态菜单接口下发的组件名，前端维护「组件名 → 组件」映射表（<code>import.meta.glob</code> 批量注册）；遇到未注册的组件名时拦截并提示（防菜单配置错误导致白屏），不渲染空页面。</li>
+      </ul>
+
+      <h2 id="panel">3. 表单页内部结构（FormDetailPanel）</h2>
+      <p>表单页（属性/效果/状态）复用共享组件 <code>FormDetailPanel</code>：</p>
+      <ul>
+        <li><strong>只读/编辑分态</strong>：表单默认只读查看（字段禁用），点工具栏「修改」进入编辑态后字段可编辑。</li>
+        <li><strong>字段权限联动</strong>：字段按表单元数据接口下发的字段权限渲染——<code>visible=false</code> 的字段不渲染（读时过滤），<code>editable=false</code> 的字段即使在编辑态也保持禁用（写时校验由后端兜底）。</li>
+        <li><strong>字段 i18n</strong>：字段标签与表单标题取自表单元数据接口返回的当前 locale 翻译（sys_field_i18n 附表），前端不硬编码文案。</li>
+        <li><strong>敏感字段脱敏</strong>：只读/编辑态均按脱敏规则掩码展示（如手机号 <code>138****5678</code>），持 <code>data:plain</code> 权限码方可查看明文。</li>
+        <li><strong>信息栏</strong>：分「详细信息」与「系统信息」两个子 Tab：
+          <ul>
+            <li>详细信息：主表 + 明细上下两部分——主表为除系统信息外的字段；明细用 Tab 页展示（多个明细一个 Tab 一个列表），明细与主表通过明细中的「主表数据 id」列关联（对应当前主表 ID），明细行内编辑与增删行仅编辑态可用。</li>
+            <li>系统信息：ID、创建时间、修改时间等系统字段（只读）。</li>
+          </ul>
+        </li>
+        <li>用户无明细结构，表单页自行实现简单表单（用户含密码特殊逻辑：编辑留空不修改）。</li>
+      </ul>
+      <p>列表页无操作列（数据行仅展示，双击行打开表单）；遵循统一分页规范：<code>page</code>/<code>size</code> 分页（响应 <code>{list, total, page, size}</code>），筛选条件走查询参数；大数据量场景游标分页兜底。</p>
+
+      <h3 id="file-field">3.1 文件类字段</h3>
+      <ul>
+        <li>字段类型含文件（图片/PDF 等）时使用通用上传组件：上传走文件接口（分片上传/断点续传）、预览用预签名 URL 直开、下载走预签名 URL（限时有效）。</li>
+        <li>文件字段同样受字段权限与脱敏规则约束。</li>
+      </ul>
+
+      <h2 id="interaction">4. 交互细节</h2>
+
+      <h3 id="lifecycle">4.1 详情 Tab 生命周期</h3>
+      <table>
+        <tr><th>场景</th><th>行为</th></tr>
+        <tr><td>双击列表行</td><td>打开该记录的表单 Tab（<strong>默认只读态</strong>）；已打开则直接切换</td></tr>
+        <tr><td>列表工具栏「新增」</td><td>打开空表单 Tab（新增态，直接可编辑），保存后回填 id 并刷新列表</td></tr>
+        <tr><td>点「修改」</td><td>从只读态进入编辑态，字段启用</td></tr>
+        <tr><td>关闭表单 Tab</td><td>回到列表 Tab（列表 Tab 不可关，始终存在）</td></tr>
+        <tr><td>修改未保存时切换/关闭表单 Tab</td><td>弹出确认框（脏数据保护），确认后丢弃</td></tr>
+      </table>
+
+      <h3 id="save">4.2 保存与事务</h3>
+      <ul>
+        <li><strong>整体保存</strong>（主从模块）：工具栏「保存」一次性提交主表 + 全部明细（单事务），保证主表与明细一致性。</li>
+        <li>新增主表时，明细的「主表数据 id」在保存事务内用新主表 ID 回填。</li>
+        <li><strong>乐观锁冲突</strong>：保存请求携带记录 <code>version</code>，后端比对失败（已被他人修改）返回冲突错误，前端提示「记录已被修改」并重新加载最新数据。</li>
+        <li>保存成功后自动刷新列表 Tab（列表数据与表单一致）。</li>
+      </ul>
+
+      <h2 id="toolbar">5. 工具栏</h2>
+      <p>工具栏为<strong>一行</strong>，统一提供：新增、修改、保存、删除、刷新、关闭等按钮（不区分层级）。</p>
+      <table>
+        <tr><th>按钮</th><th>出现状态</th><th>说明</th></tr>
+        <tr><td>新增</td><td>列表 Tab</td><td>打开空表单 Tab（新增态，直接可编辑），保存后写入并刷新列表</td></tr>
+        <tr><td>修改</td><td>表单 Tab（只读态）</td><td>从只读态进入编辑态，字段启用</td></tr>
+        <tr><td>保存</td><td>表单 Tab（编辑态）</td><td>保存当前表单修改（主从模块整体提交主表 + 全部明细，单事务）</td></tr>
+        <tr><td>删除</td><td>表单 Tab</td><td>删除当前记录（含明细，需确认）</td></tr>
+        <tr><td>刷新</td><td>列表/表单 Tab</td><td>重新加载当前数据（丢弃未保存修改，触发脏数据确认）</td></tr>
+        <tr><td>关闭</td><td>表单 Tab</td><td>关闭当前表单 Tab，回到列表 Tab</td></tr>
+      </table>
+      <ul>
+        <li>按钮按激活状态与编辑态启用：列表 Tab 提供「新增/刷新」；表单 Tab 只读态提供「修改/删除/刷新/关闭」，编辑态将「修改」切换为「保存」；按钮归属对应页面各自实现。</li>
+        <li><strong>按钮权限联动</strong>：工具栏按钮按动作权限码显隐（<code>v-perm="'业务:动作'"</code>），默认无任何按钮权限——如「新增」需 <code>{业务}:create</code>、「删除」需 <code>{业务}:delete</code>、进入编辑需 <code>{业务}:update</code>；后端接口同步强制校验。</li>
+      </ul>
+
+      <h3 id="detail-rows">5.1 明细区交互</h3>
+      <ul>
+        <li>明细工具栏：新增行、删除行（作用于当前明细 Tab 的列表，仅编辑态可用）。</li>
+        <li>明细行<strong>行内编辑</strong>：字段直接编辑（仅编辑态），保存随主表整体提交。</li>
+        <li>多个明细时，每个明细独立 Tab 页展示其列表。</li>
+      </ul>
+
+      <h2 id="tech">6. 技术要点</h2>
+      <ul>
+        <li>表单内 Tab 为<strong>页面内部状态</strong>（FormFrame 组件内维护），独立于顶层 <code>useTabs</code>，不参与 URL 与 localStorage 持久化；刷新页面后恢复为仅列表 Tab（详情 Tab 丢失可接受）。</li>
+        <li>表单页被 keep-alive 整体缓存（顶层缓存的是 FormFrame 实例，表单/列表页作为子组件随树缓存），切换顶层 Tab 不丢数据。</li>
+        <li>脏数据检测：各表单页维护 dirty 标记（watch 表单变化），FormFrame 切换/关闭 Tab 时读取并拦截确认。</li>
+        <li>主表-明细保存：单事务提交，明细「主表数据 id」由保存事务内生成的主表 ID 回填。</li>
+        <li>行内编辑：明细行字段直接 <code>v-model</code> 绑定，未保存修改随整体保存一并提交。</li>
+      </ul>
+
+    </main>
+
+    <footer>
+      本文档由用户手写《表单栏布局设计》转换为 HTML · 依《文档生成规范》编写 · 与《03-布局设计-主框架》《07-布局设计-详情与弹窗》配套 · 转换日期：2026-08-11
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>

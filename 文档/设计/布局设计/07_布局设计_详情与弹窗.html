@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>详情与弹窗布局</title>
+<link rel="stylesheet" href="../../资源/文档样式.css">
+</head>
+<body>
+
+<div class="topnav">
+  <a href="../../文档首页.html">文档首页</a> ›
+  <a href="../../规划/项目规划说明.html">项目规划说明</a> ›
+  <a href="01_布局设计_总览.html">布局设计</a> ›
+  <span>详情与弹窗布局</span>
+  <span class="topnav-side">
+    <a href="06_布局设计_列表页.html">← 上一个：列表页</a>
+    <a href="08_布局设计_主题与租户品牌化.html">下一个：主题与租户 →</a>
+  </span>
+</div>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>详情与弹窗布局</h1>
+      <p>详情页 · 抽屉 · 对话框 · 表单组织</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#purpose">1. 目的与适用范围</a></li>
+        <li><a href="#detail">2. 详情页</a></li>
+        <li><a href="#drawer">3. 抽屉（Drawer）</a></li>
+        <li><a href="#dialog">4. 对话框（Dialog）</a></li>
+        <li><a href="#form">5. 表单组织</a></li>
+        <li><a href="#footer">6. 底部操作栏</a></li>
+        <li><a href="#checklist">7. 检查清单</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="purpose">1. 目的与适用范围</h2>
+      <p>
+        规范 BMS 管理端的详情展示与表单编辑布局：详情页/抽屉/对话框的选用、尺寸与内容组织，
+        与《<a href="06_布局设计_列表页.html">列表页布局</a>》配套构成完整的页面交互体系。
+      </p>
+
+      <h2 id="detail">2. 详情页</h2>
+      <table>
+        <tr><th>场景</th><th>方案</th><th>说明</th></tr>
+        <tr><td>复杂详情（工作流审批、采购申请）</td><td>独立详情页（路由 <code>/xxx/detail/:id</code>）</td><td>多区块：状态/基础信息/流转记录/关联附件</td></tr>
+        <tr><td>简单详情（用户、角色）</td><td>抽屉或对话框只读展示</td><td>避免额外路由</td></tr>
+      </table>
+      <ul>
+        <li>详情页布局：顶部状态条（审批流进度）+ 内容卡片分组（区块标题 14px 加粗，分隔线）。</li>
+        <li>审批类详情内置「审批记录」时间线（通过/驳回节点），操作按钮（同意/驳回）固定在底部操作栏。</li>
+      </ul>
+
+      <h2 id="drawer">3. 抽屉（Drawer）</h2>
+      <table>
+        <tr><th>用途</th><th>宽度</th><th>示例</th></tr>
+        <tr><td>简单表单（≤ 6 字段）</td><td>400px</td><td>快速新建、字典项编辑</td></tr>
+        <tr><td>常规表单</td><td>480px</td><td>用户编辑、角色编辑</td></tr>
+        <tr><td>复杂表单/明细</td><td>640px</td><td>采购申请、权限配置</td></tr>
+        <tr><td>大表单/自定义列</td><td>720px 及以上</td><td>导入映射、批量操作配置</td></tr>
+      </table>
+      <ul>
+        <li>抽屉是表单编辑的<strong>首选</strong>（保留列表上下文）；正文过长内部滚动，底部操作栏固定。</li>
+        <li>标题 = 动作 + 对象（「编辑用户」「新增部门」），关闭按钮默认展示。</li>
+      </ul>
+
+      <h2 id="dialog">4. 对话框（Dialog）</h2>
+      <table>
+        <tr><th>用途</th><th>宽度</th><th>说明</th></tr>
+        <tr><td>确认类</td><td>420px</td><td>删除确认、危险操作二次确认</td></tr>
+        <tr><td>简单表单（≤ 4 字段）</td><td>480px</td><td>快捷操作（如重置密码）</td></tr>
+        <tr><td>通知/引导</td><td>520px</td><td>结果反馈、引导</td></tr>
+      </table>
+      <ul>
+        <li>确认类对话框：正文说明后果（「删除后不可恢复」），确定按钮用 danger。</li>
+        <li>对话框内表单字段少而短，不承载大表单（交给抽屉/详情页）。</li>
+        <li>全局遮罩统一（0.4 透明度），点遮罩关闭仅限非关键流程。</li>
+      </ul>
+
+      <h2 id="form">5. 表单组织</h2>
+      <ul>
+        <li>布局：label 右对齐，栅格两列为主（<code>el-col :span="12"</code>），窄抽屉单列。</li>
+        <li>分组：&gt; 8 字段用分区标题（<code>el-divider</code>）分组（基本信息/扩展信息）。</li>
+        <li>校验：必填项 <code>required</code> + 规则与后端一致（《<a href="../../规范/API接口规范.html">API接口规范</a>》）；错误信息走 i18n。</li>
+        <li>提交：保存按钮 loading 防重复提交；成功后关闭并刷新列表（或局部更新）。</li>
+        <li>只读字段（创建时间、编号）用纯文本展示，不套输入框。</li>
+      </ul>
+
+      <h2 id="footer">6. 底部操作栏</h2>
+      <ul>
+        <li>抽屉/详情页底部固定操作栏：主操作（保存/同意）右侧，取消/返回左侧；主次分明。</li>
+        <li>审批操作组：同意（primary）、驳回（danger）、转交（默认）——按权限码显隐（《<a href="../../规范/API接口规范.html">API接口规范</a>》）。</li>
+        <li>操作栏与内容区背景分离（顶部 1px 分隔线），不随内容滚动。</li>
+      </ul>
+
+      <h2 id="checklist">7. 检查清单</h2>
+      <ul>
+        <li>□ 场景选择正确：复杂详情走独立页、简单表单走抽屉、确认走对话框</li>
+        <li>□ 尺寸符合阶梯（400/480/640/720），无随意宽度</li>
+        <li>□ 表单校验/布局规范，底部操作栏固定且权限正确</li>
+        <li>□ 提交防重复、成功反馈与列表刷新</li>
+      </ul>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 依《文档生成规范》编写 · 与《06-布局设计-列表页》《API接口规范》配套 · 生成日期：2026-08-11
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>

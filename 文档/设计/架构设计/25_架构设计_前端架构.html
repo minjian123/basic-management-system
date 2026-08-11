@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>架构设计 · 前端架构</title>
+<link rel="stylesheet" href="../../资源/文档样式.css">
+</head>
+<body>
+
+<div class="topnav">
+  <a href="01_架构设计_总览.html">架构设计</a> › <span>25-前端架构</span>
+  <span class="topnav-side"><a href="24_架构设计_性能与安全.html">← 24-性能与安全</a> · <a href="26_架构设计_测试与质量.html">26-测试与质量 →</a></span>
+</div>
+
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>架构设计 · 前端架构</h1>
+      <p>BMS · 双工程、动态菜单与页面体系</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#overview">1. 概述</a></li>
+        <li><a href="#engines">2. 双工程结构</a></li>
+        <li><a href="#tech">3. 技术要点</a></li>
+        <li><a href="#menu">4. 动态菜单与权限渲染</a></li>
+        <li><a href="#pages-pc">5. PC 页面清单</a></li>
+        <li><a href="#pages-mobile">6. 移动端页面清单</a></li>
+        <li><a href="#perf">7. 前端性能</a></li>
+        <li><a href="#coordination">8. 与其他节点的协调</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="overview">1. 概述</h2>
+      <p>
+        前端架构定义 PC 管理端与移动端 H5 双工程的总体设计：工程结构、技术要点、动态菜单机制、
+        页面清单与性能要求。对应<a href="../../规划/项目规划说明.html">《项目规划说明》</a>的「前端」「前端页面清单与菜单机制」「移动端」章节。
+      </p>
+
+      <h2 id="engines">2. 双工程结构</h2>
+      <ul>
+        <li>PC 管理端 <code>frontend/</code>（Vue 3 + Vite + TypeScript + Element Plus）与移动端 <code>frontend-mobile/</code>（Vue 3 + Vant）为两个彻底独立的工程：各自 package.json / lock 文件与 ESLint/Prettier/TS 配置，不共享基础配置与公共类型</li>
+        <li>包管理 npm（Node 官方自带，不生成额外配置文件）；CI 用 <code>npm ci</code> 锁定安装</li>
+        <li>工程目录：src/api（Axios 封装）、src/router（动态路由生成）、src/stores（Pinia）、src/views（按模块）、src/layouts、src/components、src/i18n、src/utils</li>
+        <li>前后端契约：openapi-typescript 由 OpenAPI schema 自动生成 TS 类型（与后端 Pydantic schema 一致）</li>
+      </ul>
+
+      <h2 id="tech">3. 技术要点</h2>
+      <table>
+        <tr><th>项</th><th>选型与要点</th></tr>
+        <tr><td>路由 / 状态</td><td>Vue Router 4（路由守卫配合业务权限菜单级控制）、Pinia（TS 支持好）</td></tr>
+        <tr><td>HTTP</td><td>Axios：请求拦截器注入 access token、处理 401 刷新；响应拦截器统一错误提示</td></tr>
+        <tr><td>流程建模</td><td>bpmn-js 拖拽绘制 BPMN，导出 XML 交 SpiffWorkflow 执行</td></tr>
+        <tr><td>图表</td><td>ECharts（报表与大屏渲染）</td></tr>
+        <tr><td>实时推送</td><td>socket.io-client（待办/通知实时到达；断线自动重连 + 未读补偿）</td></tr>
+        <tr><td>样式</td><td>SCSS（Element Plus 主题定制）；避免重型 CSS 方案</td></tr>
+        <tr><td>规范 / 测试</td><td>ESLint + Prettier；Vitest 单元 + Playwright E2E</td></tr>
+      </table>
+
+      <h2 id="menu">4. 动态菜单与权限渲染</h2>
+      <ul>
+        <li>菜单树由后端按用户业务权限动态返回（sys_menu + sys_form 挂接业务权限过滤，按当前 locale 关联 i18n 附表返回翻译文案）</li>
+        <li>表单元数据（按钮/字段定义与当前用户可见/可编辑状态）随菜单接口一并下发；前端根据菜单树动态注册路由与生成侧边栏</li>
+        <li>前端不硬编码路由表：新增菜单/表单/按钮/字段无需发版</li>
+        <li>按钮按动作权限显隐（默认无按钮权限）：权限指令 <code>v-perm="'业务:动作'"</code>；字段权限控制表单字段可见/可编辑</li>
+        <li>双重控制：前端显隐 + 后端 require_permission 强制校验</li>
+      </ul>
+
+      <h2 id="pages-pc">5. PC 页面清单</h2>
+      <ul>
+        <li>登录页、主布局（侧边栏菜单 + 顶栏语言切换）</li>
+        <li>组织与权限：用户管理、账号锁定、岗位管理、角色管理、菜单管理（含表单/按钮/字段维护与字段权限配置）、业务权限管理、动作权限管理、部门管理、字典管理、系统参数</li>
+        <li>治理：操作日志、登录日志、数据变更审计、会话管理、归档策略、归档执行记录、备份管理、回收站、归档数据查询、任务调度</li>
+        <li>通用：文件管理、公告管理、通知中心、帮助中心（前台展示）、帮助管理（分类/文章维护、AI 生成草稿与审核）、邮件模板、邮件日志、短信记录、语言管理、语言包维护</li>
+        <li>业务：流程建模（bpmn-js）、流程实例、我的待办/已办、采购申请、采购订单、供应商档案、数据集管理、报表设计器、报表查看、大屏设计器、大屏播放</li>
+        <li>平台：租户管理（含配额）、IdP 配置、开放接口管理、Webhook 管理、系统监控（Grafana 跳转 + 依赖状态 + 缓存管理）</li>
+        <li>扩展：全局搜索（阶段十三）、AI 助手（智能问数/审批辅助/文档问答）、模型配置（阶段十四）、个人中心（改密/语言/时区/喜好偏好：主题模式、列表页个性化、通知偏好、工作台自定义）</li>
+      </ul>
+
+      <h2 id="pages-mobile">6. 移动端页面清单</h2>
+      <ul>
+        <li>登录（账号密码 / SSO / 企业微信钉钉免登）</li>
+        <li>我的待办/已办、审批操作（同意/驳回/评论，附件在线预览）、通知列表（批量已读/全部已读）、公告查看、帮助中心、我发起的、数据查询（报表查看）、个人中心（改密/语言/喜好偏好/退出登录）</li>
+        <li>企业微信/钉钉工作台内嵌免登；手机浏览器可直接访问</li>
+      </ul>
+
+      <h2 id="perf">7. 前端性能</h2>
+      <ul>
+        <li>Element Plus 按需引入；路由懒加载</li>
+        <li>静态资源 gzip/brotli 压缩 + 缓存头</li>
+        <li>语言包运行时拉取（Redis 缓存 + localStorage 二次缓存）</li>
+        <li>深色/浅色主题：SCSS 主题变量切换（CSS 变量驱动），主题偏好存 sys_user_preference（跨端同步）+ localStorage 临时态</li>
+        <li>列表页个性化：列显隐/顺序/宽度、每页条数与密度按页面维度存偏好（sys_user_preference），列表渲染前应用</li>
+      </ul>
+
+      <h2 id="coordination">8. 与其他节点的协调</h2>
+      <ul>
+        <li><strong><a href="10_架构设计_子系统_权限计算引擎.html">权限计算引擎</a></strong>：动态菜单、v-perm、字段权限渲染的数据来源</li>
+        <li><strong><a href="13_架构设计_子系统_实时推送.html">实时推送</a></strong>：socket.io-client 对接（待办/通知/会话失效）</li>
+        <li><strong><a href="19_架构设计_子系统_国际化.html">国际化</a></strong>：vue-i18n 运行时拉取语言包、RTL、时区</li>
+        <li><strong><a href="06_架构设计_接口与集成.html">接口与集成</a></strong>：Axios 对接统一响应与错误码；openapi-typescript 契约同步</li>
+        <li><strong><a href="26_架构设计_测试与质量.html">测试与质量</a></strong>：Vitest/Playwright 覆盖动态路由与权限渲染</li>
+      </ul>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 架构设计节点 · 与《项目规划说明》《文档生成规范》《命名规范》配套 · 生成日期：2026-08-06
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>
