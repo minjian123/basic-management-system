@@ -119,10 +119,10 @@
       <h3 id="sequence-messages">3.1 语言包运行时下发</h3>
       <pre class="mermaid">
 graph TD
-    A[前端（vue-i18n 初始化）<br/>GET /api/v1/i18n/messages?locale=zh-CN] --> B[后端 i18n 接口]
-    B -->|Redis 命中：键含 locale 维度 bms:{tenant}:i18n:{locale}| C[直接返回语言包]
-    B -->|未命中| D[查 sys_i18n_message（msg_key + locale）→ 回写 Redis（短 TTL）]
-    C --> E[前端渲染<br/>localStorage 二次缓存 → vue-i18n 注入语言包渲染<br/>语言包维护页面保存 → 失效 Redis 缓存 → 下次请求重新下发]
+    A["前端（vue-i18n 初始化）<br/>GET /api/v1/i18n/messages?locale=zh-CN"] --> B["后端 i18n 接口"]
+    B -->|"Redis 命中：键含 locale 维度 bms:{tenant}:i18n:{locale}"| C["直接返回语言包"]
+    B -->|"未命中"| D["查 sys_i18n_message（msg_key + locale）→ 回写 Redis（短 TTL）"]
+    C --> E["前端渲染<br/>localStorage 二次缓存 → vue-i18n 注入语言包渲染<br/>语言包维护页面保存 → 失效 Redis 缓存 → 下次请求重新下发"]
     D --> E
       </pre>
 
