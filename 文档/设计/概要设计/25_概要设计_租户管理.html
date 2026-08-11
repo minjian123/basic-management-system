@@ -81,20 +81,25 @@
       </ol>
 
       <h2 id="sequence">3. 关键时序与协作</h2>
-      <div class="seq">
-        <table>
-          <tr><th>平台超管（sys_admin）</th><th>租户管理模块</th><th>DB（平台库/租户库）</th><th>引擎注册表</th><th>RocketMQ</th></tr>
-          <tr><td class="s-arrow">开通请求 →</td><td></td><td></td><td></td><td></td></tr>
-          <tr><td></td><td class="s-arrow">建库 bms_tenant_{code} →</td><td></td><td></td><td></td></tr>
-          <tr><td></td><td class="s-arrow">Alembic 双套迁移 →</td><td></td><td></td><td></td></tr>
-          <tr><td></td><td class="s-arrow">批量种子（角色/账号/IdP/归档策略）→</td><td></td><td></td><td></td></tr>
-          <tr><td></td><td class="s-arrow">注册 sys_tenant →</td><td></td><td></td><td></td></tr>
-          <tr><td></td><td class="s-arrow">预热引擎（可选）→</td><td></td><td class="s-arrow">EngineRegistry</td><td></td></tr>
-          <tr><td></td><td class="s-arrow">tenant.created 事件 →</td><td></td><td></td><td class="s-arrow">Webhook 可订阅</td></tr>
-          <tr><td colspan="5" class="s-note">停用：引擎回收 / 会话失效 / 登录拦截</td></tr>
-          <tr><td></td><td class="s-arrow">tenant.suspended / tenant.activated 事件 →</td><td></td><td></td><td class="s-arrow">RocketMQ</td></tr>
-        </table>
-      </div>
+      <pre class="mermaid">
+sequenceDiagram
+    autonumber
+    participant 超管 as 平台超管(sys_admin)
+    participant 租管 as 租户管理模块
+    participant DB as DB(平台库/租户库)
+    participant 引擎 as 引擎注册表
+    participant MQ as RocketMQ
+
+    超管->>租管: 开通请求
+    租管->>DB: 建库 bms_tenant_{code}
+    租管->>DB: Alembic 双套迁移
+    租管->>DB: 批量种子（角色/账号/IdP/归档策略）
+    租管->>DB: 注册 sys_tenant
+    租管->>引擎: 预热引擎（可选，EngineRegistry）
+    租管->>MQ: tenant.created 事件（Webhook 可订阅）
+    Note over 租管: 停用：引擎回收 / 会话失效 / 登录拦截
+    租管->>MQ: tenant.suspended / tenant.activated 事件（RocketMQ）
+      </pre>
       <ul>
         <li><strong>与引擎注册表协作</strong>：租户引擎懒加载（首次访问创建，连接参数来自 config.toml 数据源声明）；LRU + 最后使用时间闲置回收；活跃租户引擎数上限控制；创建加锁（进程内锁 + Redis 锁）防多实例同时建引擎</li>
         <li><strong>与缓存协作</strong>：子域名查 sys_tenant.domain 命中缓存（短 TTL）；停用按租户前缀批量清理 Redis 会话标记</li>
@@ -219,6 +224,9 @@
   </div>
 
 </div>
+
+      <script src="../../资源/mermaid.min.js"></script>
+      <script src="../../资源/mermaid-init.js"></script>
 
 </body>
 </html>

@@ -56,21 +56,17 @@
       </p>
 
       <h2 id="layers">2. 分层视图</h2>
-      <div class="layer">
-        <div class="l-box"><span class="l-title">客户端层</span>：浏览器（PC / H5）· 企业微信 / 钉钉内嵌 · 外部系统</div>
-        <div class="l-arrow">▼ HTTPS</div>
-        <div class="l-box"><span class="l-title">接入层</span>：nginx——TLS 终止 / 前端静态资源 / /api 反代 / 子域名租户路由（{tenant}.bms.example.com）/ WebSocket</div>
-        <div class="l-arrow">▼</div>
-        <div class="l-box"><span class="l-title">应用层</span>：backend（FastAPI 多副本）· celery-worker · celery-beat · event-worker</div>
-        <div class="l-arrow">▼</div>
-        <div class="l-row">
-          <div class="l-box"><span class="l-title">数据层</span><br>MySQL / PG / 达梦 DM8<br>平台库+租户库+归档库 主从</div>
-          <div class="l-box"><span class="l-title">缓存/队列</span><br>Redis<br>RocketMQ</div>
-          <div class="l-box"><span class="l-title">存储/检索</span><br>MinIO<br>ElasticSearch</div>
-          <div class="l-box"><span class="l-title">AI（阶段十四）</span><br>Milvus<br>PaddleOCR<br>LLM 适配层</div>
-        </div>
-        <div class="l-box"><span class="l-title">可观测性</span>：Prometheus + Loki + Grafana + Alertmanager + Jaeger（otel-collector 采集链路）</div>
-      </div>
+      <pre class="mermaid">
+graph TD
+    A["客户端层<br/>浏览器（PC / H5）· 企业微信 / 钉钉内嵌 · 外部系统"]
+    A -->|HTTPS| B["接入层<br/>nginx：TLS 终止 / 前端静态资源 / /api 反代 / 子域名租户路由（{tenant}.bms.example.com）/ WebSocket"]
+    B --> C["应用层<br/>backend（FastAPI 多副本）· celery-worker · celery-beat · event-worker"]
+    C --> D["数据层<br/>MySQL / PG / 达梦 DM8<br/>平台库+租户库+归档库 主从"]
+    C --> E["缓存/队列<br/>Redis<br/>RocketMQ"]
+    C --> F["存储/检索<br/>MinIO<br/>ElasticSearch"]
+    C --> G["AI（阶段十四）<br/>Milvus<br/>PaddleOCR<br/>LLM 适配层"]
+    C --> H["可观测性<br/>Prometheus + Loki + Grafana + Alertmanager + Jaeger（otel-collector 采集链路）"]
+      </pre>
 
       <h2 id="process">3. 进程模型</h2>
       <table>
@@ -83,31 +79,18 @@
       </table>
 
       <h2 id="components">4. 组件视图与协作</h2>
-      <div class="layer">
-        <div class="l-box">
-          <span class="l-title">backend 内部组件</span>
-          <div class="l-row" style="margin-top:.5rem">
-            <div class="l-box"><span class="l-title">认证组件</span><br>JWT/会话</div>
-            <div class="l-box"><span class="l-title">权限引擎</span><br>主体链收敛</div>
-            <div class="l-box"><span class="l-title">租户路由组件</span><br>引擎注册表</div>
-            <div class="l-box"><span class="l-title">事件生产组件</span><br>RocketMQ 事务消息</div>
-          </div>
-          <div class="l-arrow">▼（租户路由 → 数据访问；事件生产 → 实时推送）</div>
-          <div class="l-row">
-            <div class="l-box"><span class="l-title">文件组件</span><br>分片状态机</div>
-            <div class="l-box"><span class="l-title">工作流组件</span><br>SpiffWork</div>
-            <div class="l-box"><span class="l-title">数据访问组件</span><br>读写分离/分片</div>
-            <div class="l-box"><span class="l-title">实时推送组件</span><br>Socket.IO+Redis</div>
-          </div>
-          <div class="l-box" style="margin-top:.5rem;background:var(--code-bg)">
-            api（路由/校验）→ services（业务/事务）→ repositories（访问/路由）→ db
-          </div>
-        </div>
-        <div class="l-arrow">▼ 统一经 Redis 缓存 · RocketMQ 事件 · MinIO · ES · 审计链</div>
-        <div class="l-box">
-          <span class="l-title">基础设施组件</span>：Redis（缓存/会话/限流/锁/幂等）· RocketMQ（事件总线）· MinIO（对象存储）· ES（检索）· Milvus（向量）
-        </div>
-      </div>
+      <pre class="mermaid">
+flowchart TD
+    subgraph BE["backend 内部组件"]
+        A["认证组件<br/>JWT/会话"] --> B["权限引擎<br/>主体链收敛"]
+        C["租户路由组件<br/>引擎注册表"] --> D["数据访问组件<br/>读写分离/分片"]
+        E["事件生产组件<br/>RocketMQ 事务消息"] --> F["实时推送组件<br/>Socket.IO+Redis"]
+        G["文件组件<br/>分片状态机"]
+        H["工作流组件<br/>SpiffWork"]
+        G --- H
+    end
+    BE -->|"统一经 Redis 缓存 · RocketMQ 事件 · MinIO · ES · 审计链"| INF["基础设施组件<br/>Redis（缓存/会话/限流/锁/幂等）· RocketMQ（事件总线）· MinIO（对象存储）· ES（检索）· Milvus（向量）"]
+      </pre>
       <p><strong>协作规则</strong>：</p>
       <ul>
         <li>分层职责：api 层只做参数校验与路由分发；services 承载业务逻辑与事务边界；repositories 承载数据访问与数据源/分片路由，禁止在 api 层直接操作模型</li>
@@ -315,5 +298,7 @@
 
 </div>
 
+<script src="../../资源/mermaid.min.js"></script>
+<script src="../../资源/mermaid-init.js"></script>
 </body>
 </html>

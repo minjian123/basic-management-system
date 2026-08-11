@@ -94,26 +94,35 @@
       </ol>
 
       <h2 id="sequence">3. 关键时序与协作</h2>
-      <div class="seq">
-        <table>
-          <tr><th>管理页</th><th>后端服务</th><th>租户库</th><th>RocketMQ 事件总线</th><th>Webhook 推送组</th><th>外部订阅 URL</th><th>用户</th></tr>
-          <tr><td colspan="7" class="s-note">发布公告（含更新/下线）</td></tr>
-          <tr><td class="s-arrow">POST /api/v1/notices →</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
-          <tr><td></td><td class="s-arrow">事务落库 sys_notice →</td><td>发布状态</td><td></td><td></td><td></td><td></td></tr>
-          <tr><td></td><td class="s-arrow">发布事件 →</td><td></td><td>notice.published</td><td></td><td></td><td></td></tr>
-          <tr><td></td><td></td><td></td><td class="s-arrow">匹配订阅 →</td><td></td><td></td><td></td></tr>
-          <tr><td></td><td></td><td></td><td></td><td class="s-arrow">HMAC 签名推送 →</td><td></td><td></td></tr>
-          <tr><td colspan="7" class="s-note">阅读与回执</td></tr>
-          <tr><td></td><td></td><td></td><td></td><td></td><td></td><td class="s-arrow">GET /api/v1/notices/published →</td></tr>
-          <tr><td></td><td class="s-arrow">← 公告详情返回（校验 expire_at 实时下线）</td><td></td><td></td><td></td><td></td><td></td></tr>
-          <tr><td></td><td></td><td></td><td></td><td></td><td></td><td class="s-arrow">POST /api/v1/notices/{id}/read →</td></tr>
-          <tr><td></td><td class="s-arrow">写入 sys_notice_read →</td><td>联合主键防重复</td><td></td><td></td><td></td><td></td></tr>
-          <tr><td colspan="7" class="s-note">已读统计</td></tr>
-          <tr><td class="s-arrow">GET /api/v1/notices/{id}/read-stats →</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
-          <tr><td></td><td class="s-arrow">聚合 sys_notice_read →</td><td></td><td></td><td></td><td></td><td></td></tr>
-          <tr><td>← 已读/未读人数</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
-        </table>
-      </div>
+      <pre class="mermaid">
+sequenceDiagram
+    autonumber
+    participant 管理页
+    participant 后端服务
+    participant 租户库
+    participant RocketMQ as RocketMQ 事件总线
+    participant Webhook推送组 as Webhook 推送组
+    participant 外部订阅URL as 外部订阅 URL
+    participant 用户
+
+    Note over 管理页,后端服务: 发布公告（含更新/下线）
+    管理页->>后端服务: POST /api/v1/notices
+    后端服务->>租户库: 事务落库 sys_notice，发布状态
+    后端服务->>RocketMQ: 发布事件，notice.published
+    RocketMQ->>Webhook推送组: 匹配订阅
+    Webhook推送组->>外部订阅URL: HMAC 签名推送
+    Note over 用户,后端服务: 阅读与回执
+    用户->>后端服务: GET /api/v1/notices/published
+    后端服务-->>用户: 公告详情返回（校验 expire_at 实时下线）
+    用户->>后端服务: POST /api/v1/notices/{id}/read
+    后端服务->>租户库: 写入 sys_notice_read，联合主键防重复
+    Note over 管理页,后端服务: 已读统计
+    管理页->>后端服务: GET /api/v1/notices/{id}/read-stats
+    后端服务->>租户库: 聚合 sys_notice_read
+    后端服务-->>管理页: 已读/未读人数
+      </pre>
+      <script src="../../资源/mermaid.min.js"></script>
+      <script src="../../资源/mermaid-init.js"></script>
       <p>
         与消息队列协作要点：公告事件经 RocketMQ 事务消息发布（本地业务事务与消息发送原子一致，避免丢事件）；
         与通知中心协作要点：公告不产生个人站内信，通知中心仅处理 sys_notification 个人待办/提醒，两者事件（notice.published 与 notification.sent）互不混用。

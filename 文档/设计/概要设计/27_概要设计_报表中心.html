@@ -81,17 +81,21 @@
       </ol>
 
       <h2 id="sequence">3. 关键时序与协作</h2>
-      <div class="seq">
-        <table>
-          <tr><th>用户（PC / 移动端 H5）</th><th>报表中心模块</th><th>只读从库</th><th>权限计算引擎</th></tr>
-          <tr><td class="s-arrow">查看报表 →</td><td></td><td></td><td></td></tr>
-          <tr><td colspan="4" class="s-note">校验权限码 rpt:view；执行时叠加租户过滤 + 数据范围</td></tr>
-          <tr><td></td><td class="s-arrow">校验数据范围 →</td><td></td><td></td></tr>
-          <tr><td></td><td class="s-arrow">执行数据集 SQL →</td><td></td><td></td></tr>
-          <tr><td></td><td class="s-arrow">← 结果集</td><td></td><td></td></tr>
-          <tr><td class="s-arrow">← ECharts 渲染结果</td><td></td><td></td><td></td></tr>
-        </table>
-      </div>
+      <pre class="mermaid">
+sequenceDiagram
+    autonumber
+    participant 用户 as 用户(PC/移动端 H5)
+    participant 报表 as 报表中心模块
+    participant 从库 as 只读从库
+    participant 权限 as 权限计算引擎
+
+    用户->>报表: 查看报表
+    Note over 报表: 校验权限码 rpt:view；执行时叠加租户过滤 + 数据范围
+    报表->>权限: 校验数据范围
+    报表->>从库: 执行数据集 SQL
+    从库-->>报表: 结果集
+    报表-->>用户: ECharts 渲染结果
+      </pre>
       <ul>
         <li><strong>与读写分离协作</strong>：数据集执行强制只读从库（隔离生产读写），报表查询不走主库</li>
         <li><strong>与权限计算引擎协作</strong>：报表/大屏按权限码与数据范围过滤，执行时叠加租户与动作级数据范围</li>
@@ -214,6 +218,9 @@
   </div>
 
 </div>
+
+      <script src="../../资源/mermaid.min.js"></script>
+      <script src="../../资源/mermaid-init.js"></script>
 
 </body>
 </html>

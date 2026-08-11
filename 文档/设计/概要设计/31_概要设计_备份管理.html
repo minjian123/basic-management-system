@@ -115,43 +115,25 @@
       <h2 id="sequence">3. 关键时序与协作</h2>
 
       <h3 id="sequence-backup">3.1 备份执行时序</h3>
-      <div class="layer">
-        <div class="l-box">
-          <div class="l-title">Celery beat（数据库调度器，任务定义入库 sys_task）</div>
-          <div class="l-sub">按 cron 触发 / 页面手动触发</div>
-        </div>
-        <div class="l-arrow">▼</div>
-        <div class="l-box">
-          <div class="l-title">Celery worker（备份任务）</div>
-          <div class="l-sub">1) 每日全量备份：业务库 + 归档库（bms_archive 纳入备份范围）</div>
-          <div class="l-sub">2) Binlog/WAL 持续归档（时间点恢复 PITR 依据）</div>
-          <div class="l-sub">3) 写入 MinIO（file_key，按租户 bucket 前缀隔离）</div>
-          <div class="l-sub">4) 保留期 30 天，过期文件清理</div>
-        </div>
-        <div class="l-arrow">▼</div>
-        <div class="l-box">
-          <div class="l-title">sys_backup_log 执行记录</div>
-          <div class="l-sub">status / size / cost_time / file_key；失败重试 + 告警（Alertmanager：邮件 / 企业微信 / 钉钉）</div>
-        </div>
-      </div>
+      <pre class="mermaid">
+graph TD
+    A[Celery beat<br/>数据库调度器，任务定义入库 sys_task] -->|按 cron 触发 / 页面手动触发| B[Celery worker（备份任务）]
+    B --> C[1. 每日全量备份：业务库 + 归档库（bms_archive 纳入备份范围）]
+    C --> D[2. Binlog/WAL 持续归档<br/>时间点恢复 PITR 依据]
+    D --> E[3. 写入 MinIO（file_key，按租户 bucket 前缀隔离）]
+    E --> F[4. 保留期 30 天，过期文件清理]
+    F --> G[sys_backup_log 执行记录<br/>status / size / cost_time / file_key]
+    G --> H[失败重试 + 告警<br/>Alertmanager：邮件 / 企业微信 / 钉钉]
+      </pre>
 
       <h3 id="sequence-restore">3.2 恢复与演练登记</h3>
-      <div class="layer">
-        <div class="l-box">
-          <div class="l-title">运维人员（恢复流程为运维脚本，页面只登记）</div>
-          <div class="l-sub">定期演练恢复流程（RTO ≤ 4 小时、RPO ≤ 1 小时）；从 MinIO 取备份文件 + Binlog/WAL 时间点恢复</div>
-        </div>
-        <div class="l-arrow">▼</div>
-        <div class="l-box">
-          <div class="l-title">恢复演练完成</div>
-          <div class="l-sub">页面登记：选择备份记录 → 登记恢复演练结果</div>
-        </div>
-        <div class="l-arrow">▼</div>
-        <div class="l-box">
-          <div class="l-title">sys_backup_log.restore_verified_at 落库</div>
-          <div class="l-sub">恢复已验证标记；演练结果纳入运维记录，未通过触发处置</div>
-        </div>
-      </div>
+      <pre class="mermaid">
+graph TD
+    A[运维人员<br/>恢复流程为运维脚本，页面只登记] -->|定期演练恢复流程：RTO ≤ 4 小时、RPO ≤ 1 小时| B[从 MinIO 取备份文件 + Binlog/WAL 时间点恢复]
+    B --> C[恢复演练完成]
+    C -->|页面登记：选择备份记录| D[sys_backup_log.restore_verified_at 落库<br/>恢复已验证标记]
+    D --> E[演练结果纳入运维记录<br/>未通过触发处置]
+      </pre>
       <p>协作组件：<strong>MinIO</strong> 存储备份文件（与归档文件同存储体系，定期增量备份 + 生命周期策略，元数据随数据库备份）；<strong>Celery</strong>（Redis broker）调度执行备份任务；<strong>任务调度</strong>模块提供任务入库与页面管理（启停、手动触发）；<strong>系统监控</strong>承接失败告警。</p>
 
       <h2 id="data">4. 数据模型与表设计</h2>
@@ -245,6 +227,9 @@
   </div>
 
 </div>
+
+      <script src="../../资源/mermaid.min.js"></script>
+      <script src="../../资源/mermaid-init.js"></script>
 
 </body>
 </html>

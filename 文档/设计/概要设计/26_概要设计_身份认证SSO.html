@@ -81,18 +81,27 @@
       </ol>
 
       <h2 id="sequence">3. 关键时序与协作</h2>
-      <div class="seq">
-        <table>
-          <tr><th>用户</th><th>登录页</th><th>authlib（客户端）</th><th>外部 IdP</th><th>BMS（会话/用户）</th><th>RocketMQ</th></tr>
-          <tr><td class="s-arrow">选择 IdP 入口 →</td><td></td><td></td><td></td><td></td><td></td></tr>
-          <tr><td></td><td class="s-arrow">跳转授权/认证 →</td><td class="s-arrow">转发认证请求 →</td><td></td><td></td><td></td></tr>
-          <tr><td></td><td class="s-arrow">← 授权码回跳</td><td class="s-arrow">← 授权码回跳</td><td></td><td></td><td></td></tr>
-          <tr><td></td><td class="s-arrow">校验 + 映射查找 →</td><td></td><td></td><td></td><td></td></tr>
-          <tr><td colspan="6" class="s-note">外部 IdP 认证通过后：无映射则 JIT 建号 → 签发双 token（access 30 分钟 + refresh 14 天）</td></tr>
-          <tr><td class="s-arrow">← 登录成功</td><td class="s-arrow">← 登录成功</td><td></td><td></td><td></td><td></td></tr>
-          <tr><td></td><td></td><td></td><td></td><td class="s-arrow">sso.user.jit_created 事件 →</td><td class="s-arrow">Webhook 可订阅</td></tr>
-        </table>
-      </div>
+      <pre class="mermaid">
+sequenceDiagram
+    autonumber
+    participant 用户
+    participant 登录页
+    participant authlib as authlib(客户端)
+    participant IdP as 外部 IdP
+    participant BMS as BMS(会话/用户)
+    participant MQ as RocketMQ
+
+    用户->>登录页: 选择 IdP 入口
+    登录页->>authlib: 跳转授权/认证
+    authlib->>IdP: 转发认证请求
+    IdP-->>authlib: 授权码回跳
+    authlib-->>登录页: 授权码回跳
+    登录页->>BMS: 校验 + 映射查找
+    Note over BMS: 外部 IdP 认证通过后：无映射则 JIT 建号 → 签发双 token（access 30 分钟 + refresh 14 天）
+    BMS-->>登录页: 登录成功
+    登录页-->>用户: 登录成功
+    BMS->>MQ: sso.user.jit_created 事件（Webhook 可订阅）
+      </pre>
       <ul>
         <li><strong>与多租户路由协作</strong>：sys_user_identity 为【平台库】全局映射（idp_key + external_id → tenant_id + user_id），登录时定位租户后路由到对应租户库</li>
         <li><strong>与会话管理协作</strong>：SSO 登录同样签发 BMS 双 token（access 30 分钟 + refresh 14 天滚动轮换），会话记录与 Redis 标记照常</li>
@@ -216,6 +225,9 @@
   </div>
 
 </div>
+
+      <script src="../../资源/mermaid.min.js"></script>
+      <script src="../../资源/mermaid-init.js"></script>
 
 </body>
 </html>
