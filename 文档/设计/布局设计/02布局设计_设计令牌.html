@@ -11,10 +11,10 @@
 <div class="topnav">
   <a href="../../文档首页.html">文档首页</a> ›
   <a href="../../设计/架构设计/01-架构设计.html">设计</a> ›
-  <a href="主框架布局设计.html">布局设计</a> ›
+  <a href="01布局设计_总览.html">布局设计</a> ›
   <span>全局设计令牌</span>
   <span class="topnav-side">
-    <a href="列表页布局设计.html">下一个：列表页布局 →</a>
+    <a href="03布局设计_主框架.html">下一个：主框架 →</a>
   </span>
 </div>
 
@@ -63,7 +63,7 @@
       </table>
       <ul>
         <li>状态色语义固定：<strong>审批/流程状态</strong>（通过=success、待审=warning、驳回=danger）全局统一，不因模块改色。</li>
-        <li>主色允许租户覆盖（品牌化，见《<a href="主题与租户品牌化.html">主题与租户品牌化</a>》）。</li>
+        <li>主色允许租户覆盖（品牌化，见《<a href="08布局设计_主题与租户品牌化.html">主题与租户品牌化</a>》）。</li>
         <li>禁止在组件内硬编码色值，一律引用令牌。</li>
       </ul>
 
@@ -123,7 +123,7 @@
   --el-border-radius-base: var(--radius-md);
 }</code></pre>
       <ul>
-        <li>令牌定义唯一来源：<code>src/styles/tokens.css</code>；暗色模式与租户主题通过 <code>[data-theme]</code> / <code>[data-tenant]</code> 覆盖（见《<a href="主题与租户品牌化.html">主题与租户品牌化</a>》）。</li>
+        <li>令牌定义唯一来源：<code>src/styles/tokens.css</code>；暗色模式与租户主题通过 <code>[data-theme]</code> / <code>[data-tenant]</code> 覆盖（见《<a href="08布局设计_主题与租户品牌化.html">主题与租户品牌化</a>》）。</li>
         <li>新令牌必须在此文件登记后使用；组件样式不复制令牌值。</li>
       </ul>
 
@@ -139,7 +139,7 @@
     </main>
 
     <footer>
-      本文档为 AI 生成 · 依《文档生成规范》编写 · 与《前端开发规范》《列表页布局设计》配套 · 生成日期：2026-08-11
+      本文档为 AI 生成 · 依《文档生成规范》编写 · 与《前端开发规范》《06布局设计_列表页》配套 · 生成日期：2026-08-11
     </footer>
   </div>
 
