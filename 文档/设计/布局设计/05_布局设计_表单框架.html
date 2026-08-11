@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>表单栏布局设计</title>
+<title>表单框架布局设计</title>
 <link rel="stylesheet" href="../../资源/文档样式.css">
 </head>
 <body>
@@ -12,7 +12,7 @@
   <a href="../../文档首页.html">文档首页</a> ›
   <a href="../../规划/项目规划说明.html">项目规划说明</a> ›
   <a href="01_布局设计_总览.html">布局设计</a> ›
-  <span>表单栏布局设计</span>
+  <span>表单框架布局设计</span>
   <span class="topnav-side">
     <a href="04_布局设计_导航.html">← 上一个：导航</a>
     <a href="06_布局设计_列表页.html">下一个：列表页 →</a>
@@ -23,12 +23,17 @@
 
   <aside class="sidebar">
     <div class="brand">
-      <h1>表单栏布局设计</h1>
+      <h1>表单框架布局设计</h1>
       <p>FormFrame · 列表/表单双形态 · 职责分离 · 工具栏</p>
     </div>
     <nav>
       <ul>
-        <li><a href="#frame">1. 表单框架（FormFrame）</a></li>
+        <li><a href="#frame">1. 表单框架（FormFrame）</a>
+          <ul class="sub">
+            <li><a href="#frame-list">1.1 形态一：列表 Tab</a></li>
+            <li><a href="#frame-detail">1.2 形态二：表单 Tab</a></li>
+          </ul>
+        </li>
         <li><a href="#separation">2. 职责分离（列表页与表单页）</a></li>
         <li><a href="#interaction">3. 交互细节（框架层）</a>
           <ul class="sub">
@@ -45,31 +50,36 @@
     <main>
 
       <h2 id="frame">1. 表单框架（FormFrame）</h2>
-      <p>用来在「内容栏」中展示表单具体界面内容的布局，分为上下两部分：表单 Tab 页栏 + 表单内容栏。表单内容栏按激活的 Tab 分两种形态：<strong>列表页形态</strong>（列表 Tab）与<strong>表单页形态</strong>（记录 Tab），两者的详细布局分别见《<a href="06_布局设计_列表页.html">列表页布局</a>》与《<a href="07_布局设计_表单页.html">表单页布局</a>》。</p>
+      <p>用来在「内容栏」中展示表单具体界面内容的布局，分为上下两部分：表单 Tab 页栏 + 表单内容栏。表单内容栏按激活的 Tab 显示<strong>两种并排（互斥切换）的形态</strong>：激活「列表」Tab 显示<strong>列表页</strong>，激活「记录A」Tab 显示<strong>表单页</strong>——两者为同一 Tab 栏下的切换关系，<strong>不是嵌套关系</strong>。详细布局分别见《<a href="06_布局设计_列表页.html">列表页布局</a>》与《<a href="07_布局设计_表单页.html">表单页布局</a>》。</p>
 
+      <h3 id="frame-list">1.1 形态一：列表 Tab（激活「列表」）</h3>
       <div class="diagram">
-        <div class="d-box d-title">FormFrame 结构（两种 Tab 形态）</div>
-        <div class="d-box d-tabs">表单 Tab 页栏：<span class="d-fixed" style="padding:0 .3rem">列表（固定）</span> │ 记录A × │ 记录B ×</div>
+        <div class="d-box d-title">FormFrame · 列表 Tab（激活）</div>
+        <div class="d-box d-tabs">表单 Tab 页栏：<span class="d-fixed" style="padding:0 .3rem">列表（激活）</span> │ 记录A × │ 记录B ×</div>
         <div class="d-box d-body">
-          <div><strong>列表 Tab</strong> → <a href="06_布局设计_列表页.html">列表页布局</a>：工具栏 + 筛选区 + 表格（无操作列，双击行打开表单）+ 分页区</div>
-          <div class="d-sub" style="margin-top:.5rem">
-            <div><strong>详情 Tab</strong> → <a href="07_布局设计_表单页.html">表单页布局</a>：默认只读查看，点「修改」进入编辑态</div>
-            <div class="d-subtab">
-              信息栏：<span class="d-fixed" style="padding:0 .3rem">详细信息</span> │ 系统信息<br>
-              <span class="d-note">详细信息 = 主表字段区 + 明细区；系统信息 = ID / 创建时间 / 修改时间（只读）</span>
-            </div>
-          </div>
+          <div>→ <a href="06_布局设计_列表页.html">列表页布局</a>：工具栏（新增/刷新/关闭）</div>
+          <div class="d-sub" style="margin-top:.3rem">筛选区 → 表格（无操作列，双击行打开表单 Tab）→ 分页区</div>
+        </div>
+      </div>
+
+      <h3 id="frame-detail">1.2 形态二：表单 Tab（激活「记录A」）</h3>
+      <div class="diagram">
+        <div class="d-box d-title">FormFrame · 表单 Tab（激活）</div>
+        <div class="d-box d-tabs">表单 Tab 页栏：列表 │ <span class="d-fixed" style="padding:0 .3rem">记录A ×（激活）</span> │ 记录B ×</div>
+        <div class="d-box d-body">
+          <div>→ <a href="07_布局设计_表单页.html">表单页布局</a>：工具栏（修改/删除/刷新/关闭，编辑态变保存）</div>
+          <div class="d-sub" style="margin-top:.3rem">信息栏：详细信息（主表字段区 + 明细区）│ 系统信息</div>
         </div>
       </div>
       <ol>
         <li><strong>表单 Tab 页栏</strong>：可分多个 Tab 页显示不同表单内容。
           <ul>
-            <li>第一个 Tab 为列表内容（列表页），<strong>不可在表单栏内关闭</strong>，始终保持打开，可随整个表单管理页面关闭而关闭。</li>
+            <li>第一个 Tab 为列表内容（列表页），<strong>不可在表单框架内关闭</strong>，始终保持打开，可随整个表单管理页面关闭而关闭。</li>
             <li>双击列表数据行，新增打开一个 Tab 展示对应表单；已打开则切换到对应 Tab。</li>
             <li>详情 Tab 标题取记录标识字段（如名称），新增未保存前显示「新建xxx」。</li>
           </ul>
         </li>
-        <li><strong>表单内容栏</strong>：列表 Tab 渲染列表页组件；每个详情 Tab 渲染一个独立的表单页组件实例（可同时打开多条记录）。</li>
+        <li><strong>表单内容栏</strong>：同一时刻只显示一个 Tab 的内容——列表 Tab 渲染列表页组件；每个详情 Tab 渲染一个独立的表单页组件实例（可同时打开多条记录，切换显示）。</li>
       </ol>
 
       <h2 id="separation">2. 职责分离（列表页与表单页各自独立）</h2>
@@ -128,7 +138,7 @@
     </main>
 
     <footer>
-      本文档由用户手写《表单栏布局设计》转换为 HTML · 依《文档生成规范》编写 · 与《06_布局设计_列表页》《07_布局设计_表单页》配套 · 转换日期：2026-08-11
+      本文档由用户手写《表单框架布局设计》转换为 HTML · 依《文档生成规范》编写 · 与《06_布局设计_列表页》《07_布局设计_表单页》配套 · 转换日期：2026-08-11
     </footer>
   </div>
 

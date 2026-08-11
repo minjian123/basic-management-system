@@ -14,7 +14,7 @@
   <a href="01_布局设计_总览.html">布局设计</a> ›
   <span>列表页布局设计</span>
   <span class="topnav-side">
-    <a href="05_布局设计_表单栏.html">← 上一个：表单栏</a>
+    <a href="05_布局设计_表单框架.html">← 上一个：表单框架</a>
     <a href="07_布局设计_表单页.html">下一个：表单页 →</a>
   </span>
 </div>
@@ -49,7 +49,7 @@
         「工具栏 + 筛选区 + 表格 + 分页」四段式结构，保证全部模块页面形态一致。
         依赖《<a href="02_布局设计_设计令牌.html">全局设计令牌</a>》与《<a href="../../规范/前端开发规范.html">前端开发规范</a>》。
       </p>
-      <div class="note">列表页<strong>嵌在《<a href="05_布局设计_表单栏.html">表单栏布局</a>》FormFrame 的「列表 Tab」中使用</strong>：FormFrame 的 Tab 栏之下即列表页，工具栏（新增/刷新等）位于列表页顶部、筛选区之上；表格无操作列，双击行打开表单 Tab。</div>
+      <div class="note">列表页<strong>嵌在《<a href="05_布局设计_表单框架.html">表单框架布局</a>》FormFrame 的「列表 Tab」中使用</strong>：FormFrame 的 Tab 栏之下即列表页，工具栏（新增/刷新等）位于列表页顶部、筛选区之上；表格无操作列，双击行打开表单 Tab。</div>
 
       <h2 id="structure">2. 页面结构</h2>
       <div class="diagram">
@@ -81,7 +81,7 @@
         <li><strong>左侧</strong>：新增（primary）、刷新、关闭（返回）；批量操作按钮组（批量删除、批量审批等）在有选中行时启用。</li>
         <li><strong>右侧</strong>：导出、自定义列等次要操作。</li>
         <li>按钮顺序按操作频率：新增 → 批量操作 → 次要操作；权限码控制（《<a href="../../规范/API接口规范.html">API接口规范</a>》第 6 节）。</li>
-        <li>切换详情 Tab 时工具栏切换为表单态（修改/保存/删除/刷新/关闭，见《<a href="05_布局设计_表单栏.html">表单栏布局</a>》第 5 节），两态共用一行、位置不变。</li>
+        <li>切换详情 Tab 时工具栏切换为表单态（修改/保存/删除/刷新/关闭，见《<a href="05_布局设计_表单框架.html">表单框架布局</a>》第 5 节），两态共用一行、位置不变。</li>
       </ul>
 
       <h2 id="table">5. 表格区</h2>
@@ -89,7 +89,7 @@
         <tr><th>项</th><th>约定</th></tr>
         <tr><td>多选列</td><td>有批量操作时保留，宽度 48px；行点击不默认勾选</td></tr>
         <tr><td>数据列</td><td>关键信息靠左（名称/编码），数字右对齐，状态用 tag 语义色（见令牌）</td></tr>
-        <tr><td>操作列</td><td>列表页<strong>无操作列</strong>（数据行仅展示，双击行打开表单 Tab，见《<a href="05_布局设计_表单栏.html">表单栏布局</a>》）；<code>查看/编辑</code>等操作由双击或表单 Tab 承载</td></tr>
+        <tr><td>操作列</td><td>列表页<strong>无操作列</strong>（数据行仅展示，双击行打开表单 Tab，见《<a href="05_布局设计_表单框架.html">表单框架布局</a>》）；<code>查看/编辑</code>等操作由双击或表单 Tab 承载</td></tr>
         <tr><td>空状态</td><td>el-table 空数据插槽：图标 + 「暂无数据」+ 可选引导按钮</td></tr>
         <tr><td>加载</td><td>loading 遮罩 + 首次加载骨架屏（<code>v-loading</code>）</td></tr>
       </table>
