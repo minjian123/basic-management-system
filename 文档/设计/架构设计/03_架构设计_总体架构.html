@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>架构设计 · 总体架构</title>
+<link rel="stylesheet" href="../../资源/文档样式.css">
+</head>
+<body>
+
+<div class="topnav">
+  <a href="01_架构设计_总览.html">架构设计</a> › <span>03-总体架构</span>
+  <span class="topnav-side"><a href="02_架构设计_目标与约束.html">← 02-目标与约束</a> · <a href="04_架构设计_核心交互时序.html">04-核心交互时序 →</a></span>
+</div>
+
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>架构设计 · 总体架构</h1>
+      <p>BMS · 分层、进程、组件与技术栈全景</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#overview">1. 概述</a></li>
+        <li><a href="#layers">2. 分层视图</a></li>
+        <li><a href="#process">3. 进程模型</a></li>
+        <li><a href="#components">4. 组件视图与协作</a></li>
+        <li><a href="#structure">5. Monorepo 目录结构</a></li>
+        <li><a href="#stack">6. 技术栈全景</a>
+          <ul class="sub">
+            <li><a href="#stack-backend">6.1 后端核心</a></li>
+            <li><a href="#stack-frontend">6.2 前端</a></li>
+            <li><a href="#stack-engineering">6.3 工程化与质量</a></li>
+            <li><a href="#stack-ops">6.4 部署与运维</a></li>
+          </ul>
+        </li>
+        <li><a href="#phases">7. 阶段映射</a>
+          <ul class="sub">
+            <li><a href="#phases-mvp">7.1 MVP 验收标准</a></li>
+          </ul>
+        </li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="overview">1. 概述</h2>
+      <p>
+        本节点给出 BMS 的总体架构：分层视图、进程模型、组件协作、仓库目录结构与技术栈全景，
+        并给出开发计划（十四阶段）与架构落地章节的映射关系。对应<a href="../../规划/项目规划说明.html">《项目规划说明》</a>的「技术栈」
+        「项目目录结构」「开发计划与验收标准」章节。
+      </p>
+
+      <h2 id="layers">2. 分层视图</h2>
+      <pre><code>┌──────────────────────────────────────────────────────────────┐
+│  客户端层  浏览器（PC / H5） · 企业微信 / 钉钉内嵌 · 外部系统        │
+└───────────────────────────────┬──────────────────────────────┘
+                                │ HTTPS
+┌───────────────────────────────▼──────────────────────────────┐
+│  接入层    nginx：TLS 终止 / 前端静态资源 / /api 反代 /          │
+│            子域名租户路由（{tenant}.bms.example.com）/ WebSocket │
+└───────────────────────────────┬──────────────────────────────┘
+                                │
+┌───────────────────────────────▼──────────────────────────────┐
+│  应用层    backend（FastAPI 多副本）                            │
+│            celery-worker · celery-beat · event-worker         │
+└───────┬───────────────┬───────────────┬──────────────┬───────┘
+        │               │               │              │
+┌───────▼───────┐ ┌─────▼──────┐ ┌──────▼───────┐ ┌────▼────────┐
+│ 数据层         │ │ 缓存/队列   │ │ 存储/检索     │ │ AI（阶段十四）│
+│ MySQL / PG     │ │ Redis      │ │ MinIO        │ │ Milvus      │
+│ / 达梦 DM8     │ │ RocketMQ   │ │ ElasticSearch│ │ PaddleOCR   │
+│ 平台库+租户库   │ │            │ │              │ │ LLM 适配层   │
+│ +归档库 主从    │ │            │ │              │ │             │
+└───────────────┘ └────────────┘ └──────────────┘ └─────────────┘
+        ┌─────────────────────────────────────────────────────┐
+        │ 可观测性  Prometheus + Loki + Grafana + Alertmanager │
+        │           + Jaeger（otel-collector 采集链路）          │
+        └─────────────────────────────────────────────────────┘</code></pre>
+
+      <h2 id="process">3. 进程模型</h2>
+      <table>
+        <tr><th>进程</th><th>职责</th><th>部署形态</th></tr>
+        <tr><td>backend</td><td>FastAPI 应用：REST API（/api/v1、/api/open）、Socket.IO 实时推送、动态数据源路由、Swagger/ReDoc（仅开发）</td><td>多副本（uvicorn 多 worker，如 4 worker）</td></tr>
+        <tr><td>celery-worker</td><td>定时/异步任务执行：孤儿分片清理、日志归档、分片表预创建、每日全量备份、未登录账号锁定扫描等；broker 用 Redis</td><td>多副本</td></tr>
+        <tr><td>celery-beat</td><td>定时调度：任务定义入库（<code>sys_task</code>），自研数据库调度器；Redis 分布式锁防重复调度</td><td>单副本</td></tr>
+        <tr><td>event-worker</td><td>RocketMQ 事件消费者（多消费组）：操作日志异步化、Webhook 推送、审计链分区有序消费、ES 索引同步（阶段十三）、embedding 管线（阶段十四）</td><td>多副本</td></tr>
+        <tr><td>frontend / frontend-mobile</td><td>构建产物由 nginx 托管（PC + 移动端静态资源）</td><td>静态资源</td></tr>
+      </table>
+
+      <h2 id="components">4. 组件视图与协作</h2>
+      <pre><code>┌──────────────────────────── backend 内部组件 ─────────────────────────────┐
+│                                                                          │
+│  ┌───────────┐  ┌───────────┐  ┌──────────────┐  ┌────────────────────┐ │
+│  │ 认证组件   │  │ 权限引擎   │  │ 租户路由组件   │  │ 事件生产组件        │ │
+│  │ JWT/会话  │→ │ 主体链收敛 │← │ 引擎注册表    │  │ RocketMQ 事务消息   │ │
+│  └───────────┘  └───────────┘  └──────┬───────┘  └─────────┬──────────┘ │
+│                                       ▼                    │            │
+│  ┌───────────┐  ┌───────────┐  ┌──────────────┐  ┌─────────▼──────────┐ │
+│  │ 文件组件   │  │ 工作流组件 │  │ 数据访问组件   │  │ 实时推送组件        │ │
+│  │ 分片状态机 │  │ SpiffWork │  │ 读写分离/分片  │  │ Socket.IO+Redis   │ │
+│  └───────────┘  └───────────┘  └──────────────┘  └────────────────────┘ │
+│  api（路由/校验）→ services（业务/事务）→ repositories（访问/路由）→ db    │
+└────────────────────────────────────┬─────────────────────────────────────┘
+        │ 统一经 Redis 缓存 · RocketMQ 事件 · MinIO · ES · 审计链
+┌───────▼──────────────────────────────────────────────────────────────────┐
+│  基础设施组件：Redis（缓存/会话/限流/锁/幂等）· RocketMQ（事件总线）          │
+│                MinIO（对象存储）· ES（检索）· Milvus（向量）                │
+└───────────────────────────────────────────────────────────────────────────┘</code></pre>
+      <p><strong>协作规则</strong>：</p>
+      <ul>
+        <li>分层职责：api 层只做参数校验与路由分发；services 承载业务逻辑与事务边界；repositories 承载数据访问与数据源/分片路由，禁止在 api 层直接操作模型</li>
+        <li>认证组件与权限引擎在中间件/依赖注入层协作：先认证会话，再校验权限码，后做数据范围过滤</li>
+        <li>业务模块不直接调用通知/审计：通过事件总线发布事件，由 event-worker 消费落库/推送（模块解耦）</li>
+        <li>关键写操作经 ORM 事件自动触发审计捕获，审计事件走 RocketMQ 分区有序消费（见审计哈希链子系统）</li>
+      </ul>
+
+      <h2 id="structure">5. Monorepo 目录结构</h2>
+      <pre><code>bms/
+├── backend/                  # FastAPI 后端
+│   ├── app/
+│   │   ├── core/             # 配置、安全、异常处理
+│   │   ├── api/              # 路由层（按模块），依赖注入
+│   │   ├── models/           # SQLAlchemy 模型
+│   │   ├── schemas/          # Pydantic 请求/响应模型
+│   │   ├── services/         # 业务逻辑
+│   │   ├── repositories/     # 数据访问，多数据源/分片路由
+│   │   ├── db/               # 异步引擎、AsyncSession、读写分离路由
+│   │   ├── tasks/            # Celery 任务定义
+│   │   ├── ws/               # Socket.IO 连接与会话事件
+│   │   └── i18n/             # 国际化管理（语言包接口、运行时翻译）
+│   ├── alembic/              # 迁移脚本（三套方言）
+│   ├── tests/                # pytest
+│   ├── config.toml
+│   └── pyproject.toml
+├── frontend/                 # Vue 3 + Vite（PC 管理端）
+│   ├── src/
+│   │   ├── api/              # Axios 封装与接口定义
+│   │   ├── router/           # 动态路由生成
+│   │   ├── stores/           # Pinia
+│   │   ├── views/            # 页面（按模块）
+│   │   ├── layouts/          # 主布局
+│   │   ├── components/       # 通用组件
+│   │   ├── i18n/             # 中英文文案
+│   │   └── utils/
+│   ├── package.json
+│   └── .nvmrc
+├── frontend-mobile/          # Vue 3 + Vant（移动端 H5：审批、通知、数据查询）
+├── deploy/                   # Docker Compose、nginx 配置（含 GitLab CE、gitlab-runner、Renovate 编排）
+├── scripts/                  # 种子数据、备份恢复等运维脚本
+├── .gitlab-ci.yml            # CI 流水线定义（GitLab CE）
+├── .github/                  # GitHub 归档镜像辅助文件（README 说明等）
+├── 文档/                     # 规划/规范/设计/资料
+└── graphify-out/             # 知识图谱产物（勿手动修改）</code></pre>
+
+      <h2 id="stack">6. 技术栈全景</h2>
+
+      <h3 id="stack-backend">6.1 后端核心</h3>
+      <table>
+        <tr><th>层面</th><th>技术选型</th></tr>
+        <tr><td>语言</td><td>Python 3.14+（uv 管理）</td></tr>
+        <tr><td>Web 框架</td><td>FastAPI（uvicorn 多 worker 部署）</td></tr>
+        <tr><td>数据校验</td><td>Pydantic v2</td></tr>
+        <tr><td>数据库抽象</td><td>SQLAlchemy 2.0+（异步 ORM/Core，多数据源）</td></tr>
+        <tr><td>数据库迁移</td><td>Alembic（三套方言，URL 来自 config.toml）</td></tr>
+        <tr><td>数据库</td><td>SQLite（开发/测试，aiosqlite）/ MySQL 8.x（aiomysql）/ PostgreSQL 16+（psycopg 3）/ 达梦 DM8（dmPython，信创选配）</td></tr>
+        <tr><td>缓存</td><td>Redis（redis-py 异步客户端，集群统一缓存）</td></tr>
+        <tr><td>认证</td><td>JWT（PyJWT）+ Redis 会话状态校验 + PBKDF2 密码哈希（标准库）</td></tr>
+        <tr><td>SSO</td><td>authlib（OIDC 客户端/Provider + CAS 客户端；企业微信/钉钉免登）</td></tr>
+        <tr><td>验证码</td><td>图形验证码（Pillow 生成，Redis 存储校验）</td></tr>
+        <tr><td>限流</td><td>slowapi（limits 库，Redis 后端）</td></tr>
+        <tr><td>文件上传</td><td>python-multipart</td></tr>
+        <tr><td>文件存储</td><td>MinIO（S3 兼容对象存储，预签名 URL 下载）</td></tr>
+        <tr><td>Excel 处理</td><td>openpyxl（导入导出）</td></tr>
+        <tr><td>后端国际化</td><td>消息文案入库（sys_i18n_message）+ Babel 开发期提取；Accept-Language 驱动；数据文案走 i18n 附表</td></tr>
+        <tr><td>配置格式</td><td>TOML（config.toml + 环境变量覆盖）</td></tr>
+        <tr><td>ID 生成</td><td>yitter/IdGenerator（雪花算法，时钟回拨处理）</td></tr>
+        <tr><td>日志</td><td>structlog（结构化 JSON，携带 request_id）</td></tr>
+        <tr><td>工作流引擎</td><td>SpiffWorkflow（BPMN 2.0，线程池运行）</td></tr>
+        <tr><td>模板渲染</td><td>Jinja2（邮件模板入库在线编辑、通知模板）</td></tr>
+        <tr><td>实时推送</td><td>python-socketio（Socket.IO，Redis 适配器跨实例广播）</td></tr>
+        <tr><td>消息队列</td><td>RocketMQ 5.x（事件总线：操作日志异步化、Webhook 推送、审计链串行消费；分区有序消息）</td></tr>
+        <tr><td>定时任务</td><td>Celery（Redis broker；beat 数据库调度器）</td></tr>
+        <tr><td>邮件发送</td><td>aiosmtplib（SMTP，Jinja2 模板）</td></tr>
+        <tr><td>全文检索</td><td>ElasticSearch 8.x（elasticsearch-py；PDF/Word/Excel/TXT 文本解析）</td></tr>
+        <tr><td>AI（阶段十四）</td><td>LLM 适配层（外部 API + 私有化端点可配）、Milvus 向量库、PaddleOCR（本地 + 多模态 API 可切换）</td></tr>
+        <tr><td>链路追踪</td><td>OpenTelemetry（otel-collector + Jaeger）</td></tr>
+      </table>
+
+      <h3 id="stack-frontend">6.2 前端</h3>
+      <table>
+        <tr><th>层面</th><th>技术选型</th></tr>
+        <tr><td>框架</td><td>Vue 3 + Vite + TypeScript</td></tr>
+        <tr><td>UI 库</td><td>Element Plus（PC）/ Vant（移动端）</td></tr>
+        <tr><td>路由 / 状态</td><td>Vue Router 4 / Pinia</td></tr>
+        <tr><td>HTTP 客户端</td><td>Axios（token 注入、401 刷新）</td></tr>
+        <tr><td>流程建模</td><td>bpmn-js（拖拽绘制 BPMN 流程图）</td></tr>
+        <tr><td>图表</td><td>ECharts（报表与大屏渲染）</td></tr>
+        <tr><td>实时推送</td><td>socket.io-client</td></tr>
+        <tr><td>国际化</td><td>vue-i18n（语言包运行时拉取、RTL 适配、localStorage 持久化）</td></tr>
+        <tr><td>样式</td><td>SCSS（Element Plus 主题定制）</td></tr>
+        <tr><td>包管理</td><td>npm（frontend / frontend-mobile 各自独立）</td></tr>
+        <tr><td>代码规范</td><td>ESLint + Prettier</td></tr>
+        <tr><td>测试</td><td>Vitest（单元）+ Playwright（E2E）</td></tr>
+      </table>
+
+      <h3 id="stack-engineering">6.3 工程化与质量</h3>
+      <table>
+        <tr><th>层面</th><th>技术选型</th></tr>
+        <tr><td>Python 包管理</td><td>uv</td></tr>
+        <tr><td>代码规范</td><td>ruff（lint + format）</td></tr>
+        <tr><td>类型检查</td><td>pyright（严格模式）</td></tr>
+        <tr><td>后端测试</td><td>pytest + httpx（ASGITransport）</td></tr>
+        <tr><td>API 文档</td><td>Swagger UI / ReDoc（FastAPI 内置，生产关闭）</td></tr>
+        <tr><td>知识图谱</td><td>graphify（代码理解与架构分析）</td></tr>
+        <tr><td>压测</td><td>locust（登录/列表/审批场景）</td></tr>
+      </table>
+
+      <h3 id="stack-ops">6.4 部署与运维</h3>
+      <table>
+        <tr><th>层面</th><th>技术选型</th></tr>
+        <tr><td>容器</td><td>Docker + Docker Compose</td></tr>
+        <tr><td>Web 服务器</td><td>nginx（负载均衡 / TLS 终止 / 子域名租户路由，泛域名证书）</td></tr>
+        <tr><td>对象存储</td><td>MinIO（S3 兼容）</td></tr>
+        <tr><td>消息队列</td><td>RocketMQ 5.x（nameserver + broker）</td></tr>
+        <tr><td>监控</td><td>Prometheus + Loki + Grafana + Alertmanager（告警：邮件/企业微信/钉钉/短信）</td></tr>
+        <tr><td>链路追踪</td><td>Jaeger + otel-collector</td></tr>
+        <tr><td>检索</td><td>ElasticSearch 8.x（MVP 单节点，生产集群多副本）</td></tr>
+        <tr><td>AI（阶段十四）</td><td>Milvus（milvus + etcd，MinIO 复用）、PaddleOCR（可选）</td></tr>
+        <tr><td>健康检查</td><td>/healthz、/readyz</td></tr>
+        <tr><td>CI/CD</td><td>GitLab CE（自托管，仓库 + MR + CI + Registry 一体，gitlab-runner 容器化挂载 docker.sock；ruff + pytest + 前端双端构建 + Playwright E2E + 三库集成测试（复用开发服务器常驻库）+ 镜像 + swagger.json 快照）+ Renovate 依赖升级；GitHub push mirror 只读归档</td></tr>
+      </table>
+
+      <h2 id="phases">7. 阶段映射</h2>
+      <p>《项目规划说明》开发计划十四阶段与架构落地章节对应关系（概要设计与详细设计按阶段展开）：</p>
+      <table>
+        <tr><th>阶段</th><th>内容</th><th>对应架构节点</th></tr>
+        <tr><td>一 项目骨架</td><td>monorepo、配置/日志/健康检查、SQLAlchemy 接入、平台/租户库拓扑、批量迁移、CI</td><td>总体架构、数据访问与分片、多租户路由、测试与质量、部署与运维</td></tr>
+        <tr><td>二 认证与安全</td><td>双 token、限流、验证码、会话、锁定、SSO、密码策略、脱敏</td><td>认证与会话、性能与安全</td></tr>
+        <tr><td>三 RBAC 基础模块</td><td>用户/岗位/角色/菜单/权限码/字段权限/数据范围/三权分立/租户开通</td><td>权限计算引擎、多租户路由、数据架构</td></tr>
+        <tr><td>四 通用能力</td><td>事件总线 + Celery 接入、字典/参数、文件、导入导出、通知/公告、帮助中心、回收站、邮件短信、日志异步化、字段审计、国际化、归档</td><td>事件总线、任务调度、文件管理、通知公告、帮助中心、国际化、审计哈希链</td></tr>
+        <tr><td>五 工作流引擎</td><td>SpiffWorkflow、bpmn-js、会签/或签、版本管理</td><td>工作流</td></tr>
+        <tr><td>六 系统集成与消息</td><td>开放接口（OAuth2）、Webhook、事件模型</td><td>接口与集成、事件总线</td></tr>
+        <tr><td>七 采购管理</td><td>申请三级审批、供应商、生成订单</td><td>工作流、通知公告</td></tr>
+        <tr><td>八 分布式与监控</td><td>分片落地、租户路由演练、监控告警、缓存管理、备份、链路追踪、任务调度</td><td>数据访问与分片、可观测性、任务调度、部署与运维</td></tr>
+        <tr><td>九 性能加固与压测</td><td>缓存三防、限流降级熔断、索引、locust</td><td>性能与安全</td></tr>
+        <tr><td>十 前端全页面</td><td>全部管理页（含用户喜好：主题/列表页个性化/通知偏好/工作台自定义）、i18n、个人中心、E2E</td><td>前端架构、测试与质量</td></tr>
+        <tr><td>十一 报表 BI</td><td>数据集、报表设计器、大屏</td><td>报表 BI</td></tr>
+        <tr><td>十二 移动端 H5</td><td>审批中心、通知、公告、免登</td><td>前端架构、认证与会话、工作流</td></tr>
+        <tr><td>十三 全文检索</td><td>ES 接入、事件同步、索引重建、文件解析</td><td>全文检索、事件总线</td></tr>
+        <tr><td>十四 AI 能力</td><td>LLM 适配、NL2SQL、RAG、OCR、异常检测、问答机器人、帮助文档智能维护</td><td>AI 服务、帮助中心、性能与安全</td></tr>
+      </table>
+
+      <h3 id="phases-mvp">7.1 MVP 验收标准</h3>
+      <p>MVP 交付验收清单（架构侧对应各节点；测试侧执行见 <a href="26_架构设计_测试与质量.html">26-测试与质量节点</a>）：</p>
+      <ul>
+        <li>登录（含图形验证码）→ 主体链 RBAC（用户→岗位/部门→角色收敛、业务/动作权限、字段权限、动作级数据范围）→ 各模块 CRUD → 日志 → 文件管理全链路可用</li>
+        <li>采购申请三级审批（部门经理 → 财务 → 分管领导）通过并生成采购订单，待办提醒经 Socket.IO 实时触达、审批事件经 Webhook/消息总线推送成功</li>
+        <li>外部系统经 OAuth2 Client Credentials 调用开放接口鉴权通过；真实分片规则查询正确</li>
+        <li>系统监控（指标/日志/告警，邮件/企业微信/钉钉通知可达）与链路追踪（Jaeger）可见；缓存管理（清理与刷新）可用；任务调度页面可管理、执行记录可查</li>
+        <li>会话强制踢出即时生效；账号锁定与手动解锁可用、解锁记录可查；公告发布与已读统计可用；通知批量已读可用；帮助中心可用（分类/文章维护与前台展示、页面内帮助按钮、阅读反馈统计）；用户喜好可用（主题切换、列表页个性化、通知偏好、工作台自定义，PC 与移动端跨端同步）；回收站查看/恢复可用且审计留痕</li>
+        <li>多租户独立库隔离验证通过（跨租户访问拒绝、批量迁移正确）；租户配额超限拦截生效</li>
+        <li>SSO 登录（OIDC）与 JIT 建号可用、BMS 作 IdP 供第三方登录通过；报表与大屏可用；供应商档案 CRUD 与采购引用可用</li>
+        <li>移动端审批与企业微信/钉钉免登可用、移动端附件预览与个人中心（改密）可用</li>
+        <li>审计合规可用（字段级变更审计可查、哈希链校验通过、三权分立互斥生效、密码策略强制执行）</li>
+        <li>国际化扩展可用（动态新增语言、语言包页面维护、用户时区与 RTL 切换）</li>
+        <li>归档管理可用（策略执行、归档数据在线查询、物理清理生效、审计链跨归档校验通过）；备份任务与记录可查、恢复演练登记可用</li>
+        <li>Excel 导入导出可用；分片上传与断点续传可用；短信发送记录可用</li>
+        <li>安全专项用例集通过；浏览器与移动端真机兼容基线通过</li>
+        <li>压测达到 500 并发 / P99 ≤ 1s；MySQL/PostgreSQL/达梦 DM8 三库 CI 通过；Docker Compose 一键部署成功</li>
+      </ul>
+
+      <h2 id="related">8. 关联节点</h2>
+      <ul>
+        <li><a href="02_架构设计_目标与约束.html">目标与约束</a>：约束依据</li>
+        <li><a href="04_架构设计_核心交互时序.html">核心交互时序</a>：主流程全景</li>
+        <li><a href="05_架构设计_数据架构.html">数据架构</a>：数据分布与规范</li>
+        <li><a href="07_架构设计_子系统_多租户路由.html">多租户路由</a>：租户机制</li>
+        <li><a href="08_架构设计_子系统_数据访问与分片.html">数据访问与分片</a>：数据访问层</li>
+        <li><a href="09_架构设计_子系统_认证与会话.html">认证与会话</a>：身份基座</li>
+        <li><a href="10_架构设计_子系统_权限计算引擎.html">权限计算引擎</a>：权限机制</li>
+        <li><a href="11_架构设计_子系统_事件总线.html">事件总线</a>：模块解耦</li>
+        <li><a href="12_架构设计_子系统_任务调度.html">任务调度</a>：异步任务</li>
+        <li><a href="22_架构设计_子系统_可观测性.html">可观测性</a>：日志/指标/链路</li>
+        <li><a href="25_架构设计_前端架构.html">前端架构</a>：双端工程</li>
+        <li><a href="27_架构设计_部署与运维.html">部署与运维</a>：运行期拓扑</li>
+      </ul>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 架构设计节点 · 与《项目规划说明》《文档生成规范》《命名规范》配套 · 生成日期：2026-08-06
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>

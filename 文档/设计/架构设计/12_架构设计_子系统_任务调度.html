@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>架构设计 · 子系统 · 任务调度</title>
+<link rel="stylesheet" href="../../资源/文档样式.css">
+</head>
+<body>
+
+<div class="topnav">
+  <a href="01_架构设计_总览.html">架构设计</a> › <span>12-任务调度</span>
+  <span class="topnav-side"><a href="11_架构设计_子系统_事件总线.html">← 11-事件总线</a> · <a href="13_架构设计_子系统_实时推送.html">13-实时推送 →</a></span>
+</div>
+
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>架构设计 · 子系统 · 任务调度</h1>
+      <p>BMS · 定时任务入库、调度器与执行</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#overview">1. 概述</a></li>
+        <li><a href="#model">2. 任务模型</a></li>
+        <li><a href="#scheduler">3. 调度器设计</a></li>
+        <li><a href="#execution">4. 执行与重试</a></li>
+        <li><a href="#builtin">5. 内置任务清单</a></li>
+        <li><a href="#coordination">6. 与其他子系统的协调</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="overview">1. 概述</h2>
+      <p>
+        任务调度子系统基于 Celery（Redis broker）+ 自研数据库调度器：任务定义入库（sys_task）、
+        页面动态增删改与启停、手动触发、执行历史。对应<a href="../../规划/项目规划说明.html">《项目规划说明》</a>的「定时任务」章节，覆盖任务调度模块。
+      </p>
+
+      <h2 id="model">2. 任务模型</h2>
+      <ul>
+        <li><code>sys_task</code>：name、handler（Celery 任务名）、cron、args、status、last_run_at、remark</li>
+        <li><code>sys_task_log</code>：task_id、status、cost_time、error_msg、started_at、finished_at</li>
+        <li>页面管理权限码 task:manage；手动触发 task:trigger</li>
+      </ul>
+
+      <h2 id="scheduler">3. 调度器设计</h2>
+      <ul>
+        <li>celery-beat 单副本运行 + 自研数据库调度器：周期扫描待运行任务，按 cron 计算 next_run，到期投递到 worker 队列（Redis broker），更新 last_run_at</li>
+        <li>单副本保障：Redis 分布式锁（<code>bms:global:lock:beat</code>）防双调度重复执行（异常重启时锁可抢占）</li>
+        <li>变更热加载：任务 CRUD/启停 → Redis pub/sub 通知 beat 重载任务列表（无需重启）</li>
+        <li>Celery 官方不支持 RocketMQ broker，任务队列与事件总线解耦（Redis 管任务，RocketMQ 管事件）</li>
+      </ul>
+
+      <h2 id="execution">4. 执行与重试</h2>
+      <ul>
+        <li>worker 多副本横向扩展执行；失败自动重试（有限次）+ ack 确认</li>
+        <li>worker 为同步进程：任务内执行异步业务须用 asyncio.run 或独立引擎，禁止跨事件循环复用连接/会话</li>
+        <li>任务执行完成落 task.completed 事件（Webhook 可订阅）</li>
+      </ul>
+
+      <h2 id="builtin">5. 内置任务清单</h2>
+      <table>
+        <tr><th>任务</th><th>周期</th><th>职责</th></tr>
+        <tr><td>孤儿分片清理</td><td>定时</td><td>回收上传中断遗留的 .part 对象与超期上传中记录（配合文件管理子系统）</td></tr>
+        <tr><td>日志归档</td><td>定时</td><td>四类审计日志按归档策略迁移（热表 → 归档库 → 对象存储）</td></tr>
+        <tr><td>分片表预创建</td><td>定时</td><td>提前创建下月分片表（sys_operation_log_yyyyMM 等）</td></tr>
+        <tr><td>每日全量备份</td><td>每日</td><td>数据库备份（sys_backup_task 驱动）</td></tr>
+        <tr><td>未登录账号锁定扫描</td><td>每日</td><td>180 天未登录账号自动锁定（配合认证与会话子系统）</td></tr>
+        <tr><td>软删除残留物理清理</td><td>定时</td><td>过期回收站数据物理清理（配合归档清理衔接）</td></tr>
+        <tr><td>帮助文章质量评估扫描（阶段十四）</td><td>定时</td><td>扫描已发布帮助文章，评估陈旧度/完整性/准确性，生成改进建议</td></tr>
+      </table>
+
+      <h2 id="coordination">6. 与其他子系统的协调</h2>
+      <ul>
+        <li><strong><a href="15_架构设计_子系统_文件管理.html">文件管理</a></strong>：孤儿分片回收由本子系统执行</li>
+        <li><strong><a href="14_架构设计_子系统_审计哈希链.html">审计哈希链</a></strong>：日志归档任务执行前做链完整性校验</li>
+        <li><strong><a href="27_架构设计_部署与运维.html">部署与运维</a></strong>：备份任务（sys_backup_task）与恢复演练登记由本子系统调度</li>
+        <li><strong><a href="11_架构设计_子系统_事件总线.html">事件总线</a></strong>：任务完成落事件；与 RocketMQ 事件总线互不干扰（独立 broker）</li>
+      </ul>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 架构设计节点 · 与《项目规划说明》《文档生成规范》《命名规范》配套 · 生成日期：2026-08-06
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>

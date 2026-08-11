@@ -89,15 +89,15 @@
         <li>格式分工：用户手写 .md；AI 生成 .html</li>
         <li>资源：HTML 的图片等资源放同级 <code>资源/文档名/</code> 同名子目录</li>
         <li>章节编号：1. / 1.1 阿拉伯数字逐级编号，目录与正文一致</li>
-        <li><strong>编号与主题之间的分隔符用连字符 <code>-</code>（kebab-case），不用下划线 <code>_</code></strong>：<code>01-架构设计-总览.html</code>、<code>02-概要设计-用户管理.html</code>、<code>02-布局设计-设计令牌.html</code>（序号与文件名、文件名各段之间均以 <code>-</code> 连接）。理由：
+        <li><strong>编号与主题之间的分隔符用下划线 <code>_</code>（snake_case），不用连字符 <code>-</code></strong>：<code>01_架构设计_总览.html</code>、<code>02_概要设计_用户管理.html</code>、<code>02_布局设计_设计令牌.html</code>（序号与文件名、文件名各段之间均以 <code>_</code> 连接）。理由：
           <ul>
-            <li>HTML 文档以文件形式在网上传递、以 URL 打开，URL 中对 <code>-</code> 的解析惯例优于 <code>_</code>（Google 官方 URL 规范明确建议用连字符分隔单词：<em>Use hyphens (-), not underscores (_)</em>，连字符被搜索引擎作为词分隔符处理）</li>
-            <li>与项目既有文档体系一致：架构设计（01-28）、概要设计（01-34）全部使用连字符</li>
-            <li>与前端 kebab-case（路由 path、CSS 类名）、基础设施命名（ES 索引 <code>bms-main</code>、MinIO bucket、Compose 服务名 <code>celery-worker</code>）同源风格</li>
-            <li>下划线 <code>_</code> 仅用于代码标识符（Python snake_case、测试文件），不用于 HTML 文档文件名</li>
+            <li>文档文件须被代码环境解析：Python/Java/Go 的 import 与模块系统要求目录和文件名是合法标识符，连字符（减号）不能作为标识符；正则 <code>\w</code> 识别 <code>_</code> 而不识别 <code>-</code>，脚本（grep、graphify 等）按词处理时下划线更稳妥</li>
+            <li>连字符在英文文法中是有意义的复合词连接符（如 upper-case、non-English），用于文件名会破坏其语义，下划线无此歧义</li>
+            <li>URL 中 Google 建议用连字符是出于 SEO 词分隔考虑，但本仓库文档以本地传递与代码环境处理为主，不依赖搜索引擎收录；文件名中的中文本身也需百分号编码，分隔符选择不影响 URL 可用性（<code>-</code> 与 <code>_</code> 均无需转义）</li>
+            <li>与 Python 命名（snake_case）同源风格，全仓库命名风格统一</li>
           </ul>
         </li>
-        <li>参考：<a href="https://developers.google.com/search/docs/crawling-indexing/url-structure">Google Search Central · URL 结构规范</a>（URL 中单词分隔用连字符而非下划线）；<a href="https://developer.mozilla.org/en-US/docs/Glossary/Kebab_case">MDN · kebab-case</a></li>
+        <li>参考：<a href="https://til.adoyle.me/others/file-naming-with-underscores-and-dashes">文件命名，下划线还是中划线？（adoyle · 今天我学了什么）</a>——按使用环境取舍：本仓库文档以代码环境解析为主，选 <code>_</code>；<a href="https://blog.codinghorror.com/of-spaces-underscores-and-dashes/">Coding Horror · Of Spaces, Underscores and Dashes</a></li>
       </ul>
 
       <h2 id="git">5. Git 命名</h2>

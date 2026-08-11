@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>架构设计 · 子系统 · AI 服务</title>
+<link rel="stylesheet" href="../../资源/文档样式.css">
+</head>
+<body>
+
+<div class="topnav">
+  <a href="01_架构设计_总览.html">架构设计</a> › <span>21-AI服务</span>
+  <span class="topnav-side"><a href="20_架构设计_子系统_全文检索.html">← 20-全文检索</a> · <a href="22_架构设计_子系统_可观测性.html">22-可观测性 →</a></span>
+</div>
+
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>架构设计 · 子系统 · AI 服务</h1>
+      <p>BMS · LLM 适配、RAG、OCR 与安全闸门（阶段十四）</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#overview">1. 概述</a></li>
+        <li><a href="#provider">2. LLM 适配层</a></li>
+        <li><a href="#capabilities">3. 七项能力</a></li>
+        <li><a href="#rag">4. RAG 管线</a></li>
+        <li><a href="#audit">5. 交互审计</a></li>
+        <li><a href="#gate">6. 安全闸门</a></li>
+        <li><a href="#coordination">7. 与其他子系统的协调</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="overview">1. 概述</h2>
+      <p>
+        AI 服务子系统（阶段十四）提供统一 LLM 适配层与七项 AI 能力，全量审计、默认仅辅助、
+        自动写操作与自动审批默认关闭。对应<a href="../../规划/项目规划说明.html">《项目规划说明》</a>的「AI（阶段十四）」「AI 能力」「AI 安全」章节。
+      </p>
+
+      <h2 id="provider">2. LLM 适配层</h2>
+      <ul>
+        <li>统一 Provider 接口（chat / embedding / ocr）：外部大模型 API（DeepSeek/Qwen 等）与私有化端点（Ollama/vLLM）可切换，模型切换不侵入业务代码</li>
+        <li>端点与模型配置入库 sys_ai_provider（平台库：provider_key、name、type、endpoint、model、api_key_ref、status），租户按需引用；API key 走 Secret 管理</li>
+        <li>AI 接口独立限流（slowapi 维度 + 预算控制）</li>
+      </ul>
+
+      <h2 id="capabilities">3. 八项能力</h2>
+      <table>
+        <tr><th>能力</th><th>结合模块</th></tr>
+        <tr><td>智能报表助手</td><td>NL2SQL 问数：数据集白名单 + 只读从库 + 安全校验，结果图表化（报表 BI）</td></tr>
+        <tr><td>智能审批辅助</td><td>历史审批 RAG 生成参考意见与风险提示，仅辅助（工作流）</td></tr>
+        <tr><td>AI 内容生成</td><td>邮件/通知模板、审批意见、申请理由草稿（通知公告、工作流）</td></tr>
+        <tr><td>语义搜索与文件问答</td><td>Milvus 向量检索 + 知识库问答（文件管理、全文检索）</td></tr>
+        <tr><td>OCR 与文件自动分类</td><td>扫描件解析、文件自动归类（文件管理、全文检索）</td></tr>
+        <tr><td>审计异常检测</td><td>行为风控，告警接 Alertmanager（审计哈希链、可观测性）</td></tr>
+        <tr><td>知识库问答机器人</td><td>企业微信/钉钉入口（通知公告、认证与会话）；知识源含帮助文章/公告/审批记录/流程文档</td></tr>
+        <tr><td>帮助文档智能维护</td><td>自动编写/更新帮助草稿与质量评估（帮助中心）：输入源为功能代码（graphify 知识图谱）+ 设计文档 + 表单元数据；手动/变更事件（form.updated）/定时扫描三种触发；结果一律草稿、人工审核发布</td></tr>
+      </table>
+
+      <h2 id="rag">4. RAG 管线</h2>
+      <ul>
+        <li>文件 → 分段（ai_file_segment 落分段文本）→ embedding（Provider 接口）→ Milvus（collection <code>bms-{tenant}-doc</code>，按租户隔离）</li>
+        <li>embedding 管线经 RocketMQ 事件驱动（复用 event-worker embedding 消费组）</li>
+        <li>检索：向量 + 元数据过滤；上下文组装遵守动作级数据权限范围（越权内容不进入上下文）</li>
+        <li>Milvus 独立部署（milvus + etcd，MinIO 复用）</li>
+      </ul>
+
+      <h2 id="audit">5. 交互审计</h2>
+      <ul>
+        <li>AI 交互全量落 ai_chat_log（user_id、tenant_id、module、prompt、response、model、tokens、cost、status、created_at），按月分片</li>
+        <li>提示词与响应不出租户边界；向量库按租户隔离</li>
+        <li>prompt 注入防护：角色隔离、指令约束、输出校验</li>
+        <li>AI 自动执行全量落 ai_chat_log 与操作日志、结果可人工撤销</li>
+      </ul>
+
+      <h2 id="gate">6. 安全闸门</h2>
+      <ul>
+        <li>AI 结果默认仅辅助展示（意见、草稿、检索、告警建议）</li>
+        <li>AI 自动执行写操作（ai.auto_execute）与 AI 自动审批（ai.auto_approve）：两个独立功能，各自由 sys_config 开关控制、默认关闭；ai.auto_approve 依赖 ai.auto_execute 开启（未开启时配置拒绝保存并强制关闭）</li>
+        <li>开启时仅限配置白名单（写接口、审批节点），执行前强制二次确认</li>
+        <li>AI 接口独立限流与预算控制</li>
+      </ul>
+
+      <h2 id="coordination">7. 与其他子系统的协调</h2>
+      <ul>
+        <li><strong><a href="10_架构设计_子系统_权限计算引擎.html">权限计算引擎</a></strong>：AI 对话权限码 ai:chat；模型配置 ai:manage；RAG 上下文遵守数据权限</li>
+        <li><strong><a href="11_架构设计_子系统_事件总线.html">事件总线</a></strong>：embedding 管线事件驱动；AI 生成内容事件（可选 Webhook）</li>
+        <li><strong><a href="14_架构设计_子系统_审计哈希链.html">审计哈希链</a></strong>：ai_chat_log 按月分片；审计异常检测输入源</li>
+        <li><strong><a href="20_架构设计_子系统_全文检索.html">全文检索</a></strong>：OCR 衔接文本解析；语义检索与关键词检索互补</li>
+        <li><strong><a href="22_架构设计_子系统_可观测性.html">可观测性</a></strong>：AI 成本/延迟指标；告警接 Alertmanager</li>
+      </ul>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 架构设计节点 · 与《项目规划说明》《文档生成规范》《命名规范》配套 · 生成日期：2026-08-06
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>
