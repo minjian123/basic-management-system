@@ -166,57 +166,80 @@
       <h2 id="timing">3. 关键时序与协作</h2>
 
       <h3 id="timing-nl2sql">3.1 智能问数时序</h3>
-      <div class="seq">
-        <table>
-          <tr><th>用户</th><th>AI 助手服务</th><th>数据集白名单/权限</th><th>LLM Provider</th><th>只读从库</th><th>ai_chat_log</th></tr>
-          <tr><td class="s-arrow">提问（数据集+自然语言）→</td><td></td><td></td><td></td><td></td><td></td></tr>
-          <tr><td></td><td class="s-arrow">校验数据集白名单+rpt权限 →</td><td></td><td></td><td></td><td></td></tr>
-          <tr><td></td><td class="s-arrow">生成 SQL（字段元数据提示）→</td><td></td><td></td><td></td><td></td></tr>
-          <tr><td></td><td class="s-arrow">SQL 安全校验（只读/单语句/白名单表/LIMIT 上限）→ 只读从库执行 →</td><td></td><td></td><td></td><td></td></tr>
-          <tr><td></td><td class="s-arrow">结果图表化 + 全量落审计（prompt/SQL/结果/model/tokens/cost）→</td><td></td><td></td><td></td><td></td></tr>
-          <tr><td class="s-arrow">← 图表结果返回</td><td></td><td></td><td></td><td></td><td></td></tr>
-          <tr><td colspan="6" class="s-note">异常分支：白名单外 / SQL 校验不过 / 超时 → 拒绝并提示</td></tr>
-        </table>
-      </div>
+      <pre class="mermaid">
+sequenceDiagram
+    autonumber
+    participant 用户
+    participant 助手 as AI 助手服务
+    participant 白名单 as 数据集白名单/权限
+    participant LLM as LLM Provider
+    participant 从库 as 只读从库
+    participant 审计 as ai_chat_log
+
+    用户->>助手: 提问（数据集+自然语言）
+    助手->>白名单: 校验数据集白名单+rpt权限
+    助手->>LLM: 生成 SQL（字段元数据提示）
+    助手->>从库: SQL 安全校验（只读/单语句/白名单表/LIMIT 上限）→ 只读从库执行
+    助手->>审计: 结果图表化 + 全量落审计（prompt/SQL/结果/model/tokens/cost）
+    助手-->>用户: 图表结果返回
+    Note over 用户, 审计: 异常分支：白名单外 / SQL 校验不过 / 超时 → 拒绝并提示
+      </pre>
 
       <h3 id="timing-rag">3.2 RAG 管线时序</h3>
-      <div class="seq">
-        <table>
-          <tr><th>文件上传</th><th>event-worker（embedding 组）</th><th>ai_file_segment（MySQL）</th><th>Milvus（bms-{tenant}-doc）</th><th>AI 助手</th></tr>
-          <tr><td class="s-arrow">file.uploaded 事件 →</td><td></td><td></td><td></td><td></td></tr>
-          <tr><td></td><td class="s-arrow">文本分段（按 chunk 切分）→</td><td></td><td></td><td></td></tr>
-          <tr><td></td><td class="s-arrow">embedding（Provider 接口）→</td><td></td><td></td><td></td></tr>
-          <tr><td></td><td class="s-arrow">vector_id 回写 →</td><td></td><td></td><td></td></tr>
-          <tr><td class="s-arrow">用户提问 →</td><td></td><td></td><td class="s-arrow">向量+元数据检索（租户+数据范围）</td><td></td></tr>
-          <tr><td colspan="5" class="s-note">上下文组装（数据权限过滤，越权内容不进入）→ LLM 回答 + 全量落 ai_chat_log，交互不出租户边界</td></tr>
-        </table>
-      </div>
+      <pre class="mermaid">
+sequenceDiagram
+    autonumber
+    participant 上传 as 文件上传
+    participant worker as event-worker(embedding 组)
+    participant 分段 as ai_file_segment(MySQL)
+    participant Milvus as Milvus(bms-{tenant}-doc)
+    participant 助手 as AI 助手
+    participant 用户
+
+    上传->>worker: file.uploaded 事件
+    worker->>分段: 文本分段（按 chunk 切分）
+    worker->>worker: embedding（Provider 接口）
+    worker->>分段: vector_id 回写
+    用户->>助手: 用户提问
+    助手->>Milvus: 向量+元数据检索（租户+数据范围）
+    Note over 用户, Milvus: 上下文组装（数据权限过滤，越权内容不进入）→ LLM 回答 + 全量落 ai_chat_log，交互不出租户边界
+      </pre>
 
       <h3 id="timing-auto">3.3 自动执行与自动审批时序</h3>
-      <div class="seq">
-        <table>
-          <tr><th>用户</th><th>AI 服务</th><th>sys_config 开关/白名单</th><th>原业务接口/wf</th><th>ai_chat_log + 操作日志</th></tr>
-          <tr><td class="s-arrow">请求 AI 自动执行/自动审批 →</td><td></td><td></td><td></td><td></td></tr>
-          <tr><td></td><td class="s-arrow">校验开关（auto_execute/auto_approve）+ 目标在白名单 →</td><td></td><td></td><td></td></tr>
-          <tr><td colspan="5" class="s-note">依赖校验: auto_approve 依赖 auto_execute 已开启（未开启拒绝保存并强制关闭）；AI 生成执行内容/审批结论（全量落 ai_chat_log）</td></tr>
-          <tr><td class="s-arrow">← 强制二次确认（页面展示待确认内容）</td><td></td><td></td><td></td><td></td></tr>
-          <tr><td class="s-arrow">确认 →</td><td></td><td></td><td></td><td></td></tr>
-          <tr><td></td><td class="s-arrow">经原接口通道执行（写接口+幂等键 / wf 审批通道）→</td><td></td><td></td><td></td></tr>
-          <tr><td colspan="5" class="s-note">执行结果落 ai_chat_log + 操作日志（可人工撤销，撤销同样落审计）</td></tr>
-        </table>
-      </div>
+      <pre class="mermaid">
+sequenceDiagram
+    autonumber
+    participant 用户
+    participant AI as AI 服务
+    participant 开关 as sys_config 开关/白名单
+    participant 业务 as 原业务接口/wf
+    participant 日志 as ai_chat_log + 操作日志
+
+    用户->>AI: 请求 AI 自动执行/自动审批
+    AI->>开关: 校验开关（auto_execute/auto_approve）+ 目标在白名单
+    Note over 用户, 开关: 依赖校验：auto_approve 依赖 auto_execute 已开启（未开启拒绝保存并强制关闭）；AI 生成执行内容/审批结论（全量落 ai_chat_log）
+    AI-->>用户: 强制二次确认（页面展示待确认内容）
+    用户->>AI: 确认
+    AI->>业务: 经原接口通道执行（写接口+幂等键 / wf 审批通道）
+    Note over 用户, 日志: 执行结果落 ai_chat_log + 操作日志（可人工撤销，撤销同样落审计）
+      </pre>
 
       <h3 id="timing-help">3.4 帮助文档维护时序</h3>
-      <div class="seq">
-        <table>
-          <tr><th>菜单/表单/字段变更</th><th>事件总线（form.updated）</th><th>AI 维护任务</th><th>输入源（graphify/设计文档/表单元数据）</th><th>sys_help_article</th></tr>
-          <tr><td class="s-arrow">平台统一维护变更 →</td><td></td><td></td><td></td><td></td></tr>
-          <tr><td></td><td class="s-arrow">载荷: form_id/menu_id/business_id/changed_type →</td><td></td><td></td><td></td></tr>
-          <tr><td></td><td></td><td class="s-arrow">收集输入源 + 生成更新草稿 →</td><td></td><td></td></tr>
-          <tr><td></td><td></td><td class="s-arrow">草稿落库（draft，不覆盖已发布文章）+ 通知维护人 →</td><td></td><td></td></tr>
-          <tr><td colspan="5" class="s-note">维护人审核后发布（帮助中心既有流程）；定时质量评估报告可用</td></tr>
-        </table>
-      </div>
+      <pre class="mermaid">
+sequenceDiagram
+    autonumber
+    participant 变更 as 菜单/表单/字段变更
+    participant 总线 as 事件总线(form.updated)
+    participant 维护 as AI 维护任务
+    participant 输入 as 输入源(graphify/设计文档/表单元数据)
+    participant 文章 as sys_help_article
+
+    变更->>总线: 平台统一维护变更
+    总线->>维护: 载荷：form_id/menu_id/business_id/changed_type
+    维护->>输入: 收集输入源 + 生成更新草稿
+    维护->>文章: 草稿落库（draft，不覆盖已发布文章）+ 通知维护人
+    Note over 变更, 文章: 维护人审核后发布（帮助中心既有流程）；定时质量评估报告可用
+      </pre>
 
       <h2 id="data">4. 数据模型与表设计</h2>
       <table>
@@ -345,6 +368,9 @@
   </div>
 
 </div>
+
+      <script src="../../资源/mermaid.min.js"></script>
+      <script src="../../资源/mermaid-init.js"></script>
 
 </body>
 </html>

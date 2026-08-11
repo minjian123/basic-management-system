@@ -80,22 +80,14 @@
       <div class="note">判断依据：文档内容来源。AI 全新撰写 → html；在既有 md 上修改 → 保持 md。</div>
 
       <h2 id="structure">3. 目录结构</h2>
-      <div class="tree">
-        <ul>
-          <li>文档/
-            <ul>
-              <li>规划/ <span class="t-note">项目规划、技术选型说明（用户 md）</span></li>
-              <li>规范/ <span class="t-note">各类规范文档（文档生成规范、命名规范等）</span></li>
-              <li>资料/ <span class="t-note">参考资料、工具说明、AI 生成的各类文档</span>
-                <ul>
-                  <li>资源/ <span class="t-note">图片、音频、视频等资源文件（见第 4 节）</span></li>
-                </ul>
-              </li>
-              <li>其他主题目录 <span class="t-note">按需新增，语义清晰即可</span></li>
-            </ul>
-          </li>
-        </ul>
-      </div>
+      <pre class="mermaid">
+graph TD
+    A["文档/"] --> B["规划/ 项目规划、技术选型说明（用户 md）"]
+    A --> C["规范/ 各类规范文档（文档生成规范、命名规范等）"]
+    A --> D["资料/ 参考资料、工具说明、AI 生成的各类文档"]
+    D --> D1["资源/ 图片、音频、视频等资源文件（见第 4 节）"]
+    A --> E["其他主题目录 按需新增，语义清晰即可"]
+      </pre>
       <p>新增主题目录时遵循「功能即名字」原则，目录名用中文、简短、无歧义。</p>
 
       <h2 id="resources">4. 资源文件管理</h2>
@@ -149,7 +141,7 @@
       <ul>
         <li>公共样式覆盖全部通用组件（布局、导航、表格、代码块、note/warn 等）；<strong>布局示意图</strong>（diagram 系列，布局设计文档用）与<strong>窄图变体</strong>（<code>diagram-mobile</code>）已内置。</li>
         <li>新增通用样式（多个文档复用）时：先加入 <code>文档样式.css</code>，再在各文档使用；<strong>仅单个文档使用</strong>的私有样式才允许内联 <code>&lt;style&gt;</code>。</li>
-        <li>不使用 JavaScript（除非交互必需）；锚点跳转靠原生 <code>id</code> 实现。</li>
+        <li>图形统一用 <strong>Mermaid.js</strong> 渲染（<code>&lt;pre class="mermaid"&gt;</code>，见第 7.7 节）；锚点跳转靠原生 <code>id</code> 实现。</li>
         <li>中文字体栈：<code>"Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif</code>；代码字体：<code>Consolas, "Cascadia Mono", monospace</code>（已含于公共样式）。</li>
         <li>配色使用统一的 CSS 变量（<code>--accent</code>、<code>--border</code> 等），全站风格一致（已含于公共样式）。</li>
       </ul>
@@ -200,17 +192,15 @@
 
       <h3 id="diagrams">7.7 图形与示意图</h3>
       <ul>
-        <li><strong>禁止用 Markdown / ASCII 方式画图</strong>：HTML 文档中不得使用 <code>&lt;pre&gt;&lt;code&gt;</code> 代码块内嵌框线字符（<code>┌┐└┘├┤│─═</code>）绘制时序图、流程图、架构图、目录树等图形（如 <code>|------&gt;|</code> 消息线、<code>├──</code> 树分支）。<code>&lt;pre&gt;&lt;code&gt;</code> 仅用于命令、配置、代码等<strong>可复制文本</strong>。</li>
-        <li><strong>统一使用 HTML 结构图</strong>，公共样式 <code>文档样式.css</code> 已内置三类通用图样式（2026-08-11 起全站应用）：
-          <ul>
-            <li><strong>时序图</strong> <code>&lt;div class="seq"&gt;</code> + <code>&lt;table&gt;</code>：表头 <code>&lt;th&gt;</code> 为参与者列，每行一个消息，发送方单元格 <code>class="s-arrow"</code>（内容带 <code>→</code>），返回用 <code>←</code>，注释/条件分支用 <code>class="s-note"</code>（<code>colspan</code> 全宽行）。</li>
-            <li><strong>树状 / 目录 / 拓扑图</strong> <code>&lt;div class="tree"&gt;</code> + 嵌套 <code>&lt;ul&gt;&lt;li&gt;</code>：节点注释用 <code>&lt;span class="t-note"&gt;</code>。</li>
-            <li><strong>分层 / 流程示意图</strong> <code>&lt;div class="layer"&gt;</code>：层盒 <code>class="l-box"</code>（标题 <code>l-title</code>、说明 <code>l-sub</code>）、连接箭头 <code>class="l-arrow"</code>（<code>▼</code>）、并排盒 <code>class="l-row"</code>。</li>
-          </ul>
-        </li>
-        <li>布局设计类文档继续使用 <code>diagram</code> / <code>diagram-mobile</code> 系列（线框示意图专用）。</li>
-        <li>图内箭头统一用全角 <code>→</code> / <code>←</code>，避免半角 <code>&gt;</code> 触发 HTML 转义问题。</li>
-        <li>图的语义必须完整保留：消息名、条件分支、数据流、节点注释等不得在转换中丢失；纯命令/配置代码块保持 <code>&lt;pre&gt;&lt;code&gt;</code> 不动。</li>
+        <li><strong>图形统一用 Mermaid.js 渲染</strong>：所有图形（时序图、流程图、状态图、甘特图、类图等）写成 <code>&lt;pre class="mermaid"&gt;</code> 文本块，浏览器加载 <code>mermaid.min.js</code> 后自动渲染为矢量图。</li>
+        <li><strong>禁止用 Markdown / ASCII 方式画图</strong>：不得在 <code>&lt;pre&gt;&lt;code&gt;</code> 代码块内嵌框线字符（<code>┌┐└┘├┤│─═</code>）绘制图形；<code>&lt;pre&gt;&lt;code&gt;</code> 仅用于命令、配置、代码等<strong>可复制文本</strong>。</li>
+        <li><strong>脚本引用</strong>：每份含图形的文档在 <code>&lt;/body&gt;</code> 前添加（相对路径按文档层级）：
+          <pre><code>&lt;script src="../../资源/mermaid.min.js"&gt;&lt;/script&gt;
+&lt;script src="../../资源/mermaid-init.js"&gt;&lt;/script&gt;</code></pre>
+          <code>mermaid.min.js</code>（UMD 版，约 2.5MB）与 <code>mermaid-init.js</code>（全局初始化配置：字号/线色/字体，保证全站图样式统一）放 <code>文档/资源/</code> 共享，本地 file:// 打开亦可渲染；不得引用外部 CDN（离线不可用）。</li>
+        <li><strong>时序图语法</strong>：<code>sequenceDiagram</code>，<code>participant</code> 声明参与者（中文名直接写，含特殊字符用 <code>as</code> 起别名），实线 <code>-&gt;&gt;</code>、返回虚线 <code>--&gt;&gt;</code>、注释 <code>Note over</code>；消息文本内避免 <code>&lt;</code> <code>&gt;</code>（需写为 <code>&amp;lt;</code> <code>&amp;gt;</code>）。</li>
+        <li>时序图的语义必须完整保留：消息名、方向（发送/返回）、条件分支、数据流；纯命令/配置代码块保持 <code>&lt;pre&gt;&lt;code&gt;</code> 不动。</li>
+        <li>布局设计类文档的线框示意图（主框架、移动端）继续使用 <code>diagram</code> / <code>diagram-mobile</code> CSS 系列，不适用 mermaid。</li>
       </ul>
 
       <h2 id="flow">8. 生成流程与检查清单</h2>
@@ -250,5 +240,7 @@
 
 </div>
 
+    <script src="../../资源/mermaid.min.js"></script>
+    <script src="../../资源/mermaid-init.js"></script>
 </body>
 </html>

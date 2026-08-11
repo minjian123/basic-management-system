@@ -96,21 +96,29 @@
       </ol>
 
       <h2 id="timing">3. 关键时序与协作</h2>
-      <div class="seq">
-        <table>
-          <tr><th>申请人</th><th>采购服务</th><th>工作流引擎(线程池)</th><th>通知中心</th><th>Socket.IO</th><th>RocketMQ/Webhook</th></tr>
-          <tr><td class="s-arrow">提交申请 →</td><td></td><td></td><td></td><td></td><td></td></tr>
-          <tr><td></td><td class="s-arrow">启动流程实例 →</td><td></td><td></td><td></td><td></td></tr>
-          <tr><td></td><td class="s-arrow">← 生成待办(部门经理)</td><td></td><td></td><td></td><td></td></tr>
-          <tr><td></td><td class="s-arrow">落站内信+待办提醒 →</td><td></td><td></td><td></td><td></td></tr>
-          <tr><td></td><td></td><td></td><td class="s-arrow">广播 approval.todo →</td><td></td><td></td></tr>
-          <tr><td></td><td class="s-arrow">发布 apply.submitted →</td><td></td><td></td><td></td><td></td></tr>
-          <tr><td></td><td class="s-arrow">← 审批同意(经理→财务→分管) 节点推进</td><td></td><td></td><td></td><td></td></tr>
-          <tr><td></td><td class="s-note">全部通过：生成采购订单</td><td></td><td></td><td></td><td></td></tr>
-          <tr><td></td><td class="s-arrow">发布 order.created →</td><td></td><td></td><td></td><td></td></tr>
-          <tr><td class="s-note">申请人可查单据状态与订单号</td><td></td><td></td><td></td><td></td><td></td></tr>
-        </table>
-      </div>
+      <pre class="mermaid">
+sequenceDiagram
+    autonumber
+    participant 申请人
+    participant 采购服务
+    participant 工作流引擎 as 工作流引擎(线程池)
+    participant 通知中心
+    participant SocketIO as Socket.IO
+    participant MQ as RocketMQ/Webhook
+
+    申请人->>采购服务: 提交申请
+    采购服务->>工作流引擎: 启动流程实例
+    工作流引擎-->>采购服务: 生成待办(部门经理)
+    采购服务->>通知中心: 落站内信 + 待办提醒
+    通知中心->>SocketIO: 广播 approval.todo
+    采购服务->>MQ: 发布 apply.submitted
+    工作流引擎-->>采购服务: 审批同意(经理→财务→分管)节点推进
+    采购服务->>MQ: 全部通过：生成采购订单 → 发布 order.created → 回写 order_id
+    Note over 采购服务: 驳回：单据置已驳回，修改后重新提交
+    Note over 申请人: 可查单据状态与订单号
+      </pre>
+      <script src="../../资源/mermaid.min.js"></script>
+      <script src="../../资源/mermaid-init.js"></script>
       <p>
         协作要点：审批动作接口（工作流模块）为唯一推进入口，采购服务通过事件消费回调（或直接同步调用）
         处理「流程结束」结果生成订单，保证单据状态与流程状态一致；所有对外通知/推送均异步，主链路不等待。

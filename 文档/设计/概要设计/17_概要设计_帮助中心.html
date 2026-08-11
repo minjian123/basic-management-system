@@ -93,18 +93,27 @@
       </ul>
 
       <h2 id="timing">3. 关键时序与协作</h2>
-      <div class="seq">
-        <table>
-          <tr><th>维护人</th><th>帮助服务</th><th>sys_help_article</th><th>事件总线/ES同步</th><th>前台用户</th></tr>
-          <tr><td class="s-arrow">发布文章 →</td><td></td><td></td><td></td><td></td></tr>
-          <tr><td></td><td class="s-arrow">校验+状态迁移 →</td><td>published</td><td></td><td></td></tr>
-          <tr><td></td><td class="s-arrow">发布 help.article.published →</td><td></td><td></td><td></td></tr>
-          <tr><td></td><td></td><td></td><td class="s-note">ES 同步索引</td><td></td></tr>
-          <tr><td></td><td class="s-arrow">← 用户打开详情</td><td>阅读(view_count+1)</td><td></td><td class="s-arrow">打开详情 →</td></tr>
-          <tr><td></td><td class="s-arrow">← 反馈(联合主键防重复)</td><td></td><td></td><td class="s-arrow">提交反馈 →</td></tr>
-          <tr><td></td><td class="s-note">统计视图(后台)</td><td></td><td></td><td></td></tr>
-        </table>
-      </div>
+      <pre class="mermaid">
+sequenceDiagram
+    autonumber
+    participant 维护人
+    participant 帮助服务
+    participant 文章表 as sys_help_article
+    participant 事件总线 as 事件总线/ES同步
+    participant 前台用户
+
+    维护人->>帮助服务: 发布文章
+    帮助服务->>文章表: 校验+状态迁移，published
+    帮助服务->>事件总线: 发布 help.article.published
+    Note over 事件总线: ES 同步索引
+    前台用户->>帮助服务: 打开详情
+    帮助服务->>文章表: 阅读(view_count+1)
+    前台用户->>帮助服务: 提交反馈
+    帮助服务-->>前台用户: 反馈(联合主键防重复)
+    Note over 帮助服务: 统计视图(后台)
+      </pre>
+      <script src="../../资源/mermaid.min.js"></script>
+      <script src="../../资源/mermaid-init.js"></script>
       <p>
         协作要点：发布链路同步完成落库与状态迁移，ES 同步异步（事件驱动，不阻塞发布）；阅读与反馈为轻量写
         （计数可用缓冲合并，MVP 直接 +1 落库即可）；页面内帮助按钮数据随菜单/表单元数据接口一并下发（帮助标记）。

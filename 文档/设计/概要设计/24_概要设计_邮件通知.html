@@ -81,19 +81,26 @@
       </ol>
 
       <h2 id="sequence">3. 关键时序与协作</h2>
-      <div class="seq">
-        <table>
-          <tr><th>调用方（审批/告警/找回密码）</th><th>邮件通知模块</th><th>SMTP / 短信网关</th><th>DB</th><th>RocketMQ（事件总线）</th></tr>
-          <tr><td class="s-arrow">发送请求(template_code) →</td><td></td><td></td><td></td><td></td></tr>
-          <tr><td class="s-arrow">参数 + 收件人 locale →</td><td></td><td></td><td></td><td></td></tr>
-          <tr><td></td><td class="s-note">按 locale 渲染模板</td><td></td><td></td><td></td></tr>
-          <tr><td></td><td class="s-arrow">aiosmtplib 异步发送 →</td><td></td><td></td><td></td></tr>
-          <tr><td></td><td class="s-arrow">短信网关调用 →</td><td></td><td></td><td></td></tr>
-          <tr><td></td><td class="s-arrow">成功/失败落库 →</td><td></td><td>sys_mail_log / sys_sms_log</td><td></td></tr>
-          <tr><td class="s-arrow">← 发送结果</td><td></td><td></td><td></td><td></td></tr>
-          <tr><td></td><td class="s-arrow">notification.sent 事件 →</td><td></td><td></td><td></td></tr>
-        </table>
-      </div>
+      <pre class="mermaid">
+sequenceDiagram
+    autonumber
+    participant 调用方 as 调用方（审批/告警/找回密码）
+    participant 邮件模块 as 邮件通知模块
+    participant 网关 as SMTP / 短信网关
+    participant DB
+    participant RocketMQ as RocketMQ（事件总线）
+
+    调用方->>邮件模块: 发送请求(template_code)
+    调用方->>邮件模块: 参数 + 收件人 locale
+    Note over 邮件模块: 按 locale 渲染模板
+    邮件模块->>网关: aiosmtplib 异步发送
+    邮件模块->>网关: 短信网关调用
+    邮件模块->>DB: 成功/失败落库，sys_mail_log / sys_sms_log
+    邮件模块-->>调用方: 发送结果
+    邮件模块->>RocketMQ: notification.sent 事件
+      </pre>
+      <script src="../../资源/mermaid.min.js"></script>
+      <script src="../../资源/mermaid-init.js"></script>
       <ul>
         <li><strong>与模板渲染协作</strong>：Jinja2 服务端渲染（邮件/通知模板），模板内容入库（sys_mail_template），不做任意 HTML 页面输出</li>
         <li><strong>与事件总线协作</strong>：发送完成落 notification.sent 事件（Webhook 默认不可订阅），通知生成经通知组消费实现模块解耦</li>

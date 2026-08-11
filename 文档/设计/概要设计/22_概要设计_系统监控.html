@@ -97,25 +97,37 @@
       </ol>
 
       <h2 id="sequence">3. 关键时序与协作</h2>
-      <div class="seq">
-        <table>
-          <tr><th>后端应用</th><th>Prometheus</th><th>Loki</th><th>Grafana</th><th>otel-collector</th><th>Jaeger</th><th>Alertmanager</th><th>BMS 内部接口</th><th>监控页</th><th>Redis</th></tr>
-          <tr><td colspan="10" class="s-note">指标与日志链路</td></tr>
-          <tr><td class="s-arrow">/metrics →</td><td>请求量/延迟/依赖状态/Socket.IO 连接数/消费积压</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
-          <tr><td class="s-arrow">structlog JSON 日志（request_id）→</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
-          <tr><td></td><td></td><td class="s-arrow">跨实例聚合检索 →</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
-          <tr><td class="s-arrow">OpenTelemetry →</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
-          <tr><td></td><td></td><td></td><td></td><td class="s-arrow">trace →</td><td>trace_id ↔ request_id</td><td></td><td></td><td></td><td></td></tr>
-          <tr><td colspan="10" class="s-note">告警链路</td></tr>
-          <tr><td></td><td class="s-arrow">规则触发 →</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
-          <tr><td colspan="10" class="s-note">分支：邮件 → SMTP receiver；企业微信/钉钉 → webhook receiver；短信 → BMS 内部接口（sys_sms_template 渠道）</td></tr>
-          <tr><td></td><td></td><td></td><td></td><td></td><td></td><td class="s-arrow">webhook receiver →</td><td>转换格式 → 群机器人</td><td></td><td></td></tr>
-          <tr><td></td><td></td><td></td><td>告警面板同步可见</td><td></td><td></td><td class="s-arrow">告警 →</td><td></td><td></td><td></td></tr>
-          <tr><td colspan="10" class="s-note">缓存管理</td></tr>
-          <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td class="s-arrow">key 分布/内存占用查看 →</td><td>MONITOR 统计只读</td></tr>
-          <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td class="s-arrow">按前缀清理 / 热数据一键刷新（monitor:cache）→</td><td>仅限缓存类 key</td></tr>
-        </table>
-      </div>
+      <pre class="mermaid">
+sequenceDiagram
+    autonumber
+    participant 后端应用
+    participant Prometheus
+    participant Loki
+    participant Grafana
+    participant otelCollector as otel-collector
+    participant Jaeger
+    participant Alertmanager
+    participant BMS内部接口 as BMS 内部接口
+    participant 监控页
+    participant Redis
+
+    Note over 后端应用,Redis: 指标与日志链路
+    后端应用->>Prometheus: /metrics，请求量/延迟/依赖状态/Socket.IO 连接数/消费积压
+    后端应用->>Loki: structlog JSON 日志（request_id）
+    Loki->>Grafana: 跨实例聚合检索
+    后端应用->>otelCollector: OpenTelemetry
+    otelCollector->>Jaeger: trace，trace_id ↔ request_id
+    Note over 后端应用,Redis: 告警链路
+    Prometheus->>Alertmanager: 规则触发
+    Note over Alertmanager,BMS内部接口: 分支：邮件 → SMTP receiver；企业微信/钉钉 → webhook receiver；短信 → BMS 内部接口（sys_sms_template 渠道）
+    Alertmanager->>BMS内部接口: webhook receiver，转换格式 → 群机器人
+    Alertmanager->>Grafana: 告警，告警面板同步可见
+    Note over 监控页,Redis: 缓存管理
+    监控页->>Redis: key 分布/内存占用查看，MONITOR 统计只读
+    监控页->>Redis: 按前缀清理 / 热数据一键刷新（monitor:cache），仅限缓存类 key
+      </pre>
+      <script src="../../资源/mermaid.min.js"></script>
+      <script src="../../资源/mermaid-init.js"></script>
       <p>
         与部署编排协作要点：/healthz、/readyz 供 Docker Compose / 编排系统滚动发布探针；优雅停机 SIGTERM 后停止接收新请求、等待在途请求完成。
         与事件总线协作要点：RocketMQ 消费积压与死信纳入指标与告警。

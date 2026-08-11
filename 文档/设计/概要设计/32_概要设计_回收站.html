@@ -111,39 +111,24 @@
       <h2 id="sequence">3. 关键时序与协作</h2>
 
       <h3 id="sequence-restore">3.1 软删除与恢复时序</h3>
-      <div class="layer">
-        <div class="l-box">
-          <div class="l-title">业务模块删除</div>
-          <div class="l-sub">写 deleted_at（软删除，查询默认过滤已删除；唯一键释放）</div>
-        </div>
-        <div class="l-arrow">▼</div>
-        <div class="l-box">
-          <div class="l-title">回收站列表（recycle:query，按模块/表筛选）</div>
-          <div class="l-sub">查各业务表 deleted_at 非空数据（租户隔离 + 数据权限过滤）</div>
-        </div>
-        <div class="l-arrow">▼</div>
-        <div class="l-box">
-          <div class="l-title">恢复操作（recycle:restore）</div>
-          <div class="l-sub">1) 事务内清除 deleted_at</div>
-          <div class="l-sub">2) 落操作日志（action = recycle:restore）</div>
-          <div class="l-sub">3) ORM 事件落字段级审计 sys_data_audit_log</div>
-          <div class="l-sub">├─ 成功 → 数据重新可见（唯一键回填）</div>
-          <div class="l-sub">└─ 唯一冲突 → 事务回滚，返回错误（复合唯一索引拦截）</div>
-        </div>
-      </div>
+      <pre class="mermaid">
+graph TD
+    A[业务模块删除<br/>写 deleted_at（软删除，查询默认过滤已删除；唯一键释放）] --> B[回收站列表（recycle:query，按模块/表筛选）<br/>查各业务表 deleted_at 非空数据（租户隔离 + 数据权限过滤）]
+    B --> C[恢复操作（recycle:restore）]
+    C --> D[1. 事务内清除 deleted_at]
+    D --> E[2. 落操作日志（action = recycle:restore）]
+    E --> F[3. ORM 事件落字段级审计 sys_data_audit_log]
+    F -->|成功| G[数据重新可见（唯一键回填）]
+    F -->|唯一冲突| H[事务回滚，返回错误<br/>复合唯一索引拦截]
+      </pre>
 
       <h3 id="sequence-clean">3.2 过期数据物理清理</h3>
-      <div class="layer">
-        <div class="l-box">
-          <div class="l-title">Celery 定时任务（清理任务入库 sys_task，与归档清理任务衔接）</div>
-          <div class="l-sub">扫描各业务表 deleted_at 超期数据；排除审计类数据（物理保留）</div>
-        </div>
-        <div class="l-arrow">▼</div>
-        <div class="l-box">
-          <div class="l-title">物理删除（bulk 批量写入）</div>
-          <div class="l-sub">记录清理批次（清理记录备查）；失败重试 + 告警接入系统监控</div>
-        </div>
-      </div>
+      <pre class="mermaid">
+graph TD
+    A[Celery 定时任务<br/>清理任务入库 sys_task，与归档清理任务衔接] -->|扫描各业务表 deleted_at 超期数据；排除审计类数据（物理保留）| B[物理删除（bulk 批量写入）]
+    B -->|记录清理批次（清理记录备查）| C[清理记录]
+    B -->|失败| D[重试 + 告警接入系统监控]
+      </pre>
       <p>协作组件：<strong>审计哈希链</strong>承接恢复动作的字段级审计（经 ORM 事件 + RocketMQ 写入链式记录）；<strong>任务调度</strong>承接物理清理任务（sys_task 入库）；<strong>归档管理</strong>与清理任务衔接（过期软删除残留与过期归档文件由 Celery 物理清理）；<strong>数据访问与分片</strong>保障软删除查询默认过滤与复合唯一索引约束（事务边界、bulk 写入）。</p>
 
       <h2 id="data">4. 数据模型与表设计</h2>
@@ -233,6 +218,9 @@
   </div>
 
 </div>
+
+      <script src="../../资源/mermaid.min.js"></script>
+      <script src="../../资源/mermaid-init.js"></script>
 
 </body>
 </html>

@@ -123,18 +123,18 @@
       </ol>
 
       <h2 id="sequence">3. 关键时序与协作</h2>
-      <div class="seq">
-        <table>
-          <tr><th>管理员</th><th>用户服务</th><th>DB</th><th>认证/会话</th><th>事件总线</th></tr>
-          <tr><td class="s-arrow">POST /users →</td><td></td><td></td><td></td><td></td></tr>
-          <tr><td></td><td class="s-arrow">PBKDF2+校验 →</td><td>insert sys_user</td><td></td><td></td></tr>
-          <tr><td></td><td class="s-arrow">← 返回</td><td></td><td></td><td></td></tr>
-          <tr><td></td><td class="s-arrow">分配岗位写关联 →</td><td>insert user_post</td><td></td><td></td></tr>
-          <tr><td></td><td class="s-arrow">发布事件 →</td><td></td><td></td><td class="s-arrow">user.created</td></tr>
-          <tr><td></td><td class="s-arrow">失效全部会话 →</td><td></td><td>广播 session.revoked</td><td></td></tr>
-          <tr><td class="s-arrow">PUT 密码重置 →</td><td class="s-arrow">更新密码字段 →</td><td>password_hash / pwd_history</td><td></td><td></td></tr>
-          <tr><td></td><td class="s-arrow">发布事件 →</td><td></td><td></td><td class="s-arrow">user.password_reset</td></tr>
-        </table>
+      <div class="seq" style="--n:5">
+        <div class="s-head">
+          <span>管理员</span><span>用户服务</span><span>DB</span><span>认证/会话</span><span>事件总线</span>
+        </div>
+        <div class="s-row"><span class="s-line" style="grid-column:1/2"></span><span class="s-txt">POST /users</span></div>
+        <div class="s-row"><span class="s-line" style="grid-column:2/3"></span><span class="s-txt">PBKDF2+校验 → insert sys_user</span></div>
+        <div class="s-row"><span class="s-line s-rev" style="grid-column:2/3"></span><span class="s-txt">返回</span></div>
+        <div class="s-row"><span class="s-line" style="grid-column:2/3"></span><span class="s-txt">分配岗位写关联 → insert user_post</span></div>
+        <div class="s-row"><span class="s-line" style="grid-column:2/5"></span><span class="s-txt">发布事件 → user.created</span></div>
+        <div class="s-row"><span class="s-line" style="grid-column:2/4"></span><span class="s-txt">失效全部会话 → 广播 session.revoked</span></div>
+        <div class="s-row"><span class="s-line" style="grid-column:1/3"></span><span class="s-txt">PUT 密码重置 → 更新密码字段</span></div>
+        <div class="s-row s-note-row"><span class="s-txt">更新 password_hash / pwd_history，发布 user.password_reset（Webhook 可订阅）</span></div>
       </div>
       <p>
         协作要点：重置密码/停用/删除的会话失效复用《认证与会话》的踢出通道（Redis 会话标记删除 +

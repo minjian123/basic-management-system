@@ -97,26 +97,37 @@
       </ol>
 
       <h2 id="sequence">3. 关键时序与协作</h2>
-      <div class="seq">
-        <table>
-          <tr><th>外部系统</th><th>后端</th><th>租户库</th><th>鉴权层</th><th>Redis</th><th>业务模块</th><th>RocketMQ</th><th>sys_open_log</th><th>管理页</th></tr>
-          <tr><td colspan="9" class="s-note">Client Credentials 换 token</td></tr>
-          <tr><td class="s-arrow">POST /api/open/token（client_id + client_secret）→</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
-          <tr><td></td><td class="s-arrow">校验凭证 / IP 白名单 / 应用状态 →</td><td>sys_client</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
-          <tr><td>← 签发自签 JWT（短 TTL，scope 内嵌）</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
-          <tr><td colspan="9" class="s-note">开放接口调用</td></tr>
-          <tr><td class="s-arrow">GET /api/open/{biz}（Bearer JWT）→</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
-          <tr><td></td><td class="s-arrow">校验 token 与 scope（未授予拒绝）→</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
-          <tr><td></td><td class="s-arrow">按 client 独立限流 →</td><td></td><td></td><td>slowapi</td><td></td><td></td><td></td><td></td></tr>
-          <tr><td></td><td class="s-arrow">执行业务接口 →</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
-          <tr><td></td><td class="s-arrow">落调用审计（client_id/method/path/ip/status/cost_time）→</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
-          <tr><td></td><td></td><td></td><td></td><td></td><td></td><td class="s-arrow">分区有序 →</td><td>sys_open_log 月度分片表</td><td></td></tr>
-          <tr><td></td><td class="s-arrow">配额扣减 open_calls →</td><td>sys_tenant_quota（超限拦截 + 告警）</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
-          <tr><td colspan="9" class="s-note">token 撤销</td></tr>
-          <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td class="s-arrow">撤销操作 →</td></tr>
-          <tr><td></td><td class="s-arrow">写入撤销状态 →</td><td></td><td></td><td>即时生效，短 TTL 对齐</td><td></td><td></td><td></td><td></td></tr>
-        </table>
-      </div>
+      <pre class="mermaid">
+sequenceDiagram
+    autonumber
+    participant 外部系统
+    participant 后端
+    participant 租户库
+    participant 鉴权层
+    participant Redis
+    participant 业务模块
+    participant RocketMQ
+    participant 调用日志 as sys_open_log
+    participant 管理页
+
+    Note over 外部系统,管理页: Client Credentials 换 token
+    外部系统->>后端: POST /api/open/token（client_id + client_secret）
+    后端->>租户库: 校验凭证 / IP 白名单 / 应用状态，sys_client
+    后端-->>外部系统: 签发自签 JWT（短 TTL，scope 内嵌）
+    Note over 外部系统,管理页: 开放接口调用
+    外部系统->>后端: GET /api/open/{biz}（Bearer JWT）
+    后端->>鉴权层: 校验 token 与 scope（未授予拒绝）
+    后端->>Redis: 按 client 独立限流，slowapi
+    后端->>业务模块: 执行业务接口
+    后端->>RocketMQ: 落调用审计（client_id/method/path/ip/status/cost_time）
+    RocketMQ->>调用日志: 分区有序，sys_open_log 月度分片表
+    后端->>租户库: 配额扣减 open_calls，sys_tenant_quota（超限拦截 + 告警）
+    Note over 外部系统,管理页: token 撤销
+    管理页->>后端: 撤销操作
+    后端->>Redis: 写入撤销状态，即时生效，短 TTL 对齐
+      </pre>
+      <script src="../../资源/mermaid.min.js"></script>
+      <script src="../../资源/mermaid-init.js"></script>
       <p>
         与事件总线协作要点：调用审计经 RocketMQ 按租户分区有序消费（审计链组），保证哈希链不乱序；审计链跨月表首尾衔接，
         归档前执行链完整性校验。与监控协作要点：开放接口调用量/失败率纳入监控指标与告警（Alertmanager 渠道）。

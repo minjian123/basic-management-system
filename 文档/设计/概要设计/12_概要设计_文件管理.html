@@ -131,20 +131,40 @@
       </ol>
 
       <h2 id="sequence">3. 关键时序与协作</h2>
-      <div class="seq">
-        <table>
-          <tr><th>前端/客户端</th><th>后端</th><th>MinIO</th><th>DB</th></tr>
-          <tr><td class="s-arrow">POST /files/multipart（初始化）→</td><td class="s-note">校验白名单/大小/配额 → 返回 upload_id、total_parts</td><td></td><td></td></tr>
-          <tr><td class="s-arrow">PUT /files/multipart/{upload_id}/parts（逐片）→</td><td class="s-note">分片 SHA256 校验 →</td><td class="s-arrow">存 .part 临时对象 →</td><td></td></tr>
-          <tr><td class="s-arrow">POST /files/multipart/{upload_id}/complete →</td><td class="s-arrow">合并为最终对象 →</td><td class="s-arrow">组合对象 →</td><td class="s-note">清理 .part</td></tr>
-          <tr><td></td><td class="s-arrow">整文件校验（sha256）→</td><td></td><td class="s-note">sys_file status=completed → 发布 file.uploaded（Webhook 订阅：否）</td></tr>
-          <tr><td></td><td class="s-arrow">归档 →</td><td class="s-note">对象按租户前缀归档</td><td class="s-note">sys_file 元数据归档</td></tr>
-          <tr><td class="s-note">下载/预览</td><td></td><td></td><td></td></tr>
-          <tr><td class="s-arrow">GET /files/{id}/download-url（file:download）→</td><td class="s-note">鉴权 + 复核 → 返回限时预签名 URL</td><td></td><td></td></tr>
-          <tr><td class="s-arrow">直连 MinIO 预签名 URL →</td><td class="s-note">后端不代理文件流</td><td></td><td></td></tr>
-          <tr><td class="s-note">孤儿分片回收（Celery 定时任务）</td><td class="s-arrow">扫描超时 .part 与超期 uploading →</td><td class="s-arrow">物理清理 →</td><td class="s-note">落执行记录（sys_task_log）</td></tr>
-        </table>
-      </div>
+      <pre class="mermaid">
+sequenceDiagram
+    autonumber
+    participant 前端 as 前端/客户端
+    participant 后端
+    participant MinIO
+    participant DB
+
+    前端->>后端: POST /files/multipart（初始化）
+    Note over 后端: 校验白名单/大小/配额，返回 upload_id、total_parts
+    前端->>后端: PUT /files/multipart/{upload_id}/parts（逐片）
+    Note over 后端: 分片 SHA256 校验
+    后端->>MinIO: 存 .part 临时对象
+    前端->>后端: POST /files/multipart/{upload_id}/complete
+    后端->>MinIO: 合并为最终对象
+    Note over MinIO: 组合对象
+    Note over DB: 清理 .part
+    Note over 后端: 整文件校验（sha256）
+    Note over DB: sys_file status=completed，发布 file.uploaded（Webhook 订阅：否）
+    Note over 后端: 归档
+    Note over MinIO: 对象按租户前缀归档
+    Note over DB: sys_file 元数据归档
+    Note over 前端: 下载/预览
+    前端->>后端: GET /files/{id}/download-url（file:download）
+    Note over 后端: 鉴权 + 复核，返回限时预签名 URL
+    前端->>MinIO: 直连 MinIO 预签名 URL
+    Note over 后端: 后端不代理文件流
+    Note over 前端: 孤儿分片回收（Celery 定时任务）
+    后端->>MinIO: 扫描超时 .part 与超期 uploading
+    MinIO->>DB: 物理清理
+    Note over DB: 落执行记录（sys_task_log）
+      </pre>
+      <script src="../../资源/mermaid.min.js"></script>
+      <script src="../../资源/mermaid-init.js"></script>
       <div class="note">上传前校验租户存储配额（storage_bytes）；对象存储故障时上传/下载接口报错并告警（故障应对见部署与运维节点）。</div>
 
       <h2 id="data">4. 数据模型与表设计</h2>

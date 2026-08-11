@@ -46,24 +46,22 @@
       </p>
 
       <h2 id="topo">2. 部署拓扑</h2>
-      <div class="tree">
-        <ul>
-          <li>nginx <span class="t-note">TLS 终止 / 静态资源 / /api 反代 / 租户子域名 / WebSocket 亲和</span>
-            <ul>
-              <li>backend × N <span class="t-note">无状态，uvicorn 多 worker</span></li>
-              <li>celery-worker × N <span class="t-note">→ celery-beat × 1（Redis 锁防重）</span></li>
-              <li>event-worker × N <span class="t-note">RocketMQ 消费</span></li>
-              <li>MySQL / PostgreSQL 主从 <span class="t-note">1 平台库 + N 租户库 + 1 归档库 / 达梦 DM8（信创选配，DM 数据守护主从）</span></li>
-              <li>Redis <span class="t-note">Sentinel/Cluster 高可用，key 含租户前缀</span></li>
-              <li>RocketMQ <span class="t-note">nameserver + broker 多副本</span></li>
-              <li>MinIO <span class="t-note">按租户 bucket 前缀隔离，归档文件亦存于此</span></li>
-              <li>ElasticSearch <span class="t-note">MVP 单节点，生产集群多副本</span></li>
-              <li>Milvus <span class="t-note">阶段十四，milvus + etcd + MinIO 复用</span></li>
-              <li>监控：Prometheus / Loki / Grafana / Alertmanager / Jaeger / otel-collector</li>
-            </ul>
-          </li>
-        </ul>
-      </div>
+      <pre class="mermaid">
+graph TD
+    N["nginx（TLS 终止 / 静态资源 / /api 反代 / 租户子域名 / WebSocket 亲和）"]
+    N --> B["backend × N（无状态，uvicorn 多 worker）"]
+    N --> C["celery-worker × N → celery-beat × 1（Redis 锁防重）"]
+    N --> E["event-worker × N（RocketMQ 消费）"]
+    N --> DB["MySQL / PostgreSQL 主从（1 平台库 + N 租户库 + 1 归档库）/ 达梦 DM8（信创选配，DM 数据守护主从）"]
+    N --> R["Redis（Sentinel/Cluster 高可用，key 含租户前缀）"]
+    N --> MQ["RocketMQ（nameserver + broker 多副本）"]
+    N --> MI["MinIO（按租户 bucket 前缀隔离，归档文件亦存于此）"]
+    N --> ES["ElasticSearch（MVP 单节点，生产集群多副本）"]
+    N --> MV["Milvus（阶段十四，milvus + etcd + MinIO 复用）"]
+    N --> MON["监控：Prometheus / Loki / Grafana / Alertmanager / Jaeger / otel-collector"]
+      </pre>
+      <script src="../../资源/mermaid.min.js"></script>
+      <script src="../../资源/mermaid-init.js"></script>
 
       <h2 id="cluster">3. 集群设计要点</h2>
       <ul>

@@ -356,61 +356,44 @@
 
       <h2 id="structure">4. 项目目录结构</h2>
       <p>采用 monorepo 布局：</p>
-      <div class="tree">
-        <ul>
-          <li>bms/
-            <ul>
-              <li>backend/ <span class="t-note">FastAPI 后端</span>
-                <ul>
-                  <li>app/
-                    <ul>
-                      <li>core/ <span class="t-note">配置、安全、异常处理</span></li>
-                      <li>api/ <span class="t-note">路由层（按模块），依赖注入</span></li>
-                      <li>models/ <span class="t-note">SQLAlchemy 模型</span></li>
-                      <li>schemas/ <span class="t-note">Pydantic 请求/响应模型</span></li>
-                      <li>services/ <span class="t-note">业务逻辑</span></li>
-                      <li>repositories/ <span class="t-note">数据访问，多数据源/分片路由</span></li>
-                      <li>db/ <span class="t-note">异步引擎、AsyncSession、读写分离路由</span></li>
-                      <li>tasks/ <span class="t-note">Celery 任务定义</span></li>
-                      <li>ws/ <span class="t-note">Socket.IO 连接与会话事件</span></li>
-                      <li>i18n/ <span class="t-note">国际化管理（语言包接口、运行时翻译）</span></li>
-                    </ul>
-                  </li>
-                  <li>alembic/ <span class="t-note">迁移脚本</span></li>
-                  <li>tests/ <span class="t-note">pytest</span></li>
-                  <li>config.toml</li>
-                  <li>pyproject.toml</li>
-                </ul>
-              </li>
-              <li>frontend/ <span class="t-note">Vue 3 + Vite</span>
-                <ul>
-                  <li>src/
-                    <ul>
-                      <li>api/ <span class="t-note">Axios 封装与接口定义</span></li>
-                      <li>router/ <span class="t-note">动态路由生成</span></li>
-                      <li>stores/ <span class="t-note">Pinia</span></li>
-                      <li>views/ <span class="t-note">页面（按模块）</span></li>
-                      <li>layouts/ <span class="t-note">主布局</span></li>
-                      <li>components/ <span class="t-note">通用组件</span></li>
-                      <li>i18n/ <span class="t-note">中英文文案</span></li>
-                      <li>utils/</li>
-                    </ul>
-                  </li>
-                  <li>package.json</li>
-                  <li>.nvmrc</li>
-                </ul>
-              </li>
-              <li>frontend-mobile/ <span class="t-note">Vue 3 + Vant（移动端 H5：审批、通知、数据查询）</span></li>
-              <li>deploy/ <span class="t-note">Docker Compose、nginx 配置（含 GitLab CE、gitlab-runner、Renovate 编排）</span></li>
-              <li>scripts/ <span class="t-note">种子数据、备份恢复等运维脚本</span></li>
-              <li>.gitlab-ci.yml <span class="t-note">CI 流水线定义（GitLab CE）</span></li>
-              <li>.github/ <span class="t-note">GitHub 归档镜像辅助文件（README 说明等）</span></li>
-              <li>文档/</li>
-              <li>graphify-out/</li>
-            </ul>
-          </li>
-        </ul>
-      </div>
+      <pre class="mermaid">
+graph TD
+    A["bms/"] --> B["backend/ FastAPI 后端"]
+    B --> B1["app/"]
+    B1 --> B11["core/ 配置、安全、异常处理"]
+    B1 --> B12["api/ 路由层（按模块），依赖注入"]
+    B1 --> B13["models/ SQLAlchemy 模型"]
+    B1 --> B14["schemas/ Pydantic 请求/响应模型"]
+    B1 --> B15["services/ 业务逻辑"]
+    B1 --> B16["repositories/ 数据访问，多数据源/分片路由"]
+    B1 --> B17["db/ 异步引擎、AsyncSession、读写分离路由"]
+    B1 --> B18["tasks/ Celery 任务定义"]
+    B1 --> B19["ws/ Socket.IO 连接与会话事件"]
+    B1 --> B1A["i18n/ 国际化管理（语言包接口、运行时翻译）"]
+    B --> B2["alembic/ 迁移脚本"]
+    B --> B3["tests/ pytest"]
+    B --> B4["config.toml"]
+    B --> B5["pyproject.toml"]
+    A --> C["frontend/ Vue 3 + Vite"]
+    C --> C1["src/"]
+    C1 --> C11["api/ Axios 封装与接口定义"]
+    C1 --> C12["router/ 动态路由生成"]
+    C1 --> C13["stores/ Pinia"]
+    C1 --> C14["views/ 页面（按模块）"]
+    C1 --> C15["layouts/ 主布局"]
+    C1 --> C16["components/ 通用组件"]
+    C1 --> C17["i18n/ 中英文文案"]
+    C1 --> C18["utils/"]
+    C --> C2["package.json"]
+    C --> C3[".nvmrc"]
+    A --> D["frontend-mobile/ Vue 3 + Vant（移动端 H5：审批、通知、数据查询）"]
+    A --> E["deploy/ Docker Compose、nginx 配置（含 GitLab CE、gitlab-runner、Renovate 编排）"]
+    A --> F["scripts/ 种子数据、备份恢复等运维脚本"]
+    A --> G[".gitlab-ci.yml CI 流水线定义（GitLab CE）"]
+    A --> H[".github/ GitHub 归档镜像辅助文件（README 说明等）"]
+    A --> I["文档/"]
+    A --> J["graphify-out/"]
+      </pre>
       <p>分层职责：api 层只做参数校验与路由分发；services 层承载业务逻辑；repositories 层承载数据访问与数据源路由，禁止在 api 层直接操作模型。</p>
 
       <h2 id="modules">5. 功能模块</h2>
@@ -938,5 +921,7 @@
 
 </div>
 
+    <script src="../../资源/mermaid.min.js"></script>
+    <script src="../../资源/mermaid-init.js"></script>
 </body>
 </html>

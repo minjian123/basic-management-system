@@ -120,30 +120,42 @@
 
       <h2 id="sequence">3. 关键时序与协作</h2>
       <p>读路径（缓存三防：防穿透空值、防击穿互斥锁、防雪崩随机偏移）：</p>
-      <div class="seq">
-        <table>
-          <tr><th>业务模块/前端</th><th>Redis 缓存</th><th>DB</th></tr>
-          <tr><td class="s-arrow">GET /api/v1/dicts/{type}?locale=zh-CN →</td><td></td><td></td></tr>
-          <tr><td></td><td class="s-arrow">GET bms:{tenant}:dict:zh-CN:{type} →</td><td></td></tr>
-          <tr><td></td><td class="s-arrow">← 命中</td><td class="s-note">直接返回条目列表</td></tr>
-          <tr><td></td><td class="s-arrow">SETNX 互斥锁（防击穿）→</td><td></td></tr>
-          <tr><td></td><td class="s-arrow">← 获锁</td><td class="s-note">按 locale 关联 _i18n，缺省回退</td></tr>
-          <tr><td></td><td class="s-arrow">写缓存 →</td><td class="s-note">有数据 → 短 TTL + 随机偏移（防雪崩）</td></tr>
-          <tr><td></td><td class="s-note">← 无数据 → 写空值 EMPTY（短 TTL，防穿透）</td><td></td></tr>
-          <tr><td></td><td class="s-arrow">← 释放锁</td><td></td></tr>
-          <tr><td></td><td class="s-note">未获锁 → 短暂等待后重读缓存</td><td></td></tr>
-        </table>
-      </div>
+      <pre class="mermaid">
+sequenceDiagram
+    autonumber
+    participant 业务模块 as 业务模块/前端
+    participant Redis 缓存
+    participant DB
+
+    业务模块->>Redis 缓存: GET /api/v1/dicts/{type}?locale=zh-CN
+    Note over Redis 缓存: GET bms:{tenant}:dict:zh-CN:{type}
+    Redis 缓存-->>业务模块: 命中
+    Note over Redis 缓存: 直接返回条目列表
+    Note over Redis 缓存: SETNX 互斥锁（防击穿）
+    Note over Redis 缓存: 获锁
+    Note over DB: 按 locale 关联 _i18n，缺省回退（DB 回源）
+    Note over Redis 缓存: 写缓存
+    Note over DB: 有数据 → 短 TTL + 随机偏移（防雪崩）
+    Note over Redis 缓存: 无数据 → 写空值 EMPTY（短 TTL，防穿透）
+    Note over Redis 缓存: 释放锁
+    Note over Redis 缓存: 未获锁 → 短暂等待后重读缓存
+      </pre>
+      <script src="../../资源/mermaid.min.js"></script>
+      <script src="../../资源/mermaid-init.js"></script>
       <p>写路径（先写库后删缓存，保证一致性）：</p>
-      <div class="seq">
-        <table>
-          <tr><th>管理端</th><th>DB</th><th>Redis 缓存</th></tr>
-          <tr><td class="s-arrow">POST/PUT/DELETE 字典类型或条目 →</td><td></td><td></td></tr>
-          <tr><td></td><td class="s-arrow">写库 →</td><td class="s-note">软删除/乐观锁/审计字段</td></tr>
-          <tr><td></td><td></td><td class="s-arrow">DEL bms:{tenant}:dict:{locale}:{type} →</td></tr>
-          <tr><td class="s-note">后续请求回源 DB 重建缓存</td><td class="s-note">缓存键含 locale 与租户前缀，租户间天然隔离</td><td></td></tr>
-        </table>
-      </div>
+      <pre class="mermaid">
+sequenceDiagram
+    autonumber
+    participant 管理端
+    participant DB
+    participant Redis 缓存
+
+    管理端->>DB: POST/PUT/DELETE 字典类型或条目
+    Note over DB: 写库（软删除/乐观锁/审计字段）
+    Note over Redis 缓存: DEL bms:{tenant}:dict:{locale}:{type}
+    Note over 管理端: 后续请求回源 DB 重建缓存
+    Note over DB: 缓存键含 locale 与租户前缀，租户间天然隔离
+      </pre>
       <div class="note">Redis 故障时缓存失效直连 DB 并日志告警（降级协议见<a href="../架构设计/05_架构设计_数据架构.html">架构 05</a> 与规划「降级」节）；Redis key 命名遵循 <code>bms:{租户|global}:{域}:{业务键}</code> 规范。</div>
 
       <h2 id="data">4. 数据模型与表设计</h2>

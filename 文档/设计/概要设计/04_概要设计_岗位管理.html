@@ -113,19 +113,27 @@
       </ol>
 
       <h2 id="sequence">3. 关键时序与协作</h2>
-      <div class="seq">
-        <table>
-          <tr><th>管理员</th><th>岗位服务</th><th>DB</th><th>权限计算引擎</th><th>事件总线</th></tr>
-          <tr><td class="s-arrow">POST /posts →</td><td></td><td></td><td></td><td></td></tr>
-          <tr><td class="s-arrow">校验+写入 →</td><td></td><td></td><td></td><td></td></tr>
-          <tr><td></td><td class="s-arrow">insert sys_post →</td><td></td><td></td><td></td></tr>
-          <tr><td></td><td></td><td></td><td class="s-arrow">权限版本 +1 →</td><td></td></tr>
-          <tr><td></td><td class="s-arrow">失效相关用户缓存 →</td><td></td><td></td><td></td></tr>
-          <tr><td class="s-arrow">角色管理绑定 post(主体) →</td><td></td><td>insert sys_role_assign(post)</td><td></td><td></td></tr>
-          <tr><td></td><td></td><td class="s-arrow">收敛 用户→角色 →</td><td></td><td></td></tr>
-          <tr><td class="s-note">用户登录</td><td></td><td></td><td class="s-note">按岗位继承角色</td><td></td></tr>
-        </table>
-      </div>
+      <pre class="mermaid">
+sequenceDiagram
+    autonumber
+    participant 管理员
+    participant 岗位服务
+    participant DB
+    participant 权限计算引擎
+    participant 事件总线
+
+    管理员->>岗位服务: POST /posts
+    管理员->>岗位服务: 校验+写入
+    岗位服务->>DB: insert sys_post
+    Note over 权限计算引擎: 权限版本 +1
+    Note over 岗位服务: 失效相关用户缓存
+    管理员->>DB: 角色管理绑定 post(主体)，insert sys_role_assign(post)
+    Note over 权限计算引擎: 收敛 用户→角色
+    Note over 管理员: 用户登录
+    Note over 权限计算引擎: 按岗位继承角色
+      </pre>
+      <script src="../../资源/mermaid.min.js"></script>
+      <script src="../../资源/mermaid-init.js"></script>
       <p>
         协作要点：主体链收敛由权限计算引擎统一处理——从用户出发沿 sys_role_assign 收集「用户直接 + 岗位 + 部门」绑定角色，
         多链取并集去重；岗位启停直接改变收敛结果（版本失效后即时生效）；岗位变更不发布领域事件

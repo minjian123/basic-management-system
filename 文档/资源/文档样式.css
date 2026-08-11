@@ -96,8 +96,9 @@ code {
   font-size: .9em;
 }
 pre {
-  background: #0d1117;
-  color: #e6edf3;
+  background: #fff;
+  color: var(--fg);
+  border: 1px solid var(--border);
   border-radius: 8px;
   padding: .9rem 1.1rem;
   overflow-x: auto;
@@ -105,6 +106,13 @@ pre {
   line-height: 1.6;
 }
 pre code { background: none; border: none; padding: 0; color: inherit; }
+/* mermaid 图形（渲染后为内联 SVG）：与页面浅色主题一致，无需深色覆盖 */
+pre.mermaid {
+  background: #fff;
+  color: var(--fg);
+  text-align: center;
+}
+.mermaid svg { max-width: 100%; height: auto; }
 .note, .warn {
   border-radius: 6px;
   padding: .7rem 1rem;
@@ -181,7 +189,7 @@ footer {
 .diagram-mobile .d-tabbar { background: var(--accent-bg); }
 .diagram-mobile .d-tabbar b { font-weight: 600; }
 
-/* 时序图（sequence，参与者列 + 消息行） */
+/* 时序图（sequence，泳道式：参与者列 + 生命线 + 消息箭头线） */
 .seq {
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -190,19 +198,93 @@ footer {
   background: #fff;
   font-size: .86rem;
 }
-.seq table { margin: 0; min-width: 640px; }
-.seq th {
+.seq .s-head {
+  display: grid;
+  grid-template-columns: repeat(var(--n, 5), 1fr);
   background: #1f2328;
   color: #fff;
-  text-align: center;
-  white-space: nowrap;
+  border-radius: 6px 6px 0 0;
   font-weight: 600;
+  text-align: center;
 }
-.seq td { text-align: center; white-space: nowrap; }
-.seq td.s-arrow { color: var(--accent); }
-.seq td.s-note { color: var(--muted); font-size: .8rem; text-align: left; }
-.seq tr.s-header td { background: #eef1f4; font-weight: 600; text-align: center; }
-.seq tr.s-alt td { background: var(--code-bg); }
+.seq .s-head > span {
+  padding: .55rem .3rem;
+  border-right: 1px solid rgba(255,255,255,.18);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.seq .s-head > span:last-child { border-right: none; }
+.seq .s-row {
+  display: grid;
+  grid-template-columns: repeat(var(--n, 5), 1fr);
+  position: relative;
+  height: 2.6rem;
+  border-bottom: 1px solid var(--border);
+}
+.seq .s-row:last-child { border-bottom: none; }
+/* 参与者生命线（每列中间一条竖虚线） */
+.seq .s-lane { position: relative; }
+.seq .s-lane::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  border-left: 1.5px dashed var(--border);
+}
+/* 消息：grid-column 指定横跨范围（发送列中心 → 接收列中心），线 + 箭头 + 文字 */
+.seq .s-msg {
+  position: relative;
+  z-index: 2;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  margin: 0 4%;
+}
+.seq .s-msg::before {
+  content: "";
+  flex: 1;
+  border-top: 2px solid var(--accent);
+}
+.seq .s-msg::after {
+  content: "";
+  border: 5px solid transparent;
+  border-left: 6px solid var(--accent);
+}
+.seq .s-msg .s-text {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  transform: translateX(-50%);
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0 .45rem;
+  font-size: .78rem;
+  line-height: 1.6;
+  white-space: nowrap;
+  color: var(--fg);
+  box-shadow: 0 1px 2px rgba(0,0,0,.06);
+}
+/* 返回消息：灰色、箭头朝左 */
+.seq .s-msg.s-back { flex-direction: row-reverse; }
+.seq .s-msg.s-back::before { border-color: var(--muted); }
+.seq .s-msg.s-back::after {
+  border-left: 5px solid transparent;
+  border-right: 6px solid var(--muted);
+}
+/* 注释行：全宽，无泳道 */
+.seq .s-note-row {
+  display: block;
+  height: auto;
+  min-height: 2.1rem;
+  background: var(--code-bg);
+  padding: .4rem .7rem;
+  color: var(--muted);
+  font-size: .8rem;
+  line-height: 1.6;
+}
 
 /* 树状/拓扑示意图（tree，嵌套列表） */
 .tree {

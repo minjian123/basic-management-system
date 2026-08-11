@@ -123,23 +123,39 @@
       </ol>
 
       <h2 id="sequence">3. 关键时序与协作</h2>
-      <div class="seq">
-        <table>
-          <tr><th>业务请求</th><th>审计服务</th><th>RocketMQ / event-worker</th><th>分片表</th></tr>
-          <tr><td class="s-arrow">请求 →</td><td class="s-note">中间件捕获上下文（user_id/module/action/method/path/params/ip/user_agent/cost_time/status/error_msg）</td><td></td><td></td></tr>
-          <tr><td></td><td class="s-note">params 脱敏（密码/token/密钥不落原始值）</td><td></td><td></td></tr>
-          <tr><td></td><td class="s-arrow">发布 audit 事件 →</td><td class="s-note">分区键 = 租户，分区有序</td><td></td></tr>
-          <tr><td></td><td></td><td class="s-arrow">分区有序消费 →</td><td></td></tr>
-          <tr><td></td><td></td><td class="s-arrow">定位分片表 →</td><td class="s-note">sys_operation_log_{yyyyMM}（Celery 已预创建）</td></tr>
-          <tr><td></td><td></td><td class="s-arrow">取末条 record_hash 作为 prev_hash →</td><td></td></tr>
-          <tr><td></td><td></td><td class="s-arrow">record_hash = SHA256(prev_hash + 规范化记录内容) →</td><td></td></tr>
-          <tr><td></td><td></td><td class="s-arrow">写入分片表 →</td><td class="s-note">分片表内成链</td></tr>
-          <tr><td></td><td></td><td class="s-note">次月首条 prev_hash = 上月末条 record_hash（跨月表首尾衔接）</td><td></td></tr>
-          <tr><td class="s-note">审计管理员（三权分立）</td><td class="s-arrow">GET /api/v1/operation-logs →</td><td></td><td class="s-note">按月分片路由查询</td></tr>
-          <tr><td></td><td class="s-arrow">链校验工具 →</td><td></td><td class="s-note">逐条重算 record_hash/prev_hash 比对（定期巡检 + 归档前强制校验）</td></tr>
-          <tr><td class="s-note">归档任务（Celery）</td><td class="s-arrow">90 天保留期超期 →</td><td class="s-note">链完整性校验通过 →</td><td class="s-note">两段式归档（热表→归档库→对象存储）</td></tr>
-        </table>
-      </div>
+      <pre class="mermaid">
+sequenceDiagram
+    autonumber
+    participant 业务请求
+    participant 审计服务
+    participant MQ as RocketMQ / event-worker
+    participant 分片表
+
+    业务请求->>审计服务: 请求
+    Note over 审计服务: 中间件捕获上下文（user_id/module/action/method/path/params/ip/user_agent/cost_time/status/error_msg）
+    Note over 审计服务: params 脱敏（密码/token/密钥不落原始值）
+    审计服务->>MQ: 发布 audit 事件
+    Note over MQ: 分区键 = 租户，分区有序
+    Note over MQ: 分区有序消费
+    MQ->>分片表: 定位分片表
+    Note over 分片表: sys_operation_log_{yyyyMM}（Celery 已预创建）
+    MQ->>分片表: 取末条 record_hash 作为 prev_hash
+    MQ->>分片表: record_hash = SHA256(prev_hash + 规范化记录内容)
+    MQ->>分片表: 写入分片表
+    Note over 分片表: 分片表内成链
+    Note over MQ: 次月首条 prev_hash = 上月末条 record_hash（跨月表首尾衔接）
+    Note over 业务请求: 审计管理员（三权分立）
+    审计服务->>分片表: GET /api/v1/operation-logs
+    Note over 分片表: 按月分片路由查询
+    审计服务->>分片表: 链校验工具
+    Note over 分片表: 逐条重算 record_hash/prev_hash 比对（定期巡检 + 归档前强制校验）
+    Note over 业务请求: 归档任务（Celery）
+    审计服务->>MQ: 90 天保留期超期
+    Note over MQ: 链完整性校验通过
+    Note over 分片表: 两段式归档（热表→归档库→对象存储）
+      </pre>
+      <script src="../../资源/mermaid.min.js"></script>
+      <script src="../../资源/mermaid-init.js"></script>
       <div class="note">写入经 RocketMQ 分区有序消费保证链序；接口侧异步化（先发布事件后返回）显著降低主库写压力（规划「超时与资源」节）。</div>
 
       <h2 id="data">4. 数据模型与表设计</h2>

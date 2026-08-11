@@ -102,19 +102,27 @@
       </ol>
 
       <h2 id="timing">3. 关键时序与协作</h2>
-      <div class="seq">
-        <table>
-          <tr><th>业务模块</th><th>工作流服务</th><th>SpiffWorkflow(线程池)</th><th>wf_task/wf_record</th><th>通知+推送</th><th>RocketMQ</th></tr>
-          <tr><td class="s-arrow">启动实例 →</td><td></td><td></td><td></td><td></td><td></td></tr>
-          <tr><td></td><td class="s-arrow">run_in_executor →</td><td>节点推进</td><td></td><td></td><td></td></tr>
-          <tr><td></td><td class="s-arrow">生成待办(会签多人) →</td><td></td><td></td><td></td><td></td></tr>
-          <tr><td></td><td></td><td></td><td class="s-arrow">approval.todo 广播 →</td><td></td><td></td></tr>
-          <tr><td></td><td class="s-arrow">审批同意/驳回 →</td><td>继续推进/驳回</td><td></td><td></td><td></td></tr>
-          <tr><td></td><td class="s-arrow">← 全部通过：回调业务（实例结束）</td><td></td><td></td><td></td><td></td></tr>
-          <tr><td></td><td class="s-arrow">发布 wf.instance.finished →</td><td></td><td></td><td></td><td></td></tr>
-          <tr><td class="s-note">单据状态更新</td><td></td><td></td><td></td><td></td><td></td></tr>
-        </table>
-      </div>
+      <pre class="mermaid">
+sequenceDiagram
+    autonumber
+    participant 业务模块
+    participant 工作流服务
+    participant SpiffWorkflow as SpiffWorkflow(线程池)
+    participant 任务表 as wf_task/wf_record
+    participant 通知推送 as 通知+推送
+    participant RocketMQ
+
+    业务模块->>工作流服务: 启动实例
+    工作流服务->>SpiffWorkflow: run_in_executor，节点推进
+    工作流服务->>任务表: 生成待办(会签多人)
+    任务表->>通知推送: 广播 approval.todo
+    工作流服务->>SpiffWorkflow: 审批同意/驳回，继续推进/驳回
+    SpiffWorkflow-->>工作流服务: 全部通过：回调业务（实例结束）
+    工作流服务->>RocketMQ: 发布 wf.instance.finished
+    Note over 业务模块: 单据状态更新
+      </pre>
+      <script src="../../资源/mermaid.min.js"></script>
+      <script src="../../资源/mermaid-init.js"></script>
       <p>
         协作要点：SpiffWorkflow 为同步引擎，必须放线程池（run_in_executor）避免阻塞 FastAPI 事件循环；
         引擎不持久化，实例/任务/记录全部由 BMS 自建表维护；待办生成与推送异步解耦（事件总线 → 通知组消费）。

@@ -116,19 +116,27 @@
       </ol>
 
       <h2 id="sequence">3. 关键时序与协作</h2>
-      <div class="seq">
-        <table>
-          <tr><th>管理员</th><th>部门服务</th><th>DB</th><th>权限计算引擎</th><th>事件总线</th><th>业务查询</th></tr>
-          <tr><td class="s-arrow">移动部门 →</td><td></td><td></td><td></td><td></td><td></td></tr>
-          <tr><td class="s-arrow">防环校验+级联 →</td><td></td><td></td><td></td><td></td><td></td></tr>
-          <tr><td></td><td class="s-arrow">更新 ancestors →</td><td></td><td></td><td></td><td></td></tr>
-          <tr><td></td><td></td><td class="s-arrow">权限版本 +1 →</td><td></td><td></td><td></td></tr>
-          <tr><td></td><td></td><td></td><td class="s-arrow">发布事件 →</td><td class="s-arrow">dept.changed</td><td></td></tr>
-          <tr><td class="s-note">业务列表</td><td></td><td></td><td></td><td></td><td></td></tr>
-          <tr><td></td><td></td><td class="s-note">数据范围规则 dept_id=@dept_subtree</td><td></td><td></td><td></td></tr>
-          <tr><td></td><td class="s-arrow">← 注入子树过滤</td><td></td><td></td><td></td><td class="s-arrow">注入子树过滤 →</td></tr>
-        </table>
-      </div>
+      <pre class="mermaid">
+sequenceDiagram
+    autonumber
+    participant 管理员
+    participant 部门服务
+    participant DB
+    participant 权限计算引擎
+    participant 事件总线
+    participant 业务查询
+
+    管理员->>部门服务: 移动部门
+    管理员->>部门服务: 防环校验+级联
+    部门服务->>DB: 更新 ancestors
+    Note over DB: 权限版本 +1
+    权限计算引擎->>事件总线: 发布事件 dept.changed
+    Note over 管理员: 业务列表
+    Note over DB: 数据范围规则 dept_id=@dept_subtree
+    业务查询->>部门服务: 注入子树过滤
+      </pre>
+      <script src="../../资源/mermaid.min.js"></script>
+      <script src="../../资源/mermaid-init.js"></script>
       <p>
         协作要点：数据范围规则按部门维度下钻（@dept_subtree 展开为子树 id 集合注入查询）；
         部门角色绑定收敛与权限版本失效由权限计算引擎统一处理；dept.changed 事件供全文检索索引同步等消费
