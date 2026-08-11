@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>表单页布局设计</title>
+<link rel="stylesheet" href="../../资源/文档样式.css">
+</head>
+<body>
+
+<div class="topnav">
+  <a href="../../文档首页.html">文档首页</a> ›
+  <a href="../../规划/项目规划说明.html">项目规划说明</a> ›
+  <a href="01_布局设计_总览.html">布局设计</a> ›
+  <span>表单页布局设计</span>
+  <span class="topnav-side">
+    <a href="06_布局设计_列表页.html">← 上一个：列表页</a>
+    <a href="08_布局设计_详情与弹窗.html">下一个：详情与弹窗 →</a>
+  </span>
+</div>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>表单页布局设计</h1>
+      <p>FormDetailPanel · 只读/编辑分态 · 主表与明细 · 字段权限与校验</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#purpose">1. 目的与适用范围</a></li>
+        <li><a href="#structure">2. 页面结构</a>
+          <ul class="sub">
+            <li><a href="#structure-tabs">2.1 信息栏（详细信息/系统信息）</a></li>
+            <li><a href="#structure-master">2.2 主表字段区</a></li>
+            <li><a href="#structure-detail">2.3 明细区</a></li>
+          </ul>
+        </li>
+        <li><a href="#states">3. 只读/编辑分态</a></li>
+        <li><a href="#field-perm">4. 字段权限与脱敏</a></li>
+        <li><a href="#form-org">5. 表单组织</a></li>
+        <li><a href="#validate">6. 校验与提交</a></li>
+        <li><a href="#file">7. 文件类字段</a></li>
+        <li><a href="#interaction">8. 与 FormFrame 的交互</a></li>
+        <li><a href="#checklist">9. 检查清单</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="purpose">1. 目的与适用范围</h2>
+      <p>
+        规范 BMS 管理端<strong>表单页</strong>（FormDetailPanel）的统一布局：作为《<a href="05_布局设计_表单栏.html">表单栏布局</a>》FormFrame 的
+        「表单 Tab」内容，展示单条记录的查看与编辑。用户、部门、角色、采购申请等实体模块的表单页均复用本布局。
+      </p>
+      <div class="note">表单页承载「记录 Tab」形态（见《<a href="05_布局设计_表单栏.html">表单栏布局</a>》1.2）；列表页（列表 Tab）见《<a href="06_布局设计_列表页.html">列表页布局</a>》。</div>
+
+      <h2 id="structure">2. 页面结构</h2>
+      <div class="diagram">
+        <div class="d-box d-title">表单页结构（FormDetailPanel）</div>
+        <div class="d-box d-toolbar">工具栏：修改 / 删除 / 刷新 / 关闭（只读态）· 保存（编辑态）</div>
+        <div class="d-box d-body">
+          <div>信息栏：<span class="d-fixed" style="padding:0 .3rem">详细信息</span> │ 系统信息</div>
+          <div class="d-sub" style="margin-top:.4rem">
+            <div><strong>详细信息</strong>（主表字段区 + 明细区）</div>
+            <div class="d-subtab">
+              主表字段区：label 右对齐，栅格两列为主<br>
+              明细 Tab 页区：明细A │ 明细B（行内编辑，仅编辑态可用）
+            </div>
+            <div style="margin-top:.4rem"><strong>系统信息</strong>：ID / 创建时间 / 修改时间（只读）</div>
+          </div>
+        </div>
+      </div>
+
+      <h3 id="structure-tabs">2.1 信息栏（详细信息/系统信息）</h3>
+      <ul>
+        <li>信息栏分两个子 Tab：「详细信息」与「系统信息」。</li>
+        <li>详细信息 = 主表字段区 + 明细区（主从模块）；无明细的模块只显示主表字段区。</li>
+        <li>系统信息 = ID / 创建时间 / 修改时间等系统字段，只读展示。</li>
+      </ul>
+
+      <h3 id="structure-master">2.2 主表字段区</h3>
+      <ul>
+        <li>布局：label 右对齐，栅格两列为主（<code>el-col :span="12"</code>）；窄容器（移动端/窄抽屉）单列。</li>
+        <li>分组：&gt; 8 字段用分区标题（<code>el-divider</code>）分组（基本信息/扩展信息）。</li>
+        <li>只读字段（创建时间、编号等）用纯文本展示，不套输入框。</li>
+      </ul>
+
+      <h3 id="structure-detail">2.3 明细区</h3>
+      <ul>
+        <li>多个明细时每个明细一个 Tab 页（明细A/明细B），各自展示其列表。</li>
+        <li>明细与主表通过明细中的「主表数据 id」列关联（对应当前主表 ID）。</li>
+        <li>明细工具栏：新增行、删除行（仅编辑态可用）。</li>
+        <li>明细行<strong>行内编辑</strong>：字段直接编辑（仅编辑态），保存随主表整体提交。</li>
+      </ul>
+
+      <h2 id="states">3. 只读/编辑分态</h2>
+      <table>
+        <tr><th>状态</th><th>进入方式</th><th>行为</th></tr>
+        <tr><td>只读（默认）</td><td>双击列表行打开 / 保存后停留</td><td>字段禁用，仅查看；点工具栏「修改」进入编辑态</td></tr>
+        <tr><td>编辑</td><td>点「修改」 / 工具栏「新增」打开新 Tab</td><td>字段可编辑，工具栏「修改」切换为「保存」</td></tr>
+      </table>
+      <ul>
+        <li>新增 Tab 打开即编辑态（无需先点「修改」），保存后回填 id。</li>
+        <li>修改未保存时切换/关闭 Tab → 弹确认框（脏数据保护，dirty 检测）。</li>
+      </ul>
+
+      <h2 id="field-perm">4. 字段权限与脱敏</h2>
+      <ul>
+        <li><strong>字段权限联动</strong>：字段按表单元数据接口下发的字段权限渲染——<code>visible=false</code> 的字段不渲染（读时过滤），<code>editable=false</code> 的字段即使在编辑态也保持禁用（写时校验由后端兜底）。</li>
+        <li><strong>敏感字段脱敏</strong>：只读/编辑态均按脱敏规则掩码展示（如手机号 <code>138****5678</code>），持 <code>data:plain</code> 权限码方可查看明文。</li>
+        <li><strong>字段 i18n</strong>：字段标签与表单标题取自表单元数据接口返回的当前 locale 翻译（sys_field_i18n 附表），前端不硬编码文案。</li>
+      </ul>
+
+      <h2 id="form-org">5. 表单组织</h2>
+      <ul>
+        <li>布局：label 右对齐，栅格两列为主（<code>el-col :span="12"</code>），窄抽屉单列。</li>
+        <li>分组：&gt; 8 字段用分区标题（<code>el-divider</code>）分组（基本信息/扩展信息）。</li>
+        <li>校验：必填项 <code>required</code> + 规则与后端一致（《<a href="../../规范/API接口规范.html">API接口规范</a>》）；错误信息走 i18n。</li>
+        <li>提交：保存按钮 loading 防重复提交；成功后关闭并刷新列表（或局部更新）。</li>
+        <li>只读字段（创建时间、编号）用纯文本展示，不套输入框。</li>
+      </ul>
+
+      <h2 id="validate">6. 校验与提交</h2>
+      <ul>
+        <li>必填/格式校验规则与后端一致（《<a href="../../规范/API接口规范.html">API接口规范</a>》），错误提示走 i18n。</li>
+        <li><strong>整体保存</strong>（主从模块）：工具栏「保存」一次性提交主表 + 全部明细（单事务），保证主表与明细一致性。</li>
+        <li>新增主表时，明细的「主表数据 id」在保存事务内用新主表 ID 回填。</li>
+        <li><strong>乐观锁冲突</strong>：保存请求携带记录 <code>version</code>，后端比对失败（已被他人修改）返回冲突错误，前端提示「记录已被修改」并重新加载最新数据。</li>
+        <li>保存成功后自动刷新列表 Tab（列表数据与表单一致）。</li>
+      </ul>
+
+      <h2 id="file">7. 文件类字段</h2>
+      <ul>
+        <li>字段类型含文件（图片/PDF 等）时使用通用上传组件：上传走文件接口（分片上传/断点续传）、预览用预签名 URL 直开、下载走预签名 URL（限时有效）。</li>
+        <li>文件字段同样受字段权限与脱敏规则约束。</li>
+      </ul>
+
+      <h2 id="interaction">8. 与 FormFrame 的交互</h2>
+      <table>
+        <tr><th>交互</th><th>方向</th><th>约定</th></tr>
+        <tr><td>记录标识</td><td>FormFrame → 表单页</td><td>prop <code>main-id</code>（Number，null 表示新增）</td></tr>
+        <tr><td>保存/删除/标题</td><td>表单页 → FormFrame</td><td><code>emit("saved", id)</code> / <code>emit("deleted")</code> / <code>emit("title-change", 名称)</code></td></tr>
+        <tr><td>脏数据状态</td><td>FormFrame ← 表单页</td><td>表单页 <code>expose dirty</code>（切换/关闭 Tab 时拦截确认）</td></tr>
+      </table>
+      <ul>
+        <li>路由：实体页面路由组件为 <code>FormFrame</code>，通过路由 <code>props</code> 注入 <code>title</code> / <code>listComponent</code> / <code>detailComponent</code>（详见《<a href="05_布局设计_表单栏.html">表单栏布局</a>》第 2 节）。</li>
+        <li>表单页被 keep-alive 整体缓存（顶层缓存的是 FormFrame 实例，表单页作为子组件随树缓存），切换顶层 Tab 不丢数据。</li>
+      </ul>
+
+      <h2 id="checklist">9. 检查清单</h2>
+      <ul>
+        <li>□ 信息栏（详细信息/系统信息）结构正确，主表 + 明细分区</li>
+        <li>□ 只读/编辑分态切换正确，新增 Tab 直接可编辑</li>
+        <li>□ 字段权限（visible/editable）与脱敏规则生效</li>
+        <li>□ 表单栅格/分组/校验规范，错误信息走 i18n</li>
+        <li>□ 主从整体保存单事务，乐观锁冲突提示，保存后刷新列表</li>
+        <li>□ 文件字段走通用上传组件，受权限与脱敏约束</li>
+      </ul>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 依《文档生成规范》编写 · 与《05_布局设计_表单栏》《06_布局设计_列表页》配套 · 生成日期：2026-08-11
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>
