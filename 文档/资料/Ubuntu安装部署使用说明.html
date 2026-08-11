@@ -183,6 +183,7 @@
             <li><a href="#verify-ssh">6.1 SSH 免密登录</a></li>
             <li><a href="#verify-apt">6.2 apt 镜像源更换清华</a></li>
             <li><a href="#verify-disk">6.3 数据盘分区与挂载</a></li>
+            <li><a href="#verify-rdp">6.4 远程桌面（RDP）</a></li>
           </ul>
         </li>
         <li><a href="#backup">7. 备份与恢复（Timeshift）</a>
@@ -385,6 +386,34 @@ lsblk -o NAME,SIZE,FSTYPE,MOUNTPOINT /dev/sda</code></pre>
         </li>
       </ol>
       <div class="note">mjbk 已完成此配置：<code>/dev/sda1</code>（931.5G，ext4，卷标 <code>bms-data</code>）挂载于 <code>/mnt/data</code>，fstab 按 UUID 自动挂载。</div>
+
+      <h3 id="verify-rdp">6.4 远程桌面（RDP）</h3>
+      <p>Ubuntu 24.04 桌面版自带 GNOME 远程桌面（RDP 协议），Windows「远程桌面连接」（mstsc）直接访问，无需额外安装。mjbk 已完成配置：</p>
+      <ol>
+        <li><strong>启用 RDP</strong>（需在用户会话 D-Bus 下执行）：
+          <pre><code>export DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
+grdctl rdp enable
+grdctl rdp set-credentials minjian "&lt;密码&gt;"
+gsettings set org.gnome.desktop.remote-desktop.rdp view-only false
+systemctl --user enable --now gnome-remote-desktop</code></pre>
+        </li>
+        <li><strong>证书配置</strong>（踩坑：默认证书未生成会导致 <code>RDP TLS certificate and key not yet configured properly</code>，3389 不监听）：
+          <pre><code>sudo openssl req -x509 -newkey rsa:2048 -nodes \
+  -keyout /etc/gnome-remote-desktop/rdp-tls.key \
+  -out /etc/gnome-remote-desktop/rdp-tls.crt -days 3650 -subj /CN=192.168.0.107
+mkdir -p ~/.local/share/gnome-remote-desktop
+sudo cp /etc/gnome-remote-desktop/rdp-tls.crt /etc/gnome-remote-desktop/rdp-tls.key ~/.local/share/gnome-remote-desktop/
+sudo chown -R minjian:minjian ~/.local/share/gnome-remote-desktop/
+gsettings set org.gnome.desktop.remote-desktop.rdp tls-cert ~/.local/share/gnome-remote-desktop/rdp-tls.crt
+gsettings set org.gnome.desktop.remote-desktop.rdp tls-key ~/.local/share/gnome-remote-desktop/rdp-tls.key
+systemctl --user restart gnome-remote-desktop</code></pre>
+        </li>
+        <li><strong>防火墙放行</strong>：
+          <pre><code>sudo ufw allow from 192.168.0.0/24 to any port 3389 proto tcp</code></pre>
+        </li>
+      </ol>
+      <p>客户端连接（mjpc）：<code>mstsc</code> → 计算机 <code>192.168.0.107</code> → 证书警告选「仍然连接」→ 用户 <code>minjian</code> / 密码。验证监听：<code>ss -tlnp | grep 3389</code>。</p>
+      <div class="note">RDP 镜像主屏（mirror-primary），共享当前桌面会话；mjbk 已配合盖不休眠，可随时远程。证书为自签名，首次连接出现警告属正常。</div>
 
       <h2 id="backup">7. 备份与恢复（Timeshift 系统快照）</h2>
       <p>服务器环境（系统、配置、已装软件）装坏后需要能快速还原。mjbk 使用 <strong>Timeshift</strong>（rsync 模式）做整系统快照，快照存数据盘 HDD（<code>/mnt/data</code>），系统装坏时用安装 U 盘启动即可恢复到快照时间点。</p>
