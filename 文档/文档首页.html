@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>文档首页</title>
+<style>
+  :root {
+    --bg: #f7f8fa;
+    --fg: #1f2328;
+    --muted: #57606a;
+    --border: #d0d7de;
+    --accent: #0969da;
+    --accent-bg: #ddf4ff;
+    --code-bg: #f6f8fa;
+    --warn-bg: #fff8c5;
+    --warn-border: #d4a72c;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+    line-height: 1.75;
+  }
+  .layout { display: flex; height: 100vh; overflow: hidden; }
+  .sidebar {
+    width: 280px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+  }
+  .sidebar .brand {
+    background: linear-gradient(135deg, #1f2328, #32383f);
+    color: #fff;
+    padding: 1.4rem 1.2rem 1.1rem;
+    border-bottom: 3px solid var(--accent);
+    flex-shrink: 0;
+  }
+  .sidebar .brand h1 { margin: 0 0 .35rem; font-size: 1.15rem; line-height: 1.4; }
+  .sidebar .brand p { margin: 0; color: #b6bec6; font-size: .78rem; }
+  .sidebar nav { padding: .8rem .6rem 1.5rem; font-size: .9rem; }
+  .sidebar nav ul { list-style: none; margin: 0; padding: 0; }
+  .sidebar nav li { margin: .15rem 0; }
+  .sidebar nav a {
+    display: block;
+    padding: .3rem .7rem;
+    border-radius: 5px;
+    color: var(--fg);
+    text-decoration: none;
+  }
+  .sidebar nav a:hover { background: var(--accent-bg); color: var(--accent); }
+  .sidebar nav .sub { padding-left: 1.6rem; font-size: .85rem; color: var(--muted); }
+  .content { flex: 1; overflow-y: auto; }
+  main {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1.5rem 2rem 4rem;
+  }
+  h2 {
+    margin-top: 2.5rem;
+    padding-bottom: .4rem;
+    border-bottom: 2px solid var(--border);
+    font-size: 1.35rem;
+  }
+  h3 { margin-top: 1.6rem; font-size: 1.1rem; }
+  p { margin: .6rem 0; }
+  ul, ol { margin: .6rem 0; padding-left: 1.6rem; }
+  li { margin: .3rem 0; }
+  code {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: .1em .35em;
+    font-family: Consolas, "Cascadia Mono", monospace;
+    font-size: .9em;
+  }
+  pre {
+    background: #0d1117;
+    color: #e6edf3;
+    border-radius: 8px;
+    padding: .9rem 1.1rem;
+    overflow-x: auto;
+    font-size: .88rem;
+    line-height: 1.6;
+  }
+  pre code { background: none; border: none; padding: 0; color: inherit; }
+  .note, .warn {
+    border-radius: 6px;
+    padding: .7rem 1rem;
+    margin: 1rem 0;
+    font-size: .95rem;
+  }
+  .note { background: var(--accent-bg); border-left: 4px solid var(--accent); }
+  .warn { background: var(--warn-bg); border-left: 4px solid var(--warn-border); }
+  .topnav {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: .4rem;
+    background: #fff;
+    border-bottom: 1px solid var(--border);
+    padding: .5rem 1rem;
+    font-size: .85rem;
+  }
+  .topnav .topnav-side { margin-left: auto; }
+  .topnav a { color: var(--accent); text-decoration: none; }
+  .topnav a:hover { text-decoration: underline; }
+  @media (max-width: 768px) {
+    .topnav .topnav-side { display: none; }
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1rem 0;
+    font-size: .92rem;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: .45rem .7rem;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: #eef1f4; white-space: nowrap; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  footer {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1rem 2rem 3rem;
+    color: var(--muted);
+    font-size: .85rem;
+    border-top: 1px solid var(--border);
+  }
+  @media (max-width: 768px) {
+    .layout { flex-direction: column; height: auto; overflow: visible; }
+    .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); max-height: 40vh; }
+    .content { overflow: visible; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topnav">
+  <a href="../README.md">仓库首页</a> ›
+  <span>文档首页</span>
+  <span class="topnav-side">
+    <a href="规划/项目规划说明.md">规划：项目规划说明 →</a>
+  </span>
+</div>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>文档首页</h1>
+      <p>「文档」目录全量导航 · BMS 项目</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#purpose">1. 用途说明</a></li>
+        <li><a href="#structure">2. 目录结构总览</a></li>
+        <li><a href="#plan">3. 规划文档</a></li>
+        <li><a href="#spec">4. 规范文档</a></li>
+        <li><a href="#ref">5. 资料文档</a>
+          <ul class="sub">
+            <li><a href="#ref-top">5.1 资料根目录</a></li>
+            <li><a href="#ref-server">5.2 开发服务器部署</a></li>
+          </ul>
+        </li>
+        <li><a href="#design">6. 设计文档</a>
+          <ul class="sub">
+            <li><a href="#design-arch">6.1 架构设计</a></li>
+            <li><a href="#design-overview">6.2 概要设计</a></li>
+            <li><a href="#design-layout">6.3 布局设计</a></li>
+          </ul>
+        </li>
+        <li><a href="#related">7. 关联文档</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="purpose">1. 用途说明</h2>
+      <p>
+        本文档是 <code>文档/</code> 目录的<strong>全量索引</strong>，汇总 BMS 项目全部规划、规范、资料与设计文档，
+        按目录分类提供跳转入口。文件格式约定：用户手写 <code>.md</code>、AI 生成 <code>.html</code>（见《<a href="规范/文档生成规范.html">文档生成规范</a>》）。
+      </p>
+
+      <h2 id="structure">2. 目录结构总览</h2>
+      <pre><code>文档/
+├── 规划/        # 项目级规划文档
+├── 规范/        # 开发与文档规范
+├── 资料/        # 参考资料、工具与部署使用说明
+│   └── 开发服务器/   # 开发服务器各服务部署说明
+└── 设计/        # 系统设计文档
+    ├── 架构设计/    # 总体架构与子系统设计
+    ├── 概要设计/    # 功能模块详细设计
+    └── 布局设计/    # 界面布局方案</code></pre>
+      <table>
+        <tr><th>文件夹</th><th>用途</th><th>典型文档</th></tr>
+        <tr><td><code>规划/</code></td><td>项目顶层规划：技术选型、功能范围、开发计划、环境部署方案</td><td>《项目规划说明》《开发部署规划》</td></tr>
+        <tr><td><code>规范/</code></td><td>约束性规范：文档怎么写、标识符怎么命名、前后端代码规范</td><td>《文档生成规范》《命名规范》</td></tr>
+        <tr><td><code>资料/</code></td><td>参考资料与实操说明：机器资源、系统安装、工具使用、服务部署</td><td>《本地资源》《Ubuntu安装部署使用说明》《graphify部署使用说明》</td></tr>
+        <tr><td><code>资料/开发服务器/</code></td><td>mjbk 开发服务器各服务的部署、验证、排障记录（每服务一份）</td><td>《开发服务器部署使用说明》及各服务说明</td></tr>
+        <tr><td><code>设计/架构设计/</code></td><td>系统架构：总体架构、数据架构、子系统拆分与设计、部署运维</td><td>《架构设计》01-28</td></tr>
+        <tr><td><code>设计/概要设计/</code></td><td>功能模块详细设计：用户、工作流、报表等 34 个模块</td><td>《概要设计》01-34</td></tr>
+        <tr><td><code>设计/布局设计/</code></td><td>界面布局方案：主框架、表单栏、移动端</td><td>《主框架布局设计》等</td></tr>
+      </table>
+      <div class="note">浏览建议：先读「规划」了解项目，再看「设计」理解系统，开发时遵循「规范」，部署运维查「资料」。</div>
+
+      <h2 id="plan">3. 规划文档</h2>
+      <table>
+        <tr><th>文档</th><th>说明</th></tr>
+        <tr><td>《<a href="规划/项目规划说明.md">项目规划说明</a>》</td><td>项目总规划：技术栈、功能模块、数据表、权限模型、部署与运维、开发计划与验收标准（用户手写）</td></tr>
+        <tr><td>《<a href="规划/开发部署规划.html">开发部署规划</a>》</td><td>开发环境部署方案：mjbk/mjpc 分工、服务清单、端口与磁盘规划、分阶段落地（Ubuntu 版）</td></tr>
+      </table>
+
+      <h2 id="spec">4. 规范文档</h2>
+      <table>
+        <tr><th>文档</th><th>说明</th></tr>
+        <tr><td>《<a href="规范/文档生成规范.html">文档生成规范</a>》</td><td>AI 生成文档的格式、布局、命名与检查清单</td></tr>
+        <tr><td>《<a href="规范/命名规范.html">命名规范</a>》</td><td>项目全量命名约定（代码/数据库/API/基础设施/文档）</td></tr>
+        <tr><td>《<a href="规范/后端开发规范.html">后端开发规范</a>》</td><td>后端（Python）开发约束</td></tr>
+        <tr><td>《<a href="规范/前端开发规范.html">前端开发规范</a>》</td><td>前端（Vue/TS）开发约束</td></tr>
+      </table>
+
+      <h2 id="ref">5. 资料文档</h2>
+
+      <h3 id="ref-top">5.1 资料根目录</h3>
+      <table>
+        <tr><th>文档</th><th>说明</th></tr>
+        <tr><td>《<a href="资料/本地资源.md">本地资源</a>》</td><td>机器硬件、账号密码与服务凭据（已 gitignore，不入库）</td></tr>
+        <tr><td>《<a href="资料/Ubuntu安装部署使用说明.html">Ubuntu安装部署使用说明</a>》</td><td>系统安装、基础配置、合盖设置、Timeshift 备份恢复</td></tr>
+        <tr><td>《<a href="资料/graphify部署使用说明.html">graphify部署使用说明</a>》</td><td>知识图谱工具部署与使用</td></tr>
+      </table>
+
+      <h3 id="ref-server">5.2 开发服务器部署</h3>
+      <table>
+        <tr><th>文档</th><th>说明</th></tr>
+        <tr><td>《<a href="资料/开发服务器/开发服务器部署使用说明.html">开发服务器部署使用说明</a>》</td><td>服务部署总览：环境、清单、端口、运维入口</td></tr>
+        <tr><td>《<a href="资料/开发服务器/DockerEngine部署使用说明.html">DockerEngine部署使用说明</a>》</td><td>容器引擎安装（清华源、镜像加速、排障）</td></tr>
+        <tr><td>《<a href="资料/开发服务器/Redis部署使用说明.html">Redis部署使用说明</a>》</td><td>缓存服务部署与使用</td></tr>
+        <tr><td>《<a href="资料/开发服务器/MySQL部署使用说明.html">MySQL部署使用说明</a>》</td><td>主数据库（MySQL 8.4）部署与库规划</td></tr>
+        <tr><td>《<a href="资料/开发服务器/PostgreSQL部署使用说明.html">PostgreSQL部署使用说明</a>》</td><td>备选数据库（PostgreSQL 16）</td></tr>
+        <tr><td>《<a href="资料/开发服务器/达梦DM8部署使用说明.html">达梦DM8部署使用说明</a>》</td><td>信创数据库（原生安装，含全部排障记录）</td></tr>
+        <tr><td>《<a href="资料/开发服务器/MinIO部署使用说明.html">MinIO部署使用说明</a>》</td><td>对象存储与 bucket 规划</td></tr>
+        <tr><td>《<a href="资料/开发服务器/GitLab部署使用说明.html">GitLab部署使用说明</a>》</td><td>代码托管 + CI + runner 注册</td></tr>
+      </table>
+
+      <h2 id="design">6. 设计文档</h2>
+
+      <h3 id="design-arch">6.1 架构设计</h3>
+      <table>
+        <tr><th>文档</th><th>说明</th></tr>
+        <tr><td>《<a href="设计/架构设计/01-架构设计.html">架构设计总纲</a>》</td><td>架构入口：目标与约束、总体架构、数据架构、接口与集成、部署与运维</td></tr>
+      </table>
+      <table>
+        <tr><th>编号</th><th>文档</th></tr>
+        <tr><td>02</td><td>《<a href="设计/架构设计/02-架构设计-目标与约束.html">目标与约束</a>》</td></tr>
+        <tr><td>03</td><td>《<a href="设计/架构设计/03-架构设计-总体架构.html">总体架构</a>》</td></tr>
+        <tr><td>04</td><td>《<a href="设计/架构设计/04-架构设计-核心交互时序.html">核心交互时序</a>》</td></tr>
+        <tr><td>05</td><td>《<a href="设计/架构设计/05-架构设计-数据架构.html">数据架构</a>》</td></tr>
+        <tr><td>06</td><td>《<a href="设计/架构设计/06-架构设计-接口与集成.html">接口与集成</a>》</td></tr>
+        <tr><td>07-23</td><td>《<a href="设计/架构设计/07-架构设计-子系统-多租户路由.html">子系统设计（多租户路由/数据访问/认证会话/权限引擎/事件总线/任务调度/实时推送/审计链/文件/工作流/通知公告/报表/国际化/全文检索/AI/可观测性/帮助中心）</a>》</td></tr>
+        <tr><td>24</td><td>《<a href="设计/架构设计/24-架构设计-性能与安全.html">性能与安全</a>》</td></tr>
+        <tr><td>25</td><td>《<a href="设计/架构设计/25-架构设计-前端架构.html">前端架构</a>》</td></tr>
+        <tr><td>26</td><td>《<a href="设计/架构设计/26-架构设计-测试与质量.html">测试与质量</a>》</td></tr>
+        <tr><td>27</td><td>《<a href="设计/架构设计/27-架构设计-部署与运维.html">部署与运维</a>》</td></tr>
+        <tr><td>28</td><td>《<a href="设计/架构设计/28-架构设计-决策与风险.html">决策与风险</a>》</td></tr>
+      </table>
+      <div class="note">07-23 为各子系统设计文档（共 17 份），编号对应文件名，如《<a href="设计/架构设计/16-架构设计-子系统-工作流.html">16-子系统-工作流</a>》。</div>
+
+      <h3 id="design-overview">6.2 概要设计</h3>
+      <table>
+        <tr><th>文档</th><th>说明</th></tr>
+        <tr><td>《<a href="设计/概要设计/01-概要设计.html">概要设计总纲</a>》</td><td>概要设计入口</td></tr>
+      </table>
+      <table>
+        <tr><th>编号</th><th>文档</th></tr>
+        <tr><td>02-05</td><td>《<a href="设计/概要设计/02-概要设计-用户管理.html">用户管理</a>》/《<a href="设计/概要设计/03-概要设计-用户喜好.html">用户喜好</a>》/《<a href="设计/概要设计/04-概要设计-岗位管理.html">岗位管理</a>》/《<a href="设计/概要设计/05-概要设计-角色管理.html">角色管理</a>》</td></tr>
+        <tr><td>06-09</td><td>《<a href="设计/概要设计/06-概要设计-菜单管理.html">菜单管理</a>》/《<a href="设计/概要设计/07-概要设计-部门管理.html">部门管理</a>》/《<a href="设计/概要设计/08-概要设计-字典管理.html">字典管理</a>》/《<a href="设计/概要设计/09-概要设计-系统参数.html">系统参数</a>》</td></tr>
+        <tr><td>10-13</td><td>《<a href="设计/概要设计/10-概要设计-操作日志.html">操作日志</a>》/《<a href="设计/概要设计/11-概要设计-登录日志.html">登录日志</a>》/《<a href="设计/概要设计/12-概要设计-文件管理.html">文件管理</a>》/《<a href="设计/概要设计/13-概要设计-会话管理.html">会话管理</a>》</td></tr>
+        <tr><td>14-17</td><td>《<a href="设计/概要设计/14-概要设计-采购管理.html">采购管理</a>》/《<a href="设计/概要设计/15-概要设计-工作流管理.html">工作流管理</a>》/《<a href="设计/概要设计/16-概要设计-通知中心.html">通知中心</a>》/《<a href="设计/概要设计/17-概要设计-帮助中心.html">帮助中心</a>》</td></tr>
+        <tr><td>18-21</td><td>《<a href="设计/概要设计/18-概要设计-公告管理.html">公告管理</a>》/《<a href="设计/概要设计/19-概要设计-导入导出.html">导入导出</a>》/《<a href="设计/概要设计/20-概要设计-开放接口管理.html">开放接口管理</a>》/《<a href="设计/概要设计/21-概要设计-Webhook管理.html">Webhook管理</a>》</td></tr>
+        <tr><td>22-25</td><td>《<a href="设计/概要设计/22-概要设计-系统监控.html">系统监控</a>》/《<a href="设计/概要设计/23-概要设计-任务调度.html">任务调度</a>》/《<a href="设计/概要设计/24-概要设计-邮件通知.html">邮件通知</a>》/《<a href="设计/概要设计/25-概要设计-租户管理.html">租户管理</a>》</td></tr>
+        <tr><td>26-29</td><td>《<a href="设计/概要设计/26-概要设计-身份认证SSO.html">身份认证SSO</a>》/《<a href="设计/概要设计/27-概要设计-报表中心.html">报表中心</a>》/《<a href="设计/概要设计/28-概要设计-审计合规.html">审计合规</a>》/《<a href="设计/概要设计/29-概要设计-国际化管理.html">国际化管理</a>》</td></tr>
+        <tr><td>30-34</td><td>《<a href="设计/概要设计/30-概要设计-归档管理.html">归档管理</a>》/《<a href="设计/概要设计/31-概要设计-备份管理.html">备份管理</a>》/《<a href="设计/概要设计/32-概要设计-回收站.html">回收站</a>》/《<a href="设计/概要设计/33-概要设计-全文检索.html">全文检索</a>》/《<a href="设计/概要设计/34-概要设计-AI能力.html">AI能力</a>》</td></tr>
+      </table>
+
+      <h3 id="design-layout">6.3 布局设计</h3>
+      <table>
+        <tr><th>文档</th><th>说明</th></tr>
+        <tr><td>《<a href="设计/布局设计/主框架布局设计.md">主框架布局设计</a>》</td><td>PC 端主框架布局（用户手写）</td></tr>
+        <tr><td>《<a href="设计/布局设计/表单栏布局设计.md">表单栏布局设计</a>》</td><td>表单栏布局规范（用户手写）</td></tr>
+        <tr><td>《<a href="设计/布局设计/移动端布局设计.html">移动端布局设计</a>》</td><td>移动端布局方案</td></tr>
+      </table>
+
+      <h2 id="related">7. 关联文档</h2>
+      <ul>
+        <li>《<a href="../README.md">README</a>》：项目仓库入口导航</li>
+        <li>《<a href="规范/文档生成规范.html">文档生成规范</a>》：本文档遵循的格式规范</li>
+        <li>文档新增/变更后运行 <code>graphify update .</code> 保持知识图谱最新</li>
+      </ul>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 依《文档生成规范》编写 · 生成日期：2026-08-11
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>
