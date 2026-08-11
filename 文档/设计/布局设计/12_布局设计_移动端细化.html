@@ -27,7 +27,11 @@
     </div>
     <nav>
       <ul>
-        <li><a href="#purpose">1. 目的与适用范围</a></li>
+        <li><a href="#purpose">1. 目的与适用范围</a>
+          <ul class="sub">
+            <li><a href="#overview">1.1 移动端页面结构示意</a></li>
+          </ul>
+        </li>
         <li><a href="#tabbar">2. 底部 TabBar</a></li>
         <li><a href="#navbar">3. 导航栏</a></li>
         <li><a href="#list">4. 列表页（卡片化）</a></li>
@@ -47,6 +51,34 @@
         细化 BMS 移动端 H5（Vant 4）的页面布局：TabBar、导航栏、列表、详情、表单与交互反馈，
         是《<a href="11_布局设计_移动端.html">移动端布局设计</a>》的落地细化。浏览器基线：Android/iOS 主流机型 + 微信/钉钉内嵌 WebView（《<a href="../../规划/项目规划说明.html">项目规划说明</a>》）。
       </p>
+
+      <h3 id="overview">1.1 移动端页面结构示意</h3>
+      <div class="diagram diagram-mobile">
+        <div class="d-box d-safe">状态栏 · 安全区（safe-area-inset-top）</div>
+        <div class="d-box d-nav">‹ 返回（二级页）｜ 标题 ｜ 图标（可选）</div>
+        <div class="d-box d-note" style="padding:.5rem">列表页（卡片化）</div>
+        <div class="d-box" style="text-align:left;padding:.3rem .7rem">
+          <div style="border:1px solid var(--border);border-radius:8px;padding:.35rem .6rem;margin-top:.3rem;font-size:.8rem">
+            <span style="float:right;color:var(--success,#2da44e);font-size:.7rem">已通过</span>
+            <b>采购申请-20260801</b><br>
+            <span class="d-note">摘要信息 13px · 2026-08-01 12:30</span>
+          </div>
+          <div style="border:1px solid var(--border);border-radius:8px;padding:.35rem .6rem;margin-top:.3rem;font-size:.8rem">
+            <span style="float:right;color:var(--danger,#cf222e);font-size:.7rem">待审批</span>
+            <b>费用报销-20260802</b><br>
+            <span class="d-note">摘要信息 13px · 2026-08-02 09:10</span>
+          </div>
+          <div class="d-note" style="text-align:center;margin-top:.4rem">没有更多了</div>
+        </div>
+        <div class="d-box d-tabbar" style="padding:.4rem 0;display:flex;justify-content:space-around;font-size:.75rem">
+          <span><b>🏠</b><br>首页</span>
+          <span><b>📋</b><br>待办 <sup style="color:var(--danger,#cf222e)">3</sup></span>
+          <span><b>💬</b><br>消息 <sup style="color:var(--danger,#cf222e)">5</sup></span>
+          <span><b>👤</b><br>我的</span>
+        </div>
+        <div class="d-box d-safe">安全区（safe-area-inset-bottom）</div>
+      </div>
+      <div class="note">表单页：单列 van-cell-group + 底部固定提交按钮（安全区避让）；详情页：状态条 + 信息卡 + 时间线 + 底部操作栏（同意/驳回/转交）。</div>
 
       <h2 id="tabbar">2. 底部 TabBar</h2>
       <ul>

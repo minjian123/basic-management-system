@@ -28,7 +28,11 @@
     </div>
     <nav>
       <ul>
-        <li><a href="#purpose">1. 目的与适用范围</a></li>
+        <li><a href="#purpose">1. 目的与适用范围</a>
+          <ul class="sub">
+            <li><a href="#overview">1.1 断点适配行为示意</a></li>
+          </ul>
+        </li>
         <li><a href="#breakpoint">2. 断点体系</a></li>
         <li><a href="#frame">3. 主框架适配</a></li>
         <li><a href="#table">4. 表格适配</a></li>
@@ -46,6 +50,52 @@
         规范 BMS 管理端在多种屏幕宽度下的适配策略（1920 / 1366 / 1024 / 768 及以下），
         保证表格、表单、导航在窄屏不失效。移动端（H5）为独立工程，见《<a href="12_布局设计_移动端细化.html">移动端布局细化</a>》。
       </p>
+
+      <h3 id="overview">1.1 断点适配行为示意</h3>
+      <div class="diagram">
+        <div class="d-box d-title">同一页面随屏幕宽度变化的主框架形态</div>
+        <div class="d-flex">
+          <div class="d-box" style="width:31%">
+            <div class="d-box d-toolbar" style="text-align:center"><b>≥ 1024px（常规）</b></div>
+            <div class="d-flex" style="padding:.4rem">
+              <div class="d-box d-side" style="padding:.3rem">
+                <span class="d-note">侧边菜单<br>220px</span>
+              </div>
+              <div class="d-box d-main" style="padding:.3rem">
+                <div style="border:1px dashed var(--border);border-radius:4px;padding:.2rem .4rem;font-size:.78rem;color:var(--muted)">顶栏</div>
+                <div style="border:1px dashed var(--border);border-radius:4px;margin-top:.3rem;padding:.4rem;font-size:.78rem;color:var(--muted)">表格完整列展示<br>筛选一行</div>
+              </div>
+            </div>
+          </div>
+          <div class="d-box" style="width:33%">
+            <div class="d-box d-toolbar" style="text-align:center"><b>768-1023px（窄屏）</b></div>
+            <div class="d-flex" style="padding:.4rem">
+              <div class="d-box d-side" style="padding:.3rem;text-align:center">
+                <span class="d-note">64px<br>图标</span>
+              </div>
+              <div class="d-box d-main" style="padding:.3rem">
+                <div style="border:1px dashed var(--border);border-radius:4px;padding:.2rem .4rem;font-size:.78rem;color:var(--muted)">顶栏（隐藏次要项）</div>
+                <div style="border:1px dashed var(--border);border-radius:4px;margin-top:.3rem;padding:.4rem;font-size:.78rem;color:var(--muted)">表格横向滚动<br>筛选默认折叠</div>
+              </div>
+            </div>
+            <div class="d-note" style="padding:.2rem .5rem">侧边栏折叠为图标模式</div>
+          </div>
+          <div class="d-box" style="width:36%">
+            <div class="d-box d-toolbar" style="text-align:center"><b>&lt; 768px（平板/小窗）</b></div>
+            <div class="d-flex" style="padding:.4rem">
+              <div class="d-box d-side" style="padding:.3rem;text-align:center;background:var(--accent-bg)">
+                <span class="d-note">抽屉菜单<br>（遮罩）</span>
+              </div>
+              <div class="d-box d-main" style="padding:.3rem">
+                <div style="border:1px dashed var(--border);border-radius:4px;padding:.2rem .4rem;font-size:.78rem;color:var(--muted)">顶栏（仅折叠+关键项）</div>
+                <div style="border:1px dashed var(--border);border-radius:4px;margin-top:.3rem;padding:.4rem;font-size:.78rem;color:var(--muted)">表格滚动<br>操作列「更多」</div>
+              </div>
+            </div>
+            <div class="d-note" style="padding:.2rem .5rem">侧边栏抽屉化 + 遮罩；弹窗/抽屉占满宽度</div>
+          </div>
+        </div>
+      </div>
+      <div class="note">断点判定走 CSS 媒体查询 + 布局令牌（无魔法值）；侧边栏形态：常规可折叠 → 窄屏图标 → 小窗抽屉。</div>
 
       <h2 id="breakpoint">2. 断点体系</h2>
       <table>
