@@ -198,7 +198,7 @@
         <li>每表必备审计字段：<code>created_at</code>、<code>created_by</code>、<code>updated_at</code>、<code>updated_by</code>；软删除表加 <code>deleted_at</code>、并发控制加 <code>version</code>。</li>
         <li>金额用 DECIMAL/NUMERIC，禁止 FLOAT/DOUBLE；状态、类型用 <code>status</code>、<code>type</code> 短整型或枚举，配合字典管理（不写死魔法值）。</li>
         <li>大字段（BLOB/TEXT/JSON）独立成表或明确评估：主表行宽保持可控，避免索引失效。</li>
-        <li>表与字段必须带 COMMENT（中文），与《<a href="../规划/项目规划说明.md">项目规划说明</a>》「数据规范」一致。</li>
+        <li>表与字段必须带 COMMENT（中文），与《<a href="../规划/项目规划说明.html">项目规划说明</a>》「数据规范」一致。</li>
       </ul>
 
       <h2 id="field">3. 字段规范</h2>

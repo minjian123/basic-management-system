@@ -212,7 +212,7 @@
 
       <h2 id="data">4. 测试数据</h2>
       <ul>
-        <li>固定夹具 <code>tests/fixtures/</code>、种子 <code>tests/seeds/</code>（<code>seed_xxx.py</code>），与初始化数据分离（《<a href="../规划/项目规划说明.md">项目规划说明</a>》「测试策略」）。</li>
+        <li>固定夹具 <code>tests/fixtures/</code>、种子 <code>tests/seeds/</code>（<code>seed_xxx.py</code>），与初始化数据分离（《<a href="../规划/项目规划说明.html">项目规划说明</a>》「测试策略」）。</li>
         <li>每个测试独立数据隔离：事务回滚或唯一键后缀，禁止用例间共享可变状态。</li>
         <li>密码等敏感测试数据用固定测试值（如 <code>Test@123456</code>），不入真实凭据。</li>
         <li>CI 三库测试库：<code>bms_test</code> 前缀（建库 → 迁移 → 测试 → 删库），与开发数据隔离（见《<a href="../规划/开发部署规划.html">开发部署规划</a>》4.4）。</li>
@@ -233,7 +233,7 @@
       </ul>
 
       <h2 id="security">7. 安全测试用例</h2>
-      <p>CI 定期执行的集中安全用例集（《<a href="../规划/项目规划说明.md">项目规划说明</a>》「测试策略」），至少覆盖：</p>
+      <p>CI 定期执行的集中安全用例集（《<a href="../规划/项目规划说明.html">项目规划说明</a>》「测试策略」），至少覆盖：</p>
       <ul>
         <li>越权：跨用户/跨租户资源访问（A 的 id 被 B 访问）</li>
         <li>注入：SQL/命令/XXE 注入样本</li>
