@@ -28,7 +28,11 @@
     </div>
     <nav>
       <ul>
-        <li><a href="#purpose">1. 目的与适用范围</a></li>
+        <li><a href="#purpose">1. 目的与适用范围</a>
+          <ul class="sub">
+            <li><a href="#overview">1.1 异常与空状态形态示意</a></li>
+          </ul>
+        </li>
         <li><a href="#error-page">2. 错误页（404/403/500）</a></li>
         <li><a href="#empty">3. 空状态</a></li>
         <li><a href="#loading">4. 加载状态</a></li>
@@ -46,6 +50,41 @@
         规范 BMS 前后端的异常页面、空状态与加载反馈，保证任何场景下用户都有明确引导、
         系统不出现白屏或无反馈。与《<a href="../../规范/前端开发规范.html">前端开发规范</a>》配套。
       </p>
+
+      <h3 id="overview">1.1 异常与空状态形态示意</h3>
+      <div class="diagram">
+        <div class="d-box d-title">错误页 · 空状态 · 加载反馈</div>
+        <div class="d-flex">
+          <div class="d-box" style="width:33%">
+            <div class="d-box d-toolbar" style="text-align:center"><b>错误页（404/403/500）</b></div>
+            <div class="d-box d-body" style="text-align:center;min-height:120px">
+              <div style="font-size:1.6rem;font-weight:700;color:var(--accent)">404</div>
+              <div class="d-note">页面不存在（或已被移除）</div>
+              <div style="margin-top:.4rem"><span class="d-note" style="border:1px solid var(--accent);color:var(--accent);border-radius:4px;padding:.1rem .7rem">返回首页</span></div>
+              <div class="d-note" style="margin-top:.5rem">居中插画（SVG）+ 标题 + 说明 + 主操作<br>不展示技术堆栈</div>
+            </div>
+          </div>
+          <div class="d-box" style="width:33%">
+            <div class="d-box d-toolbar" style="text-align:center"><b>空状态</b></div>
+            <div class="d-box d-body" style="text-align:center;min-height:120px">
+              <div style="font-size:1.4rem">🕳️</div>
+              <div style="margin-top:.2rem">暂无数据</div>
+              <div style="margin-top:.4rem"><span class="d-note" style="border:1px solid var(--accent);color:var(--accent);border-radius:4px;padding:.1rem .7rem">去创建</span></div>
+              <div class="d-note" style="margin-top:.5rem">空插画 + 文案 + 引导按钮<br>搜索无结果：清除筛选/重置</div>
+            </div>
+          </div>
+          <div class="d-box" style="width:34%">
+            <div class="d-box d-toolbar" style="text-align:center"><b>加载分级</b></div>
+            <div class="d-box d-body" style="min-height:120px">
+              <div style="border:1px dashed var(--border);border-radius:4px;padding:.3rem .5rem"><span class="d-note">首屏/页面级：骨架屏</span></div>
+              <div style="border:1px dashed var(--border);border-radius:4px;margin-top:.3rem;padding:.3rem .5rem"><span class="d-note">表格局部刷新：内容遮罩 loading</span></div>
+              <div style="border:1px dashed var(--border);border-radius:4px;margin-top:.3rem;padding:.3rem .5rem"><span class="d-note">按钮提交：按钮内 loading（防重复）</span></div>
+              <div style="border:1px dashed var(--border);border-radius:4px;margin-top:.3rem;padding:.3rem .5rem"><span class="d-note">移动端：骨架 + 触底加载 + 下拉刷新</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="d-box d-note">异常兜底：axios 拦截器统一处理（401 跳登录 / 403 提示 / 5xx 重试），断网/超时有提示与重试，长任务有进度反馈——任何情况不白屏。</div>
+      </div>
 
       <h2 id="error-page">2. 错误页（404/403/500）</h2>
       <table>

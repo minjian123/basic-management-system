@@ -28,7 +28,11 @@
     </div>
     <nav>
       <ul>
-        <li><a href="#purpose">1. 目的与适用范围</a></li>
+        <li><a href="#purpose">1. 目的与适用范围</a>
+          <ul class="sub">
+            <li><a href="#overview">1.1 主题与租户品牌覆盖示意</a></li>
+          </ul>
+        </li>
         <li><a href="#theme">2. 主题体系（亮/暗色）</a></li>
         <li><a href="#tenant">3. 租户品牌化</a></li>
         <li><a href="#brand">4. 品牌资源管理</a></li>
@@ -47,6 +51,41 @@
         支撑 SaaS 多租户的视觉隔离（见《<a href="../../设计/概要设计/25_概要设计_租户管理.html">租户管理</a>》）。
         基于《<a href="02_布局设计_设计令牌.html">全局设计令牌</a>》实现。
       </p>
+
+      <h3 id="overview">1.1 主题与租户品牌覆盖示意</h3>
+      <div class="diagram">
+        <div class="d-box d-title">令牌 → 主题/租户 覆盖链路（CSS 变量驱动，无硬编码）</div>
+        <div class="d-flex">
+          <div class="d-box" style="width:33%">
+            <div class="d-box d-toolbar" style="text-align:center"><b>设计令牌（基础）</b></div>
+            <div class="d-box" style="text-align:center;padding:.5rem">
+              <code>--color-primary</code> <span class="d-note">(默认蓝)</span><br>
+              <code>--color-bg / --color-fg</code><br>
+              <code>--space / --radius</code> …<br>
+              <span class="d-note" style="display:block;margin-top:.3rem">唯一来源：tokens.css</span>
+            </div>
+          </div>
+          <div class="d-box" style="width:33%">
+            <div class="d-box d-toolbar" style="text-align:center"><b>暗色主题覆盖</b></div>
+            <div class="d-box" style="background:#0d1117;color:#e6edf3;text-align:center;padding:.5rem">
+              <code style="background:rgba(255,255,255,.1);color:#e6edf3">[data-theme="dark"]</code><br>
+              <span class="d-note" style="color:#8b949e">--color-bg: #0d1117</span><br>
+              <span class="d-note" style="color:#8b949e">仅反转语义色/背景令牌</span><br>
+              <span class="d-note" style="color:#8b949e">对比度 ≥ 4.5:1</span>
+            </div>
+          </div>
+          <div class="d-box" style="width:33%">
+            <div class="d-box d-toolbar" style="text-align:center"><b>租户品牌覆盖</b></div>
+            <div class="d-box" style="text-align:center;padding:.5rem">
+              <code>[data-tenant="demo"]</code><br>
+              <code>--color-primary: #0969da</code> <span class="d-note">(租户主色)</span><br>
+              <span class="d-note" style="display:block;margin-top:.2rem">衍生色自动生成（light-3/dark-2）</span><br>
+              <span class="d-note" style="display:block;margin-top:.2rem">Logo / 系统名称 / 登录页背景<br>（MinIO 租户 bucket）</span>
+            </div>
+          </div>
+        </div>
+        <div class="d-box d-note">覆盖层级：<code>tokens.css</code>（默认）→ <code>[data-theme]</code>（暗色）→ <code>[data-tenant]</code>（租户），后者优先；状态色（成功/警告/危险）语义不变。</div>
+      </div>
 
       <h2 id="theme">2. 主题体系（亮/暗色）</h2>
       <table>

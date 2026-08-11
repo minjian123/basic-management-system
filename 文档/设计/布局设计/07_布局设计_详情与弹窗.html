@@ -28,7 +28,11 @@
     </div>
     <nav>
       <ul>
-        <li><a href="#purpose">1. 目的与适用范围</a></li>
+        <li><a href="#purpose">1. 目的与适用范围</a>
+          <ul class="sub">
+            <li><a href="#overview">1.1 详情与弹窗选用总览</a></li>
+          </ul>
+        </li>
         <li><a href="#detail">2. 详情页</a></li>
         <li><a href="#drawer">3. 抽屉（Drawer）</a></li>
         <li><a href="#dialog">4. 对话框（Dialog）</a></li>
@@ -47,6 +51,47 @@
         规范 BMS 管理端的详情展示与表单编辑布局：详情页/抽屉/对话框的选用、尺寸与内容组织，
         与《<a href="06_布局设计_列表页.html">列表页布局</a>》配套构成完整的页面交互体系。
       </p>
+
+      <h3 id="overview">1.1 详情与弹窗选用总览</h3>
+      <div class="diagram">
+        <div class="d-box d-title">详情展示 / 表单编辑：三种形态的选用</div>
+        <div class="d-flex">
+          <div class="d-box" style="width:34%">
+            <div class="d-box d-toolbar" style="text-align:center"><b>独立详情页</b></div>
+            <div class="d-box d-body" style="min-height:90px">
+              <div style="background:var(--accent-bg);border-radius:4px;padding:.2rem .5rem;margin-bottom:.3rem">状态条（审批进度）</div>
+              <div style="border:1px solid var(--border);border-radius:4px;padding:.3rem .5rem">内容卡片分组<br><span class="d-note">区块标题 14px 加粗 + 分隔线</span></div>
+              <div style="border:1px solid var(--border);border-radius:4px;padding:.3rem .5rem;margin-top:.3rem">审批记录时间线</div>
+              <div style="border-top:1px solid var(--border);margin-top:.3rem;padding-top:.3rem;text-align:right"><span class="d-note">底部操作栏：同意 / 驳回 / 转交</span></div>
+            </div>
+            <div class="d-note" style="padding:.3rem .6rem">复杂详情（审批、采购申请）→ 独立路由 <code>/xxx/detail/:id</code></div>
+          </div>
+          <div class="d-box" style="width:33%">
+            <div class="d-box d-toolbar" style="text-align:center"><b>抽屉 Drawer</b></div>
+            <div class="d-box d-body" style="min-height:90px">
+              <div style="background:var(--code-bg);border:1px solid var(--border);border-radius:4px;padding:.3rem .5rem">
+                <span class="d-note">标题「编辑用户」×</span>
+                <div style="border:1px dashed var(--border);border-radius:4px;margin-top:.3rem;padding:.4rem .5rem;color:var(--muted);font-size:.8rem">表单字段（内部滚动）</div>
+                <div style="border-top:1px solid var(--border);margin-top:.3rem;padding-top:.3rem;text-align:right"><span class="d-note">取消 ｜ 保存（固定）</span></div>
+              </div>
+            </div>
+            <div class="d-note" style="padding:.3rem .6rem">表单编辑首选 · 400 / 480 / 640 / 720px</div>
+          </div>
+          <div class="d-box" style="width:33%">
+            <div class="d-box d-toolbar" style="text-align:center"><b>对话框 Dialog</b></div>
+            <div class="d-box d-body" style="min-height:90px">
+              <div style="background:#fff;border:1px solid var(--border);border-radius:4px;padding:.4rem .5rem;box-shadow:0 2px 8px rgba(0,0,0,.15)">
+                <span class="d-note">「删除确认」×</span>
+                <div style="margin-top:.3rem;font-size:.8rem">删除后不可恢复，确定继续？</div>
+                <div style="border-top:1px solid var(--border);margin-top:.4rem;padding-top:.3rem;text-align:right"><span class="d-note">取消 ｜ 删除(danger)</span></div>
+              </div>
+              <div class="d-note" style="margin-top:.3rem">遮罩 0.4 透明度</div>
+            </div>
+            <div class="d-note" style="padding:.3rem .6rem">确认类 / 简单表单（≤4 字段）· 420 / 480 / 520px</div>
+          </div>
+        </div>
+      </div>
+      <div class="note">选用原则：复杂详情走独立页（保留流转上下文）；表单编辑优先抽屉（保留列表上下文）；确认与轻量操作走对话框。</div>
 
       <h2 id="detail">2. 详情页</h2>
       <table>
