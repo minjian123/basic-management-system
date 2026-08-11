@@ -98,6 +98,21 @@
   }
   .note { background: var(--accent-bg); border-left: 4px solid var(--accent); }
   .warn { background: var(--warn-bg); border-left: 4px solid var(--warn-border); }
+  .diagram {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    margin: 1rem 0;
+    font-size: .86rem;
+    background: #fff;
+  }
+  .diagram > .d-box { padding: .55rem .9rem; border-bottom: 1px solid var(--border); }
+  .diagram > .d-box:last-child { border-bottom: none; }
+  .diagram .d-title { background: #eef1f4; font-weight: 600; }
+  .diagram .d-note { color: var(--muted); font-size: .78rem; }
+  .diagram .d-flex { display: flex; justify-content: space-between; gap: .6rem; }
+  .diagram .d-toolbar { background: var(--accent-bg); }
+  .diagram .d-table { min-height: 96px; }
   .topnav {
     position: sticky;
     top: 0;
@@ -152,7 +167,7 @@
 <div class="topnav">
   <a href="../../文档首页.html">文档首页</a> ›
   <a href="../../设计/架构设计/01-架构设计.html">设计</a> ›
-  <a href="主框架布局设计.md">布局设计</a> ›
+  <a href="主框架布局设计.html">布局设计</a> ›
   <span>列表页布局设计</span>
   <span class="topnav-side">
     <a href="全局设计令牌.html">← 上一个：设计令牌</a>
@@ -192,17 +207,14 @@
       </p>
 
       <h2 id="structure">2. 页面结构</h2>
-      <pre><code>┌────────────────────────────────────────────┐
-│ 页面标题（模块名 + 面包屑已由主框架提供）          │
-├────────────────────────────────────────────┤
-│ 筛选区（可折叠）：关键字 + 常用条件 + 查询/重置      │
-├────────────────────────────────────────────┤
-│ 工具栏：批量操作（左）+ 新增/导出/更多（右）        │
-├────────────────────────────────────────────┤
-│ 表格：多选列 + 数据列 + 操作列                    │
-├────────────────────────────────────────────┤
-│ 分页：总数 + 页码 + 每页条数                     │
-└────────────────────────────────────────────┘</code></pre>
+      <div class="diagram">
+        <div class="d-box d-title">列表页四段式结构</div>
+        <div class="d-box d-flex"><span>页面标题（模块名，面包屑由主框架提供）</span><span class="d-note">页面标题区</span></div>
+        <div class="d-box d-flex"><span>关键字 + 常用条件 + 查询/重置（可折叠）</span><span class="d-note">筛选区</span></div>
+        <div class="d-box d-flex d-toolbar"><span>批量操作（左）</span><span>新增 / 导出 / 更多（右）</span><span class="d-note">工具栏</span></div>
+        <div class="d-box d-table"><span>表格：多选列 + 数据列 + 操作列</span> <span class="d-note" style="display:block;margin-top:.3rem">（空状态 / 加载遮罩 / 骨架屏）</span></div>
+        <div class="d-box d-flex"><span>总数 + 页码 + 每页条数</span><span class="d-note">分页区</span></div>
+      </div>
       <ul>
         <li>页面容器：单卡片（<code>--radius-md</code>、内边距 <code>--space-lg</code>），无复杂嵌套卡片。</li>
         <li>页面标题由主框架面包屑承载，列表页内不再重复大标题。</li>
