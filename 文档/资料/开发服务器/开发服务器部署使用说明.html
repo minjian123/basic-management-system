@@ -151,10 +151,10 @@
 
 <div class="topnav">
   <a href="../../README.md">文档首页</a> ›
-  <span>资料</span> ›
+  <a href="../Ubuntu安装部署使用说明.html">资料</a> ›
   <span>开发服务器部署使用说明</span>
   <span class="topnav-side">
-    <a href="graphify部署使用说明.html">同级：graphify 部署使用说明 →</a>
+    <a href="Redis部署使用说明.html">同级：Redis 部署使用说明 →</a>
   </span>
 </div>
 
@@ -163,43 +163,23 @@
   <aside class="sidebar">
     <div class="brand">
       <h1>开发服务器部署使用说明</h1>
-      <p>mjbk 远程通道开通与 OpenSSH 部署实录</p>
+      <p>mjbk 开发服务部署总览 · 部署顺序与运维入口</p>
     </div>
     <nav>
       <ul>
         <li><a href="#purpose">1. 目的与适用范围</a></li>
-        <li><a href="#env">2. 环境概览</a></li>
-        <li><a href="#winrm">3. WinRM 远程通道开通</a>
+        <li><a href="#env">2. 环境概览</a>
           <ul class="sub">
-            <li><a href="#winrm-server">3.1 mjbk 侧启用</a></li>
-            <li><a href="#winrm-client">3.2 mjpc 侧配置</a></li>
-            <li><a href="#winrm-verify">3.3 连通性验证</a></li>
+            <li><a href="#env-ready">2.1 已就绪项</a></li>
+            <li><a href="#env-disk">2.2 磁盘与目录</a></li>
           </ul>
         </li>
-        <li><a href="#openssh">4. OpenSSH Server 安装</a>
-          <ul class="sub">
-            <li><a href="#openssh-fail">4.1 系统组件方式失败原因</a></li>
-            <li><a href="#openssh-install">4.2 镜像下载与手动安装</a></li>
-            <li><a href="#openssh-firewall">4.3 防火墙放行</a></li>
-          </ul>
-        </li>
-        <li><a href="#keyauth">5. SSH 密钥认证配置</a>
-          <ul class="sub">
-            <li><a href="#key-client">5.1 客户端密钥生成</a></li>
-            <li><a href="#key-deploy">5.2 公钥部署与权限</a></li>
-            <li><a href="#key-verify">5.3 验证</a></li>
-          </ul>
-        </li>
-        <li><a href="#troubleshoot">6. 排障记录</a>
-          <ul class="sub">
-            <li><a href="#trouble-1">6.1 防火墙规则不生效</a></li>
-            <li><a href="#trouble-2">6.2 公钥认证 preauth 失败</a></li>
-            <li><a href="#trouble-3">6.3 私钥意外带密码</a></li>
-            <li><a href="#trouble-4">6.4 其他坑点</a></li>
-          </ul>
-        </li>
-        <li><a href="#ops">7. 日常运维操作</a></li>
-        <li><a href="#notes">8. 已知问题与安全提示</a></li>
+        <li><a href="#services">3. 服务清单与部署顺序</a></li>
+        <li><a href="#ports">4. 端口规划总表</a></li>
+        <li><a href="#config">5. 配置与凭据管理</a></li>
+        <li><a href="#ops">6. 日常运维速查</a></li>
+        <li><a href="#backup">7. 备份与恢复</a></li>
+        <li><a href="#docs">8. 服务部署说明文档索引</a></li>
         <li><a href="#related">9. 关联文档</a></li>
       </ul>
     </nav>
@@ -210,218 +190,118 @@
 
       <h2 id="purpose">1. 目的与适用范围</h2>
       <p>
-        本文档记录 BMS 开发服务器 mjbk（192.168.0.107）远程管理通道的开通过程、部署命令与排障经验，
-        供后续在开发机 mjpc 上远程操作 mjbk 时参照。硬件与账号信息见《<a href="本地资源.md">本地资源</a>》，
-        开发环境的整体部署方案见《<a href="../规划/开发部署规划.html">开发部署规划</a>》。
+        本文档是开发服务器 <strong>mjbk</strong>（192.168.0.107，Ubuntu 24.04.4 LTS 桌面版）全部开发服务的<strong>总览</strong>：
+        部署顺序、服务清单、端口与目录约定、日常运维入口。
+        每项服务的详细部署步骤、调试记录与排障经验单独成文（见<a href="#docs">第 8 节</a>），本文档只做汇总与导航。
       </p>
-      <p>当前已打通两条远程通道：</p>
-      <ul>
-        <li><strong>WinRM</strong>（PowerShell 远程，HTTP 5985）：批量脚本与自动化操作</li>
-        <li><strong>OpenSSH Server</strong>（端口 22）：跨平台命令行登录（v10.0.0.0p2，手动安装）</li>
-      </ul>
+      <p>部署依据《<a href="../../规划/开发部署规划.html">开发部署规划</a>》；系统安装与基础配置见《<a href="../Ubuntu安装部署使用说明.html">Ubuntu安装部署使用说明</a>》。</p>
 
       <h2 id="env">2. 环境概览</h2>
       <table>
         <tr><th>机器</th><th>IP</th><th>系统</th><th>角色</th></tr>
-        <tr><td>mjbk</td><td>192.168.0.107</td><td>Windows 11 专业版（26200）</td><td>开发服务器（WiFi 接入）</td></tr>
-        <tr><td>mjpc</td><td>192.168.0.124</td><td>Windows 11 专业版</td><td>开发机（有线接入）</td></tr>
+        <tr><td>mjbk</td><td>192.168.0.107</td><td>Ubuntu 24.04.4 LTS（桌面版）</td><td>开发服务器（有线接入，常开）</td></tr>
+        <tr><td>mjpc</td><td>192.168.0.124</td><td>Windows 11 专业版</td><td>开发机（本地编码与联调）</td></tr>
       </table>
-      <div class="note">两台机器网关均为 192.168.0.1（TP-LINK 路由器）。WinRM 走 HTTP 5985；SSH 走 22。</div>
 
-      <h2 id="winrm">3. WinRM 远程通道开通</h2>
-
-      <h3 id="winrm-server">3.1 mjbk 侧启用</h3>
-      <p>通过 RDP 登录 mjbk，管理员 PowerShell 执行（首次只需一次）：</p>
-      <pre><code>Enable-PSRemoting -Force</code></pre>
-      <p>输出应包含「WinRM 已更新为接收请求」「WinRM 防火墙异常已启用」。若防火墙规则显示未启用，补充执行：</p>
-      <pre><code>Get-NetConnectionProfile | Select-Object Name, InterfaceAlias, NetworkCategory
-Set-NetFirewallRule -Name "WINRM-HTTP-In-TCP" -Enabled True</code></pre>
-
-      <h3 id="winrm-client">3.2 mjpc 侧配置</h3>
-      <p>mjpc 管理员 PowerShell 执行（首次只需一次）：</p>
-      <pre><code>Set-Service WinRM -StartupType Automatic
-Start-Service WinRM
-Set-Item WSMan:\localhost\Client\TrustedHosts -Value "192.168.0.107" -Force</code></pre>
-      <div class="warn">
-        坑点 1：mjpc 本机 WinRM 服务默认是 <strong>Stopped</strong>，不先启动则 TrustedHosts 路径不存在、写入报错；
-        且以上命令需要<strong>管理员权限</strong>（非管理员报 Access denied）。
-      </div>
-
-      <h3 id="winrm-verify">3.3 连通性验证</h3>
-      <pre><code>Test-NetConnection -ComputerName 192.168.0.107 -Port 5985
-
-$pw = ConvertTo-SecureString "密码" -AsPlainText -Force
-$cred = New-Object System.Management.Automation.PSCredential("minjian", $pw)
-Invoke-Command -ComputerName 192.168.0.107 -Credential $cred -ScriptBlock { hostname }</code></pre>
-      <p>返回 <code>MJBK</code> 即打通。日常远程操作模板：</p>
-      <pre><code>$pw = ConvertTo-SecureString "密码" -AsPlainText -Force
-$cred = New-Object System.Management.Automation.PSCredential("minjian", $pw)
-Invoke-Command -ComputerName 192.168.0.107 -Credential $cred -ScriptBlock { 任意 PowerShell 命令 }</code></pre>
-
-      <h2 id="openssh">4. OpenSSH Server 安装</h2>
-
-      <h3 id="openssh-fail">4.1 系统组件方式失败原因</h3>
-      <p>最初尝试 Windows 可选功能方式安装，两个环节失败：</p>
+      <h3 id="env-ready">2.1 已就绪项</h3>
       <ul>
-        <li><strong>远程会话权限不足</strong>：WinRM 会话内执行 <code>Add-WindowsCapability -Online -Name OpenSSH.Server</code> 报「拒绝访问」；改为计划任务以 <strong>SYSTEM 身份</strong>运行（<code>schtasks /create /ru SYSTEM /rl HIGHEST</code>）可解决权限，但：</li>
-        <li><strong>微软源下载极慢</strong>：组件安装卡在 Windows Update 下载超过 10 分钟无进展（DismHost/TiWorker 活跃但无网络吞吐），遂终止，改用国内镜像手动安装（见 4.2）。</li>
+        <li>系统：Ubuntu 24.04.4 LTS，静态 IP <code>192.168.0.107/24</code>，时区 Asia/Shanghai，主机名 <code>mjbk</code></li>
+        <li>远程通道：SSH（22），mjpc 公钥免密登录</li>
+        <li>apt 镜像源：清华 TUNA（已验证）</li>
+        <li>数据盘：1TB HDD 挂载 <code>/mnt/data</code>（ext4，fstab 自动挂载）</li>
+        <li>系统快照：Timeshift 每日自动备份（保留 5 份，存 <code>/mnt/data/timeshift</code>）</li>
+        <li>笔记本特性：合盖不休眠（logind + GNOME 两层配置）</li>
       </ul>
-      <div class="note">依据《AGENTS.md》网络与镜像规则：默认源（微软 CDN）不畅时立即切换国内镜像，不长时间等待。实测 <code>update.microsoft.com</code> 可连通但下载速度极慢，镜像源 <code>gh-proxy.com</code> 约 1.4–4 MB/s。</div>
 
-      <h3 id="openssh-install">4.2 镜像下载与手动安装</h3>
-      <p>步骤 1：用国内镜像代理下载 Win32-OpenSSH 官方二进制（mjbk 上执行）：</p>
-      <pre><code>curl.exe -sL --max-time 180 -o C:\bms-tmp\OpenSSH-Win64.zip `
-  "https://gh-proxy.com/https://github.com/PowerShell/Win32-OpenSSH/releases/download/10.0.0.0p2-Preview/OpenSSH-Win64.zip"</code></pre>
-      <p>可用镜像代理（2026-08 实测）：<code>gh-proxy.com</code>（最快）、<code>ghfast.top</code>；<code>ghproxy.net</code> 慢、<code>ghproxy.cc</code> 不可用。GitHub 直连仅约 8 KB/s。</p>
-      <p>步骤 2：解压安装并注册服务（mjbk，管理员 PowerShell）：</p>
-      <pre><code>Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
-Expand-Archive C:\bms-tmp\OpenSSH-Win64.zip -DestinationPath "$env:TEMP\oss-x" -Force
-Copy-Item "$env:TEMP\oss-x\OpenSSH-Win64" "C:\Program Files\OpenSSH" -Recurse -Force
-sc.exe stop sshd 2&gt;$null; sc.exe delete sshd 2&gt;$null
-& "C:\Program Files\OpenSSH\install-sshd.ps1"
-Set-Service sshd -StartupType Automatic
-Start-Service sshd
-& "C:\Program Files\OpenSSH\ssh.exe" -V</code></pre>
-      <div class="warn">
-        坑点 2：install-sshd.ps1 需在允许脚本执行的环境中运行（<code>Set-ExecutionPolicy -Scope Process Bypass</code>），
-        否则报「禁止运行脚本」。
-      </div>
-
-      <h3 id="openssh-firewall">4.3 防火墙放行</h3>
-      <pre><code>New-NetFirewallRule -Name "OpenSSH-Server-In-TCP" -DisplayName "OpenSSH SSH Server (sshd)" `
-  -Enabled True -Direction Inbound -Protocol TCP -Action Allow -LocalPort 22 `
-  -RemoteAddress 192.168.0.0/24 -Profile Any</code></pre>
-      <p>验证：<code>Get-NetTCPConnection -LocalPort 22 -State Listen</code> 应显示 0.0.0.0:22 与 [::]:22 监听。</p>
-
-      <h2 id="keyauth">5. SSH 密钥认证配置</h2>
-
-      <h3 id="key-client">5.1 客户端密钥生成</h3>
-      <p>mjpc 上生成（已生成，可跳过）：</p>
-      <pre><code>ssh-keygen -t ed25519 -N "" -f "$env:USERPROFILE\.ssh\id_ed25519" -C "minjian@mjpc"</code></pre>
-      <div class="warn">
-        坑点 3（重要）：<strong>不要写成 <code>-N '""'</code></strong>。PowerShell 中 <code>'""'</code> 会把两个
-        字面双引号字符作为密码传给 ssh-keygen，私钥因此<strong>意外带密码</strong>；批处理模式（BatchMode）下无法输密码，
-        导致签名失败、认证被拒（见 6.3）。生成后务必验证：
-        <pre><code>ssh-keygen -y -P "" -f "$env:USERPROFILE\.ssh\id_ed25519"</code></pre>
-        能输出公钥才说明私钥无密码。
-      </div>
-
-      <h3 id="key-deploy">5.2 公钥部署与权限</h3>
-      <p>将公钥写入 mjbk 的用户 authorized_keys（本次绕过了默认的 <code>Match Group administrators</code> 专用文件，直接使用普通用户路径，配置更简洁）：</p>
-      <pre><code># mjbk 上执行：注释掉 sshd_config 中的 Match 块，改用普通文件
-$c = [IO.File]::ReadAllText("C:\ProgramData\ssh\sshd_config")
-$c = $c.Replace("Match Group administrators", "#Match Group administrators")
-[IO.File]::WriteAllText("C:\ProgramData\ssh\sshd_config", $c, [Text.Encoding]::ASCII)
-
-# 写入公钥（多个密钥逐行追加）
-[IO.File]::WriteAllText("C:\Users\minjian\.ssh\authorized_keys",
-  "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMlSnUNRBgq3+MBwLTILhdig5MOeEAc9RrYKwDT0ZM2Q minjian@mjpc`n",
-  [Text.Encoding]::ASCII)
-
-# 权限：仅用户本人与 SYSTEM 可访问
-icacls "C:\Users\minjian\.ssh\authorized_keys" /inheritance:r /grant:r "minjian:(R,W)" "NT AUTHORITY\SYSTEM:(F)"
-Restart-Service sshd</code></pre>
-
-      <h3 id="key-verify">5.3 验证</h3>
-      <pre><code>ssh -i "$env:USERPROFILE\.ssh\id_ed25519" minjian@192.168.0.107 "hostname"</code></pre>
-      <p>返回 <code>mjbk</code> 即成功。免密登录（本机默认密钥名时可直接 <code>ssh minjian@192.168.0.107</code>）。</p>
-
-      <h2 id="troubleshoot">6. 排障记录</h2>
-
-      <h3 id="trouble-1">6.1 防火墙规则不生效</h3>
-      <p>
-        <strong>现象</strong>：sshd 监听正常、规则显示 Enabled/Allow/Profile=Any/端口 22，但外部连接 TCP 超时；
-        临时禁用防火墙后即通。
-      </p>
-      <p><strong>处理</strong>：删除并重建规则后恢复正常：</p>
-      <pre><code>Remove-NetFirewallRule -Name "OpenSSH-Server-In-TCP"
-New-NetFirewallRule -Name "OpenSSH-Server-In-TCP" -DisplayName "OpenSSH SSH Server (sshd)" `
-  -Enabled True -Direction Inbound -Protocol TCP -Action Allow -LocalPort 22 `
-  -RemoteAddress 192.168.0.0/24 -Profile Any</code></pre>
-      <div class="note">该规则疑似在组件安装残留的异常半激活状态，<code>Get-NetFirewallRule -All</code> 可见 Inactive 状态为空；重建规则即生效。</div>
-
-      <h3 id="trouble-2">6.2 公钥认证 preauth 失败</h3>
-      <p>
-        <strong>现象</strong>：公钥认证返回 Permission denied；服务端日志出现
-        <code>Accepted key ... found at ...</code> → <code>Postponed publickey</code> →
-        <code>ssh_dispatch_run_fatal: Unknown error [preauth]</code>。
-      </p>
-      <p><strong>排查路径</strong>（逐层排除）：</p>
-      <ol>
-        <li>客户端 <code>ssh -vvv</code>：确认「Server accepts key」后出现 <code>we did not send a packet, disable method</code>——客户端签名失败、未发送签名请求，随即 RST（服务端表现为 10054 连接重置）。</li>
-        <li>服务端回环测试（本机 127.0.0.1 公钥认证）<strong>成功</strong>——排除服务端与系统问题。</li>
-        <li>mjpc 换 v10 客户端仍失败、换端口仍失败、停 Defender 仍失败——排除客户端版本/端口/杀软。</li>
-        <li>pktmon 抓包（管理员）：确认 RST 由 mjpc 本机发出（<code>Flags [R.]</code>，源 MAC 为 mjpc 网卡）。</li>
-        <li><strong>最终定位</strong>：私钥意外带密码（见 6.3），BatchMode 签名失败。</li>
-      </ol>
-
-      <h3 id="trouble-3">6.3 私钥意外带密码</h3>
-      <p>
-        <strong>根因</strong>：<code>ssh-keygen -N '""'</code> 的 PowerShell 传参问题——单引号内的 <code>""</code> 是两个字面字符，
-        被当作密码写入私钥。验证方法：
-      </p>
-      <pre><code>ssh-keygen -y -P ""  -f id_ed25519   # 报 incorrect passphrase = 私钥有密码
-ssh-keygen -y -P '""' -f id_ed25519   # 能输出公钥 = 密码是 "" 两个字面引号</code></pre>
-      <p><strong>修复</strong>（将密码移除）：</p>
-      <pre><code>ssh-keygen -p -f "$env:USERPROFILE\.ssh\id_ed25519" -P '""' -N ""</code></pre>
-
-      <h3 id="trouble-4">6.4 其他坑点</h3>
+      <h3 id="env-disk">2.2 磁盘与目录</h3>
       <table>
-        <tr><th>坑点</th><th>现象</th><th>处理</th></tr>
-        <tr>
-          <td>ssh_host 事件日志无文本</td>
-          <td>手动安装 v10 后 OpenSSH 事件日志「无法检索事件消息文本」</td>
-          <td>消息 DLL 未注册，不影响功能；排查用 <code>sshd -ddd</code> 前台抓日志</td>
-        </tr>
-        <tr>
-          <td>sshd 只监听 2222</td>
-          <td>配置追加 <code>Port 2222</code> 后 22 端口丢失</td>
-          <td>sshd 配置中存在 Port 指令时只监听指定端口，移除多余 Port 行</td>
-        </tr>
-        <tr>
-          <td>WinRM 会话被杀</td>
-          <td>远程 Start-Process 启动的 sshd -ddd 随会话结束被终止</td>
-          <td>长驻前台进程用计划任务（/ru SYSTEM）运行</td>
-        </tr>
-        <tr>
-          <td>安装脚本禁跑</td>
-          <td>install-sshd.ps1 报「禁止运行脚本」</td>
-          <td>Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force</td>
-        </tr>
+        <tr><th>盘</th><th>容量</th><th>存放内容</th></tr>
+        <tr><td>SSD（<code>/</code>）</td><td>512 GB</td><td>系统 + Docker 镜像/容器 + 数据库命名卷（IO 敏感）</td></tr>
+        <tr><td>HDD（<code>/mnt/data</code>）</td><td>1 TB</td><td>GitLab 数据（<code>/mnt/data/gitlab</code>）、备份（<code>/mnt/data/backup</code>）、Timeshift 快照（<code>/mnt/data/timeshift</code>）</td></tr>
       </table>
 
-      <h2 id="ops">7. 日常运维操作</h2>
+      <h2 id="services">3. 服务清单与部署顺序</h2>
+      <p>按《开发部署规划》第 10 节分阶段落地，每项部署完成后补充对应文档（第 8 节）：</p>
+      <table>
+        <tr><th>顺序</th><th>服务</th><th>镜像 / 版本</th><th>端口</th><th>部署说明文档</th></tr>
+        <tr><td>1</td><td>Docker Engine</td><td>docker-ce（清华源）</td><td>—</td><td><a href="DockerEngine部署使用说明.html">DockerEngine部署使用说明</a></td></tr>
+        <tr><td>2</td><td>redis</td><td>redis:8</td><td>6379</td><td><a href="Redis部署使用说明.html">Redis部署使用说明</a></td></tr>
+        <tr><td>3</td><td>mysql</td><td>mysql:8.4</td><td>3306</td><td><a href="MySQL部署使用说明.html">MySQL部署使用说明</a></td></tr>
+        <tr><td>4</td><td>postgres</td><td>postgres:16</td><td>5432</td><td><a href="PostgreSQL部署使用说明.html">PostgreSQL部署使用说明</a></td></tr>
+        <tr><td>5</td><td>dameng</td><td>dmdbms/dm8（试用授权）</td><td>5236</td><td><a href="达梦DM8部署使用说明.html">达梦DM8部署使用说明</a></td></tr>
+        <tr><td>6</td><td>minio</td><td>minio/minio</td><td>9000 / 9001</td><td><a href="MinIO部署使用说明.html">MinIO部署使用说明</a></td></tr>
+        <tr><td>7</td><td>GitLab CE + runner</td><td>gitlab/gitlab-ce</td><td>8080 / 5050 / 2222</td><td><a href="GitLab部署使用说明.html">GitLab部署使用说明</a></td></tr>
+        <tr><td>8（阶段四）</td><td>rocketmq</td><td>apache/rocketmq:5.x</td><td>9876 / 10911</td><td>待部署</td></tr>
+        <tr><td>9（阶段八）</td><td>monitor 组</td><td>prometheus / loki / grafana 等</td><td>9090 / 3100 / 3000 / 9093 / 16686 / 4317 / 4318</td><td>待部署</td></tr>
+        <tr><td>10（阶段十三）</td><td>elasticsearch</td><td>es:8.x（单节点）</td><td>9200 / 9300</td><td>待部署</td></tr>
+        <tr><td>11（阶段十四）</td><td>milvus + etcd</td><td>milvusdb/milvus</td><td>19530</td><td>待部署</td></tr>
+      </table>
+      <div class="note">Compose 编排文件随仓库 <code>deploy/compose/</code> 版本管理；部署细节以各服务文档为准。</div>
+
+      <h2 id="ports">4. 端口规划总表</h2>
+      <table>
+        <tr><th>端口</th><th>服务</th><th>说明</th></tr>
+        <tr><td>22</td><td>系统 SSH</td><td>mjpc 公钥免密</td></tr>
+        <tr><td>8080 / 5050 / 2222</td><td>GitLab HTTP / Registry / SSH</td><td>容器内 80 / 5000 / 22 映射</td></tr>
+        <tr><td>3306 / 5432 / 5236</td><td>MySQL 8 / PostgreSQL 16 / 达梦 DM8</td><td>常驻三库，仅内网</td></tr>
+        <tr><td>6379</td><td>Redis</td><td>仅内网</td></tr>
+        <tr><td>9000 / 9001</td><td>MinIO API / 控制台</td><td>仅内网</td></tr>
+        <tr><td>9876 / 10911</td><td>RocketMQ nameserver / broker</td><td>阶段四起</td></tr>
+        <tr><td>9200 / 9300</td><td>ElasticSearch HTTP / 节点通信</td><td>阶段十三起</td></tr>
+        <tr><td>9090 / 3100 / 3000 / 9093</td><td>Prometheus / Loki / Grafana / Alertmanager</td><td>阶段八起</td></tr>
+        <tr><td>16686 / 4317 / 4318</td><td>Jaeger UI / otel-collector OTLP</td><td>阶段八起</td></tr>
+        <tr><td>19530</td><td>Milvus</td><td>阶段十四起</td></tr>
+      </table>
+      <div class="note">ufw 防火墙仅对内网 192.168.0.0/24 放行上述端口（系统 SSH 22 已放行）。</div>
+
+      <h2 id="config">5. 配置与凭据管理</h2>
+      <ul>
+        <li>真实凭据只写 <code>deploy/.env</code>（mjbk 本机，<code>.env.example</code> 入仓库）；密钥类配置只走环境变量，不入文档。</li>
+        <li>机器登录凭据见《<a href="../本地资源.md">本地资源</a>》；各服务账号密码在部署时生成，记录于 mjbk 本机密码管理器，不写入本文档与仓库。</li>
+        <li>服务名、环境变量、数据库命名遵循《<a href="../../规范/命名规范.html">命名规范</a>》。</li>
+      </ul>
+
+      <h2 id="ops">6. 日常运维速查</h2>
       <table>
         <tr><th>操作</th><th>命令</th></tr>
-        <tr><td>SSH 登录（密钥）</td><td><code>ssh minjian@192.168.0.107</code></td></tr>
-        <tr><td>远程执行命令</td><td><code>ssh minjian@192.168.0.107 "Get-Service sshd"</code></td></tr>
-        <tr><td>重启 sshd</td><td><code>ssh minjian@192.168.0.107 "Restart-Service sshd"</code></td></tr>
-        <tr><td>查看 SSH 事件日志</td><td><code>Get-WinEvent -LogName "OpenSSH/Operational" -MaxEvents 20</code></td></tr>
-        <tr><td>WinRM 批量命令</td><td>见 3.3 模板</td></tr>
+        <tr><td>SSH 登录</td><td><code>ssh minjian@192.168.0.107</code></td></tr>
+        <tr><td>服务状态</td><td><code>docker compose -f deploy/compose/xxx.yml ps</code> / <code>docker ps</code></td></tr>
+        <tr><td>服务日志</td><td><code>docker logs -f &lt;容器名&gt;</code></td></tr>
+        <tr><td>防火墙状态</td><td><code>sudo ufw status</code></td></tr>
+        <tr><td>系统快照</td><td><code>sudo timeshift --list</code>（恢复见《<a href="../Ubuntu安装部署使用说明.html">Ubuntu安装部署使用说明</a>》第 7 节）</td></tr>
       </table>
 
-      <h2 id="notes">8. 已知问题与安全提示</h2>
+      <h2 id="backup">7. 备份与恢复</h2>
       <ul>
-        <li><strong>id_rsa 私钥</strong>（排查过程中生成）仍带密码未修复，未使用；如需删除请执行 <code>Remove-Item "$env:USERPROFILE\.ssh\id_rsa*"</code>。</li>
-        <li>SSH 同时启用密码认证（默认），远程凭据按《<a href="本地资源.md">本地资源</a>》管理；建议后续在 mjbk 上为 minjian 设置强密码。</li>
-        <li>防火墙仅放行 192.168.0.0/24 内网访问 22/5985；密钥文件仅 SYSTEM 与用户本人可读。</li>
-        <li>OpenSSH 为手动安装的 10.0.0.0p2（官方 Preview 通道），如需随 Windows 更新管理可改回系统组件方式（需先卸载当前版本，且解决微软源下载慢问题）。</li>
-        <li>mjbk 通过 WiFi 接入，若后续排查网络相关问题注意 AP 侧因素（本次排障已排除 WiFi 影响）。</li>
+        <li><strong>系统层</strong>：Timeshift 每日快照（保留 5 份），装坏环境用安装 U 盘 <code>sudo timeshift --restore</code> 还原。</li>
+        <li><strong>数据层</strong>：数据库每日 dump 至 <code>/mnt/data/backup/</code>（cron 2 点执行），GitLab 每日 <code>gitlab-backup</code>，详见《开发部署规划》第 8 节与各服务文档。</li>
+      </ul>
+
+      <h2 id="docs">8. 服务部署说明文档索引</h2>
+      <p>每项服务部署调试完成后单独成文（本目录下），本文档第 3 节表格同步挂链接：</p>
+      <ul>
+        <li><a href="DockerEngine部署使用说明.html">DockerEngine部署使用说明</a>：容器引擎安装（清华 docker-ce 源、镜像加速、开机自启）</li>
+        <li><a href="Redis部署使用说明.html">Redis部署使用说明</a>：缓存服务部署与使用</li>
+        <li><a href="MySQL部署使用说明.html">MySQL部署使用说明</a>：主数据库（MySQL 8）部署与账号库规划</li>
+        <li><a href="PostgreSQL部署使用说明.html">PostgreSQL部署使用说明</a>：备选数据库（PostgreSQL 16）</li>
+        <li><a href="达梦DM8部署使用说明.html">达梦DM8部署使用说明</a>：信创数据库（DM8 试用授权）</li>
+        <li><a href="MinIO部署使用说明.html">MinIO部署使用说明</a>：对象存储部署与 bucket 规划</li>
+        <li><a href="GitLab部署使用说明.html">GitLab部署使用说明</a>：代码托管 + CI + Registry（含 runner 注册）</li>
       </ul>
 
       <h2 id="related">9. 关联文档</h2>
       <ul>
-        <li>《<a href="本地资源.md">本地资源</a>》：机器硬件与账号</li>
-        <li>《<a href="../规划/开发部署规划.html">开发部署规划</a>》：开发环境整体部署方案（Rancher Desktop、GitLab、三库常驻等）</li>
-        <li>《<a href="../规划/项目规划说明.md">项目规划说明</a>》：技术与部署选型</li>
-        <li>《<a href="../规范/文档生成规范.html">文档生成规范</a>》与《<a href="../规范/命名规范.html">命名规范</a>》：本文档遵循的规范</li>
-        <li>《<a href="graphify部署使用说明.html">graphify 部署使用说明</a>》：知识图谱工具（同级文档）</li>
+        <li>《<a href="../本地资源.md">本地资源</a>》：机器硬件与账号</li>
+        <li>《<a href="../Ubuntu安装部署使用说明.html">Ubuntu安装部署使用说明</a>》：系统安装、基础配置、合盖与备份</li>
+        <li>《<a href="../../规划/开发部署规划.html">开发部署规划</a>》：开发环境整体方案（Ubuntu 版）</li>
+        <li>《<a href="../../规划/项目规划说明.md">项目规划说明</a>》：技术与部署选型</li>
+        <li>《<a href="../../规范/文档生成规范.html">文档生成规范</a>》与《<a href="../../规范/命名规范.html">命名规范</a>》：本文档遵循的规范</li>
       </ul>
 
     </main>
 
     <footer>
-      本文档为 AI 生成 · 依《文档生成规范》编写 · 记录 2026-08-09 实际部署过程与排障结论
+      本文档为 AI 生成 · 依《文档生成规范》编写 · 服务部署随进度逐项补充 · 更新日期：2026-08-10
     </footer>
   </div>
 

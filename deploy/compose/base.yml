@@ -34,14 +34,8 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql/data
 
-  dameng:
-    image: dmdbms/dm8:latest
-    container_name: bms-dameng
-    restart: unless-stopped
-    ports:
-      - "5236:5236"
-    volumes:
-      - dameng-data:/opt/dmdbms/data
+  # dameng 已改为原生安装（/opt/dmdbms，systemd DmServiceDMSERVER），不再使用容器；
+  # 见《达梦DM8部署使用说明》。保留注释以避免误启与 5236 端口冲突。
 
   minio:
     image: minio/minio:latest
@@ -104,7 +98,6 @@ volumes:
   redis-data:
   mysql-data:
   postgres-data:
-  dameng-data:
   minio-data:
   rocketmq-ns-data:
   rocketmq-broker-data:
