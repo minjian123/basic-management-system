@@ -70,7 +70,7 @@
 
       <h2 id="purpose">1. 目的与依据</h2>
       <p>
-        本文档规划 BMS 项目开发环境的整体部署方案：在《<a href="../资料/本地资源.md">本地资源</a>》记载的两台机器上
+        本文档规划 BMS 项目开发环境的整体部署方案：在《<a href="../用户文档/本地资源.md">本地资源</a>》记载的两台机器上
         （开发服务器 <strong>mjbk</strong> 已装 Ubuntu 24.04.4 LTS 桌面版，开发机 mjpc 为 Windows 11），
         搭建可支撑《<a href="项目规划说明.html">项目规划说明</a>》全部 14 个开发阶段、直至 MVP 验收（含 500 并发压测）的完整开发环境，
         包括代码托管与 CI/CD、开发依赖服务、常驻数据库、监控与备份。
@@ -388,7 +388,7 @@ npm run dev</code></pre>
         <li>三套环境 dev / test / prod 由 <code>BMS_ENV</code> 指定，config.toml 按环境分层 + 环境变量覆盖（《项目规划说明》「环境与配置」节）。</li>
         <li>仓库只提交 <code>deploy/.env.example</code>（键名模板、无真实值）；真实 <code>deploy/.env</code> 加入 <code>.gitignore</code>，仅存在于 mjbk。</li>
         <li>密钥类配置（DB/Redis 密码、JWT secret、MinIO 凭据、GitLab token）只走环境变量，不落配置文件、不入库、不入镜像、不写入本文档。</li>
-        <li>机器登录凭据以《<a href="../资料/本地资源.md">本地资源</a>》为准，本文档不重复记载。</li>
+        <li>机器登录凭据以《<a href="../用户文档/本地资源.md">本地资源</a>》为准，本文档不重复记载。</li>
         <li>GitLab root 密码、runner 注册 token、数据库账号初始密码在首次部署时生成并记录于 mjbk 本地密码管理器（或仅限本机的密钥文件），不随文档与仓库流转。</li>
       </ul>
 
