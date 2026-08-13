@@ -33,9 +33,8 @@
         <li><a href="#filter">3. 筛选区</a></li>
         <li><a href="#toolbar">4. 工具栏</a></li>
         <li><a href="#table">5. 表格区</a></li>
-        <li><a href="#pagination">6. 分页区</a></li>
-        <li><a href="#rules">7. 交互与状态约定</a></li>
-        <li><a href="#checklist">8. 检查清单</a></li>
+        <li><a href="#rules">6. 交互与状态约定</a></li>
+        <li><a href="#checklist">7. 检查清单</a></li>
       </ul>
     </nav>
   </aside>
@@ -46,19 +45,18 @@
       <h2 id="purpose">1. 目的与适用范围</h2>
       <p>
         规范 BMS 管理端<strong>列表页</strong>（用户、部门、角色、采购申请等大多数模块的主页面）的统一布局：
-        「工具栏 + 筛选区 + 表格 + 分页」四段式结构，保证全部模块页面形态一致。
+        「工具栏 + 筛选区 + 表格」三段式结构，保证全部模块页面形态一致。
         依赖《<a href="02_布局设计_设计令牌.html">全局设计令牌</a>》与《<a href="../../规范/前端开发规范.html">前端开发规范</a>》。
       </p>
       <div class="note">列表页<strong>嵌在《<a href="05_布局设计_表单框架.html">表单框架布局</a>》FormFrame 的「列表 Tab」中使用</strong>：FormFrame 的 Tab 栏之下即列表页，工具栏（新增/刷新等）位于列表页顶部、筛选区之上；表格无操作列，双击行打开表单 Tab。</div>
 
       <h2 id="structure">2. 页面结构</h2>
       <div class="diagram">
-        <div class="d-box d-title">列表页四段式结构（FormFrame 列表 Tab 内）</div>
+        <div class="d-box d-title">列表页三段式结构（FormFrame 列表 Tab 内）</div>
         <div class="d-box d-tabs">表单 Tab 页栏：<span class="d-fixed" style="padding:0 .3rem">列表（固定）</span> │ 记录A × │ 记录B ×</div>
         <div class="d-box d-flex d-toolbar"><span>新增 / 刷新 / 关闭（左）</span><span>导出 / 更多（右）</span><span class="d-note">工具栏（在筛选区上方）</span></div>
         <div class="d-box d-flex"><span>关键字 + 常用条件 + 查询/重置（可折叠）</span><span class="d-note">筛选区</span></div>
-        <div class="d-box d-table"><span>表格：多选列 + 数据列（无操作列，双击行打开表单）</span> <span class="d-note" style="display:block;margin-top:.3rem">（空状态 / 加载遮罩 / 骨架屏）</span></div>
-        <div class="d-box d-flex"><span>总数 + 页码 + 每页条数</span><span class="d-note">分页区</span></div>
+        <div class="d-box d-table"><span>表格：多选列 + 数据列（无操作列，双击行打开表单；展开行嵌套表格明细，只读）</span> <span class="d-note" style="display:block;margin-top:.3rem">空状态 / 加载遮罩 / 骨架屏（表格区跟随表格明细，见 08 2.3 节）</span></div>
       </div>
       <ul>
         <li>页面容器：单卡片（<code>--radius-md</code>、内边距 <code>--space-lg</code>），无复杂嵌套卡片。</li>
@@ -85,23 +83,9 @@
       </ul>
 
       <h2 id="table">5. 表格区</h2>
-      <table>
-        <tr><th>项</th><th>约定</th></tr>
-        <tr><td>多选列</td><td>有批量操作时保留，宽度 48px；行点击不默认勾选</td></tr>
-        <tr><td>数据列</td><td>关键信息靠左（名称/编码），数字右对齐，状态用 tag 语义色（见令牌）</td></tr>
-        <tr><td>操作列</td><td>列表页<strong>无操作列</strong>（数据行仅展示，双击行打开表单 Tab，见《<a href="05_布局设计_表单框架.html">表单框架布局</a>》）；<code>查看/编辑</code>等操作由双击或表单 Tab 承载</td></tr>
-        <tr><td>空状态</td><td>el-table 空数据插槽：图标 + 「暂无数据」+ 可选引导按钮</td></tr>
-        <tr><td>加载</td><td>loading 遮罩 + 首次加载骨架屏（<code>v-loading</code>）</td></tr>
-      </table>
+      <div class="note">表格区<strong>跟随表格明细</strong>：多选列、数据列、操作列、空状态与加载态及<strong>分页区</strong>等约定见《<a href="08_布局设计_表格明细.html">表格明细布局设计</a>》2.3、2.4 节。</div>
 
-      <h2 id="pagination">6. 分页区</h2>
-      <ul>
-        <li>位置：表格下方右对齐；布局「总数, 选择页码, 跳页, 每页条数, 页码」。</li>
-        <li>参数与后端约定一致：<code>page</code>/<code>size</code>（《<a href="../../规范/API接口规范.html">API接口规范</a>》第 5 节），默认 20 条/页。</li>
-        <li>大数据量（日志/审计）场景可切换游标分页（<code>cursor</code>/<code>limit</code>）。</li>
-      </ul>
-
-      <h2 id="rules">7. 交互与状态约定</h2>
+      <h2 id="rules">6. 交互与状态约定</h2>
       <ul>
         <li>查询条件变化（含重置）后回到第 1 页；分页/排序变化保留筛选条件。</li>
         <li>行内状态变更（启用/停用、审批）成功后局部刷新并提示（ElMessage success）。</li>
@@ -110,9 +94,9 @@
         <li>列过多时提供「自定义列」抽屉（存用户偏好，见《<a href="../../设计/概要设计/03_概要设计_用户喜好.html">用户喜好</a>》）。</li>
       </ul>
 
-      <h2 id="checklist">8. 检查清单</h2>
+      <h2 id="checklist">7. 检查清单</h2>
       <ul>
-        <li>□ 四段式结构（工具栏/筛选/表格/分页）一致，工具栏在筛选区上方</li>
+        <li>□ 三段式结构（工具栏/筛选/表格）一致，工具栏在筛选区上方</li>
         <li>□ 列表页嵌于 FormFrame 列表 Tab，无操作列，双击行打开表单</li>
         <li>□ 筛选条件与分页参数对齐后端约定</li>
         <li>□ 操作按钮权限码正确，批量操作随选中态禁用</li>

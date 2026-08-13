@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>表格明细布局设计</title>
+<link rel="stylesheet" href="../../资源/文档样式.css">
+</head>
+<body>
+
+<div class="topnav">
+  <a href="../../文档首页.html">文档首页</a> ›
+  <a href="../../规划/项目规划说明.html">项目规划说明</a> ›
+  <a href="01_布局设计_总览.html">布局设计</a> ›
+  <span>表格明细布局设计</span>
+  <span class="topnav-side">
+    <a href="07_布局设计_表单页.html">← 上一个：表单页</a>
+    <a href="09_布局设计_弹窗.html">下一个：弹窗 →</a>
+  </span>
+</div>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>表格明细布局设计</h1>
+      <p>主从模块 · 表格明细列表 · 行内编辑 · 主表数据 id 关联</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#purpose">1. 目的与适用范围</a></li>
+        <li><a href="#structure">2. 表格明细列表结构</a>
+          <ul class="sub">
+            <li><a href="#structure-multi">2.1 多表格明细（Tab 页）</a></li>
+            <li><a href="#structure-single">2.2 单表格明细</a></li>
+            <li><a href="#structure-table">2.3 表格布局约定</a></li>
+            <li><a href="#structure-pagination">2.4 分页区约定</a></li>
+          </ul>
+        </li>
+        <li><a href="#embed">3. 嵌入位置</a>
+          <ul class="sub">
+            <li><a href="#embed-list">3.1 列表页中的表格明细</a></li>
+            <li><a href="#embed-form">3.2 表单页中的表格明细</a></li>
+          </ul>
+        </li>
+        <li><a href="#toolbar">4. 表格明细工具栏</a></li>
+        <li><a href="#edit">5. 行内编辑</a></li>
+        <li><a href="#relation">6. 与主表关联</a></li>
+        <li><a href="#save">7. 保存与事务</a></li>
+        <li><a href="#checklist">8. 检查清单</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="purpose">1. 目的与适用范围</h2>
+      <p>
+        规范 BMS 管理端<strong>表格明细</strong>（主从模块的子表数据）的统一展示与编辑布局。
+        表格明细组件<strong>嵌入《<a href="06_布局设计_列表页.html">列表页</a>》与《<a href="07_布局设计_表单页.html">表单页</a>》中使用</strong>，
+        用于主从模块（如采购申请 + 表格明细行、审批单 + 流转表格明细）的数据记录表格明细展示。
+      </p>
+      <div class="note">主从模块：主表一条记录对应表格明细多行（1:N）。表格明细复用统一组件（表格明细列表），列表页与表单页通过 props 注入数据源与编辑态。</div>
+
+      <h2 id="structure">2. 表格明细列表结构</h2>
+      <div class="diagram">
+        <div class="d-box d-title">表格明细结构</div>
+        <div class="d-box d-table"><span>表格：多选列 + 数据列 + 主表数据 id 列（隐藏，用于关联；无操作列，双击行打开表单）</span><span class="d-note" style="display:block;margin-top:.3rem">行内编辑（仅编辑态可用）· 空状态 / 加载遮罩 / 骨架屏（表格区跟随表格明细，见 2.3 节）</span></div>
+        <div class="d-box d-flex d-toolbar"><span>新增行 / 删除行 / 上移行 / 下移行 + 自动列宽 / 自定义列 / 刷新 / 全屏（表格工具栏，图标按钮，仅编辑态，靠左）</span><span>总数 + 页码 + 每页条数（分页区，靠右，见 2.4 节）</span></div>
+      </div>
+
+      <h3 id="structure-multi">2.1 多表格明细（Tab 页）</h3>
+      <ul>
+        <li>主表存在多个表格明细（表格明细A/表格明细B）时，每个表格明细一个 Tab 页，各自展示其列表。</li>
+        <li>表格明细 Tab 与主表字段区同处「详细信息」信息栏（见《<a href="07_布局设计_表单页.html">表单页布局</a>》2.1）。</li>
+      </ul>
+
+      <h3 id="structure-single">2.2 单表格明细</h3>
+      <ul>
+        <li>仅一个表格明细时直接展示表格明细列表，不套 Tab 壳。</li>
+        <li>无表格明细结构的主从模块（如用户）不显示表格明细区，表单页自行实现简单表单。</li>
+      </ul>
+
+      <h3 id="structure-table">2.3 表格布局约定</h3>
+      <p>表格明细嵌套于列表页表格（展开行）与表单页信息栏中展示，<strong>表格区跟随表格明细</strong>，其<strong>列布局、空状态与加载态约定如下</strong>；列宽自适应、超出横向滚动。</p>
+      <table>
+        <tr><th>项</th><th>约定</th></tr>
+        <tr><td>多选列</td><td>有批量操作时保留，宽度 48px；行点击不默认勾选</td></tr>
+        <tr><td>数据列</td><td>关键信息靠左（名称/编码），数字右对齐，状态用 tag 语义色（见令牌）</td></tr>
+        <tr><td>操作列</td><td>列表页<strong>无操作列</strong>（数据行仅展示，双击行打开表单 Tab，见《<a href="05_布局设计_表单框架.html">表单框架布局</a>》）；<code>查看/编辑</code>等操作由双击或表单 Tab 承载</td></tr>
+        <tr><td>空状态</td><td>el-table 空数据插槽：图标 + 「暂无数据」+ 可选引导按钮</td></tr>
+        <tr><td>加载</td><td>loading 遮罩 + 首次加载骨架屏（<code>v-loading</code>）</td></tr>
+      </table>
+
+      <h3 id="structure-pagination">2.4 分页区约定</h3>
+      <p>列表页<strong>分页区跟随表格明细</strong>，与表格工具栏同处表格下方一行，分页约定如下：</p>
+      <ul>
+        <li>位置：表格下方，<strong>靠右显示</strong>；左侧为表格工具栏（新增行/删除行/上移行/下移行及通用工具按钮）；布局「总数, 选择页码, 跳页, 每页条数, 页码」。</li>
+        <li>参数与后端约定一致：<code>page</code>/<code>size</code>（《<a href="../../规范/API接口规范.html">API接口规范</a>》第 5 节），默认 20 条/页。</li>
+        <li>大数据量（日志/审计）场景可切换游标分页（<code>cursor</code>/<code>limit</code>）。</li>
+      </ul>
+
+      <h2 id="embed">3. 嵌入位置</h2>
+
+      <h3 id="embed-list">3.1 列表页中的表格明细</h3>
+      <ul>
+        <li>列表页（主表列表）中，表格明细以<strong>展开行</strong>（el-table expand）或行内子表形式展示：点击展开图标查看该主表记录关联的表格明细行。</li>
+        <li>展开行表格明细遵循第 2.3 节表格布局约定。</li>
+        <li>展开行表格明细为<strong>只读列表</strong>（数量有限制，如最多展示最近 N 条），完整表格明细在表单页查看/编辑。</li>
+        <li>展开行表格明细<strong>不分页</strong>，列宽自适应、超出横向滚动；不承载新增/删除操作。</li>
+      </ul>
+
+      <h3 id="embed-form">3.2 表单页中的表格明细</h3>
+      <ul>
+        <li>表单页（记录 Tab）中，表格明细位于「详细信息」信息栏的主表字段区下方（或表格明细 Tab 页区），完整展示与编辑。</li>
+        <li>只读态：表格明细行仅展示（字段禁用），随主表整体只读。</li>
+        <li>编辑态：表格明细工具栏与行内编辑可用（见第 4、5 节）。</li>
+      </ul>
+
+      <h2 id="toolbar">4. 表格明细工具栏</h2>
+      <ul>
+        <li><strong>图标表示</strong>：工具栏按钮均使用<strong>图标表示</strong>（不显示文字标签），悬停 tooltip 提示功能名称（走 i18n）。</li>
+        <li>提供：新增行、删除行、上移行、下移行（作用于当前表格明细列表，仅编辑态可用），位于分页区左侧（见 2.4 节）。</li>
+        <li><strong>通用工具按钮</strong>（同位于分页区左侧，按需展示）：<strong>自动列宽</strong>（一键自适应列宽）、<strong>自定义列</strong>（列显示/隐藏与拖动排序，存用户偏好，同《<a href="06_布局设计_列表页.html">列表页布局</a>》「自定义列」抽屉约定）、<strong>刷新</strong>（重新加载当前明细数据）、<strong>全屏</strong>（表格全屏查看）。</li>
+        <li>删除行需二次确认（<code>ElMessageBox.confirm</code>）。</li>
+        <li>批量操作（如表格明细行勾选批量删除）按需提供，受权限码控制。</li>
+        <li><strong>编辑态自动空行</strong>：编辑态下表格末尾自动追加一行空明细作为新增行，供用户直接录入新数据记录；非编辑态（只读）不显示该空行。</li>
+      </ul>
+
+      <h2 id="edit">5. 行内编辑</h2>
+      <ul>
+        <li>表格明细行<strong>行内编辑</strong>：字段直接 <code>v-model</code> 绑定（仅编辑态），未保存修改随整体保存一并提交。</li>
+        <li>文件类字段同表单页规则（通用上传组件、预签名 URL，见《<a href="07_布局设计_表单页.html">表单页布局</a>》第 7 节）。</li>
+        <li>字段校验与主表一致（必填/格式，错误提示走 i18n）。</li>
+      </ul>
+
+      <h2 id="relation">6. 与主表关联</h2>
+      <ul>
+        <li>表格明细与主表通过表格明细中的「主表数据 id」列关联（对应当前主表 ID）。</li>
+        <li>新增主表时，表格明细的「主表数据 id」在保存事务内用新主表 ID 回填。</li>
+        <li>关联遵循逻辑外键约定（不建物理外键，见《<a href="../../规范/数据库开发规范.html">数据库开发规范</a>》）。</li>
+      </ul>
+
+      <h2 id="save">7. 保存与事务</h2>
+      <ul>
+        <li><strong>整体保存</strong>：工具栏「保存」一次性提交主表 + 全部表格明细（单事务），保证主表与表格明细一致性。</li>
+        <li><strong>空行过滤</strong>：保存时过滤编辑态自动追加的空行（未录入任何数据的行不参与提交）。</li>
+        <li><strong>乐观锁</strong>：保存携带主表 <code>version</code>，冲突时提示「记录已被修改」并重新加载。</li>
+        <li>保存成功后自动刷新列表页（含展开行表格明细）与表单页（详见《<a href="05_布局设计_表单框架.html">表单框架布局</a>》第 2 节交互协议）。</li>
+      </ul>
+
+      <h2 id="checklist">8. 检查清单</h2>
+      <ul>
+        <li>□ 表格明细组件嵌入列表页（展开行只读）与表单页（信息栏完整编辑）</li>
+        <li>□ 多表格明细 Tab 化、单表格明细直接展示</li>
+        <li>□ 表格明细工具栏/行内编辑仅编辑态可用，删除二次确认</li>
+        <li>□ 通用工具按钮（自动列宽/自定义列/刷新/全屏）按需展示，自定义列存用户偏好</li>
+        <li>□ 编辑态末尾自动空行仅编辑态存在，保存时过滤空行</li>
+        <li>□ 「主表数据 id」关联正确，新增主表事务内回填</li>
+        <li>□ 整体保存单事务 + 乐观锁，保存后刷新主表列表</li>
+        <li>□ 字段校验与文件字段规则同表单页</li>
+      </ul>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 依《文档生成规范》编写 · 与《06_布局设计_列表页》《07_布局设计_表单页》《05_布局设计_表单框架》配套 · 生成日期：2026-08-11
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>
