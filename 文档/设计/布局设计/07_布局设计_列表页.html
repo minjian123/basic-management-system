@@ -14,8 +14,7 @@
   <a href="01_布局设计_总览.html">布局设计</a> ›
   <span>列表页布局设计</span>
   <span class="topnav-side">
-    <a href="05_布局设计_表单框架.html">← 上一个：表单框架</a>
-    <a href="07_布局设计_表单页.html">下一个：表单页 →</a>
+    <a href="06_布局设计_表单框架.html">← 上一个：表单框架</a>`n    <a href="08_布局设计_表单页.html">下一个：表单页 →</a>
   </span>
 </div>
 
@@ -48,7 +47,7 @@
         「工具栏 + 筛选区 + 表格」三段式结构，保证全部模块页面形态一致。
         依赖《<a href="02_布局设计_设计令牌.html">全局设计令牌</a>》与《<a href="../../规范/前端开发规范.html">前端开发规范</a>》。
       </p>
-      <div class="note">列表页<strong>嵌在《<a href="05_布局设计_表单框架.html">表单框架布局</a>》FormFrame 的「列表 Tab」中使用</strong>：FormFrame 的 Tab 栏之下即列表页，工具栏（新增/刷新等）位于列表页顶部、筛选区之上；表格无操作列，双击行打开表单 Tab。</div>
+      <div class="note">列表页<strong>嵌在《<a href="06_布局设计_表单框架.html">表单框架布局</a>》FormFrame 的「列表 Tab」中使用</strong>：FormFrame 的 Tab 栏之下即列表页，工具栏（新增/刷新等）位于列表页顶部、筛选区之上；表格无操作列，双击行打开表单 Tab。</div>
 
       <h2 id="structure">2. 页面结构</h2>
       <div class="diagram">
@@ -61,7 +60,7 @@
       <ul>
         <li>页面容器：单卡片（<code>--radius-md</code>、内边距 <code>--space-lg</code>），无复杂嵌套卡片。</li>
         <li>页面标题由 FormFrame 注入（路由 <code>title</code> prop），列表页内不再重复大标题。</li>
-        <li>工具栏与筛选区的归属：<strong>列表页工具栏（新增/刷新/关闭等）与筛选区均属于列表页自身</strong>，位于列表页顶部；<strong>表单页工具栏（修改/保存/删除/刷新/关闭）承载于表单页自身</strong>——两处工具栏分开，各自随对应页面在 FormFrame 的 Tab 中展示（见《<a href="05_布局设计_表单框架.html">表单框架布局</a>》第 4 节）。</li>
+        <li>工具栏与筛选区的归属：<strong>列表页工具栏（新增/刷新/关闭等）与筛选区均属于列表页自身</strong>，位于列表页顶部；<strong>表单页工具栏（修改/保存/删除/刷新/关闭）承载于表单页自身</strong>——两处工具栏分开，各自随对应页面在 FormFrame 的 Tab 中展示（见《<a href="06_布局设计_表单框架.html">表单框架布局</a>》第 4 节）。</li>
       </ul>
 
       <h2 id="filter">3. 筛选区</h2>
@@ -74,16 +73,17 @@
       </table>
 
       <h2 id="toolbar">4. 工具栏</h2>
-      <p>列表页工具栏位于筛选区<strong>上方</strong>（见第 2 节示意图），随列表页在 FormFrame 列表 Tab 中展示；<strong>与表单页工具栏分开</strong>，各自承载于对应页面组件内（见《<a href="05_布局设计_表单框架.html">表单框架布局</a>》第 4 节）。</p>
+      <p>列表页工具栏位于筛选区<strong>上方</strong>（见第 2 节示意图），随列表页在 FormFrame 列表 Tab 中展示；<strong>与表单页工具栏分开</strong>，各自承载于对应页面组件内（见《<a href="06_布局设计_表单框架.html">表单框架布局</a>》第 4 节）。</p>
       <ul>
         <li><strong>左侧</strong>：新增（primary）、刷新、关闭（返回）；批量操作按钮组（批量删除、批量审批等）在有选中行时启用。</li>
         <li><strong>右侧</strong>：导出、自定义列等次要操作。</li>
         <li>按钮顺序按操作频率：新增 → 批量操作 → 次要操作；权限码控制（《<a href="../../规范/API接口规范.html">API接口规范</a>》第 6 节）。</li>
-        <li>表单页工具栏（修改/保存/删除/刷新/关闭）在表单页内独立实现，不与列表页工具栏混用，见《<a href="05_布局设计_表单框架.html">表单框架布局</a>》第 4 节。</li>
+        <li><strong>前置图标</strong>：工具栏按钮可带前置图标（图标 + 文字，如「＋ 新增」「↻ 刷新」「⇩ 导出」），图标走 <code>@element-plus/icons-vue</code>（16px，随字号，见《<a href="02_布局设计_设计令牌.html">设计令牌</a>》第 6 节）；纯图标按钮（表格明细工具栏等）悬停 tooltip 提示功能名。</li>
+        <li>表单页工具栏（修改/保存/删除/刷新/关闭）在表单页内独立实现，不与列表页工具栏混用，见《<a href="06_布局设计_表单框架.html">表单框架布局</a>》第 4 节。</li>
       </ul>
 
       <h2 id="table">5. 表格区</h2>
-      <div class="note">表格区<strong>跟随表格明细</strong>：多选列、数据列、操作列、空状态与加载态及<strong>分页区</strong>等约定见《<a href="08_布局设计_表格明细.html">表格明细布局设计</a>》2.3、2.4 节。</div>
+      <div class="note">表格区<strong>跟随表格明细</strong>：多选列、数据列、操作列、空状态与加载态及<strong>分页区</strong>等约定见《<a href="09_布局设计_表格明细.html">表格明细布局设计</a>》2.3、2.4 节。</div>
 
       <h2 id="rules">6. 交互与状态约定</h2>
       <ul>

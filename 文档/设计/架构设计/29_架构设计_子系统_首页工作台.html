@@ -42,7 +42,7 @@
         首页工作台子系统定义登录后默认首页的架构机制：<strong>卡片注册双轨制</strong>（内置功能卡 + 数据集图表卡）、
         <strong>三级模板</strong>（平台默认 → 角色 → 个人）与布局解析、卡片数据聚合与前端渲染。对应<a href="../../规划/项目规划说明.html">《项目规划说明》</a>
         「首页工作台」模块与「用户喜好」「初始化数据」章节，落地规范见<a href="../概要设计/36_概要设计_首页工作台.html">《概要设计-首页工作台》</a>与
-        <a href="../布局设计/15_布局设计_首页工作台.html">《布局设计-首页工作台》</a>。
+        <a href="../布局设计/13_布局设计_首页工作台.html">《布局设计-首页工作台》</a>。
       </p>
 
       <h2 id="scope">2. 职责与边界</h2>
@@ -92,7 +92,7 @@ flowchart TD
         <li><strong>卡片渲染器注册表</strong>：内置卡按 render_key 注册组件（如 TodoCard、NoticeCard、QuickLinksCard、StatsCard），前端懒加载渲染；图表卡用通用 ChartCard（dataset_id + chart_type → 数据集接口 → ECharts 配置）。</li>
         <li><strong>数据拉取</strong>：布局接口下发各卡数据接口地址，前端并行拉取（Promise.allSettled），单卡失败降级不阻塞整页；卡片数据接口失败不重试风暴（单卡手动重试）。</li>
         <li><strong>编辑态</strong>：编辑模式 = gridstack 交互层（拖拽/缩放/显隐/添加面板），保存时前端将 gridstack 序列化结果提交 PUT /layout，后端做引用与尺寸合法性校验。</li>
-        <li><strong>移动端</strong>：frontend-mobile 独立渲染同一布局数据（单列简化卡片，见<a href="../布局设计/15_布局设计_首页工作台.html">布局设计 15</a>），布局接口与存储完全同源。</li>
+        <li><strong>移动端</strong>：frontend-mobile 独立渲染同一布局数据（单列简化卡片，见<a href="../布局设计/13_布局设计_首页工作台.html">布局设计 15</a>），布局接口与存储完全同源。</li>
       </ul>
 
       <h2 id="data">6. 数据与缓存</h2>
