@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 错误页与空状态</title>
+<link rel="stylesheet" href="../_shared/prototype.css">
+<style>
+  .err-card { text-align: center; padding: 32px 16px; }
+  .err-card .code { font-size: 34px; font-weight: 700; color: #0969da; }
+  .err-card .desc { color: #57606a; font-size: 13px; margin: 8px 0 16px; }
+  .empty-box { text-align: center; padding: 40px 16px; }
+  .empty-box .e-icon { font-size: 32px; }
+  .empty-box .e-text { margin: 8px 0 14px; color: #57606a; }
+  .skel { border-radius: 6px; background: linear-gradient(90deg,#eaeef2 25%,#f6f8fa 50%,#eaeef2 75%); background-size: 200% 100%; animation: sk 1.2s infinite; }
+  @keyframes sk { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="01_设计说明.html">← 返回设计说明</a></span>
+  <span class="pb-name">异常与空状态 · 错误页 / 空状态 / 加载反馈</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">全系统通用兜底界面（《布局设计-异常与空状态》）。体验：错误页按钮跳转/提示、空状态「去创建」、骨架屏动画、按钮 loading。</div>
+
+  <!-- 错误页 404/403/500 -->
+  <div class="p-grid cols-3">
+    <div class="p-card err-card">
+      <div class="code">404</div>
+      <div class="desc">页面不存在（或已被移除）</div>
+      <button class="p-btn primary" onclick="toast('返回首页（路由联动）','ok')">返回首页</button>
+    </div>
+    <div class="p-card err-card">
+      <div class="code">403</div>
+      <div class="desc">没有访问权限（如需申请请联系管理员）</div>
+      <button class="p-btn primary" onclick="toast('返回首页','ok')">返回首页</button>
+      <button class="p-btn" onclick="toast('原型演示：联系管理员（帮助中心）')">联系管理员</button>
+    </div>
+    <div class="p-card err-card">
+      <div class="code">500</div>
+      <div class="desc">服务开小差了（请稍后重试）</div>
+      <button class="p-btn primary" onclick="toast('已重新加载当前页','ok')">刷新重试</button>
+      <button class="p-btn" onclick="toast('返回首页','ok')">返回首页</button>
+    </div>
+  </div>
+
+  <!-- 空状态：列表无数据 / 搜索无结果 -->
+  <div class="p-grid cols-2" style="margin-top:12px">
+    <div class="p-card empty-box">
+      <div class="e-icon">🕳️</div>
+      <div class="e-text">暂无数据</div>
+      <button class="p-btn primary" onclick="toast('原型演示：跳转「新增」')">去创建</button>
+    </div>
+    <div class="p-card empty-box">
+      <div class="e-icon">🔍</div>
+      <div class="e-text">未找到匹配记录</div>
+      <button class="p-btn" onclick="toast('已清除筛选条件','ok')">清除筛选 / 重置</button>
+    </div>
+  </div>
+
+  <!-- 加载反馈：骨架屏 / 局部 loading / 按钮 loading -->
+  <div class="p-grid cols-3" style="margin-top:12px">
+    <div class="p-card">
+      <b>页面级骨架屏</b>
+      <div style="margin-top:10px">
+        <div class="skel" style="height:14px;width:40%"></div>
+        <div class="skel" style="height:14px;width:70%;margin-top:8px"></div>
+        <div class="skel" style="height:14px;width:55%;margin-top:8px"></div>
+        <div class="skel" style="height:120px;width:100%;margin-top:10px"></div>
+      </div>
+    </div>
+    <div class="p-card">
+      <b>表格局部刷新</b>
+      <div style="position:relative;margin-top:10px;border:1px solid #eaeef2;border-radius:6px;overflow:hidden">
+        <table class="p-table" style="border:none">
+          <tr><th>名称</th><th>状态</th></tr>
+          <tr><td>采购申请-001</td><td><span class="p-tag blue">审批中</span></td></tr>
+          <tr><td>付款申请-002</td><td><span class="p-tag gray">草稿</span></td></tr>
+        </table>
+        <div style="position:absolute;inset:0;background:rgba(255,255,255,.6);display:flex;align-items:center;justify-content:center">
+          <span class="skel" style="width:60px;height:14px"></span>
+        </div>
+      </div>
+    </div>
+    <div class="p-card">
+      <b>按钮提交 loading</b>
+      <div style="margin-top:12px">
+        <button class="p-btn primary" onclick="simLoading(this)">提交（点我）</button>
+      </div>
+      <div class="proto-hint" style="margin-top:8px">点击后按钮进入 loading，1.5s 后完成（防重复提交）</div>
+    </div>
+  </div>
+</div>
+
+<script src="../_shared/prototype.js"></script>
+<script>
+  // 按钮提交 loading：模拟防重复提交
+  function simLoading(btn) {
+    var t = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = '提交中…';
+    setTimeout(function () {
+      btn.disabled = false;
+      btn.textContent = t;
+      toast('提交成功', 'ok');
+    }, 1500);
+  }
+</script>
+
+</body>
+</html>

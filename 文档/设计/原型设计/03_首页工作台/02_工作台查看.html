@@ -51,7 +51,7 @@
       <div class="t">数据统计</div>
       <div style="display:flex;gap:16px;margin-top:8px">
         <div><div style="font-size:18px;font-weight:700;color:#0969da">¥1.2万</div><div class="proto-hint" style="font-size:11px">本月收款</div></div>
-        <div><div style="font-size:18px;font-weight:700;color:#1a7f37">4</div><div class="proto-hint" style="font-size:11px">待审批</div></div>
+        <div><div style="font-size:18px;font-weight:700;color:#2da44e">4</div><div class="proto-hint" style="font-size:11px">待审批</div></div>
         <div><div style="font-size:18px;font-weight:700;color:#9a6700">2</div><div class="proto-hint" style="font-size:11px">公告</div></div>
       </div>
     </div>
@@ -77,7 +77,7 @@
   document.getElementById('todo-num').textContent = n;
   setInterval(function () {
     n = n >= 9 ? 4 : n + 1;
-    b.textContent = n; b.style.background = n > 6 ? '#cf222e' : '#1a7f37';
+    b.textContent = n; b.style.background = n > 6 ? '#cf222e' : '#2da44e';
     document.getElementById('todo-count').textContent = n + ' 项';
     document.getElementById('todo-num').textContent = n;
   }, 5000);
