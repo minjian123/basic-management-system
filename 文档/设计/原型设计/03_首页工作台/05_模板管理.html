@@ -15,9 +15,12 @@
 
 <div class="proto-frame">
   <div class="p-toolbar">
-    <button class="p-btn primary" onclick="openModal('modal-new')">新建模板</button>
+    <button class="p-btn primary" onclick="openModal('modal-new','新建模板')">新建模板</button>
     <button class="p-btn" onclick="toast('已刷新')">刷新</button>
-    <span class="proto-hint">优先级：个人布局 → 角色模板 → 平台默认（平台默认仅允许一份 40306）</span>
+    <button class="p-btn" onclick="toast('原型演示：关闭当前模块页面（返回）')">关闭</button>
+    <span style="margin-left:auto">
+      <button class="p-btn" onclick="toast('原型演示：导出当前筛选结果')">导出</button>
+    </span>
   </div>
 
   <table class="p-table" id="tbl">
@@ -44,7 +47,7 @@
       </td>
     </tr>
   </table>
-  <div class="p-pager">共 3 条</div>
+  <div class="p-pager">共 3 条 · 1/1 页</div>
 </div>
 
 <!-- 新建模板 -->

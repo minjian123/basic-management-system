@@ -20,13 +20,16 @@
 <div class="proto-frame">
   <div class="p-toolbar">
     <button class="p-btn primary" onclick="openModal('m-edit')">新增</button>
-    <button class="p-btn" onclick="editSel()">修改</button>
-    <button class="p-btn" onclick="delSel()">删除</button>
-    <button class="p-btn" onclick="openModal('m-pwd')">重置密码</button>
-    <button class="p-btn" onclick="openModal('m-role')">角色绑定</button>
-    <button class="p-btn" onclick="toast('原型演示：Excel 批量导入用户')">导入</button>
-    <button class="p-btn" onclick="toast('原型演示：导出当前筛选结果')">导出</button>
     <button class="p-btn" onclick="toast('已刷新')">刷新</button>
+    <button class="p-btn" onclick="toast('原型演示：关闭当前模块页面（返回）')">关闭</button>
+    <button class="p-btn batch-btn" disabled onclick="delSel()">删除</button>
+    <button class="p-btn batch-btn" disabled onclick="openModal('m-pwd')">重置密码</button>
+    <button class="p-btn batch-btn" disabled onclick="openModal('m-role')">角色绑定</button>
+    <span style="margin-left:auto">
+      <button class="p-btn" onclick="toast('原型演示：Excel 批量导入用户')">导入</button>
+      <button class="p-btn" onclick="toast('原型演示：导出当前筛选结果')">导出</button>
+      <span class="proto-hint" style="margin-left:10px">双击行打开用户表单页</span>
+    </span>
   </div>
 
   <div class="p-filter">
@@ -41,15 +44,15 @@
   <table class="p-table" id="tbl">
     <tr><th><input type="checkbox" onclick="selAll(this)"></th><th>用户名</th><th>姓名</th><th>部门</th><th>岗位</th><th>角色</th><th>状态</th><th>最近登录</th><th>操作</th></tr>
     <tr data-id="1">
-      <td><input type="checkbox" class="row-chk"></td><td>zhangsan</td><td>张三</td><td>技术部</td><td>工程师</td><td>普通角色</td><td><span class="p-tag green" data-role="st">启用</span></td><td>2026-08-12 09:30</td>
+      <td><input type="checkbox" class="row-chk" onchange="updBatch()"></td><td>zhangsan</td><td>张三</td><td>技术部</td><td>工程师</td><td>普通角色</td><td><span class="p-tag green" data-role="st">启用</span></td><td>2026-08-12 09:30</td>
       <td class="col-ops"><button class="p-btn sm" onclick="openModal('m-edit')">编辑</button><button class="p-btn sm" onclick="toggleUser(this,'zhangsan')">停用</button><button class="p-btn sm" onclick="openModal('m-pwd')">重置密码</button></td>
     </tr>
     <tr data-id="2">
-      <td><input type="checkbox" class="row-chk"></td><td>lisi</td><td>李四</td><td>财务部</td><td>会计</td><td>普通角色</td><td><span class="p-tag gray" data-role="st">锁定</span></td><td>2026-08-01 18:02</td>
+      <td><input type="checkbox" class="row-chk" onchange="updBatch()"></td><td>lisi</td><td>李四</td><td>财务部</td><td>会计</td><td>普通角色</td><td><span class="p-tag gray" data-role="st">锁定</span></td><td>2026-08-01 18:02</td>
       <td class="col-ops"><button class="p-btn sm" onclick="openModal('m-edit')">编辑</button><button class="p-btn sm primary" onclick="unlockUser(this,'lisi')">解锁</button></td>
     </tr>
     <tr data-id="3">
-      <td><input type="checkbox" class="row-chk"></td><td>wangwu</td><td>王五</td><td>技术部</td><td>测试</td><td>审批角色</td><td><span class="p-tag gray" data-role="st">停用</span></td><td>2026-07-30 11:00</td>
+      <td><input type="checkbox" class="row-chk" onchange="updBatch()"></td><td>wangwu</td><td>王五</td><td>技术部</td><td>测试</td><td>审批角色</td><td><span class="p-tag gray" data-role="st">停用</span></td><td>2026-07-30 11:00</td>
       <td class="col-ops"><button class="p-btn sm" onclick="openModal('m-edit')">编辑</button><button class="p-btn sm" onclick="toggleUser(this,'wangwu')">启用</button></td>
     </tr>
   </table>
@@ -70,7 +73,7 @@
         <div class="p-col p-field"><label>岗位</label><select class="p-select"><option>工程师</option><option>会计</option><option>测试</option></select></div>
       </div>
       <div class="p-row">
-        <div class="p-col p-field"><label>手机号</label><input class="p-input" value="138****5678" disabled><span class="proto-hint">脱敏展示，需 data:plain 权限查看明文</span></div>
+        <div class="p-col p-field"><label>手机号</label><input class="p-input" value="138****5678" disabled></div>
         <div class="p-col p-field"><label>邮箱</label><input class="p-input" value="zhangsan@example.com"></div>
       </div>
       <div class="p-row">
@@ -90,7 +93,6 @@
       <div class="p-field"><label>新密码（8-32 位，含字母数字）</label><input class="p-input" type="password" id="pwd1"></div>
       <div style="height:10px"></div>
       <label style="font-size:13px"><input type="checkbox" id="pwd-force" checked> 强制下次登录改密</label>
-      <div class="proto-hint" style="margin-top:8px">重置后写入密码历史（近 5 次不可重复）并失效全部会话</div>
     </div>
     <div class="pm-foot"><button class="p-btn" onclick="closeModal('m-pwd')">取消</button><button class="p-btn primary" onclick="doResetPwd()">确认重置</button></div>
   </div>
@@ -101,7 +103,7 @@
   <div class="p-modal">
     <div class="pm-head">角色绑定（张三）<span class="x" onclick="closeModal('m-role')">✕</span></div>
     <div class="pm-body">
-      <div class="proto-hint" style="margin-bottom:8px">多选角色（主体链：用户→角色 直挂）</div>
+      <div class="proto-hint" style="margin-bottom:8px">多选角色</div>
       <label style="display:block;padding:6px 0;font-size:13px"><input type="checkbox" checked> 普通角色</label>
       <label style="display:block;padding:6px 0;font-size:13px"><input type="checkbox"> 审批角色</label>
       <label style="display:block;padding:6px 0;font-size:13px"><input type="checkbox"> 报表查看角色</label>
@@ -112,12 +114,14 @@
 
 <script src="../_shared/prototype.js"></script>
 <script>
-  function selAll(cb) { document.querySelectorAll('.row-chk').forEach(function (x) { x.checked = cb.checked; }); }
-  function editSel() {
-    var sel = document.querySelector('.row-chk:checked');
-    if (!sel) { toast('请先选择用户', 'err'); return; }
-    openModal('m-edit'); document.getElementById('e-user').value = sel.closest('tr').children[1].textContent;
-    document.getElementById('e-name').value = sel.closest('tr').children[2].textContent;
+  function selAll(cb) {
+    document.querySelectorAll('.row-chk').forEach(function (x) { x.checked = cb.checked; });
+    updBatch();
+  }
+  // 批量操作按钮组：有选中行时启用（《布局设计-列表页》4.工具栏）
+  function updBatch() {
+    var any = !!document.querySelector('.row-chk:checked');
+    document.querySelectorAll('.batch-btn').forEach(function (b) { b.disabled = !any; });
   }
   function delSel() {
     var sel = document.querySelector('.row-chk:checked');
@@ -147,6 +151,19 @@
     closeModal('m-pwd');
     toast('密码已重置' + (document.getElementById('pwd-force').checked ? '（强制下次改密）' : ''), 'ok');
   }
+  // 双击行打开用户表单页：主框架嵌入时在 FormFrame 内开详情 Tab（回退父级 Tab / 独立跳转）
+  document.querySelectorAll('#tbl tr[data-id]').forEach(function (tr) {
+    tr.style.cursor = 'pointer';
+    tr.addEventListener('dblclick', function () {
+      var id = tr.getAttribute('data-id');
+      var nm = tr.children[2].textContent;
+      if (location.search.indexOf('embed=1') >= 0) {
+        try { parent.openDetail('用户列表', id, nm); return; } catch (e) {}
+        try { parent.openTab('用户表单', '../05_用户管理/03_用户表单页.html'); return; } catch (e) {}
+      }
+      location.href = '03_用户表单页.html?id=' + id + '&name=' + encodeURIComponent(nm);
+    });
+  });
 </script>
 
 </body>

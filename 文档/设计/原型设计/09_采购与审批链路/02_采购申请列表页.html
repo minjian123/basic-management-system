@@ -15,12 +15,15 @@
 
 <div class="proto-frame">
   <div class="p-toolbar">
-    <button class="p-btn primary" onclick="toast('原型演示：跳转「采购申请表单页」')">新增</button>
-    <button class="p-btn" onclick="submitSel()">提交审批</button>
-    <button class="p-btn" onclick="toast('原型演示：跳转表单页编辑')">修改</button>
-    <button class="p-btn" onclick="delSel()">删除</button>
+    <button class="p-btn primary" onclick="toast('原型演示：跳转「采购申请表单页」（新增态）')">新增</button>
     <button class="p-btn" onclick="toast('已刷新')">刷新</button>
-    <span class="proto-hint" style="margin-left:auto">提交审批带幂等键，防重复启动流程</span>
+    <button class="p-btn" onclick="toast('原型演示：关闭当前模块页面（返回）')">关闭</button>
+    <button class="p-btn batch-btn" disabled onclick="submitSel()">提交审批</button>
+    <button class="p-btn batch-btn" disabled onclick="delSel()">删除</button>
+    <span style="margin-left:auto">
+      <button class="p-btn" onclick="toast('原型演示：导出当前筛选结果')">导出</button>
+      <span class="proto-hint" style="margin-left:10px">双击行打开申请表单页</span>
+    </span>
   </div>
 
   <div class="p-filter">
@@ -38,19 +41,19 @@
   <table class="p-table" id="tbl">
     <tr><th><input type="checkbox" onclick="selAll(this)"></th><th>单号</th><th>标题</th><th>金额</th><th>申请人</th><th>状态</th><th>提交时间</th><th>操作</th></tr>
     <tr data-id="CG202608001">
-      <td><input type="checkbox" class="row-chk"></td><td>CG202608001</td><td>采购笔记本电脑×5</td><td>¥35,000</td><td>张三</td><td><span class="p-tag blue" data-role="st">审批中</span></td><td>2026-08-12 09:30</td>
+      <td><input type="checkbox" class="row-chk" onchange="updBatch()"></td><td>CG202608001</td><td>采购笔记本电脑×5</td><td>¥35,000</td><td>张三</td><td><span class="p-tag blue" data-role="st">审批中</span></td><td>2026-08-12 09:30</td>
       <td class="col-ops"><button class="p-btn sm" onclick="toast('原型演示：跳转「采购申请表单页」')">查看</button><button class="p-btn sm" onclick="openModal('m-progress')">进度</button></td>
     </tr>
     <tr data-id="CG202608002">
-      <td><input type="checkbox" class="row-chk"></td><td>CG202608002</td><td>采购办公桌×10</td><td>¥18,000</td><td>李四</td><td><span class="p-tag gray" data-role="st">草稿</span></td><td>—</td>
+      <td><input type="checkbox" class="row-chk" onchange="updBatch()"></td><td>CG202608002</td><td>采购办公桌×10</td><td>¥18,000</td><td>李四</td><td><span class="p-tag gray" data-role="st">草稿</span></td><td>—</td>
       <td class="col-ops"><button class="p-btn sm" onclick="toast('原型演示：跳转「采购申请表单页」')">编辑</button><button class="p-btn sm primary" onclick="submitSel()">提交</button></td>
     </tr>
     <tr data-id="CG202608003">
-      <td><input type="checkbox" class="row-chk"></td><td>CG202608003</td><td>采购显示器×8</td><td>¥12,000</td><td>张三</td><td><span class="p-tag green" data-role="st">已通过</span></td><td>2026-08-10 14:00</td>
+      <td><input type="checkbox" class="row-chk" onchange="updBatch()"></td><td>CG202608003</td><td>采购显示器×8</td><td>¥12,000</td><td>张三</td><td><span class="p-tag green" data-role="st">已通过</span></td><td>2026-08-10 14:00</td>
       <td class="col-ops"><button class="p-btn sm" onclick="toast('原型演示：跳转表单页查看')">查看</button></td>
     </tr>
     <tr data-id="CG202608004">
-      <td><input type="checkbox" class="row-chk"></td><td>CG202608004</td><td>采购会议桌椅×4</td><td>¥9,600</td><td>王五</td><td><span class="p-tag red" data-role="st">已驳回</span></td><td>2026-08-09 11:20</td>
+      <td><input type="checkbox" class="row-chk" onchange="updBatch()"></td><td>CG202608004</td><td>采购会议桌椅×4</td><td>¥9,600</td><td>王五</td><td><span class="p-tag red" data-role="st">已驳回</span></td><td>2026-08-09 11:20</td>
       <td class="col-ops"><button class="p-btn sm" onclick="toast('原型演示：跳转表单页修改后重新提交')">修改重提</button></td>
     </tr>
   </table>
@@ -66,7 +69,6 @@
       <div style="padding:6px 0"><span class="p-tag blue">● 审批中</span> 部门经理（当前节点）· 待处理</div>
       <div style="padding:6px 0"><span class="p-tag gray">○ 待处理</span> 财务</div>
       <div style="padding:6px 0"><span class="p-tag gray">○ 待处理</span> 分管领导</div>
-      <div class="proto-hint" style="margin-top:8px">三级审批：部门经理 → 财务 → 分管领导（初始种子流程）</div>
     </div>
     <div class="pm-foot"><button class="p-btn" onclick="closeModal('m-progress')">关闭</button></div>
   </div>
@@ -74,7 +76,15 @@
 
 <script src="../_shared/prototype.js"></script>
 <script>
-  function selAll(cb) { document.querySelectorAll('.row-chk').forEach(function (x) { x.checked = cb.checked; }); }
+  function selAll(cb) {
+    document.querySelectorAll('.row-chk').forEach(function (x) { x.checked = cb.checked; });
+    updBatch();
+  }
+  // 批量操作按钮组：有选中行时启用（《布局设计-列表页》4.工具栏）
+  function updBatch() {
+    var any = !!document.querySelector('.row-chk:checked');
+    document.querySelectorAll('.batch-btn').forEach(function (b) { b.disabled = !any; });
+  }
   function submitSel() {
     var sel = document.querySelector('.row-chk:checked');
     if (!sel) { toast('请先选择申请单', 'err'); return; }
@@ -91,6 +101,19 @@
     if (!sel) { toast('请先选择申请单', 'err'); return; }
     confirmAction('删除选中的申请单（仅草稿可删）？', function () { sel.closest('tr').remove(); toast('已删除', 'ok'); });
   }
+  // 双击行打开申请表单页：主框架嵌入时在 FormFrame 内开详情 Tab（回退父级 Tab / 独立跳转）
+  document.querySelectorAll('#tbl tr[data-id]').forEach(function (tr) {
+    tr.style.cursor = 'pointer';
+    tr.addEventListener('dblclick', function () {
+      var id = tr.getAttribute('data-id');
+      var nm = tr.children[2].textContent;
+      if (location.search.indexOf('embed=1') >= 0) {
+        try { parent.openDetail('采购申请列表', id, nm); return; } catch (e) {}
+        try { parent.openTab('采购申请表单', '../09_采购与审批链路/03_采购申请表单页.html'); return; } catch (e) {}
+      }
+      location.href = '03_采购申请表单页.html?id=' + id + '&name=' + encodeURIComponent(nm);
+    });
+  });
 </script>
 
 </body>

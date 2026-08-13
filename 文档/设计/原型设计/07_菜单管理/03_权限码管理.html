@@ -21,9 +21,12 @@
 
   <div id="pane-biz">
     <div class="p-toolbar">
-      <button class="p-btn primary" onclick="openModal('m-biz')">新增业务码</button>
+      <button class="p-btn primary" onclick="openModal('m-biz','新增业务码')">新增业务码</button>
       <button class="p-btn" onclick="toast('已刷新')">刷新</button>
-      <span class="proto-hint">平台统一维护；租户侧可见、可分配、不可增删（40004 拦截）</span>
+      <button class="p-btn" onclick="toast('原型演示：关闭当前模块页面（返回）')">关闭</button>
+      <span style="margin-left:auto">
+        <button class="p-btn" onclick="toast('原型演示：导出当前筛选结果')">导出</button>
+      </span>
     </div>
     <table class="p-table">
       <tr><th>业务码</th><th>说明</th><th>默认归属</th><th>操作</th></tr>
@@ -33,12 +36,17 @@
       <tr><td>wf</td><td>工作流（定义/审批/查询）</td><td>普通角色</td><td class="col-ops"><button class="p-btn sm" onclick="toast('平台码编辑（租户视角被拦截演示）','err')">编辑</button></td></tr>
       <tr><td>purchase</td><td>采购申请/订单/供应商</td><td>普通角色</td><td class="col-ops"><button class="p-btn sm" onclick="toast('平台码编辑（租户视角被拦截演示）','err')">编辑</button></td></tr>
     </table>
+    <div class="p-pager">共 5 条 · 1/1 页</div>
   </div>
 
   <div id="pane-act" style="display:none">
     <div class="p-toolbar">
-      <button class="p-btn primary" onclick="openModal('m-act')">新增动作码</button>
+      <button class="p-btn primary" onclick="openModal('m-act','新增动作码')">新增动作码</button>
       <button class="p-btn" onclick="toast('已刷新')">刷新</button>
+      <button class="p-btn" onclick="toast('原型演示：关闭当前模块页面（返回）')">关闭</button>
+      <span style="margin-left:auto">
+        <button class="p-btn" onclick="toast('原型演示：导出当前筛选结果')">导出</button>
+      </span>
     </div>
     <table class="p-table">
       <tr><th>动作码</th><th>归属业务</th><th>典型权限码</th><th>操作</th></tr>
@@ -47,6 +55,7 @@
       <tr><td>approve</td><td>wf</td><td>wf:approve</td><td class="col-ops"><button class="p-btn sm" onclick="toast('平台码编辑（租户视角被拦截演示）','err')">编辑</button></td></tr>
       <tr><td>manage</td><td>dashboard / formdesign</td><td>dashboard:manage、formdesign:manage</td><td class="col-ops"><button class="p-btn sm" onclick="toast('平台码编辑（租户视角被拦截演示）','err')">编辑</button></td></tr>
     </table>
+    <div class="p-pager">共 4 条 · 1/1 页</div>
   </div>
 </div>
 

@@ -24,7 +24,7 @@
       <button class="p-btn" onclick="readAll()">全部已读</button>
       <button class="p-btn" onclick="readSel()">批量已读</button>
       <button class="p-btn" onclick="toast('已刷新')">刷新</button>
-      <span class="proto-hint" style="margin-left:auto">未读置顶 · Socket.IO 实时到达</span>
+      <button class="p-btn" onclick="toast('原型演示：关闭当前模块页面（返回）')">关闭</button>
     </div>
     <table class="p-table" id="nt">
       <tr><th><input type="checkbox" onclick="selAll(this)"></th><th>标题</th><th>类型</th><th>时间</th><th>状态</th><th>操作</th></tr>
@@ -41,13 +41,14 @@
         <td><span class="p-tag gray" data-role="st">已读</span></td><td><span class="proto-hint">—</span></td>
       </tr>
     </table>
-    <div class="proto-hint" style="margin-top:8px">点击未读条目跳转对应单据（审批/详情）；批量已读后角标归零</div>
+    <div class="p-pager">共 3 条 · 1/1 页</div>
   </div>
 
   <div id="pane-notice" style="display:none">
     <div class="p-toolbar">
       <button class="p-btn primary" onclick="toast('原型演示：跳转公告编辑')">发布公告</button>
-      <span class="proto-hint" style="margin-left:auto">全员公告 · 置顶/过期自动下线</span>
+      <button class="p-btn" onclick="toast('已刷新')">刷新</button>
+      <button class="p-btn" onclick="toast('原型演示：关闭当前模块页面（返回）')">关闭</button>
     </div>
     <div style="background:#fff;border:1px solid #d0d7de;border-radius:8px;padding:4px 14px">
       <div style="padding:10px 0;border-bottom:1px solid #eaeef2;cursor:pointer" onclick="openModal('m-detail')">

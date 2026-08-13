@@ -23,7 +23,7 @@
 </div>
 
 <div class="proto-frame">
-  <div class="proto-note">FormFrame：表单 Tab 页栏 + 内容栏。体验：① 双击列表行打开表单 Tab（只读）② 点「新增」开新表单 Tab（编辑态）③ 「修改」切换编辑态、「保存」回填并刷新列表 ④ 修改未保存时切换/关闭 Tab 触发脏数据确认。</div>
+  <div class="proto-note">FormFrame：表单 Tab 页栏 + 内容栏。体验：① 双击列表行打开表单 Tab（只读）② 点「新增」开新表单 Tab（编辑态）③ 「修改」切换编辑态、「保存」回填并刷新列表 ④ 修改未保存时切换/关闭 Tab 触发脏数据确认。工具栏分开：列表工具栏（新增/刷新/关闭/导出）在列表页内，表单工具栏（修改/删除/刷新/关闭，编辑态「修改」变「保存」）在表单页内。</div>
 
   <div class="ff-tabs" id="ff-tabs">
     <div class="ff-tab active lock" data-kind="list">列表</div>
@@ -35,7 +35,10 @@
       <div class="p-toolbar" style="border:none;border-radius:0;margin:0;padding:10px 12px">
         <button class="p-btn primary" onclick="newRecord()">新增</button>
         <button class="p-btn" onclick="toast('已刷新列表','ok')">刷新</button>
-        <button class="p-btn" onclick="toast('工具栏按钮按动作权限码显隐（v-perm）','err')">删除（演示无权限置灰）</button>
+        <button class="p-btn" onclick="toast('原型演示：关闭当前模块页面（返回）')">关闭</button>
+        <span style="margin-left:auto">
+          <button class="p-btn" onclick="toast('原型演示：导出当前筛选结果')">导出</button>
+        </span>
       </div>
       <div class="p-filter" style="border:none;border-radius:0;margin:0;border-top:1px solid #eaeef2">
         <label>名称</label><input class="p-input" style="width:120px">

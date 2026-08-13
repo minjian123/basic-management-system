@@ -52,14 +52,12 @@
             </ul>
           </li>
         </ul>
-        <div class="proto-hint" style="margin-top:6px">勾选菜单即隐含对应表单/业务权限（菜单→表单→业务推导）</div>
       </div>
       <div class="perm-right">
         <b style="font-size:13px">已授予业务权限</b>
         <div style="margin-top:8px">
           <span class="p-tag blue">user</span> <span class="p-tag blue">role</span> <span class="p-tag blue">wf</span> <span class="p-tag blue">purchase</span> <span class="p-tag gray">dashboard</span> <span class="p-tag gray">notice</span>
         </div>
-        <div class="proto-hint" style="margin-top:10px">业务权限由「表单→业务」对照推导，界面不可直接授予</div>
       </div>
     </div>
   </div>
@@ -67,7 +65,6 @@
   <!-- 按钮权限 -->
   <div id="pane-btn" style="display:none">
     <div class="p-form">
-      <div class="proto-hint" style="margin-bottom:8px">按钮权限默认无，按动作勾选授予（按钮 1:1 挂动作）</div>
       <table class="p-table">
         <tr><th>表单</th><th>按钮（挂动作）</th><th>授予</th></tr>
         <tr><td>用户管理</td><td>查询 user:query</td><td><input type="checkbox" checked></td></tr>
@@ -82,20 +79,18 @@
   <!-- 数据范围 -->
   <div id="pane-scope" style="display:none">
     <div class="p-form">
-      <div class="proto-hint" style="margin-bottom:10px">动作级数据范围（默认无任何数据权限）</div>
+      <div class="proto-hint" style="margin-bottom:10px">动作级数据范围</div>
       <table class="p-table">
         <tr><th>动作</th><th>数据范围</th></tr>
         <tr><td>用户管理 · 查询</td><td><select class="p-select" style="width:auto"><option>全部数据</option><option>本部门及以下</option><option>仅本人</option><option selected>自定义表达式</option></select></td></tr>
         <tr><td>采购申请 · 查询</td><td><select class="p-select" style="width:auto"><option>全部数据</option><option selected>本部门及以下</option><option>仅本人</option><option>自定义表达式</option></select></td></tr>
       </table>
-      <div class="proto-hint" style="margin-top:8px">自定义表达式：字段 + 运算符 + 预置变量（如 dept_id in 当前部门及子部门）</div>
     </div>
   </div>
 
   <!-- 字段权限 -->
   <div id="pane-field" style="display:none">
     <div class="p-form">
-      <div class="proto-hint" style="margin-bottom:8px">字段权限（角色 × 表单）：默认全部可见可编辑，授予后收窄；与表单定制布局叠加、权限优先</div>
       <table class="p-table">
         <tr><th>字段</th><th>可见</th><th>可编辑</th></tr>
         <tr><td>用户名</td><td><input type="checkbox" checked></td><td><input type="checkbox" checked></td></tr>

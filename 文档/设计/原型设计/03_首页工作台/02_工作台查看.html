@@ -11,7 +11,6 @@
   .wb-card:hover { box-shadow: 0 2px 8px rgba(31,35,40,.08); }
   .wb-card .t { display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-size: 14px; margin-bottom: 6px; }
   .wb-wide { grid-column: span 4; }
-  .bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
   .quick { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
   .quick .q { background: #ddf4ff; border-radius: 6px; padding: 6px; text-align: center; color: #0969da; font-size: 12px; cursor: pointer; }
   .quick .q:hover { background: #b6e3ff; }
@@ -26,11 +25,6 @@
 </div>
 
 <div class="proto-frame">
-  <div class="bar">
-    <span class="proto-hint">Tab：工作台（固定）｜ 三级回退：个人布局 → 角色模板 → 平台默认</span>
-    <button class="p-btn primary" onclick="location.href='03_工作台编辑.html'">定制 ✎</button>
-  </div>
-
   <div class="wb" id="wb">
     <div class="wb-card" onclick="toast('原型演示：跳转「我的待办」')">
       <div class="t">待办 <span class="p-tag gray" id="todo-count">4 项</span></div>

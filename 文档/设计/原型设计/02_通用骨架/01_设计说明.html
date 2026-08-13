@@ -27,8 +27,9 @@
         <li><a href="#overview">1. 模块概述</a></li>
         <li><a href="#pages">2. 界面清单</a></li>
         <li><a href="#interact">3. 交互要点</a></li>
-        <li><a href="#reference">4. 设计依据</a></li>
-        <li><a href="#iter">5. 迭代记录</a></li>
+        <li><a href="#chain">4. 主框架 ↔ 表单框架 联动链路</a></li>
+        <li><a href="#reference">5. 设计依据</a></li>
+        <li><a href="#iter">6. 迭代记录</a></li>
       </ul>
     </nav>
   </aside>
@@ -60,17 +61,28 @@
         <li>个人中心：改密复杂度实时校验；偏好保存即 Toast 确认（模拟跨端同步）</li>
       </ul>
 
-      <h2 id="reference">4. 设计依据</h2>
+      <h2 id="chain">4. 主框架 ↔ 表单框架 联动链路</h2>
+      <p>实体模块（用户管理、采购申请等）在内容区以表单框架（FormFrame）形态承载，形成「页面级 Tab → FormFrame 层 Tab」两级嵌套：</p>
+      <ol>
+        <li><strong>主框架</strong>：点击侧边菜单叶子（如「用户列表」）→ 打开页面级 Tab，内容区加载对应实体页面（FormFrame 外壳）</li>
+        <li><strong>表单框架 · 列表</strong>：FormFrame 顶部「列表」Tab 固定不可关，承载该实体的列表页；列表页为独立组件，仅通过约定事件与框架交互</li>
+        <li><strong>双击明细行</strong>：双击列表数据行 → 在 FormFrame 内打开对应记录的<strong>表单页</strong>（详情 Tab），标题取记录标识字段，表单回填该行数据（主框架内打开时经 <code>openDetail</code> 回调，独立打开时直接跳转并带参）</li>
+        <li><strong>详情 Tab（多开）</strong>：<strong>不同记录各自新开一个详情 Tab</strong>（可同时打开多条记录，每个 Tab 为独立表单实例、切换保留状态）；<strong>已打开的记录再次双击则激活对应 Tab，不重复新建</strong>；默认只读，可点「修改」进入编辑态；关闭详情 Tab 后激活其左侧相邻 Tab，无详情 Tab 时回到列表 Tab（列表 Tab 不可关）</li>
+      </ol>
+      <div class="note"><strong>工具栏分开</strong>：列表页工具栏（新增/刷新/关闭等）与表单页工具栏（修改/保存/删除/刷新/关闭，编辑态「修改」变「保存」）为两处独立工具栏，分别承载于列表页、表单页组件内部（见《布局设计-表单框架》第 4 节）；FormFrame 层不提供统一工具栏。</div>
+
+      <h2 id="reference">5. 设计依据</h2>
       <ul>
         <li>布局：<a href="../../布局设计/03_布局设计_主框架.html">《布局设计-主框架》</a>、<a href="../../布局设计/04_布局设计_导航.html">《布局设计-导航》</a></li>
         <li>概要：<a href="../../概要设计/03_概要设计_用户喜好.html">《概要设计-用户喜好》</a>（偏好存储与跨端同步）</li>
         <li>安全：登录限流/验证码/密码策略见《概要设计-认证与安全》</li>
       </ul>
 
-      <h2 id="iter">5. 迭代记录</h2>
+      <h2 id="iter">6. 迭代记录</h2>
       <table>
         <tr><th>日期</th><th>变更</th><th>状态</th></tr>
         <tr><td>2026-08-13</td><td>初版：登录/主框架/个人中心可交互原型</td><td>待评审</td></tr>
+        <tr><td>2026-08-13</td><td>主框架内容区套 FormFrame 外壳（用户列表/采购申请列表），双击行开对应记录表单 Tab，联动链路见第 4 节</td><td>待评审</td></tr>
       </table>
 
     </main>

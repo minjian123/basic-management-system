@@ -15,9 +15,12 @@
 
 <div class="proto-frame">
   <div class="p-toolbar">
-    <button class="p-btn primary" onclick="openModal('modal-new')">新建数据集卡</button>
+    <button class="p-btn primary" onclick="openModal('modal-new','新建数据集卡')">新建数据集卡</button>
     <button class="p-btn" onclick="toast('已刷新')">刷新</button>
-    <span class="proto-hint">builtin 卡仅可停用/启用（40308 拦截编辑定义）；dataset 卡可编辑/删除</span>
+    <button class="p-btn" onclick="toast('原型演示：关闭当前模块页面（返回）')">关闭</button>
+    <span style="margin-left:auto">
+      <button class="p-btn" onclick="toast('原型演示：导出当前筛选结果')">导出</button>
+    </span>
   </div>
 
   <div class="p-filter">
@@ -42,7 +45,7 @@
     <tr data-id="stats_flow">
       <td>stats_flow</td><td>收付款趋势</td><td><span class="p-tag gray">dataset</span></td><td>数据集 flow_month</td><td>12×4</td><td><span class="p-tag green" data-role="st">启用</span></td>
       <td class="col-ops">
-        <button class="p-btn sm" onclick="openModal('modal-new')">编辑</button>
+        <button class="p-btn sm" onclick="openModal('modal-new','编辑数据集卡')">编辑</button>
         <button class="p-btn sm" onclick="toggleCard(this,'收付款趋势')">停用</button>
         <button class="p-btn sm danger" onclick="delCard(this,'收付款趋势')">删除</button>
       </td>

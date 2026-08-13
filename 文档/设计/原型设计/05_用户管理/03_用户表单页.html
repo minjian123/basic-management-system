@@ -21,33 +21,35 @@
 
   <div id="pane-info">
     <div class="p-form">
+      <div class="p-toolbar" style="border:none;border-radius:0;padding:0 0 10px;margin-bottom:12px;border-bottom:1px solid #eaeef2">
+        <button class="p-btn" id="btn-edit" onclick="editForm()">修改</button>
+        <button class="p-btn danger" onclick="confirmAction('确认删除该用户（软删除）？',function(){toast('已删除','ok')})">删除</button>
+        <button class="p-btn" onclick="toast('已重新加载当前记录')">刷新</button>
+        <button class="p-btn" onclick="toast('已关闭')">关闭</button>
+        <button class="p-btn primary" id="btn-save" style="display:none" onclick="saveForm()">保存</button>
+      </div>
       <div class="p-section">基本信息</div>
       <div class="p-row">
-        <div class="p-col p-field"><label>用户名 <span class="req">*</span></label><input class="p-input" value="zhangsan"></div>
-        <div class="p-col p-field"><label>姓名 <span class="req">*</span></label><input class="p-input" value="张三"></div>
+        <div class="p-col p-field"><label>用户名 <span class="req">*</span></label><input class="p-input" value="zhangsan" disabled></div>
+        <div class="p-col p-field"><label>姓名 <span class="req">*</span></label><input class="p-input" value="张三" disabled></div>
       </div>
       <div class="p-row">
-        <div class="p-col p-field"><label>部门</label><select class="p-select"><option>技术部</option><option>财务部</option></select></div>
-        <div class="p-col p-field"><label>岗位</label><select class="p-select"><option>工程师</option><option>会计</option></select></div>
+        <div class="p-col p-field"><label>部门</label><select class="p-select" disabled><option>技术部</option><option>财务部</option></select></div>
+        <div class="p-col p-field"><label>岗位</label><select class="p-select" disabled><option>工程师</option><option>会计</option></select></div>
       </div>
       <div class="p-row">
         <div class="p-col p-field"><label>手机号</label><span class="p-input" style="display:flex;justify-content:space-between">138****5678 <a href="#" onclick="toast('需 data:plain 权限码方可查看明文','err');return false">☝ 明文</a></span></div>
-        <div class="p-col p-field"><label>邮箱</label><input class="p-input" value="zhangsan@example.com"></div>
+        <div class="p-col p-field"><label>邮箱</label><input class="p-input" value="zhangsan@example.com" disabled></div>
       </div>
       <div class="p-section">角色与状态</div>
       <div class="p-row">
         <div class="p-col p-field"><label>角色绑定</label>
           <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
             <span class="p-tag blue">普通角色</span>
-            <button class="p-btn sm" onclick="openModal('m-role')">✚ 绑定</button>
+            <button class="p-btn sm" id="btn-bind" disabled onclick="openModal('m-role')">✚ 绑定</button>
           </div>
         </div>
-        <div class="p-col p-field"><label>状态</label><select class="p-select"><option>启用</option><option>停用</option></select></div>
-      </div>
-      <div class="p-form-actions">
-        <button class="p-btn" onclick="toast('已关闭')">关闭</button>
-        <button class="p-btn danger" onclick="confirmAction('确认删除该用户（软删除）？',function(){toast('已删除','ok')})">删除</button>
-        <button class="p-btn primary" onclick="saveForm()">保存</button>
+        <div class="p-col p-field"><label>状态</label><select class="p-select" disabled><option>启用</option><option>停用</option></select></div>
       </div>
     </div>
   </div>
@@ -86,7 +88,29 @@
     document.getElementById('pane-info').style.display = name === 'info' ? '' : 'none';
     document.getElementById('pane-sys').style.display = name === 'sys' ? '' : 'none';
   }
-  function saveForm() { toast('保存成功（乐观锁 version 校验）', 'ok'); }
+  // 表单页工具栏分态（《布局设计-表单页》）：只读态 修改/删除/刷新/关闭 ↔ 编辑态 保存/关闭
+  function setFormEditable(on) {
+    document.getElementById('btn-edit').style.display = on ? 'none' : '';
+    document.getElementById('btn-save').style.display = on ? '' : 'none';
+    document.getElementById('btn-bind').disabled = !on;
+    document.querySelectorAll('#pane-info input, #pane-info select').forEach(function (el) { el.disabled = !on; });
+  }
+  function editForm() { setFormEditable(true); toast('已进入编辑态（字段启用）'); }
+  function saveForm() { setFormEditable(false); toast('保存成功（乐观锁 version 校验）', 'ok'); }
+  // 由列表页双击打开时（?id=&name=）回填显示
+  (function () {
+    function qp(k) { var m = location.search.match(new RegExp('[?&]' + k + '=([^&]*)')); return m ? decodeURIComponent(m[1]) : null; }
+    var id = qp('id'), name = qp('name');
+    if (name) {
+      var inputs = document.querySelectorAll('#pane-info .p-input');
+      if (inputs[0]) inputs[0].value = name.toLowerCase();
+      if (inputs[1]) inputs[1].value = name;
+    }
+    if (id) {
+      var sys = document.querySelectorAll('#pane-sys .p-input');
+      if (sys[0]) sys[0].value = id;
+    }
+  })();
 </script>
 
 </body>

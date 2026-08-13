@@ -32,7 +32,7 @@
 <div class="proto-frame">
   <div class="ed-top">
     <span class="p-tag blue">编辑态</span>
-    <span class="proto-hint">当前层级：个人布局（回退链：角色模板 → 平台默认）</span>
+    <span class="proto-hint">当前层级：个人布局</span>
     <span style="margin-left:auto">
       <button class="p-btn" onclick="resetConfirm()">恢复默认</button>
       <button class="p-btn" onclick="location.href='02_工作台查看.html'">取消</button>
@@ -43,7 +43,7 @@
   <div class="wb" id="wb">
     <div class="wb-card" data-id="todo">
       <div class="hd">待办 <span class="ops"><span onclick="moveUp(this)">↑</span><span onclick="moveDown(this)">↓</span><span onclick="hideCard(this)">✕ 隐藏</span></span></div>
-      <div class="proto-hint" style="font-size:12px">拖拽手柄示意（gridstack）· 数据渲染同查看态</div>
+      <div class="proto-hint" style="font-size:12px">待办 4 · 已办 12</div>
     </div>
     <div class="wb-card" data-id="notice">
       <div class="hd">通知 <span class="ops"><span onclick="moveUp(this)">↑</span><span onclick="moveDown(this)">↓</span><span onclick="hideCard(this)">✕ 隐藏</span></span></div>
@@ -77,14 +77,14 @@
     <div class="p-modal">
       <div class="pm-head">添加卡片<span class="x" onclick="closeModal('modal-add')">✕</span></div>
       <div class="pm-body">
-        <div class="proto-hint" style="margin-bottom:8px">已注册卡片（builtin）</div>
+        <div class="proto-hint" style="margin-bottom:8px">已注册卡片</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
           <button class="p-btn ghost" onclick="addBuiltin('announce')">＋ 公告</button>
           <button class="p-btn ghost" onclick="addBuiltin('help')">＋ 帮助入口</button>
           <button class="p-btn ghost" onclick="addBuiltin('notice')">＋ 通知</button>
           <button class="p-btn ghost" onclick="addBuiltin('todo')">＋ 待办/已办</button>
         </div>
-        <div class="proto-hint" style="margin:12px 0 8px">自建图表卡（dataset · 需报表中心）</div>
+        <div class="proto-hint" style="margin:12px 0 8px">自建图表卡（需报表中心）</div>
         <button class="p-btn ghost" onclick="chartFlow()">＋ 新建图表卡（选数据集）</button>
       </div>
       <div class="pm-foot"><button class="p-btn" onclick="closeModal('modal-add')">关闭</button></div>
@@ -153,7 +153,7 @@
     var wb = document.getElementById('wb'), drop = wb.querySelector('.drag-zone');
     var d = document.createElement('div');
     d.className = 'wb-card wb-wide';
-    d.innerHTML = '<div class="hd">新图表卡 <span class="ops"><span onclick="moveUp(this)">↑</span><span onclick="moveDown(this)">↓</span><span onclick="hideCard(this)">✕ 隐藏</span></span></div><div class="proto-hint" style="font-size:12px">数据集图表卡（原型演示新增）· ECharts 渲染</div>';
+    d.innerHTML = '<div class="hd">新图表卡 <span class="ops"><span onclick="moveUp(this)">↑</span><span onclick="moveDown(this)">↓</span><span onclick="hideCard(this)">✕ 隐藏</span></span></div><div class="proto-hint" style="font-size:12px">数据集图表卡</div>';
     wb.insertBefore(d, drop);
     toast('图表卡已添加', 'ok');
   }

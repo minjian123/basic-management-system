@@ -20,30 +20,40 @@
 
 <div class="proto-frame">
   <div class="p-toolbar">
-    <button class="p-btn primary" onclick="openModal('m-edit')">新增</button>
-    <button class="p-btn" onclick="editSel()">修改</button>
-    <button class="p-btn" onclick="delSel()">删除</button>
-    <button class="p-btn" onclick="openModal('m-bind')">主体绑定</button>
-    <button class="p-btn" onclick="toast('原型演示：跳转「权限配置」界面')">权限配置</button>
+    <button class="p-btn primary" onclick="openModal('m-edit','新增角色')">新增</button>
     <button class="p-btn" onclick="toast('已刷新')">刷新</button>
+    <button class="p-btn" onclick="toast('原型演示：关闭当前模块页面（返回）')">关闭</button>
+    <button class="p-btn batch-btn" disabled onclick="delSel()">删除</button>
+    <button class="p-btn batch-btn" disabled onclick="openModal('m-bind','主体绑定')">主体绑定</button>
+    <span style="margin-left:auto">
+      <button class="p-btn" onclick="toast('原型演示：导出当前筛选结果')">导出</button>
+    </span>
+  </div>
+
+  <div class="p-filter">
+    <label>角色码</label><input class="p-input" style="width:130px">
+    <label>名称</label><input class="p-input" style="width:130px">
+    <label>状态</label><select class="p-select" style="width:auto"><option>全部</option><option>启用</option><option>停用</option></select>
+    <button class="p-btn sm">查询</button>
+    <button class="p-btn sm">重置</button>
   </div>
 
   <table class="p-table" id="tbl">
     <tr><th><input type="checkbox" onclick="selAll(this)"></th><th>角色码</th><th>名称</th><th>主体数</th><th>状态</th><th>操作</th></tr>
     <tr data-id="1">
-      <td><input type="checkbox" class="row-chk"></td><td>admin</td><td>系统管理员</td><td>2</td><td><span class="p-tag green">启用</span></td>
-      <td class="col-ops"><button class="p-btn sm" onclick="openModal('m-edit')">编辑</button><button class="p-btn sm" onclick="openModal('m-bind')">绑定</button><button class="p-btn sm" onclick="location.href='03_权限配置.html'">权限</button></td>
+      <td><input type="checkbox" class="row-chk" onchange="updBatch()"></td><td>admin</td><td>系统管理员</td><td>2</td><td><span class="p-tag green">启用</span></td>
+      <td class="col-ops"><button class="p-btn sm" onclick="openModal('m-edit','编辑角色')">编辑</button><button class="p-btn sm" onclick="openModal('m-bind','主体绑定')">绑定</button><button class="p-btn sm" onclick="location.href='03_权限配置.html'">权限</button></td>
     </tr>
     <tr data-id="2">
-      <td><input type="checkbox" class="row-chk"></td><td>secadmin</td><td>安全管理员</td><td>1</td><td><span class="p-tag green">启用</span></td>
-      <td class="col-ops"><button class="p-btn sm" onclick="openModal('m-edit')">编辑</button><button class="p-btn sm" onclick="openModal('m-bind')">绑定</button><button class="p-btn sm" onclick="location.href='03_权限配置.html'">权限</button></td>
+      <td><input type="checkbox" class="row-chk" onchange="updBatch()"></td><td>secadmin</td><td>安全管理员</td><td>1</td><td><span class="p-tag green">启用</span></td>
+      <td class="col-ops"><button class="p-btn sm" onclick="openModal('m-edit','编辑角色')">编辑</button><button class="p-btn sm" onclick="openModal('m-bind','主体绑定')">绑定</button><button class="p-btn sm" onclick="location.href='03_权限配置.html'">权限</button></td>
     </tr>
     <tr data-id="3">
-      <td><input type="checkbox" class="row-chk"></td><td>role_user</td><td>普通角色</td><td>45</td><td><span class="p-tag green">启用</span></td>
-      <td class="col-ops"><button class="p-btn sm" onclick="openModal('m-edit')">编辑</button><button class="p-btn sm" onclick="openModal('m-bind')">绑定</button><button class="p-btn sm" onclick="location.href='03_权限配置.html'">权限</button></td>
+      <td><input type="checkbox" class="row-chk" onchange="updBatch()"></td><td>role_user</td><td>普通角色</td><td>45</td><td><span class="p-tag green">启用</span></td>
+      <td class="col-ops"><button class="p-btn sm" onclick="openModal('m-edit','编辑角色')">编辑</button><button class="p-btn sm" onclick="openModal('m-bind','主体绑定')">绑定</button><button class="p-btn sm" onclick="location.href='03_权限配置.html'">权限</button></td>
     </tr>
   </table>
-  <div class="proto-note">三权分立：系统管理员 / 安全管理员 / 审计管理员权限互斥，同一用户不得兼任——保存绑定时校验并阻断（原型验证点）</div>
+  <div class="p-pager">共 3 条 · 1/1 页</div>
 </div>
 
 <!-- 新增/编辑 -->
@@ -74,7 +84,7 @@
         <div class="tab-mini" data-p="d" onclick="switchB(this,'d')">部门</div>
       </div>
       <div id="pane-u">
-        <div class="proto-hint" style="margin-bottom:6px">勾选用户（用户→角色 直挂）</div>
+        <div class="proto-hint" style="margin-bottom:6px">勾选用户</div>
         <table class="p-table">
           <tr><th>☐</th><th>用户名</th><th>姓名</th><th>部门</th></tr>
           <tr><td><input type="checkbox" checked></td><td>zhangsan</td><td>张三</td><td>技术部</td></tr>
@@ -96,7 +106,6 @@
           <tr><td><input type="checkbox"></td><td>财务部</td><td>8</td></tr>
         </table>
       </div>
-      <div class="proto-hint" style="margin-top:8px">主体链任意组合，权限收敛为 用户→角色 并集去重</div>
     </div>
     <div class="pm-foot"><button class="p-btn" onclick="closeModal('m-bind')">取消</button><button class="p-btn primary" onclick="saveBind()">保存</button></div>
   </div>
@@ -104,7 +113,15 @@
 
 <script src="../_shared/prototype.js"></script>
 <script>
-  function selAll(cb) { document.querySelectorAll('.row-chk').forEach(function (x) { x.checked = cb.checked; }); }
+  function selAll(cb) {
+    document.querySelectorAll('.row-chk').forEach(function (x) { x.checked = cb.checked; });
+    updBatch();
+  }
+  // 批量操作按钮组：有选中行时启用（《布局设计-列表页》4.工具栏）
+  function updBatch() {
+    var any = !!document.querySelector('.row-chk:checked');
+    document.querySelectorAll('.batch-btn').forEach(function (b) { b.disabled = !any; });
+  }
   function switchB(el, p) {
     document.querySelectorAll('#bind-tabs .tab-mini').forEach(function (t) { t.classList.remove('active'); });
     el.classList.add('active');
@@ -115,14 +132,7 @@
   function saveRole() {
     var c = document.getElementById('e-code').value.trim(), n = document.getElementById('e-name').value.trim();
     if (!c || !n) { toast('角色码与名称必填', 'err'); return; }
-    closeModal('m-edit'); toast('角色已创建（role.created）', 'ok');
-  }
-  function editSel() {
-    var sel = document.querySelector('.row-chk:checked');
-    if (!sel) { toast('请先选择角色', 'err'); return; }
-    openModal('m-edit');
-    document.getElementById('e-code').value = sel.closest('tr').children[1].textContent;
-    document.getElementById('e-name').value = sel.closest('tr').children[2].textContent;
+    closeModal('m-edit'); toast('角色已保存（role.updated）', 'ok');
   }
   function delSel() {
     var sel = document.querySelector('.row-chk:checked');
