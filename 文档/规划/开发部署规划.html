@@ -83,7 +83,7 @@
         <li>《<a href="../规范/文档生成规范.html">文档生成规范</a>》对文档格式与布局的要求</li>
       </ul>
       <p>
-        本文档为规划性质，确定方案、目录、端口与落地节奏；命令级细节（Compose 文件内容、环境变量清单、备份恢复演练步骤）由阶段八交付的《部署手册》细化。
+        本文档为规划性质，确定方案、目录、端口与落地节奏；命令级细节（Compose 文件内容、环境变量清单、备份恢复演练步骤）由阶段九交付的《部署手册》细化。
       </p>
 
       <h2 id="overview">2. 环境总览与职责分工</h2>
@@ -118,19 +118,19 @@
           <td>日常开发默认 SQLite（本地零依赖）</td>
         </tr>
         <tr>
-          <td>监控与追踪（阶段八）</td>
+          <td>监控与追踪（阶段九）</td>
           <td>Prometheus、Loki、Grafana、Alertmanager、Jaeger、otel-collector</td>
           <td>浏览器查看 Grafana / Jaeger</td>
         </tr>
         <tr>
-          <td>AI 基础设施（阶段十四）</td>
+          <td>AI 基础设施（阶段十五）</td>
           <td>Milvus + etcd（MinIO 复用），PaddleOCR 可选</td>
           <td>—</td>
         </tr>
         <tr>
           <td>日常开发</td>
           <td>—</td>
-          <td>编辑代码、uv 后端开发服务器、Vite 前端开发服务器、本地 SQLite、压测客户端（阶段九）</td>
+          <td>编辑代码、uv 后端开发服务器、Vite 前端开发服务器、本地 SQLite、压测客户端（阶段十）</td>
         </tr>
       </table>
       <div class="note">
@@ -229,11 +229,11 @@ docker compose version</code></pre>
 graph TD
     A["deploy/"] --> B["compose/"]
     B --> B1["base.yml redis、mysql、postgres、minio、rocketmq、elasticsearch"]
-    B --> B2["monitor.yml prometheus、loki、grafana、alertmanager、jaeger、otel-collector（阶段八）"]
-    B --> B3["ai.yml milvus、etcd（阶段十四，MinIO 复用）"]
+    B --> B2["monitor.yml prometheus、loki、grafana、alertmanager、jaeger、otel-collector（阶段九）"]
+    B --> B3["ai.yml milvus、etcd（阶段十五，MinIO 复用）"]
     B --> B4["gitlab.yml gitlab、gitlab-runner、renovate"]
     A --> C[".env.example 环境变量模板（BMS_ 前缀）"]
-    A --> D["nginx/ 生产形态配置（阶段八部署手册细化）"]
+    A --> D["nginx/ 生产形态配置（阶段九部署手册细化）"]
       </pre>
       <p>mjbk 上启动（以 base 组为例）：</p>
       <pre><code>docker compose -f deploy/compose/base.yml --env-file deploy/.env up -d</code></pre>
@@ -246,17 +246,17 @@ graph TD
         <tr><td>dameng</td><td>dmdbms/dm8（官方镜像，含试用授权）</td><td>5236</td><td>命名卷（C 盘 SSD）</td><td>2 GB</td><td>阶段一</td></tr>
         <tr><td>minio</td><td>minio/minio</td><td>9000 / 9001（控制台）</td><td>命名卷（C 盘 SSD）</td><td>0.5 GB</td><td>阶段一</td></tr>
         <tr><td>rocketmq</td><td>apache/rocketmq:5.x（nameserver + broker 两个容器）</td><td>9876 / 10911</td><td>命名卷（C 盘 SSD）</td><td>1 GB</td><td>阶段四</td></tr>
-        <tr><td>elasticsearch</td><td>docker.elastic.co/elasticsearch/elasticsearch:8.x（single-node）</td><td>9200 / 9300</td><td>命名卷（C 盘 SSD）</td><td>2 GB（堆 1–2 GB）</td><td>阶段十三（可提前）</td></tr>
-        <tr><td>prometheus</td><td>prom/prometheus</td><td>9090</td><td>命名卷</td><td rowspan="2">2.5 GB（合计）</td><td rowspan="2">阶段八</td></tr>
+        <tr><td>elasticsearch</td><td>docker.elastic.co/elasticsearch/elasticsearch:8.x（single-node）</td><td>9200 / 9300</td><td>命名卷（C 盘 SSD）</td><td>2 GB（堆 1–2 GB）</td><td>阶段十四（可提前）</td></tr>
+        <tr><td>prometheus</td><td>prom/prometheus</td><td>9090</td><td>命名卷</td><td rowspan="2">2.5 GB（合计）</td><td rowspan="2">阶段九</td></tr>
         <tr><td>loki / grafana / alertmanager</td><td>grafana/loki、grafana/grafana、prom/alertmanager</td><td>3100 / 3000 / 9093</td><td>命名卷</td></tr>
-        <tr><td>jaeger / otel-collector</td><td>jaegertracing/all-in-one、otel/opentelemetry-collector</td><td>16686 / 4317、4318</td><td>—</td><td>1 GB</td><td>阶段八</td></tr>
-        <tr><td>milvus / etcd</td><td>milvusdb/milvus、quay.io/coreos/etcd</td><td>19530 / 2379（内部）</td><td>命名卷（etcd 数据 C 盘 SSD）</td><td>4 GB</td><td>阶段十四</td></tr>
+        <tr><td>jaeger / otel-collector</td><td>jaegertracing/all-in-one、otel/opentelemetry-collector</td><td>16686 / 4317、4318</td><td>—</td><td>1 GB</td><td>阶段九</td></tr>
+        <tr><td>milvus / etcd</td><td>milvusdb/milvus、quay.io/coreos/etcd</td><td>19530 / 2379（内部）</td><td>命名卷（etcd 数据 C 盘 SSD）</td><td>4 GB</td><td>阶段十五</td></tr>
       </table>
       <div class="note">
         ES 按《项目规划说明》「环境与配置」节属开发环境依赖，阶段一即可随 base 组拉起（单节点、
-        <code>discovery.type=single-node</code>、生产安全认证配置不启用），也可推迟至阶段十三按需引入；上表按内存预算给出两种节奏，见第 10 节。
+        <code>discovery.type=single-node</code>、生产安全认证配置不启用），也可推迟至阶段十四按需引入；上表按内存预算给出两种节奏，见第 10 节。
       </div>
-      <p>内存合计：阶段一约 8 GB，阶段八后约 15 GB，阶段十四后约 19 GB；叠加 GitLab（4 GB）与 Ubuntu 桌面 + Docker 开销（约 5 GB），峰值约 28 GB，32 GB 预算内留有余量，部署后监控实际占用并按第 11 节调优。</p>
+      <p>内存合计：阶段一约 8 GB，阶段九后约 15 GB，阶段十五后约 19 GB；叠加 GitLab（4 GB）与 Ubuntu 桌面 + Docker 开销（约 5 GB），峰值约 28 GB，32 GB 预算内留有余量，部署后监控实际占用并按第 11 节调优。</p>
 
       <h3 id="server-db">4.4 常驻数据库</h3>
       <ul>
@@ -437,10 +437,10 @@ npm run dev</code></pre>
         <tr><td>6379</td><td>Redis</td><td>仅内网</td></tr>
         <tr><td>9000 / 9001</td><td>MinIO API / 控制台</td><td>仅内网</td></tr>
         <tr><td>9876 / 10911</td><td>RocketMQ nameserver / broker</td><td>阶段四起，仅内网</td></tr>
-        <tr><td>9200 / 9300</td><td>ElasticSearch HTTP / 节点通信</td><td>阶段十三起（可提前），仅内网</td></tr>
-        <tr><td>9090 / 3100 / 3000 / 9093</td><td>Prometheus / Loki / Grafana / Alertmanager</td><td>阶段八起，仅内网</td></tr>
-        <tr><td>16686 / 4317 / 4318</td><td>Jaeger UI / otel-collector OTLP</td><td>阶段八起，仅内网</td></tr>
-        <tr><td>19530</td><td>Milvus</td><td>阶段十四起，仅内网</td></tr>
+        <tr><td>9200 / 9300</td><td>ElasticSearch HTTP / 节点通信</td><td>阶段十四起（可提前），仅内网</td></tr>
+        <tr><td>9090 / 3100 / 3000 / 9093</td><td>Prometheus / Loki / Grafana / Alertmanager</td><td>阶段九起，仅内网</td></tr>
+        <tr><td>16686 / 4317 / 4318</td><td>Jaeger UI / otel-collector OTLP</td><td>阶段九起，仅内网</td></tr>
+        <tr><td>19530</td><td>Milvus</td><td>阶段十五起，仅内网</td></tr>
         <tr><td>8000 / 5173</td><td>uvicorn / Vite（mjpc 本地）</td><td>仅本机，不对外放行</td></tr>
       </table>
       <div class="note">
@@ -454,11 +454,11 @@ npm run dev</code></pre>
         <tr><td>准备期</td><td>mjbk：Ubuntu 基础（静态 IP / 清华源 / SSH 免密 / HDD 挂载 / Timeshift，均已完成）+ Docker Engine 安装（清华 docker-ce 源）+ 防火墙 ufw；mjpc：uv / Node / VSCode 工具链</td><td>阶段一前</td></tr>
         <tr><td>第一批</td><td>mjbk：redis、mysql、postgres、dameng、minio 容器 + GitLab CE + gitlab-runner + 仓库初始化 + .gitlab-ci.yml 落地（达梦 dmPython 驱动兼容性同步验证）</td><td>阶段一</td></tr>
         <tr><td>第二批</td><td>mjbk：rocketmq（nameserver + broker）</td><td>阶段四（消息与任务基础设施）</td></tr>
-        <tr><td>第三批</td><td>mjbk：monitor 组（prometheus / loki / grafana / alertmanager / jaeger / otel-collector）+ 开发服务器备份脚本</td><td>阶段八（分布式与监控）</td></tr>
-        <tr><td>第四批</td><td>mjbk：elasticsearch（单节点）；若已提前引入则无需动作</td><td>阶段十三（全文检索）</td></tr>
-        <tr><td>第五批</td><td>mjbk：milvus + etcd（MinIO 复用）；PaddleOCR 按需本地部署（可选）</td><td>阶段十四（AI 能力）</td></tr>
+        <tr><td>第三批</td><td>mjbk：monitor 组（prometheus / loki / grafana / alertmanager / jaeger / otel-collector）+ 开发服务器备份脚本</td><td>阶段九（分布式与监控）</td></tr>
+        <tr><td>第四批</td><td>mjbk：elasticsearch（单节点）；若已提前引入则无需动作</td><td>阶段十四（全文检索）</td></tr>
+        <tr><td>第五批</td><td>mjbk：milvus + etcd（MinIO 复用）；PaddleOCR 按需本地部署（可选）</td><td>阶段十五（AI 能力）</td></tr>
       </table>
-      <p>每批环境就位后，对应阶段验收标准中的「环境相关项」即可验证（如阶段一 /healthz /readyz、阶段八监控链路与追踪可见、阶段九压测在 mjpc 发起、目标 500 并发 / P99 ≤ 1s）。</p>
+      <p>每批环境就位后，对应阶段验收标准中的「环境相关项」即可验证（如阶段一 /healthz /readyz、阶段九监控链路与追踪可见、阶段十压测在 mjpc 发起、目标 500 并发 / P99 ≤ 1s）。</p>
 
       <h2 id="risk">11. 风险与注意事项</h2>
       <table>
@@ -473,7 +473,7 @@ npm run dev</code></pre>
         </tr>
         <tr>
           <td>内存预算约 28 GB（三库常驻 + 桌面 + Docker）</td>
-          <td>ES 堆限 1–2 GB；GitLab 4 GB 封顶；达梦仅联调与 CI 时段可停（docker compose stop dameng）；按需关闭 Grafana/Loki（阶段八前不启动）；部署后监控 <code>docker stats</code> 与实际占用</td>
+          <td>ES 堆限 1–2 GB；GitLab 4 GB 封顶；达梦仅联调与 CI 时段可停（docker compose stop dameng）；按需关闭 Grafana/Loki（阶段九前不启动）；部署后监控 <code>docker stats</code> 与实际占用</td>
         </tr>
         <tr>
           <td>dmPython 对 Python 3.14 兼容性未知</td>
@@ -503,8 +503,8 @@ npm run dev</code></pre>
 
       <h2 id="handoff">12. 与后续文档的衔接</h2>
       <ul>
-        <li>本文档确定方案与节奏；<strong>《部署手册》</strong>（阶段八交付，规划「文档计划」节）细化 Compose 文件、环境变量清单、备份恢复演练步骤、安全响应头说明。</li>
-        <li><strong>《运维手册》</strong>（阶段八）覆盖监控告警配置、日志检索、常见故障排查。</li>
+        <li>本文档确定方案与节奏；<strong>《部署手册》</strong>（阶段九交付，规划「文档计划」节）细化 Compose 文件、环境变量清单、备份恢复演练步骤、安全响应头说明。</li>
+        <li><strong>《运维手册》</strong>（阶段九）覆盖监控告警配置、日志检索、常见故障排查。</li>
         <li>Compose 编排与环境变量模板随代码仓库 <code>deploy/</code> 目录版本管理，与《<a href="../规范/命名规范.html">命名规范</a>》保持一致。</li>
         <li>文档变更后运行 <code>graphify update .</code> 保持知识图谱最新；graphify 工具使用见《<a href="../资料/graphify部署使用说明.html">graphify 部署使用说明</a>》。</li>
       </ul>
