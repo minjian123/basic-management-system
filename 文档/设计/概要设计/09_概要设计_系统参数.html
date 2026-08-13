@@ -85,7 +85,7 @@
         <tr><td>模块定位</td><td>系统级参数配置（sys_config）的维护、租户覆盖、Redis 缓存与运行时下发</td></tr>
         <tr><td>职责边界</td><td>只维护参数本身；参数的具体业务语义（密码校验、上传上限执行等）由各消费模块实现</td></tr>
         <tr><td>架构依据</td><td>05-数据架构（4.1 字典与系统参数管理、缓存三防）、06-接口与集成（API 规范）、09-认证与会话（安全参数消费）</td></tr>
-        <tr><td>相邻协作</td><td>认证域（密码策略/会话上限/找回密码限流）、文件管理（上传大小上限）、<a href="13_概要设计_会话管理.html">会话管理</a>（活跃会话数）、<a href="34_概要设计_AI能力.html">AI 能力</a>（自动执行/审批开关，阶段十四）</td></tr>
+        <tr><td>相邻协作</td><td>认证域（密码策略/会话上限/找回密码限流）、文件管理（上传大小上限）、<a href="13_概要设计_会话管理.html">会话管理</a>（活跃会话数）、<a href="34_概要设计_AI能力.html">AI 能力</a>（自动执行/审批开关，阶段十五）</td></tr>
       </table>
 
       <h2 id="function">2. 功能分解与业务流程</h2>
@@ -218,8 +218,8 @@ sequenceDiagram
         <tr><td>file.upload.max_size</td><td>20971520（20MB）</td><td>整包上传大小上限，超限走分片上传</td><td>文件管理</td></tr>
         <tr><td>file.upload.max_file_size</td><td>2147483648（2GB）</td><td>单文件上传上限（分片上传）</td><td>文件管理</td></tr>
         <tr><td>captcha.required_after_failures</td><td>3</td><td>登录连续失败次数达阈值强制图形验证码</td><td>认证</td></tr>
-        <tr><td>ai.auto_execute</td><td>false</td><td>AI 自动执行写操作开关（阶段十四，默认关闭）</td><td>AI 能力</td></tr>
-        <tr><td>ai.auto_approve</td><td>false</td><td>AI 自动审批开关（阶段十四，默认关闭；依赖 ai.auto_execute 开启，未开启时配置拒绝保存）</td><td>AI 能力 + 工作流</td></tr>
+        <tr><td>ai.auto_execute</td><td>false</td><td>AI 自动执行写操作开关（阶段十五，默认关闭）</td><td>AI 能力</td></tr>
+        <tr><td>ai.auto_approve</td><td>false</td><td>AI 自动审批开关（阶段十五，默认关闭；依赖 ai.auto_execute 开启，未开启时配置拒绝保存）</td><td>AI 能力 + 工作流</td></tr>
       </table>
       <div class="warn">安全敏感参数（密码策略、会话上限、AI 开关等）修改须谨慎，变更全程落操作日志与字段级审计；AI 开关依赖校验（ai.auto_approve 依赖 ai.auto_execute）在保存时强制校验。</div>
 

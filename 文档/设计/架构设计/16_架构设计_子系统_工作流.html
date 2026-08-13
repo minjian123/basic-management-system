@@ -40,7 +40,7 @@
       <p>
         工作流子系统基于 SpiffWorkflow（Python 生态最成熟 BPMN 2.0 引擎）+ bpmn-js（前端拖拽建模）：
         流程定义与版本管理、流程实例执行、待办/已办、审批记录、会签/或签、条件分支可视化。
-        对应<a href="../../规划/项目规划说明.html">《项目规划说明》</a>的「工作流引擎」「工作流管理」「采购管理」章节。
+        对应<a href="../../规划/项目规划说明.html">《项目规划说明》</a>的「工作流引擎」「工作流管理」「采购管理」「收付款管理」章节。
       </p>
 
       <h2 id="define">2. 流程定义与版本</h2>
@@ -48,7 +48,7 @@
         <li>wf_process：definition_key、name、bpmn_xml、version、status；definition_key 标识同一流程，definition_key+version 唯一，支持版本管理</li>
         <li>管理端 bpmn-js 拖拽建模（用户任务、网关、结束事件、条件分支可视化），保存 BPMN XML；发布新版本落 wf.process.deployed 事件</li>
         <li>权限码 wf:define（流程定义与版本管理）、wf:approve（审批）、wf:query（查询）</li>
-        <li>初始种子：采购申请三级审批流程模板（部门经理 → 财务 → 分管领导）</li>
+        <li>初始种子：采购申请三级审批流程模板（部门经理 → 财务 → 分管领导）、付款申请审批流程模板</li>
       </ul>
 
       <h2 id="execute">3. 流程执行</h2>
@@ -79,7 +79,7 @@
         <li><strong><a href="11_架构设计_子系统_事件总线.html">事件总线</a></strong>：wf.process.deployed / wf.instance.started / wf.task.completed / wf.instance.rejected / wf.instance.finished（Webhook 可订阅）</li>
         <li><strong><a href="17_架构设计_子系统_通知公告.html">通知公告</a>与<a href="13_架构设计_子系统_实时推送.html">实时推送</a></strong>：待办生成 → 站内信 + Socket.IO（approval.todo）</li>
         <li><strong><a href="10_架构设计_子系统_权限计算引擎.html">权限计算引擎</a></strong>：审批人由流程定义 + 主体链解析（部门经理 = 部门负责人角色等）</li>
-        <li><strong>AI 服务（阶段十四）</strong>：智能审批辅助（RAG 参考意见）与 AI 自动审批（开关默认关闭，白名单 + 二次确认 + 可撤销）</li>
+        <li><strong>AI 服务（阶段十五）</strong>：智能审批辅助（RAG 参考意见）与 AI 自动审批（开关默认关闭，白名单 + 二次确认 + 可撤销）</li>
         <li><strong><a href="14_架构设计_子系统_审计哈希链.html">审计哈希链</a></strong>：审批记录关键操作落操作日志与字段级审计</li>
       </ul>
 

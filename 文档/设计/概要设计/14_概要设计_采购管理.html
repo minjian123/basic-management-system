@@ -71,7 +71,7 @@
       <h3 id="func-list">2.1 功能点分解</h3>
       <table>
         <tr><th>功能点</th><th>说明</th><th>权限码</th></tr>
-        <tr><td>采购申请单维护</td><td>新建/编辑/删除/查询申请单（apply_no 自动生成），支持 AI 生成申请理由草稿（阶段十四）</td><td>purchase:create / update / delete / query</td></tr>
+        <tr><td>采购申请单维护</td><td>新建/编辑/删除/查询申请单（apply_no 自动生成），支持 AI 生成申请理由草稿（阶段十五）</td><td>purchase:create / update / delete / query</td></tr>
         <tr><td>提交审批</td><td>提交后启动三级审批流程（部门经理 → 财务 → 分管领导），单据状态进入审批中，不可再编辑</td><td>purchase:create</td></tr>
         <tr><td>审批通过生成订单</td><td>流程全部节点通过后，按申请单生成采购订单（biz_purchase_order），订单号自动生成</td><td>—（流程回调触发）</td></tr>
         <tr><td>驳回处理</td><td>任一节点驳回：单据状态回退，申请人可修改后重新提交（重新触发流程）</td><td>purchase:update</td></tr>

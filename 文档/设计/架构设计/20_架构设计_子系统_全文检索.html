@@ -19,7 +19,7 @@
   <aside class="sidebar">
     <div class="brand">
       <h1>架构设计 · 子系统 · 全文检索</h1>
-      <p>BMS · ES 索引、同步管线与重建降级（阶段十三）</p>
+      <p>BMS · ES 索引、同步管线与重建降级（阶段十四）</p>
     </div>
     <nav>
       <ul>
@@ -39,7 +39,7 @@
 
       <h2 id="overview">1. 概述</h2>
       <p>
-        全文检索子系统（阶段十三）基于 ElasticSearch 8.x：覆盖主数据全局搜索、审计日志检索、
+        全文检索子系统（阶段十四）基于 ElasticSearch 8.x：覆盖主数据全局搜索、审计日志检索、
         文件内容检索三类场景。对应<a href="../../规划/项目规划说明.html">《项目规划说明》</a>的「全文检索」「检索」章节。
       </p>
 
@@ -48,13 +48,13 @@
         <tr><th>索引</th><th>内容</th><th>说明</th></tr>
         <tr><td><code>bms-main</code></td><td>主数据：用户/部门/角色/字典/采购单据/文件元数据/帮助文章</td><td>按用途分索引；均含 tenant_id 字段，查询强制租户隔离与数据权限过滤</td></tr>
         <tr><td><code>bms-log-{类型}-{yyyyMM}</code></td><td>审计日志（操作/登录/开放接口/数据变更）</td><td>按月索引，与分片表对齐</td></tr>
-        <tr><td><code>bms-file</code></td><td>文件内容（PDF/Word/Excel/TXT 解析文本）</td><td>扫描件 OCR 由阶段十四 AI 支持</td></tr>
+        <tr><td><code>bms-file</code></td><td>文件内容（PDF/Word/Excel/TXT 解析文本）</td><td>扫描件 OCR 由阶段十五 AI 支持</td></tr>
       </table>
 
       <h2 id="pipeline">3. 同步管线</h2>
       <ul>
         <li>变更事件 → RocketMQ → event-worker（ES 同步组）消费 → 文件类转文本解析任务（Celery：PDF/Word/Excel/TXT 文本提取）→ 写入索引</li>
-        <li>文本解析失败重试/标记；解析任务与 OCR（阶段十四）衔接</li>
+        <li>文本解析失败重试/标记；解析任务与 OCR（阶段十五）衔接</li>
         <li>数据同步经事件驱动异步消费，避免双写一致性问题</li>
       </ul>
 
@@ -82,7 +82,7 @@
         <li><strong><a href="11_架构设计_子系统_事件总线.html">事件总线</a></strong>：同步管线经事件驱动；重建经事件重放</li>
         <li><strong><a href="14_架构设计_子系统_审计哈希链.html">审计哈希链</a></strong>：审计日志按月索引与分片表归档对齐（归档后索引同步裁剪）</li>
         <li><strong><a href="15_架构设计_子系统_文件管理.html">文件管理</a></strong>：文件内容解析依赖文件元数据与 MinIO 对象</li>
-        <li><strong>AI 服务（阶段十四）</strong>：OCR 与文件自动分类衔接文本解析；语义搜索与文件问答走 Milvus（独立向量检索）</li>
+        <li><strong>AI 服务（阶段十五）</strong>：OCR 与文件自动分类衔接文本解析；语义搜索与文件问答走 Milvus（独立向量检索）</li>
         <li><strong><a href="22_架构设计_子系统_可观测性.html">可观测性</a></strong>：索引健康、同步积压纳入监控</li>
       </ul>
 

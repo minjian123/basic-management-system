@@ -57,7 +57,7 @@ graph TD
     N --> MQ["RocketMQ（nameserver + broker 多副本）"]
     N --> MI["MinIO（按租户 bucket 前缀隔离，归档文件亦存于此）"]
     N --> ES["ElasticSearch（MVP 单节点，生产集群多副本）"]
-    N --> MV["Milvus（阶段十四，milvus + etcd + MinIO 复用）"]
+    N --> MV["Milvus（阶段十五，milvus + etcd + MinIO 复用）"]
     N --> MON["监控：Prometheus / Loki / Grafana / Alertmanager / Jaeger / otel-collector"]
       </pre>
       <script src="../../资源/mermaid.min.js"></script>
@@ -90,7 +90,7 @@ graph TD
       <ul>
         <li>三套环境 dev / test / prod，config.toml 按环境分层（BMS_ENV 指定）+ 环境变量覆盖</li>
         <li>密钥（DB/Redis 密码、JWT secret、MinIO 凭据、短信/AI key）走 Secret 管理（K8s Secret / Docker secrets），不落库不入镜像</li>
-        <li>开发环境依赖（Redis/RocketMQ/ES/MinIO）由 Docker Compose 统一提供；Milvus 随阶段十四加入；MySQL/PostgreSQL/达梦 DM8 三库常驻开发服务器（见《<a href="../../规划/开发部署规划.html">开发部署规划</a>》）</li>
+        <li>开发环境依赖（Redis/RocketMQ/ES/MinIO）由 Docker Compose 统一提供；Milvus 随阶段十五加入；MySQL/PostgreSQL/达梦 DM8 三库常驻开发服务器（见《<a href="../../规划/开发部署规划.html">开发部署规划</a>》）</li>
         <li>Python 版本 .python-version 固定 3.14（uv 管理）；前端 Node 版本 .nvmrc 固定</li>
         <li>CORS：dev 放行前端跨域；生产 nginx 同源反代不开放跨域</li>
         <li>租户域名：生产泛域名 DNS（*.bms.example.com）+ 泛 TLS 证书</li>
@@ -101,7 +101,8 @@ graph TD
       <ul>
         <li>初始菜单/表单/按钮/字段与业务/动作种子（后端模块定义与 sys_menu/sys_form/sys_button/sys_field/sys_business/sys_action 对齐，含 i18n 附表英文文案）</li>
         <li>基础字典种子（状态、类型等通用字典，含 i18n）</li>
-        <li>初始工作流定义种子：采购申请三级审批流程模板</li>
+        <li>初始工作流定义种子：采购申请三级审批流程模板、付款申请审批流程模板</li>
+        <li>初始支付渠道种子：线下转账（manual）；bank/third_party 类型占位（渠道抽象预留）</li>
         <li>基础邮件模板种子（审批提醒、告警通知，中英文）</li>
         <li>初始定时任务种子（孤儿分片清理、日志归档、分片表预创建、每日全量备份）</li>
         <li>平台库种子：平台超管账号（首次启动创建，强制改密）、平台统一菜单/表单/按钮/字段挂接与权限码、平台默认字典/参数/邮件模板</li>

@@ -68,7 +68,7 @@
         <li>只读从库执行：强制 read-only 连接（禁用写语句）；SQL 注入防护：参数化 + 语句类别白名单（仅 SELECT）</li>
         <li>超时与限流：数据集执行超时限制、接口限流（slowapi）</li>
         <li>租户隔离：数据集属租户库，执行绑定当前租户数据源</li>
-        <li>AI 问数（阶段十四）：NL2SQL 仅在数据集白名单 + 只读从库 + 安全校验范围内生成与执行</li>
+        <li>AI 问数（阶段十五）：NL2SQL 仅在数据集白名单 + 只读从库 + 安全校验范围内生成与执行</li>
       </ul>
 
       <h2 id="coordination">6. 与其他子系统的协调</h2>
@@ -76,7 +76,7 @@
         <li><strong><a href="08_架构设计_子系统_数据访问与分片.html">数据访问与分片</a></strong>：报表查询走只读从库（读写分离路由）</li>
         <li><strong><a href="10_架构设计_子系统_权限计算引擎.html">权限计算引擎</a></strong>：报表/大屏按权限码与数据范围过滤</li>
         <li><strong><a href="25_架构设计_前端架构.html">前端架构</a></strong>：ECharts 渲染；大屏设计器（拖拽画布）</li>
-        <li><strong>AI 服务（阶段十四）</strong>：智能报表助手（NL2SQL 问数，结果图表化）</li>
+        <li><strong>AI 服务（阶段十五）</strong>：智能报表助手（NL2SQL 问数，结果图表化）</li>
         <li><strong><a href="22_架构设计_子系统_可观测性.html">可观测性</a></strong>：数据集慢查询纳入慢查询日志走查</li>
       </ul>
 

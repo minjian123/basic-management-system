@@ -54,7 +54,7 @@
         <tr><td>任务队列</td><td>Celery（Redis broker）+ 自研数据库调度器</td><td>生态成熟；任务定义入库、页面动态管理、beat 单副本 + 锁防重；与 RocketMQ 事件总线解耦</td></tr>
         <tr><td>事件总线</td><td>RocketMQ 5.x</td><td>分区有序保证审计链顺序、事务消息兜底生产一致性；保留生态与扩展空间</td></tr>
         <tr><td>全文检索</td><td>ElasticSearch 8.x</td><td>覆盖主数据/审计日志/文件内容三类检索；事件驱动异步同步、可重放重建</td></tr>
-        <tr><td>向量检索</td><td>Milvus（阶段十四）</td><td>亿级向量能力，独立部署（etcd + MinIO 复用）</td></tr>
+        <tr><td>向量检索</td><td>Milvus（阶段十五）</td><td>亿级向量能力，独立部署（etcd + MinIO 复用）</td></tr>
         <tr><td>认证</td><td>JWT 双 token + Redis 会话标记</td><td>无状态可扩展 + 强制踢出即时生效；refresh 轮换防重放</td></tr>
         <tr><td>密码哈希</td><td>PBKDF2（标准库）</td><td>零依赖，高迭代次数下满足安全基线</td></tr>
         <tr><td>接口限流</td><td>slowapi（limits 库，Redis 后端）</td><td>装饰器声明、集群共享计数、Redis 故障降级 memory 后端</td></tr>
@@ -94,15 +94,15 @@
         <tr><td>多租户引擎连接膨胀</td><td>租户库增多后连接数失控</td><td>懒加载 + 闲置回收 + 池上限 + 活跃租户数上限；连接预算公式约束</td></tr>
         <tr><td>ES 资源占用</td><td>单节点内存需求高</td><td>MVP 单节点按需分配；索引按月拆分可裁剪；故障降级兜底</td></tr>
         <tr><td>审计链性能瓶颈</td><td>串行消费限制写入吞吐</td><td>单租户日志量级有限；跨租户分区并行；必要时按表拆分消费组（链内保持有序）</td></tr>
-        <tr><td>AI 依赖（阶段十四）</td><td>外部 API 不可用/成本/合规</td><td>适配层可切私有化端点；独立限流与预算；全量审计；默认仅辅助</td></tr>
+        <tr><td>AI 依赖（阶段十五）</td><td>外部 API 不可用/成本/合规</td><td>适配层可切私有化端点；独立限流与预算；全量审计；默认仅辅助</td></tr>
         <tr><td>SpiffWorkflow 兼容性</td><td>Python 3.14 / 异步栈集成风险</td><td>线程池运行隔离；版本回退预案；测试覆盖完整流转</td></tr>
       </table>
 
       <h2 id="roadmap">4. 演进路线</h2>
       <ul>
         <li>Kubernetes 化部署（当前 Docker Compose，数据量或规模增长后迁移）</li>
-        <li>阶段十三 全文检索：ES 接入、文件内容解析、全局搜索页面</li>
-        <li>阶段十四 AI 能力：LLM 适配层、Milvus 向量库、OCR、智能报表助手、智能审批辅助、知识库问答</li>
+        <li>阶段十四 全文检索：ES 接入、文件内容解析、全局搜索页面</li>
+        <li>阶段十五 AI 能力：LLM 适配层、Milvus 向量库、OCR、智能报表助手、智能审批辅助、知识库问答</li>
         <li>持续评估点：消息量级增长时评估 Kafka；数据规模增长时评估分片范围扩展与专用向量库升级；部署规模增长时评估 K8s</li>
       </ul>
 

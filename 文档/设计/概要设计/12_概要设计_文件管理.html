@@ -86,7 +86,7 @@
         <tr><td>模块定位</td><td>文件元数据管理、整包/分片上传、断点续传、预签名下载与在线预览、孤儿分片回收</td></tr>
         <tr><td>职责边界</td><td>只负责文件存取本身；业务模块（审批附件、帮助图片等）经文件服务上传并持有 file_id 引用</td></tr>
         <tr><td>架构依据</td><td>15-文件管理（分片状态机、安全控制、预览下载）、12-任务调度（孤儿分片清理）、11-事件总线（file.uploaded）、07-多租户路由（存储配额）</td></tr>
-        <tr><td>相邻协作</td><td><a href="25_概要设计_租户管理.html">租户管理</a>（storage_bytes 存储配额超限拦截）、任务调度（孤儿分片回收）、审计哈希链（上传/下载关键操作落<a href="10_概要设计_操作日志.html">操作日志</a>）、<a href="33_概要设计_全文检索.html">全文检索</a>（阶段十三文件内容索引）</td></tr>
+        <tr><td>相邻协作</td><td><a href="25_概要设计_租户管理.html">租户管理</a>（storage_bytes 存储配额超限拦截）、任务调度（孤儿分片回收）、审计哈希链（上传/下载关键操作落<a href="10_概要设计_操作日志.html">操作日志</a>）、<a href="33_概要设计_全文检索.html">全文检索</a>（阶段十四文件内容索引）</td></tr>
       </table>
 
       <h2 id="function">2. 功能分解与业务流程</h2>
@@ -187,7 +187,7 @@ sequenceDiagram
       <p>
         上传（整包/分片）→ MinIO 对象（租户前缀）→ sys_file 元数据落库（uploading → completed）→
         业务模块持有 file_id 引用 → 下载/预览经预签名 URL 直开 → 删除软删除进回收站 → 对象清理。
-        阶段十三全文检索经 file.uploaded 事件驱动文件内容解析（PDF/Word/Excel/TXT）入 ES 索引。
+        阶段十四全文检索经 file.uploaded 事件驱动文件内容解析（PDF/Word/Excel/TXT）入 ES 索引。
       </p>
 
       <h2 id="api">5. 接口设计</h2>
@@ -219,7 +219,7 @@ sequenceDiagram
         <tr><th>事件</th><th>触发时机</th><th>主要载荷</th><th>Webhook 订阅</th></tr>
         <tr><td>file.uploaded</td><td>文件上传完成（整包完成 / 分片合并完成）</td><td>file_id、sha256、size</td><td>否</td></tr>
       </table>
-      <p>file.uploaded 供全文检索文件内容解析（阶段十三）等内部消费，不开放 Webhook 订阅。</p>
+      <p>file.uploaded 供全文检索文件内容解析（阶段十四）等内部消费，不开放 Webhook 订阅。</p>
 
       <h2 id="permission">6. 权限与配置</h2>
 
