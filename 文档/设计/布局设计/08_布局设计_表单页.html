@@ -14,8 +14,7 @@
   <a href="01_布局设计_总览.html">布局设计</a> ›
   <span>表单页布局设计</span>
   <span class="topnav-side">
-    <a href="06_布局设计_列表页.html">← 上一个：列表页</a>
-    <a href="08_布局设计_表格明细.html">下一个：表格明细 →</a>
+    <a href="07_布局设计_列表页.html">← 上一个：列表页</a>`n    <a href="09_布局设计_表格明细.html">下一个：表格明细 →</a>
   </span>
 </div>
 
@@ -52,10 +51,10 @@
 
       <h2 id="purpose">1. 目的与适用范围</h2>
       <p>
-        规范 BMS 管理端<strong>表单页</strong>（FormDetailPanel）的统一布局：作为《<a href="05_布局设计_表单框架.html">表单框架布局</a>》FormFrame 的
+        规范 BMS 管理端<strong>表单页</strong>（FormDetailPanel）的统一布局：作为《<a href="06_布局设计_表单框架.html">表单框架布局</a>》FormFrame 的
         「表单 Tab」内容，展示单条记录的查看与编辑。用户、部门、角色、采购申请等实体模块的表单页均复用本布局。
       </p>
-      <div class="note">表单页承载「记录 Tab」形态（见《<a href="05_布局设计_表单框架.html">表单框架布局</a>》1.2）；列表页（列表 Tab）见《<a href="06_布局设计_列表页.html">列表页布局</a>》。</div>
+      <div class="note">表单页承载「记录 Tab」形态（见《<a href="06_布局设计_表单框架.html">表单框架布局</a>》1.2）；列表页（列表 Tab）见《<a href="07_布局设计_列表页.html">列表页布局</a>》。</div>
 
       <h2 id="structure">2. 页面结构</h2>
       <div class="diagram">
@@ -146,7 +145,7 @@
         <tr><td>脏数据状态</td><td>FormFrame ← 表单页</td><td>表单页 <code>expose dirty</code>（切换/关闭 Tab 时拦截确认）</td></tr>
       </table>
       <ul>
-        <li>路由：实体页面路由组件为 <code>FormFrame</code>，通过路由 <code>props</code> 注入 <code>title</code> / <code>listComponent</code> / <code>detailComponent</code>（详见《<a href="05_布局设计_表单框架.html">表单框架布局</a>》第 2 节）。</li>
+        <li>路由：实体页面路由组件为 <code>FormFrame</code>，通过路由 <code>props</code> 注入 <code>title</code> / <code>listComponent</code> / <code>detailComponent</code>（详见《<a href="06_布局设计_表单框架.html">表单框架布局</a>》第 2 节）。</li>
         <li>表单页被 keep-alive 整体缓存（顶层缓存的是 FormFrame 实例，表单页作为子组件随树缓存），切换顶层 Tab 不丢数据。</li>
       </ul>
 
@@ -163,7 +162,7 @@
     </main>
 
     <footer>
-      本文档为 AI 生成 · 依《文档生成规范》编写 · 与《05_布局设计_表单框架》《06_布局设计_列表页》配套 · 生成日期：2026-08-11
+      本文档为 AI 生成 · 依《文档生成规范》编写 · 与《06_布局设计_表单框架》《07_布局设计_列表页》配套 · 生成日期：2026-08-11
     </footer>
   </div>
 
