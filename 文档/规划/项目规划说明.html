@@ -145,6 +145,8 @@
         <tr><td>HTTP 客户端</td><td>Axios</td></tr>
         <tr><td>流程建模</td><td>bpmn-js（拖拽绘制 BPMN 流程图）</td></tr>
         <tr><td>图表</td><td>ECharts（报表与大屏渲染）</td></tr>
+        <tr><td>网格拖拽</td><td>gridstack.js（工作台卡片与报表设计器统一布局：网格拖拽/尺寸调整/响应式）</td></tr>
+        <tr><td>大屏画布</td><td>vue-flow（@vue-flow/core，大屏自由画布：绝对定位拖拽、连线与缩放）</td></tr>
         <tr><td>移动端</td><td>Vue 3 + Vant（frontend-mobile 独立工程，复用后端 API）</td></tr>
         <tr><td>实时推送</td><td>socket.io-client（待办/通知实时到达）</td></tr>
         <tr><td>国际化</td><td>vue-i18n（语言包运行时拉取、多语言动态扩展、RTL 适配，偏好 localStorage 持久化）</td></tr>
@@ -233,6 +235,8 @@
         <tr><td>Axios</td><td>是</td><td>MIT</td><td></td></tr>
         <tr><td>bpmn-js</td><td>是</td><td>MIT</td><td></td></tr>
         <tr><td>ECharts</td><td>是</td><td>Apache-2.0</td><td></td></tr>
+        <tr><td>gridstack.js</td><td>是</td><td>MIT</td><td></td></tr>
+        <tr><td>@vue-flow/core</td><td>是</td><td>MIT</td><td></td></tr>
         <tr><td>Vant</td><td>是</td><td>MIT</td><td></td></tr>
         <tr><td>socket.io-client</td><td>是</td><td>MIT</td><td></td></tr>
         <tr><td>vue-i18n</td><td>是</td><td>MIT</td><td></td></tr>
@@ -331,6 +335,8 @@
         <li><strong>Vitest</strong>：与 Vite 同构，组件/单元测试零配置；E2E 用 Playwright——自动等待、录制器、跨浏览器，替代 Selenium。</li>
         <li><strong>bpmn-js</strong>：BPMN 流程图建模组件，管理端拖拽绘制流程定义，导出 BPMN XML 交由 SpiffWorkflow 执行。</li>
         <li><strong>ECharts</strong>：报表与大屏渲染，中文生态最全，图表类型覆盖管理端全场景。</li>
+        <li><strong>gridstack.js</strong>：工作台卡片与报表设计器统一使用——框架无关、活跃维护，支持网格拖拽、卡片尺寸调整与响应式断点；工作台个人布局（sys_user_preference）与角色模板（sys_dashboard_template）的 layout_config 均序列化为 gridstack 布局结构。</li>
+        <li><strong>vue-flow（@vue-flow/core）</strong>：大屏自由画布——节点自由拖拽（绝对定位）、缩放平移，配合 ECharts 渲染图表节点；与 gridstack 网格布局分工明确，互不混用。</li>
         <li><strong>Vue 3 + Vant（移动端）</strong>：frontend-mobile 独立工程，Vant 移动端组件库；复用后端 API 与会话体系，企业微信/钉钉内免登。</li>
       </ul>
 
