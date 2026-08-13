@@ -102,7 +102,7 @@
         <tr><th>断点</th><th>宽度</th><th>策略</th></tr>
         <tr><td>≥ 1536px（2K）</td><td>大屏</td><td>内容最大 1600px 居中，表格列完整展示</td></tr>
         <tr><td>1024-1535px</td><td>常规</td><td>默认布局，筛选一行收起</td></tr>
-        <tr><td>768-1023px</td><td>窄屏</td><td>侧边栏折叠为图标模式（64px），或抽屉化</td></tr>
+        <tr><td>768-1023px</td><td>窄屏</td><td>侧边栏折叠为图标模式（64px），不抽屉化</td></tr>
         <tr><td>&lt; 768px</td><td>平板/小窗</td><td>侧边栏抽屉化（遮罩），表格横向滚动，操作列「更多」</td></tr>
       </table>
       <div class="note">PC 基线：Chrome / Edge / Firefox / Safari 最新版（《<a href="../../规划/项目规划说明.html">项目规划说明</a>》「测试策略」兼容性）。</div>
@@ -110,7 +110,7 @@
       <h2 id="frame">3. 主框架适配</h2>
       <ul>
         <li><strong>侧边栏</strong>：≥ 1024px 可用折叠（220 ↔ 64px）；&lt; 1024px 默认收起；&lt; 768px 改为抽屉（<code>el-drawer</code> 内嵌菜单，遮罩点击关闭）。</li>
-        <li><strong>顶栏</strong>：窄屏隐藏面包屑（保留折叠按钮与右侧功能区）；标签页横向滚动（scrollbar）。</li>
+        <li><strong>顶栏</strong>：窄屏隐藏次要项（全局搜索、租户切换、语言切换等），保留折叠按钮、通知铃铛（待办）与用户菜单；标签页横向滚动（scrollbar）。</li>
         <li>内容区边距：宽屏 24px，窄屏 16px；页面最小宽度 360px（不破版）。</li>
       </ul>
 

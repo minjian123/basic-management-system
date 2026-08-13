@@ -137,7 +137,7 @@
     if (!v) { h.textContent = ''; return; }
     var ok = v.length >= 8 && /[A-Za-z]/.test(v) && /\d/.test(v);
     h.textContent = ok ? '✓ 复杂度满足' : '✗ 需 8-32 位且含字母与数字';
-    h.style.color = ok ? '#1a7f37' : '#cf222e';
+    h.style.color = ok ? '#2da44e' : '#cf222e';
   }
   function doChangePwd() {
     var o = document.getElementById('pwd-old').value, n = document.getElementById('pwd-new').value, c = document.getElementById('pwd-confirm').value;
