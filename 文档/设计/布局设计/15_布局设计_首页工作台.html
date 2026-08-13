@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>首页工作台布局设计</title>
+<link rel="stylesheet" href="../../资源/文档样式.css">
+</head>
+<body>
+
+<div class="topnav">
+  <a href="../../文档首页.html">文档首页</a> ›
+  <a href="../../规划/项目规划说明.html">项目规划说明</a> ›
+  <a href="01_布局设计_总览.html">布局设计</a> ›
+  <span>首页工作台</span>
+  <span class="topnav-side">
+    <a href="14_布局设计_移动端细化.html">← 上一个：移动端细化</a>
+  </span>
+</div>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>首页工作台布局</h1>
+      <p>PC 网格卡片工作台 · 编辑定制 · 移动端简化</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#purpose">1. 目的与适用范围</a></li>
+        <li><a href="#position">2. 位置与入口</a>
+          <ul class="sub">
+            <li><a href="#position-pc">2.1 PC 端入口与角标</a></li>
+            <li><a href="#position-mobile">2.2 移动端入口</a></li>
+          </ul>
+        </li>
+        <li><a href="#grid">3. 网格系统与卡片规格</a>
+          <ul class="sub">
+            <li><a href="#grid-spec">3.1 gridstack 网格约定</a></li>
+            <li><a href="#card-size">3.2 卡片尺寸规格</a></li>
+          </ul>
+        </li>
+        <li><a href="#card">4. 卡片形态规范</a></li>
+        <li><a href="#edit">5. 编辑模式与定制交互</a></li>
+        <li><a href="#template">6. 模板与默认布局</a></li>
+        <li><a href="#empty">7. 空状态与异常</a></li>
+        <li><a href="#mobile">8. 移动端工作台</a></li>
+        <li><a href="#checklist">9. 检查清单</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="purpose">1. 目的与适用范围</h2>
+      <p>
+        定义 BMS 首页工作台的布局规范：登录后默认页的网格卡片布局、卡片形态、编辑定制交互与移动端简化形态，
+        是<a href="../概要设计/36_概要设计_首页工作台.html">《概要设计-首页工作台》</a>在布局层面的落地，与<a href="02_布局设计_设计令牌.html">设计令牌</a>、
+        <a href="03_布局设计_主框架.html">主框架</a>、<a href="11_布局设计_响应式适配.html">响应式适配</a>配套。
+        网格能力基于 gridstack.js（见<a href="../../规划/项目规划说明.html">《项目规划说明》</a>技术栈），布局配置与<a href="../架构设计/29_架构设计_子系统_首页工作台.html">《架构设计-首页工作台子系统》</a>一致。
+      </p>
+
+      <h2 id="position">2. 位置与入口</h2>
+
+      <h3 id="position-pc">2.1 PC 端入口与角标</h3>
+      <ul>
+        <li>首页工作台是<strong>登录后默认落地页</strong>，同时是主框架 Tab 栏的<strong>固定首 Tab</strong>（不可关闭，见<a href="03_布局设计_主框架.html">主框架</a>）；导航到其他模块后再切回，工作台状态保留（keep-alive）。</li>
+        <li>待办与通知<strong>角标</strong>挂在顶栏（待办数、未读消息数），Socket.IO 实时刷新（见<a href="../架构设计/13_架构设计_子系统_实时推送.html">实时推送</a>）；角标为全局元素，不随工作台卡片显隐。</li>
+        <li>工作台卡片管理、模板管理两个管理页走常规侧边菜单（dashboard 业务权限控制）。</li>
+      </ul>
+
+      <h3 id="position-mobile">2.2 移动端入口</h3>
+      <ul>
+        <li>移动端为 TabBar 首 Tab「首页」，展示简化卡片（待办、通知、公告、快捷入口），布局配置与 PC 同源（sys_user_preference 跨端同步）。</li>
+      </ul>
+
+      <h2 id="grid">3. 网格系统与卡片规格</h2>
+
+      <h3 id="grid-spec">3.1 gridstack 网格约定</h3>
+      <ul>
+        <li>PC 工作台为 <strong>12 列网格</strong>（gridstack），卡片单元为 1 列宽 1 行高；行高与间距取设计令牌（<code>--space-md</code> 级）。</li>
+        <li>断点跟随<a href="11_布局设计_响应式适配.html">响应式断点</a>：宽屏 12 列；中屏（侧栏折叠档）自动收窄为 8 列；窄屏（抽屉化档）6 列。</li>
+        <li>卡片默认间距一致、无重叠；拖拽时网格吸附，不允许交叠（gridstack 原生约束）。</li>
+        <li>布局配置（layout_config）直接序列化 gridstack 结构（x / y / w / h / 卡片引用），PC 与移动端共用同一份数据，移动端按单列重排。</li>
+      </ul>
+
+      <h3 id="card-size">3.2 卡片尺寸规格</h3>
+      <table>
+        <tr><th>规格</th><th>网格尺寸（宽×高）</th><th>适用卡片</th></tr>
+        <tr><td>小卡</td><td>2×2</td><td>快捷入口、帮助入口、单一统计数</td></tr>
+        <tr><td>中卡</td><td>4×2</td><td>待办/已办、通知、公告（列表式，默认）</td></tr>
+        <tr><td>宽卡</td><td>6×2 / 6×3</td><td>数据统计（分组统计条）</td></tr>
+        <tr><td>图卡</td><td>6×4 / 12×4</td><td>数据集图表卡（ECharts，自适应画布）</td></tr>
+        <tr><td>全宽</td><td>12×N</td><td>用户自选宽卡布局</td></tr>
+      </table>
+      <p>默认尺寸取自卡片注册表（sys_dashboard_card.default_width/default_height），用户可调，范围限定 2-12 列宽、2-6 行高。</p>
+
+      <h2 id="card">4. 卡片形态规范</h2>
+      <div class="diagram">
+        <div class="d-box d-nav">顶栏（品牌 + 全局搜索 + 待办角标 · 消息角标 + 用户区）</div>
+        <div class="d-box" style="display:flex;text-align:left">
+          <div style="flex:.2;border-right:1px solid var(--border);padding:.5rem">
+            侧边菜单<br><span class="d-note">动态菜单树</span>
+          </div>
+          <div style="flex:.8;padding:.5rem">
+            <div style="border:1px solid var(--border);border-radius:8px;padding:.3rem .6rem;font-size:.8rem">Tab 栏：<b>工作台</b>（固定）｜ 用户管理 ｜ 流程实例 …</div>
+            <div style="display:flex;gap:.4rem;margin-top:.5rem">
+              <div style="flex:1;border:1px solid var(--border);border-radius:8px;padding:.3rem .6rem">
+                <div class="d-note">待办 4 · 已办 12</div>
+                <div style="font-size:.75rem">采购申请-20260801<br>费用报销-20260802</div>
+              </div>
+              <div style="flex:1;border:1px solid var(--border);border-radius:8px;padding:.3rem .6rem">
+                <div class="d-note">通知 3</div>
+                <div style="font-size:.75rem">审批通过提醒…<br>新公告：系统升级…</div>
+              </div>
+              <div style="flex:1;border:1px solid var(--border);border-radius:8px;padding:.3rem .6rem">
+                <div class="d-note">快捷入口</div>
+                <div style="font-size:.75rem">采购申请 · 收款登记<br>付款申请 · 报表中心</div>
+              </div>
+              <div style="flex:1;border:1px solid var(--border);border-radius:8px;padding:.3rem .6rem">
+                <div class="d-note">数据统计</div>
+                <div style="font-size:.75rem">本月收款 ¥1.2万<br>待审批 4 · 公告 2</div>
+              </div>
+            </div>
+            <div style="border:1px solid var(--border);border-radius:8px;padding:.3rem .6rem;margin-top:.4rem">
+              <span class="d-note">图表卡（数据集挂接，ECharts）</span>
+              <div style="font-size:.7rem;height:1.2rem">柱状图/折线图占位</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <ul>
+        <li><strong>通用卡片头</strong>：标题（16px，i18n）+ 右上操作（详情跳转/刷新/移入编辑可移除），底部内容区。</li>
+        <li><strong>待办/已办卡</strong>：左上数字强调 + 最近 3-5 条列表，点击跳转待办页；已办卡可折叠为仅数字。</li>
+        <li><strong>通知/公告卡</strong>：列表式，未读高亮 + 时间；点击跳通知中心/公告详情。</li>
+        <li><strong>快捷入口卡</strong>：图标宫格（3-4 列），入口数据来自前端可配置（默认菜单白名单），点击路由跳转。</li>
+        <li><strong>统计卡/图表卡</strong>：ECharts 渲染，图表自适应卡片尺寸（resize 监听）；无数据时显示空态插画。</li>
+        <li><strong>帮助入口卡</strong>：帮助中心入口，跳帮助页。</li>
+      </ul>
+
+      <h2 id="edit">5. 编辑模式与定制交互</h2>
+      <ul>
+        <li>进入方式：工作台右上「定制」按钮（齿轮图标），进入编辑态（网格显示拖拽手柄，顶部出现编辑工具栏）。</li>
+        <li><strong>拖拽与缩放</strong>：编辑态下卡片可拖动换位、右下角手柄缩放（限制在规格区间内）；拖拽完成即更新本地布局，点「保存」统一提交。</li>
+        <li><strong>显隐</strong>：卡片右上「×」隐藏（移入隐藏列表）；编辑面板（右侧抽屉）列出可选卡片与已隐藏卡片，可勾选恢复。</li>
+        <li><strong>添加卡片</strong>：编辑面板「添加卡片」支持两类——已注册内置卡直接添加；「自建图表卡」选数据集（rpt_dataset）+ 图表类型生成 dataset 卡（需报表中心可用）。</li>
+        <li><strong>重置</strong>：编辑工具栏「恢复默认」二次确认后一键重置，回退角色模板 → 平台默认模板（提示当前将回退到哪一级）。</li>
+        <li>移动端不提供编辑入口，只读展示同源布局的简化形态。</li>
+      </ul>
+
+      <h2 id="template">6. 模板与默认布局</h2>
+      <ul>
+        <li>三级回退：个人布局（sys_user_preference dashboard:layout）→ 角色模板（sys_dashboard_template scope=role）→ 平台默认模板（scope=platform）。</li>
+        <li>平台默认模板由系统管理员维护（工作台模板管理页），内置卡齐备、面向全员；角色模板按角色差异化（如管理员角色含系统监控统计卡）。</li>
+        <li>用户从未定制时使用模板渲染；模板被删除/停用时该级失效自动回退下一级，前端无需处理级联。</li>
+      </ul>
+
+      <h2 id="empty">7. 空状态与异常</h2>
+      <ul>
+        <li>整页空态（无可显示卡片）：居中插画 + 文案「工作台暂无内容」+ 「恢复默认布局」按钮。</li>
+        <li>单卡异常（数据接口失败/超时）：卡片内显示错误态占位（重试按钮），不影响其他卡片渲染。</li>
+        <li>数据集卡引用失效：卡片显示「数据集不可用」降级提示，允许在编辑模式移除。</li>
+        <li>加载：首屏卡片骨架屏（灰块模拟网格），数据到达逐卡填充。</li>
+      </ul>
+
+      <h2 id="mobile">8. 移动端工作台</h2>
+      <div class="diagram diagram-mobile">
+        <div class="d-box d-safe">状态栏 · 安全区</div>
+        <div class="d-box d-nav">首页（Tab 页，居中标题）</div>
+        <div class="d-box d-note" style="padding:.5rem">待办 4 · 未读通知 3</div>
+        <div class="d-box" style="text-align:left;padding:.3rem .7rem">
+          <div style="border:1px solid var(--border);border-radius:8px;padding:.35rem .6rem;margin-top:.3rem;font-size:.8rem">
+            <b>待办</b> <span style="float:right" class="d-note">4 项</span><br>
+            <span class="d-note">采购申请-20260801 待审批</span>
+          </div>
+          <div style="border:1px solid var(--border);border-radius:8px;padding:.35rem .6rem;margin-top:.3rem;font-size:.8rem">
+            <b>通知</b> <span style="float:right" class="d-note">3 条未读</span><br>
+            <span class="d-note">审批通过提醒 · 新公告</span>
+          </div>
+          <div style="border:1px solid var(--border);border-radius:8px;padding:.35rem .6rem;margin-top:.3rem;font-size:.8rem">
+            <b>快捷入口</b><br>
+            <span class="d-note">采购申请 · 收款登记 · 付款申请 · 报表</span>
+          </div>
+        </div>
+        <div class="d-box d-tabbar" style="padding:.4rem 0;display:flex;justify-content:space-around;font-size:.75rem">
+          <span><b>🏠</b><br>首页</span>
+          <span>📋<br>待办 <sup style="color:var(--danger,#cf222e)">4</sup></span>
+          <span>💬<br>消息 <sup style="color:var(--danger,#cf222e)">3</sup></span>
+          <span>👤<br>我的</span>
+        </div>
+        <div class="d-box d-safe">安全区</div>
+      </div>
+      <ul>
+        <li>单列卡片列表（自上而下：待办 → 通知 → 公告 → 快捷入口），卡片沿用卡片化列表规范（见<a href="14_布局设计_移动端细化.html">移动端细化</a>）。</li>
+        <li>只读展示 PC 同源布局：仅取该用户布局中「移动端支持」的卡片（内置卡标记 mobile_supported），图表/统计卡移动端显示摘要或省略。</li>
+        <li>下拉刷新 + 触底加载（列表卡内分页）。</li>
+      </ul>
+
+      <h2 id="checklist">9. 检查清单</h2>
+      <ul>
+        <li>□ 登录后默认进入工作台，Tab 固定首项、keep-alive 状态保持</li>
+        <li>□ 12 列网格正确，断点收窄（12→8→6）无重叠错位</li>
+        <li>□ 卡片尺寸规格限制生效，图表自适应 resize</li>
+        <li>□ 编辑模式完整：拖拽/缩放/显隐/添加/重置，保存后刷新保持</li>
+        <li>□ 三级模板回退正确，重置提示当前回退层级</li>
+        <li>□ 角标实时（Socket.IO），不随卡片显隐变化</li>
+        <li>□ 单卡异常降级不阻塞整页；空态与骨架屏完整</li>
+        <li>□ 移动端单列简化布局与 PC 同源、跨端同步</li>
+      </ul>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 依《文档生成规范》编写 · 与《概要设计-首页工作台》《布局设计-主框架》《布局设计-响应式适配》配套 · 生成日期：2026-08-13
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>
