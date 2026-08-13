@@ -55,7 +55,7 @@
       <span class="step" data-s="2">动态 DDL 建列</span><span class="arrow">→</span>
       <span class="step" data-s="3">已生效</span>
     </div>
-    <div class="proto-hint" id="flow-hint" style="margin-top:6px">类型映射：单行文本 → VARCHAR(255)（SQLite/MySQL/PG/达梦一致）</div>
+    <div class="proto-hint" id="flow-hint" style="margin-top:6px">类型映射：单行文本 → VARCHAR(255)</div>
 
     <div class="p-form-actions">
       <button class="p-btn" onclick="location.href='02_表单设计器.html'">取消</button>
@@ -68,7 +68,7 @@
 
 <script src="../_shared/prototype.js"></script>
 <script>
-  var colMap = { text: 'VARCHAR(255)', longtext: 'TEXT（达梦 CLOB）', number: 'DECIMAL(18,4)', datetime: 'TIMESTAMP', select: 'VARCHAR(64)', multi_select: 'VARCHAR(255)', switch: 'SMALLINT', file: 'VARCHAR(255)' };
+  var colMap = { text: 'VARCHAR(255)', longtext: 'TEXT', number: 'DECIMAL(18,4)', datetime: 'TIMESTAMP', select: 'VARCHAR(64)', multi_select: 'VARCHAR(255)', switch: 'SMALLINT', file: 'VARCHAR(255)' };
   document.getElementById('f-name-cn').addEventListener('input', function () {
     var cn = this.value.trim();
     var py = { '项': 'x', '目': 'm', '编': 'b', '号': 'h', '编': 'b', '号': 'h' };

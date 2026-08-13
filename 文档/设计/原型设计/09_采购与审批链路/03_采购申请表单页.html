@@ -22,48 +22,51 @@
 
   <div id="pane-detail">
     <div class="p-form">
+      <div class="p-toolbar" style="border:none;border-radius:0;padding:0 0 10px;margin-bottom:12px;border-bottom:1px solid #eaeef2">
+        <button class="p-btn" id="btn-edit" onclick="editForm()">修改</button>
+        <button class="p-btn danger" id="btn-del" onclick="delForm()">删除</button>
+        <button class="p-btn" onclick="toast('已重新加载当前记录')">刷新</button>
+        <button class="p-btn" onclick="toast('已关闭')">关闭</button>
+        <button class="p-btn primary" id="btn-save" style="display:none" onclick="saveForm()">保存</button>
+        <button class="p-btn" id="btn-draft" style="display:none" onclick="toast('已暂存为草稿','ok')">保存草稿</button>
+        <button class="p-btn primary" id="btn-submit" style="display:none" onclick="submitApply()">提交审批</button>
+      </div>
       <div class="p-section">基本信息</div>
       <div class="p-row">
         <div class="p-col p-field"><label>申请单号</label><input class="p-input" value="CG202608002（自动生成）" disabled></div>
-        <div class="p-col p-field"><label>标题 <span class="req">*</span></label><input class="p-input" value="采购办公桌×10"></div>
+        <div class="p-col p-field"><label>标题 <span class="req">*</span></label><input class="p-input" value="采购办公桌×10" disabled></div>
       </div>
       <div class="p-row">
-        <div class="p-col p-field"><label>金额 <span class="req">*</span></label><input class="p-input" id="f-amount" value="18000" oninput="calcAmount()"></div>
+        <div class="p-col p-field"><label>金额 <span class="req">*</span></label><input class="p-input" id="f-amount" value="18000" oninput="calcAmount()" disabled></div>
         <div class="p-col p-field"><label>供应商</label>
-          <select class="p-select"><option>办公家具供应商 A</option><option>办公家具供应商 B</option></select>
+          <select class="p-select" disabled><option>办公家具供应商 A</option><option>办公家具供应商 B</option></select>
         </div>
       </div>
       <div class="p-row">
-        <div class="p-col p-field"><label>申请事由</label><textarea class="p-textarea">部门办公桌老化，申请更换。</textarea></div>
+        <div class="p-col p-field"><label>申请事由</label><textarea class="p-textarea" disabled>部门办公桌老化，申请更换。</textarea></div>
       </div>
 
       <div class="p-section">明细（行内编辑，随主表整体提交）</div>
       <table class="p-table" id="dt">
         <tr><th>物料名称</th><th>数量</th><th>单价</th><th>小计</th><th>操作</th></tr>
         <tr>
-          <td><input class="p-input" value="办公桌" style="padding:3px 8px"></td>
-          <td><input class="p-input" type="number" value="10" style="width:80px;padding:3px 8px"></td>
-          <td><input class="p-input" type="number" value="1800" style="width:90px;padding:3px 8px"></td>
+          <td><input class="p-input" value="办公桌" style="padding:3px 8px" disabled></td>
+          <td><input class="p-input" type="number" value="10" style="width:80px;padding:3px 8px" disabled></td>
+          <td><input class="p-input" type="number" value="1800" style="width:90px;padding:3px 8px" disabled></td>
           <td><span data-role="sub">¥18,000</span></td>
-          <td><button class="p-btn sm danger" onclick="delRow(this)">删除行</button></td>
+          <td><button class="p-btn sm danger del-row-btn" onclick="delRow(this)" disabled>删除行</button></td>
         </tr>
       </table>
       <div style="margin-top:8px">
-        <button class="p-btn sm ghost" onclick="addRow()">＋ 新增行</button>
+        <button class="p-btn sm ghost" id="btn-add-row" onclick="addRow()" disabled>＋ 新增行</button>
       </div>
-      <div class="proto-hint" style="margin-top:6px">明细合计：<b id="total">¥18,000</b>（与主表金额一致性校验，主从单事务保存）</div>
-
-      <div class="p-form-actions">
-        <button class="p-btn" onclick="toast('已关闭')">关闭</button>
-        <button class="p-btn" onclick="toast('已暂存为草稿','ok')">保存草稿</button>
-        <button class="p-btn primary" onclick="submitApply()">提交审批</button>
-      </div>
+      <div class="proto-hint" style="margin-top:6px">明细合计：<b id="total">¥18,000</b></div>
     </div>
   </div>
 
   <div id="pane-record" style="display:none">
     <div class="p-form">
-      <div class="proto-hint" style="margin-bottom:8px">审批记录（wf_record 时间线）——提交审批后展示</div>
+      <div class="proto-hint" style="margin-bottom:8px">审批记录（提交审批后展示）</div>
       <div style="padding:6px 0"><b>张三</b> 提交申请 · 2026-08-12 09:30</div>
       <div style="padding:6px 0"><b>李经理</b> 同意 · 意见：预算内，同意 · 2026-08-12 10:00</div>
       <div style="padding:6px 0"><span class="p-tag blue">审批中</span> 财务节点</div>
@@ -92,13 +95,35 @@
   function addRow() {
     var tb = document.getElementById('dt');
     var tr = document.createElement('tr');
-    tr.innerHTML = '<td><input class="p-input" style="padding:3px 8px"></td><td><input class="p-input" type="number" value="1" style="width:80px;padding:3px 8px"></td><td><input class="p-input" type="number" value="0" style="width:90px;padding:3px 8px"></td><td><span data-role="sub">¥0</span></td><td><button class="p-btn sm danger" onclick="delRow(this)">删除行</button></td>';
+    tr.innerHTML = '<td><input class="p-input" style="padding:3px 8px"></td><td><input class="p-input" type="number" value="1" style="width:80px;padding:3px 8px"></td><td><input class="p-input" type="number" value="0" style="width:90px;padding:3px 8px"></td><td><span data-role="sub">¥0</span></td><td><button class="p-btn sm danger del-row-btn" onclick="delRow(this)">删除行</button></td>';
     tb.appendChild(tr);
+    syncEditState();
     calcAmount();
   }
   function delRow(btn) {
     if (document.querySelectorAll('#dt tr').length <= 1) { toast('至少保留一行明细', 'err'); return; }
     btn.closest('tr').remove(); calcAmount();
+  }
+  // 表单页工具栏分态（《布局设计-表单页》）：只读态 修改/删除/刷新/关闭 ↔ 编辑态 保存/保存草稿/提交审批/关闭
+  function setEditable(on) {
+    document.getElementById('btn-edit').style.display = on ? 'none' : '';
+    document.getElementById('btn-del').style.display = on ? 'none' : '';
+    document.getElementById('btn-save').style.display = on ? '' : 'none';
+    document.getElementById('btn-draft').style.display = on ? '' : 'none';
+    document.getElementById('btn-submit').style.display = on ? '' : 'none';
+    document.getElementById('btn-add-row').disabled = !on;
+    document.querySelectorAll('#pane-detail input, #pane-detail select, #pane-detail textarea').forEach(function (el) { el.disabled = !on; });
+    document.querySelectorAll('#dt .del-row-btn').forEach(function (b) { b.disabled = !on; });
+  }
+  function syncEditState() {
+    var on = document.getElementById('btn-save').style.display !== 'none';
+    document.querySelectorAll('#dt input').forEach(function (el) { el.disabled = !on; });
+    document.querySelectorAll('#dt .del-row-btn').forEach(function (b) { b.disabled = !on; });
+  }
+  function editForm() { setEditable(true); toast('已进入编辑态（字段启用）'); }
+  function saveForm() { setEditable(false); toast('已保存（乐观锁 version 校验），列表已刷新', 'ok'); }
+  function delForm() {
+    confirmAction('删除当前申请单（含明细，仅草稿可删）？', function () { toast('已删除并刷新列表', 'ok'); });
   }
   function calcAmount() {
     var sum = 0;
@@ -118,6 +143,14 @@
       toast('已提交审批（幂等键防重复），待办已推送', 'ok');
     });
   }
+  // 由列表页双击打开时（?id=&name=）回填单号与标题
+  (function () {
+    function qp(k) { var m = location.search.match(new RegExp('[?&]' + k + '=([^&]*)')); return m ? decodeURIComponent(m[1]) : null; }
+    var id = qp('id'), name = qp('name');
+    var inputs = document.querySelectorAll('#pane-detail .p-input');
+    if (id && inputs[0]) inputs[0].value = id;
+    if (name && inputs[1]) inputs[1].value = name;
+  })();
 </script>
 
 </body>

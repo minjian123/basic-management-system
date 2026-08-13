@@ -1,5 +1,10 @@
 /* BMS 交互式原型公共脚本 */
 (function () {
+  // 嵌入主框架时（URL 带 embed=1）隐藏顶部原型条（面包屑导航栏）
+  if (location.search.indexOf('embed=1') >= 0) {
+    var bar = document.querySelector('.proto-bar');
+    if (bar) bar.style.display = 'none';
+  }
   // Toast
   window.toast = function (msg, type) {
     var el = document.querySelector('.p-toast');
@@ -11,7 +16,20 @@
   };
 
   // 弹窗
-  window.openModal = function (id) { var m = document.getElementById(id); if (m) m.classList.add('show'); };
+  // openModal(id, title)：title 可选，按《布局设计-弹窗》"标题=动作+对象"动态设置（如「编辑角色」）
+  window.openModal = function (id, title) {
+    var m = document.getElementById(id);
+    if (!m) return;
+    if (title) {
+      var head = m.querySelector('.pm-head');
+      if (head) {
+        var x = head.querySelector('.x');
+        head.innerHTML = '<span>' + title + '</span>';
+        if (x) head.appendChild(x);
+      }
+    }
+    m.classList.add('show');
+  };
   window.closeModal = function (id) { var m = document.getElementById(id); if (m) m.classList.remove('show'); };
   document.addEventListener('click', function (e) {
     if (e.target.classList && e.target.classList.contains('p-mask')) e.target.classList.remove('show');

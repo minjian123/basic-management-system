@@ -15,11 +15,14 @@
 
 <div class="proto-frame">
   <div class="p-toolbar">
-    <button class="p-btn primary" onclick="openModal('m-edit')">新增</button>
-    <button class="p-btn" onclick="editSel()">修改</button>
-    <button class="p-btn" onclick="delSel()">删除</button>
-    <button class="p-btn" onclick="openModal('m-role')">绑定角色</button>
+    <button class="p-btn primary" onclick="openModal('m-edit','新增岗位')">新增</button>
     <button class="p-btn" onclick="toast('已刷新')">刷新</button>
+    <button class="p-btn" onclick="toast('原型演示：关闭当前模块页面（返回）')">关闭</button>
+    <button class="p-btn batch-btn" disabled onclick="delSel()">删除</button>
+    <button class="p-btn batch-btn" disabled onclick="openModal('m-role','绑定角色')">绑定角色</button>
+    <span style="margin-left:auto">
+      <button class="p-btn" onclick="toast('原型演示：导出当前筛选结果')">导出</button>
+    </span>
   </div>
 
   <div class="p-filter">
@@ -32,19 +35,19 @@
   <table class="p-table" id="tbl">
     <tr><th><input type="checkbox" onclick="selAll(this)"></th><th>岗位码</th><th>名称</th><th>归属部门</th><th>状态</th><th>操作</th></tr>
     <tr data-id="1">
-      <td><input type="checkbox" class="row-chk"></td><td>engineer</td><td>工程师</td><td>技术部</td><td><span class="p-tag green">启用</span></td>
-      <td class="col-ops"><button class="p-btn sm" onclick="openModal('m-edit')">编辑</button><button class="p-btn sm" onclick="openModal('m-role')">绑定角色</button></td>
+      <td><input type="checkbox" class="row-chk" onchange="updBatch()"></td><td>engineer</td><td>工程师</td><td>技术部</td><td><span class="p-tag green">启用</span></td>
+      <td class="col-ops"><button class="p-btn sm" onclick="openModal('m-edit','编辑岗位')">编辑</button><button class="p-btn sm" onclick="openModal('m-role','绑定角色')">绑定角色</button></td>
     </tr>
     <tr data-id="2">
-      <td><input type="checkbox" class="row-chk"></td><td>accountant</td><td>会计</td><td>财务部</td><td><span class="p-tag green">启用</span></td>
-      <td class="col-ops"><button class="p-btn sm" onclick="openModal('m-edit')">编辑</button><button class="p-btn sm" onclick="openModal('m-role')">绑定角色</button></td>
+      <td><input type="checkbox" class="row-chk" onchange="updBatch()"></td><td>accountant</td><td>会计</td><td>财务部</td><td><span class="p-tag green">启用</span></td>
+      <td class="col-ops"><button class="p-btn sm" onclick="openModal('m-edit','编辑岗位')">编辑</button><button class="p-btn sm" onclick="openModal('m-role','绑定角色')">绑定角色</button></td>
     </tr>
     <tr data-id="3">
-      <td><input type="checkbox" class="row-chk"></td><td>tester</td><td>测试</td><td>技术部</td><td><span class="p-tag gray">停用</span></td>
-      <td class="col-ops"><button class="p-btn sm" onclick="openModal('m-edit')">编辑</button><button class="p-btn sm" onclick="openModal('m-role')">绑定角色</button></td>
+      <td><input type="checkbox" class="row-chk" onchange="updBatch()"></td><td>tester</td><td>测试</td><td>技术部</td><td><span class="p-tag gray">停用</span></td>
+      <td class="col-ops"><button class="p-btn sm" onclick="openModal('m-edit','编辑岗位')">编辑</button><button class="p-btn sm" onclick="openModal('m-role','绑定角色')">绑定角色</button></td>
     </tr>
   </table>
-  <div class="p-pager">共 3 条</div>
+  <div class="p-pager">共 3 条 · 1/1 页</div>
 </div>
 
 <!-- 新增/编辑 -->
@@ -72,7 +75,6 @@
     <div class="pm-body">
       <label style="display:block;padding:6px 0;font-size:13px"><input type="checkbox" checked> 普通角色</label>
       <label style="display:block;padding:6px 0;font-size:13px"><input type="checkbox"> 审批角色</label>
-      <div class="proto-hint" style="margin-top:8px">岗位作为主体链中间实体：用户→岗位→角色（可再叠加用户直挂）</div>
     </div>
     <div class="pm-foot"><button class="p-btn" onclick="closeModal('m-role')">取消</button><button class="p-btn primary" onclick="closeModal('m-role');toast('绑定已保存','ok')">保存</button></div>
   </div>
@@ -80,18 +82,19 @@
 
 <script src="../_shared/prototype.js"></script>
 <script>
-  function selAll(cb) { document.querySelectorAll('.row-chk').forEach(function (x) { x.checked = cb.checked; }); }
+  function selAll(cb) {
+    document.querySelectorAll('.row-chk').forEach(function (x) { x.checked = cb.checked; });
+    updBatch();
+  }
+  // 批量操作按钮组：有选中行时启用（《布局设计-列表页》4.工具栏）
+  function updBatch() {
+    var any = !!document.querySelector('.row-chk:checked');
+    document.querySelectorAll('.batch-btn').forEach(function (b) { b.disabled = !any; });
+  }
   function savePost() {
     var c = document.getElementById('e-code').value.trim(), n = document.getElementById('e-name').value.trim();
     if (!c || !n) { toast('岗位码与名称必填', 'err'); return; }
     closeModal('m-edit'); toast('岗位已保存', 'ok');
-  }
-  function editSel() {
-    var sel = document.querySelector('.row-chk:checked');
-    if (!sel) { toast('请先选择岗位', 'err'); return; }
-    openModal('m-edit');
-    document.getElementById('e-code').value = sel.closest('tr').children[1].textContent;
-    document.getElementById('e-name').value = sel.closest('tr').children[2].textContent;
   }
   function delSel() {
     var sel = document.querySelector('.row-chk:checked');
