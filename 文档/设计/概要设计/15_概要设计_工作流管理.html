@@ -63,7 +63,7 @@
             <li>采购管理（<a href="14_概要设计_采购管理.html">概要 14</a>）：提交申请启动实例；流程结束回调生成订单</li>
             <li>通知与实时推送（<a href="../架构设计/17_架构设计_子系统_通知公告.html">架构 17</a>/<a href="../架构设计/13_架构设计_子系统_实时推送.html">架构 13</a>）：待办生成 → 站内信 + Socket.IO（approval.todo）+ 待办角标</li>
             <li>事件总线：wf.* 事件发布，Webhook 可订阅；审批关键操作落<a href="10_概要设计_操作日志.html">操作日志</a>与字段级审计</li>
-            <li>AI 服务（阶段十四）：智能审批辅助（RAG 参考意见）、AI 自动审批（开关默认关闭）</li>
+            <li>AI 服务（阶段十五）：智能审批辅助（RAG 参考意见）、AI 自动审批（开关默认关闭）</li>
           </ul>
         </li>
       </ul>
@@ -174,7 +174,7 @@ sequenceDiagram
           <table>
             <tr><th>config_key</th><th>默认值</th><th>说明</th></tr>
             <tr><td>wf.task_timeout_days</td><td>—</td><td>待办超时阈值（MVP 不自动通过，仅告警提醒）</td></tr>
-            <tr><td>ai.auto_execute / ai.auto_approve</td><td>false</td><td>AI 自动执行写操作/自动审批开关（阶段十四，默认关闭，后者依赖前者）</td></tr>
+            <tr><td>ai.auto_execute / ai.auto_approve</td><td>false</td><td>AI 自动执行写操作/自动审批开关（阶段十五，默认关闭，后者依赖前者）</td></tr>
           </table>
         </li>
         <li><strong>种子数据</strong>：初始工作流定义种子——采购申请三级审批流程模板（部门经理 → 财务 → 分管领导）；wf 业务码与动作码入平台库种子</li>

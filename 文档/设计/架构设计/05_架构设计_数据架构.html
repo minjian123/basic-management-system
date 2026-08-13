@@ -111,6 +111,7 @@
         <tr><td>sys_i18n_locale、sys_i18n_message</td><td>语言清单（rtl 标记）；前后端固定文案语言包</td></tr>
         <tr><td rowspan="2">工作流与业务</td><td>wf_process、wf_instance、wf_task、wf_record</td><td>流程定义（definition_key+version 唯一）、实例、待办、审批记录</td></tr>
         <tr><td>biz_purchase_apply、biz_purchase_order、biz_supplier</td><td>采购申请单、采购订单、供应商档案</td></tr>
+        <tr><td>biz_receipt、biz_payment、biz_refund、biz_payment_channel、biz_payment_flow</td><td>收款单、付款单、退款单、支付渠道配置（渠道抽象预留）、统一收付款流水台账</td></tr>
         <tr><td rowspan="2">审计与治理</td><td>sys_operation_log、sys_login_log、sys_data_audit_log</td><td>操作/登录/字段级变更审计（按月分片 + 哈希链）</td></tr>
         <tr><td>sys_archive_policy / sys_archive_log、sys_backup_task / sys_backup_log</td><td>归档策略与执行记录；备份任务与记录（含恢复演练登记）</td></tr>
         <tr><td rowspan="2">报表与 AI</td><td>rpt_dataset、rpt_report、rpt_screen</td><td>报表数据集（SQL 建模）、报表（ECharts 配置）、大屏（画布配置）</td></tr>

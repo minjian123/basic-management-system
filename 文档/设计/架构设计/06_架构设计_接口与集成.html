@@ -117,6 +117,10 @@
         <tr><td>wf.instance.finished</td><td>流程实例结束</td><td>instance_id、result</td><td>是</td></tr>
         <tr><td>purchase.apply.submitted</td><td>采购申请提交</td><td>apply_no、applicant_id、amount</td><td>是</td></tr>
         <tr><td>purchase.order.created</td><td>审批通过生成采购订单</td><td>order_no、apply_id、supplier</td><td>是</td></tr>
+        <tr><td>payment.receipt.confirmed</td><td>收款单确认</td><td>receipt_no、amount、biz_type、biz_id</td><td>是</td></tr>
+        <tr><td>payment.payment.approved</td><td>付款单审批通过</td><td>payment_no、amount、payee</td><td>是</td></tr>
+        <tr><td>payment.payment.executed</td><td>付款执行完成</td><td>payment_no、amount、channel_code</td><td>是</td></tr>
+        <tr><td>payment.refund.completed</td><td>退款完成</td><td>refund_no、refund_type、original_id、amount</td><td>是</td></tr>
         <tr><td>file.uploaded</td><td>文件上传完成</td><td>file_id、sha256、size</td><td>否</td></tr>
         <tr><td>notification.sent</td><td>通知/邮件/短信发送</td><td>user_id、type、biz_type</td><td>否</td></tr>
         <tr><td>notice.published</td><td>公告发布/更新/下线</td><td>notice_id、title、is_top</td><td>是</td></tr>

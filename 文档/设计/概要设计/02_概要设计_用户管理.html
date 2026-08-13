@@ -173,7 +173,7 @@ sequenceDiagram
       <h3 id="data-flow">4.3 数据流转</h3>
       <ul>
         <li>创建/更新/删除经 ORM 事件自动落审计字段与字段级变更审计（sys_data_audit_log，按月分表）</li>
-        <li>用户变更经 RocketMQ 事件驱动：操作日志异步落库、Webhook 推送、全文检索主数据索引同步（阶段十三）</li>
+        <li>用户变更经 RocketMQ 事件驱动：操作日志异步落库、Webhook 推送、全文检索主数据索引同步（阶段十四）</li>
         <li>删除为软删除：数据进回收站（recycle 业务查看/恢复）；过期残留由 Celery 定时物理清理</li>
         <li>解锁记录与字段级审计同属审计域：90 天热表后按归档策略冷化，哈希链随归档导出</li>
       </ul>

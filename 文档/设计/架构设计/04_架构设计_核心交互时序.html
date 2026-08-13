@@ -109,6 +109,7 @@ BMS 兼作 IdP：第三方系统经 OIDC 授权码流程以 BMS 用户体系登�
   → 落 purchase.order.created 事件 → Webhook 订阅方收到推送
   → 驳回：流程退回指定节点，申请人可修改后重新提交</code></pre>
       <p>参与子系统：工作流、通知公告、事件总线、实时推送、审计哈希链。</p>
+      <p><strong>收付款审批与执行</strong>（复用同一机制）：付款单提交 → 启动付款审批流程（付款申请审批模板）→ 审批通过落 payment.payment.approved 事件 → 财务执行付款（manual 渠道登记）→ 单据置已付款、落 biz_payment_flow 流水 → 落 payment.payment.executed 事件；收款单确认落 payment.receipt.confirmed；退款单关联原单校验后完成落 payment.refund.completed。渠道执行走渠道抽象层（本期仅 manual），后续接入 bank/third_party 渠道适配器。</p>
 
       <h2 id="seq-audit">8. 审计链写入</h2>
       <pre><code>业务写操作 → ORM 事件捕获字段级变更（sys_data_audit_log，关键表清单见数据架构节点）

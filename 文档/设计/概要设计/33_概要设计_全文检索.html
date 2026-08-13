@@ -19,7 +19,7 @@
   <aside class="sidebar">
     <div class="brand">
       <h1>概要设计 · 全文检索</h1>
-      <p>BMS · ES 检索、事件同步与降级兜底（阶段十三）</p>
+      <p>BMS · ES 检索、事件同步与降级兜底（阶段十四）</p>
     </div>
     <nav>
       <ul>
@@ -56,16 +56,16 @@
 
       <p>
         本节对应<a href="../../规划/项目规划说明.html">《项目规划说明》</a>「功能模块」之<strong>全文检索</strong>模块与「选型说明（ElasticSearch 8.x）」
-        「事件总线事件模型」「部署与运维（检索高可用）」「测试策略」「开发计划与验收标准（阶段十三）」章节，
+        「事件总线事件模型」「部署与运维（检索高可用）」「测试策略」「开发计划与验收标准（阶段十四）」章节，
         架构设计依据<a href="../架构设计/01_架构设计_总览.html">《架构设计》</a>20-子系统-全文检索节点。
       </p>
 
       <h2 id="overview">1. 模块概述与职责</h2>
       <p>
-        全文检索模块（阶段十三）基于 ElasticSearch 8.x（elasticsearch-py 官方客户端），
+        全文检索模块（阶段十四）基于 ElasticSearch 8.x（elasticsearch-py 官方客户端），
         为系统提供三类检索能力：<strong>主数据全局搜索</strong>（用户/部门/角色/字典/采购单据/文件元数据/帮助文章）、
         <strong>审计日志检索</strong>（操作/登录/开放接口/数据变更，按月索引与分片表对齐）、
-        <strong>文件内容检索</strong>（PDF/Word/Excel/TXT 解析文本；扫描件 OCR 由阶段十四 AI 支持）。
+        <strong>文件内容检索</strong>（PDF/Word/Excel/TXT 解析文本；扫描件 OCR 由阶段十五 AI 支持）。
       </p>
       <ul>
         <li><strong>模块定位</strong>：检索能力提供方，覆盖全局搜索（PC 管理端 + 移动端）、审计日志全文检索与文件内容检索；不新增业务权限码，检索入口按目标域既有权限过滤</li>
@@ -77,7 +77,7 @@
             <li><a href="23_概要设计_任务调度.html">任务调度</a>（<a href="../架构设计/12_架构设计_子系统_任务调度.html">架构 12</a>）：文件文本解析走 Celery 任务；索引重建任务入 sys_task 由页面管理触发</li>
             <li>审计哈希链（<a href="../架构设计/14_架构设计_子系统_审计哈希链.html">架构 14</a>）：审计日志按月索引与分片表归档对齐，归档后索引同步裁剪</li>
             <li><a href="12_概要设计_文件管理.html">文件管理</a>（<a href="../架构设计/15_架构设计_子系统_文件管理.html">架构 15</a>）：文件内容解析依赖文件元数据与 MinIO 对象（file.uploaded 事件驱动）</li>
-            <li>AI 服务（<a href="../架构设计/21_架构设计_子系统_AI服务.html">架构 21</a>，阶段十四）：扫描件 OCR 与文件自动分类衔接文本解析；语义搜索与文件问答走 Milvus（独立向量检索，与本模块关键词检索互补）</li>
+            <li>AI 服务（<a href="../架构设计/21_架构设计_子系统_AI服务.html">架构 21</a>，阶段十五）：扫描件 OCR 与文件自动分类衔接文本解析；语义搜索与文件问答走 Milvus（独立向量检索，与本模块关键词检索互补）</li>
             <li>可观测性（<a href="../架构设计/22_架构设计_子系统_可观测性.html">架构 22</a>）：索引健康、同步积压纳入 Prometheus 监控</li>
           </ul>
         </li>
@@ -90,7 +90,7 @@
         <tr><th>功能点</th><th>说明</th><th>入口/权限</th></tr>
         <tr><td>全局搜索（主数据多域聚合）</td><td>跨用户/部门/角色/字典/采购单据/文件元数据/帮助文章多域检索，命中按域分组展示并高亮关键词</td><td>顶栏常驻入口（PC + 移动端）；按目标域既有业务权限过滤</td></tr>
         <tr><td>审计日志检索</td><td>操作/登录/开放接口/数据变更四类审计日志全文检索，按类型与时间范围路由到对应按月索引</td><td>log:query（审计管理员）</td></tr>
-        <tr><td>文件内容检索</td><td>PDF/Word/Excel/TXT 解析文本检索，命中返回文件 ID 与上下文高亮；扫描件标记 OCR 待办（阶段十四处理）</td><td>file:query + 动作级数据范围</td></tr>
+        <tr><td>文件内容检索</td><td>PDF/Word/Excel/TXT 解析文本检索，命中返回文件 ID 与上下文高亮；扫描件标记 OCR 待办（阶段十五处理）</td><td>file:query + 动作级数据范围</td></tr>
         <tr><td>事件同步消费</td><td>event-worker ES 同步组消费 RocketMQ 事件，增量 upsert/删除索引文档；消费失败重试 + 死信告警</td><td>进程内（无接口权限）</td></tr>
         <tr><td>文件文本解析</td><td>Celery 任务提取 PDF/Word/Excel/TXT 文本后入库索引；解析失败重试并标记状态</td><td>进程内（file.uploaded 触发）</td></tr>
         <tr><td>索引重建</td><td>重建任务入 sys_task（页面可触发、可定时）；单索引/按月索引独立重建；重放事件流 + 全量快照兜底；别名切换</td><td>task:trigger（手动触发）</td></tr>
@@ -105,7 +105,7 @@
         <li><strong>只返回 ID 与高亮</strong>：ES 检索结果仅含业务 ID、域标识、标题与高亮片段；页面展示的详情数据回查数据库取最新，避免双写一致性难题</li>
         <li><strong>按月对齐</strong>：审计日志索引 <code>bms-log-{类型}-{yyyyMM}</code> 与分片表（sys_operation_log_{yyyyMM} 等）按月对齐，新月份索引由 Celery 定时任务与分片表预创建联动提前创建</li>
         <li><strong>归档裁剪</strong>：审计数据按归档策略（90 天热表）归档后，对应月份索引同步裁剪；归档前执行链完整性校验，与索引对齐检查一并进行</li>
-        <li><strong>文本解析</strong>：仅上传完成的文件（file.uploaded 事件）触发解析；解析失败自动重试（限定次数），仍失败标记 <code>failed</code> 并告警，支持人工重新解析；无文本层的扫描件标记 <code>ocr_pending</code>，由阶段十四 OCR 能力衔接</li>
+        <li><strong>文本解析</strong>：仅上传完成的文件（file.uploaded 事件）触发解析；解析失败自动重试（限定次数），仍失败标记 <code>failed</code> 并告警，支持人工重新解析；无文本层的扫描件标记 <code>ocr_pending</code>，由阶段十五 OCR 能力衔接</li>
         <li><strong>查询约束</strong>：审计日志检索必须携带时间范围（与分片键对齐），单次范围上限防止扫全量索引；查询词长度受限，避免重查询打爆 ES</li>
       </ul>
 
@@ -122,7 +122,7 @@
           <ol>
             <li>文件上传完成发布 <code>file.uploaded</code>（file_id、sha256、size）</li>
             <li>event-worker 收到后提交 Celery 文本解析任务（PDF/Word/Excel/TXT 文本提取）</li>
-            <li>解析成功写入 <code>bms-file</code> 索引；解析失败重试/标记，扫描件标记 OCR 待办（阶段十四 AI 衔接）</li>
+            <li>解析成功写入 <code>bms-file</code> 索引；解析失败重试/标记，扫描件标记 OCR 待办（阶段十五 AI 衔接）</li>
             <li>异常分支：MinIO 对象不可读（已清理/损坏）标记失败并告警；解析超时按任务重试策略处理</li>
           </ol>
         </li>
@@ -161,7 +161,7 @@ sequenceDiagram
     worker->>Celery: 文件类？提交文本解析任务
     Celery->>Celery: 提取文本（PDF/Word/Excel/TXT）
     worker->>ES: 组装索引文档并 upsert
-    Note over worker, ES: 失败：重试 N 次 → 标记 + 告警；扫描件标记 ocr_pending（阶段十四 OCR 衔接）
+    Note over worker, ES: 失败：重试 N 次 → 标记 + 告警；扫描件标记 ocr_pending（阶段十五 OCR 衔接）
       </pre>
 
       <h3 id="timing-query">3.2 查询与降级时序</h3>
@@ -194,7 +194,7 @@ sequenceDiagram
         <tr><th>索引</th><th>命名</th><th>内容与关键字段</th><th>说明</th></tr>
         <tr><td>主数据索引</td><td><code>bms-main</code></td><td>doc_type（user/dept/role/dict/purchase/file_meta/help_article）、biz_id、title、content（可检索摘要）、tenant_id、deleted、updated_at</td><td>按用途分索引；域字段用于多域聚合与分域权限过滤；软删除同步标记</td></tr>
         <tr><td>审计日志索引</td><td><code>bms-log-{类型}-{yyyyMM}</code></td><td>log_type（operation/login/open/data_audit）、record_id、user_id、username、module、action、method、path、ip、status、params（截断存储）、time、prev_hash、record_hash</td><td>按月索引与分片表对齐；哈希链字段随档案留，供链校验交叉验证</td></tr>
-        <tr><td>文件内容索引</td><td><code>bms-file</code></td><td>file_id、name、mime_type、content（解析文本）、sha256、uploader_id、parse_status（parsed/failed/ocr_pending）、tenant_id、updated_at</td><td>PDF/Word/Excel/TXT 解析文本；扫描件标记 ocr_pending 由阶段十四 AI 处理</td></tr>
+        <tr><td>文件内容索引</td><td><code>bms-file</code></td><td>file_id、name、mime_type、content（解析文本）、sha256、uploader_id、parse_status（parsed/failed/ocr_pending）、tenant_id、updated_at</td><td>PDF/Word/Excel/TXT 解析文本；扫描件标记 ocr_pending 由阶段十五 AI 处理</td></tr>
       </table>
       <ul>
         <li><strong>别名机制</strong>：重建期间新旧索引切换用别名（如 <code>bms-main-alias</code> 指向当前索引），业务查询始终走别名，重建无感</li>
@@ -206,7 +206,7 @@ sequenceDiagram
       <ul>
         <li><strong>主数据</strong>：业务写入（事务提交）→ 事件发布 → event-worker 消费 → upsert <code>bms-main</code>；删除/软删除 → 索引移除/标记；重建时按事件流重放</li>
         <li><strong>审计日志</strong>：审计日志写入（RocketMQ 异步化 + 哈希链按月分片表）→ 同一消息流供 ES 同步组消费 → 写入 <code>bms-log-{类型}-{yyyyMM}</code>；按月分片表预创建时同步预创建索引；归档（90 天）后索引裁剪</li>
-        <li><strong>文件内容</strong>：上传完成 <code>file.uploaded</code> → 文本解析任务 → 写入 <code>bms-file</code>；解析失败重试后标记，支持人工重新解析；阶段十四 OCR 处理 ocr_pending 后回写索引</li>
+        <li><strong>文件内容</strong>：上传完成 <code>file.uploaded</code> → 文本解析任务 → 写入 <code>bms-file</code>；解析失败重试后标记，支持人工重新解析；阶段十五 OCR 处理 ocr_pending 后回写索引</li>
         <li><strong>重建任务</strong>：定义入 <code>sys_task</code>（handler 指向重建逻辑），执行记录入 <code>sys_task_log</code>；页面可触发与查看进度</li>
       </ul>
 
@@ -288,14 +288,14 @@ sequenceDiagram
         <tr><td>全局搜索</td><td>移动端 H5</td><td>顶栏搜索 + 结果列表（复用 /api/v1/search/global），高亮与详情跳转</td></tr>
         <tr><td>索引重建管理</td><td>PC 管理端</td><td>复用任务调度页：重建任务创建/触发/执行记录（sys_task_log），索引状态页签（健康/积压）</td></tr>
       </table>
-      <p><strong>验收要点</strong>（阶段十三完成标准）：</p>
+      <p><strong>验收要点</strong>（阶段十四完成标准）：</p>
       <ul>
         <li>检索命中与高亮正确：三类场景（主数据/审计日志/文件内容）命中准确、高亮正确、详情回查数据库为最新数据</li>
         <li>权限与租户过滤验证通过：跨租户检索被拒；无目标域权限不返回该域结果；数据范围过滤生效</li>
         <li>索引重建可用：单索引/按月索引独立重建成功、别名切换无感、事件重放与快照兜底生效、重复触发被拒</li>
         <li>审计日志按月索引与归档对齐：按月索引与分片表对齐、归档后索引同步裁剪、哈希链字段随档可校验</li>
         <li>降级兜底生效：ES 故障时数据库模糊查询可用且页面降级提示，恢复后重放事件重建索引</li>
-        <li>文件内容解析：PDF/Word/Excel/TXT 解析入库可检索；解析失败重试/标记与人工重解析可用；扫描件标记 OCR 待办（阶段十四衔接）</li>
+        <li>文件内容解析：PDF/Word/Excel/TXT 解析入库可检索；解析失败重试/标记与人工重解析可用；扫描件标记 OCR 待办（阶段十五衔接）</li>
         <li>索引健康与同步积压纳入监控可见；文本解析与重建相关用例纳入测试策略（事件同步、检索权限租户隔离、文件内容解析）</li>
       </ul>
 

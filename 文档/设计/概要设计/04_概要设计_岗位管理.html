@@ -161,7 +161,7 @@ sequenceDiagram
       <ul>
         <li>岗位增删改经 ORM 事件落字段级变更审计（sys_data_audit_log，按月分表）</li>
         <li>岗位软删除数据进回收站（recycle 恢复即清除 deleted_at，恢复动作落审计）；过期残留由 Celery 物理清理</li>
-        <li>岗位数据纳入全文检索主数据索引（阶段十三，用户/部门/角色/字典/单据搜索），经 RocketMQ 事件驱动同步</li>
+        <li>岗位数据纳入全文检索主数据索引（阶段十四，用户/部门/角色/字典/单据搜索），经 RocketMQ 事件驱动同步</li>
       </ul>
 
       <h2 id="api">5. 接口设计</h2>

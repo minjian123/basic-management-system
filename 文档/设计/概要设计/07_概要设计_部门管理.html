@@ -166,7 +166,7 @@ sequenceDiagram
       <h3 id="data-flow">4.3 数据流转</h3>
       <ul>
         <li>部门增删改/移动经 ORM 事件落字段级变更审计（sys_data_audit_log，按月分表，ancestors 变更亦记录）</li>
-        <li>dept.changed 事件：驱动全文检索主数据索引同步（阶段十三）、数据范围缓存失效</li>
+        <li>dept.changed 事件：驱动全文检索主数据索引同步（阶段十四）、数据范围缓存失效</li>
         <li>部门软删除进回收站（recycle 恢复）；恢复时若父部门已删除则挂回原父或根节点（按回收语义处理）</li>
         <li>过期软删除残留由 Celery 定时物理清理（与归档清理任务衔接）</li>
       </ul>
