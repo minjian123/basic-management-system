@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 权限码管理</title>
+<link rel="stylesheet" href="../_shared/prototype.css">
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="01_设计说明.html">← 返回设计说明</a></span>
+  <span class="pb-name">菜单管理 · 权限码管理</span>
+</div>
+
+<div class="proto-frame">
+  <div class="p-tabs" id="tabs">
+    <div class="p-tab active" data-pane="biz" onclick="switchT('biz')">业务权限码</div>
+    <div class="p-tab" data-pane="act" onclick="switchT('act')">动作权限码</div>
+  </div>
+
+  <div id="pane-biz">
+    <div class="p-toolbar">
+      <button class="p-btn primary" onclick="openModal('m-biz')">新增业务码</button>
+      <button class="p-btn" onclick="toast('已刷新')">刷新</button>
+      <span class="proto-hint">平台统一维护；租户侧可见、可分配、不可增删（40004 拦截）</span>
+    </div>
+    <table class="p-table">
+      <tr><th>业务码</th><th>说明</th><th>默认归属</th><th>操作</th></tr>
+      <tr><td>user</td><td>用户管理（含账号锁定/解锁）</td><td>系统管理员</td><td class="col-ops"><button class="p-btn sm" onclick="toast('平台码编辑（租户视角被拦截演示）','err')">编辑</button></td></tr>
+      <tr><td>dashboard</td><td>首页工作台</td><td>系统管理员</td><td class="col-ops"><button class="p-btn sm" onclick="toast('平台码编辑（租户视角被拦截演示）','err')">编辑</button></td></tr>
+      <tr><td>formdesign</td><td>表单定制</td><td>系统管理员</td><td class="col-ops"><button class="p-btn sm" onclick="toast('平台码编辑（租户视角被拦截演示）','err')">编辑</button></td></tr>
+      <tr><td>wf</td><td>工作流（定义/审批/查询）</td><td>普通角色</td><td class="col-ops"><button class="p-btn sm" onclick="toast('平台码编辑（租户视角被拦截演示）','err')">编辑</button></td></tr>
+      <tr><td>purchase</td><td>采购申请/订单/供应商</td><td>普通角色</td><td class="col-ops"><button class="p-btn sm" onclick="toast('平台码编辑（租户视角被拦截演示）','err')">编辑</button></td></tr>
+    </table>
+  </div>
+
+  <div id="pane-act" style="display:none">
+    <div class="p-toolbar">
+      <button class="p-btn primary" onclick="openModal('m-act')">新增动作码</button>
+      <button class="p-btn" onclick="toast('已刷新')">刷新</button>
+    </div>
+    <table class="p-table">
+      <tr><th>动作码</th><th>归属业务</th><th>典型权限码</th><th>操作</th></tr>
+      <tr><td>query</td><td>（多业务共用）</td><td>wf:query、monitor:view</td><td class="col-ops"><button class="p-btn sm" onclick="toast('平台码编辑（租户视角被拦截演示）','err')">编辑</button></td></tr>
+      <tr><td>create</td><td>（多业务共用）</td><td>user:create、purchase:create</td><td class="col-ops"><button class="p-btn sm" onclick="toast('平台码编辑（租户视角被拦截演示）','err')">编辑</button></td></tr>
+      <tr><td>approve</td><td>wf</td><td>wf:approve</td><td class="col-ops"><button class="p-btn sm" onclick="toast('平台码编辑（租户视角被拦截演示）','err')">编辑</button></td></tr>
+      <tr><td>manage</td><td>dashboard / formdesign</td><td>dashboard:manage、formdesign:manage</td><td class="col-ops"><button class="p-btn sm" onclick="toast('平台码编辑（租户视角被拦截演示）','err')">编辑</button></td></tr>
+    </table>
+  </div>
+</div>
+
+<!-- 新增业务码 -->
+<div class="p-mask" id="m-biz">
+  <div class="p-modal">
+    <div class="pm-head">新增业务码<span class="x" onclick="closeModal('m-biz')">✕</span></div>
+    <div class="pm-body">
+      <div class="p-row">
+        <div class="p-col p-field"><label>业务码 <span class="req">*</span></label><input class="p-input" id="b-code"></div>
+        <div class="p-col p-field"><label>说明</label><input class="p-input" id="b-name"></div>
+      </div>
+    </div>
+    <div class="pm-foot"><button class="p-btn" onclick="closeModal('m-biz')">取消</button><button class="p-btn primary" onclick="saveBiz()">保存</button></div>
+  </div>
+</div>
+
+<!-- 新增动作码 -->
+<div class="p-mask" id="m-act">
+  <div class="p-modal">
+    <div class="pm-head">新增动作码<span class="x" onclick="closeModal('m-act')">✕</span></div>
+    <div class="pm-body">
+      <div class="p-row">
+        <div class="p-col p-field"><label>动作码 <span class="req">*</span></label><input class="p-input"></div>
+        <div class="p-col p-field"><label>归属业务</label><select class="p-select"><option>user</option><option>dashboard</option><option>formdesign</option><option>wf</option></select></div>
+      </div>
+    </div>
+    <div class="pm-foot"><button class="p-btn" onclick="closeModal('m-act')">取消</button><button class="p-btn primary" onclick="closeModal('m-act');toast('动作码已创建（挂按钮后生效）','ok')">保存</button></div>
+  </div>
+</div>
+
+<script src="../_shared/prototype.js"></script>
+<script>
+  function switchT(name) {
+    document.querySelectorAll('#tabs .p-tab').forEach(function (t) { t.classList.toggle('active', t.getAttribute('data-pane') === name); });
+    document.getElementById('pane-biz').style.display = name === 'biz' ? '' : 'none';
+    document.getElementById('pane-act').style.display = name === 'act' ? '' : 'none';
+  }
+  function saveBiz() {
+    var c = document.getElementById('b-code').value.trim();
+    if (!c) { toast('业务码必填', 'err'); return; }
+    closeModal('m-biz'); toast('业务码已创建（含 i18n 文案补录）', 'ok');
+  }
+</script>
+
+</body>
+</html>

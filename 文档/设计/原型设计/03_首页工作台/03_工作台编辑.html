@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 工作台编辑</title>
+<link rel="stylesheet" href="../_shared/prototype.css">
+<style>
+  .ed-top { display: flex; gap: 10px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+  .wb { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .wb-card { background: #fff; border: 1px dashed #0969da; border-radius: 8px; padding: 10px 12px; }
+  .wb-card .hd { display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-size: 13px; margin-bottom: 6px; }
+  .wb-card .hd .ops { display: flex; gap: 6px; font-size: 12px; color: #0969da; }
+  .wb-card .hd .ops span { cursor: pointer; }
+  .wb-card .hd .ops span:hover { text-decoration: underline; }
+  .wb-card.hidden { display: none; }
+  .wb-wide { grid-column: span 4; }
+  .drag-zone { border: 2px dashed #54aeff; background: #f6f8fa; border-radius: 8px; text-align: center; color: #0969da; font-size: 13px; padding: 14px; grid-column: span 4; cursor: pointer; }
+  .panel { background: #fff; border: 1px solid #d0d7de; border-radius: 8px; padding: 14px; margin-top: 12px; }
+  .hidden-list { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 6px; }
+  .h-item { background: #f6f8fa; border: 1px dashed #d0d7de; border-radius: 6px; padding: 4px 12px; font-size: 12px; cursor: pointer; }
+  .h-item:hover { background: #eaeef2; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="01_设计说明.html">← 返回设计说明</a></span>
+  <span class="pb-name">首页工作台 · 工作台编辑（编辑态）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="ed-top">
+    <span class="p-tag blue">编辑态</span>
+    <span class="proto-hint">当前层级：个人布局（回退链：角色模板 → 平台默认）</span>
+    <span style="margin-left:auto">
+      <button class="p-btn" onclick="resetConfirm()">恢复默认</button>
+      <button class="p-btn" onclick="location.href='02_工作台查看.html'">取消</button>
+      <button class="p-btn primary" onclick="saveLayout()">保存</button>
+    </span>
+  </div>
+
+  <div class="wb" id="wb">
+    <div class="wb-card" data-id="todo">
+      <div class="hd">待办 <span class="ops"><span onclick="moveUp(this)">↑</span><span onclick="moveDown(this)">↓</span><span onclick="hideCard(this)">✕ 隐藏</span></span></div>
+      <div class="proto-hint" style="font-size:12px">拖拽手柄示意（gridstack）· 数据渲染同查看态</div>
+    </div>
+    <div class="wb-card" data-id="notice">
+      <div class="hd">通知 <span class="ops"><span onclick="moveUp(this)">↑</span><span onclick="moveDown(this)">↓</span><span onclick="hideCard(this)">✕ 隐藏</span></span></div>
+      <div class="proto-hint" style="font-size:12px">3 未读 · 审批通过提醒</div>
+    </div>
+    <div class="wb-card" data-id="quick">
+      <div class="hd">快捷入口 <span class="ops"><span onclick="moveUp(this)">↑</span><span onclick="moveDown(this)">↓</span><span onclick="hideCard(this)">✕ 隐藏</span></span></div>
+      <div class="proto-hint" style="font-size:12px">采购申请 / 收款登记 / 付款申请 / 报表</div>
+    </div>
+    <div class="wb-card" data-id="stats">
+      <div class="hd">数据统计 <span class="ops"><span onclick="moveUp(this)">↑</span><span onclick="moveDown(this)">↓</span><span onclick="hideCard(this)">✕ 隐藏</span></span></div>
+      <div class="proto-hint" style="font-size:12px">本月收款 ¥1.2万 · 待审批 4</div>
+    </div>
+    <div class="wb-card wb-wide" data-id="chart">
+      <div class="hd">收付款趋势 <span class="ops"><span onclick="moveUp(this)">↑</span><span onclick="moveDown(this)">↓</span><span onclick="hideCard(this)">✕ 隐藏</span></span></div>
+      <div class="proto-hint" style="font-size:12px">数据集图表卡 · 底部手柄可调整高度</div>
+    </div>
+    <div class="drag-zone" onclick="openModal('modal-add')">＋ 添加卡片 / 拖入字段到空位</div>
+  </div>
+
+  <div class="panel">
+    <b>已隐藏卡片</b>
+    <div class="hidden-list">
+      <div class="h-item" onclick="restoreCard(this)" data-id="announce">公告（点击恢复）</div>
+      <div class="h-item" onclick="restoreCard(this)" data-id="help">帮助入口（点击恢复）</div>
+    </div>
+  </div>
+
+  <!-- 添加卡片弹窗 -->
+  <div class="p-mask" id="modal-add">
+    <div class="p-modal">
+      <div class="pm-head">添加卡片<span class="x" onclick="closeModal('modal-add')">✕</span></div>
+      <div class="pm-body">
+        <div class="proto-hint" style="margin-bottom:8px">已注册卡片（builtin）</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <button class="p-btn ghost" onclick="addBuiltin('announce')">＋ 公告</button>
+          <button class="p-btn ghost" onclick="addBuiltin('help')">＋ 帮助入口</button>
+          <button class="p-btn ghost" onclick="addBuiltin('notice')">＋ 通知</button>
+          <button class="p-btn ghost" onclick="addBuiltin('todo')">＋ 待办/已办</button>
+        </div>
+        <div class="proto-hint" style="margin:12px 0 8px">自建图表卡（dataset · 需报表中心）</div>
+        <button class="p-btn ghost" onclick="chartFlow()">＋ 新建图表卡（选数据集）</button>
+      </div>
+      <div class="pm-foot"><button class="p-btn" onclick="closeModal('modal-add')">关闭</button></div>
+    </div>
+  </div>
+
+  <!-- 自建图表卡弹窗 -->
+  <div class="p-mask" id="modal-chart">
+    <div class="p-modal">
+      <div class="pm-head">自建图表卡<span class="x" onclick="closeModal('modal-chart')">✕</span></div>
+      <div class="pm-body">
+        <div class="p-field"><label>选择数据集</label>
+          <select class="p-select"><option>本月收付款流水</option><option>采购订单金额</option><option>审批时长分布</option></select>
+        </div>
+        <div style="height:10px"></div>
+        <div class="p-field"><label>图表类型</label>
+          <select class="p-select"><option>柱状图</option><option>折线图</option><option>饼图</option></select>
+        </div>
+        <div style="height:10px"></div>
+        <div class="p-field"><label>默认尺寸</label>
+          <select class="p-select"><option>6×4</option><option>12×4</option><option>6×2</option></select>
+        </div>
+      </div>
+      <div class="pm-foot">
+        <button class="p-btn" onclick="closeModal('modal-chart')">取消</button>
+        <button class="p-btn primary" onclick="chartDone()">添加图表卡</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="../_shared/prototype.js"></script>
+<script>
+  var order = ['todo', 'notice', 'quick', 'stats', 'chart', '__drop'];
+  function cards() { return document.querySelectorAll('.wb-card:not(.hidden)'); }
+  function moveUp(el) {
+    var card = el.closest('.wb-card');
+    var prev = card.previousElementSibling;
+    if (!prev || prev.classList.contains('drag-zone')) { toast('已在最前'); return; }
+    card.parentNode.insertBefore(card, prev); toast('已上移（模拟拖拽排序）');
+  }
+  function moveDown(el) {
+    var card = el.closest('.wb-card');
+    var next = card.nextElementSibling;
+    if (!next) { toast('已在最后'); return; }
+    card.parentNode.insertBefore(next, card); toast('已下移（模拟拖拽排序）');
+  }
+  function hideCard(el) {
+    var card = el.closest('.wb-card');
+    card.classList.add('hidden');
+    var box = card.querySelector('.hd .ops'); if (box) box.style.display = 'none';
+    toast('已移入「已隐藏卡片」（数据保留）');
+  }
+  function restoreCard(el) {
+    var id = el.getAttribute('data-id');
+    var card = document.querySelector('.wb-card[data-id="' + id + '"]');
+    if (card) { card.classList.remove('hidden'); el.remove(); toast('已恢复卡片', 'ok'); }
+  }
+  function addBuiltin(id) {
+    var card = document.querySelector('.wb-card[data-id="' + id + '"]');
+    if (card) { card.classList.remove('hidden'); closeModal('modal-add'); toast('已添加「' + card.querySelector('.hd').childNodes[0].textContent + '」', 'ok'); }
+  }
+  function chartFlow() { closeModal('modal-add'); openModal('modal-chart'); }
+  function chartDone() {
+    closeModal('modal-chart');
+    var wb = document.getElementById('wb'), drop = wb.querySelector('.drag-zone');
+    var d = document.createElement('div');
+    d.className = 'wb-card wb-wide';
+    d.innerHTML = '<div class="hd">新图表卡 <span class="ops"><span onclick="moveUp(this)">↑</span><span onclick="moveDown(this)">↓</span><span onclick="hideCard(this)">✕ 隐藏</span></span></div><div class="proto-hint" style="font-size:12px">数据集图表卡（原型演示新增）· ECharts 渲染</div>';
+    wb.insertBefore(d, drop);
+    toast('图表卡已添加', 'ok');
+  }
+  function resetConfirm() {
+    confirmAction('恢复默认将删除个人布局，回退到「角色模板」层级，确定？', function () { toast('已恢复默认布局（回退角色模板）', 'ok'); });
+  }
+  function saveLayout() {
+    var ids = [];
+    cards().forEach(function (c) { ids.push(c.getAttribute('data-id')); });
+    toast('布局已保存（PUT /dashboard/layout）· 顺序：' + ids.join(' → '), 'ok');
+  }
+</script>
+
+</body>
+</html>

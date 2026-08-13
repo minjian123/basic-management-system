@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 表单定制 · 设计说明</title>
+<link rel="stylesheet" href="../../../资源/文档样式.css">
+</head>
+<body>
+
+<div class="topnav">
+  <a href="../../../文档首页.html">文档首页</a> ›
+  <a href="../../../规划/项目规划说明.html">项目规划说明</a> ›
+  <a href="../01_原型设计_总览.html">原型设计</a> ›
+  <span>表单定制 · 设计说明</span>
+</div>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>原型 · 表单定制</h1>
+      <p>表单设计器 · 新建自定义字段 · 设计说明</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#overview">1. 模块概述</a></li>
+        <li><a href="#pages">2. 界面清单</a></li>
+        <li><a href="#interact">3. 交互要点</a></li>
+        <li><a href="#reference">4. 设计依据</a></li>
+        <li><a href="#iter">5. 迭代记录</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="overview">1. 模块概述</h2>
+      <p>
+        业务表单在线定制：三级布局（平台默认 → 租户覆盖 → 角色视图）与字段权限叠加（权限优先）、
+        字段属性在线调整（服务端动态校验）、租户自建字段（动态 DDL 加物理列）、查询表单区与明细区配置。
+        对应<a href="../../概要设计/37_概要设计_表单定制.html">《概要设计-表单定制》</a>。
+      </p>
+
+      <h2 id="pages">2. 界面清单</h2>
+      <table>
+        <tr><th>界面</th><th>原型（可点击操作）</th><th>主要交互验证点</th></tr>
+        <tr><td>表单设计器</td><td><a href="02_表单设计器.html">表单设计器.html</a></td><td>选表单、层级切换、字段添加/排序、分区列数、属性面板、保存/发布</td></tr>
+        <tr><td>新建自定义字段</td><td><a href="03_新建自定义字段.html">新建自定义字段.html</a></td><td>类型选择、列名预览、DDL 建列成功/失败重试</td></tr>
+      </table>
+
+      <h2 id="interact">3. 交互要点</h2>
+      <ul>
+        <li>设计器：字段面板点击即加入画布（模拟拖拽）；分区可改列数（1/2/3）；字段可「跨整行」；属性面板选中字段联动</li>
+        <li>层级：平台默认只读（按钮禁用）、租户覆盖/角色视图可编辑；保存清缓存提示</li>
+        <li>自建字段：类型白名单、列名自动生成不可改；建列成功 toast；失败出现重试按钮（模拟 DDL 异常）</li>
+        <li>属性：必填/校验规则变更提示「前后端双重校验，保存即生效」</li>
+      </ul>
+
+      <h2 id="reference">4. 设计依据</h2>
+      <ul>
+        <li>概要：<a href="../../概要设计/37_概要设计_表单定制.html">《概要设计-表单定制》</a>（接口/错误码 404xx/验收）</li>
+        <li>布局：<a href="../../布局设计/16_布局设计_表单定制.html">《布局设计-表单定制》</a>（三区结构与交互）</li>
+        <li>架构：<a href="../../架构设计/30_架构设计_子系统_表单定制.html">《架构设计-表单定制子系统》</a>（动态 DDL/校验）</li>
+      </ul>
+
+      <h2 id="iter">5. 迭代记录</h2>
+      <table>
+        <tr><th>日期</th><th>变更</th><th>状态</th></tr>
+        <tr><td>2026-08-13</td><td>初版：设计器/自建字段可交互原型</td><td>待评审</td></tr>
+      </table>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 原型设计模块说明 · 依《文档生成规范》编写 · 生成日期：2026-08-13
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>

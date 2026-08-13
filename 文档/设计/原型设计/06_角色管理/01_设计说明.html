@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 角色管理 · 设计说明</title>
+<link rel="stylesheet" href="../../../资源/文档样式.css">
+</head>
+<body>
+
+<div class="topnav">
+  <a href="../../../文档首页.html">文档首页</a> ›
+  <a href="../../../规划/项目规划说明.html">项目规划说明</a> ›
+  <a href="../01_原型设计_总览.html">原型设计</a> ›
+  <span>角色管理 · 设计说明</span>
+</div>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>原型 · 角色管理</h1>
+      <p>角色列表 · 主体绑定 · 权限配置 · 设计说明</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#overview">1. 模块概述</a></li>
+        <li><a href="#pages">2. 界面清单</a></li>
+        <li><a href="#interact">3. 交互要点</a></li>
+        <li><a href="#reference">4. 设计依据</a></li>
+        <li><a href="#iter">5. 迭代记录</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="overview">1. 模块概述</h2>
+      <p>
+        角色增删改查、主体绑定（用户/岗位/部门主体链）、权限配置（菜单/表单/按钮/字段/数据范围）。
+        对应<a href="../../概要设计/05_概要设计_角色管理.html">《概要设计-角色管理》</a>；三权分立约束见权限模型。
+      </p>
+
+      <h2 id="pages">2. 界面清单</h2>
+      <table>
+        <tr><th>界面</th><th>原型（可点击操作）</th><th>主要交互验证点</th></tr>
+        <tr><td>角色列表页</td><td><a href="02_角色列表页.html">角色列表页.html</a></td><td>CRUD、主体绑定弹窗（用户/岗位/部门 Tab）、三权互斥校验</td></tr>
+        <tr><td>权限配置</td><td><a href="03_权限配置.html">权限配置.html</a></td><td>菜单树勾选、按钮权限（默认无）、数据范围、字段权限</td></tr>
+      </table>
+
+      <h2 id="interact">3. 交互要点</h2>
+      <ul>
+        <li>主体绑定：三个 Tab（用户/岗位/部门），勾选即绑；保存提示权限版本 +1</li>
+        <li>权限配置：菜单勾选隐含表单/业务权限；按钮默认无（勾选才有）；数据范围按动作配置</li>
+        <li>字段权限：角色 × 表单的 visible/editable 勾选，默认全可见可编辑</li>
+      </ul>
+
+      <h2 id="reference">4. 设计依据</h2>
+      <ul>
+        <li>概要：<a href="../../概要设计/05_概要设计_角色管理.html">《概要设计-角色管理》</a></li>
+        <li>架构：<a href="../../架构设计/10_架构设计_子系统_权限计算引擎.html">《架构设计-权限计算引擎》</a></li>
+      </ul>
+
+      <h2 id="iter">5. 迭代记录</h2>
+      <table>
+        <tr><th>日期</th><th>变更</th><th>状态</th></tr>
+        <tr><td>2026-08-13</td><td>初版：列表/绑定/权限配置</td><td>待评审</td></tr>
+      </table>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 原型设计模块说明 · 依《文档生成规范》编写 · 生成日期：2026-08-13
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>

@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 账号锁定</title>
+<link rel="stylesheet" href="../_shared/prototype.css">
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="01_设计说明.html">← 返回设计说明</a></span>
+  <span class="pb-name">用户管理 · 账号锁定</span>
+</div>
+
+<div class="proto-frame">
+  <div class="p-toolbar">
+    <button class="p-btn" onclick="toast('已刷新')">刷新</button>
+    <span class="proto-hint">锁定类型：失败超限（5 次 / 15 分钟）· 长期未登录（180 天）· 手动</span>
+  </div>
+
+  <table class="p-table" id="tbl">
+    <tr><th>用户名</th><th>锁定类型</th><th>锁定时间</th><th>自动解锁时间</th><th>操作</th></tr>
+    <tr data-id="1">
+      <td>lisi</td><td><span class="p-tag orange">失败超限</span></td><td>2026-08-01 18:02</td><td>2026-08-01 18:17</td>
+      <td class="col-ops"><button class="p-btn sm primary" onclick="unlock(this,'lisi')">解锁</button></td>
+    </tr>
+    <tr data-id="2">
+      <td>wangwu</td><td><span class="p-tag gray">手动</span></td><td>2026-08-05 10:00</td><td>—</td>
+      <td class="col-ops"><button class="p-btn sm primary" onclick="unlock(this,'wangwu')">解锁</button></td>
+    </tr>
+    <tr data-id="3">
+      <td>zhaoliu</td><td><span class="p-tag red">长期未登录</span></td><td>2026-08-10 00:00</td><td>—（需手动解锁）</td>
+      <td class="col-ops"><button class="p-btn sm primary" onclick="unlock(this,'zhaoliu')">解锁</button></td>
+    </tr>
+  </table>
+  <div class="p-pager">共 3 条</div>
+</div>
+
+<script src="../_shared/prototype.js"></script>
+<script>
+  function unlock(btn, name) {
+    confirmAction('手动解锁「' + name + '」？解锁记录将写入 sys_account_lock 并落操作日志与审计。', function () {
+      btn.closest('tr').remove();
+      toast('已解锁（解锁记录审计）', 'ok');
+    });
+  }
+</script>
+
+</body>
+</html>

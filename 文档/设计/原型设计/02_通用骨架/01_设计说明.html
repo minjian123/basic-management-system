@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 通用骨架 · 设计说明</title>
+<link rel="stylesheet" href="../../../资源/文档样式.css">
+</head>
+<body>
+
+<div class="topnav">
+  <a href="../../../文档首页.html">文档首页</a> ›
+  <a href="../../../规划/项目规划说明.html">项目规划说明</a> ›
+  <a href="../01_原型设计_总览.html">原型设计</a> ›
+  <span>通用骨架 · 设计说明</span>
+</div>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>原型 · 通用骨架</h1>
+      <p>登录 / 主框架 / 个人中心 · 设计说明</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#overview">1. 模块概述</a></li>
+        <li><a href="#pages">2. 界面清单</a></li>
+        <li><a href="#interact">3. 交互要点</a></li>
+        <li><a href="#reference">4. 设计依据</a></li>
+        <li><a href="#iter">5. 迭代记录</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="overview">1. 模块概述</h2>
+      <p>
+        全系统复用的通用骨架：登录页（账号密码 + 图形验证码 + SSO 入口）、主框架（侧边栏 + Tab 栏 + 顶栏角标）、
+        个人中心（改密/语言/时区/主题/列表个性化/通知偏好）。对应《概要设计》认证与会话、
+        <a href="../../架构设计/25_架构设计_前端架构.html">《架构设计-前端架构》</a>。
+      </p>
+
+      <h2 id="pages">2. 界面清单</h2>
+      <table>
+        <tr><th>界面</th><th>原型（可点击操作）</th><th>主要交互验证点</th></tr>
+        <tr><td>登录页</td><td><a href="02_登录页.html">02_登录页.html</a></td><td>验证码、SSO 入口、失败提示、忘记密码</td></tr>
+        <tr><td>主框架</td><td><a href="03_主框架.html">03_主框架.html</a></td><td>侧边栏折叠、Tab 开关、角标、用户下拉</td></tr>
+        <tr><td>表单框架</td><td><a href="04_表单框架.html">04_表单框架.html</a></td><td>列表/表单 Tab 切换、双击开详情、新增态、脏数据保护、保存刷新联动</td></tr>
+        <tr><td>个人中心</td><td><a href="05_个人中心.html">05_个人中心.html</a></td><td>改密校验、语言/时区、偏好保存</td></tr>
+      </table>
+
+      <h2 id="interact">3. 交互要点</h2>
+      <ul>
+        <li>登录：连续失败提示锁定文案；验证码点击刷新；SSO 入口按配置显隐</li>
+        <li>主框架：工作台 Tab 固定不可关；侧边栏折叠为图标态；角标随模拟数据变化</li>
+        <li>表单框架：列表 Tab 固定不可关；双击行开表单 Tab（默认只读）；新增开编辑态 Tab；修改未保存切换/关闭触发脏数据确认；保存后回填 id 并刷新列表</li>
+        <li>个人中心：改密复杂度实时校验；偏好保存即 Toast 确认（模拟跨端同步）</li>
+      </ul>
+
+      <h2 id="reference">4. 设计依据</h2>
+      <ul>
+        <li>布局：<a href="../../布局设计/03_布局设计_主框架.html">《布局设计-主框架》</a>、<a href="../../布局设计/04_布局设计_导航.html">《布局设计-导航》</a></li>
+        <li>概要：<a href="../../概要设计/03_概要设计_用户喜好.html">《概要设计-用户喜好》</a>（偏好存储与跨端同步）</li>
+        <li>安全：登录限流/验证码/密码策略见《概要设计-认证与安全》</li>
+      </ul>
+
+      <h2 id="iter">5. 迭代记录</h2>
+      <table>
+        <tr><th>日期</th><th>变更</th><th>状态</th></tr>
+        <tr><td>2026-08-13</td><td>初版：登录/主框架/个人中心可交互原型</td><td>待评审</td></tr>
+      </table>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 原型设计模块说明 · 依《文档生成规范》编写 · 生成日期：2026-08-13
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>

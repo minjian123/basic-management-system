@@ -43,8 +43,18 @@
             <li><a href="#diagrams">7.7 图形与示意图</a></li>
           </ul>
         </li>
-        <li><a href="#flow">8. 生成流程与检查清单</a></li>
-        <li><a href="#graphify">9. 与知识图谱的关系</a></li>
+        <li><a href="#design-docs">8. 设计文档体系规范</a>
+          <ul class="sub">
+            <li><a href="#design-position">8.1 适用范围与体系定位</a></li>
+            <li><a href="#design-org">8.2 组织方式</a></li>
+            <li><a href="#design-naming">8.3 命名与编号规则</a></li>
+            <li><a href="#design-reference">8.4 引用与追溯</a></li>
+            <li><a href="#design-prototype">8.5 原型设计专项规则</a></li>
+            <li><a href="#design-checklist">8.6 设计文档检查清单</a></li>
+          </ul>
+        </li>
+        <li><a href="#flow">9. 生成流程与检查清单</a></li>
+        <li><a href="#graphify">10. 与知识图谱的关系</a></li>
       </ul>
     </nav>
   </aside>
@@ -75,6 +85,11 @@
           <td>AI 对 md 的补充</td>
           <td>遵循原格式</td>
           <td>在用户 md 中补充内容时沿用原有结构、标题层级与风格。</td>
+        </tr>
+        <tr>
+          <td>设计体系文档</td>
+          <td>HTML（.html）</td>
+          <td>架构/概要/布局/原型四套设计体系：总纲 + 节点文件；原型界面的可交互 HTML 规则见第 8 节。</td>
         </tr>
       </table>
       <div class="note">判断依据：文档内容来源。AI 全新撰写 → html；在既有 md 上修改 → 保持 md。</div>
@@ -204,7 +219,63 @@ graph TD
         <li>布局设计类文档的线框示意图（主框架、移动端）继续使用 <code>diagram</code> / <code>diagram-mobile</code> CSS 系列，不适用 mermaid。</li>
       </ul>
 
-      <h2 id="flow">8. 生成流程与检查清单</h2>
+      <h2 id="design-docs">8. 设计文档体系规范</h2>
+      <p>BMS 的设计文档按「体系 + 总纲 + 节点」组织，位于 <code>文档/设计/</code> 下。本节约束设计文档的生成与维护。</p>
+
+      <h3 id="design-position">8.1 适用范围与体系定位</h3>
+      <table>
+        <tr><th>体系</th><th>目录</th><th>回答的问题</th><th>稳定性</th></tr>
+        <tr><td>架构设计</td><td><code>文档/设计/架构设计/</code></td><td>技术选型与机制如何运作（分层、子系统、数据、接口、性能安全）</td><td>稳定，改则牵动下游</td></tr>
+        <tr><td>概要设计</td><td><code>文档/设计/概要设计/</code></td><td>每个 MVP 模块的职责、流程、数据表、接口、权限、错误码</td><td>定稿后慎改</td></tr>
+        <tr><td>布局设计</td><td><code>文档/设计/布局设计/</code></td><td>界面栅格、组件形态、交互的统一规范</td><td>稳定（改则全站变）</td></tr>
+        <tr><td>原型设计</td><td><code>文档/设计/原型设计/</code></td><td>每个模块页面长什么样、点哪里去哪（可交互演示）</td><td>迭代频繁（需求确认工具）</td></tr>
+      </table>
+      <ul>
+        <li>生成顺序与追溯：<strong>规划 → 架构 → 概要</strong>；布局/原型服务于界面呈现；原型暴露的功能/流程问题须先修订概要设计，再同步原型</li>
+        <li>概要设计不做架构级新决策；与架构设计冲突时以架构设计为准并先修订架构节点</li>
+        <li>原型页面必须符合布局设计规范；与规范冲突时以布局设计为准</li>
+      </ul>
+
+      <h3 id="design-org">8.2 组织方式</h3>
+      <ul>
+        <li>架构/概要/布局三体系：<strong>总纲（01）+ 节点文件</strong>，每个节点独立成文、自包含可单独阅读；总纲统一引用并维护文档地图</li>
+        <li>原型设计：<strong>模块子文件夹</strong>结构——每个模块一个子文件夹，内含 <code>01_设计说明.html</code>（模块设计说明）与按序编号的可交互界面文件；总览维护模块地图</li>
+        <li>设计文档变更（模块职责、接口、权限、机制）须先更新对应体系节点，再传导到下游文档</li>
+      </ul>
+
+      <h3 id="design-naming">8.3 命名与编号规则</h3>
+      <ul>
+        <li>节点文件：<code>{两位编号}_{体系名}_{主题}.html</code>，如 <code>30_架构设计_子系统_表单定制.html</code>、<code>37_概要设计_表单定制.html</code>；编号即阅读顺序，新增节点顺延，不与既有编号冲突</li>
+        <li>原型体系：模块文件夹 <code>{两位编号}_{模块名}</code>（如 <code>05_用户管理/</code>，总览为 01 不建文件夹）；模块内文件 <code>{两位编号}_{名称}.html</code>，设计说明固定 <code>01_设计说明.html</code>，界面按阅读顺序 02 起编号</li>
+        <li>文档标题与文件名对应；界面名用界面业务名称（如「用户列表页」），不堆叠「原型」等后缀</li>
+      </ul>
+
+      <h3 id="design-reference">8.4 引用与追溯</h3>
+      <ul>
+        <li>每个节点正文开头标注其对应的规划说明章节与上游设计节点，保证 规划 → 架构 → 概要 可追溯（如概要节点开头注明「架构设计依据 30-表单定制子系统节点」）</li>
+        <li>首次提及的关联文档必须提供可点击链接（相对路径，见第 7.6 节）；节点间的「上一页/下一页」同级导航须与实际编号一致</li>
+        <li>原型设计说明列出该模块全部界面并逐条链接到可交互界面文件</li>
+      </ul>
+
+      <h3 id="design-prototype">8.5 原型设计专项规则</h3>
+      <ul>
+        <li><strong>可交互要求</strong>：界面原型为可点击操作的 HTML（按钮反馈、Tab 切换、弹窗开关、表单录入、视图跳转），双击 file:// 打开即用，不依赖构建与联网；仅静态示意不满足「可交互原型」定义</li>
+        <li><strong>公共资源</strong>：公共原型样式与脚本放 <code>原型设计/_shared/</code>（prototype.css / prototype.js），各界面统一引用，禁止各界面复制样式代码；单界面私有样式可内联 <code>&lt;style&gt;</code></li>
+        <li><strong>原型条</strong>：每个界面顶部带原型条（返回设计说明 + 界面名），便于评审跳转</li>
+        <li><strong>模拟数据</strong>：内置假数据，交互仅前端模拟不做持久化；交互与视觉对齐实际组件（Element Plus/Vant）行为，原型即验收基准</li>
+        <li><strong>迭代记录</strong>：设计说明维护「迭代记录」表（日期/变更/状态），定稿后标注「已确认」</li>
+      </ul>
+
+      <h3 id="design-checklist">8.6 设计文档检查清单</h3>
+      <ul>
+        <li>□ 节点开头标注上游依据（规划章节/架构节点）可追溯</li>
+        <li>□ 节点编号与总览文档地图一致，新增节点不冲突且总览已收录</li>
+        <li>□ 首次提及的关联文档链接可跳转（相对路径正确）</li>
+        <li>□ 原型界面：可点击交互、引用 _shared、带原型条、设计说明逐条链接界面</li>
+        <li>□ 原型模块文件夹与文件编号符合 8.3 规则</li>
+      </ul>
+
+      <h2 id="flow">9. 生成流程与检查清单</h2>
       <ol>
         <li><strong>收集事实</strong>：涉及工具、版本、路径时先在本机核实（如 <code>graphify --version</code>），禁止编造。</li>
         <li><strong>组织结构</strong>：按「概述 → 环境 → 部署 → 使用 → 维护 → 常见问题」常见顺序组织，编号章节。</li>
@@ -221,11 +292,12 @@ graph TD
             <li>□ 顶部导航栏存在，面包屑与同级链接均有效</li>
             <li>□ 图形使用 HTML 结构图（seq/tree/layer/diagram），无 ASCII 框线图（7.7 节）</li>
             <li>□ 提及的关联文档均提供可点击链接（相对路径），首次提及处可跳转</li>
+            <li>□ 设计文档遵守第 8 节（体系/编号/引用/原型规则）与 8.6 检查清单</li>
           </ul>
         </li>
       </ol>
 
-      <h2 id="graphify">9. 与知识图谱的关系</h2>
+      <h2 id="graphify">10. 与知识图谱的关系</h2>
       <ul>
         <li>「文档」目录是 graphify 的索引范围之一，文档变更后运行 <code>graphify update .</code> 保持图谱最新。</li>
         <li>新增文档后可用 <code>graphify query</code> 验证文档已被纳入图谱；HTML 文档会被当作内容文件索引。</li>

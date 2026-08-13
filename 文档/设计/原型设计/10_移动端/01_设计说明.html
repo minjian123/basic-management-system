@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 移动端 · 设计说明</title>
+<link rel="stylesheet" href="../../../资源/文档样式.css">
+</head>
+<body>
+
+<div class="topnav">
+  <a href="../../../文档首页.html">文档首页</a> ›
+  <a href="../../../规划/项目规划说明.html">项目规划说明</a> ›
+  <a href="../01_原型设计_总览.html">原型设计</a> ›
+  <span>移动端 · 设计说明</span>
+</div>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>原型 · 移动端</h1>
+      <p>移动首页 · 待办审批 · 个人中心 · 设计说明</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#overview">1. 模块概述</a></li>
+        <li><a href="#pages">2. 界面清单</a></li>
+        <li><a href="#interact">3. 交互要点</a></li>
+        <li><a href="#reference">4. 设计依据</a></li>
+        <li><a href="#iter">5. 迭代记录</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="overview">1. 模块概述</h2>
+      <p>
+        移动端 H5（frontend-mobile，Vant）：TabBar 首页工作台、待办列表与审批操作、通知列表、个人中心。
+        布局配置与 PC 同源跨端同步；企业微信/钉钉内嵌免登。对应
+        <a href="../../布局设计/13_布局设计_移动端.html">《布局设计-移动端》</a>。
+      </p>
+
+      <h2 id="pages">2. 界面清单</h2>
+      <table>
+        <tr><th>界面</th><th>原型（可点击操作）</th><th>主要交互验证点</th></tr>
+        <tr><td>移动首页</td><td><a href="02_移动首页.html">移动首页.html</a></td><td>TabBar 切换、角标、快捷入口、卡片点击跳转</td></tr>
+        <tr><td>移动待办审批</td><td><a href="03_移动待办审批.html">移动待办审批.html</a></td><td>列表点击详情、底部操作栏同意/驳回、附件预览</td></tr>
+        <tr><td>移动个人中心</td><td><a href="04_移动个人中心.html">移动个人中心.html</a></td><td>菜单导航、改密、退出登录确认</td></tr>
+      </table>
+
+      <h2 id="interact">3. 交互要点</h2>
+      <ul>
+        <li>TabBar 4 Tab：首页/待办/消息/我的，角标实时（Socket.IO）</li>
+        <li>待办卡片 → 详情 → 底部操作栏（同意/驳回/转办，安全区避让）</li>
+        <li>触底加载 + 下拉刷新 + 骨架屏；微信/钉钉内嵌 WebView 适配</li>
+      </ul>
+
+      <h2 id="reference">4. 设计依据</h2>
+      <ul>
+        <li>布局：<a href="../../布局设计/13_布局设计_移动端.html">移动端</a>、<a href="../../布局设计/14_布局设计_移动端细化.html">移动端细化</a></li>
+        <li>概要：<a href="../../概要设计/36_概要设计_首页工作台.html">首页工作台</a>（同源布局）</li>
+      </ul>
+
+      <h2 id="iter">5. 迭代记录</h2>
+      <table>
+        <tr><th>日期</th><th>变更</th><th>状态</th></tr>
+        <tr><td>2026-08-13</td><td>初版：首页/待办审批/个人中心</td><td>待评审</td></tr>
+      </table>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 原型设计模块说明 · 依《文档生成规范》编写 · 生成日期：2026-08-13
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>

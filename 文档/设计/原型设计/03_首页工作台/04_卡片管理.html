@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 卡片管理</title>
+<link rel="stylesheet" href="../_shared/prototype.css">
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="01_设计说明.html">← 返回设计说明</a></span>
+  <span class="pb-name">首页工作台 · 卡片管理</span>
+</div>
+
+<div class="proto-frame">
+  <div class="p-toolbar">
+    <button class="p-btn primary" onclick="openModal('modal-new')">新建数据集卡</button>
+    <button class="p-btn" onclick="toast('已刷新')">刷新</button>
+    <span class="proto-hint">builtin 卡仅可停用/启用（40308 拦截编辑定义）；dataset 卡可编辑/删除</span>
+  </div>
+
+  <div class="p-filter">
+    <label>类型</label>
+    <select class="p-select" style="width:auto"><option>全部</option><option>builtin 内置</option><option>dataset 数据集</option></select>
+    <label>状态</label>
+    <select class="p-select" style="width:auto"><option>全部</option><option>启用</option><option>停用</option></select>
+    <button class="p-btn sm">查询</button>
+    <button class="p-btn sm">重置</button>
+  </div>
+
+  <table class="p-table" id="tbl">
+    <tr><th>code</th><th>名称</th><th>类型</th><th>数据源</th><th>默认尺寸</th><th>状态</th><th>操作</th></tr>
+    <tr data-id="todo">
+      <td>todo</td><td>待办/已办</td><td><span class="p-tag blue">builtin</span></td><td>工作流接口</td><td>4×2</td><td><span class="p-tag green" data-role="st">启用</span></td>
+      <td class="col-ops"><button class="p-btn sm" onclick="toggleCard(this,'待办/已办')">停用</button></td>
+    </tr>
+    <tr data-id="notice">
+      <td>notice</td><td>通知</td><td><span class="p-tag blue">builtin</span></td><td>通知中心接口</td><td>4×2</td><td><span class="p-tag green" data-role="st">启用</span></td>
+      <td class="col-ops"><button class="p-btn sm" onclick="toggleCard(this,'通知')">停用</button></td>
+    </tr>
+    <tr data-id="stats_flow">
+      <td>stats_flow</td><td>收付款趋势</td><td><span class="p-tag gray">dataset</span></td><td>数据集 flow_month</td><td>12×4</td><td><span class="p-tag green" data-role="st">启用</span></td>
+      <td class="col-ops">
+        <button class="p-btn sm" onclick="openModal('modal-new')">编辑</button>
+        <button class="p-btn sm" onclick="toggleCard(this,'收付款趋势')">停用</button>
+        <button class="p-btn sm danger" onclick="delCard(this,'收付款趋势')">删除</button>
+      </td>
+    </tr>
+    <tr data-id="announce">
+      <td>announce</td><td>公告</td><td><span class="p-tag blue">builtin</span></td><td>公告接口</td><td>4×2</td><td><span class="p-tag gray" data-role="st">停用</span></td>
+      <td class="col-ops"><button class="p-btn sm" onclick="toggleCard(this,'公告')">启用</button></td>
+    </tr>
+  </table>
+  <div class="p-pager">共 4 条 · 1/1 页</div>
+</div>
+
+<!-- 新建/编辑数据集卡 -->
+<div class="p-mask" id="modal-new">
+  <div class="p-modal">
+    <div class="pm-head">新建数据集卡<span class="x" onclick="closeModal('modal-new')">✕</span></div>
+    <div class="pm-body">
+      <div class="p-row">
+        <div class="p-col p-field"><label>code</label><input class="p-input" id="f-code" value="stats_apply" placeholder="如 stats_apply"></div>
+        <div class="p-col p-field"><label>名称</label><input class="p-input" id="f-name" value="采购申请统计" placeholder="卡片名称"></div>
+      </div>
+      <div class="p-row">
+        <div class="p-col p-field"><label>数据集（rpt_dataset）</label>
+          <select class="p-select"><option>本月收付款流水</option><option>采购订单金额</option><option>审批时长分布</option></select>
+        </div>
+        <div class="p-col p-field"><label>图表类型</label>
+          <select class="p-select"><option>柱状图</option><option>折线图</option><option>饼图</option></select>
+        </div>
+      </div>
+      <div class="p-row">
+        <div class="p-col p-field"><label>默认尺寸</label>
+          <select class="p-select"><option>6×4</option><option>12×4</option><option>4×2</option></select>
+        </div>
+        <div class="p-col p-field"><label>状态</label>
+          <select class="p-select"><option>启用</option><option>停用</option></select>
+        </div>
+      </div>
+    </div>
+    <div class="pm-foot">
+      <button class="p-btn" onclick="closeModal('modal-new')">取消</button>
+      <button class="p-btn primary" onclick="saveCard()">保存</button>
+    </div>
+  </div>
+</div>
+
+<script src="../_shared/prototype.js"></script>
+<script>
+  function toggleCard(btn, name) {
+    var tr = btn.closest('tr'), st = tr.querySelector('[data-role="st"]');
+    var isEnable = st.classList.contains('gray');
+    if (isEnable) { st.className = 'p-tag green'; st.textContent = '启用'; btn.textContent = '停用'; toast('已启用「' + name + '」', 'ok'); }
+    else { st.className = 'p-tag gray'; st.textContent = '停用'; btn.textContent = '启用'; toast('已停用「' + name + '」——模板/布局中自动跳过'); }
+  }
+  function delCard(btn, name) {
+    confirmAction('删除数据集卡「' + name + '」？引用它的布局将跳过该卡。', function () {
+      btn.closest('tr').remove(); toast('已删除（数据保留，仅取消注册）', 'ok');
+    });
+  }
+  function saveCard() {
+    var code = document.getElementById('f-code').value.trim(), name = document.getElementById('f-name').value.trim();
+    if (!code || !name) { toast('code 与名称必填', 'err'); return; }
+    closeModal('modal-new');
+    var tbody = document.getElementById('tbl');
+    var tr = document.createElement('tr');
+    tr.innerHTML = '<td>' + code + '</td><td>' + name + '</td><td><span class="p-tag gray">dataset</span></td><td>数据集（原型演示）</td><td>6×4</td><td><span class="p-tag green" data-role="st">启用</span></td>' +
+      '<td class="col-ops"><button class="p-btn sm" onclick="openModal(\'modal-new\')">编辑</button><button class="p-btn sm" onclick="toggleCard(this,\'' + name + '\')">停用</button><button class="p-btn sm danger" onclick="delCard(this,\'' + name + '\')">删除</button></td>';
+    tbody.insertBefore(tr, tbody.querySelector('tr:nth-child(6)') || null);
+    toast('数据集卡已创建（含默认尺寸与状态）', 'ok');
+  }
+</script>
+
+</body>
+</html>

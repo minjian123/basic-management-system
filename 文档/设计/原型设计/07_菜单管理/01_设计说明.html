@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 菜单管理 · 设计说明</title>
+<link rel="stylesheet" href="../../../资源/文档样式.css">
+</head>
+<body>
+
+<div class="topnav">
+  <a href="../../../文档首页.html">文档首页</a> ›
+  <a href="../../../规划/项目规划说明.html">项目规划说明</a> ›
+  <a href="../01_原型设计_总览.html">原型设计</a> ›
+  <span>菜单管理 · 设计说明</span>
+</div>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>原型 · 菜单管理</h1>
+      <p>菜单树维护 · 权限码管理 · 设计说明</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#overview">1. 模块概述</a></li>
+        <li><a href="#pages">2. 界面清单</a></li>
+        <li><a href="#interact">3. 交互要点</a></li>
+        <li><a href="#reference">4. 设计依据</a></li>
+        <li><a href="#iter">5. 迭代记录</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="overview">1. 模块概述</h2>
+      <p>
+        平台超管维护的权限元数据：菜单树 CRUD、表单/按钮/字段挂接（1:1 链）、字段权限入口、业务/动作权限码。
+        对应<a href="../../概要设计/06_概要设计_菜单管理.html">《概要设计-菜单管理》</a>；平台库元数据租户只读引用。
+      </p>
+
+      <h2 id="pages">2. 界面清单</h2>
+      <table>
+        <tr><th>界面</th><th>原型（可点击操作）</th><th>主要交互验证点</th></tr>
+        <tr><td>菜单维护页</td><td><a href="02_菜单维护页.html">菜单维护页.html</a></td><td>菜单树 + 详情、挂接链完整性校验、i18n 名称</td></tr>
+        <tr><td>权限码管理</td><td><a href="03_权限码管理.html">权限码管理.html</a></td><td>业务/动作码维护、租户不可增删拦截</td></tr>
+      </table>
+
+      <h2 id="interact">3. 交互要点</h2>
+      <ul>
+        <li>菜单树点选 → 右侧详情与挂接链；挂接缺失给出明确提示（40002）</li>
+        <li>新建菜单需补全 path/component/i18n 名称；保存后发布 form.updated</li>
+        <li>权限码：平台库统一维护；模拟租户视角保存被拦截提示</li>
+      </ul>
+
+      <h2 id="reference">4. 设计依据</h2>
+      <ul>
+        <li>概要：<a href="../../概要设计/06_概要设计_菜单管理.html">《概要设计-菜单管理》</a></li>
+        <li>架构：<a href="../../架构设计/06_架构设计_接口与集成.html">《架构设计-接口与集成》</a>（动态菜单下发）</li>
+      </ul>
+
+      <h2 id="iter">5. 迭代记录</h2>
+      <table>
+        <tr><th>日期</th><th>变更</th><th>状态</th></tr>
+        <tr><td>2026-08-13</td><td>初版：菜单维护/权限码管理</td><td>待评审</td></tr>
+      </table>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 原型设计模块说明 · 依《文档生成规范》编写 · 生成日期：2026-08-13
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>
