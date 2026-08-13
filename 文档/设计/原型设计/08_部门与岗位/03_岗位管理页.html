@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 岗位管理页</title>
+<link rel="stylesheet" href="../_shared/prototype.css">
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="01_设计说明.html">← 返回设计说明</a></span>
+  <span class="pb-name">部门与岗位 · 岗位管理页</span>
+</div>
+
+<div class="proto-frame">
+  <div class="p-toolbar">
+    <button class="p-btn primary" onclick="openModal('m-edit')">新增</button>
+    <button class="p-btn" onclick="editSel()">修改</button>
+    <button class="p-btn" onclick="delSel()">删除</button>
+    <button class="p-btn" onclick="openModal('m-role')">绑定角色</button>
+    <button class="p-btn" onclick="toast('已刷新')">刷新</button>
+  </div>
+
+  <div class="p-filter">
+    <label>岗位名</label><input class="p-input" style="width:130px">
+    <label>归属部门</label><select class="p-select" style="width:auto"><option>全部</option><option>技术部</option><option>财务部</option></select>
+    <button class="p-btn sm">查询</button>
+    <button class="p-btn sm">重置</button>
+  </div>
+
+  <table class="p-table" id="tbl">
+    <tr><th><input type="checkbox" onclick="selAll(this)"></th><th>岗位码</th><th>名称</th><th>归属部门</th><th>状态</th><th>操作</th></tr>
+    <tr data-id="1">
+      <td><input type="checkbox" class="row-chk"></td><td>engineer</td><td>工程师</td><td>技术部</td><td><span class="p-tag green">启用</span></td>
+      <td class="col-ops"><button class="p-btn sm" onclick="openModal('m-edit')">编辑</button><button class="p-btn sm" onclick="openModal('m-role')">绑定角色</button></td>
+    </tr>
+    <tr data-id="2">
+      <td><input type="checkbox" class="row-chk"></td><td>accountant</td><td>会计</td><td>财务部</td><td><span class="p-tag green">启用</span></td>
+      <td class="col-ops"><button class="p-btn sm" onclick="openModal('m-edit')">编辑</button><button class="p-btn sm" onclick="openModal('m-role')">绑定角色</button></td>
+    </tr>
+    <tr data-id="3">
+      <td><input type="checkbox" class="row-chk"></td><td>tester</td><td>测试</td><td>技术部</td><td><span class="p-tag gray">停用</span></td>
+      <td class="col-ops"><button class="p-btn sm" onclick="openModal('m-edit')">编辑</button><button class="p-btn sm" onclick="openModal('m-role')">绑定角色</button></td>
+    </tr>
+  </table>
+  <div class="p-pager">共 3 条</div>
+</div>
+
+<!-- 新增/编辑 -->
+<div class="p-mask" id="m-edit">
+  <div class="p-modal">
+    <div class="pm-head">新增岗位<span class="x" onclick="closeModal('m-edit')">✕</span></div>
+    <div class="pm-body">
+      <div class="p-row">
+        <div class="p-col p-field"><label>岗位码 <span class="req">*</span></label><input class="p-input" id="e-code"></div>
+        <div class="p-col p-field"><label>名称 <span class="req">*</span></label><input class="p-input" id="e-name"></div>
+      </div>
+      <div class="p-row">
+        <div class="p-col p-field"><label>归属部门</label><select class="p-select"><option>技术部</option><option>财务部</option><option>人事部</option></select></div>
+        <div class="p-col p-field"><label>排序</label><input class="p-input" value="1"></div>
+      </div>
+    </div>
+    <div class="pm-foot"><button class="p-btn" onclick="closeModal('m-edit')">取消</button><button class="p-btn primary" onclick="savePost()">保存</button></div>
+  </div>
+</div>
+
+<!-- 角色绑定 -->
+<div class="p-mask" id="m-role">
+  <div class="p-modal">
+    <div class="pm-head">角色绑定（岗位）<span class="x" onclick="closeModal('m-role')">✕</span></div>
+    <div class="pm-body">
+      <label style="display:block;padding:6px 0;font-size:13px"><input type="checkbox" checked> 普通角色</label>
+      <label style="display:block;padding:6px 0;font-size:13px"><input type="checkbox"> 审批角色</label>
+      <div class="proto-hint" style="margin-top:8px">岗位作为主体链中间实体：用户→岗位→角色（可再叠加用户直挂）</div>
+    </div>
+    <div class="pm-foot"><button class="p-btn" onclick="closeModal('m-role')">取消</button><button class="p-btn primary" onclick="closeModal('m-role');toast('绑定已保存','ok')">保存</button></div>
+  </div>
+</div>
+
+<script src="../_shared/prototype.js"></script>
+<script>
+  function selAll(cb) { document.querySelectorAll('.row-chk').forEach(function (x) { x.checked = cb.checked; }); }
+  function savePost() {
+    var c = document.getElementById('e-code').value.trim(), n = document.getElementById('e-name').value.trim();
+    if (!c || !n) { toast('岗位码与名称必填', 'err'); return; }
+    closeModal('m-edit'); toast('岗位已保存', 'ok');
+  }
+  function editSel() {
+    var sel = document.querySelector('.row-chk:checked');
+    if (!sel) { toast('请先选择岗位', 'err'); return; }
+    openModal('m-edit');
+    document.getElementById('e-code').value = sel.closest('tr').children[1].textContent;
+    document.getElementById('e-name').value = sel.closest('tr').children[2].textContent;
+  }
+  function delSel() {
+    var sel = document.querySelector('.row-chk:checked');
+    if (!sel) { toast('请先选择岗位', 'err'); return; }
+    confirmAction('删除岗位？绑定该岗位的用户将失去对应角色权限。', function () { sel.closest('tr').remove(); toast('已删除', 'ok'); });
+  }
+</script>
+
+</body>
+</html>

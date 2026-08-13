@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 部门与岗位 · 设计说明</title>
+<link rel="stylesheet" href="../../../资源/文档样式.css">
+</head>
+<body>
+
+<div class="topnav">
+  <a href="../../../文档首页.html">文档首页</a> ›
+  <a href="../../../规划/项目规划说明.html">项目规划说明</a> ›
+  <a href="../01_原型设计_总览.html">原型设计</a> ›
+  <span>部门与岗位 · 设计说明</span>
+</div>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>原型 · 部门与岗位</h1>
+      <p>部门树 · 岗位管理 · 主体绑定 · 设计说明</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#overview">1. 模块概述</a></li>
+        <li><a href="#pages">2. 界面清单</a></li>
+        <li><a href="#interact">3. 交互要点</a></li>
+        <li><a href="#reference">4. 设计依据</a></li>
+        <li><a href="#iter">5. 迭代记录</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="overview">1. 模块概述</h2>
+      <p>
+        部门树维护（ancestors 链、数据权限依据）与岗位管理（归属部门、主体链中间实体）。
+        对应<a href="../../概要设计/04_概要设计_岗位管理.html">《概要设计-岗位管理》</a>、
+        <a href="../../概要设计/07_概要设计_部门管理.html">《概要设计-部门管理》</a>。
+      </p>
+
+      <h2 id="pages">2. 界面清单</h2>
+      <table>
+        <tr><th>界面</th><th>原型（可点击操作）</th><th>主要交互验证点</th></tr>
+        <tr><td>部门管理页</td><td><a href="02_部门管理页.html">部门管理页.html</a></td><td>树 + 详情、新增子部门、移动（ancestors 级联）、角色绑定</td></tr>
+        <tr><td>岗位管理页</td><td><a href="03_岗位管理页.html">岗位管理页.html</a></td><td>CRUD、归属部门、绑定角色</td></tr>
+      </table>
+
+      <h2 id="interact">3. 交互要点</h2>
+      <ul>
+        <li>部门：点选树节点 → 详情面板；移动部门提示 ancestors 级联更新与数据范围重算</li>
+        <li>岗位：列表 + 表单弹窗；绑定角色入口（主体链：用户→岗位→角色）</li>
+      </ul>
+
+      <h2 id="reference">4. 设计依据</h2>
+      <ul>
+        <li>概要：<a href="../../概要设计/04_概要设计_岗位管理.html">岗位管理</a>、<a href="../../概要设计/07_概要设计_部门管理.html">部门管理</a></li>
+        <li>架构：<a href="../../架构设计/10_架构设计_子系统_权限计算引擎.html">《架构设计-权限计算引擎》</a>（主体链）</li>
+      </ul>
+
+      <h2 id="iter">5. 迭代记录</h2>
+      <table>
+        <tr><th>日期</th><th>变更</th><th>状态</th></tr>
+        <tr><td>2026-08-13</td><td>初版：部门/岗位可交互原型</td><td>待评审</td></tr>
+      </table>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 原型设计模块说明 · 依《文档生成规范》编写 · 生成日期：2026-08-13
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>

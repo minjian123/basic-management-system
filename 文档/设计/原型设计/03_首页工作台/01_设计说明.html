@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 首页工作台 · 设计说明</title>
+<link rel="stylesheet" href="../../../资源/文档样式.css">
+</head>
+<body>
+
+<div class="topnav">
+  <a href="../../../文档首页.html">文档首页</a> ›
+  <a href="../../../规划/项目规划说明.html">项目规划说明</a> ›
+  <a href="../01_原型设计_总览.html">原型设计</a> ›
+  <span>首页工作台 · 设计说明</span>
+</div>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>原型 · 首页工作台</h1>
+      <p>工作台查看/编辑 · 卡片/模板管理 · 设计说明</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#overview">1. 模块概述</a></li>
+        <li><a href="#pages">2. 界面清单</a></li>
+        <li><a href="#interact">3. 交互要点</a></li>
+        <li><a href="#reference">4. 设计依据</a></li>
+        <li><a href="#iter">5. 迭代记录</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="overview">1. 模块概述</h2>
+      <p>
+        登录后默认首页（主框架固定 Tab）：网格卡片聚合待办/已办、通知、公告、快捷入口、统计与图表；
+        三级模板（平台默认 → 角色 → 个人）与个人定制；卡片双轨制（内置卡注册表 + 数据集图表卡）。
+        对应<a href="../../概要设计/36_概要设计_首页工作台.html">《概要设计-首页工作台》</a>。
+      </p>
+
+      <h2 id="pages">2. 界面清单</h2>
+      <table>
+        <tr><th>界面</th><th>原型（可点击操作）</th><th>主要交互验证点</th></tr>
+        <tr><td>工作台查看</td><td><a href="02_工作台查看.html">工作台查看.html</a></td><td>卡片数据展示、角标、进入编辑</td></tr>
+        <tr><td>工作台编辑</td><td><a href="03_工作台编辑.html">工作台编辑.html</a></td><td>卡片上移/下移/隐藏、添加卡片、恢复默认确认、保存</td></tr>
+        <tr><td>卡片管理</td><td><a href="04_卡片管理.html">卡片管理.html</a></td><td>builtin 仅停用、dataset 增删改、自建图表卡</td></tr>
+        <tr><td>模板管理</td><td><a href="05_模板管理.html">模板管理.html</a></td><td>平台唯一、角色模板绑定、删除回退</td></tr>
+      </table>
+
+      <h2 id="interact">3. 交互要点</h2>
+      <ul>
+        <li>查看态：卡片数据为内置假数据；角标随点击 +1（模拟 Socket.IO）</li>
+        <li>编辑态：卡片顺序调整、隐藏/恢复、添加卡片弹窗（内置卡 + 自建图表卡）、恢复默认二次确认（提示回退层级）</li>
+        <li>卡片管理：dataset 卡新建弹窗（选数据集 + 图表类型 + 默认尺寸）；builtin 卡无编辑/删除入口</li>
+        <li>模板管理：平台默认模板禁止再建（弹提示）；删除模板确认（提示相关用户回退）</li>
+      </ul>
+
+      <h2 id="reference">4. 设计依据</h2>
+      <ul>
+        <li>概要：<a href="../../概要设计/36_概要设计_首页工作台.html">《概要设计-首页工作台》</a>（接口/错误码/验收）</li>
+        <li>布局：<a href="../../布局设计/15_布局设计_首页工作台.html">《布局设计-首页工作台》</a>（12 列网格/卡片尺寸规格）</li>
+        <li>架构：<a href="../../架构设计/29_架构设计_子系统_首页工作台.html">《架构设计-首页工作台子系统》</a></li>
+      </ul>
+
+      <h2 id="iter">5. 迭代记录</h2>
+      <table>
+        <tr><th>日期</th><th>变更</th><th>状态</th></tr>
+        <tr><td>2026-08-13</td><td>初版：查看/编辑/卡片管理/模板管理</td><td>待评审</td></tr>
+      </table>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 原型设计模块说明 · 依《文档生成规范》编写 · 生成日期：2026-08-13
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>

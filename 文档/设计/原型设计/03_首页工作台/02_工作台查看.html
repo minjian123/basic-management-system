@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 工作台查看</title>
+<link rel="stylesheet" href="../_shared/prototype.css">
+<style>
+  .wb { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .wb-card { background: #fff; border: 1px solid #d0d7de; border-radius: 8px; padding: 12px 14px; cursor: pointer; }
+  .wb-card:hover { box-shadow: 0 2px 8px rgba(31,35,40,.08); }
+  .wb-card .t { display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-size: 14px; margin-bottom: 6px; }
+  .wb-wide { grid-column: span 4; }
+  .bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  .quick { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .quick .q { background: #ddf4ff; border-radius: 6px; padding: 6px; text-align: center; color: #0969da; font-size: 12px; cursor: pointer; }
+  .quick .q:hover { background: #b6e3ff; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="01_设计说明.html">← 返回设计说明</a></span>
+  <span class="pb-name">首页工作台 · 工作台查看</span>
+  <span class="pb-crumb" style="margin-left:auto">待办 <span id="badge-todo" class="badge"></span></span>
+</div>
+
+<div class="proto-frame">
+  <div class="bar">
+    <span class="proto-hint">Tab：工作台（固定）｜ 三级回退：个人布局 → 角色模板 → 平台默认</span>
+    <button class="p-btn primary" onclick="location.href='03_工作台编辑.html'">定制 ✎</button>
+  </div>
+
+  <div class="wb" id="wb">
+    <div class="wb-card" onclick="toast('原型演示：跳转「我的待办」')">
+      <div class="t">待办 <span class="p-tag gray" id="todo-count">4 项</span></div>
+      <div style="font-size:22px;font-weight:700;color:#0969da" id="todo-num">4</div>
+      <div class="proto-hint" style="font-size:12px;margin-top:4px">采购申请-20260801 待审批</div>
+      <div class="proto-hint" style="font-size:12px">付款申请-20260802 待审批</div>
+    </div>
+    <div class="wb-card" onclick="toast('原型演示：跳转「通知中心」')">
+      <div class="t">通知 <span class="p-tag red">3 未读</span></div>
+      <div class="proto-hint" style="font-size:12px;margin-top:8px">审批通过提醒 · 10:24</div>
+      <div class="proto-hint" style="font-size:12px">新公告：系统升级 · 昨日</div>
+      <div class="proto-hint" style="font-size:12px;margin-top:6px">查看全部 →</div>
+    </div>
+    <div class="wb-card">
+      <div class="t">快捷入口</div>
+      <div class="quick">
+        <div class="q" onclick="toast('原型演示：跳转「采购申请」')">采购申请</div>
+        <div class="q" onclick="toast('原型演示：跳转「收款登记」')">收款登记</div>
+        <div class="q" onclick="toast('原型演示：跳转「付款申请」')">付款申请</div>
+        <div class="q" onclick="toast('原型演示：跳转「报表中心」')">报表中心</div>
+      </div>
+    </div>
+    <div class="wb-card" onclick="toast('原型演示：跳转统计详情')">
+      <div class="t">数据统计</div>
+      <div style="display:flex;gap:16px;margin-top:8px">
+        <div><div style="font-size:18px;font-weight:700;color:#0969da">¥1.2万</div><div class="proto-hint" style="font-size:11px">本月收款</div></div>
+        <div><div style="font-size:18px;font-weight:700;color:#1a7f37">4</div><div class="proto-hint" style="font-size:11px">待审批</div></div>
+        <div><div style="font-size:18px;font-weight:700;color:#9a6700">2</div><div class="proto-hint" style="font-size:11px">公告</div></div>
+      </div>
+    </div>
+    <div class="wb-card wb-wide" onclick="toast('原型演示：图表卡数据来自报表数据集（只读从库）')">
+      <div class="t">收付款趋势 <span class="proto-hint" style="font-weight:400;font-size:12px">数据集：本月收付款流水</span></div>
+      <div style="display:flex;align-items:flex-end;gap:4%;height:70px;padding:6px 4px 0;border-bottom:1px solid #eaeef2">
+        <div style="width:9%;height:35%;background:#54aeff;border-radius:3px 3px 0 0"></div>
+        <div style="width:9%;height:55%;background:#54aeff;border-radius:3px 3px 0 0"></div>
+        <div style="width:9%;height:45%;background:#54aeff;border-radius:3px 3px 0 0"></div>
+        <div style="width:9%;height:75%;background:#0969da;border-radius:3px 3px 0 0"></div>
+        <div style="width:9%;height:60%;background:#0969da;border-radius:3px 3px 0 0"></div>
+        <div style="width:9%;height:85%;background:#0969da;border-radius:3px 3px 0 0"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="../_shared/prototype.js"></script>
+<script>
+  var n = 4;
+  var b = document.getElementById('badge-todo'); b.textContent = n;
+  document.getElementById('todo-count').textContent = n + ' 项';
+  document.getElementById('todo-num').textContent = n;
+  setInterval(function () {
+    n = n >= 9 ? 4 : n + 1;
+    b.textContent = n; b.style.background = n > 6 ? '#cf222e' : '#1a7f37';
+    document.getElementById('todo-count').textContent = n + ' 项';
+    document.getElementById('todo-num').textContent = n;
+  }, 5000);
+</script>
+
+</body>
+</html>

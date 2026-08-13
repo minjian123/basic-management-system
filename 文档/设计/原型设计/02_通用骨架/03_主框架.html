@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 主框架</title>
+<link rel="stylesheet" href="../_shared/prototype.css">
+<style>
+  .frame { display: flex; min-height: 90vh; }
+  .sidebar { width: 220px; background: #fff; border-right: 1px solid #d0d7de; transition: width .2s; overflow: hidden; flex-shrink: 0; }
+  .sidebar.collapsed { width: 56px; }
+  .sb-brand { display: flex; align-items: center; gap: 8px; padding: 12px 14px; font-weight: 700; border-bottom: 1px solid #eaeef2; white-space: nowrap; }
+  .sb-menu { padding: 8px 0; font-size: 13px; white-space: nowrap; }
+  .sb-item { padding: 8px 16px; cursor: pointer; color: #24292f; }
+  .sb-item:hover { background: #f6f8fa; }
+  .sb-item.active { background: #ddf4ff; color: #0969da; border-left: 3px solid #0969da; padding-left: 13px; }
+  .sb-group { padding: 8px 16px; font-weight: 600; color: #57606a; cursor: pointer; user-select: none; }
+  .sb-group .arr { display: inline-block; transition: transform .2s; font-size: 10px; }
+  .sb-group.open .arr { transform: rotate(90deg); }
+  .sb-sub { display: none; padding-left: 10px; }
+  .sb-group.open + .sb-sub { display: block; }
+  .sb-collapsed-only { display: none; text-align: center; padding: 8px 0; cursor: pointer; }
+  .sidebar.collapsed .sb-collapsed-only { display: block; }
+  .sidebar.collapsed .sb-brand span, .sidebar.collapsed .sb-menu { display: none; }
+  .main { flex: 1; }
+  .topbar { display: flex; align-items: center; gap: 14px; background: #fff; border-bottom: 1px solid #d0d7de; padding: 8px 16px; font-size: 13px; }
+  .tabs { display: flex; gap: 2px; border-bottom: 2px solid #d0d7de; background: #fff; padding: 0 12px; }
+  .tab { padding: 8px 14px; font-size: 13px; cursor: pointer; color: #57606a; border-bottom: 2px solid transparent; margin-bottom: -2px; user-select: none; }
+  .tab.active { color: #0969da; border-bottom-color: #0969da; font-weight: 600; }
+  .tab .close { margin-left: 6px; color: #8c959f; }
+  .tab .close:hover { color: #cf222e; }
+  .content { padding: 16px; }
+  .badge { display: inline-block; background: #cf222e; color: #fff; border-radius: 9px; font-size: 11px; padding: 0 6px; line-height: 1.5; margin-left: 4px; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="01_设计说明.html">← 返回设计说明</a></span>
+  <span class="pb-name">通用骨架 · 主框架</span>
+</div>
+
+<div class="frame">
+  <aside class="sidebar" id="sidebar">
+    <div class="sb-brand"><span>☰ BMS</span></div>
+    <div class="sb-collapsed-only" onclick="toggleSidebar()" title="展开">☰</div>
+    <nav class="sb-menu">
+      <div class="sb-item active" onclick="selectMenu(this,'首页工作台')">首页工作台</div>
+      <div class="sb-group open" onclick="toggleGroup(this)"><span class="arr">▶</span> 组织与权限</div>
+      <div class="sb-sub">
+        <div class="sb-item" onclick="selectMenu(this,'用户管理')">用户管理</div>
+        <div class="sb-item" onclick="selectMenu(this,'角色管理')">角色管理</div>
+        <div class="sb-item" onclick="selectMenu(this,'菜单管理')">菜单管理</div>
+      </div>
+      <div class="sb-group" onclick="toggleGroup(this)"><span class="arr">▶</span> 通用</div>
+      <div class="sb-sub">
+        <div class="sb-item" onclick="selectMenu(this,'公告管理')">公告管理</div>
+        <div class="sb-item" onclick="selectMenu(this,'通知中心')">通知中心</div>
+      </div>
+      <div class="sb-group" onclick="toggleGroup(this)"><span class="arr">▶</span> 业务</div>
+      <div class="sb-sub">
+        <div class="sb-item" onclick="selectMenu(this,'采购申请')">采购申请</div>
+        <div class="sb-item" onclick="selectMenu(this,'我的待办')">我的待办</div>
+      </div>
+    </nav>
+  </aside>
+
+  <div class="main">
+    <div class="topbar">
+      <span style="cursor:pointer" onclick="toggleSidebar()" title="折叠/展开侧边栏">☰</span>
+      <span class="p-input" style="max-width:240px;padding:4px 10px">搜索模块 / 单据</span>
+      <span style="margin-left:auto">
+        待办 <span class="badge" id="b-todo">3</span>
+        消息 <span class="badge" id="b-msg">5</span>
+        <span style="margin-left:14px">简体中文 ▾</span>
+        <span style="margin-left:14px;cursor:pointer" onclick="toast('原型演示：跳转个人中心')">张三 ▾</span>
+        <button class="p-btn sm" style="margin-left:10px" onclick="toast('原型演示：登出并回到登录页')">退出</button>
+      </span>
+    </div>
+
+    <div class="tabs" id="tabs">
+      <div class="tab active" data-name="首页工作台">首页工作台</div>
+      <div class="tab" data-name="用户管理"><span>用户管理</span><span class="close" onclick="closeTab(this)">✕</span></div>
+    </div>
+
+    <div class="content" id="content">
+      <div class="p-card">
+        <b>首页工作台（内容区）</b>
+        <div class="proto-hint" style="margin-top:6px">原型演示：点击侧边栏菜单可在 Tab 栏新建并切换内容；点击工作台卡片可模拟角标变化</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px">
+          <div class="p-card" style="cursor:pointer" onclick="simulateBadge()">待办 4 · 已办 12<br><span class="proto-hint">点击 +1 待办角标</span></div>
+          <div class="p-card" onclick="toast('原型演示：跳转通知中心')">通知 3 未读</div>
+          <div class="p-card" onclick="toast('原型演示：快捷入口跳转')">快捷入口：采购申请</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="../_shared/prototype.js"></script>
+<script>
+  function toggleSidebar() { document.getElementById('sidebar').classList.toggle('collapsed'); }
+  function toggleGroup(el) { el.classList.toggle('open'); }
+  function selectMenu(el, name) {
+    document.querySelectorAll('.sb-item').forEach(function (x) { x.classList.remove('active'); });
+    el.classList.add('active');
+    // Tab：存在则激活，不存在则新建
+    var tabs = document.getElementById('tabs'), tab = null;
+    tabs.querySelectorAll('.tab').forEach(function (t) { t.classList.toggle('active', t.getAttribute('data-name') === name); if (t.getAttribute('data-name') === name) tab = t; });
+    if (!tab && name !== '首页工作台') {
+      tab = document.createElement('div');
+      tab.className = 'tab active';
+      tab.setAttribute('data-name', name);
+      tab.innerHTML = '<span>' + name + '</span><span class="close" onclick="closeTab(this)">✕</span>';
+      tabs.appendChild(tab);
+    }
+    document.getElementById('content').innerHTML = '<div class="p-card"><b>' + name + '（内容区）</b><div class="proto-hint" style="margin-top:6px">原型演示：此处为 <code>' + name + '</code> 页面的真实原型占位，评审时替换为对应界面。</div></div>';
+  }
+  function closeTab(x) {
+    var t = x.closest('.tab');
+    if (t.getAttribute('data-name') === '首页工作台') { toast('工作台 Tab 固定，不可关闭', 'err'); return; }
+    t.remove();
+    var first = document.querySelector('#tabs .tab');
+    if (first) { first.classList.add('active'); document.getElementById('content').innerHTML = '<div class="p-card"><b>' + first.getAttribute('data-name') + '（内容区）</b></div>'; }
+  }
+  function simulateBadge() {
+    var b = document.getElementById('b-todo');
+    b.textContent = parseInt(b.textContent) + 1;
+    toast('待办角标 +1（Socket.IO 实时推送模拟）', 'ok');
+  }
+</script>
+
+</body>
+</html>

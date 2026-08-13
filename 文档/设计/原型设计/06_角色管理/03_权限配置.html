@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 角色权限配置</title>
+<link rel="stylesheet" href="../_shared/prototype.css">
+<style>
+  .perm-split { display: flex; gap: 12px; align-items: flex-start; }
+  .perm-left { flex: 0 0 260px; background: #fff; border: 1px solid #d0d7de; border-radius: 8px; padding: 12px; }
+  .perm-right { flex: 1; background: #fff; border: 1px solid #d0d7de; border-radius: 8px; padding: 14px; }
+  .m-tree { list-style: none; margin: 0; padding: 0; font-size: 13px; }
+  .m-tree li { padding: 3px 0; }
+  .m-tree ul { list-style: none; padding-left: 18px; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="01_设计说明.html">← 返回设计说明</a></span>
+  <span class="pb-name">角色管理 · 权限配置（角色：普通角色）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="p-tabs" id="tabs">
+    <div class="p-tab active" data-pane="menu" onclick="switchT('menu')">菜单/表单权限</div>
+    <div class="p-tab" data-pane="btn" onclick="switchT('btn')">按钮权限</div>
+    <div class="p-tab" data-pane="scope" onclick="switchT('scope')">数据范围</div>
+    <div class="p-tab" data-pane="field" onclick="switchT('field')">字段权限</div>
+  </div>
+
+  <!-- 菜单权限 -->
+  <div id="pane-menu">
+    <div class="perm-split">
+      <div class="perm-left">
+        <b style="font-size:13px">菜单树（勾选授予）</b>
+        <ul class="m-tree" id="menu-tree">
+          <li><label><input type="checkbox" checked> 首页工作台</label></li>
+          <li><label><input type="checkbox" checked> 组织与权限</label>
+            <ul>
+              <li><label><input type="checkbox" checked> 用户管理</label></li>
+              <li><label><input type="checkbox" checked> 角色管理</label></li>
+              <li><label><input type="checkbox"> 菜单管理</label></li>
+              <li><label><input type="checkbox"> 表单定制</label></li>
+            </ul>
+          </li>
+          <li><label><input type="checkbox"> 治理</label></li>
+          <li><label><input type="checkbox" checked> 业务</label>
+            <ul>
+              <li><label><input type="checkbox" checked> 采购申请</label></li>
+              <li><label><input type="checkbox"> 收付款管理</label></li>
+            </ul>
+          </li>
+        </ul>
+        <div class="proto-hint" style="margin-top:6px">勾选菜单即隐含对应表单/业务权限（菜单→表单→业务推导）</div>
+      </div>
+      <div class="perm-right">
+        <b style="font-size:13px">已授予业务权限</b>
+        <div style="margin-top:8px">
+          <span class="p-tag blue">user</span> <span class="p-tag blue">role</span> <span class="p-tag blue">wf</span> <span class="p-tag blue">purchase</span> <span class="p-tag gray">dashboard</span> <span class="p-tag gray">notice</span>
+        </div>
+        <div class="proto-hint" style="margin-top:10px">业务权限由「表单→业务」对照推导，界面不可直接授予</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 按钮权限 -->
+  <div id="pane-btn" style="display:none">
+    <div class="p-form">
+      <div class="proto-hint" style="margin-bottom:8px">按钮权限默认无，按动作勾选授予（按钮 1:1 挂动作）</div>
+      <table class="p-table">
+        <tr><th>表单</th><th>按钮（挂动作）</th><th>授予</th></tr>
+        <tr><td>用户管理</td><td>查询 user:query</td><td><input type="checkbox" checked></td></tr>
+        <tr><td>用户管理</td><td>新增 user:create</td><td><input type="checkbox"></td></tr>
+        <tr><td>用户管理</td><td>修改 user:update</td><td><input type="checkbox"></td></tr>
+        <tr><td>用户管理</td><td>删除 user:delete</td><td><input type="checkbox"></td></tr>
+        <tr><td>用户管理</td><td>重置密码 user:reset_pwd</td><td><input type="checkbox"></td></tr>
+      </table>
+    </div>
+  </div>
+
+  <!-- 数据范围 -->
+  <div id="pane-scope" style="display:none">
+    <div class="p-form">
+      <div class="proto-hint" style="margin-bottom:10px">动作级数据范围（默认无任何数据权限）</div>
+      <table class="p-table">
+        <tr><th>动作</th><th>数据范围</th></tr>
+        <tr><td>用户管理 · 查询</td><td><select class="p-select" style="width:auto"><option>全部数据</option><option>本部门及以下</option><option>仅本人</option><option selected>自定义表达式</option></select></td></tr>
+        <tr><td>采购申请 · 查询</td><td><select class="p-select" style="width:auto"><option>全部数据</option><option selected>本部门及以下</option><option>仅本人</option><option>自定义表达式</option></select></td></tr>
+      </table>
+      <div class="proto-hint" style="margin-top:8px">自定义表达式：字段 + 运算符 + 预置变量（如 dept_id in 当前部门及子部门）</div>
+    </div>
+  </div>
+
+  <!-- 字段权限 -->
+  <div id="pane-field" style="display:none">
+    <div class="p-form">
+      <div class="proto-hint" style="margin-bottom:8px">字段权限（角色 × 表单）：默认全部可见可编辑，授予后收窄；与表单定制布局叠加、权限优先</div>
+      <table class="p-table">
+        <tr><th>字段</th><th>可见</th><th>可编辑</th></tr>
+        <tr><td>用户名</td><td><input type="checkbox" checked></td><td><input type="checkbox" checked></td></tr>
+        <tr><td>手机号</td><td><input type="checkbox" checked></td><td><input type="checkbox"></td></tr>
+        <tr><td>部门</td><td><input type="checkbox" checked></td><td><input type="checkbox" checked></td></tr>
+      </table>
+    </div>
+  </div>
+
+  <div style="margin-top:14px;display:flex;justify-content:flex-end;gap:8px">
+    <button class="p-btn" onclick="toast('已关闭')">取消</button>
+    <button class="p-btn primary" onclick="savePerm()">保存（权限版本 +1）</button>
+  </div>
+</div>
+
+<script src="../_shared/prototype.js"></script>
+<script>
+  function switchT(name) {
+    document.querySelectorAll('#tabs .p-tab').forEach(function (t) { t.classList.toggle('active', t.getAttribute('data-pane') === name); });
+    ['menu', 'btn', 'scope', 'field'].forEach(function (k) {
+      document.getElementById('pane-' + k).style.display = k === name ? '' : 'none';
+    });
+  }
+  function savePerm() { toast('权限已保存（权限版本 +1，动态菜单刷新生效）', 'ok'); }
+</script>
+
+</body>
+</html>

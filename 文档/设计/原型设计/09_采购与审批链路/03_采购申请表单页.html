@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 采购申请表单页</title>
+<link rel="stylesheet" href="../_shared/prototype.css">
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="01_设计说明.html">← 返回设计说明</a></span>
+  <span class="pb-name">采购与审批链路 · 采购申请表单页</span>
+</div>
+
+<div class="proto-frame">
+  <div class="p-tabs" id="tabs">
+    <div class="p-tab active" data-pane="detail" onclick="switchT('detail')">详细信息</div>
+    <div class="p-tab" data-pane="record" onclick="switchT('record')">审批记录</div>
+    <div class="p-tab" data-pane="sys" onclick="switchT('sys')">系统信息</div>
+  </div>
+
+  <div id="pane-detail">
+    <div class="p-form">
+      <div class="p-section">基本信息</div>
+      <div class="p-row">
+        <div class="p-col p-field"><label>申请单号</label><input class="p-input" value="CG202608002（自动生成）" disabled></div>
+        <div class="p-col p-field"><label>标题 <span class="req">*</span></label><input class="p-input" value="采购办公桌×10"></div>
+      </div>
+      <div class="p-row">
+        <div class="p-col p-field"><label>金额 <span class="req">*</span></label><input class="p-input" id="f-amount" value="18000" oninput="calcAmount()"></div>
+        <div class="p-col p-field"><label>供应商</label>
+          <select class="p-select"><option>办公家具供应商 A</option><option>办公家具供应商 B</option></select>
+        </div>
+      </div>
+      <div class="p-row">
+        <div class="p-col p-field"><label>申请事由</label><textarea class="p-textarea">部门办公桌老化，申请更换。</textarea></div>
+      </div>
+
+      <div class="p-section">明细（行内编辑，随主表整体提交）</div>
+      <table class="p-table" id="dt">
+        <tr><th>物料名称</th><th>数量</th><th>单价</th><th>小计</th><th>操作</th></tr>
+        <tr>
+          <td><input class="p-input" value="办公桌" style="padding:3px 8px"></td>
+          <td><input class="p-input" type="number" value="10" style="width:80px;padding:3px 8px"></td>
+          <td><input class="p-input" type="number" value="1800" style="width:90px;padding:3px 8px"></td>
+          <td><span data-role="sub">¥18,000</span></td>
+          <td><button class="p-btn sm danger" onclick="delRow(this)">删除行</button></td>
+        </tr>
+      </table>
+      <div style="margin-top:8px">
+        <button class="p-btn sm ghost" onclick="addRow()">＋ 新增行</button>
+      </div>
+      <div class="proto-hint" style="margin-top:6px">明细合计：<b id="total">¥18,000</b>（与主表金额一致性校验，主从单事务保存）</div>
+
+      <div class="p-form-actions">
+        <button class="p-btn" onclick="toast('已关闭')">关闭</button>
+        <button class="p-btn" onclick="toast('已暂存为草稿','ok')">保存草稿</button>
+        <button class="p-btn primary" onclick="submitApply()">提交审批</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="pane-record" style="display:none">
+    <div class="p-form">
+      <div class="proto-hint" style="margin-bottom:8px">审批记录（wf_record 时间线）——提交审批后展示</div>
+      <div style="padding:6px 0"><b>张三</b> 提交申请 · 2026-08-12 09:30</div>
+      <div style="padding:6px 0"><b>李经理</b> 同意 · 意见：预算内，同意 · 2026-08-12 10:00</div>
+      <div style="padding:6px 0"><span class="p-tag blue">审批中</span> 财务节点</div>
+    </div>
+  </div>
+
+  <div id="pane-sys" style="display:none">
+    <div class="p-form">
+      <div class="p-section">系统信息（只读）</div>
+      <div class="p-row">
+        <div class="p-col p-field"><label>ID</label><input class="p-input" value="1902876000000000001" disabled></div>
+        <div class="p-col p-field"><label>创建时间</label><input class="p-input" value="2026-08-12 09:30 (UTC)" disabled></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="../_shared/prototype.js"></script>
+<script>
+  function switchT(name) {
+    document.querySelectorAll('#tabs .p-tab').forEach(function (t) { t.classList.toggle('active', t.getAttribute('data-pane') === name); });
+    document.getElementById('pane-detail').style.display = name === 'detail' ? '' : 'none';
+    document.getElementById('pane-record').style.display = name === 'record' ? '' : 'none';
+    document.getElementById('pane-sys').style.display = name === 'sys' ? '' : 'none';
+  }
+  function addRow() {
+    var tb = document.getElementById('dt');
+    var tr = document.createElement('tr');
+    tr.innerHTML = '<td><input class="p-input" style="padding:3px 8px"></td><td><input class="p-input" type="number" value="1" style="width:80px;padding:3px 8px"></td><td><input class="p-input" type="number" value="0" style="width:90px;padding:3px 8px"></td><td><span data-role="sub">¥0</span></td><td><button class="p-btn sm danger" onclick="delRow(this)">删除行</button></td>';
+    tb.appendChild(tr);
+    calcAmount();
+  }
+  function delRow(btn) {
+    if (document.querySelectorAll('#dt tr').length <= 1) { toast('至少保留一行明细', 'err'); return; }
+    btn.closest('tr').remove(); calcAmount();
+  }
+  function calcAmount() {
+    var sum = 0;
+    document.querySelectorAll('#dt tr').forEach(function (tr) {
+      var q = parseFloat(tr.children[1].querySelector('input').value) || 0;
+      var p = parseFloat(tr.children[2].querySelector('input').value) || 0;
+      tr.querySelector('[data-role="sub"]').textContent = '¥' + (q * p).toLocaleString();
+      sum += q * p;
+    });
+    document.getElementById('total').textContent = '¥' + sum.toLocaleString();
+  }
+  function submitApply() {
+    var amount = parseFloat(document.getElementById('f-amount').value) || 0;
+    var total = parseInt(document.getElementById('total').textContent.replace(/[^\d]/g, ''));
+    if (amount !== total) { toast('主表金额与明细合计不一致（' + amount + ' ≠ ' + total + '）', 'err'); return; }
+    confirmAction('提交审批？将启动三级审批流程（部门经理 → 财务 → 分管领导），提交后不可修改。', function () {
+      toast('已提交审批（幂等键防重复），待办已推送', 'ok');
+    });
+  }
+</script>
+
+</body>
+</html>

@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 用户管理 · 设计说明</title>
+<link rel="stylesheet" href="../../../资源/文档样式.css">
+</head>
+<body>
+
+<div class="topnav">
+  <a href="../../../文档首页.html">文档首页</a> ›
+  <a href="../../../规划/项目规划说明.html">项目规划说明</a> ›
+  <a href="../01_原型设计_总览.html">原型设计</a> ›
+  <span>用户管理 · 设计说明</span>
+</div>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>原型 · 用户管理</h1>
+      <p>用户列表/表单 · 账号锁定 · 设计说明</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#overview">1. 模块概述</a></li>
+        <li><a href="#pages">2. 界面清单</a></li>
+        <li><a href="#interact">3. 交互要点</a></li>
+        <li><a href="#reference">4. 设计依据</a></li>
+        <li><a href="#iter">5. 迭代记录</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="overview">1. 模块概述</h2>
+      <p>
+        用户增删改查、启用/停用、重置密码、岗位分配、主体角色绑定、SSO 身份绑定查看、账号锁定/解锁。
+        对应<a href="../../概要设计/02_概要设计_用户管理.html">《概要设计-用户管理》</a>；脱敏与密码策略见认证与安全。
+      </p>
+
+      <h2 id="pages">2. 界面清单</h2>
+      <table>
+        <tr><th>界面</th><th>原型（可点击操作）</th><th>主要交互验证点</th></tr>
+        <tr><td>用户列表页</td><td><a href="02_用户列表页.html">用户列表页.html</a></td><td>筛选、新增/编辑弹窗、重置密码、启用/停用、角色绑定入口</td></tr>
+        <tr><td>用户表单页</td><td><a href="03_用户表单页.html">用户表单页.html</a></td><td>栅格表单、脱敏展示、角色绑定弹窗、保存校验</td></tr>
+        <tr><td>账号锁定</td><td><a href="04_账号锁定.html">账号锁定.html</a></td><td>锁定类型展示、手动解锁确认（审计留痕）</td></tr>
+      </table>
+
+      <h2 id="interact">3. 交互要点</h2>
+      <ul>
+        <li>列表：行勾选与批量操作；双击行/「修改」→ 弹窗或跳表单；重置密码需二次确认</li>
+        <li>表单：手机号/邮箱脱敏（点击明文图标提示需 data:plain 权限）；角色绑定弹窗多选</li>
+        <li>锁定：失败超限/长期未登录/手动三类；解锁确认提示落审计</li>
+      </ul>
+
+      <h2 id="reference">4. 设计依据</h2>
+      <ul>
+        <li>概要：<a href="../../概要设计/02_概要设计_用户管理.html">《概要设计-用户管理》</a></li>
+        <li>布局：<a href="../../布局设计/06_布局设计_列表页.html">《布局设计-列表页》</a>、<a href="../../布局设计/07_布局设计_表单页.html">《布局设计-表单页》</a></li>
+      </ul>
+
+      <h2 id="iter">5. 迭代记录</h2>
+      <table>
+        <tr><th>日期</th><th>变更</th><th>状态</th></tr>
+        <tr><td>2026-08-13</td><td>初版：列表/表单/锁定可交互原型</td><td>待评审</td></tr>
+      </table>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 原型设计模块说明 · 依《文档生成规范》编写 · 生成日期：2026-08-13
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>

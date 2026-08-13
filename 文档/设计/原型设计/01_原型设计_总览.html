@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型设计 · 总览</title>
+<link rel="stylesheet" href="../../资源/文档样式.css">
+</head>
+<body>
+
+<div class="topnav">
+  <a href="../../文档首页.html">文档首页</a> ›
+  <a href="../../规划/项目规划说明.html">项目规划说明</a> ›
+  <span>原型设计</span> ›
+  <span>01_原型设计_总览</span>
+</div>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>原型设计 · 总览</h1>
+      <p>BMS 交互式界面原型体系</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#purpose">1. 目的与定义</a></li>
+        <li><a href="#structure">2. 目录结构</a></li>
+        <li><a href="#map">3. 模块地图（第一批）</a></li>
+        <li><a href="#norm">4. 交互原型规范</a></li>
+        <li><a href="#relation">5. 与设计文档体系的关系</a></li>
+        <li><a href="#flow">6. 评审与迭代流程</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="purpose">1. 目的与定义</h2>
+      <p>
+        本文档是<strong>交互式界面原型体系</strong>的总览。本体系中的「原型」指<strong>可在浏览器中直接点击操作的交互原型</strong>：
+        每个界面为独立的 HTML 文件（双击即开、file:// 可用），可点击按钮、切换 Tab、打开弹窗、录入表单、跳转视图，
+        达到「像真实系统一样操作」的程度。每个模块一个子文件夹，内含一份<strong>模块设计说明</strong>（总览该模块全部界面与交互要点）与若干
+        <strong>可交互界面原型</strong>文件。
+      </p>
+      <div class="note">与静态线框图的区别：本体系原型带真实交互（JS 驱动），可直接演示与评审，不需要阅读想象力。</div>
+
+      <h2 id="structure">2. 目录结构</h2>
+      <pre><code>文档/设计/原型设计/
+├── 01_原型设计_总览.html          ← 本文件（体系导航）
+├── _shared/
+│   ├── prototype.css              ← 公共原型样式（按钮/表格/弹窗/表单/标签等）
+│   └── prototype.js               ← 公共交互脚本（弹窗/Toast/Tab/视图切换/确认框）
+└── {NN}_{模块名}/                  ← 模块子文件夹（NN 为顺序编号，即阅读顺序）
+    ├── 01_设计说明.html             ← 模块设计说明（界面清单 + 交互要点 + 引用各界面原型）
+    ├── 02_{界面名}.html             ← 可交互界面原型（编号即界面阅读顺序，独立文件双击即开）
+    └── ...</code></pre>
+      <ul>
+        <li>模块文件夹命名：<code>{两位编号}_{模块名}</code>（如 02_通用骨架、03_首页工作台），编号即阅读顺序；总览为 01 不建文件夹</li>
+        <li>模块内文件命名：<code>{两位编号}_{文件名}</code>——设计说明固定为 01_设计说明.html，界面按阅读顺序 02 起编号（如「02_登录页.html」「03_主框架.html」）</li>
+        <li>界面原型引用公共资源：<code>&lt;link rel="stylesheet" href="../_shared/prototype.css"&gt;</code> 与
+          <code>&lt;script src="../_shared/prototype.js"&gt;&lt;/script&gt;</code></li>
+        <li>设计说明页列出该模块全部界面，逐条链接到可交互原型，并附交互要点与验收关注点</li>
+      </ul>
+
+      <h2 id="map">3. 模块地图（第一批）</h2>
+      <table>
+        <tr><th>编号</th><th>模块</th><th>文件夹</th><th>界面原型</th></tr>
+        <tr><td>02</td><td>通用骨架</td><td><a href="02_通用骨架/01_设计说明.html">02_通用骨架/</a></td><td>登录页、主框架、表单框架、个人中心</td></tr>
+        <tr><td>03</td><td>首页工作台</td><td><a href="03_首页工作台/01_设计说明.html">03_首页工作台/</a></td><td>工作台查看、工作台编辑、卡片管理、模板管理</td></tr>
+        <tr><td>04</td><td>表单定制</td><td><a href="04_表单定制/01_设计说明.html">04_表单定制/</a></td><td>表单设计器、新建自定义字段</td></tr>
+        <tr><td>05</td><td>用户管理</td><td><a href="05_用户管理/01_设计说明.html">05_用户管理/</a></td><td>用户列表页、用户表单页、账号锁定</td></tr>
+        <tr><td>06</td><td>角色管理</td><td><a href="06_角色管理/01_设计说明.html">06_角色管理/</a></td><td>角色列表页、主体绑定、权限配置</td></tr>
+        <tr><td>07</td><td>菜单管理</td><td><a href="07_菜单管理/01_设计说明.html">07_菜单管理/</a></td><td>菜单维护页、权限码管理</td></tr>
+        <tr><td>08</td><td>部门与岗位</td><td><a href="08_部门与岗位/01_设计说明.html">08_部门与岗位/</a></td><td>部门管理页、岗位管理页</td></tr>
+        <tr><td>09</td><td>采购与审批链路</td><td><a href="09_采购与审批链路/01_设计说明.html">09_采购与审批链路/</a></td><td>采购申请列表、采购申请表单、待办审批、通知公告</td></tr>
+        <tr><td>10</td><td>移动端</td><td><a href="10_移动端/01_设计说明.html">10_移动端/</a></td><td>移动首页、移动待办审批、移动个人中心</td></tr>
+      </table>
+      <p>后续模块按开发阶段顺延补充（编号从 11 起），每个模块沿用「编号_模块名 + 设计说明 + 可交互界面」结构。</p>
+
+      <h2 id="norm">4. 交互原型规范</h2>
+      <ul>
+        <li><strong>可交互程度</strong>：按钮点击有反馈（弹窗/Toast/状态变化）、Tab 可切换、弹窗可开关、表单可录入、列表行可点击进入详情视图、危险操作有确认框——达到可直接演示的程度</li>
+        <li><strong>模拟数据</strong>：使用内置假数据（不依赖后端）；交互只做前端模拟，不做真实持久化</li>
+        <li><strong>公共组件</strong>：一律使用 _shared 的按钮/表格/弹窗/表单/标签/Toast 组件，保证全体系风格一致；单界面私有样式内联 <code>&lt;style&gt;</code></li>
+        <li><strong>原型条</strong>：每个界面顶部有原型条（返回设计说明 + 界面名），便于评审时跳转</li>
+        <li><strong>真实组件对齐</strong>：交互与视觉对齐 Element Plus / Vant 实际组件行为（原型即验收基准）</li>
+        <li><strong>可访问性</strong>：file:// 双击打开即可用，不依赖构建与联网</li>
+      </ul>
+
+      <h2 id="relation">5. 与设计文档体系的关系</h2>
+      <table>
+        <tr><th>体系</th><th>回答的问题</th><th>形式</th></tr>
+        <tr><td>布局设计</td><td>栅格/间距/组件形态的<strong>统一约定</strong></td><td>规范文档</td></tr>
+        <tr><td>概要设计</td><td>模块<strong>功能、流程、接口、权限</strong></td><td>设计定案</td></tr>
+        <tr><td>原型设计（本体系）</td><td>界面<strong>长什么样、点哪里去哪</strong></td><td><strong>可交互演示</strong></td></tr>
+      </table>
+      <ul>
+        <li>原型是需求确认与开发参照基准；视觉基线来自布局设计规范</li>
+        <li>原型暴露的功能/流程问题 → 先修订概要设计，再同步原型</li>
+      </ul>
+
+      <h2 id="flow">6. 评审与迭代流程</h2>
+      <ol>
+        <li>模块产出「设计说明 + 可交互原型」→ 直接点击演示评审（真实操作）</li>
+        <li>评审意见 → 修改对应界面原型（交互或布局）→ 设计说明同步「迭代记录」</li>
+        <li>定稿 → 设计说明标注「已确认」→ 开发按原型实现（原型即验收基准）</li>
+      </ol>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 原型设计体系总览 · 依《<a href="../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-13
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>

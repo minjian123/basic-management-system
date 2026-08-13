@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 移动待办审批</title>
+<link rel="stylesheet" href="../_shared/prototype.css">
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="01_设计说明.html">← 返回设计说明</a></span>
+  <span class="pb-name">移动端 · 移动待办审批</span>
+</div>
+
+<div class="proto-frame">
+  <div class="p-phone">
+    <div class="pp-status">‹ 待办 <span style="float:right">已办 ｜ 我发起的</span></div>
+    <div class="pp-body" id="pp-body">
+      <!-- 列表 -->
+      <div id="mv-list">
+        <div class="p-mlist" onclick="openDetail('CG202608001')">
+          <span style="float:right" class="p-tag red">待审批</span>
+          <b>采购申请-20260801</b>
+          <div style="color:#8c959f;font-size:12px;margin-top:4px">¥35,000 · 张三 · 08-12 09:30</div>
+        </div>
+        <div class="p-mlist" onclick="openDetail('FK202608002')">
+          <span style="float:right" class="p-tag red">待审批</span>
+          <b>付款申请-20260802</b>
+          <div style="color:#8c959f;font-size:12px;margin-top:4px">¥120,000 · 李四 · 08-11 15:02</div>
+        </div>
+        <div style="text-align:center;color:#8c959f;font-size:12px;padding:8px">没有更多了</div>
+      </div>
+      <!-- 详情 -->
+      <div id="mv-detail" style="display:none">
+        <div style="background:#fff;border-radius:10px;padding:12px;margin-bottom:8px">
+          <div style="font-weight:600" id="d-title">采购申请-20260801</div>
+          <div class="proto-hint" style="font-size:12px;margin-top:4px">流程：张三提交 → <b>部门经理（当前）</b> → 财务 → 分管领导</div>
+          <div style="border-top:1px solid #eaeef2;margin-top:8px;padding-top:8px;font-size:12px;color:#57606a">
+            金额 ¥35,000 · 供应商 电子设备商 A<br>
+            事由：研发用笔记本采购<br>
+            <a href="#" onclick="toast('附件在线预览（预签名 URL）');return false" style="font-size:12px">📎 采购清单.pdf</a>
+          </div>
+        </div>
+        <div style="background:#fff;border-radius:10px;padding:12px;margin-bottom:8px">
+          <div style="font-size:12px;color:#57606a;margin-bottom:6px">审批意见（驳回必填）</div>
+          <textarea class="p-textarea" id="d-comment" style="min-height:60px"></textarea>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="p-btn" style="flex:1;padding:9px 0" onclick="toast('原型演示：转办')">转办</button>
+          <button class="p-btn danger" style="flex:1;padding:9px 0" onclick="mReject()">驳回</button>
+          <button class="p-btn primary" style="flex:1;padding:9px 0" onclick="mApprove()">同意</button>
+        </div>
+      </div>
+    </div>
+    <div class="pp-tabbar">
+      <div>🏠 首页</div><div style="color:#0969da;font-weight:600">📋 待办</div><div>💬 消息</div><div>👤 我的</div>
+    </div>
+  </div>
+  <div class="proto-note">列表点卡片 → 详情；底部操作栏同意/驳回/转办（安全区避让）；审批动作与 PC 同一审批接口。体验：点击「同意」返回列表并移除该待办。</div>
+</div>
+
+<script src="../_shared/prototype.js"></script>
+<script>
+  var current = '';
+  function openDetail(doc) {
+    current = doc;
+    document.getElementById('mv-list').style.display = 'none';
+    document.getElementById('mv-detail').style.display = '';
+    document.getElementById('d-title').textContent = doc === 'CG202608001' ? '采购申请-20260801' : '付款申请-20260802';
+  }
+  function mApprove() {
+    confirmAction('同意「' + current + '」？', function () {
+      document.getElementById('mv-detail').style.display = 'none';
+      document.getElementById('mv-list').style.display = '';
+      toast('已同意，流程推进至下一节点', 'ok');
+    });
+  }
+  function mReject() {
+    var c = document.getElementById('d-comment').value.trim();
+    if (!c) { toast('驳回必须填写意见', 'err'); return; }
+    confirmAction('驳回「' + current + '」？', function () {
+      document.getElementById('mv-detail').style.display = 'none';
+      document.getElementById('mv-list').style.display = '';
+      document.getElementById('d-comment').value = '';
+      toast('已驳回，申请人收到通知', 'ok');
+    });
+  }
+</script>
+
+</body>
+</html>

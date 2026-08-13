@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 通知公告页</title>
+<link rel="stylesheet" href="../_shared/prototype.css">
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="01_设计说明.html">← 返回设计说明</a></span>
+  <span class="pb-name">采购与审批链路 · 通知公告页</span>
+</div>
+
+<div class="proto-frame">
+  <div class="p-tabs" id="tabs">
+    <div class="p-tab active" data-pane="notify" onclick="switchT('notify')">通知中心 <span class="p-tag red" id="unread-tag">3 未读</span></div>
+    <div class="p-tab" data-pane="notice" onclick="switchT('notice')">公告</div>
+  </div>
+
+  <div id="pane-notify">
+    <div class="p-toolbar">
+      <button class="p-btn" onclick="readAll()">全部已读</button>
+      <button class="p-btn" onclick="readSel()">批量已读</button>
+      <button class="p-btn" onclick="toast('已刷新')">刷新</button>
+      <span class="proto-hint" style="margin-left:auto">未读置顶 · Socket.IO 实时到达</span>
+    </div>
+    <table class="p-table" id="nt">
+      <tr><th><input type="checkbox" onclick="selAll(this)"></th><th>标题</th><th>类型</th><th>时间</th><th>状态</th><th>操作</th></tr>
+      <tr data-unread="1">
+        <td><input type="checkbox" class="row-chk"></td><td>审批通过：采购申请 CG202608001</td><td><span class="p-tag blue">审批提醒</span></td><td>08-12 10:00</td>
+        <td><span class="p-tag red" data-role="st">未读</span></td><td><button class="p-btn sm" onclick="readOne(this)">标记已读</button></td>
+      </tr>
+      <tr data-unread="1">
+        <td><input type="checkbox" class="row-chk"></td><td>新待办：付款申请 FK202608002</td><td><span class="p-tag blue">待办提醒</span></td><td>08-11 15:02</td>
+        <td><span class="p-tag red" data-role="st">未读</span></td><td><button class="p-btn sm" onclick="readOne(this)">标记已读</button></td>
+      </tr>
+      <tr data-unread="0">
+        <td><input type="checkbox" class="row-chk"></td><td>你发起的 CG202608001 已进入财务节点</td><td><span class="p-tag gray">流程动态</span></td><td>08-12 10:02</td>
+        <td><span class="p-tag gray" data-role="st">已读</span></td><td><span class="proto-hint">—</span></td>
+      </tr>
+    </table>
+    <div class="proto-hint" style="margin-top:8px">点击未读条目跳转对应单据（审批/详情）；批量已读后角标归零</div>
+  </div>
+
+  <div id="pane-notice" style="display:none">
+    <div class="p-toolbar">
+      <button class="p-btn primary" onclick="toast('原型演示：跳转公告编辑')">发布公告</button>
+      <span class="proto-hint" style="margin-left:auto">全员公告 · 置顶/过期自动下线</span>
+    </div>
+    <div style="background:#fff;border:1px solid #d0d7de;border-radius:8px;padding:4px 14px">
+      <div style="padding:10px 0;border-bottom:1px solid #eaeef2;cursor:pointer" onclick="openModal('m-detail')">
+        📌 <b>【置顶】系统升级维护通知</b> <span class="p-tag orange">置顶</span>
+        <span style="float:right" class="proto-hint">08-13 08:00 · 已读回执 45/68</span>
+      </div>
+      <div style="padding:10px 0;border-bottom:1px solid #eaeef2;cursor:pointer" onclick="openModal('m-detail')">
+        新员工入职流程说明 <span style="float:right" class="proto-hint">08-10 10:00</span>
+      </div>
+      <div style="padding:10px 0;cursor:pointer" onclick="openModal('m-detail')">
+        2026 年度预算申报通知 <span style="float:right" class="proto-hint">08-05 09:30</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 公告详情 -->
+<div class="p-mask" id="m-detail">
+  <div class="p-modal">
+    <div class="pm-head">系统升级维护通知<span class="x" onclick="closeModal('m-detail')">✕</span></div>
+    <div class="pm-body" style="font-size:13px">
+      <p>各位同事：8 月 15 日 22:00-24:00 将进行系统升级维护，期间系统不可用，请提前保存工作进度。</p>
+      <div class="proto-hint">发布人：管理员 · 2026-08-13 08:00 · 有效期至 2026-08-20</div>
+    </div>
+    <div class="pm-foot"><button class="p-btn" onclick="closeModal('m-detail');toast('已记录已读回执','ok')">我已阅读</button></div>
+  </div>
+</div>
+
+<script src="../_shared/prototype.js"></script>
+<script>
+  function switchT(name) {
+    document.querySelectorAll('#tabs .p-tab').forEach(function (t) { t.classList.toggle('active', t.getAttribute('data-pane') === name); });
+    document.getElementById('pane-notify').style.display = name === 'notify' ? '' : 'none';
+    document.getElementById('pane-notice').style.display = name === 'notice' ? '' : 'none';
+  }
+  function updateUnread() {
+    var n = document.querySelectorAll('#nt tr[data-unread="1"]').length;
+    document.getElementById('unread-tag').textContent = n + ' 未读';
+    if (n === 0) document.getElementById('unread-tag').className = 'p-tag gray';
+  }
+  function readOne(btn) {
+    var tr = btn.closest('tr'), st = tr.querySelector('[data-role="st"]');
+    st.className = 'p-tag gray'; st.textContent = '已读'; tr.setAttribute('data-unread', '0'); btn.remove();
+    updateUnread(); toast('已标记已读', 'ok');
+  }
+  function readSel() {
+    var sels = document.querySelectorAll('.row-chk:checked');
+    if (!sels.length) { toast('请先选择通知', 'err'); return; }
+    sels.forEach(function (x) { var tr = x.closest('tr'); tr.setAttribute('data-unread', '0'); var st = tr.querySelector('[data-role="st"]'); if (st) { st.className = 'p-tag gray'; st.textContent = '已读'; } var b = tr.querySelector('.col-ops,button'); });
+    toast('批量已读完成', 'ok'); updateUnread();
+  }
+  function readAll() {
+    document.querySelectorAll('#nt tr').forEach(function (tr) { tr.setAttribute('data-unread', '0'); var st = tr.querySelector('[data-role="st"]'); if (st && st.textContent === '未读') { st.className = 'p-tag gray'; st.textContent = '已读'; } });
+    document.querySelectorAll('#nt .col-ops button, #nt td:last-child button').forEach(function (b) { b.remove(); });
+    updateUnread(); toast('全部已读（角标归零）', 'ok');
+  }
+  function selAll(cb) { document.querySelectorAll('.row-chk').forEach(function (x) { x.checked = cb.checked; }); }
+</script>
+
+</body>
+</html>
