@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>表单定制布局设计</title>
+<link rel="stylesheet" href="../../资源/文档样式.css">
+</head>
+<body>
+
+<div class="topnav">
+  <a href="../../文档首页.html">文档首页</a> ›
+  <a href="../../规划/项目规划说明.html">项目规划说明</a> ›
+  <a href="01_布局设计_总览.html">布局设计</a> ›
+  <span>表单定制</span>
+  <span class="topnav-side">
+    <a href="15_布局设计_首页工作台.html">← 上一个：首页工作台</a>
+  </span>
+</div>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>表单定制布局</h1>
+      <p>表单设计器 · 三级布局 · 字段属性与自建字段</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#purpose">1. 目的与适用范围</a></li>
+        <li><a href="#elements">2. 布局要素</a></li>
+        <li><a href="#designer">3. 设计器布局与交互</a>
+          <ul class="sub">
+            <li><a href="#designer-layout">3.1 界面结构</a></li>
+            <li><a href="#designer-interact">3.2 编辑交互</a></li>
+          </ul>
+        </li>
+        <li><a href="#field-prop">4. 字段属性面板</a></li>
+        <li><a href="#ext-field">5. 租户自建字段</a></li>
+        <li><a href="#query-detail">6. 查询表单区与明细区配置</a></li>
+        <li><a href="#render">7. 渲染规则（三态共用/回退/权限叠加）</a></li>
+        <li><a href="#empty">8. 空状态与异常</a></li>
+        <li><a href="#checklist">9. 检查清单</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="purpose">1. 目的与适用范围</h2>
+      <p>
+        定义 BMS<strong>表单在线定制</strong>的布局规范：表单设计器（vuedraggable）的界面结构、布局要素、字段属性与自建字段交互，
+        以及业务表单页/列表页按布局配置的渲染规则。对应<a href="../概要设计/37_概要设计_表单定制.html">《概要设计-表单定制》</a>与
+        <a href="../架构设计/30_架构设计_子系统_表单定制.html">《架构设计-表单定制子系统》</a>，
+        是<a href="07_布局设计_表单页.html">表单页布局</a>、<a href="06_布局设计_列表页.html">列表页布局</a>的在线可配置化演进——未配置时行为与既有布局完全一致。
+      </p>
+
+      <h2 id="elements">2. 布局要素</h2>
+      <table>
+        <tr><th>要素</th><th>说明</th><th>默认值</th></tr>
+        <tr><td>分区/分组</td><td>表单按分区（el-divider 标题区块）组织字段，可嵌套分组</td><td>无分区（按字段 sort 平铺）</td></tr>
+        <tr><td>栅格列数</td><td>主表字段区 1/2/3 列栅格（el-row/el-col span 按列数均分）</td><td>2 列（span=12）</td></tr>
+        <tr><td>字段跨列</td><td>单字段可跨整行（如长文本/备注，占满当前分区宽度）</td><td>按列数均分</td></tr>
+        <tr><td>字段顺序</td><td>字段在分区内排序（vuedraggable 拖拽）</td><td>字段 sort 升序</td></tr>
+        <tr><td>标签宽度</td><td>label 固定宽度（px）或比例</td><td>令牌默认（如 96px）</td></tr>
+        <tr><td>查询表单区</td><td>列表页筛选条件字段与顺序（1 行最多 4 项 + 展开更多）</td><td>前 4 个查询类字段</td></tr>
+        <tr><td>明细区配置</td><td>主从模块明细列显隐/顺序/宽度（仅影响默认展示，用户个人偏好可再覆盖）</td><td>明细字段 sort 全显</td></tr>
+      </table>
+      <p>布局配置存 sys_form_layout.layout_config（JSON）；渲染器未知字段引用自动跳过，不阻断页面。</p>
+
+      <h2 id="designer">3. 设计器布局与交互</h2>
+
+      <h3 id="designer-layout">3.1 界面结构</h3>
+      <div class="diagram">
+        <div class="d-box d-toolbar">工具栏：表单选择器（下拉选表单）｜ 层级切换（平台默认 / 租户覆盖 / 角色视图）｜ 保存 / 恢复默认 ｜ 发布 form.updated</div>
+        <div class="d-box" style="display:flex;text-align:left">
+          <div style="flex:.25;border-right:1px solid var(--border);padding:.5rem">
+            <div class="d-note">字段面板（拖拽源）</div>
+            <div style="font-size:.75rem">平台字段：姓名 · 部门 · 岗位<br>租户字段：项目编号 · 立项日期<br><span class="d-note">＋ 新建自定义字段</span></div>
+          </div>
+          <div style="flex:.5;border-right:1px solid var(--border);padding:.5rem">
+            <div class="d-note">布局画布（实时预览）</div>
+            <div style="border:1px solid var(--border);border-radius:6px;padding:.3rem;font-size:.75rem;margin-top:.3rem">
+              <b>基本信息</b><br>
+              <span style="display:inline-block;width:48%;border:1px dashed var(--border);border-radius:4px;padding:.15rem">姓名</span>
+              <span style="display:inline-block;width:48%;border:1px dashed var(--border);border-radius:4px;padding:.15rem">部门</span>
+              <span style="display:inline-block;width:100%;border:1px dashed var(--border);border-radius:4px;padding:.15rem;margin-top:.2rem">备注（跨列）</span>
+            </div>
+            <div style="border:1px solid var(--border);border-radius:6px;padding:.3rem;font-size:.75rem;margin-top:.3rem">
+              <b>扩展信息</b><br>
+              <span style="display:inline-block;width:48%;border:1px dashed var(--border);border-radius:4px;padding:.15rem">项目编号（自建）</span>
+              <span style="display:inline-block;width:48%;border:1px dashed var(--border);border-radius:4px;padding:.15rem">立项日期（自建）</span>
+            </div>
+          </div>
+          <div style="flex:.25;padding:.5rem">
+            <div class="d-note">属性面板</div>
+            <div style="font-size:.75rem">字段：项目编号<br>必填 ☑ 默认值 ▢<br>校验：长度 ≤ 50<br>组件：单行文本<br>只读 ▢ 隐藏 ▢</div>
+          </div>
+        </div>
+      </div>
+
+      <h3 id="designer-interact">3.2 编辑交互</h3>
+      <ul>
+        <li><strong>拖拽</strong>：字段面板项拖入画布分区；分区内拖拽排序；跨分区拖动；查询区/明细列顺序拖拽（vuedraggable）。</li>
+        <li><strong>列数与跨列</strong>：分区标题栏设置列数（1/2/3）；字段右上角「跨整行」开关。</li>
+        <li><strong>层级切换</strong>：平台默认（租户管理员只读预览，不可编辑）、租户覆盖（编辑生效于全租户）、角色视图（选角色后编辑，角色内覆盖租户/平台）。</li>
+        <li><strong>保存与发布</strong>：保存写布局配置并清缓存；「发布」触发 form.updated 事件（AI 帮助更新）；「恢复默认」删除当前层级配置回退下一级。</li>
+        <li>编辑未保存离开 → 脏数据确认；布局画布与真实表单页同一渲染器组件（所见即所得）。</li>
+      </ul>
+
+      <h2 id="field-prop">4. 字段属性面板</h2>
+      <table>
+        <tr><th>属性</th><th>选项</th><th>生效范围</th></tr>
+        <tr><td>必填</td><td>开关</td><td>平台/租户级（角色差异走布局显隐 + 字段权限）</td></tr>
+        <tr><td>默认值</td><td>静态值 / 空</td><td>新增态预填</td></tr>
+        <tr><td>提示文案</td><td>文本（i18n）</td><td>placeholder</td></tr>
+        <tr><td>校验规则</td><td>长度 / 数值范围 / 正则</td><td>前后端双重校验</td></tr>
+        <tr><td>组件类型</td><td>文本/长文本/数字/日期/单选/多选/开关/文件（可切换并保留值兼容性校验）</td><td>渲染组件选择</td></tr>
+        <tr><td>选项集</td><td>引用字典类型 / 自定义选项（仅下拉单选/多选）</td><td>选项数据源</td></tr>
+        <tr><td>只读 / 隐藏</td><td>开关（隐藏 = 永不渲染，区别于字段权限的按角色）</td><td>平台/租户级</td></tr>
+      </table>
+      <div class="note">字段属性与布局同一处维护；属性变化仅改配置不发版，校验规则由服务端按配置动态执行（见《架构设计-表单定制》第 5 节）。</div>
+
+      <h2 id="ext-field">5. 租户自建字段</h2>
+      <ul>
+        <li>入口：字段面板「＋ 新建自定义字段」→ 表单（名称/类型/选项集/列名预览）→ 保存触发后端动态 DDL → 生效后字段出现在字段面板与画布。</li>
+        <li>类型：单行文本、长文本、数字、日期时间、下拉单选/多选（字典或自定义选项）、开关、文件；关联引用后续版本。</li>
+        <li>列名自动生成：<code>ext_{蛇形 key}</code>，页面上仅展示命名预览，不可手改（防冲突/注入）。</li>
+        <li>停用：字段进入停用状态（画布中移除、数据保留）；重建同名字段复用物理列。</li>
+        <li>自建字段名称多语言：编辑入口提供中英文名称维护（sys_field_ext_i18n）。</li>
+      </ul>
+
+      <h2 id="query-detail">6. 查询表单区与明细区配置</h2>
+      <ul>
+        <li><strong>查询表单区</strong>：列表页筛选区字段与顺序（拖拽配置），默认取字段 type 为查询类的前 4 项；超 4 项折叠进「更多筛选」；查询表单区不配置时回退默认。</li>
+        <li><strong>明细区</strong>：主从模块明细 Tab 的列显隐/顺序/宽度（拖拽配置，列宽 px 或自适应）；仅定义租户级默认，用户个人偏好（用户喜好模块列表页个性化）可覆盖。</li>
+      </ul>
+
+      <h2 id="render">7. 渲染规则（三态共用/回退/权限叠加）</h2>
+      <ul>
+        <li><strong>三态共用</strong>：新增/编辑/详情共用一套布局；只读态按 editable 权限与字段类型自动决定纯文本/输入框（不另做布局）。</li>
+        <li><strong>回退链</strong>：角色视图 → 租户覆盖 → 平台默认 → 空布局回退字段 sort 默认栅格（与<a href="07_布局设计_表单页.html">表单页布局</a>既有行为一致）。</li>
+        <li><strong>权限叠加</strong>：布局不含的字段不渲染；字段权限 visible=false 的字段即使布局包含也不渲染；editable=false 编辑态禁用——权限优先于布局。</li>
+        <li><strong>三端一致</strong>：列表查询区/表单页/明细区均按布局配置渲染，PC 与移动端复用同一布局数据（移动端单列重排）。</li>
+      </ul>
+
+      <h2 id="empty">8. 空状态与异常</h2>
+      <ul>
+        <li>表单无任何字段（平台字段全停用且无自建字段）：画布提示「无可配置字段」，表单页回退默认。</li>
+        <li>自建字段 DDL 失败：字段面板内该字段标记「建列失败」+ 重试按钮；不影响其他字段与页面。</li>
+        <li>布局配置引用失效字段：画布与渲染均自动跳过并提示清理。</li>
+        <li>设计器加载：画布骨架屏；保存失败 Toast + 错误码定位（i18n）。</li>
+      </ul>
+
+      <h2 id="checklist">9. 检查清单</h2>
+      <ul>
+        <li>□ 设计器三区结构（字段面板/画布/属性面板）与拖拽交互完整</li>
+        <li>□ 布局要素全部可配置：分区/分组、列数、跨列、顺序、标签宽度</li>
+        <li>□ 三级层级切换与回退正确，空布局回退默认栅格</li>
+        <li>□ 字段属性（必填/默认值/校验/组件类型/选项集/只读/隐藏）保存后前端渲染与服务端校验一致</li>
+        <li>□ 自建字段建列 → 生效 → 可拖入布局全流程可用；失败可重试；停用不删列、重建复用列</li>
+        <li>□ 查询表单区与明细区配置生效，用户个人偏好可覆盖明细列</li>
+        <li>□ 权限叠加正确：布局可见性 + 字段权限，权限优先</li>
+        <li>□ 保存/发布（form.updated）/恢复默认交互与脏数据保护完整</li>
+      </ul>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 依《文档生成规范》编写 · 与《概要设计-表单定制》《架构设计-表单定制》《布局设计-表单页》配套 · 生成日期：2026-08-13
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>

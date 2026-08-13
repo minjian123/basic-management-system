@@ -61,6 +61,7 @@
         <tr><td>图表</td><td>ECharts（报表与大屏渲染）</td></tr>
         <tr><td>网格拖拽</td><td>gridstack.js（首页工作台卡片与报表设计器统一布局：网格拖拽/尺寸调整/响应式，layout_config 序列化其结构）</td></tr>
         <tr><td>大屏画布</td><td>vue-flow（@vue-flow/core，大屏自由画布：绝对定位拖拽、连线与缩放，与 gridstack 分工不混用）</td></tr>
+        <tr><td>表单设计器</td><td>vuedraggable（SortableJS 封装，表单设计器字段排序/分组/跨区拖拽；三库分工：列表排序 / 网格布局 / 自由画布）</td></tr>
         <tr><td>实时推送</td><td>socket.io-client（待办/通知实时到达；断线自动重连 + 未读补偿）</td></tr>
         <tr><td>样式</td><td>SCSS（Element Plus 主题定制）；避免重型 CSS 方案</td></tr>
         <tr><td>规范 / 测试</td><td>ESLint + Prettier；Vitest 单元 + Playwright E2E</td></tr>
@@ -79,6 +80,7 @@
       <ul>
         <li>登录页、主布局（侧边栏菜单 + 顶栏语言切换 + 待办/通知角标）、首页工作台（登录后默认页 + 固定 Tab：卡片网格展示与编辑定制，见<a href="29_架构设计_子系统_首页工作台.html">29-首页工作台</a>与<a href="../布局设计/15_布局设计_首页工作台.html">布局设计-首页工作台</a>）</li>
         <li>工作台管理：工作台卡片管理、工作台模板管理（dashboard 业务）</li>
+        <li>表单定制：表单布局管理（选表单 → 布局编辑/字段属性/租户自建字段，formdesign 业务，见<a href="30_架构设计_子系统_表单定制.html">30-表单定制</a>）</li>
         <li>组织与权限：用户管理、账号锁定、岗位管理、角色管理、菜单管理（含表单/按钮/字段维护与字段权限配置）、业务权限管理、动作权限管理、部门管理、字典管理、系统参数</li>
         <li>治理：操作日志、登录日志、数据变更审计、会话管理、归档策略、归档执行记录、备份管理、回收站、归档数据查询、任务调度</li>
         <li>通用：文件管理、公告管理、通知中心、帮助中心（前台展示）、帮助管理（分类/文章维护、AI 生成草稿与审核）、邮件模板、邮件日志、短信记录、语言管理、语言包维护</li>
@@ -111,6 +113,7 @@
         <li><strong><a href="19_架构设计_子系统_国际化.html">国际化</a></strong>：vue-i18n 运行时拉取语言包、RTL、时区</li>
         <li><strong><a href="06_架构设计_接口与集成.html">接口与集成</a></strong>：Axios 对接统一响应与错误码；openapi-typescript 契约同步</li>
         <li><strong><a href="29_架构设计_子系统_首页工作台.html">首页工作台</a></strong>：工作台固定 Tab、卡片渲染器注册表、gridstack 网格与编辑交互</li>
+        <li><strong><a href="30_架构设计_子系统_表单定制.html">表单定制</a></strong>：布局驱动渲染器（替换固定栅格）、vuedraggable 设计器、查询区与明细区配置</li>
         <li><strong><a href="26_架构设计_测试与质量.html">测试与质量</a></strong>：Vitest/Playwright 覆盖动态路由与权限渲染</li>
       </ul>
 
