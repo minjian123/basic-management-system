@@ -113,7 +113,9 @@
 </div>
 
 <script src="../共享资源/vendor/vue.global.prod.js"></script>
+
 <script src="../共享资源/vendor/element-plus.min.js"></script>
+<script src="../共享资源/vendor/zh-cn.js"></script>
 <script>
   var { createApp, ref } = Vue;
   var ElMessage = ElementPlus.ElMessage;
@@ -162,7 +164,7 @@
       return { tab, menuTree, menuChecked, bizTags, btnPerms, scopes, scopeOptions, fields, savePerm, toastMsg };
     }
   });
-  app.use(ElementPlus);
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
   app.mount('#app');
   // 嵌入主框架时隐藏顶部原型条
   if (location.search.indexOf('embed=1') >= 0) { var pb = document.querySelector('.proto-bar'); if (pb) pb.style.display = 'none'; }
