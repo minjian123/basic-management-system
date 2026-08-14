@@ -11,6 +11,8 @@
   .ep-toolbar { display:flex; align-items:center; gap:8px; margin-bottom:12px; flex-wrap:wrap; }
   .ep-side { margin-left:auto; display:flex; align-items:center; gap:8px; }
   .ep-pager { display:flex; justify-content:flex-end; margin-top:12px; }
+  /* 表格下方一行：左下明细工具栏（图标按钮）+ 右下分页（《布局设计-表格明细》2.4） */
+  .ep-bar { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:12px; flex-wrap:wrap; }
   /* 未读行行级高亮：加粗 + 浅色背景（《布局设计-列表页》未读语义） */
   .unread-row td { background:#fff8c5 !important; font-weight:600; }
   .unread-row td:first-child { font-weight:normal; }
@@ -54,7 +56,14 @@
               </template>
             </el-table-column>
           </el-table>
-          <div class="ep-pager">
+          <!-- 表格下方一行：左下明细工具栏（图标按钮）+ 右下分页 -->
+          <div class="ep-bar">
+            <div>
+              <el-button size="small" @click="toastMsg('原型演示：自动列宽')" title="自动列宽">⟷</el-button>
+              <el-button size="small" @click="toastMsg('原型演示：自定义列')" title="自定义列">☰</el-button>
+              <el-button size="small" @click="toastMsg('已刷新')" title="刷新">⟳</el-button>
+              <el-button size="small" @click="toastMsg('原型演示：全屏')" title="全屏">⛶</el-button>
+            </div>
             <el-pagination background layout="total, jumper, prev, pager, next" :total="notifyRows.length"
               :page-size="qNotify.size" :current-page="qNotify.page" @current-change="onNotifyPage"></el-pagination>
           </div>
@@ -69,6 +78,7 @@
             <span class="ep-side"><span class="proto-hint">仅展示未过期的公告；已过有效期 / 已下线 / 已撤销的公告不展示（后端按有效截止时间过滤）</span></span>
           </div>
           <el-table :data="noticeRows" border stripe :row-class-name="noticeRowClass" @row-click="openNotice" style="width:100%">
+            <el-table-column type="selection" width="48" @click.stop></el-table-column>
             <el-table-column label="标题" min-width="240">
               <template #default="{ row }">
                 <span v-if="row.pinned">📌 </span><b v-if="row.pinned">{{ row.title }}</b><span v-else>{{ row.title }}</span>
@@ -94,6 +104,18 @@
               </template>
             </el-table-column>
           </el-table>
+          <!-- 表格下方一行：明细工具栏（发布/删除 + 通用工具）；公告表不分页，工具栏靠左 -->
+          <div class="ep-bar">
+            <div>
+              <el-button size="small" type="primary" plain @click="openPublish('add')" title="发布公告">＋ 发布</el-button>
+              <el-button size="small" type="danger" plain :disabled="!selNotice.length" @click="delSelNotice" title="删除选中公告">🗑 删除</el-button>
+              <el-divider direction="vertical"></el-divider>
+              <el-button size="small" @click="toastMsg('原型演示：自动列宽')" title="自动列宽">⟷</el-button>
+              <el-button size="small" @click="toastMsg('原型演示：自定义列')" title="自定义列">☰</el-button>
+              <el-button size="small" @click="toastMsg('已刷新')" title="刷新">⟳</el-button>
+              <el-button size="small" @click="toastMsg('原型演示：全屏')" title="全屏">⛶</el-button>
+            </div>
+          </div>
         </el-tab-pane>
       </el-tabs>
     </div>
@@ -158,6 +180,7 @@
       ]);
       var qNotify = reactive({ page: 1, size: 10 });
       var selRows = ref([]);
+      var selNotice = ref([]);
       var detail = reactive({ visible: false, title: '', content: '', publisher: '', publishTime: '', expireTo: '' });
       var pub = reactive({ visible: false, title: '', mode: 'add', id: null, form: { title: '', content: '', expire: null, pinned: false } });
 
@@ -179,6 +202,17 @@
       });
       function onNotifyPage(n) { qNotify.page = n; }
       function onSel(sel) { selRows.value = sel; }
+      function onSelNotice(sel) { selNotice.value = sel; }
+      // 明细工具栏：删除选中公告（二次确认后从数据移除）
+      function delSelNotice() {
+        if (!selNotice.value.length) { toastMsg('请先选择公告', 'error'); return; }
+        confirmAction('确定删除选中的 ' + selNotice.value.length + ' 条公告？删除后不再展示。', function () {
+          var ids = selNotice.value.map(function (r) { return r.id; });
+          noticeRows.value = noticeRows.value.filter(function (x) { return ids.indexOf(x.id) < 0; });
+          selNotice.value = [];
+          toastMsg('已删除', 'success');
+        });
+      }
       function rowClass({ row }) { return row.read ? '' : 'unread-row'; }
       function noticeRowClass({ row }) { return row.pinned ? 'unread-row' : ''; }
       function noticeStatus(row) {
@@ -263,8 +297,8 @@
           toastMsg('已下线', 'success');
         }, '下线');
       }
-      return { tab, notifyRows, ntType, noticeRows, qNotify, selRows, detail, pub, unreadCount, notifyPage,
-        onNotifyPage, onSel, rowClass, noticeRowClass, noticeStatus, onRowClick, readSel, readAll,
+      return { tab, notifyRows, ntType, noticeRows, qNotify, selRows, selNotice, detail, pub, unreadCount, notifyPage,
+        onNotifyPage, onSel, onSelNotice, delSelNotice, rowClass, noticeRowClass, noticeStatus, onRowClick, readSel, readAll,
         openNotice, openPublish, savePublish, togglePin, takeOff, toastMsg };
     }
   });

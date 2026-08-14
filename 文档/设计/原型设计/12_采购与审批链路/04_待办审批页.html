@@ -12,6 +12,8 @@
   .ep-side { margin-left:auto; display:flex; align-items:center; gap:8px; }
   .ep-filter { margin-bottom:12px; }
   .ep-pager { display:flex; justify-content:flex-end; margin-top:12px; }
+  /* 表格下方一行：左下明细工具栏（图标按钮）+ 右下分页（《布局设计-表格明细》2.4） */
+  .ep-bar { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:12px; flex-wrap:wrap; }
   .ap-timeline { border-left:2px solid #d0d7de; margin:0 0 12px 6px; padding-left:14px; font-size:13px; }
   .todo-table .el-table__row { cursor: pointer; }
 </style>
@@ -65,7 +67,14 @@
               </el-empty>
             </template>
           </el-table>
-          <div class="ep-pager">
+          <!-- 表格下方一行：左下明细工具栏（图标按钮）+ 右下分页 -->
+          <div class="ep-bar">
+            <div>
+              <el-button size="small" @click="toastMsg('原型演示：自动列宽')" title="自动列宽">⟷</el-button>
+              <el-button size="small" @click="toastMsg('原型演示：自定义列')" title="自定义列">☰</el-button>
+              <el-button size="small" @click="toastMsg('已刷新')" title="刷新">⟳</el-button>
+              <el-button size="small" @click="toastMsg('原型演示：全屏')" title="全屏">⛶</el-button>
+            </div>
             <el-pagination background layout="total, jumper, prev, pager, next" :total="todoFiltered.length"
               :page-size="qTodo.size" :current-page="qTodo.page" @current-change="onPage('todo', $event)"></el-pagination>
           </div>
@@ -103,7 +112,14 @@
               </el-empty>
             </template>
           </el-table>
-          <div class="ep-pager">
+          <!-- 表格下方一行：左下明细工具栏（图标按钮）+ 右下分页 -->
+          <div class="ep-bar">
+            <div>
+              <el-button size="small" @click="toastMsg('原型演示：自动列宽')" title="自动列宽">⟷</el-button>
+              <el-button size="small" @click="toastMsg('原型演示：自定义列')" title="自定义列">☰</el-button>
+              <el-button size="small" @click="toastMsg('已刷新')" title="刷新">⟳</el-button>
+              <el-button size="small" @click="toastMsg('原型演示：全屏')" title="全屏">⛶</el-button>
+            </div>
             <el-pagination background layout="total, jumper, prev, pager, next" :total="doneFiltered.length"
               :page-size="qDone.size" :current-page="qDone.page" @current-change="onPage('done', $event)"></el-pagination>
           </div>

@@ -11,7 +11,8 @@
   .ep-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
   .ep-toolbar .ep-side { margin-left: auto; }
   .ep-filter { margin-bottom: 12px; }
-  .ep-pager { display: flex; justify-content: flex-end; margin-top: 12px; }
+  /* 表格下方一行：左下明细工具栏（图标按钮）+ 右下分页（《布局设计-表格明细》2.4） */
+  .ep-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
 </style>
 </head>
 <body>
@@ -45,7 +46,8 @@
               <el-button @click="resetFilter('biz')">重置</el-button>
             </el-form-item>
           </el-form>
-          <el-table :data="pageBiz" border stripe @row-click="permEdit" style="width:100%">
+          <el-table :data="pageBiz" border stripe @selection-change="onSelBiz" @row-click="permEdit" style="width:100%">
+            <el-table-column type="selection" width="48"></el-table-column>
             <el-table-column prop="code" label="业务码" min-width="120"></el-table-column>
             <el-table-column prop="desc" label="说明" min-width="260"></el-table-column>
             <el-table-column prop="owner" label="默认归属" min-width="120"></el-table-column>
@@ -56,7 +58,19 @@
               </div>
             </template>
           </el-table>
-          <div class="ep-pager">
+          <!-- 表格下方一行：左下明细工具栏（图标按钮）+ 右下分页 -->
+          <div class="ep-bar">
+            <div>
+              <el-button size="small" @click="openBiz" title="新增行">＋</el-button>
+              <el-button size="small" type="danger" plain :disabled="!selBiz.length" @click="delSelBiz" title="删除行">🗑</el-button>
+              <el-button size="small" :disabled="!selBiz.length" @click="moveSelBiz(-1)" title="上移行">↑</el-button>
+              <el-button size="small" :disabled="!selBiz.length" @click="moveSelBiz(1)" title="下移行">↓</el-button>
+              <el-divider direction="vertical"></el-divider>
+              <el-button size="small" @click="toastMsg('原型演示：自动列宽')" title="自动列宽">⟷</el-button>
+              <el-button size="small" @click="toastMsg('原型演示：自定义列')" title="自定义列">☰</el-button>
+              <el-button size="small" @click="toastMsg('已刷新')" title="刷新">⟳</el-button>
+              <el-button size="small" @click="toastMsg('原型演示：全屏')" title="全屏">⛶</el-button>
+            </div>
             <el-pagination background layout="total, sizes, jumper, prev, pager, next" :total="filteredBiz.length"
               :page-size="queryBiz.size" :current-page="queryBiz.page"
               @current-change="function (n) { queryBiz.page = n; }" @size-change="function (s) { queryBiz.size = s; queryBiz.page = 1; }"></el-pagination>
@@ -85,7 +99,8 @@
               <el-button @click="resetFilter('act')">重置</el-button>
             </el-form-item>
           </el-form>
-          <el-table :data="pageAct" border stripe @row-click="permEdit" style="width:100%">
+          <el-table :data="pageAct" border stripe @selection-change="onSelAct" @row-click="permEdit" style="width:100%">
+            <el-table-column type="selection" width="48"></el-table-column>
             <el-table-column prop="code" label="动作码" min-width="120"></el-table-column>
             <el-table-column prop="biz" label="归属业务" min-width="160"></el-table-column>
             <el-table-column prop="typical" label="典型权限码" min-width="220"></el-table-column>
@@ -96,7 +111,19 @@
               </div>
             </template>
           </el-table>
-          <div class="ep-pager">
+          <!-- 表格下方一行：左下明细工具栏（图标按钮）+ 右下分页 -->
+          <div class="ep-bar">
+            <div>
+              <el-button size="small" @click="openAct" title="新增行">＋</el-button>
+              <el-button size="small" type="danger" plain :disabled="!selAct.length" @click="delSelAct" title="删除行">🗑</el-button>
+              <el-button size="small" :disabled="!selAct.length" @click="moveSelAct(-1)" title="上移行">↑</el-button>
+              <el-button size="small" :disabled="!selAct.length" @click="moveSelAct(1)" title="下移行">↓</el-button>
+              <el-divider direction="vertical"></el-divider>
+              <el-button size="small" @click="toastMsg('原型演示：自动列宽')" title="自动列宽">⟷</el-button>
+              <el-button size="small" @click="toastMsg('原型演示：自定义列')" title="自定义列">☰</el-button>
+              <el-button size="small" @click="toastMsg('已刷新')" title="刷新">⟳</el-button>
+              <el-button size="small" @click="toastMsg('原型演示：全屏')" title="全屏">⛶</el-button>
+            </div>
             <el-pagination background layout="total, sizes, jumper, prev, pager, next" :total="filteredAct.length"
               :page-size="queryAct.size" :current-page="queryAct.page"
               @current-change="function (n) { queryAct.page = n; }" @size-change="function (s) { queryAct.size = s; queryAct.page = 1; }"></el-pagination>
@@ -147,7 +174,7 @@
 <script src="../共享资源/vendor/zh-cn.js"></script>
 <script>
   var { createApp, ref, reactive, computed } = Vue;
-  var ElMessage = ElementPlus.ElMessage;
+  var { ElMessage, ElMessageBox } = ElementPlus;
   var app = createApp({
     template: document.getElementById('app').outerHTML.replace(/<div id="app">/, '<div>').replace(/<\/div>\s*$/, ''),
     setup: function () {
@@ -167,6 +194,8 @@
       ]);
       var queryBiz = reactive({ kw: '', page: 1, size: 10 });
       var queryAct = reactive({ kw: '', page: 1, size: 10 });
+      var selBiz = ref([]);
+      var selAct = ref([]);
       var dlgBiz = reactive({ visible: false, form: { code: '', desc: '' } });
       var dlgAct = reactive({ visible: false, form: { code: '', biz: 'user' } });
       var bizOptions = ['user', 'dashboard', 'formdesign', 'wf'];
@@ -215,8 +244,32 @@
       }
       // 原行内「编辑」按钮收敛为行点击（平台码编辑租户视角被拦截演示）
       function permEdit() { ElMessage.error('平台码编辑（租户视角被拦截演示）'); }
+      // 明细工具栏行操作：删除选中行（确认后平台码拦截演示）/ 上移下移选中行（多选时取第一行）
+      function onSelBiz(sel) { selBiz.value = sel; }
+      function onSelAct(sel) { selAct.value = sel; }
+      function delSelBiz() { delSelCommon(selBiz, '业务码'); }
+      function delSelAct() { delSelCommon(selAct, '动作码'); }
+      function delSelCommon(sel, label) {
+        if (!sel.value.length) { ElMessage.warning('请先选择一行'); return; }
+        var r = sel.value[0];
+        ElMessageBox.confirm('删除' + label + '「' + r.code + '」？', '删除确认', { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' })
+          .then(function () {
+            ElMessage.error('平台码不可删（租户视角被拦截演示）');
+          })
+          .catch(function () {});
+      }
+      function moveSelBiz(dir) { moveSelCommon(selBiz, bizRows, dir); }
+      function moveSelAct(dir) { moveSelCommon(selAct, actRows, dir); }
+      function moveSelCommon(sel, list, dir) {
+        if (!sel.value.length) { ElMessage.warning('请先选择一行'); return; }
+        var r = sel.value[0];
+        var arr = list.value, i = arr.indexOf(r), j = i + dir;
+        if (j < 0 || j >= arr.length) { ElMessage.warning(dir < 0 ? '已是第一行' : '已是最后一行'); return; }
+        var tmp = arr[i]; arr[i] = arr[j]; arr[j] = tmp;
+        toastMsg('权限码顺序已调整');
+      }
       function toastMsg(m) { ElMessage({ message: m, type: 'success' }); }
-      return { tab, queryBiz, queryAct, pageBiz, pageAct, filteredBiz, filteredAct, dlgBiz, dlgAct, bizOptions, applyFilter, resetFilter, openBiz, saveBiz, openAct, saveAct, permEdit, toastMsg };
+      return { tab, queryBiz, queryAct, selBiz, selAct, pageBiz, pageAct, filteredBiz, filteredAct, dlgBiz, dlgAct, bizOptions, applyFilter, resetFilter, openBiz, saveBiz, openAct, saveAct, permEdit, onSelBiz, onSelAct, delSelBiz, delSelAct, moveSelBiz, moveSelAct, toastMsg };
     }
   });
   app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });

@@ -53,11 +53,13 @@
         </el-table-column>
       </el-table>
 
-      <!-- ③ 明细工具：刷新/全屏 -->
+      <!-- ③ 明细工具栏：仅通用工具（行内已有开通/停用，不含增删移） -->
       <div class="ep-bar">
         <div>
-          <el-button size="small" @click="toastMsg('已刷新模块清单')">⟳ 刷新</el-button>
-          <el-button size="small" @click="toastMsg('全屏演示')">⛶ 全屏</el-button>
+          <el-button size="small" @click="toastMsg('原型演示：自动列宽')" title="自动列宽">⟷</el-button>
+          <el-button size="small" @click="toastMsg('原型演示：自定义列')" title="自定义列">☰</el-button>
+          <el-button size="small" @click="toastMsg('已刷新模块清单')" title="刷新">⟳</el-button>
+          <el-button size="small" @click="toastMsg('全屏演示')" title="全屏">⛶</el-button>
         </div>
       </div>
 

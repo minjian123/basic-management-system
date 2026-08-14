@@ -12,6 +12,8 @@
   .ep-toolbar .ep-side { margin-left: auto; }
   .ep-filter { padding-bottom: 12px; border-bottom: 1px solid #eaeef2; margin-bottom: 12px; }
   .ep-pager { display: flex; justify-content: flex-end; margin-top: 12px; }
+  /* 表格下方一行：左下明细工具栏（图标按钮）+ 右下分页（《布局设计-表格明细》2.4） */
+  .ep-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
   .rec-form { max-width: 640px; padding-top: 8px; }
   .sys-card { padding: 4px 0 16px; }
   .ep-page .el-table__row { cursor: pointer; }
@@ -76,8 +78,14 @@
             </el-table-column>
           </el-table>
 
-          <!-- ④ 分页 -->
-          <div class="ep-pager">
+          <!-- ④ 表格下方一行：左下明细工具栏（图标按钮）+ 右下分页 -->
+          <div class="ep-bar">
+            <div>
+              <el-button size="small" @click="ElMessage.info('原型演示：自动列宽')" title="自动列宽">⟷</el-button>
+              <el-button size="small" @click="ElMessage.info('原型演示：自定义列')" title="自定义列">☰</el-button>
+              <el-button size="small" @click="ElMessage.success('已刷新')" title="刷新">⟳</el-button>
+              <el-button size="small" @click="ElMessage.info('原型演示：全屏')" title="全屏">⛶</el-button>
+            </div>
             <el-pagination background layout="total, sizes, jumper, prev, pager, next" :total="filtered.length"
               :page-size="query.size" :current-page="query.page"
               @current-change="query.page = $event" @size-change="onSize"></el-pagination>
