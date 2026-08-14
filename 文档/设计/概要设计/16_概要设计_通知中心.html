@@ -73,6 +73,7 @@
         <tr><td>通知详情</td><td>查看内容并自动标记已读（biz_type/biz_id 可跳转业务单据）</td><td>notification:query</td></tr>
         <tr><td>待办角标</td><td>未读/待办计数，Socket.IO 实时推送增量更新</td><td>—（登录态内建）</td></tr>
         <tr><td>已读管理</td><td>单条已读、批量已读、全部已读（PC + 移动端）</td><td>notification:update</td></tr>
+        <tr><td>通知删除</td><td>单条删除（软删除，仅本人数据；已删除通知不再进入列表与未读数）</td><td>notification:delete</td></tr>
         <tr><td>通知渠道过滤</td><td>按用户通知偏好过滤渠道（站内信/邮件/短信开关、免打扰时段），被过滤渠道不发送（偏好配置在用户喜好模块）</td><td>—（生成侧执行）</td></tr>
       </table>
 
@@ -129,6 +130,7 @@ sequenceDiagram
         <tr><td>type</td><td>varchar</td><td>通知类型（站内信/待办提醒/系统提示）</td></tr>
         <tr><td>biz_type / biz_id</td><td>varchar / bigint</td><td>业务来源类型与单据 ID（如 wf_task / 采购申请），点击跳转</td></tr>
         <tr><td>is_read</td><td>tinyint</td><td>已读标记（0 未读 / 1 已读）</td></tr>
+        <tr><td>deleted</td><td>tinyint</td><td>软删除标记（0 正常 / 1 已删除，用户主动删除；列表与未读数过滤，数据保留至归档）</td></tr>
       </table>
       <ul>
         <li><strong>通用规范</strong>：雪花 ID 主键、审计字段（created_at/created_by）、时间 UTC；软删除可不启用（个人消息物理保留至归档）</li>
@@ -145,6 +147,7 @@ sequenceDiagram
         <tr><td>GET</td><td>/api/v1/notifications/{id}</td><td>通知详情（查看即标记已读）</td><td>notification:query</td></tr>
         <tr><td>POST</td><td>/api/v1/notifications/read</td><td>批量已读（body 传 id 列表）</td><td>notification:update</td></tr>
         <tr><td>POST</td><td>/api/v1/notifications/read-all</td><td>全部已读</td><td>notification:update</td></tr>
+        <tr><td>DELETE</td><td>/api/v1/notifications/{id}</td><td>单条删除（软删除，仅本人数据；校验 user_id 归属）</td><td>notification:delete</td></tr>
       </table>
       <ul>
         <li><strong>通用规范</strong>：前缀 <code>/api/v1</code>、统一响应 <code>{code, message, data}</code>、分页、Bearer 鉴权 + require_permission；数据强制按当前用户过滤（本人可见本人通知）</li>
@@ -155,8 +158,8 @@ sequenceDiagram
 
       <h2 id="perm">6. 权限与配置</h2>
       <ul>
-        <li><strong>权限码</strong>：业务 <code>notification</code>（通知中心，默认归属普通角色）；动作 query/update 归属 notification 业务（<code>notification:query</code>、<code>notification:update</code>）</li>
-        <li><strong>菜单挂接</strong>：菜单「通知中心」挂表单（1:1），表单挂业务 notification；已读按钮挂动作 update；角标/未读数属登录态内建能力，不挂按钮</li>
+        <li><strong>权限码</strong>：业务 <code>notification</code>（通知中心，默认归属普通角色）；动作 query/update/delete 归属 notification 业务（<code>notification:query</code>、<code>notification:update</code>、<code>notification:delete</code>）</li>
+        <li><strong>菜单挂接</strong>：菜单「通知中心」挂表单（1:1），表单挂业务 notification；已读按钮挂动作 update；删除按钮挂动作 delete；角标/未读数属登录态内建能力，不挂按钮</li>
         <li><strong>数据权限</strong>：通知按 user_id 固有隔离，不配置动作级数据范围</li>
         <li><strong>sys_config 参数</strong>：通知中心本身无独立参数；渠道开关与免打扰时段存用户喜好（sys_user_preference，pref_key 如 notification.channels / notification.quiet_hours），本模块发送前读取</li>
         <li><strong>种子数据</strong>：notification 业务码与动作码入平台库种子；通知模板文案走 sys_i18n_message（固定文案）与按收件人 locale 运行时渲染</li>
@@ -171,6 +174,7 @@ sequenceDiagram
         <tr><td>70003</td><td>批量已读参数非法</td><td>id 列表为空或超上限（如单次 500 条）</td></tr>
         <tr><td>70004</td><td>通知生成失败</td><td>通知组消费落库异常（重试队列兜底）</td></tr>
         <tr><td>70005</td><td>推送不可达</td><td>目标用户无活动连接（不阻塞业务，走重连补偿）</td></tr>
+        <tr><td>70006</td><td>删除他人通知被拒</td><td>软删除时校验 user_id 归属（同 70002 边界）</td></tr>
       </table>
       <ul>
         <li>异常处理：落库与推送分离——落库失败走 RocketMQ 重试；推送失败不回滚已落库通知；角标数据异常时前端可主动刷新未读数校准</li>
@@ -180,13 +184,14 @@ sequenceDiagram
       <h2 id="page">8. 页面清单与验收要点</h2>
       <table>
         <tr><th>页面</th><th>端</th><th>说明</th></tr>
-        <tr><td>通知中心</td><td>PC</td><td>通知列表（筛选/分页）、详情（自动已读、跳转业务）、勾选批量已读、全部已读、角标</td></tr>
-        <tr><td>通知列表</td><td>移动端 H5</td><td>Vant 列表、详情、批量已读/全部已读、角标（复用后端 API）</td></tr>
+        <tr><td>通知中心</td><td>PC</td><td>通知列表（筛选/分页）、详情（自动已读、跳转业务）、勾选批量已读、全部已读、单条删除、角标</td></tr>
+        <tr><td>通知列表</td><td>移动端 H5</td><td>Vant 列表、详情、批量已读/全部已读、左滑删除、角标（复用后端 API）</td></tr>
       </table>
       <p><strong>验收要点</strong>：</p>
       <ul>
         <li>审批待办生成后站内信即时落库，Socket.IO 推送角标实时 +1（断线重连后未读数补偿正确）</li>
         <li>单条/批量/全部已读在 PC 与移动端均可用，已读状态跨端一致</li>
+        <li>单条删除（PC 按钮 / 移动端左滑）仅作用于本人通知，删除后不再出现在列表与未读数，数据保留至归档</li>
         <li>通知中心与公告（全员维度）数据隔离，页面互不混淆</li>
         <li>免打扰时段与渠道开关生效（偏好存于用户喜好模块）；notification.sent 事件正常发布且不被 Webhook 订阅</li>
         <li>越权读取他人通知被拒；未读数查询接口性能达标（缓存兜底）</li>

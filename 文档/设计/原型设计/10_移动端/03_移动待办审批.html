@@ -63,10 +63,11 @@
           <textarea class="p-textarea" id="d-comment" style="min-height:60px"></textarea>
         </div>
         <div style="display:flex;gap:8px">
-          <button class="p-btn" style="flex:1;padding:9px 0" onclick="toast('原型演示：转办')">转办</button>
           <button class="p-btn danger" style="flex:1;padding:9px 0" onclick="mReject()">驳回</button>
+          <button class="p-btn" style="flex:1;padding:9px 0" onclick="mWithdraw()">撤回</button>
           <button class="p-btn primary" style="flex:1;padding:9px 0" onclick="mApprove()">同意</button>
         </div>
+        <div style="font-size:11px;color:#8c959f;margin-top:6px;text-align:center">转办/委托仅限审批人缺失的异常场景（管理员入口），非常规审批操作</div>
       </div>
     </div>
     <!-- 底部 TabBar：仅根页展示；详情子页面隐藏；底部安全区需避让 Home 指示条（env(safe-area-inset-bottom)） -->
@@ -109,6 +110,14 @@
       goBack();
       document.getElementById('d-comment').value = '';
       toast('已驳回，申请人收到通知', 'ok');
+    });
+  }
+  // 撤回：审批人对已提交审批执行撤回（概要 15 审批执行：同意/驳回/撤回 + 评论）
+  function mWithdraw() {
+    confirmAction('撤回「' + current + '」的审批？撤回后需重新提交。', function () {
+      goBack();
+      document.getElementById('d-comment').value = '';
+      toast('已撤回', 'ok');
     });
   }
 </script>
