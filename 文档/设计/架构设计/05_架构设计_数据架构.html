@@ -143,7 +143,7 @@
       <ul>
         <li>字典（sys_dict_type / sys_dict_item）与系统参数（sys_config）：平台库存默认，租户库可覆盖/自建（租户开通种子自动下发默认项）</li>
         <li>字典多语言 label 存各自 _i18n 附表，按 locale 关联查询</li>
-        <li>缓存：只读热数据 Redis 缓存（<code>bms:{tenant}:dict:{locale}:{type}</code>），短 TTL + 随机偏移；字典/参数变更后删除缓存 key（先写库后删缓存协议）并递增全局版本号 <code>bms:{tenant}:dict:version</code>；后端进程内内存字典缓存（仅 &lt; 2000 条小字典整类型载入，超大字典 DB 索引直查）按版本惰性比对，字典查询接口与业务翻译（导出/通知/报表/审批）共用，零网络往返</li>
+        <li>缓存：只读热数据 Redis 缓存（<code>bms:{tenant}:dict:{locale}:{type}</code>），短 TTL + 随机偏移；字典/参数变更后删除缓存 key（先写库后删缓存协议）并递增全局版本号 <code>bms:{tenant}:dict:version</code>；后端进程内内存字典缓存（dogpile.cache 双 Region：小字典整类型 + 超大字典已查条目局部子集，按版本惰性比对）供字典查询接口与业务翻译（导出/通知/报表/审批/明细行批量）共用，零网络往返；超大字典批量翻译走「局部缓存 + 一次性 IN 查询」防 N+1</li>
         <li>字典/参数是权限体系与业务模块的通用依赖（状态、类型等基础字典），页面管理权限码 dict:manage / config:manage</li>
       </ul>
 

@@ -186,16 +186,18 @@ sequenceDiagram
         Redis 中字典以 JSON 字符串存储，Python 每次读取都要 <code>json.loads</code> 反序列化
         （单类型 ≤ 2000 条约 1-2ms）；且后端业务翻译场景（导出/通知/报表/审批等）若逐个字典字段查 Redis，
         30 个字段 = 30 次网络往返（3-15ms/请求），高并发下同步阻塞调用（Celery worker、报表）会耗尽连接池排队。
-        因此后端增加<strong>进程内内存字典缓存</strong>，字典查询接口与业务翻译共用：
+        因此后端增加<strong>进程内内存字典缓存</strong>，统一由 <strong>dogpile.cache</strong>
+        （SQLAlchemy 作者 Mike Bayer 官方配套缓存库，Region 机制分域管理、支持内存/Redis 后端）承载，
+        字典查询接口与业务翻译共用：
       </p>
       <table>
         <tr><th>项</th><th>设计</th></tr>
-        <tr><td>存储内容</td><td><code>内存[{tenant}:{locale}:{type}] = {version, items}</code>，items 为整类型条目列表（Python 对象），纯内存 dict 查找</td></tr>
-        <tr><td>读路径</td><td>每次请求仅 <code>GET bms:{tenant}:dict:version</code>（单个 int，微秒级）→ 与内存中该类型 version 比对 → 一致零反序列化直出；不一致才读 Redis、反序列化、回填内存</td></tr>
-        <tr><td>服务对象</td><td>① 字典查询接口（GET /dicts/{type}、POST /dicts/batch）② 后端业务翻译（get_dict_label，见第 6 节）——两者共用同一份内存数据，业务翻译零往返</td></tr>
-        <tr><td>失效</td><td>写路径 DEL key + INCR 版本（见 3.2）后，各实例下次请求自动发现版本变化重载，无需广播</td></tr>
+        <tr><td>Region 划分</td><td><strong>Region 1 小字典整类型</strong>：<code>{tenant}:{locale}:{type} → {version, items}</code>（LRU + 条目数上限，内存有界）；<strong>Region 2 超大字典局部条目</strong>：<code>{tenant}:{locale}:{type} → {value: label} 已查子集</code>（LRU 有界 + 版本号比对失效）</td></tr>
+        <tr><td>读路径</td><td>每次请求仅 <code>GET bms:{tenant}:dict:version</code>（单个 int，微秒级）→ 与缓存中该类型 version 比对 → 一致直出；小字典缺失才读 Redis 整类型回填；超大字典缺失走批量 DB IN 查询回填局部子集（见 9.2）</td></tr>
+        <tr><td>服务对象</td><td>① 字典查询接口（GET /dicts/{type}、POST /dicts/batch）② 后端业务翻译（get_dict_label / get_dict_labels，见第 6 节）——两者共用同一份缓存，业务翻译零往返</td></tr>
+        <tr><td>失效</td><td>写路径 DEL key + INCR 版本（见 3.2）；Region 1 按版本惰性比对重载，Region 2 版本变化即整区失效（重新按需回填）</td></tr>
         <tr><td>一致性</td><td>INCR 原子性保证多实例同步；极端时序下最长一个请求窗口陈旧，业务可接受</td></tr>
-        <tr><td>内存有界</td><td>仅<strong>小字典</strong>（&lt; 2000 条）整类型载入；超大字典（≥ 2000 条）不入内存、不整量缓存 Redis，走 DB 索引直查（见 9.2）；LRU 淘汰 + 条目数上限可配（config.toml），实测类型规模下占用几十 MB 级</td></tr>
+        <tr><td>缓存库后端</td><td>Region 1 用内存后端（dict/LRU）；Redis 仍为数据一致性源与跨实例共享层（Region 2 可选 Redis 后端，按部署规模配置）</td></tr>
       </table>
       <div class="note">
         《项目规划说明》及架构文档中「弃用本地内存缓存」原则已<strong>彻底删除</strong>（经确认）：一般业务数据的本地缓存仍有一致性问题不鼓励，
@@ -273,8 +275,8 @@ sequenceDiagram
 
       <h3 id="dict-label-backend">6.1 后端字典翻译</h3>
       <p>
-        后端 service 层提供对应翻译工具（<code>get_dict_label</code> / <code>get_dict_labels</code>），
-        数据源为 3.4 的进程内内存字典缓存（纯内存查找，微秒级、零往返），一次调用翻译多个字段亦无叠加开销：
+        后端 service 层提供翻译工具（<code>get_dict_label</code> / 批量版 <code>get_dict_labels(type, values)</code>），
+        数据源为 3.4 的 dogpile.cache 内存缓存（纯内存查找，微秒级、零往返）：
       </p>
       <table>
         <tr><th>场景</th><th>说明</th></tr>
@@ -282,22 +284,25 @@ sequenceDiagram
         <tr><td>邮件/通知模板</td><td>Jinja2 模板渲染时翻译（审批提醒、告警通知）</td></tr>
         <tr><td>报表数据集</td><td>报表字段字典翻译（rpt 只读从库执行后翻译）</td></tr>
         <tr><td>审批辅助/全文检索</td><td>审批意见、检索高亮等场景的字典文案</td></tr>
+        <tr><td>明细行批量翻译</td><td>1000 行明细 × 超大字典字段：批量版 <code>get_dict_labels</code> 先查局部缓存子集 → 缺失 values 一次 DB IN 查询回填 → 二次起零查询（见 9.2）</td></tr>
         <tr><td>职责边界</td><td>列表页/表单页 label 由前端 getDictLabel 翻译（前端有缓存），后端不重复返回；后端翻译仅服务后端场景</td></tr>
       </table>
 
       <h2 id="dict-store">7. useDictStore（Pinia 缓存）</h2>
       <table>
         <tr><th>成员</th><th>说明</th></tr>
-        <tr><td><code>cache: Map&lt;string, DictEntry&gt;</code></td><td>按 <code>{locale}:{type}</code> 缓存 {version, items, hasMore, total, loading}；超大字典仅存已加载片段</td></tr>
+        <tr><td><code>cache: Map&lt;string, DictEntry&gt;</code></td><td>按 <code>{locale}:{type}</code> 缓存 {version, items, hasMore, total, loading}；超大字典仅存已加载片段与已查条目子集</td></tr>
         <tr><td><code>fetchDicts(types, opts)</code></td><td><strong>批量</strong>请求 <code>POST /dicts/batch</code> 一次获取多类型（带版本比对）；<code>opts</code> 支持 parent_id / keyword / limit 探针</td></tr>
+        <tr><td><code>translateDictValues(type, values)</code></td><td>批量翻译：缓存子集内命中直接返回 → 缺失 values 一次 <code>GET /dicts/{type}?values=...</code> 回填子集（超大字典列渲染收集缺失值后调用，防逐行请求）</td></tr>
         <tr><td><code>getItems(type)</code></td><td>同步读取缓存条目（组件渲染用）</td></tr>
         <tr><td><code>preload(types)</code></td><td>登录成功后预加载常用小字典（清单来自表单元数据/静态配置）</td></tr>
         <tr><td><code>invalidate(type?)</code></td><td>主动失效：清除缓存并重拉（刷新按钮/调试用）</td></tr>
       </table>
       <ul>
         <li><strong>批量合并</strong>：表单页渲染时先收集全部字典类型，一次 <code>fetchDicts</code> 完成，100 个字典字段 = 1 个 HTTP 请求；同屏多表单共享 store 缓存，不会重复请求。</li>
+        <li><strong>列渲染批量翻译</strong>：列表 1000 行 × 超大字典列，先收集全部行的缺失 values 一次 <code>translateDictValues</code> 请求（1 个 HTTP 请求），而非逐行逐值请求。</li>
         <li><strong>localStorage 二次缓存</strong>：仅小字典（&lt; 2000 条）写入，键 <code>bms:dict:{locale}:{type}</code>，内容为 {version, items}；页面刷新后先读 localStorage 再按版本比对，版本一致零网络请求。</li>
-        <li>超大字典不持久化（体积不可控），仅内存态。</li>
+        <li>超大字典不持久化（体积不可控），仅内存态（含已查条目子集，LRU 有界）。</li>
         <li>store 单例（Pinia），组件共享同一份缓存，避免同一字典被多个表单重复请求。</li>
       </ul>
 
@@ -314,7 +319,7 @@ sequenceDiagram
           <td><code>POST /api/v1/dicts/batch</code>（新增）</td>
           <td>请求体 <code>{types: [...], version?, locale?}</code>；响应 <code>data = {version, items: {type: {items, has_more, total} \| null}}</code>，<code>items</code> 为 null 表示该类型版本一致（前端复用本地缓存）。表单页多字典字段的<strong>首选取数路径</strong>（一次请求合并全部类型）；单字段场景与移动端可继续用单类型接口</td>
         </tr>
-        <tr><td><code>GET /dicts/{type}</code>（扩展）</td><td>增加可选参数：<code>version</code>（客户端本地版本，一致时 items 返回 null）、<code>keyword</code>（远程搜索，模糊匹配 label/value/code）、<code>parent_id</code>（级联过滤）、<code>limit</code>（返回条数上限，探针传 2001 判别超大字典）；响应 data 扩展 <code>{version, items, has_more, total}</code></td></tr>
+        <tr><td><code>GET /dicts/{type}</code>（扩展）</td><td>增加可选参数：<code>version</code>（客户端本地版本，一致时 items 返回 null）、<code>keyword</code>（远程搜索，模糊匹配 label/value/code）、<code>parent_id</code>（级联过滤）、<code>values</code>（逗号分隔的指定 value 集合，仅返回这些条目的子集——前端超大字典列批量翻译用）、<code>limit</code>（返回条数上限，探针传 2001 判别超大字典）；响应 data 扩展 <code>{version, items, has_more, total}</code></td></tr>
       </table>
       <div class="note">批量接口的 limit 探针为每类型统一截断（2001 条），响应逐类型带 has_more/total；超大字典远程搜索与级联过滤走单类型接口（请求带 keyword/parent_id），批量接口只承载小字典的合并取数。</div>
 
@@ -339,7 +344,7 @@ sequenceDiagram
         <tr>
           <td>内存字典缓存与压测</td>
           <td><a href="../架构设计/05_架构设计_数据架构.html">《架构设计·05 数据架构》</a>5 缓存架构；<a href="../架构设计/27_架构设计_测试与质量.html">《架构设计·27 测试与质量》</a>；<a href="../../规划/项目规划说明.html">《项目规划说明》</a></td>
-          <td>彻底删除「弃用本地内存缓存」原则；缓存架构补充进程内内存字典缓存（整类型 dict + 版本号一致 + 超大字典 DB 直查）；测试与质量补字典并发压测场景（loadtest/）</td>
+          <td>彻底删除「弃用本地内存缓存」原则；缓存架构补充进程内内存字典缓存（dogpile.cache 双 Region + 版本号一致 + 超大字典批量 IN 翻译）；技术栈表补 dogpile.cache 依赖；测试与质量补字典并发压测场景（loadtest/，四场景）</td>
         </tr>
       </table>
       <div class="note">按《文档生成规范》8.4「设计文档变更须先更新对应体系节点」，上述变更需用户确认后由上游文档同步，本文档不单独裁决接口。</div>
@@ -362,16 +367,17 @@ sequenceDiagram
         <li>内存有界：仅小字典（&lt; 2000 条）整类型载入、LRU 淘汰、条目数上限可配；超大字典片段不入内存（见 9.2），无超大内存问题。</li>
       </ul>
 
-      <h3 id="performance-big">9.2 超大字典策略（DB 直查）</h3>
+      <h3 id="performance-big">9.2 超大字典策略（批量翻译 + DB 直查）</h3>
       <ul>
-        <li>超大字典（≥ 2000 条，如 100 万条行政区划）<strong>不入内存、不整量缓存 Redis</strong>：单 key JSON 100-200MB 不现实（网络传输/反序列化/内存全爆炸），整类型载入进程内存同样不可接受。</li>
-        <li>查询形态均为「带索引的小结果」，DB 直查毫秒级，且天然低频（不搜索不查、级联只查当前父级、翻译只查选中一条）：</li>
+        <li>超大字典（≥ 2000 条，如 100 万条行政区划）<strong>不整量入内存、不整量缓存 Redis</strong>：单 key JSON 100-200MB 不现实（网络传输/反序列化/内存全爆炸），整类型载入进程内存同样不可接受。</li>
+        <li><strong>批量翻译防 N+1</strong>：明细行/列表批量场景（1000 行 × 30 字典字段）绝不允许逐值逐行查询——<code>get_dict_labels(type, values)</code> 一次 IN 查询返回全部缺失条目（每字段 1 次 = 30 次而非 30000 次），并回填局部缓存子集，二次起零查询：</li>
       </ul>
       <table>
         <tr><th>查询形态</th><th>实现</th></tr>
+        <tr><td>批量翻译（values[] → labels）</td><td>内存局部缓存子集命中 → 缺失 values 一次 <code>WHERE type_id=? AND value IN (...)</code>（走 <code>(type_id, value)</code> 唯一索引）→ 回填 Region 2；版本号变化整区失效</td></tr>
         <tr><td>远程搜索（keyword）</td><td>DB <code>LIKE</code> 走 <code>(type_id, label)</code> 前缀索引，LIMIT 2001</td></tr>
         <tr><td>级联过滤（parent_id）</td><td>DB 走 <code>(type_id, parent_id)</code> 索引，只取该父级子条目</td></tr>
-        <tr><td>单值翻译（value → label）</td><td>DB 按 <code>(type_id, value)</code> 唯一索引取单条</td></tr>
+        <tr><td>单值翻译（value → label）</td><td>局部缓存未命中走批量 IN（同批量翻译），不单独查单条</td></tr>
       </table>
 
       <h3 id="performance-loadtest">9.3 并发压测计划</h3>
@@ -381,8 +387,9 @@ sequenceDiagram
         <tr><td>首次全缓存未命中</td><td>500 并发同时打开含 100 字典字段的表单页（字典缓存全部失效/冷启动），验证 DB 互斥锁回源收敛与内存缓存回填</td><td>p95/p99 延迟、错误率、DB 查询次数（应 ≈ 类型数）、内存缓存命中率</td></tr>
         <tr><td>全命中</td><td>500 并发重复打开表单页（内存 + Redis 均命中），验证批量接口与版本比对的稳定吞吐</td><td>p95/p99 延迟、错误率、Redis/内存命中率、CPU 占比</td></tr>
         <tr><td>后端翻译</td><td>500 并发导出含 30 个字典字段的列表（后端批量翻译），验证内存缓存零往返</td><td>p95/p99 延迟、错误率、Redis 往返次数（应为版本比对 1 次/请求级）</td></tr>
+        <tr><td>明细行批量翻译</td><td>1000 行明细 × 30 字典字段（以超大字典字段为主）批量翻译：验证首次每字段 1 次 IN 查询（共 30 次而非 30000 次）、二次起零查询</td><td>首次/二次延迟对比、DB 查询次数（应 = 超大字典字段数）、局部缓存命中率</td></tr>
       </table>
-      <div class="note">验收目标（建议值，压测前确认）：三场景 p95 延迟 &lt; 500ms、错误率 0；未命中场景 DB 查询次数不超过字典类型数 × worker 数（互斥锁收敛验证）。</div>
+      <div class="note">验收目标（建议值，压测前确认）：四场景 p95 延迟 &lt; 500ms、错误率 0；未命中场景 DB 查询次数不超过字典类型数 × worker 数（互斥锁收敛验证）；明细场景二次翻译 DB 查询次数应降为 0。</div>
 
       <h2 id="cooperate">10. 与字段权限 / i18n / 脱敏协作</h2>
       <ul>
@@ -404,12 +411,12 @@ sequenceDiagram
         <li>□ 大小字典按阈值 2000 自动切换（el-select ↔ el-select-v2 + 远程搜索），首次探针 limit=2001</li>
         <li>□ 表单页多字典字段合并为一次 POST /dicts/batch；远程搜索与级联走单类型接口</li>
         <li>□ 版本比对（3.3）、写路径删 key + INCR（3.2）、进程内内存字典缓存（3.4）与缓存三防引用和架构 05 一致</li>
-        <li>□ 超大字典（≥ 2000 条）不入内存/Redis，走 DB 索引直查（9.2）；后端翻译走内存缓存零往返（6.1）</li>
+        <li>□ 超大字典（≥ 2000 条）不整量入内存/Redis：批量翻译走局部缓存子集 + 一次性 IN 查询回填（9.2）；后端翻译走 dogpile.cache 内存缓存零往返（6.1）</li>
         <li>□ parentValue 级联过滤生效，父级变化清空重载；树形级联走 DictCascader</li>
-        <li>□ 只读回显与列表列渲染统一走 getDictLabel，label 缺失回显原值</li>
+        <li>□ 只读回显与列表列渲染统一走 getDictLabel，label 缺失回显原值；超大字典列渲染走 translateDictValues 批量收集</li>
         <li>□ 字段权限（visible/editable）、i18n、脱敏协作边界符合第 10 节</li>
-        <li>□ 接口扩展（批量接口、GET /dicts/{type} 参数）与 sys_dict_item.parent_id 的上游同步变更已确认并落表（8.2）</li>
-        <li>□ 500 并发三场景压测脚本纳入 loadtest/（9.3），验收指标压测前确认</li>
+        <li>□ 接口扩展（批量接口、GET /dicts/{type} 参数含 values）与 sys_dict_item.parent_id 的上游同步变更已确认并落表（8.2）</li>
+        <li>□ 500 并发四场景压测脚本纳入 loadtest/（9.3），验收指标压测前确认</li>
         <li>□ 移动端取数复用与组件隔离符合第 11 节</li>
       </ul>
 

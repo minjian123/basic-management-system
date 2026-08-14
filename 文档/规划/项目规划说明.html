@@ -125,7 +125,7 @@
         <tr><td>MySQL 驱动</td><td>aiomysql（异步；同步 fallback 可换 PyMySQL）</td></tr>
         <tr><td>PostgreSQL 驱动</td><td>psycopg 3（原生异步）</td></tr>
         <tr><td>达梦驱动</td><td>dmPython（官方驱动；Python 3.14 兼容性纳入阶段一验证）</td></tr>
-        <tr><td>缓存</td><td>Redis（redis-py，集群统一缓存）</td></tr>
+        <tr><td>缓存</td><td>Redis（redis-py，集群统一缓存）+ dogpile.cache（进程内字典内存缓存，Region 分域管理，全局版本号保证多实例一致）</td></tr>
         <tr><td>认证</td><td>JWT（PyJWT）+ Redis 会话状态校验 + PBKDF2 密码哈希（标准库）</td></tr>
         <tr><td>SSO</td><td>authlib（OIDC 客户端/Provider + CAS 客户端；企业微信/钉钉免登）</td></tr>
         <tr><td>验证码</td><td>图形验证码（Pillow 生成，Redis 存储校验）</td></tr>
@@ -794,7 +794,7 @@ graph TD
       <h3>缓存策略</h3>
       <ul>
         <li>只读热数据（字典、系统参数、菜单树、业务/动作权限码）Redis 缓存，短 TTL；多语言数据缓存键含 locale 维度；租户数据缓存键含 tenant 前缀。</li>
-        <li>字典内存缓存：字典为只读热配置，后端另设进程内内存字典缓存（仅 &lt; 2000 条的小字典整类型载入，超大字典走 DB 索引直查）；一致性靠全局版本号 <code>bms:{tenant}:dict:version</code> 惰性比对（字典变更 INCR 版本，各实例下次请求发现版本变化自动重载）；后端业务翻译（导出/通知/报表/审批）与字典查询接口共用该内存缓存，零网络往返。</li>
+        <li>字典内存缓存：字典为只读热配置，后端另设进程内内存字典缓存（dogpile.cache 统一管理，双 Region：小字典整类型 + 超大字典已查条目局部子集）；一致性靠全局版本号 <code>bms:{tenant}:dict:version</code> 惰性比对（字典变更 INCR 版本，各实例下次请求发现版本变化自动重载）；后端业务翻译（导出/通知/报表/审批/明细行批量）与字典查询接口共用该内存缓存，零网络往返；超大字典批量翻译走「局部缓存 + 一次性 IN 查询」防 N+1（1000 行明细 × 30 字段 = 30 次而非 30000 次查询）。</li>
         <li>Redis key 命名规范：统一格式 <code>bms:{租户标识|global}:{域}:{业务键}</code>，如 bms:global:captcha:{uuid}、bms:global:token:blacklist:{jti}、bms:{tenant}:sess:{session_id}、bms:{tenant}:dict:{locale}:{type}、bms:global:rate:{维度}:{目标}；所有 key 必须携带 TTL——缓存类短 TTL + 随机偏移，持久状态类（token 黑名单、会话标记、分布式锁、幂等键）TTL 与业务有效期对齐；租户数据 key 必含租户前缀，平台数据用 global。</li>
         <li>三防：穿透（查询不存在的数据缓存空值）、击穿（热点 key 过期用互斥锁 SETNX 单实例重建）、雪崩（过期时间加随机偏移）。</li>
         <li>一致性：先写库后删缓存；写操作后同一会话内读主库，避免读到从库旧数据。</li>
