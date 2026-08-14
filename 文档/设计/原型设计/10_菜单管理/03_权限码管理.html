@@ -57,7 +57,7 @@
             </template>
           </el-table>
           <div class="ep-pager">
-            <el-pagination background layout="total, sizes, prev, pager, next" :total="filteredBiz.length"
+            <el-pagination background layout="total, sizes, jumper, prev, pager, next" :total="filteredBiz.length"
               :page-size="queryBiz.size" :current-page="queryBiz.page"
               @current-change="function (n) { queryBiz.page = n; }" @size-change="function (s) { queryBiz.size = s; queryBiz.page = 1; }"></el-pagination>
           </div>
@@ -97,7 +97,7 @@
             </template>
           </el-table>
           <div class="ep-pager">
-            <el-pagination background layout="total, sizes, prev, pager, next" :total="filteredAct.length"
+            <el-pagination background layout="total, sizes, jumper, prev, pager, next" :total="filteredAct.length"
               :page-size="queryAct.size" :current-page="queryAct.page"
               @current-change="function (n) { queryAct.page = n; }" @size-change="function (s) { queryAct.size = s; queryAct.page = 1; }"></el-pagination>
           </div>

@@ -67,7 +67,7 @@
 
       <!-- ④ 分页 -->
       <div class="ep-pager">
-        <el-pagination background layout="total, sizes, prev, pager, next" :total="filtered.length"
+        <el-pagination background layout="total, sizes, jumper, prev, pager, next" :total="filtered.length"
           :page-size="query.size" :current-page="query.page"
           @current-change="onPage" @size-change="onSize"></el-pagination>
       </div>

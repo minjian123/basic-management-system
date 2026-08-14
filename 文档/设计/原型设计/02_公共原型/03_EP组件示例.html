@@ -71,7 +71,7 @@
             <el-button size="small" @click="toastMsg('已刷新')" title="刷新">{{ ICONS.refresh }}</el-button>
             <el-button size="small" @click="toastMsg('全屏演示')" title="全屏">{{ ICONS.fullscreen }}</el-button>
           </div>
-          <el-pagination background layout="total, prev, pager, next, sizes" :total="rows.length"
+          <el-pagination background layout="total, sizes, jumper, prev, pager, next" :total="rows.length"
             :page-size="pageSize" :current-page="page" @current-change="onPage" @size-change="onSize"></el-pagination>
         </div>
       </div>

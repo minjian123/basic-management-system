@@ -83,7 +83,7 @@
           <el-button size="small" @click="toastMsg('已刷新')" title="刷新">⟳</el-button>
           <el-button size="small" @click="toastMsg('原型演示：全屏')" title="全屏">⛶</el-button>
         </div>
-        <el-pagination background layout="total, sizes, prev, pager, next" :total="rows.length"
+        <el-pagination background layout="total, sizes, jumper, prev, pager, next" :total="rows.length"
           :page-size="query.size" :current-page="query.page"
           @current-change="onPage" @size-change="onSize"></el-pagination>
       </div>
