@@ -69,8 +69,8 @@
 
       <h2 id="business">5. 与业务单据的联动</h2>
       <ul>
-        <li>业务绑定：wf_instance.business_type + business_id 关联业务单据（如 biz_purchase_apply）</li>
-        <li>采购链路：申请提交 → 流程启动 → 三级审批全部通过 → 生成采购订单（biz_purchase_order）→ purchase.order.created 事件</li>
+        <li>业务绑定：wf_instance.business_type + business_id 关联业务单据（如 pur_purchase_apply）</li>
+        <li>采购链路：申请提交 → 流程启动 → 三级审批全部通过 → 生成采购订单（pur_purchase_order）→ purchase.order.created 事件</li>
         <li>驳回：业务单据状态回退，申请人可修改后重新提交（重新触发流程）</li>
       </ul>
 

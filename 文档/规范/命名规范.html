@@ -127,7 +127,7 @@
       <h2 id="db">7. 数据库命名</h2>
       <ul>
         <li>库：平台库 <code>bms_platform</code>、租户库 <code>bms_tenant_{code}</code>（一租户一库）、归档库 <code>bms_archive</code>；环境库 <code>bms_dev</code> / <code>bms_test</code> / <code>bms_prod</code></li>
-        <li>表前缀：<code>sys_</code> 系统（含权限体系：用户/岗位/角色/菜单/表单/字段/按钮/业务/动作/数据范围）、<code>wf_</code> 工作流、<code>biz_</code> 业务、<code>rpt_</code> 报表、<code>ai_</code> AI 域；表名单数 snake_case：<code>sys_user</code>、<code>sys_post</code>、<code>biz_purchase_apply</code>、<code>wf_task</code>、<code>rpt_report</code>、<code>ai_chat_log</code></li>
+        <li>表前缀：平台域固定前缀 <code>sys_</code> 系统（含权限体系：用户/岗位/角色/菜单/表单/字段/按钮/业务/动作/数据范围）、<code>wf_</code> 工作流、<code>rpt_</code> 报表、<code>ai_</code> AI 域；业务模块表用各模块独立前缀（{模块简称}_，注册制，登记表见《<a href="../规划/项目规划说明.html">项目规划说明</a>》「附加业务模块规划」节）：<code>pur_</code> 采购、<code>pay_</code> 收付款、<code>sup_</code> 供应商、<code>sale_</code> 销售（规划中）、<code>wh_</code> 仓储（规划中）；表名单数 snake_case：<code>sys_user</code>、<code>sys_post</code>、<code>pur_purchase_apply</code>、<code>pay_receipt</code>、<code>sup_supplier</code>、<code>wf_task</code>、<code>rpt_report</code>、<code>ai_chat_log</code></li>
         <li>字段：snake_case；主键统一 <code>id</code>；外键 <code>目标表名_id</code>（<code>dept_id</code>、<code>role_id</code>）；布尔 <code>is_</code> 前缀；时间 <code>xxx_at</code>（<code>created_at</code>）；审计 <code>created_by</code> / <code>updated_by</code>；通用 <code>deleted_at</code>、<code>version</code>、<code>status</code>、<code>sort</code>、<code>remark</code></li>
         <li>索引：普通 <code>idx_字段</code>（<code>idx_dept_id</code>）、唯一 <code>uq_字段</code>（<code>uq_username</code>）</li>
         <li>关联表：两表名单词连接（<code>sys_user_post</code>、<code>sys_role_permission</code>），联合主键，不设 id；通用主体角色绑定 <code>sys_role_assign</code>（subject_type + subject_id + role_id）</li>
@@ -141,7 +141,7 @@
         <li>动词交给 HTTP 方法：GET 查、POST 建、PUT 全量改、PATCH 部分改、DELETE 删；动作类接口动词短语（<code>/auth/login</code>、<code>/users/{id}/reset-password</code>）</li>
         <li>参数：分页 <code>page</code>、<code>size</code>；排序 <code>order_by</code>；筛选 <code>模块字段名</code>（<code>status</code>、<code>keyword</code>）；游标分页 <code>cursor</code>、<code>limit</code></li>
         <li>权限码：<code>业务:动作</code>——业务对应业务权限（sys_business，如 <code>user</code>、<code>wf</code>、<code>open</code>），动作对应动作权限（sys_action，如 <code>create</code>、<code>approve</code>、<code>manage</code>）；组合示例 <code>user:create</code>、<code>wf:approve</code>、<code>open:call</code></li>
-        <li>错误码：5 位数字按模块分段（1xxxx 通用、2xxxx 认证、3xxxx 用户与组织、4xxxx 系统配置、5xxxx 文件、6xxxx 工作流、7xxxx 通知/邮件/任务、8xxxx 开放接口/租户/SSO、9xxxx 报表/审计/归档/监控），稳定不变</li>
+        <li>错误码：5 位数字按模块分段（1xxxx 通用、2xxxx 认证、3xxxx 用户与组织、4xxxx 系统配置、5xxxx 文件、6xxxx 工作流、7xxxx 通知/邮件/任务、8xxxx 开放接口/租户/SSO、9xxxx 报表/审计/归档/监控），稳定不变；业务模块错误码段自 10xxxx 起扩展（10xxxx 采购、11xxxx 收付款、12xxxx 销售、13xxxx 仓储，注册即定，见《<a href="../规划/项目规划说明.html">项目规划说明</a>》「附加业务模块规划」节）</li>
         <li>统一响应 <code>{code, message, data}</code>，分页响应 <code>{list, total, page, size}</code></li>
         <li>幂等键请求头 <code>Idempotency-Key</code></li>
       </ul>
@@ -200,7 +200,7 @@
         <li>□ 无拼音、无缩写不明、无中英混排标识符</li>
         <li>□ 风格与第 2.1 节对照一致（各语言各自的风格）</li>
         <li>□ 数据库字段名与后端模型、前端参数同名映射</li>
-        <li>□ 表前缀 sys_/wf_/biz_/rpt_/ai_ 使用正确；外键 <code>表_id</code>、索引 idx_/uq_ 前缀</li>
+        <li>□ 表前缀使用正确：平台域 sys_/wf_/rpt_/ai_，业务模块 {简称}_（登记表见《项目规划说明》「附加业务模块规划」节）；外键 <code>表_id</code>、索引 idx_/uq_ 前缀</li>
         <li>□ API 资源复数、权限码 <code>业务:动作</code>（业务/动作两级）、错误码分段正确</li>
         <li>□ Redis key 符合 <code>bms:{租户|global}:{域}:{键}</code>；RocketMQ topic / 事件 / ES 索引 / Milvus collection 符合点分或连字符约定</li>
         <li>□ 环境变量带 <code>BMS_</code> 前缀；密钥仅环境变量</li>

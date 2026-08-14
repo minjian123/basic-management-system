@@ -74,7 +74,7 @@
         <tr><td>收款单登记/确认</td><td>新建/编辑/删除/查询收款单（receipt_no 自动生成），登记收款来源（biz_type/biz_id），确认后生效并落流水</td><td>payment:create / update / delete / query</td></tr>
         <tr><td>付款单登记与审批</td><td>新建/编辑/查询付款单（payment_no 自动生成），提交后启动付款审批流程，审批通过后由财务执行付款（manual 渠道登记）</td><td>payment:create / update / query / approve</td></tr>
         <tr><td>退款单</td><td>原收款退回（receipt_refund）/原付款追回（payment_return），退款金额 ≤ 原单未退余额校验，需审批</td><td>payment:refund / approve</td></tr>
-        <tr><td>收付款流水台账</td><td>每笔收/付/退款完成落 biz_payment_flow 流水（方向/金额/渠道/时间），可查询与汇总（按单据/业务/渠道/时间）</td><td>payment:query</td></tr>
+        <tr><td>收付款流水台账</td><td>每笔收/付/退款完成落 pay_payment_flow 流水（方向/金额/渠道/时间），可查询与汇总（按单据/业务/渠道/时间）</td><td>payment:query</td></tr>
         <tr><td>支付渠道配置</td><td>渠道增删改查（code/名称/类型/配置），本期仅 manual；bank/third_party 类型占位预留渠道抽象</td><td>payment:manage</td></tr>
       </table>
 
@@ -114,7 +114,7 @@ sequenceDiagram
     工作流引擎-->>收付款服务: 审批通过
     收付款服务->>渠道抽象: 执行付款(manual 渠道登记)
     渠道抽象-->>收付款服务: 执行结果
-    收付款服务->>收付款服务: 单据置已付款 + 落 biz_payment_flow 流水
+    收付款服务->>收付款服务: 单据置已付款 + 落 pay_payment_flow 流水
     收付款服务->>MQ: 发布 payment.payment.executed
     Note over 收付款服务: 收款：登记→确认→落流水→receipt.confirmed<br/>退款：校验余额→审批→完成→refund.completed
       </pre>
@@ -126,21 +126,21 @@ sequenceDiagram
       </p>
 
       <h2 id="data">4. 数据模型与表设计</h2>
-      <p>核心表（均租户库，业务表前缀 biz_）：</p>
+      <p>核心表（均租户库，业务表前缀 pay_）：</p>
       <table>
         <tr><th>表</th><th>关键字段</th><th>说明</th></tr>
-        <tr><td>biz_receipt</td><td>receipt_no、biz_type、biz_id、payer、amount、currency、channel_code、status（草稿/已确认/已冲正）、receipt_date、operator_id、related_refund_id</td><td>收款单，可关联任意业务（如采购订单）</td></tr>
-        <tr><td>biz_payment</td><td>payment_no、biz_type、biz_id、payee、amount、currency、channel_code、status（草稿/审批中/已通过/已驳回/已付款）、pay_date、applicant_id、approver_id、related_refund_id</td><td>付款单，审批复用工作流引擎；related_refund_id 在追回退款后回写</td></tr>
-        <tr><td>biz_refund</td><td>refund_no、refund_type（receipt_refund/payment_return）、original_id、amount、currency、reason、status（审批中/已完成/已驳回）、refund_date</td><td>退款单，退款金额 ≤ 原单未退余额校验</td></tr>
-        <tr><td>biz_payment_channel</td><td>code、name、type（manual/bank/third_party）、config（JSON 预留）、status</td><td>支付渠道配置（渠道抽象预留；本期仅 manual 线下转账）</td></tr>
-        <tr><td>biz_payment_flow</td><td>flow_no、flow_type（receipt/payment/refund）、source_id、biz_type、biz_id、direction（in/out）、amount、currency、channel_code、biz_time、operator_id</td><td>统一收付款流水台账，每笔收/付/退款完成落流水</td></tr>
+        <tr><td>pay_receipt</td><td>receipt_no、biz_type、biz_id、payer、amount、currency、channel_code、status（草稿/已确认/已冲正）、receipt_date、operator_id、related_refund_id</td><td>收款单，可关联任意业务（如采购订单）</td></tr>
+        <tr><td>pay_payment</td><td>payment_no、biz_type、biz_id、payee、amount、currency、channel_code、status（草稿/审批中/已通过/已驳回/已付款）、pay_date、applicant_id、approver_id、related_refund_id</td><td>付款单，审批复用工作流引擎；related_refund_id 在追回退款后回写</td></tr>
+        <tr><td>pay_refund</td><td>refund_no、refund_type（receipt_refund/payment_return）、original_id、amount、currency、reason、status（审批中/已完成/已驳回）、refund_date</td><td>退款单，退款金额 ≤ 原单未退余额校验</td></tr>
+        <tr><td>pay_payment_channel</td><td>code、name、type（manual/bank/third_party）、config（JSON 预留）、status</td><td>支付渠道配置（渠道抽象预留；本期仅 manual 线下转账）</td></tr>
+        <tr><td>pay_payment_flow</td><td>flow_no、flow_type（receipt/payment/refund）、source_id、biz_type、biz_id、direction（in/out）、amount、currency、channel_code、biz_time、operator_id</td><td>统一收付款流水台账，每笔收/付/退款完成落流水</td></tr>
       </table>
       <ul>
         <li><strong>通用规范</strong>：雪花 ID 主键、软删除（deleted_at，复合唯一约束 <code>(receipt_no/payment_no/refund_no, deleted_at)</code>）、审计字段、乐观锁（version）、时间 UTC；跨表引用用逻辑外键，不建物理外键</li>
         <li><strong>索引</strong>：单据号唯一索引；biz_type + biz_id、channel_code、status、biz_time 建索引（列表筛选与流水汇总）</li>
         <li><strong>状态机</strong>：付款单 草稿 → 审批中 → 已通过 → 已付款；驳回可修改重新提交；已付款不可改；收款单 草稿 → 已确认（冲正经退款单承载）</li>
         <li><strong>数据流转</strong>：单据确认/执行后落流水（同事务）；退款完成回写原单 related_refund_id 并更新未退余额（按关联退款单汇总计算）</li>
-        <li><strong>归档</strong>：单据与流水表体量可控，不按月分片；字段级审计（biz_payment_*、biz_receipt、biz_refund 为关键表）自动记录至 sys_data_audit_log（按月分表）</li>
+        <li><strong>归档</strong>：单据与流水表体量可控，不按月分片；字段级审计（pay_payment_*、pay_receipt、pay_refund 为关键表）自动记录至 sys_data_audit_log（按月分表）</li>
       </ul>
 
       <h2 id="api">5. 接口设计</h2>

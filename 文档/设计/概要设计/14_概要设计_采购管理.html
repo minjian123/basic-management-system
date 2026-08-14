@@ -73,7 +73,7 @@
         <tr><th>功能点</th><th>说明</th><th>权限码</th></tr>
         <tr><td>采购申请单维护</td><td>新建/编辑/删除/查询申请单（apply_no 自动生成）；主从结构：主表（标题/金额/理由/部门/供应商）+ 明细行（商品名称/规格/数量/单价，行内编辑，金额 = 数量 × 单价自动合计，明细合计须与主表金额一致）；支持 AI 生成申请理由草稿（阶段十五）</td><td>purchase:create / update / delete / query</td></tr>
         <tr><td>提交审批</td><td>提交后启动三级审批流程（部门经理 → 财务 → 分管领导），单据状态进入审批中，不可再编辑</td><td>purchase:create</td></tr>
-        <tr><td>审批通过生成订单</td><td>流程全部节点通过后，按申请单生成采购订单（biz_purchase_order），订单号自动生成</td><td>—（流程回调触发）</td></tr>
+        <tr><td>审批通过生成订单</td><td>流程全部节点通过后，按申请单生成采购订单（pur_purchase_order），订单号自动生成</td><td>—（流程回调触发）</td></tr>
         <tr><td>驳回处理</td><td>任一节点驳回：单据状态回退，申请人可修改后重新提交（重新触发流程）</td><td>purchase:update</td></tr>
         <tr><td>供应商档案维护</td><td>供应商增删改查（code/名称/联系人/电话/资质/状态），采购申请与订单引用供应商</td><td>purchase:manage</td></tr>
         <tr><td>我的申请/我的订单</td><td>申请人查看自己发起的申请与生成的订单</td><td>purchase:query</td></tr>
@@ -125,13 +125,13 @@ sequenceDiagram
       </p>
 
       <h2 id="data">4. 数据模型与表设计</h2>
-      <p>核心表（均租户库，业务表前缀 biz_）：</p>
+      <p>核心表（均租户库，业务表前缀 pur_；供应商档案属独立模块 sup_）：</p>
       <table>
         <tr><th>表</th><th>关键字段</th><th>说明</th></tr>
-        <tr><td>biz_purchase_apply</td><td>apply_no、title、amount、reason、dept_id、applicant_id、status（草稿/审批中/已通过/已驳回）、order_id</td><td>采购申请单；order_id 在订单生成后回写（逻辑外键）；amount 为主表金额（明细合计回填）</td></tr>
-        <tr><td>biz_purchase_item</td><td>apply_id、name、spec、qty、price、amount、sort</td><td>采购申请明细行（1:N）；amount = qty × price；apply_id 逻辑外键，随主表整体保存</td></tr>
-        <tr><td>biz_purchase_order</td><td>order_no、apply_id、supplier、amount、status</td><td>采购订单，审批通过后生成，apply_id 关联申请单</td></tr>
-        <tr><td>biz_supplier</td><td>code、name、contact、phone、qualification、status</td><td>供应商档案，采购申请/订单引用（code 逻辑外键）</td></tr>
+        <tr><td>pur_purchase_apply</td><td>apply_no、title、amount、reason、dept_id、applicant_id、status（草稿/审批中/已通过/已驳回）、order_id</td><td>采购申请单；order_id 在订单生成后回写（逻辑外键）；amount 为主表金额（明细合计回填）</td></tr>
+        <tr><td>pur_purchase_item</td><td>apply_id、name、spec、qty、price、amount、sort</td><td>采购申请明细行（1:N）；amount = qty × price；apply_id 逻辑外键，随主表整体保存</td></tr>
+        <tr><td>pur_purchase_order</td><td>order_no、apply_id、supplier、amount、status</td><td>采购订单，审批通过后生成，apply_id 关联申请单</td></tr>
+        <tr><td>sup_supplier</td><td>code、name、contact、phone、qualification、status</td><td>供应商档案（独立模块 sup_），采购申请/订单引用（code 逻辑外键）</td></tr>
       </table>
       <ul>
         <li><strong>通用规范</strong>：雪花 ID 主键、软删除（deleted_at，复合唯一约束 <code>(apply_no, deleted_at)</code>）、审计字段、乐观锁（version）、时间 UTC；跨表引用用逻辑外键，不建物理外键</li>
@@ -140,7 +140,7 @@ sequenceDiagram
         <li><strong>主从保存</strong>：主表 + 明细整体单事务提交（保存时删除旧明细行重建，或按 id 增删改）；新增主表时明细的 apply_id 由事务内新主表 ID 回填；明细行行内编辑（未保存修改随整体提交），保存时过滤空行</li>
         <li><strong>金额校验</strong>：前端按行计算并汇总（qty × price），提交时后端复算校验：明细合计 ≠ 主表 amount 拒绝保存（错误码 60008）</li>
         <li><strong>数据流转</strong>：申请单提交 → 流程实例关联 → 审批通过 → 生成订单回写 order_id → 单据/订单状态驱动列表与统计；供应商变更不影响已生成单据（快照 supplier 名称）</li>
-        <li><strong>归档</strong>：单据表体量小，不按月分片；字段级审计（biz_purchase_* 为关键表）自动记录至 sys_data_audit_log（按月分表）</li>
+        <li><strong>归档</strong>：单据表体量小，不按月分片；字段级审计（pur_purchase_*、sup_supplier 为关键表）自动记录至 sys_data_audit_log（按月分表）</li>
       </ul>
 
       <h2 id="api">5. 接口设计</h2>
