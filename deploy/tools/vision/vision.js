@@ -14,7 +14,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 
 const execFileP = promisify(execFile);
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -32,12 +32,6 @@ export const VisionPlugin = async ({ directory }, options = {}) => {
   const apiKey = process.env.VISION_API_KEY || options.apiKey || "";
   const model = process.env.VISION_API_MODEL || options.model || "";
   const timeout = Number(process.env.VISION_API_TIMEOUT || options.timeout || 300000);
-  const pyEnv = {
-    ...process.env,
-    VISION_API_ENDPOINT: endpoint,
-    VISION_API_KEY: apiKey,
-    VISION_API_MODEL: model,
-  };
 
   const missingCfg = [];
   if (!endpoint) missingCfg.push("VISION_API_ENDPOINT");
@@ -47,17 +41,41 @@ export const VisionPlugin = async ({ directory }, options = {}) => {
     "识图 API 未配置：" + missingCfg.join("、") +
     "。请在系统环境变量或 opencode.json 插件 options（endpoint/apiKey/model）中设置后重启 opencode。";
 
+  // Python 端超时按秒；外层 execFile 需覆盖 Python 内部重试（最多 3 次调用 + 退避）
+  const timeoutSec = Math.round(timeout / 1000);
+  const pyEnv = {
+    ...process.env,
+    VISION_API_ENDPOINT: endpoint,
+    VISION_API_KEY: apiKey,
+    VISION_API_MODEL: model,
+    VISION_API_TIMEOUT: String(timeoutSec),
+  };
+
   const abs = (p) => (p ? resolve(directory, p) : p);
   const toFileUrl = (p) => "file:///" + abs(p).replace(/\\/g, "/");
 
   async function run(prog, args) {
     const { stdout } = await execFileP(prog, args, {
-      timeout,
+      timeout: timeout * 3 + 120000,
       maxBuffer: 16 * 1024 * 1024,
       windowsHide: true,
       env: pyEnv,
     });
     return stdout;
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+
+  function fmtDate(d) {
+    const p = (n) => String(n).padStart(2, "0");
+    return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()) + " " + p(d.getHours()) + ":" + p(d.getMinutes());
+  }
+
+  function fmtDateTime(d) {
+    const p = (n) => String(n).padStart(2, "0");
+    return d.getFullYear() + "" + p(d.getMonth() + 1) + "" + p(d.getDate()) + "_" + p(d.getHours()) + p(d.getMinutes());
   }
 
   async function screenshot(url, out, width, height, budget) {
@@ -126,12 +144,12 @@ export const VisionPlugin = async ({ directory }, options = {}) => {
 
   const visionReviewProto = tool({
     description:
-      "页面视觉评审（通用组合动作）：对指定 HTML/URL 按多档分辨率截图，逐图调用识图 API（默认 prototype-review 模板，可换任意模板），汇总问题清单供修正。用于原型评审、页面走查、移动端评审等。",
+      "页面视觉评审（通用组合动作）：对指定 HTML/URL 按多档分辨率截图，逐图调用识图 API（默认 prototype-review 模板，可换任意模板），生成 HTML 评审报告（含截图缩略图+问题清单，遵循文档生成规范）。用于原型评审、页面走查、移动端评审等。",
     args: {
       target: tool.schema.string().describe("目标页面：HTML 文件路径（相对项目根或绝对路径）或 http(s) URL"),
       template: tool.schema.string().optional().describe("提示词模板名（prompts/ 目录下），默认 prototype-review"),
-      sizes: tool.schema.string().optional().describe("分辨率列表，逗号分隔（宽x高），默认 1440x900,1366x768,1024x768"),
-      report: tool.schema.string().optional().describe("汇总报告 md 输出路径（可选）"),
+      sizes: tool.schema.string().optional().describe("分辨率列表，逗号分隔（宽x高），默认 1440x900,1366x768,1024x768；移动端评审传 375x812"),
+      report: tool.schema.string().optional().describe("HTML 报告输出路径（相对项目根或绝对路径），缺省 文档/资料/评审报告/{页面名}_{时间}.html"),
     },
     async execute(args) {
       try {
@@ -144,6 +162,7 @@ export const VisionPlugin = async ({ directory }, options = {}) => {
         const tmpDir = join(directory, "temp", "vision");
         mkdirSync(tmpDir, { recursive: true });
         const base = "p-" + args.target.replace(/[\\/.]/g, "_").replace(/^_+/, "").slice(0, 40);
+        const pageName = args.target.split(/[\\/]/).pop().replace(/\.html?$/i, "");
 
         const blocks = [];
         for (const size of sizes) {
@@ -153,17 +172,49 @@ export const VisionPlugin = async ({ directory }, options = {}) => {
           await screenshot(isHttp ? args.target : toFileUrl(args.target), png, Number(w), Number(h), 3000);
           const pyArgs = ["-u", script("vision_analyze.py"), "--image", png, "--prompt", template];
           const out = await run("python", pyArgs);
-          blocks.push("### " + size + "\n\n" + out);
+          blocks.push({ size, png, out });
         }
-        const summary = blocks.join("\n\n");
 
-        if (args.report) {
-          const reportPath = abs(args.report);
-          mkdirSync(dirname(reportPath), { recursive: true });
-          writeFileSync(reportPath, "# 页面视觉评审：" + args.target + "\n\n" + summary, "utf-8");
-          return { title: "视觉评审完成", output: "完成 " + sizes.length + " 档截图评审\n报告: " + reportPath + "\n\n" + summary };
-        }
-        return { title: "视觉评审完成", output: "完成 " + sizes.length + " 档截图评审\n\n" + summary };
+        const now = new Date();
+        const date = fmtDate(now);
+        const toc = blocks
+          .map((b) => '<li><a href="#size-' + b.size + '">' + b.size + "</a></li>")
+          .join("\n        ");
+        const sections = blocks
+          .map((b) => {
+            let resultHtml;
+            try {
+              const parsed = JSON.parse(b.out);
+              resultHtml = escapeHtml(JSON.stringify(parsed, null, 2));
+            } catch {
+              resultHtml = escapeHtml(b.out);
+            }
+            return (
+              '<h2 id="size-' + b.size + '">' + b.size + "</h2>\n" +
+              "<h3>截图</h3>\n" +
+              '<p><img src="file:///' + b.png.replace(/\\/g, "/") + '" alt="' + b.size + ' 截图" style="max-width:100%;border:1px solid var(--border);border-radius:4px;"></p>\n' +
+              "<h3>识图结果</h3>\n" +
+              "<pre><code>" + resultHtml + "</code></pre>"
+            );
+          })
+          .join("\n\n      ");
+
+        const templatePath = join(__dirname, "report_template.html");
+        let html = readFileSync(templatePath, "utf-8")
+          .replaceAll("{{TITLE}}", escapeHtml(pageName))
+          .replaceAll("{{DATE}}", date)
+          .replaceAll("{{SIZES}}", sizes.join(" / "))
+          .replaceAll("{{MODEL}}", escapeHtml(model))
+          .replace("{{TOC}}", toc)
+          .replace("{{SECTIONS}}", sections);
+
+        const reportPath = args.report
+          ? abs(args.report)
+          : join(tmpDir, pageName + "_" + fmtDateTime(now) + ".html");
+        mkdirSync(dirname(reportPath), { recursive: true });
+        writeFileSync(reportPath, html, "utf-8");
+
+        return { title: "视觉评审完成", output: "完成 " + sizes.length + " 档截图评审\n报告: " + reportPath };
       } catch (e) {
         return errJson("视觉评审失败", String((e && e.message) || e));
       }
