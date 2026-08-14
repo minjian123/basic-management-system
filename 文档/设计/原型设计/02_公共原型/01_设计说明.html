@@ -87,7 +87,7 @@
     template: document.getElementById('app').outerHTML,  // 或模板字符串
     setup: function () { /* 数据与交互 */ }
   });
-  app.use(ElementPlus);
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
   app.mount('#app');
 &lt;/script&gt;
 

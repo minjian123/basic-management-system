@@ -94,7 +94,9 @@
 </div>
 
 <script src="../共享资源/vendor/vue.global.prod.js"></script>
+
 <script src="../共享资源/vendor/element-plus.min.js"></script>
+<script src="../共享资源/vendor/zh-cn.js"></script>
 <script>
   var { createApp, ref } = Vue;
   var { ElMessage } = ElementPlus;
@@ -112,7 +114,7 @@
       return { todoNum, bars, xlabels, toast, goEdit };
     }
   });
-  app.use(ElementPlus);
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
   app.mount('#app');
 </script>
 

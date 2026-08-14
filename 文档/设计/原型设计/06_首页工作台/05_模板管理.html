@@ -120,7 +120,9 @@
 </div>
 
 <script src="../共享资源/vendor/vue.global.prod.js"></script>
+
 <script src="../共享资源/vendor/element-plus.min.js"></script>
+<script src="../共享资源/vendor/zh-cn.js"></script>
 <script>
   var { createApp, ref, reactive, computed } = Vue;
   var { ElMessage, ElMessageBox } = ElementPlus;
@@ -212,7 +214,7 @@
       return { tpls, query, dlg, filtered, pageRows, toastMsg, applyFilter, resetFilter, onPage, onSize, toggleTpl, moveTpl, delTpl, openNew, openEdit, delTplDrawer, saveTpl };
     }
   });
-  app.use(ElementPlus);
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
   app.mount('#app');
 </script>
 

@@ -31,7 +31,8 @@
 </div>
 
 <script src="../共享资源/vendor/vue.global.prod.js"></script>
-<script src="../共享资源/vendor/element-plus.min.js"></script>
+
+<script src="../共享资源/vendor/zh-cn.js"></script>
 <script>
   var ICONS = { add: '＋', del: '🗑', up: '↑', down: '↓', refresh: '⟳', fullscreen: '⛶' };
   var { createApp, ref, computed } = Vue;
@@ -130,7 +131,7 @@
       return { ICONS, rows, readonly, selRows, page, pageSize, pageRows, total, rowKey, onSel, addRow, delSel, move, onPage, onSize, toastMsg, setReadonly };
     }
   });
-  app.use(ElementPlus);
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
   app.mount('#app');
   window.__epDt = { setReadonly: function (ro) { app._instance.setupState.setReadonly(ro); } };
 </script>
