@@ -74,7 +74,7 @@
       <p>原型体系早期自研组件（分页.js / 明细工具栏.js / 列表页工具栏.js / 明细表格.js / 空状态.js / 系统信息.js / 原型脚本.js）已<strong>全部废弃删除</strong>：功能由 Element Plus / Vant 真实组件取代（与正式开发技术栈一致），页面统一迁移完成；共享样式仅保留框架类（proto-bar / proto-frame / proto-hint 等），组件样式由组件库自带。系统信息的统一展示现以 2.6 的 iframe 公共组件形式提供。</p>
 
       <h3 id="comp-sysinfo">2.6 公共组件-系统信息（iframe）</h3>
-      <p><a href="04_系统信息组件.html">04_系统信息组件.html</a> —— 系统信息统一组件，依《<a href="../布局设计/08_布局设计_表单页.html">布局设计-表单页</a>》2.1.1：el-form <code>label-position="top"</code> 三列只读栅格（ID / 版本号 / 创建用户 / 创建时间 / 修改用户 / 修改时间 / 表单标识，纯文本只读、表单标识为禁用下拉框、时间无时区后缀）。</p>
+      <p><a href="04_系统信息组件.html">04_系统信息组件.html</a> —— 系统信息统一组件，依《<a href="../布局设计/08_布局设计_表单页.html">布局设计-表单页</a>》2.1.1：el-form <code>label-position="top"</code> 三列只读栅格（ID / 版本号 / 创建用户 / 创建时间 / 修改用户 / 修改时间 / 表单标识，disabled 输入框与主表字段形态一致仅不可编辑、表单标识为禁用下拉框、时间无时区后缀）。</p>
       <ul>
         <li><strong>嵌入方式</strong>：各表单页系统信息 Tab 内放 <code>&lt;iframe class="sys-frame" src="../02_公共原型/04_系统信息组件.html"&gt;</code>（样式 <code>.sys-frame</code> 在 <code>原型样式.css</code>）；改组件一处，全站表单生效。</li>
         <li><strong>数据协议</strong>：父页在 iframe <code>@load</code> 时 <code>postMessage({type:'sys-info', data:{id,version,createdAt,createdBy,updatedAt,updatedBy,formKey,formLabel}})</code> 传入当前记录数据（表单标识传英文标识 formKey + 中文名 formLabel）。</li>

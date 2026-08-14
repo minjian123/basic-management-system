@@ -5,39 +5,39 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>公共组件 · 系统信息</title>
 <link rel="stylesheet" href="../共享资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../共享资源/原型样式.css">
 <style>
-  html, body { margin: 0; padding: 0; background: #fff; }
+  html, body { margin: 0; padding: 0; background: #fff; overflow: hidden; }
   .sys-card { padding: 4px 0 16px; }
-  .sys-val { font-size: 14px; color: #1f2328; }
 </style>
 </head>
 <body>
 
 <div id="app">
   <div class="sys-card">
-    <el-form label-position="top" size="small">
+    <el-form label-position="top">
       <el-row :gutter="16">
         <el-col :span="8">
-          <el-form-item label="ID"><span class="sys-val">{{ d.id || '—' }}</span></el-form-item>
+          <el-form-item label="ID"><el-input :model-value="d.id || '—'" disabled></el-input></el-form-item>
         </el-col>
         <el-col :span="8">
-          <el-form-item label="版本号"><span class="sys-val">{{ d.version ? 'v' + d.version : '—' }}</span></el-form-item>
+          <el-form-item label="版本号"><el-input :model-value="d.version ? 'v' + d.version : '—'" disabled></el-input></el-form-item>
         </el-col>
         <el-col :span="8">
-          <el-form-item label="创建用户"><span class="sys-val">{{ d.createdBy || '—' }}</span></el-form-item>
+          <el-form-item label="创建用户"><el-input :model-value="d.createdBy || '—'" disabled></el-input></el-form-item>
         </el-col>
         <el-col :span="8">
-          <el-form-item label="创建时间"><span class="sys-val">{{ d.createdAt || '—' }}</span></el-form-item>
+          <el-form-item label="创建时间"><el-input :model-value="d.createdAt || '—'" disabled></el-input></el-form-item>
         </el-col>
         <el-col :span="8">
-          <el-form-item label="修改用户"><span class="sys-val">{{ d.updatedBy || '—' }}</span></el-form-item>
+          <el-form-item label="修改用户"><el-input :model-value="d.updatedBy || '—'" disabled></el-input></el-form-item>
         </el-col>
         <el-col :span="8">
-          <el-form-item label="修改时间"><span class="sys-val">{{ d.updatedAt || '—' }}</span></el-form-item>
+          <el-form-item label="修改时间"><el-input :model-value="d.updatedAt || '—'" disabled></el-input></el-form-item>
         </el-col>
         <el-col :span="8">
           <el-form-item label="表单标识">
-            <el-select :model-value="d.formKey || ''" disabled size="small" style="width:160px">
+            <el-select :model-value="d.formKey || ''" disabled style="width:100%">
               <el-option :value="d.formKey" :label="d.formLabel || '—'"></el-option>
             </el-select>
           </el-form-item>
@@ -54,7 +54,7 @@
 <script>
   // 公共组件：系统信息（label 上方三列只读栅格，见《布局设计-表单页》2.1.1）
   // 数据协议：父页 postMessage({type:'sys-info', data:{id,version,createdAt,createdBy,updatedAt,updatedBy,formKey,formLabel}})
-  // 高度协议：渲染完成后上报 {type:'sys-info-height', height}，父页据此自适应 iframe 高度
+  // 高度协议：自适应上报 {type:'sys-info-height', height}——初始渲染、每次数据更新、窗口 resize 后均重报，父页据此调整 iframe 高度
   var { createApp, reactive, nextTick } = Vue;
   var app = createApp({
     template: document.getElementById('app').outerHTML.replace(/<div id="app">/, '<div>').replace(/<\/div>\s*$/, ''),
@@ -63,16 +63,28 @@
       window.addEventListener('message', function (e) {
         if (!e.data || e.data.type !== 'sys-info') return;
         Object.assign(d, e.data.data || {});
+        nextTick(reportHeight);
+        setTimeout(reportHeight, 300);
       });
       return { d };
     }
   });
   app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
   app.mount('#app');
+  function reportHeight() {
+    window.parent.postMessage({ type: 'sys-info-height', height: document.body.scrollHeight }, '*');
+  }
+  window.addEventListener('resize', reportHeight);
+  if (typeof ResizeObserver !== 'undefined') {
+    new ResizeObserver(reportHeight).observe(document.body);
+  }
+  if (typeof IntersectionObserver !== 'undefined') {
+    new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) { if (en.isIntersecting) reportHeight(); });
+    }).observe(document.body);
+  }
   nextTick(function () {
-    setTimeout(function () {
-      window.parent.postMessage({ type: 'sys-info-height', height: document.body.scrollHeight }, '*');
-    }, 80);
+    setTimeout(reportHeight, 80);
   });
 </script>
 

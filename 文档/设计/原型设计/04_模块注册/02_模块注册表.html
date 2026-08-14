@@ -35,27 +35,40 @@
         </span>
       </div>
 
-      <!-- ② 筛选区：关键字 + 状态 + 类型 -->
-      <el-form class="ep-filter" inline size="default" @submit.prevent>
-        <el-form-item label="关键字">
-          <el-input v-model="query.kw" placeholder="关键字：模块简称/名称" clearable style="width:240px"></el-input>
-        </el-form-item>
-        <el-form-item label="状态">
-          <el-select v-model="query.status" placeholder="全部" clearable style="width:130px">
-            <el-option label="启用" value="enabled"></el-option>
-            <el-option label="规划中" value="planning"></el-option>
-          </el-select>
-        </el-form-item>
-        <el-form-item label="类型">
-          <el-select v-model="query.type" placeholder="全部" clearable style="width:150px">
-            <el-option label="平台域固定" value="平台域固定"></el-option>
-            <el-option label="业务模块" value="业务模块"></el-option>
-          </el-select>
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" @click="applyFilter">查询</el-button>
-          <el-button @click="resetFilter">重置</el-button>
-        </el-form-item>
+      <!-- ② 筛选区：label 上方，一行最多 3 个条件，查询/重置/展开在条件第一行行末 -->
+      <el-form class="ep-filter" label-position="top" @submit.prevent>
+        <el-row :gutter="16">
+          <el-col :span="8">
+            <el-form-item label="关键字">
+              <el-input v-model="query.kw" placeholder="关键字：模块简称/名称" clearable style="width:100%"></el-input>
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <el-form-item label="状态">
+              <el-select v-model="query.status" placeholder="全部" clearable style="width:100%">
+                <el-option label="启用" value="enabled"></el-option>
+                <el-option label="规划中" value="planning"></el-option>
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <el-form-item style="margin-top:30px">
+              <el-button type="primary" @click="applyFilter">查询</el-button>
+              <el-button @click="resetFilter">重置</el-button>
+              <el-button link type="primary" @click="more = !more">{{ more ? '收起 ▴' : '展开 ▾' }}</el-button>
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-row :gutter="16">
+          <el-col :span="8">
+            <el-form-item label="类型">
+              <el-select v-model="query.type" placeholder="全部" clearable style="width:100%">
+                <el-option label="平台域固定" value="平台域固定"></el-option>
+                <el-option label="业务模块" value="业务模块"></el-option>
+              </el-select>
+            </el-form-item>
+          </el-col>
+        </el-row>
       </el-form>
 
       <!-- ③ 表格：整行点击进详情（03 页传参）；筛选无结果显示空状态 -->
@@ -119,6 +132,7 @@
       ]);
       var query = reactive({ kw: '', status: '', type: '', page: 1, size: 20 });
       var loading = ref(false);
+      var more = ref(false);
       var filtered = computed(function () {
         return rows.value.filter(function (r) {
           var text = (r.key + r.name).toLowerCase();
@@ -137,7 +151,7 @@
       function onSize(s) { query.size = s; query.page = 1; }
       function goDetail(row) { location.href = '03_模块详情.html?key=' + row.key; }
       function toastMsg(m) { ElMessage.success(m); }
-      return { rows, query, loading, filtered, pageRows, applyFilter, resetFilter, onPage, onSize, goDetail, toastMsg };
+      return { rows, query, loading, more, filtered, pageRows, applyFilter, resetFilter, onPage, onSize, goDetail, toastMsg };
     }
   });
   app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });

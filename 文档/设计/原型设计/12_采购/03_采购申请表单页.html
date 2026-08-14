@@ -157,8 +157,8 @@
       var form = reactive({ docNo: 'CG202608002（自动生成）', title: '采购办公桌×10', amount: 18000, supplier: 'A', reason: '部门办公桌老化，申请更换。' });
       var sys = { id: '1902876000000000001', version: 2, createdAt: '2026-08-12 09:30', createdBy: '张三', updatedAt: '2026-08-12 10:00', updatedBy: '李四', formKey: 'purchase', formLabel: '采购申请表单' };
 
-      // 系统信息组件（iframe）通信：load 后发送数据，接收高度自适应
-      var sysH = ref(130);
+      // 系统信息组件（iframe）通信：load 后发送数据；高度按组件内容自适应（组件上报，不撑满）
+      var sysH = ref(236);
       function pushSys(ev, data) {
         var f = ev.currentTarget;
         if (f && f.contentWindow) {

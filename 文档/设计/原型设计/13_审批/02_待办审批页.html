@@ -39,14 +39,21 @@
             <el-button @click="toastMsg('原型演示：关闭当前模块页面（返回）')">关闭</el-button>
             <span class="ep-side"><span class="proto-hint">我的待办 · 实时推送提醒（Socket.IO 角标）</span></span>
           </div>
-          <el-form class="ep-filter" inline size="default" @submit.prevent>
-            <el-form-item label="关键字">
-              <el-input v-model="qTodo.kw" placeholder="单据号/标题" clearable style="width:220px"></el-input>
-            </el-form-item>
-            <el-form-item>
-              <el-button type="primary" @click="applyFilter('todo')">查询</el-button>
-              <el-button @click="resetFilter('todo')">重置</el-button>
-            </el-form-item>
+          <el-form class="ep-filter" label-position="top" @submit.prevent>
+            <el-row :gutter="16">
+              <el-col :span="8">
+                <el-form-item label="关键字">
+                  <el-input v-model="qTodo.kw" placeholder="单据号/标题" clearable style="width:100%"></el-input>
+                </el-form-item>
+              </el-col>
+              <el-col :span="8">
+                <el-form-item style="margin-top:30px">
+                  <el-button type="primary" @click="applyFilter('todo')">查询</el-button>
+                  <el-button @click="resetFilter('todo')">重置</el-button>
+                  <el-button link type="primary" @click="more = !more">{{ more ? '收起 ▴' : '展开 ▾' }}</el-button>
+                </el-form-item>
+              </el-col>
+            </el-row>
           </el-form>
           <el-table class="todo-table" :data="todoPage" border stripe style="width:100%" @row-dblclick="openApprove">
             <el-table-column prop="docNo" label="单据" min-width="140"></el-table-column>
@@ -87,14 +94,21 @@
             <el-button @click="toastMsg('原型演示：关闭当前模块页面（返回）')">关闭</el-button>
             <span class="ep-side"><span class="proto-hint">我的已办 · 共 {{ doneFiltered.length }} 条</span></span>
           </div>
-          <el-form class="ep-filter" inline size="default" @submit.prevent>
-            <el-form-item label="关键字">
-              <el-input v-model="qDone.kw" placeholder="单据号/标题" clearable style="width:220px"></el-input>
-            </el-form-item>
-            <el-form-item>
-              <el-button type="primary" @click="applyFilter('done')">查询</el-button>
-              <el-button @click="resetFilter('done')">重置</el-button>
-            </el-form-item>
+          <el-form class="ep-filter" label-position="top" @submit.prevent>
+            <el-row :gutter="16">
+              <el-col :span="8">
+                <el-form-item label="关键字">
+                  <el-input v-model="qDone.kw" placeholder="单据号/标题" clearable style="width:100%"></el-input>
+                </el-form-item>
+              </el-col>
+              <el-col :span="8">
+                <el-form-item style="margin-top:30px">
+                  <el-button type="primary" @click="applyFilter('done')">查询</el-button>
+                  <el-button @click="resetFilter('done')">重置</el-button>
+                  <el-button link type="primary" @click="more = !more">{{ more ? '收起 ▴' : '展开 ▾' }}</el-button>
+                </el-form-item>
+              </el-col>
+            </el-row>
           </el-form>
           <el-table :data="donePage" border stripe style="width:100%">
             <el-table-column prop="docNo" label="单据" min-width="140"></el-table-column>
@@ -190,6 +204,7 @@
       ]);
       var qTodo = reactive({ kw: '', page: 1, size: 10 });
       var qDone = reactive({ kw: '', page: 1, size: 10 });
+      var more = ref(false);
       var ap = reactive({ visible: false, docNo: '', comment: '', loading: false });
       var tf = reactive({ visible: false, target: '' });
 
@@ -286,7 +301,7 @@
         tf.visible = false;
         toastMsg('已转办给「' + tf.target + '」，原待办回收', 'success');
       }
-      return { tab, todoRows, doneRows, qTodo, qDone, ap, tf, todoFiltered, doneFiltered, todoPage, donePage,
+      return { tab, todoRows, doneRows, qTodo, qDone, more, ap, tf, todoFiltered, doneFiltered, todoPage, donePage,
         applyFilter, resetFilter, onPage, openApprove, act, withdrawTodo, openTransfer, doTransfer, toastMsg };
     }
   });

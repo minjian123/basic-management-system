@@ -65,12 +65,32 @@
       </ul>
 
       <h2 id="filter">3. 筛选区</h2>
+      <div class="diagram" style="max-width:720px">
+        <div class="d-box d-title">筛选区（label 在字段上方 · 一行最多 3 项 · 可折叠）</div>
+        <div class="d-box d-body" style="padding:12px">
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:8px 12px;align-items:stretch">
+            <div class="f-cell"><div class="f-label">关键字</div><div class="f-input"></div></div>
+            <div class="f-cell"><div class="f-label">状态</div><div class="f-input"></div></div>
+            <div class="f-cell"><div class="f-label">创建时间</div><div class="f-input"></div></div>
+            <div style="display:flex;gap:6px;justify-content:center;align-items:center">
+              <span class="d-fixed" style="padding:2px 14px;text-align:center">查询</span>
+              <span class="d-fixed" style="padding:2px 14px;text-align:center">重置</span>
+              <span class="d-fixed" style="padding:1px 6px">▾</span>
+            </div>
+            <div class="f-cell"><div class="f-label">部门</div><div class="f-input"></div></div>
+            <div class="f-cell"><div class="f-label">岗位</div><div class="f-input"></div></div>
+            <div class="f-cell"><div class="f-label">手机号</div><div class="f-input"></div></div>
+            <div></div>
+          </div>
+          <div class="d-note" style="margin-top:.6rem">条件 ≤ 3 个不折叠，仅一行（第 1 行 3 项）；&gt; 3 个默认折叠为一行，展开后每行 3 项；「查询」「重置」标准按钮 + 「▾ 展开/收起」小图标横排在条件第一行行末（同行垂直居中），折叠/展开不影响按钮位置</div>
+        </div>
+      </div>
       <table>
         <tr><th>项</th><th>约定</th></tr>
-        <tr><td>关键字</td><td>首个输入框（keyword），placeholder 注明搜索范围，宽度 240px</td></tr>
-        <tr><td>条件项</td><td>状态/字典类用下拉、日期用日期范围、部门用树选择；一行放不下自动换行（栅格 24 列）</td></tr>
-        <tr><td>查询/重置</td><td>「查询」主按钮（primary）、「重置」次按钮，位于条件行末</td></tr>
-        <tr><td>折叠</td><td>条件 ≤ 3 个不折叠；&gt; 3 个默认折叠为一行，提供「展开/收起」</td></tr>
+        <tr><td>布局</td><td>label 置于字段上方（<code>label-position="top"</code>），一行最多 3 个条件（栅格三列）；条件 &gt; 3 个时展开后每行 3 项</td></tr>
+        <tr><td>条件项</td><td>状态/字典类用下拉、日期用日期范围、部门用树选择；条件类型由表单元数据「查询类」字段决定（见《<a href="14_布局设计_表单定制.html">表单定制</a>》第 6 节）</td></tr>
+        <tr><td>查询/重置</td><td>「查询」主按钮（primary）、「重置」次按钮，与「▾ 展开/收起」小图标一起横排在条件第一行行末（同行垂直居中）</td></tr>
+        <tr><td>折叠</td><td>条件 ≤ 3 个不折叠；&gt; 3 个默认折叠为一行，点行末「▾」展开（▴ 收起），折叠仅作用于条件区行数、按钮位置不动</td></tr>
       </table>
 
       <h2 id="toolbar">4. 工具栏</h2>

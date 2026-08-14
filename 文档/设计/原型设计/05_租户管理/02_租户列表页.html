@@ -33,22 +33,31 @@
         <span class="ep-side proto-hint">平台超管运营视图（租户侧不可见）· 双击行打开租户表单页</span>
       </div>
 
-      <!-- ② 筛选区：关键字 + 状态 -->
-      <el-form class="ep-filter" inline size="default" @submit.prevent>
-        <el-form-item label="关键字">
-          <el-input v-model="query.kw" placeholder="关键字：租户 code/名称" clearable style="width:240px"></el-input>
-        </el-form-item>
-        <el-form-item label="状态">
-          <el-select v-model="query.status" placeholder="全部" clearable style="width:120px">
-            <el-option label="启用" value="enabled"></el-option>
-            <el-option label="停用" value="disabled"></el-option>
-            <el-option label="开通中" value="opening"></el-option>
-          </el-select>
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" @click="applyFilter">查询</el-button>
-          <el-button @click="resetFilter">重置</el-button>
-        </el-form-item>
+      <!-- ② 筛选区：label 上方，一行最多 3 个条件，查询/重置/展开在条件第一行行末 -->
+      <el-form class="ep-filter" label-position="top" @submit.prevent>
+        <el-row :gutter="16">
+          <el-col :span="8">
+            <el-form-item label="关键字">
+              <el-input v-model="query.kw" placeholder="关键字：租户 code/名称" clearable style="width:100%"></el-input>
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <el-form-item label="状态">
+              <el-select v-model="query.status" placeholder="全部" clearable style="width:100%">
+                <el-option label="启用" value="enabled"></el-option>
+                <el-option label="停用" value="disabled"></el-option>
+                <el-option label="开通中" value="opening"></el-option>
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <el-form-item style="margin-top:30px">
+              <el-button type="primary" @click="applyFilter">查询</el-button>
+              <el-button @click="resetFilter">重置</el-button>
+              <el-button link type="primary" @click="more = !more">{{ more ? '收起 ▴' : '展开 ▾' }}</el-button>
+            </el-form-item>
+          </el-col>
+        </el-row>
       </el-form>
 
       <!-- ③ 表格：操作列"模块开关"跳 04 页；筛选无结果显示空状态 -->
@@ -109,6 +118,7 @@
       ]);
       var query = reactive({ kw: '', status: '', page: 1, size: 20 });
       var loading = ref(false);
+      var more = ref(false);
       var selRows = ref([]);
       var filtered = computed(function () {
         return rows.value.filter(function (r) {
@@ -162,7 +172,7 @@
       function onPage(n) { query.page = n; }
       function onSize(s) { query.size = s; query.page = 1; }
       function toastMsg(m) { ElMessage.success(m); }
-      return { rows, query, loading, selRows, filtered, pageRows, statusType, statusText, openTenant, openDetail, switchMods, onSel, delSel, moveRow, applyFilter, resetFilter, onPage, onSize, toastMsg };
+      return { rows, query, loading, more, selRows, filtered, pageRows, statusType, statusText, openTenant, openDetail, switchMods, onSel, delSel, moveRow, applyFilter, resetFilter, onPage, onSize, toastMsg };
     }
   });
   app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });

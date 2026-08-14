@@ -35,21 +35,30 @@
         </span>
       </div>
 
-      <!-- ② 筛选区：el-form inline（关键字/下拉/日期等按需增减） -->
-      <el-form class="ep-filter" inline size="default" @submit.prevent>
-        <el-form-item label="关键字">
-          <el-input v-model="query.kw" placeholder="关键字：名称/编码" clearable style="width:200px"></el-input>
-        </el-form-item>
-        <el-form-item label="状态">
-          <el-select v-model="query.status" placeholder="全部" clearable style="width:120px">
-            <el-option label="启用" value="enabled"></el-option>
-            <el-option label="停用" value="disabled"></el-option>
-          </el-select>
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" @click="applyFilter">查询</el-button>
-          <el-button @click="resetFilter">重置</el-button>
-        </el-form-item>
+      <!-- ② 筛选区：label 上方，一行最多 3 个条件，查询/重置/展开在条件行末 -->
+      <el-form class="ep-filter" label-position="top" @submit.prevent>
+        <el-row :gutter="16">
+          <el-col :span="8">
+            <el-form-item label="关键字">
+              <el-input v-model="query.kw" placeholder="关键字：名称/编码" clearable style="width:100%"></el-input>
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <el-form-item label="状态">
+              <el-select v-model="query.status" placeholder="全部" clearable style="width:100%">
+                <el-option label="启用" value="enabled"></el-option>
+                <el-option label="停用" value="disabled"></el-option>
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <el-form-item style="margin-top:30px">
+              <el-button type="primary" @click="applyFilter">查询</el-button>
+              <el-button @click="resetFilter">重置</el-button>
+              <el-button link type="primary" @click="more = !more">{{ more ? '收起 ▴' : '展开 ▾' }}</el-button>
+            </el-form-item>
+          </el-col>
+        </el-row>
       </el-form>
 
       <!-- ③ 表格：el-table（列/多选/操作列/空状态；分页数据 :data="pageRows"） -->
@@ -116,6 +125,7 @@
       var loading = ref(false);
       var selRows = ref([]);
       var dlg = reactive({ visible: false, title: '', name: '' });
+      var more = ref(false);
       var filtered = computed(function () {
         return rows.value.filter(function (r) {
           var text = (r.code + r.name).toLowerCase();
@@ -139,7 +149,7 @@
         });
       }
       function toastMsg(m) { toast(m); }
-      return { rows, query, loading, selRows, dlg, pageRows, applyFilter, resetFilter, onSel, onPage, onSize, delRow, toastMsg };
+      return { rows, query, loading, selRows, dlg, pageRows, more, applyFilter, resetFilter, onSel, onPage, onSize, delRow, toastMsg };
     }
   });
   app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
