@@ -132,28 +132,6 @@
       function onSel(sel) { selRows.value = sel; }
       function onPage(n) { query.page = n; }
       function onSize(s) { query.size = s; query.page = 1; }
-      // 明细工具栏行操作：新增行 / 删除选中行（二次确认）/ 上移下移选中行（多选时取第一行）
-      function addRow() {
-        rows.value.unshift({ id: Date.now(), code: 'new', name: '新记录', status: 'enabled' });
-        toastMsg('已新增一行');
-      }
-      function delSel() {
-        if (!selRows.value.length) { toast('请先选择一行', 'err'); return; }
-        var r = selRows.value[0];
-        confirmAction('删除「' + r.name + '」？', function () {
-          rows.value = rows.value.filter(function (x) { return x.id !== r.id; });
-          selRows.value = [];
-          toastMsg('已删除');
-        });
-      }
-      function moveRow(dir) {
-        if (!selRows.value.length) { toast('请先选择一行', 'err'); return; }
-        var r = selRows.value[0];
-        var i = rows.value.indexOf(r), t = i + dir;
-        if (t < 0 || t >= rows.value.length) { toast(dir < 0 ? '已是第一行' : '已是最后一行', 'err'); return; }
-        var tmp = rows.value[i]; rows.value[i] = rows.value[t]; rows.value[t] = tmp;
-        toastMsg('行顺序已调整');
-      }
       function delRow(row) {
         confirmAction('删除「' + row.name + '」？', function () {
           rows.value = rows.value.filter(function (r) { return r.id !== row.id; });
