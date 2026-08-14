@@ -96,11 +96,10 @@
         </template>
       </el-table>
 
-      <!-- ④ 表格下方一行：左下明细工具栏（新增抽屉/删除/上移下移 + 通用工具）+ 右下分页 -->
+      <!-- ④ 表格下方一行：左下明细工具栏（新增/上移下移 + 通用工具；删除由页面工具栏批量删除承载，不重复）+ 右下分页 -->
       <div class="ep-bar">
         <div>
           <el-button size="small" @click="openEdit(null)" title="新增行">＋</el-button>
-          <el-button size="small" type="danger" plain :disabled="!selRows.length" @click="delSel" title="删除行">🗑</el-button>
           <el-button size="small" :disabled="!selRows.length" @click="moveRow(-1)" title="上移行">↑</el-button>
           <el-button size="small" :disabled="!selRows.length" @click="moveRow(1)" title="下移行">↓</el-button>
           <el-divider direction="vertical"></el-divider>
