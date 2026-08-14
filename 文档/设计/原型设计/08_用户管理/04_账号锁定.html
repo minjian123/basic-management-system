@@ -14,21 +14,7 @@
 </div>
 
 <div class="proto-frame">
-  <div class="p-toolbar">
-    <button class="p-btn primary batch-btn" disabled onclick="batchUnlock()">解锁</button>
-    <button class="p-btn" onclick="toast('已刷新')">刷新</button>
-    <button class="p-btn" onclick="toast('原型演示：关闭当前模块页面（返回）')">关闭</button>
-    <span style="margin-left:auto">
-      <button class="p-btn" onclick="toast('原型演示：导出当前筛选结果')">导出</button>
-      <span class="proto-hint" style="margin-left:10px">双击行解锁</span>
-    </span>
-  </div>
-
-  <div class="p-filter">
-    <input class="p-input keyword" placeholder="关键字：用户名">
-    <button class="p-btn sm primary">查询</button>
-    <button class="p-btn sm">重置</button>
-  </div>
+  <div id="lt-top"></div>
 
   <table class="p-table" id="tbl">
     <tr><th><input type="checkbox" onclick="selAll(this)"></th><th>用户名</th><th>锁定类型</th><th>锁定时间</th><th>自动解锁时间</th></tr>
@@ -53,8 +39,43 @@
 
 <script src="../共享资源/原型脚本.js"></script>
 <script src="../02_公共原型/分页.js"></script>
+<script src="../02_公共原型/列表页工具栏.js"></script>
 <script>
-  renderPager(document.getElementById('pager-lock'), { total: 3, page: 1, size: 20, onPage: function (n) { toast('第 ' + n + ' 页'); } });
+  renderListToolbar({
+    top: document.getElementById('lt-top'),
+    bottom: document.getElementById('pager-lock'),
+    primary: { label: '解锁', onClick: function () { batchUnlock(); } },
+    buttons: [
+      { label: '刷新', onClick: function () { toast('已刷新'); } },
+      { label: '关闭', onClick: function () { toast('原型演示：关闭当前模块页面（返回）'); } }
+    ],
+    extra: '<button class="p-btn" onclick="toast(\'原型演示：导出当前筛选结果\')">导出</button>' +
+           '<span class="proto-hint" style="margin-left:10px">双击行解锁</span>',
+    filter: {
+      placeholder: '关键字：用户名',
+      onSearch: function (kw) {
+        var rows = document.querySelectorAll('#tbl tr.row-link');
+        var hit = 0;
+        rows.forEach(function (r) {
+          var ok = !kw || r.children[1].textContent.toLowerCase().indexOf(kw.toLowerCase()) >= 0;
+          r.style.display = ok ? '' : 'none';
+          if (ok) hit++;
+        });
+        document.getElementById('empty-demo').style.display = hit ? 'none' : '';
+        toast('命中 ' + hit + ' 条');
+      },
+      onReset: function () {
+        document.querySelectorAll('#tbl tr.row-link').forEach(function (r) { r.style.display = ''; });
+        document.getElementById('empty-demo').style.display = 'none';
+        toast('已重置筛选');
+      }
+    },
+    page: { total: 3, page: 1, size: 20, onPage: function (n) { toast('第 ' + n + ' 页'); } }
+  });
+  // 解锁为批量操作：primary 不支持 cls/disabled，补回 batch-btn 类并初始禁用，选中行后由 updBatch() 启用
+  var pb = document.getElementById('lt-top-primary');
+  pb.classList.add('batch-btn');
+  pb.disabled = true;
   function selAll(cb) {
     document.querySelectorAll('.row-chk').forEach(function (x) { x.checked = cb.checked; });
     updBatch();

@@ -14,25 +14,7 @@
 </div>
 
 <div class="proto-frame">
-  <div class="p-toolbar">
-    <button class="p-btn primary" onclick="location.href='03_租户开通页.html'">开通租户</button>
-    <button class="p-btn" onclick="toast('已刷新')">刷新</button>
-    <button class="p-btn" onclick="toast('原型演示：关闭当前模块页面（返回）')">关闭</button>
-    <span style="margin-left:auto">
-      <span class="proto-hint">平台超管运营视图（租户侧不可见）</span>
-    </span>
-  </div>
-  <div class="p-filter">
-    <input class="p-input keyword" placeholder="关键字：租户 code/名称">
-    <select class="p-select" style="width:120px" onchange="applyFilter()">
-      <option value="">状态：全部</option>
-      <option>启用</option>
-      <option>停用</option>
-      <option>开通中</option>
-    </select>
-    <button class="p-btn sm primary" onclick="applyFilter()">查询</button>
-    <button class="p-btn sm" onclick="resetFilter()">重置</button>
-  </div>
+  <div id="lt-top"></div>
   <table class="p-table" id="tbl-tenant">
     <tr><th>租户 code</th><th>名称</th><th>域名</th><th>状态</th><th>已开通模块</th><th>操作</th></tr>
     <tr><td>demo</td><td>演示租户</td><td>demo.bms.example.com</td><td>启用</td><td>采购、收付款、供应商</td><td><button class="p-btn sm" onclick="location.href='04_租户模块开关.html'">模块开关</button></td></tr>
@@ -50,8 +32,27 @@
 
 <script src="../共享资源/原型脚本.js"></script>
 <script src="../02_公共原型/分页.js"></script>
+<script src="../02_公共原型/列表页工具栏.js"></script>
 <script>
-  renderPager(document.getElementById('pager-tenant'), { total: 4, page: 1, size: 20, onPage: function (n) { toast('第 ' + n + ' 页'); } });
+  renderListToolbar({
+    top: document.getElementById('lt-top'),
+    bottom: document.getElementById('pager-tenant'),
+    primary: { label: '开通租户', onClick: function () { location.href = '03_租户开通页.html'; } },
+    buttons: [
+      { label: '刷新', onClick: function () { toast('已刷新'); } },
+      { label: '关闭', onClick: function () { toast('原型演示：关闭当前模块页面（返回）'); } }
+    ],
+    extra: '<span class="proto-hint">平台超管运营视图（租户侧不可见）</span>',
+    filter: {
+      placeholder: '关键字：租户 code/名称',
+      extraHtml: '<select class="p-select" style="width:120px" onchange="applyFilter()">' +
+                   '<option value="">状态：全部</option><option>启用</option><option>停用</option><option>开通中</option>' +
+                 '</select>',
+      onSearch: function () { applyFilter(); },
+      onReset: function () { resetFilter(); }
+    },
+    page: { total: 4, page: 1, size: 20, onPage: function (n) { toast('第 ' + n + ' 页'); } }
+  });
   function applyFilter() {
     var kw = (document.querySelector('.p-filter .keyword').value || '').trim().toLowerCase();
     var st = document.querySelectorAll('.p-filter .p-select')[0].value;

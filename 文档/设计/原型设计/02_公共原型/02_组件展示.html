@@ -76,6 +76,22 @@
     </div>
   </div>
 
+  <div class="demo-sec">
+    <h2>5. 列表页工具栏（列表页工具栏.js）</h2>
+    <p class="desc">列表页三段式（《布局设计-列表页》）：工具栏（主按钮 + 按钮组 + 右侧提示）+ 筛选区（关键字 + 附加控件 + 查询/重置）+ 分页（右对齐）。<br>
+    用法：<code>renderListToolbar({ top, bottom, primary, buttons, extra, filter, page })</code>，top 挂表格上方、bottom 挂表格下方（分页）。</p>
+    <div class="demo-box">
+      <div id="demo-list-top"></div>
+      <table class="p-table" id="demo-lt">
+        <tr><th>名称</th><th>编码</th><th>状态</th></tr>
+        <tr><td>用户管理</td><td>user</td><td><span class="p-tag ok">启用</span></td></tr>
+        <tr><td>采购管理</td><td>purchase</td><td><span class="p-tag ok">启用</span></td></tr>
+        <tr><td>销售管理</td><td>sale</td><td><span class="p-tag">规划中</span></td></tr>
+      </table>
+      <div id="demo-list-bottom"></div>
+    </div>
+  </div>
+
 </div>
 
 <script src="../共享资源/原型脚本.js"></script>
@@ -83,6 +99,7 @@
 <script src="分页.js"></script>
 <script src="空状态.js"></script>
 <script src="明细工具栏.js"></script>
+<script src="列表页工具栏.js"></script>
 <script>
   // 1. 系统信息
   mountSysInfo(document.getElementById('demo-sysinfo'), {
@@ -154,6 +171,38 @@
     if (!t) { toast(dir < 0 ? '已是第一行' : '已是最后一行', 'err'); return; }
     tb.insertBefore(dir < 0 ? tr : t, dir < 0 ? t : tr);
   }
+
+  // 5. 列表页工具栏（可交互：查询/重置筛选行、分页）
+  renderListToolbar({
+    top: document.getElementById('demo-list-top'),
+    bottom: document.getElementById('demo-list-bottom'),
+    primary: { label: '新增模块', onClick: function () { toast('原型演示：打开新增（受权限码控制）'); } },
+    buttons: [
+      { label: '刷新', onClick: function () { toast('已刷新'); } },
+      { label: '关闭', onClick: function () { toast('原型演示：关闭当前模块页面（返回）'); } },
+      { label: '导出', onClick: function () { toast('原型演示：导出当前筛选结果'); } }
+    ],
+    extra: '<span class="proto-hint">平台统一维护 · 共 3 条</span>',
+    filter: {
+      placeholder: '关键字：名称/编码',
+      onSearch: function (kw) {
+        var rows = document.querySelectorAll('#demo-lt tr');
+        var hit = 0;
+        rows.forEach(function (r) {
+          if (r.querySelector('th')) return;
+          var ok = !kw || r.textContent.toLowerCase().indexOf(kw.toLowerCase()) >= 0;
+          r.style.display = ok ? '' : 'none';
+          if (ok) hit++;
+        });
+        toast('命中 ' + hit + ' 条');
+      },
+      onReset: function () {
+        document.querySelectorAll('#demo-lt tr').forEach(function (r) { r.style.display = ''; });
+        toast('已重置筛选');
+      }
+    },
+    page: { total: 3, page: 1, size: 20, onPage: function (n) { toast('第 ' + n + ' 页'); } }
+  });
 </script>
 
 </body>

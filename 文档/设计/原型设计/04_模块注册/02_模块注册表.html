@@ -14,29 +14,7 @@
 </div>
 
 <div class="proto-frame">
-  <div class="p-toolbar">
-    <button class="p-btn" onclick="toast('已刷新')">刷新</button>
-    <button class="p-btn" onclick="toast('原型演示：关闭当前模块页面（返回）')">关闭</button>
-    <span style="margin-left:auto">
-      <button class="p-btn" onclick="toast('原型演示：导出当前筛选结果')">导出</button>
-      <span class="proto-hint" style="margin-left:10px">平台超管只读视图（无增删改入口）</span>
-    </span>
-  </div>
-  <div class="p-filter">
-    <input class="p-input keyword" placeholder="关键字：模块简称/名称">
-    <select class="p-select" style="width:130px" onchange="applyFilter()">
-      <option value="">状态：全部</option>
-      <option>启用</option>
-      <option>规划中</option>
-    </select>
-    <select class="p-select" style="width:150px" onchange="applyFilter()">
-      <option value="">类型：全部</option>
-      <option>平台域固定</option>
-      <option>业务模块</option>
-    </select>
-    <button class="p-btn sm primary" onclick="applyFilter()">查询</button>
-    <button class="p-btn sm" onclick="resetFilter()">重置</button>
-  </div>
+  <div id="lt-top"></div>
   <table class="p-table" id="tbl-mod">
     <tr><th>模块简称</th><th>名称</th><th>表前缀</th><th>错误码段</th><th>事件域</th><th>类型</th><th>状态</th></tr>
     <tr class="row-link" onclick="goDetail('sys')"><td>sys</td><td>系统（含权限体系）</td><td>sys_</td><td>—</td><td>sys</td><td>平台域固定</td><td>启用</td></tr>
@@ -59,8 +37,30 @@
 
 <script src="../共享资源/原型脚本.js"></script>
 <script src="../02_公共原型/分页.js"></script>
+<script src="../02_公共原型/列表页工具栏.js"></script>
 <script>
-  renderPager(document.getElementById('pager-mod'), { total: 9, page: 1, size: 20, onPage: function (n) { toast('第 ' + n + ' 页'); } });
+  renderListToolbar({
+    top: document.getElementById('lt-top'),
+    bottom: document.getElementById('pager-mod'),
+    buttons: [
+      { label: '刷新', onClick: function () { toast('已刷新'); } },
+      { label: '关闭', onClick: function () { toast('原型演示：关闭当前模块页面（返回）'); } }
+    ],
+    extra: '<button class="p-btn" onclick="toast(\'原型演示：导出当前筛选结果\')">导出</button>' +
+           '<span class="proto-hint" style="margin-left:10px">平台超管只读视图（无增删改入口）</span>',
+    filter: {
+      placeholder: '关键字：模块简称/名称',
+      extraHtml: '<select class="p-select" style="width:130px" onchange="applyFilter()">' +
+                   '<option value="">状态：全部</option><option>启用</option><option>规划中</option>' +
+                 '</select>' +
+                 '<select class="p-select" style="width:150px" onchange="applyFilter()">' +
+                   '<option value="">类型：全部</option><option>平台域固定</option><option>业务模块</option>' +
+                 '</select>',
+      onSearch: function () { applyFilter(); },
+      onReset: function () { resetFilter(); }
+    },
+    page: { total: 9, page: 1, size: 20, onPage: function (n) { toast('第 ' + n + ' 页'); } }
+  });
   function goDetail(key) {
     location.href = '03_模块详情.html?key=' + key;
   }

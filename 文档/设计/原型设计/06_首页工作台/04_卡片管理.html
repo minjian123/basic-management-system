@@ -17,23 +17,7 @@
 </div>
 
 <div class="proto-frame">
-  <div class="p-toolbar">
-    <button class="p-btn primary" onclick="editCard(null)">新建数据集卡</button>
-    <button class="p-btn" onclick="toast('已刷新')">刷新</button>
-    <button class="p-btn" onclick="toast('原型演示：关闭当前模块页面（返回）')">关闭</button>
-    <span style="margin-left:auto">
-      <button class="p-btn" onclick="toast('原型演示：导出当前筛选结果')">导出</button>
-    </span>
-  </div>
-
-  <div class="p-filter">
-    <label>类型</label>
-    <select class="p-select" style="width:auto"><option>全部</option><option>builtin 内置</option><option>dataset 数据集</option></select>
-    <label>状态</label>
-    <select class="p-select" style="width:auto"><option>全部</option><option>启用</option><option>停用</option></select>
-    <button class="p-btn sm">查询</button>
-    <button class="p-btn sm">重置</button>
-  </div>
+  <div id="lt-top"></div>
 
   <!-- 表格无操作列：行点击进入编辑（row-link），状态标签可直接切换启停 -->
   <table class="p-table" id="tbl">
@@ -92,8 +76,47 @@
 
 <script src="../共享资源/原型脚本.js"></script>
 <script src="../02_公共原型/分页.js"></script>
+<script src="../02_公共原型/列表页工具栏.js"></script>
 <script>
-  renderPager(document.getElementById('pager-card'), { total: 4, page: 1, size: 20, onPage: function (n) { toast('第 ' + n + ' 页'); } });
+  renderListToolbar({
+    top: document.getElementById('lt-top'),
+    bottom: document.getElementById('pager-card'),
+    primary: { label: '新建数据集卡', onClick: function () { editCard(null); } },
+    buttons: [
+      { label: '刷新', onClick: function () { toast('已刷新'); } },
+      { label: '关闭', onClick: function () { toast('原型演示：关闭当前模块页面（返回）'); } }
+    ],
+    extra: '<button class="p-btn" onclick="toast(\'原型演示：导出当前筛选结果\')">导出</button>',
+    filter: {
+      placeholder: '关键字：code/名称',
+      extraHtml: '<label>类型</label>' +
+                 '<select class="p-select" style="width:auto"><option>全部</option><option>builtin 内置</option><option>dataset 数据集</option></select>' +
+                 '<label>状态</label>' +
+                 '<select class="p-select" style="width:auto"><option>全部</option><option>启用</option><option>停用</option></select>',
+      onSearch: function (kw) {
+        var sels = document.querySelectorAll('#lt-top .p-filter .p-select');
+        var tp = sels[0] ? sels[0].value : '全部';
+        var st = sels[1] ? sels[1].value : '全部';
+        var rows = document.querySelectorAll('#tbl tr.row-link');
+        var hit = 0;
+        rows.forEach(function (r) {
+          var text = r.textContent;
+          var ok = (!kw || text.toLowerCase().indexOf(kw.toLowerCase()) >= 0) &&
+                   (tp === '全部' || text.indexOf(tp.split(' ')[0]) >= 0) &&
+                   (st === '全部' || text.indexOf(st) >= 0);
+          r.style.display = ok ? '' : 'none';
+          if (ok) hit++;
+        });
+        toast('命中 ' + hit + ' 条');
+      },
+      onReset: function () {
+        document.querySelectorAll('#lt-top .p-filter .p-select').forEach(function (s) { s.selectedIndex = 0; });
+        document.querySelectorAll('#tbl tr.row-link').forEach(function (r) { r.style.display = ''; });
+        toast('已重置筛选');
+      }
+    },
+    page: { total: 4, page: 1, size: 20, onPage: function (n) { toast('第 ' + n + ' 页'); } }
+  });
   var editId = null;
 
   // 行点击进入编辑形态（编辑态示意：行高亮 + 抽屉预填）

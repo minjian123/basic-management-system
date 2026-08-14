@@ -21,7 +21,8 @@
 
   <div class="p-page-card">
     <div id="pane-todo">
-      <table class="p-table">
+      <div id="lt-top-todo"></div>
+      <table class="p-table" id="tbl-todo">
         <tr><th>单据</th><th>标题</th><th>金额</th><th>发起人</th><th>到达时间</th><th>操作</th></tr>
         <tr class="row-link" title="点击打开审批处理" onclick="openTodo('CG202608001')">
           <td>CG202608001</td><td>采购笔记本电脑×5</td><td>¥35,000</td><td>张三</td><td>08-12 09:30</td>
@@ -32,13 +33,26 @@
           <td class="col-ops"><button class="p-btn sm primary" onclick="event.stopPropagation();openTodo('FK202608002')">审批</button></td>
         </tr>
       </table>
+      <div class="p-empty" id="empty-todo" style="display:none">
+        <div class="p-empty-icon">🔍</div>
+        <div>未找到匹配待办</div>
+        <div style="margin-top:10px"><button class="p-btn" onclick="resetFilter('todo')">重置</button></div>
+      </div>
+      <div id="pager-todo"></div>
     </div>
     <div id="pane-done" style="display:none">
-      <table class="p-table">
+      <div id="lt-top-done"></div>
+      <table class="p-table" id="tbl-done">
         <tr><th>单据</th><th>标题</th><th>结果</th><th>我的意见</th><th>处理时间</th></tr>
         <tr><td>CG202607015</td><td>采购打印机×2</td><td><span class="p-tag green">已通过</span></td><td>预算内，同意</td><td>07-28 10:00</td></tr>
         <tr><td>CG202607018</td><td>采购投影仪×1</td><td><span class="p-tag red">已驳回</span></td><td>超出预算</td><td>07-30 14:00</td></tr>
       </table>
+      <div class="p-empty" id="empty-done" style="display:none">
+        <div class="p-empty-icon">🔍</div>
+        <div>未找到匹配已办</div>
+        <div style="margin-top:10px"><button class="p-btn" onclick="resetFilter('done')">重置</button></div>
+      </div>
+      <div id="pager-done"></div>
     </div>
   </div>
 </div>
@@ -88,6 +102,8 @@
 </div>
 
 <script src="../共享资源/原型脚本.js"></script>
+<script src="../02_公共原型/分页.js"></script>
+<script src="../02_公共原型/列表页工具栏.js"></script>
 <script>
   function switchT(name) {
     document.querySelectorAll('#tabs .p-tab').forEach(function (t) { t.classList.toggle('active', t.getAttribute('data-pane') === name); });
@@ -96,6 +112,55 @@
   }
   // openModal 不带第二参数：保留标题内 span#ap-doc（同意/驳回需读取单据号）
   function openTodo(doc) { document.getElementById('ap-doc').textContent = doc; openModal('m-approve'); }
+  // 列表工具栏：待办/已办各自独立挂载（top 按 Tab 分别挂载，bottom 指向各自 pager）
+  var ltTodo = renderListToolbar({
+    top: document.getElementById('lt-top-todo'),
+    bottom: document.getElementById('pager-todo'),
+    buttons: [
+      { label: '刷新', onClick: function () { toast('已刷新'); } },
+      { label: '关闭', onClick: function () { toast('原型演示：关闭当前模块页面（返回）'); } }
+    ],
+    extra: '<span class="proto-hint">我的待办 · 实时推送提醒（Socket.IO 角标）</span>',
+    filter: {
+      placeholder: '关键字：单据号/标题',
+      onSearch: function (kw) { applyFilter('todo', kw); },
+      onReset: function () { applyFilter('todo', ''); }
+    },
+    page: { total: 2, page: 1, size: 20, onPage: function (n) { toast('第 ' + n + ' 页'); } }
+  });
+  var ltDone = renderListToolbar({
+    top: document.getElementById('lt-top-done'),
+    bottom: document.getElementById('pager-done'),
+    buttons: [
+      { label: '刷新', onClick: function () { toast('已刷新'); } },
+      { label: '关闭', onClick: function () { toast('原型演示：关闭当前模块页面（返回）'); } }
+    ],
+    extra: '<span class="proto-hint">我的已办 · 共 2 条</span>',
+    filter: {
+      placeholder: '关键字：单据号/标题',
+      onSearch: function (kw) { applyFilter('done', kw); },
+      onReset: function () { applyFilter('done', ''); }
+    },
+    page: { total: 2, page: 1, size: 20, onPage: function (n) { toast('第 ' + n + ' 页'); } }
+  });
+  // 关键字筛选（待办/已办各自独立；kw 由组件传入，空状态切换保留）
+  function applyFilter(tab, kw) {
+    kw = (kw || '').trim().toLowerCase();
+    var rows = document.querySelectorAll('#tbl-' + tab + ' tr');
+    var hit = 0;
+    rows.forEach(function (r) {
+      if (r.querySelector('th')) return;
+      var ok = !kw || r.textContent.toLowerCase().indexOf(kw) >= 0;
+      r.style.display = ok ? '' : 'none';
+      if (ok) hit++;
+    });
+    document.getElementById('empty-' + tab).style.display = hit ? 'none' : '';
+  }
+  function resetFilter(tab) {
+    var bar = tab === 'todo' ? ltTodo : ltDone;
+    if (bar && bar.kw) { bar.kw.value = ''; }
+    applyFilter(tab, '');
+  }
   // 同意/驳回：按钮内 loading（disabled + 「提交中…」）防重复，服务端以单据+节点为幂等键
   function approve(btn) {
     confirmAction('同意审批？审批事件将推送 Webhook（wf.task.completed）。', function () {

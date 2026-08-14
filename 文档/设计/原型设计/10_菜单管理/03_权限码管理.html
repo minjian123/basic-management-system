@@ -20,20 +20,7 @@
   </div>
 
   <div id="pane-biz">
-    <div class="p-toolbar">
-      <button class="p-btn primary" onclick="openModal('m-biz','新增业务码')">新增业务码</button>
-      <button class="p-btn" onclick="toast('已刷新')">刷新</button>
-      <button class="p-btn" onclick="toast('原型演示：关闭当前模块页面（返回）')">关闭</button>
-      <span style="margin-left:auto">
-        <button class="p-btn" onclick="toast('原型演示：导出当前筛选结果')">导出</button>
-        <span class="proto-hint" style="margin-left:10px">双击行编辑（平台码演示）</span>
-      </span>
-    </div>
-    <div class="p-filter">
-      <input class="p-input keyword" placeholder="关键字：业务码/说明">
-      <button class="p-btn sm primary">查询</button>
-      <button class="p-btn sm">重置</button>
-    </div>
+    <div id="lt-top-biz"></div>
     <table class="p-table" id="tbl-biz">
       <tr><th>业务码</th><th>说明</th><th>默认归属</th></tr>
       <tr class="row-link" onclick="permEdit()"><td>user</td><td>用户管理（含账号锁定/解锁）</td><td>系统管理员</td></tr>
@@ -52,20 +39,7 @@
   </div>
 
   <div id="pane-act" style="display:none">
-    <div class="p-toolbar">
-      <button class="p-btn primary" onclick="openModal('m-act','新增动作码')">新增动作码</button>
-      <button class="p-btn" onclick="toast('已刷新')">刷新</button>
-      <button class="p-btn" onclick="toast('原型演示：关闭当前模块页面（返回）')">关闭</button>
-      <span style="margin-left:auto">
-        <button class="p-btn" onclick="toast('原型演示：导出当前筛选结果')">导出</button>
-        <span class="proto-hint" style="margin-left:10px">双击行编辑（平台码演示）</span>
-      </span>
-    </div>
-    <div class="p-filter">
-      <input class="p-input keyword" placeholder="关键字：动作码/归属业务">
-      <button class="p-btn sm primary">查询</button>
-      <button class="p-btn sm">重置</button>
-    </div>
+    <div id="lt-top-act"></div>
     <table class="p-table" id="tbl-act">
       <tr><th>动作码</th><th>归属业务</th><th>典型权限码</th></tr>
       <tr class="row-link" onclick="permEdit()"><td>query</td><td>（多业务共用）</td><td>wf:query、monitor:view</td></tr>
@@ -113,9 +87,72 @@
 
 <script src="../共享资源/原型脚本.js"></script>
 <script src="../02_公共原型/分页.js"></script>
+<script src="../02_公共原型/列表页工具栏.js"></script>
 <script>
-  renderPager(document.getElementById('pager-perm-a'), { total: 5, page: 1, size: 20, onPage: function (n) { toast('第 ' + n + ' 页'); } });
-  renderPager(document.getElementById('pager-perm-b'), { total: 4, page: 1, size: 20, onPage: function (n) { toast('第 ' + n + ' 页'); } });
+  renderListToolbar({
+    top: document.getElementById('lt-top-biz'),
+    bottom: document.getElementById('pager-perm-a'),
+    primary: { label: '新增业务码', onClick: function () { openModal('m-biz', '新增业务码'); } },
+    buttons: [
+      { label: '刷新', onClick: function () { toast('已刷新'); } },
+      { label: '关闭', onClick: function () { toast('原型演示：关闭当前模块页面（返回）'); } },
+      { label: '导出', onClick: function () { toast('原型演示：导出当前筛选结果'); } }
+    ],
+    extra: '<span class="proto-hint" style="margin-left:10px">双击行编辑（平台码演示）</span>',
+    filter: {
+      placeholder: '关键字：业务码/说明',
+      onSearch: function (kw) {
+        var rows = document.querySelectorAll('#tbl-biz tr');
+        var hit = 0;
+        rows.forEach(function (r) {
+          if (r.querySelector('th')) return;
+          var ok = !kw || r.textContent.toLowerCase().indexOf(kw.toLowerCase()) >= 0;
+          r.style.display = ok ? '' : 'none';
+          if (ok) hit++;
+        });
+        document.getElementById('empty-biz').style.display = hit ? 'none' : '';
+        toast(hit ? '命中 ' + hit + ' 条' : '未找到相关内容');
+      },
+      onReset: function () {
+        document.querySelectorAll('#tbl-biz tr').forEach(function (r) { r.style.display = ''; });
+        document.getElementById('empty-biz').style.display = 'none';
+        toast('已重置筛选');
+      }
+    },
+    page: { total: 5, page: 1, size: 20, onPage: function (n) { toast('第 ' + n + ' 页'); } }
+  });
+  renderListToolbar({
+    top: document.getElementById('lt-top-act'),
+    bottom: document.getElementById('pager-perm-b'),
+    primary: { label: '新增动作码', onClick: function () { openModal('m-act', '新增动作码'); } },
+    buttons: [
+      { label: '刷新', onClick: function () { toast('已刷新'); } },
+      { label: '关闭', onClick: function () { toast('原型演示：关闭当前模块页面（返回）'); } },
+      { label: '导出', onClick: function () { toast('原型演示：导出当前筛选结果'); } }
+    ],
+    extra: '<span class="proto-hint" style="margin-left:10px">双击行编辑（平台码演示）</span>',
+    filter: {
+      placeholder: '关键字：动作码/归属业务',
+      onSearch: function (kw) {
+        var rows = document.querySelectorAll('#tbl-act tr');
+        var hit = 0;
+        rows.forEach(function (r) {
+          if (r.querySelector('th')) return;
+          var ok = !kw || r.textContent.toLowerCase().indexOf(kw.toLowerCase()) >= 0;
+          r.style.display = ok ? '' : 'none';
+          if (ok) hit++;
+        });
+        document.getElementById('empty-act').style.display = hit ? 'none' : '';
+        toast(hit ? '命中 ' + hit + ' 条' : '未找到相关内容');
+      },
+      onReset: function () {
+        document.querySelectorAll('#tbl-act tr').forEach(function (r) { r.style.display = ''; });
+        document.getElementById('empty-act').style.display = 'none';
+        toast('已重置筛选');
+      }
+    },
+    page: { total: 4, page: 1, size: 20, onPage: function (n) { toast('第 ' + n + ' 页'); } }
+  });
   function switchT(name) {
     document.querySelectorAll('#tabs .p-tab').forEach(function (t) { t.classList.toggle('active', t.getAttribute('data-pane') === name); });
     document.getElementById('pane-biz').style.display = name === 'biz' ? '' : 'none';

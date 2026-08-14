@@ -14,33 +14,7 @@
 </div>
 
 <div class="proto-frame">
-  <div class="p-toolbar">
-    <button class="p-btn primary" onclick="toast('原型演示：跳转「采购申请表单页」（新增态）')">新增</button>
-    <button class="p-btn" onclick="toast('已刷新')">刷新</button>
-    <button class="p-btn" onclick="toast('原型演示：关闭当前模块页面（返回）')">关闭</button>
-    <button class="p-btn batch-btn" disabled onclick="submitSel()">提交审批</button>
-    <button class="p-btn batch-btn" disabled onclick="delSel()">删除</button>
-    <button class="p-btn batch-btn" disabled onclick="openProgress()">审批进度</button>
-    <span style="margin-left:auto">
-      <button class="p-btn" onclick="toast('原型演示：导出当前筛选结果')">导出</button>
-      <span class="proto-hint" style="margin-left:10px">双击行打开申请表单页（草稿提交等动作在表单页内）</span>
-    </span>
-  </div>
-
-  <!-- 筛选区：默认一行（关键字 + 状态 + 查询/重置），申请日期折叠 -->
-  <div class="p-filter">
-    <input class="p-input keyword" placeholder="申请单号 / 标题">
-    <label>状态</label>
-    <select class="p-select" style="width:auto">
-      <option>全部</option><option>草稿</option><option>审批中</option><option>已通过</option><option>已驳回</option>
-    </select>
-    <button class="p-btn sm">查询</button>
-    <button class="p-btn sm">重置</button>
-    <button class="p-btn sm" id="btn-more" onclick="toggleMore()">展开 ↓</button>
-  </div>
-  <div class="p-filter" id="filter-more" style="display:none;margin-top:-12px">
-    <label>申请日期</label><input class="p-input" style="width:110px"> ~ <input class="p-input" style="width:110px">
-  </div>
+  <div id="lt-top"></div>
 
   <table class="p-table" id="tbl">
     <tr><th><input type="checkbox" onclick="selAll(this)"></th><th>单号</th><th>标题</th><th>金额</th><th>申请人</th><th>状态</th><th>提交时间</th></tr>
@@ -83,8 +57,46 @@
 
 <script src="../共享资源/原型脚本.js"></script>
 <script src="../02_公共原型/分页.js"></script>
+<script src="../02_公共原型/列表页工具栏.js"></script>
 <script>
-  renderPager(document.getElementById('pager-apply'), { total: 64, page: 1, size: 20, onPage: function (n) { toast('第 ' + n + ' 页'); } });
+  renderListToolbar({
+    top: document.getElementById('lt-top'),
+    bottom: document.getElementById('pager-apply'),
+    primary: { label: '新增', onClick: function () { toast('原型演示：跳转「采购申请表单页」（新增态）'); } },
+    buttons: [
+      { label: '刷新', onClick: function () { toast('已刷新'); } },
+      { label: '关闭', onClick: function () { toast('原型演示：关闭当前模块页面（返回）'); } },
+      { label: '提交审批', onClick: function () { submitSel(); }, cls: 'batch-btn', disabled: true },
+      { label: '删除', onClick: function () { delSel(); }, danger: true, cls: 'batch-btn', disabled: true },
+      { label: '审批进度', onClick: function () { openProgress(); }, cls: 'batch-btn', disabled: true },
+      { label: '导出', onClick: function () { toast('原型演示：导出当前筛选结果'); } }
+    ],
+    extra: '<span class="proto-hint" style="margin-left:10px">双击行打开申请表单页（草稿提交等动作在表单页内）</span>',
+    filter: {
+      placeholder: '申请单号 / 标题',
+      extraHtml: '<label>状态</label>' +
+        '<select class="p-select" style="width:auto"><option>全部</option><option>草稿</option><option>审批中</option><option>已通过</option><option>已驳回</option></select>' +
+        '<button class="p-btn sm" id="btn-more" onclick="toggleMore()">展开 ↓</button>' +
+        '<div class="p-filter" id="filter-more" style="display:none;margin-top:-12px">' +
+        '<label>申请日期</label><input class="p-input" style="width:110px"> ~ <input class="p-input" style="width:110px"></div>',
+      onSearch: function (kw) {
+        var rows = document.querySelectorAll('#tbl tr');
+        var hit = 0;
+        rows.forEach(function (r) {
+          if (r.querySelector('th')) return;
+          var ok = !kw || r.textContent.toLowerCase().indexOf(kw.toLowerCase()) >= 0;
+          r.style.display = ok ? '' : 'none';
+          if (ok) hit++;
+        });
+        toast('命中 ' + hit + ' 条');
+      },
+      onReset: function () {
+        document.querySelectorAll('#tbl tr').forEach(function (r) { r.style.display = ''; });
+        toast('已重置筛选');
+      }
+    },
+    page: { total: 64, page: 1, size: 20, onPage: function (n) { toast('第 ' + n + ' 页'); } }
+  });
   function selAll(cb) {
     document.querySelectorAll('.row-chk').forEach(function (x) { x.checked = cb.checked; });
     updBatch();

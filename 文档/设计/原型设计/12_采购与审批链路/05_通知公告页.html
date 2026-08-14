@@ -25,13 +25,7 @@
   </div>
 
   <div id="pane-notify">
-    <div class="p-toolbar">
-      <button class="p-btn" onclick="readAll()">全部已读</button>
-      <button class="p-btn batch-btn" disabled onclick="readSel()">批量已读</button>
-      <button class="p-btn" onclick="toast('已刷新')">刷新</button>
-      <button class="p-btn" onclick="toast('原型演示：关闭当前模块页面（返回）')">关闭</button>
-      <span class="proto-hint" style="margin-left:auto">点击通知行：标记已读并跳转单据；批量已读需先勾选</span>
-    </div>
+    <div id="lt-top-notify"></div>
     <table class="p-table" id="nt">
       <tr><th><input type="checkbox" onclick="selAll(this)"></th><th>标题</th><th>类型</th><th>时间</th><th>状态</th></tr>
       <tr data-unread="1" class="row-link" onclick="openNotify(this)">
@@ -51,11 +45,7 @@
   </div>
 
   <div id="pane-notice" style="display:none">
-    <div class="p-toolbar">
-      <button class="p-btn primary" onclick="toast('原型演示：跳转公告编辑')">发布公告</button>
-      <button class="p-btn" onclick="toast('已刷新')">刷新</button>
-      <button class="p-btn" onclick="toast('原型演示：关闭当前模块页面（返回）')">关闭</button>
-    </div>
+    <div id="lt-top-notice"></div>
     <!-- 公告列表：仅展示未过期的公告；已过有效期 / 已下架 / 已撤销的公告不展示（后端按有效截止时间过滤） -->
     <div style="background:#fff;border:1px solid #d0d7de;border-radius:8px;padding:4px 14px">
       <div style="padding:10px 0;border-bottom:1px solid #eaeef2;cursor:pointer" onclick="openNotice()">
@@ -87,8 +77,29 @@
 
 <script src="../共享资源/原型脚本.js"></script>
 <script src="../02_公共原型/分页.js"></script>
+<script src="../02_公共原型/列表页工具栏.js"></script>
 <script>
-  renderPager(document.getElementById('pager-notice'), { total: 3, page: 1, size: 20, onPage: function (n) { toast('第 ' + n + ' 页'); } });
+  // 列表工具栏：通知中心面板（含分页，无筛选区）；公告面板（仅工具栏，无分页）
+  renderListToolbar({
+    top: document.getElementById('lt-top-notify'),
+    bottom: document.getElementById('pager-notice'),
+    buttons: [
+      { label: '全部已读', onClick: function () { readAll(); } },
+      { label: '批量已读', onClick: function () { readSel(); }, cls: 'batch-btn', disabled: true },
+      { label: '刷新', onClick: function () { toast('已刷新'); } },
+      { label: '关闭', onClick: function () { toast('原型演示：关闭当前模块页面（返回）'); } }
+    ],
+    extra: '<span class="proto-hint">点击通知行：标记已读并跳转单据；批量已读需先勾选</span>',
+    page: { total: 3, page: 1, size: 20, onPage: function (n) { toast('第 ' + n + ' 页'); } }
+  });
+  renderListToolbar({
+    top: document.getElementById('lt-top-notice'),
+    primary: { label: '发布公告', onClick: function () { toast('原型演示：跳转公告编辑'); } },
+    buttons: [
+      { label: '刷新', onClick: function () { toast('已刷新'); } },
+      { label: '关闭', onClick: function () { toast('原型演示：关闭当前模块页面（返回）'); } }
+    ]
+  });
   function switchT(name) {
     document.querySelectorAll('#tabs .p-tab').forEach(function (t) { t.classList.toggle('active', t.getAttribute('data-pane') === name); });
     document.getElementById('pane-notify').style.display = name === 'notify' ? '' : 'none';

@@ -14,33 +14,7 @@
 </div>
 
 <div class="proto-frame">
-  <div class="p-toolbar">
-    <button class="p-btn primary" onclick="openDrawer('d-edit','新建用户')">新增</button>
-    <button class="p-btn" onclick="toast('已刷新')">刷新</button>
-    <button class="p-btn" onclick="toast('原型演示：关闭当前模块页面（返回）')">关闭</button>
-    <button class="p-btn danger batch-btn" disabled onclick="delSel()">删除</button>
-    <button class="p-btn batch-btn" disabled onclick="batchToggle()">停用/启用</button>
-    <button class="p-btn batch-btn" disabled onclick="openModal('m-pwd')">重置密码</button>
-    <button class="p-btn batch-btn" disabled onclick="openModal('m-role')">角色绑定</button>
-    <span style="margin-left:auto">
-      <button class="p-btn" onclick="toast('原型演示：Excel 批量导入用户')">导入</button>
-      <button class="p-btn" onclick="toast('原型演示：导出当前筛选结果')">导出</button>
-      <span class="proto-hint" style="margin-left:10px">双击行打开用户表单页</span>
-    </span>
-  </div>
-
-  <div class="p-filter">
-    <input class="p-input keyword" placeholder="关键字：用户名/姓名/手机号">
-    <label>用户名</label><input class="p-input" style="width:120px">
-    <span class="f-more" style="display:none">
-      <label>姓名</label><input class="p-input" style="width:100px">
-      <label>部门</label><select class="p-select" style="width:auto"><option>全部</option><option>技术部</option><option>财务部</option></select>
-      <label>状态</label><select class="p-select" style="width:auto"><option>全部</option><option>启用</option><option>停用</option></select>
-    </span>
-    <button class="p-btn sm primary">查询</button>
-    <button class="p-btn sm">重置</button>
-    <a href="javascript:;" onclick="toggleFilter(this)">展开</a>
-  </div>
+  <div id="lt-top"></div>
 
   <table class="p-table" id="tbl">
     <tr><th><input type="checkbox" onclick="selAll(this)"></th><th>用户名</th><th>姓名</th><th>部门</th><th>岗位</th><th>角色</th><th>状态</th><th>最近登录</th></tr>
@@ -117,8 +91,62 @@
 
 <script src="../共享资源/原型脚本.js"></script>
 <script src="../02_公共原型/分页.js"></script>
+<script src="../02_公共原型/列表页工具栏.js"></script>
 <script>
-  renderPager(document.getElementById('pager-user'), { total: 128, page: 1, size: 20, onPage: function (n) { toast('第 ' + n + ' 页'); } });
+  renderListToolbar({
+    top: document.getElementById('lt-top'),
+    bottom: document.getElementById('pager-user'),
+    primary: { label: '新增', onClick: function () { openDrawer('d-edit', '新建用户'); } },
+    buttons: [
+      { label: '删除', onClick: function () { delSel(); }, danger: true, cls: 'batch-btn', disabled: true },
+      { label: '停用/启用', onClick: function () { batchToggle(); }, cls: 'batch-btn', disabled: true },
+      { label: '重置密码', onClick: function () { openModal('m-pwd'); }, cls: 'batch-btn', disabled: true },
+      { label: '角色绑定', onClick: function () { openModal('m-role'); }, cls: 'batch-btn', disabled: true }
+    ],
+    extra: '<button class="p-btn" onclick="toast(\'原型演示：Excel 批量导入用户\')">导入</button>' +
+           '<button class="p-btn" onclick="toast(\'原型演示：导出当前筛选结果\')">导出</button>' +
+           '<span class="proto-hint" style="margin-left:10px">双击行打开用户表单页</span>',
+    filter: {
+      placeholder: '关键字：用户名/姓名/手机号',
+      extraHtml: '<label>用户名</label><input class="p-input" style="width:120px">' +
+                 '<span class="f-more" style="display:none">' +
+                   '<label>姓名</label><input class="p-input" style="width:100px">' +
+                   '<label>部门</label><select class="p-select" style="width:auto"><option>全部</option><option>技术部</option><option>财务部</option></select>' +
+                   '<label>状态</label><select class="p-select" style="width:auto"><option>全部</option><option>启用</option><option>停用</option></select>' +
+                 '</span>' +
+                 '<a href="javascript:;" onclick="toggleFilter(this)">展开</a>',
+      onSearch: function (kw) {
+        var inputs = document.querySelectorAll('#lt-top .p-filter .p-input');
+        var un = inputs[1] ? inputs[1].value.trim() : '';
+        var nm = inputs[2] ? inputs[2].value.trim() : '';
+        var sels = document.querySelectorAll('#lt-top .p-filter .p-select');
+        var dept = sels[0] ? sels[0].value : '全部';
+        var st = sels[1] ? sels[1].value : '全部';
+        var rows = document.querySelectorAll('#tbl tr.row-link');
+        var hit = 0;
+        rows.forEach(function (r) {
+          var text = r.textContent;
+          var ok = (!kw || text.toLowerCase().indexOf(kw.toLowerCase()) >= 0) &&
+                   (!un || r.children[1].textContent.indexOf(un) >= 0) &&
+                   (!nm || r.children[2].textContent.indexOf(nm) >= 0) &&
+                   (dept === '全部' || r.children[3].textContent.indexOf(dept) >= 0) &&
+                   (st === '全部' || r.children[6].textContent.indexOf(st) >= 0);
+          r.style.display = ok ? '' : 'none';
+          if (ok) hit++;
+        });
+        document.getElementById('empty-demo').style.display = hit ? 'none' : '';
+        toast('命中 ' + hit + ' 条');
+      },
+      onReset: function () {
+        document.querySelectorAll('#lt-top .p-filter .p-input').forEach(function (i) { i.value = ''; });
+        document.querySelectorAll('#lt-top .p-filter .p-select').forEach(function (s) { s.selectedIndex = 0; });
+        document.querySelectorAll('#tbl tr.row-link').forEach(function (r) { r.style.display = ''; });
+        document.getElementById('empty-demo').style.display = 'none';
+        toast('已重置筛选');
+      }
+    },
+    page: { total: 128, page: 1, size: 20, onPage: function (n) { toast('第 ' + n + ' 页'); } }
+  });
   function selAll(cb) {
     document.querySelectorAll('.row-chk').forEach(function (x) { x.checked = cb.checked; });
     updBatch();

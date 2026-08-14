@@ -31,6 +31,7 @@
             <li><a href="#comp-pager">2.2 分页.js 分页</a></li>
             <li><a href="#comp-empty">2.3 空状态.js 空状态</a></li>
             <li><a href="#comp-detailbar">2.4 明细工具栏.js 表格明细工具栏</a></li>
+            <li><a href="#comp-listtoolbar">2.5 列表页工具栏.js 列表页工具栏</a></li>
           </ul>
         </li>
         <li><a href="#usage">3. 引用方式</a></li>
@@ -101,6 +102,26 @@
   page: { total: 12, page: 1, size: 10, onPage: function (n) {}, onSize: function (s) {} }
 });
 bar.setReadonly(true);   // 编辑态切换：只读禁用行操作</code></pre>
+
+      <h3 id="comp-listtoolbar">2.5 列表页工具栏.js 列表页工具栏</h3>
+      <p>列表页三段式（《布局设计-列表页》）：工具栏（主按钮 + 按钮组 + 右侧提示）+ 筛选区（关键字 + 附加控件 + 查询/重置）+ 分页（p-pager 右对齐，依赖分页.js），一个配置生成、各列表页统一接入。</p>
+      <pre><code>renderListToolbar({
+  top: document.getElementById('list-top'),       // 表格上方：工具栏 + 筛选区
+  bottom: document.getElementById('list-bottom'), // 表格下方：分页区（可选）
+  primary: { label: '新增用户', onClick: function () {} },
+  buttons: [
+    { label: '刷新', onClick: function () {} },
+    { label: '关闭', onClick: function () {} },
+    { label: '导出', onClick: function () {}, danger: true }
+  ],
+  extra: '&lt;span class="proto-hint"&gt;…&lt;/span&gt;',
+  filter: {
+    placeholder: '关键字：名称/编码',
+    extraHtml: '&lt;select class="p-select"&gt;…&lt;/select&gt;',   // 附加筛选控件（可选）
+    onSearch: function (kw) {}, onReset: function () {}
+  },
+  page: { total: 128, page: 1, size: 20, onPage: function (n) {}, onSize: function (s) {} }
+});</code></pre>
 
       <h2 id="usage">3. 引用方式</h2>
       <p>页面在底部脚本区引用组件文件（相对路径按页面层级：业务模块页 = <code>../02_公共原型/组件名.js</code>），并在元素存在后调用：</p>
