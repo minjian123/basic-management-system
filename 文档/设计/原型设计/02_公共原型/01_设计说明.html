@@ -30,9 +30,8 @@
             <li><a href="#comp-vendor">2.1 vendor 本地化组件（Vue + Element Plus + Vant）</a></li>
             <li><a href="#comp-list">2.2 EP 模板-列表页</a></li>
             <li><a href="#comp-form">2.3 EP 模板-表单页（主从明细）</a></li>
-            <li><a href="#comp-demo">2.4 EP 组件示例（明细表格完整演示）</a></li>
-            <li><a href="#comp-mobile">2.5 移动端 Vant 组件</a></li>
-            <li><a href="#comp-legacy">2.6 自研组件废弃说明</a></li>
+            <li><a href="#comp-mobile">2.4 移动端 Vant 组件</a></li>
+            <li><a href="#comp-legacy">2.5 自研组件废弃说明</a></li>
           </ul>
         </li>
         <li><a href="#usage">3. 引用方式</a></li>
@@ -62,18 +61,15 @@
       </table>
 
       <h3 id="comp-list">2.2 EP 模板-列表页</h3>
-      <p><a href="04_EP模板_列表页.html">04_EP模板_列表页.html</a> —— 列表页标准骨架（复制改造）：工具栏（el-button 主按钮/按钮组/右侧提示）+ 筛选区（el-form inline + el-select + 查询/重置）+ el-table（多选/标签列/操作列/空状态/loading）+ 表格下方一行：<strong>左下明细工具栏</strong>（图标按钮：新增/删除/上移/下移 + 自动列宽/自定义列/刷新/全屏，行操作二次确认）+ <strong>右下分页</strong>（el-pagination）+ el-dialog 弹窗。</p>
+      <p><a href="02_EP模板_列表页.html">02_EP模板_列表页.html</a> —— 列表页标准骨架（复制改造）：工具栏（el-button 主按钮/按钮组/右侧提示）+ 筛选区（el-form inline + el-select + 查询/重置）+ el-table（多选/标签列/操作列/空状态/loading）+ 表格下方一行：<strong>左下明细工具栏</strong>（图标按钮：新增/删除/上移/下移 + 自动列宽/自定义列/刷新/全屏，行操作二次确认）+ <strong>右下分页</strong>（el-pagination）+ el-dialog 弹窗。</p>
 
       <h3 id="comp-form">2.3 EP 模板-表单页（主从明细）</h3>
-      <p><a href="05_EP模板_表单页.html">05_EP模板_表单页.html</a> —— 表单页标准骨架（复制改造）：工具栏分态（只读 修改/删除/刷新/关闭 ↔ 编辑 保存/保存草稿/提交审批）+ 基本信息 el-form（el-input/el-select/el-input-number）+ 主从明细 el-table（行内编辑、小计列、show-summary 合计）+ 明细工具栏（左下图标按钮：新增/删除/上移/下移 + 工具，编辑态可用）+ el-pagination（明细 >10 行分页）；内置编辑态自动空行、保存过滤空行、金额校验逻辑。</p>
+      <p><a href="03_EP模板_表单页.html">03_EP模板_表单页.html</a> —— 表单页标准骨架（复制改造）：工具栏分态（只读 修改/删除/刷新/关闭 ↔ 编辑 保存/保存草稿/提交审批）+ 基本信息 el-form（el-input/el-select/el-input-number）+ 主从明细 el-table（行内编辑、小计列、show-summary 合计）+ 明细工具栏（左下图标按钮：新增/删除/上移/下移 + 工具，编辑态可用）+ el-pagination（明细 >10 行分页）；内置编辑态自动空行、保存过滤空行、金额校验逻辑。</p>
 
-      <h3 id="comp-demo">2.4 EP 组件示例（明细表格完整演示）</h3>
-      <p><a href="03_EP组件示例.html">03_EP组件示例.html</a> —— 真实 el-table（多选/行内编辑 el-input-number/小计/合计）+ 图标明细工具栏 + el-pagination 的完整明细演示，含编辑态/只读态切换，是"明细带左下角工具栏、右下角分页"的现成完整组件样例。</p>
-
-      <h3 id="comp-mobile">2.5 移动端 Vant 组件</h3>
+      <h3 id="comp-mobile">2.4 移动端 Vant 组件</h3>
       <p>移动端页面（13_移动端/）统一 Vant：van-form/van-field/van-button/van-cell/van-nav-bar/van-tabbar/van-badge/van-grid/van-tabs/van-popup/van-dialog/van-tag 等；反馈用 vant.showToast / vant.showConfirmDialog；375px 手机屏模拟（p-phone 容器）。</p>
 
-      <h3 id="comp-legacy">2.6 自研组件废弃说明</h3>
+      <h3 id="comp-legacy">2.5 自研组件废弃说明</h3>
       <p>原型体系早期自研组件（分页.js / 明细工具栏.js / 列表页工具栏.js / 明细表格.js / 空状态.js / 系统信息.js / 原型脚本.js）已<strong>全部废弃删除</strong>：功能由 Element Plus / Vant 真实组件取代（与正式开发技术栈一致），页面统一迁移完成；共享样式仅保留框架类（proto-bar / proto-frame / proto-hint 等），组件样式由组件库自带。</p>
 
       <h2 id="usage">3. 引用方式</h2>
@@ -104,7 +100,7 @@
       <h2 id="extend">4. 新增组件规则</h2>
       <ul>
         <li>组件优先用 Element Plus / Vant 真实组件；页面级私有样式内联 <code>&lt;style&gt;</code>，公共样式进 <code>共享资源/原型样式.css</code>。</li>
-        <li>新页面从模板复制改造（04_EP模板_列表页 / 05_EP模板_表单页），保证全体系风格一致。</li>
+        <li>新页面从模板复制改造（02_EP模板_列表页 / 03_EP模板_表单页），保证全体系风格一致。</li>
         <li>交互反馈统一 ElMessage / ElMessageBox（PC）、vant.showToast / showConfirmDialog（移动端）。</li>
         <li>vendor 组件升级：整体替换 共享资源/vendor/ 下文件（保持与 BMS 前端版本对齐），避免版本混用。</li>
       </ul>
