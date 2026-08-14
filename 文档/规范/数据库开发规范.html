@@ -108,7 +108,7 @@
         <li>库拓扑：平台库 <code>bms_platform</code> + 租户库 <code>bms_tenant_{code}</code> + 归档库 <code>bms_archive</code>；开发环境 <code>bms_dev</code>（见《<a href="命名规范.html">命名规范</a>》第 7 节）。</li>
         <li>租户隔离优先库级（一租户一库）；同库场景所有表必须含 <code>tenant_id</code> 且查询强制过滤。</li>
         <li>分片键：语义名 <code>tenant</code> / <code>date</code>；分片表预创建由定时任务维护（孤儿分片清理见规划）。</li>
-        <li>跨库查询禁止 JOIN，改服务层聚合或事件同步（见《<a href="../设计/架构设计/07_架构设计_子系统_多租户路由.html">多租户路由</a>》）。</li>
+        <li>跨库查询禁止 JOIN，改服务层聚合或事件同步（见《<a href="../设计/架构设计/08_架构设计_子系统_多租户路由.html">多租户路由</a>》）。</li>
       </ul>
 
       <h2 id="perf">8. 性能要求</h2>

@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>架构设计 · 子系统 · 帮助中心</title>
+<link rel="stylesheet" href="../../资源/文档样式.css">
+</head>
+<body>
+
+<div class="topnav">
+  <a href="01_架构设计_总览.html">架构设计</a> › <span>24-帮助中心</span>
+  <span class="topnav-side">
+    <a href="23_架构设计_子系统_可观测性.html">← 23-可观测性</a> · <a href="25_架构设计_性能与安全.html">25-性能与安全 →</a>
+  </span>
+</div>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>架构设计 · 子系统 · 帮助中心</h1>
+      <p>BMS · 帮助分类、文章维护与前台展示</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#overview">1. 概述</a></li>
+        <li><a href="#category">2. 分类管理</a></li>
+        <li><a href="#article">3. 文章管理</a>
+          <ul class="sub">
+            <li><a href="#article-state">3.1 文章状态机</a></li>
+            <li><a href="#article-edit">3.2 在线编辑与 i18n</a></li>
+          </ul>
+        </li>
+        <li><a href="#frontend">4. 前台展示</a>
+          <ul class="sub">
+            <li><a href="#frontend-entry">4.1 入口</a></li>
+            <li><a href="#frontend-button">4.2 页面内帮助按钮</a></li>
+          </ul>
+        </li>
+        <li><a href="#feedback">5. 阅读反馈与统计</a></li>
+        <li><a href="#search-ai">6. 检索与 AI 联动</a></li>
+        <li><a href="#ai-maintain">7. AI 智能维护（阶段十五）</a></li>
+        <li><a href="#coordination">8. 与其他子系统的协调</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="overview">1. 概述</h2>
+      <p>
+        帮助中心子系统承载系统使用帮助文档：帮助分类与文章维护（在线编辑入库）、前台展示
+        （PC + 移动端）、页面内帮助按钮、阅读反馈与统计，并纳入全文检索与 AI 问答知识源。
+        对应<a href="../../规划/项目规划说明.html">《项目规划说明》</a>的「帮助中心」模块。与公告区分：公告为全员临时通知，帮助为常驻知识库。
+      </p>
+
+      <h2 id="category">2. 分类管理</h2>
+      <ul>
+        <li>sys_help_category：parent_id、name、sort、status——分类树（如 快速上手/系统管理/业务操作）</li>
+        <li>多级分类（树状），前台按分类导航；删除分类前需先处理其下文章（迁移或级联下架）</li>
+        <li>分类排序 sort 控制展示顺序；status 控制前台可见性</li>
+      </ul>
+
+      <h2 id="article">3. 文章管理</h2>
+
+      <h3 id="article-state">3.1 文章状态机</h3>
+      <table>
+        <tr><th>状态</th><th>迁移</th><th>说明</th></tr>
+        <tr><td>草稿（draft）</td><td>新建/编辑保存 → 草稿；发布 → 已发布</td><td>仅后台可见，不进入前台与检索</td></tr>
+        <tr><td>已发布（published）</td><td>发布 → 已发布；下架 → 已下架；编辑保存 → 草稿或直接发布新版本</td><td>前台展示；发布后触发 help.article.published 事件（检索同步）</td></tr>
+        <tr><td>已下架（offline）</td><td>下架 → 已下架；重新发布 → 已发布</td><td>前台隐藏，检索同步删除</td></tr>
+      </table>
+      <ul>
+        <li>置顶（is_top）：分类内置顶展示；发布时间 publish_at 控制</li>
+        <li>删除：物理删除（帮助内容可重建，软删除不必要）——或复用软删除规范；定案：复用软删除（deleted_at），回收站可恢复</li>
+      </ul>
+
+      <h3 id="article-edit">3.2 在线编辑与 i18n</h3>
+      <ul>
+        <li>后台在线编辑（富文本/轻 Markdown），内容入库 sys_help_article.content；作者 author_id 记录</li>
+        <li>多语言：标题/内容存 sys_help_article_i18n（article_id + locale 联合主键），前台按当前 locale 展示，缺省回退默认语言</li>
+        <li>保存前内容校验（长度限制、XSS 过滤——富文本按白名单清洗）</li>
+      </ul>
+
+      <h2 id="frontend">4. 前台展示</h2>
+
+      <h3 id="frontend-entry">4.1 入口</h3>
+      <ul>
+        <li>PC：工作台快捷入口卡片 + 个人中心菜单项 + 帮助中心页面（分类树 + 文章列表 + 文章详情）</li>
+        <li>移动端：工作台/个人中心入口，帮助文章列表与详情页（复用后端接口）</li>
+        <li>前台阅读无需额外权限（登录即可）；后台维护需 help:manage</li>
+      </ul>
+
+      <h3 id="frontend-button">4.2 页面内帮助按钮</h3>
+      <ul>
+        <li>文章关联目标：target_type（global/module/form）+ target_key（全局/业务模块码/表单 key）</li>
+        <li>列表页/表单页右上角帮助按钮：按当前模块/表单查询关联文章（精确命中 → 弹出文章；未命中 → 打开该分类帮助列表）</li>
+        <li>按钮显隐：有对应文章才显示（菜单接口/表单元数据接口附带帮助标记）</li>
+      </ul>
+
+      <h2 id="feedback">5. 阅读反馈与统计</h2>
+      <ul>
+        <li>sys_help_feedback：article_id、user_id、feedback（helpful/unhelpful）、comment、created_at；联合主键（article_id + user_id）防重复反馈（可改投）</li>
+        <li>阅读计数：打开文章详情 +1（view_count）；有帮助/无帮助计数（helpful_count / unhelpful_count）展示于文章底部</li>
+        <li>后台统计视图：按文章/分类查看阅读与反馈，驱动文档优化</li>
+      </ul>
+
+      <h2 id="search-ai">6. 检索与 AI 联动</h2>
+      <ul>
+        <li>纳入全文检索（阶段十四）：help.article.published / updated / deleted 事件驱动 ES 同步（bms-main 主数据索引含帮助文章），前台帮助中心与全局搜索可命中</li>
+        <li>纳入 AI 知识源（阶段十五）：知识库问答机器人与语义搜索可引用已发布帮助文章（RAG 上下文遵守数据权限——帮助文章属租户库，按租户隔离）</li>
+        <li>草稿/下架文章不进入检索与 AI 知识源</li>
+      </ul>
+
+      <h2 id="ai-maintain">7. AI 智能维护（阶段十五）</h2>
+      <p>帮助文档智能维护为阶段十五 AI 第八项能力（见 <a href="22_架构设计_子系统_AI服务.html">22-AI服务节点</a>）：</p>
+      <ul>
+        <li><strong>输入源</strong>：功能代码（graphify 知识图谱/代码结构）+ 设计文档（架构/布局/规划）+ 表单元数据（sys_form/sys_field/业务权限码清单）——AI 可读取真实实现，保证帮助内容与系统现状一致</li>
+        <li><strong>手动触发</strong>：帮助管理页对当前分类/文章点击"AI 生成/更新草稿"，按目标上下文（target_type/target_key）生成内容</li>
+        <li><strong>变更事件自动触发</strong>：菜单/表单/字段/按钮变更（form.updated 事件）→ AI 生成对应更新草稿并通知维护人审核（不自动覆盖已发布文章）</li>
+        <li><strong>质量评估</strong>：定时任务周期扫描已发布文章，评估陈旧度（与表单元数据/代码结构对比）、完整性、准确性，生成改进建议报告</li>
+        <li><strong>发布流程</strong>：AI 结果一律为草稿（draft），人工审核后发布；全量落 ai_chat_log 审计，符合"AI 结果默认仅辅助"约束</li>
+      </ul>
+
+      <h2 id="coordination">8. 与其他子系统的协调</h2>
+      <ul>
+        <li><strong><a href="12_架构设计_子系统_事件总线.html">事件总线</a></strong>：help.article.* 事件（Webhook 订阅：否；ES 同步：是）；form.updated 事件驱动 AI 更新</li>
+        <li><strong><a href="22_架构设计_子系统_AI服务.html">AI 服务</a></strong>：帮助文档智能维护能力（阶段十五）；帮助文章为知识库问答知识源</li>
+        <li><strong><a href="13_架构设计_子系统_任务调度.html">任务调度</a></strong>：帮助文章质量评估扫描为内置任务（阶段十五）</li>
+        <li><strong><a href="11_架构设计_子系统_权限计算引擎.html">权限计算引擎</a></strong>：业务码 help（帮助中心管理），动作 manage；前台阅读无需权限</li>
+        <li><strong><a href="21_架构设计_子系统_全文检索.html">全文检索</a></strong>：bms-main 索引含帮助文章（阶段十四）</li>
+        <li><strong><a href="15_架构设计_子系统_审计哈希链.html">审计哈希链</a></strong>：文章内容变更落字段级审计（内容合规可追溯）</li>
+        <li><strong><a href="05_架构设计_数据架构.html">数据架构</a></strong>：表存租户库（租户维护各自帮助），i18n 附表遵循统一规范</li>
+        <li><strong><a href="28_架构设计_部署与运维.html">初始化数据</a></strong>：初始帮助分类与基础文章种子（快速上手/系统管理/业务操作）</li>
+      </ul>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 架构设计节点 · 与《项目规划说明》《文档生成规范》《命名规范》配套 · 生成日期：2026-08-06
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>

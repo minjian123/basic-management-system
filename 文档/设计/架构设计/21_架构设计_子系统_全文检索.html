@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>架构设计 · 子系统 · 全文检索</title>
+<link rel="stylesheet" href="../../资源/文档样式.css">
+</head>
+<body>
+
+<div class="topnav">
+  <a href="01_架构设计_总览.html">架构设计</a> › <span>21-全文检索</span>
+  <span class="topnav-side"><a href="20_架构设计_子系统_国际化.html">← 20-国际化</a> · <a href="22_架构设计_子系统_AI服务.html">22-AI服务 →</a></span>
+</div>
+
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>架构设计 · 子系统 · 全文检索</h1>
+      <p>BMS · ES 索引、同步管线与重建降级（阶段十四）</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#overview">1. 概述</a></li>
+        <li><a href="#index">2. 索引规划</a></li>
+        <li><a href="#pipeline">3. 同步管线</a></li>
+        <li><a href="#query">4. 查询路径</a></li>
+        <li><a href="#rebuild">5. 索引重建</a></li>
+        <li><a href="#degrade">6. 降级策略</a></li>
+        <li><a href="#coordination">7. 与其他子系统的协调</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="overview">1. 概述</h2>
+      <p>
+        全文检索子系统（阶段十四）基于 ElasticSearch 8.x：覆盖主数据全局搜索、审计日志检索、
+        文件内容检索三类场景。对应<a href="../../规划/项目规划说明.html">《项目规划说明》</a>的「全文检索」「检索」章节。
+      </p>
+
+      <h2 id="index">2. 索引规划</h2>
+      <table>
+        <tr><th>索引</th><th>内容</th><th>说明</th></tr>
+        <tr><td><code>bms-main</code></td><td>主数据：用户/部门/角色/字典/采购单据/文件元数据/帮助文章</td><td>按用途分索引；均含 tenant_id 字段，查询强制租户隔离与数据权限过滤</td></tr>
+        <tr><td><code>bms-log-{类型}-{yyyyMM}</code></td><td>审计日志（操作/登录/开放接口/数据变更）</td><td>按月索引，与分片表对齐</td></tr>
+        <tr><td><code>bms-file</code></td><td>文件内容（PDF/Word/Excel/TXT 解析文本）</td><td>扫描件 OCR 由阶段十五 AI 支持</td></tr>
+      </table>
+
+      <h2 id="pipeline">3. 同步管线</h2>
+      <ul>
+        <li>变更事件 → RocketMQ → event-worker（ES 同步组）消费 → 文件类转文本解析任务（Celery：PDF/Word/Excel/TXT 文本提取）→ 写入索引</li>
+        <li>文本解析失败重试/标记；解析任务与 OCR（阶段十五）衔接</li>
+        <li>数据同步经事件驱动异步消费，避免双写一致性问题</li>
+      </ul>
+
+      <h2 id="query">4. 查询路径</h2>
+      <ul>
+        <li>ES 只承担检索匹配：返回业务 ID + 高亮；详情回查数据库取最新数据（避免双写一致性难题）</li>
+        <li>权限过滤：索引 tenant_id 字段强制租户隔离 + 动作级数据权限范围过滤</li>
+        <li>全局搜索页面（管理端 + 移动端）</li>
+      </ul>
+
+      <h2 id="rebuild">5. 索引重建</h2>
+      <ul>
+        <li>索引重建任务（sys_task 入库）：重放事件流（事件已落库可追溯）+ 全量快照兜底</li>
+        <li>可对单索引/按月索引独立重建；重建期间新旧索引切换（别名方式）</li>
+      </ul>
+
+      <h2 id="degrade">6. 降级策略</h2>
+      <ul>
+        <li>ES 故障：检索降级数据库模糊查询兜底（检索页面降级提示）</li>
+        <li>恢复后重放事件重建索引；ES 生产多节点集群（多副本、故障自动分片迁移），MVP 单节点</li>
+      </ul>
+
+      <h2 id="coordination">7. 与其他子系统的协调</h2>
+      <ul>
+        <li><strong><a href="12_架构设计_子系统_事件总线.html">事件总线</a></strong>：同步管线经事件驱动；重建经事件重放</li>
+        <li><strong><a href="15_架构设计_子系统_审计哈希链.html">审计哈希链</a></strong>：审计日志按月索引与分片表归档对齐（归档后索引同步裁剪）</li>
+        <li><strong><a href="16_架构设计_子系统_文件管理.html">文件管理</a></strong>：文件内容解析依赖文件元数据与 MinIO 对象</li>
+        <li><strong>AI 服务（阶段十五）</strong>：OCR 与文件自动分类衔接文本解析；语义搜索与文件问答走 Milvus（独立向量检索）</li>
+        <li><strong><a href="23_架构设计_子系统_可观测性.html">可观测性</a></strong>：索引健康、同步积压纳入监控</li>
+      </ul>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 架构设计节点 · 与《项目规划说明》《文档生成规范》《命名规范》配套 · 生成日期：2026-08-06
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>

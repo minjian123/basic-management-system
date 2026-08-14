@@ -89,7 +89,7 @@
         <li>格式分工：用户手写 .md；AI 生成 .html</li>
         <li>资源：HTML 的图片等资源放同级 <code>资源/文档名/</code> 同名子目录</li>
         <li>章节编号：1. / 1.1 阿拉伯数字逐级编号，目录与正文一致</li>
-        <li><strong>编号与主题之间的分隔符用下划线 <code>_</code>（snake_case），不用连字符 <code>-</code></strong>：<code>01_架构设计_总览.html</code>、<code>02_概要设计_用户管理.html</code>、<code>02_布局设计_设计令牌.html</code>（序号与文件名、文件名各段之间均以 <code>_</code> 连接）。理由：
+        <li><strong>编号与主题之间的分隔符用下划线 <code>_</code>（snake_case），不用连字符 <code>-</code></strong>：<code>01_架构设计_总览.html</code>、<code>03_概要设计_用户管理.html</code>、<code>02_布局设计_设计令牌.html</code>（序号与文件名、文件名各段之间均以 <code>_</code> 连接）。理由：
           <ul>
             <li>文档文件须被代码环境解析：Python/Java/Go 的 import 与模块系统要求目录和文件名是合法标识符，连字符（减号）不能作为标识符；正则 <code>\w</code> 识别 <code>_</code> 而不识别 <code>-</code>，脚本（grep、graphify 等）按词处理时下划线更稳妥</li>
             <li>连字符在英文文法中是有意义的复合词连接符（如 upper-case、non-English），用于文件名会破坏其语义，下划线无此歧义</li>

@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>架构设计 · 子系统 · 数据访问与分片</title>
+<link rel="stylesheet" href="../../资源/文档样式.css">
+</head>
+<body>
+
+<div class="topnav">
+  <a href="01_架构设计_总览.html">架构设计</a> › <span>09-数据访问与分片</span>
+  <span class="topnav-side"><a href="08_架构设计_子系统_多租户路由.html">← 08-多租户路由</a> · <a href="10_架构设计_子系统_认证与会话.html">10-认证与会话 →</a></span>
+</div>
+
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>架构设计 · 子系统 · 数据访问与分片</h1>
+      <p>BMS · 多数据源、读写分离、分片路由与事务</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#overview">1. 概述</a></li>
+        <li><a href="#multi-source">2. 多数据源管理</a></li>
+        <li><a href="#rw-separation">3. 读写分离</a></li>
+        <li><a href="#sharding">4. 分片路由</a></li>
+        <li><a href="#transaction">5. 事务边界规则</a></li>
+        <li><a href="#query">6. 查询规范</a></li>
+        <li><a href="#coordination">7. 与其他子系统的协调</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="overview">1. 概述</h2>
+      <p>
+        数据访问子系统统一承载 SQLAlchemy 2.0 异步数据访问：多数据源声明与管理、主从读写分离路由、
+        应用层分片路由、事务边界控制。对应<a href="../../规划/项目规划说明.html">《项目规划说明》</a>的「多数据源策略」「数据库兼容」
+        「数据规范」「分页与查询」章节。三层架构（多业务库并存 → 主从读写分离 → 分库分表）逐层可选。
+      </p>
+
+      <h2 id="multi-source">2. 多数据源管理</h2>
+      <ul>
+        <li>config.toml 声明多个数据源（每库含主从连接）；多租户落地于本层：一租户一独立库，见多租户路由子系统</li>
+        <li>多异步 bind：SQLAlchemy 2.0 多引擎管理；repositories 层按模块指定数据源</li>
+        <li>驱动：MySQL 用 aiomysql（异步；同步 fallback 可换 PyMySQL，aiomysql 底层即其移植；备选 asyncmy——性能更好但维护活跃度一般）；PostgreSQL 用 psycopg 3（原生异步）；达梦 DM8 用 dmPython（官方同步驱动，dialect <code>dm+dmPython</code>，Python 3.14 兼容性纳入阶段一验证）；开发/测试 SQLite 用 aiosqlite</li>
+        <li>数据库兼容：ORM 层禁用方言特有功能（JSON 等类型用跨方言通用类型，分页统一 limit/offset）；Alembic 维护三套方言迁移；SQLite 开发库自动建表</li>
+      </ul>
+
+      <h2 id="rw-separation">3. 读写分离</h2>
+      <ul>
+        <li>每个业务库可配一主多从；AsyncSession 工厂按请求上下文读写标记选引擎</li>
+        <li>写操作与事务强制走主库；写操作后同一会话内读主库（避免读到从库旧数据）</li>
+        <li>报表数据集（SQL 建模）强制只读从库执行（安全隔离，见报表 BI 子系统）</li>
+        <li>主库故障：只读模式降级（从库响应查询，写接口返回明确错误）</li>
+      </ul>
+
+      <h2 id="sharding">4. 分片路由</h2>
+      <ul>
+        <li>Python 生态无成熟分片中间件，采用应用层自研 ShardingRouter：分片注册表 <code>{逻辑表 → 分片键 + 物理表名模板}</code></li>
+        <li>MVP 真实分片规则：sys_operation_log、sys_open_log、sys_data_audit_log、ai_chat_log 按月分片（分片键=时间，物理表名带 yyyyMM 后缀，逻辑表名不带后缀）</li>
+        <li>新月份分片表由 Celery 定时任务提前创建；分片键支持按租户/按时间，由接入模块声明</li>
+        <li>解析在 repository 层声明式完成，不做透明代理（明确、可测试）</li>
+        <li>查询强制带分片键条件（无分片键的查询拒绝执行或全分片扫描告警）</li>
+      </ul>
+
+      <h2 id="transaction">5. 事务边界规则</h2>
+      <ul>
+        <li>services 层用上下文管理器显式声明事务边界（with session.begin()）；大事务拆小</li>
+        <li>异步会话禁止跨请求共享；禁止循环内多次查询（N+1）；禁止跨事件循环复用连接/会话</li>
+        <li>Celery worker 为同步进程：任务内执行异步业务须用 asyncio.run 或独立引擎</li>
+        <li>乐观锁 version 字段防多实例并发覆盖</li>
+      </ul>
+
+      <h2 id="query">6. 查询规范</h2>
+      <ul>
+        <li>禁止 SELECT *；批量写入用 bulk；N+1 走查</li>
+        <li>索引：排序字段、外键、数据权限过滤字段必须建索引（idx_/uq_ 前缀）</li>
+        <li>分页：常规列表 limit/offset（限深 100 页）；大数据量列表（操作日志等）游标分页兜底（last_id + 排序键索引）</li>
+        <li>慢查询日志开启，定期走查</li>
+      </ul>
+
+      <h2 id="coordination">7. 与其他子系统的协调</h2>
+      <ul>
+        <li><strong><a href="08_架构设计_子系统_多租户路由.html">多租户路由</a></strong>：TenantContext 决定数据源与引擎选择（路由第一跳）</li>
+        <li><strong><a href="11_架构设计_子系统_权限计算引擎.html">权限计算引擎</a></strong>：数据范围（sys_data_scope 规则表达式）解析为 SQL 条件注入查询（读），写前校验（写）</li>
+        <li><strong><a href="15_架构设计_子系统_审计哈希链.html">审计哈希链</a></strong>：审计日志按月分片落库在此层完成；归档流转经归档库（bms_archive 只读）</li>
+        <li><strong><a href="12_架构设计_子系统_事件总线.html">事件总线</a></strong>：写操作日志/登录日志经 RocketMQ 异步化，降低主库写压力</li>
+        <li><strong><a href="13_架构设计_子系统_任务调度.html">任务调度</a></strong>：分片表预创建、归档、物理清理任务经 Celery 执行</li>
+      </ul>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 架构设计节点 · 与《项目规划说明》《文档生成规范》《命名规范》配套 · 生成日期：2026-08-06
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>

@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>架构设计 · 子系统 · 工作流</title>
+<link rel="stylesheet" href="../../资源/文档样式.css">
+</head>
+<body>
+
+<div class="topnav">
+  <a href="01_架构设计_总览.html">架构设计</a> › <span>17-工作流</span>
+  <span class="topnav-side"><a href="16_架构设计_子系统_文件管理.html">← 16-文件管理</a> · <a href="18_架构设计_子系统_通知公告.html">18-通知公告 →</a></span>
+</div>
+
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>架构设计 · 子系统 · 工作流</h1>
+      <p>BMS · BPMN 定义、流程执行与审批</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#overview">1. 概述</a></li>
+        <li><a href="#define">2. 流程定义与版本</a></li>
+        <li><a href="#execute">3. 流程执行</a></li>
+        <li><a href="#approve">4. 审批机制</a></li>
+        <li><a href="#business">5. 与业务单据的联动</a></li>
+        <li><a href="#coordination">6. 与其他子系统的协调</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="overview">1. 概述</h2>
+      <p>
+        工作流子系统基于 SpiffWorkflow（Python 生态最成熟 BPMN 2.0 引擎）+ bpmn-js（前端拖拽建模）：
+        流程定义与版本管理、流程实例执行、待办/已办、审批记录、会签/或签、条件分支可视化。
+        对应<a href="../../规划/项目规划说明.html">《项目规划说明》</a>的「工作流引擎」「工作流管理」「采购管理」「收付款管理」章节。
+      </p>
+
+      <h2 id="define">2. 流程定义与版本</h2>
+      <ul>
+        <li>wf_process：definition_key、name、bpmn_xml、version、status；definition_key 标识同一流程，definition_key+version 唯一，支持版本管理</li>
+        <li>管理端 bpmn-js 拖拽建模（用户任务、网关、结束事件、条件分支可视化），保存 BPMN XML；发布新版本落 wf.process.deployed 事件</li>
+        <li>权限码 wf:define（流程定义与版本管理）、wf:approve（审批）、wf:query（查询）</li>
+        <li>初始种子：采购申请三级审批流程模板（部门经理 → 财务 → 分管领导）、付款申请审批流程模板</li>
+      </ul>
+
+      <h2 id="execute">3. 流程执行</h2>
+      <ul>
+        <li>SpiffWorkflow 同步引擎：在 FastAPI 异步栈中以线程池运行（run_in_executor），避免阻塞事件循环</li>
+        <li>引擎本身不持久化：流程实例（wf_instance：process_id、business_type、business_id、current_node、status）、任务（wf_task）、审批记录（wf_record）由 BMS 自建表维护</li>
+        <li>执行模型：节点推进 → 生成待办（wf_task）→ 审批动作驱动继续推进；驳回退回指定节点</li>
+        <li>Python 3.14 兼容风险：引擎未适配则整体回退 3.13（已定口径）</li>
+      </ul>
+
+      <h2 id="approve">4. 审批机制</h2>
+      <ul>
+        <li>待办：wf_task（instance_id、node_id、assignee、status、deadline）；会签（多人审批）/ 或签（任一通过）</li>
+        <li>审批动作：同意/驳回/撤回，落 wf_record（action、comment）；写接口幂等键防重复提交</li>
+        <li>我的待办/已办查询（PC + 移动端）；待办角标经实时推送子系统</li>
+        <li>流程版本：新单走最新版本；在途实例继续按原版本执行</li>
+      </ul>
+
+      <h2 id="business">5. 与业务单据的联动</h2>
+      <ul>
+        <li>业务绑定：wf_instance.business_type + business_id 关联业务单据（如 pur_purchase_apply）</li>
+        <li>采购链路：申请提交 → 流程启动 → 三级审批全部通过 → 生成采购订单（pur_purchase_order）→ purchase.order.created 事件</li>
+        <li>驳回：业务单据状态回退，申请人可修改后重新提交（重新触发流程）</li>
+      </ul>
+
+      <h2 id="coordination">6. 与其他子系统的协调</h2>
+      <ul>
+        <li><strong><a href="12_架构设计_子系统_事件总线.html">事件总线</a></strong>：wf.process.deployed / wf.instance.started / wf.task.completed / wf.instance.rejected / wf.instance.finished（Webhook 可订阅）</li>
+        <li><strong><a href="18_架构设计_子系统_通知公告.html">通知公告</a>与<a href="14_架构设计_子系统_实时推送.html">实时推送</a></strong>：待办生成 → 站内信 + Socket.IO（approval.todo）</li>
+        <li><strong><a href="11_架构设计_子系统_权限计算引擎.html">权限计算引擎</a></strong>：审批人由流程定义 + 主体链解析（部门经理 = 部门负责人角色等）</li>
+        <li><strong>AI 服务（阶段十五）</strong>：智能审批辅助（RAG 参考意见）与 AI 自动审批（开关默认关闭，白名单 + 二次确认 + 可撤销）</li>
+        <li><strong><a href="15_架构设计_子系统_审计哈希链.html">审计哈希链</a></strong>：审批记录关键操作落操作日志与字段级审计</li>
+      </ul>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 架构设计节点 · 与《项目规划说明》《文档生成规范》《命名规范》配套 · 生成日期：2026-08-06
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>
