@@ -177,7 +177,7 @@ sequenceDiagram
         <li>索引：sys_dict_type (type) 唯一索引；sys_dict_item (type_id, code) 复合唯一索引（与 deleted_at 组复合唯一索引）、sort 排序字段索引、<code>(type_id, parent_id, sort)</code> 复合索引（级联过滤）、<code>(type_id, label)</code> 复合索引（远程搜索前缀匹配）、<code>(type_id, value)</code> 复合索引（单值翻译）；<code>_i18n</code> 附表按 (主表 ID + locale) 联合主键查询</li>
         <li>分片：字典为小型热配置数据，不做按月分片</li>
         <li>归档：字典为在用配置数据，不进入归档流转；审计留痕走操作日志与字段级审计（sys_data_audit_log，按月分片）</li>
-        <li>缓存：<code>bms:{tenant}:dict:{locale}:{type}</code>，短 TTL + 随机偏移；缓存键含 locale 与租户前缀；全局版本键 <code>bms:{tenant}:dict:version</code>（字典变更 INCR）；进程内内存字典缓存（仅 &lt; 2000 条小字典整类型载入，超大字典 DB 索引直查）按版本比对免反序列化与网络往返</li>
+        <li>缓存：<code>bms:{tenant}:dict:{locale}:{type}</code>，短 TTL + 随机偏移；缓存键含 locale 与租户前缀；全局版本键 <code>bms:{tenant}:dict:version</code>（字典变更 INCR）；进程内内存字典缓存（dogpile.cache 双 Region：小字典整类型 + 超大字典已查条目局部子集，按版本惰性比对）供查询接口与业务翻译共用，零网络往返；超大字典批量翻译走「局部缓存 + 一次性 IN 查询」防 N+1</li>
       </ul>
 
       <h3 id="data-flow">4.3 数据流转</h3>
@@ -200,7 +200,7 @@ sequenceDiagram
         <tr><td>POST</td><td>/dict-types/{id}/items</td><td>新增字典条目</td><td>dict:manage</td></tr>
         <tr><td>PUT</td><td>/dict-items/{id}</td><td>修改字典条目（含 i18n 附表）</td><td>dict:manage</td></tr>
         <tr><td>DELETE</td><td>/dict-items/{id}</td><td>删除字典条目（软删除，引用校验）</td><td>dict:manage</td></tr>
-        <tr><td>GET</td><td>/dicts/{type}</td><td>运行时字典查询（按 locale 返回启用条目；登录即可，业务通用依赖）。可选参数：<code>version</code>（客户端本地版本，一致时 items 返回 null）、<code>keyword</code>（远程搜索，模糊匹配 label/value/code）、<code>parent_id</code>（级联过滤）、<code>limit</code>（条数上限，探针传 2001 判别超大字典）；响应 data 为 <code>{version, items, has_more, total}</code></td><td>登录即可</td></tr>
+        <tr><td>GET</td><td>/dicts/{type}</td><td>运行时字典查询（按 locale 返回启用条目；登录即可，业务通用依赖）。可选参数：<code>version</code>（客户端本地版本，一致时 items 返回 null）、<code>keyword</code>（远程搜索，模糊匹配 label/value/code）、<code>parent_id</code>（级联过滤）、<code>values</code>（逗号分隔指定 value 集合，仅返回这些条目的子集——超大字典列批量翻译用）、<code>limit</code>（条数上限，探针传 2001 判别超大字典）；响应 data 为 <code>{version, items, has_more, total}</code></td><td>登录即可</td></tr>
         <tr><td>POST</td><td>/dicts/batch</td><td>批量运行时字典查询（表单页多字典字段合并为一次请求）：请求体 <code>{types: [...], version?, locale?}</code>；响应 data 为 <code>{version, items: {type: {items, has_more, total} \| null}}</code>，items 为 null 表示该类型版本一致（前端复用本地缓存）；每类型统一 limit 截断（2001）判别超大字典</td><td>登录即可</td></tr>
       </table>
 
