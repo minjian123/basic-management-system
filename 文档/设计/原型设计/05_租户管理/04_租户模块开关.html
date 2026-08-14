@@ -28,8 +28,9 @@
     <tr><td>supplier</td><td>供应商</td><td>sup_</td><td>—</td><td><span class="p-tag ok">已开通</span></td><td>2026-08-01</td><td><button class="p-btn sm" onclick="switchMod(this,'supplier')">停用</button></td></tr>
     <tr><td>sale</td><td>销售</td><td>sale_</td><td>12</td><td><span class="p-tag">未开通</span></td><td>—</td><td><button class="p-btn sm primary" onclick="openMod(this,'sale')">开通</button></td></tr>
     <tr><td>wh</td><td>仓储</td><td>wh_</td><td>13</td><td><span class="p-tag">未开通</span></td><td>—</td><td><button class="p-btn sm primary" onclick="openMod(this,'wh')">开通</button></td></tr>
-  </table>
-  <div class="proto-hint" style="margin-top:10px">停用影响：该模块菜单/按钮不可见、接口拒绝、不可新建单据；存量数据保留可查，重新开通即恢复；进行中流程与审批不受影响。</div>
+</table>
+<div id="detail-bar-mod"></div>
+<div class="proto-hint" style="margin-top:10px">停用影响：该模块菜单/按钮不可见、接口拒绝、不可新建单据；存量数据保留可查，重新开通即恢复；进行中流程与审批不受影响。</div>
 </div>
 
 <!-- 停用确认 -->
@@ -57,7 +58,15 @@
 </div>
 
 <script src="../共享资源/原型脚本.js"></script>
+<script src="../02_公共原型/明细工具栏.js"></script>
 <script>
+  // 明细工具栏：模块清单工具类（行操作保留行内停用/开通，无增删行语义）
+  renderDetailBar(document.getElementById('detail-bar-mod'), {
+    readonly: false,
+    rowTools: [],
+    tools: ['refresh', 'fullscreen'],
+    onTool: function (t) { toast('原型演示：' + ({ refresh: '刷新', fullscreen: '全屏' }[t] || t)); }
+  });
   var curBtn = null, curKey = '', curName = '';
   function switchMod(btn, key) {
     curBtn = btn; curKey = key;

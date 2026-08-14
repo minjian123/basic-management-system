@@ -8,6 +8,7 @@
  *                 <script src="../02_公共原型/明细工具栏.js"></script>
  *   2) 挂载：var bar = renderDetailBar(el, {
  *        readonly: true,
+ *        rowTools: ['add','del','up','down'],   // 行操作按钮集（默认全 4 个；配置型表格可传 [] 或子集）
  *        onAdd(), onDelete(), onMoveUp(), onMoveDown(),   // 行操作回调
  *        tools: ['autoWidth','columns','refresh','fullscreen'],  // 通用工具按需
  *        onTool(name),
@@ -26,13 +27,13 @@
     var o = opts || {};
     var state = { readonly: !!o.readonly };
     var tools = o.tools || ['autoWidth', 'columns', 'refresh', 'fullscreen'];
-    var rowTools = ['add', 'del', 'up', 'down'];
+    var rowTools = o.rowTools || ['add', 'del', 'up', 'down'];
     el.className = (el.className || '') + ' p-detail-bar';
     var html = '<div class="p-detail-tools">';
     rowTools.forEach(function (t) {
       html += '<button class="p-btn sm icon" data-t="' + t + '" title="' + TITLES[t] + '（仅编辑态可用）">' + ICONS[t] + '</button>';
     });
-    if (tools.length) { html += '<span class="d-sep"></span>'; }
+    if (rowTools.length && tools.length) { html += '<span class="d-sep"></span>'; }
     tools.forEach(function (t) {
       html += '<button class="p-btn sm icon" data-t="' + t + '" title="' + TITLES[t] + '">' + ICONS[t] + '</button>';
     });

@@ -39,7 +39,8 @@
       <td><span class="p-tag gray" data-role="st" style="cursor:pointer" onclick="event.stopPropagation();toggleCard(this,'公告')">停用</span></td>
     </tr>
   </table>
-  <div id="pager-card"></div>
+  <div id="detail-bar-card"></div>
+<div id="pager-card"></div>
 </div>
 
 <!-- 新建/编辑卡片抽屉（宽 640）：标题由动作+对象自动设置 -->
@@ -77,6 +78,7 @@
 <script src="../共享资源/原型脚本.js"></script>
 <script src="../02_公共原型/分页.js"></script>
 <script src="../02_公共原型/列表页工具栏.js"></script>
+<script src="../02_公共原型/明细工具栏.js"></script>
 <script>
   renderListToolbar({
     top: document.getElementById('lt-top'),
@@ -117,6 +119,29 @@
     },
     page: { total: 4, page: 1, size: 20, onPage: function (n) { toast('第 ' + n + ' 页'); } }
   });
+  // 明细工具栏：卡片行管理（新增/删除/上移/下移排序，操作受权限码控制；分页由列表页工具栏渲染）
+  renderDetailBar(document.getElementById('detail-bar-card'), {
+    readonly: false,
+    rowTools: ['add', 'del', 'up', 'down'],
+    tools: ['refresh', 'fullscreen'],
+    onAdd: function () { editCard(null); },
+    onDelete: function () {
+      var tr = document.querySelector('#tbl tr.active');
+      if (!tr) { toast('请先选择一行卡片', 'err'); return; }
+      confirmAction('删除选中卡片？引用它的布局将跳过该卡（数据保留，仅取消注册）。', function () { tr.remove(); toast('已删除（数据保留，仅取消注册）', 'ok'); });
+    },
+    onMoveUp: function () { moveCardRow(-1); },
+    onMoveDown: function () { moveCardRow(1); },
+    onTool: function (t) { toast('原型演示：' + ({ refresh: '刷新', fullscreen: '全屏' }[t] || t)); }
+  });
+  function moveCardRow(dir) {
+    var tr = document.querySelector('#tbl tr.active');
+    if (!tr) { toast('请先选择一行卡片', 'err'); return; }
+    var tb = tr.parentNode, t = dir < 0 ? tr.previousElementSibling : tr.nextElementSibling;
+    if (!t) { toast(dir < 0 ? '已是第一行' : '已是最后一行', 'err'); return; }
+    tb.insertBefore(dir < 0 ? tr : t, dir < 0 ? t : tr);
+    toast('卡片顺序已调整（布局按 sort 渲染）', 'ok');
+  }
   var editId = null;
 
   // 行点击进入编辑形态（编辑态示意：行高亮 + 抽屉预填）

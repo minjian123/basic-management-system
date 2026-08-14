@@ -90,9 +90,10 @@
 });</code></pre>
 
       <h3 id="comp-detailbar">2.4 明细工具栏.js 表格明细工具栏</h3>
-      <p>主从模块<strong>表格明细底部栏</strong>：图标按钮组靠左（新增行 / 删除行 / 上移行 / 下移行 + 通用工具 自动列宽 / 自定义列 / 刷新 / 全屏）+ 分页区靠右同一行，结构与《布局设计-表格明细》第 4 节 / 2.4 节一致：行操作仅编辑态可用、删除需页面二次确认、图标按钮悬停 tooltip；分页依赖分页.js（p-pager 右对齐）。</p>
+      <p>主从模块<strong>表格明细底部栏</strong>：图标按钮组靠左（新增行 / 删除行 / 上移行 / 下移行 + 通用工具 自动列宽 / 自定义列 / 刷新 / 全屏）+ 分页区靠右同一行，结构与《布局设计-表格明细》第 4 节 / 2.4 节一致：行操作仅编辑态可用、删除需页面二次确认、图标按钮悬停 tooltip；分页依赖分页.js（p-pager 右对齐）。行操作按钮集可通过 <code>rowTools</code> 配置（配置型/工具型表格可传 <code>[]</code> 或子集，如权限勾选表、模块开关清单仅显示通用工具）。</p>
       <pre><code>var bar = renderDetailBar(document.getElementById('detail-bar'), {
   readonly: false,
+  rowTools: ['add', 'del', 'up', 'down'],   // 行操作按钮集（配置型表格可传 [] 或子集）
   onAdd: function () { /* 新增行 */ },
   onDelete: function () { /* 二次确认后删除选中行 */ },
   onMoveUp: function () { /* 上移选中行 */ },
