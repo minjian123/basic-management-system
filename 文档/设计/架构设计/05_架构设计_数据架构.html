@@ -80,6 +80,7 @@
         <tr><th>表</th><th>关键字段</th><th>说明</th></tr>
         <tr><td>sys_business</td><td>code、name、status</td><td>业务权限码平台统一维护，租户可见、可分配、不可增删</td></tr>
         <tr><td>sys_action</td><td>code、name、business_id、status</td><td>动作权限码归属业务</td></tr>
+        <tr><td>sys_module</td><td>module_key、name、table_prefix、errcode_segment、event_domain、status</td><td>业务模块注册表：模块简称/表前缀/错误码段/事件域平台统一注册，启动与 CI 校验唯一；平台域内置种子 sys/wf/rpt/ai</td></tr>
         <tr><td>sys_menu</td><td>parent_id、name、path、component、icon、sort、hidden、status</td><td>菜单树平台统一维护，动态路由依据；多语言名存 sys_menu_i18n</td></tr>
         <tr><td>sys_form</td><td>menu_id、business_id、component、status</td><td>表单：菜单 1:1 挂接业务权限（菜单→表单→业务）</td></tr>
         <tr><td>sys_field</td><td>form_id、field_key、name、type、sort、status</td><td>表单界面字段实体，字段权限控制依据</td></tr>
