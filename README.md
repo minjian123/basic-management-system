@@ -48,6 +48,14 @@
 - [概要设计](文档/设计/概要设计/01_概要设计_总览.html)：各功能模块详细设计
 - [文档生成规范](文档/规范/文档生成规范.html)：AI 生成文档的格式与布局约定
 
+## 知识图谱（graphify）
+
+代码库辅助理解用知识图谱，产物在 `graphify-out/`（`graph.html` 可视化、`graph.json` 数据、`GRAPH_REPORT.md` 报告）。已启用中文查询分词。
+
+- 代码库问题先查图谱：`graphify query "问题"`（关系用 `graphify path`，概念用 `graphify explain`）。
+- 代码改动后保持图谱最新：`graphify update .`，然后运行 `powershell -File deploy/tools/graphify/localize-graph.ps1` 收尾（汉化界面 + 生成中文架构图）。
+- 安装、排除规则、重建取舍、社区命名等细节见[《graphify 部署与使用说明》](文档/资料/AI/graphify部署使用说明.html)。
+
 ## 快速启动
 
 代码就绪后按[《开发部署规划》](文档/规划/开发部署规划.html)第 5 节在开发机启动后端与前端：

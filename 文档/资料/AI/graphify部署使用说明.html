@@ -4,12 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>graphify 部署与使用说明</title>
-<link rel="stylesheet" href="../资源/文档样式.css">
+<link rel="stylesheet" href="../../资源/文档样式.css">
 </head>
 <body>
 
 <div class="topnav">
-  <a href="../文档首页.html">文档首页</a> › <span>资料</span> › <span>graphify 部署与使用说明</span>
+  <a href="../../文档首页.html">文档首页</a> › <span>资料</span> › <span>graphify 部署与使用说明</span>
 </div>
 
 <div class="layout">
@@ -17,7 +17,7 @@
   <aside class="sidebar">
     <div class="brand">
       <h1>graphify 部署与使用说明</h1>
-      <p>Windows 环境 · 基于 graphify 0.9.32</p>
+      <p>Windows 环境 · 基于 graphify 0.9.42</p>
     </div>
     <nav>
       <ul>
@@ -25,22 +25,35 @@
         <li><a href="#prereq">2. 环境要求</a></li>
         <li><a href="#install">3. 安装与部署</a>
           <ul class="sub">
-            <li><a href="#install-uv">3.1 安装 graphify</a></li>
-            <li><a href="#install-gemini">3.2 配置 Gemini</a></li>
-            <li><a href="#install-agent">3.3 集成 AI 助手</a></li>
+            <li><a href="#install-uv">3.1 安装 graphify（含 extras 注意）</a></li>
+            <li><a href="#install-chinese">3.2 中文查询分词（jieba）</a></li>
+            <li><a href="#install-gemini">3.3 （可选）配置 Gemini 语义抽取</a></li>
+            <li><a href="#install-agent">3.4 集成 AI 助手</a></li>
           </ul>
         </li>
-        <li><a href="#first-run">4. 首次构建图谱</a></li>
+        <li><a href="#first-run">4. 首次构建图谱</a>
+          <ul class="sub">
+            <li><a href="#two-layers">4.1 图谱的两层：AST 层与语义层</a></li>
+            <li><a href="#semantic-flow">4.2 语义抽取的标准流程（子代理）</a></li>
+          </ul>
+        </li>
         <li><a href="#outputs">5. 输出产物说明</a></li>
         <li><a href="#daily">6. 日常使用</a>
           <ul class="sub">
-            <li><a href="#daily-query">6.1 自然语言查询</a></li>
+            <li><a href="#daily-query">6.1 自然语言查询（含中文）</a></li>
             <li><a href="#daily-path">6.2 路径与概念</a></li>
             <li><a href="#daily-affected">6.3 影响面与枢纽</a></li>
-            <li><a href="#daily-incremental">6.4 增量构建参数</a></li>
+            <li><a href="#daily-incremental">6.4 增量构建常用参数</a></li>
           </ul>
         </li>
-        <li><a href="#maintain">7. 维护与更新</a></li>
+        <li><a href="#maintain">7. 维护与更新</a>
+          <ul class="sub">
+            <li><a href="#maintain-ignore">7.1 排除规则（.graphifyignore）</a></li>
+            <li><a href="#maintain-finalize">7.2 一键收尾：汉化与架构图</a></li>
+            <li><a href="#maintain-rebuild">7.3 重建的取舍：语义层不可再生</a></li>
+            <li><a href="#maintain-label">7.4 社区命名</a></li>
+          </ul>
+        </li>
         <li><a href="#agent">8. 与 AI 编程助手的集成</a></li>
         <li><a href="#faq">9. 常见问题</a></li>
       </ul>
@@ -58,11 +71,12 @@
       </p>
       <p>核心特性：</p>
       <ul>
-        <li><strong>纯 AST 结构化抽取</strong>：代码文件用 Python AST 分析，确定性、免费、无需 API Key。</li>
-        <li><strong>语义抽取</strong>：文档/论文/图片可选用 Gemini API，未配置时由 AI 助手自身完成。</li>
+        <li><strong>纯 AST 结构化抽取</strong>：代码文件用 tree-sitter AST 分析，确定性、免费、无需 API Key。</li>
+        <li><strong>语义抽取</strong>：文档/论文/图片可选用 Gemini API；未配置时由 AI 助手自身完成（见第 4.2 节）。</li>
         <li><strong>诚实审计</strong>：每条关系标注 EXTRACTED（事实）／INFERRED（推断）／AMBIGUOUS（模糊）。</li>
         <li><strong>持久化</strong>：图谱跨会话保留在 <code>graphify-out/</code>，之后直接用 <code>query</code> 查询，不必重建。</li>
         <li><strong>增量更新</strong>：<code>--update</code> / <code>graphify update</code> 只重新抽取新增或变更的文件。</li>
+        <li><strong>中文支持</strong>：中文查询分词（jieba，见 3.2 节）、callflow 架构图中文界面（见 7.2 节）。</li>
       </ul>
 
       <h2 id="prereq">2. 环境要求</h2>
@@ -72,85 +86,99 @@
         <tr><td>Python</td><td>≥ 3.10</td><td>3.14.4</td></tr>
         <tr><td>uv</td><td>推荐（工具安装/隔离环境）</td><td>0.11.7</td></tr>
         <tr><td>git</td><td>克隆 GitHub 仓库时使用</td><td>2.54.0</td></tr>
-        <tr><td>graphify</td><td>pip 或 uv 安装</td><td>0.9.32</td></tr>
+        <tr><td>graphify</td><td>uv 安装（含 extras）</td><td>0.9.42</td></tr>
       </table>
-      <div class="note">graphify 本身<strong>不需要任何 API Key</strong>。只有对文档/论文/图片做语义抽取时才可选配 Gemini Key；纯代码目录（最常见的场景）完全免费离线运行。</div>
+      <div class="note">graphify 本身<strong>不需要任何 API Key</strong>。只有对文档/论文/图片做语义抽取时才需要 LLM（Gemini Key 或 AI 助手会话），纯代码目录完全免费离线运行。</div>
 
       <h2 id="install">3. 安装与部署</h2>
 
-      <h3 id="install-uv">3.1 安装 graphify（推荐用 uv）</h3>
-      <pre><code># 方式一：uv 安装（推荐，本机采用此方式）
-uv tool install graphifyy
+      <h3 id="install-uv">3.1 安装 graphify（含 extras 注意）</h3>
+      <pre><code># uv 安装（推荐，本机采用此方式）
+uv tool install "graphifyy[chinese,openai]" --force
 
-# 方式二：pip 安装
+# pip 安装
 python -m pip install graphifyy
 
 # 验证安装
 graphify --version</code></pre>
       <p>uv 方式安装后，graphify 被隔离在 <code>C:\Users\minji\AppData\Roaming\uv\tools\graphifyy\</code>，全局可调用 <code>graphify</code> 命令。</p>
+      <div class="warn"><strong>extras 互顶坑</strong>：graphify 按功能拆分可选依赖（<code>[chinese]</code> jieba 分词、<code>[openai]</code> OpenAI 兼容客户端、<code>[gemini]</code>、<code>[pdf]</code> 等）。<code>uv tool install "graphifyy[chinese]"</code> 会把之前安装的其他 extras 顶掉——例如只装 <code>[chinese]</code> 后，语义抽取会报 <code>the 'openai' package is required</code>。<strong>升级/加装 extras 时必须一次列出全部需要的</strong>，并加 <code>--force</code> 覆盖。</div>
 
-      <h3 id="install-gemini">3.2 （可选）配置 Gemini 语义抽取</h3>
+      <h3 id="install-chinese">3.2 中文查询分词（jieba）</h3>
+      <p>graphify 的 <code>query/path/explain</code> 检索对中文问题先分词再匹配节点。装了 jieba 用词典分词；未装则降级为「两字滑动窗口」匹配，效果差一截。本项目已安装：</p>
+      <pre><code>uv tool install "graphifyy[chinese,openai]" --force</code></pre>
+      <p>验证：<code>graphify query "视觉识图用什么实现的"</code>，首次运行会构建 jieba 词典缓存（约 0.3 秒），之后即用。</p>
+
+      <h3 id="install-gemini">3.3 （可选）配置 Gemini 语义抽取</h3>
       <pre><code># 先安装 gemini 扩展，再设置环境变量
-uv tool install graphifyy --extra gemini
+uv tool install "graphifyy[gemini,chinese]" --force
 setx GEMINI_API_KEY "你的Key"   # 或 GOOGLE_API_KEY</code></pre>
-      <p>设置后重启终端生效。未配置时语义抽取自动降级为由 AI 助手自身完成，不影响代码图谱。</p>
+      <p>设置后重启终端生效。未配置时语义抽取自动降级为由 AI 助手自身完成（见 4.2 节），不影响代码图谱。</p>
 
-      <h3 id="install-agent">3.3 集成到 AI 编程助手</h3>
+      <h3 id="install-agent">3.4 集成到 AI 编程助手</h3>
       <p>graphify 内置了对主流编程助手的安装命令，可把 skill 与钩子写入对应平台配置：</p>
-      <pre><code>graphify install opencode   # 写入 AGENTS.md 说明 + tool.execute.before 插件
+      <pre><code>graphify install opencode   # 写入 AGENTS.md 说明 + 插件
 graphify install claude     # 写入 CLAUDE.md + PreToolUse 钩子
 graphify install cursor     # 写入 .cursor/rules/graphify.mdc
 graphify uninstall opencode # 卸载（--purge 可同时删除 graphify-out/）</code></pre>
-      <div class="note">本项目已通过 opencode 集成（<code>graphify install opencode</code>），skill 位于 <code>C:\Users\minji\.config\opencode\skills\graphify\</code>，项目内由 <code>.opencode/</code> 插件支撑。</div>
+      <div class="note">本项目已通过 opencode 集成，skill 位于 <code>C:\Users\minji\.config\opencode\skills\graphify\</code>，项目内由 <code>.opencode/</code> 插件支撑。</div>
 
       <h2 id="first-run">4. 首次构建图谱</h2>
-      <p>在项目根目录执行完整构建（推荐在 AI 助手中用 <code>/graphify</code> 触发，或命令行直跑）：</p>
-      <pre><code># 在 AI 助手中
-/graphify .                          # 对当前目录全流程构建
 
-# 命令行直跑（无 LLM，纯代码目录）
-graphify extract . --code-only
+      <h3 id="two-layers">4.1 图谱的两层：AST 层与语义层</h3>
+      <p>理解图谱节点构成，才能看懂「节点变多/变少」：</p>
+      <table>
+        <tr><th>层</th><th>来源</th><th>覆盖</th><th>是否需要 LLM</th></tr>
+        <tr><td>AST 层</td><td>tree-sitter 解析</td><td>代码函数、类；md 文档标题（快扫）</td><td>否，免费离线</td></tr>
+        <tr><td>语义层</td><td>LLM 抽取</td><td>概念（concept）、设计理由（rationale）、跨文档关联</td><td>是（Gemini Key 或 AI 助手）</td></tr>
+      </table>
+      <p>
+        语义层通常是节点大头（本项目 951 节点中语义层占 712 个）。<strong>语义层一旦删除，只有重新跑 LLM 语义抽取才能恢复</strong>——
+        <code>graphify update</code> 只重建 AST 层、保留已有语义层；纯命令行无 LLM 的「彻底删除重建」会丢掉全部语义节点（见 7.3 节）。
+      </p>
 
-# 指定路径 / 深度模式 / 只建报告不建可视化
-graphify extract 文档/ --mode deep
-graphify extract . --no-cluster</code></pre>
-      <p>构建流程分四步：</p>
+      <h3 id="semantic-flow">4.2 语义抽取的标准流程（子代理）</h3>
+      <p>在 AI 助手中运行 <code>/graphify</code> 时，文档语义抽取由<strong>助手会话的模型经子代理并行完成</strong>，这是标准做法：</p>
       <ol>
-        <li><strong>检测</strong>：扫描目录，分类统计代码/文档/论文/图片/视频文件。</li>
-        <li><strong>抽取</strong>：代码走 AST（免费快速），文档/图片走语义抽取（可选 Gemini）。</li>
-        <li><strong>聚类与分析</strong>：社区检测、凝聚度评分、枢纽节点（god nodes）识别。</li>
-        <li><strong>输出</strong>：生成 graph.html、graph.json、GRAPH_REPORT.md 及分析侧车文件。</li>
+        <li><strong>detect</strong>：扫描目录，分类统计代码/文档/论文/图片/视频文件。</li>
+        <li><strong>AST 抽取（Part A）</strong>：代码文件本地解析，与语义抽取并行。</li>
+        <li><strong>语义抽取（Part B）</strong>：文档按 20-25 个文件分块，每块派一个子代理；子代理读取文件、按抽取规范（extraction-spec.md）输出节点/边/超边 JSON。OpenCode 平台用并行 agent 分发，全部子代理同一消息派发。</li>
+        <li><strong>合并（Part C）</strong>：AST + 语义节点去重合并，写入 <code>graphify-out/.graphify_extract.json</code>。</li>
+        <li><strong>构建与聚类（Step 4-5）</strong>：生成 graph.json、GRAPH_REPORT.md，并给社区命名（中文名由助手手工拟定，见 7.4 节）。</li>
+        <li><strong>输出（Step 6）</strong>：生成 graph.html 可视化。</li>
       </ol>
-      <div class="warn"><strong>注意</strong>：目录超过 500 个文件或 200 万词时，graphify 会提示收敛范围；建议按子目录分别构建。超过 5000 节点时 HTML 可视化会自动聚合到社区视图，不要用 <code>--no-viz</code> 之外的方式强行渲染。</div>
+      <div class="note">token 由助手会话承担，graphify 的 <code>cost.json</code> 不记账；语义抽取结果会写入缓存（<code>graphify-out/cache/semantic/</code>），文档不变则增量更新不再重复抽取。</div>
 
       <h2 id="outputs">5. 输出产物说明</h2>
       <p>所有产物都在 <code>graphify-out/</code> 目录下：</p>
       <table>
         <tr><th>文件</th><th>说明</th></tr>
-        <tr><td><code>graph.html</code></td><td>交互式图谱，浏览器直接打开，可缩放、点节点看详情。</td></tr>
+        <tr><td><code>graph.html</code></td><td>交互式图谱，浏览器直接打开，可缩放、点节点看详情（本项目已汉化界面）。</td></tr>
+        <tr><td><code>CALLFLOW.html</code></td><td>中文界面架构图（Mermaid 调用流程），<code>graphify export callflow-html --lang zh-CN</code> 生成。</td></tr>
         <tr><td><code>graph.json</code></td><td>原始图数据（GraphRAG 就绪），供 query/path/explain 等命令查询。</td></tr>
-        <tr><td><code>GRAPH_REPORT.md</code></td><td>人话版审计报告：God Nodes、意外关联、建议问题、token 成本。</td></tr>
+        <tr><td><code>GRAPH_REPORT.md</code></td><td>人话版审计报告：God Nodes、意外关联、建议问题。</td></tr>
+        <tr><td><code>.graphify_labels.json</code></td><td>社区中文名映射（cid → 名称），可视化图例与报告共用。</td></tr>
         <tr><td><code>manifest.json</code></td><td>文件清单与语义哈希，<code>update</code> 增量更新依赖它。</td></tr>
-        <tr><td><code>cost.json</code></td><td>累计 token 成本跟踪。</td></tr>
-        <tr><td><code>.graphify_python</code></td><td>记录本次使用的 Python 解释器路径（skill 内部使用）。</td></tr>
-        <tr><td><code>.graphify_root</code></td><td>记录的扫描根目录，供无参 <code>update</code> 使用。</td></tr>
-        <tr><td><code>cache/</code></td><td>语义抽取缓存，未变更文件不重复抽取。</td></tr>
+        <tr><td><code>cost.json</code></td><td>累计 token 成本跟踪（子代理抽取不计入）。</td></tr>
+        <tr><td><code>.graphify_python</code> / <code>.graphify_root</code></td><td>记录本次使用的 Python 解释器路径与扫描根目录（skill 内部使用）。</td></tr>
+        <tr><td><code>cache/</code></td><td>AST 与语义抽取缓存，未变更文件不重复抽取。</td></tr>
+        <tr><td><code>2026-08-xx/</code></td><td>graphify 自动备份的当日图谱快照（graph.json/报告/标签等）。</td></tr>
       </table>
 
       <h2 id="daily">6. 日常使用</h2>
 
-      <h3 id="daily-query">6.1 自然语言查询</h3>
-      <pre><code>graphify query "认证流程如何处理token刷新？"   # BFS 广度遍历
+      <h3 id="daily-query">6.1 自然语言查询（含中文）</h3>
+      <pre><code>graphify query "认证流程如何处理token刷新？"   # BFS 广度遍历（中文问题自动分词）
 graphify query "数据如何流入审计模块？" --dfs   # DFS 深度追踪
 graphify query "……" --budget 1500              # 限制回答 token 数</code></pre>
 
       <h3 id="daily-path">6.2 路径与概念</h3>
-      <pre><code>graphify path "AuthModule" "Database"   # 两概念间最短路径
-graphify explain "JWT"                  # 用大白话解释某节点及其邻居</code></pre>
+      <pre><code>graphify path "事件总线" "工作流"        # 两概念间最短路径（支持中文）
+graphify explain "多租户路由"             # 用大白话解释某节点及其邻居</code></pre>
 
       <h3 id="daily-affected">6.3 影响面与枢纽</h3>
-      <pre><code>graphify affected "UserService" --depth 2   # 反向遍历：谁会被它影响
-graphify god-nodes --top 10                 # 架构枢纽节点排行</code></pre>
+      <pre><code>graphify affected "事件总线" --depth 2   # 反向遍历：谁会被它影响
+graphify god-nodes --top 10               # 架构枢纽节点排行</code></pre>
 
       <h3 id="daily-incremental">6.4 增量构建常用参数</h3>
       <pre><code>graphify update .                  # 只抽取新增/变更代码，免费无 LLM
@@ -159,15 +187,32 @@ graphify watch 文档/               # 监视目录，代码变更自动重建
 graphify cluster-only .            # 只重跑聚类和报告</code></pre>
 
       <h2 id="maintain">7. 维护与更新</h2>
+
+      <h3 id="maintain-ignore">7.1 排除规则（.graphifyignore）</h3>
+      <p>项目根目录的 <code>.graphifyignore</code>（语法同 .gitignore）控制哪些文件不进图谱：</p>
+      <pre><code># 本项目当前排除项
+文档/资源/              # 第三方压缩 JS/CSS（mermaid.min.js 等），避免英文函数节点刷屏
+.opencode/skills/graphify/   # graphify 自带英文 skill 文档，非本项目内容</code></pre>
+      <p>新增排除项后运行 <code>graphify update --force .</code>，图谱会自动修剪被排除文件的节点。</p>
+
+      <h3 id="maintain-finalize">7.2 一键收尾：汉化与架构图</h3>
+      <p>graph.html 的可视化模板是固定英文界面，无法配置。本项目用一个脚本完成两件收尾（幂等，可反复执行）：</p>
+      <pre><code>graphify update --force .        # 重建图谱
+powershell -File deploy/tools/graphify/localize-graph.ps1   # 汉化 graph.html + 生成 CALLFLOW.html</code></pre>
+      <p>脚本位置：<code>deploy/tools/graphify/localize-graph.ps1</code>。callflow 架构图也可单独生成：<code>graphify export callflow-html --lang zh-CN</code>（<code>--lang</code> 支持 auto 自动检测，本项目图谱以中文为主可省略）。</p>
+
+      <h3 id="maintain-rebuild">7.3 重建的取舍：语义层不可再生</h3>
       <ul>
-        <li><strong>代码改动后</strong>：运行 <code>graphify update .</code> 保持图谱最新（纯 AST，无 API 开销）。本项目 AGENTS.md 已约定：修改代码后运行 <code>graphify update .</code>。</li>
-        <li><strong>大重构删除了代码</strong>：<code>graphify update . --force</code>（防止旧图谱残留导致误判）。</li>
-        <li><strong>提交钩子</strong>：<code>graphify hook install</code> 安装 post-commit 自动重建钩子。</li>
-        <li><strong>全局图谱</strong>：多个项目可合并到全局图 <code>graphify global add 项目路径</code>，跨仓库查询。</li>
+        <li><strong>代码改动</strong>：<code>graphify update .</code> 即可，AST 层重抽、语义层保留。</li>
+        <li><strong>彻底删除重建（清空 graphify-out/ 后 update）</strong>：AST 层全量重抽，但<strong>语义层永久丢失</strong>——文档概念节点退化为标题级，节点数大幅缩水（本项目实测 951 → 139）。恢复只能重新跑语义抽取（4.2 节）或从备份恢复。</li>
+        <li><strong>备份</strong>：重建前先整体复制 <code>graphify-out/</code> 到临时目录；graphify 自身也会按日期备份当日图谱。</li>
       </ul>
 
+      <h3 id="maintain-label">7.4 社区命名</h3>
+      <p>标准做法：助手阅读 <code>.graphify_analysis.json</code> 中各社区的成员标签，手工拟定 2-5 字中文名，写入 <code>.graphify_labels.json</code> 并重新生成报告与 graph.json（skill Step 5）。</p>
+
       <h2 id="agent">8. 与 AI 编程助手的集成</h2>
-      <p>项目根目录 <code>AGENTS.md</code> 中已写入 graphify 使用规则，AI 助手会遵循：</p>
+      <p>项目根目录 <code>AGENTS.md</code> 中已写入 graphify 使用规则，AI 助手会遵循（这些是运行时规则，细节见本文档）：</p>
       <ul>
         <li>代码库问题优先 <code>graphify query "&lt;问题&gt;"</code>，关系用 <code>graphify path</code>，概念用 <code>graphify explain</code>——返回的子图比全文 grep 小得多。</li>
         <li>有 <code>graphify-out/wiki/index.md</code> 时用其做广域导航。</li>
@@ -179,11 +224,23 @@ graphify cluster-only .            # 只重跑聚类和报告</code></pre>
         <tr><th>问题</th><th>处理</th></tr>
         <tr>
           <td>提示需要 API Key？</td>
-          <td>纯代码目录不需要。文档/图片语义抽取可选配 <code>GEMINI_API_KEY</code>，否则由 AI 助手自身完成，绝不要配置 ANTHROPIC/OPENAI Key——graphify 不读取它们。</td>
+          <td>纯代码目录不需要。文档语义抽取可选配 <code>GEMINI_API_KEY</code>，否则由 AI 助手自身完成（4.2 节）。</td>
         </tr>
         <tr>
-          <td>构建时报 “Graph is empty”？</td>
-          <td>抽取未产出节点。检查目录是否全为不支持的类型（如纯二进制），或抽取步骤失败。</td>
+          <td>报 <code>the 'openai' package is required</code>？</td>
+          <td>extras 被顶掉了，重装时一次带全：<code>uv tool install "graphifyy[chinese,openai]" --force</code>（3.1 节）。</td>
+        </tr>
+        <tr>
+          <td>图谱节点怎么变少了？</td>
+          <td>先分清 AST 层与语义层（4.1 节）。<code>update</code> 不会丢语义层；彻底删除重建才会丢，且不可再生（7.3 节）。</td>
+        </tr>
+        <tr>
+          <td>图谱里怎么全是英文节点？</td>
+          <td>多半是第三方 JS 库的函数名进了图。用 <code>.graphifyignore</code> 排除后 <code>update --force</code> 修剪（7.1 节）。</td>
+        </tr>
+        <tr>
+          <td>graph.html 界面是英文？</td>
+          <td>可视化模板固定英文。运行 <code>deploy/tools/graphify/localize-graph.ps1</code> 汉化（7.2 节）。</td>
         </tr>
         <tr>
           <td>update 后节点变少、拒绝覆盖？</td>
@@ -206,7 +263,7 @@ graphify cluster-only .            # 只重跑聚类和报告</code></pre>
     </main>
 
     <footer>
-      本文档基于 graphify 0.9.32（Windows / PowerShell 7 环境）编写。项目：<a href="https://github.com/safishamsi/graphify">github.com/safishamsi/graphify</a> · 生成日期：2026-08-05
+      本文档基于 graphify 0.9.42（Windows / PowerShell 7 环境）编写。项目：<a href="https://github.com/safishamsi/graphify">github.com/safishamsi/graphify</a> · 生成日期：2026-08-14
     </footer>
   </div>
 
