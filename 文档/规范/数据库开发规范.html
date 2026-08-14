@@ -52,7 +52,7 @@
 
       <h2 id="design">2. 表结构设计</h2>
       <ul>
-        <li>表前缀：平台域固定 <code>sys_</code>（系统/权限）、<code>wf_</code>（工作流）、<code>rpt_</code>（报表）、<code>ai_</code>（AI 域）；业务模块表用各模块独立前缀（注册制：<code>pur_</code> 采购、<code>pay_</code> 收付款、<code>sup_</code> 供应商、<code>sale_</code> 销售、<code>wh_</code> 仓储，登记表见《<a href="../规划/项目规划说明.html">项目规划说明</a>》「附加业务模块规划」节）；表名单数 snake_case。</li>
+        <li>表前缀：平台域固定 <code>sys_</code>（系统/权限）、<code>wf_</code>（工作流）、<code>rpt_</code>（报表）、<code>ai_</code>（AI 域）；业务模块表用各模块独立前缀（注册制：先登记于平台库 <code>sys_module</code> 再建表，唯一性由启动与 CI 校验；<code>pur_</code> 采购、<code>pay_</code> 收付款、<code>sup_</code> 供应商、<code>sale_</code> 销售、<code>wh_</code> 仓储，登记表见《<a href="../规划/项目规划说明.html">项目规划说明</a>》「附加业务模块规划」节）；表名单数 snake_case。</li>
         <li>主键统一 <code>id</code>；关联表（<code>sys_user_post</code> 等）联合主键、不设 id。</li>
         <li>每表必备审计字段：<code>created_at</code>、<code>created_by</code>、<code>updated_at</code>、<code>updated_by</code>；软删除表加 <code>deleted_at</code>、并发控制加 <code>version</code>。</li>
         <li>金额用 DECIMAL/NUMERIC，禁止 FLOAT/DOUBLE；状态、类型用 <code>status</code>、<code>type</code> 短整型或枚举，配合字典管理（不写死魔法值）。</li>

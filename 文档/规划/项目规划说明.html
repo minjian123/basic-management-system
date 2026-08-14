@@ -474,6 +474,7 @@ graph TD
         <tr><td>sys_role_assign</td><td>subject_type（user/post/dept…）、subject_id、role_id</td><td>主体-角色通用绑定（用户/岗位/部门等任意主体类型，新增实体仅扩枚举），权限计算收敛为用户→角色</td></tr>
         <tr><td>sys_business</td><td>code（user）、name、status</td><td>【平台库】业务权限码平台统一维护，租户侧可见、可分配、不可增删</td></tr>
         <tr><td>sys_action</td><td>code（create）、name、business_id、status</td><td>【平台库】动作权限码归属业务，平台统一维护</td></tr>
+        <tr><td>sys_module</td><td>module_key、name、table_prefix、errcode_segment、event_domain、status</td><td>【平台库】业务模块注册表：模块简称（module_key）、表前缀（table_prefix）、错误码段（errcode_segment 段号）、事件域（event_domain）平台统一注册，启动与 CI 校验三者唯一；平台域内置种子（sys/wf/rpt/ai）；多语言模块名存 sys_module_i18n；租户侧可见、不可增删</td></tr>
         <tr><td>sys_role_permission</td><td>role_id、perm_type（menu/form/action）、target_id</td><td>角色授予菜单/表单权限（业务权限按表单→业务对照关系推导）或动作权限（按钮级），target_id 跨库逻辑引用平台码</td></tr>
         <tr><td>sys_menu</td><td>parent_id、name、path、component、icon、sort、hidden、status</td><td>【平台库】菜单树平台统一维护，动态路由依据；多语言菜单名存 sys_menu_i18n</td></tr>
         <tr><td>sys_form</td><td>menu_id、business_id、component、status</td><td>【平台库】表单：菜单 1:1 挂接业务权限（菜单→表单→业务）</td></tr>
@@ -907,7 +908,7 @@ graph TD
       <h2 id="plan">20. 开发计划与验收标准</h2>
       <table>
         <tr><th>阶段</th><th>内容</th><th>完成标准</th></tr>
-        <tr><td>一 项目骨架</td><td>monorepo（含 frontend-mobile）、配置/日志/健康检查、SQLAlchemy 接入、平台库/租户库拓扑与租户解析、批量迁移工具、CI 流水线</td><td>本地起服务、CI 通过、/healthz /readyz 正常、三库拓扑可路由（MySQL/PostgreSQL/达梦 DM8，驱动兼容性验证通过）</td></tr>
+        <tr><td>一 项目骨架</td><td>monorepo（含 frontend-mobile）、配置/日志/健康检查、SQLAlchemy 接入、平台库/租户库拓扑与租户解析、批量迁移工具、CI 流水线、模块注册表（sys_module：模块简称/表前缀/错误码段/事件域平台统一维护，启动与 CI 校验唯一）</td><td>本地起服务、CI 通过、/healthz /readyz 正常、三库拓扑可路由（MySQL/PostgreSQL/达梦 DM8，驱动兼容性验证通过）、模块注册校验生效（表前缀/错误码段/事件域冲突被拒）</td></tr>
         <tr><td>二 认证与安全</td><td>双 token、登录/刷新/登出、限流、图形验证码、会话管理、账号锁定/解锁管理、SSO（OIDC 客户端 + CAS 兼容、JIT 建号、BMS 兼作 IdP、企业微信/钉钉免登）、密码策略合规、数据脱敏</td><td>登录链路（本地 + SSO）E2E 通过、策略强制生效</td></tr>
         <tr><td>三 RBAC 基础模块</td><td>部门/岗位/用户/角色、主体链角色绑定、业务与动作权限、菜单/表单/按钮/字段挂接、字段权限、动作级数据范围、三权分立、平台超管与租户管理、动态菜单接口</td><td>主体链任意长度权限计算正确、越权与跨租户访问被拒验证通过、数据范围读写检查生效、字段权限生效、配额超限拦截生效、三权互斥生效</td></tr>
         <tr><td>四 通用能力</td><td>消息与任务基础设施（RocketMQ 事件总线 + Celery）、字典、系统参数、文件管理（分片上传/断点续传/预签名下载/在线预览）、Excel 导入导出、通知中心、公告管理、帮助中心、回收站、邮件与短信通知、操作/登录日志、字段级变更审计与哈希链、国际化管理、归档管理、首页工作台后端（卡片注册表/平台与角色模板/个人布局与一键重置接口）、表单定制后端（布局配置表与三级解析/字段属性/租户自建字段动态 DDL 与跨方言类型映射/服务端动态校验/查询区与明细区配置）</td><td>各模块 CRUD + 日志落库、审计链校验通过、归档流转可用、工作台模板与个人布局接口可用、表单三级布局解析与动态 DDL 加列/动态校验验证通过</td></tr>
@@ -960,7 +961,7 @@ graph TD
 
       <h3 id="addon-flow">23.2 内置模块标准接入流程</h3>
       <ol>
-        <li><strong>模块注册</strong>：确定模块简称、表前缀、业务码、错误码段、事件域，在平台登记（见 23.3/23.4/23.5），避免冲突。</li>
+        <li><strong>模块注册</strong>：确定模块简称、表前缀、业务码、错误码段、事件域，在 sys_module 平台注册（阶段一已实现的基础能力，含唯一性校验），并登记业务/动作码（见 23.3/23.4/23.5），避免冲突。</li>
         <li><strong>数据模型</strong>：新表用 {前缀}_ 命名（表名单数 snake_case），遵循"数据规范"节（雪花 ID、软删除、审计字段、乐观锁、UTC 时间、i18n 附表、跨库逻辑外键）；Alembic 迁移脚本三库可执行；表位于租户库。</li>
         <li><strong>后端分层</strong>：按模块新增 app/api/{简称}/、models/、schemas/、services/、repositories/ 目录，遵守分层职责（api 只做参数校验与路由分发，禁止直接操作模型）；模块间引用走服务层或事件，禁止跨模块直接操作模型。</li>
         <li><strong>权限接入</strong>：业务码注册 sys_business、动作码注册 sys_action（平台库种子，动作按业务分配）；动作码若为通用语义（query/create/update/delete/manage 等）复用既有清单，模块私有动作再新增。</li>
@@ -973,7 +974,7 @@ graph TD
       </ol>
 
       <h3 id="addon-register">23.3 模块注册要素</h3>
-      <p>新增模块在平台统一登记以下要素（一处登记、全局生效），简称全小写、与英文名一致：</p>
+      <p>新增模块在平台库 sys_module 统一登记以下要素（一处登记、全局生效；该机制为阶段一实现的平台基础能力，启动与 CI 校验表前缀/错误码段/事件域唯一），简称全小写、与英文名一致：</p>
       <table>
         <tr><th>要素</th><th>规则</th><th>示例（销售）</th></tr>
         <tr><td>模块简称</td><td>英文名词，2-6 位全小写</td><td>sale</td></tr>
@@ -986,7 +987,7 @@ graph TD
       </table>
 
       <h3 id="addon-prefix">23.4 模块前缀登记表</h3>
-      <p>平台域固定前缀与业务模块前缀统一登记，新增模块先查此表防冲突：</p>
+      <p>平台域固定前缀与业务模块前缀统一登记于 sys_module（平台库，种子维护，启动与 CI 校验唯一），新增模块先查注册表防冲突：</p>
       <table>
         <tr><th>域/模块</th><th>前缀</th><th>状态</th></tr>
         <tr><td>系统（含权限体系）</td><td>sys_</td><td>平台域固定</td></tr>
@@ -1040,7 +1041,7 @@ graph TD
       <ul>
         <li>开发计划"附加业务模块（预留）"阶段：销售管理、仓储管理按 23.2 标准流程推进，启动时间另行确定、不纳入 MVP 排期；每个模块交付时配套概要设计文档（遵循《文档生成规范》设计体系）与验收标准。</li>
         <li>独立服务按 23.7 接入，不占开发计划阶段，单独立项。</li>
-        <li>模块前缀、错误码段、事件域等登记表随模块交付同步更新；《命名规范》表前缀规则与本文档保持一致。</li>
+        <li>模块前缀、错误码段、事件域等注册于 sys_module（阶段一实现，平台库种子维护、启动与 CI 校验唯一），随模块交付同步更新种子；《命名规范》表前缀规则与本文档保持一致。</li>
       </ul>
 
       <h2 id="exclude">24. 明确不采用</h2>
