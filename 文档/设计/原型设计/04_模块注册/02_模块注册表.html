@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 模块注册表</title>
+<link rel="stylesheet" href="../共享资源/原型样式.css">
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="01_设计说明.html">← 返回设计说明</a></span>
+  <span class="pb-name">模块注册 · 模块注册表</span>
+</div>
+
+<div class="proto-frame">
+  <div class="p-toolbar">
+    <button class="p-btn" onclick="toast('已刷新')">刷新</button>
+    <button class="p-btn" onclick="toast('原型演示：关闭当前模块页面（返回）')">关闭</button>
+    <span style="margin-left:auto">
+      <button class="p-btn" onclick="toast('原型演示：导出当前筛选结果')">导出</button>
+      <span class="proto-hint" style="margin-left:10px">平台超管只读视图（无增删改入口）</span>
+    </span>
+  </div>
+  <div class="p-filter">
+    <input class="p-input keyword" placeholder="关键字：模块简称/名称">
+    <select class="p-select" style="width:130px" onchange="applyFilter()">
+      <option value="">状态：全部</option>
+      <option>启用</option>
+      <option>规划中</option>
+    </select>
+    <select class="p-select" style="width:150px" onchange="applyFilter()">
+      <option value="">类型：全部</option>
+      <option>平台域固定</option>
+      <option>业务模块</option>
+    </select>
+    <button class="p-btn sm primary" onclick="applyFilter()">查询</button>
+    <button class="p-btn sm" onclick="resetFilter()">重置</button>
+  </div>
+  <table class="p-table" id="tbl-mod">
+    <tr><th>模块简称</th><th>名称</th><th>表前缀</th><th>错误码段</th><th>事件域</th><th>类型</th><th>状态</th></tr>
+    <tr class="row-link" onclick="goDetail('sys')"><td>sys</td><td>系统（含权限体系）</td><td>sys_</td><td>—</td><td>sys</td><td>平台域固定</td><td>启用</td></tr>
+    <tr class="row-link" onclick="goDetail('wf')"><td>wf</td><td>工作流</td><td>wf_</td><td>—</td><td>wf</td><td>平台域固定</td><td>启用</td></tr>
+    <tr class="row-link" onclick="goDetail('rpt')"><td>rpt</td><td>报表</td><td>rpt_</td><td>—</td><td>rpt</td><td>平台域固定</td><td>启用</td></tr>
+    <tr class="row-link" onclick="goDetail('ai')"><td>ai</td><td>AI 域</td><td>ai_</td><td>—</td><td>ai</td><td>平台域固定</td><td>启用</td></tr>
+    <tr class="row-link" onclick="goDetail('purchase')"><td>purchase</td><td>采购</td><td>pur_</td><td>10</td><td>purchase</td><td>业务模块</td><td>启用</td></tr>
+    <tr class="row-link" onclick="goDetail('payment')"><td>payment</td><td>收付款</td><td>pay_</td><td>11</td><td>payment</td><td>业务模块</td><td>启用</td></tr>
+    <tr class="row-link" onclick="goDetail('supplier')"><td>supplier</td><td>供应商</td><td>sup_</td><td>—</td><td>supplier</td><td>业务模块</td><td>启用</td></tr>
+    <tr class="row-link" onclick="goDetail('sale')"><td>sale</td><td>销售</td><td>sale_</td><td>12</td><td>sale</td><td>业务模块</td><td>规划中</td></tr>
+    <tr class="row-link" onclick="goDetail('wh')"><td>wh</td><td>仓储</td><td>wh_</td><td>13</td><td>wh</td><td>业务模块</td><td>规划中</td></tr>
+  </table>
+  <div class="p-empty" id="empty-mod" style="display:none">
+    <div class="p-empty-icon">🔍</div>
+    <div>未找到匹配模块</div>
+    <div style="margin-top:10px"><button class="p-btn" onclick="resetFilter()">重置</button></div>
+  </div>
+  <div id="pager-mod"></div>
+</div>
+
+<script src="../共享资源/原型脚本.js"></script>
+<script src="../02_公共原型/分页.js"></script>
+<script>
+  renderPager(document.getElementById('pager-mod'), { total: 9, page: 1, size: 20, onPage: function (n) { toast('第 ' + n + ' 页'); } });
+  function goDetail(key) {
+    location.href = '03_模块详情.html?key=' + key;
+  }
+  function applyFilter() {
+    var kw = (document.querySelector('.p-filter .keyword').value || '').trim().toLowerCase();
+    var st = document.querySelectorAll('.p-filter .p-select')[0].value;
+    var tp = document.querySelectorAll('.p-filter .p-select')[1].value;
+    var rows = document.querySelectorAll('#tbl-mod tr.row-link');
+    var hit = 0;
+    rows.forEach(function (r) {
+      var text = r.textContent;
+      var ok = (!kw || text.toLowerCase().indexOf(kw) >= 0) &&
+               (!st || text.indexOf(st) >= 0) &&
+               (!tp || text.indexOf(tp) >= 0);
+      r.style.display = ok ? '' : 'none';
+      if (ok) hit++;
+    });
+    document.getElementById('empty-mod').style.display = hit ? 'none' : '';
+    toast('筛选完成：命中 ' + hit + ' 条');
+  }
+  function resetFilter() {
+    document.querySelector('.p-filter .keyword').value = '';
+    document.querySelectorAll('.p-filter .p-select')[0].value = '';
+    document.querySelectorAll('.p-filter .p-select')[1].value = '';
+    applyFilter();
+  }
+</script>
+
+</body>
+</html>

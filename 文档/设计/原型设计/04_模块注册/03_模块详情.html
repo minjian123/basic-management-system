@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 模块详情</title>
+<link rel="stylesheet" href="../共享资源/原型样式.css">
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="02_模块注册表.html">← 返回模块注册表</a></span>
+  <span class="pb-name">模块注册 · 模块详情</span>
+</div>
+
+<div class="proto-frame">
+  <div class="p-page-head">
+    <h3 style="margin:0" id="mod-title">模块注册详情</h3>
+    <span class="proto-hint" id="mod-type">只读视图</span>
+  </div>
+
+  <table class="p-table" style="margin-top:14px;max-width:760px">
+    <tr><th style="width:160px">注册要素</th><th>值</th></tr>
+    <tr><td>模块简称（module_key）</td><td id="f-key">—</td></tr>
+    <tr><td>名称</td><td id="f-name">—</td></tr>
+    <tr><td>英文名称（i18n）</td><td id="f-en">—</td></tr>
+    <tr><td>表前缀（table_prefix）</td><td id="f-prefix">—</td></tr>
+    <tr><td>错误码段（errcode_segment）</td><td id="f-seg">—</td></tr>
+    <tr><td>事件域（event_domain）</td><td id="f-event">—</td></tr>
+    <tr><td>类型</td><td id="f-typ">—</td></tr>
+    <tr><td>状态</td><td id="f-status">—</td></tr>
+  </table>
+
+  <div style="margin-top:14px;max-width:760px" class="p-row">
+    <div class="p-col p-field"><label>登记说明</label>
+      <div class="proto-hint" id="f-note">平台库 sys_module 统一登记，启动与 CI 校验表前缀/错误码段/事件域唯一。</div>
+    </div>
+  </div>
+  <div style="margin-top:14px;max-width:760px" class="p-row">
+    <div class="p-col p-field"><label>关联约定</label>
+      <div class="proto-hint" id="f-ref">表名 {前缀}{表名单数}；业务码与事件域以注册值为权威；新增模块走开发期种子注册。</div>
+    </div>
+  </div>
+
+  <div class="p-toolbar" style="margin-top:18px">
+    <button class="p-btn" onclick="location.href='02_模块注册表.html'">返回列表</button>
+    <button class="p-btn" onclick="toast('已刷新')">刷新</button>
+  </div>
+</div>
+
+<script src="../共享资源/原型脚本.js"></script>
+<script>
+  var DATA = {
+    sys:      { key: 'sys',      name: '系统（含权限体系）', en: 'System',      prefix: 'sys_', seg: '—', event: 'sys',      typ: '平台域固定', status: '启用',
+                note: '平台域固定种子：权限体系（用户/岗位/角色/菜单/表单/字段/按钮/业务/动作/数据范围）及平台元数据表。' },
+    wf:       { key: 'wf',       name: '工作流',             en: 'Workflow',    prefix: 'wf_', seg: '—', event: 'wf',       typ: '平台域固定', status: '启用',
+                note: '平台域固定种子：流程定义/实例/待办/审批记录表。' },
+    rpt:      { key: 'rpt',      name: '报表',               en: 'Report',      prefix: 'rpt_', seg: '—', event: 'rpt',      typ: '平台域固定', status: '启用',
+                note: '平台域固定种子：数据集/报表/大屏表。' },
+    ai:       { key: 'ai',       name: 'AI 域',              en: 'AI',          prefix: 'ai_', seg: '—', event: 'ai',       typ: '平台域固定', status: '启用',
+                note: '平台域固定种子：AI 交互审计/文件分段表（阶段十五）。' },
+    purchase: { key: 'purchase', name: '采购',               en: 'Purchase',    prefix: 'pur_', seg: '10', event: 'purchase', typ: '业务模块', status: '启用',
+                note: '业务模块：申请/订单表（MVP 模拟业务）；错误码段 10xxxx。' },
+    payment:  { key: 'payment',  name: '收付款',             en: 'Payment',     prefix: 'pay_', seg: '11', event: 'payment',  typ: '业务模块', status: '启用',
+                note: '业务模块：收款/付款/退款/流水/渠道表（MVP 实际使用）；错误码段 11xxxx。' },
+    supplier: { key: 'supplier', name: '供应商',             en: 'Supplier',    prefix: 'sup_', seg: '—', event: 'supplier', typ: '业务模块', status: '启用',
+                note: '业务模块：供应商档案表；暂无独立错误码段（业务错误码走引用方）。' },
+    sale:     { key: 'sale',     name: '销售',               en: 'Sales',       prefix: 'sale_', seg: '12', event: 'sale',     typ: '业务模块', status: '规划中',
+                note: '业务模块（规划中）：客户/合同/订单/发货/退货表；错误码段 12xxxx，待阶段启动后注册种子。' },
+    wh:       { key: 'wh',       name: '仓储',               en: 'Warehouse',   prefix: 'wh_', seg: '13', event: 'wh',       typ: '业务模块', status: '规划中',
+                note: '业务模块（规划中）：仓库/库位/库存/出入库/调拨盘点表；错误码段 13xxxx，待阶段启动后注册种子。' }
+  };
+  var key = new URLSearchParams(location.search).get('key') || 'sys';
+  var d = DATA[key] || DATA.sys;
+  document.getElementById('mod-title').textContent = '模块注册详情 · ' + d.key;
+  document.getElementById('f-key').textContent = d.key;
+  document.getElementById('f-name').textContent = d.name;
+  document.getElementById('f-en').textContent = d.en;
+  document.getElementById('f-prefix').textContent = d.prefix;
+  document.getElementById('f-seg').textContent = d.seg;
+  document.getElementById('f-event').textContent = d.event;
+  document.getElementById('f-typ').textContent = d.typ;
+  document.getElementById('f-status').textContent = d.status;
+  document.getElementById('f-note').textContent = d.note;
+</script>
+
+</body>
+</html>

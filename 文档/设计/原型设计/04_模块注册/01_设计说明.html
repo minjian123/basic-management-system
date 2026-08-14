@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 模块注册 · 设计说明</title>
+<link rel="stylesheet" href="../../../资源/文档样式.css">
+</head>
+<body>
+
+<div class="topnav">
+  <a href="../../../文档首页.html">文档首页</a> ›
+  <a href="../../../规划/项目规划说明.html">项目规划说明</a> ›
+  <a href="../01_原型设计_总览.html">原型设计</a> ›
+  <span>模块注册 · 设计说明</span>
+</div>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>原型 · 模块注册</h1>
+      <p>业务模块注册表 sys_module · 平台超管只读视图 · 设计说明</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#overview">1. 模块概述</a></li>
+        <li><a href="#pages">2. 界面清单</a></li>
+        <li><a href="#interact">3. 交互要点</a></li>
+        <li><a href="#reference">4. 设计依据</a></li>
+        <li><a href="#iter">5. 迭代记录</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="overview">1. 模块概述</h2>
+      <p>
+        平台级基础能力（阶段一交付）：平台库 <code>sys_module</code> 统一登记业务模块的模块简称、表前缀、
+        错误码段与事件域，启动与 CI 校验唯一性。本模块提供<strong>平台超管运营视图（只读）</strong>：
+        查看模块注册表（含平台域固定种子 sys/wf/rpt/ai 与业务模块 purchase/payment/supplier/sale/wh），
+        无增删改入口（新增模块走开发期种子）。
+        对应<a href="../../概要设计/02_概要设计_模块注册.html">《概要设计-模块注册》</a>；
+        机制设计见<a href="../../架构设计/07_架构设计_子系统_模块注册.html">《架构设计-模块注册子系统》</a>。
+      </p>
+
+      <h2 id="pages">2. 界面清单</h2>
+      <table>
+        <tr><th>界面</th><th>原型（可点击操作）</th><th>主要交互验证点</th></tr>
+        <tr><td>模块注册表</td><td><a href="02_模块注册表.html">模块注册表.html</a></td><td>只读列表、筛选（简称/状态/类型）、行点击进详情</td></tr>
+        <tr><td>模块详情</td><td><a href="03_模块详情.html">模块详情.html</a></td><td>只读详情（注册要素 + 校验说明 + i18n 名称）、返回列表</td></tr>
+      </table>
+
+      <h2 id="interact">3. 交互要点</h2>
+      <ul>
+        <li>只读视图：无新增/编辑/删除按钮，工具栏仅「刷新」「关闭」（模拟租户视角无入口）</li>
+        <li>筛选：模块简称/名称关键字、状态（启用/规划中）、类型（平台域固定/业务模块）</li>
+        <li>列表行点击 → 模块详情；详情页「返回」回列表（保留筛选状态演示）</li>
+        <li>业务模块的「错误码段」展示两位段号（10 起）；平台域固定种子无错误码段（显示 —）</li>
+      </ul>
+
+      <h2 id="reference">4. 设计依据</h2>
+      <ul>
+        <li>概要：<a href="../../概要设计/02_概要设计_模块注册.html">《概要设计-模块注册》</a>（接口/错误码/验收）</li>
+        <li>架构：<a href="../../架构设计/07_架构设计_子系统_模块注册.html">《架构设计-模块注册子系统》</a>（sys_module 结构/唯一性校验）</li>
+        <li>规划：<a href="../../../规划/项目规划说明.html">《项目规划说明》</a>「附加业务模块规划」（23 章）与「核心数据表清单」（sys_module）</li>
+      </ul>
+
+      <h2 id="iter">5. 迭代记录</h2>
+      <table>
+        <tr><th>日期</th><th>变更</th><th>状态</th></tr>
+        <tr><td>2026-08-14</td><td>初版：模块注册表 / 模块详情（平台超管只读视图）</td><td>待评审</td></tr>
+      </table>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 原型设计模块说明 · 依《文档生成规范》编写 · 生成日期：2026-08-14
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>
