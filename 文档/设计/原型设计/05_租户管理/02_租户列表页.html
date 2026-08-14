@@ -11,7 +11,8 @@
   .ep-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
   .ep-toolbar .ep-side { margin-left: auto; }
   .ep-filter { margin-bottom: 12px; }
-  .ep-pager { display: flex; justify-content: flex-end; margin-top: 12px; }
+  /* 表格下方一行：左下明细工具栏（图标按钮）+ 右下分页（《布局设计-表格明细》2.4） */
+  .ep-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
 </style>
 </head>
 <body>
@@ -54,7 +55,8 @@
       <el-empty v-if="filtered.length === 0" description="未找到匹配租户" style="padding:40px 0">
         <el-button @click="resetFilter">重置</el-button>
       </el-empty>
-      <el-table v-else :data="pageRows" border stripe v-loading="loading" style="width:100%">
+      <el-table v-else :data="pageRows" border stripe v-loading="loading" @selection-change="onSel" style="width:100%">
+        <el-table-column type="selection" width="48"></el-table-column>
         <el-table-column prop="code" label="租户 code" min-width="100"></el-table-column>
         <el-table-column prop="name" label="名称" min-width="130"></el-table-column>
         <el-table-column prop="domain" label="域名" min-width="220"></el-table-column>
@@ -72,8 +74,19 @@
         </el-table-column>
       </el-table>
 
-      <!-- ④ 分页 -->
-      <div class="ep-pager">
+      <!-- ④ 表格下方一行：左下明细工具栏（新增走开通页提示/删除/上移下移 + 通用工具）+ 右下分页 -->
+      <div class="ep-bar">
+        <div>
+          <el-button size="small" @click="toastMsg('开通租户走开通页')" title="新增行">＋</el-button>
+          <el-button size="small" type="danger" plain :disabled="!selRows.length" @click="delSel" title="删除行">🗑</el-button>
+          <el-button size="small" :disabled="!selRows.length" @click="moveRow(-1)" title="上移行">↑</el-button>
+          <el-button size="small" :disabled="!selRows.length" @click="moveRow(1)" title="下移行">↓</el-button>
+          <el-divider direction="vertical"></el-divider>
+          <el-button size="small" @click="toastMsg('原型演示：自动列宽')" title="自动列宽">⟷</el-button>
+          <el-button size="small" @click="toastMsg('原型演示：自定义列')" title="自定义列">☰</el-button>
+          <el-button size="small" @click="toastMsg('已刷新')" title="刷新">⟳</el-button>
+          <el-button size="small" @click="toastMsg('原型演示：全屏')" title="全屏">⛶</el-button>
+        </div>
         <el-pagination background layout="total, sizes, jumper, prev, pager, next" :total="filtered.length"
           :page-size="query.size" :current-page="query.page"
           @current-change="onPage" @size-change="onSize"></el-pagination>
@@ -89,6 +102,7 @@
 <script>
   var { createApp, ref, reactive, computed } = Vue;
   var ElMessage = ElementPlus.ElMessage;
+  var ElMessageBox = ElementPlus.ElMessageBox;
   var app = createApp({
     template: document.getElementById('app').outerHTML.replace(/<div id="app">/, '<div>').replace(/<\/div>\s*$/, ''),
     setup: function () {
@@ -100,6 +114,7 @@
       ]);
       var query = reactive({ kw: '', status: '', page: 1, size: 20 });
       var loading = ref(false);
+      var selRows = ref([]);
       var filtered = computed(function () {
         return rows.value.filter(function (r) {
           var text = (r.code + r.name).toLowerCase();
@@ -118,12 +133,34 @@
       }
       function openTenant() { location.href = '03_租户开通页.html'; }
       function switchMods(row) { location.href = '04_租户模块开关.html?code=' + row.code; }
+      function onSel(sel) { selRows.value = sel; }
+      // 明细工具栏行操作：删除选中行（二次确认，仅演示）/ 上移下移选中行（多选时取第一行）
+      function delSel() {
+        if (!selRows.value.length) { ElMessage.error('请先选择一行'); return; }
+        if (rows.value.length - selRows.value.length < 1) { ElMessage.error('至少保留一行'); return; }
+        ElMessageBox.confirm('确认删除选中 ' + selRows.value.length + ' 个租户？（原型演示，仅移除列表行）', '提示', { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' })
+          .then(function () {
+            var codes = selRows.value.map(function (r) { return r.code; });
+            rows.value = rows.value.filter(function (r) { return codes.indexOf(r.code) < 0; });
+            selRows.value = [];
+            toastMsg('已删除（演示）');
+          })
+          .catch(function () {});
+      }
+      function moveRow(dir) {
+        if (!selRows.value.length) { ElMessage.error('请先选择一行'); return; }
+        var r = selRows.value[0];
+        var i = rows.value.indexOf(r), t = i + dir;
+        if (t < 0 || t >= rows.value.length) { ElMessage.error(dir < 0 ? '已是第一行' : '已是最后一行'); return; }
+        var tmp = rows.value[i]; rows.value[i] = rows.value[t]; rows.value[t] = tmp;
+        toastMsg('行顺序已调整');
+      }
       function applyFilter() { query.page = 1; toastMsg('筛选完成：命中 ' + filtered.value.length + ' 条'); }
       function resetFilter() { query.kw = ''; query.status = ''; query.page = 1; }
       function onPage(n) { query.page = n; }
       function onSize(s) { query.size = s; query.page = 1; }
       function toastMsg(m) { ElMessage.success(m); }
-      return { rows, query, loading, filtered, pageRows, statusType, statusText, openTenant, switchMods, applyFilter, resetFilter, onPage, onSize, toastMsg };
+      return { rows, query, loading, selRows, filtered, pageRows, statusType, statusText, openTenant, switchMods, onSel, delSel, moveRow, applyFilter, resetFilter, onPage, onSize, toastMsg };
     }
   });
   app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });

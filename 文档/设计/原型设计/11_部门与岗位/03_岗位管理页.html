@@ -11,7 +11,8 @@
   .ep-toolbar { display:flex; align-items:center; gap:8px; margin-bottom:12px; flex-wrap:wrap; }
   .ep-side { margin-left:auto; display:flex; align-items:center; gap:8px; }
   .ep-filter { margin-bottom:12px; }
-  .ep-pager { display:flex; justify-content:flex-end; margin-top:12px; }
+  /* 表格下方一行：左下明细工具栏（图标按钮）+ 右下分页（《布局设计-表格明细》2.4） */
+  .ep-bar { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:12px; flex-wrap:wrap; }
 </style>
 </head>
 <body>
@@ -74,8 +75,19 @@
         </template>
       </el-table>
 
-      <!-- ④ 分页 -->
-      <div class="ep-pager">
+      <!-- ④ 表格下方一行：左下明细工具栏（图标按钮，新增复用工具栏逻辑）+ 右下分页 -->
+      <div class="ep-bar">
+        <div>
+          <el-button size="small" @click="openDlg('add')" title="新增行">＋</el-button>
+          <el-button size="small" type="danger" plain :disabled="!selRows.length" @click="delSel" title="删除行">🗑</el-button>
+          <el-button size="small" :disabled="!selRows.length" @click="moveSel(-1)" title="上移行">↑</el-button>
+          <el-button size="small" :disabled="!selRows.length" @click="moveSel(1)" title="下移行">↓</el-button>
+          <el-divider direction="vertical"></el-divider>
+          <el-button size="small" @click="toastMsg('原型演示：自动列宽')" title="自动列宽">⟷</el-button>
+          <el-button size="small" @click="toastMsg('原型演示：自定义列')" title="自定义列">☰</el-button>
+          <el-button size="small" @click="toastMsg('已刷新')" title="刷新">⟳</el-button>
+          <el-button size="small" @click="toastMsg('原型演示：全屏')" title="全屏">⛶</el-button>
+        </div>
         <el-pagination background layout="total, sizes, jumper, prev, pager, next" :total="filtered.length"
           :page-size="query.size" :current-page="query.page"
           @current-change="onPage" @size-change="onSize"></el-pagination>
@@ -171,6 +183,15 @@
       function onSel(sel) { selRows.value = sel; }
       function onPage(n) { query.page = n; }
       function onSize(s) { query.size = s; query.page = 1; }
+      // 明细工具栏行操作：上移下移选中行（多选时取第一行，按排序语义交换）
+      function moveSel(dir) {
+        if (!selRows.value.length) { toastMsg('请先选择岗位', 'error'); return; }
+        var r = selRows.value[0];
+        var i = rows.value.indexOf(r), j = i + dir;
+        if (j < 0 || j >= rows.value.length) { toastMsg(dir < 0 ? '已是第一行' : '已是最后一行', 'warning'); return; }
+        var tmp = rows.value[i]; rows.value[i] = rows.value[j]; rows.value[j] = tmp;
+        toastMsg('岗位顺序已调整（sort 已同步）', 'success');
+      }
       // 新增/编辑（双击行打开编辑）
       function openDlg(mode, row) {
         if (mode === 'add') {
@@ -222,7 +243,7 @@
         toastMsg('已为「' + roleDrawer.title.replace('绑定角色（', '').replace('）', '') + '」绑定：' + (r.join(' + ') || '未绑定'), 'success');
       }
       return { rows, query, loading, selRows, dlg, roleDrawer, filtered, pageRows,
-        applyFilter, resetFilter, onSel, onPage, onSize, openDlg, savePost, delSel, openRoleDrawer, saveRole, toastMsg };
+        applyFilter, resetFilter, onSel, onPage, onSize, moveSel, openDlg, savePost, delSel, openRoleDrawer, saveRole, toastMsg };
     }
   });
   app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });

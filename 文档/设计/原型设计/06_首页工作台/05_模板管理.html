@@ -11,7 +11,8 @@
   .ep-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
   .ep-toolbar .ep-side { margin-left: auto; }
   .ep-filter { margin-bottom: 12px; }
-  .ep-pager { display: flex; justify-content: flex-end; margin-top: 12px; }
+  /* 表格下方一行：左下明细工具栏（图标按钮）+ 右下分页（《布局设计-表格明细》2.4） */
+  .ep-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
 </style>
 </head>
 <body>
@@ -56,7 +57,8 @@
       </el-form>
 
       <!-- 表格：行点击进入编辑，状态开关可直接切换启停 -->
-      <el-table :data="pageRows" border stripe highlight-current-row @row-click="openEdit" style="width:100%">
+      <el-table :data="pageRows" border stripe highlight-current-row @selection-change="onSel" @row-click="openEdit" style="width:100%">
+        <el-table-column type="selection" width="48"></el-table-column>
         <el-table-column label="层级" width="110">
           <template #default="{ row }">
             <el-tag size="small" :type="row.scope === 'platform' ? '' : 'info'">{{ row.scope === 'platform' ? '平台默认' : '角色' }}</el-tag>
@@ -80,7 +82,19 @@
         </el-table-column>
       </el-table>
 
-      <div class="ep-pager">
+      <!-- 表格下方一行：左下明细工具栏（图标按钮）+ 右下分页 -->
+      <div class="ep-bar">
+        <div>
+          <el-button size="small" @click="openNew" title="新增行">＋</el-button>
+          <el-button size="small" type="danger" plain :disabled="!selRows.length" @click="delSel" title="删除行">🗑</el-button>
+          <el-button size="small" :disabled="!selRows.length" @click="moveSel(-1)" title="上移行">↑</el-button>
+          <el-button size="small" :disabled="!selRows.length" @click="moveSel(1)" title="下移行">↓</el-button>
+          <el-divider direction="vertical"></el-divider>
+          <el-button size="small" @click="toastMsg('原型演示：自动列宽')" title="自动列宽">⟷</el-button>
+          <el-button size="small" @click="toastMsg('原型演示：自定义列')" title="自定义列">☰</el-button>
+          <el-button size="small" @click="toastMsg('已刷新')" title="刷新">⟳</el-button>
+          <el-button size="small" @click="toastMsg('原型演示：全屏')" title="全屏">⛶</el-button>
+        </div>
         <el-pagination background layout="total, sizes, jumper, prev, pager, next" :total="filtered.length"
           :page-size="query.size" :current-page="query.page"
           @current-change="onPage" @size-change="onSize"></el-pagination>
@@ -135,6 +149,7 @@
         { id: 'r-user', name: '审批人工作台', scope: 'role', role: '普通角色', cards: 4, status: true }
       ]);
       var query = reactive({ kw: '', scope: '', status: '', page: 1, size: 10 });
+      var selRows = ref([]);
       var dlg = reactive({ visible: false, id: null, scope: 'role', role: '财务角色', name: '' });
       var filtered = computed(function () {
         return tpls.value.filter(function (r) {
@@ -154,6 +169,27 @@
       function resetFilter() { query.kw = ''; query.scope = ''; query.status = ''; query.page = 1; }
       function onPage(n) { query.page = n; }
       function onSize(s) { query.size = s; query.page = 1; }
+      // 明细工具栏行操作：删除选中行（二次确认）/ 上移下移选中行（多选时取第一行）
+      function onSel(sel) { selRows.value = sel; }
+      function delSel() {
+        if (!selRows.value.length) { ElMessage({ message: '请先选择一行', type: 'warning' }); return; }
+        var r = selRows.value[0];
+        ElMessageBox.confirm('删除模板「' + r.name + '」？绑定该模板的用户将回退到下一级模板（平台默认）。', '删除确认', { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' })
+          .then(function () {
+            tpls.value = tpls.value.filter(function (x) { return x !== r; });
+            selRows.value = [];
+            ElMessage({ message: '已删除，用户回退平台默认', type: 'success' });
+          })
+          .catch(function () {});
+      }
+      function moveSel(dir) {
+        if (!selRows.value.length) { ElMessage({ message: '请先选择一行', type: 'warning' }); return; }
+        var r = selRows.value[0];
+        var list = tpls.value, i = list.indexOf(r), j = i + dir;
+        if (j < 0 || j >= list.length) { ElMessage({ message: dir < 0 ? '已是第一行' : '已是最后一行', type: 'warning' }); return; }
+        var tmp = list[i]; list[i] = list[j]; list[j] = tmp;
+        ElMessage({ message: '模板优先级已调整', type: 'success' });
+      }
       function toggleTpl(row, v) {
         if (v) ElMessage({ message: '已启用', type: 'success' });
         else ElMessage({ message: '已停用——相关用户回退下一级', type: 'warning' });
@@ -211,7 +247,7 @@
         }
         dlg.visible = false; dlg.id = null;
       }
-      return { tpls, query, dlg, filtered, pageRows, toastMsg, applyFilter, resetFilter, onPage, onSize, toggleTpl, moveTpl, delTpl, openNew, openEdit, delTplDrawer, saveTpl };
+      return { tpls, query, selRows, dlg, filtered, pageRows, toastMsg, applyFilter, resetFilter, onPage, onSize, onSel, delSel, moveSel, toggleTpl, moveTpl, delTpl, openNew, openEdit, delTplDrawer, saveTpl };
     }
   });
   app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
