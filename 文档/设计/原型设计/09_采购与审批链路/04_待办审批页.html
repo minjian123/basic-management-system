@@ -5,11 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>原型 · 待办审批页</title>
 <link rel="stylesheet" href="../_shared/prototype.css">
-<style>
-  .todo-split { display: flex; gap: 12px; align-items: flex-start; }
-  .todo-left { flex: 0 0 480px; }
-  .todo-right { flex: 1; }
-</style>
 </head>
 <body>
 
@@ -24,45 +19,70 @@
     <div class="p-tab" data-pane="done" onclick="switchT('done')">我的已办</div>
   </div>
 
-  <div class="todo-split">
-    <div class="todo-left" id="list-area">
-      <div id="pane-todo">
-        <table class="p-table">
-          <tr><th>单据</th><th>标题</th><th>金额</th><th>发起人</th><th>到达时间</th><th>操作</th></tr>
-          <tr style="cursor:pointer" onclick="openTodo('CG202608001')">
-            <td>CG202608001</td><td>采购笔记本电脑×5</td><td>¥35,000</td><td>张三</td><td>08-12 09:30</td>
-            <td><button class="p-btn sm primary" onclick="event.stopPropagation();openTodo('CG202608001')">审批</button></td>
-          </tr>
-          <tr style="cursor:pointer" onclick="openTodo('FK202608002')">
-            <td>FK202608002</td><td>付款：服务器采购</td><td>¥120,000</td><td>李四</td><td>08-11 15:02</td>
-            <td><button class="p-btn sm primary" onclick="event.stopPropagation();openTodo('FK202608002')">审批</button></td>
-          </tr>
-        </table>
-      </div>
-      <div id="pane-done" style="display:none">
-        <table class="p-table">
-          <tr><th>单据</th><th>标题</th><th>结果</th><th>我的意见</th><th>处理时间</th></tr>
-          <tr><td>CG202607015</td><td>采购打印机×2</td><td><span class="p-tag green">已通过</span></td><td>预算内，同意</td><td>07-28 10:00</td></tr>
-          <tr><td>CG202607018</td><td>采购投影仪×1</td><td><span class="p-tag red">已驳回</span></td><td>超出预算</td><td>07-30 14:00</td></tr>
-        </table>
-      </div>
+  <div class="p-page-card">
+    <div id="pane-todo">
+      <table class="p-table">
+        <tr><th>单据</th><th>标题</th><th>金额</th><th>发起人</th><th>到达时间</th><th>操作</th></tr>
+        <tr class="row-link" title="点击打开审批处理" onclick="openTodo('CG202608001')">
+          <td>CG202608001</td><td>采购笔记本电脑×5</td><td>¥35,000</td><td>张三</td><td>08-12 09:30</td>
+          <td class="col-ops"><button class="p-btn sm primary" onclick="event.stopPropagation();openTodo('CG202608001')">审批</button></td>
+        </tr>
+        <tr class="row-link" title="点击打开审批处理" onclick="openTodo('FK202608002')">
+          <td>FK202608002</td><td>付款：服务器采购</td><td>¥120,000</td><td>李四</td><td>08-11 15:02</td>
+          <td class="col-ops"><button class="p-btn sm primary" onclick="event.stopPropagation();openTodo('FK202608002')">审批</button></td>
+        </tr>
+      </table>
     </div>
+    <div id="pane-done" style="display:none">
+      <table class="p-table">
+        <tr><th>单据</th><th>标题</th><th>结果</th><th>我的意见</th><th>处理时间</th></tr>
+        <tr><td>CG202607015</td><td>采购打印机×2</td><td><span class="p-tag green">已通过</span></td><td>预算内，同意</td><td>07-28 10:00</td></tr>
+        <tr><td>CG202607018</td><td>采购投影仪×1</td><td><span class="p-tag red">已驳回</span></td><td>超出预算</td><td>07-30 14:00</td></tr>
+      </table>
+    </div>
+  </div>
+</div>
 
-    <div class="todo-right" id="approve-panel">
-      <div class="p-form">
-        <div class="p-section">审批 · <span id="ap-doc">CG202608001</span></div>
-        <div class="proto-hint" style="margin-bottom:8px">流程进度：张三提交 → <b>部门经理（当前）</b> → 财务 → 分管领导</div>
-        <div class="p-field"><label>审批意见（驳回必填）</label><textarea class="p-textarea" id="ap-comment"></textarea></div>
-        <div style="margin-top:8px;display:flex;gap:8px;align-items:center">
-          <button class="p-btn sm" onclick="toast('原型演示：附件预签名 URL 直开')">📎 采购清单.pdf</button>
-          <span class="proto-hint">附件在线预览</span>
-        </div>
-        <div class="p-form-actions">
-          <button class="p-btn" onclick="toast('原型演示：转办给其他审批人')">转办</button>
-          <button class="p-btn danger" onclick="reject()">驳回</button>
-          <button class="p-btn primary" onclick="approve()">同意</button>
-        </div>
+<!-- 审批处理（w520 弹窗承载，标题「审批处理 · 单据」） -->
+<div class="p-mask" id="m-approve">
+  <div class="p-modal w520">
+    <div class="pm-head">审批处理 · <span id="ap-doc">CG202608001</span><span class="x" onclick="closeModal('m-approve')">✕</span></div>
+    <div class="pm-body" style="font-size:13px">
+      <div class="proto-hint" style="margin-bottom:6px">流程进度（时间线，当前节点高亮）</div>
+      <div style="border-left:2px solid #d0d7de;margin:0 0 12px 6px;padding-left:14px">
+        <div style="padding:4px 0"><b>张三</b> 提交申请 · 08-12 09:30</div>
+        <div style="padding:6px 10px;background:#ddf4ff;border-radius:6px;margin:2px 0"><b>部门经理</b>（当前节点，待处理）</div>
+        <div style="padding:4px 0;color:#8c959f">财务 · 待处理</div>
+        <div style="padding:4px 0;color:#8c959f">分管领导 · 待处理</div>
       </div>
+      <div class="p-field"><label>审批意见（驳回必填）</label><textarea class="p-textarea" id="ap-comment"></textarea></div>
+      <div style="margin-top:8px;display:flex;gap:8px;align-items:center">
+        <button class="p-btn sm" onclick="toast('原型演示：附件预签名 URL 直开')">📎 采购清单.pdf</button>
+        <span class="proto-hint">附件在线预览</span>
+      </div>
+      <div class="proto-hint" style="margin-top:8px">按钮提交后进入 loading（防重复）；服务端以单据+节点为幂等键拦截重复提交</div>
+    </div>
+    <div class="pm-foot">
+      <button class="p-btn danger" id="btn-reject" onclick="reject(this)">驳回</button>
+      <button class="p-btn" onclick="openModal('m-transfer','转办 · ' + document.getElementById('ap-doc').textContent)">转办</button>
+      <button class="p-btn primary" id="btn-approve" onclick="approve(this)">同意</button>
+    </div>
+  </div>
+</div>
+
+<!-- 转办目标选择（简单对话框：可选审批人列表 + 确定） -->
+<div class="p-mask" id="m-transfer">
+  <div class="p-modal">
+    <div class="pm-head">转办<span class="x" onclick="closeModal('m-transfer')">✕</span></div>
+    <div class="pm-body" style="font-size:13px">
+      <div class="proto-hint" style="margin-bottom:8px">选择目标审批人（原待办转移给该人，当前节点不结束）</div>
+      <label style="display:block;padding:6px 0"><input type="radio" name="transfer-user" value="赵六（部门副经理）"> 赵六（部门副经理）</label>
+      <label style="display:block;padding:6px 0"><input type="radio" name="transfer-user" value="钱七（预算专员）"> 钱七（预算专员）</label>
+      <label style="display:block;padding:6px 0"><input type="radio" name="transfer-user" value="孙八（财务审核）"> 孙八（财务审核）</label>
+    </div>
+    <div class="pm-foot">
+      <button class="p-btn" onclick="closeModal('m-transfer')">取消</button>
+      <button class="p-btn primary" onclick="doTransfer()">确定</button>
     </div>
   </div>
 </div>
@@ -74,29 +94,47 @@
     document.getElementById('pane-todo').style.display = name === 'todo' ? '' : 'none';
     document.getElementById('pane-done').style.display = name === 'done' ? '' : 'none';
   }
-  function openTodo(doc) { document.getElementById('ap-doc').textContent = doc; toast('已加载待办详情（审批弹窗复用此面板）'); }
-  function approve() {
-    var c = document.getElementById('ap-comment').value.trim();
+  // openModal 不带第二参数：保留标题内 span#ap-doc（同意/驳回需读取单据号）
+  function openTodo(doc) { document.getElementById('ap-doc').textContent = doc; openModal('m-approve'); }
+  // 同意/驳回：按钮内 loading（disabled + 「提交中…」）防重复，服务端以单据+节点为幂等键
+  function approve(btn) {
     confirmAction('同意审批？审批事件将推送 Webhook（wf.task.completed）。', function () {
-      var doc = document.getElementById('ap-doc').textContent;
-      document.querySelectorAll('#pane-todo tr').forEach(function (tr) {
-        if (tr.children[0] && tr.children[0].textContent === doc) { tr.remove(); }
-      });
-      document.getElementById('ap-comment').value = '';
-      toast('已同意「' + doc + '」→ 流程推进至下一节点', 'ok');
+      btn.disabled = true; btn.textContent = '提交中…';
+      setTimeout(function () {
+        var doc = document.getElementById('ap-doc').textContent;
+        document.querySelectorAll('#pane-todo tr').forEach(function (tr) {
+          if (tr.children[0] && tr.children[0].textContent === doc) { tr.remove(); }
+        });
+        document.getElementById('ap-comment').value = '';
+        closeModal('m-approve');
+        btn.disabled = false; btn.textContent = '同意';
+        toast('已同意「' + doc + '」→ 流程推进至下一节点（幂等键拦截重复提交）', 'ok');
+      }, 600);
     });
   }
-  function reject() {
+  function reject(btn) {
     var c = document.getElementById('ap-comment').value.trim();
     if (!c) { toast('驳回必须填写审批意见', 'err'); return; }
     var doc = document.getElementById('ap-doc').textContent;
     confirmAction('驳回「' + doc + '」？单据回退申请人，可修改后重新提交。', function () {
-      document.querySelectorAll('#pane-todo tr').forEach(function (tr) {
-        if (tr.children[0] && tr.children[0].textContent === doc) { tr.remove(); }
-      });
-      document.getElementById('ap-comment').value = '';
-      toast('已驳回，申请人收到通知', 'ok');
+      btn.disabled = true; btn.textContent = '提交中…';
+      setTimeout(function () {
+        document.querySelectorAll('#pane-todo tr').forEach(function (tr) {
+          if (tr.children[0] && tr.children[0].textContent === doc) { tr.remove(); }
+        });
+        document.getElementById('ap-comment').value = '';
+        closeModal('m-approve');
+        btn.disabled = false; btn.textContent = '驳回';
+        toast('已驳回，申请人收到通知（幂等键拦截重复提交）', 'ok');
+      }, 600);
     });
+  }
+  // 转办：目标审批人单选，确定后回收原待办
+  function doTransfer() {
+    var sel = document.querySelector('input[name="transfer-user"]:checked');
+    if (!sel) { toast('请选择转办目标审批人', 'err'); return; }
+    closeModal('m-transfer');
+    toast('已转办给「' + sel.value + '」，原待办回收', 'ok');
   }
 </script>
 

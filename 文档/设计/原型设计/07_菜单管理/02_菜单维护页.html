@@ -80,9 +80,9 @@
   </div>
 </div>
 
-<!-- 新增菜单 -->
+<!-- 新增菜单：480px 对话框（.p-modal 默认即 480） -->
 <div class="p-mask" id="m-new">
-  <div class="p-modal">
+  <div class="p-modal w480">
     <div class="pm-head">新增菜单<span class="x" onclick="closeModal('m-new')">✕</span></div>
     <div class="pm-body">
       <div class="p-field"><label>父级</label><select class="p-select"><option>组织与权限</option><option>（根级）</option></select></div>
@@ -96,6 +96,25 @@
       <div class="proto-hint">保存后将要求补挂表单与业务，并发布更新</div>
     </div>
     <div class="pm-foot"><button class="p-btn" onclick="closeModal('m-new')">取消</button><button class="p-btn primary" onclick="saveMenu()">保存</button></div>
+  </div>
+</div>
+
+<!-- 编辑菜单：480px 对话框（复用新增菜单结构，预填当前值） -->
+<div class="p-mask" id="m-edit">
+  <div class="p-modal w480">
+    <div class="pm-head">编辑菜单<span class="x" onclick="closeModal('m-edit')">✕</span></div>
+    <div class="pm-body">
+      <div class="p-field"><label>父级</label><select class="p-select"><option>组织与权限</option><option>（根级）</option></select></div>
+      <div style="height:10px"></div>
+      <div class="p-row">
+        <div class="p-col p-field"><label>名称（zh）<span class="req">*</span></label><input class="p-input" id="e-name" value="用户管理"></div>
+        <div class="p-col p-field"><label>path <span class="req">*</span></label><input class="p-input" id="e-path" value="/users"></div>
+      </div>
+      <div class="p-field"><label>component</label><input class="p-input" value="FormFrame"></div>
+      <div style="height:10px"></div>
+      <div class="proto-hint">保存后将发布更新，动态菜单刷新生效</div>
+    </div>
+    <div class="pm-foot"><button class="p-btn" onclick="closeModal('m-edit')">取消</button><button class="p-btn primary" onclick="saveMenuEdit()">保存</button></div>
   </div>
 </div>
 
@@ -116,6 +135,12 @@
     if (!n || !p) { toast('名称与 path 必填', 'err'); return; }
     closeModal('m-new');
     toast('菜单已创建，请继续补挂表单与业务（form.updated 已发布）', 'ok');
+  }
+  function saveMenuEdit() {
+    var n = document.getElementById('e-name').value.trim(), p = document.getElementById('e-path').value.trim();
+    if (!n || !p) { toast('名称与 path 必填', 'err'); return; }
+    closeModal('m-edit');
+    toast('菜单已更新（menu.updated 已发布，动态菜单刷新生效）', 'ok');
   }
   function toggleMenu() { confirmAction('停用菜单「用户管理」？停用后角色不可见，数据保留。', function () { toast('已停用', 'ok'); }); }
 </script>

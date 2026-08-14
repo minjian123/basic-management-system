@@ -15,12 +15,16 @@
 
 <div class="proto-frame">
   <div class="p-phone">
-    <div class="pp-status">‹ 我的</div>
+    <div class="pp-status" style="text-align:center">我的</div>
     <div class="pp-body">
-      <div style="background:#fff;border-radius:10px;padding:14px;margin-bottom:8px">
-        <b>张三</b><br>
-        <span style="color:#8c959f;font-size:12px">技术部 · 工程师</span><br>
-        <span style="color:#8c959f;font-size:12px">zhangsan@example.com</span>
+      <!-- 用户信息卡片：圆形头像占位 + 姓名/部门/邮箱 -->
+      <div style="background:#fff;border-radius:10px;padding:14px;margin-bottom:8px;display:flex;align-items:center;gap:12px">
+        <div style="width:52px;height:52px;border-radius:50%;background:#ddf4ff;color:#0969da;font-size:22px;font-weight:600;display:flex;align-items:center;justify-content:center;flex:0 0 52px">张</div>
+        <div>
+          <b style="font-size:15px">张三</b><br>
+          <span style="color:#8c959f;font-size:12px">技术部 · 工程师</span><br>
+          <span style="color:#8c959f;font-size:12px">zhangsan@example.com</span>
+        </div>
       </div>
       <div style="background:#fff;border-radius:10px;padding:4px 14px;margin-bottom:8px;font-size:13px">
         <div style="padding:11px 0;border-bottom:1px solid #eaeef2;cursor:pointer" onclick="openModal('m-pwd')">修改密码</div>

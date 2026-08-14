@@ -26,17 +26,34 @@
       <button class="p-btn" onclick="toast('原型演示：关闭当前模块页面（返回）')">关闭</button>
       <span style="margin-left:auto">
         <button class="p-btn" onclick="toast('原型演示：导出当前筛选结果')">导出</button>
+        <span class="proto-hint" style="margin-left:10px">双击行编辑（平台码演示）</span>
       </span>
     </div>
-    <table class="p-table">
-      <tr><th>业务码</th><th>说明</th><th>默认归属</th><th>操作</th></tr>
-      <tr><td>user</td><td>用户管理（含账号锁定/解锁）</td><td>系统管理员</td><td class="col-ops"><button class="p-btn sm" onclick="toast('平台码编辑（租户视角被拦截演示）','err')">编辑</button></td></tr>
-      <tr><td>dashboard</td><td>首页工作台</td><td>系统管理员</td><td class="col-ops"><button class="p-btn sm" onclick="toast('平台码编辑（租户视角被拦截演示）','err')">编辑</button></td></tr>
-      <tr><td>formdesign</td><td>表单定制</td><td>系统管理员</td><td class="col-ops"><button class="p-btn sm" onclick="toast('平台码编辑（租户视角被拦截演示）','err')">编辑</button></td></tr>
-      <tr><td>wf</td><td>工作流（定义/审批/查询）</td><td>普通角色</td><td class="col-ops"><button class="p-btn sm" onclick="toast('平台码编辑（租户视角被拦截演示）','err')">编辑</button></td></tr>
-      <tr><td>purchase</td><td>采购申请/订单/供应商</td><td>普通角色</td><td class="col-ops"><button class="p-btn sm" onclick="toast('平台码编辑（租户视角被拦截演示）','err')">编辑</button></td></tr>
+    <div class="p-filter">
+      <input class="p-input keyword" placeholder="关键字：业务码/说明">
+      <button class="p-btn sm primary">查询</button>
+      <button class="p-btn sm">重置</button>
+    </div>
+    <table class="p-table" id="tbl-biz">
+      <tr><th>业务码</th><th>说明</th><th>默认归属</th></tr>
+      <tr class="row-link" onclick="permEdit()"><td>user</td><td>用户管理（含账号锁定/解锁）</td><td>系统管理员</td></tr>
+      <tr class="row-link" onclick="permEdit()"><td>dashboard</td><td>首页工作台</td><td>系统管理员</td></tr>
+      <tr class="row-link" onclick="permEdit()"><td>formdesign</td><td>表单定制</td><td>系统管理员</td></tr>
+      <tr class="row-link" onclick="permEdit()"><td>wf</td><td>工作流（定义/审批/查询）</td><td>普通角色</td></tr>
+      <tr class="row-link" onclick="permEdit()"><td>purchase</td><td>采购申请/订单/供应商</td><td>普通角色</td></tr>
     </table>
-    <div class="p-pager">共 5 条 · 1/1 页</div>
+    <!-- 空状态示意（搜索无结果时展示） -->
+    <div class="p-empty" id="empty-biz" style="display:none">
+      <div class="p-empty-icon">🔍</div>
+      <div>未找到相关内容</div>
+      <div style="margin-top:10px"><button class="p-btn" onclick="toast('已重置筛选')">重置</button></div>
+    </div>
+    <div class="p-pager">
+      <span class="pp-total">共 5 条</span>
+      <button class="pp-num active">1</button>
+      <span>每页</span><select class="pp-size"><option>10</option><option selected>20</option><option>50</option></select><span>条</span>
+      <span>跳至</span><input class="pp-goto" value="1"><button class="pp-num" onclick="toast('跳转到第 1 页（原型演示）')">跳</button>
+    </div>
   </div>
 
   <div id="pane-act" style="display:none">
@@ -46,16 +63,33 @@
       <button class="p-btn" onclick="toast('原型演示：关闭当前模块页面（返回）')">关闭</button>
       <span style="margin-left:auto">
         <button class="p-btn" onclick="toast('原型演示：导出当前筛选结果')">导出</button>
+        <span class="proto-hint" style="margin-left:10px">双击行编辑（平台码演示）</span>
       </span>
     </div>
-    <table class="p-table">
-      <tr><th>动作码</th><th>归属业务</th><th>典型权限码</th><th>操作</th></tr>
-      <tr><td>query</td><td>（多业务共用）</td><td>wf:query、monitor:view</td><td class="col-ops"><button class="p-btn sm" onclick="toast('平台码编辑（租户视角被拦截演示）','err')">编辑</button></td></tr>
-      <tr><td>create</td><td>（多业务共用）</td><td>user:create、purchase:create</td><td class="col-ops"><button class="p-btn sm" onclick="toast('平台码编辑（租户视角被拦截演示）','err')">编辑</button></td></tr>
-      <tr><td>approve</td><td>wf</td><td>wf:approve</td><td class="col-ops"><button class="p-btn sm" onclick="toast('平台码编辑（租户视角被拦截演示）','err')">编辑</button></td></tr>
-      <tr><td>manage</td><td>dashboard / formdesign</td><td>dashboard:manage、formdesign:manage</td><td class="col-ops"><button class="p-btn sm" onclick="toast('平台码编辑（租户视角被拦截演示）','err')">编辑</button></td></tr>
+    <div class="p-filter">
+      <input class="p-input keyword" placeholder="关键字：动作码/归属业务">
+      <button class="p-btn sm primary">查询</button>
+      <button class="p-btn sm">重置</button>
+    </div>
+    <table class="p-table" id="tbl-act">
+      <tr><th>动作码</th><th>归属业务</th><th>典型权限码</th></tr>
+      <tr class="row-link" onclick="permEdit()"><td>query</td><td>（多业务共用）</td><td>wf:query、monitor:view</td></tr>
+      <tr class="row-link" onclick="permEdit()"><td>create</td><td>（多业务共用）</td><td>user:create、purchase:create</td></tr>
+      <tr class="row-link" onclick="permEdit()"><td>approve</td><td>wf</td><td>wf:approve</td></tr>
+      <tr class="row-link" onclick="permEdit()"><td>manage</td><td>dashboard / formdesign</td><td>dashboard:manage、formdesign:manage</td></tr>
     </table>
-    <div class="p-pager">共 4 条 · 1/1 页</div>
+    <!-- 空状态示意（搜索无结果时展示） -->
+    <div class="p-empty" id="empty-act" style="display:none">
+      <div class="p-empty-icon">🔍</div>
+      <div>未找到相关内容</div>
+      <div style="margin-top:10px"><button class="p-btn" onclick="toast('已重置筛选')">重置</button></div>
+    </div>
+    <div class="p-pager">
+      <span class="pp-total">共 4 条</span>
+      <button class="pp-num active">1</button>
+      <span>每页</span><select class="pp-size"><option>10</option><option selected>20</option><option>50</option></select><span>条</span>
+      <span>跳至</span><input class="pp-goto" value="1"><button class="pp-num" onclick="toast('跳转到第 1 页（原型演示）')">跳</button>
+    </div>
   </div>
 </div>
 
@@ -99,6 +133,8 @@
     if (!c) { toast('业务码必填', 'err'); return; }
     closeModal('m-biz'); toast('业务码已创建（含 i18n 文案补录）', 'ok');
   }
+  // 原行内「编辑」按钮收敛为行点击（平台码编辑租户视角被拦截演示）
+  function permEdit() { toast('平台码编辑（租户视角被拦截演示）', 'err'); }
 </script>
 
 </body>

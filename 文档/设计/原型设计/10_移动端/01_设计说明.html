@@ -46,15 +46,18 @@
       <h2 id="pages">2. 界面清单</h2>
       <table>
         <tr><th>界面</th><th>原型（可点击操作）</th><th>主要交互验证点</th></tr>
-        <tr><td>移动首页</td><td><a href="02_移动首页.html">移动首页.html</a></td><td>TabBar 切换、角标、快捷入口、卡片点击跳转</td></tr>
-        <tr><td>移动待办审批</td><td><a href="03_移动待办审批.html">移动待办审批.html</a></td><td>列表点击详情、底部操作栏同意/驳回、附件预览</td></tr>
-        <tr><td>移动个人中心</td><td><a href="04_移动个人中心.html">移动个人中心.html</a></td><td>菜单导航、改密、退出登录确认</td></tr>
+        <tr><td>移动首页</td><td><a href="02_移动首页.html">移动首页.html</a></td><td>欢迎横幅、TabBar 切换、图标数字角标、快捷入口、待办卡片列表</td></tr>
+        <tr><td>移动待办审批</td><td><a href="03_移动待办审批.html">移动待办审批.html</a></td><td>列表点击详情、状态条、流转时间线、底部操作栏同意/驳回、详情页隐藏 TabBar</td></tr>
+        <tr><td>移动个人中心</td><td><a href="04_移动个人中心.html">移动个人中心.html</a></td><td>头像卡片、菜单导航、改密、退出登录确认</td></tr>
+        <tr><td>通知列表</td><td><a href="05_通知列表.html">通知列表.html</a></td><td>类型图标+标题+时间列表、未读高亮、左滑删除示意、批量已读（消息 Tab 根页）</td></tr>
+        <tr><td>登录页</td><td><a href="06_登录页.html">登录页.html</a></td><td>账号密码、连续失败 3 次强制图形验证码、SSO 入口（企业微信/钉钉/OIDC）、无 TabBar</td></tr>
       </table>
 
       <h2 id="interact">3. 交互要点</h2>
       <ul>
         <li>TabBar 4 Tab：首页/待办/消息/我的，角标实时（Socket.IO）</li>
         <li>待办卡片 → 详情 → 底部操作栏（同意/驳回/转办，安全区避让）</li>
+        <li>通知列表：未读行高亮、左滑删除、批量已读；登录页无 TabBar</li>
         <li>触底加载 + 下拉刷新 + 骨架屏；微信/钉钉内嵌 WebView 适配</li>
       </ul>
 
@@ -67,6 +70,7 @@
       <h2 id="iter">5. 迭代记录</h2>
       <table>
         <tr><th>日期</th><th>变更</th><th>状态</th></tr>
+        <tr><td>2026-08-14</td><td>新增：通知列表、登录页；首页横幅/角标/待办卡片化；待办审批时间线与状态条</td><td>待评审</td></tr>
         <tr><td>2026-08-13</td><td>初版：首页/待办审批/个人中心</td><td>待评审</td></tr>
       </table>
 

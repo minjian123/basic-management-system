@@ -15,38 +15,80 @@
 
 <div class="proto-frame">
   <div class="p-toolbar">
+    <button class="p-btn primary batch-btn" disabled onclick="batchUnlock()">解锁</button>
     <button class="p-btn" onclick="toast('已刷新')">刷新</button>
     <button class="p-btn" onclick="toast('原型演示：关闭当前模块页面（返回）')">关闭</button>
     <span style="margin-left:auto">
       <button class="p-btn" onclick="toast('原型演示：导出当前筛选结果')">导出</button>
+      <span class="proto-hint" style="margin-left:10px">双击行解锁</span>
     </span>
   </div>
 
+  <div class="p-filter">
+    <input class="p-input keyword" placeholder="关键字：用户名">
+    <button class="p-btn sm primary">查询</button>
+    <button class="p-btn sm">重置</button>
+  </div>
+
   <table class="p-table" id="tbl">
-    <tr><th>用户名</th><th>锁定类型</th><th>锁定时间</th><th>自动解锁时间</th><th>操作</th></tr>
-    <tr data-id="1">
-      <td>lisi</td><td><span class="p-tag orange">失败超限</span></td><td>2026-08-01 18:02</td><td>2026-08-01 18:17</td>
-      <td class="col-ops"><button class="p-btn sm primary" onclick="unlock(this,'lisi')">解锁</button></td>
+    <tr><th><input type="checkbox" onclick="selAll(this)"></th><th>用户名</th><th>锁定类型</th><th>锁定时间</th><th>自动解锁时间</th></tr>
+    <tr class="row-link" data-id="1">
+      <td><input type="checkbox" class="row-chk" onchange="updBatch()"></td><td>lisi</td><td><span class="p-tag orange">失败超限</span></td><td>2026-08-01 18:02</td><td>2026-08-01 18:17</td>
     </tr>
-    <tr data-id="2">
-      <td>wangwu</td><td><span class="p-tag gray">手动</span></td><td>2026-08-05 10:00</td><td>—</td>
-      <td class="col-ops"><button class="p-btn sm primary" onclick="unlock(this,'wangwu')">解锁</button></td>
+    <tr class="row-link" data-id="2">
+      <td><input type="checkbox" class="row-chk" onchange="updBatch()"></td><td>wangwu</td><td><span class="p-tag gray">手动</span></td><td>2026-08-05 10:00</td><td>—</td>
     </tr>
-    <tr data-id="3">
-      <td>zhaoliu</td><td><span class="p-tag red">长期未登录</span></td><td>2026-08-10 00:00</td><td>—（需手动解锁）</td>
-      <td class="col-ops"><button class="p-btn sm primary" onclick="unlock(this,'zhaoliu')">解锁</button></td>
+    <tr class="row-link" data-id="3">
+      <td><input type="checkbox" class="row-chk" onchange="updBatch()"></td><td>zhaoliu</td><td><span class="p-tag red">长期未登录</span></td><td>2026-08-10 00:00</td><td>—（需手动解锁）</td>
     </tr>
   </table>
-  <div class="p-pager">共 3 条 · 1/1 页</div>
+  <!-- 空状态示意（搜索无结果时展示）：暂无数据+解锁按钮失效 -->
+  <div class="p-empty" id="empty-demo" style="display:none">
+    <div class="p-empty-icon">🔍</div>
+    <div>未找到相关内容</div>
+    <div style="margin-top:10px"><button class="p-btn" onclick="toast('已重置筛选')">重置</button></div>
+  </div>
+  <div class="p-pager">
+    <span class="pp-total">共 3 条</span>
+    <button class="pp-num active">1</button>
+    <span>每页</span><select class="pp-size"><option>10</option><option selected>20</option><option>50</option></select><span>条</span>
+    <span>跳至</span><input class="pp-goto" value="1"><button class="pp-num" onclick="toast('跳转到第 1 页（原型演示）')">跳</button>
+  </div>
 </div>
 
 <script src="../_shared/prototype.js"></script>
 <script>
-  function unlock(btn, name) {
-    confirmAction('手动解锁「' + name + '」？解锁记录将写入 sys_account_lock 并落操作日志与审计。', function () {
-      btn.closest('tr').remove();
-      toast('已解锁（解锁记录审计）', 'ok');
+  function selAll(cb) {
+    document.querySelectorAll('.row-chk').forEach(function (x) { x.checked = cb.checked; });
+    updBatch();
+  }
+  // 批量操作按钮组：有选中行时启用（《布局设计-列表页》4.工具栏）
+  function updBatch() {
+    var any = !!document.querySelector('.row-chk:checked');
+    document.querySelectorAll('.batch-btn').forEach(function (b) { b.disabled = !any; });
+  }
+  // 批量解锁（行内高频动作收敛到工具栏）
+  function batchUnlock() {
+    var rows = document.querySelectorAll('.row-chk:checked');
+    if (!rows.length) { toast('请先选择用户', 'err'); return; }
+    confirmAction('确认解锁选中 ' + rows.length + ' 个账号？解锁记录将写入 sys_account_lock 并落操作日志与审计。', function () {
+      rows.forEach(function (cb) { cb.closest('tr').remove(); });
+      toast('已解锁 ' + rows.length + ' 个账号（解锁记录审计）', 'ok');
     });
+  }
+  // 双击行解锁（原行内「解锁」按钮改为行点击后表单内操作）
+  document.querySelectorAll('#tbl tr[data-id]').forEach(function (tr) {
+    tr.addEventListener('dblclick', function () {
+      var name = tr.children[1].textContent;
+      confirmAction('手动解锁「' + name + '」？解锁记录将写入 sys_account_lock 并落操作日志与审计。', function () {
+        tr.remove(); toast('已解锁（解锁记录审计）', 'ok');
+      });
+    });
+  });
+  // 空状态演示（隐藏 div，搜索无结果时展示）
+  function showEmpty() {
+    var e = document.getElementById('empty-demo');
+    e.style.display = e.style.display === 'none' ? '' : 'none';
   }
 </script>
 
