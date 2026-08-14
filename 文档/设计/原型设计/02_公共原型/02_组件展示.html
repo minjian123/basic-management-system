@@ -92,6 +92,29 @@
     </div>
   </div>
 
+  <div class="demo-sec">
+    <h2>6. 明细表格（明细表格.js，一体组件）</h2>
+    <p class="desc">主从明细<strong>完整组件</strong>：明细表格（行内编辑）+ 左下角明细工具栏（图标按钮）+ 右下角分页，一个挂载点生成（《布局设计-表格明细》）。<br>
+    用法：<code>renderDetailTable(el, { columns, data, readonly, rowTools, tools, page, onChange })</code>；返回 <code>setReadonly()</code> / <code>getRows()</code>。</p>
+    <div class="demo-box">
+      <div style="display:flex;gap:8px;margin-bottom:12px">
+        <button class="p-btn" onclick="demoDtReadonly(false)">编辑态</button>
+        <button class="p-btn" onclick="demoDtReadonly(true)">只读态</button>
+        <span class="proto-hint" style="margin-left:auto">明细合计：<b id="demo-dt-total">¥0</b></span>
+      </div>
+      <div id="demo-detail-table"></div>
+    </div>
+  </div>
+
+  <div class="demo-sec">
+    <h2>7. Element Plus 真实组件（vendor 本地化）</h2>
+    <p class="desc">真实 Element Plus（Vue 3）本地化组件：el-table 多选/行内编辑/小计列 + 图标明细工具栏 + el-pagination 分页，file:// 双击可用。<br>
+    详见<a href="03_EP组件示例.html">03_EP组件示例.html</a>（完整明细演示，含编辑态/只读态切换）。</p>
+    <div class="demo-box">
+      <button class="p-btn primary" onclick="location.href='03_EP组件示例.html'">打开 EP 组件示例 →</button>
+    </div>
+  </div>
+
 </div>
 
 <script src="../共享资源/原型脚本.js"></script>
@@ -100,6 +123,7 @@
 <script src="空状态.js"></script>
 <script src="明细工具栏.js"></script>
 <script src="列表页工具栏.js"></script>
+<script src="明细表格.js"></script>
 <script>
   // 1. 系统信息
   mountSysInfo(document.getElementById('demo-sysinfo'), {
@@ -203,6 +227,31 @@
     },
     page: { total: 3, page: 1, size: 20, onPage: function (n) { toast('第 ' + n + ' 页'); } }
   });
+
+  // 6. 明细表格一体组件（可交互：行内编辑、增删移、分页、合计联动）
+  var demoDt = renderDetailTable(document.getElementById('demo-detail-table'), {
+    columns: [
+      { key: 'name', label: '物料名称', width: 200 },
+      { key: 'qty', label: '数量', width: 80, type: 'number', align: 'right' },
+      { key: 'price', label: '单价', width: 90, type: 'number', align: 'right' },
+      { key: 'subtotal', label: '小计', width: 100, type: 'computed', align: 'right',
+        fn: function (row) { return '¥' + (row.qty * row.price).toLocaleString(); } }
+    ],
+    data: [
+      { name: '办公桌', qty: 10, price: 1800 },
+      { name: '办公椅', qty: 20, price: 500 },
+      { name: '文件柜', qty: 5, price: 1200 }
+    ],
+    readonly: false,
+    page: { size: 10 },
+    onChange: function (rows) {
+      var sum = 0;
+      rows.forEach(function (r) { sum += (r.qty || 0) * (r.price || 0); });
+      document.getElementById('demo-dt-total').textContent = '¥' + sum.toLocaleString();
+    },
+    onTool: function (t) { toast('原型演示：' + ({ refresh: '刷新', fullscreen: '全屏' }[t] || t)); }
+  });
+  function demoDtReadonly(ro) { demoDt.setReadonly(ro); toast(ro ? '已切换只读态' : '已切换编辑态（行内编辑与行操作可用）', 'ok'); }
 </script>
 
 </body>
