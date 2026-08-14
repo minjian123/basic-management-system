@@ -57,12 +57,32 @@
     </div>
   </div>
 
+  <div class="demo-sec">
+    <h2>4. 表格明细工具栏（明细工具栏.js）</h2>
+    <p class="desc">主从模块明细底部栏：图标按钮组靠左（新增/删除/上移/下移 + 自动列宽/自定义列/刷新/全屏）+ 分页靠右同一行（《布局设计-表格明细》第 4 节 / 2.4 节，行操作仅编辑态、删除二次确认）。<br>
+    用法：<code>renderDetailBar(el, { readonly, onAdd, onDelete, onMoveUp, onMoveDown, tools, onTool, page })</code>，返回对象可 <code>setReadonly()</code> 切换编辑态。</p>
+    <div class="demo-box">
+      <div style="display:flex;gap:8px;margin-bottom:12px">
+        <button class="p-btn" onclick="demoBarReadonly(false)">编辑态</button>
+        <button class="p-btn" onclick="demoBarReadonly(true)">只读态</button>
+      </div>
+      <table class="p-table" id="demo-dt">
+        <tr><th>物料名称</th><th>数量</th><th>单价</th><th>小计</th></tr>
+        <tr class="sel"><td>办公桌</td><td>10</td><td>1,800</td><td>¥18,000</td></tr>
+        <tr><td>办公椅</td><td>20</td><td>500</td><td>¥10,000</td></tr>
+        <tr><td>文件柜</td><td>5</td><td>1,200</td><td>¥6,000</td></tr>
+      </table>
+      <div id="demo-detail-bar"></div>
+    </div>
+  </div>
+
 </div>
 
 <script src="../共享资源/原型脚本.js"></script>
 <script src="系统信息.js"></script>
 <script src="分页.js"></script>
 <script src="空状态.js"></script>
+<script src="明细工具栏.js"></script>
 <script>
   // 1. 系统信息
   mountSysInfo(document.getElementById('demo-sysinfo'), {
@@ -95,6 +115,45 @@
     renderEmpty(document.getElementById('demo-empty'), opts);
   }
   demoEmpty('list');
+
+  // 4. 表格明细工具栏（可交互：编辑态/只读态切换、行操作、删除二次确认）
+  var demoBar = renderDetailBar(document.getElementById('demo-detail-bar'), {
+    readonly: false,
+    onAdd: function () { demoAddRow(); },
+    onDelete: function () { demoDelRow(); },
+    onMoveUp: function () { demoMove(-1); },
+    onMoveDown: function () { demoMove(1); },
+    onTool: function (t) {
+      var names = { autoWidth: '自动列宽', columns: '自定义列', refresh: '刷新', fullscreen: '全屏' };
+      toast('原型演示：' + (names[t] || t));
+    },
+    page: { total: 3, page: 1, size: 10, onPage: function (n) { toast('第 ' + n + ' 页'); } }
+  });
+  function demoBarReadonly(ro) { demoBar.setReadonly(ro); toast(ro ? '已切换只读态（行操作禁用）' : '已切换编辑态（行操作可用）', 'ok'); }
+  function demoSelRow() { return document.querySelector('#demo-dt tr.sel'); }
+  document.querySelectorAll('#demo-dt tr').forEach(function (r) {
+    r.onclick = function () { document.querySelectorAll('#demo-dt tr.sel').forEach(function (x) { x.classList.remove('sel'); }); r.classList.add('sel'); };
+  });
+  function demoAddRow() {
+    var tb = document.getElementById('demo-dt');
+    var tr = document.createElement('tr');
+    tr.innerHTML = '<td>新物料</td><td>1</td><td>0</td><td>¥0</td>';
+    tr.onclick = function () { document.querySelectorAll('#demo-dt tr.sel').forEach(function (x) { x.classList.remove('sel'); }); tr.classList.add('sel'); };
+    tb.appendChild(tr);
+    toast('已新增一行（保存时随主表整体提交）', 'ok');
+  }
+  function demoDelRow() {
+    var tr = demoSelRow();
+    if (!tr) { toast('请先选择一行', 'err'); return; }
+    confirmAction('删除选中的明细行？删除后不可恢复。', function () { tr.remove(); toast('已删除该行', 'ok'); });
+  }
+  function demoMove(dir) {
+    var tr = demoSelRow();
+    if (!tr) { toast('请先选择一行', 'err'); return; }
+    var tb = tr.parentNode, t = dir < 0 ? tr.previousElementSibling : tr.nextElementSibling;
+    if (!t) { toast(dir < 0 ? '已是第一行' : '已是最后一行', 'err'); return; }
+    tb.insertBefore(dir < 0 ? tr : t, dir < 0 ? t : tr);
+  }
 </script>
 
 </body>

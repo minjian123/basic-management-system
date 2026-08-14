@@ -30,6 +30,7 @@
             <li><a href="#comp-sysinfo">2.1 系统信息.js 系统信息</a></li>
             <li><a href="#comp-pager">2.2 分页.js 分页</a></li>
             <li><a href="#comp-empty">2.3 空状态.js 空状态</a></li>
+            <li><a href="#comp-detailbar">2.4 明细工具栏.js 表格明细工具栏</a></li>
           </ul>
         </li>
         <li><a href="#usage">3. 引用方式</a></li>
@@ -86,6 +87,20 @@
       <pre><code>renderEmpty(document.getElementById('empty-user'), {
   type: 'list', action: '去创建', onAction: function () { /* 打开新增 */ }
 });</code></pre>
+
+      <h3 id="comp-detailbar">2.4 明细工具栏.js 表格明细工具栏</h3>
+      <p>主从模块<strong>表格明细底部栏</strong>：图标按钮组靠左（新增行 / 删除行 / 上移行 / 下移行 + 通用工具 自动列宽 / 自定义列 / 刷新 / 全屏）+ 分页区靠右同一行，结构与《布局设计-表格明细》第 4 节 / 2.4 节一致：行操作仅编辑态可用、删除需页面二次确认、图标按钮悬停 tooltip；分页依赖分页.js（p-pager 右对齐）。</p>
+      <pre><code>var bar = renderDetailBar(document.getElementById('detail-bar'), {
+  readonly: false,
+  onAdd: function () { /* 新增行 */ },
+  onDelete: function () { /* 二次确认后删除选中行 */ },
+  onMoveUp: function () { /* 上移选中行 */ },
+  onMoveDown: function () { /* 下移选中行 */ },
+  tools: ['autoWidth', 'columns', 'refresh', 'fullscreen'],
+  onTool: function (name) { /* 通用工具回调 */ },
+  page: { total: 12, page: 1, size: 10, onPage: function (n) {}, onSize: function (s) {} }
+});
+bar.setReadonly(true);   // 编辑态切换：只读禁用行操作</code></pre>
 
       <h2 id="usage">3. 引用方式</h2>
       <p>页面在底部脚本区引用组件文件（相对路径按页面层级：业务模块页 = <code>../02_公共原型/组件名.js</code>），并在元素存在后调用：</p>
