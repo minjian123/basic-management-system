@@ -202,6 +202,10 @@ foreach ($dirCfg in $config.directories) {
         $tmpDir = Join-Path $dir "$($m.OldNo)`_reorder_$($m.Name)"
         Rename-Item -LiteralPath $m.OldDir -NewName (Split-Path $tmpDir -Leaf)
         $m.TmpDir = $tmpDir
+        # 文件夹已改名，模块内文件路径同步更新到临时目录
+        foreach ($fm in $m.FileMappings) {
+          $fm.OldFile = Join-Path $tmpDir (Split-Path $fm.OldFile -Leaf)
+        }
       }
       foreach ($m in $moduleMappings) {
         foreach ($fm in $m.FileMappings) {
@@ -212,10 +216,11 @@ foreach ($dirCfg in $config.directories) {
       }
       # 第二步：临时名 → 目标名
       foreach ($m in $moduleMappings) {
-        Rename-Item -LiteralPath $m.TmpDir -NewName "$($m.NewNo)`_$($m.Name)"
-      }
-      foreach ($m in $moduleMappings) {
+        $targetDir = Join-Path $dir "$($m.NewNo)`_$($m.Name)"
+        Rename-Item -LiteralPath $m.TmpDir -NewName (Split-Path $targetDir -Leaf)
+        # 文件夹已改目标名，模块内文件路径同步更新到目标目录并改为目标名
         foreach ($fm in $m.FileMappings) {
+          $fm.TmpFile = Join-Path $targetDir (Split-Path $fm.TmpFile -Leaf)
           Rename-Item -LiteralPath $fm.TmpFile -NewName "$($fm.NewNo)`_$($fm.Name).html"
         }
       }

@@ -78,6 +78,7 @@
         <li>注册先行：新模块必须先注册 sys_module 再建表/建码/建菜单，错误码段与事件命名以注册值为准。</li>
         <li>租户隔离：sys_module 位于平台库，租户侧可见、不可增删；租户开通时无需复制（与 sys_business 同模式，平台统一维护）。</li>
         <li>独立服务轨不注册：独立部署的服务不进平台库与租户库，仅经认证/开放接口/Webhook 集成。</li>
+        <li>租户开关分离：租户开通的模块清单存 sys_tenant_module（平台库，运行期可配），module_key 只允许引用本表已注册且启用的模块；启停由租户管理模块（平台超管）维护，本模块不提供开关操作（见 26-租户管理）。</li>
       </ul>
 
       <h3 id="functions-flow">2.3 流程步骤</h3>
@@ -117,6 +118,7 @@ sequenceDiagram
         <tr><th>表</th><th>关键字段</th><th>说明</th></tr>
         <tr><td>sys_module</td><td>module_key、name、table_prefix、errcode_segment、event_domain、status</td><td>业务模块注册表：module_key 模块简称（如 purchase）；table_prefix 表前缀（如 pur_）；errcode_segment 错误码段号（如 10）；event_domain 事件域（如 purchase）；status 启用/停用</td></tr>
         <tr><td>sys_module_i18n</td><td>module_id、locale、name</td><td>模块名多语言附表，联合主键（module_id + locale），缺省回退主表 name</td></tr>
+        <tr><td>sys_tenant_module</td><td>tenant_id、module_key、status（enabled/disabled）、opened_by、opened_at、closed_at</td><td>【平台库】租户-模块关系表：module_key 逻辑引用 sys_module，仅允许已注册且启用的模块；租户开通勾选写入，平台超管运营期启停</td></tr>
       </table>
       <ul>
         <li><strong>索引与唯一约束</strong>：module_key、table_prefix、errcode_segment、event_domain 均建唯一索引（含 deleted_at 复合唯一，软删除后释放）。</li>
@@ -174,7 +176,8 @@ sequenceDiagram
         <li>注册表种子完整：平台域（sys/wf/rpt/ai）与 MVP 业务模块（purchase/payment/supplier）齐备，含 i18n 英文文案；</li>
         <li>启动校验生效：构造前缀/错误码段/事件域冲突种子后启动被拒并输出冲突模块；</li>
         <li>CI 校验生效：冲突种子提交后流水线失败、不允许合并；</li>
-        <li>三库方言验证：sys_module 迁移脚本在 MySQL/PostgreSQL/达梦 DM8 均可执行，唯一索引生效。</li>
+        <li>三库方言验证：sys_module 迁移脚本在 MySQL/PostgreSQL/达梦 DM8 均可执行，唯一索引生效；</li>
+        <li>租户开关校验：sys_tenant_module 只能引用已注册且启用的模块（引用未注册模块被拒）；停用模块在租户侧菜单/接口不可用、存量数据保留、重新开通恢复（验证见 26-租户管理验收）。</li>
       </ul>
 
     </main>
