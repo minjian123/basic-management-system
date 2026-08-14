@@ -104,13 +104,10 @@
               </template>
             </el-table-column>
           </el-table>
-          <!-- 表格下方一行：明细工具栏（发布/删除 + 通用工具）；公告表不分页，工具栏靠左 -->
-          <div class="ep-bar">
-            <div>
-              <el-button size="small" type="primary" plain @click="openPublish('add')" title="发布公告">＋ 发布</el-button>
-              <el-button size="small" type="danger" plain :disabled="!selNotice.length" @click="delSelNotice" title="删除选中公告">🗑 删除</el-button>
-              <el-divider direction="vertical"></el-divider>
-              <el-button size="small" @click="toastMsg('原型演示：自动列宽')" title="自动列宽">⟷</el-button>
+      <!-- 表格下方一行：明细工具栏（仅通用工具；发布/删除由页面工具栏承载，不重复）；公告表不分页，工具栏靠左 -->
+      <div class="ep-bar">
+        <div>
+          <el-button size="small" @click="toastMsg('原型演示：自动列宽')" title="自动列宽">⟷</el-button>
               <el-button size="small" @click="toastMsg('原型演示：自定义列')" title="自定义列">☰</el-button>
               <el-button size="small" @click="toastMsg('已刷新')" title="刷新">⟳</el-button>
               <el-button size="small" @click="toastMsg('原型演示：全屏')" title="全屏">⛶</el-button>

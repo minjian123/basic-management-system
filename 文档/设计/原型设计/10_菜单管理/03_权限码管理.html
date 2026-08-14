@@ -61,11 +61,6 @@
           <!-- 表格下方一行：左下明细工具栏（图标按钮）+ 右下分页 -->
           <div class="ep-bar">
             <div>
-              <el-button size="small" @click="openBiz" title="新增行">＋</el-button>
-              <el-button size="small" type="danger" plain :disabled="!selBiz.length" @click="delSelBiz" title="删除行">🗑</el-button>
-              <el-button size="small" :disabled="!selBiz.length" @click="moveSelBiz(-1)" title="上移行">↑</el-button>
-              <el-button size="small" :disabled="!selBiz.length" @click="moveSelBiz(1)" title="下移行">↓</el-button>
-              <el-divider direction="vertical"></el-divider>
               <el-button size="small" @click="toastMsg('原型演示：自动列宽')" title="自动列宽">⟷</el-button>
               <el-button size="small" @click="toastMsg('原型演示：自定义列')" title="自定义列">☰</el-button>
               <el-button size="small" @click="toastMsg('已刷新')" title="刷新">⟳</el-button>
@@ -114,11 +109,6 @@
           <!-- 表格下方一行：左下明细工具栏（图标按钮）+ 右下分页 -->
           <div class="ep-bar">
             <div>
-              <el-button size="small" @click="openAct" title="新增行">＋</el-button>
-              <el-button size="small" type="danger" plain :disabled="!selAct.length" @click="delSelAct" title="删除行">🗑</el-button>
-              <el-button size="small" :disabled="!selAct.length" @click="moveSelAct(-1)" title="上移行">↑</el-button>
-              <el-button size="small" :disabled="!selAct.length" @click="moveSelAct(1)" title="下移行">↓</el-button>
-              <el-divider direction="vertical"></el-divider>
               <el-button size="small" @click="toastMsg('原型演示：自动列宽')" title="自动列宽">⟷</el-button>
               <el-button size="small" @click="toastMsg('原型演示：自定义列')" title="自定义列">☰</el-button>
               <el-button size="small" @click="toastMsg('已刷新')" title="刷新">⟳</el-button>
