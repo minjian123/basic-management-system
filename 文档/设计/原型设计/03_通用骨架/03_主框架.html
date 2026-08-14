@@ -134,46 +134,10 @@
           </el-tabs>
         </div>
 
-        <!-- 内容区：各 Tab 对应示意面板（原实现为 iframe 承载各模块原型，此处演示框架结构） -->
+        <!-- 内容区：iframe 承载各模块原型（?embed=1 隐藏原型条），keep-alive：切换仅显隐不重载（《布局设计-主框架》3.内容区） -->
         <div class="content">
           <div v-for="t in tabs" :key="t.key" v-show="t.key === activeTab" style="height:100%">
-            <template v-if="t.key === 'home'">
-              <el-card class="pane-card">
-                <div class="pane-head">
-                  <div class="pane-icon">🏠</div>
-                  <div>
-                    <div class="pane-title">首页工作台</div>
-                    <div class="pane-src">工作台：卡片布局，快捷入口与待办一览（示意卡片）</div>
-                  </div>
-                </div>
-                <el-button type="primary" @click="ElMessage.info('原型演示：跳转工作台查看页')">进入工作台</el-button>
-                <el-button @click="ElMessage.info('原型演示：已刷新')">刷新</el-button>
-                <div class="wk-grid">
-                  <el-card><div class="wk-num">3</div><div style="font-size:13px">待办审批</div></el-card>
-                  <el-card><div class="wk-num">5</div><div style="font-size:13px">未读消息</div></el-card>
-                  <el-card><div class="wk-num">12</div><div style="font-size:13px">快捷入口</div></el-card>
-                </div>
-              </el-card>
-            </template>
-            <template v-else>
-              <el-card class="pane-card">
-                <div class="pane-head">
-                  <div class="pane-icon">{{ t.icon }}</div>
-                  <div>
-                    <div class="pane-title">{{ t.label }}</div>
-                    <div class="pane-src">{{ t.desc }}</div>
-                  </div>
-                </div>
-                <p class="proto-hint" style="margin:0 0 10px">原实现为 iframe 承载各模块原型（?embed=1 隐藏原型条）；本演示页以示意面板代替。</p>
-                <div>
-                  <el-button type="primary" @click="ElMessage.info('原型演示：新增（受权限码控制）')">新增</el-button>
-                  <el-button @click="ElMessage.info('已刷新')">刷新</el-button>
-                  <el-button @click="ElMessage.info('原型演示：关闭当前模块页面（返回）')">关闭</el-button>
-                  <el-button v-if="t.src" type="primary" link tag="a" :href="t.src" target="_blank">在新窗口打开该原型页 →</el-button>
-                  <el-button v-if="t.form" type="primary" link tag="a" :href="t.form" target="_blank">打开表单页 →</el-button>
-                </div>
-              </el-card>
-            </template>
+            <iframe v-if="t.frame" :src="t.frame" style="width:100%;height:100%;border:0;background:#fff"></iframe>
           </div>
         </div>
       </div>
@@ -197,48 +161,48 @@
   var app = createApp({
     template: document.getElementById('app').outerHTML.replace(/<div id="app">/, '<div>').replace(/<\/div>\s*$/, ''),
     setup: function () {
-      // 侧边菜单（《布局设计-主框架》2.侧边菜单）：一级配图标，叶子带 src/desc（示意面板用）
+      // 侧边菜单（《布局设计-主框架》2.侧边菜单）：一级配图标，叶子带 src（iframe 加载，?embed=1 隐藏原型条）
       var menus = [
         { name: '系统管理', icon: '⚙️', children: [
-          { name: '首页工作台', icon: '🏠', src: '../03_首页工作台/02_工作台查看.html', desc: '工作台：卡片布局，快捷入口与待办一览' },
+          { name: '首页工作台', icon: '🏠', src: '../06_首页工作台/02_工作台查看.html' },
           { name: '用户管理', icon: '👥', children: [
-            { name: '用户列表', src: '../05_用户管理/02_用户列表页.html', form: '../05_用户管理/03_用户表单页.html', desc: '用户管理列表：筛选/分页/操作列' },
-            { name: '账号锁定', src: '../05_用户管理/04_账号锁定.html', desc: '账号锁定策略与解锁操作' }
+            { name: '用户列表', src: '../08_用户管理/02_用户列表页.html' },
+            { name: '账号锁定', src: '../08_用户管理/04_账号锁定.html' }
           ]},
           { name: '角色管理', icon: '🛡️', children: [
-            { name: '角色列表', src: '../06_角色管理/02_角色列表页.html', desc: '角色列表：增删改查与启停用' },
-            { name: '权限配置', src: '../06_角色管理/03_权限配置.html', desc: '角色权限配置：菜单 + 操作码' }
+            { name: '角色列表', src: '../09_角色管理/02_角色列表页.html' },
+            { name: '权限配置', src: '../09_角色管理/03_权限配置.html' }
           ]},
           { name: '部门与岗位', icon: '🏢', children: [
-            { name: '部门管理', src: '../08_部门与岗位/02_部门管理页.html', desc: '部门树与部门维护' },
-            { name: '岗位管理', src: '../08_部门与岗位/03_岗位管理页.html', desc: '岗位维护与人员关联' }
+            { name: '部门管理', src: '../11_部门与岗位/02_部门管理页.html' },
+            { name: '岗位管理', src: '../11_部门与岗位/03_岗位管理页.html' }
           ]},
           { name: '菜单管理', icon: '📋', children: [
-            { name: '菜单维护', src: '../07_菜单管理/02_菜单维护页.html', desc: '菜单树维护' },
-            { name: '权限码管理', src: '../07_菜单管理/03_权限码管理.html', desc: '操作权限码维护' }
+            { name: '菜单维护', src: '../10_菜单管理/02_菜单维护页.html' },
+            { name: '权限码管理', src: '../10_菜单管理/03_权限码管理.html' }
           ]},
           { name: '表单定制', icon: '🧩', children: [
-            { name: '表单设计器', src: '../04_表单定制/02_表单设计器.html', desc: '拖拽式表单设计器' },
-            { name: '新建自定义字段', src: '../04_表单定制/03_新建自定义字段.html', desc: '自定义字段定义' }
+            { name: '表单设计器', src: '../07_表单定制/02_表单设计器.html' },
+            { name: '新建自定义字段', src: '../07_表单定制/03_新建自定义字段.html' }
           ]},
           { name: '工作台管理', icon: '🗂️', children: [
-            { name: '个人工作台定制', src: '../03_首页工作台/03_工作台编辑.html', desc: '个人工作台卡片编辑' },
-            { name: '卡片管理', src: '../03_首页工作台/04_卡片管理.html', desc: '卡片库管理' },
-            { name: '模板管理', src: '../03_首页工作台/05_模板管理.html', desc: '工作台模板管理' }
+            { name: '个人工作台定制', src: '../06_首页工作台/03_工作台编辑.html' },
+            { name: '卡片管理', src: '../06_首页工作台/04_卡片管理.html' },
+            { name: '模板管理', src: '../06_首页工作台/05_模板管理.html' }
           ]}
         ]},
         { name: '通用', icon: '📦', children: [
-          { name: '公告管理', src: '../09_采购与审批链路/05_通知公告页.html', desc: '公告发布与列表' },
-          { name: '通知中心', src: '../09_采购与审批链路/05_通知公告页.html', desc: '通知 / 消息中心' },
-          { name: '表单框架', src: '../02_通用骨架/04_表单框架.html', desc: 'FormFrame 组件演示' }
+          { name: '公告管理', src: '../12_采购与审批链路/05_通知公告页.html' },
+          { name: '通知中心', src: '../12_采购与审批链路/05_通知公告页.html' },
+          { name: '表单框架', src: '../03_通用骨架/04_表单框架.html' }
         ]},
         { name: '业务', icon: '📊', children: [
           { name: '采购管理', icon: '🛒', children: [
             { name: '供应商', src: '', desc: '供应商档案维护' },
-            { name: '采购申请列表', src: '../09_采购与审批链路/02_采购申请列表页.html', form: '../09_采购与审批链路/03_采购申请表单页.html', desc: '采购申请列表（双击行开表单 Tab）' },
-            { name: '采购申请表单', src: '../09_采购与审批链路/03_采购申请表单页.html', desc: '采购申请表单' }
+            { name: '采购申请列表', src: '../12_采购与审批链路/02_采购申请列表页.html' },
+            { name: '采购申请表单', src: '../12_采购与审批链路/03_采购申请表单页.html' }
           ]},
-          { name: '我的待办', src: '../09_采购与审批链路/04_待办审批页.html', desc: '我的待办与审批' }
+          { name: '我的待办', src: '../12_采购与审批链路/04_待办审批页.html' }
         ]}
       ];
 
@@ -249,9 +213,9 @@
       var activeTab = ref('home');
       var seq = 1;
 
-      // Tab 数组：home（固定）+ 打开的模块
+      // Tab 数组：home（固定，iframe 加载工作台原型）+ 打开的模块
       var tabs = reactive([
-        { key: 'home', label: '首页工作台', icon: '🏠', src: '', form: '', desc: '', act: 0 }
+        { key: 'home', label: '首页工作台', icon: '🏠', frame: '../06_首页工作台/02_工作台查看.html?embed=1', act: 0 }
       ]);
       var tabMap = {};
 
@@ -294,7 +258,7 @@
         var key = isHome ? 'home' : 'm' + seq++;
         var exist = tabMap[name];
         if (exist) { activeTab.value = exist.key; return; }
-        var t = { key: key, label: name, icon: item.icon || '📄', src: item.src || '', form: item.form || '', desc: item.desc || '', act: 0 };
+        var t = { key: key, label: name, icon: item.icon || '📄', frame: (item.src || '') + '?embed=1', act: 0 };
         var all = tabs.filter(function (x) { return x.key !== 'home'; });
         if (all.length >= 20) {
           var oldest = null, t0 = Infinity;
