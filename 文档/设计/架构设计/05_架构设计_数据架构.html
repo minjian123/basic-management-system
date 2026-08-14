@@ -143,7 +143,7 @@
       <ul>
         <li>字典（sys_dict_type / sys_dict_item）与系统参数（sys_config）：平台库存默认，租户库可覆盖/自建（租户开通种子自动下发默认项）</li>
         <li>字典多语言 label 存各自 _i18n 附表，按 locale 关联查询</li>
-        <li>缓存：只读热数据 Redis 缓存（<code>bms:{tenant}:dict:{locale}:{type}</code>），短 TTL + 随机偏移；字典/参数变更后删除缓存 key（先写库后删缓存协议）</li>
+        <li>缓存：只读热数据 Redis 缓存（<code>bms:{tenant}:dict:{locale}:{type}</code>），短 TTL + 随机偏移；字典/参数变更后删除缓存 key（先写库后删缓存协议）并递增全局版本号 <code>bms:{tenant}:dict:version</code>；后端进程内内存字典缓存（仅 &lt; 2000 条小字典整类型载入，超大字典 DB 索引直查）按版本惰性比对，字典查询接口与业务翻译（导出/通知/报表/审批）共用，零网络往返</li>
         <li>字典/参数是权限体系与业务模块的通用依赖（状态、类型等基础字典），页面管理权限码 dict:manage / config:manage</li>
       </ul>
 
@@ -156,12 +156,12 @@
       </ul>
 
       <h2 id="cache">5. 缓存架构</h2>
-      <p>统一 Redis 缓存（弃用本地内存缓存——多实例内存独立会造成数据不一致）。key 格式 <code>bms:{租户|global}:{域}:{业务键}</code>，全小写冒号分隔，所有 key 必须携带 TTL。</p>
+      <p>统一 Redis 缓存作为共享缓存源；一般业务数据不引入本地内存缓存（多实例内存独立会造成数据不一致），<strong>字典为只读热配置例外</strong>——进程内内存字典缓存（整类型 dict，全局版本号惰性比对保证多实例一致，见 4.1）。key 格式 <code>bms:{租户|global}:{域}:{业务键}</code>，全小写冒号分隔，所有 key 必须携带 TTL。</p>
 
       <h3 id="cache-keyspace">5.1 key 空间规划</h3>
       <table>
         <tr><th>域</th><th>key 示例</th><th>TTL 策略</th></tr>
-        <tr><td>缓存类</td><td><code>bms:{tenant}:dict:{locale}:{type}</code>、<code>bms:global:menu:{locale}</code>、<code>bms:{tenant}:perm:{user_id}:{version}</code></td><td>短 TTL + 随机偏移（防雪崩）</td></tr>
+        <tr><td>缓存类</td><td><code>bms:{tenant}:dict:{locale}:{type}</code>、<code>bms:{tenant}:dict:version</code>（字典全局版本，INCR）、<code>bms:global:menu:{locale}</code>、<code>bms:{tenant}:perm:{user_id}:{version}</code></td><td>短 TTL + 随机偏移（防雪崩）；版本键持久（随变更 INCR）</td></tr>
         <tr><td>会话与认证</td><td><code>bms:{tenant}:sess:{session_id}</code>、<code>bms:global:token:blacklist:{jti}</code></td><td>与业务有效期对齐（14 天 / 黑名单短窗）</td></tr>
         <tr><td>验证码与限流</td><td><code>bms:global:captcha:{uuid}</code>（5 分钟）、<code>bms:global:rate:{维度}:{目标}</code></td><td>短 TTL，与策略窗口对齐</td></tr>
         <tr><td>锁与幂等</td><td><code>bms:global:lock:{资源}</code>、<code>bms:{tenant}:idem:{key}</code></td><td>SETNX 带过期，防死锁</td></tr>
@@ -175,6 +175,7 @@
         <li>防雪崩：TTL 加随机偏移，避免大量 key 同时失效</li>
         <li>一致性：先写库后删缓存；写操作后同一会话内读主库，避免读到从库旧数据</li>
         <li>权限缓存失效：权限相关变更 → 权限版本号 +1，用户缓存按版本校验，保证变更即时生效</li>
+        <li>字典内存缓存失效：字典变更 → INCR 全局版本键，各实例按版本惰性比对自动重载（与权限版本号同模式）</li>
       </ul>
 
       <h2 id="migration">6. 迁移策略</h2>

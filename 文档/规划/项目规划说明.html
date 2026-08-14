@@ -314,7 +314,7 @@
         <li><strong>aiomysql</strong>：MySQL 异步驱动，与整体异步栈一致；同步 fallback 可换 PyMySQL（aiomysql 底层即其移植）。备选 asyncmy，性能更好但维护活跃度一般。</li>
         <li><strong>psycopg 3</strong>：PostgreSQL 官方维护驱动，原生异步支持（dialect <code>postgresql+psycopg</code>），替代已冻结的 psycopg2。</li>
         <li><strong>dmPython</strong>：达梦官方 Python 驱动（同步），dialect <code>dm+dmPython</code>；达梦 DM8 与 Oracle 语法兼容，方言差异大，迁移脚本与集成测试单独维护；对 Python 3.14 兼容性未知，纳入阶段一逐依赖验证，任一核心依赖不兼容则按既定口径整体回退 Python 3.13。</li>
-        <li><strong>Redis（redis-py）</strong>：官方客户端，RESP2 兼容旧版服务器；用异步客户端（redis.asyncio）配合缓存、限流、token 黑名单场景。集群环境统一走 Redis，<strong>弃用本地内存缓存</strong>——多实例内存相互独立会造成数据不一致。</li>
+        <li><strong>Redis（redis-py）</strong>：官方客户端，RESP2 兼容旧版服务器；用异步客户端（redis.asyncio）配合缓存、限流、token 黑名单场景。集群环境统一走 Redis 作为共享缓存源；字典为只读热配置，另加进程内内存字典缓存（整类型 dict，版本号比对保证多实例一致，见「性能与高并发设计·缓存策略」）。</li>
         <li><strong>JWT + Redis 会话状态校验 + PBKDF2</strong>：JWT 便于横向扩展；鉴权时随 access token 一并校验 Redis 会话有效标记（每请求一次 Redis 读，毫秒级开销），强制踢出即时生效；PBKDF2 用标准库实现。注意 access token 有效期不可过长，见"认证与安全"节。</li>
         <li><strong>authlib（SSO）</strong>：OIDC 为主 + CAS 兼容——作为客户端接入各租户外部 IdP（Keycloak/AD/Authing 等）；同时提供 OIDC Provider 能力，其他系统以 BMS 租户用户体系为统一认证源；企业微信/钉钉免登复用同一外部身份框架。SSO 首次登录 JIT 自动建号，本地账号密码登录并存（超管应急通道）。</li>
         <li><strong>slowapi</strong>：基于 limits 库的 FastAPI 限流方案，装饰器声明限流规则（IP / 用户 / client 维度），Redis 后端集群共享计数，Redis 故障降级 memory 后端；登录防爆破优先。</li>
@@ -485,7 +485,7 @@ graph TD
         <tr><td>sys_role_field</td><td>role_id、form_id、field_id、visible、editable</td><td>角色字段权限（联合主键 role_id+form_id+field_id），默认全部可见可编辑，授予后收窄</td></tr>
         <tr><td>sys_button</td><td>form_id、action_id、name、type（toolbar/interface）、sort</td><td>【平台库】表单按钮：按钮 1:1 挂接动作权限（按钮→动作），默认无任何按钮权限</td></tr>
         <tr><td>sys_data_scope</td><td>action_id、config（规则表达式）</td><td>动作级数据范围配置（动作→范围规则），写读双向校验，默认无数据权限</td></tr>
-        <tr><td>sys_dict_type / sys_dict_item</td><td>type、code、label、value、sort、status</td><td>字典类型与条目（平台库存默认，租户库可覆盖/自建）；多语言 label 存各自 _i18n 附表</td></tr>
+        <tr><td>sys_dict_type / sys_dict_item</td><td>type、code、label、value、parent_id、sort、status</td><td>字典类型与条目（平台库存默认，租户库可覆盖/自建）；parent_id 逻辑引用条目自身 id，支撑级联联动；多语言 label 存各自 _i18n 附表</td></tr>
         <tr><td>sys_config</td><td>config_key、value、remark</td><td>系统参数（key 为 MySQL 保留字，字段名用 config_key；平台库存默认，租户库可覆盖）</td></tr>
         <tr><td>sys_operation_log</td><td>user_id、module、action、method、path、params、ip、user_agent、cost_time、status、error_msg、prev_hash、record_hash</td><td>操作审计，按月分表（分片键=时间），哈希链防篡改，保留 90 天归档</td></tr>
         <tr><td>sys_login_log</td><td>username、ip、user_agent、status、fail_reason、prev_hash、record_hash</td><td>登录审计，哈希链防篡改，保留 90 天归档</td></tr>
@@ -794,6 +794,7 @@ graph TD
       <h3>缓存策略</h3>
       <ul>
         <li>只读热数据（字典、系统参数、菜单树、业务/动作权限码）Redis 缓存，短 TTL；多语言数据缓存键含 locale 维度；租户数据缓存键含 tenant 前缀。</li>
+        <li>字典内存缓存：字典为只读热配置，后端另设进程内内存字典缓存（仅 &lt; 2000 条的小字典整类型载入，超大字典走 DB 索引直查）；一致性靠全局版本号 <code>bms:{tenant}:dict:version</code> 惰性比对（字典变更 INCR 版本，各实例下次请求发现版本变化自动重载）；后端业务翻译（导出/通知/报表/审批）与字典查询接口共用该内存缓存，零网络往返。</li>
         <li>Redis key 命名规范：统一格式 <code>bms:{租户标识|global}:{域}:{业务键}</code>，如 bms:global:captcha:{uuid}、bms:global:token:blacklist:{jti}、bms:{tenant}:sess:{session_id}、bms:{tenant}:dict:{locale}:{type}、bms:global:rate:{维度}:{目标}；所有 key 必须携带 TTL——缓存类短 TTL + 随机偏移，持久状态类（token 黑名单、会话标记、分布式锁、幂等键）TTL 与业务有效期对齐；租户数据 key 必含租户前缀，平台数据用 global。</li>
         <li>三防：穿透（查询不存在的数据缓存空值）、击穿（热点 key 过期用互斥锁 SETNX 单实例重建）、雪崩（过期时间加随机偏移）。</li>
         <li>一致性：先写库后删缓存；写操作后同一会话内读主库，避免读到从库旧数据。</li>
@@ -877,7 +878,7 @@ graph TD
       <h3 id="deploy-cluster">19.2 集群设计要点</h3>
       <ul>
         <li><strong>无状态</strong>：JWT 无状态（会话有效标记存 Redis，鉴权顺带校验，毫秒级开销）；token 黑名单、限流计数存 Redis；文件存 MinIO；定时任务由 Celery 分布式执行——任一实例可随时停机、随时扩容。</li>
-        <li><strong>缓存一致性</strong>：统一走 Redis，不引入本地内存缓存（多实例内存独立会造成数据不一致）。</li>
+        <li><strong>缓存一致性</strong>：统一走 Redis 作为共享缓存源；一般业务数据不引入本地内存缓存（多实例内存独立会造成数据不一致）；字典为只读热配置例外——进程内内存字典缓存（整类型 dict + 全局版本号 <code>bms:{tenant}:dict:version</code> 惰性比对，多实例天然同步）。</li>
         <li><strong>分布式锁</strong>：Redis SETNX 实现，用于防并发与幂等拦截（幂等键前置去重，唯一约束兜底）。</li>
         <li><strong>实时推送</strong>：Socket.IO 连接分散于各实例，经 Redis 适配器广播；强制踢出时广播"会话失效"事件（HTTP 接口侧由 Redis 会话标记校验同步拦截）。</li>
         <li><strong>分布式限流</strong>：slowapi（limits 库）Redis 后端（登录防爆破已采用），Redis 故障降级 memory 后端。</li>

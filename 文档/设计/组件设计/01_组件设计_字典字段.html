@@ -47,7 +47,11 @@
           </ul>
         </li>
         <li><a href="#dict-cascader">5. DictCascader 树形级联</a></li>
-        <li><a href="#dict-label">6. 字典标签翻译 getDictLabel</a></li>
+        <li><a href="#dict-label">6. 字典标签翻译 getDictLabel</a>
+          <ul class="sub">
+            <li><a href="#dict-label-backend">6.1 后端字典翻译</a></li>
+          </ul>
+        </li>
         <li><a href="#dict-store">7. useDictStore（Pinia 缓存）</a></li>
         <li><a href="#api">8. 依赖接口与上游变更</a>
           <ul class="sub">
@@ -57,8 +61,9 @@
         </li>
         <li><a href="#performance">9. 性能与大数据量设计</a>
           <ul class="sub">
-            <li><a href="#performance-l1">9.1 L1 与序列化开销</a></li>
-            <li><a href="#performance-loadtest">9.2 并发压测计划</a></li>
+            <li><a href="#performance-l1">9.1 内存缓存与序列化开销</a></li>
+            <li><a href="#performance-big">9.2 超大字典策略（DB 直查）</a></li>
+            <li><a href="#performance-loadtest">9.3 并发压测计划</a></li>
           </ul>
         </li>
         <li><a href="#cooperate">10. 与字段权限 / i18n / 脱敏协作</a></li>
@@ -133,18 +138,18 @@ sequenceDiagram
 
     前端组件->>后端: POST /dicts/batch {types:[...], version}
     Note over Redis 缓存: GET bms:{tenant}:dict:version（单个 int，微秒级）
-    后端->>L1: 比对 L1[{locale}:{type}].version 与全局版本
-    Note over L1: 版本一致 → 零反序列化直出条目
+    后端->>L1: 比对 内存[{locale}:{type}].version 与全局版本
+    Note over L1: 版本一致 → 内存直出（零反序列化零往返）
     后端->>Redis 缓存: 版本不一致 → pipeline 读各类型 dict key
     Redis 缓存-->>后端: JSON 条目（含 i18n label）
-    后端->>后端: 反序列化并回填 L1
+    后端->>后端: 反序列化并回填内存缓存
     后端-->>前端组件: {version, items:{type:...}, has_more, total}
     前端组件->>前端组件: 更新 Pinia 缓存与本地版本
       </pre>
       <ul>
         <li>组件首次加载统一以 <code>limit=2001</code> 探针请求：返回条数未达上限说明是小字典，全量缓存；<code>has_more=true</code> 说明是超大字典，切换虚拟滚动 + 远程搜索模式（见 4.2）。</li>
         <li>缓存键 <code>bms:{tenant}:dict:{locale}:{type}</code>、版本键 <code>bms:{tenant}:dict:version</code> 遵循<a href="../../规范/命名规范.html">《命名规范》</a>基础设施 Redis key 约定。</li>
-        <li>后端 L1 缓存消除 JSON 反序列化重复开销，细节见 3.4。</li>
+        <li>后端进程内内存字典缓存消除 JSON 反序列化与 Redis 往返开销，细节见 3.4。</li>
       </ul>
 
       <h3 id="dataflow-write">3.2 写路径（删 key + 版本递增）</h3>
@@ -176,23 +181,25 @@ sequenceDiagram
       </table>
       <div class="note">版本比对只承担「缓存是否新鲜」判断，不承担数据正确性兜底；Redis 故障降级直连 DB 时始终返回全量 items（版本比对仅作优化，见<a href="../架构设计/05_架构设计_数据架构.html">架构 05</a>降级协议）。</div>
 
-      <h3 id="dataflow-l1">3.4 L1 反序列化缓存</h3>
+      <h3 id="dataflow-l1">3.4 进程内内存字典缓存</h3>
       <p>
         Redis 中字典以 JSON 字符串存储，Python 每次读取都要 <code>json.loads</code> 反序列化
-        （单类型 ≤ 2000 条约 1-2ms，表单页批量场景放大为每请求 10-20ms 纯 CPU 开销）。
-        为消除该重复开销，后端增加<strong>进程内 L1 反序列化缓存</strong>：
+        （单类型 ≤ 2000 条约 1-2ms）；且后端业务翻译场景（导出/通知/报表/审批等）若逐个字典字段查 Redis，
+        30 个字段 = 30 次网络往返（3-15ms/请求），高并发下同步阻塞调用（Celery worker、报表）会耗尽连接池排队。
+        因此后端增加<strong>进程内内存字典缓存</strong>，字典查询接口与业务翻译共用：
       </p>
       <table>
         <tr><th>项</th><th>设计</th></tr>
-        <tr><td>存储内容</td><td><code>L1[{tenant}:{locale}:{type}] = {version, items}</code>，items 为已反序列化的 Python 对象</td></tr>
-        <tr><td>读路径</td><td>每次请求仅 <code>GET bms:{tenant}:dict:version</code>（单个 int，微秒级）→ 与 L1 中该类型 version 比对 → 一致零反序列化直出；不一致才读 Redis key、反序列化、回填 L1</td></tr>
+        <tr><td>存储内容</td><td><code>内存[{tenant}:{locale}:{type}] = {version, items}</code>，items 为整类型条目列表（Python 对象），纯内存 dict 查找</td></tr>
+        <tr><td>读路径</td><td>每次请求仅 <code>GET bms:{tenant}:dict:version</code>（单个 int，微秒级）→ 与内存中该类型 version 比对 → 一致零反序列化直出；不一致才读 Redis、反序列化、回填内存</td></tr>
+        <tr><td>服务对象</td><td>① 字典查询接口（GET /dicts/{type}、POST /dicts/batch）② 后端业务翻译（get_dict_label，见第 6 节）——两者共用同一份内存数据，业务翻译零往返</td></tr>
         <tr><td>失效</td><td>写路径 DEL key + INCR 版本（见 3.2）后，各实例下次请求自动发现版本变化重载，无需广播</td></tr>
         <tr><td>一致性</td><td>INCR 原子性保证多实例同步；极端时序下最长一个请求窗口陈旧，业务可接受</td></tr>
-        <tr><td>内存有界</td><td>仅<strong>全量小字典</strong>（&lt; 2000 条）入 L1；超大字典只存已加载片段、不入 L1（远程搜索直查 Redis）；LRU 淘汰 + 条目数上限（config.toml 可配），实测类型规模下占用几十 MB 级</td></tr>
+        <tr><td>内存有界</td><td>仅<strong>小字典</strong>（&lt; 2000 条）整类型载入；超大字典（≥ 2000 条）不入内存、不整量缓存 Redis，走 DB 索引直查（见 9.2）；LRU 淘汰 + 条目数上限可配（config.toml），实测类型规模下占用几十 MB 级</td></tr>
       </table>
       <div class="note">
-        与规划「弃用本地内存缓存」的边界：弃用的是<strong>数据本体缓存</strong>（多实例内存相互独立会造成数据不一致）；
-        L1 是<strong>反序列化加速层</strong>，数据源仍为 Redis，一致性由全局版本号保证，不破坏该原则。
+        《项目规划说明》及架构文档中「弃用本地内存缓存」原则已<strong>彻底删除</strong>（经确认）：一般业务数据的本地缓存仍有一致性问题不鼓励，
+        但字典为只读热配置，其进程内内存缓存由全局版本号保证多实例一致，属明确允许场景。
       </div>
 
       <h2 id="dict-select">4. DictSelect 组件</h2>
@@ -264,6 +271,20 @@ sequenceDiagram
         <li>缓存未命中时触发一次按需加载（含版本比对），不阻塞渲染：先显示原值，加载完成后自动刷新 label。</li>
       </ul>
 
+      <h3 id="dict-label-backend">6.1 后端字典翻译</h3>
+      <p>
+        后端 service 层提供对应翻译工具（<code>get_dict_label</code> / <code>get_dict_labels</code>），
+        数据源为 3.4 的进程内内存字典缓存（纯内存查找，微秒级、零往返），一次调用翻译多个字段亦无叠加开销：
+      </p>
+      <table>
+        <tr><th>场景</th><th>说明</th></tr>
+        <tr><td>Excel 导出</td><td>导出列字典值 → label（openpyxl 生成前批量翻译）</td></tr>
+        <tr><td>邮件/通知模板</td><td>Jinja2 模板渲染时翻译（审批提醒、告警通知）</td></tr>
+        <tr><td>报表数据集</td><td>报表字段字典翻译（rpt 只读从库执行后翻译）</td></tr>
+        <tr><td>审批辅助/全文检索</td><td>审批意见、检索高亮等场景的字典文案</td></tr>
+        <tr><td>职责边界</td><td>列表页/表单页 label 由前端 getDictLabel 翻译（前端有缓存），后端不重复返回；后端翻译仅服务后端场景</td></tr>
+      </table>
+
       <h2 id="dict-store">7. useDictStore（Pinia 缓存）</h2>
       <table>
         <tr><th>成员</th><th>说明</th></tr>
@@ -316,9 +337,9 @@ sequenceDiagram
           <td>缓存失效管理补充「INCR 全局版本键」；读路径时序补 L1 反序列化缓存与版本比对分支</td>
         </tr>
         <tr>
-          <td>L1 缓存与压测</td>
-          <td><a href="../架构设计/05_架构设计_数据架构.html">《架构设计·05 数据架构》</a>5 缓存架构；<a href="../架构设计/27_架构设计_测试与质量.html">《架构设计·27 测试与质量》</a></td>
-          <td>缓存架构补充 L1 反序列化缓存（与「弃用本地内存缓存」原则的边界说明）；测试与质量补字典并发压测场景（loadtest/）</td>
+          <td>内存字典缓存与压测</td>
+          <td><a href="../架构设计/05_架构设计_数据架构.html">《架构设计·05 数据架构》</a>5 缓存架构；<a href="../架构设计/27_架构设计_测试与质量.html">《架构设计·27 测试与质量》</a>；<a href="../../规划/项目规划说明.html">《项目规划说明》</a></td>
+          <td>彻底删除「弃用本地内存缓存」原则；缓存架构补充进程内内存字典缓存（整类型 dict + 版本号一致 + 超大字典 DB 直查）；测试与质量补字典并发压测场景（loadtest/）</td>
         </tr>
       </table>
       <div class="note">按《文档生成规范》8.4「设计文档变更须先更新对应体系节点」，上述变更需用户确认后由上游文档同步，本文档不单独裁决接口。</div>
@@ -328,27 +349,40 @@ sequenceDiagram
         <tr><th>场景</th><th>设计</th></tr>
         <tr><td>单类型条目 100 万</td><td>探针判别超大字典 → el-select-v2 虚拟滚动（DOM 只渲染可见行）+ 远程搜索；首次仅拉 2001 条，绝不整量渲染/传输</td></tr>
         <tr><td>查询性能</td><td>DB 索引 <code>(type_id, parent_id, sort)</code>、<code>(type_id, label)</code> 前缀索引，单类型百万内查询毫秒级；Redis 缓存按类型分键（单 key 不超过 2000 条，无超大 key）</td></tr>
-        <tr><td>高并发（500 用户）</td><td>批量接口把「100 字段 × 500 用户」的 5 万次 HTTP 请求合并为 500 次；Redis 命中下后端每次请求仅一次 int 版本比对（3.1），DB 由互斥锁回源收敛为每类型 1 次</td></tr>
+        <tr><td>高并发（500 用户）</td><td>批量接口把「100 字段 × 500 用户」的 5 万次 HTTP 请求合并为 500 次；后端每次请求仅一次 int 版本比对（3.1）后内存直出，DB 由互斥锁回源收敛为每类型 1 次；业务翻译零往返无连接池排队</td></tr>
         <tr><td>网络流量</td><td>版本比对命中时零传输（items=null）；localStorage 二次缓存免除重复请求</td></tr>
         <tr><td>缓存雪崩/击穿/穿透</td><td>沿用<a href="../架构设计/05_架构设计_数据架构.html">架构 05</a>缓存三防：短 TTL + 随机偏移、SETNX 互斥锁回源、空值缓存</td></tr>
         <tr><td>并发加载</td><td>同类型并发请求合并（store 内 pending Promise 去重），避免同屏多表单重复请求同一字典</td></tr>
       </table>
 
-      <h3 id="performance-l1">9.1 L1 与序列化开销</h3>
+      <h3 id="performance-l1">9.1 内存缓存与序列化开销</h3>
       <ul>
         <li>纯 Redis + JSON 方案下，Python 每请求需 <code>json.loads</code> 反序列化：小类型 1-2ms，批量组装 100 类型可达 10-20ms 纯 CPU 开销，且每次请求重复支付。</li>
-        <li>L1 反序列化缓存（3.4）把读路径收敛为「int 版本比对（微秒）+ L1 直出（零序列化）」，批量场景 CPU 开销降到毫秒级；Redis 仍为数据一致性源，多实例由版本号同步。</li>
-        <li>L1 内存有界：仅全量小字典入 L1、LRU 淘汰、条目数上限可配；超大字典片段不入 L1（远程搜索直查 Redis，天然无超大内存问题）。</li>
+        <li>进程内内存字典缓存（3.4）把读路径收敛为「int 版本比对（微秒）+ 内存直出（零序列化零往返）」，批量场景 CPU 开销降到毫秒级；后端业务翻译（6.1）同样零往返，无 Redis 连接池排队风险。</li>
+        <li>内存有界：仅小字典（&lt; 2000 条）整类型载入、LRU 淘汰、条目数上限可配；超大字典片段不入内存（见 9.2），无超大内存问题。</li>
       </ul>
 
-      <h3 id="performance-loadtest">9.2 并发压测计划</h3>
+      <h3 id="performance-big">9.2 超大字典策略（DB 直查）</h3>
+      <ul>
+        <li>超大字典（≥ 2000 条，如 100 万条行政区划）<strong>不入内存、不整量缓存 Redis</strong>：单 key JSON 100-200MB 不现实（网络传输/反序列化/内存全爆炸），整类型载入进程内存同样不可接受。</li>
+        <li>查询形态均为「带索引的小结果」，DB 直查毫秒级，且天然低频（不搜索不查、级联只查当前父级、翻译只查选中一条）：</li>
+      </ul>
+      <table>
+        <tr><th>查询形态</th><th>实现</th></tr>
+        <tr><td>远程搜索（keyword）</td><td>DB <code>LIKE</code> 走 <code>(type_id, label)</code> 前缀索引，LIMIT 2001</td></tr>
+        <tr><td>级联过滤（parent_id）</td><td>DB 走 <code>(type_id, parent_id)</code> 索引，只取该父级子条目</td></tr>
+        <tr><td>单值翻译（value → label）</td><td>DB 按 <code>(type_id, value)</code> 唯一索引取单条</td></tr>
+      </table>
+
+      <h3 id="performance-loadtest">9.3 并发压测计划</h3>
       <p>纳入阶段一压测计划（脚本放 <code>loadtest/</code>，命名 <code>scenario_字典并发.py</code>，遵循<a href="../../规范/测试规范.html">《测试规范》</a>与<a href="../../规范/命名规范.html">《命名规范》</a>）：</p>
       <table>
         <tr><th>场景</th><th>说明</th><th>观测指标</th></tr>
-        <tr><td>首次全缓存未命中</td><td>500 并发同时打开含 100 字典字段的表单页（字典缓存全部失效/冷启动），验证 DB 互斥锁回源收敛与 L1 回填</td><td>p95/p99 延迟、错误率、DB 查询次数（应 ≈ 类型数）、L1 命中率</td></tr>
-        <tr><td>全命中</td><td>500 并发重复打开表单页（L1 + Redis 均命中），验证批量接口与版本比对的稳定吞吐</td><td>p95/p99 延迟、错误率、Redis/L1 命中率、CPU 占比</td></tr>
+        <tr><td>首次全缓存未命中</td><td>500 并发同时打开含 100 字典字段的表单页（字典缓存全部失效/冷启动），验证 DB 互斥锁回源收敛与内存缓存回填</td><td>p95/p99 延迟、错误率、DB 查询次数（应 ≈ 类型数）、内存缓存命中率</td></tr>
+        <tr><td>全命中</td><td>500 并发重复打开表单页（内存 + Redis 均命中），验证批量接口与版本比对的稳定吞吐</td><td>p95/p99 延迟、错误率、Redis/内存命中率、CPU 占比</td></tr>
+        <tr><td>后端翻译</td><td>500 并发导出含 30 个字典字段的列表（后端批量翻译），验证内存缓存零往返</td><td>p95/p99 延迟、错误率、Redis 往返次数（应为版本比对 1 次/请求级）</td></tr>
       </table>
-      <div class="note">验收目标（建议值，压测前确认）：两场景 p95 延迟 &lt; 500ms、错误率 0；未命中场景 DB 查询次数不超过字典类型数 × worker 数（互斥锁收敛验证）。</div>
+      <div class="note">验收目标（建议值，压测前确认）：三场景 p95 延迟 &lt; 500ms、错误率 0；未命中场景 DB 查询次数不超过字典类型数 × worker 数（互斥锁收敛验证）。</div>
 
       <h2 id="cooperate">10. 与字段权限 / i18n / 脱敏协作</h2>
       <ul>
@@ -369,12 +403,13 @@ sequenceDiagram
         <li>□ 组件归属 src/components/dict/，命名符合《命名规范》（DictSelect/DictCascader 组件、useDictStore、getDictLabel）</li>
         <li>□ 大小字典按阈值 2000 自动切换（el-select ↔ el-select-v2 + 远程搜索），首次探针 limit=2001</li>
         <li>□ 表单页多字典字段合并为一次 POST /dicts/batch；远程搜索与级联走单类型接口</li>
-        <li>□ 版本比对（3.3）、写路径删 key + INCR（3.2）、L1 反序列化缓存（3.4）与缓存三防引用和架构 05 一致</li>
+        <li>□ 版本比对（3.3）、写路径删 key + INCR（3.2）、进程内内存字典缓存（3.4）与缓存三防引用和架构 05 一致</li>
+        <li>□ 超大字典（≥ 2000 条）不入内存/Redis，走 DB 索引直查（9.2）；后端翻译走内存缓存零往返（6.1）</li>
         <li>□ parentValue 级联过滤生效，父级变化清空重载；树形级联走 DictCascader</li>
         <li>□ 只读回显与列表列渲染统一走 getDictLabel，label 缺失回显原值</li>
         <li>□ 字段权限（visible/editable）、i18n、脱敏协作边界符合第 10 节</li>
         <li>□ 接口扩展（批量接口、GET /dicts/{type} 参数）与 sys_dict_item.parent_id 的上游同步变更已确认并落表（8.2）</li>
-        <li>□ 500 并发双场景压测脚本纳入 loadtest/（9.2），验收指标压测前确认</li>
+        <li>□ 500 并发三场景压测脚本纳入 loadtest/（9.3），验收指标压测前确认</li>
         <li>□ 移动端取数复用与组件隔离符合第 11 节</li>
       </ul>
 
