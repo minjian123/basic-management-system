@@ -144,7 +144,7 @@ def main():
     ap.add_argument("--prompt", help="提示词模板名（prompts/ 下）或模板文件路径")
     ap.add_argument("--text", help="直接提示词文本（与 --prompt 二选一）")
     ap.add_argument("--out", help="输出 JSON 文件路径（缺省输出 stdout）")
-    ap.add_argument("--timeout", type=int, default=int(os.environ.get("VISION_API_TIMEOUT", "300")))
+    ap.add_argument("--timeout", type=int, default=int(os.environ.get("VISION_API_TIMEOUT", "60")))
     reasoning = os.environ.get("VISION_API_REASONING", "none")
     args = ap.parse_args()
 

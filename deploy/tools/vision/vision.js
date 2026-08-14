@@ -31,7 +31,7 @@ export const VisionPlugin = async ({ directory }, options = {}) => {
   const endpoint = process.env.VISION_API_ENDPOINT || options.endpoint || "";
   const apiKey = process.env.VISION_API_KEY || options.apiKey || "";
   const model = process.env.VISION_API_MODEL || options.model || "";
-  const timeout = Number(process.env.VISION_API_TIMEOUT || options.timeout || 300000);
+  const timeout = Number(process.env.VISION_API_TIMEOUT || options.timeout || 60000);
 
   const missingCfg = [];
   if (!endpoint) missingCfg.push("VISION_API_ENDPOINT");
