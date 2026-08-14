@@ -32,7 +32,7 @@
         <el-button @click="toastMsg('原型演示：关闭当前模块页面（返回）')">关闭</el-button>
         <span class="ep-side">
           <el-button @click="toastMsg('原型演示：导出当前筛选结果')">导出</el-button>
-          <span class="proto-hint" style="margin-left:10px">双击行解锁</span>
+          <span class="proto-hint" style="margin-left:10px">双击行打开账号锁定表单页</span>
         </span>
       </div>
 
@@ -48,7 +48,7 @@
       </el-form>
 
       <!-- ③ 表格：多选 + 锁定类型 tag；双击行解锁 -->
-      <el-table :data="pageRows" border stripe @selection-change="onSel" @row-dblclick="unlockRow" style="width:100%">
+      <el-table :data="pageRows" border stripe @selection-change="onSel" @row-dblclick="openDetail" style="width:100%">
         <el-table-column type="selection" width="48"></el-table-column>
         <el-table-column prop="username" label="用户名" min-width="120"></el-table-column>
         <el-table-column label="锁定类型" width="130">
@@ -132,6 +132,16 @@
           })
           .catch(function () {});
       }
+      // 双击行打开账号锁定表单页（embed 时三级回退：父框架详情 Tab → 父框架新 Tab → 独立跳转；非 embed 保留原解锁弹窗）
+      function openDetail(row) {
+        if (location.search.indexOf('embed=1') >= 0) {
+          try { parent.openDetail('账号锁定', row.username, row.username); return; } catch (e) {}
+          try { parent.openTab('账号锁定表单', '../08_用户管理/05_账号锁定表单页.html'); return; } catch (e) {}
+          location.href = '../08_用户管理/05_账号锁定表单页.html?id=' + row.username + '&name=' + encodeURIComponent(row.username);
+          return;
+        }
+        unlockRow(row);
+      }
       // 双击行解锁
       function unlockRow(row) {
         ElMessageBox.confirm('手动解锁「' + row.username + '」？解锁记录将写入 sys_account_lock 并落操作日志与审计。', '提示', { type: 'warning', confirmButtonText: '解锁', cancelButtonText: '取消' })
@@ -155,7 +165,7 @@
           .catch(function () {});
       }
       function toastMsg(m) { ElMessage({ message: m, type: 'success' }); }
-      return { rows, query, selRows, filtered, pageRows, tagType, applyFilter, resetFilter, onSel, onPage, onSize, batchUnlock, unlockRow, delSel, toastMsg };
+      return { rows, query, selRows, filtered, pageRows, tagType, applyFilter, resetFilter, onSel, onPage, onSize, batchUnlock, openDetail, unlockRow, delSel, toastMsg };
     }
   });
   app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });

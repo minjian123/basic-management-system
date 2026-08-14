@@ -46,8 +46,10 @@
       <h2 id="pages">2. 界面清单</h2>
       <table>
         <tr><th>界面</th><th>原型（可点击操作）</th><th>主要交互验证点</th></tr>
-        <tr><td>部门管理页</td><td><a href="02_部门管理页.html">部门管理页.html</a></td><td>树 + 详情、新增子部门、移动（ancestors 级联）、角色绑定</td></tr>
-        <tr><td>岗位管理页</td><td><a href="03_岗位管理页.html">岗位管理页.html</a></td><td>CRUD、归属部门、绑定角色</td></tr>
+        <tr><td>部门管理页</td><td><a href="02_部门管理页.html">部门管理页.html</a></td><td>树 + 详情、新增子部门、移动（ancestors 级联）、角色绑定；嵌入主框架时详情工具栏提供「打开部门表单页」入口</td></tr>
+        <tr><td>岗位管理页</td><td><a href="03_岗位管理页.html">岗位管理页.html</a></td><td>CRUD、归属部门、绑定角色；嵌入主框架时双击行打开岗位表单页</td></tr>
+        <tr><td>岗位表单页</td><td><a href="04_岗位表单页.html">岗位表单页.html</a></td><td>表单页分态（只读/编辑）、?id=&amp;name= 回填、岗位码编辑态锁定、归属部门树选、保存校验（岗位码/名称必填）、删除确认</td></tr>
+        <tr><td>部门表单页</td><td><a href="05_部门表单页.html">部门表单页.html</a></td><td>表单页分态、?id=&amp;name= 回填、上级部门树选（排除自身及子孙）、删除拦截（有子部门/成员时提示不可删）</td></tr>
       </table>
 
       <h2 id="interact">3. 交互要点</h2>

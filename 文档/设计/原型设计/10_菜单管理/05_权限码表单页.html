@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 权限码表单页</title>
+<link rel="stylesheet" href="../共享资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../共享资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .ep-toolbar { display:flex; align-items:center; gap:8px; margin-bottom:12px; flex-wrap:wrap; }
+  .ep-side { margin-left:auto; display:flex; align-items:center; gap:8px; }
+  .ep-section { font-weight:600; margin:16px 0 12px; padding-bottom:8px; border-bottom:1px solid #eaeef2; font-size:14px; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="01_设计说明.html">← 返回设计说明</a></span>
+  <span class="pb-name">菜单管理 · 权限码表单页</span>
+</div>
+
+<div class="proto-frame">
+  <div id="app">
+    <div class="ep-page">
+      <!-- ① 工具栏分态：只读 修改/删除/刷新/关闭 ↔ 编辑 保存/关闭 -->
+      <div class="ep-toolbar" style="border-bottom:1px solid #eaeef2;padding-bottom:10px;margin-bottom:12px">
+        <template v-if="!editing">
+          <el-button type="primary" @click="editForm">修改</el-button>
+          <el-button type="danger" plain @click="delForm">删除</el-button>
+          <el-button @click="toastMsg('已重新加载当前记录')">刷新</el-button>
+        </template>
+        <template v-else>
+          <el-button type="primary" @click="saveForm">保存</el-button>
+        </template>
+        <el-button @click="closePage">关闭</el-button>
+        <span class="ep-side">
+          <span class="proto-hint">平台码由平台统一维护（租户视角保存/删除被拦截演示）</span>
+        </span>
+      </div>
+
+      <!-- ② 权限码信息：类型切换 业务权限码 ↔ 动作权限码 -->
+      <div class="ep-section">权限码信息</div>
+      <el-form label-width="110px" :disabled="!editing">
+        <el-form-item label="权限码类型">
+          <el-radio-group v-model="form.permType">
+            <el-radio value="biz">业务权限码</el-radio>
+            <el-radio value="act">动作权限码</el-radio>
+          </el-radio-group>
+        </el-form-item>
+
+        <!-- 业务权限码：code + 说明 -->
+        <template v-if="form.permType === 'biz'">
+          <el-row :gutter="16">
+            <el-col :span="12">
+              <el-form-item label="业务码" required><el-input v-model="form.code" placeholder="如 user"></el-input></el-form-item>
+            </el-col>
+            <el-col :span="12">
+              <el-form-item label="默认归属"><el-input v-model="form.owner" placeholder="系统管理员"></el-input></el-form-item>
+            </el-col>
+          </el-row>
+          <el-form-item label="说明" required><el-input v-model="form.desc" type="textarea" :rows="3" placeholder="业务说明（如：用户管理，含账号锁定/解锁）"></el-input></el-form-item>
+        </template>
+
+        <!-- 动作权限码：code + 归属业务 + 说明 + 典型示例 -->
+        <template v-else>
+          <el-row :gutter="16">
+            <el-col :span="12">
+              <el-form-item label="动作码" required><el-input v-model="form.code" placeholder="如 create"></el-input></el-form-item>
+            </el-col>
+            <el-col :span="12">
+              <el-form-item label="归属业务" required>
+                <el-select v-model="form.biz" style="width:100%">
+                  <el-option v-for="b in bizOptions" :key="b" :label="b" :value="b"></el-option>
+                </el-select>
+              </el-form-item>
+            </el-col>
+          </el-row>
+          <el-form-item label="说明" required><el-input v-model="form.desc" type="textarea" :rows="2" placeholder="动作说明"></el-input></el-form-item>
+          <el-form-item label="典型权限码示例"><el-input v-model="form.typical" placeholder="如 user:create"></el-input></el-form-item>
+        </template>
+
+        <el-form-item label="状态">
+          <el-select v-model="form.status" style="width:200px">
+            <el-option label="启用" value="enabled"></el-option>
+            <el-option label="停用" value="disabled"></el-option>
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <div class="proto-note" style="border-left-color:#cf222e;background:#ffebe9;color:#1f2328">平台码由平台统一维护，租户只读引用（租户视角编辑/删除均被拦截）</div>
+    </div>
+  </div>
+</div>
+
+<script src="../共享资源/vendor/vue.global.prod.js"></script>
+
+<script src="../共享资源/vendor/element-plus.min.js"></script>
+<script src="../共享资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref, reactive, watch } = Vue;
+  var app = createApp({
+    template: document.getElementById('app').outerHTML.replace(/<div id="app">/, '<div>').replace(/<\/div>\s*$/, ''),
+    setup: function () {
+      var editing = ref(false);
+      var dirty = ref(false);
+      var syncing = false;
+      var bizOptions = ['user', 'dashboard', 'formdesign', 'wf', 'purchase', 'notice'];
+      var form = reactive({
+        permType: 'biz', code: 'user', desc: '用户管理（含账号锁定/解锁）', owner: '系统管理员',
+        biz: 'wf', typical: 'user:create', status: 'enabled'
+      });
+
+      function toastMsg(m, type) {
+        var opts = { message: m };
+        if (type) { opts.type = type; opts.duration = 2000; }
+        Vue.ElMessage(opts);
+      }
+      function confirmAction(msg, fn, okText) {
+        Vue.ElMessageBox.confirm(msg, '确认操作', { type: 'warning', confirmButtonText: okText || '确定', cancelButtonText: '取消' })
+          .then(function () { fn(); }).catch(function () {});
+      }
+      watch(form, function () { if (editing.value && !syncing) dirty.value = true; }, { deep: true });
+
+      function editForm() {
+        syncing = true; dirty.value = false; syncing = false;
+        editing.value = true;
+        toastMsg('已进入编辑态（字段启用）');
+      }
+      // 保存：必填校验后走租户视角拦截演示（平台码不可编辑）
+      function saveForm() {
+        var label = form.permType === 'biz' ? '业务码' : '动作码';
+        if (!(form.code || '').trim() || !(form.desc || '').trim()) { toastMsg(label + '与说明必填', 'error'); return; }
+        if (form.permType === 'act' && !form.biz) { toastMsg('动作码需选择归属业务', 'error'); return; }
+        confirmAction('平台码由平台统一维护，租户视角保存将被拦截。是否继续演示？', function () {
+          editing.value = false;
+          dirty.value = false;
+          toastMsg('已拦截：平台码由平台统一维护（租户视角被拦截演示）', 'error');
+        }, '演示拦截');
+      }
+      function delForm() {
+        confirmAction('删除当前权限码？', function () {
+          toastMsg('已拦截：平台码由平台统一维护（租户视角被拦截演示）', 'error');
+        }, '删除');
+      }
+      function closePage() {
+        if (dirty.value) {
+          confirmAction('当前有未保存的修改，确认关闭并放弃？', function () { editing.value = false; dirty.value = false; toastMsg('已关闭'); });
+          return;
+        }
+        toastMsg('已关闭');
+      }
+      // 由列表页双击打开时（?id=&name=）回填码值
+      (function () {
+        function qp(k) { var m = location.search.match(new RegExp('[?&]' + k + '=([^&]*)')); return m ? decodeURIComponent(m[1]) : null; }
+        var id = qp('id'), name = qp('name');
+        if (id) form.code = id;
+        if (name) form.desc = name;
+      })();
+      return { editing, form, bizOptions, editForm, saveForm, delForm, closePage, toastMsg };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+<script>if (location.search.indexOf("embed=1") >= 0) { var pb = document.querySelector(".proto-bar"); if (pb) pb.style.display = "none"; }</script>
+</body>
+</html>

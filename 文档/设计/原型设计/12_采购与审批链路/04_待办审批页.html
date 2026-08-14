@@ -48,7 +48,7 @@
               <el-button @click="resetFilter('todo')">重置</el-button>
             </el-form-item>
           </el-form>
-          <el-table class="todo-table" :data="todoPage" border stripe style="width:100%" @row-click="openApprove">
+          <el-table class="todo-table" :data="todoPage" border stripe style="width:100%" @row-dblclick="openApprove">
             <el-table-column prop="docNo" label="单据" min-width="140"></el-table-column>
             <el-table-column prop="title" label="标题" min-width="200"></el-table-column>
             <el-table-column prop="amount" label="金额" width="110" align="right">
@@ -231,8 +231,14 @@
       function onPage(name, n) {
         if (name === 'todo') qTodo.page = n; else qDone.page = n;
       }
-      // 打开审批处理弹窗
+      // 双击行/审批按钮：embed 时打开待办审批表单页（openDetail → openTab → 独立跳转三级 fallback）；非 embed 保留审批弹窗
       function openApprove(row) {
+        if (location.search.indexOf('embed=1') >= 0) {
+          try { parent.openDetail('我的待办', row.docNo, row.title); return; } catch (e) {}
+          try { parent.openTab('待办审批表单', '../12_采购与审批链路/06_待办审批表单页.html'); return; } catch (e) {}
+          location.href = '../12_采购与审批链路/06_待办审批表单页.html?id=' + encodeURIComponent(row.docNo) + '&name=' + encodeURIComponent(row.title);
+          return;
+        }
         ap.docNo = row.docNo;
         ap.comment = '';
         ap.loading = false;

@@ -46,7 +46,7 @@
               <el-button @click="resetFilter('biz')">重置</el-button>
             </el-form-item>
           </el-form>
-          <el-table :data="pageBiz" border stripe @selection-change="onSelBiz" @row-click="permEdit" style="width:100%">
+          <el-table :data="pageBiz" border stripe @selection-change="onSelBiz" @row-dblclick="permEdit" style="width:100%">
             <el-table-column type="selection" width="48"></el-table-column>
             <el-table-column prop="code" label="业务码" min-width="120"></el-table-column>
             <el-table-column prop="desc" label="说明" min-width="260"></el-table-column>
@@ -94,7 +94,7 @@
               <el-button @click="resetFilter('act')">重置</el-button>
             </el-form-item>
           </el-form>
-          <el-table :data="pageAct" border stripe @selection-change="onSelAct" @row-click="permEdit" style="width:100%">
+          <el-table :data="pageAct" border stripe @selection-change="onSelAct" @row-dblclick="permEdit" style="width:100%">
             <el-table-column type="selection" width="48"></el-table-column>
             <el-table-column prop="code" label="动作码" min-width="120"></el-table-column>
             <el-table-column prop="biz" label="归属业务" min-width="160"></el-table-column>
@@ -232,8 +232,16 @@
         dlgAct.visible = false;
         toastMsg('动作码已创建（挂按钮后生效）');
       }
-      // 原行内「编辑」按钮收敛为行点击（平台码编辑租户视角被拦截演示）
-      function permEdit() { ElMessage.error('平台码编辑（租户视角被拦截演示）'); }
+      // 双击行：embed 时打开权限码表单页（openDetail → openTab → 独立跳转三级 fallback）；非 embed 保留平台码拦截提示
+      function permEdit(row) {
+        if (location.search.indexOf('embed=1') >= 0) {
+          try { parent.openDetail('权限码管理', row.code, row.code); return; } catch (e) {}
+          try { parent.openTab('权限码表单', '../10_菜单管理/05_权限码表单页.html'); return; } catch (e) {}
+          location.href = '../10_菜单管理/05_权限码表单页.html?id=' + encodeURIComponent(row.code) + '&name=' + encodeURIComponent(row.code);
+          return;
+        }
+        ElMessage.error('平台码编辑（租户视角被拦截演示）');
+      }
       // 明细工具栏行操作：删除选中行（确认后平台码拦截演示）/ 上移下移选中行（多选时取第一行）
       function onSelBiz(sel) { selBiz.value = sel; }
       function onSelAct(sel) { selAct.value = sel; }

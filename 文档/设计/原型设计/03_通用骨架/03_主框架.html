@@ -133,7 +133,7 @@
               <el-tab-pane v-for="t in tabs" :key="t.key" :name="t.key" :label="t.label"
                 :closable="t.key !== 'home'"></el-tab-pane>
             </el-tabs>
-            <el-dropdown v-if="showMore" @command="moreCmd" style="flex-shrink:0;margin-left:8px">
+            <el-dropdown v-if="showMore" trigger="click" @command="moreCmd" style="flex-shrink:0;margin-left:8px">
               <el-button text size="small">更多 ▾</el-button>
               <template #dropdown>
                 <el-dropdown-menu>
@@ -145,10 +145,27 @@
           </div>
         </div>
 
-        <!-- 内容区：iframe 承载各模块原型（?embed=1 隐藏原型条），keep-alive：切换仅显隐不重载（《布局设计-主框架》3.内容区） -->
+        <!-- 内容区：iframe 承载各模块原型（?embed=1 隐藏原型条），keep-alive：切换仅显隐不重载（《布局设计-主框架》3.内容区）；
+             FormFrame 模式（菜单叶子带 form）：Tab 内 列表子 Tab + 详情子 Tab（双击列表行打开表单详情，列表/详情切换） -->
         <div class="content">
           <div v-for="t in tabs" :key="t.key" v-show="t.key === activeTab" style="height:100%">
-            <iframe v-if="t.frame" :src="t.frame" style="width:100%;height:100%;border:0;background:#fff"></iframe>
+            <template v-if="t.form">
+              <div style="height:100%;display:flex;flex-direction:column;background:#fff;border:1px solid #d0d7de;border-radius:6px;overflow:hidden">
+                <el-tabs v-model="t.active" type="card" @tab-remove="rmDetail(t, $event)" style="padding:0 8px">
+                  <el-tab-pane label="列表" name="list"></el-tab-pane>
+                  <el-tab-pane v-for="d in t.details" :key="d.key" :name="d.key" :label="d.title" closable></el-tab-pane>
+                </el-tabs>
+                <div style="flex:1;min-height:0">
+                  <div v-show="t.active === 'list'" style="height:100%">
+                    <iframe :src="t.src + '?embed=1'" style="width:100%;height:100%;border:0"></iframe>
+                  </div>
+                  <div v-for="d in t.details" v-show="t.active === d.key" style="height:100%">
+                    <iframe :src="d.src" style="width:100%;height:100%;border:0"></iframe>
+                  </div>
+                </div>
+              </div>
+            </template>
+            <iframe v-else-if="t.frame" :src="t.frame" style="width:100%;height:100%;border:0;background:#fff"></iframe>
           </div>
         </div>
       </div>
@@ -179,20 +196,20 @@
         { name: '系统管理', icon: '⚙️', children: [
           { name: '首页工作台', icon: '🏠', src: '../06_首页工作台/02_工作台查看.html' },
           { name: '用户管理', icon: '👥', children: [
-            { name: '用户列表', src: '../08_用户管理/02_用户列表页.html' },
-            { name: '账号锁定', src: '../08_用户管理/04_账号锁定.html' }
+            { name: '用户列表', src: '../08_用户管理/02_用户列表页.html', form: '../08_用户管理/03_用户表单页.html' },
+            { name: '账号锁定', src: '../08_用户管理/04_账号锁定.html', form: '../08_用户管理/05_账号锁定表单页.html' }
           ]},
           { name: '角色管理', icon: '🛡️', children: [
-            { name: '角色列表', src: '../09_角色管理/02_角色列表页.html' },
+            { name: '角色列表', src: '../09_角色管理/02_角色列表页.html', form: '../09_角色管理/04_角色表单页.html' },
             { name: '权限配置', src: '../09_角色管理/03_权限配置.html' }
           ]},
           { name: '部门与岗位', icon: '🏢', children: [
-            { name: '部门管理', src: '../11_部门与岗位/02_部门管理页.html' },
-            { name: '岗位管理', src: '../11_部门与岗位/03_岗位管理页.html' }
+            { name: '部门管理', src: '../11_部门与岗位/02_部门管理页.html', form: '../11_部门与岗位/05_部门表单页.html' },
+            { name: '岗位管理', src: '../11_部门与岗位/03_岗位管理页.html', form: '../11_部门与岗位/04_岗位表单页.html' }
           ]},
           { name: '菜单管理', icon: '📋', children: [
-            { name: '菜单维护', src: '../10_菜单管理/02_菜单维护页.html' },
-            { name: '权限码管理', src: '../10_菜单管理/03_权限码管理.html' }
+            { name: '菜单维护', src: '../10_菜单管理/02_菜单维护页.html', form: '../10_菜单管理/04_菜单表单页.html' },
+            { name: '权限码管理', src: '../10_菜单管理/03_权限码管理.html', form: '../10_菜单管理/05_权限码表单页.html' }
           ]},
           { name: '表单定制', icon: '🧩', children: [
             { name: '表单设计器', src: '../07_表单定制/02_表单设计器.html' },
@@ -200,23 +217,22 @@
           ]},
           { name: '工作台管理', icon: '🗂️', children: [
             { name: '个人工作台定制', src: '../06_首页工作台/03_工作台编辑.html' },
-            { name: '卡片管理', src: '../06_首页工作台/04_卡片管理.html' },
-            { name: '模板管理', src: '../06_首页工作台/05_模板管理.html' }
+            { name: '卡片管理', src: '../06_首页工作台/04_卡片管理.html', form: '../06_首页工作台/06_卡片表单页.html' },
+            { name: '模板管理', src: '../06_首页工作台/05_模板管理.html', form: '../06_首页工作台/07_模板表单页.html' }
           ]}
         ]},
         { name: '通用', icon: '📦', children: [
-          { name: '公告管理', src: '../12_采购与审批链路/05_通知公告页.html' },
-          { name: '通知中心', src: '../12_采购与审批链路/05_通知公告页.html' },
-          { name: '个人中心', src: '../03_通用骨架/05_个人中心.html' },
+          { name: '公告管理', src: '../12_采购与审批链路/05_通知公告页.html', form: '../12_采购与审批链路/07_公告表单页.html' },
+          { name: '通知中心', src: '../12_采购与审批链路/05_通知公告页.html', form: '../12_采购与审批链路/07_公告表单页.html' },
           { name: '表单框架', src: '../03_通用骨架/04_表单框架.html' }
         ]},
         { name: '业务', icon: '📊', children: [
           { name: '采购管理', icon: '🛒', children: [
             { name: '供应商', src: '', desc: '供应商档案维护' },
-            { name: '采购申请列表', src: '../12_采购与审批链路/02_采购申请列表页.html' },
+            { name: '采购申请列表', src: '../12_采购与审批链路/02_采购申请列表页.html', form: '../12_采购与审批链路/03_采购申请表单页.html' },
             { name: '采购申请表单', src: '../12_采购与审批链路/03_采购申请表单页.html' }
           ]},
-          { name: '我的待办', src: '../12_采购与审批链路/04_待办审批页.html' }
+          { name: '我的待办', src: '../12_采购与审批链路/04_待办审批页.html', form: '../12_采购与审批链路/06_待办审批表单页.html' }
         ]}
       ];
 
@@ -233,7 +249,7 @@
       var tabs = reactive([
         { key: 'home', label: '首页工作台', icon: '🏠', frame: '../06_首页工作台/02_工作台查看.html?embed=1', act: 0 }
       ]);
-      var tabMap = {};
+      var tabMap = { '首页工作台': tabs[0] };
 
       // 菜单搜索过滤：命中叶子则保留父级分组；命中分组名则整组保留（《布局设计-主框架》2.1）
       var filteredMenus = computed(function () {
@@ -280,7 +296,7 @@
         var key = isHome ? 'home' : 'm' + seq++;
         var exist = tabMap[name];
         if (exist) { activeTab.value = exist.key; return; }
-        var t = { key: key, label: name, icon: item.icon || '📄', frame: (item.src || '') + '?embed=1' + (extra || ''), act: 0 };
+        var t = { key: key, label: name, icon: item.icon || '📄', src: item.src || '', form: item.form || '', frame: (item.src || '') + '?embed=1' + (extra || ''), details: [], active: 'list', act: 0 };
         var all = tabs.filter(function (x) { return x.key !== 'home'; });
         if (all.length >= 20) {
           var oldest = null, t0 = Infinity;
@@ -303,17 +319,24 @@
         if (m) openTab(m);
       }
 
-      // FormFrame 联动（列表页 iframe embed 回调）：双击列表行 → 打开对应表单 Tab（带 id/name 回填参数）
-      var formsMap = {
-        '用户列表': { name: '用户表单', src: '../08_用户管理/03_用户表单页.html' },
-        '采购申请列表': { name: '采购申请表单', src: '../12_采购与审批链路/03_采购申请表单页.html' }
-      };
+      // FormFrame 联动（列表页 iframe embed 回调）：双击列表行 → 当前 Tab 内打开表单详情子 Tab（列表/详情切换，带 id/name 回填）
+      var dseq = 0;
       function openDetail(paneName, id, name) {
-        var fm = formsMap[paneName];
-        if (!fm) { ElMessage.warning('该页面未挂接表单页'); return; }
-        var exist = tabMap[fm.name];
-        if (exist) { activeTab.value = exist.key; return; }
-        openTab({ name: fm.name, src: fm.src, icon: '📄' }, false, '&id=' + encodeURIComponent(id || '') + '&name=' + encodeURIComponent(name || ''));
+        var t = tabs.find(function (x) { return x.label === paneName; });
+        if (!t || !t.form) { ElMessage.warning('该页面未挂接表单页'); return; }
+        var dsrc = t.form + '?embed=1&id=' + encodeURIComponent(id || '') + '&name=' + encodeURIComponent(name || '');
+        var exist = t.details.find(function (d) { return d.src === dsrc; });
+        if (exist) { t.active = exist.key; return; }
+        var dkey = 'd' + (++dseq);
+        t.details.push({ key: dkey, title: name || '详情', src: dsrc });
+        t.active = dkey;
+      }
+      // FormFrame：关闭详情子 Tab（列表 Tab 固定），关闭后回列表
+      function rmDetail(t, key) {
+        var i = t.details.findIndex(function (d) { return d.key === key; });
+        if (i < 0) return;
+        t.details.splice(i, 1);
+        if (t.active === key) t.active = 'list';
       }
 
       // iframe 内列表页通过 parent.openTab / parent.openDetail 回调（Vue setup 内函数需挂 window）
@@ -407,8 +430,8 @@
         if (mi && mi.src) openTab(mi);
       }
       return {
-        menus, collapsed, menuKw, globalKw, tenant, activeTab, activeMenu, tabs, filteredMenus, showMore,
-        ElMessage, onMenuSelect, onTabRemove, openTabByName, showCtx, ctxCmd, moreCmd, tenantCmd, userCmd
+        menus, collapsed, menuKw, globalKw, tenant, activeTab, tabs, filteredMenus, showMore,
+        ElMessage, onMenuSelect, onTabRemove, openTabByName, showCtx, ctxCmd, moreCmd, rmDetail, tenantCmd, userCmd
       };
     }
   });

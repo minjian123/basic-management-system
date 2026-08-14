@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 公告表单页</title>
+<link rel="stylesheet" href="../共享资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../共享资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .ep-toolbar { display:flex; align-items:center; gap:8px; margin-bottom:12px; flex-wrap:wrap; }
+  .ep-side { margin-left:auto; display:flex; align-items:center; gap:8px; }
+  .ep-section { font-weight:600; margin:16px 0 12px; padding-bottom:8px; border-bottom:1px solid #eaeef2; font-size:14px; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="01_设计说明.html">← 返回设计说明</a></span>
+  <span class="pb-name">采购与审批链路 · 公告表单页</span>
+</div>
+
+<div class="proto-frame">
+  <div id="app">
+    <div class="ep-page">
+      <!-- ① 工具栏分态：只读 修改/删除/刷新/关闭 ↔ 编辑 保存草稿/发布/关闭 -->
+      <div class="ep-toolbar" style="border-bottom:1px solid #eaeef2;padding-bottom:10px;margin-bottom:12px">
+        <template v-if="!editing">
+          <el-button type="primary" @click="editForm">修改</el-button>
+          <el-button type="danger" plain @click="delForm">删除</el-button>
+          <el-button @click="toastMsg('已重新加载当前记录')">刷新</el-button>
+        </template>
+        <template v-else>
+          <el-button @click="saveDraft">保存草稿</el-button>
+          <el-button type="primary" @click="publishForm">发布</el-button>
+        </template>
+        <el-button @click="closePage">关闭</el-button>
+        <span class="ep-side">
+          <span class="proto-hint">发布需二次确认；发布后自动推送通知</span>
+        </span>
+      </div>
+
+      <!-- ② 公告基本信息 el-form（编辑态可编辑，只读态禁用） -->
+      <div class="ep-section">基本信息</div>
+      <el-form label-width="90px" :disabled="!editing">
+        <el-row :gutter="16">
+          <el-col :span="12">
+            <el-form-item label="标题" required><el-input v-model="form.title" placeholder="公告标题"></el-input></el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="类型">
+              <el-select v-model="form.type" style="width:100%">
+                <el-option label="通知" value="notice"></el-option>
+                <el-option label="公告" value="announcement"></el-option>
+              </el-select>
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-form-item label="内容" required><el-input v-model="form.content" type="textarea" :rows="4" placeholder="公告内容"></el-input></el-form-item>
+        <el-row :gutter="16">
+          <el-col :span="12">
+            <el-form-item label="优先级">
+              <el-select v-model="form.priority" style="width:100%">
+                <el-option label="普通" value="normal"></el-option>
+                <el-option label="重要" value="important"></el-option>
+                <el-option label="紧急" value="urgent"></el-option>
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="置顶">
+              <el-switch v-model="form.pinned"></el-switch>
+              <span class="proto-hint" style="margin-left:8px">置顶公告排序靠前并高亮</span>
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-row :gutter="16">
+          <el-col :span="12">
+            <el-form-item label="有效期">
+              <el-date-picker v-model="form.expire" type="daterange" range-separator="~" start-placeholder="生效日期" end-placeholder="截止日期" style="width:100%"></el-date-picker>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="状态">
+              <el-select v-model="form.status" style="width:100%">
+                <el-option label="草稿" value="draft"></el-option>
+                <el-option label="发布" value="published"></el-option>
+                <el-option label="下线" value="offline"></el-option>
+              </el-select>
+            </el-form-item>
+          </el-col>
+        </el-row>
+      </el-form>
+      <div class="proto-note">展示规则：已过有效期 / 已下线 / 已撤销的公告不展示（后端按有效截止时间过滤）</div>
+    </div>
+  </div>
+</div>
+
+<script src="../共享资源/vendor/vue.global.prod.js"></script>
+
+<script src="../共享资源/vendor/element-plus.min.js"></script>
+<script src="../共享资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref, reactive, watch } = Vue;
+  var app = createApp({
+    template: document.getElementById('app').outerHTML.replace(/<div id="app">/, '<div>').replace(/<\/div>\s*$/, ''),
+    setup: function () {
+      var editing = ref(false);
+      var dirty = ref(false);
+      var syncing = false;
+      var form = reactive({
+        title: '系统升级维护通知', content: '各位同事：8 月 15 日 22:00-24:00 将进行系统升级维护，期间系统不可用，请提前保存工作进度。',
+        type: 'announcement', priority: 'important', pinned: true,
+        expire: [new Date('2026/08/13'), new Date('2026/08/20')],
+        status: 'published'
+      });
+
+      function toastMsg(m, type) {
+        var opts = { message: m };
+        if (type) { opts.type = type; opts.duration = 2000; }
+        Vue.ElMessage(opts);
+      }
+      function confirmAction(msg, fn, okText) {
+        Vue.ElMessageBox.confirm(msg, '确认操作', { type: 'warning', confirmButtonText: okText || '确定', cancelButtonText: '取消' })
+          .then(function () { fn(); }).catch(function () {});
+      }
+      watch(form, function () { if (editing.value && !syncing) dirty.value = true; }, { deep: true });
+
+      function editForm() {
+        syncing = true; dirty.value = false; syncing = false;
+        editing.value = true;
+        toastMsg('已进入编辑态（字段启用）');
+      }
+      function valid() {
+        if (!(form.title || '').trim()) { toastMsg('标题必填', 'error'); return false; }
+        if (!(form.content || '').trim()) { toastMsg('内容必填', 'error'); return false; }
+        return true;
+      }
+      // 保存草稿：仅落库，不推送通知
+      function saveDraft() {
+        if (!valid()) return;
+        form.status = 'draft';
+        editing.value = false;
+        dirty.value = false;
+        toastMsg('已保存草稿（不推送通知）', 'success');
+      }
+      // 发布：二次确认 + 自动推送通知
+      function publishForm() {
+        if (!valid()) return;
+        confirmAction('发布「' + form.title.trim() + '」？发布后自动推送通知给全体用户。', function () {
+          form.status = 'published';
+          editing.value = false;
+          dirty.value = false;
+          toastMsg('公告已发布（自动推送通知）', 'success');
+        }, '发布');
+      }
+      function delForm() {
+        confirmAction('删除当前公告？删除后不再展示。', function () { toastMsg('已删除并刷新列表', 'success'); }, '删除');
+      }
+      function closePage() {
+        if (dirty.value) {
+          confirmAction('当前有未保存的修改，确认关闭并放弃？', function () { editing.value = false; dirty.value = false; toastMsg('已关闭'); });
+          return;
+        }
+        toastMsg('已关闭');
+      }
+      // 由列表页双击打开时（?id=&name=）回填标题
+      (function () {
+        function qp(k) { var m = location.search.match(new RegExp('[?&]' + k + '=([^&]*)')); return m ? decodeURIComponent(m[1]) : null; }
+        var id = qp('id'), name = qp('name');
+        if (id) form.id = id;
+        if (name) form.title = name;
+      })();
+      return { editing, form, editForm, saveDraft, publishForm, delForm, closePage, toastMsg };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+<script>if (location.search.indexOf("embed=1") >= 0) { var pb = document.querySelector(".proto-bar"); if (pb) pb.style.display = "none"; }</script>
+</body>
+</html>

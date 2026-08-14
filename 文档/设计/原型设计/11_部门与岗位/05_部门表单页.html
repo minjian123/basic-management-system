@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 部门表单页</title>
+<link rel="stylesheet" href="../共享资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../共享资源/原型样式.css">
+<style>
+  .ep-page { background: #fff; border: 1px solid #d0d7de; border-radius: 6px; padding: 16px; }
+  .ep-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+  .ep-toolbar .ep-side { margin-left: auto; }
+  .ep-section { font-weight: 600; margin: 16px 0 12px; padding-bottom: 8px; border-bottom: 1px solid #eaeef2; font-size: 14px; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="01_设计说明.html">← 返回设计说明</a></span>
+  <span class="pb-name">部门与岗位 · 部门表单页</span>
+</div>
+
+<div class="proto-frame">
+  <div id="app">
+    <div class="ep-page">
+      <!-- ① 表单页工具栏分态：只读态 修改/删除/刷新/关闭 ↔ 编辑态 保存/关闭 -->
+      <div class="ep-toolbar">
+        <el-button v-if="!editing" type="primary" @click="editForm">修改</el-button>
+        <el-button v-if="!editing" type="danger" plain @click="delForm">删除</el-button>
+        <el-button v-if="!editing" @click="toastMsg('已重新加载当前记录')">刷新</el-button>
+        <el-button v-if="editing" type="primary" @click="saveForm">保存</el-button>
+        <el-button @click="tryClose">关闭</el-button>
+        <span class="ep-side">
+          <span class="proto-hint">{{ editing ? '编辑态：修改后关闭将触发未保存拦截' : '只读态：点击「修改」进入编辑态' }}</span>
+        </span>
+      </div>
+
+      <!-- ② 部门基本信息 -->
+      <div class="ep-section">基本信息</div>
+      <el-form label-width="90px" :disabled="!editing">
+        <el-row :gutter="16">
+          <el-col :span="12">
+            <el-form-item label="部门名称" required><el-input v-model="form.name" placeholder="部门名称"></el-input></el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="上级部门">
+              <el-tree-select v-model="form.parentId" :data="parentTree" node-key="id" check-strictly
+                :render-after-expand="false" style="width:100%" placeholder="选择上级部门"></el-tree-select>
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-row :gutter="16">
+          <el-col :span="12">
+            <el-form-item label="排序"><el-input-number v-model="form.sort" :min="0" style="width:100%"></el-input-number></el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="状态">
+              <el-switch v-model="form.status" active-value="enabled" inactive-value="disabled"
+                active-text="启用" inactive-text="停用"></el-switch>
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-form-item label="备注">
+          <el-input v-model="form.remark" type="textarea" :rows="2" placeholder="部门职责说明等"></el-input>
+        </el-form-item>
+      </el-form>
+    </div>
+  </div>
+</div>
+
+<script src="../共享资源/vendor/vue.global.prod.js"></script>
+
+<script src="../共享资源/vendor/element-plus.min.js"></script>
+<script src="../共享资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref, reactive, computed, watch } = Vue;
+  var ElMessage = ElementPlus.ElMessage;
+  var ElMessageBox = ElementPlus.ElMessageBox;
+  var app = createApp({
+    template: document.getElementById('app').outerHTML.replace(/<div id="app">/, '<div>').replace(/<\/div>\s*$/, ''),
+    setup: function () {
+      var editing = ref(false);
+      var dirty = ref(false);
+      // 部门树（与部门管理页一致，含 ancestors 链与直属用户/岗位数）
+      var deptTree = ref([
+        { id: 1, label: 'BMS 总部', status: 'enabled', sort: 0, ancestors: '/', userPost: '5 人 / 2 个岗位', children: [
+          { id: 2, label: '技术部', status: 'enabled', sort: 1, ancestors: '/1/2/', userPost: '12 人 / 3 个岗位', children: [
+            { id: 21, label: '开发组', status: 'enabled', sort: 1, ancestors: '/1/2/21/', userPost: '8 人 / 1 个岗位' },
+            { id: 22, label: '测试组', status: 'enabled', sort: 2, ancestors: '/1/2/22/', userPost: '4 人 / 1 个岗位' }
+          ]},
+          { id: 3, label: '财务部', status: 'enabled', sort: 2, ancestors: '/1/3/', userPost: '6 人 / 1 个岗位' },
+          { id: 4, label: '人事部', status: 'disabled', sort: 3, ancestors: '/1/4/', userPost: '3 人 / 1 个岗位' }
+        ]}
+      ]);
+      function findNode(id, list) {
+        if (!list) return null;
+        for (var i = 0; i < list.length; i++) {
+          if (list[i].id === id) return list[i];
+          var r = findNode(id, list[i].children);
+          if (r) return r;
+        }
+        return null;
+      }
+      // 上级部门候选：剔除当前部门及其子树（不能选自身/子孙）
+      function prune(id, list) {
+        var out = [];
+        (list || []).forEach(function (n) {
+          if (n.id === id) return;
+          var child = prune(id, n.children);
+          var c = { id: n.id, label: n.label };
+          if (child.length) c.children = child;
+          out.push(c);
+        });
+        return out;
+      }
+      var parentTree = computed(function () { return prune(form.id, deptTree.value); });
+      var form = reactive({ id: 2, name: '技术部', parentId: 1, sort: 1, status: 'enabled', remark: '负责平台研发与测试支撑' });
+      var sys = reactive({
+        id: '1902876345762181120',
+        createdAt: '2026-07-01 10:00:00 (UTC)',
+        createdBy: 'admin',
+        updatedAt: '2026-08-12 09:30:00 (UTC)',
+        updatedBy: 'admin'
+      });
+
+      // dirty 拦截：编辑字段后关闭需确认
+      watch(form, function () { if (editing.value) dirty.value = true; }, { deep: true });
+
+      // 列表页打开（?id=&name=）回填显示
+      (function () {
+        function qp(k) { var m = location.search.match(new RegExp('[?&]' + k + '=([^&]*)')); return m ? decodeURIComponent(m[1]) : null; }
+        var id = qp('id'), name = qp('name');
+        var node = id && findNode(Number(id), deptTree.value);
+        if (node) {
+          form.id = node.id;
+          form.name = node.label;
+          var chain = (node.ancestors || '').split('/').filter(Boolean);
+          form.parentId = chain.length ? Number(chain[chain.length - 1]) : 0;
+          form.sort = node.sort;
+          form.status = node.status;
+          sys.id = String(node.id);
+        } else if (name) {
+          form.name = name;
+        }
+      })();
+      function editForm() { dirty.value = false; editing.value = true; toastMsg('已进入编辑态（字段启用）'); }
+      function saveForm() {
+        var n = (form.name || '').trim();
+        if (!n) { toastMsg('部门名称必填', 'error'); return; }
+        if (form.parentId === form.id) { toastMsg('上级部门不能选择自身', 'error'); return; }
+        dirty.value = false;
+        editing.value = false;
+        toastMsg('保存成功，列表已自动刷新');
+      }
+      // 删除：有子部门或直属成员时不可删（需先迁移）
+      function delForm() {
+        var node = findNode(form.id, deptTree.value);
+        var hasChild = node && node.children && node.children.length > 0;
+        var members = (node && node.userPost) || '';
+        if (hasChild || (members && members !== '0 人 / 0 个岗位')) {
+          ElMessageBox.alert('「' + form.name + '」下仍有子部门或直属成员（'
+            + (hasChild ? node.children.length + ' 个子部门、' : '')
+            + (members || '0 人 / 0 个岗位') + '），不可直接删除，请先迁移下属部门与岗位。', '无法删除',
+            { type: 'error', confirmButtonText: '知道了' });
+          return;
+        }
+        ElMessageBox.confirm('确认删除部门「' + form.name + '」？删除后数据权限范围将同步调整。', '提示', { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' })
+          .then(function () { toastMsg('已删除'); })
+          .catch(function () {});
+      }
+      function tryClose() {
+        if (dirty.value) {
+          ElMessageBox.confirm('当前修改尚未保存，关闭将丢失修改，确定关闭？', '提示', { type: 'warning', confirmButtonText: '关闭', cancelButtonText: '取消' })
+            .then(function () { dirty.value = false; toastMsg('已关闭'); })
+            .catch(function () {});
+        } else { toastMsg('已关闭'); }
+      }
+      function toastMsg(m, type) { ElMessage({ message: m, type: type || 'success' }); }
+      return { editing, parentTree, form, editForm, saveForm, delForm, tryClose, toastMsg };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+  // 嵌入主框架时隐藏顶部原型条
+  if (location.search.indexOf('embed=1') >= 0) { var pb = document.querySelector('.proto-bar'); if (pb) pb.style.display = 'none'; }
+</script>
+
+</body>
+</html>

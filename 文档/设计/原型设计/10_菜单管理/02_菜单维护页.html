@@ -38,6 +38,7 @@
         <el-col :span="6">
           <div class="ep-side-card">
             <b style="font-size:13px">菜单树</b>
+            <span class="proto-hint" style="margin-left:6px;font-size:12px">embed 模式点选节点打开菜单表单页</span>
             <el-tree :data="treeData" node-key="id" highlight-current :current-node-key="detail.id"
               default-expand-all :expand-on-click-node="false" @node-click="onNode" style="margin-top:8px;font-size:13px"></el-tree>
           </div>
@@ -157,7 +158,13 @@
       var dlgNew = reactive({ visible: false, form: { parent: '组织与权限', name: '', path: '', component: 'FormFrame' } });
       var dlgEdit = reactive({ visible: false, form: { parent: '组织与权限', name: '', path: '', component: 'FormFrame' } });
 
+      // 树节点点选：embed 时打开菜单表单页（openDetail → 独立跳转 fallback）；非 embed 保持页内详情
       function onNode(node) {
+        if (location.search.indexOf('embed=1') >= 0) {
+          try { parent.openDetail('菜单维护', node.id, node.label); return; } catch (e) {}
+          location.href = '../10_菜单管理/04_菜单表单页.html?id=' + encodeURIComponent(node.id) + '&name=' + encodeURIComponent(node.label);
+          return;
+        }
         var info = nodeInfo[node.id] || nodeInfo.user;
         Object.keys(info).forEach(function (k) { detail[k] = info[k]; });
         chainText.value = info.chainOk

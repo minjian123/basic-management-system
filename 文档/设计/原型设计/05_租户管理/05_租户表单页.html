@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 租户表单页</title>
+<link rel="stylesheet" href="../共享资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../共享资源/原型样式.css">
+<style>
+  .ep-page { background: #fff; border: 1px solid #d0d7de; border-radius: 6px; padding: 16px; }
+  .ep-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+  .ep-toolbar .ep-side { margin-left: auto; }
+  .ep-section { font-weight: 600; margin: 16px 0 12px; padding-bottom: 8px; border-bottom: 1px solid #eaeef2; font-size: 14px; }
+  .ep-section:first-of-type { margin-top: 0; }
+  .ep-quota { display: flex; align-items: center; gap: 10px; width: 100%; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="01_设计说明.html">← 返回设计说明</a></span>
+  <span class="pb-name">租户管理 · 租户表单页</span>
+</div>
+
+<div class="proto-frame">
+  <div id="app">
+    <div class="ep-page">
+      <!-- ① 表单页工具栏分态：只读态 修改/刷新/关闭 ↔ 编辑态 保存/关闭；不提供删除（仅停用，见状态开关） -->
+      <div class="ep-toolbar">
+        <el-button v-if="!editing" type="primary" @click="editForm">修改</el-button>
+        <el-button v-if="!editing" @click="toastMsg('已重新加载当前记录')">刷新</el-button>
+        <el-button v-if="editing" type="primary" @click="saveForm">保存</el-button>
+        <el-button @click="toastMsg('已关闭')">关闭</el-button>
+        <span class="ep-side">
+          <span class="proto-hint">租户不提供删除，仅可停用（引擎回收/会话失效/登录拦截）；停用后数据保留，重新启用即恢复</span>
+        </span>
+      </div>
+
+      <!-- ② 租户基本信息：code 编辑态锁定；状态开关停用需确认 -->
+      <div class="ep-section">租户基本信息</div>
+      <el-form label-width="110px" :disabled="!editing" @submit.prevent>
+        <el-row :gutter="16">
+          <el-col :span="12">
+            <el-form-item label="租户 code"><el-input v-model="form.code" disabled></el-input></el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="租户名称" required><el-input v-model="form.name" placeholder="租户名称（必填）"></el-input></el-form-item>
+          </el-col>
+        </el-row>
+        <el-row :gutter="16">
+          <el-col :span="12">
+            <el-form-item label="子域名"><el-input v-model="form.domain" placeholder="xxx.bms.example.com"></el-input></el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="状态">
+              <el-switch v-model="form.status" active-value="enabled" inactive-value="disabled"
+                active-text="启用" inactive-text="停用" :before-change="beforeStatusChange"></el-switch>
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-form-item label="到期时间">
+          <el-date-picker v-model="form.expire" type="date" value-format="YYYY-MM-DD" style="width:220px"></el-date-picker>
+        </el-form-item>
+      </el-form>
+
+      <!-- ③ 附加信息：配额（limit/used 只读 el-progress）+ 已开通模块标签 + 模块开关入口 -->
+      <div class="ep-section">配额与模块</div>
+      <el-form label-width="110px" disabled>
+        <el-form-item label="用户数">
+          <div class="ep-quota">
+            <el-progress :percentage="quotaPct(quota.users)" :stroke-width="12" style="flex:1"></el-progress>
+            <span class="proto-hint">{{ quota.users.used }} / {{ quota.users.limit }}</span>
+          </div>
+        </el-form-item>
+        <el-form-item label="存储">
+          <div class="ep-quota">
+            <el-progress :percentage="quotaPct(quota.storage)" :stroke-width="12" style="flex:1"></el-progress>
+            <span class="proto-hint">{{ quota.storage.used }} GB / {{ quota.storage.limit }} GB</span>
+          </div>
+        </el-form-item>
+        <el-form-item label="开放接口调用量">
+          <div class="ep-quota">
+            <el-progress :percentage="quotaPct(quota.api)" :stroke-width="12" style="flex:1"></el-progress>
+            <span class="proto-hint">{{ quota.api.used }} / {{ quota.api.limit }}（日）</span>
+          </div>
+        </el-form-item>
+        <el-form-item label="已开通模块">
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+            <el-tag v-for="m in mods" :key="m" type="primary" effect="plain">{{ m }}</el-tag>
+            <el-button size="small" @click="openMods">模块开关</el-button>
+          </div>
+        </el-form-item>
+      </el-form>
+    </div>
+  </div>
+</div>
+
+<script src="../共享资源/vendor/vue.global.prod.js"></script>
+
+<script src="../共享资源/vendor/element-plus.min.js"></script>
+<script src="../共享资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref, reactive } = Vue;
+  var ElMessage = ElementPlus.ElMessage;
+  var ElMessageBox = ElementPlus.ElMessageBox;
+  var app = createApp({
+    template: document.getElementById('app').outerHTML.replace(/<div id="app">/, '<div>').replace(/<\/div>\s*$/, ''),
+    setup: function () {
+      var editing = ref(false);
+      var form = reactive({
+        code: 'demo', name: '演示租户', domain: 'demo.bms.example.com',
+        status: 'enabled', expire: '2027-08-14'
+      });
+      var quota = reactive({
+        users: { used: 123, limit: 500 },
+        storage: { used: 32.5, limit: 100 },
+        api: { used: 3421, limit: 10000 }
+      });
+      var mods = ref(['采购', '收付款', '供应商']);
+
+      function quotaPct(q) { return Math.round(q.used / q.limit * 100); }
+      function editForm() { editing.value = true; toastMsg('已进入编辑态（字段启用）'); }
+      function saveForm() {
+        if (!form.name.trim()) { ElMessage.error('租户名称必填'); return; }
+        if (!form.domain.trim()) { ElMessage.error('子域名必填'); return; }
+        editing.value = false;
+        toastMsg('已保存（租户名称/子域名/到期时间已生效，域名变更后刷新 DNS/路由）');
+      }
+      // 状态开关：停用需确认（引擎回收/会话失效/登录拦截）；取消则不切换
+      function beforeStatusChange() {
+        if (form.status === 'enabled') {
+          return ElMessageBox.confirm(
+            '确认停用租户「' + form.name + '」？\n\n停用后：租户引擎回收（定时任务/流程引擎停止）、全部会话立即失效、登录被拦截；存量数据保留，重新启用即恢复。',
+            '停用租户',
+            { confirmButtonText: '确认停用', cancelButtonText: '取消', type: 'warning' }
+          ).then(function () {
+            ElMessage.success('租户已停用（引擎回收、会话失效、登录拦截）');
+            return true;
+          }).catch(function () { return false; });
+        }
+        return ElMessageBox.confirm(
+          '确认重新启用租户「' + form.name + '」？启用后恢复登录与租户引擎运行。',
+          '启用租户',
+          { confirmButtonText: '确认启用', cancelButtonText: '取消', type: 'info' }
+        ).then(function () {
+          ElMessage.success('租户已启用（登录与引擎恢复）');
+          return true;
+        }).catch(function () { return false; });
+      }
+      // 模块开关：跳转模块清单页（携带租户 code）
+      function openMods() { location.href = '04_租户模块开关.html?code=' + encodeURIComponent(form.code); }
+      function toastMsg(m) { ElMessage({ message: m, type: 'success' }); }
+      // 由列表页双击打开时（?id=&name=）回填：id=租户 code，name=租户名称
+      (function () {
+        function qp(k) { var m = location.search.match(new RegExp('[?&]' + k + '=([^&]*)')); return m ? decodeURIComponent(m[1]) : null; }
+        var id = qp('id'), name = qp('name');
+        if (id) { form.code = id; form.domain = id + '.bms.example.com'; }
+        if (name) form.name = name;
+      })();
+      return { editing, form, quota, mods, quotaPct, editForm, saveForm, beforeStatusChange, openMods, toastMsg };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+  // 嵌入主框架时隐藏顶部原型条
+  if (location.search.indexOf('embed=1') >= 0) { var pb = document.querySelector('.proto-bar'); if (pb) pb.style.display = 'none'; }
+</script>
+
+</body>
+</html>

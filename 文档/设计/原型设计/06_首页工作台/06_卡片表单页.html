@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 卡片表单页</title>
+<link rel="stylesheet" href="../共享资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../共享资源/原型样式.css">
+<style>
+  .ep-page { background: #fff; border: 1px solid #d0d7de; border-radius: 6px; padding: 16px; }
+  .ep-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+  .ep-toolbar .ep-side { margin-left: auto; }
+  .ep-section { font-weight: 600; margin: 16px 0 12px; padding-bottom: 8px; border-bottom: 1px solid #eaeef2; font-size: 14px; }
+  .ep-section:first-of-type { margin-top: 0; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="01_设计说明.html">← 返回设计说明</a></span>
+  <span class="pb-name">首页工作台 · 卡片表单页（FormDetailPanel）</span>
+</div>
+
+<div class="proto-frame">
+  <div id="app">
+    <div class="ep-page">
+      <!-- ① 表单页工具栏分态：只读态 修改/删除/刷新/关闭 ↔ 编辑态 保存/关闭 -->
+      <div class="ep-toolbar">
+        <el-button v-if="!editing" type="primary" @click="editForm">修改</el-button>
+        <el-button v-if="!editing" type="danger" plain @click="delForm">删除</el-button>
+        <el-button v-if="!editing" @click="toastMsg('已重新加载当前卡片')">刷新</el-button>
+        <el-button v-if="editing" type="primary" @click="saveForm">保存</el-button>
+        <el-button @click="toastMsg('已关闭')">关闭</el-button>
+        <span class="ep-side">
+          <span class="proto-hint">由卡片管理列表页双击行打开；数据集卡维护于 rpt_dataset</span>
+        </span>
+      </div>
+
+      <!-- ② 基本信息：el-form（编辑态可编辑，只读态禁用）；卡片 code 编辑态锁定 -->
+      <el-form label-width="100px" :disabled="!editing">
+        <div class="ep-section">基本信息</div>
+        <el-row :gutter="16">
+          <el-col :span="12">
+            <el-form-item label="卡片 code" required>
+              <el-input v-model="form.code" :disabled="!!form.id" placeholder="如 stats_apply"></el-input>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="卡片名称" required>
+              <el-input v-model="form.name" placeholder="卡片名称"></el-input>
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-row :gutter="16">
+          <el-col :span="12">
+            <el-form-item label="卡片类型">
+              <el-select v-model="form.type" style="width:100%">
+                <el-option label="builtin 内置" value="builtin"></el-option>
+                <el-option label="dataset 数据集" value="dataset"></el-option>
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="状态">
+              <el-switch v-model="form.status" active-text="启用" inactive-text="停用"></el-switch>
+            </el-form-item>
+          </el-col>
+        </el-row>
+
+        <!-- ③ 数据集配置：类型联动（dataset 显示 / builtin 隐藏） -->
+        <template v-if="form.type === 'dataset'">
+          <div class="ep-section">数据集配置（rpt_dataset）</div>
+          <el-row :gutter="16">
+            <el-col :span="12">
+              <el-form-item label="数据集">
+                <el-select v-model="form.dataset" style="width:100%">
+                  <el-option label="采购申请统计" value="采购申请统计"></el-option>
+                  <el-option label="收付款趋势" value="收付款趋势"></el-option>
+                  <el-option label="待办统计" value="待办统计"></el-option>
+                </el-select>
+              </el-form-item>
+            </el-col>
+            <el-col :span="12">
+              <el-form-item label="图表类型">
+                <el-select v-model="form.chartType" style="width:100%">
+                  <el-option label="柱状图" value="柱状图"></el-option>
+                  <el-option label="折线图" value="折线图"></el-option>
+                  <el-option label="饼图" value="饼图"></el-option>
+                  <el-option label="数值卡" value="数值卡"></el-option>
+                </el-select>
+              </el-form-item>
+            </el-col>
+          </el-row>
+          <el-row :gutter="16">
+            <el-col :span="12">
+              <el-form-item label="默认宽度（列）">
+                <el-input-number v-model="form.width" :min="2" :max="12" style="width:100%"></el-input-number>
+              </el-form-item>
+            </el-col>
+            <el-col :span="12">
+              <el-form-item label="默认高度（行）">
+                <el-input-number v-model="form.height" :min="2" :max="6" style="width:100%"></el-input-number>
+              </el-form-item>
+            </el-col>
+          </el-row>
+          <div class="proto-hint" style="margin-bottom:4px">尺寸遵循 12 列网格规格（工作台编辑限 2-12 列 / 2-6 行），新布局默认采用该尺寸</div>
+        </template>
+      </el-form>
+    </div>
+  </div>
+</div>
+
+<script src="../共享资源/vendor/vue.global.prod.js"></script>
+
+<script src="../共享资源/vendor/element-plus.min.js"></script>
+<script src="../共享资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref, reactive } = Vue;
+  var { ElMessage, ElMessageBox } = ElementPlus;
+  var app = createApp({
+    template: document.getElementById('app').outerHTML.replace(/<div id="app">/, '<div>').replace(/<\/div>\s*$/, ''),
+    setup: function () {
+      var editing = ref(false);
+      var form = reactive({
+        id: null, code: 'stats_apply', name: '采购申请统计',
+        type: 'dataset', dataset: '采购申请统计', chartType: '柱状图',
+        width: 6, height: 4, status: true
+      });
+      // 由列表页双击打开时（?id=&name=）回填：id=卡片 code（编辑态锁定），name=卡片名称
+      (function () {
+        function qp(k) { var m = location.search.match(new RegExp('[?&]' + k + '=([^&]*)')); return m ? decodeURIComponent(m[1]) : null; }
+        var id = qp('id'), name = qp('name');
+        if (id) { form.id = id; form.code = id; }
+        if (name) form.name = name;
+      })();
+      function editForm() { editing.value = true; toastMsg('已进入编辑态（字段启用）'); }
+      function saveForm() {
+        if (!(form.code || '').trim()) { ElMessage({ message: '卡片 code 必填', type: 'warning' }); return; }
+        if (!(form.name || '').trim()) { ElMessage({ message: '卡片名称必填', type: 'warning' }); return; }
+        editing.value = false;
+        toastMsg('已保存（乐观锁 version 校验），列表已自动刷新');
+      }
+      function delForm() {
+        var code = (form.code || '').trim() || '该卡片';
+        ElMessageBox.confirm('删除数据集卡「' + code + '」？引用它的布局将跳过该卡（数据保留，仅取消注册）。', '删除确认', { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' })
+          .then(function () { toastMsg('已删除（数据保留，仅取消注册）'); })
+          .catch(function () {});
+      }
+      function toastMsg(m) { ElMessage({ message: m, type: 'success' }); }
+      return { editing, form, editForm, saveForm, delForm, toastMsg };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+  // 嵌入主框架时隐藏顶部原型条
+  if (location.search.indexOf('embed=1') >= 0) { var pb = document.querySelector('.proto-bar'); if (pb) pb.style.display = 'none'; }
+</script>
+
+</body>
+</html>

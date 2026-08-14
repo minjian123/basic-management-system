@@ -55,6 +55,7 @@
             <template v-else>
               <el-button type="primary" @click="saveDetail">保存</el-button>
             </template>
+            <el-button v-if="embed" @click="openDeptForm">打开部门表单页</el-button>
             <el-button @click="tryClose">关闭</el-button>
             <span class="ep-side"><span class="proto-hint">{{ editing ? '编辑态：修改后关闭将触发未保存拦截' : '只读态：点击「修改」进入编辑态' }}</span></span>
           </div>
@@ -182,6 +183,7 @@
       var editing = ref(false);
       var dirty = ref(false);
       var syncing = false;
+      var embed = location.search.indexOf('embed=1') >= 0;
       var form = reactive({ parentId: 1, name: '', sort: 1, status: 'enabled' });
       var parentOptions = computed(function () {
         return flatList.value.filter(function (n) { return n.id !== curDept.id; });
@@ -298,6 +300,15 @@
           toastMsg('已删除（原型演示：部门树已移除）', 'success');
         }, '删除');
       }
+      // 打开部门表单页（embed 时回退父框架表单详情子 Tab / 独立跳转，非 embed 保持页内详情）
+      function openDeptForm() {
+        if (location.search.indexOf('embed=1') >= 0) {
+          try { parent.openDetail('部门管理', curDept.id, curDept.label); return; } catch (e) {}
+          location.href = '../11_部门与岗位/05_部门表单页.html?id=' + curDept.id + '&name=' + encodeURIComponent(curDept.label);
+        } else {
+          toastMsg('已切换至当前部门详情（原型演示：表单页入口仅嵌入主框架时可用）');
+        }
+      }
       // 角色绑定抽屉
       function openRoleDrawer() {
         roleDrawer.title = '角色绑定（' + curDept.label + '）';
@@ -315,9 +326,9 @@
         roleDrawer.visible = false;
         toastMsg('绑定已保存（主体链生效）', 'success');
       }
-      return { treeData, curDept, editing, form, parentOptions, tab, sys, newDlg, roleDrawer,
+      return { treeData, curDept, editing, form, parentOptions, tab, sys, newDlg, roleDrawer, embed,
         onNodeClick, setEditing, saveDetail, tryClose, onTabClick, onTabChange, openNewDlg, saveNew,
-        moveDept, toggleDept, delDept, openRoleDrawer, saveRole, toastMsg };
+        moveDept, toggleDept, delDept, openDeptForm, openRoleDrawer, saveRole, toastMsg };
     }
   });
   app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });

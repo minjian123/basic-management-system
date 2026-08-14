@@ -35,7 +35,7 @@
         <el-button :disabled="!selRows.length" @click="openPerm">权限配置</el-button>
         <span class="ep-side">
           <el-button @click="toastMsg('原型演示：导出当前筛选结果')">导出</el-button>
-          <span class="proto-hint" style="margin-left:10px">双击行编辑角色</span>
+          <span class="proto-hint" style="margin-left:10px">双击行打开角色表单页</span>
         </span>
       </div>
 
@@ -64,7 +64,7 @@
       </el-form>
 
       <!-- ③ 表格：多选 + 状态 tag；双击行编辑角色 -->
-      <el-table :data="pageRows" border stripe @selection-change="onSel" @row-dblclick="openEdit" style="width:100%">
+      <el-table :data="pageRows" border stripe @selection-change="onSel" @row-dblclick="openForm" style="width:100%">
         <el-table-column type="selection" width="48"></el-table-column>
         <el-table-column prop="code" label="角色码" min-width="110"></el-table-column>
         <el-table-column prop="name" label="名称" min-width="140"></el-table-column>
@@ -323,6 +323,15 @@
         edit.form = row ? { code: row.code, name: row.name, type: '普通角色' } : { code: '', name: '', type: '普通角色' };
         edit.visible = true;
       }
+      // 双击行：embed 时打开角色表单页（三级回退：openDetail → openTab → location.href）；独立时保持原编辑弹窗
+      function openForm(row) {
+        if (location.search.indexOf('embed=1') >= 0) {
+          try { parent.openDetail('角色列表', row.code, row.name); return; } catch (e) {}
+          try { parent.openTab('角色表单', '../09_角色管理/04_角色表单页.html'); return; } catch (e) {}
+          location.href = '../09_角色管理/04_角色表单页.html?id=' + row.code + '&name=' + encodeURIComponent(row.name);
+        }
+        openEdit(row);
+      }
       function saveRole() {
         if (!edit.form.code.trim() || !edit.form.name.trim()) { ElMessage.error('角色码与名称必填'); return; }
         if (edit.isNew) {
@@ -372,7 +381,7 @@
       function openPerm(row) { perm.role = row || selRows.value[0] || null; perm.visible = true; }
       function savePerm() { perm.visible = false; toastMsg('权限已保存（权限版本 +1，动态菜单刷新生效）'); }
       function toastMsg(m) { ElMessage({ message: m, type: 'success' }); }
-      return { rows, query, more, selRows, edit, bind, bindTbl, perm, bindUsers, bindPosts, bindDepts, menuTree, menuChecked, bizTags, btnPerms, scopes, scopeOptions, fields, filtered, pageRows, applyFilter, resetFilter, onSel, onPage, onSize, onSelUsers, onSelPosts, onSelDepts, openEdit, saveRole, delSel, moveRow, openBind, saveBind, openPerm, savePerm, toastMsg };
+      return { rows, query, more, selRows, edit, bind, bindTbl, perm, bindUsers, bindPosts, bindDepts, menuTree, menuChecked, bizTags, btnPerms, scopes, scopeOptions, fields, filtered, pageRows, applyFilter, resetFilter, onSel, onPage, onSize, onSelUsers, onSelPosts, onSelDepts, openEdit, openForm, saveRole, delSel, moveRow, openBind, saveBind, openPerm, savePerm, toastMsg };
     }
   });
   app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
