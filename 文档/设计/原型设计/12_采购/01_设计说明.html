@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 采购 · 设计说明</title>
+<link rel="stylesheet" href="../../../资源/文档样式.css">
+</head>
+<body>
+
+<div class="topnav">
+  <a href="../../../文档首页.html">文档首页</a> ›
+  <a href="../../../规划/项目规划说明.html">项目规划说明</a> ›
+  <a href="../01_原型设计_总览.html">原型设计</a> ›
+  <span>采购 · 设计说明</span>
+</div>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>原型 · 采购</h1>
+      <p>采购申请（模拟业务）· 列表 / 表单 · 设计说明</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#overview">1. 模块概述</a></li>
+        <li><a href="#pages">2. 界面清单</a></li>
+        <li><a href="#interact">3. 交互要点</a></li>
+        <li><a href="#reference">4. 设计依据</a></li>
+        <li><a href="#iter">5. 迭代记录</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="overview">1. 模块概述</h2>
+      <p>
+        采购申请（模拟业务）：采购申请列表/表单，提交后进入审批链路（审批相关界面见 <a href="../13_审批/01_设计说明.html">13-审批</a>）。
+        对应<a href="../../概要设计/15_概要设计_采购管理.html">《概要设计-采购管理》</a>。
+      </p>
+
+      <h2 id="pages">2. 界面清单</h2>
+      <table>
+        <tr><th>界面</th><th>原型（可点击操作）</th><th>主要交互验证点</th></tr>
+        <tr><td>采购申请列表页</td><td><a href="02_采购申请列表页.html">采购申请列表页.html</a></td><td>状态筛选、提交审批、查看进度、双击行打开表单</td></tr>
+        <tr><td>采购申请表单页</td><td><a href="03_采购申请表单页.html">采购申请表单页.html</a></td><td>主表 + 明细行编辑、金额校验、保存/提交、审批轨迹</td></tr>
+      </table>
+
+      <h2 id="interact">3. 交互要点</h2>
+      <ul>
+        <li>列表：草稿可编辑/提交，审批中可查看进度/撤回；提交带幂等防重复；初始种子流程为三级审批：部门经理 → 财务 → 分管领导（审批界面见 13-审批）</li>
+        <li>表单：明细行内编辑（新增/删除行）；明细合计与主表金额一致性校验，保存整体提交（主从单事务）；双击列表行打开表单页（embed 走 openDetail 链路）</li>
+      </ul>
+
+      <h2 id="reference">4. 设计依据</h2>
+      <ul>
+        <li>概要：<a href="../../概要设计/15_概要设计_采购管理.html">《概要设计-采购管理》</a></li>
+        <li>布局：<a href="../../布局设计/09_布局设计_表格明细.html">《布局设计-表格明细》</a>（明细行内编辑）</li>
+      </ul>
+
+      <h2 id="iter">5. 迭代记录</h2>
+      <table>
+        <tr><th>日期</th><th>变更</th><th>状态</th></tr>
+        <tr><td>2026-08-13</td><td>初版：采购申请列表/表单</td><td>待评审</td></tr>
+        <tr><td>2026-08-14</td><td>双击行接入 openDetail 链路；与审批拆分独立模块</td><td>待评审</td></tr>
+      </table>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 原型设计模块说明 · 依《文档生成规范》编写 · 生成日期：2026-08-14
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>

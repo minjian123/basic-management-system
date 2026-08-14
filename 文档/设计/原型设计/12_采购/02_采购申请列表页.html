@@ -229,7 +229,7 @@
       function openApply(row) {
         if (location.search.indexOf('embed=1') >= 0) {
           try { parent.openDetail('采购申请列表', row.docNo, row.title); return; } catch (e) {}
-          try { parent.openTab('采购申请表单', '../09_采购与审批链路/03_采购申请表单页.html'); return; } catch (e) {}
+          try { parent.openTab('采购申请表单', '../12_采购/03_采购申请表单页.html'); return; } catch (e) {}
         }
         location.href = '03_采购申请表单页.html?id=' + row.docNo + '&name=' + encodeURIComponent(row.title);
       }

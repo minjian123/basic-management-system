@@ -31,7 +31,7 @@
       <h1>BMS 基础管理系统</h1>
       <div class="sub">登录你的账户</div>
 
-      <el-form :model="form" size="large" @submit.prevent="doLogin">
+      <el-form :model="form" label-width="72px" size="large" @submit.prevent="doLogin">
         <el-form-item label="用户名">
           <el-input v-model="form.user" placeholder="请输入用户名" clearable></el-input>
         </el-form-item>
