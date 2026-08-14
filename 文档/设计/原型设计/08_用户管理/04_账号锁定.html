@@ -36,15 +36,22 @@
         </span>
       </div>
 
-      <!-- ② 筛选区 -->
-      <el-form class="ep-filter" inline size="default" @submit.prevent>
-        <el-form-item label="关键字">
-          <el-input v-model="query.kw" placeholder="关键字：用户名" clearable style="width:240px"></el-input>
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" @click="applyFilter">查询</el-button>
-          <el-button @click="resetFilter">重置</el-button>
-        </el-form-item>
+      <!-- ② 筛选区：label 上方，一行最多 3 个条件，查询/重置/展开在条件第一行行末 -->
+      <el-form class="ep-filter" label-position="top" @submit.prevent>
+        <el-row :gutter="16">
+          <el-col :span="8">
+            <el-form-item label="关键字">
+              <el-input v-model="query.kw" placeholder="关键字：用户名" clearable style="width:100%"></el-input>
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <el-form-item style="margin-top:30px">
+              <el-button type="primary" @click="applyFilter">查询</el-button>
+              <el-button @click="resetFilter">重置</el-button>
+              <el-button link type="primary" @click="more = !more">{{ more ? '收起 ▴' : '展开 ▾' }}</el-button>
+            </el-form-item>
+          </el-col>
+        </el-row>
       </el-form>
 
       <!-- ③ 表格：多选 + 锁定类型 tag；双击行解锁 -->
@@ -99,6 +106,7 @@
         { id: 3, username: 'zhaoliu', type: '长期未登录', lockTime: '2026-08-10 00:00', unlockTime: '—（需手动解锁）' }
       ]);
       var query = reactive({ kw: '', page: 1, size: 10 });
+      var more = ref(false);
       var selRows = ref([]);
       var filtered = computed(function () {
         return rows.value.filter(function (r) {
@@ -165,7 +173,7 @@
           .catch(function () {});
       }
       function toastMsg(m) { ElMessage({ message: m, type: 'success' }); }
-      return { rows, query, selRows, filtered, pageRows, tagType, applyFilter, resetFilter, onSel, onPage, onSize, batchUnlock, openDetail, unlockRow, delSel, toastMsg };
+      return { rows, query, more, selRows, filtered, pageRows, tagType, applyFilter, resetFilter, onSel, onPage, onSize, batchUnlock, openDetail, unlockRow, delSel, toastMsg };
     }
   });
   app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });

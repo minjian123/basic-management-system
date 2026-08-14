@@ -38,22 +38,31 @@
         </span>
       </div>
 
-      <!-- ② 筛选区：关键字 + 归属部门 -->
-      <el-form class="ep-filter" inline size="default" @submit.prevent>
-        <el-form-item label="关键字">
-          <el-input v-model="query.kw" placeholder="岗位码/名称" clearable style="width:200px"></el-input>
-        </el-form-item>
-        <el-form-item label="归属部门">
-          <el-select v-model="query.dept" placeholder="全部" clearable style="width:140px">
-            <el-option label="技术部" value="技术部"></el-option>
-            <el-option label="财务部" value="财务部"></el-option>
-            <el-option label="人事部" value="人事部"></el-option>
-          </el-select>
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" @click="applyFilter">查询</el-button>
-          <el-button @click="resetFilter">重置</el-button>
-        </el-form-item>
+      <!-- ② 筛选区：label 上方，一行最多 3 个条件，查询/重置/展开在条件第一行行末 -->
+      <el-form class="ep-filter" label-position="top" @submit.prevent>
+        <el-row :gutter="16">
+          <el-col :span="8">
+            <el-form-item label="关键字">
+              <el-input v-model="query.kw" placeholder="岗位码/名称" clearable style="width:100%"></el-input>
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <el-form-item label="归属部门">
+              <el-select v-model="query.dept" placeholder="全部" clearable style="width:100%">
+                <el-option label="技术部" value="技术部"></el-option>
+                <el-option label="财务部" value="财务部"></el-option>
+                <el-option label="人事部" value="人事部"></el-option>
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <el-form-item style="margin-top:30px">
+              <el-button type="primary" @click="applyFilter">查询</el-button>
+              <el-button @click="resetFilter">重置</el-button>
+              <el-button link type="primary" @click="more = !more">{{ more ? '收起 ▴' : '展开 ▾' }}</el-button>
+            </el-form-item>
+          </el-col>
+        </el-row>
       </el-form>
 
       <!-- ③ 表格：多选 + 岗位码/名称/归属部门/状态 + 空状态 -->
@@ -137,6 +146,7 @@
       ]);
       var query = reactive({ kw: '', dept: '', page: 1, size: 20 });
       var loading = ref(false);
+      var more = ref(false);
       var selRows = ref([]);
       var dlg = reactive({ visible: false, title: '', mode: 'add', id: null, code: '', name: '', dept: '', sort: 1 });
       var roleDrawer = reactive({ visible: false, title: '', roles: { ordinary: true, approve: false } });
@@ -235,7 +245,7 @@
         roleDrawer.visible = false;
         toastMsg('已为「' + roleDrawer.title.replace('绑定角色（', '').replace('）', '') + '」绑定：' + (r.join(' + ') || '未绑定'), 'success');
       }
-      return { rows, query, loading, selRows, dlg, roleDrawer, filtered, pageRows,
+      return { rows, query, loading, more, selRows, dlg, roleDrawer, filtered, pageRows,
         applyFilter, resetFilter, onSel, onPage, onSize, moveSel, openForm, openDlg, savePost, delSel, openRoleDrawer, saveRole, toastMsg };
     }
   });

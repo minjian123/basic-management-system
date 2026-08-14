@@ -39,34 +39,50 @@
         </span>
       </div>
 
-      <!-- ② 筛选区：关键字 + 更多筛选（用户名/姓名/部门/状态） -->
-      <el-form class="ep-filter" inline size="default" @submit.prevent>
-        <el-form-item label="关键字">
-          <el-input v-model="query.kw" placeholder="关键字：用户名/姓名/手机号" clearable style="width:240px"></el-input>
-        </el-form-item>
-        <el-form-item v-show="more">
-          <el-input v-model="query.username" placeholder="用户名" clearable style="width:120px"></el-input>
-        </el-form-item>
-        <el-form-item v-show="more">
-          <el-input v-model="query.name" placeholder="姓名" clearable style="width:100px"></el-input>
-        </el-form-item>
-        <el-form-item v-show="more" label="部门">
-          <el-select v-model="query.dept" placeholder="全部" clearable style="width:110px">
-            <el-option label="技术部" value="技术部"></el-option>
-            <el-option label="财务部" value="财务部"></el-option>
-          </el-select>
-        </el-form-item>
-        <el-form-item v-show="more" label="状态">
-          <el-select v-model="query.status" placeholder="全部" clearable style="width:100px">
-            <el-option label="启用" value="enabled"></el-option>
-            <el-option label="停用" value="disabled"></el-option>
-          </el-select>
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" @click="applyFilter">查询</el-button>
-          <el-button @click="resetFilter">重置</el-button>
-          <el-button link type="primary" @click="more = !more">{{ more ? '收起' : '展开' }}</el-button>
-        </el-form-item>
+      <!-- ② 筛选区：label 上方，一行最多 3 个条件，查询/重置/展开在条件第一行行末 -->
+      <el-form class="ep-filter" label-position="top" @submit.prevent>
+        <el-row :gutter="16">
+          <el-col :span="8">
+            <el-form-item label="关键字">
+              <el-input v-model="query.kw" placeholder="关键字：用户名/姓名/手机号" clearable style="width:100%"></el-input>
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <el-form-item label="部门">
+              <el-select v-model="query.dept" placeholder="全部" clearable style="width:100%">
+                <el-option label="技术部" value="技术部"></el-option>
+                <el-option label="财务部" value="财务部"></el-option>
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <el-form-item style="margin-top:30px">
+              <el-button type="primary" @click="applyFilter">查询</el-button>
+              <el-button @click="resetFilter">重置</el-button>
+              <el-button link type="primary" @click="more = !more">{{ more ? '收起 ▴' : '展开 ▾' }}</el-button>
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-row v-show="more" :gutter="16">
+          <el-col :span="8">
+            <el-form-item>
+              <el-input v-model="query.username" placeholder="用户名" clearable style="width:100%"></el-input>
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <el-form-item>
+              <el-input v-model="query.name" placeholder="姓名" clearable style="width:100%"></el-input>
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <el-form-item label="状态">
+              <el-select v-model="query.status" placeholder="全部" clearable style="width:100%">
+                <el-option label="启用" value="enabled"></el-option>
+                <el-option label="停用" value="disabled"></el-option>
+              </el-select>
+            </el-form-item>
+          </el-col>
+        </el-row>
       </el-form>
 
       <!-- ③ 表格：多选 + 状态 tag + 操作列；空状态「未找到相关内容 + 重置」 -->

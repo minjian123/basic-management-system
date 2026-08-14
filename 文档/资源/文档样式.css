@@ -316,3 +316,10 @@ footer {
 .layer .l-arrow { text-align: center; color: var(--accent); margin: .1rem 0; }
 .layer .l-row { display: flex; gap: .5rem; }
 .layer .l-row .l-box { flex: 1; margin: 0; }
+
+/* 表单字段示意（label 在字段上方，布局设计用，如 07 筛选区 / 08 主表字段区） */
+.f-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px 12px; }
+.f-cell { border:1px dashed var(--border); border-radius:4px; padding:6px 10px; background:#fff; }
+.f-label { font-size:.75rem; color:var(--muted); margin-bottom:4px; }
+.f-input { height:24px; background:var(--code-bg); border:1px solid var(--border); border-radius:4px; }
+.f-cell.wide { grid-column:1 / -1; }

@@ -34,26 +34,39 @@
         </span>
       </div>
 
-      <el-form class="ep-filter" inline size="default" @submit.prevent>
-        <el-form-item label="关键字">
-          <el-input v-model="query.kw" placeholder="关键字：名称/角色" clearable style="width:200px"></el-input>
-        </el-form-item>
-        <el-form-item label="层级">
-          <el-select v-model="query.scope" placeholder="全部" clearable style="width:130px">
-            <el-option label="平台默认" value="platform"></el-option>
-            <el-option label="角色" value="role"></el-option>
-          </el-select>
-        </el-form-item>
-        <el-form-item label="状态">
-          <el-select v-model="query.status" placeholder="全部" clearable style="width:110px">
-            <el-option label="启用" :value="true"></el-option>
-            <el-option label="停用" :value="false"></el-option>
-          </el-select>
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" @click="applyFilter">查询</el-button>
-          <el-button @click="resetFilter">重置</el-button>
-        </el-form-item>
+      <el-form class="ep-filter" label-position="top" @submit.prevent>
+        <el-row :gutter="16">
+          <el-col :span="8">
+            <el-form-item label="关键字">
+              <el-input v-model="query.kw" placeholder="关键字：名称/角色" clearable style="width:100%"></el-input>
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <el-form-item label="层级">
+              <el-select v-model="query.scope" placeholder="全部" clearable style="width:100%">
+                <el-option label="平台默认" value="platform"></el-option>
+                <el-option label="角色" value="role"></el-option>
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <el-form-item style="margin-top:30px">
+              <el-button type="primary" @click="applyFilter">查询</el-button>
+              <el-button @click="resetFilter">重置</el-button>
+              <el-button link type="primary" @click="more = !more">{{ more ? '收起 ▴' : '展开 ▾' }}</el-button>
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-row :gutter="16">
+          <el-col :span="8">
+            <el-form-item label="状态">
+              <el-select v-model="query.status" placeholder="全部" clearable style="width:100%">
+                <el-option label="启用" :value="true"></el-option>
+                <el-option label="停用" :value="false"></el-option>
+              </el-select>
+            </el-form-item>
+          </el-col>
+        </el-row>
       </el-form>
 
       <!-- 表格：行点击进入编辑（embed 时打开表单页详情），状态开关可直接切换启停 -->
@@ -144,6 +157,7 @@
         { id: 'r-user', name: '审批人工作台', scope: 'role', role: '普通角色', cards: 4, status: true }
       ]);
       var query = reactive({ kw: '', scope: '', status: '', page: 1, size: 10 });
+      var more = ref(false);
       var selRows = ref([]);
       var dlg = reactive({ visible: false, id: null, scope: 'role', role: '财务角色', name: '' });
       var filtered = computed(function () {
@@ -252,7 +266,7 @@
         }
         dlg.visible = false; dlg.id = null;
       }
-      return { tpls, query, selRows, dlg, filtered, pageRows, toastMsg, applyFilter, resetFilter, onPage, onSize, onSel, delSel, moveSel, toggleTpl, moveTpl, delTpl, openRow, openNew, openEdit, delTplDrawer, saveTpl };
+      return { tpls, query, more, selRows, dlg, filtered, pageRows, toastMsg, applyFilter, resetFilter, onPage, onSize, onSel, delSel, moveSel, toggleTpl, moveTpl, delTpl, openRow, openNew, openEdit, delTplDrawer, saveTpl };
     }
   });
   app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
