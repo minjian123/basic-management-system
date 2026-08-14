@@ -252,13 +252,15 @@
       }
 
       // 打开（或激活）Tab：未打开则新建，已有则激活（Tab 上限 20，超限关闭最久未激活）
-      function openTab(item, isHome) {
+      // 兼容旧版字符串签名 openTab(name, src)（列表页 iframe embed 回调）；extra 为附加 query（如 &id=&name=）
+      function openTab(item, isHome, extra) {
+        if (typeof item === 'string') { item = { name: item, src: arguments[1] || '' }; isHome = false; }
         if (!item.src && !item.children) { ElMessage.warning('该菜单原型待补充'); return; }
         var name = item.name;
         var key = isHome ? 'home' : 'm' + seq++;
         var exist = tabMap[name];
         if (exist) { activeTab.value = exist.key; return; }
-        var t = { key: key, label: name, icon: item.icon || '📄', frame: (item.src || '') + '?embed=1', act: 0 };
+        var t = { key: key, label: name, icon: item.icon || '📄', frame: (item.src || '') + '?embed=1' + (extra || ''), act: 0 };
         var all = tabs.filter(function (x) { return x.key !== 'home'; });
         if (all.length >= 20) {
           var oldest = null, t0 = Infinity;
@@ -279,6 +281,23 @@
         var m = menuItem(name);
         if (m) openTab(m);
       }
+
+      // FormFrame 联动（列表页 iframe embed 回调）：双击列表行 → 打开对应表单 Tab（带 id/name 回填参数）
+      var formsMap = {
+        '用户列表': { name: '用户表单', src: '../08_用户管理/03_用户表单页.html' },
+        '采购申请列表': { name: '采购申请表单', src: '../12_采购与审批链路/03_采购申请表单页.html' }
+      };
+      function openDetail(paneName, id, name) {
+        var fm = formsMap[paneName];
+        if (!fm) { ElMessage.warning('该页面未挂接表单页'); return; }
+        var exist = tabMap[fm.name];
+        if (exist) { activeTab.value = exist.key; return; }
+        openTab({ name: fm.name, src: fm.src, icon: '📄' }, false, '&id=' + encodeURIComponent(id || '') + '&name=' + encodeURIComponent(name || ''));
+      }
+
+      // iframe 内列表页通过 parent.openTab / parent.openDetail 回调（Vue setup 内函数需挂 window）
+      window.openTab = openTab;
+      window.openDetail = openDetail;
 
       // 菜单叶子选中
       function onMenuSelect(index) {
