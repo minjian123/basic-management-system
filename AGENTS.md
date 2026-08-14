@@ -56,7 +56,8 @@
 - 钩子或增量更新后 graphify-out/ 文件变脏属正常现象，不应因此跳过 graphify。只有任务涉及过期或错误的图输出、或用户明确不用时，才跳过。
 - 若 graphify-out/wiki/index.md 存在，用它做广域导航，避免直接浏览源码。
 - 仅在需要宏观架构审查、或 query/path/explain 信息不足时，才读 graphify-out/GRAPH_REPORT.md。
-- 修改代码后运行 `graphify update .` 保持图谱最新（纯 AST，无 API 开销）。
+- 修改代码后运行 `graphify update .` 保持图谱最新（纯 AST，无 API 开销）；随后运行 `powershell -File deploy/tools/graphify/localize-graph.ps1` 收尾（汉化 graph.html + 生成中文架构图 CALLFLOW.html）。
+- graphify 安装、排除规则、重建取舍、社区命名等细节见 `文档/资料/AI/graphify部署使用说明.html`，不在此展开。
 
 ## 视觉识图（Vision）
 
