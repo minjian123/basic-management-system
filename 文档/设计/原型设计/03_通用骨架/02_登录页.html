@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 登录页</title>
+<link rel="stylesheet" href="../共享资源/原型样式.css">
+<style>
+  .login-wrap { min-height: 86vh; display: flex; align-items: center; justify-content: center; background: linear-gradient(160deg,#f6f8fa 0%, #ddf4ff 100%); padding: 24px; }
+  .login-card { width: 380px; background: #fff; border-radius: 12px; box-shadow: 0 10px 40px rgba(31,35,40,.12); padding: 32px 28px; }
+  .login-card h1 { font-size: 20px; margin: 0 0 4px; }
+  .login-card .sub { color: #8c959f; font-size: 13px; margin-bottom: 20px; }
+  .cap-wrap { display: flex; gap: 8px; }
+  .cap-box { flex: 1; text-align: center; border: 1px solid #d0d7de; border-radius: 6px; line-height: 34px; font-size: 15px; letter-spacing: 4px; background: #eaeef2; color: #1f2328; cursor: pointer; user-select: none; font-style: italic; }
+  .err-line { color: #cf222e; font-size: 12px; min-height: 18px; margin-top: 6px; }
+  .sso-line { border-top: 1px solid #eaeef2; margin-top: 18px; padding-top: 14px; text-align: center; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="01_设计说明.html">← 返回设计说明</a></span>
+  <span class="pb-name">通用骨架 · 登录页</span>
+</div>
+
+<div class="login-wrap">
+  <div class="login-card">
+    <h1>BMS 基础管理系统</h1>
+    <div class="sub">登录你的账户</div>
+
+    <div class="p-field">
+      <label>用户名</label>
+      <input class="p-input" id="in-user" placeholder="请输入用户名">
+    </div>
+    <div style="height:10px"></div>
+    <div class="p-field">
+      <label>密码</label>
+      <input class="p-input" id="in-pwd" type="password" placeholder="请输入密码">
+    </div>
+    <div style="height:10px"></div>
+    <div class="p-field">
+      <label>验证码 <span class="proto-hint">（点击图片刷新）</span></label>
+      <div class="cap-wrap">
+        <input class="p-input" id="in-cap" placeholder="4 位验证码" style="max-width:150px">
+        <div class="cap-box" id="cap-box" title="点击刷新">8F2K</div>
+      </div>
+    </div>
+    <div class="err-line" id="err-line"></div>
+
+    <button class="p-btn primary" style="width:100%;padding:8px 0" id="btn-login">登 录</button>
+
+    <div style="display:flex;justify-content:space-between;margin-top:10px;font-size:13px">
+      <a href="#" onclick="toast('原型演示：找回密码走邮箱/企微双通道');return false">忘记密码？</a>
+      <label class="proto-hint"><input type="checkbox" checked> 记住我</label>
+    </div>
+
+    <div class="sso-line">
+      <div class="proto-hint" style="margin-bottom:8px">企业微信 / 钉钉 一键登录</div>
+      <button class="p-btn sm" onclick="toast('原型演示：跳转企微 OAuth 免登','ok')">企微登录</button>
+      <button class="p-btn sm" onclick="toast('原型演示：跳转钉钉 OAuth 免登','ok')">钉钉登录</button>
+    </div>
+  </div>
+</div>
+
+<script src="../共享资源/原型脚本.js"></script>
+<script>
+  var codes = ['8F2K', '3H7Q', '5M9Z', '2K6X', '7P4B'];
+  var cap = document.getElementById('cap-box'), tries = 0;
+  function refreshCap() { cap.textContent = codes[Math.floor(Math.random() * codes.length)]; }
+  cap.addEventListener('click', refreshCap);
+  document.getElementById('btn-login').addEventListener('click', function () {
+    var u = document.getElementById('in-user').value.trim(), p = document.getElementById('in-pwd').value, c = document.getElementById('in-cap').value.trim();
+    var err = document.getElementById('err-line');
+    if (!u || !p) { err.textContent = '请输入用户名和密码'; return; }
+    if (!c) { err.textContent = '请输入验证码'; return; }
+    if (c.toUpperCase() !== cap.textContent) { err.textContent = '验证码错误，已刷新'; refreshCap(); tries++; if (tries >= 3) { document.getElementById('in-cap').value = ''; } return; }
+    if (u !== 'admin' && u !== 'zhangsan') { err.textContent = '用户不存在或密码错误（原型演示：输入 admin / 任意密码）'; return; }
+    toast('登录成功，进入首页工作台', 'ok');
+    setTimeout(function () { toast('原型演示：登录后跳转「首页工作台」界面'); }, 1600);
+  });
+</script>
+
+</body>
+</html>

@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 用户表单页</title>
+<link rel="stylesheet" href="../共享资源/原型样式.css">
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="01_设计说明.html">← 返回设计说明</a></span>
+  <span class="pb-name">用户管理 · 用户表单页（FormDetailPanel）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="p-tabs" id="tabs">
+    <div class="p-tab active" data-tabs="tabs" data-pane="info" onclick="trySwitchPane('info')">详细信息</div>
+    <div class="p-tab" data-pane="sys" onclick="trySwitchPane('sys')">系统信息</div>
+  </div>
+
+  <div id="pane-info">
+    <div class="p-form">
+      <div class="p-toolbar" style="border:none;border-radius:0;padding:0 0 10px;margin-bottom:12px;border-bottom:1px solid #eaeef2">
+        <button class="p-btn" id="btn-edit" onclick="editForm()">修改</button>
+        <button class="p-btn danger" onclick="confirmAction('确认删除该用户（软删除）？',function(){toast('已删除','ok')})">删除</button>
+        <button class="p-btn" onclick="toast('已重新加载当前记录')">刷新</button>
+        <button class="p-btn" onclick="tryClose()">关闭</button>
+        <button class="p-btn primary" id="btn-save" style="display:none" onclick="saveForm()">保存</button>
+        <span class="proto-hint" style="margin-left:auto">编辑后关闭/切换 Tab 将触发未保存拦截</span>
+      </div>
+      <div class="p-section">基本信息</div>
+      <div class="p-row">
+        <div class="p-col p-field"><label>用户名 <span class="req">*</span></label><input class="p-input" value="zhangsan" disabled></div>
+        <div class="p-col p-field"><label>姓名 <span class="req">*</span></label><input class="p-input" value="张三" disabled></div>
+      </div>
+      <div class="p-row">
+        <div class="p-col p-field"><label>部门</label><select class="p-select" disabled><option>技术部</option><option>财务部</option></select></div>
+        <div class="p-col p-field"><label>岗位</label><select class="p-select" disabled><option>工程师</option><option>会计</option></select></div>
+      </div>
+      <div class="p-row">
+        <div class="p-col p-field"><label>手机号</label><span class="p-input" style="display:flex;justify-content:space-between">138****5678 <a href="#" onclick="toast('需 data:plain 权限码方可查看明文','err');return false">☝ 明文</a></span></div>
+        <div class="p-col p-field"><label>邮箱</label><input class="p-input" value="zhangsan@example.com" disabled></div>
+      </div>
+      <div class="p-section">角色与状态</div>
+      <div class="p-row">
+        <div class="p-col p-field"><label>角色绑定</label>
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+            <span class="p-tag blue">普通角色</span>
+            <button class="p-btn sm" id="btn-bind" disabled onclick="openModal('m-role')">✚ 绑定</button>
+          </div>
+        </div>
+        <div class="p-col p-field"><label>状态</label><select class="p-select" disabled><option>启用</option><option>停用</option></select></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="pane-sys" style="display:none">
+    <div class="p-form">
+      <div id="sys-info-user"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 角色绑定 -->
+<div class="p-mask" id="m-role">
+  <div class="p-modal">
+    <div class="pm-head">角色绑定<span class="x" onclick="closeModal('m-role')">✕</span></div>
+    <div class="pm-body">
+      <label style="display:block;padding:6px 0;font-size:13px"><input type="checkbox" checked> 普通角色</label>
+      <label style="display:block;padding:6px 0;font-size:13px"><input type="checkbox"> 审批角色</label>
+    </div>
+    <div class="pm-foot"><button class="p-btn" onclick="closeModal('m-role')">取消</button><button class="p-btn primary" onclick="closeModal('m-role');toast('角色绑定已更新','ok')">保存</button></div>
+  </div>
+</div>
+
+<script src="../共享资源/原型脚本.js"></script>
+<script src="../02_公共原型/系统信息.js"></script>
+<script>
+  mountSysInfo(document.getElementById('sys-info-user'), {
+    id: '1902876345762181120',
+    createdAt: '2026-07-01 10:00:00 (UTC)',
+    createdBy: 'admin',
+    updatedAt: '2026-08-12 09:30:00 (UTC)',
+    updatedBy: 'admin'
+  });
+  function switchPane(name) {
+    document.querySelectorAll('#tabs .p-tab').forEach(function (t) { t.classList.toggle('active', t.getAttribute('data-pane') === name); });
+    document.getElementById('pane-info').style.display = name === 'info' ? '' : 'none';
+    document.getElementById('pane-sys').style.display = name === 'sys' ? '' : 'none';
+  }
+  // 表单页工具栏分态（《布局设计-表单页》）：只读态 修改/删除/刷新/关闭 ↔ 编辑态 保存/关闭
+  function setFormEditable(on) {
+    document.getElementById('btn-edit').style.display = on ? 'none' : '';
+    document.getElementById('btn-save').style.display = on ? '' : 'none';
+    document.getElementById('btn-bind').disabled = !on;
+    document.querySelectorAll('#pane-info input, #pane-info select').forEach(function (el) { el.disabled = !on; });
+  }
+  // dirty 拦截：编辑字段后关闭/切换 Tab 需确认（《布局设计-表单页》编辑态）
+  var dirty = false;
+  window._saveRound = 0;
+  document.getElementById('pane-info').addEventListener('input', function () { dirty = true; });
+  document.getElementById('pane-info').addEventListener('change', function () { dirty = true; });
+  function editForm() { dirty = false; setFormEditable(true); toast('已进入编辑态（字段启用）'); }
+  function saveForm() {
+    dirty = false;
+    setFormEditable(false);
+    // 演示：每两次保存模拟一次乐观锁 version 冲突（真实场景由后端 409 触发）
+    if (window._saveRound % 2 === 1) { window._saveRound++; toast('记录已被修改，已重新加载最新数据', 'err'); return; }
+    window._saveRound++;
+    toast('保存成功，列表已自动刷新', 'ok');
+  }
+  function tryClose() {
+    if (dirty) { confirmAction('当前修改尚未保存，关闭将丢失修改，确定关闭？', function () { dirty = false; toast('已关闭'); }); }
+    else { toast('已关闭'); }
+  }
+  function switchPane(name) {
+    document.querySelectorAll('#tabs .p-tab').forEach(function (t) { t.classList.toggle('active', t.getAttribute('data-pane') === name); });
+    document.getElementById('pane-info').style.display = name === 'info' ? '' : 'none';
+    document.getElementById('pane-sys').style.display = name === 'sys' ? '' : 'none';
+  }
+  function trySwitchPane(name) {
+    if (dirty && document.getElementById('pane-info').style.display !== 'none' && name !== 'info') {
+      confirmAction('当前修改尚未保存，切换 Tab 将丢失修改，确定切换？', function () { dirty = false; switchPane(name); });
+    } else { switchPane(name); }
+  }
+  // 由列表页双击打开时（?id=&name=）回填显示
+  (function () {
+    function qp(k) { var m = location.search.match(new RegExp('[?&]' + k + '=([^&]*)')); return m ? decodeURIComponent(m[1]) : null; }
+    var id = qp('id'), name = qp('name');
+    if (name) {
+      var inputs = document.querySelectorAll('#pane-info .p-input');
+      if (inputs[0]) inputs[0].value = name.toLowerCase();
+      if (inputs[1]) inputs[1].value = name;
+    }
+    if (id) {
+      var sys = document.querySelectorAll('#pane-sys .sys-text');
+      if (sys[0]) sys[0].textContent = id;
+    }
+  })();
+</script>
+
+</body>
+</html>

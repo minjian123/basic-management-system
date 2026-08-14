@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>公共原型组件展示</title>
+<link rel="stylesheet" href="../共享资源/原型样式.css">
+<style>
+  .demo-sec { margin-bottom: 28px; }
+  .demo-sec h2 { font-size: 16px; margin: 0 0 4px; }
+  .demo-sec .desc { color: #57606a; font-size: 13px; margin-bottom: 12px; }
+  .demo-box { background: #fff; border: 1px solid #d0d7de; border-radius: 6px; padding: 16px; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <a href="01_设计说明.html">← 返回设计说明</a>
+  <span class="pb-name">公共原型组件展示</span>
+  <span class="pb-crumb">02_公共原型</span>
+</div>
+
+<div class="proto-frame">
+
+  <div class="demo-sec">
+    <h2>1. 系统信息（系统信息.js）</h2>
+    <p class="desc">表单详情页「系统信息」区块：ID / 创建时间 / 创建用户 / 修改时间 / 修改用户（纯文本只读），支持 extra 扩展字段（如版本号）。<br>
+    用法：<code>mountSysInfo(el, { id, createdAt, createdBy, updatedAt, updatedBy, extra })</code></p>
+    <div class="demo-box">
+      <div id="demo-sysinfo"></div>
+    </div>
+  </div>
+
+  <div class="demo-sec">
+    <h2>2. 分页（分页.js）</h2>
+    <p class="desc">列表分页区：总数 / 页码 / 跳页 / 每页条数（默认 20 条/页），页码可点击切换。<br>
+    用法：<code>renderPager(el, { total, page, size, onPage, onSize })</code></p>
+    <div class="demo-box">
+      <div id="demo-pager"></div>
+      <div class="proto-hint" id="demo-pager-hint" style="margin-top:8px">当前：第 1 页 · 每页 20 条</div>
+    </div>
+  </div>
+
+  <div class="demo-sec">
+    <h2>3. 空状态（空状态.js）</h2>
+    <p class="desc">空状态插画（SVG）+ 文案 + 可选引导按钮；场景：list / search / todo / msg / error。<br>
+    用法：<code>renderEmpty(el, { type, text, action, onAction })</code>，点击下方按钮切换场景。</p>
+    <div class="demo-box">
+      <div style="display:flex;gap:8px;margin-bottom:12px">
+        <button class="p-btn" onclick="demoEmpty('list')">列表空态</button>
+        <button class="p-btn" onclick="demoEmpty('search')">搜索无结果</button>
+        <button class="p-btn" onclick="demoEmpty('todo')">待办为空</button>
+        <button class="p-btn" onclick="demoEmpty('msg')">消息为空</button>
+        <button class="p-btn" onclick="demoEmpty('error')">加载失败</button>
+      </div>
+      <div id="demo-empty"></div>
+    </div>
+  </div>
+
+</div>
+
+<script src="../共享资源/原型脚本.js"></script>
+<script src="系统信息.js"></script>
+<script src="分页.js"></script>
+<script src="空状态.js"></script>
+<script>
+  // 1. 系统信息
+  mountSysInfo(document.getElementById('demo-sysinfo'), {
+    id: '1902876345762181120',
+    createdAt: '2026-07-01 10:00:00 (UTC)',
+    createdBy: 'admin',
+    updatedAt: '2026-08-12 09:30:00 (UTC)',
+    updatedBy: 'admin',
+    extra: [['版本号', 'version 2（乐观锁校验）']]
+  });
+
+  // 2. 分页（可交互：点击页码/切换每页条数）
+  var demoPage = 1, demoSize = 20;
+  function renderDemoPager() {
+    renderPager(document.getElementById('demo-pager'), {
+      total: 128, page: demoPage, size: demoSize,
+      onPage: function (n) { demoPage = n; document.getElementById('demo-pager-hint').textContent = '当前：第 ' + n + ' 页 · 每页 ' + demoSize + ' 条'; renderDemoPager(); },
+      onSize: function (s) { demoSize = s; demoPage = 1; document.getElementById('demo-pager-hint').textContent = '当前：第 1 页 · 每页 ' + s + ' 条'; renderDemoPager(); }
+    });
+  }
+  renderDemoPager();
+
+  // 3. 空状态（可切换场景）
+  function demoEmpty(type) {
+    var opts = { type: type };
+    if (type === 'list') opts.action = '去创建';
+    if (type === 'search') opts.action = '清除筛选';
+    if (type === 'error') opts.action = '重试';
+    opts.onAction = function () { toast('点击了「' + (opts.action || '') + '」', 'ok'); };
+    renderEmpty(document.getElementById('demo-empty'), opts);
+  }
+  demoEmpty('list');
+</script>
+
+</body>
+</html>

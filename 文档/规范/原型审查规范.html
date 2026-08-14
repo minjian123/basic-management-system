@@ -122,7 +122,7 @@
       <h2 id="checklist">4. 高频问题检查清单</h2>
       <p>以下清单来自原型对齐审查的实战高频问题，新模块原型可直接对照自查。</p>
 
-      <h3 id="cl-shared">4.1 共享层（_shared/prototype.css、prototype.js，影响全部页面）</h3>
+      <h3 id="cl-shared">4.1 共享层（共享资源/原型样式.css、原型脚本.js，影响全部页面）</h3>
       <ul>
         <li>弹窗遮罩透明度统一 <strong>0.4</strong>；确认类弹窗（删除/驳回/危险操作）<strong>禁止遮罩点击或 Esc 关闭</strong>，必须显式点按钮</li>
         <li>弹窗宽度走阶梯：对话框 <strong>420/480/520px</strong>；抽屉 <strong>400/480/640/720px</strong>，禁止随意宽度</li>
@@ -209,7 +209,7 @@ flowchart TD
         <li><strong>分模块审查</strong>：原型按模块分组（共享层单独一组），每组一个子代理对照基线逐文件审查，输出「文件 + 类型（矛盾/缺失/不完善）+ 问题 + 依据（文档编号节号）+ 建议」。</li>
         <li><strong>分类过滤</strong>：按第 2 节三层原则分类——布局类留待对齐，内容类对照概要设计核对（原型不符则改，概要缺失则先修概要再同步原型），技术类对照架构设计核对；审查报告只列布局类问题，内容/技术类差异单独出「核对清单」。</li>
         <li><strong>汇总确认</strong>：合并去重为清单，关键决策（修复范围、规范与原型冲突谁改谁、视觉细节深度）用 question 工具<strong>逐项征求确认</strong>，不得擅自拍板。</li>
-        <li><strong>修复</strong>：先修共享层（prototype.css/js，影响全局），再按模块分组并行修页面；给子代理的指令须附共享层新类说明与逐文件修改指令。</li>
+        <li><strong>修复</strong>：先修共享层（原型样式.css/原型脚本.js，影响全局），再按模块分组并行修页面；给子代理的指令须附共享层新类说明与逐文件修改指令。</li>
         <li><strong>验证</strong>：静态抽查关键修改点（grep 新类/新交互）→ Edge 无头截图 + 识图逐页验证布局。</li>
         <li><strong>同步</strong>：新增页面同步更新 <code>01_原型设计_总览.html</code> 模块地图与模块设计说明。</li>
       </ol>
@@ -217,7 +217,7 @@ flowchart TD
       <h2 id="fix">6. 修复与验证</h2>
       <h3>6.1 修复顺序</h3>
       <ul>
-        <li><strong>共享层先行</strong>：遮罩/圆角/间距/弹窗宽度/抽屉组件等统一改在 <code>_shared/prototype.css</code> 与 <code>prototype.js</code>，页面只换类名，避免逐页重复修。</li>
+        <li><strong>共享层先行</strong>：遮罩/圆角/间距/弹窗宽度/抽屉组件等统一改在 <code>共享资源/原型样式.css</code> 与 <code>原型脚本.js</code>，页面只换类名，避免逐页重复修。</li>
         <li><strong>页面按模块</strong>：共享层改动落地后，页面按模块并行修复；指令中明确「只改布局、不改内容」，防止子代理顺手改文案。</li>
         <li><strong>新组件先立类</strong>：共享层新增能力（如抽屉 .p-drawer、分页 .p-pager、空态 .p-empty）先在 CSS/JS 中定义并提供全局函数（openDrawer/closeDrawer 等），页面直接引用。</li>
       </ul>
