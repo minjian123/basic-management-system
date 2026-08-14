@@ -37,20 +37,20 @@
 
       <!-- ② 基本信息：el-form（编辑态可编辑，只读态禁用） -->
       <div class="ep-section">基本信息</div>
-      <el-form label-width="90px" :disabled="!editing">
+      <el-form label-position="top" :disabled="!editing">
         <el-row :gutter="16">
-          <el-col :span="12">
+          <el-col :span="8">
             <el-form-item label="单据号"><el-input v-model="form.docNo" disabled></el-input></el-form-item>
           </el-col>
-          <el-col :span="12">
+          <el-col :span="8">
             <el-form-item label="标题"><el-input v-model="form.title"></el-input></el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <el-form-item label="金额"><el-input-number v-model="form.amount" :min="0" style="width:100%"></el-input-number></el-form-item>
           </el-col>
         </el-row>
         <el-row :gutter="16">
-          <el-col :span="12">
-            <el-form-item label="金额"><el-input-number v-model="form.amount" :min="0" style="width:100%"></el-input-number></el-form-item>
-          </el-col>
-          <el-col :span="12">
+          <el-col :span="8">
             <el-form-item label="供应商">
               <el-select v-model="form.supplier" clearable style="width:100%">
                 <el-option label="办公家具供应商 A" value="A"></el-option>

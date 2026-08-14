@@ -124,11 +124,9 @@
 
     <!-- ③ 新增业务码 -->
     <el-dialog v-model="dlgBiz.visible" title="新增业务码" width="480" align-center>
-      <el-form label-width="90px">
-        <el-row :gutter="12">
-          <el-col :span="12"><el-form-item label="业务码" required><el-input v-model="dlgBiz.form.code" placeholder="业务码"></el-input></el-form-item></el-col>
-          <el-col :span="12"><el-form-item label="说明"><el-input v-model="dlgBiz.form.desc"></el-input></el-form-item></el-col>
-        </el-row>
+      <el-form label-position="top">
+        <el-form-item label="业务码" required><el-input v-model="dlgBiz.form.code" placeholder="业务码"></el-input></el-form-item>
+        <el-form-item label="说明"><el-input v-model="dlgBiz.form.desc"></el-input></el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="dlgBiz.visible = false">取消</el-button>
@@ -138,17 +136,13 @@
 
     <!-- ④ 新增动作码 -->
     <el-dialog v-model="dlgAct.visible" title="新增动作码" width="480" align-center>
-      <el-form label-width="90px">
-        <el-row :gutter="12">
-          <el-col :span="12"><el-form-item label="动作码" required><el-input v-model="dlgAct.form.code" placeholder="动作码"></el-input></el-form-item></el-col>
-          <el-col :span="12">
-            <el-form-item label="归属业务">
-              <el-select v-model="dlgAct.form.biz" style="width:100%">
-                <el-option v-for="b in bizOptions" :key="b" :label="b" :value="b"></el-option>
-              </el-select>
-            </el-form-item>
-          </el-col>
-        </el-row>
+      <el-form label-position="top">
+        <el-form-item label="动作码" required><el-input v-model="dlgAct.form.code" placeholder="动作码"></el-input></el-form-item>
+        <el-form-item label="归属业务">
+          <el-select v-model="dlgAct.form.biz" style="width:100%">
+            <el-option v-for="b in bizOptions" :key="b" :label="b" :value="b"></el-option>
+          </el-select>
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="dlgAct.visible = false">取消</el-button>

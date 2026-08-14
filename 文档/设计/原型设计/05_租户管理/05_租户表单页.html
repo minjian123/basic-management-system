@@ -38,58 +38,72 @@
 
       <!-- ② 租户基本信息：code 编辑态锁定；状态开关停用需确认 -->
       <div class="ep-section">租户基本信息</div>
-      <el-form label-width="110px" :disabled="!editing" @submit.prevent>
+      <el-form label-position="top" :disabled="!editing" @submit.prevent>
         <el-row :gutter="16">
-          <el-col :span="12">
+          <el-col :span="8">
             <el-form-item label="租户 code"><el-input v-model="form.code" disabled></el-input></el-form-item>
           </el-col>
-          <el-col :span="12">
+          <el-col :span="8">
             <el-form-item label="租户名称" required><el-input v-model="form.name" placeholder="租户名称（必填）"></el-input></el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <el-form-item label="子域名"><el-input v-model="form.domain" placeholder="xxx.bms.example.com"></el-input></el-form-item>
           </el-col>
         </el-row>
         <el-row :gutter="16">
-          <el-col :span="12">
-            <el-form-item label="子域名"><el-input v-model="form.domain" placeholder="xxx.bms.example.com"></el-input></el-form-item>
-          </el-col>
-          <el-col :span="12">
+          <el-col :span="8">
             <el-form-item label="状态">
               <el-switch v-model="form.status" active-value="enabled" inactive-value="disabled"
                 active-text="启用" inactive-text="停用" :before-change="beforeStatusChange"></el-switch>
             </el-form-item>
           </el-col>
+          <el-col :span="8">
+            <el-form-item label="到期时间">
+              <el-date-picker v-model="form.expire" type="date" value-format="YYYY-MM-DD" style="width:220px"></el-date-picker>
+            </el-form-item>
+          </el-col>
         </el-row>
-        <el-form-item label="到期时间">
-          <el-date-picker v-model="form.expire" type="date" value-format="YYYY-MM-DD" style="width:220px"></el-date-picker>
-        </el-form-item>
       </el-form>
 
       <!-- ③ 附加信息：配额（limit/used 只读 el-progress）+ 已开通模块标签 + 模块开关入口 -->
       <div class="ep-section">配额与模块</div>
-      <el-form label-width="110px" disabled>
-        <el-form-item label="用户数">
-          <div class="ep-quota">
-            <el-progress :percentage="quotaPct(quota.users)" :stroke-width="12" style="flex:1"></el-progress>
-            <span class="proto-hint">{{ quota.users.used }} / {{ quota.users.limit }}</span>
-          </div>
-        </el-form-item>
-        <el-form-item label="存储">
-          <div class="ep-quota">
-            <el-progress :percentage="quotaPct(quota.storage)" :stroke-width="12" style="flex:1"></el-progress>
-            <span class="proto-hint">{{ quota.storage.used }} GB / {{ quota.storage.limit }} GB</span>
-          </div>
-        </el-form-item>
-        <el-form-item label="开放接口调用量">
-          <div class="ep-quota">
-            <el-progress :percentage="quotaPct(quota.api)" :stroke-width="12" style="flex:1"></el-progress>
-            <span class="proto-hint">{{ quota.api.used }} / {{ quota.api.limit }}（日）</span>
-          </div>
-        </el-form-item>
-        <el-form-item label="已开通模块">
-          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-            <el-tag v-for="m in mods" :key="m" type="primary" effect="plain">{{ m }}</el-tag>
-            <el-button size="small" @click="openMods">模块开关</el-button>
-          </div>
-        </el-form-item>
+      <el-form label-position="top" disabled>
+        <el-row :gutter="16">
+          <el-col :span="8">
+            <el-form-item label="用户数">
+              <div class="ep-quota">
+                <el-progress :percentage="quotaPct(quota.users)" :stroke-width="12" style="flex:1"></el-progress>
+                <span class="proto-hint">{{ quota.users.used }} / {{ quota.users.limit }}</span>
+              </div>
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <el-form-item label="存储">
+              <div class="ep-quota">
+                <el-progress :percentage="quotaPct(quota.storage)" :stroke-width="12" style="flex:1"></el-progress>
+                <span class="proto-hint">{{ quota.storage.used }} GB / {{ quota.storage.limit }} GB</span>
+              </div>
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <el-form-item label="开放接口调用量">
+              <div class="ep-quota">
+                <el-progress :percentage="quotaPct(quota.api)" :stroke-width="12" style="flex:1"></el-progress>
+                <span class="proto-hint">{{ quota.api.used }} / {{ quota.api.limit }}（日）</span>
+              </div>
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-row :gutter="16">
+          <el-col :span="8">
+            <el-form-item label="已开通模块">
+              <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+                <el-tag v-for="m in mods" :key="m" type="primary" effect="plain">{{ m }}</el-tag>
+                <el-button size="small" @click="openMods">模块开关</el-button>
+              </div>
+            </el-form-item>
+          </el-col>
+        </el-row>
       </el-form>
     </div>
   </div>

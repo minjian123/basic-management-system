@@ -98,7 +98,7 @@
 
     <!-- 新建/编辑模板对话框 -->
     <el-dialog v-model="dlg.visible" :title="dlg.id ? '编辑模板' : '新建模板'" width="520">
-      <el-form label-width="90px">
+      <el-form label-position="top">
         <el-form-item label="层级">
           <el-select v-model="dlg.scope" style="width:100%">
             <el-option label="角色模板" value="role"></el-option>

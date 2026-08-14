@@ -35,39 +35,42 @@
         </span>
       </div>
 
-      <!-- ② 岗位基本信息 -->
-      <div class="ep-section">基本信息</div>
-      <el-form label-width="90px" :disabled="!editing">
-        <el-row :gutter="16">
-          <el-col :span="12">
-            <el-form-item label="岗位码" required>
-              <el-input v-model="form.code" disabled placeholder="如 engineer"></el-input>
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="岗位名称" required><el-input v-model="form.name" placeholder="岗位名称"></el-input></el-form-item>
-          </el-col>
-        </el-row>
-        <el-row :gutter="16">
-          <el-col :span="12">
-            <el-form-item label="归属部门">
-              <el-tree-select v-model="form.deptId" :data="deptTree" node-key="id" check-strictly
-                :render-after-expand="false" style="width:100%" placeholder="选择归属部门"></el-tree-select>
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="排序"><el-input-number v-model="form.sort" :min="0" style="width:100%"></el-input-number></el-form-item>
-          </el-col>
-        </el-row>
-        <el-row :gutter="16">
-          <el-col :span="12">
-            <el-form-item label="状态">
-              <el-switch v-model="form.status" active-value="enabled" inactive-value="disabled"
-                active-text="启用" inactive-text="停用"></el-switch>
-            </el-form-item>
-          </el-col>
-        </el-row>
-      </el-form>
+      <!-- ② 详细信息 / 系统信息 Tab -->
+      <el-tabs v-model="tab">
+        <el-tab-pane label="详细信息" name="info">
+          <div class="ep-section">基本信息</div>
+          <el-form label-position="top" :disabled="!editing">
+            <el-row :gutter="16">
+              <el-col :span="8">
+                <el-form-item label="岗位码" required>
+                  <el-input v-model="form.code" disabled placeholder="如 engineer"></el-input>
+                </el-form-item>
+              </el-col>
+              <el-col :span="8">
+                <el-form-item label="岗位名称" required><el-input v-model="form.name" placeholder="岗位名称"></el-input></el-form-item>
+              </el-col>
+              <el-col :span="8">
+                <el-form-item label="归属部门">
+                  <el-tree-select v-model="form.deptId" :data="deptTree" node-key="id" check-strictly
+                    :render-after-expand="false" style="width:100%" placeholder="选择归属部门"></el-tree-select>
+                </el-form-item>
+              </el-col>
+              <el-col :span="8">
+                <el-form-item label="排序"><el-input-number v-model="form.sort" :min="0" style="width:100%"></el-input-number></el-form-item>
+              </el-col>
+              <el-col :span="8">
+                <el-form-item label="状态">
+                  <el-switch v-model="form.status" active-value="enabled" inactive-value="disabled"
+                    active-text="启用" inactive-text="停用"></el-switch>
+                </el-form-item>
+              </el-col>
+            </el-row>
+          </el-form>
+        </el-tab-pane>
+        <el-tab-pane label="系统信息" name="sys">
+          <iframe class="sys-frame" src="../02_公共原型/04_系统信息组件.html" :style="{height: sysH + 'px'}" @load="pushSys($event, sys)"></iframe>
+        </el-tab-pane>
+      </el-tabs>
     </div>
   </div>
 </div>
@@ -99,10 +102,27 @@
       var form = reactive({ code: 'engineer', name: '工程师', deptId: 2, sort: 1, status: 'enabled' });
       var sys = reactive({
         id: '1902876345762181120',
-        createdAt: '2026-07-01 10:00:00 (UTC)',
+        version: 1,
+        createdAt: '2026-07-01 10:00:00',
         createdBy: 'admin',
-        updatedAt: '2026-08-12 09:30:00 (UTC)',
-        updatedBy: 'admin'
+        updatedAt: '2026-08-12 09:30:00',
+        updatedBy: 'admin',
+        formKey: 'post',
+        formLabel: '岗位表单'
+      });
+      var tab = ref('info');
+
+      // 系统信息组件（iframe）通信：load 后发送数据，接收高度自适应
+      var sysH = ref(130);
+      function pushSys(ev, data) {
+        var f = ev.currentTarget;
+        if (f && f.contentWindow) {
+          var plain = JSON.parse(JSON.stringify(data || {}));
+          f.contentWindow.postMessage({ type: 'sys-info', data: plain }, '*');
+        }
+      }
+      window.addEventListener('message', function (e) {
+        if (e.data && e.data.type === 'sys-info-height' && e.data.height > 0) sysH.value = e.data.height;
       });
 
       // dirty 拦截：编辑字段后关闭需确认
@@ -136,7 +156,7 @@
         } else { toastMsg('已关闭'); }
       }
       function toastMsg(m, type) { ElMessage({ message: m, type: type || 'success' }); }
-      return { editing, deptTree, form, editForm, saveForm, delForm, tryClose, toastMsg };
+      return { editing, tab, sys, sysH, pushSys, deptTree, form, editForm, saveForm, delForm, tryClose, toastMsg };
     }
   });
   app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });

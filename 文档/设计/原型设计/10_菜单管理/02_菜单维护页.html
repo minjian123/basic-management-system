@@ -46,22 +46,20 @@
         <el-col :span="18">
           <div class="ep-main-card">
             <div class="ep-section">菜单详情</div>
-            <el-form label-width="110px">
+            <el-form label-position="top">
               <el-row :gutter="16">
-                <el-col :span="12"><el-form-item label="path"><el-input v-model="detail.path" disabled></el-input></el-form-item></el-col>
-                <el-col :span="12"><el-form-item label="component"><el-input v-model="detail.component" disabled></el-input></el-form-item></el-col>
+                <el-col :span="8"><el-form-item label="path"><el-input v-model="detail.path" disabled></el-input></el-form-item></el-col>
+                <el-col :span="8"><el-form-item label="component"><el-input v-model="detail.component" disabled></el-input></el-form-item></el-col>
+                <el-col :span="8"><el-form-item label="图标 / 排序"><el-input v-model="detail.icon"></el-input></el-form-item></el-col>
               </el-row>
               <el-row :gutter="16">
-                <el-col :span="12"><el-form-item label="图标 / 排序"><el-input v-model="detail.icon"></el-input></el-form-item></el-col>
-                <el-col :span="12">
+                <el-col :span="8">
                   <el-form-item label="隐藏">
                     <el-checkbox v-model="detail.hidden" style="margin-top:6px"></el-checkbox>
                   </el-form-item>
                 </el-col>
-              </el-row>
-              <el-row :gutter="16">
-                <el-col :span="12"><el-form-item label="挂接表单"><el-input v-model="detail.form" disabled></el-input></el-form-item></el-col>
-                <el-col :span="12"><el-form-item label="挂接业务"><el-input v-model="detail.biz" disabled></el-input></el-form-item></el-col>
+                <el-col :span="8"><el-form-item label="挂接表单"><el-input v-model="detail.form" disabled></el-input></el-form-item></el-col>
+                <el-col :span="8"><el-form-item label="挂接业务"><el-input v-model="detail.biz" disabled></el-input></el-form-item></el-col>
               </el-row>
               <el-form-item label="多语言名称">
                 <div style="display:flex;gap:8px;width:100%">
@@ -81,17 +79,15 @@
 
     <!-- ③ 新增菜单：480px 对话框 -->
     <el-dialog v-model="dlgNew.visible" title="新增菜单" width="480" align-center>
-      <el-form label-width="90px">
+      <el-form label-position="top">
         <el-form-item label="父级">
           <el-select v-model="dlgNew.form.parent" style="width:100%">
             <el-option label="组织与权限" value="组织与权限"></el-option>
             <el-option label="（根级）" value="根级"></el-option>
           </el-select>
         </el-form-item>
-        <el-row :gutter="12">
-          <el-col :span="12"><el-form-item label="名称（zh）" required><el-input v-model="dlgNew.form.name" placeholder="名称"></el-input></el-form-item></el-col>
-          <el-col :span="12"><el-form-item label="path" required><el-input v-model="dlgNew.form.path" placeholder="/xxx"></el-input></el-form-item></el-col>
-        </el-row>
+        <el-form-item label="名称（zh）" required><el-input v-model="dlgNew.form.name" placeholder="名称"></el-input></el-form-item>
+        <el-form-item label="path" required><el-input v-model="dlgNew.form.path" placeholder="/xxx"></el-input></el-form-item>
         <el-form-item label="component"><el-input v-model="dlgNew.form.component"></el-input></el-form-item>
         <div class="proto-hint">保存后将要求补挂表单与业务，并发布更新</div>
       </el-form>
@@ -103,17 +99,15 @@
 
     <!-- ④ 编辑菜单：480px 对话框（预填当前值） -->
     <el-dialog v-model="dlgEdit.visible" title="编辑菜单" width="480" align-center>
-      <el-form label-width="90px">
+      <el-form label-position="top">
         <el-form-item label="父级">
           <el-select v-model="dlgEdit.form.parent" style="width:100%">
             <el-option label="组织与权限" value="组织与权限"></el-option>
             <el-option label="（根级）" value="根级"></el-option>
           </el-select>
         </el-form-item>
-        <el-row :gutter="12">
-          <el-col :span="12"><el-form-item label="名称（zh）" required><el-input v-model="dlgEdit.form.name"></el-input></el-form-item></el-col>
-          <el-col :span="12"><el-form-item label="path" required><el-input v-model="dlgEdit.form.path"></el-input></el-form-item></el-col>
-        </el-row>
+        <el-form-item label="名称（zh）" required><el-input v-model="dlgEdit.form.name"></el-input></el-form-item>
+        <el-form-item label="path" required><el-input v-model="dlgEdit.form.path"></el-input></el-form-item>
         <el-form-item label="component"><el-input v-model="dlgEdit.form.component"></el-input></el-form-item>
         <div class="proto-hint">保存后将发布更新，动态菜单刷新生效</div>
       </el-form>

@@ -62,24 +62,22 @@
 
           <el-tabs v-model="tab" @tab-click="onTabClick" @tab-change="onTabChange">
             <el-tab-pane label="详细信息" name="info">
-              <el-form label-width="120px" :disabled="!editing" style="margin-top:8px">
+              <el-form label-position="top" :disabled="!editing" style="margin-top:8px">
                 <el-row :gutter="16">
-                  <el-col :span="12">
+                  <el-col :span="8">
                     <el-form-item label="上级部门">
                       <el-select v-model="form.parentId" style="width:100%">
                         <el-option v-for="p in parentOptions" :key="p.id" :label="p.label" :value="p.id"></el-option>
                       </el-select>
                     </el-form-item>
                   </el-col>
-                  <el-col :span="12">
+                  <el-col :span="8">
                     <el-form-item label="名称"><el-input v-model="form.name" placeholder="部门名称"></el-input></el-form-item>
                   </el-col>
-                </el-row>
-                <el-row :gutter="16">
-                  <el-col :span="12">
+                  <el-col :span="8">
                     <el-form-item label="排序"><el-input-number v-model="form.sort" :min="0" style="width:100%"></el-input-number></el-form-item>
                   </el-col>
-                  <el-col :span="12">
+                  <el-col :span="8">
                     <el-form-item label="状态">
                       <el-select v-model="form.status" style="width:100%">
                         <el-option label="启用" value="enabled"></el-option>
@@ -99,13 +97,7 @@
               </el-form>
             </el-tab-pane>
             <el-tab-pane label="系统信息" name="sys">
-              <el-descriptions :column="2" border style="margin-top:8px">
-                <el-descriptions-item label="ID">{{ sys.id }}</el-descriptions-item>
-                <el-descriptions-item label="创建时间">{{ sys.createdAt }}</el-descriptions-item>
-                <el-descriptions-item label="创建用户">{{ sys.createdBy }}</el-descriptions-item>
-                <el-descriptions-item label="修改时间">{{ sys.updatedAt }}</el-descriptions-item>
-                <el-descriptions-item label="修改用户">{{ sys.updatedBy }}</el-descriptions-item>
-              </el-descriptions>
+              <iframe class="sys-frame" src="../02_公共原型/04_系统信息组件.html" :style="{height: sysH + 'px'}" @load="pushSys($event, sys)"></iframe>
             </el-tab-pane>
           </el-tabs>
         </div>
@@ -114,7 +106,7 @@
 
     <!-- ④ 新增子部门 el-dialog（480px） -->
     <el-dialog v-model="newDlg.visible" :title="newDlg.title" width="480">
-      <el-form label-width="80px">
+      <el-form label-position="top">
         <el-form-item label="名称" required><el-input v-model="newDlg.name" placeholder="部门名称"></el-input></el-form-item>
         <el-form-item label="排序"><el-input-number v-model="newDlg.sort" :min="0"></el-input-number></el-form-item>
         <el-form-item label="状态">
@@ -191,13 +183,29 @@
       var tab = ref('info');
       var sys = reactive({
         id: '1902876345762181120',
-        createdAt: '2026-07-01 10:00:00 (UTC)',
+        version: 1,
+        createdAt: '2026-07-01 10:00:00',
         createdBy: 'admin',
-        updatedAt: '2026-08-12 09:30:00 (UTC)',
-        updatedBy: 'admin'
+        updatedAt: '2026-08-12 09:30:00',
+        updatedBy: 'admin',
+        formKey: 'dept',
+        formLabel: '部门表单'
       });
       var newDlg = reactive({ visible: false, title: '', name: '', sort: 1, status: 'enabled' });
       var roleDrawer = reactive({ visible: false, title: '', roles: { ordinary: true, approve: false } });
+
+      // 系统信息组件（iframe）通信：load 后发送数据，接收高度自适应
+      var sysH = ref(130);
+      function pushSys(ev, data) {
+        var f = ev.currentTarget;
+        if (f && f.contentWindow) {
+          var plain = JSON.parse(JSON.stringify(data || {}));
+          f.contentWindow.postMessage({ type: 'sys-info', data: plain }, '*');
+        }
+      }
+      window.addEventListener('message', function (e) {
+        if (e.data && e.data.type === 'sys-info-height' && e.data.height > 0) sysH.value = e.data.height;
+      });
 
       function toastMsg(m, type) {
         var opts = { message: m };
@@ -326,7 +334,7 @@
         roleDrawer.visible = false;
         toastMsg('绑定已保存（主体链生效）', 'success');
       }
-      return { treeData, curDept, editing, form, parentOptions, tab, sys, newDlg, roleDrawer, embed,
+      return { treeData, curDept, editing, form, parentOptions, tab, sys, sysH, pushSys, newDlg, roleDrawer, embed,
         onNodeClick, setEditing, saveDetail, tryClose, onTabClick, onTabChange, openNewDlg, saveNew,
         moveDept, toggleDept, delDept, openDeptForm, openRoleDrawer, saveRole, toastMsg };
     }

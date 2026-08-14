@@ -145,8 +145,8 @@
 
       <h3 id="cl-form">4.3 表单页</h3>
       <ul>
-        <li>信息栏<strong>双子 Tab</strong>：详细信息 / 系统信息（ID/创建时间/修改时间，<strong>纯文本</strong>不套输入框）</li>
-        <li>主表字段区两列栅格（span=12）；<strong>字段 &gt;8 个</strong>才用分区标题分组（≤8 平铺）</li>
+        <li>信息栏<strong>双子 Tab</strong>：详细信息 / 系统信息（ID/版本号/创建用户/创建时间/修改用户/修改时间/表单标识，<strong>label 上方三列只读栅格</strong>、<strong>纯文本</strong>不套输入框（表单标识为<strong>禁用下拉框</strong>）、时间无时区后缀）</li>
+        <li>主表字段区<strong>label 上方</strong>（label-position="top"）、三列栅格（span=8）、长字段跨整行；<strong>字段 &gt;8 个</strong>才用分区标题分组（≤8 平铺）</li>
         <li>只读/编辑分态：只读态字段<strong>禁用</strong>；新增 Tab 打开即编辑态；修改未保存切换/关闭 <strong>dirty 拦截确认</strong></li>
         <li>保存整体提交单事务 + 乐观锁（冲突提示「记录已被修改」并重新加载）；保存后自动刷新列表</li>
         <li>明细区：多明细 Tab 化、行内编辑仅编辑态、明细工具栏<strong>图标化</strong>（新增/删除/上移/下移）、≤10 行直展 &gt;10 行分页（10 条/页）、编辑态自动空行 + 保存过滤空行</li>

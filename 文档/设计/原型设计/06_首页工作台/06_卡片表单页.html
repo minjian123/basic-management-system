@@ -37,22 +37,20 @@
       </div>
 
       <!-- ② 基本信息：el-form（编辑态可编辑，只读态禁用）；卡片 code 编辑态锁定 -->
-      <el-form label-width="100px" :disabled="!editing">
+      <el-form label-position="top" :disabled="!editing">
         <div class="ep-section">基本信息</div>
         <el-row :gutter="16">
-          <el-col :span="12">
+          <el-col :span="8">
             <el-form-item label="卡片 code" required>
               <el-input v-model="form.code" :disabled="!!form.id" placeholder="如 stats_apply"></el-input>
             </el-form-item>
           </el-col>
-          <el-col :span="12">
+          <el-col :span="8">
             <el-form-item label="卡片名称" required>
               <el-input v-model="form.name" placeholder="卡片名称"></el-input>
             </el-form-item>
           </el-col>
-        </el-row>
-        <el-row :gutter="16">
-          <el-col :span="12">
+          <el-col :span="8">
             <el-form-item label="卡片类型">
               <el-select v-model="form.type" style="width:100%">
                 <el-option label="builtin 内置" value="builtin"></el-option>
@@ -60,7 +58,9 @@
               </el-select>
             </el-form-item>
           </el-col>
-          <el-col :span="12">
+        </el-row>
+        <el-row :gutter="16">
+          <el-col :span="8">
             <el-form-item label="状态">
               <el-switch v-model="form.status" active-text="启用" inactive-text="停用"></el-switch>
             </el-form-item>
@@ -71,7 +71,7 @@
         <template v-if="form.type === 'dataset'">
           <div class="ep-section">数据集配置（rpt_dataset）</div>
           <el-row :gutter="16">
-            <el-col :span="12">
+            <el-col :span="8">
               <el-form-item label="数据集">
                 <el-select v-model="form.dataset" style="width:100%">
                   <el-option label="采购申请统计" value="采购申请统计"></el-option>
@@ -80,7 +80,7 @@
                 </el-select>
               </el-form-item>
             </el-col>
-            <el-col :span="12">
+            <el-col :span="8">
               <el-form-item label="图表类型">
                 <el-select v-model="form.chartType" style="width:100%">
                   <el-option label="柱状图" value="柱状图"></el-option>
@@ -90,14 +90,14 @@
                 </el-select>
               </el-form-item>
             </el-col>
-          </el-row>
-          <el-row :gutter="16">
-            <el-col :span="12">
+            <el-col :span="8">
               <el-form-item label="默认宽度（列）">
                 <el-input-number v-model="form.width" :min="2" :max="12" style="width:100%"></el-input-number>
               </el-form-item>
             </el-col>
-            <el-col :span="12">
+          </el-row>
+          <el-row :gutter="16">
+            <el-col :span="8">
               <el-form-item label="默认高度（行）">
                 <el-input-number v-model="form.height" :min="2" :max="6" style="width:100%"></el-input-number>
               </el-form-item>

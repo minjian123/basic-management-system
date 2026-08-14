@@ -99,7 +99,7 @@
 
     <!-- 新建/编辑卡片抽屉（宽 640）：标题由动作+对象自动设置 -->
     <el-drawer v-model="dlg.visible" :title="dlg.id ? '编辑卡片' : '新建卡片'" size="640">
-      <el-form label-width="110px">
+      <el-form label-position="top">
         <el-form-item label="code">
           <el-input v-model="dlg.code" placeholder="如 stats_apply" :disabled="!!dlg.id"></el-input>
         </el-form-item>

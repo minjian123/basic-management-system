@@ -104,11 +104,9 @@
 
     <!-- ⑤ 新增/编辑角色：480px 对话框 -->
     <el-dialog v-model="edit.visible" :title="edit.title" width="480" align-center>
-      <el-form label-width="90px">
-        <el-row :gutter="12">
-          <el-col :span="12"><el-form-item label="角色码" required><el-input v-model="edit.form.code" :disabled="!edit.isNew" placeholder="角色码"></el-input></el-form-item></el-col>
-          <el-col :span="12"><el-form-item label="名称" required><el-input v-model="edit.form.name"></el-input></el-form-item></el-col>
-        </el-row>
+      <el-form label-position="top">
+        <el-form-item label="角色码" required><el-input v-model="edit.form.code" :disabled="!edit.isNew" placeholder="角色码"></el-input></el-form-item>
+        <el-form-item label="名称" required><el-input v-model="edit.form.name"></el-input></el-form-item>
         <el-form-item label="类型">
           <el-select v-model="edit.form.type" style="width:100%">
             <el-option label="普通角色" value="普通角色"></el-option>

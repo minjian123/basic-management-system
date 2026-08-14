@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>公共组件 · 系统信息</title>
+<link rel="stylesheet" href="../共享资源/vendor/element-plus.css">
+<style>
+  html, body { margin: 0; padding: 0; background: #fff; }
+  .sys-card { padding: 4px 0 16px; }
+  .sys-val { font-size: 14px; color: #1f2328; }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <div class="sys-card">
+    <el-form label-position="top" size="small">
+      <el-row :gutter="16">
+        <el-col :span="8">
+          <el-form-item label="ID"><span class="sys-val">{{ d.id || '—' }}</span></el-form-item>
+        </el-col>
+        <el-col :span="8">
+          <el-form-item label="版本号"><span class="sys-val">{{ d.version ? 'v' + d.version : '—' }}</span></el-form-item>
+        </el-col>
+        <el-col :span="8">
+          <el-form-item label="创建用户"><span class="sys-val">{{ d.createdBy || '—' }}</span></el-form-item>
+        </el-col>
+        <el-col :span="8">
+          <el-form-item label="创建时间"><span class="sys-val">{{ d.createdAt || '—' }}</span></el-form-item>
+        </el-col>
+        <el-col :span="8">
+          <el-form-item label="修改用户"><span class="sys-val">{{ d.updatedBy || '—' }}</span></el-form-item>
+        </el-col>
+        <el-col :span="8">
+          <el-form-item label="修改时间"><span class="sys-val">{{ d.updatedAt || '—' }}</span></el-form-item>
+        </el-col>
+        <el-col :span="8">
+          <el-form-item label="表单标识">
+            <el-select :model-value="d.formKey || ''" disabled size="small" style="width:160px">
+              <el-option :value="d.formKey" :label="d.formLabel || '—'"></el-option>
+            </el-select>
+          </el-form-item>
+        </el-col>
+      </el-row>
+    </el-form>
+  </div>
+</div>
+
+<script src="../共享资源/vendor/vue.global.prod.js"></script>
+
+<script src="../共享资源/vendor/element-plus.min.js"></script>
+<script src="../共享资源/vendor/zh-cn.js"></script>
+<script>
+  // 公共组件：系统信息（label 上方三列只读栅格，见《布局设计-表单页》2.1.1）
+  // 数据协议：父页 postMessage({type:'sys-info', data:{id,version,createdAt,createdBy,updatedAt,updatedBy,formKey,formLabel}})
+  // 高度协议：渲染完成后上报 {type:'sys-info-height', height}，父页据此自适应 iframe 高度
+  var { createApp, reactive, nextTick } = Vue;
+  var app = createApp({
+    template: document.getElementById('app').outerHTML.replace(/<div id="app">/, '<div>').replace(/<\/div>\s*$/, ''),
+    setup: function () {
+      var d = reactive({ id: '', version: null, createdAt: '', createdBy: '', updatedAt: '', updatedBy: '', formKey: '', formLabel: '' });
+      window.addEventListener('message', function (e) {
+        if (!e.data || e.data.type !== 'sys-info') return;
+        Object.assign(d, e.data.data || {});
+      });
+      return { d };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+  nextTick(function () {
+    setTimeout(function () {
+      window.parent.postMessage({ type: 'sys-info-height', height: document.body.scrollHeight }, '*');
+    }, 80);
+  });
+</script>
+
+</body>
+</html>
