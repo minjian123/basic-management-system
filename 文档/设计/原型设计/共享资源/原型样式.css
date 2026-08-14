@@ -62,7 +62,7 @@ a:hover { text-decoration: underline; }
 .p-pager .pp-goto { width: 40px; border: 1px solid #d0d7de; border-radius: 4px; padding: 2px 4px; font-size: 12px; }
 
 /* 表格明细工具栏（《布局设计-表格明细》第 4 节 / 2.4 节）：图标按钮组靠左 + 分页靠右同一行 */
-.p-detail-bar { display: flex; align-items: center; gap: 8px; padding: 8px 4px; flex-wrap: wrap; }
+.p-detail-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 4px; flex-wrap: wrap; }
 .p-detail-bar .p-detail-tools { display: flex; align-items: center; gap: 4px; }
 .p-detail-bar .p-detail-tools .p-btn.icon { min-width: 26px; padding: 2px 4px; font-size: 13px; line-height: 1.6; }
 .p-detail-bar .p-detail-tools .d-sep { width: 1px; height: 16px; background: #eaeef2; margin: 0 4px; }
