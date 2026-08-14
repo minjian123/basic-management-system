@@ -84,7 +84,7 @@
           </el-table-column>
         </el-table>
         <div style="display:flex;justify-content:flex-end;margin-top:12px">
-          <el-pagination background layout="total, sizes, prev, pager, next" :total="rows.length"
+          <el-pagination background layout="total, sizes, jumper, prev, pager, next" :total="rows.length"
             :page-size="size" :current-page="page" @current-change="page = $event" @size-change="size = $event"></el-pagination>
         </div>
       </div>

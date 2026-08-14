@@ -66,7 +66,7 @@
             </template>
           </el-table>
           <div class="ep-pager">
-            <el-pagination background layout="total, prev, pager, next" :total="todoFiltered.length"
+            <el-pagination background layout="total, jumper, prev, pager, next" :total="todoFiltered.length"
               :page-size="qTodo.size" :current-page="qTodo.page" @current-change="onPage('todo', $event)"></el-pagination>
           </div>
         </el-tab-pane>
@@ -104,7 +104,7 @@
             </template>
           </el-table>
           <div class="ep-pager">
-            <el-pagination background layout="total, prev, pager, next" :total="doneFiltered.length"
+            <el-pagination background layout="total, jumper, prev, pager, next" :total="doneFiltered.length"
               :page-size="qDone.size" :current-page="qDone.page" @current-change="onPage('done', $event)"></el-pagination>
           </div>
         </el-tab-pane>
