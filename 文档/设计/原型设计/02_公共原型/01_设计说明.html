@@ -32,6 +32,7 @@
             <li><a href="#comp-empty">2.3 空状态.js 空状态</a></li>
             <li><a href="#comp-detailbar">2.4 明细工具栏.js 表格明细工具栏</a></li>
             <li><a href="#comp-listtoolbar">2.5 列表页工具栏.js 列表页工具栏</a></li>
+            <li><a href="#comp-ep">2.6 vendor 第三方组件（Element Plus 本地化）</a></li>
           </ul>
         </li>
         <li><a href="#usage">3. 引用方式</a></li>
@@ -123,6 +124,15 @@ bar.setReadonly(true);   // 编辑态切换：只读禁用行操作</code></pre>
   },
   page: { total: 128, page: 1, size: 20, onPage: function (n) {}, onSize: function (s) {} }
 });</code></pre>
+
+      <h3 id="comp-ep">2.6 vendor 第三方组件（Element Plus 本地化）</h3>
+      <p>真实 Element Plus（Vue 3）组件本地化引入，file:// 双击可用（不依赖构建与联网）：</p>
+      <ul>
+        <li>文件位置：<code>共享资源/vendor/</code> —— vue.global.prod.js（Vue 3 UMD 完整版）、element-plus.min.js（UMD 全量）、element-plus.css；来源于 npmmirror 镜像，版本与 BMS 前端技术栈对齐（升级时整体替换）。</li>
+        <li>引入方式：页面 <code>&lt;link&gt;</code> 引 element-plus.css，<code>&lt;script&gt;</code> 依次引 vue.global.prod.js、element-plus.min.js；<code>Vue.createApp({...}).use(ElementPlus).mount('#app')</code> 挂载（template 用字符串模板，完整版内置编译器）。</li>
+        <li>示例：<a href="03_EP组件示例.html">03_EP组件示例.html</a> —— 真实 el-table（多选/行内编辑/小计列）+ 图标按钮明细工具栏 + el-pagination 分页的完整明细演示，含编辑态/只读态切换。</li>
+        <li>适用场景：需要真实组件行为与视觉的页面（原型即验收基准）；轻量示意仍可用自研组件（分页.js/明细工具栏.js/列表页工具栏.js/明细表格.js），两者按需混用。</li>
+      </ul>
 
       <h2 id="usage">3. 引用方式</h2>
       <p>页面在底部脚本区引用组件文件（相对路径按页面层级：业务模块页 = <code>../02_公共原型/组件名.js</code>），并在元素存在后调用：</p>

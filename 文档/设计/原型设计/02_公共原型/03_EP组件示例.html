@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · Element Plus 组件示例（明细表格）</title>
+<link rel="stylesheet" href="../共享资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../共享资源/原型样式.css">
+<style>
+  .ep-demo { padding: 16px; background: #fff; border: 1px solid #d0d7de; border-radius: 6px; }
+  .ep-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+  .ep-bar .el-button + .el-button { margin-left: 4px; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="01_设计说明.html">← 返回设计说明</a></span>
+  <span class="pb-name">公共原型 · Element Plus 组件示例（明细表格 + 工具栏 + 分页）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="ep-demo">
+    <div style="display:flex;gap:8px;margin-bottom:12px">
+      <button class="p-btn" onclick="window.__epDt && window.__epDt.setReadonly(false)">编辑态</button>
+      <button class="p-btn" onclick="window.__epDt && window.__epDt.setReadonly(true)">只读态</button>
+      <span class="proto-hint" style="margin-left:auto">真实 Element Plus 组件（vue.global.prod.js + element-plus.min.js 本地化，file:// 可用）</span>
+    </div>
+    <div id="app"></div>
+  </div>
+</div>
+
+<script src="../共享资源/vendor/vue.global.prod.js"></script>
+<script src="../共享资源/vendor/element-plus.min.js"></script>
+<script>
+  var ICONS = { add: '＋', del: '🗑', up: '↑', down: '↓', refresh: '⟳', fullscreen: '⛶' };
+  var { createApp, ref, computed } = Vue;
+  var app = createApp({
+    template: `
+      <div>
+        <el-table :data="pageRows" border @selection-change="onSel" :row-key="rowKey" style="width:100%">
+          <el-table-column type="selection" width="48"></el-table-column>
+          <el-table-column label="物料名称" min-width="180">
+            <template #default="{ row }">
+              <el-input v-model="row.name" :disabled="readonly" placeholder="物料名称"></el-input>
+            </template>
+          </el-table-column>
+          <el-table-column label="数量" width="120">
+            <template #default="{ row }">
+              <el-input-number v-model="row.qty" :min="1" :disabled="readonly" size="small" controls-position="right" style="width:100%"></el-input-number>
+            </template>
+          </el-table-column>
+          <el-table-column label="单价" width="140">
+            <template #default="{ row }">
+              <el-input-number v-model="row.price" :min="0" :disabled="readonly" size="small" controls-position="right" style="width:100%"></el-input-number>
+            </template>
+          </el-table-column>
+          <el-table-column label="小计" width="120" align="right">
+            <template #default="{ row }">¥{{ (row.qty * row.price).toLocaleString() }}</template>
+          </el-table-column>
+        </el-table>
+
+        <div class="ep-bar">
+          <div>
+            <el-button :disabled="readonly" size="small" :icon="''" @click="addRow" title="新增行">{{ ICONS.add }}</el-button>
+            <el-button :disabled="readonly || !selRows.length" size="small" type="danger" plain @click="delSel" title="删除行">{{ ICONS.del }}</el-button>
+            <el-button :disabled="readonly" size="small" @click="move(-1)" title="上移行">{{ ICONS.up }}</el-button>
+            <el-button :disabled="readonly" size="small" @click="move(1)" title="下移行">{{ ICONS.down }}</el-button>
+            <el-divider direction="vertical"></el-divider>
+            <el-button size="small" @click="toastMsg('已刷新')" title="刷新">{{ ICONS.refresh }}</el-button>
+            <el-button size="small" @click="toastMsg('全屏演示')" title="全屏">{{ ICONS.fullscreen }}</el-button>
+          </div>
+          <el-pagination background layout="total, prev, pager, next, sizes" :total="rows.length"
+            :page-size="pageSize" :current-page="page" @current-change="onPage" @size-change="onSize"></el-pagination>
+        </div>
+      </div>
+    `,
+    setup() {
+      var rows = ref([
+        { name: '办公桌', qty: 10, price: 1800 },
+        { name: '办公椅', qty: 20, price: 500 },
+        { name: '文件柜', qty: 5, price: 1200 },
+        { name: '白板', qty: 2, price: 800 }
+      ]);
+      var readonly = ref(true);
+      var selRows = ref([]);
+      var page = ref(1);
+      var pageSize = ref(10);
+      var pageRows = computed(function () {
+        var s = (page.value - 1) * pageSize.value;
+        return rows.value.slice(s, s + pageSize.value);
+      });
+      var total = computed(function () {
+        return rows.value.reduce(function (s, r) { return s + r.qty * r.price; }, 0);
+      });
+      function rowKey(r) { return r.name; }
+      function onSel(sel) { selRows.value = sel; }
+      function addRow() { rows.value.push({ name: '', qty: 1, price: 0 }); toastMsg('已新增一行（保存时过滤空行）'); }
+      function delSel() {
+        if (!selRows.value.length) { toast('请先选择一行明细', 'err'); return; }
+        if (rows.value.length <= 1) { toast('至少保留一行明细', 'err'); return; }
+        confirmAction('删除选中的明细行？删除后不可恢复。', function () {
+          selRows.value.forEach(function (r) {
+            var i = rows.value.indexOf(r);
+            if (i >= 0) rows.value.splice(i, 1);
+          });
+          selRows.value = [];
+          toast('已删除所选行', 'ok');
+        });
+      }
+      function move(dir) {
+        if (!selRows.value.length) { toast('请先选择一行明细', 'err'); return; }
+        var r = selRows.value[0];
+        var i = rows.value.indexOf(r), t = i + dir;
+        if (t < 0 || t >= rows.value.length) { toast(dir < 0 ? '已是第一行' : '已是最后一行', 'err'); return; }
+        var tmp = rows.value[i]; rows.value[i] = rows.value[t]; rows.value[t] = tmp;
+        toastMsg('行顺序已调整');
+      }
+      function onPage(n) { page.value = n; }
+      function onSize(s) { pageSize.value = s; page.value = 1; }
+      function toastMsg(m) { toast(m); }
+      function setReadonly(ro) {
+        readonly.value = ro;
+        if (!ro) {
+          var last = rows.value[rows.value.length - 1];
+          if (last && (last.name || last.qty > 1 || last.price > 0)) addRow();
+        }
+        toast(ro ? '已切换只读态' : '已切换编辑态（行内编辑与行操作可用）', 'ok');
+      }
+      return { ICONS, rows, readonly, selRows, page, pageSize, pageRows, total, rowKey, onSel, addRow, delSel, move, onPage, onSize, toastMsg, setReadonly };
+    }
+  });
+  app.use(ElementPlus);
+  app.mount('#app');
+  window.__epDt = { setReadonly: function (ro) { app._instance.setupState.setReadonly(ro); } };
+</script>
+
+</body>
+</html>
