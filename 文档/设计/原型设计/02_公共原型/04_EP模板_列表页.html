@@ -11,7 +11,8 @@
   .ep-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
   .ep-toolbar .ep-side { margin-left: auto; }
   .ep-filter { margin-bottom: 12px; }
-  .ep-pager { display: flex; justify-content: flex-end; margin-top: 12px; }
+  /* 表格下方一行：左下明细工具栏（图标按钮）+ 右下分页（《布局设计-表格明细》2.4） */
+  .ep-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
 </style>
 </head>
 <body>
@@ -69,8 +70,19 @@
         </el-table-column>
       </el-table>
 
-      <!-- ④ 分页：el-pagination 右对齐（参数与后端 page/size 一致） -->
-      <div class="ep-pager">
+      <!-- ④ 表格下方一行：左下明细工具栏（图标按钮：新增/删除/上移/下移 + 自动列宽/自定义列/刷新/全屏，按需增减）+ 右下分页（el-pagination，参数与后端 page/size 一致） -->
+      <div class="ep-bar">
+        <div>
+          <el-button size="small" @click="addRow" title="新增行">＋</el-button>
+          <el-button size="small" type="danger" plain :disabled="!selRows.length" @click="delSel" title="删除行">🗑</el-button>
+          <el-button size="small" :disabled="!selRows.length" @click="moveRow(-1)" title="上移行">↑</el-button>
+          <el-button size="small" :disabled="!selRows.length" @click="moveRow(1)" title="下移行">↓</el-button>
+          <el-divider direction="vertical"></el-divider>
+          <el-button size="small" @click="toastMsg('原型演示：自动列宽')" title="自动列宽">⟷</el-button>
+          <el-button size="small" @click="toastMsg('原型演示：自定义列')" title="自定义列">☰</el-button>
+          <el-button size="small" @click="toastMsg('已刷新')" title="刷新">⟳</el-button>
+          <el-button size="small" @click="toastMsg('原型演示：全屏')" title="全屏">⛶</el-button>
+        </div>
         <el-pagination background layout="total, sizes, prev, pager, next" :total="rows.length"
           :page-size="query.size" :current-page="query.page"
           @current-change="onPage" @size-change="onSize"></el-pagination>
@@ -122,6 +134,28 @@
       function onSel(sel) { selRows.value = sel; }
       function onPage(n) { query.page = n; }
       function onSize(s) { query.size = s; query.page = 1; }
+      // 明细工具栏行操作：新增行 / 删除选中行（二次确认）/ 上移下移选中行（多选时取第一行）
+      function addRow() {
+        rows.value.unshift({ id: Date.now(), code: 'new', name: '新记录', status: 'enabled' });
+        toastMsg('已新增一行');
+      }
+      function delSel() {
+        if (!selRows.value.length) { toast('请先选择一行', 'err'); return; }
+        var r = selRows.value[0];
+        confirmAction('删除「' + r.name + '」？', function () {
+          rows.value = rows.value.filter(function (x) { return x.id !== r.id; });
+          selRows.value = [];
+          toastMsg('已删除');
+        });
+      }
+      function moveRow(dir) {
+        if (!selRows.value.length) { toast('请先选择一行', 'err'); return; }
+        var r = selRows.value[0];
+        var i = rows.value.indexOf(r), t = i + dir;
+        if (t < 0 || t >= rows.value.length) { toast(dir < 0 ? '已是第一行' : '已是最后一行', 'err'); return; }
+        var tmp = rows.value[i]; rows.value[i] = rows.value[t]; rows.value[t] = tmp;
+        toastMsg('行顺序已调整');
+      }
       function delRow(row) {
         confirmAction('删除「' + row.name + '」？', function () {
           rows.value = rows.value.filter(function (r) { return r.id !== row.id; });
@@ -129,7 +163,7 @@
         });
       }
       function toastMsg(m) { toast(m); }
-      return { rows, query, loading, selRows, dlg, pageRows, applyFilter, resetFilter, onSel, onPage, onSize, delRow, toastMsg };
+      return { rows, query, loading, selRows, dlg, pageRows, applyFilter, resetFilter, onSel, onPage, onSize, addRow, delSel, moveRow, delRow, toastMsg };
     }
   });
   app.use(ElementPlus);
