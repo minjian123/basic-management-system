@@ -13,6 +13,7 @@
   .ep-filter { margin-bottom:12px; }
   .ep-pager { display:flex; justify-content:flex-end; margin-top:12px; }
   .ap-timeline { border-left:2px solid #d0d7de; margin:0 0 12px 6px; padding-left:14px; font-size:13px; }
+  .todo-table .el-table__row { cursor: pointer; }
 </style>
 </head>
 <body>
@@ -45,7 +46,7 @@
               <el-button @click="resetFilter('todo')">重置</el-button>
             </el-form-item>
           </el-form>
-          <el-table :data="todoPage" border stripe style="width:100%">
+          <el-table class="todo-table" :data="todoPage" border stripe style="width:100%" @row-click="openApprove">
             <el-table-column prop="docNo" label="单据" min-width="140"></el-table-column>
             <el-table-column prop="title" label="标题" min-width="200"></el-table-column>
             <el-table-column prop="amount" label="金额" width="110" align="right">
@@ -55,7 +56,7 @@
             <el-table-column prop="arriveTime" label="到达时间" min-width="120"></el-table-column>
             <el-table-column label="操作" width="90" fixed="right">
               <template #default="{ row }">
-                <el-button link type="primary" @click="openApprove(row)">审批</el-button>
+                <el-button link type="primary" @click.stop="openApprove(row)">审批</el-button>
               </template>
             </el-table-column>
             <template #empty>
@@ -131,6 +132,7 @@
       </div>
       <template #footer>
         <el-button type="danger" :loading="ap.loading" @click="act('reject')">驳回</el-button>
+        <el-button :loading="ap.loading" @click="withdrawTodo">撤回</el-button>
         <el-button :loading="ap.loading" @click="openTransfer">转办</el-button>
         <el-button type="primary" :loading="ap.loading" @click="act('approve')">同意</el-button>
       </template>
@@ -237,6 +239,19 @@
           }, 600);
         });
       }
+      // 撤回：审批人对已提交审批执行撤回（概要 15 审批执行：同意/驳回/撤回 + 评论），单据退回申请人
+      function withdrawTodo() {
+        confirmAction('确认撤回？单据退回申请人，可修改后重新提交。', function () {
+          ap.loading = true;
+          setTimeout(function () {
+            todoRows.value = todoRows.value.filter(function (r) { return r.docNo !== ap.docNo; });
+            ap.comment = '';
+            ap.visible = false;
+            ap.loading = false;
+            toastMsg('已撤回，申请人收到通知', 'success');
+          }, 600);
+        }, '撤回');
+      }
       // 转办
       function openTransfer() {
         tf.target = '';
@@ -248,7 +263,7 @@
         toastMsg('已转办给「' + tf.target + '」，原待办回收', 'success');
       }
       return { tab, todoRows, doneRows, qTodo, qDone, ap, tf, todoFiltered, doneFiltered, todoPage, donePage,
-        applyFilter, resetFilter, onPage, openApprove, act, openTransfer, doTransfer, toastMsg };
+        applyFilter, resetFilter, onPage, openApprove, act, withdrawTodo, openTransfer, doTransfer, toastMsg };
     }
   });
   app.use(ElementPlus);

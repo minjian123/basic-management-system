@@ -50,8 +50,11 @@
         </el-form-item>
       </el-form>
 
-      <!-- ③ 表格：操作列"模块开关"跳 04 页 -->
-      <el-table :data="pageRows" border stripe v-loading="loading" style="width:100%">
+      <!-- ③ 表格：操作列"模块开关"跳 04 页；筛选无结果显示空状态 -->
+      <el-empty v-if="filtered.length === 0" description="未找到匹配租户" style="padding:40px 0">
+        <el-button @click="resetFilter">重置</el-button>
+      </el-empty>
+      <el-table v-else :data="pageRows" border stripe v-loading="loading" style="width:100%">
         <el-table-column prop="code" label="租户 code" min-width="100"></el-table-column>
         <el-table-column prop="name" label="名称" min-width="130"></el-table-column>
         <el-table-column prop="domain" label="域名" min-width="220"></el-table-column>

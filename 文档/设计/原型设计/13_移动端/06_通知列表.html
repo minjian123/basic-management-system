@@ -34,7 +34,11 @@
 <div class="proto-frame">
   <div class="p-phone">
     <div id="app">
-      <van-nav-bar title="消息"></van-nav-bar>
+      <van-nav-bar title="消息">
+        <template #right>
+          <span style="font-size:12px;color:#57606a;font-weight:normal">🔴 角标实时（Socket.IO）</span>
+        </template>
+      </van-nav-bar>
       <div class="pp-body">
         <div class="msg-card">
           <div class="msg-tools">

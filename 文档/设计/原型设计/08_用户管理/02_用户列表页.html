@@ -34,6 +34,7 @@
         <span class="ep-side">
           <el-button @click="toastMsg('原型演示：Excel 批量导入用户')">导入</el-button>
           <el-button @click="toastMsg('原型演示：导出当前筛选结果')">导出</el-button>
+          <span class="proto-hint" style="margin-left:10px">双击行打开用户表单页</span>
         </span>
       </div>
 
@@ -130,7 +131,7 @@
           </el-col>
         </el-row>
         <el-row :gutter="12">
-          <el-col :span="12"><el-form-item label="手机号"><el-input v-model="edit.form.phone"></el-input></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="手机号"><el-input v-model="edit.form.phone" disabled></el-input><div class="proto-hint" style="line-height:1.6">脱敏展示，需 data:plain 权限码查看明文</div></el-form-item></el-col>
           <el-col :span="12"><el-form-item label="邮箱"><el-input v-model="edit.form.email"></el-input></el-form-item></el-col>
         </el-row>
         <el-row :gutter="12">

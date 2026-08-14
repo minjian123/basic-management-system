@@ -97,7 +97,7 @@
           <el-input v-model="menuKw" placeholder="🔍 搜索菜单" clearable size="small"></el-input>
         </div>
         <el-scrollbar class="sb-scroll">
-          <el-menu :default-active="activeTab" :collapse="collapsed" :collapse-transition="false" @select="onMenuSelect">
+          <el-menu :default-active="activeMenu" :collapse="collapsed" :collapse-transition="false" @select="onMenuSelect">
             <template v-for="g in filteredMenus" :key="g.name">
               <el-sub-menu v-if="g.children && g.children.length" :index="'g:' + g.name">
                 <template #title>
@@ -205,6 +205,7 @@
         { name: '通用', icon: '📦', children: [
           { name: '公告管理', src: '../12_采购与审批链路/05_通知公告页.html' },
           { name: '通知中心', src: '../12_采购与审批链路/05_通知公告页.html' },
+          { name: '个人中心', src: '../03_通用骨架/05_个人中心.html' },
           { name: '表单框架', src: '../03_通用骨架/04_表单框架.html' }
         ]},
         { name: '业务', icon: '📊', children: [
@@ -222,6 +223,8 @@
       var globalKw = ref('');
       var tenant = ref('默认租户');
       var activeTab = ref('home');
+      // 侧边菜单选中项（存菜单 index 如 'm:用户列表'）：随菜单点击 / 打开 Tab 同步，无匹配时不高亮
+      var activeMenu = ref('m:首页工作台');
       var seq = 1;
 
       // Tab 数组：home（固定，iframe 加载工作台原型）+ 打开的模块
@@ -230,16 +233,17 @@
       ]);
       var tabMap = {};
 
-      // 菜单搜索过滤：命中叶子则保留父级分组（《布局设计-主框架》2.1）
+      // 菜单搜索过滤：命中叶子则保留父级分组；命中分组名则整组保留（《布局设计-主框架》2.1）
       var filteredMenus = computed(function () {
         var kw = (menuKw.value || '').trim().toLowerCase();
         if (!kw) return menus;
         function hit(m) { return (m.name || '').toLowerCase().indexOf(kw) >= 0; }
         var out = [];
         menus.forEach(function (g) {
+          if (hit(g.name)) { out.push(g); return; }
           var gg = Object.assign({}, g, { children: [] });
           (g.children || []).forEach(function (c) {
-            if (hit(c)) { gg.children.push(c); return; }
+            if (hit(c.name)) { gg.children.push(c); return; }
             if (c.children) {
               var cc = c.children.filter(hit);
               if (cc.length) gg.children.push(Object.assign({}, c, { children: cc }));
@@ -268,6 +272,9 @@
         if (typeof item === 'string') { item = { name: item, src: arguments[1] || '' }; isHome = false; }
         if (!item.src && !item.children) { ElMessage.warning('该菜单原型待补充'); return; }
         var name = item.name;
+        // 同步侧边菜单高亮：该名字对应菜单叶子则高亮，否则不高亮（如表单页无菜单项）
+        var mi = menuItem(name);
+        activeMenu.value = (mi && mi.src && !mi.children) ? 'm:' + name : '';
         var key = isHome ? 'home' : 'm' + seq++;
         var exist = tabMap[name];
         if (exist) { activeTab.value = exist.key; return; }
@@ -311,8 +318,9 @@
       window.openTab = openTab;
       window.openDetail = openDetail;
 
-      // 菜单叶子选中
+      // 菜单叶子选中：记录高亮并打开 Tab
       function onMenuSelect(index) {
+        activeMenu.value = index;
         var name = index.replace(/^m:/, '');
         var m = menuItem(name);
         if (m) openTab(m);
@@ -397,7 +405,7 @@
         if (mi && mi.src) openTab(mi);
       }
       return {
-        menus, collapsed, menuKw, globalKw, tenant, activeTab, tabs, filteredMenus, showMore,
+        menus, collapsed, menuKw, globalKw, tenant, activeTab, activeMenu, tabs, filteredMenus, showMore,
         ElMessage, onMenuSelect, onTabRemove, openTabByName, showCtx, ctxCmd, moreCmd, tenantCmd, userCmd
       };
     }
