@@ -17,14 +17,7 @@
 </div>
 
 <div class="proto-frame">
-  <div class="p-toolbar">
-    <button class="p-btn primary" onclick="editTpl(null)">新建模板</button>
-    <button class="p-btn" onclick="toast('已刷新')">刷新</button>
-    <button class="p-btn" onclick="toast('原型演示：关闭当前模块页面（返回）')">关闭</button>
-    <span style="margin-left:auto">
-      <button class="p-btn" onclick="toast('原型演示：导出当前筛选结果')">导出</button>
-    </span>
-  </div>
+  <div id="lt-top"></div>
 
   <!-- 表格无操作列：行点击进入编辑（row-link），状态标签可直接切换启停 -->
   <table class="p-table" id="tbl">
@@ -74,8 +67,19 @@
 
 <script src="../共享资源/原型脚本.js"></script>
 <script src="../02_公共原型/分页.js"></script>
+<script src="../02_公共原型/列表页工具栏.js"></script>
 <script>
-  renderPager(document.getElementById('pager-tpl'), { total: 3, page: 1, size: 20, onPage: function (n) { toast('第 ' + n + ' 页'); } });
+  renderListToolbar({
+    top: document.getElementById('lt-top'),
+    bottom: document.getElementById('pager-tpl'),
+    primary: { label: '新建模板', onClick: function () { editTpl(null); } },
+    buttons: [
+      { label: '刷新', onClick: function () { toast('已刷新'); } },
+      { label: '关闭', onClick: function () { toast('原型演示：关闭当前模块页面（返回）'); } }
+    ],
+    extra: '<button class="p-btn" onclick="toast(\'原型演示：导出当前筛选结果\')">导出</button>',
+    page: { total: 3, page: 1, size: 20, onPage: function (n) { toast('第 ' + n + ' 页'); } }
+  });
   var editId = null;
 
   function editTpl(tr, id, name) {
