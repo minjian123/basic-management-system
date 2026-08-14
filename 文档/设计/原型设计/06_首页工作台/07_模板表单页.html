@@ -38,15 +38,15 @@
       </div>
 
       <!-- ② 基本信息：el-form（编辑态可编辑，只读态禁用）；关联角色随范围联动（role 显示 / platform 隐藏） -->
-      <el-form label-width="100px" :disabled="!editing">
+      <el-form label-position="top" :disabled="!editing">
         <div class="ep-section">基本信息</div>
         <el-row :gutter="16">
-          <el-col :span="12">
+          <el-col :span="8">
             <el-form-item label="模板名称" required>
               <el-input v-model="form.name" placeholder="模板名称"></el-input>
             </el-form-item>
           </el-col>
-          <el-col :span="12">
+          <el-col :span="8">
             <el-form-item label="范围">
               <el-select v-model="form.scope" style="width:100%">
                 <el-option label="platform 平台默认" value="platform"></el-option>
@@ -54,9 +54,7 @@
               </el-select>
             </el-form-item>
           </el-col>
-        </el-row>
-        <el-row :gutter="16">
-          <el-col v-if="form.scope === 'role'" :span="12">
+          <el-col v-if="form.scope === 'role'" :span="8">
             <el-form-item label="关联角色">
               <el-select v-model="form.role" style="width:100%">
                 <el-option label="普通角色" value="普通角色"></el-option>
@@ -66,14 +64,14 @@
               </el-select>
             </el-form-item>
           </el-col>
-          <el-col :span="form.scope === 'role' ? 12 : 24">
+        </el-row>
+        <el-row :gutter="16">
+          <el-col :span="8">
             <el-form-item label="默认标记">
               <el-switch v-model="form.isDefault" active-text="默认模板" inactive-text="非默认"></el-switch>
             </el-form-item>
           </el-col>
-        </el-row>
-        <el-row :gutter="16">
-          <el-col :span="12">
+          <el-col :span="8">
             <el-form-item label="状态">
               <el-switch v-model="form.status" active-text="启用" inactive-text="停用"></el-switch>
             </el-form-item>

@@ -41,9 +41,9 @@
 
       <!-- ② 基本信息：类型/父级/中英文名称/path/component/图标/排序/显示状态 -->
       <div class="ep-section">基本信息</div>
-      <el-form label-width="110px" :disabled="!editing">
+      <el-form label-position="top" :disabled="!editing">
         <el-row :gutter="16">
-          <el-col :span="12">
+          <el-col :span="8">
             <el-form-item label="菜单类型">
               <el-select v-model="form.menuType" style="width:100%">
                 <el-option label="目录" value="dir"></el-option>
@@ -52,53 +52,53 @@
               </el-select>
             </el-form-item>
           </el-col>
-          <el-col :span="12">
+          <el-col :span="8">
             <el-form-item label="父级菜单">
               <el-tree-select v-model="form.parent" :data="parentTree" node-key="id" check-strictly :render-after-expand="false" style="width:100%"></el-tree-select>
             </el-form-item>
           </el-col>
-        </el-row>
-        <el-row :gutter="16">
-          <el-col :span="12">
+          <el-col :span="8">
             <el-form-item label="名称（zh-CN）" required><el-input v-model="form.zh" placeholder="中文名称"></el-input></el-form-item>
           </el-col>
-          <el-col :span="12">
-            <el-form-item label="名称（en）" required><el-input v-model="form.en" placeholder="English Name"></el-input></el-form-item>
-          </el-col>
         </el-row>
         <el-row :gutter="16">
-          <el-col :span="12">
+          <el-col :span="8">
+            <el-form-item label="名称（en）" required><el-input v-model="form.en" placeholder="English Name"></el-input></el-form-item>
+          </el-col>
+          <el-col :span="8">
             <el-form-item label="路由 path" required><el-input v-model="form.path" placeholder="/users"></el-input></el-form-item>
           </el-col>
-          <el-col :span="12">
+          <el-col :span="8">
             <el-form-item label="组件 component"><el-input v-model="form.component" placeholder="FormFrame"></el-input></el-form-item>
           </el-col>
         </el-row>
         <el-row :gutter="16">
-          <el-col :span="12">
+          <el-col :span="8">
             <el-form-item label="图标"><el-input v-model="form.icon" placeholder="icon-user"></el-input></el-form-item>
           </el-col>
-          <el-col :span="12">
+          <el-col :span="8">
             <el-form-item label="排序"><el-input-number v-model="form.sort" :min="0" style="width:100%"></el-input-number></el-form-item>
           </el-col>
+          <el-col :span="8">
+            <el-form-item label="显示状态">
+              <el-switch v-model="form.enabled" active-text="显示" inactive-text="隐藏"></el-switch>
+            </el-form-item>
+          </el-col>
         </el-row>
-        <el-form-item label="显示状态">
-          <el-switch v-model="form.enabled" active-text="显示" inactive-text="隐藏"></el-switch>
-        </el-form-item>
       </el-form>
 
       <!-- ③ 挂接链：菜单 → 表单 → 业务（1:1），完整/断裂提示（40002） -->
       <div class="ep-section">挂接链（菜单 → 表单 → 业务，1:1）</div>
-      <el-form label-width="110px" :disabled="!editing">
+      <el-form label-position="top" :disabled="!editing">
         <el-row :gutter="16">
-          <el-col :span="12">
+          <el-col :span="8">
             <el-form-item label="挂接表单">
               <el-select v-model="form.form" clearable style="width:100%">
                 <el-option v-for="f in formOptions" :key="f" :label="f" :value="f"></el-option>
               </el-select>
             </el-form-item>
           </el-col>
-          <el-col :span="12">
+          <el-col :span="8">
             <el-form-item label="挂接业务">
               <el-select v-model="form.biz" clearable style="width:100%">
                 <el-option v-for="b in bizOptions" :key="b" :label="b" :value="b"></el-option>

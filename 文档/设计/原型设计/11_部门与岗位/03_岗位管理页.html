@@ -91,29 +91,17 @@
 
     <!-- ⑤ 新增/编辑岗位 el-dialog（480px） -->
     <el-dialog v-model="dlg.visible" :title="dlg.title" width="480">
-      <el-form label-width="90px">
-        <el-row :gutter="16">
-          <el-col :span="12">
-            <el-form-item label="岗位码" required><el-input v-model="dlg.code" placeholder="如 engineer" :disabled="dlg.mode === 'edit'"></el-input></el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="名称" required><el-input v-model="dlg.name"></el-input></el-form-item>
-          </el-col>
-        </el-row>
-        <el-row :gutter="16">
-          <el-col :span="12">
-            <el-form-item label="归属部门">
-              <el-select v-model="dlg.dept" style="width:100%">
-                <el-option label="技术部" value="技术部"></el-option>
-                <el-option label="财务部" value="财务部"></el-option>
-                <el-option label="人事部" value="人事部"></el-option>
-              </el-select>
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="排序"><el-input-number v-model="dlg.sort" :min="0" style="width:100%"></el-input-number></el-form-item>
-          </el-col>
-        </el-row>
+      <el-form label-position="top">
+        <el-form-item label="岗位码" required><el-input v-model="dlg.code" placeholder="如 engineer" :disabled="dlg.mode === 'edit'"></el-input></el-form-item>
+        <el-form-item label="名称" required><el-input v-model="dlg.name"></el-input></el-form-item>
+        <el-form-item label="归属部门">
+          <el-select v-model="dlg.dept" style="width:100%">
+            <el-option label="技术部" value="技术部"></el-option>
+            <el-option label="财务部" value="财务部"></el-option>
+            <el-option label="人事部" value="人事部"></el-option>
+          </el-select>
+        </el-form-item>
+        <el-form-item label="排序"><el-input-number v-model="dlg.sort" :min="0" style="width:100%"></el-input-number></el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="dlg.visible = false">取消</el-button>

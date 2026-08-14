@@ -41,7 +41,7 @@
 
       <!-- ② 权限码信息：类型切换 业务权限码 ↔ 动作权限码 -->
       <div class="ep-section">权限码信息</div>
-      <el-form label-width="110px" :disabled="!editing">
+      <el-form label-position="top" :disabled="!editing">
         <el-form-item label="权限码类型">
           <el-radio-group v-model="form.permType">
             <el-radio value="biz">业务权限码</el-radio>
@@ -52,23 +52,27 @@
         <!-- 业务权限码：code + 说明 -->
         <template v-if="form.permType === 'biz'">
           <el-row :gutter="16">
-            <el-col :span="12">
+            <el-col :span="8">
               <el-form-item label="业务码" required><el-input v-model="form.code" placeholder="如 user"></el-input></el-form-item>
             </el-col>
-            <el-col :span="12">
+            <el-col :span="8">
               <el-form-item label="默认归属"><el-input v-model="form.owner" placeholder="系统管理员"></el-input></el-form-item>
             </el-col>
           </el-row>
-          <el-form-item label="说明" required><el-input v-model="form.desc" type="textarea" :rows="3" placeholder="业务说明（如：用户管理，含账号锁定/解锁）"></el-input></el-form-item>
+          <el-row :gutter="16">
+            <el-col :span="24">
+              <el-form-item label="说明" required><el-input v-model="form.desc" type="textarea" :rows="3" placeholder="业务说明（如：用户管理，含账号锁定/解锁）"></el-input></el-form-item>
+            </el-col>
+          </el-row>
         </template>
 
         <!-- 动作权限码：code + 归属业务 + 说明 + 典型示例 -->
         <template v-else>
           <el-row :gutter="16">
-            <el-col :span="12">
+            <el-col :span="8">
               <el-form-item label="动作码" required><el-input v-model="form.code" placeholder="如 create"></el-input></el-form-item>
             </el-col>
-            <el-col :span="12">
+            <el-col :span="8">
               <el-form-item label="归属业务" required>
                 <el-select v-model="form.biz" style="width:100%">
                   <el-option v-for="b in bizOptions" :key="b" :label="b" :value="b"></el-option>
@@ -76,8 +80,16 @@
               </el-form-item>
             </el-col>
           </el-row>
-          <el-form-item label="说明" required><el-input v-model="form.desc" type="textarea" :rows="2" placeholder="动作说明"></el-input></el-form-item>
-          <el-form-item label="典型权限码示例"><el-input v-model="form.typical" placeholder="如 user:create"></el-input></el-form-item>
+          <el-row :gutter="16">
+            <el-col :span="24">
+              <el-form-item label="说明" required><el-input v-model="form.desc" type="textarea" :rows="2" placeholder="动作说明"></el-input></el-form-item>
+            </el-col>
+          </el-row>
+          <el-row :gutter="16">
+            <el-col :span="8">
+              <el-form-item label="典型权限码示例"><el-input v-model="form.typical" placeholder="如 user:create"></el-input></el-form-item>
+            </el-col>
+          </el-row>
         </template>
 
         <el-form-item label="状态">

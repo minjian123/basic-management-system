@@ -83,7 +83,7 @@
 
     <!-- 自建图表卡抽屉（宽 480 默认）：数据集选择 + 图表类型 -->
     <el-drawer v-model="drawerChart" title="新建图表卡" size="480">
-      <el-form label-width="90px">
+      <el-form label-position="top">
         <el-form-item label="选择数据集">
           <el-select v-model="chart.dataset" style="width:100%">
             <el-option label="本月收付款流水" value="本月收付款流水"></el-option>

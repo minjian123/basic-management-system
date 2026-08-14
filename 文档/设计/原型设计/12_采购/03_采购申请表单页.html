@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 采购申请表单页</title>
+<link rel="stylesheet" href="../共享资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../共享资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .ep-toolbar { display:flex; align-items:center; gap:8px; margin-bottom:12px; flex-wrap:wrap; }
+  .ep-side { margin-left:auto; display:flex; align-items:center; gap:8px; }
+  .ep-section { font-weight:600; margin:16px 0 12px; padding-bottom:8px; border-bottom:1px solid #eaeef2; font-size:14px; }
+  .ep-bar { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:10px; flex-wrap:wrap; }
+  .ep-pager { display:flex; justify-content:flex-end; }
+  .ep-sum { margin-top:6px; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="01_设计说明.html">← 返回设计说明</a></span>
+  <span class="pb-name">采购与审批链路 · 采购申请表单页</span>
+</div>
+
+<div class="proto-frame">
+  <div id="app">
+    <div class="ep-page">
+      <!-- ① Tab：详细信息 / 系统信息（编辑后切换需确认） -->
+      <el-tabs v-model="tab" @tab-click="onTabClick" @tab-change="onTabChange">
+        <el-tab-pane label="详细信息" name="detail">
+
+          <!-- ② 表单页工具栏分态：只读 修改/删除/刷新/关闭 ↔ 编辑 保存/保存草稿/提交审批/关闭 -->
+          <div class="ep-toolbar" style="border-bottom:1px solid #eaeef2;padding-bottom:10px;margin-bottom:12px">
+            <template v-if="!editing">
+              <el-button type="primary" @click="editForm">修改</el-button>
+              <el-button type="danger" plain @click="delForm">删除</el-button>
+              <el-button @click="toastMsg('已重新加载当前记录')">刷新</el-button>
+            </template>
+            <template v-else>
+              <el-button type="primary" @click="saveForm">保存</el-button>
+              <el-button @click="toastMsg('已暂存为草稿', 'success')">保存草稿</el-button>
+              <el-button type="primary" @click="submitApply">提交审批</el-button>
+            </template>
+            <el-button @click="closePage">关闭</el-button>
+            <span class="ep-side"><span class="proto-hint">新增打开即编辑态（无只读态）；行内修改后切换/关闭 Tab 会提示确认</span></span>
+          </div>
+
+          <!-- ③ 基本信息 el-form（编辑态可编辑，只读态禁用） -->
+          <div class="ep-section">基本信息</div>
+          <el-form label-position="top" :disabled="!editing">
+            <el-row :gutter="16">
+              <el-col :span="8">
+                <el-form-item label="申请单号"><el-input v-model="form.docNo" disabled></el-input></el-form-item>
+              </el-col>
+              <el-col :span="8">
+                <el-form-item label="标题" required><el-input v-model="form.title" placeholder="如 采购办公桌×10"></el-input></el-form-item>
+              </el-col>
+              <el-col :span="8">
+                <el-form-item label="金额" required><el-input-number v-model="form.amount" :min="0" :precision="2" style="width:100%"></el-input-number></el-form-item>
+              </el-col>
+              <el-col :span="8">
+                <el-form-item label="供应商">
+                  <el-select v-model="form.supplier" clearable style="width:100%">
+                    <el-option label="办公家具供应商 A" value="A"></el-option>
+                    <el-option label="办公家具供应商 B" value="B"></el-option>
+                  </el-select>
+                </el-form-item>
+              </el-col>
+            </el-row>
+            <el-form-item label="申请事由"><el-input v-model="form.reason" type="textarea" :rows="2" placeholder="申请事由说明"></el-input></el-form-item>
+          </el-form>
+
+          <!-- ④ 主从明细：行内编辑 + 小计 + 合计 footer + 明细工具栏 + 分页 -->
+          <div class="ep-section">明细（行内编辑，随主表整体提交；保存时过滤空行）</div>
+          <el-table :data="pageRows" border show-summary :summary-method="summary" highlight-current-row
+            @current-change="onCurrent" :row-class-name="rowClass" style="width:100%">
+            <el-table-column label="物料名称" min-width="220">
+              <template #default="{ row }">
+                <el-input v-model="row.name" :disabled="!editing" placeholder="物料名称"></el-input>
+              </template>
+            </el-table-column>
+            <el-table-column label="数量" width="140">
+              <template #default="{ row }">
+                <el-input-number v-model="row.qty" :min="1" :disabled="!editing" size="small" controls-position="right" style="width:100%"></el-input-number>
+              </template>
+            </el-table-column>
+            <el-table-column label="单价" width="160">
+              <template #default="{ row }">
+                <el-input-number v-model="row.price" :min="0" :disabled="!editing" size="small" controls-position="right" style="width:100%"></el-input-number>
+              </template>
+            </el-table-column>
+            <el-table-column label="小计" width="120" align="right">
+              <template #default="{ row }">¥{{ (row.qty * row.price).toLocaleString() }}</template>
+            </el-table-column>
+          </el-table>
+
+          <!-- 明细工具栏（左下图标按钮，编辑态可用）+ 分页（右下） -->
+          <div class="ep-bar">
+            <div>
+              <el-button :disabled="!editing" size="small" @click="addRow" title="新增行">＋</el-button>
+              <el-button :disabled="!editing" size="small" type="danger" plain @click="delRow" title="删除行">🗑</el-button>
+              <el-button :disabled="!editing" size="small" @click="moveRow(-1)" title="上移行">↑</el-button>
+              <el-button :disabled="!editing" size="small" @click="moveRow(1)" title="下移行">↓</el-button>
+              <el-divider direction="vertical"></el-divider>
+              <el-button size="small" @click="toastMsg('原型演示：自动列宽')" title="自动列宽">⟷</el-button>
+              <el-button size="small" @click="toastMsg('原型演示：自定义列')" title="自定义列">☰</el-button>
+              <el-button size="small" @click="toastMsg('已刷新明细')" title="刷新">⟳</el-button>
+              <el-button size="small" @click="toastMsg('全屏演示')" title="全屏">⛶</el-button>
+            </div>
+            <div class="ep-pager">
+              <el-pagination background layout="total, sizes, jumper, prev, pager, next" :total="rows.length"
+                :page-size="pageSize" :current-page="page" @current-change="onPage" @size-change="onSize"></el-pagination>
+            </div>
+          </div>
+          <div class="proto-hint ep-sum">明细合计：<b>¥{{ total.toLocaleString() }}</b></div>
+          <div class="proto-hint">行操作（新增/删除/上移/下移）仅编辑态可用；删除需二次确认；明细 ≤10 行直接展示，超过 10 行自动分页（10 条/页）。</div>
+
+          <!-- ⑤ 审批轨迹 el-timeline -->
+          <div class="ep-section">审批轨迹</div>
+          <div class="proto-hint" style="margin-bottom:8px">提交审批后展示（时间线：节点 → 审批人 → 意见 → 时间）</div>
+          <el-timeline style="padding-left:4px">
+            <el-timeline-item type="success" timestamp="2026-08-12 09:30">
+              <b>张三</b> 提交申请
+            </el-timeline-item>
+            <el-timeline-item type="primary" timestamp="2026-08-12 10:00">
+              <b>李经理</b> 同意 · 意见：预算内，同意
+            </el-timeline-item>
+            <el-timeline-item type="warning">
+              <el-tag size="small" type="warning" style="margin-right:6px">审批中</el-tag>财务节点（当前节点，待处理）
+            </el-timeline-item>
+          </el-timeline>
+        </el-tab-pane>
+
+        <el-tab-pane label="系统信息" name="sys">
+          <iframe class="sys-frame" src="../02_公共原型/04_系统信息组件.html" :style="{height: sysH + 'px'}" @load="pushSys($event, sys)"></iframe>
+        </el-tab-pane>
+      </el-tabs>
+    </div>
+  </div>
+</div>
+
+<script src="../共享资源/vendor/vue.global.prod.js"></script>
+
+<script src="../共享资源/vendor/element-plus.min.js"></script>
+<script src="../共享资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref, reactive, computed, watch } = Vue;
+  var app = createApp({
+    template: document.getElementById('app').outerHTML.replace(/<div id="app">/, '<div>').replace(/<\/div>\s*$/, ''),
+    setup: function () {
+      var editing = ref(false);
+      var dirty = ref(false);
+      var syncing = false;
+      var tab = ref('detail');
+      var prevTab = 'detail';
+      var form = reactive({ docNo: 'CG202608002（自动生成）', title: '采购办公桌×10', amount: 18000, supplier: 'A', reason: '部门办公桌老化，申请更换。' });
+      var sys = { id: '1902876000000000001', version: 2, createdAt: '2026-08-12 09:30', createdBy: '张三', updatedAt: '2026-08-12 10:00', updatedBy: '李四', formKey: 'purchase', formLabel: '采购申请表单' };
+
+      // 系统信息组件（iframe）通信：load 后发送数据，接收高度自适应
+      var sysH = ref(130);
+      function pushSys(ev, data) {
+        var f = ev.currentTarget;
+        if (f && f.contentWindow) {
+          var plain = JSON.parse(JSON.stringify(data || {}));
+          f.contentWindow.postMessage({ type: 'sys-info', data: plain }, '*');
+        }
+      }
+      window.addEventListener('message', function (e) {
+        if (e.data && e.data.type === 'sys-info-height' && e.data.height > 0) sysH.value = e.data.height;
+      });
+      var rows = ref([
+        { name: '办公桌', qty: 10, price: 1800 },
+        { name: '办公椅', qty: 20, price: 500 }
+      ]);
+      var currentRow = ref(null);
+      var page = ref(1);
+      var pageSize = ref(10);
+      var pageRows = computed(function () {
+        var s = (page.value - 1) * pageSize.value;
+        return rows.value.slice(s, s + pageSize.value);
+      });
+      var total = computed(function () {
+        return rows.value.reduce(function (s, r) { return s + r.qty * r.price; }, 0);
+      });
+
+      function toastMsg(m, type) {
+        var opts = { message: m };
+        if (type) { opts.type = type; opts.duration = 2000; }
+        Vue.ElMessage(opts);
+      }
+      function confirmAction(msg, fn, okText) {
+        Vue.ElMessageBox.confirm(msg, '确认操作', { type: 'warning', confirmButtonText: okText || '确定', cancelButtonText: '取消' })
+          .then(function () { fn(); }).catch(function () {});
+      }
+      // dirty 拦截：编辑态表单/明细变化标记
+      watch(form, function () { if (editing.value && !syncing) dirty.value = true; });
+      watch(rows, function () { if (editing.value && !syncing) dirty.value = true; }, { deep: true });
+
+      function setEditing(on) {
+        editing.value = on;
+        syncing = true;
+        dirty.value = false;
+        syncing = false;
+        if (on) toastMsg('已进入编辑态（字段启用）');
+      }
+      // 编辑态自动空行：末尾非空则追加空行
+      function editForm() {
+        setEditing(true);
+        var last = rows.value[rows.value.length - 1];
+        if (last && (last.name || last.qty > 1 || last.price > 0)) addRow();
+      }
+      function addRow() {
+        rows.value.push({ name: '', qty: 1, price: 0 });
+        page.value = Math.ceil(rows.value.length / pageSize.value);
+        currentRow.value = rows.value[rows.value.length - 1];
+      }
+      function delRow() {
+        if (!currentRow.value) { toastMsg('请先选择一行明细', 'error'); return; }
+        if (rows.value.length <= 1) { toastMsg('至少保留一行明细', 'error'); return; }
+        confirmAction('删除选中的明细行？删除后不可恢复。', function () {
+          rows.value = rows.value.filter(function (r) { return r !== currentRow.value; });
+          currentRow.value = null;
+          toastMsg('已删除该行', 'success');
+        }, '删除');
+      }
+      function moveRow(dir) {
+        if (!currentRow.value) { toastMsg('请先选择一行明细', 'error'); return; }
+        var i = rows.value.indexOf(currentRow.value), t = i + dir;
+        if (t < 0 || t >= rows.value.length) { toastMsg(dir < 0 ? '已是第一行' : '已是最后一行', 'error'); return; }
+        var tmp = rows.value[i]; rows.value[i] = rows.value[t]; rows.value[t] = tmp;
+        toastMsg('行顺序已调整');
+      }
+      function onCurrent(r) { currentRow.value = r; }
+      function onPage(n) { page.value = n; }
+      function onSize() { page.value = 1; toastMsg('已切换每页条数（回第 1 页）'); }
+      function rowClass() { return ''; }
+      function summary() {
+        return ['', '明细合计', '', '¥' + total.value.toLocaleString()];
+      }
+      // 保存：过滤空行 + 主表金额同步明细合计
+      function saveForm() {
+        rows.value = rows.value.filter(function (r) { return (r.name || '').trim(); });
+        if (!rows.value.length) addRow();
+        syncing = true;
+        form.amount = total.value;
+        syncing = false;
+        setEditing(false);
+        toastMsg('已保存（乐观锁 version 校验），列表已刷新', 'success');
+      }
+      // 提交审批：主表金额=明细合计校验 + 三级流程确认
+      function submitApply() {
+        if (form.amount !== total.value) {
+          toastMsg('主表金额与明细合计不一致（' + form.amount + ' ≠ ' + total.value + '）', 'error');
+          return;
+        }
+        if (!(form.title || '').trim()) { toastMsg('标题必填', 'error'); return; }
+        confirmAction('提交审批？将启动三级审批流程（部门经理 → 财务 → 分管领导），提交后不可修改。', function () {
+          setEditing(false);
+          toastMsg('已提交审批（幂等键防重复），待办已推送', 'success');
+        });
+      }
+      function delForm() {
+        confirmAction('删除当前申请单（含明细，仅草稿可删）？', function () { toastMsg('已删除并刷新列表', 'success'); }, '删除');
+      }
+      // 关闭：编辑态拦截未保存修改
+      function closePage() {
+        if (dirty.value) {
+          confirmAction('当前有未保存的修改，确认关闭并放弃？', function () { setEditing(false); toastMsg('已关闭'); });
+          return;
+        }
+        toastMsg('已关闭');
+      }
+      // Tab 切换拦截（编辑态脏标记）
+      function onTabClick() { prevTab = tab.value; }
+      function onTabChange(name) {
+        if (dirty.value && editing.value && name !== prevTab) {
+          Vue.ElMessageBox.confirm('当前有未保存的修改，切换后将丢失，确认？', '确认操作', { type: 'warning' })
+            .then(function () { dirty.value = false; })
+            .catch(function () { tab.value = prevTab; });
+        }
+      }
+      // 由列表页双击打开时（?id=&name=）回填单号与标题
+      (function () {
+        function qp(k) { var m = location.search.match(new RegExp('[?&]' + k + '=([^&]*)')); return m ? decodeURIComponent(m[1]) : null; }
+        var id = qp('id'), name = qp('name');
+        if (id) form.docNo = id + '（自动生成）';
+        if (name) form.title = name;
+      })();
+      return { editing, tab, form, sys, sysH, pushSys, rows, currentRow, page, pageSize, pageRows, total,
+        editForm, addRow, delRow, moveRow, onCurrent, onPage, onSize, rowClass, summary, saveForm,
+        submitApply, delForm, closePage, onTabClick, onTabChange, toastMsg };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+<script>if (location.search.indexOf("embed=1") >= 0) { var pb = document.querySelector(".proto-bar"); if (pb) pb.style.display = "none"; }</script>
+</body>
+</html>

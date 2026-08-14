@@ -32,6 +32,7 @@
             <li><a href="#comp-form">2.3 EP 模板-表单页（主从明细）</a></li>
             <li><a href="#comp-mobile">2.4 移动端 Vant 组件</a></li>
             <li><a href="#comp-legacy">2.5 自研组件废弃说明</a></li>
+            <li><a href="#comp-sysinfo">2.6 公共组件-系统信息（iframe）</a></li>
           </ul>
         </li>
         <li><a href="#usage">3. 引用方式</a></li>
@@ -67,10 +68,19 @@
       <p><a href="03_EP模板_表单页.html">03_EP模板_表单页.html</a> —— 表单页标准骨架（复制改造）：工具栏分态（只读 修改/删除/刷新/关闭 ↔ 编辑 保存/保存草稿/提交审批）+ 基本信息 el-form（el-input/el-select/el-input-number）+ 主从明细 el-table（行内编辑、小计列、show-summary 合计）+ 明细工具栏（左下图标按钮：新增/删除/上移/下移 + 工具，编辑态可用）+ el-pagination（明细 >10 行分页）；内置编辑态自动空行、保存过滤空行、金额校验逻辑。</p>
 
       <h3 id="comp-mobile">2.4 移动端 Vant 组件</h3>
-      <p>移动端页面（13_移动端/）统一 Vant：van-form/van-field/van-button/van-cell/van-nav-bar/van-tabbar/van-badge/van-grid/van-tabs/van-popup/van-dialog/van-tag 等；反馈用 vant.showToast / vant.showConfirmDialog；375px 手机屏模拟（p-phone 容器）。</p>
+      <p>移动端页面（14_移动端/）统一 Vant：van-form/van-field/van-button/van-cell/van-nav-bar/van-tabbar/van-badge/van-grid/van-tabs/van-popup/van-dialog/van-tag 等；反馈用 vant.showToast / vant.showConfirmDialog；375px 手机屏模拟（p-phone 容器）。</p>
 
       <h3 id="comp-legacy">2.5 自研组件废弃说明</h3>
-      <p>原型体系早期自研组件（分页.js / 明细工具栏.js / 列表页工具栏.js / 明细表格.js / 空状态.js / 系统信息.js / 原型脚本.js）已<strong>全部废弃删除</strong>：功能由 Element Plus / Vant 真实组件取代（与正式开发技术栈一致），页面统一迁移完成；共享样式仅保留框架类（proto-bar / proto-frame / proto-hint 等），组件样式由组件库自带。</p>
+      <p>原型体系早期自研组件（分页.js / 明细工具栏.js / 列表页工具栏.js / 明细表格.js / 空状态.js / 系统信息.js / 原型脚本.js）已<strong>全部废弃删除</strong>：功能由 Element Plus / Vant 真实组件取代（与正式开发技术栈一致），页面统一迁移完成；共享样式仅保留框架类（proto-bar / proto-frame / proto-hint 等），组件样式由组件库自带。系统信息的统一展示现以 2.6 的 iframe 公共组件形式提供。</p>
+
+      <h3 id="comp-sysinfo">2.6 公共组件-系统信息（iframe）</h3>
+      <p><a href="04_系统信息组件.html">04_系统信息组件.html</a> —— 系统信息统一组件，依《<a href="../布局设计/08_布局设计_表单页.html">布局设计-表单页</a>》2.1.1：el-form <code>label-position="top"</code> 三列只读栅格（ID / 版本号 / 创建用户 / 创建时间 / 修改用户 / 修改时间 / 表单标识，纯文本只读、表单标识为禁用下拉框、时间无时区后缀）。</p>
+      <ul>
+        <li><strong>嵌入方式</strong>：各表单页系统信息 Tab 内放 <code>&lt;iframe class="sys-frame" src="../02_公共原型/04_系统信息组件.html"&gt;</code>（样式 <code>.sys-frame</code> 在 <code>原型样式.css</code>）；改组件一处，全站表单生效。</li>
+        <li><strong>数据协议</strong>：父页在 iframe <code>@load</code> 时 <code>postMessage({type:'sys-info', data:{id,version,createdAt,createdBy,updatedAt,updatedBy,formKey,formLabel}})</code> 传入当前记录数据（表单标识传英文标识 formKey + 中文名 formLabel）。</li>
+        <li><strong>高度自适应</strong>：组件渲染完成后回传 <code>{type:'sys-info-height', height}</code>，父页据此调整 iframe 高度。</li>
+        <li>已接入页面：表单框架骨架（03_通用骨架/04）、用户表单页（08_用户管理/03）、部门管理页/岗位表单页/部门表单页（11_部门与岗位/02/04/05）、采购申请表单页（12_采购/03）。</li>
+      </ul>
 
       <h2 id="usage">3. 引用方式</h2>
       <pre><code>&lt;!-- PC 管理端页面 --&gt;

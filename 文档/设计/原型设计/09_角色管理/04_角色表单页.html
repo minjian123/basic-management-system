@@ -39,17 +39,15 @@
 
       <!-- ② 角色基本信息：el-form（编辑态可编辑，只读态禁用；角色码锁定） -->
       <div class="ep-section">角色基本信息</div>
-      <el-form label-width="90px" :disabled="!editing">
+      <el-form label-position="top" :disabled="!editing">
         <el-row :gutter="16">
-          <el-col :span="12">
+          <el-col :span="8">
             <el-form-item label="角色码" required><el-input v-model="form.code" disabled placeholder="角色码（主键）"></el-input></el-form-item>
           </el-col>
-          <el-col :span="12">
+          <el-col :span="8">
             <el-form-item label="角色名称" required><el-input v-model="form.name" placeholder="角色名称"></el-input></el-form-item>
           </el-col>
-        </el-row>
-        <el-row :gutter="16">
-          <el-col :span="12">
+          <el-col :span="8">
             <el-form-item label="角色类型">
               <el-select v-model="form.type" style="width:100%" @change="onTypeChange">
                 <el-option label="普通角色" value="普通角色"></el-option>
@@ -60,7 +58,9 @@
               <div class="proto-hint" style="line-height:1.6">系统/安全/审计三类管理员权限互斥，同一用户不得兼任</div>
             </el-form-item>
           </el-col>
-          <el-col :span="12">
+        </el-row>
+        <el-row :gutter="16">
+          <el-col :span="8">
             <el-form-item label="状态">
               <el-switch v-model="form.status" active-text="启用" inactive-text="停用"></el-switch>
             </el-form-item>

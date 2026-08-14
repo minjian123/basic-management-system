@@ -28,22 +28,24 @@
       </div>
 
       <!-- 基本信息：code/名称/域名 -->
-      <el-form ref="formRef" :model="form" :rules="rules" label-width="90px" style="max-width:860px">
+      <el-form ref="formRef" :model="form" :rules="rules" label-position="top" style="max-width:860px">
         <el-row :gutter="16">
-          <el-col :span="12">
+          <el-col :span="8">
             <el-form-item label="租户 code" prop="code">
               <el-input v-model="form.code" placeholder="如 acme（唯一，库名前缀 bms_tenant_）" clearable></el-input>
             </el-form-item>
           </el-col>
-          <el-col :span="12">
+          <el-col :span="8">
             <el-form-item label="租户名称" prop="name">
               <el-input v-model="form.name" placeholder="如 Acme 制造" clearable></el-input>
             </el-form-item>
           </el-col>
+          <el-col :span="8">
+            <el-form-item label="子域名" prop="domain">
+              <el-input v-model="form.domain" placeholder="如 acme.bms.example.com" clearable></el-input>
+            </el-form-item>
+          </el-col>
         </el-row>
-        <el-form-item label="子域名" prop="domain" style="max-width:430px">
-          <el-input v-model="form.domain" placeholder="如 acme.bms.example.com" clearable></el-input>
-        </el-form-item>
       </el-form>
 
       <!-- 开通业务模块：可勾选业务模块，规划中（未交付）置灰 -->

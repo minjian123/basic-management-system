@@ -87,7 +87,7 @@
 
     <!-- ⑤ 弹窗：el-dialog（表单/确认等按需） -->
     <el-dialog v-model="dlg.visible" :title="dlg.title" width="520">
-      <el-form label-width="90px">
+      <el-form label-position="top">
         <el-form-item label="名称"><el-input v-model="dlg.name"></el-input></el-form-item>
       </el-form>
       <template #footer>

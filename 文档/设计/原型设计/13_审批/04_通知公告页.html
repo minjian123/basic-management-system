@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 通知公告页</title>
+<link rel="stylesheet" href="../共享资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../共享资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .ep-toolbar { display:flex; align-items:center; gap:8px; margin-bottom:12px; flex-wrap:wrap; }
+  .ep-side { margin-left:auto; display:flex; align-items:center; gap:8px; }
+  .ep-pager { display:flex; justify-content:flex-end; margin-top:12px; }
+  /* 表格下方一行：左下明细工具栏（图标按钮）+ 右下分页（《布局设计-表格明细》2.4） */
+  .ep-bar { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:12px; flex-wrap:wrap; }
+  /* 未读行行级高亮：加粗 + 浅色背景（《布局设计-列表页》未读语义） */
+  .unread-row td { background:#fff8c5 !important; font-weight:600; }
+  .unread-row td:first-child { font-weight:normal; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="01_设计说明.html">← 返回设计说明</a></span>
+  <span class="pb-name">采购与审批链路 · 通知公告页</span>
+</div>
+
+<div class="proto-frame">
+  <div id="app">
+    <div class="ep-page">
+      <!-- ① 双 Tab：通知中心（未读角标）/ 公告管理 -->
+      <el-tabs v-model="tab">
+        <el-tab-pane name="notify">
+          <template #label>通知中心 <el-tag size="small" :type="unreadCount ? 'danger' : 'info'">{{ unreadCount }} 未读</el-tag></template>
+
+          <!-- ② 通知中心：全部已读/批量已读 + 表格 + 分页 -->
+          <div class="ep-toolbar">
+            <el-button @click="readAll">全部已读</el-button>
+            <el-button :disabled="!selRows.length" @click="readSel">批量已读</el-button>
+            <el-button @click="toastMsg('已刷新')">刷新</el-button>
+            <el-button @click="toastMsg('原型演示：关闭当前模块页面（返回）')">关闭</el-button>
+            <span class="ep-side"><span class="proto-hint">点击通知行：标记已读并跳转单据；批量已读需先勾选</span></span>
+          </div>
+          <el-table :data="notifyPage" border stripe :row-class-name="rowClass" @row-click="onRowClick" @selection-change="onSel" style="width:100%">
+            <el-table-column type="selection" width="48" @click.stop></el-table-column>
+            <el-table-column prop="title" label="标题" min-width="260"></el-table-column>
+            <el-table-column label="类型" width="120">
+              <template #default="{ row }">
+                <el-tag :type="ntType[row.type].type">{{ ntType[row.type].text }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="time" label="时间" min-width="120"></el-table-column>
+            <el-table-column label="状态" width="90">
+              <template #default="{ row }">
+                <el-tag :type="row.read ? 'info' : 'danger'">{{ row.read ? '已读' : '未读' }}</el-tag>
+              </template>
+            </el-table-column>
+          </el-table>
+          <!-- 表格下方一行：左下明细工具栏（图标按钮）+ 右下分页 -->
+          <div class="ep-bar">
+            <div>
+              <el-button size="small" @click="toastMsg('原型演示：自动列宽')" title="自动列宽">⟷</el-button>
+              <el-button size="small" @click="toastMsg('原型演示：自定义列')" title="自定义列">☰</el-button>
+              <el-button size="small" @click="toastMsg('已刷新')" title="刷新">⟳</el-button>
+              <el-button size="small" @click="toastMsg('原型演示：全屏')" title="全屏">⛶</el-button>
+            </div>
+            <el-pagination background layout="total, jumper, prev, pager, next" :total="notifyRows.length"
+              :page-size="qNotify.size" :current-page="qNotify.page" @current-change="onNotifyPage"></el-pagination>
+          </div>
+        </el-tab-pane>
+
+        <el-tab-pane label="公告管理" name="notice">
+          <!-- ③ 公告管理：发布/编辑/置顶/过期下线 + 发布弹窗 -->
+          <div class="ep-toolbar">
+            <el-button type="primary" @click="openPublish('add')">发布公告</el-button>
+            <el-button @click="toastMsg('已刷新')">刷新</el-button>
+            <el-button @click="toastMsg('原型演示：关闭当前模块页面（返回）')">关闭</el-button>
+            <span class="ep-side"><span class="proto-hint">仅展示未过期的公告；已过有效期 / 已下线 / 已撤销的公告不展示（后端按有效截止时间过滤）</span></span>
+          </div>
+          <el-table :data="noticeRows" border stripe :row-class-name="noticeRowClass" @row-dblclick="openNotice" style="width:100%">
+            <el-table-column type="selection" width="48" @click.stop></el-table-column>
+            <el-table-column label="标题" min-width="240">
+              <template #default="{ row }">
+                <span v-if="row.pinned">📌 </span><b v-if="row.pinned">{{ row.title }}</b><span v-else>{{ row.title }}</span>
+                <el-tag v-if="row.pinned" type="warning" size="small" style="margin-left:6px">置顶</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="publisher" label="发布人" width="100"></el-table-column>
+            <el-table-column prop="publishTime" label="发布时间" min-width="140"></el-table-column>
+            <el-table-column label="有效期" min-width="150">
+              <template #default="{ row }">{{ row.expireFrom }} ~ {{ row.expireTo }}</template>
+            </el-table-column>
+            <el-table-column label="状态" width="110">
+              <template #default="{ row }">
+                <el-tag :type="noticeStatus(row).type">{{ noticeStatus(row).text }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="readReceipt" label="已读回执" width="100" align="right"></el-table-column>
+            <el-table-column label="操作" width="200" fixed="right">
+              <template #default="{ row }">
+                <el-button link type="primary" @click.stop="openPublish('edit', row)">编辑</el-button>
+                <el-button link type="primary" @click.stop="togglePin(row)">{{ row.pinned ? '取消置顶' : '置顶' }}</el-button>
+                <el-button link type="danger" @click.stop="takeOff(row)">下线</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+      <!-- 表格下方一行：明细工具栏（仅通用工具；发布/删除由页面工具栏承载，不重复）；公告表不分页，工具栏靠左 -->
+      <div class="ep-bar">
+        <div>
+          <el-button size="small" @click="toastMsg('原型演示：自动列宽')" title="自动列宽">⟷</el-button>
+              <el-button size="small" @click="toastMsg('原型演示：自定义列')" title="自定义列">☰</el-button>
+              <el-button size="small" @click="toastMsg('已刷新')" title="刷新">⟳</el-button>
+              <el-button size="small" @click="toastMsg('原型演示：全屏')" title="全屏">⛶</el-button>
+            </div>
+          </div>
+        </el-tab-pane>
+      </el-tabs>
+    </div>
+
+    <!-- ④ 公告详情 el-dialog：打开即自动上报已读 -->
+    <el-dialog v-model="detail.visible" :title="detail.title" width="520">
+      <div style="font-size:13px">
+        <p>{{ detail.content }}</p>
+        <div class="proto-hint">发布人：{{ detail.publisher }} · {{ detail.publishTime }} · 有效期至 {{ detail.expireTo }}</div>
+        <div class="proto-hint" style="margin-top:8px">打开详情即自动上报已读回执（自动标记，无需手动点击）</div>
+      </div>
+      <template #footer>
+        <el-button disabled>✓ 已读</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- ⑤ 发布/编辑公告 el-dialog -->
+    <el-dialog v-model="pub.visible" :title="pub.title" width="520">
+      <el-form label-position="top">
+        <el-form-item label="标题" required><el-input v-model="pub.form.title" placeholder="公告标题"></el-input></el-form-item>
+        <el-form-item label="内容" required><el-input v-model="pub.form.content" type="textarea" :rows="4" placeholder="公告内容"></el-input></el-form-item>
+        <el-form-item label="有效期">
+          <el-date-picker v-model="pub.form.expire" type="daterange" range-separator="~" start-placeholder="生效日期" end-placeholder="截止日期" style="width:100%"></el-date-picker>
+        </el-form-item>
+        <el-form-item label="置顶">
+          <el-switch v-model="pub.form.pinned"></el-switch>
+          <span class="proto-hint" style="margin-left:8px">置顶公告排序靠前并高亮</span>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="pub.visible = false">取消</el-button>
+        <el-button type="primary" @click="savePublish">发布</el-button>
+      </template>
+    </el-dialog>
+  </div>
+</div>
+
+<script src="../共享资源/vendor/vue.global.prod.js"></script>
+
+<script src="../共享资源/vendor/element-plus.min.js"></script>
+<script src="../共享资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref, reactive, computed } = Vue;
+  var app = createApp({
+    template: document.getElementById('app').outerHTML.replace(/<div id="app">/, '<div>').replace(/<\/div>\s*$/, ''),
+    setup: function () {
+      var tab = ref('notify');
+      var notifyRows = ref([
+        { id: 1, title: '审批通过：采购申请 CG202608001', type: 'approve', time: '08-12 10:00', read: false },
+        { id: 2, title: '新待办：付款申请 FK202608002', type: 'todo', time: '08-11 15:02', read: false },
+        { id: 3, title: '你发起的 CG202608001 已进入财务节点', type: 'flow', time: '08-12 10:02', read: true }
+      ]);
+      var ntType = {
+        approve: { text: '审批提醒', type: 'primary' },
+        todo: { text: '待办提醒', type: 'primary' },
+        flow: { text: '流程动态', type: 'info' }
+      };
+      var noticeRows = ref([
+        { id: 1, title: '系统升级维护通知', pinned: true, publisher: '管理员', publishTime: '2026-08-13 08:00', expireFrom: '2026-08-13', expireTo: '2026-08-20', readReceipt: '45/68', status: 'published', content: '各位同事：8 月 15 日 22:00-24:00 将进行系统升级维护，期间系统不可用，请提前保存工作进度。' },
+        { id: 2, title: '新员工入职流程说明', pinned: false, publisher: '人事部', publishTime: '2026-08-10 10:00', expireFrom: '2026-08-10', expireTo: '2026-09-01', readReceipt: '32/68', status: 'published', content: '新员工入职流程说明：请参照入职指引完成资料提交与部门报到。' },
+        { id: 3, title: '2026 年度预算申报通知', pinned: false, publisher: '财务部', publishTime: '2026-08-05 09:30', expireFrom: '2026-08-05', expireTo: '2026-08-12', readReceipt: '60/68', status: 'expired', content: '2026 年度预算申报通知：请各部门于截止日期前完成预算申报。' }
+      ]);
+      var qNotify = reactive({ page: 1, size: 10 });
+      var selRows = ref([]);
+      var selNotice = ref([]);
+      var detail = reactive({ visible: false, title: '', content: '', publisher: '', publishTime: '', expireTo: '' });
+      var pub = reactive({ visible: false, title: '', mode: 'add', id: null, form: { title: '', content: '', expire: null, pinned: false } });
+
+      function toastMsg(m, type) {
+        var opts = { message: m };
+        if (type) { opts.type = type; opts.duration = 2000; }
+        Vue.ElMessage(opts);
+      }
+      function confirmAction(msg, fn, okText) {
+        Vue.ElMessageBox.confirm(msg, '确认操作', { type: 'warning', confirmButtonText: okText || '确定', cancelButtonText: '取消' })
+          .then(function () { fn(); }).catch(function () {});
+      }
+      var unreadCount = computed(function () {
+        return notifyRows.value.filter(function (r) { return !r.read; }).length;
+      });
+      var notifyPage = computed(function () {
+        var s = (qNotify.page - 1) * qNotify.size;
+        return notifyRows.value.slice(s, s + qNotify.size);
+      });
+      function onNotifyPage(n) { qNotify.page = n; }
+      function onSel(sel) { selRows.value = sel; }
+      function onSelNotice(sel) { selNotice.value = sel; }
+      // 明细工具栏：删除选中公告（二次确认后从数据移除）
+      function delSelNotice() {
+        if (!selNotice.value.length) { toastMsg('请先选择公告', 'error'); return; }
+        confirmAction('确定删除选中的 ' + selNotice.value.length + ' 条公告？删除后不再展示。', function () {
+          var ids = selNotice.value.map(function (r) { return r.id; });
+          noticeRows.value = noticeRows.value.filter(function (x) { return ids.indexOf(x.id) < 0; });
+          selNotice.value = [];
+          toastMsg('已删除', 'success');
+        });
+      }
+      function rowClass({ row }) { return row.read ? '' : 'unread-row'; }
+      function noticeRowClass({ row }) { return row.pinned ? 'unread-row' : ''; }
+      function noticeStatus(row) {
+        if (row.status === 'offline') return { text: '已下线', type: 'info' };
+        if (row.status === 'expired') return { text: '已过期', type: 'danger' };
+        return { text: '生效中', type: 'success' };
+      }
+      // 行点击：标记已读 + 跳转单据（自动已读，无需手动按钮）
+      function onRowClick(row, column, event) {
+        if (event.target.closest('.el-checkbox')) return;
+        if (!row.read) {
+          row.read = true;
+          toastMsg('已标记已读');
+        }
+        toastMsg('跳转单据：' + row.title + '（原型演示）');
+      }
+      // 批量已读 / 全部已读
+      function readSel() {
+        if (!selRows.value.length) { toastMsg('请先选择通知', 'error'); return; }
+        selRows.value.forEach(function (r) { r.read = true; });
+        toastMsg('批量已读完成', 'success');
+      }
+      function readAll() {
+        notifyRows.value.forEach(function (r) { r.read = true; });
+        toastMsg('全部已读（角标归零）', 'success');
+      }
+      // 公告行双击：embed 时打开公告表单页（openDetail → openTab → 独立跳转三级 fallback）；非 embed 保留原详情弹窗
+      function openNotice(row) {
+        if (location.search.indexOf('embed=1') >= 0) {
+          try { parent.openDetail('公告管理', row.id, row.title); return; } catch (e) {}
+          try { parent.openTab('公告表单', '../13_审批/05_公告表单页.html'); return; } catch (e) {}
+          location.href = '../13_审批/05_公告表单页.html?id=' + row.id + '&name=' + encodeURIComponent(row.title);
+          return;
+        }
+        detail.title = row.title;
+        detail.content = row.content;
+        detail.publisher = row.publisher;
+        detail.publishTime = row.publishTime;
+        detail.expireTo = row.expireTo;
+        detail.visible = true;
+        toastMsg('已自动标记已读（回执自动上报）', 'success');
+      }
+      // 发布/编辑公告
+      function openPublish(mode, row) {
+        if (mode === 'add') {
+          pub.title = '发布公告'; pub.mode = 'add'; pub.id = null;
+          pub.form.title = ''; pub.form.content = ''; pub.form.expire = null; pub.form.pinned = false;
+        } else {
+          pub.title = '编辑公告'; pub.mode = 'edit'; pub.id = row.id;
+          pub.form.title = row.title; pub.form.content = row.content;
+          pub.form.expire = [new Date(row.expireFrom.replace(/-/g, '/')), new Date(row.expireTo.replace(/-/g, '/'))];
+          pub.form.pinned = row.pinned;
+        }
+        pub.visible = true;
+      }
+      function savePublish() {
+        if (!(pub.form.title || '').trim() || !(pub.form.content || '').trim()) { toastMsg('标题与内容必填', 'error'); return; }
+        if (pub.mode === 'add') {
+          noticeRows.value.push({
+            id: Date.now(), title: pub.form.title.trim(), content: pub.form.content.trim(),
+            pinned: pub.form.pinned, publisher: '管理员', publishTime: '2026-08-14 09:00',
+            expireFrom: pub.form.expire ? pub.form.expire[0].toISOString().slice(0, 10) : '2026-08-14',
+            expireTo: pub.form.expire ? pub.form.expire[1].toISOString().slice(0, 10) : '2026-09-14',
+            readReceipt: '0/68', status: 'published'
+          });
+        } else {
+          var r = noticeRows.value.find(function (x) { return x.id === pub.id; });
+          if (r) {
+            r.title = pub.form.title.trim(); r.content = pub.form.content.trim(); r.pinned = pub.form.pinned;
+            if (pub.form.expire) {
+              r.expireFrom = pub.form.expire[0].toISOString().slice(0, 10);
+              r.expireTo = pub.form.expire[1].toISOString().slice(0, 10);
+            }
+          }
+        }
+        pub.visible = false;
+        toastMsg(pub.mode === 'add' ? '公告已发布（自动推送通知）' : '公告已保存', 'success');
+      }
+      // 置顶 / 取消置顶
+      function togglePin(row) {
+        row.pinned = !row.pinned;
+        toastMsg(row.pinned ? '已置顶「' + row.title + '」' : '已取消置顶', 'success');
+      }
+      // 过期下线
+      function takeOff(row) {
+        confirmAction('下线「' + row.title + '」？下线后不再展示（已过有效期/已下线公告由后端过滤）。', function () {
+          row.status = 'offline';
+          toastMsg('已下线', 'success');
+        }, '下线');
+      }
+      return { tab, notifyRows, ntType, noticeRows, qNotify, selRows, selNotice, detail, pub, unreadCount, notifyPage,
+        onNotifyPage, onSel, onSelNotice, delSelNotice, rowClass, noticeRowClass, noticeStatus, onRowClick, readSel, readAll,
+        openNotice, openPublish, savePublish, togglePin, takeOff, toastMsg };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+<script>if (location.search.indexOf("embed=1") >= 0) { var pb = document.querySelector(".proto-bar"); if (pb) pb.style.display = "none"; }</script>
+</body>
+</html>
