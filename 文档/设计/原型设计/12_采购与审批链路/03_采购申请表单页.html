@@ -105,12 +105,14 @@
               <el-button :disabled="!editing" size="small" @click="moveRow(-1)" title="上移行">↑</el-button>
               <el-button :disabled="!editing" size="small" @click="moveRow(1)" title="下移行">↓</el-button>
               <el-divider direction="vertical"></el-divider>
+              <el-button size="small" @click="toastMsg('原型演示：自动列宽')" title="自动列宽">⟷</el-button>
+              <el-button size="small" @click="toastMsg('原型演示：自定义列')" title="自定义列">☰</el-button>
               <el-button size="small" @click="toastMsg('已刷新明细')" title="刷新">⟳</el-button>
               <el-button size="small" @click="toastMsg('全屏演示')" title="全屏">⛶</el-button>
             </div>
             <div class="ep-pager">
-              <el-pagination background layout="total, prev, pager, next" :total="rows.length"
-                :page-size="pageSize" :current-page="page" @current-change="onPage"></el-pagination>
+              <el-pagination background layout="total, sizes, prev, pager, next" :total="rows.length"
+                :page-size="pageSize" :current-page="page" @current-change="onPage" @size-change="onSize"></el-pagination>
             </div>
           </div>
           <div class="proto-hint ep-sum">明细合计：<b>¥{{ total.toLocaleString() }}</b></div>
@@ -224,6 +226,7 @@
       }
       function onCurrent(r) { currentRow.value = r; }
       function onPage(n) { page.value = n; }
+      function onSize() { page.value = 1; toastMsg('已切换每页条数（回第 1 页）'); }
       function rowClass() { return ''; }
       function summary() {
         return ['', '明细合计', '', '¥' + total.value.toLocaleString()];
@@ -278,7 +281,7 @@
         if (name) form.title = name;
       })();
       return { editing, tab, form, rows, currentRow, page, pageSize, pageRows, total,
-        editForm, addRow, delRow, moveRow, onCurrent, onPage, rowClass, summary, saveForm,
+        editForm, addRow, delRow, moveRow, onCurrent, onPage, onSize, rowClass, summary, saveForm,
         submitApply, delForm, closePage, onTabClick, onTabChange, toastMsg };
     }
   });
