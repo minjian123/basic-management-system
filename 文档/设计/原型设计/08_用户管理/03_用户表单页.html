@@ -4,7 +4,15 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>原型 · 用户表单页</title>
+<link rel="stylesheet" href="../共享资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../共享资源/原型样式.css">
+<style>
+  .ep-page { background: #fff; border: 1px solid #d0d7de; border-radius: 6px; padding: 16px; }
+  .ep-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+  .ep-toolbar .ep-side { margin-left: auto; }
+  .ep-section { font-weight: 600; margin: 16px 0 12px; padding-bottom: 8px; border-bottom: 1px solid #eaeef2; font-size: 14px; }
+  .ep-section:first-of-type { margin-top: 0; }
+</style>
 </head>
 <body>
 
@@ -14,130 +22,180 @@
 </div>
 
 <div class="proto-frame">
-  <div class="p-tabs" id="tabs">
-    <div class="p-tab active" data-tabs="tabs" data-pane="info" onclick="trySwitchPane('info')">详细信息</div>
-    <div class="p-tab" data-pane="sys" onclick="trySwitchPane('sys')">系统信息</div>
-  </div>
+  <div id="app">
+    <div class="ep-page">
+      <!-- ① 表单页工具栏分态：只读态 修改/删除/刷新/关闭 ↔ 编辑态 保存/关闭 -->
+      <div class="ep-toolbar">
+        <el-button v-if="!editing" type="primary" @click="editForm">修改</el-button>
+        <el-button v-if="!editing" type="danger" plain @click="delForm">删除</el-button>
+        <el-button v-if="!editing" @click="toastMsg('已重新加载当前记录')">刷新</el-button>
+        <el-button v-if="editing" type="primary" @click="saveForm">保存</el-button>
+        <el-button @click="tryClose">关闭</el-button>
+        <span class="ep-side">
+          <span class="proto-hint">编辑后关闭/切换 Tab 将触发未保存拦截</span>
+        </span>
+      </div>
 
-  <div id="pane-info">
-    <div class="p-form">
-      <div class="p-toolbar" style="border:none;border-radius:0;padding:0 0 10px;margin-bottom:12px;border-bottom:1px solid #eaeef2">
-        <button class="p-btn" id="btn-edit" onclick="editForm()">修改</button>
-        <button class="p-btn danger" onclick="confirmAction('确认删除该用户（软删除）？',function(){toast('已删除','ok')})">删除</button>
-        <button class="p-btn" onclick="toast('已重新加载当前记录')">刷新</button>
-        <button class="p-btn" onclick="tryClose()">关闭</button>
-        <button class="p-btn primary" id="btn-save" style="display:none" onclick="saveForm()">保存</button>
-        <span class="proto-hint" style="margin-left:auto">编辑后关闭/切换 Tab 将触发未保存拦截</span>
-      </div>
-      <div class="p-section">基本信息</div>
-      <div class="p-row">
-        <div class="p-col p-field"><label>用户名 <span class="req">*</span></label><input class="p-input" value="zhangsan" disabled></div>
-        <div class="p-col p-field"><label>姓名 <span class="req">*</span></label><input class="p-input" value="张三" disabled></div>
-      </div>
-      <div class="p-row">
-        <div class="p-col p-field"><label>部门</label><select class="p-select" disabled><option>技术部</option><option>财务部</option></select></div>
-        <div class="p-col p-field"><label>岗位</label><select class="p-select" disabled><option>工程师</option><option>会计</option></select></div>
-      </div>
-      <div class="p-row">
-        <div class="p-col p-field"><label>手机号</label><span class="p-input" style="display:flex;justify-content:space-between">138****5678 <a href="#" onclick="toast('需 data:plain 权限码方可查看明文','err');return false">☝ 明文</a></span></div>
-        <div class="p-col p-field"><label>邮箱</label><input class="p-input" value="zhangsan@example.com" disabled></div>
-      </div>
-      <div class="p-section">角色与状态</div>
-      <div class="p-row">
-        <div class="p-col p-field"><label>角色绑定</label>
-          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-            <span class="p-tag blue">普通角色</span>
-            <button class="p-btn sm" id="btn-bind" disabled onclick="openModal('m-role')">✚ 绑定</button>
-          </div>
-        </div>
-        <div class="p-col p-field"><label>状态</label><select class="p-select" disabled><option>启用</option><option>停用</option></select></div>
-      </div>
+      <!-- ② 详细信息 / 系统信息 Tab -->
+      <el-tabs v-model="tab" :before-leave="beforeTabLeave">
+        <el-tab-pane label="详细信息" name="info">
+          <el-form label-width="90px" :disabled="!editing">
+            <div class="ep-section">基本信息</div>
+            <el-row :gutter="16">
+              <el-col :span="12"><el-form-item label="用户名" required><el-input v-model="form.username" disabled></el-input></el-form-item></el-col>
+              <el-col :span="12"><el-form-item label="姓名" required><el-input v-model="form.name"></el-input></el-form-item></el-col>
+            </el-row>
+            <el-row :gutter="16">
+              <el-col :span="12">
+                <el-form-item label="部门">
+                  <el-select v-model="form.dept" style="width:100%">
+                    <el-option label="技术部" value="技术部"></el-option>
+                    <el-option label="财务部" value="财务部"></el-option>
+                  </el-select>
+                </el-form-item>
+              </el-col>
+              <el-col :span="12">
+                <el-form-item label="岗位">
+                  <el-select v-model="form.post" style="width:100%">
+                    <el-option label="工程师" value="工程师"></el-option>
+                    <el-option label="会计" value="会计"></el-option>
+                  </el-select>
+                </el-form-item>
+              </el-col>
+            </el-row>
+            <el-row :gutter="16">
+              <el-col :span="12">
+                <el-form-item label="手机号">
+                  <el-input v-model="form.phone" :disabled="!editing">
+                    <template #suffix>
+                      <a href="#" style="font-size:12px" @click.prevent="toastMsg('需 data:plain 权限码方可查看明文', 'error')">☝ 明文</a>
+                    </template>
+                  </el-input>
+                </el-form-item>
+              </el-col>
+              <el-col :span="12"><el-form-item label="邮箱"><el-input v-model="form.email"></el-input></el-form-item></el-col>
+            </el-row>
+            <div class="ep-section">角色与状态</div>
+            <el-row :gutter="16">
+              <el-col :span="12">
+                <el-form-item label="角色绑定">
+                  <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+                    <el-tag v-for="r in form.roles" :key="r" type="primary">{{ r }}</el-tag>
+                    <el-button size="small" :disabled="!editing" @click="openRole">✚ 绑定</el-button>
+                  </div>
+                </el-form-item>
+              </el-col>
+              <el-col :span="12">
+                <el-form-item label="状态">
+                  <el-select v-model="form.status" style="width:100%">
+                    <el-option label="启用" value="enabled"></el-option>
+                    <el-option label="停用" value="disabled"></el-option>
+                  </el-select>
+                </el-form-item>
+              </el-col>
+            </el-row>
+          </el-form>
+        </el-tab-pane>
+        <el-tab-pane label="系统信息" name="sys">
+          <el-descriptions :column="1" border style="margin-top:12px">
+            <el-descriptions-item label="ID">{{ sys.id }}</el-descriptions-item>
+            <el-descriptions-item label="创建时间">{{ sys.createdAt }}</el-descriptions-item>
+            <el-descriptions-item label="创建人">{{ sys.createdBy }}</el-descriptions-item>
+            <el-descriptions-item label="更新时间">{{ sys.updatedAt }}</el-descriptions-item>
+            <el-descriptions-item label="更新人">{{ sys.updatedBy }}</el-descriptions-item>
+          </el-descriptions>
+        </el-tab-pane>
+      </el-tabs>
     </div>
-  </div>
 
-  <div id="pane-sys" style="display:none">
-    <div class="p-form">
-      <div id="sys-info-user"></div>
-    </div>
+    <!-- ③ 角色绑定 -->
+    <el-dialog v-model="role.visible" title="角色绑定" width="420" align-center>
+      <el-checkbox-group v-model="role.checked" style="display:block">
+        <el-checkbox v-for="r in allRoles" :key="r" :value="r" style="display:flex;padding:6px 0">{{ r }}</el-checkbox>
+      </el-checkbox-group>
+      <template #footer>
+        <el-button @click="role.visible = false">取消</el-button>
+        <el-button type="primary" @click="saveRole">保存</el-button>
+      </template>
+    </el-dialog>
   </div>
 </div>
 
-<!-- 角色绑定 -->
-<div class="p-mask" id="m-role">
-  <div class="p-modal">
-    <div class="pm-head">角色绑定<span class="x" onclick="closeModal('m-role')">✕</span></div>
-    <div class="pm-body">
-      <label style="display:block;padding:6px 0;font-size:13px"><input type="checkbox" checked> 普通角色</label>
-      <label style="display:block;padding:6px 0;font-size:13px"><input type="checkbox"> 审批角色</label>
-    </div>
-    <div class="pm-foot"><button class="p-btn" onclick="closeModal('m-role')">取消</button><button class="p-btn primary" onclick="closeModal('m-role');toast('角色绑定已更新','ok')">保存</button></div>
-  </div>
-</div>
-
-<script src="../共享资源/原型脚本.js"></script>
-<script src="../02_公共原型/系统信息.js"></script>
+<script src="../共享资源/vendor/vue.global.prod.js"></script>
+<script src="../共享资源/vendor/element-plus.min.js"></script>
 <script>
-  mountSysInfo(document.getElementById('sys-info-user'), {
-    id: '1902876345762181120',
-    createdAt: '2026-07-01 10:00:00 (UTC)',
-    createdBy: 'admin',
-    updatedAt: '2026-08-12 09:30:00 (UTC)',
-    updatedBy: 'admin'
+  var { createApp, ref, reactive, watch } = Vue;
+  var ElMessage = ElementPlus.ElMessage;
+  var ElMessageBox = ElementPlus.ElMessageBox;
+  var app = createApp({
+    template: document.getElementById('app').outerHTML.replace(/<div id="app">/, '<div>').replace(/<\/div>\s*$/, ''),
+    setup: function () {
+      var editing = ref(false);
+      var tab = ref('info');
+      var dirty = ref(false);
+      window._saveRound = 0;
+      var form = reactive({
+        username: 'zhangsan', name: '张三', dept: '技术部', post: '工程师',
+        phone: '138****5678', email: 'zhangsan@example.com',
+        roles: ['普通角色'], status: 'enabled'
+      });
+      var sys = reactive({
+        id: '1902876345762181120',
+        createdAt: '2026-07-01 10:00:00 (UTC)',
+        createdBy: 'admin',
+        updatedAt: '2026-08-12 09:30:00 (UTC)',
+        updatedBy: 'admin'
+      });
+      var role = reactive({ visible: false, checked: ['普通角色'] });
+      var allRoles = ['普通角色', '审批角色'];
+
+      // dirty 拦截：编辑字段后关闭/切换 Tab 需确认（《布局设计-表单页》编辑态）
+      watch(form, function () { if (editing.value) dirty.value = true; }, { deep: true });
+
+      function beforeTabLeave(newName) {
+        if (!dirty.value || tab.value === 'sys') return true;
+        return ElMessageBox.confirm('当前修改尚未保存，切换 Tab 将丢失修改，确定切换？', '提示', { type: 'warning' })
+          .then(function () { dirty.value = false; return true; })
+          .catch(function () { return false; });
+      }
+      function editForm() { dirty.value = false; editing.value = true; toastMsg('已进入编辑态（字段启用）'); }
+      function saveForm() {
+        dirty.value = false;
+        editing.value = false;
+        // 演示：每两次保存模拟一次乐观锁 version 冲突（真实场景由后端 409 触发）
+        if (window._saveRound % 2 === 1) { window._saveRound++; toastMsg('记录已被修改，已重新加载最新数据', 'error'); return; }
+        window._saveRound++;
+        toastMsg('保存成功，列表已自动刷新');
+      }
+      function delForm() {
+        ElMessageBox.confirm('确认删除该用户（软删除）？', '提示', { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' })
+          .then(function () { toastMsg('已删除'); })
+          .catch(function () {});
+      }
+      function tryClose() {
+        if (dirty.value) {
+          ElMessageBox.confirm('当前修改尚未保存，关闭将丢失修改，确定关闭？', '提示', { type: 'warning', confirmButtonText: '关闭', cancelButtonText: '取消' })
+            .then(function () { dirty.value = false; toastMsg('已关闭'); })
+            .catch(function () {});
+        } else { toastMsg('已关闭'); }
+      }
+      function openRole() { role.checked = form.roles.slice(); role.visible = true; }
+      function saveRole() { form.roles = role.checked.slice(); role.visible = false; toastMsg('角色绑定已更新'); }
+      // 由列表页双击打开时（?id=&name=）回填显示
+      (function () {
+        function qp(k) { var m = location.search.match(new RegExp('[?&]' + k + '=([^&]*)')); return m ? decodeURIComponent(m[1]) : null; }
+        var id = qp('id'), name = qp('name');
+        if (name) { form.username = name.toLowerCase(); form.name = name; }
+        if (id) sys.id = id;
+      })();
+      function toastMsg(m, type) { ElMessage({ message: m, type: type || 'success' }); }
+      return { editing, tab, form, sys, role, allRoles, beforeTabLeave, editForm, saveForm, delForm, tryClose, openRole, saveRole, toastMsg };
+    }
   });
-  function switchPane(name) {
-    document.querySelectorAll('#tabs .p-tab').forEach(function (t) { t.classList.toggle('active', t.getAttribute('data-pane') === name); });
-    document.getElementById('pane-info').style.display = name === 'info' ? '' : 'none';
-    document.getElementById('pane-sys').style.display = name === 'sys' ? '' : 'none';
-  }
-  // 表单页工具栏分态（《布局设计-表单页》）：只读态 修改/删除/刷新/关闭 ↔ 编辑态 保存/关闭
-  function setFormEditable(on) {
-    document.getElementById('btn-edit').style.display = on ? 'none' : '';
-    document.getElementById('btn-save').style.display = on ? '' : 'none';
-    document.getElementById('btn-bind').disabled = !on;
-    document.querySelectorAll('#pane-info input, #pane-info select').forEach(function (el) { el.disabled = !on; });
-  }
-  // dirty 拦截：编辑字段后关闭/切换 Tab 需确认（《布局设计-表单页》编辑态）
-  var dirty = false;
-  window._saveRound = 0;
-  document.getElementById('pane-info').addEventListener('input', function () { dirty = true; });
-  document.getElementById('pane-info').addEventListener('change', function () { dirty = true; });
-  function editForm() { dirty = false; setFormEditable(true); toast('已进入编辑态（字段启用）'); }
-  function saveForm() {
-    dirty = false;
-    setFormEditable(false);
-    // 演示：每两次保存模拟一次乐观锁 version 冲突（真实场景由后端 409 触发）
-    if (window._saveRound % 2 === 1) { window._saveRound++; toast('记录已被修改，已重新加载最新数据', 'err'); return; }
-    window._saveRound++;
-    toast('保存成功，列表已自动刷新', 'ok');
-  }
-  function tryClose() {
-    if (dirty) { confirmAction('当前修改尚未保存，关闭将丢失修改，确定关闭？', function () { dirty = false; toast('已关闭'); }); }
-    else { toast('已关闭'); }
-  }
-  function switchPane(name) {
-    document.querySelectorAll('#tabs .p-tab').forEach(function (t) { t.classList.toggle('active', t.getAttribute('data-pane') === name); });
-    document.getElementById('pane-info').style.display = name === 'info' ? '' : 'none';
-    document.getElementById('pane-sys').style.display = name === 'sys' ? '' : 'none';
-  }
-  function trySwitchPane(name) {
-    if (dirty && document.getElementById('pane-info').style.display !== 'none' && name !== 'info') {
-      confirmAction('当前修改尚未保存，切换 Tab 将丢失修改，确定切换？', function () { dirty = false; switchPane(name); });
-    } else { switchPane(name); }
-  }
-  // 由列表页双击打开时（?id=&name=）回填显示
-  (function () {
-    function qp(k) { var m = location.search.match(new RegExp('[?&]' + k + '=([^&]*)')); return m ? decodeURIComponent(m[1]) : null; }
-    var id = qp('id'), name = qp('name');
-    if (name) {
-      var inputs = document.querySelectorAll('#pane-info .p-input');
-      if (inputs[0]) inputs[0].value = name.toLowerCase();
-      if (inputs[1]) inputs[1].value = name;
-    }
-    if (id) {
-      var sys = document.querySelectorAll('#pane-sys .sys-text');
-      if (sys[0]) sys[0].textContent = id;
-    }
-  })();
+  app.use(ElementPlus);
+  app.mount('#app');
+  // 嵌入主框架时隐藏顶部原型条
+  if (location.search.indexOf('embed=1') >= 0) { var pb = document.querySelector('.proto-bar'); if (pb) pb.style.display = 'none'; }
 </script>
 
 </body>

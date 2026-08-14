@@ -4,7 +4,21 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>原型 · 移动个人中心</title>
+<link rel="stylesheet" href="../共享资源/vendor/vant.css">
 <link rel="stylesheet" href="../共享资源/原型样式.css">
+<style>
+  /* 手机屏模拟：375px 宽（Vant 移动端布局基准宽度） */
+  .p-phone { max-width: 375px; }
+  .user-card { background: #fff; border-radius: 10px; padding: 14px; margin-bottom: 8px; display: flex; align-items: center; gap: 12px; }
+  .user-avatar { width: 52px; height: 52px; border-radius: 50%; background: #ddf4ff; color: #0969da; font-size: 22px; font-weight: 600; display: flex; align-items: center; justify-content: center; flex: 0 0 52px; }
+  .user-name { font-size: 15px; font-weight: 600; }
+  .user-sub { color: #8c959f; font-size: 12px; line-height: 1.6; }
+  .logout-wrap { padding: 12px 16px; }
+  /* 修改密码 Popup */
+  .pwd-pop { padding-bottom: env(safe-area-inset-bottom); }
+  .pwd-body { padding: 12px 16px; }
+  .pwd-foot { display: flex; gap: 12px; padding: 0 16px 16px; }
+</style>
 </head>
 <body>
 
@@ -15,62 +29,88 @@
 
 <div class="proto-frame">
   <div class="p-phone">
-    <div class="pp-status" style="text-align:center">我的</div>
-    <div class="pp-body">
-      <!-- 用户信息卡片：圆形头像占位 + 姓名/部门/邮箱 -->
-      <div style="background:#fff;border-radius:10px;padding:14px;margin-bottom:8px;display:flex;align-items:center;gap:12px">
-        <div style="width:52px;height:52px;border-radius:50%;background:#ddf4ff;color:#0969da;font-size:22px;font-weight:600;display:flex;align-items:center;justify-content:center;flex:0 0 52px">张</div>
-        <div>
-          <b style="font-size:15px">张三</b><br>
-          <span style="color:#8c959f;font-size:12px">技术部 · 工程师</span><br>
-          <span style="color:#8c959f;font-size:12px">zhangsan@example.com</span>
+    <div id="app">
+      <van-nav-bar title="我的"></van-nav-bar>
+      <div class="pp-body">
+        <!-- 用户信息卡片：圆形头像占位 + 姓名/部门/邮箱 -->
+        <div class="user-card">
+          <div class="user-avatar">张</div>
+          <div>
+            <div class="user-name">张三</div>
+            <div class="user-sub">技术部 · 工程师<br>zhangsan@example.com</div>
+          </div>
+        </div>
+        <van-cell-group inset>
+          <van-cell title="修改密码" is-link @click="openPwd"></van-cell>
+          <van-cell title="语言与时区" is-link @click="toast('语言：简体中文 / English；时区 Asia/Shanghai')"></van-cell>
+          <van-cell title="通知偏好" is-link @click="toast('通知偏好：站内信/邮件/短信渠道开关')"></van-cell>
+          <van-cell title="主题模式" is-link @click="toast('主题模式：浅色/深色（跨端同步）')"></van-cell>
+        </van-cell-group>
+        <div class="logout-wrap">
+          <van-button round block plain type="danger" @click="logout">退出登录</van-button>
         </div>
       </div>
-      <div style="background:#fff;border-radius:10px;padding:4px 14px;margin-bottom:8px;font-size:13px">
-        <div style="padding:11px 0;border-bottom:1px solid #eaeef2;cursor:pointer" onclick="openModal('m-pwd')">修改密码</div>
-        <div style="padding:11px 0;border-bottom:1px solid #eaeef2;cursor:pointer" onclick="toast('语言：简体中文 / English；时区 Asia/Shanghai')">语言与时区</div>
-        <div style="padding:11px 0;border-bottom:1px solid #eaeef2;cursor:pointer" onclick="toast('通知偏好：站内信/邮件/短信渠道开关')">通知偏好</div>
-        <div style="padding:11px 0;cursor:pointer" onclick="toast('主题模式：浅色/深色（跨端同步）')">主题模式</div>
-      </div>
-      <div style="background:#fff;border-radius:10px;padding:11px 14px;text-align:center;color:#cf222e;font-size:13px;cursor:pointer" onclick="logout()">退出登录</div>
-    </div>
-    <div class="pp-tabbar">
-      <div>🏠 首页</div><div>📋 待办</div><div>💬 消息</div><div style="color:#0969da;font-weight:600">👤 我的</div>
-    </div>
-  </div>
-</div>
-
-<!-- 修改密码 -->
-<div class="p-mask" id="m-pwd">
-  <div class="p-modal">
-    <div class="pm-head">修改密码<span class="x" onclick="closeModal('m-pwd')">✕</span></div>
-    <div class="pm-body">
-      <div class="p-field"><label>旧密码</label><input class="p-input" type="password"></div>
-      <div style="height:10px"></div>
-      <div class="p-field"><label>新密码（8-32 位，含字母数字）</label><input class="p-input" type="password" id="np1"></div>
-      <div style="height:10px"></div>
-      <div class="p-field"><label>确认新密码</label><input class="p-input" type="password" id="np2"></div>
-    </div>
-    <div class="pm-foot">
-      <button class="p-btn" onclick="closeModal('m-pwd')">取消</button>
-      <button class="p-btn primary" onclick="doPwd()">保存</button>
+      <!-- 底部 TabBar：我的 Tab 高亮 -->
+      <van-tabbar :fixed="false" v-model="tabbar">
+        <van-tabbar-item name="home" icon="wap-home-o">首页</van-tabbar-item>
+        <van-tabbar-item name="todo" icon="todo-list-o">待办</van-tabbar-item>
+        <van-tabbar-item name="msg" icon="chat-o">消息</van-tabbar-item>
+        <van-tabbar-item name="me" icon="user-o">我的</van-tabbar-item>
+      </van-tabbar>
+      <!-- 修改密码 -->
+      <van-popup v-model:show="pwdShow" position="bottom" round class="pwd-pop">
+        <van-nav-bar title="修改密码" left-arrow @click-left="pwdShow = false"></van-nav-bar>
+        <div class="pwd-body">
+          <van-cell-group inset>
+            <van-field v-model="oldPwd" type="password" label="旧密码" placeholder="请输入旧密码"></van-field>
+            <van-field v-model="np1" type="password" label="新密码" placeholder="8-32 位，含字母数字"></van-field>
+            <van-field v-model="np2" type="password" label="确认新密码" placeholder="请再次输入新密码"></van-field>
+          </van-cell-group>
+        </div>
+        <div class="pwd-foot">
+          <van-button plain round block @click="pwdShow = false">取消</van-button>
+          <van-button type="primary" round block @click="doPwd">保存</van-button>
+        </div>
+      </van-popup>
     </div>
   </div>
 </div>
 
-<script src="../共享资源/原型脚本.js"></script>
+<script src="../共享资源/vendor/vue.global.prod.js"></script>
+<script src="../共享资源/vendor/vant.min.js"></script>
 <script>
-  function doPwd() {
-    var p1 = document.getElementById('np1').value, p2 = document.getElementById('np2').value;
-    if (!p1 || !p2) { toast('请填写完整', 'err'); return; }
-    if (p1 !== p2) { toast('两次密码不一致', 'err'); return; }
-    if (!(p1.length >= 8 && /[A-Za-z]/.test(p1) && /\d/.test(p1))) { toast('密码复杂度不满足', 'err'); return; }
-    closeModal('m-pwd');
-    confirmAction('修改成功后需重新登录，确认？', function () { toast('已修改，请重新登录', 'ok'); });
-  }
-  function logout() {
-    confirmAction('确认退出登录？', function () { toast('已退出（refresh token 失效）', 'ok'); });
-  }
+  var { createApp, ref } = Vue;
+  var app = createApp({
+    template: document.getElementById('app').innerHTML,
+    setup: function () {
+      var tabbar = ref('me');
+      var pwdShow = ref(false);
+      var oldPwd = ref('');
+      var np1 = ref('');
+      var np2 = ref('');
+      function toast(msg, type) {
+        vant.showToast(type === 'err' ? { message: msg, type: 'fail' } : type === 'ok' ? { message: msg, type: 'success' } : msg);
+      }
+      function openPwd() { oldPwd.value = ''; np1.value = ''; np2.value = ''; pwdShow.value = true; }
+      function doPwd() {
+        if (!oldPwd.value || !np1.value || !np2.value) { toast('请填写完整', 'err'); return; }
+        if (np1.value !== np2.value) { toast('两次密码不一致', 'err'); return; }
+        if (!(np1.value.length >= 8 && /[A-Za-z]/.test(np1.value) && /\d/.test(np1.value))) { toast('密码复杂度不满足', 'err'); return; }
+        pwdShow.value = false;
+        vant.showConfirmDialog({ title: '修改密码', message: '修改成功后需重新登录，确认？', confirmButtonColor: '#ee0a24' }).then(function () {
+          toast('已修改，请重新登录', 'ok');
+        }).catch(function () {});
+      }
+      function logout() {
+        vant.showConfirmDialog({ title: '退出登录', message: '确认退出登录？', confirmButtonColor: '#ee0a24' }).then(function () {
+          toast('已退出（refresh token 失效）', 'ok');
+        }).catch(function () {});
+      }
+      return { tabbar, pwdShow, oldPwd, np1, np2, toast, openPwd, doPwd, logout };
+    }
+  });
+  app.use(vant);
+  app.mount('#app');
 </script>
 
 </body>

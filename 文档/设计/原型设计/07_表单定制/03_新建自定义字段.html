@@ -4,13 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>原型 · 新建自定义字段</title>
+<link rel="stylesheet" href="../共享资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../共享资源/原型样式.css">
 <style>
-  .ddl-flow { display: flex; gap: 8px; align-items: center; font-size: 13px; margin-top: 10px; }
-  .step { border: 1px solid #d0d7de; border-radius: 16px; padding: 2px 12px; color: #57606a; }
-  .step.done { background: #dafbe1; color: #2da44e; border-color: #54d675; }
-  .step.fail { background: #ffebe9; color: #cf222e; border-color: #ff8182; }
-  .arrow { color: #8c959f; }
+  .ep-page { background: #fff; border: 1px solid #d0d7de; border-radius: 6px; padding: 16px; }
+  .ep-section { font-weight: 600; margin: 16px 0 12px; padding-bottom: 8px; border-bottom: 1px solid #eaeef2; font-size: 14px; }
 </style>
 </head>
 <body>
@@ -21,95 +19,115 @@
 </div>
 
 <div class="proto-frame" style="max-width:640px">
-  <div class="p-form">
-    <div class="p-section">新建自定义字段（表单：采购申请）</div>
-    <div class="p-row">
-      <div class="p-col p-field"><label>字段名称（中文）</label><input class="p-input" id="f-name-cn" value="项目编号"></div>
-      <div class="p-col p-field"><label>字段名称（英文）</label><input class="p-input" id="f-name-en" value="Project No."></div>
-    </div>
-    <div class="p-row">
-      <div class="p-col p-field"><label>字段类型 <span class="req">*</span></label>
-        <select class="p-select" id="f-type">
-          <option value="text" selected>单行文本</option>
-          <option value="longtext">长文本</option>
-          <option value="number">数字</option>
-          <option value="datetime">日期时间</option>
-          <option value="select">下拉单选（字典）</option>
-          <option value="multi_select">下拉多选（字典）</option>
-          <option value="switch">开关</option>
-          <option value="file">文件</option>
-        </select>
-      </div>
-      <div class="p-col p-field" id="f-opt-box" style="display:none"><label>选项集</label>
-        <select class="p-select"><option>引用字典：项目类型</option><option>自定义选项（逗号分隔）</option></select>
-      </div>
-    </div>
-    <div class="p-row">
-      <div class="p-col p-field"><label>物理列名（自动生成，不可改）</label>
-        <input class="p-input" id="f-col" value="ext_project_no" readonly style="background:#f6f8fa">
-      </div>
-    </div>
+  <div id="app">
+    <div class="ep-page">
+      <div class="ep-section" style="margin-top:0">新建自定义字段（表单：采购申请）</div>
+      <el-form label-width="130px">
+        <el-row :gutter="16">
+          <el-col :span="12">
+            <el-form-item label="字段名称（中文）">
+              <el-input v-model="f.nameCn" placeholder="字段名称（中文）"></el-input>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="字段名称（英文）">
+              <el-input v-model="f.nameEn" placeholder="字段名称（英文）"></el-input>
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-row :gutter="16">
+          <el-col :span="12">
+            <el-form-item label="字段类型" required>
+              <el-select v-model="f.type" style="width:100%">
+                <el-option label="单行文本" value="text"></el-option>
+                <el-option label="长文本" value="longtext"></el-option>
+                <el-option label="数字" value="number"></el-option>
+                <el-option label="日期时间" value="datetime"></el-option>
+                <el-option label="下拉单选（字典）" value="select"></el-option>
+                <el-option label="下拉多选（字典）" value="multi_select"></el-option>
+                <el-option label="开关" value="switch"></el-option>
+                <el-option label="文件" value="file"></el-option>
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12" v-if="isDict">
+            <el-form-item label="选项集">
+              <el-select v-model="f.opt" style="width:100%">
+                <el-option label="引用字典：项目类型" value="引用字典：项目类型"></el-option>
+                <el-option label="自定义选项（逗号分隔）" value="自定义选项（逗号分隔）"></el-option>
+              </el-select>
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-form-item label="物理列名（自动生成，不可改）">
+          <el-input v-model="f.col" disabled></el-input>
+        </el-form-item>
+      </el-form>
 
-    <div class="ddl-flow" id="flow">
-      <span class="step done" data-s="1">元数据入库</span><span class="arrow">→</span>
-      <span class="step" data-s="2">动态 DDL 建列</span><span class="arrow">→</span>
-      <span class="step" data-s="3">已生效</span>
-    </div>
-    <div class="proto-hint" id="flow-hint" style="margin-top:6px">类型映射：单行文本 → VARCHAR(255)</div>
+      <!-- 动态 DDL 说明提示 -->
+      <el-steps :active="flow.active" :process-status="flow.fail ? 'error' : 'process'" finish-status="success" align-center>
+        <el-step title="元数据入库"></el-step>
+        <el-step title="动态 DDL 建列"></el-step>
+        <el-step title="已生效"></el-step>
+      </el-steps>
+      <el-alert :title="flowHint" :type="flowAlertType" :closable="false" show-icon style="margin-top:10px"></el-alert>
 
-    <div class="p-form-actions">
-      <button class="p-btn" onclick="location.href='02_表单设计器.html'">取消</button>
-      <button class="p-btn" id="btn-fail" onclick="simulateFail()">模拟 DDL 失败</button>
-      <button class="p-btn primary" id="btn-create" onclick="createField()">创建并建列</button>
-      <button class="p-btn primary" id="btn-retry" style="display:none" onclick="retryDdl()">重试建列</button>
+      <div class="p-form-actions">
+        <el-button @click="cancel">取消</el-button>
+        <el-button type="danger" plain @click="simulateFail">模拟 DDL 失败</el-button>
+        <el-button v-if="!flow.fail" type="primary" @click="createField">创建并建列</el-button>
+        <el-button v-else type="primary" @click="retryDdl">重试建列</el-button>
+      </div>
     </div>
   </div>
 </div>
 
-<script src="../共享资源/原型脚本.js"></script>
+<script src="../共享资源/vendor/vue.global.prod.js"></script>
+<script src="../共享资源/vendor/element-plus.min.js"></script>
 <script>
-  var colMap = { text: 'VARCHAR(255)', longtext: 'TEXT', number: 'DECIMAL(18,4)', datetime: 'TIMESTAMP', select: 'VARCHAR(64)', multi_select: 'VARCHAR(255)', switch: 'SMALLINT', file: 'VARCHAR(255)' };
-  document.getElementById('f-name-cn').addEventListener('input', function () {
-    var cn = this.value.trim();
-    var py = { '项': 'x', '目': 'm', '编': 'b', '号': 'h', '编': 'b', '号': 'h' };
-    var key = cn.length ? 'ext_' + cn.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase() : 'ext_';
-    document.getElementById('f-col').value = key || 'ext_field';
+  var { createApp, ref, reactive, computed, watch } = Vue;
+  var { ElMessage } = ElementPlus;
+  var app = createApp({
+    template: document.getElementById('app').outerHTML.replace(/<div id="app">/, '<div>').replace(/<\/div>\s*$/, ''),
+    setup: function () {
+      var colMap = { text: 'VARCHAR(255)', longtext: 'TEXT', number: 'DECIMAL(18,4)', datetime: 'TIMESTAMP', select: 'VARCHAR(64)', multi_select: 'VARCHAR(255)', switch: 'SMALLINT', file: 'VARCHAR(255)' };
+      var f = reactive({ nameCn: '项目编号', nameEn: 'Project No.', type: 'text', opt: '引用字典：项目类型', col: 'ext_project_no' });
+      var flow = reactive({ active: 1, fail: false });
+      var isDict = computed(function () { return f.type === 'select' || f.type === 'multi_select'; });
+      var flowAlertType = computed(function () { return flow.fail ? 'error' : (flow.active === 3 ? 'success' : 'info'); });
+      var flowHint = computed(function () {
+        if (flow.fail) return 'DDL 异常：连接失败（已告警，可重试；元数据状态已回滚）';
+        if (flow.active === 3) return '建列成功，字段已生效，可拖入表单布局';
+        if (flow.active === 2) return '动态 DDL 执行中…';
+        return '类型映射：' + colMap[f.type];
+      });
+      watch(function () { return f.nameCn; }, function (v) {
+        var key = 'ext_' + (v || '').replace(/[^a-zA-Z0-9]/g, '_').toLowerCase().replace(/_+/g, '_').replace(/^_|_$/g, '');
+        f.col = key || 'ext_field';
+      });
+      function createField() {
+        var name = (f.nameCn || '').trim();
+        if (!name) { ElMessage({ message: '字段名称必填', type: 'warning' }); return; }
+        flow.active = 2; flow.fail = false;
+        setTimeout(function () { flow.active = 3; ElMessage({ message: '建列成功，字段已生效可拖入布局', type: 'success' }); }, 900);
+      }
+      function simulateFail() {
+        flow.active = 2; flow.fail = false;
+        setTimeout(function () {
+          flow.fail = true;
+          ElMessage({ message: '建列失败（模拟：连接失败）', type: 'error' });
+        }, 700);
+      }
+      function retryDdl() {
+        flow.fail = false; flow.active = 2;
+        setTimeout(function () { flow.active = 3; ElMessage({ message: '重试成功，字段已生效', type: 'success' }); }, 1000);
+      }
+      function cancel() { location.href = '02_表单设计器.html'; }
+      return { f, flow, isDict, flowAlertType, flowHint, createField, simulateFail, retryDdl, cancel };
+    }
   });
-  document.getElementById('f-type').addEventListener('change', function () {
-    var t = this.value;
-    document.getElementById('f-opt-box').style.display = (t === 'select' || t === 'multi_select') ? '' : 'none';
-    document.getElementById('flow-hint').textContent = '类型映射：' + colMap[t];
-  });
-  function createField() {
-    var name = document.getElementById('f-name-cn').value.trim();
-    if (!name) { toast('字段名称必填', 'err'); return; }
-    setStep(2);
-    setTimeout(function () { setStep(3); toast('建列成功，字段已生效可拖入布局', 'ok'); }, 900);
-  }
-  function simulateFail() {
-    setStep(2);
-    setTimeout(function () {
-      setStep(2, true);
-      document.getElementById('btn-create').style.display = 'none';
-      document.getElementById('btn-retry').style.display = '';
-      document.getElementById('flow-hint').textContent = 'DDL 异常：连接失败（已告警，可重试；元数据状态已回滚）';
-      toast('建列失败（模拟：连接失败）', 'err');
-    }, 700);
-  }
-  function retryDdl() {
-    document.getElementById('flow-hint').textContent = '重试中…';
-    setTimeout(function () {
-      setStep(3);
-      document.getElementById('btn-create').style.display = '';
-      document.getElementById('btn-retry').style.display = 'none';
-      toast('重试成功，字段已生效', 'ok');
-    }, 1000);
-  }
-  function setStep(n, fail) {
-    document.querySelectorAll('#flow .step').forEach(function (s, i) {
-      s.className = 'step' + (i + 1 <= n ? (fail && i + 1 === n ? ' fail' : ' done') : '');
-    });
-  }
+  app.use(ElementPlus);
+  app.mount('#app');
 </script>
 
 </body>

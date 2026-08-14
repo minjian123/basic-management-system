@@ -4,9 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>原型 · 模板管理</title>
+<link rel="stylesheet" href="../共享资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../共享资源/原型样式.css">
 <style>
-  .p-table tr.row-link.active { background: #ddf4ff; }
+  .ep-page { background: #fff; border: 1px solid #d0d7de; border-radius: 6px; padding: 16px; }
+  .ep-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+  .ep-toolbar .ep-side { margin-left: auto; }
+  .ep-filter { margin-bottom: 12px; }
+  .ep-pager { display: flex; justify-content: flex-end; margin-top: 12px; }
 </style>
 </head>
 <body>
@@ -17,157 +22,198 @@
 </div>
 
 <div class="proto-frame">
-  <div id="lt-top"></div>
+  <div id="app">
+    <div class="ep-page">
+      <div class="ep-toolbar">
+        <el-button type="primary" @click="openNew">新建模板</el-button>
+        <el-button @click="toastMsg('已刷新')">刷新</el-button>
+        <el-button @click="toastMsg('原型演示：关闭当前模块页面（返回）')">关闭</el-button>
+        <span class="ep-side">
+          <el-button @click="toastMsg('原型演示：导出当前筛选结果')">导出</el-button>
+        </span>
+      </div>
 
-  <!-- 表格无操作列：行点击进入编辑（row-link），状态标签可直接切换启停 -->
-  <table class="p-table" id="tbl">
-    <tr><th>层级</th><th>名称</th><th>绑定角色</th><th>卡片数</th><th>状态</th></tr>
-    <tr class="row-link" data-id="platform" onclick="editTpl(this,'platform','默认工作台')">
-      <td><span class="p-tag blue">平台默认</span></td><td>默认工作台</td><td>—</td><td>5</td>
-      <td><span class="p-tag green" data-role="st" style="cursor:pointer" onclick="event.stopPropagation();toggleTpl(this)">启用</span></td>
-    </tr>
-    <tr class="row-link" data-id="r-admin" onclick="editTpl(this,'r-admin','管理员工作台')">
-      <td><span class="p-tag gray">角色</span></td><td>管理员工作台</td><td>系统管理员</td><td>6</td>
-      <td><span class="p-tag green" data-role="st" style="cursor:pointer" onclick="event.stopPropagation();toggleTpl(this)">启用</span></td>
-    </tr>
-    <tr class="row-link" data-id="r-user" onclick="editTpl(this,'r-user','审批人工作台')">
-      <td><span class="p-tag gray">角色</span></td><td>审批人工作台</td><td>普通角色</td><td>4</td>
-      <td><span class="p-tag green" data-role="st" style="cursor:pointer" onclick="event.stopPropagation();toggleTpl(this)">启用</span></td>
-    </tr>
-  </table>
-  <div id="detail-bar-tpl"></div>
-<div id="pager-tpl"></div>
+      <el-form class="ep-filter" inline size="default" @submit.prevent>
+        <el-form-item label="关键字">
+          <el-input v-model="query.kw" placeholder="关键字：名称/角色" clearable style="width:200px"></el-input>
+        </el-form-item>
+        <el-form-item label="层级">
+          <el-select v-model="query.scope" placeholder="全部" clearable style="width:130px">
+            <el-option label="平台默认" value="platform"></el-option>
+            <el-option label="角色" value="role"></el-option>
+          </el-select>
+        </el-form-item>
+        <el-form-item label="状态">
+          <el-select v-model="query.status" placeholder="全部" clearable style="width:110px">
+            <el-option label="启用" :value="true"></el-option>
+            <el-option label="停用" :value="false"></el-option>
+          </el-select>
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" @click="applyFilter">查询</el-button>
+          <el-button @click="resetFilter">重置</el-button>
+        </el-form-item>
+      </el-form>
+
+      <!-- 表格：行点击进入编辑，状态开关可直接切换启停 -->
+      <el-table :data="pageRows" border stripe highlight-current-row @row-click="openEdit" style="width:100%">
+        <el-table-column label="层级" width="110">
+          <template #default="{ row }">
+            <el-tag size="small" :type="row.scope === 'platform' ? '' : 'info'">{{ row.scope === 'platform' ? '平台默认' : '角色' }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="name" label="名称" min-width="150"></el-table-column>
+        <el-table-column prop="role" label="绑定角色" min-width="120"></el-table-column>
+        <el-table-column prop="cards" label="卡片数" width="80" align="center"></el-table-column>
+        <el-table-column label="状态" width="90">
+          <template #default="{ row }">
+            <el-switch v-model="row.status" @click.stop @change="v => toggleTpl(row, v)"></el-switch>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="200" fixed="right">
+          <template #default="{ row }">
+            <el-button link type="primary" @click="moveTpl(row, -1)">上移</el-button>
+            <el-button link type="primary" @click="moveTpl(row, 1)">下移</el-button>
+            <el-button link type="primary" @click="openEdit(row)">编辑</el-button>
+            <el-button link type="danger" @click="delTpl(row)">删除</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+
+      <div class="ep-pager">
+        <el-pagination background layout="total, sizes, prev, pager, next" :total="filtered.length"
+          :page-size="query.size" :current-page="query.page"
+          @current-change="onPage" @size-change="onSize"></el-pagination>
+      </div>
+    </div>
+
+    <!-- 新建/编辑模板对话框 -->
+    <el-dialog v-model="dlg.visible" :title="dlg.id ? '编辑模板' : '新建模板'" width="520">
+      <el-form label-width="90px">
+        <el-form-item label="层级">
+          <el-select v-model="dlg.scope" style="width:100%">
+            <el-option label="角色模板" value="role"></el-option>
+            <el-option label="平台默认（仅允许一份）" value="platform"></el-option>
+          </el-select>
+        </el-form-item>
+        <el-form-item v-if="dlg.scope === 'role'" label="绑定角色">
+          <el-select v-model="dlg.role" style="width:100%">
+            <el-option label="财务角色" value="财务角色"></el-option>
+            <el-option label="人事角色" value="人事角色"></el-option>
+            <el-option label="报表查看角色" value="报表查看角色"></el-option>
+          </el-select>
+        </el-form-item>
+        <el-form-item label="名称">
+          <el-input v-model="dlg.name" placeholder="模板名称"></el-input>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <span style="float:left">
+          <el-button v-if="dlg.id" @click="toastMsg('原型演示：跳转「工作台编辑」复用编辑画布')">编辑布局</el-button>
+          <el-button v-if="dlg.id" type="danger" plain @click="delTplDrawer">删除</el-button>
+        </span>
+        <el-button @click="dlg.visible = false">取消</el-button>
+        <el-button type="primary" @click="saveTpl">{{ dlg.id ? '保存' : '创建' }}</el-button>
+      </template>
+    </el-dialog>
+  </div>
 </div>
 
-<!-- 新建/编辑模板抽屉（宽 640）：表单字段保留 -->
-<div class="p-drawer w640" id="drawer-tpl">
-  <div class="pd-head">新建模板<span class="x" onclick="closeDrawer('drawer-tpl')">✕</span></div>
-  <div class="pd-body">
-    <div class="p-field"><label>层级</label>
-      <select class="p-select" id="f-scope">
-        <option value="role">角色模板</option>
-        <option value="platform">平台默认（仅允许一份）</option>
-      </select>
-    </div>
-    <div style="height:10px"></div>
-    <div class="p-field"><label>绑定角色（角色模板时）</label>
-      <select class="p-select" id="f-role"><option>财务角色</option><option>人事角色</option><option>报表查看角色</option></select>
-    </div>
-    <div style="height:10px"></div>
-    <div class="p-field"><label>名称</label><input class="p-input" id="f-name" placeholder="模板名称"></div>
-  </div>
-  <div class="pd-foot">
-    <span style="margin-right:auto">
-      <button class="p-btn" id="btn-layout" style="display:none" onclick="toast('原型演示：跳转「工作台编辑」复用编辑画布')">编辑布局</button>
-      <button class="p-btn danger" id="btn-del" style="display:none" onclick="delTplDrawer()">删除</button>
-    </span>
-    <button class="p-btn" onclick="closeDrawer('drawer-tpl')">取消</button>
-    <button class="p-btn primary" onclick="saveTpl()">创建</button>
-  </div>
-</div>
-
-<script src="../共享资源/原型脚本.js"></script>
-<script src="../02_公共原型/分页.js"></script>
-<script src="../02_公共原型/列表页工具栏.js"></script>
-<script src="../02_公共原型/明细工具栏.js"></script>
+<script src="../共享资源/vendor/vue.global.prod.js"></script>
+<script src="../共享资源/vendor/element-plus.min.js"></script>
 <script>
-  renderListToolbar({
-    top: document.getElementById('lt-top'),
-    bottom: document.getElementById('pager-tpl'),
-    primary: { label: '新建模板', onClick: function () { editTpl(null); } },
-    buttons: [
-      { label: '刷新', onClick: function () { toast('已刷新'); } },
-      { label: '关闭', onClick: function () { toast('原型演示：关闭当前模块页面（返回）'); } }
-    ],
-    extra: '<button class="p-btn" onclick="toast(\'原型演示：导出当前筛选结果\')">导出</button>',
-    page: { total: 3, page: 1, size: 20, onPage: function (n) { toast('第 ' + n + ' 页'); } }
+  var { createApp, ref, reactive, computed } = Vue;
+  var { ElMessage, ElMessageBox } = ElementPlus;
+  var app = createApp({
+    template: document.getElementById('app').outerHTML.replace(/<div id="app">/, '<div>').replace(/<\/div>\s*$/, ''),
+    setup: function () {
+      var tpls = ref([
+        { id: 'platform', name: '默认工作台', scope: 'platform', role: '—', cards: 5, status: true },
+        { id: 'r-admin', name: '管理员工作台', scope: 'role', role: '系统管理员', cards: 6, status: true },
+        { id: 'r-user', name: '审批人工作台', scope: 'role', role: '普通角色', cards: 4, status: true }
+      ]);
+      var query = reactive({ kw: '', scope: '', status: '', page: 1, size: 10 });
+      var dlg = reactive({ visible: false, id: null, scope: 'role', role: '财务角色', name: '' });
+      var filtered = computed(function () {
+        return tpls.value.filter(function (r) {
+          var text = (r.name + r.role).toLowerCase();
+          var kwOk = !query.kw || text.indexOf(query.kw.toLowerCase()) >= 0;
+          var scOk = !query.scope || r.scope === query.scope;
+          var stOk = query.status === '' || query.status === undefined || query.status === null || r.status === query.status;
+          return kwOk && scOk && stOk;
+        });
+      });
+      var pageRows = computed(function () {
+        var s = (query.page - 1) * query.size;
+        return filtered.value.slice(s, s + query.size);
+      });
+      function toastMsg(m) { ElMessage(m); }
+      function applyFilter() { query.page = 1; ElMessage({ message: '命中 ' + filtered.value.length + ' 条', type: 'success' }); }
+      function resetFilter() { query.kw = ''; query.scope = ''; query.status = ''; query.page = 1; }
+      function onPage(n) { query.page = n; }
+      function onSize(s) { query.size = s; query.page = 1; }
+      function toggleTpl(row, v) {
+        if (v) ElMessage({ message: '已启用', type: 'success' });
+        else ElMessage({ message: '已停用——相关用户回退下一级', type: 'warning' });
+      }
+      function moveTpl(row, dir) {
+        var list = tpls.value, i = list.indexOf(row), j = i + dir;
+        if (j < 0 || j >= list.length) { ElMessage({ message: dir < 0 ? '已是第一行' : '已是最后一行', type: 'warning' }); return; }
+        var tmp = list[i]; list[i] = list[j]; list[j] = tmp;
+        ElMessage({ message: '模板优先级已调整', type: 'success' });
+      }
+      function delTpl(row) {
+        ElMessageBox.confirm('删除模板「' + row.name + '」？绑定该模板的用户将回退到下一级模板（平台默认）。', '删除确认', { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' })
+          .then(function () {
+            tpls.value = tpls.value.filter(function (r) { return r !== row; });
+            ElMessage({ message: '已删除，用户回退平台默认', type: 'success' });
+          })
+          .catch(function () {});
+      }
+      function openNew() {
+        dlg.visible = true; dlg.id = null;
+        dlg.scope = 'role'; dlg.role = '财务角色'; dlg.name = '';
+      }
+      function openEdit(row) {
+        dlg.visible = true; dlg.id = row.id;
+        dlg.scope = row.scope; dlg.role = row.role === '—' ? '财务角色' : row.role; dlg.name = row.name;
+      }
+      function delTplDrawer() {
+        if (!dlg.id) return;
+        var name = (dlg.name || '').trim() || '该模板';
+        ElMessageBox.confirm('删除模板「' + name + '」？绑定该模板的用户将回退到下一级模板（平台默认）。', '删除确认', { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' })
+          .then(function () {
+            tpls.value = tpls.value.filter(function (r) { return r.id !== dlg.id; });
+            dlg.visible = false; dlg.id = null;
+            ElMessage({ message: '已删除，用户回退平台默认', type: 'success' });
+          })
+          .catch(function () {});
+      }
+      function saveTpl() {
+        var name = (dlg.name || '').trim();
+        if (!name) { ElMessage({ message: '名称必填', type: 'warning' }); return; }
+        if (dlg.scope === 'platform' && !dlg.id) {
+          var exist = tpls.value.find(function (r) { return r.scope === 'platform'; });
+          if (exist) { ElMessage({ message: '平台默认模板仅允许一份（40306）', type: 'warning' }); return; }
+        }
+        if (dlg.id) {
+          var row = tpls.value.find(function (r) { return r.id === dlg.id; });
+          if (row) { row.name = name; row.scope = dlg.scope; row.role = dlg.scope === 'platform' ? '—' : dlg.role; }
+          ElMessage({ message: '模板已更新', type: 'success' });
+        } else {
+          tpls.value.push({
+            id: 'new' + Date.now(), name: name, scope: dlg.scope,
+            role: dlg.scope === 'platform' ? '—' : dlg.role, cards: 0, status: true
+          });
+          ElMessage({ message: '模板已创建（编辑布局复用工作台编辑画布）', type: 'success' });
+        }
+        dlg.visible = false; dlg.id = null;
+      }
+      return { tpls, query, dlg, filtered, pageRows, toastMsg, applyFilter, resetFilter, onPage, onSize, toggleTpl, moveTpl, delTpl, openNew, openEdit, delTplDrawer, saveTpl };
+    }
   });
-  // 明细工具栏：模板行管理（新增/删除/上移/下移排序；分页由列表页工具栏渲染）
-  renderDetailBar(document.getElementById('detail-bar-tpl'), {
-    readonly: false,
-    rowTools: ['add', 'del', 'up', 'down'],
-    tools: ['refresh', 'fullscreen'],
-    onAdd: function () { editTpl(null); },
-    onDelete: function () {
-      var tr = document.querySelector('#tbl tr.active');
-      if (!tr) { toast('请先选择一行模板', 'err'); return; }
-      confirmAction('删除选中模板？绑定该模板的用户将回退到下一级模板（平台默认）。', function () { tr.remove(); toast('已删除，用户回退平台默认', 'ok'); });
-    },
-    onMoveUp: function () { moveTplRow(-1); },
-    onMoveDown: function () { moveTplRow(1); },
-    onTool: function (t) { toast('原型演示：' + ({ refresh: '刷新', fullscreen: '全屏' }[t] || t)); }
-  });
-  function moveTplRow(dir) {
-    var tr = document.querySelector('#tbl tr.active');
-    if (!tr) { toast('请先选择一行模板', 'err'); return; }
-    var tb = tr.parentNode, t = dir < 0 ? tr.previousElementSibling : tr.nextElementSibling;
-    if (!t) { toast(dir < 0 ? '已是第一行' : '已是最后一行', 'err'); return; }
-    tb.insertBefore(dir < 0 ? tr : t, dir < 0 ? t : tr);
-    toast('模板优先级已调整', 'ok');
-  }
-  var editId = null;
-
-  function editTpl(tr, id, name) {
-    document.querySelectorAll('#tbl tr.row-link').forEach(function (x) { x.classList.remove('active'); });
-    if (tr) tr.classList.add('active');
-    editId = id || null;
-    if (editId) {
-      openDrawer('drawer-tpl', '编辑模板');
-      document.getElementById('btn-layout').style.display = '';
-      document.getElementById('btn-del').style.display = '';
-      document.getElementById('f-name').value = name || '';
-      document.getElementById('f-scope').value = editId === 'platform' ? 'platform' : 'role';
-    } else {
-      openDrawer('drawer-tpl', '新建模板');
-      document.getElementById('btn-layout').style.display = 'none';
-      document.getElementById('btn-del').style.display = 'none';
-      document.getElementById('f-name').value = '';
-    }
-  }
-
-  function toggleTpl(btn) {
-    var tr = btn.closest('tr'), st = tr.querySelector('[data-role="st"]');
-    if (st.classList.contains('green')) { st.className = 'p-tag gray'; st.textContent = '停用'; btn.textContent = '启用'; toast('已停用——相关用户回退下一级'); }
-    else { st.className = 'p-tag green'; st.textContent = '启用'; btn.textContent = '停用'; toast('已启用', 'ok'); }
-  }
-  function delTplDrawer() {
-    if (!editId) return;
-    var name = document.getElementById('f-name').value.trim() || '该模板';
-    confirmAction('删除模板「' + name + '」？绑定该模板的用户将回退到下一级模板（平台默认）。', function () {
-      var tr = document.querySelector('#tbl tr[data-id="' + editId + '"]');
-      if (tr) tr.remove();
-      closeDrawer('drawer-tpl');
-      editId = null;
-      toast('已删除，用户回退平台默认', 'ok');
-    });
-  }
-  function saveTpl() {
-    var scope = document.getElementById('f-scope').value, name = document.getElementById('f-name').value.trim(), role = document.getElementById('f-role').value;
-    if (!name) { toast('名称必填', 'err'); return; }
-    if (scope === 'platform') {
-      var exist = document.querySelector('#tbl tr[data-id="platform"]');
-      if (exist) { toast('平台默认模板仅允许一份（40306）', 'err'); return; }
-    }
-    if (editId) {
-      var tr = document.querySelector('#tbl tr[data-id="' + editId + '"]');
-      if (tr) { tr.cells[1].textContent = name; tr.cells[2].textContent = scope === 'platform' ? '—' : role; }
-      toast('模板已更新', 'ok');
-      closeDrawer('drawer-tpl');
-      editId = null;
-      return;
-    }
-    closeDrawer('drawer-tpl');
-    var tbody = document.getElementById('tbl'), tr = document.createElement('tr');
-    var isRole = scope === 'role';
-    var nid = 'new';
-    tr.className = 'row-link';
-    tr.setAttribute('data-id', nid);
-    tr.setAttribute('onclick', 'editTpl(this,\'' + nid + '\',\'' + name + '\')');
-    tr.innerHTML = '<td><span class="p-tag ' + (isRole ? 'gray' : 'blue') + '">' + (isRole ? '角色' : '平台默认') + '</span></td><td>' + name + '</td><td>' + (isRole ? role : '—') + '</td><td>0</td>' +
-      '<td><span class="p-tag green" data-role="st" style="cursor:pointer" onclick="event.stopPropagation();toggleTpl(this)">启用</span></td>';
-    tbody.appendChild(tr);
-    toast('模板已创建（编辑布局复用工作台编辑画布）', 'ok');
-  }
+  app.use(ElementPlus);
+  app.mount('#app');
 </script>
 
 </body>

@@ -4,11 +4,24 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>原型 · 移动通知列表</title>
+<link rel="stylesheet" href="../共享资源/vendor/vant.css">
 <link rel="stylesheet" href="../共享资源/原型样式.css">
 <style>
+  /* 手机屏模拟：375px 宽（Vant 移动端布局基准宽度） */
+  .p-phone { max-width: 375px; }
   /* 未读消息行级高亮：加粗 + 浅色背景（待处理语义色系） */
-  .msg-item[data-unread="1"] { background: #fff8c5; font-weight: 600; }
-  .msg-item[data-unread="1"] .m-icon { font-weight: normal; }
+  .msg-item.msg-unread { background: #fff8c5; }
+  .msg-item.msg-unread .m-title { font-weight: 600; }
+  .msg-card { background: #fff; border: 1px solid #d0d7de; border-radius: 10px; overflow: hidden; }
+  .msg-tools { display: flex; gap: 8px; align-items: center; padding: 10px 12px; border-bottom: 1px solid #eaeef2; }
+  /* 左滑删除示意：消息行左移 18px，露出红色删除按钮（滑动交互） */
+  .del-zone { background: #ffebe9; border-radius: 6px; margin: 8px 10px 0; padding: 3px 10px; text-align: right; }
+  .msg-item.msg-swiped { transform: translateX(-18px); border-radius: 6px; margin: 0 10px; width: calc(100% - 20px); }
+  .msg-item .m-icon { font-size: 18px; margin-right: 8px; }
+  .m-title { font-size: 13px; }
+  .m-time { color: #8c959f; font-size: 12px; margin-top: 2px; }
+  .msg-item .van-cell__right-icon { margin-left: 8px; display: flex; align-items: center; gap: 6px; }
+  .list-hint { text-align: center; color: #8c959f; font-size: 12px; padding: 8px; }
 </style>
 </head>
 <body>
@@ -20,104 +33,86 @@
 
 <div class="proto-frame">
   <div class="p-phone">
-    <!-- 顶部安全区：刘海屏由 NavBar 背景延伸填充；根页 NavBar 无返回箭头、标题居中 -->
-    <div class="pp-status" style="text-align:center">消息 <span style="float:right;font-size:12px;font-weight:normal">角标实时（Socket.IO）</span></div>
-    <div class="pp-body">
-      <div style="background:#fff;border:1px solid #d0d7de;border-radius:10px;overflow:hidden">
-        <div style="display:flex;gap:8px;align-items:center;padding:10px 12px;border-bottom:1px solid #eaeef2">
-          <button class="p-btn sm" onclick="readAll()">全部已读</button>
-          <button class="p-btn sm batch-btn" disabled onclick="readSel()">批量已读</button>
-          <span class="proto-hint" style="margin-left:auto">勾选后批量已读；左滑消息行删除</span>
-        </div>
-        <!-- 左滑删除示意：消息行左移 18px，露出红色删除按钮（滑动交互） -->
-        <div style="background:#ffebe9;border-radius:6px;margin:8px 10px 0;padding:3px 10px;text-align:right">
-          <button class="p-btn sm danger" style="padding:2px 10px">删除</button>
-        </div>
-        <div class="msg-item" data-unread="1" onclick="markRead(this)" style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid #eaeef2;cursor:pointer;transform:translateX(-18px);border-radius:6px;margin:0 10px;width:calc(100% - 20px)">
-          <input type="checkbox" class="row-chk" onclick="event.stopPropagation();updBatch()">
-          <span class="m-icon">📋</span>
-          <div style="flex:1;min-width:0">
-            <div class="m-title" style="font-size:13px">审批通过：采购申请 CG202608001</div>
-            <div style="color:#8c959f;font-size:12px;margin-top:2px">08-12 10:00</div>
+    <div id="app">
+      <van-nav-bar title="消息"></van-nav-bar>
+      <div class="pp-body">
+        <div class="msg-card">
+          <div class="msg-tools">
+            <van-button size="small" @click="readAll">全部已读</van-button>
+            <van-button size="small" :disabled="!selCount" @click="readSel">批量已读</van-button>
+            <span class="proto-hint" style="margin-left:auto">勾选后批量已读；左滑消息行删除</span>
           </div>
-          <span class="p-tag red">未读</span>
-        </div>
-        <div class="msg-item" data-unread="1" onclick="markRead(this)" style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid #eaeef2;cursor:pointer">
-          <input type="checkbox" class="row-chk" onclick="event.stopPropagation();updBatch()">
-          <span class="m-icon">🔔</span>
-          <div style="flex:1;min-width:0">
-            <div class="m-title" style="font-size:13px">新待办：付款申请 FK202608002</div>
-            <div style="color:#8c959f;font-size:12px;margin-top:2px">08-11 15:02</div>
+          <!-- 左滑删除示意：露出红色删除按钮 -->
+          <div class="del-zone">
+            <van-button size="mini" type="danger" plain>删除</van-button>
           </div>
-          <span class="p-tag red">未读</span>
+          <!-- 消息行：未读高亮 + 勾选 + 已读状态 -->
+          <van-cell v-for="(m, i) in msgs" :key="m.id" class="msg-item"
+            :class="{ 'msg-unread': !m.read, 'msg-swiped': i === 0 }" @click="markRead(m)">
+            <template #icon><span class="m-icon">{{ m.icon }}</span></template>
+            <template #title>
+              <div class="m-title">{{ m.title }}</div>
+              <div class="m-time">{{ m.time }}</div>
+            </template>
+            <template #right-icon>
+              <van-checkbox v-model="m.checked" shape="square" @click.stop @change="updBatch"></van-checkbox>
+              <van-tag :type="m.read ? 'default' : 'danger'">{{ m.read ? '已读' : '未读' }}</van-tag>
+            </template>
+          </van-cell>
         </div>
-        <div class="msg-item" data-unread="0" onclick="toast('原型演示：跳转单据')" style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid #eaeef2;cursor:pointer">
-          <input type="checkbox" class="row-chk" onclick="event.stopPropagation();updBatch()">
-          <span class="m-icon">🔄</span>
-          <div style="flex:1;min-width:0">
-            <div class="m-title" style="font-size:13px">你发起的 CG202608001 已进入财务节点</div>
-            <div style="color:#8c959f;font-size:12px;margin-top:2px">08-12 10:02</div>
-          </div>
-          <span class="p-tag gray">已读</span>
-        </div>
-        <div class="msg-item" data-unread="0" onclick="toast('原型演示：跳转公告详情')" style="display:flex;align-items:center;gap:8px;padding:10px 12px;cursor:pointer">
-          <input type="checkbox" class="row-chk" onclick="event.stopPropagation();updBatch()">
-          <span class="m-icon">📢</span>
-          <div style="flex:1;min-width:0">
-            <div class="m-title" style="font-size:13px">系统升级维护通知（公告）</div>
-            <div style="color:#8c959f;font-size:12px;margin-top:2px">08-13 08:00</div>
-          </div>
-          <span class="p-tag gray">已读</span>
-        </div>
+        <div class="list-hint">下拉刷新 / 触底加载（骨架屏）</div>
       </div>
-      <div style="text-align:center;color:#8c959f;font-size:12px;padding:8px">下拉刷新 / 触底加载（骨架屏）</div>
-    </div>
-    <!-- 底部 TabBar：消息 Tab 高亮；底部安全区需避让 Home 指示条（env(safe-area-inset-bottom)） -->
-    <div class="pp-tabbar">
-      <div>🏠 首页</div><div>📋 待办</div><div style="color:#0969da;font-weight:600">💬 消息</div><div>👤 我的</div>
+      <!-- 底部 TabBar：消息 Tab 高亮 -->
+      <van-tabbar :fixed="false" v-model="tabbar">
+        <van-tabbar-item name="home" icon="wap-home-o">首页</van-tabbar-item>
+        <van-tabbar-item name="todo" icon="todo-list-o">待办</van-tabbar-item>
+        <van-tabbar-item name="msg" icon="chat-o" :badge="unreadCount">消息</van-tabbar-item>
+        <van-tabbar-item name="me" icon="user-o">我的</van-tabbar-item>
+      </van-tabbar>
     </div>
   </div>
   <div class="proto-note">消息行点击：标记已读并跳转单据；未读行高亮（加粗+浅色背景）。</div>
 </div>
 
-<script src="../共享资源/原型脚本.js"></script>
+<script src="../共享资源/vendor/vue.global.prod.js"></script>
+<script src="../共享资源/vendor/vant.min.js"></script>
 <script>
-  // 消息行点击：标记已读 + 跳转单据
-  function markRead(tr) {
-    if (tr.getAttribute('data-unread') === '1') {
-      tr.setAttribute('data-unread', '0');
-      tr.style.background = ''; tr.style.fontWeight = '';
-      var tag = tr.querySelector('.p-tag.red');
-      if (tag) { tag.className = 'p-tag gray'; tag.textContent = '已读'; }
+  var { createApp, ref, computed } = Vue;
+  var app = createApp({
+    template: document.getElementById('app').innerHTML,
+    setup: function () {
+      var tabbar = ref('msg');
+      var msgs = ref([
+        { id: 1, icon: '📋', title: '审批通过：采购申请 CG202608001', time: '08-12 10:00', read: false, checked: false },
+        { id: 2, icon: '🔔', title: '新待办：付款申请 FK202608002', time: '08-11 15:02', read: false, checked: false },
+        { id: 3, icon: '🔄', title: '你发起的 CG202608001 已进入财务节点', time: '08-12 10:02', read: true, checked: false },
+        { id: 4, icon: '📢', title: '系统升级维护通知（公告）', time: '08-13 08:00', read: true, checked: false }
+      ]);
+      var selCount = computed(function () { return msgs.value.filter(function (m) { return m.checked; }).length; });
+      var unreadCount = computed(function () { return msgs.value.filter(function (m) { return !m.read; }).length; });
+      function toast(msg, type) {
+        vant.showToast(type === 'err' ? { message: msg, type: 'fail' } : type === 'ok' ? { message: msg, type: 'success' } : msg);
+      }
+      // 消息行点击：标记已读 + 跳转单据
+      function markRead(m) {
+        m.read = true;
+        toast('跳转单据：' + m.title + '（原型演示）');
+      }
+      function updBatch() {}
+      function readSel() {
+        if (!selCount.value) { toast('请先勾选消息', 'err'); return; }
+        msgs.value.forEach(function (m) { if (m.checked) { m.read = true; m.checked = false; } });
+        toast('批量已读完成', 'ok');
+      }
+      function readAll() {
+        msgs.value.forEach(function (m) { m.read = true; m.checked = false; });
+        toast('全部已读（角标归零）', 'ok');
+      }
+      return { tabbar, msgs, selCount, unreadCount, toast, markRead, updBatch, readSel, readAll };
     }
-    var t = tr.querySelector('.m-title');
-    toast('跳转单据：' + (t ? t.textContent : '') + '（原型演示）');
-  }
-  function updBatch() {
-    var any = !!document.querySelector('.row-chk:checked');
-    document.querySelectorAll('.batch-btn').forEach(function (b) { b.disabled = !any; });
-  }
-  function readSel() {
-    var sels = document.querySelectorAll('.row-chk:checked');
-    if (!sels.length) { toast('请先勾选消息', 'err'); return; }
-    sels.forEach(function (x) {
-      var tr = x.closest('.msg-item');
-      tr.setAttribute('data-unread', '0');
-      tr.style.background = ''; tr.style.fontWeight = '';
-      var tag = tr.querySelector('.p-tag.red');
-      if (tag) { tag.className = 'p-tag gray'; tag.textContent = '已读'; }
-    });
-    toast('批量已读完成', 'ok'); updBatch();
-  }
-  function readAll() {
-    document.querySelectorAll('.msg-item').forEach(function (tr) {
-      tr.setAttribute('data-unread', '0');
-      tr.style.background = ''; tr.style.fontWeight = '';
-      var tag = tr.querySelector('.p-tag.red');
-      if (tag) { tag.className = 'p-tag gray'; tag.textContent = '已读'; }
-    });
-    updBatch(); toast('全部已读（角标归零）', 'ok');
-  }
+  });
+  app.use(vant);
+  app.mount('#app');
 </script>
 
 </body>

@@ -4,14 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>原型 · 角色权限配置</title>
+<link rel="stylesheet" href="../共享资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../共享资源/原型样式.css">
 <style>
-  .perm-split { display: flex; gap: 12px; align-items: flex-start; }
-  .perm-left { flex: 0 0 260px; background: #fff; border: 1px solid #d0d7de; border-radius: 8px; padding: 12px; }
-  .perm-right { flex: 1; background: #fff; border: 1px solid #d0d7de; border-radius: 8px; padding: 14px; }
-  .m-tree { list-style: none; margin: 0; padding: 0; font-size: 13px; }
-  .m-tree li { padding: 3px 0; }
-  .m-tree ul { list-style: none; padding-left: 18px; }
+  .ep-page { background: #fff; border: 1px solid #d0d7de; border-radius: 6px; padding: 16px; }
+  .ep-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 6px 0 10px; flex-wrap: wrap; }
+  .ep-pager { display: flex; justify-content: flex-end; margin-top: 12px; }
 </style>
 </head>
 <body>
@@ -22,113 +20,152 @@
 </div>
 
 <div class="proto-frame">
-  <div class="proto-note">按《布局设计-弹窗》权限配置已改为角色列表页进入的 <b>640px 抽屉</b>（列表页工具栏「权限配置」），本独立页保留仅供参考/直接预览，结构即抽屉内容。</div>
-  <div class="p-tabs" id="tabs">
-    <div class="p-tab active" data-pane="menu" onclick="switchT('menu')">菜单/表单权限</div>
-    <div class="p-tab" data-pane="btn" onclick="switchT('btn')">按钮权限</div>
-    <div class="p-tab" data-pane="scope" onclick="switchT('scope')">数据范围</div>
-    <div class="p-tab" data-pane="field" onclick="switchT('field')">字段权限</div>
-  </div>
+  <div id="app">
+    <div class="ep-page">
+      <div class="proto-note">按《布局设计-弹窗》权限配置已改为角色列表页进入的 <b>640px 抽屉</b>（列表页工具栏「权限配置」），本独立页保留仅供参考/直接预览，结构即抽屉内容。</div>
 
-  <!-- 菜单权限 -->
-  <div id="pane-menu">
-    <div class="perm-split">
-      <div class="perm-left">
-        <b style="font-size:13px">菜单树（勾选授予）</b>
-        <ul class="m-tree" id="menu-tree">
-          <li><label><input type="checkbox" checked> 首页工作台</label></li>
-          <li><label><input type="checkbox" checked> 组织与权限</label>
-            <ul>
-              <li><label><input type="checkbox" checked> 用户管理</label></li>
-              <li><label><input type="checkbox" checked> 角色管理</label></li>
-              <li><label><input type="checkbox"> 菜单管理</label></li>
-              <li><label><input type="checkbox"> 表单定制</label></li>
-            </ul>
-          </li>
-          <li><label><input type="checkbox"> 治理</label></li>
-          <li><label><input type="checkbox" checked> 业务</label>
-            <ul>
-              <li><label><input type="checkbox" checked> 采购申请</label></li>
-              <li><label><input type="checkbox"> 收付款管理</label></li>
-            </ul>
-          </li>
-        </ul>
-      </div>
-      <div class="perm-right">
-        <b style="font-size:13px">已授予业务权限</b>
-        <div style="margin-top:8px">
-          <span class="p-tag blue">user</span> <span class="p-tag blue">role</span> <span class="p-tag blue">wf</span> <span class="p-tag blue">purchase</span> <span class="p-tag gray">dashboard</span> <span class="p-tag gray">notice</span>
-        </div>
+      <el-tabs v-model="tab">
+        <!-- ① 菜单/表单权限 -->
+        <el-tab-pane label="菜单/表单权限" name="menu">
+          <el-row :gutter="12">
+            <el-col :span="10">
+              <b style="font-size:13px">菜单树（勾选授予）</b>
+              <el-tree :data="menuTree" show-checkbox node-key="id" :default-checked-keys="menuChecked" style="margin-top:8px;font-size:13px"></el-tree>
+            </el-col>
+            <el-col :span="14">
+              <b style="font-size:13px">已授予业务权限</b>
+              <div style="margin-top:8px">
+                <el-tag v-for="t in bizTags" :key="t.name" :type="t.granted ? 'primary' : 'info'" style="margin:0 4px 4px 0">{{ t.name }}</el-tag>
+              </div>
+            </el-col>
+          </el-row>
+        </el-tab-pane>
+
+        <!-- ② 按钮权限 -->
+        <el-tab-pane label="按钮权限" name="btn">
+          <div class="ep-toolbar">
+            <span class="proto-hint">按钮权限（挂动作码）</span>
+            <span>
+              <el-button size="small" @click="toastMsg('原型演示：刷新')" title="刷新">⟳</el-button>
+              <el-button size="small" @click="toastMsg('原型演示：全屏')" title="全屏">⛶</el-button>
+            </span>
+          </div>
+          <el-table :data="btnPerms" border>
+            <el-table-column prop="form" label="表单" min-width="110"></el-table-column>
+            <el-table-column label="按钮（挂动作）" min-width="200">
+              <template #default="{ row }">{{ row.btn }} {{ row.code }}</template>
+            </el-table-column>
+            <el-table-column label="授予" width="70" align="center">
+              <template #default="{ row }"><el-checkbox v-model="row.granted"></el-checkbox></template>
+            </el-table-column>
+          </el-table>
+        </el-tab-pane>
+
+        <!-- ③ 数据范围 -->
+        <el-tab-pane label="数据范围" name="scope">
+          <div class="ep-toolbar">
+            <span class="proto-hint">动作级数据范围</span>
+            <span>
+              <el-button size="small" @click="toastMsg('原型演示：刷新')" title="刷新">⟳</el-button>
+              <el-button size="small" @click="toastMsg('原型演示：全屏')" title="全屏">⛶</el-button>
+            </span>
+          </div>
+          <el-table :data="scopes" border>
+            <el-table-column prop="action" label="动作" min-width="180"></el-table-column>
+            <el-table-column label="数据范围" min-width="200">
+              <template #default="{ row }">
+                <el-select v-model="row.scope" style="width:100%">
+                  <el-option v-for="o in scopeOptions" :key="o" :label="o" :value="o"></el-option>
+                </el-select>
+              </template>
+            </el-table-column>
+          </el-table>
+        </el-tab-pane>
+
+        <!-- ④ 字段权限 -->
+        <el-tab-pane label="字段权限" name="field">
+          <div class="ep-toolbar">
+            <span class="proto-hint">字段可见/可编辑</span>
+            <span>
+              <el-button size="small" @click="toastMsg('原型演示：刷新')" title="刷新">⟳</el-button>
+              <el-button size="small" @click="toastMsg('原型演示：全屏')" title="全屏">⛶</el-button>
+            </span>
+          </div>
+          <el-table :data="fields" border>
+            <el-table-column prop="field" label="字段" min-width="160"></el-table-column>
+            <el-table-column label="可见" width="90" align="center">
+              <template #default="{ row }"><el-checkbox v-model="row.visible"></el-checkbox></template>
+            </el-table-column>
+            <el-table-column label="可编辑" width="90" align="center">
+              <template #default="{ row }"><el-checkbox v-model="row.editable"></el-checkbox></template>
+            </el-table-column>
+          </el-table>
+        </el-tab-pane>
+      </el-tabs>
+
+      <!-- ⑤ 底部操作 -->
+      <div style="margin-top:14px;display:flex;justify-content:flex-end;gap:8px">
+        <el-button @click="toastMsg('已关闭')">取消</el-button>
+        <el-button type="primary" @click="savePerm">保存（权限版本 +1）</el-button>
       </div>
     </div>
   </div>
-
-  <!-- 按钮权限 -->
-  <div id="pane-btn" style="display:none">
-    <div class="p-form">
-      <table class="p-table">
-        <tr><th>表单</th><th>按钮（挂动作）</th><th>授予</th></tr>
-        <tr><td>用户管理</td><td>查询 user:query</td><td><input type="checkbox" checked></td></tr>
-        <tr><td>用户管理</td><td>新增 user:create</td><td><input type="checkbox"></td></tr>
-        <tr><td>用户管理</td><td>修改 user:update</td><td><input type="checkbox"></td></tr>
-        <tr><td>用户管理</td><td>删除 user:delete</td><td><input type="checkbox"></td></tr>
-<tr><td>用户管理</td><td>重置密码 user:reset_pwd</td><td><input type="checkbox"></td></tr>
-</table>
-<div id="detail-bar-perm1"></div>
-</div>
 </div>
 
-<!-- 数据范围 -->
-  <div id="pane-scope" style="display:none">
-    <div class="p-form">
-      <div class="proto-hint" style="margin-bottom:10px">动作级数据范围</div>
-      <table class="p-table">
-        <tr><th>动作</th><th>数据范围</th></tr>
-        <tr><td>用户管理 · 查询</td><td><select class="p-select" style="width:auto"><option>全部数据</option><option>本部门及以下</option><option>仅本人</option><option selected>自定义表达式</option></select></td></tr>
-<tr><td>采购申请 · 查询</td><td><select class="p-select" style="width:auto"><option>全部数据</option><option selected>本部门及以下</option><option>仅本人</option><option>自定义表达式</option></select></td></tr>
-</table>
-<div id="detail-bar-perm2"></div>
-</div>
-</div>
-
-<!-- 字段权限 -->
-  <div id="pane-field" style="display:none">
-    <div class="p-form">
-      <table class="p-table">
-        <tr><th>字段</th><th>可见</th><th>可编辑</th></tr>
-        <tr><td>用户名</td><td><input type="checkbox" checked></td><td><input type="checkbox" checked></td></tr>
-        <tr><td>手机号</td><td><input type="checkbox" checked></td><td><input type="checkbox"></td></tr>
-<tr><td>部门</td><td><input type="checkbox" checked></td><td><input type="checkbox" checked></td></tr>
-</table>
-<div id="detail-bar-perm3"></div>
-</div>
-</div>
-
-  <div style="margin-top:14px;display:flex;justify-content:flex-end;gap:8px">
-    <button class="p-btn" onclick="toast('已关闭')">取消</button>
-    <button class="p-btn primary" onclick="savePerm()">保存（权限版本 +1）</button>
-  </div>
-</div>
-
-<script src="../共享资源/原型脚本.js"></script>
-<script src="../02_公共原型/明细工具栏.js"></script>
+<script src="../共享资源/vendor/vue.global.prod.js"></script>
+<script src="../共享资源/vendor/element-plus.min.js"></script>
 <script>
-  // 明细工具栏：权限勾选表工具类（无增删行语义，仅刷新/全屏）
-  ['perm1', 'perm2', 'perm3'].forEach(function (id) {
-    renderDetailBar(document.getElementById('detail-bar-' + id), {
-      readonly: false,
-      rowTools: [],
-      tools: ['refresh', 'fullscreen'],
-      onTool: function (t) { toast('原型演示：' + ({ refresh: '刷新', fullscreen: '全屏' }[t] || t)); }
-    });
+  var { createApp, ref } = Vue;
+  var ElMessage = ElementPlus.ElMessage;
+  var app = createApp({
+    template: document.getElementById('app').outerHTML.replace(/<div id="app">/, '<div>').replace(/<\/div>\s*$/, ''),
+    setup: function () {
+      var tab = ref('menu');
+      var menuTree = [
+        { id: 'd1', label: '首页工作台' },
+        { id: 'o1', label: '组织与权限', children: [
+          { id: 'u1', label: '用户管理' },
+          { id: 'r1', label: '角色管理' },
+          { id: 'm1', label: '菜单管理' },
+          { id: 'f1', label: '表单定制' }
+        ]},
+        { id: 'g1', label: '治理' },
+        { id: 'b1', label: '业务', children: [
+          { id: 'p1', label: '采购申请' },
+          { id: 'p2', label: '收付款管理' }
+        ]}
+      ];
+      var menuChecked = ['d1', 'o1', 'u1', 'r1', 'b1', 'p1'];
+      var bizTags = [
+        { name: 'user', granted: true }, { name: 'role', granted: true }, { name: 'wf', granted: true },
+        { name: 'purchase', granted: true }, { name: 'dashboard', granted: false }, { name: 'notice', granted: false }
+      ];
+      var btnPerms = ref([
+        { form: '用户管理', btn: '查询', code: 'user:query', granted: true },
+        { form: '用户管理', btn: '新增', code: 'user:create', granted: false },
+        { form: '用户管理', btn: '修改', code: 'user:update', granted: false },
+        { form: '用户管理', btn: '删除', code: 'user:delete', granted: false },
+        { form: '用户管理', btn: '重置密码', code: 'user:reset_pwd', granted: false }
+      ]);
+      var scopes = ref([
+        { action: '用户管理 · 查询', scope: '自定义表达式' },
+        { action: '采购申请 · 查询', scope: '本部门及以下' }
+      ]);
+      var scopeOptions = ['全部数据', '本部门及以下', '仅本人', '自定义表达式'];
+      var fields = ref([
+        { field: '用户名', visible: true, editable: true },
+        { field: '手机号', visible: true, editable: false },
+        { field: '部门', visible: true, editable: true }
+      ]);
+      function savePerm() { toastMsg('权限已保存（权限版本 +1，动态菜单刷新生效）'); }
+      function toastMsg(m) { ElMessage({ message: m, type: 'success' }); }
+      return { tab, menuTree, menuChecked, bizTags, btnPerms, scopes, scopeOptions, fields, savePerm, toastMsg };
+    }
   });
-  function switchT(name) {
-    document.querySelectorAll('#tabs .p-tab').forEach(function (t) { t.classList.toggle('active', t.getAttribute('data-pane') === name); });
-    ['menu', 'btn', 'scope', 'field'].forEach(function (k) {
-      document.getElementById('pane-' + k).style.display = k === name ? '' : 'none';
-    });
-  }
-  function savePerm() { toast('权限已保存（权限版本 +1，动态菜单刷新生效）', 'ok'); }
+  app.use(ElementPlus);
+  app.mount('#app');
+  // 嵌入主框架时隐藏顶部原型条
+  if (location.search.indexOf('embed=1') >= 0) { var pb = document.querySelector('.proto-bar'); if (pb) pb.style.display = 'none'; }
 </script>
 
 </body>

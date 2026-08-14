@@ -4,7 +4,20 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>原型 · 移动首页</title>
+<link rel="stylesheet" href="../共享资源/vendor/vant.css">
 <link rel="stylesheet" href="../共享资源/原型样式.css">
+<style>
+  /* 手机屏模拟：375px 宽（Vant 移动端布局基准宽度） */
+  .p-phone { max-width: 375px; }
+  .banner { background: linear-gradient(135deg, #0969da, #0a5dc2); color: #fff; border-radius: 10px; padding: 12px 14px; margin-bottom: 8px; }
+  .banner .b-name { font-size: 15px; font-weight: 600; }
+  .banner .b-date { font-size: 12px; opacity: .85; margin-top: 2px; }
+  .home-cell .van-cell__title { font-size: 13px; }
+  .home-cell .van-cell__label { margin-top: 2px; }
+  .home-cell .van-cell__value { color: #9a6700; }
+  .quick-hint { text-align: center; color: #8c959f; font-size: 12px; padding: 8px; }
+  .nav-badge { font-size: 16px; margin: 0 4px; }
+</style>
 </head>
 <body>
 
@@ -15,70 +28,104 @@
 
 <div class="proto-frame">
   <div class="p-phone">
-    <div class="pp-status">首页 <span style="float:right;font-size:12px">
-      <span title="待办"><b>📋</b> <span style="display:inline-block;min-width:16px;text-align:center;background:#cf222e;color:#fff;border-radius:8px;font-size:11px;padding:0 4px">4</span></span>
-      <span title="消息" style="margin-left:10px"><b>💬</b> <span style="display:inline-block;min-width:16px;text-align:center;background:#cf222e;color:#fff;border-radius:8px;font-size:11px;padding:0 4px">3</span></span>
-    </span></div>
-    <div class="pp-body" id="pp-body">
-      <!-- 欢迎横幅：用户名 + 日期 -->
-      <div style="background:linear-gradient(135deg,#0969da,#0a5dc2);color:#fff;border-radius:10px;padding:12px 14px;margin-bottom:8px">
-        <div style="font-size:15px;font-weight:600">你好，张三</div>
-        <div style="font-size:12px;opacity:.85;margin-top:2px">2026-08-14 星期五</div>
-      </div>
-      <!-- 待办聚合：卡片化列表（状态 tag 右上角 / 标题 16px / 摘要 13px / 时间 12px） -->
-      <div class="p-mlist" onclick="toast('跳转待办列表（移动待办审批界面）')">
-        <b>待办</b> <span class="p-tag orange" style="float:right">4 项</span>
-        <div style="border:1px solid #eaeef2;border-radius:8px;padding:8px 10px;margin-top:8px;position:relative">
-          <b style="font-size:16px">采购申请-20260801</b>
-          <span class="p-tag orange" style="position:absolute;top:6px;right:8px">待审批</span>
-          <div style="font-size:13px;color:#57606a;margin-top:4px">采购笔记本电脑×5 · ¥35,000</div>
-          <div style="font-size:12px;color:#8c959f;margin-top:2px">08-12 09:30</div>
+    <div id="app">
+    <!-- 顶部导航：待办/消息角标（实时数） -->
+    <van-nav-bar title="首页">
+      <template #right>
+        <van-badge :content="todoCount" max="99">
+          <span class="nav-badge">📋</span>
+        </van-badge>
+        <van-badge :content="msgCount" max="99">
+          <span class="nav-badge">💬</span>
+        </van-badge>
+      </template>
+    </van-nav-bar>
+    <div class="pp-body">
+      <div id="home" v-show="tab === 'home'">
+          <!-- 欢迎横幅：用户名 + 日期 -->
+          <div class="banner">
+            <div class="b-name">你好，张三</div>
+            <div class="b-date">2026-08-14 星期五</div>
+          </div>
+          <!-- 待办聚合：卡片化列表（状态 tag 右上角 / 标题 16px / 摘要 13px / 时间 12px） -->
+          <van-cell-group inset>
+            <van-cell title="待办" value="4 项" is-link @click="toast('跳转待办列表（移动待办审批界面）')"></van-cell>
+            <van-cell v-for="t in todos" :key="t.no" :title="t.title" :label="t.summary + ' · ' + t.time">
+              <template #right-icon>
+                <van-tag type="warning" style="position:absolute;top:10px;right:14px">待审批</van-tag>
+              </template>
+            </van-cell>
+          </van-cell-group>
+          <!-- 通知 -->
+          <van-cell-group inset>
+            <van-cell title="通知" value="3 未读" is-link @click="toast('跳转通知列表')">
+              <template #value>
+                <van-tag type="danger" style="margin-right:6px">3 未读</van-tag>
+              </template>
+            </van-cell>
+          </van-cell-group>
+          <!-- 快捷入口：4 宫格 -->
+          <van-cell-group inset>
+            <van-cell title="快捷入口"></van-cell>
+            <van-grid :column-num="4" :border="false">
+              <van-grid-item v-for="g in shortcuts" :key="g.name" :text="g.name" :icon="g.icon" @click="toast(g.jump)"></van-grid-item>
+            </van-grid>
+          </van-cell-group>
+          <!-- 公告 -->
+          <van-cell-group inset>
+            <van-cell title="公告" value="置顶" is-link @click="toast('公告详情')">
+              <template #value>
+                <van-tag type="warning" style="margin-right:6px">置顶</van-tag>
+              </template>
+            </van-cell>
+            <van-cell title="系统升级维护通知" label="下拉刷新 / 触底加载（骨架屏）" @click="toast('公告详情')"></van-cell>
+          </van-cell-group>
         </div>
-        <div style="border:1px solid #eaeef2;border-radius:8px;padding:8px 10px;margin-top:6px;position:relative">
-          <b style="font-size:16px">付款申请-20260802</b>
-          <span class="p-tag orange" style="position:absolute;top:6px;right:8px">待审批</span>
-          <div style="font-size:13px;color:#57606a;margin-top:4px">服务器采购 · ¥120,000</div>
-          <div style="font-size:12px;color:#8c959f;margin-top:2px">08-11 15:02</div>
-        </div>
+        <div class="quick-hint">下拉刷新 / 触底加载（骨架屏）</div>
       </div>
-      <div class="p-mlist" onclick="toast('跳转通知列表')">
-        <b>通知</b> <span class="p-tag red" style="float:right">3 未读</span>
-        <div style="color:#57606a;font-size:12px;margin-top:4px">审批通过提醒 · 新公告</div>
-      </div>
-      <div class="p-mlist">
-        <b>快捷入口</b>
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:8px">
-          <div style="background:#ddf4ff;border-radius:6px;padding:8px 2px;text-align:center;color:#0969da;font-size:11px;cursor:pointer" onclick="toast('跳转采购申请')">采购申请</div>
-          <div style="background:#ddf4ff;border-radius:6px;padding:8px 2px;text-align:center;color:#0969da;font-size:11px;cursor:pointer" onclick="toast('跳转收款登记')">收款登记</div>
-          <div style="background:#ddf4ff;border-radius:6px;padding:8px 2px;text-align:center;color:#0969da;font-size:11px;cursor:pointer" onclick="toast('跳转付款申请')">付款申请</div>
-          <div style="background:#ddf4ff;border-radius:6px;padding:8px 2px;text-align:center;color:#0969da;font-size:11px;cursor:pointer" onclick="toast('跳转报表')">报表</div>
-        </div>
-      </div>
-      <div class="p-mlist" onclick="toast('公告详情')">
-        <b>公告</b> <span class="p-tag orange" style="float:right">置顶</span>
-        <div style="color:#57606a;font-size:12px;margin-top:4px">系统升级维护通知</div>
-      </div>
-      <div style="text-align:center;color:#8c959f;font-size:12px;padding:8px">下拉刷新 / 触底加载（骨架屏）</div>
-    </div>
-    <div class="pp-tabbar" id="tabbar">
-      <div class="pt-item active" data-tab="home" onclick="switchTab('home')">🏠<br>首页</div>
-      <div class="pt-item" data-tab="todo" onclick="switchTab('todo')">📋<br>待办 <sup style="color:#cf222e">4</sup></div>
-      <div class="pt-item" data-tab="msg" onclick="switchTab('msg')">💬<br>消息 <sup style="color:#cf222e">3</sup></div>
-      <div class="pt-item" data-tab="me" onclick="switchTab('me')">👤<br>我的</div>
+      <!-- 底部 TabBar：待办 4 / 消息 3 角标 -->
+      <van-tabbar :fixed="false" v-model="tab" @change="onTab">
+        <van-tabbar-item name="home" icon="wap-home-o">首页</van-tabbar-item>
+        <van-tabbar-item name="todo" icon="todo-list-o" :badge="todoCount">待办</van-tabbar-item>
+        <van-tabbar-item name="msg" icon="chat-o" :badge="msgCount">消息</van-tabbar-item>
+        <van-tabbar-item name="me" icon="user-o">我的</van-tabbar-item>
+      </van-tabbar>
     </div>
   </div>
   <div class="proto-note">点击底部 Tab 体验切换（待办/消息/我的为占位提示）。</div>
 </div>
 
-<script src="../共享资源/原型脚本.js"></script>
+<script src="../共享资源/vendor/vue.global.prod.js"></script>
+<script src="../共享资源/vendor/vant.min.js"></script>
 <script>
-  function switchTab(t) {
-    document.querySelectorAll('#tabbar .pt-item').forEach(function (x) { x.classList.toggle('active', x.getAttribute('data-tab') === t); });
-    if (t === 'home') { document.getElementById('pp-body').innerHTML = '<div class="p-mlist"><b>首页</b><div style="color:#8c959f;font-size:12px;margin-top:4px">首页工作台内容（卡片列表）</div></div>'; }
-    else if (t === 'todo') { toast('原型演示：跳转「移动待办审批」界面'); }
-    else if (t === 'msg') { toast('原型演示：跳转移动通知列表'); }
-    else { toast('原型演示：跳转「移动个人中心」界面'); }
-  }
+  var { createApp, ref } = Vue;
+  var app = createApp({
+    template: document.getElementById('app').innerHTML,
+    setup: function () {
+      var tab = ref('home');
+      var todoCount = ref(4);
+      var msgCount = ref(3);
+      var todos = ref([
+        { no: 'CG202608001', title: '采购申请-20260801', summary: '采购笔记本电脑×5', time: '¥35,000 · 08-12 09:30' },
+        { no: 'FK202608002', title: '付款申请-20260802', summary: '服务器采购', time: '¥120,000 · 08-11 15:02' }
+      ]);
+      var shortcuts = ref([
+        { name: '采购申请', icon: 'shop-o', jump: '跳转采购申请' },
+        { name: '收款登记', icon: 'balance-o', jump: '跳转收款登记' },
+        { name: '付款申请', icon: 'debit-pay', jump: '跳转付款申请' },
+        { name: '报表', icon: 'chart-trending-o', jump: '跳转报表' }
+      ]);
+      function toast(m) { vant.showToast(m); }
+      function onTab(t) {
+        if (t === 'todo') { toast('原型演示：跳转「移动待办审批」界面'); }
+        else if (t === 'msg') { toast('原型演示：跳转移动通知列表'); }
+        else if (t === 'me') { toast('原型演示：跳转「移动个人中心」界面'); }
+      }
+      return { tab, todoCount, msgCount, todos, shortcuts, toast, onTab };
+    }
+  });
+  app.use(vant);
+  app.mount('#app');
 </script>
 
 </body>

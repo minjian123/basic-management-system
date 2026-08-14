@@ -4,105 +4,116 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>原型 · 工作台查看</title>
+<link rel="stylesheet" href="../共享资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../共享资源/原型样式.css">
 <style>
   .wb { display: grid; gap: 12px; }
-  .wb-card { background: #fff; border: 1px solid #d0d7de; border-radius: 8px; padding: 12px 14px; cursor: pointer; }
-  .wb-card:hover { box-shadow: 0 2px 8px rgba(31,35,40,.08); }
-  /* 卡片头标题字号 16px（《布局设计-首页工作台》卡片标题规格） */
-  .wb-card .t { display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-size: 16px; margin-bottom: 6px; }
-  .quick { gap: 6px; }
+  .wb-card { cursor: pointer; }
+  .wb-card .wb-t { display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-size: 16px; margin-bottom: 6px; }
+  .quick { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 8px; }
   .quick .q { background: #ddf4ff; border-radius: 6px; padding: 6px; text-align: center; color: #0969da; font-size: 12px; cursor: pointer; }
   .quick .q:hover { background: #b6e3ff; }
+  .chart-bars { display: flex; align-items: flex-end; gap: 4%; border-bottom: 1px solid #eaeef2; padding: 0 4px; height: 110px; }
+  .chart-bars i { flex: 1; border-radius: 3px 3px 0 0; }
 </style>
 </head>
 <body>
 
-<div class="proto-bar">
-  <span class="pb-crumb"><a href="01_设计说明.html">← 返回设计说明</a></span>
-  <span class="pb-name">首页工作台 · 工作台查看</span>
-  <span class="pb-crumb" style="margin-left:auto">待办 <span id="badge-todo" class="badge"></span></span>
-  <button class="p-btn" onclick="location.href='03_工作台编辑.html'">⚙️ 定制</button>
-</div>
+<div id="app">
+  <div class="proto-bar">
+    <span class="pb-crumb"><a href="01_设计说明.html">← 返回设计说明</a></span>
+    <span class="pb-name">首页工作台 · 工作台查看</span>
+    <span class="pb-crumb" style="margin-left:auto">待办 <el-badge :value="todoNum" :max="9" :type="todoNum > 6 ? 'danger' : 'success'"></el-badge></span>
+    <el-button type="primary" size="small" @click="goEdit">⚙️ 定制</el-button>
+  </div>
 
-<div class="proto-frame">
-  <!-- 12 列网格体系：小卡 2 / 中卡 4 / 宽卡 6 / 图卡 6 / 全宽 12，gap 12px（《布局设计-首页工作台》） -->
-  <div class="wb" id="wb" style="grid-template-columns:repeat(12,1fr)">
-    <div class="wb-card" onclick="toast('原型演示：跳转「我的待办」')" style="grid-column:span 4">
-      <div class="t">待办 <span class="p-tag gray" id="todo-count">4 项</span></div>
-      <div style="display:flex;gap:24px;margin:8px 0">
-        <div><div style="font-size:22px;font-weight:700;color:#0969da" id="todo-num">4</div><div class="proto-hint" style="font-size:11px">待办</div></div>
-        <div><div style="font-size:22px;font-weight:700;color:#2da44e">12</div><div class="proto-hint" style="font-size:11px">已办</div></div>
-      </div>
-      <div class="proto-hint" style="font-size:12px">采购申请-20260801 待审批</div>
-      <div class="proto-hint" style="font-size:12px">付款申请-20260802 待审批</div>
-      <div class="proto-hint" style="font-size:12px">采购申请-20260805 待审批</div>
-    </div>
-    <div class="wb-card" onclick="toast('原型演示：跳转「通知中心」')" style="grid-column:span 4">
-      <div class="t">通知 <span class="p-tag red">3 未读</span></div>
-      <div class="proto-hint" style="font-size:12px;margin-top:8px">审批通过提醒 · 10:24</div>
-      <div class="proto-hint" style="font-size:12px">新公告：系统升级 · 昨日</div>
-      <div class="proto-hint" style="font-size:12px;margin-top:6px">查看全部 →</div>
-    </div>
-    <div class="wb-card" style="grid-column:span 4">
-      <div class="t">快捷入口</div>
-      <div class="quick p-grid cols-4">
-        <div class="q" onclick="toast('原型演示：跳转「采购申请」')">采购申请</div>
-        <div class="q" onclick="toast('原型演示：跳转「收款登记」')">收款登记</div>
-        <div class="q" onclick="toast('原型演示：跳转「付款申请」')">付款申请</div>
-        <div class="q" onclick="toast('原型演示：跳转「报表中心」')">报表中心</div>
-      </div>
-    </div>
-    <div class="wb-card" onclick="toast('原型演示：跳转统计详情')" style="grid-column:span 6">
-      <div class="t">数据统计</div>
-      <div style="display:flex;gap:16px;margin-top:8px">
-        <div><div style="font-size:18px;font-weight:700;color:#0969da">¥1.2万</div><div class="proto-hint" style="font-size:11px">本月收款</div></div>
-        <div><div style="font-size:18px;font-weight:700;color:#2da44e">4</div><div class="proto-hint" style="font-size:11px">待审批</div></div>
-        <div><div style="font-size:18px;font-weight:700;color:#9a6700">2</div><div class="proto-hint" style="font-size:11px">公告</div></div>
-      </div>
-    </div>
-    <div class="wb-card" onclick="toast('原型演示：图表卡数据来自报表数据集（只读从库）')" style="grid-column:span 6">
-      <div class="t">收付款趋势 <span class="proto-hint" style="font-weight:400;font-size:12px">数据集：本月收付款流水</span></div>
-      <!-- 图例：顶部色块 + 名称标注 -->
-      <div style="display:flex;gap:14px;font-size:12px;color:#57606a">
-        <span><i style="display:inline-block;width:10px;height:10px;background:#54aeff;border-radius:2px;margin-right:4px"></i>收款</span>
-        <span><i style="display:inline-block;width:10px;height:10px;background:#0969da;border-radius:2px;margin-right:4px"></i>付款</span>
-      </div>
-      <!-- 坐标轴：纵轴刻度 + 横轴类别标签 -->
-      <div style="display:flex;height:110px;margin-top:6px">
-        <div style="width:28px;flex:none;display:flex;flex-direction:column;justify-content:space-between;text-align:right;padding-right:6px;font-size:11px;color:#8c959f">
-          <span>100</span><span>50</span><span>0</span>
+  <div class="proto-frame">
+    <!-- 12 列网格体系：小卡 2 / 中卡 4 / 宽卡 6 / 图卡 6 / 全宽 12，gap 12px（《布局设计-首页工作台》） -->
+    <div class="wb" style="grid-template-columns:repeat(12,1fr)">
+      <el-card class="wb-card" :body-style="{padding:'12px 14px'}" shadow="hover" style="grid-column:span 4" @click="toast('原型演示：跳转「我的待办」')">
+        <div class="wb-t">待办 <el-tag size="small" type="info">{{ todoNum }} 项</el-tag></div>
+        <div style="display:flex;gap:24px;margin:8px 0">
+          <div><div style="font-size:22px;font-weight:700;color:#0969da">{{ todoNum }}</div><div class="proto-hint" style="font-size:11px">待办</div></div>
+          <div><div style="font-size:22px;font-weight:700;color:#2da44e">12</div><div class="proto-hint" style="font-size:11px">已办</div></div>
         </div>
-        <div style="flex:1;display:flex;flex-direction:column;min-width:0">
-          <div style="flex:1;display:flex;align-items:flex-end;gap:4%;border-bottom:1px solid #eaeef2;padding:0 4px">
-            <div style="flex:1;height:35%;background:#54aeff;border-radius:3px 3px 0 0"></div>
-            <div style="flex:1;height:55%;background:#54aeff;border-radius:3px 3px 0 0"></div>
-            <div style="flex:1;height:45%;background:#54aeff;border-radius:3px 3px 0 0"></div>
-            <div style="flex:1;height:75%;background:#0969da;border-radius:3px 3px 0 0"></div>
-            <div style="flex:1;height:60%;background:#0969da;border-radius:3px 3px 0 0"></div>
-            <div style="flex:1;height:85%;background:#0969da;border-radius:3px 3px 0 0"></div>
+        <div class="proto-hint" style="font-size:12px">采购申请-20260801 待审批</div>
+        <div class="proto-hint" style="font-size:12px">付款申请-20260802 待审批</div>
+        <div class="proto-hint" style="font-size:12px">采购申请-20260805 待审批</div>
+      </el-card>
+      <el-card class="wb-card" :body-style="{padding:'12px 14px'}" shadow="hover" style="grid-column:span 4" @click="toast('原型演示：跳转「通知中心」')">
+        <div class="wb-t">通知 <el-tag size="small" type="danger">3 未读</el-tag></div>
+        <div class="proto-hint" style="font-size:12px;margin-top:8px">审批通过提醒 · 10:24</div>
+        <div class="proto-hint" style="font-size:12px">新公告：系统升级 · 昨日</div>
+        <div class="proto-hint" style="font-size:12px;margin-top:6px">查看全部 →</div>
+      </el-card>
+      <el-card class="wb-card" :body-style="{padding:'12px 14px'}" shadow="hover" style="grid-column:span 4">
+        <div class="wb-t">快捷入口</div>
+        <div class="quick">
+          <div class="q" @click="toast('原型演示：跳转「采购申请」')">采购申请</div>
+          <div class="q" @click="toast('原型演示：跳转「收款登记」')">收款登记</div>
+          <div class="q" @click="toast('原型演示：跳转「付款申请」')">付款申请</div>
+          <div class="q" @click="toast('原型演示：跳转「报表中心」')">报表中心</div>
+        </div>
+      </el-card>
+      <el-card class="wb-card" :body-style="{padding:'12px 14px'}" shadow="hover" style="grid-column:span 4" @click="toast('原型演示：跳转「公告中心」')">
+        <div class="wb-t">公告 <el-tag size="small" type="warning">2 条</el-tag></div>
+        <div class="proto-hint" style="font-size:12px;margin-top:8px">系统升级维护通知 · 8/15</div>
+        <div class="proto-hint" style="font-size:12px">关于 8 月预算调整的通知 · 8/10</div>
+        <div class="proto-hint" style="font-size:12px;margin-top:6px">查看全部 →</div>
+      </el-card>
+      <el-card class="wb-card" :body-style="{padding:'12px 14px'}" shadow="hover" style="grid-column:span 8" @click="toast('原型演示：跳转统计详情')">
+        <div class="wb-t">数据统计</div>
+        <div style="display:flex;gap:16px;margin-top:8px">
+          <div><div style="font-size:18px;font-weight:700;color:#0969da">¥1.2万</div><div class="proto-hint" style="font-size:11px">本月收款</div></div>
+          <div><div style="font-size:18px;font-weight:700;color:#2da44e">4</div><div class="proto-hint" style="font-size:11px">待审批</div></div>
+          <div><div style="font-size:18px;font-weight:700;color:#9a6700">2</div><div class="proto-hint" style="font-size:11px">公告</div></div>
+        </div>
+      </el-card>
+      <el-card class="wb-card" :body-style="{padding:'12px 14px'}" shadow="hover" style="grid-column:span 12" @click="toast('原型演示：图表卡数据来自报表数据集（只读从库）')">
+        <div class="wb-t">收付款趋势 <span class="proto-hint" style="font-weight:400;font-size:12px">数据集：本月收付款流水</span></div>
+        <div style="display:flex;gap:14px;font-size:12px;color:#57606a;margin-top:4px">
+          <span><i style="display:inline-block;width:10px;height:10px;background:#54aeff;border-radius:2px;margin-right:4px"></i>收款</span>
+          <span><i style="display:inline-block;width:10px;height:10px;background:#0969da;border-radius:2px;margin-right:4px"></i>付款</span>
+        </div>
+        <div style="display:flex;height:110px;margin-top:6px">
+          <div style="width:28px;flex:none;display:flex;flex-direction:column;justify-content:space-between;text-align:right;padding-right:6px;font-size:11px;color:#8c959f">
+            <span>100</span><span>50</span><span>0</span>
           </div>
-          <div style="display:flex;gap:4%;font-size:11px;color:#8c959f;text-align:center;padding-top:4px">
-            <span style="flex:1">7/1</span><span style="flex:1">7/2</span><span style="flex:1">7/3</span><span style="flex:1">7/4</span><span style="flex:1">7/5</span><span style="flex:1">7/6</span>
+          <div style="flex:1;display:flex;flex-direction:column;min-width:0">
+            <div class="chart-bars">
+              <i v-for="b in bars" :key="b.l" :style="{height: b.h + '%', background: b.dark ? '#0969da' : '#54aeff'}"></i>
+            </div>
+            <div style="display:flex;gap:4%;font-size:11px;color:#8c959f;text-align:center;padding-top:4px">
+              <span v-for="l in xlabels" :key="l" style="flex:1">{{ l }}</span>
+            </div>
           </div>
         </div>
-      </div>
+      </el-card>
     </div>
   </div>
 </div>
 
-<script src="../共享资源/原型脚本.js"></script>
+<script src="../共享资源/vendor/vue.global.prod.js"></script>
+<script src="../共享资源/vendor/element-plus.min.js"></script>
 <script>
-  var n = 4;
-  var b = document.getElementById('badge-todo'); b.textContent = n;
-  document.getElementById('todo-count').textContent = n + ' 项';
-  document.getElementById('todo-num').textContent = n;
-  setInterval(function () {
-    n = n >= 9 ? 4 : n + 1;
-    b.textContent = n; b.style.background = n > 6 ? '#cf222e' : '#2da44e';
-    document.getElementById('todo-count').textContent = n + ' 项';
-    document.getElementById('todo-num').textContent = n;
-  }, 5000);
+  var { createApp, ref } = Vue;
+  var { ElMessage } = ElementPlus;
+  var app = createApp({
+    template: document.getElementById('app').outerHTML.replace(/<div id="app">/, '<div>').replace(/<\/div>\s*$/, ''),
+    setup: function () {
+      var todoNum = ref(4);
+      var bars = [{ l: 1, h: 35, dark: false }, { l: 2, h: 55, dark: false }, { l: 3, h: 45, dark: false }, { l: 4, h: 75, dark: true }, { l: 5, h: 60, dark: true }, { l: 6, h: 85, dark: true }];
+      var xlabels = ['7/1', '7/2', '7/3', '7/4', '7/5', '7/6'];
+      setInterval(function () {
+        todoNum.value = todoNum.value >= 9 ? 4 : todoNum.value + 1;
+      }, 5000);
+      function toast(m) { ElMessage(m); }
+      function goEdit() { location.href = '03_工作台编辑.html'; }
+      return { todoNum, bars, xlabels, toast, goEdit };
+    }
+  });
+  app.use(ElementPlus);
+  app.mount('#app');
 </script>
 
 </body>
