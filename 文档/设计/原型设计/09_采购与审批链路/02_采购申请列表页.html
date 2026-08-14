@@ -20,49 +20,63 @@
     <button class="p-btn" onclick="toast('原型演示：关闭当前模块页面（返回）')">关闭</button>
     <button class="p-btn batch-btn" disabled onclick="submitSel()">提交审批</button>
     <button class="p-btn batch-btn" disabled onclick="delSel()">删除</button>
+    <button class="p-btn batch-btn" disabled onclick="openProgress()">审批进度</button>
     <span style="margin-left:auto">
       <button class="p-btn" onclick="toast('原型演示：导出当前筛选结果')">导出</button>
-      <span class="proto-hint" style="margin-left:10px">双击行打开申请表单页</span>
+      <span class="proto-hint" style="margin-left:10px">双击行打开申请表单页（草稿提交等动作在表单页内）</span>
     </span>
   </div>
 
+  <!-- 筛选区：默认一行（关键字 + 状态 + 查询/重置），申请日期折叠 -->
   <div class="p-filter">
-    <label>申请单号</label><input class="p-input" style="width:130px">
-    <label>标题</label><input class="p-input" style="width:140px">
+    <input class="p-input keyword" placeholder="申请单号 / 标题">
     <label>状态</label>
     <select class="p-select" style="width:auto">
       <option>全部</option><option>草稿</option><option>审批中</option><option>已通过</option><option>已驳回</option>
     </select>
-    <label>申请日期</label><input class="p-input" style="width:110px"> ~ <input class="p-input" style="width:110px">
     <button class="p-btn sm">查询</button>
     <button class="p-btn sm">重置</button>
+    <button class="p-btn sm" id="btn-more" onclick="toggleMore()">展开 ↓</button>
+  </div>
+  <div class="p-filter" id="filter-more" style="display:none;margin-top:-12px">
+    <label>申请日期</label><input class="p-input" style="width:110px"> ~ <input class="p-input" style="width:110px">
   </div>
 
   <table class="p-table" id="tbl">
-    <tr><th><input type="checkbox" onclick="selAll(this)"></th><th>单号</th><th>标题</th><th>金额</th><th>申请人</th><th>状态</th><th>提交时间</th><th>操作</th></tr>
-    <tr data-id="CG202608001">
-      <td><input type="checkbox" class="row-chk" onchange="updBatch()"></td><td>CG202608001</td><td>采购笔记本电脑×5</td><td>¥35,000</td><td>张三</td><td><span class="p-tag blue" data-role="st">审批中</span></td><td>2026-08-12 09:30</td>
-      <td class="col-ops"><button class="p-btn sm" onclick="toast('原型演示：跳转「采购申请表单页」')">查看</button><button class="p-btn sm" onclick="openModal('m-progress')">进度</button></td>
+    <tr><th><input type="checkbox" onclick="selAll(this)"></th><th>单号</th><th>标题</th><th>金额</th><th>申请人</th><th>状态</th><th>提交时间</th></tr>
+    <tr class="row-link" data-id="CG202608001" title="双击打开申请单">
+      <td><input type="checkbox" class="row-chk" onchange="updBatch()"></td><td>CG202608001</td><td>采购笔记本电脑×5</td><td>¥35,000</td><td>张三</td><td><span class="p-tag orange" data-role="st">审批中</span></td><td>2026-08-12 09:30</td>
     </tr>
-    <tr data-id="CG202608002">
+    <tr class="row-link" data-id="CG202608002" title="双击打开申请单">
       <td><input type="checkbox" class="row-chk" onchange="updBatch()"></td><td>CG202608002</td><td>采购办公桌×10</td><td>¥18,000</td><td>李四</td><td><span class="p-tag gray" data-role="st">草稿</span></td><td>—</td>
-      <td class="col-ops"><button class="p-btn sm" onclick="toast('原型演示：跳转「采购申请表单页」')">编辑</button><button class="p-btn sm primary" onclick="submitSel()">提交</button></td>
     </tr>
-    <tr data-id="CG202608003">
+    <tr class="row-link" data-id="CG202608003" title="双击打开申请单">
       <td><input type="checkbox" class="row-chk" onchange="updBatch()"></td><td>CG202608003</td><td>采购显示器×8</td><td>¥12,000</td><td>张三</td><td><span class="p-tag green" data-role="st">已通过</span></td><td>2026-08-10 14:00</td>
-      <td class="col-ops"><button class="p-btn sm" onclick="toast('原型演示：跳转表单页查看')">查看</button></td>
     </tr>
-    <tr data-id="CG202608004">
+    <tr class="row-link" data-id="CG202608004" title="双击打开申请单">
       <td><input type="checkbox" class="row-chk" onchange="updBatch()"></td><td>CG202608004</td><td>采购会议桌椅×4</td><td>¥9,600</td><td>王五</td><td><span class="p-tag red" data-role="st">已驳回</span></td><td>2026-08-09 11:20</td>
-      <td class="col-ops"><button class="p-btn sm" onclick="toast('原型演示：跳转表单页修改后重新提交')">修改重提</button></td>
     </tr>
   </table>
-  <div class="p-pager">共 64 条 · 1/16 页</div>
+  <!-- 空状态示意：筛选无结果 / 无数据时展示（演示注释，默认隐藏） -->
+  <!--
+  <div class="p-empty">
+    <div class="p-empty-icon">📭</div>
+    暂无符合条件的申请单，可调整筛选条件或「新增」
+  </div>
+  -->
+  <div class="p-pager">
+    <span class="pp-total">共 64 条</span>
+    <button class="pp-num" disabled>‹ 上一页</button>
+    <span class="pp-num active">1</span><span class="pp-num" onclick="toast('原型演示：跳第 2 页')">2</span><span class="pp-num" onclick="toast('原型演示：跳第 3 页')">3</span><span class="pp-num" onclick="toast('原型演示：跳第 4 页')">4</span>
+    <button class="pp-num" onclick="toast('原型演示：下一页')">下一页 ›</button>
+    <select class="pp-size"><option>20 条/页</option><option>50 条/页</option></select>
+    <span>跳至</span><input class="pp-goto"><button class="p-btn sm" style="margin-left:4px" onclick="toast('原型演示：跳转页码')">GO</button>
+  </div>
 </div>
 
-<!-- 审批进度 -->
+<!-- 审批进度（w520 通知引导级） -->
 <div class="p-mask" id="m-progress">
-  <div class="p-modal">
+  <div class="p-modal w520">
     <div class="pm-head">审批进度 · CG202608001<span class="x" onclick="closeModal('m-progress')">✕</span></div>
     <div class="pm-body" style="font-size:13px">
       <div style="padding:6px 0"><span class="p-tag green">✓ 已通过</span> 张三提交申请 · 08-12 09:30</div>
@@ -101,9 +115,22 @@
     if (!sel) { toast('请先选择申请单', 'err'); return; }
     confirmAction('删除选中的申请单（仅草稿可删）？', function () { sel.closest('tr').remove(); toast('已删除', 'ok'); });
   }
+  // 筛选区展开/收起（条件 >3 默认折叠为一行）
+  function toggleMore() {
+    var box = document.getElementById('filter-more');
+    var on = box.style.display !== 'none';
+    box.style.display = on ? 'none' : '';
+    document.getElementById('btn-more').textContent = on ? '展开 ↓' : '收起 ↑';
+  }
+  // 审批进度：读取选中行单号，标题按「动作+对象」动态设置（openModal 第二参数）
+  function openProgress() {
+    var sel = document.querySelector('.row-chk:checked');
+    if (!sel) { toast('请先选择申请单', 'err'); return; }
+    var doc = sel.closest('tr').children[1].textContent;
+    openModal('m-progress', '审批进度 · ' + doc);
+  }
   // 双击行打开申请表单页：主框架嵌入时在 FormFrame 内开详情 Tab（回退父级 Tab / 独立跳转）
   document.querySelectorAll('#tbl tr[data-id]').forEach(function (tr) {
-    tr.style.cursor = 'pointer';
     tr.addEventListener('dblclick', function () {
       var id = tr.getAttribute('data-id');
       var nm = tr.children[2].textContent;

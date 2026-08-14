@@ -15,8 +15,8 @@
 
 <div class="proto-frame">
   <div class="p-tabs" id="tabs">
-    <div class="p-tab active" data-tabs="tabs" data-pane="info" onclick="switchPane('info')">详细信息</div>
-    <div class="p-tab" data-pane="sys" onclick="switchPane('sys')">系统信息</div>
+    <div class="p-tab active" data-tabs="tabs" data-pane="info" onclick="trySwitchPane('info')">详细信息</div>
+    <div class="p-tab" data-pane="sys" onclick="trySwitchPane('sys')">系统信息</div>
   </div>
 
   <div id="pane-info">
@@ -25,8 +25,9 @@
         <button class="p-btn" id="btn-edit" onclick="editForm()">修改</button>
         <button class="p-btn danger" onclick="confirmAction('确认删除该用户（软删除）？',function(){toast('已删除','ok')})">删除</button>
         <button class="p-btn" onclick="toast('已重新加载当前记录')">刷新</button>
-        <button class="p-btn" onclick="toast('已关闭')">关闭</button>
+        <button class="p-btn" onclick="tryClose()">关闭</button>
         <button class="p-btn primary" id="btn-save" style="display:none" onclick="saveForm()">保存</button>
+        <span class="proto-hint" style="margin-left:auto">编辑后关闭/切换 Tab 将触发未保存拦截</span>
       </div>
       <div class="p-section">基本信息</div>
       <div class="p-row">
@@ -95,8 +96,34 @@
     document.getElementById('btn-bind').disabled = !on;
     document.querySelectorAll('#pane-info input, #pane-info select').forEach(function (el) { el.disabled = !on; });
   }
-  function editForm() { setFormEditable(true); toast('已进入编辑态（字段启用）'); }
-  function saveForm() { setFormEditable(false); toast('保存成功（乐观锁 version 校验）', 'ok'); }
+  // dirty 拦截：编辑字段后关闭/切换 Tab 需确认（《布局设计-表单页》编辑态）
+  var dirty = false;
+  window._saveRound = 0;
+  document.getElementById('pane-info').addEventListener('input', function () { dirty = true; });
+  document.getElementById('pane-info').addEventListener('change', function () { dirty = true; });
+  function editForm() { dirty = false; setFormEditable(true); toast('已进入编辑态（字段启用）'); }
+  function saveForm() {
+    dirty = false;
+    setFormEditable(false);
+    // 演示：每两次保存模拟一次乐观锁 version 冲突（真实场景由后端 409 触发）
+    if (window._saveRound % 2 === 1) { window._saveRound++; toast('记录已被修改，已重新加载最新数据', 'err'); return; }
+    window._saveRound++;
+    toast('保存成功，列表已自动刷新', 'ok');
+  }
+  function tryClose() {
+    if (dirty) { confirmAction('当前修改尚未保存，关闭将丢失修改，确定关闭？', function () { dirty = false; toast('已关闭'); }); }
+    else { toast('已关闭'); }
+  }
+  function switchPane(name) {
+    document.querySelectorAll('#tabs .p-tab').forEach(function (t) { t.classList.toggle('active', t.getAttribute('data-pane') === name); });
+    document.getElementById('pane-info').style.display = name === 'info' ? '' : 'none';
+    document.getElementById('pane-sys').style.display = name === 'sys' ? '' : 'none';
+  }
+  function trySwitchPane(name) {
+    if (dirty && document.getElementById('pane-info').style.display !== 'none' && name !== 'info') {
+      confirmAction('当前修改尚未保存，切换 Tab 将丢失修改，确定切换？', function () { dirty = false; switchPane(name); });
+    } else { switchPane(name); }
+  }
   // 由列表页双击打开时（?id=&name=）回填显示
   (function () {
     function qp(k) { var m = location.search.match(new RegExp('[?&]' + k + '=([^&]*)')); return m ? decodeURIComponent(m[1]) : null; }

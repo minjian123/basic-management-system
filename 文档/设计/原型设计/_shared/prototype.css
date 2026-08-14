@@ -10,13 +10,16 @@ a:hover { text-decoration: underline; }
 .proto-bar .pb-name { font-weight: 600; }
 .proto-bar .pb-crumb { color: #b6bec7; }
 
-/* 原型框架容器 */
-.proto-frame { max-width: 1080px; margin: 0 auto; padding: 16px; }
+/* 原型框架容器（内容区自适应宽度，不设固定最大宽） */
+.proto-frame { margin: 0 auto; padding: 16px; }
 .proto-note { background: #ddf4ff; border-left: 4px solid #0969da; padding: 8px 12px; border-radius: 4px; font-size: 13px; color: #1f2328; margin: 12px 0; }
 .proto-hint { color: #8c959f; font-size: 12px; }
 .proto-center { text-align: center; }
 
-/* 按钮 */
+/* 页面容器：单卡片（列表页三段式共用，不嵌套） */
+.p-page-card { background: #fff; border: 1px solid #d0d7de; border-radius: 6px; padding: 16px; }
+
+/* 按钮（圆角 radius-md 6px） */
 .p-btn { display: inline-block; border: 1px solid #d0d7de; background: #fff; color: #24292f; border-radius: 6px; padding: 5px 14px; font-size: 13px; cursor: pointer; user-select: none; }
 .p-btn:hover { background: #f3f4f6; }
 .p-btn.primary { background: #0969da; border-color: #0969da; color: #fff; }
@@ -28,28 +31,39 @@ a:hover { text-decoration: underline; }
 .p-btn.sm { padding: 2px 8px; font-size: 12px; }
 .p-btn:disabled { opacity: .5; cursor: not-allowed; }
 
-/* 工具栏 */
-.p-toolbar { display: flex; gap: 8px; align-items: center; background: #fff; border: 1px solid #d0d7de; border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; flex-wrap: wrap; }
+/* 工具栏（间距走 4px 基准阶梯：内边距 12px 16px） */
+.p-toolbar { display: flex; gap: 8px; align-items: center; background: #fff; border: 1px solid #d0d7de; border-radius: 6px; padding: 12px 16px; margin-bottom: 12px; flex-wrap: wrap; }
 
 /* 筛选区 */
-.p-filter { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; background: #fff; border: 1px solid #d0d7de; border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; font-size: 13px; }
+.p-filter { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; background: #fff; border: 1px solid #d0d7de; border-radius: 6px; padding: 12px 16px; margin-bottom: 12px; font-size: 13px; }
 .p-filter label { color: #57606a; }
+/* 关键字输入框统一 240px（《布局设计-列表页》§3） */
+.p-filter .p-input.keyword { width: 240px; flex: 0 0 240px; }
 
 /* 表格 */
-.p-table { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid #d0d7de; border-radius: 8px; overflow: hidden; font-size: 13px; }
+.p-table { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid #d0d7de; border-radius: 6px; overflow: hidden; font-size: 13px; }
 .p-table th { text-align: left; background: #f6f8fa; border-bottom: 1px solid #d0d7de; padding: 8px 10px; font-weight: 600; color: #24292f; }
 .p-table td { border-bottom: 1px solid #eaeef2; padding: 8px 10px; }
 .p-table tr:last-child td { border-bottom: none; }
 .p-table tr.row-link { cursor: pointer; }
 .p-table tr.row-link:hover { background: #f6f8fa; }
 .p-table .col-ops { white-space: nowrap; }
+/* 空状态 */
+.p-empty { text-align: center; padding: 32px 16px; color: #8c959f; font-size: 13px; }
+.p-empty .p-empty-icon { font-size: 32px; margin-bottom: 8px; }
 
-/* 分页 */
-.p-pager { display: flex; gap: 6px; align-items: center; justify-content: flex-end; padding: 10px 4px; font-size: 12px; color: #57606a; }
+/* 分页（总数 / 页码 / 跳页 / 每页条数 / 页码，默认 20 条/页） */
+.p-pager { display: flex; gap: 6px; align-items: center; justify-content: flex-end; padding: 10px 4px; font-size: 12px; color: #57606a; flex-wrap: wrap; }
+.p-pager .pp-total { margin-right: 8px; }
+.p-pager .pp-num { display: inline-block; min-width: 24px; height: 24px; line-height: 24px; text-align: center; border: 1px solid #d0d7de; border-radius: 4px; background: #fff; color: #24292f; cursor: pointer; }
+.p-pager .pp-num.active { background: #0969da; border-color: #0969da; color: #fff; }
+.p-pager .pp-num:disabled { opacity: .4; cursor: not-allowed; }
+.p-pager .pp-size { border: 1px solid #d0d7de; border-radius: 4px; padding: 2px 4px; font-size: 12px; }
+.p-pager .pp-goto { width: 40px; border: 1px solid #d0d7de; border-radius: 4px; padding: 2px 4px; font-size: 12px; }
 
 /* 表单 */
-.p-form { background: #fff; border: 1px solid #d0d7de; border-radius: 8px; padding: 16px; }
-.p-form .p-section { font-weight: 600; margin: 14px 0 10px; padding-bottom: 6px; border-bottom: 1px solid #eaeef2; font-size: 14px; }
+.p-form { background: #fff; border: 1px solid #d0d7de; border-radius: 6px; padding: 16px; }
+.p-form .p-section { font-weight: 600; margin: 16px 0 12px; padding-bottom: 8px; border-bottom: 1px solid #eaeef2; font-size: 14px; }
 .p-form .p-section:first-child { margin-top: 0; }
 .p-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
 .p-col { flex: 1; min-width: 200px; }
@@ -60,11 +74,12 @@ a:hover { text-decoration: underline; }
 .sys-text { padding: 6px 0; font-size: 13px; color: #24292f; }
 .p-input, .p-select, .p-textarea { width: 100%; border: 1px solid #d0d7de; border-radius: 6px; padding: 6px 10px; font-size: 13px; background: #fff; font-family: inherit; }
 .p-input:focus, .p-select:focus, .p-textarea:focus { outline: 2px solid #54aeff; border-color: #0969da; }
+.p-input:disabled, .p-select:disabled, .p-textarea:disabled { background: #f6f8fa; color: #57606a; cursor: not-allowed; }
 .p-textarea { min-height: 64px; }
 .p-form-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; padding-top: 12px; border-top: 1px solid #eaeef2; }
 
-/* 标签 */
-.p-tag { display: inline-block; border-radius: 10px; padding: 1px 10px; font-size: 12px; line-height: 1.6; }
+/* 标签（圆角 radius-sm 4px；状态色语义：通过=green、待审=orange、驳回=red） */
+.p-tag { display: inline-block; border-radius: 4px; padding: 1px 10px; font-size: 12px; line-height: 1.6; }
 .p-tag.green { background: #dafbe1; color: #2da44e; }
 .p-tag.gray { background: #f6f8fa; color: #57606a; }
 .p-tag.red { background: #ffebe9; color: #cf222e; }
@@ -72,7 +87,7 @@ a:hover { text-decoration: underline; }
 .p-tag.orange { background: #fff8c5; color: #9a6700; }
 
 /* 卡片 */
-.p-card { background: #fff; border: 1px solid #d0d7de; border-radius: 8px; padding: 12px 14px; }
+.p-card { background: #fff; border: 1px solid #d0d7de; border-radius: 6px; padding: 12px 16px; }
 .p-card + .p-card { margin-top: 12px; }
 .p-grid { display: grid; gap: 12px; }.p-grid.cols-2 { grid-template-columns: 1fr 1fr; }
 .p-grid.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
@@ -85,15 +100,28 @@ a:hover { text-decoration: underline; }
 .p-tab:hover { color: #24292f; }
 .p-tab.active { color: #0969da; border-bottom-color: #0969da; font-weight: 600; }
 
-/* 弹窗 */
-.p-mask { display: none; position: fixed; inset: 0; background: rgba(31,35,40,.5); z-index: 200; align-items: flex-start; justify-content: center; padding: 8vh 16px 16px; overflow: auto; }
+/* 弹窗：遮罩统一 0.4 透明度；确认类（.p-mask-lock）禁止遮罩/Esc 关闭 */
+.p-mask { display: none; position: fixed; inset: 0; background: rgba(31,35,40,.4); z-index: 200; align-items: flex-start; justify-content: center; padding: 8vh 16px 16px; overflow: auto; }
 .p-mask.show { display: flex; }
-.p-modal { background: #fff; border-radius: 10px; width: 100%; max-width: 560px; box-shadow: 0 12px 40px rgba(31,35,40,.3); }
+.p-modal { background: #fff; border-radius: 8px; width: 100%; max-width: 480px; box-shadow: 0 12px 40px rgba(31,35,40,.3); }
+/* 对话框宽度阶梯：确认 420 / 简单表单 480 / 通知引导 520；大表单走抽屉 */
+.p-modal.w420 { max-width: 420px; }
+.p-modal.w520 { max-width: 520px; }
 .p-modal .pm-head { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-bottom: 1px solid #eaeef2; font-weight: 600; font-size: 14px; }
 .p-modal .pm-head .x { cursor: pointer; color: #8c959f; font-size: 16px; }
 .p-modal .pm-body { padding: 14px 16px; max-height: 60vh; overflow: auto; }
 .p-modal .pm-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 16px; border-top: 1px solid #eaeef2; }
-.p-modal.wide { max-width: 760px; }
+
+/* 抽屉（表单编辑优先）：右侧滑入，宽度阶梯 400/480/640/720 */
+.p-drawer { position: fixed; top: 0; right: 0; bottom: 0; width: 480px; max-width: 92vw; background: #fff; z-index: 201; display: flex; flex-direction: column; box-shadow: -8px 0 32px rgba(31,35,40,.2); transform: translateX(102%); transition: transform .25s ease; }
+.p-drawer.show { transform: none; }
+.p-drawer.w400 { width: 400px; }
+.p-drawer.w640 { width: 640px; }
+.p-drawer.w720 { width: 720px; }
+.p-drawer .pd-head { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-bottom: 1px solid #eaeef2; font-weight: 600; font-size: 14px; }
+.p-drawer .pd-head .x { cursor: pointer; color: #8c959f; font-size: 16px; }
+.p-drawer .pd-body { flex: 1; overflow: auto; padding: 16px; }
+.p-drawer .pd-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 16px; border-top: 1px solid #eaeef2; }
 
 /* Toast */
 .p-toast { position: fixed; top: 20%; left: 50%; transform: translateX(-50%); z-index: 300; background: #1f2328; color: #fff; padding: 8px 18px; border-radius: 8px; font-size: 13px; opacity: 0; transition: opacity .2s; pointer-events: none; }
@@ -103,7 +131,7 @@ a:hover { text-decoration: underline; }
 
 /* 树 */
 .p-tree { list-style: none; margin: 0; padding: 0; font-size: 13px; }
-.p-tree ul { list-style: none; margin: 0; padding-left: 18px; }
+.p-tree ul { list-style: none; margin: 0; padding-left: 16px; }
 .p-tree li { padding: 3px 0; }
 .p-tree .t-node { padding: 4px 8px; border-radius: 6px; cursor: pointer; }
 .p-tree .t-node:hover { background: #f3f4f6; }
@@ -112,8 +140,8 @@ a:hover { text-decoration: underline; }
 
 /* 树 + 内容左右布局 */
 .p-split { display: flex; gap: 12px; align-items: flex-start; }
-.p-split .ps-left { flex: 0 0 280px; background: #fff; border: 1px solid #d0d7de; border-radius: 8px; padding: 12px; }
-.p-split .ps-right { flex: 1; background: #fff; border: 1px solid #d0d7de; border-radius: 8px; padding: 14px; min-height: 260px; }
+.p-split .ps-left { flex: 0 0 280px; background: #fff; border: 1px solid #d0d7de; border-radius: 6px; padding: 12px; }
+.p-split .ps-right { flex: 1; background: #fff; border: 1px solid #d0d7de; border-radius: 6px; padding: 14px; min-height: 260px; }
 
 /* 视图切换（列表 ↔ 详情） */
 .p-view { display: none; }
@@ -126,5 +154,5 @@ a:hover { text-decoration: underline; }
 .p-phone .pp-tabbar { display: flex; justify-content: space-around; border-top: 1px solid #d0d7de; padding: 8px 0; font-size: 12px; text-align: center; background: #fff; }
 .p-phone .pp-tabbar .pt-item { cursor: pointer; color: #57606a; }
 .p-phone .pp-tabbar .pt-item.active { color: #0969da; font-weight: 600; }
-.p-mlist { background: #fff; border: 1px solid #d0d7de; border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; font-size: 13px; cursor: pointer; }
+.p-mlist { background: #fff; border: 1px solid #d0d7de; border-radius: 6px; padding: 10px 12px; margin-bottom: 8px; font-size: 13px; cursor: pointer; }
 .p-mlist:hover { background: #f6f8fa; }

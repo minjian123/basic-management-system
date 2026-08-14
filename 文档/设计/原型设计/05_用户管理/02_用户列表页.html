@@ -5,10 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>原型 · 用户列表页</title>
 <link rel="stylesheet" href="../_shared/prototype.css">
-<style>
-  .mask-note { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(255,255,255,.85); border-radius: 6px; }
-  .td-mask { position: relative; display: inline-block; }
-</style>
 </head>
 <body>
 
@@ -19,10 +15,11 @@
 
 <div class="proto-frame">
   <div class="p-toolbar">
-    <button class="p-btn primary" onclick="openModal('m-edit')">新增</button>
+    <button class="p-btn primary" onclick="openDrawer('d-edit','新建用户')">新增</button>
     <button class="p-btn" onclick="toast('已刷新')">刷新</button>
     <button class="p-btn" onclick="toast('原型演示：关闭当前模块页面（返回）')">关闭</button>
-    <button class="p-btn batch-btn" disabled onclick="delSel()">删除</button>
+    <button class="p-btn danger batch-btn" disabled onclick="delSel()">删除</button>
+    <button class="p-btn batch-btn" disabled onclick="batchToggle()">停用/启用</button>
     <button class="p-btn batch-btn" disabled onclick="openModal('m-pwd')">重置密码</button>
     <button class="p-btn batch-btn" disabled onclick="openModal('m-role')">角色绑定</button>
     <span style="margin-left:auto">
@@ -33,68 +30,84 @@
   </div>
 
   <div class="p-filter">
+    <input class="p-input keyword" placeholder="关键字：用户名/姓名/手机号">
     <label>用户名</label><input class="p-input" style="width:120px">
-    <label>姓名</label><input class="p-input" style="width:100px">
-    <label>部门</label><select class="p-select" style="width:auto"><option>全部</option><option>技术部</option><option>财务部</option></select>
-    <label>状态</label><select class="p-select" style="width:auto"><option>全部</option><option>启用</option><option>停用</option></select>
-    <button class="p-btn sm">查询</button>
+    <span class="f-more" style="display:none">
+      <label>姓名</label><input class="p-input" style="width:100px">
+      <label>部门</label><select class="p-select" style="width:auto"><option>全部</option><option>技术部</option><option>财务部</option></select>
+      <label>状态</label><select class="p-select" style="width:auto"><option>全部</option><option>启用</option><option>停用</option></select>
+    </span>
+    <button class="p-btn sm primary">查询</button>
     <button class="p-btn sm">重置</button>
+    <a href="javascript:;" onclick="toggleFilter(this)">展开</a>
   </div>
 
   <table class="p-table" id="tbl">
-    <tr><th><input type="checkbox" onclick="selAll(this)"></th><th>用户名</th><th>姓名</th><th>部门</th><th>岗位</th><th>角色</th><th>状态</th><th>最近登录</th><th>操作</th></tr>
-    <tr data-id="1">
+    <tr><th><input type="checkbox" onclick="selAll(this)"></th><th>用户名</th><th>姓名</th><th>部门</th><th>岗位</th><th>角色</th><th>状态</th><th>最近登录</th></tr>
+    <tr class="row-link" data-id="1">
       <td><input type="checkbox" class="row-chk" onchange="updBatch()"></td><td>zhangsan</td><td>张三</td><td>技术部</td><td>工程师</td><td>普通角色</td><td><span class="p-tag green" data-role="st">启用</span></td><td>2026-08-12 09:30</td>
-      <td class="col-ops"><button class="p-btn sm" onclick="openModal('m-edit')">编辑</button><button class="p-btn sm" onclick="toggleUser(this,'zhangsan')">停用</button><button class="p-btn sm" onclick="openModal('m-pwd')">重置密码</button></td>
     </tr>
-    <tr data-id="2">
+    <tr class="row-link" data-id="2">
       <td><input type="checkbox" class="row-chk" onchange="updBatch()"></td><td>lisi</td><td>李四</td><td>财务部</td><td>会计</td><td>普通角色</td><td><span class="p-tag gray" data-role="st">锁定</span></td><td>2026-08-01 18:02</td>
-      <td class="col-ops"><button class="p-btn sm" onclick="openModal('m-edit')">编辑</button><button class="p-btn sm primary" onclick="unlockUser(this,'lisi')">解锁</button></td>
     </tr>
-    <tr data-id="3">
+    <tr class="row-link" data-id="3">
       <td><input type="checkbox" class="row-chk" onchange="updBatch()"></td><td>wangwu</td><td>王五</td><td>技术部</td><td>测试</td><td>审批角色</td><td><span class="p-tag gray" data-role="st">停用</span></td><td>2026-07-30 11:00</td>
-      <td class="col-ops"><button class="p-btn sm" onclick="openModal('m-edit')">编辑</button><button class="p-btn sm" onclick="toggleUser(this,'wangwu')">启用</button></td>
     </tr>
   </table>
-  <div class="p-pager">共 128 条 · 1/13 页 · 每页 <select class="p-select" style="width:auto;padding:1px 6px"><option>10</option><option>20</option></select></div>
-</div>
-
-<!-- 新增/编辑 -->
-<div class="p-mask" id="m-edit">
-  <div class="p-modal wide">
-    <div class="pm-head">新增用户<span class="x" onclick="closeModal('m-edit')">✕</span></div>
-    <div class="pm-body">
-      <div class="p-row">
-        <div class="p-col p-field"><label>用户名 <span class="req">*</span></label><input class="p-input" id="e-user"></div>
-        <div class="p-col p-field"><label>姓名 <span class="req">*</span></label><input class="p-input" id="e-name"></div>
-      </div>
-      <div class="p-row">
-        <div class="p-col p-field"><label>部门</label><select class="p-select"><option>技术部</option><option>财务部</option><option>人事部</option></select></div>
-        <div class="p-col p-field"><label>岗位</label><select class="p-select"><option>工程师</option><option>会计</option><option>测试</option></select></div>
-      </div>
-      <div class="p-row">
-        <div class="p-col p-field"><label>手机号</label><input class="p-input" value="138****5678" disabled></div>
-        <div class="p-col p-field"><label>邮箱</label><input class="p-input" value="zhangsan@example.com"></div>
-      </div>
-      <div class="p-row">
-        <div class="p-col p-field"><label>初始密码</label><input class="p-input" value="（系统生成）" disabled></div>
-        <div class="p-col p-field"><label>状态</label><select class="p-select"><option>启用</option><option>停用</option></select></div>
-      </div>
-    </div>
-    <div class="pm-foot"><button class="p-btn" onclick="closeModal('m-edit')">取消</button><button class="p-btn primary" onclick="saveUser()">保存</button></div>
+  <!-- 空状态示意（_布局设计-列表页_表格区）：搜索无结果显示「未找到相关内容+重置」；列表为空显示「暂无数据+去创建」；控制台执行 showEmpty() 查看 -->
+  <div class="p-empty" id="empty-demo" style="display:none">
+    <div class="p-empty-icon">🔍</div>
+    <div>未找到相关内容</div>
+    <div style="margin-top:10px"><button class="p-btn" onclick="toast('已重置筛选')">重置</button></div>
+  </div>
+  <div class="p-pager">
+    <span class="pp-total">共 128 条</span>
+    <button class="pp-num" disabled>‹</button>
+    <button class="pp-num active">1</button>
+    <button class="pp-num">2</button>
+    <button class="pp-num">3</button>
+    <button class="pp-num" disabled>…</button>
+    <button class="pp-num" disabled>›</button>
+    <span>每页</span><select class="pp-size"><option>10</option><option selected>20</option><option>50</option></select><span>条</span>
+    <span>跳至</span><input class="pp-goto" value="1"><button class="pp-num" onclick="gotoPage()">跳</button>
   </div>
 </div>
 
-<!-- 重置密码 -->
+<!-- 新增/编辑用户：抽屉（_布局设计-弹窗_表单编辑首选，w480） -->
+<div class="p-drawer w480" id="d-edit">
+  <div class="pd-head">新建用户<span class="x" onclick="closeDrawer('d-edit')">✕</span></div>
+  <div class="pd-body">
+    <div class="p-row">
+      <div class="p-col p-field"><label>用户名 <span class="req">*</span></label><input class="p-input" id="e-user"></div>
+      <div class="p-col p-field"><label>姓名 <span class="req">*</span></label><input class="p-input" id="e-name"></div>
+    </div>
+    <div class="p-row">
+      <div class="p-col p-field"><label>部门</label><select class="p-select"><option>技术部</option><option>财务部</option><option>人事部</option></select></div>
+      <div class="p-col p-field"><label>岗位</label><select class="p-select"><option>工程师</option><option>会计</option><option>测试</option></select></div>
+    </div>
+    <div class="p-row">
+      <div class="p-col p-field"><label>手机号</label><input class="p-input" value="138****5678" disabled></div>
+      <div class="p-col p-field"><label>邮箱</label><input class="p-input" value="zhangsan@example.com"></div>
+    </div>
+    <div class="p-row">
+      <div class="p-col p-field"><label>初始密码</label><input class="p-input" value="（系统生成）" disabled></div>
+      <div class="p-col p-field"><label>状态</label><select class="p-select"><option>启用</option><option>停用</option></select></div>
+    </div>
+  </div>
+  <div class="pd-foot"><button class="p-btn" onclick="closeDrawer('d-edit')">取消</button><button class="p-btn primary" onclick="saveUser()">保存</button></div>
+</div>
+
+<!-- 重置密码：确认类，正文说明后果、确定按钮 danger -->
 <div class="p-mask" id="m-pwd">
-  <div class="p-modal">
+  <div class="p-modal w420">
     <div class="pm-head">重置密码<span class="x" onclick="closeModal('m-pwd')">✕</span></div>
     <div class="pm-body">
+      <div class="proto-hint" style="margin-bottom:10px">重置后原密码失效，用户所有会话将退出。</div>
       <div class="p-field"><label>新密码（8-32 位，含字母数字）</label><input class="p-input" type="password" id="pwd1"></div>
       <div style="height:10px"></div>
       <label style="font-size:13px"><input type="checkbox" id="pwd-force" checked> 强制下次登录改密</label>
     </div>
-    <div class="pm-foot"><button class="p-btn" onclick="closeModal('m-pwd')">取消</button><button class="p-btn primary" onclick="doResetPwd()">确认重置</button></div>
+    <div class="pm-foot"><button class="p-btn" onclick="closeModal('m-pwd')">取消</button><button class="p-btn danger" onclick="doResetPwd()">确认重置</button></div>
   </div>
 </div>
 
@@ -131,19 +144,32 @@
   function saveUser() {
     var u = document.getElementById('e-user').value.trim(), n = document.getElementById('e-name').value.trim();
     if (!u || !n) { toast('用户名与姓名必填', 'err'); return; }
-    closeModal('m-edit'); toast('用户已保存（创建发送 user.created 事件）', 'ok');
+    closeDrawer('d-edit'); toast('用户已保存（创建发送 user.created 事件）', 'ok');
   }
-  function toggleUser(btn, name) {
-    var tr = btn.closest('tr'), st = tr.querySelector('[data-role="st"]');
-    if (st.classList.contains('green')) { st.className = 'p-tag gray'; st.textContent = '停用'; btn.textContent = '启用'; toast('已停用「' + name + '」'); }
-    else { st.className = 'p-tag green'; st.textContent = '启用'; btn.textContent = '停用'; toast('已启用「' + name + '」', 'ok'); }
-  }
-  function unlockUser(btn, name) {
-    confirmAction('手动解锁「' + name + '」？解锁动作将落操作日志与审计。', function () {
-      var tr = btn.closest('tr'), st = tr.querySelector('[data-role="st"]');
-      st.className = 'p-tag green'; st.textContent = '启用';
-      btn.remove(); toast('已解锁（审计留痕）', 'ok');
+  // 批量停用/启用（原行内高频动作收敛到工具栏）
+  function batchToggle() {
+    var rows = document.querySelectorAll('.row-chk:checked');
+    if (!rows.length) { toast('请先选择用户', 'err'); return; }
+    var action = '';
+    rows.forEach(function (cb) {
+      var st = cb.closest('tr').querySelector('[data-role="st"]');
+      if (st.classList.contains('green')) { st.className = 'p-tag gray'; st.textContent = '停用'; action = '停用'; }
+      else { st.className = 'p-tag green'; st.textContent = '启用'; action = '启用'; }
     });
+    toast('已' + action + ' ' + rows.length + ' 个用户', 'ok');
+  }
+  // 筛选区折叠：>3 个条件默认折叠为一行（《布局设计-列表页》3.筛选区）
+  function toggleFilter(btn) {
+    var more = btn.closest('.p-filter').querySelectorAll('.f-more');
+    var show = more[0] && more[0].style.display === 'none';
+    more.forEach(function (x) { x.style.display = show ? '' : 'none'; });
+    btn.textContent = show ? '收起' : '展开';
+  }
+  function gotoPage() { toast('跳转到第 ' + (document.querySelector('.pp-goto').value || 1) + ' 页（原型演示）'); }
+  // 空状态演示（隐藏 div，搜索无结果时展示）
+  function showEmpty() {
+    var e = document.getElementById('empty-demo');
+    e.style.display = e.style.display === 'none' ? '' : 'none';
   }
   function doResetPwd() {
     var p = document.getElementById('pwd1').value;

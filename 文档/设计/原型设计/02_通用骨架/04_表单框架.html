@@ -41,9 +41,9 @@
         </span>
       </div>
       <div class="p-filter" style="border:none;border-radius:0;margin:0;border-top:1px solid #eaeef2">
-        <label>名称</label><input class="p-input" style="width:120px">
+        <label>名称</label><input class="p-input keyword">
         <label>部门</label><select class="p-select" style="width:auto"><option>全部</option><option>技术部</option><option>财务部</option></select>
-        <button class="p-btn sm">查询</button>
+        <button class="p-btn sm primary">查询</button>
         <button class="p-btn sm">重置</button>
         <span class="proto-hint" style="margin-left:auto">双击行打开表单 Tab（表格无操作列）</span>
       </div>
@@ -59,7 +59,16 @@
           <td>王五</td><td>技术部</td><td>测试</td><td>137****9999</td><td><span class="p-tag gray">停用</span></td>
         </tr>
       </table>
-      <div class="p-pager">共 3 条 · 1/1 页</div>
+      <!-- 分页：总数 + 页码（当前页 .active）+ 每页条数 + 跳页（《布局设计-列表页》4.分页） -->
+      <div class="p-pager">
+        <span class="pp-total">共 3 条</span>
+        <span class="pp-num active" onclick="toast('当前第 1 页')">1</span>
+        <span class="pp-num" onclick="toast('原型演示：跳转第 2 页')">2</span>
+        <span class="pp-num" onclick="toast('原型演示：跳转第 3 页')">3</span>
+        <select class="pp-size" onchange="toast('每页显示 ' + this.value)"><option>20 条/页</option><option>50 条/页</option><option>100 条/页</option></select>
+        <span>跳至 <input class="pp-goto"> 页</span>
+        <button class="p-btn sm" onclick="toast('原型演示：跳转到指定页')">确定</button>
+      </div>
     </div>
   </div>
 </div>
@@ -76,11 +85,30 @@
   function switchFF(el) {
     document.querySelectorAll('.ff-tab').forEach(function (t) { t.classList.remove('active'); });
     el.classList.add('active');
+    el.setAttribute('data-act', Date.now());
     var name = el.getAttribute('data-name');
     document.querySelectorAll('#ff-body > div').forEach(function (v) { v.style.display = v.id === 'view-' + name ? '' : 'none'; });
   }
 
+  // 详情 Tab 上限 10：超限时关闭最久未激活（列表 Tab 固定不计）
+  function checkDetailLimit() {
+    var details = document.querySelectorAll('.ff-tab:not([data-kind="list"])');
+    if (details.length < 10) return true;
+    var oldest = null, t0 = Infinity;
+    details.forEach(function (t) {
+      var a = +(t.getAttribute('data-act') || 0);
+      if (a < t0) { t0 = a; oldest = t; }
+    });
+    if (oldest) {
+      var nm = oldest.firstChild.textContent;
+      closeTabNow(oldest);
+      toast('详情 Tab 已达上限 10，已自动关闭最久未激活的「' + nm + '」');
+    }
+    return false;
+  }
+
   function openRecord(id, name) {
+    if (!checkDetailLimit()) return;
     var tabs = document.getElementById('ff-tabs');
     var exist = tabs.querySelector('[data-kind="record"][data-name="rec' + id + '"]');
     if (exist) { switchFF(exist); return; }
@@ -88,74 +116,97 @@
     document.querySelectorAll('.ff-tab').forEach(function (t) { t.classList.remove('active'); });
     var recTab = tabs.querySelector('[data-kind="record"][data-name="rec' + id + '"]');
     recTab.classList.add('active');
-    renderRecord(id, name);
+    recTab.setAttribute('data-act', Date.now());
+    renderRecord('rec' + id, name, false);
   }
 
   function newRecord() {
+    if (!checkDetailLimit()) return;
     var tabs = document.getElementById('ff-tabs');
-    var id = seq++;
-    var name = '新建用户';
-    tabs.insertAdjacentHTML('beforeend', ffTab(name, 'new' + id).replace('data-name="新建用户"', 'data-name="new' + id + '"'));
+    var uid = 'new' + seq++;
+    tabs.insertAdjacentHTML('beforeend', ffTab('新建用户', 'new').replace('data-name="新建用户"', 'data-name="' + uid + '"'));
     document.querySelectorAll('.ff-tab').forEach(function (t) { t.classList.remove('active'); });
-    var t = tabs.querySelector('[data-name="new' + id + '"]');
+    var t = tabs.querySelector('[data-name="' + uid + '"]');
     t.classList.add('active');
-    renderRecord(null, '新建用户');
+    t.setAttribute('data-act', Date.now());
+    renderRecord(uid, '新建用户', true);
     toast('新增态：字段直接可编辑');
   }
 
-  function renderRecord(id, title) {
-    var isNew = id === null;
-    var d = isNew ? { dept: '', post: '', phone: '' } : (recordData[id] || { dept: '', post: '', phone: '' });
-    var html = '<div id="view-' + (isNew ? 'new' : 'rec' + id) + '">' +
-      '<div class="p-toolbar" style="border:none;border-radius:0;margin:0;padding:10px 12px" data-bar="' + (isNew ? 'new' : 'rec' + id) + '">' +
-      (isNew ? '<button class="p-btn primary" data-save="' + (isNew ? 'new' : id) + '" onclick="saveRec(this)">保存</button>'
-        : '<button class="p-btn" data-edit="' + id + '" onclick="editRec(this)">修改</button><button class="p-btn" onclick="refreshRec(this)">刷新</button><button class="p-btn danger" onclick="delRec(this)">删除</button>') +
+  // 字段数 ≤ 8 时去分区标题平铺展示；只读态输入框 disabled，编辑态/新增态启用
+  function renderRecord(viewId, title, isNew) {
+    var d = isNew ? { dept: '', post: '', phone: '' } : (recordData[viewId.slice(3)] || { dept: '', post: '', phone: '' });
+    var dis = isNew ? '' : ' disabled';
+    var html = '<div id="view-' + viewId + '"' + (isNew ? ' oninput="markNewDirty(this)"' : '') + '>' +
+      '<div class="p-toolbar" style="border:none;border-radius:0;margin:0;padding:10px 12px" data-bar="' + viewId + '">' +
+      (isNew ? '<button class="p-btn primary" data-save="' + viewId + '" onclick="saveRec(this)">保存</button>'
+        : '<button class="p-btn" data-edit="' + viewId.slice(3) + '" onclick="editRec(this)">修改</button><button class="p-btn" onclick="refreshRec(this)">刷新</button><button class="p-btn danger" onclick="delRec(this)">删除</button>') +
       '<button class="p-btn" onclick="closeCurrent()">关闭</button>' +
       '</div>' +
-      '<div class="p-tabs" style="padding:0 12px;margin:0">' +
-      '<div class="p-tab active">详细信息</div><div class="p-tab" onclick="toast(\'原型演示：系统信息只读展示\')">系统信息</div>' +
+      '<div id="stabs-' + viewId + '" style="padding:0 12px;margin:0">' +
+      '<div class="p-tabs" style="margin:0">' +
+      '<div class="p-tab active" data-tab="detail" data-tabs="stabs-' + viewId + '">详细信息</div>' +
+      '<div class="p-tab" data-tab="sys" data-tabs="stabs-' + viewId + '">系统信息</div>' +
       '</div>' +
-      '<div class="p-form" style="border:none;border-radius:0;border-top:1px solid #eaeef2">' +
-      '<div class="p-section">基本信息</div>' +
-      '<div class="p-row"><div class="p-col p-field"><label>姓名</label><input class="p-input" value="' + title + '" data-f="name"></div>' +
-      '<div class="p-col p-field"><label>部门</label><select class="p-select" data-f="dept"><option>技术部</option><option>财务部</option><option>人事部</option></select></div></div>' +
-      '<div class="p-row"><div class="p-col p-field"><label>岗位</label><input class="p-input" value="' + d.post + '" data-f="post"></div>' +
-      '<div class="p-col p-field"><label>手机号</label><input class="p-input" value="' + d.phone + '" data-f="phone"></div></div>' +
-      '</div></div>';
+      '<div class="p-form" style="border:none;border-radius:0;border-top:1px solid #eaeef2" data-pane="detail">' +
+      '<div class="p-row"><div class="p-col p-field"><label>姓名</label><input class="p-input" value="' + title + '" data-f="name"' + dis + '></div>' +
+      '<div class="p-col p-field"><label>部门</label><select class="p-select" data-f="dept"' + dis + '><option>技术部</option><option>财务部</option><option>人事部</option></select></div></div>' +
+      '<div class="p-row"><div class="p-col p-field"><label>岗位</label><input class="p-input" value="' + d.post + '" data-f="post"' + dis + '></div>' +
+      '<div class="p-col p-field"><label>手机号</label><input class="p-input" value="' + d.phone + '" data-f="phone"' + dis + '></div></div>' +
+      '</div>' +
+      '<div class="p-form" style="border:none;border-radius:0;border-top:1px solid #eaeef2;display:none" data-pane="sys">' +
+      '<div class="sys-text">ID：' + (isNew ? '（保存后生成）' : viewId) + '</div>' +
+      '<div class="sys-text">创建时间：' + (isNew ? '—' : '2026-07-01 10:24:05') + '</div>' +
+      '<div class="sys-text">修改时间：' + (isNew ? '—' : '2026-08-10 09:12:30') + '</div>' +
+      '</div>' +
+      '</div>' +
+      '</div>';
     // 隐藏其他视图
     document.querySelectorAll('#ff-body > div').forEach(function (v) { v.style.display = 'none'; });
     document.getElementById('ff-body').insertAdjacentHTML('beforeend', html);
     if (!isNew) {
       var sel = document.querySelector('[data-f="dept"]'); if (sel) sel.value = d.dept;
     }
-    // 新增态不写 dirty 拦截；编辑态监听变化
   }
+
+  // 新增态编辑内容后标记 dirty（关闭 Tab 时拦截确认）
+  function markNewDirty(v) { v.dataset.dirty = '1'; }
 
   function editRec(btn) {
     var bar = btn.closest('.p-toolbar');
     var id = btn.getAttribute('data-edit');
-    bar.innerHTML = '<button class="p-btn primary" data-save="' + id + '" onclick="saveRec(this)">保存</button><button class="p-btn" onclick="closeCurrent()">关闭</button>';
+    bar.innerHTML = '<button class="p-btn primary" data-save="rec' + id + '" onclick="saveRec(this)">保存</button><button class="p-btn" onclick="closeCurrent()">关闭</button>';
     var view = bar.parentNode;
-    view.querySelectorAll('.p-input').forEach(function (i) { i.dataset.dirty = '1'; });
+    view.querySelectorAll('.p-input,.p-select').forEach(function (i) { i.disabled = false; i.dataset.dirty = '1'; });
     toast('已进入编辑态（字段启用）');
   }
 
   function saveRec(btn) {
     var bar = btn.closest('.p-toolbar');
-    var id = btn.getAttribute('data-save');
+    var vid = btn.getAttribute('data-save');
     var view = bar.parentNode;
     var name = view.querySelector('[data-f="name"]').value || '未命名';
-    if (id === 'new') {
+    var readOnly = '<button class="p-btn" data-edit="' + vid.slice(3) + '" onclick="editRec(this)">修改</button><button class="p-btn" onclick="refreshRec(this)">刷新</button><button class="p-btn danger" onclick="delRec(this)">删除</button><button class="p-btn" onclick="closeCurrent()">关闭</button>';
+    if (vid.indexOf('new') === 0) {
       // 新增保存：回填 id 并刷新列表
       var newId = seq++;
-      bar.innerHTML = '<button class="p-btn" data-edit="' + newId + '" onclick="editRec(this)">修改</button><button class="p-btn" onclick="refreshRec(this)">刷新</button><button class="p-btn danger" onclick="delRec(this)">删除</button><button class="p-btn" onclick="closeCurrent()">关闭</button>';
+      bar.innerHTML = readOnly;
       var tab = document.querySelector('.ff-tab.active');
       tab.setAttribute('data-name', 'rec' + newId);
+      tab.setAttribute('data-kind', 'record');
       tab.firstChild.textContent = name;
+      view.id = 'view-rec' + newId;
+      var sb = view.querySelector('[id^="stabs-"]');
+      if (sb) sb.id = 'stabs-rec' + newId;
+      view.querySelectorAll('[data-tabs^="stabs-"]').forEach(function (t) { t.setAttribute('data-tabs', 'stabs-rec' + newId); });
+      view.querySelectorAll('[data-dirty]').forEach(function (i) { delete i.dataset.dirty; });
+      view.querySelectorAll('.p-input,.p-select').forEach(function (i) { i.disabled = true; });
       toast('已保存（主从单事务），列表已刷新', 'ok');
       addListRow(newId, name);
     } else {
-      bar.innerHTML = '<button class="p-btn" data-edit="' + id + '" onclick="editRec(this)">修改</button><button class="p-btn" onclick="refreshRec(this)">刷新</button><button class="p-btn danger" onclick="delRec(this)">删除</button><button class="p-btn" onclick="closeCurrent()">关闭</button>';
+      bar.innerHTML = readOnly;
+      view.querySelectorAll('[data-dirty]').forEach(function (i) { delete i.dataset.dirty; });
+      view.querySelectorAll('.p-input,.p-select').forEach(function (i) { i.disabled = true; });
       toast('已保存（乐观锁 version 校验）', 'ok');
     }
   }
@@ -196,9 +247,11 @@
   function closeCurrent() {
     var tab = document.querySelector('.ff-tab.active');
     if (tab.getAttribute('data-kind') === 'list') { toast('列表 Tab 不可关闭', 'err'); return; }
-    // 脏数据保护（演示：编辑过的表单直接拦截）
-    var bar = tab.getAttribute('data-kind').indexOf('new') === 0 ? null : document.querySelector('.p-toolbar[data-bar]');
-    var view = document.querySelector('.ff-body > div[data-bar]');
+    closeTabWithCheck(tab);
+  }
+  // 脏数据保护：新增态/编辑态有未保存修改时关闭 Tab 弹确认（confirmAction 已锁定遮罩/Esc）
+  function closeTabWithCheck(tab) {
+    var view = document.getElementById('view-' + tab.getAttribute('data-name'));
     var dirty = view && view.querySelector('[data-dirty]');
     if (dirty) {
       confirmAction('当前有未保存修改，关闭将丢失，确认关闭？', function () { closeTabNow(tab); });
@@ -218,7 +271,7 @@
   function closeFFTab(x) {
     var tab = x.closest('.ff-tab');
     if (tab.getAttribute('data-kind') === 'list') { toast('列表 Tab 不可关闭', 'err'); return; }
-    closeTabNow(tab);
+    closeTabWithCheck(tab);
   }
 </script>
 

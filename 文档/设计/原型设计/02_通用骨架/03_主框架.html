@@ -66,6 +66,11 @@
   .tab-more-list .tml-item { padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; }
   .tab-more-list .tml-item:hover { background: #f6f8fa; }
   .tab-more-list .tml-item.active { color: #0969da; font-weight: 600; background: #ddf4ff; }
+  /* Tab 右键菜单（《布局设计-主框架》3.6）：关闭当前/其他/全部 */
+  #tabCtx { display: none; position: fixed; z-index: 80; min-width: 150px; background: #fff; border: 1px solid #d0d7de; border-radius: 8px; box-shadow: 0 8px 24px rgba(31,35,40,.12); padding: 4px; font-size: 13px; }
+  #tabCtx .tc-item { padding: 8px 12px; border-radius: 6px; cursor: pointer; }
+  #tabCtx .tc-item:hover { background: #f6f8fa; }
+  #tabCtx .tc-sep { height: 1px; background: #eaeef2; margin: 4px 0; }
   /* 内容区：iframe 承载各模块原型，点击菜单加载对应页面（keep-alive：切换仅显隐） */
   .content { flex: 1; min-height: 0; padding: 0; display: flex; background: #f6f8fa; }
   .pane { display: none; flex: 1; min-width: 0; }
@@ -124,33 +129,33 @@
       <nav class="sb-menu">
         <div class="sb-group open" onclick="toggleGroup(this)"><span class="arr">▶</span> <span class="ic">⚙️</span>系统管理</div>
         <div class="sb-sub">
-          <div class="sb-item active" data-name="首页工作台" data-src="../03_首页工作台/02_工作台查看.html" onclick="selectMenu(this,'首页工作台')"><span class="ic">🏠</span>首页工作台</div>
-          <div class="sb-group open" onclick="toggleGroup(this)"><span class="arr">▶</span> 用户管理</div>
+          <div class="sb-item active" data-name="首页工作台" data-src="../03_首页工作台/02_工作台查看.html" onclick="selectMenu(this,'首页工作台')">首页工作台</div>
+          <div class="sb-group open" onclick="toggleGroup(this)"><span class="arr">▶</span> <span class="ic">👥</span>用户管理</div>
           <div class="sb-sub">
             <div class="sb-item" data-name="用户列表" data-src="../05_用户管理/02_用户列表页.html" data-form="../05_用户管理/03_用户表单页.html" onclick="selectMenu(this,'用户列表')">用户列表</div>
             <div class="sb-item" data-name="账号锁定" data-src="../05_用户管理/04_账号锁定.html" onclick="selectMenu(this,'账号锁定')">账号锁定</div>
           </div>
-          <div class="sb-group" onclick="toggleGroup(this)"><span class="arr">▶</span> 角色管理</div>
+          <div class="sb-group" onclick="toggleGroup(this)"><span class="arr">▶</span> <span class="ic">🛡️</span>角色管理</div>
           <div class="sb-sub">
             <div class="sb-item" data-name="角色列表" data-src="../06_角色管理/02_角色列表页.html" onclick="selectMenu(this,'角色列表')">角色列表</div>
             <div class="sb-item" data-name="权限配置" data-src="../06_角色管理/03_权限配置.html" onclick="selectMenu(this,'权限配置')">权限配置</div>
           </div>
-          <div class="sb-group" onclick="toggleGroup(this)"><span class="arr">▶</span> 部门与岗位</div>
+          <div class="sb-group" onclick="toggleGroup(this)"><span class="arr">▶</span> <span class="ic">🏢</span>部门与岗位</div>
           <div class="sb-sub">
             <div class="sb-item" data-name="部门管理" data-src="../08_部门与岗位/02_部门管理页.html" onclick="selectMenu(this,'部门管理')">部门管理</div>
             <div class="sb-item" data-name="岗位管理" data-src="../08_部门与岗位/03_岗位管理页.html" onclick="selectMenu(this,'岗位管理')">岗位管理</div>
           </div>
-          <div class="sb-group" onclick="toggleGroup(this)"><span class="arr">▶</span> 菜单管理</div>
+          <div class="sb-group" onclick="toggleGroup(this)"><span class="arr">▶</span> <span class="ic">📋</span>菜单管理</div>
           <div class="sb-sub">
             <div class="sb-item" data-name="菜单维护" data-src="../07_菜单管理/02_菜单维护页.html" onclick="selectMenu(this,'菜单维护')">菜单维护</div>
             <div class="sb-item" data-name="权限码管理" data-src="../07_菜单管理/03_权限码管理.html" onclick="selectMenu(this,'权限码管理')">权限码管理</div>
           </div>
-          <div class="sb-group" onclick="toggleGroup(this)"><span class="arr">▶</span> 表单定制</div>
+          <div class="sb-group" onclick="toggleGroup(this)"><span class="arr">▶</span> <span class="ic">🧩</span>表单定制</div>
           <div class="sb-sub">
             <div class="sb-item" data-name="表单设计器" data-src="../04_表单定制/02_表单设计器.html" onclick="selectMenu(this,'表单设计器')">表单设计器</div>
             <div class="sb-item" data-name="新建自定义字段" data-src="../04_表单定制/03_新建自定义字段.html" onclick="selectMenu(this,'新建自定义字段')">新建自定义字段</div>
           </div>
-          <div class="sb-group" onclick="toggleGroup(this)"><span class="arr">▶</span> 工作台管理</div>
+          <div class="sb-group" onclick="toggleGroup(this)"><span class="arr">▶</span> <span class="ic">🗂️</span>工作台管理</div>
           <div class="sb-sub">
             <div class="sb-item" data-name="个人工作台定制" data-src="../03_首页工作台/03_工作台编辑.html" onclick="selectMenu(this,'个人工作台定制')">个人工作台定制</div>
             <div class="sb-item" data-name="卡片管理" data-src="../03_首页工作台/04_卡片管理.html" onclick="selectMenu(this,'卡片管理')">卡片管理</div>
@@ -165,7 +170,7 @@
         </div>
         <div class="sb-group" onclick="toggleGroup(this)"><span class="arr">▶</span> <span class="ic">📊</span>业务</div>
         <div class="sb-sub">
-          <div class="sb-group" onclick="toggleGroup(this)"><span class="arr">▶</span> 采购管理</div>
+          <div class="sb-group" onclick="toggleGroup(this)"><span class="arr">▶</span> <span class="ic">🛒</span>采购管理</div>
           <div class="sb-sub">
             <div class="sb-item" data-name="供应商" onclick="selectMenu(this,'供应商')">供应商</div>
             <div class="sb-item" data-name="采购申请列表" data-src="../09_采购与审批链路/02_采购申请列表页.html" data-form="../09_采购与审批链路/03_采购申请表单页.html" onclick="selectMenu(this,'采购申请列表')">采购申请列表</div>
@@ -179,11 +184,18 @@
 
     <div class="main">
       <div class="tabs" id="tabs">
-        <div class="tab active" data-name="首页工作台">首页工作台</div>
+        <div class="tab active" data-name="首页工作台" data-act="0">首页工作台</div>
         <div class="tab-more-wrap" id="tabMoreWrap">
           <span class="tab-more" onclick="toggleMore(event)" title="Tab 溢出时显示全部">更多 ▾</span>
           <span class="tab-more-list" id="tabMoreList"></span>
         </div>
+      </div>
+      <!-- Tab 右键菜单（关闭当前/其他/全部） -->
+      <div id="tabCtx">
+        <div class="tc-item" onclick="ctxClose('current')">关闭当前</div>
+        <div class="tc-sep"></div>
+        <div class="tc-item" onclick="ctxClose('others')">关闭其他</div>
+        <div class="tc-item" onclick="ctxClose('all')">关闭全部</div>
       </div>
 
       <div class="content" id="content"></div>
@@ -203,6 +215,21 @@
     var tabs = document.getElementById('tabs');
     var tab = tabs.querySelector('.tab[data-name="' + name + '"]');
     if (!tab && name !== '首页工作台') {
+      // Tab 上限 20：超出时关闭最久未激活（固定工作台除外）
+      var all = tabs.querySelectorAll('.tab');
+      if (all.length >= 20) {
+        var oldest = null, t0 = Infinity;
+        all.forEach(function (x) {
+          if (x.getAttribute('data-name') === '首页工作台') return;
+          var a = +(x.getAttribute('data-act') || 0);
+          if (a < t0) { t0 = a; oldest = x; }
+        });
+        if (oldest) {
+          var oldName = oldest.getAttribute('data-name');
+          closeTab(oldest.querySelector('.close'));
+          toast('Tab 已达上限 20，已自动关闭最久未激活的「' + oldName + '」');
+        }
+      }
       tab = document.createElement('div');
       tab.className = 'tab';
       tab.setAttribute('data-name', name);
@@ -230,6 +257,47 @@
       document.getElementById('content').appendChild(pane);
     }
     activateTab(name);
+    location.hash = '#/' + name;
+    updateMore();
+  }
+
+  // Tab 点击激活（含 URL hash 联动）
+  document.getElementById('tabs').addEventListener('click', function (e) {
+    if (e.target.classList.contains('close')) return;
+    var tab = e.target.closest && e.target.closest('.tab');
+    if (tab) activateTab(tab.getAttribute('data-name'));
+  });
+
+  // Tab 右键菜单：关闭当前/关闭其他/关闭全部（《布局设计-主框架》3.6）
+  var ctxTab = null;
+  document.getElementById('tabs').addEventListener('contextmenu', function (e) {
+    var tab = e.target.closest && e.target.closest('.tab');
+    if (!tab) return;
+    e.preventDefault();
+    ctxTab = tab;
+    var m = document.getElementById('tabCtx');
+    m.style.display = 'block';
+    m.style.left = Math.min(e.clientX, window.innerWidth - 170) + 'px';
+    m.style.top = Math.min(e.clientY, window.innerHeight - 130) + 'px';
+  });
+  document.addEventListener('click', function () { document.getElementById('tabCtx').style.display = 'none'; });
+  function ctxClose(kind) {
+    var t = ctxTab; ctxTab = null;
+    if (!t) return;
+    var names = [];
+    if (kind === 'current') { names.push(t.getAttribute('data-name')); }
+    else {
+      document.querySelectorAll('#tabs .tab').forEach(function (x) {
+        var n = x.getAttribute('data-name');
+        if (n === '首页工作台') return;
+        if (kind === 'all' || (kind === 'others' && x !== t)) names.push(n);
+      });
+    }
+    names.forEach(function (n) {
+      var x = document.querySelector('#tabs .tab[data-name="' + n + '"]');
+      if (x && x.querySelector('.close')) closeTab(x.querySelector('.close'));
+    });
+    if (kind !== 'current') toast(kind === 'all' ? '已关闭全部 Tab（工作台固定保留）' : '已关闭其他 Tab', 'ok');
   }
 
   // FormFrame：列表/详情子 Tab 切换（每个详情 Tab 对应独立记录表单 pane）
@@ -281,14 +349,17 @@
     if (wasActive) ffSwitch(prev && prev.classList.contains('ff-tab') ? prev : pane.querySelector('.ff-tab[data-ff="list"]'));
   }
 
-  // 激活 Tab：Tab 高亮 + 对应 pane 显隐
+  // 激活 Tab：Tab 高亮 + 对应 pane 显隐 + 记录最近激活时间 + URL hash 联动
   function activateTab(name) {
     document.querySelectorAll('#tabs .tab').forEach(function (t) {
-      t.classList.toggle('active', t.getAttribute('data-name') === name);
+      var on = t.getAttribute('data-name') === name;
+      t.classList.toggle('active', on);
+      if (on) t.setAttribute('data-act', Date.now());
     });
     document.querySelectorAll('.content .pane').forEach(function (p) {
       p.classList.toggle('show', p.id === 'pane-' + name);
     });
+    location.hash = '#/' + name;
   }
 
   // 单击叶子结点：Tab 未打开则新建并激活，已打开则直接激活（《布局设计-主框架》2/3.2）
@@ -309,6 +380,13 @@
     var pane = document.getElementById('pane-' + name);
     if (pane) pane.remove();
     if (wasActive) activateTab(prev && prev.classList.contains('tab') ? prev.getAttribute('data-name') : '首页工作台');
+    updateMore();
+  }
+
+  // 更多按钮：仅当 Tab 溢出（scrollWidth > clientWidth）时显示（《布局设计-主框架》3.7）
+  function updateMore() {
+    var tabsEl = document.getElementById('tabs');
+    document.getElementById('tabMoreWrap').style.display = (tabsEl.scrollWidth > tabsEl.clientWidth) ? '' : 'none';
   }
 
   // 溢出处理：更多按钮下拉展示全部 Tab（《布局设计-主框架》3.7）
@@ -357,8 +435,18 @@
     document.getElementById('menuNoMatch').style.display = (kw && hit === 0) ? 'block' : 'none';
   }
 
-  // 初始化：工作台固定 Tab 加载工作台原型
+  // 初始化：工作台固定 Tab 加载工作台原型；读 URL hash 激活对应 Tab（简单实现）
   openTab('首页工作台', '../03_首页工作台/02_工作台查看.html');
+  var h = (location.hash || '').replace(/^#\//, '');
+  if (h) {
+    var t = document.querySelector('#tabs .tab[data-name="' + h + '"]');
+    if (t && document.getElementById('pane-' + h)) { activateTab(h); }
+    else {
+      var mi = document.querySelector('.sb-item[data-name="' + h + '"]');
+      if (mi) selectMenu(mi, h);
+    }
+  }
+  updateMore();
 </script>
 
 </body>
