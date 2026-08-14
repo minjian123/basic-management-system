@@ -4,14 +4,16 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>原型 · 个人中心</title>
+<link rel="stylesheet" href="../共享资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../共享资源/原型样式.css">
 <style>
   .pc-wrap { display: flex; gap: 14px; align-items: flex-start; }
-  .pc-nav { width: 220px; background: #fff; border: 1px solid #d0d7de; border-radius: 8px; padding: 8px 0; font-size: 13px; flex-shrink: 0; }
-  .pc-nav .n { padding: 8px 16px; cursor: pointer; color: #24292f; }
-  .pc-nav .n:hover { background: #f6f8fa; }
-  .pc-nav .n.active { background: #ddf4ff; color: #0969da; border-left: 3px solid #0969da; padding-left: 13px; }
+  .pc-nav { width: 220px; background: #fff; border: 1px solid #d0d7de; border-radius: 8px; padding: 8px 0; flex-shrink: 0; }
+  .pc-nav .el-menu { border-right: none; }
   .pc-main { flex: 1; background: #fff; border: 1px solid #d0d7de; border-radius: 8px; padding: 18px; min-height: 420px; }
+  .pc-form { max-width: 520px; }
+  .pwd-hint { font-size: 12px; margin-top: 4px; min-height: 16px; }
+  .notify-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #eaeef2; font-size: 13px; }
 </style>
 </head>
 <body>
@@ -22,130 +24,205 @@
 </div>
 
 <div class="proto-frame">
-  <div class="pc-wrap">
-    <div class="pc-nav" id="pc-nav">
-      <div class="n active" data-pane="pwd">修改密码</div>
-      <div class="n" data-pane="locale">语言与时区</div>
-      <div class="n" data-pane="theme">主题模式</div>
-      <div class="n" data-pane="list">列表页个性化</div>
-      <div class="n" data-pane="notify">通知偏好</div>
-    </div>
+  <div id="app">
+    <div class="pc-wrap">
+      <!-- 左侧导航 -->
+      <div class="pc-nav">
+        <el-menu :default-active="activePane" @select="onNav">
+          <el-menu-item index="pwd">修改密码</el-menu-item>
+          <el-menu-item index="locale">语言与时区</el-menu-item>
+          <el-menu-item index="theme">主题模式</el-menu-item>
+          <el-menu-item index="list">列表页个性化</el-menu-item>
+          <el-menu-item index="notify">通知偏好</el-menu-item>
+        </el-menu>
+      </div>
 
-    <div class="pc-main">
-      <!-- 修改密码 -->
-      <div id="pane-pwd">
-        <div class="p-form" style="max-width:480px">
-          <div class="p-section">修改密码</div>
-          <div class="p-field"><label>旧密码</label><input class="p-input" type="password" id="pwd-old" placeholder="请输入旧密码"></div>
-          <div style="height:10px"></div>
-          <div class="p-field"><label>新密码 <span class="proto-hint">（8-32 位，含字母与数字）</span></label><input class="p-input" type="password" id="pwd-new" oninput="pwdCheck()" placeholder="请输入新密码"></div>
-          <div style="font-size:12px;margin-top:4px" id="pwd-hint"></div>
-          <div style="height:10px"></div>
-          <div class="p-field"><label>确认新密码</label><input class="p-input" type="password" id="pwd-confirm" placeholder="再次输入新密码"></div>
+      <div class="pc-main">
+        <!-- ===== 修改密码 ===== -->
+        <div v-show="activePane === 'pwd'">
+          <el-form class="pc-form" label-width="100px">
+            <div class="ep-section" style="font-weight:600;margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid #eaeef2">修改密码</div>
+            <el-form-item label="旧密码">
+              <el-input v-model="pwd.old" type="password" show-password placeholder="请输入旧密码"></el-input>
+            </el-form-item>
+            <el-form-item label="新密码">
+              <el-input v-model="pwd.pwd" type="password" show-password placeholder="请输入新密码" @input="pwdCheck"></el-input>
+              <div class="pwd-hint" :style="{ color: pwd.hintColor }">{{ pwd.hint }}</div>
+            </el-form-item>
+            <el-form-item label="确认新密码">
+              <el-input v-model="pwd.confirm" type="password" show-password placeholder="再次输入新密码"></el-input>
+              <div class="proto-hint" style="margin-top:4px">8-32 位，含字母与数字</div>
+            </el-form-item>
+            <div class="p-form-actions">
+              <el-button @click="resetPwd">重置</el-button>
+              <el-button type="primary" @click="doChangePwd">保存</el-button>
+            </div>
+          </el-form>
+        </div>
+
+        <!-- ===== 语言与时区 ===== -->
+        <div v-show="activePane === 'locale'">
+          <el-form class="pc-form" label-width="100px">
+            <div class="ep-section" style="font-weight:600;margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid #eaeef2">语言与时区</div>
+            <el-form-item label="语言">
+              <el-select v-model="locale.lang" style="width:220px">
+                <el-option label="简体中文" value="zh-CN"></el-option>
+                <el-option label="English" value="en-US"></el-option>
+              </el-select>
+            </el-form-item>
+            <el-form-item label="时区">
+              <el-select v-model="locale.tz" style="width:220px">
+                <el-option label="Asia/Shanghai (UTC+8)" value="Asia/Shanghai"></el-option>
+                <el-option label="UTC" value="UTC"></el-option>
+              </el-select>
+            </el-form-item>
+            <div class="proto-hint">偏好存 sys_user_preference，PC 与移动端跨端同步</div>
+            <div class="p-form-actions">
+              <el-button type="primary" @click="ElMessage.success('偏好已保存并跨端同步')">保存</el-button>
+            </div>
+          </el-form>
+        </div>
+
+        <!-- ===== 主题模式 ===== -->
+        <div v-show="activePane === 'theme'">
+          <el-form class="pc-form" label-width="100px">
+            <div class="ep-section" style="font-weight:600;margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid #eaeef2">主题模式</div>
+            <el-form-item label="外观">
+              <el-radio-group v-model="theme.mode">
+                <el-radio value="light">浅色</el-radio>
+                <el-radio value="dark">深色</el-radio>
+                <el-radio value="system">跟随系统</el-radio>
+              </el-radio-group>
+            </el-form-item>
+            <div class="p-form-actions">
+              <el-button type="primary" @click="ElMessage.success('主题已保存（CSS 变量驱动切换）')">保存</el-button>
+            </div>
+          </el-form>
+        </div>
+
+        <!-- ===== 列表页个性化 ===== -->
+        <div v-show="activePane === 'list'">
+          <div class="ep-section" style="font-weight:600;margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid #eaeef2">列表页个性化（用户管理列表示例）</div>
+          <el-table :data="columns" border size="small" style="max-width:640px">
+            <el-table-column prop="name" label="列" min-width="140"></el-table-column>
+            <el-table-column label="显示" width="90">
+              <template #default="{ row }">
+                <el-switch v-model="row.show"></el-switch>
+              </template>
+            </el-table-column>
+            <el-table-column label="顺序 ⇄" width="140">
+              <template #default="{ row }">
+                <el-input-number v-model="row.order" :min="1" :max="columns.length" size="small" controls-position="right"
+                  :disabled="!row.show" style="width:110px"></el-input-number>
+              </template>
+            </el-table-column>
+            <el-table-column prop="width" label="宽度" width="120"></el-table-column>
+          </el-table>
+          <div style="margin-top:12px">
+            <span class="proto-hint">每页条数：</span>
+            <el-select v-model="listOpt.pageSize" style="width:100px">
+              <el-option label="10" value="10"></el-option>
+              <el-option label="20" value="20"></el-option>
+              <el-option label="50" value="50"></el-option>
+            </el-select>
+            <span class="proto-hint" style="margin-left:14px">密度：</span>
+            <el-select v-model="listOpt.density" style="width:100px">
+              <el-option label="默认" value="default"></el-option>
+              <el-option label="紧凑" value="compact"></el-option>
+            </el-select>
+          </div>
           <div class="p-form-actions">
-            <button class="p-btn" onclick="toast('已重置（原型演示）')">重置</button>
-            <button class="p-btn primary" onclick="doChangePwd()">保存</button>
+            <el-button type="primary" @click="ElMessage.success('列表个性化已保存')">保存</el-button>
           </div>
         </div>
-      </div>
 
-      <!-- 语言与时区 -->
-      <div id="pane-locale" style="display:none">
-        <div class="p-form" style="max-width:480px">
-          <div class="p-section">语言与时区</div>
-          <div class="p-row">
-            <div class="p-col p-field"><label>语言</label>
-              <select class="p-select"><option>简体中文</option><option>English</option></select>
+        <!-- ===== 通知偏好 ===== -->
+        <div v-show="activePane === 'notify'">
+          <div class="pc-form">
+            <div class="ep-section" style="font-weight:600;margin-bottom:6px;padding-bottom:8px;border-bottom:1px solid #eaeef2">通知偏好</div>
+            <div class="notify-row">
+              <span>站内信</span>
+              <el-switch v-model="notify.inbox"></el-switch>
             </div>
-            <div class="p-col p-field"><label>时区</label>
-              <select class="p-select"><option>Asia/Shanghai (UTC+8)</option><option>UTC</option></select>
+            <div class="notify-row">
+              <span>邮件</span>
+              <el-switch v-model="notify.email"></el-switch>
+            </div>
+            <div class="notify-row">
+              <span>短信（仅告警/验证码）</span>
+              <el-switch v-model="notify.sms"></el-switch>
+            </div>
+            <div style="padding:10px 0;font-size:13px">
+              <span>免打扰时段：</span>
+              <el-select v-model="notify.quietStart" style="width:90px">
+                <el-option label="22:00" value="22:00"></el-option>
+                <el-option label="23:00" value="23:00"></el-option>
+              </el-select>
+              <span style="margin:0 6px">-</span>
+              <el-select v-model="notify.quietEnd" style="width:90px">
+                <el-option label="07:00" value="07:00"></el-option>
+                <el-option label="08:00" value="08:00"></el-option>
+              </el-select>
+            </div>
+            <div class="p-form-actions">
+              <el-button type="primary" @click="ElMessage.success('通知偏好已保存')">保存</el-button>
             </div>
           </div>
-          <div class="proto-hint">偏好存 sys_user_preference，PC 与移动端跨端同步</div>
-          <div class="p-form-actions"><button class="p-btn primary" onclick="toast('偏好已保存并跨端同步','ok')">保存</button></div>
-        </div>
-      </div>
-
-      <!-- 主题模式 -->
-      <div id="pane-theme" style="display:none">
-        <div class="p-form" style="max-width:480px">
-          <div class="p-section">主题模式</div>
-          <div class="p-row">
-            <label style="display:flex;align-items:center;gap:8px"><input type="radio" name="theme" checked> 浅色</label>
-            <label style="display:flex;align-items:center;gap:8px"><input type="radio" name="theme"> 深色</label>
-            <label style="display:flex;align-items:center;gap:8px"><input type="radio" name="theme"> 跟随系统</label>
-          </div>
-          <div class="p-form-actions"><button class="p-btn primary" onclick="toast('主题已保存（CSS 变量驱动切换）','ok')">保存</button></div>
-        </div>
-      </div>
-
-      <!-- 列表页个性化 -->
-      <div id="pane-list" style="display:none">
-        <div class="p-form">
-          <div class="p-section">列表页个性化（用户管理列表示例）</div>
-          <table class="p-table">
-            <tr><th>列</th><th>显示</th><th>顺序 ⇄</th><th>宽度</th></tr>
-            <tr><td>用户名</td><td>☑</td><td>1</td><td>自适应</td></tr>
-            <tr><td>姓名</td><td>☑</td><td>2</td><td>自适应</td></tr>
-            <tr><td>部门</td><td>☑</td><td>3</td><td>120px</td></tr>
-            <tr><td>最近登录</td><td>☐</td><td>—</td><td>—</td></tr>
-          </table>
-          <div style="margin-top:12px" class="proto-hint">每页条数：<select class="p-select" style="width:auto;padding:3px 8px"><option>10</option><option>20</option><option>50</option></select> 密度：<select class="p-select" style="width:auto;padding:3px 8px"><option>默认</option><option>紧凑</option></select></div>
-          <div class="p-form-actions"><button class="p-btn primary" onclick="toast('列表个性化已保存','ok')">保存</button></div>
-        </div>
-      </div>
-
-      <!-- 通知偏好 -->
-      <div id="pane-notify" style="display:none">
-        <div class="p-form" style="max-width:480px">
-          <div class="p-section">通知偏好</div>
-          <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #eaeef2">
-            <span>站内信</span><input type="checkbox" checked>
-          </div>
-          <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #eaeef2">
-            <span>邮件</span><input type="checkbox" checked>
-          </div>
-          <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #eaeef2">
-            <span>短信（仅告警/验证码）</span><input type="checkbox">
-          </div>
-          <div style="padding:8px 0">
-            <span>免打扰时段：</span>
-            <select class="p-select" style="width:auto;padding:3px 8px"><option>22:00</option><option>23:00</option></select> -
-            <select class="p-select" style="width:auto;padding:3px 8px"><option>07:00</option><option>08:00</option></select>
-          </div>
-          <div class="p-form-actions"><button class="p-btn primary" onclick="toast('通知偏好已保存','ok')">保存</button></div>
         </div>
       </div>
     </div>
   </div>
 </div>
 
-<script src="../共享资源/原型脚本.js"></script>
+<script src="../共享资源/vendor/vue.global.prod.js"></script>
+<script src="../共享资源/vendor/element-plus.min.js"></script>
 <script>
-  var nav = document.getElementById('pc-nav');
-  nav.querySelectorAll('.n').forEach(function (n) {
-    n.addEventListener('click', function () {
-      nav.querySelectorAll('.n').forEach(function (x) { x.classList.remove('active'); });
-      n.classList.add('active');
-      ['pwd', 'locale', 'theme', 'list', 'notify'].forEach(function (k) {
-        document.getElementById('pane-' + k).style.display = k === n.getAttribute('data-pane') ? '' : 'none';
-      });
-    });
+  var { createApp, ref, reactive } = Vue;
+  var { ElMessage, ElMessageBox } = ElementPlus;
+  var app = createApp({
+    template: document.getElementById('app').outerHTML.replace(/<div id="app">/, '<div>').replace(/<\/div>\s*$/, ''),
+    setup: function () {
+      var activePane = ref('pwd');
+      function onNav(i) { activePane.value = i; }
+
+      var pwd = reactive({ old: '', pwd: '', confirm: '', hint: '', hintColor: '#57606a' });
+      function pwdCheck() {
+        var v = pwd.pwd;
+        if (!v) { pwd.hint = ''; return; }
+        var ok = v.length >= 8 && /[A-Za-z]/.test(v) && /\d/.test(v);
+        pwd.hint = ok ? '✓ 复杂度满足' : '✗ 需 8-32 位且含字母与数字';
+        pwd.hintColor = ok ? '#2da44e' : '#cf222e';
+      }
+      function resetPwd() { pwd.old = ''; pwd.pwd = ''; pwd.confirm = ''; pwd.hint = ''; ElMessage.info('已重置（原型演示）'); }
+      function doChangePwd() {
+        var o = pwd.old, n = pwd.pwd, c = pwd.confirm;
+        if (!o || !n || !c) { ElMessage.error('请填写完整'); return; }
+        if (n !== c) { ElMessage.error('两次输入的新密码不一致'); return; }
+        if (!(n.length >= 8 && /[A-Za-z]/.test(n) && /\d/.test(n))) { ElMessage.error('密码复杂度不满足'); return; }
+        ElMessageBox.confirm('修改成功后需重新登录，确认修改密码？', '修改密码', { type: 'warning' }).then(function () {
+          ElMessage.success('密码已修改，请重新登录');
+        }).catch(function () {});
+      }
+
+      var locale = reactive({ lang: 'zh-CN', tz: 'Asia/Shanghai' });
+      var theme = reactive({ mode: 'light' });
+      var columns = ref([
+        { name: '用户名', show: true, order: 1, width: '自适应' },
+        { name: '姓名', show: true, order: 2, width: '自适应' },
+        { name: '部门', show: true, order: 3, width: '120px' },
+        { name: '最近登录', show: false, order: 4, width: '—' }
+      ]);
+      var listOpt = reactive({ pageSize: '10', density: 'default' });
+      var notify = reactive({ inbox: true, email: true, sms: false, quietStart: '22:00', quietEnd: '07:00' });
+
+      return {
+        activePane, onNav, pwd, pwdCheck, resetPwd, doChangePwd,
+        locale, theme, columns, listOpt, notify, ElMessage
+      };
+    }
   });
-  function pwdCheck() {
-    var v = document.getElementById('pwd-new').value, h = document.getElementById('pwd-hint');
-    if (!v) { h.textContent = ''; return; }
-    var ok = v.length >= 8 && /[A-Za-z]/.test(v) && /\d/.test(v);
-    h.textContent = ok ? '✓ 复杂度满足' : '✗ 需 8-32 位且含字母与数字';
-    h.style.color = ok ? '#2da44e' : '#cf222e';
-  }
-  function doChangePwd() {
-    var o = document.getElementById('pwd-old').value, n = document.getElementById('pwd-new').value, c = document.getElementById('pwd-confirm').value;
-    if (!o || !n || !c) { toast('请填写完整', 'err'); return; }
-    if (n !== c) { toast('两次输入的新密码不一致', 'err'); return; }
-    if (!(n.length >= 8 && /[A-Za-z]/.test(n) && /\d/.test(n))) { toast('密码复杂度不满足', 'err'); return; }
-    confirmAction('修改成功后需重新登录，确认修改密码？', function () { toast('密码已修改，请重新登录', 'ok'); });
-  }
+  app.use(ElementPlus);
+  app.mount('#app');
 </script>
 
 </body>

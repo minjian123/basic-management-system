@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · EP 模板 · 列表页</title>
+<link rel="stylesheet" href="../共享资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../共享资源/原型样式.css">
+<style>
+  .ep-page { background: #fff; border: 1px solid #d0d7de; border-radius: 6px; padding: 16px; }
+  .ep-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+  .ep-toolbar .ep-side { margin-left: auto; }
+  .ep-filter { margin-bottom: 12px; }
+  .ep-pager { display: flex; justify-content: flex-end; margin-top: 12px; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="01_设计说明.html">← 返回设计说明</a></span>
+  <span class="pb-name">EP 模板 · 列表页（复制本文件改造）</span>
+</div>
+
+<div class="proto-frame">
+  <div id="app">
+    <div class="ep-page">
+      <!-- ① 工具栏：primary 主按钮 + buttons 按钮组 + extra 右侧提示（按需增删） -->
+      <div class="ep-toolbar">
+        <el-button type="primary" @click="toastMsg('新增（受权限码控制）')">新增</el-button>
+        <el-button @click="toastMsg('已刷新')">刷新</el-button>
+        <el-button @click="toastMsg('原型演示：关闭当前模块页面（返回）')">关闭</el-button>
+        <span class="ep-side">
+          <el-button @click="toastMsg('原型演示：导出当前筛选结果')">导出</el-button>
+        </span>
+      </div>
+
+      <!-- ② 筛选区：el-form inline（关键字/下拉/日期等按需增减） -->
+      <el-form class="ep-filter" inline size="default" @submit.prevent>
+        <el-form-item label="关键字">
+          <el-input v-model="query.kw" placeholder="关键字：名称/编码" clearable style="width:200px"></el-input>
+        </el-form-item>
+        <el-form-item label="状态">
+          <el-select v-model="query.status" placeholder="全部" clearable style="width:120px">
+            <el-option label="启用" value="enabled"></el-option>
+            <el-option label="停用" value="disabled"></el-option>
+          </el-select>
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" @click="applyFilter">查询</el-button>
+          <el-button @click="resetFilter">重置</el-button>
+        </el-form-item>
+      </el-form>
+
+      <!-- ③ 表格：el-table（列/多选/操作列/空状态；分页数据 :data="pageRows"） -->
+      <el-table :data="pageRows" border stripe v-loading="loading" @selection-change="onSel" style="width:100%">
+        <el-table-column type="selection" width="48"></el-table-column>
+        <el-table-column prop="code" label="编码" min-width="120"></el-table-column>
+        <el-table-column prop="name" label="名称" min-width="160"></el-table-column>
+        <el-table-column label="状态" width="100">
+          <template #default="{ row }">
+            <el-tag :type="row.status === 'enabled' ? 'success' : 'info'">{{ row.status === 'enabled' ? '启用' : '停用' }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="160" fixed="right">
+          <template #default="{ row }">
+            <el-button link type="primary" @click="toastMsg('编辑 ' + row.name)">编辑</el-button>
+            <el-button link type="danger" @click="delRow(row)">删除</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+
+      <!-- ④ 分页：el-pagination 右对齐（参数与后端 page/size 一致） -->
+      <div class="ep-pager">
+        <el-pagination background layout="total, sizes, prev, pager, next" :total="rows.length"
+          :page-size="query.size" :current-page="query.page"
+          @current-change="onPage" @size-change="onSize"></el-pagination>
+      </div>
+    </div>
+
+    <!-- ⑤ 弹窗：el-dialog（表单/确认等按需） -->
+    <el-dialog v-model="dlg.visible" :title="dlg.title" width="520">
+      <el-form label-width="90px">
+        <el-form-item label="名称"><el-input v-model="dlg.name"></el-input></el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="dlg.visible = false">取消</el-button>
+        <el-button type="primary" @click="toastMsg('已保存')">保存</el-button>
+      </template>
+    </el-dialog>
+  </div>
+</div>
+
+<script src="../共享资源/vendor/vue.global.prod.js"></script>
+<script src="../共享资源/vendor/element-plus.min.js"></script>
+<script>
+  var { createApp, ref, reactive, computed } = Vue;
+  var app = createApp({
+    template: document.getElementById('app').outerHTML.replace(/<div id="app">/, '<div>').replace(/<\/div>\s*$/, ''),
+    setup: function () {
+      var rows = ref([
+        { id: 1, code: 'user', name: '用户管理', status: 'enabled' },
+        { id: 2, code: 'purchase', name: '采购管理', status: 'enabled' },
+        { id: 3, code: 'sale', name: '销售管理', status: 'disabled' }
+      ]);
+      var query = reactive({ kw: '', status: '', page: 1, size: 10 });
+      var loading = ref(false);
+      var selRows = ref([]);
+      var dlg = reactive({ visible: false, title: '', name: '' });
+      var filtered = computed(function () {
+        return rows.value.filter(function (r) {
+          var text = (r.code + r.name).toLowerCase();
+          var ok = (!query.kw || text.indexOf(query.kw.toLowerCase()) >= 0) && (!query.status || r.status === query.status);
+          return ok;
+        });
+      });
+      var pageRows = computed(function () {
+        var s = (query.page - 1) * query.size;
+        return filtered.value.slice(s, s + query.size);
+      });
+      function applyFilter() { query.page = 1; toastMsg('命中 ' + filtered.value.length + ' 条'); }
+      function resetFilter() { query.kw = ''; query.status = ''; query.page = 1; }
+      function onSel(sel) { selRows.value = sel; }
+      function onPage(n) { query.page = n; }
+      function onSize(s) { query.size = s; query.page = 1; }
+      function delRow(row) {
+        confirmAction('删除「' + row.name + '」？', function () {
+          rows.value = rows.value.filter(function (r) { return r.id !== row.id; });
+          toastMsg('已删除');
+        });
+      }
+      function toastMsg(m) { toast(m); }
+      return { rows, query, loading, selRows, dlg, pageRows, applyFilter, resetFilter, onSel, onPage, onSize, delRow, toastMsg };
+    }
+  });
+  app.use(ElementPlus);
+  app.mount('#app');
+</script>
+
+</body>
+</html>

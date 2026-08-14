@@ -4,20 +4,18 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>原型 · 工作台编辑</title>
+<link rel="stylesheet" href="../共享资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../共享资源/原型样式.css">
 <style>
   .ed-top { display: flex; gap: 10px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
   .wb { display: grid; gap: 12px; grid-auto-rows: minmax(64px, auto); }
-  .wb-card { position: relative; background: #fff; border: 1px dashed #0969da; border-radius: 8px; padding: 10px 12px; }
+  .wb-card { position: relative; border-style: dashed !important; }
   .wb-card.dragging { opacity: .5; }
-  /* 卡片头标题统一 16px */
   .wb-card .hd { display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-size: 16px; margin-bottom: 6px; }
-  .wb-card .hd .ops { display: flex; gap: 6px; font-size: 12px; color: #0969da; }
+  .wb-card .hd .ops { display: flex; gap: 2px; font-size: 12px; }
   .wb-card .hd .ops span { cursor: pointer; }
   .wb-card .hd .ops span:hover { text-decoration: underline; }
-  .wb-card.hidden { display: none; }
-  /* 底部缩放手柄：右下角小方块，拖动改变宽度 2-12 列 / 高度 2-6 行 */
-  .rs-handle { position: absolute; right: 3px; bottom: 3px; width: 10px; height: 10px; border-right: 2px solid #54aeff; border-bottom: 2px solid #54aeff; cursor: nwse-resize; opacity: .7; }
+  .rs-handle { position: absolute; right: 3px; bottom: 3px; width: 10px; height: 10px; border-right: 2px solid #54aeff; border-bottom: 2px solid #54aeff; cursor: nwse-resize; opacity: .7; z-index: 2; }
   .rs-handle:hover { opacity: 1; }
   .drag-zone { border: 2px dashed #54aeff; background: #f6f8fa; border-radius: 8px; text-align: center; color: #0969da; font-size: 13px; padding: 14px; grid-column: span 12; cursor: pointer; }
   .hidden-list { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 6px; }
@@ -32,202 +30,204 @@
 </div>
 
 <div class="proto-frame">
-  <div class="ed-top">
-    <span class="p-tag blue">编辑态</span>
-    <span class="proto-hint">当前层级：个人布局</span>
-    <span style="margin-left:auto">
-      <button class="p-btn" onclick="openDrawer('drawer-cards')">🗂 卡片管理</button>
-      <button class="p-btn" onclick="resetConfirm()">恢复默认</button>
-      <button class="p-btn" onclick="location.href='02_工作台查看.html'">取消</button>
-      <button class="p-btn primary" onclick="saveLayout()">保存</button>
-    </span>
-  </div>
+  <div id="app">
+    <div class="ed-top">
+      <el-tag type="primary" effect="plain">编辑态</el-tag>
+      <span class="proto-hint">当前层级：个人布局</span>
+      <span style="margin-left:auto">
+        <el-button @click="drawerCards = true">🗂 卡片管理</el-button>
+        <el-button @click="resetConfirm">恢复默认</el-button>
+        <el-button @click="cancelEdit">取消</el-button>
+        <el-button type="primary" @click="saveLayout">保存</el-button>
+      </span>
+    </div>
 
-  <!-- 12 列网格：卡片拖拽排序（标题栏）＋ 右下角手柄缩放，宽度限 2-12 列、高度限 2-6 行 -->
-  <div class="wb" id="wb" style="grid-template-columns:repeat(12,1fr)">
-    <div class="wb-card" data-id="todo" draggable="true" ondragstart="dragStart(event,this)" ondragover="event.preventDefault()" ondrop="dropCard(event,this)" ondragend="clearDrag()" style="grid-column:span 4;grid-row:span 2">
-      <div class="hd">待办 <span class="ops"><span onclick="moveUp(this)">↑</span><span onclick="moveDown(this)">↓</span><span onclick="hideCard(this)">✕ 隐藏</span></span></div>
-      <div class="proto-hint" style="font-size:12px">待办 4 · 已办 12</div>
-      <div class="rs-handle" onmousedown="rsDown(event,this)"></div>
+    <!-- 12 列网格：卡片拖拽排序（标题栏）＋ 右下角手柄缩放，宽度限 2-12 列、高度限 2-6 行 -->
+    <div class="wb" style="grid-template-columns:repeat(12,1fr)">
+      <el-card v-for="c in visibleCards" :key="c.id" class="wb-card"
+        :class="{dragging: c.id === dragId}"
+        :style="{gridColumn:'span ' + c.col, gridRow:'span ' + c.row}"
+        draggable="true" @dragstart="dragStart($event,c)" @dragover.prevent @drop="dropCard($event,c)" @dragend="dragEnd">
+        <div class="hd">
+          <span>{{ c.name }}</span>
+          <span class="ops">
+            <el-button link type="primary" size="small" @click="move(c,-1)">↑</el-button>
+            <el-button link type="primary" size="small" @click="move(c,1)">↓</el-button>
+            <el-button link type="danger" size="small" @click="hide(c)">✕ 隐藏</el-button>
+          </span>
+        </div>
+        <div class="proto-hint" style="font-size:12px">{{ c.desc }}</div>
+        <div class="rs-handle" @mousedown="rsDown($event,c)"></div>
+      </el-card>
+      <div class="drag-zone" @click="drawerCards = true">＋ 添加卡片 / 拖入字段到空位</div>
     </div>
-    <div class="wb-card" data-id="notice" draggable="true" ondragstart="dragStart(event,this)" ondragover="event.preventDefault()" ondrop="dropCard(event,this)" ondragend="clearDrag()" style="grid-column:span 4;grid-row:span 2">
-      <div class="hd">通知 <span class="ops"><span onclick="moveUp(this)">↑</span><span onclick="moveDown(this)">↓</span><span onclick="hideCard(this)">✕ 隐藏</span></span></div>
-      <div class="proto-hint" style="font-size:12px">3 未读 · 审批通过提醒</div>
-      <div class="rs-handle" onmousedown="rsDown(event,this)"></div>
-    </div>
-    <div class="wb-card" data-id="quick" draggable="true" ondragstart="dragStart(event,this)" ondragover="event.preventDefault()" ondrop="dropCard(event,this)" ondragend="clearDrag()" style="grid-column:span 4;grid-row:span 2">
-      <div class="hd">快捷入口 <span class="ops"><span onclick="moveUp(this)">↑</span><span onclick="moveDown(this)">↓</span><span onclick="hideCard(this)">✕ 隐藏</span></span></div>
-      <div class="proto-hint" style="font-size:12px">采购申请 / 收款登记 / 付款申请 / 报表</div>
-      <div class="rs-handle" onmousedown="rsDown(event,this)"></div>
-    </div>
-    <div class="wb-card" data-id="stats" draggable="true" ondragstart="dragStart(event,this)" ondragover="event.preventDefault()" ondrop="dropCard(event,this)" ondragend="clearDrag()" style="grid-column:span 6;grid-row:span 2">
-      <div class="hd">数据统计 <span class="ops"><span onclick="moveUp(this)">↑</span><span onclick="moveDown(this)">↓</span><span onclick="hideCard(this)">✕ 隐藏</span></span></div>
-      <div class="proto-hint" style="font-size:12px">本月收款 ¥1.2万 · 待审批 4</div>
-      <div class="rs-handle" onmousedown="rsDown(event,this)"></div>
-    </div>
-    <div class="wb-card" data-id="chart" draggable="true" ondragstart="dragStart(event,this)" ondragover="event.preventDefault()" ondrop="dropCard(event,this)" ondragend="clearDrag()" style="grid-column:span 6;grid-row:span 2">
-      <div class="hd">收付款趋势 <span class="ops"><span onclick="moveUp(this)">↑</span><span onclick="moveDown(this)">↓</span><span onclick="hideCard(this)">✕ 隐藏</span></span></div>
-      <div class="proto-hint" style="font-size:12px">数据集图表卡 · 底部手柄可调整尺寸</div>
-      <div class="rs-handle" onmousedown="rsDown(event,this)"></div>
-    </div>
-    <div class="drag-zone" onclick="openDrawer('drawer-cards')">＋ 添加卡片 / 拖入字段到空位</div>
-  </div>
 
-  <!-- 卡片管理抽屉：已隐藏卡片勾选恢复 + 添加卡片按钮组 -->
-  <div class="p-drawer w400" id="drawer-cards">
-    <div class="pd-head">卡片管理<span class="x" onclick="closeDrawer('drawer-cards')">✕</span></div>
-    <div class="pd-body">
+    <!-- 卡片管理抽屉：已隐藏卡片勾选恢复 + 添加卡片按钮组 -->
+    <el-drawer v-model="drawerCards" title="卡片管理" size="400">
       <div class="proto-hint" style="margin-bottom:6px">已隐藏卡片（勾选恢复 / 取消勾选重新隐藏）</div>
       <div class="hidden-list">
-        <label class="h-item"><input type="checkbox" data-id="announce" onchange="restoreCard(this,'announce')"> 公告</label>
-        <label class="h-item"><input type="checkbox" data-id="help" onchange="restoreCard(this,'help')"> 帮助入口</label>
+        <template v-for="c in hiddenCards" :key="c.id">
+          <label class="h-item"><el-checkbox :model-value="c.visible" @change="v => restore(c, v)">{{ c.name }}</el-checkbox></label>
+        </template>
+        <div v-if="!hiddenCards.length" class="proto-hint">当前没有隐藏卡片</div>
       </div>
       <div style="border-top:1px solid #eaeef2;margin-top:16px;padding-top:12px">
         <b>添加卡片</b>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px">
-        <button class="p-btn ghost" onclick="addBuiltin('announce')">＋ 公告</button>
-        <button class="p-btn ghost" onclick="addBuiltin('help')">＋ 帮助入口</button>
-        <button class="p-btn ghost" onclick="addBuiltin('notice')">＋ 通知</button>
-        <button class="p-btn ghost" onclick="addBuiltin('todo')">＋ 待办/已办</button>
+        <el-button v-for="b in addBuiltins" :key="b.id" plain @click="addBuiltin(b.id)">＋ {{ b.name }}</el-button>
       </div>
       <div class="proto-hint" style="margin:12px 0 8px">自建图表卡（需报表中心）</div>
-      <button class="p-btn ghost" style="width:100%" onclick="chartFlow()">＋ 新建图表卡（选数据集）</button>
-    </div>
-    <div class="pd-foot"><button class="p-btn" onclick="closeDrawer('drawer-cards')">关闭</button></div>
-  </div>
+      <el-button plain style="width:100%" @click="chartFlow">＋ 新建图表卡（选数据集）</el-button>
+    </el-drawer>
 
-  <!-- 自建图表卡抽屉（宽 480 默认）：数据集选择 + 图表类型 -->
-  <div class="p-drawer" id="drawer-chart">
-    <div class="pd-head">新建图表卡<span class="x" onclick="closeDrawer('drawer-chart')">✕</span></div>
-    <div class="pd-body">
-      <div class="p-field"><label>选择数据集</label>
-        <select class="p-select"><option>本月收付款流水</option><option>采购订单金额</option><option>审批时长分布</option></select>
-      </div>
-      <div style="height:10px"></div>
-      <div class="p-field"><label>图表类型</label>
-        <select class="p-select"><option>柱状图</option><option>折线图</option><option>饼图</option></select>
-      </div>
-      <div style="height:10px"></div>
-      <div class="p-field"><label>默认尺寸</label>
-        <select class="p-select"><option>6×2</option><option>12×4</option><option>6×4</option></select>
-      </div>
-    </div>
-    <div class="pd-foot">
-      <button class="p-btn" onclick="closeDrawer('drawer-chart')">取消</button>
-      <button class="p-btn primary" onclick="chartDone()">添加图表卡</button>
-    </div>
+    <!-- 自建图表卡抽屉（宽 480 默认）：数据集选择 + 图表类型 -->
+    <el-drawer v-model="drawerChart" title="新建图表卡" size="480">
+      <el-form label-width="90px">
+        <el-form-item label="选择数据集">
+          <el-select v-model="chart.dataset" style="width:100%">
+            <el-option label="本月收付款流水" value="本月收付款流水"></el-option>
+            <el-option label="采购订单金额" value="采购订单金额"></el-option>
+            <el-option label="审批时长分布" value="审批时长分布"></el-option>
+          </el-select>
+        </el-form-item>
+        <el-form-item label="图表类型">
+          <el-select v-model="chart.type" style="width:100%">
+            <el-option label="柱状图" value="柱状图"></el-option>
+            <el-option label="折线图" value="折线图"></el-option>
+            <el-option label="饼图" value="饼图"></el-option>
+          </el-select>
+        </el-form-item>
+        <el-form-item label="默认尺寸">
+          <el-select v-model="chart.size" style="width:100%">
+            <el-option label="6×2" value="6×2"></el-option>
+            <el-option label="12×4" value="12×4"></el-option>
+            <el-option label="6×4" value="6×4"></el-option>
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="drawerChart = false">取消</el-button>
+        <el-button type="primary" @click="chartDone">添加图表卡</el-button>
+      </template>
+    </el-drawer>
   </div>
 </div>
 
-<script src="../共享资源/原型脚本.js"></script>
+<script src="../共享资源/vendor/vue.global.prod.js"></script>
+<script src="../共享资源/vendor/element-plus.min.js"></script>
 <script>
-  var order = ['todo', 'notice', 'quick', 'stats', 'chart', '__drop'];
-  function cards() { return document.querySelectorAll('.wb-card:not(.hidden)'); }
-  function moveUp(el) {
-    var card = el.closest('.wb-card');
-    var prev = card.previousElementSibling;
-    if (!prev || prev.classList.contains('drag-zone')) { toast('已在最前'); return; }
-    card.parentNode.insertBefore(card, prev); toast('已上移（模拟拖拽排序）');
-  }
-  function moveDown(el) {
-    var card = el.closest('.wb-card');
-    var next = card.nextElementSibling;
-    if (!next) { toast('已在最后'); return; }
-    card.parentNode.insertBefore(next, card); toast('已下移（模拟拖拽排序）');
-  }
-  function hideCard(el) {
-    var card = el.closest('.wb-card');
-    card.classList.add('hidden');
-    var box = card.querySelector('.hd .ops'); if (box) box.style.display = 'none';
-    var cb = document.querySelector('#drawer-cards input[data-id="' + card.getAttribute('data-id') + '"]');
-    if (cb) cb.checked = false;
-    toast('已移入「卡片管理」（数据保留）');
-  }
-  function restoreCard(cb, id) {
-    var card = document.querySelector('.wb-card[data-id="' + id + '"]');
-    if (!card) return;
-    if (cb.checked) { card.classList.remove('hidden'); toast('已恢复「' + card.querySelector('.hd').childNodes[0].textContent + '」', 'ok'); }
-    else { card.classList.add('hidden'); toast('已重新隐藏「' + card.querySelector('.hd').childNodes[0].textContent + '」'); }
-  }
-  function addBuiltin(id) {
-    var card = document.querySelector('.wb-card[data-id="' + id + '"]');
-    if (card) {
-      card.classList.remove('hidden');
-      var cb = document.querySelector('#drawer-cards input[data-id="' + id + '"]');
-      if (cb) cb.checked = true;
-      closeDrawer('drawer-cards');
-      toast('已添加「' + card.querySelector('.hd').childNodes[0].textContent + '」', 'ok');
+  var { createApp, ref, computed } = Vue;
+  var { ElMessage, ElMessageBox } = ElementPlus;
+  var app = createApp({
+    template: document.getElementById('app').outerHTML.replace(/<div id="app">/, '<div>').replace(/<\/div>\s*$/, ''),
+    setup: function () {
+      var cards = ref([
+        { id: 'todo', name: '待办', desc: '待办 4 · 已办 12', col: 4, row: 2, visible: true },
+        { id: 'notice', name: '通知', desc: '3 未读 · 审批通过提醒', col: 4, row: 2, visible: true },
+        { id: 'quick', name: '快捷入口', desc: '采购申请 / 收款登记 / 付款申请 / 报表', col: 4, row: 2, visible: true },
+        { id: 'stats', name: '数据统计', desc: '本月收款 ¥1.2万 · 待审批 4', col: 6, row: 2, visible: true },
+        { id: 'chart', name: '收付款趋势', desc: '数据集图表卡 · 底部手柄可调整尺寸', col: 6, row: 2, visible: true },
+        { id: 'announce', name: '公告', desc: '系统公告与通知', col: 4, row: 2, visible: false },
+        { id: 'help', name: '帮助入口', desc: '操作帮助与文档', col: 4, row: 2, visible: false }
+      ]);
+      var drawerCards = ref(false);
+      var drawerChart = ref(false);
+      var dragId = ref(null);
+      var chart = ref({ dataset: '本月收付款流水', type: '柱状图', size: '6×2' });
+      var visibleCards = computed(function () { return cards.value.filter(function (c) { return c.visible; }); });
+      var hiddenCards = computed(function () { return cards.value.filter(function (c) { return !c.visible; }); });
+      var addBuiltins = [
+        { id: 'announce', name: '公告' },
+        { id: 'help', name: '帮助入口' },
+        { id: 'notice', name: '通知' },
+        { id: 'todo', name: '待办/已办' }
+      ];
+      function move(c, dir) {
+        var list = cards.value, i = list.indexOf(c), j = i;
+        while (true) {
+          j += dir;
+          if (j < 0 || j >= list.length) break;
+          if (list[j].visible) break;
+        }
+        if (j < 0 || j >= list.length) { ElMessage({ message: dir < 0 ? '已在最前' : '已在最后', type: 'warning' }); return; }
+        list.splice(i, 1);
+        list.splice(j, 0, c);
+        ElMessage({ message: dir < 0 ? '已上移（模拟拖拽排序）' : '已下移（模拟拖拽排序）', type: 'success' });
+      }
+      function hide(c) {
+        c.visible = false;
+        ElMessage('已移入「卡片管理」（数据保留）');
+      }
+      function restore(c, v) {
+        c.visible = v;
+        ElMessage({ message: v ? '已恢复「' + c.name + '」' : '已重新隐藏「' + c.name + '」', type: v ? 'success' : 'info' });
+      }
+      function addBuiltin(id) {
+        var c = cards.value.find(function (x) { return x.id === id; });
+        if (!c) return;
+        c.visible = true;
+        drawerCards.value = false;
+        ElMessage({ message: '已添加「' + c.name + '」', type: 'success' });
+      }
+      function chartFlow() { drawerCards.value = false; drawerChart.value = true; }
+      function chartDone() {
+        cards.value.push({ id: 'chart' + Date.now(), name: '新图表卡', desc: '数据集图表卡（' + chart.value.dataset + '）', col: 6, row: 2, visible: true });
+        drawerChart.value = false;
+        ElMessage({ message: '图表卡已添加', type: 'success' });
+      }
+      // HTML5 拖拽排序：拖动卡片标题栏到目标卡片位置（宽度 2-12 列 / 高度 2-6 行限制由 resize 手柄实现）
+      function dragStart(e, c) {
+        if (e.target.closest('.rs-handle') || e.target.closest('.ops')) { e.preventDefault(); return; }
+        e.dataTransfer.setData('text/plain', c.id);
+        dragId.value = c.id;
+      }
+      function dropCard(e, c) {
+        e.preventDefault();
+        if (!dragId.value || dragId.value === c.id) { dragEnd(); return; }
+        var list = cards.value;
+        var from = list.findIndex(function (x) { return x.id === dragId.value; });
+        var to = list.indexOf(c);
+        if (from < 0 || to < 0 || from === to) { dragEnd(); return; }
+        var item = list.splice(from, 1)[0];
+        if (from < to) to--;
+        list.splice(to, 0, item);
+        ElMessage({ message: '卡片已移动（拖拽排序）', type: 'success' });
+        dragEnd();
+      }
+      function dragEnd() { dragId.value = null; }
+      // 底部缩放手柄：水平拖动改宽度（2-12 列）、垂直拖动改高度（2-6 行）
+      function rsDown(e, c) {
+        e.preventDefault();
+        var sx = e.clientX, sy = e.clientY;
+        var col0 = c.col, row0 = c.row;
+        function mv(ev) {
+          c.col = Math.min(12, Math.max(2, col0 + Math.round((ev.clientX - sx) / 60)));
+          c.row = Math.min(6, Math.max(2, row0 + Math.round((ev.clientY - sy) / 40)));
+        }
+        function up() {
+          document.removeEventListener('mousemove', mv);
+          document.removeEventListener('mouseup', up);
+          ElMessage({ message: '尺寸已调整为 ' + c.col + ' 列 × ' + c.row + ' 行（宽 2-12 · 高 2-6）', type: 'success' });
+        }
+        document.addEventListener('mousemove', mv);
+        document.addEventListener('mouseup', up);
+      }
+      function resetConfirm() {
+        ElMessageBox.confirm('恢复默认将删除个人布局，回退到「角色模板」层级，确定？', '恢复默认', { type: 'warning', confirmButtonText: '确定', cancelButtonText: '取消' })
+          .then(function () { ElMessage({ message: '已恢复默认布局（回退角色模板）', type: 'success' }); })
+          .catch(function () {});
+      }
+      function saveLayout() {
+        var ids = visibleCards.value.map(function (c) { return c.id; });
+        ElMessage({ message: '布局已保存（PUT /dashboard/layout）· 顺序：' + ids.join(' → '), type: 'success' });
+      }
+      function cancelEdit() { location.href = '02_工作台查看.html'; }
+      return { cards, drawerCards, drawerChart, dragId, chart, visibleCards, hiddenCards, addBuiltins, move, hide, restore, addBuiltin, chartFlow, chartDone, dragStart, dropCard, dragEnd, rsDown, resetConfirm, saveLayout, cancelEdit };
     }
-  }
-  function chartFlow() { closeDrawer('drawer-cards'); openDrawer('drawer-chart', '新建图表卡'); }
-  function chartDone() {
-    closeDrawer('drawer-chart');
-    var wb = document.getElementById('wb'), drop = wb.querySelector('.drag-zone');
-    var d = document.createElement('div');
-    d.className = 'wb-card';
-    d.setAttribute('data-id', 'chart' + Date.now());
-    d.draggable = true;
-    d.setAttribute('ondragstart', 'dragStart(event,this)');
-    d.setAttribute('ondragover', 'event.preventDefault()');
-    d.setAttribute('ondrop', 'dropCard(event,this)');
-    d.setAttribute('ondragend', 'clearDrag()');
-    d.style.gridColumn = 'span 6';
-    d.style.gridRow = 'span 2';
-    d.innerHTML = '<div class="hd">新图表卡 <span class="ops"><span onclick="moveUp(this)">↑</span><span onclick="moveDown(this)">↓</span><span onclick="hideCard(this)">✕ 隐藏</span></span></div><div class="proto-hint" style="font-size:12px">数据集图表卡</div><div class="rs-handle" onmousedown="rsDown(event,this)"></div>';
-    wb.insertBefore(d, drop);
-    toast('图表卡已添加', 'ok');
-  }
-
-  // HTML5 拖拽排序：拖动卡片标题栏到目标卡片位置（宽度 2-12 列 / 高度 2-6 行限制由 resize 手柄实现）
-  function dragStart(e, card) {
-    if (e.target.closest('.rs-handle') || e.target.closest('.ops')) { e.preventDefault(); return; }
-    e.dataTransfer.setData('text/plain', card.getAttribute('data-id'));
-    card.classList.add('dragging');
-  }
-  function dropCard(e, target) {
-    e.preventDefault();
-    var id = e.dataTransfer.getData('text/plain');
-    var card = document.querySelector('.wb-card[data-id="' + id + '"]');
-    if (!card || card === target) { clearDrag(); return; }
-    document.getElementById('wb').insertBefore(card, target);
-    toast('卡片已移动（拖拽排序）', 'ok');
-    clearDrag();
-  }
-  function clearDrag() { document.querySelectorAll('.wb-card').forEach(function (c) { c.classList.remove('dragging'); }); }
-
-  // 底部缩放手柄：水平拖动改宽度（2-12 列）、垂直拖动改高度（2-6 行）
-  function rsDown(e, h) {
-    e.preventDefault();
-    var card = h.closest('.wb-card');
-    var sx = e.clientX, sy = e.clientY;
-    var col = parseInt((card.style.gridColumn || '').replace(/^span\s*/, '')) || 4;
-    var row = parseInt((card.style.gridRow || '').replace(/^span\s*/, '')) || 2;
-    function mv(ev) {
-      var c = Math.min(12, Math.max(2, col + Math.round((ev.clientX - sx) / 60)));
-      var r = Math.min(6, Math.max(2, row + Math.round((ev.clientY - sy) / 40)));
-      card.style.gridColumn = 'span ' + c;
-      card.style.gridRow = 'span ' + r;
-      h.title = c + '×' + r;
-    }
-    function up() {
-      document.removeEventListener('mousemove', mv);
-      document.removeEventListener('mouseup', up);
-      var m = (h.title || '').split('×');
-      if (m.length === 2) toast('尺寸已调整为 ' + m[0] + ' 列 × ' + m[1] + ' 行（宽 2-12 · 高 2-6）', 'ok');
-    }
-    document.addEventListener('mousemove', mv);
-    document.addEventListener('mouseup', up);
-  }
-
-  function resetConfirm() {
-    confirmAction('恢复默认将删除个人布局，回退到「角色模板」层级，确定？', function () { toast('已恢复默认布局（回退角色模板）', 'ok'); });
-  }
-  function saveLayout() {
-    var ids = [];
-    cards().forEach(function (c) { ids.push(c.getAttribute('data-id')); });
-    toast('布局已保存（PUT /dashboard/layout）· 顺序：' + ids.join(' → '), 'ok');
-  }
+  });
+  app.use(ElementPlus);
+  app.mount('#app');
 </script>
 
 </body>

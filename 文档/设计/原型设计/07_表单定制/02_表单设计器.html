@@ -4,25 +4,26 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>原型 · 表单设计器</title>
+<link rel="stylesheet" href="../共享资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../共享资源/原型样式.css">
 <style>
   .designer { display: flex; gap: 12px; align-items: flex-start; }
   .ds-field { flex: 0 0 200px; background: #fff; border: 1px solid #d0d7de; border-radius: 8px; padding: 12px; font-size: 13px; }
   .ds-canvas { flex: 1; background: #fff; border: 1px solid #d0d7de; border-radius: 8px; padding: 14px; min-height: 460px; }
   .ds-prop { flex: 0 0 220px; background: #fff; border: 1px solid #d0d7de; border-radius: 8px; padding: 12px; font-size: 13px; }
-  .fchip { display: inline-block; border: 1px solid #d0d7de; background: #f6f8fa; border-radius: 6px; padding: 4px 10px; margin: 3px; font-size: 12px; cursor: pointer; }
-  .fchip:hover { border-color: #0969da; color: #0969da; }
-  .fchip.ext { background: #ddf4ff; border-color: #54aeff; }
-  .sec { border: 1px solid #eaeef2; border-radius: 8px; padding: 10px; margin-bottom: 10px; }
+  .fchip { cursor: pointer; margin: 3px; }
+  .sec { border: 1px solid #eaeef2; border-radius: 8px; padding: 10px; margin-bottom: 10px; cursor: pointer; }
+  .sec.active { border-color: #0969da; box-shadow: 0 0 0 1px #0969da; }
   .sec .sec-h { display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-size: 13px; margin-bottom: 8px; }
   .grid-f { display: grid; gap: 8px; }
   .grid-f.c2 { grid-template-columns: 1fr 1fr; }
   .grid-f.c1 { grid-template-columns: 1fr; }
-  .cell { border: 1px dashed #d0d7de; border-radius: 6px; padding: 8px 10px; font-size: 13px; display: flex; justify-content: space-between; align-items: center; background: #fafbfc; }
+  .grid-f.c3 { grid-template-columns: 1fr 1fr 1fr; }
+  .cell { border: 1px dashed #d0d7de; border-radius: 6px; padding: 8px 10px; font-size: 13px; display: flex; justify-content: space-between; align-items: center; background: #fafbfc; cursor: pointer; }
   .cell.sel { border-color: #0969da; background: #ddf4ff; }
-  .cell .ops { font-size: 12px; color: #0969da; cursor: pointer; }
+  .cell .ops { font-size: 12px; color: #0969da; cursor: pointer; display: flex; gap: 2px; align-items: center; }
   .cell .ops span:hover { text-decoration: underline; }
-  .sec-empty { border: 2px dashed #54aeff; border-radius: 8px; text-align: center; color: #0969da; padding: 12px; font-size: 13px; }
+  .sec-empty { border: 2px dashed #54aeff; border-radius: 8px; text-align: center; color: #0969da; padding: 12px; font-size: 13px; cursor: pointer; }
 </style>
 </head>
 <body>
@@ -33,137 +34,220 @@
 </div>
 
 <div class="proto-frame">
-  <div class="p-toolbar" style="flex-wrap:wrap">
-    <label class="proto-hint">表单：</label>
-    <select class="p-select" style="width:auto" id="f-form" onchange="switchForm()">
-      <option>采购申请</option><option>付款申请</option><option>供应商档案</option>
-    </select>
-    <label class="proto-hint">层级：</label>
-    <select class="p-select" style="width:auto" id="f-scope" onchange="switchScope()">
-      <option value="tenant" selected>租户覆盖（可编辑）</option>
-      <option value="platform">平台默认（只读）</option>
-      <option value="role">角色视图（选角色）</option>
-    </select>
-    <select class="p-select" style="width:auto" id="f-role" style="display:none">
-      <option>财务角色</option><option>审批角色</option>
-    </select>
-    <span style="margin-left:auto">
-      <button class="p-btn" onclick="resetLayout()">恢复默认</button>
-      <button class="p-btn" onclick="toast('已发布 form.updated（AI 帮助更新触发）','ok')">发布</button>
-      <button class="p-btn primary" id="btn-save" onclick="saveLayout()">保存</button>
-    </span>
-  </div>
-
-  <div class="designer">
-    <div class="ds-field">
-      <div class="proto-hint" style="margin-bottom:8px">字段面板（点击加入画布 ⇄ 模拟拖拽）</div>
-      <b>平台字段</b>
-      <div>
-        <span class="fchip" onclick="addField('姓名')">姓名</span>
-        <span class="fchip" onclick="addField('部门')">部门</span>
-        <span class="fchip" onclick="addField('申请事由')">申请事由</span>
-        <span class="fchip" onclick="addField('金额')">金额</span>
-      </div>
-      <b style="display:block;margin-top:10px">租户字段</b>
-      <div>
-        <span class="fchip ext" onclick="addField('项目编号')">项目编号</span>
-        <span class="fchip ext" onclick="addField('立项日期')">立项日期</span>
-      </div>
-      <div style="margin-top:12px">
-        <button class="p-btn sm primary" onclick="location.href='03_新建自定义字段.html'">＋ 新建自定义字段</button>
-      </div>
+  <div id="app">
+    <div class="p-toolbar" style="flex-wrap:wrap">
+      <span class="proto-hint">表单：</span>
+      <el-select v-model="curForm" style="width:130px" @change="switchForm">
+        <el-option label="采购申请" value="采购申请"></el-option>
+        <el-option label="付款申请" value="付款申请"></el-option>
+        <el-option label="供应商档案" value="供应商档案"></el-option>
+      </el-select>
+      <span class="proto-hint">层级：</span>
+      <el-select v-model="scope" style="width:160px" @change="switchScope">
+        <el-option label="租户覆盖（可编辑）" value="tenant"></el-option>
+        <el-option label="平台默认（只读）" value="platform"></el-option>
+        <el-option label="角色视图（选角色）" value="role"></el-option>
+      </el-select>
+      <el-select v-if="scope === 'role'" v-model="role" style="width:130px">
+        <el-option label="财务角色" value="财务角色"></el-option>
+        <el-option label="审批角色" value="审批角色"></el-option>
+      </el-select>
+      <span style="margin-left:auto">
+        <el-button @click="resetLayout">恢复默认</el-button>
+        <el-button @click="publish">发布</el-button>
+        <el-button type="primary" :disabled="readOnly" @click="saveLayout">保存</el-button>
+      </span>
     </div>
 
-    <div class="ds-canvas" id="canvas">
-      <div class="sec" data-sec="basic">
-        <div class="sec-h">
-          <span>基本信息</span>
-          <span class="ops" style="font-size:12px;color:#0969da">
-            列数 <select class="p-select" style="width:auto;padding:2px 6px" onchange="setCols(this,'basic')"><option value="c1">1</option><option value="c2" selected>2</option><option value="c3">3</option></select>
-            <span style="cursor:pointer" onclick="renameSec('basic')">✎ 重命名</span>
-          </span>
+    <div class="designer">
+      <div class="ds-field">
+        <div class="proto-hint" style="margin-bottom:8px">字段面板（点击加入画布 ⇄ 模拟拖拽）</div>
+        <b>平台字段</b>
+        <div>
+          <el-tag v-for="f in platformFields" :key="f" class="fchip" size="small" type="info" @click="addField(f)">{{ f }}</el-tag>
         </div>
-        <div class="grid-f c2" data-grid="basic">
-          <div class="cell">姓名 <span class="ops"><span onclick="moveCell(this,'up')">↑</span><span onclick="moveCell(this,'down')">↓</span><span onclick="delCell(this)">✕</span></span></div>
-          <div class="cell">部门 <span class="ops"><span onclick="moveCell(this,'up')">↑</span><span onclick="moveCell(this,'down')">↓</span><span onclick="delCell(this)">✕</span></span></div>
-          <div class="cell">金额 <span class="ops"><span onclick="moveCell(this,'up')">↑</span><span onclick="moveCell(this,'down')">↓</span><span onclick="delCell(this)">✕</span></span></div>
-          <div class="cell">项目编号 <span class="ops"><span onclick="moveCell(this,'up')">↑</span><span onclick="moveCell(this,'down')">↓</span><span onclick="delCell(this)">✕</span></span></div>
-          <div class="cell" style="grid-column:span 2">申请事由（跨整行） <span class="ops"><span onclick="delCell(this)">✕ 取消跨行</span></span></div>
+        <b style="display:block;margin-top:10px">租户字段</b>
+        <div>
+          <el-tag v-for="f in tenantFields" :key="f" class="fchip" size="small" @click="addField(f)">{{ f }}</el-tag>
+        </div>
+        <div style="margin-top:12px">
+          <el-button size="small" type="primary" @click="goNewField">＋ 新建自定义字段</el-button>
         </div>
       </div>
-      <div class="sec" data-sec="ext">
-        <div class="sec-h">
-          <span>扩展信息</span>
-          <span class="ops" style="font-size:12px;color:#0969da">
-            列数 <select class="p-select" style="width:auto;padding:2px 6px" onchange="setCols(this,'ext')"><option value="c1">1</option><option value="c2">2</option><option value="c3">3</option></select>
-            <span style="cursor:pointer" onclick="renameSec('ext')">✎ 重命名</span>
-          </span>
-        </div>
-        <div class="grid-f c1" data-grid="ext">
-          <div class="cell">立项日期 <span class="ops"><span onclick="moveCell(this,'up')">↑</span><span onclick="moveCell(this,'down')">↓</span><span onclick="delCell(this)">✕</span></span></div>
-        </div>
-      </div>
-      <div class="sec-empty" onclick="toast('原型演示：新建分区')">＋ 新建分区</div>
-      <div class="proto-hint" style="margin-top:10px">查询表单区：姓名 · 部门 · 状态</div>
-    </div>
 
-    <div class="ds-prop" id="prop">
-      <div class="proto-hint" style="margin-bottom:8px">属性面板（点击画布字段联动）</div>
-      <div class="p-field"><label>字段</label><input class="p-input" id="p-name" value="项目编号" disabled></div>
-      <div style="height:8px"></div>
-      <div style="display:flex;justify-content:space-between;font-size:13px"><span>必填</span><input type="checkbox" id="p-req" checked></div>
-      <div style="display:flex;justify-content:space-between;font-size:13px;margin-top:6px"><span>默认值</span><input type="checkbox"></div>
-      <div style="margin-top:8px" class="p-field"><label>最大长度</label><input class="p-input" value="50"></div>
-      <div style="margin-top:8px" class="p-field"><label>组件类型</label>
-        <select class="p-select"><option>单行文本</option><option>长文本</option><option>数字</option><option>日期</option><option>下拉单选</option><option>开关</option></select>
+      <div class="ds-canvas">
+        <div v-for="sec in sections" :key="sec.id" class="sec" :class="{active: sec === activeSec}" @click="activeSec = sec">
+          <div class="sec-h">
+            <span>{{ sec.name }}</span>
+            <span class="ops" style="font-size:12px;color:#0969da;display:flex;align-items:center;gap:4px">
+              列数
+              <el-select v-model="sec.cols" size="small" style="width:64px" @change="secCols(sec)">
+                <el-option :value="1" label="1"></el-option>
+                <el-option :value="2" label="2"></el-option>
+                <el-option :value="3" label="3"></el-option>
+              </el-select>
+              <el-button link type="primary" size="small" @click="renameSec(sec)">✎ 重命名</el-button>
+              <el-button link type="danger" size="small" @click="delSec(sec)">✕</el-button>
+            </span>
+          </div>
+          <div class="grid-f" :class="'c' + sec.cols">
+            <div v-for="f in sec.fields" :key="f.id" class="cell" :class="{sel: f === selField}"
+              :style="f.full ? 'grid-column: span ' + sec.cols : ''" @click="selField = f">
+              <span>{{ f.name }}<span v-if="f.full" class="proto-hint" style="margin-left:4px">（跨整行）</span></span>
+              <span class="ops">
+                <el-button link type="primary" size="small" @click.stop="moveField(sec, f, -1)">↑</el-button>
+                <el-button link type="primary" size="small" @click.stop="moveField(sec, f, 1)">↓</el-button>
+                <el-button v-if="sec.cols > 1" link type="warning" size="small" @click.stop="toggleFull(f)">{{ f.full ? '取消跨行' : '跨行' }}</el-button>
+                <el-button link type="danger" size="small" @click.stop="delField(sec, f)">✕</el-button>
+              </span>
+            </div>
+          </div>
+        </div>
+        <div class="sec-empty" @click="addSec">＋ 新建分区</div>
+        <div class="proto-hint" style="margin-top:10px">查询表单区：姓名 · 部门 · 状态</div>
       </div>
-      <div style="display:flex;justify-content:space-between;font-size:13px;margin-top:8px"><span>只读</span><input type="checkbox"></div>
-      <div style="display:flex;justify-content:space-between;font-size:13px;margin-top:6px"><span>隐藏</span><input type="checkbox"></div>
-      <div class="proto-hint" style="margin-top:10px">属性仅平台/租户级；服务端按布局动态校验</div>
+
+      <div class="ds-prop">
+        <div class="proto-hint" style="margin-bottom:8px">属性面板（点击画布字段联动）</div>
+        <template v-if="selField">
+          <el-form label-position="top" size="small">
+            <el-form-item label="字段">
+              <el-input :model-value="selField.name" disabled></el-input>
+            </el-form-item>
+            <el-form-item label="必填">
+              <el-switch v-model="selField.required" :disabled="readOnly"></el-switch>
+            </el-form-item>
+            <el-form-item label="默认值">
+              <el-switch v-model="selField.hasDefault" :disabled="readOnly"></el-switch>
+            </el-form-item>
+            <el-form-item label="最大长度">
+              <el-input-number v-model="selField.maxLen" :min="1" :max="1000" :disabled="readOnly" style="width:100%"></el-input-number>
+            </el-form-item>
+            <el-form-item label="组件类型">
+              <el-select v-model="selField.ctrl" :disabled="readOnly" style="width:100%">
+                <el-option label="单行文本" value="单行文本"></el-option>
+                <el-option label="长文本" value="长文本"></el-option>
+                <el-option label="数字" value="数字"></el-option>
+                <el-option label="日期" value="日期"></el-option>
+                <el-option label="下拉单选" value="下拉单选"></el-option>
+                <el-option label="开关" value="开关"></el-option>
+              </el-select>
+            </el-form-item>
+            <el-form-item label="只读">
+              <el-switch v-model="selField.readonly" :disabled="readOnly"></el-switch>
+            </el-form-item>
+            <el-form-item label="隐藏">
+              <el-switch v-model="selField.hidden" :disabled="readOnly"></el-switch>
+            </el-form-item>
+          </el-form>
+          <div class="proto-hint" style="margin-top:10px">属性仅平台/租户级；服务端按布局动态校验</div>
+        </template>
+        <div v-else class="proto-hint">点击画布字段查看/编辑属性</div>
+      </div>
     </div>
   </div>
 </div>
 
-<script src="../共享资源/原型脚本.js"></script>
+<script src="../共享资源/vendor/vue.global.prod.js"></script>
+<script src="../共享资源/vendor/element-plus.min.js"></script>
 <script>
-  function setCols(sel, sec) {
-    var g = document.querySelector('[data-grid="' + sec + '"]');
-    g.className = 'grid-f ' + sel.value;
-    toast('分区列数已改为 ' + sel.value.replace('c', '') + ' 列');
-  }
-  function renameSec(sec) {
-    var name = prompt('分区名称：', sec === 'basic' ? '基本信息' : '扩展信息');
-    if (name) { document.querySelector('[data-sec="' + sec + '"] .sec-h span').textContent = name; toast('分区已重命名', 'ok'); }
-  }
-  function addField(name) {
-    var g = document.querySelector('[data-grid="basic"]');
-    var d = document.createElement('div');
-    d.className = 'cell';
-    d.innerHTML = name + ' <span class="ops"><span onclick="moveCell(this,\'up\')">↑</span><span onclick="moveCell(this,\'down\')">↓</span><span onclick="delCell(this)">✕</span></span>';
-    g.appendChild(d);
-    toast('已加入画布「' + name + '」', 'ok');
-  }
-  function moveCell(el, dir) {
-    var cell = el.closest('.cell'), g = cell.parentNode;
-    if (dir === 'up') { var prev = cell.previousElementSibling; if (prev) { g.insertBefore(cell, prev); toast('已上移'); } }
-    else { var next = cell.nextElementSibling; if (next) { g.insertBefore(next, cell); toast('已下移'); } }
-  }
-  function delCell(el) { el.closest('.cell').remove(); toast('已移出画布（字段仍保留）'); }
-  function switchForm() { toast('已切换表单：' + document.getElementById('f-form').value, 'ok'); }
-  function switchScope() {
-    var s = document.getElementById('f-scope').value;
-    document.getElementById('f-role').style.display = s === 'role' ? '' : 'none';
-    var readOnly = s === 'platform';
-    document.getElementById('btn-save').disabled = readOnly;
-    toast(readOnly ? '平台默认层级：只读预览，不可编辑' : '当前层级可编辑');
-  }
-  function resetLayout() {
-    confirmAction('恢复默认将删除当前层级布局配置，回退下一级？', function () { toast('已恢复默认（回退下一级布局）', 'ok'); });
-  }
-  function saveLayout() {
-    if (document.getElementById('btn-save').disabled) { toast('平台默认层级只读', 'err'); return; }
-    toast('布局已保存（PUT /form-design/layouts，缓存已失效）', 'ok');
-  }
+  var { createApp, ref, reactive, computed } = Vue;
+  var { ElMessage, ElMessageBox } = ElementPlus;
+  var app = createApp({
+    template: document.getElementById('app').outerHTML.replace(/<div id="app">/, '<div>').replace(/<\/div>\s*$/, ''),
+    setup: function () {
+      var curForm = ref('采购申请');
+      var scope = ref('tenant');
+      var role = ref('财务角色');
+      var platformFields = ['姓名', '部门', '申请事由', '金额'];
+      var tenantFields = ['项目编号', '立项日期'];
+      var sections = ref([
+        { id: 'basic', name: '基本信息', cols: 2, fields: [
+          { id: 'f1', name: '姓名', full: false, required: false, hasDefault: false, maxLen: 50, ctrl: '单行文本', readonly: false, hidden: false },
+          { id: 'f2', name: '部门', full: false, required: false, hasDefault: false, maxLen: 50, ctrl: '单行文本', readonly: false, hidden: false },
+          { id: 'f3', name: '金额', full: false, required: false, hasDefault: false, maxLen: 18, ctrl: '数字', readonly: false, hidden: false },
+          { id: 'f4', name: '项目编号', full: false, required: true, hasDefault: false, maxLen: 50, ctrl: '单行文本', readonly: false, hidden: false },
+          { id: 'f5', name: '申请事由', full: true, required: false, hasDefault: false, maxLen: 255, ctrl: '长文本', readonly: false, hidden: false }
+        ] },
+        { id: 'ext', name: '扩展信息', cols: 1, fields: [
+          { id: 'f6', name: '立项日期', full: false, required: false, hasDefault: false, maxLen: 20, ctrl: '日期', readonly: false, hidden: false }
+        ] }
+      ]);
+      var activeSec = ref(sections.value[0]);
+      var selField = ref(sections.value[0].fields[3]);
+      var readOnly = computed(function () { return scope.value === 'platform'; });
+      var fId = 100;
+      function toastMsg(m, type) { ElMessage({ message: m, type: type || 'info' }); }
+      function switchForm() { ElMessage({ message: '已切换表单：' + curForm.value, type: 'success' }); }
+      function switchScope() {
+        var ro = scope.value === 'platform';
+        ElMessage(ro ? '平台默认层级：只读预览，不可编辑' : '当前层级可编辑');
+      }
+      function secCols(sec) { ElMessage({ message: '分区列数已改为 ' + sec.cols + ' 列', type: 'success' }); }
+      function renameSec(sec) {
+        ElMessageBox.prompt('分区名称：', '重命名分区', { inputValue: sec.name, confirmButtonText: '确定', cancelButtonText: '取消' })
+          .then(function (r) { sec.name = r.value || sec.name; ElMessage({ message: '分区已重命名', type: 'success' }); })
+          .catch(function () {});
+      }
+      function addField(name) {
+        if (readOnly.value) { ElMessage({ message: '平台默认层级只读，不可编辑', type: 'warning' }); return; }
+        var sec = activeSec.value || sections.value[0];
+        if (sec.fields.some(function (f) { return f.name === name; })) { ElMessage({ message: '「' + name + '」已在画布中', type: 'warning' }); return; }
+        var f = { id: 'f' + (fId++), name: name, full: false, required: false, hasDefault: false, maxLen: 50, ctrl: '单行文本', readonly: false, hidden: false };
+        sec.fields.push(f);
+        selField.value = f;
+        ElMessage({ message: '已加入画布「' + name + '」', type: 'success' });
+      }
+      function moveField(sec, f, dir) {
+        var list = sec.fields, i = list.indexOf(f), j = i + dir;
+        if (j < 0 || j >= list.length) { ElMessage({ message: dir < 0 ? '已是第一个' : '已是最后一个', type: 'warning' }); return; }
+        var tmp = list[i]; list[i] = list[j]; list[j] = tmp;
+        ElMessage({ message: dir < 0 ? '已上移' : '已下移', type: 'success' });
+      }
+      function toggleFull(f) {
+        f.full = !f.full;
+        ElMessage({ message: f.full ? '已跨整行显示' : '已取消跨行', type: 'success' });
+      }
+      function delField(sec, f) {
+        sec.fields = sec.fields.filter(function (x) { return x !== f; });
+        if (selField.value === f) selField.value = null;
+        ElMessage('已移出画布（字段仍保留）');
+      }
+      function delSec(sec) {
+        var doDel = function () {
+          var i = sections.value.indexOf(sec);
+          if (i >= 0) sections.value.splice(i, 1);
+          if (activeSec.value === sec) activeSec.value = sections.value[0] || null;
+          ElMessage({ message: '分区已删除', type: 'success' });
+        };
+        if (sec.fields.length) {
+          ElMessageBox.confirm('删除分区「' + sec.name + '」？其中的字段将一并移出画布。', '删除分区', { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' })
+            .then(doDel).catch(function () {});
+        } else doDel();
+      }
+      function addSec() {
+        if (readOnly.value) { ElMessage({ message: '平台默认层级只读，不可编辑', type: 'warning' }); return; }
+        var sec = { id: 'sec' + Date.now(), name: '新分区', cols: 1, fields: [] };
+        sections.value.push(sec);
+        activeSec.value = sec;
+        ElMessage({ message: '已新建分区', type: 'success' });
+      }
+      function resetLayout() {
+        ElMessageBox.confirm('恢复默认将删除当前层级布局配置，回退下一级？', '恢复默认', { type: 'warning', confirmButtonText: '确定', cancelButtonText: '取消' })
+          .then(function () { ElMessage({ message: '已恢复默认（回退下一级布局）', type: 'success' }); })
+          .catch(function () {});
+      }
+      function publish() { ElMessage({ message: '已发布 form.updated（AI 帮助更新触发）', type: 'success' }); }
+      function saveLayout() {
+        if (readOnly.value) { ElMessage({ message: '平台默认层级只读', type: 'warning' }); return; }
+        ElMessage({ message: '布局已保存（PUT /form-design/layouts，缓存已失效）', type: 'success' });
+      }
+      function goNewField() { location.href = '03_新建自定义字段.html'; }
+      return { curForm, scope, role, platformFields, tenantFields, sections, activeSec, selField, readOnly, toastMsg, switchForm, switchScope, secCols, renameSec, addField, moveField, toggleFull, delField, delSec, addSec, resetLayout, publish, saveLayout, goNewField };
+    }
+  });
+  app.use(ElementPlus);
+  app.mount('#app');
 </script>
 
 </body>

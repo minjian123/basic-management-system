@@ -4,7 +4,15 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>原型 · 账号锁定</title>
+<link rel="stylesheet" href="../共享资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../共享资源/原型样式.css">
+<style>
+  .ep-page { background: #fff; border: 1px solid #d0d7de; border-radius: 6px; padding: 16px; }
+  .ep-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+  .ep-toolbar .ep-side { margin-left: auto; }
+  .ep-filter { margin-bottom: 12px; }
+  .ep-pager { display: flex; justify-content: flex-end; margin-top: 12px; }
+</style>
 </head>
 <body>
 
@@ -14,100 +22,123 @@
 </div>
 
 <div class="proto-frame">
-  <div id="lt-top"></div>
+  <div id="app">
+    <div class="ep-page">
+      <!-- ① 工具栏：解锁（批量，勾选行后才可用）+ 刷新/关闭 + 导出 -->
+      <div class="ep-toolbar">
+        <el-button type="primary" :disabled="!selRows.length" @click="batchUnlock">解锁</el-button>
+        <el-button @click="toastMsg('已刷新')">刷新</el-button>
+        <el-button @click="toastMsg('原型演示：关闭当前模块页面（返回）')">关闭</el-button>
+        <span class="ep-side">
+          <el-button @click="toastMsg('原型演示：导出当前筛选结果')">导出</el-button>
+        </span>
+      </div>
 
-  <table class="p-table" id="tbl">
-    <tr><th><input type="checkbox" onclick="selAll(this)"></th><th>用户名</th><th>锁定类型</th><th>锁定时间</th><th>自动解锁时间</th></tr>
-    <tr class="row-link" data-id="1">
-      <td><input type="checkbox" class="row-chk" onchange="updBatch()"></td><td>lisi</td><td><span class="p-tag orange">失败超限</span></td><td>2026-08-01 18:02</td><td>2026-08-01 18:17</td>
-    </tr>
-    <tr class="row-link" data-id="2">
-      <td><input type="checkbox" class="row-chk" onchange="updBatch()"></td><td>wangwu</td><td><span class="p-tag gray">手动</span></td><td>2026-08-05 10:00</td><td>—</td>
-    </tr>
-    <tr class="row-link" data-id="3">
-      <td><input type="checkbox" class="row-chk" onchange="updBatch()"></td><td>zhaoliu</td><td><span class="p-tag red">长期未登录</span></td><td>2026-08-10 00:00</td><td>—（需手动解锁）</td>
-    </tr>
-  </table>
-  <!-- 空状态示意（搜索无结果时展示）：暂无数据+解锁按钮失效 -->
-  <div class="p-empty" id="empty-demo" style="display:none">
-    <div class="p-empty-icon">🔍</div>
-    <div>未找到相关内容</div>
-    <div style="margin-top:10px"><button class="p-btn" onclick="toast('已重置筛选')">重置</button></div>
+      <!-- ② 筛选区 -->
+      <el-form class="ep-filter" inline size="default" @submit.prevent>
+        <el-form-item label="关键字">
+          <el-input v-model="query.kw" placeholder="关键字：用户名" clearable style="width:240px"></el-input>
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" @click="applyFilter">查询</el-button>
+          <el-button @click="resetFilter">重置</el-button>
+        </el-form-item>
+      </el-form>
+
+      <!-- ③ 表格：多选 + 锁定类型 tag；双击行解锁 -->
+      <el-table :data="pageRows" border stripe @selection-change="onSel" @row-dblclick="unlockRow" style="width:100%">
+        <el-table-column type="selection" width="48"></el-table-column>
+        <el-table-column prop="username" label="用户名" min-width="120"></el-table-column>
+        <el-table-column label="锁定类型" width="130">
+          <template #default="{ row }">
+            <el-tag :type="tagType(row.type)" effect="plain">{{ row.type }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="lockTime" label="锁定时间" width="170"></el-table-column>
+        <el-table-column prop="unlockTime" label="自动解锁时间" min-width="160"></el-table-column>
+        <template #empty>
+          <div>
+            <div style="font-size:14px;color:#57606a">未找到相关内容</div>
+            <el-button style="margin-top:10px" @click="resetFilter">重置</el-button>
+          </div>
+        </template>
+      </el-table>
+
+      <!-- ④ 分页 -->
+      <div class="ep-pager">
+        <el-pagination background layout="total, sizes, prev, pager, next" :total="filtered.length"
+          :page-size="query.size" :current-page="query.page"
+          @current-change="onPage" @size-change="onSize"></el-pagination>
+      </div>
+    </div>
   </div>
-  <div id="pager-lock"></div>
 </div>
 
-<script src="../共享资源/原型脚本.js"></script>
-<script src="../02_公共原型/分页.js"></script>
-<script src="../02_公共原型/列表页工具栏.js"></script>
+<script src="../共享资源/vendor/vue.global.prod.js"></script>
+<script src="../共享资源/vendor/element-plus.min.js"></script>
 <script>
-  renderListToolbar({
-    top: document.getElementById('lt-top'),
-    bottom: document.getElementById('pager-lock'),
-    primary: { label: '解锁', onClick: function () { batchUnlock(); } },
-    buttons: [
-      { label: '刷新', onClick: function () { toast('已刷新'); } },
-      { label: '关闭', onClick: function () { toast('原型演示：关闭当前模块页面（返回）'); } }
-    ],
-    extra: '<button class="p-btn" onclick="toast(\'原型演示：导出当前筛选结果\')">导出</button>' +
-           '<span class="proto-hint" style="margin-left:10px">双击行解锁</span>',
-    filter: {
-      placeholder: '关键字：用户名',
-      onSearch: function (kw) {
-        var rows = document.querySelectorAll('#tbl tr.row-link');
-        var hit = 0;
-        rows.forEach(function (r) {
-          var ok = !kw || r.children[1].textContent.toLowerCase().indexOf(kw.toLowerCase()) >= 0;
-          r.style.display = ok ? '' : 'none';
-          if (ok) hit++;
+  var { createApp, ref, reactive, computed } = Vue;
+  var ElMessage = ElementPlus.ElMessage;
+  var ElMessageBox = ElementPlus.ElMessageBox;
+  var app = createApp({
+    template: document.getElementById('app').outerHTML.replace(/<div id="app">/, '<div>').replace(/<\/div>\s*$/, ''),
+    setup: function () {
+      var rows = ref([
+        { id: 1, username: 'lisi', type: '失败超限', lockTime: '2026-08-01 18:02', unlockTime: '2026-08-01 18:17' },
+        { id: 2, username: 'wangwu', type: '手动', lockTime: '2026-08-05 10:00', unlockTime: '—' },
+        { id: 3, username: 'zhaoliu', type: '长期未登录', lockTime: '2026-08-10 00:00', unlockTime: '—（需手动解锁）' }
+      ]);
+      var query = reactive({ kw: '', page: 1, size: 10 });
+      var selRows = ref([]);
+      var filtered = computed(function () {
+        return rows.value.filter(function (r) {
+          var k = (query.kw || '').toLowerCase();
+          return !k || (r.username || '').toLowerCase().indexOf(k) >= 0;
         });
-        document.getElementById('empty-demo').style.display = hit ? 'none' : '';
-        toast('命中 ' + hit + ' 条');
-      },
-      onReset: function () {
-        document.querySelectorAll('#tbl tr.row-link').forEach(function (r) { r.style.display = ''; });
-        document.getElementById('empty-demo').style.display = 'none';
-        toast('已重置筛选');
-      }
-    },
-    page: { total: 3, page: 1, size: 20, onPage: function (n) { toast('第 ' + n + ' 页'); } }
-  });
-  // 解锁为批量操作：primary 不支持 cls/disabled，补回 batch-btn 类并初始禁用，选中行后由 updBatch() 启用
-  var pb = document.getElementById('lt-top-primary');
-  pb.classList.add('batch-btn');
-  pb.disabled = true;
-  function selAll(cb) {
-    document.querySelectorAll('.row-chk').forEach(function (x) { x.checked = cb.checked; });
-    updBatch();
-  }
-  // 批量操作按钮组：有选中行时启用（《布局设计-列表页》4.工具栏）
-  function updBatch() {
-    var any = !!document.querySelector('.row-chk:checked');
-    document.querySelectorAll('.batch-btn').forEach(function (b) { b.disabled = !any; });
-  }
-  // 批量解锁（行内高频动作收敛到工具栏）
-  function batchUnlock() {
-    var rows = document.querySelectorAll('.row-chk:checked');
-    if (!rows.length) { toast('请先选择用户', 'err'); return; }
-    confirmAction('确认解锁选中 ' + rows.length + ' 个账号？解锁记录将写入 sys_account_lock 并落操作日志与审计。', function () {
-      rows.forEach(function (cb) { cb.closest('tr').remove(); });
-      toast('已解锁 ' + rows.length + ' 个账号（解锁记录审计）', 'ok');
-    });
-  }
-  // 双击行解锁（原行内「解锁」按钮改为行点击后表单内操作）
-  document.querySelectorAll('#tbl tr[data-id]').forEach(function (tr) {
-    tr.addEventListener('dblclick', function () {
-      var name = tr.children[1].textContent;
-      confirmAction('手动解锁「' + name + '」？解锁记录将写入 sys_account_lock 并落操作日志与审计。', function () {
-        tr.remove(); toast('已解锁（解锁记录审计）', 'ok');
       });
-    });
+      var pageRows = computed(function () {
+        var s = (query.page - 1) * query.size;
+        return filtered.value.slice(s, s + query.size);
+      });
+      function tagType(t) {
+        if (t === '失败超限') return 'warning';
+        if (t === '长期未登录') return 'danger';
+        return 'info';
+      }
+      function applyFilter() { query.page = 1; toastMsg('命中 ' + filtered.value.length + ' 条'); }
+      function resetFilter() { query.kw = ''; query.page = 1; }
+      function onSel(sel) { selRows.value = sel; }
+      function onPage(n) { query.page = n; }
+      function onSize(s) { query.size = s; query.page = 1; }
+      // 批量解锁（行内高频动作收敛到工具栏）
+      function batchUnlock() {
+        if (!selRows.value.length) { ElMessage.error('请先选择用户'); return; }
+        ElMessageBox.confirm('确认解锁选中 ' + selRows.value.length + ' 个账号？解锁记录将写入 sys_account_lock 并落操作日志与审计。', '提示', { type: 'warning', confirmButtonText: '解锁', cancelButtonText: '取消' })
+          .then(function () {
+            var ids = selRows.value.map(function (r) { return r.id; });
+            rows.value = rows.value.filter(function (r) { return ids.indexOf(r.id) < 0; });
+            selRows.value = [];
+            toastMsg('已解锁 ' + ids.length + ' 个账号（解锁记录审计）');
+          })
+          .catch(function () {});
+      }
+      // 双击行解锁
+      function unlockRow(row) {
+        ElMessageBox.confirm('手动解锁「' + row.username + '」？解锁记录将写入 sys_account_lock 并落操作日志与审计。', '提示', { type: 'warning', confirmButtonText: '解锁', cancelButtonText: '取消' })
+          .then(function () {
+            rows.value = rows.value.filter(function (r) { return r.id !== row.id; });
+            toastMsg('已解锁（解锁记录审计）');
+          })
+          .catch(function () {});
+      }
+      function toastMsg(m) { ElMessage({ message: m, type: 'success' }); }
+      return { rows, query, selRows, filtered, pageRows, tagType, applyFilter, resetFilter, onSel, onPage, onSize, batchUnlock, unlockRow, toastMsg };
+    }
   });
-  // 空状态演示（隐藏 div，搜索无结果时展示）
-  function showEmpty() {
-    var e = document.getElementById('empty-demo');
-    e.style.display = e.style.display === 'none' ? '' : 'none';
-  }
+  app.use(ElementPlus);
+  app.mount('#app');
+  // 嵌入主框架时隐藏顶部原型条
+  if (location.search.indexOf('embed=1') >= 0) { var pb = document.querySelector('.proto-bar'); if (pb) pb.style.display = 'none'; }
 </script>
 
 </body>

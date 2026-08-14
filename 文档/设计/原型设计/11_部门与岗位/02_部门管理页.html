@@ -4,16 +4,17 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>原型 · 部门管理页</title>
+<link rel="stylesheet" href="../共享资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../共享资源/原型样式.css">
 <style>
-  .d-split { display: flex; gap: 12px; align-items: flex-start; }
-  .d-left { flex: 0 0 280px; background: #fff; border: 1px solid #d0d7de; border-radius: 8px; padding: 10px; }
-  .d-right { flex: 1; background: #fff; border: 1px solid #d0d7de; border-radius: 8px; padding: 14px; min-height: 300px; }
-  .d-tree { list-style: none; margin: 0; padding: 0; font-size: 13px; }
-  .d-tree ul { list-style: none; padding-left: 18px; }
-  .d-tree .t-node { padding: 4px 8px; border-radius: 6px; cursor: pointer; }
-  .d-tree .t-node:hover { background: #f3f4f6; }
-  .d-tree .t-node.active { background: #ddf4ff; color: #0969da; }
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .ep-toolbar { display:flex; align-items:center; gap:8px; margin-bottom:12px; flex-wrap:wrap; }
+  .ep-side { margin-left:auto; display:flex; align-items:center; gap:8px; }
+  .d-split { display:flex; gap:12px; align-items:flex-start; }
+  .d-left { flex:0 0 300px; }
+  .d-right { flex:1; min-width:0; }
+  .d-card { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:10px 14px; }
+  .d-inner-toolbar { display:flex; align-items:center; gap:8px; padding:10px 0; margin-bottom:12px; border-bottom:1px solid #eaeef2; flex-wrap:wrap; }
 </style>
 </head>
 <body>
@@ -24,143 +25,301 @@
 </div>
 
 <div class="proto-frame">
-  <div class="p-toolbar">
-    <button class="p-btn primary" onclick="openModal('m-new','新增子部门')">新增子部门</button>
-    <button class="p-btn" onclick="editDept()">编辑</button>
-    <button class="p-btn" onclick="moveDept()">移动</button>
-    <button class="p-btn" onclick="toggleDept()">停用/启用</button>
-    <button class="p-btn" onclick="toast('已刷新')">刷新</button>
-    <button class="p-btn" onclick="toast('原型演示：关闭当前模块页面（返回）')">关闭</button>
-  </div>
-
-  <div class="d-split">
-    <div class="d-left">
-      <ul class="d-tree" id="tree">
-        <li>
-          <div class="t-node" onclick="sel(this,'BMS 总部')">▾ BMS 总部</div>
-          <ul>
-            <li>
-              <div class="t-node active" onclick="sel(this,'技术部')">▾ 技术部</div>
-              <ul>
-                <li><div class="t-node" onclick="sel(this,'开发组')">　开发组</div></li>
-                <li><div class="t-node" onclick="sel(this,'测试组')">　测试组</div></li>
-              </ul>
-            </li>
-            <li><div class="t-node" onclick="sel(this,'财务部')">▾ 财务部</div></li>
-            <li><div class="t-node" onclick="sel(this,'人事部')">　人事部</div></li>
-          </ul>
-        </li>
-      </ul>
-    </div>
-
-    <div class="d-right" id="detail">
-      <b>部门详情：技术部</b>
-      <!-- 详情面板工具栏：只读态 修改/删除/刷新/关闭 ↔ 编辑态 保存/关闭（《布局设计-表单页》） -->
-      <div class="p-toolbar" style="border:none;border-radius:0;padding:0 0 10px;margin:10px 0 12px;border-bottom:1px solid #eaeef2">
-        <button class="p-btn" id="btn-dept-edit" onclick="editDept()">修改</button>
-        <button class="p-btn danger" onclick="confirmAction('确认删除「技术部」？部门删除后下属与岗位需先迁移。',function(){toast('已删除','ok')})">删除</button>
-        <button class="p-btn" onclick="toast('已重新加载当前记录')">刷新</button>
-        <button class="p-btn" onclick="tryCloseDept()">关闭</button>
-        <button class="p-btn primary" id="btn-dept-save" style="display:none" onclick="saveDeptDetail()">保存</button>
-        <span class="proto-hint" style="margin-left:auto">编辑后关闭将触发未保存拦截</span>
+  <div id="app">
+    <div class="ep-page">
+      <!-- ① 部门树工具栏（全局） -->
+      <div class="ep-toolbar">
+        <el-button type="primary" @click="openNewDlg">新增子部门</el-button>
+        <el-button @click="moveDept">移动</el-button>
+        <el-button @click="toggleDept">{{ curDept.status === 'enabled' ? '停用' : '启用' }}</el-button>
+        <el-button @click="toastMsg('已刷新')">刷新</el-button>
+        <el-button @click="toastMsg('原型演示：关闭当前模块页面（返回）')">关闭</el-button>
+        <span class="ep-side"><span class="proto-hint">当前选中：{{ curDept.label }}</span></span>
       </div>
-      <!-- 详细信息/系统信息 双子 Tab（data-tab 机制） -->
-      <div class="p-tabs">
-        <div class="p-tab active" data-tabs="dept-tabs" data-tab="info">详细信息</div>
-        <div class="p-tab" data-tabs="dept-tabs" data-tab="sys">系统信息</div>
-      </div>
-      <div id="dept-tabs">
-        <div data-pane="info">
-          <div class="p-row" style="margin-top:10px">
-            <div class="p-col p-field"><label>上级部门</label><input class="p-input" value="BMS 总部" disabled></div>
-            <div class="p-col p-field"><label>名称</label><input class="p-input" value="技术部" disabled></div>
-          </div>
-          <div class="p-row">
-            <div class="p-col p-field"><label>ancestors 链</label><input class="p-input" value="/1/2/" disabled></div>
-            <div class="p-col p-field"><label>直属用户 / 岗位</label><input class="p-input" value="12 人 / 3 个岗位" disabled></div>
-          </div>
-          <div class="p-field"><label>角色绑定</label>
-            <div style="display:flex;gap:6px;align-items:center">
-              <span class="p-tag blue">普通角色</span>
-              <button class="p-btn sm" id="btn-dept-bind" disabled onclick="openDrawer('d-role','角色绑定（技术部）')">✚ 绑定</button>
-            </div>
-          </div>
+
+      <div class="d-split">
+        <!-- ② 左侧部门树 el-tree -->
+        <div class="d-left d-card">
+          <el-tree :data="treeData" node-key="id" highlight-current :default-expanded-keys="[1,2]"
+            :current-node-key="curDept.id" @node-click="onNodeClick"></el-tree>
         </div>
-        <div data-pane="sys" style="display:none">
-          <div class="p-form">
-            <div id="sys-info-dept"></div>
+
+        <!-- ③ 右侧部门详情：分态工具栏 + 双子 Tab -->
+        <div class="d-right d-card">
+          <div class="d-inner-toolbar">
+            <template v-if="!editing">
+              <el-button type="primary" @click="setEditing(true)">修改</el-button>
+              <el-button type="danger" plain @click="delDept">删除</el-button>
+              <el-button @click="toastMsg('已重新加载当前记录')">刷新</el-button>
+            </template>
+            <template v-else>
+              <el-button type="primary" @click="saveDetail">保存</el-button>
+            </template>
+            <el-button @click="tryClose">关闭</el-button>
+            <span class="ep-side"><span class="proto-hint">{{ editing ? '编辑态：修改后关闭将触发未保存拦截' : '只读态：点击「修改」进入编辑态' }}</span></span>
           </div>
+
+          <el-tabs v-model="tab" @tab-click="onTabClick" @tab-change="onTabChange">
+            <el-tab-pane label="详细信息" name="info">
+              <el-form label-width="120px" :disabled="!editing" style="margin-top:8px">
+                <el-row :gutter="16">
+                  <el-col :span="12">
+                    <el-form-item label="上级部门">
+                      <el-select v-model="form.parentId" style="width:100%">
+                        <el-option v-for="p in parentOptions" :key="p.id" :label="p.label" :value="p.id"></el-option>
+                      </el-select>
+                    </el-form-item>
+                  </el-col>
+                  <el-col :span="12">
+                    <el-form-item label="名称"><el-input v-model="form.name" placeholder="部门名称"></el-input></el-form-item>
+                  </el-col>
+                </el-row>
+                <el-row :gutter="16">
+                  <el-col :span="12">
+                    <el-form-item label="排序"><el-input-number v-model="form.sort" :min="0" style="width:100%"></el-input-number></el-form-item>
+                  </el-col>
+                  <el-col :span="12">
+                    <el-form-item label="状态">
+                      <el-select v-model="form.status" style="width:100%">
+                        <el-option label="启用" value="enabled"></el-option>
+                        <el-option label="停用" value="disabled"></el-option>
+                      </el-select>
+                    </el-form-item>
+                  </el-col>
+                </el-row>
+                <el-form-item label="ancestors 链"><el-input :model-value="curDept.ancestors" disabled></el-input></el-form-item>
+                <el-form-item label="直属用户 / 岗位"><el-input :model-value="curDept.userPost" disabled></el-input></el-form-item>
+                <el-form-item label="角色绑定">
+                  <div style="display:flex;gap:8px;align-items:center">
+                    <el-tag>{{ curDept.role }}</el-tag>
+                    <el-button size="small" :disabled="!editing" @click="openRoleDrawer">✚ 绑定</el-button>
+                  </div>
+                </el-form-item>
+              </el-form>
+            </el-tab-pane>
+            <el-tab-pane label="系统信息" name="sys">
+              <el-descriptions :column="2" border style="margin-top:8px">
+                <el-descriptions-item label="ID">{{ sys.id }}</el-descriptions-item>
+                <el-descriptions-item label="创建时间">{{ sys.createdAt }}</el-descriptions-item>
+                <el-descriptions-item label="创建用户">{{ sys.createdBy }}</el-descriptions-item>
+                <el-descriptions-item label="修改时间">{{ sys.updatedAt }}</el-descriptions-item>
+                <el-descriptions-item label="修改用户">{{ sys.updatedBy }}</el-descriptions-item>
+              </el-descriptions>
+            </el-tab-pane>
+          </el-tabs>
         </div>
       </div>
     </div>
+
+    <!-- ④ 新增子部门 el-dialog（480px） -->
+    <el-dialog v-model="newDlg.visible" :title="newDlg.title" width="480">
+      <el-form label-width="80px">
+        <el-form-item label="名称" required><el-input v-model="newDlg.name" placeholder="部门名称"></el-input></el-form-item>
+        <el-form-item label="排序"><el-input-number v-model="newDlg.sort" :min="0"></el-input-number></el-form-item>
+        <el-form-item label="状态">
+          <el-select v-model="newDlg.status" style="width:100%">
+            <el-option label="启用" value="enabled"></el-option>
+            <el-option label="停用" value="disabled"></el-option>
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="newDlg.visible = false">取消</el-button>
+        <el-button type="primary" @click="saveNew">保存</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- ⑤ 角色绑定 el-drawer（480px） -->
+    <el-drawer v-model="roleDrawer.visible" :title="roleDrawer.title" size="480">
+      <el-checkbox v-model="roleDrawer.roles.ordinary">普通角色</el-checkbox>
+      <el-checkbox v-model="roleDrawer.roles.approve" style="margin-left:24px">审批角色</el-checkbox>
+      <template #footer>
+        <el-button @click="roleDrawer.visible = false">取消</el-button>
+        <el-button type="primary" @click="saveRole">保存</el-button>
+      </template>
+    </el-drawer>
   </div>
 </div>
 
-<!-- 新增子部门：480px 对话框（.p-modal 默认即 480） -->
-<div class="p-mask" id="m-new">
-  <div class="p-modal w480">
-    <div class="pm-head">新增子部门（技术部下）<span class="x" onclick="closeModal('m-new')">✕</span></div>
-    <div class="pm-body">
-      <div class="p-field"><label>名称 <span class="req">*</span></label><input class="p-input" id="d-name"></div>
-      <div style="height:10px"></div>
-      <div class="p-field"><label>排序</label><input class="p-input" value="1"></div>
-    </div>
-    <div class="pm-foot"><button class="p-btn" onclick="closeModal('m-new')">取消</button><button class="p-btn primary" onclick="saveDept()">保存</button></div>
-  </div>
-</div>
-
-<!-- 角色绑定：抽屉 w480 -->
-<div class="p-drawer w480" id="d-role">
-  <div class="pd-head">角色绑定（技术部）<span class="x" onclick="closeDrawer('d-role')">✕</span></div>
-  <div class="pd-body">
-    <label style="display:block;padding:6px 0;font-size:13px"><input type="checkbox" checked> 普通角色</label>
-    <label style="display:block;padding:6px 0;font-size:13px"><input type="checkbox"> 审批角色</label>
-  </div>
-  <div class="pd-foot"><button class="p-btn" onclick="closeDrawer('d-role')">取消</button><button class="p-btn primary" onclick="closeDrawer('d-role');toast('绑定已保存（主体链生效）','ok')">保存</button></div>
-</div>
-
-<script src="../共享资源/原型脚本.js"></script>
-<script src="../02_公共原型/系统信息.js"></script>
+<script src="../共享资源/vendor/vue.global.prod.js"></script>
+<script src="../共享资源/vendor/element-plus.min.js"></script>
 <script>
-  mountSysInfo(document.getElementById('sys-info-dept'), {
-    id: '1902876345762181120',
-    createdAt: '2026-07-01 10:00:00 (UTC)',
-    createdBy: 'admin',
-    updatedAt: '2026-08-12 09:30:00 (UTC)',
-    updatedBy: 'admin'
+  var { createApp, ref, reactive, computed, watch } = Vue;
+  var app = createApp({
+    template: document.getElementById('app').outerHTML.replace(/<div id="app">/, '<div>').replace(/<\/div>\s*$/, ''),
+    setup: function () {
+      var treeData = ref([
+        { id: 1, label: 'BMS 总部', status: 'enabled', sort: 0, ancestors: '/', userPost: '5 人 / 2 个岗位', role: '普通角色', children: [
+          { id: 2, label: '技术部', status: 'enabled', sort: 1, ancestors: '/1/2/', userPost: '12 人 / 3 个岗位', role: '普通角色', children: [
+            { id: 21, label: '开发组', status: 'enabled', sort: 1, ancestors: '/1/2/21/', userPost: '8 人 / 1 个岗位', role: '普通角色' },
+            { id: 22, label: '测试组', status: 'enabled', sort: 2, ancestors: '/1/2/22/', userPost: '4 人 / 1 个岗位', role: '普通角色' }
+          ]},
+          { id: 3, label: '财务部', status: 'enabled', sort: 2, ancestors: '/1/3/', userPost: '6 人 / 1 个岗位', role: '普通角色' },
+          { id: 4, label: '人事部', status: 'disabled', sort: 3, ancestors: '/1/4/', userPost: '3 人 / 1 个岗位', role: '普通角色' }
+        ]}
+      ]);
+      function findNode(id, list) {
+        if (!list) return null;
+        for (var i = 0; i < list.length; i++) {
+          if (list[i].id === id) return list[i];
+          var r = findNode(id, list[i].children);
+          if (r) return r;
+        }
+        return null;
+      }
+      var flatList = ref([]);
+      function collect(list) {
+        list.forEach(function (n) { flatList.value.push(n); if (n.children) collect(n.children); });
+      }
+      collect(treeData.value);
+      function reCollect() {
+        flatList.value = [];
+        collect(treeData.value);
+      }
+      var curDept = reactive(findNode(2, treeData.value));
+      var editing = ref(false);
+      var dirty = ref(false);
+      var syncing = false;
+      var form = reactive({ parentId: 1, name: '', sort: 1, status: 'enabled' });
+      var parentOptions = computed(function () {
+        return flatList.value.filter(function (n) { return n.id !== curDept.id; });
+      });
+      var tab = ref('info');
+      var sys = reactive({
+        id: '1902876345762181120',
+        createdAt: '2026-07-01 10:00:00 (UTC)',
+        createdBy: 'admin',
+        updatedAt: '2026-08-12 09:30:00 (UTC)',
+        updatedBy: 'admin'
+      });
+      var newDlg = reactive({ visible: false, title: '', name: '', sort: 1, status: 'enabled' });
+      var roleDrawer = reactive({ visible: false, title: '', roles: { ordinary: true, approve: false } });
+
+      function toastMsg(m, type) {
+        var opts = { message: m };
+        if (type) { opts.type = type; opts.duration = 2000; }
+        Vue.ElMessage(opts);
+      }
+      function confirmAction(msg, fn, okText) {
+        Vue.ElMessageBox.confirm(msg, '确认操作', { type: 'warning', confirmButtonText: okText || '确定', cancelButtonText: '取消' })
+          .then(function () { fn(); }).catch(function () {});
+      }
+      // 选中部门（树节点点击）
+      function onNodeClick(data) {
+        dirty.value = false;
+        editing.value = false;
+        tab.value = 'info';
+        Object.keys(data).forEach(function (k) { curDept[k] = data[k]; });
+        // 同步表单占位
+        Object.assign(form, pickDept(data));
+        toastMsg('已选中：' + data.label);
+      }
+      function pickDept(d) {
+        return { parentId: d.parentId || 1, name: d.label, sort: d.sort, status: d.status };
+      }
+      // 详情表单分态
+      function setEditing(on) {
+        editing.value = on;
+        if (on) {
+          syncing = true;
+          Object.assign(form, pickDept(curDept));
+          syncing = false;
+          dirty.value = false;
+          toastMsg('已进入编辑态（字段启用）');
+        }
+      }
+      // dirty 拦截：编辑态表单变化标记
+      watch(form, function () {
+        if (editing.value && !syncing) dirty.value = true;
+      });
+      function saveDetail() {
+        if (!form.name.trim()) { toastMsg('名称必填', 'error'); return; }
+        var node = findNode(curDept.id, treeData.value);
+        node.label = form.name.trim();
+        node.sort = form.sort;
+        node.status = form.status;
+        Object.assign(curDept, { label: node.label, sort: form.sort, status: form.status });
+        editing.value = false; dirty.value = false;
+        toastMsg('保存成功，列表已自动刷新', 'success');
+      }
+      function tryClose() {
+        if (dirty.value) {
+          confirmAction('当前修改尚未保存，关闭将丢失修改，确定关闭？', function () {
+            dirty.value = false; editing.value = false;
+            toastMsg('已关闭');
+          });
+        } else { toastMsg('已关闭'); }
+      }
+      var prevTab = 'info';
+      function onTabClick() { prevTab = tab.value; }
+      function onTabChange(name) {
+        if (dirty.value && editing.value && name !== prevTab) {
+          Vue.ElMessageBox.confirm('当前有未保存的修改，切换后将丢失，确认？', '确认操作', { type: 'warning' })
+            .then(function () { dirty.value = false; })
+            .catch(function () { tab.value = prevTab; });
+        }
+      }
+      // 新增子部门
+      function openNewDlg() {
+        newDlg.title = '新增子部门（' + curDept.label + '下）';
+        newDlg.name = ''; newDlg.sort = 1; newDlg.status = 'enabled';
+        newDlg.visible = true;
+      }
+      function saveNew() {
+        var n = newDlg.name.trim();
+        if (!n) { toastMsg('名称必填', 'error'); return; }
+        var parent = findNode(curDept.id, treeData.value);
+        if (!parent.children) parent.children = [];
+        parent.children.push({ id: Date.now(), label: n, status: newDlg.status, sort: newDlg.sort, ancestors: parent.ancestors + parent.id + '/', userPost: '0 人 / 0 个岗位', role: '普通角色' });
+        reCollect();
+        newDlg.visible = false;
+        toastMsg('部门已创建（ancestors 链自动维护）', 'success');
+      }
+      // 移动 / 停用启用
+      function moveDept() {
+        confirmAction('移动「' + curDept.label + '」到新位置？ancestors 链级联更新，数据权限范围同步重算。', function () {
+          toastMsg('已移动（原型演示）', 'success');
+        });
+      }
+      function toggleDept() {
+        var on = curDept.status === 'enabled';
+        confirmAction((on ? '停用' : '启用') + '「' + curDept.label + '」？停用不影响用户与数据，仅影响组织选择。', function () {
+          var node = findNode(curDept.id, treeData.value);
+          node.status = on ? 'disabled' : 'enabled';
+          curDept.status = node.status;
+          toastMsg('已' + (on ? '停用' : '启用'), 'success');
+        });
+      }
+      // 删除部门
+      function delDept() {
+        confirmAction('确认删除「' + curDept.label + '」？部门删除后下属与岗位需先迁移。', function () {
+          toastMsg('已删除（原型演示：部门树已移除）', 'success');
+        }, '删除');
+      }
+      // 角色绑定抽屉
+      function openRoleDrawer() {
+        roleDrawer.title = '角色绑定（' + curDept.label + '）';
+        roleDrawer.roles.ordinary = true;
+        roleDrawer.roles.approve = false;
+        roleDrawer.visible = true;
+      }
+      function saveRole() {
+        var r = [];
+        if (roleDrawer.roles.ordinary) r.push('普通角色');
+        if (roleDrawer.roles.approve) r.push('审批角色');
+        var node = findNode(curDept.id, treeData.value);
+        node.role = r.join(' + ') || '未绑定';
+        curDept.role = node.role;
+        roleDrawer.visible = false;
+        toastMsg('绑定已保存（主体链生效）', 'success');
+      }
+      return { treeData, curDept, editing, form, parentOptions, tab, sys, newDlg, roleDrawer,
+        onNodeClick, setEditing, saveDetail, tryClose, onTabClick, onTabChange, openNewDlg, saveNew,
+        moveDept, toggleDept, delDept, openRoleDrawer, saveRole, toastMsg };
+    }
   });
-  function sel(el, name) {
-    document.querySelectorAll('.t-node').forEach(function (x) { x.classList.remove('active'); });
-    el.classList.add('active');
-    document.getElementById('detail').querySelector('b').textContent = '部门详情：' + name;
-    toast('已选中：' + name);
-  }
-  function saveDept() {
-    var n = document.getElementById('d-name').value.trim();
-    if (!n) { toast('名称必填', 'err'); return; }
-    closeModal('m-new'); toast('部门已创建（ancestors 链自动维护）', 'ok');
-  }
-  function moveDept() {
-    confirmAction('移动「技术部」到新位置？ancestors 链级联更新，数据权限范围同步重算。', function () { toast('已移动（原型演示）', 'ok'); });
-  }
-  function toggleDept() { confirmAction('停用「技术部」？停用不影响用户与数据，仅影响组织选择。', function () { toast('已停用', 'ok'); }); }
-  // 详情面板分态（《布局设计-表单页》）：只读态 修改/删除/刷新/关闭 ↔ 编辑态 保存/关闭
-  function setDeptEditable(on) {
-    document.getElementById('btn-dept-edit').style.display = on ? 'none' : '';
-    document.getElementById('btn-dept-save').style.display = on ? '' : 'none';
-    document.getElementById('btn-dept-bind').disabled = !on;
-    document.querySelectorAll('#dept-tabs input, #dept-tabs select').forEach(function (el) { el.disabled = !on; });
-  }
-  // dirty 拦截：编辑后关闭需确认
-  var deptDirty = false;
-  document.getElementById('dept-tabs').addEventListener('input', function () { deptDirty = true; });
-  document.getElementById('dept-tabs').addEventListener('change', function () { deptDirty = true; });
-  function editDept() { deptDirty = false; setDeptEditable(true); toast('已进入编辑态（字段启用）'); }
-  function saveDeptDetail() { deptDirty = false; setDeptEditable(false); toast('保存成功，列表已自动刷新', 'ok'); }
-  function tryCloseDept() {
-    if (deptDirty) { confirmAction('当前修改尚未保存，关闭将丢失修改，确定关闭？', function () { deptDirty = false; toast('已关闭'); }); }
-    else { toast('已关闭'); }
-  }
+  app.use(ElementPlus);
+  app.mount('#app');
 </script>
 
 </body>

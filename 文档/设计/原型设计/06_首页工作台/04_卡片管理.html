@@ -4,9 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>原型 · 卡片管理</title>
+<link rel="stylesheet" href="../共享资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../共享资源/原型样式.css">
 <style>
-  .p-table tr.row-link.active { background: #ddf4ff; }
+  .ep-page { background: #fff; border: 1px solid #d0d7de; border-radius: 6px; padding: 16px; }
+  .ep-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+  .ep-toolbar .ep-side { margin-left: auto; }
+  .ep-filter { margin-bottom: 12px; }
+  .ep-pager { display: flex; justify-content: flex-end; margin-top: 12px; }
 </style>
 </head>
 <body>
@@ -17,187 +22,226 @@
 </div>
 
 <div class="proto-frame">
-  <div id="lt-top"></div>
+  <div id="app">
+    <div class="ep-page">
+      <div class="ep-toolbar">
+        <el-button type="primary" @click="openNew">新建数据集卡</el-button>
+        <el-button @click="toastMsg('已刷新')">刷新</el-button>
+        <el-button @click="toastMsg('原型演示：关闭当前模块页面（返回）')">关闭</el-button>
+        <span class="ep-side">
+          <el-button @click="toastMsg('原型演示：导出当前筛选结果')">导出</el-button>
+        </span>
+      </div>
 
-  <!-- 表格无操作列：行点击进入编辑（row-link），状态标签可直接切换启停 -->
-  <table class="p-table" id="tbl">
-    <tr><th>code</th><th>名称</th><th>类型</th><th>数据源</th><th>默认尺寸</th><th>状态</th></tr>
-    <tr class="row-link" data-id="todo" onclick="editCard(this,'todo','待办/已办')">
-      <td>todo</td><td>待办/已办</td><td><span class="p-tag blue">builtin</span></td><td>工作流接口</td><td>4×2</td>
-      <td><span class="p-tag green" data-role="st" style="cursor:pointer" onclick="event.stopPropagation();toggleCard(this,'待办/已办')">启用</span></td>
-    </tr>
-    <tr class="row-link" data-id="notice" onclick="editCard(this,'notice','通知')">
-      <td>notice</td><td>通知</td><td><span class="p-tag blue">builtin</span></td><td>通知中心接口</td><td>4×2</td>
-      <td><span class="p-tag green" data-role="st" style="cursor:pointer" onclick="event.stopPropagation();toggleCard(this,'通知')">启用</span></td>
-    </tr>
-    <tr class="row-link" data-id="stats_flow" onclick="editCard(this,'stats_flow','收付款趋势')">
-      <td>stats_flow</td><td>收付款趋势</td><td><span class="p-tag gray">dataset</span></td><td>数据集 flow_month</td><td>12×4</td>
-      <td><span class="p-tag green" data-role="st" style="cursor:pointer" onclick="event.stopPropagation();toggleCard(this,'收付款趋势')">启用</span></td>
-    </tr>
-    <tr class="row-link" data-id="announce" onclick="editCard(this,'announce','公告')">
-      <td>announce</td><td>公告</td><td><span class="p-tag blue">builtin</span></td><td>公告接口</td><td>4×2</td>
-      <td><span class="p-tag gray" data-role="st" style="cursor:pointer" onclick="event.stopPropagation();toggleCard(this,'公告')">停用</span></td>
-    </tr>
-  </table>
-  <div id="detail-bar-card"></div>
-<div id="pager-card"></div>
+      <el-form class="ep-filter" inline size="default" @submit.prevent>
+        <el-form-item label="关键字">
+          <el-input v-model="query.kw" placeholder="关键字：code/名称" clearable style="width:200px"></el-input>
+        </el-form-item>
+        <el-form-item label="类型">
+          <el-select v-model="query.type" placeholder="全部" clearable style="width:140px">
+            <el-option label="builtin 内置" value="builtin"></el-option>
+            <el-option label="dataset 数据集" value="dataset"></el-option>
+          </el-select>
+        </el-form-item>
+        <el-form-item label="状态">
+          <el-select v-model="query.status" placeholder="全部" clearable style="width:110px">
+            <el-option label="启用" :value="true"></el-option>
+            <el-option label="停用" :value="false"></el-option>
+          </el-select>
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" @click="applyFilter">查询</el-button>
+          <el-button @click="resetFilter">重置</el-button>
+        </el-form-item>
+      </el-form>
+
+      <!-- 表格：行点击进入编辑，状态开关可直接切换启停 -->
+      <el-table :data="pageRows" border stripe highlight-current-row @row-click="openEdit" style="width:100%">
+        <el-table-column prop="code" label="code" min-width="120"></el-table-column>
+        <el-table-column prop="name" label="名称" min-width="150"></el-table-column>
+        <el-table-column label="类型" width="100">
+          <template #default="{ row }">
+            <el-tag size="small" :type="row.type === 'builtin' ? '' : 'info'">{{ row.type }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="source" label="数据源" min-width="160"></el-table-column>
+        <el-table-column prop="size" label="默认尺寸" width="90"></el-table-column>
+        <el-table-column label="状态" width="80">
+          <template #default="{ row }">
+            <el-switch v-model="row.status" @click.stop @change="v => toggleCard(row, v)"></el-switch>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="230" fixed="right">
+          <template #default="{ row }">
+            <el-button link type="primary" @click="moveCard(row, -1)">上移</el-button>
+            <el-button link type="primary" @click="moveCard(row, 1)">下移</el-button>
+            <el-button link type="primary" @click="openEdit(row)">编辑</el-button>
+            <el-button link type="danger" @click="delCard(row)">删除</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+
+      <div class="ep-pager">
+        <el-pagination background layout="total, sizes, prev, pager, next" :total="filtered.length"
+          :page-size="query.size" :current-page="query.page"
+          @current-change="onPage" @size-change="onSize"></el-pagination>
+      </div>
+    </div>
+
+    <!-- 新建/编辑卡片抽屉（宽 640）：标题由动作+对象自动设置 -->
+    <el-drawer v-model="dlg.visible" :title="dlg.id ? '编辑卡片' : '新建卡片'" size="640">
+      <el-form label-width="110px">
+        <el-form-item label="code">
+          <el-input v-model="dlg.code" placeholder="如 stats_apply" :disabled="!!dlg.id"></el-input>
+        </el-form-item>
+        <el-form-item label="名称">
+          <el-input v-model="dlg.name" placeholder="卡片名称"></el-input>
+        </el-form-item>
+        <el-form-item label="类型">
+          <el-select v-model="dlg.type" style="width:100%">
+            <el-option label="builtin 内置" value="builtin"></el-option>
+            <el-option label="dataset 数据集" value="dataset"></el-option>
+          </el-select>
+        </el-form-item>
+        <el-form-item v-if="dlg.type === 'dataset'" label="数据集（rpt_dataset）">
+          <el-select v-model="dlg.dataset" style="width:100%">
+            <el-option label="本月收付款流水" value="本月收付款流水"></el-option>
+            <el-option label="采购订单金额" value="采购订单金额"></el-option>
+            <el-option label="审批时长分布" value="审批时长分布"></el-option>
+          </el-select>
+        </el-form-item>
+        <el-form-item v-if="dlg.type === 'dataset'" label="图表类型">
+          <el-select v-model="dlg.chartType" style="width:100%">
+            <el-option label="柱状图" value="柱状图"></el-option>
+            <el-option label="折线图" value="折线图"></el-option>
+            <el-option label="饼图" value="饼图"></el-option>
+          </el-select>
+        </el-form-item>
+        <el-form-item label="默认尺寸">
+          <el-select v-model="dlg.size" style="width:100%">
+            <el-option label="4×2" value="4×2"></el-option>
+            <el-option label="6×4" value="6×4"></el-option>
+            <el-option label="12×4" value="12×4"></el-option>
+          </el-select>
+        </el-form-item>
+        <el-form-item label="状态">
+          <el-switch v-model="dlg.status" active-text="启用" inactive-text="停用"></el-switch>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <span style="float:left">
+          <el-button v-if="dlg.id" type="danger" plain @click="delCardDrawer">删除</el-button>
+        </span>
+        <el-button @click="dlg.visible = false">取消</el-button>
+        <el-button type="primary" @click="saveCard">保存</el-button>
+      </template>
+    </el-drawer>
+  </div>
 </div>
 
-<!-- 新建/编辑卡片抽屉（宽 640）：标题由动作+对象自动设置 -->
-<div class="p-drawer w640" id="drawer-card">
-  <div class="pd-head">新建卡片<span class="x" onclick="closeDrawer('drawer-card')">✕</span></div>
-  <div class="pd-body">
-    <div class="p-row">
-      <div class="p-col p-field"><label>code</label><input class="p-input" id="f-code" value="stats_apply" placeholder="如 stats_apply"></div>
-      <div class="p-col p-field"><label>名称</label><input class="p-input" id="f-name" value="采购申请统计" placeholder="卡片名称"></div>
-    </div>
-    <div class="p-row">
-      <div class="p-col p-field"><label>数据集（rpt_dataset）</label>
-        <select class="p-select"><option>本月收付款流水</option><option>采购订单金额</option><option>审批时长分布</option></select>
-      </div>
-      <div class="p-col p-field"><label>图表类型</label>
-        <select class="p-select"><option>柱状图</option><option>折线图</option><option>饼图</option></select>
-      </div>
-    </div>
-    <div class="p-row">
-      <div class="p-col p-field"><label>默认尺寸</label>
-        <select class="p-select"><option>6×4</option><option>12×4</option><option>4×2</option></select>
-      </div>
-      <div class="p-col p-field"><label>状态</label>
-        <select class="p-select" id="f-status"><option>启用</option><option>停用</option></select>
-      </div>
-    </div>
-  </div>
-  <div class="pd-foot">
-    <button class="p-btn danger" id="btn-del" style="margin-right:auto" onclick="delCardDrawer()">删除</button>
-    <button class="p-btn" onclick="closeDrawer('drawer-card')">取消</button>
-    <button class="p-btn primary" onclick="saveCard()">保存</button>
-  </div>
-</div>
-
-<script src="../共享资源/原型脚本.js"></script>
-<script src="../02_公共原型/分页.js"></script>
-<script src="../02_公共原型/列表页工具栏.js"></script>
-<script src="../02_公共原型/明细工具栏.js"></script>
+<script src="../共享资源/vendor/vue.global.prod.js"></script>
+<script src="../共享资源/vendor/element-plus.min.js"></script>
 <script>
-  renderListToolbar({
-    top: document.getElementById('lt-top'),
-    bottom: document.getElementById('pager-card'),
-    primary: { label: '新建数据集卡', onClick: function () { editCard(null); } },
-    buttons: [
-      { label: '刷新', onClick: function () { toast('已刷新'); } },
-      { label: '关闭', onClick: function () { toast('原型演示：关闭当前模块页面（返回）'); } }
-    ],
-    extra: '<button class="p-btn" onclick="toast(\'原型演示：导出当前筛选结果\')">导出</button>',
-    filter: {
-      placeholder: '关键字：code/名称',
-      extraHtml: '<label>类型</label>' +
-                 '<select class="p-select" style="width:auto"><option>全部</option><option>builtin 内置</option><option>dataset 数据集</option></select>' +
-                 '<label>状态</label>' +
-                 '<select class="p-select" style="width:auto"><option>全部</option><option>启用</option><option>停用</option></select>',
-      onSearch: function (kw) {
-        var sels = document.querySelectorAll('#lt-top .p-filter .p-select');
-        var tp = sels[0] ? sels[0].value : '全部';
-        var st = sels[1] ? sels[1].value : '全部';
-        var rows = document.querySelectorAll('#tbl tr.row-link');
-        var hit = 0;
-        rows.forEach(function (r) {
-          var text = r.textContent;
-          var ok = (!kw || text.toLowerCase().indexOf(kw.toLowerCase()) >= 0) &&
-                   (tp === '全部' || text.indexOf(tp.split(' ')[0]) >= 0) &&
-                   (st === '全部' || text.indexOf(st) >= 0);
-          r.style.display = ok ? '' : 'none';
-          if (ok) hit++;
+  var { createApp, ref, reactive, computed } = Vue;
+  var { ElMessage, ElMessageBox } = ElementPlus;
+  var app = createApp({
+    template: document.getElementById('app').outerHTML.replace(/<div id="app">/, '<div>').replace(/<\/div>\s*$/, ''),
+    setup: function () {
+      var cards = ref([
+        { code: 'todo', name: '待办/已办', type: 'builtin', source: '工作流接口', size: '4×2', status: true },
+        { code: 'notice', name: '通知', type: 'builtin', source: '通知中心接口', size: '4×2', status: true },
+        { code: 'stats_flow', name: '收付款趋势', type: 'dataset', source: '数据集 flow_month', dataset: '本月收付款流水', chartType: '柱状图', size: '12×4', status: true },
+        { code: 'announce', name: '公告', type: 'builtin', source: '公告接口', size: '4×2', status: false }
+      ]);
+      var query = reactive({ kw: '', type: '', status: '', page: 1, size: 10 });
+      var dlg = reactive({ visible: false, id: null, code: '', name: '', type: 'dataset', dataset: '本月收付款流水', chartType: '柱状图', size: '6×4', status: true });
+      var filtered = computed(function () {
+        return cards.value.filter(function (r) {
+          var text = (r.code + r.name + r.source).toLowerCase();
+          var kwOk = !query.kw || text.indexOf(query.kw.toLowerCase()) >= 0;
+          var tpOk = !query.type || r.type === query.type;
+          var stOk = query.status === '' || query.status === undefined || query.status === null || r.status === query.status;
+          return kwOk && tpOk && stOk;
         });
-        toast('命中 ' + hit + ' 条');
-      },
-      onReset: function () {
-        document.querySelectorAll('#lt-top .p-filter .p-select').forEach(function (s) { s.selectedIndex = 0; });
-        document.querySelectorAll('#tbl tr.row-link').forEach(function (r) { r.style.display = ''; });
-        toast('已重置筛选');
+      });
+      var pageRows = computed(function () {
+        var s = (query.page - 1) * query.size;
+        return filtered.value.slice(s, s + query.size);
+      });
+      function toastMsg(m) { ElMessage(m); }
+      function applyFilter() { query.page = 1; ElMessage({ message: '命中 ' + filtered.value.length + ' 条', type: 'success' }); }
+      function resetFilter() { query.kw = ''; query.type = ''; query.status = ''; query.page = 1; }
+      function onPage(n) { query.page = n; }
+      function onSize(s) { query.size = s; query.page = 1; }
+      function toggleCard(row, v) {
+        if (v) ElMessage({ message: '已启用「' + row.name + '」', type: 'success' });
+        else ElMessage({ message: '已停用「' + row.name + '」——模板/布局中自动跳过', type: 'warning' });
       }
-    },
-    page: { total: 4, page: 1, size: 20, onPage: function (n) { toast('第 ' + n + ' 页'); } }
-  });
-  // 明细工具栏：卡片行管理（新增/删除/上移/下移排序，操作受权限码控制；分页由列表页工具栏渲染）
-  renderDetailBar(document.getElementById('detail-bar-card'), {
-    readonly: false,
-    rowTools: ['add', 'del', 'up', 'down'],
-    tools: ['refresh', 'fullscreen'],
-    onAdd: function () { editCard(null); },
-    onDelete: function () {
-      var tr = document.querySelector('#tbl tr.active');
-      if (!tr) { toast('请先选择一行卡片', 'err'); return; }
-      confirmAction('删除选中卡片？引用它的布局将跳过该卡（数据保留，仅取消注册）。', function () { tr.remove(); toast('已删除（数据保留，仅取消注册）', 'ok'); });
-    },
-    onMoveUp: function () { moveCardRow(-1); },
-    onMoveDown: function () { moveCardRow(1); },
-    onTool: function (t) { toast('原型演示：' + ({ refresh: '刷新', fullscreen: '全屏' }[t] || t)); }
-  });
-  function moveCardRow(dir) {
-    var tr = document.querySelector('#tbl tr.active');
-    if (!tr) { toast('请先选择一行卡片', 'err'); return; }
-    var tb = tr.parentNode, t = dir < 0 ? tr.previousElementSibling : tr.nextElementSibling;
-    if (!t) { toast(dir < 0 ? '已是第一行' : '已是最后一行', 'err'); return; }
-    tb.insertBefore(dir < 0 ? tr : t, dir < 0 ? t : tr);
-    toast('卡片顺序已调整（布局按 sort 渲染）', 'ok');
-  }
-  var editId = null;
-
-  // 行点击进入编辑形态（编辑态示意：行高亮 + 抽屉预填）
-  function editCard(tr, id, name) {
-    document.querySelectorAll('#tbl tr.row-link').forEach(function (x) { x.classList.remove('active'); });
-    if (tr) tr.classList.add('active');
-    editId = id || null;
-    if (editId) {
-      openDrawer('drawer-card', '编辑卡片');
-      document.getElementById('btn-del').style.display = '';
-      document.getElementById('f-code').value = editId;
-      document.getElementById('f-name').value = name || '';
-    } else {
-      openDrawer('drawer-card', '新建卡片');
-      document.getElementById('btn-del').style.display = 'none';
-      document.getElementById('f-code').value = 'stats_apply';
-      document.getElementById('f-name').value = '采购申请统计';
+      function moveCard(row, dir) {
+        var list = cards.value, i = list.indexOf(row), j = i + dir;
+        if (j < 0 || j >= list.length) { ElMessage({ message: dir < 0 ? '已是第一行' : '已是最后一行', type: 'warning' }); return; }
+        var tmp = list[i]; list[i] = list[j]; list[j] = tmp;
+        ElMessage({ message: '卡片顺序已调整（布局按 sort 渲染）', type: 'success' });
+      }
+      function delCard(row) {
+        ElMessageBox.confirm('删除卡片「' + row.code + '」？引用它的布局将跳过该卡（数据保留，仅取消注册）。', '删除确认', { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' })
+          .then(function () {
+            cards.value = cards.value.filter(function (r) { return r !== row; });
+            ElMessage({ message: '已删除（数据保留，仅取消注册）', type: 'success' });
+          })
+          .catch(function () {});
+      }
+      function openNew() {
+        dlg.visible = true; dlg.id = null;
+        dlg.code = 'stats_apply'; dlg.name = '采购申请统计';
+        dlg.type = 'dataset'; dlg.dataset = '本月收付款流水'; dlg.chartType = '柱状图';
+        dlg.size = '6×4'; dlg.status = true;
+      }
+      function openEdit(row) {
+        dlg.visible = true; dlg.id = row.code;
+        dlg.code = row.code; dlg.name = row.name; dlg.type = row.type;
+        dlg.dataset = row.dataset || '本月收付款流水'; dlg.chartType = row.chartType || '柱状图';
+        dlg.size = row.size; dlg.status = row.status;
+      }
+      function delCardDrawer() {
+        if (!dlg.id) return;
+        ElMessageBox.confirm('删除数据集卡「' + dlg.id + '」？引用它的布局将跳过该卡。', '删除确认', { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' })
+          .then(function () {
+            cards.value = cards.value.filter(function (r) { return r.code !== dlg.id; });
+            dlg.visible = false; dlg.id = null;
+            ElMessage({ message: '已删除（数据保留，仅取消注册）', type: 'success' });
+          })
+          .catch(function () {});
+      }
+      function saveCard() {
+        var code = (dlg.code || '').trim(), name = (dlg.name || '').trim();
+        if (!code || !name) { ElMessage({ message: 'code 与名称必填', type: 'warning' }); return; }
+        if (dlg.id) {
+          var row = cards.value.find(function (r) { return r.code === dlg.id; });
+          if (row) {
+            row.name = name; row.type = dlg.type;
+            row.dataset = dlg.dataset; row.chartType = dlg.chartType;
+            row.size = dlg.size; row.status = dlg.status;
+          }
+          ElMessage({ message: '数据集卡已更新', type: 'success' });
+        } else {
+          var dup = cards.value.find(function (r) { return r.code === code; });
+          if (dup) { ElMessage({ message: 'code 已存在', type: 'warning' }); return; }
+          cards.value.push({
+            code: code, name: name, type: dlg.type,
+            source: dlg.type === 'dataset' ? '数据集（原型演示）' : '接口（原型演示）',
+            dataset: dlg.dataset, chartType: dlg.chartType,
+            size: dlg.size, status: dlg.status
+          });
+          ElMessage({ message: '数据集卡已创建（含默认尺寸与状态）', type: 'success' });
+        }
+        dlg.visible = false; dlg.id = null;
+      }
+      return { cards, query, dlg, filtered, pageRows, toastMsg, applyFilter, resetFilter, onPage, onSize, toggleCard, moveCard, delCard, openNew, openEdit, delCardDrawer, saveCard };
     }
-  }
-
-  function toggleCard(st, name) {
-    var isEnable = st.classList.contains('gray');
-    if (isEnable) { st.className = 'p-tag green'; st.textContent = '启用'; toast('已启用「' + name + '」', 'ok'); }
-    else { st.className = 'p-tag gray'; st.textContent = '停用'; toast('已停用「' + name + '」——模板/布局中自动跳过'); }
-  }
-  function delCardDrawer() {
-    if (!editId) return;
-    confirmAction('删除数据集卡「' + editId + '」？引用它的布局将跳过该卡。', function () {
-      var tr = document.querySelector('#tbl tr[data-id="' + editId + '"]');
-      if (tr) tr.remove();
-      closeDrawer('drawer-card');
-      editId = null;
-      toast('已删除（数据保留，仅取消注册）', 'ok');
-    });
-  }
-  function saveCard() {
-    var code = document.getElementById('f-code').value.trim(), name = document.getElementById('f-name').value.trim();
-    if (!code || !name) { toast('code 与名称必填', 'err'); return; }
-    closeDrawer('drawer-card');
-    if (editId) {
-      var tr = document.querySelector('#tbl tr[data-id="' + editId + '"]');
-      if (tr) { tr.cells[0].textContent = code; tr.cells[1].textContent = name; }
-      toast('数据集卡已更新', 'ok');
-      editId = null;
-      return;
-    }
-    var tbody = document.getElementById('tbl');
-    var tr = document.createElement('tr');
-    tr.className = 'row-link';
-    tr.setAttribute('data-id', code);
-    tr.setAttribute('onclick', 'editCard(this,\'' + code + '\',\'' + name + '\')');
-    tr.innerHTML = '<td>' + code + '</td><td>' + name + '</td><td><span class="p-tag gray">dataset</span></td><td>数据集（原型演示）</td><td>6×4</td>' +
-      '<td><span class="p-tag green" data-role="st" style="cursor:pointer" onclick="event.stopPropagation();toggleCard(this,\'' + name + '\')">启用</span></td>';
-    tbody.appendChild(tr);
-    toast('数据集卡已创建（含默认尺寸与状态）', 'ok');
-  }
+  });
+  app.use(ElementPlus);
+  app.mount('#app');
 </script>
 
 </body>

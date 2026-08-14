@@ -4,16 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>原型 · 菜单维护页</title>
+<link rel="stylesheet" href="../共享资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../共享资源/原型样式.css">
 <style>
-  .m-split { display: flex; gap: 12px; align-items: flex-start; }
-  .m-left { flex: 0 0 280px; background: #fff; border: 1px solid #d0d7de; border-radius: 8px; padding: 10px; }
-  .m-right { flex: 1; background: #fff; border: 1px solid #d0d7de; border-radius: 8px; padding: 14px; min-height: 300px; }
-  .m-tree { list-style: none; margin: 0; padding: 0; font-size: 13px; }
-  .m-tree ul { list-style: none; padding-left: 18px; }
-  .m-tree .t-node { padding: 4px 8px; border-radius: 6px; cursor: pointer; }
-  .m-tree .t-node:hover { background: #f3f4f6; }
-  .m-tree .t-node.active { background: #ddf4ff; color: #0969da; }
+  .ep-page { background: #fff; border: 1px solid #d0d7de; border-radius: 6px; padding: 16px; }
+  .ep-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+  .ep-side-card { background: #fff; border: 1px solid #d0d7de; border-radius: 8px; padding: 10px; }
+  .ep-main-card { background: #fff; border: 1px solid #d0d7de; border-radius: 8px; padding: 14px; min-height: 300px; }
+  .ep-section { font-weight: 600; margin: 0 0 12px; padding-bottom: 8px; border-bottom: 1px solid #eaeef2; font-size: 14px; }
 </style>
 </head>
 <body>
@@ -24,125 +22,174 @@
 </div>
 
 <div class="proto-frame">
-  <div class="p-toolbar">
-    <button class="p-btn primary" onclick="openModal('m-new','新增菜单')">新增菜单</button>
-    <button class="p-btn" onclick="openModal('m-edit','编辑菜单')">编辑</button>
-    <button class="p-btn" onclick="toggleMenu()">停用/启用</button>
-    <button class="p-btn" onclick="toast('已刷新')">刷新</button>
-    <button class="p-btn" onclick="toast('原型演示：关闭当前模块页面（返回）')">关闭</button>
-  </div>
+  <div id="app">
+    <div class="ep-page">
+      <!-- ① 工具栏 -->
+      <div class="ep-toolbar">
+        <el-button type="primary" @click="openNew">新增菜单</el-button>
+        <el-button @click="openEdit">编辑</el-button>
+        <el-button @click="toggleMenu">停用/启用</el-button>
+        <el-button @click="toastMsg('已刷新')">刷新</el-button>
+        <el-button @click="toastMsg('原型演示：关闭当前模块页面（返回）')">关闭</el-button>
+      </div>
 
-  <div class="m-split">
-    <div class="m-left">
-      <ul class="m-tree" id="tree">
-        <li>
-          <div class="t-node active" onclick="sel(this,'首页工作台')">▾ 首页</div>
-          <ul>
-            <li><div class="t-node" onclick="sel(this,'工作台')">　工作台</div></li>
-          </ul>
-        </li>
-        <li>
-          <div class="t-node" onclick="sel(this,'组织与权限')">▾ 组织与权限</div>
-          <ul>
-            <li><div class="t-node" onclick="sel(this,'用户管理')">　用户管理</div></li>
-            <li><div class="t-node" onclick="sel(this,'角色管理')">　角色管理</div></li>
-            <li><div class="t-node" onclick="sel(this,'菜单管理')">　菜单管理</div></li>
-          </ul>
-        </li>
-      </ul>
-    </div>
-
-    <div class="m-right" id="detail">
-      <b>菜单详情</b>
-      <div class="p-row" style="margin-top:10px">
-        <div class="p-col p-field"><label>path</label><input class="p-input" value="/users" disabled></div>
-        <div class="p-col p-field"><label>component</label><input class="p-input" value="FormFrame" disabled></div>
-      </div>
-      <div class="p-row">
-        <div class="p-col p-field"><label>图标 / 排序</label><input class="p-input" value="icon-user · sort 1"></div>
-        <div class="p-col p-field"><label>隐藏</label><input type="checkbox" style="margin-top:24px"></div>
-      </div>
-      <div class="p-row">
-        <div class="p-col p-field"><label>挂接表单</label><input class="p-input" value="user_form（1:1）" disabled></div>
-        <div class="p-col p-field"><label>挂接业务</label><input class="p-input" value="user（1:1）" disabled></div>
-      </div>
-      <div class="p-row">
-        <div class="p-col p-field"><label>多语言名称</label>
-          <div style="display:flex;gap:8px">
-            <input class="p-input" value="用户管理 (zh-CN)">
-            <input class="p-input" value="User Management (en)">
-            <button class="p-btn sm" onclick="toast('i18n 已保存（sys_menu_i18n）','ok')">保存</button>
+      <!-- ② 左侧菜单树 + 右侧详情 -->
+      <el-row :gutter="12">
+        <el-col :span="6">
+          <div class="ep-side-card">
+            <b style="font-size:13px">菜单树</b>
+            <el-tree :data="treeData" node-key="id" highlight-current :current-node-key="detail.id"
+              default-expand-all :expand-on-click-node="false" @node-click="onNode" style="margin-top:8px;font-size:13px"></el-tree>
           </div>
-        </div>
-      </div>
-      <div class="proto-note" id="chain-status">挂接链完整：菜单 user → 表单 user_form → 业务 user（角色可正常授予）</div>
+        </el-col>
+        <el-col :span="18">
+          <div class="ep-main-card">
+            <div class="ep-section">菜单详情</div>
+            <el-form label-width="110px">
+              <el-row :gutter="16">
+                <el-col :span="12"><el-form-item label="path"><el-input v-model="detail.path" disabled></el-input></el-form-item></el-col>
+                <el-col :span="12"><el-form-item label="component"><el-input v-model="detail.component" disabled></el-input></el-form-item></el-col>
+              </el-row>
+              <el-row :gutter="16">
+                <el-col :span="12"><el-form-item label="图标 / 排序"><el-input v-model="detail.icon"></el-input></el-form-item></el-col>
+                <el-col :span="12">
+                  <el-form-item label="隐藏">
+                    <el-checkbox v-model="detail.hidden" style="margin-top:6px"></el-checkbox>
+                  </el-form-item>
+                </el-col>
+              </el-row>
+              <el-row :gutter="16">
+                <el-col :span="12"><el-form-item label="挂接表单"><el-input v-model="detail.form" disabled></el-input></el-form-item></el-col>
+                <el-col :span="12"><el-form-item label="挂接业务"><el-input v-model="detail.biz" disabled></el-input></el-form-item></el-col>
+              </el-row>
+              <el-form-item label="多语言名称">
+                <div style="display:flex;gap:8px;width:100%">
+                  <el-input v-model="detail.zh" placeholder="zh-CN"></el-input>
+                  <el-input v-model="detail.en" placeholder="en"></el-input>
+                  <el-button @click="toastMsg('i18n 已保存（sys_menu_i18n）')">保存</el-button>
+                </div>
+              </el-form-item>
+            </el-form>
+            <div class="proto-note" :style="detail.chainOk ? '' : 'border-left-color:#cf222e;background:#ffebe9;color:#1f2328'">
+              {{ chainText }}
+            </div>
+          </div>
+        </el-col>
+      </el-row>
     </div>
+
+    <!-- ③ 新增菜单：480px 对话框 -->
+    <el-dialog v-model="dlgNew.visible" title="新增菜单" width="480" align-center>
+      <el-form label-width="90px">
+        <el-form-item label="父级">
+          <el-select v-model="dlgNew.form.parent" style="width:100%">
+            <el-option label="组织与权限" value="组织与权限"></el-option>
+            <el-option label="（根级）" value="根级"></el-option>
+          </el-select>
+        </el-form-item>
+        <el-row :gutter="12">
+          <el-col :span="12"><el-form-item label="名称（zh）" required><el-input v-model="dlgNew.form.name" placeholder="名称"></el-input></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="path" required><el-input v-model="dlgNew.form.path" placeholder="/xxx"></el-input></el-form-item></el-col>
+        </el-row>
+        <el-form-item label="component"><el-input v-model="dlgNew.form.component"></el-input></el-form-item>
+        <div class="proto-hint">保存后将要求补挂表单与业务，并发布更新</div>
+      </el-form>
+      <template #footer>
+        <el-button @click="dlgNew.visible = false">取消</el-button>
+        <el-button type="primary" @click="saveMenu">保存</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- ④ 编辑菜单：480px 对话框（预填当前值） -->
+    <el-dialog v-model="dlgEdit.visible" title="编辑菜单" width="480" align-center>
+      <el-form label-width="90px">
+        <el-form-item label="父级">
+          <el-select v-model="dlgEdit.form.parent" style="width:100%">
+            <el-option label="组织与权限" value="组织与权限"></el-option>
+            <el-option label="（根级）" value="根级"></el-option>
+          </el-select>
+        </el-form-item>
+        <el-row :gutter="12">
+          <el-col :span="12"><el-form-item label="名称（zh）" required><el-input v-model="dlgEdit.form.name"></el-input></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="path" required><el-input v-model="dlgEdit.form.path"></el-input></el-form-item></el-col>
+        </el-row>
+        <el-form-item label="component"><el-input v-model="dlgEdit.form.component"></el-input></el-form-item>
+        <div class="proto-hint">保存后将发布更新，动态菜单刷新生效</div>
+      </el-form>
+      <template #footer>
+        <el-button @click="dlgEdit.visible = false">取消</el-button>
+        <el-button type="primary" @click="saveMenuEdit">保存</el-button>
+      </template>
+    </el-dialog>
   </div>
 </div>
 
-<!-- 新增菜单：480px 对话框（.p-modal 默认即 480） -->
-<div class="p-mask" id="m-new">
-  <div class="p-modal w480">
-    <div class="pm-head">新增菜单<span class="x" onclick="closeModal('m-new')">✕</span></div>
-    <div class="pm-body">
-      <div class="p-field"><label>父级</label><select class="p-select"><option>组织与权限</option><option>（根级）</option></select></div>
-      <div style="height:10px"></div>
-      <div class="p-row">
-        <div class="p-col p-field"><label>名称（zh）<span class="req">*</span></label><input class="p-input" id="n-name"></div>
-        <div class="p-col p-field"><label>path <span class="req">*</span></label><input class="p-input" id="n-path" placeholder="/xxx"></div>
-      </div>
-      <div class="p-field"><label>component</label><input class="p-input" value="FormFrame"></div>
-      <div style="height:10px"></div>
-      <div class="proto-hint">保存后将要求补挂表单与业务，并发布更新</div>
-    </div>
-    <div class="pm-foot"><button class="p-btn" onclick="closeModal('m-new')">取消</button><button class="p-btn primary" onclick="saveMenu()">保存</button></div>
-  </div>
-</div>
-
-<!-- 编辑菜单：480px 对话框（复用新增菜单结构，预填当前值） -->
-<div class="p-mask" id="m-edit">
-  <div class="p-modal w480">
-    <div class="pm-head">编辑菜单<span class="x" onclick="closeModal('m-edit')">✕</span></div>
-    <div class="pm-body">
-      <div class="p-field"><label>父级</label><select class="p-select"><option>组织与权限</option><option>（根级）</option></select></div>
-      <div style="height:10px"></div>
-      <div class="p-row">
-        <div class="p-col p-field"><label>名称（zh）<span class="req">*</span></label><input class="p-input" id="e-name" value="用户管理"></div>
-        <div class="p-col p-field"><label>path <span class="req">*</span></label><input class="p-input" id="e-path" value="/users"></div>
-      </div>
-      <div class="p-field"><label>component</label><input class="p-input" value="FormFrame"></div>
-      <div style="height:10px"></div>
-      <div class="proto-hint">保存后将发布更新，动态菜单刷新生效</div>
-    </div>
-    <div class="pm-foot"><button class="p-btn" onclick="closeModal('m-edit')">取消</button><button class="p-btn primary" onclick="saveMenuEdit()">保存</button></div>
-  </div>
-</div>
-
-<script src="../共享资源/原型脚本.js"></script>
+<script src="../共享资源/vendor/vue.global.prod.js"></script>
+<script src="../共享资源/vendor/element-plus.min.js"></script>
 <script>
-  function sel(el, name) {
-    document.querySelectorAll('.t-node').forEach(function (x) { x.classList.remove('active'); });
-    el.classList.add('active');
-    if (name === '用户管理') {
-      document.getElementById('chain-status').textContent = '挂接链完整：菜单 user → 表单 user_form → 业务 user（角色可正常授予）';
-    } else {
-      document.getElementById('chain-status').textContent = '⚠ 挂接链断裂：菜单「' + name + '」未挂表单（40002）——角色授予时校验并提示';
-      document.getElementById('chain-status').style.borderLeftColor = '#cf222e';
+  var { createApp, ref, reactive } = Vue;
+  var ElMessage = ElementPlus.ElMessage;
+  var ElMessageBox = ElementPlus.ElMessageBox;
+  var app = createApp({
+    template: document.getElementById('app').outerHTML.replace(/<div id="app">/, '<div>').replace(/<\/div>\s*$/, ''),
+    setup: function () {
+      var treeData = [
+        { id: 'home', label: '首页', children: [{ id: 'wb', label: '工作台' }] },
+        { id: 'org', label: '组织与权限', children: [
+          { id: 'user', label: '用户管理' },
+          { id: 'role', label: '角色管理' },
+          { id: 'menu', label: '菜单管理' }
+        ]}
+      ];
+      // 节点详情映射（演示：仅 user 节点挂接链完整）
+      var nodeInfo = {
+        user: { id: 'user', path: '/users', component: 'FormFrame', icon: 'icon-user · sort 1', hidden: false, form: 'user_form（1:1）', biz: 'user（1:1）', zh: '用户管理', en: 'User Management', chainOk: true },
+        home: { id: 'home', path: '/home', component: 'Home', icon: 'icon-home · sort 0', hidden: false, form: '—（未挂）', biz: '—（未挂）', zh: '首页', en: 'Home', chainOk: false },
+        wb: { id: 'wb', path: '/workbench', component: 'Workbench', icon: 'icon-wb · sort 1', hidden: false, form: '—（未挂）', biz: '—（未挂）', zh: '工作台', en: 'Workbench', chainOk: false },
+        org: { id: 'org', path: '/org', component: 'FormFrame', icon: 'icon-org · sort 1', hidden: false, form: '—（未挂）', biz: '—（未挂）', zh: '组织与权限', en: 'Organization', chainOk: false },
+        role: { id: 'role', path: '/roles', component: 'FormFrame', icon: 'icon-role · sort 2', hidden: false, form: '—（未挂）', biz: '—（未挂）', zh: '角色管理', en: 'Role Management', chainOk: false },
+        menu: { id: 'menu', path: '/menus', component: 'FormFrame', icon: 'icon-menu · sort 3', hidden: false, form: '—（未挂）', biz: '—（未挂）', zh: '菜单管理', en: 'Menu Management', chainOk: false }
+      };
+      var detail = reactive(JSON.parse(JSON.stringify(nodeInfo.user)));
+      var chainText = ref('挂接链完整：菜单 user → 表单 user_form → 业务 user（角色可正常授予）');
+      var dlgNew = reactive({ visible: false, form: { parent: '组织与权限', name: '', path: '', component: 'FormFrame' } });
+      var dlgEdit = reactive({ visible: false, form: { parent: '组织与权限', name: '', path: '', component: 'FormFrame' } });
+
+      function onNode(node) {
+        var info = nodeInfo[node.id] || nodeInfo.user;
+        Object.keys(info).forEach(function (k) { detail[k] = info[k]; });
+        chainText.value = info.chainOk
+          ? '挂接链完整：菜单 ' + info.biz.replace('（1:1）', '') + ' → 表单 ' + info.form.replace('（1:1）', '') + ' → 业务 ' + info.biz.replace('（1:1）', '') + '（角色可正常授予）'
+          : '⚠ 挂接链断裂：菜单「' + info.zh + '」未挂表单（40002）——角色授予时校验并提示';
+      }
+      function openNew() { dlgNew.form = { parent: '组织与权限', name: '', path: '', component: 'FormFrame' }; dlgNew.visible = true; }
+      function openEdit() {
+        dlgEdit.form = { parent: detail.id === 'org' || detail.id === 'home' ? '（根级）' : '组织与权限', name: detail.zh, path: detail.path, component: detail.component };
+        dlgEdit.visible = true;
+      }
+      function saveMenu() {
+        if (!dlgNew.form.name.trim() || !dlgNew.form.path.trim()) { ElMessage.error('名称与 path 必填'); return; }
+        dlgNew.visible = false;
+        toastMsg('菜单已创建，请继续补挂表单与业务（form.updated 已发布）');
+      }
+      function saveMenuEdit() {
+        if (!dlgEdit.form.name.trim() || !dlgEdit.form.path.trim()) { ElMessage.error('名称与 path 必填'); return; }
+        dlgEdit.visible = false;
+        toastMsg('菜单已更新（menu.updated 已发布，动态菜单刷新生效）');
+      }
+      function toggleMenu() {
+        ElMessageBox.confirm('停用菜单「' + detail.zh + '」？停用后角色不可见，数据保留。', '提示', { type: 'warning', confirmButtonText: '停用', cancelButtonText: '取消' })
+          .then(function () { toastMsg('已停用'); })
+          .catch(function () {});
+      }
+      function toastMsg(m) { ElMessage({ message: m, type: 'success' }); }
+      return { treeData, detail, chainText, dlgNew, dlgEdit, onNode, openNew, openEdit, saveMenu, saveMenuEdit, toggleMenu, toastMsg };
     }
-  }
-  function saveMenu() {
-    var n = document.getElementById('n-name').value.trim(), p = document.getElementById('n-path').value.trim();
-    if (!n || !p) { toast('名称与 path 必填', 'err'); return; }
-    closeModal('m-new');
-    toast('菜单已创建，请继续补挂表单与业务（form.updated 已发布）', 'ok');
-  }
-  function saveMenuEdit() {
-    var n = document.getElementById('e-name').value.trim(), p = document.getElementById('e-path').value.trim();
-    if (!n || !p) { toast('名称与 path 必填', 'err'); return; }
-    closeModal('m-edit');
-    toast('菜单已更新（menu.updated 已发布，动态菜单刷新生效）', 'ok');
-  }
-  function toggleMenu() { confirmAction('停用菜单「用户管理」？停用后角色不可见，数据保留。', function () { toast('已停用', 'ok'); }); }
+  });
+  app.use(ElementPlus);
+  app.mount('#app');
+  // 嵌入主框架时隐藏顶部原型条
+  if (location.search.indexOf('embed=1') >= 0) { var pb = document.querySelector('.proto-bar'); if (pb) pb.style.display = 'none'; }
 </script>
 
 </body>

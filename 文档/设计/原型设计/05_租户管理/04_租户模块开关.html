@@ -4,97 +4,127 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>原型 · 租户模块开关</title>
+<link rel="stylesheet" href="../共享资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../共享资源/原型样式.css">
+<style>
+  .ep-page { background: #fff; border: 1px solid #d0d7de; border-radius: 6px; padding: 16px; }
+  .ep-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+  .ep-toolbar .ep-side { margin-left: auto; }
+  .ep-bar { display: flex; align-items: center; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+  .ep-pager { display: flex; justify-content: flex-end; }
+</style>
 </head>
 <body>
 
 <div class="proto-bar">
   <span class="pb-crumb"><a href="02_租户列表页.html">← 返回租户列表</a></span>
-  <span class="pb-name">租户管理 · 租户模块开关（demo 演示租户）</span>
+  <span class="pb-name">租户管理 · 租户模块开关</span>
 </div>
 
 <div class="proto-frame">
-  <div class="p-toolbar">
-    <span><strong>demo · 演示租户</strong> <span class="proto-hint">平台域基础能力（sys/wf/rpt/ai）恒开通</span></span>
-    <span style="margin-left:auto">
-      <button class="p-btn" onclick="toast('已刷新')">刷新</button>
-      <button class="p-btn" onclick="toast('原型演示：关闭当前模块页面（返回）')">关闭</button>
-    </span>
-  </div>
-  <table class="p-table" id="tbl-mod">
-    <tr><th>模块简称</th><th>名称</th><th>表前缀</th><th>错误码段</th><th>状态</th><th>开通时间</th><th>操作</th></tr>
-    <tr><td>purchase</td><td>采购</td><td>pur_</td><td>10</td><td><span class="p-tag ok">已开通</span></td><td>2026-08-01</td><td><button class="p-btn sm" onclick="switchMod(this,'purchase')">停用</button></td></tr>
-    <tr><td>payment</td><td>收付款</td><td>pay_</td><td>11</td><td><span class="p-tag ok">已开通</span></td><td>2026-08-01</td><td><button class="p-btn sm" onclick="switchMod(this,'payment')">停用</button></td></tr>
-    <tr><td>supplier</td><td>供应商</td><td>sup_</td><td>—</td><td><span class="p-tag ok">已开通</span></td><td>2026-08-01</td><td><button class="p-btn sm" onclick="switchMod(this,'supplier')">停用</button></td></tr>
-    <tr><td>sale</td><td>销售</td><td>sale_</td><td>12</td><td><span class="p-tag">未开通</span></td><td>—</td><td><button class="p-btn sm primary" onclick="openMod(this,'sale')">开通</button></td></tr>
-    <tr><td>wh</td><td>仓储</td><td>wh_</td><td>13</td><td><span class="p-tag">未开通</span></td><td>—</td><td><button class="p-btn sm primary" onclick="openMod(this,'wh')">开通</button></td></tr>
-</table>
-<div id="detail-bar-mod"></div>
-<div class="proto-hint" style="margin-top:10px">停用影响：该模块菜单/按钮不可见、接口拒绝、不可新建单据；存量数据保留可查，重新开通即恢复；进行中流程与审批不受影响。</div>
-</div>
+  <div id="app">
+    <div class="ep-page">
+      <!-- ① 工具栏：租户信息 + 右侧工具 -->
+      <div class="ep-toolbar">
+        <span><strong>{{ tenantName }}</strong> <span class="proto-hint">平台域基础能力（sys/wf/rpt/ai）恒开通</span></span>
+        <span class="ep-side">
+          <el-button @click="toastMsg('已刷新')">刷新</el-button>
+          <el-button @click="toastMsg('原型演示：关闭当前模块页面（返回）')">关闭</el-button>
+        </span>
+      </div>
 
-<!-- 停用确认 -->
-<div class="p-mask" id="m-off">
-  <div class="p-modal">
-    <div class="pm-head">停用模块<span class="x" onclick="closeModal('m-off')">✕</span></div>
-    <div class="pm-body">
-      <div id="off-name"></div>
-      <div style="margin-top:8px" class="proto-hint">停用后该模块菜单/按钮不可见、接口拒绝、不可新建单据；存量数据保留可查，重新开通即恢复；进行中流程与审批不受影响。</div>
+      <!-- ② 模块清单：行内开通/停用按钮 -->
+      <el-table :data="rows" border stripe style="width:100%">
+        <el-table-column prop="key" label="模块简称" min-width="110"></el-table-column>
+        <el-table-column prop="name" label="名称" min-width="110"></el-table-column>
+        <el-table-column prop="prefix" label="表前缀" min-width="90"></el-table-column>
+        <el-table-column prop="seg" label="错误码段" min-width="100"></el-table-column>
+        <el-table-column label="状态" width="100">
+          <template #default="{ row }">
+            <el-tag :type="statusType(row.status)">{{ statusText(row.status) }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="openTime" label="开通时间" width="110"></el-table-column>
+        <el-table-column label="操作" width="110" fixed="right">
+          <template #default="{ row }">
+            <el-button v-if="row.status === 'enabled'" link type="danger" @click="toggleRow(row)">停用</el-button>
+            <el-button v-else link type="primary" @click="toggleRow(row)">{{ row.status === 'disabled' ? '重新开通' : '开通' }}</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+
+      <!-- ③ 明细工具：刷新/全屏 -->
+      <div class="ep-bar">
+        <div>
+          <el-button size="small" @click="toastMsg('已刷新模块清单')">⟳ 刷新</el-button>
+          <el-button size="small" @click="toastMsg('全屏演示')">⛶ 全屏</el-button>
+        </div>
+      </div>
+
+      <div class="proto-hint" style="margin-top:10px">停用影响：该模块菜单/按钮不可见、接口拒绝、不可新建单据；存量数据保留可查，重新开通即恢复；进行中流程与审批不受影响。</div>
     </div>
-    <div class="pm-foot"><button class="p-btn" onclick="closeModal('m-off')">取消</button><button class="p-btn primary" onclick="confirmOff()">确认停用</button></div>
   </div>
 </div>
 
-<!-- 开通确认 -->
-<div class="p-mask" id="m-on">
-  <div class="p-modal">
-    <div class="pm-head">开通模块<span class="x" onclick="closeModal('m-on')">✕</span></div>
-    <div class="pm-body">
-      <div id="on-name"></div>
-      <div style="margin-top:8px" class="proto-hint">开通后该模块菜单/按钮立即可用；模块须在平台注册且启用（sys_module 校验）。</div>
-    </div>
-    <div class="pm-foot"><button class="p-btn" onclick="closeModal('m-on')">取消</button><button class="p-btn primary" onclick="confirmOn()">确认开通</button></div>
-  </div>
-</div>
-
-<script src="../共享资源/原型脚本.js"></script>
-<script src="../02_公共原型/明细工具栏.js"></script>
+<script src="../共享资源/vendor/vue.global.prod.js"></script>
+<script src="../共享资源/vendor/element-plus.min.js"></script>
 <script>
-  // 明细工具栏：模块清单工具类（行操作保留行内停用/开通，无增删行语义）
-  renderDetailBar(document.getElementById('detail-bar-mod'), {
-    readonly: false,
-    rowTools: [],
-    tools: ['refresh', 'fullscreen'],
-    onTool: function (t) { toast('原型演示：' + ({ refresh: '刷新', fullscreen: '全屏' }[t] || t)); }
+  var { createApp, ref, computed } = Vue;
+  var ElMessage = ElementPlus.ElMessage;
+  var ElMessageBox = ElementPlus.ElMessageBox;
+  var TENANTS = {
+    demo: 'demo · 演示租户',
+    acme: 'acme · Acme 制造',
+    globex: 'globex · Globex 贸易'
+  };
+  var app = createApp({
+    template: document.getElementById('app').outerHTML.replace(/<div id="app">/, '<div>').replace(/<\/div>\s*$/, ''),
+    setup: function () {
+      var code = new URLSearchParams(location.search).get('code') || 'demo';
+      var tenantName = computed(function () { return TENANTS[code] || (code + ' · 演示租户'); });
+      var rows = ref([
+        { key: 'purchase', name: '采购', prefix: 'pur_', seg: '10', status: 'enabled', openTime: '2026-08-01' },
+        { key: 'payment', name: '收付款', prefix: 'pay_', seg: '11', status: 'enabled', openTime: '2026-08-01' },
+        { key: 'supplier', name: '供应商', prefix: 'sup_', seg: '—', status: 'enabled', openTime: '2026-08-01' },
+        { key: 'sale', name: '销售', prefix: 'sale_', seg: '12', status: 'pending', openTime: '—' },
+        { key: 'wh', name: '仓储', prefix: 'wh_', seg: '13', status: 'pending', openTime: '—' }
+      ]);
+      function statusType(s) {
+        return s === 'enabled' ? 'success' : 'info';
+      }
+      function statusText(s) {
+        return s === 'enabled' ? '已开通' : (s === 'disabled' ? '已停用' : '未开通');
+      }
+      function toggleRow(row) {
+        if (row.status === 'enabled') {
+          ElMessageBox.confirm(
+            '确认停用模块「' + row.name + '」（' + row.key + '）？\n\n' +
+            '停用后该模块菜单/按钮不可见、接口拒绝、不可新建单据；存量数据保留可查，重新开通即恢复；进行中流程与审批不受影响。',
+            '停用模块',
+            { confirmButtonText: '确认停用', cancelButtonText: '取消', type: 'warning' }
+          ).then(function () {
+            row.status = 'disabled';
+            ElMessage.success('已停用模块「' + row.name + '」：菜单/接口不可用，数据保留');
+          }).catch(function () {});
+        } else {
+          ElMessageBox.confirm(
+            '确认开通模块「' + row.name + '」（' + row.key + '）？\n\n' +
+            '开通后该模块菜单/按钮立即可用；模块须在平台注册且启用（sys_module 校验）。',
+            '开通模块',
+            { confirmButtonText: '确认开通', cancelButtonText: '取消', type: 'info' }
+          ).then(function () {
+            row.status = 'enabled';
+            row.openTime = '2026-08-14';
+            ElMessage.success('已开通模块「' + row.name + '」');
+          }).catch(function () {});
+        }
+      }
+      function toastMsg(m) { ElMessage.success(m); }
+      return { tenantName, rows, statusType, statusText, toggleRow, toastMsg };
+    }
   });
-  var curBtn = null, curKey = '', curName = '';
-  function switchMod(btn, key) {
-    curBtn = btn; curKey = key;
-    curName = btn.closest('tr').cells[1].textContent.trim();
-    document.getElementById('off-name').innerHTML = '<strong>确认停用模块「' + curName + '」（' + key + '）？</strong>';
-    openModal('m-off', '停用模块');
-  }
-  function openMod(btn, key) {
-    curBtn = btn; curKey = key;
-    curName = btn.closest('tr').cells[1].textContent.trim();
-    document.getElementById('on-name').innerHTML = '<strong>确认开通模块「' + curName + '」（' + key + '）？</strong>';
-    openModal('m-on', '开通模块');
-  }
-  function confirmOff() {
-    closeModal('m-off');
-    var tr = curBtn.closest('tr');
-    tr.cells[4].innerHTML = '<span class="p-tag">已停用</span>';
-    tr.cells[6].innerHTML = '<button class="p-btn sm primary" onclick="openMod(this,\'' + curKey + '\')">重新开通</button>';
-    toast('已停用模块「' + curName + '」：菜单/接口不可用，数据保留', 'ok');
-  }
-  function confirmOn() {
-    closeModal('m-on');
-    var tr = curBtn.closest('tr');
-    tr.cells[4].innerHTML = '<span class="p-tag ok">已开通</span>';
-    tr.cells[5].innerHTML = '2026-08-14';
-    tr.cells[6].innerHTML = '<button class="p-btn sm" onclick="switchMod(this,\'' + curKey + '\')">停用</button>';
-    toast('已开通模块「' + curName + '」', 'ok');
-  }
+  app.use(ElementPlus);
+  app.mount('#app');
 </script>
 
 </body>

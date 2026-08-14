@@ -4,16 +4,16 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>原型 · 错误页与空状态</title>
+<link rel="stylesheet" href="../共享资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../共享资源/原型样式.css">
 <style>
-  .err-card { text-align: center; padding: 32px 16px; }
-  .err-card .code { font-size: 34px; font-weight: 700; color: #0969da; }
-  .err-card .desc { color: #57606a; font-size: 13px; margin: 8px 0 16px; }
-  .empty-box { text-align: center; padding: 40px 16px; }
-  .empty-box .e-icon { font-size: 32px; }
-  .empty-box .e-text { margin: 8px 0 14px; color: #57606a; }
-  .skel { border-radius: 6px; background: linear-gradient(90deg,#eaeef2 25%,#f6f8fa 50%,#eaeef2 75%); background-size: 200% 100%; animation: sk 1.2s infinite; }
-  @keyframes sk { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+  .err-card { padding: 8px 0; }
+  .err-card .el-result { padding: 20px 0; }
+  .empty-card { padding: 16px 8px; }
+  .net-card { display: flex; flex-direction: column; justify-content: center; }
+  .net-card .net-actions { margin-top: 8px; }
+  .tbl-wrap { border: 1px solid #eaeef2; border-radius: 6px; overflow: hidden; }
+  .task-line { margin-top: 8px; font-size: 13px; color: #57606a; }
 </style>
 </head>
 <body>
@@ -27,158 +27,215 @@
   <div class="proto-note">全系统通用兜底界面（《布局设计-异常与空状态》）。体验：错误页按钮跳转/提示、空状态「去创建」、骨架屏动画、按钮 loading、断网重试、长任务进度。<br>
   插画说明：原型以 inline SVG 示意，正式版本统一替换为 <b>empty-*.svg</b> 插画资源（如 empty-404.svg / empty-search.svg / empty-task.svg），SVG 描边色沿用品牌蓝 #0969da。</div>
 
-  <!-- 错误页 404/403/500：居中 SVG 插画（圆圈+叉 / 圆圈+锁 / 圆圈+感叹号） -->
-  <div class="p-grid cols-3">
-    <div class="p-card err-card">
-      <svg width="72" height="72" viewBox="0 0 72 72" fill="none" style="margin:0 auto;display:block">
-        <circle cx="36" cy="36" r="30" stroke="#d0d7de" stroke-width="3"/>
-        <path d="M24 24 L48 48 M48 24 L24 48" stroke="#cf222e" stroke-width="4" stroke-linecap="round"/>
-      </svg>
-      <div class="code">404</div>
-      <div class="desc">页面不存在（或已被移除）</div>
-      <button class="p-btn primary" onclick="toast('返回首页（路由联动）','ok')">返回首页</button>
-    </div>
-    <div class="p-card err-card">
-      <svg width="72" height="72" viewBox="0 0 72 72" fill="none" style="margin:0 auto;display:block">
-        <circle cx="36" cy="36" r="30" stroke="#d0d7de" stroke-width="3"/>
-        <rect x="26" y="32" width="20" height="16" rx="3" fill="#ffd8a8" stroke="#d28e00" stroke-width="2"/>
-        <path d="M30 32 v-4 a6 6 0 0 1 12 0 v4" stroke="#d28e00" stroke-width="2.5" fill="none"/>
-      </svg>
-      <div class="code">403</div>
-      <div class="desc">没有访问权限（如需申请请联系管理员）</div>
-      <button class="p-btn primary" onclick="toast('返回首页','ok')">返回首页</button>
-      <button class="p-btn" onclick="toast('原型演示：联系管理员（帮助中心）')">联系管理员</button>
-    </div>
-    <div class="p-card err-card">
-      <svg width="72" height="72" viewBox="0 0 72 72" fill="none" style="margin:0 auto;display:block">
-        <circle cx="36" cy="36" r="30" stroke="#d0d7de" stroke-width="3"/>
-        <path d="M36 24 v16" stroke="#cf222e" stroke-width="4" stroke-linecap="round"/>
-        <circle cx="36" cy="49" r="3" fill="#cf222e"/>
-      </svg>
-      <div class="code">500</div>
-      <div class="desc">服务开小差了（请稍后重试）</div>
-      <button class="p-btn primary" onclick="toast('已重新加载当前页','ok')">刷新重试</button>
-      <button class="p-btn" onclick="toast('返回首页','ok')">返回首页</button>
-    </div>
-  </div>
-
-  <!-- 空状态：列表无数据 / 搜索无结果 / 待办空态 / 消息空态（放大镜、对勾、静音铃 SVG） -->
-  <div class="p-grid cols-2" style="margin-top:12px">
-    <div class="p-card empty-box">
-      <svg width="72" height="72" viewBox="0 0 72 72" fill="none" style="margin:0 auto;display:block">
-        <circle cx="30" cy="30" r="16" stroke="#8c959f" stroke-width="3"/>
-        <path d="M42 42 L54 54" stroke="#8c959f" stroke-width="4" stroke-linecap="round"/>
-      </svg>
-      <div class="e-text">暂无数据</div>
-      <button class="p-btn primary" onclick="toast('原型演示：跳转「新增」')">去创建</button>
-    </div>
-    <div class="p-card empty-box">
-      <svg width="72" height="72" viewBox="0 0 72 72" fill="none" style="margin:0 auto;display:block">
-        <circle cx="30" cy="30" r="16" stroke="#8c959f" stroke-width="3"/>
-        <path d="M42 42 L54 54" stroke="#8c959f" stroke-width="4" stroke-linecap="round"/>
-        <path d="M22 30 h16" stroke="#8c959f" stroke-width="3" stroke-linecap="round"/>
-      </svg>
-      <div class="e-text">未找到相关内容</div>
-      <button class="p-btn" onclick="toast('已清除筛选条件','ok')">清除筛选 / 重置</button>
-    </div>
-    <div class="p-card empty-box">
-      <svg width="72" height="72" viewBox="0 0 72 72" fill="none" style="margin:0 auto;display:block">
-        <circle cx="36" cy="36" r="30" stroke="#d0d7de" stroke-width="3"/>
-        <path d="M26 36 l7 7 l13 -13" stroke="#2da44e" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-      </svg>
-      <div class="e-text">暂无待办，享受这一刻</div>
-      <div class="proto-hint">待办列表为空时展示（可配下拉刷新入口）</div>
-    </div>
-    <div class="p-card empty-box">
-      <svg width="72" height="72" viewBox="0 0 72 72" fill="none" style="margin:0 auto;display:block">
-        <circle cx="36" cy="36" r="30" stroke="#d0d7de" stroke-width="3"/>
-        <path d="M26 30 a10 10 0 0 1 20 0 c0 6 3 8 3 8 h-26 c0 0 3 -2 3 -8" stroke="#8c959f" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-        <path d="M32 46 a4 4 0 0 0 8 0" stroke="#8c959f" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-      </svg>
-      <div class="e-text">暂无消息</div>
-      <div class="proto-hint">通知/消息列表为空时展示</div>
-    </div>
-  </div>
-
-  <!-- 网络异常 + 401 跳登录说明 -->
-  <div class="p-grid cols-2" style="margin-top:12px">
-    <div class="p-card empty-box">
-      <svg width="72" height="72" viewBox="0 0 72 72" fill="none" style="margin:0 auto;display:block">
-        <circle cx="36" cy="36" r="30" stroke="#d0d7de" stroke-width="3"/>
-        <path d="M20 38 a16 16 0 0 1 32 0" stroke="#8c959f" stroke-width="3" fill="none" stroke-linecap="round"/>
-        <path d="M27 48 h18" stroke="#8c959f" stroke-width="3" stroke-linecap="round"/>
-        <path d="M25 25 L47 47" stroke="#cf222e" stroke-width="3" stroke-linecap="round"/>
-      </svg>
-      <div class="e-text">网络异常，请检查连接</div>
-      <button class="p-btn primary" onclick="toast('重试连接…','ok')">重试</button>
-    </div>
-    <div class="p-card empty-box" style="text-align:left">
-      <b>401 未登录 / 凭证过期</b>
-      <div style="margin:8px 0;font-size:13px;color:#57606a;line-height:1.8">
-        会话失效时自动跳转登录页，并携带回跳参数：<code>/login?redirect=/purchase/list</code>；<br>
-        登录成功后回跳原页面并恢复操作（不做手动跳转）。
+  <div id="app">
+    <!-- 错误页 404/403/500：el-result（圆圈+叉 / 圆圈+锁 / 圆圈+感叹号 SVG 置于 icon 插槽） -->
+    <div class="p-grid cols-3">
+      <div class="p-card err-card">
+        <el-result icon="warning" title="404" sub-title="页面不存在（或已被移除）">
+          <template #icon>
+            <svg width="72" height="72" viewBox="0 0 72 72" fill="none" style="margin:0 auto;display:block">
+              <circle cx="36" cy="36" r="30" stroke="#d0d7de" stroke-width="3"/>
+              <path d="M24 24 L48 48 M48 24 L24 48" stroke="#cf222e" stroke-width="4" stroke-linecap="round"/>
+            </svg>
+          </template>
+          <template #extra>
+            <el-button type="primary" @click="ElMessage.success('返回首页（路由联动）')">返回首页</el-button>
+          </template>
+        </el-result>
       </div>
-      <button class="p-btn" onclick="toast('原型演示：跳转登录页（携带 redirect 回跳参数）')">前往登录页</button>
-    </div>
-  </div>
-
-  <!-- 加载反馈：骨架屏 / 局部 loading / 按钮 loading -->
-  <div class="p-grid cols-3" style="margin-top:12px">
-    <div class="p-card">
-      <b>页面级骨架屏</b>
-      <div style="margin-top:10px">
-        <div class="skel" style="height:14px;width:40%"></div>
-        <div class="skel" style="height:14px;width:70%;margin-top:8px"></div>
-        <div class="skel" style="height:14px;width:55%;margin-top:8px"></div>
-        <div class="skel" style="height:120px;width:100%;margin-top:10px"></div>
+      <div class="p-card err-card">
+        <el-result icon="warning" title="403" sub-title="没有访问权限（如需申请请联系管理员）">
+          <template #icon>
+            <svg width="72" height="72" viewBox="0 0 72 72" fill="none" style="margin:0 auto;display:block">
+              <circle cx="36" cy="36" r="30" stroke="#d0d7de" stroke-width="3"/>
+              <rect x="26" y="32" width="20" height="16" rx="3" fill="#ffd8a8" stroke="#d28e00" stroke-width="2"/>
+              <path d="M30 32 v-4 a6 6 0 0 1 12 0 v4" stroke="#d28e00" stroke-width="2.5" fill="none"/>
+            </svg>
+          </template>
+          <template #extra>
+            <el-button type="primary" @click="ElMessage.success('返回首页')">返回首页</el-button>
+            <el-button @click="ElMessage.info('原型演示：联系管理员（帮助中心）')">联系管理员</el-button>
+          </template>
+        </el-result>
+      </div>
+      <div class="p-card err-card">
+        <el-result icon="error" title="500" sub-title="服务开小差了（请稍后重试）">
+          <template #icon>
+            <svg width="72" height="72" viewBox="0 0 72 72" fill="none" style="margin:0 auto;display:block">
+              <circle cx="36" cy="36" r="30" stroke="#d0d7de" stroke-width="3"/>
+              <path d="M36 24 v16" stroke="#cf222e" stroke-width="4" stroke-linecap="round"/>
+              <circle cx="36" cy="49" r="3" fill="#cf222e"/>
+            </svg>
+          </template>
+          <template #extra>
+            <el-button type="primary" @click="ElMessage.success('已重新加载当前页')">刷新重试</el-button>
+            <el-button @click="ElMessage.success('返回首页')">返回首页</el-button>
+          </template>
+        </el-result>
       </div>
     </div>
-    <div class="p-card">
-      <b>表格局部刷新</b>
-      <div style="position:relative;margin-top:10px;border:1px solid #eaeef2;border-radius:6px;overflow:hidden">
-        <table class="p-table" style="border:none">
-          <tr><th>名称</th><th>状态</th></tr>
-          <tr><td>采购申请-001</td><td><span class="p-tag orange">审批中</span></td></tr>
-          <tr><td>付款申请-002</td><td><span class="p-tag gray">草稿</span></td></tr>
-        </table>
-        <div style="position:absolute;inset:0;background:rgba(255,255,255,.6);display:flex;align-items:center;justify-content:center">
-          <span class="skel" style="width:60px;height:14px"></span>
+
+    <!-- 空状态：列表无数据 / 搜索无结果 / 待办空态 / 消息空态（el-empty） -->
+    <div class="p-grid cols-2" style="margin-top:12px">
+      <div class="p-card empty-card">
+        <el-empty description="暂无数据">
+          <template #image>
+            <svg width="72" height="72" viewBox="0 0 72 72" fill="none" style="margin:0 auto;display:block">
+              <circle cx="30" cy="30" r="16" stroke="#8c959f" stroke-width="3"/>
+              <path d="M42 42 L54 54" stroke="#8c959f" stroke-width="4" stroke-linecap="round"/>
+            </svg>
+          </template>
+          <el-button type="primary" @click="ElMessage.info('原型演示：跳转「新增」')">去创建</el-button>
+        </el-empty>
+      </div>
+      <div class="p-card empty-card">
+        <el-empty description="未找到相关内容">
+          <template #image>
+            <svg width="72" height="72" viewBox="0 0 72 72" fill="none" style="margin:0 auto;display:block">
+              <circle cx="30" cy="30" r="16" stroke="#8c959f" stroke-width="3"/>
+              <path d="M42 42 L54 54" stroke="#8c959f" stroke-width="4" stroke-linecap="round"/>
+              <path d="M22 30 h16" stroke="#8c959f" stroke-width="3" stroke-linecap="round"/>
+            </svg>
+          </template>
+          <el-button @click="ElMessage.success('已清除筛选条件')">清除筛选 / 重置</el-button>
+        </el-empty>
+      </div>
+      <div class="p-card empty-card">
+        <el-empty description="暂无待办，享受这一刻">
+          <template #image>
+            <svg width="72" height="72" viewBox="0 0 72 72" fill="none" style="margin:0 auto;display:block">
+              <circle cx="36" cy="36" r="30" stroke="#d0d7de" stroke-width="3"/>
+              <path d="M26 36 l7 7 l13 -13" stroke="#2da44e" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+            </svg>
+          </template>
+          <div class="proto-hint">待办列表为空时展示（可配下拉刷新入口）</div>
+        </el-empty>
+      </div>
+      <div class="p-card empty-card">
+        <el-empty description="暂无消息">
+          <template #image>
+            <svg width="72" height="72" viewBox="0 0 72 72" fill="none" style="margin:0 auto;display:block">
+              <circle cx="36" cy="36" r="30" stroke="#d0d7de" stroke-width="3"/>
+              <path d="M26 30 a10 10 0 0 1 20 0 c0 6 3 8 3 8 h-26 c0 0 3 -2 3 -8" stroke="#8c959f" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+              <path d="M32 46 a4 4 0 0 0 8 0" stroke="#8c959f" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+            </svg>
+          </template>
+          <div class="proto-hint">通知/消息列表为空时展示</div>
+        </el-empty>
+      </div>
+    </div>
+
+    <!-- 网络异常 + 401 跳登录说明 -->
+    <div class="p-grid cols-2" style="margin-top:12px">
+      <div class="p-card empty-card net-card">
+        <el-empty description="网络异常，请检查连接">
+          <template #image>
+            <svg width="72" height="72" viewBox="0 0 72 72" fill="none" style="margin:0 auto;display:block">
+              <circle cx="36" cy="36" r="30" stroke="#d0d7de" stroke-width="3"/>
+              <path d="M20 38 a16 16 0 0 1 32 0" stroke="#8c959f" stroke-width="3" fill="none" stroke-linecap="round"/>
+              <path d="M27 48 h18" stroke="#8c959f" stroke-width="3" stroke-linecap="round"/>
+              <path d="M25 25 L47 47" stroke="#cf222e" stroke-width="3" stroke-linecap="round"/>
+            </svg>
+          </template>
+        </el-empty>
+        <div class="net-actions" style="text-align:center">
+          <el-button type="primary" @click="ElMessage.success('重试连接…')">重试</el-button>
         </div>
       </div>
-    </div>
-    <div class="p-card">
-      <b>按钮提交 loading</b>
-      <div style="margin-top:12px">
-        <button class="p-btn primary" onclick="simLoading(this)">提交（点我）</button>
+      <div class="p-card" style="text-align:left">
+        <b>401 未登录 / 凭证过期</b>
+        <div style="margin:8px 0;font-size:13px;color:#57606a;line-height:1.8">
+          会话失效时自动跳转登录页，并携带回跳参数：<code>/login?redirect=/purchase/list</code>；<br>
+          登录成功后回跳原页面并恢复操作（不做手动跳转）。
+        </div>
+        <el-button @click="ElMessage.info('原型演示：跳转登录页（携带 redirect 回跳参数）')">前往登录页</el-button>
       </div>
-      <div class="proto-hint" style="margin-top:8px">点击后按钮进入 loading，1.5s 后完成（防重复提交）</div>
     </div>
-  </div>
 
-  <!-- 长任务进度反馈：进度条 + 完成通知 -->
-  <div class="p-card" style="margin-top:12px">
-    <b>长任务进度反馈（导出/批量生成等）</b>
-    <div style="height:8px;background:#eaeef2;border-radius:4px;margin-top:12px;overflow:hidden">
-      <div style="width:62%;height:100%;background:#0969da;border-radius:4px"></div>
+    <!-- 加载反馈：骨架屏 / 局部 loading / 按钮 loading -->
+    <div class="p-grid cols-3" style="margin-top:12px">
+      <div class="p-card">
+        <b>页面级骨架屏</b>
+        <div style="margin-top:12px">
+          <el-skeleton animated :rows="2"></el-skeleton>
+          <el-skeleton-item variant="rect" style="width:100%;height:120px;margin-top:10px"></el-skeleton-item>
+        </div>
+      </div>
+      <div class="p-card">
+        <b>表格局部刷新</b>
+        <div style="margin-top:10px">
+          <div class="tbl-wrap">
+            <el-table :data="tblRows" size="small" v-loading="tblLoading">
+              <el-table-column prop="name" label="名称" min-width="120"></el-table-column>
+              <el-table-column label="状态" width="90">
+                <template #default="{ row }">
+                  <el-tag :type="row.status === '审批中' ? 'warning' : 'info'" size="small">{{ row.status }}</el-tag>
+                </template>
+              </el-table-column>
+            </el-table>
+          </div>
+          <div style="margin-top:8px">
+            <el-button size="small" @click="simRefresh">模拟刷新</el-button>
+          </div>
+        </div>
+      </div>
+      <div class="p-card">
+        <b>按钮提交 loading</b>
+        <div style="margin-top:12px">
+          <el-button type="primary" :loading="btnLoading" @click="simLoading">提交（点我）</el-button>
+        </div>
+        <div class="proto-hint" style="margin-top:8px">点击后按钮进入 loading，1.5s 后完成（防重复提交）</div>
+      </div>
     </div>
-    <div style="margin-top:8px;font-size:13px;color:#57606a">正在导出… 62%（约剩余 40 秒）</div>
-    <div class="proto-hint" style="margin-top:6px">长任务执行期间页面可继续操作；完成后推送通知（WebSocket 站内信 + 邮件），点击通知可下载结果文件。</div>
+
+    <!-- 长任务进度反馈：进度条 + 完成通知 -->
+    <div class="p-card" style="margin-top:12px">
+      <b>长任务进度反馈（导出/批量生成等）</b>
+      <el-progress :percentage="62" style="margin-top:12px" :stroke-width="8"></el-progress>
+      <div class="task-line">正在导出… 62%（约剩余 40 秒）</div>
+      <div class="proto-hint" style="margin-top:6px">长任务执行期间页面可继续操作；完成后推送通知（WebSocket 站内信 + 邮件），点击通知可下载结果文件。</div>
+    </div>
   </div>
 </div>
 
-<script src="../共享资源/原型脚本.js"></script>
+<script src="../共享资源/vendor/vue.global.prod.js"></script>
+<script src="../共享资源/vendor/element-plus.min.js"></script>
 <script>
-  // 按钮提交 loading：模拟防重复提交
-  function simLoading(btn) {
-    var t = btn.textContent;
-    btn.disabled = true;
-    btn.textContent = '提交中…';
-    setTimeout(function () {
-      btn.disabled = false;
-      btn.textContent = t;
-      toast('提交成功', 'ok');
-    }, 1500);
-  }
+  var { createApp, ref } = Vue;
+  var { ElMessage } = ElementPlus;
+  var app = createApp({
+    template: document.getElementById('app').outerHTML.replace(/<div id="app">/, '<div>').replace(/<\/div>\s*$/, ''),
+    setup: function () {
+      var tblRows = ref([
+        { name: '采购申请-001', status: '审批中' },
+        { name: '付款申请-002', status: '草稿' }
+      ]);
+      var tblLoading = ref(false);
+      var btnLoading = ref(false);
+
+      // 表格局部刷新：loading 1.2s 后完成
+      function simRefresh() {
+        tblLoading.value = true;
+        setTimeout(function () {
+          tblLoading.value = false;
+          ElMessage.success('已刷新');
+        }, 1200);
+      }
+
+      // 按钮提交 loading：模拟防重复提交
+      function simLoading() {
+        btnLoading.value = true;
+        setTimeout(function () {
+          btnLoading.value = false;
+          ElMessage.success('提交成功');
+        }, 1500);
+      }
+
+      return { tblRows, tblLoading, btnLoading, simRefresh, simLoading, ElMessage };
+    }
+  });
+  app.use(ElementPlus);
+  app.mount('#app');
 </script>
 
 </body>

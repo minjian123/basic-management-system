@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>公共原型组件展示</title>
+<title>原型 · 公共原型 · 组件展示（Element Plus）</title>
+<link rel="stylesheet" href="../共享资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../共享资源/原型样式.css">
 <style>
   .demo-sec { margin-bottom: 28px; }
@@ -15,243 +16,152 @@
 <body>
 
 <div class="proto-bar">
-  <a href="01_设计说明.html">← 返回设计说明</a>
-  <span class="pb-name">公共原型组件展示</span>
-  <span class="pb-crumb">02_公共原型</span>
+  <span class="pb-crumb"><a href="01_设计说明.html">← 返回设计说明</a></span>
+  <span class="pb-name">公共原型 · 组件展示（真实 Element Plus）</span>
 </div>
 
 <div class="proto-frame">
-
-  <div class="demo-sec">
-    <h2>1. 系统信息（系统信息.js）</h2>
-    <p class="desc">表单详情页「系统信息」区块：ID / 创建时间 / 创建用户 / 修改时间 / 修改用户（纯文本只读），支持 extra 扩展字段（如版本号）。<br>
-    用法：<code>mountSysInfo(el, { id, createdAt, createdBy, updatedAt, updatedBy, extra })</code></p>
-    <div class="demo-box">
-      <div id="demo-sysinfo"></div>
-    </div>
-  </div>
-
-  <div class="demo-sec">
-    <h2>2. 分页（分页.js）</h2>
-    <p class="desc">列表分页区：总数 / 页码 / 跳页 / 每页条数（默认 20 条/页），页码可点击切换。<br>
-    用法：<code>renderPager(el, { total, page, size, onPage, onSize })</code></p>
-    <div class="demo-box">
-      <div id="demo-pager"></div>
-      <div class="proto-hint" id="demo-pager-hint" style="margin-top:8px">当前：第 1 页 · 每页 20 条</div>
-    </div>
-  </div>
-
-  <div class="demo-sec">
-    <h2>3. 空状态（空状态.js）</h2>
-    <p class="desc">空状态插画（SVG）+ 文案 + 可选引导按钮；场景：list / search / todo / msg / error。<br>
-    用法：<code>renderEmpty(el, { type, text, action, onAction })</code>，点击下方按钮切换场景。</p>
-    <div class="demo-box">
-      <div style="display:flex;gap:8px;margin-bottom:12px">
-        <button class="p-btn" onclick="demoEmpty('list')">列表空态</button>
-        <button class="p-btn" onclick="demoEmpty('search')">搜索无结果</button>
-        <button class="p-btn" onclick="demoEmpty('todo')">待办为空</button>
-        <button class="p-btn" onclick="demoEmpty('msg')">消息为空</button>
-        <button class="p-btn" onclick="demoEmpty('error')">加载失败</button>
+  <div id="app">
+    <div class="demo-sec">
+      <h2>1. 模板与示例入口</h2>
+      <p class="desc">页面从模板复制改造，明细完整组件见示例页。</p>
+      <div class="demo-box">
+        <el-button type="primary" @click="jump('04_EP模板_列表页.html')">EP 模板-列表页 →</el-button>
+        <el-button @click="jump('05_EP模板_表单页.html')">EP 模板-表单页（主从明细）→</el-button>
+        <el-button @click="jump('03_EP组件示例.html')">EP 组件示例（明细表格）→</el-button>
       </div>
-      <div id="demo-empty"></div>
     </div>
-  </div>
 
-  <div class="demo-sec">
-    <h2>4. 表格明细工具栏（明细工具栏.js）</h2>
-    <p class="desc">主从模块明细底部栏：图标按钮组靠左（新增/删除/上移/下移 + 自动列宽/自定义列/刷新/全屏）+ 分页靠右同一行（《布局设计-表格明细》第 4 节 / 2.4 节，行操作仅编辑态、删除二次确认）。<br>
-    用法：<code>renderDetailBar(el, { readonly, onAdd, onDelete, onMoveUp, onMoveDown, tools, onTool, page })</code>，返回对象可 <code>setReadonly()</code> 切换编辑态。</p>
-    <div class="demo-box">
-      <div style="display:flex;gap:8px;margin-bottom:12px">
-        <button class="p-btn" onclick="demoBarReadonly(false)">编辑态</button>
-        <button class="p-btn" onclick="demoBarReadonly(true)">只读态</button>
+    <div class="demo-sec">
+      <h2>2. 按钮（el-button）</h2>
+      <p class="desc">默认 / primary / success / warning / danger / info；plain、link、disabled、loading。</p>
+      <div class="demo-box">
+        <el-button>默认</el-button>
+        <el-button type="primary">主按钮</el-button>
+        <el-button type="success">成功</el-button>
+        <el-button type="warning">警告</el-button>
+        <el-button type="danger">危险</el-button>
+        <el-button type="info">信息</el-button>
+        <el-button type="primary" plain>次要主</el-button>
+        <el-button type="danger" plain>次要危险</el-button>
+        <el-button link type="primary">链接按钮</el-button>
+        <el-button disabled>禁用</el-button>
+        <el-button :loading="loading" @click="loading = !loading">加载中</el-button>
       </div>
-      <table class="p-table" id="demo-dt">
-        <tr><th>物料名称</th><th>数量</th><th>单价</th><th>小计</th></tr>
-        <tr class="sel"><td>办公桌</td><td>10</td><td>1,800</td><td>¥18,000</td></tr>
-        <tr><td>办公椅</td><td>20</td><td>500</td><td>¥10,000</td></tr>
-        <tr><td>文件柜</td><td>5</td><td>1,200</td><td>¥6,000</td></tr>
-      </table>
-      <div id="demo-detail-bar"></div>
     </div>
-  </div>
 
-  <div class="demo-sec">
-    <h2>5. 列表页工具栏（列表页工具栏.js）</h2>
-    <p class="desc">列表页三段式（《布局设计-列表页》）：工具栏（主按钮 + 按钮组 + 右侧提示）+ 筛选区（关键字 + 附加控件 + 查询/重置）+ 分页（右对齐）。<br>
-    用法：<code>renderListToolbar({ top, bottom, primary, buttons, extra, filter, page })</code>，top 挂表格上方、bottom 挂表格下方（分页）。</p>
-    <div class="demo-box">
-      <div id="demo-list-top"></div>
-      <table class="p-table" id="demo-lt">
-        <tr><th>名称</th><th>编码</th><th>状态</th></tr>
-        <tr><td>用户管理</td><td>user</td><td><span class="p-tag ok">启用</span></td></tr>
-        <tr><td>采购管理</td><td>purchase</td><td><span class="p-tag ok">启用</span></td></tr>
-        <tr><td>销售管理</td><td>sale</td><td><span class="p-tag">规划中</span></td></tr>
-      </table>
-      <div id="demo-list-bottom"></div>
-    </div>
-  </div>
-
-  <div class="demo-sec">
-    <h2>6. 明细表格（明细表格.js，一体组件）</h2>
-    <p class="desc">主从明细<strong>完整组件</strong>：明细表格（行内编辑）+ 左下角明细工具栏（图标按钮）+ 右下角分页，一个挂载点生成（《布局设计-表格明细》）。<br>
-    用法：<code>renderDetailTable(el, { columns, data, readonly, rowTools, tools, page, onChange })</code>；返回 <code>setReadonly()</code> / <code>getRows()</code>。</p>
-    <div class="demo-box">
-      <div style="display:flex;gap:8px;margin-bottom:12px">
-        <button class="p-btn" onclick="demoDtReadonly(false)">编辑态</button>
-        <button class="p-btn" onclick="demoDtReadonly(true)">只读态</button>
-        <span class="proto-hint" style="margin-left:auto">明细合计：<b id="demo-dt-total">¥0</b></span>
+    <div class="demo-sec">
+      <h2>3. 标签（el-tag）</h2>
+      <p class="desc">状态语义：success 启用 / warning 规划中 / danger 驳回 / info 停用。</p>
+      <div class="demo-box">
+        <el-tag type="success">启用</el-tag>
+        <el-tag type="warning">规划中</el-tag>
+        <el-tag type="danger">驳回</el-tag>
+        <el-tag type="info">停用</el-tag>
+        <el-tag type="primary">业务模块</el-tag>
+        <el-tag type="info" effect="plain">平台域固定</el-tag>
       </div>
-      <div id="demo-detail-table"></div>
+    </div>
+
+    <div class="demo-sec">
+      <h2>4. 表格 + 分页（el-table + el-pagination）</h2>
+      <p class="desc">多选 / 标签列 / 操作列 / 合计；分页右对齐（page/size 与后端一致）。</p>
+      <div class="demo-box">
+        <el-table :data="rows" border stripe @selection-change="onSel" style="width:100%">
+          <el-table-column type="selection" width="48"></el-table-column>
+          <el-table-column prop="code" label="编码" min-width="120"></el-table-column>
+          <el-table-column prop="name" label="名称" min-width="160"></el-table-column>
+          <el-table-column label="状态" width="100">
+            <template #default="{ row }">
+              <el-tag :type="row.status === 'enabled' ? 'success' : 'info'">{{ row.status === 'enabled' ? '启用' : '停用' }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="140" fixed="right">
+            <template #default="{ row }">
+              <el-button link type="primary" @click="msg('编辑 ' + row.name)">编辑</el-button>
+              <el-button link type="danger" @click="del(row)">删除</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+        <div style="display:flex;justify-content:flex-end;margin-top:12px">
+          <el-pagination background layout="total, sizes, prev, pager, next" :total="rows.length"
+            :page-size="size" :current-page="page" @current-change="page = $event" @size-change="size = $event"></el-pagination>
+        </div>
+      </div>
+    </div>
+
+    <div class="demo-sec">
+      <h2>5. 表单（el-form）</h2>
+      <p class="desc">el-input / el-input-number / el-select / el-textarea / el-switch / el-checkbox / el-date-picker。</p>
+      <div class="demo-box">
+        <el-form label-width="90px" style="max-width:640px">
+          <el-form-item label="名称"><el-input v-model="f.name" placeholder="请输入"></el-input></el-form-item>
+          <el-form-item label="数量"><el-input-number v-model="f.qty" :min="1" controls-position="right" style="width:180px"></el-input-number></el-form-item>
+          <el-form-item label="状态">
+            <el-select v-model="f.status" style="width:180px">
+              <el-option label="启用" value="enabled"></el-option>
+              <el-option label="停用" value="disabled"></el-option>
+            </el-select>
+          </el-form-item>
+          <el-form-item label="日期"><el-date-picker v-model="f.date" type="date" placeholder="选择日期"></el-date-picker></el-form-item>
+          <el-form-item label="开关"><el-switch v-model="f.on"></el-switch></el-form-item>
+          <el-form-item label="备注"><el-input v-model="f.remark" type="textarea" :rows="2"></el-input></el-form-item>
+          <el-form-item>
+            <el-button type="primary" @click="msg('已保存')">保存</el-button>
+            <el-button @click="msg('已重置')">重置</el-button>
+          </el-form-item>
+        </el-form>
+      </div>
+    </div>
+
+    <div class="demo-sec">
+      <h2>6. 其他常用（el-dialog / el-tabs / el-tree / el-descriptions / el-empty / el-result）</h2>
+      <p class="desc">弹窗 / Tab / 树 / 描述列表 / 空状态 / 结果页。</p>
+      <div class="demo-box">
+        <el-button @click="dlg = true">打开弹窗</el-button>
+        <el-button @click="msg('Tab 切换')">Tab 示例</el-button>
+        <el-button @click="msg('树示例')">树示例</el-button>
+        <el-dialog v-model="dlg" title="弹窗示例" width="420">
+          <p>弹窗内容（el-dialog）</p>
+          <template #footer>
+            <el-button @click="dlg = false">取消</el-button>
+            <el-button type="primary" @click="dlg = false; msg('已确认')">确认</el-button>
+          </template>
+        </el-dialog>
+      </div>
     </div>
   </div>
-
-  <div class="demo-sec">
-    <h2>7. Element Plus 真实组件（vendor 本地化）</h2>
-    <p class="desc">真实 Element Plus（Vue 3）本地化组件：el-table 多选/行内编辑/小计列 + 图标明细工具栏 + el-pagination 分页，file:// 双击可用。<br>
-    详见<a href="03_EP组件示例.html">03_EP组件示例.html</a>（完整明细演示，含编辑态/只读态切换）。</p>
-    <div class="demo-box">
-      <button class="p-btn primary" onclick="location.href='03_EP组件示例.html'">打开 EP 组件示例 →</button>
-    </div>
-  </div>
-
 </div>
 
-<script src="../共享资源/原型脚本.js"></script>
-<script src="系统信息.js"></script>
-<script src="分页.js"></script>
-<script src="空状态.js"></script>
-<script src="明细工具栏.js"></script>
-<script src="列表页工具栏.js"></script>
-<script src="明细表格.js"></script>
+<script src="../共享资源/vendor/vue.global.prod.js"></script>
+<script src="../共享资源/vendor/element-plus.min.js"></script>
 <script>
-  // 1. 系统信息
-  mountSysInfo(document.getElementById('demo-sysinfo'), {
-    id: '1902876345762181120',
-    createdAt: '2026-07-01 10:00:00 (UTC)',
-    createdBy: 'admin',
-    updatedAt: '2026-08-12 09:30:00 (UTC)',
-    updatedBy: 'admin',
-    extra: [['版本号', 'version 2（乐观锁校验）']]
-  });
-
-  // 2. 分页（可交互：点击页码/切换每页条数）
-  var demoPage = 1, demoSize = 20;
-  function renderDemoPager() {
-    renderPager(document.getElementById('demo-pager'), {
-      total: 128, page: demoPage, size: demoSize,
-      onPage: function (n) { demoPage = n; document.getElementById('demo-pager-hint').textContent = '当前：第 ' + n + ' 页 · 每页 ' + demoSize + ' 条'; renderDemoPager(); },
-      onSize: function (s) { demoSize = s; demoPage = 1; document.getElementById('demo-pager-hint').textContent = '当前：第 1 页 · 每页 ' + s + ' 条'; renderDemoPager(); }
-    });
-  }
-  renderDemoPager();
-
-  // 3. 空状态（可切换场景）
-  function demoEmpty(type) {
-    var opts = { type: type };
-    if (type === 'list') opts.action = '去创建';
-    if (type === 'search') opts.action = '清除筛选';
-    if (type === 'error') opts.action = '重试';
-    opts.onAction = function () { toast('点击了「' + (opts.action || '') + '」', 'ok'); };
-    renderEmpty(document.getElementById('demo-empty'), opts);
-  }
-  demoEmpty('list');
-
-  // 4. 表格明细工具栏（可交互：编辑态/只读态切换、行操作、删除二次确认）
-  var demoBar = renderDetailBar(document.getElementById('demo-detail-bar'), {
-    readonly: false,
-    onAdd: function () { demoAddRow(); },
-    onDelete: function () { demoDelRow(); },
-    onMoveUp: function () { demoMove(-1); },
-    onMoveDown: function () { demoMove(1); },
-    onTool: function (t) {
-      var names = { autoWidth: '自动列宽', columns: '自定义列', refresh: '刷新', fullscreen: '全屏' };
-      toast('原型演示：' + (names[t] || t));
-    },
-    page: { total: 3, page: 1, size: 10, onPage: function (n) { toast('第 ' + n + ' 页'); } }
-  });
-  function demoBarReadonly(ro) { demoBar.setReadonly(ro); toast(ro ? '已切换只读态（行操作禁用）' : '已切换编辑态（行操作可用）', 'ok'); }
-  function demoSelRow() { return document.querySelector('#demo-dt tr.sel'); }
-  document.querySelectorAll('#demo-dt tr').forEach(function (r) {
-    r.onclick = function () { document.querySelectorAll('#demo-dt tr.sel').forEach(function (x) { x.classList.remove('sel'); }); r.classList.add('sel'); };
-  });
-  function demoAddRow() {
-    var tb = document.getElementById('demo-dt');
-    var tr = document.createElement('tr');
-    tr.innerHTML = '<td>新物料</td><td>1</td><td>0</td><td>¥0</td>';
-    tr.onclick = function () { document.querySelectorAll('#demo-dt tr.sel').forEach(function (x) { x.classList.remove('sel'); }); tr.classList.add('sel'); };
-    tb.appendChild(tr);
-    toast('已新增一行（保存时随主表整体提交）', 'ok');
-  }
-  function demoDelRow() {
-    var tr = demoSelRow();
-    if (!tr) { toast('请先选择一行', 'err'); return; }
-    confirmAction('删除选中的明细行？删除后不可恢复。', function () { tr.remove(); toast('已删除该行', 'ok'); });
-  }
-  function demoMove(dir) {
-    var tr = demoSelRow();
-    if (!tr) { toast('请先选择一行', 'err'); return; }
-    var tb = tr.parentNode, t = dir < 0 ? tr.previousElementSibling : tr.nextElementSibling;
-    if (!t) { toast(dir < 0 ? '已是第一行' : '已是最后一行', 'err'); return; }
-    tb.insertBefore(dir < 0 ? tr : t, dir < 0 ? t : tr);
-  }
-
-  // 5. 列表页工具栏（可交互：查询/重置筛选行、分页）
-  renderListToolbar({
-    top: document.getElementById('demo-list-top'),
-    bottom: document.getElementById('demo-list-bottom'),
-    primary: { label: '新增模块', onClick: function () { toast('原型演示：打开新增（受权限码控制）'); } },
-    buttons: [
-      { label: '刷新', onClick: function () { toast('已刷新'); } },
-      { label: '关闭', onClick: function () { toast('原型演示：关闭当前模块页面（返回）'); } },
-      { label: '导出', onClick: function () { toast('原型演示：导出当前筛选结果'); } }
-    ],
-    extra: '<span class="proto-hint">平台统一维护 · 共 3 条</span>',
-    filter: {
-      placeholder: '关键字：名称/编码',
-      onSearch: function (kw) {
-        var rows = document.querySelectorAll('#demo-lt tr');
-        var hit = 0;
-        rows.forEach(function (r) {
-          if (r.querySelector('th')) return;
-          var ok = !kw || r.textContent.toLowerCase().indexOf(kw.toLowerCase()) >= 0;
-          r.style.display = ok ? '' : 'none';
-          if (ok) hit++;
-        });
-        toast('命中 ' + hit + ' 条');
-      },
-      onReset: function () {
-        document.querySelectorAll('#demo-lt tr').forEach(function (r) { r.style.display = ''; });
-        toast('已重置筛选');
+  var { createApp, ref, reactive } = Vue;
+  var app = createApp({
+    template: document.getElementById('app').outerHTML.replace(/<div id="app">/, '<div>').replace(/<\/div>\s*$/, ''),
+    setup: function () {
+      var rows = ref([
+        { id: 1, code: 'user', name: '用户管理', status: 'enabled' },
+        { id: 2, code: 'purchase', name: '采购管理', status: 'enabled' },
+        { id: 3, code: 'sale', name: '销售管理', status: 'disabled' }
+      ]);
+      var page = ref(1), size = ref(10), loading = ref(false), dlg = ref(false);
+      var f = reactive({ name: '', qty: 1, status: 'enabled', date: null, on: true, remark: '' });
+      function onSel() {}
+      function del(row) {
+        ElementPlus.ElMessageBox.confirm('删除「' + row.name + '」？', '提示', { type: 'warning' })
+          .then(function () {
+            rows.value = rows.value.filter(function (r) { return r.id !== row.id; });
+            ElementPlus.ElMessage.success('已删除');
+          }).catch(function () {});
       }
-    },
-    page: { total: 3, page: 1, size: 20, onPage: function (n) { toast('第 ' + n + ' 页'); } }
+      function msg(m) { ElementPlus.ElMessage.info(m); }
+      function jump(u) { location.href = u; }
+      return { rows, page, size, loading, dlg, f, onSel, del, msg, jump };
+    }
   });
-
-  // 6. 明细表格一体组件（可交互：行内编辑、增删移、分页、合计联动）
-  var demoDt = renderDetailTable(document.getElementById('demo-detail-table'), {
-    columns: [
-      { key: 'name', label: '物料名称', width: 200 },
-      { key: 'qty', label: '数量', width: 80, type: 'number', align: 'right' },
-      { key: 'price', label: '单价', width: 90, type: 'number', align: 'right' },
-      { key: 'subtotal', label: '小计', width: 100, type: 'computed', align: 'right',
-        fn: function (row) { return '¥' + (row.qty * row.price).toLocaleString(); } }
-    ],
-    data: [
-      { name: '办公桌', qty: 10, price: 1800 },
-      { name: '办公椅', qty: 20, price: 500 },
-      { name: '文件柜', qty: 5, price: 1200 }
-    ],
-    readonly: false,
-    page: { size: 10 },
-    onChange: function (rows) {
-      var sum = 0;
-      rows.forEach(function (r) { sum += (r.qty || 0) * (r.price || 0); });
-      document.getElementById('demo-dt-total').textContent = '¥' + sum.toLocaleString();
-    },
-    onTool: function (t) { toast('原型演示：' + ({ refresh: '刷新', fullscreen: '全屏' }[t] || t)); }
-  });
-  function demoDtReadonly(ro) { demoDt.setReadonly(ro); toast(ro ? '已切换只读态' : '已切换编辑态（行内编辑与行操作可用）', 'ok'); }
+  app.use(ElementPlus);
+  app.mount('#app');
 </script>
 
 </body>

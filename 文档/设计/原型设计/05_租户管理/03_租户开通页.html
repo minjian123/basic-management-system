@@ -4,7 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>原型 · 租户开通页</title>
+<link rel="stylesheet" href="../共享资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../共享资源/原型样式.css">
+<style>
+  .ep-page { background: #fff; border: 1px solid #d0d7de; border-radius: 6px; padding: 16px; }
+  .ep-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+  .ep-section { font-weight: 600; margin: 16px 0 12px; padding-bottom: 8px; border-bottom: 1px solid #eaeef2; font-size: 14px; }
+</style>
 </head>
 <body>
 
@@ -14,46 +20,85 @@
 </div>
 
 <div class="proto-frame">
-  <div>
-    <h3 style="margin:0">开通租户</h3>
-    <span class="proto-hint">自动建库 + 迁移 + 种子 + 写入模块开通清单</span>
-  </div>
+  <div id="app">
+    <div class="ep-page">
+      <div class="ep-toolbar">
+        <span style="font-weight:600;font-size:15px">开通租户</span>
+        <span class="proto-hint">自动建库 + 迁移 + 种子 + 写入模块开通清单</span>
+      </div>
 
-  <div class="p-row" style="margin-top:14px;max-width:860px">
-    <div class="p-col p-field"><label>租户 code <span class="req">*</span></label><input class="p-input" id="t-code" placeholder="如 acme（唯一，库名前缀 bms_tenant_）"></div>
-    <div class="p-col p-field"><label>租户名称 <span class="req">*</span></label><input class="p-input" id="t-name" placeholder="如 Acme 制造"></div>
-  </div>
-  <div class="p-row" style="max-width:860px">
-    <div class="p-col p-field"><label>子域名 <span class="req">*</span></label><input class="p-input" id="t-domain" placeholder="如 acme.bms.example.com"></div>
-  </div>
+      <!-- 基本信息：code/名称/域名 -->
+      <el-form ref="formRef" :model="form" :rules="rules" label-width="90px" style="max-width:860px">
+        <el-row :gutter="16">
+          <el-col :span="12">
+            <el-form-item label="租户 code" prop="code">
+              <el-input v-model="form.code" placeholder="如 acme（唯一，库名前缀 bms_tenant_）" clearable></el-input>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="租户名称" prop="name">
+              <el-input v-model="form.name" placeholder="如 Acme 制造" clearable></el-input>
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-form-item label="子域名" prop="domain" style="max-width:430px">
+          <el-input v-model="form.domain" placeholder="如 acme.bms.example.com" clearable></el-input>
+        </el-form-item>
+      </el-form>
 
-  <div style="margin-top:18px;max-width:860px">
-    <label><strong>开通业务模块</strong> <span class="proto-hint">平台域基础能力（sys/wf/rpt/ai）恒开通，不参与勾选；未勾选默认不开通</span></label>    <div class="p-row" style="margin-top:8px">
-      <label style="margin-right:16px;display:inline-flex;align-items:center;gap:4px"><input type="checkbox" class="mod-cb" value="purchase" checked> 采购（pur_ / 10xxxx）</label>
-      <label style="margin-right:16px;display:inline-flex;align-items:center;gap:4px"><input type="checkbox" class="mod-cb" value="payment" checked> 收付款（pay_ / 11xxxx）</label>
-      <label style="margin-right:16px;display:inline-flex;align-items:center;gap:4px"><input type="checkbox" class="mod-cb" value="supplier" checked> 供应商（sup_）</label>
-      <label style="margin-right:16px;display:inline-flex;align-items:center;gap:4px;opacity:.5" title="sys_module 状态为规划中，未交付不可勾选"><input type="checkbox" disabled> 销售（sale_ / 12xxxx）<span class="proto-hint">规划中（未交付）</span></label>
-      <label style="margin-right:16px;display:inline-flex;align-items:center;gap:4px;opacity:.5" title="sys_module 状态为规划中，未交付不可勾选"><input type="checkbox" disabled> 仓储（wh_ / 13xxxx）<span class="proto-hint">规划中（未交付）</span></label>
+      <!-- 开通业务模块：可勾选业务模块，规划中（未交付）置灰 -->
+      <div class="ep-section">开通业务模块
+        <span class="proto-hint">平台域基础能力（sys/wf/rpt/ai）恒开通，不参与勾选；未勾选默认不开通</span>
+      </div>
+      <el-checkbox-group v-model="form.mods">
+        <el-checkbox value="purchase" style="margin-right:16px">采购（pur_ / 10xxxx）</el-checkbox>
+        <el-checkbox value="payment" style="margin-right:16px">收付款（pay_ / 11xxxx）</el-checkbox>
+        <el-checkbox value="supplier" style="margin-right:16px">供应商（sup_）</el-checkbox>
+        <el-checkbox value="sale" disabled style="margin-right:16px" title="sys_module 状态为规划中，未交付不可勾选">销售（sale_ / 12xxxx）<span class="proto-hint">规划中（未交付）</span></el-checkbox>
+        <el-checkbox value="wh" disabled title="sys_module 状态为规划中，未交付不可勾选">仓储（wh_ / 13xxxx）<span class="proto-hint">规划中（未交付）</span></el-checkbox>
+      </el-checkbox-group>
+
+      <div class="ep-toolbar" style="margin-top:18px">
+        <el-button type="primary" :loading="opening" @click="submitOpen">开通</el-button>
+        <el-button @click="cancelOpen">取消</el-button>
+      </div>
     </div>
-  </div>
-
-  <div class="p-toolbar" style="margin-top:18px">
-    <button class="p-btn primary" onclick="submitOpen()">开通</button>
-    <button class="p-btn" onclick="location.href='02_租户列表页.html'">取消</button>
   </div>
 </div>
 
-<script src="../共享资源/原型脚本.js"></script>
+<script src="../共享资源/vendor/vue.global.prod.js"></script>
+<script src="../共享资源/vendor/element-plus.min.js"></script>
 <script>
-  function submitOpen() {
-    var code = document.getElementById('t-code').value.trim();
-    var name = document.getElementById('t-name').value.trim();
-    var domain = document.getElementById('t-domain').value.trim();
-    if (!code || !name || !domain) { toast('code/名称/域名必填', 'err'); return; }
-    var mods = Array.prototype.map.call(document.querySelectorAll('.mod-cb:checked'), function (c) { return c.value; });
-    toast('开通成功：已建库 bms_tenant_' + code + '（迁移/种子完成），开通模块：' + (mods.join('、') || '无（仅平台域基础能力）'), 'ok');
-    setTimeout(function () { location.href = '02_租户列表页.html'; }, 1600);
-  }
+  var { createApp, ref, reactive } = Vue;
+  var ElMessage = ElementPlus.ElMessage;
+  var app = createApp({
+    template: document.getElementById('app').outerHTML.replace(/<div id="app">/, '<div>').replace(/<\/div>\s*$/, ''),
+    setup: function () {
+      var formRef = ref(null);
+      var opening = ref(false);
+      var form = reactive({ code: '', name: '', domain: '', mods: ['purchase', 'payment', 'supplier'] });
+      var rules = {
+        code: [{ required: true, message: '请输入租户 code', trigger: 'blur' }],
+        name: [{ required: true, message: '请输入租户名称', trigger: 'blur' }],
+        domain: [{ required: true, message: '请输入子域名', trigger: 'blur' }]
+      };
+      function submitOpen() {
+        formRef.value.validate(function (ok) {
+          if (!ok) return;
+          opening.value = true;
+          setTimeout(function () {
+            ElMessage.success('开通成功：已建库 bms_tenant_' + form.code + '（迁移/种子完成），开通模块：' +
+              (form.mods.length ? form.mods.join('、') : '无（仅平台域基础能力）'));
+            setTimeout(function () { location.href = '02_租户列表页.html'; }, 1600);
+          }, 1200);
+        });
+      }
+      function cancelOpen() { location.href = '02_租户列表页.html'; }
+      return { formRef, opening, form, rules, submitOpen, cancelOpen };
+    }
+  });
+  app.use(ElementPlus);
+  app.mount('#app');
 </script>
 
 </body>

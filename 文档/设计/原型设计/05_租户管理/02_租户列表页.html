@@ -4,7 +4,15 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>原型 · 租户列表页</title>
+<link rel="stylesheet" href="../共享资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../共享资源/原型样式.css">
+<style>
+  .ep-page { background: #fff; border: 1px solid #d0d7de; border-radius: 6px; padding: 16px; }
+  .ep-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+  .ep-toolbar .ep-side { margin-left: auto; }
+  .ep-filter { margin-bottom: 12px; }
+  .ep-pager { display: flex; justify-content: flex-end; margin-top: 12px; }
+</style>
 </head>
 <body>
 
@@ -14,64 +22,107 @@
 </div>
 
 <div class="proto-frame">
-  <div id="lt-top"></div>
-  <table class="p-table" id="tbl-tenant">
-    <tr><th>租户 code</th><th>名称</th><th>域名</th><th>状态</th><th>已开通模块</th><th>操作</th></tr>
-    <tr><td>demo</td><td>演示租户</td><td>demo.bms.example.com</td><td>启用</td><td>采购、收付款、供应商</td><td><button class="p-btn sm" onclick="location.href='04_租户模块开关.html'">模块开关</button></td></tr>
-    <tr><td>acme</td><td>Acme 制造</td><td>acme.bms.example.com</td><td>启用</td><td>采购</td><td><button class="p-btn sm" onclick="location.href='04_租户模块开关.html'">模块开关</button></td></tr>
-    <tr><td>globex</td><td>Globex 贸易</td><td>globex.bms.example.com</td><td>停用</td><td>采购、收付款</td><td><button class="p-btn sm" onclick="location.href='04_租户模块开关.html'">模块开关</button></td></tr>
-    <tr><td>initech</td><td>Initech 服务</td><td>initech.bms.example.com</td><td>开通中</td><td>—</td><td>—</td></tr>
-  </table>
-  <div class="p-empty" id="empty-tenant" style="display:none">
-    <div class="p-empty-icon">🔍</div>
-    <div>未找到匹配租户</div>
-    <div style="margin-top:10px"><button class="p-btn" onclick="resetFilter()">重置</button></div>
+  <div id="app">
+    <div class="ep-page">
+      <!-- ① 工具栏：开通租户主按钮（跳 03 页）+ 刷新/关闭 + 右侧提示 -->
+      <div class="ep-toolbar">
+        <el-button type="primary" @click="openTenant">开通租户</el-button>
+        <el-button @click="toastMsg('已刷新')">刷新</el-button>
+        <el-button @click="toastMsg('原型演示：关闭当前模块页面（返回）')">关闭</el-button>
+        <span class="ep-side proto-hint">平台超管运营视图（租户侧不可见）</span>
+      </div>
+
+      <!-- ② 筛选区：关键字 + 状态 -->
+      <el-form class="ep-filter" inline size="default" @submit.prevent>
+        <el-form-item label="关键字">
+          <el-input v-model="query.kw" placeholder="关键字：租户 code/名称" clearable style="width:240px"></el-input>
+        </el-form-item>
+        <el-form-item label="状态">
+          <el-select v-model="query.status" placeholder="全部" clearable style="width:120px">
+            <el-option label="启用" value="enabled"></el-option>
+            <el-option label="停用" value="disabled"></el-option>
+            <el-option label="开通中" value="opening"></el-option>
+          </el-select>
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" @click="applyFilter">查询</el-button>
+          <el-button @click="resetFilter">重置</el-button>
+        </el-form-item>
+      </el-form>
+
+      <!-- ③ 表格：操作列"模块开关"跳 04 页 -->
+      <el-table :data="pageRows" border stripe v-loading="loading" style="width:100%">
+        <el-table-column prop="code" label="租户 code" min-width="100"></el-table-column>
+        <el-table-column prop="name" label="名称" min-width="130"></el-table-column>
+        <el-table-column prop="domain" label="域名" min-width="220"></el-table-column>
+        <el-table-column label="状态" width="90">
+          <template #default="{ row }">
+            <el-tag :type="statusType(row.status)">{{ statusText(row.status) }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="mods" label="已开通模块" min-width="200"></el-table-column>
+        <el-table-column label="操作" width="110" fixed="right">
+          <template #default="{ row }">
+            <el-button v-if="row.status !== 'opening'" link type="primary" @click="switchMods(row)">模块开关</el-button>
+            <span v-else class="proto-hint">—</span>
+          </template>
+        </el-table-column>
+      </el-table>
+
+      <!-- ④ 分页 -->
+      <div class="ep-pager">
+        <el-pagination background layout="total, sizes, prev, pager, next" :total="filtered.length"
+          :page-size="query.size" :current-page="query.page"
+          @current-change="onPage" @size-change="onSize"></el-pagination>
+      </div>
+    </div>
   </div>
-  <div id="pager-tenant"></div>
 </div>
 
-<script src="../共享资源/原型脚本.js"></script>
-<script src="../02_公共原型/分页.js"></script>
-<script src="../02_公共原型/列表页工具栏.js"></script>
+<script src="../共享资源/vendor/vue.global.prod.js"></script>
+<script src="../共享资源/vendor/element-plus.min.js"></script>
 <script>
-  renderListToolbar({
-    top: document.getElementById('lt-top'),
-    bottom: document.getElementById('pager-tenant'),
-    primary: { label: '开通租户', onClick: function () { location.href = '03_租户开通页.html'; } },
-    buttons: [
-      { label: '刷新', onClick: function () { toast('已刷新'); } },
-      { label: '关闭', onClick: function () { toast('原型演示：关闭当前模块页面（返回）'); } }
-    ],
-    extra: '<span class="proto-hint">平台超管运营视图（租户侧不可见）</span>',
-    filter: {
-      placeholder: '关键字：租户 code/名称',
-      extraHtml: '<select class="p-select" style="width:120px" onchange="applyFilter()">' +
-                   '<option value="">状态：全部</option><option>启用</option><option>停用</option><option>开通中</option>' +
-                 '</select>',
-      onSearch: function () { applyFilter(); },
-      onReset: function () { resetFilter(); }
-    },
-    page: { total: 4, page: 1, size: 20, onPage: function (n) { toast('第 ' + n + ' 页'); } }
+  var { createApp, ref, reactive, computed } = Vue;
+  var ElMessage = ElementPlus.ElMessage;
+  var app = createApp({
+    template: document.getElementById('app').outerHTML.replace(/<div id="app">/, '<div>').replace(/<\/div>\s*$/, ''),
+    setup: function () {
+      var rows = ref([
+        { code: 'demo', name: '演示租户', domain: 'demo.bms.example.com', status: 'enabled', mods: '采购、收付款、供应商' },
+        { code: 'acme', name: 'Acme 制造', domain: 'acme.bms.example.com', status: 'enabled', mods: '采购' },
+        { code: 'globex', name: 'Globex 贸易', domain: 'globex.bms.example.com', status: 'disabled', mods: '采购、收付款' },
+        { code: 'initech', name: 'Initech 服务', domain: 'initech.bms.example.com', status: 'opening', mods: '—' }
+      ]);
+      var query = reactive({ kw: '', status: '', page: 1, size: 20 });
+      var loading = ref(false);
+      var filtered = computed(function () {
+        return rows.value.filter(function (r) {
+          var text = (r.code + r.name).toLowerCase();
+          return (!query.kw || text.indexOf(query.kw.toLowerCase()) >= 0) && (!query.status || r.status === query.status);
+        });
+      });
+      var pageRows = computed(function () {
+        var s = (query.page - 1) * query.size;
+        return filtered.value.slice(s, s + query.size);
+      });
+      function statusType(s) {
+        return s === 'enabled' ? 'success' : (s === 'disabled' ? 'info' : 'warning');
+      }
+      function statusText(s) {
+        return s === 'enabled' ? '启用' : (s === 'disabled' ? '停用' : '开通中');
+      }
+      function openTenant() { location.href = '03_租户开通页.html'; }
+      function switchMods(row) { location.href = '04_租户模块开关.html?code=' + row.code; }
+      function applyFilter() { query.page = 1; toastMsg('筛选完成：命中 ' + filtered.value.length + ' 条'); }
+      function resetFilter() { query.kw = ''; query.status = ''; query.page = 1; }
+      function onPage(n) { query.page = n; }
+      function onSize(s) { query.size = s; query.page = 1; }
+      function toastMsg(m) { ElMessage.success(m); }
+      return { rows, query, loading, filtered, pageRows, statusType, statusText, openTenant, switchMods, applyFilter, resetFilter, onPage, onSize, toastMsg };
+    }
   });
-  function applyFilter() {
-    var kw = (document.querySelector('.p-filter .keyword').value || '').trim().toLowerCase();
-    var st = document.querySelectorAll('.p-filter .p-select')[0].value;
-    var rows = document.querySelectorAll('#tbl-tenant tr');
-    var hit = 0;
-    rows.forEach(function (r) {
-      if (r.querySelector('th')) return;
-      var text = r.textContent;
-      var ok = (!kw || text.toLowerCase().indexOf(kw) >= 0) && (!st || text.indexOf(st) >= 0);
-      r.style.display = ok ? '' : 'none';
-      if (ok) hit++;
-    });
-    document.getElementById('empty-tenant').style.display = hit ? 'none' : '';
-  }
-  function resetFilter() {
-    document.querySelector('.p-filter .keyword').value = '';
-    document.querySelectorAll('.p-filter .p-select')[0].value = '';
-    applyFilter();
-  }
+  app.use(ElementPlus);
+  app.mount('#app');
 </script>
 
 </body>

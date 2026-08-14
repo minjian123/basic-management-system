@@ -4,7 +4,15 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>原型 · 模块注册表</title>
+<link rel="stylesheet" href="../共享资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../共享资源/原型样式.css">
+<style>
+  .ep-page { background: #fff; border: 1px solid #d0d7de; border-radius: 6px; padding: 16px; }
+  .ep-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+  .ep-toolbar .ep-side { margin-left: auto; }
+  .ep-filter { margin-bottom: 12px; }
+  .ep-pager { display: flex; justify-content: flex-end; margin-top: 12px; }
+</style>
 </head>
 <body>
 
@@ -14,79 +22,114 @@
 </div>
 
 <div class="proto-frame">
-  <div id="lt-top"></div>
-  <table class="p-table" id="tbl-mod">
-    <tr><th>模块简称</th><th>名称</th><th>表前缀</th><th>错误码段</th><th>事件域</th><th>类型</th><th>状态</th></tr>
-    <tr class="row-link" onclick="goDetail('sys')"><td>sys</td><td>系统（含权限体系）</td><td>sys_</td><td>—</td><td>sys</td><td>平台域固定</td><td>启用</td></tr>
-    <tr class="row-link" onclick="goDetail('wf')"><td>wf</td><td>工作流</td><td>wf_</td><td>—</td><td>wf</td><td>平台域固定</td><td>启用</td></tr>
-    <tr class="row-link" onclick="goDetail('rpt')"><td>rpt</td><td>报表</td><td>rpt_</td><td>—</td><td>rpt</td><td>平台域固定</td><td>启用</td></tr>
-    <tr class="row-link" onclick="goDetail('ai')"><td>ai</td><td>AI 域</td><td>ai_</td><td>—</td><td>ai</td><td>平台域固定</td><td>启用</td></tr>
-    <tr class="row-link" onclick="goDetail('purchase')"><td>purchase</td><td>采购</td><td>pur_</td><td>10</td><td>purchase</td><td>业务模块</td><td>启用</td></tr>
-    <tr class="row-link" onclick="goDetail('payment')"><td>payment</td><td>收付款</td><td>pay_</td><td>11</td><td>payment</td><td>业务模块</td><td>启用</td></tr>
-    <tr class="row-link" onclick="goDetail('supplier')"><td>supplier</td><td>供应商</td><td>sup_</td><td>—</td><td>supplier</td><td>业务模块</td><td>启用</td></tr>
-    <tr class="row-link" onclick="goDetail('sale')"><td>sale</td><td>销售</td><td>sale_</td><td>12</td><td>sale</td><td>业务模块</td><td>规划中</td></tr>
-    <tr class="row-link" onclick="goDetail('wh')"><td>wh</td><td>仓储</td><td>wh_</td><td>13</td><td>wh</td><td>业务模块</td><td>规划中</td></tr>
-  </table>
-  <div class="p-empty" id="empty-mod" style="display:none">
-    <div class="p-empty-icon">🔍</div>
-    <div>未找到匹配模块</div>
-    <div style="margin-top:10px"><button class="p-btn" onclick="resetFilter()">重置</button></div>
+  <div id="app">
+    <div class="ep-page">
+      <!-- ① 工具栏：只读视图（刷新/关闭 + 右侧导出与提示），无增删改入口 -->
+      <div class="ep-toolbar">
+        <el-button @click="toastMsg('已刷新')">刷新</el-button>
+        <el-button @click="toastMsg('原型演示：关闭当前模块页面（返回）')">关闭</el-button>
+        <span class="ep-side">
+          <el-button @click="toastMsg('原型演示：导出当前筛选结果')">导出</el-button>
+          <span class="proto-hint" style="margin-left:10px">平台超管只读视图（无增删改入口）</span>
+        </span>
+      </div>
+
+      <!-- ② 筛选区：关键字 + 状态 + 类型 -->
+      <el-form class="ep-filter" inline size="default" @submit.prevent>
+        <el-form-item label="关键字">
+          <el-input v-model="query.kw" placeholder="关键字：模块简称/名称" clearable style="width:240px"></el-input>
+        </el-form-item>
+        <el-form-item label="状态">
+          <el-select v-model="query.status" placeholder="全部" clearable style="width:130px">
+            <el-option label="启用" value="enabled"></el-option>
+            <el-option label="规划中" value="planning"></el-option>
+          </el-select>
+        </el-form-item>
+        <el-form-item label="类型">
+          <el-select v-model="query.type" placeholder="全部" clearable style="width:150px">
+            <el-option label="平台域固定" value="平台域固定"></el-option>
+            <el-option label="业务模块" value="业务模块"></el-option>
+          </el-select>
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" @click="applyFilter">查询</el-button>
+          <el-button @click="resetFilter">重置</el-button>
+        </el-form-item>
+      </el-form>
+
+      <!-- ③ 表格：整行点击进详情（03 页传参） -->
+      <el-table :data="pageRows" border stripe v-loading="loading" @row-click="goDetail" style="width:100%">
+        <el-table-column prop="key" label="模块简称" min-width="90"></el-table-column>
+        <el-table-column prop="name" label="名称" min-width="170"></el-table-column>
+        <el-table-column prop="prefix" label="表前缀" min-width="80"></el-table-column>
+        <el-table-column prop="seg" label="错误码段" min-width="90"></el-table-column>
+        <el-table-column prop="event" label="事件域" min-width="90"></el-table-column>
+        <el-table-column label="类型" min-width="110">
+          <template #default="{ row }">
+            <el-tag :type="row.type === '平台域固定' ? 'info' : 'primary'">{{ row.type }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="状态" width="100">
+          <template #default="{ row }">
+            <el-tag :type="row.status === 'enabled' ? 'success' : 'warning'">{{ row.status === 'enabled' ? '启用' : '规划中' }}</el-tag>
+          </template>
+        </el-table-column>
+      </el-table>
+
+      <!-- ④ 分页 -->
+      <div class="ep-pager">
+        <el-pagination background layout="total, sizes, prev, pager, next" :total="filtered.length"
+          :page-size="query.size" :current-page="query.page"
+          @current-change="onPage" @size-change="onSize"></el-pagination>
+      </div>
+    </div>
   </div>
-  <div id="pager-mod"></div>
 </div>
 
-<script src="../共享资源/原型脚本.js"></script>
-<script src="../02_公共原型/分页.js"></script>
-<script src="../02_公共原型/列表页工具栏.js"></script>
+<script src="../共享资源/vendor/vue.global.prod.js"></script>
+<script src="../共享资源/vendor/element-plus.min.js"></script>
 <script>
-  renderListToolbar({
-    top: document.getElementById('lt-top'),
-    bottom: document.getElementById('pager-mod'),
-    buttons: [
-      { label: '刷新', onClick: function () { toast('已刷新'); } },
-      { label: '关闭', onClick: function () { toast('原型演示：关闭当前模块页面（返回）'); } }
-    ],
-    extra: '<button class="p-btn" onclick="toast(\'原型演示：导出当前筛选结果\')">导出</button>' +
-           '<span class="proto-hint" style="margin-left:10px">平台超管只读视图（无增删改入口）</span>',
-    filter: {
-      placeholder: '关键字：模块简称/名称',
-      extraHtml: '<select class="p-select" style="width:130px" onchange="applyFilter()">' +
-                   '<option value="">状态：全部</option><option>启用</option><option>规划中</option>' +
-                 '</select>' +
-                 '<select class="p-select" style="width:150px" onchange="applyFilter()">' +
-                   '<option value="">类型：全部</option><option>平台域固定</option><option>业务模块</option>' +
-                 '</select>',
-      onSearch: function () { applyFilter(); },
-      onReset: function () { resetFilter(); }
-    },
-    page: { total: 9, page: 1, size: 20, onPage: function (n) { toast('第 ' + n + ' 页'); } }
+  var { createApp, ref, reactive, computed } = Vue;
+  var ElMessage = ElementPlus.ElMessage;
+  var app = createApp({
+    template: document.getElementById('app').outerHTML.replace(/<div id="app">/, '<div>').replace(/<\/div>\s*$/, ''),
+    setup: function () {
+      var rows = ref([
+        { key: 'sys', name: '系统（含权限体系）', prefix: 'sys_', seg: '—', event: 'sys', type: '平台域固定', status: 'enabled' },
+        { key: 'wf', name: '工作流', prefix: 'wf_', seg: '—', event: 'wf', type: '平台域固定', status: 'enabled' },
+        { key: 'rpt', name: '报表', prefix: 'rpt_', seg: '—', event: 'rpt', type: '平台域固定', status: 'enabled' },
+        { key: 'ai', name: 'AI 域', prefix: 'ai_', seg: '—', event: 'ai', type: '平台域固定', status: 'enabled' },
+        { key: 'purchase', name: '采购', prefix: 'pur_', seg: '10', event: 'purchase', type: '业务模块', status: 'enabled' },
+        { key: 'payment', name: '收付款', prefix: 'pay_', seg: '11', event: 'payment', type: '业务模块', status: 'enabled' },
+        { key: 'supplier', name: '供应商', prefix: 'sup_', seg: '—', event: 'supplier', type: '业务模块', status: 'enabled' },
+        { key: 'sale', name: '销售', prefix: 'sale_', seg: '12', event: 'sale', type: '业务模块', status: 'planning' },
+        { key: 'wh', name: '仓储', prefix: 'wh_', seg: '13', event: 'wh', type: '业务模块', status: 'planning' }
+      ]);
+      var query = reactive({ kw: '', status: '', type: '', page: 1, size: 20 });
+      var loading = ref(false);
+      var filtered = computed(function () {
+        return rows.value.filter(function (r) {
+          var text = (r.key + r.name).toLowerCase();
+          return (!query.kw || text.indexOf(query.kw.toLowerCase()) >= 0) &&
+                 (!query.status || r.status === query.status) &&
+                 (!query.type || r.type === query.type);
+        });
+      });
+      var pageRows = computed(function () {
+        var s = (query.page - 1) * query.size;
+        return filtered.value.slice(s, s + query.size);
+      });
+      function applyFilter() { query.page = 1; toastMsg('筛选完成：命中 ' + filtered.value.length + ' 条'); }
+      function resetFilter() { query.kw = ''; query.status = ''; query.type = ''; query.page = 1; }
+      function onPage(n) { query.page = n; }
+      function onSize(s) { query.size = s; query.page = 1; }
+      function goDetail(row) { location.href = '03_模块详情.html?key=' + row.key; }
+      function toastMsg(m) { ElMessage.success(m); }
+      return { rows, query, loading, filtered, pageRows, applyFilter, resetFilter, onPage, onSize, goDetail, toastMsg };
+    }
   });
-  function goDetail(key) {
-    location.href = '03_模块详情.html?key=' + key;
-  }
-  function applyFilter() {
-    var kw = (document.querySelector('.p-filter .keyword').value || '').trim().toLowerCase();
-    var st = document.querySelectorAll('.p-filter .p-select')[0].value;
-    var tp = document.querySelectorAll('.p-filter .p-select')[1].value;
-    var rows = document.querySelectorAll('#tbl-mod tr.row-link');
-    var hit = 0;
-    rows.forEach(function (r) {
-      var text = r.textContent;
-      var ok = (!kw || text.toLowerCase().indexOf(kw) >= 0) &&
-               (!st || text.indexOf(st) >= 0) &&
-               (!tp || text.indexOf(tp) >= 0);
-      r.style.display = ok ? '' : 'none';
-      if (ok) hit++;
-    });
-    document.getElementById('empty-mod').style.display = hit ? 'none' : '';
-    toast('筛选完成：命中 ' + hit + ' 条');
-  }
-  function resetFilter() {
-    document.querySelector('.p-filter .keyword').value = '';
-    document.querySelectorAll('.p-filter .p-select')[0].value = '';
-    document.querySelectorAll('.p-filter .p-select')[1].value = '';
-    applyFilter();
-  }
+  app.use(ElementPlus);
+  app.mount('#app');
 </script>
 
 </body>
