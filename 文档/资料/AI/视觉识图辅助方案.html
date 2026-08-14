@@ -119,7 +119,7 @@ Content-Type: application/json
         <tr><td>endpoint</td><td>环境变量 <code>VISION_API_ENDPOINT</code></td><td>API 基地址（不含 /v1 后缀），如 <code>https://dashscope.aliyuncs.com/compatible-mode</code></td></tr>
         <tr><td>api_key</td><td>环境变量 <code>VISION_API_KEY</code></td><td>密钥不落配置文件、不入库（见第 8 节）</td></tr>
         <tr><td>model</td><td>环境变量 <code>VISION_API_MODEL</code></td><td>识图模型名，如 <code>qwen-vl-max</code></td></tr>
-        <tr><td>timeout</td><td>环境变量 <code>VISION_API_TIMEOUT</code></td><td>单次请求超时秒数，默认 300（本地模型推理较慢）；云端 API 可调小</td></tr>
+        <tr><td>timeout</td><td>环境变量 <code>VISION_API_TIMEOUT</code></td><td>单次请求超时秒数，默认 60（思考关闭后本地模型数秒返回，60s 裕量充足）；失败自动重试 2 次</td></tr>
       </table>
       <div class="note">容错：单次调用失败或模型输出非 JSON 时自动重试 2 次（2s/4s 退避），解析时自动提取 <code>```json</code> 代码块并剥离前后说明文字；多图对比（--images）建议不超过 2 张（本地模型上下文有限）。</div>
       <div class="warn">推理模型思考过程：Qwen 等推理模型（LM Studio 部署）默认先输出大量思考 token，带图评审可能几万 token 都未结束。客户端默认携带 <code>reasoning_effort: "none"</code> 关闭思考（实测评审 4 秒完成）；不识别该参数的云端 API 会自动去掉后重试。如需模型推理能力可设环境变量 <code>VISION_API_REASONING</code> 覆盖。</div>
@@ -136,14 +136,14 @@ Content-Type: application/json
         "endpoint": "http://127.0.0.1:1234",
         "apiKey": "local",
         "model": "qwen/qwen3.6-35b-a3b",
-        "timeout": 300000
+        "timeout": 60000
       }
     ]
   ]
 }</code></pre>
       <ul>
         <li><strong>优先级</strong>：环境变量 <code>VISION_API_*</code> ＞ 插件 options；两者都未配置时工具返回 <code>{ok:false,error}</code> 提示，不影响 opencode 启动。</li>
-        <li><strong>timeout</strong>：本地模型推理较慢（尤其冷加载），建议 300000ms（5 分钟）；云端 API 可缩短。</li>
+        <li><strong>timeout</strong>：关闭思考后本地模型数秒返回，默认 60000ms 裕量充足；云端 API 也可用同一值。</li>
         <li>本地 LM Studio 无鉴权时 apiKey 填占位值（如 <code>local</code>）；真实密钥仅走环境变量（见第 8 节）。</li>
         <li>修改 opencode.json 后需<strong>重启 opencode</strong> 生效。</li>
       </ul>
@@ -300,7 +300,7 @@ sequenceDiagram
       <h2 id="checklist">10. 检查清单</h2>
       <ul>
         <li>□ 密钥仅环境变量，无硬编码/入库（本地无鉴权模型可占位 apiKey）</li>
-        <li>□ Python 客户端独立可用（不依赖 opencode），超时默认 300s，失败自动重试 2 次</li>
+        <li>□ Python 客户端独立可用（不依赖 opencode），超时默认 60s，失败自动重试 2 次</li>
         <li>□ 模型输出非 JSON 时可提取/剥离并重试，输出 JSON 契约稳定</li>
         <li>□ <code>vision_analyze</code> 通用识图：任意图片 + 任意提示词（模板名/路径/直传文本均可）</li>
         <li>□ 插件三工具可调用；缺配置时返回友好错误，不影响 opencode 启动</li>
