@@ -77,11 +77,6 @@
       <!-- ④ 表格下方一行：左下明细工具栏（新增走开通页提示/删除/上移下移 + 通用工具）+ 右下分页 -->
       <div class="ep-bar">
         <div>
-          <el-button size="small" @click="toastMsg('开通租户走开通页')" title="新增行">＋</el-button>
-          <el-button size="small" type="danger" plain :disabled="!selRows.length" @click="delSel" title="删除行">🗑</el-button>
-          <el-button size="small" :disabled="!selRows.length" @click="moveRow(-1)" title="上移行">↑</el-button>
-          <el-button size="small" :disabled="!selRows.length" @click="moveRow(1)" title="下移行">↓</el-button>
-          <el-divider direction="vertical"></el-divider>
           <el-button size="small" @click="toastMsg('原型演示：自动列宽')" title="自动列宽">⟷</el-button>
           <el-button size="small" @click="toastMsg('原型演示：自定义列')" title="自定义列">☰</el-button>
           <el-button size="small" @click="toastMsg('已刷新')" title="刷新">⟳</el-button>
