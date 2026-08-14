@@ -84,7 +84,7 @@
 
       <h3 id="functions-rules">2.2 业务规则</h3>
       <ul>
-        <li>关键表清单：<code>sys_user</code>、<code>sys_role</code>、<code>sys_role_assign</code>、<code>sys_role_permission</code>、<code>sys_role_field</code>、<code>sys_post</code>、<code>sys_dept</code>、<code>sys_notice</code>、<code>sys_tenant_quota</code>、<code>biz_supplier</code>、<code>wf_process</code>、<code>biz_purchase_*</code> 等，变更经 ORM 事件自动记录，无需业务代码侵入</li>
+        <li>关键表清单：<code>sys_user</code>、<code>sys_role</code>、<code>sys_role_assign</code>、<code>sys_role_permission</code>、<code>sys_role_field</code>、<code>sys_post</code>、<code>sys_dept</code>、<code>sys_notice</code>、<code>sys_tenant_quota</code>、<code>sup_supplier</code>、<code>wf_process</code>、<code>pur_purchase_*</code> 等，变更经 ORM 事件自动记录，无需业务代码侵入</li>
         <li>哈希链规则：<code>record_hash = SHA256(prev_hash + 规范化记录内容)</code>；<code>prev_hash</code> 取当前分片表末条 <code>record_hash</code>；新分片表首条 <code>prev_hash</code> = 上月末条 <code>record_hash</code>（跨月衔接）；首月链头为约定初始值</li>
         <li>链序保证：审计事件经 RocketMQ 分区有序消费（分区键 = 租户），同租户串行追加，杜绝并发写乱序破坏 <code>prev_hash</code> 衔接；跨月切换由事件消费逻辑保证（新月份分片表已由 Celery 任务预创建）</li>
         <li>三权互斥：系统/安全/审计三类内置角色权限互斥、同一用户不得兼任；审计管理员只读全部日志与审计数据，无任何写权限</li>
