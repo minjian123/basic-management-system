@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>架构设计 · 子系统 · 模块注册</title>
+<link rel="stylesheet" href="../../资源/文档样式.css">
+</head>
+<body>
+
+<div class="topnav">
+  <a href="01_架构设计_总览.html">架构设计</a> › <span>31-模块注册</span>
+  <span class="topnav-side"><a href="30_架构设计_子系统_表单定制.html">← 30-表单定制</a></span>
+</div>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>架构设计 · 子系统 · 模块注册</h1>
+      <p>BMS · 业务模块注册表 sys_module 与注册校验机制</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#overview">1. 概述</a></li>
+        <li><a href="#data">2. 注册表结构与数据</a></li>
+        <li><a href="#check">3. 注册时机与唯一性校验</a></li>
+        <li><a href="#flow">4. 与新增模块流程的关系</a></li>
+        <li><a href="#coordination">5. 与其他子系统的协调</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="overview">1. 概述</h2>
+      <p>
+        模块注册是 BMS 的平台级基础机制：平台库 <code>sys_module</code> 统一登记业务模块的模块简称、表前缀、
+        错误码段与事件域，启动与 CI 校验唯一，为附加业务模块（销售/仓储等）提供注册制接入底座。
+        对应<a href="../../规划/项目规划说明.html">《项目规划说明》</a>「附加业务模块规划」「核心数据表清单」章节，
+        属<strong>阶段一项目骨架</strong>交付能力，早于 RBAC（阶段三）落地，后续阶段均基于注册机制建模块。
+      </p>
+
+      <h2 id="data">2. 注册表结构与数据</h2>
+      <table>
+        <tr><th>表</th><th>关键字段</th><th>说明</th></tr>
+        <tr><td>sys_module</td><td>module_key、name、table_prefix、errcode_segment、event_domain、status</td><td>【平台库】业务模块注册表：模块简称（module_key，如 purchase）、表前缀（table_prefix，如 pur_）、错误码段（errcode_segment 段号，如 10）、事件域（event_domain，如 purchase）、状态；多语言模块名存 sys_module_i18n；租户侧可见、不可增删</td></tr>
+      </table>
+      <ul>
+        <li><strong>平台域内置种子</strong>：sys（系统）、wf（工作流）、rpt（报表）、ai（AI 域）同样注册，校验规则统一覆盖，防止业务模块前缀与平台域冲突</li>
+        <li><strong>字段约束</strong>：table_prefix 形如 {简称}_（如 pur_）；errcode_segment 为两位段号（10 起）；event_domain 默认与 module_key 一致，为多事件域模块预留扩展</li>
+        <li><strong>表位置</strong>：平台库（bms_platform），与 sys_business / sys_action 同模式——平台统一维护、种子下发、租户可见不可增删</li>
+      </ul>
+
+      <h2 id="check">3. 注册时机与唯一性校验</h2>
+      <ul>
+        <li><strong>种子注册</strong>：新增业务模块以平台种子数据方式注册（Alembic 数据迁移或种子脚本），随版本发布</li>
+        <li><strong>启动校验</strong>：应用启动时读取 sys_module，校验 table_prefix / errcode_segment / event_domain 三要素唯一且格式正确（{简称}_、两位段号、小写域），冲突即启动失败并给出冲突模块</li>
+        <li><strong>CI 校验</strong>：流水线对种子与迁移脚本执行同规则校验（测试库迁移后查重），冲突不允许合并</li>
+        <li><strong>维护方式</strong>：注册表不提供页面增删（新增模块走开发期种子）；平台超管运营视图提供只读查询与状态查看</li>
+      </ul>
+
+      <h2 id="flow">4. 与新增模块流程的关系</h2>
+      <ol>
+        <li>模块注册是内置模块标准接入流程（规划 23.2）第 1 步：确定模块简称、表前缀、业务码、错误码段、事件域，先注册于 sys_module（种子），再建表、建代码</li>
+        <li>注册后与既有机制自动对齐：业务码注册 sys_business、动作码注册 sys_action（平台种子），菜单/表单/按钮/字段种子挂接动态路由，前端免发版</li>
+        <li>错误码段与事件域以 sys_module 登记值为权威：错误码段分配表（10xxxx 起，段号两位）与事件命名 {域}.{动作} 均以注册值为依据</li>
+        <li>独立服务轨不注册 sys_module（不进租户库与平台库），仅经认证 / 开放接口 / Webhook 集成</li>
+      </ol>
+
+      <h2 id="coordination">5. 与其他子系统的协调</h2>
+      <ul>
+        <li><a href="05_架构设计_数据架构.html">数据架构</a>：sys_module 属平台库表，表名前缀规则（平台域固定 + 业务模块注册制）与本节点一致</li>
+        <li><a href="10_架构设计_子系统_权限计算引擎.html">权限计算引擎</a>：模块注册先行、业务/动作码注册随后，两者均为平台库种子，机制并行</li>
+        <li><a href="06_架构设计_接口与集成.html">接口与集成</a>：错误码分段（10xxxx 起）与事件模型（{域}.{动作}）以注册值为权威</li>
+        <li><a href="03_架构设计_总体架构.html">总体架构</a>：后端模块目录（app/api/{简称}/）与前端目录（views/{简称}/）与 module_key 对齐</li>
+        <li><a href="25_架构设计_前端架构.html">前端架构</a>：动态路由按菜单种子生成，模块新增无需前端发版</li>
+      </ul>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 架构设计节点 · 与《项目规划说明》《文档生成规范》《命名规范》配套 · 生成日期：2026-08-14
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>
