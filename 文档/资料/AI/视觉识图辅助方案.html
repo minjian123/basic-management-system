@@ -46,10 +46,11 @@
             <li><a href="#plugin-flow">6.2 调用流程</a></li>
           </ul>
         </li>
-        <li><a href="#scenes">7. 场景适配</a>
+        <li><a href="#scenes">7. 场景适配（模板即场景）</a>
           <ul class="sub">
-            <li><a href="#scene-prototype">7.1 原型视觉评审</a></li>
-            <li><a href="#scene-other">7.2 其他场景</a></li>
+            <li><a href="#scene-mechanism">7.1 场景机制：通用识图 + 模板</a></li>
+            <li><a href="#scene-prototype">7.2 场景示例：原型视觉评审</a></li>
+            <li><a href="#scene-other">7.3 场景清单</a></li>
           </ul>
         </li>
         <li><a href="#security">8. 安全与隐私</a></li>
@@ -65,8 +66,8 @@
       <h2 id="purpose">1. 目的与适用范围</h2>
       <p>
         为 BMS 项目（<a href="../../规划/项目规划说明.html">《项目规划说明》</a>）建设一项<strong>通用识图辅助能力</strong>：
-        通过调用外部识图模型 API，让 AI 助手能够「看图」，覆盖原型视觉评审、截图分析、文档图片理解等场景。
-        能力以 opencode 插件 + Python 客户端 + Edge 无头截图三部分组成，<strong>与具体场景解耦</strong>，
+        通过调用外部识图模型 API，让 AI 助手能够「看图」。能力以 opencode 插件 + Python 客户端 + Edge 无头截图三部分组成，<strong>与具体场景解耦</strong>——
+        <code>vision_analyze</code> 提供「任意图片 + 任意提示词」的通用识图，原型评审、界面走查、文档图片理解等都是它的使用方式，
         新场景只需新增提示词模板即可复用。
       </p>
       <div class="note">背景：当前会话模型（deepseek-v4-flash）不支持图片输入，原型设计工作流缺少视觉校验环节。本方案补齐「截图 → 识图 → 问题清单 → 修正」闭环。</div>
@@ -118,8 +119,10 @@ Content-Type: application/json
         <tr><td>endpoint</td><td>环境变量 <code>VISION_API_ENDPOINT</code></td><td>API 基地址（不含 /v1 后缀），如 <code>https://dashscope.aliyuncs.com/compatible-mode</code></td></tr>
         <tr><td>api_key</td><td>环境变量 <code>VISION_API_KEY</code></td><td>密钥不落配置文件、不入库（见第 8 节）</td></tr>
         <tr><td>model</td><td>环境变量 <code>VISION_API_MODEL</code></td><td>识图模型名，如 <code>qwen-vl-max</code></td></tr>
-        <tr><td>timeout</td><td>环境变量 <code>VISION_API_TIMEOUT</code></td><td>请求超时秒数，默认 60</td></tr>
+        <tr><td>timeout</td><td>环境变量 <code>VISION_API_TIMEOUT</code></td><td>单次请求超时秒数，默认 300（本地模型推理较慢）；云端 API 可调小</td></tr>
       </table>
+      <div class="note">容错：单次调用失败或模型输出非 JSON 时自动重试 2 次（2s/4s 退避），解析时自动提取 <code>```json</code> 代码块并剥离前后说明文字；多图对比（--images）建议不超过 2 张（本地模型上下文有限）。</div>
+      <div class="warn">推理模型思考过程：Qwen 等推理模型（LM Studio 部署）默认先输出大量思考 token，带图评审可能几万 token 都未结束。客户端默认携带 <code>reasoning_effort: "none"</code> 关闭思考（实测评审 4 秒完成）；不识别该参数的云端 API 会自动去掉后重试。如需模型推理能力可设环境变量 <code>VISION_API_REASONING</code> 覆盖。</div>
 
       <h3 id="api-fixed">3.3 固化配置（opencode.json）</h3>
       <p>本地模型（如 LM Studio，endpoint 为 <code>http://127.0.0.1:1234</code>）可把配置固化到 opencode.json 插件 options，随项目走、一处维护，避免每次会话设置环境变量：</p>
@@ -144,6 +147,7 @@ Content-Type: application/json
         <li>本地 LM Studio 无鉴权时 apiKey 填占位值（如 <code>local</code>）；真实密钥仅走环境变量（见第 8 节）。</li>
         <li>修改 opencode.json 后需<strong>重启 opencode</strong> 生效。</li>
       </ul>
+      <div class="note">本地模型预热：LM Studio 中把模型设为<strong>常驻内存</strong>（Keep model loaded / 不自动卸载），可避免每次首次调用冷加载等待 2-3 分钟；首次调用即使超时也可能只是加载慢，重试即恢复。</div>
 
       <h2 id="python-cli">4. Python 识图客户端</h2>
       <p>脚本 <code>deploy/tools/vision/vision_analyze.py</code>（<code>deploy/tools/vision/</code>），仅依赖标准库（<code>urllib</code>）与可选 <code>requests</code>，避免引入第三方依赖。</p>
@@ -196,12 +200,27 @@ python vision_analyze.py --image page.png --prompt x.md --out result.json</code>
       <h3 id="plugin-tool">6.1 注册的工具</h3>
       <table>
         <tr><th>工具</th><th>参数</th><th>行为</th></tr>
-        <tr><td><code>vision_analyze</code></td><td><code>image</code>（单图）或 <code>images</code>（多图逗号分隔，一次调用供对比/综合）、<code>prompt</code>（模板名或文本）、<code>out</code>（结果输出）</td><td>通用识图：任意图片 + 任意提示词，返回结构化 JSON；新增模板即新增场景</td></tr>
-        <tr><td><code>vision_screenshot</code></td><td><code>url</code>（HTML 路径或 URL）、<code>width</code>/<code>height</code>、<code>out</code>（输出路径）</td><td>Edge 无头截图（任意页面）</td></tr>
-        <tr><td><code>vision_review_proto</code></td><td><code>target</code>（HTML 路径或 URL）、<code>template</code>（模板名，默认 prototype-review）、<code>sizes</code>（分辨率列表）、<code>report</code>（报告输出路径）</td><td>页面视觉评审组合动作：多档截图 + 逐图识图 + 汇总（通用页面走查，不限于原型）</td></tr>
+        <tr><td><code>vision_analyze</code>（核心）</td><td><code>image</code>（单图）或 <code>images</code>（多图逗号分隔，一次调用供对比/综合）、<code>prompt</code>（模板名或文本）、<code>text</code>（直传提示词）、<code>out</code>（结果输出）</td><td><strong>通用识图核心工具</strong>：任意图片 + 任意提示词，返回结构化 JSON；图片类型不限（界面截图、文档图、流程图、图表、照片），是全部场景的基础</td></tr>
+        <tr><td><code>vision_screenshot</code></td><td><code>url</code>（HTML 路径或 URL）、<code>width</code>/<code>height</code>、<code>out</code>（输出路径）</td><td>Edge 无头截图（任意页面），为识图提供图片来源</td></tr>
+        <tr><td><code>vision_review_proto</code>（场景封装）</td><td><code>target</code>（HTML 路径或 URL）、<code>template</code>（模板名，默认 prototype-review）、<code>sizes</code>（分辨率列表，如移动端 <code>375x812</code>）、<code>report</code>（HTML 报告输出路径，缺省 <code>temp/vision/{页面名}_{时间}.html</code>）</td><td><strong>评审场景组合动作</strong>：多档截图 + 逐图调用通用识图 + 生成 HTML 报告（含截图缩略图+问题清单，遵循《文档生成规范》）；本质是 vision_analyze 的场景化封装，通用页面走查，不限于原型</td></tr>
       </table>
 
       <h3 id="plugin-flow">6.2 调用流程</h3>
+      <p>通用识图（核心路径，任意图片 + 任意提示词）：</p>
+      <pre class="mermaid">
+sequenceDiagram
+    participant M as AI 助手
+    participant P as vision.js 插件
+    participant C as Python 客户端
+    participant A as 识图 API
+    M->>P: vision_analyze("架构图.png", prompt="image-understanding")
+    P->>C: vision_analyze.py --image xxx.png
+    C->>A: base64 图片 + 提示词
+    A-->>C: 结构化结果
+    C-->>P: JSON
+    P-->>M: 元素/关系/问题清单
+      </pre>
+      <p>场景化组合（原型评审，vision_review_proto 内部仍走通用识图）：</p>
       <pre class="mermaid">
 sequenceDiagram
     participant M as AI 助手
@@ -212,33 +231,51 @@ sequenceDiagram
     P->>P: 探测 Edge 路径
     P->>P: 三档分辨率截图
     loop 每张截图
-        P->>C: vision_analyze.py --image xxx.png
+        P->>C: vision_analyze.py --image xxx.png --prompt prototype-review
         C->>A: base64 + 评审提示词
         A-->>C: 问题清单
         C-->>P: JSON
     end
-    P-->>M: 汇总报告 + 建议
+    P-->>M: HTML 评审报告 + 修正建议
     M->>M: 按清单修正原型
       </pre>
 
-      <h2 id="scenes">7. 场景适配</h2>
-      <p>能力本身与场景解耦：<code>vision_analyze</code> 可分析任意本地图片（界面截图、文档图、流程图、图表、对比图），提示词用 <code>--text</code> 直传或 <code>prompts/</code> 下的模板文件；<strong>新场景 = 新增一个模板文件</strong>，无需改代码。</p>
+      <h2 id="scenes">7. 场景适配（模板即场景）</h2>
+      <p><strong>通用识图是能力主体，场景是使用方式</strong>：<code>vision_analyze</code> 可分析任意本地图片（界面截图、文档图、流程图、图表、对比图），提示词用 <code>--text</code> 直传或 <code>prompts/</code> 下的模板文件；<strong>新场景 = 新增一个模板文件</strong>，无需改代码，需要多图/组合/报告等包装动作时再追加场景封装工具。</p>
 
-      <h3 id="scene-prototype">7.1 原型视觉评审（首批场景）</h3>
+      <h3 id="scene-mechanism">7.1 场景机制：通用识图 + 模板</h3>
+      <ul>
+        <li><strong>一张图 + 一段提示词</strong>：<code>vision_analyze</code> 接受任意本地图片路径与任意提示词（模板名或直传文本），模板名解析顺序：<code>prompts/</code> 下文件 → 文件路径 → 直接当文本用。</li>
+        <li><strong>模板即场景</strong>：每个场景对应一个 <code>prompts/</code> 下的 md 模板（注入该场景的评审/分析规则与输出格式），已有模板：</li>
+        <li>
+          <table>
+            <tr><th>模板</th><th>场景</th><th>输出</th></tr>
+            <tr><td><code>image-understanding.md</code></td><td>通用图片理解：文档图、架构图、流程图、图表、截图内容提取</td><td>summary / elements / relations / highlights</td></tr>
+            <tr><td><code>general-review.md</code></td><td>通用界面走查：用户提供任意界面截图，对照需求检查</td><td>summary / issues</td></tr>
+            <tr><td><code>prototype-review.md</code></td><td>PC 原型评审（含设计令牌/列表页/表单页/弹窗规则）</td><td>summary / issues</td></tr>
+            <tr><td><code>mobile-review.md</code></td><td>移动端 H5 评审（TabBar/NavBar/安全区/触控目标）</td><td>summary / issues</td></tr>
+          </table>
+        </li>
+        <li><strong>直接使用</strong>：不建模板时用 <code>--text</code> 直传提示词，临时场景即刻可用。</li>
+      </ul>
+
+      <h3 id="scene-prototype">7.2 场景示例：原型视觉评审</h3>
       <ul>
         <li>提示词模板 <code>prompts/prototype-review.md</code> 注入评审规则：<a href="../../设计/布局设计/02_布局设计_设计令牌.html">设计令牌</a>色值/间距/栅格、<a href="../../设计/布局设计/07_布局设计_列表页.html">列表页</a>三段式（工具栏/筛选/表格/分页）、<a href="../../设计/布局设计/08_布局设计_表单页.html">表单页</a>分态工具栏、弹窗规格、设计说明文字不得出现在界面等检查项。</li>
         <li>触发方式：AI 助手在原型改动后调用 <code>vision_review_proto</code>，或用户要求「评审原型 XX」。当前模型无识图能力时，由插件完成识图并把结果注入对话。</li>
-        <li>报告落位：<code>文档/资料/评审报告/</code>（HTML，含截图缩略图 + 问题清单），遵循<a href="../../规范/文档生成规范.html">《文档生成规范》</a>。</li>
+        <li>报告落位：项目下临时目录 <code>temp/vision/</code>（HTML，含截图缩略图 + 问题清单，缺省文件名 <code>{页面名}_{时间}.html</code>，已 gitignore 不入库），遵循<a href="../../规范/文档生成规范.html">《文档生成规范》</a>；需留档时再用 <code>report</code> 参数输出到项目内其他位置。</li>
         <li>修正闭环：AI 按问题清单修正 → 重新截图复评，直到无高危问题。</li>
       </ul>
 
-      <h3 id="scene-other">7.2 其他场景（后续按需扩展）</h3>
+      <h3 id="scene-other">7.3 场景清单</h3>
       <table>
-        <tr><th>场景</th><th>说明</th><th>新增内容</th></tr>
-        <tr><td>文档图片理解</td><td>分析文档中引用的架构图/流程图截图</td><td>通用模板（识别图中元素与关系）</td></tr>
-        <tr><td>界面截图走查</td><td>用户提供任意界面截图，对照需求检查</td><td>通用模板</td></tr>
-        <tr><td>移动端评审</td><td>对<a href="../../设计/原型设计/10_移动端/01_设计说明.html">移动端原型</a>按 375×812 手机视口截图评审</td><td>移动端模板 + 分辨率档</td></tr>
-        <tr><td>图表/报表评审</td><td>评审工作台图表卡、报表设计器渲染效果</td><td>图表模板</td></tr>
+        <tr><th>场景</th><th>说明</th><th>模板/动作</th><th>状态</th></tr>
+        <tr><td>通用图片理解</td><td>分析文档中引用的架构图/流程图/图表截图，提取元素与关系</td><td><code>image-understanding.md</code></td><td>已就绪</td></tr>
+        <tr><td>界面截图走查</td><td>用户提供任意界面截图，对照需求检查</td><td><code>general-review.md</code></td><td>已就绪</td></tr>
+        <tr><td>PC 原型评审</td><td>对<a href="../../设计/原型设计/02_通用骨架/03_主框架.html">主框架原型</a>等按三档断点截图评审</td><td><code>prototype-review.md</code> + <code>vision_review_proto</code></td><td>已就绪</td></tr>
+        <tr><td>移动端评审</td><td>对<a href="../../设计/原型设计/10_移动端/01_设计说明.html">移动端原型</a>按 375×812 手机视口截图评审</td><td><code>mobile-review.md</code> + <code>sizes=375x812</code></td><td>已就绪</td></tr>
+        <tr><td>图表/报表评审</td><td>评审工作台图表卡、报表设计器渲染效果</td><td>图表模板</td><td>按需扩展</td></tr>
+        <tr><td>多图对比</td><td>同一界面多尺寸/多状态对比、修正前后对比</td><td><code>--images</code> 一次调用（建议 ≤2 张）</td><td>已就绪</td></tr>
       </table>
 
       <h2 id="security">8. 安全与隐私</h2>
@@ -263,12 +300,15 @@ sequenceDiagram
       <h2 id="checklist">10. 检查清单</h2>
       <ul>
         <li>□ 密钥仅环境变量，无硬编码/入库（本地无鉴权模型可占位 apiKey）</li>
-        <li>□ Python 客户端独立可用（不依赖 opencode）</li>
-        <li>□ 插件三工具可调用，输出 JSON 契约稳定</li>
-        <li>□ 三档断点截图正确，响应式问题可被发现</li>
-        <li>□ 原型评审提示词覆盖设计令牌/列表页/表单页/弹窗规则</li>
-        <li>□ 评审报告遵循文档生成规范（html、公共样式、topnav）</li>
-        <li>□ 端到端演示评审通过，修正闭环跑通</li>
+        <li>□ Python 客户端独立可用（不依赖 opencode），超时默认 300s，失败自动重试 2 次</li>
+        <li>□ 模型输出非 JSON 时可提取/剥离并重试，输出 JSON 契约稳定</li>
+        <li>□ <code>vision_analyze</code> 通用识图：任意图片 + 任意提示词（模板名/路径/直传文本均可）</li>
+        <li>□ 插件三工具可调用；缺配置时返回友好错误，不影响 opencode 启动</li>
+        <li>□ 模板即场景：image-understanding / general-review / prototype-review / mobile-review 齐备</li>
+        <li>□ 三档断点截图正确，响应式问题可被发现；移动端 375×812 档位可用</li>
+        <li>□ 原型评审提示词覆盖设计令牌/列表页/表单页/弹窗规则；移动端模板覆盖 TabBar/NavBar/安全区</li>
+        <li>□ 评审报告遵循文档生成规范（html、公共样式、topnav），输出到 temp/vision/ 不入库</li>
+        <li>□ 端到端演示验证通过（通用识图 + 原型评审）</li>
       </ul>
 
     </main>

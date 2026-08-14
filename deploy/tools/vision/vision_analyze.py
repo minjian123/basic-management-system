@@ -21,6 +21,7 @@ import base64
 import json
 import os
 import sys
+import time
 import urllib.request
 import urllib.error
 from pathlib import Path
@@ -52,7 +53,10 @@ def resolve_prompt(arg):
     return arg
 
 
-def call_api(data_uris, text, endpoint, key, model, timeout):
+def call_api(data_uris, text, endpoint, key, model, timeout, reasoning="none"):
+    """调用 OpenAI 兼容接口。reasoning 默认 'none'：关闭推理模型的思考过程（本地 LM Studio 用
+    reasoning_effort=none 关闭，否则每次请求先输出大量思考 token，评审会非常慢）。
+    不识别该参数的云端 API 会返回 400，自动去掉该字段重试一次。"""
     payload = {
         "model": model,
         "temperature": 0.2,
@@ -62,16 +66,70 @@ def call_api(data_uris, text, endpoint, key, model, timeout):
             + [{"type": "image_url", "image_url": {"url": u}} for u in data_uris],
         }],
     }
+    if reasoning:
+        payload["reasoning_effort"] = reasoning
     url = endpoint.rstrip("/") + "/v1/chat/completions"
-    req = urllib.request.Request(
-        url,
-        data=json.dumps(payload).encode("utf-8"),
-        headers={"Content-Type": "application/json", "Authorization": "Bearer " + key},
-        method="POST",
-    )
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
-        body = json.loads(resp.read().decode("utf-8"))
-    return body["choices"][0]["message"]["content"]
+    body = json.dumps(payload).encode("utf-8")
+    headers = {"Content-Type": "application/json", "Authorization": "Bearer " + key}
+    try:
+        req = urllib.request.Request(url, data=body, headers=headers, method="POST")
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            result = json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        if e.code == 400 and reasoning:
+            payload.pop("reasoning_effort")
+            req = urllib.request.Request(url, data=json.dumps(payload).encode("utf-8"), headers=headers, method="POST")
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                result = json.loads(resp.read().decode("utf-8"))
+        else:
+            raise
+    return result["choices"][0]["message"]["content"]
+
+
+def parse_json(raw):
+    """把模型输出解析为 JSON：先直接解析，失败则提取 ```json 块，再剥离首尾非 JSON 字符。"""
+    if not raw:
+        return None
+    s = raw.strip()
+    if s.startswith("```"):
+        lines = s.splitlines()
+        if lines and lines[0].lstrip().startswith("```"):
+            lines = lines[1:]
+        if lines and lines[-1].strip() == "```":
+            lines = lines[:-1]
+        s = "\n".join(lines).strip()
+    try:
+        return json.loads(s)
+    except Exception:  # noqa: BLE001
+        pass
+    i, j = s.find("{"), s.rfind("}")
+    if i != -1 and j > i:
+        try:
+            return json.loads(s[i:j + 1])
+        except Exception:  # noqa: BLE001
+            return None
+    return None
+
+
+def analyze_with_retry(uris, prompt, endpoint, key, model, timeout, reasoning="none", max_retries=2):
+    """单次识图：调用 + JSON 解析，调用失败或解析失败时按 2s/4s 退避重试（默认共 3 次尝试）。"""
+    last = None
+    for attempt in range(max_retries + 1):
+        try:
+            raw = call_api(uris, prompt, endpoint, key, model, timeout, reasoning)
+        except urllib.error.HTTPError as e:
+            last = "HTTP %s: %s" % (e.code, e.read().decode("utf-8", "ignore")[:500])
+        except Exception as e:  # noqa: BLE001
+            last = str(e)
+        else:
+            parsed = parse_json(raw)
+            if parsed is not None:
+                parsed.setdefault("ok", True)
+                return parsed
+            last = "JSON 解析失败（输出非 JSON）: %s" % raw[:200]
+        if attempt < max_retries:
+            time.sleep(2 * (attempt + 1))
+    return {"ok": False, "error": last, "raw": raw if "raw" in locals() else None}
 
 
 def fail(msg):
@@ -86,7 +144,8 @@ def main():
     ap.add_argument("--prompt", help="提示词模板名（prompts/ 下）或模板文件路径")
     ap.add_argument("--text", help="直接提示词文本（与 --prompt 二选一）")
     ap.add_argument("--out", help="输出 JSON 文件路径（缺省输出 stdout）")
-    ap.add_argument("--timeout", type=int, default=int(os.environ.get("VISION_API_TIMEOUT", "60")))
+    ap.add_argument("--timeout", type=int, default=int(os.environ.get("VISION_API_TIMEOUT", "300")))
+    reasoning = os.environ.get("VISION_API_REASONING", "none")
     args = ap.parse_args()
 
     endpoint = os.environ.get("VISION_API_ENDPOINT", "")
@@ -118,16 +177,8 @@ def main():
     if args.images:
         try:
             uris = [img_to_data_uri(i) for i in images]
-            raw = call_api(uris, prompt, endpoint, key, model, args.timeout)
-            try:
-                out = json.loads(raw)
-                out.setdefault("ok", True)
-            except Exception:
-                out = {"ok": True, "raw": raw}
+            out = analyze_with_retry(uris, prompt, endpoint, key, model, args.timeout, reasoning)
             out["images"] = images
-        except urllib.error.HTTPError as e:
-            out = {"ok": False, "images": images,
-                   "error": "HTTP %s: %s" % (e.code, e.read().decode("utf-8", "ignore")[:500])}
         except Exception as e:  # noqa: BLE001
             out = {"ok": False, "images": images, "error": str(e)}
         text = json.dumps(out, ensure_ascii=False, indent=2)
@@ -141,19 +192,11 @@ def main():
     results = []
     for i, u in enumerate(uris):
         try:
-            raw = call_api([u], prompt, endpoint, key, model, args.timeout)
-            try:
-                parsed = json.loads(raw)
-            except Exception:
-                parsed = {"ok": True, "raw": raw}
-            parsed.setdefault("ok", True)
-            parsed.setdefault("image", images[i])
-            results.append(parsed)
-        except urllib.error.HTTPError as e:
-            results.append({"ok": False, "image": images[i],
-                            "error": "HTTP %s: %s" % (e.code, e.read().decode("utf-8", "ignore")[:500])})
+            parsed = analyze_with_retry([u], prompt, endpoint, key, model, args.timeout, reasoning)
         except Exception as e:  # noqa: BLE001
-            results.append({"ok": False, "image": images[i], "error": str(e)})
+            parsed = {"ok": False, "error": str(e)}
+        parsed.setdefault("image", images[i])
+        results.append(parsed)
 
     out = results[0] if len(results) == 1 else {"ok": True, "batch": results}
     text = json.dumps(out, ensure_ascii=False, indent=2)
