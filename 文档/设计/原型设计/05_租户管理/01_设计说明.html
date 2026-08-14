@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 租户管理 · 设计说明</title>
+<link rel="stylesheet" href="../../../资源/文档样式.css">
+</head>
+<body>
+
+<div class="topnav">
+  <a href="../../../文档首页.html">文档首页</a> ›
+  <a href="../../../规划/项目规划说明.html">项目规划说明</a> ›
+  <a href="../01_原型设计_总览.html">原型设计</a> ›
+  <span>租户管理 · 设计说明</span>
+</div>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>原型 · 租户管理</h1>
+      <p>租户开通（模块勾选）· 租户模块开关 · 平台超管运营视图</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#overview">1. 模块概述</a></li>
+        <li><a href="#pages">2. 界面清单</a></li>
+        <li><a href="#interact">3. 交互要点</a></li>
+        <li><a href="#reference">4. 设计依据</a></li>
+        <li><a href="#iter">5. 迭代记录</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="overview">1. 模块概述</h2>
+      <p>
+        平台超管（sys_admin）的租户运营视图：租户开通（自动建库 + 迁移 + 种子 + <strong>模块勾选清单</strong>）、
+        停用/启用、域名配置、配额管理、<strong>租户模块开关</strong>（运营期启停租户的业务模块，停用后入口禁用、
+        数据保留、重新开通即恢复）。
+        对应<a href="../../概要设计/26_概要设计_租户管理.html">《概要设计-租户管理》</a>；
+        模块开关机制见<a href="../../架构设计/07_架构设计_子系统_模块注册.html">《架构设计-模块注册子系统》</a>3.4 节（sys_tenant_module）。
+      </p>
+
+      <h2 id="pages">2. 界面清单</h2>
+      <table>
+        <tr><th>界面</th><th>原型（可点击操作）</th><th>主要交互验证点</th></tr>
+        <tr><td>租户列表页</td><td><a href="02_租户列表页.html">租户列表页.html</a></td><td>租户列表/筛选、开通入口、行级「模块开关」入口</td></tr>
+        <tr><td>租户开通页</td><td><a href="03_租户开通页.html">租户开通页.html</a></td><td>开通表单 + 业务模块勾选（未勾选不开通）、规划中模块置灰</td></tr>
+        <tr><td>租户模块开关</td><td><a href="04_租户模块开关.html">租户模块开关.html</a></td><td>模块清单与状态、启停切换、停用确认提示（数据保留）</td></tr>
+      </table>
+
+      <h2 id="interact">3. 交互要点</h2>
+      <ul>
+        <li>租户开通：提交（code/name/domain + 模块勾选清单）→ 模拟建库/迁移/种子 → 开通成功 Toast；模块未勾选默认不开通</li>
+        <li>模块勾选列表仅列 sys_module 中<strong>启用状态</strong>的业务模块；规划中模块（销售/仓储）置灰标注「规划中（未交付）」</li>
+        <li>平台域基础能力（sys/wf/rpt/ai）恒开通、不参与勾选（界面提示）</li>
+        <li>模块停用：确认弹窗说明影响面（菜单/接口不可用、数据保留、重新开通恢复、进行中流程不受影响）；停用后开关变「已停用」</li>
+        <li>仅平台超管可见可操作；租户侧无此菜单</li>
+      </ul>
+
+      <h2 id="reference">4. 设计依据</h2>
+      <ul>
+        <li>概要：<a href="../../概要设计/26_概要设计_租户管理.html">《概要设计-租户管理》</a>（开通/域名/配额/模块开关）</li>
+        <li>架构：<a href="../../架构设计/07_架构设计_子系统_模块注册.html">《架构设计-模块注册子系统》</a>（3.4 租户模块开关）、<a href="../../架构设计/08_架构设计_子系统_多租户路由.html">多租户路由</a></li>
+        <li>规划：<a href="../../../规划/项目规划说明.html">《项目规划说明》</a>「租户管理」「附加业务模块规划」23.9 租户模块开关</li>
+      </ul>
+
+      <h2 id="iter">5. 迭代记录</h2>
+      <table>
+        <tr><th>日期</th><th>变更</th><th>状态</th></tr>
+        <tr><td>2026-08-14</td><td>初版：租户列表 / 租户开通（模块勾选）/ 租户模块开关</td><td>待评审</td></tr>
+      </table>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 原型设计模块说明 · 依《文档生成规范》编写 · 生成日期：2026-08-14
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>
