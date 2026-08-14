@@ -14,7 +14,8 @@
   <a href="01_布局设计_总览.html">布局设计</a> ›
   <span>表单框架布局设计</span>
   <span class="topnav-side">
-    <a href="05_布局设计_导航.html">← 上一个：导航</a>`n    <a href="07_布局设计_列表页.html">下一个：列表页 →</a>
+    <a href="05_布局设计_导航.html">← 上一个：导航</a>
+    <a href="07_布局设计_列表页.html">下一个：列表页 →</a>
   </span>
 </div>
 
@@ -29,8 +30,8 @@
       <ul>
         <li><a href="#frame">1. 表单框架（FormFrame）</a>
           <ul class="sub">
-            <li><a href="#frame-list">1.1 形态一：列表 Tab</a></li>
-            <li><a href="#frame-detail">1.2 形态二：表单 Tab</a></li>
+            <li><a href="#frame-list">1.1 形态一：列表 Tab（激活「列表」）</a></li>
+            <li><a href="#frame-detail">1.2 形态二：表单 Tab（激活「记录A」）</a></li>
           </ul>
         </li>
         <li><a href="#separation">2. 职责分离（列表页与表单页）</a></li>
@@ -56,7 +57,7 @@
         <div class="d-box d-title">FormFrame · 列表 Tab（激活）</div>
         <div class="d-box d-tabs">表单 Tab 页栏：<span class="d-fixed" style="padding:0 .3rem">列表（激活）</span> │ 记录A × │ 记录B ×</div>
         <div class="d-box d-body">
-          <div>→ <a href="07_布局设计_列表页.html">列表页布局</a>：工具栏（新增/刷新/关闭）</div>
+          <div>→ <a href="07_布局设计_列表页.html">列表页布局</a>：工具栏（按钮组成见<a href="07_布局设计_列表页.html">列表页布局</a>第 4 节）</div>
           <div class="d-sub" style="margin-top:.3rem">筛选区 → 表格（无操作列，双击行打开表单 Tab；分页区跟随表格明细）</div>
         </div>
       </div>
@@ -66,7 +67,7 @@
         <div class="d-box d-title">FormFrame · 表单 Tab（激活）</div>
         <div class="d-box d-tabs">表单 Tab 页栏：列表 │ <span class="d-fixed" style="padding:0 .3rem">记录A ×（激活）</span> │ 记录B ×</div>
         <div class="d-box d-body">
-          <div>→ <a href="08_布局设计_表单页.html">表单页布局</a>：工具栏（修改/删除/刷新/关闭，编辑态变保存）</div>
+          <div>→ <a href="08_布局设计_表单页.html">表单页布局</a>：工具栏（按钮组成见<a href="08_布局设计_表单页.html">表单页布局</a>第 2 节，编辑态切换主操作）</div>
           <div class="d-sub" style="margin-top:.3rem">信息栏：详细信息（主表字段区 + 明细区）│ 系统信息</div>
         </div>
       </div>
@@ -111,20 +112,11 @@
       </table>
 
       <h2 id="toolbar">4. 工具栏</h2>
-      <p><strong>列表页与表单页各有一行工具栏，两处分开</strong>，各自承载于对应页面组件内：列表页工具栏（新增/刷新/关闭等）位于筛选区上方（见《<a href="07_布局设计_列表页.html">列表页布局</a>》第 2 节）；表单页工具栏（修改/保存/删除/刷新/关闭）位于表单页内。</p>
-      <table>
-        <tr><th>按钮</th><th>出现状态</th><th>说明</th></tr>
-        <tr><td>新增</td><td>列表 Tab</td><td>打开空表单 Tab（新增态，直接可编辑），保存后写入并刷新列表</td></tr>
-        <tr><td>修改</td><td>表单 Tab（只读态）</td><td>从只读态进入编辑态，字段启用</td></tr>
-        <tr><td>保存</td><td>表单 Tab（编辑态）</td><td>保存当前表单修改（主从模块整体提交主表 + 全部明细，单事务）</td></tr>
-        <tr><td>删除</td><td>表单 Tab</td><td>删除当前记录（含明细，需确认）</td></tr>
-        <tr><td>刷新</td><td>列表/表单 Tab</td><td>重新加载当前数据（丢弃未保存修改，触发脏数据确认）</td></tr>
-        <tr><td>关闭</td><td>表单 Tab</td><td>关闭当前表单 Tab，回到列表 Tab</td></tr>
-      </table>
+      <p><strong>列表页与表单页各有一行工具栏，两处分开</strong>，各自承载于对应页面组件内，具体按钮组成由内容页布局定义：列表页工具栏位于筛选区上方（见《<a href="07_布局设计_列表页.html">列表页布局</a>》第 4 节）；表单页工具栏位于表单页内（见《<a href="08_布局设计_表单页.html">表单页布局</a>》第 2 节）。本节只约定框架级通用规则：</p>
       <ul>
-        <li>按钮按激活状态与编辑态启用：列表 Tab 提供「新增/刷新」；表单 Tab 只读态提供「修改/删除/刷新/关闭」，编辑态将「修改」切换为「保存」；按钮归属对应页面各自实现。</li>
+        <li>工具栏按钮随激活状态与编辑态分态启用（如编辑态切换主操作），分态规则由对应内容页定义；按钮归属对应页面各自实现。</li>
         <li><strong>前置图标</strong>：工具栏按钮可带前置图标（图标 + 文字），图标走 <code>@element-plus/icons-vue</code>（16px，随字号）；纯图标按钮悬停 tooltip（见《<a href="07_布局设计_列表页.html">列表页布局</a>》第 4 节、<a href="02_布局设计_设计令牌.html">设计令牌</a>第 6 节）。</li>
-        <li><strong>按钮权限联动</strong>：工具栏按钮按动作权限码显隐（<code>v-perm="'业务:动作'"</code>），默认无任何按钮权限——如「新增」需 <code>{业务}:create</code>、「删除」需 <code>{业务}:delete</code>、进入编辑需 <code>{业务}:update</code>；后端接口同步强制校验。</li>
+        <li><strong>按钮权限联动</strong>：工具栏按钮按动作权限码显隐（<code>v-perm="'业务:动作'"</code>），默认无任何按钮权限；后端接口同步强制校验。</li>
       </ul>
 
       <h2 id="tech">5. 技术要点</h2>
@@ -139,7 +131,7 @@
     </main>
 
     <footer>
-      本文档由用户手写《表单框架布局设计》转换为 HTML · 依《文档生成规范》编写 · 与《07_布局设计_列表页》《08_布局设计_表单页》配套 · 转换日期：2026-08-11
+      本文档由用户手写《表单框架布局设计》转换为 HTML · 依《文档生成规范》编写 · 与《<a href="07_布局设计_列表页.html">07-布局设计-列表页</a>》《<a href="08_布局设计_表单页.html">08-布局设计-表单页</a>》配套 · 转换日期：2026-08-11
     </footer>
   </div>
 
