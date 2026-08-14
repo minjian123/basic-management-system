@@ -126,12 +126,23 @@
       </aside>
 
       <div class="main">
-        <!-- Tab 栏：可关闭 Tab + 固定工作台（右键菜单：关闭当前/其他/全部） -->
+        <!-- Tab 栏：可关闭 Tab + 固定工作台（右键菜单：关闭当前/其他/全部；溢出收纳"更多"下拉） -->
         <div class="tabbar" @contextmenu.prevent="showCtx">
-          <el-tabs v-model="activeTab" type="card" closable @tab-remove="onTabRemove">
-            <el-tab-pane v-for="t in tabs" :key="t.key" :name="t.key" :label="t.label"
-              :closable="t.key !== 'home'"></el-tab-pane>
-          </el-tabs>
+          <div style="display:flex;align-items:center;min-width:0">
+            <el-tabs v-model="activeTab" type="card" closable @tab-remove="onTabRemove" style="flex:1;min-width:0">
+              <el-tab-pane v-for="t in tabs" :key="t.key" :name="t.key" :label="t.label"
+                :closable="t.key !== 'home'"></el-tab-pane>
+            </el-tabs>
+            <el-dropdown v-if="showMore" @command="moreCmd" style="flex-shrink:0;margin-left:8px">
+              <el-button text size="small">更多 ▾</el-button>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item v-for="t in tabs" :key="t.key" :command="t.key"
+                    :disabled="t.key === activeTab">{{ t.label }}</el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
+          </div>
         </div>
 
         <!-- 内容区：iframe 承载各模块原型（?embed=1 隐藏原型条），keep-alive：切换仅显隐不重载（《布局设计-主框架》3.内容区） -->
@@ -275,6 +286,7 @@
         tabMap[name] = t;
         activeTab.value = t.key;
         location.hash = '#/' + name;
+        checkMore();
       }
 
       function openTabByName(name) {
@@ -315,6 +327,7 @@
         if (activeTab.value === key) {
           activeTab.value = tabs.length ? tabs[tabs.length - 1].key : 'home';
         }
+        checkMore();
       }
 
       // Tab 关闭（工作台固定不可关）
@@ -362,6 +375,21 @@
         }
       }
 
+      // Tab 溢出"更多"下拉（《布局设计-主框架》3.7）：el-tabs 头部溢出时显示，收纳全部 Tab 供切换
+      var showMore = ref(false);
+      function checkMore() {
+        Vue.nextTick(function () {
+          var el = document.querySelector('.tabbar .el-tabs__nav-wrap');
+          showMore.value = el ? el.scrollWidth > el.clientWidth + 20 : false;
+        });
+      }
+      function moreCmd(key) {
+        if (key === 'home') { ElMessage.warning('工作台 Tab 固定，不可关闭'); return; }
+        var t = tabs.find(function (x) { return x.key === key; });
+        if (t) activeTab.value = t.key;
+      }
+      window.addEventListener('resize', checkMore);
+
       // 初始化：工作台固定 Tab；读 URL hash 激活对应菜单（简化实现）
       var h = (location.hash || '').replace(/^#\//, '');
       if (h) {
@@ -369,8 +397,8 @@
         if (mi && mi.src) openTab(mi);
       }
       return {
-        menus, collapsed, menuKw, globalKw, tenant, activeTab, tabs, filteredMenus,
-        ElMessage, onMenuSelect, onTabRemove, openTabByName, showCtx, ctxCmd, tenantCmd, userCmd
+        menus, collapsed, menuKw, globalKw, tenant, activeTab, tabs, filteredMenus, showMore,
+        ElMessage, onMenuSelect, onTabRemove, openTabByName, showCtx, ctxCmd, moreCmd, tenantCmd, userCmd
       };
     }
   });
