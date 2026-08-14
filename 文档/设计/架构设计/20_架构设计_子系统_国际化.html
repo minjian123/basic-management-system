@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>架构设计 · 子系统 · 国际化</title>
+<link rel="stylesheet" href="../../资源/文档样式.css">
+</head>
+<body>
+
+<div class="topnav">
+  <a href="01_架构设计_总览.html">架构设计</a> › <span>20-国际化</span>
+  <span class="topnav-side"><a href="19_架构设计_子系统_报表BI.html">← 19-报表BI</a> · <a href="21_架构设计_子系统_全文检索.html">21-全文检索 →</a></span>
+</div>
+
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>架构设计 · 子系统 · 国际化</h1>
+      <p>BMS · 语言包、i18n 附表、RTL 与时区</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#overview">1. 概述</a></li>
+        <li><a href="#message">2. 固定文案语言包</a></li>
+        <li><a href="#business-text">3. 业务数据文案（i18n 附表）</a></li>
+        <li><a href="#locale">4. 语言与 RTL</a></li>
+        <li><a href="#timezone">5. 用户时区</a></li>
+        <li><a href="#runtime">6. 运行时渲染</a></li>
+        <li><a href="#coordination">7. 与其他子系统的协调</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="overview">1. 概述</h2>
+      <p>
+        国际化子系统统一管理前后端文案与业务数据文案的多语言能力：语言清单动态扩展、语言包页面
+        在线维护、i18n 附表、RTL 布局与用户时区。对应<a href="../../规划/项目规划说明.html">《项目规划说明》</a>的「后端国际化」「国际化管理」
+        「国际化（前端）」「多语言数据规范」章节。
+      </p>
+
+      <h2 id="message">2. 固定文案语言包</h2>
+      <ul>
+        <li>前后端固定文案（错误消息、按钮、提示）统一存 sys_i18n_message（msg_key + locale 联合主键），页面在线维护、运行时下发（Redis 缓存），新增语言免发版</li>
+        <li>后端 Babel 仅开发期提取消息 key 入库（gettext 机制，Accept-Language 驱动）</li>
+        <li>前端 vue-i18n：语言包运行时从后端拉取（GET /api/v1/i18n/messages，Redis 缓存 + localStorage 二次缓存）；前端不硬编码文案；错误码文案按 <code>error.{code}</code> 映射</li>
+        <li>i18n key 命名：<code>模块.页面.字段</code>（user.form.username、common.confirm）</li>
+      </ul>
+
+      <h2 id="business-text">3. 业务数据文案（i18n 附表）</h2>
+      <ul>
+        <li>需多语言的展示文案不入主表，由 <code>{主表}_i18n</code> 附表存储（主表 ID + locale + 翻译字段，联合主键）</li>
+        <li>覆盖：sys_menu_i18n（name）、sys_business_i18n、sys_action_i18n、sys_field_i18n、sys_dict_type_i18n、sys_dict_item_i18n、sys_mail_template_i18n（subject、content）</li>
+        <li>查询规则：按当前 locale 关联，缺省回退主表默认文案</li>
+      </ul>
+
+      <h2 id="locale">4. 语言与 RTL</h2>
+      <ul>
+        <li>sys_i18n_locale（code、name、rtl、status）：语言清单动态扩展；rtl 标记驱动前端布局切换</li>
+        <li>种子：中文/英文语言（zh-CN / en-US）与前后端文案</li>
+        <li>语言偏好 localStorage 持久化；用户级语言偏好 sys_user.locale</li>
+      </ul>
+
+      <h2 id="timezone">5. 用户时区</h2>
+      <ul>
+        <li>sys_user.timezone 用户时区偏好；时间统一 UTC 存储，按用户时区展示</li>
+        <li>数字/日期格式经 Intl API 本地化</li>
+        <li>个人中心可修改语言与时区偏好</li>
+      </ul>
+
+      <h2 id="runtime">6. 运行时渲染</h2>
+      <ul>
+        <li>菜单树按当前 locale 关联 i18n 附表返回翻译文案（动态菜单接口）</li>
+        <li>运行时生成的通知内容不走附表：由 gettext 按收件人语言翻译（如审批提醒邮件、告警短信）</li>
+        <li>邮件模板多语言内容走 sys_mail_template_i18n</li>
+      </ul>
+
+      <h2 id="coordination">7. 与其他子系统的协调</h2>
+      <ul>
+        <li><strong><a href="18_架构设计_子系统_通知公告.html">通知公告</a></strong>：模板与通知内容按收件人 locale 渲染</li>
+        <li><strong><a href="11_架构设计_子系统_权限计算引擎.html">权限计算引擎</a></strong>：菜单/权限码名称多语言（i18n 附表）</li>
+        <li><strong><a href="26_架构设计_前端架构.html">前端架构</a></strong>：语言包运行时拉取 + RTL 布局 + 时区格式化</li>
+        <li><strong><a href="05_架构设计_数据架构.html">数据架构</a></strong>：i18n 附表与主表数据规范（联合主键、回退规则）</li>
+        <li><strong><a href="10_架构设计_子系统_认证与会话.html">认证与会话</a></strong>：登录返回用户语言/时区偏好</li>
+      </ul>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 架构设计节点 · 与《项目规划说明》《文档生成规范》《命名规范》配套 · 生成日期：2026-08-06
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>

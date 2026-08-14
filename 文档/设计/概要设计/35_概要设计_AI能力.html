@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>概要设计 · AI 能力</title>
+<link rel="stylesheet" href="../../资源/文档样式.css">
+</head>
+<body>
+
+<div class="topnav">
+  <a href="01_概要设计_总览.html">概要设计</a> › <span>34-AI 能力</span>
+  <span class="topnav-side"><a href="34_概要设计_全文检索.html">← 34-全文检索</a> · <a href="36_概要设计_收付款管理.html">36-收付款管理 →</a></span>
+</div>
+
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>概要设计 · AI 能力</h1>
+      <p>BMS · LLM 适配、八项能力与安全闸门（阶段十五）</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#overview">1. 模块概述与职责</a></li>
+        <li><a href="#func">2. 功能分解与业务流程</a>
+          <ul class="sub">
+            <li><a href="#func-list">2.1 功能点分解（八项能力）</a></li>
+            <li><a href="#func-rule">2.2 业务规则</a></li>
+            <li><a href="#func-flow">2.3 核心流程与异常分支</a></li>
+          </ul>
+        </li>
+        <li><a href="#timing">3. 关键时序与协作</a>
+          <ul class="sub">
+            <li><a href="#timing-nl2sql">3.1 智能问数时序</a></li>
+            <li><a href="#timing-rag">3.2 RAG 管线时序</a></li>
+            <li><a href="#timing-auto">3.3 自动执行与自动审批时序</a></li>
+            <li><a href="#timing-help">3.4 帮助文档维护时序</a></li>
+          </ul>
+        </li>
+        <li><a href="#data">4. 数据模型与表设计</a></li>
+        <li><a href="#api">5. 接口设计</a></li>
+        <li><a href="#perm">6. 权限与配置</a></li>
+        <li><a href="#error">7. 错误码与异常处理</a></li>
+        <li><a href="#page">8. 页面清单与验收要点</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <p>
+        本节对应<a href="../../规划/项目规划说明.html">《项目规划说明》</a>「功能模块」之<strong>AI 能力</strong>模块与「选型说明（AI（阶段十五））」
+        「核心数据表清单」「认证与安全（AI 安全）」「事件模型（form.updated）」「部署与运维（Milvus/PaddleOCR）」
+        「开发计划与验收标准（阶段十五）」章节，架构设计依据<a href="../架构设计/01_架构设计_总览.html">《架构设计》</a>21-子系统-AI 服务节点
+        与 20-子系统-全文检索节点（OCR 衔接文本解析）。
+      </p>
+
+      <h2 id="overview">1. 模块概述与职责</h2>
+      <p>
+        AI 能力模块（阶段十五）提供统一 LLM 适配层与八项 AI 能力（智能报表助手、智能审批辅助、AI 内容生成、
+        语义搜索与文件问答、OCR 与文件自动分类、审计异常检测、知识库问答机器人、帮助文档智能维护）。
+        设计基线：AI 结果默认仅辅助展示、AI 交互全量落审计、自动写操作与自动审批默认关闭。
+      </p>
+      <ul>
+        <li><strong>模块定位</strong>：AI 能力统一入口（LLM/embedding/OCR 模型接入、对话、问数、问答、生成、检测）与治理（模型配置、审计、限流、预算）</li>
+        <li><strong>职责边界</strong>：模型接入经统一适配层（模型切换不侵入业务代码）；不直接引入业务写权限——自动执行写操作与自动审批为两个独立可选功能，开关默认关闭；提示词与数据不出租户边界</li>
+        <li><strong>协作关系</strong>：
+          <ul>
+            <li>权限计算引擎（<a href="../架构设计/11_架构设计_子系统_权限计算引擎.html">架构 10</a>）：对话权限码 <code>ai:chat</code>、模型配置 <code>ai:manage</code>；RAG 检索上下文遵守动作级数据权限范围</li>
+            <li>事件总线（<a href="../架构设计/12_架构设计_子系统_事件总线.html">架构 11</a>）：embedding 管线经 RocketMQ 事件驱动（复用 event-worker）；消费 <code>form.updated</code> 驱动帮助草稿更新</li>
+            <li><a href="28_概要设计_报表中心.html">报表中心</a>：智能问数（NL2SQL）基于数据集白名单 + 只读从库执行</li>
+            <li>工作流：审批辅助与自动审批（审批节点白名单）；AI 内容生成（审批意见、申请理由草稿）</li>
+            <li><a href="13_概要设计_文件管理.html">文件管理</a>/<a href="34_概要设计_全文检索.html">全文检索</a>（<a href="../架构设计/16_架构设计_子系统_文件管理.html">架构 15</a>/<a href="../架构设计/21_架构设计_子系统_全文检索.html">架构 20</a>）：OCR 衔接文本解析（扫描件 ocr_pending → OCR 后回写）；语义搜索与关键词检索互补</li>
+            <li>审计哈希链（<a href="../架构设计/15_架构设计_子系统_审计哈希链.html">架构 14</a>）：ai_chat_log 按月分片；审计异常检测输入源</li>
+            <li><a href="18_概要设计_帮助中心.html">帮助中心</a>：帮助文档智能维护（草稿生成、质量评估，人工审核后发布）</li>
+            <li>可观测性（<a href="../架构设计/23_架构设计_子系统_可观测性.html">架构 22</a>）：AI 成本/延迟指标；异常检测告警接 Alertmanager</li>
+          </ul>
+        </li>
+      </ul>
+
+      <h2 id="func">2. 功能分解与业务流程</h2>
+
+      <h3 id="func-list">2.1 功能点分解（八项能力）</h3>
+      <table>
+        <tr><th>能力</th><th>说明</th><th>结合模块</th></tr>
+        <tr><td>智能报表助手</td><td>NL2SQL 问数：数据集白名单 + 只读从库 + 安全校验防注入；结果图表化</td><td>报表中心</td></tr>
+        <tr><td>智能审批辅助</td><td>历史审批 RAG 生成参考意见与风险提示，仅辅助展示，不自动提交</td><td>工作流</td></tr>
+        <tr><td>AI 内容生成</td><td>邮件/通知模板、审批意见、申请理由草稿</td><td>通知公告、工作流</td></tr>
+        <tr><td>语义搜索与文件问答</td><td>Milvus 向量检索 + 文件分段问答（ai_file_segment 落库、向量存 Milvus）</td><td>文件管理、全文检索</td></tr>
+        <tr><td>OCR 与文件自动分类</td><td>PaddleOCR 本地 + 多模态 API 可切换；扫描件解析、文件自动归类</td><td>文件管理、全文检索</td></tr>
+        <tr><td>审计异常检测</td><td>行为风控（登录/操作/开放接口/数据变更/AI 交互异常模式），告警接 Alertmanager</td><td>审计哈希链、可观测性</td></tr>
+        <tr><td>知识库问答机器人</td><td>企业微信/钉钉入口；知识源：帮助文章/公告/审批记录/流程文档</td><td>通知公告、认证与会话</td></tr>
+        <tr><td>帮助文档智能维护</td><td>自动编写/更新帮助草稿 + 质量评估；输入源 graphify 知识图谱 + 设计文档 + 表单元数据；手动/form.updated/定时三种触发；草稿人工审核发布</td><td>帮助中心</td></tr>
+      </table>
+
+      <h3 id="func-rule">2.2 业务规则</h3>
+      <ul>
+        <li><strong>模型统一适配</strong>：全部模型调用经 Provider 接口（chat / embedding / ocr）；端点与模型配置入库 sys_ai_provider；外部大模型 API（DeepSeek/Qwen 等）默认，私有化端点（Ollama/vLLM）可配；API key 走 Secret 管理（api_key_ref 引用 Secret 名，不落库明文）；模型切换不侵入业务代码</li>
+        <li><strong>AI 交互全量审计</strong>：问答/生成/辅助/自动执行全部落 ai_chat_log（prompt、response、model、tokens、cost），按月分片；存储前按数据脱敏机制掩码手机号/邮箱等注册敏感字段，提示词与响应不出租户边界</li>
+        <li><strong>默认仅辅助</strong>：AI 输出默认以意见、草稿、检索结果、告警建议形式展示，不直接执行业务动作；审批辅助意见仅展示参考，审批结论由人工提交</li>
+        <li><strong>prompt 注入防护</strong>：角色隔离（系统提示词与用户输入分离）、指令约束（限定任务范围与输出格式）、输出校验（敏感操作/敏感信息模式拦截，校验失败拒绝并落审计）</li>
+        <li><strong>RAG 权限约束</strong>：检索上下文（历史审批、文档分段、知识源）组装前按动作级数据权限范围过滤，越权内容不进入上下文</li>
+        <li><strong>租户隔离</strong>：向量库按租户隔离（Milvus collection <code>bms-{tenant}-doc</code>）；模型端点按租户引用平台 provider；AI 交互数据不出租户边界</li>
+        <li><strong>限流与预算</strong>：AI 接口独立限流（slowapi 用户维度）与预算控制（日/月 token 与费用上限，超限拒绝并告警）</li>
+        <li><strong>自动执行与自动审批</strong>：两个独立功能，各自由 sys_config 开关控制、默认关闭；<code>ai.auto_approve</code> 依赖 <code>ai.auto_execute</code> 开启（未开启时配置拒绝保存并强制关闭）；开启时仅限白名单（写接口、审批节点），执行前强制二次确认，自动执行全量落 ai_chat_log 与操作日志，结果可人工撤销</li>
+        <li><strong>帮助草稿保护</strong>：AI 生成结果一律为草稿（draft），人工审核后发布，不自动覆盖已发布文章</li>
+      </ul>
+
+      <h3 id="func-flow">2.3 核心流程与异常分支</h3>
+      <ol>
+        <li><strong>智能问数（NL2SQL）</strong>：
+          <ol>
+            <li>用户在 AI 助手「智能问数」页输入自然语言问题，选择目标数据集</li>
+            <li>服务层校验：数据集在 rpt_dataset 白名单内且用户具有对应 rpt 权限</li>
+            <li>LLM 基于数据集字段元数据生成 SQL → 安全校验（只读、禁止多语句、仅白名单表、强制 LIMIT 上限、禁用危险函数）</li>
+            <li>在只读从库执行，结果按字段类型自动图表化返回</li>
+            <li>异常分支：数据集不在白名单 → 拒绝（12006）；SQL 校验不过 → 拒绝并提示（12007）；执行超时/结果过大 → 截断提示；问题与结果全量落 ai_chat_log</li>
+          </ol>
+        </li>
+        <li><strong>智能审批辅助</strong>：
+          <ol>
+            <li>审批人在审批页点击「AI 辅助」</li>
+            <li>服务层检索历史审批记录（wf_record 等）与当前单据上下文，按当前用户数据权限过滤</li>
+            <li>LLM 生成参考意见与风险提示，仅展示，审批结论仍由人工提交</li>
+            <li>异常分支：无历史数据 → 提示无参考数据；上下文越权内容被过滤；全程落 ai_chat_log</li>
+          </ol>
+        </li>
+        <li><strong>文件问答（RAG）</strong>：
+          <ol>
+            <li>文件上传完成（file.uploaded 事件）→ 文本分段（ai_file_segment 落分段文本）→ embedding 经 RocketMQ 事件驱动（复用 event-worker）→ 向量写入 Milvus <code>bms-{tenant}-doc</code></li>
+            <li>用户提问 → 向量检索 + 元数据过滤（租户 + 数据范围）→ 组装上下文 → LLM 生成回答</li>
+            <li>异常分支：文件未分段/向量库不可用 → 明确提示（12013），可降级关键词检索兜底；上下文权限过滤后为空 → 提示无可回答内容</li>
+          </ol>
+        </li>
+        <li><strong>帮助文档智能维护</strong>：
+          <ol>
+            <li>三种触发：维护人手动点击生成/更新草稿；菜单/表单/字段/按钮变更经 <code>form.updated</code> 事件自动生成更新草稿并通知维护人；定时质量评估扫描</li>
+            <li>输入源：功能代码（graphify 知识图谱）、设计文档、表单元数据（sys_form/sys_field/业务权限码清单）</li>
+            <li>生成结果一律草稿（draft）入 sys_help_article，不覆盖已发布文章；维护人审核后按帮助中心既有流程发布</li>
+            <li>定时质量评估：评估陈旧度/完整性/准确性并生成改进建议（质量评估报告页面可见）</li>
+            <li>异常分支：输入源不足 → 提示并跳过（12015）；生成失败 → 草稿不落库并告警；全程落 ai_chat_log</li>
+          </ol>
+        </li>
+        <li><strong>自动执行写操作与自动审批</strong>：
+          <ol>
+            <li>开关校验：调用自动执行/自动审批前校验对应 sys_config 开关；<code>ai.auto_approve</code> 保存配置时校验 <code>ai.auto_execute</code> 已开启，未开启拒绝保存并强制关闭</li>
+            <li>白名单校验：目标写接口/审批节点必须在配置白名单内</li>
+            <li>AI 生成执行内容/审批结论 → 展示给用户 → 强制二次确认（页面确认）</li>
+            <li>确认后经既有接口通道执行（写操作走原接口 + 幂等键，审批走 wf 审批通道），全量落 ai_chat_log 与操作日志</li>
+            <li>结果可人工撤销（反向回退接口/状态恢复），撤销动作同样落审计</li>
+            <li>异常分支：开关未开/白名单外 → 拒绝（12008/12009/12010）；缺少二次确认 → 拒绝（12011）；撤销时状态不允许 → 拒绝（12012）</li>
+          </ol>
+        </li>
+        <li><strong>OCR 与自动分类、异常检测</strong>：
+          <ol>
+            <li>OCR：扫描件（ocr_pending）经 PaddleOCR 本地解析（可切换多模态模型 API）提取文本，回写全文检索 bms-file 索引；失败标记可重试（12014）</li>
+            <li>文件自动分类：按内容与命名规则建议归类（目录/标签），仅建议不自动移动</li>
+            <li>审计异常检测：定时任务（sys_task 入库）扫描登录/操作/开放接口/数据变更/AI 交互异常模式（如批量失败、异常时段访问、高频敏感操作），命中生成风险事件并接 Alertmanager 告警（邮件/企业微信/钉钉）</li>
+          </ol>
+        </li>
+      </ol>
+
+      <h2 id="timing">3. 关键时序与协作</h2>
+
+      <h3 id="timing-nl2sql">3.1 智能问数时序</h3>
+      <pre class="mermaid">
+sequenceDiagram
+    autonumber
+    participant 用户
+    participant 助手 as AI 助手服务
+    participant 白名单 as 数据集白名单/权限
+    participant LLM as LLM Provider
+    participant 从库 as 只读从库
+    participant 审计 as ai_chat_log
+
+    用户->>助手: 提问（数据集+自然语言）
+    助手->>白名单: 校验数据集白名单+rpt权限
+    助手->>LLM: 生成 SQL（字段元数据提示）
+    助手->>从库: SQL 安全校验（只读/单语句/白名单表/LIMIT 上限）→ 只读从库执行
+    助手->>审计: 结果图表化 + 全量落审计（prompt/SQL/结果/model/tokens/cost）
+    助手-->>用户: 图表结果返回
+    Note over 用户, 审计: 异常分支：白名单外 / SQL 校验不过 / 超时 → 拒绝并提示
+      </pre>
+
+      <h3 id="timing-rag">3.2 RAG 管线时序</h3>
+      <pre class="mermaid">
+sequenceDiagram
+    autonumber
+    participant 上传 as 文件上传
+    participant worker as event-worker(embedding 组)
+    participant 分段 as ai_file_segment(MySQL)
+    participant Milvus as Milvus(bms-{tenant}-doc)
+    participant 助手 as AI 助手
+    participant 用户
+
+    上传->>worker: file.uploaded 事件
+    worker->>分段: 文本分段（按 chunk 切分）
+    worker->>worker: embedding（Provider 接口）
+    worker->>分段: vector_id 回写
+    用户->>助手: 用户提问
+    助手->>Milvus: 向量+元数据检索（租户+数据范围）
+    Note over 用户, Milvus: 上下文组装（数据权限过滤，越权内容不进入）→ LLM 回答 + 全量落 ai_chat_log，交互不出租户边界
+      </pre>
+
+      <h3 id="timing-auto">3.3 自动执行与自动审批时序</h3>
+      <pre class="mermaid">
+sequenceDiagram
+    autonumber
+    participant 用户
+    participant AI as AI 服务
+    participant 开关 as sys_config 开关/白名单
+    participant 业务 as 原业务接口/wf
+    participant 日志 as ai_chat_log + 操作日志
+
+    用户->>AI: 请求 AI 自动执行/自动审批
+    AI->>开关: 校验开关（auto_execute/auto_approve）+ 目标在白名单
+    Note over 用户, 开关: 依赖校验：auto_approve 依赖 auto_execute 已开启（未开启拒绝保存并强制关闭）；AI 生成执行内容/审批结论（全量落 ai_chat_log）
+    AI-->>用户: 强制二次确认（页面展示待确认内容）
+    用户->>AI: 确认
+    AI->>业务: 经原接口通道执行（写接口+幂等键 / wf 审批通道）
+    Note over 用户, 日志: 执行结果落 ai_chat_log + 操作日志（可人工撤销，撤销同样落审计）
+      </pre>
+
+      <h3 id="timing-help">3.4 帮助文档维护时序</h3>
+      <pre class="mermaid">
+sequenceDiagram
+    autonumber
+    participant 变更 as 菜单/表单/字段变更
+    participant 总线 as 事件总线(form.updated)
+    participant 维护 as AI 维护任务
+    participant 输入 as 输入源(graphify/设计文档/表单元数据)
+    participant 文章 as sys_help_article
+
+    变更->>总线: 平台统一维护变更
+    总线->>维护: 载荷：form_id/menu_id/business_id/changed_type
+    维护->>输入: 收集输入源 + 生成更新草稿
+    维护->>文章: 草稿落库（draft，不覆盖已发布文章）+ 通知维护人
+    Note over 变更, 文章: 维护人审核后发布（帮助中心既有流程）；定时质量评估报告可用
+      </pre>
+
+      <h2 id="data">4. 数据模型与表设计</h2>
+      <table>
+        <tr><th>表</th><th>库</th><th>关键字段</th><th>说明</th></tr>
+        <tr><td>sys_ai_provider</td><td>平台库</td><td>provider_key、name、type（llm/embedding/ocr）、endpoint、model、api_key_ref、status</td><td>AI 模型端点配置（外部 API/私有化），租户按需引用；api_key_ref 引用 Secret 名，不存密钥明文</td></tr>
+        <tr><td>ai_chat_log</td><td>租户库</td><td>user_id、tenant_id、module、prompt、response、model、tokens、cost、status、created_at</td><td>AI 交互审计，按月分片（yyyyMM 后缀），全量落库；敏感字段写入前脱敏</td></tr>
+        <tr><td>ai_file_segment</td><td>租户库</td><td>file_id、chunk_no、content、vector_id</td><td>文件内容分段：分段文本落库，向量存 Milvus；联合唯一（file_id + chunk_no）</td></tr>
+      </table>
+      <ul>
+        <li><strong>通用规范</strong>：雪花 ID 主键、审计字段、时间 UTC；ai_chat_log 按月分片（分片键=时间），分片表由 Celery 定时任务与既有分片表预创建联动</li>
+        <li><strong>索引</strong>：ai_chat_log 建 user_id + created_at、tenant_id + created_at 索引；ai_file_segment 建 file_id 索引</li>
+        <li><strong>向量库</strong>：Milvus 独立部署（milvus + etcd，MinIO 复用），collection 按租户隔离（<code>bms-{tenant}-doc</code>）；vector_id 关联 Milvus 向量与分段文本</li>
+        <li><strong>归档</strong>：ai_chat_log 纳入审计类数据管理（按月分片、归档策略按审计合规执行）；已归档月份历史查询走归档库只读</li>
+        <li><strong>数据流转</strong>：模型配置：平台维护 provider → 租户引用 → 业务调用经适配层；交互：用户输入 → 调用（审计先行/并行落库）→ 响应 → ai_chat_log；文件：上传 → 分段落 ai_file_segment → embedding → Milvus；帮助草稿：AI 生成 draft → sys_help_article（草稿状态）→ 人工审核发布</li>
+        <li><strong>种子数据</strong>：默认 provider 占位种子（type llm/embedding/ocr 各一，endpoint/model 占位，api_key_ref 指向环境变量 Secret 名，status=disabled 待配置）；审计异常检测任务入 sys_task 种子</li>
+      </ul>
+
+      <h2 id="api">5. 接口设计</h2>
+      <table>
+        <tr><th>方法</th><th>路径</th><th>说明</th><th>权限码</th></tr>
+        <tr><td>POST</td><td>/api/v1/ai/chat</td><td>AI 对话（module: ask/approval/doc_qa/content），返回结果 + 审计标识</td><td>ai:chat</td></tr>
+        <tr><td>POST</td><td>/api/v1/ai/report/query</td><td>智能问数（NL2SQL：数据集白名单 + 只读从库 + 安全校验，结果图表化）</td><td>ai:chat（+rpt:query 数据集权限）</td></tr>
+        <tr><td>POST</td><td>/api/v1/ai/approval/suggest</td><td>审批辅助：历史审批 RAG 生成参考意见与风险提示（仅辅助展示）</td><td>ai:chat（+wf 单据数据权限）</td></tr>
+        <tr><td>POST</td><td>/api/v1/ai/actions/{action_id}/confirm</td><td>自动执行/自动审批强制二次确认</td><td>ai:chat</td></tr>
+        <tr><td>POST</td><td>/api/v1/ai/actions/{action_id}/revoke</td><td>撤销自动执行结果（可撤销时），撤销动作落审计</td><td>ai:chat</td></tr>
+        <tr><td>GET</td><td>/api/v1/ai/chat/logs</td><td>AI 交互审计查询（分页 + 用户/模块/时间过滤）</td><td>ai:manage</td></tr>
+        <tr><td>GET</td><td>/api/v1/ai/providers</td><td>模型配置列表（按 type 过滤）</td><td>ai:manage</td></tr>
+        <tr><td>POST</td><td>/api/v1/ai/providers</td><td>新增模型端点（provider_key 唯一）</td><td>ai:manage</td></tr>
+        <tr><td>PUT</td><td>/api/v1/ai/providers/{provider_key}</td><td>更新模型端点（endpoint/model/status 等）</td><td>ai:manage</td></tr>
+        <tr><td>DELETE</td><td>/api/v1/ai/providers/{provider_key}</td><td>停用/删除模型端点（被引用时拒绝或标记停用）</td><td>ai:manage</td></tr>
+        <tr><td>POST</td><td>/api/v1/ai/providers/{provider_key}/test</td><td>连通性/模型调用测试</td><td>ai:manage</td></tr>
+        <tr><td>POST</td><td>/api/v1/ai/help/{article_id}/generate-draft</td><td>生成/更新帮助文章草稿（手动触发；form.updated 事件自动触发走事件通道）</td><td>help:manage</td></tr>
+        <tr><td>GET</td><td>/api/v1/ai/quality/report</td><td>帮助文档质量评估报告（陈旧度/完整性/准确性 + 改进建议）</td><td>help:manage</td></tr>
+        <tr><td>POST</td><td>/api/v1/ai/ocr/{file_id}</td><td>OCR 解析扫描件（PaddleOCR 本地/多模态 API），完成后回写全文检索索引</td><td>file:manage</td></tr>
+        <tr><td>GET</td><td>/api/v1/ai/risk/events</td><td>审计异常检测风险事件列表（告警同时接 Alertmanager）</td><td>ai:manage</td></tr>
+      </table>
+      <ul>
+        <li><strong>通用规范</strong>：前缀 <code>/api/v1</code>；统一响应 <code>{code, message, data}</code>；分页 <code>page</code>/<code>size</code>；Bearer access token 鉴权 + <code>require_permission</code> 两级校验</li>
+        <li><strong>幂等</strong>：二次确认、撤销、OCR 解析等写接口支持 <code>Idempotency-Key</code> 请求头（Redis SETNX 前置去重）</li>
+        <li><strong>限流与预算</strong>：AI 接口独立限流（slowapi 用户维度，如对话 10 次/分钟、问数 1 次/分钟）；预算控制（sys_config 配置日/月 token 与费用上限，超限拒绝并告警）</li>
+        <li><strong>发布事件</strong>：帮助草稿生成完成可发布 AI 生成内容事件（可选 Webhook 订阅）；消费 <code>form.updated</code>（AI 帮助更新触发）</li>
+      </ul>
+
+      <h2 id="perm">6. 权限与配置</h2>
+      <ul>
+        <li><strong>权限码</strong>：
+          <table>
+            <tr><th>权限码</th><th>说明</th><th>默认归属</th></tr>
+            <tr><td>ai:chat</td><td>AI 对话（问数/审批辅助/文档问答/内容生成/机器人）</td><td>普通角色</td></tr>
+            <tr><td>ai:manage</td><td>模型配置（provider 维护/连通测试/AI 审计查询/风险事件查看）</td><td>系统管理员</td></tr>
+          </table>
+        </li>
+        <li><strong>菜单挂接</strong>：菜单「AI 助手」挂表单（业务 ai，页面内问数/审批辅助/文档问答页签，按钮挂 ai:chat）；菜单「模型配置」挂表单（业务 ai，按钮挂 ai:manage）；帮助维护入口在帮助中心（help 业务，AI 草稿与质量评估报告）；问答机器人入口在企微/钉钉工作台</li>
+        <li><strong>sys_config 参数</strong>：
+          <table>
+            <tr><th>config_key</th><th>默认值</th><th>说明</th></tr>
+            <tr><td>ai.auto_execute</td><td>false</td><td>AI 自动执行写操作开关（默认关闭）</td></tr>
+            <tr><td>ai.auto_approve</td><td>false</td><td>AI 自动审批开关（默认关闭，依赖 ai.auto_execute 开启，未开启时配置拒绝保存并强制关闭）</td></tr>
+            <tr><td>ai.auto_execute.whitelist</td><td>[]</td><td>自动执行写接口白名单（JSON 数组，空=无可执行接口）</td></tr>
+            <tr><td>ai.auto_approve.whitelist</td><td>[]</td><td>自动审批节点白名单（JSON 数组）</td></tr>
+            <tr><td>ai.budget.daily_tokens</td><td>—</td><td>AI 每日 token 预算上限，超限拒绝并告警</td></tr>
+            <tr><td>ai.budget.daily_cost</td><td>—</td><td>AI 每日费用预算上限（元），超限拒绝并告警</td></tr>
+            <tr><td>ai.rate.chat_per_min</td><td>10</td><td>对话接口用户维度限流（次/分钟）</td></tr>
+          </table>
+        </li>
+        <li><strong>种子数据</strong>：业务码 ai、动作码 chat/manage 入平台库种子（sys_business/sys_action）；默认 provider 占位种子（status=disabled，待配置）；审计异常检测任务入 sys_task；AI 助手菜单/表单/按钮挂接种子；三类内置角色中普通角色预授 ai:chat、系统管理员预授 ai:manage</li>
+      </ul>
+
+      <h2 id="error">7. 错误码与异常处理</h2>
+      <p>
+        错误码分段表未为本模块单列段位，本模块错误码位于 <strong>1xxxx 通用段</strong>
+        （10001-19999 通用：参数校验、限流、系统内部），以下段内序号为概要设计规划，一经发布稳定不变：
+      </p>
+      <table>
+        <tr><th>错误码</th><th>说明</th><th>场景</th></tr>
+        <tr><td>10001</td><td>参数校验失败</td><td>通用段：问题为空/超长、module 非法等</td></tr>
+        <tr><td>12001</td><td>模型不可用或未配置</td><td>目标 type 无可用 provider 或端点状态停用</td></tr>
+        <tr><td>12002</td><td>模型调用超时</td><td>LLM/embedding/OCR 调用超过超时阈值（重试后仍失败）</td></tr>
+        <tr><td>12003</td><td>输出校验未通过</td><td>疑似 prompt 注入/敏感操作，已拦截并落审计</td></tr>
+        <tr><td>12004</td><td>AI 预算超限</td><td>日/月 token 或费用预算耗尽</td></tr>
+        <tr><td>12005</td><td>租户无可用模型端点</td><td>租户未引用任何可用 provider</td></tr>
+        <tr><td>12006</td><td>数据集不在白名单</td><td>NL2SQL 目标数据集无权限或非白名单（拒绝生成 SQL）</td></tr>
+        <tr><td>12007</td><td>SQL 安全校验未通过</td><td>非只读/多语句/白名单外表/危险函数（防注入拒绝执行）</td></tr>
+        <tr><td>12008</td><td>AI 自动执行未开启</td><td>ai.auto_execute=false 时请求自动执行</td></tr>
+        <tr><td>12009</td><td>AI 自动审批未开启或依赖未满足</td><td>ai.auto_approve=false，或 ai.auto_execute 未开启（配置拒绝保存并强制关闭）</td></tr>
+        <tr><td>12010</td><td>目标不在自动执行白名单</td><td>写接口/审批节点不在对应白名单</td></tr>
+        <tr><td>12011</td><td>缺少二次确认</td><td>自动执行/自动审批未完成强制二次确认</td></tr>
+        <tr><td>12012</td><td>动作无法撤销</td><td>目标状态不允许撤销（已流转/已过期）</td></tr>
+        <tr><td>12013</td><td>文件未分段或不可问答</td><td>文件未分段/向量未生成/向量库不可用</td></tr>
+        <tr><td>12014</td><td>OCR 解析失败</td><td>扫描件解析失败（可重试，PaddleOCR/多模态 API 切换）</td></tr>
+        <tr><td>12015</td><td>帮助草稿生成失败</td><td>输入源不足（graphify 图谱/设计文档/表单元数据缺失）</td></tr>
+        <tr><td>12016</td><td>AI 审计写入失败</td><td>ai_chat_log 落库失败，交互结果标记异常并告警（审计优先）</td></tr>
+      </table>
+      <ul>
+        <li>限流命中返回通用段限流错误码；文案由前端按 i18n 映射</li>
+        <li>异常处理：LLM 调用超时/失败自动重试一次后熔断告警，不阻塞业务主流程；审计落库优先（ai_chat_log 写入失败时交互结果不返回并告警，保证可追溯）；预算超限提前拦截并在模型配置页提示；帮助草稿生成失败不影响已发布文章</li>
+      </ul>
+
+      <h2 id="page">8. 页面清单与验收要点</h2>
+      <table>
+        <tr><th>页面</th><th>端</th><th>说明</th></tr>
+        <tr><td>AI 助手</td><td>PC 管理端</td><td>智能问数（数据集选择 + 图表结果）、审批辅助（参考意见与风险提示）、文档问答（文件选择 + 对话）页签；自动执行/自动审批二次确认与撤销入口</td></tr>
+        <tr><td>模型配置</td><td>PC 管理端</td><td>provider 增删改/启停、endpoint/model 配置、api_key_ref（Secret 引用）、连通性测试、预算与限流参数查看、AI 交互审计查询</td></tr>
+        <tr><td>AI 审计与风险事件</td><td>PC 管理端</td><td>ai_chat_log 查询（分页/过滤）、审计异常检测风险事件列表（告警接 Alertmanager）</td></tr>
+        <tr><td>问答机器人</td><td>移动端（企微/钉钉内嵌）</td><td>复用 /api/v1/ai/chat 的问答对话页，知识源问答（帮助文章/公告/审批记录/流程文档）</td></tr>
+        <tr><td>帮助维护（AI 增强）</td><td>PC 管理端</td><td>帮助中心文章页「AI 生成草稿」入口、草稿审核发布、质量评估报告页面（帮助管理内）</td></tr>
+      </table>
+      <p><strong>验收要点</strong>（阶段十五完成标准）：</p>
+      <ul>
+        <li>NL2SQL 安全执行验证通过：数据集白名单、只读从库执行、防注入（12006/12007 拒绝场景验证通过）</li>
+        <li>默认仅辅助、两开关关闭时无自动写操作验证通过（ai.auto_execute / ai.auto_approve 默认 false，无自动写动作）</li>
+        <li>开关开启场景：白名单/二次确认/审计/撤销验证通过；审批开关依赖校验验证通过（ai.auto_execute 未开启时无法启用 ai.auto_approve，配置拒绝保存并强制关闭）</li>
+        <li>检索/问答租户隔离验证通过：向量库按租户隔离，跨租户内容不进入上下文，RAG 上下文遵守动作级数据权限范围</li>
+        <li>AI 交互全量落审计日志：ai_chat_log 按月分片、敏感字段脱敏、交互不出租户边界</li>
+        <li>异常检测告警可达：风险事件生成 + Alertmanager 告警（邮件/企业微信/钉钉）送达</li>
+        <li>模型配置页面可管理、外部/私有化可切换：provider 增改停用与连通性测试可用，模型切换不侵入业务代码</li>
+        <li>帮助文档 AI 生成草稿与人工审核发布链路验证通过；form.updated 事件触发更新验证通过；质量评估报告可用</li>
+        <li>OCR 解析扫描件回写全文检索索引可用（衔接阶段十四 ocr_pending）；AI 成本/延迟指标纳入监控</li>
+      </ul>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 概要设计节点 · 与《项目规划说明》《架构设计》《文档生成规范》《命名规范》配套 · 生成日期：2026-08-06
+    </footer>
+  </div>
+
+</div>
+
+      <script src="../../资源/mermaid.min.js"></script>
+      <script src="../../资源/mermaid-init.js"></script>
+
+</body>
+</html>

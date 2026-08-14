@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>架构设计 · 子系统 · 通知公告</title>
+<link rel="stylesheet" href="../../资源/文档样式.css">
+</head>
+<body>
+
+<div class="topnav">
+  <a href="01_架构设计_总览.html">架构设计</a> › <span>18-通知公告</span>
+  <span class="topnav-side"><a href="17_架构设计_子系统_工作流.html">← 17-工作流</a> · <a href="19_架构设计_子系统_报表BI.html">19-报表BI →</a></span>
+</div>
+
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>架构设计 · 子系统 · 通知公告</h1>
+      <p>BMS · 站内信、公告回执与邮件短信</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#overview">1. 概述</a></li>
+        <li><a href="#notification">2. 站内信与待办通知</a></li>
+        <li><a href="#notice">3. 公告与已读回执</a></li>
+        <li><a href="#mail">4. 邮件通知</a></li>
+        <li><a href="#sms">5. 短信通知</a></li>
+        <li><a href="#coordination">6. 与其他子系统的协调</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="overview">1. 概述</h2>
+      <p>
+        通知公告子系统承载站内信/待办提醒、全员公告与已读回执、邮件与短信通知。
+        对应<a href="../../规划/项目规划说明.html">《项目规划说明》</a>的「通知中心」「公告管理」「邮件通知」章节。待办提醒与通知中心
+        （个人维度）区别于公告（面向全员）。
+      </p>
+
+      <h2 id="notification">2. 站内信与待办通知</h2>
+      <ul>
+        <li>sys_notification：user_id、title、content、type、biz_type、biz_id、is_read（个人维度）</li>
+        <li>生成路径：业务事件 → 通知组消费 → 站内信落库 + 触发实时推送（notification.new）</li>
+        <li>渠道偏好过滤：发送前按用户通知偏好（sys_user_preference）过滤渠道（站内信/邮件/短信开关）与免打扰时段，被过滤渠道不发送</li>
+        <li>待办提醒：审批待办生成 → 站内信 + Socket.IO（approval.todo）+ 待办角标</li>
+        <li>批量已读/全部已读（PC + 移动端）</li>
+      </ul>
+
+      <h2 id="notice">3. 公告与已读回执</h2>
+      <ul>
+        <li>sys_notice：title、content、type、priority、is_top、publish_at、expire_at、status——发布/编辑/置顶/过期自动下线（定时任务扫描）</li>
+        <li>sys_notice_read（notice_id + user_id 联合主键）：已读回执统计（全员维度）</li>
+        <li>发布/更新/下线落 notice.published 事件（Webhook 可订阅）</li>
+      </ul>
+
+      <h2 id="mail">4. 邮件通知</h2>
+      <ul>
+        <li>sys_mail_template（code、name、subject、content、status）：Jinja2 模板入库、页面在线编辑、保存前语法校验与沙箱渲染测试；多语言主题/内容存 sys_mail_template_i18n</li>
+        <li>发送：aiosmtplib（异步 SMTP）+ Jinja2 渲染，按收件人 locale 渲染内容；发送记录 sys_mail_log</li>
+        <li>场景：审批提醒、告警通知、找回密码重置链接（短时效 token）</li>
+        <li>权限码 mail:send；模板平台默认、租户可覆盖</li>
+      </ul>
+
+      <h2 id="sms">5. 短信通知</h2>
+      <ul>
+        <li>sys_sms_template（code、name、content、channel: aliyun/tencent、status）：页面在线编辑（验证码/告警/通知）</li>
+        <li>渠道：阿里云 / 腾讯云；发送记录 sys_sms_log（phone、channel、template_code、status、error_msg）</li>
+        <li>场景：验证码、告警通知；渠道故障时告警降级企业微信/钉钉</li>
+      </ul>
+
+      <h2 id="coordination">6. 与其他子系统的协调</h2>
+      <ul>
+        <li><strong><a href="12_架构设计_子系统_事件总线.html">事件总线</a></strong>：notification.sent 事件；通知生成经通知组消费（模块解耦）</li>
+        <li><strong><a href="14_架构设计_子系统_实时推送.html">实时推送</a></strong>：站内信/待办推送触发；批量已读同步角标状态</li>
+        <li><strong><a href="17_架构设计_子系统_工作流.html">工作流</a></strong>：审批待办生成 → 站内信；审批提醒邮件（Jinja2 模板 + i18n）</li>
+        <li><strong><a href="10_架构设计_子系统_认证与会话.html">认证与会话</a></strong>：找回密码邮件/短信通道（Redis token 单次有效）</li>
+        <li><strong><a href="13_架构设计_子系统_任务调度.html">任务调度</a></strong>：公告过期自动下线为定时扫描</li>
+        <li><strong><a href="20_架构设计_子系统_国际化.html">国际化</a></strong>：邮件模板多语言内容走 i18n 附表；运行时通知按收件人 locale 渲染</li>
+      </ul>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 架构设计节点 · 与《项目规划说明》《文档生成规范》《命名规范》配套 · 生成日期：2026-08-06
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>

@@ -110,7 +110,7 @@
 
       <h2 id="auth">6. 认证与权限</h2>
       <ul>
-        <li>认证：双 token（access + refresh），Bearer 方式；会话管理、锁定策略见《<a href="../设计/架构设计/09_架构设计_子系统_认证与会话.html">认证与会话</a>》。</li>
+        <li>认证：双 token（access + refresh），Bearer 方式；会话管理、锁定策略见《<a href="../设计/架构设计/10_架构设计_子系统_认证与会话.html">认证与会话</a>》。</li>
         <li>授权：RBAC 权限码 <code>业务:动作</code>（<code>user:create</code>、<code>wf:approve</code>），接口级注解校验（依赖注入），前端 <code>v-perm</code> 同步（见《<a href="命名规范.html">命名规范</a>》第 8/9 节）。</li>
         <li>开放接口：AppId/Secret 签名鉴权，IP 白名单可选；令牌/密钥不落前端。</li>
         <li>未认证 401、无权限 403，与业务码区分。</li>
