@@ -1,8 +1,9 @@
 /* BMS 交互式原型公共组件：分页区（列表页/表格明细）
  * 结构与《布局设计-表格明细》2.4 一致：总数 / 页码 / 跳页 / 每页条数 / 页码，默认 20 条/页。
  * 用法：
- *   1) 页面引用：<script src="../00_公共原型/pagination.js"></script>
+ *   1) 页面引用：<script src="../02_公共原型/分页.js"></script>
  *   2) 挂载：renderPager(el, { total, page, size, onPage(n), onSize(s) })
+ * 挂载元素自动附加 p-pager 类（flex 右对齐），与《布局设计-列表页》分页位置一致。
  * 修改组件只需改本文件，所有引用页面同步生效。
  */
 (function () {
@@ -43,6 +44,8 @@
     html += '</select>';
     html += '<span>跳至 <input class="pp-goto" type="number" min="1" max="' + last + '" value="' + page + '"> 页</span>';
     html += '<button class="p-btn sm" id="' + (el.id || '') + '-goto">跳转</button>';
+    // 挂载元素附加 p-pager 类：flex 容器右对齐（原型样式.css）
+    el.className = (el.className || '') + ' p-pager';
     el.innerHTML = html;
     el.querySelectorAll('.pp-num').forEach(function (b) {
       b.addEventListener('click', function () { if (!b.disabled) onPage(parseInt(b.getAttribute('data-p'), 10)); });

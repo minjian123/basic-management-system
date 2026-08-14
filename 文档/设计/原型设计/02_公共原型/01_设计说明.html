@@ -74,7 +74,7 @@
 });</code></pre>
 
       <h3 id="comp-pager">2.2 分页.js 分页</h3>
-      <p>列表分页区：总数 / 页码按钮 / 上一页下一页 / 每页条数（默认 20）/ 跳页，结构与《布局设计-表格明细》2.4 一致。</p>
+      <p>列表分页区：总数 / 页码按钮 / 上一页下一页 / 每页条数（默认 20）/ 跳页，结构与《布局设计-表格明细》2.4 一致；挂载元素自动附加 p-pager 类，分页在表格右下角<strong>右对齐</strong>（与《布局设计-列表页》分页位置一致）。</p>
       <pre><code>renderPager(document.getElementById('pager-user'), {
   total: 128, page: 1, size: 20,
   onPage: function (n) { /* 切换页码 */ },
