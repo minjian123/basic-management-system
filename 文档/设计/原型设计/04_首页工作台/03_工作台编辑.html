@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 工作台编辑</title>
+<link rel="stylesheet" href="../共享资源/原型样式.css">
+<style>
+  .ed-top { display: flex; gap: 10px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+  .wb { display: grid; gap: 12px; grid-auto-rows: minmax(64px, auto); }
+  .wb-card { position: relative; background: #fff; border: 1px dashed #0969da; border-radius: 8px; padding: 10px 12px; }
+  .wb-card.dragging { opacity: .5; }
+  /* 卡片头标题统一 16px */
+  .wb-card .hd { display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-size: 16px; margin-bottom: 6px; }
+  .wb-card .hd .ops { display: flex; gap: 6px; font-size: 12px; color: #0969da; }
+  .wb-card .hd .ops span { cursor: pointer; }
+  .wb-card .hd .ops span:hover { text-decoration: underline; }
+  .wb-card.hidden { display: none; }
+  /* 底部缩放手柄：右下角小方块，拖动改变宽度 2-12 列 / 高度 2-6 行 */
+  .rs-handle { position: absolute; right: 3px; bottom: 3px; width: 10px; height: 10px; border-right: 2px solid #54aeff; border-bottom: 2px solid #54aeff; cursor: nwse-resize; opacity: .7; }
+  .rs-handle:hover { opacity: 1; }
+  .drag-zone { border: 2px dashed #54aeff; background: #f6f8fa; border-radius: 8px; text-align: center; color: #0969da; font-size: 13px; padding: 14px; grid-column: span 12; cursor: pointer; }
+  .hidden-list { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 6px; }
+  .h-item { display: flex; align-items: center; gap: 6px; background: #f6f8fa; border: 1px dashed #d0d7de; border-radius: 6px; padding: 4px 12px; font-size: 12px; cursor: pointer; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="01_设计说明.html">← 返回设计说明</a></span>
+  <span class="pb-name">首页工作台 · 工作台编辑（编辑态）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="ed-top">
+    <span class="p-tag blue">编辑态</span>
+    <span class="proto-hint">当前层级：个人布局</span>
+    <span style="margin-left:auto">
+      <button class="p-btn" onclick="openDrawer('drawer-cards')">🗂 卡片管理</button>
+      <button class="p-btn" onclick="resetConfirm()">恢复默认</button>
+      <button class="p-btn" onclick="location.href='02_工作台查看.html'">取消</button>
+      <button class="p-btn primary" onclick="saveLayout()">保存</button>
+    </span>
+  </div>
+
+  <!-- 12 列网格：卡片拖拽排序（标题栏）＋ 右下角手柄缩放，宽度限 2-12 列、高度限 2-6 行 -->
+  <div class="wb" id="wb" style="grid-template-columns:repeat(12,1fr)">
+    <div class="wb-card" data-id="todo" draggable="true" ondragstart="dragStart(event,this)" ondragover="event.preventDefault()" ondrop="dropCard(event,this)" ondragend="clearDrag()" style="grid-column:span 4;grid-row:span 2">
+      <div class="hd">待办 <span class="ops"><span onclick="moveUp(this)">↑</span><span onclick="moveDown(this)">↓</span><span onclick="hideCard(this)">✕ 隐藏</span></span></div>
+      <div class="proto-hint" style="font-size:12px">待办 4 · 已办 12</div>
+      <div class="rs-handle" onmousedown="rsDown(event,this)"></div>
+    </div>
+    <div class="wb-card" data-id="notice" draggable="true" ondragstart="dragStart(event,this)" ondragover="event.preventDefault()" ondrop="dropCard(event,this)" ondragend="clearDrag()" style="grid-column:span 4;grid-row:span 2">
+      <div class="hd">通知 <span class="ops"><span onclick="moveUp(this)">↑</span><span onclick="moveDown(this)">↓</span><span onclick="hideCard(this)">✕ 隐藏</span></span></div>
+      <div class="proto-hint" style="font-size:12px">3 未读 · 审批通过提醒</div>
+      <div class="rs-handle" onmousedown="rsDown(event,this)"></div>
+    </div>
+    <div class="wb-card" data-id="quick" draggable="true" ondragstart="dragStart(event,this)" ondragover="event.preventDefault()" ondrop="dropCard(event,this)" ondragend="clearDrag()" style="grid-column:span 4;grid-row:span 2">
+      <div class="hd">快捷入口 <span class="ops"><span onclick="moveUp(this)">↑</span><span onclick="moveDown(this)">↓</span><span onclick="hideCard(this)">✕ 隐藏</span></span></div>
+      <div class="proto-hint" style="font-size:12px">采购申请 / 收款登记 / 付款申请 / 报表</div>
+      <div class="rs-handle" onmousedown="rsDown(event,this)"></div>
+    </div>
+    <div class="wb-card" data-id="stats" draggable="true" ondragstart="dragStart(event,this)" ondragover="event.preventDefault()" ondrop="dropCard(event,this)" ondragend="clearDrag()" style="grid-column:span 6;grid-row:span 2">
+      <div class="hd">数据统计 <span class="ops"><span onclick="moveUp(this)">↑</span><span onclick="moveDown(this)">↓</span><span onclick="hideCard(this)">✕ 隐藏</span></span></div>
+      <div class="proto-hint" style="font-size:12px">本月收款 ¥1.2万 · 待审批 4</div>
+      <div class="rs-handle" onmousedown="rsDown(event,this)"></div>
+    </div>
+    <div class="wb-card" data-id="chart" draggable="true" ondragstart="dragStart(event,this)" ondragover="event.preventDefault()" ondrop="dropCard(event,this)" ondragend="clearDrag()" style="grid-column:span 6;grid-row:span 2">
+      <div class="hd">收付款趋势 <span class="ops"><span onclick="moveUp(this)">↑</span><span onclick="moveDown(this)">↓</span><span onclick="hideCard(this)">✕ 隐藏</span></span></div>
+      <div class="proto-hint" style="font-size:12px">数据集图表卡 · 底部手柄可调整尺寸</div>
+      <div class="rs-handle" onmousedown="rsDown(event,this)"></div>
+    </div>
+    <div class="drag-zone" onclick="openDrawer('drawer-cards')">＋ 添加卡片 / 拖入字段到空位</div>
+  </div>
+
+  <!-- 卡片管理抽屉：已隐藏卡片勾选恢复 + 添加卡片按钮组 -->
+  <div class="p-drawer w400" id="drawer-cards">
+    <div class="pd-head">卡片管理<span class="x" onclick="closeDrawer('drawer-cards')">✕</span></div>
+    <div class="pd-body">
+      <div class="proto-hint" style="margin-bottom:6px">已隐藏卡片（勾选恢复 / 取消勾选重新隐藏）</div>
+      <div class="hidden-list">
+        <label class="h-item"><input type="checkbox" data-id="announce" onchange="restoreCard(this,'announce')"> 公告</label>
+        <label class="h-item"><input type="checkbox" data-id="help" onchange="restoreCard(this,'help')"> 帮助入口</label>
+      </div>
+      <div style="border-top:1px solid #eaeef2;margin-top:16px;padding-top:12px">
+        <b>添加卡片</b>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px">
+        <button class="p-btn ghost" onclick="addBuiltin('announce')">＋ 公告</button>
+        <button class="p-btn ghost" onclick="addBuiltin('help')">＋ 帮助入口</button>
+        <button class="p-btn ghost" onclick="addBuiltin('notice')">＋ 通知</button>
+        <button class="p-btn ghost" onclick="addBuiltin('todo')">＋ 待办/已办</button>
+      </div>
+      <div class="proto-hint" style="margin:12px 0 8px">自建图表卡（需报表中心）</div>
+      <button class="p-btn ghost" style="width:100%" onclick="chartFlow()">＋ 新建图表卡（选数据集）</button>
+    </div>
+    <div class="pd-foot"><button class="p-btn" onclick="closeDrawer('drawer-cards')">关闭</button></div>
+  </div>
+
+  <!-- 自建图表卡抽屉（宽 480 默认）：数据集选择 + 图表类型 -->
+  <div class="p-drawer" id="drawer-chart">
+    <div class="pd-head">新建图表卡<span class="x" onclick="closeDrawer('drawer-chart')">✕</span></div>
+    <div class="pd-body">
+      <div class="p-field"><label>选择数据集</label>
+        <select class="p-select"><option>本月收付款流水</option><option>采购订单金额</option><option>审批时长分布</option></select>
+      </div>
+      <div style="height:10px"></div>
+      <div class="p-field"><label>图表类型</label>
+        <select class="p-select"><option>柱状图</option><option>折线图</option><option>饼图</option></select>
+      </div>
+      <div style="height:10px"></div>
+      <div class="p-field"><label>默认尺寸</label>
+        <select class="p-select"><option>6×2</option><option>12×4</option><option>6×4</option></select>
+      </div>
+    </div>
+    <div class="pd-foot">
+      <button class="p-btn" onclick="closeDrawer('drawer-chart')">取消</button>
+      <button class="p-btn primary" onclick="chartDone()">添加图表卡</button>
+    </div>
+  </div>
+</div>
+
+<script src="../共享资源/原型脚本.js"></script>
+<script>
+  var order = ['todo', 'notice', 'quick', 'stats', 'chart', '__drop'];
+  function cards() { return document.querySelectorAll('.wb-card:not(.hidden)'); }
+  function moveUp(el) {
+    var card = el.closest('.wb-card');
+    var prev = card.previousElementSibling;
+    if (!prev || prev.classList.contains('drag-zone')) { toast('已在最前'); return; }
+    card.parentNode.insertBefore(card, prev); toast('已上移（模拟拖拽排序）');
+  }
+  function moveDown(el) {
+    var card = el.closest('.wb-card');
+    var next = card.nextElementSibling;
+    if (!next) { toast('已在最后'); return; }
+    card.parentNode.insertBefore(next, card); toast('已下移（模拟拖拽排序）');
+  }
+  function hideCard(el) {
+    var card = el.closest('.wb-card');
+    card.classList.add('hidden');
+    var box = card.querySelector('.hd .ops'); if (box) box.style.display = 'none';
+    var cb = document.querySelector('#drawer-cards input[data-id="' + card.getAttribute('data-id') + '"]');
+    if (cb) cb.checked = false;
+    toast('已移入「卡片管理」（数据保留）');
+  }
+  function restoreCard(cb, id) {
+    var card = document.querySelector('.wb-card[data-id="' + id + '"]');
+    if (!card) return;
+    if (cb.checked) { card.classList.remove('hidden'); toast('已恢复「' + card.querySelector('.hd').childNodes[0].textContent + '」', 'ok'); }
+    else { card.classList.add('hidden'); toast('已重新隐藏「' + card.querySelector('.hd').childNodes[0].textContent + '」'); }
+  }
+  function addBuiltin(id) {
+    var card = document.querySelector('.wb-card[data-id="' + id + '"]');
+    if (card) {
+      card.classList.remove('hidden');
+      var cb = document.querySelector('#drawer-cards input[data-id="' + id + '"]');
+      if (cb) cb.checked = true;
+      closeDrawer('drawer-cards');
+      toast('已添加「' + card.querySelector('.hd').childNodes[0].textContent + '」', 'ok');
+    }
+  }
+  function chartFlow() { closeDrawer('drawer-cards'); openDrawer('drawer-chart', '新建图表卡'); }
+  function chartDone() {
+    closeDrawer('drawer-chart');
+    var wb = document.getElementById('wb'), drop = wb.querySelector('.drag-zone');
+    var d = document.createElement('div');
+    d.className = 'wb-card';
+    d.setAttribute('data-id', 'chart' + Date.now());
+    d.draggable = true;
+    d.setAttribute('ondragstart', 'dragStart(event,this)');
+    d.setAttribute('ondragover', 'event.preventDefault()');
+    d.setAttribute('ondrop', 'dropCard(event,this)');
+    d.setAttribute('ondragend', 'clearDrag()');
+    d.style.gridColumn = 'span 6';
+    d.style.gridRow = 'span 2';
+    d.innerHTML = '<div class="hd">新图表卡 <span class="ops"><span onclick="moveUp(this)">↑</span><span onclick="moveDown(this)">↓</span><span onclick="hideCard(this)">✕ 隐藏</span></span></div><div class="proto-hint" style="font-size:12px">数据集图表卡</div><div class="rs-handle" onmousedown="rsDown(event,this)"></div>';
+    wb.insertBefore(d, drop);
+    toast('图表卡已添加', 'ok');
+  }
+
+  // HTML5 拖拽排序：拖动卡片标题栏到目标卡片位置（宽度 2-12 列 / 高度 2-6 行限制由 resize 手柄实现）
+  function dragStart(e, card) {
+    if (e.target.closest('.rs-handle') || e.target.closest('.ops')) { e.preventDefault(); return; }
+    e.dataTransfer.setData('text/plain', card.getAttribute('data-id'));
+    card.classList.add('dragging');
+  }
+  function dropCard(e, target) {
+    e.preventDefault();
+    var id = e.dataTransfer.getData('text/plain');
+    var card = document.querySelector('.wb-card[data-id="' + id + '"]');
+    if (!card || card === target) { clearDrag(); return; }
+    document.getElementById('wb').insertBefore(card, target);
+    toast('卡片已移动（拖拽排序）', 'ok');
+    clearDrag();
+  }
+  function clearDrag() { document.querySelectorAll('.wb-card').forEach(function (c) { c.classList.remove('dragging'); }); }
+
+  // 底部缩放手柄：水平拖动改宽度（2-12 列）、垂直拖动改高度（2-6 行）
+  function rsDown(e, h) {
+    e.preventDefault();
+    var card = h.closest('.wb-card');
+    var sx = e.clientX, sy = e.clientY;
+    var col = parseInt((card.style.gridColumn || '').replace(/^span\s*/, '')) || 4;
+    var row = parseInt((card.style.gridRow || '').replace(/^span\s*/, '')) || 2;
+    function mv(ev) {
+      var c = Math.min(12, Math.max(2, col + Math.round((ev.clientX - sx) / 60)));
+      var r = Math.min(6, Math.max(2, row + Math.round((ev.clientY - sy) / 40)));
+      card.style.gridColumn = 'span ' + c;
+      card.style.gridRow = 'span ' + r;
+      h.title = c + '×' + r;
+    }
+    function up() {
+      document.removeEventListener('mousemove', mv);
+      document.removeEventListener('mouseup', up);
+      var m = (h.title || '').split('×');
+      if (m.length === 2) toast('尺寸已调整为 ' + m[0] + ' 列 × ' + m[1] + ' 行（宽 2-12 · 高 2-6）', 'ok');
+    }
+    document.addEventListener('mousemove', mv);
+    document.addEventListener('mouseup', up);
+  }
+
+  function resetConfirm() {
+    confirmAction('恢复默认将删除个人布局，回退到「角色模板」层级，确定？', function () { toast('已恢复默认布局（回退角色模板）', 'ok'); });
+  }
+  function saveLayout() {
+    var ids = [];
+    cards().forEach(function (c) { ids.push(c.getAttribute('data-id')); });
+    toast('布局已保存（PUT /dashboard/layout）· 顺序：' + ids.join(' → '), 'ok');
+  }
+</script>
+
+</body>
+</html>

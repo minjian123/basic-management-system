@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 公共原型 · 设计说明</title>
+<link rel="stylesheet" href="../../../资源/文档样式.css">
+</head>
+<body>
+
+<div class="topnav">
+  <a href="../../../文档首页.html">文档首页</a> ›
+  <a href="../../../规划/项目规划说明.html">项目规划说明</a> ›
+  <a href="../01_原型设计_总览.html">原型设计</a> ›
+  <span>公共原型 · 设计说明</span>
+</div>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>原型 · 公共原型</h1>
+      <p>可复用原型组件 · 一处定义、处处引用</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#purpose">1. 定位与原则</a></li>
+        <li><a href="#components">2. 组件清单</a>
+          <ul class="sub">
+            <li><a href="#comp-sysinfo">2.1 系统信息.js 系统信息</a></li>
+            <li><a href="#comp-pager">2.2 分页.js 分页</a></li>
+            <li><a href="#comp-empty">2.3 空状态.js 空状态</a></li>
+          </ul>
+        </li>
+        <li><a href="#usage">3. 引用方式</a></li>
+        <li><a href="#extend">4. 新增组件规则</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="purpose">1. 定位与原则</h2>
+      <p>
+        本目录存放<strong>可复用原型组件</strong>（纯 JS 生成 HTML，无 fetch 依赖，file:// 双击可用）。
+        组件由各业务模块的页面嵌入引用：<strong>组件只在本目录维护一份，修改一处、全部引用页面同步生效</strong>，
+        避免同一 UI 结构在多个页面复制粘贴后出现改一处漏一处的问题。
+      </p>
+      <ul>
+        <li><strong>适用范围</strong>：跨模块复用、且结构统一的界面片段（系统信息、分页、空状态等）。</li>
+        <li><strong>边界</strong>：业务内容各异的界面（弹窗表单、明细行等）不组件化，保留在各页面内；<code>共享资源/</code> 仍负责全局样式与全局脚本（原型样式.css / 原型脚本.js）。</li>
+        <li><strong>组件命名</strong>：kebab-case 文件（系统信息.js、分页.js、空状态.js）；对外函数挂 window（mountSysInfo、renderPager、renderEmpty）。</li>
+      </ul>
+
+      <h2 id="components">2. 组件清单</h2>
+      <p><strong>演示入口</strong>：<a href="02_组件展示.html">02_组件展示.html</a>——各组件实际渲染效果（可交互：分页翻页、空状态场景切换）。</p>
+      <table>
+        <tr><th>组件文件</th><th>对外函数</th><th>依据布局文档</th><th>引用页面</th></tr>
+        <tr><td>系统信息.js</td><td>sysInfoHTML() / mountSysInfo()</td><td><a href="../../布局设计/08_布局设计_表单页.html">《布局设计-表单页》</a>2.1</td><td>通用骨架表单框架、用户表单页、部门管理页、采购申请表单页</td></tr>
+        <tr><td>分页.js</td><td>renderPager()</td><td><a href="../../布局设计/09_布局设计_表格明细.html">《布局设计-表格明细》</a>2.4</td><td>各列表页（用户/角色/岗位/权限码/采购/卡片/模板等）</td></tr>
+        <tr><td>空状态.js</td><td>renderEmpty()</td><td><a href="../../布局设计/12_布局设计_异常与空状态.html">《布局设计-异常与空状态》</a></td><td>各列表页空态、搜索无结果</td></tr>
+      </table>
+
+      <h3 id="comp-sysinfo">2.1 系统信息.js 系统信息</h3>
+      <p>表单详情页「系统信息」区块：字段与《布局设计-表单页》2.1 一致——ID / 创建时间 / 创建用户 / 修改时间 / 修改用户（纯文本只读，不套输入框）。支持 extra 扩展字段（如采购表单的版本号）。</p>
+      <pre><code>mountSysInfo(document.getElementById('sys-info-user'), {
+  id: '1902876345762181120',
+  createdAt: '2026-07-01 10:00:00 (UTC)',
+  createdBy: 'admin',
+  updatedAt: '2026-08-12 09:30:00 (UTC)',
+  updatedBy: 'admin',
+  extra: [['版本号', 'version 2（乐观锁校验）']]
+});</code></pre>
+
+      <h3 id="comp-pager">2.2 分页.js 分页</h3>
+      <p>列表分页区：总数 / 页码按钮 / 上一页下一页 / 每页条数（默认 20）/ 跳页，结构与《布局设计-表格明细》2.4 一致。</p>
+      <pre><code>renderPager(document.getElementById('pager-user'), {
+  total: 128, page: 1, size: 20,
+  onPage: function (n) { /* 切换页码 */ },
+  onSize: function (s) { /* 切换每页条数，回第 1 页 */ }
+});</code></pre>
+
+      <h3 id="comp-empty">2.3 空状态.js 空状态</h3>
+      <p>空状态插画（inline SVG）+ 文案 + 可选引导按钮；文案场景：list「暂无数据」、search「未找到相关内容」、todo「暂无待办，享受这一刻」、msg「暂无消息」、error「加载失败」。</p>
+      <pre><code>renderEmpty(document.getElementById('empty-user'), {
+  type: 'list', action: '去创建', onAction: function () { /* 打开新增 */ }
+});</code></pre>
+
+      <h2 id="usage">3. 引用方式</h2>
+      <p>页面在底部脚本区引用组件文件（相对路径按页面层级：业务模块页 = <code>../02_公共原型/组件名.js</code>），并在元素存在后调用：</p>
+      <pre><code>&lt;!-- 页面 HTML：占位容器 --&gt;
+&lt;div id="sys-info-user"&gt;&lt;/div&gt;
+
+&lt;script src="../共享资源/原型脚本.js"&gt;&lt;/script&gt;
+&lt;script src="../02_公共原型/系统信息.js"&gt;&lt;/script&gt;
+&lt;script&gt;
+  mountSysInfo(document.getElementById('sys-info-user'), { /* 数据 */ });
+&lt;/script&gt;</code></pre>
+
+      <h2 id="extend">4. 新增组件规则</h2>
+      <ol>
+        <li>满足「跨模块复用 + 结构统一」才组件化；业务内容各异的界面不做。</li>
+        <li>文件放本目录，命名 kebab-case；对外函数挂 window，函数名与文件对应（<code>xx.js</code> → <code>mountXx / renderXx</code>）。</li>
+        <li>组件头部注释：用途、依据的布局文档章节、用法示例；修改组件后所有引用页面自动生效。</li>
+        <li>新增组件后：更新本说明组件清单表与<a href="../01_原型设计_总览.html">《原型设计总览》</a>模块地图。</li>
+      </ol>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 原型设计公共组件说明 · 与《原型审查规范》《布局设计》配套 · 生成日期：2026-08-14
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>

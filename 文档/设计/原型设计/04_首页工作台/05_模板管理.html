@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 模板管理</title>
+<link rel="stylesheet" href="../共享资源/原型样式.css">
+<style>
+  .p-table tr.row-link.active { background: #ddf4ff; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="01_设计说明.html">← 返回设计说明</a></span>
+  <span class="pb-name">首页工作台 · 模板管理</span>
+</div>
+
+<div class="proto-frame">
+  <div class="p-toolbar">
+    <button class="p-btn primary" onclick="editTpl(null)">新建模板</button>
+    <button class="p-btn" onclick="toast('已刷新')">刷新</button>
+    <button class="p-btn" onclick="toast('原型演示：关闭当前模块页面（返回）')">关闭</button>
+    <span style="margin-left:auto">
+      <button class="p-btn" onclick="toast('原型演示：导出当前筛选结果')">导出</button>
+    </span>
+  </div>
+
+  <!-- 表格无操作列：行点击进入编辑（row-link），状态标签可直接切换启停 -->
+  <table class="p-table" id="tbl">
+    <tr><th>层级</th><th>名称</th><th>绑定角色</th><th>卡片数</th><th>状态</th></tr>
+    <tr class="row-link" data-id="platform" onclick="editTpl(this,'platform','默认工作台')">
+      <td><span class="p-tag blue">平台默认</span></td><td>默认工作台</td><td>—</td><td>5</td>
+      <td><span class="p-tag green" data-role="st" style="cursor:pointer" onclick="event.stopPropagation();toggleTpl(this)">启用</span></td>
+    </tr>
+    <tr class="row-link" data-id="r-admin" onclick="editTpl(this,'r-admin','管理员工作台')">
+      <td><span class="p-tag gray">角色</span></td><td>管理员工作台</td><td>系统管理员</td><td>6</td>
+      <td><span class="p-tag green" data-role="st" style="cursor:pointer" onclick="event.stopPropagation();toggleTpl(this)">启用</span></td>
+    </tr>
+    <tr class="row-link" data-id="r-user" onclick="editTpl(this,'r-user','审批人工作台')">
+      <td><span class="p-tag gray">角色</span></td><td>审批人工作台</td><td>普通角色</td><td>4</td>
+      <td><span class="p-tag green" data-role="st" style="cursor:pointer" onclick="event.stopPropagation();toggleTpl(this)">启用</span></td>
+    </tr>
+  </table>
+  <div id="pager-tpl"></div>
+</div>
+
+<!-- 新建/编辑模板抽屉（宽 640）：表单字段保留 -->
+<div class="p-drawer w640" id="drawer-tpl">
+  <div class="pd-head">新建模板<span class="x" onclick="closeDrawer('drawer-tpl')">✕</span></div>
+  <div class="pd-body">
+    <div class="p-field"><label>层级</label>
+      <select class="p-select" id="f-scope">
+        <option value="role">角色模板</option>
+        <option value="platform">平台默认（仅允许一份）</option>
+      </select>
+    </div>
+    <div style="height:10px"></div>
+    <div class="p-field"><label>绑定角色（角色模板时）</label>
+      <select class="p-select" id="f-role"><option>财务角色</option><option>人事角色</option><option>报表查看角色</option></select>
+    </div>
+    <div style="height:10px"></div>
+    <div class="p-field"><label>名称</label><input class="p-input" id="f-name" placeholder="模板名称"></div>
+  </div>
+  <div class="pd-foot">
+    <span style="margin-right:auto">
+      <button class="p-btn" id="btn-layout" style="display:none" onclick="toast('原型演示：跳转「工作台编辑」复用编辑画布')">编辑布局</button>
+      <button class="p-btn danger" id="btn-del" style="display:none" onclick="delTplDrawer()">删除</button>
+    </span>
+    <button class="p-btn" onclick="closeDrawer('drawer-tpl')">取消</button>
+    <button class="p-btn primary" onclick="saveTpl()">创建</button>
+  </div>
+</div>
+
+<script src="../共享资源/原型脚本.js"></script>
+<script src="../02_公共原型/分页.js"></script>
+<script>
+  renderPager(document.getElementById('pager-tpl'), { total: 3, page: 1, size: 20, onPage: function (n) { toast('第 ' + n + ' 页'); } });
+  var editId = null;
+
+  function editTpl(tr, id, name) {
+    document.querySelectorAll('#tbl tr.row-link').forEach(function (x) { x.classList.remove('active'); });
+    if (tr) tr.classList.add('active');
+    editId = id || null;
+    if (editId) {
+      openDrawer('drawer-tpl', '编辑模板');
+      document.getElementById('btn-layout').style.display = '';
+      document.getElementById('btn-del').style.display = '';
+      document.getElementById('f-name').value = name || '';
+      document.getElementById('f-scope').value = editId === 'platform' ? 'platform' : 'role';
+    } else {
+      openDrawer('drawer-tpl', '新建模板');
+      document.getElementById('btn-layout').style.display = 'none';
+      document.getElementById('btn-del').style.display = 'none';
+      document.getElementById('f-name').value = '';
+    }
+  }
+
+  function toggleTpl(btn) {
+    var tr = btn.closest('tr'), st = tr.querySelector('[data-role="st"]');
+    if (st.classList.contains('green')) { st.className = 'p-tag gray'; st.textContent = '停用'; btn.textContent = '启用'; toast('已停用——相关用户回退下一级'); }
+    else { st.className = 'p-tag green'; st.textContent = '启用'; btn.textContent = '停用'; toast('已启用', 'ok'); }
+  }
+  function delTplDrawer() {
+    if (!editId) return;
+    var name = document.getElementById('f-name').value.trim() || '该模板';
+    confirmAction('删除模板「' + name + '」？绑定该模板的用户将回退到下一级模板（平台默认）。', function () {
+      var tr = document.querySelector('#tbl tr[data-id="' + editId + '"]');
+      if (tr) tr.remove();
+      closeDrawer('drawer-tpl');
+      editId = null;
+      toast('已删除，用户回退平台默认', 'ok');
+    });
+  }
+  function saveTpl() {
+    var scope = document.getElementById('f-scope').value, name = document.getElementById('f-name').value.trim(), role = document.getElementById('f-role').value;
+    if (!name) { toast('名称必填', 'err'); return; }
+    if (scope === 'platform') {
+      var exist = document.querySelector('#tbl tr[data-id="platform"]');
+      if (exist) { toast('平台默认模板仅允许一份（40306）', 'err'); return; }
+    }
+    if (editId) {
+      var tr = document.querySelector('#tbl tr[data-id="' + editId + '"]');
+      if (tr) { tr.cells[1].textContent = name; tr.cells[2].textContent = scope === 'platform' ? '—' : role; }
+      toast('模板已更新', 'ok');
+      closeDrawer('drawer-tpl');
+      editId = null;
+      return;
+    }
+    closeDrawer('drawer-tpl');
+    var tbody = document.getElementById('tbl'), tr = document.createElement('tr');
+    var isRole = scope === 'role';
+    var nid = 'new';
+    tr.className = 'row-link';
+    tr.setAttribute('data-id', nid);
+    tr.setAttribute('onclick', 'editTpl(this,\'' + nid + '\',\'' + name + '\')');
+    tr.innerHTML = '<td><span class="p-tag ' + (isRole ? 'gray' : 'blue') + '">' + (isRole ? '角色' : '平台默认') + '</span></td><td>' + name + '</td><td>' + (isRole ? role : '—') + '</td><td>0</td>' +
+      '<td><span class="p-tag green" data-role="st" style="cursor:pointer" onclick="event.stopPropagation();toggleTpl(this)">启用</span></td>';
+    tbody.appendChild(tr);
+    toast('模板已创建（编辑布局复用工作台编辑画布）', 'ok');
+  }
+</script>
+
+</body>
+</html>

@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 通知公告页</title>
+<link rel="stylesheet" href="../共享资源/原型样式.css">
+<style>
+  /* 未读行行级高亮：加粗 + 浅色背景（《布局设计-列表页》未读语义） */
+  #nt tr[data-unread="1"] { background: #fff8c5; font-weight: 600; }
+  #nt tr[data-unread="1"] td:first-child { font-weight: normal; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="01_设计说明.html">← 返回设计说明</a></span>
+  <span class="pb-name">采购与审批链路 · 通知公告页</span>
+</div>
+
+<div class="proto-frame">
+  <div class="p-tabs" id="tabs">
+    <div class="p-tab active" data-pane="notify" onclick="switchT('notify')">通知中心 <span class="p-tag red" id="unread-tag">3 未读</span></div>
+    <div class="p-tab" data-pane="notice" onclick="switchT('notice')">公告</div>
+  </div>
+
+  <div id="pane-notify">
+    <div class="p-toolbar">
+      <button class="p-btn" onclick="readAll()">全部已读</button>
+      <button class="p-btn batch-btn" disabled onclick="readSel()">批量已读</button>
+      <button class="p-btn" onclick="toast('已刷新')">刷新</button>
+      <button class="p-btn" onclick="toast('原型演示：关闭当前模块页面（返回）')">关闭</button>
+      <span class="proto-hint" style="margin-left:auto">点击通知行：标记已读并跳转单据；批量已读需先勾选</span>
+    </div>
+    <table class="p-table" id="nt">
+      <tr><th><input type="checkbox" onclick="selAll(this)"></th><th>标题</th><th>类型</th><th>时间</th><th>状态</th></tr>
+      <tr data-unread="1" class="row-link" onclick="openNotify(this)">
+        <td><input type="checkbox" class="row-chk" onclick="event.stopPropagation();updBatch()"></td><td>审批通过：采购申请 CG202608001</td><td><span class="p-tag blue">审批提醒</span></td><td>08-12 10:00</td>
+        <td><span class="p-tag red" data-role="st">未读</span></td>
+      </tr>
+      <tr data-unread="1" class="row-link" onclick="openNotify(this)">
+        <td><input type="checkbox" class="row-chk" onclick="event.stopPropagation();updBatch()"></td><td>新待办：付款申请 FK202608002</td><td><span class="p-tag blue">待办提醒</span></td><td>08-11 15:02</td>
+        <td><span class="p-tag red" data-role="st">未读</span></td>
+      </tr>
+      <tr data-unread="0">
+        <td><input type="checkbox" class="row-chk" onclick="event.stopPropagation();updBatch()"></td><td>你发起的 CG202608001 已进入财务节点</td><td><span class="p-tag gray">流程动态</span></td><td>08-12 10:02</td>
+        <td><span class="p-tag gray" data-role="st">已读</span></td>
+      </tr>
+    </table>
+    <div id="pager-notice"></div>
+  </div>
+
+  <div id="pane-notice" style="display:none">
+    <div class="p-toolbar">
+      <button class="p-btn primary" onclick="toast('原型演示：跳转公告编辑')">发布公告</button>
+      <button class="p-btn" onclick="toast('已刷新')">刷新</button>
+      <button class="p-btn" onclick="toast('原型演示：关闭当前模块页面（返回）')">关闭</button>
+    </div>
+    <!-- 公告列表：仅展示未过期的公告；已过有效期 / 已下架 / 已撤销的公告不展示（后端按有效截止时间过滤） -->
+    <div style="background:#fff;border:1px solid #d0d7de;border-radius:8px;padding:4px 14px">
+      <div style="padding:10px 0;border-bottom:1px solid #eaeef2;cursor:pointer" onclick="openNotice()">
+        📌 <b>【置顶】系统升级维护通知</b> <span class="p-tag orange">置顶</span>
+        <span style="float:right" class="proto-hint">08-13 08:00 · 已读回执 45/68</span>
+      </div>
+      <div style="padding:10px 0;border-bottom:1px solid #eaeef2;cursor:pointer" onclick="openNotice()">
+        新员工入职流程说明 <span style="float:right" class="proto-hint">08-10 10:00</span>
+      </div>
+      <div style="padding:10px 0;cursor:pointer" onclick="openNotice()">
+        2026 年度预算申报通知 <span style="float:right" class="proto-hint">08-05 09:30</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 公告详情：打开即自动上报已读（手动按钮移除，改为结果提示） -->
+<div class="p-mask" id="m-detail">
+  <div class="p-modal">
+    <div class="pm-head">系统升级维护通知<span class="x" onclick="closeModal('m-detail')">✕</span></div>
+    <div class="pm-body" style="font-size:13px">
+      <p>各位同事：8 月 15 日 22:00-24:00 将进行系统升级维护，期间系统不可用，请提前保存工作进度。</p>
+      <div class="proto-hint">发布人：管理员 · 2026-08-13 08:00 · 有效期至 2026-08-20</div>
+      <div class="proto-hint" style="margin-top:8px">打开详情即自动上报已读回执（自动标记，无需手动点击）</div>
+    </div>
+    <div class="pm-foot"><button class="p-btn" disabled>✓ 已读</button></div>
+  </div>
+</div>
+
+<script src="../共享资源/原型脚本.js"></script>
+<script src="../02_公共原型/分页.js"></script>
+<script>
+  renderPager(document.getElementById('pager-notice'), { total: 3, page: 1, size: 20, onPage: function (n) { toast('第 ' + n + ' 页'); } });
+  function switchT(name) {
+    document.querySelectorAll('#tabs .p-tab').forEach(function (t) { t.classList.toggle('active', t.getAttribute('data-pane') === name); });
+    document.getElementById('pane-notify').style.display = name === 'notify' ? '' : 'none';
+    document.getElementById('pane-notice').style.display = name === 'notice' ? '' : 'none';
+  }
+  function updateUnread() {
+    var n = document.querySelectorAll('#nt tr[data-unread="1"]').length;
+    document.getElementById('unread-tag').textContent = n + ' 未读';
+    if (n === 0) document.getElementById('unread-tag').className = 'p-tag gray';
+  }
+  // 行点击：标记已读 + 跳转单据（自动已读，无需手动按钮）
+  function openNotify(tr) {
+    var st = tr.querySelector('[data-role="st"]');
+    if (st && st.textContent === '未读') {
+      st.className = 'p-tag gray'; st.textContent = '已读';
+      tr.setAttribute('data-unread', '0');
+      tr.style.background = ''; tr.style.fontWeight = '';
+      updateUnread();
+    }
+    toast('跳转单据：' + tr.children[1].textContent + '（原型演示）');
+  }
+  function updBatch() {
+    var any = !!document.querySelector('.row-chk:checked');
+    document.querySelectorAll('.batch-btn').forEach(function (b) { b.disabled = !any; });
+  }
+  function readSel() {
+    var sels = document.querySelectorAll('.row-chk:checked');
+    if (!sels.length) { toast('请先选择通知', 'err'); return; }
+    sels.forEach(function (x) { var tr = x.closest('tr'); tr.setAttribute('data-unread', '0'); var st = tr.querySelector('[data-role="st"]'); if (st) { st.className = 'p-tag gray'; st.textContent = '已读'; } tr.style.background = ''; tr.style.fontWeight = ''; });
+    toast('批量已读完成', 'ok'); updateUnread(); updBatch();
+  }
+  function readAll() {
+    document.querySelectorAll('#nt tr').forEach(function (tr) { tr.setAttribute('data-unread', '0'); var st = tr.querySelector('[data-role="st"]'); if (st && st.textContent === '未读') { st.className = 'p-tag gray'; st.textContent = '已读'; } tr.style.background = ''; tr.style.fontWeight = ''; });
+    updateUnread(); updBatch(); toast('全部已读（角标归零）', 'ok');
+  }
+  // 公告详情：打开即自动上报已读回执（无手动按钮）
+  function openNotice() {
+    openModal('m-detail');
+    toast('已自动标记已读（回执自动上报）', 'ok');
+  }
+  function selAll(cb) { document.querySelectorAll('.row-chk').forEach(function (x) { x.checked = cb.checked; }); updBatch(); }
+</script>
+
+</body>
+</html>
