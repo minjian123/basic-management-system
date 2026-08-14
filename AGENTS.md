@@ -57,3 +57,19 @@
 - 若 graphify-out/wiki/index.md 存在，用它做广域导航，避免直接浏览源码。
 - 仅在需要宏观架构审查、或 query/path/explain 信息不足时，才读 graphify-out/GRAPH_REPORT.md。
 - 修改代码后运行 `graphify update .` 保持图谱最新（纯 AST，无 API 开销）。
+
+## 视觉识图（Vision）
+
+让 AI 助手「看图」的通用能力（方案文档：`文档/资料/AI/视觉识图辅助方案.html`），工具链在 `deploy/tools/vision/`，已通过 opencode 插件注册三个工具：
+
+- `vision_analyze`（核心）：任意图片 + 任意提示词（`prompt` 模板名 / 路径 / `text` 直传），返回结构化 JSON；通用识图主体，与场景解耦。
+- `vision_screenshot`：Edge 无头截图（HTML 路径或 URL → PNG）。
+- `vision_review_proto`：评审场景组合动作——多档分辨率截图 + 逐图识图 + HTML 报告；`sizes=375x812` 可做移动端评审。
+
+规则：
+
+- 配置已固化在 `.opencode/opencode.json`（插件 options：endpoint/apiKey/model/timeout=60s），无需每次设置环境变量；缺配置时工具返回友好错误，不影响 opencode。
+- **模板即场景**：新场景 = 在 `deploy/tools/vision/prompts/` 新增一个 md 模板（已有 image-understanding / general-review / prototype-review / mobile-review）。
+- **本地模型注意**：识图服务为本机 LM Studio（qwen3.6-35b-a3b，见 `文档/用户文档/本地资源.md`）。该模型是推理模型，客户端默认 `reasoning_effort: "none"` 关闭思考（否则评审几万 token 不结束）；本地模型零费用，可对同一张图反复调用、聚焦区域迭代复查（如评审报告某处不清楚，再调一次着重看该区域）。
+- 评审闭环：截图评审 → 按问题清单修正 → 重新评审，直到无高危问题。
+- 截图与评审报告等产物一律输出到 `temp/vision/`（已 gitignore），**不入库、不提交**；需留档时用 `report` 参数输出到项目内其他位置。
