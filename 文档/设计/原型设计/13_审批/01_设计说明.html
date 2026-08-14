@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 审批 · 设计说明</title>
+<link rel="stylesheet" href="../../../资源/文档样式.css">
+</head>
+<body>
+
+<div class="topnav">
+  <a href="../../../文档首页.html">文档首页</a> ›
+  <a href="../../../规划/项目规划说明.html">项目规划说明</a> ›
+  <a href="../01_原型设计_总览.html">原型设计</a> ›
+  <span>审批 · 设计说明</span>
+</div>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>原型 · 审批</h1>
+      <p>待办审批 · 通知公告 · 设计说明</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#overview">1. 模块概述</a></li>
+        <li><a href="#pages">2. 界面清单</a></li>
+        <li><a href="#interact">3. 交互要点</a></li>
+        <li><a href="#reference">4. 设计依据</a></li>
+        <li><a href="#iter">5. 迭代记录</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="overview">1. 模块概述</h2>
+      <p>
+        审批链路：我的待办/已办与审批处理（复用工作流引擎）、通知中心与公告。
+        采购申请等业务单据提交后进入本模块的待办审批；对应<a href="../../概要设计/16_概要设计_工作流管理.html">《概要设计-工作流管理》</a>、
+        <a href="../../概要设计/17_概要设计_通知中心.html">《概要设计-通知中心》</a>、
+        <a href="../../概要设计/19_概要设计_公告管理.html">《概要设计-公告管理》</a>。
+      </p>
+
+      <h2 id="pages">2. 界面清单</h2>
+      <table>
+        <tr><th>界面</th><th>原型（可点击操作）</th><th>主要交互验证点</th></tr>
+        <tr><td>待办审批页</td><td><a href="02_待办审批页.html">待办审批页.html</a></td><td>待办/已办切换、审批弹窗（同意/驳回/撤回/转办）、会签提示、双击行打开审批表单</td></tr>
+        <tr><td>待办审批表单页</td><td><a href="03_待办审批表单页.html">待办审批表单页.html</a></td><td>单据只读 + 流程时间线、同意/驳回/撤回、附件在线预览</td></tr>
+        <tr><td>通知公告页</td><td><a href="04_通知公告页.html">通知公告页.html</a></td><td>批量已读、公告置顶与过期、跳转单据、双击行打开公告表单</td></tr>
+        <tr><td>公告表单页</td><td><a href="05_公告表单页.html">公告表单页.html</a></td><td>公告编辑（类型/优先级/置顶/有效期）、发布确认与推送</td></tr>
+      </table>
+
+      <h2 id="interact">3. 交互要点</h2>
+      <ul>
+        <li>审批：弹窗/表单页含流程进度、意见、附件预览、同意/驳回/撤回/转办；驳回必填意见；会签场景（多人待办）按流程配置全部通过才流转 / 任一人处理即流转</li>
+        <li>待办行双击/审批按钮打开审批处理（embed 走 openDetail 链路）</li>
+        <li>通知：未读置顶、批量/全部已读、点击跳单据；公告置顶与过期自动下线；公告行双击打开公告表单页</li>
+      </ul>
+
+      <h2 id="reference">4. 设计依据</h2>
+      <ul>
+        <li>概要：工作流管理 / 通知中心 / 公告管理（见上）</li>
+        <li>联动：<a href="../12_采购/01_设计说明.html">12-采购</a> 模块提交的申请进入本模块待办</li>
+      </ul>
+
+      <h2 id="iter">5. 迭代记录</h2>
+      <table>
+        <tr><th>日期</th><th>变更</th><th>状态</th></tr>
+        <tr><td>2026-08-13</td><td>初版：待办审批/通知公告</td><td>待评审</td></tr>
+        <tr><td>2026-08-14</td><td>新增待办审批/公告表单页；与采购拆分独立模块</td><td>待评审</td></tr>
+      </table>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 原型设计模块说明 · 依《文档生成规范》编写 · 生成日期：2026-08-14
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>
