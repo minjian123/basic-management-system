@@ -122,7 +122,38 @@ foreach ($dirCfg in $config.directories) {
   }
   else {
     # ---------- 原型设计：模块文件夹 + 模块内文件 两级 ----------
+    function Build-FileMappings {
+      param($DirCfg, $ModuleName, $DirPath)
+      $list = [System.Collections.Generic.List[object]]::new()
+      $fmCfg = @($DirCfg.moduleFiles | Where-Object { $_.name -eq $ModuleName })
+      if ($fmCfg.Count -eq 0) { return $list }
+      foreach ($fnode in $fmCfg[0].files) {
+        $fname = $fnode.name
+        $fto = [string]$fnode.to
+        if (-not (Test-Path -LiteralPath $DirPath)) { continue }
+        $oldFile = Get-ChildItem -LiteralPath $DirPath -Filter "*_$fname.html" |
+          Where-Object { $_.BaseName -match '^\d{2}_' -and $_.FullName -ne (Join-Path $DirPath "$fto`_$fname.html") } |
+          Select-Object -First 1
+        if (-not $oldFile) {
+          if (Test-Path -LiteralPath (Join-Path $DirPath "$fto`_$fname.html")) { continue }
+          Write-Host "      新增界面文件（未创建，按目标编号 $fto 直接创建即可）: $ModuleName/$fname"
+          continue
+        }
+        $foldNo = ($oldFile.BaseName -split '_')[0]
+        $list.Add([pscustomobject]@{
+          OldNo   = $foldNo
+          NewNo   = $fto
+          Name    = $fname
+          OldFile = $oldFile.FullName
+          OldFull = "$foldNo`_$fname.html"
+          NewFull = "$fto`_$fname.html"
+        })
+      }
+      return $list
+    }
+
     $moduleMappings = [System.Collections.Generic.List[object]]::new()
+    $fileOnlyMappings = [System.Collections.Generic.List[object]]::new()  # 文件夹已就位、仅模块内文件需重排
     $inPlace = 0
     foreach ($mod in $dirCfg.modules) {
       $mname = $mod.name
@@ -131,12 +162,25 @@ foreach ($dirCfg in $config.directories) {
         Where-Object { $_.Name -match '^\d{2}_' -and $_.Name -like "*_$mname" -and $_.Name -ne "$to`_$mname" } |
         Select-Object -First 1
       if (-not $oldDir) {
-        if (Test-Path -LiteralPath (Join-Path $dir "$to`_$mname")) { $inPlace++; continue }
+        if (Test-Path -LiteralPath (Join-Path $dir "$to`_$mname")) {
+          $inPlace++
+          # 文件夹就位：检查模块内文件是否需重排
+          $fms = Build-FileMappings -DirCfg $dirCfg -ModuleName $mname -DirPath (Join-Path $dir "$to`_$mname")
+          if ($fms.Count -gt 0) {
+            $fileOnlyMappings.Add([pscustomobject]@{
+              No  = $to
+              Name = $mname
+              Dir = Join-Path $dir "$to`_$mname"
+              FileMappings = $fms
+            })
+          }
+          continue
+        }
         Write-Host "  新增模块（文件夹未创建，按目标编号 $to 直接创建即可）: $mname"
         continue
       }
       $oldNo = ($oldDir.Name -split '_')[0]
-      $moduleMappings.Add([pscustomobject]@{
+      $m = [pscustomobject]@{
         OldNo   = $oldNo
         NewNo   = $to
         Name    = $mname
@@ -146,63 +190,41 @@ foreach ($dirCfg in $config.directories) {
         OldTxt  = "$oldNo`_$mname"
         NewTxt  = "$to`_$mname"
         TmpDir  = $null
-        FileMappings = [System.Collections.Generic.List[object]]::new()
-      })
+        FileMappings = Build-FileMappings -DirCfg $dirCfg -ModuleName $mname -DirPath $oldDir.FullName
+      }
+      $moduleMappings.Add($m)
     }
     $dupNew = $moduleMappings | Group-Object NewNo | Where-Object { $_.Count -gt 1 }
     if ($dupNew) { throw "模块新编号冲突: $($dupNew.Name -join ', ')（$($dirCfg.dir)）" }
     $overviewFiles += Join-Path $dir '01_原型设计_总览.html'
-    if ($inPlace -eq $dirCfg.modules.Count -and $moduleMappings.Count -eq 0) {
+
+    # 幂等：模块文件夹与模块内文件均就位才跳过
+    $needWork = $moduleMappings.Count + $fileOnlyMappings.Count
+    if ($inPlace -eq $dirCfg.modules.Count -and $needWork -eq 0) {
       Write-Host '  已是最新状态（所有模块编号符合 order.json），跳过'
       continue
     }
     $orderedMods = $moduleMappings | Sort-Object { [int]$_.OldNo } -Descending
 
-    # 模块内文件映射（moduleFiles 配置的模块）
-    foreach ($m in $moduleMappings) {
-      $fmCfg = @($dirCfg.moduleFiles | Where-Object { $_.name -eq $m.Name })
-      if ($fmCfg.Count -eq 0) { continue }
-      foreach ($fnode in $fmCfg[0].files) {
-        $fname = $fnode.name
-        $fto = [string]$fnode.to
-        $fdir = $m.OldDir
-        if (Test-Path -LiteralPath $fdir) {
-          $oldFile = Get-ChildItem -LiteralPath $fdir -Filter "*_$fname.html" |
-            Where-Object { $_.BaseName -match '^\d{2}_' -and $_.FullName -ne (Join-Path $fdir "$fto`_$fname.html") } |
-            Select-Object -First 1
-          if (-not $oldFile) {
-            if (Test-Path -LiteralPath (Join-Path $fdir "$fto`_$fname.html")) { continue }
-            Write-Host "      新增界面文件（未创建，按目标编号 $fto 直接创建即可）: $($m.Name)/$fname"
-            continue
-          }
-          $foldNo = ($oldFile.BaseName -split '_')[0]
-          $m.FileMappings.Add([pscustomobject]@{
-            OldNo   = $foldNo
-            NewNo   = $fto
-            Name    = $fname
-            OldFile = $oldFile.FullName
-            OldFull = "$foldNo`_$fname.html"
-            NewFull = "$fto`_$fname.html"
-          })
-        }
-      }
-    }
-
-    Write-Host '  模块文件夹重命名计划（旧 → 新）：'
+    Write-Host '  重命名计划：'
     foreach ($m in $orderedMods) {
-      $mark = if ($m.OldNo -eq $m.NewNo) { '（不变）' } else { '' }
-      Write-Host "    $($m.OldDir.Substring($repoRoot.Length + 1)) -> $($m.NewNo)`_$($m.Name)/ $mark"
+      Write-Host "    模块文件夹: $($m.OldDir.Substring($repoRoot.Length + 1)) -> $($m.NewNo)`_$($m.Name)/"
       foreach ($fm in $m.FileMappings) {
         Write-Host "      模块内文件: $($fm.OldFull) -> $($fm.NewFull)"
       }
     }
+    foreach ($m in $fileOnlyMappings) {
+      Write-Host "    模块内文件（文件夹不变）: $($m.Dir.Substring($repoRoot.Length + 1))/"
+      foreach ($fm in $m.FileMappings) {
+        Write-Host "      $($fm.OldFull) -> $($fm.NewFull)"
+      }
+    }
     if (-not $DryRun) {
-      # 第一步：模块文件夹与模块内文件全部改临时名
+      # 第一步：文件夹变化模块的文件夹与模块内文件改临时名
       foreach ($m in $moduleMappings) {
         $tmpDir = Join-Path $dir "$($m.OldNo)`_reorder_$($m.Name)"
         Rename-Item -LiteralPath $m.OldDir -NewName (Split-Path $tmpDir -Leaf)
         $m.TmpDir = $tmpDir
-        # 文件夹已改名，模块内文件路径同步更新到临时目录
         foreach ($fm in $m.FileMappings) {
           $fm.OldFile = Join-Path $tmpDir (Split-Path $fm.OldFile -Leaf)
         }
@@ -214,22 +236,40 @@ foreach ($dirCfg in $config.directories) {
           $fm | Add-Member -NotePropertyName TmpFile -NotePropertyValue (Join-Path $m.TmpDir $tmpName) -Force
         }
       }
+      # 仅文件重排模块：文件改临时名
+      foreach ($m in $fileOnlyMappings) {
+        foreach ($fm in $m.FileMappings) {
+          $tmpName = "$($fm.OldNo)`_reorder_$($fm.Name).html"
+          Rename-Item -LiteralPath $fm.OldFile -NewName $tmpName
+          $fm | Add-Member -NotePropertyName TmpFile -NotePropertyValue (Join-Path $m.Dir $tmpName) -Force
+        }
+      }
       # 第二步：临时名 → 目标名
       foreach ($m in $moduleMappings) {
         $targetDir = Join-Path $dir "$($m.NewNo)`_$($m.Name)"
         Rename-Item -LiteralPath $m.TmpDir -NewName (Split-Path $targetDir -Leaf)
-        # 文件夹已改目标名，模块内文件路径同步更新到目标目录并改为目标名
         foreach ($fm in $m.FileMappings) {
           $fm.TmpFile = Join-Path $targetDir (Split-Path $fm.TmpFile -Leaf)
           Rename-Item -LiteralPath $fm.TmpFile -NewName "$($fm.NewNo)`_$($fm.Name).html"
         }
       }
-      Write-Host "  已重命名 $($moduleMappings.Count) 个模块文件夹（含模块内文件）"
+      foreach ($m in $fileOnlyMappings) {
+        foreach ($fm in $m.FileMappings) {
+          Rename-Item -LiteralPath $fm.TmpFile -NewName "$($fm.NewNo)`_$($fm.Name).html"
+        }
+      }
+      Write-Host "  已重命名 $($moduleMappings.Count) 个模块文件夹 + $($fileOnlyMappings.Count) 个模块内文件"
     }
     foreach ($m in $orderedMods) {
       $key = [int]$m.OldNo
       $allPairs.Add([pscustomobject]@{ Old = $m.OldSeg; New = $m.NewSeg; Key = $key })
       $allPairs.Add([pscustomobject]@{ Old = $m.OldTxt; New = $m.NewTxt; Key = $key })
+      foreach ($fm in $m.FileMappings) {
+        $allPairs.Add([pscustomobject]@{ Old = $fm.OldFull; New = $fm.NewFull; Key = $key })
+      }
+    }
+    foreach ($m in $fileOnlyMappings) {
+      $key = [int]$m.No
       foreach ($fm in $m.FileMappings) {
         $allPairs.Add([pscustomobject]@{ Old = $fm.OldFull; New = $fm.NewFull; Key = $key })
       }
