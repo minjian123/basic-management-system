@@ -30,7 +30,7 @@
         <el-button type="primary" @click="openTenant">开通租户</el-button>
         <el-button @click="toastMsg('已刷新')">刷新</el-button>
         <el-button @click="toastMsg('原型演示：关闭当前模块页面（返回）')">关闭</el-button>
-        <span class="ep-side proto-hint">平台超管运营视图（租户侧不可见）</span>
+        <span class="ep-side proto-hint">平台超管运营视图（租户侧不可见）· 双击行打开租户表单页</span>
       </div>
 
       <!-- ② 筛选区：关键字 + 状态 -->
@@ -55,7 +55,7 @@
       <el-empty v-if="filtered.length === 0" description="未找到匹配租户" style="padding:40px 0">
         <el-button @click="resetFilter">重置</el-button>
       </el-empty>
-      <el-table v-else :data="pageRows" border stripe v-loading="loading" @selection-change="onSel" style="width:100%">
+      <el-table v-else :data="pageRows" border stripe v-loading="loading" @selection-change="onSel" @row-dblclick="openDetail" style="width:100%">
         <el-table-column type="selection" width="48"></el-table-column>
         <el-table-column prop="code" label="租户 code" min-width="100"></el-table-column>
         <el-table-column prop="name" label="名称" min-width="130"></el-table-column>
@@ -127,6 +127,13 @@
         return s === 'enabled' ? '启用' : (s === 'disabled' ? '停用' : '开通中');
       }
       function openTenant() { location.href = '03_租户开通页.html'; }
+      // 双击行打开租户表单页（embed 时三级回退：父框架详情 Tab → 父框架新 Tab → 独立跳转；非 embed 保持原行为）
+      function openDetail(row) {
+        if (location.search.indexOf('embed=1') < 0) return;
+        try { parent.openDetail('租户列表', row.code, row.name); return; } catch (e) {}
+        try { parent.openTab('租户表单', '../05_租户管理/05_租户表单页.html'); return; } catch (e) {}
+        location.href = '../05_租户管理/05_租户表单页.html?id=' + row.code + '&name=' + encodeURIComponent(row.name);
+      }
       function switchMods(row) { location.href = '04_租户模块开关.html?code=' + row.code; }
       function onSel(sel) { selRows.value = sel; }
       // 明细工具栏行操作：删除选中行（二次确认，仅演示）/ 上移下移选中行（多选时取第一行）
@@ -155,7 +162,7 @@
       function onPage(n) { query.page = n; }
       function onSize(s) { query.size = s; query.page = 1; }
       function toastMsg(m) { ElMessage.success(m); }
-      return { rows, query, loading, selRows, filtered, pageRows, statusType, statusText, openTenant, switchMods, onSel, delSel, moveRow, applyFilter, resetFilter, onPage, onSize, toastMsg };
+      return { rows, query, loading, selRows, filtered, pageRows, statusType, statusText, openTenant, openDetail, switchMods, onSel, delSel, moveRow, applyFilter, resetFilter, onPage, onSize, toastMsg };
     }
   });
   app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });

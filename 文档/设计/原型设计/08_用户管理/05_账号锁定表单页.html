@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 账号锁定表单页</title>
+<link rel="stylesheet" href="../共享资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../共享资源/原型样式.css">
+<style>
+  .ep-page { background: #fff; border: 1px solid #d0d7de; border-radius: 6px; padding: 16px; }
+  .ep-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+  .ep-toolbar .ep-side { margin-left: auto; }
+  .ep-section { font-weight: 600; margin: 16px 0 12px; padding-bottom: 8px; border-bottom: 1px solid #eaeef2; font-size: 14px; }
+  .ep-section:first-of-type { margin-top: 0; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="01_设计说明.html">← 返回设计说明</a></span>
+  <span class="pb-name">用户管理 · 账号锁定表单页</span>
+</div>
+
+<div class="proto-frame">
+  <div id="app">
+    <div class="ep-page">
+      <!-- ① 工具栏分态：本页无表单编辑态（解锁/修改密码为独立动作，不走表单编辑），只读态 刷新/关闭 -->
+      <div class="ep-toolbar">
+        <el-button @click="toastMsg('已重新加载当前记录')">刷新</el-button>
+        <el-button @click="toastMsg('已关闭')">关闭</el-button>
+        <span class="ep-side">
+          <span class="proto-hint">锁定信息只读展示；解锁/修改密码为独立操作，不走表单编辑态</span>
+        </span>
+      </div>
+
+      <!-- ② 账号锁定信息：只读展示（el-form 整体禁用） -->
+      <div class="ep-section">账号锁定信息</div>
+      <el-form label-width="110px" disabled>
+        <el-row :gutter="16">
+          <el-col :span="12">
+            <el-form-item label="用户"><el-input v-model="form.user" placeholder="用户姓名"></el-input></el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="用户名"><el-input v-model="form.username"></el-input></el-form-item>
+          </el-col>
+        </el-row>
+        <el-row :gutter="16">
+          <el-col :span="12">
+            <el-form-item label="锁定类型">
+              <el-tag :type="lockTagType(form.type)" effect="plain">{{ lockTypeText(form.type) }}</el-tag>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="锁定时间"><el-input v-model="form.lockTime"></el-input></el-form-item>
+          </el-col>
+        </el-row>
+        <el-row :gutter="16">
+          <el-col :span="12">
+            <el-form-item label="解锁时间">
+              <el-input v-model="form.unlockTime"></el-input>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="自动解锁时间">
+              <el-input v-model="form.autoUnlockTime"></el-input>
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-form-item label="锁定原因说明">
+          <el-input v-model="form.reason" type="textarea" :rows="3"></el-input>
+        </el-form-item>
+      </el-form>
+
+      <!-- ③ 操作区：解锁（确认后记录解锁人）+ 修改密码（弹窗） -->
+      <div class="ep-section">操作</div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <el-button type="primary" :disabled="form.unlocked" @click="unlockForm">解锁</el-button>
+        <el-button :disabled="form.unlocked" @click="openPwd">修改密码</el-button>
+        <template v-if="form.unlocked">
+          <el-alert type="success" :closable="false" show-icon style="flex:1;min-width:300px"
+            title="账号已解锁（解锁人：{{ form.unlockedBy }}，{{ form.unlockedAt }}），解锁记录已写入 sys_account_lock 并落操作日志与审计"></el-alert>
+        </template>
+      </div>
+    </div>
+
+    <!-- ④ 修改密码：确认类弹窗，正文说明后果、确定按钮 danger -->
+    <el-dialog v-model="pwd.visible" :title="'修改密码（' + form.user + '）'" width="480" align-center>
+      <el-alert type="warning" :closable="false" show-icon style="margin-bottom:12px"
+        title="修改后原密码失效，用户所有会话将退出。"></el-alert>
+      <el-form label-width="90px" @submit.prevent>
+        <el-form-item label="新密码">
+          <el-input v-model="pwd.newPwd" type="password" show-password placeholder="8-32 位，含字母数字"></el-input>
+        </el-form-item>
+        <el-form-item label=" ">
+          <el-checkbox v-model="pwd.force">强制下次登录改密</el-checkbox>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="pwd.visible = false">取消</el-button>
+        <el-button type="danger" @click="doResetPwd">确认修改</el-button>
+      </template>
+    </el-dialog>
+  </div>
+</div>
+
+<script src="../共享资源/vendor/vue.global.prod.js"></script>
+
+<script src="../共享资源/vendor/element-plus.min.js"></script>
+<script src="../共享资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref, reactive } = Vue;
+  var ElMessage = ElementPlus.ElMessage;
+  var ElMessageBox = ElementPlus.ElMessageBox;
+  var LOCK_TYPES = {
+    fail_limit: { text: '登录失败超限', type: 'warning' },
+    inactive: { text: '长期未登录', type: 'danger' },
+    manual: { text: '手动锁定', type: 'info' }
+  };
+  var app = createApp({
+    template: document.getElementById('app').outerHTML.replace(/<div id="app">/, '<div>').replace(/<\/div>\s*$/, ''),
+    setup: function () {
+      var form = reactive({
+        user: '李四', username: 'lisi', type: 'fail_limit',
+        lockTime: '2026-08-01 18:02', unlockTime: '—', autoUnlockTime: '2026-08-01 18:17',
+        reason: '连续 5 次登录失败触发阈值，系统自动锁定 15 分钟（阈值与时长见认证与安全-账号锁定策略）。',
+        unlocked: false, unlockedBy: '', unlockedAt: ''
+      });
+      var pwd = reactive({ visible: false, newPwd: '', force: true });
+
+      function lockTypeText(t) { return LOCK_TYPES[t] ? LOCK_TYPES[t].text : t; }
+      function lockTagType(t) { return LOCK_TYPES[t] ? LOCK_TYPES[t].type : 'info'; }
+      // 解锁：确认后成功 toast，记录解锁人（演示固定为当前操作人 admin）
+      function unlockForm() {
+        ElMessageBox.confirm('手动解锁「' + form.user + '（' + form.username + '）」？解锁记录将写入 sys_account_lock 并落操作日志与审计。', '提示', { type: 'warning', confirmButtonText: '解锁', cancelButtonText: '取消' })
+          .then(function () {
+            form.unlocked = true;
+            form.unlockedBy = 'admin';
+            form.unlockedAt = '2026-08-14 15:30:00';
+            form.unlockTime = form.unlockedAt;
+            ElMessage.success('已解锁「' + form.username + '」（解锁人：admin，解锁记录已审计）');
+          })
+          .catch(function () {});
+      }
+      // 修改密码：复杂度校验同用户列表页重置密码
+      function openPwd() { pwd.newPwd = ''; pwd.force = true; pwd.visible = true; }
+      function doResetPwd() {
+        var p = pwd.newPwd;
+        if (!p) { ElMessage.error('请输入新密码'); return; }
+        if (!(p.length >= 8 && p.length <= 32 && /[A-Za-z]/.test(p) && /\d/.test(p))) { ElMessage.error('密码复杂度不满足（8-32 位，含字母数字）'); return; }
+        pwd.visible = false;
+        ElMessage.success('密码已修改（写入密码历史，近 5 次不可重复）' + (pwd.force ? '，强制下次登录改密' : '') + '，全部会话已失效');
+      }
+      function toastMsg(m) { ElMessage({ message: m, type: 'success' }); }
+      // 由列表页双击打开时（?id=&name=）回填：id=用户名，name=用户姓名
+      (function () {
+        function qp(k) { var m = location.search.match(new RegExp('[?&]' + k + '=([^&]*)')); return m ? decodeURIComponent(m[1]) : null; }
+        var id = qp('id'), name = qp('name');
+        if (id) { form.username = id; form.user = name || id; }
+      })();
+      return { form, pwd, lockTypeText, lockTagType, unlockForm, openPwd, doResetPwd, toastMsg };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+  // 嵌入主框架时隐藏顶部原型条
+  if (location.search.indexOf('embed=1') >= 0) { var pb = document.querySelector('.proto-bar'); if (pb) pb.style.display = 'none'; }
+</script>
+
+</body>
+</html>

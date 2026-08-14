@@ -34,7 +34,7 @@
         <el-button @click="toastMsg('原型演示：关闭当前模块页面（返回）')">关闭</el-button>
         <span class="ep-side">
           <el-button @click="toastMsg('原型演示：导出当前筛选结果')">导出</el-button>
-          <span class="proto-hint">双击行编辑岗位</span>
+          <span class="proto-hint">双击行打开岗位表单页</span>
         </span>
       </div>
 
@@ -57,7 +57,7 @@
       </el-form>
 
       <!-- ③ 表格：多选 + 岗位码/名称/归属部门/状态 + 空状态 -->
-      <el-table :data="pageRows" border stripe v-loading="loading" @selection-change="onSel" @row-dblclick="openDlg('edit', $event)" style="width:100%">
+      <el-table :data="pageRows" border stripe v-loading="loading" @selection-change="onSel" @row-dblclick="openForm" style="width:100%">
         <el-table-column type="selection" width="48"></el-table-column>
         <el-table-column prop="code" label="岗位码" min-width="140"></el-table-column>
         <el-table-column prop="name" label="名称" min-width="140"></el-table-column>
@@ -187,6 +187,16 @@
         var tmp = rows.value[i]; rows.value[i] = rows.value[j]; rows.value[j] = tmp;
         toastMsg('岗位顺序已调整（sort 已同步）', 'success');
       }
+      // 双击行打开岗位表单页：embed 时回退父框架（表单详情子 Tab / 新 Tab / 独立跳转），非 embed 保留原弹窗编辑
+      function openForm(row) {
+        if (location.search.indexOf('embed=1') >= 0) {
+          try { parent.openDetail('岗位管理', row.code, row.name); return; } catch (e) {}
+          try { parent.openTab('岗位表单', '../11_部门与岗位/04_岗位表单页.html'); return; } catch (e) {}
+          location.href = '../11_部门与岗位/04_岗位表单页.html?id=' + row.code + '&name=' + encodeURIComponent(row.name);
+        } else {
+          openDlg('edit', row);
+        }
+      }
       // 新增/编辑（双击行打开编辑）
       function openDlg(mode, row) {
         if (mode === 'add') {
@@ -238,7 +248,7 @@
         toastMsg('已为「' + roleDrawer.title.replace('绑定角色（', '').replace('）', '') + '」绑定：' + (r.join(' + ') || '未绑定'), 'success');
       }
       return { rows, query, loading, selRows, dlg, roleDrawer, filtered, pageRows,
-        applyFilter, resetFilter, onSel, onPage, onSize, moveSel, openDlg, savePost, delSel, openRoleDrawer, saveRole, toastMsg };
+        applyFilter, resetFilter, onSel, onPage, onSize, moveSel, openForm, openDlg, savePost, delSel, openRoleDrawer, saveRole, toastMsg };
     }
   });
   app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });

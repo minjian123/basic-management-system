@@ -56,8 +56,8 @@
         </el-form-item>
       </el-form>
 
-      <!-- 表格：行点击进入编辑，状态开关可直接切换启停 -->
-      <el-table :data="pageRows" border stripe highlight-current-row @selection-change="onSel" @row-click="openEdit" style="width:100%">
+      <!-- 表格：行点击进入编辑（embed 时打开表单页详情），状态开关可直接切换启停 -->
+      <el-table :data="pageRows" border stripe highlight-current-row @selection-change="onSel" @row-click="openRow" style="width:100%">
         <el-table-column type="selection" width="48"></el-table-column>
         <el-table-column label="层级" width="110">
           <template #default="{ row }">
@@ -203,6 +203,16 @@
           })
           .catch(function () {});
       }
+      // 行点击：embed 时打开模板表单页详情（三级 fallback：openDetail → openTab → 独立跳转带参）；非 embed 保留原抽屉编辑
+      function openRow(row) {
+        if (location.search.indexOf('embed=1') >= 0) {
+          try { parent.openDetail('模板管理', row.id, row.name); return; } catch (e) {}
+          try { parent.openTab('模板表单', '../06_首页工作台/07_模板表单页.html'); return; } catch (e) {}
+          location.href = '../06_首页工作台/07_模板表单页.html?id=' + row.id + '&name=' + encodeURIComponent(row.name);
+          return;
+        }
+        openEdit(row);
+      }
       function openNew() {
         dlg.visible = true; dlg.id = null;
         dlg.scope = 'role'; dlg.role = '财务角色'; dlg.name = '';
@@ -242,7 +252,7 @@
         }
         dlg.visible = false; dlg.id = null;
       }
-      return { tpls, query, selRows, dlg, filtered, pageRows, toastMsg, applyFilter, resetFilter, onPage, onSize, onSel, delSel, moveSel, toggleTpl, moveTpl, delTpl, openNew, openEdit, delTplDrawer, saveTpl };
+      return { tpls, query, selRows, dlg, filtered, pageRows, toastMsg, applyFilter, resetFilter, onPage, onSize, onSel, delSel, moveSel, toggleTpl, moveTpl, delTpl, openRow, openNew, openEdit, delTplDrawer, saveTpl };
     }
   });
   app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });

@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 菜单表单页</title>
+<link rel="stylesheet" href="../共享资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../共享资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .ep-toolbar { display:flex; align-items:center; gap:8px; margin-bottom:12px; flex-wrap:wrap; }
+  .ep-side { margin-left:auto; display:flex; align-items:center; gap:8px; }
+  .ep-section { font-weight:600; margin:16px 0 12px; padding-bottom:8px; border-bottom:1px solid #eaeef2; font-size:14px; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="01_设计说明.html">← 返回设计说明</a></span>
+  <span class="pb-name">菜单管理 · 菜单表单页</span>
+</div>
+
+<div class="proto-frame">
+  <div id="app">
+    <div class="ep-page">
+      <!-- ① 工具栏分态：只读 修改/删除/刷新/关闭 ↔ 编辑 保存/关闭 -->
+      <div class="ep-toolbar" style="border-bottom:1px solid #eaeef2;padding-bottom:10px;margin-bottom:12px">
+        <template v-if="!editing">
+          <el-button type="primary" @click="editForm">修改</el-button>
+          <el-button type="danger" plain @click="delForm">删除</el-button>
+          <el-button @click="toastMsg('已重新加载当前记录')">刷新</el-button>
+        </template>
+        <template v-else>
+          <el-button type="primary" @click="saveForm">保存</el-button>
+        </template>
+        <el-button @click="closePage">关闭</el-button>
+        <span class="ep-side">
+          <span class="proto-hint">保存后发布更新，动态菜单刷新生效</span>
+        </span>
+      </div>
+
+      <!-- ② 基本信息：类型/父级/中英文名称/path/component/图标/排序/显示状态 -->
+      <div class="ep-section">基本信息</div>
+      <el-form label-width="110px" :disabled="!editing">
+        <el-row :gutter="16">
+          <el-col :span="12">
+            <el-form-item label="菜单类型">
+              <el-select v-model="form.menuType" style="width:100%">
+                <el-option label="目录" value="dir"></el-option>
+                <el-option label="菜单" value="menu"></el-option>
+                <el-option label="按钮" value="button"></el-option>
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="父级菜单">
+              <el-tree-select v-model="form.parent" :data="parentTree" node-key="id" check-strictly :render-after-expand="false" style="width:100%"></el-tree-select>
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-row :gutter="16">
+          <el-col :span="12">
+            <el-form-item label="名称（zh-CN）" required><el-input v-model="form.zh" placeholder="中文名称"></el-input></el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="名称（en）" required><el-input v-model="form.en" placeholder="English Name"></el-input></el-form-item>
+          </el-col>
+        </el-row>
+        <el-row :gutter="16">
+          <el-col :span="12">
+            <el-form-item label="路由 path" required><el-input v-model="form.path" placeholder="/users"></el-input></el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="组件 component"><el-input v-model="form.component" placeholder="FormFrame"></el-input></el-form-item>
+          </el-col>
+        </el-row>
+        <el-row :gutter="16">
+          <el-col :span="12">
+            <el-form-item label="图标"><el-input v-model="form.icon" placeholder="icon-user"></el-input></el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="排序"><el-input-number v-model="form.sort" :min="0" style="width:100%"></el-input-number></el-form-item>
+          </el-col>
+        </el-row>
+        <el-form-item label="显示状态">
+          <el-switch v-model="form.enabled" active-text="显示" inactive-text="隐藏"></el-switch>
+        </el-form-item>
+      </el-form>
+
+      <!-- ③ 挂接链：菜单 → 表单 → 业务（1:1），完整/断裂提示（40002） -->
+      <div class="ep-section">挂接链（菜单 → 表单 → 业务，1:1）</div>
+      <el-form label-width="110px" :disabled="!editing">
+        <el-row :gutter="16">
+          <el-col :span="12">
+            <el-form-item label="挂接表单">
+              <el-select v-model="form.form" clearable style="width:100%">
+                <el-option v-for="f in formOptions" :key="f" :label="f" :value="f"></el-option>
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="挂接业务">
+              <el-select v-model="form.biz" clearable style="width:100%">
+                <el-option v-for="b in bizOptions" :key="b" :label="b" :value="b"></el-option>
+              </el-select>
+            </el-form-item>
+          </el-col>
+        </el-row>
+      </el-form>
+      <div class="proto-note" :style="chainOk ? '' : 'border-left-color:#cf222e;background:#ffebe9;color:#1f2328'">
+        {{ chainText }}
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="../共享资源/vendor/vue.global.prod.js"></script>
+
+<script src="../共享资源/vendor/element-plus.min.js"></script>
+<script src="../共享资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref, reactive, computed, watch } = Vue;
+  var app = createApp({
+    template: document.getElementById('app').outerHTML.replace(/<div id="app">/, '<div>').replace(/<\/div>\s*$/, ''),
+    setup: function () {
+      var editing = ref(false);
+      var dirty = ref(false);
+      var syncing = false;
+      var parentTree = [
+        { id: 'root', label: '（根级）' },
+        { id: 'home', label: '首页', children: [{ id: 'wb', label: '工作台' }] },
+        { id: 'org', label: '组织与权限', children: [
+          { id: 'user', label: '用户管理' },
+          { id: 'role', label: '角色管理' },
+          { id: 'menu', label: '菜单管理' }
+        ]}
+      ];
+      var formOptions = ['user_form', 'role_form', 'menu_form', 'perm_form', 'purchase_form', 'notice_form'];
+      var bizOptions = ['user', 'role', 'menu', 'formdesign', 'wf', 'purchase', 'notice'];
+      var form = reactive({
+        menuType: 'menu', parent: 'org',
+        zh: '用户管理', en: 'User Management', path: '/users', component: 'FormFrame',
+        icon: 'icon-user', sort: 1, enabled: true,
+        form: 'user_form', biz: 'user'
+      });
+
+      // 挂接链完整性：按钮无需挂接；目录/菜单需表单与业务齐全
+      var chainOk = computed(function () {
+        return form.menuType === 'button' || (form.form && form.biz);
+      });
+      var chainText = computed(function () {
+        if (form.menuType === 'button') return '按钮类型无需挂接（动作权限码直接绑定）';
+        if (chainOk.value) return '挂接链完整：菜单 → 表单 ' + form.form + ' → 业务 ' + form.biz + '（角色可正常授予）';
+        return '⚠ 挂接链断裂：未挂表单或业务（40002）——角色授予时校验并提示';
+      });
+
+      function toastMsg(m, type) {
+        var opts = { message: m };
+        if (type) { opts.type = type; opts.duration = 2000; }
+        Vue.ElMessage(opts);
+      }
+      function confirmAction(msg, fn, okText) {
+        Vue.ElMessageBox.confirm(msg, '确认操作', { type: 'warning', confirmButtonText: okText || '确定', cancelButtonText: '取消' })
+          .then(function () { fn(); }).catch(function () {});
+      }
+      watch(form, function () { if (editing.value && !syncing) dirty.value = true; }, { deep: true });
+
+      function editForm() {
+        syncing = true; dirty.value = false; syncing = false;
+        editing.value = true;
+        toastMsg('已进入编辑态（字段启用）');
+      }
+      function saveForm() {
+        if (!(form.zh || '').trim() || !(form.en || '').trim() || !(form.path || '').trim()) {
+          toastMsg('名称（中/英文）与路由 path 必填', 'error'); return;
+        }
+        editing.value = false;
+        dirty.value = false;
+        if (!chainOk.value) {
+          toastMsg('已保存，但挂接链不完整（40002）：角色授予时将校验拦截', 'warning');
+          return;
+        }
+        toastMsg('菜单已保存（menu.updated 已发布，动态菜单刷新生效）', 'success');
+      }
+      function delForm() {
+        confirmAction('删除当前菜单？停用后角色不可见，数据保留。', function () { toastMsg('已删除（软删除）', 'success'); }, '删除');
+      }
+      function closePage() {
+        if (dirty.value) {
+          confirmAction('当前有未保存的修改，确认关闭并放弃？', function () { editing.value = false; dirty.value = false; toastMsg('已关闭'); });
+          return;
+        }
+        toastMsg('已关闭');
+      }
+      // 由列表页点选节点打开时（?id=&name=）回填名称与 path
+      (function () {
+        function qp(k) { var m = location.search.match(new RegExp('[?&]' + k + '=([^&]*)')); return m ? decodeURIComponent(m[1]) : null; }
+        var id = qp('id'), name = qp('name');
+        if (id) { form.path = '/' + id; form.id = id; }
+        if (name) form.zh = name;
+      })();
+      return { editing, form, parentTree, formOptions, bizOptions, chainOk, chainText,
+        editForm, saveForm, delForm, closePage, toastMsg };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+<script>if (location.search.indexOf("embed=1") >= 0) { var pb = document.querySelector(".proto-bar"); if (pb) pb.style.display = "none"; }</script>
+</body>
+</html>

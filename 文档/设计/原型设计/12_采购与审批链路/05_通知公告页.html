@@ -77,7 +77,7 @@
             <el-button @click="toastMsg('原型演示：关闭当前模块页面（返回）')">关闭</el-button>
             <span class="ep-side"><span class="proto-hint">仅展示未过期的公告；已过有效期 / 已下线 / 已撤销的公告不展示（后端按有效截止时间过滤）</span></span>
           </div>
-          <el-table :data="noticeRows" border stripe :row-class-name="noticeRowClass" @row-click="openNotice" style="width:100%">
+          <el-table :data="noticeRows" border stripe :row-class-name="noticeRowClass" @row-dblclick="openNotice" style="width:100%">
             <el-table-column type="selection" width="48" @click.stop></el-table-column>
             <el-table-column label="标题" min-width="240">
               <template #default="{ row }">
@@ -236,8 +236,14 @@
         notifyRows.value.forEach(function (r) { r.read = true; });
         toastMsg('全部已读（角标归零）', 'success');
       }
-      // 公告详情：打开即自动上报已读回执
+      // 公告行双击：embed 时打开公告表单页（openDetail → openTab → 独立跳转三级 fallback）；非 embed 保留原详情弹窗
       function openNotice(row) {
+        if (location.search.indexOf('embed=1') >= 0) {
+          try { parent.openDetail('公告管理', row.id, row.title); return; } catch (e) {}
+          try { parent.openTab('公告表单', '../12_采购与审批链路/07_公告表单页.html'); return; } catch (e) {}
+          location.href = '../12_采购与审批链路/07_公告表单页.html?id=' + row.id + '&name=' + encodeURIComponent(row.title);
+          return;
+        }
         detail.title = row.title;
         detail.content = row.content;
         detail.publisher = row.publisher;

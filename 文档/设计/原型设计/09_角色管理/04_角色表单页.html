@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 角色表单页</title>
+<link rel="stylesheet" href="../共享资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../共享资源/原型样式.css">
+<style>
+  .ep-page { background: #fff; border: 1px solid #d0d7de; border-radius: 6px; padding: 16px; }
+  .ep-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+  .ep-toolbar .ep-side { margin-left: auto; }
+  .ep-section { font-weight: 600; margin: 16px 0 12px; padding-bottom: 8px; border-bottom: 1px solid #eaeef2; font-size: 14px; }
+  .ep-section:first-of-type { margin-top: 0; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="01_设计说明.html">← 返回设计说明</a></span>
+  <span class="pb-name">角色管理 · 角色表单页（FormDetailPanel）</span>
+</div>
+
+<div class="proto-frame">
+  <div id="app">
+    <div class="ep-page">
+      <!-- ① 表单页工具栏分态：只读态 修改/删除/刷新/关闭 ↔ 编辑态 保存/取消 -->
+      <div class="ep-toolbar">
+        <el-button v-if="!editing" type="primary" @click="editForm">修改</el-button>
+        <el-button v-if="!editing" type="danger" plain @click="delForm">删除</el-button>
+        <el-button v-if="!editing" @click="toastMsg('已重新加载当前记录')">刷新</el-button>
+        <el-button v-if="editing" type="primary" @click="saveForm">保存</el-button>
+        <el-button v-if="editing" @click="cancelEdit">取消</el-button>
+        <el-button @click="toastMsg('已关闭')">关闭</el-button>
+        <span class="ep-side">
+          <span class="proto-hint">角色码为唯一主键，创建后不可修改</span>
+        </span>
+      </div>
+
+      <!-- ② 角色基本信息：el-form（编辑态可编辑，只读态禁用；角色码锁定） -->
+      <div class="ep-section">角色基本信息</div>
+      <el-form label-width="90px" :disabled="!editing">
+        <el-row :gutter="16">
+          <el-col :span="12">
+            <el-form-item label="角色码" required><el-input v-model="form.code" disabled placeholder="角色码（主键）"></el-input></el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="角色名称" required><el-input v-model="form.name" placeholder="角色名称"></el-input></el-form-item>
+          </el-col>
+        </el-row>
+        <el-row :gutter="16">
+          <el-col :span="12">
+            <el-form-item label="角色类型">
+              <el-select v-model="form.type" style="width:100%" @change="onTypeChange">
+                <el-option label="普通角色" value="普通角色"></el-option>
+                <el-option label="系统管理员" value="系统管理员"></el-option>
+                <el-option label="安全管理员" value="安全管理员"></el-option>
+                <el-option label="审计管理员" value="审计管理员"></el-option>
+              </el-select>
+              <div class="proto-hint" style="line-height:1.6">系统/安全/审计三类管理员权限互斥，同一用户不得兼任</div>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="状态">
+              <el-switch v-model="form.status" active-text="启用" inactive-text="停用"></el-switch>
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-row :gutter="16">
+          <el-col :span="24">
+            <el-form-item label="备注">
+              <el-input v-model="form.remark" type="textarea" :rows="3" placeholder="备注（可选）"></el-input>
+            </el-form-item>
+          </el-col>
+        </el-row>
+      </el-form>
+    </div>
+  </div>
+</div>
+
+<script src="../共享资源/vendor/vue.global.prod.js"></script>
+
+<script src="../共享资源/vendor/element-plus.min.js"></script>
+<script src="../共享资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref, reactive } = Vue;
+  var ElMessage = ElementPlus.ElMessage;
+  var ElMessageBox = ElementPlus.ElMessageBox;
+  var app = createApp({
+    template: document.getElementById('app').outerHTML.replace(/<div id="app">/, '<div>').replace(/<\/div>\s*$/, ''),
+    setup: function () {
+      var editing = ref(false);
+      var form = reactive({ code: '', name: '', type: '普通角色', status: true, remark: '' });
+      // 常见管理员角色码 → 类型映射（原型演示用，真实场景以服务端返回为准）
+      var ADMIN_TYPES = { admin: '系统管理员', secadmin: '安全管理员', audit: '审计管理员' };
+
+      // 列表页双击打开（?id=&name=）回填：id=角色码、name=角色名称
+      (function () {
+        function qp(k) { var m = location.search.match(new RegExp('[?&]' + k + '=([^&]*)')); return m ? decodeURIComponent(m[1]) : null; }
+        var id = qp('id'), name = qp('name');
+        if (id) {
+          form.code = id;
+          if (ADMIN_TYPES[id]) form.type = ADMIN_TYPES[id];
+        }
+        if (name) form.name = name;
+      })();
+
+      function editForm() { editing.value = true; toastMsg('已进入编辑态（字段启用）'); }
+      function cancelEdit() { editing.value = false; toastMsg('已取消，未保存的修改已丢弃'); }
+      // 三权分立：选择系统/安全/审计管理员时互斥提示
+      function onTypeChange(v) {
+        if (v && v !== '普通角色') ElMessage.warning('三类管理员权限互斥、同一用户不得兼任');
+      }
+      function saveForm() {
+        if (!form.code.trim()) { ElMessage.error('角色码必填'); return; }
+        if (!form.name.trim()) { ElMessage.error('角色名称必填'); return; }
+        if (!form.type) { ElMessage.error('请选择角色类型'); return; }
+        editing.value = false;
+        toastMsg('保存成功（role.updated 已发布），列表已刷新');
+      }
+      function delForm() {
+        ElMessageBox.confirm('确认删除该角色？角色绑定关系将一并解除。', '提示', { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' })
+          .then(function () { toastMsg('已删除并刷新列表'); })
+          .catch(function () {});
+      }
+      function toastMsg(m, type) { ElMessage({ message: m, type: type || 'success' }); }
+      return { editing, form, editForm, cancelEdit, onTypeChange, saveForm, delForm, toastMsg };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+  // 嵌入主框架时隐藏顶部原型条
+  if (location.search.indexOf('embed=1') >= 0) { var pb = document.querySelector('.proto-bar'); if (pb) pb.style.display = 'none'; }
+</script>
+
+</body>
+</html>
