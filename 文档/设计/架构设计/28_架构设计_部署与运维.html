@@ -66,7 +66,7 @@ graph TD
       <h2 id="cluster">3. 集群设计要点</h2>
       <ul>
         <li>无状态：JWT 无状态（会话标记存 Redis，鉴权顺带校验）；token 黑名单、限流计数存 Redis；文件存 MinIO；定时任务分布式执行——任一实例可随时停机、随时扩容</li>
-        <li>缓存一致性：统一走 Redis，不引入本地内存缓存</li>
+        <li>缓存一致性：统一走 Redis 作为共享缓存源；一般业务数据不引入本地内存缓存；字典为只读热配置例外——进程内内存字典缓存（全局版本号 <code>bms:{tenant}:dict:version</code> 惰性比对保证多实例一致）</li>
         <li>分布式锁：Redis SETNX（幂等前置去重、beat 防重、引擎创建防重）</li>
         <li>实时推送：Socket.IO 经 Redis 适配器广播；nginx ip_hash / Cookie 亲和</li>
         <li>连接池：pool_size / max_overflow 按 worker 数规划，总连接数 ≤ 数据库 max_connections 的 70%</li>

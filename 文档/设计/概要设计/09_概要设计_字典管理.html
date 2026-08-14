@@ -96,7 +96,7 @@
         <tr><td>字典条目维护</td><td>条目增删改查：code、label、value、排序、启用/停用</td><td>dict:manage</td></tr>
         <tr><td>多语言 label 维护</td><td>类型与条目各自关联 <code>_i18n</code> 附表，按语言维护翻译文案</td><td>dict:manage</td></tr>
         <tr><td>运行时字典查询</td><td>按类型 + locale 返回启用条目列表，供各业务模块下拉/展示</td><td>登录即可（业务通用依赖）</td></tr>
-        <tr><td>缓存失效管理</td><td>字典变更后删除 Redis 缓存 key（先写库后删缓存）</td><td>系统内部</td></tr>
+        <tr><td>缓存失效管理</td><td>字典变更后删除 Redis 缓存 key（先写库后删缓存）并递增全局版本号（INCR <code>bms:{tenant}:dict:version</code>），前端与后端进程内内存缓存按版本比对自动重载</td><td>系统内部</td></tr>
       </table>
 
       <h3 id="function-rules">2.2 业务规则</h3>
@@ -119,18 +119,19 @@
       </ol>
 
       <h2 id="sequence">3. 关键时序与协作</h2>
-      <p>读路径（缓存三防：防穿透空值、防击穿互斥锁、防雪崩随机偏移）：</p>
+      <p>读路径（Redis 缓存三防：防穿透空值、防击穿互斥锁、防雪崩随机偏移；后端进程内内存字典缓存按全局版本号比对，免反序列化与网络往返）：</p>
       <pre class="mermaid">
 sequenceDiagram
     autonumber
     participant 业务模块 as 业务模块/前端
+    participant 后端进程 as 后端进程（内存字典缓存）
     participant Redis 缓存
     participant DB
 
-    业务模块->>Redis 缓存: GET /api/v1/dicts/{type}?locale=zh-CN
-    Note over Redis 缓存: GET bms:{tenant}:dict:zh-CN:{type}
-    Redis 缓存-->>业务模块: 命中
-    Note over Redis 缓存: 直接返回条目列表
+    业务模块->>后端进程: GET /api/v1/dicts/{type}?version=x 或 POST /dicts/batch
+    Note over Redis 缓存: GET bms:{tenant}:dict:version（单个 int，微秒级）
+    后端进程->>后端进程: 比对内存缓存版本，一致 → 直出（零反序列化零往返）
+    Note over Redis 缓存: GET bms:{tenant}:dict:zh-CN:{type}（pipeline 批量）
     Note over Redis 缓存: SETNX 互斥锁（防击穿）
     Note over Redis 缓存: 获锁
     Note over DB: 按 locale 关联 _i18n，缺省回退（DB 回源）
@@ -142,18 +143,20 @@ sequenceDiagram
       </pre>
       <script src="../../资源/mermaid.min.js"></script>
       <script src="../../资源/mermaid-init.js"></script>
-      <p>写路径（先写库后删缓存，保证一致性）：</p>
+      <p>写路径（先写库后删缓存 + 递增版本号，保证一致性）：</p>
       <pre class="mermaid">
 sequenceDiagram
     autonumber
     participant 管理端
     participant DB
     participant Redis 缓存
+    participant 各实例 as 后端各实例（内存缓存）
 
     管理端->>DB: POST/PUT/DELETE 字典类型或条目
     Note over DB: 写库（软删除/乐观锁/审计字段）
     Note over Redis 缓存: DEL bms:{tenant}:dict:{locale}:{type}
-    Note over 管理端: 后续请求回源 DB 重建缓存
+    Note over Redis 缓存: INCR bms:{tenant}:dict:version
+    Note over 各实例: 下轮请求版本比对不一致 → 自动重载
     Note over DB: 缓存键含 locale 与租户前缀，租户间天然隔离
       </pre>
       <div class="note">Redis 故障时缓存失效直连 DB 并日志告警（降级协议见<a href="../架构设计/05_架构设计_数据架构.html">架构 05</a> 与规划「降级」节）；Redis key 命名遵循 <code>bms:{租户|global}:{域}:{业务键}</code> 规范。</div>
@@ -164,17 +167,17 @@ sequenceDiagram
       <table>
         <tr><th>表</th><th>关键字段</th><th>说明</th></tr>
         <tr><td>sys_dict_type</td><td>id（雪花）、type、name、sort、status、deleted_at、审计字段、version</td><td>字典类型（租户库；平台库种子下发）</td></tr>
-        <tr><td>sys_dict_item</td><td>id（雪花）、type_id、code、label、value、sort、status、deleted_at、审计字段、version</td><td>字典条目，type_id 逻辑引用字典类型</td></tr>
+        <tr><td>sys_dict_item</td><td>id（雪花）、type_id、code、label、value、parent_id、sort、status、deleted_at、审计字段、version</td><td>字典条目，type_id 逻辑引用字典类型，parent_id 逻辑引用条目自身 id（级联联动：上级字典值过滤下级选项）</td></tr>
         <tr><td>sys_dict_type_i18n</td><td>dict_type_id、locale、label</td><td>类型名多语言，联合主键（dict_type_id + locale）</td></tr>
         <tr><td>sys_dict_item_i18n</td><td>dict_item_id、locale、label</td><td>条目 label 多语言，联合主键（dict_item_id + locale）</td></tr>
       </table>
 
       <h3 id="data-index">4.2 索引与存储策略</h3>
       <ul>
-        <li>索引：sys_dict_type (type) 唯一索引；sys_dict_item (type_id, code) 复合唯一索引（与 deleted_at 组复合唯一索引）、sort 排序字段索引；<code>_i18n</code> 附表按 (主表 ID + locale) 联合主键查询</li>
+        <li>索引：sys_dict_type (type) 唯一索引；sys_dict_item (type_id, code) 复合唯一索引（与 deleted_at 组复合唯一索引）、sort 排序字段索引、<code>(type_id, parent_id, sort)</code> 复合索引（级联过滤）、<code>(type_id, label)</code> 复合索引（远程搜索前缀匹配）、<code>(type_id, value)</code> 复合索引（单值翻译）；<code>_i18n</code> 附表按 (主表 ID + locale) 联合主键查询</li>
         <li>分片：字典为小型热配置数据，不做按月分片</li>
         <li>归档：字典为在用配置数据，不进入归档流转；审计留痕走操作日志与字段级审计（sys_data_audit_log，按月分片）</li>
-        <li>缓存：<code>bms:{tenant}:dict:{locale}:{type}</code>，短 TTL + 随机偏移；缓存键含 locale 与租户前缀</li>
+        <li>缓存：<code>bms:{tenant}:dict:{locale}:{type}</code>，短 TTL + 随机偏移；缓存键含 locale 与租户前缀；全局版本键 <code>bms:{tenant}:dict:version</code>（字典变更 INCR）；进程内内存字典缓存（仅 &lt; 2000 条小字典整类型载入，超大字典 DB 索引直查）按版本比对免反序列化与网络往返</li>
       </ul>
 
       <h3 id="data-flow">4.3 数据流转</h3>
@@ -197,19 +200,20 @@ sequenceDiagram
         <tr><td>POST</td><td>/dict-types/{id}/items</td><td>新增字典条目</td><td>dict:manage</td></tr>
         <tr><td>PUT</td><td>/dict-items/{id}</td><td>修改字典条目（含 i18n 附表）</td><td>dict:manage</td></tr>
         <tr><td>DELETE</td><td>/dict-items/{id}</td><td>删除字典条目（软删除，引用校验）</td><td>dict:manage</td></tr>
-        <tr><td>GET</td><td>/dicts/{type}</td><td>运行时字典查询（按 locale 返回启用条目；登录即可，业务通用依赖）</td><td>登录即可</td></tr>
+        <tr><td>GET</td><td>/dicts/{type}</td><td>运行时字典查询（按 locale 返回启用条目；登录即可，业务通用依赖）。可选参数：<code>version</code>（客户端本地版本，一致时 items 返回 null）、<code>keyword</code>（远程搜索，模糊匹配 label/value/code）、<code>parent_id</code>（级联过滤）、<code>limit</code>（条数上限，探针传 2001 判别超大字典）；响应 data 为 <code>{version, items, has_more, total}</code></td><td>登录即可</td></tr>
+        <tr><td>POST</td><td>/dicts/batch</td><td>批量运行时字典查询（表单页多字典字段合并为一次请求）：请求体 <code>{types: [...], version?, locale?}</code>；响应 data 为 <code>{version, items: {type: {items, has_more, total} \| null}}</code>，items 为 null 表示该类型版本一致（前端复用本地缓存）；每类型统一 limit 截断（2001）判别超大字典</td><td>登录即可</td></tr>
       </table>
 
       <h3 id="api-rules">5.2 分页/幂等/限流</h3>
       <ul>
         <li>分页：查询参数 <code>page</code>（从 1 起）、<code>size</code>；响应 <code>{list, total, page, size}</code>；limit/offset 分页限深 100 页</li>
         <li>幂等：写接口支持幂等键（请求头 Idempotency-Key），Redis SETNX 前置拦截 + 唯一约束兜底</li>
-        <li>限流：接口级限流（slowapi，Redis 后端，IP/用户维度）；运行时查询接口为高频路径，单独配置较宽限流</li>
+        <li>限流：接口级限流（slowapi，Redis 后端，IP/用户维度）；运行时查询接口为高频路径，单独配置较宽限流；批量接口（/dicts/batch）与远程搜索（keyword 参数）分别限流，防止超大字典场景被刷</li>
         <li>命名：RESTful 资源式，列表筛选用查询参数</li>
       </ul>
 
       <h3 id="api-event">5.3 事件</h3>
-      <p>本模块不发布独立事件；字典变更通过缓存删除即时生效，无需异步通知消费方（事件总线事件清单中无 dict 域事件）。</p>
+      <p>本模块不发布独立事件；字典变更通过缓存删除 + 全局版本号递增即时生效（各实例内存缓存与前端缓存按版本比对自动重载），无需异步通知消费方（事件总线事件清单中无 dict 域事件）。</p>
 
       <h2 id="permission">6. 权限与配置</h2>
 
