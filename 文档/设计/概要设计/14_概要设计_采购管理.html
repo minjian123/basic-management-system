@@ -71,7 +71,7 @@
       <h3 id="func-list">2.1 功能点分解</h3>
       <table>
         <tr><th>功能点</th><th>说明</th><th>权限码</th></tr>
-        <tr><td>采购申请单维护</td><td>新建/编辑/删除/查询申请单（apply_no 自动生成），支持 AI 生成申请理由草稿（阶段十五）</td><td>purchase:create / update / delete / query</td></tr>
+        <tr><td>采购申请单维护</td><td>新建/编辑/删除/查询申请单（apply_no 自动生成）；主从结构：主表（标题/金额/理由/部门/供应商）+ 明细行（商品名称/规格/数量/单价，行内编辑，金额 = 数量 × 单价自动合计，明细合计须与主表金额一致）；支持 AI 生成申请理由草稿（阶段十五）</td><td>purchase:create / update / delete / query</td></tr>
         <tr><td>提交审批</td><td>提交后启动三级审批流程（部门经理 → 财务 → 分管领导），单据状态进入审批中，不可再编辑</td><td>purchase:create</td></tr>
         <tr><td>审批通过生成订单</td><td>流程全部节点通过后，按申请单生成采购订单（biz_purchase_order），订单号自动生成</td><td>—（流程回调触发）</td></tr>
         <tr><td>驳回处理</td><td>任一节点驳回：单据状态回退，申请人可修改后重新提交（重新触发流程）</td><td>purchase:update</td></tr>
@@ -81,7 +81,7 @@
 
       <h3 id="func-flow">2.2 申请→审批→订单流程</h3>
       <ol>
-        <li>申请人填写申请单（标题、金额、理由、部门、供应商），保存草稿或直接提交</li>
+        <li>申请人填写申请单（标题、理由、部门、供应商 + 明细行：商品名称/规格/数量/单价，明细合计自动回填主表金额），保存草稿或直接提交</li>
         <li>提交时：单据状态置审批中 → 启动工作流实例（走最新版本流程定义）→ 发布 purchase.apply.submitted 事件 → 部门经理收到待办（站内信 + Socket.IO 实时角标）</li>
         <li>审批链：部门经理 → 财务 → 分管领导，逐节点推进（同意 → 下一节点；驳回 → 流程终止、单据退回）</li>
         <li>异常分支：
@@ -128,7 +128,8 @@ sequenceDiagram
       <p>核心表（均租户库，业务表前缀 biz_）：</p>
       <table>
         <tr><th>表</th><th>关键字段</th><th>说明</th></tr>
-        <tr><td>biz_purchase_apply</td><td>apply_no、title、amount、reason、dept_id、applicant_id、status（草稿/审批中/已通过/已驳回）、order_id</td><td>采购申请单；order_id 在订单生成后回写（逻辑外键）</td></tr>
+        <tr><td>biz_purchase_apply</td><td>apply_no、title、amount、reason、dept_id、applicant_id、status（草稿/审批中/已通过/已驳回）、order_id</td><td>采购申请单；order_id 在订单生成后回写（逻辑外键）；amount 为主表金额（明细合计回填）</td></tr>
+        <tr><td>biz_purchase_item</td><td>apply_id、name、spec、qty、price、amount、sort</td><td>采购申请明细行（1:N）；amount = qty × price；apply_id 逻辑外键，随主表整体保存</td></tr>
         <tr><td>biz_purchase_order</td><td>order_no、apply_id、supplier、amount、status</td><td>采购订单，审批通过后生成，apply_id 关联申请单</td></tr>
         <tr><td>biz_supplier</td><td>code、name、contact、phone、qualification、status</td><td>供应商档案，采购申请/订单引用（code 逻辑外键）</td></tr>
       </table>
@@ -136,6 +137,8 @@ sequenceDiagram
         <li><strong>通用规范</strong>：雪花 ID 主键、软删除（deleted_at，复合唯一约束 <code>(apply_no, deleted_at)</code>）、审计字段、乐观锁（version）、时间 UTC；跨表引用用逻辑外键，不建物理外键</li>
         <li><strong>索引</strong>：apply_no/order_no/supplier code 唯一索引；applicant_id、dept_id、status 建索引（数据权限过滤字段）</li>
         <li><strong>状态机</strong>：申请单 草稿 → 审批中 → 已通过/已驳回；已驳回可修改重新提交（重新走草稿→审批中）；已通过不可改（仅可查看）；订单生成后申请单不可撤销</li>
+        <li><strong>主从保存</strong>：主表 + 明细整体单事务提交（保存时删除旧明细行重建，或按 id 增删改）；新增主表时明细的 apply_id 由事务内新主表 ID 回填；明细行行内编辑（未保存修改随整体提交），保存时过滤空行</li>
+        <li><strong>金额校验</strong>：前端按行计算并汇总（qty × price），提交时后端复算校验：明细合计 ≠ 主表 amount 拒绝保存（错误码 60008）</li>
         <li><strong>数据流转</strong>：申请单提交 → 流程实例关联 → 审批通过 → 生成订单回写 order_id → 单据/订单状态驱动列表与统计；供应商变更不影响已生成单据（快照 supplier 名称）</li>
         <li><strong>归档</strong>：单据表体量小，不按月分片；字段级审计（biz_purchase_* 为关键表）自动记录至 sys_data_audit_log（按月分表）</li>
       </ul>
@@ -144,8 +147,8 @@ sequenceDiagram
       <table>
         <tr><th>方法</th><th>路径</th><th>说明</th><th>权限码</th></tr>
         <tr><td>GET</td><td>/api/v1/purchase/applies</td><td>申请单列表（分页 + 状态/时间/申请人筛选）</td><td>purchase:query</td></tr>
-        <tr><td>POST</td><td>/api/v1/purchase/applies</td><td>新建申请单（草稿）</td><td>purchase:create</td></tr>
-        <tr><td>PUT</td><td>/api/v1/purchase/applies/{id}</td><td>编辑申请单（仅草稿/已驳回状态）</td><td>purchase:update</td></tr>
+        <tr><td>POST</td><td>/api/v1/purchase/applies</td><td>新建申请单（草稿，body 含主表字段 + items 明细数组）</td><td>purchase:create</td></tr>
+        <tr><td>PUT</td><td>/api/v1/purchase/applies/{id}</td><td>编辑申请单（仅草稿/已驳回状态；主表 + items 明细整体提交）</td><td>purchase:update</td></tr>
         <tr><td>POST</td><td>/api/v1/purchase/applies/{id}/submit</td><td>提交审批（启动工作流）</td><td>purchase:create</td></tr>
         <tr><td>DELETE</td><td>/api/v1/purchase/applies/{id}</td><td>删除申请单（仅草稿状态，软删除）</td><td>purchase:delete</td></tr>
         <tr><td>GET</td><td>/api/v1/purchase/orders</td><td>采购订单列表</td><td>purchase:query</td></tr>
@@ -182,6 +185,7 @@ sequenceDiagram
         <tr><td>60005</td><td>重复提交被拦截</td><td>幂等键命中或流程实例已存在</td></tr>
         <tr><td>60006</td><td>供应商引用无效</td><td>申请/订单引用已停用或不存在的供应商 code</td></tr>
         <tr><td>60007</td><td>申请单不存在</td><td>订单生成时申请单已删除（软删除隔离）</td></tr>
+        <tr><td>60008</td><td>明细金额合计与主表不一致</td><td>明细行合计 ≠ 主表 amount（前端实时校验 + 后端复算）</td></tr>
       </table>
       <ul>
         <li>异常处理：订单生成与流程结束在同一事务边界内尽量原子化，失败时单据回退至审批中并告警，支持人工重试（内置重试任务）</li>
@@ -191,7 +195,7 @@ sequenceDiagram
       <h2 id="page">8. 页面清单与验收要点</h2>
       <table>
         <tr><th>页面</th><th>端</th><th>说明</th></tr>
-        <tr><td>采购申请</td><td>PC + 移动端</td><td>申请单列表/新建/编辑/详情、提交审批、审批进度查看（关联流程实例）、驳回修改重新提交</td></tr>
+        <tr><td>采购申请</td><td>PC + 移动端</td><td>申请单列表/新建/编辑/详情、明细行内编辑（自动空行/金额合计）、提交审批、审批进度查看（关联流程实例）、驳回修改重新提交</td></tr>
         <tr><td>采购订单</td><td>PC + 移动端</td><td>订单列表与详情（含申请单溯源），审批通过自动出现</td></tr>
         <tr><td>供应商档案</td><td>PC</td><td>供应商增删改查、资质与状态维护</td></tr>
       </table>
