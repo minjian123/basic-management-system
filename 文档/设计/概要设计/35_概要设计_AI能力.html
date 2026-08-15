@@ -311,27 +311,27 @@ sequenceDiagram
       <h2 id="error">7. 错误码与异常处理</h2>
       <p>
         错误码分段表未为本模块单列段位，本模块错误码位于 <strong>1xxxx 通用段</strong>
-        （10001-19999 通用：参数校验、限流、系统内部），以下段内序号为概要设计规划，一经发布稳定不变：
+        （10001-19999 通用：参数校验、限流、系统内部；段内 102xx 子段为本模块规划，避开 10xxxx/11xxxx/12xxxx 业务模块段，见《<a href="../../规划/项目规划说明.html">项目规划说明</a>》23.5「错误码段分配表」），一经发布稳定不变：
       </p>
       <table>
         <tr><th>错误码</th><th>说明</th><th>场景</th></tr>
         <tr><td>10001</td><td>参数校验失败</td><td>通用段：问题为空/超长、module 非法等</td></tr>
-        <tr><td>12001</td><td>模型不可用或未配置</td><td>目标 type 无可用 provider 或端点状态停用</td></tr>
-        <tr><td>12002</td><td>模型调用超时</td><td>LLM/embedding/OCR 调用超过超时阈值（重试后仍失败）</td></tr>
-        <tr><td>12003</td><td>输出校验未通过</td><td>疑似 prompt 注入/敏感操作，已拦截并落审计</td></tr>
-        <tr><td>12004</td><td>AI 预算超限</td><td>日/月 token 或费用预算耗尽</td></tr>
-        <tr><td>12005</td><td>租户无可用模型端点</td><td>租户未引用任何可用 provider</td></tr>
-        <tr><td>12006</td><td>数据集不在白名单</td><td>NL2SQL 目标数据集无权限或非白名单（拒绝生成 SQL）</td></tr>
-        <tr><td>12007</td><td>SQL 安全校验未通过</td><td>非只读/多语句/白名单外表/危险函数（防注入拒绝执行）</td></tr>
-        <tr><td>12008</td><td>AI 自动执行未开启</td><td>ai.auto_execute=false 时请求自动执行</td></tr>
-        <tr><td>12009</td><td>AI 自动审批未开启或依赖未满足</td><td>ai.auto_approve=false，或 ai.auto_execute 未开启（配置拒绝保存并强制关闭）</td></tr>
-        <tr><td>12010</td><td>目标不在自动执行白名单</td><td>写接口/审批节点不在对应白名单</td></tr>
-        <tr><td>12011</td><td>缺少二次确认</td><td>自动执行/自动审批未完成强制二次确认</td></tr>
-        <tr><td>12012</td><td>动作无法撤销</td><td>目标状态不允许撤销（已流转/已过期）</td></tr>
-        <tr><td>12013</td><td>文件未分段或不可问答</td><td>文件未分段/向量未生成/向量库不可用</td></tr>
-        <tr><td>12014</td><td>OCR 解析失败</td><td>扫描件解析失败（可重试，PaddleOCR/多模态 API 切换）</td></tr>
-        <tr><td>12015</td><td>帮助草稿生成失败</td><td>输入源不足（graphify 图谱/设计文档/表单元数据缺失）</td></tr>
-        <tr><td>12016</td><td>AI 审计写入失败</td><td>ai_chat_log 落库失败，交互结果标记异常并告警（审计优先）</td></tr>
+        <tr><td>10201</td><td>模型不可用或未配置</td><td>目标 type 无可用 provider 或端点状态停用</td></tr>
+        <tr><td>10202</td><td>模型调用超时</td><td>LLM/embedding/OCR 调用超过超时阈值（重试后仍失败）</td></tr>
+        <tr><td>10203</td><td>输出校验未通过</td><td>疑似 prompt 注入/敏感操作，已拦截并落审计</td></tr>
+        <tr><td>10204</td><td>AI 预算超限</td><td>日/月 token 或费用预算耗尽</td></tr>
+        <tr><td>10205</td><td>租户无可用模型端点</td><td>租户未引用任何可用 provider</td></tr>
+        <tr><td>10206</td><td>数据集不在白名单</td><td>NL2SQL 目标数据集无权限或非白名单（拒绝生成 SQL）</td></tr>
+        <tr><td>10207</td><td>SQL 安全校验未通过</td><td>非只读/多语句/白名单外表/危险函数（防注入拒绝执行）</td></tr>
+        <tr><td>10208</td><td>AI 自动执行未开启</td><td>ai.auto_execute=false 时请求自动执行</td></tr>
+        <tr><td>10209</td><td>AI 自动审批未开启或依赖未满足</td><td>ai.auto_approve=false，或 ai.auto_execute 未开启（配置拒绝保存并强制关闭）</td></tr>
+        <tr><td>10210</td><td>目标不在自动执行白名单</td><td>写接口/审批节点不在对应白名单</td></tr>
+        <tr><td>10211</td><td>缺少二次确认</td><td>自动执行/自动审批未完成强制二次确认</td></tr>
+        <tr><td>10212</td><td>动作无法撤销</td><td>目标状态不允许撤销（已流转/已过期）</td></tr>
+        <tr><td>10213</td><td>文件未分段或不可问答</td><td>文件未分段/向量未生成/向量库不可用</td></tr>
+        <tr><td>10214</td><td>OCR 解析失败</td><td>扫描件解析失败（可重试，PaddleOCR/多模态 API 切换）</td></tr>
+        <tr><td>10215</td><td>帮助草稿生成失败</td><td>输入源不足（graphify 图谱/设计文档/表单元数据缺失）</td></tr>
+        <tr><td>10216</td><td>AI 审计写入失败</td><td>ai_chat_log 落库失败，交互结果标记异常并告警（审计优先）</td></tr>
       </table>
       <ul>
         <li>限流命中返回通用段限流错误码；文案由前端按 i18n 映射</li>
@@ -363,7 +363,7 @@ sequenceDiagram
     </main>
 
     <footer>
-      本文档为 AI 生成 · 概要设计节点 · 与《项目规划说明》《架构设计》《文档生成规范》《命名规范》配套 · 生成日期：2026-08-06
+      本文档为 AI 生成 · 概要设计节点 · 与《项目规划说明》《架构设计》《文档生成规范》《命名规范》配套 · 生成日期：2026-08-15
     </footer>
   </div>
 

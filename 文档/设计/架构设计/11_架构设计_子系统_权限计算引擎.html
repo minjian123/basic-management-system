@@ -88,11 +88,12 @@
         <tr><th>业务码</th><th>说明</th><th>默认归属</th></tr>
         <tr><td>sys / tenant / menu / business / action</td><td>平台运维总控；租户管理；菜单/表单/按钮/字段维护；业务权限维护；动作权限维护</td><td>平台超管</td></tr>
         <tr><td>user / post / dept / dict / config / file / session / mail / task / archive / i18n / sso / recycle / backup</td><td>用户、岗位、部门、字典、参数、文件、会话、邮件短信、任务、归档、国际化、SSO 绑定、回收站、备份</td><td>系统管理员</td></tr>
+        <tr><td>dashboard / formdesign</td><td>首页工作台（卡片注册与模板维护；个人布局保存为个人操作，无需权限码）、表单定制（布局配置、字段属性、租户自建字段与动态 DDL 执行）</td><td>系统管理员</td></tr>
         <tr><td>role / open / idp / data</td><td>角色与授权、开放接口与 Webhook、IdP 配置、敏感数据脱敏分配</td><td>安全管理员</td></tr>
         <tr><td>log</td><td>审计日志（操作/登录/数据变更/开放接口）</td><td>审计管理员</td></tr>
         <tr><td>wf / notice / help / purchase / payment / notification / rpt / monitor / import / export / ai</td><td>工作流、公告、帮助中心（分类/文章维护）、采购、收付款管理、通知、报表、监控、导入、导出、AI 助手（对话）</td><td>普通角色（help 归属系统管理员）</td></tr>
       </table>
-      <p><strong>动作清单（sys_action，归属业务）</strong>：query（查询）、create、update、delete、manage、grant（授权）、kick（踢出）、unlock（解锁）、cache（缓存清理）、quota（配额配置）、approve（审批）、define（流程定义）、upload、download、call（第三方调用）、view（查看）、design（设计）、execute（执行）、send（发送）、trigger（手动触发）、reset_pwd、bind（SSO 绑定）、restore（回收站恢复）、chat（AI 对话）、plain（敏感字段明文）。动作按业务分配（如 ai 业务含 chat 与 manage）。</p>
+      <p><strong>动作清单（sys_action，归属业务）</strong>：query（查询）、create、update、delete、manage、grant（授权）、kick（踢出）、unlock（解锁）、cache（缓存清理）、quota（配额配置）、approve（审批）、refund（退款，原收款退回/原付款追回）、define（流程定义）、upload、download、call（第三方调用）、view（查看）、design（设计）、execute（执行）、send（发送）、trigger（手动触发）、reset_pwd、bind（SSO 绑定）、restore（回收站恢复）、chat（AI 对话）、plain（敏感字段明文）。动作按业务分配（如 ai 业务含 chat 与 manage）。</p>
 
       <h2 id="sep">8. 三权分立</h2>
       <ul>
@@ -113,7 +114,7 @@
     </main>
 
     <footer>
-      本文档为 AI 生成 · 架构设计节点 · 与《项目规划说明》《文档生成规范》《命名规范》配套 · 生成日期：2026-08-06
+      本文档为 AI 生成 · 架构设计节点 · 与《项目规划说明》《文档生成规范》《命名规范》配套 · 生成日期：2026-08-15
     </footer>
   </div>
 

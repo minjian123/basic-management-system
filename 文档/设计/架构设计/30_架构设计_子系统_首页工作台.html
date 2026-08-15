@@ -92,7 +92,7 @@ flowchart TD
         <li><strong>卡片渲染器注册表</strong>：内置卡按 render_key 注册组件（如 TodoCard、NoticeCard、QuickLinksCard、StatsCard），前端懒加载渲染；图表卡用通用 ChartCard（dataset_id + chart_type → 数据集接口 → ECharts 配置）。</li>
         <li><strong>数据拉取</strong>：布局接口下发各卡数据接口地址，前端并行拉取（Promise.allSettled），单卡失败降级不阻塞整页；卡片数据接口失败不重试风暴（单卡手动重试）。</li>
         <li><strong>编辑态</strong>：编辑模式 = gridstack 交互层（拖拽/缩放/显隐/添加面板），保存时前端将 gridstack 序列化结果提交 PUT /layout，后端做引用与尺寸合法性校验。</li>
-        <li><strong>移动端</strong>：frontend-mobile 独立渲染同一布局数据（单列简化卡片，见<a href="../布局设计/13_布局设计_首页工作台.html">布局设计 15</a>），布局接口与存储完全同源。</li>
+        <li><strong>移动端</strong>：frontend-mobile 独立渲染同一布局数据（单列简化卡片，见<a href="../布局设计/13_布局设计_首页工作台.html">布局设计 13</a>），布局接口与存储完全同源。</li>
       </ul>
 
       <h2 id="data">6. 数据与缓存</h2>
@@ -106,13 +106,13 @@ flowchart TD
 
       <h2 id="coordination">7. 与其他子系统的协作</h2>
       <ul>
-        <li><strong><a href="11_架构设计_子系统_权限计算引擎.html">权限计算引擎（10）</a></strong>：dashboard 业务码控制卡片/模板管理；布局解析按用户角色集（主体链计算结果）定位角色模板；卡片数据沿用来源模块权限</li>
-        <li><strong><a href="19_架构设计_子系统_报表BI.html">报表 BI（18）</a></strong>：数据集图表卡挂接 rpt_dataset，复用数据集执行接口与安全校验（只读从库）</li>
-        <li><strong><a href="17_架构设计_子系统_工作流.html">工作流（16）</a></strong> / <strong><a href="18_架构设计_子系统_通知公告.html">通知公告（17）</a></strong>：待办/通知/公告卡与顶栏角标的数据来源（既有接口 + Socket.IO 实时推送）</li>
-        <li><strong><a href="14_架构设计_子系统_实时推送.html">实时推送（13）</a></strong>：待办/通知角标增量刷新（socket.io-client 订阅既有事件，不新增推送通道）</li>
-        <li><strong><a href="26_架构设计_前端架构.html">前端架构（25）</a></strong>：工作台为登录后默认页与主框架固定 Tab；gridstack/vue-flow 选型与报表/大屏共用（见<a href="../../规划/项目规划说明.html">规划说明</a>技术栈）</li>
-        <li><strong><a href="20_架构设计_子系统_国际化.html">国际化（19）</a></strong>：卡片名走 i18n 附表、布局接口按 locale 下发；工作台固定文案走 sys_i18n_message</li>
-        <li><strong><a href="10_架构设计_子系统_认证与会话.html">认证与会话（09）</a></strong>：登录成功跳转工作台；未登录访问重定向登录页</li>
+        <li><strong><a href="11_架构设计_子系统_权限计算引擎.html">权限计算引擎（11）</a></strong>：dashboard 业务码控制卡片/模板管理；布局解析按用户角色集（主体链计算结果）定位角色模板；卡片数据沿用来源模块权限</li>
+        <li><strong><a href="19_架构设计_子系统_报表BI.html">报表 BI（19）</a></strong>：数据集图表卡挂接 rpt_dataset，复用数据集执行接口与安全校验（只读从库）</li>
+        <li><strong><a href="17_架构设计_子系统_工作流.html">工作流（17）</a></strong> / <strong><a href="18_架构设计_子系统_通知公告.html">通知公告（18）</a></strong>：待办/通知/公告卡与顶栏角标的数据来源（既有接口 + Socket.IO 实时推送）</li>
+        <li><strong><a href="14_架构设计_子系统_实时推送.html">实时推送（14）</a></strong>：待办/通知角标增量刷新（socket.io-client 订阅既有事件，不新增推送通道）</li>
+        <li><strong><a href="26_架构设计_前端架构.html">前端架构（26）</a></strong>：工作台为登录后默认页与主框架固定 Tab；gridstack/vue-flow 选型与报表/大屏共用（见<a href="../../规划/项目规划说明.html">规划说明</a>技术栈）</li>
+        <li><strong><a href="20_架构设计_子系统_国际化.html">国际化（20）</a></strong>：卡片名走 i18n 附表、布局接口按 locale 下发；工作台固定文案走 sys_i18n_message</li>
+        <li><strong><a href="10_架构设计_子系统_认证与会话.html">认证与会话（10）</a></strong>：登录成功跳转工作台；未登录访问重定向登录页</li>
       </ul>
 
       <h2 id="perf">8. 性能、安全与测试</h2>
@@ -126,7 +126,7 @@ flowchart TD
     </main>
 
     <footer>
-      本文档为 AI 生成 · 架构设计节点 · 与《项目规划说明》《文档生成规范》《命名规范》配套 · 生成日期：2026-08-13
+      本文档为 AI 生成 · 架构设计节点 · 与《项目规划说明》《文档生成规范》《命名规范》配套 · 生成日期：2026-08-15
     </footer>
   </div>
 

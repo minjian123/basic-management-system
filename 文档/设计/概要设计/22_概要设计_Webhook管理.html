@@ -164,7 +164,7 @@ sequenceDiagram
       </ul>
 
       <h3 id="api-events">5.3 发布事件</h3>
-      <p>本模块消费事件而非生产事件。可订阅事件清单见《项目规划说明》事件模型表，Webhook 订阅=「是」的默认清单包括：user.created/user.updated/user.deleted、user.password_reset、wf.process.deployed、wf.instance.started、wf.task.completed、wf.instance.rejected、wf.instance.finished、purchase.apply.submitted、purchase.order.created、notice.published、tenant.created/tenant.suspended/tenant.activated、sso.user.jit_created；开发期可按需扩展。</p>
+      <p>本模块消费事件而非生产事件。可订阅事件清单见《项目规划说明》事件模型表，Webhook 订阅=「是」的默认清单包括：user.created/user.updated/user.deleted、user.password_reset、wf.process.deployed、wf.instance.started、wf.task.completed、wf.instance.rejected、wf.instance.finished、purchase.apply.submitted、purchase.order.created、payment.receipt.confirmed、payment.payment.approved、payment.payment.executed、payment.refund.completed、notice.published、tenant.created/tenant.suspended/tenant.activated、sso.user.jit_created；开发期可按需扩展。</p>
 
       <h2 id="permission">6. 权限与配置</h2>
       <ul>
@@ -178,7 +178,7 @@ sequenceDiagram
       <p>错误码 5 位数字，万位为模块段、后 4 位为段内序号，一经发布稳定不变；文案由前端按 i18n 映射（error.{code}），后端不承担文案拼装。本模块错误码段：</p>
       <table>
         <tr><th>段</th><th>区间</th><th>覆盖模块</th></tr>
-        <tr><td>8xxxx</td><td>80001-89999</td><td>开放接口/Webhook/租户/SSO（本模块规划于 82xxx 段内序号）</td></tr>
+        <tr><td>8xxxx</td><td>80001-89999</td><td>开放接口/Webhook/租户/SSO（本模块规划于 <strong>821xx 子段</strong>，租户管理占 820xx，避免撞号）</td></tr>
       </table>
       <ul>
         <li>错误码覆盖：订阅不存在/已停用、URL 非法、事件名不在清单内、secret 重置冲突、推送记录不存在等。</li>
@@ -202,7 +202,7 @@ sequenceDiagram
     </main>
 
     <footer>
-      本文档为 AI 生成 · 概要设计节点 · 与《项目规划说明》《架构设计》《文档生成规范》《命名规范》配套 · 生成日期：2026-08-06
+      本文档为 AI 生成 · 概要设计节点 · 与《项目规划说明》《架构设计》《文档生成规范》《命名规范》配套 · 生成日期：2026-08-15
     </footer>
   </div>
 

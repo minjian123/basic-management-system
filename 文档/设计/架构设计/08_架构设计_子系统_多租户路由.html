@@ -64,7 +64,7 @@
 
       <h2 id="provision">4. 租户开通/停用</h2>
       <ul>
-        <li>开通流程（平台超管 <code>tenant:manage</code>）：校验 code 唯一 → 建库 <code>bms_tenant_{code}</code> → 三套 Alembic 迁移（按目标库方言，MySQL/PostgreSQL/达梦 DM8）→ 批量种子（三类内置管理员角色 + 初始系统管理员账号（首次登录强制改密）+ 默认 IdP 占位 + 归档策略 + 平台统一菜单/表单/按钮/字段挂接与权限码）→ 注册 sys_tenant → 预热引擎（可选）→ 落 tenant.created 事件</li>
+        <li>开通流程（平台超管 <code>tenant:manage</code>）：校验 code 唯一 → 建库 <code>bms_tenant_{code}</code> → 三套 Alembic 迁移（按目标库方言，MySQL/PostgreSQL/达梦 DM8）→ 批量种子（三类内置管理员角色 + 初始系统管理员账号（首次登录强制改密）+ 默认 IdP 占位 + 归档策略 + 平台统一菜单/表单/按钮/字段挂接与权限码）→ <strong>模块开通勾选</strong>（可选已注册启用模块写入 sys_tenant_module，租户模块开关运营期启停，见<a href="07_架构设计_子系统_模块注册.html">模块注册节点</a> 3.4）→ 注册 sys_tenant → 预热引擎（可选）→ 落 tenant.created 事件</li>
         <li>停用：租户引擎全部回收、会话标记失效（按租户前缀批量清理 Redis）、登录拦截；启用：恢复正常 + 落 tenant.activated 事件</li>
         <li>租户库批量迁移：Alembic 遍历 sys_tenant 逐库执行（运维脚本 scripts/）</li>
       </ul>
@@ -96,7 +96,7 @@
     </main>
 
     <footer>
-      本文档为 AI 生成 · 架构设计节点 · 与《项目规划说明》《文档生成规范》《命名规范》配套 · 生成日期：2026-08-06
+      本文档为 AI 生成 · 架构设计节点 · 与《项目规划说明》《文档生成规范》《命名规范》配套 · 生成日期：2026-08-15
     </footer>
   </div>
 
