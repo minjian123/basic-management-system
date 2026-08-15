@@ -6,7 +6,7 @@
 
 - BMS（基础管理系统）：后端管理用途。当前**尚无源代码**，规划已定案；技术栈、功能模块、开发计划与验收标准见 `文档/规划/项目规划说明.md`，**动手写代码前先读该文件**。
 - 文档目录使用中文名（`文档/`），README 与规划文档均为中文；回复与文档保持中文。
-- `.opencode/`（opencode.json、plugins/graphify.js 等）由 graphify 安装脚本生成；`.reasonix/`、reasonix.toml 由 IDE 工具生成——均勿手动修改。
+- `.opencode/` 中 graphify 安装脚本生成的产物（plugins/graphify.js、skills/graphify 等）勿手动修改；`opencode.json` 的 plugin 数组登记自定义插件是既定扩展方式（vision.js、bg.js 均如此）；`.reasonix/`、reasonix.toml 由 IDE 工具生成——勿手动修改。
 - 入口文档：`README.md`（导航）、`文档/规划/项目规划说明.md`（规划）、`文档/规划/开发部署规划.html`（开发环境部署）、`文档/资料/开发服务器部署使用说明.html`（mjbk 远程操作实录）。
 
 ## 开发环境与远程操作
@@ -74,3 +74,16 @@
 - **本地模型注意**：识图服务为本机 LM Studio（qwen3.6-35b-a3b，见 `文档/用户文档/本地资源.md`）。该模型是推理模型，客户端默认 `reasoning_effort: "none"` 关闭思考（否则评审几万 token 不结束）；本地模型零费用，可对同一张图反复调用、聚焦区域迭代复查（如评审报告某处不清楚，再调一次着重看该区域）。
 - 评审闭环：截图评审 → 按问题清单修正 → 重新评审，直到无高危问题。
 - 截图与评审报告等产物一律输出到 `temp/vision/`（已 gitignore），**不入库、不提交**；需留档时用 `report` 参数输出到项目内其他位置。
+
+## 后台任务执行（BG，强制执行）
+
+**背景**：bash 工具是同步阻塞的，长命令执行期间无反馈，观感"卡死"。因此对命令做分级处理，禁止长时间无反馈等待。
+
+- 工具链在 `deploy/tools/bg/`（bg-run/bg-status/bg-stop.ps1），已通过 opencode 插件注册 `bg_run` / `bg_status` / `bg_stop` 三个工具（opencode.json 已登记）。
+- **执行纪律**：
+  - 预计 **≤10 秒**的命令（查询、状态、文件操作、短命令）：直接执行。
+  - 预计 **>10 秒**的命令（下载、安装、构建、ssh 远程、服务启动、备份等）：一律 **`bg_run` 后台化** → 立即返回 → 用 **`bg_status` 秒级轮询**（间隔 10-30 秒）直到 FINISHED；绝不直接同步等待。
+  - 不写长 `Start-Sleep` 等待；探测服务就绪用短超时（2-3 秒）轮询。
+  - 调用 `.cmd/.bat` 批处理或 npx 时注意输出缓冲（PowerShell 管道要等进程退出才吐输出），必要时绕开包装直接用可执行文件。
+- 状态文件默认 `%USERPROFILE%\.bg`（-Base 可覆盖）；任务按 `-Name` 区分，同名会覆盖。
+- 示例：`bg_run {name: 远程磁盘, command: "ssh minjian@192.168.0.107 df -h"}` → 立即返回；`bg_status {name: 远程磁盘}` → 秒级出结果。
