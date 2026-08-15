@@ -93,9 +93,10 @@ BMS 兼作 IdP：第三方系统经 OIDC 授权码流程以 BMS 用户体系登�
       <h2 id="seq-tenant">6. 租户开通</h2>
       <pre><code>平台超管 → 创建租户（code/名称/域名/配额，require_permission("tenant:manage")）
   → 校验 code 唯一 → 建库 bms_tenant_{code}
-  → 三套 Alembic 迁移（按目标库方言执行，MySQL/PostgreSQL/达梦 DM8）→ 批量种子：
+  → 三套 Alembic 迁移（按目标库方言执行，MySQL/PostgreSQL/达梦 DM8）   → 批量种子：
       三类内置管理员角色 + 初始系统管理员（首次登录强制改密）+ 默认 IdP 占位
       + 归档策略种子 + 平台统一菜单/表单/按钮/字段挂接与业务/动作权限码
+      + 初始工作台卡片种子（内置卡，含 i18n 英文文案）与平台默认模板种子（自动执行）
   → 注册 sys_tenant（db_key）→ 预热租户引擎（可选）
   → 落 tenant.created 事件（Webhook 可订阅）
 停用：租户引擎全部回收、会话标记失效、登录拦截；启用恢复正常</code></pre>
@@ -156,7 +157,7 @@ BMS 兼作 IdP：第三方系统经 OIDC 授权码流程以 BMS 用户体系登�
     </main>
 
     <footer>
-      本文档为 AI 生成 · 架构设计节点 · 与《项目规划说明》《文档生成规范》《命名规范》配套 · 生成日期：2026-08-06
+      本文档为 AI 生成 · 架构设计节点 · 与《项目规划说明》《文档生成规范》《命名规范》配套 · 生成日期：2026-08-15
     </footer>
   </div>
 

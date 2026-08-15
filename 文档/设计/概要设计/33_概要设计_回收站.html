@@ -84,7 +84,7 @@
       <h3 id="functions-rules">2.2 业务规则</h3>
       <ul>
         <li>软删除：业务数据软删除（deleted_at 时间戳），审计类数据物理保留；查询默认过滤已删除</li>
-        <li>业务唯一约束统一建为 (唯一字段, deleted_at) 复合唯一索引：未删行 deleted_at 为 NULL，SQLite/MySQL/PostgreSQL 三库均允许多个 NULL 不冲突；删除时写入时间戳即释放唯一键；PostgreSQL 可另加部分唯一索引优化</li>
+        <li>业务唯一约束统一建为 (唯一字段, deleted_at) 复合唯一索引：未删行 deleted_at 为 NULL，SQLite/MySQL/PostgreSQL/达梦 DM8 四库均允许多个 NULL 不冲突（达梦按 Oracle 兼容口径，阶段一验证）；删除时写入时间戳即释放唯一键；PostgreSQL 可另加部分唯一索引优化</li>
         <li>软删除数据进回收站（recycle 业务：查看/恢复）；恢复即清除 deleted_at；恢复动作落操作日志与字段级审计（sys_data_audit_log）</li>
         <li>过期软删除残留由 Celery 定时物理清理（与归档清理任务衔接）</li>
         <li>回收站按模块展示（可筛选表），查询与恢复均在租户边界内、叠加数据权限过滤</li>
@@ -204,7 +204,7 @@ graph TD
       <ul>
         <li>回收站查看/恢复可用且审计留痕（《项目规划说明》MVP 验收标准：回收站查看/恢复可用且审计留痕）</li>
         <li>恢复动作落操作日志与字段级审计（sys_data_audit_log）</li>
-        <li>复合唯一索引生效：删除释放唯一键、恢复冲突被拦截回滚；SQLite/MySQL/PostgreSQL 三库行为一致（PostgreSQL 部分唯一索引优化）</li>
+        <li>复合唯一索引生效：删除释放唯一键、恢复冲突被拦截回滚；SQLite/MySQL/PostgreSQL/达梦 DM8 四库行为一致（PostgreSQL 部分唯一索引优化）</li>
         <li>过期数据物理清理生效（与归档清理任务衔接，清理记录备查）</li>
         <li>查询默认过滤已删除、回收站按模块展示可筛选、租户与数据权限过滤生效</li>
         <li>测试覆盖：回收站恢复（审计留痕）纳入测试策略（《项目规划说明》测试策略节）</li>
@@ -213,7 +213,7 @@ graph TD
     </main>
 
     <footer>
-      本文档为 AI 生成 · 概要设计节点 · 与《项目规划说明》《架构设计》《文档生成规范》《命名规范》配套 · 生成日期：2026-08-06
+      本文档为 AI 生成 · 概要设计节点 · 与《项目规划说明》《架构设计》《文档生成规范》《命名规范》配套 · 生成日期：2026-08-15
     </footer>
   </div>
 

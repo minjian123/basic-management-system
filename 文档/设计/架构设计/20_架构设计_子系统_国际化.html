@@ -55,7 +55,7 @@
       <h2 id="business-text">3. 业务数据文案（i18n 附表）</h2>
       <ul>
         <li>需多语言的展示文案不入主表，由 <code>{主表}_i18n</code> 附表存储（主表 ID + locale + 翻译字段，联合主键）</li>
-        <li>覆盖：sys_menu_i18n（name）、sys_business_i18n、sys_action_i18n、sys_field_i18n、sys_dict_type_i18n、sys_dict_item_i18n、sys_mail_template_i18n（subject、content）</li>
+        <li>覆盖：sys_menu_i18n（name）、sys_business_i18n、sys_action_i18n、sys_field_i18n、sys_dict_type_i18n、sys_dict_item_i18n、sys_mail_template_i18n（subject、content）、sys_dashboard_card_i18n（工作台卡片名称）、sys_field_ext_i18n（租户自建字段名称）</li>
         <li>查询规则：按当前 locale 关联，缺省回退主表默认文案</li>
       </ul>
 
@@ -92,7 +92,7 @@
     </main>
 
     <footer>
-      本文档为 AI 生成 · 架构设计节点 · 与《项目规划说明》《文档生成规范》《命名规范》配套 · 生成日期：2026-08-06
+      本文档为 AI 生成 · 架构设计节点 · 与《项目规划说明》《文档生成规范》《命名规范》配套 · 生成日期：2026-08-15
     </footer>
   </div>
 

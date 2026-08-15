@@ -139,7 +139,7 @@
             <li>管理员在任务调度页触发（或定时任务）索引重建，任务入 sys_task 异步执行</li>
             <li>按目标索引（单索引或按月索引）重放已落库事件流（事件可追溯），全量快照兜底</li>
             <li>重建期间新旧索引经别名切换，无感替换</li>
-            <li>异常分支：同索引已有重建任务在跑 → 拒绝重复触发（错误码 11005）；重建失败记录 sys_task_log 并告警，别名不切换</li>
+            <li>异常分支：同索引已有重建任务在跑 → 拒绝重复触发（错误码 10105）；重建失败记录 sys_task_log 并告警，别名不切换</li>
           </ol>
         </li>
       </ol>
@@ -222,7 +222,7 @@ sequenceDiagram
       </table>
       <ul>
         <li><strong>通用规范</strong>：前缀 <code>/api/v1</code>；统一响应 <code>{code, message, data}</code>；分页 <code>page</code>/<code>size</code>，响应 <code>{list, total, page, size}</code>；Bearer access token 鉴权 + <code>require_permission</code> 两级校验</li>
-        <li><strong>分页</strong>：全局/文件检索 limit/offset 限深（默认 ≤ 100 页）；审计日志检索时间范围必填且单次 ≤ 31 天，超限返回错误码 11007</li>
+        <li><strong>分页</strong>：全局/文件检索 limit/offset 限深（默认 ≤ 100 页）；审计日志检索时间范围必填且单次 ≤ 31 天，超限返回错误码 10107</li>
         <li><strong>幂等</strong>：索引重建接口支持 <code>Idempotency-Key</code> 请求头（Redis SETNX 前置去重）；同索引同时仅允许一个重建任务</li>
         <li><strong>限流</strong>：检索接口按用户维度限流（如 30 次/分钟），防重查询打爆 ES；ES 客户端短超时（默认 1s）快速失败</li>
         <li><strong>发布事件</strong>：本模块不发布新事件；消费既有事件（见下表）</li>
@@ -263,18 +263,18 @@ sequenceDiagram
       <h2 id="error">7. 错误码与异常处理</h2>
       <p>
         错误码分段表未为本模块单列段位，本模块错误码位于 <strong>1xxxx 通用段</strong>
-        （10001-19999 通用：参数校验、限流、系统内部），以下段内序号为概要设计规划，一经发布稳定不变：
+        （10001-19999 通用：参数校验、限流、系统内部；段内 101xx/102xx 子段为本模块规划，避开 10xxxx/11xxxx/12xxxx 业务模块段，见《<a href="../../规划/项目规划说明.html">项目规划说明</a>》23.5「错误码段分配表」），一经发布稳定不变：
       </p>
       <table>
         <tr><th>错误码</th><th>说明</th><th>场景</th></tr>
         <tr><td>10001</td><td>参数校验失败</td><td>通用段：q 为空/超长、types 非法、时间范围缺失等</td></tr>
-        <tr><td>11001</td><td>检索服务不可用</td><td>ES 故障且降级失败（连接异常/安全认证失败）</td></tr>
-        <tr><td>11002</td><td>检索超时</td><td>ES 查询超过 search.timeout_ms</td></tr>
-        <tr><td>11003</td><td>检索服务降级中</td><td>ES 故障已切换数据库模糊查询，提示结果可能不完整</td></tr>
-        <tr><td>11004</td><td>目标索引不存在或未就绪</td><td>按月索引未预创建、别名未就绪</td></tr>
-        <tr><td>11005</td><td>索引重建任务进行中</td><td>同索引重复触发重建被拒</td></tr>
-        <tr><td>11006</td><td>文件内容不可检索</td><td>文件未解析/解析失败/OCR 待办（可经重新解析接口处理）</td></tr>
-        <tr><td>11007</td><td>审计日志检索时间范围超限</td><td>单次检索范围超过 31 天需分次查询</td></tr>
+        <tr><td>10101</td><td>检索服务不可用</td><td>ES 故障且降级失败（连接异常/安全认证失败）</td></tr>
+        <tr><td>10102</td><td>检索超时</td><td>ES 查询超过 search.timeout_ms</td></tr>
+        <tr><td>10103</td><td>检索服务降级中</td><td>ES 故障已切换数据库模糊查询，提示结果可能不完整</td></tr>
+        <tr><td>10104</td><td>目标索引不存在或未就绪</td><td>按月索引未预创建、别名未就绪</td></tr>
+        <tr><td>10105</td><td>索引重建任务进行中</td><td>同索引重复触发重建被拒</td></tr>
+        <tr><td>10106</td><td>文件内容不可检索</td><td>文件未解析/解析失败/OCR 待办（可经重新解析接口处理）</td></tr>
+        <tr><td>10107</td><td>审计日志检索时间范围超限</td><td>单次检索范围超过 31 天需分次查询</td></tr>
       </table>
       <ul>
         <li>限流命中返回通用段限流错误码，文案由前端按 i18n 映射</li>
@@ -302,7 +302,7 @@ sequenceDiagram
     </main>
 
     <footer>
-      本文档为 AI 生成 · 概要设计节点 · 与《项目规划说明》《架构设计》《文档生成规范》《命名规范》配套 · 生成日期：2026-08-06
+      本文档为 AI 生成 · 概要设计节点 · 与《项目规划说明》《架构设计》《文档生成规范》《命名规范》配套 · 生成日期：2026-08-15
     </footer>
   </div>
 
