@@ -95,7 +95,7 @@
         <tr><td>操作系统</td><td>Ubuntu 24.04.4 LTS（桌面版）</td><td>Windows 11 专业版</td></tr>
         <tr><td>处理器</td><td>i7-8750H，6 核 12 线程</td><td>i7-13700K，16 核 24 线程</td></tr>
         <tr><td>内存</td><td>32 GB</td><td>64 GB</td></tr>
-        <tr><td>硬盘</td><td>512 GB SSD（<code>/</code>）+ 1 TB HDD（<code>/mnt/data</code>，ext4）</td><td>C 512 GB SSD + D 4 TB SSD</td></tr>
+        <tr><td>硬盘</td><td>512 GB SSD（<code>/</code>）+ 1 TB HDD（<code>/mnt/data</code>，ext4）+ 2 TB NVMe SSD（<code>/mnt/ssd2t</code>，ext4）</td><td>C 512 GB SSD + D 4 TB SSD</td></tr>
       </table>
 
       <h3 id="duty">2.2 职责分工</h3>
@@ -154,6 +154,7 @@
         <tr><td>容器引擎</td><td>Docker Engine（apt 清华 docker-ce 源直装）</td><td>Linux 原生标准方案，docker / docker compose 行为与生产一致；系统已换装 Ubuntu，Rancher Desktop（Windows/WSL2 方案）不再适用</td></tr>
         <tr><td>开发期数据库</td><td>dev 默认 SQLite（零部署）；mjbk 常驻 MySQL 8 + PostgreSQL 16 + 达梦 DM8（官方镜像）供联调</td><td>日常开发零数据库依赖；方言问题尽早暴露，CI 三库测试复用常驻库</td></tr>
         <tr><td>数据落盘</td><td>IO 敏感数据与 Docker 镜像走 SSD（默认 <code>/var/lib/docker</code> 命名卷）；大容量数据走 HDD <code>/mnt/data</code>（GitLab 数据、备份）</td><td>SSD 512GB 装镜像与数据库绰绰有余；HDD 1TB 承接仓库与备份等读多写少数据</td></tr>
+        <tr><td>磁盘扩容（2T SSD）</td><td>Docker data-root 迁移至 <code>/mnt/ssd2t/docker</code>（镜像/容器/命名卷全部上 NVMe）；GitLab 数据迁至 <code>/mnt/ssd2t/gitlab</code>；HDD 仅承接备份与 Timeshift 快照</td><td>2T NVMe 性能与容量最优，数据库/ES/GitLab 仓库等 IO 敏感数据集中其上；备份与数据异盘存放，单盘故障可恢复</td></tr>
         <tr><td>开发机开发方式</td><td>mjpc 本地开发 + 内网访问 mjbk 服务</td><td>开发机性能强、与运行环境分离；代码经 git push 上 mjbk GitLab 触发 CI</td></tr>
         <tr><td>gitlab-runner 安装方式</td><td>容器化运行（gitlab/gitlab-runner 镜像，挂载 docker.sock，executor=docker）</td><td>官方推荐做法，升级简单、行为跨平台一致</td></tr>
         <tr><td>CI 三库方言测试</td><td>复用 mjbk 常驻 MySQL/PostgreSQL/达梦 DM8，job 内建独立测试库（bms_test 前缀）执行迁移与集成测试后清理</td><td>免去每次 job 拉镜像起容器，速度快、省资源；测试库隔离不污染开发数据</td></tr>
@@ -163,7 +164,7 @@
       <h2 id="server">4. 开发服务器 mjbk 部署</h2>
 
       <h3 id="server-base">4.1 基础环境准备</h3>
-      <p>mjbk 已完成系统层准备：Ubuntu 24.04.4 LTS（桌面版）、静态 IP <code>192.168.0.107/24</code>、SSH 免密（mjpc 公钥）、apt 清华源、数据盘 <code>/mnt/data</code>（HDD，ext4，fstab 自动挂载）、Timeshift 系统快照（见《<a href="../资料/Ubuntu安装部署使用说明.html">Ubuntu安装部署使用说明</a>》第 7 节）。本节点安装容器引擎：</p>
+      <p>mjbk 已完成系统层准备：Ubuntu 24.04.4 LTS（桌面版）、静态 IP <code>192.168.0.107/24</code>、SSH 免密（mjpc 公钥）、apt 清华源、数据盘 <code>/mnt/data</code>（HDD，ext4，fstab 自动挂载）、2T NVMe SSD <code>/mnt/ssd2t</code>（ext4，fstab 自动挂载）、Timeshift 系统快照（见《<a href="../资料/Ubuntu安装部署使用说明.html">Ubuntu安装部署使用说明</a>》第 7 节）。本节点安装容器引擎：</p>
       <ol>
         <li>
           <strong>添加清华 docker-ce 源</strong>并安装 Docker Engine：
@@ -194,31 +195,40 @@ docker compose version</code></pre>
           <pre><code>sudo usermod -aG docker minjian</code></pre>
         </li>
       </ol>
-      <div class="note">镜像与容器数据默认存 SSD（<code>/var/lib/docker</code>，512GB 充足）；GitLab 等大容量数据以 bind mount 指向 <code>/mnt/data</code>（见 4.2、4.5）。</div>
+      <div class="note">镜像与容器数据默认存 2T NVMe SSD（<code>/mnt/ssd2t/docker</code>，data-root 已迁移，见 4.2）；GitLab 等大容量数据 bind mount 指向 <code>/mnt/ssd2t/gitlab</code>（见 4.2、4.5）。</div>
 
       <h3 id="server-disk">4.2 磁盘规划</h3>
       <table>
         <tr><th>盘</th><th>容量</th><th>存放内容</th><th>目录约定</th></tr>
         <tr>
-          <td>SSD（挂载 <code>/</code>）</td>
+          <td>系统盘 SSD（挂载 <code>/</code>）</td>
           <td>512 GB</td>
-          <td>系统 + Docker 镜像与容器 + IO 敏感数据卷（MySQL / PostgreSQL / 达梦 DM8 / ES / MinIO / Redis）</td>
-          <td>Docker 默认 <code>/var/lib/docker</code>；数据库等用 Compose 命名卷（<code>mysql_data</code>、<code>postgres_data</code> 等，默认即在 SSD）</td>
+          <td>Ubuntu 系统 + Docker Engine 本体；Docker 运行数据已迁走，当前仅用约 40 GB，余量充足</td>
+          <td>—</td>
+        </tr>
+        <tr>
+          <td>NVMe SSD（挂载 <code>/mnt/ssd2t</code>，ext4）</td>
+          <td>2 TB</td>
+          <td>Docker 运行数据（镜像、容器层、全部命名卷——MySQL / PostgreSQL / 达梦 DM8 / ES / MinIO / Redis / RocketMQ / Milvus 等 IO 敏感数据）；GitLab 数据（仓库、配置）</td>
+          <td>
+            <code>/mnt/ssd2t/docker</code>（Docker data-root，<code>daemon.json</code> 指定）<br>
+            <code>/mnt/ssd2t/gitlab</code>（gitlab 数据卷 bind mount）
+          </td>
         </tr>
         <tr>
           <td>HDD（挂载 <code>/mnt/data</code>，ext4）</td>
           <td>1 TB</td>
-          <td>GitLab 数据（仓库、配置、备份产物）、开发服务器备份、Timeshift 系统快照</td>
+          <td>开发服务器备份产物、Timeshift 系统快照（读多写少，机械盘胜任）</td>
           <td>
-            <code>/mnt/data/gitlab</code>（gitlab 数据卷 bind mount）<br>
             <code>/mnt/data/backup</code>（备份，见第 8 节）<br>
             <code>/mnt/data/timeshift</code>（系统快照，Timeshift 默认位置）
           </td>
         </tr>
       </table>
       <div class="warn">
-        ES 与数据库数据严禁放 HDD：ES 段合并、数据库随机读写会明显拖慢开发联调体验。Compose 中数据库/检索服务一律使用命名卷
-        （默认在 SSD），仅 GitLab 等大容量仓库数据 bind mount 到 <code>/mnt/data</code>。
+        Docker data-root 迁移前须先清空并停用 Docker（<code>systemctl stop docker</code> 后迁移 <code>/var/lib/docker</code>，
+        再在 <code>/etc/docker/daemon.json</code> 写入 <code>"data-root": "/mnt/ssd2t/docker"</code> 并重启）；迁移后原 <code>/var/lib/docker</code> 留空作为备份，
+        验证无误后可释放。数据（NVMe）与备份（HDD）异盘存放，单盘故障可恢复。
       </div>
 
       <h3 id="server-services">4.3 基础设施服务</h3>
@@ -240,17 +250,17 @@ graph TD
       <p>服务清单（服务名遵循《命名规范》第 10 节「Compose 服务名小写单名、与组件同名」）：</p>
       <table>
         <tr><th>服务</th><th>镜像</th><th>端口</th><th>数据位置</th><th>内存预算</th><th>引入阶段</th></tr>
-        <tr><td>redis</td><td>redis:8</td><td>6379</td><td>命名卷（C 盘 SSD）</td><td>0.5 GB</td><td>阶段一</td></tr>
-        <tr><td>mysql</td><td>mysql:8.4</td><td>3306</td><td>命名卷（C 盘 SSD）</td><td>1.5 GB</td><td>阶段一</td></tr>
-        <tr><td>postgres</td><td>postgres:16</td><td>5432</td><td>命名卷（C 盘 SSD）</td><td>1 GB</td><td>阶段一</td></tr>
-        <tr><td>dameng</td><td>dmdbms/dm8（官方镜像，含试用授权）</td><td>5236</td><td>命名卷（C 盘 SSD）</td><td>2 GB</td><td>阶段一</td></tr>
-        <tr><td>minio</td><td>minio/minio</td><td>9000 / 9001（控制台）</td><td>命名卷（C 盘 SSD）</td><td>0.5 GB</td><td>阶段一</td></tr>
-        <tr><td>rocketmq</td><td>apache/rocketmq:5.x（nameserver + broker 两个容器）</td><td>9876 / 10911</td><td>命名卷（C 盘 SSD）</td><td>1 GB</td><td>阶段四</td></tr>
-        <tr><td>elasticsearch</td><td>docker.elastic.co/elasticsearch/elasticsearch:8.x（single-node）</td><td>9200 / 9300</td><td>命名卷（C 盘 SSD）</td><td>2 GB（堆 1–2 GB）</td><td>阶段十四（可提前）</td></tr>
+        <tr><td>redis</td><td>redis:8</td><td>6379</td><td>命名卷（NVMe SSD）</td><td>0.5 GB</td><td>阶段一</td></tr>
+        <tr><td>mysql</td><td>mysql:8.4</td><td>3306</td><td>命名卷（NVMe SSD）</td><td>1.5 GB</td><td>阶段一</td></tr>
+        <tr><td>postgres</td><td>postgres:16</td><td>5432</td><td>命名卷（NVMe SSD）</td><td>1 GB</td><td>阶段一</td></tr>
+        <tr><td>dameng</td><td>dmdbms/dm8（官方镜像，含试用授权）</td><td>5236</td><td>命名卷（NVMe SSD）</td><td>2 GB</td><td>阶段一</td></tr>
+        <tr><td>minio</td><td>minio/minio</td><td>9000 / 9001（控制台）</td><td>命名卷（NVMe SSD）</td><td>0.5 GB</td><td>阶段一</td></tr>
+        <tr><td>rocketmq</td><td>apache/rocketmq:5.x（nameserver + broker 两个容器）</td><td>9876 / 10911</td><td>命名卷（NVMe SSD）</td><td>1 GB</td><td>阶段四</td></tr>
+        <tr><td>elasticsearch</td><td>docker.elastic.co/elasticsearch/elasticsearch:8.x（single-node）</td><td>9200 / 9300</td><td>命名卷（NVMe SSD）</td><td>2 GB（堆 1–2 GB）</td><td>阶段十四（可提前）</td></tr>
         <tr><td>prometheus</td><td>prom/prometheus</td><td>9090</td><td>命名卷</td><td rowspan="2">2.5 GB（合计）</td><td rowspan="2">阶段九</td></tr>
         <tr><td>loki / grafana / alertmanager</td><td>grafana/loki、grafana/grafana、prom/alertmanager</td><td>3100 / 3000 / 9093</td><td>命名卷</td></tr>
         <tr><td>jaeger / otel-collector</td><td>jaegertracing/all-in-one、otel/opentelemetry-collector</td><td>16686 / 4317、4318</td><td>—</td><td>1 GB</td><td>阶段九</td></tr>
-        <tr><td>milvus / etcd</td><td>milvusdb/milvus、quay.io/coreos/etcd</td><td>19530 / 2379（内部）</td><td>命名卷（etcd 数据 C 盘 SSD）</td><td>4 GB</td><td>阶段十五</td></tr>
+        <tr><td>milvus / etcd</td><td>milvusdb/milvus、quay.io/coreos/etcd</td><td>19530 / 2379（内部）</td><td>命名卷（NVMe SSD）</td><td>4 GB</td><td>阶段十五</td></tr>
       </table>
       <div class="note">
         ES 按《项目规划说明》「环境与配置」节属开发环境依赖，阶段一即可随 base 组拉起（单节点、
@@ -281,7 +291,7 @@ graph TD
           <strong>GitLab CE 容器</strong>（<code>deploy/compose/gitlab.yml</code>）：
           <ul>
             <li>镜像 <code>gitlab/gitlab-ce</code>，端口映射 HTTP 8080（容器内 80）、Registry 5050；SSH 22 映射宿主机 2222（系统 SSH 已占用宿主 22）。</li>
-            <li>数据目录 bind mount <code>/mnt/data/gitlab</code>（配置、仓库数据、备份），避免占用 SSD。</li>
+            <li>数据目录 bind mount <code>/mnt/ssd2t/gitlab</code>（配置、仓库数据、备份），NVMe SSD 上仓库读写更快，且不占系统盘空间。</li>
             <li>首次访问 <code>http://192.168.0.107:8080</code> 设置 root 密码；访问地址需写入容器 <code>external_url</code> 配置，否则 GitLab 生成的仓库/克隆 URL 不正确。</li>
             <li>GitLab 内存 ≥ 4GB 预算（《项目规划说明》要求），mjbk 32GB 满足。</li>
           </ul>
@@ -422,11 +432,12 @@ npm run dev</code></pre>
         <tr><td>系统（装坏还原）</td><td>Timeshift 系统快照已部署（每日自动、保留 5 份，存 HDD <code>/mnt/data/timeshift</code>），装坏环境用安装 U 盘 <code>sudo timeshift --restore</code> 还原，详见《<a href="../资料/Ubuntu安装部署使用说明.html">Ubuntu安装部署使用说明</a>》第 7 节</td><td>5 份</td></tr>
         <tr><td>MySQL / PostgreSQL / 达梦</td><td>每日 dump 至 <code>/mnt/data/backup/{mysql,postgres,dameng}/</code>（达梦用 dmrman；cron 每日 2 点执行 <code>scripts/</code> 目录 shell 脚本）</td><td>7 天</td></tr>
         <tr><td>GitLab</td><td>每日 <code>gitlab-backup</code>（容器内命令），备份文件落 <code>/mnt/data/backup/gitlab/</code></td><td>7 天</td></tr>
-        <tr><td>MinIO / ES 数据</td><td>开发期数据量小，随 Docker 命名卷所在盘做整机级镜像即可；不单独做增量</td><td>—</td></tr>
+        <tr><td>MinIO / ES 数据</td><td>开发期数据量小，随 Docker 命名卷所在盘（NVMe SSD <code>/mnt/ssd2t/docker</code>）做整机级镜像即可；不单独做增量</td><td>—</td></tr>
         <tr><td>恢复演练</td><td>每季度一次从备份目录恢复验证（与产品「恢复演练登记」流程分开，开发服务器单独登记）</td><td>—</td></tr>
       </table>
       <div class="warn">
         开发服务器数据虽非生产数据，但 GitLab 仓库与 CI 记录丢失代价高（代码、MR 历史、镜像）。每日备份脚本在 mjbk 上落地部署时即应就位。
+        数据主体（NVMe SSD <code>/mnt/ssd2t</code>）与备份（HDD <code>/mnt/data/backup</code>）异盘存放，单盘故障不影响备份恢复。
       </div>
 
       <h2 id="ports">9. 端口与网络规划</h2>
@@ -451,7 +462,7 @@ npm run dev</code></pre>
       <p>与《项目规划说明》「开发计划与验收标准」的阶段对齐，环境按需引入、避免一次性拉满：</p>
       <table>
         <tr><th>阶段</th><th>环境准备动作</th><th>对应项目阶段</th></tr>
-        <tr><td>准备期</td><td>mjbk：Ubuntu 基础（静态 IP / 清华源 / SSH 免密 / HDD 挂载 / Timeshift，均已完成）+ Docker Engine 安装（清华 docker-ce 源）+ 防火墙 ufw；mjpc：uv / Node / VSCode 工具链</td><td>阶段一前</td></tr>
+        <tr><td>准备期</td><td>mjbk：Ubuntu 基础（静态 IP / 清华源 / SSH 免密 / HDD 挂载 / 2T NVMe SSD 挂载与 Docker data-root 迁移 / Timeshift，均已完成）+ Docker Engine 安装（清华 docker-ce 源）+ 防火墙 ufw；mjpc：uv / Node / VSCode 工具链</td><td>阶段一前</td></tr>
         <tr><td>第一批</td><td>mjbk：redis、mysql、postgres、dameng、minio 容器 + GitLab CE + gitlab-runner + 仓库初始化 + .gitlab-ci.yml 落地（达梦 dmPython 驱动兼容性同步验证）</td><td>阶段一</td></tr>
         <tr><td>第二批</td><td>mjbk：rocketmq（nameserver + broker）</td><td>阶段四（消息与任务基础设施）</td></tr>
         <tr><td>第三批</td><td>mjbk：monitor 组（prometheus / loki / grafana / alertmanager / jaeger / otel-collector）+ 开发服务器备份脚本</td><td>阶段九（分布式与监控）</td></tr>
@@ -468,8 +479,8 @@ npm run dev</code></pre>
           <td>docker-ce 使用清华源安装；镜像拉取配置国内加速器（daemon.json registry-mirrors）；必要时提前拉取所需镜像</td>
         </tr>
         <tr>
-          <td>mjbk HDD 为机械盘，ES / 数据库随机读写慢</td>
-          <td>严格按 4.2 磁盘规划：IO 敏感数据与 Docker 数据全在 SSD 命名卷，HDD 仅承接 GitLab 数据与备份</td>
+          <td>mjbk HDD 为机械盘，随机读写慢</td>
+          <td>已消除：Docker 运行数据（全部命名卷）与 GitLab 数据均已迁移至 NVMe SSD <code>/mnt/ssd2t</code>，HDD 仅承接备份与系统快照等读多写少数据</td>
         </tr>
         <tr>
           <td>内存预算约 28 GB（三库常驻 + 桌面 + Docker）</td>
@@ -512,7 +523,7 @@ npm run dev</code></pre>
     </main>
 
     <footer>
-      本文档为 AI 生成 · 依《文档生成规范》编写 · 关键决策已逐项确认 · 更新日期：2026-08-10（mjbk 换装 Ubuntu 后调整）
+      本文档为 AI 生成 · 依《文档生成规范》编写 · 关键决策已逐项确认 · 更新日期：2026-08-15（mjbk 新增 2T NVMe SSD：Docker data-root 与 GitLab 数据迁至 NVMe，HDD 仅备份与快照）
     </footer>
   </div>
 
