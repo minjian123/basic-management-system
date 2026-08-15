@@ -65,7 +65,7 @@
   command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci</code></pre>
       <div class="note">
         root 密码来自 <code>deploy/.env</code> 的 <code>MYSQL_ROOT_PASSWORD</code>（随机生成，仅存 mjbk）。
-        数据卷 <code>mysql-data</code> 为命名卷（SSD），字符集强制 <code>utf8mb4 / utf8mb4_unicode_ci</code>。
+        数据卷 <code>mysql-data</code> 为命名卷（NVMe SSD，<code>/mnt/ssd2t/docker</code>），字符集强制 <code>utf8mb4 / utf8mb4_unicode_ci</code>。
       </div>
 
       <h2 id="deploy">3. 部署步骤</h2>
@@ -126,7 +126,7 @@ docker exec bms-mysql mysql -uroot -p"$密码" -e "SHOW VARIABLES LIKE 'characte
     </main>
 
     <footer>
-      本文档为 AI 生成 · 依《文档生成规范》编写 · 记录 2026-08-10 实际部署过程 · 更新日期：2026-08-10
+      本文档为 AI 生成 · 依《文档生成规范》编写 · 记录 2026-08-10 实际部署过程 · 更新日期：2026-08-15
     </footer>
   </div>
 

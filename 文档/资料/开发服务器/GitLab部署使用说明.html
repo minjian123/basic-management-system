@@ -60,9 +60,9 @@
     - "5050:5050"    # Registry
     - "2222:22"      # SSH（系统 SSH 占 22）
   volumes:
-    - /mnt/data/gitlab/config:/etc/gitlab
-    - /mnt/data/gitlab/logs:/var/log/gitlab
-    - /mnt/data/gitlab/data:/var/opt/gitlab
+    - /mnt/ssd2t/gitlab/config:/etc/gitlab
+    - /mnt/ssd2t/gitlab/logs:/var/log/gitlab
+    - /mnt/ssd2t/gitlab/data:/var/opt/gitlab
   shm_size: "256m"
 
 gitlab-runner:
@@ -71,8 +71,13 @@ gitlab-runner:
     - /var/run/docker.sock:/var/run/docker.sock
     - runner-config:/etc/gitlab-runner</code></pre>
       <div class="warn">
-        <strong>GitLab 数据必须放 HDD</strong>（<code>/mnt/data/gitlab</code>，bind mount，规划 4.2）：
-        仓库数据与备份容量大、读多写少，避免占用 SSD。
+        <strong>GitLab 数据放 NVMe SSD</strong>（<code>/mnt/ssd2t/gitlab</code>，bind mount，规划 4.2）：
+        仓库读写频繁，放 NVMe 性能最佳；备份产物另存 HDD（<code>/mnt/data/backup/gitlab/</code>）实现异盘保护。
+      </div>
+      <div class="note">
+        <strong>数据迁移记录</strong>（2026-08-15）：GitLab 数据自 <code>/mnt/data/gitlab</code> 迁至 <code>/mnt/ssd2t/gitlab</code>
+        ——停容器 → rsync 复制（原目录保留）→ 修改 <code>gitlab.yml</code> 挂载 → <code>docker compose up -d gitlab</code> 重建 → 验证 healthy；
+        验证通过后已删除原 <code>/mnt/data/gitlab</code>。
       </div>
 
       <h2 id="deploy">3. 部署步骤</h2>
@@ -131,8 +136,8 @@ docker exec bms-gitlab-runner gitlab-runner verify</code></pre>
         <tr><td>查看日志</td><td><code>docker logs -f bms-gitlab</code></td></tr>
         <tr><td>重启</td><td><code>docker restart bms-gitlab</code>（reconfigure 会重新执行）</td></tr>
         <tr><td>内部服务状态</td><td><code>docker exec bms-gitlab gitlab-ctl status</code></td></tr>
-        <tr><td>配置修改</td><td>编辑 <code>/mnt/data/gitlab/config/gitlab.rb</code>（root 权限）→ <code>docker restart bms-gitlab</code></td></tr>
-        <tr><td>备份（每日 cron 2 点）</td><td><code>docker exec bms-gitlab gitlab-backup create</code>，备份落 <code>/mnt/data/gitlab/data/backups/</code>，同步至 <code>/mnt/data/backup/gitlab/</code></td></tr>
+        <tr><td>配置修改</td><td>编辑 <code>/mnt/ssd2t/gitlab/config/gitlab.rb</code>（root 权限）→ <code>docker restart bms-gitlab</code></td></tr>
+        <tr><td>备份（每日 cron 2 点）</td><td><code>docker exec bms-gitlab gitlab-backup create</code>，备份落 <code>/mnt/ssd2t/gitlab/data/backups/</code>，同步至 <code>/mnt/data/backup/gitlab/</code></td></tr>
       </table>
 
       <h2 id="trouble">8. 排障记录</h2>
@@ -151,7 +156,7 @@ docker exec bms-gitlab-runner gitlab-runner verify</code></pre>
         <tr>
           <td>GITLAB_OMNIBUS_CONFIG 不生效</td>
           <td>容器重建后 gitlab.rb 仍是默认模板</td>
-          <td>该环境变量只在首次生成 gitlab.rb 时写入；后续修改直接编辑 <code>/mnt/data/gitlab/config/gitlab.rb</code>（bind mount 持久化）</td>
+          <td>该环境变量只在首次生成 gitlab.rb 时写入；后续修改直接编辑 <code>/mnt/ssd2t/gitlab/config/gitlab.rb</code>（bind mount 持久化）</td>
         </tr>
         <tr>
           <td>宿主机访问 8080 不通</td>
@@ -181,7 +186,7 @@ docker exec bms-gitlab-runner gitlab-runner verify</code></pre>
     </main>
 
     <footer>
-      本文档为 AI 生成 · 依《文档生成规范》编写 · 记录 2026-08-10 实际部署过程 · 更新日期：2026-08-10
+      本文档为 AI 生成 · 依《文档生成规范》编写 · 记录 2026-08-10 实际部署过程 · 更新日期：2026-08-15（数据迁至 /mnt/ssd2t/gitlab）
     </footer>
   </div>
 
