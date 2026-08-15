@@ -67,7 +67,8 @@
         <li>系统：Ubuntu 24.04.4 LTS，静态 IP <code>192.168.0.107/24</code>，时区 Asia/Shanghai，主机名 <code>mjbk</code></li>
         <li>远程通道：SSH（22），mjpc 公钥免密登录</li>
         <li>apt 镜像源：清华 TUNA（已验证）</li>
-        <li>数据盘：1TB HDD 挂载 <code>/mnt/data</code>（ext4，fstab 自动挂载）</li>
+        <li>数据盘：1TB HDD 挂载 <code>/mnt/data</code>（ext4，fstab 自动挂载）；2T NVMe SSD 挂载 <code>/mnt/ssd2t</code>（ext4，fstab 自动挂载，Fanxiang S770）</li>
+        <li>Docker 运行数据：data-root 已迁移至 <code>/mnt/ssd2t/docker</code>（镜像/容器/命名卷全部上 NVMe），GitLab 数据迁至 <code>/mnt/ssd2t/gitlab</code></li>
         <li>系统快照：Timeshift 每日自动备份（保留 5 份，存 <code>/mnt/data/timeshift</code>）</li>
         <li>笔记本特性：合盖不休眠（logind + GNOME 两层配置）</li>
       </ul>
@@ -75,8 +76,9 @@
       <h3 id="env-disk">2.2 磁盘与目录</h3>
       <table>
         <tr><th>盘</th><th>容量</th><th>存放内容</th></tr>
-        <tr><td>SSD（<code>/</code>）</td><td>512 GB</td><td>系统 + Docker 镜像/容器 + 数据库命名卷（IO 敏感）</td></tr>
-        <tr><td>HDD（<code>/mnt/data</code>）</td><td>1 TB</td><td>GitLab 数据（<code>/mnt/data/gitlab</code>）、备份（<code>/mnt/data/backup</code>）、Timeshift 快照（<code>/mnt/data/timeshift</code>）</td></tr>
+        <tr><td>系统盘 SSD（<code>/</code>）</td><td>512 GB</td><td>系统 + Docker Engine 本体；Docker 运行数据已迁出，当前仅用约 40 GB</td></tr>
+        <tr><td>NVMe SSD（<code>/mnt/ssd2t</code>）</td><td>2 TB</td><td>Docker data-root（<code>/mnt/ssd2t/docker</code>：镜像/容器/全部命名卷，数据库等 IO 敏感数据）、GitLab 数据（<code>/mnt/ssd2t/gitlab</code>）</td></tr>
+        <tr><td>HDD（<code>/mnt/data</code>）</td><td>1 TB</td><td>备份（<code>/mnt/data/backup</code>）、Timeshift 快照（<code>/mnt/data/timeshift</code>）——数据与备份异盘，单盘故障可恢复</td></tr>
       </table>
 
       <h2 id="services">3. 服务清单与部署顺序</h2>
@@ -91,9 +93,9 @@
         <tr><td>6</td><td>minio</td><td>minio/minio</td><td>9000 / 9001</td><td><a href="MinIO部署使用说明.html">MinIO部署使用说明</a></td></tr>
         <tr><td>7</td><td>GitLab CE + runner</td><td>gitlab/gitlab-ce</td><td>8080 / 5050 / 2222</td><td><a href="GitLab部署使用说明.html">GitLab部署使用说明</a></td></tr>
         <tr><td>8（阶段四）</td><td>rocketmq</td><td>apache/rocketmq:5.x</td><td>9876 / 10911</td><td>待部署</td></tr>
-        <tr><td>9（阶段八）</td><td>monitor 组</td><td>prometheus / loki / grafana 等</td><td>9090 / 3100 / 3000 / 9093 / 16686 / 4317 / 4318</td><td>待部署</td></tr>
-        <tr><td>10（阶段十三）</td><td>elasticsearch</td><td>es:8.x（单节点）</td><td>9200 / 9300</td><td>待部署</td></tr>
-        <tr><td>11（阶段十四）</td><td>milvus + etcd</td><td>milvusdb/milvus</td><td>19530</td><td>待部署</td></tr>
+        <tr><td>9（阶段九）</td><td>monitor 组</td><td>prometheus / loki / grafana 等</td><td>9090 / 3100 / 3000 / 9093 / 16686 / 4317 / 4318</td><td>待部署</td></tr>
+        <tr><td>10（阶段十四）</td><td>elasticsearch</td><td>es:8.x（单节点）</td><td>9200 / 9300</td><td>待部署</td></tr>
+        <tr><td>11（阶段十五）</td><td>milvus + etcd</td><td>milvusdb/milvus</td><td>19530</td><td>待部署</td></tr>
       </table>
       <div class="note">Compose 编排文件随仓库 <code>deploy/compose/</code> 版本管理；部署细节以各服务文档为准。</div>
 
@@ -106,10 +108,10 @@
         <tr><td>6379</td><td>Redis</td><td>仅内网</td></tr>
         <tr><td>9000 / 9001</td><td>MinIO API / 控制台</td><td>仅内网</td></tr>
         <tr><td>9876 / 10911</td><td>RocketMQ nameserver / broker</td><td>阶段四起</td></tr>
-        <tr><td>9200 / 9300</td><td>ElasticSearch HTTP / 节点通信</td><td>阶段十三起</td></tr>
-        <tr><td>9090 / 3100 / 3000 / 9093</td><td>Prometheus / Loki / Grafana / Alertmanager</td><td>阶段八起</td></tr>
-        <tr><td>16686 / 4317 / 4318</td><td>Jaeger UI / otel-collector OTLP</td><td>阶段八起</td></tr>
-        <tr><td>19530</td><td>Milvus</td><td>阶段十四起</td></tr>
+        <tr><td>9200 / 9300</td><td>ElasticSearch HTTP / 节点通信</td><td>阶段十四起</td></tr>
+        <tr><td>9090 / 3100 / 3000 / 9093</td><td>Prometheus / Loki / Grafana / Alertmanager</td><td>阶段九起</td></tr>
+        <tr><td>16686 / 4317 / 4318</td><td>Jaeger UI / otel-collector OTLP</td><td>阶段九起</td></tr>
+        <tr><td>19530</td><td>Milvus</td><td>阶段十五起</td></tr>
       </table>
       <div class="note">ufw 防火墙仅对内网 192.168.0.0/24 放行上述端口（系统 SSH 22 已放行）。</div>
 
@@ -160,7 +162,7 @@
     </main>
 
     <footer>
-      本文档为 AI 生成 · 依《文档生成规范》编写 · 服务部署随进度逐项补充 · 更新日期：2026-08-10
+      本文档为 AI 生成 · 依《文档生成规范》编写 · 服务部署随进度逐项补充 · 更新日期：2026-08-15（2T NVMe SSD 挂载，Docker data-root 与 GitLab 数据迁至 /mnt/ssd2t）
     </footer>
   </div>
 

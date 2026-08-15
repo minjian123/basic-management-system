@@ -63,7 +63,7 @@
     - postgres-data:/var/lib/postgresql/data</code></pre>
       <div class="note">
         postgres 超级用户密码来自 <code>deploy/.env</code> 的 <code>POSTGRES_PASSWORD</code>（随机生成）。
-        数据卷 <code>postgres-data</code> 为命名卷（SSD）。UTF8 为镜像默认编码。
+        数据卷 <code>postgres-data</code> 为命名卷（NVMe SSD，<code>/mnt/ssd2t/docker</code>）。UTF8 为镜像默认编码。
       </div>
 
       <h2 id="deploy">3. 部署步骤</h2>
@@ -106,7 +106,7 @@ docker exec bms-postgres psql -U postgres -c "SELECT version();"</code></pre>
     </main>
 
     <footer>
-      本文档为 AI 生成 · 依《文档生成规范》编写 · 记录 2026-08-10 实际部署过程 · 更新日期：2026-08-10
+      本文档为 AI 生成 · 依《文档生成规范》编写 · 记录 2026-08-10 实际部署过程 · 更新日期：2026-08-15
     </footer>
   </div>
 

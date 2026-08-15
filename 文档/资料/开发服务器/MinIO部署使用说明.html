@@ -65,7 +65,7 @@
     - minio-data:/data</code></pre>
       <div class="note">
         root 账号来自 <code>deploy/.env</code>（<code>MINIO_ROOT_USER=minioadmin</code>，密码随机）。
-        数据卷 <code>minio-data</code> 为命名卷（SSD）。9000 为 S3 API，9001 为控制台。
+        数据卷 <code>minio-data</code> 为命名卷（NVMe SSD，<code>/mnt/ssd2t/docker</code>）。9000 为 S3 API，9001 为控制台。
       </div>
 
       <h2 id="deploy">3. 部署步骤</h2>
@@ -112,7 +112,7 @@ docker exec bms-minio mc ls local</code></pre>
     </main>
 
     <footer>
-      本文档为 AI 生成 · 依《文档生成规范》编写 · 记录 2026-08-10 实际部署过程 · 更新日期：2026-08-10
+      本文档为 AI 生成 · 依《文档生成规范》编写 · 记录 2026-08-10 实际部署过程 · 更新日期：2026-08-15
     </footer>
   </div>
 

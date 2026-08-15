@@ -42,6 +42,7 @@
             <li><a href="#verify-ssh">6.1 SSH 免密登录</a></li>
             <li><a href="#verify-apt">6.2 apt 镜像源更换清华</a></li>
             <li><a href="#verify-disk">6.3 数据盘分区与挂载</a></li>
+        <li><a href="#verify-ssd">6.3.1 2T NVMe SSD 挂载</a></li>
             <li><a href="#verify-rdp">6.4 远程桌面（RDP）</a></li>
           </ul>
         </li>
@@ -170,7 +171,7 @@
         <tr><td>镜像</td><td>主力 <code>ubuntu-24.04.4-desktop-amd64.iso</code>（24.04 LTS）</td></tr>
         <tr><td>网络</td><td>静态 IP <code>192.168.0.107/24</code>，网关 <code>192.168.0.1</code>，DNS <code>114.114.114.114</code>（有线网卡）</td></tr>
         <tr><td>apt 镜像源</td><td><code>http://mirrors.tuna.tsinghua.edu.cn/ubuntu/</code></td></tr>
-        <tr><td>磁盘</td><td>全盘安装（512GB SSD 系统盘）；1TB HDD 数据盘挂载 <code>/mnt/data</code>（ext4，步骤见 6.3）</td></tr>
+        <tr><td>磁盘</td><td>全盘安装（512GB SSD 系统盘）；1TB HDD 数据盘挂载 <code>/mnt/data</code>（ext4，步骤见 6.3）；2T NVMe SSD 挂载 <code>/mnt/ssd2t</code>（ext4，步骤见 6.3.1）</td></tr>
         <tr><td>主机名</td><td><code>mjbk</code></td></tr>
         <tr><td>用户名</td><td><code>minjian</code>（密码见《<a href="../用户文档/本地资源.md">本地资源</a>》）</td></tr>
         <tr><td>时区</td><td>Asia/Shanghai（上海）</td></tr>
@@ -178,9 +179,10 @@
       </table>
       <div class="note">账号密码等机器凭据统一维护在《<a href="../用户文档/本地资源.md">本地资源</a>》中，本文档不重复记录。</div>
       <div class="note">
-        <strong>当前状态（2026-08-10）</strong>：mjbk 已按上表完成安装——系统为 Ubuntu 24.04.4 LTS 桌面版，
+        <strong>当前状态（2026-08-15）</strong>：mjbk 已按上表完成安装——系统为 Ubuntu 24.04.4 LTS 桌面版，
         静态 IP、时区、主机名均已核实；mjpc 的 ed25519 公钥免密登录已配置；apt 源已换清华源并通过
         <code>apt-get update</code> 验证；1TB HDD 数据盘已格式化（ext4）并挂载 <code>/mnt/data</code>（fstab 自动挂载）；
+        2T NVMe SSD 已格式化（ext4）并挂载 <code>/mnt/ssd2t</code>（fstab 自动挂载），Docker data-root 与 GitLab 数据均已迁至其上；
         笔记本合盖不休眠设置见第 8 节。
       </div>
 
@@ -246,6 +248,31 @@ lsblk -o NAME,SIZE,FSTYPE,MOUNTPOINT /dev/sda</code></pre>
       </ol>
       <div class="note">mjbk 已完成此配置：<code>/dev/sda1</code>（931.5G，ext4，卷标 <code>bms-data</code>）挂载于 <code>/mnt/data</code>，fstab 按 UUID 自动挂载。</div>
 
+      <h3 id="verify-ssd">6.3.1 2T NVMe SSD 挂载（2026-08-15，原 Windows 系统盘）</h3>
+      <p>笔记本第三块盘：<strong>2T NVMe SSD</strong>（<code>/dev/nvme1n1</code>，Fanxiang S770）——原 Windows 系统盘残留（NTFS 分区表含 EFI/MSR/恢复分区），确认无保留数据后整盘重建并挂载为 <code>/mnt/ssd2t</code>，承接 Docker data-root（镜像/容器/全部命名卷）与 GitLab 数据（仓库读写性能最优，规划 4.2）：</p>
+      <pre><code># 1. 整盘重建 GPT 分区表 + 单分区（1MiB 对齐；⚠ 会清空该盘全部数据）
+sudo parted /dev/nvme1n1 --script mklabel gpt
+sudo parted /dev/nvme1n1 --script mkpart primary ext4 1MiB 100%
+
+# 2. 格式化（卷标 ssd2t）
+sudo mkfs.ext4 -L ssd2t /dev/nvme1n1p1
+
+# 3. 挂载
+sudo mkdir -p /mnt/ssd2t
+sudo mount -o noatime /dev/nvme1n1p1 /mnt/ssd2t
+
+# 4. fstab 自动挂载（用 UUID，避免盘符漂移）
+echo "UUID=$(sudo blkid -s UUID -o value /dev/nvme1n1p1) /mnt/ssd2t ext4 defaults,noatime 0 2" | sudo tee -a /etc/fstab
+sudo mount -a
+
+# 5. 验证
+df -h /mnt/ssd2t
+lsblk -o NAME,SIZE,FSTYPE,MOUNTPOINT /dev/nvme1n1</code></pre>
+      <div class="note">
+        mjbk 已完成：<code>/dev/nvme1n1p1</code>（1.8T，ext4，卷标 <code>ssd2t</code>）挂载于 <code>/mnt/ssd2t</code>，fstab 自动挂载验证通过。
+        随后 Docker data-root 迁至 <code>/mnt/ssd2t/docker</code>、GitLab 数据迁至 <code>/mnt/ssd2t/gitlab</code>（迁移过程见《<a href="../开发服务器/DockerEngine部署使用说明.html">DockerEngine部署使用说明</a>》2.4 与《<a href="../开发服务器/GitLab部署使用说明.html">GitLab部署使用说明</a>》第 2 节）。
+      </div>
+
       <h3 id="verify-rdp">6.4 远程桌面（xrdp）</h3>
       <p>远程桌面使用 <strong>xrdp</strong>（独立 Xorg 会话、系统账号认证、分辨率随窗口自适应）。mjbk 已配置完成：</p>
       <pre><code># 1. 安装
@@ -293,7 +320,7 @@ sudo ufw allow from 192.168.0.0/24 to any port 3389 proto tcp</code></pre>
   "do_first_run": "false",
   "schedule_daily": "true",
   "count_daily": "5",
-  "exclude": ["/mnt/data/**", "/var/lib/docker/**", "/snap/**"]
+  "exclude": ["/mnt/data/**", "/mnt/ssd2t/**", "/var/lib/docker/**", "/snap/**"]
 }</code></pre>
         </li>
         <li>创建首个全量快照：
@@ -304,7 +331,8 @@ sudo ufw allow from 192.168.0.0/24 to any port 3389 proto tcp</code></pre>
       </ol>
       <div class="note">
         Timeshift 快照固定存放在备份设备根目录的 <code>timeshift/snapshots/</code>（mjbk 为 <code>/mnt/data/timeshift/snapshots/</code>）。
-        排除项必须包含数据盘挂载点（<code>/mnt/data/**</code>），否则快照会递归备份自身。
+        排除项必须包含数据盘挂载点（<code>/mnt/data/**</code>、<code>/mnt/ssd2t/**</code>），否则快照会递归备份自身；
+        <code>/mnt/ssd2t/**</code> 自 2026-08-15 起必须排除（Docker data-root 与 GitLab 数据已迁入，容量大且非系统状态）。
         mjbk 当前已创建初始快照 <code>2026-08-10_21-30-58</code>（约 9.2GB），此后每日自动快照、保留 5 份。
       </div>
 
@@ -314,7 +342,7 @@ sudo ufw allow from 192.168.0.0/24 to any port 3389 proto tcp</code></pre>
         <li>打开终端执行 <code>sudo timeshift --restore</code>（或图形界面打开 Timeshift 程序点「恢复」）。</li>
         <li>选择要恢复的快照（按日期时间识别），确认恢复目标设备后开始还原，完成后重启。</li>
       </ol>
-      <div class="warn">恢复会覆盖当前系统到快照时间点，快照之后的新增内容会丢失；还原前确认 HDD 数据盘已正确识别（快照在其上，不会被覆盖）。</div>
+      <div class="warn">恢复会覆盖当前系统到快照时间点，快照之后的新增内容会丢失；还原前确认数据盘已正确识别（HDD 快照在其上、NVMe SSD 挂载点被排除，均不会被覆盖）。</div>
 
       <h2 id="laptop">8. 笔记本（mjbk）作为服务器注意事项</h2>
       <p>mjbk 是笔记本（i7-8750H + GTX 1060），作为 7×24 服务器需处理两个默认行为：合盖休眠与合盖黑屏。</p>
@@ -381,7 +409,7 @@ sudo chvt 1 &amp;&amp; sleep 1 &amp;&amp; sudo chvt 2</code></pre>
     </main>
 
     <footer>
-      本文档为 AI 生成 · 依《文档生成规范》编写 · ISO 来自清华 TUNA 镜像（SHA256 已校验，存放于项目外本地目录） · 更新日期：2026-08-10
+      本文档为 AI 生成 · 依《文档生成规范》编写 · ISO 来自清华 TUNA 镜像（SHA256 已校验，存放于项目外本地目录） · 更新日期：2026-08-15（新增 2T NVMe SSD 挂载与 Timeshift 排除项）
     </footer>
   </div>
 

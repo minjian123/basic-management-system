@@ -34,7 +34,8 @@
             <li><a href="#install-source">2.1 添加清华 docker-ce 源</a></li>
             <li><a href="#install-pkg">2.2 安装软件包</a></li>
             <li><a href="#install-mirror">2.3 镜像加速</a></li>
-            <li><a href="#install-group">2.4 docker 用户组</a></li>
+            <li><a href="#install-dataroot">2.4 data-root 迁移至 NVMe SSD</a></li>
+            <li><a href="#install-group">2.5 docker 用户组</a></li>
           </ul>
         </li>
         <li><a href="#verify">3. 验证</a></li>
@@ -73,11 +74,25 @@ sudo apt update</code></pre>
 sudo systemctl enable --now docker</code></pre>
 
       <h3 id="install-mirror">2.3 镜像加速</h3>
-      <p>写入 <code>/etc/docker/daemon.json</code> 配置国内加速器（本次部署实测 daoCloud 加速器可用），然后重启 docker：</p>
-      <pre><code>sudo sh -c 'mkdir -p /etc/docker && echo "{\"registry-mirrors\":[\"https://docker.m.daocloud.io\"]}" > /etc/docker/daemon.json'
+      <p>写入 <code>/etc/docker/daemon.json</code> 配置国内加速器（本次部署实测 daoCloud、1ms.run 加速器可用），然后重启 docker：</p>
+      <pre><code>sudo sh -c 'mkdir -p /etc/docker && echo "{\"registry-mirrors\":[\"https://docker.m.daocloud.io\",\"https://docker.1ms.run\"],\"data-root\":\"/mnt/ssd2t/docker\"}" > /etc/docker/daemon.json'
 sudo systemctl restart docker</code></pre>
 
-      <h3 id="install-group">2.4 docker 用户组</h3>
+      <h3 id="install-dataroot">2.4 data-root 迁移至 NVMe SSD</h3>
+      <p>2026-08-15：新增 2T NVMe SSD（<code>/mnt/ssd2t</code>）后，Docker 运行数据（镜像/容器/全部命名卷）自系统盘 <code>/var/lib/docker</code> 迁至 <code>/mnt/ssd2t/docker</code>，系统盘只留系统，长期最省心。迁移步骤：</p>
+      <pre><code>sudo systemctl stop docker
+sudo rsync -a /var/lib/docker/ /mnt/ssd2t/docker/   # 保留源目录，验证后释放
+# daemon.json 追加 "data-root": "/mnt/ssd2t/docker"（见 2.3 最终配置）
+sudo systemctl start docker
+docker info --format '{{.DockerRootDir}}'            # 应输出 /mnt/ssd2t/docker
+docker ps                                            # 全部容器恢复正常</code></pre>
+      <div class="note">
+        迁移完成并验证（6 个容器全部恢复、GitLab healthy）后，原 <code>/var/lib/docker</code>（约 8.5G）已删除释放空间。
+        <strong>注意</strong>：stop 后若 systemd 启动失败且日志无详细报错，多半是 <code>daemon.json</code> 写入无效内容导致
+        （见第 5 节排障记录）；<code>sudo systemctl reset-failed docker</code> 可清除启动限流后再启动。
+      </div>
+
+      <h3 id="install-group">2.5 docker 用户组</h3>
       <p>将 minjian 加入 docker 组，免 sudo 执行 docker 命令（加入后需重新登录 SSH 生效）：</p>
       <pre><code>sudo usermod -aG docker minjian</code></pre>
 
@@ -93,7 +108,7 @@ docker run --rm hello-world</code></pre>
         <tr><td>服务状态</td><td><code>systemctl status docker</code></td></tr>
         <tr><td>查看容器</td><td><code>docker ps -a</code></td></tr>
         <tr><td>容器日志</td><td><code>docker logs -f &lt;容器名&gt;</code></td></tr>
-        <tr><td>磁盘占用</td><td><code>docker system df</code></td></tr>
+        <tr><td>磁盘占用</td><td><code>docker system df</code>；data-root 位置 <code>docker info --format '{{.DockerRootDir}}'</code></td></tr>
         <tr><td>清理悬空镜像/缓存</td><td><code>docker system prune -f</code>（慎用 -a）</td></tr>
         <tr><td>Compose 操作</td><td>各服务文档中的 <code>docker compose -f deploy/compose/xxx.yml ...</code> 命令</td></tr>
       </table>
@@ -111,6 +126,11 @@ docker run --rm hello-world</code></pre>
           <td>非 root 用户执行 docker 命令报 <code>permission denied while trying to connect</code></td>
           <td>minjian 加入 docker 组（<code>sudo usermod -aG docker minjian</code>），重新登录 SSH 生效</td>
         </tr>
+        <tr>
+          <td>迁移 data-root 后 systemd 启动失败</td>
+          <td><code>systemctl start docker</code> 报 <code>Job for docker.service failed</code>，journalctl 无具体错误；<code>dockerd</code> 手动运行却能正常启动</td>
+          <td>daemon.json 被写入无效内容（管道顺序错误导致写入的是密码而非 JSON）；用 <code>sudo bash -c 'echo 内容 &gt; 文件'</code> 重写后 <code>sudo systemctl reset-failed docker</code>（清除 StartLimitBurst 限流）再启动</td>
+        </tr>
       </table>
 
       <h2 id="related">6. 关联文档</h2>
@@ -124,7 +144,7 @@ docker run --rm hello-world</code></pre>
     </main>
 
     <footer>
-      本文档为 AI 生成 · 依《文档生成规范》编写 · 记录 2026-08-10 实际部署过程 · 更新日期：2026-08-10
+      本文档为 AI 生成 · 依《文档生成规范》编写 · 记录 2026-08-10 实际部署过程 · 更新日期：2026-08-15（data-root 迁移至 /mnt/ssd2t/docker）
     </footer>
   </div>
 
