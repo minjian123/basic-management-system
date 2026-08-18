@@ -85,11 +85,10 @@
       <pre><code>{
   "plugin": [
     ".opencode/plugins/graphify.js",
-    "./deploy/tools/bg/bg.js",
-    "./deploy/tools/vision/vision.js"
+    "./deploy/tools/bg/bg.js"
   ]
 }</code></pre>
-      <p>插件登记是项目的既定扩展方式（vision 识图、graphify 同机制）；本工具链的插件内部调用 <code>python -u bg-*.py</code>，与命令行入口共用同一套实现。</p>
+      <p>插件登记是项目的既定扩展方式（graphify 同机制；视觉识图插件 vision.js 已退役，改走 opencode.json 的 <code>mcp</code> 段，见<a href="../AI/本地多模态接入方案.html">《本地多模态接入方案》</a>）；本工具链的插件内部调用 <code>python -u bg-*.py</code>，与命令行入口共用同一套实现。</p>
 
       <h2 id="usage">4. 使用方法</h2>
 
@@ -190,7 +189,7 @@ flowchart TD
     </main>
 
     <footer>
-      本文档为 AI 生成 · 关联：《开发服务器电源控制使用说明》《视觉识图辅助方案》 · 生成日期：2026-08-18
+      本文档为 AI 生成 · 关联：《开发服务器电源控制使用说明》《本地多模态接入方案》 · 生成日期：2026-08-18
     </footer>
   </div>
 
