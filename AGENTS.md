@@ -11,8 +11,12 @@
 
 ## 开发环境与远程操作
 
-- 开发服务器 **mjbk**（192.168.0.107，常开：GitLab CE、开发依赖服务、MySQL/PostgreSQL/达梦 DM8 三库）与开发机 **mjpc**（192.168.0.124）。远程操作方式、SSH/WinRM 凭据与命令模板见 `文档/资料/开发服务器部署使用说明.html`，需要时再读，不常驻上下文。
-- 机器凭据见 `文档/用户文档/本地资源.md`（已 gitignore，**勿恢复跟踪、勿提交、勿写入其他文档**）。
+- 开发服务器 **mjbk**（192.168.0.107，常开：GitLab CE、开发依赖服务、MySQL/PostgreSQL/达梦 DM8 三库）与开发机 **mjpc**（192.168.0.124）。远程操作方式、SSH/WinRM 凭据与命令模板见 `文档/资料/开发服务器/开发服务器部署使用说明.html`，需要时再读，不常驻上下文。
+- **服务器电源控制**（唤醒/关机工具链，文档：`文档/资料/工具/开发服务器电源控制使用说明.html`）：
+  - 远程唤醒：`python deploy/tools/wol/wake_mjbk.py`（发 WOL 魔术包并等待 SSH 就绪，低风险）；双击入口 `deploy/tools/wol/唤醒mjbk.bat`。
+  - 远程关机：`python deploy/tools/wol/shutdown_mjbk.py`（**破坏性操作，执行前必须经用户确认**）；双击入口 `deploy/tools/wol/关机mjbk.bat`。
+  - mjbk 的 sudo 密码等凭据从 `deploy/.env` 读取（键位见 `deploy/.env.example`），脚本不硬编码密码；SSH 连接走 mjpc 公钥免密。
+- 机器凭据见 `文档/用户文档/本地资源.md`（已 gitignore，**勿恢复跟踪、勿提交、勿写入其他文档**）；凭据副本统一存 `deploy/.env`（已 gitignore，勿提交，勿将 .env 内容写入其他文档）。
 
 ## 文档要求
 
