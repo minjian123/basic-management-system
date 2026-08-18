@@ -198,8 +198,8 @@ graphify cluster-only .            # 只重跑聚类和报告</code></pre>
       <h3 id="maintain-finalize">7.2 一键收尾：汉化与架构图</h3>
       <p>graph.html 的可视化模板是固定英文界面，无法配置。本项目用一个脚本完成两件收尾（幂等，可反复执行）：</p>
       <pre><code>graphify update --force .        # 重建图谱
-powershell -File deploy/tools/graphify/localize-graph.ps1   # 汉化 graph.html + 生成 CALLFLOW.html</code></pre>
-      <p>脚本位置：<code>deploy/tools/graphify/localize-graph.ps1</code>。callflow 架构图也可单独生成：<code>graphify export callflow-html --lang zh-CN</code>（<code>--lang</code> 支持 auto 自动检测，本项目图谱以中文为主可省略）。</p>
+python deploy/tools/graphify/localize-graph.py   # 汉化 graph.html + 生成 CALLFLOW.html</code></pre>
+      <p>脚本位置：<code>deploy/tools/graphify/localize-graph.py</code>。callflow 架构图也可单独生成：<code>graphify export callflow-html --lang zh-CN</code>（<code>--lang</code> 支持 auto 自动检测，本项目图谱以中文为主可省略）。</p>
 
       <h3 id="maintain-rebuild">7.3 重建的取舍：语义层不可再生</h3>
       <ul>
@@ -240,7 +240,7 @@ powershell -File deploy/tools/graphify/localize-graph.ps1   # 汉化 graph.html 
         </tr>
         <tr>
           <td>graph.html 界面是英文？</td>
-          <td>可视化模板固定英文。运行 <code>deploy/tools/graphify/localize-graph.ps1</code> 汉化（7.2 节）。</td>
+          <td>可视化模板固定英文。运行 <code>deploy/tools/graphify/localize-graph.py</code> 汉化（7.2 节）。</td>
         </tr>
         <tr>
           <td>update 后节点变少、拒绝覆盖？</td>

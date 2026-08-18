@@ -224,7 +224,7 @@ flowchart TD
       <h3>6.2 验证手段</h3>
       <ul>
         <li><strong>静态抽查</strong>：grep 关键类与交互（keyword 240、p-drawer、pp-num、时间线、hash 联动等），核对 HTML 标签闭合与 onclick 函数存在。</li>
-        <li><strong>截图识图</strong>：Edge 无头截图（<code>deploy/tools/vision/screenshot.ps1</code>）+ 本地识图（<code>vision_analyze.py</code>）逐页验证布局；交互态页面（弹窗/详情）用静态检查确认结构。</li>
+        <li><strong>截图识图</strong>：Edge 无头截图（<code>deploy/tools/vision/screenshot.py</code>）+ 本地识图（<code>vision_analyze.py</code>）逐页验证布局；交互态页面（弹窗/详情）用静态检查确认结构。</li>
         <li><strong>内容与技术回归</strong>：内容类元素（命名/文案/功能项）对照概要设计核对无误；技术机制与架构设计无冲突；修复过程中未误改内容。</li>
       </ul>
 

@@ -290,7 +290,7 @@ sequenceDiagram
       <ol>
         <li>确认本机 Python 环境与识图 API 可用性（endpoint/key/model 三要素）。</li>
         <li>编写 <code>deploy/tools/vision/vision_analyze.py</code>（标准库实现，含批量、超时、重试）并本机冒烟测试。</li>
-        <li>编写截图脚本 <code>deploy/tools/vision/screenshot.ps1</code>（Edge 路径探测 + 三档分辨率封装）。</li>
+        <li>编写截图脚本 <code>deploy/tools/vision/screenshot.py</code>（Edge 路径探测 + 三档分辨率封装）。</li>
         <li>编写提示词模板 <code>prompts/prototype-review.md</code>（首批场景）。</li>
         <li>编写 opencode 插件 <code>deploy/tools/vision/vision.js</code>，注册三个工具。</li>
         <li>对主框架原型做一次端到端演示评审，验证闭环。</li>

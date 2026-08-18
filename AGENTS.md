@@ -60,7 +60,7 @@
 - 钩子或增量更新后 graphify-out/ 文件变脏属正常现象，不应因此跳过 graphify。只有任务涉及过期或错误的图输出、或用户明确不用时，才跳过。
 - 若 graphify-out/wiki/index.md 存在，用它做广域导航，避免直接浏览源码。
 - 仅在需要宏观架构审查、或 query/path/explain 信息不足时，才读 graphify-out/GRAPH_REPORT.md。
-- 修改代码后运行 `graphify update .` 保持图谱最新（纯 AST，无 API 开销）；随后运行 `powershell -File deploy/tools/graphify/localize-graph.ps1` 收尾（汉化 graph.html + 生成中文架构图 CALLFLOW.html）。
+- 修改代码后运行 `graphify update .` 保持图谱最新（纯 AST，无 API 开销）；随后运行 `python deploy/tools/graphify/localize-graph.py` 收尾（汉化 graph.html + 生成中文架构图 CALLFLOW.html）。
 - graphify 安装、排除规则、重建取舍、社区命名等细节见 `文档/资料/AI/graphify部署使用说明.html`，不在此展开。
 
 ## 视觉识图（Vision）
@@ -83,7 +83,7 @@
 
 **背景**：bash 工具是同步阻塞的，长命令执行期间无反馈，观感"卡死"。因此对命令做分级处理，禁止长时间无反馈等待。
 
-- 工具链在 `deploy/tools/bg/`（bg-run/bg-status/bg-stop.ps1），已通过 opencode 插件注册 `bg_run` / `bg_status` / `bg_stop` 三个工具（opencode.json 已登记）。
+- 工具链在 `deploy/tools/bg/`（bg-run/bg-status/bg-stop.py），已通过 opencode 插件注册 `bg_run` / `bg_status` / `bg_stop` 三个工具（opencode.json 已登记）。
 - **执行纪律**：
   - 预计 **≤10 秒**的命令（查询、状态、文件操作、短命令）：直接执行。
   - 预计 **>10 秒**的命令（下载、安装、构建、ssh 远程、服务启动、备份等）：一律 **`bg_run` 后台化** → 立即返回 → 用 **`bg_status` 秒级轮询**（间隔 10-30 秒）直到 FINISHED；绝不直接同步等待。
