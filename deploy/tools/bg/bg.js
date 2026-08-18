@@ -4,7 +4,7 @@
 //   bg_status  秒级查询任务状态（运行中/已完成 + 输出尾部）
 //   bg_stop    停止后台任务
 //
-// 原理：命令经 pwsh Start-Process 后台运行，立即返回；状态查询读状态文件与进程存活，
+// 原理：命令经 python 后台运行，立即返回；状态查询读状态文件与进程存活，
 // 彻底避免"命令卡住傻等"。适合下载、构建、ssh 远程、安装等长耗时操作。
 // 登记：opencode.json plugin 数组加入 "./deploy/tools/bg/bg.js"。
 import { tool } from "@opencode-ai/plugin";
@@ -20,8 +20,8 @@ function script(name) {
   return join(__dirname, name);
 }
 
-async function runPs(name, args) {
-  const { stdout } = await execFileP("pwsh", ["-NoProfile", "-File", script(name), ...args], {
+async function runPy(name, args) {
+  const { stdout } = await execFileP("python", ["-u", script(name), ...args], {
     timeout: 30000,
     maxBuffer: 4 * 1024 * 1024,
     windowsHide: true,
@@ -46,10 +46,10 @@ export const BgPlugin = async ({ directory }) => {
           try {
             if (!args.name || !args.command)
               return { title: "bg_run", output: JSON.stringify({ ok: false, error: "name 与 command 必填" }, null, 2) };
-            const psArgs = ["-Name", args.name, "-Command", args.command];
-            if (args.workdir) psArgs.push("-WorkDir", args.workdir);
-            if (args.timeout) psArgs.push("-TimeoutSec", String(args.timeout));
-            const out = await runPs("bg-run.ps1", psArgs);
+            const psArgs = ["--name", args.name, "--command", args.command];
+            if (args.workdir) psArgs.push("--workdir", args.workdir);
+            if (args.timeout) psArgs.push("--timeout", String(args.timeout));
+            const out = await runPy("bg-run.py", psArgs);
             return { title: "后台任务已启动", output: out };
           } catch (e) {
             return { title: "bg_run", output: JSON.stringify({ ok: false, error: String((e && e.message) || e) }, null, 2) };
@@ -66,7 +66,7 @@ export const BgPlugin = async ({ directory }) => {
           try {
             if (!args.name)
               return { title: "bg_status", output: JSON.stringify({ ok: false, error: "name 必填" }, null, 2) };
-            const out = await runPs("bg-status.ps1", ["-Name", args.name]);
+            const out = await runPy("bg-status.py", ["--name", args.name]);
             return { title: "后台任务状态", output: out };
           } catch (e) {
             return { title: "bg_status", output: JSON.stringify({ ok: false, error: String((e && e.message) || e) }, null, 2) };
@@ -83,7 +83,7 @@ export const BgPlugin = async ({ directory }) => {
           try {
             if (!args.name)
               return { title: "bg_stop", output: JSON.stringify({ ok: false, error: "name 必填" }, null, 2) };
-            const out = await runPs("bg-stop.ps1", ["-Name", args.name]);
+            const out = await runPy("bg-stop.py", ["--name", args.name]);
             return { title: "后台任务已停止", output: out };
           } catch (e) {
             return { title: "bg_stop", output: JSON.stringify({ ok: false, error: String((e && e.message) || e) }, null, 2) };

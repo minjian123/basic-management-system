@@ -79,15 +79,15 @@ export const VisionPlugin = async ({ directory }, options = {}) => {
   }
 
   async function screenshot(url, out, width, height, budget) {
-    const psArgs = [
-      "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", script("screenshot.ps1"),
-      "-Url", url,
-      "-Out", out,
-      "-Width", String(width),
-      "-Height", String(height),
-      "-Budget", String(budget),
+    const pyArgs = [
+      script("screenshot.py"),
+      "--url", url,
+      "--out", out,
+      "--width", String(width),
+      "--height", String(height),
+      "--budget", String(budget),
     ];
-    await run("powershell", psArgs);
+    await run("python", pyArgs);
   }
 
   const visionAnalyze = tool({
