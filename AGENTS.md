@@ -65,12 +65,10 @@
 
 ## 本地多模态（MCP + 子代理）
 
-让 AI 助手使用本机多模态模型的通用能力（方案文档：`文档/资料/AI/本地多模态接入方案.html`），工具链在 `deploy/tools/multimodal/`，由「MCP server + 子代理」双轨组成：
+让 AI 助手使用本机多模态模型的通用能力（LM Studio qwen3.6-35b-a3b，OpenAI 兼容 127.0.0.1:1234）。方案与配置细节见 `文档/资料/AI/本地多模态接入方案.html`，子代理说明见 `文档/资料/AI/local-helper子代理使用说明.html`（需要时再读）。双轨组成：
 
-- **MCP server**（`deploy/tools/multimodal/mcp_server.py`，opencode.json 的 `mcp` 段登记，依赖 mcp 官方 SDK，用 `uv run --project deploy/tools/multimodal` 启动）暴露两个工具：
-  - `multimodal_chat`：通用多模态对话——文本 + 可选图片 + 可选文本文档 + 可选系统提示，返回模型回复；主会话无视觉能力时用它看图/看文档。
-  - `screenshot`：Edge/Chrome 无头截图（HTML 或 URL → PNG），为识图提供图片来源。
-- **子代理 `local-helper`**（`.opencode/agent/local-helper.md`）：本地模型（LM Studio qwen3.6-35b-a3b）作为"小弟"，只读 + 命令权限（禁改文件），承担简单重复劳动——识图分析、界面走查、文本整理、交叉检查。
+- **MCP server**（`deploy/tools/multimodal/mcp_server.py`，opencode.json 的 `mcp` 段登记）：`multimodal_chat`（文本+图片+文档通用对话，主会话无视觉时用它看图/看文档）、`screenshot`（HTML/URL 无头截图）。
+- **子代理 `local-helper`**（`.opencode/agent/local-helper.md`）：本地模型"小弟"，只读 + 命令权限（禁改文件），承担简单重复劳动。
 
 规则：
 
@@ -79,12 +77,11 @@
   - **较难任务 → 云端子代理（task 选内置 `general` 等，走云端默认模型）**：方案设计、代码编写/重构、多步推理、需要领域判断或一致性要求的产出。
   - **核心工作 → 主会话自己处理**：决策、架构与内容定稿、涉及准确性关键的产出不外包。
   - 本地模型能力一般（35B 量化），**拿不准难度时一律不派给 local-helper**，宁可主会话自己做或派云端子代理。
-- **配置即用**：MCP 配置、provider（`lmstudio`，OpenAI 兼容 127.0.0.1:1234）、子代理 model 均已固化在 `.opencode/opencode.json` 与 `.opencode/agent/`，无需每次设置环境变量；**修改配置后须重启 opencode 才生效**。
-- **模板即场景**：新场景 = 在 `deploy/tools/multimodal/prompts/` 新增一个 md 模板（已有 image-understanding / general-review / prototype-review / mobile-review），`multimodal_chat` 的 `prompt` 参数直接传模板名。
-- **本地模型注意**：服务为本机 LM Studio（见 `文档/用户文档/本地资源.md`）。模型是推理模型，客户端默认 `reasoning_effort: "none"` 关闭思考（否则评审几万 token 不结束）；本地模型零费用，可对同一张图反复调用、聚焦区域迭代复查（如评审报告某处不清楚，再调一次着重看该区域）。
-- **评审闭环**：截图评审 → 按问题清单修正 → 重新评审，直到无高危问题。评审组合动作（多档截图 + 逐图识图 + 报告）交给子代理 `local-helper` 执行，或主会话自己组合 MCP 工具完成。
+- **配置即用**：MCP 配置、provider（`lmstudio`）、子代理 model 均已固化在 `.opencode/opencode.json` 与 `.opencode/agent/`，无需每次设置环境变量；**修改配置后须重启 opencode 才生效**。
+- **本地模型注意**：推理模型，客户端默认 `reasoning_effort: "none"` 关闭思考；本地模型零费用，可对同一张图反复调用、聚焦区域迭代复查。
+- **评审闭环**：截图评审 → 按问题清单修正 → 重新评审，直到无高危问题。评审组合动作交给子代理 `local-helper` 执行，或主会话自己组合 MCP 工具完成。
 - 截图与评审报告等产物一律输出到 `temp/vision/`（已 gitignore），**不入库、不提交**；需留档时输出到项目内其他位置。
-- CLI 备用：`deploy/tools/multimodal/vision_analyze.py`（识图）与 `screenshot.py`（截图）可被 bash 直接调用（子代理干活用）。
+- 场景模板（prompts/）、CLI 备用（vision_analyze.py / screenshot.py）、排障等细节见上述方案文档，需要时再读。
 
 ## 后台任务执行（BG，强制执行）
 
