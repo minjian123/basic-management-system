@@ -24,7 +24,7 @@
 
 - **开发服务器 mjbk**（192.168.0.107，Ubuntu 24.04.4，常开）：GitLab CE（HTTP 8080 + Registry 5050 + SSH 2222）、gitlab-runner、开发依赖服务（Redis/MinIO，Docker Compose）、常驻 MySQL 8 / PostgreSQL 16 / 达梦 DM8 三库、监控与 Milvus（按阶段引入）。磁盘分工：512G 系统盘（`/`）+ 2T NVMe SSD（`/mnt/ssd2t`，Docker data-root 与 GitLab 数据）+ 1T HDD（`/mnt/data`，备份与系统快照）。
 - **开发机 mjpc**（192.168.0.124）：本地编码与运行开发服务器（uv + uvicorn、npm + Vite），日常开发默认 SQLite，内网访问 mjbk 共享服务。
-- 远程操作 mjbk：SSH（22，公钥免密），各服务部署与运维详见[《开发服务器部署使用说明》](文档/资料/开发服务器/开发服务器部署使用说明.html)。
+- 远程操作 mjbk：SSH（22，公钥免密），各服务部署与运维详见[《开发服务器部署使用说明》](文档/资料/开发服务器/开发服务器部署使用说明.html)；远程唤醒/关机见[《开发服务器电源控制使用说明》](文档/资料/工具/开发服务器电源控制使用说明.html)。
 
 ## 文档导航
 
