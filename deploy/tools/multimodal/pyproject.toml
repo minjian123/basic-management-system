@@ -1,0 +1,9 @@
+[project]
+name = "multimodal-mcp"
+version = "0.1.0"
+description = "本地多模态 MCP server（LM Studio 后端）"
+requires-python = ">=3.10"
+dependencies = ["mcp>=1.6.0"]
+
+[tool.uv]
+package = false
