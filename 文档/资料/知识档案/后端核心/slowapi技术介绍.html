@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>slowapi 技术介绍</title>
-<link rel="stylesheet" href="../../资源/文档样式.css">
+<link rel="stylesheet" href="../../../资源/文档样式.css">
 </head>
 <body>
 
@@ -74,13 +74,13 @@
 
       <h2 id="usage">3. 在 BMS 项目中的用途</h2>
       <ul>
-        <li>作为 FastAPI 限流方案，用装饰器声明限流规则，支持 IP / 用户 / client 三种维度（见《<a href="../../规划/项目规划说明.html#stack-backend">项目规划说明</a>》2.1 节）。</li>
+        <li>作为 FastAPI 限流方案，用装饰器声明限流规则，支持 IP / 用户 / client 三种维度（见《<a href="../../../规划/项目规划说明.html#stack-backend">项目规划说明</a>》2.1 节）。</li>
         <li>计数走 <a href="Redis技术介绍.html">Redis</a> 后端，多实例集群共享同一计数，避免「每实例各限各的」导致总配额被放大。</li>
-        <li>Redis 故障时降级为 memory 后端，限流能力不中断（见《<a href="../../规划/项目规划说明.html#perf">项目规划说明</a>》14 节「限流与降级」）。</li>
-        <li>登录防爆破优先：如登录接口「5 次锁 15 分钟」，与 <a href="Pillow技术介绍.html">Pillow</a> 图形验证码叠加（见《<a href="../../规划/项目规划说明.html#security">项目规划说明</a>》12 节「认证与安全」）。</li>
-        <li>开放接口（<code>/api/open</code>）按 client 维度独立限流（见《<a href="../../规划/项目规划说明.html#integ-open">项目规划说明</a>》9.4 节）。</li>
-        <li>AI 接口独立限流与预算控制（见《<a href="../../规划/项目规划说明.html#security">项目规划说明</a>》12 节 AI 安全）。</li>
-        <li>限流命中统一按《<a href="../../规范/API接口规范.html">API 接口规范</a>》的错误码约定返回（429 + 业务错误码）。</li>
+        <li>Redis 故障时降级为 memory 后端，限流能力不中断（见《<a href="../../../规划/项目规划说明.html#perf">项目规划说明</a>》14 节「限流与降级」）。</li>
+        <li>登录防爆破优先：如登录接口「5 次锁 15 分钟」，与 <a href="Pillow技术介绍.html">Pillow</a> 图形验证码叠加（见《<a href="../../../规划/项目规划说明.html#security">项目规划说明</a>》12 节「认证与安全」）。</li>
+        <li>开放接口（<code>/api/open</code>）按 client 维度独立限流（见《<a href="../../../规划/项目规划说明.html#integ-open">项目规划说明</a>》9.4 节）。</li>
+        <li>AI 接口独立限流与预算控制（见《<a href="../../../规划/项目规划说明.html#security">项目规划说明</a>》12 节 AI 安全）。</li>
+        <li>限流命中统一按《<a href="../../../规范/API接口规范.html">API 接口规范</a>》的错误码约定返回（429 + 业务错误码）。</li>
       </ul>
 
       <h2 id="compare">4. 选型对比</h2>
@@ -117,10 +117,10 @@
       <h2 id="related">7. 项目内关联文档</h2>
       <table>
         <tr><th>文档</th><th>说明</th></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#stack-backend">项目规划说明</a>》2.1 节</td><td>后端技术栈与选型说明（slowapi 条目）</td></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#security">项目规划说明</a>》12 节</td><td>认证与安全：登录限流、AI 接口独立限流</td></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#perf">项目规划说明</a>》14 节</td><td>性能与高并发设计：分布式限流与降级</td></tr>
-        <tr><td>《<a href="../../规范/API接口规范.html">API 接口规范</a>》</td><td>统一响应、错误码、限流约定</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#stack-backend">项目规划说明</a>》2.1 节</td><td>后端技术栈与选型说明（slowapi 条目）</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#security">项目规划说明</a>》12 节</td><td>认证与安全：登录限流、AI 接口独立限流</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#perf">项目规划说明</a>》14 节</td><td>性能与高并发设计：分布式限流与降级</td></tr>
+        <tr><td>《<a href="../../../规范/API接口规范.html">API 接口规范</a>》</td><td>统一响应、错误码、限流约定</td></tr>
         <tr><td>《<a href="Redis技术介绍.html">Redis 技术介绍</a>》</td><td>限流计数共享后端（bms:global:rate:*）</td></tr>
         <tr><td>《<a href="Pillow技术介绍.html">Pillow 技术介绍</a>》</td><td>图形验证码，与限流叠加防爆破</td></tr>
         <tr><td>《<a href="FastAPI技术介绍.html">FastAPI 技术介绍</a>》</td><td>被限流的 Web 框架（中间件/异常处理器机制）</td></tr>
@@ -129,7 +129,7 @@
     </main>
 
     <footer>
-      本文档为 AI 生成 · 依《<a href="../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
+      本文档为 AI 生成 · 依《<a href="../../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
     </footer>
   </div>
 

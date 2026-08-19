@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>pytest 技术介绍</title>
-<link rel="stylesheet" href="../../资源/文档样式.css">
+<link rel="stylesheet" href="../../../资源/文档样式.css">
 </head>
 <body>
 
@@ -72,11 +72,11 @@
 
       <h2 id="usage">3. 在 BMS 项目中的用途</h2>
       <ul>
-        <li>作为《<a href="../../规划/项目规划说明.html#stack-eng">项目规划说明</a>》2.3 节指定的后端测试方案（选型依据见《<a href="../../规划/项目规划说明.html#sel-eng">项目规划说明</a>》3.3 节）。</li>
+        <li>作为《<a href="../../../规划/项目规划说明.html#stack-eng">项目规划说明</a>》2.3 节指定的后端测试方案（选型依据见《<a href="../../../规划/项目规划说明.html#sel-eng">项目规划说明</a>》3.3 节）。</li>
         <li>FastAPI 接口测试用 httpx ASGITransport 免启服务器：测试快、无端口冲突，见《<a href="../后端核心/FastAPI技术介绍.html">FastAPI 技术介绍</a>》。</li>
         <li>测试库统一 SQLite 保证可移植：本地、CI、任何机器跑同一套测试零部署成本（见《<a href="../后端核心/SQLite与aiosqlite技术介绍.html">SQLite 技术介绍</a>》）。</li>
-        <li>pytest-cov 统计覆盖率并作 CI 门禁：核心模块（认证/RBAC/工作流/审计/收付款）行覆盖 ≥ 80%、整体 ≥ 70%，低于门槛流水线失败（见《<a href="../../规划/项目规划说明.html#test-exit">项目规划说明</a>》16.4 节）。</li>
-        <li>CI 执行：MR 流水线后端 job 即 <code>uv sync</code> 后跑 pytest（见《<a href="../../规划/项目规划说明.html#sel-ops">项目规划说明</a>》3.4 节），main 流水线另加 MySQL/PostgreSQL 双库方言集成测试。</li>
+        <li>pytest-cov 统计覆盖率并作 CI 门禁：核心模块（认证/RBAC/工作流/审计/收付款）行覆盖 ≥ 80%、整体 ≥ 70%，低于门槛流水线失败（见《<a href="../../../规划/项目规划说明.html#test-exit">项目规划说明</a>》16.4 节）。</li>
+        <li>CI 执行：MR 流水线后端 job 即 <code>uv sync</code> 后跑 pytest（见《<a href="../../../规划/项目规划说明.html#sel-ops">项目规划说明</a>》3.4 节），main 流水线另加 MySQL/PostgreSQL 双库方言集成测试。</li>
         <li>本地命令（Windows PowerShell 与 Linux 通用）：</li>
       </ul>
       <pre><code>uv run pytest                          # 跑全部测试（SQLite 库）
@@ -84,7 +84,7 @@ uv run pytest tests/test_auth.py       # 只跑指定文件
 uv run pytest -k "login"               # 按名称过滤用例
 uv run pytest --cov=app --cov-report=term-missing --cov-fail-under=70   # 带覆盖率与门禁</code></pre>
       <ul>
-        <li>结果双出口：Allure 生成可视化报告归档 CI 产物；执行结果经官方插件导入《<a href="KiwiTCMS技术介绍.html">Kiwi TCMS</a>》用例库归档，用例在代码中以用例 ID 关联（见《<a href="../../规划/项目规划说明.html#test">项目规划说明</a>》16 节）。</li>
+        <li>结果双出口：Allure 生成可视化报告归档 CI 产物；执行结果经官方插件导入《<a href="KiwiTCMS技术介绍.html">Kiwi TCMS</a>》用例库归档，用例在代码中以用例 ID 关联（见《<a href="../../../规划/项目规划说明.html#test">项目规划说明</a>》16 节）。</li>
       </ul>
 
       <h2 id="compare">4. 选型对比</h2>
@@ -104,7 +104,7 @@ uv run pytest --cov=app --cov-report=term-missing --cov-fail-under=70   # 带覆
         <li><strong>覆盖率数字别只看总量</strong>：行覆盖高不等于逻辑覆盖全；核心分支（权限校验、工作流网关、异常分支）优先补用例，门禁只是底线。</li>
         <li><strong>ASGITransport 注意事项</strong>：它直接调用应用，不经过真实网络层（无 uvicorn、无中间件网络行为差异），依赖 Host 头等场景需在 base_url 里显式设置。</li>
         <li><strong>CI 与本地一致性</strong>：依赖版本由 uv.lock 锁定；pytest 版本漂移会导致"本地绿、CI 红"，统一 <code>uv sync</code> 解决。</li>
-        <li><strong>用例与《<a href="KiwiTCMS技术介绍.html">Kiwi TCMS</a>》关联</strong>：自动化用例务必标注用例 ID（对应平台登记），保证需求可追溯、无孤儿用例（见《<a href="../../规划/项目规划说明.html#test-regression">项目规划说明</a>》16.3 节）。</li>
+        <li><strong>用例与《<a href="KiwiTCMS技术介绍.html">Kiwi TCMS</a>》关联</strong>：自动化用例务必标注用例 ID（对应平台登记），保证需求可追溯、无孤儿用例（见《<a href="../../../规划/项目规划说明.html#test-regression">项目规划说明</a>》16.3 节）。</li>
       </ul>
 
       <h2 id="learn">6. 学习与参考资料</h2>
@@ -121,8 +121,8 @@ uv run pytest --cov=app --cov-report=term-missing --cov-fail-under=70   # 带覆
       <h2 id="related">7. 项目内关联文档</h2>
       <table>
         <tr><th>文档</th><th>说明</th></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#test">项目规划说明</a>》16 节</td><td>测试策略与测试流程（用例管理、回归、准出标准）</td></tr>
-        <tr><td>《<a href="../../规范/测试规范.html">测试规范</a>》</td><td>测试分类、用例组织与执行约定</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#test">项目规划说明</a>》16 节</td><td>测试策略与测试流程（用例管理、回归、准出标准）</td></tr>
+        <tr><td>《<a href="../../../规范/测试规范.html">测试规范</a>》</td><td>测试分类、用例组织与执行约定</td></tr>
         <tr><td>《<a href="../后端核心/FastAPI技术介绍.html">FastAPI 技术介绍</a>》</td><td>被测对象：接口测试方式（httpx ASGITransport）</td></tr>
         <tr><td>《<a href="Allure技术介绍.html">Allure 技术介绍</a>》</td><td>测试结果生成可视化报告</td></tr>
         <tr><td>《<a href="KiwiTCMS技术介绍.html">Kiwi TCMS 技术介绍</a>》</td><td>用例唯一库，执行结果导入归档</td></tr>
@@ -132,7 +132,7 @@ uv run pytest --cov=app --cov-report=term-missing --cov-fail-under=70   # 带覆
     </main>
 
     <footer>
-      本文档为 AI 生成 · 依《<a href="../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
+      本文档为 AI 生成 · 依《<a href="../../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
     </footer>
   </div>
 

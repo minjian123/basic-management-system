@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GitLab 技术介绍</title>
+<link rel="stylesheet" href="../../../资源/文档样式.css">
+</head>
+<body>
+
+<div class="topnav">
+  <a href="../../../文档首页.html">文档首页</a> ›
+  <a href="../技术栈知识档案总览.html">知识档案</a> ›
+  <a href="../技术栈知识档案总览.html#ops">部署与运维</a> ›
+  <span>GitLab 技术介绍</span>
+  <span class="topnav-side">
+    <a href="../技术栈知识档案总览.html">← 返回总览</a>
+  </span>
+</div>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>GitLab 技术介绍</h1>
+      <p>自托管代码托管 + CI/CD 一体 · BMS 研发协作中枢</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#overview">1. 技术概述</a></li>
+        <li><a href="#principles">2. 核心概念与原理</a></li>
+        <li><a href="#usage">3. 在 BMS 项目中的用途</a></li>
+        <li><a href="#compare">4. 选型对比</a></li>
+        <li><a href="#pitfalls">5. 常见问题与注意事项</a></li>
+        <li><a href="#learn">6. 学习与参考资料</a></li>
+        <li><a href="#related">7. 项目内关联文档</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="overview">1. 技术概述</h2>
+      <p>
+        <strong>GitLab CE</strong>（Community Edition）是自托管 DevOps 平台：
+        Git 仓库、Merge Request、Issue、CI/CD 流水线、容器 Registry、Wiki
+        一个平台全包，是「代码托管 + 持续集成」一体的事实标准之一。
+        <strong>gitlab-runner</strong> 是配套的流水线执行器：注册到 GitLab 后，
+        按 <code>.gitlab-ci.yml</code> 的定义实际跑 job，支持 docker / shell / kubernetes 等执行器。
+      </p>
+      <ul>
+        <li><strong>定位</strong>：BMS 研发协作中枢——代码仓库、MR、CI 流水线、镜像 Registry 一体（《<a href="../../../规划/项目规划说明.html#stack-ops">项目规划说明</a>》2.4 节）；仅作开发与 CI 基础设施，不随产品交付。</li>
+        <li><strong>版本</strong>：GitLab CE 1x.x 系列（每年 3 个大版本）；gitlab-runner 1x.x 系列。</li>
+        <li><strong>许可</strong>：MIT，免费开源（《<a href="../../../规划/项目规划说明.html#stack-license">项目规划说明</a>》2.5 节）。</li>
+        <li><strong>落地形态</strong>：mjbk 自托管（HTTP 8080 + Registry 5050 + SSH 2222），runner 以容器方式运行（《<a href="../../../规划/开发部署规划.html#server-gitlab">开发部署规划</a>》4.5 节）。</li>
+      </ul>
+
+      <h2 id="principles">2. 核心概念与原理</h2>
+      <table>
+        <tr><th>概念</th><th>一句话说明</th></tr>
+        <tr><td>仓库 / 分支</td><td>代码与 git 分支模型；BMS 约定 main 保护分支 + feature/xxx 开发分支</td></tr>
+        <tr><td>Merge Request</td><td>合并请求：代码评审 + CI 门禁 + 合入 main 的唯一通道</td></tr>
+        <tr><td>保护分支</td><td>main 禁止直推，必须经 MR 且 CI 通过才能合入</td></tr>
+        <tr><td>pipeline</td><td>一次 push / MR 触发的完整流水线，由若干 stage 串联</td></tr>
+        <tr><td>stage / job</td><td>阶段与任务：<code>.gitlab-ci.yml</code> 里声明，job 是执行的最小单位</td></tr>
+        <tr><td>runner</td><td>执行器：从 GitLab 领取 job 并实际运行，BMS 用 docker 执行器</td></tr>
+        <tr><td>executor=docker</td><td>每个 job 跑在一次性容器里，环境干净可复现；runner 容器挂载 docker.sock 实现「容器里跑容器」</td></tr>
+        <tr><td>artifact</td><td>job 产物（Allure 报告、构建包、swagger.json），可下载可归档</td></tr>
+        <tr><td>cache</td><td>跨 job 复用依赖缓存（uv / npm），加速流水线</td></tr>
+        <tr><td>Registry</td><td>内置容器镜像仓库（BMS 端口 5050），main 流水线构建镜像推送于此</td></tr>
+        <tr><td>push mirror</td><td>单向镜像同步：BMS 用它把 main 只读同步到 GitHub 归档</td></tr>
+        <tr><td>CI 变量</td><td>流水线级密钥与参数，masked（脱敏）+ protected（仅保护分支）双重保护</td></tr>
+        <tr><td>Dependency Scanning</td><td>内置依赖漏洞扫描模板，与 Renovate 安全更新互补</td></tr>
+      </table>
+
+      <h2 id="usage">3. 在 BMS 项目中的用途</h2>
+      <ul>
+        <li><strong>代码托管 + 协作</strong>：仓库、MR、Issue（缺陷载体）一体；Kiwi TCMS 缺陷链接指向 GitLab Issue（《<a href="../../../规划/项目规划说明.html#test-defect">项目规划说明</a>》16.2 节）。</li>
+        <li><strong>CI 流水线</strong>：<code>.gitlab-ci.yml</code> 定义——MR 流水线：后端 ruff + pytest（含覆盖率门禁）、前端 ESLint + Vitest（含 coverage 门禁）、双端构建；main 流水线：另含 Playwright E2E 独立 job、MySQL/PostgreSQL 双库方言集成测试、构建镜像推送 Registry、导出 swagger.json 契约快照（《<a href="../../../规划/项目规划说明.html#sel-ops">项目规划说明</a>》3.4 节）。</li>
+        <li><strong>runner 配置</strong>：gitlab-runner 以容器方式运行，挂载 docker.sock、executor=docker，开发环境并发上限 2，避免 CI 抢占 GitLab 与开发服务资源（《<a href="../../../规划/开发部署规划.html#server-gitlab">开发部署规划</a>》4.5 节）。</li>
+        <li><strong>测试归档</strong>：Allure 报告作 CI 产物归档，执行结果经官方插件导入 Kiwi TCMS（《<a href="../../../规划/项目规划说明.html#test-report">项目规划说明</a>》16.5 节）。</li>
+        <li><strong>缺陷自动上报</strong>：任一自动化测试失败即由 <code>deploy/tools/defect/defect_capture.py</code> 归档 REPRO 复现包并自动创建 / 复用 GitLab Issue（fingerprint 去重）（《<a href="../../../规划/项目规划说明.html#test-defect">项目规划说明</a>》16.2 节）。</li>
+        <li><strong>GitHub 只读归档</strong>：GitLab 配置 push mirror 单向同步 main 至 GitHub 归档仓库，GitHub 侧改动不回传、不承载协作（《<a href="../../../规划/项目规划说明.html#sel-ops">项目规划说明</a>》3.4 节）。</li>
+        <li><strong>依赖升级</strong>：Renovate 原生支持自托管 GitLab，自动提 MR 升级依赖（见《<a href="Renovate技术介绍.html">Renovate 技术介绍</a>》）。</li>
+      </ul>
+
+      <h2 id="compare">4. 选型对比</h2>
+      <table>
+        <tr><th>候选技术</th><th>优缺点</th><th>结论</th></tr>
+        <tr><td><strong>GitLab CE + gitlab-runner（选中）</strong></td><td>优点：代码 / MR / CI / Registry 一体、自托管成熟、MIT 许可；缺点：内存开销大（≥4GB）、功能面广需配置</td><td>自托管 DevOps 事实标准，BMS 全链路需求一次满足</td></tr>
+        <tr><td>GitHub Actions</td><td>优点：SaaS 省心、生态大；缺点：核心服务不可自托管（Enterprise Server 商业收费）、数据出域</td><td>数据不出域 + 自托管是硬约束，不采用</td></tr>
+        <tr><td>Gitea</td><td>优点：轻量、资源占用小；缺点：CI 能力弱、MR 体验与生态不如 GitLab</td><td>够用但天花板低，CI 需求下不如 GitLab</td></tr>
+        <tr><td>Jenkins</td><td>优点：老牌、插件极多；缺点：配置以 Groovy / XML 为主、学习曲线陡、界面陈旧</td><td>维护成本高，新项目无必要</td></tr>
+        <tr><td>Bitbucket</td><td>优点：Atlassian 生态集成好；缺点：商业收费、自托管受限</td><td>成本与自托管约束下不采用</td></tr>
+      </table>
+
+      <h2 id="pitfalls">5. 常见问题与注意事项</h2>
+      <ul>
+        <li><strong>external_url</strong>：首次部署必须配对外访问地址，否则 GitLab 生成的仓库 / 克隆 URL 不正确（《<a href="../../../规划/开发部署规划.html#server-gitlab">开发部署规划</a>》4.5 节）。</li>
+        <li><strong>内存 ≥4GB</strong>：GitLab 是内存大户，mjbk 32GB 预算内单独留足，部署后监控实际占用。</li>
+        <li><strong>runner 并发</strong>：config.toml 设 <code>concurrent = 2</code>，CI 重负载不抢占开发服务资源。</li>
+        <li><strong>docker.sock 安全</strong>：runner 容器挂载 docker.sock 等于拿到宿主 root，只给 runner，不给其他容器。</li>
+        <li><strong>Registry 镜像膨胀</strong>：多架构 / 多标签会占盘，定期清理无用 tag，镜像落 NVMe SSD。</li>
+        <li><strong>push mirror 单向</strong>：GitHub 侧只读归档，别在 GitHub 上改动，回传机制不存在。</li>
+        <li><strong>Windows 与 Linux 差异</strong>：开发机（Windows）用 Git for Windows + 浏览器操作 GitLab，本地不跑 GitLab 服务；流水线一律按 Linux 容器口径。</li>
+      </ul>
+
+      <h2 id="learn">6. 学习与参考资料</h2>
+      <table>
+        <tr><th>资源</th><th>网址</th><th>说明</th></tr>
+        <tr><td>GitLab 官网</td><td>https://about.gitlab.com/</td><td>产品入口、版本说明、许可</td></tr>
+        <tr><td>GitLab 官方文档</td><td>https://docs.gitlab.com/</td><td>自托管安装、CI/CD、Registry 完整参考</td></tr>
+        <tr><td>CI/CD 文档</td><td>https://docs.gitlab.com/ee/ci/</td><td><code>.gitlab-ci.yml</code> 语法、runner、artifact 权威参考</td></tr>
+        <tr><td>GitLab 中文文档（极狐）</td><td>https://docs.gitlab.cn/docs/</td><td>中文文档站（官方文档仅 en-us / ja-jp）</td></tr>
+        <tr><td>GitLab 源码</td><td>https://gitlab.com/gitlab-org/gitlab</td><td>源码与 issue 讨论</td></tr>
+        <tr><td>gitlab-runner 源码</td><td>https://gitlab.com/gitlab-org/gitlab-runner</td><td>runner 配置（config.toml）与执行器说明</td></tr>
+      </table>
+
+      <h2 id="related">7. 项目内关联文档</h2>
+      <table>
+        <tr><th>文档</th><th>说明</th></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#stack-ops">项目规划说明</a>》2.4 节</td><td>部署与运维技术栈（CI/CD 条目）</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#sel-ops">项目规划说明</a>》3.4 节</td><td>选型说明：一体托管 + 流水线定义 + GitHub 归档</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#test">项目规划说明</a>》16 节</td><td>测试策略：CI 执行、缺陷上报、结果归档</td></tr>
+        <tr><td>《<a href="../../../规划/开发部署规划.html#server-gitlab">开发部署规划</a>》4.5 节</td><td>mjbk GitLab + runner + Renovate 部署实录</td></tr>
+        <tr><td>《<a href="../../../规划/开发部署规划.html#workflow">开发部署规划</a>》7 节</td><td>开发工作流与 CI：分支模型、流水线、依赖升级</td></tr>
+        <tr><td>《<a href="../../开发服务器/GitLab部署使用说明.html">GitLab 部署使用说明</a>》</td><td>mjbk GitLab 安装配置内部文档</td></tr>
+        <tr><td>《<a href="../../工具/GitLab迁移使用说明.html">GitLab 迁移使用说明</a>》</td><td>仓库迁移到 GitLab 的操作说明</td></tr>
+        <tr><td>《<a href="Renovate技术介绍.html">Renovate 技术介绍</a>》</td><td>基于 GitLab 的依赖自动升级</td></tr>
+        <tr><td>《<a href="Docker与Compose技术介绍.html">Docker 与 Compose 技术介绍</a>》</td><td>runner 容器化运行的底座</td></tr>
+        <tr><td>《<a href="../工程化与质量/pytest技术介绍.html">pytest 技术介绍</a>》</td><td>MR 流水线后端测试 job</td></tr>
+        <tr><td>《<a href="../工程化与质量/Allure技术介绍.html">Allure 技术介绍</a>》</td><td>CI 产物：测试报告归档</td></tr>
+        <tr><td>《<a href="../工程化与质量/KiwiTCMS技术介绍.html">Kiwi TCMS 技术介绍</a>》</td><td>用例库：缺陷链接指向 GitLab Issue</td></tr>
+      </table>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 依《<a href="../../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>

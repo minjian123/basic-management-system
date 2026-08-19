@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Vite 技术介绍</title>
-<link rel="stylesheet" href="../../资源/文档样式.css">
+<link rel="stylesheet" href="../../../资源/文档样式.css">
 </head>
 <body>
 
@@ -66,15 +66,15 @@
         <tr><td>dev server 代理</td><td>server.proxy 把 /api 等前缀请求转发到后端，解决跨域，开发/联调利器</td></tr>
         <tr><td>环境变量</td><td>.env 文件 + import.meta.env（VITE_ 前缀），按 dev/prod 环境区分配置</td></tr>
         <tr><td>路径别名</td><td>resolve.alias 配置 @ 指向 src/，配合 tsconfig paths 双端同步</td></tr>
-        <tr><td>Vitest 同构</td><td>Vitest 复用 Vite 的配置与插件，测试环境与构建环境一致（见《<a href="../工程化与质量/Vitest技术介绍.html">Vitest 技术介绍</a>》）</td></tr>
+        <tr><td>Vitest 同构</td><td>Vitest 复用 Vite 的配置与插件，测试环境与构建环境一致（见《<a href="Vitest技术介绍.html">Vitest 技术介绍</a>》）</td></tr>
         <tr><td>构建产物分析</td><td>vite build --report 或 rollup-plugin-visualizer 分析包体积，优化首屏</td></tr>
       </table>
 
       <h2 id="usage">3. 在 BMS 项目中的用途</h2>
       <ul>
-        <li><strong>frontend 与 frontend-mobile 双工程各自独立配置</strong>：各自维护 vite.config.ts（代理、别名、构建输出），互不影响（见《<a href="../../规划/项目规划说明.html#sel-frontend">项目规划说明</a>》3.2 节）。</li>
-        <li><strong>开发代理</strong>：dev server 把 /api/v1 代理到本地/远程后端，配合 <a href="Axios技术介绍.html">Axios</a> baseURL 联调（见《<a href="../../规划/开发部署规划.html">开发部署规划</a>》前端启动说明）。</li>
-        <li><strong>CI 双端构建</strong>：GitLab CI 流水线执行前端 ESLint + Vitest + 双端构建，产物由 nginx 托管（见《<a href="../../规划/项目规划说明.html#sel-ops">项目规划说明</a>》3.4 节）。</li>
+        <li><strong>frontend 与 frontend-mobile 双工程各自独立配置</strong>：各自维护 vite.config.ts（代理、别名、构建输出），互不影响（见《<a href="../../../规划/项目规划说明.html#sel-frontend">项目规划说明</a>》3.2 节）。</li>
+        <li><strong>开发代理</strong>：dev server 把 /api/v1 代理到本地/远程后端，配合 <a href="Axios技术介绍.html">Axios</a> baseURL 联调（见《<a href="../../../规划/开发部署规划.html">开发部署规划</a>》前端启动说明）。</li>
+        <li><strong>CI 双端构建</strong>：GitLab CI 流水线执行前端 ESLint + Vitest + 双端构建，产物由 nginx 托管（见《<a href="../../../规划/项目规划说明.html#sel-ops">项目规划说明</a>》3.4 节）。</li>
         <li><strong>配合 Vitest 同构</strong>：单元测试零配置复用 Vite 配置，覆盖率统计进 CI 门禁。</li>
         <li><strong>按需引入 Element Plus</strong>：unplugin-vue-components 插件实现组件按需加载，控制包体积（见《<a href="ElementPlus技术介绍.html">Element Plus 技术介绍</a>》）。</li>
         <li><strong>环境区分</strong>：.env.development / .env.production 管理接口地址与构建开关。</li>
@@ -112,7 +112,7 @@ export default defineConfig({
         <li><strong>改配置要重启</strong>：修改 vite.config.ts、新增 .env 变量、改动依赖时需重启 dev server，HMR 不会自动生效。</li>
         <li><strong>依赖预构建缓存</strong>：node_modules/.vite 缓存异常会导致"依赖解析失败"类报错，删除该目录重启即可。</li>
         <li><strong>别名两处同步</strong>：vite.config.ts 的 alias 与 tsconfig.json 的 paths 必须一致，否则编辑器报红但运行正常（或反之）。</li>
-        <li><strong>代理 rewrite</strong>：代理目标接口路径与前端请求前缀不一致时需配置 rewrite，前后端联调前先确认路径约定（见《<a href="../../规范/API接口规范.html">API 接口规范</a>》）。</li>
+        <li><strong>代理 rewrite</strong>：代理目标接口路径与前端请求前缀不一致时需配置 rewrite，前后端联调前先确认路径约定（见《<a href="../../../规范/API接口规范.html">API 接口规范</a>》）。</li>
         <li><strong>构建产物体积告警</strong>：chunk 超 500KB 警告属正常提示，按需分析（大依赖拆 manualChunks），不必强行压榨。</li>
         <li><strong>旧浏览器兼容</strong>：Vite 默认面向现代浏览器（ES2020+），BMS 为内部系统不强制兼容旧 IE；如需兼容走 @vitejs/plugin-legacy。</li>
         <li><strong>Node 版本</strong>：Vite 各版本对 Node 有最低要求，务必配合 .nvmrc 固定 Node 版本，避免 CI 与本地行为不一致。</li>
@@ -125,25 +125,25 @@ export default defineConfig({
         <tr><td>Vite 官方文档（英文）</td><td>https://vitejs.dev/</td><td>英文原版，更新最快</td></tr>
         <tr><td>Vite GitHub 仓库</td><td>https://github.com/vitejs/vite</td><td>源码、Changelog 与 issue</td></tr>
         <tr><td>@vitejs/plugin-vue</td><td>https://github.com/vitejs/vite-plugin-vue</td><td>Vue SFC 编译插件文档</td></tr>
-        <tr><td>Vitest 官方文档</td><td>https://vitest.dev/</td><td>Vite 同构测试框架，见《<a href="../工程化与质量/Vitest技术介绍.html">Vitest 技术介绍</a>》</td></tr>
+        <tr><td>Vitest 官方文档</td><td>https://vitest.dev/</td><td>Vite 同构测试框架，见《<a href="Vitest技术介绍.html">Vitest 技术介绍</a>》</td></tr>
       </table>
 
       <h2 id="related">7. 项目内关联文档</h2>
       <table>
         <tr><th>文档</th><th>说明</th></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#stack-frontend">项目规划说明</a>》2.2 节</td><td>前端技术栈（Vite 条目）</td></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#sel-frontend">项目规划说明</a>》3.2 节</td><td>Vite 冷启动快、与 Vitest 同构的选型理由</td></tr>
-        <tr><td>《<a href="../../规划/开发部署规划.html">开发部署规划</a>》</td><td>前端双工程安装、启动与构建流程</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#stack-frontend">项目规划说明</a>》2.2 节</td><td>前端技术栈（Vite 条目）</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#sel-frontend">项目规划说明</a>》3.2 节</td><td>Vite 冷启动快、与 Vitest 同构的选型理由</td></tr>
+        <tr><td>《<a href="../../../规划/开发部署规划.html">开发部署规划</a>》</td><td>前端双工程安装、启动与构建流程</td></tr>
         <tr><td>《<a href="Vue3技术介绍.html">Vue 3 技术介绍</a>》</td><td>被构建的前端框架</td></tr>
         <tr><td>《<a href="TypeScript技术介绍.html">TypeScript 技术介绍</a>》</td><td>tsconfig 与 Vite 别名同步事项</td></tr>
         <tr><td>《<a href="npm技术介绍.html">npm 技术介绍</a>》</td><td>依赖安装与版本锁定（Vite 经 npm 引入）</td></tr>
-        <tr><td>《<a href="../工程化与质量/Vitest技术介绍.html">Vitest 技术介绍</a>》</td><td>与 Vite 同构的单元测试框架</td></tr>
+        <tr><td>《<a href="Vitest技术介绍.html">Vitest 技术介绍</a>》</td><td>与 Vite 同构的单元测试框架</td></tr>
       </table>
 
     </main>
 
     <footer>
-      本文档为 AI 生成 · 依《<a href="../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
+      本文档为 AI 生成 · 依《<a href="../../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
     </footer>
   </div>
 

@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>JWT 与 PBKDF2 技术介绍</title>
-<link rel="stylesheet" href="../../资源/文档样式.css">
+<link rel="stylesheet" href="../../../资源/文档样式.css">
 </head>
 <body>
 
@@ -72,7 +72,7 @@
       </table>
 
       <h2 id="usage">3. 在 BMS 项目中的用途</h2>
-      <p>按《<a href="../../规划/项目规划说明.html#security">项目规划说明</a>》12 节"认证与安全"与 3.1 节选型说明：</p>
+      <p>按《<a href="../../../规划/项目规划说明.html#security">项目规划说明</a>》12 节"认证与安全"与 3.1 节选型说明：</p>
       <ul>
         <li><strong>双 token 机制</strong>：access token（30 分钟）+ refresh token（14 天，滚动轮换）；access token 仅存前端内存（刷新页面后静默续期），refresh token 存 httpOnly + Secure + SameSite cookie，防 XSS 窃取。</li>
         <li><strong>横向扩展友好</strong>：JWT 自包含、服务端无会话存储，多实例/多副本无需共享会话数据；鉴权时随 access token 一并校验 Redis 会话有效标记（每请求一次 Redis 读，毫秒级开销），强制踢出即时生效——这是"无状态 + 可撤销"的折中设计（3.1 节、19.2 节）。</li>
@@ -118,17 +118,17 @@
       <h2 id="related">7. 项目内关联文档</h2>
       <table>
         <tr><th>文档</th><th>说明</th></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#security">项目规划说明</a>》12 节</td><td>双 token、黑名单、会话校验、密码策略全套认证设计</td></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#sel-backend">项目规划说明</a>》3.1 节</td><td>JWT + Redis 会话状态校验 + PBKDF2 选型理由</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#security">项目规划说明</a>》12 节</td><td>双 token、黑名单、会话校验、密码策略全套认证设计</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#sel-backend">项目规划说明</a>》3.1 节</td><td>JWT + Redis 会话状态校验 + PBKDF2 选型理由</td></tr>
         <tr><td>《<a href="Redis技术介绍.html">Redis 技术介绍</a>》</td><td>会话有效标记、token 黑名单的存储实现</td></tr>
         <tr><td>《<a href="authlib技术介绍.html">authlib 技术介绍</a>》</td><td>SSO 认证回跳后签发 BMS 双 token 的协同</td></tr>
-        <tr><td>《<a href="../../规范/API接口规范.html">API 接口规范</a>》</td><td>401 处理、令牌刷新约定</td></tr>
+        <tr><td>《<a href="../../../规范/API接口规范.html">API 接口规范</a>》</td><td>401 处理、令牌刷新约定</td></tr>
       </table>
 
     </main>
 
     <footer>
-      本文档为 AI 生成 · 依《<a href="../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
+      本文档为 AI 生成 · 依《<a href="../../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
     </footer>
   </div>
 

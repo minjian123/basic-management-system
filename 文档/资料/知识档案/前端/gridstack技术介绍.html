@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>gridstack.js 技术介绍</title>
-<link rel="stylesheet" href="../../资源/文档样式.css">
+<link rel="stylesheet" href="../../../资源/文档样式.css">
 </head>
 <body>
 
@@ -73,8 +73,8 @@
 
       <h2 id="usage">3. 在 BMS 项目中的用途</h2>
       <ul>
-        <li><strong>工作台卡片布局</strong>：首页工作台卡片拖拽、显隐、尺寸调整、响应式，统一用 gridstack（见《<a href="../../规划/项目规划说明.html#sel-frontend">项目规划说明</a>》3.2 节）。</li>
-        <li><strong>布局持久化</strong>：个人布局（<code>sys_user_preference</code>，pref_key=dashboard:layout）与角色模板（<code>sys_dashboard_template.layout_config</code>）均序列化为 gridstack 布局 JSON（见《<a href="../../规划/项目规划说明.html#pages">项目规划说明</a>》数据规范）。</li>
+        <li><strong>工作台卡片布局</strong>：首页工作台卡片拖拽、显隐、尺寸调整、响应式，统一用 gridstack（见《<a href="../../../规划/项目规划说明.html#sel-frontend">项目规划说明</a>》3.2 节）。</li>
+        <li><strong>布局持久化</strong>：个人布局（<code>sys_user_preference</code>，pref_key=dashboard:layout）与角色模板（<code>sys_dashboard_template.layout_config</code>）均序列化为 gridstack 布局 JSON（见《<a href="../../../规划/项目规划说明.html#pages">项目规划说明</a>》数据规范）。</li>
         <li><strong>三级模板回退</strong>：个人布局 → 角色模板 → 平台默认模板，一键重置逐级回退，布局结构统一为 gridstack 格式便于解析。</li>
         <li><strong>报表设计器布局</strong>：报表/大屏卡片在网格中的位置与尺寸用 gridstack 描述，与 ECharts 图表卡配合（见《<a href="ECharts技术介绍.html">ECharts 技术介绍</a>》）。</li>
         <li><strong>跨端一致</strong>：PC 与移动端布局配置同源，gridstack 响应式断点适配不同屏宽。</li>
@@ -131,18 +131,18 @@ grid.load(layout)</code></pre>
       <h2 id="related">7. 项目内关联文档</h2>
       <table>
         <tr><th>文档</th><th>说明</th></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#stack-frontend">项目规划说明</a>》2.2 节</td><td>前端技术栈（gridstack.js 条目）</td></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#sel-frontend">项目规划说明</a>》3.2 节</td><td>选型理由：框架无关、工作台与报表设计器统一布局</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#stack-frontend">项目规划说明</a>》2.2 节</td><td>前端技术栈（gridstack.js 条目）</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#sel-frontend">项目规划说明</a>》3.2 节</td><td>选型理由：框架无关、工作台与报表设计器统一布局</td></tr>
         <tr><td>《<a href="ECharts技术介绍.html">ECharts 技术介绍</a>》</td><td>工作台/报表图表卡渲染（gridstack 布局 + ECharts 内容）</td></tr>
         <tr><td>《<a href="vue-flow技术介绍.html">vue-flow 技术介绍</a>》</td><td>大屏自由画布（与 gridstack 网格布局分工）</td></tr>
         <tr><td>《<a href="vuedraggable技术介绍.html">vuedraggable 技术介绍</a>》</td><td>表单设计器列表排序（与 gridstack 网格布局分工）</td></tr>
-        <tr><td>《<a href="../../规范/命名规范.html">命名规范</a>》</td><td>layout_config、pref_key 等字段命名</td></tr>
+        <tr><td>《<a href="../../../规范/命名规范.html">命名规范</a>》</td><td>layout_config、pref_key 等字段命名</td></tr>
       </table>
 
     </main>
 
     <footer>
-      本文档为 AI 生成 · 依《<a href="../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
+      本文档为 AI 生成 · 依《<a href="../../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
     </footer>
   </div>
 

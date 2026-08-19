@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>TOML 技术介绍</title>
-<link rel="stylesheet" href="../../资源/文档样式.css">
+<link rel="stylesheet" href="../../../资源/文档样式.css">
 </head>
 <body>
 
@@ -73,12 +73,12 @@
 
       <h2 id="usage">3. 在 BMS 项目中的用途</h2>
       <ul>
-        <li>统一配置格式：应用配置集中在 <code>config.toml</code>，单文件易读、易评审（见《<a href="../../规划/项目规划说明.html#stack-backend">项目规划说明</a>》2.1 节）。</li>
-        <li>敏感项（数据库 URL、各类密钥）不入库明文，部署时用<strong>环境变量覆盖</strong>，遵循 12-factor（见《<a href="../../规划/项目规划说明.html#env">项目规划说明</a>》17 节「环境与配置」）。</li>
+        <li>统一配置格式：应用配置集中在 <code>config.toml</code>，单文件易读、易评审（见《<a href="../../../规划/项目规划说明.html#stack-backend">项目规划说明</a>》2.1 节）。</li>
+        <li>敏感项（数据库 URL、各类密钥）不入库明文，部署时用<strong>环境变量覆盖</strong>，遵循 12-factor（见《<a href="../../../规划/项目规划说明.html#env">项目规划说明</a>》17 节「环境与配置」）。</li>
         <li><a href="Alembic技术介绍.html">Alembic</a> 迁移的数据库 URL 来自 config.toml，迁移脚本与运行时读同一份配置，避免漂移。</li>
         <li>配置加载顺序约定：默认值 → config.toml → 环境变量（优先级递增），便于本地、CI、生产三态复用同一镜像。</li>
-        <li>凭据与配置管理边界见《<a href="../../规划/开发部署规划.html#config">开发部署规划</a>》6 节「配置与凭据管理」。</li>
-        <li>命名与结构遵循《<a href="../../规范/命名规范.html">命名规范</a>》，配置键采用 snake_case。</li>
+        <li>凭据与配置管理边界见《<a href="../../../规划/开发部署规划.html#config">开发部署规划</a>》6 节「配置与凭据管理」。</li>
+        <li>命名与结构遵循《<a href="../../../规范/命名规范.html">命名规范</a>》，配置键采用 snake_case。</li>
       </ul>
 
       <h2 id="compare">4. 选型对比</h2>
@@ -94,7 +94,7 @@
       <h2 id="pitfalls">5. 常见问题与注意事项</h2>
       <ul>
         <li><strong>tomllib 只读</strong>：标准库 <code>tomllib</code> 只能解析、不能写回；需要生成/修改 TOML 时用 tomlkit 等第三方库。</li>
-        <li><strong>敏感信息不入库</strong>：数据库密码、密钥等严禁明文写进 config.toml 并提交，一律走环境变量覆盖（见《<a href="../../规范/安全开发规范.html">安全开发规范</a>》）。</li>
+        <li><strong>敏感信息不入库</strong>：数据库密码、密钥等严禁明文写进 config.toml 并提交，一律走环境变量覆盖（见《<a href="../../../规范/安全开发规范.html">安全开发规范</a>》）。</li>
         <li><strong>覆盖优先级要清晰</strong>：明确「默认值 → 文件 → 环境变量」的覆盖顺序并在代码中固化，避免不同环境行为不一致。</li>
         <li><strong>日期时间格式</strong>：TOML 的日期/时间有固定语法（如 <code>1979-05-27T07:32:00Z</code>），写错会解析失败，注意与本地时区约定（本项目时间 UTC 存储）。</li>
         <li><strong>类型显式</strong>：整数、浮点、布尔要写对类型，<code>tomllib</code> 解析后类型固定，业务侧不要依赖隐式转换。</li>
@@ -115,19 +115,19 @@
       <h2 id="related">7. 项目内关联文档</h2>
       <table>
         <tr><th>文档</th><th>说明</th></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#stack-backend">项目规划说明</a>》2.1 节</td><td>后端技术栈：配置格式（TOML）条目</td></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#env">项目规划说明</a>》17 节</td><td>环境与配置：config.toml + 环境变量覆盖</td></tr>
-        <tr><td>《<a href="../../规划/开发部署规划.html#config">开发部署规划</a>》6 节</td><td>配置与凭据管理边界</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#stack-backend">项目规划说明</a>》2.1 节</td><td>后端技术栈：配置格式（TOML）条目</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#env">项目规划说明</a>》17 节</td><td>环境与配置：config.toml + 环境变量覆盖</td></tr>
+        <tr><td>《<a href="../../../规划/开发部署规划.html#config">开发部署规划</a>》6 节</td><td>配置与凭据管理边界</td></tr>
         <tr><td>《<a href="Alembic技术介绍.html">Alembic 技术介绍</a>》</td><td>迁移数据库 URL 来自 config.toml</td></tr>
         <tr><td>《<a href="SQLAlchemy技术介绍.html">SQLAlchemy 技术介绍</a>》</td><td>运行时数据库连接配置来源</td></tr>
-        <tr><td>《<a href="../../规范/命名规范.html">命名规范</a>》</td><td>配置键命名（snake_case）</td></tr>
-        <tr><td>《<a href="../../规范/安全开发规范.html">安全开发规范</a>》</td><td>敏感配置走环境变量、不入库明文</td></tr>
+        <tr><td>《<a href="../../../规范/命名规范.html">命名规范</a>》</td><td>配置键命名（snake_case）</td></tr>
+        <tr><td>《<a href="../../../规范/安全开发规范.html">安全开发规范</a>》</td><td>敏感配置走环境变量、不入库明文</td></tr>
       </table>
 
     </main>
 
     <footer>
-      本文档为 AI 生成 · 依《<a href="../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
+      本文档为 AI 生成 · 依《<a href="../../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
     </footer>
   </div>
 

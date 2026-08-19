@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>pyright 技术介绍</title>
-<link rel="stylesheet" href="../../资源/文档样式.css">
+<link rel="stylesheet" href="../../../资源/文档样式.css">
 </head>
 <body>
 
@@ -71,14 +71,14 @@
 
       <h2 id="usage">3. 在 BMS 项目中的用途</h2>
       <ul>
-        <li>作为《<a href="../../规划/项目规划说明.html#stack-eng">项目规划说明</a>》2.3 节指定的类型检查工具，采用严格类型检查（strict 模式）作为工程约束（选型依据见《<a href="../../规划/项目规划说明.html#sel-eng">项目规划说明</a>》3.3 节）。</li>
+        <li>作为《<a href="../../../规划/项目规划说明.html#stack-eng">项目规划说明</a>》2.3 节指定的类型检查工具，采用严格类型检查（strict 模式）作为工程约束（选型依据见《<a href="../../../规划/项目规划说明.html#sel-eng">项目规划说明</a>》3.3 节）。</li>
         <li>VS Code 原生支持：装 Pylance 即内置 pyright，保存即检查，问题在编辑器里即时标红，无需等 CI。</li>
         <li>与 Pydantic v2 模型配合：schemas 层的字段声明、FastAPI 接口签名全部有类型，类型错误在 IDE 即时发现（见《<a href="../后端核心/Pydantic技术介绍.html">Pydantic 技术介绍</a>》）。</li>
         <li>CI 执行：</li>
       </ul>
       <pre><code>uv run pyright              # 全项目类型检查，错误即非零退出</code></pre>
       <ul>
-        <li>类型安全贯通前后端：后端 Pydantic schema 与前端 TypeScript 类型经 openapi-typescript 同源生成（见《<a href="../../规划/项目规划说明.html#sel-frontend">项目规划说明</a>》3.2 节），pyright 守后端这一侧。</li>
+        <li>类型安全贯通前后端：后端 Pydantic schema 与前端 TypeScript 类型经 openapi-typescript 同源生成（见《<a href="../../../规划/项目规划说明.html#sel-frontend">项目规划说明</a>》3.2 节），pyright 守后端这一侧。</li>
         <li>与《<a href="ruff技术介绍.html">ruff</a>》分工：ruff 管风格、pyright 管类型；SQLAlchemy 模型、依赖注入等复杂泛型处按类型标注推进。</li>
       </ul>
 
@@ -114,8 +114,8 @@
       <h2 id="related">7. 项目内关联文档</h2>
       <table>
         <tr><th>文档</th><th>说明</th></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#stack-eng">项目规划说明</a>》2.3 节</td><td>技术栈：类型检查 = pyright</td></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#sel-eng">项目规划说明</a>》3.3 节</td><td>选型说明：严格类型检查、Pylance 即时反馈</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#stack-eng">项目规划说明</a>》2.3 节</td><td>技术栈：类型检查 = pyright</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#sel-eng">项目规划说明</a>》3.3 节</td><td>选型说明：严格类型检查、Pylance 即时反馈</td></tr>
         <tr><td>《<a href="../后端核心/Pydantic技术介绍.html">Pydantic 技术介绍</a>》</td><td>请求/响应模型即类型声明，与 pyright 强配合</td></tr>
         <tr><td>《<a href="../后端核心/SQLAlchemy技术介绍.html">SQLAlchemy 技术介绍</a>》</td><td>ORM 模型的类型标注实践</td></tr>
         <tr><td>《<a href="ruff技术介绍.html">ruff 技术介绍</a>》</td><td>风格检查与 pyright 分工配合</td></tr>
@@ -125,7 +125,7 @@
     </main>
 
     <footer>
-      本文档为 AI 生成 · 依《<a href="../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
+      本文档为 AI 生成 · 依《<a href="../../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
     </footer>
   </div>
 

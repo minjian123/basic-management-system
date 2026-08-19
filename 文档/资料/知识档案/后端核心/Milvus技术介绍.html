@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Milvus 技术介绍</title>
-<link rel="stylesheet" href="../../资源/文档样式.css">
+<link rel="stylesheet" href="../../../资源/文档样式.css">
 </head>
 <body>
 
@@ -75,9 +75,9 @@
       <h2 id="usage">3. 在 BMS 项目中的用途</h2>
       <ul>
         <li><strong>语义搜索与文件问答</strong>（阶段十五，八项 AI 能力之一）：文件内容分段后，分段文本落库（<code>ai_file_segment</code> 表：<code>file_id</code>、<code>chunk_no</code>、<code>content</code>、<code>vector_id</code>），向量存 Milvus；检索时先取 top-k 相似分段，再交给 LLM 生成答案（RAG，见《<a href="LLM适配层技术介绍.html">LLM 适配层技术介绍</a>》）。</li>
-        <li><strong>租户隔离</strong>：collection 按租户命名（<code>bms-{tenant}-doc</code> 等，见《<a href="../../规范/命名规范.html">命名规范</a>》第 10 节），查询强制携带租户过滤，向量库按租户边界隔离（规划 3.1 节设计约束）。</li>
+        <li><strong>租户隔离</strong>：collection 按租户命名（<code>bms-{tenant}-doc</code> 等，见《<a href="../../../规范/命名规范.html">命名规范</a>》第 10 节），查询强制携带租户过滤，向量库按租户边界隔离（规划 3.1 节设计约束）。</li>
         <li><strong>embedding 管线事件驱动</strong>：文件新增/变更事件经 RocketMQ 投递，event-worker 消费后做分段、向量化、入库（复用现有事件模型，见《<a href="RocketMQ技术介绍.html">RocketMQ 技术介绍</a>》）。</li>
-        <li><strong>独立部署</strong>：milvus + etcd 容器组，MinIO 复用（《<a href="../../规划/开发部署规划.html">开发部署规划</a>》第五批，阶段十五引入）；端口 19530 仅内网。</li>
+        <li><strong>独立部署</strong>：milvus + etcd 容器组，MinIO 复用（《<a href="../../../规划/开发部署规划.html">开发部署规划</a>》第五批，阶段十五引入）；端口 19530 仅内网。</li>
         <li><strong>与全文检索分工</strong>：关键词精确匹配走 ElasticSearch，语义相近走 Milvus，两者互补不替代（见《<a href="ElasticSearch技术介绍.html">ElasticSearch 技术介绍</a>》）。</li>
       </ul>
       <pre><code>from pymilvus import MilvusClient
@@ -130,22 +130,22 @@ for hit in res[0]:
       <h2 id="related">7. 项目内关联文档</h2>
       <table>
         <tr><th>文档</th><th>说明</th></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#stack-backend">项目规划说明</a>》2.1 节</td><td>后端技术栈：AI（阶段十五）条目</td></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#sel-backend">项目规划说明</a>》3.1 节</td><td>向量检索选型与租户隔离约束</td></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#tables">项目规划说明</a>》6 节</td><td><code>ai_file_segment</code> 表：分段文本落库、向量存 Milvus</td></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#env">项目规划说明</a>》17 节</td><td>Milvus（含 etcd）随阶段十五加入 Compose</td></tr>
-        <tr><td>《<a href="../../规范/命名规范.html">命名规范</a>》第 10 节</td><td>Milvus collection 命名 <code>bms-{租户}-{用途}</code></td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#stack-backend">项目规划说明</a>》2.1 节</td><td>后端技术栈：AI（阶段十五）条目</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#sel-backend">项目规划说明</a>》3.1 节</td><td>向量检索选型与租户隔离约束</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#tables">项目规划说明</a>》6 节</td><td><code>ai_file_segment</code> 表：分段文本落库、向量存 Milvus</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#env">项目规划说明</a>》17 节</td><td>Milvus（含 etcd）随阶段十五加入 Compose</td></tr>
+        <tr><td>《<a href="../../../规范/命名规范.html">命名规范</a>》第 10 节</td><td>Milvus collection 命名 <code>bms-{租户}-{用途}</code></td></tr>
         <tr><td>《<a href="LLM适配层技术介绍.html">LLM 适配层技术介绍</a>》</td><td>RAG：向量检索结果交给 LLM 生成答案</td></tr>
         <tr><td>《<a href="MinIO技术介绍.html">MinIO 技术介绍</a>》</td><td>Milvus 向量数据的对象存储（复用）</td></tr>
         <tr><td>《<a href="RocketMQ技术介绍.html">RocketMQ 技术介绍</a>》</td><td>embedding 管线事件驱动</td></tr>
         <tr><td>《<a href="../部署与运维/etcd技术介绍.html">etcd 技术介绍</a>》</td><td>Milvus 元数据依赖组件</td></tr>
-        <tr><td>《<a href="../../规划/开发部署规划.html">开发部署规划</a>》</td><td>第五批部署（milvus + etcd）、端口 19530</td></tr>
+        <tr><td>《<a href="../../../规划/开发部署规划.html">开发部署规划</a>》</td><td>第五批部署（milvus + etcd）、端口 19530</td></tr>
       </table>
 
     </main>
 
     <footer>
-      本文档为 AI 生成 · 依《<a href="../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
+      本文档为 AI 生成 · 依《<a href="../../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
     </footer>
   </div>
 

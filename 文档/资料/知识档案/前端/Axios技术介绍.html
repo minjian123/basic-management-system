@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Axios 技术介绍</title>
-<link rel="stylesheet" href="../../资源/文档样式.css">
+<link rel="stylesheet" href="../../../资源/文档样式.css">
 </head>
 <body>
 
@@ -72,8 +72,8 @@
 
       <h2 id="usage">3. 在 BMS 项目中的用途</h2>
       <ul>
-        <li><strong>统一请求封装</strong>：请求拦截器注入 access token、处理 401 刷新；响应拦截器统一错误提示（见《<a href="../../规划/项目规划说明.html#sel-frontend">项目规划说明</a>》3.2 节）。</li>
-        <li><strong>与后端统一响应格式配合</strong>：后端返回固定结构（code/message/data + 5 位错误码），响应拦截器按 code 分支——成功取 data、失败弹 ElMessage 并按错误码跳转（见《<a href="../../规范/API接口规范.html">API 接口规范</a>》）。</li>
+        <li><strong>统一请求封装</strong>：请求拦截器注入 access token、处理 401 刷新；响应拦截器统一错误提示（见《<a href="../../../规划/项目规划说明.html#sel-frontend">项目规划说明</a>》3.2 节）。</li>
+        <li><strong>与后端统一响应格式配合</strong>：后端返回固定结构（code/message/data + 5 位错误码），响应拦截器按 code 分支——成功取 data、失败弹 ElMessage 并按错误码跳转（见《<a href="../../../规范/API接口规范.html">API 接口规范</a>》）。</li>
         <li><strong>双端复用</strong>：frontend 与 frontend-mobile 各自封装一份 Axios 实例，逻辑一致、配置独立（见《<a href="npm技术介绍.html">npm 技术介绍</a>》双工程独立约定）。</li>
         <li><strong>认证链路</strong>：access token 存内存、refresh token 走 httpOnly cookie；401 时静默刷新并重放原请求，用户无感（见《<a href="../后端核心/JWT与PBKDF2技术介绍.html">JWT 与 PBKDF2 技术介绍</a>》）。</li>
         <li><strong>上传/下载</strong>：文件分片上传、预签名 URL 下载均经 Axios 发出，统一携带 token 与超时。</li>
@@ -135,9 +135,9 @@ http.interceptors.response.use(
       <h2 id="related">7. 项目内关联文档</h2>
       <table>
         <tr><th>文档</th><th>说明</th></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#stack-frontend">项目规划说明</a>》2.2 节</td><td>前端技术栈（Axios 条目）</td></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#sel-frontend">项目规划说明</a>》3.2 节</td><td>选型理由：统一封装请求/响应拦截器</td></tr>
-        <tr><td>《<a href="../../规范/API接口规范.html">API 接口规范</a>》</td><td>统一响应结构、5 位错误码、幂等与限流约定</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#stack-frontend">项目规划说明</a>》2.2 节</td><td>前端技术栈（Axios 条目）</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#sel-frontend">项目规划说明</a>》3.2 节</td><td>选型理由：统一封装请求/响应拦截器</td></tr>
+        <tr><td>《<a href="../../../规范/API接口规范.html">API 接口规范</a>》</td><td>统一响应结构、5 位错误码、幂等与限流约定</td></tr>
         <tr><td>《<a href="../后端核心/JWT与PBKDF2技术介绍.html">JWT 与 PBKDF2 技术介绍</a>》</td><td>access/refresh token 机制，401 刷新链路</td></tr>
         <tr><td>《<a href="ElementPlus技术介绍.html">Element Plus 技术介绍</a>》</td><td>响应拦截器统一错误提示（ElMessage）</td></tr>
         <tr><td>《<a href="npm技术介绍.html">npm 技术介绍</a>》</td><td>双工程依赖独立、CI 锁定安装</td></tr>
@@ -146,7 +146,7 @@ http.interceptors.response.use(
     </main>
 
     <footer>
-      本文档为 AI 生成 · 依《<a href="../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
+      本文档为 AI 生成 · 依《<a href="../../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
     </footer>
   </div>
 

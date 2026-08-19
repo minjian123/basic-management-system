@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ESLint 与 Prettier 技术介绍</title>
-<link rel="stylesheet" href="../../资源/文档样式.css">
+<link rel="stylesheet" href="../../../资源/文档样式.css">
 </head>
 <body>
 
@@ -53,10 +53,10 @@
         与 Prettier 冲突的格式规则，避免「两个工具打架」。
       </p>
       <ul>
-        <li><strong>定位</strong>：BMS 前端代码规范工具链，MR 流水线门禁之一（见《<a href="../../规划/项目规划说明.html#stack-frontend">项目规划说明</a>》2.2 节）。</li>
+        <li><strong>定位</strong>：BMS 前端代码规范工具链，MR 流水线门禁之一（见《<a href="../../../规划/项目规划说明.html#stack-frontend">项目规划说明</a>》2.2 节）。</li>
         <li><strong>版本</strong>：ESLint 10.x（v10.0.0 于 2026 年 2 月发布，flat config 为唯一配置格式；9.x 已于 2026 年 8 月 EOL）；Prettier 3.9.x（截至 2026 年）。</li>
         <li><strong>许可</strong>：均为 MIT，OSI 认证开源。</li>
-        <li><strong>Vue 插件链</strong>：eslint-plugin-vue（Vue 官方）+ typescript-eslint + eslint-config-prettier（见《<a href="../../规划/项目规划说明.html#sel-frontend">项目规划说明</a>》3.2 节）。</li>
+        <li><strong>Vue 插件链</strong>：eslint-plugin-vue（Vue 官方）+ typescript-eslint + eslint-config-prettier（见《<a href="../../../规划/项目规划说明.html#sel-frontend">项目规划说明</a>》3.2 节）。</li>
       </ul>
 
       <h2 id="principles">2. 核心概念与原理</h2>
@@ -70,15 +70,15 @@
         <tr><td>Prettier Parser</td><td>按文件扩展名自动选解析器（JS/TS/Vue/JSON/MD），无需逐个配置</td></tr>
         <tr><td>Prettier 选项</td><td><code>printWidth</code>、<code>singleQuote</code>、<code>semi</code> 等，统一写在 <code>.prettierrc</code>，全团队一份口径</td></tr>
         <tr><td>编辑器集成</td><td>VSCode 装 ESLint + Prettier 扩展，保存即检查/格式化，本地与 CI 同一套配置</td></tr>
-        <tr><td>CI 门禁</td><td><code>npm run lint</code> 有 error 即流水线失败，规范不靠自觉靠门禁（见《<a href="../../规划/项目规划说明.html#sel-ops">项目规划说明</a>》3.4 节）</td></tr>
+        <tr><td>CI 门禁</td><td><code>npm run lint</code> 有 error 即流水线失败，规范不靠自觉靠门禁（见《<a href="../../../规划/项目规划说明.html#sel-ops">项目规划说明</a>》3.4 节）</td></tr>
       </table>
 
       <h2 id="usage">3. 在 BMS 项目中的用途</h2>
       <ul>
-        <li><strong>代码规范</strong>：frontend 与 frontend-mobile 双工程各自独立配置（各自 package-lock.json、ESLint/Prettier/TS 配置，互不共享），规范统一、工程独立（见《<a href="../../规划/项目规划说明.html#sel-frontend">项目规划说明</a>》3.2 节）。</li>
-        <li><strong>MR 流水线门禁</strong>：前端 ESLint + Vitest（含 coverage 门禁）+ 双端构建，lint 不过 MR 不能合入（见《<a href="../../规划/项目规划说明.html#sel-ops">项目规划说明</a>》3.4 节 GitLab CI）。</li>
-        <li><strong>Vue 官方插件链</strong>：eslint-plugin-vue 覆盖 SFC/模板规则，typescript-eslint 覆盖 TS 规则，与 Prettier 经 eslint-config-prettier 解冲突（见《<a href="../../规划/项目规划说明.html#sel-frontend">项目规划说明</a>》3.2 节）。</li>
-        <li><strong>编辑器体验</strong>：开发机 VSCode 扩展含 ESLint、Prettier（见《<a href="../../规划/开发部署规划.html#devpc-tools">开发部署规划</a>》5.1 节），保存即规范，提交前无惊喜。</li>
+        <li><strong>代码规范</strong>：frontend 与 frontend-mobile 双工程各自独立配置（各自 package-lock.json、ESLint/Prettier/TS 配置，互不共享），规范统一、工程独立（见《<a href="../../../规划/项目规划说明.html#sel-frontend">项目规划说明</a>》3.2 节）。</li>
+        <li><strong>MR 流水线门禁</strong>：前端 ESLint + Vitest（含 coverage 门禁）+ 双端构建，lint 不过 MR 不能合入（见《<a href="../../../规划/项目规划说明.html#sel-ops">项目规划说明</a>》3.4 节 GitLab CI）。</li>
+        <li><strong>Vue 官方插件链</strong>：eslint-plugin-vue 覆盖 SFC/模板规则，typescript-eslint 覆盖 TS 规则，与 Prettier 经 eslint-config-prettier 解冲突（见《<a href="../../../规划/项目规划说明.html#sel-frontend">项目规划说明</a>》3.2 节）。</li>
+        <li><strong>编辑器体验</strong>：开发机 VSCode 扩展含 ESLint、Prettier（见《<a href="../../../规划/开发部署规划.html#devpc-tools">开发部署规划</a>》5.1 节），保存即规范，提交前无惊喜。</li>
         <li><strong>双工程一致</strong>：两个工程规则口径保持一致（同一份规则清单），避免 PC 端与移动端风格分裂。</li>
       </ul>
 
@@ -146,19 +146,19 @@ export default [
       <h2 id="related">7. 项目内关联文档</h2>
       <table>
         <tr><th>文档</th><th>说明</th></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#stack-frontend">项目规划说明</a>》2.2 节</td><td>前端技术栈（ESLint + Prettier 条目）</td></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#sel-frontend">项目规划说明</a>》3.2 节</td><td>选型理由：与 Vue 官方插件链配合</td></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#sel-ops">项目规划说明</a>》3.4 节</td><td>GitLab CI：MR 流水线前端门禁</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#stack-frontend">项目规划说明</a>》2.2 节</td><td>前端技术栈（ESLint + Prettier 条目）</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#sel-frontend">项目规划说明</a>》3.2 节</td><td>选型理由：与 Vue 官方插件链配合</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#sel-ops">项目规划说明</a>》3.4 节</td><td>GitLab CI：MR 流水线前端门禁</td></tr>
         <tr><td>《<a href="Vitest技术介绍.html">Vitest 技术介绍</a>》</td><td>同一 MR 门禁的单元测试与覆盖率部分</td></tr>
         <tr><td>《<a href="../工程化与质量/ruff技术介绍.html">ruff 技术介绍</a>》</td><td>后端对应工具（Python lint + format）</td></tr>
         <tr><td>《<a href="../工程化与质量/pytest技术介绍.html">pytest 技术介绍</a>》</td><td>后端对应门禁（测试 + 覆盖率）</td></tr>
-        <tr><td>《<a href="../../规范/命名规范.html">命名规范</a>》</td><td>代码标识符命名口径（工具链执行其一部分）</td></tr>
+        <tr><td>《<a href="../../../规范/命名规范.html">命名规范</a>》</td><td>代码标识符命名口径（工具链执行其一部分）</td></tr>
       </table>
 
     </main>
 
     <footer>
-      本文档为 AI 生成 · 依《<a href="../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
+      本文档为 AI 生成 · 依《<a href="../../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
     </footer>
   </div>
 

@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>socket.io-client 技术介绍</title>
-<link rel="stylesheet" href="../../资源/文档样式.css">
+<link rel="stylesheet" href="../../../资源/文档样式.css">
 </head>
 <body>
 
@@ -51,7 +51,7 @@
         断线、代理拦截、老浏览器这些脏活都由客户端兜底。
       </p>
       <ul>
-        <li><strong>定位</strong>：BMS 前端实时推送客户端——待办/通知实时到达、待办角标实时刷新、会话失效即时生效（见《<a href="../../规划/项目规划说明.html#stack-frontend">项目规划说明</a>》2.2 节）。</li>
+        <li><strong>定位</strong>：BMS 前端实时推送客户端——待办/通知实时到达、待办角标实时刷新、会话失效即时生效（见《<a href="../../../规划/项目规划说明.html#stack-frontend">项目规划说明</a>》2.2 节）。</li>
         <li><strong>版本</strong>：4.8.3（截至 2026 年，4.x 系列；须与后端 python-socketio 4.x 匹配）。</li>
         <li><strong>许可</strong>：MIT，OSI 认证开源。</li>
         <li><strong>语言</strong>：TypeScript 编写，运行于浏览器。</li>
@@ -68,18 +68,18 @@
         <tr><td>房间（Room）</td><td>服务端把连接加入指定房间，向房间广播即只发给相关用户；BMS 按用户/租户定向推送</td></tr>
         <tr><td>握手鉴权</td><td>连接时经 <code>auth</code> 选项携带 token，后端在握手阶段校验会话（BMS 校验 access token）</td></tr>
         <tr><td>连接状态事件</td><td><code>connect</code>/<code>disconnect</code>/<code>connect_error</code>，用于 UI 状态提示与重连后状态恢复</td></tr>
-        <tr><td>Sticky Session</td><td>连接升级后必须固定在同一后端实例：nginx 用 ip_hash / Cookie 亲和（见《<a href="../../规划/项目规划说明.html#deploy-cluster">项目规划说明</a>》19.2 节）</td></tr>
+        <tr><td>Sticky Session</td><td>连接升级后必须固定在同一后端实例：nginx 用 ip_hash / Cookie 亲和（见《<a href="../../../规划/项目规划说明.html#deploy-cluster">项目规划说明</a>》19.2 节）</td></tr>
         <tr><td>Redis 适配器</td><td>后端多实例经 Redis 适配器跨实例广播，客户端无感知（见《<a href="../后端核心/python-socketio技术介绍.html">python-socketio 技术介绍</a>》）</td></tr>
       </table>
 
       <h2 id="usage">3. 在 BMS 项目中的用途</h2>
       <ul>
-        <li><strong>待办/通知实时到达</strong>：审批待办提醒、通知中心消息实时推送，替代轮询（见《<a href="../../规划/项目规划说明.html#modules">项目规划说明</a>》5 节通知中心）。</li>
-        <li><strong>待办角标实时刷新</strong>：顶栏/侧边栏待办角标作为全局元素实时展示，新待办到达即更新（见《<a href="../../规划/项目规划说明.html#modules">项目规划说明</a>》5 节首页工作台）。</li>
-        <li><strong>会话失效即时生效</strong>：管理端强制踢出会话时，经 Socket.IO 广播「会话失效」事件，客户端立即关闭实时连接并跳转登录（见《<a href="../../规划/项目规划说明.html#security">项目规划说明</a>》12 节）。</li>
-        <li><strong>与后端配合</strong>：后端用 python-socketio（Redis 适配器跨实例广播），前端用 socket.io-client，协议两端对齐（见《<a href="../../规划/项目规划说明.html#stack-backend">项目规划说明</a>》2.1 节）。</li>
-        <li><strong>重连与降级</strong>：断线自动重连、WebSocket 被拦自动降级轮询；重连成功后重新拉取最新待办/通知，避免断线期间漏推（见《<a href="../../规划/项目规划说明.html#sel-backend">项目规划说明</a>》3.1 节）。</li>
-        <li><strong>验收口径</strong>：MVP 验收要求「待办提醒经 Socket.IO 实时触达」（见《<a href="../../规划/项目规划说明.html#plan">项目规划说明</a>》20 节）。</li>
+        <li><strong>待办/通知实时到达</strong>：审批待办提醒、通知中心消息实时推送，替代轮询（见《<a href="../../../规划/项目规划说明.html#modules">项目规划说明</a>》5 节通知中心）。</li>
+        <li><strong>待办角标实时刷新</strong>：顶栏/侧边栏待办角标作为全局元素实时展示，新待办到达即更新（见《<a href="../../../规划/项目规划说明.html#modules">项目规划说明</a>》5 节首页工作台）。</li>
+        <li><strong>会话失效即时生效</strong>：管理端强制踢出会话时，经 Socket.IO 广播「会话失效」事件，客户端立即关闭实时连接并跳转登录（见《<a href="../../../规划/项目规划说明.html#security">项目规划说明</a>》12 节）。</li>
+        <li><strong>与后端配合</strong>：后端用 python-socketio（Redis 适配器跨实例广播），前端用 socket.io-client，协议两端对齐（见《<a href="../../../规划/项目规划说明.html#stack-backend">项目规划说明</a>》2.1 节）。</li>
+        <li><strong>重连与降级</strong>：断线自动重连、WebSocket 被拦自动降级轮询；重连成功后重新拉取最新待办/通知，避免断线期间漏推（见《<a href="../../../规划/项目规划说明.html#sel-backend">项目规划说明</a>》3.1 节）。</li>
+        <li><strong>验收口径</strong>：MVP 验收要求「待办提醒经 Socket.IO 实时触达」（见《<a href="../../../规划/项目规划说明.html#plan">项目规划说明</a>》20 节）。</li>
       </ul>
 
       <p>最小示例（连接 + 事件订阅 + 鉴权）：</p>
@@ -141,20 +141,20 @@ socket.on('disconnect', () =&gt; {
       <h2 id="related">7. 项目内关联文档</h2>
       <table>
         <tr><th>文档</th><th>说明</th></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#stack-frontend">项目规划说明</a>》2.2 节</td><td>前端技术栈（socket.io-client 条目）</td></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#sel-frontend">项目规划说明</a>》3.2 节</td><td>选型理由：待办/通知实时到达</td></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#deploy-cluster">项目规划说明</a>》19.2 节</td><td>nginx WebSocket 放行与 sticky session 要求</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#stack-frontend">项目规划说明</a>》2.2 节</td><td>前端技术栈（socket.io-client 条目）</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#sel-frontend">项目规划说明</a>》3.2 节</td><td>选型理由：待办/通知实时到达</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#deploy-cluster">项目规划说明</a>》19.2 节</td><td>nginx WebSocket 放行与 sticky session 要求</td></tr>
         <tr><td>《<a href="../后端核心/python-socketio技术介绍.html">python-socketio 技术介绍</a>》</td><td>服务端协议实现与 Redis 适配器</td></tr>
         <tr><td>《<a href="../后端核心/Redis技术介绍.html">Redis 技术介绍</a>》</td><td>跨实例广播的 Redis 底座</td></tr>
         <tr><td>《<a href="Pinia技术介绍.html">Pinia 技术介绍</a>》</td><td>全局连接状态与待办角标数据管理</td></tr>
         <tr><td>《<a href="Vant技术介绍.html">Vant 技术介绍</a>》</td><td>移动端通知/待办界面（frontend-mobile）</td></tr>
-        <tr><td>《<a href="../../规范/命名规范.html">命名规范</a>》</td><td>事件名（todo:created 等）命名</td></tr>
+        <tr><td>《<a href="../../../规范/命名规范.html">命名规范</a>》</td><td>事件名（todo:created 等）命名</td></tr>
       </table>
 
     </main>
 
     <footer>
-      本文档为 AI 生成 · 依《<a href="../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
+      本文档为 AI 生成 · 依《<a href="../../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
     </footer>
   </div>
 

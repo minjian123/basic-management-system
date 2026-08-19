@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Pillow 技术介绍</title>
-<link rel="stylesheet" href="../../资源/文档样式.css">
+<link rel="stylesheet" href="../../../资源/文档样式.css">
 </head>
 <body>
 
@@ -73,10 +73,10 @@
       <ul>
         <li>登录接口生成 4~6 位随机字符的图形验证码图片，以 PNG 字节流返回前端。</li>
         <li>验证码明文（或摘要）写入 Redis，key 为 <code>bms:global:captcha:{uuid}</code>，短 TTL 5 分钟，到期自动失效。</li>
-        <li>登录连续失败 3 次后强制要求输入验证码，与 <a href="slowapi技术介绍.html">slowapi</a> 限流叠加，共同防爆破（见《<a href="../../规划/项目规划说明.html#security">项目规划说明</a>》12 节「认证与安全」）。</li>
+        <li>登录连续失败 3 次后强制要求输入验证码，与 <a href="slowapi技术介绍.html">slowapi</a> 限流叠加，共同防爆破（见《<a href="../../../规划/项目规划说明.html#security">项目规划说明</a>》12 节「认证与安全」）。</li>
         <li>验证码校验为一次性：比对成功后立即删除 Redis key，防止重放。</li>
         <li>生成逻辑为 CPU 密集 + 同步阻塞，接口内应放入线程池执行，避免卡住事件循环（见《<a href="FastAPI技术介绍.html">FastAPI 技术介绍</a>》注意事项）。</li>
-        <li>与《<a href="../../规划/项目规划说明.html#perf">项目规划说明</a>》14 节「限流与降级」、《<a href="../../规范/安全开发规范.html">安全开发规范</a>》的登录防护要求对齐。</li>
+        <li>与《<a href="../../../规划/项目规划说明.html#perf">项目规划说明</a>》14 节「限流与降级」、《<a href="../../../规范/安全开发规范.html">安全开发规范</a>》的登录防护要求对齐。</li>
       </ul>
 
       <h2 id="compare">4. 选型对比</h2>
@@ -111,10 +111,10 @@
       <h2 id="related">7. 项目内关联文档</h2>
       <table>
         <tr><th>文档</th><th>说明</th></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#stack-backend">项目规划说明</a>》2.1 节</td><td>后端技术栈与选型说明（Pillow 条目）</td></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#security">项目规划说明</a>》12 节</td><td>认证与安全：登录连续失败 3 次强制图形验证码</td></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#perf">项目规划说明</a>》14 节</td><td>性能与高并发设计：限流与降级、Redis key 命名</td></tr>
-        <tr><td>《<a href="../../规范/安全开发规范.html">安全开发规范</a>》</td><td>登录防护、防爆破与验证码安全要求</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#stack-backend">项目规划说明</a>》2.1 节</td><td>后端技术栈与选型说明（Pillow 条目）</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#security">项目规划说明</a>》12 节</td><td>认证与安全：登录连续失败 3 次强制图形验证码</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#perf">项目规划说明</a>》14 节</td><td>性能与高并发设计：限流与降级、Redis key 命名</td></tr>
+        <tr><td>《<a href="../../../规范/安全开发规范.html">安全开发规范</a>》</td><td>登录防护、防爆破与验证码安全要求</td></tr>
         <tr><td>《<a href="Redis技术介绍.html">Redis 技术介绍</a>》</td><td>验证码存储与校验（bms:global:captcha:{uuid}，TTL 5 分钟）</td></tr>
         <tr><td>《<a href="slowapi技术介绍.html">slowapi 技术介绍</a>》</td><td>登录限流，与验证码叠加防爆破</td></tr>
         <tr><td>《<a href="JWT与PBKDF2技术介绍.html">JWT 与 PBKDF2 技术介绍</a>》</td><td>登录认证整体链路（token 签发与密码哈希）</td></tr>
@@ -123,7 +123,7 @@
     </main>
 
     <footer>
-      本文档为 AI 生成 · 依《<a href="../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
+      本文档为 AI 生成 · 依《<a href="../../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
     </footer>
   </div>
 

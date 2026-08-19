@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ElasticSearch 技术介绍</title>
-<link rel="stylesheet" href="../../资源/文档样式.css">
+<link rel="stylesheet" href="../../../资源/文档样式.css">
 </head>
 <body>
 
@@ -51,7 +51,7 @@
       <ul>
         <li><strong>定位</strong>：BMS 唯一全文检索服务，只负责「检索匹配 + 高亮」，详情数据仍回查数据库。</li>
         <li><strong>版本</strong>：8.x 系列（项目锁定版本；官方 9.0 已于 2025.4 发布，8.18 为 8.x 维护线，升级另行评估）。</li>
-        <li><strong>许可</strong>：默认 Elastic License 2.0 + SSPLv1（source-available，非 OSI 开源）；8.15+ 提供 AGPL-3.0 选项。仅作独立检索服务使用无合规影响，见《<a href="../../规划/项目规划说明.html#stack-license">项目规划说明</a>》2.5 节。</li>
+        <li><strong>许可</strong>：默认 Elastic License 2.0 + SSPLv1（source-available，非 OSI 开源）；8.15+ 提供 AGPL-3.0 选项。仅作独立检索服务使用无合规影响，见《<a href="../../../规划/项目规划说明.html#stack-license">项目规划说明</a>》2.5 节。</li>
         <li><strong>语言</strong>：服务端 Java；BMS 用官方 Python 客户端 elasticsearch-py 访问。</li>
         <li><strong>部署</strong>：Docker Compose 独立容器，端口 9200（HTTP）/9300（节点通信），仅内网。</li>
       </ul>
@@ -75,7 +75,7 @@
 
       <h2 id="usage">3. 在 BMS 项目中的用途</h2>
       <ul>
-        <li><strong>三类检索场景</strong>（见《<a href="../../规划/项目规划说明.html#sel-backend">项目规划说明</a>》3.1 节）：
+        <li><strong>三类检索场景</strong>（见《<a href="../../../规划/项目规划说明.html#sel-backend">项目规划说明</a>》3.1 节）：
           <ul>
             <li>主数据全局搜索：用户/部门/角色/字典/采购单据/文件元数据/帮助文章，一个搜索框全站找；</li>
             <li>审计日志检索：操作/登录/开放接口/数据变更日志，按月索引、与日志分片表对齐；</li>
@@ -85,9 +85,9 @@
         <li><strong>数据同步走事件驱动</strong>：业务写库后发 RocketMQ 事件，独立 event-worker 进程异步消费并更新索引（复用现有事件模型，见《<a href="RocketMQ技术介绍.html">RocketMQ 技术介绍</a>》）；<strong>索引重建 = 重放事件</strong>，不依赖「双写」。</li>
         <li><strong>ES 只承担检索匹配</strong>：查询返回业务 ID + 高亮片段，详情一律回查数据库取最新数据——从架构上避免双写一致性难题。</li>
         <li><strong>租户隔离</strong>：所有索引文档均含 <code>tenant_id</code> 字段，查询强制携带租户过滤与数据权限条件，代码层统一注入，不靠人工自觉。</li>
-        <li><strong>索引命名</strong>：<code>bms-{用途}</code> 小写连字符，日志按月 <code>bms-log-{类型}-{yyyyMM}</code>（见《<a href="../../规范/命名规范.html">命名规范</a>》第 10 节）。</li>
-        <li><strong>部署形态</strong>：MVP 单节点；生产多节点集群（索引多副本、故障自动分片迁移）；检索服务故障时降级为数据库模糊查询兜底（见《<a href="../../规划/项目规划说明.html#deploy-cluster">项目规划说明</a>》19.2 节）。</li>
-        <li><strong>验收口径</strong>：阶段十四「全文检索」——检索命中与高亮正确、权限与租户过滤验证通过、索引重建可用、降级兜底生效（见《<a href="../../规划/项目规划说明.html#plan">项目规划说明</a>》20 节）。</li>
+        <li><strong>索引命名</strong>：<code>bms-{用途}</code> 小写连字符，日志按月 <code>bms-log-{类型}-{yyyyMM}</code>（见《<a href="../../../规范/命名规范.html">命名规范</a>》第 10 节）。</li>
+        <li><strong>部署形态</strong>：MVP 单节点；生产多节点集群（索引多副本、故障自动分片迁移）；检索服务故障时降级为数据库模糊查询兜底（见《<a href="../../../规划/项目规划说明.html#deploy-cluster">项目规划说明</a>》19.2 节）。</li>
+        <li><strong>验收口径</strong>：阶段十四「全文检索」——检索命中与高亮正确、权限与租户过滤验证通过、索引重建可用、降级兜底生效（见《<a href="../../../规划/项目规划说明.html#plan">项目规划说明</a>》20 节）。</li>
       </ul>
       <pre><code>from elasticsearch import Elasticsearch
 
@@ -144,22 +144,22 @@ for hit in resp["hits"]["hits"]:
       <h2 id="related">7. 项目内关联文档</h2>
       <table>
         <tr><th>文档</th><th>说明</th></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#stack-backend">项目规划说明</a>》2.1 节</td><td>后端技术栈：全文检索条目</td></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#sel-backend">项目规划说明</a>》3.1 节</td><td>三类检索场景、事件同步、租户隔离的选型说明</td></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#deploy-cluster">项目规划说明</a>》19.2 节</td><td>检索高可用：多副本、降级兜底</td></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#plan">项目规划说明</a>》20 节</td><td>阶段十四「全文检索」验收标准</td></tr>
-        <tr><td>《<a href="../../规范/命名规范.html">命名规范</a>》第 10 节</td><td>ES 索引命名 <code>bms-*</code> 约定</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#stack-backend">项目规划说明</a>》2.1 节</td><td>后端技术栈：全文检索条目</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#sel-backend">项目规划说明</a>》3.1 节</td><td>三类检索场景、事件同步、租户隔离的选型说明</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#deploy-cluster">项目规划说明</a>》19.2 节</td><td>检索高可用：多副本、降级兜底</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#plan">项目规划说明</a>》20 节</td><td>阶段十四「全文检索」验收标准</td></tr>
+        <tr><td>《<a href="../../../规范/命名规范.html">命名规范</a>》第 10 节</td><td>ES 索引命名 <code>bms-*</code> 约定</td></tr>
         <tr><td>《<a href="RocketMQ技术介绍.html">RocketMQ 技术介绍</a>》</td><td>事件驱动索引同步的底座</td></tr>
         <tr><td>《<a href="Celery技术介绍.html">Celery 技术介绍</a>》</td><td>文件内容解析、日志索引清理等任务</td></tr>
         <tr><td>《<a href="MinIO技术介绍.html">MinIO 技术介绍</a>》</td><td>被检索文件的存储来源</td></tr>
         <tr><td>《<a href="LLM适配层技术介绍.html">LLM 适配层技术介绍</a>》</td><td>阶段十五：OCR 文本入库、语义检索协同</td></tr>
-        <tr><td>《<a href="../../规划/开发部署规划.html">开发部署规划</a>》</td><td>ES 容器部署、端口 9200/9300、环境变量 <code>BMS_ES_URL</code></td></tr>
+        <tr><td>《<a href="../../../规划/开发部署规划.html">开发部署规划</a>》</td><td>ES 容器部署、端口 9200/9300、环境变量 <code>BMS_ES_URL</code></td></tr>
       </table>
 
     </main>
 
     <footer>
-      本文档为 AI 生成 · 依《<a href="../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
+      本文档为 AI 生成 · 依《<a href="../../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
     </footer>
   </div>
 

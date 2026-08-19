@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Loki 技术介绍</title>
+<link rel="stylesheet" href="../../../资源/文档样式.css">
+</head>
+<body>
+
+<div class="topnav">
+  <a href="../../../文档首页.html">文档首页</a> ›
+  <a href="../技术栈知识档案总览.html">知识档案</a> ›
+  <a href="../技术栈知识档案总览.html#ops">部署与运维</a> ›
+  <span>Loki 技术介绍</span>
+  <span class="topnav-side">
+    <a href="../技术栈知识档案总览.html">← 返回总览</a>
+  </span>
+</div>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>Loki 技术介绍</h1>
+      <p>日志聚合 · 只索引元数据，类 Prometheus 思路</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#overview">1. 技术概述</a></li>
+        <li><a href="#principles">2. 核心概念与原理</a></li>
+        <li><a href="#usage">3. 在 BMS 项目中的用途</a></li>
+        <li><a href="#compare">4. 选型对比</a></li>
+        <li><a href="#pitfalls">5. 常见问题与注意事项</a></li>
+        <li><a href="#learn">6. 学习与参考资料</a></li>
+        <li><a href="#related">7. 项目内关联文档</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="overview">1. 技术概述</h2>
+      <p>
+        <strong>Loki</strong> 是 Grafana Labs 出品的日志聚合系统，设计哲学一句话：
+        <strong>「像 Prometheus 一样做日志」</strong>——只给日志的<strong>元数据</strong>（labels）建索引，
+        日志原文压缩存储、不建全文索引。因此它比 Elasticsearch 轻得多，
+        代价是「先按标签缩小范围，再行内过滤」的查询方式。
+      </p>
+      <ul>
+        <li><strong>定位</strong>：BMS 可观测性三件套中的日志层，聚合 structlog 日志跨实例检索（《<a href="../../../规划/项目规划说明.html#stack-ops">项目规划说明</a>》2.4 节）。</li>
+        <li><strong>版本</strong>：3.x 系列（持续迭代）。</li>
+        <li><strong>许可</strong>：AGPL-3.0。BMS 仅作独立日志服务部署、不修改源码，无传染影响（《<a href="../../../规划/项目规划说明.html#stack-license">项目规划说明</a>》2.5 节）。</li>
+        <li><strong>落地形态</strong>：mjbk 以 Docker Compose 容器常驻，与 Prometheus / Grafana 一并编排（《<a href="../../../规划/项目规划说明.html#deploy-compose">项目规划说明</a>》19.3 节）。</li>
+      </ul>
+
+      <h2 id="principles">2. 核心概念与原理</h2>
+      <table>
+        <tr><th>概念</th><th>一句话说明</th></tr>
+        <tr><td>labels</td><td>唯一的索引维度（如 app、env、tenant），查询先按 labels 定位日志流</td></tr>
+        <tr><td>日志流（stream）</td><td>同一组 labels 的日志序列，是 Loki 存储与检索的基本单位</td></tr>
+        <tr><td>日志行（line）</td><td>原文压缩存储、不建全文索引——省钱省资源的核心设计</td></tr>
+        <tr><td>LogQL</td><td>日志查询语言：labels 选流（<code>{app="bms"}</code>）+ 行过滤（<code>|= "error"</code>）两段式</td></tr>
+        <tr><td>push 模型</td><td>客户端主动推送到 <code>/loki/api/v1/push</code>，与 Prometheus 的 pull 相反</td></tr>
+        <tr><td>Alloy（采集器）</td><td>Grafana 官方采集器（promtail 的继任者），从文件 / 容器 / 系统读日志推给 Loki</td></tr>
+        <tr><td>对象存储后端</td><td>日志落本地盘或 S3 兼容存储（MinIO），Loki 本身无状态化</td></tr>
+        <tr><td>compactor</td><td>把旧日志块压缩归档，降低长期存储成本</td></tr>
+        <tr><td>structured metadata</td><td>行级结构化字段（如 request_id），比 labels 便宜、比全文索引快</td></tr>
+        <tr><td>retention</td><td>按日志流设保留策略，到期自动删除</td></tr>
+        <tr><td>Grafana 数据源</td><td>Loki 作为 Grafana 数据源接入，LogQL 直接在看板里查</td></tr>
+      </table>
+
+      <h2 id="usage">3. 在 BMS 项目中的用途</h2>
+      <ul>
+        <li><strong>跨实例日志聚合</strong>：后端多副本 + celery-worker + event-worker 的 structlog JSON 日志统一进 Loki，一处检索全部实例（《<a href="../../../规划/项目规划说明.html#sel-ops">项目规划说明</a>》3.4 节）。</li>
+        <li><strong>请求链路串联</strong>：structlog 日志携带 request_id，Loki 内按 request_id 过滤即可还原一次请求在各实例的完整轨迹（《<a href="../../../规划/项目规划说明.html#sel-backend">项目规划说明</a>》3.1 节 structlog 条目）。</li>
+        <li><strong>统一展示</strong>：与 Prometheus 指标、Jaeger 链路一起挂在 Grafana 数据源上，指标 → 日志 → 链路互跳（见《<a href="Grafana技术介绍.html">Grafana 技术介绍</a>》）。</li>
+        <li><strong>审计辅助</strong>：操作日志、登录日志等审计类检索走 Loki，与数据库审计表互为补充（《<a href="../../../规划/项目规划说明.html#audit">项目规划说明</a>》13 节）。</li>
+      </ul>
+
+      <h2 id="compare">4. 选型对比</h2>
+      <table>
+        <tr><th>候选技术</th><th>优缺点</th><th>结论</th></tr>
+        <tr><td><strong>Loki（选中）</strong></td><td>优点：只索引元数据、资源占用低、与 Grafana 同厂无缝、部署简单；缺点：无全文索引，行过滤是扫描式</td><td>BMS 日志量级下最省资源，查询模式与 structlog 契合</td></tr>
+        <tr><td>Elasticsearch（ELK）</td><td>优点：全文索引强、生态成熟；缺点：JVM 内存开销大、集群运维重，小团队养不起</td><td>功能过剩，mjbk 单机规模不划算</td></tr>
+        <tr><td>ClickHouse + vector</td><td>优点：列存查询强、可玩性高；缺点：自建栈、运维与排障成本高</td><td>适合有专职运维的团队，BMS 不选</td></tr>
+        <tr><td>Splunk</td><td>优点：企业级功能全；缺点：商业收费按量计费、数据出域</td><td>成本与信创约束下不采用</td></tr>
+      </table>
+
+      <h2 id="pitfalls">5. 常见问题与注意事项</h2>
+      <ul>
+        <li><strong>labels 别放高基数字段</strong>：request_id、user_id 放 labels 会炸日志流数量；用 structured metadata 或行过滤承载。</li>
+        <li><strong>查询先选流再过滤</strong>：<code>{app="bms"} |= "error"</code> 比裸 <code>|= "error"</code> 快几个量级，养成先写 labels 的习惯。</li>
+        <li><strong>采集器选型</strong>：promtail 已进入维护模式，新部署直接用 Grafana Alloy（《<a href="../../../规划/项目规划说明.html#stack-ops">项目规划说明</a>》2.4 节监控栈配套）。</li>
+        <li><strong>retention 与后端存储</strong>：保留策略 + 对象存储后端（MinIO / 本地盘）一起规划，别默认全量长留。</li>
+        <li><strong>时间同步</strong>：Loki 按日志时间戳归档，各容器时钟不同步会导致查询「丢日志」，统一 NTP。</li>
+        <li><strong>push 带宽</strong>：日志量突增时关注网络与磁盘 IO，必要时在采集侧先过滤 DEBUG 级。</li>
+        <li><strong>Windows 与 Linux 差异</strong>：生产为 Linux 容器；Windows 本地体验请用 Docker 跑 Loki + Alloy，别装 Windows 版采集器。</li>
+      </ul>
+
+      <h2 id="learn">6. 学习与参考资料</h2>
+      <table>
+        <tr><th>资源</th><th>网址</th><th>说明</th></tr>
+        <tr><td>Loki 产品页</td><td>https://grafana.com/oss/loki/</td><td>定位、架构与许可说明</td></tr>
+        <tr><td>Loki 官方文档</td><td>https://grafana.com/docs/loki/latest/</td><td>安装、配置、LogQL 完整参考</td></tr>
+        <tr><td>Loki 入门概览</td><td>https://grafana.com/docs/loki/latest/get-started/overview/</td><td>labels / 日志流 / 存储模型入门</td></tr>
+        <tr><td>Grafana Alloy 文档</td><td>https://grafana.com/docs/alloy/latest/</td><td>官方采集器（promtail 继任者）配置参考</td></tr>
+        <tr><td>Loki 源码</td><td>https://github.com/grafana/loki</td><td>源码与 issue 讨论</td></tr>
+      </table>
+
+      <h2 id="related">7. 项目内关联文档</h2>
+      <table>
+        <tr><th>文档</th><th>说明</th></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#stack-ops">项目规划说明</a>》2.4 节</td><td>部署与运维技术栈（日志条目）</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#sel-ops">项目规划说明</a>》3.4 节</td><td>选型说明：Loki 聚合 structlog 日志跨实例检索</td></tr>
+        <tr><td>《<a href="../后端核心/structlog技术介绍.html">structlog 技术介绍</a>》</td><td>日志生产者：JSON 结构化日志 + request_id</td></tr>
+        <tr><td>《<a href="Grafana技术介绍.html">Grafana 技术介绍</a>》</td><td>Loki 作为数据源的展示出口</td></tr>
+        <tr><td>《<a href="Prometheus与Alertmanager技术介绍.html">Prometheus 与 Alertmanager 技术介绍</a>》</td><td>指标侧分工：高基数字段归日志、趋势值归指标</td></tr>
+        <tr><td>《<a href="../后端核心/OpenTelemetry技术介绍.html">OpenTelemetry 技术介绍</a>》</td><td>trace_id 与 request_id 关联，日志 / 链路互跳</td></tr>
+      </table>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 依《<a href="../../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>

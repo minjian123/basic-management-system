@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Vitest 技术介绍</title>
-<link rel="stylesheet" href="../../资源/文档样式.css">
+<link rel="stylesheet" href="../../../资源/文档样式.css">
 </head>
 <body>
 
@@ -51,7 +51,7 @@
         是 Vue 3 + Vite 技术栈的事实标准测试框架。
       </p>
       <ul>
-        <li><strong>定位</strong>：BMS 前端单元测试/组件测试框架，内置 coverage 统计前端覆盖率，CI 门禁之一（见《<a href="../../规划/项目规划说明.html#stack-frontend">项目规划说明</a>》2.2 节）。</li>
+        <li><strong>定位</strong>：BMS 前端单元测试/组件测试框架，内置 coverage 统计前端覆盖率，CI 门禁之一（见《<a href="../../../规划/项目规划说明.html#stack-frontend">项目规划说明</a>》2.2 节）。</li>
         <li><strong>版本</strong>：4.x（截至 2026 年稳定线，5.0 处于 RC 阶段）。</li>
         <li><strong>许可</strong>：MIT，OSI 认证开源。</li>
         <li><strong>语言</strong>：TypeScript 编写，测试代码用 JS/TS。</li>
@@ -74,11 +74,11 @@
 
       <h2 id="usage">3. 在 BMS 项目中的用途</h2>
       <ul>
-        <li><strong>前端单元测试</strong>：工具函数、API 封装、状态逻辑（Pinia store）的纯逻辑测试（见《<a href="../../规划/项目规划说明.html#sel-frontend">项目规划说明</a>》3.2 节）。</li>
+        <li><strong>前端单元测试</strong>：工具函数、API 封装、状态逻辑（Pinia store）的纯逻辑测试（见《<a href="../../../规划/项目规划说明.html#sel-frontend">项目规划说明</a>》3.2 节）。</li>
         <li><strong>组件测试</strong>：关键组件（待办角标、表单设计器控件、审批操作区）的渲染与交互测试，配合 @vue/test-utils。</li>
-        <li><strong>覆盖率门禁</strong>：核心模块（认证/RBAC/工作流/审计/收付款）行覆盖 ≥ 80%、整体 ≥ 70%，CI 门禁——前端由 Vitest coverage 统计，低于门槛流水线失败（见《<a href="../../规划/项目规划说明.html#test-exit">项目规划说明</a>》16.4 节）。</li>
-        <li><strong>MR 流水线</strong>：前端 ESLint + Vitest（含 coverage 门禁）+ 双端构建（见《<a href="../../规划/项目规划说明.html#sel-ops">项目规划说明</a>》3.4 节 GitLab CI）。</li>
-        <li><strong>测试报告</strong>：Vitest 生成自动化测试报告（CI 产物归档），结果经官方插件导入 Kiwi TCMS（见《<a href="../../规划/项目规划说明.html#test-report">项目规划说明</a>》16.5 节）。</li>
+        <li><strong>覆盖率门禁</strong>：核心模块（认证/RBAC/工作流/审计/收付款）行覆盖 ≥ 80%、整体 ≥ 70%，CI 门禁——前端由 Vitest coverage 统计，低于门槛流水线失败（见《<a href="../../../规划/项目规划说明.html#test-exit">项目规划说明</a>》16.4 节）。</li>
+        <li><strong>MR 流水线</strong>：前端 ESLint + Vitest（含 coverage 门禁）+ 双端构建（见《<a href="../../../规划/项目规划说明.html#sel-ops">项目规划说明</a>》3.4 节 GitLab CI）。</li>
+        <li><strong>测试报告</strong>：Vitest 生成自动化测试报告（CI 产物归档），结果经官方插件导入 Kiwi TCMS（见《<a href="../../../规划/项目规划说明.html#test-report">项目规划说明</a>》16.5 节）。</li>
         <li><strong>双工程</strong>：frontend 与 frontend-mobile 各自独立 vitest 配置，口径一致、工程独立。</li>
       </ul>
 
@@ -143,9 +143,9 @@ describe('TodoBadge', () =&gt; {
       <h2 id="related">7. 项目内关联文档</h2>
       <table>
         <tr><th>文档</th><th>说明</th></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#stack-frontend">项目规划说明</a>》2.2 节</td><td>前端技术栈（Vitest 条目）</td></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#sel-frontend">项目规划说明</a>》3.2 节</td><td>选型理由：与 Vite 同构、内置 coverage</td></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#test">项目规划说明</a>》16 节</td><td>测试策略：覆盖率门槛与测试报告归档</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#stack-frontend">项目规划说明</a>》2.2 节</td><td>前端技术栈（Vitest 条目）</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#sel-frontend">项目规划说明</a>》3.2 节</td><td>选型理由：与 Vite 同构、内置 coverage</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#test">项目规划说明</a>》16 节</td><td>测试策略：覆盖率门槛与测试报告归档</td></tr>
         <tr><td>《<a href="ESLint与Prettier技术介绍.html">ESLint 与 Prettier 技术介绍</a>》</td><td>同一 MR 门禁的代码规范部分</td></tr>
         <tr><td>《<a href="Playwright技术介绍.html">Playwright 技术介绍</a>》</td><td>E2E 测试（与单元测试分层互补）</td></tr>
         <tr><td>《<a href="Vite技术介绍.html">Vite 技术介绍</a>》</td><td>同构基础：复用 Vite 转换管线</td></tr>
@@ -156,7 +156,7 @@ describe('TodoBadge', () =&gt; {
     </main>
 
     <footer>
-      本文档为 AI 生成 · 依《<a href="../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
+      本文档为 AI 生成 · 依《<a href="../../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
     </footer>
   </div>
 

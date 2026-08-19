@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Alembic 技术介绍</title>
-<link rel="stylesheet" href="../../资源/文档样式.css">
+<link rel="stylesheet" href="../../../资源/文档样式.css">
 </head>
 <body>
 
@@ -65,15 +65,15 @@
         <tr><td>alembic_version 表</td><td>记录当前库已执行到的版本号，升级/回滚以此为准</td></tr>
         <tr><td>upgrade / downgrade</td><td>升级（向前应用变更）与降级（回滚变更），支持指定版本号或 head</td></tr>
         <tr><td>多方言迁移</td><td>同一变更在 MySQL/PostgreSQL/达梦上 SQL 不同，脚本需按方言验证（JSON 类型、索引、NULL 唯一键等）</td></tr>
-        <tr><td>批量迁移</td><td>遍历全部租户库逐一执行迁移：新租户开通自动建库 + 迁移 + 种子（见《<a href="../../规划/项目规划说明.html#datasource">项目规划说明》10 节</a>）</td></tr>
+        <tr><td>批量迁移</td><td>遍历全部租户库逐一执行迁移：新租户开通自动建库 + 迁移 + 种子（见《<a href="../../../规划/项目规划说明.html#datasource">项目规划说明》10 节</a>）</td></tr>
       </table>
 
       <h2 id="usage">3. 在 BMS 项目中的用途</h2>
       <ul>
-        <li>作为唯一 schema 版本管理工具：目录 <code>alembic/</code> + <code>alembic.ini</code>，URL 从 config.toml 读取，不写死连接串（见《<a href="../../规划/项目规划说明.html#stack-backend">项目规划说明》2.1 节</a>）。</li>
-        <li>按数据源分别维护迁移脚本：只管理各库 schema；平台库、租户库、归档库各走一套迁移链（见《<a href="../../规划/项目规划说明.html#datasource">项目规划说明》10 节</a>）。</li>
-        <li><strong>方言差异分环境验证</strong>：维护 MySQL / PostgreSQL / 达梦 DM8 三套方言迁移；SQLite 开发库自动建表不跑迁移（见《<a href="../../规划/项目规划说明.html#dbcompat">项目规划说明》11 节</a>）。</li>
-        <li>CI 三库方言集成测试：连 mjbk 常驻三库，建 bms_test 前缀测试库 → Alembic 迁移 → 集成测试 → 删库清理，保证迁移脚本在每类库上真实可执行（见《<a href="../../规划/开发部署规划.html">开发部署规划</a>》与《<a href="../../规划/项目规划说明.html#test">项目规划说明》16 节</a>）。</li>
+        <li>作为唯一 schema 版本管理工具：目录 <code>alembic/</code> + <code>alembic.ini</code>，URL 从 config.toml 读取，不写死连接串（见《<a href="../../../规划/项目规划说明.html#stack-backend">项目规划说明》2.1 节</a>）。</li>
+        <li>按数据源分别维护迁移脚本：只管理各库 schema；平台库、租户库、归档库各走一套迁移链（见《<a href="../../../规划/项目规划说明.html#datasource">项目规划说明》10 节</a>）。</li>
+        <li><strong>方言差异分环境验证</strong>：维护 MySQL / PostgreSQL / 达梦 DM8 三套方言迁移；SQLite 开发库自动建表不跑迁移（见《<a href="../../../规划/项目规划说明.html#dbcompat">项目规划说明》11 节</a>）。</li>
+        <li>CI 三库方言集成测试：连 mjbk 常驻三库，建 bms_test 前缀测试库 → Alembic 迁移 → 集成测试 → 删库清理，保证迁移脚本在每类库上真实可执行（见《<a href="../../../规划/开发部署规划.html">开发部署规划</a>》与《<a href="../../../规划/项目规划说明.html#test">项目规划说明》16 节</a>）。</li>
         <li>新租户开通自动建库 + 迁移 + 种子数据，靠批量迁移遍历 sys_tenant 实现。</li>
       </ul>
 
@@ -109,19 +109,19 @@
       <h2 id="related">7. 项目内关联文档</h2>
       <table>
         <tr><th>文档</th><th>说明</th></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#stack-backend">项目规划说明》2.1 节</a></td><td>技术栈：数据库迁移条目（URL 来自 config.toml）</td></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#datasource">项目规划说明》10 节</a></td><td>多数据源策略：按数据源分迁移、租户批量迁移</td></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#dbcompat">项目规划说明》11 节</a></td><td>数据库兼容：三套方言迁移维护口径</td></tr>
-        <tr><td>《<a href="../../规划/开发部署规划.html">开发部署规划</a>》</td><td>CI 三库方言测试与 bms_test 测试库流程</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#stack-backend">项目规划说明》2.1 节</a></td><td>技术栈：数据库迁移条目（URL 来自 config.toml）</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#datasource">项目规划说明》10 节</a></td><td>多数据源策略：按数据源分迁移、租户批量迁移</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#dbcompat">项目规划说明》11 节</a></td><td>数据库兼容：三套方言迁移维护口径</td></tr>
+        <tr><td>《<a href="../../../规划/开发部署规划.html">开发部署规划</a>》</td><td>CI 三库方言测试与 bms_test 测试库流程</td></tr>
         <tr><td>《<a href="SQLAlchemy技术介绍.html">SQLAlchemy 技术介绍</a>》</td><td>迁移的对象：模型声明与元数据</td></tr>
         <tr><td>《<a href="MySQL技术介绍.html">MySQL 技术介绍</a>》等三库文档</td><td>各库方言特性与差异来源</td></tr>
-        <tr><td>《<a href="../../规范/数据库开发规范.html">数据库开发规范</a>》</td><td>表结构变更与迁移脚本的流程要求</td></tr>
+        <tr><td>《<a href="../../../规范/数据库开发规范.html">数据库开发规范</a>》</td><td>表结构变更与迁移脚本的流程要求</td></tr>
       </table>
 
     </main>
 
     <footer>
-      本文档为 AI 生成 · 依《<a href="../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
+      本文档为 AI 生成 · 依《<a href="../../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
     </footer>
   </div>
 

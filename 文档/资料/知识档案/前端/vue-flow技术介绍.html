@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>vue-flow 技术介绍</title>
-<link rel="stylesheet" href="../../资源/文档样式.css">
+<link rel="stylesheet" href="../../../资源/文档样式.css">
 </head>
 <body>
 
@@ -51,7 +51,7 @@
         节点图/画布类交互的主流开源方案。
       </p>
       <ul>
-        <li><strong>定位</strong>：BMS 大屏设计器的自由画布——节点自由拖拽（绝对定位）、缩放平移，配合 ECharts 渲染图表节点（见《<a href="../../规划/项目规划说明.html#stack-frontend">项目规划说明</a>》2.2 节）。</li>
+        <li><strong>定位</strong>：BMS 大屏设计器的自由画布——节点自由拖拽（绝对定位）、缩放平移，配合 ECharts 渲染图表节点（见《<a href="../../../规划/项目规划说明.html#stack-frontend">项目规划说明</a>》2.2 节）。</li>
         <li><strong>版本</strong>：1.48.2（截至 2026 年，持续迭代）。</li>
         <li><strong>许可</strong>：MIT，OSI 认证开源。</li>
         <li><strong>语言</strong>：TypeScript 编写，Vue 3 组件。</li>
@@ -75,11 +75,11 @@
 
       <h2 id="usage">3. 在 BMS 项目中的用途</h2>
       <ul>
-        <li><strong>大屏设计器</strong>：大屏自由画布——节点自由拖拽（绝对定位）、缩放平移，与 gridstack 网格布局分工明确，互不混用（见《<a href="../../规划/项目规划说明.html#sel-frontend">项目规划说明</a>》3.2 节）。</li>
+        <li><strong>大屏设计器</strong>：大屏自由画布——节点自由拖拽（绝对定位）、缩放平移，与 gridstack 网格布局分工明确，互不混用（见《<a href="../../../规划/项目规划说明.html#sel-frontend">项目规划说明</a>》3.2 节）。</li>
         <li><strong>图表节点</strong>：节点内容用 ECharts 渲染（营收趋势、区域分布等），节点即图表卡（见《<a href="ECharts技术介绍.html">ECharts 技术介绍</a>》）。</li>
         <li><strong>布局持久化</strong>：节点位置/尺寸/类型序列化为 JSON 存后端；大屏播放页只读还原画布并 <code>fitView</code> 适配屏幕。</li>
         <li><strong>尺寸调整</strong>：设计态用 node-resizer 拖拽改节点尺寸，播放态按屏幕比例缩放。</li>
-        <li><strong>三库分工</strong>：列表排序用 vuedraggable、网格布局用 gridstack、自由画布用 vue-flow（见《<a href="../../规划/项目规划说明.html#sel-frontend">项目规划说明</a>》3.2 节）。</li>
+        <li><strong>三库分工</strong>：列表排序用 vuedraggable、网格布局用 gridstack、自由画布用 vue-flow（见《<a href="../../../规划/项目规划说明.html#sel-frontend">项目规划说明</a>》3.2 节）。</li>
       </ul>
 
       <p>最小示例（两个节点 + 自适应视图）：</p>
@@ -134,19 +134,19 @@ const nodes = ref([
       <h2 id="related">7. 项目内关联文档</h2>
       <table>
         <tr><th>文档</th><th>说明</th></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#stack-frontend">项目规划说明</a>》2.2 节</td><td>前端技术栈（vue-flow 条目）</td></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#sel-frontend">项目规划说明</a>》3.2 节</td><td>选型理由：大屏自由画布，与 gridstack 分工明确</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#stack-frontend">项目规划说明</a>》2.2 节</td><td>前端技术栈（vue-flow 条目）</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#sel-frontend">项目规划说明</a>》3.2 节</td><td>选型理由：大屏自由画布，与 gridstack 分工明确</td></tr>
         <tr><td>《<a href="ECharts技术介绍.html">ECharts 技术介绍</a>》</td><td>图表节点渲染（vue-flow 画布 + ECharts 内容）</td></tr>
         <tr><td>《<a href="gridstack技术介绍.html">gridstack 技术介绍</a>》</td><td>网格布局（与 vue-flow 自由画布分工）</td></tr>
         <tr><td>《<a href="vuedraggable技术介绍.html">vuedraggable 技术介绍</a>》</td><td>表单设计器列表排序（三者分工之一）</td></tr>
         <tr><td>《<a href="Vue3技术介绍.html">Vue 3 技术介绍</a>》</td><td>vue-flow 的宿主框架</td></tr>
-        <tr><td>《<a href="../../规范/命名规范.html">命名规范</a>》</td><td>大屏布局 JSON 字段命名</td></tr>
+        <tr><td>《<a href="../../../规范/命名规范.html">命名规范</a>》</td><td>大屏布局 JSON 字段命名</td></tr>
       </table>
 
     </main>
 
     <footer>
-      本文档为 AI 生成 · 依《<a href="../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
+      本文档为 AI 生成 · 依《<a href="../../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
     </footer>
   </div>
 

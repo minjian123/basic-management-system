@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>vuedraggable 技术介绍</title>
-<link rel="stylesheet" href="../../资源/文档样式.css">
+<link rel="stylesheet" href="../../../资源/文档样式.css">
 </head>
 <body>
 
@@ -50,7 +50,7 @@
         页面其余部分（计算属性、watcher、持久化）全部跟着动。
       </p>
       <ul>
-        <li><strong>定位</strong>：BMS 表单设计器专用——字段排序、分组与跨分区拖拽、查询区/明细列顺序调整（见《<a href="../../规划/项目规划说明.html#stack-frontend">项目规划说明</a>》2.2 节）。</li>
+        <li><strong>定位</strong>：BMS 表单设计器专用——字段排序、分组与跨分区拖拽、查询区/明细列顺序调整（见《<a href="../../../规划/项目规划说明.html#stack-frontend">项目规划说明</a>》2.2 节）。</li>
         <li><strong>版本</strong>：4.1.0（Vue 3 版即 Vue.Draggable.Next，2021 年发布后无新版；底层 SortableJS 持续维护）。</li>
         <li><strong>许可</strong>：MIT，OSI 认证开源。</li>
         <li><strong>语言</strong>：JavaScript 编写，Vue 3 组件。</li>
@@ -74,12 +74,12 @@
 
       <h2 id="usage">3. 在 BMS 项目中的用途</h2>
       <ul>
-        <li><strong>表单设计器（表单布局管理）</strong>：选表单 → 布局编辑——分区/分组/列数/跨列/顺序/标签宽度、查询表单区、明细区列配置、字段属性、租户自建字段，列表排序与跨分区拖拽统一用 vuedraggable（见《<a href="../../规划/项目规划说明.html#pages">项目规划说明</a>》15 节、《<a href="../../规划/项目规划说明.html#plan">项目规划说明</a>》20 节验收标准）。</li>
+        <li><strong>表单设计器（表单布局管理）</strong>：选表单 → 布局编辑——分区/分组/列数/跨列/顺序/标签宽度、查询表单区、明细区列配置、字段属性、租户自建字段，列表排序与跨分区拖拽统一用 vuedraggable（见《<a href="../../../规划/项目规划说明.html#pages">项目规划说明</a>》15 节、《<a href="../../../规划/项目规划说明.html#plan">项目规划说明</a>》20 节验收标准）。</li>
         <li><strong>字段排序</strong>：同一分区内字段上下拖拽调整顺序，结果写回布局 JSON 存后端。</li>
         <li><strong>跨分区拖拽</strong>：多个分区容器配置相同 <code>group</code>，字段可在分区之间移动（<code>@add</code>/<code>@remove</code> 事件感知进出）。</li>
         <li><strong>查询区/明细列顺序调整</strong>：查询表单区字段、明细区列的先后顺序调整，同一套组件复用。</li>
         <li><strong>字段库拖入</strong>：从可用字段库拖字段进表单区（<code>clone</code> 模式，字段库不减少）。</li>
-        <li><strong>三库分工</strong>：列表排序用 vuedraggable、网格布局用 gridstack、自由画布用 vue-flow，三者互不混用（见《<a href="../../规划/项目规划说明.html#sel-frontend">项目规划说明</a>》3.2 节）。</li>
+        <li><strong>三库分工</strong>：列表排序用 vuedraggable、网格布局用 gridstack、自由画布用 vue-flow，三者互不混用（见《<a href="../../../规划/项目规划说明.html#sel-frontend">项目规划说明</a>》3.2 节）。</li>
       </ul>
 
       <p>最小示例（列表排序 + 跨容器）：</p>
@@ -153,19 +153,19 @@ function onChange(evt) {
       <h2 id="related">7. 项目内关联文档</h2>
       <table>
         <tr><th>文档</th><th>说明</th></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#stack-frontend">项目规划说明</a>》2.2 节</td><td>前端技术栈（vuedraggable 条目）</td></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#sel-frontend">项目规划说明</a>》3.2 节</td><td>选型理由：表单设计器专用，与 gridstack/vue-flow 三者分工</td></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#pages">项目规划说明</a>》15 节</td><td>表单布局管理页面清单（分区/分组/列数/跨列/顺序/标签宽度）</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#stack-frontend">项目规划说明</a>》2.2 节</td><td>前端技术栈（vuedraggable 条目）</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#sel-frontend">项目规划说明</a>》3.2 节</td><td>选型理由：表单设计器专用，与 gridstack/vue-flow 三者分工</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#pages">项目规划说明</a>》15 节</td><td>表单布局管理页面清单（分区/分组/列数/跨列/顺序/标签宽度）</td></tr>
         <tr><td>《<a href="gridstack技术介绍.html">gridstack 技术介绍</a>》</td><td>网格布局（与 vuedraggable 列表排序分工）</td></tr>
         <tr><td>《<a href="vue-flow技术介绍.html">vue-flow 技术介绍</a>》</td><td>大屏自由画布（与 vuedraggable 列表排序分工）</td></tr>
         <tr><td>《<a href="ElementPlus技术介绍.html">Element Plus 技术介绍</a>》</td><td>设计器页面工具栏、字段属性表单等界面组件</td></tr>
-        <tr><td>《<a href="../../规范/命名规范.html">命名规范</a>》</td><td>布局 JSON 字段、分区/分组等命名</td></tr>
+        <tr><td>《<a href="../../../规范/命名规范.html">命名规范</a>》</td><td>布局 JSON 字段、分区/分组等命名</td></tr>
       </table>
 
     </main>
 
     <footer>
-      本文档为 AI 生成 · 依《<a href="../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
+      本文档为 AI 生成 · 依《<a href="../../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
     </footer>
   </div>
 

@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>bpmn-js 技术介绍</title>
-<link rel="stylesheet" href="../../资源/文档样式.css">
+<link rel="stylesheet" href="../../../资源/文档样式.css">
 </head>
 <body>
 
@@ -73,9 +73,9 @@
 
       <h2 id="usage">3. 在 BMS 项目中的用途</h2>
       <ul>
-        <li><strong>拖拽建模流程定义</strong>：管理端工作流管理模块用 bpmn-js 绘制流程，支持条件分支可视化（见《<a href="../../规划/项目规划说明.html#sel-frontend">项目规划说明</a>》3.2 节）。</li>
+        <li><strong>拖拽建模流程定义</strong>：管理端工作流管理模块用 bpmn-js 绘制流程，支持条件分支可视化（见《<a href="../../../规划/项目规划说明.html#sel-frontend">项目规划说明</a>》3.2 节）。</li>
         <li><strong>导出 BPMN XML</strong>：建模完成后 <code>saveXML()</code> 导出标准 XML，存 <code>wf_process.bpmn_xml</code>，交后端 SpiffWorkflow 解析执行（见《<a href="../后端核心/SpiffWorkflow技术介绍.html">SpiffWorkflow 技术介绍</a>》）。</li>
-        <li><strong>流程版本管理</strong>：同一 <code>definition_key</code> 多版本，建模器加载历史版本 XML 可继续编辑（见《<a href="../../规划/项目规划说明.html#pages">项目规划说明</a>》数据规范）。</li>
+        <li><strong>流程版本管理</strong>：同一 <code>definition_key</code> 多版本，建模器加载历史版本 XML 可继续编辑（见《<a href="../../../规划/项目规划说明.html#pages">项目规划说明</a>》数据规范）。</li>
         <li><strong>只读展示</strong>：流程实例、待办/已办详情页用 Viewer 渲染流程走向，高亮当前节点。</li>
         <li><strong>属性与办理人</strong>：用户任务办理人、会签/或签、条件表达式经 Properties Panel 配置，写入 BPMN 扩展属性。</li>
       </ul>
@@ -125,10 +125,10 @@ const { xml } = await modeler.saveXML()</code></pre>
       <h2 id="related">7. 项目内关联文档</h2>
       <table>
         <tr><th>文档</th><th>说明</th></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#stack-frontend">项目规划说明</a>》2.2 节</td><td>前端技术栈（bpmn-js 条目）</td></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#sel-frontend">项目规划说明</a>》3.2 节</td><td>选型理由：拖拽建模导出 BPMN XML</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#stack-frontend">项目规划说明</a>》2.2 节</td><td>前端技术栈（bpmn-js 条目）</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#sel-frontend">项目规划说明</a>》3.2 节</td><td>选型理由：拖拽建模导出 BPMN XML</td></tr>
         <tr><td>《<a href="../后端核心/SpiffWorkflow技术介绍.html">SpiffWorkflow 技术介绍</a>》</td><td>后端 BPMN 执行引擎，解析 bpmn-js 导出的 XML</td></tr>
-        <tr><td>《<a href="../../规范/命名规范.html">命名规范</a>》</td><td>工作流表 wf_ 前缀、definition_key 命名</td></tr>
+        <tr><td>《<a href="../../../规范/命名规范.html">命名规范</a>》</td><td>工作流表 wf_ 前缀、definition_key 命名</td></tr>
         <tr><td>《<a href="Vue3技术介绍.html">Vue 3 技术介绍</a>》</td><td>bpmn-js 组件的宿主框架</td></tr>
         <tr><td>《<a href="ElementPlus技术介绍.html">Element Plus 技术介绍</a>》</td><td>建模页工具栏、属性表单等界面组件</td></tr>
       </table>
@@ -136,7 +136,7 @@ const { xml } = await modeler.saveXML()</code></pre>
     </main>
 
     <footer>
-      本文档为 AI 生成 · 依《<a href="../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
+      本文档为 AI 生成 · 依《<a href="../../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
     </footer>
   </div>
 

@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ruff 技术介绍</title>
-<link rel="stylesheet" href="../../资源/文档样式.css">
+<link rel="stylesheet" href="../../../资源/文档样式.css">
 </head>
 <body>
 
@@ -71,9 +71,9 @@
 
       <h2 id="usage">3. 在 BMS 项目中的用途</h2>
       <ul>
-        <li>作为《<a href="../../规划/项目规划说明.html#stack-eng">项目规划说明</a>》2.3 节指定的代码规范工具，替换 flake8 / black / isort（选型依据见《<a href="../../规划/项目规划说明.html#sel-eng">项目规划说明</a>》3.3 节）。</li>
+        <li>作为《<a href="../../../规划/项目规划说明.html#stack-eng">项目规划说明</a>》2.3 节指定的代码规范工具，替换 flake8 / black / isort（选型依据见《<a href="../../../规划/项目规划说明.html#sel-eng">项目规划说明</a>》3.3 节）。</li>
         <li>配置收进 <code>pyproject.toml</code> 的 <code>[tool.ruff]</code> 段，随《<a href="uv技术介绍.html">uv</a>》统一管理，不额外引入配置文件。</li>
-        <li>CI 前端门禁：MR 流水线第一道关卡就是后端 ruff 检查，不通过直接失败（见《<a href="../../规划/项目规划说明.html#sel-ops">项目规划说明</a>》3.4 节）。</li>
+        <li>CI 前端门禁：MR 流水线第一道关卡就是后端 ruff 检查，不通过直接失败（见《<a href="../../../规划/项目规划说明.html#sel-ops">项目规划说明</a>》3.4 节）。</li>
         <li>本地命令（Windows PowerShell 与 Linux 通用）：</li>
       </ul>
       <pre><code>uv run ruff check .           # 检查全部代码
@@ -116,18 +116,18 @@ uv run ruff format .          # 格式化全部代码</code></pre>
       <h2 id="related">7. 项目内关联文档</h2>
       <table>
         <tr><th>文档</th><th>说明</th></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#stack-eng">项目规划说明</a>》2.3 节</td><td>技术栈：代码规范 = ruff</td></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#sel-eng">项目规划说明</a>》3.3 节</td><td>选型说明：lint + format 一体化、性能极高</td></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#sel-ops">项目规划说明</a>》3.4 节</td><td>CI 流水线：ruff 为后端第一道门禁</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#stack-eng">项目规划说明</a>》2.3 节</td><td>技术栈：代码规范 = ruff</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#sel-eng">项目规划说明</a>》3.3 节</td><td>选型说明：lint + format 一体化、性能极高</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#sel-ops">项目规划说明</a>》3.4 节</td><td>CI 流水线：ruff 为后端第一道门禁</td></tr>
         <tr><td>《<a href="uv技术介绍.html">uv 技术介绍</a>》</td><td>统一以 <code>uv run ruff ...</code> 执行，配置共用 pyproject.toml</td></tr>
         <tr><td>《<a href="pyright技术介绍.html">pyright 技术介绍</a>》</td><td>类型检查与 ruff 分工：风格 vs 类型</td></tr>
-        <tr><td>《<a href="../../规范/后端开发规范.html">后端开发规范</a>》</td><td>编码约定与规范的落地执行工具</td></tr>
+        <tr><td>《<a href="../../../规范/后端开发规范.html">后端开发规范</a>》</td><td>编码约定与规范的落地执行工具</td></tr>
       </table>
 
     </main>
 
     <footer>
-      本文档为 AI 生成 · 依《<a href="../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
+      本文档为 AI 生成 · 依《<a href="../../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
     </footer>
   </div>
 
