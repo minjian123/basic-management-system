@@ -219,6 +219,7 @@ flowchart TD
         <tr><td>后端测试</td><td>pytest + httpx（ASGITransport）+ pytest-cov（覆盖率门禁）</td></tr>
         <tr><td>API 文档</td><td>Swagger UI / ReDoc（FastAPI 内置，生产关闭）</td></tr>
         <tr><td>知识图谱</td><td>graphify（代码理解与架构分析）</td></tr>
+        <tr><td>缺陷管理</td><td><code>deploy/tools/defect/</code>：defect_capture.py（测试失败自动上报 + REPRO 复现包：dump/堆栈/repro.json/REPRO.md）、reproduce.py（一键复现：检出 commit + 导入 dump + 跑用例）、ai_fix.py（双轨 AI 修复代理：本地模型优先云端兜底，bot 提 MR 人工合入）</td></tr>
         <tr><td>压测</td><td>locust（登录/列表/审批场景）</td></tr>
       </table>
 
