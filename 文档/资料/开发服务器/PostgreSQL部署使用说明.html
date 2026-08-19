@@ -94,6 +94,7 @@ docker exec bms-postgres psql -U postgres -c "SELECT version();"</code></pre>
         <tr><td>查看日志</td><td><code>docker logs -f bms-postgres</code></td></tr>
         <tr><td>进入客户端</td><td><code>docker exec -it bms-postgres psql -U postgres</code></td></tr>
         <tr><td>备份（每日 cron 2 点）</td><td><code>docker exec bms-postgres pg_dump -U postgres -Fc bms_dev &gt; /mnt/data/backup/postgres/bms_dev-$(date +%F).dump</code></td></tr>
+        <tr><td>现场导出（缺陷重现，见《<a href="../../规范/测试规范.html">测试规范</a>》9 节）</td><td><code>mkdir -p /mnt/data/backup/defects/&lt;缺陷号&gt; &amp;&amp; docker exec bms-postgres pg_dump -U postgres -Fc &lt;库名&gt; &gt; /mnt/data/backup/defects/&lt;缺陷号&gt;/&lt;库名&gt;.dump</code></td></tr>
       </table>
 
       <h2 id="related">7. 关联文档</h2>

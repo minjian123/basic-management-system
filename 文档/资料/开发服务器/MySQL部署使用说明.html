@@ -102,6 +102,7 @@ docker exec bms-mysql mysql -uroot -p"$密码" -e "SHOW VARIABLES LIKE 'characte
         <tr><td>重启</td><td><code>docker restart bms-mysql</code></td></tr>
         <tr><td>进入客户端</td><td><code>docker exec -it bms-mysql mysql -uroot -p</code></td></tr>
         <tr><td>备份（每日 cron 2 点）</td><td><code>mysqldump --single-transaction -uroot -p"$密码" bms_dev &gt; /mnt/data/backup/mysql/bms_dev-$(date +%F).sql</code></td></tr>
+        <tr><td>现场导出（缺陷重现，见《<a href="../../规范/测试规范.html">测试规范</a>》9 节）</td><td><code>mkdir -p /mnt/data/backup/defects/&lt;缺陷号&gt; &amp;&amp; mysqldump --single-transaction -uroot -p"$密码" &lt;库名&gt; &gt; /mnt/data/backup/defects/&lt;缺陷号&gt;/&lt;库名&gt;.sql</code></td></tr>
       </table>
 
       <h2 id="trouble">7. 排障记录</h2>
