@@ -65,23 +65,21 @@
 - 修改代码后运行 `graphify update .` 保持图谱最新（纯 AST，无 API 开销）；随后运行 `python deploy/tools/graphify/localize-graph.py` 收尾（汉化 graph.html + 生成中文架构图 CALLFLOW.html）。
 - graphify 安装、排除规则、重建取舍、社区命名等细节见 `文档/资料/AI/graphify部署使用说明.html`，不在此展开。
 
-## 本地多模态（MCP + 子代理）
+## 本地多模态（MCP）
 
-让 AI 助手使用本机多模态模型的通用能力（LM Studio qwen3.8-27b，OpenAI 兼容 127.0.0.1:1234）。方案与配置细节见 `文档/资料/AI/本地多模态接入方案.html`，子代理说明见 `文档/资料/AI/local-helper子代理使用说明.html`（需要时再读）。双轨组成：
+让 AI 助手使用本机多模态模型的通用能力（LM Studio qwen3.8-27b，OpenAI 兼容 127.0.0.1:1234）。方案与配置细节见 `文档/资料/AI/本地多模态接入方案.html`（需要时再读）。组成：
 
 - **MCP server**（`deploy/tools/multimodal/mcp_server.py`，opencode.json 的 `mcp` 段登记）：`multimodal_chat`（文本+图片+文档通用对话，看图/看文档）、`screenshot`（HTML/URL 无头截图）。
-- **子代理 `local-helper`**（`.opencode/agent/local-helper.md`）：本地模型"小弟"，只读 + 命令权限（禁改文件），承担简单重复劳动。
 
 规则：
 
 - **任务分级（强制）**：先评估任务难度再决定派给谁——
-  - **简单重复劳动 → 本地子代理 `local-helper`**：识图描述、界面截图走查、文本格式整理、翻译、摘要、清单提取、交叉检查引用、批量重复操作。此类任务结果容错要求低，本地模型（27B）足够胜任。
+  - **简单重复劳动 → 主会话自己处理**：识图描述、界面截图走查、文本格式整理、翻译、摘要、清单提取、交叉检查引用、批量重复操作。主模型本身多模态，直接完成即可（需要时调 MCP 工具）。
   - **较难任务 → 云端子代理（task 选内置 `general` 等，走云端默认模型）**：方案设计、代码编写/重构、多步推理、需要领域判断或一致性要求的产出。
   - **核心工作 → 主会话自己处理**：决策、架构与内容定稿、涉及准确性关键的产出不外包。
-  - 本地模型能力一般（27B 量化），**拿不准难度时一律不派给 local-helper**，宁可主会话自己做或派云端子代理。
-- **配置即用**：MCP 配置、provider（`lmstudio`）、子代理 model 均已固化在 `.opencode/opencode.json` 与 `.opencode/agent/`，无需每次设置环境变量；**修改配置后须重启 opencode 才生效**。
+- **配置即用**：MCP 配置、provider（`lmstudio`）均已固化在 `.opencode/opencode.json`，无需每次设置环境变量；**修改配置后须重启 opencode 才生效**。
 - **本地模型注意**：推理模型，客户端默认 `reasoning_effort: "none"` 关闭思考；本地模型零费用，可对同一张图反复调用、聚焦区域迭代复查。
-- **评审闭环**：截图评审 → 按问题清单修正 → 重新评审，直到无高危问题。评审组合动作交给子代理 `local-helper` 执行，或主会话自己组合 MCP 工具完成。
+- **评审闭环**：截图评审 → 按问题清单修正 → 重新评审，直到无高危问题。评审组合动作由主会话自己组合 MCP 工具完成。
 - 截图与评审报告等产物一律输出到 `temp/vision/`（已 gitignore），**不入库、不提交**；需留档时输出到项目内其他位置。
 - 场景模板（prompts/）、CLI 备用（vision_analyze.py / screenshot.py）、排障等细节见上述方案文档，需要时再读。
 

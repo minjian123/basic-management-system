@@ -20,14 +20,14 @@
   <aside class="sidebar">
     <div class="brand">
       <h1>本地多模态接入方案</h1>
-      <p>MCP 工具 · 本地子代理 · 原型视觉评审</p>
+      <p>MCP 工具 · 原型视觉评审</p>
     </div>
     <nav>
       <ul>
         <li><a href="#purpose">1. 目的与适用范围</a></li>
         <li><a href="#architecture">2. 总体架构</a>
           <ul class="sub">
-            <li><a href="#arch-track">2.1 双轨：MCP server 与子代理</a></li>
+            <li><a href="#arch-track">2.1 MCP server</a></li>
             <li><a href="#arch-choice">2.2 方案取舍（插件 → MCP）</a></li>
           </ul>
         </li>
@@ -47,21 +47,15 @@
         </li>
         <li><a href="#cli">5. Python CLI 备用</a></li>
         <li><a href="#screenshot">6. 截图服务（Edge 无头）</a></li>
-        <li><a href="#subagent">7. 子代理 local-helper</a>
+        <li><a href="#scenes">7. 场景适配（模板即场景）</a>
           <ul class="sub">
-            <li><a href="#subagent-config">7.1 配置与权限</a></li>
-            <li><a href="#subagent-use">7.2 使用方式</a></li>
+            <li><a href="#scene-mechanism">7.1 场景机制</a></li>
+            <li><a href="#scene-prototype">7.2 场景示例：原型视觉评审</a></li>
+            <li><a href="#scene-other">7.3 场景清单</a></li>
           </ul>
         </li>
-        <li><a href="#scenes">8. 场景适配（模板即场景）</a>
-          <ul class="sub">
-            <li><a href="#scene-mechanism">8.1 场景机制</a></li>
-            <li><a href="#scene-prototype">8.2 场景示例：原型视觉评审</a></li>
-            <li><a href="#scene-other">8.3 场景清单</a></li>
-          </ul>
-        </li>
-        <li><a href="#security">9. 安全与隐私</a></li>
-        <li><a href="#deploy">10. 实施步骤与检查清单</a></li>
+        <li><a href="#security">8. 安全与隐私</a></li>
+        <li><a href="#deploy">9. 实施步骤与检查清单</a></li>
       </ul>
     </nav>
   </aside>
@@ -73,28 +67,25 @@
       <p>
         为 BMS 项目（<a href="../../规划/项目规划说明.html">《项目规划说明》</a>）建设<strong>本地多模态能力接入</strong>：
         把本机 LM Studio 上的多模态模型（qwen3.8-27b）的<strong>全部能力</strong>（识图、多模态对话、文本理解）开放给 AI 助手使用。
-        方案由「MCP server + 子代理」双轨组成——MCP server 把多模态能力暴露为标准工具，子代理把本地模型当作可派活的"小弟"；
-        两者共用同一套 Python 客户端、截图服务与场景提示词模板，<strong>与具体场景解耦</strong>。
+        方案以 MCP server 为核心——把多模态能力暴露为标准工具，主会话直接调用；
+        另配同一套 Python 客户端、截图服务与场景提示词模板，<strong>与具体场景解耦</strong>。
       </p>
       <div class="note">背景：原型设计工作流缺少视觉校验环节。本方案补齐「截图 → 识图 → 问题清单 → 修正」闭环，并顺带把本地模型的对话、文档理解能力接入主会话。</div>
 
       <h2 id="architecture">2. 总体架构</h2>
       <pre class="mermaid">
-flowchart LR
-    A["opencode 主会话"] -->|"multimodal_chat / screenshot"| M["MCP server<br/>deploy/tools/multimodal/mcp_server.py"]
-    A -->|"派活（task）"| S["子代理 local-helper<br/>lmstudio/qwen3.8-27b"]
-    M -->|"OpenAI 兼容 API"| L["LM Studio<br/>127.0.0.1:1234"]
-    S -->|"bash 调用"| C["Python 客户端<br/>vision_analyze.py / screenshot.py"]
-    C -->|"OpenAI 兼容 API"| L
-    E["Edge 无头截图"] -->|"PNG 图片"| C
-    F["场景提示词模板<br/>deploy/tools/multimodal/prompts/"] -->|"注入评审规则"| M
+ flowchart LR
+     A["opencode 主会话"] -->|"multimodal_chat / screenshot"| M["MCP server<br/>deploy/tools/multimodal/mcp_server.py"]
+     M -->|"OpenAI 兼容 API"| L["LM Studio<br/>127.0.0.1:1234"]
+     C["Python 客户端<br/>vision_analyze.py / screenshot.py"] -->|"OpenAI 兼容 API"| L
+     E["Edge 无头截图"] -->|"PNG 图片"| C
+     F["场景提示词模板<br/>deploy/tools/multimodal/prompts/"] -->|"注入评审规则"| M
       </pre>
 
-      <h3 id="arch-track">2.1 双轨：MCP server 与子代理</h3>
+      <h3 id="arch-track">2.1 MCP server</h3>
       <table>
-        <tr><th>轨道</th><th>形态</th><th>适用</th></tr>
-        <tr><td>MCP server</td><td>标准协议工具（<code>multimodal_chat</code> / <code>screenshot</code>），opencode 的 <code>mcp</code> 段登记，跨客户端可复用</td><td>主会话直接调用：识图、看图、文档理解、临时问答；模型可动态发现工具</td></tr>
-        <tr><td>子代理 local-helper</td><td>opencode 子代理（subagent），模型指向本地 LM Studio，只读 + 命令权限</td><td>简单重复劳动：评审走查、文本整理、交叉检查；完整工具集自主完成"截图→识图→报告"组合动作</td></tr>
+        <tr><th>形态</th><th>适用</th></tr>
+        <tr><td>标准协议工具（<code>multimodal_chat</code> / <code>screenshot</code>），opencode 的 <code>mcp</code> 段登记，跨客户端可复用</td><td>主会话直接调用：识图、看图、文档理解、临时问答；模型可动态发现工具</td></tr>
       </table>
 
       <h3 id="arch-choice">2.2 方案取舍（插件 → MCP）</h3>
@@ -103,7 +94,7 @@ flowchart LR
         <li><strong>能力面完整</strong>：MCP 暴露的是模型全部多模态能力（对话、识图、文档），不局限于识图三件套；模型可动态发现工具。</li>
         <li><strong>跨客户端复用</strong>：同一 MCP server 可被其他支持 MCP 的客户端使用，换客户端零重写。</li>
         <li><strong>语言统一</strong>：server 用 Python（官方 mcp SDK），与 <code>deploy/tools</code> 全 Python 工具链一致。</li>
-        <li><strong>场景拆解</strong>：评审组合动作（多档截图 + 逐图识图 + 报告）从插件逻辑拆出，交给子代理用 bash 完成，主会话只做编排。</li>
+        <li><strong>场景拆解</strong>：评审组合动作（多档截图 + 逐图识图 + 报告）从插件逻辑拆出，由主会话按场景模板编排完成。</li>
       </ul>
       <div class="note">调研结论：社区现成的"LMStudio-MCP"类项目以模型管理（list/load/unload）为主，无对口的"多模态全能力"方案，故自写（官方 SDK）。</div>
 
@@ -155,8 +146,8 @@ Content-Type: application/json
   }
 }</code></pre>
       <ul>
-        <li>模型引用格式：<code>lmstudio/qwen3.8-27b</code>（子代理 frontmatter 的 <code>model</code> 字段即此）。</li>
-        <li>本地 LM Studio 无鉴权时 apiKey 填占位值（<code>local</code>）；云端密钥仅走环境变量（见第 9 节）。</li>
+        <li>模型引用格式：<code>lmstudio/qwen3.8-27b</code>。</li>
+        <li>本地 LM Studio 无鉴权时 apiKey 填占位值（<code>local</code>）；云端密钥仅走环境变量（见第 8 节）。</li>
         <li>修改 opencode.json 后需<strong>重启 opencode</strong> 生效。</li>
       </ul>
 
@@ -211,7 +202,7 @@ uv run --project deploy/tools/multimodal python deploy/tools/multimodal/mcp_serv
 uv run --project deploy/tools/multimodal python -c "import sys; sys.path.insert(0, 'deploy/tools/multimodal'); import mcp_server; print(mcp_server.multimodal_chat(text='你好'))"</code></pre>
 
       <h2 id="cli">5. Python CLI 备用</h2>
-      <p>与 MCP server 共用同一套实现，供 bash / 子代理直接调用（不占主会话工具）：</p>
+      <p>与 MCP server 共用同一套实现，供 bash 直接调用（不占主会话工具）：</p>
       <pre><code># 通用识图客户端（需环境变量 VISION_API_ENDPOINT / VISION_API_KEY / VISION_API_MODEL）
 python deploy/tools/multimodal/vision_analyze.py --image page.png --prompt prototype-review
 python deploy/tools/multimodal/vision_analyze.py --dir screenshots/ --out report.json
@@ -234,42 +225,10 @@ python deploy/tools/multimodal/screenshot.py --url "file:///D:/.../03_主框架.
         <li>Edge 可执行路径探测顺序：<code>C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe</code> → <code>C:\Program Files\...\msedge.exe</code> → Chrome 兜底。</li>
       </ul>
 
-      <h2 id="subagent">7. 子代理 local-helper</h2>
-
-      <h3 id="subagent-config">7.1 配置与权限</h3>
-      <p>子代理定义在 <code>.opencode/agent/local-helper.md</code>：</p>
-      <pre><code>---
-description: 本地多模态子代理（LM Studio qwen3.8-27b）。识图分析、界面截图评审、文本整理、交叉检查。
-mode: subagent
-model: lmstudio/qwen3.8-27b
-permission:
-  read: allow
-  glob: allow
-  grep: allow
-  list: allow
-  edit: deny
-  bash: allow
-  task: deny
-  webfetch: deny
-  websearch: deny
-  question: deny
----</code></pre>
-      <ul>
-        <li><strong>只读 + 命令</strong>：可读文件、可跑命令（截图/识图脚本），禁止改文件（<code>edit: deny</code>）、禁派生子任务（<code>task: deny</code>）、禁联网。</li>
-        <li>模型走 <code>lmstudio</code> provider（OpenAI 兼容 127.0.0.1:1234），工具调用由 qwen3.8-27b 原生支持。</li>
-      </ul>
-
-      <h3 id="subagent-use">7.2 使用方式</h3>
-      <ul>
-        <li>主会话把简单重复的劳动派给它：<code>task</code> 工具选择 <code>local-helper</code>，在任务描述中写清输入、步骤与输出格式。</li>
-        <li>典型任务：对某原型页面「三档分辨率截图 → 逐图识图 → 生成评审报告」，或「把这份日志整理为结构化清单」。</li>
-        <li>评审报告模板 <code>deploy/tools/multimodal/report_template.html</code>（含截图缩略图 + 问题清单，遵循<a href="../../规范/文档生成规范.html">《文档生成规范》</a>）供子代理生成报告时参照。</li>
-      </ul>
-
-      <h2 id="scenes">8. 场景适配（模板即场景）</h2>
+      <h2 id="scenes">7. 场景适配（模板即场景）</h2>
       <p><strong>多模态对话是能力主体，场景是使用方式</strong>：<code>multimodal_chat</code> 可处理任意图片与文档（界面截图、文档图、流程图、图表、对比图），提示词用 <code>text</code> 直传、<code>system</code> 直给或 <code>prompts/</code> 下的模板；<strong>新场景 = 新增一个模板文件</strong>，无需改代码。</p>
 
-      <h3 id="scene-mechanism">8.1 场景机制</h3>
+      <h3 id="scene-mechanism">7.1 场景机制</h3>
       <ul>
         <li><strong>一张图 + 一段提示词</strong>：<code>multimodal_chat</code> 接受任意本地图片路径与提示词（模板名或直传文本），模板名解析顺序：<code>prompts/</code> 下文件 → 文件路径 → 直接当文本用。</li>
         <li><strong>模板即场景</strong>：每个场景对应一个 <code>deploy/tools/multimodal/prompts/</code> 下的 md 模板，已有模板：
@@ -284,48 +243,48 @@ permission:
         <li><strong>直接使用</strong>：不建模板时用 <code>text</code> 直传提示词，临时场景即刻可用。</li>
       </ul>
 
-      <h3 id="scene-prototype">8.2 场景示例：原型视觉评审</h3>
+      <h3 id="scene-prototype">7.2 场景示例：原型视觉评审</h3>
       <ul>
         <li>提示词模板 <code>prompts/prototype-review.md</code> 注入评审规则：<a href="../../设计/布局设计/02_布局设计_设计令牌.html">设计令牌</a>色值/间距/栅格、<a href="../../设计/布局设计/07_布局设计_列表页.html">列表页</a>三段式（工具栏/筛选/表格/分页）、<a href="../../设计/布局设计/08_布局设计_表单页.html">表单页</a>分态工具栏、弹窗规格、设计说明文字不得出现在界面等检查项。</li>
-        <li>触发方式：用户要求「评审原型 XX」→ 主会话派给子代理 <code>local-helper</code>（或自己组合 MCP 工具）：<code>screenshot</code> 多档截图 → <code>multimodal_chat</code> 逐图识图 → 生成 HTML 报告。</li>
+        <li>触发方式：用户要求「评审原型 XX」→ 主会话自己组合 MCP 工具：<code>screenshot</code> 多档截图 → <code>multimodal_chat</code> 逐图识图 → 生成 HTML 报告。</li>
         <li>报告落位：项目下临时目录 <code>temp/vision/</code>（HTML，含截图缩略图 + 问题清单，缺省文件名 <code>{页面名}_{时间}.html</code>，已 gitignore 不入库）；需留档时输出到项目内其他位置。</li>
         <li>修正闭环：按问题清单修正 → 重新截图复评，直到无高危问题。</li>
       </ul>
 
-      <h3 id="scene-other">8.3 场景清单</h3>
+      <h3 id="scene-other">7.3 场景清单</h3>
       <table>
         <tr><th>场景</th><th>说明</th><th>模板/动作</th><th>状态</th></tr>
         <tr><td>通用图片理解</td><td>分析文档中引用的架构图/流程图/图表截图，提取元素与关系</td><td><code>image-understanding.md</code></td><td>已就绪</td></tr>
         <tr><td>界面截图走查</td><td>用户提供任意界面截图，对照需求检查</td><td><code>general-review.md</code></td><td>已就绪</td></tr>
-        <tr><td>PC 原型评审</td><td>对<a href="../../设计/原型设计/03_通用骨架/03_主框架.html">主框架原型</a>等按三档断点截图评审</td><td><code>prototype-review.md</code> + 子代理组合</td><td>已就绪</td></tr>
+        <tr><td>PC 原型评审</td><td>对<a href="../../设计/原型设计/03_通用骨架/03_主框架.html">主框架原型</a>等按三档断点截图评审</td><td><code>prototype-review.md</code> + MCP 工具组合</td><td>已就绪</td></tr>
         <tr><td>移动端评审</td><td>对<a href="../../设计/原型设计/13_移动端/01_设计说明.html">移动端原型</a>按 375×812 手机视口截图评审</td><td><code>mobile-review.md</code> + 375×812 截图</td><td>已就绪</td></tr>
-        <tr><td>文档理解</td><td>把日志/配置文件/长文整理为结构化清单、翻译、摘要</td><td><code>documents</code> 参数或子代理</td><td>已就绪</td></tr>
+        <tr><td>文档理解</td><td>把日志/配置文件/长文整理为结构化清单、翻译、摘要</td><td><code>documents</code> 参数</td><td>已就绪</td></tr>
         <tr><td>多图对比</td><td>同一界面多尺寸/多状态对比、修正前后对比</td><td><code>images</code> 参数（建议 ≤2 张）</td><td>已就绪</td></tr>
       </table>
 
-      <h2 id="security">9. 安全与隐私</h2>
+      <h2 id="security">8. 安全与隐私</h2>
       <ul>
         <li>全部推理在本机 LM Studio 完成，图片与文档不出本机；API 密钥只从环境变量读取（<code>MULTIMODAL_API_KEY</code> / <code>VISION_API_KEY</code>），不写入配置、文档或代码。</li>
-        <li>子代理只读 + 命令，禁改文件、禁派生子任务、禁联网；MCP 工具只接受图片/文档路径，不暴露任意代码执行入口。</li>
+        <li>MCP 工具只接受图片/文档路径，不暴露任意代码执行入口。</li>
         <li>截图与分析日志留存项目下临时目录（<code>temp/vision/</code>，已 gitignore），定期清理；本地模型零费用，但注意批量评审占用的显存与时长。</li>
         <li>模型只见传入的图片与提示词，不接触代码库其他内容；提示词模板内不写敏感信息。</li>
       </ul>
 
-      <h2 id="deploy">10. 实施步骤与检查清单</h2>
+      <h2 id="deploy">9. 实施步骤与检查清单</h2>
       <h3>实施步骤</h3>
       <ol>
         <li>确认本机 Python/uv 环境与 LM Studio 服务可用（<code>http://127.0.0.1:1234/v1/models</code> 返回模型列表）。</li>
         <li>建 uv 项目 <code>deploy/tools/multimodal/</code>（依赖 <code>mcp</code> 官方 SDK），迁移 <code>vision_analyze.py</code> / <code>screenshot.py</code> / <code>prompts/</code> / 报告模板。</li>
         <li>编写 <code>mcp_server.py</code>（<code>multimodal_chat</code> + <code>screenshot</code>），官方 Client 冒烟测试通过。</li>
-        <li>配置 <code>.opencode/opencode.json</code>（mcp 段 + provider 段），新建子代理 <code>.opencode/agent/local-helper.md</code>。</li>
-        <li>删除旧插件 <code>vision.js</code> 及 <code>deploy/tools/vision/</code> 目录，重启 opencode 验证 MCP 工具与子代理可用。</li>
+        <li>配置 <code>.opencode/opencode.json</code>（mcp 段 + provider 段）。</li>
+        <li>删除旧插件 <code>vision.js</code> 及 <code>deploy/tools/vision/</code> 目录，重启 opencode 验证 MCP 工具可用。</li>
         <li>对主框架原型做一次端到端演示评审，验证闭环。</li>
       </ol>
       <h3>检查清单</h3>
       <ul>
         <li>□ <code>multimodal_chat</code> 通用对话 / 识图 / 文档理解可用（<code>reasoning_effort: none</code> 默认关闭思考）</li>
         <li>□ <code>screenshot</code> 截图可用，输出到 <code>temp/vision/</code> 不入库</li>
-        <li>□ MCP 与 provider 配置固化在 <code>.opencode/opencode.json</code>，子代理 <code>local-helper</code> 只读 + 命令权限</li>
+        <li>□ MCP 与 provider 配置固化在 <code>.opencode/opencode.json</code></li>
         <li>□ 模板即场景：image-understanding / general-review / prototype-review / mobile-review 齐备</li>
         <li>□ 原型评审提示词覆盖设计令牌/列表页/表单页/弹窗规则；移动端模板覆盖 TabBar/NavBar/安全区</li>
         <li>□ 旧插件 vision.js 已删除，无残留引用</li>
