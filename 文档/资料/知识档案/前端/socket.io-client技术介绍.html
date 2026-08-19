@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>socket.io-client 技术介绍</title>
+<link rel="stylesheet" href="../../资源/文档样式.css">
+</head>
+<body>
+
+<div class="topnav">
+  <a href="../../../文档首页.html">文档首页</a> ›
+  <a href="../技术栈知识档案总览.html">知识档案</a> ›
+  <a href="../技术栈知识档案总览.html#frontend">前端</a> ›
+  <span>socket.io-client 技术介绍</span>
+  <span class="topnav-side">
+    <a href="../技术栈知识档案总览.html">← 返回总览</a>
+  </span>
+</div>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>socket.io-client 技术介绍</h1>
+      <p>Socket.IO 协议浏览器客户端 · BMS 待办/通知实时到达</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#overview">1. 技术概述</a></li>
+        <li><a href="#principles">2. 核心概念与原理</a></li>
+        <li><a href="#usage">3. 在 BMS 项目中的用途</a></li>
+        <li><a href="#compare">4. 选型对比</a></li>
+        <li><a href="#pitfalls">5. 常见问题与注意事项</a></li>
+        <li><a href="#learn">6. 学习与参考资料</a></li>
+        <li><a href="#related">7. 项目内关联文档</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="overview">1. 技术概述</h2>
+      <p>
+        <strong>socket.io-client</strong>（npm 包名 <code>socket.io-client</code>）
+        是 <strong>Socket.IO</strong> 协议的官方浏览器/Node.js 客户端。
+        Socket.IO 是构建在 WebSocket 之上的实时通信协议，
+        在裸 WebSocket 的「字节流」之上提供<strong>命名事件、
+        自动重连、传输降级（WebSocket → HTTP 轮询）、房间广播</strong>等能力，
+        断线、代理拦截、老浏览器这些脏活都由客户端兜底。
+      </p>
+      <ul>
+        <li><strong>定位</strong>：BMS 前端实时推送客户端——待办/通知实时到达、待办角标实时刷新、会话失效即时生效（见《<a href="../../规划/项目规划说明.html#stack-frontend">项目规划说明</a>》2.2 节）。</li>
+        <li><strong>版本</strong>：4.8.3（截至 2026 年，4.x 系列；须与后端 python-socketio 4.x 匹配）。</li>
+        <li><strong>许可</strong>：MIT，OSI 认证开源。</li>
+        <li><strong>语言</strong>：TypeScript 编写，运行于浏览器。</li>
+      </ul>
+
+      <h2 id="principles">2. 核心概念与原理</h2>
+      <table>
+        <tr><th>概念</th><th>说明</th></tr>
+        <tr><td>Engine.IO</td><td>Socket.IO 的底层传输层：负责连接建立与数据分帧，支持 WebSocket 与 HTTP 轮询两种传输</td></tr>
+        <tr><td>传输降级（fallback）</td><td>WebSocket 不可用（企业代理拦截、老浏览器）时自动退回 HTTP 轮询，保证「总能连上」</td></tr>
+        <tr><td>自动重连</td><td>断线后按指数退避自动重连，业务层无需手写重连逻辑；重连成功触发 <code>connect</code> 事件</td></tr>
+        <tr><td>命名事件</td><td><code>emit</code>/<code>on</code> 按事件名通信，比裸 WebSocket 的字节流语义清晰，前后端约定事件名即可</td></tr>
+        <tr><td>Ack（确认回调）</td><td>发送方传回调函数，接收方处理完调用回调，实现请求-应答语义</td></tr>
+        <tr><td>房间（Room）</td><td>服务端把连接加入指定房间，向房间广播即只发给相关用户；BMS 按用户/租户定向推送</td></tr>
+        <tr><td>握手鉴权</td><td>连接时经 <code>auth</code> 选项携带 token，后端在握手阶段校验会话（BMS 校验 access token）</td></tr>
+        <tr><td>连接状态事件</td><td><code>connect</code>/<code>disconnect</code>/<code>connect_error</code>，用于 UI 状态提示与重连后状态恢复</td></tr>
+        <tr><td>Sticky Session</td><td>连接升级后必须固定在同一后端实例：nginx 用 ip_hash / Cookie 亲和（见《<a href="../../规划/项目规划说明.html#deploy-cluster">项目规划说明</a>》19.2 节）</td></tr>
+        <tr><td>Redis 适配器</td><td>后端多实例经 Redis 适配器跨实例广播，客户端无感知（见《<a href="../后端核心/python-socketio技术介绍.html">python-socketio 技术介绍</a>》）</td></tr>
+      </table>
+
+      <h2 id="usage">3. 在 BMS 项目中的用途</h2>
+      <ul>
+        <li><strong>待办/通知实时到达</strong>：审批待办提醒、通知中心消息实时推送，替代轮询（见《<a href="../../规划/项目规划说明.html#modules">项目规划说明</a>》5 节通知中心）。</li>
+        <li><strong>待办角标实时刷新</strong>：顶栏/侧边栏待办角标作为全局元素实时展示，新待办到达即更新（见《<a href="../../规划/项目规划说明.html#modules">项目规划说明</a>》5 节首页工作台）。</li>
+        <li><strong>会话失效即时生效</strong>：管理端强制踢出会话时，经 Socket.IO 广播「会话失效」事件，客户端立即关闭实时连接并跳转登录（见《<a href="../../规划/项目规划说明.html#security">项目规划说明</a>》12 节）。</li>
+        <li><strong>与后端配合</strong>：后端用 python-socketio（Redis 适配器跨实例广播），前端用 socket.io-client，协议两端对齐（见《<a href="../../规划/项目规划说明.html#stack-backend">项目规划说明</a>》2.1 节）。</li>
+        <li><strong>重连与降级</strong>：断线自动重连、WebSocket 被拦自动降级轮询；重连成功后重新拉取最新待办/通知，避免断线期间漏推（见《<a href="../../规划/项目规划说明.html#sel-backend">项目规划说明</a>》3.1 节）。</li>
+        <li><strong>验收口径</strong>：MVP 验收要求「待办提醒经 Socket.IO 实时触达」（见《<a href="../../规划/项目规划说明.html#plan">项目规划说明</a>》20 节）。</li>
+      </ul>
+
+      <p>最小示例（连接 + 事件订阅 + 鉴权）：</p>
+      <pre><code>import { io } from 'socket.io-client'
+
+const socket = io('https://bms.example.com', {
+  auth: { token: localStorage.getItem('access_token') },
+  transports: ['websocket', 'polling'],
+})
+
+socket.on('connect', () =&gt; {
+  // 已连接（含重连成功）：重新拉取最新待办/通知，补齐断线期间漏推
+})
+
+socket.on('todo:created', (payload) =&gt; {
+  // 新待办到达：更新角标与通知列表
+})
+
+socket.on('session:invalidated', () =&gt; {
+  // 会话被踢出：清本地状态，跳转登录页
+})
+
+socket.on('disconnect', () =&gt; {
+  // 断线提示；自动重连由客户端处理，无需手写
+})</code></pre>
+
+      <h2 id="compare">4. 选型对比</h2>
+      <table>
+        <tr><th>候选技术</th><th>优缺点</th><th>结论</th></tr>
+        <tr><td><strong>socket.io-client（选中）</strong></td><td>自动重连 + 传输降级 + 房间 + 命名事件，与后端 python-socketio 天然配套，MIT</td><td>与 BMS「实时推送 + 多实例广播 + 免登场景」诉求完全匹配</td></tr>
+        <tr><td>原生 WebSocket</td><td>零依赖、协议简单；但无自动重连、无降级、无房间，断线恢复与鉴权全要自己写</td><td>基础设施重复造，不选</td></tr>
+        <tr><td>SSE（Server-Sent Events）</td><td>实现简单、走 HTTP；但单向（仅服务端→客户端）、无房间语义，双向交互难</td><td>满足不了定向房间与双向需求，不选</td></tr>
+        <tr><td>MQTT over WebSocket</td><td>IoT 场景强；但 Web 应用场景偏重，与后端 Python 栈配套弱</td><td>场景不符，不选</td></tr>
+        <tr><td>HTTP 轮询</td><td>最简单、无协议问题；但延迟高、服务端负载大、体验差</td><td>仅作兜底（Socket.IO 降级时自动使用），不作主方案</td></tr>
+      </table>
+
+      <h2 id="pitfalls">5. 常见问题与注意事项</h2>
+      <ul>
+        <li><strong>版本匹配</strong>：客户端 4.x 必须对服务端 4.x（python-socketio），跨大版本不兼容。</li>
+        <li><strong>token 位置</strong>：经 <code>auth</code> 选项传，别拼在 URL query 里（会进访问日志泄露）。</li>
+        <li><strong>重连后恢复</strong>：<code>connect</code> 事件里重新拉取最新待办/通知，避免「断线期间漏掉的推送」造成状态不一致。</li>
+        <li><strong>nginx 配置</strong>：<code>/socket.io</code> 路径要放行 Upgrade/Connection 头；负载均衡用 ip_hash / Cookie 亲和（sticky session），连接升级后必须固定同一后端实例。</li>
+        <li><strong>连接复用</strong>：全局共享一条连接（模块单例或 Pinia store 管理），别每个页面各建一条。</li>
+        <li><strong>降级别关</strong>：企业网络可能拦 WebSocket，客户端自动降级轮询是兜底，不要强制只走 websocket。</li>
+        <li><strong>移动端内嵌浏览器</strong>：企微/钉钉 WebView 里测一遍连通性与重连表现。</li>
+        <li><strong>多实例广播</strong>：后端经 Redis 适配器跨实例广播，客户端无感知，但部署时 Redis 必须可用（见《<a href="../后端核心/Redis技术介绍.html">Redis 技术介绍</a>》）。</li>
+      </ul>
+
+      <h2 id="learn">6. 学习与参考资料</h2>
+      <table>
+        <tr><th>资源</th><th>网址</th><th>说明</th></tr>
+        <tr><td>Socket.IO 官方文档</td><td>https://socket.io/docs/</td><td>协议、客户端与服务端完整文档</td></tr>
+        <tr><td>Socket.IO 客户端特性</td><td>https://socket.io/docs/v4/client-features/</td><td>自动重连、降级、ack 等客户端能力说明</td></tr>
+        <tr><td>Socket.IO GitHub</td><td>https://github.com/socketio/socket.io</td><td>源码（含 socket.io-client 包）、Changelog 与 issue</td></tr>
+        <tr><td>socket.io-client npm</td><td>https://www.npmjs.com/package/socket.io-client</td><td>安装与版本历史</td></tr>
+        <tr><td>MDN：WebSocket API</td><td>https://developer.mozilla.org/zh-CN/docs/Web/API/WebSocket</td><td>理解 Socket.IO 底层的裸 WebSocket 机制</td></tr>
+      </table>
+
+      <h2 id="related">7. 项目内关联文档</h2>
+      <table>
+        <tr><th>文档</th><th>说明</th></tr>
+        <tr><td>《<a href="../../规划/项目规划说明.html#stack-frontend">项目规划说明</a>》2.2 节</td><td>前端技术栈（socket.io-client 条目）</td></tr>
+        <tr><td>《<a href="../../规划/项目规划说明.html#sel-frontend">项目规划说明</a>》3.2 节</td><td>选型理由：待办/通知实时到达</td></tr>
+        <tr><td>《<a href="../../规划/项目规划说明.html#deploy-cluster">项目规划说明</a>》19.2 节</td><td>nginx WebSocket 放行与 sticky session 要求</td></tr>
+        <tr><td>《<a href="../后端核心/python-socketio技术介绍.html">python-socketio 技术介绍</a>》</td><td>服务端协议实现与 Redis 适配器</td></tr>
+        <tr><td>《<a href="../后端核心/Redis技术介绍.html">Redis 技术介绍</a>》</td><td>跨实例广播的 Redis 底座</td></tr>
+        <tr><td>《<a href="Pinia技术介绍.html">Pinia 技术介绍</a>》</td><td>全局连接状态与待办角标数据管理</td></tr>
+        <tr><td>《<a href="Vant技术介绍.html">Vant 技术介绍</a>》</td><td>移动端通知/待办界面（frontend-mobile）</td></tr>
+        <tr><td>《<a href="../../规范/命名规范.html">命名规范</a>》</td><td>事件名（todo:created 等）命名</td></tr>
+      </table>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 依《<a href="../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>

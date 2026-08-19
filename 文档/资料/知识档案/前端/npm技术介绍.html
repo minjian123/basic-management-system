@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>npm 技术介绍</title>
+<link rel="stylesheet" href="../../资源/文档样式.css">
+</head>
+<body>
+
+<div class="topnav">
+  <a href="../../../文档首页.html">文档首页</a> ›
+  <a href="../技术栈知识档案总览.html">知识档案</a> ›
+  <a href="../技术栈知识档案总览.html#frontend">前端</a> ›
+  <span>npm 技术介绍</span>
+  <span class="topnav-side">
+    <a href="../技术栈知识档案总览.html">← 返回总览</a>
+  </span>
+</div>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>npm 技术介绍</h1>
+      <p>Node.js 官方包管理器 · BMS 前端依赖与构建入口</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#overview">1. 技术概述</a></li>
+        <li><a href="#principles">2. 核心概念与原理</a></li>
+        <li><a href="#usage">3. 在 BMS 项目中的用途</a></li>
+        <li><a href="#compare">4. 选型对比</a></li>
+        <li><a href="#pitfalls">5. 常见问题与注意事项</a></li>
+        <li><a href="#learn">6. 学习与参考资料</a></li>
+        <li><a href="#related">7. 项目内关联文档</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="overview">1. 技术概述</h2>
+      <p>
+        <strong>npm</strong>（Node Package Manager）是 Node.js 官方自带的包管理器，
+        随 Node.js 一起安装，无需额外依赖。它负责<strong>依赖安装、版本锁定、脚本运行</strong>，
+        并运营全球最大的开源包注册表 <code>npmjs.com</code>。截至 2026 年，npm（11.x 系列，
+        Node 24/26 自带；Node 22 自带 10.x）是 Node 生态默认包管理器。
+      </p>
+      <ul>
+        <li><strong>定位</strong>：BMS 前端双工程（frontend、frontend-mobile）的依赖管理与构建命令入口。</li>
+        <li><strong>版本</strong>：11.x 系列（Node 24/26 自带；Node 22 自带 10.x，持续迭代）。</li>
+        <li><strong>许可</strong>：Artistic-2.0（npm CLI 本体）。</li>
+        <li><strong>语言</strong>：JavaScript 编写，随 Node.js 发行。</li>
+      </ul>
+
+      <h2 id="principles">2. 核心概念与原理</h2>
+      <table>
+        <tr><th>概念</th><th>说明</th></tr>
+        <tr><td>package.json</td><td>工程清单：依赖、脚本、元信息，每个工程一份，BMS 双工程各自独立</td></tr>
+        <tr><td>package-lock.json</td><td>锁定文件：记录精确依赖树与校验和，<code>npm ci</code> 据此复现安装，必须入库</td></tr>
+        <tr><td>node_modules</td><td>依赖安装目录，体积大、不入库（.gitignore 排除）</td></tr>
+        <tr><td>npm install</td><td>按 package.json 安装依赖并更新 lock 文件，开发期加依赖用</td></tr>
+        <tr><td>npm ci</td><td>严格按 lock 文件干净安装（先删 node_modules），CI 专用，保证可复现</td></tr>
+        <tr><td>依赖树（扁平化）</td><td>npm 尽量把依赖平铺到顶层 node_modules，版本冲突时嵌套子目录</td></tr>
+        <tr><td>Registry</td><td>包注册表，默认 npmjs.com；国内可换 npmmirror 镜像加速</td></tr>
+        <tr><td>Scripts</td><td>package.json 的 scripts 字段定义 <code>npm run dev/build/test</code> 等命令</td></tr>
+        <tr><td>Workspaces</td><td>npm 原生 monorepo 支持，BMS 双工程未用（保持独立）</td></tr>
+        <tr><td>Semver</td><td>语义化版本（主.次.修订），依赖范围（^/~）决定自动升级边界</td></tr>
+        <tr><td>.npmrc</td><td>配置镜像、认证等，团队可共享，BMS 用于指向国内镜像</td></tr>
+      </table>
+
+      <h2 id="usage">3. 在 BMS 项目中的用途</h2>
+      <ul>
+        <li><strong>双工程依赖管理</strong>：frontend 与 frontend-mobile 各自独立 package.json 与 package-lock.json，ESLint/Prettier/TS 配置互不共享（见《<a href="../../规划/项目规划说明.html#sel-frontend">项目规划说明</a>》3.2 节）。</li>
+        <li><strong>CI 可复现安装</strong>：流水线用 <code>npm ci</code> 锁定安装，保证每次构建依赖完全一致（见《<a href="../部署与运维/GitLab技术介绍.html">GitLab 技术介绍</a>》CI 流水线）。</li>
+        <li><strong>构建命令入口</strong>：<code>npm run dev/build/test/lint</code> 驱动 Vite、ESLint、Vitest 等工具（见《<a href="Vite技术介绍.html">Vite 技术介绍</a>》）。</li>
+        <li><strong>Node 版本管理</strong>：<code>.nvmrc</code> 固定 Node 版本（≥ 20.19），配合 nvm/volta/fnm 切换，npm 随 Node 自带（见《<a href="../../规划/项目规划说明.html#pages">项目规划说明</a>》部署约定）。</li>
+        <li><strong>依赖升级</strong>：Renovate 自动提 MR 升级依赖，npm lock 文件随之更新（见《<a href="../部署与运维/Renovate技术介绍.html">Renovate 技术介绍</a>》）。</li>
+      </ul>
+
+      <p>最小示例（日常命令）：</p>
+      <pre><code># 开发期：安装依赖（会更新 lock 文件）
+npm install
+
+# 加一个依赖
+npm install element-plus
+
+# CI：严格按 lock 干净安装（可复现）
+npm ci
+
+# 运行脚本
+npm run dev
+npm run build
+npm run test</code></pre>
+
+      <h2 id="compare">4. 选型对比</h2>
+      <table>
+        <tr><th>候选技术</th><th>优缺点</th><th>结论</th></tr>
+        <tr><td><strong>npm（选中）</strong></td><td>Node 官方自带、零额外依赖、不生成额外配置、CI 生态成熟</td><td>与 BMS 双工程独立、CI 可复现诉求完全匹配</td></tr>
+        <tr><td>yarn</td><td>安装快、workspaces 成熟；但需额外安装、多一套 lock 与配置</td><td>非官方自带，引入成本高于收益</td></tr>
+        <tr><td>pnpm</td><td>硬链接省空间、依赖严格隔离；但需额外安装、团队需学习</td><td>能力优秀但非默认，BMS 规模下 npm 足够</td></tr>
+        <tr><td>Bun</td><td>快、集成运行时；但生态与 Node 兼容性仍在演进</td><td>稳定性与兼容性风险，暂不引入</td></tr>
+      </table>
+
+      <h2 id="pitfalls">5. 常见问题与注意事项</h2>
+      <ul>
+        <li><strong>CI 用 npm ci 而非 npm install</strong>：install 可能改 lock 文件导致构建漂移，ci 严格按 lock 安装。</li>
+        <li><strong>lock 文件必须入库</strong>：package-lock.json 提交到仓库，否则 CI 与本地依赖不一致。</li>
+        <li><strong>双工程别共享配置</strong>：frontend 与 frontend-mobile 各自 package.json/lock/ESLint/TS 配置，互不引用（见《<a href="../../规划/项目规划说明.html#sel-frontend">项目规划说明</a>》3.2 节）。</li>
+        <li><strong>Node 版本一致</strong>：<code>.nvmrc</code> 固定版本，本地与 CI 用同一 Node，避免 npm 大版本差异。</li>
+        <li><strong>国内镜像</strong>：访问 npmjs.com 慢时配 npmmirror 镜像（<code>.npmrc</code> 或 <code>--registry</code>），别长时间等待。</li>
+        <li><strong>依赖范围注意</strong>：<code>^</code> 允许次版本升级，安全/破坏性变更要 Renovate 提 MR 评审，别盲目自动合入。</li>
+        <li><strong>node_modules 不入库</strong>：体积大且平台相关，.gitignore 排除，靠 lock 文件复现。</li>
+      </ul>
+
+      <h2 id="learn">6. 学习与参考资料</h2>
+      <table>
+        <tr><th>资源</th><th>网址</th><th>说明</th></tr>
+        <tr><td>npm 官网</td><td>https://www.npmjs.com</td><td>包注册表与包搜索</td></tr>
+        <tr><td>npm 官方文档</td><td>https://docs.npmjs.com</td><td>命令、配置、脚本权威参考</td></tr>
+        <tr><td>npm CLI GitHub</td><td>https://github.com/npm/cli</td><td>源码、Changelog 与 issue</td></tr>
+        <tr><td>npmmirror（淘宝镜像）</td><td>https://npmmirror.com</td><td>国内镜像加速，.npmrc 配置入口</td></tr>
+        <tr><td>Node.js 官网</td><td>https://nodejs.org</td><td>Node 与自带 npm 版本对应关系</td></tr>
+      </table>
+
+      <h2 id="related">7. 项目内关联文档</h2>
+      <table>
+        <tr><th>文档</th><th>说明</th></tr>
+        <tr><td>《<a href="../../规划/项目规划说明.html#stack-frontend">项目规划说明</a>》2.2 节</td><td>前端技术栈（npm 条目）</td></tr>
+        <tr><td>《<a href="../../规划/项目规划说明.html#sel-frontend">项目规划说明</a>》3.2 节</td><td>选型理由：官方自带、双工程独立、CI 锁定</td></tr>
+        <tr><td>《<a href="../../规范/命名规范.html">命名规范</a>》</td><td>工程、依赖与脚本命名约定</td></tr>
+        <tr><td>《<a href="Vite技术介绍.html">Vite 技术介绍</a>》</td><td>构建工具，经 npm scripts 驱动</td></tr>
+        <tr><td>《<a href="ESLint与Prettier技术介绍.html">ESLint + Prettier 技术介绍</a>》</td><td>代码规范工具，双工程各自配置</td></tr>
+        <tr><td>《<a href="../部署与运维/Renovate技术介绍.html">Renovate 技术介绍</a>》</td><td>依赖自动升级，更新 npm lock</td></tr>
+      </table>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 依《<a href="../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>

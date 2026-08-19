@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>达梦 DM8 技术介绍</title>
+<link rel="stylesheet" href="../../资源/文档样式.css">
+</head>
+<body>
+
+<div class="topnav">
+  <a href="../../../文档首页.html">文档首页</a> ›
+  <a href="../技术栈知识档案总览.html">知识档案</a> ›
+  <a href="../技术栈知识档案总览.html#backend">后端核心</a> ›
+  <span>达梦 DM8 技术介绍</span>
+  <span class="topnav-side">
+    <a href="../技术栈知识档案总览.html">← 返回总览</a>
+  </span>
+</div>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>达梦 DM8 技术介绍</h1>
+      <p>信创场景选配数据库 · BMS 后端核心</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#overview">1. 技术概述</a></li>
+        <li><a href="#principles">2. 核心概念与原理</a></li>
+        <li><a href="#usage">3. 在 BMS 项目中的用途</a></li>
+        <li><a href="#compare">4. 选型对比</a></li>
+        <li><a href="#pitfalls">5. 常见问题与注意事项</a></li>
+        <li><a href="#learn">6. 学习与参考资料</a></li>
+        <li><a href="#related">7. 项目内关联文档</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="overview">1. 技术概述</h2>
+      <p>
+        <strong>达梦数据库（DM8）</strong> 是武汉达梦数据库股份有限公司推出的国产商业关系型数据库，
+        与 Oracle 语法高度兼容，是国内<strong>信创（信息技术应用创新）</strong>场景的主流选配数据库。
+        BMS 将其作为生产数据库之一（信创环境选配），与 MySQL、PostgreSQL 三库并行支持。
+      </p>
+      <ul>
+        <li><strong>定位</strong>：生产可选数据库（信创交付必选），开发服务器 mjbk 常驻实例供联调与 CI 方言测试。</li>
+        <li><strong>版本</strong>：DM8（8.x 系列），开发环境用官方镜像 <code>dmdbms/dm8</code>（含试用授权）。</li>
+        <li><strong>许可</strong>：商业闭源，需采购商业授权（按套件/核数计费）；交付前须确认客户环境授权。</li>
+        <li><strong>Python 驱动</strong>：dmPython（达梦官方驱动，同步，dialect <code>dm+dmPython</code>）。</li>
+      </ul>
+
+      <h2 id="principles">2. 核心概念与原理</h2>
+      <table>
+        <tr><th>概念</th><th>说明</th></tr>
+        <tr><td>DM8</td><td>达梦数据库第 8 代产品：关系型数据库管理系统，语法兼容 Oracle，支持 SQL 标准</td></tr>
+        <tr><td>dmPython</td><td>达梦官方 Python 驱动，遵循 Python DB API 规范；<strong>同步</strong>驱动，dialect 为 <code>dm+dmPython</code></td></tr>
+        <tr><td>dpi（达梦接口）</td><td>达梦提供的 C 语言访问接口层，dmPython 依赖其头文件编译，安装驱动需 DM_HOME 指向 dpi 所在目录</td></tr>
+        <tr><td>模式（Schema）</td><td>达梦以 schema 承载「库」语义，本项目多库划分在达梦中表现为多个 schema</td></tr>
+        <tr><td>Oracle 兼容</td><td>达梦兼容 Oracle 语法与语义，迁移 Oracle 应用成本低，但方言与 MySQL/PostgreSQL 差异大</td></tr>
+        <tr><td>数据守护（Data Guard）</td><td>达梦主备复制方案（类似 Oracle DG），生产高可用场景用其做主从</td></tr>
+        <tr><td>dmrman</td><td>达梦官方备份恢复工具，本项目达梦库的每日备份用它执行</td></tr>
+        <tr><td>DM_HOME</td><td>达梦安装目录环境变量；dmPython 编译安装与运行时加载 dpi 动态库均依赖它</td></tr>
+        <tr><td>UTF8 字符集</td><td>本项目字符集约定：达梦 DM8 用 UTF8</td></tr>
+        <tr><td>复合唯一索引</td><td>软删除场景四库统一用 (唯一字段, deleted_at) 复合唯一索引，达梦按 Oracle 兼容口径允许多个 NULL，阶段一验证</td></tr>
+      </table>
+
+      <h2 id="usage">3. 在 BMS 项目中的用途</h2>
+      <ul>
+        <li>生产数据库之一（信创场景选配），与 MySQL、PostgreSQL 三库并行支持；开发/测试默认 SQLite（见《<a href="../../规划/项目规划说明.html#stack-backend">项目规划说明》2.1 节</a>）。</li>
+        <li><strong>dmPython 驱动</strong>：达梦官方同步驱动，dialect <code>dm+dmPython</code>；对 Python 3.14 兼容性未知，纳入阶段一逐依赖验证，不兼容则按规划口径整体回退 Python 3.13（见《<a href="../../规划/项目规划说明.html#sel-backend">项目规划说明》3.1 节</a>）。</li>
+        <li>三库方言测试：mjbk 常驻 MySQL/PostgreSQL/达梦，CI job 内建 <code>bms_test</code> 前缀测试库执行迁移与集成测试后清理（见《<a href="../../规划/开发部署规划.html">开发部署规划</a>》）。</li>
+        <li>数据库兼容约束：ORM 层禁用方言特有功能，JSON 等类型用跨方言通用类型兜底，分页统一 limit/offset；Alembic 维护三套方言迁移脚本，达梦迁移单独验证（见《<a href="../../规划/项目规划说明.html#dbcompat">项目规划说明》11 节</a>）。</li>
+        <li>备份：达梦 DM8 用 dmrman 备份/归档，每日全量 + 归档，保留 30 天异机存储（见《<a href="../../规划/项目规划说明.html#deploy-backup">项目规划说明》19.4 节</a>）。</li>
+        <li>开发期连接：通过环境变量 <code>BMS_DB_URL</code> 指向 mjbk 达梦库（如 <code>dm+dmPython://bms_dev:&lt;password&gt;@&lt;mjbk-IP&gt;:5236/bms_dev</code>）验证方言。</li>
+      </ul>
+
+      <h2 id="compare">4. 选型对比</h2>
+      <table>
+        <tr><th>候选技术</th><th>优缺点</th><th>结论</th></tr>
+        <tr><td><strong>达梦 DM8（选中）</strong></td><td>国产自主、Oracle 兼容、信创合规必需；商业闭源需采购授权（按套件/核数计费），社区资料少</td><td>信创场景必选，非信创场景可不启用</td></tr>
+        <tr><td>MySQL 8.x</td><td>生态广、团队熟悉、成本低；非国产，信创场景不合规</td><td>与达梦并行支持，按客户环境选用（见《<a href="MySQL技术介绍.html">MySQL 技术介绍</a>》）</td></tr>
+        <tr><td>PostgreSQL 16+</td><td>功能丰富、许可宽松；同样非国产</td><td>并行支持，与达梦互为替代（见《<a href="PostgreSQL技术介绍.html">PostgreSQL 技术介绍</a>》）</td></tr>
+        <tr><td>Oracle 商用</td><td>功能最全、生态成熟；价格高、非国产</td><td>达梦兼容 Oracle 语法已满足信创需求，不引入</td></tr>
+      </table>
+
+      <h2 id="pitfalls">5. 常见问题与注意事项</h2>
+      <ul>
+        <li><strong>驱动是同步的</strong>：dmPython 无异步实现，在 async 接口中使用需线程池（<code>run_in_executor</code>）或走同步路径；连接串是 <code>dm+dmPython</code>，别混用。</li>
+        <li><strong>Python 3.14 兼容性未知</strong>：dmPython 对 Python 3.14 的支持待阶段一逐依赖验证；任一核心依赖不兼容则整体回退 Python 3.13。</li>
+        <li><strong>方言差异大</strong>：达梦与 Oracle 兼容但与 MySQL/PostgreSQL 差异明显，迁移脚本与集成测试单独维护，三库验证通过才算数（见《<a href="Alembic技术介绍.html">Alembic 技术介绍</a>》）。</li>
+        <li><strong>JSON 支持有限</strong>：达梦 JSON 类型能力有限，ORM 层用跨方言通用类型兜底，不写方言专属 JSON 查询。</li>
+        <li><strong>分页与自增语义</strong>：分页统一 limit/offset 写法；序号语义与 MySQL AUTO_INCREMENT 不同，跨库测试别断言具体值。</li>
+        <li><strong>安装/编译依赖 dpi</strong>：dmPython 编译与运行需要 DM 安装目录（DM_HOME）下的 dpi 头文件与动态库，镜像环境需先准备；Windows 报 DLL load failed 多为 dpi 未找到。</li>
+        <li><strong>商业授权</strong>：开发镜像含试用授权，商业交付必须按客户环境采购商业许可（按套件/核数计费），红线是修改达梦源码或分发其二进制。</li>
+      </ul>
+
+      <h2 id="learn">6. 学习与参考资料</h2>
+      <table>
+        <tr><th>资源</th><th>网址</th><th>说明</th></tr>
+        <tr><td>达梦数据库官网</td><td>https://www.dameng.com/</td><td>产品信息、下载试用与商业授权入口</td></tr>
+        <tr><td>达梦技术文档（生态社区）</td><td>https://eco.dameng.com/</td><td>官方文档中心：安装手册、开发指南、FAQ</td></tr>
+        <tr><td>dmPython 仓库（Gitee）</td><td>https://gitee.com/DamengDB/dmPython</td><td>官方 Python 驱动源码与 issue</td></tr>
+        <tr><td>dmPython 安装文档</td><td>https://eco.dameng.com/document/dm/zh-cn/pm/dmpython-installation.html</td><td>驱动编译安装与环境变量（DM_HOME）说明</td></tr>
+        <tr><td>达梦 Python 开发指南</td><td>https://eco.dameng.com/document/dm/zh-cn/start/python-development.html</td><td>Python 连接达梦的官方入门文档</td></tr>
+      </table>
+
+      <h2 id="related">7. 项目内关联文档</h2>
+      <table>
+        <tr><th>文档</th><th>说明</th></tr>
+        <tr><td>《<a href="../../规划/项目规划说明.html#stack-backend">项目规划说明》2.1 节</a></td><td>技术栈：达梦 DM8 与 dmPython 条目</td></tr>
+        <tr><td>《<a href="../../规划/项目规划说明.html#sel-backend">项目规划说明》3.1 节</a></td><td>选型说明：dmPython 与 Python 3.14 兼容性验证口径</td></tr>
+        <tr><td>《<a href="../../规划/项目规划说明.html#dbcompat">项目规划说明》11 节</a></td><td>数据库兼容：跨方言类型、分页、软删除唯一索引约定</td></tr>
+        <tr><td>《<a href="../../开发服务器/达梦DM8部署使用说明.html">达梦 DM8 部署使用说明</a>》</td><td>开发服务器 mjbk 上的部署、库与账号细节</td></tr>
+        <tr><td>《<a href="SQLAlchemy技术介绍.html">SQLAlchemy 技术介绍</a>》</td><td>异步 engine、多数据源与方言兼容层</td></tr>
+        <tr><td>《<a href="Alembic技术介绍.html">Alembic 技术介绍</a>》</td><td>三套方言迁移脚本的维护与 CI 验证</td></tr>
+        <tr><td>《<a href="MySQL技术介绍.html">MySQL 技术介绍</a>》《<a href="PostgreSQL技术介绍.html">PostgreSQL 技术介绍</a>》</td><td>并行支持的另一生产数据库</td></tr>
+      </table>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 依《<a href="../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>

@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Python 技术介绍</title>
+<link rel="stylesheet" href="../../资源/文档样式.css">
+</head>
+<body>
+
+<div class="topnav">
+  <a href="../../../文档首页.html">文档首页</a> ›
+  <a href="../技术栈知识档案总览.html">知识档案</a> ›
+  <a href="../技术栈知识档案总览.html#backend">后端核心</a> ›
+  <span>Python 技术介绍</span>
+  <span class="topnav-side">
+    <a href="../技术栈知识档案总览.html">← 返回总览</a>
+  </span>
+</div>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>Python 技术介绍</h1>
+      <p>项目语言基础 · BMS 后端核心</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#overview">1. 技术概述</a></li>
+        <li><a href="#principles">2. 核心概念与原理</a></li>
+        <li><a href="#usage">3. 在 BMS 项目中的用途</a></li>
+        <li><a href="#compare">4. 选型对比</a></li>
+        <li><a href="#pitfalls">5. 常见问题与注意事项</a></li>
+        <li><a href="#learn">6. 学习与参考资料</a></li>
+        <li><a href="#related">7. 项目内关联文档</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="overview">1. 技术概述</h2>
+      <p>
+        <strong>Python</strong> 是一种解释型、通用型的高级编程语言，以语法简洁、生态庞大著称，
+        是数据分析、AI 与后端开发的主流语言之一。BMS 后端技术栈（FastAPI、SQLAlchemy、Celery 等）
+        全部构建在 Python 之上，它是整个项目的<strong>语言地基</strong>。
+      </p>
+      <ul>
+        <li><strong>定位</strong>：BMS 后端唯一开发语言，全栈生态的粘合剂。</li>
+        <li><strong>版本</strong>：Python 3.14+（2025 年 10 月发布），项目锁定 3.14，`.python-version` 统一管理。</li>
+        <li><strong>许可</strong>：PSF-2.0（Python 软件基金会许可），宽松、无传染性。</li>
+        <li><strong>运行方式</strong>：CPython 官方解释器，配合 uv 管理依赖与虚拟环境。</li>
+      </ul>
+
+      <h2 id="principles">2. 核心概念与原理</h2>
+      <table>
+        <tr><th>概念</th><th>说明</th></tr>
+        <tr><td>解释器（CPython）</td><td>官方 Python 解释器：读取源代码逐条编译为字节码再执行，无需显式编译步骤</td></tr>
+        <tr><td>GIL</td><td>全局解释器锁：同一时刻只允许一个线程执行字节码，多线程跑 CPU 密集任务受其限制，I/O 密集场景影响小</td></tr>
+        <tr><td>虚拟环境（venv）</td><td>隔离项目依赖的运行环境，避免不同项目包版本互相污染；本项目用 uv 的 venv 能力管理</td></tr>
+        <tr><td>包管理（uv/pip）</td><td>安装第三方库并解析依赖树；uv 比 pip 快一个数量级，且支持锁文件（uv.lock）锁定全量版本（见《<a href="../工程化与质量/uv技术介绍.html">uv 技术介绍</a>》）</td></tr>
+        <tr><td>类型注解</td><td><code>def foo(x: int) -> str:</code> 形式标注参数与返回类型，配合 pyright 实现静态检查（见《<a href="../工程化与质量/pyright技术介绍.html">pyright 技术介绍</a>》）</td></tr>
+        <tr><td>异步（async/await）</td><td>协程式并发模型：单线程内交替执行多个 I/O 任务，是 FastAPI + 异步 ORM 高并发的基础</td></tr>
+        <tr><td>PEP</td><td>Python 增强提案：语言新特性的官方设计文档（如 PEP 744 JIT、PEP 703 free-threaded）</td></tr>
+        <tr><td>JIT 编译器</td><td>3.14 起默认启用的实验性即时编译（PEP 744），部分热点代码执行更快</td></tr>
+        <tr><td>free-threaded 构建</td><td>无 GIL 的实验性构建选项（PEP 703），多线程并行度更高，但三方库兼容性待观察，本项目不启用</td></tr>
+        <tr><td>标准库</td><td>随解释器内置的模块（json、sqlite3、hashlib 等），PBKDF2 密码哈希即用标准库实现</td></tr>
+        <tr><td>pip / requirements.txt</td><td>传统依赖管理方式，本项目由 uv + pyproject.toml 替代</td></tr>
+      </table>
+
+      <h2 id="usage">3. 在 BMS 项目中的用途</h2>
+      <ul>
+        <li>作为项目语言基础：后端全部代码（<code>backend/</code>）以 Python 3.14+ 编写，前端与运维脚本（如 <code>deploy/tools/</code>）亦大量使用。</li>
+        <li>配合 uv 管理依赖与虚拟环境：<code>uv sync</code> 一键还原环境，uv.lock 锁定全量依赖版本，见《<a href="../工程化与质量/uv技术介绍.html">uv 技术介绍</a>》。</li>
+        <li>语法新特性提升开发效率：类型注解、模式匹配、异常组等让代码更简洁、可读，配合 pyright 在 IDE 中即时发现类型错误（见《<a href="../工程化与质量/pyright技术介绍.html">pyright 技术介绍</a>》）。</li>
+        <li><strong>兼容性口径（重要）</strong>：Python 3.14 相对较新，阶段一骨架阶段需逐依赖验证（FastAPI/SQLAlchemy/Pydantic/psycopg/Celery/SpiffWorkflow 等，含达梦 dmPython），任一核心依赖不兼容则<strong>整体回退 Python 3.13</strong>（`.python-version` 同步调整）——口径见《<a href="../../规划/项目规划说明.html#sel-backend">项目规划说明》3.1 节</a>。</li>
+        <li>标准库承担密码哈希（PBKDF2）、uuid 等基础能力，减少第三方依赖（见《<a href="../../规划/项目规划说明.html#stack-backend">项目规划说明》2.1 节</a>）。</li>
+      </ul>
+
+      <h2 id="compare">4. 选型对比</h2>
+      <table>
+        <tr><th>候选技术</th><th>优缺点</th><th>结论</th></tr>
+        <tr><td><strong>Python 3.14+（选中）</strong></td><td>生态覆盖 FastAPI/SQLAlchemy/SpiffWorkflow 等全部选型；开发效率高、团队上手快；3.14 较新存在少量依赖兼容风险（已有回退口径）</td><td>与既定技术栈天然契合，无需额外成本</td></tr>
+        <tr><td>Java（Spring Boot）</td><td>性能与并发强、企业生态成熟；但开发节奏重、样板代码多，与轻量异步栈目标不符</td><td>重，不适合当前团队与项目体量</td></tr>
+        <tr><td>Go</td><td>编译型、部署为单二进制、并发强；但 BPMN 工作流、AI 生态远不如 Python</td><td>生态缺口大，排除</td></tr>
+        <tr><td>Node.js（TypeScript）</td><td>前后端同语言；但后端业务生态（ORM/工作流/信创驱动）不如 Python</td><td>仅适合前端侧，后端仍用 Python</td></tr>
+      </table>
+
+      <h2 id="pitfalls">5. 常见问题与注意事项</h2>
+      <ul>
+        <li><strong>GIL 与并发</strong>：CPU 密集逻辑用多线程无法提速，应走多进程（uvicorn 多 worker）或线程池；BMS 的 I/O 密集场景（数据库、HTTP）受影响小。</li>
+        <li><strong>依赖兼容性</strong>：3.14 是较新版本，第三方库偶有滞后；发现核心依赖不兼容时按规划口径回退 3.13，不要自行"局部妥协"。</li>
+        <li><strong>环境隔离</strong>：不在系统 Python 里直接装依赖，一律走 uv 管理的虚拟环境，避免污染全局。</li>
+        <li><strong>版本管理</strong>：<code>.python-version</code> 是团队统一版本的口径文件，修改需经确认并同步 CI；勿随手改本机默认版本。</li>
+        <li><strong>类型检查</strong>：写接口签名务必带类型注解，否则 pyright 严格模式与 FastAPI 自动校验都会失效。</li>
+        <li><strong>锁文件</strong>：依赖升级后必须更新 uv.lock 并提交，保证 CI 与本地环境一致（见《<a href="../工程化与质量/uv技术介绍.html">uv 技术介绍</a>》）。</li>
+        <li><strong>编码规范</strong>：代码风格遵循《<a href="../../规范/后端开发规范.html">后端开发规范</a>》，以 ruff 为唯一格式化与 lint 工具。</li>
+      </ul>
+
+      <h2 id="learn">6. 学习与参考资料</h2>
+      <table>
+        <tr><th>资源</th><th>网址</th><th>说明</th></tr>
+        <tr><td>Python 官网</td><td>https://www.python.org/</td><td>官方下载、文档与新闻入口</td></tr>
+        <tr><td>Python 3.14 中文文档</td><td>https://docs.python.org/zh-cn/3.14/</td><td>语言参考与标准库官方中文文档</td></tr>
+        <tr><td>Python 3.14 新特性</td><td>https://docs.python.org/zh-cn/3.14/whatsnew/3.14.html</td><td>3.14 版本新特性官方说明（JIT 等）</td></tr>
+        <tr><td>PEP 索引</td><td>https://peps.python.org/</td><td>全部增强提案，语言演进的第一手资料</td></tr>
+        <tr><td>Python 官方教程（中文）</td><td>https://docs.python.org/zh-cn/3/tutorial/</td><td>官方入门教程</td></tr>
+        <tr><td>廖雪峰 Python 教程</td><td>https://liaoxuefeng.com/books/python/</td><td>经典中文入门教程，语法速查友好</td></tr>
+      </table>
+
+      <h2 id="related">7. 项目内关联文档</h2>
+      <table>
+        <tr><th>文档</th><th>说明</th></tr>
+        <tr><td>《<a href="../../规划/项目规划说明.html#stack-backend">项目规划说明》2.1 节</a></td><td>技术栈：语言条目（Python 3.14+）</td></tr>
+        <tr><td>《<a href="../../规划/项目规划说明.html#sel-backend">项目规划说明》3.1 节</a></td><td>选型说明：3.14 兼容性回退口径（3.13）</td></tr>
+        <tr><td>《<a href="../../规划/项目规划说明.html#stack-license">项目规划说明》2.5 节</a></td><td>许可登记：PSF-2.0</td></tr>
+        <tr><td>《<a href="../工程化与质量/uv技术介绍.html">uv 技术介绍</a>》</td><td>依赖与虚拟环境管理工具</td></tr>
+        <tr><td>《<a href="../工程化与质量/pyright技术介绍.html">pyright 技术介绍</a>》</td><td>静态类型检查器（严格模式）</td></tr>
+        <tr><td>《<a href="../工程化与质量/ruff技术介绍.html">ruff 技术介绍</a>》</td><td>代码规范与格式化工具</td></tr>
+        <tr><td>《<a href="FastAPI技术介绍.html">FastAPI 技术介绍</a>》</td><td>构建在 Python 之上的 Web 框架</td></tr>
+        <tr><td>《<a href="../../规范/后端开发规范.html">后端开发规范</a>》</td><td>Python 代码风格与工程约束</td></tr>
+      </table>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 依《<a href="../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>

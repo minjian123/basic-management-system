@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MinIO 技术介绍</title>
+<link rel="stylesheet" href="../../资源/文档样式.css">
+</head>
+<body>
+
+<div class="topnav">
+  <a href="../../../文档首页.html">文档首页</a> ›
+  <a href="../技术栈知识档案总览.html">知识档案</a> ›
+  <a href="../技术栈知识档案总览.html#backend">后端核心</a> ›
+  <span>MinIO 技术介绍</span>
+  <span class="topnav-side">
+    <a href="../技术栈知识档案总览.html">← 返回总览</a>
+  </span>
+</div>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>MinIO 技术介绍</h1>
+      <p>S3 兼容对象存储 · BMS 统一文件存储底座</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#overview">1. 技术概述</a></li>
+        <li><a href="#principles">2. 核心概念与原理</a></li>
+        <li><a href="#usage">3. 在 BMS 项目中的用途</a></li>
+        <li><a href="#compare">4. 选型对比</a></li>
+        <li><a href="#pitfalls">5. 常见问题与注意事项</a></li>
+        <li><a href="#learn">6. 学习与参考资料</a></li>
+        <li><a href="#related">7. 项目内关联文档</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="overview">1. 技术概述</h2>
+      <p>
+        <strong>MinIO</strong> 是一个用 Go 语言编写的<strong>S3 兼容对象存储</strong>服务，提供「桶 + 对象」的文件存取模型。
+        S3 是 Amazon 提出的对象存储协议标准，MinIO 完整兼容该协议，因此客户端、工具链都可以直接用 S3 生态的 SDK 对接，将来换云上 S3 服务也不需要改业务代码。
+        BMS 用它承载全部业务文件（附件、导入导出文件、图片/PDF 等），并支撑多实例共享文件。
+      </p>
+      <ul>
+        <li><strong>定位</strong>：BMS 唯一文件存储端点，backend 多副本共享同一存储，无本地磁盘依赖。</li>
+        <li><strong>版本</strong>：RELEASE 命名滚动发布（如 RELEASE.2026-xx），无大版本概念，跟随官方稳定线升级。</li>
+        <li><strong>许可</strong>：AGPL-3.0。仅作独立服务进程部署、不修改源码时无传染性；官方另提供商业订阅（见《<a href="../../规划/项目规划说明.html#stack-license">项目规划说明</a>》2.5 节许可分析）。</li>
+        <li><strong>部署</strong>：Docker Compose 独立容器，详见《<a href="../../开发服务器/MinIO部署使用说明.html">MinIO 部署使用说明</a>》。</li>
+      </ul>
+
+      <h2 id="principles">2. 核心概念与原理</h2>
+      <table>
+        <tr><th>概念</th><th>说明</th></tr>
+        <tr><td>桶（Bucket）</td><td>对象的容器，类似数据库的库：BMS 按用途建桶（附件、导出、临时分片等），桶名全局唯一</td></tr>
+        <tr><td>对象（Object）</td><td>存储的基本单位，由「桶 + key」定位；key 相当于路径，BMS 用业务前缀组织（如 <code>tenant/{id}/attach/xxx</code>）</td></tr>
+        <tr><td>S3 协议</td><td>Amazon 定义的对象存储访问协议（HTTP + 签名鉴权），MinIO 兼容实现，SDK 与工具直接通用</td></tr>
+        <tr><td>Access Key / Secret Key</td><td>访问凭据，类似账号密码；BMS 通过 Secret 管理下发，不入库不写配置明文</td></tr>
+        <tr><td>预签名 URL</td><td>带时效签名的访问链接：无需登录凭据，有效期内可直接上传/下载对象，BMS 用其实现「限时下载、图片直开预览」</td></tr>
+        <tr><td>分片上传（Multipart Upload）</td><td>大对象拆成多个分片分别上传、最后合并；BMS 用 <code>.part</code> 后缀的临时对象标识未完成分片，全部传完合并为最终对象</td></tr>
+        <tr><td>孤儿分片</td><td>上传中断遗留的 <code>.part</code> 临时对象，由 Celery 定时任务扫描回收，避免存储泄漏</td></tr>
+        <tr><td>ETag</td><td>对象内容的校验标记，用于一致性校验与断点续传比对</td></tr>
+        <tr><td>纠删码（Erasure Coding）</td><td>MinIO 的默认数据冗余机制：数据分片分散到多块磁盘，坏盘时可自动恢复，是分布式部署的基础</td></tr>
+        <tr><td>生命周期（Lifecycle）</td><td>按规则自动清理/迁移旧对象，BMS 可作为临时文件自动过期的兜底策略</td></tr>
+      </table>
+
+      <h2 id="usage">3. 在 BMS 项目中的用途</h2>
+      <ul>
+        <li><strong>统一文件存储</strong>：附件、导入模板、导出结果、图片/PDF 等全部对象存储，backend 多实例共享同一端点，无状态横向扩展（见《<a href="../../规划/项目规划说明.html#stack-backend">项目规划说明</a>》2.1 节）。</li>
+        <li><strong>预签名 URL 限时下载</strong>：下载/预览接口生成短时效预签名 URL（含权限校验），浏览器直连 MinIO 拉取，避免大文件经过后端转发。</li>
+        <li><strong>大文件分片上传</strong>：≤20MB 整包上传；超限分片 + 断点续传，分片用 <code>.part</code> 标识的临时对象存 MinIO，合并后清理，见《<a href="../../规划/项目规划说明.html#modules">项目规划说明</a>》第 5 节「文件管理」模块。</li>
+        <li><strong>孤儿分片回收</strong>：上传中断遗留的 <code>.part</code> 对象由 Celery 周期性任务扫描清理（见《<a href="Celery技术介绍.html">Celery 技术介绍</a>》）。</li>
+        <li><strong>本地开发模拟</strong>：存储层做抽象接口，本地开发/测试可切文件系统实现，不强制起 MinIO；生产独立部署或对接现有 S3 服务。</li>
+        <li><strong>AI 能力复用</strong>：阶段十五 Milvus 向量库依赖的对象存储直接复用 MinIO。</li>
+      </ul>
+      <pre><code>from datetime import timedelta
+from minio import Minio
+
+client = Minio("minio:9000", access_key="AKIA...", secret_key="...", secure=False)
+
+url = client.get_presigned_url("GET", "bms-attach", "tenant/1/attach/a.pdf",
+                               expires=timedelta(minutes=30))</code></pre>
+
+      <h2 id="compare">4. 选型对比</h2>
+      <table>
+        <tr><th>方案</th><th>优点</th><th>缺点</th><th>结论</th></tr>
+        <tr><td><strong>MinIO（选中）</strong></td><td>S3 协议通用、自托管可控、Docker 一键部署、生态成熟（各语言 SDK）</td><td>AGPL-3.0（独立服务无传染）、需自行运维</td><td>私有化 + S3 兼容兼顾，可平滑换云上 S3</td></tr>
+        <tr><td>云上 S3 / OSS 等</td><td>免运维、容量无限</td><td>依赖外网供应商，信创/内网场景不适用</td><td>作为 MinIO 的对等替换保留，接口层已兼容</td></tr>
+        <tr><td>Ceph RGW</td><td>对象+块+文件一体</td><td>部署运维重，单为对象存储杀鸡用牛刀</td><td>复杂度超出项目需求</td></tr>
+        <tr><td>SeaweedFS</td><td>轻量快速</td><td>生态小、S3 兼容性弱</td><td>生态与兼容性不满足</td></tr>
+        <tr><td>共享磁盘（NFS）</td><td>实现最简单</td><td>单点、无对象协议、无预签名能力</td><td>仅本地开发模拟用，生产不用</td></tr>
+      </table>
+
+      <h2 id="pitfalls">5. 常见问题与注意事项</h2>
+      <ul>
+        <li><strong>AGPL 边界</strong>：MinIO 以独立服务进程运行、不改源码即不传染；禁止为优化而修改 MinIO 源码内嵌项目（《<a href="../../规划/项目规划说明.html#stack-license">项目规划说明</a>》2.5 节合规要求）。</li>
+        <li><strong>凭据安全</strong>：Access/Secret Key 走 Secret 管理下发，严禁硬编码进代码或提交仓库；定期轮换。</li>
+        <li><strong>时钟同步</strong>：S3 签名依赖时间戳，服务器时间偏差过大会导致签名校验失败，MinIO 与客户端机器都要配置 NTP。</li>
+        <li><strong>预签名 URL 时效</strong>：时限宁短勿长，下载接口每次按需签发；URL 不落入审计/日志明文，防止泄漏后被滥用。</li>
+        <li><strong>分片残留</strong>：上传中断会留下 <code>.part</code> 对象，靠 Celery 定时回收；清理任务要按创建时间阈值过滤，别误删正在上传的分片。</li>
+        <li><strong>桶与 key 命名</strong>：桶名全局唯一且创建后不能改名；key 用业务前缀组织（租户隔离），别用用户原始文件名直接当 key。</li>
+        <li><strong>单机最小配置</strong>：单机部署时纠删码需要至少 4 块磁盘或启用单盘模式，部署前读《<a href="../../开发服务器/MinIO部署使用说明.html">MinIO 部署使用说明</a>》确认参数。</li>
+        <li><strong>强一致性</strong>：MinIO 对象读写是强一致的，无需自己维护缓存一致性；但列表操作分页与数量大时注意性能。</li>
+      </ul>
+
+      <h2 id="learn">6. 学习与参考资料</h2>
+      <table>
+        <tr><th>资源</th><th>网址</th><th>说明</th></tr>
+        <tr><td>MinIO 官网</td><td>https://min.io/</td><td>产品介绍与下载</td></tr>
+        <tr><td>MinIO 官方文档（Linux 版）</td><td>https://min.io/docs/minio/linux/index.html</td><td>部署、运维、功能权威文档</td></tr>
+        <tr><td>MinIO Python SDK 文档</td><td>https://min.io/docs/minio/python/index.html</td><td>Python 客户端用法（put/get/presigned）</td></tr>
+        <tr><td>MinIO GitHub</td><td>https://github.com/minio/minio</td><td>源码与 issue</td></tr>
+        <tr><td>MinIO 控制台文档</td><td>https://min.io/docs/minio/linux/reference/minio-console/index.html</td><td>Web 控制台管理与排障</td></tr>
+        <tr><td>S3 API 参考</td><td>https://docs.aws.amazon.com/AmazonS3/latest/API/Welcome.html</td><td>协议标准参考（MinIO 兼容此 API）</td></tr>
+      </table>
+
+      <h2 id="related">7. 项目内关联文档</h2>
+      <table>
+        <tr><th>文档</th><th>说明</th></tr>
+        <tr><td>《<a href="../../规划/项目规划说明.html#stack-backend">项目规划说明</a>》2.1 节</td><td>后端技术栈：对象存储条目</td></tr>
+        <tr><td>《<a href="../../规划/项目规划说明.html#modules">项目规划说明</a>》5 节</td><td>文件管理模块：分片上传、断点续传、预签名下载规则</td></tr>
+        <tr><td>《<a href="../../开发服务器/MinIO部署使用说明.html">MinIO 部署使用说明</a>》</td><td>开发服务器上的部署步骤与排障</td></tr>
+        <tr><td>《<a href="python-multipart技术介绍.html">python-multipart 技术介绍</a>》</td><td>上传入口的 multipart 解析</td></tr>
+        <tr><td>《<a href="Celery技术介绍.html">Celery 技术介绍</a>》</td><td>孤儿分片回收、日志归档等任务</td></tr>
+        <tr><td>《<a href="openpyxl技术介绍.html">openpyxl 技术介绍</a>》</td><td>导出文件写入后落 MinIO 分发</td></tr>
+      </table>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 依《<a href="../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>

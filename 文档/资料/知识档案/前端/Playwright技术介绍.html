@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Playwright 技术介绍</title>
+<link rel="stylesheet" href="../../资源/文档样式.css">
+</head>
+<body>
+
+<div class="topnav">
+  <a href="../../../文档首页.html">文档首页</a> ›
+  <a href="../技术栈知识档案总览.html">知识档案</a> ›
+  <a href="../技术栈知识档案总览.html#frontend">前端</a> ›
+  <span>Playwright 技术介绍</span>
+  <span class="topnav-side">
+    <a href="../技术栈知识档案总览.html">← 返回总览</a>
+  </span>
+</div>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>Playwright 技术介绍</h1>
+      <p>跨浏览器 E2E 测试框架 · BMS 端到端质量门禁</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#overview">1. 技术概述</a></li>
+        <li><a href="#principles">2. 核心概念与原理</a></li>
+        <li><a href="#usage">3. 在 BMS 项目中的用途</a></li>
+        <li><a href="#compare">4. 选型对比</a></li>
+        <li><a href="#pitfalls">5. 常见问题与注意事项</a></li>
+        <li><a href="#learn">6. 学习与参考资料</a></li>
+        <li><a href="#related">7. 项目内关联文档</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="overview">1. 技术概述</h2>
+      <p>
+        <strong>Playwright</strong> 是微软出品的跨浏览器
+        端到端（E2E）测试框架，一套 API 驱动
+        <strong>Chromium、Firefox、WebKit</strong> 三大内核，
+        内置<strong>自动等待</strong>（元素可见/稳定/可交互才执行动作）、
+        <strong>代码录制器</strong>（边点边生成测试代码）、
+        <strong>Trace 查看器</strong>（失败现场全量回放）与
+        内置测试运行器（并行、重试、报告）。
+        是当下 E2E 测试的主流开源方案，
+        直接替代 Selenium 的手工等待与冗长样板。
+      </p>
+      <ul>
+        <li><strong>定位</strong>：BMS E2E 测试框架，main 流水线独立 job 运行（见《<a href="../../规划/项目规划说明.html#stack-frontend">项目规划说明</a>》2.2 节）。</li>
+        <li><strong>版本</strong>：1.6x（截至 2026 年 1.62.x，持续迭代；浏览器版本与 Playwright 版本绑定）。</li>
+        <li><strong>许可</strong>：Apache-2.0，OSI 认证开源。</li>
+        <li><strong>语言</strong>：测试代码用 JS/TS（Node.js 运行），驱动 Chromium/Firefox/WebKit。</li>
+      </ul>
+
+      <h2 id="principles">2. 核心概念与原理</h2>
+      <table>
+        <tr><th>概念</th><th>说明</th></tr>
+        <tr><td>自动等待（Auto-wait）</td><td>每个动作前自动等元素可见、稳定、可交互，无需手写 sleep，从根上减少 flaky</td></tr>
+        <tr><td>Locator</td><td>稳定的元素定位器：<code>getByRole</code>/<code>getByText</code>/<code>getByTestId</code>；每次动作重新查询，避免「元素过期」问题</td></tr>
+        <tr><td>Codegen 录制器</td><td><code>npx playwright codegen</code> 打开浏览器边操作边生成测试代码，新人上手最快路径</td></tr>
+        <tr><td>测试运行器</td><td><code>@playwright/test</code> 内置 runner：并行 worker、失败重试、超时、HTML 报告，开箱即用</td></tr>
+        <tr><td>Project</td><td>浏览器矩阵配置：同一套用例在 chromium/firefox/webkit 各跑一遍</td></tr>
+        <tr><td>Browser Context</td><td>每个测试独立的「浏览器档案」（cookie/存储隔离），测试互不污染</td></tr>
+        <tr><td>Trace Viewer</td><td>全量动作轨迹（DOM 快照、网络请求、console），失败用例一键回放定位</td></tr>
+        <tr><td>网络拦截</td><td><code>page.route</code> 拦截/模拟 API 响应，测试不依赖真实后端数据</td></tr>
+        <tr><td>storageState</td><td>复用登录态（cookie/localStorage），每条用例不必重新登录</td></tr>
+        <tr><td>设备模拟</td><td>内置手机设备参数（视口/UA/触摸），移动端 H5 用例用 iPhone 等模拟跑</td></tr>
+        <tr><td>Headless</td><td>无界面模式，CI 容器里直接跑，无需 X server</td></tr>
+      </table>
+
+      <h2 id="usage">3. 在 BMS 项目中的用途</h2>
+      <ul>
+        <li><strong>E2E 覆盖范围</strong>：登录、主体链 RBAC 权限（含按钮显隐与字段权限）、核心 CRUD 主流程（见《<a href="../../规划/项目规划说明.html#test">项目规划说明</a>》16 节）。</li>
+        <li><strong>main 流水线独立 job</strong>：Playwright E2E 在 main 流水线单独成 job 运行，不阻塞 MR 流水线（见《<a href="../../规划/项目规划说明.html#sel-ops">项目规划说明</a>》3.4 节 GitLab CI）。</li>
+        <li><strong>E2E 环境</strong>：服务容器起 backend（SQLite）与前端产物，job 内自包含（见《<a href="../../规划/开发部署规划.html#workflow">开发部署规划</a>》7 节）。</li>
+        <li><strong>测试报告与归档</strong>：Playwright 生成自动化测试报告（CI 产物归档），结果经官方插件导入 Kiwi TCMS（见《<a href="../../规划/项目规划说明.html#test-report">项目规划说明</a>》16.5 节）。</li>
+        <li><strong>移动端兼容基线</strong>：设备模拟覆盖移动端 H5（审批/通知/查询链路），支撑「浏览器与移动端真机兼容基线」验收（见《<a href="../../规划/项目规划说明.html#plan">项目规划说明</a>》20 节）。</li>
+        <li><strong>替代 Selenium</strong>：自动等待 + 录制器 + 跨浏览器，替代 Selenium 的手工等待与冗长样板（见《<a href="../../规划/项目规划说明.html#sel-frontend">项目规划说明</a>》3.2 节）。</li>
+      </ul>
+
+      <p>最小示例（登录用例 + 浏览器矩阵配置）：</p>
+      <pre><code>// e2e/login.spec.ts
+import { test, expect } from '@playwright/test'
+
+test('账号密码登录进入工作台', async ({ page }) =&gt; {
+  await page.goto('/login')
+  await page.getByLabel('账号').fill('admin')
+  await page.getByLabel('密码').fill('Test@12345')
+  await page.getByRole('button', { name: '登录' }).click()
+
+  await expect(page).toHaveURL(/\/dashboard/)
+  await expect(page.getByText('工作台')).toBeVisible()
+})
+
+// playwright.config.ts
+import { defineConfig, devices } from '@playwright/test'
+
+export default defineConfig({
+  testDir: './e2e',
+  timeout: 30_000,
+  retries: 1,
+  use: {
+    baseURL: 'http://localhost:8080',
+    trace: 'on-first-retry',
+  },
+  projects: [
+    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    { name: 'firefox', use: { ...devices['Desktop Firefox'] } },
+    { name: 'webkit', use: { ...devices['Desktop Safari'] } },
+  ],
+})</code></pre>
+
+      <h2 id="compare">4. 选型对比</h2>
+      <table>
+        <tr><th>候选技术</th><th>优缺点</th><th>结论</th></tr>
+        <tr><td><strong>Playwright（选中）</strong></td><td>跨三大内核、自动等待、录制器、Trace、内置 runner、活跃维护、Apache-2.0</td><td>与 BMS「跨浏览器 + CI 独立 job + 移动端模拟」诉求完全匹配</td></tr>
+        <tr><td>Selenium WebDriver</td><td>经典、语言多；但手工等待、稳定性差、样板代码多、生态老化</td><td>项目规划明确替代对象，不选</td></tr>
+        <tr><td>Cypress</td><td>开发者体验好、调试直观；但单 tab 限制、无 WebKit、多域名支持弱</td><td>跨浏览器与多页能力不如 Playwright，不选</td></tr>
+        <tr><td>WebdriverIO</td><td>Node 系、移动端能力有；但社区规模与资料少于 Playwright</td><td>生态与资料不如 Playwright，不选</td></tr>
+      </table>
+
+      <h2 id="pitfalls">5. 常见问题与注意事项</h2>
+      <ul>
+        <li><strong>浏览器下载走镜像</strong>：<code>npx playwright install</code> 首次下载浏览器体积大，国内环境设 <code>PLAYWRIGHT_DOWNLOAD_HOST=https://npmmirror.com/mirrors/playwright/</code> 加速。</li>
+        <li><strong>CI 依赖就绪</strong>：main 流水线 E2E job 要等 backend（SQLite）与前端产物容器就绪后再跑，避免连接拒绝误报。</li>
+        <li><strong>测试隔离</strong>：每个测试独立 context，别共享登录态；确需复用用 <code>storageState</code> 显式管理。</li>
+        <li><strong>减少 flaky</strong>：优先自动等待与稳定定位器（<code>getByRole</code>/<code>getByTestId</code>），禁止硬编码 <code>waitForTimeout</code> 凑时间。</li>
+        <li><strong>Trace 调试</strong>：配 <code>trace: 'on-first-retry'</code>，失败用例用 Trace Viewer 回放，别只盯着截图猜。</li>
+        <li><strong>移动端用例</strong>：用设备模拟（iPhone 等）跑 H5 链路，真机兼容基线另做人工验证（见《<a href="../../规划/项目规划说明.html#plan">项目规划说明</a>》20 节）。</li>
+        <li><strong>浏览器版本绑定</strong>：浏览器由 Playwright 版本锁定，别手动装系统浏览器混用，升级走 <a href="../部署与运维/Renovate技术介绍.html">Renovate</a> 提 MR + 回归。</li>
+        <li><strong>用例与 Kiwi TCMS 关联</strong>：测试代码以用例 ID 标注，执行结果导入平台归档，别只留 CI 日志。</li>
+      </ul>
+
+      <h2 id="learn">6. 学习与参考资料</h2>
+      <table>
+        <tr><th>资源</th><th>网址</th><th>说明</th></tr>
+        <tr><td>Playwright 官网</td><td>https://playwright.dev</td><td>文档、教程与最佳实践入口</td></tr>
+        <tr><td>Playwright 入门</td><td>https://playwright.dev/docs/intro</td><td>安装、第一个测试、核心概念</td></tr>
+        <tr><td>Playwright GitHub</td><td>https://github.com/microsoft/playwright</td><td>源码、Releases 与 issue</td></tr>
+        <tr><td>Codegen 录制器</td><td>https://playwright.dev/docs/codegen-intro</td><td>边操作边生成测试代码的用法</td></tr>
+        <tr><td>Trace Viewer</td><td>https://playwright.dev/docs/trace-viewer</td><td>失败用例回放调试</td></tr>
+        <tr><td>npmmirror Playwright 镜像</td><td>https://npmmirror.com/mirrors/playwright/</td><td>国内浏览器下载加速源</td></tr>
+      </table>
+
+      <h2 id="related">7. 项目内关联文档</h2>
+      <table>
+        <tr><th>文档</th><th>说明</th></tr>
+        <tr><td>《<a href="../../规划/项目规划说明.html#stack-frontend">项目规划说明</a>》2.2 节</td><td>前端技术栈（Playwright 条目）</td></tr>
+        <tr><td>《<a href="../../规划/项目规划说明.html#sel-frontend">项目规划说明</a>》3.2 节</td><td>选型理由：自动等待、录制器、跨浏览器，替代 Selenium</td></tr>
+        <tr><td>《<a href="../../规划/项目规划说明.html#test">项目规划说明</a>》16 节</td><td>测试策略：E2E 覆盖范围与报告归档</td></tr>
+        <tr><td>《<a href="../../规划/项目规划说明.html#sel-ops">项目规划说明</a>》3.4 节</td><td>GitLab CI：main 流水线 Playwright 独立 job</td></tr>
+        <tr><td>《<a href="Vitest技术介绍.html">Vitest 技术介绍</a>》</td><td>单元测试（与 E2E 分层互补）</td></tr>
+        <tr><td>《<a href="../工程化与质量/KiwiTCMS技术介绍.html">Kiwi TCMS 技术介绍</a>》</td><td>用例登记与 Playwright 结果导入</td></tr>
+        <tr><td>《<a href="../工程化与质量/pytest技术介绍.html">pytest 技术介绍</a>》</td><td>后端对应测试框架</td></tr>
+        <tr><td>《<a href="../../规划/开发部署规划.html#workflow">开发部署规划</a>》7 节</td><td>E2E 环境：服务容器起 backend 与前端产物</td></tr>
+      </table>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 依《<a href="../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>

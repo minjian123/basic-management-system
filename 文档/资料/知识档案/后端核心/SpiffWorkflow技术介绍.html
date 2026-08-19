@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SpiffWorkflow 技术介绍</title>
+<link rel="stylesheet" href="../../../资源/文档样式.css">
+</head>
+<body>
+
+<div class="topnav">
+  <a href="../../../文档首页.html">文档首页</a> ›
+  <a href="../技术栈知识档案总览.html">知识档案</a> ›
+  <a href="../技术栈知识档案总览.html#backend">后端核心</a> ›
+  <span>SpiffWorkflow 技术介绍</span>
+  <span class="topnav-side">
+    <a href="../技术栈知识档案总览.html">← 返回总览</a>
+  </span>
+</div>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>SpiffWorkflow 技术介绍</h1>
+      <p>Python BPMN 2.0 工作流引擎 · BMS 审批流程</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#overview">1. 技术概述</a></li>
+        <li><a href="#principles">2. 核心概念与原理</a></li>
+        <li><a href="#usage">3. 在 BMS 项目中的用途</a></li>
+        <li><a href="#compare">4. 选型对比</a></li>
+        <li><a href="#pitfalls">5. 常见问题与注意事项</a></li>
+        <li><a href="#learn">6. 学习与参考资料</a></li>
+        <li><a href="#related">7. 项目内关联文档</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="overview">1. 技术概述</h2>
+      <p>
+        <strong>SpiffWorkflow</strong> 是 Python 生态里最成熟的工作流引擎，核心能力是<strong>解析并执行标准 BPMN 2.0 流程图</strong>。
+        它用纯 Python 实现，让非开发者也能用图形化流程图描述审批等业务流程，
+        引擎负责解析 BPMN XML 并按图执行（用户任务、网关、结束事件等）。
+      </p>
+      <ul>
+        <li><strong>定位</strong>：BMS 审批流程引擎——解析前端 bpmn-js 导出的 BPMN XML，驱动审批流转。</li>
+        <li><strong>版本</strong>：3.x 系列（截至 2026 年最新 3.1.2 / 3.2.0），要求 Python 3.10+，本项目用 3.14+（有兼容性风险，见下）。</li>
+        <li><strong>许可</strong>：<strong>LGPL-3.0</strong>（GNU 宽通用公共许可证，弱 copyleft）。注意：任务清单与《项目规划说明》2.5 节曾标注为 MIT，经核实 GitHub 仓库与 PyPI 实际为 LGPL-3.0，两者法律含义不同，<strong>建议复核并同步修正规划文档</strong>。</li>
+        <li><strong>依赖</strong>：仅依赖 <code>lxml</code>（解析 XML），外部依赖极少。</li>
+        <li><strong>作者/维护</strong>：Sartography（原 Samuel Abels 创建并维护十余年）。</li>
+      </ul>
+
+      <h2 id="principles">2. 核心概念与原理</h2>
+      <table>
+        <tr><th>概念</th><th>一句话说明</th></tr>
+        <tr><td>BPMN 2.0</td><td>业务流程建模标准（OMG 制定）：用图形化流程图描述审批等业务流程，是 SpiffWorkflow 的输入格式</td></tr>
+        <tr><td>Workflow</td><td>工作流对象：解析一段 BPMN XML 后得到的可执行流程实例</td></tr>
+        <tr><td>Task（任务）</td><td>流程中的一个执行节点，是流程推进的基本单位</td></tr>
+        <tr><td>UserTask（用户任务）</td><td>需要「人」来处理的节点，BMS 用它表示审批节点，等待审批人操作</td></tr>
+        <tr><td>Gateway（网关）</td><td>分支/汇合控制点：排他网关（二选一）、并行网关（同时走多路）、包含网关等</td></tr>
+        <tr><td>StartEvent / EndEvent</td><td>开始事件（流程入口）与结束事件（流程出口），标记流程的起止</td></tr>
+        <tr><td>Process</td><td>流程定义：一段 BPMN 里描述的一条完整业务路径</td></tr>
+        <tr><td>Engine（执行引擎）</td><td>驱动流程按 BPMN 规则推进的核心：解析节点、执行任务、走网关、到结束事件</td></tr>
+        <tr><td>序列化（Serialization）</td><td>把流程实例当前状态序列化（存/取），BMS 用它把流程状态落库、跨请求恢复</td></tr>
+        <tr><td>脚本引擎</td><td>支持在流程节点里执行 Python 脚本，灵活但需注意沙箱安全</td></tr>
+        <tr><td>不持久化</td><td>引擎本身<strong>不内置持久化</strong>：流程实例、任务、审批记录的存储由 BMS 自建表维护</td></tr>
+      </table>
+
+      <h2 id="usage">3. 在 BMS 项目中的用途</h2>
+      <p>
+        SpiffWorkflow 在 BMS 里是<strong>审批流程的执行引擎</strong>。
+        整体分工：前端 <code>bpmn-js</code> 负责拖拽绘制流程定义并导出 BPMN XML，
+        SpiffWorkflow 负责解析这段 XML 并按图执行审批流转。
+      </p>
+      <ul>
+        <li><strong>解析执行 BPMN XML</strong>：支持用户任务（审批节点）、网关（分支/并行）、结束事件等标准元素（见《<a href="../../../规划/项目规划说明.html#sel-backend">项目规划说明</a>》3.1 节）。</li>
+        <li><strong>同步执行 + 线程池</strong>：SpiffWorkflow 是<strong>同步</strong>库，在 FastAPI 异步栈中放入线程池运行（<code>run_in_executor</code>），避免阻塞事件循环（见《<a href="FastAPI技术介绍.html">FastAPI 技术介绍</a>》）。</li>
+        <li><strong>状态由 BMS 自建表维护</strong>：引擎本身不持久化，流程实例、任务、审批记录由 BMS 自建表（如 <code>wf_process</code>、流程实例表、审批记录表）存储，经序列化/反序列化跨请求恢复（见《<a href="../../../规划/项目规划说明.html#tables">项目规划说明</a>》6 节）。</li>
+        <li><strong>流程建模闭环</strong>：管理端用 bpmn-js 拖拽绘制 → 导出 BPMN XML → SpiffWorkflow 执行；流程定义发布新版本、实例启动、节点通过、驳回、结束等经事件总线发布（见《<a href="../../../规划/项目规划说明.html#integ-event">项目规划说明</a>》9.3 节 <code>wf.*</code> 事件）。</li>
+        <li><strong>审批提醒联动</strong>：流程走到用户任务时触发审批提醒邮件（见《<a href="aiosmtplib技术介绍.html">aiosmtplib 技术介绍</a>》）与待办实时推送（见《<a href="python-socketio技术介绍.html">python-socketio 技术介绍</a>》）。</li>
+      </ul>
+      <div class="warn">
+        Python 3.14 兼容性风险：SpiffWorkflow 对 Python 3.14 的适配情况待验证。
+        按《<a href="../../../规划/项目规划说明.html#sel-backend">项目规划说明</a>》3.1 节既定口径，
+        阶段一骨架阶段逐依赖验证，若 SpiffWorkflow 暂未适配 3.14，则整体回退 Python 3.13。
+      </div>
+
+      <h2 id="compare">4. 选型对比</h2>
+      <table>
+        <tr><th>候选技术</th><th>优缺点</th><th>结论</th></tr>
+        <tr><td><strong>SpiffWorkflow（选中）</strong></td><td>Python 生态最成熟 BPMN 引擎、纯 Python、依赖仅 lxml、支持 BPMN/DMN</td><td>契合 BPMN 标准与 Python 栈，首选</td></tr>
+        <tr><td>自研工作流引擎</td><td>完全可控；但 BPMN 解析、网关、序列化都要自己造，成本高、易出错</td><td>成本高、BPMN 支持不全，无自研必要</td></tr>
+        <tr><td>Java 系引擎（Flowable / Activiti）</td><td>BPMN 支持强、生态成熟；但<strong>非 Python</strong>，需跨语言集成或另起 JVM，架构复杂</td><td>与 Python 栈集成成本高，不契合</td></tr>
+        <tr><td>轻量状态机库</td><td>简单场景够用；但<strong>不支持 BPMN 标准</strong>，无法解析 bpmn-js 导出的 XML</td><td>不满足 BPMN 标准与前端建模闭环需求</td></tr>
+      </table>
+
+      <h2 id="pitfalls">5. 常见问题与注意事项</h2>
+      <ul>
+        <li><strong>同步执行要放线程池</strong>：SpiffWorkflow 是同步库，在 <code>async def</code> 接口中直接调用会阻塞事件循环，必须用 <code>run_in_executor</code> 丢进线程池。</li>
+        <li><strong>引擎不持久化</strong>：SpiffWorkflow 本身不存流程状态，流程实例/任务/审批记录必须由 BMS 自建表维护，靠序列化/反序列化跨请求恢复，别指望引擎自带存储。</li>
+        <li><strong>Python 3.14 兼容性</strong>：若引擎暂未适配 3.14，按既定口径整体回退 Python 3.13，阶段一验证。</li>
+        <li><strong>依赖 lxml</strong>：需安装 <code>lxml</code>（解析 XML），注意其在各平台的可用版本。</li>
+        <li><strong>脚本引擎安全</strong>：BPMN 节点里若执行 Python 脚本，需做沙箱限制，防止流程定义里夹带危险代码。</li>
+        <li><strong>BPMN XML 要合规</strong>：前端 bpmn-js 导出的 XML 须符合 BPMN 2.0 标准，非法 XML 会导致解析失败，发布前做校验。</li>
+        <li><strong>许可证注意</strong>：LGPL-3.0 是弱 copyleft，与 MIT 法律含义不同（动态链接场景下义务较轻，但需保留许可证声明），商用前建议法务确认，并修正规划文档中的许可证标注。</li>
+      </ul>
+
+      <h2 id="learn">6. 学习与参考资料</h2>
+      <table>
+        <tr><th>资源</th><th>网址</th><th>说明</th></tr>
+        <tr><td>SpiffWorkflow 官方文档</td><td>https://spiffworkflow.readthedocs.io/</td><td>权威文档，含 BPMN 支持、核心库、序列化</td></tr>
+        <tr><td>SpiffWorkflow GitHub</td><td>https://github.com/sartography/SpiffWorkflow</td><td>源码、issue、release notes 与许可证</td></tr>
+        <tr><td>PyPI 包页</td><td>https://pypi.org/project/SpiffWorkflow/</td><td>版本、依赖与安装信息</td></tr>
+        <tr><td>BPMN 2.0 规范（OMG）</td><td>https://www.omg.org/spec/BPMN/</td><td>BPMN 标准规范，理解流程元素语义</td></tr>
+        <tr><td>SpiffWorkflow 示例应用</td><td>https://github.com/sartography/spiff-example-cli</td><td>官方示例，快速上手流程定义与执行</td></tr>
+      </table>
+
+      <h2 id="related">7. 项目内关联文档</h2>
+      <table>
+        <tr><th>文档</th><th>说明</th></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#sel-backend">项目规划说明</a>》3.1 节</td><td>选型说明：SpiffWorkflow 条目与 Python 3.14 兼容口径</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#modules">项目规划说明</a>》5 节</td><td>功能模块：审批（流程建模、流程实例、我的待办/已办）</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#integ-event">项目规划说明</a>》9.3 节</td><td>事件总线：<code>wf.*</code> 流程事件</td></tr>
+        <tr><td>《<a href="FastAPI技术介绍.html">FastAPI 技术介绍</a>》</td><td>异步栈背景，同步引擎放线程池运行</td></tr>
+        <tr><td>《<a href="Python技术介绍.html">Python 技术介绍</a>》</td><td>Python 3.14 版本与兼容性口径</td></tr>
+        <tr><td>《<a href="aiosmtplib技术介绍.html">aiosmtplib 技术介绍</a>》</td><td>审批提醒邮件发送</td></tr>
+      </table>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 依《<a href="../../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>

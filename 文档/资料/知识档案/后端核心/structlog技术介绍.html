@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>structlog 技术介绍</title>
+<link rel="stylesheet" href="../../../资源/文档样式.css">
+</head>
+<body>
+
+<div class="topnav">
+  <a href="../../../文档首页.html">文档首页</a> ›
+  <a href="../技术栈知识档案总览.html">知识档案</a> ›
+  <a href="../技术栈知识档案总览.html#backend">后端核心</a> ›
+  <span>structlog 技术介绍</span>
+  <span class="topnav-side">
+    <a href="../技术栈知识档案总览.html">← 返回总览</a>
+  </span>
+</div>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>structlog 技术介绍</h1>
+      <p>Python 结构化日志库 · BMS 日志底座</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#overview">1. 技术概述</a></li>
+        <li><a href="#principles">2. 核心概念与原理</a></li>
+        <li><a href="#usage">3. 在 BMS 项目中的用途</a></li>
+        <li><a href="#compare">4. 选型对比</a></li>
+        <li><a href="#pitfalls">5. 常见问题与注意事项</a></li>
+        <li><a href="#learn">6. 学习与参考资料</a></li>
+        <li><a href="#related">7. 项目内关联文档</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="overview">1. 技术概述</h2>
+      <p>
+        <strong>structlog</strong> 是 Python 生态里做<strong>结构化日志</strong>的事实标准库，
+        由 Hynek Schloegel 维护，自 2013 年起在生产环境大规模使用。
+        它把「一条日志」建模成一个<strong>字典（event dict）</strong>，
+        通过一串<strong>处理器（processor）</strong>逐步加工，最终渲染成 JSON、logfmt 或控制台彩色输出。
+      </p>
+      <ul>
+        <li><strong>定位</strong>：BMS 后端<strong>唯一日志库</strong>——结构化 JSON 日志，携带 <code>request_id</code>/<code>trace_id</code> 贯穿请求链路，配合 Loki 跨实例聚合检索。</li>
+        <li><strong>版本</strong>：26.1.0（CalVer 日历版本，主版本号=年份，持续迭代）。</li>
+        <li><strong>许可</strong>：Apache-2.0 或 MIT（双许可，任选其一）。</li>
+        <li><strong>特性</strong>：零配置即可用、可深度定制、原生支持 asyncio 与 contextvars、可无缝接管标准库 <code>logging</code>。</li>
+      </ul>
+
+      <h2 id="principles">2. 核心概念与原理</h2>
+      <table>
+        <tr><th>概念</th><th>一句话说明</th></tr>
+        <tr><td>结构化日志</td><td>日志不是自由文本，而是带字段的键值对（如 <code>{"event":"login","user_id":42}</code>），便于机器解析、检索、聚合</td></tr>
+        <tr><td>event dict</td><td>structlog 里一条日志的本质——一个字典；上下文 + 本次事件参数合并后一起输出</td></tr>
+        <tr><td>bound logger（绑定日志器）</td><td>用 <code>logger.bind(user_id=42)</code> 预置上下文的日志器；之后每条日志自动带上这些字段，无需重复传</td></tr>
+        <tr><td>context（上下文）</td><td>提前绑定、跨多次日志复用的字段（租户、用户、request_id），是「贯穿请求链路」的关键</td></tr>
+        <tr><td>processor（处理器）</td><td>接收 event dict、返回新 event dict 的函数，串成一条「处理器链」逐步加工日志（加级别、加时间戳、脱敏、渲染）</td></tr>
+        <tr><td>merge_contextvars</td><td>从 <code>contextvars</code> 读取上下文的处理器，配合 asyncio/多线程让 request_id 等自动进入每条日志，无需手动传</td></tr>
+        <tr><td>TimeStamper</td><td>给日志加时间戳的处理器，可指定格式与是否 UTC（BMS 统一 UTC 存储）</td></tr>
+        <tr><td>渲染器（Renderer）</td><td>把 event dict 变成最终字符串：JSONRenderer（生产 JSON）、ConsoleRenderer（开发彩色）、KeyValueRenderer（logfmt）</td></tr>
+        <tr><td>stdlib 集成</td><td>structlog 可接管标准库 <code>logging</code>：第三方库走 logging 的输出也能被统一加工，不影响它们正常工作</td></tr>
+        <tr><td>request_id / trace_id</td><td>请求链路标识：request_id 为进程内请求序号（兜底），trace_id 为跨服务链路 ID（OpenTelemetry），二者关联后日志可与链路互查</td></tr>
+      </table>
+
+      <h2 id="usage">3. 在 BMS 项目中的用途</h2>
+      <p>
+        structlog 是 BMS 后端的<strong>日志底座</strong>，目标是「日志可被机器检索、可跨实例聚合、可关联链路」。
+        所有业务日志统一走 structlog，禁止 <code>print</code>。
+      </p>
+      <ul>
+        <li><strong>结构化 JSON 输出</strong>：生产环境渲染为单行 JSON（每行一条），字段名 snake_case，<code>event</code> 为动作描述（<code>user_created</code>、<code>login_failed</code>），便于 Loki 逐行解析与检索（见《<a href="../../../规范/日志规范.html#format">日志规范</a>》3 节）。</li>
+        <li><strong>request_id 贯穿链路</strong>：中间件在请求入口生成 <code>request_id</code> 并 bind 到日志上下文，整条请求链路的日志都带上它，配合 Loki 跨实例聚合检索（见《<a href="../../../规划/项目规划说明.html#sel-backend">项目规划说明</a>》3.1 节「structlog」）。</li>
+        <li><strong>与标准 logging 集成</strong>：structlog 接管标准库 <code>logging</code>，FastAPI/SQLAlchemy/Celery 等第三方库的日志也能被统一加工，不影响它们原有输出（见《<a href="../../../设计/架构设计/23_架构设计_子系统_可观测性.html#log">可观测性</a>》2 节）。</li>
+        <li><strong>关联 OpenTelemetry trace_id</strong>：<code>trace_id</code> 与 structlog 的 <code>request_id</code> 关联，日志可与 Jaeger 链路互查，随 Grafana 统一可视化（见《<a href="OpenTelemetry技术介绍.html">OpenTelemetry 技术介绍</a>》）。</li>
+        <li><strong>脱敏</strong>：密码、token、密钥、PII 经脱敏处理器过滤后才落日志，不落原始值（见《<a href="../../../规范/日志规范.html#mask">日志规范</a>》5 节）。</li>
+        <li><strong>异步任务贯通</strong>：Celery 任务与 event-worker 消费者在入口沿用或生成 trace_id，保证异步链路日志可追踪。</li>
+      </ul>
+      <div class="note">
+        日志示例（生产 JSON 单行）：
+        <code>{"ts":"2026-08-19T09:00:00.123+00:00","level":"info","event":"user_created","trace_id":"a1b2c3d4","tenant":"demo","user_id":42,"duration_ms":35}</code>
+      </div>
+
+      <h2 id="compare">4. 选型对比</h2>
+      <table>
+        <tr><th>候选技术</th><th>优缺点</th><th>结论</th></tr>
+        <tr><td><strong>structlog（选中）</strong></td><td>结构化原生、处理器链灵活、asyncio/contextvars 一等公民、可接管 stdlib、性能高、生产验证久</td><td>与 BMS「JSON 日志 + 链路贯通 + 第三方兼容」需求完全契合，首选</td></tr>
+        <tr><td>标准库 logging + 自定义 Formatter</td><td>零依赖、熟悉；但天然面向文本，结构化要自己拼、上下文传递弱、asyncio 支持差</td><td>能凑合但上下文与结构化能力不足，工程化成本高</td></tr>
+        <tr><td>python-json-logger</td><td>直接把 logging 输出成 JSON；但只是「格式化器」，无上下文绑定/处理器链，能力有限</td><td>适合轻量场景，BMS 需要上下文贯通，不够用</td></tr>
+        <tr><td>loguru</td><td>API 极简、开箱即用；但偏「便捷日志器」，结构化/处理器链/stdlib 接管不如 structlog 精细</td><td>适合小项目，BMS 要精细控制日志管线，选 structlog</td></tr>
+      </table>
+
+      <h2 id="pitfalls">5. 常见问题与注意事项</h2>
+      <ul>
+        <li><strong>别用 print</strong>：业务代码一律走 structlog，<code>print</code> 输出无法被 Loki 结构化解析，也丢失上下文（见《<a href="../../../规范/日志规范.html#level">日志规范</a>》2 节）。</li>
+        <li><strong>上下文靠 bind/contextvars，别手动传</strong>：request_id、tenant、user_id 在入口 bind 一次，后续日志自动带上；每条日志手动传既啰嗦又易漏。</li>
+        <li><strong>异步场景用 contextvars</strong>：asyncio 下线程局部变量不可靠，必须用 <code>merge_contextvars</code> 处理器从 contextvars 读上下文，否则并发请求上下文会串。</li>
+        <li><strong>多行堆栈要合并</strong>：异常堆栈默认多行，需替换换行为 <code>\n</code> 转义成单行，否则 Loki 逐行解析会断（见《<a href="../../../规范/日志规范.html#format">日志规范</a>》3 节）。</li>
+        <li><strong>脱敏要进处理器链</strong>：密码/token/PII 必须在渲染前的处理器里过滤，别指望「记得不打印」——要机制保证。</li>
+        <li><strong>stdlib 接管方式</strong>：用 <code>structlog.stdlib.recreate_defaults()</code> 让第三方库日志也走 structlog 管线；但注意别重复加处理器导致字段叠加。</li>
+        <li><strong>时间戳统一 UTC</td>：TimeStamper 设 <code>utc=True</code>，与 BMS「时间 UTC 存储」口径一致，前端再按本地时区展示。</li>
+        <li><strong>级别别滥用 DEBUG</strong>：DEBUG 默认关闭（dev 可开），生产只留 INFO 以上的关键节点，避免日志量爆炸。</li>
+      </ul>
+
+      <h2 id="learn">6. 学习与参考资料</h2>
+      <table>
+        <tr><th>资源</th><th>网址</th><th>说明</th></tr>
+        <tr><td>structlog 官方文档</td><td>https://www.structlog.org/</td><td>权威文档：Getting Started、处理器、stdlib 集成、Glossary</td></tr>
+        <tr><td>structlog GitHub</td><td>https://github.com/hynek/structlog</td><td>源码、issue 与 release notes</td></tr>
+        <tr><td>structlog @ PyPI</td><td>https://pypi.org/project/structlog/</td><td>安装包与版本历史</td></tr>
+        <tr><td>Standard Library 集成</td><td>https://www.structlog.org/en/stable/standard-library.html</td><td>如何接管 logging、让第三方库输出统一加工</td></tr>
+        <tr><td>Processors 详解</td><td>https://www.structlog.org/en/stable/processors.html</td><td>处理器链、脱敏、渲染机制</td></tr>
+        <tr><td>《<a href="../../../规范/日志规范.html">日志规范</a>》</td><td>项目内文档</td><td>BMS 日志级别、JSON 格式、脱敏、链路约定</td></tr>
+      </table>
+
+      <h2 id="related">7. 项目内关联文档</h2>
+      <table>
+        <tr><th>文档</th><th>说明</th></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#sel-backend">项目规划说明</a>》2.1 / 3.1 节</td><td>日志选型：structlog 结构化日志</td></tr>
+        <tr><td>《<a href="../../../规范/日志规范.html">日志规范</a>》</td><td>日志级别、JSON 格式、上下文字段、脱敏、保留归档</td></tr>
+        <tr><td>《<a href="../../../设计/架构设计/23_架构设计_子系统_可观测性.html">可观测性（架构设计）</a>》</td><td>日志 + 指标 + 链路 + 告警统一体系</td></tr>
+        <tr><td>《<a href="OpenTelemetry技术介绍.html">OpenTelemetry 技术介绍</a>》</td><td>trace_id 与 request_id 关联、链路追踪</td></tr>
+        <tr><td>《<a href="../部署与运维/Loki技术介绍.html">Loki 技术介绍</a>》</td><td>日志聚合检索，消费 structlog 的 JSON 日志</td></tr>
+        <tr><td>《<a href="FastAPI技术介绍.html">FastAPI 技术介绍</a>》</td><td>中间件注入 request_id 到日志上下文</td></tr>
+      </table>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 依《<a href="../../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>

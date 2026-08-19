@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JWT 与 PBKDF2 技术介绍</title>
+<link rel="stylesheet" href="../../资源/文档样式.css">
+</head>
+<body>
+
+<div class="topnav">
+  <a href="../../../文档首页.html">文档首页</a> ›
+  <a href="../技术栈知识档案总览.html">知识档案</a> ›
+  <a href="../技术栈知识档案总览.html#backend">后端核心</a> ›
+  <span>JWT 与 PBKDF2 技术介绍</span>
+  <span class="topnav-side">
+    <a href="../技术栈知识档案总览.html">← 返回总览</a>
+  </span>
+</div>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>JWT 与 PBKDF2 技术介绍</h1>
+      <p>无状态令牌 + 密码哈希 · BMS 认证基石</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#overview">1. 技术概述</a></li>
+        <li><a href="#principles">2. 核心概念与原理</a></li>
+        <li><a href="#usage">3. 在 BMS 项目中的用途</a></li>
+        <li><a href="#compare">4. 选型对比</a></li>
+        <li><a href="#pitfalls">5. 常见问题与注意事项</a></li>
+        <li><a href="#learn">6. 学习与参考资料</a></li>
+        <li><a href="#related">7. 项目内关联文档</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="overview">1. 技术概述</h2>
+      <p>
+        <strong>JWT</strong>（JSON Web Token）是一种<strong>自包含的令牌</strong>格式：把用户身份、有效期等信息
+        签名后放进一个紧凑的字符串，服务端无需保存会话即可校验令牌真伪——这就是"无状态认证"。
+        <strong>PBKDF2</strong>（Password-Based Key Derivation Function 2）是标准化的<strong>密码哈希算法</strong>：
+        通过加盐 + 重复迭代把密码变成不可逆的哈希值，用于安全存储密码。
+        两者构成 BMS 认证体系的两个支柱：签发/校验令牌 + 存储密码。
+      </p>
+      <ul>
+        <li><strong>定位</strong>：JWT 做访问令牌（access/refresh 双 token），PBKDF2 做本地账号密码哈希（Python 标准库实现）。</li>
+        <li><strong>实现</strong>：JWT 用 PyJWT（持续迭代的 2.x 系列）；PBKDF2 用标准库 <code>hashlib.pbkdf2_hmac</code>，零第三方依赖。</li>
+        <li><strong>许可</strong>：PyJWT 为 MIT，OSI 认证开源；PBKDF2 为算法/标准，标准库实现随 Python（PSF-2.0）。</li>
+      </ul>
+
+      <h2 id="principles">2. 核心概念与原理</h2>
+      <table>
+        <tr><th>概念</th><th>说明</th></tr>
+        <tr><td>JWT 三段式结构</td><td><code>header.payload.signature</code>：头（算法）、载荷（claims）、签名（防篡改），三段 Base64URL 拼接</td></tr>
+        <tr><td>Claims（声明）</td><td>载荷里的字段：<code>sub</code>（用户）、<code>iat</code>（签发时间）、<code>exp</code>（过期时间）、<code>jti</code>（令牌唯一 ID，用于黑名单）等</td></tr>
+        <tr><td>签名算法</td><td>HS256（对称：同一密钥签/验）与 RS256（非对称：私钥签、公钥验）为常用选项；项目用 HS256，密钥可轮换</td></tr>
+        <tr><td>access token / refresh token</td><td>短效令牌（本项目 30 分钟）+ 长效刷新令牌（14 天、滚动轮换），兼顾安全与体验</td></tr>
+        <tr><td>无状态认证</td><td>服务端不存会话即可验签通过；但 BMS 为支持"踢出即时生效"，额外随 token 校验 Redis 会话有效标记（见下节）</td></tr>
+        <tr><td>黑名单（Blacklist）</td><td>登出/被盗后把令牌 <code>jti</code> 写入 Redis 黑名单即时失效，弥补"自包含令牌无法撤销"的短板</td></tr>
+        <tr><td>PBKDF2 密码哈希</td><td>密码 + 随机盐 → 迭代 HMAC 多次 → 定长哈希；攻击者只能逐盐爆破，成本极高</td></tr>
+        <tr><td>盐（Salt）</td><td>每个用户独立的随机值，与密码一起参与哈希；防彩虹表、防同密码同哈希</td></tr>
+        <tr><td>迭代次数</td><td>重复哈希轮数，越大越慢；按硬件水平取"单次校验 ~100ms"量级，可随时间调高</td></tr>
+        <tr><td>哈希 vs 加密</td><td>哈希不可逆、只做比对（<code>hashlib.compare_digest</code> 常量时间比较）；密码绝不加密存储</td></tr>
+        <tr><td>滚动轮换（Rotation）</td><td>刷新时签发新 refresh token 并作废旧 token（记录其 <code>jti</code>），限制令牌泄露窗口</td></tr>
+      </table>
+
+      <h2 id="usage">3. 在 BMS 项目中的用途</h2>
+      <p>按《<a href="../../规划/项目规划说明.html#security">项目规划说明</a>》12 节"认证与安全"与 3.1 节选型说明：</p>
+      <ul>
+        <li><strong>双 token 机制</strong>：access token（30 分钟）+ refresh token（14 天，滚动轮换）；access token 仅存前端内存（刷新页面后静默续期），refresh token 存 httpOnly + Secure + SameSite cookie，防 XSS 窃取。</li>
+        <li><strong>横向扩展友好</strong>：JWT 自包含、服务端无会话存储，多实例/多副本无需共享会话数据；鉴权时随 access token 一并校验 Redis 会话有效标记（每请求一次 Redis 读，毫秒级开销），强制踢出即时生效——这是"无状态 + 可撤销"的折中设计（3.1 节、19.2 节）。</li>
+        <li><strong>token 黑名单</strong>：登出时 refresh token 的 <code>jti</code> 加入 Redis 黑名单（<code>bms:global:token:blacklist:{jti}</code>）即时失效；重置密码成功后强制失效该账号全部会话。</li>
+        <li><strong>PBKDF2 密码哈希</strong>：标准库 <code>hashlib.pbkdf2_hmac</code> 实现，无第三方依赖；配合密码策略（复杂度校验、90 天有效期强制改密、近 5 次历史密码不可重复、180 天未登录自动锁定）。</li>
+        <li><strong>密钥管理</strong>：JWT secret 支持轮换（新旧并行验证期），走 Secret 管理，不落库不入镜像（12 节、17 节）。</li>
+        <li><strong>SSO 协同</strong>：外部 IdP 认证回跳后签发 BMS 双 token，本地账号密码登录作为超管应急通道并存（见《<a href="authlib技术介绍.html">authlib 技术介绍</a>》）。</li>
+      </ul>
+
+      <h2 id="compare">4. 选型对比</h2>
+      <table>
+        <tr><th>候选技术</th><th>优缺点</th><th>结论</th></tr>
+        <tr><td><strong>JWT（PyJWT）+ Redis 会话校验（选中）</strong></td><td>自包含便于横向扩展，Redis 校验兜住"踢出/作废"需求，标准成熟</td><td>与集群无状态架构契合，已被规划定为认证方案</td></tr>
+        <tr><td>服务端 session（内存/DB 存储）</td><td>可即时撤销，但多实例需共享存储或粘性会话，扩展性差</td><td>不满足横向扩展目标，不采用</td></tr>
+        <tr><td>Opaque token（Redis 存映射）</td><td>可撤销性强，但每次鉴权都要查 Redis，令牌无自校验能力</td><td>作为补充手段（黑名单/会话标记）使用，不作为主令牌</td></tr>
+        <tr><td>Fernet / 自研签名令牌</td><td>可控但生态与审计资料少，自研签名易出安全漏洞</td><td>不必要，标准 JWT + 成熟库更稳</td></tr>
+        <tr><td>（密码哈希）bcrypt / argon2</td><td>同为优秀密码哈希算法，但需第三方库依赖</td><td>PBKDF2 标准库零依赖已满足要求，不额外引入</td></tr>
+      </table>
+
+      <h2 id="pitfalls">5. 常见问题与注意事项</h2>
+      <ul>
+        <li><strong>access token 有效期不可过长</strong>：规划定为 30 分钟；过长会放大泄露风险窗口，过短则频繁刷新体验差。</li>
+        <li><strong>禁设算法为 none、禁弱密钥</strong>：验签时必须显式指定允许的算法白名单（HS256），防止攻击者伪造未签名令牌；secret 强度要够、可轮换（新旧并行验证期）。</li>
+        <li><strong>密码必须加盐 + 足够迭代次数</strong>：盐用 <code>secrets.token_bytes</code> 生成，存入库与哈希同存；迭代次数随硬件上调，校验用 <code>hashlib.compare_digest</code> 常量时间比较防时序攻击。</li>
+        <li><strong>敏感信息不进 claims</strong>：JWT 载荷只做 Base64URL 编码、可被任何人解码，手机号/身份证等脱敏字段绝不能写进 token。</li>
+        <li><strong>黑名单 TTL 与业务对齐</strong>：<code>jti</code> 黑名单的 TTL 要覆盖 refresh token 剩余有效期，过期自动清理；会话标记 key 同理。</li>
+        <li><strong>刷新令牌防重放</strong>：滚动轮换时对已轮换的旧 token 做复用检测（记录使用过的 <code>jti</code>），发现复用立即失效全家会话。</li>
+        <li><strong>日志脱敏</strong>：token、密码、密钥等敏感字段记录日志时必须脱敏，不落原始值（12 节日志要求）。</li>
+        <li><strong>时钟与 exp 校验</strong>：校验 <code>exp</code> 时留少量时钟偏移容忍度，避免多实例时钟漂移导致误判；<code>jti</code> 必须唯一（黑名单机制依赖它）。</li>
+      </ul>
+
+      <h2 id="learn">6. 学习与参考资料</h2>
+      <table>
+        <tr><th>资源</th><th>网址</th><th>说明</th></tr>
+        <tr><td>PyJWT 官方文档</td><td>https://pyjwt.readthedocs.io/</td><td>签发/校验/算法选择用法</td></tr>
+        <tr><td>PyJWT GitHub</td><td>https://github.com/jpadilla/pyjwt</td><td>源码与 issue 讨论</td></tr>
+        <tr><td>JWT 官方规范（RFC 7519）</td><td>https://datatracker.ietf.org/doc/html/rfc7519</td><td>JWT 标准定义，权威但偏理论</td></tr>
+        <tr><td>jwt.io 调试器</td><td>https://jwt.io/</td><td>在线解码/校验令牌，联调排查利器</td></tr>
+        <tr><td>Python 标准库 hashlib</td><td>https://docs.python.org/3/library/hashlib.html</td><td><code>pbkdf2_hmac</code> 官方用法与参数说明</td></tr>
+        <tr><td>OWASP Password Storage Cheat Sheet</td><td>https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html</td><td>PBKDF2 迭代次数等密码存储安全基线</td></tr>
+      </table>
+
+      <h2 id="related">7. 项目内关联文档</h2>
+      <table>
+        <tr><th>文档</th><th>说明</th></tr>
+        <tr><td>《<a href="../../规划/项目规划说明.html#security">项目规划说明</a>》12 节</td><td>双 token、黑名单、会话校验、密码策略全套认证设计</td></tr>
+        <tr><td>《<a href="../../规划/项目规划说明.html#sel-backend">项目规划说明</a>》3.1 节</td><td>JWT + Redis 会话状态校验 + PBKDF2 选型理由</td></tr>
+        <tr><td>《<a href="Redis技术介绍.html">Redis 技术介绍</a>》</td><td>会话有效标记、token 黑名单的存储实现</td></tr>
+        <tr><td>《<a href="authlib技术介绍.html">authlib 技术介绍</a>》</td><td>SSO 认证回跳后签发 BMS 双 token 的协同</td></tr>
+        <tr><td>《<a href="../../规范/API接口规范.html">API 接口规范</a>》</td><td>401 处理、令牌刷新约定</td></tr>
+      </table>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 依《<a href="../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>

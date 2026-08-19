@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pillow 技术介绍</title>
+<link rel="stylesheet" href="../../资源/文档样式.css">
+</head>
+<body>
+
+<div class="topnav">
+  <a href="../../../文档首页.html">文档首页</a> ›
+  <a href="../技术栈知识档案总览.html">知识档案</a> ›
+  <a href="../技术栈知识档案总览.html#backend">后端核心</a> ›
+  <span>Pillow 技术介绍</span>
+  <span class="topnav-side">
+    <a href="../技术栈知识档案总览.html">← 返回总览</a>
+  </span>
+</div>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>Pillow 技术介绍</h1>
+      <p>Python 图像处理库 · BMS 图形验证码生成</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#overview">1. 技术概述</a></li>
+        <li><a href="#principles">2. 核心概念与原理</a></li>
+        <li><a href="#usage">3. 在 BMS 项目中的用途</a></li>
+        <li><a href="#compare">4. 选型对比</a></li>
+        <li><a href="#pitfalls">5. 常见问题与注意事项</a></li>
+        <li><a href="#learn">6. 学习与参考资料</a></li>
+        <li><a href="#related">7. 项目内关联文档</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="overview">1. 技术概述</h2>
+      <p>
+        <strong>Pillow</strong>（PIL Fork）是 Python 生态里事实标准的图像处理库，
+        是对早已停止维护的 <strong>PIL（Python Imaging Library）</strong>的延续与重写，
+        至今由社区活跃维护，覆盖图像读写、裁剪、缩放、绘图、滤镜、格式转换等绝大多数常见需求。
+        在 BMS 中它只承担一个很具体的职责——<strong>生成图形验证码图片</strong>。
+      </p>
+      <ul>
+        <li><strong>定位</strong>：BMS 登录链路中图形验证码图片的服务端生成器。</li>
+        <li><strong>版本</strong>：12.x 系列（持续迭代，按季度发布，建议锁定依赖版本）。</li>
+        <li><strong>许可</strong>：HPND（PIL 许可），OSI 认证开源。</li>
+        <li><strong>语言</strong>：Python（本项目 3.14+），核心含 C 扩展以获得性能。</li>
+      </ul>
+
+      <h2 id="principles">2. 核心概念与原理</h2>
+      <table>
+        <tr><th>概念</th><th>说明</th></tr>
+        <tr><td>Image 对象</td><td>内存中的一张位图，是所有操作的起点：可绘图、裁剪、缩放、加滤镜、存为文件</td></tr>
+        <tr><td>ImageDraw</td><td>在 Image 上画东西的工具：文字、直线、矩形、弧线、椭圆——验证码字符与干扰线都靠它</td></tr>
+        <tr><td>ImageFont</td><td>加载字体文件（TTF/OTF）并指定字号，决定验证码文字的外观与可读性</td></tr>
+        <tr><td>像素与模式（Mode）</td><td>图像由像素组成；<code>RGB</code> 为彩色、<code>L</code> 为灰度、<code>RGBA</code> 带透明通道，验证码一般用 RGB</td></tr>
+        <tr><td>干扰元素</td><td>在字符上叠加随机折线、噪点，增加 OCR 识别难度，是验证码安全性的关键</td></tr>
+        <tr><td>随机字符集</td><td>验证码内容从字母/数字集合中随机抽取，应使用密码学安全随机源（<code>secrets</code>）而非普通 <code>random</code></td></tr>
+        <tr><td>序列化为字节</td><td>Image 本身是内存对象，需 <code>save</code> 到 <code>BytesIO</code> 得到 PNG 字节流，才能经 HTTP 返回或入 Redis</td></tr>
+        <tr><td>格式（Format）</td><td>支持 PNG/JPEG/GIF/BMP 等；验证码用 PNG（无损、体积小、支持透明）</td></tr>
+        <tr><td>线程安全</td><td>Image 对象实例方法非线程安全，但「每次请求新建 Image 再绘制」的用法天然隔离，可安全用于并发接口</td></tr>
+      </table>
+
+      <h2 id="usage">3. 在 BMS 项目中的用途</h2>
+      <ul>
+        <li>登录接口生成 4~6 位随机字符的图形验证码图片，以 PNG 字节流返回前端。</li>
+        <li>验证码明文（或摘要）写入 Redis，key 为 <code>bms:global:captcha:{uuid}</code>，短 TTL 5 分钟，到期自动失效。</li>
+        <li>登录连续失败 3 次后强制要求输入验证码，与 <a href="slowapi技术介绍.html">slowapi</a> 限流叠加，共同防爆破（见《<a href="../../规划/项目规划说明.html#security">项目规划说明</a>》12 节「认证与安全」）。</li>
+        <li>验证码校验为一次性：比对成功后立即删除 Redis key，防止重放。</li>
+        <li>生成逻辑为 CPU 密集 + 同步阻塞，接口内应放入线程池执行，避免卡住事件循环（见《<a href="FastAPI技术介绍.html">FastAPI 技术介绍</a>》注意事项）。</li>
+        <li>与《<a href="../../规划/项目规划说明.html#perf">项目规划说明</a>》14 节「限流与降级」、《<a href="../../规范/安全开发规范.html">安全开发规范</a>》的登录防护要求对齐。</li>
+      </ul>
+
+      <h2 id="compare">4. 选型对比</h2>
+      <table>
+        <tr><th>候选技术</th><th>优缺点</th><th>结论</th></tr>
+        <tr><td><strong>Pillow（选中）</strong></td><td>纯 Python 生态、API 简单、功能覆盖验证码全部需求、社区最活跃</td><td>生成图形验证码的默认选择，无外部依赖</td></tr>
+        <tr><td>PIL（原版）</td><td>历史经典，但早已停止维护，存在已知安全漏洞</td><td>不采用，Pillow 即其官方延续</td></tr>
+        <tr><td>Wand（ImageMagick 绑定）</td><td>功能极强，但需额外安装 ImageMagick 原生库，部署变重</td><td>杀鸡用牛刀，验证码场景不需要</td></tr>
+        <tr><td>OpenCV</td><td>面向计算机视觉/图像处理重型任务，库体积大、学习成本高</td><td>与「画几个字符」的需求不匹配</td></tr>
+      </table>
+
+      <h2 id="pitfalls">5. 常见问题与注意事项</h2>
+      <ul>
+        <li><strong>阻塞事件循环</strong>：图像生成是同步 CPU 操作，在 <code>async def</code> 接口里直接调用会卡住整个进程，需放入线程池（<code>run_in_executor</code>）或交给 Celery。</li>
+        <li><strong>字体依赖</strong>：<code>ImageFont.truetype</code> 需要真实字体文件，部署镜像里要带上字体并写对路径，跨平台（Linux/Windows）字体名不同，缺失时会回退默认位图字体导致样式异常。</li>
+        <li><strong>随机源安全</strong>：验证码字符务必用 <code>secrets</code> 模块生成，普通 <code>random</code> 可被预测，等于没设防。</li>
+        <li><strong>防 OCR</strong>：纯字符无干扰的验证码可被 OCR 批量识别，应叠加干扰线/噪点，并控制字符集（避免 0/O、1/l 等易混字符）。</li>
+        <li><strong>内存与尺寸</strong>：验证码图片保持小尺寸（如 120×40），不要生成大图；高并发下大量临时 Image 对象注意及时释放。</li>
+        <li><strong>版本锁定</strong>：Pillow 12.x 与旧版本存在 API/行为差异，依赖锁定（uv.lock）后升级需回归验证码渲染与格式测试。</li>
+      </ul>
+
+      <h2 id="learn">6. 学习与参考资料</h2>
+      <table>
+        <tr><th>资源</th><th>网址</th><th>说明</th></tr>
+        <tr><td>Pillow 官方文档</td><td>https://pillow.readthedocs.io/</td><td>权威文档，含 ImageDraw / ImageFont 等完整 API 与示例</td></tr>
+        <tr><td>Pillow GitHub</td><td>https://github.com/python-pillow/Pillow</td><td>源码、issue 讨论与发布记录</td></tr>
+        <tr><td>Pillow 官网首页</td><td>https://python-pillow.github.io</td><td>项目主页与快速入口</td></tr>
+        <tr><td>Pillow PyPI</td><td>https://pypi.org/project/pillow/</td><td>版本历史与安装信息</td></tr>
+        <tr><td>Pillow 许可协议（HPND）</td><td>https://github.com/python-pillow/Pillow/blob/main/LICENSE</td><td>许可文本，合规审查依据</td></tr>
+      </table>
+
+      <h2 id="related">7. 项目内关联文档</h2>
+      <table>
+        <tr><th>文档</th><th>说明</th></tr>
+        <tr><td>《<a href="../../规划/项目规划说明.html#stack-backend">项目规划说明</a>》2.1 节</td><td>后端技术栈与选型说明（Pillow 条目）</td></tr>
+        <tr><td>《<a href="../../规划/项目规划说明.html#security">项目规划说明</a>》12 节</td><td>认证与安全：登录连续失败 3 次强制图形验证码</td></tr>
+        <tr><td>《<a href="../../规划/项目规划说明.html#perf">项目规划说明</a>》14 节</td><td>性能与高并发设计：限流与降级、Redis key 命名</td></tr>
+        <tr><td>《<a href="../../规范/安全开发规范.html">安全开发规范</a>》</td><td>登录防护、防爆破与验证码安全要求</td></tr>
+        <tr><td>《<a href="Redis技术介绍.html">Redis 技术介绍</a>》</td><td>验证码存储与校验（bms:global:captcha:{uuid}，TTL 5 分钟）</td></tr>
+        <tr><td>《<a href="slowapi技术介绍.html">slowapi 技术介绍</a>》</td><td>登录限流，与验证码叠加防爆破</td></tr>
+        <tr><td>《<a href="JWT与PBKDF2技术介绍.html">JWT 与 PBKDF2 技术介绍</a>》</td><td>登录认证整体链路（token 签发与密码哈希）</td></tr>
+      </table>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 依《<a href="../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>
