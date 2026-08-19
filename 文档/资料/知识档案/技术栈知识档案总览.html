@@ -58,23 +58,12 @@
 
       <h2 id="map">2. 技术栈全景图</h2>
       <pre class="mermaid">
-graph TD
-    B["后端核心（34 项）"] --> B1["FastAPI / uvicorn / Pydantic"]
-    B --> B2["SQLAlchemy / Alembic / 四库驱动"]
-    B --> B3["Redis / dogpile.cache / JWT / authlib"]
-    B --> B4["RocketMQ / Celery / python-socketio"]
-    B --> B5["ElasticSearch / MinIO / SpiffWorkflow"]
-    F["前端（20 项）"] --> F1["Vue 3 / Vite / TS / Element Plus"]
-    F --> F2["Router / Pinia / Axios / vue-i18n"]
-    F --> F3["ECharts / bpmn-js / gridstack / vue-flow"]
-    E["工程化与质量（8 项）"] --> E1["uv / ruff / pyright / pytest"]
-    E --> E2["Kiwi TCMS / Allure / Swagger / graphify"]
-    O["部署与运维（8 项）"] --> O1["Docker / nginx / GitLab / Renovate"]
-    O --> O2["Prometheus / Loki / Grafana / etcd"]
-    B --> M["BMS 系统"]
-    F --> M
-    E --> M
-    O --> M
+ graph TD
+     M["BMS 系统"]
+     M --> F["前端（20 项）<br/>Vue 3 · Vite · TS · Element Plus<br/>Router · Pinia · Axios · vue-i18n<br/>ECharts · bpmn-js · gridstack · vue-flow"]
+     F --> B["后端核心（34 项）<br/>FastAPI · uvicorn · Pydantic<br/>SQLAlchemy · Alembic · 四库驱动<br/>Redis · dogpile.cache · JWT · authlib<br/>RocketMQ · Celery · python-socketio<br/>ElasticSearch · MinIO · SpiffWorkflow"]
+     B --> E["工程化与质量（8 项）<br/>uv · ruff · pyright · pytest<br/>Kiwi TCMS · Allure · Swagger · graphify"]
+     E --> O["部署与运维（8 项）<br/>Docker · nginx · GitLab · Renovate<br/>Prometheus · Loki · Grafana · etcd"]
       </pre>
 
       <h2 id="backend">3. 后端核心索引</h2>
