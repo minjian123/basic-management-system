@@ -1,0 +1,21 @@
+services:
+  kiwi:
+    image: kiwitcms/kiwi:latest
+    container_name: bms-kiwi
+    restart: unless-stopped
+    environment:
+      TZ: Asia/Shanghai
+      KIWI_DB_ENGINE: django.db.backends.mysql
+      KIWI_DB_HOST: ${KIWI_DB_HOST}
+      KIWI_DB_PORT: ${KIWI_DB_PORT}
+      KIWI_DB_NAME: ${KIWI_DB_NAME}
+      KIWI_DB_USER: ${KIWI_DB_USER}
+      KIWI_DB_PASSWORD: ${KIWI_DB_PASSWORD}
+      KIWI_SECRET_KEY: ${KIWI_SECRET_KEY}
+    ports:
+      - "8060:8443"
+    volumes:
+      - kiwi-uploads:/Kiwi/uploads
+
+volumes:
+  kiwi-uploads:

@@ -451,7 +451,7 @@ npm run dev</code></pre>
       <table>
         <tr><th>端口</th><th>服务</th><th>说明</th></tr>
         <tr><td>8080 / 5050 / 2222</td><td>GitLab HTTP / Registry / SSH</td><td>容器内 80 / 5000 / 22 映射；2222 为 GitLab SSH（系统 SSH 占 22）</td></tr>
-        <tr><td>8060</td><td>Kiwi TCMS</td><td>第一批起（阶段一），容器内 80；8080 已被 GitLab 占用故映射 8060，仅内网</td></tr>
+        <tr><td>8060</td><td>Kiwi TCMS</td><td>第一批起（阶段一），容器内 8443（nginx HTTPS 实际服务）；8080 已被 GitLab 占用故映射 8060，仅内网</td></tr>
         <tr><td>3306 / 5432 / 5236</td><td>MySQL 8 / PostgreSQL 16 / 达梦 DM8</td><td>mjbk 常驻，仅内网</td></tr>
         <tr><td>6379</td><td>Redis</td><td>仅内网</td></tr>
         <tr><td>9000 / 9001</td><td>MinIO API / 控制台</td><td>仅内网</td></tr>
