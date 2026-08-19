@@ -216,7 +216,7 @@ flowchart TD
         <tr><td>Python 包管理</td><td>uv</td></tr>
         <tr><td>代码规范</td><td>ruff（lint + format）</td></tr>
         <tr><td>类型检查</td><td>pyright（严格模式）</td></tr>
-        <tr><td>后端测试</td><td>pytest + httpx（ASGITransport）</td></tr>
+        <tr><td>后端测试</td><td>pytest + httpx（ASGITransport）+ pytest-cov（覆盖率门禁）</td></tr>
         <tr><td>API 文档</td><td>Swagger UI / ReDoc（FastAPI 内置，生产关闭）</td></tr>
         <tr><td>知识图谱</td><td>graphify（代码理解与架构分析）</td></tr>
         <tr><td>压测</td><td>locust（登录/列表/审批场景）</td></tr>
@@ -234,7 +234,7 @@ flowchart TD
         <tr><td>检索</td><td>ElasticSearch 8.x（MVP 单节点，生产集群多副本）</td></tr>
         <tr><td>AI（阶段十五）</td><td>Milvus（milvus + etcd，MinIO 复用）、PaddleOCR（可选）</td></tr>
         <tr><td>健康检查</td><td>/healthz、/readyz</td></tr>
-        <tr><td>CI/CD</td><td>GitLab CE（自托管，仓库 + MR + CI + Registry 一体，gitlab-runner 容器化挂载 docker.sock；ruff + pytest + 前端双端构建 + Playwright E2E + 三库集成测试（复用开发服务器常驻库）+ 镜像 + swagger.json 快照）+ Renovate 依赖升级；GitHub push mirror 只读归档</td></tr>
+        <tr><td>CI/CD</td><td>GitLab CE（自托管，仓库 + MR + CI + Registry 一体，gitlab-runner 容器化挂载 docker.sock；ruff + pytest（覆盖率门禁）+ 前端双端构建 + Playwright E2E + 三库集成测试（复用开发服务器常驻库）+ Allure 报告 + 结果导入 Kiwi TCMS + 镜像 + swagger.json 快照）+ Renovate 依赖升级；GitHub push mirror 只读归档</td></tr>
       </table>
 
       <h2 id="phases">7. 阶段映射</h2>
