@@ -72,7 +72,7 @@
       <h2 id="purpose">1. 目的与适用范围</h2>
       <p>
         为 BMS 项目（<a href="../../规划/项目规划说明.html">《项目规划说明》</a>）建设<strong>本地多模态能力接入</strong>：
-        把本机 LM Studio 上的多模态模型（qwen3.6-35b-a3b）的<strong>全部能力</strong>（识图、多模态对话、文本理解）开放给 AI 助手使用。
+        把本机 LM Studio 上的多模态模型（qwen3.8-27b）的<strong>全部能力</strong>（识图、多模态对话、文本理解）开放给 AI 助手使用。
         方案由「MCP server + 子代理」双轨组成——MCP server 把多模态能力暴露为标准工具，子代理把本地模型当作可派活的"小弟"；
         两者共用同一套 Python 客户端、截图服务与场景提示词模板，<strong>与具体场景解耦</strong>。
       </p>
@@ -82,7 +82,7 @@
       <pre class="mermaid">
 flowchart LR
     A["opencode 主会话"] -->|"multimodal_chat / screenshot"| M["MCP server<br/>deploy/tools/multimodal/mcp_server.py"]
-    A -->|"派活（task）"| S["子代理 local-helper<br/>lmstudio/qwen3.6-35b-a3b"]
+    A -->|"派活（task）"| S["子代理 local-helper<br/>lmstudio/qwen3.8-27b"]
     M -->|"OpenAI 兼容 API"| L["LM Studio<br/>127.0.0.1:1234"]
     S -->|"bash 调用"| C["Python 客户端<br/>vision_analyze.py / screenshot.py"]
     C -->|"OpenAI 兼容 API"| L
@@ -116,7 +116,7 @@ Authorization: Bearer local
 Content-Type: application/json
 
 {
-  "model": "qwen/qwen3.6-35b-a3b",
+  "model": "qwen/qwen3.8-27b",
   "reasoning_effort": "none",
   "messages": [
     { "role": "system", "content": "{系统提示}" },
@@ -143,9 +143,9 @@ Content-Type: application/json
       "apiKey": "local"
     },
     "models": {
-      "qwen3.6-35b-a3b": {
-        "id": "qwen/qwen3.6-35b-a3b",
-        "name": "qwen3.6-35b-a3b 本地多模态",
+      "qwen3.8-27b": {
+        "id": "qwen/qwen3.8-27b",
+        "name": "qwen3.8-27b 本地多模态",
         "tool_call": true,
         "reasoning": true,
         "attachment": true,
@@ -155,7 +155,7 @@ Content-Type: application/json
   }
 }</code></pre>
       <ul>
-        <li>模型引用格式：<code>lmstudio/qwen3.6-35b-a3b</code>（子代理 frontmatter 的 <code>model</code> 字段即此）。</li>
+        <li>模型引用格式：<code>lmstudio/qwen3.8-27b</code>（子代理 frontmatter 的 <code>model</code> 字段即此）。</li>
         <li>本地 LM Studio 无鉴权时 apiKey 填占位值（<code>local</code>）；云端密钥仅走环境变量（见第 9 节）。</li>
         <li>修改 opencode.json 后需<strong>重启 opencode</strong> 生效。</li>
       </ul>
@@ -178,7 +178,7 @@ Content-Type: application/json
         <tr><td><code>screenshot</code></td><td><code>url</code>（HTML 路径或 URL）、<code>out</code>（PNG 输出路径）、<code>width</code>/<code>height</code>（默认 1440×900）、<code>budget</code>（渲染等待毫秒，默认 3000）</td><td>Edge 无头截图（任意页面），为识图提供图片来源；内部调用同目录 <code>screenshot.py</code></td></tr>
       </table>
       <ul>
-        <li>环境变量（均有默认值，一般无需设置）：<code>MULTIMODAL_API_ENDPOINT</code>（默认 127.0.0.1:1234）、<code>MULTIMODAL_API_KEY</code>（默认 local）、<code>MULTIMODAL_API_MODEL</code>（默认 qwen/qwen3.6-35b-a3b）、<code>MULTIMODAL_API_TIMEOUT</code>（默认 60）、<code>MULTIMODAL_API_REASONING</code>（默认 none）。</li>
+        <li>环境变量（均有默认值，一般无需设置）：<code>MULTIMODAL_API_ENDPOINT</code>（默认 127.0.0.1:1234）、<code>MULTIMODAL_API_KEY</code>（默认 local）、<code>MULTIMODAL_API_MODEL</code>（默认 qwen/qwen3.8-27b）、<code>MULTIMODAL_API_TIMEOUT</code>（默认 60）、<code>MULTIMODAL_API_REASONING</code>（默认 none）。</li>
         <li>失败容错：调用失败自动重试 2 次（2s/4s 退避）；模型输出非 JSON 时由主会话自行解析，工具原样返回文本。</li>
         <li>文档参数支持文本类文件（md/txt/json/log/py/js/ts/html/css/yml/toml/ini/csv/sql/xml），内容拼入消息。</li>
       </ul>
@@ -239,9 +239,9 @@ python deploy/tools/multimodal/screenshot.py --url "file:///D:/.../03_主框架.
       <h3 id="subagent-config">7.1 配置与权限</h3>
       <p>子代理定义在 <code>.opencode/agent/local-helper.md</code>：</p>
       <pre><code>---
-description: 本地多模态子代理（LM Studio qwen3.6-35b-a3b）。识图分析、界面截图评审、文本整理、交叉检查。
+description: 本地多模态子代理（LM Studio qwen3.8-27b）。识图分析、界面截图评审、文本整理、交叉检查。
 mode: subagent
-model: lmstudio/qwen3.6-35b-a3b
+model: lmstudio/qwen3.8-27b
 permission:
   read: allow
   glob: allow
