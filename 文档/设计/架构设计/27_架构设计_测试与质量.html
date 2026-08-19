@@ -96,12 +96,19 @@
         <li>MR 流水线：后端 ruff + pytest（pytest-cov 覆盖率门禁）；前端 ESLint + Vitest（coverage 门禁）+ 双端构建（frontend / frontend-mobile）</li>
         <li>main 流水线：在 MR 流水线基础上另含 Playwright E2E 独立 job（服务容器起 backend（SQLite）与前端产物，覆盖登录/RBAC/核心 CRUD 主流程）与 MySQL/PostgreSQL/达梦 DM8 三库方言集成测试（复用 mjbk 常驻三库，job 内建 bms_test 前缀独立测试库，建库 → 迁移 → 测试 → 清理）</li>
         <li>main 分支：构建镜像推送 GitLab Registry + 导出 swagger.json 契约快照 + Allure 报告生成归档 + 测试结果导入 Kiwi TCMS</li>
+        <li>测试失败自动上报：任一测试 job 失败即调用 <code>deploy/tools/defect/defect_capture.py</code> 生成 REPRO 复现包（现场 dump + 失败堆栈/日志 + repro.json + REPRO.md，归档 mjbk <code>/mnt/data/backup/defects/</code>）并自动创建/复用 GitLab 缺陷 Issue（「用例 ID + 失败摘要」指纹去重、defect-auto 标签），修复闭环见第 9 节</li>
         <li>Renovate 依赖升级（自动提 MR）；main 保护分支，MR 合入需 CI 通过</li>
       </ul>
 
       <h2 id="flow">9. 测试流程管理</h2>
       <ul>
-        <li><strong>缺陷管理</strong>：GitLab Issue + Milestone（按阶段/版本关联）；分级 P0（阻断主流程/数据安全）、P1（严重功能缺失/可用性降级）、P2（一般缺陷）、P3（轻微/建议）；流程：上报（含复现步骤与关联用例 ID）→ 指派修复 → CI 回归验证 → 关闭；P0/P1 阻断 MR 合入。</li>
+        <li><strong>缺陷管理</strong>：GitLab Issue + Milestone（按阶段/版本关联）；分级 P0（阻断主流程/数据安全）、P1（严重功能缺失/可用性降级）、P2（一般缺陷）、P3（轻微/建议）；流程：上报 → 指派修复 → CI 回归验证 → 关闭；P0/P1 阻断 MR 合入。
+          <ul>
+            <li><strong>自动上报</strong>：MR 与 main 流水线任一自动化测试失败即自动执行——defect_capture.py 归档 REPRO 复现包并自动创建/复用 Issue（描述含 commit、用例 ID、dump 路径、环境标记、流水线地址；同指纹未关闭 Issue 追加评论附新路径）</li>
+            <li><strong>AI 修复代理（指派修复环节）</strong>：ai_fix.py 扫描 defect-auto 未关闭 Issue，按复现包定位根因生成补丁——<strong>双轨</strong>：本地模型（LM Studio，内网零费用）优先，定位不了/置信度低（&lt; 0.6）且 AI_CLOUD_ALLOWED=1 时升级云端（先敏感信息过滤，dump 内容严禁外发）；bot 推送 fix/defect-* 分支提 MR（引用指纹与诊断），<strong>人工 review 合入、CI 回归通过后人工关闭</strong>；无法定位时评论标注需人工。一键复现：reproduce.py（检出 commit + 导入 dump + 跑用例）</li>
+            <li><strong>现场数据（缺陷重现）</strong>：P0/P1 缺陷附问题现场 dump（mysqldump / pg_dump / 达梦 dexp），与 commit、用例 ID、环境标记归档 /mnt/data/backup/defects/&lt;缺陷号&gt;/（不入 Git，随每日备份保留 30 天）</li>
+          </ul>
+        </li>
         <li><strong>回归策略</strong>：冒烟回归（每次 MR 与发版前——登录含验证码、主体链 RBAC 按钮/字段权限、核心 CRUD 主链路）+ 全量回归（每阶段末与 MVP 验收前全部自动化用例，结果导入 Kiwi TCMS 归档）+ 探索性测试（MVP 验收前，发现项入缺陷库）。</li>
         <li><strong>进入准则</strong>：进入全量回归与 UAT 前需冒烟通过、CI 流水线绿色、Kiwi TCMS 用例登记完成且用例 ID 与代码关联一致。</li>
         <li><strong>准出标准</strong>：P0/P1 清零；功能用例通过率 ≥ 98%；安全专项全通过；压测 500 并发 / P99 ≤ 1s；三库 CI 通过；覆盖率达标（核心 ≥ 80%、整体 ≥ 70%）。</li>
