@@ -129,6 +129,9 @@
         <li><strong>载体</strong>：GitLab Issue + Milestone（按阶段/版本关联）；Kiwi TCMS 平台缺陷链接指向对应 Issue。</li>
         <li><strong>分级</strong>：P0（阻断主流程/数据安全）、P1（严重功能缺失/可用性降级）、P2（一般缺陷）、P3（轻微/建议）。</li>
         <li><strong>流程</strong>：上报（含复现步骤与关联用例 ID）→ 指派修复 → CI 回归验证 → 关闭；P0/P1 缺陷阻断 MR 合入，修复后回归通过方可合入。</li>
+        <li><strong>自动上报（自动化测试失败时）</strong>：MR 与 main 流水线任一自动化测试失败即全自动执行——<code>deploy/tools/defect/defect_capture.py</code> 导出问题库 dump 归档到 mjbk <code>/mnt/data/backup/defects/&lt;缺陷号&gt;/</code>，按「用例 ID + 失败摘要」指纹查 GitLab 未关闭同源 Issue：不存在则自动创建（标题/描述含 commit、用例 ID、dump 路径、环境标记、流水线地址），已存在则追加评论附新 dump 路径；自动 Issue 打 <code>defect-auto</code> 标签，人工补充复现步骤与定级（P0-P3）后进入指派修复；令牌用 CI/CD 变量 <code>GITLAB_API_TOKEN</code>（bot 账号，勿入库）。</li>
+        <li><strong>人工上报（UAT / 探索性测试）</strong>：按上述脚本 <code>--summary</code> 手动执行生成 Issue 模板，或直接建 Issue 并按下列现场数据约定归档。</li>
+        <li><strong>现场数据（缺陷重现）</strong>：P0/P1 缺陷必须附<strong>问题现场数据库 dump</strong>（P2/P3 视可复现性可选）——在问题库上以 mysqldump / pg_dump / 达梦 dexp 导出（命令见对应数据库部署说明「日常运维」节），与代码 commit、用例 ID、运行环境标记一并归档到 mjbk <code>/mnt/data/backup/defects/&lt;缺陷号&gt;/</code>（dump 含业务数据，不入 Git 仓库，随每日备份保留 30 天）；修复验证按「代码 commit + 用例 + dump 导入」重建问题现场，确认缺陷消失且无回归。</li>
       </ul>
 
       <h2 id="regression">10. 回归策略</h2>
@@ -180,6 +183,7 @@
         <li>□ 涉及 SQL 的变更已跑三库用例</li>
         <li>□ 涉及权限/文件/上传的变更补充安全用例</li>
         <li>□ 缺陷按 P0-P3 分级走 GitLab Issue 流程</li>
+        <li>□ P0/P1 缺陷已附现场 dump 与 commit / 用例 ID（归档 <code>/mnt/data/backup/defects/&lt;缺陷号&gt;/</code>）</li>
         <li>□ 阶段末测试报告与复盘完成</li>
       </ul>
 

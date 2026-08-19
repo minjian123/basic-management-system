@@ -137,6 +137,7 @@ echo "SELECT NAME FROM ALL_USERS;" | /opt/dmdbms/bin/disql SYSDBA/"&lt;密码&gt
         <tr><td>命令行连接</td><td><code>/opt/dmdbms/bin/disql SYSDBA/密码@<mjbk-IP>:5236</code></td></tr>
         <tr><td>查看日志</td><td><code>tail -f /opt/dmdbms/data/DAMENG/log/dm_DMSERVER*.log</code></td></tr>
         <tr><td>备份（每日 cron 2 点）</td><td><code>/opt/dmdbms/bin/dmrman CTLSTMT="BACKUP DATABASE '/opt/dmdbms/data/DAMENG/dm.ini' FULL TO BAK_$(date +%F) BACKUPSET '/mnt/data/backup/dameng/$(date +%F)'"</code></td></tr>
+        <tr><td>现场导出（缺陷重现，见《<a href="../../规范/测试规范.html">测试规范</a>》9 节）</td><td><code>mkdir -p /mnt/data/backup/defects/&lt;缺陷号&gt; &amp;&amp; /opt/dmdbms/bin/dexp SYSDBA/密码@localhost:5236 FILE=&lt;缺陷号&gt;.dmp DIRECTORY=/mnt/data/backup/defects/&lt;缺陷号&gt; OWNER=&lt;模式名&gt; LOG=exp.log</code></td></tr>
         <tr><td>防火墙</td><td>ufw 已放行内网 5236（含 3306/5432/6379/9000/9001，见总览）</td></tr>
       </table>
 

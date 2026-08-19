@@ -430,6 +430,7 @@ npm run dev</code></pre>
             <li>构建 <code>bms-backend</code>、<code>bms-frontend</code> 镜像推送 GitLab Registry（5050）</li>
             <li>导出 swagger.json 契约快照存档</li>
             <li>测试报告：Allure 报告生成归档（CI 产物），测试结果经官方插件导入 Kiwi TCMS 用例库归档</li>
+            <li>测试失败自动上报：任一自动化测试 job 失败时先导出测试库现场 dump 再清理，调 <code>deploy/tools/defect/defect_capture.py</code> 归档（<code>/mnt/data/backup/defects/</code>）并自动建/复用 GitLab Issue（详见《<a href="../规范/测试规范.html">测试规范</a>》9 节）</li>
           </ul>
         </li>
         <li><strong>依赖升级</strong>：Renovate 自动提升级 MR（原生支持自托管 GitLab）。</li>
@@ -442,6 +443,7 @@ npm run dev</code></pre>
         <tr><th>对象</th><th>策略</th><th>保留</th></tr>
         <tr><td>系统（装坏还原）</td><td>Timeshift 系统快照已部署（每日自动、保留 5 份，存 HDD <code>/mnt/data/timeshift</code>），装坏环境用安装 U 盘 <code>sudo timeshift --restore</code> 还原，详见《<a href="../资料/Ubuntu安装部署使用说明.html">Ubuntu安装部署使用说明</a>》第 7 节</td><td>5 份</td></tr>
         <tr><td>MySQL / PostgreSQL / 达梦</td><td>每日 dump 至 <code>/mnt/data/backup/{mysql,postgres,dameng}/</code>（达梦用 dmrman；cron 每日 2 点执行 <code>scripts/</code> 目录 shell 脚本）</td><td>7 天</td></tr>
+        <tr><td>缺陷现场 dump</td><td>测试失败自动/人工归档至 <code>/mnt/data/backup/defects/</code>（《<a href="../规范/测试规范.html">测试规范</a>》9 节）</td><td>30 天</td></tr>
         <tr><td>GitLab</td><td>每日 <code>gitlab-backup</code>（容器内命令），备份文件落 <code>/mnt/data/backup/gitlab/</code></td><td>7 天</td></tr>
         <tr><td>MinIO / ES 数据</td><td>开发期数据量小，随 Docker 命名卷所在盘（NVMe SSD <code>/mnt/ssd2t/docker</code>）做整机级镜像即可；不单独做增量</td><td>—</td></tr>
         <tr><td>恢复演练</td><td>每季度一次从备份目录恢复验证（与产品「恢复演练登记」流程分开，开发服务器单独登记）</td><td>—</td></tr>
