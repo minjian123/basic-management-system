@@ -61,7 +61,7 @@
         让主会话把<strong>简单重复的劳动</strong>派给它干，主会话与云端子代理集中精力处理较难与核心工作。
         它是<a href="本地多模态接入方案.html">《本地多模态接入方案》</a>双轨架构的"子代理"一轨（另一轨是 MCP server 工具 <code>multimodal_chat</code> / <code>screenshot</code>）。
       </p>
-      <div class="note">为什么要有它：主会话模型（deepseek-v4-flash）无视觉能力，且识图评审、文本整理等重复劳动占用云端上下文与费用。本地模型零费用、可反复调用，适合承接这些琐碎任务；但它能力一般（35B 量化），复杂任务交给它会返回有问题的结果，因此必须有任务分级（见第 2 节）。</div>
+      <div class="note">为什么要有它：识图评审、文本整理等重复劳动占用云端上下文与费用。本地模型零费用、可反复调用，适合承接这些琐碎任务；但它能力一般（27B 量化），复杂任务交给它会返回有问题的结果，因此必须有任务分级（见第 2 节）。</div>
 
       <h2 id="grading">2. 任务分级（谁该干活）</h2>
 
@@ -69,7 +69,7 @@
       <pre class="mermaid">
 flowchart LR
     T["任务"] --> J{"评估难度"}
-    J -->|"简单重复"| L["local-helper<br/>本地 qwen3.6-35b"]
+    J -->|"简单重复"| L["local-helper<br/>本地 qwen3.8-27b"]
     J -->|"较难"| C["云端子代理<br/>内置 general 等"]
     J -->|"核心/定稿"| M["主会话自己处理"]
       </pre>
@@ -79,7 +79,7 @@ flowchart LR
         <tr><td>较难任务</td><td>云端子代理（task 选内置 <code>general</code> 等，走云端默认模型）</td><td>方案设计、代码编写/重构、多步推理、需要领域判断或一致性要求的产出</td></tr>
         <tr><td>核心工作</td><td>主会话自己处理</td><td>决策、架构与内容定稿、涉及准确性关键的产出</td></tr>
       </table>
-      <div class="warn">本地模型能力一般（35B 量化），拿不准难度时一律不派给 local-helper，宁可主会话自己做或派云端子代理。此规则已固化在 AGENTS.md（"任务分级（强制）"段）。</div>
+      <div class="warn">本地模型能力一般（27B 量化），拿不准难度时一律不派给 local-helper，宁可主会话自己做或派云端子代理。此规则已固化在 AGENTS.md（"任务分级（强制）"段）。</div>
 
       <h3 id="grading-example">2.2 分级示例</h3>
       <table>
