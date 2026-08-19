@@ -11,7 +11,7 @@
 环境变量（均可省略，有默认值）：
   MULTIMODAL_API_ENDPOINT   默认 http://127.0.0.1:1234
   MULTIMODAL_API_KEY        默认 local
-  MULTIMODAL_API_MODEL      默认 qwen/qwen3.6-35b-a3b
+  MULTIMODAL_API_MODEL      默认 qwen/qwen3.8-27b
   MULTIMODAL_API_TIMEOUT    默认 60
   MULTIMODAL_API_REASONING  默认 none（关闭本地推理模型的思考过程）
 
@@ -38,7 +38,7 @@ PROMPTS_DIR = BASE_DIR / "prompts"
 
 ENDPOINT = os.environ.get("MULTIMODAL_API_ENDPOINT", "http://127.0.0.1:1234")
 API_KEY = os.environ.get("MULTIMODAL_API_KEY", "local")
-MODEL = os.environ.get("MULTIMODAL_API_MODEL", "qwen/qwen3.6-35b-a3b")
+MODEL = os.environ.get("MULTIMODAL_API_MODEL", "qwen/qwen3.8-27b")
 TIMEOUT = float(os.environ.get("MULTIMODAL_API_TIMEOUT", "60"))
 REASONING = os.environ.get("MULTIMODAL_API_REASONING", "none")
 

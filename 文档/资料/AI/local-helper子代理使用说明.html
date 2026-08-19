@@ -57,7 +57,7 @@
 
       <h2 id="purpose">1. 目的与定位</h2>
       <p>
-        <code>local-helper</code> 是本项目的<strong>本地子代理</strong>：把本机 LM Studio 上的多模态模型（qwen3.6-35b-a3b）注册为 opencode 的子代理（subagent），
+        <code>local-helper</code> 是本项目的<strong>本地子代理</strong>：把本机 LM Studio 上的多模态模型（qwen3.8-27b）注册为 opencode 的子代理（subagent），
         让主会话把<strong>简单重复的劳动</strong>派给它干，主会话与云端子代理集中精力处理较难与核心工作。
         它是<a href="本地多模态接入方案.html">《本地多模态接入方案》</a>双轨架构的"子代理"一轨（另一轨是 MCP server 工具 <code>multimodal_chat</code> / <code>screenshot</code>）。
       </p>
@@ -93,7 +93,7 @@ flowchart LR
 
       <h2 id="env">3. 环境要求</h2>
       <ul>
-        <li>本机 LM Studio 服务常开（OpenAI 兼容，<code>http://127.0.0.1:1234</code>），模型 <code>qwen/qwen3.6-35b-a3b</code> 已加载；模型列表、凭据见 <code>文档/用户文档/本地资源.md</code>（已 gitignore，不入库）。</li>
+        <li>本机 LM Studio 服务常开（OpenAI 兼容，<code>http://127.0.0.1:1234</code>），模型 <code>qwen/qwen3.8-27b</code> 已加载；模型列表、凭据见 <code>文档/用户文档/本地资源.md</code>（已 gitignore，不入库）。</li>
         <li>模型设为<strong>常驻内存</strong>（Keep model loaded），避免每次首次调用冷加载等待。</li>
         <li>opencode 已重启（provider / agent 配置改动后须重启生效）。</li>
       </ul>
@@ -111,9 +111,9 @@ flowchart LR
       "apiKey": "local"
     },
     "models": {
-      "qwen3.6-35b-a3b": {
-        "id": "qwen/qwen3.6-35b-a3b",
-        "name": "qwen3.6-35b-a3b 本地多模态",
+      "qwen3.8-27b": {
+        "id": "qwen/qwen3.8-27b",
+        "name": "qwen3.8-27b 本地多模态",
         "tool_call": true,
         "reasoning": true,
         "attachment": true,
@@ -123,16 +123,16 @@ flowchart LR
   }
 }</code></pre>
       <ul>
-        <li>模型引用格式：<code>lmstudio/qwen3.6-35b-a3b</code>（子代理 frontmatter 的 <code>model</code> 字段即此）。</li>
+        <li>模型引用格式：<code>lmstudio/qwen3.8-27b</code>（子代理 frontmatter 的 <code>model</code> 字段即此）。</li>
         <li>本地 LM Studio 无鉴权时 apiKey 填占位值 <code>local</code>。</li>
       </ul>
 
       <h3 id="deploy-agent">4.2 子代理定义</h3>
       <p>子代理定义在 <code>.opencode/agent/local-helper.md</code>（frontmatter + 正文职责说明）：</p>
       <pre><code>---
-description: 本地多模态子代理（LM Studio qwen3.6-35b-a3b）。识图分析、界面截图评审、文本整理、交叉检查。
+description: 本地多模态子代理（LM Studio qwen3.8-27b）。识图分析、界面截图评审、文本整理、交叉检查。
 mode: subagent
-model: lmstudio/qwen3.6-35b-a3b
+model: lmstudio/qwen3.8-27b
 permission:
   read: allow
   glob: allow
