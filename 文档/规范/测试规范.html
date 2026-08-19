@@ -23,7 +23,7 @@
   <aside class="sidebar">
     <div class="brand">
       <h1>测试规范</h1>
-      <p>测试分层 · 命名 · 覆盖率 · 三库测试</p>
+      <p>测试分层 · 命名 · 用例库 · 覆盖率 · 三库测试 · 缺陷 · 回归 · 准出</p>
     </div>
     <nav>
       <ul>
@@ -31,11 +31,16 @@
         <li><a href="#level">2. 测试分层</a></li>
         <li><a href="#naming">3. 命名规范</a></li>
         <li><a href="#data">4. 测试数据</a></li>
-        <li><a href="#coverage">5. 覆盖率要求</a></li>
-        <li><a href="#three-db">6. 三库方言测试</a></li>
-        <li><a href="#security">7. 安全测试用例</a></li>
-        <li><a href="#ci">8. CI 执行策略</a></li>
-        <li><a href="#checklist">9. 检查清单</a></li>
+        <li><a href="#cases">5. 用例管理（Kiwi TCMS）</a></li>
+        <li><a href="#coverage">6. 覆盖率要求</a></li>
+        <li><a href="#three-db">7. 三库方言测试</a></li>
+        <li><a href="#security">8. 安全测试用例</a></li>
+        <li><a href="#defect">9. 缺陷管理</a></li>
+        <li><a href="#regression">10. 回归策略</a></li>
+        <li><a href="#exit">11. 进入与准出标准</a></li>
+        <li><a href="#report">12. 测试报告</a></li>
+        <li><a href="#ci">13. CI 执行策略</a></li>
+        <li><a href="#checklist">14. 检查清单</a></li>
       </ul>
     </nav>
   </aside>
@@ -45,18 +50,22 @@
 
       <h2 id="purpose">1. 目的与适用范围</h2>
       <p>
-        规范 BMS 的测试组织与执行：分层清晰、命名统一、CI 可自动执行，保障三库兼容与安全基线。
-        命名约定见《<a href="命名规范.html">命名规范</a>》第 11 节，CI 流水线见《<a href="../规划/开发部署规划.html">开发部署规划</a>》第 7 节。
+        规范 BMS 的测试组织与执行：分层清晰、命名统一、用例统一入库（Kiwi TCMS）、CI 自动执行并带覆盖率门禁，
+        保障三库兼容与安全基线，按标准测试流程闭环（计划 → 设计 → 执行 → 缺陷 → 回归 → 准出 → 报告）。
+        总体策略见《<a href="../规划/项目规划说明.html">项目规划说明</a>》「测试策略与测试流程」节，
+        CI 流水线见《<a href="../规划/开发部署规划.html">开发部署规划</a>》第 7 节，命名约定见《<a href="命名规范.html">命名规范</a>》第 11 节。
       </p>
 
       <h2 id="level">2. 测试分层</h2>
       <table>
         <tr><th>层</th><th>范围</th><th>工具</th><th>执行时机</th></tr>
         <tr><td>单元测试</td><td>纯逻辑：校验器、权限计算、工具函数、服务层单测</td><td>pytest + SQLite</td><td>MR 流水线</td></tr>
-        <tr><td>集成测试</td><td>API + DB + Redis：接口全链路、三库方言</td><td>pytest + FastAPI TestClient</td><td>MR / main 流水线</td></tr>
+        <tr><td>集成测试</td><td>API + DB + Redis：接口全链路、三库方言</td><td>pytest + httpx（ASGITransport）</td><td>MR / main 流水线</td></tr>
         <tr><td>E2E 测试</td><td>浏览器主流程：登录、RBAC、采购审批</td><td>Playwright</td><td>main 流水线</td></tr>
-        <tr><td>压测</td><td>500 并发 / P99 ≤ 1s（阶段九验收）</td><td>locust（<code>loadtest/</code>）</td><td>阶段验收</td></tr>
+        <tr><td>压测</td><td>500 并发 / P99 ≤ 1s（阶段十验收）</td><td>locust（<code>loadtest/</code>）</td><td>阶段验收</td></tr>
+        <tr><td>验收测试（UAT）</td><td>用户按验收清单逐项人工走查（MVP 验收前）</td><td>人工（Kiwi TCMS 登记结果）</td><td>MVP 验收前</td></tr>
       </table>
+      <p>稳定性/可靠性：MVP 验收前对核心链路（审批、Socket.IO 推送、任务调度）执行 7×24 长稳运行与故障恢复演练，结果入测试报告。</p>
 
       <h2 id="naming">3. 命名规范</h2>
       <table>
@@ -67,32 +76,44 @@
         <tr><td>前端测试</td><td><code>组件名.spec.ts</code></td><td><code>UserForm.spec.ts</code></td></tr>
         <tr><td>E2E</td><td>功能描述 <code>login.spec.ts</code></td><td>—</td></tr>
         <tr><td>压测脚本</td><td><code>scenario_场景.py</code></td><td><code>scenario_登录.py</code></td></tr>
+        <tr><td>用例 ID 关联</td><td>自动化用例标注 Kiwi TCMS 用例编号（pytest mark / Playwright 注解），与平台用例一一对应；先登记平台用例再写代码</td><td><code>@pytest.mark.kiwi_id(1234)</code></td></tr>
       </table>
 
       <h2 id="data">4. 测试数据</h2>
       <ul>
-        <li>固定夹具 <code>tests/fixtures/</code>、种子 <code>tests/seeds/</code>（<code>seed_xxx.py</code>），与初始化数据分离（《<a href="../规划/项目规划说明.html">项目规划说明</a>》「测试策略」）。</li>
+        <li>固定夹具 <code>tests/fixtures/</code>、种子 <code>tests/seeds/</code>（<code>seed_xxx.py</code>），与初始化数据分离（《<a href="../规划/项目规划说明.html">项目规划说明</a>》「测试策略与测试流程」）。</li>
         <li>每个测试独立数据隔离：事务回滚或唯一键后缀，禁止用例间共享可变状态。</li>
         <li>密码等敏感测试数据用固定测试值（如 <code>Test@123456</code>），不入真实凭据。</li>
         <li>CI 三库测试库：<code>bms_test</code> 前缀（建库 → 迁移 → 测试 → 删库），与开发数据隔离（见《<a href="../规划/开发部署规划.html">开发部署规划</a>》4.4）。</li>
+        <li>本地测试用独立 SQLite 库文件与独立端口，不占用开发库与开发服务端口。</li>
       </ul>
 
-      <h2 id="coverage">5. 覆盖率要求</h2>
+      <h2 id="cases">5. 用例管理（Kiwi TCMS）</h2>
       <ul>
-        <li>后端：核心模块（auth、rbac、wf、biz 主流程）行覆盖率 ≥ 85%；全局 ≥ 70%（阶段一基线后逐步收紧）。</li>
-        <li>前端：核心组件与 store 逻辑覆盖；表单组件 ≥ 60%。</li>
-        <li>覆盖率统计入 CI 报告，不达标阻断 MR 合入。</li>
+        <li><strong>平台</strong>：mjbk Docker Compose 常驻（宿主 8060，复用 MySQL，数据随 MySQL 备份），为唯一用例库——手工用例与自动化用例统一登记（含用例编号），测试代码以用例 ID 标注关联；pytest/Playwright 执行结果经官方插件导入平台归档，平台统计执行情况与历史。</li>
+        <li><strong>内容与组织</strong>：用例名称/描述/分类使用中文；按模块分类（Category）+ 标签（Tag）组织，前端页面 E2E 用例按页面模块分类承载；界面以官方简体中文翻译为主、浏览器自动翻译兜底；平台缺陷链接指向 GitLab Issue。</li>
+        <li><strong>用例设计方法</strong>：等价类划分 / 边界值 / 场景法 / 错误推测；关键业务链路（审批、权限、收付款、归档）用场景法覆盖主路径与异常路径。</li>
+        <li><strong>优先级与风险</strong>：用例按 High / Medium / Low 三级优先级；核心模块（认证、RBAC、工作流、审计、收付款）高风险用例优先设计与执行。</li>
+        <li><strong>可追溯性</strong>：用例与模块/功能点及验收项双向追溯（用例 ID 标注所属模块与对应验收项），保证需求全覆盖、无孤儿用例。</li>
+        <li><strong>执行方式</strong>：重负载执行（全量回归、三库集成、压测）以 CI（mjbk GitLab Runner）为主，不占本地开发资源；本地仅在明确需要时小范围执行（执行前与开发确认）。</li>
       </ul>
 
-      <h2 id="three-db">6. 三库方言测试</h2>
+      <h2 id="coverage">6. 覆盖率要求</h2>
+      <ul>
+        <li>后端：核心模块（auth、rbac、wf、audit、收付款）行覆盖率 ≥ 80%；整体 ≥ 70%（pytest-cov 统计）。</li>
+        <li>前端：核心组件与 store 逻辑覆盖（Vitest coverage 统计），计入整体门槛 ≥ 70%。</li>
+        <li>覆盖率作 CI 门禁，低于门槛流水线失败、阻断 MR 合入。</li>
+      </ul>
+
+      <h2 id="three-db">7. 三库方言测试</h2>
       <ul>
         <li>集成测试默认 SQLite 快速执行；<strong>main 流水线</strong>跑 MySQL / PostgreSQL / 达梦 DM8 三库迁移 + 核心用例（复用 mjbk 常驻三库）。</li>
         <li>方言差异重点用例：分页、日期、字符串、布尔、自增主键、大小写（详见《<a href="数据库开发规范.html">数据库开发规范</a>》第 6 节）。</li>
         <li>三库任一失败即阻断；方言兼容问题在开发期暴露，不在交付期。</li>
       </ul>
 
-      <h2 id="security">7. 安全测试用例</h2>
-      <p>CI 定期执行的集中安全用例集（《<a href="../规划/项目规划说明.html">项目规划说明</a>》「测试策略」），至少覆盖：</p>
+      <h2 id="security">8. 安全测试用例</h2>
+      <p>CI 定期执行的集中安全用例集（《<a href="../规划/项目规划说明.html">项目规划说明</a>》「测试策略与测试流程」），至少覆盖：</p>
       <ul>
         <li>越权：跨用户/跨租户资源访问（A 的 id 被 B 访问）</li>
         <li>注入：SQL/命令/XXE 注入样本</li>
@@ -100,30 +121,72 @@
         <li>上传绕过：类型伪造、超大文件、路径穿越</li>
         <li>限流爆破：登录/验证码失败锁定</li>
         <li>脱敏泄露：响应与日志无敏感字段明文</li>
+        <li>会话安全：会话劫持、会话踢出即时生效</li>
       </ul>
 
-      <h2 id="ci">8. CI 执行策略</h2>
+      <h2 id="defect">9. 缺陷管理</h2>
+      <ul>
+        <li><strong>载体</strong>：GitLab Issue + Milestone（按阶段/版本关联）；Kiwi TCMS 平台缺陷链接指向对应 Issue。</li>
+        <li><strong>分级</strong>：P0（阻断主流程/数据安全）、P1（严重功能缺失/可用性降级）、P2（一般缺陷）、P3（轻微/建议）。</li>
+        <li><strong>流程</strong>：上报（含复现步骤与关联用例 ID）→ 指派修复 → CI 回归验证 → 关闭；P0/P1 缺陷阻断 MR 合入，修复后回归通过方可合入。</li>
+      </ul>
+
+      <h2 id="regression">10. 回归策略</h2>
+      <ul>
+        <li><strong>冒烟回归</strong>：每次 MR 与发版前执行——登录（含图形验证码）、主体链 RBAC 权限（按钮显隐与字段权限）、核心 CRUD 主链路。</li>
+        <li><strong>全量回归</strong>：每阶段末与 MVP 验收前执行全部自动化用例（单元/接口/前端组件/E2E），结果导入 Kiwi TCMS 归档。</li>
+        <li><strong>探索性测试</strong>：MVP 验收前由开发/用户对新功能区开展探索性测试，发现项入缺陷库。</li>
+      </ul>
+
+      <h2 id="exit">11. 进入与准出标准</h2>
+      <p><strong>进入准则</strong>（进入全量回归与 UAT 的前置条件，同时满足）：</p>
+      <ul>
+        <li>冒烟回归通过（登录、主体链 RBAC、核心 CRUD 主链路）；</li>
+        <li>CI 流水线绿色（单元/接口/前端组件测试通过）；</li>
+        <li>用例就绪：Kiwi TCMS 用例登记完成，用例 ID 与代码关联一致。</li>
+      </ul>
+      <p><strong>准出标准</strong>（阶段交付与 MVP 验收，同时满足）：</p>
+      <ul>
+        <li>P0/P1 缺陷清零；</li>
+        <li>功能用例通过率 ≥ 98%；</li>
+        <li>安全专项用例集全部通过；</li>
+        <li>压测达到 500 并发 / P99 ≤ 1s；</li>
+        <li>MySQL / PostgreSQL / 达梦 DM8 三库 CI 通过；</li>
+        <li>覆盖率达标（核心 ≥ 80%、整体 ≥ 70%）。</li>
+      </ul>
+
+      <h2 id="report">12. 测试报告</h2>
+      <ul>
+        <li><strong>自动化报告</strong>：后端 pytest + Allure、前端 Vitest/Playwright 生成自动化测试报告（CI 产物归档）。</li>
+        <li><strong>阶段汇总报告</strong>：每阶段末输出（用例执行统计、缺陷统计、覆盖率、风险与遗留项），纳入《<a href="../规划/项目规划说明.html">项目规划说明</a>》「文档计划」交付项；MVP 验收前输出总测试报告。</li>
+        <li><strong>测试复盘</strong>：阶段末报告含经验教训小节（测试过程问题与改进项），MVP 验收后整体复盘一次。</li>
+      </ul>
+
+      <h2 id="ci">13. CI 执行策略</h2>
       <table>
         <tr><th>流水线</th><th>内容</th></tr>
-        <tr><td>MR 流水线</td><td>ruff + pytest（SQLite）+ ESLint + Vitest + 双端构建</td></tr>
-        <tr><td>main 流水线</td><td>Playwright E2E + 三库方言集成测试 + 镜像构建（<code>bms-backend</code>/<code>bms-frontend</code> → Registry）+ swagger 契约存档</td></tr>
+        <tr><td>MR 流水线</td><td>ruff + pytest（SQLite，pytest-cov 覆盖率门禁）+ ESLint + Vitest（coverage 门禁）+ 双端构建</td></tr>
+        <tr><td>main 流水线</td><td>Playwright E2E + 三库方言集成测试 + 镜像构建（<code>bms-backend</code>/<code>bms-frontend</code> → Registry）+ swagger 契约存档 + Allure 报告归档 + 测试结果导入 Kiwi TCMS</td></tr>
         <tr><td>定时/安全</td><td>安全用例集、依赖漏洞扫描（Renovate / Dependency Scanning）</td></tr>
       </table>
       <div class="note">runner 并发上限 2（mjbk 6 核），大任务错峰执行。</div>
 
-      <h2 id="checklist">9. 检查清单</h2>
+      <h2 id="checklist">14. 检查清单</h2>
       <ul>
         <li>□ 新功能/修复带对应测试（单测或集成）</li>
+        <li>□ 用例已登记 Kiwi TCMS（用例 ID 与代码关联一致）</li>
         <li>□ 命名符合规范，测试数据隔离</li>
         <li>□ 覆盖率达标，CI 全绿</li>
         <li>□ 涉及 SQL 的变更已跑三库用例</li>
         <li>□ 涉及权限/文件/上传的变更补充安全用例</li>
+        <li>□ 缺陷按 P0-P3 分级走 GitLab Issue 流程</li>
+        <li>□ 阶段末测试报告与复盘完成</li>
       </ul>
 
     </main>
 
     <footer>
-      本文档为 AI 生成 · 依《文档生成规范》编写 · 与《命名规范》《数据库开发规范》配套 · 生成日期：2026-08-11
+      本文档为 AI 生成 · 依《文档生成规范》编写 · 与《命名规范》《数据库开发规范》配套 · 与《项目规划说明》「测试策略与测试流程」对齐 · 生成日期：2026-08-19
     </footer>
   </div>
 

@@ -118,6 +118,11 @@
           <td>日常开发默认 SQLite（本地零依赖）</td>
         </tr>
         <tr>
+          <td>测试基础设施</td>
+          <td>Kiwi TCMS（测试用例唯一用例库，复用 MySQL，宿主端口 8060）</td>
+          <td>浏览器访问用例库与执行记录</td>
+        </tr>
+        <tr>
           <td>监控与追踪（阶段九）</td>
           <td>Prometheus、Loki、Grafana、Alertmanager、Jaeger、otel-collector</td>
           <td>浏览器查看 Grafana / Jaeger</td>
@@ -158,6 +163,7 @@
         <tr><td>开发机开发方式</td><td>mjpc 本地开发 + 内网访问 mjbk 服务</td><td>开发机性能强、与运行环境分离；代码经 git push 上 mjbk GitLab 触发 CI</td></tr>
         <tr><td>gitlab-runner 安装方式</td><td>容器化运行（gitlab/gitlab-runner 镜像，挂载 docker.sock，executor=docker）</td><td>官方推荐做法，升级简单、行为跨平台一致</td></tr>
         <tr><td>CI 三库方言测试</td><td>复用 mjbk 常驻 MySQL/PostgreSQL/达梦 DM8，job 内建独立测试库（bms_test 前缀）执行迁移与集成测试后清理</td><td>免去每次 job 拉镜像起容器，速度快、省资源；测试库隔离不污染开发数据</td></tr>
+        <tr><td>测试用例管理平台</td><td>Kiwi TCMS（mjbk Docker Compose 常驻，复用 mjbk MySQL，宿主端口 8060）</td><td>唯一用例库：手工与自动化用例统一登记、执行结果导入归档；轻量 Python 栈，pytest 官方插件结果回流；GPL 许可仅作测试基础设施、不随产品交付</td></tr>
         <tr><td>GitLab 端口</td><td>HTTP 8080（容器内 80 映射）+ Registry 5050；SSH 2222（容器内 22）</td><td>系统 SSH 已占用宿主 22 端口，GitLab SSH 映射 2222；内网开发无标准端口诉求</td></tr>
       </table>
 
@@ -409,7 +415,7 @@ npm run dev</code></pre>
         <li><strong>分支模型</strong>：<code>main</code> 保护分支；开发在 <code>feature/xxx</code> 分支进行，push 至 mjbk GitLab 后提 Merge Request。</li>
         <li><strong>MR 流水线</strong>（gitlab-runner 在 mjbk 执行）：
           <ul>
-            <li>后端：ruff 检查 + pytest（SQLite）</li>
+            <li>后端：ruff 检查 + pytest（SQLite，pytest-cov 覆盖率门禁：核心 ≥ 80%、整体 ≥ 70%）</li>
             <li>前端：ESLint + Vitest + frontend / frontend-mobile 双端构建</li>
           </ul>
         </li>
@@ -419,6 +425,7 @@ npm run dev</code></pre>
             <li>MySQL/PostgreSQL/达梦 DM8 三库方言集成测试：job 连 mjbk 常驻三库，建 <code>bms_test</code> 前缀测试库 → Alembic 迁移 → 集成测试 → 删库清理</li>
             <li>构建 <code>bms-backend</code>、<code>bms-frontend</code> 镜像推送 GitLab Registry（5050）</li>
             <li>导出 swagger.json 契约快照存档</li>
+            <li>测试报告：Allure 报告生成归档（CI 产物），测试结果经官方插件导入 Kiwi TCMS 用例库归档</li>
           </ul>
         </li>
         <li><strong>依赖升级</strong>：Renovate 自动提升级 MR（原生支持自托管 GitLab）。</li>
@@ -444,6 +451,7 @@ npm run dev</code></pre>
       <table>
         <tr><th>端口</th><th>服务</th><th>说明</th></tr>
         <tr><td>8080 / 5050 / 2222</td><td>GitLab HTTP / Registry / SSH</td><td>容器内 80 / 5000 / 22 映射；2222 为 GitLab SSH（系统 SSH 占 22）</td></tr>
+        <tr><td>8060</td><td>Kiwi TCMS</td><td>第一批起（阶段一），容器内 80；8080 已被 GitLab 占用故映射 8060，仅内网</td></tr>
         <tr><td>3306 / 5432 / 5236</td><td>MySQL 8 / PostgreSQL 16 / 达梦 DM8</td><td>mjbk 常驻，仅内网</td></tr>
         <tr><td>6379</td><td>Redis</td><td>仅内网</td></tr>
         <tr><td>9000 / 9001</td><td>MinIO API / 控制台</td><td>仅内网</td></tr>
@@ -463,7 +471,7 @@ npm run dev</code></pre>
       <table>
         <tr><th>阶段</th><th>环境准备动作</th><th>对应项目阶段</th></tr>
         <tr><td>准备期</td><td>mjbk：Ubuntu 基础（静态 IP / 清华源 / SSH 免密 / HDD 挂载 / 2T NVMe SSD 挂载与 Docker data-root 迁移 / Timeshift，均已完成）+ Docker Engine 安装（清华 docker-ce 源）+ 防火墙 ufw；mjpc：uv / Node / VSCode 工具链</td><td>阶段一前</td></tr>
-        <tr><td>第一批</td><td>mjbk：redis、mysql、postgres、dameng、minio 容器 + GitLab CE + gitlab-runner + 仓库初始化 + .gitlab-ci.yml 落地（达梦 dmPython 驱动兼容性同步验证）</td><td>阶段一</td></tr>
+        <tr><td>第一批</td><td>mjbk：redis、mysql、postgres、dameng、minio 容器 + GitLab CE + gitlab-runner + 仓库初始化 + .gitlab-ci.yml 落地（达梦 dmPython 驱动兼容性同步验证）+ kiwi-tcms（复用 mysql，宿主 8060）</td><td>阶段一</td></tr>
         <tr><td>第二批</td><td>mjbk：rocketmq（nameserver + broker）</td><td>阶段四（消息与任务基础设施）</td></tr>
         <tr><td>第三批</td><td>mjbk：monitor 组（prometheus / loki / grafana / alertmanager / jaeger / otel-collector）+ 开发服务器备份脚本</td><td>阶段九（分布式与监控）</td></tr>
         <tr><td>第四批</td><td>mjbk：elasticsearch（单节点）；若已提前引入则无需动作</td><td>阶段十四（全文检索）</td></tr>

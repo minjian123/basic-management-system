@@ -279,6 +279,9 @@
         <tr><td>pyright</td><td>是</td><td>MIT</td><td></td></tr>
         <tr><td>pytest</td><td>是</td><td>MIT</td><td></td></tr>
         <tr><td>httpx</td><td>是</td><td>BSD-3-Clause</td><td></td></tr>
+        <tr><td>pytest-cov</td><td>是</td><td>MIT</td><td>覆盖率统计与 CI 门禁</td></tr>
+        <tr><td>Kiwi TCMS</td><td>是</td><td>GPL-3.0</td><td>独立部署于 mjbk，仅测试基础设施、不随产品交付，无传染影响</td></tr>
+        <tr><td>Allure</td><td>是</td><td>Apache-2.0</td><td>自动化测试报告</td></tr>
         <tr><td>Swagger UI</td><td>是</td><td>Apache-2.0</td><td></td></tr>
         <tr><td>ReDoc</td><td>是</td><td>MIT</td><td></td></tr>
         <tr><td>graphify</td><td>是</td><td>Apache-2.0 或 MIT（双许可）</td><td>官方仓库 Graphify-Labs/graphify（PyPI 包名 graphifyy，CLI 命令 graphify）</td></tr>
@@ -357,7 +360,7 @@
         <li><strong>SCSS</strong>：配合 Element Plus 主题变量定制样式；避免引入重型 UI 框架外的 CSS 方案。</li>
         <li><strong>npm</strong>：Node 官方自带包管理器，零额外依赖、不生成任何额外配置文件；frontend 与 frontend-mobile 双工程依赖与配置各自独立（各自 package-lock.json、ESLint/Prettier/TS 配置，互不共享）；CI 用 npm ci 锁定安装保证可复现。</li>
         <li><strong>ESLint + Prettier</strong>：规范代码风格；与 Vue 官方插件链配合。</li>
-        <li><strong>Vitest</strong>：与 Vite 同构，组件/单元测试零配置；E2E 用 Playwright——自动等待、录制器、跨浏览器，替代 Selenium。</li>
+        <li><strong>Vitest</strong>：与 Vite 同构，组件/单元测试零配置，内置 coverage 统计前端覆盖率；E2E 用 Playwright——自动等待、录制器、跨浏览器，替代 Selenium。</li>
         <li><strong>bpmn-js</strong>：BPMN 流程图建模组件，管理端拖拽绘制流程定义，导出 BPMN XML 交由 SpiffWorkflow 执行。</li>
         <li><strong>ECharts</strong>：报表与大屏渲染，中文生态最全，图表类型覆盖管理端全场景。</li>
         <li><strong>gridstack.js</strong>：工作台卡片与报表设计器统一使用——框架无关、活跃维护，支持网格拖拽、卡片尺寸调整与响应式断点；工作台个人布局（sys_user_preference）与角色模板（sys_dashboard_template）的 layout_config 均序列化为 gridstack 布局结构。</li>
@@ -385,7 +388,7 @@
         <li><strong>MinIO</strong>：对象存储服务，backend 多副本共享同一存储端点。</li>
         <li><strong>Prometheus + Loki + Grafana + Alertmanager</strong>：Prometheus 采集 /metrics 指标；Loki 聚合 structlog 日志跨实例检索；Grafana 统一展示；Alertmanager 推送告警——邮件走原生 SMTP receiver，企业微信/钉钉群机器人经 webhook receiver 转 BMS 内部接口转换格式后推送；链路追踪 OpenTelemetry（otel-collector + Jaeger）随监控一并落地。</li>
         <li><strong>/healthz、/readyz</strong>：存活探针与就绪探针分离，就绪检查依赖（DB/Redis）连通性，供编排系统滚动发布。</li>
-        <li><strong>GitLab CE</strong>：自托管 GitLab CE + gitlab-runner（Docker Compose 部署，仅作开发与 CI 基础设施，不随产品交付）；gitlab-runner 以容器方式运行（gitlab/gitlab-runner 镜像挂载 docker.sock，executor=docker，开发环境并发上限 2）；代码仓库、Merge Request、CI 流水线与容器 Registry 一体。GitHub 仓库保留为只读归档：GitLab 配置 push mirror 单向同步 main 变更至 GitHub（GitHub 侧改动不回传、不承载协作）。流水线以 .gitlab-ci.yml 定义——MR 流水线：后端 ruff + pytest、前端 ESLint + Vitest + 双端构建；main 流水线：另含 Playwright E2E 独立 job、MySQL/PostgreSQL 双库方言集成测试（复用开发服务器常驻双库，job 内建 bms_test 前缀独立测试库，建库 → 迁移 → 测试 → 清理）、构建镜像推送 GitLab Registry、导出 swagger.json 契约快照；main 保护分支，MR 合入需 CI 通过。依赖升级用 Renovate（原生支持自托管 GitLab，自动提 MR 升级依赖）。</li>
+        <li><strong>GitLab CE</strong>：自托管 GitLab CE + gitlab-runner（Docker Compose 部署，仅作开发与 CI 基础设施，不随产品交付）；gitlab-runner 以容器方式运行（gitlab/gitlab-runner 镜像挂载 docker.sock，executor=docker，开发环境并发上限 2）；代码仓库、Merge Request、CI 流水线与容器 Registry 一体。GitHub 仓库保留为只读归档：GitLab 配置 push mirror 单向同步 main 变更至 GitHub（GitHub 侧改动不回传、不承载协作）。流水线以 .gitlab-ci.yml 定义——MR 流水线：后端 ruff + pytest（含 pytest-cov 覆盖率门禁，低于门槛失败）、前端 ESLint + Vitest（含 coverage 门禁）+ 双端构建；main 流水线：另含 Playwright E2E 独立 job、MySQL/PostgreSQL 双库方言集成测试（复用开发服务器常驻双库，job 内建 bms_test 前缀独立测试库，建库 → 迁移 → 测试 → 清理）、构建镜像推送 GitLab Registry、导出 swagger.json 契约快照；测试结果生成 Allure 报告（CI 产物归档）并经官方插件导入 Kiwi TCMS 归档；main 保护分支，MR 合入需 CI 通过。依赖升级用 Renovate（原生支持自托管 GitLab，自动提 MR 升级依赖）。</li>
       </ul>
 
       <h2 id="structure">4. 项目目录结构</h2>
