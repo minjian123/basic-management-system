@@ -76,7 +76,7 @@
         方案由「MCP server + 子代理」双轨组成——MCP server 把多模态能力暴露为标准工具，子代理把本地模型当作可派活的"小弟"；
         两者共用同一套 Python 客户端、截图服务与场景提示词模板，<strong>与具体场景解耦</strong>。
       </p>
-      <div class="note">背景：当前会话模型（deepseek-v4-flash）不支持图片输入，原型设计工作流缺少视觉校验环节。本方案补齐「截图 → 识图 → 问题清单 → 修正」闭环，并顺带把本地模型的对话、文档理解能力接入主会话。</div>
+      <div class="note">背景：原型设计工作流缺少视觉校验环节。本方案补齐「截图 → 识图 → 问题清单 → 修正」闭环，并顺带把本地模型的对话、文档理解能力接入主会话。</div>
 
       <h2 id="architecture">2. 总体架构</h2>
       <pre class="mermaid">
@@ -161,7 +161,7 @@ Content-Type: application/json
       </ul>
 
       <h3 id="model-reasoning">3.3 推理模型注意</h3>
-      <div class="warn">qwen3.6-35b 是推理模型，LM Studio 默认先输出大量思考 token（<code>reasoning_content</code>），带图评审可能几万 token 都未结束。客户端默认携带 <code>reasoning_effort: "none"</code> 关闭思考（实测评审数秒完成）；不识别该参数的 API 会自动去掉后重试（见 <a href="#mcp-server">MCP server</a> 实现）。</div>
+      <div class="warn">qwen3.8-27b 是推理模型，LM Studio 默认先输出大量思考 token（<code>reasoning_content</code>），带图评审可能几万 token 都未结束。客户端默认携带 <code>reasoning_effort: "none"</code> 关闭思考（实测评审数秒完成）；不识别该参数的 API 会自动去掉后重试（见 <a href="#mcp-server">MCP server</a> 实现）。</div>
       <ul>
         <li>本地模型零费用，可对同一张图反复调用、聚焦区域迭代复查（如评审报告某处不清楚，再调一次着重看该区域）。</li>
         <li>模型预热：LM Studio 中把模型设为<strong>常驻内存</strong>（Keep model loaded），避免每次首次调用冷加载等待；首次调用即使超时也可能只是加载慢，重试即恢复。</li>
@@ -256,7 +256,7 @@ permission:
 ---</code></pre>
       <ul>
         <li><strong>只读 + 命令</strong>：可读文件、可跑命令（截图/识图脚本），禁止改文件（<code>edit: deny</code>）、禁派生子任务（<code>task: deny</code>）、禁联网。</li>
-        <li>模型走 <code>lmstudio</code> provider（OpenAI 兼容 127.0.0.1:1234），工具调用由 qwen3.6-35b 原生支持。</li>
+        <li>模型走 <code>lmstudio</code> provider（OpenAI 兼容 127.0.0.1:1234），工具调用由 qwen3.8-27b 原生支持。</li>
       </ul>
 
       <h3 id="subagent-use">7.2 使用方式</h3>
