@@ -69,7 +69,7 @@
 
 让 AI 助手使用本机多模态模型的通用能力（LM Studio qwen3.8-27b，OpenAI 兼容 127.0.0.1:1234）。方案与配置细节见 `文档/资料/AI/本地多模态接入方案.html`，子代理说明见 `文档/资料/AI/local-helper子代理使用说明.html`（需要时再读）。双轨组成：
 
-- **MCP server**（`deploy/tools/multimodal/mcp_server.py`，opencode.json 的 `mcp` 段登记）：`multimodal_chat`（文本+图片+文档通用对话，主会话无视觉时用它看图/看文档）、`screenshot`（HTML/URL 无头截图）。
+- **MCP server**（`deploy/tools/multimodal/mcp_server.py`，opencode.json 的 `mcp` 段登记）：`multimodal_chat`（文本+图片+文档通用对话，看图/看文档）、`screenshot`（HTML/URL 无头截图）。
 - **子代理 `local-helper`**（`.opencode/agent/local-helper.md`）：本地模型"小弟"，只读 + 命令权限（禁改文件），承担简单重复劳动。
 
 规则：
