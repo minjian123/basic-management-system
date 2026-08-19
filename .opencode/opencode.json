@@ -43,7 +43,7 @@
         "python",
         "D:/Develop/bms/deploy/tools/multimodal/mcp_server.py"
       ],
-      "enabled": true
+      "enabled": false
     }
   }
 }
