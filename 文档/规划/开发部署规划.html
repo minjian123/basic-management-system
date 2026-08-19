@@ -85,13 +85,17 @@
       <p>
         本文档为规划性质，确定方案、目录、端口与落地节奏；命令级细节（Compose 文件内容、环境变量清单、备份恢复演练步骤）由阶段九交付的《部署手册》细化。
       </p>
+      <p>
+        <strong>取值说明</strong>：本文档中的 <code>&lt;mjbk-IP&gt;</code> / <code>&lt;mjpc-IP&gt;</code> / <code>&lt;内网网段&gt;</code> / <code>&lt;SSH账号&gt;</code> 等占位符
+        对应的具体值见《<a href="../用户文档/本地资源.md">本地资源</a>》与 mjbk 本机 <code>deploy/.env</code>（键 <code>MJBK_IP</code> / <code>MJBK_SSH_USER</code>），不在仓库文档中记录。
+      </p>
 
       <h2 id="overview">2. 环境总览与职责分工</h2>
 
       <h3 id="hardware">2.1 硬件资源</h3>
       <table>
         <tr><th>项目</th><th>mjbk（开发服务器）</th><th>mjpc（开发机）</th></tr>
-        <tr><td>IP 地址</td><td>192.168.0.107</td><td>192.168.0.124</td></tr>
+        <tr><td>IP 地址</td><td><code>&lt;mjbk-IP&gt;</code></td><td><code>&lt;mjpc-IP&gt;</code></td></tr>
         <tr><td>操作系统</td><td>Ubuntu 24.04.4 LTS（桌面版）</td><td>Windows 11 专业版</td></tr>
         <tr><td>处理器</td><td>i7-8750H，6 核 12 线程</td><td>i7-13700K，16 核 24 线程</td></tr>
         <tr><td>内存</td><td>32 GB</td><td>64 GB</td></tr>
@@ -145,9 +149,9 @@
 
       <h3 id="topology">2.3 网络拓扑</h3>
       <ul>
-        <li>两台机器同处 192.168.0.0/24 内网网段，直连互访，无需域名与证书。</li>
+        <li>两台机器同处 <code>&lt;内网网段&gt;</code> 内网网段，直连互访，无需域名与证书。</li>
         <li>开发期租户识别不启用子域名（《项目规划说明》已定：dev 环境以 token 内租户标识替代子域名），因此不需要泛域名 DNS 与泛 TLS 证书。</li>
-        <li>mjpc 后端/前端开发服务器指向 mjbk 的 192.168.0.107 各服务端口；mjbk 上 ufw 防火墙按第 4.6 节放行。</li>
+        <li>mjpc 后端/前端开发服务器指向 mjbk 的 <code>&lt;mjbk-IP&gt;</code> 各服务端口；mjbk 上 ufw 防火墙按第 4.6 节放行。</li>
         <li>mjbk 需可访问外网（下载容器镜像、GitLab 向 GitHub 的 push mirror 同步、Renovate 拉取依赖更新）；不可达时镜像同步与依赖升级暂缓，见第 11 节。</li>
       </ul>
 
@@ -170,7 +174,7 @@
       <h2 id="server">4. 开发服务器 mjbk 部署</h2>
 
       <h3 id="server-base">4.1 基础环境准备</h3>
-      <p>mjbk 已完成系统层准备：Ubuntu 24.04.4 LTS（桌面版）、静态 IP <code>192.168.0.107/24</code>、SSH 免密（mjpc 公钥）、apt 清华源、数据盘 <code>/mnt/data</code>（HDD，ext4，fstab 自动挂载）、2T NVMe SSD <code>/mnt/ssd2t</code>（ext4，fstab 自动挂载）、Timeshift 系统快照（见《<a href="../资料/Ubuntu安装部署使用说明.html">Ubuntu安装部署使用说明</a>》第 7 节）。本节点安装容器引擎：</p>
+      <p>mjbk 已完成系统层准备：Ubuntu 24.04.4 LTS（桌面版）、静态 IP <code>&lt;mjbk-IP&gt;/24</code>、SSH 免密（mjpc 公钥）、apt 清华源、数据盘 <code>/mnt/data</code>（HDD，ext4，fstab 自动挂载）、2T NVMe SSD <code>/mnt/ssd2t</code>（ext4，fstab 自动挂载）、Timeshift 系统快照（见《<a href="../资料/Ubuntu安装部署使用说明.html">Ubuntu安装部署使用说明</a>》第 7 节）。本节点安装容器引擎：</p>
       <ol>
         <li>
           <strong>添加清华 docker-ce 源</strong>并安装 Docker Engine：
@@ -198,7 +202,7 @@ docker compose version</code></pre>
         </li>
         <li>
           <strong>docker 用户组</strong>（可选）：当前用户免 sudo 执行 docker：
-          <pre><code>sudo usermod -aG docker minjian</code></pre>
+          <pre><code>sudo usermod -aG docker <SSH账号></code></pre>
         </li>
       </ol>
       <div class="note">镜像与容器数据默认存 2T NVMe SSD（<code>/mnt/ssd2t/docker</code>，data-root 已迁移，见 4.2）；GitLab 等大容量数据 bind mount 指向 <code>/mnt/ssd2t/gitlab</code>（见 4.2、4.5）。</div>
@@ -298,7 +302,7 @@ graph TD
           <ul>
             <li>镜像 <code>gitlab/gitlab-ce</code>，端口映射 HTTP 8080（容器内 80）、Registry 5050；SSH 22 映射宿主机 2222（系统 SSH 已占用宿主 22）。</li>
             <li>数据目录 bind mount <code>/mnt/ssd2t/gitlab</code>（配置、仓库数据、备份），NVMe SSD 上仓库读写更快，且不占系统盘空间。</li>
-            <li>首次访问 <code>http://192.168.0.107:8080</code> 设置 root 密码；访问地址需写入容器 <code>external_url</code> 配置，否则 GitLab 生成的仓库/克隆 URL 不正确。</li>
+            <li>首次访问 <code>http://<mjbk-IP>:8080</code> 设置 root 密码；访问地址需写入容器 <code>external_url</code> 配置，否则 GitLab 生成的仓库/克隆 URL 不正确。</li>
             <li>GitLab 内存 ≥ 4GB 预算（《项目规划说明》要求），mjbk 32GB 满足。</li>
           </ul>
         </li>
@@ -309,7 +313,7 @@ graph TD
             <li>注册命令（token 在 GitLab 管理界面生成）：</li>
           </ul>
           <pre><code>docker exec -it gitlab-runner gitlab-runner register \
-  --url http://192.168.0.107:8080 \
+  --url http://<mjbk-IP>:8080 \
   --token &lt;runner-registration-token&gt; \
   --executor docker \
   --docker-image python:3.14-slim \
@@ -329,9 +333,9 @@ graph TD
 
       <h3 id="server-firewall">4.6 防火墙与访问控制</h3>
       <ul>
-        <li>ufw 仅对 <strong>192.168.0.0/24 内网</strong>放行第 9 节端口清单（SSH 22 已在系统安装时放行）：</li>
+        <li>ufw 仅对 <strong><code>&lt;内网网段&gt;</code> 内网</strong>放行第 9 节端口清单（SSH 22 已在系统安装时放行）：</li>
       </ul>
-      <pre><code>sudo ufw allow from 192.168.0.0/24 to any port 8080,5050,2222,3306,5432,5236,6379,9000,9001,9876,10911,9200,9090,3100,3000,9093,16686,4317,4318 proto tcp
+      <pre><code>sudo ufw allow from &lt;内网网段&gt; to any port 8080,5050,2222,3306,5432,5236,6379,9000,9001,9876,10911,9200,9090,3100,3000,9093,16686,4317,4318 proto tcp
 sudo ufw enable</code></pre>
       <ul>
         <li>容器端口映射默认绑定 0.0.0.0，以 ufw 限制来源即可；需外网访问的服务再单独放行。</li>
@@ -352,7 +356,7 @@ sudo ufw enable</code></pre>
 fnm install --use-on-cd   # 或 volta install node</code></pre>
 
       <h3 id="devpc-repo">5.2 仓库获取</h3>
-      <pre><code>git clone http://192.168.0.107:8080/bms/bms.git
+      <pre><code>git clone http://<mjbk-IP>:8080/bms/bms.git
 cd bms
 git checkout -b feature/xxx</code></pre>
 
@@ -365,9 +369,9 @@ uv run uvicorn app.main:app --reload --port 8000</code></pre>
       <ul>
         <li>数据库：<code>BMS_ENV=dev</code> 默认 SQLite（本地文件，多个 SQLite 文件模拟平台库 / 租户库 / 归档库，与规划「多数据源策略」一致）；需要验证 MySQL/PostgreSQL/达梦方言时以环境变量覆盖数据源连接指向 mjbk：</li>
       </ul>
-      <pre><code>$env:BMS_DB_URL = "mysql+aiomysql://bms_dev:&lt;password&gt;@192.168.0.107:3306/bms_dev"
-$env:BMS_DB_URL = "postgresql+psycopg://bms_dev:&lt;password&gt;@192.168.0.107:5432/bms_dev"
-$env:BMS_DB_URL = "dm+dmPython://bms_dev:&lt;password&gt;@192.168.0.107:5236/bms_dev"</code></pre>
+      <pre><code>$env:BMS_DB_URL = "mysql+aiomysql://bms_dev:&lt;password&gt;@<mjbk-IP>:3306/bms_dev"
+$env:BMS_DB_URL = "postgresql+psycopg://bms_dev:&lt;password&gt;@<mjbk-IP>:5432/bms_dev"
+$env:BMS_DB_URL = "dm+dmPython://bms_dev:&lt;password&gt;@<mjbk-IP>:5236/bms_dev"</code></pre>
       <ul>
         <li>接口调试：FastAPI 自带 Swagger UI（<code>http://localhost:8000/docs</code>）。</li>
         <li>测试：<code>uv run pytest</code>（SQLite 库，与 CI 同源）。</li>
@@ -387,13 +391,13 @@ npm run dev</code></pre>
       </ul>
 
       <h3 id="devpc-integrate">5.5 联调配置</h3>
-      <p>mjpc 本地后端需要消费 mjbk 共享服务时，通过环境变量覆盖 config.toml（连接地址均为 mjbk 的 192.168.0.107）：</p>
+      <p>mjpc 本地后端需要消费 mjbk 共享服务时，通过环境变量覆盖 config.toml（连接地址均为 mjbk 的 <code>&lt;mjbk-IP&gt;</code>）：</p>
       <table>
         <tr><th>依赖</th><th>环境变量</th><th>开发值示例</th></tr>
-        <tr><td>Redis</td><td><code>BMS_REDIS_URL</code></td><td><code>redis://192.168.0.107:6379/0</code></td></tr>
-        <tr><td>RocketMQ</td><td><code>BMS_ROCKETMQ_NAMESERVER</code></td><td><code>192.168.0.107:9876</code></td></tr>
-        <tr><td>MinIO</td><td><code>BMS_MINIO_ENDPOINT</code> 等</td><td><code>http://192.168.0.107:9000</code></td></tr>
-        <tr><td>ElasticSearch</td><td><code>BMS_ES_URL</code></td><td><code>http://192.168.0.107:9200</code></td></tr>
+        <tr><td>Redis</td><td><code>BMS_REDIS_URL</code></td><td><code>redis://<mjbk-IP>:6379/0</code></td></tr>
+        <tr><td>RocketMQ</td><td><code>BMS_ROCKETMQ_NAMESERVER</code></td><td><code><mjbk-IP>:9876</code></td></tr>
+        <tr><td>MinIO</td><td><code>BMS_MINIO_ENDPOINT</code> 等</td><td><code>http://<mjbk-IP>:9000</code></td></tr>
+        <tr><td>ElasticSearch</td><td><code>BMS_ES_URL</code></td><td><code>http://<mjbk-IP>:9200</code></td></tr>
         <tr><td>MySQL / PostgreSQL / 达梦</td><td><code>BMS_DB_URL</code>（按数据源）</td><td>见 5.3</td></tr>
       </table>
       <div class="note">

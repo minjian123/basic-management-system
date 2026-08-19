@@ -1,9 +1,9 @@
 """远程唤醒开发服务器 mjbk（Wake-on-LAN）。
 
 用法:
-    python wake_mjbk.py                 # 默认参数唤醒并等待 SSH 就绪
+    python wake_mjbk.py                 # 默认参数唤醒并等待 SSH 就绪（IP 从 deploy/.env 的 MJBK_IP 读取）
     python wake_mjbk.py --timeout 60    # 自定义等待超时
-    python wake_mjbk.py --host 192.168.0.107 --mac B0-25-AA-27-0C-32
+    python wake_mjbk.py --host <mjbk-IP> --mac B0-25-AA-27-0C-32
 
 服务器端已配置 /etc/systemd/system/wol.service 固化网卡 WOL 设置。
 """
@@ -16,7 +16,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[3]
 ENV_FILE = ROOT / "deploy" / ".env"
 
-DEFAULT_HOST = "192.168.0.107"
 DEFAULT_MAC = "B0-25-AA-27-0C-32"
 DEFAULT_TIMEOUT = 120
 
@@ -62,13 +61,15 @@ def wait_ssh_ready(host: str, timeout: int) -> bool:
 
 def main() -> int:
     env = load_env(ENV_FILE)
-    default_host = env.get("MJBK_IP", DEFAULT_HOST)
+    default_host = env.get("MJBK_IP", "")
     default_mac = env.get("MJBK_WOL_MAC", DEFAULT_MAC)
     parser = argparse.ArgumentParser(description="远程唤醒开发服务器 mjbk（Wake-on-LAN）")
-    parser.add_argument("--host", default=default_host, help=f"服务器 IP（默认 {default_host}）")
+    parser.add_argument("--host", default=default_host, help="服务器 IP（默认取 deploy/.env 的 MJBK_IP）")
     parser.add_argument("--mac", default=default_mac, help=f"服务器网卡 MAC（默认 {default_mac}）")
     parser.add_argument("--timeout", type=int, default=DEFAULT_TIMEOUT, help=f"等待就绪超时秒数（默认 {DEFAULT_TIMEOUT}）")
     args = parser.parse_args()
+    if not args.host:
+        parser.error("未指定服务器 IP：请在 deploy/.env 中设置 MJBK_IP（见 .env.example）或使用 --host 参数")
 
     print(f"[1/2] 发送魔术包唤醒 {args.host}（{args.mac}）...")
     send_wol(args.mac, args.host)

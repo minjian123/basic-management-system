@@ -72,7 +72,8 @@
       <p>
         本文档指导使用<strong>官方 Ubuntu 桌面版 ISO</strong> 安装 Ubuntu，可手动图形化安装到任意机器（台式机 / 服务器 / 测试机）。
         已备好两套 LTS 镜像：<strong>24.04.4</strong>（主力）与 <strong>22.04.5</strong>（备用）。
-        开发服务器 <strong>mjbk</strong>（192.168.0.107）的固定参数集中收录在第 5 节，安装到 mjbk 时按表填写即可。
+        开发服务器 <strong>mjbk</strong>（IP 记为 <code>&lt;mjbk-IP&gt;</code>）的固定参数集中收录在第 5 节，安装到 mjbk 时按表填写即可。
+        <code>&lt;mjbk-IP&gt;</code> / <code>&lt;网关&gt;</code> / <code>&lt;SSH账号&gt;</code> 具体值见《<a href="../用户文档/本地资源.md">本地资源</a>》与 mjbk 本机 <code>deploy/.env</code>（<code>MJBK_IP</code> / <code>MJBK_SSH_USER</code>）。
       </p>
       <div class="warn">
         <strong>注意：全盘安装会清空目标机器现有系统与全部数据，操作前确认无需要保留的内容。</strong>
@@ -147,7 +148,7 @@
             <li>自定义分区：选「手动安装」，按需建立 EFI 分区（512MB，FAT32，esp 标志）与根分区（剩余空间，ext4 挂载 /）。</li>
           </ul>
         </li>
-        <li><strong>用户设置</strong>：填姓名、计算机名（即主机名，mjbk 填 <code>mjbk</code>）、用户名（mjbk 填 <code>minjian</code>）、密码；下方选「要求我的密码才能登录」。创建的用户属于 sudo 管理员组，后续服务器操作无需再设 root。</li>
+        <li><strong>用户设置</strong>：填姓名、计算机名（即主机名，mjbk 填 <code>mjbk</code>）、用户名（mjbk 填 <code>&lt;SSH账号&gt;</code>）、密码；下方选「要求我的密码才能登录」。创建的用户属于 sudo 管理员组，后续服务器操作无需再设 root。</li>
         <li><strong>时区</strong>：安装器自动定位，可手动输入「Shanghai」选择上海（Asia/Shanghai）。</li>
         <li><strong>开始安装</strong>：点「安装」后等待约 10-20 分钟（进度条阶段完成会提示拔掉 U 盘），完成后点「立即重启」。</li>
       </ol>
@@ -165,15 +166,15 @@
       </ol>
 
       <h2 id="mjbk-params">5. mjbk 服务器参数速查</h2>
-      <p>以下参数用于将开发服务器 mjbk（192.168.0.107）装为固定配置，安装向导中照表填写即可：</p>
+      <p>以下参数用于将开发服务器 mjbk（<code>&lt;mjbk-IP&gt;</code>）装为固定配置，安装向导中照表填写即可：</p>
       <table>
         <tr><th>项目</th><th>参数值</th></tr>
         <tr><td>镜像</td><td>主力 <code>ubuntu-24.04.4-desktop-amd64.iso</code>（24.04 LTS）</td></tr>
-        <tr><td>网络</td><td>静态 IP <code>192.168.0.107/24</code>，网关 <code>192.168.0.1</code>，DNS <code>114.114.114.114</code>（有线网卡）</td></tr>
+        <tr><td>网络</td><td>静态 IP <code>&lt;mjbk-IP&gt;/24</code>，网关 <code>&lt;网关&gt;</code>，DNS <code>114.114.114.114</code>（有线网卡）</td></tr>
         <tr><td>apt 镜像源</td><td><code>http://mirrors.tuna.tsinghua.edu.cn/ubuntu/</code></td></tr>
         <tr><td>磁盘</td><td>全盘安装（512GB SSD 系统盘）；1TB HDD 数据盘挂载 <code>/mnt/data</code>（ext4，步骤见 6.3）；2T NVMe SSD 挂载 <code>/mnt/ssd2t</code>（ext4，步骤见 6.3.1）</td></tr>
         <tr><td>主机名</td><td><code>mjbk</code></td></tr>
-        <tr><td>用户名</td><td><code>minjian</code>（密码见《<a href="../用户文档/本地资源.md">本地资源</a>》）</td></tr>
+        <tr><td>用户名</td><td><code>&lt;SSH账号&gt;</code>（密码见《<a href="../用户文档/本地资源.md">本地资源</a>》）</td></tr>
         <tr><td>时区</td><td>Asia/Shanghai（上海）</td></tr>
         <tr><td>键盘 / 语言</td><td>English (US) / 简体中文</td></tr>
       </table>
@@ -190,12 +191,12 @@
       <ol>
         <li>确认目标机器网线已插好，桌面右上角网络图标正常。</li>
         <li>mjbk 场景下，在 mjpc 上验证网络与 SSH：
-          <pre><code>ping 192.168.0.107
-ssh minjian@192.168.0.107</code></pre>
+          <pre><code>ping <mjbk-IP>
+ssh <SSH账号>@<mjbk-IP></code></pre>
         </li>
         <li>登录后确认基本环境：
           <pre><code>cat /etc/os-release | head -2
-ip addr | grep "inet 192.168"
+hostname -I
 sudo apt-get update -qq &amp;&amp; echo APT-OK</code></pre>
         </li>
         <li>服务器用途需启用 SSH 服务（桌面版默认不装，必须手动安装）：
@@ -211,9 +212,9 @@ sudo ufw allow 22/tcp</code></pre>
       <ol>
         <li>若无密钥先生成：<code>ssh-keygen -t ed25519</code>（一路回车即可，默认存 <code>~/.ssh/</code>）。</li>
         <li>把公钥装到 mjbk：
-          <pre><code>type $env:USERPROFILE\.ssh\id_ed25519.pub | ssh minjian@192.168.0.107 "mkdir -p ~/.ssh &amp;&amp; cat &gt;&gt; ~/.ssh/authorized_keys &amp;&amp; chmod 700 ~/.ssh &amp;&amp; chmod 600 ~/.ssh/authorized_keys"</code></pre>
+          <pre><code>type $env:USERPROFILE\.ssh\id_ed25519.pub | ssh <SSH账号>@<mjbk-IP> "mkdir -p ~/.ssh &amp;&amp; cat &gt;&gt; ~/.ssh/authorized_keys &amp;&amp; chmod 700 ~/.ssh &amp;&amp; chmod 600 ~/.ssh/authorized_keys"</code></pre>
         </li>
-        <li>验证：<code>ssh minjian@192.168.0.107</code> 直接进入即成功。</li>
+        <li>验证：<code>ssh <SSH账号>@<mjbk-IP></code> 直接进入即成功。</li>
       </ol>
 
       <h3 id="verify-apt">6.2 apt 镜像源确认 / 更换为清华源</h3>
@@ -291,8 +292,8 @@ sudo chmod +x /etc/xrdp/startwm.sh
 
 # 3. 启用 xrdp（并放行防火墙）
 sudo systemctl enable --now xrdp
-sudo ufw allow from 192.168.0.0/24 to any port 3389 proto tcp</code></pre>
-      <p>客户端连接（mjpc）：<code>mstsc</code> → 计算机 <code>192.168.0.107</code> → xrdp 登录界面输入 <code>minjian</code> / 密码 → 进入独立桌面，分辨率随窗口动态调整。</p>
+sudo ufw allow from <内网网段> to any port 3389 proto tcp</code></pre>
+      <p>客户端连接（mjpc）：<code>mstsc</code> → 计算机 <code><mjbk-IP></code> → xrdp 登录界面输入 <code><SSH账号></code> / 密码 → 进入独立桌面，分辨率随窗口动态调整。</p>
       <div class="warn">
         <strong>弃用说明</strong>：Ubuntu 24.04 自带 GNOME 远程桌面（<code>gnome-remote-desktop</code>）曾尝试但弃用——
         镜像模式分辨率固定为物理屏；headless 模式（系统级服务）为实验功能，登录后停在 GDM 界面、桌面空白；

@@ -54,6 +54,7 @@
         本文档记录 mjbk（Ubuntu 24.04.4）上 Docker Engine 的安装步骤与验证结果。
         所有开发服务（数据库、缓存、GitLab 等）均以 Docker Compose 方式运行在本文安装的引擎上。
         部署依据《<a href="../../规划/开发部署规划.html">开发部署规划</a>》4.1 节；容器引擎方案：开发与生产统一 Docker Engine。
+        <code>&lt;SSH账号&gt;</code> 取值见《<a href="../../用户文档/本地资源.md">本地资源</a>》与 mjbk 本机 <code>deploy/.env</code>（<code>MJBK_SSH_USER</code>）。
       </p>
 
       <h2 id="install">2. 安装步骤</h2>
@@ -93,8 +94,8 @@ docker ps                                            # 全部容器恢复正常<
       </div>
 
       <h3 id="install-group">2.5 docker 用户组</h3>
-      <p>将 minjian 加入 docker 组，免 sudo 执行 docker 命令（加入后需重新登录 SSH 生效）：</p>
-      <pre><code>sudo usermod -aG docker minjian</code></pre>
+      <p>将 <SSH账号> 加入 docker 组，免 sudo 执行 docker 命令（加入后需重新登录 SSH 生效）：</p>
+      <pre><code>sudo usermod -aG docker <SSH账号></code></pre>
 
       <h2 id="verify">3. 验证</h2>
       <pre><code>docker info | grep -E "Server Version|Storage Driver|Cgroup|Registry Mirrors" -A1
@@ -124,7 +125,7 @@ docker run --rm hello-world</code></pre>
         <tr>
           <td>permission denied（docker.sock）</td>
           <td>非 root 用户执行 docker 命令报 <code>permission denied while trying to connect</code></td>
-          <td>minjian 加入 docker 组（<code>sudo usermod -aG docker minjian</code>），重新登录 SSH 生效</td>
+          <td><SSH账号> 加入 docker 组（<code>sudo usermod -aG docker <SSH账号></code>），重新登录 SSH 生效</td>
         </tr>
         <tr>
           <td>迁移 data-root 后 systemd 启动失败</td>

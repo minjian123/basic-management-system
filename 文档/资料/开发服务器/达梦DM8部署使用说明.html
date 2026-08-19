@@ -54,6 +54,7 @@
       <p>
         mjbk 上的达梦数据库（DM8）与 MySQL、PostgreSQL 并称「常驻三库」，用于开发联调与 CI 三库方言测试
         （《<a href="../../规划/开发部署规划.html">开发部署规划</a>》4.4）。版本：<strong>DM8（dm8_20260428_x86_Ubuntu22_64）</strong>。
+        <code>&lt;mjbk-IP&gt;</code>、<code>&lt;SSH账号&gt;</code> 取值见《<a href="../../用户文档/本地资源.md">本地资源</a>》与 mjbk 本机 <code>deploy/.env</code>（<code>MJBK_IP</code> / <code>MJBK_SSH_USER</code>）。
       </p>
 
       <h2 id="plan">2. 部署方式说明（原生安装）</h2>
@@ -75,7 +76,7 @@ cp /mnt/dm8iso/DMInstall.bin ~/ && chmod +x ~/DMInstall.bin</code></pre>
       <pre><code>sudo apt install -y libaio1t64 libgomp1 libncurses6 libnsl2
 curl -sL -o /tmp/libncurses5.deb https://mirrors.tuna.tsinghua.edu.cn/ubuntu/pool/universe/n/ncurses/libncurses5_6.3-2_amd64.deb
 sudo apt install -y /tmp/libncurses5.deb</code></pre>
-      <div class="note">安装目录 <code>/opt/dmdbms</code> 需提前创建并授权普通用户（安装程序校验写入权限）：<code>sudo mkdir -p /opt/dmdbms &amp;&amp; sudo chown -R minjian:minjian /opt/dmdbms</code>。</div>
+      <div class="note">安装目录 <code>/opt/dmdbms</code> 需提前创建并授权普通用户（安装程序校验写入权限）：<code>sudo mkdir -p /opt/dmdbms &amp;&amp; sudo chown -R <SSH账号>:<SSH账号> /opt/dmdbms</code>。</div>
 
       <h3 id="install-run">3.2 交互安装应答序列</h3>
       <p><code>DMInstall.bin -i</code> 为交互安装，全程应答序列（实测 2026-08-10）：</p>
@@ -133,7 +134,7 @@ echo "SELECT NAME FROM ALL_USERS;" | /opt/dmdbms/bin/disql SYSDBA/"&lt;密码&gt
         <tr><th>操作</th><th>命令</th></tr>
         <tr><td>服务状态</td><td><code>systemctl status DmServiceDMSERVER</code></td></tr>
         <tr><td>启动 / 停止 / 重启</td><td><code>sudo systemctl start|stop|restart DmServiceDMSERVER</code></td></tr>
-        <tr><td>命令行连接</td><td><code>/opt/dmdbms/bin/disql SYSDBA/密码@192.168.0.107:5236</code></td></tr>
+        <tr><td>命令行连接</td><td><code>/opt/dmdbms/bin/disql SYSDBA/密码@<mjbk-IP>:5236</code></td></tr>
         <tr><td>查看日志</td><td><code>tail -f /opt/dmdbms/data/DAMENG/log/dm_DMSERVER*.log</code></td></tr>
         <tr><td>备份（每日 cron 2 点）</td><td><code>/opt/dmdbms/bin/dmrman CTLSTMT="BACKUP DATABASE '/opt/dmdbms/data/DAMENG/dm.ini' FULL TO BAK_$(date +%F) BACKUPSET '/mnt/data/backup/dameng/$(date +%F)'"</code></td></tr>
         <tr><td>防火墙</td><td>ufw 已放行内网 5236（含 3306/5432/6379/9000/9001，见总览）</td></tr>
@@ -150,7 +151,7 @@ echo "SELECT NAME FROM ALL_USERS;" | /opt/dmdbms/bin/disql SYSDBA/"&lt;密码&gt
         <tr>
           <td>没有写入权限</td>
           <td>安装目录选 <code>/opt/dmdbms</code> 报「没有写入权限！」</td>
-          <td><code>sudo chown -R minjian:minjian /opt/dmdbms</code></td>
+          <td><code>sudo chown -R <SSH账号>:<SSH账号> /opt/dmdbms</code></td>
         </tr>
         <tr>
           <td>dminit 初始化失败</td>

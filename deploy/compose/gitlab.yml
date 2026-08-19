@@ -3,10 +3,10 @@ services:
     image: gitlab/gitlab-ce:latest
     container_name: bms-gitlab
     restart: unless-stopped
-    hostname: 192.168.0.107
+    hostname: ${MJBK_IP:?请在 deploy/.env 设置 MJBK_IP（取值见《本地资源》）}
     environment:
       GITLAB_OMNIBUS_CONFIG: |
-        external_url 'http://192.168.0.107:8080'
+        external_url "http://${MJBK_IP:?}:8080"
         gitlab_rails['gitlab_shell_ssh_port'] = 2222
         puma['listen'] = '127.0.0.1'
         puma['port'] = 8081

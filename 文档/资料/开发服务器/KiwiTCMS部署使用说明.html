@@ -48,6 +48,7 @@
         mjbk 上的 Kiwi TCMS（容器 <code>bms-kiwi</code>）是 BMS 项目的<strong>测试用例唯一管理平台</strong>（《<a href="../../规划/项目规划说明.html">项目规划说明</a>》16.3）：
         手工与自动化用例统一登记、执行结果导入归档；复用 mjbk MySQL（库 <code>kiwi</code>），宿主端口 8060。
       </p>
+      <p>占位符取值：<code>&lt;mjbk-IP&gt;</code>、<code>&lt;内网网段&gt;</code> 见《<a href="../../用户文档/本地资源.md">本地资源</a>》与 mjbk 本机 <code>deploy/.env</code>（<code>MJBK_IP</code>）。</p>
 
       <h2 id="compose">2. Compose 配置</h2>
       <p>定义于仓库 <code>deploy/compose/kiwi.yml</code>（已同步至 mjbk <code>~/deploy/compose/kiwi.yml</code>）：</p>
@@ -84,7 +85,7 @@ volumes:
         <li>mjbk <code>~/deploy/.env</code> 追加 Kiwi 配置（键位见仓库 <code>deploy/.env.example</code>）：
           <code>KIWI_DB_HOST/PORT/NAME/USER/PASSWORD</code>（DB 连接）、<code>KIWI_SECRET_KEY</code>（随机生成）、<code>KIWI_ADMIN_PASSWORD</code>（管理员密码，仅记录不用于启动）。</li>
         <li>在 mjbk MySQL 中创建独立库与账号（库 <code>kiwi</code>，utf8mb4；账号 <code>kiwi</code>，仅授 <code>kiwi</code> 库权限）：
-          <pre><code>mysql -h192.168.0.107 -uroot -p \
+          <pre><code>mysql -h<mjbk-IP> -uroot -p \
   -e "CREATE DATABASE IF NOT EXISTS kiwi DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
       CREATE USER IF NOT EXISTS 'kiwi'@'%' IDENTIFIED BY '&lt;密码&gt;';
       GRANT ALL PRIVILEGES ON kiwi.* TO 'kiwi'@'%';
@@ -107,13 +108,13 @@ docker compose -f compose/kiwi.yml --env-file ~/deploy/.env up -d</code></pre>
       <h2 id="verify">4. 验证</h2>
       <pre><code>docker ps --filter name=bms-kiwi                  # Up ... (healthy)
 curl -sk -o /dev/null -w "%{http_code}" https://127.0.0.1:8060/accounts/login/   # 200
-curl -sk https://192.168.0.107:8060/accounts/login/ | grep "&lt;title&gt;"      # Kiwi TCMS - Login</code></pre>
+curl -sk https://<mjbk-IP>:8060/accounts/login/ | grep "&lt;title&gt;"      # Kiwi TCMS - Login</code></pre>
       <p>本次部署结果：容器 healthy，登录页 HTTP 200，管理员 <code>admin</code> 登录验证通过（POST 登录 302 → 首页含退出入口）。</p>
 
       <h2 id="use">5. 使用说明</h2>
       <table>
         <tr><th>项目</th><th>值</th></tr>
-        <tr><td>访问地址</td><td><code>https://192.168.0.107:8060</code>（自签名证书，浏览器首次访问需接受警告；仅内网）</td></tr>
+        <tr><td>访问地址</td><td><code>https://<mjbk-IP>:8060</code>（自签名证书，浏览器首次访问需接受警告；仅内网）</td></tr>
         <tr><td>管理员账号</td><td><code>admin</code>（密码见 <code>~/deploy/.env</code> 的 <code>KIWI_ADMIN_PASSWORD</code>）</td></tr>
         <tr><td>界面语言</td><td>官方简体中文翻译为主，浏览器自动翻译兜底（系统设置 → 语言偏好）</td></tr>
         <tr><td>数据存储</td><td>业务数据在 MySQL <code>kiwi</code> 库；上传附件在命名卷 <code>compose_kiwi-uploads</code>（项目名 compose，位于 <code>/mnt/ssd2t/docker/volumes/</code>）</td></tr>
@@ -130,7 +131,7 @@ curl -sk https://192.168.0.107:8060/accounts/login/ | grep "&lt;title&gt;"      
         <tr><td>Django 管理命令</td><td><code>docker exec bms-kiwi /Kiwi/manage.py &lt;命令&gt;</code>（如 <code>createsuperuser</code>）</td></tr>
         <tr><td>修改管理员密码</td><td><code>docker exec bms-kiwi /Kiwi/manage.py changepassword admin</code></td></tr>
       </table>
-      <div class="note">防火墙：mjbk ufw 当前处于<strong>不活动</strong>状态；若日后启用 ufw，需放行内网 8060（规则已预置：<code>allow from 192.168.0.0/24 to any port 8060 proto tcp</code>），并注意 Docker 发布端口需 <code>ufw default allow routed</code>（见 GitLab 部署说明排障记录）。</div>
+      <div class="note">防火墙：mjbk ufw 当前处于<strong>不活动</strong>状态；若日后启用 ufw，需放行内网 8060（规则已预置：<code>allow from &lt;内网网段&gt; to any port 8060 proto tcp</code>），并注意 Docker 发布端口需 <code>ufw default allow routed</code>（见 GitLab 部署说明排障记录）。</div>
 
       <h2 id="backup">7. 备份与恢复</h2>
       <ul>

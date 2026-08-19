@@ -46,6 +46,7 @@
       <p>
         mjbk 上的 PostgreSQL（容器 <code>bms-postgres</code>，版本 16）与 MySQL、达梦 DM8 并称「常驻三库」，
         用于开发联调与 CI 三库方言测试（《<a href="../../规划/开发部署规划.html">开发部署规划</a>》4.4）。
+        <code>&lt;mjbk-IP&gt;</code> 取值见《<a href="../../用户文档/本地资源.md">本地资源</a>》。
       </p>
 
       <h2 id="compose">2. Compose 配置</h2>
@@ -83,7 +84,7 @@ docker exec bms-postgres psql -U postgres -c "SELECT version();"</code></pre>
         <tr><td>CI 集成测试</td><td><code>bms_test</code> 前缀</td><td>job 内建库 → 迁移 → 测试 → 删库</td></tr>
       </table>
       <ul>
-        <li>连接串示例：<code>postgresql+psycopg://bms_dev:&lt;密码&gt;@192.168.0.107:5432/bms_dev</code>（应用账号部署时创建）</li>
+        <li>连接串示例：<code>postgresql+psycopg://bms_dev:&lt;密码&gt;@<mjbk-IP>:5432/bms_dev</code>（应用账号部署时创建）</li>
       </ul>
 
       <h2 id="ops">6. 日常运维</h2>

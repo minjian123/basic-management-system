@@ -48,13 +48,14 @@
         mjbk 上的 GitLab CE（容器 <code>bms-gitlab</code>）承载 BMS 代码仓库、MR、CI 流水线与容器 Registry；
         <code>bms-gitlab-runner</code> 以 Docker executor 执行 CI 任务（《<a href="../../规划/开发部署规划.html">开发部署规划</a>》4.5）。
       </p>
+      <p>占位符取值：<code>&lt;mjbk-IP&gt;</code>、<code>&lt;SSH账号&gt;</code> 见《<a href="../../用户文档/本地资源.md">本地资源</a>》与 mjbk 本机 <code>deploy/.env</code>（<code>MJBK_IP</code> / <code>MJBK_SSH_USER</code>）。</p>
 
       <h2 id="compose">2. Compose 配置</h2>
       <p>定义于仓库 <code>deploy/compose/gitlab.yml</code>（已同步至 mjbk <code>~/deploy/compose/gitlab.yml</code>）：</p>
       <pre><code>gitlab:
   image: gitlab/gitlab-ce:latest
   container_name: bms-gitlab
-  hostname: 192.168.0.107
+  hostname: <mjbk-IP>
   ports:
     - "8080:8080"    # HTTP（容器内 nginx listen_port=8080）
     - "5050:5050"    # Registry
@@ -89,23 +90,23 @@ cd ~/deploy
 docker compose -f compose/gitlab.yml up -d gitlab
 
 # 3. 等待 HTTP 就绪（200/302）
-curl -s -o /dev/null -w "%{http_code}" http://192.168.0.107:8080/users/sign_in</code></pre>
+curl -s -o /dev/null -w "%{http_code}" http://<mjbk-IP>:8080/users/sign_in</code></pre>
       <div class="note">
         初始 root 密码：容器内 <code>/etc/gitlab/initial_root_password</code>（本次部署已记录至
         <code>~/deploy/.env</code> 的 <code>GITLAB_ROOT_PASSWORD</code>，首次登录后应修改）。
       </div>
 
       <h2 id="verify">4. 验证</h2>
-      <pre><code>curl -s http://192.168.0.107:8080/users/sign_in | grep "&lt;title&gt;"   # Sign in · GitLab
+      <pre><code>curl -s http://<mjbk-IP>:8080/users/sign_in | grep "&lt;title&gt;"   # Sign in · GitLab
 docker exec bms-gitlab gitlab-ctl status      # 全部 run 状态</code></pre>
       <p>本次部署结果：登录页正常（HTTP 200），gitaly / nginx / puma(8081) / postgresql / redis / sidekiq / sshd 全部运行。</p>
 
       <h2 id="use">5. 使用说明</h2>
       <table>
         <tr><th>项目</th><th>值</th></tr>
-        <tr><td>访问地址</td><td><code>http://192.168.0.107:8080</code></td></tr>
-        <tr><td>仓库克隆地址</td><td><code>http://192.168.0.107:8080/&lt;group&gt;/&lt;repo&gt;.git</code> 或 <code>ssh://git@192.168.0.107:2222/...</code></td></tr>
-        <tr><td>Registry</td><td><code>192.168.0.107:5050</code>（容器镜像仓库，随项目启用）</td></tr>
+        <tr><td>访问地址</td><td><code>http://<mjbk-IP>:8080</code></td></tr>
+        <tr><td>仓库克隆地址</td><td><code>http://<mjbk-IP>:8080/&lt;group&gt;/&lt;repo&gt;.git</code> 或 <code>ssh://git@<mjbk-IP>:2222/...</code></td></tr>
+        <tr><td>Registry</td><td><code><mjbk-IP>:5050</code>（容器镜像仓库，随项目启用）</td></tr>
         <tr><td>管理员账号</td><td><code>root</code>（密码见 <code>~/deploy/.env</code> 的 <code>GITLAB_ROOT_PASSWORD</code>）</td></tr>
       </table>
 
@@ -115,7 +116,7 @@ docker exec bms-gitlab gitlab-ctl status      # 全部 run 状态</code></pre>
         <li>GitLab 界面获取认证 token：<strong>管理区域 → CI/CD → Runners → 新建实例 runner</strong>（勾选「允许未标记的作业」），得到 <code>glrt-...</code> token。</li>
         <li>注册（注意：新版 gitlab-runner 用认证 token 注册时<strong>不能带 --tag-list / --run-untagged / --locked 等参数</strong>，这些需在 GitLab 界面配置）：
           <pre><code>docker exec bms-gitlab-runner gitlab-runner register --non-interactive \
-  --url http://192.168.0.107:8080 \
+  --url http://<mjbk-IP>:8080 \
   --token &lt;glrt-token&gt; \
   --executor docker \
   --docker-image python:3.14-slim \
@@ -165,8 +166,8 @@ docker exec bms-gitlab-runner gitlab-runner verify</code></pre>
         </tr>
         <tr>
           <td>跳转链接缺少端口号</td>
-          <td>页面链接均为 <code>http://192.168.0.107/...</code>（无 :8080），登录/导航跳转后打不开</td>
-          <td><code>external_url</code> 必须带端口：<code>external_url 'http://192.168.0.107:8080'</code>，不再单独设置 <code>nginx['listen_port']</code>；配合 puma 独立端口 8081 避免端口冲突</td>
+          <td>页面链接均为 <code>http://<mjbk-IP>/...</code>（无 :8080），登录/导航跳转后打不开</td>
+          <td><code>external_url</code> 必须带端口：<code>external_url 'http://<mjbk-IP>:8080'</code>，不再单独设置 <code>nginx['listen_port']</code>；配合 puma 独立端口 8081 避免端口冲突</td>
         </tr>
         <tr>
           <td>外部访问容器端口全部不通</td>

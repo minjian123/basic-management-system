@@ -70,6 +70,7 @@
         <li>需要远程关闭 mjbk 时（如节约耗电、维护窗口）；</li>
         <li>重新部署服务器系统后，需要恢复 WOL 配置时。</li>
       </ul>
+      <p><code>&lt;mjbk-IP&gt;</code>、<code>&lt;SSH账号&gt;</code> 取值见《<a href="../../用户文档/本地资源.md">本地资源</a>》与 mjbk 本机 <code>deploy/.env</code>（<code>MJBK_IP</code> / <code>MJBK_SSH_USER</code>）。</p>
       <div class="note">WOL 只能唤醒「已关机」的机器；服务器运行中发送魔术包不会产生任何效果（也不会重启）。远程关机是破坏性操作，执行前脚本会要求二次确认。</div>
 
       <h2 id="prereq">2. 环境与前提</h2>
@@ -78,9 +79,9 @@
       <table>
         <tr><th>项目</th><th>值</th><th>说明</th></tr>
         <tr><td>主机名</td><td>mjbk</td><td>开发服务器</td></tr>
-        <tr><td>IP 地址</td><td>192.168.0.107</td><td>内网固定地址</td></tr>
+        <tr><td>IP 地址</td><td><code>&lt;mjbk-IP&gt;</code></td><td>内网固定地址</td></tr>
         <tr><td>系统</td><td>Ubuntu 24.04.4 LTS 桌面版</td><td>网卡由 netplan 管理</td></tr>
-        <tr><td>SSH 用户</td><td>minjian</td><td>公钥免密登录（mjpc）</td></tr>
+        <tr><td>SSH 用户</td><td><code>&lt;SSH账号&gt;</code></td><td>公钥免密登录（mjpc）</td></tr>
         <tr><td>有线网卡</td><td>enp4s0</td><td>WOL 目标网卡</td></tr>
         <tr><td>MAC 地址</td><td>B0-25-AA-27-0C-32</td><td>魔术包发送目标（大小写与分隔符不敏感）</td></tr>
       </table>
@@ -143,8 +144,8 @@ sudo ethtool enp4s0 | grep -i wake</code></pre>
       </p>
       <table>
         <tr><th>键</th><th>用途</th><th>默认值</th></tr>
-        <tr><td>MJBK_IP</td><td>服务器 IP</td><td>192.168.0.107</td></tr>
-        <tr><td>MJBK_SSH_USER</td><td>SSH 登录用户</td><td>minjian</td></tr>
+        <tr><td>MJBK_IP</td><td>服务器 IP</td><td><code>&lt;mjbk-IP&gt;</code>（见《本地资源》）</td></tr>
+        <tr><td>MJBK_SSH_USER</td><td>SSH 登录用户</td><td><code>&lt;SSH账号&gt;</code>（见《本地资源》）</td></tr>
         <tr><td>MJBK_SUDO_PASSWORD</td><td>远程关机所需的 sudo 密码</td><td>无（必须填写）</td></tr>
         <tr><td>MJBK_WOL_MAC</td><td>网卡 MAC（WOL 魔术包目标）</td><td>B0-25-AA-27-0C-32</td></tr>
       </table>
@@ -164,9 +165,9 @@ sudo ethtool enp4s0 | grep -i wake</code></pre>
       <p>在开发机 mjpc（Windows）的仓库根目录执行：</p>
       <pre><code>python deploy\tools\wol\wake_mjbk.py</code></pre>
       <p>脚本会发送魔术包并等待服务器 SSH 就绪，输出示例：</p>
-      <pre><code>[1/2] 发送魔术包唤醒 192.168.0.107（B0-25-AA-27-0C-32）...
+      <pre><code>[1/2] 发送魔术包唤醒 <mjbk-IP>（B0-25-AA-27-0C-32）...
 魔术包已发送，等待服务器启动（最多 120 秒）...
-[完成] 开发服务器已就绪，可以 SSH 连接 192.168.0.107。</code></pre>
+[完成] 开发服务器已就绪，可以 SSH 连接 <mjbk-IP>。</code></pre>
       <table>
         <tr><th>参数</th><th>默认值</th><th>说明</th></tr>
         <tr><td>--host</td><td>deploy/.env 的 MJBK_IP</td><td>服务器 IP</td></tr>
@@ -179,8 +180,8 @@ sudo ethtool enp4s0 | grep -i wake</code></pre>
       <p>在开发机 mjpc 的仓库根目录执行（SSH 连接走公钥免密，sudo 密码从 deploy/.env 读取）：</p>
       <pre><code>python deploy\tools\wol\shutdown_mjbk.py</code></pre>
       <p>脚本会先显示目标并<strong>要求输入 y 确认</strong>，确认后才下发关机指令：</p>
-      <pre><code>确认远程关机 192.168.0.107（minjian）？(y/N) y
-正在远程关机 192.168.0.107 ...
+      <pre><code>确认远程关机 <mjbk-IP>（<SSH账号>）？(y/N) y
+正在远程关机 <mjbk-IP> ...
 关机指令已下发。</code></pre>
       <table>
         <tr><th>参数</th><th>说明</th></tr>

@@ -45,6 +45,7 @@
       <p>
         规范 BMS 各环境的部署与发布：环境分层、镜像版本、发布与回滚流程，保证可重复、可追溯。
         部署拓扑与编排见《<a href="../规划/开发部署规划.html">开发部署规划</a>》第 7/9/10 节与《<a href="../设计/架构设计/28_架构设计_部署与运维.html">架构设计-部署与运维</a>》。
+        <code>&lt;mjbk-IP&gt;</code> 取值见《<a href="../用户文档/本地资源.md">本地资源</a>》。
       </p>
 
       <h2 id="env">2. 环境管理</h2>
@@ -63,7 +64,7 @@
       <ul>
         <li>镜像命名：<code>bms-backend</code>、<code>bms-frontend</code>（《<a href="命名规范.html">命名规范</a>》第 10 节）。</li>
         <li>镜像标签与 Git 标签一致：<code>bms-backend:v1.2.0</code>；临时构建用 <code>main-&lt;短sha&gt;</code>，禁以 latest 覆盖发布版本。</li>
-        <li>镜像存 GitLab Registry（<code>192.168.0.107:5050</code>）；生产拉取走内网或镜像同步。</li>
+        <li>镜像存 GitLab Registry（<code><mjbk-IP>:5050</code>）；生产拉取走内网或镜像同步。</li>
         <li>构建产物可复现：Dockerfile 多阶段构建 + 依赖锁定（uv.lock / package-lock.json）。</li>
       </ul>
 
