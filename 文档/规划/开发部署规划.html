@@ -430,7 +430,7 @@ npm run dev</code></pre>
             <li>构建 <code>bms-backend</code>、<code>bms-frontend</code> 镜像推送 GitLab Registry（5050）</li>
             <li>导出 swagger.json 契约快照存档</li>
             <li>测试报告：Allure 报告生成归档（CI 产物），测试结果经官方插件导入 Kiwi TCMS 用例库归档</li>
-            <li>测试失败自动上报：任一自动化测试 job 失败时先导出测试库现场 dump 再清理，调 <code>deploy/tools/defect/defect_capture.py</code> 归档（<code>/mnt/data/backup/defects/</code>）并自动建/复用 GitLab Issue（详见《<a href="../规范/测试规范.html">测试规范</a>》9 节）</li>
+            <li>测试失败自动上报：任一自动化测试 job 失败时先导出测试库现场 dump 再清理，调 <code>deploy/tools/defect/defect_capture.py</code> 生成 REPRO 复现包（dump + 日志 + repro.json + REPRO.md）并自动建/复用 GitLab Issue；指派修复由 <code>ai_fix.py</code>（本地模型优先、云端兜底，bot 提 MR 人工合入）处理，<code>reproduce.py</code> 一键复现验证（详见《<a href="../规范/测试规范.html">测试规范</a>》9 节）</li>
           </ul>
         </li>
         <li><strong>依赖升级</strong>：Renovate 自动提升级 MR（原生支持自托管 GitLab）。</li>
