@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Pydantic 技术介绍</title>
-<link rel="stylesheet" href="../../资源/文档样式.css">
+<link rel="stylesheet" href="../../../资源/文档样式.css">
 </head>
 <body>
 
@@ -72,11 +72,11 @@
 
       <h2 id="usage">3. 在 BMS 项目中的用途</h2>
       <ul>
-        <li>作为请求/响应模型（<code>schemas/</code> 层）的唯一建模工具，与 ORM 解耦：ORM 管存储，Pydantic 管传输，见《<a href="../../规划/项目规划说明.html#structure">项目规划说明》4 节</a>目录结构。</li>
+        <li>作为请求/响应模型（<code>schemas/</code> 层）的唯一建模工具，与 ORM 解耦：ORM 管存储，Pydantic 管传输，见《<a href="../../../规划/项目规划说明.html#structure">项目规划说明》4 节</a>目录结构。</li>
         <li>FastAPI 数据校验基石：接口参数、请求体、响应体全部经 Pydantic 校验，失败自动返回 422 统一错误格式。</li>
         <li>类型注解驱动：与 pyright 严格模式配合，模型字段类型错误在 IDE 阶段即被发现（见《<a href="../工程化与质量/pyright技术介绍.html">pyright 技术介绍</a>》）。</li>
-        <li>前后端契约一致：后端 schema 经 openapi-typescript 由 OpenAPI schema 自动生成前端 TS 类型（见《<a href="../../规划/项目规划说明.html#sel-frontend">项目规划说明》3.2 节</a>）。</li>
-        <li>Rust 内核性能保障：高并发请求下的校验与序列化开销远低于 v1，契合 500 并发/P99 ≤ 1s 的压测目标（见《<a href="../../规划/项目规划说明.html#perf">项目规划说明》14 节</a>）。</li>
+        <li>前后端契约一致：后端 schema 经 openapi-typescript 由 OpenAPI schema 自动生成前端 TS 类型（见《<a href="../../../规划/项目规划说明.html#sel-frontend">项目规划说明》3.2 节</a>）。</li>
+        <li>Rust 内核性能保障：高并发请求下的校验与序列化开销远低于 v1，契合 500 并发/P99 ≤ 1s 的压测目标（见《<a href="../../../规划/项目规划说明.html#perf">项目规划说明》14 节</a>）。</li>
       </ul>
 
       <h2 id="compare">4. 选型对比</h2>
@@ -113,19 +113,19 @@
       <h2 id="related">7. 项目内关联文档</h2>
       <table>
         <tr><th>文档</th><th>说明</th></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#stack-backend">项目规划说明》2.1 节</a></td><td>技术栈：数据校验条目（Pydantic v2）</td></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#structure">项目规划说明》4 节</a></td><td>目录结构：schemas/ 层职责</td></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#sel-frontend">项目规划说明》3.2 节</a></td><td>openapi-typescript 前后端契约联动</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#stack-backend">项目规划说明》2.1 节</a></td><td>技术栈：数据校验条目（Pydantic v2）</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#structure">项目规划说明》4 节</a></td><td>目录结构：schemas/ 层职责</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#sel-frontend">项目规划说明》3.2 节</a></td><td>openapi-typescript 前后端契约联动</td></tr>
         <tr><td>《<a href="FastAPI技术介绍.html">FastAPI 技术介绍</a>》</td><td>依托 Pydantic 完成请求/响应校验</td></tr>
         <tr><td>《<a href="SQLAlchemy技术介绍.html">SQLAlchemy 技术介绍</a>》</td><td>ORM 模型与 Pydantic Schema 解耦的分工</td></tr>
         <tr><td>《<a href="../工程化与质量/pyright技术介绍.html">pyright 技术介绍</a>》</td><td>类型检查与 Pydantic 模型联动的工程实践</td></tr>
-        <tr><td>《<a href="../../规范/API接口规范.html">API 接口规范</a>》</td><td>422 错误码与统一响应约定</td></tr>
+        <tr><td>《<a href="../../../规范/API接口规范.html">API 接口规范</a>》</td><td>422 错误码与统一响应约定</td></tr>
       </table>
 
     </main>
 
     <footer>
-      本文档为 AI 生成 · 依《<a href="../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
+      本文档为 AI 生成 · 依《<a href="../../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
     </footer>
   </div>
 

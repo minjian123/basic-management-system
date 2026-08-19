@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>PostgreSQL 技术介绍</title>
-<link rel="stylesheet" href="../../资源/文档样式.css">
+<link rel="stylesheet" href="../../../资源/文档样式.css">
 </head>
 <body>
 
@@ -71,12 +71,12 @@
 
       <h2 id="usage">3. 在 BMS 项目中的用途</h2>
       <ul>
-        <li>生产数据库之一，与 MySQL、达梦 DM8 三库并行支持；开发/测试默认 SQLite（见《<a href="../../规划/项目规划说明.html#stack-backend">项目规划说明》2.1 节</a>）。</li>
-        <li><strong>psycopg 3 驱动</strong>：PostgreSQL 官方维护、原生异步（dialect <code>postgresql+psycopg</code>），替代已冻结的 psycopg2（见《<a href="../../规划/项目规划说明.html#sel-backend">项目规划说明》3.1 节</a>）。</li>
-        <li>数据层主从：PostgreSQL 主从（读写分离 + 故障切换），1 平台库 + N 租户库 + 1 归档库（见《<a href="../../规划/项目规划说明.html#deploy-topo">项目规划说明》19.1 节</a>）。</li>
-        <li>软删除优化：PostgreSQL 可另加部分唯一索引优化（基础方案四库统一的 (唯一字段, deleted_at) 复合唯一索引）（见《<a href="../../规划/项目规划说明.html#dbrule">项目规划说明》11.1 节</a>）。</li>
-        <li>备份与恢复：每日全量备份 + WAL 时间点恢复（PITR），保留 30 天异机存储（见《<a href="../../规划/项目规划说明.html#deploy-backup">项目规划说明》19.4 节</a>）。</li>
-        <li>CI 三库方言集成测试：复用 mjbk 常驻 PostgreSQL，job 内建 bms_test 前缀测试库，迁移 → 测试 → 清理（见《<a href="../../规划/开发部署规划.html">开发部署规划</a>》）。</li>
+        <li>生产数据库之一，与 MySQL、达梦 DM8 三库并行支持；开发/测试默认 SQLite（见《<a href="../../../规划/项目规划说明.html#stack-backend">项目规划说明》2.1 节</a>）。</li>
+        <li><strong>psycopg 3 驱动</strong>：PostgreSQL 官方维护、原生异步（dialect <code>postgresql+psycopg</code>），替代已冻结的 psycopg2（见《<a href="../../../规划/项目规划说明.html#sel-backend">项目规划说明》3.1 节</a>）。</li>
+        <li>数据层主从：PostgreSQL 主从（读写分离 + 故障切换），1 平台库 + N 租户库 + 1 归档库（见《<a href="../../../规划/项目规划说明.html#deploy-topo">项目规划说明》19.1 节</a>）。</li>
+        <li>软删除优化：PostgreSQL 可另加部分唯一索引优化（基础方案四库统一的 (唯一字段, deleted_at) 复合唯一索引）（见《<a href="../../../规划/项目规划说明.html#dbrule">项目规划说明》11.1 节</a>）。</li>
+        <li>备份与恢复：每日全量备份 + WAL 时间点恢复（PITR），保留 30 天异机存储（见《<a href="../../../规划/项目规划说明.html#deploy-backup">项目规划说明》19.4 节</a>）。</li>
+        <li>CI 三库方言集成测试：复用 mjbk 常驻 PostgreSQL，job 内建 bms_test 前缀测试库，迁移 → 测试 → 清理（见《<a href="../../../规划/开发部署规划.html">开发部署规划</a>》）。</li>
       </ul>
 
       <h2 id="compare">4. 选型对比</h2>
@@ -92,8 +92,8 @@
       <ul>
         <li><strong>psycopg2 已冻结</strong>：老资料与网上示例大量基于 psycopg2，本项目的连接串是 <code>postgresql+psycopg</code>（3），别混用两个 dialect。</li>
         <li><strong>自增语义差异</strong>：序列与 MySQL AUTO_INCREMENT 行为不同（批量插入、回滚后序号不重用），跨库测试时别断言具体序号值。</li>
-        <li><strong>方言差异</strong>：部分索引、JSONB、ILIKE 等是 PG 特性，ORM 层统一用跨方言写法，方言优化只在三库验证通过的迁移/查询中使用（见《<a href="../../规划/项目规划说明.html#dbcompat">项目规划说明》11 节</a>）。</li>
-        <li><strong>连接池规划</strong>：与 MySQL 同口径——worker × (pool_size + max_overflow) ≤ max_connections 的 70%（见《<a href="../../规划/项目规划说明.html#perf">项目规划说明》14 节</a>）。</li>
+        <li><strong>方言差异</strong>：部分索引、JSONB、ILIKE 等是 PG 特性，ORM 层统一用跨方言写法，方言优化只在三库验证通过的迁移/查询中使用（见《<a href="../../../规划/项目规划说明.html#dbcompat">项目规划说明》11 节</a>）。</li>
+        <li><strong>连接池规划</strong>：与 MySQL 同口径——worker × (pool_size + max_overflow) ≤ max_connections 的 70%（见《<a href="../../../规划/项目规划说明.html#perf">项目规划说明》14 节</a>）。</li>
         <li><strong>主从延迟</strong>：流复制异步语义下从库可能滞后，"读后写"场景走主库路由。</li>
         <li><strong>事务边界</strong>：长事务会堆积 MVCC 旧版本（膨胀），大事务显式声明边界并及时提交（见《<a href="SQLAlchemy技术介绍.html">SQLAlchemy 技术介绍</a>》）。</li>
         <li><strong>驱动注意</strong>：psycopg 3 在 Python 3.14 的兼容性纳入阶段一逐依赖验证口径（见《<a href="Python技术介绍.html">Python 技术介绍</a>》）。</li>
@@ -113,20 +113,20 @@
       <h2 id="related">7. 项目内关联文档</h2>
       <table>
         <tr><th>文档</th><th>说明</th></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#stack-backend">项目规划说明》2.1 节</a></td><td>技术栈：PostgreSQL 16+ 与 psycopg 3 条目</td></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#sel-backend">项目规划说明》3.1 节</a></td><td>选型说明：psycopg 3 替代 psycopg2</td></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#dbrule">项目规划说明》11.1 节</a></td><td>数据规范：软删除与部分唯一索引优化</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#stack-backend">项目规划说明》2.1 节</a></td><td>技术栈：PostgreSQL 16+ 与 psycopg 3 条目</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#sel-backend">项目规划说明》3.1 节</a></td><td>选型说明：psycopg 3 替代 psycopg2</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#dbrule">项目规划说明》11.1 节</a></td><td>数据规范：软删除与部分唯一索引优化</td></tr>
         <tr><td>《<a href="../../开发服务器/PostgreSQL部署使用说明.html">PostgreSQL 部署使用说明</a>》</td><td>开发服务器 mjbk 上的部署与访问细节</td></tr>
         <tr><td>《<a href="SQLAlchemy技术介绍.html">SQLAlchemy 技术介绍</a>》</td><td>异步 engine、连接池与多数据源</td></tr>
         <tr><td>《<a href="Alembic技术介绍.html">Alembic 技术介绍</a>》</td><td>PostgreSQL 方言迁移脚本与三库验证</td></tr>
         <tr><td>《<a href="MySQL技术介绍.html">MySQL 技术介绍</a>》</td><td>并行支持的另一生产数据库</td></tr>
-        <tr><td>《<a href="../../规范/数据库开发规范.html">数据库开发规范</a>》</td><td>字符集、命名、索引等落地约束</td></tr>
+        <tr><td>《<a href="../../../规范/数据库开发规范.html">数据库开发规范</a>》</td><td>字符集、命名、索引等落地约束</td></tr>
       </table>
 
     </main>
 
     <footer>
-      本文档为 AI 生成 · 依《<a href="../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
+      本文档为 AI 生成 · 依《<a href="../../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
     </footer>
   </div>
 

@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MinIO 技术介绍</title>
-<link rel="stylesheet" href="../../资源/文档样式.css">
+<link rel="stylesheet" href="../../../资源/文档样式.css">
 </head>
 <body>
 
@@ -50,7 +50,7 @@
       <ul>
         <li><strong>定位</strong>：BMS 唯一文件存储端点，backend 多副本共享同一存储，无本地磁盘依赖。</li>
         <li><strong>版本</strong>：RELEASE 命名滚动发布（如 RELEASE.2026-xx），无大版本概念，跟随官方稳定线升级。</li>
-        <li><strong>许可</strong>：AGPL-3.0。仅作独立服务进程部署、不修改源码时无传染性；官方另提供商业订阅（见《<a href="../../规划/项目规划说明.html#stack-license">项目规划说明</a>》2.5 节许可分析）。</li>
+        <li><strong>许可</strong>：AGPL-3.0。仅作独立服务进程部署、不修改源码时无传染性；官方另提供商业订阅（见《<a href="../../../规划/项目规划说明.html#stack-license">项目规划说明</a>》2.5 节许可分析）。</li>
         <li><strong>部署</strong>：Docker Compose 独立容器，详见《<a href="../../开发服务器/MinIO部署使用说明.html">MinIO 部署使用说明</a>》。</li>
       </ul>
 
@@ -71,9 +71,9 @@
 
       <h2 id="usage">3. 在 BMS 项目中的用途</h2>
       <ul>
-        <li><strong>统一文件存储</strong>：附件、导入模板、导出结果、图片/PDF 等全部对象存储，backend 多实例共享同一端点，无状态横向扩展（见《<a href="../../规划/项目规划说明.html#stack-backend">项目规划说明</a>》2.1 节）。</li>
+        <li><strong>统一文件存储</strong>：附件、导入模板、导出结果、图片/PDF 等全部对象存储，backend 多实例共享同一端点，无状态横向扩展（见《<a href="../../../规划/项目规划说明.html#stack-backend">项目规划说明</a>》2.1 节）。</li>
         <li><strong>预签名 URL 限时下载</strong>：下载/预览接口生成短时效预签名 URL（含权限校验），浏览器直连 MinIO 拉取，避免大文件经过后端转发。</li>
-        <li><strong>大文件分片上传</strong>：≤20MB 整包上传；超限分片 + 断点续传，分片用 <code>.part</code> 标识的临时对象存 MinIO，合并后清理，见《<a href="../../规划/项目规划说明.html#modules">项目规划说明</a>》第 5 节「文件管理」模块。</li>
+        <li><strong>大文件分片上传</strong>：≤20MB 整包上传；超限分片 + 断点续传，分片用 <code>.part</code> 标识的临时对象存 MinIO，合并后清理，见《<a href="../../../规划/项目规划说明.html#modules">项目规划说明</a>》第 5 节「文件管理」模块。</li>
         <li><strong>孤儿分片回收</strong>：上传中断遗留的 <code>.part</code> 对象由 Celery 周期性任务扫描清理（见《<a href="Celery技术介绍.html">Celery 技术介绍</a>》）。</li>
         <li><strong>本地开发模拟</strong>：存储层做抽象接口，本地开发/测试可切文件系统实现，不强制起 MinIO；生产独立部署或对接现有 S3 服务。</li>
         <li><strong>AI 能力复用</strong>：阶段十五 Milvus 向量库依赖的对象存储直接复用 MinIO。</li>
@@ -98,7 +98,7 @@ url = client.get_presigned_url("GET", "bms-attach", "tenant/1/attach/a.pdf",
 
       <h2 id="pitfalls">5. 常见问题与注意事项</h2>
       <ul>
-        <li><strong>AGPL 边界</strong>：MinIO 以独立服务进程运行、不改源码即不传染；禁止为优化而修改 MinIO 源码内嵌项目（《<a href="../../规划/项目规划说明.html#stack-license">项目规划说明</a>》2.5 节合规要求）。</li>
+        <li><strong>AGPL 边界</strong>：MinIO 以独立服务进程运行、不改源码即不传染；禁止为优化而修改 MinIO 源码内嵌项目（《<a href="../../../规划/项目规划说明.html#stack-license">项目规划说明</a>》2.5 节合规要求）。</li>
         <li><strong>凭据安全</strong>：Access/Secret Key 走 Secret 管理下发，严禁硬编码进代码或提交仓库；定期轮换。</li>
         <li><strong>时钟同步</strong>：S3 签名依赖时间戳，服务器时间偏差过大会导致签名校验失败，MinIO 与客户端机器都要配置 NTP。</li>
         <li><strong>预签名 URL 时效</strong>：时限宁短勿长，下载接口每次按需签发；URL 不落入审计/日志明文，防止泄漏后被滥用。</li>
@@ -122,8 +122,8 @@ url = client.get_presigned_url("GET", "bms-attach", "tenant/1/attach/a.pdf",
       <h2 id="related">7. 项目内关联文档</h2>
       <table>
         <tr><th>文档</th><th>说明</th></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#stack-backend">项目规划说明</a>》2.1 节</td><td>后端技术栈：对象存储条目</td></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#modules">项目规划说明</a>》5 节</td><td>文件管理模块：分片上传、断点续传、预签名下载规则</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#stack-backend">项目规划说明</a>》2.1 节</td><td>后端技术栈：对象存储条目</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#modules">项目规划说明</a>》5 节</td><td>文件管理模块：分片上传、断点续传、预签名下载规则</td></tr>
         <tr><td>《<a href="../../开发服务器/MinIO部署使用说明.html">MinIO 部署使用说明</a>》</td><td>开发服务器上的部署步骤与排障</td></tr>
         <tr><td>《<a href="python-multipart技术介绍.html">python-multipart 技术介绍</a>》</td><td>上传入口的 multipart 解析</td></tr>
         <tr><td>《<a href="Celery技术介绍.html">Celery 技术介绍</a>》</td><td>孤儿分片回收、日志归档等任务</td></tr>
@@ -133,7 +133,7 @@ url = client.get_presigned_url("GET", "bms-attach", "tenant/1/attach/a.pdf",
     </main>
 
     <footer>
-      本文档为 AI 生成 · 依《<a href="../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
+      本文档为 AI 生成 · 依《<a href="../../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
     </footer>
   </div>
 

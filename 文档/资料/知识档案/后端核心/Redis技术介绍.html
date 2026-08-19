@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Redis 技术介绍</title>
-<link rel="stylesheet" href="../../资源/文档样式.css">
+<link rel="stylesheet" href="../../../资源/文档样式.css">
 </head>
 <body>
 
@@ -66,11 +66,11 @@
         <tr><td>持久化</td><td>RDB（定时快照）与 AOF（追加日志）两种持久化；缓存类数据可关持久化，状态类数据按业务需要开启</td></tr>
         <tr><td>高可用形态</td><td>Sentinel（哨兵）做主从自动故障切换；Cluster（集群）做数据分片；本项目生产按需选用，key 设计均含租户前缀适配共享集群</td></tr>
         <tr><td>发布/订阅</td><td>Pub/Sub 消息广播机制；本项目实时推送不依赖它，Socket.IO 多实例广播走 Redis 适配器（RedisManager）</td></tr>
-        <tr><td>Key 命名规范</td><td>统一格式 <code>bms:{租户标识|global}:{域}:{业务键}</code>，租户数据必含租户前缀，平台数据用 global（见《<a href="../../规范/命名规范.html">命名规范</a>》）</td></tr>
+        <tr><td>Key 命名规范</td><td>统一格式 <code>bms:{租户标识|global}:{域}:{业务键}</code>，租户数据必含租户前缀，平台数据用 global（见《<a href="../../../规范/命名规范.html">命名规范</a>》）</td></tr>
       </table>
 
       <h2 id="usage">3. 在 BMS 项目中的用途</h2>
-      <p>按《<a href="../../规划/项目规划说明.html#stack-backend">项目规划说明</a>》2.1 节与 3.1 节，Redis 承担以下职责：</p>
+      <p>按《<a href="../../../规划/项目规划说明.html#stack-backend">项目规划说明</a>》2.1 节与 3.1 节，Redis 承担以下职责：</p>
       <ul>
         <li><strong>集群统一缓存源</strong>：只读热数据（字典、系统参数、菜单树、业务/动作权限码）走 Redis 缓存，短 TTL；集群内多实例共享同一份缓存，避免本地内存缓存造成的数据不一致（19.2 节集群设计要点）。</li>
         <li><strong>会话状态</strong>：会话有效标记存 Redis（<code>bms:{tenant}:sess:{session_id}</code>），鉴权时随 access token 一并校验（每请求一次 Redis 读，毫秒级开销），强制踢出即时生效（12 节认证与安全）。</li>
@@ -117,10 +117,10 @@
       <h2 id="related">7. 项目内关联文档</h2>
       <table>
         <tr><th>文档</th><th>说明</th></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#stack-backend">项目规划说明</a>》2.1/3.1/2.5 节</td><td>Redis 选型、用途与许可口径（AGPL-3.0 说明）</td></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#perf">项目规划说明</a>》14 节</td><td>缓存策略：key 规范、TTL 三防、先写库后删缓存、Redis 故障降级</td></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#security">项目规划说明</a>》12 节</td><td>会话标记、token 黑名单、验证码存储、踢出即时生效</td></tr>
-        <tr><td>《<a href="../../规范/命名规范.html">命名规范</a>》</td><td>Redis key 命名格式 <code>bms:{租户|global}:{域}:{业务键}</code></td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#stack-backend">项目规划说明</a>》2.1/3.1/2.5 节</td><td>Redis 选型、用途与许可口径（AGPL-3.0 说明）</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#perf">项目规划说明</a>》14 节</td><td>缓存策略：key 规范、TTL 三防、先写库后删缓存、Redis 故障降级</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#security">项目规划说明</a>》12 节</td><td>会话标记、token 黑名单、验证码存储、踢出即时生效</td></tr>
+        <tr><td>《<a href="../../../规范/命名规范.html">命名规范</a>》</td><td>Redis key 命名格式 <code>bms:{租户|global}:{域}:{业务键}</code></td></tr>
         <tr><td>《<a href="dogpile.cache技术介绍.html">dogpile.cache 技术介绍</a>》</td><td>进程内热配置缓存与 Redis 的分工协同</td></tr>
         <tr><td>《<a href="slowapi技术介绍.html">slowapi 技术介绍</a>》</td><td>Redis 后端的分布式限流计数</td></tr>
         <tr><td>《<a href="JWT与PBKDF2技术介绍.html">JWT 技术介绍</a>》</td><td>会话有效标记、token 黑名单的存储与校验</td></tr>
@@ -130,7 +130,7 @@
     </main>
 
     <footer>
-      本文档为 AI 生成 · 依《<a href="../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
+      本文档为 AI 生成 · 依《<a href="../../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
     </footer>
   </div>
 

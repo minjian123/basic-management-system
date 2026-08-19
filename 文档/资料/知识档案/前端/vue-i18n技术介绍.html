@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>vue-i18n 技术介绍</title>
-<link rel="stylesheet" href="../../资源/文档样式.css">
+<link rel="stylesheet" href="../../../资源/文档样式.css">
 </head>
 <body>
 
@@ -72,9 +72,9 @@
 
       <h2 id="usage">3. 在 BMS 项目中的用途</h2>
       <ul>
-        <li><strong>中英文切换</strong>：顶栏语言切换器改 <code>locale</code> 即全局生效，偏好写 localStorage 持久化，刷新后保持（见《<a href="../../规划/项目规划说明.html#sel-frontend">项目规划说明</a>》3.2 节）。</li>
+        <li><strong>中英文切换</strong>：顶栏语言切换器改 <code>locale</code> 即全局生效，偏好写 localStorage 持久化，刷新后保持（见《<a href="../../../规划/项目规划说明.html#sel-frontend">项目规划说明</a>》3.2 节）。</li>
         <li><strong>语言包运行时拉取</strong>：启动时 <code>GET /api/v1/i18n/messages</code> 从后端取当前语言文案（后端 Redis 缓存 + 前端 localStorage 二次缓存），避免打进前端包体（见《<a href="../后端核心/Redis技术介绍.html">Redis 技术介绍</a>》）。</li>
-        <li><strong>文案不硬编码</strong>：前后端固定文案统一存 <code>sys_i18n_message</code>，页面在线维护、新增语言免发版；前端模板一律 <code>t('key')</code>，禁止写死中文（见《<a href="../../规范/国际化规范.html">国际化规范</a>》）。</li>
+        <li><strong>文案不硬编码</strong>：前后端固定文案统一存 <code>sys_i18n_message</code>，页面在线维护、新增语言免发版；前端模板一律 <code>t('key')</code>，禁止写死中文（见《<a href="../../../规范/国际化规范.html">国际化规范</a>》）。</li>
         <li><strong>多语言动态扩展</strong>：语言清单 <code>sys_i18n_locale</code> 动态扩展，前端按清单渲染语言菜单，无需改代码发版。</li>
         <li><strong>RTL 适配</strong>：语言带 rtl 标记时切换 <code>dir</code> 与布局镜像（阿拉伯语等场景），由数据驱动而非硬编码。</li>
         <li><strong>组件文案联动</strong>：Element Plus 内置文案（分页、空数据）经 el-config-provider 与 vue-i18n 同步切换（见《<a href="ElementPlus技术介绍.html">Element Plus 技术介绍</a>》）。</li>
@@ -116,7 +116,7 @@ const { t, locale } = useI18n()
         <li><strong>语言包缓存失效</strong>：localStorage 二次缓存要带版本号/哈希，后端文案更新后能感知并拉新，否则用户一直看旧文案。</li>
         <li><strong>运行时编译开销</td>：大量文案首次切换会触发编译，语言包按语言懒加载、避免一次全量编译。</li>
         <li><strong>RTL 布局别硬编码</strong>：用逻辑属性（margin-inline、padding-inline）或 dir 驱动镜像，别写死 left/right。</li>
-        <li><strong>文案不硬编码</strong>：模板与 JS 提示一律走 <code>t('key')</code>，代码评审时把写死中文当缺陷处理（见《<a href="../../规范/国际化规范.html">国际化规范</a>》）。</li>
+        <li><strong>文案不硬编码</strong>：模板与 JS 提示一律走 <code>t('key')</code>，代码评审时把写死中文当缺陷处理（见《<a href="../../../规范/国际化规范.html">国际化规范</a>》）。</li>
         <li><strong>数字/日期本地化</strong>：用 Intl API 或 vue-i18n 格式化，别手动拼日期字符串，否则各语言格式错乱。</li>
       </ul>
 
@@ -133,9 +133,9 @@ const { t, locale } = useI18n()
       <h2 id="related">7. 项目内关联文档</h2>
       <table>
         <tr><th>文档</th><th>说明</th></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#stack-frontend">项目规划说明</a>》2.2 节</td><td>前端技术栈（vue-i18n 条目）</td></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#sel-frontend">项目规划说明</a>》3.2 节</td><td>选型理由：运行时拉取、动态扩展、RTL</td></tr>
-        <tr><td>《<a href="../../规范/国际化规范.html">国际化规范</a>》</td><td>文案入库、key 命名、回退与 RTL 约定</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#stack-frontend">项目规划说明</a>》2.2 节</td><td>前端技术栈（vue-i18n 条目）</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#sel-frontend">项目规划说明</a>》3.2 节</td><td>选型理由：运行时拉取、动态扩展、RTL</td></tr>
+        <tr><td>《<a href="../../../规范/国际化规范.html">国际化规范</a>》</td><td>文案入库、key 命名、回退与 RTL 约定</td></tr>
         <tr><td>《<a href="ElementPlus技术介绍.html">Element Plus 技术介绍</a>》</td><td>组件文案国际化联动（el-config-provider）</td></tr>
         <tr><td>《<a href="../后端核心/Redis技术介绍.html">Redis 技术介绍</a>》</td><td>语言包后端缓存层</td></tr>
         <tr><td>《<a href="../后端核心/Babel技术介绍.html">Babel 技术介绍</a>》</td><td>后端开发期文案 key 提取入库</td></tr>
@@ -144,7 +144,7 @@ const { t, locale } = useI18n()
     </main>
 
     <footer>
-      本文档为 AI 生成 · 依《<a href="../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
+      本文档为 AI 生成 · 依《<a href="../../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
     </footer>
   </div>
 

@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>uv 技术介绍</title>
-<link rel="stylesheet" href="../../资源/文档样式.css">
+<link rel="stylesheet" href="../../../资源/文档样式.css">
 </head>
 <body>
 
@@ -72,9 +72,9 @@
 
       <h2 id="usage">3. 在 BMS 项目中的用途</h2>
       <ul>
-        <li>作为《<a href="../../规划/项目规划说明.html#stack-eng">项目规划说明</a>》2.3 节指定的 Python 包管理工具，替代 pip + venv 传统组合。</li>
+        <li>作为《<a href="../../../规划/项目规划说明.html#stack-eng">项目规划说明</a>》2.3 节指定的 Python 包管理工具，替代 pip + venv 传统组合。</li>
         <li>pyproject.toml 集中声明依赖与工具配置：依赖写在 <code>dependencies</code> 段，ruff、pyright、pytest 等工具的配置全部收进各自 <code>[tool.*]</code> 段（见《<a href="ruff技术介绍.html">ruff 技术介绍</a>》《<a href="pyright技术介绍.html">pyright 技术介绍</a>》《<a href="pytest技术介绍.html">pytest 技术介绍</a>》）。</li>
-        <li>uv.lock 锁定依赖版本（选型依据见《<a href="../../规划/项目规划说明.html#sel-eng">项目规划说明</a>》3.3 节）：本地与 CI 安装结果一致，FastAPI 等快速迭代的框架升级前先跑全量测试。</li>
+        <li>uv.lock 锁定依赖版本（选型依据见《<a href="../../../规划/项目规划说明.html#sel-eng">项目规划说明</a>》3.3 节）：本地与 CI 安装结果一致，FastAPI 等快速迭代的框架升级前先跑全量测试。</li>
         <li>日常命令（Windows PowerShell 与 Linux 通用）：</li>
       </ul>
       <pre><code>uv sync                      # 安装全部依赖并创建 .venv
@@ -83,7 +83,7 @@ uv run pytest                # 在项目环境中跑测试
 uv run ruff check .          # 在项目环境中跑 lint
 uv run pyright               # 在项目环境中跑类型检查</code></pre>
       <ul>
-        <li>CI 流水线：MR 流水线用 <code>uv sync</code> 安装依赖后执行 ruff + pytest（见《<a href="../../规划/项目规划说明.html#sel-ops">项目规划说明</a>》3.4 节），与本地命令同源。</li>
+        <li>CI 流水线：MR 流水线用 <code>uv sync</code> 安装依赖后执行 ruff + pytest（见《<a href="../../../规划/项目规划说明.html#sel-ops">项目规划说明</a>》3.4 节），与本地命令同源。</li>
         <li>全局工具安装：graphify 用 <code>uv tool install "graphifyy[chinese,openai]"</code> 安装（见《<a href="graphify技术介绍.html">graphify 技术介绍</a>》）。</li>
       </ul>
 
@@ -102,7 +102,7 @@ uv run pyright               # 在项目环境中跑类型检查</code></pre>
         <li><strong>不要与 pip 混用</strong>：在 uv 管理的项目里手工 <code>pip install</code> 会绕过 uv.lock，导致环境与锁文件不一致，统一用 <code>uv add</code>。</li>
         <li><strong>uv.lock 与 pyproject.toml 不同步</strong>：改依赖一律走 <code>uv add/remove</code>；手工编辑 pyproject.toml 后需跑 <code>uv lock</code> 重新生成。</li>
         <li><strong>extras 互顶</strong>：<code>uv tool install</code> 安装带 extras 的包时，后装只带部分 extras 会顶掉之前的（graphify 实测踩过，见《<a href="graphify技术介绍.html">graphify 技术介绍</a>》），重装必须一次列全。</li>
-        <li><strong>Python 版本</strong>：项目要求 Python 3.14+，用 <code>uv python install</code> 统一装解释器；若某核心依赖与 3.14 不兼容，按《<a href="../../规划/项目规划说明.html#sel-backend">项目规划说明</a>》3.1 节口径整体回退 3.13。</li>
+        <li><strong>Python 版本</strong>：项目要求 Python 3.14+，用 <code>uv python install</code> 统一装解释器；若某核心依赖与 3.14 不兼容，按《<a href="../../../规划/项目规划说明.html#sel-backend">项目规划说明</a>》3.1 节口径整体回退 3.13。</li>
         <li><strong>CI 提速</strong>：runner 上启用 uv 缓存挂载可大幅缩短流水线依赖安装时间。</li>
       </ul>
 
@@ -119,8 +119,8 @@ uv run pyright               # 在项目环境中跑类型检查</code></pre>
       <h2 id="related">7. 项目内关联文档</h2>
       <table>
         <tr><th>文档</th><th>说明</th></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#stack-eng">项目规划说明</a>》2.3 节</td><td>技术栈：Python 包管理 = uv</td></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#sel-eng">项目规划说明</a>》3.3 节</td><td>选型说明：uv 一体化管理依赖与虚拟环境</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#stack-eng">项目规划说明</a>》2.3 节</td><td>技术栈：Python 包管理 = uv</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#sel-eng">项目规划说明</a>》3.3 节</td><td>选型说明：uv 一体化管理依赖与虚拟环境</td></tr>
         <tr><td>《<a href="ruff技术介绍.html">ruff 技术介绍</a>》</td><td>同厂工具，其配置即写在 pyproject.toml 的 [tool.ruff]</td></tr>
         <tr><td>《<a href="pyright技术介绍.html">pyright 技术介绍</a>》</td><td>类型检查，配置同样收进 pyproject.toml</td></tr>
         <tr><td>《<a href="pytest技术介绍.html">pytest 技术介绍</a>》</td><td>测试运行统一走 <code>uv run pytest</code></td></tr>
@@ -131,7 +131,7 @@ uv run pyright               # 在项目环境中跑类型检查</code></pre>
     </main>
 
     <footer>
-      本文档为 AI 生成 · 依《<a href="../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
+      本文档为 AI 生成 · 依《<a href="../../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
     </footer>
   </div>
 

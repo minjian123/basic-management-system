@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>IdGenerator 技术介绍</title>
-<link rel="stylesheet" href="../../资源/文档样式.css">
+<link rel="stylesheet" href="../../../资源/文档样式.css">
 </head>
 <body>
 
@@ -74,12 +74,12 @@
 
       <h2 id="usage">3. 在 BMS 项目中的用途</h2>
       <ul>
-        <li>分布式全局唯一 ID 生成：<strong>所有业务表统一用雪花 ID 作主键</strong>，关联表用联合主键（见《<a href="../../规划/项目规划说明.html#stack-backend">项目规划说明</a>》2.1 节、11.1 节「数据规范」）。</li>
-        <li>分布式环境下无需中心协调即可生成全局唯一 ID，契合 BMS 多实例无状态部署（见《<a href="../../规划/项目规划说明.html#deploy-cluster">项目规划说明</a>》19.2 节）。</li>
-        <li><strong>时钟回拨处理配置</strong>：部署时需关注 NTP 时间同步与回拨容忍配置，避免极端情况下 ID 冲突（见《<a href="../../规划/项目规划说明.html#stack-backend">项目规划说明</a>》yitter 条目）。</li>
+        <li>分布式全局唯一 ID 生成：<strong>所有业务表统一用雪花 ID 作主键</strong>，关联表用联合主键（见《<a href="../../../规划/项目规划说明.html#stack-backend">项目规划说明</a>》2.1 节、11.1 节「数据规范」）。</li>
+        <li>分布式环境下无需中心协调即可生成全局唯一 ID，契合 BMS 多实例无状态部署（见《<a href="../../../规划/项目规划说明.html#deploy-cluster">项目规划说明</a>》19.2 节）。</li>
+        <li><strong>时钟回拨处理配置</strong>：部署时需关注 NTP 时间同步与回拨容忍配置，避免极端情况下 ID 冲突（见《<a href="../../../规划/项目规划说明.html#stack-backend">项目规划说明</a>》yitter 条目）。</li>
         <li>与 UUID 相比：雪花 ID 是 64 位整数、<strong>有序可排序</strong>、利于数据库索引顺序写入与范围查询；UUID 无序、占 128 位，索引效率与存储都更差。</li>
-        <li>主键在应用侧生成后随 INSERT 写入，数据库不自增，跨 MySQL/PostgreSQL/达梦三库行为一致（见《<a href="../../规划/项目规划说明.html#dbcompat">项目规划说明</a>》11 节）。</li>
-        <li>前端 JS 需注意：大整数超过 <code>Number.MAX_SAFE_INTEGER</code> 会丢精度，接口返回时按约定转字符串（见《<a href="../../规范/API接口规范.html">API 接口规范</a>》）。</li>
+        <li>主键在应用侧生成后随 INSERT 写入，数据库不自增，跨 MySQL/PostgreSQL/达梦三库行为一致（见《<a href="../../../规划/项目规划说明.html#dbcompat">项目规划说明</a>》11 节）。</li>
+        <li>前端 JS 需注意：大整数超过 <code>Number.MAX_SAFE_INTEGER</code> 会丢精度，接口返回时按约定转字符串（见《<a href="../../../规范/API接口规范.html">API 接口规范</a>》）。</li>
       </ul>
 
       <h2 id="compare">4. 选型对比</h2>
@@ -114,19 +114,19 @@
       <h2 id="related">7. 项目内关联文档</h2>
       <table>
         <tr><th>文档</th><th>说明</th></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#stack-backend">项目规划说明</a>》2.1 节</td><td>后端技术栈：ID 生成（yitter/IdGenerator）条目</td></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#dbrule">项目规划说明</a>》11.1 节</td><td>数据规范：业务表统一雪花 ID 主键</td></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#tables">项目规划说明</a>》6 节</td><td>核心数据表清单（主键约定）</td></tr>
-        <tr><td>《<a href="../../规范/数据库开发规范.html">数据库开发规范</a>》</td><td>主键 BIGINT、索引与三库一致要求</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#stack-backend">项目规划说明</a>》2.1 节</td><td>后端技术栈：ID 生成（yitter/IdGenerator）条目</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#dbrule">项目规划说明</a>》11.1 节</td><td>数据规范：业务表统一雪花 ID 主键</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#tables">项目规划说明</a>》6 节</td><td>核心数据表清单（主键约定）</td></tr>
+        <tr><td>《<a href="../../../规范/数据库开发规范.html">数据库开发规范</a>》</td><td>主键 BIGINT、索引与三库一致要求</td></tr>
         <tr><td>《<a href="SQLAlchemy技术介绍.html">SQLAlchemy 技术介绍</a>》</td><td>ORM 主键映射（应用侧生成 ID）</td></tr>
         <tr><td>《<a href="Alembic技术介绍.html">Alembic 技术介绍</a>》</td><td>迁移脚本中主键列类型（BIGINT）</td></tr>
-        <tr><td>《<a href="../../规范/API接口规范.html">API 接口规范</a>》</td><td>大整数 ID 返回与 JS 精度处理约定</td></tr>
+        <tr><td>《<a href="../../../规范/API接口规范.html">API 接口规范</a>》</td><td>大整数 ID 返回与 JS 精度处理约定</td></tr>
       </table>
 
     </main>
 
     <footer>
-      本文档为 AI 生成 · 依《<a href="../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
+      本文档为 AI 生成 · 依《<a href="../../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
     </footer>
   </div>
 

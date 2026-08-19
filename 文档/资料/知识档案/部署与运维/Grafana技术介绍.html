@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Grafana 技术介绍</title>
+<link rel="stylesheet" href="../../../资源/文档样式.css">
+</head>
+<body>
+
+<div class="topnav">
+  <a href="../../../文档首页.html">文档首页</a> ›
+  <a href="../技术栈知识档案总览.html">知识档案</a> ›
+  <a href="../技术栈知识档案总览.html#ops">部署与运维</a> ›
+  <span>Grafana 技术介绍</span>
+  <span class="topnav-side">
+    <a href="../技术栈知识档案总览.html">← 返回总览</a>
+  </span>
+</div>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>Grafana 技术介绍</h1>
+      <p>监控可视化 · 指标 / 日志 / 链路统一看板</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#overview">1. 技术概述</a></li>
+        <li><a href="#principles">2. 核心概念与原理</a></li>
+        <li><a href="#usage">3. 在 BMS 项目中的用途</a></li>
+        <li><a href="#compare">4. 选型对比</a></li>
+        <li><a href="#pitfalls">5. 常见问题与注意事项</a></li>
+        <li><a href="#learn">6. 学习与参考资料</a></li>
+        <li><a href="#related">7. 项目内关联文档</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="overview">1. 技术概述</h2>
+      <p>
+        <strong>Grafana</strong> 是开源可观测性可视化平台：把 Prometheus（指标）、
+        Loki（日志）、Jaeger（链路）、MySQL 等<strong>多种数据源</strong>接进来，
+        用拖拽式看板统一展示。它自己<strong>不存数据、不做告警主脑</strong>，
+        专注「把数据画好看、查得快」。
+      </p>
+      <ul>
+        <li><strong>定位</strong>：BMS 可观测性三件套的统一展示层（《<a href="../../../规划/项目规划说明.html#stack-ops">项目规划说明</a>》2.4 节）。</li>
+        <li><strong>版本</strong>：1x.x 系列（每年 2-3 个大版本，持续迭代）。</li>
+        <li><strong>许可</strong>：AGPL-3.0。BMS 仅作独立展示服务部署、不修改源码，无传染影响；Grafana Enterprise 为商业版，本项目不用（《<a href="../../../规划/项目规划说明.html#stack-license">项目规划说明</a>》2.5 节）。</li>
+        <li><strong>落地形态</strong>：mjbk 以 Docker Compose 容器常驻，浏览器访问；BMS 系统监控页跳转 / 嵌入（《<a href="../../../规划/项目规划说明.html#deploy-compose">项目规划说明</a>》19.3 节）。</li>
+      </ul>
+
+      <h2 id="principles">2. 核心概念与原理</h2>
+      <table>
+        <tr><th>概念</th><th>一句话说明</th></tr>
+        <tr><td>数据源（Data Source）</td><td>查询入口：Prometheus、Loki、Jaeger、MySQL 各注册一个，一个看板可混查多源</td></tr>
+        <tr><td>Dashboard</td><td>看板：一组 panel 的布局容器，可 JSON 导出、版本化、一键复制</td></tr>
+        <tr><td>Panel</td><td>面板：一个查询 + 一种可视化（折线 / 表格 / 热力图 / 状态点）</td></tr>
+        <tr><td>查询语言</td><td>按数据源切换：PromQL（指标）、LogQL（日志）、TraceQL（链路），Grafana 统一入口</td></tr>
+        <tr><td>变量（Variables）</td><td>看板级下拉参数（租户、环境、实例），一个模板看板适配多对象</td></tr>
+        <tr><td>Alerting</td><td>内置告警引擎；BMS 的告警主脑在 Alertmanager，Grafana 侧只做展示与跳转，避免双头告警</td></tr>
+        <tr><td>Provisioning</td><td>数据源 / 看板 / 用户用 YAML 声明式管理，可随 Compose 一键初始化</td></tr>
+        <tr><td>嵌入（Embed）</td><td>iframe 嵌入其他系统页面，需同源且目标站点放行 X-Frame-Options</td></tr>
+        <tr><td>组织与用户</td><td>多组织、角色（Admin / Editor / Viewer），按职责分配看板权限</td></tr>
+        <tr><td>插件</td><td>可视化与数据源均可插件扩展，官方市场丰富</td></tr>
+      </table>
+
+      <h2 id="usage">3. 在 BMS 项目中的用途</h2>
+      <ul>
+        <li><strong>统一展示</strong>：Prometheus 指标、Loki 日志、Jaeger 链路三类数据源挂在一个 Grafana 上，指标异常 → 跳日志 → 跳链路，一处排障（《<a href="../../../规划/项目规划说明.html#sel-ops">项目规划说明</a>》3.4 节）。</li>
+        <li><strong>BMS 内跳转 / 嵌入</strong>：系统监控页提供 Grafana 入口（页面跳转或同源嵌入），依赖状态（DB / Redis / MinIO）与缓存管理同页呈现（《<a href="../../../规划/项目规划说明.html#modules">项目规划说明</a>》5 节系统监控模块）。</li>
+        <li><strong>嵌入前提</strong>：nginx 配 X-Frame-Options SAMEORIGIN，兼容同源 Grafana 嵌入（《<a href="../../../规划/项目规划说明.html#deploy-cluster">项目规划说明</a>》19.2 节）。</li>
+        <li><strong>监控面示例</strong>：健康检查、Socket.IO 连接数、Redis key 分布 / 内存占用、DB 依赖状态等看板（《<a href="../../../规划/项目规划说明.html#modules">项目规划说明</a>》5 节）。</li>
+        <li><strong>告警分工</strong>：告警规则与推送由 Alertmanager 承担（邮件 / 企业微信 / 钉钉），Grafana 不重复建告警，避免双头告警（见《<a href="Prometheus与Alertmanager技术介绍.html">Prometheus 与 Alertmanager 技术介绍</a>》）。</li>
+      </ul>
+
+      <h2 id="compare">4. 选型对比</h2>
+      <table>
+        <tr><th>候选技术</th><th>优缺点</th><th>结论</th></tr>
+        <tr><td><strong>Grafana（选中）</strong></td><td>优点：事实标准、多数据源混查、看板拖拽快、插件生态大；缺点：本身不存数据，必须配后端</td><td>与 Prometheus / Loki / Jaeger 组合是云原生标配</td></tr>
+        <tr><td>Kibana</td><td>优点：ELK 全家桶配套、日志检索强；缺点：绑定 Elasticsearch，指标 / 链路弱</td><td>选了 ELK 才顺理成章，BMS 未选 ES 做日志</td></tr>
+        <tr><td>SigNoz</td><td>优点：指标 + 日志 + 链路一体化，开箱省心；缺点：较新，社区与资料少于 Grafana</td><td>备选，MVP 阶段不引入</td></tr>
+        <tr><td>Datadog</td><td>优点：SaaS 全托管、功能全；缺点：按量收费、数据出域</td><td>成本与信创约束下不采用</td></tr>
+        <tr><td>Zabbix 前端</td><td>优点：传统监控自带界面；缺点：多源混查与看板灵活性弱</td><td>指标场景已被 Prometheus + Grafana 覆盖</td></tr>
+      </table>
+
+      <h2 id="pitfalls">5. 常见问题与注意事项</h2>
+      <ul>
+        <li><strong>AGPL 边界</strong>：独立部署、不改源码、不深度定制，遵守《<a href="../../../规划/项目规划说明.html#stack-license">项目规划说明</a>》2.5 节约束；若未来计划深度定制，提前评估许可。</li>
+        <li><strong>嵌入三要素</strong>：同源部署 + X-Frame-Options 放行 + 匿名 / 只读账号，缺一 iframe 就白屏。</li>
+        <li><strong>别双头告警</strong>：告警主脑在 Alertmanager，Grafana Alerting 默认不开，防止同一故障两条告警。</li>
+        <li><strong>看板版本化</strong>：看板 JSON 导出进仓库（或 provisioning），避免「只有我知道这个看板怎么搭」。</li>
+        <li><strong>查询性能</strong>：大时间范围 + 高基数查询会拖慢面板，用变量收窄范围、拆小面板。</li>
+        <li><strong>Windows 与 Linux 差异</strong>：本地体验可用官方 Windows 版或 Docker 容器，生产按 Linux 容器口径。</li>
+        <li><strong>账号最小权限</strong>：BMS 嵌入用只读账号，Admin 账号只给运维，别用 root 账号裸奔。</li>
+      </ul>
+
+      <h2 id="learn">6. 学习与参考资料</h2>
+      <table>
+        <tr><th>资源</th><th>网址</th><th>说明</th></tr>
+        <tr><td>Grafana 官网</td><td>https://grafana.com/</td><td>产品入口、下载、许可说明</td></tr>
+        <tr><td>Grafana 官方文档</td><td>https://grafana.com/docs/</td><td>安装、数据源、看板、嵌入完整参考</td></tr>
+        <tr><td>Grafana 官网（中文）</td><td>https://grafana.com/zh-cn/</td><td>官方中文入口</td></tr>
+        <tr><td>Grafana 源码</td><td>https://github.com/grafana/grafana</td><td>源码与 issue 讨论</td></tr>
+        <tr><td>Grafana 官方博客</td><td>https://grafana.com/blog/</td><td>新版本特性与最佳实践</td></tr>
+      </table>
+
+      <h2 id="related">7. 项目内关联文档</h2>
+      <table>
+        <tr><th>文档</th><th>说明</th></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#stack-ops">项目规划说明</a>》2.4 节</td><td>部署与运维技术栈（可视化条目）</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#sel-ops">项目规划说明</a>》3.4 节</td><td>选型说明：统一展示 + BMS 内跳转 / 嵌入</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#modules">项目规划说明</a>》5 节</td><td>系统监控模块：Grafana 跳转 + 依赖状态 + 缓存管理</td></tr>
+        <tr><td>《<a href="Prometheus与Alertmanager技术介绍.html">Prometheus 与 Alertmanager 技术介绍</a>》</td><td>指标数据源与告警主脑</td></tr>
+        <tr><td>《<a href="Loki技术介绍.html">Loki 技术介绍</a>》</td><td>日志数据源</td></tr>
+        <tr><td>《<a href="../后端核心/OpenTelemetry技术介绍.html">OpenTelemetry 技术介绍</a>》</td><td>链路数据源（Jaeger）</td></tr>
+        <tr><td>《<a href="nginx技术介绍.html">nginx 技术介绍</a>》</td><td>同源嵌入依赖的 X-Frame-Options 配置</td></tr>
+      </table>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 依《<a href="../../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>

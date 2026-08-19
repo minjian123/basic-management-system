@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>npm 技术介绍</title>
-<link rel="stylesheet" href="../../资源/文档样式.css">
+<link rel="stylesheet" href="../../../资源/文档样式.css">
 </head>
 <body>
 
@@ -73,10 +73,10 @@
 
       <h2 id="usage">3. 在 BMS 项目中的用途</h2>
       <ul>
-        <li><strong>双工程依赖管理</strong>：frontend 与 frontend-mobile 各自独立 package.json 与 package-lock.json，ESLint/Prettier/TS 配置互不共享（见《<a href="../../规划/项目规划说明.html#sel-frontend">项目规划说明</a>》3.2 节）。</li>
+        <li><strong>双工程依赖管理</strong>：frontend 与 frontend-mobile 各自独立 package.json 与 package-lock.json，ESLint/Prettier/TS 配置互不共享（见《<a href="../../../规划/项目规划说明.html#sel-frontend">项目规划说明</a>》3.2 节）。</li>
         <li><strong>CI 可复现安装</strong>：流水线用 <code>npm ci</code> 锁定安装，保证每次构建依赖完全一致（见《<a href="../部署与运维/GitLab技术介绍.html">GitLab 技术介绍</a>》CI 流水线）。</li>
         <li><strong>构建命令入口</strong>：<code>npm run dev/build/test/lint</code> 驱动 Vite、ESLint、Vitest 等工具（见《<a href="Vite技术介绍.html">Vite 技术介绍</a>》）。</li>
-        <li><strong>Node 版本管理</strong>：<code>.nvmrc</code> 固定 Node 版本（≥ 20.19），配合 nvm/volta/fnm 切换，npm 随 Node 自带（见《<a href="../../规划/项目规划说明.html#pages">项目规划说明</a>》部署约定）。</li>
+        <li><strong>Node 版本管理</strong>：<code>.nvmrc</code> 固定 Node 版本（≥ 20.19），配合 nvm/volta/fnm 切换，npm 随 Node 自带（见《<a href="../../../规划/项目规划说明.html#pages">项目规划说明</a>》部署约定）。</li>
         <li><strong>依赖升级</strong>：Renovate 自动提 MR 升级依赖，npm lock 文件随之更新（见《<a href="../部署与运维/Renovate技术介绍.html">Renovate 技术介绍</a>》）。</li>
       </ul>
 
@@ -108,7 +108,7 @@ npm run test</code></pre>
       <ul>
         <li><strong>CI 用 npm ci 而非 npm install</strong>：install 可能改 lock 文件导致构建漂移，ci 严格按 lock 安装。</li>
         <li><strong>lock 文件必须入库</strong>：package-lock.json 提交到仓库，否则 CI 与本地依赖不一致。</li>
-        <li><strong>双工程别共享配置</strong>：frontend 与 frontend-mobile 各自 package.json/lock/ESLint/TS 配置，互不引用（见《<a href="../../规划/项目规划说明.html#sel-frontend">项目规划说明</a>》3.2 节）。</li>
+        <li><strong>双工程别共享配置</strong>：frontend 与 frontend-mobile 各自 package.json/lock/ESLint/TS 配置，互不引用（见《<a href="../../../规划/项目规划说明.html#sel-frontend">项目规划说明</a>》3.2 节）。</li>
         <li><strong>Node 版本一致</strong>：<code>.nvmrc</code> 固定版本，本地与 CI 用同一 Node，避免 npm 大版本差异。</li>
         <li><strong>国内镜像</strong>：访问 npmjs.com 慢时配 npmmirror 镜像（<code>.npmrc</code> 或 <code>--registry</code>），别长时间等待。</li>
         <li><strong>依赖范围注意</strong>：<code>^</code> 允许次版本升级，安全/破坏性变更要 Renovate 提 MR 评审，别盲目自动合入。</li>
@@ -128,9 +128,9 @@ npm run test</code></pre>
       <h2 id="related">7. 项目内关联文档</h2>
       <table>
         <tr><th>文档</th><th>说明</th></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#stack-frontend">项目规划说明</a>》2.2 节</td><td>前端技术栈（npm 条目）</td></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#sel-frontend">项目规划说明</a>》3.2 节</td><td>选型理由：官方自带、双工程独立、CI 锁定</td></tr>
-        <tr><td>《<a href="../../规范/命名规范.html">命名规范</a>》</td><td>工程、依赖与脚本命名约定</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#stack-frontend">项目规划说明</a>》2.2 节</td><td>前端技术栈（npm 条目）</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#sel-frontend">项目规划说明</a>》3.2 节</td><td>选型理由：官方自带、双工程独立、CI 锁定</td></tr>
+        <tr><td>《<a href="../../../规范/命名规范.html">命名规范</a>》</td><td>工程、依赖与脚本命名约定</td></tr>
         <tr><td>《<a href="Vite技术介绍.html">Vite 技术介绍</a>》</td><td>构建工具，经 npm scripts 驱动</td></tr>
         <tr><td>《<a href="ESLint与Prettier技术介绍.html">ESLint + Prettier 技术介绍</a>》</td><td>代码规范工具，双工程各自配置</td></tr>
         <tr><td>《<a href="../部署与运维/Renovate技术介绍.html">Renovate 技术介绍</a>》</td><td>依赖自动升级，更新 npm lock</td></tr>
@@ -139,7 +139,7 @@ npm run test</code></pre>
     </main>
 
     <footer>
-      本文档为 AI 生成 · 依《<a href="../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
+      本文档为 AI 生成 · 依《<a href="../../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
     </footer>
   </div>
 

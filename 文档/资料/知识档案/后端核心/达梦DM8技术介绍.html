@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>达梦 DM8 技术介绍</title>
-<link rel="stylesheet" href="../../资源/文档样式.css">
+<link rel="stylesheet" href="../../../资源/文档样式.css">
 </head>
 <body>
 
@@ -71,11 +71,11 @@
 
       <h2 id="usage">3. 在 BMS 项目中的用途</h2>
       <ul>
-        <li>生产数据库之一（信创场景选配），与 MySQL、PostgreSQL 三库并行支持；开发/测试默认 SQLite（见《<a href="../../规划/项目规划说明.html#stack-backend">项目规划说明》2.1 节</a>）。</li>
-        <li><strong>dmPython 驱动</strong>：达梦官方同步驱动，dialect <code>dm+dmPython</code>；对 Python 3.14 兼容性未知，纳入阶段一逐依赖验证，不兼容则按规划口径整体回退 Python 3.13（见《<a href="../../规划/项目规划说明.html#sel-backend">项目规划说明》3.1 节</a>）。</li>
-        <li>三库方言测试：mjbk 常驻 MySQL/PostgreSQL/达梦，CI job 内建 <code>bms_test</code> 前缀测试库执行迁移与集成测试后清理（见《<a href="../../规划/开发部署规划.html">开发部署规划</a>》）。</li>
-        <li>数据库兼容约束：ORM 层禁用方言特有功能，JSON 等类型用跨方言通用类型兜底，分页统一 limit/offset；Alembic 维护三套方言迁移脚本，达梦迁移单独验证（见《<a href="../../规划/项目规划说明.html#dbcompat">项目规划说明》11 节</a>）。</li>
-        <li>备份：达梦 DM8 用 dmrman 备份/归档，每日全量 + 归档，保留 30 天异机存储（见《<a href="../../规划/项目规划说明.html#deploy-backup">项目规划说明》19.4 节</a>）。</li>
+        <li>生产数据库之一（信创场景选配），与 MySQL、PostgreSQL 三库并行支持；开发/测试默认 SQLite（见《<a href="../../../规划/项目规划说明.html#stack-backend">项目规划说明》2.1 节</a>）。</li>
+        <li><strong>dmPython 驱动</strong>：达梦官方同步驱动，dialect <code>dm+dmPython</code>；对 Python 3.14 兼容性未知，纳入阶段一逐依赖验证，不兼容则按规划口径整体回退 Python 3.13（见《<a href="../../../规划/项目规划说明.html#sel-backend">项目规划说明》3.1 节</a>）。</li>
+        <li>三库方言测试：mjbk 常驻 MySQL/PostgreSQL/达梦，CI job 内建 <code>bms_test</code> 前缀测试库执行迁移与集成测试后清理（见《<a href="../../../规划/开发部署规划.html">开发部署规划</a>》）。</li>
+        <li>数据库兼容约束：ORM 层禁用方言特有功能，JSON 等类型用跨方言通用类型兜底，分页统一 limit/offset；Alembic 维护三套方言迁移脚本，达梦迁移单独验证（见《<a href="../../../规划/项目规划说明.html#dbcompat">项目规划说明》11 节</a>）。</li>
+        <li>备份：达梦 DM8 用 dmrman 备份/归档，每日全量 + 归档，保留 30 天异机存储（见《<a href="../../../规划/项目规划说明.html#deploy-backup">项目规划说明》19.4 节</a>）。</li>
         <li>开发期连接：通过环境变量 <code>BMS_DB_URL</code> 指向 mjbk 达梦库（如 <code>dm+dmPython://bms_dev:&lt;password&gt;@&lt;mjbk-IP&gt;:5236/bms_dev</code>）验证方言。</li>
       </ul>
 
@@ -112,9 +112,9 @@
       <h2 id="related">7. 项目内关联文档</h2>
       <table>
         <tr><th>文档</th><th>说明</th></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#stack-backend">项目规划说明》2.1 节</a></td><td>技术栈：达梦 DM8 与 dmPython 条目</td></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#sel-backend">项目规划说明》3.1 节</a></td><td>选型说明：dmPython 与 Python 3.14 兼容性验证口径</td></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#dbcompat">项目规划说明》11 节</a></td><td>数据库兼容：跨方言类型、分页、软删除唯一索引约定</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#stack-backend">项目规划说明》2.1 节</a></td><td>技术栈：达梦 DM8 与 dmPython 条目</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#sel-backend">项目规划说明》3.1 节</a></td><td>选型说明：dmPython 与 Python 3.14 兼容性验证口径</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#dbcompat">项目规划说明》11 节</a></td><td>数据库兼容：跨方言类型、分页、软删除唯一索引约定</td></tr>
         <tr><td>《<a href="../../开发服务器/达梦DM8部署使用说明.html">达梦 DM8 部署使用说明</a>》</td><td>开发服务器 mjbk 上的部署、库与账号细节</td></tr>
         <tr><td>《<a href="SQLAlchemy技术介绍.html">SQLAlchemy 技术介绍</a>》</td><td>异步 engine、多数据源与方言兼容层</td></tr>
         <tr><td>《<a href="Alembic技术介绍.html">Alembic 技术介绍</a>》</td><td>三套方言迁移脚本的维护与 CI 验证</td></tr>
@@ -124,7 +124,7 @@
     </main>
 
     <footer>
-      本文档为 AI 生成 · 依《<a href="../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
+      本文档为 AI 生成 · 依《<a href="../../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
     </footer>
   </div>
 

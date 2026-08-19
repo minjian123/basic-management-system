@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>openpyxl 技术介绍</title>
-<link rel="stylesheet" href="../../资源/文档样式.css">
+<link rel="stylesheet" href="../../../资源/文档样式.css">
 </head>
 <body>
 
@@ -72,13 +72,13 @@
 
       <h2 id="usage">3. 在 BMS 项目中的用途</h2>
       <ul>
-        <li>支撑<strong>用户批量导入</strong>：解析上传的 xlsx，逐行校验后落库（见《<a href="../../规划/项目规划说明.html#stack-backend">项目规划说明</a>》2.1 节、功能模块「导入导出」）。</li>
-        <li>支撑<strong>列表导出</strong>：把查询结果写为 xlsx 返回下载（见《<a href="../../规划/项目规划说明.html#modules">项目规划说明</a>》5 节）。</li>
-        <li>导入为写操作，支持<strong>幂等键</strong>（请求头 <code>Idempotency-Key</code>）防重复提交（见《<a href="../../规划/项目规划说明.html#api">项目规划说明</a>》8 节 API 设计规范）。</li>
-        <li>导出涉及敏感字段时做<strong>脱敏</strong>（手机号/邮箱掩码），持 <code>data:plain</code> 权限码才出明文（见《<a href="../../规划/项目规划说明.html#security">项目规划说明</a>》12 节数据脱敏）。</li>
+        <li>支撑<strong>用户批量导入</strong>：解析上传的 xlsx，逐行校验后落库（见《<a href="../../../规划/项目规划说明.html#stack-backend">项目规划说明</a>》2.1 节、功能模块「导入导出」）。</li>
+        <li>支撑<strong>列表导出</strong>：把查询结果写为 xlsx 返回下载（见《<a href="../../../规划/项目规划说明.html#modules">项目规划说明</a>》5 节）。</li>
+        <li>导入为写操作，支持<strong>幂等键</strong>（请求头 <code>Idempotency-Key</code>）防重复提交（见《<a href="../../../规划/项目规划说明.html#api">项目规划说明</a>》8 节 API 设计规范）。</li>
+        <li>导出涉及敏感字段时做<strong>脱敏</strong>（手机号/邮箱掩码），持 <code>data:plain</code> 权限码才出明文（见《<a href="../../../规划/项目规划说明.html#security">项目规划说明</a>》12 节数据脱敏）。</li>
         <li>openpyxl 为同步库、阻塞 I/O，导入/导出应放入<strong>线程池或 Celery 任务</strong>执行，避免卡住事件循环（见《<a href="FastAPI技术介绍.html">FastAPI 技术介绍</a>》注意事项）。</li>
-        <li>导入模板、导出文件经 <a href="python-multipart技术介绍.html">python-multipart</a> 上传、产物可存 <a href="MinIO技术介绍.html">MinIO</a>（见《<a href="../../规划/项目规划说明.html#stack-backend">项目规划说明</a>》文件管理）。</li>
-        <li>验收口径：「Excel 导入导出可用」纳入功能测试与 MVP 验收（见《<a href="../../规划/项目规划说明.html#test">项目规划说明</a>》16 节）。</li>
+        <li>导入模板、导出文件经 <a href="python-multipart技术介绍.html">python-multipart</a> 上传、产物可存 <a href="MinIO技术介绍.html">MinIO</a>（见《<a href="../../../规划/项目规划说明.html#stack-backend">项目规划说明</a>》文件管理）。</li>
+        <li>验收口径：「Excel 导入导出可用」纳入功能测试与 MVP 验收（见《<a href="../../../规划/项目规划说明.html#test">项目规划说明</a>》16 节）。</li>
       </ul>
 
       <h2 id="compare">4. 选型对比</h2>
@@ -97,7 +97,7 @@
         <li><strong>只支持 2010+ 格式</strong>：openpyxl 不读旧版 <code>.xls</code>，导入需明确告知用户用 <code>.xlsx</code>，或前置转换。</li>
         <li><strong>类型与精度</strong>：Excel 数字可能变 float、长数字（如雪花 ID、手机号）丢精度或变科学计数法，导入时按列显式解析为字符串/整数。</li>
         <li><strong>公式与样式</strong>：默认读到的可能是公式而非计算值（需 <code>data_only=True</code> 读缓存值）；导出样式要单独设置。</li>
-        <li><strong>脱敏与权限</strong>：导出前按数据权限与脱敏规则过滤，避免越权导出敏感明文（见《<a href="../../规范/安全开发规范.html">安全开发规范</a>》）。</li>
+        <li><strong>脱敏与权限</strong>：导出前按数据权限与脱敏规则过滤，避免越权导出敏感明文（见《<a href="../../../规范/安全开发规范.html">安全开发规范</a>》）。</li>
         <li><strong>版本锁定</strong>：3.1.x 迭代中，升级后需回归导入解析与导出渲染用例。</li>
       </ul>
 
@@ -114,20 +114,20 @@
       <h2 id="related">7. 项目内关联文档</h2>
       <table>
         <tr><th>文档</th><th>说明</th></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#stack-backend">项目规划说明</a>》2.1 节</td><td>后端技术栈：Excel 处理（openpyxl）条目</td></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#modules">项目规划说明</a>》5 节</td><td>功能模块：导入导出（用户批量导入、列表导出）</td></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#api">项目规划说明</a>》8 节</td><td>API 设计规范：导入幂等键约定</td></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#security">项目规划说明</a>》12 节</td><td>认证与安全：导出脱敏、data:plain 权限</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#stack-backend">项目规划说明</a>》2.1 节</td><td>后端技术栈：Excel 处理（openpyxl）条目</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#modules">项目规划说明</a>》5 节</td><td>功能模块：导入导出（用户批量导入、列表导出）</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#api">项目规划说明</a>》8 节</td><td>API 设计规范：导入幂等键约定</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#security">项目规划说明</a>》12 节</td><td>认证与安全：导出脱敏、data:plain 权限</td></tr>
         <tr><td>《<a href="python-multipart技术介绍.html">python-multipart 技术介绍</a>》</td><td>导入文件上传解析</td></tr>
         <tr><td>《<a href="MinIO技术介绍.html">MinIO 技术介绍</a>》</td><td>导出产物 / 导入模板的对象存储</td></tr>
         <tr><td>《<a href="FastAPI技术介绍.html">FastAPI 技术介绍</a>》</td><td>同步阻塞库需放线程池/Celery 的运行约束</td></tr>
-        <tr><td>《<a href="../../规范/安全开发规范.html">安全开发规范</a>》</td><td>导出脱敏与越权防护</td></tr>
+        <tr><td>《<a href="../../../规范/安全开发规范.html">安全开发规范</a>》</td><td>导出脱敏与越权防护</td></tr>
       </table>
 
     </main>
 
     <footer>
-      本文档为 AI 生成 · 依《<a href="../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
+      本文档为 AI 生成 · 依《<a href="../../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
     </footer>
   </div>
 

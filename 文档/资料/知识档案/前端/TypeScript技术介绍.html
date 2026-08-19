@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>TypeScript 技术介绍</title>
-<link rel="stylesheet" href="../../资源/文档样式.css">
+<link rel="stylesheet" href="../../../资源/文档样式.css">
 </head>
 <body>
 
@@ -72,12 +72,12 @@
 
       <h2 id="usage">3. 在 BMS 项目中的用途</h2>
       <ul>
-        <li><strong>前后端契约自动生成</strong>：与后端 Pydantic schema 经 <strong>openapi-typescript</strong> 由 OpenAPI schema 自动生成 TS 类型，后端改了参数定义，前端类型同步更新，保持前后端契约一致（见《<a href="../../规划/项目规划说明.html#sel-frontend">项目规划说明</a>》3.2 节）。</li>
+        <li><strong>前后端契约自动生成</strong>：与后端 Pydantic schema 经 <strong>openapi-typescript</strong> 由 OpenAPI schema 自动生成 TS 类型，后端改了参数定义，前端类型同步更新，保持前后端契约一致（见《<a href="../../../规划/项目规划说明.html#sel-frontend">项目规划说明</a>》3.2 节）。</li>
         <li><strong>严格模式</strong>：tsconfig 开启 strict，全项目统一类型纪律，CI 中以 vue-tsc 做类型检查门禁。</li>
         <li><strong>Vue 3 组合式 API 类型化</strong>：defineProps/defineEmits 泛型写法，组件间通信契约在编译期保证（见《<a href="Vue3技术介绍.html">Vue 3 技术介绍</a>》）。</li>
         <li><strong>接口层类型共享</strong>：api/ 目录中接口函数入参出参直接引用生成的契约类型，联调阶段少一半"字段对不上"问题。</li>
         <li><strong>双工程统一语言</strong>：frontend 与 frontend-mobile 均以 TS 编写，<a href="Axios技术介绍.html">Axios</a>、<a href="Pinia技术介绍.html">Pinia</a>、<a href="vue-i18n技术介绍.html">vue-i18n</a> 等库本身即 TS 友好。</li>
-        <li><strong>与 ESLint 配合</strong>：typescript-eslint 解析器让 lint 覆盖类型相关规则（见《<a href="../工程化与质量/ESLint与Prettier技术介绍.html">ESLint 与 Prettier 技术介绍</a>》）。</li>
+        <li><strong>与 ESLint 配合</strong>：typescript-eslint 解析器让 lint 覆盖类型相关规则（见《<a href="ESLint与Prettier技术介绍.html">ESLint 与 Prettier 技术介绍</a>》）。</li>
       </ul>
 
       <p>最小示例（类型注解）：</p>
@@ -125,9 +125,9 @@ function getDisplayName(user: User): string {
       <h2 id="related">7. 项目内关联文档</h2>
       <table>
         <tr><th>文档</th><th>说明</th></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#stack-frontend">项目规划说明</a>》2.2 节</td><td>前端技术栈（TypeScript 条目）</td></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#sel-frontend">项目规划说明</a>》3.2 节</td><td>契约一致目标：openapi-typescript 自动生成类型</td></tr>
-        <tr><td>《<a href="../../规范/前端开发规范.html">前端开发规范</a>》</td><td>TS 写法约定与严格模式要求</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#stack-frontend">项目规划说明</a>》2.2 节</td><td>前端技术栈（TypeScript 条目）</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#sel-frontend">项目规划说明</a>》3.2 节</td><td>契约一致目标：openapi-typescript 自动生成类型</td></tr>
+        <tr><td>《<a href="../../../规范/前端开发规范.html">前端开发规范</a>》</td><td>TS 写法约定与严格模式要求</td></tr>
         <tr><td>《<a href="../后端核心/FastAPI技术介绍.html">FastAPI 技术介绍</a>》</td><td>OpenAPI schema 的产出方（Swagger 文档）</td></tr>
         <tr><td>《<a href="../后端核心/Pydantic技术介绍.html">Pydantic 技术介绍</a>》</td><td>后端 schema 定义，TS 类型的上游</td></tr>
         <tr><td>《<a href="../工程化与质量/SwaggerUI与ReDoc技术介绍.html">Swagger UI 技术介绍</a>》</td><td>契约快照（swagger.json）导出与查看</td></tr>
@@ -137,7 +137,7 @@ function getDisplayName(user: User): string {
     </main>
 
     <footer>
-      本文档为 AI 生成 · 依《<a href="../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
+      本文档为 AI 生成 · 依《<a href="../../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
     </footer>
   </div>
 

@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Python 技术介绍</title>
-<link rel="stylesheet" href="../../资源/文档样式.css">
+<link rel="stylesheet" href="../../../资源/文档样式.css">
 </head>
 <body>
 
@@ -75,8 +75,8 @@
         <li>作为项目语言基础：后端全部代码（<code>backend/</code>）以 Python 3.14+ 编写，前端与运维脚本（如 <code>deploy/tools/</code>）亦大量使用。</li>
         <li>配合 uv 管理依赖与虚拟环境：<code>uv sync</code> 一键还原环境，uv.lock 锁定全量依赖版本，见《<a href="../工程化与质量/uv技术介绍.html">uv 技术介绍</a>》。</li>
         <li>语法新特性提升开发效率：类型注解、模式匹配、异常组等让代码更简洁、可读，配合 pyright 在 IDE 中即时发现类型错误（见《<a href="../工程化与质量/pyright技术介绍.html">pyright 技术介绍</a>》）。</li>
-        <li><strong>兼容性口径（重要）</strong>：Python 3.14 相对较新，阶段一骨架阶段需逐依赖验证（FastAPI/SQLAlchemy/Pydantic/psycopg/Celery/SpiffWorkflow 等，含达梦 dmPython），任一核心依赖不兼容则<strong>整体回退 Python 3.13</strong>（`.python-version` 同步调整）——口径见《<a href="../../规划/项目规划说明.html#sel-backend">项目规划说明》3.1 节</a>。</li>
-        <li>标准库承担密码哈希（PBKDF2）、uuid 等基础能力，减少第三方依赖（见《<a href="../../规划/项目规划说明.html#stack-backend">项目规划说明》2.1 节</a>）。</li>
+        <li><strong>兼容性口径（重要）</strong>：Python 3.14 相对较新，阶段一骨架阶段需逐依赖验证（FastAPI/SQLAlchemy/Pydantic/psycopg/Celery/SpiffWorkflow 等，含达梦 dmPython），任一核心依赖不兼容则<strong>整体回退 Python 3.13</strong>（`.python-version` 同步调整）——口径见《<a href="../../../规划/项目规划说明.html#sel-backend">项目规划说明》3.1 节</a>。</li>
+        <li>标准库承担密码哈希（PBKDF2）、uuid 等基础能力，减少第三方依赖（见《<a href="../../../规划/项目规划说明.html#stack-backend">项目规划说明》2.1 节</a>）。</li>
       </ul>
 
       <h2 id="compare">4. 选型对比</h2>
@@ -96,7 +96,7 @@
         <li><strong>版本管理</strong>：<code>.python-version</code> 是团队统一版本的口径文件，修改需经确认并同步 CI；勿随手改本机默认版本。</li>
         <li><strong>类型检查</strong>：写接口签名务必带类型注解，否则 pyright 严格模式与 FastAPI 自动校验都会失效。</li>
         <li><strong>锁文件</strong>：依赖升级后必须更新 uv.lock 并提交，保证 CI 与本地环境一致（见《<a href="../工程化与质量/uv技术介绍.html">uv 技术介绍</a>》）。</li>
-        <li><strong>编码规范</strong>：代码风格遵循《<a href="../../规范/后端开发规范.html">后端开发规范</a>》，以 ruff 为唯一格式化与 lint 工具。</li>
+        <li><strong>编码规范</strong>：代码风格遵循《<a href="../../../规范/后端开发规范.html">后端开发规范</a>》，以 ruff 为唯一格式化与 lint 工具。</li>
       </ul>
 
       <h2 id="learn">6. 学习与参考资料</h2>
@@ -113,20 +113,20 @@
       <h2 id="related">7. 项目内关联文档</h2>
       <table>
         <tr><th>文档</th><th>说明</th></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#stack-backend">项目规划说明》2.1 节</a></td><td>技术栈：语言条目（Python 3.14+）</td></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#sel-backend">项目规划说明》3.1 节</a></td><td>选型说明：3.14 兼容性回退口径（3.13）</td></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#stack-license">项目规划说明》2.5 节</a></td><td>许可登记：PSF-2.0</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#stack-backend">项目规划说明》2.1 节</a></td><td>技术栈：语言条目（Python 3.14+）</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#sel-backend">项目规划说明》3.1 节</a></td><td>选型说明：3.14 兼容性回退口径（3.13）</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#stack-license">项目规划说明》2.5 节</a></td><td>许可登记：PSF-2.0</td></tr>
         <tr><td>《<a href="../工程化与质量/uv技术介绍.html">uv 技术介绍</a>》</td><td>依赖与虚拟环境管理工具</td></tr>
         <tr><td>《<a href="../工程化与质量/pyright技术介绍.html">pyright 技术介绍</a>》</td><td>静态类型检查器（严格模式）</td></tr>
         <tr><td>《<a href="../工程化与质量/ruff技术介绍.html">ruff 技术介绍</a>》</td><td>代码规范与格式化工具</td></tr>
         <tr><td>《<a href="FastAPI技术介绍.html">FastAPI 技术介绍</a>》</td><td>构建在 Python 之上的 Web 框架</td></tr>
-        <tr><td>《<a href="../../规范/后端开发规范.html">后端开发规范</a>》</td><td>Python 代码风格与工程约束</td></tr>
+        <tr><td>《<a href="../../../规范/后端开发规范.html">后端开发规范</a>》</td><td>Python 代码风格与工程约束</td></tr>
       </table>
 
     </main>
 
     <footer>
-      本文档为 AI 生成 · 依《<a href="../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
+      本文档为 AI 生成 · 依《<a href="../../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
     </footer>
   </div>
 

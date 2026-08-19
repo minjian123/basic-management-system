@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SQLAlchemy 技术介绍</title>
-<link rel="stylesheet" href="../../资源/文档样式.css">
+<link rel="stylesheet" href="../../../资源/文档样式.css">
 </head>
 <body>
 
@@ -73,12 +73,12 @@
 
       <h2 id="usage">3. 在 BMS 项目中的用途</h2>
       <ul>
-        <li>统一 ORM/Core 两套 API：常规 CRUD 用 ORM 模型，批量与复杂查询用 Core，一套学习曲线覆盖全场景（见《<a href="../../规划/项目规划说明.html#sel-backend">项目规划说明》3.1 节</a>）。</li>
-        <li><strong>多数据源</strong>：多个异步 engine 管理，repositories 层按模块指定数据源；主从读写分离、分片路由均落在数据访问层（见《<a href="../../规划/项目规划说明.html#datasource">项目规划说明》10 节</a>）。</li>
-        <li><strong>租户独立库动态路由</strong>：一租户一库，请求按 tenant 路由到对应异步 engine——懒加载创建 + 闲置回收 + 池上限控制，避免全量租户连接常驻（见《<a href="../../规划/项目规划说明.html#datasource">项目规划说明》10 节</a>与《<a href="../../规划/项目规划说明.html#perf">14 节</a>）。</li>
+        <li>统一 ORM/Core 两套 API：常规 CRUD 用 ORM 模型，批量与复杂查询用 Core，一套学习曲线覆盖全场景（见《<a href="../../../规划/项目规划说明.html#sel-backend">项目规划说明》3.1 节</a>）。</li>
+        <li><strong>多数据源</strong>：多个异步 engine 管理，repositories 层按模块指定数据源；主从读写分离、分片路由均落在数据访问层（见《<a href="../../../规划/项目规划说明.html#datasource">项目规划说明》10 节</a>）。</li>
+        <li><strong>租户独立库动态路由</strong>：一租户一库，请求按 tenant 路由到对应异步 engine——懒加载创建 + 闲置回收 + 池上限控制，避免全量租户连接常驻（见《<a href="../../../规划/项目规划说明.html#datasource">项目规划说明》10 节</a>与《<a href="../../../规划/项目规划说明.html#perf">14 节</a>）。</li>
         <li>异步会话生命周期由 FastAPI 依赖注入管理：每个请求创建独立 AsyncSession，事务随请求关闭（见《<a href="FastAPI技术介绍.html">FastAPI 技术介绍</a>》）。</li>
-        <li><strong>四库兼容</strong>：ORM 层禁用方言特有功能，JSON 等类型用跨方言通用类型，分页统一 limit/offset；软删除唯一键统一建 (唯一字段, deleted_at) 复合索引（见《<a href="../../规划/项目规划说明.html#dbcompat">项目规划说明》11 节</a>）。</li>
-        <li>连接池按 worker 规划：总连接数 = worker × (pool_size + max_overflow) ≤ 数据库 max_connections 的 70%（见《<a href="../../规划/项目规划说明.html#perf">项目规划说明》14 节</a>）。</li>
+        <li><strong>四库兼容</strong>：ORM 层禁用方言特有功能，JSON 等类型用跨方言通用类型，分页统一 limit/offset；软删除唯一键统一建 (唯一字段, deleted_at) 复合索引（见《<a href="../../../规划/项目规划说明.html#dbcompat">项目规划说明》11 节</a>）。</li>
+        <li>连接池按 worker 规划：总连接数 = worker × (pool_size + max_overflow) ≤ 数据库 max_connections 的 70%（见《<a href="../../../规划/项目规划说明.html#perf">项目规划说明》14 节</a>）。</li>
       </ul>
 
       <h2 id="compare">4. 选型对比</h2>
@@ -95,11 +95,11 @@
       <ul>
         <li><strong>异步会话不可跨请求共享</strong>：AsyncSession 生命周期必须绑定单个请求，由依赖注入创建、请求结束关闭；跨请求复用会造成连接泄漏与脏数据。</li>
         <li><strong>N+1 查询</strong>：循环内逐条访问 relationship 会按次发 SQL；用 <code>selectinload</code> / <code>joinedload</code> 预加载或改写为聚合查询。</li>
-        <li><strong>大事务显式声明边界</strong>：事务内不要混入外部 I/O（HTTP 调用、文件写入），长时间持锁会拖垮数据库；跨服务流程把事务范围缩到最小（见《<a href="../../规划/项目规划说明.html#sel-backend">项目规划说明》3.1 节</a>）。</li>
+        <li><strong>大事务显式声明边界</strong>：事务内不要混入外部 I/O（HTTP 调用、文件写入），长时间持锁会拖垮数据库；跨服务流程把事务范围缩到最小（见《<a href="../../../规划/项目规划说明.html#sel-backend">项目规划说明》3.1 节</a>）。</li>
         <li><strong>懒加载在异步下报错</strong>：异步会话中默认懒加载会抛 MissingGreenlet，关联字段必须用显式加载策略。</li>
         <li><strong>连接池耗尽</strong>：worker × (pool_size + max_overflow) 超出数据库上限时排队报错；多租户场景靠懒加载 + 闲置回收控制活跃 engine 数。</li>
         <li><strong>同步/异步 API 混用</strong>：sync Session 与 AsyncSession 不能混用（连接被占用的坑），整个链路上下一律用异步。</li>
-        <li><strong>方言禁用清单</strong>：JSON/分页等用通用类型与通用写法，避免四库迁移时爆差异（见《<a href="../../规划/项目规划说明.html#dbcompat">项目规划说明》11 节</a>）。</li>
+        <li><strong>方言禁用清单</strong>：JSON/分页等用通用类型与通用写法，避免四库迁移时爆差异（见《<a href="../../../规划/项目规划说明.html#dbcompat">项目规划说明》11 节</a>）。</li>
       </ul>
 
       <h2 id="learn">6. 学习与参考资料</h2>
@@ -115,19 +115,19 @@
       <h2 id="related">7. 项目内关联文档</h2>
       <table>
         <tr><th>文档</th><th>说明</th></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#stack-backend">项目规划说明》2.1 节</a></td><td>技术栈：数据库抽象条目（异步 ORM/Core，多数据源）</td></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#datasource">项目规划说明》10 节</a></td><td>多数据源策略：多 bind、租户路由、懒加载/回收/池上限</td></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#dbcompat">项目规划说明》11 节</a></td><td>数据库兼容：禁用方言功能、跨方言类型约定</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#stack-backend">项目规划说明》2.1 节</a></td><td>技术栈：数据库抽象条目（异步 ORM/Core，多数据源）</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#datasource">项目规划说明》10 节</a></td><td>多数据源策略：多 bind、租户路由、懒加载/回收/池上限</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#dbcompat">项目规划说明》11 节</a></td><td>数据库兼容：禁用方言功能、跨方言类型约定</td></tr>
         <tr><td>《<a href="Alembic技术介绍.html">Alembic 技术介绍</a>》</td><td>基于 SQLAlchemy 的 schema 迁移工具</td></tr>
         <tr><td>《<a href="MySQL技术介绍.html">MySQL 技术介绍</a>》等三库文档</td><td>各数据库驱动与方言（aiomysql/psycopg/dmPython）</td></tr>
         <tr><td>《<a href="SQLite与aiosqlite技术介绍.html">SQLite 与 aiosqlite 技术介绍</a>》</td><td>开发/测试库与异步驱动</td></tr>
-        <tr><td>《<a href="../../规范/数据库开发规范.html">数据库开发规范</a>》</td><td>模型声明、索引、审计字段等约束</td></tr>
+        <tr><td>《<a href="../../../规范/数据库开发规范.html">数据库开发规范</a>》</td><td>模型声明、索引、审计字段等约束</td></tr>
       </table>
 
     </main>
 
     <footer>
-      本文档为 AI 生成 · 依《<a href="../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
+      本文档为 AI 生成 · 依《<a href="../../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
     </footer>
   </div>
 

@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prometheus 与 Alertmanager 技术介绍</title>
+<link rel="stylesheet" href="../../../资源/文档样式.css">
+</head>
+<body>
+
+<div class="topnav">
+  <a href="../../../文档首页.html">文档首页</a> ›
+  <a href="../技术栈知识档案总览.html">知识档案</a> ›
+  <a href="../技术栈知识档案总览.html#ops">部署与运维</a> ›
+  <span>Prometheus 与 Alertmanager 技术介绍</span>
+  <span class="topnav-side">
+    <a href="../技术栈知识档案总览.html">← 返回总览</a>
+  </span>
+</div>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>Prometheus 与 Alertmanager 技术介绍</h1>
+      <p>指标采集与告警 · 可观测性三件套之 Metrics</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#overview">1. 技术概述</a></li>
+        <li><a href="#principles">2. 核心概念与原理</a></li>
+        <li><a href="#usage">3. 在 BMS 项目中的用途</a></li>
+        <li><a href="#compare">4. 选型对比</a></li>
+        <li><a href="#pitfalls">5. 常见问题与注意事项</a></li>
+        <li><a href="#learn">6. 学习与参考资料</a></li>
+        <li><a href="#related">7. 项目内关联文档</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="overview">1. 技术概述</h2>
+      <p>
+        <strong>Prometheus</strong> 是时序监控系统：主动拉取（scrape）各服务的 <code>/metrics</code> 指标，
+        存入自带时序数据库（TSDB），用 PromQL 查询，并触发告警规则。
+        它起源于 SoundCloud，2016 年捐给 CNCF，已是云原生监控的事实标准。
+        <strong>Alertmanager</strong> 是配套告警组件，负责告警的路由、分组、静默与通知发送。
+      </p>
+      <ul>
+        <li><strong>定位</strong>：BMS 可观测性三件套（指标 / 日志 / 链路）中的指标与告警层（《<a href="../../../规划/项目规划说明.html#stack-ops">项目规划说明</a>》2.4 节）。</li>
+        <li><strong>版本</strong>：Prometheus 3.x 系列（持续迭代）；Alertmanager 随主仓库版本走。</li>
+        <li><strong>许可</strong>：Apache-2.0，免费开源（《<a href="../../../规划/项目规划说明.html#stack-license">项目规划说明</a>》2.5 节）。</li>
+        <li><strong>落地形态</strong>：mjbk 以 Docker Compose 容器常驻，与 Loki / Grafana / Jaeger 一并纳入监控编排（《<a href="../../../规划/项目规划说明.html#deploy-compose">项目规划说明</a>》19.3 节）。</li>
+      </ul>
+
+      <h2 id="principles">2. 核心概念与原理</h2>
+      <table>
+        <tr><th>概念</th><th>一句话说明</th></tr>
+        <tr><td>指标类型</td><td>counter（只增计数）/ gauge（可增可减）/ histogram（分桶分布）/ summary（分位数），覆盖绝大多数监控场景</td></tr>
+        <tr><td>/metrics 端点</td><td>服务暴露的纯文本指标接口，Prometheus 周期性拉取（pull 模型）</td></tr>
+        <tr><td>TSDB</td><td>自带时序数据库，按时间线（label 组合）存储，压缩率高、查询快</td></tr>
+        <tr><td>PromQL</td><td>查询语言：<code>rate()</code> 算增速、<code>histogram_quantile()</code> 算 P99，表达力强</td></tr>
+        <tr><td>标签（labels）</td><td>指标的维度（app、env、tenant），是索引与查询的基础——也是基数爆炸的源头</td></tr>
+        <tr><td>告警规则（alert rules）</td><td>PromQL 表达式 + 持续时长，满足即产生告警，交给 Alertmanager</td></tr>
+        <tr><td>Alertmanager 路由</td><td>按标签把告警分发给不同 receiver（邮件组 / 群机器人）</td></tr>
+        <tr><td>分组 / 静默 / 抑制</td><td>同类告警合并成一条、维护窗口静默、上游故障抑制下游告警，防告警风暴</td></tr>
+        <tr><td>SMTP receiver</td><td>原生邮件通知，配 SMTP 服务器地址与 STARTTLS 即可</td></tr>
+        <tr><td>webhook receiver</td><td>把告警 JSON POST 到任意 HTTP 端点——企业微信 / 钉钉群机器人走这条路</td></tr>
+        <tr><td>retention</td><td>指标保留时长（如 15d），到期自动清理，规划时按磁盘预算定</td></tr>
+        <tr><td>exporter</td><td>为没有 /metrics 的组件（Redis、MySQL、node 等）提供指标的桥接小服务</td></tr>
+      </table>
+
+      <h2 id="usage">3. 在 BMS 项目中的用途</h2>
+      <ul>
+        <li><strong>指标采集</strong>：Prometheus 拉取后端 <code>/metrics</code> 及各组件 exporter（Redis、数据库、node 等）的指标（《<a href="../../../规划/项目规划说明.html#sel-ops">项目规划说明</a>》3.4 节）。</li>
+        <li><strong>告警推送</strong>：Alertmanager 统一出口——邮件走原生 SMTP receiver；企业微信 / 钉钉群机器人经 webhook receiver 转 BMS 内部接口转换格式后推送（《<a href="../../../规划/项目规划说明.html#sel-ops">项目规划说明</a>》3.4 节）。</li>
+        <li><strong>看板展示</strong>：指标经 Grafana 统一可视化，BMS 系统监控页跳转 / 嵌入（见《<a href="Grafana技术介绍.html">Grafana 技术介绍</a>》）。</li>
+        <li><strong>监控面</strong>：覆盖健康检查、Socket.IO 连接数、缓存（Redis key 分布 / 内存）、DB/Redis/MinIO 依赖状态（《<a href="../../../规划/项目规划说明.html#modules">项目规划说明</a>》5 节系统监控模块）。</li>
+        <li><strong>链路协同</strong>：trace_id 与 structlog 的 request_id 关联，指标、日志、链路在 Grafana 内互跳（《<a href="../../../规划/项目规划说明.html#sel-backend">项目规划说明</a>》3.1 节 OpenTelemetry 条目）。</li>
+      </ul>
+
+      <h2 id="compare">4. 选型对比</h2>
+      <table>
+        <tr><th>候选技术</th><th>优缺点</th><th>结论</th></tr>
+        <tr><td><strong>Prometheus + Alertmanager（选中）</strong></td><td>优点：CNCF 事实标准、exporter 生态最全、PromQL 表达力强、与 Grafana 无缝；缺点：单机 TSDB，超大规模需联邦 / remote write</td><td>BMS 规模下单机足够，生态与团队资料成本最低</td></tr>
+        <tr><td>Zabbix</td><td>优点：传统监控老牌、agent 体系成熟；缺点：云原生指标生态弱，PromQL 式查询体验差</td><td>传统主机监控可用，指标场景不如 Prometheus</td></tr>
+        <tr><td>InfluxDB</td><td>优点：通用时序库、语言绑定多；缺点：告警生态弱，需另配告警组件</td><td>存储可用，但告警与查询生态不如 Prometheus 一体</td></tr>
+        <tr><td>Datadog</td><td>优点：SaaS 开箱即用、功能全；缺点：按量收费、数据出域，信创场景不可接受</td><td>数据不出域是硬约束，不采用</td></tr>
+        <tr><td>VictoriaMetrics</td><td>优点：兼容 PromQL、压缩率高、省资源；缺点：生态与资料略少</td><td>资源紧张时的优质备选，MVP 阶段不引入</td></tr>
+      </table>
+
+      <h2 id="pitfalls">5. 常见问题与注意事项</h2>
+      <ul>
+        <li><strong>基数爆炸</strong>：标签组合数 = 时间线数，把 user_id、request_id 这类高基数字段写进指标会撑爆 TSDB——它们属于日志（Loki），不属于指标。</li>
+        <li><strong>retention 规划</strong>：保留时长 × 时间线数决定磁盘占用，按 mjbk 磁盘预算设定，别默认无限留。</li>
+        <li><strong>rate() 与 increase()</strong>：counter 增速用 <code>rate()</code>（每秒），区间增量用 <code>increase()</code>，混用会导致告警误报。</li>
+        <li><strong>webhook 接收端</strong>：Alertmanager 发的是 POST JSON，BMS 内部转换接口要能接住并转成企业微信 / 钉钉的报文格式，超时与重试要处理。</li>
+        <li><strong>SMTP 配置</strong>：明确 STARTTLS / 端口 / 发件人，先用测试告警（<code>amtool</code>）验证再上生产规则。</li>
+        <li><strong>Windows 与 Linux 差异</strong>：Prometheus 官方支持 Linux（生产容器），Windows 本地体验请用 Docker 跑，别装 Windows 移植版。</li>
+        <li><strong>告警去重</strong>：规则侧写清 <code>for</code> 时长防抖动，Alertmanager 侧用分组 + 抑制防风暴，两层都要做。</li>
+      </ul>
+
+      <h2 id="learn">6. 学习与参考资料</h2>
+      <table>
+        <tr><th>资源</th><th>网址</th><th>说明</th></tr>
+        <tr><td>Prometheus 官网</td><td>https://prometheus.io/</td><td>项目入口、下载、生态组件一览</td></tr>
+        <tr><td>Prometheus 官方文档</td><td>https://prometheus.io/docs/introduction/overview/</td><td>从概念到 PromQL 的完整文档</td></tr>
+        <tr><td>Prometheus 源码</td><td>https://github.com/prometheus/prometheus</td><td>源码与 issue 讨论</td></tr>
+        <tr><td>Alertmanager 源码</td><td>https://github.com/prometheus/alertmanager</td><td>路由 / 分组 / 接收器配置参考</td></tr>
+        <tr><td>PromCon 会议</td><td>https://promcon.io/</td><td>官方年度大会，历年演讲是进阶最佳材料</td></tr>
+        <tr><td>《Prometheus: Up &amp; Running》</td><td>https://www.oreilly.com/library/view/prometheus-up/9781492034131/</td><td>O'Reilly 经典书籍（第 2 版），系统学习首选</td></tr>
+      </table>
+
+      <h2 id="related">7. 项目内关联文档</h2>
+      <table>
+        <tr><th>文档</th><th>说明</th></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#stack-ops">项目规划说明</a>》2.4 节</td><td>部署与运维技术栈（监控条目）</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#sel-ops">项目规划说明</a>》3.4 节</td><td>选型说明：指标采集 + 三类告警通道</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#deploy-topo">项目规划说明</a>》19.1 节</td><td>部署拓扑：监控组件清单</td></tr>
+        <tr><td>《<a href="Grafana技术介绍.html">Grafana 技术介绍</a>》</td><td>指标的统一可视化出口</td></tr>
+        <tr><td>《<a href="Loki技术介绍.html">Loki 技术介绍</a>》</td><td>日志聚合：与 Prometheus 分工互补</td></tr>
+        <tr><td>《<a href="../后端核心/structlog技术介绍.html">structlog 技术介绍</a>》</td><td>日志侧：request_id 贯穿，进 Loki 不进指标</td></tr>
+        <tr><td>《<a href="../后端核心/OpenTelemetry技术介绍.html">OpenTelemetry 技术介绍</a>》</td><td>链路侧：trace 与指标 / 日志互跳</td></tr>
+        <tr><td>《<a href="../后端核心/Redis技术介绍.html">Redis 技术介绍</a>》</td><td>被 exporter 采集的缓存组件</td></tr>
+      </table>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 依《<a href="../../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>

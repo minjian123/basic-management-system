@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>authlib 技术介绍</title>
-<link rel="stylesheet" href="../../资源/文档样式.css">
+<link rel="stylesheet" href="../../../资源/文档样式.css">
 </head>
 <body>
 
@@ -72,7 +72,7 @@
       </table>
 
       <h2 id="usage">3. 在 BMS 项目中的用途</h2>
-      <p>按《<a href="../../规划/项目规划说明.html#security">项目规划说明</a>》12 节与 3.1 节选型说明：</p>
+      <p>按《<a href="../../../规划/项目规划说明.html#security">项目规划说明</a>》12 节与 3.1 节选型说明：</p>
       <ul>
         <li><strong>OIDC 客户端（主）</strong>：接入各租户外部 IdP（Keycloak / AD / Authing 等），登录页展示租户配置的 IdP 入口（<code>sys_identity_provider</code>），授权码 + PKCE 流程，Discovery 自动获取端点。</li>
         <li><strong>CAS 兼容</strong>：对仍使用 CAS 协议的遗留 IdP 保持兼容，同一身份框架内切换。</li>
@@ -117,17 +117,17 @@
       <h2 id="related">7. 项目内关联文档</h2>
       <table>
         <tr><th>文档</th><th>说明</th></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#security">项目规划说明</a>》12 节</td><td>SSO 登录、JIT 建号、本地应急登录、移动端免登全套设计</td></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#sel-backend">项目规划说明</a>》3.1 节</td><td>authlib 选型理由（OIDC 为主 + CAS 兼容）</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#security">项目规划说明</a>》12 节</td><td>SSO 登录、JIT 建号、本地应急登录、移动端免登全套设计</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#sel-backend">项目规划说明</a>》3.1 节</td><td>authlib 选型理由（OIDC 为主 + CAS 兼容）</td></tr>
         <tr><td>《<a href="JWT与PBKDF2技术介绍.html">JWT 技术介绍</a>》</td><td>SSO 回跳后签发双 token 的认证骨架</td></tr>
         <tr><td>《<a href="Redis技术介绍.html">Redis 技术介绍</a>》</td><td>会话标记与踢出即时生效</td></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#integ-in">项目规划说明</a>》9.2 节</td><td>BMS 对外提供认证能力的出站集成视角</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#integ-in">项目规划说明</a>》9.2 节</td><td>BMS 对外提供认证能力的出站集成视角</td></tr>
       </table>
 
     </main>
 
     <footer>
-      本文档为 AI 生成 · 依《<a href="../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
+      本文档为 AI 生成 · 依《<a href="../../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
     </footer>
   </div>
 

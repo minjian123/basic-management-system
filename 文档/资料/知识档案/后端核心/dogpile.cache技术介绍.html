@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>dogpile.cache 技术介绍</title>
-<link rel="stylesheet" href="../../资源/文档样式.css">
+<link rel="stylesheet" href="../../../资源/文档样式.css">
 </head>
 <body>
 
@@ -70,7 +70,7 @@
       </table>
 
       <h2 id="usage">3. 在 BMS 项目中的用途</h2>
-      <p>按《<a href="../../规划/项目规划说明.html#sel-backend">项目规划说明</a>》3.1 节与 14 节"缓存策略"，dogpile.cache 承担<strong>字典内存缓存</strong>：</p>
+      <p>按《<a href="../../../规划/项目规划说明.html#sel-backend">项目规划说明</a>》3.1 节与 14 节"缓存策略"，dogpile.cache 承担<strong>字典内存缓存</strong>：</p>
       <ul>
         <li><strong>双 Region 分域管理</strong>：小字典整类型整表缓存；超大字典只缓存"已查条目"的局部子集，防止整表常驻内存。</li>
         <li><strong>多实例一致性靠全局版本号</strong>：Redis 维护 <code>bms:{tenant}:dict:version</code>，字典变更时 INCR 版本；各实例下次请求发现版本变化自动重载——惰性比对，多实例天然同步，无需每次请求都查 Redis。</li>
@@ -113,17 +113,17 @@
       <h2 id="related">7. 项目内关联文档</h2>
       <table>
         <tr><th>文档</th><th>说明</th></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#sel-backend">项目规划说明</a>》3.1 节</td><td>字典内存缓存设计（双 Region + 全局版本号）</td></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#perf">项目规划说明</a>》14 节</td><td>缓存策略与防 N+1 批量翻译口径</td></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#deploy-cluster">项目规划说明</a>》19.2 节</td><td>集群缓存一致性：共享 Redis + 字典例外</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#sel-backend">项目规划说明</a>》3.1 节</td><td>字典内存缓存设计（双 Region + 全局版本号）</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#perf">项目规划说明</a>》14 节</td><td>缓存策略与防 N+1 批量翻译口径</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#deploy-cluster">项目规划说明</a>》19.2 节</td><td>集群缓存一致性：共享 Redis + 字典例外</td></tr>
         <tr><td>《<a href="Redis技术介绍.html">Redis 技术介绍</a>》</td><td>共享缓存源 Redis 的职责与 key 规范</td></tr>
-        <tr><td>《<a href="../../规范/命名规范.html">命名规范</a>》</td><td>全局版本号 key 格式 <code>bms:{tenant}:dict:version</code></td></tr>
+        <tr><td>《<a href="../../../规范/命名规范.html">命名规范</a>》</td><td>全局版本号 key 格式 <code>bms:{tenant}:dict:version</code></td></tr>
       </table>
 
     </main>
 
     <footer>
-      本文档为 AI 生成 · 依《<a href="../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
+      本文档为 AI 生成 · 依《<a href="../../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
     </footer>
   </div>
 

@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>python-multipart 技术介绍</title>
-<link rel="stylesheet" href="../../资源/文档样式.css">
+<link rel="stylesheet" href="../../../资源/文档样式.css">
 </head>
 <body>
 
@@ -71,10 +71,10 @@
       <h2 id="usage">3. 在 BMS 项目中的用途</h2>
       <ul>
         <li>作为文件上传接口的解析底座：FastAPI 依赖 python-multipart 才能接收 <code>multipart/form-data</code> 请求（见《<a href="FastAPI技术介绍.html">FastAPI 技术介绍</a>》）。</li>
-        <li>配合文件类型白名单：接口层通过 <code>UploadFile.content_type</code> 与扩展名校验，只放行允许的类型，见《<a href="../../规划/项目规划说明.html#modules">项目规划说明</a>》第 5 节「文件管理」模块。</li>
+        <li>配合文件类型白名单：接口层通过 <code>UploadFile.content_type</code> 与扩展名校验，只放行允许的类型，见《<a href="../../../规划/项目规划说明.html#modules">项目规划说明</a>》第 5 节「文件管理」模块。</li>
         <li>配合《<a href="MinIO技术介绍.html">MinIO 技术介绍</a>》：≤20MB 整包上传，超限走分片上传；接口收到文件后由 services 层异步写入对象存储。</li>
         <li>普通表单字段（元数据、用途分类等）一并走 <code>Form()</code> 解析，随文件一起提交。</li>
-        <li>接口层只做解析与校验，文件落盘逻辑下沉 services 层，遵循分层架构约束（《<a href="../../规划/项目规划说明.html#structure">项目规划说明</a>》第 4 节）。</li>
+        <li>接口层只做解析与校验，文件落盘逻辑下沉 services 层，遵循分层架构约束（《<a href="../../../规划/项目规划说明.html#structure">项目规划说明</a>》第 4 节）。</li>
       </ul>
       <pre><code>from fastapi import FastAPI, File, UploadFile
 
@@ -117,18 +117,18 @@ async def upload_file(file: UploadFile = File(...)):
       <h2 id="related">7. 项目内关联文档</h2>
       <table>
         <tr><th>文档</th><th>说明</th></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#stack-backend">项目规划说明</a>》2.1 节</td><td>后端技术栈：文件上传条目</td></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#modules">项目规划说明</a>》5 节</td><td>文件管理模块：类型白名单与上传规则</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#stack-backend">项目规划说明</a>》2.1 节</td><td>后端技术栈：文件上传条目</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#modules">项目规划说明</a>》5 节</td><td>文件管理模块：类型白名单与上传规则</td></tr>
         <tr><td>《<a href="FastAPI技术介绍.html">FastAPI 技术介绍</a>》</td><td>File/UploadFile 参数所在的 Web 框架</td></tr>
         <tr><td>《<a href="MinIO技术介绍.html">MinIO 技术介绍</a>》</td><td>上传文件的落盘目标与分片策略</td></tr>
         <tr><td>《<a href="Celery技术介绍.html">Celery 技术介绍</a>》</td><td>孤儿分片回收等上传链路的异步任务</td></tr>
-        <tr><td>《<a href="../../规范/API接口规范.html">API 接口规范</a>》</td><td>上传接口的统一响应与错误码约定</td></tr>
+        <tr><td>《<a href="../../../规范/API接口规范.html">API 接口规范</a>》</td><td>上传接口的统一响应与错误码约定</td></tr>
       </table>
 
     </main>
 
     <footer>
-      本文档为 AI 生成 · 依《<a href="../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
+      本文档为 AI 生成 · 依《<a href="../../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
     </footer>
   </div>
 

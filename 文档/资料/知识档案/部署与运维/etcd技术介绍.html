@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>etcd 技术介绍</title>
+<link rel="stylesheet" href="../../../资源/文档样式.css">
+</head>
+<body>
+
+<div class="topnav">
+  <a href="../../../文档首页.html">文档首页</a> ›
+  <a href="../技术栈知识档案总览.html">知识档案</a> ›
+  <a href="../技术栈知识档案总览.html#ops">部署与运维</a> ›
+  <span>etcd 技术介绍</span>
+  <span class="topnav-side">
+    <a href="../技术栈知识档案总览.html">← 返回总览</a>
+  </span>
+</div>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>etcd 技术介绍</h1>
+      <p>分布式键值存储 · Milvus 元数据与集群协调</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#overview">1. 技术概述</a></li>
+        <li><a href="#principles">2. 核心概念与原理</a></li>
+        <li><a href="#usage">3. 在 BMS 项目中的用途</a></li>
+        <li><a href="#compare">4. 选型对比</a></li>
+        <li><a href="#pitfalls">5. 常见问题与注意事项</a></li>
+        <li><a href="#learn">6. 学习与参考资料</a></li>
+        <li><a href="#related">7. 项目内关联文档</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="overview">1. 技术概述</h2>
+      <p>
+        <strong>etcd</strong> 是用 Go 编写的分布式<strong>可靠键值存储</strong>，
+        基于 <strong>Raft 共识</strong>算法保证强一致：写入多数节点确认后才算成功，
+        读到的数据保证是已提交版本。它诞生于 CoreOS，现为 CNCF 毕业项目，
+        是 Kubernetes 的「大脑」，也是众多分布式系统做协调与元数据存储的标准件。
+      </p>
+      <ul>
+        <li><strong>定位</strong>：BMS 阶段十五 AI 能力的配套组件——Milvus 向量库的元数据与集群协调依赖（《<a href="../../../规划/项目规划说明.html#stack-ops">项目规划说明</a>》2.4 节）。</li>
+        <li><strong>版本</strong>：3.5 / 3.6 系列（3.5 为长期维护线，3.6 为新版）。</li>
+        <li><strong>许可</strong>：Apache-2.0，免费开源（《<a href="../../../规划/项目规划说明.html#stack-license">项目规划说明</a>》2.5 节）。</li>
+        <li><strong>落地形态</strong>：随 Milvus 于阶段十五加入 Compose 编排，MinIO 复用（《<a href="../../../规划/开发部署规划.html#server-services">开发部署规划</a>》4.3 节）。</li>
+      </ul>
+
+      <h2 id="principles">2. 核心概念与原理</h2>
+      <table>
+        <tr><th>概念</th><th>一句话说明</th></tr>
+        <tr><td>Raft 共识</td><td>选举 leader + 日志复制：写入先落多数节点再返回，保证强一致与故障可恢复</td></tr>
+        <tr><td>key-value</td><td>基本数据模型：扁平的键值对，值上限默认 4MB，适合元数据不适合大对象</td></tr>
+        <tr><td>range</td><td>按键前缀 / 区间批量读取，如取某 collection 下全部元数据</td></tr>
+        <tr><td>watch</td><td>订阅键的变更事件，节点间「谁上线了 / 配置变了」的实时感知靠它</td></tr>
+        <tr><td>lease / TTL</td><td>租约：键可绑定存活时间，节点心跳续租，掉线自动过期——分布式锁与成员发现的基础</td></tr>
+        <tr><td>quorum</td><td>法定多数：3 节点容忍 1 台故障、5 节点容忍 2 台，节点数必须为奇数</td></tr>
+        <tr><td>MVCC</td><td>多版本并发控制：每次写入生成新版本，读可按版本回看</td></tr>
+        <tr><td>compact / defrag</td><td>压缩旧版本、整理碎片，长期运行需定期执行防膨胀</td></tr>
+        <tr><td>etcdctl</td><td>官方命令行客户端，运维查键、看集群状态（<code>etcdctl endpoint status</code>）的第一工具</td></tr>
+        <tr><td>客户端库</td><td>Go / Java / Python 等官方客户端，Milvus 等系统经它读写元数据</td></tr>
+      </table>
+
+      <h2 id="usage">3. 在 BMS 项目中的用途</h2>
+      <ul>
+        <li><strong>Milvus 依赖</strong>：Milvus 用 etcd 存元数据（collection / 分区 / 索引信息）并做集群协调（节点发现、选主），是 Milvus 的标准组件（《<a href="../../../规划/项目规划说明.html#stack-ops">项目规划说明</a>》2.4 节「Milvus（milvus + etcd，MinIO 复用）」）。</li>
+        <li><strong>阶段十五随 AI 落地</strong>：etcd 与 Milvus 一并加入 Compose 编排，MinIO 对象存储复用现有实例（《<a href="../../../规划/开发部署规划.html#server-services">开发部署规划</a>》4.3 节）。</li>
+        <li><strong>数据落盘</strong>：etcd 对磁盘 fsync 延迟敏感，数据放 NVMe SSD 命名卷（《<a href="../../../规划/开发部署规划.html#server-disk">开发部署规划</a>》4.2 节）。</li>
+        <li><strong>边界说明</strong>：BMS 业务代码不直接依赖 etcd，它只服务 Milvus 内部协调，运维上「了解即可」（《<a href="../技术栈知识档案总览.html#path">技术栈知识档案总览</a>》学习路径）。</li>
+      </ul>
+
+      <h2 id="compare">4. 选型对比</h2>
+      <table>
+        <tr><th>候选技术</th><th>优缺点</th><th>结论</th></tr>
+        <tr><td><strong>etcd（选中）</strong></td><td>优点：CNCF 标准、Raft 强一致、API 简单、Go 客户端轻；缺点：值有大小上限，不适合存大对象</td><td>Milvus 官方要求，云原生协调事实标准</td></tr>
+        <tr><td>ZooKeeper</td><td>优点：老牌、Hadoop 生态绑定深；缺点：Java 栈、API 风格较旧、社区重心已转移</td><td>新项目无历史包袱时不如 etcd</td></tr>
+        <tr><td>Consul</td><td>优点：KV + 服务发现 + 健康检查一体、多数据中心强；缺点：组件面宽、BMS 只用 KV 属功能过剩</td><td>需要服务发现时再考虑</td></tr>
+        <tr><td>Redis</td><td>优点：快、团队已用；缺点：非共识协议、持久化语义弱，不适合承担强一致协调</td><td>缓存场景用 Redis，协调场景用 etcd，各司其职</td></tr>
+      </table>
+
+      <h2 id="pitfalls">5. 常见问题与注意事项</h2>
+      <ul>
+        <li><strong>节点数取奇数</strong>：3 或 5，偶数没有额外容错收益反而浪费资源。</li>
+        <li><strong>磁盘是命门</strong>：Raft 每次提交都要 fsync，慢盘会让整个集群「变慢」，务必放 SSD。</li>
+        <li><strong>别当缓存用</strong>：etcd 为协调 / 元数据设计，高频读写大对象会拖垮集群；BMS 缓存走 Redis。</li>
+        <li><strong>定期 compact + defrag</strong>：MVCC 旧版本会堆积，长期运行需计划性清理。</li>
+        <li><strong>客户端超时与重试</strong>：网络抖动时客户端要配合理超时，避免雪崩式重试。</li>
+        <li><strong>Windows 与 Linux 差异</strong>：etcd 官方支持 Linux（生产容器）；Windows 本地体验请用 Docker 跑，别装 Windows 构建版。</li>
+        <li><strong>备份</strong>：etcd 数据 = Milvus 的「户籍档案」，纳入 mjbk 每日备份范围（《<a href="../../../规划/开发部署规划.html#backup">开发部署规划</a>》8 节）。</li>
+      </ul>
+
+      <h2 id="learn">6. 学习与参考资料</h2>
+      <table>
+        <tr><th>资源</th><th>网址</th><th>说明</th></tr>
+        <tr><td>etcd 官网</td><td>https://etcd.io/</td><td>项目入口、下载、特性说明</td></tr>
+        <tr><td>etcd 官方文档</td><td>https://etcd.io/docs/</td><td>安装、运维、API 完整参考</td></tr>
+        <tr><td>etcd 源码</td><td>https://github.com/etcd-io/etcd</td><td>源码与 issue 讨论</td></tr>
+        <tr><td>Raft 论文</td><td>https://raft.github.io/</td><td>共识算法原始论文（In Search of an Understandable Consensus Algorithm）</td></tr>
+        <tr><td>Raft 可视化讲解</td><td>https://thesecretlivesofdata.com/raft/</td><td>动画演示选举与日志复制，入门 Raft 首选</td></tr>
+      </table>
+
+      <h2 id="related">7. 项目内关联文档</h2>
+      <table>
+        <tr><th>文档</th><th>说明</th></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#stack-ops">项目规划说明</a>》2.4 节</td><td>部署与运维技术栈（Milvus + etcd 条目）</td></tr>
+        <tr><td>《<a href="../后端核心/Milvus技术介绍.html">Milvus 技术介绍</a>》</td><td>etcd 的直接服务对象：向量库元数据与协调</td></tr>
+        <tr><td>《<a href="../后端核心/MinIO技术介绍.html">MinIO 技术介绍</a>》</td><td>Milvus 复用的对象存储（存向量数据本体）</td></tr>
+        <tr><td>《<a href="../../../规划/开发部署规划.html#server-services">开发部署规划</a>》4.3 节</td><td>mjbk 基础设施：milvus / etcd 镜像与端口规划</td></tr>
+        <tr><td>《<a href="Docker与Compose技术介绍.html">Docker 与 Compose 技术介绍</a>》</td><td>etcd 的编排与数据落盘方式</td></tr>
+      </table>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 依《<a href="../../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>

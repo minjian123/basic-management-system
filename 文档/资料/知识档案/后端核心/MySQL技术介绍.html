@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MySQL 技术介绍</title>
-<link rel="stylesheet" href="../../资源/文档样式.css">
+<link rel="stylesheet" href="../../../资源/文档样式.css">
 </head>
 <body>
 
@@ -71,12 +71,12 @@
 
       <h2 id="usage">3. 在 BMS 项目中的用途</h2>
       <ul>
-        <li>生产数据库之一，与 PostgreSQL、达梦 DM8 三库并行支持；开发/测试默认 SQLite（见《<a href="../../规划/项目规划说明.html#stack-backend">项目规划说明》2.1 节</a>）。</li>
-        <li><strong>aiomysql 异步驱动</strong>（dialect <code>mysql+aiomysql</code>）；同步 fallback 可换 PyMySQL；备选 asyncmy 性能更好但维护活跃度一般，故不采用（见《<a href="../../规划/项目规划说明.html#sel-backend">项目规划说明》3.1 节</a>）。</li>
-        <li>数据层主从：MySQL 主从读写分离 + 故障切换，1 平台库 + N 租户库 + 1 归档库（见《<a href="../../规划/项目规划说明.html#deploy-topo">项目规划说明》19.1 节</a>）。</li>
-        <li>字符集 utf8mb4；连接池按 worker 数规划（≤ 70% max_connections）；慢查询日志开发联调用（见《<a href="../../规划/项目规划说明.html#dbrule">项目规划说明》11.1 节</a>与《<a href="../../开发服务器部署使用说明.html">开发部署规划</a>》）。</li>
-        <li>备份与恢复：每日全量备份 + Binlog 时间点恢复（PITR），保留 30 天异机存储（见《<a href="../../规划/项目规划说明.html#deploy-backup">项目规划说明》19.4 节</a>）。</li>
-        <li>CI 三库方言集成测试：复用 mjbk 常驻 MySQL，job 内建 bms_test 前缀测试库，迁移 → 测试 → 清理（见《<a href="../../规划/开发部署规划.html">开发部署规划</a>》）。</li>
+        <li>生产数据库之一，与 PostgreSQL、达梦 DM8 三库并行支持；开发/测试默认 SQLite（见《<a href="../../../规划/项目规划说明.html#stack-backend">项目规划说明》2.1 节</a>）。</li>
+        <li><strong>aiomysql 异步驱动</strong>（dialect <code>mysql+aiomysql</code>）；同步 fallback 可换 PyMySQL；备选 asyncmy 性能更好但维护活跃度一般，故不采用（见《<a href="../../../规划/项目规划说明.html#sel-backend">项目规划说明》3.1 节</a>）。</li>
+        <li>数据层主从：MySQL 主从读写分离 + 故障切换，1 平台库 + N 租户库 + 1 归档库（见《<a href="../../../规划/项目规划说明.html#deploy-topo">项目规划说明》19.1 节</a>）。</li>
+        <li>字符集 utf8mb4；连接池按 worker 数规划（≤ 70% max_connections）；慢查询日志开发联调用（见《<a href="../../../规划/项目规划说明.html#dbrule">项目规划说明》11.1 节</a>与《<a href="../../开发服务器/开发服务器部署使用说明.html">开发部署规划</a>》）。</li>
+        <li>备份与恢复：每日全量备份 + Binlog 时间点恢复（PITR），保留 30 天异机存储（见《<a href="../../../规划/项目规划说明.html#deploy-backup">项目规划说明》19.4 节</a>）。</li>
+        <li>CI 三库方言集成测试：复用 mjbk 常驻 MySQL，job 内建 bms_test 前缀测试库，迁移 → 测试 → 清理（见《<a href="../../../规划/开发部署规划.html">开发部署规划</a>》）。</li>
       </ul>
 
       <h2 id="compare">4. 选型对比</h2>
@@ -90,12 +90,12 @@
 
       <h2 id="pitfalls">5. 常见问题与注意事项</h2>
       <ul>
-        <li><strong>GPL 传染误读</strong>：社区版 GPL-2.0 只约束 MySQL 自身及衍生修改；BMS 作为独立应用通过协议连接、不修改不分发其源码即不传染。介意或需官方支持时采购商业版（见《<a href="../../规划/项目规划说明.html#stack-license">项目规划说明》2.5 节</a>）。</li>
+        <li><strong>GPL 传染误读</strong>：社区版 GPL-2.0 只约束 MySQL 自身及衍生修改；BMS 作为独立应用通过协议连接、不修改不分发其源码即不传染。介意或需官方支持时采购商业版（见《<a href="../../../规划/项目规划说明.html#stack-license">项目规划说明》2.5 节</a>）。</li>
         <li><strong>utf8 与 utf8mb4</strong>：MySQL 的 <code>utf8</code> 是历史遗留别名（3 字节），emoji 会存失败；统一用 utf8mb4。</li>
         <li><strong>连接数规划</strong>：worker × (pool_size + max_overflow) 必须 ≤ max_connections 的 70%，并预留监控/运维连接。</li>
         <li><strong>方言差异</strong>：JSON 类型、大小写敏感（表名/列名）、索引长度限制与 PostgreSQL/达梦不同，迁移脚本在三库分别验证（见《<a href="Alembic技术介绍.html">Alembic 技术介绍</a>》）。</li>
         <li><strong>主从延迟</strong>：读写分离下从库读到旧数据，涉及"读后写"的接口需走主库（BMS 在主从路由层处理）。</li>
-        <li><strong>保留字</strong>：如 sys_config 的 config_key 字段即因 key 为保留字改名，新表设计时避开保留字（见《<a href="../../规划/项目规划说明.html#tables">项目规划说明》6 节</a>）。</li>
+        <li><strong>保留字</strong>：如 sys_config 的 config_key 字段即因 key 为保留字改名，新表设计时避开保留字（见《<a href="../../../规划/项目规划说明.html#tables">项目规划说明》6 节</a>）。</li>
         <li><strong>默认隔离级别</strong>：InnoDB 默认 REPEATABLE READ，大事务下间隙锁易放大，事务边界要小（见《<a href="SQLAlchemy技术介绍.html">SQLAlchemy 技术介绍</a>》）。</li>
       </ul>
 
@@ -112,20 +112,20 @@
       <h2 id="related">7. 项目内关联文档</h2>
       <table>
         <tr><th>文档</th><th>说明</th></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#stack-backend">项目规划说明》2.1 节</a></td><td>技术栈：MySQL 8.x 与 aiomysql 条目</td></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#stack-license">项目规划说明》2.5 节</a></td><td>GPL-2.0 使用边界与商用注意事项</td></tr>
-        <tr><td>《<a href="../../规划/项目规划说明.html#dbcompat">项目规划说明》11 节</a></td><td>数据库兼容：跨方言类型与字符集约定</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#stack-backend">项目规划说明》2.1 节</a></td><td>技术栈：MySQL 8.x 与 aiomysql 条目</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#stack-license">项目规划说明》2.5 节</a></td><td>GPL-2.0 使用边界与商用注意事项</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#dbcompat">项目规划说明》11 节</a></td><td>数据库兼容：跨方言类型与字符集约定</td></tr>
         <tr><td>《<a href="../../开发服务器/MySQL部署使用说明.html">MySQL 部署使用说明</a>》</td><td>开发服务器 mjbk 上的部署与访问细节</td></tr>
         <tr><td>《<a href="SQLAlchemy技术介绍.html">SQLAlchemy 技术介绍</a>》</td><td>异步 engine、连接池与多数据源</td></tr>
         <tr><td>《<a href="Alembic技术介绍.html">Alembic 技术介绍</a>》</td><td>MySQL 方言迁移脚本与三库验证</td></tr>
         <tr><td>《<a href="PostgreSQL技术介绍.html">PostgreSQL 技术介绍</a>》</td><td>并行支持的另一生产数据库</td></tr>
-        <tr><td>《<a href="../../规范/数据库开发规范.html">数据库开发规范</a>》</td><td>字符集、命名、索引等落地约束</td></tr>
+        <tr><td>《<a href="../../../规范/数据库开发规范.html">数据库开发规范</a>》</td><td>字符集、命名、索引等落地约束</td></tr>
       </table>
 
     </main>
 
     <footer>
-      本文档为 AI 生成 · 依《<a href="../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
+      本文档为 AI 生成 · 依《<a href="../../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
     </footer>
   </div>
 
