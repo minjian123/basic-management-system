@@ -52,10 +52,11 @@
       <p>
         按《<a href="../规划/开发部署规划.html">开发部署规划</a>》第 4.5、7 节，BMS 代码仓库以<strong>自托管 GitLab 为主仓库</strong>
         （MR 评审 + CI），<strong>GitHub 作只读归档同步</strong>（push mirror 单向）。
+        <code>&lt;mjbk-IP&gt;</code> 取值见《<a href="../用户文档/本地资源.md">本地资源</a>》。
       </p>
       <table>
         <tr><th>仓库</th><th>地址</th><th>角色</th></tr>
-        <tr><td>GitLab（主）</td><td><code>http://192.168.0.107:8080/bms/bms.git</code></td><td>代码托管、MR、CI、Registry</td></tr>
+        <tr><td>GitLab（主）</td><td><code>http://<mjbk-IP>:8080/bms/bms.git</code></td><td>代码托管、MR、CI、Registry</td></tr>
         <tr><td>GitHub（归档）</td><td><code>https://github.com/minjian123/basic-management-system.git</code></td><td>push mirror 单向同步，只读</td></tr>
       </table>
 
@@ -82,7 +83,7 @@ POST /api/v4/projects             {"name": "bms", "path": "bms", "namespace_id":
       <div class="note">本次部署：组 id=37，项目 id=2，路径 <code>bms/bms</code>（与规划 5.2 克隆示例一致）。</div>
 
       <h3 id="push">2.3 本地推送</h3>
-      <pre><code>git remote add gitlab http://root:&lt;PAT&gt;@192.168.0.107:8080/bms/bms.git
+      <pre><code>git remote add gitlab http://root:&lt;PAT&gt;@<mjbk-IP>:8080/bms/bms.git
 git push gitlab --all      # 全部历史分支
 git push gitlab --tags</code></pre>
       <div class="note">本地 remote 现状：<code>origin</code>（GitHub，原主）已删除，仅保留 <code>gitlab</code> = GitLab（现主）。GitHub 归档由 GitLab 端 push mirror 自动完成，本地不配置 GitHub remote 避免误推。</div>

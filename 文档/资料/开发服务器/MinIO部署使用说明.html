@@ -46,6 +46,7 @@
       <p>
         mjbk 上的 MinIO（容器 <code>bms-minio</code>）提供 S3 兼容对象存储，承载 BMS 文件管理、
         归档冷化对象与 Milvus（阶段十四）数据，是开发依赖服务之一（《<a href="../../规划/开发部署规划.html">开发部署规划</a>》4.3 base 组）。
+        <code>&lt;mjbk-IP&gt;</code> 取值见《<a href="../../用户文档/本地资源.md">本地资源</a>》。
       </p>
 
       <h2 id="compose">2. Compose 配置</h2>
@@ -73,7 +74,7 @@
 docker compose -f compose/base.yml --env-file .env up -d minio</code></pre>
 
       <h2 id="verify">4. 验证</h2>
-      <pre><code>curl -s http://192.168.0.107:9000/minio/health/live -o /dev/null -w "%{http_code}"   # 200
+      <pre><code>curl -s http://<mjbk-IP>:9000/minio/health/live -o /dev/null -w "%{http_code}"   # 200
 docker exec bms-minio mc alias set local http://127.0.0.1:9000 minioadmin "&lt;密码&gt;"
 docker exec bms-minio mc ls local</code></pre>
       <p>本次部署结果：API 与控制台均 200，mc 客户端可访问，<code>bms-files</code> 桶已创建。</p>
@@ -87,8 +88,8 @@ docker exec bms-minio mc ls local</code></pre>
         <tr><td><code>bms-{租户}</code></td><td>按租户隔离 bucket</td><td>租户开通时创建</td></tr>
       </table>
       <ul>
-        <li>控制台：<code>http://192.168.0.107:9001</code>（root 凭据见 <code>~/deploy/.env</code>）</li>
-        <li>访问地址（后端配置）：<code>http://192.168.0.107:9000</code></li>
+        <li>控制台：<code>http://<mjbk-IP>:9001</code>（root 凭据见 <code>~/deploy/.env</code>）</li>
+        <li>访问地址（后端配置）：<code>http://<mjbk-IP>:9000</code></li>
       </ul>
 
       <h2 id="ops">6. 日常运维</h2>

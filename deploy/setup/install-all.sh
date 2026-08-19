@@ -1,8 +1,9 @@
 #!/bin/bash
 # mjbk Ubuntu 22.04 Server 一键部署脚本
 # 用法：sudo bash install-all.sh
-# 前置：Ubuntu 安装时勾选 OpenSSH，网络静态 192.168.0.107
+# 前置：Ubuntu 安装时勾选 OpenSSH，网络静态 IP（IP 与账号见《本地资源》）；执行前 export MJBK_IP=服务器IP
 set -e
+: "${MJBK_IP:?未设置 MJBK_IP：请先 export MJBK_IP=服务器IP（取值见《本地资源》）}"
 export DEBIAN_FRONTEND=noninteractive
 LOG=/root/bms-install.log
 exec > >(tee -a $LOG) 2>&1
@@ -42,7 +43,7 @@ fi
 apt-get install -y -qq postfix openssh-server
 dpkg -i /root/gitlab-ce.deb
 cat >> /etc/gitlab/gitlab.rb <<'EOF'
-external_url 'http://192.168.0.107:8080'
+external_url "http://${MJBK_IP}:8080"
 nginx['listen_port'] = 8080
 gitlab_rails['gitlab_shell_ssh_port'] = 2222
 puma['worker_processes'] = 2

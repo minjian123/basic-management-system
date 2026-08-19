@@ -49,22 +49,23 @@
 
       <h2 id="purpose">1. 目的与适用范围</h2>
       <p>
-        本文档是开发服务器 <strong>mjbk</strong>（192.168.0.107，Ubuntu 24.04.4 LTS 桌面版）全部开发服务的<strong>总览</strong>：
+        本文档是开发服务器 <strong>mjbk</strong>（内网 IP 记为 <code>&lt;mjbk-IP&gt;</code>，Ubuntu 24.04.4 LTS 桌面版）全部开发服务的<strong>总览</strong>：
         部署顺序、服务清单、端口与目录约定、日常运维入口。
         每项服务的详细部署步骤、调试记录与排障经验单独成文（见<a href="#docs">第 8 节</a>），本文档只做汇总与导航。
+        <strong>取值说明</strong>：本文档中 <code>&lt;mjbk-IP&gt;</code> / <code>&lt;mjpc-IP&gt;</code> / <code>&lt;SSH账号&gt;</code> / <code>&lt;内网网段&gt;</code> 等占位符的具体值见《<a href="../../用户文档/本地资源.md">本地资源</a>》与 mjbk 本机 <code>deploy/.env</code>（键 <code>MJBK_IP</code> / <code>MJBK_SSH_USER</code>），不在仓库文档中记录。
       </p>
       <p>部署依据《<a href="../../规划/开发部署规划.html">开发部署规划</a>》；系统安装与基础配置见《<a href="../Ubuntu安装部署使用说明.html">Ubuntu安装部署使用说明</a>》。</p>
 
       <h2 id="env">2. 环境概览</h2>
       <table>
         <tr><th>机器</th><th>IP</th><th>系统</th><th>角色</th></tr>
-        <tr><td>mjbk</td><td>192.168.0.107</td><td>Ubuntu 24.04.4 LTS（桌面版）</td><td>开发服务器（有线接入，常开）</td></tr>
-        <tr><td>mjpc</td><td>192.168.0.124</td><td>Windows 11 专业版</td><td>开发机（本地编码与联调）</td></tr>
+        <tr><td>mjbk</td><td><code>&lt;mjbk-IP&gt;</code></td><td>Ubuntu 24.04.4 LTS（桌面版）</td><td>开发服务器（有线接入，常开）</td></tr>
+        <tr><td>mjpc</td><td><code>&lt;mjpc-IP&gt;</code></td><td>Windows 11 专业版</td><td>开发机（本地编码与联调）</td></tr>
       </table>
 
       <h3 id="env-ready">2.1 已就绪项</h3>
       <ul>
-        <li>系统：Ubuntu 24.04.4 LTS，静态 IP <code>192.168.0.107/24</code>，时区 Asia/Shanghai，主机名 <code>mjbk</code></li>
+        <li>系统：Ubuntu 24.04.4 LTS，静态 IP <code>&lt;mjbk-IP&gt;/24</code>，时区 Asia/Shanghai，主机名 <code>mjbk</code></li>
         <li>远程通道：SSH（22），mjpc 公钥免密登录</li>
         <li>apt 镜像源：清华 TUNA（已验证）</li>
         <li>数据盘：1TB HDD 挂载 <code>/mnt/data</code>（ext4，fstab 自动挂载）；2T NVMe SSD 挂载 <code>/mnt/ssd2t</code>（ext4，fstab 自动挂载，Fanxiang S770）</li>
@@ -115,7 +116,7 @@
         <tr><td>16686 / 4317 / 4318</td><td>Jaeger UI / otel-collector OTLP</td><td>阶段九起</td></tr>
         <tr><td>19530</td><td>Milvus</td><td>阶段十五起</td></tr>
       </table>
-      <div class="note">ufw 防火墙仅对内网 192.168.0.0/24 放行上述端口（系统 SSH 22 已放行）。</div>
+      <div class="note">ufw 防火墙仅对内网 <code>&lt;内网网段&gt;</code> 放行上述端口（系统 SSH 22 已放行）。</div>
 
       <h2 id="config">5. 配置与凭据管理</h2>
       <ul>
@@ -127,7 +128,7 @@
       <h2 id="ops">6. 日常运维速查</h2>
       <table>
         <tr><th>操作</th><th>命令</th></tr>
-        <tr><td>SSH 登录</td><td><code>ssh minjian@192.168.0.107</code></td></tr>
+        <tr><td>SSH 登录</td><td><code>ssh &lt;SSH账号&gt;@&lt;mjbk-IP&gt;</code></td></tr>
         <tr><td>服务状态</td><td><code>docker compose -f deploy/compose/xxx.yml ps</code> / <code>docker ps</code></td></tr>
         <tr><td>服务日志</td><td><code>docker logs -f &lt;容器名&gt;</code></td></tr>
         <tr><td>防火墙状态</td><td><code>sudo ufw status</code></td></tr>

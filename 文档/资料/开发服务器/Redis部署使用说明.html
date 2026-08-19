@@ -46,6 +46,7 @@
       <p>
         mjbk 上的 Redis（容器 <code>bms-redis</code>）承载 BMS 的缓存、token 黑名单、分布式锁、限流计数等，
         是开发依赖服务之一（《<a href="../../规划/开发部署规划.html">开发部署规划</a>》4.3 base 组）。
+        <code>&lt;mjbk-IP&gt;</code> 取值见《<a href="../../用户文档/本地资源.md">本地资源</a>》。
       </p>
 
       <h2 id="compose">2. Compose 配置</h2>
@@ -71,14 +72,14 @@ docker compose -f compose/base.yml up -d redis</code></pre>
 
       <h2 id="verify">4. 验证</h2>
       <pre><code>docker ps --filter name=bms-redis
-redis-cli -h 192.168.0.107 -p 6379 ping   # 返回 PONG
+redis-cli -h <mjbk-IP> -p 6379 ping   # 返回 PONG
 docker exec bms-redis redis-cli INFO persistence  # aof_enabled:1</code></pre>
       <p>本次部署结果：<code>PONG</code>，AOF 开启，RDB 备份正常。</p>
 
       <h2 id="use">5. 使用说明</h2>
       <table>
         <tr><th>项目</th><th>值</th></tr>
-        <tr><td>连接地址</td><td><code>redis://192.168.0.107:6379/0</code>（内网，无密码，仅 ufw 内网放行）</td></tr>
+        <tr><td>连接地址</td><td><code>redis://<mjbk-IP>:6379/0</code>（内网，无密码，仅 ufw 内网放行）</td></tr>
         <tr><td>容器名</td><td><code>bms-redis</code></td></tr>
         <tr><td>数据持久化</td><td>AOF（appendonly）+ RDB 快照，数据卷 <code>redis-data</code></td></tr>
       </table>

@@ -37,9 +37,12 @@ def main() -> int:
     args = parser.parse_args()
 
     env = load_env(ENV_FILE)
-    ip = env.get("MJBK_IP", "192.168.0.107")
-    user = env.get("MJBK_SSH_USER", "minjian")
+    ip = env.get("MJBK_IP", "")
+    user = env.get("MJBK_SSH_USER", "")
     pwd = env.get("MJBK_SUDO_PASSWORD", "")
+    if not (ip and user):
+        print(f"[失败] {ENV_FILE} 中未配置 MJBK_IP / MJBK_SSH_USER（键位见 .env.example）。")
+        return 1
     if not pwd:
         print(f"[失败] {ENV_FILE} 中未配置 MJBK_SUDO_PASSWORD。")
         return 1
