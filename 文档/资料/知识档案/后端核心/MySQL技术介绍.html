@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MySQL 技术介绍</title>
+<link rel="stylesheet" href="../../资源/文档样式.css">
+</head>
+<body>
+
+<div class="topnav">
+  <a href="../../../文档首页.html">文档首页</a> ›
+  <a href="../技术栈知识档案总览.html">知识档案</a> ›
+  <a href="../技术栈知识档案总览.html#backend">后端核心</a> ›
+  <span>MySQL 技术介绍</span>
+  <span class="topnav-side">
+    <a href="../技术栈知识档案总览.html">← 返回总览</a>
+  </span>
+</div>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>MySQL 技术介绍</h1>
+      <p>生产数据库之一 · BMS 后端核心</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#overview">1. 技术概述</a></li>
+        <li><a href="#principles">2. 核心概念与原理</a></li>
+        <li><a href="#usage">3. 在 BMS 项目中的用途</a></li>
+        <li><a href="#compare">4. 选型对比</a></li>
+        <li><a href="#pitfalls">5. 常见问题与注意事项</a></li>
+        <li><a href="#learn">6. 学习与参考资料</a></li>
+        <li><a href="#related">7. 项目内关联文档</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="overview">1. 技术概述</h2>
+      <p>
+        <strong>MySQL</strong> 是世界上最流行的开源关系型数据库之一（Oracle 公司维护），
+        以成熟稳定、生态庞大著称。BMS 将其作为<strong>生产数据库之一</strong>，
+        与 PostgreSQL、达梦 DM8 并行支持（部署时按客户环境选择）。
+      </p>
+      <ul>
+        <li><strong>定位</strong>：生产可选数据库；开发服务器 mjbk 常驻实例供联调与 CI 方言测试。</li>
+        <li><strong>版本</strong>：8.x（8.0 系列 / 8.4 LTS，以部署环境为准）。</li>
+        <li><strong>许可</strong>：GPL-2.0（社区版）。作为独立数据库服务、Python 驱动走协议连接时不触发传染；商业交付需关注 Oracle 双许可条款（详见规划 2.5 节）。</li>
+        <li><strong>Python 驱动</strong>：aiomysql（异步，默认）/ PyMySQL（同步 fallback）。</li>
+      </ul>
+
+      <h2 id="principles">2. 核心概念与原理</h2>
+      <table>
+        <tr><th>概念</th><th>说明</th></tr>
+        <tr><td>关系型数据库</td><td>数据按表/行/列组织，通过 SQL 查询；事务保证 ACID</td></tr>
+        <tr><td>InnoDB 存储引擎</td><td>默认引擎：支持事务、外键、行级锁、崩溃恢复，是 8.x 的事实标准</td></tr>
+        <tr><td>事务与 ACID</td><td>原子性/一致性/隔离性/持久性：多步写操作要么全成功要么全回滚</td></tr>
+        <tr><td>Binlog（二进制日志）</td><td>记录所有变更，用于主从复制与时间点恢复（PITR），是备份策略的基石</td></tr>
+        <tr><td>主从复制</td><td>一主多从异步复制：主库写、从库读，实现读写分离与故障切换</td></tr>
+        <tr><td>max_connections</td><td>最大连接数：应用连接池规划的硬上限（≤ 其 70%）</td></tr>
+        <tr><td>utf8mb4</td><td>完整 Unicode 字符集（含 emoji），本项目字符集约定</td></tr>
+        <tr><td>aiomysql</td><td>MySQL 异步驱动，与整体异步栈一致；其底层为 PyMySQL 的移植（见《<a href="SQLAlchemy技术介绍.html">SQLAlchemy 技术介绍</a>》）</td></tr>
+        <tr><td>PyMySQL</td><td>纯 Python 同步驱动，用作同步 fallback 场景</td></tr>
+        <tr><td>asyncmy</td><td>备选异步驱动：性能更好，但维护活跃度一般，不入选</td></tr>
+      </table>
+
+      <h2 id="usage">3. 在 BMS 项目中的用途</h2>
+      <ul>
+        <li>生产数据库之一，与 PostgreSQL、达梦 DM8 三库并行支持；开发/测试默认 SQLite（见《<a href="../../规划/项目规划说明.html#stack-backend">项目规划说明》2.1 节</a>）。</li>
+        <li><strong>aiomysql 异步驱动</strong>（dialect <code>mysql+aiomysql</code>）；同步 fallback 可换 PyMySQL；备选 asyncmy 性能更好但维护活跃度一般，故不采用（见《<a href="../../规划/项目规划说明.html#sel-backend">项目规划说明》3.1 节</a>）。</li>
+        <li>数据层主从：MySQL 主从读写分离 + 故障切换，1 平台库 + N 租户库 + 1 归档库（见《<a href="../../规划/项目规划说明.html#deploy-topo">项目规划说明》19.1 节</a>）。</li>
+        <li>字符集 utf8mb4；连接池按 worker 数规划（≤ 70% max_connections）；慢查询日志开发联调用（见《<a href="../../规划/项目规划说明.html#dbrule">项目规划说明》11.1 节</a>与《<a href="../../开发服务器部署使用说明.html">开发部署规划</a>》）。</li>
+        <li>备份与恢复：每日全量备份 + Binlog 时间点恢复（PITR），保留 30 天异机存储（见《<a href="../../规划/项目规划说明.html#deploy-backup">项目规划说明》19.4 节</a>）。</li>
+        <li>CI 三库方言集成测试：复用 mjbk 常驻 MySQL，job 内建 bms_test 前缀测试库，迁移 → 测试 → 清理（见《<a href="../../规划/开发部署规划.html">开发部署规划</a>》）。</li>
+      </ul>
+
+      <h2 id="compare">4. 选型对比</h2>
+      <table>
+        <tr><th>候选技术</th><th>优缺点</th><th>结论</th></tr>
+        <tr><td><strong>MySQL 8.x（选中）</strong></td><td>生态最广、资料多、团队熟悉度高；GPL-2.0 社区版商用需注意边界</td><td>作为生产三库之一，满足常规客户环境</td></tr>
+        <tr><td>PostgreSQL 16+</td><td>功能更丰富（部分索引/JSONB）、许可更宽松；与 MySQL 同列三库并行而非替代（见《<a href="PostgreSQL技术介绍.html">PostgreSQL 技术介绍</a>》）</td><td>并行支持，按客户环境选用</td></tr>
+        <tr><td>MariaDB</td><td>MySQL 分支、许可宽松；但与官方 MySQL 行为渐有差异，生态对齐成本</td><td>沿用 MySQL 官方路线，不引入分支</td></tr>
+        <tr><td>asyncmy（驱动层）</td><td>性能更好；但维护活跃度一般、社区小</td><td>默认 aiomysql，不追求极限性能</td></tr>
+      </table>
+
+      <h2 id="pitfalls">5. 常见问题与注意事项</h2>
+      <ul>
+        <li><strong>GPL 传染误读</strong>：社区版 GPL-2.0 只约束 MySQL 自身及衍生修改；BMS 作为独立应用通过协议连接、不修改不分发其源码即不传染。介意或需官方支持时采购商业版（见《<a href="../../规划/项目规划说明.html#stack-license">项目规划说明》2.5 节</a>）。</li>
+        <li><strong>utf8 与 utf8mb4</strong>：MySQL 的 <code>utf8</code> 是历史遗留别名（3 字节），emoji 会存失败；统一用 utf8mb4。</li>
+        <li><strong>连接数规划</strong>：worker × (pool_size + max_overflow) 必须 ≤ max_connections 的 70%，并预留监控/运维连接。</li>
+        <li><strong>方言差异</strong>：JSON 类型、大小写敏感（表名/列名）、索引长度限制与 PostgreSQL/达梦不同，迁移脚本在三库分别验证（见《<a href="Alembic技术介绍.html">Alembic 技术介绍</a>》）。</li>
+        <li><strong>主从延迟</strong>：读写分离下从库读到旧数据，涉及"读后写"的接口需走主库（BMS 在主从路由层处理）。</li>
+        <li><strong>保留字</strong>：如 sys_config 的 config_key 字段即因 key 为保留字改名，新表设计时避开保留字（见《<a href="../../规划/项目规划说明.html#tables">项目规划说明》6 节</a>）。</li>
+        <li><strong>默认隔离级别</strong>：InnoDB 默认 REPEATABLE READ，大事务下间隙锁易放大，事务边界要小（见《<a href="SQLAlchemy技术介绍.html">SQLAlchemy 技术介绍</a>》）。</li>
+      </ul>
+
+      <h2 id="learn">6. 学习与参考资料</h2>
+      <table>
+        <tr><th>资源</th><th>网址</th><th>说明</th></tr>
+        <tr><td>MySQL 官网</td><td>https://www.mysql.com/</td><td>官方产品与下载入口</td></tr>
+        <tr><td>MySQL 8.0 参考手册</td><td>https://dev.mysql.com/doc/refman/8.0/en/</td><td>权威文档：SQL、InnoDB、复制、备份</td></tr>
+        <tr><td>aiomysql GitHub</td><td>https://github.com/aio-libs/aiomysql</td><td>异步驱动源码与 issue</td></tr>
+        <tr><td>PyMySQL GitHub</td><td>https://github.com/PyMySQL/PyMySQL</td><td>同步驱动源码与文档</td></tr>
+        <tr><td>SQLAlchemy MySQL 方言文档</td><td>https://docs.sqlalchemy.org/en/20/dialects/mysql.html</td><td>mysql dialect 特性说明</td></tr>
+      </table>
+
+      <h2 id="related">7. 项目内关联文档</h2>
+      <table>
+        <tr><th>文档</th><th>说明</th></tr>
+        <tr><td>《<a href="../../规划/项目规划说明.html#stack-backend">项目规划说明》2.1 节</a></td><td>技术栈：MySQL 8.x 与 aiomysql 条目</td></tr>
+        <tr><td>《<a href="../../规划/项目规划说明.html#stack-license">项目规划说明》2.5 节</a></td><td>GPL-2.0 使用边界与商用注意事项</td></tr>
+        <tr><td>《<a href="../../规划/项目规划说明.html#dbcompat">项目规划说明》11 节</a></td><td>数据库兼容：跨方言类型与字符集约定</td></tr>
+        <tr><td>《<a href="../../开发服务器/MySQL部署使用说明.html">MySQL 部署使用说明</a>》</td><td>开发服务器 mjbk 上的部署与访问细节</td></tr>
+        <tr><td>《<a href="SQLAlchemy技术介绍.html">SQLAlchemy 技术介绍</a>》</td><td>异步 engine、连接池与多数据源</td></tr>
+        <tr><td>《<a href="Alembic技术介绍.html">Alembic 技术介绍</a>》</td><td>MySQL 方言迁移脚本与三库验证</td></tr>
+        <tr><td>《<a href="PostgreSQL技术介绍.html">PostgreSQL 技术介绍</a>》</td><td>并行支持的另一生产数据库</td></tr>
+        <tr><td>《<a href="../../规范/数据库开发规范.html">数据库开发规范</a>》</td><td>字符集、命名、索引等落地约束</td></tr>
+      </table>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 依《<a href="../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>

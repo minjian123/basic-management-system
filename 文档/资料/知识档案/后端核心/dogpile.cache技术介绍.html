@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>dogpile.cache 技术介绍</title>
+<link rel="stylesheet" href="../../资源/文档样式.css">
+</head>
+<body>
+
+<div class="topnav">
+  <a href="../../../文档首页.html">文档首页</a> ›
+  <a href="../技术栈知识档案总览.html">知识档案</a> ›
+  <a href="../技术栈知识档案总览.html#backend">后端核心</a> ›
+  <span>dogpile.cache 技术介绍</span>
+  <span class="topnav-side">
+    <a href="../技术栈知识档案总览.html">← 返回总览</a>
+  </span>
+</div>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>dogpile.cache 技术介绍</h1>
+      <p>进程内内存缓存 · BMS 字典热配置</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#overview">1. 技术概述</a></li>
+        <li><a href="#principles">2. 核心概念与原理</a></li>
+        <li><a href="#usage">3. 在 BMS 项目中的用途</a></li>
+        <li><a href="#compare">4. 选型对比</a></li>
+        <li><a href="#pitfalls">5. 常见问题与注意事项</a></li>
+        <li><a href="#learn">6. 学习与参考资料</a></li>
+        <li><a href="#related">7. 项目内关联文档</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="overview">1. 技术概述</h2>
+      <p>
+        <strong>dogpile.cache</strong> 是 SQLAlchemy 项目组出品的 Python 缓存工具库，
+        核心思路是"给缓存过程加锁"：多个进程/线程同时发现缓存过期时，只允许一个去重建缓存，
+        其余等待/用旧值，避免瞬间大量回源打垮数据库。它的名字来自经典互联网故障
+        <strong>"dogpile 效应"</strong>（又译"雷鸣效应"/缓存雪崩）——这个库正是为治理该问题而生。
+      </p>
+      <ul>
+        <li><strong>定位</strong>：BMS 的<strong>进程内内存缓存</strong>（字典等只读热配置），以 Region 分域管理，配合 Redis 组成"远程共享缓存 + 本地进程缓存"双层结构。</li>
+        <li><strong>版本</strong>：持续迭代的 1.x 系列，API 稳定。</li>
+        <li><strong>许可</strong>：MIT，OSI 认证开源。</li>
+        <li><strong>后端（Backend）</strong>：支持内存、Redis、Memcached 等多种后端；本项目使用进程内字典内存后端（memory backend）。</li>
+      </ul>
+
+      <h2 id="principles">2. 核心概念与原理</h2>
+      <table>
+        <tr><th>概念</th><th>说明</th></tr>
+        <tr><td>Region（缓存域）</td><td>一组缓存配置（后端、TTL、key 生成器）的集合，不同数据用不同 Region 隔离管理；本项目字典缓存分双 Region：小字典整类型 + 超大字典已查条目局部子集</td></tr>
+        <tr><td>dogpile 效应</td><td>缓存过期瞬间大量并发请求同时回源重建，像一堆狗挤同一道门；本库的防击穿设计即由此得名</td></tr>
+        <tr><td>防击穿锁（Mutex）</td><td>缓存未命中时通过区域锁（基于 threading 锁或 redis 分布式锁）只放行一个线程重建缓存，其余线程拿旧值或等待，避免回源风暴</td></tr>
+        <tr><td>内存后端（Memory Backend）</td><td>以进程内 dict 为存储，读写零网络开销；进程退出即清空，适合只读热配置</td></tr>
+        <tr><td>JIT 构建</td><td><code>region.get(key, creator)</code> 的"缓存未命中时回调生成值"机制，业务无需先查缓存再查库两段代码</td></tr>
+        <tr><td>key 生成器（Key Generator）</td><td>默认根据参数自动生成缓存键，也可自定义；配合 Region 前缀避免多 Region 键冲突</td></tr>
+        <tr><td>失效策略（Invalidation）</td><td>主动失效（删除 key）与全局版本号失效；本项目采用<strong>全局版本号惰性比对</strong>实现多实例一致（见下节）</td></tr>
+        <tr><td>软过期（Soft TTL）</td><td>值已过期但仍可短暂返回旧值（staleness），把重建压力分散到时间轴上，进一步防雪崩</td></tr>
+        <tr><td>与 Redis 的分工</td><td>Redis 是集群共享缓存源；dogpile 只缓存"全实例可复算、无脏读风险"的只读热配置，两不相混</td></tr>
+      </table>
+
+      <h2 id="usage">3. 在 BMS 项目中的用途</h2>
+      <p>按《<a href="../../规划/项目规划说明.html#sel-backend">项目规划说明</a>》3.1 节与 14 节"缓存策略"，dogpile.cache 承担<strong>字典内存缓存</strong>：</p>
+      <ul>
+        <li><strong>双 Region 分域管理</strong>：小字典整类型整表缓存；超大字典只缓存"已查条目"的局部子集，防止整表常驻内存。</li>
+        <li><strong>多实例一致性靠全局版本号</strong>：Redis 维护 <code>bms:{tenant}:dict:version</code>，字典变更时 INCR 版本；各实例下次请求发现版本变化自动重载——惰性比对，多实例天然同步，无需每次请求都查 Redis。</li>
+        <li><strong>零网络往返</strong>：后端业务翻译（导出/通知/报表/审批/明细行批量）与字典查询接口共用该内存缓存，避免大量字典查询打 Redis/DB。</li>
+        <li><strong>防 N+1</strong>：超大字典批量翻译走"局部缓存 + 一次性 IN 查询"（1000 行明细 × 30 字段 = 30 次查询而非 30000 次）。</li>
+        <li><strong>防击穿</strong>：字典缓存重建走 dogpile 的互斥重建机制，多 worker 同时过期时只重建一次，避免回源风暴。</li>
+      </ul>
+      <p>口径边界（19.2 节）：<strong>一般业务数据不引入本地内存缓存</strong>，统一走 Redis 共享缓存源；进程内内存缓存仅限字典这类只读热配置。</p>
+
+      <h2 id="compare">4. 选型对比</h2>
+      <table>
+        <tr><th>候选技术</th><th>优缺点</th><th>结论</th></tr>
+        <tr><td><strong>dogpile.cache（选中）</strong></td><td>Region 分域 + 防击穿互斥重建开箱即用，与 Redis 分层协同成熟，SQLAlchemy 同源生态</td><td>正好满足"进程内热配置缓存 + 全局版本号一致"的规划设计</td></tr>
+        <tr><td>cachetools</td><td>轻量简单，但只有 TTL/淘汰算法，无分域管理、无防击穿互斥重建</td><td>功能不足，防 dogpile 效应需自行实现，不采用</td></tr>
+        <tr><td>functools.lru_cache / 手写 dict</td><td>零依赖，但无失效、无淘汰、无版本控制，多实例无法同步</td><td>只适合无失效诉求的纯计算缓存，不满足字典热配置需求</td></tr>
+        <tr><td>仅用 Redis 缓存字典</td><td>集群一致但每请求一次网络往返，高频批量翻译放大开销</td><td>作为共享源保留，但进程内缓存不可省（规划明确双层结构）</td></tr>
+        <tr><td>自研内存缓存组件</td><td>可控但重复造轮子，防击穿/版本失效等细节易出错</td><td>不必要，直接用 dogpile.cache</td></tr>
+      </table>
+
+      <h2 id="pitfalls">5. 常见问题与注意事项</h2>
+      <ul>
+        <li><strong>禁止缓存可变业务数据</strong>：进程内缓存多实例独立，只有"只读 + 可惰性重载"的字典热配置才能进 dogpile；可变数据一律走 Redis 共享缓存，否则多实例数据不一致。</li>
+        <li><strong>全局版本号必须由变更方 INCR</strong>：字典变更后必须 INCR <code>bms:{tenant}:dict:version</code>，否则各实例永远带着旧字典；版本比对要放请求前段、开销极小。</li>
+        <li><strong>超大字典不得整表缓存</strong>：必须用"已查条目局部子集"Region，否则内存持续膨胀；批量翻译用一次性 IN 查询回填，防 N+1。</li>
+        <li><strong>内存后端进程内有效</strong>：多 worker 部署时每个 worker 各有一份内存缓存（靠版本号对齐），不是共享存储；重启即清空，属预期行为。</li>
+        <li><strong>防击穿锁别用全局重锁</strong>：重建锁粒度按 key/Region 收敛，锁持有时间必须短（只覆盖一次字典查询），避免反成性能瓶颈。</li>
+        <li><strong>不要与 Redis 职责混用</strong>：token 黑名单、会话标记、限流计数等状态类数据不能放进程内缓存（登出/踢出需集群即时生效）。</li>
+        <li><strong>测试环境注意</strong>：单元测试中内存缓存可能"穿透"（绕过缓存直查库），断言缓存行为时需按 Region 显式清理，避免用例间污染。</li>
+      </ul>
+
+      <h2 id="learn">6. 学习与参考资料</h2>
+      <table>
+        <tr><th>资源</th><th>网址</th><th>说明</th></tr>
+        <tr><td>dogpile.cache 官方文档</td><td>https://dogpilecache.sqlalchemy.org/</td><td>权威文档：Region、后端、失效与缓存模式详解</td></tr>
+        <tr><td>dogpile.cache GitHub</td><td>https://github.com/sqlalchemy/dogpile.cache</td><td>源码与 issue 讨论</td></tr>
+        <tr><td>dogpile 效应科普（官方说明）</td><td>https://dogpilecache.sqlalchemy.org/en/latest/usage.html</td><td>"dogpile 效应"背景与防击穿设计说明</td></tr>
+        <tr><td>SQLAlchemy 官方文档</td><td>https://www.sqlalchemy.org/</td><td>同源生态，背景知识参考</td></tr>
+      </table>
+
+      <h2 id="related">7. 项目内关联文档</h2>
+      <table>
+        <tr><th>文档</th><th>说明</th></tr>
+        <tr><td>《<a href="../../规划/项目规划说明.html#sel-backend">项目规划说明</a>》3.1 节</td><td>字典内存缓存设计（双 Region + 全局版本号）</td></tr>
+        <tr><td>《<a href="../../规划/项目规划说明.html#perf">项目规划说明</a>》14 节</td><td>缓存策略与防 N+1 批量翻译口径</td></tr>
+        <tr><td>《<a href="../../规划/项目规划说明.html#deploy-cluster">项目规划说明</a>》19.2 节</td><td>集群缓存一致性：共享 Redis + 字典例外</td></tr>
+        <tr><td>《<a href="Redis技术介绍.html">Redis 技术介绍</a>》</td><td>共享缓存源 Redis 的职责与 key 规范</td></tr>
+        <tr><td>《<a href="../../规范/命名规范.html">命名规范</a>》</td><td>全局版本号 key 格式 <code>bms:{tenant}:dict:version</code></td></tr>
+      </table>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 依《<a href="../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>

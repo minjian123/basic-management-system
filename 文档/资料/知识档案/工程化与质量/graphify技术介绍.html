@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>graphify 技术介绍</title>
+<link rel="stylesheet" href="../../../资源/文档样式.css">
+</head>
+<body>
+
+<div class="topnav">
+  <a href="../../../文档首页.html">文档首页</a> ›
+  <a href="../技术栈知识档案总览.html">知识档案</a> ›
+  <a href="../技术栈知识档案总览.html#eng">工程化与质量</a> ›
+  <span>graphify 技术介绍</span>
+  <span class="topnav-side">
+    <a href="../技术栈知识档案总览.html">← 返回总览</a>
+  </span>
+</div>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>graphify 技术介绍</h1>
+      <p>代码知识图谱工具 · BMS 代码理解与架构分析</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#overview">1. 技术概述</a></li>
+        <li><a href="#principles">2. 核心概念与原理</a></li>
+        <li><a href="#usage">3. 在 BMS 项目中的用途</a></li>
+        <li><a href="#compare">4. 选型对比</a></li>
+        <li><a href="#pitfalls">5. 常见问题与注意事项</a></li>
+        <li><a href="#learn">6. 学习与参考资料</a></li>
+        <li><a href="#related">7. 项目内关联文档</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="overview">1. 技术概述</h2>
+      <p>
+        <strong>graphify</strong> 是一个开源的命令行工具：把任意目录下的代码、文档、论文、图片、视频
+        构建成一张持久化的<strong>知识图谱</strong>（节点是函数/类/概念，边是调用/导入/继承等关系），
+        之后用自然语言查询、追路径、解释概念，代替满仓库 grep。
+        代码解析走 tree-sitter AST，本地、确定性、免费；文档语义抽取可选用 LLM。
+      </p>
+      <ul>
+        <li><strong>定位</strong>：BMS 代码理解与架构分析辅助——AI 助手查代码库问题优先走图谱查询，人看架构走可视化图。</li>
+        <li><strong>版本</strong>：0.9.x 系列（迭代快；本项目锁定 0.9.42，Python ≥ 3.10）。</li>
+        <li><strong>许可</strong>：Apache-2.0 或 MIT（双许可）。</li>
+        <li><strong>安装</strong>：官方仓库 <a href="https://github.com/Graphify-Labs/graphify">Graphify-Labs/graphify</a>；PyPI 包名 <code>graphifyy</code>（双 y，其他 <code>graphify*</code> 包均非官方），CLI 命令为 <code>graphify</code>。</li>
+      </ul>
+
+      <h2 id="principles">2. 核心概念与原理</h2>
+      <table>
+        <tr><th>概念</th><th>一句话说明</th></tr>
+        <tr><td>知识图谱（graph.json）</td><td>核心产物：节点（函数、类、概念）+ 边（calls/imports/inherits 等关系）的 JSON 图，跨会话持久化在 <code>graphify-out/</code>，所有查询都基于它</td></tr>
+        <tr><td>AST 层</td><td>代码用 tree-sitter 做静态解析：确定性、本地运行、无需 LLM 与 API Key，覆盖函数、类与跨文件调用关系（约 40 种语言）</td></tr>
+        <tr><td>语义层</td><td>文档/论文/图片由 LLM 抽取概念、设计理由与跨文档关联；未配置 API 时可由 AI 助手会话代劳，结果带缓存</td></tr>
+        <tr><td>置信度标签</td><td>每条边标注 EXTRACTED（源码中明确存在）/ INFERRED（工具推断）/ AMBIGUOUS（存疑），一眼分清"读到的"和"猜的"</td></tr>
+        <tr><td>God Nodes（枢纽节点）</td><td>连接数最多的节点排行：架构上"所有事都经过它"的核心，评审与重构时优先关注</td></tr>
+        <tr><td>社区（Community）</td><td>用 Leiden 算法把图聚成子系统级社区并命名，相当于自动导出的模块地图</td></tr>
+        <tr><td>query</td><td>自然语言提问 → 返回范围受限的子图（BFS 广度或 DFS 深度），比全文 grep 输出小得多，支持中文问题自动分词</td></tr>
+        <tr><td>path</td><td>追两个概念之间的最短关联路径，回答"A 是怎么影响到 B 的"</td></tr>
+        <tr><td>explain</td><td>用大白话解释某个节点及其邻居，快速建立对陌生模块的直觉</td></tr>
+        <tr><td>affected</td><td>反向遍历影响面："改了这个，谁会被波及"，重构前的风险评估</td></tr>
+        <tr><td>增量更新</td><td><code>graphify update</code> 依据 manifest 与缓存只重抽新增/变更文件；AST 层免费重抽，已有语义层保留</td></tr>
+        <tr><td>非向量索引</td><td>不做 embedding、不依赖向量库：是真实可遍历的图，查询走图结构而非相似度检索</td></tr>
+      </table>
+
+      <h2 id="usage">3. 在 BMS 项目中的用途</h2>
+      <ul>
+        <li>知识图谱辅助<strong>代码理解与架构分析</strong>：AI 助手处理代码库问题时优先 <code>graphify query</code>，关系用 <code>graphify path</code>，概念用 <code>graphify explain</code>（见《<a href="../../../规划/项目规划说明.html#stack-eng">项目规划说明</a>》2.3 节"知识图谱：graphify"）。</li>
+        <li>图谱索引范围覆盖<strong>代码与「文档」目录</strong>：规划、规范、设计文档的语义层一并入图，文档与代码的关联可查（见《<a href="../../../规划/项目规划说明.html#sel-eng">项目规划说明</a>》3.3 节）。</li>
+        <li><strong>中文查询分词</strong>：安装 <code>chinese</code> 扩展（jieba），中文问题先分词再匹配节点，避免"两字滑动窗口"的降级效果（安装命令见下）。</li>
+        <li><strong>日常维护纪律</strong>：修改代码或文档后运行 <code>graphify update .</code> 保持图谱最新（纯 AST，无 API 开销），再跑 <code>python deploy/tools/graphify/localize-graph.py</code> 收尾（汉化 graph.html + 生成中文架构图 CALLFLOW.html）。</li>
+        <li><strong>AI 能力输入源</strong>：帮助文档智能维护以功能代码的 graphify 知识图谱为输入之一（见《<a href="../../../规划/项目规划说明.html#sel-backend">项目规划说明</a>》3.1 节 AI 能力、《<a href="../后端核心/LLM适配层技术介绍.html">LLM 适配层技术介绍</a>》）。</li>
+        <li>安装与排障细节以《<a href="../../AI/graphify部署使用说明.html">graphify 部署使用说明</a>》为准（本机 Windows 环境实测）。</li>
+      </ul>
+      <p>常用命令（Windows PowerShell 与 Linux 通用）：</p>
+      <pre><code># 安装（extras 必须一次列全，否则互相顶掉）
+uv tool install "graphifyy[chinese,openai]" --force
+
+# 查询 / 路径 / 概念
+graphify query "认证流程如何处理 token 刷新？"
+graphify path "事件总线" "工作流"
+graphify explain "多租户路由"
+
+# 代码变更后增量更新
+graphify update .</code></pre>
+
+      <h2 id="compare">4. 选型对比</h2>
+      <table>
+        <tr><th>候选技术</th><th>优缺点</th><th>结论</th></tr>
+        <tr><td><strong>graphify（选中）</strong></td><td>本地 AST 解析免费离线；结构关系（调用/导入）+ 语义概念兼备；query/path/explain 面向理解而非检索；中文分词支持<br>缺点：项目较新，语义层依赖 LLM 质量</td><td>与"AI 助手 + 人"双消费方契合，零服务端依赖</td></tr>
+        <tr><td>RAG / 向量库（Milvus 等）</td><td>语义检索成熟<br>缺点：只有相似度没有结构关系，答不了"A 怎么调到 B"；需向量库与 embedding 管线，BMS 的 Milvus 用于业务语义搜索，不兼作代码索引</td><td>不用于代码理解场景</td></tr>
+        <tr><td>grep / IDE 全文搜索</td><td>零成本、精确匹配<br>缺点：无概念层与跨文件语义，大库下输出爆炸，AI 助手上下文浪费</td><td>保留作兜底，不作首选</td></tr>
+        <tr><td>Sourcegraph / CodeSee 等商业代码智能平台</td><td>索引能力强<br>缺点：商业授权或需自建服务端，与内网单机工具链不匹配</td><td>不引入</td></tr>
+      </table>
+
+      <h2 id="pitfalls">5. 常见问题与注意事项</h2>
+      <ul>
+        <li><strong>extras 互顶</strong>：<code>uv tool install</code> 后装只带部分 extras 会顶掉之前的（如只装 <code>[chinese]</code> 后语义抽取报缺 <code>openai</code> 包），升级/加装必须一次列全并加 <code>--force</code>。</li>
+        <li><strong>语义层不可再生</strong>：<code>graphify update</code> 保留语义层；彻底删除 <code>graphify-out/</code> 重建会永久丢失语义节点（本项目实测 951 → 139），恢复只能重跑语义抽取或从备份恢复——重建前先整体备份。</li>
+        <li><strong>节点数防缩保护</strong>：update 后节点变少时默认拒绝覆盖；确认是删了代码才加 <code>--force</code>。</li>
+        <li><strong>第三方库刷屏</strong>：压缩 JS/CSS 的函数名会灌进图，用项目根目录 <code>.graphifyignore</code>（语法同 .gitignore）排除后 <code>update --force</code> 修剪。</li>
+        <li><strong>graph.html 固定英文界面</strong>：可视化模板不可配置，跑 <code>deploy/tools/graphify/localize-graph.py</code> 汉化并生成 CALLFLOW.html 架构图。</li>
+        <li><strong>API Key 边界</strong>：纯代码目录完全免费离线；只有文档/图片语义抽取需要 LLM（Gemini Key 或 AI 助手会话），不要把 Key 写进脚本。</li>
+        <li><strong>包名是双 y</strong>：<code>uvx graphify</code> 会失败（按包名解析），正确写法 <code>uvx --from graphifyy graphify ...</code>；PyPI 上其他 <code>graphify*</code> 包均非官方。</li>
+        <li><strong>graphify-out/ 变脏属正常</strong>：钩子或增量更新后文件有改动是常态，不要因此跳过图谱查询；仅当图输出确认过期或错误时才考虑重建。</li>
+      </ul>
+
+      <h2 id="learn">6. 学习与参考资料</h2>
+      <table>
+        <tr><th>资源</th><th>网址</th><th>说明</th></tr>
+        <tr><td>graphify 官方仓库</td><td>https://github.com/Graphify-Labs/graphify</td><td>源码、issue 与安装说明</td></tr>
+        <tr><td>PyPI 包页（graphifyy）</td><td>https://pypi.org/project/graphifyy/</td><td>官方包（双 y）、版本与依赖信息</td></tr>
+        <tr><td>graphify 官网</td><td>https://graphify.com/</td><td>官方文档与特性介绍</td></tr>
+        <tr><td>tree-sitter</td><td>https://tree-sitter.org/</td><td>AST 解析引擎，理解 AST 层原理</td></tr>
+        <tr><td>Leiden 算法论文</td><td>https://arxiv.org/abs/1810.08473</td><td>社区检测（社区划分）所用算法原文</td></tr>
+      </table>
+
+      <h2 id="related">7. 项目内关联文档</h2>
+      <table>
+        <tr><th>文档</th><th>说明</th></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#stack-eng">项目规划说明</a>》2.3 节</td><td>工程化与质量技术栈（知识图谱：graphify 条目）</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#sel-eng">项目规划说明</a>》3.3 节</td><td>选型说明：知识图谱辅助代码理解与架构分析</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#sel-backend">项目规划说明</a>》3.1 节</td><td>AI 能力：帮助文档智能维护以 graphify 知识图谱为输入源</td></tr>
+        <tr><td>《<a href="../../AI/graphify部署使用说明.html">graphify 部署使用说明</a>》</td><td>本机安装、首次构建、日常使用与维护的完整实录（首选阅读）</td></tr>
+        <tr><td>《<a href="uv技术介绍.html">uv 技术介绍</a>》</td><td><code>uv tool install</code> 安装方式与 extras 互顶问题</td></tr>
+        <tr><td>《<a href="../后端核心/LLM适配层技术介绍.html">LLM 适配层技术介绍</a>》</td><td>知识图谱作为 AI 能力的输入源</td></tr>
+      </table>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 依《<a href="../../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>

@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vitest 技术介绍</title>
+<link rel="stylesheet" href="../../资源/文档样式.css">
+</head>
+<body>
+
+<div class="topnav">
+  <a href="../../../文档首页.html">文档首页</a> ›
+  <a href="../技术栈知识档案总览.html">知识档案</a> ›
+  <a href="../技术栈知识档案总览.html#frontend">前端</a> ›
+  <span>Vitest 技术介绍</span>
+  <span class="topnav-side">
+    <a href="../技术栈知识档案总览.html">← 返回总览</a>
+  </span>
+</div>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>Vitest 技术介绍</h1>
+      <p>Vite 同构单元测试框架 · BMS 前端覆盖率门禁</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#overview">1. 技术概述</a></li>
+        <li><a href="#principles">2. 核心概念与原理</a></li>
+        <li><a href="#usage">3. 在 BMS 项目中的用途</a></li>
+        <li><a href="#compare">4. 选型对比</a></li>
+        <li><a href="#pitfalls">5. 常见问题与注意事项</a></li>
+        <li><a href="#learn">6. 学习与参考资料</a></li>
+        <li><a href="#related">7. 项目内关联文档</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="overview">1. 技术概述</h2>
+      <p>
+        <strong>Vitest</strong> 是 Vite 团队出品的下一代单元测试框架，
+        与 Vite <strong>同构</strong>：直接复用 <code>vite.config.ts</code>
+        的转换管线（别名、TS、JSX 全部生效），
+        原生 ESM、多 worker 并行执行，默认<strong>零配置</strong>跑起来。
+        内置覆盖率统计与阈值门禁，
+        是 Vue 3 + Vite 技术栈的事实标准测试框架。
+      </p>
+      <ul>
+        <li><strong>定位</strong>：BMS 前端单元测试/组件测试框架，内置 coverage 统计前端覆盖率，CI 门禁之一（见《<a href="../../规划/项目规划说明.html#stack-frontend">项目规划说明</a>》2.2 节）。</li>
+        <li><strong>版本</strong>：4.x（截至 2026 年稳定线，5.0 处于 RC 阶段）。</li>
+        <li><strong>许可</strong>：MIT，OSI 认证开源。</li>
+        <li><strong>语言</strong>：TypeScript 编写，测试代码用 JS/TS。</li>
+      </ul>
+
+      <h2 id="principles">2. 核心概念与原理</h2>
+      <table>
+        <tr><th>概念</th><th>说明</th></tr>
+        <tr><td>测试套件</td><td><code>describe</code> 分组 + <code>it</code>（test）用例 + <code>expect</code> 断言，结构清晰、失败定位准</td></tr>
+        <tr><td>Vite 同构</td><td>复用 <code>vite.config.ts</code>：别名、TS 转换、环境变量与开发环境一致，测试即「换个入口跑同一套代码」</td></tr>
+        <tr><td>原生 ESM</td><td>不走 Babel 转 CJS，启动快、模块语义与 Vite 开发态一致</td></tr>
+        <tr><td>并行执行</td><td>多 worker 并行跑测试文件，大项目提速明显</td></tr>
+        <tr><td>vi（mock API）</td><td><code>vi.fn</code>（假函数）、<code>vi.mock</code>（模块级 mock）、<code>vi.spyOn</code>、<code>vi.useFakeTimers</code>（假时钟），隔离外部依赖</td></tr>
+        <tr><td>测试环境</td><td><code>node</code>（默认）/ <code>happy-dom</code> / <code>jsdom</code>：组件测试需要 DOM 环境，二选一</td></tr>
+        <tr><td>组件测试</td><td>配合 <code>@vue/test-utils</code> 的 <code>mount</code> 挂载 Vue 组件，断言渲染结果与交互</td></tr>
+        <tr><td>Coverage</td><td>内置覆盖率统计（<code>@vitest/coverage-v8</code> 或 istanbul），支持阈值配置，低于门槛即失败</td></tr>
+        <tr><td>watch 模式</td><td>本地默认 watch，改代码即重跑相关用例；CI 用 <code>vitest run</code> 跑一次即退出</td></tr>
+        <tr><td>快照测试</td><td><code>toMatchSnapshot</code> 记录渲染快照，防回归（适合纯展示组件）</td></tr>
+      </table>
+
+      <h2 id="usage">3. 在 BMS 项目中的用途</h2>
+      <ul>
+        <li><strong>前端单元测试</strong>：工具函数、API 封装、状态逻辑（Pinia store）的纯逻辑测试（见《<a href="../../规划/项目规划说明.html#sel-frontend">项目规划说明</a>》3.2 节）。</li>
+        <li><strong>组件测试</strong>：关键组件（待办角标、表单设计器控件、审批操作区）的渲染与交互测试，配合 @vue/test-utils。</li>
+        <li><strong>覆盖率门禁</strong>：核心模块（认证/RBAC/工作流/审计/收付款）行覆盖 ≥ 80%、整体 ≥ 70%，CI 门禁——前端由 Vitest coverage 统计，低于门槛流水线失败（见《<a href="../../规划/项目规划说明.html#test-exit">项目规划说明</a>》16.4 节）。</li>
+        <li><strong>MR 流水线</strong>：前端 ESLint + Vitest（含 coverage 门禁）+ 双端构建（见《<a href="../../规划/项目规划说明.html#sel-ops">项目规划说明</a>》3.4 节 GitLab CI）。</li>
+        <li><strong>测试报告</strong>：Vitest 生成自动化测试报告（CI 产物归档），结果经官方插件导入 Kiwi TCMS（见《<a href="../../规划/项目规划说明.html#test-report">项目规划说明</a>》16.5 节）。</li>
+        <li><strong>双工程</strong>：frontend 与 frontend-mobile 各自独立 vitest 配置，口径一致、工程独立。</li>
+      </ul>
+
+      <p>最小示例（单元测试 + 组件测试）：</p>
+      <pre><code>// src/utils/amount.spec.ts
+import { describe, it, expect } from 'vitest'
+import { formatAmount } from './amount'
+
+describe('formatAmount', () =&gt; {
+  it('千分位格式化金额', () =&gt; {
+    expect(formatAmount(1234567.89)).toBe('1,234,567.89')
+  })
+
+  it('空输入返回空串', () =&gt; {
+    expect(formatAmount('')).toBe('')
+  })
+})
+
+// src/components/TodoBadge.spec.ts
+import { mount } from '@vue/test-utils'
+import TodoBadge from './TodoBadge.vue'
+
+describe('TodoBadge', () =&gt; {
+  it('有待办时显示角标数字', () =&gt; {
+    const wrapper = mount(TodoBadge, { props: { count: 3 } })
+    expect(wrapper.text()).toContain('3')
+  })
+})</code></pre>
+
+      <h2 id="compare">4. 选型对比</h2>
+      <table>
+        <tr><th>候选技术</th><th>优缺点</th><th>结论</th></tr>
+        <tr><td><strong>Vitest（选中）</strong></td><td>与 Vite 同构零配置、原生 ESM 快、内置 coverage 与阈值、活跃维护、MIT</td><td>与 BMS「Vite 技术栈 + 覆盖率门禁」诉求完全匹配</td></tr>
+        <tr><td>Jest</td><td>经典、生态大；但与 Vite 不同构（CJS 为主）、需额外配置，社区重心已转向 Vitest</td><td>同构优势明显，Vitest 更顺</td></tr>
+        <tr><td>Mocha + Chai</td><td>老牌组合、灵活；但 runner/覆盖率/mock 要手工拼装，配置成本高</td><td>工程化成本不划算，不选</td></tr>
+        <tr><td>QUnit</td><td>轻量、JQuery 时代经典；但生态小、与 Vite 不同构</td><td>生态与同构都不如 Vitest，不选</td></tr>
+      </table>
+
+      <h2 id="pitfalls">5. 常见问题与注意事项</h2>
+      <ul>
+        <li><strong>CI 用 run 模式</strong>：CI 里执行 <code>vitest run</code>（非 watch），否则流水线挂起不退出。</li>
+        <li><strong>覆盖率 provider 二选一</strong>：<code>@vitest/coverage-v8</code>（快）或 istanbul（兼容性好），选定后锁定版本，别混装。</li>
+        <li><strong>组件测试要 DOM 环境</strong>：配置 <code>environment: 'happy-dom'</code>（或 jsdom），并在 package.json 装对应依赖。</li>
+        <li><strong>vi.mock 提升</strong>：模块级 mock 会被提升到文件顶部，mock 工厂里引用外部变量会报错，注意写法。</li>
+        <li><strong>阈值配置</strong>：coverage 门槛写进 <code>vitest.config.ts</code>（对齐 80%/70% 口径），低于门槛流水线失败，别只出报告不设门槛。</li>
+        <li><strong>双工程独立配置</strong>：frontend 与 frontend-mobile 各自 vitest 配置，别跨工程共享。</li>
+        <li><strong>版本跟踪</strong>：4.x 为当前稳定线，5.0 RC 阶段，升级前看迁移说明，走 <a href="../部署与运维/Renovate技术介绍.html">Renovate</a> 提 MR + 回归。</li>
+        <li><strong>测试文件命名</strong>：统一 <code>*.spec.ts</code>（或 <code>*.test.ts</code>）放源码旁，避免散落难找。</li>
+      </ul>
+
+      <h2 id="learn">6. 学习与参考资料</h2>
+      <table>
+        <tr><th>资源</th><th>网址</th><th>说明</th></tr>
+        <tr><td>Vitest 官方文档</td><td>https://vitest.dev</td><td>入门、API 与配置完整文档</td></tr>
+        <tr><td>Vitest GitHub</td><td>https://github.com/vitest-dev/vitest</td><td>源码、Changelog 与 issue</td></tr>
+        <tr><td>Vitest 覆盖率配置</td><td>https://vitest.dev/config/#coverage</td><td>coverage provider 与阈值配置说明</td></tr>
+        <tr><td>Vue Test Utils</td><td>https://test-utils.vuejs.org/</td><td>Vue 组件测试官方工具（mount/断言）</td></tr>
+        <tr><td>happy-dom</td><td>https://happy-dom.com/</td><td>轻量 DOM 实现，组件测试环境选项之一</td></tr>
+        <tr><td>jsdom</td><td>https://github.com/jsdom/jsdom</td><td>另一 DOM 环境选项，兼容性好</td></tr>
+      </table>
+
+      <h2 id="related">7. 项目内关联文档</h2>
+      <table>
+        <tr><th>文档</th><th>说明</th></tr>
+        <tr><td>《<a href="../../规划/项目规划说明.html#stack-frontend">项目规划说明</a>》2.2 节</td><td>前端技术栈（Vitest 条目）</td></tr>
+        <tr><td>《<a href="../../规划/项目规划说明.html#sel-frontend">项目规划说明</a>》3.2 节</td><td>选型理由：与 Vite 同构、内置 coverage</td></tr>
+        <tr><td>《<a href="../../规划/项目规划说明.html#test">项目规划说明</a>》16 节</td><td>测试策略：覆盖率门槛与测试报告归档</td></tr>
+        <tr><td>《<a href="ESLint与Prettier技术介绍.html">ESLint 与 Prettier 技术介绍</a>》</td><td>同一 MR 门禁的代码规范部分</td></tr>
+        <tr><td>《<a href="Playwright技术介绍.html">Playwright 技术介绍</a>》</td><td>E2E 测试（与单元测试分层互补）</td></tr>
+        <tr><td>《<a href="Vite技术介绍.html">Vite 技术介绍</a>》</td><td>同构基础：复用 Vite 转换管线</td></tr>
+        <tr><td>《<a href="../工程化与质量/pytest技术介绍.html">pytest 技术介绍</a>》</td><td>后端对应工具（测试 + pytest-cov 门禁）</td></tr>
+        <tr><td>《<a href="../工程化与质量/KiwiTCMS技术介绍.html">Kiwi TCMS 技术介绍</a>》</td><td>用例登记与测试结果导入归档</td></tr>
+      </table>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 依《<a href="../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>

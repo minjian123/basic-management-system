@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pydantic 技术介绍</title>
+<link rel="stylesheet" href="../../资源/文档样式.css">
+</head>
+<body>
+
+<div class="topnav">
+  <a href="../../../文档首页.html">文档首页</a> ›
+  <a href="../技术栈知识档案总览.html">知识档案</a> ›
+  <a href="../技术栈知识档案总览.html#backend">后端核心</a> ›
+  <span>Pydantic 技术介绍</span>
+  <span class="topnav-side">
+    <a href="../技术栈知识档案总览.html">← 返回总览</a>
+  </span>
+</div>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>Pydantic 技术介绍</h1>
+      <p>数据校验与序列化 · BMS 后端核心</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#overview">1. 技术概述</a></li>
+        <li><a href="#principles">2. 核心概念与原理</a></li>
+        <li><a href="#usage">3. 在 BMS 项目中的用途</a></li>
+        <li><a href="#compare">4. 选型对比</a></li>
+        <li><a href="#pitfalls">5. 常见问题与注意事项</a></li>
+        <li><a href="#learn">6. 学习与参考资料</a></li>
+        <li><a href="#related">7. 项目内关联文档</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="overview">1. 技术概述</h2>
+      <p>
+        <strong>Pydantic</strong> 是 Python 最流行的数据校验与序列化库，用类型注解声明数据模型，
+        自动完成<strong>校验、类型转换与 JSON 序列化</strong>。v2 版本重写校验内核为 Rust
+        （pydantic-core），性能数倍于 v1，是 FastAPI 数据校验的基石。
+      </p>
+      <ul>
+        <li><strong>定位</strong>：请求/响应模型（schemas/ 层）的唯一建模工具，与 ORM 模型解耦。</li>
+        <li><strong>版本</strong>：v2（2.x 系列，pydantic-core 为 Rust 内核）。</li>
+        <li><strong>许可</strong>：MIT，OSI 认证开源。</li>
+        <li><strong>语言</strong>：Python（本项目 3.14+）。</li>
+      </ul>
+
+      <h2 id="principles">2. 核心概念与原理</h2>
+      <table>
+        <tr><th>概念</th><th>说明</th></tr>
+        <tr><td>BaseModel</td><td>所有模型的基类：<code>class UserIn(BaseModel): ...</code> 声明字段后即具备校验与序列化能力</td></tr>
+        <tr><td>类型注解驱动</td><td>字段类型（<code>int</code>、<code>str</code>、<code>EmailStr</code>、<code>list[X]</code>）即校验规则，无需手写 if/else</td></tr>
+        <tr><td>pydantic-core</td><td>v2 的 Rust 校验内核，校验与序列化性能数倍于 v1（v1 为纯 Python 实现）</td></tr>
+        <tr><td>ValidationError</td><td>校验失败抛出的异常，FastAPI 捕获后返回 422；字段级错误信息精确到路径与原因</td></tr>
+        <tr><td>字段验证器（validator）</td><td><code>@field_validator</code> / <code>@model_validator</code> 自定义规则，用于跨字段约束（如日期起止比较）</td></tr>
+        <tr><td>model_config</td><td>模型级配置（ConfigDict）：严格模式、extra 字段处理、from_attributes 等开关</td></tr>
+        <tr><td>from_attributes</td><td>允许从任意对象（如 SQLAlchemy 模型实例）直接构造模型，ORM → Schema 转换的桥梁</td></tr>
+        <tr><td>严格模式（strict）</td><td>不做隐式类型转换（"1" 不再自动变 1），API 边界处常用以保证契约严格</td></tr>
+        <tr><td>序列化 / dump</td><td><code>model_dump()</code> / <code>model_dump_json()</code> 输出 dict / JSON，响应体统一走此出口</td></tr>
+        <tr><td>Settings（配置模型）</td><td>BaseSettings 从环境变量/TOML 读取配置并校验类型，本项目 config.toml 读取链路的一部分</td></tr>
+        <tr><td>OpenAPI 联动</td><td>FastAPI 根据模型自动生成 OpenAPI schema，校验规则即接口文档</td></tr>
+      </table>
+
+      <h2 id="usage">3. 在 BMS 项目中的用途</h2>
+      <ul>
+        <li>作为请求/响应模型（<code>schemas/</code> 层）的唯一建模工具，与 ORM 解耦：ORM 管存储，Pydantic 管传输，见《<a href="../../规划/项目规划说明.html#structure">项目规划说明》4 节</a>目录结构。</li>
+        <li>FastAPI 数据校验基石：接口参数、请求体、响应体全部经 Pydantic 校验，失败自动返回 422 统一错误格式。</li>
+        <li>类型注解驱动：与 pyright 严格模式配合，模型字段类型错误在 IDE 阶段即被发现（见《<a href="../工程化与质量/pyright技术介绍.html">pyright 技术介绍</a>》）。</li>
+        <li>前后端契约一致：后端 schema 经 openapi-typescript 由 OpenAPI schema 自动生成前端 TS 类型（见《<a href="../../规划/项目规划说明.html#sel-frontend">项目规划说明》3.2 节</a>）。</li>
+        <li>Rust 内核性能保障：高并发请求下的校验与序列化开销远低于 v1，契合 500 并发/P99 ≤ 1s 的压测目标（见《<a href="../../规划/项目规划说明.html#perf">项目规划说明》14 节</a>）。</li>
+      </ul>
+
+      <h2 id="compare">4. 选型对比</h2>
+      <table>
+        <tr><th>候选技术</th><th>优缺点</th><th>结论</th></tr>
+        <tr><td><strong>Pydantic v2（选中）</strong></td><td>Rust 内核性能高；FastAPI 原生集成；OpenAPI 自动生成；生态（插件、编辑器支持）最成熟</td><td>与 FastAPI 深度绑定，事实标准</td></tr>
+        <tr><td>Pydantic v1</td><td>纯 Python 实现，性能约为 v2 的 1/5~1/10；API 已冻结停止演进</td><td>无理由选旧版，v2 兼容层也够用</td></tr>
+        <tr><td>marshmallow</td><td>老牌序列化库、Schema 声明式；无类型注解驱动、无 IDE 提示，性能一般</td><td>不符合类型安全工程目标</td></tr>
+        <tr><td>msgspec</td><td>性能更高、支持 msgpack；但 FastAPI 集成需适配，生态与资料少</td><td>性能差异在本项目量级可忽略，选生态</td></tr>
+        <tr><td>标准库 dataclasses</td><td>零依赖、轻量；但无自动校验、无序列化约定，手写校验代码多</td><td>仅适合内部数据结构，不用在 API 边界</td></tr>
+      </table>
+
+      <h2 id="pitfalls">5. 常见问题与注意事项</h2>
+      <ul>
+        <li><strong>v1/v2 API 差异</strong>：<code>.dict()</code> → <code>.model_dump()</code>、<code>.json()</code> → <code>.model_dump_json()</code>、validator 装饰器改名等，旧资料照抄会报错。</li>
+        <li><strong>性能陷阱</strong>：校验大对象或深递归模型时开销随层级增长；响应体尽量裁剪字段（<code>model_dump(include=...)</code>），避免把整个 ORM 对象全部序列化。</li>
+        <li><strong>与 ORM 混用</strong>：不要把 SQLAlchemy 模型直接当响应模型返回，会泄露多余字段且耦合；统一经 Schema 转换。</li>
+        <li><strong>额外字段</strong>：默认忽略未知字段，严格边界可设 <code>extra="forbid"</code>，防止客户端传参拼错被静默吞掉。</li>
+        <li><strong>递归/自引用模型</strong>：需要 <code>model_rebuild()</code> 或使用字符串前向引用（<code>"Node"</code>），否则类型解析报错。</li>
+        <li><strong>大事务边界无关</strong>：校验是纯内存操作，与数据库事务无关；但校验结果会影响后续流程，校验失败要按 422 约定让客户端感知。</li>
+        <li><strong>版本兼容</strong>：Pydantic 2.x 迭代较快，升级后跑全量测试确认校验行为未变；Python 3.14 兼容性纳入阶段一验证口径。</li>
+      </ul>
+
+      <h2 id="learn">6. 学习与参考资料</h2>
+      <table>
+        <tr><th>资源</th><th>网址</th><th>说明</th></tr>
+        <tr><td>Pydantic 官方文档</td><td>https://docs.pydantic.dev/</td><td>权威文档：概念、API 参考、v2 迁移指南</td></tr>
+        <tr><td>Pydantic GitHub</td><td>https://github.com/pydantic/pydantic</td><td>源码、issue 与版本发布</td></tr>
+        <tr><td>Pydantic v2 迁移指南</td><td>https://docs.pydantic.dev/latest/migrating_to_v2/</td><td>v1 → v2 差异逐项对照，查旧代码必读</td></tr>
+        <tr><td>Pydantic Settings</td><td>https://docs.pydantic.dev/latest/concepts/pydantic_settings/</td><td>配置模型用法，与 config.toml 读取链路相关</td></tr>
+        <tr><td>FastAPI 官方文档（请求体）</td><td>https://fastapi.tiangolo.com/tutorial/body/</td><td>Pydantic 模型在 FastAPI 中的标准用法</td></tr>
+      </table>
+
+      <h2 id="related">7. 项目内关联文档</h2>
+      <table>
+        <tr><th>文档</th><th>说明</th></tr>
+        <tr><td>《<a href="../../规划/项目规划说明.html#stack-backend">项目规划说明》2.1 节</a></td><td>技术栈：数据校验条目（Pydantic v2）</td></tr>
+        <tr><td>《<a href="../../规划/项目规划说明.html#structure">项目规划说明》4 节</a></td><td>目录结构：schemas/ 层职责</td></tr>
+        <tr><td>《<a href="../../规划/项目规划说明.html#sel-frontend">项目规划说明》3.2 节</a></td><td>openapi-typescript 前后端契约联动</td></tr>
+        <tr><td>《<a href="FastAPI技术介绍.html">FastAPI 技术介绍</a>》</td><td>依托 Pydantic 完成请求/响应校验</td></tr>
+        <tr><td>《<a href="SQLAlchemy技术介绍.html">SQLAlchemy 技术介绍</a>》</td><td>ORM 模型与 Pydantic Schema 解耦的分工</td></tr>
+        <tr><td>《<a href="../工程化与质量/pyright技术介绍.html">pyright 技术介绍</a>》</td><td>类型检查与 Pydantic 模型联动的工程实践</td></tr>
+        <tr><td>《<a href="../../规范/API接口规范.html">API 接口规范</a>》</td><td>422 错误码与统一响应约定</td></tr>
+      </table>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 依《<a href="../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>

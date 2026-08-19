@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>vue-flow 技术介绍</title>
+<link rel="stylesheet" href="../../资源/文档样式.css">
+</head>
+<body>
+
+<div class="topnav">
+  <a href="../../../文档首页.html">文档首页</a> ›
+  <a href="../技术栈知识档案总览.html">知识档案</a> ›
+  <a href="../技术栈知识档案总览.html#frontend">前端</a> ›
+  <span>vue-flow 技术介绍</span>
+  <span class="topnav-side">
+    <a href="../技术栈知识档案总览.html">← 返回总览</a>
+  </span>
+</div>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>vue-flow 技术介绍</h1>
+      <p>自由画布节点图引擎 · BMS 大屏设计器画布基础</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#overview">1. 技术概述</a></li>
+        <li><a href="#principles">2. 核心概念与原理</a></li>
+        <li><a href="#usage">3. 在 BMS 项目中的用途</a></li>
+        <li><a href="#compare">4. 选型对比</a></li>
+        <li><a href="#pitfalls">5. 常见问题与注意事项</a></li>
+        <li><a href="#learn">6. 学习与参考资料</a></li>
+        <li><a href="#related">7. 项目内关联文档</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="overview">1. 技术概述</h2>
+      <p>
+        <strong>Vue Flow</strong>（核心包 <code>@vue-flow/core</code>）是
+        React Flow 生态的官方 Vue 3 实现，定位是<strong>自由画布</strong>：
+        节点按绝对坐标自由摆放、可连线、可缩放平移，支持自定义节点
+        （节点内容就是普通 Vue 组件）、小地图、控件等。
+        截至 2026 年，Vue Flow（1.48.x）活跃维护，是 Vue 生态做
+        节点图/画布类交互的主流开源方案。
+      </p>
+      <ul>
+        <li><strong>定位</strong>：BMS 大屏设计器的自由画布——节点自由拖拽（绝对定位）、缩放平移，配合 ECharts 渲染图表节点（见《<a href="../../规划/项目规划说明.html#stack-frontend">项目规划说明</a>》2.2 节）。</li>
+        <li><strong>版本</strong>：1.48.2（截至 2026 年，持续迭代）。</li>
+        <li><strong>许可</strong>：MIT，OSI 认证开源。</li>
+        <li><strong>语言</strong>：TypeScript 编写，Vue 3 组件。</li>
+      </ul>
+
+      <h2 id="principles">2. 核心概念与原理</h2>
+      <table>
+        <tr><th>概念</th><th>说明</th></tr>
+        <tr><td>Node（节点）</td><td>画布上的单元，按绝对坐标（x/y）定位；节点内容可以是自定义 Vue 组件，BMS 把 ECharts 图表放进节点</td></tr>
+        <tr><td>Edge（连线）</td><td>节点之间的连接（source → target）；大屏以自由布局为主，连线场景少但能力具备</td></tr>
+        <tr><td>Viewport（视口）</td><td>画布的视图状态：缩放（zoom）+ 平移（pan），<code>fitView</code> 一键适配全部节点</td></tr>
+        <tr><td>Handle（连接点）</td><td>节点上的 source/target 锚点，连线时从这里出发/接入</td></tr>
+        <tr><td>Custom Node（自定义节点）</td><td>节点内容即 Vue 组件：可渲染 ECharts、文本、图片等任意内容，BMS 图表节点的基础</td></tr>
+        <tr><td>node-resizer</td><td><code>@vue-flow/node-resizer</code> 插件：拖拽调整节点尺寸，大屏卡片大小调整用它</td></tr>
+        <tr><td>Minimap / Controls / Background</td><td>辅助组件：<code>@vue-flow/minimap</code>（小地图）、<code>@vue-flow/controls</code>（缩放控件）、<code>@vue-flow/background</code>（点阵背景）</td></tr>
+        <tr><td>v-model:nodes / edges</td><td>节点与连线数据和 Vue 响应式状态双向绑定，改数组即改画布</td></tr>
+        <tr><td>事件机制</td><td><code>nodeDragStop</code>、<code>nodeClick</code>、<code>viewportChange</code> 等，监听拖拽结束与视图变化触发持久化</td></tr>
+        <tr><td>坐标系</td><td>画布有独立的 flow 坐标系，与屏幕坐标不同；<code>screenToFlowPosition</code> 做换算，存位置时以 flow 坐标为准</td></tr>
+        <tr><td>布局持久化</td><td>nodes 数组（位置/尺寸/类型）导出 JSON 存后端，播放/还原时 <code>load</code> 回画布</td></tr>
+      </table>
+
+      <h2 id="usage">3. 在 BMS 项目中的用途</h2>
+      <ul>
+        <li><strong>大屏设计器</strong>：大屏自由画布——节点自由拖拽（绝对定位）、缩放平移，与 gridstack 网格布局分工明确，互不混用（见《<a href="../../规划/项目规划说明.html#sel-frontend">项目规划说明</a>》3.2 节）。</li>
+        <li><strong>图表节点</strong>：节点内容用 ECharts 渲染（营收趋势、区域分布等），节点即图表卡（见《<a href="ECharts技术介绍.html">ECharts 技术介绍</a>》）。</li>
+        <li><strong>布局持久化</strong>：节点位置/尺寸/类型序列化为 JSON 存后端；大屏播放页只读还原画布并 <code>fitView</code> 适配屏幕。</li>
+        <li><strong>尺寸调整</strong>：设计态用 node-resizer 拖拽改节点尺寸，播放态按屏幕比例缩放。</li>
+        <li><strong>三库分工</strong>：列表排序用 vuedraggable、网格布局用 gridstack、自由画布用 vue-flow（见《<a href="../../规划/项目规划说明.html#sel-frontend">项目规划说明</a>》3.2 节）。</li>
+      </ul>
+
+      <p>最小示例（两个节点 + 自适应视图）：</p>
+      <pre><code>&lt;script setup&gt;
+import { ref } from 'vue'
+import { VueFlow } from '@vue-flow/core'
+import '@vue-flow/core/dist/style.css'
+import '@vue-flow/core/dist/theme-default.css'
+
+const nodes = ref([
+  { id: 'n1', position: { x: 0, y: 0 }, label: '营收趋势' },
+  { id: 'n2', position: { x: 400, y: 120 }, label: '区域分布' },
+])
+&lt;/script&gt;
+
+&lt;template&gt;
+  &lt;VueFlow :nodes="nodes" :edges="[]" :fit-view-on-init="true" /&gt;
+&lt;/template&gt;</code></pre>
+
+      <h2 id="compare">4. 选型对比</h2>
+      <table>
+        <tr><th>候选技术</th><th>优缺点</th><th>结论</th></tr>
+        <tr><td><strong>vue-flow（选中）</strong></td><td>Vue 3 官方实现、自由画布 + 缩放平移 + 自定义节点、插件齐全、活跃维护、MIT</td><td>与 BMS 大屏「自由定位 + 图表节点」诉求完全匹配</td></tr>
+        <tr><td>React Flow</td><td>功能最全、生态最大；但绑定 React，Vue 项目不适用</td><td>框架不符，直接排除</td></tr>
+        <tr><td>gridstack.js</td><td>网格布局强（对齐网格 + resize + 响应式）；但大屏要自由定位，网格约束反而碍事</td><td>分工不同：网格布局用 gridstack（见《<a href="gridstack技术介绍.html">gridstack 技术介绍</a>》）</td></tr>
+        <tr><td>D3.js</td><td>底层 SVG/Canvas 能力极强；但画布交互（拖拽/缩放/坐标）要全部自建，学习曲线陡</td><td>杀鸡用牛刀，不选</td></tr>
+        <tr><td>自研绝对定位</td><td>完全可控；但缩放平移、坐标换算、碰撞避让工作量大</td><td>重复造轮子，风险高，不选</td></tr>
+      </table>
+
+      <h2 id="pitfalls">5. 常见问题与注意事项</h2>
+      <ul>
+        <li><strong>与 gridstack 分工</strong>：网格布局用 gridstack、自由画布用 vue-flow，两者互不混用（见《<a href="gridstack技术介绍.html">gridstack 技术介绍</a>》）。</li>
+        <li><strong>节点内 ECharts 生命周期</strong>：节点组件 onMounted 初始化图表、onBeforeUnmount 调 <code>chart.dispose()</code>，防内存泄漏。</li>
+        <li><strong>图表 resize</strong>：节点尺寸变化（node-resizer）时要联动 <code>chart.resize()</code>，否则图表不跟随。</li>
+        <li><strong>坐标系换算</strong>：存位置用 flow 坐标；从鼠标事件取坐标要用 <code>screenToFlowPosition</code>，混用会偏移。</li>
+        <li><strong>插件版本对齐</strong>：<code>@vue-flow/minimap</code>、<code>@vue-flow/controls</code> 等插件包要和 <code>@vue-flow/core</code> 大版本一致。</li>
+        <li><strong>大画布性能</strong>：节点很多时关闭动画、播放态用只读模式，避免交互开销。</li>
+        <li><strong>样式引入</strong>：必须引入 <code>@vue-flow/core/dist/style.css</code> 与 <code>theme-default.css</code>，否则节点/连线样式缺失。</li>
+        <li><strong>升级走评审</strong>：大版本变更走 <a href="../部署与运维/Renovate技术介绍.html">Renovate</a> 提 MR + 回归，重点验证布局 JSON 兼容。</li>
+      </ul>
+
+      <h2 id="learn">6. 学习与参考资料</h2>
+      <table>
+        <tr><th>资源</th><th>网址</th><th>说明</th></tr>
+        <tr><td>Vue Flow 官网</td><td>https://vueflow.dev</td><td>文档、示例与特性入口</td></tr>
+        <tr><td>Vue Flow GitHub</td><td>https://github.com/bcakmakoglu/vue-flow</td><td>源码、API、Changelog 与 issue</td></tr>
+        <tr><td>@vue-flow/core npm</td><td>https://www.npmjs.com/package/@vue-flow/core</td><td>安装与版本历史</td></tr>
+        <tr><td>React Flow 文档</td><td>https://reactflow.dev</td><td>同生态文档，概念与 API 大体相通，可交叉参考</td></tr>
+        <tr><td>Vue 3 官方文档</td><td>https://cn.vuejs.org/</td><td>自定义节点即 Vue 组件，组件机制是基础</td></tr>
+      </table>
+
+      <h2 id="related">7. 项目内关联文档</h2>
+      <table>
+        <tr><th>文档</th><th>说明</th></tr>
+        <tr><td>《<a href="../../规划/项目规划说明.html#stack-frontend">项目规划说明</a>》2.2 节</td><td>前端技术栈（vue-flow 条目）</td></tr>
+        <tr><td>《<a href="../../规划/项目规划说明.html#sel-frontend">项目规划说明</a>》3.2 节</td><td>选型理由：大屏自由画布，与 gridstack 分工明确</td></tr>
+        <tr><td>《<a href="ECharts技术介绍.html">ECharts 技术介绍</a>》</td><td>图表节点渲染（vue-flow 画布 + ECharts 内容）</td></tr>
+        <tr><td>《<a href="gridstack技术介绍.html">gridstack 技术介绍</a>》</td><td>网格布局（与 vue-flow 自由画布分工）</td></tr>
+        <tr><td>《<a href="vuedraggable技术介绍.html">vuedraggable 技术介绍</a>》</td><td>表单设计器列表排序（三者分工之一）</td></tr>
+        <tr><td>《<a href="Vue3技术介绍.html">Vue 3 技术介绍</a>》</td><td>vue-flow 的宿主框架</td></tr>
+        <tr><td>《<a href="../../规范/命名规范.html">命名规范</a>》</td><td>大屏布局 JSON 字段命名</td></tr>
+      </table>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 依《<a href="../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>

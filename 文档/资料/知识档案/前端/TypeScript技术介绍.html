@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TypeScript 技术介绍</title>
+<link rel="stylesheet" href="../../资源/文档样式.css">
+</head>
+<body>
+
+<div class="topnav">
+  <a href="../../../文档首页.html">文档首页</a> ›
+  <a href="../技术栈知识档案总览.html">知识档案</a> ›
+  <a href="../技术栈知识档案总览.html#frontend">前端</a> ›
+  <span>TypeScript 技术介绍</span>
+  <span class="topnav-side">
+    <a href="../技术栈知识档案总览.html">← 返回总览</a>
+  </span>
+</div>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>TypeScript 技术介绍</h1>
+      <p>JavaScript 的超集与静态类型 · 前后端契约一致的桥梁</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#overview">1. 技术概述</a></li>
+        <li><a href="#principles">2. 核心概念与原理</a></li>
+        <li><a href="#usage">3. 在 BMS 项目中的用途</a></li>
+        <li><a href="#compare">4. 选型对比</a></li>
+        <li><a href="#pitfalls">5. 常见问题与注意事项</a></li>
+        <li><a href="#learn">6. 学习与参考资料</a></li>
+        <li><a href="#related">7. 项目内关联文档</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="overview">1. 技术概述</h2>
+      <p>
+        <strong>TypeScript</strong>（简称 TS）是微软开发的开源编程语言，2012 年发布，
+        是 JavaScript 的<strong>超集</strong>：在 JS 基础上增加静态类型系统，编译后输出纯 JavaScript。
+        TS 在编译期发现类型错误，配合编辑器（VS Code 原生支持）即时提示，显著降低大型项目协作成本。
+        截至 2026 年，TS（5.x 系列）已成为前端工程的事实标准。
+      </p>
+      <ul>
+        <li><strong>定位</strong>：BMS 前端类型安全基础，也是前后端契约自动生成的落点。</li>
+        <li><strong>版本</strong>：5.x 系列（截至 2026 年，持续迭代）。</li>
+        <li><strong>许可</strong>：Apache-2.0，OSI 认证开源。</li>
+        <li><strong>运行方式</strong>：类型在编译期被擦除，运行时仍是 JavaScript（Vite 负责编译，vue-tsc 负责类型检查）。</li>
+      </ul>
+
+      <h2 id="principles">2. 核心概念与原理</h2>
+      <table>
+        <tr><th>概念</th><th>说明</th></tr>
+        <tr><td>静态类型</td><td>变量、函数、组件 props 都声明类型，编译期检查错误，IDE 补全与重构更安全</td></tr>
+        <tr><td>接口与类型别名</td><td><code>interface</code> 描述对象结构、<code>type</code> 定义联合/交叉等复杂类型，接口可被类实现、可合并</td></tr>
+        <tr><td>泛型（Generics）</td><td>类型参数化复用：<code>&lt;T&gt;</code> 让函数/组件适配多种类型而不丢失类型信息</td></tr>
+        <tr><td>类型推断</td><td>TS 能根据赋值自动推断类型，不必处处手写注解</td></tr>
+        <tr><td>unknown / any / never</td><td>unknown 是安全的未知类型（用前必须收窄）、any 关闭检查（应避免）、never 表示不可能的值</td></tr>
+        <tr><td>联合 / 交叉类型</td><td>联合 <code>A | B</code>（或）、交叉 <code>A &amp; B</code>（合并），描述组合场景</td></tr>
+        <tr><td>工具类型</td><td>Partial/Pick/Omit/Record/ReturnType 等内置类型运算，大量场景免手写</td></tr>
+        <tr><td>tsconfig.json</td><td>工程编译配置：strict 严格模式、target、paths 别名映射、include 范围等</td></tr>
+        <tr><td>声明文件 .d.ts</td><td>为 JS 库补充类型描述；npm 包通常带类型或由 @types/xx 提供</td></tr>
+        <tr><td>类型擦除与编译</td><td>tsc/vue-tsc 只做检查与转译，类型不产生运行时开销——也意味着类型不参与运行时校验</td></tr>
+      </table>
+
+      <h2 id="usage">3. 在 BMS 项目中的用途</h2>
+      <ul>
+        <li><strong>前后端契约自动生成</strong>：与后端 Pydantic schema 经 <strong>openapi-typescript</strong> 由 OpenAPI schema 自动生成 TS 类型，后端改了参数定义，前端类型同步更新，保持前后端契约一致（见《<a href="../../规划/项目规划说明.html#sel-frontend">项目规划说明</a>》3.2 节）。</li>
+        <li><strong>严格模式</strong>：tsconfig 开启 strict，全项目统一类型纪律，CI 中以 vue-tsc 做类型检查门禁。</li>
+        <li><strong>Vue 3 组合式 API 类型化</strong>：defineProps/defineEmits 泛型写法，组件间通信契约在编译期保证（见《<a href="Vue3技术介绍.html">Vue 3 技术介绍</a>》）。</li>
+        <li><strong>接口层类型共享</strong>：api/ 目录中接口函数入参出参直接引用生成的契约类型，联调阶段少一半"字段对不上"问题。</li>
+        <li><strong>双工程统一语言</strong>：frontend 与 frontend-mobile 均以 TS 编写，<a href="Axios技术介绍.html">Axios</a>、<a href="Pinia技术介绍.html">Pinia</a>、<a href="vue-i18n技术介绍.html">vue-i18n</a> 等库本身即 TS 友好。</li>
+        <li><strong>与 ESLint 配合</strong>：typescript-eslint 解析器让 lint 覆盖类型相关规则（见《<a href="../工程化与质量/ESLint与Prettier技术介绍.html">ESLint 与 Prettier 技术介绍</a>》）。</li>
+      </ul>
+
+      <p>最小示例（类型注解）：</p>
+      <pre><code>interface User {
+  id: number
+  username: string
+  locale: 'zh-CN' | 'en-US'
+}
+
+function getDisplayName(user: User): string {
+  return user.username
+}</code></pre>
+
+      <h2 id="compare">4. 选型对比</h2>
+      <table>
+        <tr><th>方案</th><th>优缺点</th><th>结论</th></tr>
+        <tr><td><strong>TypeScript（选中）</strong></td><td>类型安全、生态最大（Vue/Element Plus/Pinia 全支持）、IDE 支持最好</td><td>前端工程事实标准，与项目契约自动生成目标契合</td></tr>
+        <tr><td>纯 JavaScript</td><td>零学习成本，但大型项目重构与协作风险高，字段错误只能运行时暴露</td><td>不满足多人协作与契约一致性要求</td></tr>
+        <tr><td>Flow</td><td>Meta 出品的类型方案，功能相近</td><td>已基本停止维护，生态凋零</td></tr>
+        <tr><td>JSDoc 类型标注</td><td>纯 JS 文件内写注释类型，无需编译</td><td>能力有限、繁琐，复杂类型不可靠，不适合整库约束</td></tr>
+      </table>
+
+      <h2 id="pitfalls">5. 常见问题与注意事项</h2>
+      <ul>
+        <li><strong>any 滥用</strong>：any 会关闭类型检查并把错误扩散到整个调用链，属代码评审红线；未知数据用 unknown 收窄。</li>
+        <li><strong>类型只在编译期</strong>：TS 类型不做运行时校验，接口返回的脏数据仍可能类型不符——真正的运行时校验在后端 Pydantic，前端类型是"契约约束"而非"防御层"。</li>
+        <li><strong>as 断言滥用</strong>：<code>as</code> 强转会绕过类型检查，用错位置（如把响应数据盲目 as）等于放弃类型保护。</li>
+        <li><strong>别名映射同步</strong>：tsconfig paths 的 <code>@</code> 别名必须与 vite.config.ts 的 alias 一致，否则 IDE 与构建行为不一致（见《<a href="Vite技术介绍.html">Vite 技术介绍</a>》）。</li>
+        <li><strong>第三方库缺类型</strong>：少数组件库/工具库无内置类型，装 @types/xx 或写局部声明文件，禁止用 any 糊过去。</li>
+        <li><strong>枚举与常量</strong>：TS enum 有运行时对象与"数字枚举反向映射"等历史问题，项目内约定用 <code>as const</code> 对象 + 联合类型更可控。</li>
+        <li><strong>类型自动生成物不手改</strong>：openapi-typescript 生成的契约文件是机器产物，提交到仓库但禁止手改，后端变更后重新生成。</li>
+      </ul>
+
+      <h2 id="learn">6. 学习与参考资料</h2>
+      <table>
+        <tr><th>资源</th><th>网址</th><th>说明</th></tr>
+        <tr><td>TypeScript 官方文档（中文）</td><td>https://www.typescriptlang.org/zh/</td><td>官方中文手册与参考</td></tr>
+        <tr><td>TypeScript 官方文档（英文）</td><td>https://www.typescriptlang.org/</td><td>英文原版，内容最新</td></tr>
+        <tr><td>TypeScript GitHub 仓库</td><td>https://github.com/microsoft/TypeScript</td><td>源码与 issue，可查各版本 Changelog</td></tr>
+        <tr><td>openapi-typescript</td><td>https://openapi-ts.dev/</td><td>OpenAPI schema → TS 类型生成工具（契约自动生成依赖）</td></tr>
+        <tr><td>TypeScript 官方 Playground</td><td>https://www.typescriptlang.org/play/</td><td>在线试验类型写法，调试类型表达式利器</td></tr>
+        <tr><td>typescript-eslint</td><td>https://typescript-eslint.io/</td><td>TS 的 ESLint 解析与规则集</td></tr>
+      </table>
+
+      <h2 id="related">7. 项目内关联文档</h2>
+      <table>
+        <tr><th>文档</th><th>说明</th></tr>
+        <tr><td>《<a href="../../规划/项目规划说明.html#stack-frontend">项目规划说明</a>》2.2 节</td><td>前端技术栈（TypeScript 条目）</td></tr>
+        <tr><td>《<a href="../../规划/项目规划说明.html#sel-frontend">项目规划说明</a>》3.2 节</td><td>契约一致目标：openapi-typescript 自动生成类型</td></tr>
+        <tr><td>《<a href="../../规范/前端开发规范.html">前端开发规范</a>》</td><td>TS 写法约定与严格模式要求</td></tr>
+        <tr><td>《<a href="../后端核心/FastAPI技术介绍.html">FastAPI 技术介绍</a>》</td><td>OpenAPI schema 的产出方（Swagger 文档）</td></tr>
+        <tr><td>《<a href="../后端核心/Pydantic技术介绍.html">Pydantic 技术介绍</a>》</td><td>后端 schema 定义，TS 类型的上游</td></tr>
+        <tr><td>《<a href="../工程化与质量/SwaggerUI与ReDoc技术介绍.html">Swagger UI 技术介绍</a>》</td><td>契约快照（swagger.json）导出与查看</td></tr>
+        <tr><td>《<a href="Vue3技术介绍.html">Vue 3 技术介绍</a>》</td><td>TS 化组件写法（defineProps 泛型）</td></tr>
+      </table>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 依《<a href="../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>

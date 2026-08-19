@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RocketMQ 技术介绍</title>
+<link rel="stylesheet" href="../../../资源/文档样式.css">
+</head>
+<body>
+
+<div class="topnav">
+  <a href="../../../文档首页.html">文档首页</a> ›
+  <a href="../技术栈知识档案总览.html">知识档案</a> ›
+  <a href="../技术栈知识档案总览.html#backend">后端核心</a> ›
+  <span>RocketMQ 技术介绍</span>
+  <span class="topnav-side">
+    <a href="../技术栈知识档案总览.html">← 返回总览</a>
+  </span>
+</div>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>RocketMQ 技术介绍</h1>
+      <p>Apache 顶级消息队列 · BMS 事件总线底座</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#overview">1. 技术概述</a></li>
+        <li><a href="#principles">2. 核心概念与原理</a></li>
+        <li><a href="#usage">3. 在 BMS 项目中的用途</a></li>
+        <li><a href="#compare">4. 选型对比</a></li>
+        <li><a href="#pitfalls">5. 常见问题与注意事项</a></li>
+        <li><a href="#learn">6. 学习与参考资料</a></li>
+        <li><a href="#related">7. 项目内关联文档</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="overview">1. 技术概述</h2>
+      <p>
+        <strong>Apache RocketMQ</strong> 是 Apache 软件基金会的顶级项目，一个分布式消息队列与流平台。
+        它源自阿里巴巴高并发、高可用的电商生产环境（双十一等场景），
+        主打<strong>低延迟、高吞吐、可靠 FIFO 顺序消息、事务消息</strong>，具备百万级消息堆积能力。
+      </p>
+      <ul>
+        <li><strong>定位</strong>：BMS 的<strong>事件总线</strong>底座——操作日志异步化、Webhook 推送、审计链按租户分区有序消费、模块解耦。</li>
+        <li><strong>版本</strong>：5.x（RocketMQ 5.0 起引入 gRPC 协议与计算存储分离架构；截至 2026 年最新 5.5.0）。</li>
+        <li><strong>许可</strong>：Apache-2.0，OSI 认证开源，商用无限制。</li>
+        <li><strong>架构</strong>：nameserver + broker 两角色（见下节）。</li>
+        <li><strong>语言</strong>：服务端 Java 编写；提供 Java / Go / Python / C++ / Rust 多语言 SDK。</li>
+      </ul>
+
+      <h2 id="principles">2. 核心概念与原理</h2>
+      <table>
+        <tr><th>概念</th><th>一句话说明</th></tr>
+        <tr><td>Nameserver</td><td>轻量级名称服务器：管理 broker 的路由信息（哪些 broker、有哪些 topic/queue），无状态、可多副本，客户端定期拉取路由</td></tr>
+        <tr><td>Broker</td><td>核心节点：负责消息的存储、转发与消费管理，是消息真正落盘的地方，需持久化与高可用部署</td></tr>
+        <tr><td>Topic</td><td>消息主题：消息的逻辑分类，生产者发到 topic、消费者订阅 topic</td></tr>
+        <tr><td>Queue（队列/分区）</td><td>topic 下的物理分区：顺序消息在同一 queue 内严格有序，多 queue 用于并行与扩展</td></tr>
+        <tr><td>Producer</td><td>消息生产者：把业务事件封装成消息发到 topic</td></tr>
+        <tr><td>PushConsumer / SimpleConsumer</td><td>两种消费模式：Push 由服务端推送、Simple 由客户端主动拉取，5.x 均基于 gRPC</td></tr>
+        <tr><td>分区有序消息（FIFO）</td><td>同一 queue 内消息严格先进先出：BMS 用它保证同一租户的审计记录顺序</td></tr>
+        <tr><td>事务消息</td><td>「半消息 + 回查」机制：保证消息发送与本地事务一致，本地事务回滚则消息作废，兜底防「发了消息但事务没提交」</td></tr>
+        <tr><td>消息轨迹（Trace）</td><td>消息全链路追踪：记录一条消息从生产到消费经过的每个节点，便于排查</td></tr>
+        <tr><td>死信队列（DLQ）</td><td>消费多次失败的消息最终转入死信队列，人工介入处理，不丢消息</td></tr>
+        <tr><td>事件总线</td><td>以 RocketMQ 为底座的事件分发中枢：系统内各处事件统一发布（publish）、订阅消费（subscribe），实现模块解耦</td></tr>
+      </table>
+
+      <h2 id="usage">3. 在 BMS 项目中的用途</h2>
+      <p>
+        RocketMQ 在 BMS 里承担<strong>事件总线</strong>角色，是「模块之间异步通信」的主干道。
+        核心思路：业务动作发生后不直接调用下游，而是发一条事件消息，下游按需订阅消费，从而解耦、削峰、可追溯。
+      </p>
+      <ul>
+        <li><strong>操作日志异步化</strong>：操作日志、登录日志经 RocketMQ 异步写入，降低主库写压力（见《<a href="../../../规划/项目规划说明.html#perf">项目规划说明</a>》14 节）。</li>
+        <li><strong>Webhook 推送</strong>：事件发生后经事件总线异步推送至外部系统注册的 URL，HMAC 签名校验、指数退避重试、失败记录（见《<a href="../../../规划/项目规划说明.html#integ-in">项目规划说明</a>》9.2 节）。</li>
+        <li><strong>审计链分区有序消费</strong>：审计类日志（操作/登录/开放接口/数据变更）逐条哈希串联成链，写入经 RocketMQ <strong>按租户分区有序消费</strong>保证链序，防篡改（见《<a href="../../../规划/项目规划说明.html#audit">项目规划说明</a>》13 节）。</li>
+        <li><strong>模块解耦</strong>：事件命名 <code>{域}.{动作}</code>（如 <code>wf.instance.started</code>、<code>purchase.order.created</code>），各模块按事件名订阅，互不感知（见《<a href="../../../规划/项目规划说明.html#integ-event">项目规划说明</a>》9.3 节）。</li>
+        <li><strong>全文检索数据同步</strong>：ElasticSearch 索引数据走 RocketMQ 事件驱动异步消费（独立 event-worker 进程），索引重建时重放事件。</li>
+        <li><strong>AI 管线事件驱动</strong>：embedding 管线、帮助文档智能维护等经 RocketMQ 事件驱动（阶段十五）。</li>
+        <li><strong>事务消息兜底</strong>：关键业务「本地事务 + 发消息」用事务消息保证一致性。</li>
+      </ul>
+      <div class="note">
+        重要边界：RocketMQ 只作<strong>事件总线</strong>，不作 Celery 的 broker。
+        因为 Celery 官方不支持 RocketMQ broker，定时任务 Celery 的 broker 用 Redis（官方支持，复用现有 Redis），
+        事件总线与任务队列两条链路解耦（见《<a href="Celery技术介绍.html">Celery 技术介绍</a>》）。
+      </div>
+
+      <h2 id="compare">4. 选型对比</h2>
+      <table>
+        <tr><th>候选技术</th><th>优缺点</th><th>结论</th></tr>
+        <tr><td><strong>RocketMQ（选中）</strong></td><td>Apache 顶级、分区有序消息、事务消息、生态完整、阿里生产验证；Python SDK 可用</td><td>分区有序契合审计链，事务消息兜底，保留生态扩展空间，首选</td></tr>
+        <tr><td>Kafka</td><td>吞吐极高、流处理强；但顺序按分区、事务模型不同、运维偏重，Python 生态弱</td><td>本项目消息量级未到 Kafka 场景，引入成本高、收益不明显</td></tr>
+        <tr><td>RabbitMQ</td><td>功能全、协议灵活（AMQP）；但无原生分区有序、非流平台、集群运维复杂</td><td>顺序保证与流式能力不足，不契合审计链有序需求</td></tr>
+        <tr><td>Redis 作消息队列</td><td>轻量、已在栈内；但持久化弱、无顺序/事务/堆积保证，更适合做 Celery broker</td><td>用作 Celery broker 合适，但不足以承担事件总线</td></tr>
+      </table>
+
+      <h2 id="pitfalls">5. 常见问题与注意事项</h2>
+      <ul>
+        <li><strong>别拿它当 Celery broker</strong>：Celery 官方不支持 RocketMQ broker，强行接会踩坑；Celery broker 用 Redis，两条链路解耦。</li>
+        <li><strong>nameserver 与 broker 角色分清</strong>：nameserver 无状态可多副本（只存路由），broker 有状态需持久化与高可用，部署时别混淆。</li>
+        <li><strong>分区有序要路由到同一分区</strong>：要让同一租户的审计消息有序，必须把该租户的消息路由到同一 queue（按租户做分区键），否则顺序不保证。</li>
+        <li><strong>消费要幂等</strong>：消息可能重复投递（网络抖动、重平衡），消费者必须按业务 ID 去重，保证幂等。</li>
+        <li><strong>事务消息回查机制</strong>：用事务消息要实现「回查」接口，broker 会反向询问本地事务最终状态，漏实现会导致消息悬挂。</li>
+        <li><strong>关注消息堆积</strong>：消费能力不足会堆积，需监控堆积量并告警；死信队列的消息要有人工处理流程。</li>
+        <li><strong>Python SDK 选型</strong>：Python 侧用 <code>rocketmq-client-python</code>（基于 C++ 客户端），注意其与 5.x gRPC 协议的兼容版本，阶段一验证。</li>
+        <li><strong>消息体控制</strong>：消息只放事件元数据（业务 ID + 关键字段），详情让消费者回查数据库，避免大消息与双写一致性问题。</li>
+      </ul>
+
+      <h2 id="learn">6. 学习与参考资料</h2>
+      <table>
+        <tr><th>资源</th><th>网址</th><th>说明</th></tr>
+        <tr><td>RocketMQ 官网</td><td>https://rocketmq.apache.org/</td><td>官方首页，特性与版本信息</td></tr>
+        <tr><td>RocketMQ 官方文档</td><td>https://rocketmq.apache.org/docs/</td><td>概念、部署、API 权威文档</td></tr>
+        <tr><td>RocketMQ GitHub</td><td>https://github.com/apache/rocketmq</td><td>源码、issue 与 release notes</td></tr>
+        <tr><td>RocketMQ 快速入门</td><td>https://rocketmq.apache.org/quick-start/</td><td>最短路径跑通生产/消费</td></tr>
+        <tr><td>事件总线事件模型</td><td>《<a href="../../../规划/项目规划说明.html#integ-event">项目规划说明</a>》9.3 节</td><td>BMS 事件命名规范与默认事件清单</td></tr>
+      </table>
+
+      <h2 id="related">7. 项目内关联文档</h2>
+      <table>
+        <tr><th>文档</th><th>说明</th></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#integ-event">项目规划说明</a>》9.3 节</td><td>事件总线事件模型：事件命名与默认清单</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#audit">项目规划说明</a>》13 节</td><td>审计合规：哈希链防篡改、分区有序消费</td></tr>
+        <tr><td>《<a href="../../../规划/项目规划说明.html#datasource">项目规划说明</a>》10 节</td><td>多数据源策略：分库分表与日志异步写入</td></tr>
+        <tr><td>《<a href="Celery技术介绍.html">Celery 技术介绍</a>》</td><td>任务队列：与事件总线解耦，broker 用 Redis</td></tr>
+        <tr><td>《<a href="Redis技术介绍.html">Redis 技术介绍</a>》</td><td>Celery broker 与共享缓存源</td></tr>
+        <tr><td>《<a href="../../../规范/日志规范.html">日志规范</a>》</td><td>操作日志异步化与落库约定</td></tr>
+        <tr><td>《<a href="../../../规划/开发部署规划.html">开发部署规划</a>》</td><td>RocketMQ（nameserver + broker）编排部署</td></tr>
+      </table>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 依《<a href="../../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>

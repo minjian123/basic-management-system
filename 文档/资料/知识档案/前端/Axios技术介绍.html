@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Axios 技术介绍</title>
+<link rel="stylesheet" href="../../资源/文档样式.css">
+</head>
+<body>
+
+<div class="topnav">
+  <a href="../../../文档首页.html">文档首页</a> ›
+  <a href="../技术栈知识档案总览.html">知识档案</a> ›
+  <a href="../技术栈知识档案总览.html#frontend">前端</a> ›
+  <span>Axios 技术介绍</span>
+  <span class="topnav-side">
+    <a href="../技术栈知识档案总览.html">← 返回总览</a>
+  </span>
+</div>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>Axios 技术介绍</h1>
+      <p>Promise 风格的 HTTP 客户端 · BMS 前端统一请求层</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#overview">1. 技术概述</a></li>
+        <li><a href="#principles">2. 核心概念与原理</a></li>
+        <li><a href="#usage">3. 在 BMS 项目中的用途</a></li>
+        <li><a href="#compare">4. 选型对比</a></li>
+        <li><a href="#pitfalls">5. 常见问题与注意事项</a></li>
+        <li><a href="#learn">6. 学习与参考资料</a></li>
+        <li><a href="#related">7. 项目内关联文档</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="overview">1. 技术概述</h2>
+      <p>
+        <strong>Axios</strong> 是一个基于 Promise 的 HTTP 客户端，浏览器与 Node.js 环境都能用，
+        由 Matt Zabriskie 于 2014 年发布，主打<strong>拦截器</strong>、<strong>自动 JSON 转换</strong>与
+        <strong>请求取消</strong>。截至 2026 年，Axios（1.19.0）仍是 Vue/React 生态中使用最广的
+        HTTP 库之一，周下载量过亿。
+      </p>
+      <ul>
+        <li><strong>定位</strong>：BMS 前端（PC 管理端 frontend 与移动端 frontend-mobile）的统一 HTTP 客户端，所有接口请求都经它发出。</li>
+        <li><strong>版本</strong>：1.x 系列（1.19.0，截至 2026 年，持续迭代）。</li>
+        <li><strong>许可</strong>：MIT，OSI 认证开源。</li>
+        <li><strong>语言</strong>：TypeScript 编写，自带类型定义。</li>
+      </ul>
+
+      <h2 id="principles">2. 核心概念与原理</h2>
+      <table>
+        <tr><th>概念</th><th>说明</th></tr>
+        <tr><td>Promise API</td><td>所有请求返回 Promise，可用 <code>async/await</code> 串写，无需回调地狱</td></tr>
+        <tr><td>请求拦截器</td><td><code>interceptors.request</code>：请求发出前的钩子，BMS 用它统一注入 access token</td></tr>
+        <tr><td>响应拦截器</td><td><code>interceptors.response</code>：响应返回后的钩子，BMS 用它统一解包、处理 401 刷新与错误提示</td></tr>
+        <tr><td>自动 JSON 转换</td><td>请求体对象自动序列化为 JSON、响应 JSON 自动解析为对象，省去手动 <code>JSON.stringify/parse</code></td></tr>
+        <tr><td>请求取消</td><td>基于 <code>AbortController</code>，组件卸载或重复请求时可取消在途请求，防竞态</td></tr>
+        <tr><td>超时控制</td><td><code>timeout</code> 配置毫秒数，超时自动 reject，避免请求长时间挂起</td></tr>
+        <tr><td>baseURL</td><td>统一前缀（如 <code>/api/v1</code>），各接口只写相对路径，便于环境与网关切换</td></tr>
+        <tr><td>XSRF 防护</td><td>自动从 cookie 读取 <code>XSRF-TOKEN</code> 写入请求头，配合后端双重提交校验</td></tr>
+        <tr><td>错误对象</td><td>失败时抛 <code>AxiosError</code>，含 <code>status</code>、<code>data</code>（后端统一响应体），便于按错误码分支处理</td></tr>
+        <tr><td>实例隔离</td><td><code>axios.create()</code> 创建独立实例，各自持有 baseURL、拦截器，BMS 按端（PC/移动）分别封装</td></tr>
+      </table>
+
+      <h2 id="usage">3. 在 BMS 项目中的用途</h2>
+      <ul>
+        <li><strong>统一请求封装</strong>：请求拦截器注入 access token、处理 401 刷新；响应拦截器统一错误提示（见《<a href="../../规划/项目规划说明.html#sel-frontend">项目规划说明</a>》3.2 节）。</li>
+        <li><strong>与后端统一响应格式配合</strong>：后端返回固定结构（code/message/data + 5 位错误码），响应拦截器按 code 分支——成功取 data、失败弹 ElMessage 并按错误码跳转（见《<a href="../../规范/API接口规范.html">API 接口规范</a>》）。</li>
+        <li><strong>双端复用</strong>：frontend 与 frontend-mobile 各自封装一份 Axios 实例，逻辑一致、配置独立（见《<a href="npm技术介绍.html">npm 技术介绍</a>》双工程独立约定）。</li>
+        <li><strong>认证链路</strong>：access token 存内存、refresh token 走 httpOnly cookie；401 时静默刷新并重放原请求，用户无感（见《<a href="../后端核心/JWT与PBKDF2技术介绍.html">JWT 与 PBKDF2 技术介绍</a>》）。</li>
+        <li><strong>上传/下载</strong>：文件分片上传、预签名 URL 下载均经 Axios 发出，统一携带 token 与超时。</li>
+      </ul>
+
+      <p>最小示例（统一封装骨架）：</p>
+      <pre><code>import axios from 'axios'
+import { ElMessage } from 'element-plus'
+
+const http = axios.create({ baseURL: '/api/v1', timeout: 15000 })
+
+// 请求拦截器：注入 access token
+http.interceptors.request.use((config) =&gt; {
+  const token = useAuthStore().accessToken
+  if (token) config.headers.Authorization = `Bearer ${token}`
+  return config
+})
+
+// 响应拦截器：统一解包 + 错误提示
+http.interceptors.response.use(
+  (res) =&gt; res.data,
+  async (err) =&gt; {
+    if (err.response?.status === 401) await refreshAndRetry(err)
+    ElMessage.error(err.response?.data?.message ?? '网络异常')
+    return Promise.reject(err)
+  },
+)</code></pre>
+
+      <h2 id="compare">4. 选型对比</h2>
+      <table>
+        <tr><th>候选技术</th><th>优缺点</th><th>结论</th></tr>
+        <tr><td><strong>Axios（选中）</strong></td><td>拦截器成熟、浏览器/Node 通用、生态与资料最全、TS 类型好</td><td>与 BMS 统一封装、双端复用诉求完全匹配</td></tr>
+        <tr><td>fetch（浏览器原生）</td><td>零依赖、标准原生；但无拦截器、无自动 JSON、取消与超时需自行封装</td><td>统一封装成本高，团队习惯 Axios 写法</td></tr>
+        <tr><td>ky</td><td>API 贴近 fetch、体积小；但生态与中文资料少于 Axios</td><td>可选但非生态最优，暂不引入</td></tr>
+        <tr><td>got / node-fetch</td><td>Node 侧能力强；但面向服务端，浏览器场景不占优</td><td>与前端双端统一目标不符</td></tr>
+      </table>
+
+      <h2 id="pitfalls">5. 常见问题与注意事项</h2>
+      <ul>
+        <li><strong>401 并发刷新</strong>：多个请求同时 401 时只能刷新一次 refresh token，其余请求排队等待刷新结果后重放，否则会互相踢下线。</li>
+        <li><strong>token 不落日志</strong>：拦截器里别把 Authorization 头打进 console 或上报，避免泄露。</li>
+        <li><strong>超时与重试要区分</strong>：幂等 GET 可自动重试，写操作（POST/PUT）禁止盲目重试，防重复提交。</li>
+        <li><strong>请求取消防竞态</strong>：列表搜索、页面切换时用 AbortController 取消在途请求，避免旧响应覆盖新数据。</li>
+        <li><strong>表单与 JSON 别混</strong>：文件上传用 <code>multipart/form-data</code>（别手动设 Content-Type，交给浏览器带 boundary）。</li>
+        <li><strong>拦截器顺序</strong>：请求拦截器按注册逆序执行、响应拦截器按正序执行，多个拦截器时注意先后。</li>
+        <li><strong>升级注意破坏性变更</strong>：1.x 内个别默认行为调整（如跨域 XSRF 头），升级走 <a href="../部署与运维/Renovate技术介绍.html">Renovate</a> 提 MR + 全量回归。</li>
+      </ul>
+
+      <h2 id="learn">6. 学习与参考资料</h2>
+      <table>
+        <tr><th>资源</th><th>网址</th><th>说明</th></tr>
+        <tr><td>Axios 官方文档</td><td>https://axios-http.com</td><td>权威文档，含完整 API 与示例</td></tr>
+        <tr><td>Axios GitHub 仓库</td><td>https://github.com/axios/axios</td><td>源码、Changelog 与 issue 讨论</td></tr>
+        <tr><td>MDN：fetch API</td><td>https://developer.mozilla.org/zh-CN/docs/Web/API/Fetch_API</td><td>对照理解原生 fetch 与 Axios 差异</td></tr>
+        <tr><td>AbortController</td><td>https://developer.mozilla.org/zh-CN/docs/Web/API/AbortController</td><td>请求取消底层机制</td></tr>
+        <tr><td>阮一峰：网络请求</td><td>https://www.ruanyifeng.com/blog/</td><td>HTTP 与请求流程通俗讲解</td></tr>
+      </table>
+
+      <h2 id="related">7. 项目内关联文档</h2>
+      <table>
+        <tr><th>文档</th><th>说明</th></tr>
+        <tr><td>《<a href="../../规划/项目规划说明.html#stack-frontend">项目规划说明</a>》2.2 节</td><td>前端技术栈（Axios 条目）</td></tr>
+        <tr><td>《<a href="../../规划/项目规划说明.html#sel-frontend">项目规划说明</a>》3.2 节</td><td>选型理由：统一封装请求/响应拦截器</td></tr>
+        <tr><td>《<a href="../../规范/API接口规范.html">API 接口规范</a>》</td><td>统一响应结构、5 位错误码、幂等与限流约定</td></tr>
+        <tr><td>《<a href="../后端核心/JWT与PBKDF2技术介绍.html">JWT 与 PBKDF2 技术介绍</a>》</td><td>access/refresh token 机制，401 刷新链路</td></tr>
+        <tr><td>《<a href="ElementPlus技术介绍.html">Element Plus 技术介绍</a>》</td><td>响应拦截器统一错误提示（ElMessage）</td></tr>
+        <tr><td>《<a href="npm技术介绍.html">npm 技术介绍</a>》</td><td>双工程依赖独立、CI 锁定安装</td></tr>
+      </table>
+
+    </main>
+
+    <footer>
+      本文档为 AI 生成 · 依《<a href="../../规范/文档生成规范.html">文档生成规范</a>》编写 · 生成日期：2026-08-19
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>
