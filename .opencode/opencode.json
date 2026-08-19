@@ -16,18 +16,17 @@
         "qwen3.8-27b": {
           "id": "qwen/qwen3.8-27b",
           "name": "qwen3.8-27b 本地多模态",
+          "limit": {
+            "context": 131072,
+            "output": 131072
+          },
           "tool_call": true,
           "reasoning": true,
           "attachment": true,
-          "temperature": true
-        },
-        "qwen/qwen3.8-27b:2": {
-          "id": "qwen/qwen3.8-27b:2",
-          "name": "qwen3.8-27b:2 本地多模态",
-          "tool_call": true,
-          "reasoning": true,
-          "attachment": true,
-          "temperature": true
+          "modalities": {
+            "input": ["text", "image"],
+            "output": ["text"]
+          }
         }
       }
     }
