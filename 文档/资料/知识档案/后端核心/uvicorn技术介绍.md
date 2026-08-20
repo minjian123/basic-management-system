@@ -2,7 +2,7 @@
 
 > ASGI 服务器 · BMS 后端核心
 
-[文档首页](../../../文档首页.html) › [知识档案](../技术栈知识档案总览.md) › [后端核心](../技术栈知识档案总览.md#backend) › uvicorn 技术介绍　|　[← 返回总览](../技术栈知识档案总览.md)
+[文档首页](../../../文档首页.md) › [知识档案](../技术栈知识档案总览.md) › [后端核心](../技术栈知识档案总览.md#backend) › uvicorn 技术介绍　|　[← 返回总览](../技术栈知识档案总览.md)
 
 ---
 
@@ -34,11 +34,11 @@
 
 ## 3. 在 BMS 项目中的用途 <a id="usage"></a>
 
-- 作为唯一 ASGI 服务器承载 FastAPI，开发命令：`uv run uvicorn app.main:app --reload --port 8000`（见《[开发部署规划](../../../规划/开发部署规划.html)》5.3 节）。
-- **多 worker 部署**：生产按规划以多 worker 运行（如 4 worker），并通过 nginx 反向代理统一入口（见《[项目规划说明》14 节](../../../规划/项目规划说明.html#perf)）。
+- 作为唯一 ASGI 服务器承载 FastAPI，开发命令：`uv run uvicorn app.main:app --reload --port 8000`（见《[开发部署规划](../../../规划/开发部署规划.md)》5.3 节）。
+- **多 worker 部署**：生产按规划以多 worker 运行（如 4 worker），并通过 nginx 反向代理统一入口（见《[项目规划说明》14 节](../../../规划/项目规划说明.md#perf)）。
 - 支持 HTTP/WebSocket：普通 REST 接口与 python-socketio 实时推送共用同一 uvicorn 进程。
-- **连接池规划联动**：数据库连接池大小按 worker 数规划，确保 `总连接数 = worker × (pool_size + max_overflow) ≤ 数据库 max_connections 的 70%`（见《[项目规划说明》14 节](../../../规划/项目规划说明.html#perf)）。
-- 容器化部署时由 Docker Compose 启动 backend 多副本（见《[项目规划说明》19.3 节](../../../规划/项目规划说明.html#deploy-compose)）。
+- **连接池规划联动**：数据库连接池大小按 worker 数规划，确保 `总连接数 = worker × (pool_size + max_overflow) ≤ 数据库 max_connections 的 70%`（见《[项目规划说明》14 节](../../../规划/项目规划说明.md#perf)）。
+- 容器化部署时由 Docker Compose 启动 backend 多副本（见《[项目规划说明》19.3 节](../../../规划/项目规划说明.md#deploy-compose)）。
 - 健康检查 `/healthz`、`/readyz` 由 uvicorn 提供 HTTP 入口，供编排与监控探测。
 
 ## 4. 选型对比 <a id="compare"></a>
@@ -74,14 +74,14 @@
 
 | 文档 | 说明 |
 | --- | --- |
-| 《[项目规划说明》2.1 节](../../../规划/项目规划说明.html#stack-backend) | 技术栈：ASGI 服务器条目（多 worker 部署） |
-| 《[项目规划说明》14 节](../../../规划/项目规划说明.html#perf) | worker 数与数据库连接池规划口径 |
-| 《[项目规划说明》19.3 节](../../../规划/项目规划说明.html#deploy-compose) | Docker Compose：backend 多副本编排 |
+| 《[项目规划说明》2.1 节](../../../规划/项目规划说明.md#stack-backend) | 技术栈：ASGI 服务器条目（多 worker 部署） |
+| 《[项目规划说明》14 节](../../../规划/项目规划说明.md#perf) | worker 数与数据库连接池规划口径 |
+| 《[项目规划说明》19.3 节](../../../规划/项目规划说明.md#deploy-compose) | Docker Compose：backend 多副本编排 |
 | 《[FastAPI 技术介绍](FastAPI技术介绍.md)》 | 被承载的 Web 框架 |
 | 《[SQLAlchemy 技术介绍](SQLAlchemy技术介绍.md)》 | 连接池大小与 worker 数的联动规划 |
 | 《[nginx 技术介绍](../部署与运维/nginx技术介绍.md)》 | 反向代理与 TLS 终止，uvicorn 前端网关 |
-| 《[部署发布规范](../../../规范/部署发布规范.html)》 | 生产部署的启动参数与优雅停机要求 |
+| 《[部署发布规范](../../../规范/部署发布规范.md)》 | 生产部署的启动参数与优雅停机要求 |
 
 ---
 
-> 本文档为 AI 生成 · 依《[文档生成规范](../../../规范/文档生成规范.html)》编写 · 生成日期：2026-08-19
+> 本文档为 AI 生成 · 依《[文档生成规范](../../../规范/文档生成规范.md)》编写 · 生成日期：2026-08-19

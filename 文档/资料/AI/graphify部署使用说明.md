@@ -2,7 +2,7 @@
 
 > Windows 环境 · 基于 graphify 0.9.42
 
-[文档首页](../../文档首页.html) › 资料 › graphify 部署与使用说明
+[文档首页](../../文档首页.md) › 资料 › graphify 部署与使用说明
 
 ## 1. 什么是 graphify <a id="intro"></a>
 

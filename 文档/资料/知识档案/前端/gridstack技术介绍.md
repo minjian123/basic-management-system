@@ -2,7 +2,7 @@
 
 > 框架无关的网格拖拽布局库 · BMS 工作台与报表设计器布局基础
 
-[文档首页](../../../文档首页.html) › [知识档案](../技术栈知识档案总览.md) › [前端](../技术栈知识档案总览.md#frontend) › gridstack.js 技术介绍　|　[← 返回总览](../技术栈知识档案总览.md)
+[文档首页](../../../文档首页.md) › [知识档案](../技术栈知识档案总览.md) › [前端](../技术栈知识档案总览.md#frontend) › gridstack.js 技术介绍　|　[← 返回总览](../技术栈知识档案总览.md)
 
 ---
 
@@ -36,8 +36,8 @@
 
 ## 3. 在 BMS 项目中的用途 <a id="usage"></a>
 
-- **工作台卡片布局**：首页工作台卡片拖拽、显隐、尺寸调整、响应式，统一用 gridstack（见《[项目规划说明](../../../规划/项目规划说明.html#sel-frontend)》3.2 节）。
-- **布局持久化**：个人布局（`sys_user_preference`，pref_key=dashboard:layout）与角色模板（`sys_dashboard_template.layout_config`）均序列化为 gridstack 布局 JSON（见《[项目规划说明](../../../规划/项目规划说明.html#pages)》数据规范）。
+- **工作台卡片布局**：首页工作台卡片拖拽、显隐、尺寸调整、响应式，统一用 gridstack（见《[项目规划说明](../../../规划/项目规划说明.md#sel-frontend)》3.2 节）。
+- **布局持久化**：个人布局（`sys_user_preference`，pref_key=dashboard:layout）与角色模板（`sys_dashboard_template.layout_config`）均序列化为 gridstack 布局 JSON（见《[项目规划说明](../../../规划/项目规划说明.md#pages)》数据规范）。
 - **三级模板回退**：个人布局 → 角色模板 → 平台默认模板，一键重置逐级回退，布局结构统一为 gridstack 格式便于解析。
 - **报表设计器布局**：报表/大屏卡片在网格中的位置与尺寸用 gridstack 描述，与 ECharts 图表卡配合（见《[ECharts 技术介绍](ECharts技术介绍.md)》）。
 - **跨端一致**：PC 与移动端布局配置同源，gridstack 响应式断点适配不同屏宽。
@@ -96,13 +96,13 @@ grid.load(layout)
 
 | 文档 | 说明 |
 | --- | --- |
-| 《[项目规划说明](../../../规划/项目规划说明.html#stack-frontend)》2.2 节 | 前端技术栈（gridstack.js 条目） |
-| 《[项目规划说明](../../../规划/项目规划说明.html#sel-frontend)》3.2 节 | 选型理由：框架无关、工作台与报表设计器统一布局 |
+| 《[项目规划说明](../../../规划/项目规划说明.md#stack-frontend)》2.2 节 | 前端技术栈（gridstack.js 条目） |
+| 《[项目规划说明](../../../规划/项目规划说明.md#sel-frontend)》3.2 节 | 选型理由：框架无关、工作台与报表设计器统一布局 |
 | 《[ECharts 技术介绍](ECharts技术介绍.md)》 | 工作台/报表图表卡渲染（gridstack 布局 + ECharts 内容） |
 | 《[vue-flow 技术介绍](vue-flow技术介绍.md)》 | 大屏自由画布（与 gridstack 网格布局分工） |
 | 《[vuedraggable 技术介绍](vuedraggable技术介绍.md)》 | 表单设计器列表排序（与 gridstack 网格布局分工） |
-| 《[命名规范](../../../规范/命名规范.html)》 | layout_config、pref_key 等字段命名 |
+| 《[命名规范](../../../规范/命名规范.md)》 | layout_config、pref_key 等字段命名 |
 
 ---
 
-> 本文档为 AI 生成 · 依《[文档生成规范](../../../规范/文档生成规范.html)》编写 · 生成日期：2026-08-19
+> 本文档为 AI 生成 · 依《[文档生成规范](../../../规范/文档生成规范.md)》编写 · 生成日期：2026-08-19
