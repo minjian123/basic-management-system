@@ -8,12 +8,12 @@
 - BMS（基础管理系统）：后端管理用途。当前**尚无源代码**，规划已定案；技术栈、功能模块、开发计划与验收标准见 `文档/规划/项目规划说明.md`，**动手写代码前先读该文件**。
 - 文档目录使用中文名（`文档/`），README 与规划文档均为中文；回复与文档保持中文。
 - `.opencode/` 中 graphify 安装脚本生成的产物（plugins/graphify.js、skills/graphify 等）勿手动修改；`opencode.json` 的 plugin 数组登记自定义插件是既定扩展方式（bg.js 如此，vision.js 已退役），MCP server 走 `opencode.json` 的 `mcp` 段登记；`.reasonix/`、reasonix.toml 由 IDE 工具生成——勿手动修改。
-- 入口文档：`README.md`（导航）、`文档/规划/项目规划说明.md`（规划）、`文档/规划/开发部署规划.html`（开发环境部署）、`文档/资料/开发服务器部署使用说明.html`（mjbk 远程操作实录）。
+- 入口文档：`README.md`（导航）、`文档/文档首页.md`（全量导航）、`文档/规划/项目规划说明.md`（规划）、`文档/规划/开发部署规划.md`（开发环境部署）、`文档/资料/开发服务器/开发服务器部署使用说明.md`（mjbk 远程操作实录）。
 
 ## 开发环境与远程操作
 
-- 开发服务器 **mjbk**（常开：GitLab CE、开发依赖服务、MySQL/PostgreSQL/达梦 DM8 三库）与开发机 **mjpc**。远程操作方式、SSH/WinRM 凭据与命令模板见 `文档/资料/开发服务器/开发服务器部署使用说明.html`（内网 IP 与账号见 `文档/用户文档/本地资源.md`），需要时再读，不常驻上下文。
-- **服务器电源控制**（唤醒/关机工具链，文档：`文档/资料/工具/开发服务器电源控制使用说明.html`）：
+- 开发服务器 **mjbk**（常开：GitLab CE、开发依赖服务、MySQL/PostgreSQL/达梦 DM8 三库）与开发机 **mjpc**。远程操作方式、SSH/WinRM 凭据与命令模板见 `文档/资料/开发服务器/开发服务器部署使用说明.md`（内网 IP 与账号见 `文档/用户文档/本地资源.md`），需要时再读，不常驻上下文。
+- **服务器电源控制**（唤醒/关机工具链，文档：`文档/资料/工具/开发服务器电源控制使用说明.md`）：
   - 远程唤醒：`python deploy/tools/wol/wake_mjbk.py`（发 WOL 魔术包并等待 SSH 就绪，低风险）；双击入口 `deploy/tools/wol/唤醒mjbk.bat`。
   - 远程关机：`python deploy/tools/wol/shutdown_mjbk.py`（**破坏性操作，执行前必须经用户确认**）；双击入口 `deploy/tools/wol/关机mjbk.bat`。
   - mjbk 的 sudo 密码等凭据从 `deploy/.env` 读取（键位见 `deploy/.env.example`），脚本不硬编码密码；SSH 连接走 mjpc 公钥免密。
@@ -22,11 +22,12 @@
 ## 文档要求
 
 
-- 格式与布局遵循 `文档/规范/文档生成规范.html`，**生成文档前先读该文件**。
+- 格式与布局遵循 `文档/规范/文档生成规范.md`，**生成文档前先读该文件**。
+- 图形按形态选画法（该文件 7.7 节）：**逻辑图形**（流程/时序/状态/类/关系/甘特）一律 mermaid；**目录树、文件清单**等罗列型内容用框线文本目录清单（`└├│─` + 行尾 `#` 注释），不得画成 mermaid（mindmap / graph TD）；**线框图/可交互原型**用 html 资产。
+- HTML 正文文档已全部迁 md（2026-08-20）：正文 md，线框图与可交互原型留 html 资产。
 - md 在 VS Code 预览 mermaid 需安装 "Markdown Preview Mermaid" 扩展。
-- 存量 HTML 文档按需分批迁 md：正文转 md，线框图/可交互原型留 html 资产；未迁前维持原样。
 - html 的相关图片、音频、视频等资源文件统一放到同级目录的"资源"文件夹下的同名目录中。
-- 项目内全部命名（代码、数据库、API、基础设施）遵循 `文档/规范/命名规范.html`。
+- 项目内全部命名（代码、数据库、API、基础设施）遵循 `文档/规范/命名规范.md`。
 - **公开文档红线**：随仓库推送到 GitHub 的文档（README.md、LICENSE 等）不得出现本地资源信息——开发服务器/开发机名称、内网 IP、端口、磁盘与目录、SSH/服务账号等一律不写，只保留泛化描述并指向本地文档（如《开发服务器部署使用说明》）；本地资源细节只允许存在于已 gitignore 的凭据文档与内网部署文档中。
 
 ## 网络与镜像
@@ -66,11 +67,11 @@
 - 若 graphify-out/wiki/index.md 存在，用它做广域导航，避免直接浏览源码。
 - 仅在需要宏观架构审查、或 query/path/explain 信息不足时，才读 graphify-out/GRAPH_REPORT.md。
 - 修改代码后运行 `graphify update .` 保持图谱最新（纯 AST，无 API 开销）；随后运行 `python deploy/tools/graphify/localize-graph.py` 收尾（汉化 graph.html + 生成中文架构图 CALLFLOW.html）。
-- graphify 安装、排除规则、重建取舍、社区命名等细节见 `文档/资料/AI/graphify部署使用说明.html`，不在此展开。
+- graphify 安装、排除规则、重建取舍、社区命名等细节见 `文档/资料/AI/graphify部署使用说明.md`，不在此展开。
 
 ## 本地多模态（MCP）
 
-让 AI 助手使用本机多模态模型的通用能力（LM Studio qwen3.8-27b，OpenAI 兼容 127.0.0.1:1234）。方案与配置细节见 `文档/资料/AI/本地多模态接入方案.html`（需要时再读）。组成：
+让 AI 助手使用本机多模态模型的通用能力（LM Studio qwen3.8-27b，OpenAI 兼容 127.0.0.1:1234）。方案与配置细节见 `文档/资料/AI/本地多模态接入方案.md`（需要时再读）。组成：
 
 - **MCP server**（`deploy/tools/multimodal/mcp_server.py`，opencode.json 的 `mcp` 段登记）：`multimodal_chat`（文本+图片+文档通用对话，看图/看文档）、`screenshot`（HTML/URL 无头截图）。
 
