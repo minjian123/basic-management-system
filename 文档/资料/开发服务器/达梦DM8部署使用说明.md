@@ -135,4 +135,4 @@ echo "SELECT NAME FROM ALL_USERS;" | /opt/dmdbms/bin/disql SYSDBA/"<密码>"@loc
 - 《[MySQL部署使用说明](MySQL部署使用说明.md)》/《[PostgreSQL部署使用说明](PostgreSQL部署使用说明.md)》：另两库
 - 《[命名规范](../../规范/命名规范.md)》：库名约定（bms_dev）
 
-> 本文档为 AI 生成 · 依《文档生成规范》编写 · 记录 2026-08-10 实际部署过程（Docker 镜像渠道不可用，改原生安装） · 更新日期：2026-08-10
+> 依《文档生成规范》编写 · 记录 2026-08-10 实际部署过程（Docker 镜像渠道不可用，改原生安装） · 更新日期：2026-08-10
