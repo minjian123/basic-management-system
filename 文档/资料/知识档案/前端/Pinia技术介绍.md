@@ -2,7 +2,7 @@
 
 > Vue 3 官方状态管理库（Vuex 继任者）· BMS 前端全局状态
 
-[文档首页](../../../文档首页.html) › [知识档案](../技术栈知识档案总览.md) › [前端](../技术栈知识档案总览.md#frontend) › Pinia 技术介绍　|　[← 返回总览](../技术栈知识档案总览.md)
+[文档首页](../../../文档首页.md) › [知识档案](../技术栈知识档案总览.md) › [前端](../技术栈知识档案总览.md#frontend) › Pinia 技术介绍　|　[← 返回总览](../技术栈知识档案总览.md)
 
 ---
 
@@ -35,11 +35,11 @@ mutations 概念、移除了模块嵌套，API 更简洁，TypeScript 支持优�
 
 ## 3. 在 BMS 项目中的用途 <a id="usage"></a>
 
-- **官方状态管理（2.2 节）**：Pinia 取代 Vuex，TS 支持好（见《[项目规划说明](../../../规划/项目规划说明.html#stack-frontend)》2.2 节与 3.2 节选型理由）。
-- **模块化 store（4 节目录结构）**：状态按 `stores/` 目录组织，每个业务域一个 store 文件，与后端模块划分对应（见《[项目规划说明](../../../规划/项目规划说明.html#structure)》4 节）。
-- **会话与用户信息**：access token（仅存内存）、当前用户、语言/时区（sys_user.locale/timezone）等状态集中管理，配合路由守卫与 [Axios](Axios技术介绍.md) 拦截器读写（见《[项目规划说明](../../../规划/项目规划说明.html#security)》12 节认证与安全）。
-- **权限状态**：登录后拉取的菜单树与权限码列表存 store，路由动态注册与按钮/字段显隐都从这里取（见《[项目规划说明](../../../规划/项目规划说明.html#pages)》15 节菜单机制）。
-- **用户喜好**：主题模式、列表页个性化、工作台布局等偏好（sys_user_preference）经 store 统一读写，PC 与移动端跨端同步（见《[项目规划说明](../../../规划/项目规划说明.html#modules)》5 节用户喜好模块）。
+- **官方状态管理（2.2 节）**：Pinia 取代 Vuex，TS 支持好（见《[项目规划说明](../../../规划/项目规划说明.md#stack-frontend)》2.2 节与 3.2 节选型理由）。
+- **模块化 store（4 节目录结构）**：状态按 `stores/` 目录组织，每个业务域一个 store 文件，与后端模块划分对应（见《[项目规划说明](../../../规划/项目规划说明.md#structure)》4 节）。
+- **会话与用户信息**：access token（仅存内存）、当前用户、语言/时区（sys_user.locale/timezone）等状态集中管理，配合路由守卫与 [Axios](Axios技术介绍.md) 拦截器读写（见《[项目规划说明](../../../规划/项目规划说明.md#security)》12 节认证与安全）。
+- **权限状态**：登录后拉取的菜单树与权限码列表存 store，路由动态注册与按钮/字段显隐都从这里取（见《[项目规划说明](../../../规划/项目规划说明.md#pages)》15 节菜单机制）。
+- **用户喜好**：主题模式、列表页个性化、工作台布局等偏好（sys_user_preference）经 store 统一读写，PC 与移动端跨端同步（见《[项目规划说明](../../../规划/项目规划说明.md#modules)》5 节用户喜好模块）。
 - **语言偏好**：当前语言与语言包缓存经 store 管理，与 vue-i18n 联动（见《[vue-i18n 技术介绍](vue-i18n技术介绍.md)》）。
 
 setup store 最小示例：
@@ -82,7 +82,7 @@ export const useUserStore = defineStore('user', () => {
 
 - **解构丢响应性**：`const { name } = store` 拿到的是快照；state/getters 必须 `storeToRefs(store)` 解构，actions 可直接解构。
 - **setup 外使用 store**：在路由守卫、Axios 拦截器等非组件环境用 store 前，需确保 pinia 实例已 install（Vite 入口 createApp 时安装）；独立模块中可调用 `useStore(pinia)` 显式传实例。
-- **敏感信息不进持久化**：access token 按规范只存内存，绝不可用 persist 插件写进 localStorage（防 XSS 窃取，见《[项目规划说明](../../../规划/项目规划说明.html#security)》12 节）。
+- **敏感信息不进持久化**：access token 按规范只存内存，绝不可用 persist 插件写进 localStorage（防 XSS 窃取，见《[项目规划说明](../../../规划/项目规划说明.md#security)》12 节）。
 - **store 只存可序列化数据**：不要放组件实例、DOM 元素等非序列化对象。
 - **模块边界**：一个业务域一个 store 文件，避免"万能 store"；store 间互相引用注意初始化顺序。
 - **持久化按需配置**：只有语言偏好、布局等需要跨会话保留的状态才配 persist，且键名与后端 `pref_key` 对齐（如 dashboard:layout）。
@@ -101,14 +101,14 @@ export const useUserStore = defineStore('user', () => {
 
 | 文档 | 说明 |
 | --- | --- |
-| 《[项目规划说明](../../../规划/项目规划说明.html#stack-frontend)》2.2 节 | 前端技术栈（Pinia 条目） |
-| 《[项目规划说明](../../../规划/项目规划说明.html#structure)》4 节 | 目录结构：frontend/src/stores/ 组织方式 |
-| 《[项目规划说明](../../../规划/项目规划说明.html#modules)》5 节 | 用户喜好模块：偏好状态经 store 管理并落 sys_user_preference |
-| 《[前端开发规范](../../../规范/前端开发规范.html)》 | 组件与状态管理约定 |
+| 《[项目规划说明](../../../规划/项目规划说明.md#stack-frontend)》2.2 节 | 前端技术栈（Pinia 条目） |
+| 《[项目规划说明](../../../规划/项目规划说明.md#structure)》4 节 | 目录结构：frontend/src/stores/ 组织方式 |
+| 《[项目规划说明](../../../规划/项目规划说明.md#modules)》5 节 | 用户喜好模块：偏好状态经 store 管理并落 sys_user_preference |
+| 《[前端开发规范](../../../规范/前端开发规范.md)》 | 组件与状态管理约定 |
 | 《[Vue 3 技术介绍](Vue3技术介绍.md)》 | Pinia 所依托的前端框架 |
 | 《[Vue Router 技术介绍](VueRouter技术介绍.md)》 | 路由守卫中读取 userStore / permissionStore |
 | 《[Axios 技术介绍](Axios技术介绍.md)》 | 拦截器与 store 的读写配合（token、401 续期） |
 
 ---
 
-> 本文档为 AI 生成 · 依《[文档生成规范](../../../规范/文档生成规范.html)》编写 · 生成日期：2026-08-19
+> 本文档为 AI 生成 · 依《[文档生成规范](../../../规范/文档生成规范.md)》编写 · 生成日期：2026-08-19

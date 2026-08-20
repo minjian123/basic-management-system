@@ -2,7 +2,7 @@
 
 > 下一代前端构建工具 · 冷启动快 · BMS 双工程构建基础
 
-[文档首页](../../../文档首页.html) › [知识档案](../技术栈知识档案总览.md) › [前端](../技术栈知识档案总览.md#frontend) › Vite 技术介绍　|　[← 返回总览](../技术栈知识档案总览.md)
+[文档首页](../../../文档首页.md) › [知识档案](../技术栈知识档案总览.md) › [前端](../技术栈知识档案总览.md#frontend) › Vite 技术介绍　|　[← 返回总览](../技术栈知识档案总览.md)
 
 ---
 
@@ -35,9 +35,9 @@
 
 ## 3. 在 BMS 项目中的用途 <a id="usage"></a>
 
-- **frontend 与 frontend-mobile 双工程各自独立配置**：各自维护 vite.config.ts（代理、别名、构建输出），互不影响（见《[项目规划说明](../../../规划/项目规划说明.html#sel-frontend)》3.2 节）。
-- **开发代理**：dev server 把 /api/v1 代理到本地/远程后端，配合 [Axios](Axios技术介绍.md) baseURL 联调（见《[开发部署规划](../../../规划/开发部署规划.html)》前端启动说明）。
-- **CI 双端构建**：GitLab CI 流水线执行前端 ESLint + Vitest + 双端构建，产物由 nginx 托管（见《[项目规划说明](../../../规划/项目规划说明.html#sel-ops)》3.4 节）。
+- **frontend 与 frontend-mobile 双工程各自独立配置**：各自维护 vite.config.ts（代理、别名、构建输出），互不影响（见《[项目规划说明](../../../规划/项目规划说明.md#sel-frontend)》3.2 节）。
+- **开发代理**：dev server 把 /api/v1 代理到本地/远程后端，配合 [Axios](Axios技术介绍.md) baseURL 联调（见《[开发部署规划](../../../规划/开发部署规划.md)》前端启动说明）。
+- **CI 双端构建**：GitLab CI 流水线执行前端 ESLint + Vitest + 双端构建，产物由 nginx 托管（见《[项目规划说明](../../../规划/项目规划说明.md#sel-ops)》3.4 节）。
 - **配合 Vitest 同构**：单元测试零配置复用 Vite 配置，覆盖率统计进 CI 门禁。
 - **按需引入 Element Plus**：unplugin-vue-components 插件实现组件按需加载，控制包体积（见《[Element Plus 技术介绍](ElementPlus技术介绍.md)》）。
 - **环境区分**：.env.development / .env.production 管理接口地址与构建开关。
@@ -77,7 +77,7 @@ export default defineConfig({
 - **改配置要重启**：修改 vite.config.ts、新增 .env 变量、改动依赖时需重启 dev server，HMR 不会自动生效。
 - **依赖预构建缓存**：node_modules/.vite 缓存异常会导致"依赖解析失败"类报错，删除该目录重启即可。
 - **别名两处同步**：vite.config.ts 的 alias 与 tsconfig.json 的 paths 必须一致，否则编辑器报红但运行正常（或反之）。
-- **代理 rewrite**：代理目标接口路径与前端请求前缀不一致时需配置 rewrite，前后端联调前先确认路径约定（见《[API 接口规范](../../../规范/API接口规范.html)》）。
+- **代理 rewrite**：代理目标接口路径与前端请求前缀不一致时需配置 rewrite，前后端联调前先确认路径约定（见《[API 接口规范](../../../规范/API接口规范.md)》）。
 - **构建产物体积告警**：chunk 超 500KB 警告属正常提示，按需分析（大依赖拆 manualChunks），不必强行压榨。
 - **旧浏览器兼容**：Vite 默认面向现代浏览器（ES2020+），BMS 为内部系统不强制兼容旧 IE；如需兼容走 @vitejs/plugin-legacy。
 - **Node 版本**：Vite 各版本对 Node 有最低要求，务必配合 .nvmrc 固定 Node 版本，避免 CI 与本地行为不一致。
@@ -96,9 +96,9 @@ export default defineConfig({
 
 | 文档 | 说明 |
 | --- | --- |
-| 《[项目规划说明](../../../规划/项目规划说明.html#stack-frontend)》2.2 节 | 前端技术栈（Vite 条目） |
-| 《[项目规划说明](../../../规划/项目规划说明.html#sel-frontend)》3.2 节 | Vite 冷启动快、与 Vitest 同构的选型理由 |
-| 《[开发部署规划](../../../规划/开发部署规划.html)》 | 前端双工程安装、启动与构建流程 |
+| 《[项目规划说明](../../../规划/项目规划说明.md#stack-frontend)》2.2 节 | 前端技术栈（Vite 条目） |
+| 《[项目规划说明](../../../规划/项目规划说明.md#sel-frontend)》3.2 节 | Vite 冷启动快、与 Vitest 同构的选型理由 |
+| 《[开发部署规划](../../../规划/开发部署规划.md)》 | 前端双工程安装、启动与构建流程 |
 | 《[Vue 3 技术介绍](Vue3技术介绍.md)》 | 被构建的前端框架 |
 | 《[TypeScript 技术介绍](TypeScript技术介绍.md)》 | tsconfig 与 Vite 别名同步事项 |
 | 《[npm 技术介绍](npm技术介绍.md)》 | 依赖安装与版本锁定（Vite 经 npm 引入） |
@@ -106,4 +106,4 @@ export default defineConfig({
 
 ---
 
-> 本文档为 AI 生成 · 依《[文档生成规范](../../../规范/文档生成规范.html)》编写 · 生成日期：2026-08-19
+> 本文档为 AI 生成 · 依《[文档生成规范](../../../规范/文档生成规范.md)》编写 · 生成日期：2026-08-19

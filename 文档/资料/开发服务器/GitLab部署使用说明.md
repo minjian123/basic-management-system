@@ -2,12 +2,12 @@
 
 > mjbk 代码托管 + CI 部署实录 · 2026-08-10
 
-[文档首页](../../文档首页.html) › [资料](../工具/Ubuntu安装部署使用说明.md) › [开发服务器部署使用说明](开发服务器部署使用说明.md) › GitLab 部署使用说明　|　[← 上一个：MinIO](MinIO部署使用说明.md)
+[文档首页](../../文档首页.md) › [资料](../工具/Ubuntu安装部署使用说明.md) › [开发服务器部署使用说明](开发服务器部署使用说明.md) › GitLab 部署使用说明　|　[← 上一个：MinIO](MinIO部署使用说明.md)
 
 ## 1. 目的与适用范围 <a id="purpose"></a>
 
 mjbk 上的 GitLab CE（容器 `bms-gitlab`）承载 BMS 代码仓库、MR、CI 流水线与容器 Registry；
-`bms-gitlab-runner` 以 Docker executor 执行 CI 任务（《[开发部署规划](../../规划/开发部署规划.html)》4.5）。
+`bms-gitlab-runner` 以 Docker executor 执行 CI 任务（《[开发部署规划](../../规划/开发部署规划.md)》4.5）。
 
 占位符取值：`<mjbk-IP>`、`<SSH账号>` 见《[本地资源](../../用户文档/本地资源.md)》与 mjbk 本机 `deploy/.env`（`MJBK_IP` / `MJBK_SSH_USER`）。
 
@@ -131,7 +131,7 @@ runner 容器已启动并注册（2026-08-10，runner `bacf4fd652a2`，concurren
 
 - 《[开发服务器部署使用说明](开发服务器部署使用说明.md)》：服务部署总览
 - 《[DockerEngine部署使用说明](DockerEngine部署使用说明.md)》：容器引擎与镜像加速
-- 《[开发部署规划](../../规划/开发部署规划.html)》：4.5 GitLab 与 CI 基础设施
-- 《[命名规范](../../规范/命名规范.html)》：镜像名 `bms-组件`、Registry 规划
+- 《[开发部署规划](../../规划/开发部署规划.md)》：4.5 GitLab 与 CI 基础设施
+- 《[命名规范](../../规范/命名规范.md)》：镜像名 `bms-组件`、Registry 规划
 
 > 本文档为 AI 生成 · 依《文档生成规范》编写 · 记录 2026-08-10 实际部署过程 · 更新日期：2026-08-15（数据迁至 /mnt/ssd2t/gitlab）

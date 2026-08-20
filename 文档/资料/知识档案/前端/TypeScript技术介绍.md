@@ -2,7 +2,7 @@
 
 > JavaScript 的超集与静态类型 · 前后端契约一致的桥梁
 
-[文档首页](../../../文档首页.html) › [知识档案](../技术栈知识档案总览.md) › [前端](../技术栈知识档案总览.md#frontend) › TypeScript 技术介绍　|　[← 返回总览](../技术栈知识档案总览.md)
+[文档首页](../../../文档首页.md) › [知识档案](../技术栈知识档案总览.md) › [前端](../技术栈知识档案总览.md#frontend) › TypeScript 技术介绍　|　[← 返回总览](../技术栈知识档案总览.md)
 
 ---
 
@@ -35,7 +35,7 @@ TS 在编译期发现类型错误，配合编辑器（VS Code 原生支持）即
 
 ## 3. 在 BMS 项目中的用途 <a id="usage"></a>
 
-- **前后端契约自动生成**：与后端 Pydantic schema 经 **openapi-typescript** 由 OpenAPI schema 自动生成 TS 类型，后端改了参数定义，前端类型同步更新，保持前后端契约一致（见《[项目规划说明](../../../规划/项目规划说明.html#sel-frontend)》3.2 节）。
+- **前后端契约自动生成**：与后端 Pydantic schema 经 **openapi-typescript** 由 OpenAPI schema 自动生成 TS 类型，后端改了参数定义，前端类型同步更新，保持前后端契约一致（见《[项目规划说明](../../../规划/项目规划说明.md#sel-frontend)》3.2 节）。
 - **严格模式**：tsconfig 开启 strict，全项目统一类型纪律，CI 中以 vue-tsc 做类型检查门禁。
 - **Vue 3 组合式 API 类型化**：defineProps/defineEmits 泛型写法，组件间通信契约在编译期保证（见《[Vue 3 技术介绍](Vue3技术介绍.md)》）。
 - **接口层类型共享**：api/ 目录中接口函数入参出参直接引用生成的契约类型，联调阶段少一半"字段对不上"问题。
@@ -90,9 +90,9 @@ function getDisplayName(user: User): string {
 
 | 文档 | 说明 |
 | --- | --- |
-| 《[项目规划说明](../../../规划/项目规划说明.html#stack-frontend)》2.2 节 | 前端技术栈（TypeScript 条目） |
-| 《[项目规划说明](../../../规划/项目规划说明.html#sel-frontend)》3.2 节 | 契约一致目标：openapi-typescript 自动生成类型 |
-| 《[前端开发规范](../../../规范/前端开发规范.html)》 | TS 写法约定与严格模式要求 |
+| 《[项目规划说明](../../../规划/项目规划说明.md#stack-frontend)》2.2 节 | 前端技术栈（TypeScript 条目） |
+| 《[项目规划说明](../../../规划/项目规划说明.md#sel-frontend)》3.2 节 | 契约一致目标：openapi-typescript 自动生成类型 |
+| 《[前端开发规范](../../../规范/前端开发规范.md)》 | TS 写法约定与严格模式要求 |
 | 《[FastAPI 技术介绍](../后端核心/FastAPI技术介绍.md)》 | OpenAPI schema 的产出方（Swagger 文档） |
 | 《[Pydantic 技术介绍](../后端核心/Pydantic技术介绍.md)》 | 后端 schema 定义，TS 类型的上游 |
 | 《[Swagger UI 技术介绍](../工程化与质量/SwaggerUI与ReDoc技术介绍.md)》 | 契约快照（swagger.json）导出与查看 |
@@ -100,4 +100,4 @@ function getDisplayName(user: User): string {
 
 ---
 
-> 本文档为 AI 生成 · 依《[文档生成规范](../../../规范/文档生成规范.html)》编写 · 生成日期：2026-08-19
+> 本文档为 AI 生成 · 依《[文档生成规范](../../../规范/文档生成规范.md)》编写 · 生成日期：2026-08-19

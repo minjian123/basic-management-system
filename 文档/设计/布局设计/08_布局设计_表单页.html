@@ -15,8 +15,8 @@
 <body>
 
 <div class="topnav">
-  <a href="../../文档首页.html">文档首页</a> ›
-  <a href="../../规划/项目规划说明.html">项目规划说明</a> ›
+  <a href="../../文档首页.md">文档首页</a> ›
+  <a href="../../规划/项目规划说明.md">项目规划说明</a> ›
   <a href="01_布局设计_总览.html">布局设计</a> ›
   <span>表单页布局设计</span>
   <span class="topnav-side">
@@ -165,14 +165,14 @@
       <ul>
         <li>布局：label 置于字段上方（<code>label-position="top"</code>），栅格三列为主（<code>el-col :span="8"</code>），窄抽屉单列；长文本/备注跨整行。</li>
         <li>分组：&gt; 8 字段用分区标题（<code>el-divider</code>）分组（基本信息/扩展信息）。</li>
-        <li>校验：必填项 <code>required</code> + 规则与后端一致（《<a href="../../规范/API接口规范.html">API接口规范</a>》）；错误信息走 i18n。</li>
+        <li>校验：必填项 <code>required</code> + 规则与后端一致（《<a href="../../规范/API接口规范.md">API接口规范</a>》）；错误信息走 i18n。</li>
         <li>提交：保存按钮 loading 防重复提交；成功后关闭并刷新列表（或局部更新）。</li>
         <li>系统字段（ID/版本号/创建用户/创建时间/修改用户/修改时间/表单标识）用 disabled 输入框/禁用下拉框展示，与主表业务字段形态一致、仅不可编辑；主表业务字段按 §3 只读/编辑分态。</li>
       </ul>
 
       <h2 id="validate">6. 校验与提交</h2>
       <ul>
-        <li>必填/格式校验规则与后端一致（《<a href="../../规范/API接口规范.html">API接口规范</a>》），错误提示走 i18n。</li>
+        <li>必填/格式校验规则与后端一致（《<a href="../../规范/API接口规范.md">API接口规范</a>》），错误提示走 i18n。</li>
         <li><strong>整体保存</strong>（主从模块）：工具栏「保存」一次性提交主表 + 全部明细（单事务），保证主表与明细一致性。</li>
         <li>新增主表时，明细的「主表数据 id」在保存事务内用新主表 ID 回填。</li>
         <li><strong>乐观锁冲突</strong>：保存请求携带记录 <code>version</code>，后端比对失败（已被他人修改）返回冲突错误，前端提示「记录已被修改」并重新加载最新数据。</li>

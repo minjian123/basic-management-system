@@ -2,7 +2,7 @@
 
 > 分布式链路追踪 · BMS 可观测性
 
-[文档首页](../../../文档首页.html) › [知识档案](../技术栈知识档案总览.md) › [后端核心](../技术栈知识档案总览.md#backend) › OpenTelemetry 技术介绍　|　[← 返回总览](../技术栈知识档案总览.md)
+[文档首页](../../../文档首页.md) › [知识档案](../技术栈知识档案总览.md) › [后端核心](../技术栈知识档案总览.md#backend) › OpenTelemetry 技术介绍　|　[← 返回总览](../技术栈知识档案总览.md)
 
 ---
 
@@ -38,12 +38,12 @@ BMS 用它做**分布式链路追踪**：应用把 trace 经 **otel-collector** 
 
 ## 3. 在 BMS 项目中的用途 <a id="usage"></a>
 
-- 链路追踪：应用经 **otel-collector** 上报 trace 至 **Jaeger** 存储展示（见《[项目规划说明](../../../规划/项目规划说明.html#stack-backend)》2.1 节）。
-- **trace_id 与 structlog 的 request_id 关联**：日志里带上 trace_id，实现「日志 ↔ 链路」互跳定位（见《[项目规划说明](../../../规划/项目规划说明.html#stack-backend)》structlog 条目）。
-- 随 **Grafana** 统一可视化：Grafana 配置 Jaeger 数据源，与 Prometheus 指标、Loki 日志同屏排查（见《[项目规划说明](../../../规划/项目规划说明.html#deploy)》19 节监控）。
+- 链路追踪：应用经 **otel-collector** 上报 trace 至 **Jaeger** 存储展示（见《[项目规划说明](../../../规划/项目规划说明.md#stack-backend)》2.1 节）。
+- **trace_id 与 structlog 的 request_id 关联**：日志里带上 trace_id，实现「日志 ↔ 链路」互跳定位（见《[项目规划说明](../../../规划/项目规划说明.md#stack-backend)》structlog 条目）。
+- 随 **Grafana** 统一可视化：Grafana 配置 Jaeger 数据源，与 Prometheus 指标、Loki 日志同屏排查（见《[项目规划说明](../../../规划/项目规划说明.md#deploy)》19 节监控）。
 - **MVP 即接入**：链路追踪不放到后期，登录、审批等核心链路从早期就可观测。
-- 部署端口：Jaeger UI 16686、otel-collector OTLP 4317/4318，仅内网（见《[开发部署规划](../../../规划/开发部署规划.html#ports)》9 节端口规划）。
-- 验收口径：「链路追踪（Jaeger 链路可见）」纳入功能测试与 MVP 验收（见《[项目规划说明](../../../规划/项目规划说明.html#test)》16 节）。
+- 部署端口：Jaeger UI 16686、otel-collector OTLP 4317/4318，仅内网（见《[开发部署规划](../../../规划/开发部署规划.md#ports)》9 节端口规划）。
+- 验收口径：「链路追踪（Jaeger 链路可见）」纳入功能测试与 MVP 验收（见《[项目规划说明](../../../规划/项目规划说明.md#test)》16 节）。
 
 ## 4. 选型对比 <a id="compare"></a>
 
@@ -79,13 +79,13 @@ BMS 用它做**分布式链路追踪**：应用把 trace 经 **otel-collector** 
 
 | 文档 | 说明 |
 | --- | --- |
-| 《[项目规划说明](../../../规划/项目规划说明.html#stack-backend)》2.1 节 | 后端技术栈：链路追踪（OpenTelemetry + Jaeger）条目 |
-| 《[项目规划说明](../../../规划/项目规划说明.html#deploy)》19 节 | 部署与运维：监控体系（Prometheus + Loki + Grafana + Jaeger） |
-| 《[开发部署规划](../../../规划/开发部署规划.html#ports)》9 节 | 端口规划：Jaeger UI 16686 / otel-collector 4317、4318 |
-| 《[日志规范](../../../规范/日志规范.html)》 | structlog 结构化日志与 request_id / trace_id 关联 |
+| 《[项目规划说明](../../../规划/项目规划说明.md#stack-backend)》2.1 节 | 后端技术栈：链路追踪（OpenTelemetry + Jaeger）条目 |
+| 《[项目规划说明](../../../规划/项目规划说明.md#deploy)》19 节 | 部署与运维：监控体系（Prometheus + Loki + Grafana + Jaeger） |
+| 《[开发部署规划](../../../规划/开发部署规划.md#ports)》9 节 | 端口规划：Jaeger UI 16686 / otel-collector 4317、4318 |
+| 《[日志规范](../../../规范/日志规范.md)》 | structlog 结构化日志与 request_id / trace_id 关联 |
 | 《[FastAPI 技术介绍](FastAPI技术介绍.md)》 | 被埋点的 Web 框架（中间件/请求上下文） |
 | 《[Redis 技术介绍](Redis技术介绍.md)》 | 被自动埋点的缓存/限流依赖（Span 可见） |
 
 ---
 
-> 本文档为 AI 生成 · 依《[文档生成规范](../../../规范/文档生成规范.html)》编写 · 生成日期：2026-08-19
+> 本文档为 AI 生成 · 依《[文档生成规范](../../../规范/文档生成规范.md)》编写 · 生成日期：2026-08-19
