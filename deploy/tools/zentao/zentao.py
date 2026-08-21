@@ -14,6 +14,7 @@
     python zentao.py tasks list --execution 3
     python zentao.py tasks batch-create --execution 3 --file tasks.json
     python zentao.py tasks create --execution 3 --name "接口测试" --estimate 16 --begin 2026-08-24 --end 2026-09-07 --to minjian
+    python zentao.py tasks create --execution 3 --parent 1 --name "子任务" --estimate 4 --begin 2026-08-24 --end 2026-09-07 --to minjian
     python zentao.py tasks update --id 1 --pri 1
     python zentao.py tasks update --id 1 --desc "单行描述"
     python zentao.py tasks update --id 1 --desc-file desc.txt    # 多行描述走文件（优先于 --desc）
@@ -75,6 +76,7 @@ def build_parser():
     p.add_argument("--spec", help="需求描述")
     p.add_argument("--estimate", type=float, help="预计工时（小时）")
     p.add_argument("--left", type=float, help="预计剩余（小时）")
+    p.add_argument("--parent", type=int, default=0, help="父任务 ID（>0 时创建为子任务，走 URL task 参数）")
     p.add_argument("--to", dest="assigned_to", help="指派给（账号）")
     p.add_argument("--consumed", type=float, help="已消耗工时（小时，finish）")
     p.add_argument("--file", dest="json_file", help="batch-create 的 JSON 文件路径")
@@ -180,11 +182,11 @@ def main():
                 fields = {"assignedTo": args.assigned_to} if args.assigned_to else {}
                 out(m.create(c, args.execution, args.name, estimate=args.estimate or 0,
                              est_started=args.begin, deadline=args.end,
-                             pri=args.pri, type_=args.model, **fields))
+                             pri=args.pri, type_=args.model, parent=args.parent, **fields))
             elif a == "batch-create":
                 with open(args.json_file, encoding="utf-8") as f:
                     tasks = json.load(f)
-                out(m.batch_create(c, args.execution, tasks))
+                out(m.batch_create(c, args.execution, tasks, parent=args.parent))
             elif a == "update":
                 fields = {}
                 for k, v in (("name", args.name), ("pri", args.pri),

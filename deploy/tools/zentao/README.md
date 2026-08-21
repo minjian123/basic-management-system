@@ -22,6 +22,8 @@ python zentao.py tokens                        # 获取 token
 python zentao.py executions list --project 1   # 项目 1 下的迭代
 python zentao.py tasks list --execution 3      # 迭代 3 的任务
 python zentao.py tasks batch-create --execution 3 --file tasks.json
+python zentao.py tasks create --execution 3 --parent 1 --name "子任务" --estimate 4 --begin 2026-08-24 --end 2026-09-07 --to minjian
+python zentao.py tasks batch-create --execution 3 --parent 1 --file subtasks.json   # 批量挂到父任务 1
 python zentao.py tasks assign --id 1 --to minjian
 python zentao.py tasks update --id 1 --desc "单行描述"
 python zentao.py tasks update --id 1 --desc-file desc.txt   # 多行描述走文件（优先于 --desc）
@@ -40,6 +42,10 @@ created = tasks.batch_create(c, execution=3, tasks=[
     {"name": "接口测试", "type": "devel", "pri": 2, "estimate": 16,
      "estStarted": "2026-08-24", "deadline": "2026-09-07"},
 ])
+# 子任务：parent 走 URL 参数（body 写 parent 无效），建后再指派
+created = tasks.batch_create(c, execution=3, parent=1, tasks=[...])
+for t in created:
+    tasks.assign(c, t["id"], "minjian")
 ```
 
 ## 已知踩坑（详见《禅道API使用说明.md》）
@@ -49,3 +55,6 @@ created = tasks.batch_create(c, execution=3, tasks=[
 - 任务必填 estStarted/deadline；指派必填 left；完成必填 currentConsumed/realStarted/finishedDate
 - 需求创建必填 title/spec/pri/category（category 枚举 7 类）
 - 创建用户 API 需会话 rand 拼盐，建议走 Web 界面
+- 子任务：父任务 ID 走 `--parent`（URL 参数 `?task=`），body 写 `parent` 无效
+- batchCreate 的 body 不接受 `assignedTo`，建任务后走 `assign` 指派
+- `delete` 接口在 21.x 有参数错位 bug（空操作却返回 success），删除请走 Web 界面
