@@ -73,9 +73,10 @@ def delete(client, task_id):
 def web_delete(client, task_id):
     """经禅道 Web 会话删除任务（推荐；REST DELETE /tasks/:id 有 bug 不生效）。
 
+    task_id: 单个 id 或 id 列表（批量时复用同一登录会话，只登录一次）。
     走 Web 端点 index.php?m=task&t=ajax&f=delete&taskID=X（普通 controller，
     参数正确、真正生效），并用 API 读回 deleted 确认。
-    返回 {taskID, user, httpStatus, response, success, deleted}。"""
+    返回 {user, results:[{taskID, success, deleted, httpStatus, response}, ...]}。"""
     from zentao_web import delete_task
     return delete_task(client, task_id)
 
