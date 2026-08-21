@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
 """禅道 Web 会话操作（deploy/tools/zentao/zentao_web.py）
 
-当 REST API 某操作不可用时（如 21.x 的 DELETE /tasks/:id 参数错位 bug、
-需求创建静默失败等），改用 Web 会话调对应 Web 端点完成操作。
+当 REST API 某操作不可用时（如 DELETE /tasks/:id 参数错位 bug，22.5 仍在），
+改用 Web 会话调对应 Web 端点完成操作。story/user 的删除 REST 在 22.5 已可用，
+本模块仅作 task 删除与 Web 端点备用通道。
 
-踩坑（禅道 21.x 实测）：
+踩坑（禅道 22.5 实测）：
     - Web 登录必须用 GET 参数（account/password 放 query string）才能拿到会话，
       返回 {"status":"success","token":...,"user":{...}}；
       用 POST body 提交会被返回登录页（登录未建立）。
@@ -14,6 +15,8 @@
     - Web 删除走的是普通 controller（task::delete($taskID)），参数正确、真正生效；
       REST 的 taskEntry::delete 参数错位删 0，不生效。
     - 删除后仍可用 API GET /tasks/{id} 读回，返回 deleted=True 确认已删。
+    - story 的 Web 删除（story::delete）默认 confirm=no 只返回确认弹窗（result:fail），
+      必须加 confirm=yes 参数才真正删除；task 的 delete 无此确认步骤。
     - 批量删除应复用同一次登录会话（web_delete_many），避免重复登录（也避免触发登录锁定）。
 """
 import http.cookiejar
