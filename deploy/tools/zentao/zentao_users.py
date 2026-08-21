@@ -8,7 +8,11 @@ gender 不传会被 API 以「『性别』不能为空」拒绝；gender 取值 
 from zentao_client import ZentaoClient
 
 
-def list_(client, **kw):
+def list_(client, full=False, **kw):
+    """用户列表（取全）。full=True 时加 full=1 返回全字段（22.5 支持：
+    id/dept/role/email/joined 等；默认只返回 account/realname/role 等基础字段）。"""
+    if full:
+        kw["full"] = "1"
     return client.list_all("/users", **kw)
 
 

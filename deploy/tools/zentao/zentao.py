@@ -15,11 +15,16 @@
     python zentao.py users create --user-account zhangsan --user-password Zhang_123 --realname "张三" --gender m
     python zentao.py users delete --id 2
     python zentao.py tasks list --execution 3
-    python zentao.py tasks search --name 接口                       # 按名称模糊查（全局）
-    python zentao.py tasks search --assigned-to minjian --status doing   # 指派人+状态
-    python zentao.py tasks search --parent 1                        # 某父任务下的子任务
+    python zentao.py tasks search --name 接口                       # 客户端过滤：按名称模糊查（全局）
+    python zentao.py tasks search --assigned-to minjian --status doing   # 客户端过滤：指派人+状态
+    python zentao.py tasks search --parent 1                        # 客户端过滤：某父任务下的子任务
     python zentao.py tasks search --deadline-from 2026-09-01 --deadline-to 2026-09-30
+    python zentao.py tasks search --server --name 接口              # 22.5 服务端过滤（name/assigned-to/status/pri）
+    python zentao.py tasks search --server --assigned-to minjian --status doing --limit 50 --order id_desc
+    python zentao.py tasks search --server --merge-children        # 子任务并入父任务
     python zentao.py stories search --product 1 --name 用户         # 需求（name 匹配 title）
+    python zentao.py stories list --product 1 --browse-type closedstory   # 22.5 服务端 browseType 预筛
+    python zentao.py users list --full                              # 22.5 用户全字段（full=1）
     python zentao.py products search --name BMS
     python zentao.py tasks batch-create --execution 3 --file tasks.json
     python zentao.py tasks create --execution 3 --name "接口测试" --estimate 16 --begin 2026-08-24 --end 2026-09-07 --to minjian
@@ -118,12 +123,23 @@ def build_parser():
     p.add_argument("--to", dest="assigned_to", help="指派给（账号）")
     p.add_argument("--consumed", type=float, help="已消耗工时（小时，finish）")
     p.add_argument("--file", dest="json_file", help="batch-create 的 JSON 文件路径")
-    # search 过滤参数（客户端过滤，API 不支持服务端过滤）
+    # search 过滤参数（客户端过滤）
     p.add_argument("--status", help="search 过滤：状态 wait/doing/closed/finished")
     p.add_argument("--deadline-from", dest="deadline_from", help="search 过滤：截止日期 >= (YYYY-MM-DD)")
     p.add_argument("--deadline-to", dest="deadline_to", help="search 过滤：截止日期 <= (YYYY-MM-DD)")
     p.add_argument("--est-from", dest="est_from", help="search 过滤：预计开始 >= (YYYY-MM-DD)")
     p.add_argument("--est-to", dest="est_to", help="search 过滤：预计开始 <= (YYYY-MM-DD)")
+    # 22.5 服务端查询参数
+    p.add_argument("--server", action="store_true",
+                   help="tasks search 走 22.5 服务端过滤（search=1；支持 name/assigned-to/status/pri）")
+    p.add_argument("--limit", type=int, default=None, help="服务端查询：每页条数（默认 10000 一次取全）")
+    p.add_argument("--page", type=int, default=1, help="服务端查询：页码")
+    p.add_argument("--order", default="id_desc", help="服务端查询：排序 id_desc/id_asc/pri_asc 等")
+    p.add_argument("--merge-children", dest="merge_children", action="store_true",
+                   help="服务端查询：子任务并入父任务 children")
+    p.add_argument("--browse-type", dest="browse_type",
+                   help="stories list/search 服务端 browseType（unclosed/closedstory/all 等）")
+    p.add_argument("--full", action="store_true", help="users list：全字段（full=1）")
     # users create 专用
     p.add_argument("--user-account", dest="user_account", help="users create：新账号（登录名）")
     p.add_argument("--user-password", dest="user_password", help="users create：新密码")
@@ -215,9 +231,9 @@ def main():
         elif r == "stories":
             m = zentao_stories
             if a == "list":
-                out(m.list_(c, product=args.product))
+                out(m.list_(c, product=args.product, browse_type=args.browse_type))
             elif a == "search":
-                out(m.search(c, product=args.product, **build_filters(args)))
+                out(m.search(c, product=args.product, browse_type=args.browse_type, **build_filters(args)))
             elif a == "get":
                 out(m.get(c, args.id))
             elif a == "create":
@@ -244,7 +260,17 @@ def main():
             if a == "list":
                 out(m.list_(c, execution=args.execution))
             elif a == "search":
-                out(m.search(c, execution=args.execution, **build_filters(args)))
+                if args.server:
+                    f = build_filters(args)
+                    client_only = [k for k in ("parent", "deadline_from", "deadline_to", "est_from", "est_to") if f.get(k)]
+                    if client_only:
+                        raise ValueError(f"服务端查询（--server）不支持 {client_only}，这些是客户端维度；去掉 --server 或去掉这些参数")
+                    out(m.search_server(c, name=f.get("name"), assigned_to=f.get("assigned_to"),
+                                        status=f.get("status"), pri=f.get("pri"),
+                                        limit=args.limit or 10000, page=args.page,
+                                        order=args.order, merge_children=args.merge_children))
+                else:
+                    out(m.search(c, execution=args.execution, **build_filters(args)))
             elif a == "get":
                 out(m.get(c, args.id))
             elif a == "create":
@@ -290,7 +316,7 @@ def main():
                 out(m.active(c, args.id))
         elif r == "users":
             if a == "list":
-                out(zentao_users.list_(c))
+                out(zentao_users.list_(c, full=args.full))
             elif a == "get":
                 out(zentao_users.get(c, args.id))
             elif a == "create":

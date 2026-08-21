@@ -33,7 +33,8 @@ curl -s -X POST http://192.168.0.107:8070/api.php/v1/tokens \
 | --- | --- |
 | `zentao_client.py` | 核心客户端 `ZentaoClient`：token 认证、通用请求、取全 `fetch_all`（兼容分页怪癖）、.env 凭据读取 |
 | `zentao_products.py` / `zentao_projects.py` / `zentao_executions.py` / `zentao_stories.py` / `zentao_tasks.py` / `zentao_users.py` | 各资源操作（列表/查看/搜索/创建/更新/删除） |
-| `zentao_search.py` | 客户端过滤 `filter_items`（API 不支持服务端过滤，取全量后按名称/指派人/状态/优先级/父任务/日期筛） |
+| `zentao_tasks.py` | 任务操作；22.5 新增 `search_server()`（服务端过滤 `?search=1`：name/assigned_to/status/pri/ids + 分页/排序/merge_children） |
+| `zentao_search.py` | 客户端过滤 `filter_items`（取全量后按名称/指派人/状态/优先级/父任务/日期筛；服务端没有的日期区间、父任务维度靠它） |
 | `zentao_web.py` | Web 会话删除（`web_delete`/`web_delete_many`/`delete_task`） |
 | `zentao.py` | 命令行入口 |
 | `README.md` | 工具包快速上手 |
@@ -95,7 +96,7 @@ created = tasks.batch_create(c, execution=3, tasks=[
 
 ## 4. API 端点总表 <a id="endpoints"></a>
 
-来源：禅道 21.x 容器源码（`/apps/zentao/api/v1/entries/` 与 `config/apiv1.php`）逐一核对。
+来源：禅道 22.5 容器源码（`/apps/zentao/api/v1/entries/` 与 `config/apiv1.php`）逐一核对。
 
 | 资源 | 方法/路径 | 必填/要点 |
 | --- | --- | --- |
@@ -103,17 +104,20 @@ created = tasks.batch_create(c, execution=3, tasks=[
 | 产品 | `GET /products`、`GET /products/:id`、`POST /products`、`PUT /products/:id`、`DELETE /products/:id` | 创建必填 `name`（`code` 21.x 下会被清空，可省略） |
 | 项目 | `GET /projects`、`POST /projects`、`PUT /projects/:id`、`DELETE /projects/:id` | 创建必填 `name,begin,end,products`（products 为产品 ID 数组）；类型 `model`: scrum/kanban/waterfall |
 | 迭代 | `GET /executions?status=all`（全量）、`GET /executions/:id`、`POST /executions?project={id}`、`PUT /executions/:id`、`DELETE /executions/:id` | 创建必填 `name,begin,end`；**`project` 走 URL 参数**；`/projects/:id/executions` 只返回项目根执行（子迭代不出现），不要用它列迭代 |
-| 需求 | `GET /products/:id/stories`、`GET /stories/:id`、`POST /stories?product={id}`、`PUT /stories/:id`、`DELETE /stories/:id` | 创建必填 `title,spec,pri,category`，且 **`reviewer` 必须传数组**（22.5 踩坑 #7，不传/传字符串触发服务端 `array_filter` TypeError）；category 枚举：feature/interface/performance/safe/experience/improve/other；REST `DELETE /stories/:id` 22.5 已验证可用（读回 `deleted=true`） |
+| 需求 | `GET /products/:id/stories`（可加 `status=<browseType>`）、`GET /stories/:id`、`POST /stories?product={id}`、`PUT /stories/:id`、`DELETE /stories/:id` | 创建必填 `title,spec,pri,category`，且 **`reviewer` 必须传数组**（22.5 踩坑 #7，不传/传字符串触发服务端 `array_filter` TypeError）；category 枚举：feature/interface/performance/safe/experience/improve/other；REST `DELETE /stories/:id` 22.5 已验证可用（读回 `deleted=true`）；**列表 `status` 参数是 browseType（非状态值）**：unclosed(默认)/all/closedstory/activestory/reviewingstory/assignedtome/openedbyme/unplan 等 |
 | 任务（列表/编辑） | `GET /executions/:id/tasks`、`GET /tasks/:id`、`PUT /tasks/:id`、`DELETE /tasks/:id` | 编辑字段含 name/desc/pri/estimate/left/assignedTo/estStarted/deadline/status 等；`desc` 支持多行文本（CLI 可 `--desc`/`--desc-file`）；**`DELETE /tasks/:id` 有 bug 不生效（踩坑 #13），删除用 `zentao_web.delete_task`/CLI `tasks web-delete`（单 `--id`/批量 `--ids`），或通用 `zentao_web.web_delete(module,id)`** |
+| 任务（服务端查询，22.5） | `GET /tasks?search=1&name=&assignedTo=&status=&pri=&id=&limit=&page=&order=&mergeChildren=` | **服务端过滤**（踩坑 #15）：`name` 走 LIKE、`assignedTo` 传**账号名**（可逗号列表）、`status`/`pri`/`id` 走 IN 列表；分页 `limit`（无上限）/`page`/`order`；`mergeChildren=1` 子任务并入父任务；不带 `search=1` 落入「我的任务」分支、参数被忽略 |
 | 任务（批量创建） | `POST /executions/:id/tasks/batchCreate` | **唯一创建入口**；body `{"tasks":[{name,type,...}]}`；每项必填 `estStarted,deadline`；**子任务：父任务 ID 走 URL 参数 `?task={id}`**（body 写 `parent` 被覆盖无效）；body 不接受 `assignedTo`（建后走 `assignto` 指派） |
 | 任务动作 | `POST /tasks/:id/assignto`（必填 `assignedTo,left`）、`/start`、`/pause`、`/restart`、`/finish`（必填 `currentConsumed,realStarted,finishedDate`）、`/close`、`/active`、`/estimate` | — |
-| 用户 | `GET /users`、`GET /users/:id`、`POST /users`、`DELETE /users/:id` | 创建必填 `account,password,realname,role,gender`（**`gender` 不传报「『性别』不能为空」**，取值 m/f；22.5 实测可用，明文密码直接生效）；REST `DELETE /users/:id` 22.5 已验证可用 |
+| 用户 | `GET /users`（可加 `full=1`）、`GET /users/:id`、`POST /users`、`DELETE /users/:id` | 创建必填 `account,password,realname,role,gender`（**`gender` 不传报「『性别』不能为空」**，取值 m/f；22.5 实测可用，明文密码直接生效）；REST `DELETE /users/:id` 22.5 已验证可用；**`full=1` 返回全字段**（id/dept/role/email/pinyin 等，默认只基础字段） |
 
 通用约定：
 
-- 列表响应：`{"page":1,"total":N,"limit":100,"<资源key>":[...]}`；工具包 `fetch_all()` 取全量（见踩坑 #15/#16 的全局分页怪癖）。
+- 列表响应：`{"page":1,"total":N,"limit":100,"<资源key>":[...]}`；工具包 `fetch_all()` 取全量（见踩坑 #15/#16）。
 - 错误：HTTP 4xx/5xx + JSON `{"error": ...}` 或 `{"error":{字段:文案}}`；工具包统一抛 `ZentaoError`（含状态码与原文）。
-- **过滤**：API 不支持服务端过滤参数（`assignedTo/status/name` 等传了被忽略，踩坑 #15）；用工具包 `search`（取全 + `zentao_search.filter_items` 客户端筛）。
+- **过滤（22.5 起分两种）**：
+  - **服务端**：任务 `GET /tasks?search=1&name=&assignedTo=&status=&pri=&id=`（`assignedTo` 传**账号名**，可逗号列表；分页 `limit`（无上限）/`page`/`order`；`mergeChildren=1` 子任务并入父任务）→ 工具包 `zentao_tasks.search_server()` / CLI `tasks search --server`。需求 `GET /products/:id/stories?status=<browseType>`（`unclosed/closedstory/all/assignedtome/...`，**不是状态值**）→ 工具包 `browse_type=` / CLI `--browse-type`。
+  - **客户端**：取全量 + `zentao_search.filter_items`（支持服务端没有的日期区间 `deadline/est` 与父任务 `parent` 维度）→ 工具包 `search()` / CLI `tasks search`（不带 `--server`）。
 
 ## 5. 踩坑记录（实测） <a id="pitfalls"></a>
 
@@ -133,8 +137,8 @@ created = tasks.batch_create(c, execution=3, tasks=[
 | 12 | batchCreate 不接受指派 | body 带 `assignedTo` 被忽略，建出任务 `assignedTo=''` | 建任务后逐个走 `POST /tasks/:id/assignto`（必填 `assignedTo,left`）指派 |
 | 13 | 任务删除 API 失效 | `DELETE /tasks/:id` 返回 `{"message":"success"}`，但任务仍在、`deleted=False` | 禅道 21.x entry 参数错位（`$control->delete(0,$taskID,'true')`），实为空操作；**删除改用工具包 `zentao_web.delete_task` / CLI `tasks web-delete`**（单 `--id`、批量 `--ids` 复用同一登录会话），或通用 `zentao_web.web_delete(module,id)`（Web 会话调 `m={模块}&t=ajax&f=delete&{模块}ID={id}`，走正确 controller，真正生效）；`delete` 接口保留但不可靠 |
 | 14 | Web 登录必须用 GET | POST body 提交 `account/password` 会被返回登录页（登录未建立） | 用 **GET 参数**登录：`GET /index.php?m=user&t=json&f=login&account=..&password=..`，成功返回 `{status:success, token, user}` 并种下会话 cookie `zentaosid`，之后即可带 cookie 调 Web 端点；工具包 `zentao_web.WebSession` 已封装 |
-| 15 | API 不支持服务端过滤 | 列表接口带 `assignedTo/status/name/pri/parent` 等查询参数，**全被忽略**（传了仍返回全量，21.x 实测） | 过滤走「取全量 + 客户端筛」：工具包 `search`（`fetch_all` + `zentao_search.filter_items`），维度 name(模糊)/assigned_to/status/pri/parent/deadline_from/deadline_to/est_from/est_to |
-| 16 | 全局 `/tasks` 分页怪癖 | `GET /tasks` 的 `limit` 参数失效、`page` 被当作「返回条数」（`page=1`→1 条、`page=86`→全量 86 条）；普通 `list` 只拿到 1 条（`total=86`）；其它端点（`/products`、`/projects`、`/executions`、`/executions/:id/tasks`）`limit` 正常 | 取全量统一走工具包 `fetch_all`：先 `limit=10000`，条数 < total 再 `page=10000`，取条数多者；`list_all` 仍可用于 limit 正常的端点 |
+| 15 | 服务端过滤要显式 `search=1` | **21.x**：列表接口带 `assignedTo/status/name` 等参数全被忽略（传了仍返回全量）；**22.5**：任务已支持服务端过滤，但必须显式带 `search=1`（不带时落入「我的任务」分支，参数仍被忽略——即 21.x 观察到的现象） | 任务服务端过滤：`GET /tasks?search=1&name=&assignedTo=&status=&pri=&id=`（`assignedTo` 传**账号名**、可逗号列表；`name` 走 LIKE）→ 工具包 `zentao_tasks.search_server()` / CLI `tasks search --server`；日期区间、父任务维度服务端不支持，仍走客户端 `search()`（`fetch_all` + `filter_items`） |
+| 16 | 「我的任务」分支分页怪癖（22.5 残留） | 不带 `search=1` 的 `GET /tasks` 是「我的任务」分支：`limit`/`page` 失效、恒返回 1 条（21.x 的怪癖在此分支残留）；**带 `search=1` 的分支分页正常**（`limit` 无上限、`page` 真页码、`order` 排序） | 任务取全量/服务端查询统一走 `search=1`：`search_server(limit=10000)` 或 `tasks search --server`（一次取全）；「我的任务」分支不要用其分页；其它端点（`/products`、`/projects`、`/executions`、`/executions/:id/tasks`）`limit` 正常 |
 | 17 | `assignedTo` 是字典 | 任务/需求的 `assignedTo` 返回 `{id,account,avatar,realname}` 字典（非账号字符串），直接字符串比对匹配不到 | 过滤时取 `account` 字段比对（`zentao_search._assignee` 已兼容 dict/字符串） |
 
 ## 6. 典型场景 <a id="scenarios"></a>
@@ -276,17 +280,29 @@ r = web.web_delete_many(c, "story", [5, 6])  # 批量，复用同一登录会话
 
 > Web 删除走的是普通 controller（如 `task::delete($taskID)`，参数正确、真正生效，含级联删子任务）；REST 的 `taskEntry::delete` 参数错位删 0，不生效。2026-08-21 已用此法删除测试任务 82/83/84，并验证批量链路（单次登录删 3 条、幂等重删均正常）。
 
-### 6.7 按条件查询资源（search，客户端过滤）
+### 6.7 按条件查询资源（服务端 / 客户端两种过滤）
 
-API 不支持服务端过滤（踩坑 #15）、全局 `/tasks` 分页有怪癖（踩坑 #16），查询统一走工具包 `search`：取全量 + `zentao_search.filter_items` 客户端筛。支持维度：`name`（模糊，匹配 `name` 或 `title`）、`assigned_to`、`status`、`pri`、`parent`、`deadline_from/deadline_to`、`est_from/est_to`（日期区间含边界）：
+22.5 起任务支持**服务端过滤**（`GET /tasks?search=1`，踩坑 #15/#16）；日期区间、父任务等维度服务端不支持，仍用**客户端过滤**（取全 + `zentao_search.filter_items`）。需求用 `browseType` 服务端预筛。
+
+**服务端过滤（推荐，`--server`）**——任务支持 `name`（LIKE 模糊）/`assigned-to`（**账号名**，可逗号列表）/`status`/`pri`，加分页 `--limit`（无上限）/`--page`/`--order`、`--merge-children`（子任务并入父任务）：
 
 ```bash
-python zentao.py tasks search --name 开发                          # 名称模糊（全局 86 条中筛）
-python zentao.py tasks search --assigned-to minjian --status doing # 指派人 + 状态组合
+python zentao.py tasks search --server --name 接口                  # 服务端 LIKE 模糊
+python zentao.py tasks search --server --assigned-to minjian --status doing   # 指派人+状态
+python zentao.py tasks search --server --limit 50 --order id_desc    # 分页 + 排序
+python zentao.py tasks search --server --merge-children              # 子任务并入父任务
+```
+
+**客户端过滤（默认，不带 `--server`）**——额外支持 `parent`（父任务）、`deadline_from/deadline_to`、`est_from/est_to`（日期区间含边界）、`--execution`（限定迭代）：
+
+```bash
+python zentao.py tasks search --name 开发                          # 名称模糊（取全 86 条中筛）
 python zentao.py tasks search --parent 1                           # 任务 1 的子任务
 python zentao.py tasks search --pri 1 --deadline-from 2026-09-01   # 优先级 + 截止区间
 python zentao.py tasks search --execution 3 --name 接口             # 限定迭代 3 内查
 python zentao.py stories search --product 1 --name 用户             # 需求（name 匹配 title）
+python zentao.py stories list --product 1 --browse-type closedstory # 需求服务端 browseType 预筛
+python zentao.py users list --full                                  # 用户全字段（full=1）
 python zentao.py products search --name BMS
 ```
 
@@ -299,11 +315,16 @@ from zentao_client import ZentaoClient
 import zentao_tasks as tasks
 
 c = ZentaoClient()
+# 服务端过滤（22.5）
+d = tasks.search_server(c, name="接口")
+for t in d["tasks"]:
+    print(t["id"], t["name"], t["deadline"])
+# 客户端过滤（含日期区间/父任务）
 for t in tasks.search(c, assigned_to="minjian", status="wait"):
     print(t["id"], t["name"], t["deadline"])
 ```
 
-> 2026-08-21 实测：全局 `tasks search --name 开发` 命中 2 条（#1/#90）、`--parent 1` 命中 6 条子任务（#85~90）、`--assigned-to minjian` 命中 86 条（assignedTo 为字典，取 account 比对，踩坑 #17）；各资源 `list` 取全（/tasks=86、/executions/3/tasks=10、/executions=16）均正常。
+> 2026-08-21 实测（22.5）：服务端 `--server --name 接口` 命中 2 条（#37/#21）、`--server --assigned-to minjian` 命中 86 条（`assignedTo` 传账号名）、`--server --merge-children` 顶层 81 条（87−6 子任务）；客户端 `--parent 1` 命中 6 条子任务（#85~90）；需求 browseType：关闭后 `unclosed` 排除、`closedstory` 命中、`all` 全含；`users list --full` 返回 id/dept/role/email 等全字段。
 
 ## 7. 参考 <a id="ref"></a>
 

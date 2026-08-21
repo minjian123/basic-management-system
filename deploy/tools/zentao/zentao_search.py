@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 """禅道客户端过滤（deploy/tools/zentao/zentao_search.py）
 
-禅道 21.x REST API 不支持服务端过滤参数（assignedTo/status/name 等传了都被忽略，实测），
-故过滤统一走"取全量 + 客户端筛选"。本模块提供通用的 filter_items()：
+禅道 22.5 任务已支持服务端过滤（GET /tasks?search=1，见 zentao_tasks.search_server），
+但日期区间（deadline/est）、父任务（parent）维度服务端不支持，仍需"取全量 + 客户端筛选"。
+本模块提供通用的 filter_items()，是这些维度的唯一途径：
 
 支持维度（均为可选，传了就筛，不传不筛）：
     - name        名称模糊包含（匹配 name 或 title 字段，大小写不敏感）

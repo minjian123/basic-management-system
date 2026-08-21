@@ -11,9 +11,22 @@ from zentao_client import ZentaoClient
 CATEGORIES = ("feature", "interface", "performance", "safe", "experience", "improve", "other")
 
 
-def list_(client, product=None, **kw):
-    """需求列表（取全）；传 product 则取该产品下的需求。"""
+BROWSE_TYPES = ("unclosed", "all", "closedstory", "activestory", "reviewingstory",
+                "draftstory", "changingstory", "developingstory", "launchedstory",
+                "assignedtome", "openedbyme", "reviewedbyme", "reviewbyme",
+                "closedbyme", "assignedbyme", "unplan", "willclose", "bymodule", "bysearch")
+
+
+def list_(client, product=None, browse_type=None, **kw):
+    """需求列表（取全）；product 指定产品（不传则全局）。
+
+    browse_type 可选：22.5 服务端 browseType 预筛（不是状态值！），如
+        unclosed（非 closed）/ all / closedstory / activestory / reviewingstory /
+        draftstory / assignedtome / openedbyme / reviewedbyme / unplan 等（见 BROWSE_TYPES）。
+    不传则用服务端默认（全部）。实测：关闭需求后 unclosed 不含它、closedstory 只含它、all 全含。"""
     path = f"/products/{product}/stories" if product else "/stories"
+    if browse_type:
+        kw["status"] = browse_type
     return client.fetch_all(path, **kw)
 
 
@@ -21,13 +34,19 @@ def get(client, story_id):
     return client.get(f"/stories/{story_id}")
 
 
-def search(client, product=None, **filters):
-    """按条件查询需求（客户端过滤）。product 指定产品（不传则全局）；
+def search(client, product=None, browse_type=None, **filters):
+    """按条件查询需求（客户端过滤，可用 browse_type 做 22.5 服务端预筛）。
+
+    product 指定产品（不传则全局）；
+    browse_type 可选：22.5 服务端 browseType（如 unclosed/all/closedstory，见 BROWSE_TYPES）；
     filters 见 zentao_search.filter_items：name(匹配 title)/assigned_to/status/pri/
-    deadline_from/deadline_to/est_from/est_to。"""
+    deadline_from/deadline_to/est_from/est_to。返回满足条件的需求列表。"""
     from zentao_search import filter_items
     path = f"/products/{product}/stories" if product else "/stories"
-    return filter_items(client.fetch_all(path), **filters)
+    params = {}
+    if browse_type:
+        params["status"] = browse_type
+    return filter_items(client.fetch_all(path, **params), **filters)
 
 
 def create(client, product, title, pri=2, category="feature", spec="", reviewer=None, **fields):
