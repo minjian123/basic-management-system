@@ -1,6 +1,6 @@
 # 禅道 API 工具包
 
-BMS 项目禅道（ZenTao 开源版 21.x，mjbk 192.168.0.107:8070）REST API 的 Python 封装。
+BMS 项目禅道（ZenTao 开源版 22.5，`easysoft/zentao:latest` 滚动镜像，mjbk 192.168.0.107:8070）REST API 的 Python 封装。
 
 ## 文件
 
@@ -28,6 +28,10 @@ python zentao.py tasks search --assigned-to minjian --status doing
 python zentao.py tasks search --parent 1       # 某父任务下的子任务
 python zentao.py tasks search --deadline-from 2026-09-01 --deadline-to 2026-09-30
 python zentao.py stories search --product 1 --name 用户   # 需求（name 匹配 title）
+python zentao.py stories create --product 1 --title "用户管理（CRUD）" --category feature --pri 2 --spec "描述" --reviewer minjian   # 建需求（reviewer 不传默认当前账号，22.5 必须数组）
+python zentao.py stories delete --id 5                    # 删需求（REST，22.5 可用）
+python zentao.py users create --user-account demo --user-password Pw123! --realname "演示" --gender m   # 建用户（gender 必填 m/f）
+python zentao.py users delete --id 2                      # 删用户（REST，22.5 可用）
 python zentao.py tasks batch-create --execution 3 --file tasks.json
 python zentao.py tasks create --execution 3 --parent 1 --name "子任务" --estimate 4 --begin 2026-08-24 --end 2026-09-07 --to minjian
 python zentao.py tasks batch-create --execution 3 --parent 1 --file subtasks.json   # 批量挂到父任务 1
@@ -63,13 +67,14 @@ for t in created:
 - 认证头用 `Token: <token>`（不是 Bearer）
 - 迭代创建 project 走 URL 参数；任务创建必须走 batchCreate 批量入口
 - 任务必填 estStarted/deadline；指派必填 left；完成必填 currentConsumed/realStarted/finishedDate
-- 需求创建必填 title/spec/pri/category（category 枚举 7 类）
-- 创建用户 API 需会话 rand 拼盐，建议走 Web 界面
+- 需求创建必填 title/spec/pri/category（category 枚举 7 类）且 **`reviewer` 必须传数组**（22.5 服务端 `array_filter` TypeError；工具包默认当前账号）
+- 用户创建 `POST /users` 必填 `account/password/realname/role/gender`（**`gender` 取 m/f**，22.5 明文密码直接生效，无需会话 rand 拼盐）
 - 子任务：父任务 ID 走 `--parent`（URL 参数 `?task=`），body 写 `parent` 无效
 - batchCreate 的 body 不接受 `assignedTo`，建任务后走 `assign` 指派
-- `delete` 接口在 21.x 有参数错位 bug（空操作却返回 success）；**删除用 `tasks web-delete`**（`zentao_web` 经 Web 会话调 Web 端点，真正生效）：
-  - 单个 `--id X`；批量 `--ids X Y Z`（复用同一登录会话，只登录一次，也避免触发登录锁定）
-  - 通用删除 `web_delete(module,id)` / `web_delete_many(module,ids)`（`zentao_web.py`，story/product/project/execution 同端点约定 `m={模块}&t=ajax&f=delete&{模块}ID={id}`）
+- 删除按资源区分（22.5 实测）：
+  - **task**：REST `delete` 有参数错位 bug（空操作却返回 success）→ 用 `tasks web-delete`（`zentao_web` 经 Web 会话调 Web 端点，真正生效）：单个 `--id X`；批量 `--ids X Y Z`（复用同一登录会话，只登录一次，也避免触发登录锁定）
+  - **story / user**：REST `DELETE /stories/:id`、`DELETE /users/:id` 已验证可用，直接 `stories delete --id X` / `users delete --id X`
+  - 通用 Web 删除 `web_delete(module,id)` / `web_delete_many(module,ids)`（`zentao_web.py`，端点约定 `m={模块}&t=ajax&f=delete&{模块}ID={id}`）；story 的 Web 删除须加 `confirm=yes` 参数
 - Web 会话登录必须用 **GET 参数**（`m=user&t=json&f=login&account=..&password=..`），POST body 会被返回登录页
 - **API 不支持服务端过滤**：`assignedTo`/`status`/`name` 等查询参数传了全被忽略（实测）；过滤走 `search`（取全量 + `zentao_search.filter_items` 客户端筛）
 - **全局 `/tasks` 分页怪癖**：`limit` 失效、`page` 被当作"返回条数"（`page=86` 才返回全部 86 条），普通 `list` 只拿到 1 条；取全量统一走 `fetch_all`（先 `limit=大数`，不足再 `page=大数`）

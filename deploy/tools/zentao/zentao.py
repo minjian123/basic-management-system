@@ -11,6 +11,9 @@
     python zentao.py executions create --project 1 --name "M0 启动就绪" --begin 2026-08-24 --end 2026-09-07
     python zentao.py stories list --product 1
     python zentao.py stories create --product 1 --title "用户管理" --pri 2 --category feature --spec "用户增删改查"
+    python zentao.py stories delete --id 5         # REST 删除（22.5 已验证；Web 删除需 confirm=yes 备用）
+    python zentao.py users create --user-account zhangsan --user-password Zhang_123 --realname "张三" --gender m
+    python zentao.py users delete --id 2
     python zentao.py tasks list --execution 3
     python zentao.py tasks search --name 接口                       # 按名称模糊查（全局）
     python zentao.py tasks search --assigned-to minjian --status doing   # 指派人+状态
@@ -121,6 +124,14 @@ def build_parser():
     p.add_argument("--deadline-to", dest="deadline_to", help="search 过滤：截止日期 <= (YYYY-MM-DD)")
     p.add_argument("--est-from", dest="est_from", help="search 过滤：预计开始 >= (YYYY-MM-DD)")
     p.add_argument("--est-to", dest="est_to", help="search 过滤：预计开始 <= (YYYY-MM-DD)")
+    # users create 专用
+    p.add_argument("--user-account", dest="user_account", help="users create：新账号（登录名）")
+    p.add_argument("--user-password", dest="user_password", help="users create：新密码")
+    p.add_argument("--realname", help="users create：真实姓名")
+    p.add_argument("--role", default="dev", help="users create：角色 dev/pm/designer/qa 等（默认 dev）")
+    p.add_argument("--gender", choices=["m", "f"], help="users create：性别 m 男 / f 女（必填）")
+    # stories create 用
+    p.add_argument("--reviewer", help="stories create：评审人账号（逗号分隔多人，默认当前登录账号）")
     p.add_argument("resource", choices=RESOURCES, help="资源")
     p.add_argument("action", nargs="?", help="操作")
     return p
@@ -210,8 +221,9 @@ def main():
             elif a == "get":
                 out(m.get(c, args.id))
             elif a == "create":
+                reviewer = [x.strip() for x in args.reviewer.split(",") if x.strip()] if args.reviewer else None
                 out(m.create(c, args.product, args.title, pri=args.pri or 2,
-                             category=args.category, spec=args.spec or ""))
+                             category=args.category, spec=args.spec or "", reviewer=reviewer))
             elif a == "update":
                 fields = {}
                 if args.title:
@@ -281,6 +293,15 @@ def main():
                 out(zentao_users.list_(c))
             elif a == "get":
                 out(zentao_users.get(c, args.id))
+            elif a == "create":
+                if not args.user_account or not args.user_password or not args.realname or not args.gender:
+                    raise ValueError("users create 需要 --user-account --user-password --realname --gender(m/f)")
+                out(zentao_users.create(c, args.user_account, args.user_password,
+                                        args.realname, role=args.role, gender=args.gender))
+            elif a == "delete":
+                out(zentao_users.delete(c, args.id))
+            elif a == "web-delete":
+                out(zentao_web.web_delete(c, "user", args.id))
     except ZentaoError as e:
         print(f"错误：{e}", file=sys.stderr)
         sys.exit(1)

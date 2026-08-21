@@ -1,12 +1,14 @@
 # 禅道 API 使用说明
 
-> 禅道（ZenTao 21.x）REST API 与 BMS 工具包使用指南 · 2026-08-21
+> 禅道（ZenTao 22.5）REST API 与 BMS 工具包使用指南 · 2026-08-21
 
 [文档首页](../../文档首页.md) › [资料](../工具/Ubuntu安装部署使用说明.md) › 禅道 API 使用说明　|　[开发服务器：禅道部署 →](../开发服务器/禅道部署使用说明.md)
 
 ## 1. 目的与范围 <a id="purpose"></a>
 
-本文档固化禅道开源版 21.x REST API（`/api.php/v1`）的调用方法与**实测踩坑**，并说明 BMS 项目配套 Python 工具包（`deploy/tools/zentao/`）的用法，供后继 AI 与开发者直接使用，**无需重新摸索**。
+本文档固化禅道开源版 REST API（`/api.php/v1`）的调用方法与**实测踩坑**，并说明 BMS 项目配套 Python 工具包（`deploy/tools/zentao/`）的用法，供后继 AI 与开发者直接使用，**无需重新摸索**。
+
+> **版本说明**：镜像 `easysoft/zentao:latest` 为滚动发布，2026-08-21 实测容器版本为 **22.5**（`/apps/zentao/VERSION`）。本文「21.x 实测」表述即指本容器早期版本，行为随镜像升级可能变化，**升级镜像后需对踩坑条目复核**。
 
 适用：禅道部署于 mjbk（`http://192.168.0.107:8070`，见《[禅道部署使用说明](../开发服务器/禅道部署使用说明.md)》）；职责分工：禅道管需求/任务/迭代，GitLab Issue 管代码缺陷，Kiwi TCMS 管测试用例（禅道缺陷/测试模块不使用）。
 
@@ -101,11 +103,11 @@ created = tasks.batch_create(c, execution=3, tasks=[
 | 产品 | `GET /products`、`GET /products/:id`、`POST /products`、`PUT /products/:id`、`DELETE /products/:id` | 创建必填 `name`（`code` 21.x 下会被清空，可省略） |
 | 项目 | `GET /projects`、`POST /projects`、`PUT /projects/:id`、`DELETE /projects/:id` | 创建必填 `name,begin,end,products`（products 为产品 ID 数组）；类型 `model`: scrum/kanban/waterfall |
 | 迭代 | `GET /executions?status=all`（全量）、`GET /executions/:id`、`POST /executions?project={id}`、`PUT /executions/:id`、`DELETE /executions/:id` | 创建必填 `name,begin,end`；**`project` 走 URL 参数**；`/projects/:id/executions` 只返回项目根执行（子迭代不出现），不要用它列迭代 |
-| 需求 | `GET /products/:id/stories`、`GET /stories/:id`、`POST /stories?product={id}`、`PUT /stories/:id`、`DELETE /stories/:id` | 创建必填 `title,spec,pri,category`；category 枚举：feature/interface/performance/safe/experience/improve/other |
+| 需求 | `GET /products/:id/stories`、`GET /stories/:id`、`POST /stories?product={id}`、`PUT /stories/:id`、`DELETE /stories/:id` | 创建必填 `title,spec,pri,category`，且 **`reviewer` 必须传数组**（22.5 踩坑 #7，不传/传字符串触发服务端 `array_filter` TypeError）；category 枚举：feature/interface/performance/safe/experience/improve/other；REST `DELETE /stories/:id` 22.5 已验证可用（读回 `deleted=true`） |
 | 任务（列表/编辑） | `GET /executions/:id/tasks`、`GET /tasks/:id`、`PUT /tasks/:id`、`DELETE /tasks/:id` | 编辑字段含 name/desc/pri/estimate/left/assignedTo/estStarted/deadline/status 等；`desc` 支持多行文本（CLI 可 `--desc`/`--desc-file`）；**`DELETE /tasks/:id` 有 bug 不生效（踩坑 #13），删除用 `zentao_web.delete_task`/CLI `tasks web-delete`（单 `--id`/批量 `--ids`），或通用 `zentao_web.web_delete(module,id)`** |
 | 任务（批量创建） | `POST /executions/:id/tasks/batchCreate` | **唯一创建入口**；body `{"tasks":[{name,type,...}]}`；每项必填 `estStarted,deadline`；**子任务：父任务 ID 走 URL 参数 `?task={id}`**（body 写 `parent` 被覆盖无效）；body 不接受 `assignedTo`（建后走 `assignto` 指派） |
 | 任务动作 | `POST /tasks/:id/assignto`（必填 `assignedTo,left`）、`/start`、`/pause`、`/restart`、`/finish`（必填 `currentConsumed,realStarted,finishedDate`）、`/close`、`/active`、`/estimate` | — |
-| 用户 | `GET /users`、`GET /users/:id` | 创建接口需会话 rand 拼盐，**建议走 Web 界面** |
+| 用户 | `GET /users`、`GET /users/:id`、`POST /users`、`DELETE /users/:id` | 创建必填 `account,password,realname,role,gender`（**`gender` 不传报「『性别』不能为空」**，取值 m/f；22.5 实测可用，明文密码直接生效）；REST `DELETE /users/:id` 22.5 已验证可用 |
 
 通用约定：
 
@@ -123,8 +125,8 @@ created = tasks.batch_create(c, execution=3, tasks=[
 | 4 | 任务必填日期 | 批量创建缺 `estStarted/deadline` 时静默失败 | 每项必须带 `estStarted`、`deadline`（建议用迭代起止日期） |
 | 5 | 指派必填 left | `assignto` 缺 `left` 报「《预计剩余》不能为空」 | body 带 `left`（未开始的任务取 estimate） |
 | 6 | 完成任务必填 | `finish` 缺 `currentConsumed/realStarted/finishedDate` 报错 | 三个字段都传（工具包默认今天） |
-| 7 | 需求创建静默失败 | `POST /stories` 返回 200 空体（`null`）、需求未创建；Web 表单方式需完整登录（验证码），API token 不能直接用于 Web 会话 | **21.x 实测限制**：story 的创建走 Web 界面（产品 → 需求 → 添加需求）；列表/查看/更新/删除 API 正常 |
-| 8 | 用户创建复杂 | API 需 `password1/password2` 与 session rand 拼盐、verifyPassword 等 | 建号走 Web 界面（组织 → 用户 → 添加用户） |
+| 7 | 需求创建 reviewer 必须传数组 | 22.5：`POST /stories` 不传 `reviewer`（或传字符串）时，REST 入口把 `$_POST['reviewer']` 默认成空字符串，服务端 `array_filter($_POST['reviewer'])`（`module/story/zen.php:1254`）直接抛 TypeError，返回 PHP 报错页、需求未创建；旧版本（21.x）现象为 200 空体静默失败 | `reviewer` 传**数组**（账号名或用户 ID 均可，如 `["minjian"]`），工具包 `zentao_stories.create` 已内置（默认当前登录账号，可 `reviewer=`/CLI `--reviewer` 覆盖） |
+| 8 | 用户创建 gender 必填 | 22.5：`POST /users` 缺 `gender` 报「『性别』不能为空」；旧版本文档曾记为「需会话 rand 拼盐、建议走 Web」——22.5 已不需要，明文密码直接生效 | 传 `account,password,realname,role,gender`（gender 取 m/f），工具包 `zentao_users.create` 已封装（gender 未传时本地直接报错，不打 API）；REST `DELETE /users/:id` 同版已验证可用 |
 | 9 | 批量创建响应 | 单条创建也走 batchCreate，返回 `{"task":{id:{...}}}`（**dict 按 id 键**，非数组） | 工具包 `batch_create` 已统一解包为任务列表（兼容 dict/list） |
 | 10 | 迭代列表少数据 | `GET /projects/:id/executions` 只返回项目根执行（如 id=2），M0~M15 子迭代不出现 | 列迭代统一用 `GET /executions?status=all`（工具包已按 project 内存过滤） |
 | 11 | 子任务父级走 URL 参数 | body 里写 `parent` 被忽略，建出的任务 `parent=0` | 父任务 ID 走 **URL 参数** `?task={id}`（源码 `buildTasksForBatchCreate` 内 `$task->parent=$taskID` 强制覆盖 body）；工具包 `batch_create(parent=…)` / CLI `--parent` 已封装 |
@@ -229,15 +231,28 @@ for t in created:                                  # body 不含 assignedTo，�
 
 > 2026-08-21 已对 M0 任务 1「开发服务器环境与工具链就绪」拆解 6 个子任务（id 85~90，工时 4/2/4/3/2/1 合计 16h 与父任务一致，均指派 minjian）。
 
-### 6.6 删除资源（REST delete 失效，走 Web 会话）
+### 6.6 删除资源（task 走 Web 会话，story/user REST 已可用）
 
-`DELETE /tasks/:id` 有参数错位 bug（踩坑 #13），改用工具包 `zentao_web`（Web 会话调 Web 端点，踩坑 #14 的 GET 登录）。删除端点统一为 `index.php?m={模块}&t=ajax&f=delete&{模块}ID={id}`：
+删除方式按资源区分（22.5 实测）：
+
+| 资源 | 推荐方式 | 说明 |
+| --- | --- | --- |
+| 任务 task | `zentao_web`（Web 会话） | `DELETE /tasks/:id` 有参数错位 bug（踩坑 #13），返回 success 但不生效 |
+| 需求 story | REST `DELETE /stories/:id` | 22.5 已验证，读回 `deleted=true`；Web 删除备用（需加 `confirm=yes`，见下） |
+| 用户 user | REST `DELETE /users/:id` | 22.5 已验证，返回 `{"message":"success"}` |
+| 产品/项目/迭代 | REST 或 Web | 未逐一复测，REST 优先、失败转 Web |
+
+任务删除（走 Web 会话，踩坑 #14 的 GET 登录；删除端点 `index.php?m={模块}&t=ajax&f=delete&{模块}ID={id}`）：
 
 ```bash
 python zentao.py tasks web-delete --id 82         # 单个，读回 deleted=True 确认
 python zentao.py tasks web-delete --ids 82 83 84  # 批量，复用同一登录会话（只登录一次）
-python zentao.py stories web-delete --id 5        # 通用：story/product/project/execution 同
+python zentao.py stories delete --id 5            # 需求：REST 删除（22.5 可用）
+python zentao.py users delete --id 2              # 用户：REST 删除（22.5 可用）
+python zentao.py stories web-delete --id 5        # 通用 Web 删除（备用）
 ```
+
+> Web 删除注意：22.5 的 `story::delete` 默认 `confirm=no` 只返回确认弹窗（响应 `fail`），必须加 **`confirm=yes`** 参数才真正删除（`index.php?m=story&t=ajax&f=delete&storyID={id}&confirm=yes`）；task 的 `delete` 无此确认步骤。
 
 作为库调用：
 
@@ -294,10 +309,10 @@ for t in tasks.search(c, assigned_to="minjian", status="wait"):
 
 | 资源 | 网址 | 说明 |
 | --- | --- | --- |
-| 禅道 API 文档 | https://www.zentao.net/book/api/1397.html | 官方 API 配置与常见问题（21.x 部分接口与本文档实测有出入时以本文档为准） |
+| 禅道 API 文档 | https://www.zentao.net/book/api/1397.html | 官方 API 配置与常见问题（官方文档版本与本文档实测（22.5）有出入时以本文档为准） |
 | 禅道 Docker 部署 | https://www.zentao.net/book/zentaopms/docker-1111.html | 官方镜像部署说明 |
 | 禅道官网 | https://www.zentao.net/ | 产品与社区 |
 
 项目内关联：工具包 `deploy/tools/zentao/`（README.md）、《[禅道部署使用说明](../开发服务器/禅道部署使用说明.md)》、《[禅道技术介绍](../知识档案/工程化与质量/禅道技术介绍.md)》、《[总体项目规划](../../规划/总体项目规划.md)》里程碑与 WBS。
 
-> 依《文档生成规范》编写 · 记录 2026-08-21 实测（禅道 21.x，mjbk 192.168.0.107:8070）
+> 依《文档生成规范》编写 · 记录 2026-08-21 实测（禅道 22.5，easysoft/zentao:latest 滚动镜像，mjbk 192.168.0.107:8070）

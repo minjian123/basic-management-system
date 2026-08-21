@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
-"""禅道用户 API 操作（deploy/tools/zentao/zentao_users.py）
+"""禅道用户 user API 操作（deploy/tools/zentao/zentao_users.py）
 
-注意：禅道 21 的创建用户 API 需要配合会话 rand 做密码拼盐，不建议脚本调用；
-日常建号请走 Web 界面（组织 → 用户 → 添加用户）。
+创建（22.5 实测可用）：account、password、realname、role、gender 必填，
+gender 不传会被 API 以「『性别』不能为空」拒绝；gender 取值 m（男）/ f（女）。
+删除（22.5 实测可用）：REST DELETE /users/:id，响应 {"message": "success"}。
 """
 from zentao_client import ZentaoClient
 
@@ -13,6 +14,20 @@ def list_(client, **kw):
 
 def get(client, user_id):
     return client.get(f"/users/{user_id}")
+
+
+def create(client, account, password, realname, role="dev", gender=None, **fields):
+    """创建用户；account/password/realname/gender 必填（gender 缺省会触发 API 校验错）。"""
+    if not gender:
+        raise ValueError("gender 必填：m（男）或 f（女）")
+    return client.post("/users",
+                       body={"account": account, "password": password,
+                             "realname": realname, "role": role, "gender": gender, **fields})
+
+
+def delete(client, user_id):
+    """删除用户（REST DELETE，22.5 实测生效）。"""
+    return client.delete(f"/users/{user_id}")
 
 
 if __name__ == "__main__":  # 简单自测
