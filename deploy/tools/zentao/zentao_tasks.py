@@ -1,7 +1,16 @@
 # -*- coding: utf-8 -*-
 """禅道任务 API 操作（deploy/tools/zentao/zentao_tasks.py）
 
-踩坑（源码确认，禅道 21.x）：
+查询（22.5 实测）：
+    - 服务端过滤用 search_server()：GET /tasks?search=1，支持
+      pri/assignedTo(账号名)/status/id（均可逗号列表 IN）与 name（LIKE 模糊），
+      分页 limit（无上限）/page/order，mergeChildren=1 子任务并入父任务。
+    - 不带 search=1 的 GET /tasks 是「我的任务」分支，limit/page 仍失效（21.x 怪癖残留），
+      取全量请走 search_server() 或 list_()（fetch_all）。
+    - 客户端过滤 search()（取全 + filter_items）仍可用，且支持服务端不支持的
+      日期区间（deadline/est）与父任务（parent）维度。
+
+踩坑（源码确认）：
     - 创建任务必须走批量入口 /executions/{id}/tasks/batchCreate
       （/tasks/{id} 路由到单数 entry，无 POST 方法，请求返回 200 空体且不建任务）
     - 批量任务必填 estStarted、deadline；指派必填 left（预计剩余）
@@ -28,12 +37,44 @@ def get(client, task_id):
     return client.get(f"/tasks/{task_id}")
 
 
-def search(client, execution=None, **filters):
-    """按条件查询任务（客户端过滤，API 不支持服务端过滤）。
+def search_server(client, name=None, assigned_to=None, status=None, pri=None,
+                  ids=None, limit=10000, page=1, order="id_desc", merge_children=False):
+    """服务端过滤查询任务（22.5 实测；GET /tasks?search=1，推荐优先用本函数）。
 
-    execution 指定迭代（不传则全局）；
-    filters 见 zentao_search.filter_items：name/assigned_to/status/pri/parent/
-    deadline_from/deadline_to/est_from/est_to。返回满足条件的任务列表。"""
+    过滤维度（均可选，传了就筛）：
+        name        名称模糊（LIKE %name%）
+        assigned_to 指派人账号（IN 列表，可逗号分隔多账号；注意是账号名不是用户 ID）
+        status      状态（IN 列表：wait/doing/done/pause/finished/closed/canceled 等）
+        pri         优先级（IN 列表：1-4）
+        ids         任务 ID（IN 列表，逗号分隔或 list）
+    分页：limit（22.5 无上限，默认 10000 一次取全）/page（真页码）；order 如 id_desc/id_asc/pri_asc。
+    merge_children=True 时子任务并入父任务 children（total 只计顶层）。
+    返回原始响应 dict：{"total","page","limit","tasks":[...]}。
+
+    不支持日期区间与父任务维度——那两种需求用 search()（客户端过滤）。"""
+    params = {"search": "1", "limit": limit, "page": page, "order": order}
+    if merge_children:
+        params["mergeChildren"] = "1"
+    for key, val in (("name", name), ("assignedTo", assigned_to),
+                     ("status", status), ("pri", pri)):
+        if val:
+            if isinstance(val, (list, tuple)):
+                val = ",".join(str(v) for v in val)
+            params[key] = val
+    if ids:
+        if isinstance(ids, (list, tuple)):
+            ids = ",".join(str(v) for v in ids)
+        params["id"] = ids
+    return client.get("/tasks", params=params)
+
+
+def search(client, execution=None, **filters):
+    """按条件查询任务（客户端过滤：取全 + 筛选）。
+
+    22.5 起服务端过滤可用 search_server()（name/assigned_to/status/pri/ids）；
+    本函数额外支持服务端没有的维度：parent（父任务）、deadline_from/deadline_to、
+    est_from/est_to（日期区间）。execution 指定迭代（不传则全局）。
+    filters 见 zentao_search.filter_items。返回满足条件的任务列表。"""
     from zentao_search import filter_items
     path = f"/executions/{execution}/tasks" if execution else "/tasks"
     return filter_items(client.fetch_all(path), **filters)

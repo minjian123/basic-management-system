@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """禅道 API 客户端（BMS 项目 · deploy/tools/zentao/zentao_client.py）
 
-禅道开源版 21.x REST API（/api.php/v1）核心客户端：
+禅道开源版 22.5 REST API（/api.php/v1，兼容 21.x）核心客户端：
 token 认证、通用请求封装、自动分页、.env 凭据读取。
 
 用法：
@@ -103,8 +103,8 @@ class ZentaoClient:
     def list_all(self, path, page_size=100, **params):
         """自动翻页拉取列表；响应非列表结构时原样返回。
 
-        注意：禅道 21.x 全局 /tasks 的 limit 参数失效，本方法对其只能取到 1 条；
-        取全量请改用 fetch_all()。"""
+        注意：不带 search=1 的全局 /tasks（「我的任务」分支）limit/page 失效，本方法对其只能取 1 条；
+        取全量请改用 fetch_all() 或 zentao_tasks.search_server()（22.5 服务端分页正常）。"""
         page = 1
         collected = []
         while True:
@@ -124,11 +124,11 @@ class ZentaoClient:
             page += 1
 
     def fetch_all(self, path, **params):
-        """取全量列表（兼容禅道 21.x 分页怪癖），返回 list（非列表结构时返回原响应）。
+        """取全量列表（兼容「我的任务」分支分页怪癖），返回 list（非列表结构时返回原响应）。
 
-        禅道 21.x 怪癖：全局 /tasks 的 limit 失效、page 被当作"返回条数"；
-        其余端点 limit 正常、page 是真页码。故两步取全：先 limit=大数，
-        若条数 < total 再用 page=大数，取条数多者。"""
+        22.5：不带 search=1 的全局 /tasks（「我的任务」分支）limit 失效、page 被当"返回条数"；
+        其余端点 limit 正常。故两步取全：先 limit=大数，若条数 < total 再用 page=大数，取条数多者。
+        任务服务端查询（limit 无上限）请直接用 zentao_tasks.search_server()。"""
         def fetch(p):
             d = self.get(path, params=p)
             if isinstance(d, dict):

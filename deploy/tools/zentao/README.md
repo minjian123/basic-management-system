@@ -8,7 +8,8 @@ BMS 项目禅道（ZenTao 开源版 22.5，`easysoft/zentao:latest` 滚动镜像
 | --- | --- |
 | `zentao_client.py` | 核心客户端：token 认证、通用请求、取全 `fetch_all`（兼容分页怪癖）、.env 凭据读取 |
 | `zentao_products.py` / `zentao_projects.py` / `zentao_executions.py` / `zentao_stories.py` / `zentao_tasks.py` / `zentao_users.py` | 各资源操作（列表/查看/搜索/创建/更新/删除；任务含批量创建/指派/开始/完成/关闭） |
-| `zentao_search.py` | 客户端过滤 `filter_items`（API 不支持服务端过滤，取全量后按名称/指派人/状态/优先级/父任务/日期筛） |
+| `zentao_tasks.py` | 任务操作；22.5 新增 `search_server()`（服务端过滤 `?search=1`：name/assigned_to/status/pri/ids + 分页/排序/merge_children） |
+| `zentao_search.py` | 客户端过滤 `filter_items`（取全量后按名称/指派人/状态/优先级/父任务/日期筛；日期区间、父任务维度服务端没有，靠它） |
 | `zentao_web.py` | Web 会话（GET 登录 + 调 Web 端点），通用 Web 删除 `web_delete(module,id)` / 批量 `web_delete_many` / 任务删除 `delete_task`（REST 失效操作走这里） |
 | `zentao.py` | 命令行入口 |
 
@@ -23,11 +24,16 @@ BMS 项目禅道（ZenTao 开源版 22.5，`easysoft/zentao:latest` 滚动镜像
 python zentao.py tokens                        # 获取 token
 python zentao.py executions list --project 1   # 项目 1 下的迭代
 python zentao.py tasks list --execution 3      # 迭代 3 的任务（取全）
-python zentao.py tasks search --name 接口       # 按名称模糊查（全局取全后客户端筛）
-python zentao.py tasks search --assigned-to minjian --status doing
-python zentao.py tasks search --parent 1       # 某父任务下的子任务
-python zentao.py tasks search --deadline-from 2026-09-01 --deadline-to 2026-09-30
+python zentao.py tasks search --server --name 接口                  # 22.5 服务端过滤（name LIKE）
+python zentao.py tasks search --server --assigned-to minjian --status doing   # 指派人+状态
+python zentao.py tasks search --server --limit 50 --order id_desc    # 分页 + 排序
+python zentao.py tasks search --server --merge-children              # 子任务并入父任务
+python zentao.py tasks search --name 接口       # 客户端过滤（取全后筛；不带 --server）
+python zentao.py tasks search --parent 1       # 客户端：某父任务下的子任务（服务端不支持）
+python zentao.py tasks search --deadline-from 2026-09-01 --deadline-to 2026-09-30   # 客户端：日期区间
 python zentao.py stories search --product 1 --name 用户   # 需求（name 匹配 title）
+python zentao.py stories list --product 1 --browse-type closedstory   # 22.5 需求服务端 browseType 预筛
+python zentao.py users list --full                              # 22.5 用户全字段（full=1）
 python zentao.py stories create --product 1 --title "用户管理（CRUD）" --category feature --pri 2 --spec "描述" --reviewer minjian   # 建需求（reviewer 不传默认当前账号，22.5 必须数组）
 python zentao.py stories delete --id 5                    # 删需求（REST，22.5 可用）
 python zentao.py users create --user-account demo --user-password Pw123! --realname "演示" --gender m   # 建用户（gender 必填 m/f）
@@ -76,6 +82,8 @@ for t in created:
   - **story / user**：REST `DELETE /stories/:id`、`DELETE /users/:id` 已验证可用，直接 `stories delete --id X` / `users delete --id X`
   - 通用 Web 删除 `web_delete(module,id)` / `web_delete_many(module,ids)`（`zentao_web.py`，端点约定 `m={模块}&t=ajax&f=delete&{模块}ID={id}`）；story 的 Web 删除须加 `confirm=yes` 参数
 - Web 会话登录必须用 **GET 参数**（`m=user&t=json&f=login&account=..&password=..`），POST body 会被返回登录页
-- **API 不支持服务端过滤**：`assignedTo`/`status`/`name` 等查询参数传了全被忽略（实测）；过滤走 `search`（取全量 + `zentao_search.filter_items` 客户端筛）
-- **全局 `/tasks` 分页怪癖**：`limit` 失效、`page` 被当作"返回条数"（`page=86` 才返回全部 86 条），普通 `list` 只拿到 1 条；取全量统一走 `fetch_all`（先 `limit=大数`，不足再 `page=大数`）
-- **`assignedTo` 是字典**（`{id,account,realname,...}`）非字符串，过滤时取 `account` 字段比对
+- **服务端过滤要显式 `search=1`**（22.5）：任务 `GET /tasks?search=1&name=&assignedTo=&status=&pri=&id=`（`assignedTo` 传**账号名**、可逗号列表；分页 `limit` 无上限/`page`/`order`；`mergeChildren=1` 子任务并入父任务）→ `tasks.search_server()` / CLI `tasks search --server`；不带 `search=1` 落入「我的任务」分支、参数被忽略（21.x 观察到的「不支持服务端过滤」即此分支）
+- **日期区间、父任务维度服务端不支持**：走客户端 `search()`（取全量 + `zentao_search.filter_items`）
+- **需求列表 `status` 参数是 browseType（非状态值）**：unclosed(默认)/all/closedstory/activestory/reviewingstory/assignedtome/openedbyme/unplan 等 → CLI `--browse-type`
+- **「我的任务」分支分页怪癖**（22.5 残留）：不带 `search=1` 的 `GET /tasks` `limit`/`page` 失效、恒 1 条；取全量/服务端查询走 `search=1`（`search_server(limit=10000)` 一次取全）
+- **`assignedTo` 是字典**（`{id,account,realname,...}`）非字符串，客户端过滤取 `account` 字段比对；服务端过滤直接传账号名
