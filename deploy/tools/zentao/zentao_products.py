@@ -4,12 +4,19 @@ from zentao_client import ZentaoClient
 
 
 def list_(client, **kw):
-    """产品列表（自动分页）。"""
-    return client.list_all("/products", **kw)
+    """产品列表（取全）。"""
+    return client.fetch_all("/products", **kw)
 
 
 def get(client, product_id):
     return client.get(f"/products/{product_id}")
+
+
+def search(client, **filters):
+    """按条件查询产品（客户端过滤）。
+    filters 见 zentao_search.filter_items：name/assigned_to/status 等。"""
+    from zentao_search import filter_items
+    return filter_items(client.fetch_all("/products"), **filters)
 
 
 def create(client, name, code="", **fields):

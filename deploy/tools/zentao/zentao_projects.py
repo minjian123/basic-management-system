@@ -8,11 +8,19 @@ from zentao_client import ZentaoClient
 
 
 def list_(client, **kw):
-    return client.list_all("/projects", **kw)
+    """项目列表（取全）。"""
+    return client.fetch_all("/projects", **kw)
 
 
 def get(client, project_id):
     return client.get(f"/projects/{project_id}")
+
+
+def search(client, **filters):
+    """按条件查询项目（客户端过滤）。
+    filters 见 zentao_search.filter_items：name/assigned_to/status 等。"""
+    from zentao_search import filter_items
+    return filter_items(client.fetch_all("/projects"), **filters)
 
 
 def create(client, name, begin, end, products, model="scrum", code="", **fields):

@@ -101,7 +101,10 @@ class ZentaoClient:
         return self.request("DELETE", path, params=params)
 
     def list_all(self, path, page_size=100, **params):
-        """自动翻页拉取列表；响应非列表结构时原样返回。"""
+        """自动翻页拉取列表；响应非列表结构时原样返回。
+
+        注意：禅道 21.x 全局 /tasks 的 limit 参数失效，本方法对其只能取到 1 条；
+        取全量请改用 fetch_all()。"""
         page = 1
         collected = []
         while True:
@@ -119,6 +122,28 @@ class ZentaoClient:
             if total is None or page * page_size >= int(total):
                 return collected
             page += 1
+
+    def fetch_all(self, path, **params):
+        """取全量列表（兼容禅道 21.x 分页怪癖），返回 list（非列表结构时返回原响应）。
+
+        禅道 21.x 怪癖：全局 /tasks 的 limit 失效、page 被当作"返回条数"；
+        其余端点 limit 正常、page 是真页码。故两步取全：先 limit=大数，
+        若条数 < total 再用 page=大数，取条数多者。"""
+        def fetch(p):
+            d = self.get(path, params=p)
+            if isinstance(d, dict):
+                for key in _LIST_KEYS:
+                    if isinstance(d.get(key), list):
+                        return d[key], d.get("total"), d
+            return None, None, d
+        items, total, raw = fetch(dict(params, limit=10000))
+        if items is None:
+            return raw
+        if total is not None and len(items) < int(total):
+            items2, _, _ = fetch(dict(params, page=10000))
+            if items2 is not None and len(items2) > len(items):
+                items = items2
+        return items
 
     # ---------- 内部 ----------
 

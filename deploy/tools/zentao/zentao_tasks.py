@@ -19,14 +19,24 @@ from zentao_client import ZentaoClient
 
 
 def list_(client, execution=None, **kw):
-    """任务列表；传 execution 则取该迭代下的任务。"""
-    if execution:
-        return client.list_all(f"/executions/{execution}/tasks", **kw)
-    return client.list_all("/tasks", **kw)
+    """任务列表（取全）；传 execution 则取该迭代下的任务。"""
+    path = f"/executions/{execution}/tasks" if execution else "/tasks"
+    return client.fetch_all(path, **kw)
 
 
 def get(client, task_id):
     return client.get(f"/tasks/{task_id}")
+
+
+def search(client, execution=None, **filters):
+    """按条件查询任务（客户端过滤，API 不支持服务端过滤）。
+
+    execution 指定迭代（不传则全局）；
+    filters 见 zentao_search.filter_items：name/assigned_to/status/pri/parent/
+    deadline_from/deadline_to/est_from/est_to。返回满足条件的任务列表。"""
+    from zentao_search import filter_items
+    path = f"/executions/{execution}/tasks" if execution else "/tasks"
+    return filter_items(client.fetch_all(path), **filters)
 
 
 def batch_create(client, execution, tasks, parent=0):
