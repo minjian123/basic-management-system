@@ -18,7 +18,7 @@
 状态口径（文档 → 禅道）：
     未开始 → wait            进行中 → doing（wait 先 start）
     部分完成 → doing（wait 先 start）
-    已完成 → finished + closed（finish 必填 currentConsumed/realStarted/finishedDate）
+    已完成 → done（finish 必填 currentConsumed/realStarted/finishedDate）→ close 后 closed
     搁置   → wait（正文标注搁置原因）
 """
 import re
@@ -37,7 +37,7 @@ DOC2ZT_STATUS = {
     "未开始": "wait",
     "进行中": "doing",
     "部分完成": "doing",
-    "已完成": "finished",
+    "已完成": "done",
     "搁置": "wait",
 }
 
@@ -51,7 +51,7 @@ def base_status(status: str) -> str:
 
 
 def zt_status(status: str) -> str:
-    """文档状态 → 禅道状态（wait/doing/finished）。"""
+    """文档状态 → 禅道状态（wait/doing/done）。"""
     return DOC2ZT_STATUS.get(base_status(status), "wait")
 
 

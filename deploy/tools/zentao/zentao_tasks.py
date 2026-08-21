@@ -44,7 +44,7 @@ def search_server(client, name=None, assigned_to=None, status=None, pri=None,
     过滤维度（均可选，传了就筛）：
         name        名称模糊（LIKE %name%）
         assigned_to 指派人账号（IN 列表，可逗号分隔多账号；注意是账号名不是用户 ID）
-        status      状态（IN 列表：wait/doing/done/pause/finished/closed/canceled 等）
+        status      状态（IN 列表，全集见文档 4.1：wait/doing/done/pause/cancel/closed）
         pri         优先级（IN 列表：1-4）
         ids         任务 ID（IN 列表，逗号分隔或 list）
     分页：limit（22.5 无上限，默认 10000 一次取全）/page（真页码）；order 如 id_desc/id_asc/pri_asc。

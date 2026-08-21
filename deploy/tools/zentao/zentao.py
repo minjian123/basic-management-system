@@ -124,7 +124,7 @@ def build_parser():
     p.add_argument("--consumed", type=float, help="已消耗工时（小时，finish）")
     p.add_argument("--file", dest="json_file", help="batch-create 的 JSON 文件路径")
     # search 过滤参数（客户端过滤）
-    p.add_argument("--status", help="search 过滤：状态 wait/doing/closed/finished")
+    p.add_argument("--status", help="search 过滤：状态 wait/doing/done/pause/cancel/closed")
     p.add_argument("--deadline-from", dest="deadline_from", help="search 过滤：截止日期 >= (YYYY-MM-DD)")
     p.add_argument("--deadline-to", dest="deadline_to", help="search 过滤：截止日期 <= (YYYY-MM-DD)")
     p.add_argument("--est-from", dest="est_from", help="search 过滤：预计开始 >= (YYYY-MM-DD)")
