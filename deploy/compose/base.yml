@@ -112,6 +112,7 @@ services:
       - "8070:80"
     volumes:
       - zentao-data:/opt/zbox
+      - zentao-userdata:/data
     mem_limit: 1536m
 
 volumes:
@@ -124,3 +125,6 @@ volumes:
   rocketmq-broker-logs:
   es-data:
   zentao-data:
+  zentao-userdata:
+    external: true
+    name: compose_zentao-userdata
