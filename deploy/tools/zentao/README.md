@@ -21,7 +21,7 @@ BMS 项目禅道（ZenTao 开源版 22.5，`easysoft/zentao:latest` 滚动镜像
 #   ZENTAO_API_ACCOUNT=minjian
 #   ZENTAO_API_PASSWORD=<管理员密码>
 
-python zentao.py tokens                        # 获取 token
+python zentao.py token                         # 获取 token
 python zentao.py executions list --project 1   # 项目 1 下的迭代
 python zentao.py tasks list --execution 3      # 迭代 3 的任务（取全）
 python zentao.py tasks search --server --name 接口                  # 22.5 服务端过滤（name LIKE）

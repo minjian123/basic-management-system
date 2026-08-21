@@ -36,6 +36,9 @@ curl -s -X POST http://192.168.0.107:8070/api.php/v1/tokens \
 | `zentao_tasks.py` | 任务操作；22.5 新增 `search_server()`（服务端过滤 `?search=1`：name/assigned_to/status/pri/ids + 分页/排序/merge_children） |
 | `zentao_search.py` | 客户端过滤 `filter_items`（取全量后按名称/指派人/状态/优先级/父任务/日期筛；服务端没有的日期区间、父任务维度靠它） |
 | `zentao_web.py` | Web 会话删除（`web_delete`/`web_delete_many`/`delete_task`） |
+| `zentao_sync_push.py` | 文档 → 禅道：解析需求/任务/计划文档，建/更 story+任务、落排期、状态流转、回填 id |
+| `zentao_sync_pull.py` | 禅道 → 文档：读回任务实际状态/完成日期，写回需求/任务文档（默认回写，`--dry-run` 只读） |
+| `zentao_sync_common.py` | 两个同步脚本共用的解析与口径（文档发现/解析、状态映射、id 回填） |
 | `zentao.py` | 命令行入口 |
 | `README.md` | 工具包快速上手 |
 
@@ -93,6 +96,45 @@ created = tasks.batch_create(c, execution=3, tasks=[
      "estStarted": "2026-08-24", "deadline": "2026-09-07"},
 ])
 ```
+
+### 3.3 文档 ↔ 禅道双向同步 <a id="sync"></a>
+
+`文档/项目/{stage}/`（需求/任务/计划文档）与禅道（产品需求 + 迭代任务）双向同步；文档格式以《[任务文档规范](../../规范/任务文档规范.md)》《[需求文档规范](../../规范/需求文档规范.md)》《[计划文档规范](../../规范/计划文档规范.md)》为强制契约。
+
+```bash
+cd deploy/tools/zentao
+
+# 文档 → 禅道：建/更 story+任务、落排期、状态流转、回填 id
+python zentao_sync_push.py --stage 00_准备期 --dry-run     # 只解析+打印计划，不写禅道、不改文档
+python zentao_sync_push.py --stage 00_准备期               # 实跑（新建任务指派默认 minjian，--assign 覆盖，空串=不指派）
+
+# 禅道 → 文档：读回任务状态/完成日期，写回需求/任务文档
+python zentao_sync_pull.py --stage 00_准备期 --dry-run     # 只读比对，不改文档
+python zentao_sync_pull.py --stage 00_准备期               # 实跑（默认回写）
+```
+
+`--stage` 阶段目录名（默认 `00_准备期`）；push 另用 `--product`（默认 1）/`--execution`（默认 3=M0）；pull 用 `--execution`（默认 3）。
+
+**push（文档 → 禅道）**：只处理需求与任务**编号相同**的条目（不一致的告警跳过）；每条依次建/更 story（title/pri/spec，幂等）→ 建/更子任务（父任务、estStarted/deadline、desc，新建即指派）→ 状态流转 → id 回填文档。状态流转（文档 → 禅道）：
+
+| 文档状态 | 禅道动作 |
+| --- | --- |
+| 未开始 / 搁置 | 保持 `wait`（搁置原因记正文） |
+| 进行中 / 部分完成 | 若 `wait` 先 `start`（→ `doing`） |
+| 已完成 | 若 `wait` 先 `start` → `finish`（必填 currentConsumed/realStarted/finishedDate）→ `closed` |
+
+日期推导：已完成取文档完成日期（兜底计划完成日 → M1 锚点 2026-09-28）；其余取计划排期窗口，搁置/缺失用锚点占位。
+
+**pull（禅道 → 文档）**：每个任务文档按已回填 id（否则父任务+名称）定位禅道任务，读回状态/完成日期（done/closed 取 `finishedDate`，兜底 `deadline`），写回任务文档信息表与需求文档元信息行（禅道 → 文档）：
+
+| 禅道状态 | 文档状态 |
+| --- | --- |
+| `wait` | 未开始（文档原为"搁置"则保留搁置） |
+| `doing` | 进行中（文档原为"部分完成"则保留部分完成） |
+| `finished` / `closed` | 已完成 |
+| `pause` / `canceled` | 搁置 / 已取消 |
+
+幂等可重跑：push 优先复用已回填 id；未建时按"产品内标题全等"/"父任务+名称全等"查已有复用，查不到才创建。
 
 ## 4. API 端点总表 <a id="endpoints"></a>
 
@@ -334,6 +376,6 @@ for t in tasks.search(c, assigned_to="minjian", status="wait"):
 | 禅道 Docker 部署 | https://www.zentao.net/book/zentaopms/docker-1111.html | 官方镜像部署说明 |
 | 禅道官网 | https://www.zentao.net/ | 产品与社区 |
 
-项目内关联：工具包 `deploy/tools/zentao/`（README.md）、《[禅道部署使用说明](../开发服务器/禅道部署使用说明.md)》、《[禅道技术介绍](../知识档案/工程化与质量/禅道技术介绍.md)》、《[总体项目规划](../../规划/总体项目规划.md)》里程碑与 WBS。
+项目内关联：工具包 `deploy/tools/zentao/`（README.md）、《[任务文档规范](../../规范/任务文档规范.md)》《[需求文档规范](../../规范/需求文档规范.md)》《[计划文档规范](../../规范/计划文档规范.md)》（文档 ↔ 禅道同步契约）、《[禅道部署使用说明](../开发服务器/禅道部署使用说明.md)》、《[禅道技术介绍](../知识档案/工程化与质量/禅道技术介绍.md)》、《[总体项目规划](../../规划/总体项目规划.md)》里程碑与 WBS。
 
 > 依《文档生成规范》编写 · 记录 2026-08-21 实测（禅道 22.5，easysoft/zentao:latest 滚动镜像，mjbk 192.168.0.107:8070）
