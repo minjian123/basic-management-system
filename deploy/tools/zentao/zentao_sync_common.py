@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
-"""文档 ↔ 禅道双向同步 · 共享解析与口径（deploy/tools/zentao/sync_common.py）
+"""文档 ↔ 禅道双向同步 · 共享解析与口径（deploy/tools/zentao/zentao_sync_common.py）
 
-被 sync_push.py（文档→禅道）与 sync_pull.py（禅道→文档）复用。
+被 zentao_sync_push.py（文档→禅道）与 zentao_sync_pull.py（禅道→文档）复用。
 
 解析 文档/项目/{stage}/ 下三类文档：
     需求：需求/0X_需求_*.md
@@ -25,7 +25,7 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
-# 仓库根（deploy/tools/zentao/sync_common.py → 上四级 = bms 根）
+# 仓库根（deploy/tools/zentao/zentao_sync_common.py → 上四级 = bms 根）
 ROOT = Path(__file__).resolve().parent.parent.parent.parent
 PROJ = ROOT / "文档" / "项目"
 

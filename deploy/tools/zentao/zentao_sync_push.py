@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""文档 → 禅道 同步（deploy/tools/zentao/sync_push.py）
+"""文档 → 禅道 同步（deploy/tools/zentao/zentao_sync_push.py）
 
 把 文档/项目/{stage}/ 的需求/任务/计划 同步到禅道产品（story）+ 迭代（任务）：
     1. 每条需求建/更 1 个 story（title/pri/spec），回填 story id
@@ -11,9 +11,9 @@
     - 未建则按「产品内 title 精确匹配 / 父任务+name 精确匹配」查已有，命中则复用并回填；未命中才创建。
 
 用法：
-    python sync_push.py --stage 00_准备期 --dry-run    # 只解析+打印计划，不写禅道、不改文档
-    python sync_push.py --stage 00_准备期               # 实跑（建/更 story+任务、流转状态、回填 id）
-    python sync_push.py --stage 00_准备期 --assign minjian
+    python zentao_sync_push.py --stage 00_准备期 --dry-run    # 只解析+打印计划，不写禅道、不改文档
+    python zentao_sync_push.py --stage 00_准备期               # 实跑（建/更 story+任务、流转状态、回填 id）
+    python zentao_sync_push.py --stage 00_准备期 --assign minjian
 """
 import argparse
 
@@ -21,7 +21,7 @@ import zentao_stories as S
 import zentao_tasks as T
 from zentao_client import ZentaoClient
 
-from sync_common import (
+from zentao_sync_common import (
     Plan, base_status, build_desc, build_spec, list_child_task_files, list_plan_files,
     list_req_files, parse_finished, parse_plan_file, parse_req_file, parse_task_file,
     stage_paths, backfill_req_task_id, backfill_story_id, backfill_task_id, zt_status,
