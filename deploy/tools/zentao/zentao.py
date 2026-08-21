@@ -12,6 +12,12 @@
     python zentao.py stories list --product 1
     python zentao.py stories create --product 1 --title "用户管理" --pri 2 --category feature --spec "用户增删改查"
     python zentao.py tasks list --execution 3
+    python zentao.py tasks search --name 接口                       # 按名称模糊查（全局）
+    python zentao.py tasks search --assigned-to minjian --status doing   # 指派人+状态
+    python zentao.py tasks search --parent 1                        # 某父任务下的子任务
+    python zentao.py tasks search --deadline-from 2026-09-01 --deadline-to 2026-09-30
+    python zentao.py stories search --product 1 --name 用户         # 需求（name 匹配 title）
+    python zentao.py products search --name BMS
     python zentao.py tasks batch-create --execution 3 --file tasks.json
     python zentao.py tasks create --execution 3 --name "接口测试" --estimate 16 --begin 2026-08-24 --end 2026-09-07 --to minjian
     python zentao.py tasks create --execution 3 --parent 1 --name "子任务" --estimate 4 --begin 2026-08-24 --end 2026-09-07 --to minjian
@@ -46,12 +52,36 @@ import zentao_users
 import zentao_web
 
 RESOURCES = ["token", "products", "projects", "executions", "stories", "tasks", "users"]
-ACTIONS = ["list", "get", "create", "update", "delete", "web-delete", "batch-create",
+ACTIONS = ["list", "get", "search", "create", "update", "delete", "web-delete", "batch-create",
            "assign", "start", "finish", "close", "active"]
 
 
 def out(data):
     print(json.dumps(data, ensure_ascii=False, indent=2))
+
+
+def build_filters(args):
+    """从 CLI 参数收集 search 过滤条件（未传的不进 dict）。"""
+    f = {}
+    if args.name:
+        f["name"] = args.name
+    if args.assigned_to:
+        f["assigned_to"] = args.assigned_to
+    if args.status:
+        f["status"] = args.status
+    if args.pri is not None:
+        f["pri"] = args.pri
+    if args.parent:
+        f["parent"] = args.parent
+    if args.deadline_from:
+        f["deadline_from"] = args.deadline_from
+    if args.deadline_to:
+        f["deadline_to"] = args.deadline_to
+    if args.est_from:
+        f["est_from"] = args.est_from
+    if args.est_to:
+        f["est_to"] = args.est_to
+    return f
 
 
 def build_parser():
@@ -75,7 +105,7 @@ def build_parser():
     p.add_argument("--product", type=int, help="产品 ID（需求）")
     p.add_argument("--execution", type=int, help="迭代 ID（任务）")
     p.add_argument("--title", help="需求标题")
-    p.add_argument("--pri", type=int, default=2, help="优先级 1-4")
+    p.add_argument("--pri", type=int, help="优先级 1-4（create 不传默认 2；search 不传则不按优先级筛）")
     p.add_argument("--category", default="feature",
                    help="需求分类 feature/interface/performance/safe/experience/improve/other")
     p.add_argument("--spec", help="需求描述")
@@ -85,6 +115,12 @@ def build_parser():
     p.add_argument("--to", dest="assigned_to", help="指派给（账号）")
     p.add_argument("--consumed", type=float, help="已消耗工时（小时，finish）")
     p.add_argument("--file", dest="json_file", help="batch-create 的 JSON 文件路径")
+    # search 过滤参数（客户端过滤，API 不支持服务端过滤）
+    p.add_argument("--status", help="search 过滤：状态 wait/doing/closed/finished")
+    p.add_argument("--deadline-from", dest="deadline_from", help="search 过滤：截止日期 >= (YYYY-MM-DD)")
+    p.add_argument("--deadline-to", dest="deadline_to", help="search 过滤：截止日期 <= (YYYY-MM-DD)")
+    p.add_argument("--est-from", dest="est_from", help="search 过滤：预计开始 >= (YYYY-MM-DD)")
+    p.add_argument("--est-to", dest="est_to", help="search 过滤：预计开始 <= (YYYY-MM-DD)")
     p.add_argument("resource", choices=RESOURCES, help="资源")
     p.add_argument("action", nargs="?", help="操作")
     return p
@@ -101,6 +137,8 @@ def main():
             m = zentao_products
             if a == "list":
                 out(m.list_(c))
+            elif a == "search":
+                out(m.search(c, **build_filters(args)))
             elif a == "get":
                 out(m.get(c, args.id))
             elif a == "create":
@@ -122,6 +160,8 @@ def main():
             m = zentao_projects
             if a == "list":
                 out(m.list_(c))
+            elif a == "search":
+                out(m.search(c, **build_filters(args)))
             elif a == "get":
                 out(m.get(c, args.id))
             elif a == "create":
@@ -165,10 +205,12 @@ def main():
             m = zentao_stories
             if a == "list":
                 out(m.list_(c, product=args.product))
+            elif a == "search":
+                out(m.search(c, product=args.product, **build_filters(args)))
             elif a == "get":
                 out(m.get(c, args.id))
             elif a == "create":
-                out(m.create(c, args.product, args.title, pri=args.pri,
+                out(m.create(c, args.product, args.title, pri=args.pri or 2,
                              category=args.category, spec=args.spec or ""))
             elif a == "update":
                 fields = {}
@@ -189,13 +231,15 @@ def main():
             m = zentao_tasks
             if a == "list":
                 out(m.list_(c, execution=args.execution))
+            elif a == "search":
+                out(m.search(c, execution=args.execution, **build_filters(args)))
             elif a == "get":
                 out(m.get(c, args.id))
             elif a == "create":
                 fields = {"assignedTo": args.assigned_to} if args.assigned_to else {}
                 out(m.create(c, args.execution, args.name, estimate=args.estimate or 0,
                              est_started=args.begin, deadline=args.end,
-                             pri=args.pri, type_=args.model, parent=args.parent, **fields))
+                             pri=args.pri or 2, type_=args.model, parent=args.parent, **fields))
             elif a == "batch-create":
                 with open(args.json_file, encoding="utf-8") as f:
                     tasks = json.load(f)

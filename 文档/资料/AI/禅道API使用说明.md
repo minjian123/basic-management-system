@@ -29,8 +29,10 @@ curl -s -X POST http://192.168.0.107:8070/api.php/v1/tokens \
 
 | 文件 | 说明 |
 | --- | --- |
-| `zentao_client.py` | 核心客户端 `ZentaoClient`：token 认证、通用请求、自动分页、.env 凭据读取 |
-| `zentao_products.py` / `zentao_projects.py` / `zentao_executions.py` / `zentao_stories.py` / `zentao_tasks.py` / `zentao_users.py` | 各资源操作 |
+| `zentao_client.py` | 核心客户端 `ZentaoClient`：token 认证、通用请求、取全 `fetch_all`（兼容分页怪癖）、.env 凭据读取 |
+| `zentao_products.py` / `zentao_projects.py` / `zentao_executions.py` / `zentao_stories.py` / `zentao_tasks.py` / `zentao_users.py` | 各资源操作（列表/查看/搜索/创建/更新/删除） |
+| `zentao_search.py` | 客户端过滤 `filter_items`（API 不支持服务端过滤，取全量后按名称/指派人/状态/优先级/父任务/日期筛） |
+| `zentao_web.py` | Web 会话删除（`web_delete`/`web_delete_many`/`delete_task`） |
 | `zentao.py` | 命令行入口 |
 | `README.md` | 工具包快速上手 |
 
@@ -49,7 +51,12 @@ python zentao.py projects create --name "P" --type scrum --begin 2026-08-24 --en
 python zentao.py executions list --project 1          # 项目 1 的迭代
 python zentao.py executions create --project 1 --name "M0 启动就绪" --begin 2026-08-24 --end 2026-09-07
 python zentao.py stories list --product 1             # 产品 1 的需求
-python zentao.py tasks list --execution 3             # 迭代 3 的任务
+python zentao.py tasks list --execution 3             # 迭代 3 的任务（取全）
+python zentao.py tasks search --name 接口              # 按名称模糊查（取全后客户端筛）
+python zentao.py tasks search --assigned-to minjian --status doing
+python zentao.py tasks search --parent 1              # 某父任务下的子任务
+python zentao.py tasks search --deadline-from 2026-09-01 --deadline-to 2026-09-30
+python zentao.py stories search --product 1 --name 用户   # 需求（name 匹配 title）
 python zentao.py tasks create --execution 3 --name "接口测试" --estimate 16 --begin 2026-08-24 --end 2026-09-07 --to minjian
 python zentao.py tasks create --execution 3 --parent 1 --name "子任务" --estimate 4 --begin 2026-08-24 --end 2026-09-07 --to minjian
 python zentao.py tasks batch-create --execution 3 --parent 1 --file subtasks.json   # 批量挂到父任务 1 下
@@ -102,8 +109,9 @@ created = tasks.batch_create(c, execution=3, tasks=[
 
 通用约定：
 
-- 列表响应：`{"page":1,"total":N,"limit":100,"<资源key>":[...]}`，`limit` 最大 100；工具包 `list_all()` 自动翻页。
+- 列表响应：`{"page":1,"total":N,"limit":100,"<资源key>":[...]}`；工具包 `fetch_all()` 取全量（见踩坑 #15/#16 的全局分页怪癖）。
 - 错误：HTTP 4xx/5xx + JSON `{"error": ...}` 或 `{"error":{字段:文案}}`；工具包统一抛 `ZentaoError`（含状态码与原文）。
+- **过滤**：API 不支持服务端过滤参数（`assignedTo/status/name` 等传了被忽略，踩坑 #15）；用工具包 `search`（取全 + `zentao_search.filter_items` 客户端筛）。
 
 ## 5. 踩坑记录（实测） <a id="pitfalls"></a>
 
@@ -123,6 +131,9 @@ created = tasks.batch_create(c, execution=3, tasks=[
 | 12 | batchCreate 不接受指派 | body 带 `assignedTo` 被忽略，建出任务 `assignedTo=''` | 建任务后逐个走 `POST /tasks/:id/assignto`（必填 `assignedTo,left`）指派 |
 | 13 | 任务删除 API 失效 | `DELETE /tasks/:id` 返回 `{"message":"success"}`，但任务仍在、`deleted=False` | 禅道 21.x entry 参数错位（`$control->delete(0,$taskID,'true')`），实为空操作；**删除改用工具包 `zentao_web.delete_task` / CLI `tasks web-delete`**（单 `--id`、批量 `--ids` 复用同一登录会话），或通用 `zentao_web.web_delete(module,id)`（Web 会话调 `m={模块}&t=ajax&f=delete&{模块}ID={id}`，走正确 controller，真正生效）；`delete` 接口保留但不可靠 |
 | 14 | Web 登录必须用 GET | POST body 提交 `account/password` 会被返回登录页（登录未建立） | 用 **GET 参数**登录：`GET /index.php?m=user&t=json&f=login&account=..&password=..`，成功返回 `{status:success, token, user}` 并种下会话 cookie `zentaosid`，之后即可带 cookie 调 Web 端点；工具包 `zentao_web.WebSession` 已封装 |
+| 15 | API 不支持服务端过滤 | 列表接口带 `assignedTo/status/name/pri/parent` 等查询参数，**全被忽略**（传了仍返回全量，21.x 实测） | 过滤走「取全量 + 客户端筛」：工具包 `search`（`fetch_all` + `zentao_search.filter_items`），维度 name(模糊)/assigned_to/status/pri/parent/deadline_from/deadline_to/est_from/est_to |
+| 16 | 全局 `/tasks` 分页怪癖 | `GET /tasks` 的 `limit` 参数失效、`page` 被当作「返回条数」（`page=1`→1 条、`page=86`→全量 86 条）；普通 `list` 只拿到 1 条（`total=86`）；其它端点（`/products`、`/projects`、`/executions`、`/executions/:id/tasks`）`limit` 正常 | 取全量统一走工具包 `fetch_all`：先 `limit=10000`，条数 < total 再 `page=10000`，取条数多者；`list_all` 仍可用于 limit 正常的端点 |
+| 17 | `assignedTo` 是字典 | 任务/需求的 `assignedTo` 返回 `{id,account,avatar,realname}` 字典（非账号字符串），直接字符串比对匹配不到 | 过滤时取 `account` 字段比对（`zentao_search._assignee` 已兼容 dict/字符串） |
 
 ## 6. 典型场景 <a id="scenarios"></a>
 
@@ -249,6 +260,35 @@ r = web.web_delete_many(c, "story", [5, 6])  # 批量，复用同一登录会话
 ```
 
 > Web 删除走的是普通 controller（如 `task::delete($taskID)`，参数正确、真正生效，含级联删子任务）；REST 的 `taskEntry::delete` 参数错位删 0，不生效。2026-08-21 已用此法删除测试任务 82/83/84，并验证批量链路（单次登录删 3 条、幂等重删均正常）。
+
+### 6.7 按条件查询资源（search，客户端过滤）
+
+API 不支持服务端过滤（踩坑 #15）、全局 `/tasks` 分页有怪癖（踩坑 #16），查询统一走工具包 `search`：取全量 + `zentao_search.filter_items` 客户端筛。支持维度：`name`（模糊，匹配 `name` 或 `title`）、`assigned_to`、`status`、`pri`、`parent`、`deadline_from/deadline_to`、`est_from/est_to`（日期区间含边界）：
+
+```bash
+python zentao.py tasks search --name 开发                          # 名称模糊（全局 86 条中筛）
+python zentao.py tasks search --assigned-to minjian --status doing # 指派人 + 状态组合
+python zentao.py tasks search --parent 1                           # 任务 1 的子任务
+python zentao.py tasks search --pri 1 --deadline-from 2026-09-01   # 优先级 + 截止区间
+python zentao.py tasks search --execution 3 --name 接口             # 限定迭代 3 内查
+python zentao.py stories search --product 1 --name 用户             # 需求（name 匹配 title）
+python zentao.py products search --name BMS
+```
+
+作为库调用：
+
+```python
+import sys
+sys.path.insert(0, r"D:\Develop\bms\deploy\tools\zentao")
+from zentao_client import ZentaoClient
+import zentao_tasks as tasks
+
+c = ZentaoClient()
+for t in tasks.search(c, assigned_to="minjian", status="wait"):
+    print(t["id"], t["name"], t["deadline"])
+```
+
+> 2026-08-21 实测：全局 `tasks search --name 开发` 命中 2 条（#1/#90）、`--parent 1` 命中 6 条子任务（#85~90）、`--assigned-to minjian` 命中 86 条（assignedTo 为字典，取 account 比对，踩坑 #17）；各资源 `list` 取全（/tasks=86、/executions/3/tasks=10、/executions=16）均正常。
 
 ## 7. 参考 <a id="ref"></a>
 

@@ -11,14 +11,22 @@ CATEGORIES = ("feature", "interface", "performance", "safe", "experience", "impr
 
 
 def list_(client, product=None, **kw):
-    """需求列表；传 product 则取该产品下的需求。"""
-    if product:
-        return client.list_all(f"/products/{product}/stories", **kw)
-    return client.list_all("/stories", **kw)
+    """需求列表（取全）；传 product 则取该产品下的需求。"""
+    path = f"/products/{product}/stories" if product else "/stories"
+    return client.fetch_all(path, **kw)
 
 
 def get(client, story_id):
     return client.get(f"/stories/{story_id}")
+
+
+def search(client, product=None, **filters):
+    """按条件查询需求（客户端过滤）。product 指定产品（不传则全局）；
+    filters 见 zentao_search.filter_items：name(匹配 title)/assigned_to/status/pri/
+    deadline_from/deadline_to/est_from/est_to。"""
+    from zentao_search import filter_items
+    path = f"/products/{product}/stories" if product else "/stories"
+    return filter_items(client.fetch_all(path), **filters)
 
 
 def create(client, product, title, pri=2, category="feature", spec="", **fields):
