@@ -20,6 +20,8 @@
     python zentao.py tasks update --id 1 --desc-file desc.txt    # 多行描述走文件（优先于 --desc）
     python zentao.py tasks assign --id 1 --to minjian
     python zentao.py tasks web-delete --id 1          # 经 Web 会话删除（REST delete 有 bug 用不了）
+    python zentao.py tasks web-delete --ids 82 83 84  # 批量删除（复用同一登录会话）
+    python zentao.py stories web-delete --id 5        # 通用 Web 删除（story/product/project/execution 同）
     python zentao.py tasks start --id 1
     python zentao.py tasks finish --id 1 --consumed 16
     python zentao.py tasks close --id 1
@@ -41,6 +43,7 @@ import zentao_executions
 import zentao_stories
 import zentao_tasks
 import zentao_users
+import zentao_web
 
 RESOURCES = ["token", "products", "projects", "executions", "stories", "tasks", "users"]
 ACTIONS = ["list", "get", "create", "update", "delete", "web-delete", "batch-create",
@@ -59,6 +62,7 @@ def build_parser():
     p.add_argument("--password")
     # 通用参数（顶层共享）
     p.add_argument("--id", type=int, help="资源 ID")
+    p.add_argument("--ids", nargs="+", type=int, help="web-delete 批量：多个资源 ID（与 --id 可并用）")
     p.add_argument("--name", help="名称")
     p.add_argument("--code", help="代号")
     p.add_argument("--desc", help="描述")
@@ -112,6 +116,8 @@ def main():
                 out(m.update(c, args.id, **fields))
             elif a == "delete":
                 out(m.delete(c, args.id))
+            elif a == "web-delete":
+                out(zentao_web.web_delete(c, "product", args.id))
         elif r == "projects":
             m = zentao_projects
             if a == "list":
@@ -132,6 +138,8 @@ def main():
                 out(m.update(c, args.id, **fields))
             elif a == "delete":
                 out(m.delete(c, args.id))
+            elif a == "web-delete":
+                out(zentao_web.web_delete(c, "project", args.id))
         elif r == "executions":
             m = zentao_executions
             if a == "list":
@@ -151,6 +159,8 @@ def main():
                 out(m.update(c, args.id, **fields))
             elif a == "delete":
                 out(m.delete(c, args.id))
+            elif a == "web-delete":
+                out(zentao_web.web_delete(c, "execution", args.id))
         elif r == "stories":
             m = zentao_stories
             if a == "list":
@@ -173,6 +183,8 @@ def main():
                 out(m.update(c, args.id, **fields))
             elif a == "delete":
                 out(m.delete(c, args.id))
+            elif a == "web-delete":
+                out(zentao_web.web_delete(c, "story", args.id))
         elif r == "tasks":
             m = zentao_tasks
             if a == "list":
@@ -206,7 +218,10 @@ def main():
             elif a == "delete":
                 out(m.delete(c, args.id))
             elif a == "web-delete":
-                out(m.web_delete(c, args.id))
+                ids = ([args.id] if args.id is not None else []) + (args.ids or [])
+                if not ids:
+                    raise ValueError("web-delete 需要至少一个 --id（或 --ids 多个）")
+                out(m.web_delete(c, ids))
             elif a == "assign":
                 out(m.assign(c, args.id, args.assigned_to, left=args.left))
             elif a == "start":

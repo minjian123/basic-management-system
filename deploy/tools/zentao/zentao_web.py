@@ -9,10 +9,12 @@
       返回 {"status":"success","token":...,"user":{...}}；
       用 POST body 提交会被返回登录页（登录未建立）。
     - 登录成功拿到会话 cookie（zentaosid）后，即可调 Web 端点执行操作，
-      如删除任务：index.php?m=task&t=ajax&f=delete&taskID=X（响应含「保存成功」）。
-    - Web 删除走的是普通 controller task::delete($taskID)，参数正确、真正生效
-      （REST 的 taskEntry::delete 参数错位删 0，不生效）。
+      删除端点统一为：index.php?m={模块}&t=ajax&f=delete&{模块}ID={id}
+      （task 已验证：响应含「保存成功」；其他资源同一约定，首次用建议先验证）。
+    - Web 删除走的是普通 controller（task::delete($taskID)），参数正确、真正生效；
+      REST 的 taskEntry::delete 参数错位删 0，不生效。
     - 删除后仍可用 API GET /tasks/{id} 读回，返回 deleted=True 确认已删。
+    - 批量删除应复用同一次登录会话（web_delete_many），避免重复登录（也避免触发登录锁定）。
 """
 import http.cookiejar
 import json
@@ -23,7 +25,7 @@ from zentao_client import ZentaoClient, ZentaoError
 
 
 class WebSession:
-    """禅道 Web 会话：GET 登录 + 带 cookie 调 Web 端点。"""
+    """禅道 Web 会话：GET 登录 + 带 cookie 调 Web 端点。登录一次可复用多次操作。"""
 
     def __init__(self, base, account, password):
         if not account or not password:
@@ -37,7 +39,7 @@ class WebSession:
         self.user = None
 
     def login(self):
-        """GET 登录，成功后返回用户信息 dict；失败抛 ZentaoError。"""
+        """GET 登录，成功后返回用户信息 dict；失败抛 ZentaoError。成功后可复用多次 request。"""
         qs = urllib.parse.urlencode({"account": self.account, "password": self.password})
         url = self.base + "/index.php?m=user&t=json&f=login&" + qs
         req = urllib.request.Request(url, method="GET")
@@ -55,23 +57,66 @@ class WebSession:
         return resp.status, resp.read().decode("utf-8", "replace")
 
 
-def delete_task(client, task_id):
-    """经 Web 会话删除任务（绕过 REST DELETE /tasks/:id 的 bug）。
+def _as_ids(v):
+    """把 单个id / int / 逗号分隔串 / 列表 统一为 int 列表。"""
+    if v is None:
+        return []
+    if isinstance(v, (int, float)):
+        return [int(v)]
+    if isinstance(v, str):
+        return [int(x) for x in v.split(",") if x.strip()]
+    return [int(x) for x in v]
 
-    返回 {taskID, user, httpStatus, response, deleted}：
-      deleted 为 API 读回的 deleted 字段（True=已删）。
-    """
+
+def _open_session(client):
     if not isinstance(client, ZentaoClient):
         client = ZentaoClient()
-    ws = WebSession(client.url, client.account, client.password)
+    return WebSession(client.url, client.account, client.password), client
+
+
+def _delete_url(module, id):
+    return f"/index.php?m={module}&t=ajax&f=delete&{module}ID={int(id)}"
+
+
+def web_delete(client, module, id):
+    """通用 Web 删除（单个，任意资源：task/story/product/project/execution）。
+
+    module: 禅道模块名（task/story/product/project/execution 等）。
+    返回 {module, id, user, httpStatus, success, response}。"""
+    ws, _ = _open_session(client)
     user = ws.login()
-    status, body = ws.request(f"/index.php?m=task&t=ajax&f=delete&taskID={int(task_id)}")
-    ok = "保存成功" in body
-    deleted = None
-    try:
-        deleted = (client.get(f"/tasks/{int(task_id)}") or {}).get("deleted")
-    except ZentaoError:
-        pass
-    return {"taskID": int(task_id), "user": (user or {}).get("account"),
-            "httpStatus": status, "response": body[:200],
-            "success": ok, "deleted": deleted}
+    status, body = ws.request(_delete_url(module, id))
+    return {"module": module, "id": int(id), "user": (user or {}).get("account"),
+            "httpStatus": status, "success": "保存成功" in body, "response": body[:200]}
+
+
+def web_delete_many(client, module, ids):
+    """通用 Web 批量删除（复用同一次登录会话，只登录一次）。
+
+    ids: 单个 id 或 id 列表（也接受逗号分隔字符串）。
+    返回 {module, user, results:[{id, httpStatus, success, response}, ...]}。"""
+    ws, _ = _open_session(client)
+    user = ws.login()
+    results = []
+    for i in _as_ids(ids):
+        status, body = ws.request(_delete_url(module, i))
+        results.append({"id": i, "httpStatus": status,
+                        "success": "保存成功" in body, "response": body[:200]})
+    return {"module": module, "user": (user or {}).get("account"), "results": results}
+
+
+def delete_task(client, task_id):
+    """经 Web 会话删除任务（REST DELETE /tasks/:id 有 bug 不生效，改用此函数）。
+
+    task_id: 单个 id 或 id 列表（批量时复用同一登录会话）。
+    返回 {user, results:[{taskID, success, deleted, httpStatus, response}, ...]}，
+    deleted 为 API 读回的 deleted 字段（True=已删）。"""
+    c = client if isinstance(client, ZentaoClient) else ZentaoClient()
+    r = web_delete_many(c, "task", task_id)
+    for item in r["results"]:
+        try:
+            item["deleted"] = (c.get(f"/tasks/{item['id']}") or {}).get("deleted")
+        except ZentaoError:
+            item["deleted"] = None
+        item["taskID"] = item.pop("id")
+    return r
