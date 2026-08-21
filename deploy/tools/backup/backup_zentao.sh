@@ -31,7 +31,7 @@ docker exec -e MYSQL_PWD="$ZT_PASS" bms-mysql \
 echo "OK db: zentao-db_${TS}.sql.gz ($(du -h "$BACKUP_DIR/zentao-db_${TS}.sql.gz" | cut -f1))"
 
 # 2) /data 卷（config my.php、license、上传附件、扩展包、内部备份包）
-#    该卷为匿名卷，经 --volumes-from 引用，避免 docker volume prune 误删依赖具名
+#    该卷为具名卷 compose_zentao-userdata（挂容器 /data）；经 --volumes-from 引用，卷改名也不受影响
 docker run --rm \
   --volumes-from bms-zentao \
   -v "$BACKUP_DIR":/backup \
