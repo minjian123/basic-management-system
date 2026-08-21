@@ -23,6 +23,8 @@ python zentao.py executions list --project 1   # 项目 1 下的迭代
 python zentao.py tasks list --execution 3      # 迭代 3 的任务
 python zentao.py tasks batch-create --execution 3 --file tasks.json
 python zentao.py tasks assign --id 1 --to minjian
+python zentao.py tasks update --id 1 --desc "单行描述"
+python zentao.py tasks update --id 1 --desc-file desc.txt   # 多行描述走文件（优先于 --desc）
 ```
 
 作为库使用：

@@ -15,6 +15,8 @@
     python zentao.py tasks batch-create --execution 3 --file tasks.json
     python zentao.py tasks create --execution 3 --name "接口测试" --estimate 16 --begin 2026-08-24 --end 2026-09-07 --to minjian
     python zentao.py tasks update --id 1 --pri 1
+    python zentao.py tasks update --id 1 --desc "单行描述"
+    python zentao.py tasks update --id 1 --desc-file desc.txt    # 多行描述走文件（优先于 --desc）
     python zentao.py tasks assign --id 1 --to minjian
     python zentao.py tasks start --id 1
     python zentao.py tasks finish --id 1 --consumed 16
@@ -58,6 +60,7 @@ def build_parser():
     p.add_argument("--name", help="名称")
     p.add_argument("--code", help="代号")
     p.add_argument("--desc", help="描述")
+    p.add_argument("--desc-file", dest="desc_file", help="描述文件路径（多行描述，优先于 --desc）")
     p.add_argument("--type", dest="model", default="scrum", help="项目类型 scrum/kanban/waterfall")
     p.add_argument("--begin", help="开始日期 YYYY-MM-DD")
     p.add_argument("--end", help="截止日期 YYYY-MM-DD")
@@ -191,6 +194,11 @@ def main():
                         fields[k] = v
                 if args.assigned_to:
                     fields["assignedTo"] = args.assigned_to
+                if args.desc_file:
+                    with open(args.desc_file, encoding="utf-8") as f:
+                        fields["desc"] = f.read()
+                elif args.desc:
+                    fields["desc"] = args.desc
                 out(m.update(c, args.id, **fields))
             elif a == "delete":
                 out(m.delete(c, args.id))
