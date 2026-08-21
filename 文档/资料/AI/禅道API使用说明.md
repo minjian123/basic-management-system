@@ -95,7 +95,7 @@ created = tasks.batch_create(c, execution=3, tasks=[
 | 项目 | `GET /projects`、`POST /projects`、`PUT /projects/:id`、`DELETE /projects/:id` | 创建必填 `name,begin,end,products`（products 为产品 ID 数组）；类型 `model`: scrum/kanban/waterfall |
 | 迭代 | `GET /executions?status=all`（全量）、`GET /executions/:id`、`POST /executions?project={id}`、`PUT /executions/:id`、`DELETE /executions/:id` | 创建必填 `name,begin,end`；**`project` 走 URL 参数**；`/projects/:id/executions` 只返回项目根执行（子迭代不出现），不要用它列迭代 |
 | 需求 | `GET /products/:id/stories`、`GET /stories/:id`、`POST /stories?product={id}`、`PUT /stories/:id`、`DELETE /stories/:id` | 创建必填 `title,spec,pri,category`；category 枚举：feature/interface/performance/safe/experience/improve/other |
-| 任务（列表/编辑） | `GET /executions/:id/tasks`、`GET /tasks/:id`、`PUT /tasks/:id`、`DELETE /tasks/:id` | 编辑字段含 name/desc/pri/estimate/left/assignedTo/estStarted/deadline/status 等；`desc` 支持多行文本（CLI 可 `--desc`/`--desc-file`） |
+| 任务（列表/编辑） | `GET /executions/:id/tasks`、`GET /tasks/:id`、`PUT /tasks/:id`、`DELETE /tasks/:id` | 编辑字段含 name/desc/pri/estimate/left/assignedTo/estStarted/deadline/status 等；`desc` 支持多行文本（CLI 可 `--desc`/`--desc-file`）；**`DELETE /tasks/:id` 有 bug 不生效（踩坑 #13），删除用 `web_delete`/CLI `tasks web-delete`** |
 | 任务（批量创建） | `POST /executions/:id/tasks/batchCreate` | **唯一创建入口**；body `{"tasks":[{name,type,...}]}`；每项必填 `estStarted,deadline`；**子任务：父任务 ID 走 URL 参数 `?task={id}`**（body 写 `parent` 被覆盖无效）；body 不接受 `assignedTo`（建后走 `assignto` 指派） |
 | 任务动作 | `POST /tasks/:id/assignto`（必填 `assignedTo,left`）、`/start`、`/pause`、`/restart`、`/finish`（必填 `currentConsumed,realStarted,finishedDate`）、`/close`、`/active`、`/estimate` | — |
 | 用户 | `GET /users`、`GET /users/:id` | 创建接口需会话 rand 拼盐，**建议走 Web 界面** |
@@ -121,7 +121,8 @@ created = tasks.batch_create(c, execution=3, tasks=[
 | 10 | 迭代列表少数据 | `GET /projects/:id/executions` 只返回项目根执行（如 id=2），M0~M15 子迭代不出现 | 列迭代统一用 `GET /executions?status=all`（工具包已按 project 内存过滤） |
 | 11 | 子任务父级走 URL 参数 | body 里写 `parent` 被忽略，建出的任务 `parent=0` | 父任务 ID 走 **URL 参数** `?task={id}`（源码 `buildTasksForBatchCreate` 内 `$task->parent=$taskID` 强制覆盖 body）；工具包 `batch_create(parent=…)` / CLI `--parent` 已封装 |
 | 12 | batchCreate 不接受指派 | body 带 `assignedTo` 被忽略，建出任务 `assignedTo=''` | 建任务后逐个走 `POST /tasks/:id/assignto`（必填 `assignedTo,left`）指派 |
-| 13 | 任务删除 API 失效 | `DELETE /tasks/:id` 返回 `{"message":"success"}`，但任务仍在、`deleted=False` | 禅道 21.x entry 参数错位（`$control->delete(0,$taskID,'true')`），实为空操作；**删除请走 Web 界面**，工具包 `delete` 保留接口但不可靠 |
+| 13 | 任务删除 API 失效 | `DELETE /tasks/:id` 返回 `{"message":"success"}`，但任务仍在、`deleted=False` | 禅道 21.x entry 参数错位（`$control->delete(0,$taskID,'true')`），实为空操作；**删除改用工具包 `web_delete` / CLI `tasks web-delete --id X`**（Web 会话调 `m=task&t=ajax&f=delete`，走正确 controller，真正生效），`delete` 接口保留但不可靠 |
+| 14 | Web 登录必须用 GET | POST body 提交 `account/password` 会被返回登录页（登录未建立） | 用 **GET 参数**登录：`GET /index.php?m=user&t=json&f=login&account=..&password=..`，成功返回 `{status:success, token, user}` 并种下会话 cookie `zentaosid`，之后即可带 cookie 调 Web 端点；工具包 `zentao_web.WebSession` 已封装 |
 
 ## 6. 典型场景 <a id="scenarios"></a>
 
@@ -216,6 +217,29 @@ for t in created:                                  # body 不含 assignedTo，�
 ```
 
 > 2026-08-21 已对 M0 任务 1「开发服务器环境与工具链就绪」拆解 6 个子任务（id 85~90，工时 4/2/4/3/2/1 合计 16h 与父任务一致，均指派 minjian）。
+
+### 6.6 删除任务（REST delete 失效，走 Web 会话）
+
+`DELETE /tasks/:id` 有参数错位 bug（踩坑 #13），改用工具包 `web_delete`（Web 会话调 Web 端点，踩坑 #14 的 GET 登录）：
+
+```bash
+python zentao.py tasks web-delete --id 82        # 经 Web 会话删除，读回 deleted=True 确认
+```
+
+作为库调用：
+
+```python
+import sys
+sys.path.insert(0, r"D:\Develop\bms\deploy\tools\zentao")
+from zentao_client import ZentaoClient
+import zentao_tasks as tasks
+
+c = ZentaoClient()
+r = tasks.web_delete(c, 82)      # {taskID, user, httpStatus, response, success, deleted}
+assert r["deleted"] is True, r   # API 读回确认已删
+```
+
+> Web 删除走的是普通 controller `task::delete($taskID)`（参数正确、真正生效，含级联删子任务）；REST 的 `taskEntry::delete` 参数错位删 0，不生效。2026-08-21 已用此法删除测试任务 82/83/84。
 
 ## 7. 参考 <a id="ref"></a>
 

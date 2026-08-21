@@ -8,6 +8,7 @@ BMS 项目禅道（ZenTao 开源版 21.x，mjbk 192.168.0.107:8070）REST API �
 | --- | --- |
 | `zentao_client.py` | 核心客户端：token 认证、通用请求、自动分页、.env 凭据读取 |
 | `zentao_products.py` / `zentao_projects.py` / `zentao_executions.py` / `zentao_stories.py` / `zentao_tasks.py` / `zentao_users.py` | 各资源操作（列表/查看/创建/更新/删除；任务含批量创建/指派/开始/完成/关闭） |
+| `zentao_web.py` | Web 会话（GET 登录 + 调 Web 端点），用于 REST 失效的操作（如删除任务） |
 | `zentao.py` | 命令行入口 |
 
 ## 快速上手
@@ -25,6 +26,7 @@ python zentao.py tasks batch-create --execution 3 --file tasks.json
 python zentao.py tasks create --execution 3 --parent 1 --name "子任务" --estimate 4 --begin 2026-08-24 --end 2026-09-07 --to minjian
 python zentao.py tasks batch-create --execution 3 --parent 1 --file subtasks.json   # 批量挂到父任务 1
 python zentao.py tasks assign --id 1 --to minjian
+python zentao.py tasks web-delete --id 1       # REST delete 有 bug，删除走 Web 会话
 python zentao.py tasks update --id 1 --desc "单行描述"
 python zentao.py tasks update --id 1 --desc-file desc.txt   # 多行描述走文件（优先于 --desc）
 ```
@@ -57,4 +59,5 @@ for t in created:
 - 创建用户 API 需会话 rand 拼盐，建议走 Web 界面
 - 子任务：父任务 ID 走 `--parent`（URL 参数 `?task=`），body 写 `parent` 无效
 - batchCreate 的 body 不接受 `assignedTo`，建任务后走 `assign` 指派
-- `delete` 接口在 21.x 有参数错位 bug（空操作却返回 success），删除请走 Web 界面
+- `delete` 接口在 21.x 有参数错位 bug（空操作却返回 success）；**删除用 `tasks web-delete --id X`**（`zentao_web.WebSession` 经 Web 会话调 Web 端点，真正生效）
+- Web 会话登录必须用 **GET 参数**（`m=user&t=json&f=login&account=..&password=..`），POST body 会被返回登录页

@@ -19,6 +19,7 @@
     python zentao.py tasks update --id 1 --desc "单行描述"
     python zentao.py tasks update --id 1 --desc-file desc.txt    # 多行描述走文件（优先于 --desc）
     python zentao.py tasks assign --id 1 --to minjian
+    python zentao.py tasks web-delete --id 1          # 经 Web 会话删除（REST delete 有 bug 用不了）
     python zentao.py tasks start --id 1
     python zentao.py tasks finish --id 1 --consumed 16
     python zentao.py tasks close --id 1
@@ -42,7 +43,7 @@ import zentao_tasks
 import zentao_users
 
 RESOURCES = ["token", "products", "projects", "executions", "stories", "tasks", "users"]
-ACTIONS = ["list", "get", "create", "update", "delete", "batch-create",
+ACTIONS = ["list", "get", "create", "update", "delete", "web-delete", "batch-create",
            "assign", "start", "finish", "close", "active"]
 
 
@@ -204,6 +205,8 @@ def main():
                 out(m.update(c, args.id, **fields))
             elif a == "delete":
                 out(m.delete(c, args.id))
+            elif a == "web-delete":
+                out(m.web_delete(c, args.id))
             elif a == "assign":
                 out(m.assign(c, args.id, args.assigned_to, left=args.left))
             elif a == "start":
