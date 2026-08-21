@@ -94,6 +94,26 @@ services:
     volumes:
       - es-data:/usr/share/elasticsearch/data
 
+  # 禅道项目管理（ZenTao 开源版），宿主 8070 → 容器内 80（Apache）；
+  # 复用 mjbk 外部 MySQL（bms-mysql 的 zentao 库，账号见 .env ZENTAO_*），
+  # 数据随 MySQL 每日 dump 备份；内存上限 1.5 GB（见《开发部署规划》服务清单）。
+  zentao:
+    image: easysoft/zentao:latest
+    container_name: bms-zentao
+    restart: unless-stopped
+    environment:
+      TZ: Asia/Shanghai
+      MYSQL_HOST: ${ZENTAO_MYSQL_HOST}
+      MYSQL_PORT: ${ZENTAO_MYSQL_PORT}
+      MYSQL_DB: ${ZENTAO_MYSQL_DB}
+      MYSQL_USER: ${ZENTAO_MYSQL_USER}
+      MYSQL_PASSWORD: ${ZENTAO_MYSQL_PASSWORD}
+    ports:
+      - "8070:80"
+    volumes:
+      - zentao-data:/opt/zbox
+    mem_limit: 1536m
+
 volumes:
   redis-data:
   mysql-data:
@@ -103,3 +123,4 @@ volumes:
   rocketmq-broker-data:
   rocketmq-broker-logs:
   es-data:
+  zentao-data:
