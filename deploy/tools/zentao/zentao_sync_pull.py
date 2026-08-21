@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""禅道 → 文档 同步（deploy/tools/zentao/sync_pull.py）
+"""禅道 → 文档 同步（deploy/tools/zentao/zentao_sync_pull.py）
 
 把禅道任务的状态/完成日期读回，回写到需求/任务文档：
     - 需求文档元信息行：状态 / 完成日期
@@ -12,8 +12,8 @@
     pause → 搁置　canceled → 已取消
 
 用法：
-    python sync_pull.py --stage 00_准备期 --dry-run    # 只读禅道+打印对照，不改文档
-    python sync_pull.py --stage 00_准备期               # 回写文档
+    python zentao_sync_pull.py --stage 00_准备期 --dry-run    # 只读禅道+打印对照，不改文档
+    python zentao_sync_pull.py --stage 00_准备期               # 回写文档
 """
 import argparse
 import re
@@ -21,7 +21,7 @@ import re
 import zentao_tasks as T
 from zentao_client import ZentaoClient
 
-from sync_common import (
+from zentao_sync_common import (
     ROOT, base_status, list_child_task_files, list_req_files, parse_req_file,
     parse_task_file, stage_paths,
 )
