@@ -140,11 +140,17 @@ def assign(client, task_id, assigned_to, left=None):
     return client.post(f"/tasks/{task_id}/assignto", body=body)
 
 
-def start(client, task_id, real_started=None):
-    """开始任务（开始后状态 wait -> doing）。"""
+def start(client, task_id, real_started=None, left=None):
+    """开始任务（wait -> doing）。
+
+    注意：禅道 start 端点按「请求体里的 left」校验，不带 left 会被当 0，
+    报「总计消耗和预计剩余不能同时为0」。故开始未开始的任务必须传 left（取 estimate）。
+    """
     body = {}
     if real_started:
         body["realStarted"] = real_started
+    if left is not None:
+        body["left"] = left
     return client.post(f"/tasks/{task_id}/start", body=body)
 
 
