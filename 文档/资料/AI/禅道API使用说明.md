@@ -54,6 +54,8 @@ python zentao.py tasks create --execution 3 --name "接口测试" --estimate 16 
 python zentao.py tasks batch-create --execution 3 --file tasks.json
 python zentao.py tasks assign --id 1 --to minjian
 python zentao.py tasks update --id 1 --pri 1
+python zentao.py tasks update --id 1 --desc "单行描述"
+python zentao.py tasks update --id 1 --desc-file desc.txt     # 多行描述走文件（优先于 --desc）
 python zentao.py tasks start --id 1                   # 开始
 python zentao.py tasks finish --id 1 --consumed 16    # 完成
 python zentao.py tasks close --id 1                   # 关闭
@@ -92,7 +94,7 @@ created = tasks.batch_create(c, execution=3, tasks=[
 | 项目 | `GET /projects`、`POST /projects`、`PUT /projects/:id`、`DELETE /projects/:id` | 创建必填 `name,begin,end,products`（products 为产品 ID 数组）；类型 `model`: scrum/kanban/waterfall |
 | 迭代 | `GET /executions?status=all`（全量）、`GET /executions/:id`、`POST /executions?project={id}`、`PUT /executions/:id`、`DELETE /executions/:id` | 创建必填 `name,begin,end`；**`project` 走 URL 参数**；`/projects/:id/executions` 只返回项目根执行（子迭代不出现），不要用它列迭代 |
 | 需求 | `GET /products/:id/stories`、`GET /stories/:id`、`POST /stories?product={id}`、`PUT /stories/:id`、`DELETE /stories/:id` | 创建必填 `title,spec,pri,category`；category 枚举：feature/interface/performance/safe/experience/improve/other |
-| 任务（列表/编辑） | `GET /executions/:id/tasks`、`GET /tasks/:id`、`PUT /tasks/:id`、`DELETE /tasks/:id` | 编辑字段含 name/pri/estimate/left/assignedTo/estStarted/deadline/status 等 |
+| 任务（列表/编辑） | `GET /executions/:id/tasks`、`GET /tasks/:id`、`PUT /tasks/:id`、`DELETE /tasks/:id` | 编辑字段含 name/desc/pri/estimate/left/assignedTo/estStarted/deadline/status 等；`desc` 支持多行文本（CLI 可 `--desc`/`--desc-file`） |
 | 任务（批量创建） | `POST /executions/:id/tasks/batchCreate` | **唯一创建入口**；body `{"tasks":[{name,type,...}]}`；每项必填 `estStarted,deadline` |
 | 任务动作 | `POST /tasks/:id/assignto`（必填 `assignedTo,left`）、`/start`、`/pause`、`/restart`、`/finish`（必填 `currentConsumed,realStarted,finishedDate`）、`/close`、`/active`、`/estimate` | — |
 | 用户 | `GET /users`、`GET /users/:id` | 创建接口需会话 rand 拼盐，**建议走 Web 界面** |
@@ -148,6 +150,35 @@ for t in tasks.list_(c, execution=3):        # 迭代 3 全部任务
 ### 6.3 里程碑进度核对
 
 迭代 `M0~M15`（id 3~18）对应《[总体项目规划](../../规划/总体项目规划.md)》里程碑；`GET /executions/:id/tasks` 统计各状态数量即可核算进度（工具包 `tasks.list_`）。
+
+### 6.4 批量补充任务描述（按项目文档回填 desc）
+
+任务描述（`desc`）支持多行文本。批量回填时按任务建文本文件，用 `--desc-file` 逐个更新；更新后读回校验 `desc` 与源文件一致：
+
+```bash
+# 单任务单行
+python zentao.py tasks update --id 1 --desc "准备期（M0）：环境与工具链就绪"
+# 单任务多行（内容存 desc-1.txt）
+python zentao.py tasks update --id 1 --desc-file desc-1.txt
+# 读回校验
+python zentao.py tasks get --id 1
+```
+
+作为库批量回填（2026-08-21 已对 M0 迭代 4 个任务执行）：
+
+```python
+import sys
+sys.path.insert(0, r"D:\Develop\bms\deploy\tools\zentao")
+from zentao_client import ZentaoClient
+import zentao_tasks as tasks
+
+c = ZentaoClient()
+for task_id, desc in DESC.items():      # {任务id: 描述文本}，内容取自项目文档
+    tasks.update(c, task_id, desc=desc)
+    assert tasks.get(c, task_id)["desc"].strip() == desc.strip()
+```
+
+> 描述内容以《[总体项目规划](../../规划/总体项目规划.md)》WBS 与《[开发部署规划](../../规划/开发部署规划.md)》对应阶段为准，回填后任务卡即可自解释。
 
 ## 7. 参考 <a id="ref"></a>
 
