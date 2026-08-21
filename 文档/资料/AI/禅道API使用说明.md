@@ -182,12 +182,17 @@ python zentao_sync_pull.py --stage 00_准备期               # 实跑（默认�
 | 15 | 服务端过滤要显式 `search=1` | **21.x**：列表接口带 `assignedTo/status/name` 等参数全被忽略（传了仍返回全量）；**22.5**：任务已支持服务端过滤，但必须显式带 `search=1`（不带时落入「我的任务」分支，参数仍被忽略——即 21.x 观察到的现象） | 任务服务端过滤：`GET /tasks?search=1&name=&assignedTo=&status=&pri=&id=`（`assignedTo` 传**账号名**、可逗号列表；`name` 走 LIKE）→ 工具包 `zentao_tasks.search_server()` / CLI `tasks search --server`；日期区间、父任务维度服务端不支持，仍走客户端 `search()`（`fetch_all` + `filter_items`） |
 | 16 | 「我的任务」分支分页怪癖（22.5 残留） | 不带 `search=1` 的 `GET /tasks` 是「我的任务」分支：`limit`/`page` 失效、恒返回 1 条（21.x 的怪癖在此分支残留）；**带 `search=1` 的分支分页正常**（`limit` 无上限、`page` 真页码、`order` 排序） | 任务取全量/服务端查询统一走 `search=1`：`search_server(limit=10000)` 或 `tasks search --server`（一次取全）；「我的任务」分支不要用其分页；其它端点（`/products`、`/projects`、`/executions`、`/executions/:id/tasks`）`limit` 正常 |
 | 17 | `assignedTo` 是字典 | 任务/需求的 `assignedTo` 返回 `{id,account,avatar,realname}` 字典（非账号字符串），直接字符串比对匹配不到 | 过滤时取 `account` 字段比对（`zentao_search._assignee` 已兼容 dict/字符串） |
+| 18 | 项目页「当前迭代」切不动（22.5） | `multiple=0`（单迭代，scrum 项目默认）的项目页绑定建项目时自动生成的「影子迭代」（同名 sprint，`execution.multiple=0`、0 任务），迭代里的任务项目页看不到；`GET /projects/:id` 的 `executionID` 是**读时计算值**（`executionModel->getNoMultipleID()`＝该项目 multiple=0 且未删的迭代），`PUT /projects/1 {"executionID":3}` 无效（字段被忽略，实测） | 单/多迭代由 `zt_project.multiple` 决定（创建时固定，API 不可写）：multiple=0 → 项目页即影子迭代（任务须落在影子迭代）；multiple=1 → 项目页为迭代列表、可下钻各迭代看任务。切换需直改 DB：`UPDATE zt_project SET multiple=1 WHERE id=1;`（可逆）。BMS 已于 2026-08-21 转多迭代，空影子迭代 id=2 已关闭（任务数据未动） |
+| 19 | 影子迭代会被同步覆盖 | 单迭代项目（multiple=0）**每次编辑项目**，`syncNoMultipleSprint` 都用项目的 name/begin/end/status/PO/QD/PM/RD 覆盖影子迭代（`module/project/model.php:1630` 触发） | 单迭代模式不能靠「换 multiple 标志」把里程碑迭代变当前迭代：该迭代日期/名称会被覆盖，且从迭代列表消失（`/executions?project=` 只返回 multiple=1）；要里程碑迭代做工作台，先转多迭代模式（见 #18） |
+| 20 | `/executions/:id` 静默回退（22.5） | `GET /executions/1`（id 不存在）不 404，返回**可见迭代列表的第一个**（本例 M0 id=3）；请求已关闭迭代同样回退（id=2 关闭后 `/executions/2` → id=3） | `executionControl::view` → `checkAccess()`（`module/execution/model.php:249`）：id 不在可见迭代列表时取 `key($executions)` 第一个，仅 id 在库中不存在才 404；务必回读返回体的 `id` 字段核对是否所要迭代；列表取数用 `GET /executions?status=all` 再按 id 过滤 |
 
 ## 6. 典型场景 <a id="scenarios"></a>
 
 ### 6.1 初始化项目结构（产品 → 项目 → 迭代 → 任务）
 
 本项目已完成（2026-08-21）：产品「BMS 基础管理系统」、项目「BMS 开发」、迭代 M0~M15、80 个阶段任务已指派 minjian。新建业务项目可照此流程：
+
+> 注意：API 创建的项目默认**单迭代模式**（`multiple=0`），项目页是自动生成的空影子迭代、迭代里的任务看不到；BMS 已于 2026-08-21 转多迭代模式（踩坑 #18）。新建项目若任务要落在迭代下，建完先转多迭代再建迭代/任务。
 
 ```bash
 python zentao.py products create --name "新产品" 
