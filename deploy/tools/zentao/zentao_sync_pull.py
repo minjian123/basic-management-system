@@ -8,8 +8,8 @@
 状态口径（禅道 → 文档，保留文档侧更细语义）：
     wait  → 未开始（文档原为「搁置」则保留搁置）
     doing → 进行中（文档原为「部分完成」则保留部分完成）
-    finished / closed → 已完成
-    pause → 搁置　canceled → 已取消
+    done / closed → 已完成
+    pause → 搁置　cancel → 已取消
 
 用法：
     python zentao_sync_pull.py --stage 00_准备期 --dry-run    # 只读禅道+打印对照，不改文档
@@ -26,12 +26,16 @@ from zentao_sync_common import (
     parse_task_file, stage_paths,
 )
 
+# 禅道任务状态全集：wait/doing/done/pause/cancel/closed（22.5 实测）；
+# finished/canceled 为历史写法容错，正常读不到。
 ZT2DOC = {
     "wait": "未开始",
     "doing": "进行中",
+    "done": "已完成",
     "finished": "已完成",
     "closed": "已完成",
     "pause": "搁置",
+    "cancel": "已取消",
     "canceled": "已取消",
 }
 
@@ -81,10 +85,13 @@ def update_task_table(path: str, status: str, date: str) -> bool:
     changed = False
     for label in ("状态", "完成日期"):
         val = date if label == "完成日期" else status
-        m = re.search(r"^(\|\s*" + label + r"\s*\|\s*)[^|\n]*(\s*\|\s*)$", text, flags=re.M)
+        m = re.search(r"^(\|\s*" + label + r"\s*\|\s*)[^|\n]*(\|\s*)$", text, flags=re.M)
         if m:
-            text = text[:m.start()] + m.group(1) + val + m.group(2) + text[m.end():]
-            changed = True
+            # 值与右侧竖线之间保留一个空格（g2 原样可能吞掉前置空格，导致「已完成|」）
+            new = text[:m.start()] + m.group(1) + val + " " + m.group(2) + text[m.end():]
+            if new != text:   # 内容无变化不计更新（幂等）
+                changed = True
+            text = new
     if changed:
         p.write_text(text, encoding="utf-8")
     return changed
