@@ -69,6 +69,13 @@
 - 修改代码后运行 `graphify update .` 保持图谱最新（纯 AST，无 API 开销）；随后运行 `python deploy/tools/graphify/localize-graph.py` 收尾（汉化 graph.html + 生成中文架构图 CALLFLOW.html）。
 - graphify 安装、排除规则、重建取舍、社区命名等细节见 `文档/资料/AI/graphify部署使用说明.md`，不在此展开。
 
+## 禅道 API（项目管理平台）
+
+- 禅道（ZenTao 21.x）部署于 mjbk（`http://192.168.0.107:8070`，见 `文档/资料/开发服务器/禅道部署使用说明.md`），是需求/任务/迭代/甘特图/看板的唯一载体；职责分工：**禅道管需求/任务/迭代，GitLab Issue 管代码缺陷，Kiwi TCMS 管测试用例**（禅道缺陷/测试模块不用）。
+- 操作禅道**优先用工具包** `deploy/tools/zentao/`：CLI 直接跑 `python deploy/tools/zentao/zentao.py <资源> <操作> ...`（如 `tasks list --execution 3`、`tasks create --execution 3 --name ... --begin ... --end ... --to minjian`），或 `import` 各资源模块（`from zentao_client import ZentaoClient`）；凭据自动读 `deploy/.env` 的 `ZENTAO_API_*`，无需每次传账号。
+- **API 踩坑已固化，勿重新摸索**：认证头用 `Token:`（非 Bearer）；迭代创建 `project` 走 URL 参数；任务创建必须走 `batchCreate`（`/tasks/:id` 返回 200 空体且不建任务）；任务必填 `estStarted/deadline`、指派必填 `left`、完成必填 `currentConsumed/realStarted/finishedDate`；需求创建 API 静默失败（走 Web 界面）；端点总表与示例见 `文档/资料/AI/禅道API使用说明.md`。
+- 项目内迭代 `M0~M15`（id 3~18）对应 `文档/规划/总体项目规划.md` 的里程碑，任务按 WBS 已登记并指派 minjian。
+
 ## 本地多模态（MCP）
 
 让 AI 助手使用本机多模态模型的通用能力（LM Studio qwen3.8-27b，OpenAI 兼容 127.0.0.1:1234）。方案与配置细节见 `文档/资料/AI/本地多模态接入方案.md`（需要时再读）。组成：
