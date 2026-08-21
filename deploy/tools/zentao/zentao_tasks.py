@@ -11,7 +11,7 @@
         buildTasksForBatchCreate 内 $task->parent = $taskID 强制覆盖 body 的 parent）
     - 删除任务 API 有 bug：taskEntry::delete 调 $control->delete(0, $taskID, 'true')
       参数错位，controller 收到 $taskID=0，实际空操作却返回 success；
-      删除请走 Web 界面
+      删除请改用 web_delete()（经 Web 会话调 Web 端点，见 zentao_web.py）
 """
 import datetime
 
@@ -66,8 +66,18 @@ def update(client, task_id, **fields):
 def delete(client, task_id):
     """删除任务。注意：禅道 21.x 的 DELETE /tasks/:id 有参数错位 bug，
     实际删的是空操作（$taskID=0）却返回 success，任务不会被真正删除。
-    本函数保留接口但不可靠，删除请走禅道 Web 界面。"""
+    本函数保留接口但不可靠，删除请改用 web_delete()。"""
     return client.delete(f"/tasks/{task_id}")
+
+
+def web_delete(client, task_id):
+    """经禅道 Web 会话删除任务（推荐；REST DELETE /tasks/:id 有 bug 不生效）。
+
+    走 Web 端点 index.php?m=task&t=ajax&f=delete&taskID=X（普通 controller，
+    参数正确、真正生效），并用 API 读回 deleted 确认。
+    返回 {taskID, user, httpStatus, response, success, deleted}。"""
+    from zentao_web import delete_task
+    return delete_task(client, task_id)
 
 
 def assign(client, task_id, assigned_to, left=None):
