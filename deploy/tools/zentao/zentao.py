@@ -10,11 +10,13 @@
     python zentao.py executions list --project 1
     python zentao.py executions create --project 1 --name "M0 启动就绪" --begin 2026-08-24 --end 2026-09-07
     python zentao.py stories list --product 1
+    python zentao.py stories list --product 1 --brief     # 需求摘要输出（每条一行）
     python zentao.py stories create --product 1 --title "用户管理" --pri 2 --category feature --spec "用户增删改查"
     python zentao.py stories delete --id 5         # REST 删除（22.5 已验证；Web 删除需 confirm=yes 备用）
     python zentao.py users create --user-account zhangsan --user-password Zhang_123 --realname "张三" --gender m
     python zentao.py users delete --id 2
     python zentao.py tasks list --execution 3
+    python zentao.py tasks list --execution 3 --brief   # 摘要输出（每任务一行，避免全量 JSON 爆屏）
     python zentao.py tasks search --name 接口                       # 客户端过滤：按名称模糊查（全局）
     python zentao.py tasks search --assigned-to minjian --status doing   # 客户端过滤：指派人+状态
     python zentao.py tasks search --parent 1                        # 客户端过滤：某父任务下的子任务
@@ -66,6 +68,60 @@ ACTIONS = ["list", "get", "search", "create", "update", "delete", "web-delete", 
 
 def out(data):
     print(json.dumps(data, ensure_ascii=False, indent=2))
+
+
+STATUS_ZH = {"wait": "待开始", "doing": "进行中", "done": "已完成",
+             "closed": "已关闭", "pause": "暂停", "cancel": "已取消"}
+
+
+def brief_tasks(items):
+    """tasks list/search --brief：全量 JSON 动辄数千行，摘要为每任务一行。"""
+    rows = []
+    for t in items:
+        a = t.get("assignedTo")
+        account = a.get("account", "") if isinstance(a, dict) else (a or "")
+        rows.append({"id": t.get("id"), "status": STATUS_ZH.get(t.get("status"), t.get("status")),
+                     "pri": t.get("pri"), "estimate": t.get("estimate"),
+                     "assignedTo": account, "name": t.get("name")})
+    return rows
+
+
+def brief_stories(items):
+    """stories list/search --brief：需求字段（title/阶段）与任务不同，单独映射。"""
+    rows = []
+    for s in items:
+        a = s.get("assignedTo")
+        account = a.get("account", "") if isinstance(a, dict) else (a or "")
+        rows.append({"id": s.get("id"), "status": STATUS_ZH.get(s.get("status"), s.get("status")),
+                     "pri": s.get("pri"), "stage": s.get("stage"),
+                     "assignedTo": account, "title": s.get("title")})
+    return rows
+
+
+BRIEF_KEYS = {
+    "executions": ("id", "name", "status", "begin", "end", "project"),
+    "products": ("id", "name", "code", "status"),
+    "projects": ("id", "name", "model", "status", "begin", "end"),
+    "users": ("id", "account", "realname", "role"),
+}
+
+
+def brief_rows(items, resource):
+    """executions/products/projects/users --brief：按资源取关键列的通用摘要。
+    assignedTo/PO 等人员字段在 API 返回里可能是 dict（{account,...}），自动解开。"""
+    people = ("assignedTo", "PO", "QD", "RD")
+    rows = []
+    for it in items:
+        row = {}
+        for k in BRIEF_KEYS[resource]:
+            v = it.get(k)
+            if k in people and isinstance(v, dict):
+                v = v.get("account") or ""
+            elif k == "status":
+                v = STATUS_ZH.get(v, v)
+            row[k] = v
+        rows.append(row)
+    return rows
 
 
 def build_filters(args):
@@ -143,6 +199,8 @@ def build_parser():
     p.add_argument("--browse-type", dest="browse_type",
                    help="stories list/search 服务端 browseType（unclosed/closedstory/all 等）")
     p.add_argument("--full", action="store_true", help="users list：全字段（full=1）")
+    p.add_argument("--brief", action="store_true",
+                   help="tasks/stories list/search：摘要输出（每条一行，避免全量 JSON 爆屏）")
     # users create 专用
     p.add_argument("--user-account", dest="user_account", help="users create：新账号（登录名）")
     p.add_argument("--user-password", dest="user_password", help="users create：新密码")
@@ -166,9 +224,11 @@ def main():
         elif r == "products":
             m = zentao_products
             if a == "list":
-                out(m.list_(c))
+                r = m.list_(c)
+                out(brief_rows(r, "products") if args.brief else r)
             elif a == "search":
-                out(m.search(c, **build_filters(args)))
+                r = m.search(c, **build_filters(args))
+                out(brief_rows(r, "products") if args.brief else r)
             elif a == "get":
                 out(m.get(c, args.id))
             elif a == "create":
@@ -189,9 +249,11 @@ def main():
         elif r == "projects":
             m = zentao_projects
             if a == "list":
-                out(m.list_(c))
+                r = m.list_(c)
+                out(brief_rows(r, "projects") if args.brief else r)
             elif a == "search":
-                out(m.search(c, **build_filters(args)))
+                r = m.search(c, **build_filters(args))
+                out(brief_rows(r, "projects") if args.brief else r)
             elif a == "get":
                 out(m.get(c, args.id))
             elif a == "create":
@@ -213,7 +275,8 @@ def main():
         elif r == "executions":
             m = zentao_executions
             if a == "list":
-                out(m.list_(c, project=args.project))
+                r = m.list_(c, project=args.project)
+                out(brief_rows(r, "executions") if args.brief else r)
             elif a == "get":
                 out(m.get(c, args.id))
             elif a == "create":
@@ -234,9 +297,11 @@ def main():
         elif r == "stories":
             m = zentao_stories
             if a == "list":
-                out(m.list_(c, product=args.product, browse_type=args.browse_type))
+                r = m.list_(c, product=args.product, browse_type=args.browse_type)
+                out(brief_stories(r) if args.brief else r)
             elif a == "search":
-                out(m.search(c, product=args.product, browse_type=args.browse_type, **build_filters(args)))
+                r = m.search(c, product=args.product, browse_type=args.browse_type, **build_filters(args))
+                out(brief_stories(r) if args.brief else r)
             elif a == "get":
                 out(m.get(c, args.id))
             elif a == "create":
@@ -261,19 +326,21 @@ def main():
         elif r == "tasks":
             m = zentao_tasks
             if a == "list":
-                out(m.list_(c, execution=args.execution))
+                r = m.list_(c, execution=args.execution)
+                out(brief_tasks(r) if args.brief else r)
             elif a == "search":
                 if args.server:
                     f = build_filters(args)
                     client_only = [k for k in ("parent", "deadline_from", "deadline_to", "est_from", "est_to") if f.get(k)]
                     if client_only:
                         raise ValueError(f"服务端查询（--server）不支持 {client_only}，这些是客户端维度；去掉 --server 或去掉这些参数")
-                    out(m.search_server(c, name=f.get("name"), assigned_to=f.get("assigned_to"),
+                    r = m.search_server(c, name=f.get("name"), assigned_to=f.get("assigned_to"),
                                         status=f.get("status"), pri=f.get("pri"),
                                         limit=args.limit or 10000, page=args.page,
-                                        order=args.order, merge_children=args.merge_children))
+                                        order=args.order, merge_children=args.merge_children)
                 else:
-                    out(m.search(c, execution=args.execution, **build_filters(args)))
+                    r = m.search(c, execution=args.execution, **build_filters(args))
+                out(brief_tasks(r) if args.brief else r)
             elif a == "get":
                 out(m.get(c, args.id))
             elif a == "create":
@@ -322,7 +389,8 @@ def main():
             out(m.active(c, args.id))
         elif r == "users":
             if a == "list":
-                out(zentao_users.list_(c, full=args.full))
+                r = zentao_users.list_(c, full=args.full)
+                out(brief_rows(r, "users") if args.brief else r)
             elif a == "get":
                 out(zentao_users.get(c, args.id))
             elif a == "create":
