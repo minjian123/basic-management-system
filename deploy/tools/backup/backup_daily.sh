@@ -70,14 +70,24 @@ backup_gitlab() {
   [ -s "$BASE_DIR/gitlab/$fname" ] && [ -s "$BASE_DIR/gitlab/gitlab-config_${TS}.tar.gz" ]
 }
 
+backup_kiwi_uploads() {
+  # Kiwi TCMS 附件卷（compose_kiwi-uploads -> 容器 /Kiwi/uploads）：测试用例附件等文件数据，不在数据库内
+  mkdir -p "$BASE_DIR/kiwi"
+  docker run --rm --volumes-from bms-kiwi \
+    -v "$BASE_DIR/kiwi":/backup \
+    alpine:latest tar czf "/backup/kiwi-uploads_${TS}.tar.gz" -C /Kiwi/uploads .
+  [ -s "$BASE_DIR/kiwi/kiwi-uploads_${TS}.tar.gz" ]
+}
+
 run_step mysql    dump_mysql
 run_step postgres dump_postgres
 run_step dameng   dump_dameng
 run_step gitlab   backup_gitlab
+run_step kiwi     backup_kiwi_uploads
 
 # 当日产物清单（含 GitLab 数据包，按 mtime 当日过滤）
 mkdir -p "$BASE_DIR/cloud/$TODAY"
-find "$BASE_DIR/mysql" "$BASE_DIR/postgres" "$BASE_DIR/dameng" "$BASE_DIR/gitlab" \
+find "$BASE_DIR/mysql" "$BASE_DIR/postgres" "$BASE_DIR/dameng" "$BASE_DIR/gitlab" "$BASE_DIR/kiwi" \
   -type f -newermt "$TODAY" \( -name '*.sql.gz' -o -name '*.dmp' -o -name '*.tar' -o -name '*.tar.gz' \) \
   > "$BASE_DIR/cloud/$TODAY/.filelist"
 
@@ -89,6 +99,7 @@ find "$BASE_DIR/dameng"   -name 'dexp_all_*.dmp'      -mtime +"$KEEP_DAYS" -dele
 find "$BASE_DIR/dameng"   -name 'dexp_all_*.log'      -mtime +"$KEEP_DAYS" -delete
 find "$BASE_DIR/gitlab"   -name '*_gitlab_backup.tar' -mtime +"$KEEP_DAYS" -delete
 find "$BASE_DIR/gitlab"   -name 'gitlab-config_*.tar.gz' -mtime +"$KEEP_DAYS" -delete
+find "$BASE_DIR/kiwi"     -name 'kiwi-uploads_*.tar.gz' -mtime +"$KEEP_DAYS" -delete
 
 # ---------- 云同步（百度网盘，加密后单向上传；失败不影响主备份结论）----------
 cloud_sync() {
