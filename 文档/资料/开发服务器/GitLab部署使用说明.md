@@ -141,6 +141,8 @@ runner 容器已启动并注册（2026-08-10，runner `bacf4fd652a2`，concurren
 | 宿主机访问 8080 不通 | 容器内 200、宿主 000（曾 RST） | nginx `listen_port=8080` 后容器内监听 8080，docker 端口映射必须为 `8080:8080`（而非 8080:80） |
 | 跳转链接缺少端口号 | 页面链接均为 `http://<mjbk-IP>/...`（无 :8080），登录/导航跳转后打不开 | `external_url` 必须带端口：`external_url 'http://<mjbk-IP>:8080'`，不再单独设置 `nginx['listen_port']`；配合 puma 独立端口 8081 避免端口冲突 |
 | 外部访问容器端口全部不通 | Docker 发布端口对外不可达 | ufw 启用后需 `sudo ufw default allow routed`（FORWARD 链）并放行目标端口；本机访问用 `docker restart` 重建容器网络后验证 |
+| CI job 一直 pending | job 排队不运行，API 查 runner 在线 | `.gitlab-ci.yml` 的 tags 与 runner 实际注册 tag 必须一致——本 runner 实际 tag 为 `bms`（界面配置，非 `bms,docker`）且未勾选「运行未标记的作业」；用 `GET /api/v4/runners/:id` 核对 `tag_list` |
+| CI job 卡在 Pulling helper image | trace 停在 `Pulling docker image registry.gitlab.com/.../gitlab-runner-helper:...` 数十分钟 | registry.gitlab.com 国内访问慢，且 runner 19.x 对 helper 镜像默认 `pull_policy=[always]`（本地有镜像也强制联网校验）；处理：① 预拉缓存三镜像（python:3.14-slim、node:22-slim、gitlab-runner-helper 对应版本）；② config.toml `[runners.docker]` 加 `pull_policy = ["if-not-present"]` 后重启 runner |
 
 ## 9. 关联文档 <a id="related"></a>
 
