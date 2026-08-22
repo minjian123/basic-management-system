@@ -98,6 +98,32 @@ def brief_stories(items):
     return rows
 
 
+BRIEF_KEYS = {
+    "executions": ("id", "name", "status", "begin", "end", "project"),
+    "products": ("id", "name", "code", "status"),
+    "projects": ("id", "name", "model", "status", "begin", "end"),
+    "users": ("id", "account", "realname", "role"),
+}
+
+
+def brief_rows(items, resource):
+    """executions/products/projects/users --brief：按资源取关键列的通用摘要。
+    assignedTo/PO 等人员字段在 API 返回里可能是 dict（{account,...}），自动解开。"""
+    people = ("assignedTo", "PO", "QD", "RD")
+    rows = []
+    for it in items:
+        row = {}
+        for k in BRIEF_KEYS[resource]:
+            v = it.get(k)
+            if k in people and isinstance(v, dict):
+                v = v.get("account") or ""
+            elif k == "status":
+                v = STATUS_ZH.get(v, v)
+            row[k] = v
+        rows.append(row)
+    return rows
+
+
 def build_filters(args):
     """从 CLI 参数收集 search 过滤条件（未传的不进 dict）。"""
     f = {}
@@ -198,9 +224,11 @@ def main():
         elif r == "products":
             m = zentao_products
             if a == "list":
-                out(m.list_(c))
+                r = m.list_(c)
+                out(brief_rows(r, "products") if args.brief else r)
             elif a == "search":
-                out(m.search(c, **build_filters(args)))
+                r = m.search(c, **build_filters(args))
+                out(brief_rows(r, "products") if args.brief else r)
             elif a == "get":
                 out(m.get(c, args.id))
             elif a == "create":
@@ -221,9 +249,11 @@ def main():
         elif r == "projects":
             m = zentao_projects
             if a == "list":
-                out(m.list_(c))
+                r = m.list_(c)
+                out(brief_rows(r, "projects") if args.brief else r)
             elif a == "search":
-                out(m.search(c, **build_filters(args)))
+                r = m.search(c, **build_filters(args))
+                out(brief_rows(r, "projects") if args.brief else r)
             elif a == "get":
                 out(m.get(c, args.id))
             elif a == "create":
@@ -245,7 +275,8 @@ def main():
         elif r == "executions":
             m = zentao_executions
             if a == "list":
-                out(m.list_(c, project=args.project))
+                r = m.list_(c, project=args.project)
+                out(brief_rows(r, "executions") if args.brief else r)
             elif a == "get":
                 out(m.get(c, args.id))
             elif a == "create":
@@ -358,7 +389,8 @@ def main():
             out(m.active(c, args.id))
         elif r == "users":
             if a == "list":
-                out(zentao_users.list_(c, full=args.full))
+                r = zentao_users.list_(c, full=args.full)
+                out(brief_rows(r, "users") if args.brief else r)
             elif a == "get":
                 out(zentao_users.get(c, args.id))
             elif a == "create":
