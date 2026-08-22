@@ -10,6 +10,7 @@
     python zentao.py executions list --project 1
     python zentao.py executions create --project 1 --name "M0 启动就绪" --begin 2026-08-24 --end 2026-09-07
     python zentao.py stories list --product 1
+    python zentao.py stories list --product 1 --brief     # 需求摘要输出（每条一行）
     python zentao.py stories create --product 1 --title "用户管理" --pri 2 --category feature --spec "用户增删改查"
     python zentao.py stories delete --id 5         # REST 删除（22.5 已验证；Web 删除需 confirm=yes 备用）
     python zentao.py users create --user-account zhangsan --user-password Zhang_123 --realname "张三" --gender m
@@ -82,6 +83,18 @@ def brief_tasks(items):
         rows.append({"id": t.get("id"), "status": STATUS_ZH.get(t.get("status"), t.get("status")),
                      "pri": t.get("pri"), "estimate": t.get("estimate"),
                      "assignedTo": account, "name": t.get("name")})
+    return rows
+
+
+def brief_stories(items):
+    """stories list/search --brief：需求字段（title/阶段）与任务不同，单独映射。"""
+    rows = []
+    for s in items:
+        a = s.get("assignedTo")
+        account = a.get("account", "") if isinstance(a, dict) else (a or "")
+        rows.append({"id": s.get("id"), "status": STATUS_ZH.get(s.get("status"), s.get("status")),
+                     "pri": s.get("pri"), "stage": s.get("stage"),
+                     "assignedTo": account, "title": s.get("title")})
     return rows
 
 
@@ -161,7 +174,7 @@ def build_parser():
                    help="stories list/search 服务端 browseType（unclosed/closedstory/all 等）")
     p.add_argument("--full", action="store_true", help="users list：全字段（full=1）")
     p.add_argument("--brief", action="store_true",
-                   help="tasks list/search：摘要输出（id/状态/优先级/工时/指派/名称，每任务一行）")
+                   help="tasks/stories list/search：摘要输出（每条一行，避免全量 JSON 爆屏）")
     # users create 专用
     p.add_argument("--user-account", dest="user_account", help="users create：新账号（登录名）")
     p.add_argument("--user-password", dest="user_password", help="users create：新密码")
@@ -253,9 +266,11 @@ def main():
         elif r == "stories":
             m = zentao_stories
             if a == "list":
-                out(m.list_(c, product=args.product, browse_type=args.browse_type))
+                r = m.list_(c, product=args.product, browse_type=args.browse_type)
+                out(brief_stories(r) if args.brief else r)
             elif a == "search":
-                out(m.search(c, product=args.product, browse_type=args.browse_type, **build_filters(args)))
+                r = m.search(c, product=args.product, browse_type=args.browse_type, **build_filters(args))
+                out(brief_stories(r) if args.brief else r)
             elif a == "get":
                 out(m.get(c, args.id))
             elif a == "create":
