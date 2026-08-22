@@ -16,10 +16,12 @@ stages:
   - lint
   - test
   - build
+  - verify
 
 variables:
   PIP_INDEX_URL: https://mirrors.aliyun.com/pypi/simple/
   NPM_CONFIG_REGISTRY: https://registry.npmmirror.com
+  REGISTRY_IMAGE_PREFIX: 192.168.0.107:5050/bms/bms
 
 default:
   tags: [bms]
@@ -111,3 +113,156 @@ frontend-mobile-build:
         - frontend-mobile/package.json
   script:
     - cd frontend-mobile && npm ci && npm run build
+
+# ==== main 流水线（合并后验证；《开发部署规划》第 7 节 3）====
+# 全部 job 以 exists 守卫——阶段一代码落地后自动激活，此前 main 流水线空载（仅 gate-smoke）。
+
+# ---- E2E：服务容器起 backend（SQLite）+ 前端产物，Playwright 驱动 ----
+e2e-playwright:
+  stage: verify
+  image: python:3.14-slim
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      exists:
+        - backend/pyproject.toml
+        - frontend/package.json
+  script:
+    - pip install uv && cd backend && uv sync --frozen
+    - cd frontend && npm ci && npm run build
+    - cd ../backend && uv run pytest tests/e2e --e2e-headless
+
+# ---- 三库方言集成测试：连 mjbk 常驻库，bms_test 前缀建库 → Alembic → 测试 → 删库 ----
+.integration-base: &integration-base
+  stage: verify
+  image: python:3.14-slim
+  variables:
+    BMS_ENV: test
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      exists:
+        - backend/pyproject.toml
+        - backend/alembic.ini
+  before_script:
+    - pip install uv && cd backend && uv sync --frozen
+  script:
+    - uv run pytest tests/integration -k "$DB_DIALECT" -v
+
+integration-mysql:
+  <<: *integration-base
+  variables:
+    DB_DIALECT: mysql
+    BMS_TEST_DB_URL: mysql+aiomysql://bms_test:$MYSQL_TEST_PASSWORD@192.168.0.107:3306/bms_test_mysql
+
+integration-postgres:
+  <<: *integration-base
+  variables:
+    DB_DIALECT: postgres
+    BMS_TEST_DB_URL: postgresql+psycopg://bms_test:$POSTGRES_TEST_PASSWORD@192.168.0.107:5432/bms_test_pg
+
+integration-dm8:
+  <<: *integration-base
+  variables:
+    DB_DIALECT: dm8
+    BMS_TEST_DB_URL: dm+dmPython://SYSDBA:$DM8_TEST_PASSWORD@192.168.0.107:5236/BMS_TEST_DM
+  # dmPython 对 Python 3.14 兼容性为阶段一验证项；失败则整体回退 3.13（规划既定口径）
+
+# ---- 镜像构建推 Registry（5050，insecure 已配置于 mjbk daemon.json）----
+# runner 挂载宿主 docker.sock，job 直接用宿主 daemon 构建，无需 dind。
+.build-push-base: &build-push-base
+  stage: verify
+  image: docker:27-cli
+  before_script:
+    - echo "$GITLAB_API_TOKEN" | docker login 192.168.0.107:5050 -u root --password-stdin
+
+backend-image:
+  <<: *build-push-base
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      exists:
+        - backend/Dockerfile
+        - backend/pyproject.toml
+  script:
+    - docker build -t $REGISTRY_IMAGE_PREFIX/bms-backend:$CI_COMMIT_SHORT_SHA -f backend/Dockerfile backend/
+    - docker push $REGISTRY_IMAGE_PREFIX/bms-backend:$CI_COMMIT_SHORT_SHA
+
+frontend-image:
+  <<: *build-push-base
+  needs: [{job: frontend-build, optional: true}]
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      exists:
+        - frontend/Dockerfile
+        - frontend/package.json
+  script:
+    - docker build -t $REGISTRY_IMAGE_PREFIX/bms-frontend:$CI_COMMIT_SHORT_SHA -f frontend/Dockerfile frontend/
+    - docker push $REGISTRY_IMAGE_PREFIX/bms-frontend:$CI_COMMIT_SHORT_SHA
+
+# ---- 容器镜像安全扫描：Trivy 高危阻断发版 ----
+container-scanning:
+  stage: verify
+  image: aquasec/trivy:latest
+  needs: [{job: backend-image, optional: true}]
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      exists:
+        - backend/Dockerfile
+  script:
+    - trivy image --exit-code 1 --severity CRITICAL,HIGH --ignore-unfixed $REGISTRY_IMAGE_PREFIX/bms-backend:$CI_COMMIT_SHORT_SHA
+
+# ---- swagger.json 契约快照归档 ----
+swagger-snapshot:
+  stage: verify
+  image: python:3.14-slim
+  needs: [{job: backend-test, optional: true}]
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      exists:
+        - backend/pyproject.toml
+  script:
+    - pip install uv && cd backend && uv sync --frozen
+    - uv run python -c "from app.main import app; import json; print(json.dumps(app.openapi(), ensure_ascii=False))" > swagger.json
+  artifacts:
+    paths: [backend/swagger.json]
+    expire_in: 30 days
+
+# ---- Allure 报告归档（阶段一测试用例就绪后随执行产出）----
+allure-report:
+  stage: verify
+  image: python:3.14-slim
+  needs: [{job: backend-test, optional: true}, {job: e2e-playwright, optional: true}]
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      exists:
+        - backend/pyproject.toml
+  allow_failure: true
+  script:
+    - pip install allure-pytest
+    - uv run pytest tests/unit tests/integration --alluredir=allure-results || true
+    - pip install allure-cli 2>/dev/null || pip install allure-composite 2>/dev/null || true
+    - python -m allure generate allure-results -o allure-report --clean 2>/dev/null || echo "allure cli 缺失，结果目录已归档"
+  artifacts:
+    paths: [allure-results/, allure-report/]
+    when: always
+    expire_in: 30 days
+
+# ---- 02-5 缺陷自动上报接线：任一前置 job 失败时产出 REPRO 包并自动建 GitLab Issue ----
+# 归档落宿主 /mnt/data/backup/defects/（runner config.toml 已加该卷映射）；
+# GITLAB_API_URL/GITLAB_API_TOKEN 为项目 CI/CD Variables（masked）；
+# BMS_TEST_DB_* 与 MYSQL_ROOT_PASSWORD 随阶段一 bms_test 库建立后在 Variables 配齐。
+defect-capture:
+  stage: .post
+  image: python:3.14-slim
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: on_failure
+  variables:
+    DEFECT_ARCHIVE_DIR: /mnt/data/backup/defects
+  script:
+    - apt-get update >/dev/null && apt-get install -y --no-install-recommends mariadb-client >/dev/null
+    - |
+      python deploy/tools/defect/defect_capture.py \
+        --engine mysql --db-name "${BMS_TEST_DB_NAME:-bms_test_mysql}" \
+        --db-host 192.168.0.107 --db-port 3306 \
+        --db-user root --db-password "$MYSQL_ROOT_PASSWORD" \
+        --summary "main pipeline failure @ ${CI_COMMIT_SHORT_SHA:-local}" \
+        --env test --pipeline-url "${CI_PIPELINE_URL:-}"
