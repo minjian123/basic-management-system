@@ -122,6 +122,9 @@ def build_parser():
     p.add_argument("--parent", type=int, default=0, help="父任务 ID（>0 时创建为子任务，走 URL task 参数）")
     p.add_argument("--to", dest="assigned_to", help="指派给（账号）")
     p.add_argument("--consumed", type=float, help="已消耗工时（小时，finish）")
+    p.add_argument("--real-started", help="实际开始时间 YYYY-MM-DD[ HH:MM:SS]（start/finish；纯日期有 UTC 比较坑）")
+    p.add_argument("--finished-date", help="实际完成时间 YYYY-MM-DD[ HH:MM:SS]（finish）")
+    p.add_argument("--reason", help="关闭原因 done/cancel（close，默认 done）")
     p.add_argument("--file", dest="json_file", help="batch-create 的 JSON 文件路径")
     # search 过滤参数（客户端过滤）
     p.add_argument("--status", help="search 过滤：状态 wait/doing/done/pause/cancel/closed")
@@ -306,14 +309,17 @@ def main():
                 out(m.web_delete(c, ids))
             elif a == "assign":
                 out(m.assign(c, args.id, args.assigned_to, left=args.left))
-            elif a == "start":
-                out(m.start(c, args.id))
-            elif a == "finish":
-                out(m.finish(c, args.id, consumed=args.consumed or 0))
-            elif a == "close":
-                out(m.close(c, args.id))
-            elif a == "active":
-                out(m.active(c, args.id))
+        elif a == "start":
+            out(m.start(c, args.id, real_started=getattr(args, "real_started", None),
+                        left=getattr(args, "left", None)))
+        elif a == "finish":
+            out(m.finish(c, args.id, consumed=args.consumed or 0,
+                         real_started=getattr(args, "real_started", None),
+                         finished_date=getattr(args, "finished_date", None)))
+        elif a == "close":
+            out(m.close(c, args.id, closed_reason=getattr(args, "reason", None) or "done"))
+        elif a == "active":
+            out(m.active(c, args.id))
         elif r == "users":
             if a == "list":
                 out(zentao_users.list_(c, full=args.full))

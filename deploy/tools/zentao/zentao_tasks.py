@@ -155,15 +155,25 @@ def start(client, task_id, real_started=None, left=None):
 
 
 def finish(client, task_id, consumed, real_started=None, finished_date=None):
-    """完成任务；currentConsumed/realStarted/finishedDate 必填（默认今天）。"""
-    today = datetime.date.today().isoformat()
-    body = {"currentConsumed": consumed, "realStarted": real_started or today,
-            "finishedDate": finished_date or today}
+    """完成任务；currentConsumed/realStarted/finishedDate 必填（默认今天当前时刻）。
+
+    踩坑：real_started/finished_date 传纯日期（YYYY-MM-DD）会被服务端按东八区零点
+    转 UTC 存储并与另一字段的解析值比较，触发「实际完成不能小于实际开始」HTTP 400；
+    必须传完整时间戳 YYYY-MM-DD HH:MM:SS。
+    """
+    now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    body = {"currentConsumed": consumed,
+            "realStarted": real_started or now,
+            "finishedDate": finished_date or now}
     return client.post(f"/tasks/{task_id}/finish", body=body)
 
 
-def close(client, task_id):
-    return client.post(f"/tasks/{task_id}/close", body={})
+def close(client, task_id, closed_reason="done"):
+    """关闭任务（done -> closed）。
+
+    踩坑：body 为空时 REST 返回 200 任务对象但不生效（静默失败，与删除 API 同类问题），
+    必须 POST closedReason（枚举 done/cancel 等）。"""
+    return client.post(f"/tasks/{task_id}/close", body={"closedReason": closed_reason})
 
 
 def active(client, task_id):
