@@ -6,6 +6,19 @@
 
 workflow:
   rules:
+    # 纯文档改动（全部命中 文档/** 或 *.md）不建流水线，MR 直立可合
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        paths:
+          - "文档/**/*"
+          - "*.md"
+      when: never
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes:
+        paths:
+          - "文档/**/*"
+          - "*.md"
+      when: never
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
 
