@@ -6,19 +6,6 @@
 
 workflow:
   rules:
-    # 纯文档改动（全部命中 文档/** 或 *.md）不建流水线，MR 直立可合
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-      changes:
-        paths:
-          - "文档/**/*"
-          - "*.md"
-      when: never
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-      changes:
-        paths:
-          - "文档/**/*"
-          - "*.md"
-      when: never
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
 
@@ -34,10 +21,49 @@ variables:
 default:
   tags: [bms]
 
-# ---- runner 连通性冒烟（无业务代码期间的门禁载体）----
+# ---- 纯文档改动：秒级占位流水线 ----
+# 「零流水线」的 MR 会被「流水线必须通过」设置拦截（GitLab 18 的 allow_merge_on_skipped_pipeline
+# 不覆盖无流水线场景），故文档-only 时跑本 job 兜底，保证每条可合并 MR 都有成功流水线。
+doc-smoke:
+  stage: lint
+  image: python:3.14-slim
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        paths:
+          - "文档/**/*"
+          - "*.md"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: never
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes:
+        paths:
+          - "文档/**/*"
+          - "*.md"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: never
+  script:
+    - echo "docs-only change, gate pass"
+
+# ---- runner 连通性冒烟（非文档改动的门禁载体）----
 ci-smoke:
   stage: lint
   image: python:3.14-slim
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        paths:
+          - "文档/**/*"
+          - "*.md"
+      when: never
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes:
+        paths:
+          - "文档/**/*"
+          - "*.md"
+      when: never
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
   script:
     - python --version
     - python -c "import sys; assert sys.version_info >= (3, 14), 'Python < 3.14'"
