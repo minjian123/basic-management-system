@@ -1,6 +1,6 @@
 # 禅道 API 使用说明
 
-> 禅道（ZenTao 22.5）REST API 与 BMS 工具包使用指南 · 2026-08-21
+> 禅道（ZenTao 22.5）REST API 与 BMS 工具包使用指南 · 2026-08-21 · 更新：2026-08-22（补踩坑 #22 finish 时间戳 / #23 close 需 closedReason；工具包 start/finish/close 同步修复）
 
 [文档首页](../../文档首页.md) › 资料 › 禅道 API 使用说明　|　[开发服务器：禅道部署 →](../开发服务器/禅道部署使用说明.md)
 
@@ -243,6 +243,8 @@ stateDiagram-v2
 | 19 | 影子迭代会被同步覆盖 | 单迭代项目（multiple=0）**每次编辑项目**，`syncNoMultipleSprint` 都用项目的 name/begin/end/status/PO/QD/PM/RD 覆盖影子迭代（`module/project/model.php:1630` 触发） | 单迭代模式不能靠「换 multiple 标志」把里程碑迭代变当前迭代：该迭代日期/名称会被覆盖，且从迭代列表消失（`/executions?project=` 只返回 multiple=1）；要里程碑迭代做工作台，先转多迭代模式（见 #18） |
 | 20 | `/executions/:id` 静默回退（22.5） | `GET /executions/1`（id 不存在）不 404，返回**可见迭代列表的第一个**（本例 M0 id=3）；请求已关闭迭代同样回退（id=2 关闭后 `/executions/2` → id=3） | `executionControl::view` → `checkAccess()`（`module/execution/model.php:249`）：id 不在可见迭代列表时取 `key($executions)` 第一个；**2026-08-21 复测：库中不存在 id 现返回 HTTP 400 `{"error":"error"}`（曾记 404，状态码随镜像漂移），核心口径不变——务必回读返回体 `id` 核对**；列表取数用 `GET /executions?status=all` 再按 id 过滤 |
 | 21 | start 不带 left 报错 | 对 `wait` 任务调 `POST /tasks/:id/start` 只传 `realStarted` 时报「总计消耗和预计剩余不能同时为0」——start 端点按请求体里的 `left` 校验，不带会被当 0 | 开始任务必须传 `left`（未开始的任务取 estimate）；工具包 `zentao_tasks.start()` 已处理，CLI `tasks start --id N` 可直接用 |
+| 22 | finish 传纯日期报「实际完成不能小于实际开始」 | `finish` 的 `realStarted/finishedDate` 传纯日期（`YYYY-MM-DD`）时 HTTP 400：服务端按东八区零点转 UTC 存储 realStarted（如 `2026-08-22T16:00Z` 前移一天），与 finishedDate 的解析值比较后判定完成早于开始 | 两字段都传**完整时间戳** `YYYY-MM-DD HH:MM:SS`；工具包 `zentao_tasks.finish()` 默认已改为当前时刻时间戳，CLI `tasks finish --id N --consumed H --real-started ... --finished-date ...` |
+| 23 | close 空 body 静默失败 | `POST /tasks/:id/close` 不带 body 返回 **200 任务对象但状态仍 `done`、closedReason 空**（静默不生效，与删除 API #13 同类问题） | body 必须带 `closedReason`（枚举 `done/cancel`）；工具包 `zentao_tasks.close()` 已内置默认 `done`，CLI `tasks close --id N [--reason cancel]` |
 
 **报错反查**：按报错文案关键词定位坑号——
 
@@ -260,6 +262,8 @@ stateDiagram-v2
 | （登录页循环返回） | #14 |
 | （过滤参数不生效、返回全量/1 条） | #15/#16 |
 | 总计消耗和预计剩余不能同时为0 | #21 |
+| 实际完成不能小于实际开始 | #22 |
+| （close 返回 200 但状态仍 done） | #23 |
 
 ## 6. 版本兼容与升级复核 <a id="version"></a>
 
@@ -491,4 +495,4 @@ for t in tasks.search(c, assigned_to="minjian", status="wait"):
 
 项目内关联：工具包 `deploy/tools/zentao/`（README.md、冒烟脚本 `zentao_smoke.py`）、《[任务文档规范](../../规范/任务文档规范.md)》《[需求文档规范](../../规范/需求文档规范.md)》《[计划文档规范](../../规范/计划文档规范.md)》（文档 ↔ 禅道同步契约）、《[禅道部署使用说明](../开发服务器/禅道部署使用说明.md)》、《[禅道技术介绍](../知识档案/工程化与质量/禅道技术介绍.md)》、《[总体项目规划](../../规划/总体项目规划.md)》里程碑与 WBS。
 
-> 依《文档生成规范》编写 · 记录 2026-08-21 实测（禅道 22.5，easysoft/zentao:latest 滚动镜像，mjbk 192.168.0.107:8070）
+> 依《文档生成规范》编写 · 记录 2026-08-21 实测（禅道 22.5，easysoft/zentao:latest 滚动镜像，mjbk 192.168.0.107:8070） · 更新：2026-08-22
