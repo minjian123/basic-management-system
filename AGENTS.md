@@ -95,3 +95,15 @@
   - 调用 `.cmd/.bat` 批处理或 npx 时注意输出缓冲（PowerShell 管道要等进程退出才吐输出），必要时绕开包装直接用可执行文件。
 - 状态文件默认 `%USERPROFILE%\.bg`（-Base 可覆盖）；任务按 `-Name` 区分，同名会覆盖。
 - 示例：`bg_run {name: 远程磁盘, command: "ssh <账号>@<mjbk-IP> df -h"}` → 立即返回；`bg_status {name: 远程磁盘}` → 秒级出结果。
+
+## 缺陷工具链（defect）
+
+CI 自动化测试失败时的缺陷处理工具链在 `deploy/tools/defect/`（流程与口径详见《测试规范》第 9 节）：
+
+- `defect_capture.py`：归档 REPRO 复现包（现场 dump + 失败堆栈 + repro.json + REPRO.md，默认 `/mnt/data/backup/defects/<缺陷ID>/`）并自动创建/复用 GitLab Issue（fingerprint 去重、`defect-auto` 标签）。
+- `ai_fix.py`：AI 修复代理——扫描 defect-auto 未关闭 Issue 定位根因生成补丁，本地模型（LM Studio）优先、云端兜底；bot 推 `fix/defect-*` 分支提 MR，**人工 review 合入、人工关闭**。
+- `reproduce.py`：按 commit 检出 + dump 导入 + 跑用例的一键复现验证。
+
+## 设计文档编号重排（reorder-design）
+
+调整设计文档体系节点编号时**勿手动改名**，用 `deploy/tools/reorder-design/reorder-design.py`：阅读顺序定义在同目录 `order.json`（覆盖架构/概要/布局/原型四体系），自动完成两步法重命名 + 全库引用替换（支持 md 与 html）；先 `--dry-run` 预览再执行；md 总览的节点表行序不自动排序，执行后人工核对。
