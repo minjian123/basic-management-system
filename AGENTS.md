@@ -32,7 +32,8 @@
 ## 网络与镜像
 
 - 涉及软件、组件、依赖、容器镜像等下载安装时，**优先使用国内镜像**（阿里云、清华 TUNA、中科大、华为云等），默认源访问不畅时立即切换镜像，不长时间等待。
-- 常用镜像：PyPI 用阿里云/清华源、npm 用淘宝（npmmirror）源、Docker Hub 用阿里云/华为云加速器、GitHub 下载用镜像代理（如 ghproxy）、Windows 组件安装卡在微软源时改用本地/镜像分发方式。
+- 常用镜像：PyPI 用阿里云/清华源、npm 用淘宝（npmmirror）源、Docker Hub 用阿里云/华为云加速器、Windows 组件安装卡在微软源时改用本地/镜像分发方式。
+- **GitHub 加速用 ghfast.top**（实测有效）：前缀拼接法——`https://ghfast.top/https://github.com/<owner>/<repo>`，支持 release 下载与 `git ls-remote --tags`；取最新版本号用 `git ls-remote --tags <加速URL> | tail`（GitHub API 不走镜像代理）。mirror.ghproxy.com 已实测失效（页面抓不到 tag、API 不可代理），勿再用。
 - 安装类命令默认带国内源参数，文档与脚本中写明所用镜像地址。
 
 ## 讨论与确认（强制执行）

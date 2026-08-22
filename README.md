@@ -40,7 +40,7 @@ bms/
 │   ├── .env.example          # 凭据模板
 │   ├── compose/              # Docker Compose（base / gitlab / kiwi）
 │   ├── setup/                # 环境安装脚本
-│   └── tools/                # bg 后台执行器、defect 缺陷工具、graphify 本地化、multimodal 多模态、reorder-design 设计整理、wol 电源控制、zentao 禅道 API
+│   └── tools/                # backup 备份脚本、bg 后台执行器、defect 缺陷工具、graphify 本地化、multimodal 多模态、reorder-design 设计整理、wol 电源控制、zentao 禅道 API
 └── 文档/                     # 项目文档
     ├── 文档首页.md            # 全量导航
     ├── 规划/                  # 3篇：项目规划说明、总体项目规划、开发部署规划
