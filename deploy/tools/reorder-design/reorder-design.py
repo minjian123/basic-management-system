@@ -46,9 +46,19 @@ def get_short_subject(name: str, sys_name: str) -> str:
 
 
 def find_old_file(directory: Path, name: str, target_full: Path):
-    """找 {NN}_{name}.html 且非目标文件名的旧文件，返回 Path 或 None。"""
-    for f in directory.glob(f"*_{name}.html"):
-        if NUM_RE.match(f.stem) and f.resolve() != target_full.resolve():
+    """找 {NN}_{name}.{html|md} 且非目标文件名的旧文件，返回 Path 或 None。"""
+    for suf in (".html", ".md"):
+        for f in directory.glob(f"*_{name}{suf}"):
+            if NUM_RE.match(f.stem) and f.resolve() != target_full.resolve():
+                return f
+    return None
+
+
+def find_target_file(directory: Path, name: str, to: str):
+    """返回已处于目标编号的文件（.html / .md），无则 None。"""
+    for suf in (".html", ".md"):
+        f = directory / f"{to}_{name}{suf}"
+        if f.exists():
             return f
     return None
 
@@ -134,24 +144,25 @@ def main() -> int:
             for node in dir_cfg["nodes"]:
                 name = node["name"]
                 to = str(node["to"])
-                new_file = directory / f"{to}_{name}.html"
-                old = find_old_file(directory, name, new_file)
+                new_file = find_target_file(directory, name, to)
+                old = find_old_file(directory, name, new_file or directory / f"{to}_{name}.html")
                 if not old:
-                    if new_file.exists():
+                    if new_file:
                         in_place += 1
                         continue
                     raise FileNotFoundError(f"未找到节点文件: {name}（{dir_cfg['dir']}）")
                 old_no = old.stem.split("_")[0]
+                suffix = old.suffix
                 short = node.get("short") or get_short_subject(name, sys_name)
                 mappings.append({
                     "OldNo": old_no, "NewNo": to, "Name": name, "OldFile": old,
-                    "OldFull": f"{old_no}_{name}.html", "NewFull": f"{to}_{name}.html",
+                    "OldFull": f"{old_no}_{name}{suffix}", "NewFull": f"{to}_{name}{suffix}",
                     "OldShort": f"{old_no}-{short}", "NewShort": f"{to}-{short}",
                 })
             dup = {m["NewNo"] for m in mappings}
             if len(dup) != len(mappings):
                 raise RuntimeError(f"新编号冲突: {sorted(dup)}（{dir_cfg['dir']}）")
-            overview_files.append(directory / f"01_{sys_name}_总览.html")
+            overview_files.append(find_target_file(directory, f"{sys_name}_总览", "01"))
             if in_place == len(dir_cfg["nodes"]) and not mappings:
                 print("  已是最新状态（所有节点编号符合 order.json），跳过")
                 continue
@@ -159,11 +170,11 @@ def main() -> int:
             print("  重命名计划（旧 → 新）：")
             for m in ordered:
                 mark = "" if m["OldNo"] == m["NewNo"] else ""
-                print(f"    {m['OldFile'].relative_to(REPO_ROOT)} -> {m['NewNo']}_{m['Name']}.html {mark}")
+                print(f"    {m['OldFile'].relative_to(REPO_ROOT)} -> {m['NewFull']} {mark}")
             if not args.dry_run:
                 tmp_files = []
                 for m in mappings:
-                    tmp = directory / f"{m['OldNo']}_reorder_{m['Name']}.html"
+                    tmp = directory / f"{m['OldNo']}_reorder_{m['Name']}{m['OldFile'].suffix}"
                     m["OldFile"].rename(tmp)
                     tmp_files.append(tmp)
                 for m, tmp in zip(mappings, tmp_files):
@@ -271,6 +282,7 @@ def main() -> int:
         root_path = REPO_ROOT / root
         if root_path.exists():
             scan_files.extend(root_path.rglob("*.html"))
+            scan_files.extend(root_path.rglob("*.md"))
 
     ordered_pairs = []
     # 替换顺序：按旧编号 Key 从后往前（降序），同 Key 保持添加顺序
@@ -292,14 +304,17 @@ def main() -> int:
                 print(f"  更新引用: {file.relative_to(REPO_ROOT)}")
         print(f"\n引用替换完成：更新 {updated} / {len(scan_files)} 个文件")
     else:
-        print(f"\n[DryRun] 将扫描 {len(scan_files)} 个 html 文件进行引用替换：{len(ordered_pairs)} 对全名/路径段替换（按旧编号从后往前）")
+        print(f"\n[DryRun] 将扫描 {len(scan_files)} 个 html/md 文件进行引用替换：{len(ordered_pairs)} 对全名/路径段替换（按旧编号从后往前）")
         for t in config.get("textReplace", []):
             print(f"  附加文本: \"{t['from']}\" -> \"{t['to']}\"")
 
     # ---------- 总览 01 节点表行排序 ----------
     for ov in overview_files:
-        if not ov.exists():
+        if not ov or not ov.exists():
             print(f"警告: 未找到总览文件: {ov}")
+            continue
+        if ov.suffix == ".md":
+            print(f"  总览为 md，跳过自动表格排序（请人工核对节点表行序）: {ov.relative_to(REPO_ROOT)}")
             continue
         content = ov.read_text(encoding="utf-8")
         sorted_html = sort_overview_tables(content)
