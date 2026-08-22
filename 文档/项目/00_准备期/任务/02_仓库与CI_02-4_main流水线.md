@@ -23,15 +23,18 @@
 1. Playwright E2E（服务容器起后端（SQLite）与前端产物）
 2. MySQL/PostgreSQL/达梦 DM8 三库方言集成测试：job 连 mjbk 常驻三库，建 `bms_test` 前缀测试库 → Alembic 迁移 → 集成测试 → 删库清理
 3. 构建 `bms-backend`、`bms-frontend` 镜像并推 GitLab Registry（5050）
-4. `swagger.json` 契约快照导出归档
-5. 测试报告：Allure 报告归档（CI artifact），测试结果经官方插件导入 Kiwi TCMS 用例库
+4. 容器镜像安全扫描：GitLab Container Scanning（Trivy 引擎）扫描 Registry 镜像，CVSS ≥ 9 高危漏洞阻断发版
+5. `swagger.json` 契约快照导出归档
+6. 测试报告：Allure 报告归档（CI artifact），测试结果经官方插件导入 Kiwi TCMS 用例库
 
 ## 3. 完成标准 <a id="accept"></a>
 
-main 流水线端到端通过；契约快照与 Allure 报告已归档。
+main 流水线端到端通过；契约快照与 Allure 报告已归档；高危漏洞（CVSS ≥ 9）时流水线阻断。
+
+> 口径说明（2026-08-22）：镜像扫描 job 为规划新增项（《项目规划说明》16 节安全专项，GitLab 内置模板增量小、不加工时）；模板镜像需外网拉取——mjbk 外网不可达时预缓存或与 02-6 一并暂缓，不阻塞其余 job。
 
 ## 4. 参考文档 <a id="ref"></a>
 
 - 《开发部署规划》第 7 节、《测试规范》
 
-> 本文档依《文档生成规范》编写 · 生成日期：2026-08-21
+> 本文档依《文档生成规范》编写 · 生成日期：2026-08-21 · 更新：2026-08-22（同步上游规划口径）
