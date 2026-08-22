@@ -266,6 +266,8 @@ defect-capture:
   variables:
     DEFECT_ARCHIVE_DIR: /mnt/data/backup/defects
   script:
+    # apt 换阿里云镜像（python:3.14-slim 为 Debian trixie，DEB822 格式源文件）
+    - sed -i 's|deb.debian.org|mirrors.aliyun.com|g' /etc/apt/sources.list.d/debian.sources 2>/dev/null || true
     - apt-get update >/dev/null && apt-get install -y --no-install-recommends mariadb-client >/dev/null
     - |
       python deploy/tools/defect/defect_capture.py \
