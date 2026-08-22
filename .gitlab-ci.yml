@@ -38,6 +38,14 @@ gate-smoke:
     - python -c "import sys; assert sys.version_info >= (3, 14), 'Python < 3.14'"
     - echo "gate ok"
 
+# 受控失败实验 job（验证 02-5 钩子，验完即删）
+experiment-fail:
+  stage: lint
+  image: python:3.14-slim
+  script:
+    - echo "controlled failure for defect-capture e2e test"
+    - exit 1
+
 # ---- 后端：ruff + pytest（SQLite）----
 backend-lint:
   stage: lint
@@ -261,7 +269,7 @@ defect-capture:
     - apt-get update >/dev/null && apt-get install -y --no-install-recommends mariadb-client >/dev/null
     - |
       python deploy/tools/defect/defect_capture.py \
-        --engine mysql --db-name "${BMS_TEST_DB_NAME:-bms_test_mysql}" \
+        --engine mysql --db-name "${BMS_TEST_DB_NAME:-zentao}" \
         --db-host 192.168.0.107 --db-port 3306 \
         --db-user root --db-password "$MYSQL_ROOT_PASSWORD" \
         --summary "main pipeline failure @ ${CI_COMMIT_SHORT_SHA:-local}" \
