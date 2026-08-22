@@ -19,7 +19,7 @@ mjbk 上的 GitLab CE（容器 `bms-gitlab`）承载 BMS 代码仓库、MR、CI 
 gitlab:
   image: gitlab/gitlab-ce:latest
   container_name: bms-gitlab
-  hostname: <mjbk-IP>
+  hostname: ${MJBK_IP:?请在 deploy/.env 设置 MJBK_IP}
   ports:
     - "8080:8080"    # HTTP（容器内 nginx listen_port=8080）
     - "5050:5050"    # Registry
@@ -27,8 +27,20 @@ gitlab:
   volumes:
     - /mnt/ssd2t/gitlab/config:/etc/gitlab
     - /mnt/ssd2t/gitlab/logs:/var/log/gitlab
-    - /mnt/ssd2t/gitlab/data:/var/opt/gitlab
+    - /mnt/ssd2t/gitlab/data:/var/opt/gitlab   # ⚠️ 必须是 ssd2t！写错为 /mnt/data 会初始化空实例（见事故记录）
   shm_size: "256m"
+
+renovate:                       # 依赖升级机器人（每日 cron 触发，一次性运行）
+  image: renovate/renovate:latest
+  container_name: bms-renovate
+  depends_on:
+    - gitlab
+  environment:
+    RENOVATE_PLATFORM: gitlab
+    RENOVATE_ENDPOINT: http://gitlab:8080/api/v4
+    RENOVATE_TOKEN: ${GITLAB_PAT}
+    RENOVATE_REPOSITORIES: mj/bms     # 注意实际项目路径是 mj/bms 非 bms/bms
+    LOG_LEVEL: info
 
 gitlab-runner:
   image: gitlab/gitlab-runner:latest
@@ -50,9 +62,12 @@ gitlab-runner:
 # 1. 拉取镜像（DaoCloud 加速器支持 gitlab/gitlab-ce）
 docker pull gitlab/gitlab-ce:latest
 
-# 2. 启动（首次 reconfigure 初始化约 3-6 分钟）
+# 2. 启动（首次 reconfigure 初始化约 3-6 分钟；--env-file 注入 MJBK_IP/GITLAB_PAT）
 cd ~/deploy
-docker compose -f compose/gitlab.yml up -d gitlab
+docker compose -f compose/gitlab.yml --env-file .env up -d gitlab
+
+# 3. Renovate 手动触发（日常由 cron 每日 06:00 自动运行）
+docker compose -f compose/gitlab.yml --env-file .env up -d renovate
 
 # 3. 等待 HTTP 就绪（200/302）
 curl -s -o /dev/null -w "%{http_code}" http://<mjbk-IP>:8080/users/sign_in
@@ -133,5 +148,13 @@ runner 容器已启动并注册（2026-08-10，runner `bacf4fd652a2`，concurren
 - 《[DockerEngine部署使用说明](DockerEngine部署使用说明.md)》：容器引擎与镜像加速
 - 《[开发部署规划](../../规划/开发部署规划.md)》：4.5 GitLab 与 CI 基础设施
 - 《[命名规范](../../规范/命名规范.md)》：镜像名 `bms-组件`、Registry 规划
+
+> ⚠️ **事故记录（2026-08-22）**：`gitlab.yml` 变量化改造时挂载路径误写回迁移前的
+> `/mnt/data/gitlab`，容器重建后 GitLab 在旧 HDD 路径初始化了**全新空实例**（项目数 0、
+> 旧 PAT 全部失效）。恢复过程：改回 `/mnt/ssd2t/gitlab` 挂载 → `up -d gitlab` 重建 →
+> 数据完整回归（6 项目含 mj/bms）→ rails console 重签 renovate-api token。
+> **教训**：① 改 compose 必须核对 bind mount 路径与数据实际位置一致；② 空实例初始化
+> 会覆盖挂载点内容（/mnt/data/gitlab 下已产生 588K 垃圾待清理）；③ PAT 失效优先排查
+> 是否连到了错误实例，再考虑重签。Renovate 仓库路径为 `mj/bms`（非 bms/bms）。
 
 > 依《文档生成规范》编写 · 记录 2026-08-10 实际部署过程 · 更新日期：2026-08-15（数据迁至 /mnt/ssd2t/gitlab）

@@ -41,5 +41,17 @@ services:
       - RUNNER_EXECUTOR=docker
       - RUNNER_DOCKER_IMAGE=python:3.14-slim
 
+  renovate:
+    image: renovate/renovate:latest
+    container_name: bms-renovate
+    depends_on:
+      - gitlab
+    environment:
+      RENOVATE_PLATFORM: gitlab
+      RENOVATE_ENDPOINT: http://gitlab:8080/api/v4
+      RENOVATE_TOKEN: ${GITLAB_PAT}
+      RENOVATE_REPOSITORIES: bms/bms
+      LOG_LEVEL: info
+
 volumes:
   runner-config:
