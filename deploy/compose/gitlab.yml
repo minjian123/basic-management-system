@@ -24,9 +24,9 @@ services:
       - "5050:5050"
       - "2222:22"
     volumes:
-      - /mnt/data/gitlab/config:/etc/gitlab
-      - /mnt/data/gitlab/logs:/var/log/gitlab
-      - /mnt/data/gitlab/data:/var/opt/gitlab
+      - /mnt/ssd2t/gitlab/config:/etc/gitlab
+      - /mnt/ssd2t/gitlab/logs:/var/log/gitlab
+      - /mnt/ssd2t/gitlab/data:/var/opt/gitlab
     shm_size: "256m"
   gitlab-runner:
     image: gitlab/gitlab-runner:latest
@@ -50,7 +50,7 @@ services:
       RENOVATE_PLATFORM: gitlab
       RENOVATE_ENDPOINT: http://gitlab:8080/api/v4
       RENOVATE_TOKEN: ${GITLAB_PAT}
-      RENOVATE_REPOSITORIES: bms/bms
+      RENOVATE_REPOSITORIES: mj/bms
       LOG_LEVEL: info
 
 volumes:
