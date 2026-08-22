@@ -113,7 +113,7 @@ BMS 项目中的用法（《[测试规范](../../规范/测试规范.md)》）�
 | Django 管理命令 | `docker exec bms-kiwi /Kiwi/manage.py <命令>`（如 `createsuperuser`） |
 | 修改管理员密码 | `docker exec bms-kiwi /Kiwi/manage.py changepassword admin` |
 
-> 防火墙：mjbk ufw 当前处于**不活动**状态；若日后启用 ufw，需放行内网 8060（规则已预置：`allow from <内网网段> to any port 8060 proto tcp`），并注意 Docker 发布端口需 `ufw default allow routed`（见 GitLab 部署说明排障记录）。
+> 防火墙：mjbk ufw 已启用（2026-08-22），内网 8060 已放行；规则总表与维护口径见《[防火墙部署使用说明](防火墙部署使用说明.md)》。
 
 ## 7. 备份与恢复 <a id="backup"></a>
 
