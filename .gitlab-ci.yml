@@ -6,7 +6,10 @@
 
 workflow:
   rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    # 指令驱动（2026-08-22）：push/MR 事件不再自动建流水线，
+    # 「合并」指令时经 API 显式发起（source=api）；main 直推仍自动验证。
+    - if: $CI_PIPELINE_SOURCE == "web"
+    - if: $CI_PIPELINE_SOURCE == "api"
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
 
 stages:
