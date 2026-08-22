@@ -53,9 +53,12 @@ class WebSession:
         self.user = j.get("user") or {}
         return self.user
 
-    def request(self, path):
-        """带会话调 Web 端点（path 以 / 开头），返回 (http_status, 文本)。"""
-        req = urllib.request.Request(self.base + path, method="GET")
+    def request(self, path, data=None):
+        """带会话调 Web 端点（path 以 / 开头），返回 (http_status, 文本)。
+
+        data 为 dict 时以 POST 表单提交（application/x-www-form-urlencoded）。"""
+        body = urllib.parse.urlencode(data).encode() if isinstance(data, dict) else None
+        req = urllib.request.Request(self.base + path, data=body, method="POST" if body else "GET")
         resp = self.opener.open(req, timeout=30)
         return resp.status, resp.read().decode("utf-8", "replace")
 
@@ -106,6 +109,18 @@ def web_delete_many(client, module, ids):
         results.append({"id": i, "httpStatus": status,
                         "success": "保存成功" in body, "response": body[:200]})
     return {"module": module, "user": (user or {}).get("account"), "results": results}
+
+
+def web_close_task(client, task_id, reason="done"):
+    """经 Web 表单关闭任务（REST POST /tasks/:id/close 返回 200 但不生效，改用此函数）。
+
+    reason: 禅道 closedReason 枚举（done/cancel/done+closed 等常规用 done）。
+    返回 {id, user, httpStatus, response}；调用后以 API 查询 status=closed 复核。"""
+    ws, _ = _open_session(client)
+    user = ws.login()
+    status, body = ws.request(f"/task-close-{int(task_id)}.json", data={"closedReason": reason})
+    return {"id": int(task_id), "user": (user or {}).get("account"),
+            "httpStatus": status, "response": body[:200]}
 
 
 def delete_task(client, task_id):
