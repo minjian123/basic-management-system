@@ -72,7 +72,8 @@ def run(cmd: list[str]) -> subprocess.CompletedProcess:
 
 def dump_mysql(args) -> Path:
     out = args.out_dir / f"{args.db_name}-{date.today().isoformat()}.sql"
-    run(["mysqldump", "--single-transaction", "-h", args.db_host, "-P", str(args.db_port),
+    # --ssl=0：内网自签证书环境（mariadb 客户端默认尝试 TLS 会握手失败）
+    run(["mysqldump", "--single-transaction", "--ssl=0", "-h", args.db_host, "-P", str(args.db_port),
          "-u", args.db_user, f"-p{args.db_password}", args.db_name, "-r", str(out)])
     return out
 
