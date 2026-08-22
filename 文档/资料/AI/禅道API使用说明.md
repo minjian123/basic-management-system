@@ -70,6 +70,7 @@ python zentao.py executions create --project 1 --name "M0 启动就绪" --begin 
 python zentao.py stories list --product 1             # 产品 1 的需求
 python zentao.py tasks list --execution 3             # 迭代 3 的任务（取全）
 python zentao.py tasks list --execution 3 --brief     # 摘要输出（每任务一行：id/状态/优先级/工时/指派/名称）
+python zentao.py executions list --brief              # 迭代摘要；stories/products/projects/users 同样支持 --brief
 python zentao.py tasks search --name 接口              # 按名称模糊查（取全后客户端筛）
 python zentao.py tasks search --assigned-to minjian --status doing
 python zentao.py tasks search --parent 1              # 某父任务下的子任务
