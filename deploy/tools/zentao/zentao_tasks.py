@@ -171,9 +171,11 @@ def finish(client, task_id, consumed, real_started=None, finished_date=None):
 def close(client, task_id, closed_reason="done"):
     """关闭任务（done -> closed）。
 
-    踩坑：body 为空时 REST 返回 200 任务对象但不生效（静默失败，与删除 API 同类问题），
-    必须 POST closedReason（枚举 done/cancel 等）。"""
-    return client.post(f"/tasks/{task_id}/close", body={"closedReason": closed_reason})
+    踩坑：body 为空时 REST 返回 200 任务对象但不生效（静默失败，与删除 API 同类问题）；
+    必须 POST closedReason（枚举 done/cancel 等）；部分场景仅 closedReason 仍静默失败，
+    建议同时带 comment 字段。"""
+    return client.post(f"/tasks/{task_id}/close",
+                       body={"closedReason": closed_reason, "comment": ""})
 
 
 def active(client, task_id):
