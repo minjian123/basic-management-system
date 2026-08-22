@@ -24,6 +24,7 @@ BMS 项目禅道（ZenTao 开源版 22.5，`easysoft/zentao:latest` 滚动镜像
 python zentao.py token                         # 获取 token
 python zentao.py executions list --project 1   # 项目 1 下的迭代
 python zentao.py tasks list --execution 3      # 迭代 3 的任务（取全）
+python zentao.py tasks list --execution 3 --brief   # 摘要输出（每任务一行，避免全量 JSON 爆屏）
 python zentao.py tasks search --server --name 接口                  # 22.5 服务端过滤（name LIKE）
 python zentao.py tasks search --server --assigned-to minjian --status doing   # 指派人+状态
 python zentao.py tasks search --server --limit 50 --order id_desc    # 分页 + 排序
