@@ -1,0 +1,107 @@
+# MR 流水线门禁（《开发部署规划》第 7 节）
+# 口径：后端 ruff + pytest（SQLite，覆盖率整体 ≥ 70%、核心模块 ≥ 80%）；
+#       前端 ESLint + Vitest + frontend / frontend-mobile 双端构建。
+# backend/ frontend/ 尚未落地（阶段一骨架），对应 job 以 exists 守卫，
+# 目录与清单文件出现后自动启用。
+
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+stages:
+  - lint
+  - test
+  - build
+
+variables:
+  PIP_INDEX_URL: https://mirrors.aliyun.com/pypi/simple/
+  NPM_CONFIG_REGISTRY: https://registry.npmmirror.com
+
+default:
+  tags: [bms, docker]
+
+# ---- runner 连通性冒烟（无业务代码期间的门禁载体）----
+ci-smoke:
+  stage: lint
+  image: python:3.14-slim
+  script:
+    - python --version
+    - python -c "import sys; assert sys.version_info >= (3, 14), 'Python < 3.14'"
+    - echo "runner ok"
+
+# ---- 后端：ruff + pytest（SQLite）----
+backend-lint:
+  stage: lint
+  image: python:3.14-slim
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      exists:
+        - backend/pyproject.toml
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      exists:
+        - backend/pyproject.toml
+  script:
+    - pip install ruff
+    - cd backend && ruff check .
+
+backend-test:
+  stage: test
+  image: python:3.14-slim
+  variables:
+    BMS_ENV: test
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      exists:
+        - backend/pyproject.toml
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      exists:
+        - backend/pyproject.toml
+  script:
+    - pip install uv
+    - uv sync --frozen
+    - uv run pytest --cov=bms --cov-branch --cov-report=term --cov-fail-under=70
+  coverage: '/^TOTAL.*?\s+\d+\s+\d+\s+(\d+(?:\.\d+)?%)$/'
+  # 核心模块（认证/RBAC/工作流/审计/收付款）≥ 80% 门禁随阶段一骨架确定模块路径后补入
+
+# ---- 前端：ESLint + Vitest + 双端构建 ----
+frontend-check:
+  stage: test
+  image: node:22-slim
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      exists:
+        - frontend/package.json
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      exists:
+        - frontend/package.json
+  script:
+    - cd frontend && npm ci
+    - npm run lint
+    - npm run test
+
+frontend-build:
+  stage: build
+  image: node:22-slim
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      exists:
+        - frontend/package.json
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      exists:
+        - frontend/package.json
+  script:
+    - cd frontend && npm ci && npm run build
+
+frontend-mobile-build:
+  stage: build
+  image: node:22-slim
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      exists:
+        - frontend-mobile/package.json
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      exists:
+        - frontend-mobile/package.json
+  script:
+    - cd frontend-mobile && npm ci && npm run build
