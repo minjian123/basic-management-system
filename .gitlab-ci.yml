@@ -19,7 +19,7 @@ variables:
   NPM_CONFIG_REGISTRY: https://registry.npmmirror.com
 
 default:
-  tags: [bms, docker]
+  tags: [bms]
 
 # ---- runner 连通性冒烟（无业务代码期间的门禁载体）----
 ci-smoke:
