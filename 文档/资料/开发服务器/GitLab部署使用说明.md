@@ -91,7 +91,7 @@ docker exec bms-gitlab gitlab-ctl status      # 全部 run 状态
 | --- | --- |
 | 访问地址 | `http://<mjbk-IP>:8080` |
 | 仓库克隆地址 | `http://<mjbk-IP>:8080/<group>/<repo>.git` 或 `ssh://git@<mjbk-IP>:2222/...` |
-| Registry | `<mjbk-IP>:5050`（容器镜像仓库，随项目启用） |
+| Registry | `<mjbk-IP>:5050`（2026-08-22 随 02-4 main 流水线启用：gitlab.rb 配 `registry_external_url 'http://<mjbk-IP>:5050'` + `registry_nginx['listen_port']=5050` 后 `gitlab-ctl reconfigure`；mjbk daemon.json 加 `insecure-registries: ["<mjbk-IP>:5050"]`（HTTP 非 TLS，需重启 docker）；认证用 root PAT，`docker login <mjbk-IP>:5050 -u root --password-stdin`，推拉已实测） |
 | 管理员账号 | `root`（密码见 `~/deploy/.env` 的 `GITLAB_ROOT_PASSWORD`） |
 
 ## 6. gitlab-runner 注册 <a id="runner"></a>
