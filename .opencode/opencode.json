@@ -1,8 +1,8 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "plugin": [
-    ".opencode/plugins/graphify.js",
-    "./deploy/tools/bg/bg.js"
+    "plugins/graphify.js",
+    "plugins/bg.js"
   ],
   "provider": {
     "lmstudio": {

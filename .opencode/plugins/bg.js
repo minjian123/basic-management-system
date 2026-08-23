@@ -17,7 +17,8 @@ const execFileP = promisify(execFile);
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 function script(name) {
-  return join(__dirname, name);
+  // python 脚本仍在 deploy/tools/bg/（插件文件位于 .opencode/plugins/，向上两级到项目根）
+  return join(__dirname, "..", "..", "deploy", "tools", "bg", name);
 }
 
 async function runPy(name, args) {
