@@ -32,6 +32,14 @@ def update(client, execution_id, **fields):
     return client.put(f"/executions/{execution_id}", body=fields)
 
 
+def close(client, execution_id):
+    """关闭迭代（doing -> closed）。
+
+    踩坑：无专用 close 端点（POST /executions/:id/close 返回 404 not found），
+    用 PUT /executions/:id 更新 status=closed 生效（22.5 实测）。"""
+    return client.put(f"/executions/{execution_id}", body={"status": "closed"})
+
+
 def delete(client, execution_id):
     return client.delete(f"/executions/{execution_id}")
 

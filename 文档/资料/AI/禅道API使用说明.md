@@ -1,6 +1,6 @@
 # 禅道 API 使用说明
 
-> 禅道（ZenTao 22.5）REST API 与 BMS 工具包使用指南 · 2026-08-21 · 更新：2026-08-22（补踩坑 #22 finish 时间戳 / #23 close 需 closedReason；工具包 start/finish/close 同步修复）
+> 禅道（ZenTao 22.5）REST API 与 BMS 工具包使用指南 · 2026-08-21 · 更新：2026-08-23（修复 CLI start/finish/close/active 缩进错位静默失效；`active` 改 PUT 可靠重开；新增 `executions close`；补踩坑 #24 active 静默失效 / #25 迭代 Web 删除失效）
 
 [文档首页](../../文档首页.md) › 资料 › 禅道 API 使用说明　|　[开发服务器：禅道部署 →](../开发服务器/禅道部署使用说明.md)
 
@@ -86,6 +86,8 @@ python zentao.py tasks update --id 1 --desc-file desc.txt     # 多行描述走�
 python zentao.py tasks start --id 1                   # 开始
 python zentao.py tasks finish --id 1 --consumed 16    # 完成
 python zentao.py tasks close --id 1                   # 关闭
+python zentao.py tasks active --id 1                  # 激活（重开 closed 任务为 doing）
+python zentao.py executions close --id 3              # 关闭迭代（doing -> closed）
 python zentao.py users list
 ```
 
@@ -171,7 +173,7 @@ python zentao_sync_pull.py --stage 00_准备期               # 实跑（默认�
 | 任务（列表/编辑） | `GET /executions/:id/tasks`、`GET /tasks/:id`、`PUT /tasks/:id`、`DELETE /tasks/:id` | 编辑字段含 name/desc/pri/estimate/left/assignedTo/estStarted/deadline/status 等；`desc` 支持多行文本（CLI 可 `--desc`/`--desc-file`）；**`DELETE /tasks/:id` 有 bug 不生效（踩坑 #13），删除用 `zentao_web.delete_task`/CLI `tasks web-delete`（单 `--id`/批量 `--ids`），或通用 `zentao_web.web_delete(module,id)`** |
 | 任务（服务端查询，22.5） | `GET /tasks?search=1&name=&assignedTo=&status=&pri=&id=&limit=&page=&order=&mergeChildren=` | **服务端过滤**（踩坑 #15）：`name` 走 LIKE、`assignedTo` 传**账号名**（可逗号列表）、`status`/`pri`/`id` 走 IN 列表；分页 `limit`（无上限）/`page`/`order`；`mergeChildren=1` 子任务并入父任务；不带 `search=1` 落入「我的任务」分支、参数被忽略 |
 | 任务（批量创建） | `POST /executions/:id/tasks/batchCreate` | **唯一创建入口**；body `{"tasks":[{name,type,...}]}`；每项必填 `estStarted,deadline`；**子任务：父任务 ID 走 URL 参数 `?task={id}`**（body 写 `parent` 被覆盖无效）；body 不接受 `assignedTo`（建后走 `assignto` 指派） |
-| 任务动作 | `POST /tasks/:id/assignto`（必填 `assignedTo,left`）、`/start`、`/pause`、`/restart`、`/finish`（必填 `currentConsumed,realStarted,finishedDate`）、`/close`、`/active`、`/estimate` | — |
+| 任务动作 | `POST /tasks/:id/assignto`（必填 `assignedTo,left`）、`/start`（必填 `left`）、`/pause`、`/restart`、`/finish`（必填 `currentConsumed,realStarted,finishedDate`）、`/close`（必填 `closedReason`）、`/active`（**静默失效，踩坑 #24**，重开改用 `PUT /tasks/:id`）、`/estimate` | 重开 closed 任务：`PUT /tasks/:id {status:doing,left:N,closedReason:""}`（doing 须 `left>0`；改 `wait` 则 `closedReason` 必须为空） |
 | 用户 | `GET /users`（可加 `full=1`）、`GET /users/:id`、`POST /users`、`DELETE /users/:id` | 创建必填 `account,password,realname,role,gender`（**`gender` 不传报「『性别』不能为空」**，取值 m/f；22.5 实测可用，明文密码直接生效）；REST `DELETE /users/:id` 22.5 已验证可用；**`full=1` 返回全字段**（id/dept/role/email/pinyin 等，默认只基础字段） |
 
 ### 4.1 字段字典（枚举与状态机） <a id="fields"></a>
@@ -201,6 +203,8 @@ stateDiagram-v2
 | `cancel` | 已取消 | Web 端操作取消 |
 
 > 注意：**没有 `finished`/`canceled` 这两个值**；完成日期字段是 `finishedDate`（done 态有值，closed 态被清空、用 deadline 兜底）。
+
+> `active`（closed→doing）在 22.5 的 `POST /tasks/:id/active` **静默失效**（返回 200 但状态不变，踩坑 #24）；工具包 `zentao_tasks.active()` 已改用 `PUT /tasks/:id {status:doing, left:N, closedReason:""}` 重开（doing 态要求 `left>0`，`left` 缺省取「预计−已耗」最小 1 小时）。
 
 **任务类型（`type`）**：`design`(设计) / `devel`(开发) / `request`(需求) / `test`(测试) / `study`(研究) / `discuss`(讨论) / `ui`(界面) / `affair`(事务) / `misc`(其他)。
 
@@ -247,6 +251,8 @@ stateDiagram-v2
 | 21 | start 不带 left 报错 | 对 `wait` 任务调 `POST /tasks/:id/start` 只传 `realStarted` 时报「总计消耗和预计剩余不能同时为0」——start 端点按请求体里的 `left` 校验，不带会被当 0 | 开始任务必须传 `left`（未开始的任务取 estimate）；工具包 `zentao_tasks.start()` 已处理，CLI `tasks start --id N` 可直接用 |
 | 22 | finish 传纯日期报「实际完成不能小于实际开始」 | `finish` 的 `realStarted/finishedDate` 传纯日期（`YYYY-MM-DD`）时 HTTP 400：服务端按东八区零点转 UTC 存储 realStarted（如 `2026-08-22T16:00Z` 前移一天），与 finishedDate 的解析值比较后判定完成早于开始 | 两字段都传**完整时间戳** `YYYY-MM-DD HH:MM:SS`；工具包 `zentao_tasks.finish()` 默认已改为当前时刻时间戳，CLI `tasks finish --id N --consumed H --real-started ... --finished-date ...` |
 | 23 | close 空 body 静默失败 | `POST /tasks/:id/close` 不带 body 返回 **200 任务对象但状态仍 `done`、closedReason 空**（静默不生效，与删除 API #13 同类问题） | body 必须带 `closedReason`（枚举 `done/cancel`）；工具包 `zentao_tasks.close()` 已内置默认 `done`，CLI `tasks close --id N [--reason cancel]` |
+| 24 | active 端点静默失效 | `POST /tasks/:id/active` 返回 **200 任务对象但状态仍 `closed`、activatedDate 为 null**（重开不生效，与 #13/#23 同类）；且禅道状态全集无 `active` 值（仅 wait/doing/done/pause/cancel/closed） | 重开 closed 任务改用 `PUT /tasks/:id {status:doing, left:N, closedReason:""}`（doing 态要求 `left>0`；改 `wait` 则 `closedReason` 必须清空，否则 400「『关闭原因』必须为空」）；工具包 `zentao_tasks.active()` 已改此法，CLI `tasks active --id N` |
+| 25 | 迭代 Web 删除失效 | `zentao_web.web_delete(c,"execution",id)`（Web 端点 `m=execution&t=ajax&f=delete`）返回 200 但**响应体为空**（无「保存成功」），迭代未删 | 迭代删除走 **REST `DELETE /executions/:id`**（返回 `{"message":"success"}`，已验证）→ CLI `executions delete --id N`；注意与任务相反（task 的 REST 删失效须走 Web，见 #13）——**删除可靠性按资源区分，删后务必读回/列表核对** |
 
 **报错反查**：按报错文案关键词定位坑号——
 
@@ -266,6 +272,9 @@ stateDiagram-v2
 | 总计消耗和预计剩余不能同时为0 | #21 |
 | 实际完成不能小于实际开始 | #22 |
 | （close 返回 200 但状态仍 done） | #23 |
+| （active 返回 200 但状态仍 closed） | #24 |
+| 『关闭原因』必须为空 / 预计剩余不能为0（重开任务时） | #24 |
+| （迭代删除返回空体、未删成） | #25 |
 
 ## 6. 版本兼容与升级复核 <a id="version"></a>
 
@@ -405,7 +414,8 @@ for t in created:                                  # body 不含 assignedTo，�
 | 任务 task | `zentao_web`（Web 会话） | `DELETE /tasks/:id` 有参数错位 bug（踩坑 #13），返回 success 但不生效 |
 | 需求 story | REST `DELETE /stories/:id` | 22.5 已验证，读回 `deleted=true`；Web 删除备用（需加 `confirm=yes`，见下） |
 | 用户 user | REST `DELETE /users/:id` | 22.5 已验证，返回 `{"message":"success"}` |
-| 产品/项目/迭代 | REST 或 Web | 未逐一复测，REST 优先、失败转 Web |
+| 迭代 execution | REST `DELETE /executions/:id` | 22.5 已验证，返回 `{"message":"success"}`；**Web 删除失效（踩坑 #25）**，勿用 `web_delete` |
+| 产品/项目 | REST 或 Web | 未逐一复测，REST 优先、失败转 Web |
 
 任务删除（走 Web 会话，踩坑 #14 的 GET 登录；删除端点 `index.php?m={模块}&t=ajax&f=delete&{模块}ID={id}`）：
 
@@ -497,4 +507,4 @@ for t in tasks.search(c, assigned_to="minjian", status="wait"):
 
 项目内关联：工具包 `deploy/tools/zentao/`（README.md、冒烟脚本 `zentao_smoke.py`）、《[任务文档规范](../../规范/任务文档规范.md)》《[需求文档规范](../../规范/需求文档规范.md)》《[计划文档规范](../../规范/计划文档规范.md)》（文档 ↔ 禅道同步契约）、《[禅道部署使用说明](../开发服务器/禅道部署使用说明.md)》、《[禅道技术介绍](../知识档案/工程化与质量/禅道技术介绍.md)》、《[总体项目规划](../../规划/总体项目规划.md)》里程碑与 WBS。
 
-> 依《文档生成规范》编写 · 记录 2026-08-21 实测（禅道 22.5，easysoft/zentao:latest 滚动镜像，mjbk 192.168.0.107:8070） · 更新：2026-08-22
+> 依《文档生成规范》编写 · 记录 2026-08-21 实测（禅道 22.5，easysoft/zentao:latest 滚动镜像，mjbk 192.168.0.107:8070） · 更新：2026-08-23

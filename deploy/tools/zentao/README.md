@@ -7,7 +7,7 @@ BMS 项目禅道（ZenTao 开源版 22.5，`easysoft/zentao:latest` 滚动镜像
 | 文件 | 说明 |
 | --- | --- |
 | `zentao_client.py` | 核心客户端：token 认证、通用请求、取全 `fetch_all`（兼容分页怪癖）、.env 凭据读取 |
-| `zentao_products.py` / `zentao_projects.py` / `zentao_executions.py` / `zentao_stories.py` / `zentao_tasks.py` / `zentao_users.py` | 各资源操作（列表/查看/搜索/创建/更新/删除；任务含批量创建/指派/开始/完成/关闭） |
+| `zentao_products.py` / `zentao_projects.py` / `zentao_executions.py` / `zentao_stories.py` / `zentao_tasks.py` / `zentao_users.py` | 各资源操作（列表/查看/搜索/创建/更新/删除/关闭；任务含批量创建/指派/开始/完成/关闭/激活） |
 | `zentao_tasks.py` | 任务操作；22.5 新增 `search_server()`（服务端过滤 `?search=1`：name/assigned_to/status/pri/ids + 分页/排序/merge_children） |
 | `zentao_search.py` | 客户端过滤 `filter_items`（取全量后按名称/指派人/状态/优先级/父任务/日期筛；日期区间、父任务维度服务端没有，靠它） |
 | `zentao_web.py` | Web 会话（GET 登录 + 调 Web 端点），通用 Web 删除 `web_delete(module,id)` / 批量 `web_delete_many` / 任务删除 `delete_task`（REST 失效操作走这里） |
@@ -50,6 +50,12 @@ python zentao.py tasks web-delete --ids 82 83 84  # 批量删除（复用同一�
 python zentao.py stories web-delete --id 5     # 通用 Web 删除（story/product/project/execution 同）
 python zentao.py tasks update --id 1 --desc "单行描述"
 python zentao.py tasks update --id 1 --desc-file desc.txt   # 多行描述走文件（优先于 --desc）
+python zentao.py tasks start --id 1            # 开始（wait -> doing，自动带 left）
+python zentao.py tasks finish --id 1 --consumed 8   # 完成（doing -> done）
+python zentao.py tasks close --id 1            # 关闭（done -> closed）
+python zentao.py tasks active --id 1           # 激活（重开 closed -> doing，走 PUT 可靠方式）
+python zentao.py executions close --id 3       # 关闭迭代（doing -> closed）
+python zentao.py executions delete --id 19     # 删迭代（REST，22.5 可用；勿用 web-delete）
 ```
 
 作为库使用：
@@ -83,6 +89,7 @@ for t in created:
 - 删除按资源区分（22.5 实测）：
   - **task**：REST `delete` 有参数错位 bug（空操作却返回 success）→ 用 `tasks web-delete`（`zentao_web` 经 Web 会话调 Web 端点，真正生效）：单个 `--id X`；批量 `--ids X Y Z`（复用同一登录会话，只登录一次，也避免触发登录锁定）
   - **story / user**：REST `DELETE /stories/:id`、`DELETE /users/:id` 已验证可用，直接 `stories delete --id X` / `users delete --id X`
+  - **execution**：REST `DELETE /executions/:id` 已验证可用（返回 `{"message":"success"}`）→ `executions delete --id X`；**Web 删除失效**（`web_delete` 返回空体），勿用
   - 通用 Web 删除 `web_delete(module,id)` / `web_delete_many(module,ids)`（`zentao_web.py`，端点约定 `m={模块}&t=ajax&f=delete&{模块}ID={id}`）；story 的 Web 删除须加 `confirm=yes` 参数
 - Web 会话登录必须用 **GET 参数**（`m=user&t=json&f=login&account=..&password=..`），POST body 会被返回登录页
 - **服务端过滤要显式 `search=1`**（22.5）：任务 `GET /tasks?search=1&name=&assignedTo=&status=&pri=&id=`（`assignedTo` 传**账号名**、可逗号列表；分页 `limit` 无上限/`page`/`order`；`mergeChildren=1` 子任务并入父任务）→ `tasks.search_server()` / CLI `tasks search --server`；不带 `search=1` 落入「我的任务」分支、参数被忽略（21.x 观察到的「不支持服务端过滤」即此分支）
