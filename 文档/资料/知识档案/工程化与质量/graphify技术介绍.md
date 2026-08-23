@@ -40,7 +40,7 @@
 - 知识图谱辅助**代码理解与架构分析**：AI 助手处理代码库问题时优先 `graphify query`，关系用 `graphify path`，概念用 `graphify explain`（见《[项目规划说明](../../../规划/项目规划说明.md#stack-eng)》2.3 节"知识图谱：graphify"）。
 - 图谱索引范围覆盖**代码与「文档」目录**：规划、规范、设计文档的语义层一并入图，文档与代码的关联可查（见《[项目规划说明](../../../规划/项目规划说明.md#sel-eng)》3.3 节）。
 - **中文查询分词**：安装 `chinese` 扩展（jieba），中文问题先分词再匹配节点，避免"两字滑动窗口"的降级效果（安装命令见下）。
-- **日常维护纪律**：修改代码或文档后运行 `graphify update .` 保持图谱最新（纯 AST，无 API 开销），再跑 `python deploy/tools/graphify/localize-graph.py` 收尾（汉化 graph.html + 生成中文架构图 CALLFLOW.html）。
+- **日常维护纪律**：修改代码或文档后运行 `graphify update .` 保持图谱最新（纯 AST，无 API 开销），再跑 `python scripts/graphify/localize-graph.py` 收尾（汉化 graph.html + 生成中文架构图 CALLFLOW.html）。
 - **AI 能力输入源**：帮助文档智能维护以功能代码的 graphify 知识图谱为输入之一（见《[项目规划说明](../../../规划/项目规划说明.md#sel-backend)》3.1 节 AI 能力、《[LLM 适配层技术介绍](../后端核心/LLM适配层技术介绍.md)》）。
 - 安装与排障细节以《[graphify 部署使用说明](?../../AI/graphify部署使用说明.md》为准（本机 Windows 环境实测）。
 
@@ -74,7 +74,7 @@ graphify update .
 - **语义层不可再生**：`graphify update` 保留语义层；彻底删除 `graphify-out/` 重建会永久丢失语义节点（本项目实测 951 → 139），恢复只能重跑语义抽取或从备份恢复——重建前先整体备份。
 - **节点数防缩保护**：update 后节点变少时默认拒绝覆盖；确认是删了代码才加 `--force`。
 - **第三方库刷屏**：压缩 JS/CSS 的函数名会灌进图，用项目根目录 `.graphifyignore`（语法同 .gitignore）排除后 `update --force` 修剪。
-- **graph.html 固定英文界面**：可视化模板不可配置，跑 `deploy/tools/graphify/localize-graph.py` 汉化并生成 CALLFLOW.html 架构图。
+- **graph.html 固定英文界面**：可视化模板不可配置，跑 `scripts/graphify/localize-graph.py` 汉化并生成 CALLFLOW.html 架构图。
 - **API Key 边界**：纯代码目录完全免费离线；只有文档/图片语义抽取需要 LLM（Gemini Key 或 AI 助手会话），不要把 Key 写进脚本。
 - **包名是双 y**：`uvx graphify` 会失败（按包名解析），正确写法 `uvx --from graphifyy graphify ...`；PyPI 上其他 `graphify*` 包均非官方。
 - **graphify-out/ 变脏属正常**：钩子或增量更新后文件有改动是常态，不要因此跳过图谱查询；仅当图输出确认过期或错误时才考虑重建。

@@ -181,10 +181,10 @@ graph.html 的可视化模板是固定英文界面，无法配置。本项目用
 
 ```bash
 graphify update --force .        # 重建图谱
-python deploy/tools/graphify/localize-graph.py   # 汉化 graph.html + 生成 CALLFLOW.html
+python scripts/graphify/localize-graph.py   # 汉化 graph.html + 生成 CALLFLOW.html
 ```
 
-脚本位置：`deploy/tools/graphify/localize-graph.py`。callflow 架构图也可单独生成：`graphify export callflow-html --lang zh-CN`（`--lang` 支持 auto 自动检测，本项目图谱以中文为主可省略）。
+脚本位置：`scripts/graphify/localize-graph.py`。callflow 架构图也可单独生成：`graphify export callflow-html --lang zh-CN`（`--lang` 支持 auto 自动检测，本项目图谱以中文为主可省略）。
 
 ### 7.3 重建的取舍：语义层不可再生 <a id="maintain-rebuild"></a>
 
@@ -212,7 +212,7 @@ python deploy/tools/graphify/localize-graph.py   # 汉化 graph.html + 生成 CA
 | 报 `the 'openai' package is required`？ | extras 被顶掉了，重装时一次带全：`uv tool install "graphifyy[chinese,openai]" --force`（3.1 节）。 |
 | 图谱节点怎么变少了？ | 先分清 AST 层与语义层（4.1 节）。`update` 不会丢语义层；彻底删除重建才会丢，且不可再生（7.3 节）。 |
 | 图谱里怎么全是英文节点？ | 多半是第三方 JS 库的函数名进了图。用 `.graphifyignore` 排除后 `update --force` 修剪（7.1 节）。 |
-| graph.html 界面是英文？ | 可视化模板固定英文。运行 `deploy/tools/graphify/localize-graph.py` 汉化（7.2 节）。 |
+| graph.html 界面是英文？ | 可视化模板固定英文。运行 `scripts/graphify/localize-graph.py` 汉化（7.2 节）。 |
 | update 后节点变少、拒绝覆盖？ | graphify 有防缩保护（#479）。确实删了代码请加 `--force`。 |
 | 报告提示 Graph Health Warning？ | 存在悬空/折叠边，图可能不完整但可用；用 `graphify diagnose multigraph` 排查。 |
 | 目录太大跑不动？ | 按子目录分次构建，或加 `--no-cluster` 跳过昂贵的聚类步骤。 |

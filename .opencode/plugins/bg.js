@@ -8,7 +8,7 @@
 //
 // 原理：命令经 python 后台运行，立即返回；状态查询读状态文件与进程存活，
 // 彻底避免"命令卡住傻等"。适合下载、构建、ssh 远程、安装等长耗时操作。
-// 登记：opencode.json plugin 数组加入 "./deploy/tools/bg/bg.js"。
+// 登记：opencode.json plugin 数组加入 "plugins/bg.js"。
 import { tool } from "@opencode-ai/plugin";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
@@ -19,8 +19,13 @@ const execFileP = promisify(execFile);
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 function script(name) {
-  // python 脚本仍在 deploy/tools/bg/（插件文件位于 .opencode/plugins/，向上两级到项目根）
-  return join(__dirname, "..", "..", "deploy", "tools", "bg", name);
+  // python 脚本在 scripts/bg/（插件文件位于 .opencode/plugins/，向上两级到项目根）
+  return join(__dirname, "..", "..", "scripts", "bg", name);
+}
+
+function gitlabScript(name) {
+  // GitLab 流水线盯守脚本在 scripts/gitlab/
+  return join(__dirname, "..", "..", "scripts", "gitlab", name);
 }
 
 async function runPy(name, args) {
@@ -127,7 +132,7 @@ export const BgPlugin = async ({ directory }) => {
           const waitSec = (args.timeout ?? 600) + 30;
           try {
             // 1) 经 bg_run 后台启动盯守脚本（命令经 pwsh 执行）
-            const cmdParts = [`python -u "${script("watch_pipeline.py")}" --pipeline-id ${args.pipeline_id}`];
+            const cmdParts = [`python -u "${gitlabScript("watch_pipeline.py")}" --pipeline-id ${args.pipeline_id}`];
             if (args.project) cmdParts.push("--project", String(args.project));
             if (args.timeout) cmdParts.push("--timeout", String(args.timeout));
             if (args.interval) cmdParts.push("--interval", String(args.interval));
