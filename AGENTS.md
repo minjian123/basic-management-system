@@ -91,10 +91,12 @@
 
 **背景**：bash 工具是同步阻塞的，长命令执行期间无反馈，观感"卡死"。因此对命令做分级处理，禁止长时间无反馈等待。
 
-- 工具链在 `deploy/tools/bg/`（bg-run/bg-status/bg-stop.py），插件文件为 `.opencode/plugins/bg.js`（注册 `bg_run` / `bg_status` / `bg_stop` 三个工具；python 脚本留在 deploy/tools/bg/，插件内按相对路径调用。注意：opencode 插件的相对路径基于 `.opencode/` 解析，且依赖包须位于 `.opencode/node_modules` 可解析范围）。
+- 工具链在 `deploy/tools/bg/`（bg-run/bg-status/bg-stop/bg-wait.py），插件文件为 `.opencode/plugins/bg.js`（注册 `bg_run` / `bg_status` / `bg_wait` / `gl_watch_pipeline` / `bg_stop` 五个工具；python 脚本留在 deploy/tools/bg/，插件内按相对路径调用。注意：opencode 插件的相对路径基于 `.opencode/` 解析，且依赖包须位于 `.opencode/node_modules` 可解析范围）。
 - **执行纪律**：
   - 预计 **≤10 秒**的命令（查询、状态、文件操作、短命令）：直接执行。
   - 预计 **>10 秒**的命令（下载、安装、构建、ssh 远程、服务启动、备份等）：一律 **`bg_run` 后台化** → 立即返回 → 用 **`bg_status` 秒级轮询**（间隔 10-30 秒）直到 FINISHED；绝不直接同步等待。
+  - 发起 `bg_run` 后需要拿到结果才能继续时，用 **`bg_wait`** 阻塞等待到终态（带超时上限，默认 600 秒），替代手动反复 `bg_status` 轮询。
+  - GitLab 流水线结果用 **`gl_watch_pipeline`**（内部自动走 bg 链路盯守到终态；凭据读 deploy/.env 的 GITLAB_API_*），不手动拼 API 轮询。
   - 不写长 `Start-Sleep` 等待；探测服务就绪用短超时（2-3 秒）轮询。
   - 调用 `.cmd/.bat` 批处理或 npx 时注意输出缓冲（PowerShell 管道要等进程退出才吐输出），必要时绕开包装直接用可执行文件。
 - 状态文件默认 `%USERPROFILE%\.bg`（-Base 可覆盖）；任务按 `-Name` 区分，同名会覆盖。
