@@ -50,7 +50,8 @@ services:
       RENOVATE_PLATFORM: gitlab
       RENOVATE_ENDPOINT: http://gitlab:8080/api/v4
       RENOVATE_TOKEN: ${GITLAB_PAT}
-      RENOVATE_REPOSITORIES: mj/bms
+      RENOVATE_REPOSITORIES: bms/bms
+      GITHUB_COM_TOKEN: ${GITHUB_PAT}
       LOG_LEVEL: info
 
 volumes:
