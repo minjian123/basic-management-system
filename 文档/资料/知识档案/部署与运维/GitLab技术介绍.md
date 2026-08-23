@@ -40,7 +40,7 @@ Git 仓库、Merge Request、Issue、CI/CD 流水线、容器 Registry、Wiki
 ## 3. 在 BMS 项目中的用途 <a id="usage"></a>
 
 - **代码托管 + 协作**：仓库、MR、Issue（缺陷载体）一体；Kiwi TCMS 缺陷链接指向 GitLab Issue（《[项目规划说明](../../../规划/项目规划说明.md#test-defect)》16.2 节）。
-- **CI 流水线**：`.gitlab-ci.yml` 定义——MR 流水线：后端 ruff + pytest（含覆盖率门禁）、前端 ESLint + Vitest（含 coverage 门禁）、双端构建；main 流水线：另含 Playwright E2E 独立 job、MySQL/PostgreSQL 双库方言集成测试、构建镜像推送 Registry、导出 swagger.json 契约快照（《[项目规划说明](../../../规划/项目规划说明.md#sel-ops)》3.4 节）。
+- **CI 流水线**：`.gitlab-ci.yml` 定义——MR 流水线：后端 ruff + pytest（含覆盖率门禁）、前端 ESLint + Vitest（含 coverage 门禁）、双端构建；main 流水线：另含 Playwright E2E 独立 job、MySQL/PostgreSQL/达梦 DM8 三库方言集成测试、构建镜像推送 Registry、导出 swagger.json 契约快照（《[项目规划说明](../../../规划/项目规划说明.md#sel-ops)》3.4 节）。
 - **runner 配置**：gitlab-runner 以容器方式运行，挂载 docker.sock、executor=docker，开发环境并发上限 2，避免 CI 抢占 GitLab 与开发服务资源（《[开发部署规划](../../../规划/开发部署规划.md#server-gitlab)》4.5 节）。
 - **测试归档**：Allure 报告作 CI 产物归档，执行结果经官方插件导入 Kiwi TCMS（《[项目规划说明](../../../规划/项目规划说明.md#test-report)》16.5 节）。
 - **缺陷自动上报**：任一自动化测试失败即由 `deploy/tools/defect/defect_capture.py` 归档 REPRO 复现包并自动创建 / 复用 GitLab Issue（fingerprint 去重）（《[项目规划说明](../../../规划/项目规划说明.md#test-defect)》16.2 节）。

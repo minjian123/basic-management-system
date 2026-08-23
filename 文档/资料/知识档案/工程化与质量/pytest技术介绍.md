@@ -39,7 +39,7 @@
 - FastAPI 接口测试用 httpx ASGITransport 免启服务器：测试快、无端口冲突，见《[FastAPI 技术介绍](../后端核心/FastAPI技术介绍.md)》。
 - 测试库统一 SQLite 保证可移植：本地、CI、任何机器跑同一套测试零部署成本（见《[SQLite 技术介绍](../后端核心/SQLite与aiosqlite技术介绍.md)》）。
 - pytest-cov 统计覆盖率并作 CI 门禁：核心模块（认证/RBAC/工作流/审计/收付款）行覆盖 ≥ 80%、整体 ≥ 70%，低于门槛流水线失败（见《[项目规划说明](../../../规划/项目规划说明.md#test-exit)》16.4 节）。
-- CI 执行：MR 流水线后端 job 即 `uv sync` 后跑 pytest（见《[项目规划说明](../../../规划/项目规划说明.md#sel-ops)》3.4 节），main 流水线另加 MySQL/PostgreSQL 双库方言集成测试。
+- CI 执行：MR 流水线后端 job 即 `uv sync` 后跑 pytest（见《[项目规划说明](../../../规划/项目规划说明.md#sel-ops)》3.4 节），main 流水线另加 MySQL/PostgreSQL/达梦 DM8 三库方言集成测试。
 - 本地命令（Windows PowerShell 与 Linux 通用）：
 
 ```bash
@@ -63,7 +63,7 @@ uv run pytest --cov=app --cov-report=term-missing --cov-fail-under=70   # 带覆
 ## 5. 常见问题与注意事项 <a id="pitfalls"></a>
 
 - **异步用例需要插件**：FastAPI 接口多为 `async def`，用例用 `@pytest.mark.asyncio`（pytest-asyncio）或 anyio 插件，别用同步方式裸调异步函数。
-- **SQLite 与生产库方言差异**：SQLite 通过不代表 MySQL/PostgreSQL 通过（函数、类型、事务行为不同），方言问题由 CI 双库集成测试兜底，本地以 SQLite 快跑为主。
+- **SQLite 与生产库方言差异**：SQLite 通过不代表 MySQL/PostgreSQL 通过（函数、类型、事务行为不同），方言问题由 CI 三库集成测试兜底，本地以 SQLite 快跑为主。
 - **测试库数据隔离**：每个用例/每次会话做干净的数据准备与清理（fixture + 事务回滚），防止用例间互相污染导致"单独跑过、一起跑挂"。
 - **覆盖率数字别只看总量**：行覆盖高不等于逻辑覆盖全；核心分支（权限校验、工作流网关、异常分支）优先补用例，门禁只是底线。
 - **ASGITransport 注意事项**：它直接调用应用，不经过真实网络层（无 uvicorn、无中间件网络行为差异），依赖 Host 头等场景需在 base_url 里显式设置。
