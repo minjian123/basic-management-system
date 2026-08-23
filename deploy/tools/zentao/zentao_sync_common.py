@@ -100,6 +100,17 @@ class Plan:
     held: bool = False                # 排期窗口为「搁置」
 
 
+@dataclass
+class ParentTask:
+    domain: str                # 域编号（01/02/…）
+    name: str                  # 禅道父任务名称（如「01 工程骨架」）
+    existing_id: int | None    # 文档已回填的父任务 id（复用）；None=待建
+    estimate: float = 0.0      # 工时（子任务合计）
+    est_started: str = ""      # 排期起（子任务 min）
+    deadline: str = ""         # 排期止（子任务 max）
+    file: str = ""             # 域总览相对路径
+
+
 # ---------- 目录扫描 ----------
 
 def stage_paths(stage: str) -> dict:
@@ -121,6 +132,17 @@ def list_child_task_files(task_dir: Path) -> list[Path]:
     # 递归扫描：子任务文档可放入同名子文件夹（附属资料同放），2026-08-22 起
     return sorted(p for p in task_dir.rglob("*.md")
                   if CHILD_TASK_FILE_RE.match(p.name))
+
+
+def list_domain_overview_files(task_dir: Path) -> list[Path]:
+    """域总览文档：任务/ 顶层 `0X_域.md`（排除子任务文档 0X_域_0X-Y_*.md）。"""
+    out = []
+    for p in sorted(task_dir.glob("*.md")):
+        if CHILD_TASK_FILE_RE.match(p.name):
+            continue
+        if re.match(r"^\d{2}_.+\.md$", p.name):
+            out.append(p)
+    return out
 
 
 def list_plan_files(plan_dir: Path) -> list[Path]:
@@ -290,6 +312,66 @@ def parse_task_file(path: Path) -> Task:
     )
 
 
+def _zt_task_value(line: str) -> str:
+    """取「禅道任务」行的值（兼容表格 `| 禅道任务 | 值 |` 与列表 `- **禅道任务**：值` 两格式）。"""
+    m = re.search(r"^\|\s*禅道任务\s*\|\s*([^|]+?)\s*\|", line)
+    if m:
+        return m.group(1).strip()
+    m = re.search(r"\*\*禅道任务\*\*\s*[：:]\s*(.+)", line)
+    if m:
+        return m.group(1).strip()
+    m = re.search(r"禅道任务\s*[：:]\s*(.+)", line)
+    if m:
+        return m.group(1).strip()
+    return ""
+
+
+def parse_domain_overview(path: Path) -> ParentTask:
+    """解析域总览文档 → ParentTask（domain / name / existing_id）。
+
+    name：优先「禅道任务」行内「」里的禅道任务名；无则退回文档标题（# 行）。
+    existing_id：「禅道任务」行行首数字（如 `1（…）` → 1）；「待创建」则为 None。
+    estimate / est_started / deadline 由 push 侧按子任务+计划推导后填入。
+    """
+    text = path.read_text(encoding="utf-8")
+    m = re.match(r"^(\d{2})_", path.name)
+    domain = m.group(1) if m else ""
+    name = ""
+    # 优先从「禅道任务」行取名：「name」或「id（name）」两种格式
+    for line in text.splitlines():
+        if "禅道任务" not in line:
+            continue
+        value = _zt_task_value(line)
+        mm = re.search(r"「(.+?)」", value)
+        if mm:
+            name = mm.group(1).strip()
+        else:
+            mm = re.search(r"（(.+?)）", value)
+            if mm:
+                name = mm.group(1).strip()
+        break
+    if not name:
+        mm = re.search(r"「(.+?)」", text)
+        if mm:
+            name = mm.group(1).strip()
+    if not name:
+        mm = re.match(r"^#\s+(.+)$", text, re.M)
+        if mm:
+            name = mm.group(1).strip()
+    existing_id = None
+    for line in text.splitlines():
+        if "禅道任务" not in line:
+            continue
+        cm = re.match(r"^(\d+)", _zt_task_value(line).strip())
+        if cm:
+            existing_id = int(cm.group(1))
+        break
+    return ParentTask(
+        domain=domain, name=name, existing_id=existing_id,
+        file=str(path.relative_to(ROOT)),
+    )
+
+
 # ---------- 计划文档解析 ----------
 
 def _parse_window(w: str) -> tuple[str | None, str | None, bool]:
@@ -414,6 +496,50 @@ def backfill_req_task_id(path: Path, number: str, task_id: int, parent: int) -> 
     repl = m.group(1) + f"{task_id}（父任务 {parent}）"
     new = text[:m.start()] + repl + text[m.end():]
     p.write_text(new, encoding="utf-8")
+    return True
+
+
+def backfill_parent_id(path: Path, parent_id: int, name: str = "") -> bool:
+    """把域总览「禅道任务」行回填为父任务 id；带 name 时写「{id}（{name}）」。
+
+    兼容表格 `| 禅道任务 | 值 |` 与列表 `- **禅道任务**：值` 两格式。
+    """
+    p = ROOT / path
+    text = p.read_text(encoding="utf-8")
+    value = f"{parent_id}（{name}）" if name else str(parent_id)
+    # 表格格式
+    m = re.search(r"^\|\s*禅道任务\s*\|\s*[^|\n]*\|\s*$", text, flags=re.M)
+    if m:
+        repl = f"| 禅道任务 | {value} |"
+        p.write_text(text[:m.start()] + repl + text[m.end():], encoding="utf-8")
+        return True
+    # 列表格式
+    m = re.search(r"^(\s*[-*]\s*\*\*禅道任务\*\*[：:]\s*)(.+)$", text, flags=re.M)
+    if m:
+        repl = m.group(1) + value
+        p.write_text(text[:m.start()] + repl + text[m.end():], encoding="utf-8")
+        return True
+    return False
+
+
+def backfill_child_parent_ref(path: Path, parent: int) -> bool:
+    """把子任务文档「禅道任务」行的「父任务」引用更新为 parent；保留已有子任务 id。
+
+    「| 禅道任务 | — |」→「| 禅道任务 | —（父任务 {parent}） |」
+    「| 禅道任务 | 134（父任务 128） |」→「| 禅道任务 | 134（父任务 {parent}） |」
+    """
+    p = ROOT / path
+    text = p.read_text(encoding="utf-8")
+    m = re.search(r"^\|\s*禅道任务\s*\|\s*([^|\n]*)\|\s*$", text, flags=re.M)
+    if not m:
+        return False
+    value = m.group(1).strip()
+    cm = re.match(r"^(\d+)", value)
+    child_id = cm.group(1) if cm else "—"
+    if child_id != "—" and re.search(r"父任务\s*" + re.escape(str(parent)) + r"(?!\d)", value):
+        return False  # 已正确
+    repl = f"| 禅道任务 | {child_id}（父任务 {parent}） |"
+    p.write_text(text[:m.start()] + repl + text[m.end():], encoding="utf-8")
     return True
 
 
