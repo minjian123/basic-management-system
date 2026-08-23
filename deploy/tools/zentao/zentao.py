@@ -9,6 +9,7 @@
     python zentao.py projects create --name "BMS 开发" --type scrum --begin 2026-08-24 --end 2027-09-20 --products 1
     python zentao.py executions list --project 1
     python zentao.py executions create --project 1 --name "M0 启动就绪" --begin 2026-08-24 --end 2026-09-07
+    python zentao.py executions close --id 3        # 关闭迭代（doing -> closed）
     python zentao.py stories list --product 1
     python zentao.py stories list --product 1 --brief     # 需求摘要输出（每条一行）
     python zentao.py stories create --product 1 --title "用户管理" --pri 2 --category feature --spec "用户增删改查"
@@ -41,6 +42,7 @@
     python zentao.py tasks start --id 1
     python zentao.py tasks finish --id 1 --consumed 16
     python zentao.py tasks close --id 1
+    python zentao.py tasks active --id 1              # 激活（重开 closed -> doing，走 PUT 可靠方式）
     python zentao.py users list
 
 tasks.json 格式（batch-create）：[{"name": "...", "estimate": 16, "estStarted": "2026-08-24",
@@ -290,6 +292,8 @@ def main():
                 if args.end:
                     fields["end"] = args.end
                 out(m.update(c, args.id, **fields))
+            elif a == "close":
+                out(m.close(c, args.id))
             elif a == "delete":
                 out(m.delete(c, args.id))
             elif a == "web-delete":
@@ -376,17 +380,17 @@ def main():
                 out(m.web_delete(c, ids))
             elif a == "assign":
                 out(m.assign(c, args.id, args.assigned_to, left=args.left))
-        elif a == "start":
-            out(m.start(c, args.id, real_started=getattr(args, "real_started", None),
-                        left=getattr(args, "left", None)))
-        elif a == "finish":
-            out(m.finish(c, args.id, consumed=args.consumed or 0,
-                         real_started=getattr(args, "real_started", None),
-                         finished_date=getattr(args, "finished_date", None)))
-        elif a == "close":
-            out(m.close(c, args.id, closed_reason=getattr(args, "reason", None) or "done"))
-        elif a == "active":
-            out(m.active(c, args.id))
+            elif a == "start":
+                out(m.start(c, args.id, real_started=getattr(args, "real_started", None),
+                            left=getattr(args, "left", None)))
+            elif a == "finish":
+                out(m.finish(c, args.id, consumed=args.consumed or 0,
+                             real_started=getattr(args, "real_started", None),
+                             finished_date=getattr(args, "finished_date", None)))
+            elif a == "close":
+                out(m.close(c, args.id, closed_reason=getattr(args, "reason", None) or "done"))
+            elif a == "active":
+                out(m.active(c, args.id))
         elif r == "users":
             if a == "list":
                 r = zentao_users.list_(c, full=args.full)

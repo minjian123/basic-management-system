@@ -177,9 +177,22 @@ def close(client, task_id, closed_reason="done"):
                        body={"closedReason": closed_reason, "comment": ""})
 
 
-def active(client, task_id):
-    """激活任务（closed -> active）。"""
-    return client.post(f"/tasks/{task_id}/active", body={})
+def active(client, task_id, left=None):
+    """激活任务（closed -> doing，重新打开以继续处理）。
+
+    踩坑：POST /tasks/:id/active 返回 200 但不生效（静默失败，与删除 API 同类）；
+    禅道重开已关闭任务须 PUT /tasks/:id 更新 status，且 doing 态要求 left>0、
+    须清空 closedReason（22.5 实测）。left 缺省取「预计-已耗」的最小 1 小时。
+    """
+    task = get(client, task_id)
+    if task.get("status") != "closed":
+        raise ValueError(f"任务 {task_id} 当前为 {task.get('status')} 态，仅 closed 态可激活")
+    if left is None:
+        try:
+            left = max(float(task.get("estimate") or 0) - float(task.get("consumed") or 0), 1)
+        except (TypeError, ValueError):
+            left = 1
+    return client.put(f"/tasks/{task_id}", body={"status": "doing", "left": left, "closedReason": ""})
 
 
 if __name__ == "__main__":  # 简单自测
