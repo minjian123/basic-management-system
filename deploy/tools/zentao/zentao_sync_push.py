@@ -2,17 +2,20 @@
 """文档 → 禅道 同步（deploy/tools/zentao/zentao_sync_push.py）
 
 把 文档/项目/{stage}/ 的需求/任务/计划 同步到禅道产品（story）+ 迭代（任务）：
+    0. 按域总览（任务/0X_域.md）建/复用父任务，回填父任务 id（域总览「禅道任务」行 + 子任务「父任务」引用）
     1. 每条需求建/更 1 个 story（title/pri/spec），回填 story id
     2. 每条任务建/更 1 个子任务（挂父任务、挂需求 story、estStarted/deadline、desc、状态流转、指派），回填任务 id
     3. 排期：计划「已完成表」完成日期 → finish 的 finishedDate；「剩余排期表」排期窗口 → estStarted/deadline
 
 幂等：
+    - 父任务优先用域总览已回填的 id；否则查迭代内同名顶层任务，命中则复用并回填；未命中才创建
+      （estimate=子任务工时合计，estStarted/deadline=子任务排期 min~max）；
     - story/task 优先用文档已回填的 id（req.story_id / task.task_id）；
     - 未建则按「产品内 title 精确匹配 / 父任务+name 精确匹配」查已有，命中则复用并回填；未命中才创建。
 
 用法：
     python zentao_sync_push.py --stage 00_准备期 --dry-run    # 只解析+打印计划，不写禅道、不改文档
-    python zentao_sync_push.py --stage 00_准备期               # 实跑（建/更 story+任务、流转状态、回填 id）
+    python zentao_sync_push.py --stage 00_准备期               # 实跑（建/更 父任务+story+任务、流转状态、回填 id）
     python zentao_sync_push.py --stage 00_准备期 --assign minjian
 """
 import argparse
@@ -22,9 +25,11 @@ import zentao_tasks as T
 from zentao_client import ZentaoClient
 
 from zentao_sync_common import (
-    Plan, base_status, build_desc, build_spec, list_child_task_files, list_plan_files,
-    list_req_files, parse_finished, parse_plan_file, parse_req_file, parse_task_file,
-    stage_paths, backfill_req_task_id, backfill_story_id, backfill_task_id, zt_status,
+    ParentTask, Plan, base_status, backfill_child_parent_ref, backfill_parent_id,
+    backfill_req_task_id, backfill_story_id, backfill_task_id, build_desc, build_spec,
+    list_child_task_files, list_domain_overview_files, list_plan_files, list_req_files,
+    parse_domain_overview, parse_finished, parse_plan_file, parse_req_file, parse_task_file,
+    stage_paths, zt_status,
 )
 
 FALLBACK_DATE = "2026-09-28"   # M1 锚点：缺 estStarted/deadline 或搁置时的占位
@@ -67,6 +72,31 @@ def resolve_dates(task, plan):
     return est, ddl
 
 
+def parent_schedule(domain, numbers, tasks, plan):
+    """由域内子任务 + 计划推导父任务 (estimate, est_started, deadline)。
+
+    estimate = 域内子任务工时合计；est_started = 子任务排期 min；deadline = 子任务排期 max。
+    排期缺失/搁置用 M1 占位。
+    """
+    est = 0.0
+    ests, ddls = [], []
+    for n in numbers:
+        if n[:2] != domain:
+            continue
+        t = tasks.get(n)
+        if t:
+            est += t.estimate
+        p = plan.get(n)
+        if p:
+            if p.est_started:
+                ests.append(p.est_started)
+            if p.deadline:
+                ddls.append(p.deadline)
+    est_s = min(ests) if ests else FALLBACK_DATE
+    ddl = max(ddls) if ddls else est_s
+    return est, est_s, ddl
+
+
 # ---------- 建/更 story ----------
 
 def ensure_story(client, product, req, story_idx, dry_run):
@@ -95,6 +125,27 @@ def sync_story(client, product, req, story_idx, dry_run):
     spec = build_spec(req)
     S.update(client, sid, title=req.title, pri=req.pri, spec=spec)
     return sid
+
+
+# ---------- 建/更 父任务 ----------
+
+def ensure_parent(client, execution, parent, task_idx, dry_run):
+    """返回父任务 id。existing_id 已回填则复用；否则查迭代内同名顶层任务/创建。"""
+    if parent.existing_id:
+        return int(parent.existing_id)
+    hit = task_idx.get((0, parent.name.strip()))
+    if hit:
+        return hit["id"]
+    if dry_run:
+        print(f"    [dry-run] 建父任务：{parent.name}（{parent.estimate}h，{parent.est_started}~{parent.deadline}）")
+        return 0
+    created = T.create(client, execution, parent.name, estimate=parent.estimate,
+                       est_started=parent.est_started or FALLBACK_DATE,
+                       deadline=parent.deadline or FALLBACK_DATE,
+                       pri=2, type_="devel", parent=0)
+    if created:
+        return created[0].get("id")
+    return None
 
 
 # ---------- 建/更 任务 ----------
@@ -193,6 +244,42 @@ def run(args):
     client = None if args.dry_run else ZentaoClient()
     story_idx = index_stories(client, args.product) if not args.dry_run else {}
     task_idx = index_tasks(client, args.execution) if not args.dry_run else {}
+
+    # ---------- 父任务阶段：建/复用父任务 + 回填父任务 id ----------
+    domain_parent_id = {}   # domain -> 父任务 id
+    parent_defs = {}
+    for f in list_domain_overview_files(sp["task"]):
+        pd = parse_domain_overview(f)
+        if pd.domain:
+            parent_defs[pd.domain] = pd
+    if parent_defs:
+        print(f"\n父任务（{len(parent_defs)}）：")
+        for domain in sorted(parent_defs):
+            pd = parent_defs[domain]
+            if not any(n[:2] == domain for n in numbers):
+                print(f"  [{domain}] {pd.name} → 跳过（无待同步子任务）")
+                continue
+            pd.estimate, pd.est_started, pd.deadline = parent_schedule(domain, numbers, tasks, plan)
+            if args.dry_run:
+                print(f"  [{domain}] {pd.name}（existing_id={pd.existing_id}，{pd.estimate}h，{pd.est_started}~{pd.deadline}）[dry-run]")
+                continue
+            pid = ensure_parent(client, args.execution, pd, task_idx, args.dry_run)
+            if pid:
+                domain_parent_id[domain] = pid
+                print(f"  [{domain}] {pd.name} → id={pid}（existing_id={pd.existing_id}，{pd.estimate}h）")
+                if pid != pd.existing_id:
+                    backfill_parent_id(pd.file, pid, pd.name)
+            else:
+                print(f"  [{domain}] {pd.name} → 创建失败")
+
+    # 把子任务挂到解析出的父任务（内存 parent_task + 回填文档「父任务」引用）
+    for number in numbers:
+        task = tasks[number]
+        domain = number[:2]
+        if domain in domain_parent_id and task.parent_task != domain_parent_id[domain]:
+            task.parent_task = domain_parent_id[domain]
+            if not args.dry_run:
+                backfill_child_parent_ref(task.file, task.parent_task)
 
     ok, fail = 0, 0
     for number in numbers:

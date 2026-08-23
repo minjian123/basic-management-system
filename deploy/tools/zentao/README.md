@@ -11,6 +11,9 @@ BMS 项目禅道（ZenTao 开源版 22.5，`easysoft/zentao:latest` 滚动镜像
 | `zentao_tasks.py` | 任务操作；22.5 新增 `search_server()`（服务端过滤 `?search=1`：name/assigned_to/status/pri/ids + 分页/排序/merge_children） |
 | `zentao_search.py` | 客户端过滤 `filter_items`（取全量后按名称/指派人/状态/优先级/父任务/日期筛；日期区间、父任务维度服务端没有，靠它） |
 | `zentao_web.py` | Web 会话（GET 登录 + 调 Web 端点），通用 Web 删除 `web_delete(module,id)` / 批量 `web_delete_many` / 任务删除 `delete_task`（REST 失效操作走这里） |
+| `zentao_sync_common.py` | 同步共用：解析需求/任务/计划/域总览、状态口径映射、stage 路径、回填 ID（需求 story / 任务 / 父任务 / 子任务父引用） |
+| `zentao_sync_push.py` | 文档 → 禅道：建/复用**父任务**、建/更需求（story）+ 子任务、排期、状态流转、回填 ID |
+| `zentao_sync_pull.py` | 禅道 → 文档：读回任务状态/完成日期回写需求/任务文档 |
 | `zentao.py` | 命令行入口 |
 
 ## 快速上手
@@ -76,6 +79,28 @@ created = tasks.batch_create(c, execution=3, parent=1, tasks=[...])
 for t in created:
     tasks.assign(c, t["id"], "minjian")
 ```
+
+## 文档同步（Sync）
+
+`文档/项目/{stage}/` 与禅道产品（story）+ 迭代（任务）的双向同步，幂等可重跑：
+
+```bash
+# 文档 → 禅道（push）：建/复用父任务 + 建/更 story/子任务 + 排期 + 状态流转 + 回填 ID
+python zentao_sync_push.py --stage 01_项目骨架 --execution 4 --dry-run   # 只解析+打印，不写禅道、不改文档
+python zentao_sync_push.py --stage 01_项目骨架 --execution 4            # 实跑
+python zentao_sync_push.py --stage 01_项目骨架 --execution 4 --assign minjian
+
+# 禅道 → 文档（pull）：读回任务状态/完成日期回写文档
+python zentao_sync_pull.py --stage 01_项目骨架 --dry-run
+python zentao_sync_pull.py --stage 01_项目骨架
+```
+
+**父任务（push 阶段，先于子任务）**：按域总览（`任务/0X_域.md`）逐域建/复用 1 个父任务：
+- 优先用域总览「禅道任务」行已回填的 id；否则查迭代内**同名顶层任务**，命中则复用并回填；未命中才创建；
+- 创建时 `estimate`=该域子任务工时合计，`estStarted`/`deadline`=子任务排期 min~max（缺失用兜底日期）；
+- 建/复用后把父任务 id 回填域总览，并更新子任务文档的「父任务 N」引用。
+
+**幂等**：父任务/story/task 均优先用文档已回填的 id；未建则按「产品内 title 精确匹配 / 父任务+name 精确匹配」查已有，命中复用+回填，未命中才创建。**名称须与禅道完全一致（含空格）**，否则查不到会误建重复父任务。
 
 ## 已知踩坑（详见《禅道API使用说明.md》）
 
