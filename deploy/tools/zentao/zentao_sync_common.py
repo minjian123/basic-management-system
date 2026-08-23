@@ -118,7 +118,8 @@ def list_req_files(req_dir: Path) -> list[Path]:
 
 
 def list_child_task_files(task_dir: Path) -> list[Path]:
-    return sorted(p for p in task_dir.glob("*.md")
+    # 递归扫描：子任务文档可放入同名子文件夹（附属资料同放），2026-08-22 起
+    return sorted(p for p in task_dir.rglob("*.md")
                   if CHILD_TASK_FILE_RE.match(p.name))
 
 
