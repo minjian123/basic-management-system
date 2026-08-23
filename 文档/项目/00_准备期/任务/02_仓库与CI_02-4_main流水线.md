@@ -15,7 +15,7 @@
 | 工时（重估） | 11h |
 | 依赖 | 02-3、阶段一骨架 |
 | 负责人 | minjian |
-| 状态 | 未开始 |
+| 状态 | 进行中 |
 | 完成日期 | — |
 
 ## 2. 任务内容 <a id="content"></a>
@@ -37,4 +37,19 @@ main 流水线端到端通过；契约快照与 Allure 报告已归档；高危�
 
 - 《开发部署规划》第 7 节、《测试规范》
 
-> 本文档依《文档生成规范》编写 · 生成日期：2026-08-21 · 更新：2026-08-22（同步上游规划口径）
+## 5. 实施记录（2026-08-22 框架就绪，端到端验证待阶段一代码）<a id="impl"></a>
+
+| 项 | 结果 |
+| --- | --- |
+| Registry 启用 | gitlab.rb 配 `registry_external_url 'http://192.168.0.107:5050'` + reconfigure；mjbk daemon.json 加 `insecure-registries`（需重启 docker，容器自动拉起） |
+| Registry 链路实测 | docker login（root PAT）→ push `bms/bms/smoke:ci-test` → pull 往返通过 ✅ |
+| main job 骨架 | E2E、三库集成 ×3（mysql/postgres/dm8）、镜像构建推 Registry ×2、Trivy 高危阻断、swagger 快照、Allure——全部以 exists 守卫落地（`backend/pyproject.toml` 等出现即激活） |
+| 空载流水线验证 | pipeline #23 success：gate-smoke 绿，业务 job 按设计跳过 ✅ |
+
+待办（随阶段一骨架）：
+
+- E2E / 三库集成 / 镜像构建 / 扫描的真实数据验证
+- 三库 `bms_test` 测试库与对应 CI 变量（BMS_TEST_DB_*）建立
+- Kiwi TCMS 结果导入 job 随用例登记补入
+
+> 本文档依《文档生成规范》编写 · 生成日期：2026-08-21 · 更新：2026-08-22（框架就绪记录）
