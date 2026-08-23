@@ -6,7 +6,7 @@
 
 ## 1. 目的与范围 <a id="purpose"></a>
 
-本文档固化禅道开源版 REST API（`/api.php/v1`）的调用方法与**实测踩坑**，并说明 BMS 项目配套 Python 工具包（`deploy/tools/zentao/`）的用法，供后继 AI 与开发者直接使用，**无需重新摸索**。
+本文档固化禅道开源版 REST API（`/api.php/v1`）的调用方法与**实测踩坑**，并说明 BMS 项目配套 Python 工具包（`scripts/zentao/`）的用法，供后继 AI 与开发者直接使用，**无需重新摸索**。
 
 > **版本说明**：镜像 `easysoft/zentao:latest` 为滚动发布，2026-08-21 实测容器版本为 **22.5**（`/apps/zentao/VERSION`）。本文「21.x 实测」表述即指本容器早期版本，行为随镜像升级可能变化，**升级镜像后需对踩坑条目复核**。
 
@@ -38,7 +38,7 @@ curl -s -X POST http://192.168.0.107:8070/api.php/v1/tokens \
 
 ## 3. BMS 工具包（推荐） <a id="toolkit"></a>
 
-位置：`deploy/tools/zentao/`，仅依赖 Python 标准库（urllib），Windows/Linux 均可用。
+位置：`scripts/zentao/`，仅依赖 Python 标准库（urllib），Windows/Linux 均可用。
 
 | 文件 | 说明 |
 | --- | --- |
@@ -58,7 +58,7 @@ curl -s -X POST http://192.168.0.107:8070/api.php/v1/tokens \
 ### 3.1 命令行用法 <a id="cli"></a>
 
 ```bash
-cd deploy/tools/zentao
+cd scripts/zentao
 
 python zentao.py token                                # 获取 token
 python zentao.py products list                        # 产品列表
@@ -97,7 +97,7 @@ python zentao.py users list
 
 ```python
 import sys
-sys.path.insert(0, r"D:\Develop\bms\deploy\tools\zentao")
+sys.path.insert(0, r"D:\Develop\bms\scripts\zentao")
 from zentao_client import ZentaoClient, ZentaoError
 import zentao_tasks as tasks
 import zentao_executions as executions
@@ -117,7 +117,7 @@ created = tasks.batch_create(c, execution=3, tasks=[
 `文档/项目/{stage}/`（需求/任务/计划文档）与禅道（产品需求 + 迭代任务）双向同步；文档格式以《[任务文档规范](../../规范/任务文档规范.md)》《[需求文档规范](../../规范/需求文档规范.md)》《[计划文档规范](../../规范/计划文档规范.md)》为强制契约。
 
 ```bash
-cd deploy/tools/zentao
+cd scripts/zentao
 
 # 文档 → 禅道：建/更 story+任务、落排期、状态流转、回填 id
 python zentao_sync_push.py --stage 00_准备期 --dry-run     # 只解析+打印计划，不写禅道、不改文档
@@ -297,10 +297,10 @@ stateDiagram-v2
 
 ### 6.2 升级复核流程（冒烟脚本）
 
-升级镜像（或行为存疑）时跑 `deploy/tools/zentao/zentao_smoke.py`：
+升级镜像（或行为存疑）时跑 `scripts/zentao/zentao_smoke.py`：
 
 ```bash
-cd deploy/tools/zentao
+cd scripts/zentao
 python zentao_smoke.py                # 只读检查：认证/分页/回退/结构等（9 项）
 python zentao_smoke.py --with-write   # 含写检查：建测试任务复现创建/删除坑，自动清理（共 15 项）
 ```
@@ -328,7 +328,7 @@ python zentao.py tasks batch-create --execution <迭代id> --file tasks.json
 
 ```python
 import sys
-sys.path.insert(0, r"D:\Develop\bms\deploy\tools\zentao")
+sys.path.insert(0, r"D:\Develop\bms\scripts\zentao")
 from zentao_client import ZentaoClient
 import zentao_tasks as tasks
 
@@ -360,7 +360,7 @@ python zentao.py tasks get --id 1
 
 ```python
 import sys
-sys.path.insert(0, r"D:\Develop\bms\deploy\tools\zentao")
+sys.path.insert(0, r"D:\Develop\bms\scripts\zentao")
 from zentao_client import ZentaoClient
 import zentao_tasks as tasks
 
@@ -388,7 +388,7 @@ python zentao.py tasks batch-create --execution 3 --parent 1 --file subtasks.jso
 
 ```python
 import sys
-sys.path.insert(0, r"D:\Develop\bms\deploy\tools\zentao")
+sys.path.insert(0, r"D:\Develop\bms\scripts\zentao")
 from zentao_client import ZentaoClient
 import zentao_tasks as tasks
 
@@ -433,7 +433,7 @@ python zentao.py stories web-delete --id 5        # 通用 Web 删除（备用�
 
 ```python
 import sys
-sys.path.insert(0, r"D:\Develop\bms\deploy\tools\zentao")
+sys.path.insert(0, r"D:\Develop\bms\scripts\zentao")
 from zentao_client import ZentaoClient
 import zentao_tasks as tasks
 import zentao_web as web
@@ -481,7 +481,7 @@ python zentao.py products search --name BMS
 
 ```python
 import sys
-sys.path.insert(0, r"D:\Develop\bms\deploy\tools\zentao")
+sys.path.insert(0, r"D:\Develop\bms\scripts\zentao")
 from zentao_client import ZentaoClient
 import zentao_tasks as tasks
 
@@ -505,6 +505,6 @@ for t in tasks.search(c, assigned_to="minjian", status="wait"):
 | 禅道 Docker 部署 | https://www.zentao.net/book/zentaopms/docker-1111.html | 官方镜像部署说明 |
 | 禅道官网 | https://www.zentao.net/ | 产品与社区 |
 
-项目内关联：工具包 `deploy/tools/zentao/`（README.md、冒烟脚本 `zentao_smoke.py`）、《[任务文档规范](../../规范/任务文档规范.md)》《[需求文档规范](../../规范/需求文档规范.md)》《[计划文档规范](../../规范/计划文档规范.md)》（文档 ↔ 禅道同步契约）、《[禅道部署使用说明](../开发服务器/禅道部署使用说明.md)》、《[禅道技术介绍](../知识档案/工程化与质量/禅道技术介绍.md)》、《[总体项目规划](../../规划/总体项目规划.md)》里程碑与 WBS。
+项目内关联：工具包 `scripts/zentao/`（README.md、冒烟脚本 `zentao_smoke.py`）、《[任务文档规范](../../规范/任务文档规范.md)》《[需求文档规范](../../规范/需求文档规范.md)》《[计划文档规范](../../规范/计划文档规范.md)》（文档 ↔ 禅道同步契约）、《[禅道部署使用说明](../开发服务器/禅道部署使用说明.md)》、《[禅道技术介绍](../知识档案/工程化与质量/禅道技术介绍.md)》、《[总体项目规划](../../规划/总体项目规划.md)》里程碑与 WBS。
 
 > 依《文档生成规范》编写 · 记录 2026-08-21 实测（禅道 22.5，easysoft/zentao:latest 滚动镜像，mjbk 192.168.0.107:8070） · 更新：2026-08-23

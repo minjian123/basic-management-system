@@ -35,7 +35,7 @@
 
 ## 3. 在 BMS 项目中的用途 <a id="usage"></a>
 
-- 作为项目语言基础：后端全部代码（`backend/`）以 Python 3.14+ 编写，前端与运维脚本（如 `deploy/tools/`）亦大量使用。
+- 作为项目语言基础：后端全部代码（`backend/`）以 Python 3.14+ 编写，前端与运维脚本（如 `scripts/`）亦大量使用。
 - 配合 uv 管理依赖与虚拟环境：`uv sync` 一键还原环境，uv.lock 锁定全量依赖版本，见《[uv 技术介绍](../工程化与质量/uv技术介绍.md)》。
 - 语法新特性提升开发效率：类型注解、模式匹配、异常组等让代码更简洁、可读，配合 pyright 在 IDE 中即时发现类型错误（见《[pyright 技术介绍](../工程化与质量/pyright技术介绍.md)》）。
 - **兼容性口径（重要）**：Python 3.14 相对较新，阶段一骨架阶段需逐依赖验证（FastAPI/SQLAlchemy/Pydantic/psycopg/Celery/SpiffWorkflow 等，含达梦 dmPython），任一核心依赖不兼容则**整体回退 Python 3.13**（`.python-version` 同步调整）——口径见《[项目规划说明》3.1 节](../../../规划/项目规划说明.md#sel-backend)。

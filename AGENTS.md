@@ -14,8 +14,8 @@
 
 - 开发服务器 **mjbk**（常开：GitLab CE、开发依赖服务、MySQL/PostgreSQL/达梦 DM8 三库）与开发机 **mjpc**。远程操作方式、SSH/WinRM 凭据与命令模板见 `文档/资料/开发服务器/开发服务器部署使用说明.md`（内网 IP 与账号见 `文档/用户文档/本地资源.md`），需要时再读，不常驻上下文。
 - **服务器电源控制**（唤醒/关机工具链，文档：`文档/资料/工具/开发服务器电源控制使用说明.md`）：
-  - 远程唤醒：`python deploy/tools/wol/wake_mjbk.py`（发 WOL 魔术包并等待 SSH 就绪，低风险）；双击入口 `deploy/tools/wol/唤醒mjbk.bat`。
-  - 远程关机：`python deploy/tools/wol/shutdown_mjbk.py`（**破坏性操作，执行前必须经用户确认**）；双击入口 `deploy/tools/wol/关机mjbk.bat`。
+  - 远程唤醒：`python scripts/wol/wake_mjbk.py`（发 WOL 魔术包并等待 SSH 就绪，低风险）；双击入口 `scripts/wol/唤醒mjbk.bat`。
+  - 远程关机：`python scripts/wol/shutdown_mjbk.py`（**破坏性操作，执行前必须经用户确认**）；双击入口 `scripts/wol/关机mjbk.bat`。
   - mjbk 的 sudo 密码等凭据从 `deploy/.env` 读取（键位见 `deploy/.env.example`），脚本不硬编码密码；SSH 连接走 mjpc 公钥免密。
 - 机器凭据见 `文档/用户文档/本地资源.md`（已 gitignore，**勿恢复跟踪、勿提交、勿写入其他文档**）；凭据副本统一存 `deploy/.env`（已 gitignore，勿提交，勿将 .env 内容写入其他文档）。
 
@@ -68,13 +68,13 @@
 - 钩子或增量更新后 graphify-out/ 文件变脏属正常现象，不应因此跳过 graphify。只有任务涉及过期或错误的图输出、或用户明确不用时，才跳过。
 - 若 graphify-out/wiki/index.md 存在，用它做广域导航，避免直接浏览源码。
 - 仅在需要宏观架构审查、或 query/path/explain 信息不足时，才读 graphify-out/GRAPH_REPORT.md。
-- 修改代码后运行 `graphify update .` 保持图谱最新（纯 AST，无 API 开销）；随后运行 `python deploy/tools/graphify/localize-graph.py` 收尾（汉化 graph.html + 生成中文架构图 CALLFLOW.html）。
+- 修改代码后运行 `graphify update .` 保持图谱最新（纯 AST，无 API 开销）；随后运行 `python scripts/graphify/localize-graph.py` 收尾（汉化 graph.html + 生成中文架构图 CALLFLOW.html）。
 - graphify 安装、排除规则、重建取舍、社区命名等细节见 `文档/资料/AI/graphify部署使用说明.md`，不在此展开。
 
 ## 禅道 API（项目管理平台）
 
 - 禅道（ZenTao 21.x）部署于 mjbk（`http://192.168.0.107:8070`，见 `文档/资料/开发服务器/禅道部署使用说明.md`），是需求/任务/迭代/甘特图/看板的唯一载体；职责分工：**禅道管需求/任务/迭代，GitLab Issue 管代码缺陷，Kiwi TCMS 管测试用例**（禅道缺陷/测试模块不用）。
-- 操作禅道**优先用工具包** `deploy/tools/zentao/`：CLI 直接跑 `python deploy/tools/zentao/zentao.py <资源> <操作> ...`（如 `tasks list --execution 3`、`tasks create --execution 3 --name ... --begin ... --end ... --to minjian`），或 `import` 各资源模块（`from zentao_client import ZentaoClient`）；凭据自动读 `deploy/.env` 的 `ZENTAO_API_*`，无需每次传账号。
+- 操作禅道**优先用工具包** `scripts/zentao/`：CLI 直接跑 `python scripts/zentao/zentao.py <资源> <操作> ...`（如 `tasks list --execution 3`、`tasks create --execution 3 --name ... --begin ... --end ... --to minjian`），或 `import` 各资源模块（`from zentao_client import ZentaoClient`）；凭据自动读 `deploy/.env` 的 `ZENTAO_API_*`，无需每次传账号。
 - **API 踩坑与正确用法**：全部固化于 `文档/资料/AI/禅道API使用说明.md`（端点总表、字段字典、踩坑表、报错反查表），操作禅道前先读该文档，勿重新摸索；工具包已内置各坑的规避处理，异常时按报错文案反查坑号。
 - 项目内迭代 `M0~M15`（id 3~18）对应 `文档/规划/总体项目规划.md` 的里程碑，任务按 WBS 已登记并指派 minjian。
 
@@ -84,13 +84,13 @@
 
 满足前提时，让 AI 助手使用本机多模态模型的通用能力（LM Studio qwen3.8-27b，OpenAI 兼容 127.0.0.1:1234）。方案与配置细节见 `文档/资料/AI/本地多模态接入方案.md`（需要时再读）。组成：
 
-- **MCP server**（`deploy/tools/multimodal/mcp_server.py`，opencode.json 的 `mcp` 段登记）：`multimodal_chat`（文本+图片+文档通用对话，看图/看文档）、`screenshot`（HTML/URL 无头截图）。
+- **MCP server**（`scripts/multimodal/mcp_server.py`，opencode.json 的 `mcp` 段登记）：`multimodal_chat`（文本+图片+文档通用对话，看图/看文档）、`screenshot`（HTML/URL 无头截图）。
 
 ## 后台任务执行（BG，强制执行）
 
 **背景**：bash 工具是同步阻塞的，长命令执行期间无反馈，观感"卡死"。因此对命令做分级处理，禁止长时间无反馈等待。
 
-- 工具链在 `deploy/tools/bg/`（bg-run/bg-status/bg-stop/bg-wait.py），插件文件为 `.opencode/plugins/bg.js`（注册 `bg_run` / `bg_status` / `bg_wait` / `gl_watch_pipeline` / `bg_stop` 五个工具；python 脚本留在 deploy/tools/bg/，插件内按相对路径调用。注意：opencode 插件的相对路径基于 `.opencode/` 解析，且依赖包须位于 `.opencode/node_modules` 可解析范围）。
+- 工具链在 `scripts/bg/`（bg-run/bg-status/bg-stop/bg-wait.py），插件文件为 `.opencode/plugins/bg.js`（注册 `bg_run` / `bg_status` / `bg_wait` / `gl_watch_pipeline` / `bg_stop` 五个工具；python 脚本留在 scripts/bg/，插件内按相对路径调用。注意：opencode 插件的相对路径基于 `.opencode/` 解析，且依赖包须位于 `.opencode/node_modules` 可解析范围）。
 - **执行纪律**：
   - 预计 **≤10 秒**的命令（查询、状态、文件操作、短命令）：直接执行。
   - 预计 **>10 秒**的命令（下载、安装、构建、ssh 远程、服务启动、备份等）：一律 **`bg_run` 后台化** → 立即返回 → 用 **`bg_status` 秒级轮询**（间隔 10-30 秒）直到 FINISHED；绝不直接同步等待。
@@ -103,7 +103,7 @@
 
 ## 缺陷工具链（defect）
 
-CI 自动化测试失败时的缺陷处理工具链在 `deploy/tools/defect/`（流程与口径详见《测试规范》第 9 节）：
+CI 自动化测试失败时的缺陷处理工具链在 `scripts/defect/`（流程与口径详见《测试规范》第 9 节）：
 
 - `defect_capture.py`：归档 REPRO 复现包（现场 dump + 失败堆栈 + repro.json + REPRO.md，默认 `/mnt/data/backup/defects/<缺陷ID>/`）并自动创建/复用 GitLab Issue（fingerprint 去重、`defect-auto` 标签）。
 - `ai_fix.py`：AI 修复代理——扫描 defect-auto 未关闭 Issue 定位根因生成补丁，本地模型（LM Studio）优先、云端兜底；bot 推 `fix/defect-*` 分支提 MR，**人工 review 合入、人工关闭**。
@@ -111,4 +111,4 @@ CI 自动化测试失败时的缺陷处理工具链在 `deploy/tools/defect/`（
 
 ## 设计文档编号重排（reorder-design）
 
-调整设计文档体系节点编号时**勿手动改名**，用 `deploy/tools/reorder-design/reorder-design.py`：阅读顺序定义在同目录 `order.json`（覆盖架构/概要/布局/原型四体系），自动完成两步法重命名 + 全库引用替换（支持 md 与 html）；先 `--dry-run` 预览再执行；md 总览的节点表行序不自动排序，执行后人工核对。
+调整设计文档体系节点编号时**勿手动改名**，用 `scripts/reorder-design/reorder-design.py`：阅读顺序定义在同目录 `order.json`（覆盖架构/概要/布局/原型四体系），自动完成两步法重命名 + 全库引用替换（支持 md 与 html）；先 `--dry-run` 预览再执行；md 总览的节点表行序不自动排序，执行后人工核对。

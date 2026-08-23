@@ -274,7 +274,7 @@ defect-capture:
     - sed -i 's|deb.debian.org|mirrors.aliyun.com|g' /etc/apt/sources.list.d/debian.sources 2>/dev/null || true
     - apt-get update >/dev/null && apt-get install -y --no-install-recommends mariadb-client >/dev/null
     - |
-      python deploy/tools/defect/defect_capture.py \
+      python scripts/defect/defect_capture.py \
         --engine mysql --db-name "${BMS_TEST_DB_NAME:-bms_test_mysql}" \
         --db-host 192.168.0.107 --db-port 3306 \
         --db-user root --db-password "$MYSQL_ROOT_PASSWORD" \
