@@ -6,11 +6,22 @@
 
 workflow:
   rules:
-    # 指令驱动（2026-08-22）：push/MR 事件不再自动建流水线，
-    # 「合并」指令时经 API 显式发起（source=api）；main 直推仍自动验证。
+    # 指令驱动 + main 直推自动验证（2026-08-22）：
+    # push/MR 事件不再无条件建流水线；main 直推仅当代码/CI 配置路径有变更时才跑
+    # （2026-08-23：纯文档推送免 CI——单人期冒烟无价值，流程开销优先砍）。
+    # changes 用「排除法」写法：paths 只列代码与基础设施路径，任一命中即建流水线，
+    # 宁可多跑不可漏跑；不得用 changes 区分文档/代码场景给 job 放行
+    # （changes 是「任一命中」语义，曾导致含代码的 MR 只跑占位 job——2026-08-22 教训）。
     - if: $CI_PIPELINE_SOURCE == "web"
     - if: $CI_PIPELINE_SOURCE == "api"
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE == "push"
+      changes:
+        paths:
+          - backend/**/*
+          - frontend/**/*
+          - frontend-mobile/**/*
+          - deploy/**/*
+          - .gitlab-ci.yml
 
 stages:
   - lint
@@ -27,7 +38,8 @@ default:
   tags: [bms]
 
 # ---- 门禁冒烟：所有流水线无条件必跑 ----
-# 每条 MR 必须有一条成功流水线（「零流水线」会被 must-succeed 设置拦截）；
+# 阶段一代码落地前，流水线仅含本 job（4-6 秒）；代码目录出现后 lint/test 自动激活，
+# 重验证 job（E2E/集成/镜像/扫描）仅 main 流水线运行——分层门禁见《开发部署规划》第 7 节。
 # changes 的匹配语义是「任一命中」而非「全部命中」，不得用它区分文档/代码场景
 # （曾因此导致含代码的 MR 只跑了占位 job——2026-08-22 修复，合并为本 job）。
 gate-smoke:
@@ -114,7 +126,7 @@ frontend-mobile-build:
   script:
     - cd frontend-mobile && npm ci && npm run build
 
-# ==== main 流水线（合并后验证；《开发部署规划》第 7 节 3）====
+# ==== main 流水线重验证层（《开发部署规划》第 7 节 3）====
 # 全部 job 以 exists 守卫——阶段一代码落地后自动激活，此前 main 流水线空载（仅 gate-smoke）。
 
 # ---- E2E：服务容器起 backend（SQLite）+ 前端产物，Playwright 驱动 ----
