@@ -28,7 +28,6 @@
 | `frontend/` | 缺失 | 最小 Vite + Vue + TS 占位（端口 5173） | 新建 |
 | `frontend-mobile/` | 缺失 | 最小 Vite + Vue + TS 占位（端口 5174） | 新建 |
 | `scripts/` | 空目录（未入库） | 补目录说明 `README.md` | 新增文件 |
-| `.github/` | 缺失 | 补 GitHub 归档说明 `README.md` | 新建 |
 | `graphify-out/README.md` | 缺失（`graphify-out/` 整目录被忽略） | 提交 `README.md`，产物忽略 | 新增 + 调 .gitignore |
 | `README.md` | 缺「快速启动」章节、无技术栈概览表；Python 徽标为 3.12+；文档目录树漏 `测试/`、`项目/` | 按四章节重写 | 重写 |
 | `.gitignore` | 无 Node 规则；编辑器规则为注释态；无 `*.local` | 补 Node / 编辑器 / `*.local`；调整 graphify-out | 修改 |
@@ -82,8 +81,6 @@ bms/
 │   └── tools/                # backup / bg / defect / graphify / multimodal / reorder-design / wol / zentao
 ├── scripts/                  # 运维脚本（种子数据、备份恢复等，按阶段补充）
 │   └── README.md             # 目录说明
-├── .github/                  # GitHub 归档镜像辅助文件
-│   └── README.md             # GitHub 只读归档说明
 ├── 文档/                     # 项目文档
 │   ├── 文档首页.md            # 全量导航
 │   ├── 规划/
@@ -107,7 +104,6 @@ bms/
 | `frontend/`（10 个文件，见 7.2） | 新建 | 最小 Vite 占位 |
 | `frontend-mobile/`（10 个文件，见 7.3） | 新建 | 最小 Vite 占位 |
 | `scripts/README.md` | 新建 | 目录说明 |
-| `.github/README.md` | 新建 | GitHub 归档说明 |
 | `graphify-out/README.md` | 新建 | 图谱产物目录说明 |
 | `README.md` | 重写 | 四章节 |
 | `.gitignore` | 修改 | 补 Node / 编辑器 / `*.local`，调整 graphify-out |
@@ -384,7 +380,6 @@ createApp(App).mount('#app')
 | 文件 | 内容要点 |
 | --- | --- |
 | `scripts/README.md` | 目录用途：种子数据、备份恢复等运维脚本，按阶段补充；01-1 仅保留目录说明，脚本在后续任务添加 |
-| `.github/README.md` | GitHub 为只读归档镜像（GitLab CE 为主仓库，push mirror 单向同步 main；GitHub 侧不承载协作；Renovate 全本地运行，零 GitHub 依赖） |
 | `graphify-out/README.md` | 知识图谱产物目录（graph.json / graph.html / wiki / GRAPH_REPORT.md 等），可由 graphify 随时重建；因含本机绝对路径，产物不入库（见《graphify 部署使用说明》），本目录仅保留此说明文件 |
 
 ## 9. 与全局设计的对齐记录 <a id="align"></a>
@@ -409,7 +404,7 @@ createApp(App).mount('#app')
 1. **backend 占位**：建 `backend/`，写 `.python-version`、`pyproject.toml`、`app/__init__.py`、`app/main.py`、`README.md` → `uv lock`（网络慢切国内 PyPI 镜像）→ `uv sync` → `uv run uvicorn app.main:app --port 8000`。验证：`GET http://127.0.0.1:8000/healthz` 返回 `{"status":"ok"}`。
 2. **frontend 占位**：`npm create vite@latest frontend -- --template vue-ts`，按 7.2 调整（name、端口 5173、`.nvmrc`=22、`App.vue` 文案、`README.md`）→ `npm install` 生成 lock。验证：`npm run dev` 访问 `http://127.0.0.1:5173` 看到占位页。
 3. **frontend-mobile 占位**：同步骤 2，端口 5174、name `bms-frontend-mobile`、文案改移动端。验证：访问 `http://127.0.0.1:5174`。
-4. **其余说明文件**：建 `scripts/README.md`、`.github/README.md`、`graphify-out/README.md`（内容见 §8）。
+4. **其余说明文件**：建 `scripts/README.md`、`graphify-out/README.md`（内容见 §8）。
 5. **根 .gitignore**：按 §5 追加 / 替换规则；保留现有 Python 模板主体。
 6. **根 .editorconfig**：按 §6 新建。
 7. **根 README**：按 §4 重写四章节、修正徽标、补技术栈概览表、补全目录树（含 `测试/`、`项目/`）。
