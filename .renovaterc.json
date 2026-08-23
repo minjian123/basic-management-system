@@ -1,7 +1,9 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "registryAliases": {
-    "docker.io": "docker.1panel.live",
-    "index.docker.io": "docker.1panel.live"
-  }
+  "packageRules": [
+    {
+      "matchManagers": ["gitlabci"],
+      "enabled": false
+    }
+  ]
 }
