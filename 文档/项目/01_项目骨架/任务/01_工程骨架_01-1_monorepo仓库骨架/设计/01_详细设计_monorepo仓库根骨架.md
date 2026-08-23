@@ -27,13 +27,15 @@
 | `backend/` | 缺失 | 最小可启动占位（FastAPI + `/healthz`） | 新建 |
 | `frontend/` | 缺失 | 最小 Vite + Vue + TS 占位（端口 5173） | 新建 |
 | `frontend-mobile/` | 缺失 | 最小 Vite + Vue + TS 占位（端口 5174） | 新建 |
-| `scripts/` | 空目录（未入库） | 补目录说明 `README.md` | 新增文件 |
+| `scripts/` | 空目录（未入库） | 承接开发期工具链（自 `deploy/tools/` 迁入）+ 目录说明 `README.md` | 工具链迁入 + 新增文件 |
+| `ops/` | 缺失 | 产品运维脚本目录（01-1 仅建目录 + `README.md`，脚本后续阶段填充） | 新建 |
 | `graphify-out/README.md` | 缺失（`graphify-out/` 整目录被忽略） | 提交 `README.md`，产物忽略 | 新增 + 调 .gitignore |
 | `README.md` | 缺「快速启动」章节、无技术栈概览表；Python 徽标为 3.12+；文档目录树漏 `测试/`、`项目/` | 按四章节重写 | 重写 |
 | `.gitignore` | 无 Node 规则；编辑器规则为注释态；无 `*.local` | 补 Node / 编辑器 / `*.local`；调整 graphify-out | 修改 |
 | `.editorconfig` | 缺失 | 新建 | 新建 |
 | `.gitlab-ci.yml` | 存在（内容非 01-1 范围） | 保留 | — |
-| `deploy/`、`文档/` | 存在 | 保留 | — |
+| `deploy/` | 存在（含 `tools/`） | 纯部署（`tools/` 迁入 `scripts/`） | 去掉 `tools/` |
+| `文档/` | 存在 | 保留 | — |
 | `LICENSE`、`AGENTS.md`、`.graphifyignore`、`renovate.json` | 存在 | 保留 | — |
 
 > **已知 git 现象**：`git status` 干净，但告警 `could not open directory 'node_modules/.pnpm/node_modules/frontend/'`。根因为根目录 `node_modules/`（`.opencode` 的 pnpm store）残留的陈旧 untracked 缓存条目，该目录实际未被跟踪（`git ls-files node_modules` 为 0）。处理：本任务加入 `node_modules/` 忽略规则后重跑 `git status` 验证告警消失；若仍在，执行 `git update-index --again` 清理索引缓存。
@@ -74,12 +76,13 @@ bms/
 │       └── vite-env.d.ts
 ├── frontend-mobile/          # Vue 3 + Vant 移动端 H5（01-1 最小占位，01-5 细化）
 │   └── …                     # 结构同 frontend，端口固定 5174
-├── deploy/                   # 部署配置与工具链
+├── deploy/                   # 纯部署配置
 │   ├── .env.example          # 凭据模板
 │   ├── compose/              # Docker Compose（base / gitlab / kiwi）
-│   ├── setup/                # 环境安装脚本
-│   └── tools/                # backup / bg / defect / graphify / multimodal / reorder-design / wol / zentao
-├── scripts/                  # 运维脚本（种子数据、备份恢复等，按阶段补充）
+│   └── setup/                # 环境安装脚本
+├── scripts/                  # 开发期工具链（自 deploy/tools/ 迁入）
+│   └── …                     # wol / bg / graphify / zentao / defect / multimodal / backup / gitlab / reorder-design
+├── ops/                      # 产品运维脚本（种子数据、备份恢复、租户库迁移，按阶段补充）
 │   └── README.md             # 目录说明
 ├── 文档/                     # 项目文档
 │   ├── 文档首页.md            # 全量导航
@@ -96,6 +99,10 @@ bms/
 └── temp/                     # 本地临时目录（gitignore）
 ```
 
+> **根级文件落位口径**：`.gitlab-ci.yml` 与 `renovate.json` 均为**工具约定决定的根级落位**——GitLab 默认在仓库根查找 `.gitlab-ci.yml`，Renovate 默认在仓库根查找 `renovate.json`。二者不可挪入 `deploy/` 或其他目录：挪动会导致 GitLab 检测不到（流水线不触发）或 Renovate 进入 onboarding 模式。故二者与 `deploy/` **平级**、不在其内；`deploy/` 只装部署产物（Compose 编排 / nginx 配置 / 脚本）。
+
+> **目录职责边界**：`deploy/` 为**纯部署**（Compose 编排 / nginx 配置 / setup）；`scripts/` 为**开发期工具链**（WOL / bg / graphify / 禅道 / defect / multimodal / backup / gitlab / reorder-design，自 `deploy/tools/` 迁入）；`ops/` 为**产品运维脚本**（种子数据 / 备份恢复 / 租户库迁移，随产品交付、后续阶段填充）。三者职责不同、不可混用：`deploy/` 不装工具链，`scripts/` 不装产品运维脚本，`ops/` 不装开发工具。
+
 交付物清单（01-1 新建 / 修改的文件）：
 
 | 文件 | 类型 | 说明 |
@@ -103,7 +110,8 @@ bms/
 | `backend/`（6 个文件，见 7.1） | 新建 | 最小可启动占位 |
 | `frontend/`（10 个文件，见 7.2） | 新建 | 最小 Vite 占位 |
 | `frontend-mobile/`（10 个文件，见 7.3） | 新建 | 最小 Vite 占位 |
-| `scripts/README.md` | 新建 | 目录说明 |
+| `scripts/README.md` | 新建 | 目录说明（开发期工具链） |
+| `ops/README.md` | 新建 | 目录说明（产品运维脚本） |
 | `graphify-out/README.md` | 新建 | 图谱产物目录说明 |
 | `README.md` | 重写 | 四章节 |
 | `.gitignore` | 修改 | 补 Node / 编辑器 / `*.local`，调整 graphify-out |
@@ -379,7 +387,8 @@ createApp(App).mount('#app')
 
 | 文件 | 内容要点 |
 | --- | --- |
-| `scripts/README.md` | 目录用途：种子数据、备份恢复等运维脚本，按阶段补充；01-1 仅保留目录说明，脚本在后续任务添加 |
+| `scripts/README.md` | 目录用途：开发期工具链（WOL / bg / graphify / 禅道 / defect / multimodal / backup / gitlab / reorder-design，自 `deploy/tools/` 迁入）；01-1 仅保留目录说明 |
+| `ops/README.md` | 目录用途：产品运维脚本（种子数据 / 备份恢复 / 租户库迁移），按阶段补充；01-1 仅保留目录说明，脚本在后续任务添加 |
 | `graphify-out/README.md` | 知识图谱产物目录（graph.json / graph.html / wiki / GRAPH_REPORT.md 等），可由 graphify 随时重建；因含本机绝对路径，产物不入库（见《graphify 部署使用说明》），本目录仅保留此说明文件 |
 
 ## 9. 与全局设计的对齐记录 <a id="align"></a>
@@ -404,7 +413,7 @@ createApp(App).mount('#app')
 1. **backend 占位**：建 `backend/`，写 `.python-version`、`pyproject.toml`、`app/__init__.py`、`app/main.py`、`README.md` → `uv lock`（网络慢切国内 PyPI 镜像）→ `uv sync` → `uv run uvicorn app.main:app --port 8000`。验证：`GET http://127.0.0.1:8000/healthz` 返回 `{"status":"ok"}`。
 2. **frontend 占位**：`npm create vite@latest frontend -- --template vue-ts`，按 7.2 调整（name、端口 5173、`.nvmrc`=22、`App.vue` 文案、`README.md`）→ `npm install` 生成 lock。验证：`npm run dev` 访问 `http://127.0.0.1:5173` 看到占位页。
 3. **frontend-mobile 占位**：同步骤 2，端口 5174、name `bms-frontend-mobile`、文案改移动端。验证：访问 `http://127.0.0.1:5174`。
-4. **其余说明文件**：建 `scripts/README.md`、`graphify-out/README.md`（内容见 §8）。
+4. **其余说明文件**：建 `scripts/README.md`、`ops/README.md`、`graphify-out/README.md`（内容见 §8）。
 5. **根 .gitignore**：按 §5 追加 / 替换规则；保留现有 Python 模板主体。
 6. **根 .editorconfig**：按 §6 新建。
 7. **根 README**：按 §4 重写四章节、修正徽标、补技术栈概览表、补全目录树（含 `测试/`、`项目/`）。
