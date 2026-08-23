@@ -129,6 +129,7 @@ runner 容器已启动并注册（2026-08-10，runner `bacf4fd652a2`，concurren
 | 重启 | `docker restart bms-gitlab`（reconfigure 会重新执行） |
 | 内部服务状态 | `docker exec bms-gitlab gitlab-ctl status` |
 | 配置修改 | 编辑 `/mnt/ssd2t/gitlab/config/gitlab.rb`（root 权限）→ `docker restart bms-gitlab` |
+| 流水线盯守 | AI 助手用 `gl_watch_pipeline` 插件工具；命令行 `python deploy/tools/gitlab/watch_pipeline.py --pipeline-id <ID>`（凭据读 deploy/.env 的 GITLAB_API_*，配合 bg 链路后台盯守，详见《通用后台执行器部署使用说明》） |
 | 备份（每日 cron 2 点） | `docker exec bms-gitlab gitlab-backup create`，备份落 `/mnt/ssd2t/gitlab/data/backups/`，同步至 `/mnt/data/backup/gitlab/` |
 
 ## 8. 排障记录 <a id="trouble"></a>
@@ -159,4 +160,4 @@ runner 容器已启动并注册（2026-08-10，runner `bacf4fd652a2`，concurren
 > 会覆盖挂载点内容（/mnt/data/gitlab 下已产生 588K 垃圾待清理）；③ PAT 失效优先排查
 > 是否连到了错误实例，再考虑重签。Renovate 仓库路径为 `mj/bms`（非 bms/bms）。
 
-> 依《文档生成规范》编写 · 记录 2026-08-10 实际部署过程 · 更新日期：2026-08-15（数据迁至 /mnt/ssd2t/gitlab）
+> 依《文档生成规范》编写 · 记录 2026-08-10 实际部署过程 · 更新日期：2026-08-23（运维表补流水线盯守入口；此前更新：2026-08-15 数据迁至 /mnt/ssd2t/gitlab）
