@@ -91,7 +91,7 @@
 
 **背景**：bash 工具是同步阻塞的，长命令执行期间无反馈，观感"卡死"。因此对命令做分级处理，禁止长时间无反馈等待。
 
-- 工具链在 `deploy/tools/bg/`（bg-run/bg-status/bg-stop.py），已通过 opencode 插件注册 `bg_run` / `bg_status` / `bg_stop` 三个工具（opencode.json 已登记）。
+- 工具链在 `deploy/tools/bg/`（bg-run/bg-status/bg-stop.py），插件文件为 `.opencode/plugins/bg.js`（注册 `bg_run` / `bg_status` / `bg_stop` 三个工具；python 脚本留在 deploy/tools/bg/，插件内按相对路径调用。注意：opencode 插件的相对路径基于 `.opencode/` 解析，且依赖包须位于 `.opencode/node_modules` 可解析范围）。
 - **执行纪律**：
   - 预计 **≤10 秒**的命令（查询、状态、文件操作、短命令）：直接执行。
   - 预计 **>10 秒**的命令（下载、安装、构建、ssh 远程、服务启动、备份等）：一律 **`bg_run` 后台化** → 立即返回 → 用 **`bg_status` 秒级轮询**（间隔 10-30 秒）直到 FINISHED；绝不直接同步等待。
