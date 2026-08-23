@@ -30,17 +30,7 @@ gitlab:
     - /mnt/ssd2t/gitlab/data:/var/opt/gitlab   # ⚠️ 必须是 ssd2t！写错为 /mnt/data 会初始化空实例（见事故记录）
   shm_size: "256m"
 
-renovate:                       # 依赖升级机器人（每日 cron 触发，一次性运行）
-  image: renovate/renovate:latest
-  container_name: bms-renovate
-  depends_on:
-    - gitlab
-  environment:
-    RENOVATE_PLATFORM: gitlab
-    RENOVATE_ENDPOINT: http://gitlab:8080/api/v4
-    RENOVATE_TOKEN: ${GITLAB_PAT}
-    RENOVATE_REPOSITORIES: mj/bms     # 注意实际项目路径是 mj/bms 非 bms/bms
-    LOG_LEVEL: info
+# renovate（依赖升级机器人）亦定义于本文件，配置与运维详见《[Renovate部署使用说明](Renovate部署使用说明.md)》
 
 gitlab-runner:
   image: gitlab/gitlab-runner:latest
@@ -65,9 +55,6 @@ docker pull gitlab/gitlab-ce:latest
 # 2. 启动（首次 reconfigure 初始化约 3-6 分钟；--env-file 注入 MJBK_IP/GITLAB_PAT）
 cd ~/deploy
 docker compose -f compose/gitlab.yml --env-file .env up -d gitlab
-
-# 3. Renovate 手动触发（日常由 cron 每日 06:00 自动运行）
-docker compose -f compose/gitlab.yml --env-file .env up -d renovate
 
 # 3. 等待 HTTP 就绪（200/302）
 curl -s -o /dev/null -w "%{http_code}" http://<mjbk-IP>:8080/users/sign_in
@@ -151,6 +138,7 @@ runner 容器已启动并注册（2026-08-10，runner `bacf4fd652a2`，concurren
 - 《[DockerEngine部署使用说明](DockerEngine部署使用说明.md)》：容器引擎与镜像加速
 - 《[开发部署规划](../../规划/开发部署规划.md)》：4.5 GitLab 与 CI 基础设施
 - 《[命名规范](../../规范/命名规范.md)》：镜像名 `bms-组件`、Registry 规划
+- 《[Renovate部署使用说明](Renovate部署使用说明.md)》：依赖升级机器人（同文件编排，每日 cron 运行）
 
 > ⚠️ **事故记录（2026-08-22）**：`gitlab.yml` 变量化改造时挂载路径误写回迁移前的
 > `/mnt/data/gitlab`，容器重建后 GitLab 在旧 HDD 路径初始化了**全新空实例**（项目数 0、
@@ -158,6 +146,7 @@ runner 容器已启动并注册（2026-08-10，runner `bacf4fd652a2`，concurren
 > 数据完整回归（6 项目含 mj/bms）→ rails console 重签 renovate-api token。
 > **教训**：① 改 compose 必须核对 bind mount 路径与数据实际位置一致；② 空实例初始化
 > 会覆盖挂载点内容（/mnt/data/gitlab 下已产生 588K 垃圾待清理）；③ PAT 失效优先排查
-> 是否连到了错误实例，再考虑重签。Renovate 仓库路径为 `mj/bms`（非 bms/bms）。
+> 是否连到了错误实例，再考虑重签。Renovate 仓库路径当时为 `mj/bms`（非 bms/bms；
+> 2026-08-23 已修正为 `bms/bms`，见《[Renovate部署使用说明](Renovate部署使用说明.md)》）。
 
-> 依《文档生成规范》编写 · 记录 2026-08-10 实际部署过程 · 更新日期：2026-08-23（运维表补流水线盯守入口；此前更新：2026-08-15 数据迁至 /mnt/ssd2t/gitlab）
+> 依《文档生成规范》编写 · 记录 2026-08-10 实际部署过程 · 更新日期：2026-08-23（运维表补流水线盯守入口；renovate 细节移入《Renovate部署使用说明》留引用、事故记录补仓库路径修正时点；此前更新：2026-08-15 数据迁至 /mnt/ssd2t/gitlab）
