@@ -3,7 +3,7 @@
 
 把 文档/项目/{stage}/ 的需求/任务/计划 同步到禅道产品（story）+ 迭代（任务）：
     1. 每条需求建/更 1 个 story（title/pri/spec），回填 story id
-    2. 每条任务建/更 1 个子任务（挂父任务、estStarted/deadline、desc、状态流转、指派），回填任务 id
+    2. 每条任务建/更 1 个子任务（挂父任务、挂需求 story、estStarted/deadline、desc、状态流转、指派），回填任务 id
     3. 排期：计划「已完成表」完成日期 → finish 的 finishedDate；「剩余排期表」排期窗口 → estStarted/deadline
 
 幂等：
@@ -147,7 +147,7 @@ def apply_status(client, task_id, task, est_s, ddl, dry_run):
         print(f"    [warn] 任务 {task_id} 状态流转失败：{e}")
 
 
-def sync_task(client, execution, task, plan, task_idx, dry_run, assign):
+def sync_task(client, execution, task, plan, task_idx, dry_run, assign, sid):
     est_s, ddl = resolve_dates(task, plan)
     tid, created = ensure_task(client, execution, task, est_s, ddl, task_idx, dry_run)
     if dry_run or not tid:
@@ -158,9 +158,12 @@ def sync_task(client, execution, task, plan, task_idx, dry_run, assign):
             T.assign(client, tid, assign)
         except Exception as e:
             print(f"    [warn] 任务 {tid} 指派失败：{e}")
-    # 更新 desc / estStarted / deadline / estimate
-    T.update(client, tid, desc=build_desc(task), estStarted=est_s,
-             deadline=ddl, estimate=task.estimate)
+    # 更新 desc / estStarted / deadline / estimate / story（story 字段即任务-需求关联，
+    # 22.5 PUT /tasks/:id 字段白名单含 story，重复设置同值幂等）
+    fields = dict(desc=build_desc(task), estStarted=est_s, deadline=ddl, estimate=task.estimate)
+    if sid:
+        fields["story"] = sid
+    T.update(client, tid, **fields)
     apply_status(client, tid, task, est_s, ddl, dry_run)
     return tid
 
@@ -198,7 +201,7 @@ def run(args):
         print(f"\n[{number}] {req.title}  （{base}）")
         try:
             sid = sync_story(client, args.product, req, story_idx, args.dry_run)
-            tid = sync_task(client, args.execution, task, p, task_idx, args.dry_run, args.assign)
+            tid = sync_task(client, args.execution, task, p, task_idx, args.dry_run, args.assign, sid)
             if not args.dry_run:
                 if sid:
                     backfill_story_id(req.file, number, sid)
