@@ -71,13 +71,6 @@
 - 修改代码后运行 `graphify update .` 保持图谱最新（纯 AST，无 API 开销）；随后运行 `python scripts/tools/graphify/localize-graph.py` 收尾（汉化 graph.html + 生成中文架构图 CALLFLOW.html）。
 - graphify 安装、排除规则、重建取舍、社区命名等细节见 `文档/资料/AI/graphify部署使用说明.md`，不在此展开。
 
-## 禅道 API（项目管理平台）
-
-- 禅道（ZenTao 21.x）部署于 mjbk（`http://192.168.0.107:8070`，见 `文档/资料/开发服务器/禅道部署使用说明.md`），是需求/任务/迭代/甘特图/看板的唯一载体；职责分工：**禅道管需求/任务/迭代，GitLab Issue 管代码缺陷，Kiwi TCMS 管测试用例**（禅道缺陷/测试模块不用）。
-- 操作禅道**优先用工具包** `scripts/tools/zentao/`：CLI 直接跑 `python scripts/tools/zentao/zentao.py <资源> <操作> ...`（如 `tasks list --execution 3`、`tasks create --execution 3 --name ... --begin ... --end ... --to minjian`），或 `import` 各资源模块（`from zentao_client import ZentaoClient`）；凭据自动读 `deploy/.env` 的 `ZENTAO_API_*`，无需每次传账号。
-- **API 踩坑与正确用法**：全部固化于 `文档/资料/AI/禅道API使用说明.md`（端点总表、字段字典、踩坑表、报错反查表），操作禅道前先读该文档，勿重新摸索；工具包已内置各坑的规避处理，异常时按报错文案反查坑号。
-- 项目内迭代 `M0~M15`（id 3~18）对应 `文档/规划/总体项目规划.md` 的里程碑，任务按 WBS 已登记并指派 minjian。
-
 ## 本地多模态（MCP）
 
 **使用前提：仅当当前模型不支持多模态（看不了图）时**，才用本地多模态 MCP 做识图/截图；当前模型本身支持多模态则不用考虑它，多此一举。

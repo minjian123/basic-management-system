@@ -5,7 +5,7 @@
 ## 职责边界
 
 - `ops/` 只放产品运维脚本，**不放**开发工具链（见 `scripts/`），**不放**部署产物（见 `deploy/`）。
-- `scripts/` 只放开发期工具链（WOL / bg / graphify / 禅道 / defect / multimodal / backup / gitlab / reorder-design），**不放**产品运维脚本。
+- `scripts/` 只放开发期工具链（WOL / bg / graphify / defect / multimodal / backup / gitlab / reorder-design），**不放**产品运维脚本。
 
 ## 规划脚本（按阶段补充）
 

@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # BMS 开发服务器每日备份总控（部署于 mjbk ~/deploy/backup/）
-# 组件：MySQL 全量（含 zentao/kiwi/bms_dev）、PostgreSQL 单库、达梦 DM8 dexp、GitLab、百度网盘云同步
-# 禅道细粒度备份由既有 backup_zentao.sh 承担（cron 02:00），本脚本不重复
+# 组件：MySQL 全量、PostgreSQL 单库、达梦 DM8 dexp、GitLab、Kiwi TCMS 附件、百度网盘云同步
 # 凭据：读 ~/deploy/.env 与 ~/.config/baidunetdisk/Cookies（官方客户端登录态）；不硬编码
 # 落位：本地 /mnt/data/backup/<组件>/；云端 /apps/bms-backup/<日期>/（加密 .gpg）
 # 用法：bash backup_daily.sh；cron 02:30 每日
