@@ -81,7 +81,7 @@ bms/
 │   ├── compose/              # Docker Compose（base / gitlab / kiwi）
 │   └── setup/                # 环境安装脚本
 ├── scripts/                  # 开发期工具链（自 deploy/tools/ 迁入）
-│   └── …                     # wol / bg / graphify / zentao / defect / multimodal / backup / gitlab / reorder-design
+│   └── …                     # wol / bg / graphify / defect / multimodal / backup / gitlab / reorder-design
 ├── ops/                      # 产品运维脚本（种子数据、备份恢复、租户库迁移，按阶段补充）
 │   └── README.md             # 目录说明
 ├── 文档/                     # 项目文档
@@ -101,7 +101,7 @@ bms/
 
 > **根级文件落位口径**：`.gitlab-ci.yml` 与 `renovate.json` 均为**工具约定决定的根级落位**——GitLab 默认在仓库根查找 `.gitlab-ci.yml`，Renovate 默认在仓库根查找 `renovate.json`。二者不可挪入 `deploy/` 或其他目录：挪动会导致 GitLab 检测不到（流水线不触发）或 Renovate 进入 onboarding 模式。故二者与 `deploy/` **平级**、不在其内；`deploy/` 只装部署产物（Compose 编排 / nginx 配置 / 脚本）。
 
-> **目录职责边界**：`deploy/` 为**纯部署**（Compose 编排 / nginx 配置 / setup）；`scripts/` 为**开发期工具链**（WOL / bg / graphify / 禅道 / defect / multimodal / backup / gitlab / reorder-design，自 `deploy/tools/` 迁入）；`ops/` 为**产品运维脚本**（种子数据 / 备份恢复 / 租户库迁移，随产品交付、后续阶段填充）。三者职责不同、不可混用：`deploy/` 不装工具链，`scripts/` 不装产品运维脚本，`ops/` 不装开发工具。
+> **目录职责边界**：`deploy/` 为**纯部署**（Compose 编排 / nginx 配置 / setup）；`scripts/` 为**开发期工具链**（WOL / bg / graphify / defect / multimodal / backup / gitlab / reorder-design，自 `deploy/tools/` 迁入）；`ops/` 为**产品运维脚本**（种子数据 / 备份恢复 / 租户库迁移，随产品交付、后续阶段填充）。三者职责不同、不可混用：`deploy/` 不装工具链，`scripts/` 不装产品运维脚本，`ops/` 不装开发工具。
 
 交付物清单（01-1 新建 / 修改的文件）：
 
@@ -387,7 +387,7 @@ createApp(App).mount('#app')
 
 | 文件 | 内容要点 |
 | --- | --- |
-| `scripts/README.md` | 目录用途：开发期工具链（WOL / bg / graphify / 禅道 / defect / multimodal / backup / gitlab / reorder-design，自 `deploy/tools/` 迁入）；01-1 仅保留目录说明 |
+| `scripts/README.md` | 目录用途：开发期工具链（WOL / bg / graphify / defect / multimodal / backup / gitlab / reorder-design，自 `deploy/tools/` 迁入）；01-1 仅保留目录说明 |
 | `ops/README.md` | 目录用途：产品运维脚本（种子数据 / 备份恢复 / 租户库迁移），按阶段补充；01-1 仅保留目录说明，脚本在后续任务添加 |
 | `graphify-out/README.md` | 知识图谱产物目录（graph.json / graph.html / wiki / GRAPH_REPORT.md 等），可由 graphify 随时重建；因含本机绝对路径，产物不入库（见《graphify 部署使用说明》），本目录仅保留此说明文件 |
 

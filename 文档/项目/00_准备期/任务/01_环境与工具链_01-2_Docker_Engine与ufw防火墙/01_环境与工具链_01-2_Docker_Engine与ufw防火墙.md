@@ -11,7 +11,6 @@
 | 编号 | 01-2 |
 | 父任务 | [01 环境与工具链](../01_环境与工具链.md) |
 | 对应需求 | [01-2](../../需求/01_需求_环境与工具链.md#r01-2) |
-| 禅道任务 | 86（父任务 1） |
 | 工时（重估） | 2h |
 | 依赖 | 01-1 |
 | 负责人 | minjian |
@@ -22,7 +21,7 @@
 
 1. Docker Engine 走清华 docker-ce 源安装（docker-ce + buildx + compose 插件），systemd 自启
 2. 镜像加速：`/etc/docker/daemon.json` 配置国内 registry-mirrors
-3. ufw 防火墙：仅放行内网段服务端口（GitLab 8080/5050/2222、三库 3306/5432/5236、Redis 6379、MinIO 9000/9001、Kiwi 8060、禅道 8070 等，完整清单见《开发部署规划》第 9 节），`ufw enable`
+3. ufw 防火墙：仅放行内网段服务端口（GitLab 8080/5050/2222、三库 3306/5432/5236、Redis 6379、MinIO 9000/9001、Kiwi 8060 等，完整清单见《开发部署规划》第 9 节），`ufw enable`
 
 ## 3. 完成标准 <a id="accept"></a>
 
