@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""文档 ↔ 禅道双向同步 · 共享解析与口径（scripts/zentao/zentao_sync_common.py）
+"""文档 ↔ 禅道双向同步 · 共享解析与口径（scripts/tools/zentao/zentao_sync_common.py）
 
 被 zentao_sync_push.py（文档→禅道）与 zentao_sync_pull.py（禅道→文档）复用。
 
@@ -25,8 +25,8 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
-# 仓库根（scripts/zentao/zentao_sync_common.py → 上三级 = bms 根）
-ROOT = Path(__file__).resolve().parent.parent.parent
+# 仓库根（scripts/tools/zentao/zentao_sync_common.py → 上四级 = bms 根）
+ROOT = Path(__file__).resolve().parents[3]
 PROJ = ROOT / "文档" / "项目"
 
 CHILD_TASK_FILE_RE = re.compile(r"^(\d{2})_.+_(\d{2}-\d{1,2})_.+\.md$")

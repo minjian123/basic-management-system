@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""禅道需求 story API 操作（scripts/zentao/zentao_stories.py）
+"""禅道需求 story API 操作（scripts/tools/zentao/zentao_stories.py）
 
 创建必填：title、spec、pri（1-4）、category；reviewer 必须传数组（22.5 踩坑，见 create）。
 category 枚举：feature 功能 / interface 接口 / performance 性能 /

@@ -59,7 +59,7 @@ def import_dump(args) -> None:
 
 
 def main() -> int:
-    env = load_env(Path(__file__).resolve().parents[2] / "deploy" / ".env")
+    env = load_env(Path(__file__).resolve().parents[3] / "deploy" / ".env")
     parser = argparse.ArgumentParser(description="缺陷一键复现")
     parser.add_argument("--issue-repro", default="", help="复现包目录（读 repro.json）")
     parser.add_argument("--repo-dir", default=".", help="仓库目录（缺省当前目录）")

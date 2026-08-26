@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""禅道用户 user API 操作（scripts/zentao/zentao_users.py）
+"""禅道用户 user API 操作（scripts/tools/zentao/zentao_users.py）
 
 创建（22.5 实测可用）：account、password、realname、role、gender 必填，
 gender 不传会被 API 以「『性别』不能为空」拒绝；gender 取值 m（男）/ f（女）。

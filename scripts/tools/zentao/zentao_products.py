@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""禅道产品 API 操作（scripts/zentao/zentao_products.py）"""
+"""禅道产品 API 操作（scripts/tools/zentao/zentao_products.py）"""
 from zentao_client import ZentaoClient
 
 

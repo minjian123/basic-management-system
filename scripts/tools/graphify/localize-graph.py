@@ -4,7 +4,7 @@
   1. 汉化 graph.html 界面文案（英文 -> 中文，幂等可反复执行）
   2. 生成中文界面的架构流程图 graphify-out/CALLFLOW.html（graphify export callflow-html --lang zh-CN）
 
-  python scripts/graphify/localize-graph.py
+  python scripts/tools/graphify/localize-graph.py
 """
 import argparse
 import re

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""禅道迭代（执行 execution）API 操作（scripts/zentao/zentao_executions.py）
+"""禅道迭代（执行 execution）API 操作（scripts/tools/zentao/zentao_executions.py）
 
 踩坑（源码确认）：创建迭代时 project 必须走 URL 参数（body 里的 project 会被覆盖）。
 """

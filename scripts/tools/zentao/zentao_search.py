@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""禅道客户端过滤（scripts/zentao/zentao_search.py）
+"""禅道客户端过滤（scripts/tools/zentao/zentao_search.py）
 
 禅道 22.5 任务已支持服务端过滤（GET /tasks?search=1，见 zentao_tasks.search_server），
 但日期区间（deadline/est）、父任务（parent）维度服务端不支持，仍需"取全量 + 客户端筛选"。

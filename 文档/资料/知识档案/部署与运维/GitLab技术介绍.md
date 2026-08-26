@@ -43,7 +43,7 @@ Git 仓库、Merge Request、Issue、CI/CD 流水线、容器 Registry、Wiki
 - **CI 流水线**：`.gitlab-ci.yml` 定义——MR 流水线：后端 ruff + pytest（含覆盖率门禁）、前端 ESLint + Vitest（含 coverage 门禁）、双端构建；main 流水线：另含 Playwright E2E 独立 job、MySQL/PostgreSQL/达梦 DM8 三库方言集成测试、构建镜像推送 Registry、导出 swagger.json 契约快照（《[项目规划说明](../../../规划/项目规划说明.md#sel-ops)》3.4 节）。
 - **runner 配置**：gitlab-runner 以容器方式运行，挂载 docker.sock、executor=docker，开发环境并发上限 2，避免 CI 抢占 GitLab 与开发服务资源（《[开发部署规划](../../../规划/开发部署规划.md#server-gitlab)》4.5 节）。
 - **测试归档**：Allure 报告作 CI 产物归档，执行结果经官方插件导入 Kiwi TCMS（《[项目规划说明](../../../规划/项目规划说明.md#test-report)》16.5 节）。
-- **缺陷自动上报**：任一自动化测试失败即由 `scripts/defect/defect_capture.py` 归档 REPRO 复现包并自动创建 / 复用 GitLab Issue（fingerprint 去重）（《[项目规划说明](../../../规划/项目规划说明.md#test-defect)》16.2 节）。
+- **缺陷自动上报**：任一自动化测试失败即由 `scripts/tools/defect/defect_capture.py` 归档 REPRO 复现包并自动创建 / 复用 GitLab Issue（fingerprint 去重）（《[项目规划说明](../../../规划/项目规划说明.md#test-defect)》16.2 节）。
 - **GitHub 只读归档**：GitLab 配置 push mirror 单向同步 main 至 GitHub 归档仓库，GitHub 侧改动不回传、不承载协作（《[项目规划说明](../../../规划/项目规划说明.md#sel-ops)》3.4 节）。
 - **依赖升级**：Renovate 原生支持自托管 GitLab，自动提 MR 升级依赖（见《[Renovate 技术介绍](Renovate技术介绍.md)》）。
 

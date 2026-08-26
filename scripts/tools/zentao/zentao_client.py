@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""禅道 API 客户端（BMS 项目 · scripts/zentao/zentao_client.py）
+"""禅道 API 客户端（BMS 项目 · scripts/tools/zentao/zentao_client.py）
 
 禅道开源版 22.5 REST API（/api.php/v1，兼容 21.x）核心客户端：
 token 认证、通用请求封装、自动分页、.env 凭据读取。
@@ -37,9 +37,9 @@ class ZentaoError(Exception):
 
 
 def load_env():
-    """读取 deploy/.env（脚本位于 scripts/zentao/ 下，.env 在 ../../deploy/.env）。"""
+    """读取 deploy/.env（脚本位于 scripts/tools/zentao/ 下，.env 在 ../../../deploy/.env）。"""
     env = {}
-    p = Path(__file__).resolve().parent.parent.parent / "deploy" / ".env"
+    p = Path(__file__).resolve().parents[3] / "deploy" / ".env"
     if p.exists():
         for line in p.read_text(encoding="utf-8").splitlines():
             line = line.strip()
