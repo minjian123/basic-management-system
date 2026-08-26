@@ -3,3 +3,5 @@
 文档/资源/
 # graphify 工具自带的英文 skill 文档（SKILL.md/references），非本项目内容
 .opencode/skills/graphify/
+# 去掉多余的node_modeles
+node_modules/
