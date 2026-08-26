@@ -13,7 +13,7 @@ import time
 import urllib.request
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2] / "deploy" / ".env"  # deploy/.env
+ROOT = Path(__file__).resolve().parents[3] / "deploy" / ".env"  # deploy/.env
 
 
 def load_env() -> dict:

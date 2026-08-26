@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""禅道 Web 会话操作（scripts/zentao/zentao_web.py）
+"""禅道 Web 会话操作（scripts/tools/zentao/zentao_web.py）
 
 当 REST API 某操作不可用时（如 DELETE /tasks/:id 参数错位 bug，22.5 仍在），
 改用 Web 会话调对应 Web 端点完成操作。story/user 的删除 REST 在 22.5 已可用，

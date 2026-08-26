@@ -38,9 +38,9 @@
         "uv",
         "run",
         "--project",
-        "D:/Develop/bms/scripts/multimodal",
+        "D:/Develop/bms/scripts/tools/multimodal",
         "python",
-        "D:/Develop/bms/scripts/multimodal/mcp_server.py"
+        "D:/Develop/bms/scripts/tools/multimodal/mcp_server.py"
       ],
       "enabled": true
     }

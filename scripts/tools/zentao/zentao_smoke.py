@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""禅道 API 冒烟测试（scripts/zentao/zentao_smoke.py）
+"""禅道 API 冒烟测试（scripts/tools/zentao/zentao_smoke.py）
 
 用途：easysoft/zentao:latest 是滚动镜像，升级后《禅道API使用说明.md》的踩坑结论
 可能失效。本脚本对文档踩坑逐条做行为探测，PASS=结论仍成立、FAIL/WARN=行为变化需复核文档。

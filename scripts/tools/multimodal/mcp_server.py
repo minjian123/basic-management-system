@@ -16,7 +16,7 @@
   MULTIMODAL_API_REASONING  默认 none（关闭本地推理模型的思考过程）
 
 运行（项目根目录执行）：
-  uv run --project scripts/multimodal python scripts/multimodal/mcp_server.py
+  uv run --project scripts/tools/multimodal python scripts/tools/multimodal/mcp_server.py
 
 依赖：mcp（uv 项目，见 pyproject.toml）。
 """

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""禅道 → 文档 同步（scripts/zentao/zentao_sync_pull.py）
+"""禅道 → 文档 同步（scripts/tools/zentao/zentao_sync_pull.py）
 
 把禅道任务的状态/完成日期读回，回写到需求/任务文档：
     - 需求文档元信息行：状态 / 完成日期

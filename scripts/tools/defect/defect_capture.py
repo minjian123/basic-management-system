@@ -156,7 +156,7 @@ def write_repro(args, fp: str, dump_path: Path) -> Path:
         f"- 流水线：{args.pipeline_url or '本地运行'}\n\n"
         f"## 复现步骤\n\n"
         f"1. `git checkout {args.commit}`\n"
-        f"2. 导入 dump（`scripts/defect/reproduce.py --dump {dump_path}` 或手动恢复）\n"
+        f"2. 导入 dump（`scripts/tools/defect/reproduce.py --dump {dump_path}` 或手动恢复）\n"
         f"3. 执行：{args.test_command or '按测试文件对应用例执行'}\n\n"
         f"## 修复指引（AI 代理）\n\n"
         f"- 先读 repro.json 与 stacktrace.txt，定位失败断言与堆栈位置\n"
@@ -209,7 +209,7 @@ def find_open_issue(project_id: str, fp: str) -> dict | None:
 
 
 def main() -> int:
-    env = load_env(Path(__file__).resolve().parents[2] / "deploy" / ".env")
+    env = load_env(Path(__file__).resolve().parents[3] / "deploy" / ".env")
     parser = argparse.ArgumentParser(description="缺陷现场自动归档与上报")
     parser.add_argument("--engine", required=True, choices=["mysql", "postgres", "dm8"])
     parser.add_argument("--db-name", required=True, help="测试库名（mysql 为库，dm8 为模式名）")

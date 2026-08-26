@@ -116,7 +116,7 @@ runner 容器已启动并注册（2026-08-10，runner `bacf4fd652a2`，concurren
 | 重启 | `docker restart bms-gitlab`（reconfigure 会重新执行） |
 | 内部服务状态 | `docker exec bms-gitlab gitlab-ctl status` |
 | 配置修改 | 编辑 `/mnt/ssd2t/gitlab/config/gitlab.rb`（root 权限）→ `docker restart bms-gitlab` |
-| 流水线盯守 | AI 助手用 `gl_watch_pipeline` 插件工具；命令行 `python scripts/gitlab/watch_pipeline.py --pipeline-id <ID>`（凭据读 deploy/.env 的 GITLAB_API_*，配合 bg 链路后台盯守，详见《通用后台执行器部署使用说明》） |
+| 流水线盯守 | AI 助手用 `gl_watch_pipeline` 插件工具；命令行 `python scripts/tools/gitlab/watch_pipeline.py --pipeline-id <ID>`（凭据读 deploy/.env 的 GITLAB_API_*，配合 bg 链路后台盯守，详见《通用后台执行器部署使用说明》） |
 | 备份（每日 cron 2 点） | `docker exec bms-gitlab gitlab-backup create`，备份落 `/mnt/ssd2t/gitlab/data/backups/`，同步至 `/mnt/data/backup/gitlab/` |
 
 ## 8. 排障记录 <a id="trouble"></a>

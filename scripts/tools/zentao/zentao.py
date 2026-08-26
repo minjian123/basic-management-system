@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""禅道 API 命令行工具（BMS 项目 · scripts/zentao/zentao.py）
+"""禅道 API 命令行工具（BMS 项目 · scripts/tools/zentao/zentao.py）
 
 用法（凭据默认读 deploy/.env 的 ZENTAO_API_*，可 --account/--password/--url 覆盖）：
     python zentao.py token

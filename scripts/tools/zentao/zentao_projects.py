@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""禅道项目 API 操作（scripts/zentao/zentao_projects.py）
+"""禅道项目 API 操作（scripts/tools/zentao/zentao_projects.py）
 
 项目类型 model：scrum（迭代式，默认）/ kanban / waterfall / waterfallplus。
 创建必填：name、begin、end、products（关联产品 ID 数组，如 [1]）。

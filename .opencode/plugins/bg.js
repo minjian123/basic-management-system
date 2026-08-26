@@ -19,13 +19,13 @@ const execFileP = promisify(execFile);
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 function script(name) {
-  // python 脚本在 scripts/bg/（插件文件位于 .opencode/plugins/，向上两级到项目根）
-  return join(__dirname, "..", "..", "scripts", "bg", name);
+  // python 脚本在 scripts/tools/bg/（插件文件位于 .opencode/plugins/，向上两级到项目根）
+  return join(__dirname, "..", "..", "scripts", "tools", "bg", name);
 }
 
 function gitlabScript(name) {
-  // GitLab 流水线盯守脚本在 scripts/gitlab/
-  return join(__dirname, "..", "..", "scripts", "gitlab", name);
+  // GitLab 流水线盯守脚本在 scripts/tools/gitlab/
+  return join(__dirname, "..", "..", "scripts", "tools", "gitlab", name);
 }
 
 async function runPy(name, args) {

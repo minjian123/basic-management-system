@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""禅道任务 API 操作（scripts/zentao/zentao_tasks.py）
+"""禅道任务 API 操作（scripts/tools/zentao/zentao_tasks.py）
 
 查询（22.5 实测）：
     - 服务端过滤用 search_server()：GET /tasks?search=1，支持

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""文档 → 禅道 同步（scripts/zentao/zentao_sync_push.py）
+"""文档 → 禅道 同步（scripts/tools/zentao/zentao_sync_push.py）
 
 把 文档/项目/{stage}/ 的需求/任务/计划 同步到禅道产品（story）+ 迭代（任务）：
     0. 按域总览（任务/0X_域.md）建/复用父任务，回填父任务 id（域总览「禅道任务」行 + 子任务「父任务」引用）
