@@ -222,9 +222,6 @@ __marimo__/
 reasonix.toml
 
 
-# graphify 运行产物（图谱可随时重建，含本机绝对路径，不入库）
-graphify-out/
-
 # 本地资源（含本机路径等私有信息，不上传）
 文档/用户文档/本地资源.md
 
