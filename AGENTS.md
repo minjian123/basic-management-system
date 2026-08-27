@@ -71,13 +71,6 @@
 - 修改代码后运行 `graphify update .` 保持图谱最新（纯 AST，无 API 开销）；随后运行 `python scripts/tools/graphify/localize-graph.py` 收尾（汉化 graph.html + 生成中文架构图 CALLFLOW.html）。
 - graphify 安装、排除规则、重建取舍、社区命名等细节见 `文档/资料/AI/graphify部署使用说明.md`，不在此展开。
 
-## 本地多模态（MCP）
-
-**使用前提：仅当当前模型不支持多模态（看不了图）时**，才用本地多模态 MCP 做识图/截图；当前模型本身支持多模态则不用考虑它，多此一举。
-
-满足前提时，让 AI 助手使用本机多模态模型的通用能力（LM Studio qwen3.8-27b，OpenAI 兼容 127.0.0.1:1234）。方案与配置细节见 `文档/资料/AI/本地多模态接入方案.md`（需要时再读）。组成：
-
-- **MCP server**（`scripts/tools/multimodal/mcp_server.py`，opencode.json 的 `mcp` 段登记）：`multimodal_chat`（文本+图片+文档通用对话，看图/看文档）、`screenshot`（HTML/URL 无头截图）。
 
 ## 后台任务执行（BG，强制执行）
 
