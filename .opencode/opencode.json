@@ -19,6 +19,9 @@
             "context": 262144,
             "output": 262144
           },
+          "options": {
+            "reasoningEffort": "medium"
+          },
           "tool_call": true,
           "reasoning": true,
           "attachment": true,
@@ -47,6 +50,9 @@
           "limit": {
             "context": 262144,
             "output": 262144
+          },
+          "options": {
+            "reasoningEffort": "medium"
           },
           "tool_call": true,
           "reasoning": true,
