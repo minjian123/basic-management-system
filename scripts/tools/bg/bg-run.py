@@ -16,7 +16,7 @@ import threading
 import time
 from pathlib import Path
 
-BASE_DEFAULT = Path(os.environ["USERPROFILE"]) / ".bg"
+BASE_DEFAULT = Path(os.environ.get("USERPROFILE") or os.environ.get("HOME", "/tmp")) / ".bg"
 
 
 def main() -> int:
@@ -42,9 +42,10 @@ def main() -> int:
 
     stdout = open(out_file, "w", encoding="utf-8")
     stderr = open(err_file, "w", encoding="utf-8")
-    creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+    creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0) if sys.platform.startswith("win") else 0
+    shell_cmd = ["pwsh", "-NoProfile", "-Command", args.command] if sys.platform.startswith("win") else ["bash", "-c", args.command]
     proc = subprocess.Popen(
-        ["pwsh", "-NoProfile", "-Command", args.command],
+        shell_cmd,
         cwd=args.workdir,
         stdout=stdout,
         stderr=stderr,

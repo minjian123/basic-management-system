@@ -11,18 +11,25 @@ import sys
 import time
 from pathlib import Path
 
-BASE_DEFAULT = Path(os.environ["USERPROFILE"]) / ".bg"
+BASE_DEFAULT = Path(os.environ.get("USERPROFILE") or os.environ.get("HOME", "/tmp")) / ".bg"
 
 PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
 
 
 def is_alive(pid: int) -> bool:
-    """Windows 进程存活探测（OpenProcess，进程不存在返回 False）。"""
-    handle = ctypes.windll.kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
-    if handle:
-        ctypes.windll.kernel32.CloseHandle(handle)
+    if sys.platform.startswith("win"):
+        # Windows：OpenProcess 探测，进程不存在返回 False
+        handle = ctypes.windll.kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+        if handle:
+            ctypes.windll.kernel32.CloseHandle(handle)
+            return True
+        return False
+    # Linux/macOS：信号 0 仅做存活探测，不实际发送信号
+    try:
+        os.kill(pid, 0)
         return True
-    return False
+    except OSError:
+        return False
 
 
 def main() -> int:
