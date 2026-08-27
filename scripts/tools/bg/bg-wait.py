@@ -13,7 +13,7 @@ import sys
 import time
 from pathlib import Path
 
-BASE_DEFAULT = Path(os.environ["USERPROFILE"]) / ".bg"
+BASE_DEFAULT = Path(os.environ.get("USERPROFILE") or os.environ.get("HOME", "/tmp")) / ".bg"
 
 
 def safe_name(name: str) -> str:
@@ -45,11 +45,19 @@ def main() -> int:
     deadline = time.time() + args.timeout
     while True:
         # 终态判定：状态文件进程已退出（bg-status 同口径：pid 不存活即结束）
-        import ctypes
-        handle = ctypes.windll.kernel32.OpenProcess(0x1000, False, state["pid"])
-        alive = bool(handle)
-        if handle:
-            ctypes.windll.kernel32.CloseHandle(handle)
+        if sys.platform.startswith("win"):
+            import ctypes
+            handle = ctypes.windll.kernel32.OpenProcess(0x1000, False, state["pid"])
+            alive = bool(handle)
+            if handle:
+                ctypes.windll.kernel32.CloseHandle(handle)
+        else:
+            # Linux/macOS：信号 0 仅做存活探测
+            try:
+                os.kill(state["pid"], 0)
+                alive = True
+            except OSError:
+                alive = False
         if not alive:
             break
         if time.time() >= deadline:

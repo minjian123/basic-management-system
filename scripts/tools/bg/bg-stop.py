@@ -10,7 +10,7 @@ import signal
 import sys
 from pathlib import Path
 
-BASE_DEFAULT = Path(os.environ["USERPROFILE"]) / ".bg"
+BASE_DEFAULT = Path(os.environ.get("USERPROFILE") or os.environ.get("HOME", "/tmp")) / ".bg"
 
 
 def main() -> int:
