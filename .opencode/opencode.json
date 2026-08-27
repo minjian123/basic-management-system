@@ -1,9 +1,8 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "plugin": [
-    "plugins/graphify.js",
-    "plugins/bg.js"
   ],
+  "model": "llamacpp//home/minjian/下载/Qwen3.8-27B-UD-Q4_K_M.gguf",
   "provider": {
     "lmstudio": {
       "npm": "@ai-sdk/openai-compatible",
@@ -17,8 +16,37 @@
           "id": "qwen/qwen3.8-27b",
           "name": "qwen3.8-27b 本地多模态",
           "limit": {
-            "context": 131072,
-            "output": 131072
+            "context": 262144,
+            "output": 262144
+          },
+          "tool_call": true,
+          "reasoning": true,
+          "attachment": true,
+          "modalities": {
+            "input": [
+              "text",
+              "image"
+            ],
+            "output": [
+              "text"
+            ]
+          }
+        }
+      }
+    },
+    "llamacpp": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "本地（llama.cpp）",
+      "options": {
+        "baseURL": "http://127.0.0.1:1234/v1",
+        "apiKey": "local"
+      },
+      "models": {
+        "/home/minjian/下载/Qwen3.8-27B-UD-Q4_K_M.gguf": {
+          "name": "qwen3.8-27b llama.cpp",
+          "limit": {
+            "context": 262144,
+            "output": 262144
           },
           "tool_call": true,
           "reasoning": true,
