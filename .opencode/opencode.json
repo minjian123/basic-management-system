@@ -24,25 +24,16 @@
           "reasoning": true,
           "attachment": true,
           "modalities": {
-            "input": ["text", "image"],
-            "output": ["text"]
+            "input": [
+              "text",
+              "image"
+            ],
+            "output": [
+              "text"
+            ]
           }
         }
       }
-    }
-  },
-  "mcp": {
-    "multimodal-local": {
-      "type": "local",
-      "command": [
-        "uv",
-        "run",
-        "--project",
-        "D:/Develop/bms/scripts/tools/multimodal",
-        "python",
-        "D:/Develop/bms/scripts/tools/multimodal/mcp_server.py"
-      ],
-      "enabled": true
     }
   }
 }
