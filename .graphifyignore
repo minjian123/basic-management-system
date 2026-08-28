@@ -1,6 +1,7 @@
 # graphify 抽取排除规则：第三方静态资源库（压缩 JS/CSS 等），
 # 避免图谱被英文函数名节点刷屏；项目自产文档与代码不受影响。
 文档/资源/
+文档/设计/原型设计/共享资源
 # graphify 工具自带的英文 skill 文档（SKILL.md/references），非本项目内容
 .opencode/skills/graphify/
 # 去掉多余的node_modeles
