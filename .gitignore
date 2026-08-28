@@ -233,3 +233,5 @@ node_modules/
 
 # graphify 运行时状态（query 每次更新的时间戳等，非图谱产物）
 graphify-out/cache/
+# graphify 日期备份快照（每次 update 自动备份当日图谱，运行时产物）
+graphify-out/[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]/
