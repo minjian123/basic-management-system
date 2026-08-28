@@ -230,3 +230,6 @@ temp/
 
 # Node 依赖（根目录不装依赖；前端依赖在各前端项目自己的目录内）
 node_modules/
+
+# graphify 运行时状态（query 每次更新的时间戳等，非图谱产物）
+graphify-out/cache/

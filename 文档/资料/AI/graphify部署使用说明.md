@@ -1,6 +1,6 @@
 # graphify 部署与使用说明
 
-> Windows 环境 · 基于 graphify 0.9.42
+> Linux 环境 · 基于 graphify 0.9.51（2026-08-28 由 Windows + PowerShell 7 迁移而来）
 
 [文档首页](../../文档首页.md) › 资料 › graphify 部署与使用说明
 
@@ -21,14 +21,14 @@ graphify 是一个开源命令行工具（Python 包名 `graphifyy`），能把�
 
 ## 2. 环境要求 <a id="prereq"></a>
 
-本机（Windows + PowerShell 7）已验证的环境：
+本机（Linux）已验证的环境（2026-08-28 由 Windows + PowerShell 7 迁移而来）：
 
 | 组件 | 要求 | 本机版本 |
 | --- | --- | --- |
 | Python | ≥ 3.10 | 3.14.4 |
-| uv | 推荐（工具安装/隔离环境） | 0.11.7 |
-| git | 克隆 GitHub 仓库时使用 | 2.54.0 |
-| graphify | uv 安装（含 extras） | 0.9.42 |
+| uv | 推荐（工具安装/隔离环境） | 0.12.7 |
+| git | 克隆 GitHub 仓库时使用 | 2.53.0 |
+| graphify | uv 安装（含 extras） | 0.9.51 |
 
 > graphify 本身**不需要任何 API Key**。只有对文档/论文/图片做语义抽取时才需要 LLM（Gemini Key 或 AI 助手会话），纯代码目录完全免费离线运行。
 
@@ -36,18 +36,28 @@ graphify 是一个开源命令行工具（Python 包名 `graphifyy`），能把�
 
 ### 3.1 安装 graphify（含 extras 注意） <a id="install-uv"></a>
 
-```bash
-# uv 安装（推荐，本机采用此方式）
-uv tool install "graphifyy[chinese,openai]" --force
+**先装 uv**（graphify 依赖它做隔离安装；uv 未预装时）：
 
-# pip 安装
-python -m pip install graphifyy
+```bash
+# Linux（系统 Python 受 PEP 668 保护，用 --user --break-system-packages 装到 ~/.local/bin）
+python3 -m pip install --user --break-system-packages uv -i https://pypi.tuna.tsinghua.edu.cn/simple
+export PATH="$HOME/.local/bin:$PATH"   # 确保 uv 进入 PATH
+
+# Windows（PowerShell，官方脚本）
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+```
+
+**再装 graphify（含 extras，走清华源）**：
+
+```bash
+# uv 安装（推荐，本机采用此方式；--force 用于加装/升级 extras 时覆盖）
+UV_DEFAULT_INDEX=https://pypi.tuna.tsinghua.edu.cn/simple uv tool install "graphifyy[chinese,openai]" --force
 
 # 验证安装
 graphify --version
 ```
 
-uv 方式安装后，graphify 被隔离在 `C:\Users\minji\AppData\Roaming\uv\tools\graphifyy\`，全局可调用 `graphify` 命令。
+uv 方式安装后，graphify 被隔离在 `~/.local/share/uv/tools/graphifyy/`（Windows 为 `C:\Users\<用户名>\AppData\Roaming\uv\tools\graphifyy\`），全局可调用 `graphify` 命令。
 
 > **extras 互顶坑**：graphify 按功能拆分可选依赖（`[chinese]` jieba 分词、`[openai]` OpenAI 兼容客户端、`[gemini]`、`[pdf]` 等）。`uv tool install "graphifyy[chinese]"` 会把之前安装的其他 extras 顶掉——例如只装 `[chinese]` 后，语义抽取会报 `the 'openai' package is required`。**升级/加装 extras 时必须一次列出全部需要的**，并加 `--force` 覆盖。
 
@@ -60,6 +70,8 @@ uv tool install "graphifyy[chinese,openai]" --force
 ```
 
 验证：`graphify query "视觉识图用什么实现的"`，首次运行会构建 jieba 词典缓存（约 0.3 秒），之后即用。
+
+> 安装/升级类命令建议加 `UV_DEFAULT_INDEX=https://pypi.tuna.tsinghua.edu.cn/simple` 前缀走国内源（见 3.1 节）。
 
 ### 3.3 （可选）配置 Gemini 语义抽取 <a id="install-gemini"></a>
 
@@ -82,7 +94,7 @@ graphify install cursor     # 写入 .cursor/rules/graphify.mdc
 graphify uninstall opencode # 卸载（--purge 可同时删除 graphify-out/）
 ```
 
-> 本项目已通过 opencode 集成，skill 位于 `C:\Users\minji\.config\opencode\skills\graphify\`，项目内由 `.opencode/` 插件支撑。
+> 本项目已通过 opencode 集成，skill 位于 `~/.config/opencode/skills/graphify/`（Windows 为 `C:\Users\<用户名>\.config\opencode\skills\graphify\`），项目内由 `.opencode/` 插件支撑。
 
 ## 4. 首次构建图谱 <a id="first-run"></a>
 
@@ -216,6 +228,28 @@ python scripts/tools/graphify/localize-graph.py   # 汉化 graph.html + 生成 C
 | update 后节点变少、拒绝覆盖？ | graphify 有防缩保护（#479）。确实删了代码请加 `--force`。 |
 | 报告提示 Graph Health Warning？ | 存在悬空/折叠边，图可能不完整但可用；用 `graphify diagnose multigraph` 排查。 |
 | 目录太大跑不动？ | 按子目录分次构建，或加 `--no-cluster` 跳过昂贵的聚类步骤。 |
+| 从 Windows 迁移到 Linux 后 `graphify` 命令找不到？ | graphify 靠 uv 安装、不随仓库迁移，需在 Linux 上重装 uv + graphify（3.1 节）；图谱产物 `graphify-out/` 已入库不受影响。装好后把 `graphify-out/.graphify_python` 改为 Linux 解释器路径（`~/.local/share/uv/tools/graphifyy/bin/python`），否则 skill 调用 Python 会失败。 |
 | 如何彻底卸载？ | `uv tool uninstall graphifyy`；连同图谱一并删除用 `graphify uninstall --purge`。 |
 
-> 本文档基于 graphify 0.9.42（Windows / PowerShell 7 环境）编写。项目：[github.com/safishamsi/graphify](https://github.com/safishamsi/graphify) · 生成日期：2026-08-14
+## 10. 替代方案评估 <a id="alternatives"></a>
+
+> 结论（2026-08-28 调研）：维持 graphify 不变；唯一值得留意的备选是 LightRAG（文档语义问答场景）。以下为选型备忘，不作为迁移计划。
+
+graphify 的独特价值在于**同时**做了两件事：代码 AST 抽取（tree-sitter，免费离线）+ 文档语义抽取（LLM）。主流 GraphRAG 工具几乎只做「文档 → 知识图谱」的 LLM 语义抽取，**不解析代码**，因此没有一键平替。
+
+| 工具 | 定位 | 解析代码? | 离线免费? | 与 graphify 的差距 |
+| --- | --- | --- | --- | --- |
+| graphify（现用） | 代码+文档→KG | ✅ AST | ✅ | — |
+| Microsoft GraphRAG | 文档 GraphRAG | ❌ | 需 LLM | 社区检测+报告最接近 graphify，但文档专用、构建成本高 |
+| LightRAG | 文档 GraphRAG | ❌ | 可本地 Ollama | 查询 token 成本极低（约 GraphRAG 1/6000）、支持增量更新，最贴合轻量本地诉求 |
+| Cognee / Graphiti | agent 记忆 | ❌ | 可本地 | 定位是 agent 记忆，非代码/文档知识库 |
+| Neo4j GraphRAG | 图库+抽取 | ❌ | 服务化 | 生态最成熟，但要搭服务 + 自己拼抽取 |
+| KuzuDB | 嵌入式图数据库 | ❌ | — | 只替换「存储+查询」层，无抽取能力，且已被 Apple 收购、开源维护停止 |
+
+**结论**：
+
+- 代码 AST 图谱 + 中文 callflow 架构图是 graphify 独一份，无对等开源替代。
+- 若未来只想对 `文档/` 规划做语义问答（不要代码图谱），再评估 LightRAG 本地版（HKUDS/LightRAG，MIT，可 Ollama 离线）。
+- GraphRAG / Neo4j / KuzuDB 均与「轻量本地、离线免费」诉求相悖，不建议折腾。
+
+> 本文档基于 graphify 0.9.51（Linux 环境）编写。项目：[github.com/safishamsi/graphify](https://github.com/safishamsi/graphify) · 生成日期：2026-08-14 · 修订：2026-08-28（Windows 迁移 Linux + 替代方案评估）
