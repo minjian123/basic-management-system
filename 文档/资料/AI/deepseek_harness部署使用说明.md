@@ -146,6 +146,41 @@ flowchart LR
           - id: vision-preview
   ```
 
+### 5.3 接入本地 llama.cpp 服务（本机） <a id="config-llamacpp"></a>
+
+本地模型走自定义 provider `llamacpp`，接本机的 `llama-server`（`127.0.0.1:8080`，服务部署见《[llamacpp部署使用说明](llamacpp部署使用说明.md)》），模型为 Qwen3.8-27B（Q4_K_M）：
+
+> **坑**：pi-ai 的 OpenAI 兼容实现对**无鉴权的本地服务也要求 API key 或 `Authorization` 头**（dsh 已知限制），不配凭据则发消息报 `No API key for provider: llamacpp`。解法：配一个**占位 key** 即可——llama.cpp 不校验它，任意非空值可用。
+
+本机实际配置：
+
+```yaml
+# ~/.dsh/settings.yaml
+llm-pi-ai:
+  providers:
+    llamacpp:
+      displayName: 本地（llama.cpp）
+      api: openai-completions
+      baseURL: http://127.0.0.1:8080/v1
+      apiKeyEnv: LLAMACPP_API_KEY   # 占位 key 的凭据引用
+      models:
+        - id: /home/minjian/ai/models/Qwen3.8-27B-UD-Q4_K_M.gguf   # llama-server 上报的 id 即模型路径
+          name: Qwen3.8-27B-UD-Q4_K_M
+          contextWindow: 256000
+          maxTokens: 32000
+```
+
+```yaml
+# ~/.dsh/.credentials.yaml 的 refs 段
+refs:
+  LLAMACPP_API_KEY: no-key-needed   # 占位值，llama.cpp 不校验
+```
+
+使用注意：
+
+- `settings.yaml` 与 `.credentials.yaml` 改动均**下一次请求即生效**，无需重启。
+- `agent-default-model` 默认是 `deepseek-official`（DeepSeek API）；要用本地模型，在 Web UI 的模型选择器里**手动选择**本地模型。
+
 ## 6. 桌面快捷方式（本机定制） <a id="desktop"></a>
 
 为免每次敲命令，配了桌面一键启停（图标 `~/.local/share/icons/dsh-web.svg`）：
@@ -186,6 +221,7 @@ git pull && pnpm install && pnpm run build   # 升级并重建
 | SSH 启动没自动开浏览器？ | 预期行为：检测到 `SSH_CONNECTION`/`SSH_TTY` 就只打印宿主机 URL，靠 SSH 端口转发访问。 |
 | `dsh web` 报错找不到产物？ | 先 `pnpm run build` 准备产物（生产 runner 依赖构建产物）。 |
 | 换模型后没生效？ | 改配置后**下一次请求**即生效，无需重启；若仍不行查 `~/.dsh/settings.yaml` 与 `.credentials.yaml` 引用是否一致。 |
+| 发消息报 `No API key for provider: llamacpp`（或某自定义 provider）？ | pi-ai 的 OpenAI 兼容实现对无鉴权本地服务也要求凭据；给路由加 `apiKeyEnv` 指向占位 key（见 5.3）。 |
 | 视觉模型附图被拒？ | 自定义 provider 手填模型默认纯文本，需按 5.2 加 `input: [text, image]` 或 `defaultInput`。 |
 | 依赖安装慢 / 超时？ | pnpm 配 npmmirror 源；nvm 下 Node 用 `NVM_NODEJS_ORG_MIRROR=https://npmmirror.com/mirrors/node`。 |
 | 想彻底停止后台 dsh web？ | 桌面「停止 dsh web」，或 `ss -lptnH | awk '$4 ~ /:3080$/'` 找 PID 后 `kill`。 |
@@ -193,4 +229,4 @@ git pull && pnpm install && pnpm run build   # 升级并重建
 ---
 
 > 本文档基于 deepseek-harness `dsh-v0.1.2-alpha.1`（commit `cd5ef81481`，Node 24 / pnpm 11.7.0 源码运行）编写。
-> 项目：[github.com/deepseek-ai/deepseek-harness](https://github.com/deepseek-ai/deepseek-harness) · 文档：[deepseek-harness.github.io](https://deepseek-harness.github.io/deepseek-harness/) · 生成日期：2026-08-28
+> 项目：[github.com/deepseek-ai/deepseek-harness](https://github.com/deepseek-ai/deepseek-harness) · 文档：[deepseek-harness.github.io](https://deepseek-harness.github.io/deepseek-harness/) · 生成日期：2026-08-28 · 修订：2026-08-28（新增 5.3 接入本地 llama.cpp 服务与 No API key 排障条目）

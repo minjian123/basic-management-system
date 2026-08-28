@@ -7,8 +7,9 @@
 ## 1. 概述 <a id="intro"></a>
 
 llama.cpp 是 C/C++ 实现的本地大模型推理引擎，自带 `llama-server`——一个 **OpenAI 兼容** 的 HTTP 服务。
-本项目用它在本机跑 **Qwen3.8-27B**（含多模态视觉投影），作为 [opencode](https://opencode.ai) 的本地模型后端，
-全程离线、免费、无 API Key。
+本项目用它在本机跑 **Qwen3.8-27B**（含多模态视觉投影），作为 [opencode](https://opencode.ai) 与
+dsh（DeepSeek Harness，见《[deepseek_harness部署使用说明](deepseek_harness部署使用说明.md)》）的本地模型后端，
+全程离线、免费、无 API Key（dsh 侧需配一个占位 key，见 5.4 节）。
 
 与 LM Studio 的关系：opencode 的 `llamacpp` 提供商接的是 llama.cpp 的 `llama-server`（端口 **8080**），
 与 `lmstudio` 提供商（端口 1234，当前未运行）互不相干。本文只讲 llama.cpp 这一条链路。
@@ -151,11 +152,13 @@ journalctl --user -u qwen.service -f          # 跟踪日志
 flowchart LR
   subgraph mjpc ["mjpc 开发机"]
     OE ["opencode<br/>llamacpp provider"]
+    DSH ["dsh web :3080<br/>llamacpp provider"]
     LS ["llama-server :8080<br/>OpenAI 兼容"]
     M ["Qwen3.8-27B Q4_K_M 16G<br/>+ mmproj f16"]
     SD ["systemd qwen.service"]
   end
   OE -->|"HTTP /v1/chat/completions"| LS
+  DSH -->|"HTTP /v1/chat/completions"| LS
   SD -->|"托管启停 / 失败自恢复"| LS
   LS -->|"CUDA sm_89 全层上卡"| M
 ```
@@ -214,6 +217,11 @@ curl -s http://127.0.0.1:8080/v1/chat/completions \
 > 同文件里还有一个 `lmstudio` 提供商（`baseURL` 指向 `127.0.0.1:1234`），当前未运行；本地推理走的是 `llamacpp`（8080）。
 > 模型路径变动时，`model`、`models` 键名两处须同步（本仓库内，见第 6.2 节迁移记录）。
 
+### 5.4 接入 dsh（DeepSeek Harness） <a id="daily-dsh"></a>
+
+dsh 同样以自定义 provider `llamacpp` 接本服务（同一 `127.0.0.1:8080`）：`baseURL` 为 `http://127.0.0.1:8080/v1`，model id 即模型 GGUF 全路径（与 5.2 示例的 `model` 字段一致）。
+注意 dsh 的 pi-ai 适配器要求该 provider **必须配置一个（占位）API key**，否则报 `No API key for provider: llamacpp`；llama.cpp 不校验该 key，占位值即可。完整配置见《deepseek_harness部署使用说明》5.3 节。
+
 ## 6. 维护与排障 <a id="maintain"></a>
 
 ### 6.1 模型迁移（下载 → ai/models） <a id="maintain-move"></a>
@@ -229,6 +237,7 @@ curl -s http://127.0.0.1:8080/v1/chat/completions \
 | `qwen.service` / 模型路径 / 参数 | `systemctl --user daemon-reload && systemctl --user restart qwen.service`（约 1 分钟重载） |
 | `qwen-start.sh` / `qwen-stop.sh` | 下次调用脚本即生效（systemd 路径下以 service 为准） |
 | `.opencode/opencode.json` | 重启 opencode（配置启动时读取） |
+| `~/.dsh/settings.yaml` / `~/.dsh/.credentials.yaml`（dsh 接入，5.4 节） | dsh **下一次请求**即生效，无需重启 dsh 或本服务 |
 
 ### 6.3 调参建议 <a id="maintain-tune"></a>
 
@@ -251,4 +260,4 @@ curl -s http://127.0.0.1:8080/v1/chat/completions \
 ---
 
 > 本文档基于 llama.cpp 0.3.0-dev（commit `cb30059`，CUDA sm_89 / RTX 4090 环境）编写。
-> 项目：[github.com/ggml-org/llama.cpp](https://github.com/ggml-org/llama.cpp) · 生成日期：2026-08-28
+> 项目：[github.com/ggml-org/llama.cpp](https://github.com/ggml-org/llama.cpp) · 生成日期：2026-08-28 · 修订：2026-08-28（补充 dsh 接入说明与交叉引用）
