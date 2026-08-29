@@ -60,7 +60,7 @@ hr { border: none; border-top: 1px solid var(--border); margin: 40px 0; }
 <div class="container">
 
 <h1>bms — 完整调用流程与架构文档</h1>
-<p class="subtitle">由 graphify 知识图谱生成：3138 个节点、4483 条边、290 个社区。Commit: ff977b6</p>
+<p class="subtitle">由 graphify 知识图谱生成：3195 个节点、4565 条边、293 个社区。Commit: d5c2e38</p>
 
 <div class="nav">
     <a href="#overview">架构总览</a>
@@ -74,10 +74,10 @@ hr { border: none; border-top: 1px solid var(--border); margin: 40px 0; }
     <a href="#tests-fixtures">测试与样例</a>
     <a href="#01-md">01_架构设计_总览.md</a>
     <a href="#section-11">总体项目规划</a>
-    <a href="#12-md">12_架构设计_子系统_事件总线.md</a>
-    <a href="#section-13">开发部署规划</a>
-    <a href="#section-14">概要设计 · 任务调度</a>
-    <a href="#section-15">概要设计 · 邮件通知</a>
+    <a href="#section-12">开发部署规划</a>
+    <a href="#section-13">概要设计 · 任务调度</a>
+    <a href="#section-14">概要设计 · 邮件通知</a>
+    <a href="#section-15">概要设计 · 租户管理</a>
     <a href="#other">其他</a>
 </div>
 
@@ -88,13 +88,13 @@ hr { border: none; border-top: 1px solid var(--border); margin: 40px 0; }
 
 %%{init: {"theme": "dark", "themeVariables": {"fontSize": "15.0px", "fontFamily": "Segoe UI, system-ui, sans-serif", "primaryColor": "#1e293b", "primaryTextColor": "#e2e8f0", "primaryBorderColor": "#38bdf8", "secondaryColor": "#0f172a", "tertiaryColor": "#334155", "lineColor": "#64748b", "textColor": "#e2e8f0"}, "flowchart": {"htmlLabels": true, "curve": "basis", "nodeSpacing": 48, "rankSpacing": 64, "padding": 14, "diagramPadding": 10, "useMaxWidth": true}}}%%
 flowchart LR
-    EXTRACT_PIPELINE_5F350230("提取管线<br/><small>175 nodes</small>")
+    EXTRACT_PIPELINE_5F350230("提取管线<br/><small>58 nodes</small>")
     class EXTRACT_PIPELINE_5F350230 module;
     BUILD_GRAPH_321CBB04("图谱构建<br/><small>36 nodes</small>")
     class BUILD_GRAPH_321CBB04 module;
     OUTPUTS_DOCS_ED82387C("输出文档<br/><small>71 nodes</small>")
     class OUTPUTS_DOCS_ED82387C module;
-    CLI_SKILLS_9964CBB8("CLI 与技能安装<br/><small>227 nodes</small>")
+    CLI_SKILLS_9964CBB8("CLI 与技能安装<br/><small>383 nodes</small>")
     class CLI_SKILLS_9964CBB8 module;
     INGEST_CACHE_UPDATE_FF457338("摄取与增量更新<br/><small>27 nodes</small>")
     class INGEST_CACHE_UPDATE_FF457338 module;
@@ -104,32 +104,32 @@ flowchart LR
     class SECURITY_GLOBAL_5B9C6A04 module;
     TESTS_FIXTURES_B84B1DCC("测试与样例<br/><small>14 nodes</small>")
     class TESTS_FIXTURES_B84B1DCC module;
-    SECTION_01_MD_FCDD1D9F("01_架构设计_总览.md<br/><small>33 nodes</small>")
+    SECTION_01_MD_FCDD1D9F("01_架构设计_总览.md<br/><small>70 nodes</small>")
     class SECTION_01_MD_FCDD1D9F module;
     SECTION_11_0CE7504A("总体项目规划<br/><small>29 nodes</small>")
     class SECTION_11_0CE7504A module;
-    SECTION_12_MD_0B87A1B9("12_架构设计_子系统_事件总线.md<br/><small>29 nodes</small>")
-    class SECTION_12_MD_0B87A1B9 module;
-    SECTION_13_F7143222("开发部署规划<br/><small>27 nodes</small>")
+    SECTION_12_1A2DEDF4("开发部署规划<br/><small>27 nodes</small>")
+    class SECTION_12_1A2DEDF4 module;
+    SECTION_13_F7143222("概要设计 · 任务调度<br/><small>24 nodes</small>")
     class SECTION_13_F7143222 module;
-    SECTION_14_59FB35FD("概要设计 · 任务调度<br/><small>24 nodes</small>")
+    SECTION_14_59FB35FD("概要设计 · 邮件通知<br/><small>24 nodes</small>")
     class SECTION_14_59FB35FD module;
-    SECTION_15_F840E13C("概要设计 · 邮件通知<br/><small>24 nodes</small>")
+    SECTION_15_F840E13C("概要设计 · 租户管理<br/><small>24 nodes</small>")
     class SECTION_15_F840E13C module;
-    OTHER_D0941E68("其他<br/><small>1949 nodes</small>")
+    OTHER_D0941E68("其他<br/><small>1935 nodes</small>")
     class OTHER_D0941E68 module;
-    EXTRACT_PIPELINE_5F350230 -->|包含 x103| OTHER_D0941E68
-    OTHER_D0941E68 -->|references x52| EXTRACT_PIPELINE_5F350230
-    SECTION_01_MD_FCDD1D9F -->|references x48| SECTION_12_MD_0B87A1B9
-    EXTRACT_PIPELINE_5F350230 -->|references x39| SECTION_01_MD_FCDD1D9F
-    SECTION_12_MD_0B87A1B9 -->|包含 x38| OTHER_D0941E68
-    SECTION_01_MD_FCDD1D9F -->|references x35| EXTRACT_PIPELINE_5F350230
-    SECTION_12_MD_0B87A1B9 -->|references x29| EXTRACT_PIPELINE_5F350230
-    SECTION_01_MD_FCDD1D9F -->|包含 x27| OTHER_D0941E68
-    EXTRACT_PIPELINE_5F350230 -->|references x24| SECTION_12_MD_0B87A1B9
-    CLI_SKILLS_9964CBB8 -->|包含 x24| OTHER_D0941E68
-    SECTION_01_MD_FCDD1D9F -->|包含 x17| SERVE_API_35EC8E86
-    EXTRACT_PIPELINE_5F350230 -->|references x14| CLI_SKILLS_9964CBB8
+    CLI_SKILLS_9964CBB8 -->|包含 x122| OTHER_D0941E68
+    SECTION_01_MD_FCDD1D9F -->|references x72| CLI_SKILLS_9964CBB8
+    CLI_SKILLS_9964CBB8 -->|references x68| SECTION_01_MD_FCDD1D9F
+    SECTION_01_MD_FCDD1D9F -->|包含 x47| OTHER_D0941E68
+    OTHER_D0941E68 -->|references x44| CLI_SKILLS_9964CBB8
+    SECTION_01_MD_FCDD1D9F -->|包含 x19| SERVE_API_35EC8E86
+    SERVE_API_35EC8E86 -->|包含 x8| OTHER_D0941E68
+    CLI_SKILLS_9964CBB8 -->|包含 x5| SERVE_API_35EC8E86
+    CLI_SKILLS_9964CBB8 -->|包含 x5| EXTRACT_PIPELINE_5F350230
+    CLI_SKILLS_9964CBB8 -->|包含| SECTION_12_1A2DEDF4
+    CLI_SKILLS_9964CBB8 -->|包含| SECTION_11_0CE7504A
+    CLI_SKILLS_9964CBB8 -->|包含| OUTPUTS_DOCS_ED82387C
     classDef entry fill:#422006,stroke:#fbbf24,color:#fde68a,stroke-width:1px;
     classDef api fill:#450a0a,stroke:#f87171,color:#fee2e2,stroke-width:1px;
     classDef async fill:#2e1065,stroke:#a78bfa,color:#ede9fe,stroke-width:1px;
@@ -146,19 +146,19 @@ flowchart LR
     <h4>架构层次</h4>
     <table style="width:100%;font-size:0.85rem;">
       <tr><th>层</th><th>节点</th><th>社区</th></tr>
-      <tr><td>提取管线</td><td>175</td><td><code>0, 97, 181, 211, 212, 213, 76, 77</code></td></tr><tr><td>图谱构建</td><td>36</td><td><code>147, 43, 315, 96</code></td></tr><tr><td>输出文档</td><td>71</td><td><code>3, 30, 2</code></td></tr><tr><td>CLI 与技能安装</td><td>227</td><td><code>46, 118, 28, 82, 88, 123, 146, 122, 126, 271, 274, 47, 48</code></td></tr><tr><td>摄取与增量更新</td><td>27</td><td><code>104, 195, 87</code></td></tr><tr><td>服务 API</td><td>464</td><td><code>6, 33, 39, 40, 41, 42, 44, 49, 52, 53, 54, 63, 92, 95, 105, 106, 107, 108, 109, 110, 119, 132, 141, 189</code></td></tr><tr><td>安全与全局图</td><td>9</td><td><code>59</code></td></tr><tr><td>测试与样例</td><td>14</td><td><code>228, 245</code></td></tr><tr><td>01_架构设计_总览.md</td><td>33</td><td><code>1</code></td></tr><tr><td>总体项目规划</td><td>29</td><td><code>22</code></td></tr><tr><td>12_架构设计_子系统_事件总线.md</td><td>29</td><td><code>7</code></td></tr><tr><td>开发部署规划</td><td>27</td><td><code>8</code></td></tr><tr><td>概要设计 · 任务调度</td><td>24</td><td><code>72</code></td></tr><tr><td>概要设计 · 邮件通知</td><td>24</td><td><code>81</code></td></tr><tr><td>其他</td><td>1949</td><td><code>83, 85, 86, 91, 20, 111, 94, 36, 155, 100, 101, 102, 27, 29, 290, 34, 37, 103, 154, 161, 297, 112, 113, 114, 115, 116, 117, 120, 121, 157, 84, 124, 125, 127, 156, 164, 320, 45, 128, 129, 130, 131, 133, 134, 135, 136, 137, 138, 139, 140, 149, 55, 142, 144, 145, 168, 252, 255, 258, 4, 75, 150, 151, 152, 153, 240, 260, 263, 269, 278, 99, 14, 158, 159, 165, 166, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 182, 183, 184, 185, 186, 187, 188, 190, 191, 192, 193, 194, 196, 197, 198, 199, 200, 201, 202, 203, 204, 205, 206, 207, 208, 209, 210, 214, 215, 216, 217, 218, 219, 220, 221, 222, 223, 224, 225, 226, 227, 229, 230, 231, 232, 233, 234, 235, 236, 237, 238, 239, 241, 242, 244, 250, 251, 261, 262, 264, 277, 281, 283, 311, 35, 64, 66, 67, 9, 160, 246, 254, 257, 259, 266, 267, 279, 280, 265, 272, 273, 275, 276, 287, 314, 10, 163, 247, 248, 268, 270, 282, 284, 285, 286, 289, 291, 292, 293, 294, 295, 296, 298, 299, 300, 301, 302, 303, 304, 305, 306, 307, 308, 309, 310, 312, 316, 317, 318, 69, 98, 249, 313, 321, 322, 74, 78, 79, 80, 253, 89, 93, 143, 5, 58, 60, 61, 62</code></td></tr>
+      <tr><td>提取管线</td><td>58</td><td><code>97, 181, 211, 212, 213, 76, 77</code></td></tr><tr><td>图谱构建</td><td>36</td><td><code>147, 43, 315, 96</code></td></tr><tr><td>输出文档</td><td>71</td><td><code>3, 30, 2</code></td></tr><tr><td>CLI 与技能安装</td><td>383</td><td><code>0, 46, 28, 82, 88, 7, 123, 146, 12, 122, 126, 271, 274, 47, 48</code></td></tr><tr><td>摄取与增量更新</td><td>27</td><td><code>104, 195, 87</code></td></tr><tr><td>服务 API</td><td>464</td><td><code>6, 33, 39, 40, 41, 42, 44, 49, 52, 53, 54, 63, 92, 95, 105, 106, 107, 108, 109, 110, 119, 132, 141, 189</code></td></tr><tr><td>安全与全局图</td><td>9</td><td><code>59</code></td></tr><tr><td>测试与样例</td><td>14</td><td><code>228, 245</code></td></tr><tr><td>01_架构设计_总览.md</td><td>70</td><td><code>1</code></td></tr><tr><td>总体项目规划</td><td>29</td><td><code>22</code></td></tr><tr><td>开发部署规划</td><td>27</td><td><code>8</code></td></tr><tr><td>概要设计 · 任务调度</td><td>24</td><td><code>72</code></td></tr><tr><td>概要设计 · 邮件通知</td><td>24</td><td><code>81</code></td></tr><tr><td>概要设计 · 租户管理</td><td>24</td><td><code>83</code></td></tr><tr><td>其他</td><td>1935</td><td><code>85, 86, 91, 20, 9, 111, 94, 36, 155, 100, 101, 102, 27, 29, 34, 37, 103, 154, 297, 112, 113, 114, 115, 116, 117, 118, 120, 121, 157, 84, 124, 125, 156, 164, 45, 90, 128, 129, 13, 130, 131, 133, 134, 135, 136, 137, 138, 139, 140, 149, 55, 142, 144, 145, 161, 168, 252, 255, 258, 4, 150, 151, 152, 153, 260, 263, 269, 278, 75, 14, 15, 158, 16, 165, 169, 17, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 18, 180, 182, 183, 184, 185, 186, 187, 188, 19, 190, 191, 192, 193, 194, 196, 197, 198, 199, 200, 201, 202, 203, 204, 205, 206, 207, 208, 209, 21, 210, 214, 215, 216, 217, 218, 219, 220, 221, 222, 223, 224, 225, 226, 227, 229, 23, 230, 231, 232, 233, 234, 235, 236, 237, 238, 239, 24, 241, 261, 262, 264, 277, 283, 311, 320, 64, 66, 160, 246, 25, 254, 257, 259, 266, 267, 280, 290, 26, 265, 272, 273, 275, 276, 287, 10, 11, 163, 247, 248, 268, 270, 282, 284, 285, 286, 289, 291, 292, 293, 294, 296, 299, 300, 301, 303, 304, 305, 306, 307, 31, 310, 316, 32, 35, 38, 50, 51, 56, 57, 65, 67, 98, 249, 68, 69, 70, 71, 73, 74, 78, 79, 80, 253, 89, 93, 143, 5, 58, 60, 61, 62</code></td></tr>
     </table>
   </div>
   <div class="card">
     <h4>核心数据流</h4>
-    <div class="arrow-chain">安全与全局图 -&gt; 提取管线 -&gt; 其他 -&gt; 12_架构设计_子系统_事件总线.md -&gt; 01_架构设计_总览.md -&gt; 服务 API -&gt; 测试与样例</div>
+    <div class="arrow-chain">安全与全局图 -&gt; 提取管线 -&gt; 图谱构建 -&gt; 输出文档 -&gt; CLI 与技能安装 -&gt; 其他 -&gt; 摄取与增量更新</div>
   </div>
 </div>
 <div class="grid">
   <div class="card">
     <h4>图谱报告摘要</h4>
     <ul>
-      <li>3138 nodes · 4483 edges · 290 communities (278 shown, 12 thin omitted)</li>
+      <li>3195 nodes · 4565 edges · 293 communities (281 shown, 12 thin omitted)</li>
       <li>Extraction: 100% EXTRACTED · 0% INFERRED · 0% AMBIGUOUS · INFERRED: 8 edges (avg confidence: 0.82)</li>
       <li>Token cost: 0 input · 0 output</li>
       <li>1. `项目规划说明` - 27 edges</li>
@@ -170,12 +170,22 @@ flowchart LR
 <hr>
 <!-- ====== 2. 提取管线 ====== -->
 <h2 id="extract-pipeline">2. 提取管线</h2>
-<p>提取管线 汇集了与 知识档案、后端核心、python、命名规范md 相关的实现，主要分布在 文档/规范/命名规范.md、知识档案/前端/TypeScript技术介绍.md、知识档案/后端核心/python-multipart技术介绍.md。本节覆盖 175 个节点、833 条内部边，图中只展示最有代表性的调用关系以保持可读性。</p>
+<p>提取管线 汇集了与 知识档案、后端核心、python、命名规范md 相关的实现，主要分布在 文档/规范/命名规范.md、知识档案/前端/TypeScript技术介绍.md、知识档案/后端核心/python-multipart技术介绍.md。本节覆盖 58 个节点、52 条内部边，图中只展示最有代表性的调用关系以保持可读性。</p>
 
 <div class="mermaid">
 %%{init: {"theme": "dark", "themeVariables": {"fontSize": "15.0px", "fontFamily": "Segoe UI, system-ui, sans-serif", "primaryColor": "#1e293b", "primaryTextColor": "#e2e8f0", "primaryBorderColor": "#38bdf8", "secondaryColor": "#0f172a", "tertiaryColor": "#334155", "lineColor": "#64748b", "textColor": "#e2e8f0"}, "flowchart": {"htmlLabels": true, "curve": "basis", "nodeSpacing": 48, "rankSpacing": 64, "padding": 14, "diagramPadding": 10, "useMaxWidth": true}}}%%
 flowchart LR
-    %% Section: 提取管线 (175 nodes, 833 edges)
+    %% Section: 提取管线 (58 nodes, 52 edges)
+    subgraph extract_pipeline_md_f61dd55a["文档/规范/命名规范.md"]
+        node_1_a_id_purpose_a_5988dccb("1. 目的与适用范围 &lt;a id='purpose'&gt;&lt;/a&gt;<br/><small>文档/规范/命名规范.md</small>")
+        node_10_a_id_infra_a_c0ff9953("10. 基础设施命名 &lt;a id='infra'&gt;&lt;/a&gt;<br/><small>文档/规范/命名规范.md</small>")
+        node_11_a_id_test_a_faa5666d("11. 测试命名 &lt;a id='test'&gt;&lt;/a&gt;<br/><small>文档/规范/命名规范.md</small>")
+        node_12_a_id_i18n_a_1e84da30("12. 国际化命名 &lt;a id='i18n'&gt;&lt;/a&gt;<br/><small>文档/规范/命名规范.md</small>")
+        node_13_a_id_checklist_a_a764847b("13. 检查清单 &lt;a id='checklist'&gt;&lt;/a&gt;<br/><small>文档/规范/命名规范.md</small>")
+        node_2_a_id_general_a_f39df9ee("2. 通用原则 &lt;a id='general'&gt;&lt;/a&gt;<br/><small>文档/规范/命名规范.md</small>")
+        node_2_1_a_id_general_case_a_e780001c("2.1 大小写风格 &lt;a id='general-case'&gt;&lt;/a&gt;<br/><small>文档/规范/命名规范.md</small>")
+        node_2_2_a_id_general_rule_a_bb9cec84("2.2 命名规则 &lt;a id='general-rule'&gt;&lt;/a&gt;<br/><small>文档/规范/命名规范.md</small>")
+    end
     subgraph extract_pipeline_01_01_6_Python3_14_01_01_6_Pyth_57589d07["任务/01_工程骨架_01-6_依赖锁定与Python3.14兼容验证/01_工程骨架_01-6_依赖锁定与Python3.14兼容验证.md"]
         node_01_01_01_6_python3_14_01_01_6_python3_14_01_68358a18("01-6 依赖锁定与 Python 3.14 兼容验证<br/><small>任务/01_工程骨架_01-6_依赖锁定与Python3.14兼容验证/01_工程骨架_01-6_依赖锁定与Python3.14兼容验证.md</small>")
         node_01_01_01_6_python3_14_01_01_6_python3_14_1_6439f898("1. 任务信息 &lt;a id='meta'&gt;&lt;/a&gt;<br/><small>任务/01_工程骨架_01-6_依赖锁定与Python3.14兼容验证/01_工程骨架_01-6_依赖锁定与Python3.14兼容验证.md</small>")
@@ -189,17 +199,17 @@ flowchart LR
         scripts_tools_wol_shutdown_mjbk_9b7cd570("shutdown_mjbk.py")
         scripts_tools_wol_shutdown_mjbk_rationale_1_f5d649e8("远程关机开发服务器 mjbk。 用法: python shutdown_mjb...<br/><small>tools/wol/shutdown_mjbk.py</small>")
     end
-    node_01_01_01_1_monorepo_01_monorepo_a6d9f544("01_详细设计_monorepo仓库根骨架.md")
     scripts_tools_wol_shutdown_mjbk_py_path_939709f6("Path")
-    node_72c9807f("文档首页.md")
-    node_444c7506("开发部署规划.md")
-    node_5d69d896("总体项目规划.md")
-    node_209d679b("项目规划说明.md")
-    api_2269335c("API接口规范.md")
-    git_ad18f095("Git协作规范.md")
-    node_a3357db2("代码评审规范.md")
     scripts_tools_wol_shutdown_mjbk_main_271f04c2 -->|调用| scripts_tools_wol_shutdown_mjbk_load_env_594f2432
-    %% Omitted for readability: 157 nodes, 0 edges
+    %% Omitted for readability: 40 nodes, 0 edges
+    class node_1_a_id_purpose_a_5988dccb concept;
+    class node_10_a_id_infra_a_c0ff9953 concept;
+    class node_11_a_id_test_a_faa5666d concept;
+    class node_12_a_id_i18n_a_1e84da30 concept;
+    class node_13_a_id_checklist_a_a764847b concept;
+    class node_2_a_id_general_a_f39df9ee concept;
+    class node_2_1_a_id_general_case_a_e780001c concept;
+    class node_2_2_a_id_general_rule_a_bb9cec84 concept;
     class node_01_01_01_6_python3_14_01_01_6_python3_14_01_68358a18 concept;
     class node_01_01_01_6_python3_14_01_01_6_python3_14_1_6439f898 concept;
     class node_01_01_01_6_python3_14_01_01_6_python3_14_2_6b65c5fb concept;
@@ -209,15 +219,7 @@ flowchart LR
     class scripts_tools_wol_shutdown_mjbk_load_env_594f2432 function;
     class scripts_tools_wol_shutdown_mjbk_9b7cd570 module;
     class scripts_tools_wol_shutdown_mjbk_rationale_1_f5d649e8 concept;
-    class node_01_01_01_1_monorepo_01_monorepo_a6d9f544 concept;
     class scripts_tools_wol_shutdown_mjbk_py_path_939709f6 klass;
-    class node_72c9807f concept;
-    class node_444c7506 concept;
-    class node_5d69d896 concept;
-    class node_209d679b concept;
-    class api_2269335c concept;
-    class git_ad18f095 concept;
-    class node_a3357db2 concept;
     classDef entry fill:#422006,stroke:#fbbf24,color:#fde68a,stroke-width:1px;
     classDef api fill:#450a0a,stroke:#f87171,color:#fee2e2,stroke-width:1px;
     classDef async fill:#2e1065,stroke:#a78bfa,color:#ede9fe,stroke-width:1px;
@@ -241,243 +243,243 @@ flowchart LR
 </tr>
 <tr>
   <td>1</td>
-  <td><code>文档首页.md</code><br><small style="color:var(--muted)">文档/文档首页.md</small></td>
+  <td><code>10. 基础设施命名 &lt;a id=&quot;infra&quot;&gt;&lt;/a&gt;</code><br><small style="color:var(--muted)">文档/规范/命名规范.md</small></td>
   <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>文档入口，描述 文档首页.md 相关能力。</td>
+  <td>文档入口，描述 10. 基础设施命名 &lt;a id=&quot;infra&quot;&gt;&lt;/a&gt; 相关能力。</td>
 </tr>
 <tr>
   <td>2</td>
-  <td><code>开发部署规划.md</code><br><small style="color:var(--muted)">文档/规划/开发部署规划.md</small></td>
+  <td><code>11. 测试命名 &lt;a id=&quot;test&quot;&gt;&lt;/a&gt;</code><br><small style="color:var(--muted)">文档/规范/命名规范.md</small></td>
   <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>文档入口，描述 开发部署规划.md 相关能力。</td>
+  <td>文档入口，描述 11. 测试命名 &lt;a id=&quot;test&quot;&gt;&lt;/a&gt; 相关能力。</td>
 </tr>
 <tr>
   <td>3</td>
-  <td><code>总体项目规划.md</code><br><small style="color:var(--muted)">文档/规划/总体项目规划.md</small></td>
+  <td><code>12. 国际化命名 &lt;a id=&quot;i18n&quot;&gt;&lt;/a&gt;</code><br><small style="color:var(--muted)">文档/规范/命名规范.md</small></td>
   <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>文档入口，描述 总体项目规划.md 相关能力。</td>
+  <td>文档入口，描述 12. 国际化命名 &lt;a id=&quot;i18n&quot;&gt;&lt;/a&gt; 相关能力。</td>
 </tr>
 <tr>
   <td>4</td>
-  <td><code>项目规划说明.md</code><br><small style="color:var(--muted)">文档/规划/项目规划说明.md</small></td>
+  <td><code>13. 检查清单 &lt;a id=&quot;checklist&quot;&gt;&lt;/a&gt;</code><br><small style="color:var(--muted)">文档/规范/命名规范.md</small></td>
   <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>文档入口，描述 项目规划说明.md 相关能力。</td>
+  <td>文档入口，描述 13. 检查清单 &lt;a id=&quot;checklist&quot;&gt;&lt;/a&gt; 相关能力。</td>
 </tr>
 <tr>
   <td>5</td>
-  <td><code>API接口规范.md</code><br><small style="color:var(--muted)">文档/规范/API接口规范.md</small></td>
+  <td><code>1. 目的与适用范围 &lt;a id=&quot;purpose&quot;&gt;&lt;/a&gt;</code><br><small style="color:var(--muted)">文档/规范/命名规范.md</small></td>
   <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>文档入口，描述 API接口规范.md 相关能力。</td>
+  <td>文档入口，描述 1. 目的与适用范围 &lt;a id=&quot;purpose&quot;&gt;&lt;/a&gt; 相关能力。</td>
 </tr>
 <tr>
   <td>6</td>
-  <td><code>Git协作规范.md</code><br><small style="color:var(--muted)">文档/规范/Git协作规范.md</small></td>
+  <td><code>2.1 大小写风格 &lt;a id=&quot;general-case&quot;&gt;&lt;/a&gt;</code><br><small style="color:var(--muted)">文档/规范/命名规范.md</small></td>
   <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>文档入口，描述 Git协作规范.md 相关能力。</td>
+  <td>文档入口，描述 2.1 大小写风格 &lt;a id=&quot;general-case&quot;&gt;&lt;/a&gt; 相关能力。</td>
 </tr>
 <tr>
   <td>7</td>
-  <td><code>代码评审规范.md</code><br><small style="color:var(--muted)">文档/规范/代码评审规范.md</small></td>
+  <td><code>2.2 命名规则 &lt;a id=&quot;general-rule&quot;&gt;&lt;/a&gt;</code><br><small style="color:var(--muted)">文档/规范/命名规范.md</small></td>
   <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>文档入口，描述 代码评审规范.md 相关能力。</td>
+  <td>文档入口，描述 2.2 命名规则 &lt;a id=&quot;general-rule&quot;&gt;&lt;/a&gt; 相关能力。</td>
 </tr>
 <tr>
   <td>8</td>
-  <td><code>任务文档规范.md</code><br><small style="color:var(--muted)">文档/规范/任务文档规范.md</small></td>
+  <td><code>2. 通用原则 &lt;a id=&quot;general&quot;&gt;&lt;/a&gt;</code><br><small style="color:var(--muted)">文档/规范/命名规范.md</small></td>
   <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>文档入口，描述 任务文档规范.md 相关能力。</td>
+  <td>文档入口，描述 2. 通用原则 &lt;a id=&quot;general&quot;&gt;&lt;/a&gt; 相关能力。</td>
 </tr>
 <tr>
   <td>9</td>
-  <td><code>前端开发规范.md</code><br><small style="color:var(--muted)">文档/规范/前端开发规范.md</small></td>
+  <td><code>3. 项目与目录命名 &lt;a id=&quot;project&quot;&gt;&lt;/a&gt;</code><br><small style="color:var(--muted)">文档/规范/命名规范.md</small></td>
   <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>文档入口，描述 前端开发规范.md 相关能力。</td>
+  <td>文档入口，描述 3. 项目与目录命名 &lt;a id=&quot;project&quot;&gt;&lt;/a&gt; 相关能力。</td>
 </tr>
 <tr>
   <td>10</td>
-  <td><code>后端开发规范.md</code><br><small style="color:var(--muted)">文档/规范/后端开发规范.md</small></td>
+  <td><code>4. 文档命名 &lt;a id=&quot;docs&quot;&gt;&lt;/a&gt;</code><br><small style="color:var(--muted)">文档/规范/命名规范.md</small></td>
   <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>文档入口，描述 后端开发规范.md 相关能力。</td>
+  <td>文档入口，描述 4. 文档命名 &lt;a id=&quot;docs&quot;&gt;&lt;/a&gt; 相关能力。</td>
 </tr>
 <tr>
   <td>11</td>
-  <td><code>命名规范.md</code><br><small style="color:var(--muted)">文档/规范/命名规范.md</small></td>
+  <td><code>5. Git 命名 &lt;a id=&quot;git&quot;&gt;&lt;/a&gt;</code><br><small style="color:var(--muted)">文档/规范/命名规范.md</small></td>
   <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>文档入口，描述 命名规范.md 相关能力。</td>
+  <td>文档入口，描述 5. Git 命名 &lt;a id=&quot;git&quot;&gt;&lt;/a&gt; 相关能力。</td>
 </tr>
 <tr>
   <td>12</td>
-  <td><code>国际化规范.md</code><br><small style="color:var(--muted)">文档/规范/国际化规范.md</small></td>
+  <td><code>6. 后端命名（Python） &lt;a id=&quot;python&quot;&gt;&lt;/a&gt;</code><br><small style="color:var(--muted)">文档/规范/命名规范.md</small></td>
   <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>文档入口，描述 国际化规范.md 相关能力。</td>
+  <td>文档入口，描述 6. 后端命名（Python） &lt;a id=&quot;python&quot;&gt;&lt;/a&gt; 相关能力。</td>
 </tr>
 <tr>
   <td>13</td>
-  <td><code>安全开发规范.md</code><br><small style="color:var(--muted)">文档/规范/安全开发规范.md</small></td>
+  <td><code>7. 数据库命名 &lt;a id=&quot;db&quot;&gt;&lt;/a&gt;</code><br><small style="color:var(--muted)">文档/规范/命名规范.md</small></td>
   <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>文档入口，描述 安全开发规范.md 相关能力。</td>
+  <td>文档入口，描述 7. 数据库命名 &lt;a id=&quot;db&quot;&gt;&lt;/a&gt; 相关能力。</td>
 </tr>
 <tr>
   <td>14</td>
-  <td><code>数据库开发规范.md</code><br><small style="color:var(--muted)">文档/规范/数据库开发规范.md</small></td>
+  <td><code>8. API 命名 &lt;a id=&quot;api&quot;&gt;&lt;/a&gt;</code><br><small style="color:var(--muted)">文档/规范/命名规范.md</small></td>
   <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>文档入口，描述 数据库开发规范.md 相关能力。</td>
+  <td>文档入口，描述 8. API 命名 &lt;a id=&quot;api&quot;&gt;&lt;/a&gt; 相关能力。</td>
 </tr>
 <tr>
   <td>15</td>
-  <td><code>文档生成规范.md</code><br><small style="color:var(--muted)">文档/规范/文档生成规范.md</small></td>
+  <td><code>9. 前端命名 &lt;a id=&quot;frontend&quot;&gt;&lt;/a&gt;</code><br><small style="color:var(--muted)">文档/规范/命名规范.md</small></td>
   <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>文档入口，描述 文档生成规范.md 相关能力。</td>
+  <td>文档入口，描述 9. 前端命名 &lt;a id=&quot;frontend&quot;&gt;&lt;/a&gt; 相关能力。</td>
 </tr>
 <tr>
   <td>16</td>
-  <td><code>日志规范.md</code><br><small style="color:var(--muted)">文档/规范/日志规范.md</small></td>
+  <td><code>命名规范</code><br><small style="color:var(--muted)">文档/规范/命名规范.md</small></td>
   <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>文档入口，描述 日志规范.md 相关能力。</td>
+  <td>文档入口，描述 命名规范 相关能力。</td>
 </tr>
 <tr>
   <td>17</td>
-  <td><code>测试规范.md</code><br><small style="color:var(--muted)">文档/规范/测试规范.md</small></td>
+  <td><code>1. 技术概述 &lt;a id=&quot;overview&quot;&gt;&lt;/a&gt;</code><br><small style="color:var(--muted)">知识档案/前端/TypeScript技术介绍.md</small></td>
   <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>文档入口，描述 测试规范.md 相关能力。</td>
+  <td>文档入口，描述 1. 技术概述 &lt;a id=&quot;overview&quot;&gt;&lt;/a&gt; 相关能力。</td>
 </tr>
 <tr>
   <td>18</td>
-  <td><code>英文简称规范.md</code><br><small style="color:var(--muted)">文档/规范/英文简称规范.md</small></td>
+  <td><code>2. 核心概念与原理 &lt;a id=&quot;principles&quot;&gt;&lt;/a&gt;</code><br><small style="color:var(--muted)">知识档案/前端/TypeScript技术介绍.md</small></td>
   <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>文档入口，描述 英文简称规范.md 相关能力。</td>
+  <td>文档入口，描述 2. 核心概念与原理 &lt;a id=&quot;principles&quot;&gt;&lt;/a&gt; 相关能力。</td>
 </tr>
 <tr>
   <td>19</td>
-  <td><code>计划文档规范.md</code><br><small style="color:var(--muted)">文档/规范/计划文档规范.md</small></td>
+  <td><code>3. 在 BMS 项目中的用途 &lt;a id=&quot;usage&quot;&gt;&lt;/a&gt;</code><br><small style="color:var(--muted)">知识档案/前端/TypeScript技术介绍.md</small></td>
   <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>文档入口，描述 计划文档规范.md 相关能力。</td>
+  <td>文档入口，描述 3. 在 BMS 项目中的用途 &lt;a id=&quot;usage&quot;&gt;&lt;/a&gt; 相关能力。</td>
 </tr>
 <tr>
   <td>20</td>
-  <td><code>部署发布规范.md</code><br><small style="color:var(--muted)">文档/规范/部署发布规范.md</small></td>
+  <td><code>4. 选型对比 &lt;a id=&quot;compare&quot;&gt;&lt;/a&gt;</code><br><small style="color:var(--muted)">知识档案/前端/TypeScript技术介绍.md</small></td>
   <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>文档入口，描述 部署发布规范.md 相关能力。</td>
+  <td>文档入口，描述 4. 选型对比 &lt;a id=&quot;compare&quot;&gt;&lt;/a&gt; 相关能力。</td>
 </tr>
 <tr>
   <td>21</td>
-  <td><code>需求文档规范.md</code><br><small style="color:var(--muted)">文档/规范/需求文档规范.md</small></td>
+  <td><code>5. 常见问题与注意事项 &lt;a id=&quot;pitfalls&quot;&gt;&lt;/a&gt;</code><br><small style="color:var(--muted)">知识档案/前端/TypeScript技术介绍.md</small></td>
   <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>文档入口，描述 需求文档规范.md 相关能力。</td>
+  <td>文档入口，描述 5. 常见问题与注意事项 &lt;a id=&quot;pitfalls&quot;&gt;&lt;/a&gt; 相关能力。</td>
 </tr>
 <tr>
   <td>22</td>
-  <td><code>项目管理规范.md</code><br><small style="color:var(--muted)">文档/规范/项目管理规范.md</small></td>
+  <td><code>6. 学习与参考资料 &lt;a id=&quot;learn&quot;&gt;&lt;/a&gt;</code><br><small style="color:var(--muted)">知识档案/前端/TypeScript技术介绍.md</small></td>
   <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>文档入口，描述 项目管理规范.md 相关能力。</td>
+  <td>文档入口，描述 6. 学习与参考资料 &lt;a id=&quot;learn&quot;&gt;&lt;/a&gt; 相关能力。</td>
 </tr>
 <tr>
   <td>23</td>
-  <td><code>01_组件设计_字典字段.md</code><br><small style="color:var(--muted)">设计/组件设计/01_组件设计_字典字段.md</small></td>
+  <td><code>7. 项目内关联文档 &lt;a id=&quot;related&quot;&gt;&lt;/a&gt;</code><br><small style="color:var(--muted)">知识档案/前端/TypeScript技术介绍.md</small></td>
   <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>文档入口，描述 01_组件设计_字典字段.md 相关能力。</td>
+  <td>文档入口，描述 7. 项目内关联文档 &lt;a id=&quot;related&quot;&gt;&lt;/a&gt; 相关能力。</td>
 </tr>
 <tr>
   <td>24</td>
-  <td><code>deepseek_harness部署使用说明.md</code><br><small style="color:var(--muted)">资料/AI/deepseek_harness部署使用说明.md</small></td>
+  <td><code>TypeScript 技术介绍</code><br><small style="color:var(--muted)">知识档案/前端/TypeScript技术介绍.md</small></td>
   <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>文档入口，描述 deepseek_harness部署使用说明.md 相关能力。</td>
+  <td>文档入口，描述 TypeScript 技术介绍 相关能力。</td>
 </tr>
 <tr>
   <td>25</td>
-  <td><code>graphify部署使用说明.md</code><br><small style="color:var(--muted)">资料/AI/graphify部署使用说明.md</small></td>
+  <td><code>1. 技术概述 &lt;a id=&quot;overview&quot;&gt;&lt;/a&gt;</code><br><small style="color:var(--muted)">知识档案/后端核心/python-multipart技术介绍.md</small></td>
   <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>文档入口，描述 graphify部署使用说明.md 相关能力。</td>
+  <td>文档入口，描述 1. 技术概述 &lt;a id=&quot;overview&quot;&gt;&lt;/a&gt; 相关能力。</td>
 </tr>
 <tr>
   <td>26</td>
-  <td><code>llamacpp部署使用说明.md</code><br><small style="color:var(--muted)">资料/AI/llamacpp部署使用说明.md</small></td>
+  <td><code>2. 核心概念与原理 &lt;a id=&quot;principles&quot;&gt;&lt;/a&gt;</code><br><small style="color:var(--muted)">知识档案/后端核心/python-multipart技术介绍.md</small></td>
   <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>文档入口，描述 llamacpp部署使用说明.md 相关能力。</td>
+  <td>文档入口，描述 2. 核心概念与原理 &lt;a id=&quot;principles&quot;&gt;&lt;/a&gt; 相关能力。</td>
 </tr>
 <tr>
   <td>27</td>
-  <td><code>GitLab迁移使用说明.md</code><br><small style="color:var(--muted)">资料/工具/GitLab迁移使用说明.md</small></td>
+  <td><code>3. 在 BMS 项目中的用途 &lt;a id=&quot;usage&quot;&gt;&lt;/a&gt;</code><br><small style="color:var(--muted)">知识档案/后端核心/python-multipart技术介绍.md</small></td>
   <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>文档入口，描述 GitLab迁移使用说明.md 相关能力。</td>
+  <td>文档入口，描述 3. 在 BMS 项目中的用途 &lt;a id=&quot;usage&quot;&gt;&lt;/a&gt; 相关能力。</td>
 </tr>
 <tr>
   <td>28</td>
-  <td><code>Ubuntu安装部署使用说明.md</code><br><small style="color:var(--muted)">资料/工具/Ubuntu安装部署使用说明.md</small></td>
+  <td><code>4. 选型对比 &lt;a id=&quot;compare&quot;&gt;&lt;/a&gt;</code><br><small style="color:var(--muted)">知识档案/后端核心/python-multipart技术介绍.md</small></td>
   <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>文档入口，描述 Ubuntu安装部署使用说明.md 相关能力。</td>
+  <td>文档入口，描述 4. 选型对比 &lt;a id=&quot;compare&quot;&gt;&lt;/a&gt; 相关能力。</td>
 </tr>
 <tr>
   <td>29</td>
-  <td><code>开发服务器电源控制使用说明.md</code><br><small style="color:var(--muted)">资料/工具/开发服务器电源控制使用说明.md</small></td>
+  <td><code>5. 常见问题与注意事项 &lt;a id=&quot;pitfalls&quot;&gt;&lt;/a&gt;</code><br><small style="color:var(--muted)">知识档案/后端核心/python-multipart技术介绍.md</small></td>
   <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>文档入口，描述 开发服务器电源控制使用说明.md 相关能力。</td>
+  <td>文档入口，描述 5. 常见问题与注意事项 &lt;a id=&quot;pitfalls&quot;&gt;&lt;/a&gt; 相关能力。</td>
 </tr>
 <tr>
   <td>30</td>
-  <td><code>DockerEngine部署使用说明.md</code><br><small style="color:var(--muted)">资料/开发服务器/DockerEngine部署使用说明.md</small></td>
+  <td><code>6. 学习与参考资料 &lt;a id=&quot;learn&quot;&gt;&lt;/a&gt;</code><br><small style="color:var(--muted)">知识档案/后端核心/python-multipart技术介绍.md</small></td>
   <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>文档入口，描述 DockerEngine部署使用说明.md 相关能力。</td>
+  <td>文档入口，描述 6. 学习与参考资料 &lt;a id=&quot;learn&quot;&gt;&lt;/a&gt; 相关能力。</td>
 </tr>
 </table>
 
@@ -486,19 +488,18 @@ flowchart LR
     <h4>关键文件</h4>
     <table style="width:100%;font-size:0.85rem;">
       <tr><th>File</th><th>覆盖节点</th></tr>
-      <tr><td><code>文档/规范/命名规范.md</code></td><td>17 个节点</td></tr>
-<tr><td><code>知识档案/前端/TypeScript技术介绍.md</code></td><td>9 个节点</td></tr>
-<tr><td><code>知识档案/后端核心/Python技术介绍.md</code></td><td>9 个节点</td></tr>
-<tr><td><code>知识档案/后端核心/python-multipart技术介绍.md</code></td><td>9 个节点</td></tr>
-<tr><td><code>知识档案/后端核心/python-socketio技术介绍.md</code></td><td>9 个节点</td></tr>
+      <tr><td><code>文档/规范/命名规范.md</code></td><td>16 个节点</td></tr>
+<tr><td><code>知识档案/前端/TypeScript技术介绍.md</code></td><td>8 个节点</td></tr>
+<tr><td><code>知识档案/后端核心/Python技术介绍.md</code></td><td>8 个节点</td></tr>
+<tr><td><code>知识档案/后端核心/python-multipart技术介绍.md</code></td><td>8 个节点</td></tr>
+<tr><td><code>知识档案/后端核心/python-socketio技术介绍.md</code></td><td>8 个节点</td></tr>
 <tr><td><code>任务/01_工程骨架_01-6_依赖锁定与Python3.14兼容验证/01_工程骨架_01-6_依赖锁定与Python3.14兼容验证.md</code></td><td>5 个节点</td></tr>
 <tr><td><code>tools/wol/shutdown_mjbk.py</code></td><td>4 个节点</td></tr>
-<tr><td><code>文档/文档首页.md</code></td><td>1 个节点</td></tr>
     </table>
   </div>
   <div class="card">
     <h4>设计备注</h4>
-    <p>本节由 graphify 社区聚类生成。关系概况：references x777, 包含 x54, 调用 x1, 说明 x1。图表优先展示高置信、跨节点调用或使用关系，完整节点清单位于表格中。</p>
+    <p>本节由 graphify 社区聚类生成。关系概况：包含 x49, references x1, 调用 x1, 说明 x1。图表优先展示高置信、跨节点调用或使用关系，完整节点清单位于表格中。</p>
   </div>
 </div>
 <hr>
@@ -1195,12 +1196,12 @@ flowchart LR
 
 <!-- ====== 5. CLI 与技能安装 ====== -->
 <h2 id="cli-skills">5. CLI 与技能安装</h2>
-<p>CLI 与技能安装 汇集了与 opencode、opencodejson、仓库与ci、steamcommunity 相关的实现，主要分布在 .opencode/opencode.json、资料/工具/Ubuntu安装部署使用说明.md、资料/开发机/Steamcommunity_302部署使用说明.md。本节覆盖 227 个节点、251 条内部边，图中只展示最有代表性的调用关系以保持可读性。</p>
+<p>CLI 与技能安装 汇集了与 知识档案、开发服务器、opencode、开发机 相关的实现，主要分布在 .opencode/opencode.json、资料/AI/graphify部署使用说明.md、资料/工具/Ubuntu安装部署使用说明.md。本节覆盖 383 个节点、1118 条内部边，图中只展示最有代表性的调用关系以保持可读性。</p>
 
 <div class="mermaid">
 %%{init: {"theme": "dark", "themeVariables": {"fontSize": "15.0px", "fontFamily": "Segoe UI, system-ui, sans-serif", "primaryColor": "#1e293b", "primaryTextColor": "#e2e8f0", "primaryBorderColor": "#38bdf8", "secondaryColor": "#0f172a", "tertiaryColor": "#334155", "lineColor": "#64748b", "textColor": "#e2e8f0"}, "flowchart": {"htmlLabels": true, "curve": "basis", "nodeSpacing": 48, "rankSpacing": 64, "padding": 14, "diagramPadding": 10, "useMaxWidth": true}}}%%
 flowchart LR
-    %% Section: CLI 与技能安装 (227 nodes, 251 edges)
+    %% Section: CLI 与技能安装 (383 nodes, 1118 edges)
     subgraph cli_skills_opencode_opencode_json_33985a00[".opencode/opencode.json"]
         opencode_opencode_schema_4bfd171e("$schema<br/><small>.opencode/opencode.json</small>")
         opencode_opencode_models_home_minjian_ai_models_230132a6("/home/minjian/ai/models/Qwen3.8-27B-UD-...<br/><small>.opencode/opencode.json</small>")
@@ -1225,7 +1226,7 @@ flowchart LR
     end
     opencode_plugins_bg_runpy_6b861e17 -->|调用| opencode_plugins_bg_execfilep_c2436ec0
     opencode_plugins_bg_runpy_6b861e17 -->|调用| opencode_plugins_bg_script_f808d656
-    %% Omitted for readability: 209 nodes, 0 edges
+    %% Omitted for readability: 365 nodes, 0 edges
     class opencode_opencode_schema_4bfd171e function;
     class opencode_opencode_models_home_minjian_ai_models_230132a6 function;
     class opencode_opencode_options_apikey_ad740194 api;
@@ -1267,243 +1268,243 @@ flowchart LR
 </tr>
 <tr>
   <td>1</td>
-  <td><code>opencode.json</code><br><small style="color:var(--muted)">.opencode/opencode.json</small></td>
-  <td><span class="tag tag-func">函数</span></td>
+  <td><code>文档首页.md</code><br><small style="color:var(--muted)">文档/文档首页.md</small></td>
+  <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>.opencode/opencode.json 中的 opencode.json 节点。</td>
+  <td>文档入口，描述 文档首页.md 相关能力。</td>
 </tr>
 <tr>
   <td>2</td>
-  <td><code>attachment</code><br><small style="color:var(--muted)">.opencode/opencode.json</small></td>
-  <td><span class="tag tag-func">函数</span></td>
+  <td><code>开发部署规划.md</code><br><small style="color:var(--muted)">文档/规划/开发部署规划.md</small></td>
+  <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>.opencode/opencode.json 中的 attachment 节点。</td>
+  <td>文档入口，描述 开发部署规划.md 相关能力。</td>
 </tr>
 <tr>
   <td>3</td>
-  <td><code>limit</code><br><small style="color:var(--muted)">.opencode/opencode.json</small></td>
-  <td><span class="tag tag-func">函数</span></td>
+  <td><code>总体项目规划.md</code><br><small style="color:var(--muted)">文档/规划/总体项目规划.md</small></td>
+  <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>.opencode/opencode.json 中的 limit 节点。</td>
+  <td>文档入口，描述 总体项目规划.md 相关能力。</td>
 </tr>
 <tr>
   <td>4</td>
-  <td><code>modalities</code><br><small style="color:var(--muted)">.opencode/opencode.json</small></td>
-  <td><span class="tag tag-func">函数</span></td>
+  <td><code>项目规划说明.md</code><br><small style="color:var(--muted)">文档/规划/项目规划说明.md</small></td>
+  <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>.opencode/opencode.json 中的 modalities 节点。</td>
+  <td>文档入口，描述 项目规划说明.md 相关能力。</td>
 </tr>
 <tr>
   <td>5</td>
-  <td><code>name</code><br><small style="color:var(--muted)">.opencode/opencode.json</small></td>
-  <td><span class="tag tag-func">函数</span></td>
+  <td><code>API接口规范.md</code><br><small style="color:var(--muted)">文档/规范/API接口规范.md</small></td>
+  <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>.opencode/opencode.json 中的 name 节点。</td>
+  <td>文档入口，描述 API接口规范.md 相关能力。</td>
 </tr>
 <tr>
   <td>6</td>
-  <td><code>options</code><br><small style="color:var(--muted)">.opencode/opencode.json</small></td>
-  <td><span class="tag tag-func">函数</span></td>
+  <td><code>Git协作规范.md</code><br><small style="color:var(--muted)">文档/规范/Git协作规范.md</small></td>
+  <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>.opencode/opencode.json 中的 options 节点。</td>
+  <td>文档入口，描述 Git协作规范.md 相关能力。</td>
 </tr>
 <tr>
   <td>7</td>
-  <td><code>reasoning</code><br><small style="color:var(--muted)">.opencode/opencode.json</small></td>
-  <td><span class="tag tag-func">函数</span></td>
+  <td><code>代码评审规范.md</code><br><small style="color:var(--muted)">文档/规范/代码评审规范.md</small></td>
+  <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>.opencode/opencode.json 中的 reasoning 节点。</td>
+  <td>文档入口，描述 代码评审规范.md 相关能力。</td>
 </tr>
 <tr>
   <td>8</td>
-  <td><code>tool_call</code><br><small style="color:var(--muted)">.opencode/opencode.json</small></td>
-  <td><span class="tag tag-func">函数</span></td>
+  <td><code>任务文档规范.md</code><br><small style="color:var(--muted)">文档/规范/任务文档规范.md</small></td>
+  <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>.opencode/opencode.json 中的 tool_call 节点。</td>
+  <td>文档入口，描述 任务文档规范.md 相关能力。</td>
 </tr>
 <tr>
   <td>9</td>
-  <td><code>context</code><br><small style="color:var(--muted)">.opencode/opencode.json</small></td>
-  <td><span class="tag tag-func">函数</span></td>
+  <td><code>前端开发规范.md</code><br><small style="color:var(--muted)">文档/规范/前端开发规范.md</small></td>
+  <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>.opencode/opencode.json 中的 context 节点。</td>
+  <td>文档入口，描述 前端开发规范.md 相关能力。</td>
 </tr>
 <tr>
   <td>10</td>
-  <td><code>output</code><br><small style="color:var(--muted)">.opencode/opencode.json</small></td>
-  <td><span class="tag tag-func">函数</span></td>
+  <td><code>后端开发规范.md</code><br><small style="color:var(--muted)">文档/规范/后端开发规范.md</small></td>
+  <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>.opencode/opencode.json 中的 output 节点。</td>
+  <td>文档入口，描述 后端开发规范.md 相关能力。</td>
 </tr>
 <tr>
   <td>11</td>
-  <td><code>models</code><br><small style="color:var(--muted)">.opencode/opencode.json</small></td>
-  <td><span class="tag tag-func">函数</span></td>
+  <td><code>命名规范.md</code><br><small style="color:var(--muted)">文档/规范/命名规范.md</small></td>
+  <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>.opencode/opencode.json 中的 models 节点。</td>
+  <td>文档入口，描述 命名规范.md 相关能力。</td>
 </tr>
 <tr>
   <td>12</td>
-  <td><code>name</code><br><small style="color:var(--muted)">.opencode/opencode.json</small></td>
-  <td><span class="tag tag-func">函数</span></td>
+  <td><code>国际化规范.md</code><br><small style="color:var(--muted)">文档/规范/国际化规范.md</small></td>
+  <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>.opencode/opencode.json 中的 name 节点。</td>
+  <td>文档入口，描述 国际化规范.md 相关能力。</td>
 </tr>
 <tr>
   <td>13</td>
-  <td><code>npm</code><br><small style="color:var(--muted)">.opencode/opencode.json</small></td>
-  <td><span class="tag tag-func">函数</span></td>
+  <td><code>安全开发规范.md</code><br><small style="color:var(--muted)">文档/规范/安全开发规范.md</small></td>
+  <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>.opencode/opencode.json 中的 npm 节点。</td>
+  <td>文档入口，描述 安全开发规范.md 相关能力。</td>
 </tr>
 <tr>
   <td>14</td>
-  <td><code>options</code><br><small style="color:var(--muted)">.opencode/opencode.json</small></td>
-  <td><span class="tag tag-func">函数</span></td>
+  <td><code>数据库开发规范.md</code><br><small style="color:var(--muted)">文档/规范/数据库开发规范.md</small></td>
+  <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>.opencode/opencode.json 中的 options 节点。</td>
+  <td>文档入口，描述 数据库开发规范.md 相关能力。</td>
 </tr>
 <tr>
   <td>15</td>
-  <td><code>models</code><br><small style="color:var(--muted)">.opencode/opencode.json</small></td>
-  <td><span class="tag tag-func">函数</span></td>
+  <td><code>文档生成规范.md</code><br><small style="color:var(--muted)">文档/规范/文档生成规范.md</small></td>
+  <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>.opencode/opencode.json 中的 models 节点。</td>
+  <td>文档入口，描述 文档生成规范.md 相关能力。</td>
 </tr>
 <tr>
   <td>16</td>
-  <td><code>name</code><br><small style="color:var(--muted)">.opencode/opencode.json</small></td>
-  <td><span class="tag tag-func">函数</span></td>
+  <td><code>日志规范.md</code><br><small style="color:var(--muted)">文档/规范/日志规范.md</small></td>
+  <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>.opencode/opencode.json 中的 name 节点。</td>
+  <td>文档入口，描述 日志规范.md 相关能力。</td>
 </tr>
 <tr>
   <td>17</td>
-  <td><code>npm</code><br><small style="color:var(--muted)">.opencode/opencode.json</small></td>
-  <td><span class="tag tag-func">函数</span></td>
+  <td><code>测试规范.md</code><br><small style="color:var(--muted)">文档/规范/测试规范.md</small></td>
+  <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>.opencode/opencode.json 中的 npm 节点。</td>
+  <td>文档入口，描述 测试规范.md 相关能力。</td>
 </tr>
 <tr>
   <td>18</td>
-  <td><code>options</code><br><small style="color:var(--muted)">.opencode/opencode.json</small></td>
-  <td><span class="tag tag-func">函数</span></td>
+  <td><code>英文简称规范.md</code><br><small style="color:var(--muted)">文档/规范/英文简称规范.md</small></td>
+  <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>.opencode/opencode.json 中的 options 节点。</td>
+  <td>文档入口，描述 英文简称规范.md 相关能力。</td>
 </tr>
 <tr>
   <td>19</td>
-  <td><code>input</code><br><small style="color:var(--muted)">.opencode/opencode.json</small></td>
-  <td><span class="tag tag-func">函数</span></td>
+  <td><code>计划文档规范.md</code><br><small style="color:var(--muted)">文档/规范/计划文档规范.md</small></td>
+  <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>.opencode/opencode.json 中的 input 节点。</td>
+  <td>文档入口，描述 计划文档规范.md 相关能力。</td>
 </tr>
 <tr>
   <td>20</td>
-  <td><code>output</code><br><small style="color:var(--muted)">.opencode/opencode.json</small></td>
-  <td><span class="tag tag-func">函数</span></td>
+  <td><code>部署发布规范.md</code><br><small style="color:var(--muted)">文档/规范/部署发布规范.md</small></td>
+  <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>.opencode/opencode.json 中的 output 节点。</td>
+  <td>文档入口，描述 部署发布规范.md 相关能力。</td>
 </tr>
 <tr>
   <td>21</td>
-  <td><code>model</code><br><small style="color:var(--muted)">.opencode/opencode.json</small></td>
-  <td><span class="tag tag-func">函数</span></td>
+  <td><code>需求文档规范.md</code><br><small style="color:var(--muted)">文档/规范/需求文档规范.md</small></td>
+  <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>.opencode/opencode.json 中的 model 节点。</td>
+  <td>文档入口，描述 需求文档规范.md 相关能力。</td>
 </tr>
 <tr>
   <td>22</td>
-  <td><code>/home/minjian/ai/models/Qwen3.8-27B-UD-Q4_K_M.gguf</code><br><small style="color:var(--muted)">.opencode/opencode.json</small></td>
-  <td><span class="tag tag-func">函数</span></td>
+  <td><code>项目管理规范.md</code><br><small style="color:var(--muted)">文档/规范/项目管理规范.md</small></td>
+  <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>.opencode/opencode.json 中的 /home/minjian/ai/models/Qwen3.8-27B-UD-Q4_K_M.gguf 节点。</td>
+  <td>文档入口，描述 项目管理规范.md 相关能力。</td>
 </tr>
 <tr>
   <td>23</td>
-  <td><code>qwen3.8-27b</code><br><small style="color:var(--muted)">.opencode/opencode.json</small></td>
-  <td><span class="tag tag-func">函数</span></td>
+  <td><code>01_组件设计_字典字段.md</code><br><small style="color:var(--muted)">设计/组件设计/01_组件设计_字典字段.md</small></td>
+  <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>.opencode/opencode.json 中的 qwen3.8-27b 节点。</td>
+  <td>文档入口，描述 01_组件设计_字典字段.md 相关能力。</td>
 </tr>
 <tr>
   <td>24</td>
-  <td><code>apiKey</code><br><small style="color:var(--muted)">.opencode/opencode.json</small></td>
-  <td><span class="tag tag-endpoint">API</span></td>
+  <td><code>deepseek_harness部署使用说明.md</code><br><small style="color:var(--muted)">资料/AI/deepseek_harness部署使用说明.md</small></td>
+  <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>.opencode/opencode.json 中的 apiKey 节点。</td>
+  <td>文档入口，描述 deepseek_harness部署使用说明.md 相关能力。</td>
 </tr>
 <tr>
   <td>25</td>
-  <td><code>baseURL</code><br><small style="color:var(--muted)">.opencode/opencode.json</small></td>
-  <td><span class="tag tag-func">函数</span></td>
+  <td><code>graphify部署使用说明.md</code><br><small style="color:var(--muted)">资料/AI/graphify部署使用说明.md</small></td>
+  <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>.opencode/opencode.json 中的 baseURL 节点。</td>
+  <td>文档入口，描述 graphify部署使用说明.md 相关能力。</td>
 </tr>
 <tr>
   <td>26</td>
-  <td><code>reasoningEffort</code><br><small style="color:var(--muted)">.opencode/opencode.json</small></td>
-  <td><span class="tag tag-func">函数</span></td>
+  <td><code>llamacpp部署使用说明.md</code><br><small style="color:var(--muted)">资料/AI/llamacpp部署使用说明.md</small></td>
+  <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>.opencode/opencode.json 中的 reasoningEffort 节点。</td>
+  <td>文档入口，描述 llamacpp部署使用说明.md 相关能力。</td>
 </tr>
 <tr>
   <td>27</td>
-  <td><code>plugin</code><br><small style="color:var(--muted)">.opencode/opencode.json</small></td>
-  <td><span class="tag tag-func">函数</span></td>
+  <td><code>CC-Connect部署使用说明.md</code><br><small style="color:var(--muted)">资料/工具/CC-Connect部署使用说明.md</small></td>
+  <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>.opencode/opencode.json 中的 plugin 节点。</td>
+  <td>文档入口，描述 CC-Connect部署使用说明.md 相关能力。</td>
 </tr>
 <tr>
   <td>28</td>
-  <td><code>provider</code><br><small style="color:var(--muted)">.opencode/opencode.json</small></td>
-  <td><span class="tag tag-func">函数</span></td>
+  <td><code>GitLab迁移使用说明.md</code><br><small style="color:var(--muted)">资料/工具/GitLab迁移使用说明.md</small></td>
+  <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>.opencode/opencode.json 中的 provider 节点。</td>
+  <td>文档入口，描述 GitLab迁移使用说明.md 相关能力。</td>
 </tr>
 <tr>
   <td>29</td>
-  <td><code>llamacpp</code><br><small style="color:var(--muted)">.opencode/opencode.json</small></td>
-  <td><span class="tag tag-func">函数</span></td>
+  <td><code>Ubuntu安装部署使用说明.md</code><br><small style="color:var(--muted)">资料/工具/Ubuntu安装部署使用说明.md</small></td>
+  <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>.opencode/opencode.json 中的 llamacpp 节点。</td>
+  <td>文档入口，描述 Ubuntu安装部署使用说明.md 相关能力。</td>
 </tr>
 <tr>
   <td>30</td>
-  <td><code>lmstudio</code><br><small style="color:var(--muted)">.opencode/opencode.json</small></td>
-  <td><span class="tag tag-func">函数</span></td>
+  <td><code>开发服务器电源控制使用说明.md</code><br><small style="color:var(--muted)">资料/工具/开发服务器电源控制使用说明.md</small></td>
+  <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>.opencode/opencode.json 中的 lmstudio 节点。</td>
+  <td>文档入口，描述 开发服务器电源控制使用说明.md 相关能力。</td>
 </tr>
 </table>
 
@@ -1513,18 +1514,18 @@ flowchart LR
     <table style="width:100%;font-size:0.85rem;">
       <tr><th>File</th><th>覆盖节点</th></tr>
       <tr><td><code>.opencode/opencode.json</code></td><td>42 个节点</td></tr>
-<tr><td><code>资料/AI/graphify部署使用说明.md</code></td><td>25 个节点</td></tr>
-<tr><td><code>资料/工具/Ubuntu安装部署使用说明.md</code></td><td>25 个节点</td></tr>
-<tr><td><code>资料/开发机/Steamcommunity_302部署使用说明.md</code></td><td>25 个节点</td></tr>
-<tr><td><code>资料/AI/llamacpp部署使用说明.md</code></td><td>19 个节点</td></tr>
-<tr><td><code>资料/工具/CC-Connect部署使用说明.md</code></td><td>15 个节点</td></tr>
+<tr><td><code>资料/AI/graphify部署使用说明.md</code></td><td>26 个节点</td></tr>
+<tr><td><code>资料/工具/Ubuntu安装部署使用说明.md</code></td><td>26 个节点</td></tr>
+<tr><td><code>资料/开发机/Steamcommunity_302部署使用说明.md</code></td><td>26 个节点</td></tr>
+<tr><td><code>资料/开发机/opencode部署使用说明.md</code></td><td>24 个节点</td></tr>
+<tr><td><code>资料/AI/llamacpp部署使用说明.md</code></td><td>20 个节点</td></tr>
 <tr><td><code>资料/工具/通用后台执行器部署使用说明.md</code></td><td>14 个节点</td></tr>
-<tr><td><code>资料/开发服务器/达梦DM8部署使用说明.md</code></td><td>13 个节点</td></tr>
+<tr><td><code>资料/开发服务器/达梦DM8部署使用说明.md</code></td><td>14 个节点</td></tr>
     </table>
   </div>
   <div class="card">
     <h4>设计备注</h4>
-    <p>本节由 graphify 社区聚类生成。关系概况：包含 x199, references x44, extends x4, 调用 x2。图表优先展示高置信、跨节点调用或使用关系，完整节点清单位于表格中。</p>
+    <p>本节由 graphify 社区聚类生成。关系概况：references x869, 包含 x241, extends x4, 调用 x2。图表优先展示高置信、跨节点调用或使用关系，完整节点清单位于表格中。</p>
   </div>
 </div>
 <hr>
@@ -2519,72 +2520,72 @@ flowchart LR
 
 <!-- ====== 10. 01_架构设计_总览.md ====== -->
 <h2 id="01-md">10. 01_架构设计_总览.md</h2>
-<p>01_架构设计_总览.md 汇集了与 概要设计、总览md、架构设计、原型审查规范md 相关的实现，主要分布在 文档/规范/原型审查规范.md、设计/架构设计/01_架构设计_总览.md、设计/概要设计/01_概要设计_总览.md。本节覆盖 33 个节点、125 条内部边，图中只展示最有代表性的调用关系以保持可读性。</p>
+<p>01_架构设计_总览.md 汇集了与 概要设计、架构设计、子系统、总览md 相关的实现，主要分布在 文档/规范/原型审查规范.md、设计/架构设计/01_架构设计_总览.md、设计/架构设计/02_架构设计_目标与约束.md。本节覆盖 70 个节点、391 条内部边，图中只展示最有代表性的调用关系以保持可读性。</p>
 
 <div class="mermaid">
 %%{init: {"theme": "dark", "themeVariables": {"fontSize": "15.0px", "fontFamily": "Segoe UI, system-ui, sans-serif", "primaryColor": "#1e293b", "primaryTextColor": "#e2e8f0", "primaryBorderColor": "#38bdf8", "secondaryColor": "#0f172a", "tertiaryColor": "#334155", "lineColor": "#64748b", "textColor": "#e2e8f0"}, "flowchart": {"htmlLabels": true, "curve": "basis", "nodeSpacing": 48, "rankSpacing": 64, "padding": 14, "diagramPadding": 10, "useMaxWidth": true}}}%%
 flowchart LR
-    %% Section: 01_架构设计_总览.md (33 nodes, 125 edges)
+    %% Section: 01_架构设计_总览.md (70 nodes, 391 edges)
     node_01_c4f7cda3("01_架构设计_总览.md")
+    node_03_86e9d93a("03_架构设计_总体架构.md")
+    node_08_78a9459b("08_架构设计_子系统_多租户路由.md")
+    node_09_b0a32603("09_架构设计_子系统_数据访问与分片.md")
+    node_10_43670788("10_架构设计_子系统_认证与会话.md")
+    node_11_72845e7a("11_架构设计_子系统_权限计算引擎.md")
+    node_12_276efb98("12_架构设计_子系统_事件总线.md")
+    node_13_39766666("13_架构设计_子系统_任务调度.md")
+    node_14_081c9916("14_架构设计_子系统_实时推送.md")
+    node_15_88d5cae3("15_架构设计_子系统_审计哈希链.md")
+    node_23_fb2eed57("23_架构设计_子系统_可观测性.md")
+    node_25_eb901c04("25_架构设计_子系统_首页工作台.md")
+    node_26_432c850b("26_架构设计_子系统_表单定制.md")
+    node_28_465f5adc("28_架构设计_前端架构.md")
     node_01_7a5fae53("01_概要设计_总览.md")
-    node_03_3dc1a4b2("03_概要设计_用户管理.md")
-    node_06_618d44f1("06_概要设计_角色管理.md")
-    node_10_dd1feaa2("10_概要设计_系统参数.md")
-    node_11_8ea9afb7("11_概要设计_操作日志.md")
-    node_12_d2772412("12_概要设计_登录日志.md")
-    node_13_7e40c947("13_概要设计_文件管理.md")
-    node_14_d3c0e4f9("14_概要设计_会话管理.md")
-    node_19_5361156f("19_概要设计_公告管理.md")
-    node_20_91148539("20_概要设计_导入导出.md")
-    node_24_f9e8174b("24_概要设计_任务调度.md")
-    node_25_cd447487("25_概要设计_邮件通知.md")
-    node_27_sso_c2a39dbd("27_概要设计_身份认证SSO.md")
-    node_29_b3a23b88("29_概要设计_审计合规.md")
-    node_31_82b07032("31_概要设计_归档管理.md")
-    node_33_aad9e3ce("33_概要设计_回收站.md")
+    node_34_a24e09d0("34_概要设计_全文检索.md")
+    node_35_ai_be920bcf("35_概要设计_AI能力.md")
     node_38_d187714b("38_概要设计_表单定制.md")
     node_01_c4f7cda3 -->|references| node_01_7a5fae53
-    node_01_7a5fae53 -->|references| node_03_3dc1a4b2
-    node_01_7a5fae53 -->|references| node_06_618d44f1
-    node_01_7a5fae53 -->|references| node_10_dd1feaa2
-    node_01_7a5fae53 -->|references| node_11_8ea9afb7
-    node_01_7a5fae53 -->|references| node_12_d2772412
-    node_01_7a5fae53 -->|references| node_13_7e40c947
-    node_01_7a5fae53 -->|references| node_14_d3c0e4f9
-    node_01_7a5fae53 -->|references| node_19_5361156f
-    node_01_7a5fae53 -->|references| node_20_91148539
-    node_01_7a5fae53 -->|references| node_24_f9e8174b
-    node_01_7a5fae53 -->|references| node_25_cd447487
-    node_01_7a5fae53 -->|references| node_27_sso_c2a39dbd
-    node_01_7a5fae53 -->|references| node_29_b3a23b88
-    node_01_7a5fae53 -->|references| node_31_82b07032
-    node_01_7a5fae53 -->|references| node_33_aad9e3ce
-    node_01_7a5fae53 -->|references| node_38_d187714b
-    node_03_3dc1a4b2 -->|references| node_06_618d44f1
-    node_03_3dc1a4b2 -->|references| node_01_c4f7cda3
-    node_06_618d44f1 -->|references| node_01_c4f7cda3
-    node_06_618d44f1 -->|references| node_29_b3a23b88
-    node_10_dd1feaa2 -->|references| node_14_d3c0e4f9
-    node_10_dd1feaa2 -->|references| node_11_8ea9afb7
-    node_10_dd1feaa2 -->|references| node_01_c4f7cda3
-    %% Omitted for readability: 15 nodes, 41 edges
+    node_01_c4f7cda3 -->|references| node_03_86e9d93a
+    node_01_c4f7cda3 -->|references| node_28_465f5adc
+    node_01_c4f7cda3 -->|references| node_08_78a9459b
+    node_01_c4f7cda3 -->|references| node_09_b0a32603
+    node_01_c4f7cda3 -->|references| node_10_43670788
+    node_01_c4f7cda3 -->|references| node_11_72845e7a
+    node_01_c4f7cda3 -->|references| node_12_276efb98
+    node_01_c4f7cda3 -->|references| node_13_39766666
+    node_01_c4f7cda3 -->|references| node_14_081c9916
+    node_01_c4f7cda3 -->|references| node_15_88d5cae3
+    node_01_c4f7cda3 -->|references| node_23_fb2eed57
+    node_01_c4f7cda3 -->|references| node_25_eb901c04
+    node_01_c4f7cda3 -->|references| node_26_432c850b
+    node_03_86e9d93a -->|references| node_08_78a9459b
+    node_03_86e9d93a -->|references| node_09_b0a32603
+    node_03_86e9d93a -->|references| node_10_43670788
+    node_03_86e9d93a -->|references| node_11_72845e7a
+    node_03_86e9d93a -->|references| node_12_276efb98
+    node_03_86e9d93a -->|references| node_13_39766666
+    node_03_86e9d93a -->|references| node_23_fb2eed57
+    node_03_86e9d93a -->|references| node_28_465f5adc
+    node_08_78a9459b -->|references| node_09_b0a32603
+    node_08_78a9459b -->|references| node_10_43670788
+    %% Omitted for readability: 52 nodes, 58 edges
     class node_01_c4f7cda3 concept;
+    class node_03_86e9d93a concept;
+    class node_08_78a9459b concept;
+    class node_09_b0a32603 concept;
+    class node_10_43670788 concept;
+    class node_11_72845e7a concept;
+    class node_12_276efb98 concept;
+    class node_13_39766666 concept;
+    class node_14_081c9916 concept;
+    class node_15_88d5cae3 concept;
+    class node_23_fb2eed57 concept;
+    class node_25_eb901c04 concept;
+    class node_26_432c850b concept;
+    class node_28_465f5adc concept;
     class node_01_7a5fae53 concept;
-    class node_03_3dc1a4b2 concept;
-    class node_06_618d44f1 concept;
-    class node_10_dd1feaa2 concept;
-    class node_11_8ea9afb7 concept;
-    class node_12_d2772412 concept;
-    class node_13_7e40c947 concept;
-    class node_14_d3c0e4f9 concept;
-    class node_19_5361156f concept;
-    class node_20_91148539 concept;
-    class node_24_f9e8174b concept;
-    class node_25_cd447487 concept;
-    class node_27_sso_c2a39dbd concept;
-    class node_29_b3a23b88 concept;
-    class node_31_82b07032 concept;
-    class node_33_aad9e3ce concept;
+    class node_34_a24e09d0 concept;
+    class node_35_ai_be920bcf concept;
     class node_38_d187714b concept;
     classDef entry fill:#422006,stroke:#fbbf24,color:#fde68a,stroke-width:1px;
     classDef api fill:#450a0a,stroke:#f87171,color:#fee2e2,stroke-width:1px;
@@ -2625,227 +2626,227 @@ flowchart LR
 </tr>
 <tr>
   <td>3</td>
-  <td><code>01_概要设计_总览.md</code><br><small style="color:var(--muted)">设计/概要设计/01_概要设计_总览.md</small></td>
+  <td><code>02_架构设计_目标与约束.md</code><br><small style="color:var(--muted)">设计/架构设计/02_架构设计_目标与约束.md</small></td>
   <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>文档入口，描述 01_概要设计_总览.md 相关能力。</td>
+  <td>文档入口，描述 02_架构设计_目标与约束.md 相关能力。</td>
 </tr>
 <tr>
   <td>4</td>
-  <td><code>02_概要设计_模块注册.md</code><br><small style="color:var(--muted)">设计/概要设计/02_概要设计_模块注册.md</small></td>
+  <td><code>03_架构设计_总体架构.md</code><br><small style="color:var(--muted)">设计/架构设计/03_架构设计_总体架构.md</small></td>
   <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>文档入口，描述 02_概要设计_模块注册.md 相关能力。</td>
+  <td>文档入口，描述 03_架构设计_总体架构.md 相关能力。</td>
 </tr>
 <tr>
   <td>5</td>
-  <td><code>03_概要设计_用户管理.md</code><br><small style="color:var(--muted)">设计/概要设计/03_概要设计_用户管理.md</small></td>
+  <td><code>04_架构设计_核心交互时序.md</code><br><small style="color:var(--muted)">设计/架构设计/04_架构设计_核心交互时序.md</small></td>
   <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>文档入口，描述 03_概要设计_用户管理.md 相关能力。</td>
+  <td>文档入口，描述 04_架构设计_核心交互时序.md 相关能力。</td>
 </tr>
 <tr>
   <td>6</td>
-  <td><code>04_概要设计_用户喜好.md</code><br><small style="color:var(--muted)">设计/概要设计/04_概要设计_用户喜好.md</small></td>
+  <td><code>05_架构设计_数据架构.md</code><br><small style="color:var(--muted)">设计/架构设计/05_架构设计_数据架构.md</small></td>
   <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>文档入口，描述 04_概要设计_用户喜好.md 相关能力。</td>
+  <td>文档入口，描述 05_架构设计_数据架构.md 相关能力。</td>
 </tr>
 <tr>
   <td>7</td>
-  <td><code>05_概要设计_岗位管理.md</code><br><small style="color:var(--muted)">设计/概要设计/05_概要设计_岗位管理.md</small></td>
+  <td><code>06_架构设计_接口与集成.md</code><br><small style="color:var(--muted)">设计/架构设计/06_架构设计_接口与集成.md</small></td>
   <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>文档入口，描述 05_概要设计_岗位管理.md 相关能力。</td>
+  <td>文档入口，描述 06_架构设计_接口与集成.md 相关能力。</td>
 </tr>
 <tr>
   <td>8</td>
-  <td><code>06_概要设计_角色管理.md</code><br><small style="color:var(--muted)">设计/概要设计/06_概要设计_角色管理.md</small></td>
+  <td><code>07_架构设计_子系统_模块注册.md</code><br><small style="color:var(--muted)">设计/架构设计/07_架构设计_子系统_模块注册.md</small></td>
   <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>文档入口，描述 06_概要设计_角色管理.md 相关能力。</td>
+  <td>文档入口，描述 07_架构设计_子系统_模块注册.md 相关能力。</td>
 </tr>
 <tr>
   <td>9</td>
-  <td><code>07_概要设计_菜单管理.md</code><br><small style="color:var(--muted)">设计/概要设计/07_概要设计_菜单管理.md</small></td>
+  <td><code>08_架构设计_子系统_多租户路由.md</code><br><small style="color:var(--muted)">设计/架构设计/08_架构设计_子系统_多租户路由.md</small></td>
   <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>文档入口，描述 07_概要设计_菜单管理.md 相关能力。</td>
+  <td>文档入口，描述 08_架构设计_子系统_多租户路由.md 相关能力。</td>
 </tr>
 <tr>
   <td>10</td>
-  <td><code>08_概要设计_部门管理.md</code><br><small style="color:var(--muted)">设计/概要设计/08_概要设计_部门管理.md</small></td>
+  <td><code>09_架构设计_子系统_数据访问与分片.md</code><br><small style="color:var(--muted)">设计/架构设计/09_架构设计_子系统_数据访问与分片.md</small></td>
   <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>文档入口，描述 08_概要设计_部门管理.md 相关能力。</td>
+  <td>文档入口，描述 09_架构设计_子系统_数据访问与分片.md 相关能力。</td>
 </tr>
 <tr>
   <td>11</td>
-  <td><code>09_概要设计_字典管理.md</code><br><small style="color:var(--muted)">设计/概要设计/09_概要设计_字典管理.md</small></td>
+  <td><code>10_架构设计_子系统_认证与会话.md</code><br><small style="color:var(--muted)">设计/架构设计/10_架构设计_子系统_认证与会话.md</small></td>
   <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>文档入口，描述 09_概要设计_字典管理.md 相关能力。</td>
+  <td>文档入口，描述 10_架构设计_子系统_认证与会话.md 相关能力。</td>
 </tr>
 <tr>
   <td>12</td>
-  <td><code>10_概要设计_系统参数.md</code><br><small style="color:var(--muted)">设计/概要设计/10_概要设计_系统参数.md</small></td>
+  <td><code>11_架构设计_子系统_权限计算引擎.md</code><br><small style="color:var(--muted)">设计/架构设计/11_架构设计_子系统_权限计算引擎.md</small></td>
   <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>文档入口，描述 10_概要设计_系统参数.md 相关能力。</td>
+  <td>文档入口，描述 11_架构设计_子系统_权限计算引擎.md 相关能力。</td>
 </tr>
 <tr>
   <td>13</td>
-  <td><code>11_概要设计_操作日志.md</code><br><small style="color:var(--muted)">设计/概要设计/11_概要设计_操作日志.md</small></td>
+  <td><code>12_架构设计_子系统_事件总线.md</code><br><small style="color:var(--muted)">设计/架构设计/12_架构设计_子系统_事件总线.md</small></td>
   <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>文档入口，描述 11_概要设计_操作日志.md 相关能力。</td>
+  <td>文档入口，描述 12_架构设计_子系统_事件总线.md 相关能力。</td>
 </tr>
 <tr>
   <td>14</td>
-  <td><code>12_概要设计_登录日志.md</code><br><small style="color:var(--muted)">设计/概要设计/12_概要设计_登录日志.md</small></td>
+  <td><code>13_架构设计_子系统_任务调度.md</code><br><small style="color:var(--muted)">设计/架构设计/13_架构设计_子系统_任务调度.md</small></td>
   <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>文档入口，描述 12_概要设计_登录日志.md 相关能力。</td>
+  <td>文档入口，描述 13_架构设计_子系统_任务调度.md 相关能力。</td>
 </tr>
 <tr>
   <td>15</td>
-  <td><code>13_概要设计_文件管理.md</code><br><small style="color:var(--muted)">设计/概要设计/13_概要设计_文件管理.md</small></td>
+  <td><code>14_架构设计_子系统_实时推送.md</code><br><small style="color:var(--muted)">设计/架构设计/14_架构设计_子系统_实时推送.md</small></td>
   <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>文档入口，描述 13_概要设计_文件管理.md 相关能力。</td>
+  <td>文档入口，描述 14_架构设计_子系统_实时推送.md 相关能力。</td>
 </tr>
 <tr>
   <td>16</td>
-  <td><code>14_概要设计_会话管理.md</code><br><small style="color:var(--muted)">设计/概要设计/14_概要设计_会话管理.md</small></td>
+  <td><code>15_架构设计_子系统_审计哈希链.md</code><br><small style="color:var(--muted)">设计/架构设计/15_架构设计_子系统_审计哈希链.md</small></td>
   <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>文档入口，描述 14_概要设计_会话管理.md 相关能力。</td>
+  <td>文档入口，描述 15_架构设计_子系统_审计哈希链.md 相关能力。</td>
 </tr>
 <tr>
   <td>17</td>
-  <td><code>18_概要设计_帮助中心.md</code><br><small style="color:var(--muted)">设计/概要设计/18_概要设计_帮助中心.md</small></td>
+  <td><code>16_架构设计_子系统_文件管理.md</code><br><small style="color:var(--muted)">设计/架构设计/16_架构设计_子系统_文件管理.md</small></td>
   <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>文档入口，描述 18_概要设计_帮助中心.md 相关能力。</td>
+  <td>文档入口，描述 16_架构设计_子系统_文件管理.md 相关能力。</td>
 </tr>
 <tr>
   <td>18</td>
-  <td><code>19_概要设计_公告管理.md</code><br><small style="color:var(--muted)">设计/概要设计/19_概要设计_公告管理.md</small></td>
+  <td><code>17_架构设计_子系统_工作流.md</code><br><small style="color:var(--muted)">设计/架构设计/17_架构设计_子系统_工作流.md</small></td>
   <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>文档入口，描述 19_概要设计_公告管理.md 相关能力。</td>
+  <td>文档入口，描述 17_架构设计_子系统_工作流.md 相关能力。</td>
 </tr>
 <tr>
   <td>19</td>
-  <td><code>20_概要设计_导入导出.md</code><br><small style="color:var(--muted)">设计/概要设计/20_概要设计_导入导出.md</small></td>
+  <td><code>18_架构设计_子系统_通知公告.md</code><br><small style="color:var(--muted)">设计/架构设计/18_架构设计_子系统_通知公告.md</small></td>
   <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>文档入口，描述 20_概要设计_导入导出.md 相关能力。</td>
+  <td>文档入口，描述 18_架构设计_子系统_通知公告.md 相关能力。</td>
 </tr>
 <tr>
   <td>20</td>
-  <td><code>21_概要设计_开放接口管理.md</code><br><small style="color:var(--muted)">设计/概要设计/21_概要设计_开放接口管理.md</small></td>
+  <td><code>19_架构设计_子系统_报表BI.md</code><br><small style="color:var(--muted)">设计/架构设计/19_架构设计_子系统_报表BI.md</small></td>
   <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>文档入口，描述 21_概要设计_开放接口管理.md 相关能力。</td>
+  <td>文档入口，描述 19_架构设计_子系统_报表BI.md 相关能力。</td>
 </tr>
 <tr>
   <td>21</td>
-  <td><code>22_概要设计_Webhook管理.md</code><br><small style="color:var(--muted)">设计/概要设计/22_概要设计_Webhook管理.md</small></td>
+  <td><code>20_架构设计_子系统_国际化.md</code><br><small style="color:var(--muted)">设计/架构设计/20_架构设计_子系统_国际化.md</small></td>
   <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>文档入口，描述 22_概要设计_Webhook管理.md 相关能力。</td>
+  <td>文档入口，描述 20_架构设计_子系统_国际化.md 相关能力。</td>
 </tr>
 <tr>
   <td>22</td>
-  <td><code>23_概要设计_系统监控.md</code><br><small style="color:var(--muted)">设计/概要设计/23_概要设计_系统监控.md</small></td>
+  <td><code>21_架构设计_子系统_全文检索.md</code><br><small style="color:var(--muted)">设计/架构设计/21_架构设计_子系统_全文检索.md</small></td>
   <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>文档入口，描述 23_概要设计_系统监控.md 相关能力。</td>
+  <td>文档入口，描述 21_架构设计_子系统_全文检索.md 相关能力。</td>
 </tr>
 <tr>
   <td>23</td>
-  <td><code>24_概要设计_任务调度.md</code><br><small style="color:var(--muted)">设计/概要设计/24_概要设计_任务调度.md</small></td>
+  <td><code>22_架构设计_子系统_AI服务.md</code><br><small style="color:var(--muted)">设计/架构设计/22_架构设计_子系统_AI服务.md</small></td>
   <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>文档入口，描述 24_概要设计_任务调度.md 相关能力。</td>
+  <td>文档入口，描述 22_架构设计_子系统_AI服务.md 相关能力。</td>
 </tr>
 <tr>
   <td>24</td>
-  <td><code>25_概要设计_邮件通知.md</code><br><small style="color:var(--muted)">设计/概要设计/25_概要设计_邮件通知.md</small></td>
+  <td><code>23_架构设计_子系统_可观测性.md</code><br><small style="color:var(--muted)">设计/架构设计/23_架构设计_子系统_可观测性.md</small></td>
   <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>文档入口，描述 25_概要设计_邮件通知.md 相关能力。</td>
+  <td>文档入口，描述 23_架构设计_子系统_可观测性.md 相关能力。</td>
 </tr>
 <tr>
   <td>25</td>
-  <td><code>26_概要设计_租户管理.md</code><br><small style="color:var(--muted)">设计/概要设计/26_概要设计_租户管理.md</small></td>
+  <td><code>24_架构设计_子系统_帮助中心.md</code><br><small style="color:var(--muted)">设计/架构设计/24_架构设计_子系统_帮助中心.md</small></td>
   <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>文档入口，描述 26_概要设计_租户管理.md 相关能力。</td>
+  <td>文档入口，描述 24_架构设计_子系统_帮助中心.md 相关能力。</td>
 </tr>
 <tr>
   <td>26</td>
-  <td><code>27_概要设计_身份认证SSO.md</code><br><small style="color:var(--muted)">设计/概要设计/27_概要设计_身份认证SSO.md</small></td>
+  <td><code>25_架构设计_子系统_首页工作台.md</code><br><small style="color:var(--muted)">设计/架构设计/25_架构设计_子系统_首页工作台.md</small></td>
   <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>文档入口，描述 27_概要设计_身份认证SSO.md 相关能力。</td>
+  <td>文档入口，描述 25_架构设计_子系统_首页工作台.md 相关能力。</td>
 </tr>
 <tr>
   <td>27</td>
-  <td><code>28_概要设计_报表中心.md</code><br><small style="color:var(--muted)">设计/概要设计/28_概要设计_报表中心.md</small></td>
+  <td><code>26_架构设计_子系统_表单定制.md</code><br><small style="color:var(--muted)">设计/架构设计/26_架构设计_子系统_表单定制.md</small></td>
   <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>文档入口，描述 28_概要设计_报表中心.md 相关能力。</td>
+  <td>文档入口，描述 26_架构设计_子系统_表单定制.md 相关能力。</td>
 </tr>
 <tr>
   <td>28</td>
-  <td><code>29_概要设计_审计合规.md</code><br><small style="color:var(--muted)">设计/概要设计/29_概要设计_审计合规.md</small></td>
+  <td><code>27_架构设计_性能与安全.md</code><br><small style="color:var(--muted)">设计/架构设计/27_架构设计_性能与安全.md</small></td>
   <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>文档入口，描述 29_概要设计_审计合规.md 相关能力。</td>
+  <td>文档入口，描述 27_架构设计_性能与安全.md 相关能力。</td>
 </tr>
 <tr>
   <td>29</td>
-  <td><code>30_概要设计_国际化管理.md</code><br><small style="color:var(--muted)">设计/概要设计/30_概要设计_国际化管理.md</small></td>
+  <td><code>28_架构设计_前端架构.md</code><br><small style="color:var(--muted)">设计/架构设计/28_架构设计_前端架构.md</small></td>
   <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>文档入口，描述 30_概要设计_国际化管理.md 相关能力。</td>
+  <td>文档入口，描述 28_架构设计_前端架构.md 相关能力。</td>
 </tr>
 <tr>
   <td>30</td>
-  <td><code>31_概要设计_归档管理.md</code><br><small style="color:var(--muted)">设计/概要设计/31_概要设计_归档管理.md</small></td>
+  <td><code>29_架构设计_测试与质量.md</code><br><small style="color:var(--muted)">设计/架构设计/29_架构设计_测试与质量.md</small></td>
   <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>文档入口，描述 31_概要设计_归档管理.md 相关能力。</td>
+  <td>文档入口，描述 29_架构设计_测试与质量.md 相关能力。</td>
 </tr>
 </table>
 
@@ -2856,17 +2857,17 @@ flowchart LR
       <tr><th>File</th><th>覆盖节点</th></tr>
       <tr><td><code>文档/规范/原型审查规范.md</code></td><td>1 个节点</td></tr>
 <tr><td><code>设计/架构设计/01_架构设计_总览.md</code></td><td>1 个节点</td></tr>
-<tr><td><code>设计/概要设计/01_概要设计_总览.md</code></td><td>1 个节点</td></tr>
-<tr><td><code>设计/概要设计/02_概要设计_模块注册.md</code></td><td>1 个节点</td></tr>
-<tr><td><code>设计/概要设计/03_概要设计_用户管理.md</code></td><td>1 个节点</td></tr>
-<tr><td><code>设计/概要设计/04_概要设计_用户喜好.md</code></td><td>1 个节点</td></tr>
-<tr><td><code>设计/概要设计/05_概要设计_岗位管理.md</code></td><td>1 个节点</td></tr>
-<tr><td><code>设计/概要设计/06_概要设计_角色管理.md</code></td><td>1 个节点</td></tr>
+<tr><td><code>设计/架构设计/02_架构设计_目标与约束.md</code></td><td>1 个节点</td></tr>
+<tr><td><code>设计/架构设计/03_架构设计_总体架构.md</code></td><td>1 个节点</td></tr>
+<tr><td><code>设计/架构设计/04_架构设计_核心交互时序.md</code></td><td>1 个节点</td></tr>
+<tr><td><code>设计/架构设计/05_架构设计_数据架构.md</code></td><td>1 个节点</td></tr>
+<tr><td><code>设计/架构设计/06_架构设计_接口与集成.md</code></td><td>1 个节点</td></tr>
+<tr><td><code>设计/架构设计/07_架构设计_子系统_模块注册.md</code></td><td>1 个节点</td></tr>
     </table>
   </div>
   <div class="card">
     <h4>设计备注</h4>
-    <p>本节由 graphify 社区聚类生成。关系概况：references x125。图表优先展示高置信、跨节点调用或使用关系，完整节点清单位于表格中。</p>
+    <p>本节由 graphify 社区聚类生成。关系概况：references x391。图表优先展示高置信、跨节点调用或使用关系，完整节点清单位于表格中。</p>
   </div>
 </div>
 <hr>
@@ -3203,354 +3204,8 @@ flowchart LR
 </div>
 <hr>
 
-<!-- ====== 12. 12_架构设计_子系统_事件总线.md ====== -->
-<h2 id="12-md">12. 12_架构设计_子系统_事件总线.md</h2>
-<p>12_架构设计_子系统_事件总线.md 汇集了与 架构设计、子系统、概要设计、全文检索md 相关的实现，主要分布在 设计/架构设计/02_架构设计_目标与约束.md、设计/架构设计/03_架构设计_总体架构.md、设计/架构设计/04_架构设计_核心交互时序.md。本节覆盖 29 个节点、145 条内部边，图中只展示最有代表性的调用关系以保持可读性。</p>
-
-<div class="mermaid">
-%%{init: {"theme": "dark", "themeVariables": {"fontSize": "15.0px", "fontFamily": "Segoe UI, system-ui, sans-serif", "primaryColor": "#1e293b", "primaryTextColor": "#e2e8f0", "primaryBorderColor": "#38bdf8", "secondaryColor": "#0f172a", "tertiaryColor": "#334155", "lineColor": "#64748b", "textColor": "#e2e8f0"}, "flowchart": {"htmlLabels": true, "curve": "basis", "nodeSpacing": 48, "rankSpacing": 64, "padding": 14, "diagramPadding": 10, "useMaxWidth": true}}}%%
-flowchart LR
-    %% Section: 12_架构设计_子系统_事件总线.md (29 nodes, 145 edges)
-    node_03_86e9d93a("03_架构设计_总体架构.md")
-    node_05_6c1085fc("05_架构设计_数据架构.md")
-    node_07_020fce69("07_架构设计_子系统_模块注册.md")
-    node_08_78a9459b("08_架构设计_子系统_多租户路由.md")
-    node_09_b0a32603("09_架构设计_子系统_数据访问与分片.md")
-    node_10_43670788("10_架构设计_子系统_认证与会话.md")
-    node_11_72845e7a("11_架构设计_子系统_权限计算引擎.md")
-    node_12_276efb98("12_架构设计_子系统_事件总线.md")
-    node_13_39766666("13_架构设计_子系统_任务调度.md")
-    node_15_88d5cae3("15_架构设计_子系统_审计哈希链.md")
-    node_23_fb2eed57("23_架构设计_子系统_可观测性.md")
-    node_24_9553fd86("24_架构设计_子系统_帮助中心.md")
-    node_25_eb901c04("25_架构设计_子系统_首页工作台.md")
-    node_26_432c850b("26_架构设计_子系统_表单定制.md")
-    node_28_465f5adc("28_架构设计_前端架构.md")
-    node_29_288a2fc4("29_架构设计_测试与质量.md")
-    node_30_713c57b3("30_架构设计_部署与运维.md")
-    node_34_a24e09d0("34_概要设计_全文检索.md")
-    node_03_86e9d93a -->|references| node_29_288a2fc4
-    node_03_86e9d93a -->|references| node_05_6c1085fc
-    node_03_86e9d93a -->|references| node_08_78a9459b
-    node_03_86e9d93a -->|references| node_09_b0a32603
-    node_03_86e9d93a -->|references| node_10_43670788
-    node_03_86e9d93a -->|references| node_11_72845e7a
-    node_03_86e9d93a -->|references| node_12_276efb98
-    node_03_86e9d93a -->|references| node_13_39766666
-    node_03_86e9d93a -->|references| node_23_fb2eed57
-    node_03_86e9d93a -->|references| node_28_465f5adc
-    node_03_86e9d93a -->|references| node_30_713c57b3
-    node_05_6c1085fc -->|references| node_08_78a9459b
-    node_05_6c1085fc -->|references| node_09_b0a32603
-    node_05_6c1085fc -->|references| node_15_88d5cae3
-    node_07_020fce69 -->|references| node_08_78a9459b
-    node_07_020fce69 -->|references| node_05_6c1085fc
-    node_07_020fce69 -->|references| node_11_72845e7a
-    node_07_020fce69 -->|references| node_03_86e9d93a
-    node_07_020fce69 -->|references| node_28_465f5adc
-    node_08_78a9459b -->|references| node_09_b0a32603
-    node_08_78a9459b -->|references| node_10_43670788
-    node_08_78a9459b -->|references| node_12_276efb98
-    node_08_78a9459b -->|references| node_11_72845e7a
-    node_09_b0a32603 -->|references| node_10_43670788
-    %% Omitted for readability: 11 nodes, 49 edges
-    class node_03_86e9d93a concept;
-    class node_05_6c1085fc concept;
-    class node_07_020fce69 concept;
-    class node_08_78a9459b concept;
-    class node_09_b0a32603 concept;
-    class node_10_43670788 concept;
-    class node_11_72845e7a concept;
-    class node_12_276efb98 concept;
-    class node_13_39766666 concept;
-    class node_15_88d5cae3 concept;
-    class node_23_fb2eed57 concept;
-    class node_24_9553fd86 concept;
-    class node_25_eb901c04 concept;
-    class node_26_432c850b concept;
-    class node_28_465f5adc concept;
-    class node_29_288a2fc4 concept;
-    class node_30_713c57b3 concept;
-    class node_34_a24e09d0 concept;
-    classDef entry fill:#422006,stroke:#fbbf24,color:#fde68a,stroke-width:1px;
-    classDef api fill:#450a0a,stroke:#f87171,color:#fee2e2,stroke-width:1px;
-    classDef async fill:#2e1065,stroke:#a78bfa,color:#ede9fe,stroke-width:1px;
-    classDef klass fill:#064e3b,stroke:#34d399,color:#d1fae5,stroke-width:1px;
-    classDef ui fill:#831843,stroke:#f472b6,color:#fce7f3,stroke-width:1px;
-    classDef module fill:#172554,stroke:#60a5fa,color:#dbeafe,stroke-width:1px;
-    classDef test fill:#3f3f46,stroke:#a1a1aa,color:#f4f4f5,stroke-width:1px;
-    classDef concept fill:#292524,stroke:#a8a29e,color:#fafaf9,stroke-dasharray:4 3;
-    classDef function fill:#0f172a,stroke:#38bdf8,color:#e0f2fe,stroke-width:1px;
-</div>
-
-<h3>调用明细</h3>
-<table class="call-table">
-<tr>
-  <th style="width:5%">#</th>
-  <th style="width:28%">节点</th>
-  <th style="width:10%">类型</th>
-  <th style="width:17%">调用方</th>
-  <th style="width:20%">被调用/依赖</th>
-  <th style="width:20%">说明</th>
-</tr>
-<tr>
-  <td>1</td>
-  <td><code>02_架构设计_目标与约束.md</code><br><small style="color:var(--muted)">设计/架构设计/02_架构设计_目标与约束.md</small></td>
-  <td><span class="tag tag-func">概念</span></td>
-  <td>外部入口 / 无直接入边</td>
-  <td>无直接出边</td>
-  <td>文档入口，描述 02_架构设计_目标与约束.md 相关能力。</td>
-</tr>
-<tr>
-  <td>2</td>
-  <td><code>03_架构设计_总体架构.md</code><br><small style="color:var(--muted)">设计/架构设计/03_架构设计_总体架构.md</small></td>
-  <td><span class="tag tag-func">概念</span></td>
-  <td>外部入口 / 无直接入边</td>
-  <td>无直接出边</td>
-  <td>文档入口，描述 03_架构设计_总体架构.md 相关能力。</td>
-</tr>
-<tr>
-  <td>3</td>
-  <td><code>04_架构设计_核心交互时序.md</code><br><small style="color:var(--muted)">设计/架构设计/04_架构设计_核心交互时序.md</small></td>
-  <td><span class="tag tag-func">概念</span></td>
-  <td>外部入口 / 无直接入边</td>
-  <td>无直接出边</td>
-  <td>文档入口，描述 04_架构设计_核心交互时序.md 相关能力。</td>
-</tr>
-<tr>
-  <td>4</td>
-  <td><code>05_架构设计_数据架构.md</code><br><small style="color:var(--muted)">设计/架构设计/05_架构设计_数据架构.md</small></td>
-  <td><span class="tag tag-func">概念</span></td>
-  <td>外部入口 / 无直接入边</td>
-  <td>无直接出边</td>
-  <td>文档入口，描述 05_架构设计_数据架构.md 相关能力。</td>
-</tr>
-<tr>
-  <td>5</td>
-  <td><code>06_架构设计_接口与集成.md</code><br><small style="color:var(--muted)">设计/架构设计/06_架构设计_接口与集成.md</small></td>
-  <td><span class="tag tag-func">概念</span></td>
-  <td>外部入口 / 无直接入边</td>
-  <td>无直接出边</td>
-  <td>文档入口，描述 06_架构设计_接口与集成.md 相关能力。</td>
-</tr>
-<tr>
-  <td>6</td>
-  <td><code>07_架构设计_子系统_模块注册.md</code><br><small style="color:var(--muted)">设计/架构设计/07_架构设计_子系统_模块注册.md</small></td>
-  <td><span class="tag tag-func">概念</span></td>
-  <td>外部入口 / 无直接入边</td>
-  <td>无直接出边</td>
-  <td>文档入口，描述 07_架构设计_子系统_模块注册.md 相关能力。</td>
-</tr>
-<tr>
-  <td>7</td>
-  <td><code>08_架构设计_子系统_多租户路由.md</code><br><small style="color:var(--muted)">设计/架构设计/08_架构设计_子系统_多租户路由.md</small></td>
-  <td><span class="tag tag-func">概念</span></td>
-  <td>外部入口 / 无直接入边</td>
-  <td>无直接出边</td>
-  <td>文档入口，描述 08_架构设计_子系统_多租户路由.md 相关能力。</td>
-</tr>
-<tr>
-  <td>8</td>
-  <td><code>09_架构设计_子系统_数据访问与分片.md</code><br><small style="color:var(--muted)">设计/架构设计/09_架构设计_子系统_数据访问与分片.md</small></td>
-  <td><span class="tag tag-func">概念</span></td>
-  <td>外部入口 / 无直接入边</td>
-  <td>无直接出边</td>
-  <td>文档入口，描述 09_架构设计_子系统_数据访问与分片.md 相关能力。</td>
-</tr>
-<tr>
-  <td>9</td>
-  <td><code>10_架构设计_子系统_认证与会话.md</code><br><small style="color:var(--muted)">设计/架构设计/10_架构设计_子系统_认证与会话.md</small></td>
-  <td><span class="tag tag-func">概念</span></td>
-  <td>外部入口 / 无直接入边</td>
-  <td>无直接出边</td>
-  <td>文档入口，描述 10_架构设计_子系统_认证与会话.md 相关能力。</td>
-</tr>
-<tr>
-  <td>10</td>
-  <td><code>11_架构设计_子系统_权限计算引擎.md</code><br><small style="color:var(--muted)">设计/架构设计/11_架构设计_子系统_权限计算引擎.md</small></td>
-  <td><span class="tag tag-func">概念</span></td>
-  <td>外部入口 / 无直接入边</td>
-  <td>无直接出边</td>
-  <td>文档入口，描述 11_架构设计_子系统_权限计算引擎.md 相关能力。</td>
-</tr>
-<tr>
-  <td>11</td>
-  <td><code>12_架构设计_子系统_事件总线.md</code><br><small style="color:var(--muted)">设计/架构设计/12_架构设计_子系统_事件总线.md</small></td>
-  <td><span class="tag tag-func">概念</span></td>
-  <td>外部入口 / 无直接入边</td>
-  <td>无直接出边</td>
-  <td>文档入口，描述 12_架构设计_子系统_事件总线.md 相关能力。</td>
-</tr>
-<tr>
-  <td>12</td>
-  <td><code>13_架构设计_子系统_任务调度.md</code><br><small style="color:var(--muted)">设计/架构设计/13_架构设计_子系统_任务调度.md</small></td>
-  <td><span class="tag tag-func">概念</span></td>
-  <td>外部入口 / 无直接入边</td>
-  <td>无直接出边</td>
-  <td>文档入口，描述 13_架构设计_子系统_任务调度.md 相关能力。</td>
-</tr>
-<tr>
-  <td>13</td>
-  <td><code>15_架构设计_子系统_审计哈希链.md</code><br><small style="color:var(--muted)">设计/架构设计/15_架构设计_子系统_审计哈希链.md</small></td>
-  <td><span class="tag tag-func">概念</span></td>
-  <td>外部入口 / 无直接入边</td>
-  <td>无直接出边</td>
-  <td>文档入口，描述 15_架构设计_子系统_审计哈希链.md 相关能力。</td>
-</tr>
-<tr>
-  <td>14</td>
-  <td><code>16_架构设计_子系统_文件管理.md</code><br><small style="color:var(--muted)">设计/架构设计/16_架构设计_子系统_文件管理.md</small></td>
-  <td><span class="tag tag-func">概念</span></td>
-  <td>外部入口 / 无直接入边</td>
-  <td>无直接出边</td>
-  <td>文档入口，描述 16_架构设计_子系统_文件管理.md 相关能力。</td>
-</tr>
-<tr>
-  <td>15</td>
-  <td><code>19_架构设计_子系统_报表BI.md</code><br><small style="color:var(--muted)">设计/架构设计/19_架构设计_子系统_报表BI.md</small></td>
-  <td><span class="tag tag-func">概念</span></td>
-  <td>外部入口 / 无直接入边</td>
-  <td>无直接出边</td>
-  <td>文档入口，描述 19_架构设计_子系统_报表BI.md 相关能力。</td>
-</tr>
-<tr>
-  <td>16</td>
-  <td><code>20_架构设计_子系统_国际化.md</code><br><small style="color:var(--muted)">设计/架构设计/20_架构设计_子系统_国际化.md</small></td>
-  <td><span class="tag tag-func">概念</span></td>
-  <td>外部入口 / 无直接入边</td>
-  <td>无直接出边</td>
-  <td>文档入口，描述 20_架构设计_子系统_国际化.md 相关能力。</td>
-</tr>
-<tr>
-  <td>17</td>
-  <td><code>21_架构设计_子系统_全文检索.md</code><br><small style="color:var(--muted)">设计/架构设计/21_架构设计_子系统_全文检索.md</small></td>
-  <td><span class="tag tag-func">概念</span></td>
-  <td>外部入口 / 无直接入边</td>
-  <td>无直接出边</td>
-  <td>文档入口，描述 21_架构设计_子系统_全文检索.md 相关能力。</td>
-</tr>
-<tr>
-  <td>18</td>
-  <td><code>22_架构设计_子系统_AI服务.md</code><br><small style="color:var(--muted)">设计/架构设计/22_架构设计_子系统_AI服务.md</small></td>
-  <td><span class="tag tag-func">概念</span></td>
-  <td>外部入口 / 无直接入边</td>
-  <td>无直接出边</td>
-  <td>文档入口，描述 22_架构设计_子系统_AI服务.md 相关能力。</td>
-</tr>
-<tr>
-  <td>19</td>
-  <td><code>23_架构设计_子系统_可观测性.md</code><br><small style="color:var(--muted)">设计/架构设计/23_架构设计_子系统_可观测性.md</small></td>
-  <td><span class="tag tag-func">概念</span></td>
-  <td>外部入口 / 无直接入边</td>
-  <td>无直接出边</td>
-  <td>文档入口，描述 23_架构设计_子系统_可观测性.md 相关能力。</td>
-</tr>
-<tr>
-  <td>20</td>
-  <td><code>24_架构设计_子系统_帮助中心.md</code><br><small style="color:var(--muted)">设计/架构设计/24_架构设计_子系统_帮助中心.md</small></td>
-  <td><span class="tag tag-func">概念</span></td>
-  <td>外部入口 / 无直接入边</td>
-  <td>无直接出边</td>
-  <td>文档入口，描述 24_架构设计_子系统_帮助中心.md 相关能力。</td>
-</tr>
-<tr>
-  <td>21</td>
-  <td><code>25_架构设计_子系统_首页工作台.md</code><br><small style="color:var(--muted)">设计/架构设计/25_架构设计_子系统_首页工作台.md</small></td>
-  <td><span class="tag tag-func">概念</span></td>
-  <td>外部入口 / 无直接入边</td>
-  <td>无直接出边</td>
-  <td>文档入口，描述 25_架构设计_子系统_首页工作台.md 相关能力。</td>
-</tr>
-<tr>
-  <td>22</td>
-  <td><code>26_架构设计_子系统_表单定制.md</code><br><small style="color:var(--muted)">设计/架构设计/26_架构设计_子系统_表单定制.md</small></td>
-  <td><span class="tag tag-func">概念</span></td>
-  <td>外部入口 / 无直接入边</td>
-  <td>无直接出边</td>
-  <td>文档入口，描述 26_架构设计_子系统_表单定制.md 相关能力。</td>
-</tr>
-<tr>
-  <td>23</td>
-  <td><code>27_架构设计_性能与安全.md</code><br><small style="color:var(--muted)">设计/架构设计/27_架构设计_性能与安全.md</small></td>
-  <td><span class="tag tag-func">概念</span></td>
-  <td>外部入口 / 无直接入边</td>
-  <td>无直接出边</td>
-  <td>文档入口，描述 27_架构设计_性能与安全.md 相关能力。</td>
-</tr>
-<tr>
-  <td>24</td>
-  <td><code>28_架构设计_前端架构.md</code><br><small style="color:var(--muted)">设计/架构设计/28_架构设计_前端架构.md</small></td>
-  <td><span class="tag tag-func">概念</span></td>
-  <td>外部入口 / 无直接入边</td>
-  <td>无直接出边</td>
-  <td>文档入口，描述 28_架构设计_前端架构.md 相关能力。</td>
-</tr>
-<tr>
-  <td>25</td>
-  <td><code>29_架构设计_测试与质量.md</code><br><small style="color:var(--muted)">设计/架构设计/29_架构设计_测试与质量.md</small></td>
-  <td><span class="tag tag-func">概念</span></td>
-  <td>外部入口 / 无直接入边</td>
-  <td>无直接出边</td>
-  <td>文档入口，描述 29_架构设计_测试与质量.md 相关能力。</td>
-</tr>
-<tr>
-  <td>26</td>
-  <td><code>30_架构设计_部署与运维.md</code><br><small style="color:var(--muted)">设计/架构设计/30_架构设计_部署与运维.md</small></td>
-  <td><span class="tag tag-func">概念</span></td>
-  <td>外部入口 / 无直接入边</td>
-  <td>无直接出边</td>
-  <td>文档入口，描述 30_架构设计_部署与运维.md 相关能力。</td>
-</tr>
-<tr>
-  <td>27</td>
-  <td><code>31_架构设计_决策与风险.md</code><br><small style="color:var(--muted)">设计/架构设计/31_架构设计_决策与风险.md</small></td>
-  <td><span class="tag tag-func">概念</span></td>
-  <td>外部入口 / 无直接入边</td>
-  <td>无直接出边</td>
-  <td>文档入口，描述 31_架构设计_决策与风险.md 相关能力。</td>
-</tr>
-<tr>
-  <td>28</td>
-  <td><code>34_概要设计_全文检索.md</code><br><small style="color:var(--muted)">设计/概要设计/34_概要设计_全文检索.md</small></td>
-  <td><span class="tag tag-func">概念</span></td>
-  <td>外部入口 / 无直接入边</td>
-  <td>无直接出边</td>
-  <td>文档入口，描述 34_概要设计_全文检索.md 相关能力。</td>
-</tr>
-<tr>
-  <td>29</td>
-  <td><code>35_概要设计_AI能力.md</code><br><small style="color:var(--muted)">设计/概要设计/35_概要设计_AI能力.md</small></td>
-  <td><span class="tag tag-func">概念</span></td>
-  <td>外部入口 / 无直接入边</td>
-  <td>无直接出边</td>
-  <td>文档入口，描述 35_概要设计_AI能力.md 相关能力。</td>
-</tr>
-</table>
-
-<div class="grid">
-  <div class="card">
-    <h4>关键文件</h4>
-    <table style="width:100%;font-size:0.85rem;">
-      <tr><th>File</th><th>覆盖节点</th></tr>
-      <tr><td><code>设计/架构设计/02_架构设计_目标与约束.md</code></td><td>1 个节点</td></tr>
-<tr><td><code>设计/架构设计/03_架构设计_总体架构.md</code></td><td>1 个节点</td></tr>
-<tr><td><code>设计/架构设计/04_架构设计_核心交互时序.md</code></td><td>1 个节点</td></tr>
-<tr><td><code>设计/架构设计/05_架构设计_数据架构.md</code></td><td>1 个节点</td></tr>
-<tr><td><code>设计/架构设计/06_架构设计_接口与集成.md</code></td><td>1 个节点</td></tr>
-<tr><td><code>设计/架构设计/07_架构设计_子系统_模块注册.md</code></td><td>1 个节点</td></tr>
-<tr><td><code>设计/架构设计/08_架构设计_子系统_多租户路由.md</code></td><td>1 个节点</td></tr>
-<tr><td><code>设计/架构设计/09_架构设计_子系统_数据访问与分片.md</code></td><td>1 个节点</td></tr>
-    </table>
-  </div>
-  <div class="card">
-    <h4>设计备注</h4>
-    <p>本节由 graphify 社区聚类生成。关系概况：references x145。图表优先展示高置信、跨节点调用或使用关系，完整节点清单位于表格中。</p>
-  </div>
-</div>
-<hr>
-
-<!-- ====== 13. 开发部署规划 ====== -->
-<h2 id="section-13">13. 开发部署规划</h2>
+<!-- ====== 12. 开发部署规划 ====== -->
+<h2 id="section-12">12. 开发部署规划</h2>
 <p>开发部署规划 汇集了与 开发部署规划md、idserver、iddevpc、gitlab 相关的实现，主要分布在 文档/规划/开发部署规划.md。本节覆盖 27 个节点、26 条内部边，图中只展示最有代表性的调用关系以保持可读性。</p>
 
 <div class="mermaid">
@@ -3865,8 +3520,8 @@ flowchart LR
 </div>
 <hr>
 
-<!-- ====== 14. 概要设计 · 任务调度 ====== -->
-<h2 id="section-14">14. 概要设计 · 任务调度</h2>
+<!-- ====== 13. 概要设计 · 任务调度 ====== -->
+<h2 id="section-13">13. 概要设计 · 任务调度</h2>
 <p>概要设计 · 任务调度 汇集了与 概要设计、任务调度md、模块概述与职责、idoverview 相关的实现，主要分布在 设计/概要设计/24_概要设计_任务调度.md。本节覆盖 24 个节点、23 条内部边，图中只展示最有代表性的调用关系以保持可读性。</p>
 
 <div class="mermaid">
@@ -4157,8 +3812,8 @@ flowchart LR
 </div>
 <hr>
 
-<!-- ====== 15. 概要设计 · 邮件通知 ====== -->
-<h2 id="section-15">15. 概要设计 · 邮件通知</h2>
+<!-- ====== 14. 概要设计 · 邮件通知 ====== -->
+<h2 id="section-14">14. 概要设计 · 邮件通知</h2>
 <p>概要设计 · 邮件通知 汇集了与 概要设计、邮件通知md、模块概述与职责、idoverview 相关的实现，主要分布在 设计/概要设计/25_概要设计_邮件通知.md。本节覆盖 24 个节点、23 条内部边，图中只展示最有代表性的调用关系以保持可读性。</p>
 
 <div class="mermaid">
@@ -4449,71 +4104,68 @@ flowchart LR
 </div>
 <hr>
 
-<!-- ====== 16. 其他 ====== -->
-<h2 id="other">16. 其他</h2>
-<p>其他 汇集了与 概要设计、架构设计、知识档案、后端核心 相关的实现，主要分布在 文档/规划/项目规划说明.md、设计/概要设计/26_概要设计_租户管理.md、设计/概要设计/27_概要设计_身份认证SSO.md。本节覆盖 1949 个节点、1872 条内部边，图中只展示最有代表性的调用关系以保持可读性。</p>
+<!-- ====== 15. 概要设计 · 租户管理 ====== -->
+<h2 id="section-15">15. 概要设计 · 租户管理</h2>
+<p>概要设计 · 租户管理 汇集了与 概要设计、租户管理md、模块概述与职责、idoverview 相关的实现，主要分布在 设计/概要设计/26_概要设计_租户管理.md。本节覆盖 24 个节点、23 条内部边，图中只展示最有代表性的调用关系以保持可读性。</p>
 
 <div class="mermaid">
 %%{init: {"theme": "dark", "themeVariables": {"fontSize": "15.0px", "fontFamily": "Segoe UI, system-ui, sans-serif", "primaryColor": "#1e293b", "primaryTextColor": "#e2e8f0", "primaryBorderColor": "#38bdf8", "secondaryColor": "#0f172a", "tertiaryColor": "#334155", "lineColor": "#64748b", "textColor": "#e2e8f0"}, "flowchart": {"htmlLabels": true, "curve": "basis", "nodeSpacing": 48, "rankSpacing": 64, "padding": 14, "diagramPadding": 10, "useMaxWidth": true}}}%%
 flowchart LR
-    %% Section: 其他 (1949 nodes, 1872 edges)
-    subgraph other_tools_defect_defect_capture_py_eb5f9848["tools/defect/defect_capture.py"]
-        scripts_tools_defect_defect_capture_main_14d673cd("main()<br/><small>tools/defect/defect_capture.py</small>")
-        scripts_tools_defect_defect_capture_collect_logs_17e17ef6("collect_logs()<br/><small>tools/defect/defect_capture.py</small>")
-        scripts_tools_defect_defect_capture_dump_dm8_145dedc3("dump_dm8()<br/><small>tools/defect/defect_capture.py</small>")
-        scripts_tools_defect_defect_capture_run_81040d18("run()<br/><small>tools/defect/defect_capture.py</small>")
-        scripts_tools_defect_defect_capture_dump_mysql_ba133853("dump_mysql()<br/><small>tools/defect/defect_capture.py</small>")
-        scripts_tools_defect_defect_capture_find_open_is_ec7a1e2f("find_open_issue()<br/><small>tools/defect/defect_capture.py</small>")
-        scripts_tools_defect_defect_capture_api_209ac4e2("api()<br/><small>tools/defect/defect_capture.py</small>")
-        scripts_tools_defect_defect_capture_load_env_d22326d4("load_env()<br/><small>tools/defect/defect_capture.py</small>")
-        scripts_tools_defect_defect_capture_fingerprint_1f9d9071("fingerprint()<br/><small>tools/defect/defect_capture.py</small>")
-        scripts_tools_defect_defect_capture_write_repro_6674af2f("write_repro()<br/><small>tools/defect/defect_capture.py</small>")
-        scripts_tools_defect_defect_capture_build_descri_65e22aa2("build_description()<br/><small>tools/defect/defect_capture.py</small>")
-    end
-    subgraph other_AGENTS_md_b8f71333["AGENTS.md"]
-        agents_vision_review_proto_41db80c7("vision_review_proto 评审组合工具<br/><small>AGENTS.md</small>")
-        agents_review_loop_1dc9534a("评审闭环（截图→修正→重评审）<br/><small>AGENTS.md</small>")
-    end
-    subgraph other_tools_defect_ai_fix_py_e9c1305b["tools/defect/ai_fix.py"]
-        scripts_tools_defect_ai_fix_main_c9447150("main()<br/><small>tools/defect/ai_fix.py</small>")
-        scripts_tools_defect_ai_fix_create_mr_1e0804bc("create_mr()<br/><small>tools/defect/ai_fix.py</small>")
-    end
-    scripts_tools_defect_defect_capture_py_path_7707dc90("Path")
-    scripts_tools_backup_backup_daily_cloud_sync_f5f76f95("cloud_sync()<br/><small>tools/backup/backup_daily.sh</small>")
-    scripts_tools_wol_wake_mjbk_main_00675079("main()<br/><small>tools/wol/wake_mjbk.py</small>")
-    scripts_tools_defect_defect_capture_collect_logs_17e17ef6 -->|调用| scripts_tools_defect_defect_capture_py_path_7707dc90
-    scripts_tools_defect_defect_capture_dump_dm8_145dedc3 -->|调用| scripts_tools_defect_defect_capture_run_81040d18
-    scripts_tools_defect_defect_capture_dump_mysql_ba133853 -->|调用| scripts_tools_defect_defect_capture_run_81040d18
-    scripts_tools_defect_defect_capture_find_open_is_ec7a1e2f -->|调用| scripts_tools_defect_defect_capture_api_209ac4e2
-    scripts_tools_defect_defect_capture_main_14d673cd -->|调用| scripts_tools_defect_defect_capture_load_env_d22326d4
-    scripts_tools_defect_defect_capture_main_14d673cd -->|调用| scripts_tools_defect_defect_capture_py_path_7707dc90
-    scripts_tools_defect_defect_capture_main_14d673cd -->|调用| scripts_tools_defect_defect_capture_fingerprint_1f9d9071
-    scripts_tools_defect_defect_capture_main_14d673cd -->|调用| scripts_tools_defect_defect_capture_write_repro_6674af2f
-    scripts_tools_defect_defect_capture_main_14d673cd -->|调用| scripts_tools_defect_defect_capture_find_open_is_ec7a1e2f
-    scripts_tools_defect_defect_capture_main_14d673cd -->|调用| scripts_tools_defect_defect_capture_api_209ac4e2
-    scripts_tools_defect_defect_capture_main_14d673cd -->|调用| scripts_tools_defect_defect_capture_build_descri_65e22aa2
-    scripts_tools_defect_defect_capture_write_repro_6674af2f -->|调用| scripts_tools_defect_defect_capture_collect_logs_17e17ef6
-    scripts_tools_defect_ai_fix_main_c9447150 -->|调用| scripts_tools_defect_ai_fix_create_mr_1e0804bc
-    agents_review_loop_1dc9534a -->|调用| agents_vision_review_proto_41db80c7
-    %% Omitted for readability: 1931 nodes, 0 edges
-    class scripts_tools_defect_defect_capture_main_14d673cd function;
-    class scripts_tools_defect_defect_capture_collect_logs_17e17ef6 function;
-    class scripts_tools_defect_defect_capture_dump_dm8_145dedc3 function;
-    class scripts_tools_defect_defect_capture_run_81040d18 function;
-    class scripts_tools_defect_defect_capture_dump_mysql_ba133853 function;
-    class scripts_tools_defect_defect_capture_find_open_is_ec7a1e2f function;
-    class scripts_tools_defect_defect_capture_api_209ac4e2 api;
-    class scripts_tools_defect_defect_capture_load_env_d22326d4 function;
-    class scripts_tools_defect_defect_capture_fingerprint_1f9d9071 function;
-    class scripts_tools_defect_defect_capture_write_repro_6674af2f function;
-    class scripts_tools_defect_defect_capture_build_descri_65e22aa2 function;
-    class agents_vision_review_proto_41db80c7 function;
-    class agents_review_loop_1dc9534a concept;
-    class scripts_tools_defect_ai_fix_main_c9447150 function;
-    class scripts_tools_defect_ai_fix_create_mr_1e0804bc function;
-    class scripts_tools_defect_defect_capture_py_path_7707dc90 klass;
-    class scripts_tools_backup_backup_daily_cloud_sync_f5f76f95 function;
-    class scripts_tools_wol_wake_mjbk_main_00675079 function;
+    %% Section: 概要设计 · 租户管理 (24 nodes, 23 edges)
+    node_26_1ed700c7("概要设计 · 租户管理<br/><small>设计/概要设计/26_概要设计_租户管理.md</small>")
+    node_26_2_a_id_functions_a_2b0b6eda("2. 功能分解与业务流程 &lt;a id='functions'&gt;&lt;/a&gt;<br/><small>设计/概要设计/26_概要设计_租户管理.md</small>")
+    node_26_5_a_id_api_a_2ad1388e("5. 接口设计 &lt;a id='api'&gt;&lt;/a&gt;<br/><small>设计/概要设计/26_概要设计_租户管理.md</small>")
+    node_26_6_a_id_permission_a_38a81ce0("6. 权限与配置 &lt;a id='permission'&gt;&lt;/a&gt;<br/><small>设计/概要设计/26_概要设计_租户管理.md</small>")
+    node_26_4_a_id_data_a_f12521cb("4. 数据模型与表设计 &lt;a id='data'&gt;&lt;/a&gt;<br/><small>设计/概要设计/26_概要设计_租户管理.md</small>")
+    node_26_7_a_id_error_a_c5979ce1("7. 错误码与异常处理 &lt;a id='error'&gt;&lt;/a&gt;<br/><small>设计/概要设计/26_概要设计_租户管理.md</small>")
+    node_26_8_a_id_pages_a_8762ea06("8. 页面清单与验收要点 &lt;a id='pages'&gt;&lt;/a&gt;<br/><small>设计/概要设计/26_概要设计_租户管理.md</small>")
+    node_26_1_a_id_overview_a_454fdedf("1. 模块概述与职责 &lt;a id='overview'&gt;&lt;/a&gt;<br/><small>设计/概要设计/26_概要设计_租户管理.md</small>")
+    node_26_2_1_41032980("2.1 功能点分解<br/><small>设计/概要设计/26_概要设计_租户管理.md</small>")
+    node_26_2_2_f2b80b61("2.2 业务规则<br/><small>设计/概要设计/26_概要设计_租户管理.md</small>")
+    node_26_2_3_c709d99e("2.3 业务流程<br/><small>设计/概要设计/26_概要设计_租户管理.md</small>")
+    node_26_3_a_id_sequence_a_3f19bd0b("3. 关键时序与协作 &lt;a id='sequence'&gt;&lt;/a&gt;<br/><small>设计/概要设计/26_概要设计_租户管理.md</small>")
+    node_26_4_1_7eb16c54("4.1 表结构<br/><small>设计/概要设计/26_概要设计_租户管理.md</small>")
+    node_26_4_2_fb498b5e("4.2 索引与策略<br/><small>设计/概要设计/26_概要设计_租户管理.md</small>")
+    node_26_5_1_rest_16249e63("5.1 REST 接口清单<br/><small>设计/概要设计/26_概要设计_租户管理.md</small>")
+    node_26_5_2_8ed485d1("5.2 分页 / 幂等 / 限流<br/><small>设计/概要设计/26_概要设计_租户管理.md</small>")
+    node_26_5_3_6a2221bf("5.3 发布的事件<br/><small>设计/概要设计/26_概要设计_租户管理.md</small>")
+    node_26_6_1_1d3467ca("6.1 权限码分配<br/><small>设计/概要设计/26_概要设计_租户管理.md</small>")
+    node_26_2_a_id_functions_a_2b0b6eda -->|包含| node_26_2_1_41032980
+    node_26_2_a_id_functions_a_2b0b6eda -->|包含| node_26_2_2_f2b80b61
+    node_26_2_a_id_functions_a_2b0b6eda -->|包含| node_26_2_3_c709d99e
+    node_26_4_a_id_data_a_f12521cb -->|包含| node_26_4_1_7eb16c54
+    node_26_4_a_id_data_a_f12521cb -->|包含| node_26_4_2_fb498b5e
+    node_26_5_a_id_api_a_2ad1388e -->|包含| node_26_5_2_8ed485d1
+    node_26_5_a_id_api_a_2ad1388e -->|包含| node_26_5_3_6a2221bf
+    node_26_5_a_id_api_a_2ad1388e -->|包含| node_26_5_1_rest_16249e63
+    node_26_6_a_id_permission_a_38a81ce0 -->|包含| node_26_6_1_1d3467ca
+    node_26_1ed700c7 -->|包含| node_26_6_a_id_permission_a_38a81ce0
+    node_26_1ed700c7 -->|包含| node_26_7_a_id_error_a_c5979ce1
+    node_26_1ed700c7 -->|包含| node_26_2_a_id_functions_a_2b0b6eda
+    node_26_1ed700c7 -->|包含| node_26_8_a_id_pages_a_8762ea06
+    node_26_1ed700c7 -->|包含| node_26_3_a_id_sequence_a_3f19bd0b
+    node_26_1ed700c7 -->|包含| node_26_1_a_id_overview_a_454fdedf
+    node_26_1ed700c7 -->|包含| node_26_4_a_id_data_a_f12521cb
+    node_26_1ed700c7 -->|包含| node_26_5_a_id_api_a_2ad1388e
+    %% Omitted for readability: 6 nodes, 0 edges
+    class node_26_1ed700c7 concept;
+    class node_26_2_a_id_functions_a_2b0b6eda concept;
+    class node_26_5_a_id_api_a_2ad1388e concept;
+    class node_26_6_a_id_permission_a_38a81ce0 concept;
+    class node_26_4_a_id_data_a_f12521cb concept;
+    class node_26_7_a_id_error_a_c5979ce1 concept;
+    class node_26_8_a_id_pages_a_8762ea06 concept;
+    class node_26_1_a_id_overview_a_454fdedf concept;
+    class node_26_2_1_41032980 concept;
+    class node_26_2_2_f2b80b61 concept;
+    class node_26_2_3_c709d99e concept;
+    class node_26_3_a_id_sequence_a_3f19bd0b concept;
+    class node_26_4_1_7eb16c54 concept;
+    class node_26_4_2_fb498b5e concept;
+    class node_26_5_1_rest_16249e63 concept;
+    class node_26_5_2_8ed485d1 concept;
+    class node_26_5_3_6a2221bf concept;
+    class node_26_6_1_1d3467ca concept;
     classDef entry fill:#422006,stroke:#fbbf24,color:#fde68a,stroke-width:1px;
     classDef api fill:#450a0a,stroke:#f87171,color:#fee2e2,stroke-width:1px;
     classDef async fill:#2e1065,stroke:#a78bfa,color:#ede9fe,stroke-width:1px;
@@ -4727,8 +4379,111 @@ flowchart LR
   <td>无直接出边</td>
   <td>文档入口，描述 概要设计 · 租户管理 相关能力。</td>
 </tr>
+</table>
+
+<div class="grid">
+  <div class="card">
+    <h4>关键文件</h4>
+    <table style="width:100%;font-size:0.85rem;">
+      <tr><th>File</th><th>覆盖节点</th></tr>
+      <tr><td><code>设计/概要设计/26_概要设计_租户管理.md</code></td><td>24 个节点</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h4>设计备注</h4>
+    <p>本节由 graphify 社区聚类生成。关系概况：包含 x23。图表优先展示高置信、跨节点调用或使用关系，完整节点清单位于表格中。</p>
+  </div>
+</div>
+<hr>
+
+<!-- ====== 16. 其他 ====== -->
+<h2 id="other">16. 其他</h2>
+<p>其他 汇集了与 架构设计、知识档案、概要设计、后端核心 相关的实现，主要分布在 文档/规划/项目规划说明.md、设计/概要设计/27_概要设计_身份认证SSO.md、设计/概要设计/28_概要设计_报表中心.md。本节覆盖 1935 个节点、1838 条内部边，图中只展示最有代表性的调用关系以保持可读性。</p>
+
+<div class="mermaid">
+%%{init: {"theme": "dark", "themeVariables": {"fontSize": "15.0px", "fontFamily": "Segoe UI, system-ui, sans-serif", "primaryColor": "#1e293b", "primaryTextColor": "#e2e8f0", "primaryBorderColor": "#38bdf8", "secondaryColor": "#0f172a", "tertiaryColor": "#334155", "lineColor": "#64748b", "textColor": "#e2e8f0"}, "flowchart": {"htmlLabels": true, "curve": "basis", "nodeSpacing": 48, "rankSpacing": 64, "padding": 14, "diagramPadding": 10, "useMaxWidth": true}}}%%
+flowchart LR
+    %% Section: 其他 (1935 nodes, 1838 edges)
+    subgraph other_tools_defect_defect_capture_py_eb5f9848["tools/defect/defect_capture.py"]
+        scripts_tools_defect_defect_capture_main_14d673cd("main()<br/><small>tools/defect/defect_capture.py</small>")
+        scripts_tools_defect_defect_capture_collect_logs_17e17ef6("collect_logs()<br/><small>tools/defect/defect_capture.py</small>")
+        scripts_tools_defect_defect_capture_dump_dm8_145dedc3("dump_dm8()<br/><small>tools/defect/defect_capture.py</small>")
+        scripts_tools_defect_defect_capture_run_81040d18("run()<br/><small>tools/defect/defect_capture.py</small>")
+        scripts_tools_defect_defect_capture_dump_mysql_ba133853("dump_mysql()<br/><small>tools/defect/defect_capture.py</small>")
+        scripts_tools_defect_defect_capture_find_open_is_ec7a1e2f("find_open_issue()<br/><small>tools/defect/defect_capture.py</small>")
+        scripts_tools_defect_defect_capture_api_209ac4e2("api()<br/><small>tools/defect/defect_capture.py</small>")
+        scripts_tools_defect_defect_capture_load_env_d22326d4("load_env()<br/><small>tools/defect/defect_capture.py</small>")
+        scripts_tools_defect_defect_capture_fingerprint_1f9d9071("fingerprint()<br/><small>tools/defect/defect_capture.py</small>")
+        scripts_tools_defect_defect_capture_write_repro_6674af2f("write_repro()<br/><small>tools/defect/defect_capture.py</small>")
+        scripts_tools_defect_defect_capture_build_descri_65e22aa2("build_description()<br/><small>tools/defect/defect_capture.py</small>")
+    end
+    subgraph other_AGENTS_md_b8f71333["AGENTS.md"]
+        agents_vision_review_proto_41db80c7("vision_review_proto 评审组合工具<br/><small>AGENTS.md</small>")
+        agents_review_loop_1dc9534a("评审闭环（截图→修正→重评审）<br/><small>AGENTS.md</small>")
+    end
+    subgraph other_tools_defect_ai_fix_py_e9c1305b["tools/defect/ai_fix.py"]
+        scripts_tools_defect_ai_fix_main_c9447150("main()<br/><small>tools/defect/ai_fix.py</small>")
+        scripts_tools_defect_ai_fix_create_mr_1e0804bc("create_mr()<br/><small>tools/defect/ai_fix.py</small>")
+    end
+    scripts_tools_defect_defect_capture_py_path_7707dc90("Path")
+    scripts_tools_backup_backup_daily_cloud_sync_f5f76f95("cloud_sync()<br/><small>tools/backup/backup_daily.sh</small>")
+    scripts_tools_wol_wake_mjbk_main_00675079("main()<br/><small>tools/wol/wake_mjbk.py</small>")
+    scripts_tools_defect_defect_capture_collect_logs_17e17ef6 -->|调用| scripts_tools_defect_defect_capture_py_path_7707dc90
+    scripts_tools_defect_defect_capture_dump_dm8_145dedc3 -->|调用| scripts_tools_defect_defect_capture_run_81040d18
+    scripts_tools_defect_defect_capture_dump_mysql_ba133853 -->|调用| scripts_tools_defect_defect_capture_run_81040d18
+    scripts_tools_defect_defect_capture_find_open_is_ec7a1e2f -->|调用| scripts_tools_defect_defect_capture_api_209ac4e2
+    scripts_tools_defect_defect_capture_main_14d673cd -->|调用| scripts_tools_defect_defect_capture_load_env_d22326d4
+    scripts_tools_defect_defect_capture_main_14d673cd -->|调用| scripts_tools_defect_defect_capture_py_path_7707dc90
+    scripts_tools_defect_defect_capture_main_14d673cd -->|调用| scripts_tools_defect_defect_capture_fingerprint_1f9d9071
+    scripts_tools_defect_defect_capture_main_14d673cd -->|调用| scripts_tools_defect_defect_capture_write_repro_6674af2f
+    scripts_tools_defect_defect_capture_main_14d673cd -->|调用| scripts_tools_defect_defect_capture_find_open_is_ec7a1e2f
+    scripts_tools_defect_defect_capture_main_14d673cd -->|调用| scripts_tools_defect_defect_capture_api_209ac4e2
+    scripts_tools_defect_defect_capture_main_14d673cd -->|调用| scripts_tools_defect_defect_capture_build_descri_65e22aa2
+    scripts_tools_defect_defect_capture_write_repro_6674af2f -->|调用| scripts_tools_defect_defect_capture_collect_logs_17e17ef6
+    scripts_tools_defect_ai_fix_main_c9447150 -->|调用| scripts_tools_defect_ai_fix_create_mr_1e0804bc
+    agents_review_loop_1dc9534a -->|调用| agents_vision_review_proto_41db80c7
+    %% Omitted for readability: 1917 nodes, 0 edges
+    class scripts_tools_defect_defect_capture_main_14d673cd function;
+    class scripts_tools_defect_defect_capture_collect_logs_17e17ef6 function;
+    class scripts_tools_defect_defect_capture_dump_dm8_145dedc3 function;
+    class scripts_tools_defect_defect_capture_run_81040d18 function;
+    class scripts_tools_defect_defect_capture_dump_mysql_ba133853 function;
+    class scripts_tools_defect_defect_capture_find_open_is_ec7a1e2f function;
+    class scripts_tools_defect_defect_capture_api_209ac4e2 api;
+    class scripts_tools_defect_defect_capture_load_env_d22326d4 function;
+    class scripts_tools_defect_defect_capture_fingerprint_1f9d9071 function;
+    class scripts_tools_defect_defect_capture_write_repro_6674af2f function;
+    class scripts_tools_defect_defect_capture_build_descri_65e22aa2 function;
+    class agents_vision_review_proto_41db80c7 function;
+    class agents_review_loop_1dc9534a concept;
+    class scripts_tools_defect_ai_fix_main_c9447150 function;
+    class scripts_tools_defect_ai_fix_create_mr_1e0804bc function;
+    class scripts_tools_defect_defect_capture_py_path_7707dc90 klass;
+    class scripts_tools_backup_backup_daily_cloud_sync_f5f76f95 function;
+    class scripts_tools_wol_wake_mjbk_main_00675079 function;
+    classDef entry fill:#422006,stroke:#fbbf24,color:#fde68a,stroke-width:1px;
+    classDef api fill:#450a0a,stroke:#f87171,color:#fee2e2,stroke-width:1px;
+    classDef async fill:#2e1065,stroke:#a78bfa,color:#ede9fe,stroke-width:1px;
+    classDef klass fill:#064e3b,stroke:#34d399,color:#d1fae5,stroke-width:1px;
+    classDef ui fill:#831843,stroke:#f472b6,color:#fce7f3,stroke-width:1px;
+    classDef module fill:#172554,stroke:#60a5fa,color:#dbeafe,stroke-width:1px;
+    classDef test fill:#3f3f46,stroke:#a1a1aa,color:#f4f4f5,stroke-width:1px;
+    classDef concept fill:#292524,stroke:#a8a29e,color:#fafaf9,stroke-dasharray:4 3;
+    classDef function fill:#0f172a,stroke:#38bdf8,color:#e0f2fe,stroke-width:1px;
+</div>
+
+<h3>调用明细</h3>
+<table class="call-table">
 <tr>
-  <td>25</td>
+  <th style="width:5%">#</th>
+  <th style="width:28%">节点</th>
+  <th style="width:10%">类型</th>
+  <th style="width:17%">调用方</th>
+  <th style="width:20%">被调用/依赖</th>
+  <th style="width:20%">说明</th>
+</tr>
+<tr>
+  <td>1</td>
   <td><code>1. 模块概述与职责 &lt;a id=&quot;overview&quot;&gt;&lt;/a&gt;</code><br><small style="color:var(--muted)">设计/概要设计/27_概要设计_身份认证SSO.md</small></td>
   <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
@@ -4736,7 +4491,7 @@ flowchart LR
   <td>文档入口，描述 1. 模块概述与职责 &lt;a id=&quot;overview&quot;&gt;&lt;/a&gt; 相关能力。</td>
 </tr>
 <tr>
-  <td>26</td>
+  <td>2</td>
   <td><code>2.1 功能点分解</code><br><small style="color:var(--muted)">设计/概要设计/27_概要设计_身份认证SSO.md</small></td>
   <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
@@ -4744,7 +4499,7 @@ flowchart LR
   <td>文档入口，描述 2.1 功能点分解 相关能力。</td>
 </tr>
 <tr>
-  <td>27</td>
+  <td>3</td>
   <td><code>2.2 业务规则</code><br><small style="color:var(--muted)">设计/概要设计/27_概要设计_身份认证SSO.md</small></td>
   <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
@@ -4752,7 +4507,7 @@ flowchart LR
   <td>文档入口，描述 2.2 业务规则 相关能力。</td>
 </tr>
 <tr>
-  <td>28</td>
+  <td>4</td>
   <td><code>2.3 业务流程</code><br><small style="color:var(--muted)">设计/概要设计/27_概要设计_身份认证SSO.md</small></td>
   <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
@@ -4760,7 +4515,7 @@ flowchart LR
   <td>文档入口，描述 2.3 业务流程 相关能力。</td>
 </tr>
 <tr>
-  <td>29</td>
+  <td>5</td>
   <td><code>2. 功能分解与业务流程 &lt;a id=&quot;functions&quot;&gt;&lt;/a&gt;</code><br><small style="color:var(--muted)">设计/概要设计/27_概要设计_身份认证SSO.md</small></td>
   <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
@@ -4768,8 +4523,200 @@ flowchart LR
   <td>文档入口，描述 2. 功能分解与业务流程 &lt;a id=&quot;functions&quot;&gt;&lt;/a&gt; 相关能力。</td>
 </tr>
 <tr>
-  <td>30</td>
+  <td>6</td>
   <td><code>3. 关键时序与协作 &lt;a id=&quot;sequence&quot;&gt;&lt;/a&gt;</code><br><small style="color:var(--muted)">设计/概要设计/27_概要设计_身份认证SSO.md</small></td>
+  <td><span class="tag tag-func">概念</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td>无直接出边</td>
+  <td>文档入口，描述 3. 关键时序与协作 &lt;a id=&quot;sequence&quot;&gt;&lt;/a&gt; 相关能力。</td>
+</tr>
+<tr>
+  <td>7</td>
+  <td><code>4.1 表结构</code><br><small style="color:var(--muted)">设计/概要设计/27_概要设计_身份认证SSO.md</small></td>
+  <td><span class="tag tag-func">概念</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td>无直接出边</td>
+  <td>文档入口，描述 4.1 表结构 相关能力。</td>
+</tr>
+<tr>
+  <td>8</td>
+  <td><code>4.2 索引与策略</code><br><small style="color:var(--muted)">设计/概要设计/27_概要设计_身份认证SSO.md</small></td>
+  <td><span class="tag tag-func">概念</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td>无直接出边</td>
+  <td>文档入口，描述 4.2 索引与策略 相关能力。</td>
+</tr>
+<tr>
+  <td>9</td>
+  <td><code>4. 数据模型与表设计 &lt;a id=&quot;data&quot;&gt;&lt;/a&gt;</code><br><small style="color:var(--muted)">设计/概要设计/27_概要设计_身份认证SSO.md</small></td>
+  <td><span class="tag tag-func">概念</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td>无直接出边</td>
+  <td>文档入口，描述 4. 数据模型与表设计 &lt;a id=&quot;data&quot;&gt;&lt;/a&gt; 相关能力。</td>
+</tr>
+<tr>
+  <td>10</td>
+  <td><code>5.1 REST 接口清单</code><br><small style="color:var(--muted)">设计/概要设计/27_概要设计_身份认证SSO.md</small></td>
+  <td><span class="tag tag-func">概念</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td>无直接出边</td>
+  <td>文档入口，描述 5.1 REST 接口清单 相关能力。</td>
+</tr>
+<tr>
+  <td>11</td>
+  <td><code>5.2 分页 / 幂等 / 限流</code><br><small style="color:var(--muted)">设计/概要设计/27_概要设计_身份认证SSO.md</small></td>
+  <td><span class="tag tag-func">概念</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td>无直接出边</td>
+  <td>文档入口，描述 5.2 分页 / 幂等 / 限流 相关能力。</td>
+</tr>
+<tr>
+  <td>12</td>
+  <td><code>5.3 发布的事件</code><br><small style="color:var(--muted)">设计/概要设计/27_概要设计_身份认证SSO.md</small></td>
+  <td><span class="tag tag-func">概念</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td>无直接出边</td>
+  <td>文档入口，描述 5.3 发布的事件 相关能力。</td>
+</tr>
+<tr>
+  <td>13</td>
+  <td><code>5. 接口设计 &lt;a id=&quot;api&quot;&gt;&lt;/a&gt;</code><br><small style="color:var(--muted)">设计/概要设计/27_概要设计_身份认证SSO.md</small></td>
+  <td><span class="tag tag-func">概念</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td>无直接出边</td>
+  <td>文档入口，描述 5. 接口设计 &lt;a id=&quot;api&quot;&gt;&lt;/a&gt; 相关能力。</td>
+</tr>
+<tr>
+  <td>14</td>
+  <td><code>6.1 权限码分配</code><br><small style="color:var(--muted)">设计/概要设计/27_概要设计_身份认证SSO.md</small></td>
+  <td><span class="tag tag-func">概念</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td>无直接出边</td>
+  <td>文档入口，描述 6.1 权限码分配 相关能力。</td>
+</tr>
+<tr>
+  <td>15</td>
+  <td><code>6.2 菜单挂接</code><br><small style="color:var(--muted)">设计/概要设计/27_概要设计_身份认证SSO.md</small></td>
+  <td><span class="tag tag-func">概念</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td>无直接出边</td>
+  <td>文档入口，描述 6.2 菜单挂接 相关能力。</td>
+</tr>
+<tr>
+  <td>16</td>
+  <td><code>6.3 sys_config 参数与种子数据</code><br><small style="color:var(--muted)">设计/概要设计/27_概要设计_身份认证SSO.md</small></td>
+  <td><span class="tag tag-func">概念</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td>无直接出边</td>
+  <td>文档入口，描述 6.3 sys_config 参数与种子数据 相关能力。</td>
+</tr>
+<tr>
+  <td>17</td>
+  <td><code>6. 权限与配置 &lt;a id=&quot;permission&quot;&gt;&lt;/a&gt;</code><br><small style="color:var(--muted)">设计/概要设计/27_概要设计_身份认证SSO.md</small></td>
+  <td><span class="tag tag-func">概念</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td>无直接出边</td>
+  <td>文档入口，描述 6. 权限与配置 &lt;a id=&quot;permission&quot;&gt;&lt;/a&gt; 相关能力。</td>
+</tr>
+<tr>
+  <td>18</td>
+  <td><code>7.1 错误码段</code><br><small style="color:var(--muted)">设计/概要设计/27_概要设计_身份认证SSO.md</small></td>
+  <td><span class="tag tag-func">概念</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td>无直接出边</td>
+  <td>文档入口，描述 7.1 错误码段 相关能力。</td>
+</tr>
+<tr>
+  <td>19</td>
+  <td><code>7.2 异常处理要求</code><br><small style="color:var(--muted)">设计/概要设计/27_概要设计_身份认证SSO.md</small></td>
+  <td><span class="tag tag-func">概念</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td>无直接出边</td>
+  <td>文档入口，描述 7.2 异常处理要求 相关能力。</td>
+</tr>
+<tr>
+  <td>20</td>
+  <td><code>7. 错误码与异常处理 &lt;a id=&quot;error&quot;&gt;&lt;/a&gt;</code><br><small style="color:var(--muted)">设计/概要设计/27_概要设计_身份认证SSO.md</small></td>
+  <td><span class="tag tag-func">概念</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td>无直接出边</td>
+  <td>文档入口，描述 7. 错误码与异常处理 &lt;a id=&quot;error&quot;&gt;&lt;/a&gt; 相关能力。</td>
+</tr>
+<tr>
+  <td>21</td>
+  <td><code>8.1 页面清单</code><br><small style="color:var(--muted)">设计/概要设计/27_概要设计_身份认证SSO.md</small></td>
+  <td><span class="tag tag-func">概念</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td>无直接出边</td>
+  <td>文档入口，描述 8.1 页面清单 相关能力。</td>
+</tr>
+<tr>
+  <td>22</td>
+  <td><code>8.2 验收要点</code><br><small style="color:var(--muted)">设计/概要设计/27_概要设计_身份认证SSO.md</small></td>
+  <td><span class="tag tag-func">概念</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td>无直接出边</td>
+  <td>文档入口，描述 8.2 验收要点 相关能力。</td>
+</tr>
+<tr>
+  <td>23</td>
+  <td><code>8. 页面清单与验收要点 &lt;a id=&quot;pages&quot;&gt;&lt;/a&gt;</code><br><small style="color:var(--muted)">设计/概要设计/27_概要设计_身份认证SSO.md</small></td>
+  <td><span class="tag tag-func">概念</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td>无直接出边</td>
+  <td>文档入口，描述 8. 页面清单与验收要点 &lt;a id=&quot;pages&quot;&gt;&lt;/a&gt; 相关能力。</td>
+</tr>
+<tr>
+  <td>24</td>
+  <td><code>概要设计 · 身份认证（SSO）</code><br><small style="color:var(--muted)">设计/概要设计/27_概要设计_身份认证SSO.md</small></td>
+  <td><span class="tag tag-func">概念</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td>无直接出边</td>
+  <td>文档入口，描述 概要设计 · 身份认证（SSO） 相关能力。</td>
+</tr>
+<tr>
+  <td>25</td>
+  <td><code>1. 模块概述与职责 &lt;a id=&quot;overview&quot;&gt;&lt;/a&gt;</code><br><small style="color:var(--muted)">设计/概要设计/28_概要设计_报表中心.md</small></td>
+  <td><span class="tag tag-func">概念</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td>无直接出边</td>
+  <td>文档入口，描述 1. 模块概述与职责 &lt;a id=&quot;overview&quot;&gt;&lt;/a&gt; 相关能力。</td>
+</tr>
+<tr>
+  <td>26</td>
+  <td><code>2.1 功能点分解</code><br><small style="color:var(--muted)">设计/概要设计/28_概要设计_报表中心.md</small></td>
+  <td><span class="tag tag-func">概念</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td>无直接出边</td>
+  <td>文档入口，描述 2.1 功能点分解 相关能力。</td>
+</tr>
+<tr>
+  <td>27</td>
+  <td><code>2.2 业务规则</code><br><small style="color:var(--muted)">设计/概要设计/28_概要设计_报表中心.md</small></td>
+  <td><span class="tag tag-func">概念</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td>无直接出边</td>
+  <td>文档入口，描述 2.2 业务规则 相关能力。</td>
+</tr>
+<tr>
+  <td>28</td>
+  <td><code>2.3 业务流程</code><br><small style="color:var(--muted)">设计/概要设计/28_概要设计_报表中心.md</small></td>
+  <td><span class="tag tag-func">概念</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td>无直接出边</td>
+  <td>文档入口，描述 2.3 业务流程 相关能力。</td>
+</tr>
+<tr>
+  <td>29</td>
+  <td><code>2. 功能分解与业务流程 &lt;a id=&quot;functions&quot;&gt;&lt;/a&gt;</code><br><small style="color:var(--muted)">设计/概要设计/28_概要设计_报表中心.md</small></td>
+  <td><span class="tag tag-func">概念</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td>无直接出边</td>
+  <td>文档入口，描述 2. 功能分解与业务流程 &lt;a id=&quot;functions&quot;&gt;&lt;/a&gt; 相关能力。</td>
+</tr>
+<tr>
+  <td>30</td>
+  <td><code>3. 关键时序与协作 &lt;a id=&quot;sequence&quot;&gt;&lt;/a&gt;</code><br><small style="color:var(--muted)">设计/概要设计/28_概要设计_报表中心.md</small></td>
   <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
@@ -4783,10 +4730,10 @@ flowchart LR
     <table style="width:100%;font-size:0.85rem;">
       <tr><th>File</th><th>覆盖节点</th></tr>
       <tr><td><code>文档/规划/项目规划说明.md</code></td><td>54 个节点</td></tr>
-<tr><td><code>设计/概要设计/26_概要设计_租户管理.md</code></td><td>24 个节点</td></tr>
 <tr><td><code>设计/概要设计/27_概要设计_身份认证SSO.md</code></td><td>24 个节点</td></tr>
 <tr><td><code>设计/概要设计/28_概要设计_报表中心.md</code></td><td>24 个节点</td></tr>
 <tr><td><code>文档/规范/原型审查规范.md</code></td><td>21 个节点</td></tr>
+<tr><td><code>资料/开发机/中文输入法部署使用说明.md</code></td><td>20 个节点</td></tr>
 <tr><td><code>文档/文档首页.md</code></td><td>19 个节点</td></tr>
 <tr><td><code>文档/规范/前端开发规范.md</code></td><td>19 个节点</td></tr>
 <tr><td><code>01_工程骨架_01-1_monorepo仓库骨架/设计/01_详细设计_monorepo仓库根骨架.md</code></td><td>18 个节点</td></tr>
@@ -4794,7 +4741,7 @@ flowchart LR
   </div>
   <div class="card">
     <h4>设计备注</h4>
-    <p>本节由 graphify 社区聚类生成。关系概况：包含 x1684, references x124, 调用 x38, defines x9。图表优先展示高置信、跨节点调用或使用关系，完整节点清单位于表格中。</p>
+    <p>本节由 graphify 社区聚类生成。关系概况：包含 x1671, references x103, 调用 x38, defines x9。图表优先展示高置信、跨节点调用或使用关系，完整节点清单位于表格中。</p>
   </div>
 </div>
 <hr>
@@ -4840,17 +4787,17 @@ flowchart LR
   <div class="card">
     <h4>Graph</h4>
     <table style="width:100%;font-size:0.85rem;">
-      <tr><td>Nodes</td><td>3138</td></tr>
-      <tr><td>Edges</td><td>4483</td></tr>
+      <tr><td>Nodes</td><td>3195</td></tr>
+      <tr><td>Edges</td><td>4565</td></tr>
       <tr><td>Hyperedges</td><td>3</td></tr>
-      <tr><td>Communities</td><td>290</td></tr>
+      <tr><td>Communities</td><td>293</td></tr>
       <tr><td>Documented Sections</td><td>15</td></tr>
     </table>
   </div>
   <div class="card">
     <h4>Edge Confidence</h4>
     <table style="width:100%;font-size:0.85rem;">
-      <tr><td>EXTRACTED</td><td>4475</td></tr>
+      <tr><td>EXTRACTED</td><td>4557</td></tr>
       <tr><td>INFERRED</td><td>8</td></tr>
       <tr><td>AMBIGUOUS</td><td>0</td></tr>
     </table>
@@ -4859,7 +4806,7 @@ flowchart LR
 
 <div style="text-align:center; padding:40px 0; color: var(--muted); font-size:0.9rem;">
   <p>bms — Architecture Documentation</p>
-  <p>Generated: 2026-08-29 02:12 UTC · graphify callflow-html</p>
+  <p>Generated: 2026-08-29 04:48 UTC · graphify callflow-html</p>
 </div>
 
 </div><!-- .container -->
