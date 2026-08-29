@@ -65,7 +65,7 @@ venv 内已装（`uv pip list --python venv/bin/python` 核实）：
 | transformers | 5.16.1 | 文本编码器等 |
 | safetensors | 0.8.0 | 模型权重格式 |
 | aiohttp / aiohttp-socks | 3.14.3 / 0.12.0 | HTTP 服务与代理 |
-| huggingface-hub | 1.29.0 | HuggingFace 下载（可配镜像，见第 5 节） |
+| huggingface-hub | 1.29.0 | HuggingFace 下载（国内镜像已配，见第 6 节） |
 | comfyui-frontend-package | 1.51.9 | Web 前端（Python 包，静态资源） |
 | comfyui-workflow-templates | 0.11.50 | 内置工作流模板 |
 | ComfyUI-Manager | V3.41 | 扩展节点管理（`custom_nodes/`） |
@@ -246,31 +246,102 @@ hf download <repo> <文件名> --local-dir ~/develop/ComfyUI/models/checkpoints
 
 下载完成后回到 Web UI，点左侧「刷新（Refresh）」；在 `Load Checkpoint` / `Load Diffusion Model` 等节点的模型下拉里应能看到新模型。首次加载模型会较慢（本质是读入显存），属正常。
 
-## 6. 日常使用 <a id="daily"></a>
+## 6. 国内镜像配置 <a id="mirror"></a>
 
-### 6.1 打开 Web UI <a id="daily-ui"></a>
+ComfyUI 的资源下载主要有两条链路——**模型 / HuggingFace 资源**和**自定义节点（GitHub）**，默认直连境外站点，国内网络下可能缓慢或失败。本机已各配一片国内镜像，避免卡顿（以下均已于 2026-08-29 生效）。
 
-浏览器访问 `http://127.0.0.1:8188`（本机）；若从局域网其他设备访问，用 `http://<mjpc-IP>:8188`（注意安全，见第 9 节）。
+| 链路 | 默认来源 | 国内镜像 | 生效位置 |
+| --- | --- | --- | --- |
+| 模型 / HF 资源（内置下载、节点里的 `huggingface_hub`、comfy-cli） | huggingface.co | `https://hf-mirror.com` | `~/.bashrc` 的 `HF_ENDPOINT` + `comfyui.service` 的 `Environment` |
+| 自定义节点拉取（ComfyUI-Manager 下载 / 更新节点） | github.com | `ghfast.top`（`https://ghfast.top/https://github.com/`） | git 全局 `url.insteadOf` 重写 |
+
+三处配置：
+
+```bash
+# 1) HF 镜像：让 HuggingFace 下载走国内（命令行的 comfy-cli / hf 生效）
+echo 'export HF_ENDPOINT=https://hf-mirror.com' >> ~/.bashrc
+
+# 2) GitHub 重写：任何 git 拉取 github.com/... 都自动走 ghfast.top（ComfyUI-Manager 拉节点生效）
+git config --global url."https://ghfast.top/https://github.com/".insteadOf "https://github.com/"
+
+# 3) ComfyUI 服务进程：把 HF_ENDPOINT 写进 comfyui.service 的 [Service] 段
+#    在 Environment=PYTHONUNBUFFERED=1 之后追加一行：Environment=HF_ENDPOINT=https://hf-mirror.com
+#    然后让服务进程生效（会短暂重启）：
+systemctl --user daemon-reload
+systemctl --user restart comfyui.service
+```
+
+**改动生效点**：`comfyui.service` 改 `Environment` 需 `daemon-reload` + `restart`（服务短暂中断）；`~/.bashrc` 对**新开的 shell**（含命令行 comfy-cli）生效，已运行的 shell 需重新 `source ~/.bashrc`；git 重写对**之后的所有 git 命令**立即生效。
+
+**验证**：
+
+```bash
+# 服务进程是否注入 HF_ENDPOINT
+PID=$(systemctl --user show -p MainPID --value comfyui.service)
+tr '\0' '\n' < /proc/$PID/environ | grep HF_ENDPOINT   # 应输出 https://hf-mirror.com
+# git 重写是否生效
+git config --global --get-regexp '^url\..*\.insteadof'
+```
+
+> **注意**：git 全局重写只针对 `https://github.com/`，不影响 BMS 仓库——它推的是内网 GitLab（非 github.com）。ComfyUI-Manager 的节点列表刷新仍走 `raw.githubusercontent.com`（`channel_url`，不在本次范围），如刷新慢可单独处理。
+
+## 7. 命令行工具（comfy-cli） <a id="cli"></a>
+
+ComfyOrg 官方提供命令行工具 **comfy-cli**，命令为 `comfy`（另有 `comfy-cli`、`comfycli` 别名），可用于命令行安装 / 更新 ComfyUI、下载模型、管理自定义节点、直接运行工作流。**它不等同于 ComfyUI 主程序本身**——主程序是 Web UI + HTTP API，comfy-cli 是它的运维 / 自动化命令行入口。
+
+**安装**（装为独立工具，命令落在 `~/.local/bin/`，不污染 ComfyUI 的 venv）：
+
+```bash
+uv tool install comfy-cli --index-url https://pypi.tuna.tsinghua.edu.cn/simple
+comfy --version   # 实测 1.19.0
+```
+
+**关键**：本机 ComfyUI 在自建目录 `~/develop/ComfyUI`（不是 comfy-cli 的默认落点），用 `--workspace` 指向它，或在源码目录内用 `--here`：
+
+```bash
+comfy --workspace ~/develop/ComfyUI <子命令>
+cd ~/develop/ComfyUI && comfy --here <子命令>
+```
+
+**常用子命令**（都支持 `--workspace`）：
+
+| 子命令 | 用途 |
+| --- | --- |
+| `outdated` | 查看 ComfyUI 核心 / 自定义节点是否有新版本 |
+| `update` | 更新 ComfyUI 环境 |
+| `model download --url <URL> --relative-path <目录>` | 下载模型到 workspace 对应目录（支持 `--background` 后台、`--downloader aria2`） |
+| `node install / update / show / disable / enable / fix` | 管理自定义节点 |
+| `node save-snapshot / restore-snapshot` | 节点依赖快照 / 还原 |
+| `run` | 直接跑一个 API 工作流（`--wait` 阻塞等待；配合 `upload` / `download`） |
+
+> `comfy model download` 走 URL 下载（`--url` 必填），配合国内镜像把魔搭 / hf 直链填进去、`--relative-path models/checkpoints` 即可落到正确目录。
+> `comfy node uv-sync` 需要 **ComfyUI-Manager v4.1+**，本机当前为 **V3.41**，该子命令暂不可用；如有需要，升级 Manager 后即可。
+
+## 8. 日常使用 <a id="daily"></a>
+
+### 8.1 打开 Web UI <a id="daily-ui"></a>
+
+浏览器访问 `http://127.0.0.1:8188`（本机）；若从局域网其他设备访问，用 `http://<mjpc-IP>:8188`（注意安全，见第 11 节）。
 
 界面左侧是**节点面板**（双击空白处或右键添加节点），中间是**画布 / 工作流**，右侧是**节点参数与运行日志**。
 
-### 6.2 跑一张文生图 <a id="daily-txt2img"></a>
+### 8.2 跑一张文生图 <a id="daily-txt2img"></a>
 
 1. 从内置模板（Workflow Templates）选一个「文生图」模板，或手工放置：`Load Checkpoint` → `CLIP Text Encode`（正向 / 负向提示词）→ `Empty Latent Image` → `KSampler` → `VAE Decode` → `Save Image`。
 2. 在 `Load Checkpoint` 的模型下拉选已下载模型（如 `sdxl_base_1.0`）。
 3. 在 `CLIP Text Encode` 填正向提示词（描述要画的内容）。
 4. 点右侧「Run / 排队」运行，画布下方实时预览；完成后 `Save Image` 节点输出到 `output/`。
 
-### 6.3 图生图 & 其他 <a id="daily-img2img"></a>
+### 8.3 图生图 & 其他 <a id="daily-img2img"></a>
 
 - **图生图**：加 `Load Image` 读 `input/` 或拖图，接 `VAE Encode` 再进采样；或用「img2img」模板。
 - **LoRA**：模型放 `models/loras/`，加 `Load LoRA` 节点接在模型与提示词之间。
 - **放大**：`Upscale Model` + `Latent Upscale` 或 `Load Upscale model` 节点。
 - **批量 / 自动化**：用 HTTP API（`POST /prompt`）提交工作流，配合脚本或 AI Agent；详见 [ComfyUI 官方文档](https://docs.comfy.org/)。
 
-## 7. 维护与排障 <a id="maintain"></a>
+## 9. 维护与排障 <a id="maintain"></a>
 
-### 7.1 常用运维命令 <a id="maintain-ops"></a>
+### 9.1 常用运维命令 <a id="maintain-ops"></a>
 
 | 操作 | 命令 |
 | --- | --- |
@@ -282,7 +353,7 @@ hf download <repo> <文件名> --local-dir ~/develop/ComfyUI/models/checkpoints
 
 > `nvidia-smi` 看显存占用，判断模型是否已上卡；服务工作目录为 `~/develop/ComfyUI`，故日志在 `user/` 下。
 
-### 7.2 更新 <a id="maintain-update"></a>
+### 9.2 更新 <a id="maintain-update"></a>
 
 ```bash
 cd ~/develop/ComfyUI
@@ -293,7 +364,7 @@ comfyui-control.sh restart   # 重启生效
 
 > 前后端版本（`comfyui-frontend-package` 等）随 `requirements.txt` 固定；大版本（major）升级可能破坏自定义节点兼容性，升级前先备份工作流与 `custom_nodes/`。
 
-### 7.3 改动生效顺序 <a id="maintain-apply"></a>
+### 9.3 改动生效顺序 <a id="maintain-apply"></a>
 
 | 改动对象 | 生效方式 |
 | --- | --- |
@@ -302,7 +373,7 @@ comfyui-control.sh restart   # 重启生效
 | 自定义节点 / ComfyUI-Manager | 用 Manager 安装后一般需重启 ComfyUI |
 | 依赖（requirements） | 重装依赖后重启服务 |
 
-## 8. 常见问题 <a id="faq"></a>
+## 10. 常见问题 <a id="faq"></a>
 
 | 问题 | 处理 |
 | --- | --- |
@@ -310,11 +381,11 @@ comfyui-control.sh restart   # 重启生效
 | 打开界面没有模型可选？ | `models/` 里还没放模型；按第 5 节下载到对应目录后「刷新」。 |
 | 生图很慢 / 显存爆？ | 确认用 cu130 版 torch（第 3.2 节）；显存吃紧选更小模型（SD 1.5）或更小分辨率 / 批次。 |
 | 生成报 CUDA 错误？ | 检查 `torch.cuda.is_available()` 是否为 True；驱动 / CUDA 不匹配时重装对应版本 torch。 |
-| 局域网怎么访问？ | 服务监听 `0.0.0.0`，用 `http://<mjpc-IP>:8188`；无鉴权，仅限内网（见第 9 节）。 |
+| 局域网怎么访问？ | 服务监听 `0.0.0.0`，用 `http://<mjpc-IP>:8188`；无鉴权，仅限内网（见第 11 节）。 |
 | `comfyui-control.sh: 命令不存在`？ | 确认脚本在 `~/.local/bin/` 且已加入 `$PATH`；或直接 `~/.local/bin/comfyui-control.sh ...`。 |
 | 日志滚了 `.prev` / `.prev2` 两份？ | 正常轮转，看最新 `comfyui_8188.log` 即可。 |
 
-## 9. 安全提示 <a id="security"></a>
+## 11. 安全提示 <a id="security"></a>
 
 > **重要**：当前以 `--listen 0.0.0.0` 启动，服务监听**所有网卡**，且 ComfyUI 本身**无用户登录鉴权**。这意味着局域网内任何设备都能访问 Web UI 并通过 API 提交任务（会消耗本机 GPU 与磁盘）。
 
