@@ -2,7 +2,7 @@
 
 > mjbk 主数据库部署实录 · 2026-08-10
 
-[文档首页](../../文档首页.md) › [资料](../工具/Ubuntu安装部署使用说明.md) › [开发服务器部署使用说明](开发服务器部署使用说明.md) › MySQL 部署使用说明　|　[← 上一个：Redis](Redis部署使用说明.md)　|　[下一个：PostgreSQL →](PostgreSQL部署使用说明.md)
+[文档首页](../../文档首页.md) › [资料](../工具/Ubuntu安装部署使用说明.md) › [开发服务器部署使用说明总览](开发服务器部署使用说明总览.md) › MySQL 部署使用说明　|　[← 上一个：Redis](Redis部署使用说明.md)　|　[下一个：PostgreSQL →](PostgreSQL部署使用说明.md)
 
 ## 1. 目的与适用范围 <a id="purpose"></a>
 
@@ -81,7 +81,7 @@ docker exec bms-mysql mysql -uroot -p"$密码" -e "SHOW VARIABLES LIKE 'characte
 
 ## 8. 关联文档 <a id="related"></a>
 
-- 《[开发服务器部署使用说明](开发服务器部署使用说明.md)》：服务部署总览
+- 《[开发服务器部署使用说明总览](开发服务器部署使用说明总览.md)》：服务部署总览
 - 《[DockerEngine部署使用说明](DockerEngine部署使用说明.md)》：容器引擎
 - 《[PostgreSQL部署使用说明](PostgreSQL部署使用说明.md)》：备选数据库
 - 《[开发部署规划](../../规划/开发部署规划.md)》：4.4 常驻数据库方案

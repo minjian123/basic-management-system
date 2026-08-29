@@ -2,7 +2,7 @@
 
 > mjbk 信创数据库部署实录 · 2026-08-10
 
-[文档首页](../../文档首页.md) › [资料](../工具/Ubuntu安装部署使用说明.md) › [开发服务器部署使用说明](开发服务器部署使用说明.md) › 达梦 DM8 部署使用说明　|　[← 上一个：PostgreSQL](PostgreSQL部署使用说明.md)　|　[下一个：GitLab →](GitLab部署使用说明.md)
+[文档首页](../../文档首页.md) › [资料](../工具/Ubuntu安装部署使用说明.md) › [开发服务器部署使用说明总览](开发服务器部署使用说明总览.md) › 达梦 DM8 部署使用说明　|　[← 上一个：PostgreSQL](PostgreSQL部署使用说明.md)　|　[下一个：GitLab →](GitLab部署使用说明.md)
 
 ## 1. 目的与适用范围 <a id="purpose"></a>
 
@@ -130,7 +130,7 @@ echo "SELECT NAME FROM ALL_USERS;" | /opt/dmdbms/bin/disql SYSDBA/"<密码>"@loc
 
 ## 9. 关联文档 <a id="related"></a>
 
-- 《[开发服务器部署使用说明](开发服务器部署使用说明.md)》：服务部署总览
+- 《[开发服务器部署使用说明总览](开发服务器部署使用说明总览.md)》：服务部署总览
 - 《[开发部署规划](../../规划/开发部署规划.md)》：4.4 常驻数据库方案（schema 承载库语义）
 - 《[MySQL部署使用说明](MySQL部署使用说明.md)》/《[PostgreSQL部署使用说明](PostgreSQL部署使用说明.md)》：另两库
 - 《[命名规范](../../规范/命名规范.md)》：库名约定（bms_dev）
