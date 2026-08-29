@@ -1,57 +1,39 @@
-# Graph Report - bms  (2026-08-28)
+# Graph Report - bms  (2026-08-29)
 
 ## Corpus Check
-- 276 files · ~217,394 words
+- 272 files · ~198,308 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 4453 nodes · 8674 edges · 323 communities (306 shown, 17 thin omitted)
-- Extraction: 92% EXTRACTED · 8% INFERRED · 0% AMBIGUOUS · INFERRED: 671 edges (avg confidence: 0.85)
+- 3138 nodes · 4483 edges · 290 communities (278 shown, 12 thin omitted)
+- Extraction: 100% EXTRACTED · 0% INFERRED · 0% AMBIGUOUS · INFERRED: 8 edges (avg confidence: 0.82)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `725611c2`
+- Built from commit: `ff977b6c`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
 ## Community Hubs (Navigation)
-- created
 - 原型设计总览
 - 布局设计·总览
 - 安全开发规范
 - 布局设计-表格明细
 - 组件设计 · 字典字段
-- Xe
 - 开发部署规划
-- n
-- $t
-- element-plus.min.js
-- vue.global.prod.js
-- m
+- 03-2 模型基类与表规范
 - 环境与工具链需求
-- parse
-- rj
-- tx
-- i7
-- Dr
 - AGENTS.md（AI 助手项目规则）
-- t
 - 总体项目规划
-- push
-- jb
-- ft
 - Qwen3.8-27B 技术介绍
 - Ubuntu 安装部署使用说明
 - 项目管理规范
 - 文档生成规范
-- ek
-- a
 - 概要设计 · 用户管理
 - 防火墙部署使用说明
 - 架构设计 · 子系统 · 数据访问与分片
 - monorepo 仓库根骨架详细设计
 - defect_capture.py
-- lo
 - 概要设计 · 用户喜好
 - 概要设计 · 岗位管理
 - 概要设计 · 角色管理
@@ -63,14 +45,10 @@
 - install-all.sh
 - graphify.js
 - 概要设计 · 字典管理
-- setup
-- .add
 - 概要设计 · 系统参数
 - 概要设计 · 操作日志
 - 概要设计 · 登录日志
 - backup_daily.sh
-- sd
-- setup
 - 原型设计·总览
 - reproduce.py
 - 布局设计-异常与空状态
@@ -78,15 +56,10 @@
 - 布局设计-移动端细化
 - 概要设计 · 文件管理
 - 14. 性能与高并发设计 <a id="perf"></a>
-- ag
 - wake_mjbk.py
 - 架构设计 · 子系统 · 事件总线
-- bv
 - 03-4 租户解析中间件
-- tg
-- e5
 - 概要设计 · 任务调度
-- Cv
 - bg-status.py
 - GitLab 部署使用说明
 - shutdown_mjbk.py
@@ -103,7 +76,6 @@
 - watch_pipeline.py
 - graphify 部署与使用说明
 - bg-run.py
-- ws
 - 4. 高频问题检查清单 <a id="checklist"></a>
 - 后端开发规范
 - bg-stop.py
@@ -160,7 +132,6 @@
 - 架构设计 · 目标与约束
 - 架构设计 · 子系统 · 权限计算引擎
 - DeepSeek Harness（dsh）部署与使用说明
-- uc
 - 技术栈知识档案总览
 - Git 协作规范
 - 代码评审规范
@@ -173,13 +144,11 @@
 - 部署发布规范
 - MinIO 部署使用说明
 - 架构设计 · 子系统 · 通知公告
-- 01-1 monorepo 仓库根骨架
-- o
+- 01_工程骨架.md
 - 02-1 配置管理
 - 架构设计 · 部署与运维
 - 架构设计 · 子系统 · 国际化
 - 架构设计 · 子系统 · 全文检索
-- os
 - 架构设计 · 表单定制
 - 项目骨架计划
 - Axios 技术介绍
@@ -255,7 +224,6 @@
 - MySQL 部署使用说明
 - 架构设计 · 子系统 · 认证与会话
 - 架构设计 · 子系统 · 审计哈希链
-- o
 - 架构设计 · 子系统 · 多租户路由
 - 16. 测试策略与测试流程 <a id="test"></a>
 - 19. 部署与运维 <a id="deploy"></a>
@@ -268,7 +236,6 @@
 - 20. 开发计划与验收标准 <a id="plan"></a>
 - 架构设计 · 子系统 · 报表 BI
 - 需求文档规范
-- bx
 - 架构设计 · 子系统 · 任务调度
 - Kiwi TCMS 部署使用说明
 - 项目骨架需求总览
@@ -300,9 +267,8 @@
 - 01-3 常驻服务
 - 01-6 mjpc 开发机
 - 03-5 平台备份联动
-- vant.min.js
 - 01-5 frontend-mobile 工程初始化
-- 02-2 日志体系
+- 02_需求_后端基础能力.md
 - 03-5 引擎注册表与池管理
 - 02-1 GitLab CE 与 runner 部署
 - 02-2 仓库迁移与分支模型
@@ -329,34 +295,33 @@
 - 03-6 批量迁移与租户库初始化
 - 05-4 测试报告与 README
 - 模块注册表需求
-- 02 后端基础能力
-- 03 多租户数据拓扑
+- 03_需求_多租户数据拓扑.md
 - 04 模块注册表
 - 05 CI 与阶段验收
 
 ## God Nodes (most connected - your core abstractions)
-1. `setup()` - 177 edges
-2. `o()` - 96 edges
-3. `setup()` - 89 edges
-4. `t()` - 63 edges
-5. `r()` - 62 edges
-6. `n()` - 60 edges
-7. `a()` - 58 edges
-8. `rj()` - 53 edges
-9. `c()` - 47 edges
-10. `l()` - 45 edges
+1. `项目规划说明` - 27 edges
+2. `布局设计·总览` - 19 edges
+3. `总体项目规划` - 16 edges
+4. `测试规范` - 15 edges
+5. `命名规范` - 14 edges
+6. `AGENTS.md（AI 助手项目规则）` - 14 edges
+7. `开发部署规划` - 13 edges
+8. `前端开发规范` - 13 edges
+9. `后端开发规范` - 13 edges
+10. `架构设计 · 核心交互时序` - 13 edges
 
 ## Surprising Connections (you probably didn't know these)
-- `r0()` --indirect_call--> `et()`  [INFERRED]
-  文档/设计/原型设计/共享资源/vendor/vue.global.prod.js → 文档/设计/原型设计/共享资源/vendor/element-plus.min.js
-- `setup()` --indirect_call--> `Cr()`  [INFERRED]
-  文档/设计/原型设计/共享资源/vendor/element-plus.min.js → 文档/设计/原型设计/共享资源/vendor/vant.min.js
-- `setup()` --indirect_call--> `st()`  [INFERRED]
-  文档/设计/原型设计/共享资源/vendor/element-plus.min.js → 文档/设计/原型设计/共享资源/vendor/vue.global.prod.js
 - `README.md（仓库入口导航）` --references--> `开发机 mjpc（<mjpc-IP>）`  [EXTRACTED]
   README.md → AGENTS.md
-- `$s()` --indirect_call--> `n()`  [INFERRED]
-  文档/设计/原型设计/共享资源/vendor/element-plus.min.js → 文档/设计/原型设计/共享资源/vendor/vant.min.js
+- `base.yml（基础服务编排）` --semantically_similar_to--> `gitlab.yml（GitLab/runner 编排）`  [INFERRED] [semantically similar]
+  deploy/compose/base.yml → deploy/compose/gitlab.yml
+- `gitlab.yml（GitLab/runner 编排）` --references--> `开发服务器 mjbk（<mjbk-IP>）`  [EXTRACTED]
+  deploy/compose/gitlab.yml → AGENTS.md
+- `graphify 知识图谱工具` --references--> `graphify-out/ 图谱产物目录`  [EXTRACTED]
+  AGENTS.md → README.md
+- `README.md（仓库入口导航）` --references--> `graphify 知识图谱工具`  [EXTRACTED]
+  README.md → AGENTS.md
 
 ## Import Cycles
 - None detected.
@@ -366,11 +331,7 @@
 - **布局设计基础层（总览+令牌+主题）** — 文档_设计_布局设计_01_布局设计_总览_布局设计总览, 文档_设计_布局设计_02_布局设计_设计令牌_设计令牌, 文档_设计_布局设计_03_布局设计_主题与租户品牌化_主题与租户品牌化 [EXTRACTED 0.95]
 - **视觉评审闭环（截图→识图→报告→修正）** — agents_vision_analyze, agents_vision_screenshot, agents_vision_review_proto, agents_review_loop [EXTRACTED 1.00]
 
-## Communities (323 total, 17 thin omitted)
-
-### Community 1 - "created"
-Cohesion: 0.18
-Nodes (16): beforeUpdate(), created(), eg(), eJ(), ey(), findIndex(), l0(), lH() (+8 more)
+## Communities (290 total, 12 thin omitted)
 
 ### Community 2 - "原型设计总览"
 Cohesion: 0.50
@@ -388,81 +349,25 @@ Nodes (10): 1. 目的与适用范围 <a id="purpose"></a>, 2. 密钥与配置安
 Cohesion: 0.07
 Nodes (28): 10. 与字段权限 / i18n / 脱敏协作 <a id="cooperate"></a>, 11. 移动端说明 <a id="mobile"></a>, 12. 检查清单 <a id="checklist"></a>, 1. 目的与适用范围 <a id="purpose"></a>, 2. 组件清单与职责 <a id="components"></a>, 3.1 读路径（L1 + 版本比对） <a id="dataflow-read"></a>, 3.2 写路径（删 key + 版本递增） <a id="dataflow-write"></a>, 3.3 版本号机制 <a id="dataflow-version"></a> (+20 more)
 
-### Community 7 - "Xe"
-Cohesion: 0.05
-Nodes (55): Ar(), As(), Az(), BO(), by(), cn(), Dn(), C() (+47 more)
-
 ### Community 8 - "开发部署规划"
 Cohesion: 0.07
 Nodes (27): 10. 分阶段落地计划 <a id="schedule"></a>, 11. 风险与注意事项 <a id="risk"></a>, 12. 与后续文档的衔接 <a id="handoff"></a>, 1. 目的与依据 <a id="purpose"></a>, 2.1 硬件资源 <a id="hardware"></a>, 2.2 职责分工 <a id="duty"></a>, 2.3 网络拓扑 <a id="topology"></a>, 2. 环境总览与职责分工 <a id="overview"></a> (+19 more)
 
-### Community 9 - "n"
-Cohesion: 0.07
-Nodes (41): BR(), cx(), ef(), eO(), ER(), Ez(), F0(), Gs() (+33 more)
-
-### Community 10 - "$t"
-Cohesion: 0.11
-Nodes (25): BI(), cd(), cy(), dv(), eb(), Ed(), eg(), fO() (+17 more)
-
-### Community 11 - "element-plus.min.js"
-Cohesion: 0.02
-Nodes (113): aD(), af(), afterBlur(), aH(), Ao(), ax(), B0(), BC() (+105 more)
-
-### Community 12 - "vue.global.prod.js"
-Cohesion: 0.03
-Nodes (51): ai(), beforeMount(), beforeUnmount(), e0(), every(), finish(), getNamespace(), getPos() (+43 more)
-
-### Community 13 - "m"
-Cohesion: 0.06
-Nodes (74): _a(), A7(), _B(), BW(), C(), Dh(), b(), k() (+66 more)
+### Community 10 - "03-2 模型基类与表规范"
+Cohesion: 0.40
+Nodes (5): 03-2 模型基类与表规范, 1. 任务信息 <a id="meta"></a>, 2. 任务内容 <a id="content"></a>, 3. 完成标准 <a id="accept"></a>, 4. 参考文档 <a id="ref"></a>
 
 ### Community 14 - "环境与工具链需求"
 Cohesion: 0.25
 Nodes (8): 1. 域说明 <a id="intro"></a>, 2. 需求 01-1：mjbk Ubuntu 基础 <a id="r01-1"></a>, 3. 需求 01-2：Docker Engine 与 ufw 防火墙 <a id="r01-2"></a>, 4. 需求 01-3：常驻服务（三库 / Redis / MinIO） <a id="r01-3"></a>, 5. 需求 01-4：运维工具链 <a id="r01-4"></a>, 6. 需求 01-5：备份体系 <a id="r01-5"></a>, 7. 需求 01-6：mjpc 开发机工具链 <a id="r01-6"></a>, 环境与工具链需求
 
-### Community 15 - "parse"
-Cohesion: 0.08
-Nodes (51): cleanup(), enterRCDATA(), fastForwardTo(), handleAttrNameEnd(), handleAttrStart(), handleInAttrValue(), handleTagName(), oK() (+43 more)
-
-### Community 16 - "rj"
-Cohesion: 0.05
-Nodes (82): __asyncHydrate(), c(), u(), concat(), e$(), ec(), el(), eu() (+74 more)
-
-### Community 17 - "tx"
-Cohesion: 0.08
-Nodes (22): e4, e6(), e8, ez(), has(), join(), t_(), tA() (+14 more)
-
-### Community 18 - "i7"
-Cohesion: 0.23
-Nodes (3): i7, l7, r7
-
-### Community 19 - "Dr"
-Cohesion: 0.08
-Nodes (34): ab(), Ay(), Bn(), cr(), CT(), dd(), Dr(), Ds() (+26 more)
-
 ### Community 20 - "AGENTS.md（AI 助手项目规则）"
 Cohesion: 0.15
 Nodes (20): 逐项确认流程（讨论与确认）, AGENTS.md（AI 助手项目规则）, 国内镜像优先策略, graphify 知识图谱工具, graphify-out/ 图谱产物目录, LM Studio 本地识图模型（qwen3.6-35b-a3b）, 开发服务器 mjbk（<mjbk-IP>）, 开发机 mjpc（<mjpc-IP>） (+12 more)
 
-### Community 21 - "t"
-Cohesion: 0.12
-Nodes (26): B3(), Bl(), cg(), E$(), s(), ha(), ib(), jT() (+18 more)
-
 ### Community 22 - "总体项目规划"
 Cohesion: 0.07
 Nodes (29): 10. 风险管理 <a id="risk"></a>, 11. 沟通与协作管理 <a id="comm"></a>, 12. 配置与变更管理 <a id="config"></a>, 13. 监控与报告 <a id="monitor"></a>, 14.1 MVP 验收标准 <a id="accept-criteria"></a>, 14.2 准出标准 <a id="accept-exit"></a>, 14.3 收尾活动 <a id="accept-close"></a>, 14. 验收与收尾 <a id="acceptance"></a> (+21 more)
-
-### Community 23 - "push"
-Cohesion: 0.07
-Nodes (47): a_(), ab(), ae(), ag(), al(), an(), ap(), as() (+39 more)
-
-### Community 24 - "jb"
-Cohesion: 0.13
-Nodes (26): Al(), d8(), e8(), eI(), Fb(), g8(), gr(), h8() (+18 more)
-
-### Community 25 - "ft"
-Cohesion: 0.12
-Nodes (34): Aa(), AC(), au(), ba(), bf(), Bz(), DC(), df() (+26 more)
 
 ### Community 27 - "Qwen3.8-27B 技术介绍"
 Cohesion: 0.12
@@ -479,14 +384,6 @@ Nodes (16): 1. 目的与适用范围 <a id="purpose"></a>, 2.1 必填字段 <a i
 ### Community 30 - "文档生成规范"
 Cohesion: 0.08
 Nodes (24): 10. 与知识图谱的关系 <a id="graphify"></a>, 1. 目的与适用范围 <a id="purpose"></a>, 2. 文档格式约定 <a id="format"></a>, 3. 目录结构 <a id="structure"></a>, 4. 资源文件管理 <a id="resources"></a>, 5. 命名规范 <a id="naming"></a>, 6. 语言与措辞 <a id="language"></a>, 7.1 左右布局 <a id="layout"></a> (+16 more)
-
-### Community 31 - "ek"
-Cohesion: 0.07
-Nodes (16): eA(), eB, eD(), eE(), eI(), ek, eN(), eO() (+8 more)
-
-### Community 32 - "a"
-Cohesion: 0.14
-Nodes (21): a8(), $d(), dP(), du(), fu(), a(), gy(), l() (+13 more)
 
 ### Community 33 - "概要设计 · 用户管理"
 Cohesion: 0.08
@@ -507,10 +404,6 @@ Nodes (18): 10. 实施步骤 <a id="steps"></a>, 11. 验收映射 <a id="accept-
 ### Community 37 - "defect_capture.py"
 Cohesion: 0.29
 Nodes (15): api(), build_description(), collect_logs(), dump_dm8(), dump_mysql(), dump_postgres(), find_open_issue(), fingerprint() (+7 more)
-
-### Community 38 - "lo"
-Cohesion: 0.16
-Nodes (6): iq(), lo(), r1(), r4(), ra(), rE()
 
 ### Community 39 - "概要设计 · 用户喜好"
 Cohesion: 0.08
@@ -548,10 +441,6 @@ Nodes (41): attachment, limit, modalities, name, options, reasoning, tool_call, 
 Cohesion: 0.08
 Nodes (24): 1. 模块概述与职责 <a id="overview"></a>, 2.1 功能点分解 <a id="function-table"></a>, 2.2 业务规则 <a id="function-rules"></a>, 2.3 流程步骤与异常分支 <a id="function-flow"></a>, 2. 功能分解与业务流程 <a id="function"></a>, 3. 关键时序与协作 <a id="sequence"></a>, 4.1 核心表 <a id="data-table"></a>, 4.2 索引与存储策略 <a id="data-index"></a> (+16 more)
 
-### Community 50 - "setup"
-Cohesion: 0.09
-Nodes (18): At(), BG(), cE(), jU(), Mw(), qj(), _R(), setup() (+10 more)
-
 ### Community 52 - "概要设计 · 系统参数"
 Cohesion: 0.08
 Nodes (24): 1. 模块概述与职责 <a id="overview"></a>, 2.1 功能点分解 <a id="function-table"></a>, 2.2 业务规则 <a id="function-rules"></a>, 2.3 流程步骤与异常分支 <a id="function-flow"></a>, 2. 功能分解与业务流程 <a id="function"></a>, 3. 关键时序与协作 <a id="sequence"></a>, 4.1 核心表 <a id="data-table"></a>, 4.2 索引与存储策略 <a id="data-index"></a> (+16 more)
@@ -567,14 +456,6 @@ Nodes (24): 1. 模块概述与职责 <a id="overview"></a>, 2.1 功能点分解 
 ### Community 55 - "backup_daily.sh"
 Cohesion: 0.27
 Nodes (7): cloud_sync(), dump_dameng(), dump_mysql(), dump_postgres(), get_env(), run_step(), backup_daily.sh script
-
-### Community 56 - "sd"
-Cohesion: 0.26
-Nodes (19): ad(), _c(), cd(), dd(), id(), Jc(), Kc(), kd() (+11 more)
-
-### Community 57 - "setup"
-Cohesion: 0.07
-Nodes (43): d(), de(), destroy(), dv(), ee(), Eo(), Fr(), ft() (+35 more)
 
 ### Community 59 - "reproduce.py"
 Cohesion: 0.42
@@ -600,17 +481,9 @@ Nodes (8): 1. 概述 <a id="overview"></a>, 2. 事件模型 <a id="model"></a>, 
 Cohesion: 0.40
 Nodes (5): 03-4 租户解析中间件, 1. 任务信息 <a id="meta"></a>, 2. 任务内容 <a id="content"></a>, 3. 完成标准 <a id="accept"></a>, 4. 参考文档 <a id="ref"></a>
 
-### Community 70 - "tg"
-Cohesion: 0.17
-Nodes (29): b8(), z(), QG(), Ce(), q(), a(), G(), j() (+21 more)
-
 ### Community 72 - "概要设计 · 任务调度"
 Cohesion: 0.08
 Nodes (24): 1. 模块概述与职责 <a id="overview"></a>, 2.1 功能点分解, 2.2 业务规则, 2.3 业务流程, 2. 功能分解与业务流程 <a id="functions"></a>, 3. 关键时序与协作 <a id="sequence"></a>, 4.1 表结构, 4.2 索引与策略 (+16 more)
-
-### Community 73 - "Cv"
-Cohesion: 0.24
-Nodes (4): br(), Cv, install(), kv
 
 ### Community 74 - "bg-status.py"
 Cohesion: 0.67
@@ -884,10 +757,6 @@ Nodes (10): 1. 概述 <a id="overview"></a>, 2. 权限模型 <a id="model"></a>,
 Cohesion: 0.12
 Nodes (17): 1. 概述 <a id="intro"></a>, 2. 环境要求 <a id="prereq"></a>, 3.1 方式一：源码运行（本项目采用） <a id="build-source"></a>, 3.2 方式二：npm 直接运行（免克隆） <a id="build-npm"></a>, 3. 获取与构建 <a id="build"></a>, 4.1 CLI 命令 <a id="run-cli"></a>, 4.2 Web UI 参数 <a id="run-web"></a>, 4. 运行 dsh <a id="run"></a> (+9 more)
 
-### Community 148 - "uc"
-Cohesion: 0.16
-Nodes (5): Ec(), s4(), Sw(), uc, V6()
-
 ### Community 149 - "技术栈知识档案总览"
 Cohesion: 0.18
 Nodes (11): 10. 通用学习资源 <a id="resources"></a>, 1. 用途与阅读建议 <a id="purpose"></a>, 2. 技术构成总览 <a id="map"></a>, 3. 后端核心索引 <a id="backend"></a>, 4. 前端索引 <a id="frontend"></a>, 5. 工程化与质量索引 <a id="eng"></a>, 6. 部署与运维索引 <a id="ops"></a>, 7. AI 工具索引 <a id="ai"></a> (+3 more)
@@ -936,13 +805,9 @@ Nodes (8): 1. 目的与适用范围 <a id="purpose"></a>, 2. Compose 配置 <a i
 Cohesion: 0.29
 Nodes (7): 1. 概述 <a id="overview"></a>, 2. 站内信与待办通知 <a id="notification"></a>, 3. 公告与已读回执 <a id="notice"></a>, 4. 邮件通知 <a id="mail"></a>, 5. 短信通知 <a id="sms"></a>, 6. 与其他子系统的协调 <a id="coordination"></a>, 架构设计 · 子系统 · 通知公告
 
-### Community 161 - "01-1 monorepo 仓库根骨架"
-Cohesion: 0.40
+### Community 161 - "01_工程骨架.md"
+Cohesion: 0.20
 Nodes (5): 01-1 monorepo 仓库根骨架, 1. 任务信息 <a id="meta"></a>, 2. 任务内容 <a id="content"></a>, 3. 完成标准 <a id="accept"></a>, 4. 参考文档 <a id="ref"></a>
-
-### Community 162 - "o"
-Cohesion: 0.07
-Nodes (79): _8(), an(), bB(), beforeMount(), c8(), CB(), dA(), DB() (+71 more)
 
 ### Community 163 - "02-1 配置管理"
 Cohesion: 0.40
@@ -959,10 +824,6 @@ Nodes (8): 1. 概述 <a id="overview"></a>, 2. 固定文案语言包 <a id="mess
 ### Community 166 - "架构设计 · 子系统 · 全文检索"
 Cohesion: 0.25
 Nodes (8): 1. 概述 <a id="overview"></a>, 2. 索引规划 <a id="index"></a>, 3. 同步管线 <a id="pipeline"></a>, 4. 查询路径 <a id="query"></a>, 5. 索引重建 <a id="rebuild"></a>, 6. 降级策略 <a id="degrade"></a>, 7. 与其他子系统的协调 <a id="coordination"></a>, 架构设计 · 子系统 · 全文检索
-
-### Community 167 - "os"
-Cohesion: 0.26
-Nodes (6): k3(), os, S3(), l(), P(), Y()
 
 ### Community 168 - "架构设计 · 表单定制"
 Cohesion: 0.20
@@ -1264,10 +1125,6 @@ Nodes (8): 1. 概述 <a id="overview"></a>, 2. 双 token 模型 <a id="token"></
 Cohesion: 0.25
 Nodes (8): 1. 概述 <a id="overview"></a>, 2. 审计捕获 <a id="capture"></a>, 3. 哈希链构造 <a id="chain"></a>, 4. 写入顺序保证 <a id="order"></a>, 5. 校验与巡检 <a id="verify"></a>, 6. 留存与销毁 <a id="retention"></a>, 7. 与其他子系统的协调 <a id="coordination"></a>, 架构设计 · 子系统 · 审计哈希链
 
-### Community 243 - "o"
-Cohesion: 0.15
-Nodes (15): Ae(), F(), Fo(), G(), ie(), iv(), jt(), le() (+7 more)
-
 ### Community 244 - "架构设计 · 子系统 · 多租户路由"
 Cohesion: 0.25
 Nodes (8): 1. 概述 <a id="overview"></a>, 2. 租户解析链 <a id="resolve"></a>, 3. 引擎注册表与生命周期 <a id="engine"></a>, 4. 租户开通/停用 <a id="provision"></a>, 5. 配额管理 <a id="quota"></a>, 6. 隔离边界 <a id="isolation"></a>, 7. 与其他子系统的协调 <a id="coordination"></a>, 架构设计 · 子系统 · 多租户路由
@@ -1315,10 +1172,6 @@ Nodes (7): 1. 概述 <a id="overview"></a>, 2. 数据集管理 <a id="dataset"><
 ### Community 255 - "需求文档规范"
 Cohesion: 0.20
 Nodes (10): 1. 目的与适用范围 <a id="purpose"></a>, 2. 文件组织 <a id="files"></a>, 3. 需求总览文档格式 <a id="overview"></a>, 4.1 单条需求章节（核心结构单元） <a id="requirement"></a>, 4.2 章节内顺序 <a id="order"></a>, 4.3 域文档固定章节 <a id="domain-sections"></a>, 4. 需求域文档格式 <a id="domain"></a>, 5. 状态与日期口径 <a id="status"></a> (+2 more)
-
-### Community 256 - "bx"
-Cohesion: 0.13
-Nodes (3): bx(), i4(), vX()
 
 ### Community 257 - "架构设计 · 子系统 · 任务调度"
 Cohesion: 0.29
@@ -1444,17 +1297,13 @@ Nodes (5): 01-6 mjpc 开发机, 1. 任务信息 <a id="meta"></a>, 2. 任务内�
 Cohesion: 0.33
 Nodes (6): 03-5 平台备份联动, 1. 任务信息 <a id="meta"></a>, 2. 任务内容 <a id="content"></a>, 3. 完成标准 <a id="accept"></a>, 4. 参考文档 <a id="ref"></a>, 5. 执行记录 <a id="log"></a>
 
-### Community 288 - "vant.min.js"
-Cohesion: 0.09
-Nodes (21): A(), add(), cn(), Cr(), created(), Do(), fe(), fn() (+13 more)
-
 ### Community 289 - "01-5 frontend-mobile 工程初始化"
 Cohesion: 0.40
 Nodes (5): 01-5 frontend-mobile 工程初始化, 1. 任务信息 <a id="meta"></a>, 2. 任务内容 <a id="content"></a>, 3. 完成标准 <a id="accept"></a>, 4. 参考文档 <a id="ref"></a>
 
-### Community 290 - "02-2 日志体系"
-Cohesion: 0.40
-Nodes (5): 02-2 日志体系, 1. 任务信息 <a id="meta"></a>, 2. 任务内容 <a id="content"></a>, 3. 完成标准 <a id="accept"></a>, 4. 参考文档 <a id="ref"></a>
+### Community 290 - "02_需求_后端基础能力.md"
+Cohesion: 0.17
+Nodes (9): 02-2 日志体系, 1. 任务信息 <a id="meta"></a>, 2. 任务内容 <a id="content"></a>, 3. 完成标准 <a id="accept"></a>, 4. 参考文档 <a id="ref"></a>, 02 后端基础能力, 1. 域说明 <a id="intro"></a>, 2. 子任务清单 <a id="list"></a> (+1 more)
 
 ### Community 291 - "03-5 引擎注册表与池管理"
 Cohesion: 0.40
@@ -1533,8 +1382,8 @@ Cohesion: 0.40
 Nodes (5): 03-3 平台库基础表, 1. 任务信息 <a id="meta"></a>, 2. 任务内容 <a id="content"></a>, 3. 完成标准 <a id="accept"></a>, 4. 参考文档 <a id="ref"></a>
 
 ### Community 311 - "多租户数据拓扑需求"
-Cohesion: 0.14
-Nodes (13): 03-2 模型基类与表规范, 1. 任务信息 <a id="meta"></a>, 2. 任务内容 <a id="content"></a>, 3. 完成标准 <a id="accept"></a>, 4. 参考文档 <a id="ref"></a>, 1. 域说明 <a id="intro"></a>, 2. 需求 03-1：三库拓扑与建库 <a id="r03-1"></a>, 3. 需求 03-2：模型基类与表规范 <a id="r03-2"></a> (+5 more)
+Cohesion: 0.25
+Nodes (8): 1. 域说明 <a id="intro"></a>, 2. 需求 03-1：三库拓扑与建库 <a id="r03-1"></a>, 3. 需求 03-2：模型基类与表规范 <a id="r03-2"></a>, 4. 需求 03-3：平台库基础表 <a id="r03-3"></a>, 5. 需求 03-4：租户解析中间件 <a id="r03-4"></a>, 6. 需求 03-5：引擎注册表与池管理 <a id="r03-5"></a>, 7. 需求 03-6：批量迁移与租户库初始化 <a id="r03-6"></a>, 多租户数据拓扑需求
 
 ### Community 312 - "05-3 M1 验收门禁核对"
 Cohesion: 0.40
@@ -1556,12 +1405,8 @@ Nodes (5): 05-4 测试报告与 README, 1. 任务信息 <a id="meta"></a>, 2. �
 Cohesion: 0.40
 Nodes (5): 1. 域说明 <a id="intro"></a>, 2. 需求 04-1：sys_module 表与种子 <a id="r04-1"></a>, 3. 需求 04-2：注册唯一性校验 <a id="r04-2"></a>, 4. 需求 04-3：模块查询接口 <a id="r04-3"></a>, 模块注册表需求
 
-### Community 319 - "02 后端基础能力"
-Cohesion: 0.50
-Nodes (4): 02 后端基础能力, 1. 域说明 <a id="intro"></a>, 2. 子任务清单 <a id="list"></a>, 3. 工时与依赖 <a id="effort"></a>
-
-### Community 320 - "03 多租户数据拓扑"
-Cohesion: 0.50
+### Community 320 - "03_需求_多租户数据拓扑.md"
+Cohesion: 0.26
 Nodes (4): 03 多租户数据拓扑, 1. 域说明 <a id="intro"></a>, 2. 子任务清单 <a id="list"></a>, 3. 工时与依赖 <a id="effort"></a>
 
 ### Community 321 - "04 模块注册表"
@@ -1575,22 +1420,22 @@ Nodes (4): 05 CI 与阶段验收, 1. 域说明 <a id="intro"></a>, 2. 子任务�
 ## Knowledge Gaps
 - **2227 isolated node(s):** `$schema`, `.opencode/plugins/graphify.js`, `model`, `npm`, `name` (+2222 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **17 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **12 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
 - **Why does `项目规划说明` connect `项目规划说明` to `文档首页.md`, `14. 性能与高并发设计 <a id="perf"></a>`, `23. 附加业务模块规划 <a id="addon"></a>`, `2.5 开源与许可协议 <a id="stack-license"></a>`, `16. 测试策略与测试流程 <a id="test"></a>`, `19. 部署与运维 <a id="deploy"></a>`, `3. 选型说明 <a id="selection"></a>`, `9. 系统集成 <a id="integration"></a>`, `7.1 业务与动作清单（权限码总表） <a id="perm-list"></a>`, `20. 开发计划与验收标准 <a id="plan"></a>`?**
-  _High betweenness centrality (0.024) - this node is a cross-community bridge._
-- **Why does `setup()` connect `setup` to `bx`, `created`, `Xe`, `n`, `element-plus.min.js`, `vue.global.prod.js`, `m`, `rj`, `tx`, `Dr`, `uc`, `t`, `push`, `jb`, `ek`, `a`, `vant.min.js`, `o`, `os`, `setup`, `ag`, `tg`, `ws`, `o`?**
-  _High betweenness centrality (0.024) - this node is a cross-community bridge._
-- **Why does `概要设计 · 用户管理` connect `概要设计 · 用户管理` to `文档首页.md`?**
-  _High betweenness centrality (0.023) - this node is a cross-community bridge._
-- **Are the 49 inferred relationships involving `setup()` (e.g. with `C()` and `k()`) actually correct?**
-  _`setup()` has 49 INFERRED edges - model-reasoned connections that need verification._
-- **Are the 43 inferred relationships involving `o()` (e.g. with `_B()` and `bB()`) actually correct?**
-  _`o()` has 43 INFERRED edges - model-reasoned connections that need verification._
-- **Are the 28 inferred relationships involving `setup()` (e.g. with `cr()` and `$d()`) actually correct?**
-  _`setup()` has 28 INFERRED edges - model-reasoned connections that need verification._
-- **Are the 31 inferred relationships involving `t()` (e.g. with `_a()` and `C()`) actually correct?**
-  _`t()` has 31 INFERRED edges - model-reasoned connections that need verification._
+  _High betweenness centrality (0.042) - this node is a cross-community bridge._
+- **Why does `概要设计 · 系统参数` connect `概要设计 · 系统参数` to `01_架构设计_总览.md`?**
+  _High betweenness centrality (0.035) - this node is a cross-community bridge._
+- **Why does `后端开发规范` connect `后端开发规范` to `文档首页.md`?**
+  _High betweenness centrality (0.033) - this node is a cross-community bridge._
+- **What connects `$schema`, `.opencode/plugins/graphify.js`, `model` to the rest of the system?**
+  _2227 weakly-connected nodes found - possible documentation gaps or missing edges._
+- **Should `文档首页.md` be split into smaller, more focused modules?**
+  _Cohesion score 0.11435307987032126 - nodes in this community are weakly interconnected._
+- **Should `布局设计·总览` be split into smaller, more focused modules?**
+  _Cohesion score 0.09080841638981174 - nodes in this community are weakly interconnected._
+- **Should `组件设计 · 字典字段` be split into smaller, more focused modules?**
+  _Cohesion score 0.07142857142857142 - nodes in this community are weakly interconnected._
