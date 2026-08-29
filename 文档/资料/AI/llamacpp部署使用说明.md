@@ -21,7 +21,7 @@ dsh（DeepSeek Harness，见《[deepseek_harness部署使用说明](deepseek_har
 - **长上下文**：256K（`-c 262144`），配合 Flash Attention。
 - **多模态**：加载 mmproj 视觉投影（`-mm`），支持图片输入。
 - **推理模型**：以 `--reasoning-format deepseek` 运行，先输出思考（`reasoning_content`）再出正文。
-- **systemd 托管**：用户服务 `qwen.service` 自动拉起、失败自恢复，另备启停脚本。
+- **人工启动**：用户服务 `qwen.service` 为 **disabled**（不随开机自启），需人工启动、失败自恢复（见第 3.3 / 3.4 节的 `qwen-start.sh`）。
 
 ## 2. 环境要求 <a id="prereq"></a>
 
@@ -100,14 +100,16 @@ RestartSec=5
 WantedBy=default.target
 ```
 
-启用与查看：
+启动与查看（人工启动，当前为 disabled，不随开机自启）：
 
 ```bash
-systemctl --user daemon-reload
-systemctl --user enable --now qwen.service    # 启用并立即启动
+systemctl --user daemon-reload                      # 新增 / 修改单元后加载
+systemctl --user start qwen.service                 # 人工启动
 systemctl --user status qwen.service --no-pager
-journalctl --user -u qwen.service -f          # 跟踪日志
+journalctl --user -u qwen.service -f                # 跟踪日志
 ```
+
+> 也可直接用脚本启动：`~/develop/llama.cpp/qwen-start.sh`（见第 3.4 节）。若仍需随开机自启，执行 `systemctl --user enable qwen.service`。
 
 ### 3.4 启停脚本 <a id="deploy-scripts"></a>
 
