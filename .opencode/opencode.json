@@ -3,7 +3,7 @@
   "plugin": [
     ".opencode/plugins/graphify.js"
   ],
-  "model": "llamacpp//home/minjian/ai/models/Qwen3.8-27B-UD-Q4_K_M.gguf",
+  "model": "llamacpp/qwen3.8-27b-ud-q4-k-m",
   "provider": {
     "lmstudio": {
       "npm": "@ai-sdk/openai-compatible",
@@ -46,7 +46,7 @@
         "apiKey": "local"
       },
       "models": {
-        "/home/minjian/ai/models/Qwen3.8-27B-UD-Q4_K_M.gguf": {
+        "qwen3.8-27b-ud-q4-k-m": {
           "name": "qwen3.8-27b llama.cpp",
           "limit": {
             "context": 262144,
