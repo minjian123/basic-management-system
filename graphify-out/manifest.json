@@ -6,8 +6,8 @@
     "semantic_hash": ""
   },
   ".opencode/plugins/graphify.js": {
-    "mtime": 1787930420.5021572,
-    "seen": 1787930616.1809952,
+    "mtime": 1787932379.0882332,
+    "seen": 1787933307.536709,
     "ast_hash": "3ea725724bc8ebe483c9f13d6aa1124f",
     "semantic_hash": ""
   },
@@ -24,9 +24,9 @@
     "semantic_hash": ""
   },
   "README.md": {
-    "mtime": 1787820428.4134085,
-    "seen": 1787930616.1810155,
-    "ast_hash": "ad617c0e34936748543f27cc95e374bb",
+    "mtime": 1787933173.7252085,
+    "seen": 1787933307.5367255,
+    "ast_hash": "1497495cbb7bdd1ecdb043ce0bfad8b0",
     "semantic_hash": ""
   },
   "deploy/compose/base.yml": {
@@ -345,30 +345,6 @@
     "mtime": 1787814655.4222653,
     "seen": 1787930616.1810591,
     "ast_hash": "5f1005bdffa65de28356944306057632",
-    "semantic_hash": ""
-  },
-  "\u6587\u6863/\u8bbe\u8ba1/\u539f\u578b\u8bbe\u8ba1/\u5171\u4eab\u8d44\u6e90/vendor/element-plus.min.js": {
-    "mtime": 1787814655.4251237,
-    "seen": 1787930616.1810117,
-    "ast_hash": "eefa3e54744b6a34df4dd184a1b2ed7b",
-    "semantic_hash": ""
-  },
-  "\u6587\u6863/\u8bbe\u8ba1/\u539f\u578b\u8bbe\u8ba1/\u5171\u4eab\u8d44\u6e90/vendor/vue.global.prod.js": {
-    "mtime": 1787814655.4271238,
-    "seen": 1787930616.181013,
-    "ast_hash": "432517bddc4abaebfc32fe9598be7c12",
-    "semantic_hash": ""
-  },
-  "\u6587\u6863/\u8bbe\u8ba1/\u539f\u578b\u8bbe\u8ba1/\u5171\u4eab\u8d44\u6e90/vendor/vant.min.js": {
-    "mtime": 1787814655.4261236,
-    "seen": 1787930616.1810124,
-    "ast_hash": "ddcc2c55d460d4c10f4bcb3101707d8f",
-    "semantic_hash": ""
-  },
-  "\u6587\u6863/\u8bbe\u8ba1/\u539f\u578b\u8bbe\u8ba1/\u5171\u4eab\u8d44\u6e90/vendor/zh-cn.js": {
-    "mtime": 1787814655.4271238,
-    "seen": 1787930616.1810138,
-    "ast_hash": "b46cb43de6df635619a96dd739a18ccc",
     "semantic_hash": ""
   },
   "\u6587\u6863/\u8bbe\u8ba1/\u539f\u578b\u8bbe\u8ba1/02_\u516c\u5171\u539f\u578b/02_EP\u6a21\u677f_\u5217\u8868\u9875.html": {
