@@ -224,9 +224,92 @@ git pull && pnpm install && pnpm run build   # 升级并重建
 | 发消息报 `No API key for provider: llamacpp`（或某自定义 provider）？ | pi-ai 的 OpenAI 兼容实现对无鉴权本地服务也要求凭据；给路由加 `apiKeyEnv` 指向占位 key（见 5.3）。 |
 | 视觉模型附图被拒？ | 自定义 provider 手填模型默认纯文本，需按 5.2 加 `input: [text, image]` 或 `defaultInput`。 |
 | 依赖安装慢 / 超时？ | pnpm 配 npmmirror 源；nvm 下 Node 用 `NVM_NODEJS_ORG_MIRROR=https://npmmirror.com/mirrors/node`。 |
+| `dsh web` 报 `Cannot find package '@deepseek-ai/dsh-host-apiproxy'`？ | 插件 `@linxin666/dsh-remote-web-ui` 与当前 dsh 不兼容（缺该 host 包，启动即崩）；`pnpm dsh plugin --profile web remove @linxin666/dsh-remote-web-ui` 卸载（见 8.3）。 |
 | 想彻底停止后台 dsh web？ | 桌面「停止 dsh web」，或 `ss -lptnH | awk '$4 ~ /:3080$/'` 找 PID 后 `kill`。 |
+
+## 8. 插件扩展 <a id="plugins"></a>
+
+「一切皆插件」，可通过 `dsh plugin --profile <name> add|remove <pkg>` 给 profile 装/卸插件（转发给 pnpm，并自动 reconcile `dsh.profile.bundles` 图层）。本机**当前装有**两个挂进 `web` profile 的 bundle 扩展：`dshmarket`（见 8.1）、`dsh-context`（见 8.2）。另装过后已卸载两个：`dsh-remote-web-ui`（bundle，启动报错而卸载，见 8.3）、`dsh-tui`（全局 CLI，见 8.4）。
+
+### 8.1 插件市场 dshmarket（web profile bundle） <a id="plugins-market"></a>
+
+DSH 的**可视化插件市场**（浏览 / 搜索 / 一键安装社区插件）。它是一个 `dsh.bundle` 插件（`dsh.client.platform = web`），
+装为 `web` profile 的 bundle 图层。
+
+```bash
+cd /home/minjian/develop/deepseek-harness
+pnpm dsh plugin --profile web add dshmarket
+```
+
+| 项 | 值 |
+| --- | --- |
+| 版本 | 1.37.0（`profile/package.json` 记 `^1.37.0`） |
+| 落位 | `~/.dsh/profiles/web`，并在其 `dsh.profile.bundles` 末尾登记为新图层 |
+| 生效时机 | bundle 图层在 profile **启动时**合成，新增 bundle 需**重启 dsh web** 才生效（区别于 5.1 模型/设置的「下一次请求即生效」） |
+| peer 告警 | 会提示 `@deepseek-ai/cordis` 缺失，实为 pnpm 记账误报——由共享闭包 `~/.dsh/profiles/node_modules/@deepseek-ai/cordis@4.0.1` 满足，不影响运行 |
+| 附带改动 | `~/.dsh/profiles/web/pnpm-workspace.yaml` 会写入 `minimumReleaseAgeExclude: [dshmarket@1.37.0]` |
+
+> 重启方式：桌面「停止 dsh web」→「启动 dsh web」（见第 6 节），或 `sh ~/.local/bin/dsh-web-stop.sh && sh ~/.local/bin/dsh-web-start.sh`。
+
+### 8.2 上下文扩展 dsh-context（web profile bundle） <a id="plugins-context"></a>
+
+`dsh-context` 是客户端侧的**上下文注入 bundle**（`dsh.client.platform = web`），为 web 端提供会话上下文能力，装为 `web` profile 的 bundle 图层。
+
+| 项 | 值 |
+| --- | --- |
+| 版本 | 0.38.1（`profile/package.json` 记 `^0.38.1`） |
+| 落位 | `~/.dsh/profiles/web`，并在其 `dsh.profile.bundles` 中登记为 bundle 图层 |
+| 注入客户端 | `dsh-client-connection` / `dsh-client-locale` / `dsh-client-ui-conversation` / `dsh-client-ui-settings` |
+| 生效时机 | bundle 图层在 profile **启动时**合成，装/卸需**重启 dsh web** 才生效 |
+
+### 8.3 远程 Web UI dsh-remote-web-ui（web profile bundle，**已卸载**） <a id="plugins-remote-web-ui"></a>
+
+> **结论：`dsh web` 启动即崩溃（plugin tree failed to load），已用官方 `dsh plugin remove` 卸载。**
+
+`@linxin666/dsh-remote-web-ui`（第三方 bundle，`dsh.client.platform = web`）用于远程访问 Web UI。
+
+**为何报错（根因）**：它的 `lib/index.js` 依赖 `@deepseek-ai/dsh-host-apiproxy`，而当前 dsh（v0.1.2-alpha.1）**不提供该包**，导致 web profile 加载插件树时报 `ERR_MODULE_NOT_FOUND`：
+
+```text
+Error: dsh: plugin tree failed to load: failed to apply loader entry include
+(cordis:include): failed to import loader entry remote-web-ui
+(@linxin666/dsh-remote-web-ui): Cannot find package '@deepseek-ai/dsh-host-apiproxy'
+imported from ~/.dsh/profiles/web/node_modules/@linxin666/dsh-remote-web-ui/lib/index.js
+```
+
+**处置**：
+
+```bash
+cd /home/minjian/develop/deepseek-harness
+pnpm dsh plugin --profile web remove @linxin666/dsh-remote-web-ui   # 转发 pnpm remove 并自动剔除 bundle 图层
+```
+
+卸载后 `dsh web` 恢复正常启动。装上它须等该包适配当前 dsh（移除对 `@deepseek-ai/dsh-host-apiproxy` 的依赖或等官方补包）再试；安装命令备查：`pnpm dsh plugin --profile web add @linxin666/dsh-remote-web-ui`。
+
+### 8.4 终端客户端 dsh-tui（全局 CLI，**已卸载**） <a id="plugins-tui"></a>
+
+> **结论：与当前 dsh 不兼容，已**全局卸载**，暂不使用。**
+
+DSH 的**终端客户端**（TUI over the DSH client contract `ctx.remote`），可连上正在运行的 harness 操作会话。
+它**不是** `dsh.bundle` 插件，而是一个**独立 CLI**（bin `dsh-tui`），因此按**全局安装**、不挂 profile。
+
+**为何用不了（根因）**：`dsh web`（v0.1.2-alpha.1）把 `/api/*` 全部 RPC 压到 `client-connection` 的 `rpc-host`，
+每个请求需过 `browserAuth.isAuthenticated()`——**只认绑定 authority 的签名 cookie**（`packages/client/connection/src/browser-auth.ts`，
+不支持 header/query 替代）；且 `client-connection` 配置仅有 `trustedHosts` + `cookieMaxAgeDays`，**没有关闭鉴权的开关**。
+dsh-tui 的 `DshClient`（`lib/client.js`）只 POST `/api/<method>` 且**不带任何 cookie/token**，故 `session.create` 报 `HTTP 401`。
+即：dsh-tui 按「/api 可匿名」设计（README 只让你跑 `dsh web`），与当前 dsh 的 cookie 门禁互不兼容；`dsh-tui@0.2.19`（npm 最新）仅读 `DSH_URL`，无鉴权选项。
+
+**处置**：已执行 `pnpm remove -g dsh-tui` 全局卸载。若未来 dsh-tui 增加鉴权（或 dsh 为程序化客户端提供 token），再按需装回。
+
+**安装命令（备查）**：
+
+```bash
+pnpm setup        # 一次性：把 $PNPM_HOME/bin 写进 ~/.bashrc，新开终端生效
+pnpm add -g dsh-tui
+dsh-tui --version # 0.2.19
+```
 
 ---
 
 > 本文档基于 deepseek-harness `dsh-v0.1.2-alpha.1`（commit `cd5ef81481`，Node 24 / pnpm 11.7.0 源码运行）编写。
-> 项目：[github.com/deepseek-ai/deepseek-harness](https://github.com/deepseek-ai/deepseek-harness) · 文档：[deepseek-harness.github.io](https://deepseek-harness.github.io/deepseek-harness/) · 生成日期：2026-08-28 · 修订：2026-08-28（新增 5.3 接入本地 llama.cpp 服务与 No API key 排障条目）
+> 项目：[github.com/deepseek-ai/deepseek-harness](https://github.com/deepseek-ai/deepseek-harness) · 文档：[deepseek-harness.github.io](https://deepseek-harness.github.io/deepseek-harness/) · 生成日期：2026-08-28 · 修订：2026-08-30（8 插件扩展：新增 dshmarket 插件市场与 dsh-context 两个 bundle；`dsh-remote-web-ui` 因缺 `@deepseek-ai/dsh-host-apiproxy` 启动崩溃已卸载——见 8.3；`dsh-tui` 因 /api cookie 鉴权不兼容已卸载——见 8.4）
