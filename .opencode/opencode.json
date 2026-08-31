@@ -47,10 +47,10 @@
       },
       "models": {
         "qwen3.8-27b-ud-q4-k-m": {
-          "name": "qwen3.8-27b llama.cpp",
+          "name": "Qwen3.8-27B-UD-Q4_K_M",
           "limit": {
             "context": 262144,
-            "output": 262144
+            "output": 131072
           },
           "options": {
             "reasoningEffort": "medium"
@@ -67,6 +67,41 @@
               "text"
             ]
           }
+        },
+        "qwen3.8-27b-uncensored-q4-k-m": {
+          "name": "Qwen3.8-27B-Uncensored-Q4_K_M",
+          "limit": {
+            "context": 262144,
+            "output": 131072
+          },
+          "options": {
+            "reasoningEffort": "medium"
+          },
+          "tool_call": true,
+          "reasoning": true,
+          "attachment": true,
+          "modalities": {
+            "input": [
+              "text",
+              "image"
+            ],
+            "output": [
+              "text"
+            ]
+          }
+        },
+        "gemma-4-26b-a4b-it-ultra-uncensored-heretic.i1-q4-k-m": {
+          "name": "Gemma-4-26B-A4B-it",
+          "limit": {
+            "context": 131072,
+            "output": 65536
+          },
+          "options": {
+            "reasoningEffort": "medium"
+          },
+          "tool_call": true,
+          "reasoning": false,
+          "attachment": false
         }
       }
     }
