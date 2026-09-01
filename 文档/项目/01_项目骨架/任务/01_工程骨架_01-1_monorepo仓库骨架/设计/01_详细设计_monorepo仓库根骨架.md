@@ -20,21 +20,21 @@
 
 ## 2. 现状与差距 <a id="gap"></a>
 
-落地前已核实的仓库现状（`git status` 干净、`git ls-files node_modules` 为 0、`scripts/` 为空目录）与差距清单：
+落地前已核实的仓库现状（`git status` 干净、`git ls-files node_modules` 为 0、`scripts/` 已迁入工具链）与差距清单：
 
 | 项 | 现状 | 01-1 目标 | 动作 |
 | --- | --- | --- | --- |
 | `backend/` | 缺失 | 最小可启动占位（FastAPI + `/healthz`） | 新建 |
 | `frontend/` | 缺失 | 最小 Vite + Vue + TS 占位（端口 5173） | 新建 |
 | `frontend-mobile/` | 缺失 | 最小 Vite + Vue + TS 占位（端口 5174） | 新建 |
-| `scripts/` | 空目录（未入库） | 承接开发期工具链（自 `deploy/tools/` 迁入）+ 目录说明 `README.md` | 工具链迁入 + 新增文件 |
-| `ops/` | 缺失 | 产品运维脚本目录（01-1 仅建目录 + `README.md`，脚本后续阶段填充） | 新建 |
+| `scripts/` | 已含 `tools/`（7 个工具，无 multimodal）+ `README.md`（三分法已落地） | 承接开发期工具链（自 `deploy/tools/` 迁入）+ 目录说明 `README.md` | 已落地，核对清单 |
+| `ops/` | 已有 `README.md`（目录说明已就位） | 产品运维脚本目录（脚本后续阶段填充） | 已落地，核对内容 |
 | `graphify-out/README.md` | 缺失（`graphify-out/` 整目录被忽略） | 提交 `README.md`，产物忽略 | 新增 + 调 .gitignore |
 | `README.md` | 缺「快速启动」章节、无技术栈概览表；Python 徽标为 3.12+；文档目录树漏 `测试/`、`项目/` | 按四章节重写 | 重写 |
-| `.gitignore` | 无 Node 规则；编辑器规则为注释态；无 `*.local` | 补 Node / 编辑器 / `*.local`；调整 graphify-out | 修改 |
+| `.gitignore` | 已有 `node_modules/`；编辑器规则为注释态；无 `*.local` | 补编辑器 / `*.local`；调整 graphify-out | 修改 |
 | `.editorconfig` | 缺失 | 新建 | 新建 |
 | `.gitlab-ci.yml` | 存在（内容非 01-1 范围） | 保留 | — |
-| `deploy/` | 存在（含 `tools/`） | 纯部署（`tools/` 迁入 `scripts/`） | 去掉 `tools/` |
+| `deploy/` | 已无 `tools/`（已迁入 `scripts/`） | 纯部署（Compose / nginx / setup） | 已落地 |
 | `文档/` | 存在 | 保留 | — |
 | `LICENSE`、`AGENTS.md`、`.graphifyignore`、`renovate.json` | 存在 | 保留 | — |
 
@@ -60,8 +60,8 @@ bms/
 │   ├── uv.lock               # 依赖锁定（必须提交）
 │   ├── README.md             # 四章节简化版
 │   └── app/                  # 应用包（core / api / … / i18n，01-2 / 01-3 细化）
-│       ├── __init__.py
-│       └── main.py           # FastAPI 最小应用 + /healthz
+│       ├── __init__.py       # 暴露 __version__
+│       └── main.py           # FastAPI 应用工厂 create_app() + /healthz
 ├── frontend/                 # Vue 3 + Vite（01-1 最小占位，01-4 细化）
 │   ├── .nvmrc                # 固定 Node 版本（22）
 │   ├── package.json
@@ -81,7 +81,7 @@ bms/
 │   ├── compose/              # Docker Compose（base / gitlab / kiwi）
 │   └── setup/                # 环境安装脚本
 ├── scripts/                  # 开发期工具链（自 deploy/tools/ 迁入）
-│   └── …                     # wol / bg / graphify / defect / multimodal / backup / gitlab / reorder-design
+│   └── …                     # wol / bg / graphify / defect / backup / gitlab / reorder-design
 ├── ops/                      # 产品运维脚本（种子数据、备份恢复、租户库迁移，按阶段补充）
 │   └── README.md             # 目录说明
 ├── 文档/                     # 项目文档
@@ -96,12 +96,12 @@ bms/
 │   └── 资源/
 ├── graphify-out/             # 知识图谱产物（产物 gitignore，仅 README.md 入库）
 │   └── README.md             # 目录说明
-└── temp/                     # 本地临时目录（gitignore）
+└── temp/                     # 本地临时目录（gitignore，非交付物，不参与 clone 目录一致性校验）
 ```
 
 > **根级文件落位口径**：`.gitlab-ci.yml` 与 `renovate.json` 均为**工具约定决定的根级落位**——GitLab 默认在仓库根查找 `.gitlab-ci.yml`，Renovate 默认在仓库根查找 `renovate.json`。二者不可挪入 `deploy/` 或其他目录：挪动会导致 GitLab 检测不到（流水线不触发）或 Renovate 进入 onboarding 模式。故二者与 `deploy/` **平级**、不在其内；`deploy/` 只装部署产物（Compose 编排 / nginx 配置 / 脚本）。
 
-> **目录职责边界**：`deploy/` 为**纯部署**（Compose 编排 / nginx 配置 / setup）；`scripts/` 为**开发期工具链**（WOL / bg / graphify / defect / multimodal / backup / gitlab / reorder-design，自 `deploy/tools/` 迁入）；`ops/` 为**产品运维脚本**（种子数据 / 备份恢复 / 租户库迁移，随产品交付、后续阶段填充）。三者职责不同、不可混用：`deploy/` 不装工具链，`scripts/` 不装产品运维脚本，`ops/` 不装开发工具。
+> **目录职责边界**：`deploy/` 为**纯部署**（Compose 编排 / nginx 配置 / setup）；`scripts/` 为**开发期工具链**（WOL / bg / graphify / defect / backup / gitlab / reorder-design，自 `deploy/tools/` 迁入）；`ops/` 为**产品运维脚本**（种子数据 / 备份恢复 / 租户库迁移，随产品交付、后续阶段填充）。三者职责不同、不可混用：`deploy/` 不装工具链，`scripts/` 不装产品运维脚本，`ops/` 不装开发工具。
 
 交付物清单（01-1 新建 / 修改的文件）：
 
@@ -110,11 +110,11 @@ bms/
 | `backend/`（6 个文件，见 7.1） | 新建 | 最小可启动占位 |
 | `frontend/`（10 个文件，见 7.2） | 新建 | 最小 Vite 占位 |
 | `frontend-mobile/`（10 个文件，见 7.3） | 新建 | 最小 Vite 占位 |
-| `scripts/README.md` | 新建 | 目录说明（开发期工具链） |
-| `ops/README.md` | 新建 | 目录说明（产品运维脚本） |
+| `scripts/README.md` | 已存在，核对 | 目录说明（开发期工具链） |
+| `ops/README.md` | 已存在，核对 | 目录说明（产品运维脚本） |
 | `graphify-out/README.md` | 新建 | 图谱产物目录说明 |
 | `README.md` | 重写 | 四章节 |
-| `.gitignore` | 修改 | 补 Node / 编辑器 / `*.local`，调整 graphify-out |
+| `.gitignore` | 修改 | 补编辑器 / `*.local`，调整 graphify-out |
 | `.editorconfig` | 新建 | 编辑器统一配置 |
 
 ## 4. 根 README 设计 <a id="readme"></a>
@@ -137,8 +137,8 @@ bms/
 | 后端 | Python 3.14+ · FastAPI · uvicorn · Pydantic v2 · SQLAlchemy 2.0+（异步）· Alembic · Celery · SpiffWorkflow |
 | 数据库 / 中间件 | SQLite（开发/测试）· MySQL 8.x · PostgreSQL 16+ · 达梦 DM8（信创选配）· Redis · RocketMQ 5.x · ElasticSearch 8.x · MinIO |
 | 前端 | Vue 3.5+ · Vite 7 · TypeScript · Element Plus（PC）/ Vant 4（移动端 H5）· Pinia |
-| 工程与质量 | uv（Python 依赖）· npm（前端依赖）· GitLab CI · Renovate · pytest / Vitest / Playwright · structlog |
-| 部署与运维 | Docker 27+ · Docker Compose 2.33+ · nginx · GitLab CE 18+ · Prometheus / Grafana / Jaeger（监控与链路） |
+| 工程与质量 | uv（Python 依赖）· npm（前端依赖）· GitLab CI · Renovate · pytest / Vitest / Playwright |
+| 部署与运维 | Docker 27+ · Docker Compose 2.33+ · nginx · GitLab CE 18+ · Prometheus / Loki / Grafana / Alertmanager（监控）· Jaeger（链路追踪） |
 
 **快速启动**（三工程命令，均可复制执行）：
 
@@ -148,7 +148,7 @@ bms/
 # 后端（端口 8000）
 cd backend
 uv sync
-uv run uvicorn app.main:app --port 8000
+uv run uvicorn app.main:create_app --factory --port 8000
 # 验证：访问 http://127.0.0.1:8000/healthz 返回 {"status":"ok"}
 
 # PC 前端（端口 5173）
@@ -180,7 +180,7 @@ node_modules/
 *.local
 ```
 
-**替换**——把现有注释态的 `# .idea/`（189 行）与 `# .vscode/`（202 行）改为生效规则：
+**替换**——把现有注释态的 `# .idea/` 与 `# .vscode/` 改为生效规则：
 
 ```gitignore
 # JetBrains
@@ -192,7 +192,7 @@ node_modules/
 !.vscode/extensions.json
 ```
 
-**替换**——把现有 `graphify-out/`（226 行）改为「产物忽略、保留说明文件」：
+**替换**——把现有 `graphify-out/` 整目录忽略规则改为「产物忽略、保留说明文件」：
 
 ```gitignore
 # graphify 运行产物（图谱可随时重建，含本机绝对路径，不入库；保留目录说明文件）
@@ -276,30 +276,38 @@ dependencies = [
 
 ```python
 """BMS 后端应用包（阶段一占位，01-2 / 01-3 细化）。"""
+
+__version__ = "0.1.0"
 ```
 
 - `app/main.py`：
 
 ```python
-"""BMS 后端占位入口：最小 FastAPI 应用，提供 /healthz 存活检查。"""
+"""BMS 后端占位入口：最小 FastAPI 应用工厂，提供 /healthz 存活检查。"""
 
 from fastapi import FastAPI
 
-app = FastAPI(title="BMS 后端", version="0.1.0")
+from app import __version__
 
 
-@app.get("/healthz")
-def healthz() -> dict[str, str]:
-    """存活检查端点。
+def create_app() -> FastAPI:
+    """创建 FastAPI 应用（01-2 起在工厂内注册中间件 / 路由 / 异常处理器）。"""
+    app = FastAPI(title="BMS 后端", version=__version__)
 
-    Returns:
-        dict: 服务状态，固定返回 {"status": "ok"}。
-    """
-    return {"status": "ok"}
+    @app.get("/healthz")
+    def healthz() -> dict[str, str]:
+        """存活检查端点。
+
+        Returns:
+            dict: 服务状态，固定返回 {"status": "ok"}。
+        """
+        return {"status": "ok"}
+
+    return app
 ```
 
 - `README.md`：四章节简化版（见 7.5）
-- 启动验证：`uv sync` → `uv run uvicorn app.main:app --port 8000` → `GET /healthz` 返回 `{"status":"ok"}`
+- 启动验证：`uv sync` → `uv run uvicorn app.main:create_app --factory --port 8000` → `GET /healthz` 返回 `{"status":"ok"}`
 
 ### 7.2 frontend <a id="frontend"></a>
 
@@ -387,7 +395,7 @@ createApp(App).mount('#app')
 
 | 文件 | 内容要点 |
 | --- | --- |
-| `scripts/README.md` | 目录用途：开发期工具链（WOL / bg / graphify / defect / multimodal / backup / gitlab / reorder-design，自 `deploy/tools/` 迁入）；01-1 仅保留目录说明 |
+| `scripts/README.md` | 目录用途：开发期工具链（WOL / bg / graphify / defect / backup / gitlab / reorder-design，自 `deploy/tools/` 迁入）；01-1 核对清单 |
 | `ops/README.md` | 目录用途：产品运维脚本（种子数据 / 备份恢复 / 租户库迁移），按阶段补充；01-1 仅保留目录说明，脚本在后续任务添加 |
 | `graphify-out/README.md` | 知识图谱产物目录（graph.json / graph.html / wiki / GRAPH_REPORT.md 等），可由 graphify 随时重建；因含本机绝对路径，产物不入库（见《graphify 部署使用说明》），本目录仅保留此说明文件 |
 
@@ -401,7 +409,7 @@ createApp(App).mount('#app')
 | 2 | graphify-out 入库策略 | **产物忽略 + 提交 README.md**（含本机绝对路径，不入库） | `.gitignore` 改 `graphify-out/*` + `!graphify-out/README.md`；新增 `graphify-out/README.md` |
 | 3 | 占位工程范围 | **最小可启动**（非完整骨架），完整骨架归 01-2 ~ 01-5 | 本文档 §7；无空目录、无 `.gitkeep` |
 | 4 | 编辑器忽略规则 | `.idea/` 全忽略；`.vscode/*` 忽略但放行 `settings.json` / `extensions.json` | `.gitignore`（§5） |
-| 5 | Node 版本 | **Node 22 LTS** | `frontend/.nvmrc`、`frontend-mobile/.nvmrc`、根 README 技术栈表 / 徽标 |
+| 5 | Node 版本 | **Node 22 LTS**（已全库统一：需求/任务 01-4/01-5、规划 §17、开发部署规划、架构 02、00-1 环境与工具链、npm 知识档案等「≥20.19」口径同步改 22） | `frontend/.nvmrc`、`frontend-mobile/.nvmrc`、根 README 技术栈表 / 徽标 |
 | 6 | 三库 / 双库口径 | **统一三库**（MySQL / PostgreSQL / 达梦 DM8），对齐 03_总体架构与测试规范 §7 | 全库订正「双库」旧表述：《后端开发规范》§2、§10，《项目规划说明》§3.4，知识档案 3 处（GitLab / pytest 技术介绍）；概要设计07「双库引用」为平台库/租户库概念，非方言口径，不改 |
 
 > 第 6 项为跨文档口径订正，不属于 01-1 仓库改动，单独执行并核对。
@@ -410,10 +418,10 @@ createApp(App).mount('#app')
 
 按序执行，每步附验证点（依赖：无）：
 
-1. **backend 占位**：建 `backend/`，写 `.python-version`、`pyproject.toml`、`app/__init__.py`、`app/main.py`、`README.md` → `uv lock`（网络慢切国内 PyPI 镜像）→ `uv sync` → `uv run uvicorn app.main:app --port 8000`。验证：`GET http://127.0.0.1:8000/healthz` 返回 `{"status":"ok"}`。
+1. **backend 占位**：建 `backend/`，写 `.python-version`、`pyproject.toml`、`app/__init__.py`、`app/main.py`、`README.md` → `uv lock`（网络慢切国内 PyPI 镜像）→ `uv sync` → `uv run uvicorn app.main:create_app --factory --port 8000`。验证：`GET http://127.0.0.1:8000/healthz` 返回 `{"status":"ok"}`。
 2. **frontend 占位**：`npm create vite@latest frontend -- --template vue-ts`，按 7.2 调整（name、端口 5173、`.nvmrc`=22、`App.vue` 文案、`README.md`）→ `npm install` 生成 lock。验证：`npm run dev` 访问 `http://127.0.0.1:5173` 看到占位页。
 3. **frontend-mobile 占位**：同步骤 2，端口 5174、name `bms-frontend-mobile`、文案改移动端。验证：访问 `http://127.0.0.1:5174`。
-4. **其余说明文件**：建 `scripts/README.md`、`ops/README.md`、`graphify-out/README.md`（内容见 §8）。
+4. **其余说明文件**：核对 `scripts/README.md`、`ops/README.md`（已存在，删 multimodal 词条），新建 `graphify-out/README.md`（内容见 §8）。
 5. **根 .gitignore**：按 §5 追加 / 替换规则；保留现有 Python 模板主体。
 6. **根 .editorconfig**：按 §6 新建。
 7. **根 README**：按 §4 重写四章节、修正徽标、补技术栈概览表、补全目录树（含 `测试/`、`项目/`）。
@@ -439,7 +447,7 @@ createApp(App).mount('#app')
 
 | 风险 / 开放项 | 说明 | 处置 |
 | --- | --- | --- |
-| Python 3.14 兼容性未知（dmPython / Celery / SpiffWorkflow 等） | 01-1 占位仅用 fastapi / uvicorn，风险低 | 01-6 逐依赖验证，不兼容整体回退 3.13（`.python-version` 与 README 徽标同步改） |
+| Python 3.14 兼容性未知（dmPython / Celery / SpiffWorkflow 等） | 01-1 占位仅用 fastapi / uvicorn，风险低 | 01-6 逐依赖验证，不兼容整体回退 3.13（`.python-version`、`pyproject.toml` 的 `requires-python` 与 README 徽标同步改，并重新 `uv lock`） |
 | `uv` / `npm` 下载慢 | 国内网络 | 切换国内镜像（PyPI 用阿里云 / 清华源，npm 用淘宝 npmmirror 源），命令注明 |
 | Vite / 依赖版本漂移 | 占位版本随模板 | 以 `package-lock.json` / `uv.lock` 锁定，提交后复现 |
 | 根 `node_modules` 陈旧索引告警 | 见 §2 已知现象 | 加 `node_modules/` 忽略规则后验证，仍在则 `git update-index --again` |

@@ -10,7 +10,6 @@
 | `tools/bg/` | 后台执行器（长命令后台化 + 秒级轮询状态） |
 | `tools/graphify/` | 知识图谱（`localize-graph.py` 汉化 + 生成架构图） |
 | `tools/defect/` | 缺陷工具链（REPRO 复现包自动上报 / AI 修复 / 一键复现） |
-| `tools/multimodal/` | 多模态 MCP（识图 / 无头截图） |
 | `tools/backup/` | 开发服务器备份脚本（版本管理源） |
 | `tools/gitlab/` | GitLab 流水线盯守（`watch_pipeline.py`） |
 | `tools/reorder-design/` | 设计文档节点编号重排 |
