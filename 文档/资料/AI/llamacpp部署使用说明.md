@@ -121,6 +121,18 @@ ls build/bin/llama-server
 - 每次 `qwen-*.sh` 启动前先调用 `qwen-stop.sh`（按端口 8080 pkill），保证一次仅一个模型。
 - 参数改动集中在 `qwen-start.sh` 的 `MODEL` / `DISPLAY` 映射与公共参数处；换模型无需动启动脚本。
 
+### 3.5 桌面快捷方式 <a id="deploy-desktop"></a>
+
+GNOME 应用菜单提供四组入口（`~/.local/share/applications/`，与 ComfyUI 的控制模式一致），经 `~/.local/bin/qwen-control.sh` 调用脚本。`qwen-control.sh` 用法：`start [ud|std|unc]` / `stop` / `status`，`start` 在终端窗口拉起服务并 `tail -f` 加载日志。
+
+```text
+~/.local/share/applications/
+└── 本地LLM 启动UD.desktop          # → qwen-control.sh start ud
+└── 本地LLM 启动标准版.desktop      # → qwen-control.sh start std
+└── 本地LLM 启动Uncensored.desktop  # → qwen-control.sh start unc
+└── 本地LLM 停止.desktop            # → qwen-control.sh stop
+```
+
 ## 4. 运行参数说明 <a id="params"></a>
 
 `llama-server` 关键参数：
