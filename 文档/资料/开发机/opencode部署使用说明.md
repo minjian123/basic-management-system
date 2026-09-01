@@ -262,10 +262,10 @@ opencode models llamacpp  # 列出项目配置的本地 llamacpp 模型
 端到端验证最小对话（调用本地模型）：
 
 ```bash
-opencode run --model "llamacpp//home/minjian/ai/models/Qwen3.8-27B-UD-Q4_K_M.gguf" "只回复两个字:正常"
+opencode run --model "llamacpp/qwen3.8-27b-ud-q4-k-m" "只回复两个字:正常"
 ```
 
-CLI 读项目级配置 `<项目>/.opencode/opencode.json`（provider/model/插件登记），`llamacpp` provider 连本机 `http://127.0.0.1:8080/v1`（llama-server 常驻）。
+CLI 读项目级配置 `<项目>/.opencode/opencode.json`（provider/model/插件登记），`llamacpp` provider 连本机 `http://127.0.0.1:8080/v1`（llama-server 手动脚本启动，不常驻，见《llamacpp 部署与使用说明》；模型别名 `qwen3.8-27b-ud-q4-k-m` 对应 UD 版）。
 
 ## 6. 部署产物与配置 <a id="artifacts"></a>
 
