@@ -123,7 +123,7 @@ Environment=PYTHONUNBUFFERED=1
 WantedBy=default.target
 ```
 
-> 当前服务为 **disabled**（未设为开机自启，与 qwen.service 一致），需要时手动启动（第 4 节）。若你的用户服务目录为新加，先 `systemctl --user daemon-reload` 使其被识别。
+> 当前服务为 **disabled**（未设为开机自启），需要时手动启动（第 4 节）。若你的用户服务目录为新加，先 `systemctl --user daemon-reload` 使其被识别。
 
 ### 3.4 控制脚本 <a id="deploy-script"></a>
 

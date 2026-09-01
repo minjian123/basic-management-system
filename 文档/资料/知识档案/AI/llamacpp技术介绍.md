@@ -27,7 +27,7 @@ Ollama、LM Studio 等上层工具都构建在 llama.cpp 之上。
 | 服务 | `llama-server`：OpenAI 兼容（`/v1/chat/completions`、`/v1/models`） |
 | 量化 | k-quants（Q8_0 / Q6_K / Q5_K_M / **Q4_K_M** / Q3…） |
 | 许可 | MIT |
-| 本机版本 | 0.3.0-dev（commit `cb30059`，CUDA `sm_89`，源码运行） |
+| 本机版本 | 0.3.0-dev（build 87，commit `9d81721`，CUDA `sm_89`，源码运行） |
 | 生态 | Ollama、LM Studio 基于它；官方另有 Python 绑定 `llama-cpp-python` |
 
 ## 2. 核心概念与原理 <a id="principles"></a>
@@ -131,7 +131,7 @@ cmake --build build --config Release -j
 ### 6.3 启动服务与调用 <a id="api"></a>
 
 ```bash
-# 启动 llama-server（OpenAI 兼容，:8080）
+# 启动 llama-server（OpenAI 兼容，:8080；本机三个 Qwen3.8-27B 量化版用脚本 qwen-ud/std/unc.sh 切换，见部署说明）
 build/bin/llama-server \
   -m /home/minjian/ai/models/Qwen3.8-27B-UD-Q4_K_M.gguf \
   -mm /home/minjian/ai/models/mmproj-Qwen3.8-27B-f16.gguf \
@@ -179,4 +179,4 @@ curl -s http://127.0.0.1:8080/v1/chat/completions \
 
 ---
 
-> 依《[文档生成规范](../../../规范/文档生成规范.md)》编写 · 基于 llama.cpp 0.3.0-dev（commit `cb30059`，CUDA `sm_89`）· 生成日期：2026-08-28
+> 依《[文档生成规范](../../../规范/文档生成规范.md)》编写 · 基于 llama.cpp 0.3.0-dev（build 87 / commit `9d81721`，CUDA `sm_89`）· 生成日期：2026-08-28 · 修订：2026-09-01（同步版本至 `9d81721`、多模型脚本化）
