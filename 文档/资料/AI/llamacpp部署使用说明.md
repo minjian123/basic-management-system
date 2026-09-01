@@ -23,7 +23,7 @@ llama.cpp 是 C/C++ 实现的本地大模型推理引擎，自带 `llama-server`
 - **推理模型**：以 `--reasoning-format deepseek` 运行，先输出思考（`reasoning_content`）再出正文。
 - **多模型可选、人工启动**：三个 Qwen3.8-27B 量化版（UD / 官方标准版 / Uncensored）各配一个启动脚本，
   换模型即换脚本；**不常驻**，需要时手动启动（纯脚本 nohup 方式，见第 3.3 / 3.4 节），启动前自动停掉当前模型、一次只跑一个。
-- **推测解码**：以 `--spec-default` 启用 ngram-mod（无草稿模型的 n-gram 推测解码），推理模型重复思考内容时提速（见第 4 节）。
+- **推测解码**：以 `--spec-type ngram-mod` 启用 n-gram 推测解码（dense 微调参数，见第 4 节），推理模型重复思考内容时提速，2026-09-01 大样本实测重复场景最高约 5.7 倍。
 
 ## 2. 环境要求 <a id="prereq"></a>
 
@@ -120,7 +120,7 @@ ls build/bin/llama-server
 
 ### 3.4 启停脚本内部约定 <a id="deploy-notes"></a>
 
-- 三个模型共用 `-m` 换路径、`-mm` 固定为同一 mmproj、其余参数一致（`-ngl 999 -c 215040 -ctk q4_0 -ctv q4_0 --flash-attn on --jinja --chat-template-file ... --reasoning-format deepseek --reasoning-preserve --spec-default`）。
+- 三个模型共用 `-m` 换路径、`-mm` 固定为同一 mmproj、其余参数一致（`-ngl 999 -c 215040 -ctk q4_0 -ctv q4_0 --flash-attn on --jinja --chat-template-file ... --reasoning-format deepseek --reasoning-preserve --spec-type ngram-mod --spec-ngram-mod-n-match 16 --spec-ngram-mod-n-min 32 --spec-ngram-mod-n-max 64`）。
 - 每次 `qwen-*.sh` 启动前先调用 `qwen-stop.sh`（按端口 8080 pkill），保证一次仅一个模型。
 - 参数改动集中在 `qwen-start.sh` 的 `MODEL` / `DISPLAY` 映射与公共参数处；换模型无需动启动脚本。
 
@@ -148,7 +148,7 @@ GNOME 应用菜单提供四组入口（`~/.local/share/applications/`，与 Comf
 | `-c 215040` | 210K | 上下文窗口长度 |
 | `-ctk q4_0` / `-ctv q4_0` | q4_0 | K cache / V cache 量化，压缩长上下文显存占用 |
 | `--flash-attn on` | on | 开启 Flash Attention（编译期 `GGML_CUDA_FA_ALL_QUANTS=ON` 覆盖全部量化类型） |
-| `--spec-default` | — | 启用默认推测解码（ngram-mod：n-match 24 / n-min 48 / n-max 64），无草稿模型的 n-gram 猜测，推理模型重复思考时提速 |
+| `--spec-type ngram-mod` + n-match 16 / n-min 32 / n-max 64 | — | n-gram 推测解码（dense 微调参数）：无草稿模型，靠历史重复模式猜 token；27B dense 模型实测比默认参数（n-match 24/48/64）重复场景最高快约 5.7 倍 |
 | `--host` / `--port` | `127.0.0.1` / `8080` | 监听地址；8080 为 llama.cpp 默认端口 |
 | `--jinja` | — | 用 Jinja 模板渲染对话（配合下项） |
 | `--chat-template-file` | `.jinja` 路径 | 自定义 Qwen3.8 chat 模板 |
@@ -242,7 +242,7 @@ dsh 同样以自定义 provider `llamacpp` 接本服务（同一 `127.0.0.1:8080
 - **2026-08-28 模型迁移**：将 UD 版主模型与 mmproj 两个 gguf 从 `~/下载`（易被清理的目录）原子迁移到 `/home/minjian/ai/models/`，此后模型路径以 `/home/minjian/ai/models/` 为准。
 - **2026-09-01 多模型化**：目录新增官方标准版 `Qwen3.8-27B-Q4_K_M.gguf` 与 Uncensored 版 `Qwen3.8-27B-Uncensored-Q4_K_M.gguf`；删除 gemma-4-26B 模型（`gemma-4-26B-A4B-it-ultra-uncensored-heretic.i1-Q4_K_M.gguf`，已不复存在）。
 - **2026-09-01 systemd 退役**：`qwen.service` 禁用并移除，改多脚本 + nohup 手动启动（第 3.3 节）。
-- **2026-09-01 加速配置**：`qwen-start.sh` 追加 `--spec-default`（启用 ngram-mod 推测解码）；llama.cpp 以 `GGML_CUDA_FA_ALL_QUANTS=ON` 重编译（同 commit `9d81721`，仅改编译选项）；文档同步修正上下文为实际值 210K（`-c 215040`）。
+- **2026-09-01 加速配置**：`qwen-start.sh` 启用 ngram-mod 推测解码（先 `--spec-default`，后经 16 用例 A/B 实测改为 dense 微调参数 `--spec-ngram-mod-n-match 16 --spec-ngram-mod-n-min 32 --spec-ngram-mod-n-max 64`，重复场景最高提速约 5.7 倍）；llama.cpp 以 `GGML_CUDA_FA_ALL_QUANTS=ON` 重编译（同 commit `9d81721`，仅改编译选项）；文档同步修正上下文为实际值 210K（`-c 215040`）。
 
 ### 6.2 改动后的生效顺序 <a id="maintain-apply"></a>
 
@@ -257,7 +257,8 @@ dsh 同样以自定义 provider `llamacpp` 接本服务（同一 `127.0.0.1:8080
 
 - **显存吃紧**：降 `-c`（上下文）、保持 `-ctk/-ctv q4_0`，或降量化精度（更小量化）。实测三个模型在
   210K + mmproj 下显存峰值约 23.8–24.0 GiB，接近 24G 上限；若加其它显存占用建议降 `-c`。
-- **速度优先**：确认 `-ngl 999` 与 `--flash-attn on` 已开、编译期 `GGML_CUDA_FA_ALL_QUANTS=ON`（3.1 节）；`-c` 不宜远超实际所需（cache 按上限预留）。`--spec-default` 的提速效果看服务日志 `draft acceptance rate`，接受率高则收益大。
+- **速度优先**：确认 `-ngl 999` 与 `--flash-attn on` 已开、编译期 `GGML_CUDA_FA_ALL_QUANTS=ON`（3.1 节）；`-c` 不宜远超实际所需（cache 按上限预留）。
+- **推测解码参数**：27B dense 模型用 `--spec-type ngram-mod --spec-ngram-mod-n-match 16 --spec-ngram-mod-n-min 32 --spec-ngram-mod-n-max 64`（2026-09-01 大样本 A/B 实测：重复文本场景接受率 0.79–1.00、吞吐最高 261 tok/s，默认参数同场景最低 0%、45 tok/s；问答场景两者均无草稿，代码场景相近）。提速效果看服务日志 `draft acceptance rate`。
 - **换模型**：直接运行对应脚本（`qwen-ud/std/unc.sh`），无需改任何配置；opencode 侧 `models` 别名均已注册。
 
 ## 7. 常见问题 <a id="faq"></a>
@@ -275,4 +276,4 @@ dsh 同样以自定义 provider `llamacpp` 接本服务（同一 `127.0.0.1:8080
 ---
 
 > 本文档基于 llama.cpp 0.3.0-dev（build 87 / commit `9d81721`，CUDA sm_89 / RTX 4090 环境）编写。
-> 项目：[github.com/ggml-org/llama.cpp](https://github.com/ggml-org/llama.cpp) · 生成日期：2026-08-28 · 修订：2026-09-01（多模型脚本化、重编译至 9d81721、gemma 移除、systemd 退役、启用 ngram-mod 推测解码与 FA_ALL_QUANTS 编译）
+> 项目：[github.com/ggml-org/llama.cpp](https://github.com/ggml-org/llama.cpp) · 生成日期：2026-08-28 · 修订：2026-09-01（多模型脚本化、重编译至 9d81721、gemma 移除、systemd 退役、启用 ngram-mod 推测解码（dense 参数）与 FA_ALL_QUANTS 编译）
