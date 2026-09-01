@@ -39,7 +39,7 @@ Node 24/26 自带；Node 22 自带 10.x）是 Node 生态默认包管理器。
 - **双工程依赖管理**：frontend 与 frontend-mobile 各自独立 package.json 与 package-lock.json，ESLint/Prettier/TS 配置互不共享（见《[项目规划说明](../../../规划/项目规划说明.md#sel-frontend)》3.2 节）。
 - **CI 可复现安装**：流水线用 `npm ci` 锁定安装，保证每次构建依赖完全一致（见《[GitLab 技术介绍](../部署与运维/GitLab技术介绍.md)》CI 流水线）。
 - **构建命令入口**：`npm run dev/build/test/lint` 驱动 Vite、ESLint、Vitest 等工具（见《[Vite 技术介绍](Vite技术介绍.md)》）。
-- **Node 版本管理**：`.nvmrc` 固定 Node 版本（≥ 20.19），配合 nvm/volta/fnm 切换，npm 随 Node 自带（见《[项目规划说明](../../../规划/项目规划说明.md#pages)》部署约定）。
+- **Node 版本管理**：`.nvmrc` 固定 Node 版本（22 LTS），配合 nvm/volta/fnm 切换，npm 随 Node 自带（见《[项目规划说明](../../../规划/项目规划说明.md#pages)》部署约定）。
 - **依赖升级**：Renovate 自动提 MR 升级依赖，npm lock 文件随之更新（见《[Renovate 技术介绍](../部署与运维/Renovate技术介绍.md)》）。
 
 最小示例（日常命令）：
