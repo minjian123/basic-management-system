@@ -6,7 +6,7 @@
 
 ## 1. 目的与适用范围 <a id="purpose"></a>
 
-mjbk 上的 Renovate（容器 `bms-renovate`，随《[GitLab部署使用说明](GitLab部署使用说明.md)》的 `gitlab.yml` 编排）是依赖升级机器人：每日定时扫描 BMS 仓库的依赖声明，发现新版本或安全更新时自动建分支并提 MR（《[02-6 Renovate 与 GitHub 归档](../../项目/00_准备期/任务/02_仓库与CI_02-6_Renovate与GitHub归档/02_仓库与CI_02-6_Renovate与GitHub归档.md)》）。
+mjbk 上的 Renovate（容器 `bms-renovate`，随《[GitLab部署使用说明](GitLab部署使用说明.md)》的 `gitlab.yml` 编排）是依赖升级机器人：每日定时扫描 BMS 仓库的依赖声明，发现新版本或安全更新时自动建分支并提 MR（《[06 Renovate 与 GitHub 归档](../../项目/00_准备期/任务/02_仓库与CI_06_Renovate与GitHub归档/02_仓库与CI_06_Renovate与GitHub归档.md)》）。
 
 **管理范围（2026-08-23 定稿口径）**：
 
@@ -168,7 +168,7 @@ flowchart TD
 
 - 《[GitLab部署使用说明](GitLab部署使用说明.md)》：renovate 服务的 compose 宿主与 PAT 管理
 - 《[Renovate技术介绍](../知识档案/部署与运维/Renovate技术介绍.md)》：选型依据与能力边界
-- 《[02-6 Renovate 与 GitHub 归档](../../项目/00_准备期/任务/02_仓库与CI_02-6_Renovate与GitHub归档/02_仓库与CI_02-6_Renovate与GitHub归档.md)》：需求落地记录（含 GitHub push mirror 口径）
+- 《[06 Renovate 与 GitHub 归档](../../项目/00_准备期/任务/02_仓库与CI_06_Renovate与GitHub归档/02_仓库与CI_06_Renovate与GitHub归档.md)》：需求落地记录（含 GitHub push mirror 口径）
 - 《[开发部署规划](../../规划/开发部署规划.md)》：4.5 GitLab 与 CI 基础设施、11 节外网依赖风险
 - 《[命名规范](../../规范/命名规范.md)》：容器名 `bms-组件` 口径
 
