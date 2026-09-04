@@ -1,0 +1,8 @@
+[Unit]
+Description=Daily scheduled sleep for mjbk (00:00 sleep, RTC self-wake 08:00)
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/mjbk_sleep_rtc.sh
+TimeoutStartSec=0
