@@ -1,0 +1,9 @@
+[Unit]
+Description=Trigger mjbk daily sleep at 00:00 (RTC self-wake 08:00)
+
+[Timer]
+OnCalendar=*-*-* 00:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
