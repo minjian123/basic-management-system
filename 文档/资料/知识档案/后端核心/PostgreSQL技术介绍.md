@@ -78,7 +78,7 @@
 | 《[项目规划说明》2.1 节](../../../规划/项目规划说明.md#stack-backend) | 技术栈：PostgreSQL 16+ 与 psycopg 3 条目 |
 | 《[项目规划说明》3.1 节](../../../规划/项目规划说明.md#sel-backend) | 选型说明：psycopg 3 替代 psycopg2 |
 | 《[项目规划说明》11.1 节](../../../规划/项目规划说明.md#dbrule) | 数据规范：软删除与部分唯一索引优化 |
-| 《[PostgreSQL 部署使用说明](?../../开发服务器/PostgreSQL部署使用说明.md》 | 开发服务器 mjbk 上的部署与访问细节 |
+| 《[PostgreSQL 部署使用说明](?../../开发服务器/linux/PostgreSQL部署使用说明.md》 | 开发服务器 mjbk 上的部署与访问细节 |
 | 《[SQLAlchemy 技术介绍](SQLAlchemy技术介绍.md)》 | 异步 engine、连接池与多数据源 |
 | 《[Alembic 技术介绍](Alembic技术介绍.md)》 | PostgreSQL 方言迁移脚本与三库验证 |
 | 《[MySQL 技术介绍](MySQL技术介绍.md)》 | 并行支持的另一生产数据库 |

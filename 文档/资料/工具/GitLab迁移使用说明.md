@@ -2,7 +2,7 @@
 
 > BMS 仓库迁移至 GitLab · GitHub 归档同步实录 · 2026-08-11
 
-[文档首页](../../文档首页.md) › [资料](../开发服务器/开发服务器部署使用说明总览.md) › GitLab 迁移使用说明　|　[同级：GitLab 部署使用说明 →](../开发服务器/GitLab部署使用说明.md)
+[文档首页](../../文档首页.md) › [资料](../开发服务器/linux/开发服务器部署使用说明总览.md) › GitLab 迁移使用说明　|　[同级：GitLab 部署使用说明 →](../开发服务器/linux/GitLab部署使用说明.md)
 
 ## 1. 目的与现状 <a id="purpose"></a>
 
@@ -19,7 +19,7 @@
 
 ### 2.1 前置条件 <a id="prepare"></a>
 
-- GitLab CE 已部署并可用（见《[GitLab部署使用说明](../开发服务器/GitLab部署使用说明.md)》）。
+- GitLab CE 已部署并可用（见《[GitLab部署使用说明](../开发服务器/linux/GitLab部署使用说明.md)》）。
 - GitHub 目标仓库已存在（`minjian123/basic-management-system`）。
 - GitLab 管理员 PAT（api + write_repository 权限）：用 rails runner 生成：
 
@@ -113,7 +113,7 @@ GET /api/v4/projects/2/protected_branches   # main: push=Maintainers merge=Maint
 
 ## 7. 关联文档 <a id="related"></a>
 
-- 《[GitLab部署使用说明](../开发服务器/GitLab部署使用说明.md)》：GitLab 部署与 runner 注册
+- 《[GitLab部署使用说明](../开发服务器/linux/GitLab部署使用说明.md)》：GitLab 部署与 runner 注册
 - 《[开发部署规划](../../规划/开发部署规划.md)》：4.5 GitLab 与 CI、第 7 节开发工作流
 - 《[本地资源](../../用户文档/本地资源.md)》：凭据汇总
 - 《[文档首页](../../文档首页.md)》：全量文档索引

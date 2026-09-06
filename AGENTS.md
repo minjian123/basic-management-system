@@ -8,11 +8,11 @@
 - BMS（基础管理系统）：后端管理用途。当前**尚无源代码**，规划已定案；技术栈、功能模块、开发计划与验收标准见 `文档/规划/项目规划说明.md`，**动手写代码前先读该文件**。
 - 文档目录使用中文名（`文档/`），README 与规划文档均为中文；回复与文档保持中文。
 - `.opencode/` 中 graphify 安装脚本生成的产物（plugins/graphify.js、skills/graphify 等）勿手动修改；`opencode.json` 的 plugin 数组登记自定义插件是既定扩展方式（bg.js 如此，vision.js 已退役），MCP server 走 `opencode.json` 的 `mcp` 段登记；`.reasonix/`、reasonix.toml 由 IDE 工具生成——勿手动修改。
-- 入口文档：`README.md`（导航）、`文档/文档首页.md`（全量导航）、`文档/规划/项目规划说明.md`（规划）、`文档/规划/开发部署规划.md`（开发环境部署）、`文档/资料/开发服务器/开发服务器部署使用说明总览.md`（mjbk 远程操作实录）。
+- 入口文档：`README.md`（导航）、`文档/文档首页.md`（全量导航）、`文档/规划/项目规划说明.md`（规划）、`文档/规划/开发部署规划.md`（开发环境部署）、`文档/资料/开发服务器/linux/开发服务器部署使用说明总览.md`（mjbk 远程操作实录）。
 
 ## 开发环境与远程操作
 
-- 开发服务器 **mjbk**（常开：GitLab CE、开发依赖服务、MySQL/PostgreSQL/达梦 DM8 三库）与开发机 **mjpc**。远程操作方式、SSH/WinRM 凭据与命令模板见 `文档/资料/开发服务器/开发服务器部署使用说明总览.md`（内网 IP 与账号见 `文档/用户文档/本地资源.md`），需要时再读，不常驻上下文。
+- 开发服务器 **mjbk**（常开：GitLab CE、开发依赖服务、MySQL/PostgreSQL/达梦 DM8 三库）与开发机 **mjpc**。远程操作方式、SSH/WinRM 凭据与命令模板见 `文档/资料/开发服务器/linux/开发服务器部署使用说明总览.md`（内网 IP 与账号见 `文档/用户文档/本地资源.md`），需要时再读，不常驻上下文。
 - **服务器电源控制**（唤醒/睡眠/关机工具链，文档：`文档/资料/工具/开发服务器电源控制使用说明.md`）：
   - 远程唤醒：`python scripts/tools/wol/wake_mjbk.py`（发 WOL 魔术包并等待 SSH 就绪，低风险）；双击入口 `scripts/tools/wol/唤醒mjbk.bat`。
   - 远程睡眠：`python scripts/tools/wol/sleep_mjbk.py`（SSH 执行 `systemctl suspend` 进入 S3，含确认）；双击入口 `scripts/tools/wol/睡眠mjbk.bat`。
