@@ -87,7 +87,7 @@ Git 仓库、Merge Request、Issue、CI/CD 流水线、容器 Registry、Wiki
 | 《[项目规划说明](../../../规划/项目规划说明.md#test)》16 节 | 测试策略：CI 执行、缺陷上报、结果归档 |
 | 《[开发部署规划](../../../规划/开发部署规划.md#server-gitlab)》4.5 节 | mjbk GitLab + runner + Renovate 部署实录 |
 | 《[开发部署规划](../../../规划/开发部署规划.md#workflow)》7 节 | 开发工作流与 CI：分支模型、流水线、依赖升级 |
-| 《[GitLab 部署使用说明](?../../开发服务器/GitLab部署使用说明.md》 | mjbk GitLab 安装配置内部文档 |
+| 《[GitLab 部署使用说明](?../../开发服务器/linux/GitLab部署使用说明.md》 | mjbk GitLab 安装配置内部文档 |
 | 《[GitLab 迁移使用说明](?../../工具/GitLab迁移使用说明.md》 | 仓库迁移到 GitLab 的操作说明 |
 | 《[Renovate 技术介绍](Renovate技术介绍.md)》 | 基于 GitLab 的依赖自动升级 |
 | 《[Docker 与 Compose 技术介绍](Docker与Compose技术介绍.md)》 | runner 容器化运行的底座 |

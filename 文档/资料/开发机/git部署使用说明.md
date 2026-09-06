@@ -6,7 +6,7 @@
 
 ## 1. 目的与适用范围 <a id="purpose"></a>
 
-记录开发机 **mjpc**（Ubuntu 26.04.1 LTS）上 git 的安装方式、全局配置、BMS 仓库（内网 GitLab）接入与日常操作，作为重装系统或迁移后的配置参照。它是《[开发机部署使用说明总览](开发机部署使用说明总览.md)》第 3 节「开发工具链 git」一行的详细说明；GitLab 服务器侧的部署见《[GitLab部署使用说明](../开发服务器/GitLab部署使用说明.md)》。
+记录开发机 **mjpc**（Ubuntu 26.04.1 LTS）上 git 的安装方式、全局配置、BMS 仓库（内网 GitLab）接入与日常操作，作为重装系统或迁移后的配置参照。它是《[开发机部署使用说明总览](开发机部署使用说明总览.md)》第 3 节「开发工具链 git」一行的详细说明；GitLab 服务器侧的部署见《[GitLab部署使用说明](../开发服务器/linux/GitLab部署使用说明.md)》。
 
 **取值说明**：`<mjbk-IP>`、`<访问令牌>` 等占位符与真实凭据的具体值见《[本地资源](../../用户文档/本地资源.md)》与 mjbk 本机 `deploy/.env`，不在文档中记录。git 协作规则（分支模型、提交信息、MR 流程）见《[Git协作规范](../../规范/Git协作规范.md)》，本文档只描述本机 git 的部署与使用。
 
@@ -66,7 +66,7 @@ BMS 仓库 `~/develop/bms/` 的远端配置（`git remote -v` 实测）：
 | --- | --- | --- |
 | `origin`（唯一） | `http://<mjbk-IP>:8080/bms/bms.git` | 开发、MR、CI、Registry（日常推送目标） |
 
-- 地址为内网 HTTP，`8080` 端口即 mjbk 上 GitLab 容器 `bms-gitlab` 的 HTTP 监听口（见《[GitLab部署使用说明](../开发服务器/GitLab部署使用说明.md)》第 2 节）。
+- 地址为内网 HTTP，`8080` 端口即 mjbk 上 GitLab 容器 `bms-gitlab` 的 HTTP 监听口（见《[GitLab部署使用说明](../开发服务器/linux/GitLab部署使用说明.md)》第 2 节）。
 - 当前 URL 中**内嵌了访问凭据**（`http://root:<访问令牌>@<mjbk-IP>:8080/...`，实测如此），clone/push 无需再输入密码。令牌属敏感信息，仅存于本机，不入文档、不入提交。
 - 分支 `main` 跟踪 `origin/main`；当前为单人直推 main 模式（《Git协作规范》第 1 节「当前阶段简化执行」），feature 分支 → MR 门禁流程暂缓。
 
@@ -185,7 +185,7 @@ python scripts/tools/wol/wake_mjbk.py
 git pull origin main
 ```
 
-> 若 ping 通但 8080 不通：GitLab 容器没起来，SSH 登录 mjbk 后 `docker ps` 查 `bms-gitlab` 状态，参照《[GitLab部署使用说明](../开发服务器/GitLab部署使用说明.md)》第 3 节重启。
+> 若 ping 通但 8080 不通：GitLab 容器没起来，SSH 登录 mjbk 后 `docker ps` 查 `bms-gitlab` 状态，参照《[GitLab部署使用说明](../开发服务器/linux/GitLab部署使用说明.md)》第 3 节重启。
 
 ### 8.2 GitHub 仓库 clone/pull 超时或报错 <a id="mirror-down"></a>
 
@@ -237,7 +237,7 @@ BMS 仓库远端分支是 `main`；GitHub 系仓库（deepseek-harness、ComfyUI
 
 - 《[开发机部署使用说明总览](开发机部署使用说明总览.md)》：mjpc 开发机设施总览（本文档所属目录的总纲）
 - 《[Git协作规范](../../规范/Git协作规范.md)》：分支模型、提交信息、MR 流程与版本管理（git 的使用规则）
-- 《[GitLab部署使用说明](../开发服务器/GitLab部署使用说明.md)》：mjbk 上 GitLab CE + runner 的服务器侧部署
+- 《[GitLab部署使用说明](../开发服务器/linux/GitLab部署使用说明.md)》：mjbk 上 GitLab CE + runner 的服务器侧部署
 - 《[GitLab迁移使用说明](../工具/GitLab迁移使用说明.md)》：仓库迁移至 GitLab、GitHub 归档同步与日常流程
 - 《[开发服务器电源控制使用说明](../工具/开发服务器电源控制使用说明.md)》：mjbk 远程唤醒（WOL）与远程关机脚本用法（8.1 节排障的前置步骤）
 - 《[文档生成规范](../../规范/文档生成规范.md)》：本文档遵循的格式规范

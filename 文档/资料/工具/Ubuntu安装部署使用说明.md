@@ -222,7 +222,7 @@ lsblk -o NAME,SIZE,FSTYPE,MOUNTPOINT /dev/nvme1n1
 ```
 
 > mjbk 已完成：`/dev/nvme1n1p1`（1.8T，ext4，卷标 `ssd2t`）挂载于 `/mnt/ssd2t`，fstab 自动挂载验证通过。
-> 随后 Docker data-root 迁至 `/mnt/ssd2t/docker`、GitLab 数据迁至 `/mnt/ssd2t/gitlab`（迁移过程见《[DockerEngine部署使用说明](../开发服务器/DockerEngine部署使用说明.md)》2.4 与《[GitLab部署使用说明](../开发服务器/GitLab部署使用说明.md)》第 2 节）。
+> 随后 Docker data-root 迁至 `/mnt/ssd2t/docker`、GitLab 数据迁至 `/mnt/ssd2t/gitlab`（迁移过程见《[DockerEngine部署使用说明](../开发服务器/linux/DockerEngine部署使用说明.md)》2.4 与《[GitLab部署使用说明](../开发服务器/linux/GitLab部署使用说明.md)》第 2 节）。
 
 ### 6.4 远程桌面（xrdp） <a id="verify-rdp"></a>
 
@@ -360,7 +360,7 @@ sudo systemctl restart gdm3
 - GitLab CE + gitlab-runner
 - 防火墙（ufw）放行、时区 Asia/Shanghai
 
-> 部署脚本与 Compose 文件从代码仓库获取（`deploy/` 目录），部署详情见《[开发服务器部署使用说明总览](../开发服务器/开发服务器部署使用说明总览.md)》。
+> 部署脚本与 Compose 文件从代码仓库获取（`deploy/` 目录），部署详情见《[开发服务器部署使用说明总览](../开发服务器/linux/开发服务器部署使用说明总览.md)》。
 
 ## 10. 常见问题 <a id="trouble"></a>
 
@@ -378,8 +378,8 @@ sudo systemctl restart gdm3
 ## 11. 关联文档 <a id="related"></a>
 
 - 《[本地资源](../../用户文档/本地资源.md)》：机器硬件与账号信息
-- 《[开发服务器部署使用说明总览](../开发服务器/开发服务器部署使用说明总览.md)》：部署后服务使用与运维
-- 《[Redis 部署使用说明](../开发服务器/Redis部署使用说明.md)》/《[PostgreSQL 部署使用说明](../开发服务器/PostgreSQL部署使用说明.md)》：常见服务部署参考
+- 《[开发服务器部署使用说明总览](../开发服务器/linux/开发服务器部署使用说明总览.md)》：部署后服务使用与运维
+- 《[Redis 部署使用说明](../开发服务器/linux/Redis部署使用说明.md)》/《[PostgreSQL 部署使用说明](../开发服务器/linux/PostgreSQL部署使用说明.md)》：常见服务部署参考
 - 《[开发部署规划](../../规划/开发部署规划.md)》：开发环境整体方案
 - 《[文档生成规范](../../规范/文档生成规范.md)》：本文档遵循的格式规范
 

@@ -88,7 +88,7 @@
 | 《[dogpile.cache 技术介绍](dogpile.cache技术介绍.md)》 | 进程内热配置缓存与 Redis 的分工协同 |
 | 《[slowapi 技术介绍](slowapi技术介绍.md)》 | Redis 后端的分布式限流计数 |
 | 《[JWT 技术介绍](JWT与PBKDF2技术介绍.md)》 | 会话有效标记、token 黑名单的存储与校验 |
-| 《[Redis 部署使用说明](?../../开发服务器/Redis部署使用说明.md》 | 开发服务器上 Redis 的部署与运维细节 |
+| 《[Redis 部署使用说明](?../../开发服务器/linux/Redis部署使用说明.md》 | 开发服务器上 Redis 的部署与运维细节 |
 
 ---
 
