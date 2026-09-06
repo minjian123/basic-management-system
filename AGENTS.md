@@ -85,6 +85,7 @@
   - GitLab 流水线结果用 **`gl_watch_pipeline`**（内部自动走 bg 链路盯守到终态；凭据读 deploy/.env 的 GITLAB_API_*），不手动拼 API 轮询。
   - 不写长 `Start-Sleep` 等待；探测服务就绪用短超时（2-3 秒）轮询。
   - 调用 `.cmd/.bat` 批处理或 npx 时注意输出缓冲（PowerShell 管道要等进程退出才吐输出），必要时绕开包装直接用可执行文件。
+  - **workdir 坑（2026-09-06）**：opencode 插件进程 cwd 是 `$HOME`，`bg_run` 不带 `workdir` 时命令落在 `$HOME` 而非项目根。凡依赖项目根相对路径的命令（如 `graphify update .`、`python scripts/...`），`bg_run` 必须显式传 `workdir=/home/minjian/develop/bms`（或命令用绝对路径）。误在 `$HOME` 生成 `graphify-out/` 需手动删除。详见《通用后台执行器部署使用说明》排障。
 - 状态文件默认 `%USERPROFILE%\.bg`（-Base 可覆盖）；任务按 `-Name` 区分，同名会覆盖。
 - 示例：`bg_run {name: 远程磁盘, command: "ssh <账号>@<mjbk-IP> df -h"}` → 立即返回；`bg_status {name: 远程磁盘}` → 秒级出结果。
 
