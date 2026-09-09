@@ -96,4 +96,4 @@ url = client.get_presigned_url("GET", "bms-attach", "tenant/1/attach/a.pdf",
 
 ---
 
-> 依《[文档生成规范](../../../规范/文档生成规范.md)》编写 · 生成日期：2026-08-19
+> 依《[文档生成规范](../../../规范/文档生成规范.md)》编写

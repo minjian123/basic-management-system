@@ -396,4 +396,4 @@ comfyui-control.sh restart   # 重启生效
 ---
 
 > 本文档基于 ComfyUI 0.34.0（git commit `e7051b0`，CUDA 13.0 / RTX 4090 环境）编写，2026-08-29 部署完成于 mjpc。
-> 官方项目：https://github.com/comfy-org/ComfyUI · Web UI 文档：https://docs.comfy.org/ · 生成日期：2026-08-29 · 修订：2026-08-29
+> 官方项目：https://github.com/comfy-org/ComfyUI · Web UI 文档：https://docs.comfy.org/

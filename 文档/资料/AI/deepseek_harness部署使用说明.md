@@ -314,4 +314,4 @@ dsh-tui --version # 0.2.19
 ---
 
 > 本文档基于 deepseek-harness `dsh-v0.1.2-alpha.1`（commit `cd5ef81481`，Node 24 / pnpm 11.7.0 源码运行）编写。
-> 项目：[github.com/deepseek-ai/deepseek-harness](https://github.com/deepseek-ai/deepseek-harness) · 文档：[deepseek-harness.github.io](https://deepseek-harness.github.io/deepseek-harness/) · 生成日期：2026-08-28 · 修订：2026-08-30（8 插件扩展：新增 dshmarket 插件市场与 dsh-context 两个 bundle；`dsh-remote-web-ui` 因缺 `@deepseek-ai/dsh-host-apiproxy` 启动崩溃已卸载——见 8.3；`dsh-tui` 因 /api cookie 鉴权不兼容已卸载——见 8.4）· 修订：2026-09-08（llm-pi-ai 段整段校验说明与 FAQ：`opencode` 段缺 `api`/`baseURL` 致本地模型等全部 provider 消失的实测排障；5.3 示例 contextWindow 对齐 210K）
+> 项目：[github.com/deepseek-ai/deepseek-harness](https://github.com/deepseek-ai/deepseek-harness) · 文档：[deepseek-harness.github.io](https://deepseek-harness.github.io/deepseek-harness/)

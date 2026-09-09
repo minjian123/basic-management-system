@@ -243,4 +243,4 @@ BMS 仓库远端分支是 `main`；GitHub 系仓库（deepseek-harness、ComfyUI
 - 《[文档生成规范](../../规范/文档生成规范.md)》：本文档遵循的格式规范
 - 《[本地资源](../../用户文档/本地资源.md)》：`<mjbk-IP>` 等取值（已 gitignore，不入库）
 
-> 依《[文档生成规范](../../规范/文档生成规范.md)》编写 · 记录 2026-08-31 mjpc 本机核实结果（git 2.53.0、`~/.gitconfig`、BMS 远端配置） · 更新日期：2026-08-31（补 8.1 服务器不可达排障与 8.7 分支名排障——均实测复现：mjbk 关机时 `git pull` 报 Could not connect to server；deepseek-harness 下 `git pull origin main` 报找不到 main 分支，改 master 正常）
+> 依《[文档生成规范](../../规范/文档生成规范.md)》编写 · 记录 2026-08-31 mjpc 本机核实结果（git 2.53.0、`~/.gitconfig`、BMS 远端配置）
