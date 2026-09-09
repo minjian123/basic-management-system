@@ -114,5 +114,18 @@
         }
       }
     }
+  },
+  "mcp": {
+    "mjw-vision": {
+      "type": "local",
+      "command": [
+        "python3",
+        "scripts/tools/vision/mjw_vision_mcp.py"
+      ],
+      "enabled": true
+    }
+  },
+  "experimental": {
+    "mcp_timeout": 200000
   }
 }
