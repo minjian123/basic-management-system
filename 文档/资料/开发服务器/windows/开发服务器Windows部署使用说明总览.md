@@ -29,6 +29,7 @@
 - 显卡：NVIDIA RTX 3070 Laptop GPU 8GB（本地模型 / 识图 / 翻译推理可用）
 - 常驻策略：合盖不休眠、禁睡眠、休眠关闭；网卡 WOL 已验证（2026-09-06：S3 睡眠后魔术包唤醒成功，见《[远程控制部署使用说明](远程控制部署使用说明.md)》第 6 节）
 - 管理员账号：`<账号>`（与 mjbk/mjpc 同用户名口径，密码见《本地资源》）
+- PowerShell：**7.6.6**（2026-09-10 MSI 静默安装，`C:\Program Files\PowerShell\7\pwsh.exe` 已入 PATH；系统自带 Windows PowerShell 5.1 保留并存。安装实录：ghfast 加速下载官方 MSI（112 MB）→ `msiexec /i /quiet /norestart ADD_PATH=1` 退出码 0）
 
 ## 3. 硬件配置 <a id="hardware"></a>
 
