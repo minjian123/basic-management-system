@@ -53,7 +53,7 @@
             "output": 131072
           },
           "options": {
-            "reasoningEffort": "medium"
+            "reasoningEffort": "high"
           },
           "tool_call": true,
           "reasoning": true,
@@ -75,7 +75,7 @@
             "output": 131072
           },
           "options": {
-            "reasoningEffort": "medium"
+            "reasoningEffort": "high"
           },
           "tool_call": true,
           "reasoning": true,
@@ -97,7 +97,7 @@
             "output": 131072
           },
           "options": {
-            "reasoningEffort": "medium"
+            "reasoningEffort": "high"
           },
           "tool_call": true,
           "reasoning": true,
