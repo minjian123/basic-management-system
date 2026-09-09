@@ -120,7 +120,7 @@ ls build/bin/llama-server
 
 ### 3.4 启停脚本内部约定 <a id="deploy-notes"></a>
 
-- 三个模型共用 `-m` 换路径、`-mm` 固定为同一 mmproj、其余参数一致（`-ngl 999 -c 215040 -ctk q4_0 -ctv q4_0 --flash-attn on --jinja --chat-template-file ... --reasoning-format deepseek --reasoning-preserve --spec-type ngram-mod --spec-ngram-mod-n-match 16 --spec-ngram-mod-n-min 32 --spec-ngram-mod-n-max 64`）。
+- 三个模型共用 `-m` 换路径、`-mm` 固定为同一 mmproj、其余参数一致（`-ngl 999 -c 215040 -ctk q4_0 -ctv q4_0 --flash-attn on --jinja --chat-template-file ... --reasoning-format deepseek --reasoning-effort max --reasoning-preserve --spec-type ngram-mod --spec-ngram-mod-n-match 16 --spec-ngram-mod-n-min 32 --spec-ngram-mod-n-max 64`）。
 - 每次 `qwen-*.sh` 启动前先调用 `qwen-stop.sh`（按端口 8080 pkill），保证一次仅一个模型。
 - 参数改动集中在 `qwen-start.sh` 的 `MODEL` / `DISPLAY` 映射与公共参数处；换模型无需动启动脚本。
 
@@ -153,7 +153,9 @@ GNOME 应用菜单提供四组入口（`~/.local/share/applications/`，与 Comf
 | `--jinja` | — | 用 Jinja 模板渲染对话（配合下项） |
 | `--chat-template-file` | `.jinja` 路径 | 自定义 Qwen3.8 chat 模板 |
 | `--reasoning-format deepseek` | deepseek | 推理模型思考格式，正文前先输出 `reasoning_content` |
+| `--reasoning-effort max` | max | 思考强度档位传给 chat 模板（缺省 `default` = 模板默认 medium）；模板按档注入强度指令：`low`/`minimal` 为简档，`high`/`xhigh`/`max` 同归最强档，`none`/`off` 关闭思考。设 `max` 后不带该字段的请求默认最大思考 |
 | `--reasoning-preserve` | — | 保留思考内容（不丢弃） |
+| `--reasoning-budget N` | 未设(-1) | 思考 token 预算：-1 不限制、0 立即结束思考、N>0 到额强停；部署未设即思考不设上限 |
 
 服务与调用关系：
 
@@ -216,7 +218,7 @@ curl -s http://127.0.0.1:8080/v1/chat/completions \
       "qwen3.8-27b-ud-q4-k-m": {
         "name": "Qwen3.8-27B-UD-Q4_K_M",
         "limit": { "context": 262144, "output": 131072 },
-        "options": { "reasoningEffort": "medium" },
+        "options": { "reasoningEffort": "high" },
         "tool_call": true, "reasoning": true, "attachment": true
       }
       // qwen3.8-27b-q4-k-m（官方标准版）、qwen3.8-27b-uncensored-q4-k-m（Uncensored 版）同理
@@ -235,6 +237,51 @@ curl -s http://127.0.0.1:8080/v1/chat/completions \
 dsh 同样以自定义 provider `llamacpp` 接本服务（同一 `127.0.0.1:8080`）：`baseURL` 为 `http://127.0.0.1:8080/v1`，model id 即模型 GGUF 全路径（与 5.2 示例的 `model` 字段一致）。
 注意 dsh 的 pi-ai 适配器要求该 provider **必须配置一个（占位）API key**，否则报 `No API key for provider: llamacpp`；llama.cpp 不校验该 key，占位值即可。完整配置见《deepseek_harness部署使用说明》5.3 节。
 
+思考强度侧（`~/.dsh/settings.yaml` 的 `llm-pi-ai.providers.llamacpp`）：
+
+- 模型**不声明** `reasoningEfforts` 时，dsh 视为不支持思考、请求不带 `reasoning_effort` 字段，实际强度由服务端 `--reasoning-effort` 默认值决定（部署为 `max`）；
+- 声明档位字典后，dsh GUI 的模型选择器出现思考档位，所选档位经 pi-ai 的 `thinkingLevelMap` 映射为请求体 `reasoning_effort` 发送，优先于服务端默认值；provider 级 `reasoning: max` 设默认档。
+
+```yaml
+llm-pi-ai:
+  providers:
+    llamacpp:
+      displayName: 本地（llama.cpp）
+      api: openai-completions
+      baseURL: http://127.0.0.1:8080/v1
+      apiKeyEnv: LLAMACPP_API_KEY
+      reasoning: max            # 默认思考档位（最大）
+      models:
+        - id: /home/minjian/ai/models/Qwen3.8-27B-UD-Q4_K_M.gguf
+          name: Qwen3.8-27B-UD-Q4_K_M
+          contextWindow: 210000
+          maxTokens: 32000
+          reasoningEfforts:     # 档位键 → 发给 llama-server 的 wire 值（与模板语汇同名）
+            off: off
+            minimal: minimal
+            low: low
+            medium: medium
+            high: high
+            xhigh: xhigh
+            max: max
+        # Qwen3.8-27B-Q4_K_M（官方标准版）同结构
+```
+
+### 5.5 思考强度（深度）控制 <a id="daily-effort"></a>
+
+Qwen3.8-27B 的"思考强度"没有独立模型参数，由 chat 模板（第 3.2 节）的档位变量决定：
+模板默认档 medium，`low`/`minimal` 注入"简短思考"指令，`high`/`xhigh`/`max`/`ultracode`/`extreme` 同归 **xhigh 最强档**（注入要求深入思考、验证假设的指令），`none`/`off` 关闭思考；
+档位在消息内亦可临时切换（用户消息中带 `<|think_max|>` 等标记，模板剥离标记并切到对应档）。调节入口按优先级：
+
+| 入口 | 写法 | 说明 |
+| --- | --- | --- |
+| 请求体字段 | `"reasoning_effort": "max"` | OpenAI 兼容原生字段，llama-server 直接解析，**优先于服务端默认** |
+| opencode 模型配置 | `"reasoningEffort": "high"` | 5.3 节；`high` 已是模板最强档，无需填 `max` |
+| dsh 档位选择 | 模型 `reasoningEfforts` + provider `reasoning: max` | 5.4 节；GUI 可见可调，默认最大 |
+| 服务端默认 | `--reasoning-effort max` | 只对请求未带字段时生效 |
+
+> 全局开最大档的代价：每次回答思考更长、更慢、token 消耗更大。思考 token 计入输出预算，`max_tokens` 需给足（5.2 节）；`--reasoning-budget` 保持 -1 不限制，避免思考被硬截断。
+
 ## 6. 维护与排障 <a id="maintain"></a>
 
 ### 6.1 模型清单变更记录 <a id="maintain-move"></a>
@@ -243,6 +290,7 @@ dsh 同样以自定义 provider `llamacpp` 接本服务（同一 `127.0.0.1:8080
 - **2026-09-01 多模型化**：目录新增官方标准版 `Qwen3.8-27B-Q4_K_M.gguf` 与 Uncensored 版 `Qwen3.8-27B-Uncensored-Q4_K_M.gguf`；删除 gemma-4-26B 模型（`gemma-4-26B-A4B-it-ultra-uncensored-heretic.i1-Q4_K_M.gguf`，已不复存在）。
 - **2026-09-01 systemd 退役**：`qwen.service` 禁用并移除，改多脚本 + nohup 手动启动（第 3.3 节）。
 - **2026-09-01 加速配置**：`qwen-start.sh` 启用 ngram-mod 推测解码（先 `--spec-default`，后经 16 用例 A/B 实测改为 dense 微调参数 `--spec-ngram-mod-n-match 16 --spec-ngram-mod-n-min 32 --spec-ngram-mod-n-max 64`，重复场景最高提速约 5.7 倍）；llama.cpp 以 `GGML_CUDA_FA_ALL_QUANTS=ON` 重编译（同 commit `9d81721`，仅改编译选项）；文档同步修正上下文为实际值 210K（`-c 215040`）。
+- **2026-09-09 思考强度开最大**：`qwen-start.sh` 公共参数加 `--reasoning-effort max`（服务端默认思考强度最强档）；opencode 侧 llamacpp 三模型 `reasoningEffort` 由 medium 改 `high`；dsh `~/.dsh/settings.yaml` 的 llamacpp provider 加 `reasoning: max` 默认档并为两个模型声明 `reasoningEfforts` 七档字典（wire 值与模板语汇同名），GUI 可选思考档位（改动前备份 `settings.yaml.bak_20260909_213836`）。控制方法见 5.5 节。
 
 ### 6.2 改动后的生效顺序 <a id="maintain-apply"></a>
 
