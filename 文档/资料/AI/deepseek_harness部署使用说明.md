@@ -166,7 +166,7 @@ llm-pi-ai:
       models:
         - id: /home/minjian/ai/models/Qwen3.8-27B-UD-Q4_K_M.gguf   # llama-server 上报的 id 即模型路径
           name: Qwen3.8-27B-UD-Q4_K_M
-          contextWindow: 256000
+          contextWindow: 210000   # 与服务端 -c 215040（约 210K）一致
           maxTokens: 32000
 ```
 
@@ -178,7 +178,7 @@ refs:
 
 使用注意：
 
-- `settings.yaml` 与 `.credentials.yaml` 改动均**下一次请求即生效**，无需重启。
+- `settings.yaml` 与 `.credentials.yaml` 的**字段级**改动**下一次请求即生效**，无需重启；但 `llm-pi-ai.providers` 是**整段校验（全有或全无）**——段内任一路由配置不被 pi-ai 服务时整段被拒（本地模型随其它 provider 一起消失），且**校验失败后不会自动恢复，需重启 dsh web**（见第 7.2 节 FAQ）。
 - `agent-default-model` 默认是 `deepseek-official`（DeepSeek API）；要用本地模型，在 Web UI 的模型选择器里**手动选择**本地模型。
 
 ## 6. 桌面快捷方式（本机定制） <a id="desktop"></a>
@@ -221,6 +221,8 @@ git pull && pnpm install && pnpm run build   # 升级并重建
 | SSH 启动没自动开浏览器？ | 预期行为：检测到 `SSH_CONNECTION`/`SSH_TTY` 就只打印宿主机 URL，靠 SSH 端口转发访问。 |
 | `dsh web` 报错找不到产物？ | 先 `pnpm run build` 准备产物（生产 runner 依赖构建产物）。 |
 | 换模型后没生效？ | 改配置后**下一次请求**即生效，无需重启；若仍不行查 `~/.dsh/settings.yaml` 与 `.credentials.yaml` 引用是否一致。 |
+| Web UI 模型下拉只剩 DeepSeek 官方、自定义 provider（本地 llamacpp / 硅基流动等）全消失？ | `llm-pi-ai.providers` **整段校验（全有或全无）**：段内任一路由不被服务即整段拒绝。典型触发：路由缺 `api`（模型不在 pi-ai 目录）、残留旧字段（`provider`、`maxRetries`/`maxRetryDelayMs`）、空 `baseURL`/`displayName`、空 `defaultInput`。修复后**重启 dsh web** 才重新装配（校验失败后 settings watcher 不自动恢复）。可本地快速验证：`python3 -c "import yaml,json;json.dump(yaml.safe_load(open('$HOME/.dsh/settings.yaml'))['llm-pi-ai']['providers'],open('/tmp/p.json','w'))"` 后在 `deepseek-harness/packages/llm/llm-pi-ai` 跑 `node --import tsx -e "import {resolveProfiles} from './src/config.ts'; import fs from 'node:fs'; resolveProfiles(JSON.parse(fs.readFileSync('/tmp/p.json','utf8'))); console.log('OK')"`。 |
+| 报 `provider "xxx" model "…" needs an api; the installed catalog does not describe it`？ | 该 provider/模型不在 pi-ai 安装目录且路由未声明协议。给该 provider 段补 `api: openai-completions` + `baseURL`（2026-09-08 实测：`opencode` 免费翻译段缺这两字段，导致整个 `llm-pi-ai` 段失效、本地模型一并消失；补上并重启 dsh web 后恢复）。 |
 | 发消息报 `No API key for provider: llamacpp`（或某自定义 provider）？ | pi-ai 的 OpenAI 兼容实现对无鉴权本地服务也要求凭据；给路由加 `apiKeyEnv` 指向占位 key（见 5.3）。 |
 | 视觉模型附图被拒？ | 自定义 provider 手填模型默认纯文本，需按 5.2 加 `input: [text, image]` 或 `defaultInput`。 |
 | 依赖安装慢 / 超时？ | pnpm 配 npmmirror 源；nvm 下 Node 用 `NVM_NODEJS_ORG_MIRROR=https://npmmirror.com/mirrors/node`。 |
@@ -312,4 +314,4 @@ dsh-tui --version # 0.2.19
 ---
 
 > 本文档基于 deepseek-harness `dsh-v0.1.2-alpha.1`（commit `cd5ef81481`，Node 24 / pnpm 11.7.0 源码运行）编写。
-> 项目：[github.com/deepseek-ai/deepseek-harness](https://github.com/deepseek-ai/deepseek-harness) · 文档：[deepseek-harness.github.io](https://deepseek-harness.github.io/deepseek-harness/) · 生成日期：2026-08-28 · 修订：2026-08-30（8 插件扩展：新增 dshmarket 插件市场与 dsh-context 两个 bundle；`dsh-remote-web-ui` 因缺 `@deepseek-ai/dsh-host-apiproxy` 启动崩溃已卸载——见 8.3；`dsh-tui` 因 /api cookie 鉴权不兼容已卸载——见 8.4）
+> 项目：[github.com/deepseek-ai/deepseek-harness](https://github.com/deepseek-ai/deepseek-harness) · 文档：[deepseek-harness.github.io](https://deepseek-harness.github.io/deepseek-harness/) · 生成日期：2026-08-28 · 修订：2026-08-30（8 插件扩展：新增 dshmarket 插件市场与 dsh-context 两个 bundle；`dsh-remote-web-ui` 因缺 `@deepseek-ai/dsh-host-apiproxy` 启动崩溃已卸载——见 8.3；`dsh-tui` 因 /api cookie 鉴权不兼容已卸载——见 8.4）· 修订：2026-09-08（llm-pi-ai 段整段校验说明与 FAQ：`opencode` 段缺 `api`/`baseURL` 致本地模型等全部 provider 消失的实测排障；5.3 示例 contextWindow 对齐 210K）
