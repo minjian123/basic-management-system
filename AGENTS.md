@@ -12,12 +12,12 @@
 
 ## 开发环境与远程操作
 
-- 开发服务器 **mjbk**（常开：GitLab CE、开发依赖服务、MySQL/PostgreSQL/达梦 DM8 三库）与开发机 **mjpc**。远程操作方式、SSH/WinRM 凭据与命令模板见 `文档/资料/开发服务器/linux/开发服务器部署使用说明总览.md`（内网 IP 与账号见 `文档/用户文档/本地资源.md`），需要时再读，不常驻上下文。
+- 开发服务器 **mjbk**（常开：GitLab CE、开发依赖服务、MySQL/PostgreSQL/达梦 DM8 三库）、Windows 服务器 **mjw** 与开发机 **mjpc**（Ubuntu 26.04.1 LTS）。远程操作方式与命令模板：mjbk 走 SSH（mjpc 公钥免密）见 `文档/资料/开发服务器/linux/开发服务器部署使用说明总览.md`；mjw 走 WinRM（5985）见 `文档/资料/开发服务器/windows/开发服务器Windows部署使用说明总览.md`（内网 IP 与账号见 `文档/用户文档/本地资源.md`），需要时再读，不常驻上下文。
 - **服务器电源控制**（唤醒/睡眠/关机工具链，文档：`文档/资料/开发服务器/linux/开发服务器电源控制使用说明.md`）：
-  - 远程唤醒：`python scripts/tools/wol/wake_mjbk.py`（发 WOL 魔术包并等待 SSH 就绪，低风险）；双击入口 `scripts/tools/wol/唤醒mjbk.bat`。
-  - 远程睡眠：`python scripts/tools/wol/sleep_mjbk.py`（SSH 执行 `systemctl suspend` 进入 S3，含确认）；双击入口 `scripts/tools/wol/睡眠mjbk.bat`。
+  - 远程唤醒：`python3 scripts/tools/wol/wake_mjbk.py`（发 WOL 魔术包并等待 SSH 就绪，低风险）；入口 `scripts/tools/wol/唤醒mjbk.sh`（桌面/应用菜单图标：唤醒mjbk）。
+  - 远程睡眠：`python3 scripts/tools/wol/sleep_mjbk.py`（SSH 执行 `systemctl suspend` 进入 S3，含确认）；入口 `scripts/tools/wol/睡眠mjbk.sh`（桌面/应用菜单图标：睡眠mjbk）。
   - 每日自动睡眠/唤醒：mjbk 侧 systemd timer `mjbk-sleep-rtc.timer`（每晚 00:00 自动睡、08:00 由 RTC 自醒），见文档第 8 节。
-  - 远程关机：`python scripts/tools/wol/shutdown_mjbk.py`（**破坏性操作，执行前必须经用户确认**）；双击入口 `scripts/tools/wol/关机mjbk.bat`。
+  - 远程关机：`python3 scripts/tools/wol/shutdown_mjbk.py`（**破坏性操作，执行前必须经用户确认**）；入口 `scripts/tools/wol/关机mjbk.sh`（桌面/应用菜单图标：关机mjbk）。
   - mjbk 的 sudo 密码等凭据从 `deploy/.env` 读取（键位见 `deploy/.env.example`），脚本不硬编码密码；SSH 连接走 mjpc 公钥免密。
 - 机器凭据见 `文档/用户文档/本地资源.md`（已 gitignore，**勿恢复跟踪、勿提交、勿写入其他文档**）；凭据副本统一存 `deploy/.env`（已 gitignore，勿提交，勿将 .env 内容写入其他文档）。
 

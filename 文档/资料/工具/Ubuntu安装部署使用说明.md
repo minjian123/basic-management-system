@@ -133,16 +133,18 @@ sudo ufw allow 22/tcp
 
 ### 6.1 SSH 免密登录（mjpc → mjbk，推荐） <a id="verify-ssh"></a>
 
-日常管理使用公钥免密，避免每次输密码。在 mjpc（Windows PowerShell）上操作：
+日常管理使用公钥免密，避免每次输密码。在开发机 mjpc（Ubuntu）上操作：
 
 1. 若无密钥先生成：`ssh-keygen -t ed25519`（一路回车即可，默认存 `~/.ssh/`）。
 2. 把公钥装到 mjbk：
 
 ```bash
-type $env:USERPROFILE\.ssh\id_ed25519.pub | ssh <SSH账号>@<mjbk-IP> "mkdir -p ~/.ssh && cat >> ~/.ssh/authorized_keys && chmod 700 ~/.ssh && chmod 600 ~/.ssh/authorized_keys"
+cat ~/.ssh/id_ed25519.pub | ssh <SSH账号>@<mjbk-IP> "mkdir -p ~/.ssh && cat >> ~/.ssh/authorized_keys && chmod 700 ~/.ssh && chmod 600 ~/.ssh/authorized_keys"
 ```
 
 3. 验证：`ssh <SSH账号>@<mjbk-IP>` 直接进入即成功。
+
+> mjpc 曾为 Windows 11（2026-08 下旬换装 Ubuntu 前），当时的 PowerShell 版操作已移入《[开发机Windows时代操作实录](../../知识档案/历史参考/开发机Windows时代操作实录.md)》（辅助参考，不作为现行操作依据）。
 
 ### 6.2 apt 镜像源确认 / 更换为清华源 <a id="verify-apt"></a>
 
