@@ -1,6 +1,6 @@
 # DeepSeek Harness（dsh）部署与使用说明
 
-> mjpc 开发机（Ubuntu 26.04 / Node 24 + pnpm 11.7.0）· 基于 deepseek-harness `dsh-v0.1.2-alpha.1`（commit `cd5ef81481`）
+> mjpc 开发机（Ubuntu 26.04 / Node 24 + pnpm 11.7.0）· 基于 deepseek-harness `dsh-v0.1.5-alpha.1`（commit `5dda764ed3`，2026-09-08 自 0.1.2-alpha.1 升级）
 
 [文档首页](../../文档首页.md) › 资料 › deepseek_harness 部署与使用说明
 
@@ -17,13 +17,13 @@ DeepSeek Harness（命令 `dsh`）是 [DeepSeek AI](https://deepseek.com) 开发
 | 项 | 值 |
 | --- | --- |
 | 包名 | `@deepseek-ai/dsh-root`（monorepo 根） |
-| 版本 | 0.1.2-alpha.1（tag `dsh-v0.1.2-alpha.1`） |
+| 版本 | 0.1.5-alpha.1（tag `dsh-v0.1.5-alpha.1`） |
 | 许可证 | MIT |
 | 官方文档 | [deepseek-harness.github.io/deepseek-harness](https://deepseek-harness.github.io/deepseek-harness/) |
 | 仓库 | [github.com/deepseek-ai/deepseek-harness](https://github.com/deepseek-ai/deepseek-harness) |
 | 本机源码 | `/home/minjian/develop/deepseek-harness` |
 
-本项目采用**源码运行**（`pnpm dsh web`），并配了桌面快捷方式一键启停（见第 6 节）。
+本项目采用**源码运行**（`pnpm dsh web`），并配了桌面快捷方式一键更新与启停脚本（见第 6 节）。
 
 ## 2. 环境要求 <a id="prereq"></a>
 
@@ -183,22 +183,22 @@ refs:
 
 ## 6. 桌面快捷方式（本机定制） <a id="desktop"></a>
 
-为免每次敲命令，配了桌面一键启停（图标 `~/.local/share/icons/dsh-web.svg`）：
+为免每次敲命令，桌面配了「更新 dsh与插件」一键更新项，启停走脚本（图标 `~/.local/share/icons/dsh-web.svg`）：
 
-| 桌面项 | 行为 |
+| 项 | 位置 / 行为 |
 | --- | --- |
-| `启动 dsh web` | `ptyxis` 终端跑 `~/.local/bin/dsh-web-start.sh` |
-| `停止 dsh web` | 跑 `~/.local/bin/dsh-web-stop.sh` |
+| 桌面项 `更新 dsh与插件` | `~/.local/share/applications/更新 dsh与插件.desktop`，`Terminal=true` 直跑 `bms/scripts/tools/dsh/dsh-update.sh`（2026-09-09 新增） |
+| `~/.local/bin/dsh-web-start.sh` | 启动 dsh web：加载 nvm(Node24+pnpm) → cd 仓库 → exec `pnpm dsh web`（前台，终端内跑便于看日志；未建独立桌面启动项，需要时在终端手跑或自建项） |
+| `~/.local/bin/dsh-web-stop.sh` | 停止 dsh web：按端口 3080 定位 PID → kill → 等端口释放(≤5s) → 兜底 kill -9 → notify-send |
 
 ```text
 ~/.local/bin/
-└── dsh-web-start.sh    # 加载 nvm(Node24+pnpm) → cd 仓库 → exec pnpm dsh web
-└── dsh-web-stop.sh     # 按端口 3080 定位 PID → kill → 等端口释放(≤5s) → 兜底 kill -9 → notify-send
+└── dsh-web-start.sh    # 启动 dsh web（前台）
+└── dsh-web-stop.sh     # 停止 dsh web（按端口，含兜底强杀与通知）
+（更新脚本位于 bms 仓库 scripts/tools/dsh/dsh-update.sh，桌面项 Exec 直接指向仓库路径）
 ```
 
-- 启动脚本依赖 `~/.bashrc` 已加载 nvm（默认 Node 24 + pnpm），`NVM_NODEJS_ORG_MIRROR` 指向 npmmirror。
-- 停止脚本按**端口**（非进程名）定位，能覆盖 `--port` 换端口的情况需改脚本里的 `PORT`；终止后 `notify-send` 弹通知。
-- 桌面项 `Exec` 用 `ptyxis -x "bash <脚本>"`（GNOME 的 ptyxis 终端）在终端窗口前台跑，便于看日志。
+`dsh-update.sh` **幂等更新流程**：先比对版本——dsh 主体比对本地 HEAD 与 origin/master，插件（dsh-free-vision、dsh-undo-savepoint）比对已装版本与 npm 最新；**全部一致且 web 在跑 → 提示退出（不动 web）；web 未跑 → 直接启动**；任一落后才停 web → 只更新落后项（`git pull --ff-only` / `pnpm install` / `pnpm run build`、插件 `up --latest`）→ 重启。网络查询失败（离线/慢）时跳过对应项、**不误停 web**；更新命令均带超时（pull 5min / install 10min / build 15min / up 5min），任何失败路径由 EXIT 兜底把 web 拉起，不会出现"停了起不来"。支持 `--force`（跳过版本检查强制全量更新）、`--no-restart`（只更新不重启）。更新前的 profile 配置/插件树已被 dsh-undo-savepoint 自动快照，出错可 undo 回滚（见 8.2）。
 
 ## 7. 维护与排障 <a id="maintain"></a>
 
@@ -209,7 +209,7 @@ cd /home/minjian/develop/deepseek-harness
 pnpm run typecheck    # 类型检查
 pnpm run lint         # oxlint
 pnpm test             # vitest
-git pull && pnpm install && pnpm run build   # 升级并重建
+bash /home/minjian/develop/bms/scripts/tools/dsh/dsh-update.sh   # 一键更新（桌面「更新 dsh与插件」同款）：源码 git pull + 依赖 + 构建 + 插件最新 + 重启 web
 ```
 
 ### 7.2 常见问题 <a id="faq"></a>
@@ -226,51 +226,97 @@ git pull && pnpm install && pnpm run build   # 升级并重建
 | 发消息报 `No API key for provider: llamacpp`（或某自定义 provider）？ | pi-ai 的 OpenAI 兼容实现对无鉴权本地服务也要求凭据；给路由加 `apiKeyEnv` 指向占位 key（见 5.3）。 |
 | 视觉模型附图被拒？ | 自定义 provider 手填模型默认纯文本，需按 5.2 加 `input: [text, image]` 或 `defaultInput`。 |
 | 依赖安装慢 / 超时？ | pnpm 配 npmmirror 源；nvm 下 Node 用 `NVM_NODEJS_ORG_MIRROR=https://npmmirror.com/mirrors/node`。 |
-| `dsh web` 报 `Cannot find package '@deepseek-ai/dsh-host-apiproxy'`？ | 插件 `@linxin666/dsh-remote-web-ui` 与当前 dsh 不兼容（缺该 host 包，启动即崩）；`pnpm dsh plugin --profile web remove @linxin666/dsh-remote-web-ui` 卸载（见 8.3）。 |
-| 想彻底停止后台 dsh web？ | 桌面「停止 dsh web」，或 `ss -lptnH | awk '$4 ~ /:3080$/'` 找 PID 后 `kill`。 |
+| `dsh web` 报 `Cannot find package '@deepseek-ai/dsh-host-apiproxy'`？ | 插件 `@linxin666/dsh-remote-web-ui` 与当前 dsh 不兼容（缺该 host 包，启动即崩）；`pnpm dsh plugin --profile web remove @linxin666/dsh-remote-web-ui` 卸载（见 8.4）。 |
+| 想彻底停止后台 dsh web？ | `bash ~/.local/bin/dsh-web-stop.sh`，或 `ss -lptnH | awk '$4 ~ /:3080$/'` 找 PID 后 `kill`。 |
 
 ## 8. 插件扩展 <a id="plugins"></a>
 
-「一切皆插件」，可通过 `dsh plugin --profile <name> add|remove <pkg>` 给 profile 装/卸插件（转发给 pnpm，并自动 reconcile `dsh.profile.bundles` 图层）。本机**当前装有**两个挂进 `web` profile 的 bundle 扩展：`dshmarket`（见 8.1）、`dsh-context`（见 8.2）。另装过后已卸载两个：`dsh-remote-web-ui`（bundle，启动报错而卸载，见 8.3）、`dsh-tui`（全局 CLI，见 8.4）。
+「一切皆插件」，可通过 `dsh plugin --profile <name> add|remove <pkg>` 给 profile 装/卸插件（转发给 pnpm，并自动 reconcile `dsh.profile.bundles` 图层）。本机**当前装有**两个挂进 `web` profile 的 bundle 扩展：`dsh-free-vision`（见 8.1）、`dsh-undo-savepoint`（见 8.2）。曾装过已移除：`dshmarket` / `dsh-context`（0.1.5 重构后未保留，见 8.3）、`dsh-remote-web-ui`（见 8.4）、`dsh-tui`（见 8.5）。
 
-### 8.1 插件市场 dshmarket（web profile bundle） <a id="plugins-market"></a>
+### 8.1 免费视觉 dsh-free-vision（web profile bundle，当前装有） <a id="plugins-free-vision"></a>
 
-DSH 的**可视化插件市场**（浏览 / 搜索 / 一键安装社区插件）。它是一个 `dsh.bundle` 插件（`dsh.client.platform = web`），
-装为 `web` profile 的 bundle 图层。
+在 web 会话内提供**识图工具 `image_understand`**：把 mjw 机器上 LM Studio 的
+`qwen3-vl-8b-instruct-abliterated-v2`（多模态识图模型，服务与鉴权见《[LM Studio 模型服务使用说明](LM Studio模型服务使用说明.md)》）
+接为本地识图能力，图片不上云。
+
+| 项 | 值 |
+| --- | --- |
+| 安装 | `pnpm dsh plugin --profile web add dsh-free-vision`（2026-09-08 装） |
+| 版本 | 1.0.8（`profile/package.json` 记 `^1.0.8`） |
+| 配置 | `~/.dsh/free-vision.json`：服务地址、API token、模型名、工具参数（token 不落被跟踪文件） |
+| 落位 | `~/.dsh/profiles/web`，登记于 `dsh.profile.bundles` 图层 |
+| 生效时机 | bundle 图层在 profile **启动时**合成，装/卸需**重启 dsh web** 生效（区别于 5.1 模型/设置的「下一次请求即生效」） |
+
+### 8.2 撤销/保存点 dsh-undo-savepoint（web profile bundle，当前装有） <a id="plugins-undo-savepoint"></a>
+
+**配置变更自动快照 + 一键回滚**：装插件、改皮肤、调设置等变更前自动打快照，错了随时撤销（undo/redo）；
+dsh **启动崩溃 / 插件树损坏**时也能救回——SAFE MODE（只留本插件启动）+ 离线 CLI/GUI，回滚无需重装。
+仓库：<https://github.com/lire1131/dsh-undo-savepoint>（MIT，零依赖）。
+
+| 项 | 值 |
+| --- | --- |
+| 安装 | `pnpm dsh plugin --profile web add dsh-undo-savepoint`（2026-09-09 装） |
+| 版本 | 0.3.5（npm 包 `dsh-undo-savepoint`） |
+| 使用 | Web UI 快照面板；会话内 `undo_list` / `undo_diff` / `undo_restore` / `undo_snapshot` 等工具；崩溃告警会点名最近良好快照 |
+| 落位 | bundle 图层；快照存 `~/.dsh/undo-snapshots/{manual,auto}` |
+| 与更新脚本 | `dsh-update.sh` 更新前后状态可经它回滚；插件版本纳入脚本 `up --latest`（见 6 节） |
+
+> **误报提醒**：主动停止 dsh web（`dsh-web-stop.sh` 或更新脚本的停启流程）会被插件记为「上次运行未正常结束」，
+> `undo_list` 顶部出现崩溃告警属预期，当前实例运行正常即可忽略，**不要**为此 undo 回滚。
+
+#### 8.2.1 外部救援工具（DSH 起不来时也能用） <a id="plugins-undo-offline"></a>
+
+插件自带**局外救援工具**——不依赖 DSH 运行，DSH 崩溃、启动不了时也能操作快照做回滚。工具随插件装在
+`~/.dsh/profiles/web/node_modules/dsh-undo-savepoint/tools/`（与 Node 插件**共用同一快照仓库与格式**）：
+
+| 文件 | 作用 | 平台 |
+| --- | --- | --- |
+| `dsh-undo-savepoint-gui.bat` / `.ps1` | 图形界面「DSH 撤销管理器」：崩溃横幅 + 一键回退、导出/导入、快照 diff、清理、设置面板、系统托盘；语言随系统 UI（`DSH_UNDO_LANG=zh\|en` 可强制） | **仅 Windows**（WinForms） |
+| `dsh-undo.ps1` | 命令行救援：`list` / `snapshot` / `undo` / `redo` / `restore -Id <id>` / `diff` / `remove` / `prune` / `export` / `import` / `safe-mode` / `recent` | PowerShell 5.1 与 7（pwsh 7 跨平台，Linux 可跑） |
+| `dsh-plugin.ps1` | 安全装插件：自动前后快照，失败自动回退 | 同上 |
+| `make-desktop-shortcut.bat` / `.ps1` | Windows 上双击一键创建桌面「DSH撤销管理器」快捷方式 | 仅 Windows |
+
+典型救援场景（插件 README）：DSH 启动报 `duplicate loader entry id` 之类插件树错误 → 打开「DSH 撤销管理器」→
+选中出问题前的快照 → 回退 → 重启 DSH，不用重装、不丢会话。Windows PowerShell 用法示例：
+
+```powershell
+# GUI（推荐）:双击 dsh-undo-savepoint-gui.bat（或 make-desktop-shortcut.bat 生成的桌面图标）
+# CLI:
+powershell -NoProfile -ExecutionPolicy Bypass -File "...\tools\dsh-undo.ps1" list
+powershell -NoProfile -ExecutionPolicy Bypass -File "...\tools\dsh-undo.ps1" restore -Id <快照id> -Force
+```
+
+**快照目录定位与跨机救援**：工具与插件按 `DSH_HOME`（未设则 `~/.dsh`）定位 `undo-snapshots/{manual,auto}`；
+环境变量 `DSH_UNDO_ROOT` 可覆盖根目录——需要从另一台机器救援时，把快照目录挂到该变量指向的路径即可。
+
+**本部署（mjpc / Ubuntu）提示**：GUI 为 WinForms，仅 Windows 可用；CLI 是纯 PowerShell，Linux 上需先安装
+PowerShell 7（`pwsh`，本机**未装**）才能跑。日常回滚用 Web UI 快照面板或会话内 undo 工具即可；若想做到
+「Linux 本机、DSH 起不来」也能离线 CLI 救援，需装 pwsh（另议，装上后 CLI 用法同上，文件路径换成
+`~/.dsh/profiles/web/node_modules/dsh-undo-savepoint/tools/dsh-undo.ps1`）。
+
+### 8.3 曾装已移除：dshmarket 与 dsh-context <a id="plugins-removed"></a>
+
+0.1.2 时代装过两个 web bundle 扩展，随 **2026-09-08 升级 0.1.5 的 profile 重构未再保留**
+（bundles 现为 dsh-base / dsh-web-app / dsh-free-vision / dsh-undo-savepoint）：
+
+- `dshmarket`：可视化插件市场（浏览/搜索/一键安装社区插件），当时 ^1.37.0，npm 最新 1.45.1；
+- `dsh-context`：客户端上下文注入 bundle，当时 ^0.38.1，npm 最新 0.47.0。
+
+如需装回（0.1.5 兼容性未验证；装后启动崩溃可 remove 还原或用 dsh-undo-savepoint 回滚）：
 
 ```bash
 cd /home/minjian/develop/deepseek-harness
 pnpm dsh plugin --profile web add dshmarket
+pnpm dsh plugin --profile web add dsh-context
 ```
 
-| 项 | 值 |
-| --- | --- |
-| 版本 | 1.37.0（`profile/package.json` 记 `^1.37.0`） |
-| 落位 | `~/.dsh/profiles/web`，并在其 `dsh.profile.bundles` 末尾登记为新图层 |
-| 生效时机 | bundle 图层在 profile **启动时**合成，新增 bundle 需**重启 dsh web** 才生效（区别于 5.1 模型/设置的「下一次请求即生效」） |
-| peer 告警 | 会提示 `@deepseek-ai/cordis` 缺失，实为 pnpm 记账误报——由共享闭包 `~/.dsh/profiles/node_modules/@deepseek-ai/cordis@4.0.1` 满足，不影响运行 |
-| 附带改动 | `~/.dsh/profiles/web/pnpm-workspace.yaml` 会写入 `minimumReleaseAgeExclude: [dshmarket@1.37.0]` |
-
-> 重启方式：桌面「停止 dsh web」→「启动 dsh web」（见第 6 节），或 `sh ~/.local/bin/dsh-web-stop.sh && sh ~/.local/bin/dsh-web-start.sh`。
-
-### 8.2 上下文扩展 dsh-context（web profile bundle） <a id="plugins-context"></a>
-
-`dsh-context` 是客户端侧的**上下文注入 bundle**（`dsh.client.platform = web`），为 web 端提供会话上下文能力，装为 `web` profile 的 bundle 图层。
-
-| 项 | 值 |
-| --- | --- |
-| 版本 | 0.38.1（`profile/package.json` 记 `^0.38.1`） |
-| 落位 | `~/.dsh/profiles/web`，并在其 `dsh.profile.bundles` 中登记为 bundle 图层 |
-| 注入客户端 | `dsh-client-connection` / `dsh-client-locale` / `dsh-client-ui-conversation` / `dsh-client-ui-settings` |
-| 生效时机 | bundle 图层在 profile **启动时**合成，装/卸需**重启 dsh web** 才生效 |
-
-### 8.3 远程 Web UI dsh-remote-web-ui（web profile bundle，**已卸载**） <a id="plugins-remote-web-ui"></a>
+### 8.4 远程 Web UI dsh-remote-web-ui（web profile bundle，**已卸载**） <a id="plugins-remote-web-ui"></a>
 
 > **结论：`dsh web` 启动即崩溃（plugin tree failed to load），已用官方 `dsh plugin remove` 卸载。**
 
 `@linxin666/dsh-remote-web-ui`（第三方 bundle，`dsh.client.platform = web`）用于远程访问 Web UI。
 
-**为何报错（根因）**：它的 `lib/index.js` 依赖 `@deepseek-ai/dsh-host-apiproxy`，而当前 dsh（v0.1.2-alpha.1）**不提供该包**，导致 web profile 加载插件树时报 `ERR_MODULE_NOT_FOUND`：
+**为何报错（根因）**：它的 `lib/index.js` 依赖 `@deepseek-ai/dsh-host-apiproxy`，而 dsh（0.1.2 与 0.1.5 均）**不提供该包**，导致 web profile 加载插件树时报 `ERR_MODULE_NOT_FOUND`：
 
 ```text
 Error: dsh: plugin tree failed to load: failed to apply loader entry include
@@ -288,14 +334,14 @@ pnpm dsh plugin --profile web remove @linxin666/dsh-remote-web-ui   # 转发 pnp
 
 卸载后 `dsh web` 恢复正常启动。装上它须等该包适配当前 dsh（移除对 `@deepseek-ai/dsh-host-apiproxy` 的依赖或等官方补包）再试；安装命令备查：`pnpm dsh plugin --profile web add @linxin666/dsh-remote-web-ui`。
 
-### 8.4 终端客户端 dsh-tui（全局 CLI，**已卸载**） <a id="plugins-tui"></a>
+### 8.5 终端客户端 dsh-tui（全局 CLI，**已卸载**） <a id="plugins-tui"></a>
 
-> **结论：与当前 dsh 不兼容，已**全局卸载**，暂不使用。**
+> **结论：与 dsh 不兼容（0.1.2 时代实测，0.1.5 未复测），已全局卸载，暂不使用。**
 
 DSH 的**终端客户端**（TUI over the DSH client contract `ctx.remote`），可连上正在运行的 harness 操作会话。
 它**不是** `dsh.bundle` 插件，而是一个**独立 CLI**（bin `dsh-tui`），因此按**全局安装**、不挂 profile。
 
-**为何用不了（根因）**：`dsh web`（v0.1.2-alpha.1）把 `/api/*` 全部 RPC 压到 `client-connection` 的 `rpc-host`，
+**为何用不了（根因，基于当时 v0.1.2-alpha.1）**：`dsh web` 把 `/api/*` 全部 RPC 压到 `client-connection` 的 `rpc-host`，
 每个请求需过 `browserAuth.isAuthenticated()`——**只认绑定 authority 的签名 cookie**（`packages/client/connection/src/browser-auth.ts`，
 不支持 header/query 替代）；且 `client-connection` 配置仅有 `trustedHosts` + `cookieMaxAgeDays`，**没有关闭鉴权的开关**。
 dsh-tui 的 `DshClient`（`lib/client.js`）只 POST `/api/<method>` 且**不带任何 cookie/token**，故 `session.create` 报 `HTTP 401`。
@@ -313,5 +359,5 @@ dsh-tui --version # 0.2.19
 
 ---
 
-> 本文档基于 deepseek-harness `dsh-v0.1.2-alpha.1`（commit `cd5ef81481`，Node 24 / pnpm 11.7.0 源码运行）编写。
+> 本文档基于 deepseek-harness `dsh-v0.1.5-alpha.1`（commit `5dda764ed3`，Node 24 / pnpm 11.7.0 源码运行）编写，2026-09-09 随 0.1.5 升级与插件变更同步。
 > 项目：[github.com/deepseek-ai/deepseek-harness](https://github.com/deepseek-ai/deepseek-harness) · 文档：[deepseek-harness.github.io](https://deepseek-harness.github.io/deepseek-harness/)
