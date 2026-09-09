@@ -216,6 +216,32 @@ python scripts/tools/graphify/localize-graph.py   # 汉化 graph.html + 生成 C
 - 有 `graphify-out/wiki/index.md` 时用其做广域导航。
 - 钩子或增量更新后 graphify-out/ 变脏属正常现象，不跳过 graphify。
 
+### 8.1 DeepSeek Harness（DSH）集成 <a id="agent-dsh"></a>
+
+> 2026-09-10 调研落地。结论：**官方不支持 DSH**，社区插件 dsh-graphify 提供原生集成；DSH 会话内亦可不装插件直接跑 CLI。
+
+**上游支持现状**：
+
+- Graphify 官方（PyPI 包 `graphifyy`，仓库 [safishamsi/graphify](https://github.com/safishamsi/graphify)，另见同名组织镜像 Graphify-Labs/graphify，内容一致）：定位为 AI 编程助手 skill，`graphify install` 支持 claude / codex / opencode / cursor / gemini 等 20+ 平台，**无 DeepSeek Harness**。
+- 社区插件 **dsh-graphify**（[QuantumKuba/dsh-graphify-plugin](https://github.com/QuantumKuba/dsh-graphify-plugin)，0.1.x，MIT）：DSH（Cordis）原生 bundle——`/graphify` 建图命令 + Graphify MCP 工具（`query_graph` / `get_node` / `get_neighbors` / `get_community` / `god_nodes` / `graph_stats` / `shortest_path`，及 PR 影响分析）+ Web 结果卡片；**要求 graphify 带 `mcp` extra 安装**（`graphifyy[mcp]`）；npm 未发布（404），需 GitHub 源安装；peer 依赖 DSH `0.1.1-rc.2` 系，与本机 0.1.5 兼容性以实测为准，安装由 dsh-undo-savepoint 自动快照可回滚。
+- 另有 DSH 知识图谱**记忆**类插件（adoresever/graph-memory、meyaomiao/dsh-graphmemory：对话三元组抽取、上下文压缩），属 agent 记忆方向，与代码/文档图谱无关，本项目不采用。
+
+**DSH 下三种用法（从轻到重）**：
+
+1. **会话内直跑 CLI（零安装，本项目默认方式）**：DSH 会话的 bash 工具直接执行 `graphify query/path/explain`，仓库根 AGENTS.md 的 graphify 规则对 DSH 同样生效。实测 bms 图谱（3365 节点）中文分词查询正常。
+2. **Skill 化**：复制 skill（SKILL.md + references）到 DSH 用户级 skill 目录 `~/.dsh/skills/graphify/`，DSH 会话 skill 目录即可载入 graphify 方法论（目录约定见 DSH 源码 `packages/skill` 与测试）。
+3. **插件化**：向 DSH web profile 安装 `dsh-graphify`，见下。
+
+**本机落地状态（2026-09-10）**：
+
+- graphify 固定 0.9.51 重装，extras 一次带全 `[chinese,openai,mcp]`（`uv tool install 'graphifyy[chinese,openai,mcp]@0.9.51' --force`，清华源），`graphify-mcp` stdio 握手实测正常；
+- `dsh-graphify` 0.1.3 已装进 web profile（bundle 图层）。**npm 未发布**且 GitHub 源 pack 只含 files 白名单（无 `lib/` 构建产物），需本地构建后以 `file:` 目录安装：
+  - 源码：`~/develop/dsh-graphify`（ghfast 克隆 → `pnpm install` → `pnpm run build`）；
+  - 安装：`pnpm dsh plugin --profile web remove dsh-graphify`（先卸 git 空壳）→ `pnpm dsh plugin --profile web add "file:$HOME/develop/dsh-graphify"`；
+- 安装前基线快照：`undo_snapshot`（manual 20260910-072225），出错可用 undo 回滚；重启 dsh web 后生效（验证 `/graphify` 命令与 `query_graph` 等工具）。
+- graphify 已随 `dsh-update.sh` 纳入自动更新（2026-09-10）：默认比对 dsh-graphify 已装版本与 ghfast 远端 tag（落后则源码 git pull → pnpm install/build → remove → add file: 重装）、graphifyy 已装版本与 PyPI 清华源最新（落后则 uv tool upgrade，受原版本 pin 约束时自动转 `--force` 直装 `[chinese,openai,mcp]`，随后 graphify-mcp 探活）；`--skip-kg` 可跳过。实测 0.9.51 → 0.9.57 自动升级成功、旧图谱（0.9.51 构建）读取兼容（3365 节点不变）。
+- **重启后验证（2026-09-10）**：会话内 `graph_stats` / `query_graph`（中文 BFS）正常，自动解析当前项目图谱（3365 节点 / 4801 边 / 304 社区）；`graphify_*` 兼容工具与 PR 系列工具随插件注册。opencode 侧 skill 为 0.9.51 版本副本，`graphify --version` 提示可 `graphify install --platform opencode` 刷新（不影响 DSH 使用）。
+
 ## 9. 常见问题 <a id="faq"></a>
 
 | 问题 | 处理 |
