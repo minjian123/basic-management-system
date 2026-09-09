@@ -276,4 +276,4 @@ dsh 同样以自定义 provider `llamacpp` 接本服务（同一 `127.0.0.1:8080
 ---
 
 > 本文档基于 llama.cpp 0.3.0-dev（build 87 / commit `9d81721`，CUDA sm_89 / RTX 4090 环境）编写。
-> 项目：[github.com/ggml-org/llama.cpp](https://github.com/ggml-org/llama.cpp) · 生成日期：2026-08-28 · 修订：2026-09-01（多模型脚本化、重编译至 9d81721、gemma 移除、systemd 退役、启用 ngram-mod 推测解码（dense 参数）与 FA_ALL_QUANTS 编译）
+> 项目：[github.com/ggml-org/llama.cpp](https://github.com/ggml-org/llama.cpp)

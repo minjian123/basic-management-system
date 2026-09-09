@@ -36,4 +36,4 @@ Renovate 升级 MR 自动提交；main 单向同步至 GitHub 归档仓库成功
 ## 5. 执行记录 <a id="log"></a>
 
 - 2026-08-22：外网复核通过（push mirror 实测一直正常、api.github.com 可达）解除搁置并当日完成——renovate 服务加入 gitlab.yml（platform=gitlab，仓库 mj/bms），试运行 exit=0；cron 每日 06:00 调度；push mirror 经用户确认一直正常同步（GitLab API 不暴露该配置，机制在 UI 层）。过程中处置 GitLab 挂载事故一次（详见《GitLab部署使用说明》事故记录）。
-> 本文档依《文档生成规范》编写 · 更新：2026-08-22（完成） · 生成日期：2026-08-21
+> 本文档依《文档生成规范》编写

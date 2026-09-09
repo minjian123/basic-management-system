@@ -252,4 +252,4 @@ graphify 的独特价值在于**同时**做了两件事：代码 AST 抽取（tr
 - 若未来只想对 `文档/` 规划做语义问答（不要代码图谱），再评估 LightRAG 本地版（HKUDS/LightRAG，MIT，可 Ollama 离线）。
 - GraphRAG / Neo4j / KuzuDB 均与「轻量本地、离线免费」诉求相悖，不建议折腾。
 
-> 本文档基于 graphify 0.9.51（Linux 环境）编写。项目：[github.com/safishamsi/graphify](https://github.com/safishamsi/graphify) · 生成日期：2026-08-14 · 修订：2026-08-28（Windows 迁移 Linux + 替代方案评估）
+> 本文档基于 graphify 0.9.51（Linux 环境）编写。项目：[github.com/safishamsi/graphify](https://github.com/safishamsi/graphify)
