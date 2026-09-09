@@ -290,9 +290,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "...\tools\dsh-undo.ps1" res
 环境变量 `DSH_UNDO_ROOT` 可覆盖根目录——需要从另一台机器救援时，把快照目录挂到该变量指向的路径即可。
 
 **本部署（mjpc / Ubuntu）提示**：GUI 为 WinForms，仅 Windows 可用；CLI 是纯 PowerShell，Linux 上需先安装
-PowerShell 7（`pwsh`，本机**未装**）才能跑。日常回滚用 Web UI 快照面板或会话内 undo 工具即可；若想做到
-「Linux 本机、DSH 起不来」也能离线 CLI 救援，需装 pwsh（另议，装上后 CLI 用法同上，文件路径换成
-`~/.dsh/profiles/web/node_modules/dsh-undo-savepoint/tools/dsh-undo.ps1`）。
+PowerShell 7（`pwsh`）才能跑。**已决定暂不装 pwsh**（2026-09-09）：日常回滚用 Web UI 快照面板或会话内 undo 工具即可；
+真遇 DSH 起不来的离线场景，届时再评估补装 pwsh（CLI 用法同上，文件路径
+`~/.dsh/profiles/web/node_modules/dsh-undo-savepoint/tools/dsh-undo.ps1`）或 Windows 侧 GUI 救援。
 
 ### 8.3 曾装已移除：dshmarket 与 dsh-context <a id="plugins-removed"></a>
 
