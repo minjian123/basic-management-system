@@ -124,13 +124,14 @@ Get-ScheduledTask -TaskName 'mjw-daily-*' | Select-Object TaskName, State
 ### 5.1 脚本清单 <a id="tools-list"></a>
 
 全部位于 `scripts/tools/winrm/`。`wake_mjw.py` 仅用 Python 标准库（发魔术包 + 探测端口）；
-`sleep_mjw.py` / `shutdown_mjw.py` 依赖 pywinrm（开发机 venv：`~/tools/winrm-venv`）。`.bat` 为 Windows 双击入口。
+`sleep_mjw.py` / `shutdown_mjw.py` 依赖 pywinrm（开发机 venv：`~/tools/winrm-venv`）。
+`.sh` 为 Linux 入口脚本（开发机 mjpc 现为 Ubuntu，终端或桌面图标皆可用，自动跳到仓库根目录并选用 venv Python 调用对应脚本），`.bat` 为旧 Windows 开发机双击入口（仅 Windows 下可用）。
 
-| 文件 | 作用 | 双击入口 | 依赖 |
-| --- | --- | --- | --- |
-| wake_mjw.py | 发送魔术包唤醒并等待 WinRM（5985）就绪 | 唤醒mjw.bat | 无（标准库） |
-| sleep_mjw.py | 远程进入系统睡眠（S3，含确认） | 睡眠mjw.bat | pywinrm |
-| shutdown_mjw.py | 远程关机（S5，含确认） | 关机mjw.bat | pywinrm |
+| 文件 | 作用 | Linux 入口（现行） | Windows 入口（旧） | 依赖 |
+| --- | --- | --- | --- | --- |
+| wake_mjw.py | 发送魔术包唤醒并等待 WinRM（5985）就绪 | 唤醒mjw.sh（桌面/菜单图标：唤醒mjw） | 唤醒mjw.bat | 无（标准库） |
+| sleep_mjw.py | 远程进入系统睡眠（S3，含确认） | 睡眠mjw.sh（桌面/菜单图标：睡眠mjw） | 睡眠mjw.bat | pywinrm |
+| shutdown_mjw.py | 远程关机（S5，含确认） | 关机mjw.sh（桌面/菜单图标：关机mjw） | 关机mjw.bat | pywinrm |
 
 pywinrm 环境（开发机 mjpc）：
 
@@ -141,11 +142,13 @@ python3 -m venv ~/tools/winrm-venv
 
 ### 5.2 远程唤醒 <a id="tools-wake"></a>
 
-在开发机 mjpc（Ubuntu）仓库根目录执行：
+在开发机 mjpc（Ubuntu）仓库根目录执行（旧 Windows 开发机用 `python scripts\tools\winrm\wake_mjw.py` 或双击 `唤醒mjw.bat`）：
 
 ```bash
-python3 scripts/tools/winrm/wake_mjw.py
+./scripts/tools/winrm/唤醒mjw.sh
 ```
+
+或双击桌面/应用菜单的 **唤醒mjw** 图标（在终端窗口显示等待进度）。
 
 脚本发送魔术包并等待 WinRM 端口就绪，输出示例：
 
@@ -165,9 +168,13 @@ python3 scripts/tools/winrm/wake_mjw.py
 
 ### 5.3 远程睡眠 <a id="tools-sleep"></a>
 
+在开发机 mjpc（Ubuntu）仓库根目录执行（旧 Windows 开发机用 `python scripts\tools\winrm\sleep_mjw.py` 或双击 `睡眠mjw.bat`；依赖 pywinrm venv，缺失时脚本会给出安装指引）：
+
 ```bash
-~/tools/winrm-venv/bin/python scripts/tools/winrm/sleep_mjw.py
+./scripts/tools/winrm/睡眠mjw.sh
 ```
+
+或双击桌面/应用菜单的 **睡眠mjw** 图标。
 
 脚本会先显示目标并**要求输入 y 确认**，确认后经 WinRM 执行 `rundll32.exe powrprof.dll,SetSuspendState 0,0,0`：
 
@@ -185,9 +192,13 @@ python3 scripts/tools/winrm/wake_mjw.py
 
 ### 5.4 远程关机 <a id="tools-shutdown"></a>
 
+在开发机 mjpc（Ubuntu）仓库根目录执行（旧 Windows 开发机用 `python scripts\tools\winrm\shutdown_mjw.py` 或双击 `关机mjw.bat`；依赖 pywinrm venv，缺失时脚本会给出安装指引）：
+
 ```bash
-~/tools/winrm-venv/bin/python scripts/tools/winrm/shutdown_mjw.py
+./scripts/tools/winrm/关机mjw.sh
 ```
+
+或双击桌面/应用菜单的 **关机mjw** 图标。
 
 脚本会先显示目标并**要求输入 y 确认**，确认后经 WinRM 执行 `shutdown /s /t 0`（优雅关闭，等待应用退出）：
 
