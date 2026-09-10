@@ -357,6 +357,12 @@ pnpm add -g dsh-tui
 dsh-tui --version # 0.2.19
 ```
 
+## 9. mjw（Windows）安装 <a id="mjw-install"></a>
+
+> 2026-09-10 已在 mjw（Windows 11）完成 DSH 安装（commit `b2e3b2a0`，与本文档 mjpc 环境一致），
+> **部署实录已独立成文**：《[deepseek_harnessWindows部署使用说明](../资料/开发服务器/windows/deepseek_harnessWindows部署使用说明.md)》
+> ——含 pnpm 证书坑修复、install/build、桌面启停入口、web 仅绑 127.0.0.1（官方禁止 `--host 0.0.0.0`）、计划任务长命令执行法及 Windows 排障。mjw 侧通用能力（插件 bundle、undo 快照等）仍以本文档第 8 节为准。
+
 ---
 
 > 本文档基于 deepseek-harness `dsh-v0.1.5-alpha.1`（commit `5dda764ed3`，Node 24 / pnpm 11.7.0 源码运行）编写，2026-09-09 随 0.1.5 升级与插件变更同步。
