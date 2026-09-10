@@ -35,7 +35,7 @@ frontend/
 ├── vitest.config.ts            # 新增：Vitest（jsdom 环境）
 ├── index.html                  # 修改：标题「BMS 基础管理系统」
 ├── src/
-│   ├── main.ts                 # 修改：挂载 router / pinia / i18n / Element Plus
+│   ├── main.ts                 # 修改：挂载 router / pinia / i18n（Element Plus 组件按需自动引入）
 │   ├── App.vue                 # 修改：router-view 出口
 │   ├── api/
 │   │   ├── types.ts            # 新增：ApiResponse<T> / PageResponse<T> 契约类型
@@ -93,10 +93,12 @@ frontend/
 ```ts
 import { fileURLToPath, URL } from 'node:url'
 import vue from '@vitejs/plugin-vue'
+import Components from 'unplugin-vue-components/vite'
+import { ElementPlusResolver } from 'unplugin-vue-components/resolvers'
 import { defineConfig } from 'vite'
 
 export default defineConfig({
-  plugins: [vue()],
+  plugins: [vue(), Components({ resolvers: [ElementPlusResolver()] })],
   resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
   server: {
     port: 5173,
@@ -200,5 +202,7 @@ export interface PageResponse<T> {
 | 3 | Kiwi | Case 19 一条冒烟；Vitest + @vue/test-utils |
 | 4 | npm 源 | `.npmrc` 配 npmmirror；锁文件提交 |
 | 5 | CI | frontend/ 落地激活 05-1 前端 job（ESLint/Vitest/构建） |
+| 6 | Element Plus | 按需引入（unplugin-vue-components + ElementPlusResolver）：主包 1,064.53 → 147.34 kB，告警消除（2026-09-10 优化） |
+| 7 | openapi-typescript | peer 声明滞后但运行时不依赖 TS，`gen:api` 在 TS6 实测可用；维持 legacy-peer-deps 待上游支持 |
 
 > 本文档依《文档生成规范》编写 · 关键决策逐项确认
