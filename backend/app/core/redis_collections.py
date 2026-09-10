@@ -7,12 +7,15 @@
 """
 
 import json
-from collections.abc import Awaitable, Callable
+from collections.abc import AsyncGenerator, Awaitable, Callable
+from contextlib import asynccontextmanager
 from typing import cast
 
 from redis.asyncio import Redis
+from redis.exceptions import WatchError
 
-from app.core.base import BaseObject
+from app.core.base import BaseObject, ValueHolder
+from app.core.exceptions import ConcurrentConflictError
 
 _SET_SCRIPT = """
 redis.call('HSET', KEYS[2], ARGV[1], ARGV[2])
@@ -33,6 +36,29 @@ _DELETE_SCRIPT = """
 local removed = redis.call('ZREM', KEYS[1], ARGV[1])
 redis.call('HDEL', KEYS[2], ARGV[1])
 return removed
+"""
+
+_REPLACE_IF_EQUAL_SCRIPT = """
+local current = redis.call('HGET', KEYS[2], ARGV[1])
+if not current then
+  return 0
+end
+if current == ARGV[2] then
+  redis.call('HSET', KEYS[2], ARGV[1], ARGV[3])
+  redis.call('ZADD', KEYS[1], ARGV[4], ARGV[1])
+  return 1
+end
+return 0
+"""
+
+_GET_AND_REMOVE_SCRIPT = """
+local current = redis.call('HGET', KEYS[2], ARGV[1])
+if not current then
+  return false
+end
+redis.call('HDEL', KEYS[2], ARGV[1])
+redis.call('ZREM', KEYS[1], ARGV[1])
+return current
 """
 
 
@@ -217,6 +243,8 @@ class RedisSortedDict[KeyT, ValueT](BaseObject):
         self._set_script = client.register_script(_SET_SCRIPT)
         self._set_if_absent_script = client.register_script(_SET_IF_ABSENT_SCRIPT)
         self._delete_script = client.register_script(_DELETE_SCRIPT)
+        self._replace_if_equal_script = client.register_script(_REPLACE_IF_EQUAL_SCRIPT)
+        self._get_and_remove_script = client.register_script(_GET_AND_REMOVE_SCRIPT)
 
     async def set(self, key: KeyT, value: ValueT) -> None:
         """写入键值（Lua 原子：索引 + 数据）。
@@ -263,6 +291,116 @@ class RedisSortedDict[KeyT, ValueT](BaseObject):
         if removed:
             await self._bump()
         return bool(removed)
+
+    async def replace_if_equal(self, key: KeyT, expected: ValueT, new: ValueT) -> bool:
+        """CAS：当前值等于 expected 才替换（Lua 原子）。
+
+        Args:
+            key: 键。
+            expected: 期望的当前值。
+            new: 新值。
+
+        Returns:
+            bool: 替换 True（不匹配或不存在 False）。
+        """
+        changed = await self._replace_if_equal_script(
+            keys=[self._index_key, self._data_key],
+            args=[_dump(key), _dump(expected), _dump(new), _score_for_key(key)],
+        )
+        if changed:
+            await self._bump()
+        return bool(changed)
+
+    async def get_and_remove(self, key: KeyT) -> ValueT | None:
+        """取走并删除，返回旧值或 None（Lua 原子）。
+
+        Args:
+            key: 键。
+
+        Returns:
+            ValueT | None: 旧值（不存在 None）。
+        """
+        raw = await self._get_and_remove_script(keys=[self._index_key, self._data_key], args=[_dump(key)])
+        if raw is None:
+            return None
+        await self._bump()
+        return _load(raw)  # type: ignore[return-value]
+
+    async def update_atomic(self, key: KeyT, func: Callable[[ValueT], ValueT], *, max_retries: int = 3) -> ValueT:
+        """WATCH+MULTI 乐观更新（func 必须纯计算、禁 IO）。
+
+        Args:
+            key: 键。
+            func: 旧值 → 新值。
+            max_retries: 乐观重试上限。
+
+        Returns:
+            ValueT: 新值。
+
+        Raises:
+            KeyError: 键不存在。
+            ConcurrentConflictError: 重试超限。
+        """
+
+        def mutate(current: str | None) -> str:
+            if current is None:
+                raise KeyError(key)
+            return _dump(func(cast("ValueT", _load(current))))
+
+        raw = await self._optimistic_with_retry(key, mutate, max_retries=max_retries)
+        await self._bump()
+        return _load(raw)  # type: ignore[return-value]
+
+    async def _optimistic(self, key: KeyT, mutate: Callable[[str | None], str]) -> str:
+        """单轮 WATCH+MULTI（冲突抛 WatchError）。"""
+        member = _dump(key)
+        async with self._client.pipeline(transaction=True) as pipe:
+            await pipe.watch(self._data_key)
+            current = cast("str | None", await pipe.hget(self._data_key, member))
+            new_value = mutate(current)
+            pipe.multi()
+            pipe.hset(self._data_key, member, new_value)
+            pipe.zadd(self._index_key, {member: _score_for_key(key)})
+            await pipe.execute()
+        return new_value
+
+    async def _optimistic_with_retry(self, key: KeyT, mutate: Callable[[str | None], str], *, max_retries: int) -> str:
+        """乐观重试：捕获 WatchError 整体重放，超限抛 ConcurrentConflictError。"""
+        last_error: WatchError | None = None
+        for _ in range(max_retries):
+            try:
+                return await self._optimistic(key, mutate)
+            except WatchError as error:
+                last_error = error
+        raise ConcurrentConflictError(f"乐观重试超限（{max_retries} 次）：{last_error}")
+
+    @asynccontextmanager
+    async def get_locked(self, key: KeyT) -> AsyncGenerator[ValueHolder[ValueT]]:
+        """WATCH 读-提交上下文（冲突上抛不重试；键缺失抛 KeyError）。
+
+        Args:
+            key: 键。
+
+        Yields:
+            ValueHolder[ValueT]: 值容器（holder.value 写回）。
+
+        Raises:
+            KeyError: 键不存在。
+            WatchError: 提交冲突（调用方决策重做）。
+        """
+        member = _dump(key)
+        async with self._client.pipeline(transaction=True) as pipe:
+            await pipe.watch(self._data_key)
+            current = await pipe.hget(self._data_key, member)
+            if current is None:
+                raise KeyError(key)
+            holder: ValueHolder[ValueT] = ValueHolder(cast("ValueT", _load(current)))
+            yield holder
+            pipe.multi()
+            pipe.hset(self._data_key, member, _dump(holder.value))
+            pipe.zadd(self._index_key, {member: _score_for_key(key)})
+            await pipe.execute()
+        await self._bump()
 
     async def get(self, key: KeyT) -> ValueT | None:
         """按键取值。

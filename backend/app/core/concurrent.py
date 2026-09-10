@@ -11,6 +11,7 @@ from contextlib import contextmanager
 from enum import StrEnum
 from typing import Any, cast
 
+from app.core.base import ValueHolder
 from app.core.collections import BaseCollection, SortedDict, SortedList, SortedSet
 
 
@@ -69,13 +70,6 @@ class ReadWriteLock:
             with self._condition:
                 self._writer = False
                 self._condition.notify_all()
-
-
-class _ValueHolder[ValueT]:
-    """`get_locked` 上下文内可替换的值容器。"""
-
-    def __init__(self, value: ValueT) -> None:
-        self.value = value
 
 
 class _LockGuard:
@@ -480,18 +474,18 @@ class ConcurrentSortedDict[KeyT, ValueT](BaseCollection[tuple[KeyT, ValueT]]):
             return value
 
     @contextmanager
-    def get_locked(self, key: KeyT) -> Generator[_ValueHolder[ValueT]]:
+    def get_locked(self, key: KeyT) -> Generator[ValueHolder[ValueT]]:
         """锁内读改写上下文（复杂复合逻辑；holder.value 写回）。"""
         shard = self._shard(key)
         if shard is not None:
             lock, data = shard
             with self._global.read(), lock:
-                holder = _ValueHolder(data[key])
+                holder = ValueHolder(data[key])
                 yield holder
                 data[key] = holder.value
             return
         with self._write_data() as data:
-            holder = _ValueHolder(data[key])
+            holder = ValueHolder(data[key])
             yield holder
             data[key] = holder.value
 
