@@ -2,8 +2,8 @@
 """基座完整性校验（bms 权威源侧，CI 与本地运行）。
 
 校验四项：
-  1. 全库 `文档/` 相对链接自洽：断链 0、失效锚点 0（跳过行内代码与外部链接）；
-  2. 基座文件不含跨层相对链接（指向平台专属 `文档/规划`、`文档/项目`、`文档/设计`）；
+  1. 全库 `bms文档/` 相对链接自洽：断链 0、失效锚点 0（跳过行内代码与外部链接）；
+  2. 基座文件不含跨层相对链接（指向平台专属 `bms文档/规划`、`bms文档/项目`、`bms文档/设计`）；
   3. 基座文件不含项目专属措辞残留（`BMS 项目`、`在 BMS`、`本项目项目`）；
   4. 《基座文档清单》与磁盘一致：清单登记的基座文件均存在，且数量与扫描结果一致。
 
@@ -14,14 +14,14 @@ import re
 import sys
 
 ROOT = os.path.abspath(sys.argv[1] if len(sys.argv) > 1 else ".")
-MANIFEST = "文档/基座文档清单.md"
+MANIFEST = "bms文档/基座文档清单.md"
 BASE_DIRS = [
-    "文档/规范", "文档/资源", "文档/资料/AI", "文档/资料/工具",
-    "文档/资料/开发服务器", "文档/资料/开发机", "文档/资料/知识档案",
+    "bms文档/规范", "bms文档/资源", "bms文档/资料/AI", "bms文档/资料/工具",
+    "bms文档/资料/开发服务器", "bms文档/资料/开发机", "bms文档/资料/知识档案",
 ]
 # ② 各仓库自带副本：登记但不参与校验（已 gitignore，工作区中可能不存在）
-LOCAL_ONLY = ("文档/用户文档/",)
-CROSS_LAYER = ("文档/规划/", "文档/项目/", "文档/设计/", "文档/需求/", "文档/任务/")
+LOCAL_ONLY = ("bms文档/用户文档/",)
+CROSS_LAYER = ("bms文档/规划/", "bms文档/项目/", "bms文档/设计/", "bms文档/需求/", "bms文档/任务/")
 BAD_WORDING = ("BMS 项目", "在 BMS", "本项目项目")
 LINK_RE = re.compile(r'\]\(([^)\s]+)\)')
 CODE_RE = re.compile(r'`[^`]*`')
@@ -35,7 +35,7 @@ def strip_code(line):
 
 def check_links():
     n_file = n_anchor = 0
-    for dp, dns, fs in os.walk(os.path.join(ROOT, "文档")):
+    for dp, dns, fs in os.walk(os.path.join(ROOT, "bms文档")):
         dns[:] = [d for d in dns if d not in {".git", "graphify-out"}]
         for f in fs:
             if not f.endswith(".md"):
@@ -77,7 +77,7 @@ def check_cross_layer():
                         if t.startswith(("http", "mailto")) or not t.split("#")[0].endswith((".md", ".html")):
                             continue
                         ab = os.path.relpath(os.path.normpath(os.path.join(dp, t.split("#")[0])), ROOT)
-                        if ab.replace(os.sep, "/").startswith(CROSS_LAYER) or ab.count(os.sep) == 0 and ab.startswith("文档/"):
+                        if ab.replace(os.sep, "/").startswith(CROSS_LAYER) or ab.count(os.sep) == 0 and ab.startswith("bms文档/"):
                             if any(ab.replace(os.sep, "/") == b.rstrip("/") for b in CROSS_LAYER) or \
                                ab.replace(os.sep, "/").startswith(CROSS_LAYER):
                                 problems.append(f"[跨层引用] {os.path.relpath(p, ROOT)}:{i} -> {t}")
@@ -119,7 +119,7 @@ def manifest_files():
         if name.endswith("/"):
             stack.append(name.rstrip("/"))
         else:
-            out.append("文档/" + "/".join(stack + [name]))
+            out.append("bms文档/" + "/".join(stack + [name]))
     return out
 
 
