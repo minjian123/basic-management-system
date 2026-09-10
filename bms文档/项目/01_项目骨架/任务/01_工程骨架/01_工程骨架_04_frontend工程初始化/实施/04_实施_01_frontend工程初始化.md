@@ -77,8 +77,8 @@ flowchart LR
 
 ## 6. 偏差与遗留 <a id="deviations"></a>
 
-- Element Plus 全量引入导致构建 chunk 告警：骨架期接受，按需引入优化可随阶段二或性能任务。
-- `openapi-typescript` 因 peer 滞后采用 legacy-peer-deps：`gen:api` 脚本与生成类型占位已就位，正式启用随 05 域契约接入。
+- Element Plus 全量引入构建告警：**已于 2026-09-10 优化为按需引入**（unplugin-vue-components + ElementPlusResolver；主包 1,064.53 kB → 147.34 kB，gzip 342.74 → 53.67 kB，告警消除）。
+- `openapi-typescript` peer 声明滞后（^5 vs 项目 TS 6）：**已评估**——该包运行时不依赖 TypeScript，`npm run gen:api` 在 TS6 下实测可用（对本地 OpenAPI 生成 396 行，42ms）；维持 `legacy-peer-deps` 并注明，待上游支持后移除。
 - 页面渲染断言当前由 Vitest mock 覆盖；真实浏览器链路（含视觉/视口）随 05-1 Playwright E2E。
 - 401 刷新、token 持久化、动态路由注入留阶段二（代码内 TODO 标注）。
 
