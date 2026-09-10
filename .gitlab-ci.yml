@@ -58,13 +58,13 @@ gate-smoke:
     - echo "gate ok"
 
 # ---- 基座完整性：链接自洽 + 无跨层引用 + 无措辞残留 + 清单与磁盘一致 ----
-# 口径见《基座文档清单》第 3/5 节与《平台可扩展性规划》R1；产品仓库的基座漂移检查
-# 需访问产品仓库工作区，CI 内无法完成，由 scripts/tools/base-sync/pre-commit.sh 在提交前执行。
+# 口径见《基座文档清单》第 3/5 节与《平台可扩展性规划》R1；工作区模型下基座不再向产品
+# 仓库复制/同步（产品侧以符号链接引用），本检查仅面向 bms 权威源。
 base-integrity:
   stage: lint
   image: python:3.14-slim
   script:
-    - python scripts/tools/base-sync/check-base.py
+    - python scripts/tools/base-check/check-base.py
 
 # ---- 后端：ruff + pytest（SQLite）----
 backend-lint:
