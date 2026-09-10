@@ -209,7 +209,7 @@ cd /home/minjian/develop/deepseek-harness
 pnpm run typecheck    # 类型检查
 pnpm run lint         # oxlint
 pnpm test             # vitest
-bash /home/minjian/develop/bms/scripts/tools/dsh/dsh-update.sh   # 一键更新（桌面「更新 dsh与插件」同款）：源码 git pull + 依赖 + 构建 + 插件最新 + 重启 web
+bash /home/minjian/develop/bizs/bms/scripts/tools/dsh/dsh-update.sh   # 一键更新（桌面「更新 dsh与插件」同款，桌面走 ~/.local/bin/bms-tools.sh dsh-update）：源码 git pull + 依赖 + 构建 + 插件最新 + 重启 web
 ```
 
 ### 7.2 常见问题 <a id="faq"></a>
