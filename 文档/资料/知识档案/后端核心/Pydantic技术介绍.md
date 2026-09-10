@@ -1,6 +1,6 @@
 # Pydantic 技术介绍
 
-> 数据校验与序列化 · BMS 后端核心
+> 数据校验与序列化 · 本项目后端核心
 
 [文档首页](../../../文档首页.md) › [知识档案](../技术栈知识档案总览.md) › [后端核心](../技术栈知识档案总览.md#backend) › Pydantic 技术介绍　|　[← 返回总览](../技术栈知识档案总览.md)
 
@@ -33,13 +33,13 @@
 | Settings（配置模型） | BaseSettings 从环境变量/TOML 读取配置并校验类型，本项目 config.toml 读取链路的一部分 |
 | OpenAPI 联动 | FastAPI 根据模型自动生成 OpenAPI schema，校验规则即接口文档 |
 
-## 3. 在 BMS 项目中的用途 <a id="usage"></a>
+## 3. 在本项目中的用途 <a id="usage"></a>
 
-- 作为请求/响应模型（`schemas/` 层）的唯一建模工具，与 ORM 解耦：ORM 管存储，Pydantic 管传输，见《[项目规划说明》4 节](../../../规划/项目规划说明.md#structure)目录结构。
+- 作为请求/响应模型（`schemas/` 层）的唯一建模工具，与 ORM 解耦：ORM 管存储，Pydantic 管传输，见平台《项目规划说明》4 节目录结构。
 - FastAPI 数据校验基石：接口参数、请求体、响应体全部经 Pydantic 校验，失败自动返回 422 统一错误格式。
 - 类型注解驱动：与 pyright 严格模式配合，模型字段类型错误在 IDE 阶段即被发现（见《[pyright 技术介绍](../工程化与质量/pyright技术介绍.md)》）。
-- 前后端契约一致：后端 schema 经 openapi-typescript 由 OpenAPI schema 自动生成前端 TS 类型（见《[项目规划说明》3.2 节](../../../规划/项目规划说明.md#sel-frontend)）。
-- Rust 内核性能保障：高并发请求下的校验与序列化开销远低于 v1，契合 500 并发/P99 ≤ 1s 的压测目标（见《[项目规划说明》14 节](../../../规划/项目规划说明.md#perf)）。
+- 前后端契约一致：后端 schema 经 openapi-typescript 由 OpenAPI schema 自动生成前端 TS 类型（见平台《项目规划说明》3.2 节）。
+- Rust 内核性能保障：高并发请求下的校验与序列化开销远低于 v1，契合 500 并发/P99 ≤ 1s 的压测目标（见平台《项目规划说明》14 节）。
 
 ## 4. 选型对比 <a id="compare"></a>
 
@@ -75,9 +75,9 @@
 
 | 文档 | 说明 |
 | --- | --- |
-| 《[项目规划说明》2.1 节](../../../规划/项目规划说明.md#stack-backend) | 技术栈：数据校验条目（Pydantic v2） |
-| 《[项目规划说明》4 节](../../../规划/项目规划说明.md#structure) | 目录结构：schemas/ 层职责 |
-| 《[项目规划说明》3.2 节](../../../规划/项目规划说明.md#sel-frontend) | openapi-typescript 前后端契约联动 |
+| 平台《架构设计 · 总体架构》6.1 节 | 技术栈：数据校验条目（Pydantic v2） |
+| 平台《项目规划说明》4 节 | 目录结构：schemas/ 层职责 |
+| 平台《项目规划说明》3.2 节 | openapi-typescript 前后端契约联动 |
 | 《[FastAPI 技术介绍](FastAPI技术介绍.md)》 | 依托 Pydantic 完成请求/响应校验 |
 | 《[SQLAlchemy 技术介绍](SQLAlchemy技术介绍.md)》 | ORM 模型与 Pydantic Schema 解耦的分工 |
 | 《[pyright 技术介绍](../工程化与质量/pyright技术介绍.md)》 | 类型检查与 Pydantic 模型联动的工程实践 |

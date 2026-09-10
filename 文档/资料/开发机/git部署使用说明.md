@@ -6,7 +6,7 @@
 
 ## 1. 目的与适用范围 <a id="purpose"></a>
 
-记录开发机 **mjpc**（Ubuntu 26.04.1 LTS）上 git 的安装方式、全局配置、BMS 仓库（内网 GitLab）接入与日常操作，作为重装系统或迁移后的配置参照。它是《[开发机部署使用说明总览](开发机部署使用说明总览.md)》第 3 节「开发工具链 git」一行的详细说明；GitLab 服务器侧的部署见《[GitLab部署使用说明](../开发服务器/linux/GitLab部署使用说明.md)》。
+记录开发机 **mjpc**（Ubuntu 26.04.1 LTS）上 git 的安装方式、全局配置、本项目仓库（内网 GitLab）接入与日常操作，作为重装系统或迁移后的配置参照。它是《[开发机部署使用说明总览](开发机部署使用说明总览.md)》第 3 节「开发工具链 git」一行的详细说明；GitLab 服务器侧的部署见《[GitLab部署使用说明](../开发服务器/linux/GitLab部署使用说明.md)》。
 
 **取值说明**：`<mjbk-IP>`、`<访问令牌>` 等占位符与真实凭据的具体值见《[本地资源](../../用户文档/本地资源.md)》与 mjbk 本机 `deploy/.env`，不在文档中记录。git 协作规则（分支模型、提交信息、MR 流程）见《[Git协作规范](../../规范/Git协作规范.md)》，本文档只描述本机 git 的部署与使用。
 
@@ -46,7 +46,7 @@ git --version   # 核对版本
 | 配置项 | 值 | 作用 |
 | --- | --- | --- |
 | `credential.helper` | `store` | 凭据保存到 `~/.git-credentials`，首次认证后免密（见[第 6 节](#credentials)） |
-| `user.name` / `user.email` | `minjian` / `minjian_1@qq.com` | 提交作者身份，所有仓库共用（BMS 仓库无仓库级覆盖） |
+| `user.name` / `user.email` | `minjian` / `minjian_1@qq.com` | 提交作者身份，所有仓库共用（本项目仓库无仓库级覆盖） |
 | `url.<镜像>.insteadOf` | `https://ghfast.top/https://github.com/` → `https://github.com/` | GitHub 仓库访问自动走加速镜像（见[第 7 节](#github-mirror)） |
 
 核对命令：
@@ -58,9 +58,9 @@ git config --list --show-origin   # 带来源文件查看，确认是全局还�
 
 提交信息遵循《[Git协作规范](../../规范/Git协作规范.md)》第 4 节格式：`type(scope): 中文描述`，如 `docs(开发机): 新增 git 部署使用说明`。
 
-## 4. BMS 仓库接入（内网 GitLab） <a id="bms-repo"></a>
+## 4. 本项目仓库接入（内网 GitLab） <a id="bms-repo"></a>
 
-BMS 仓库 `~/develop/bms/` 的远端配置（`git remote -v` 实测）：
+本项目仓库 `~/develop/bms/` 的远端配置（`git remote -v` 实测）：
 
 | 远端 | 地址 | 角色 |
 | --- | --- | --- |
@@ -70,7 +70,7 @@ BMS 仓库 `~/develop/bms/` 的远端配置（`git remote -v` 实测）：
 - 当前 URL 中**内嵌了访问凭据**（`http://root:<访问令牌>@<mjbk-IP>:8080/...`，实测如此），clone/push 无需再输入密码。令牌属敏感信息，仅存于本机，不入文档、不入提交。
 - 分支 `main` 跟踪 `origin/main`；当前为单人直推 main 模式（《Git协作规范》第 1 节「当前阶段简化执行」），feature 分支 → MR 门禁流程暂缓。
 
-> **口径说明**：《Git协作规范》第 2 节约定远端命名为 `gitlab`，本机 BMS 仓库实际配置的远端名为 `origin`（初始 clone 默认名）。日常命令按本机实际以 `origin` 执行；两者指向同一地址，无功能差异。
+> **口径说明**：《Git协作规范》第 2 节约定远端命名为 `gitlab`，本机本项目仓库实际配置的远端名为 `origin`（初始 clone 默认名）。日常命令按本机实际以 `origin` 执行；两者指向同一地址，无功能差异。
 
 新机器接入（重装后重建）示例：
 
@@ -85,7 +85,7 @@ git status -sb          # 应显示 main...origin/main
 
 ## 5. 日常操作 <a id="usage"></a>
 
-以 BMS 仓库为例，常用命令速查：
+以本项目仓库为例，常用命令速查：
 
 ```bash
 # 查看状态与差异
@@ -109,7 +109,7 @@ git branch -d feature/xxx                 # 合入后删本地分支
 
 **`git pull origin main` 是什么**：它是「拉取 + 合并」的简写，等价于先 `git fetch origin`（把远端 main 的最新提交下载到本地 `origin/main`），再把 `origin/main` **合并到当前分支**。注意合并目标是**当前所在分支**——在 main 上执行就是更新本地 main；若在别的分支上执行，会把远端 main 合并进那个分支（日常不这么做）。
 
-> **分支名要对上仓库**：`origin main` 里的 `main` 是**远端分支名**，写错就报 `无法找到远程引用 main`。BMS 仓库的默认分支是 `main`，但 GitHub 系仓库（deepseek-harness、ComfyUI、llama.cpp）的默认分支是 **master**，这些仓库里应写 `git pull origin master`。不确定时先看远端有哪些分支：`git branch -r`（或 `git remote show origin`）。也可以省略分支名直接 `git pull`——git 会按当前分支的跟踪配置自动拉对应分支，最省心。
+> **分支名要对上仓库**：`origin main` 里的 `main` 是**远端分支名**，写错就报 `无法找到远程引用 main`。本项目仓库的默认分支是 `main`，但 GitHub 系仓库（deepseek-harness、ComfyUI、llama.cpp）的默认分支是 **master**，这些仓库里应写 `git pull origin master`。不确定时先看远端有哪些分支：`git branch -r`（或 `git remote show origin`）。也可以省略分支名直接 `git pull`——git 会按当前分支的跟踪配置自动拉对应分支，最省心。
 
 **使用前提**：
 
@@ -138,7 +138,7 @@ git credential fill         # 查看 git 会为某地址使用哪组凭据（交
 安全注意：
 
 - `store` 是明文存储，仅适合**单人开发机**；本机已满足（`~/.git-credentials` 权限 600）。
-- 令牌写入远端 URL（BMS 现状）或 `~/.git-credentials` 后即存在于磁盘明文，**不要**把含令牌的地址复制进文档、提交记录或聊天。
+- 令牌写入远端 URL（本项目现状）或 `~/.git-credentials` 后即存在于磁盘明文，**不要**把含令牌的地址复制进文档、提交记录或聊天。
 - 更换 GitLab 访问令牌时，同步更新两处：
 
 ```bash
@@ -231,7 +231,7 @@ git branch -r          # 看远端有哪些分支（如 origin/master、origin/m
 git pull               # 省略分支名，按当前分支的跟踪配置自动拉取
 ```
 
-BMS 仓库远端分支是 `main`；GitHub 系仓库（deepseek-harness、ComfyUI、llama.cpp）是 `master`。deepseek-harness 下应执行 `git pull origin master`（见[第 5 节](#usage)的说明框）。已实测复现（2026-08-31）：`git pull origin main` 报该错，改 `git pull origin master` 正常。
+本项目仓库远端分支是 `main`；GitHub 系仓库（deepseek-harness、ComfyUI、llama.cpp）是 `master`。deepseek-harness 下应执行 `git pull origin master`（见[第 5 节](#usage)的说明框）。已实测复现（2026-08-31）：`git pull origin main` 报该错，改 `git pull origin master` 正常。
 
 ## 9. 关联文档 <a id="related"></a>
 
@@ -243,4 +243,4 @@ BMS 仓库远端分支是 `main`；GitHub 系仓库（deepseek-harness、ComfyUI
 - 《[文档生成规范](../../规范/文档生成规范.md)》：本文档遵循的格式规范
 - 《[本地资源](../../用户文档/本地资源.md)》：`<mjbk-IP>` 等取值（已 gitignore，不入库）
 
-> 依《[文档生成规范](../../规范/文档生成规范.md)》编写 · 记录 2026-08-31 mjpc 本机核实结果（git 2.53.0、`~/.gitconfig`、BMS 远端配置）
+> 依《[文档生成规范](../../规范/文档生成规范.md)》编写 · 记录 2026-08-31 mjpc 本机核实结果（git 2.53.0、`~/.gitconfig`、本项目远端配置）

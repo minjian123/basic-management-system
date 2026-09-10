@@ -7,7 +7,7 @@
 ## 1. 目的与适用范围 <a id="purpose"></a>
 
 mjbk 上的达梦数据库（DM8）与 MySQL、PostgreSQL 并称「常驻三库」，用于开发联调与 CI 三库方言测试
-（《[开发部署规划](../../../规划/开发部署规划.md)》4.4）。版本：**DM8（dm8_20260428_x86_Ubuntu22_64）**。
+（平台《开发部署规划》4.4）。版本：**DM8（dm8_20260428_x86_Ubuntu22_64）**。
 `<mjbk-IP>`、`<SSH账号>` 取值见《[本地资源](../../../用户文档/本地资源.md)》与 mjbk 本机 `deploy/.env`（`MJBK_IP` / `MJBK_SSH_USER`）。
 
 ## 2. 部署方式说明（原生安装） <a id="plan"></a>
@@ -131,7 +131,7 @@ echo "SELECT NAME FROM ALL_USERS;" | /opt/dmdbms/bin/disql SYSDBA/"<密码>"@loc
 ## 9. 关联文档 <a id="related"></a>
 
 - 《[开发服务器部署使用说明总览](开发服务器部署使用说明总览.md)》：服务部署总览
-- 《[开发部署规划](../../../规划/开发部署规划.md)》：4.4 常驻数据库方案（schema 承载库语义）
+- 平台《开发部署规划》：4.4 常驻数据库方案（schema 承载库语义）
 - 《[MySQL部署使用说明](MySQL部署使用说明.md)》/《[PostgreSQL部署使用说明](PostgreSQL部署使用说明.md)》：另两库
 - 《[命名规范](../../../规范/命名规范.md)》：库名约定（bms_dev）
 

@@ -1,6 +1,6 @@
 # pytest 技术介绍
 
-> 后端测试框架（pytest + httpx + pytest-cov）· BMS 质量门禁核心
+> 后端测试框架（pytest + httpx + pytest-cov）· 本项目质量门禁核心
 
 [文档首页](../../../文档首页.md) › [知识档案](../技术栈知识档案总览.md) › [工程化与质量](../技术栈知识档案总览.md#eng) › pytest 技术介绍　|　[← 返回总览](../技术栈知识档案总览.md)
 
@@ -11,9 +11,9 @@
 **pytest** 是 Python 生态使用最广的测试框架，靠"assert 原生断言 + fixture 复用 + 参数化"三个特性
 把测试写得像自然语言；**httpx** 是现代 HTTP 客户端，其 ASGITransport 能
 不启动服务器直接调用 FastAPI 应用；**pytest-cov** 统计测试覆盖率。
-三者组合是 BMS 后端测试的标准三件套。
+三者组合是本项目后端测试的标准三件套。
 
-- **定位**：BMS 后端全部单元测试与接口测试的唯一框架。
+- **定位**：本项目后端全部单元测试与接口测试的唯一框架。
 - **版本**：pytest 8.x 系列（持续迭代）；httpx 0.2x 系列；pytest-cov 5.x 系列。
 - **许可**：pytest MIT、httpx BSD-3-Clause、pytest-cov MIT，均为 OSI 认证开源。
 - **语言**：Python。
@@ -33,13 +33,13 @@
 | 标记（marker） | `@pytest.mark.asyncio` 等给用例打标签：异步用例、慢用例分组执行 |
 | 插件体系 | pytest-asyncio（异步用例）、allure-pytest（《[Allure](Allure技术介绍.md)》报告）、pytest-cov 均为插件形态，按需装载 |
 
-## 3. 在 BMS 项目中的用途 <a id="usage"></a>
+## 3. 在本项目中的用途 <a id="usage"></a>
 
-- 作为《[项目规划说明](../../../规划/项目规划说明.md#stack-eng)》2.3 节指定的后端测试方案（选型依据见《[项目规划说明](../../../规划/项目规划说明.md#sel-eng)》3.3 节）。
+- 作为平台《架构设计 · 总体架构》6.3 节指定的后端测试方案（选型依据见平台《项目规划说明》3.3 节）。
 - FastAPI 接口测试用 httpx ASGITransport 免启服务器：测试快、无端口冲突，见《[FastAPI 技术介绍](../后端核心/FastAPI技术介绍.md)》。
 - 测试库统一 SQLite 保证可移植：本地、CI、任何机器跑同一套测试零部署成本（见《[SQLite 技术介绍](../后端核心/SQLite与aiosqlite技术介绍.md)》）。
-- pytest-cov 统计覆盖率并作 CI 门禁：核心模块（认证/RBAC/工作流/审计/收付款）行覆盖 ≥ 80%、整体 ≥ 70%，低于门槛流水线失败（见《[项目规划说明](../../../规划/项目规划说明.md#test-exit)》16.4 节）。
-- CI 执行：MR 流水线后端 job 即 `uv sync` 后跑 pytest（见《[项目规划说明](../../../规划/项目规划说明.md#sel-ops)》3.4 节），main 流水线另加 MySQL/PostgreSQL/达梦 DM8 三库方言集成测试。
+- pytest-cov 统计覆盖率并作 CI 门禁：核心模块（认证/RBAC/工作流/审计/收付款）行覆盖 ≥ 80%、整体 ≥ 70%，低于门槛流水线失败（见平台《项目规划说明》16.4 节）。
+- CI 执行：MR 流水线后端 job 即 `uv sync` 后跑 pytest（见平台《项目规划说明》3.4 节），main 流水线另加 MySQL/PostgreSQL/达梦 DM8 三库方言集成测试。
 - 本地命令（Windows PowerShell 与 Linux 通用）：
 
 ```bash
@@ -49,13 +49,13 @@ uv run pytest -k "login"               # 按名称过滤用例
 uv run pytest --cov=app --cov-report=term-missing --cov-fail-under=70   # 带覆盖率与门禁
 ```
 
-- 结果双出口：Allure 生成可视化报告归档 CI 产物；执行结果经官方插件导入《[Kiwi TCMS](KiwiTCMS技术介绍.md)》用例库归档，用例在代码中以用例 ID 关联（见《[项目规划说明](../../../规划/项目规划说明.md#test)》16 节）。
+- 结果双出口：Allure 生成可视化报告归档 CI 产物；执行结果经官方插件导入《[Kiwi TCMS](KiwiTCMS技术介绍.md)》用例库归档，用例在代码中以用例 ID 关联（见平台《项目规划说明》16 节）。
 
 ## 4. 选型对比 <a id="compare"></a>
 
 | 方案 | 优点 | 缺点 | 结论 |
 | --- | --- | --- | --- |
-| **pytest（选中）** | 断言简洁、fixture/参数化强、插件生态全（异步/覆盖率/报告） | 大型项目需约定组织方式（BMS 已按模块分目录） | 生态与表达力最优，唯一选择 |
+| **pytest（选中）** | 断言简洁、fixture/参数化强、插件生态全（异步/覆盖率/报告） | 大型项目需约定组织方式（本项目已按模块分目录） | 生态与表达力最优，唯一选择 |
 | unittest（标准库） | 零依赖、官方维护 | 类式样板代码多、无参数化、异步支持弱 | 能力不足，不采用 |
 | nose2 / 其他 | — | 维护停滞、生态小 | 不采用 |
 | 测试客户端直连（requests + 真实服务器） | 最贴近真实环境 | 慢、依赖端口与环境、CI 脆弱 | ASGITransport 已覆盖该场景，仅方言测试留真实库 |
@@ -68,7 +68,7 @@ uv run pytest --cov=app --cov-report=term-missing --cov-fail-under=70   # 带覆
 - **覆盖率数字别只看总量**：行覆盖高不等于逻辑覆盖全；核心分支（权限校验、工作流网关、异常分支）优先补用例，门禁只是底线。
 - **ASGITransport 注意事项**：它直接调用应用，不经过真实网络层（无 uvicorn、无中间件网络行为差异），依赖 Host 头等场景需在 base_url 里显式设置。
 - **CI 与本地一致性**：依赖版本由 uv.lock 锁定；pytest 版本漂移会导致"本地绿、CI 红"，统一 `uv sync` 解决。
-- **用例与《[Kiwi TCMS](KiwiTCMS技术介绍.md)》关联**：自动化用例务必标注用例 ID（对应平台登记），保证需求可追溯、无孤儿用例（见《[项目规划说明](../../../规划/项目规划说明.md#test-regression)》16.3 节）。
+- **用例与《[Kiwi TCMS](KiwiTCMS技术介绍.md)》关联**：自动化用例务必标注用例 ID（对应平台登记），保证需求可追溯、无孤儿用例（见平台《项目规划说明》16.3 节）。
 
 ## 6. 学习与参考资料 <a id="learn"></a>
 
@@ -85,7 +85,7 @@ uv run pytest --cov=app --cov-report=term-missing --cov-fail-under=70   # 带覆
 
 | 文档 | 说明 |
 | --- | --- |
-| 《[项目规划说明](../../../规划/项目规划说明.md#test)》16 节 | 测试策略与测试流程（用例管理、回归、准出标准） |
+| 平台《项目规划说明》16 节 | 测试策略与测试流程（用例管理、回归、准出标准） |
 | 《[测试规范](../../../规范/测试规范.md)》 | 测试分类、用例组织与执行约定 |
 | 《[FastAPI 技术介绍](../后端核心/FastAPI技术介绍.md)》 | 被测对象：接口测试方式（httpx ASGITransport） |
 | 《[Allure 技术介绍](Allure技术介绍.md)》 | 测试结果生成可视化报告 |

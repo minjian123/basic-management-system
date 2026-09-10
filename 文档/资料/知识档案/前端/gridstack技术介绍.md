@@ -1,6 +1,6 @@
 # gridstack.js 技术介绍
 
-> 框架无关的网格拖拽布局库 · BMS 工作台与报表设计器布局基础
+> 框架无关的网格拖拽布局库 · 本项目工作台与报表设计器布局基础
 
 [文档首页](../../../文档首页.md) › [知识档案](../技术栈知识档案总览.md) › [前端](../技术栈知识档案总览.md#frontend) › gridstack.js 技术介绍　|　[← 返回总览](../技术栈知识档案总览.md)
 
@@ -14,7 +14,7 @@
 内置 Angular/React/Vue 封装。截至 2026 年，gridstack（13.x 系列）是 Web 端
 仪表盘/工作台网格布局的主流开源方案，活跃维护。
 
-- **定位**：BMS 工作台卡片与报表设计器的统一布局引擎，负责网格拖拽、尺寸调整与响应式。
+- **定位**：本项目工作台卡片与报表设计器的统一布局引擎，负责网格拖拽、尺寸调整与响应式。
 - **版本**：13.x 系列（13.0.2，截至 2026 年，持续迭代）。
 - **许可**：MIT，OSI 认证开源。
 - **语言**：TypeScript 编写，框架无关（Vue 经封装或自行集成）。
@@ -23,21 +23,21 @@
 
 | 概念 | 说明 |
 | --- | --- |
-| 网格（Grid） | 由列（column）与行高（cellHeight）定义的布局坐标系，BMS 默认 12 列 |
+| 网格（Grid） | 由列（column）与行高（cellHeight）定义的布局坐标系，本项目默认 12 列 |
 | 单元格（Cell） | 网格最小单位，卡片位置与尺寸都用「占几列几行」描述（x/y/w/h） |
 | Item（卡片） | 网格内可拖拽的单元，承载一个工作台卡片或图表 |
 | 拖拽与尺寸调整 | 内置拖拽移动与四角/边缘 resize，自动避让其他卡片 |
 | 响应式断点 | 按屏宽切换列数（如桌面 12 列、平板 6 列、手机 1 列），布局自动重排 |
-| save / load | `grid.save()` 导出布局 JSON、`grid.load()` 还原，BMS 据此持久化到后端 |
-| float / static | float 允许卡片上移填空隙，static 锁定位置，BMS 编辑态用 float |
-| 跨网格拖拽 | 多网格间拖入拖出，BMS 卡片从「卡片库」拖入工作台用 |
+| save / load | `grid.save()` 导出布局 JSON、`grid.load()` 还原，本项目据此持久化到后端 |
+| float / static | float 允许卡片上移填空隙，static 锁定位置，本项目编辑态用 float |
+| 跨网格拖拽 | 多网格间拖入拖出，本项目卡片从「卡片库」拖入工作台用 |
 | 事件机制 | `dragstop`、`resizestop`、`change` 等，监听布局变化触发保存 |
-| Vue 集成 | 官方内置 Vue 封装（`gridstack/dist/vue`）或自行包组件，BMS 按生命周期管理 init/destroy |
+| Vue 集成 | 官方内置 Vue 封装（`gridstack/dist/vue`）或自行包组件，本项目按生命周期管理 init/destroy |
 
-## 3. 在 BMS 项目中的用途 <a id="usage"></a>
+## 3. 在本项目中的用途 <a id="usage"></a>
 
-- **工作台卡片布局**：首页工作台卡片拖拽、显隐、尺寸调整、响应式，统一用 gridstack（见《[项目规划说明](../../../规划/项目规划说明.md#sel-frontend)》3.2 节）。
-- **布局持久化**：个人布局（`sys_user_preference`，pref_key=dashboard:layout）与角色模板（`sys_dashboard_template.layout_config`）均序列化为 gridstack 布局 JSON（见《[项目规划说明](../../../规划/项目规划说明.md#pages)》数据规范）。
+- **工作台卡片布局**：首页工作台卡片拖拽、显隐、尺寸调整、响应式，统一用 gridstack（见平台《项目规划说明》3.2 节）。
+- **布局持久化**：个人布局（`sys_user_preference`，pref_key=dashboard:layout）与角色模板（`sys_dashboard_template.layout_config`）均序列化为 gridstack 布局 JSON（见平台《项目规划说明》数据规范）。
 - **三级模板回退**：个人布局 → 角色模板 → 平台默认模板，一键重置逐级回退，布局结构统一为 gridstack 格式便于解析。
 - **报表设计器布局**：报表/大屏卡片在网格中的位置与尺寸用 gridstack 描述，与 ECharts 图表卡配合（见《[ECharts 技术介绍](ECharts技术介绍.md)》）。
 - **跨端一致**：PC 与移动端布局配置同源，gridstack 响应式断点适配不同屏宽。
@@ -67,9 +67,9 @@ grid.load(layout)
 
 | 候选技术 | 优缺点 | 结论 |
 | --- | --- | --- |
-| **gridstack.js（选中）** | 框架无关、拖拽/resize/响应式齐全、布局可存取、活跃维护、MIT | 与 BMS 工作台/报表设计器统一布局诉求完全匹配 |
+| **gridstack.js（选中）** | 框架无关、拖拽/resize/响应式齐全、布局可存取、活跃维护、MIT | 与本项目工作台/报表设计器统一布局诉求完全匹配 |
 | react-grid-layout | 功能类似；但绑定 React，Vue 项目不适用 | 框架不符，直接排除 |
-| Masonry（瀑布流） | 自动排布好看；但无拖拽/resize，不可交互定制 | 只读展示可用，BMS 需用户定制布局，不选 |
+| Masonry（瀑布流） | 自动排布好看；但无拖拽/resize，不可交互定制 | 只读展示可用，本项目需用户定制布局，不选 |
 | 自研绝对定位 | 完全可控；但拖拽避让、resize、响应式、碰撞检测工作量大 | 重复造轮子，风险高，不选 |
 
 ## 5. 常见问题与注意事项 <a id="pitfalls"></a>
@@ -96,8 +96,8 @@ grid.load(layout)
 
 | 文档 | 说明 |
 | --- | --- |
-| 《[项目规划说明](../../../规划/项目规划说明.md#stack-frontend)》2.2 节 | 前端技术栈（gridstack.js 条目） |
-| 《[项目规划说明](../../../规划/项目规划说明.md#sel-frontend)》3.2 节 | 选型理由：框架无关、工作台与报表设计器统一布局 |
+| 平台《架构设计 · 总体架构》6.2 节 | 前端技术栈（gridstack.js 条目） |
+| 平台《项目规划说明》3.2 节 | 选型理由：框架无关、工作台与报表设计器统一布局 |
 | 《[ECharts 技术介绍](ECharts技术介绍.md)》 | 工作台/报表图表卡渲染（gridstack 布局 + ECharts 内容） |
 | 《[vue-flow 技术介绍](vue-flow技术介绍.md)》 | 大屏自由画布（与 gridstack 网格布局分工） |
 | 《[vuedraggable 技术介绍](vuedraggable技术介绍.md)》 | 表单设计器列表排序（与 gridstack 网格布局分工） |

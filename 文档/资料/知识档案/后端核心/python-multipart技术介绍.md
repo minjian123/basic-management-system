@@ -12,7 +12,7 @@
 HTML 表单上传文件时浏览器用的就是这个编码格式，它把普通表单字段和文件二进制数据拼在同一个 HTTP 请求体里。
 python-multipart 负责把请求体切分成一个个字段和文件，是 FastAPI 处理文件上传的**必备依赖**（FastAPI 不自带该解析能力，需显式安装）。
 
-- **定位**：BMS 全部文件上传接口（`multipart/form-data`）的底层解析器。
+- **定位**：本项目全部文件上传接口（`multipart/form-data`）的底层解析器。
 - **版本**：0.0.x 系列（持续迭代，无大版本跳变）。
 - **许可**：Apache-2.0，OSI 认证开源。
 - **语言**：Python，无第三方运行时依赖，标准库实现。
@@ -29,15 +29,15 @@ python-multipart 负责把请求体切分成一个个字段和文件，是 FastA
 | UploadFile | FastAPI/Starlette 提供的文件对象封装：底层是 SpooledTemporaryFile（小文件存内存、大文件自动落盘临时文件），支持 `read()/write()/seek()` |
 | File / Form | FastAPI 中声明接口参数的函数：`file: UploadFile = File(...)` 表示文件，`name: str = Form(...)` 表示普通字段 |
 | 文件名消毒 | 上传文件名可能带路径（如 `../../etc/passwd`），解析后必须取 `basename` 并做白名单校验 |
-| Content-Type 判断 | 按文件字段的 MIME 类型与扩展名双校验，是 BMS 文件类型白名单的实现入口 |
+| Content-Type 判断 | 按文件字段的 MIME 类型与扩展名双校验，是本项目文件类型白名单的实现入口 |
 
-## 3. 在 BMS 项目中的用途 <a id="usage"></a>
+## 3. 在本项目中的用途 <a id="usage"></a>
 
 - 作为文件上传接口的解析底座：FastAPI 依赖 python-multipart 才能接收 `multipart/form-data` 请求（见《[FastAPI 技术介绍](FastAPI技术介绍.md)》）。
-- 配合文件类型白名单：接口层通过 `UploadFile.content_type` 与扩展名校验，只放行允许的类型，见《[项目规划说明](../../../规划/项目规划说明.md#modules)》第 5 节「文件管理」模块。
+- 配合文件类型白名单：接口层通过 `UploadFile.content_type` 与扩展名校验，只放行允许的类型，见平台《项目规划说明》第 5 节「文件管理」模块。
 - 配合《[MinIO 技术介绍](MinIO技术介绍.md)》：≤20MB 整包上传，超限走分片上传；接口收到文件后由 services 层异步写入对象存储。
 - 普通表单字段（元数据、用途分类等）一并走 `Form()` 解析，随文件一起提交。
-- 接口层只做解析与校验，文件落盘逻辑下沉 services 层，遵循分层架构约束（《[项目规划说明](../../../规划/项目规划说明.md#structure)》第 4 节）。
+- 接口层只做解析与校验，文件落盘逻辑下沉 services 层，遵循分层架构约束（平台《项目规划说明》第 4 节）。
 
 ```python
 from fastapi import FastAPI, File, UploadFile
@@ -63,7 +63,7 @@ async def upload_file(file: UploadFile = File(...)):
 - **忘记安装会直接报错**：FastAPI 在接口用到 `File` 参数时才提示「python-multipart is not installed」，作为显式依赖写进 pyproject.toml（uv 管理）。
 - **文件名路径穿越**：客户端可伪造 `filename="../../etc/x"`，必须取 `os.path.basename()` 后再走扩展名白名单，禁止直接拼路径保存。
 - **大文件内存控制**：UploadFile 底层是 SpooledTemporaryFile，小文件在内存、大文件自动落盘，别用 `await file.read()` 一次读超大文件，应分段读入再写 MinIO。
-- **中文文件名乱码**：部分客户端用 RFC 2231 的 `filename*=` 编码中文名，解析后需按 UTF-8 解码；BMS 存储建议用业务生成的 object key 而非用户原始文件名。
+- **中文文件名乱码**：部分客户端用 RFC 2231 的 `filename*=` 编码中文名，解析后需按 UTF-8 解码；本项目存储建议用业务生成的 object key 而非用户原始文件名。
 - **上传大小上限**：multipart 解析不限制大小，需在接口层（≤20MB 整包校验）与网关/nginx 层（client_max_body_size）双保险，见《[MinIO 技术介绍](MinIO技术介绍.md)》分片策略。
 - **表单字段别漏校验**：普通字段同样需要 Pydantic 校验，别只校验文件不校验参数。
 - **多文件场景**：`files: list[UploadFile] = File(...)` 声明即可批量接收，注意逐文件校验与资源释放。
@@ -82,8 +82,8 @@ async def upload_file(file: UploadFile = File(...)):
 
 | 文档 | 说明 |
 | --- | --- |
-| 《[项目规划说明](../../../规划/项目规划说明.md#stack-backend)》2.1 节 | 后端技术栈：文件上传条目 |
-| 《[项目规划说明](../../../规划/项目规划说明.md#modules)》5 节 | 文件管理模块：类型白名单与上传规则 |
+| 平台《架构设计 · 总体架构》6.1 节 | 后端技术栈：文件上传条目 |
+| 平台《项目规划说明》5 节 | 文件管理模块：类型白名单与上传规则 |
 | 《[FastAPI 技术介绍](FastAPI技术介绍.md)》 | File/UploadFile 参数所在的 Web 框架 |
 | 《[MinIO 技术介绍](MinIO技术介绍.md)》 | 上传文件的落盘目标与分片策略 |
 | 《[Celery 技术介绍](Celery技术介绍.md)》 | 孤儿分片回收等上传链路的异步任务 |

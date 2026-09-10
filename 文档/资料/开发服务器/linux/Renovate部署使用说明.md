@@ -6,7 +6,7 @@
 
 ## 1. 目的与适用范围 <a id="purpose"></a>
 
-mjbk 上的 Renovate（容器 `bms-renovate`，随《[GitLab部署使用说明](GitLab部署使用说明.md)》的 `gitlab.yml` 编排）是依赖升级机器人：每日定时扫描 BMS 仓库的依赖声明，发现新版本或安全更新时自动建分支并提 MR（《[06 Renovate 与 GitHub 归档](../../../项目/00_准备期/任务/02_仓库与CI_06_Renovate与GitHub归档/02_仓库与CI_06_Renovate与GitHub归档.md)》）。
+mjbk 上的 Renovate（容器 `bms-renovate`，随《[GitLab部署使用说明](GitLab部署使用说明.md)》的 `gitlab.yml` 编排）是依赖升级机器人：每日定时扫描本项目仓库的依赖声明，发现新版本或安全更新时自动建分支并提 MR（本项目《06 Renovate 与 GitHub 归档》）。
 
 **管理范围（2026-08-23 定稿口径）**：
 
@@ -15,7 +15,7 @@ mjbk 上的 Renovate（容器 `bms-renovate`，随《[GitLab部署使用说明](
 | `pep621`（pyproject.toml） | 启用 | 当前无项目内 pyproject.toml（原 `scripts/tools/multimodal/` 已退役删除）；阶段一 uv 依赖落地后自动纳入 |
 | `gitlabci`（.gitlab-ci.yml 的 docker 镜像） | 禁用 | mjbk 到 Docker Hub 不可达，且 `registryAliases` 对无前缀镜像不生效（Renovate #20225）；CI 镜像为刻意锁版本，不自动升 |
 
-> Renovate 对自托管 GitLab 全本地运行（平台操作走本地 API），查新走各语言官方 registry（PyPI 可达），零 GitHub 依赖（《[开发部署规划](../../../规划/开发部署规划.md)》4.5）；`GITHUB_COM_TOKEN` 仅用于个别依赖的版本数据源查询。
+> Renovate 对自托管 GitLab 全本地运行（平台操作走本地 API），查新走各语言官方 registry（PyPI 可达），零 GitHub 依赖（平台《开发部署规划》4.5）；`GITHUB_COM_TOKEN` 仅用于个别依赖的版本数据源查询。
 
 占位符取值：`<mjbk-IP>`、`<SSH账号>` 见《[本地资源](../../../用户文档/本地资源.md)》与 mjbk 本机 `deploy/.env`。
 
@@ -168,8 +168,8 @@ flowchart TD
 
 - 《[GitLab部署使用说明](GitLab部署使用说明.md)》：renovate 服务的 compose 宿主与 PAT 管理
 - 《[Renovate技术介绍](../../知识档案/部署与运维/Renovate技术介绍.md)》：选型依据与能力边界
-- 《[06 Renovate 与 GitHub 归档](../../../项目/00_准备期/任务/02_仓库与CI_06_Renovate与GitHub归档/02_仓库与CI_06_Renovate与GitHub归档.md)》：需求落地记录（含 GitHub push mirror 口径）
-- 《[开发部署规划](../../../规划/开发部署规划.md)》：4.5 GitLab 与 CI 基础设施、11 节外网依赖风险
+- 本项目《06 Renovate 与 GitHub 归档》：需求落地记录（含 GitHub push mirror 口径）
+- 平台《开发部署规划》：4.5 GitLab 与 CI 基础设施、11 节外网依赖风险
 - 《[命名规范](../../../规范/命名规范.md)》：容器名 `bms-组件` 口径
 
 > 依《[文档生成规范](../../../规范/文档生成规范.md)》编写 · 记录 2026-08-22 编排落地、2026-08-23 启用修正全过程
