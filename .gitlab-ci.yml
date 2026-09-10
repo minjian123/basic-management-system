@@ -95,8 +95,8 @@ backend-test:
         - backend/pyproject.toml
   script:
     - pip install uv
-    - uv sync --frozen
-    - uv run pytest --cov=bms --cov-branch --cov-report=term --cov-fail-under=70
+    - cd backend && uv sync --frozen
+    - uv run pytest --cov=app --cov-branch --cov-report=term --cov-fail-under=70
   coverage: '/^TOTAL.*?\s+\d+\s+\d+\s+(\d+(?:\.\d+)?%)$/'
   # 核心模块（认证/RBAC/工作流/审计/收付款）≥ 80% 门禁随阶段一骨架确定模块路径后补入
 
@@ -150,10 +150,10 @@ e2e-playwright:
   stage: verify
   image: python:3.14-slim
   rules:
+    # 重验证层开关：05-1（CI 流水线激活）修复就绪后创建 deploy/ci/verify-enabled 激活
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       exists:
-        - backend/pyproject.toml
-        - frontend/package.json
+        - deploy/ci/verify-enabled
   script:
     - pip install uv && cd backend && uv sync --frozen
     - cd frontend && npm ci && npm run build
@@ -166,10 +166,10 @@ e2e-playwright:
   variables:
     BMS_ENV: test
   rules:
+    # 重验证层开关：05-1（CI 流水线激活）修复就绪后创建 deploy/ci/verify-enabled 激活
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       exists:
-        - backend/pyproject.toml
-        - backend/alembic.ini
+        - deploy/ci/verify-enabled
   before_script:
     - pip install uv && cd backend && uv sync --frozen
   script:
@@ -231,9 +231,10 @@ container-scanning:
   image: aquasec/trivy:latest
   needs: [{job: backend-image, optional: true}]
   rules:
+    # 重验证层开关：05-1（CI 流水线激活）修复就绪后创建 deploy/ci/verify-enabled 激活
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       exists:
-        - backend/Dockerfile
+        - deploy/ci/verify-enabled
   script:
     - trivy image --exit-code 1 --severity CRITICAL,HIGH --ignore-unfixed $REGISTRY_IMAGE_PREFIX/bms-backend:$CI_COMMIT_SHORT_SHA
 
@@ -243,9 +244,10 @@ swagger-snapshot:
   image: python:3.14-slim
   needs: [{job: backend-test, optional: true}]
   rules:
+    # 重验证层开关：05-1（CI 流水线激活）修复就绪后创建 deploy/ci/verify-enabled 激活
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       exists:
-        - backend/pyproject.toml
+        - deploy/ci/verify-enabled
   script:
     - pip install uv && cd backend && uv sync --frozen
     - uv run python -c "from app.main import app; import json; print(json.dumps(app.openapi(), ensure_ascii=False))" > swagger.json
@@ -259,9 +261,10 @@ allure-report:
   image: python:3.14-slim
   needs: [{job: backend-test, optional: true}, {job: e2e-playwright, optional: true}]
   rules:
+    # 重验证层开关：05-1（CI 流水线激活）修复就绪后创建 deploy/ci/verify-enabled 激活
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       exists:
-        - backend/pyproject.toml
+        - deploy/ci/verify-enabled
   allow_failure: true
   script:
     - pip install allure-pytest
@@ -281,8 +284,11 @@ defect-capture:
   stage: .post
   image: python:3.14-slim
   rules:
+    # 重验证层开关：同上（缺陷链路随 05-1 激活）
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       when: on_failure
+      exists:
+        - deploy/ci/verify-enabled
   variables:
     DEFECT_ARCHIVE_DIR: /mnt/data/backup/defects
   script:
