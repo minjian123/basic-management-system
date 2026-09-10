@@ -130,7 +130,7 @@
         storage: { used: 32.5, limit: 100 },
         api: { used: 3421, limit: 10000 }
       });
-      var mods = ref(['采购', '收付款', '供应商']);
+      var mods = ref(['biz·采购', 'biz·收付款', 'biz·供应商']);
 
       function quotaPct(q) { return Math.round(q.used / q.limit * 100); }
       function editForm() { editing.value = true; toastMsg('已进入编辑态（字段启用）'); }

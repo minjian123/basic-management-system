@@ -36,9 +36,9 @@
           <div><div style="font-size:22px;font-weight:700;color:#0969da">{{ todoNum }}</div><div class="proto-hint" style="font-size:11px">待办</div></div>
           <div><div style="font-size:22px;font-weight:700;color:#2da44e">12</div><div class="proto-hint" style="font-size:11px">已办</div></div>
         </div>
-        <div class="proto-hint" style="font-size:12px">采购申请-20260801 待审批</div>
-        <div class="proto-hint" style="font-size:12px">付款申请-20260802 待审批</div>
-        <div class="proto-hint" style="font-size:12px">采购申请-20260805 待审批</div>
+        <div class="proto-hint" style="font-size:12px">业务单据-20260801 待审批</div>
+        <div class="proto-hint" style="font-size:12px">付款单据-20260802 待审批</div>
+        <div class="proto-hint" style="font-size:12px">业务单据-20260805 待审批</div>
       </el-card>
       <el-card class="wb-card" :body-style="{padding:'12px 14px'}" shadow="hover" style="grid-column:span 4" @click="toast('原型演示：跳转「通知中心」')">
         <div class="wb-t">通知 <el-tag size="small" type="danger">3 未读</el-tag></div>
@@ -49,9 +49,7 @@
       <el-card class="wb-card" :body-style="{padding:'12px 14px'}" shadow="hover" style="grid-column:span 4">
         <div class="wb-t">快捷入口</div>
         <div class="quick">
-          <div class="q" @click="toast('原型演示：跳转「采购申请」')">采购申请</div>
-          <div class="q" @click="toast('原型演示：跳转「收款登记」')">收款登记</div>
-          <div class="q" @click="toast('原型演示：跳转「付款申请」')">付款申请</div>
+          <div class="q" @click="toast('原型演示：跳转「业务单据示例」')">业务单据</div>
           <div class="q" @click="toast('原型演示：跳转「报表中心」')">报表中心</div>
         </div>
       </el-card>
@@ -70,7 +68,7 @@
         </div>
       </el-card>
       <el-card class="wb-card" :body-style="{padding:'12px 14px'}" shadow="hover" style="grid-column:span 12" @click="toast('原型演示：图表卡数据来自报表数据集（只读从库）')">
-        <div class="wb-t">收付款趋势 <span class="proto-hint" style="font-weight:400;font-size:12px">数据集：本月收付款流水</span></div>
+        <div class="wb-t">业务流水趋势 <span class="proto-hint" style="font-weight:400;font-size:12px">数据集：本月业务流水</span></div>
         <div style="display:flex;gap:14px;font-size:12px;color:#57606a;margin-top:4px">
           <span><i style="display:inline-block;width:10px;height:10px;background:#54aeff;border-radius:2px;margin-right:4px"></i>收款</span>
           <span><i style="display:inline-block;width:10px;height:10px;background:#0969da;border-radius:2px;margin-right:4px"></i>付款</span>

@@ -182,11 +182,11 @@
         { id: 2, code: 'dashboard', desc: '首页工作台', owner: '系统管理员' },
         { id: 3, code: 'formdesign', desc: '表单定制', owner: '系统管理员' },
         { id: 4, code: 'wf', desc: '工作流（定义/审批/查询）', owner: '普通角色' },
-        { id: 5, code: 'purchase', desc: '采购申请/订单/供应商', owner: '普通角色' }
+        { id: 5, code: 'biz_example', desc: '业务示例模块权限码（产品仓库登记）', owner: '普通角色' }
       ]);
       var actRows = ref([
         { id: 1, code: 'query', biz: '（多业务共用）', typical: 'wf:query、monitor:view' },
-        { id: 2, code: 'create', biz: '（多业务共用）', typical: 'user:create、purchase:create' },
+        { id: 2, code: 'create', biz: '（多业务共用）', typical: 'user:create、wf:create' },
         { id: 3, code: 'approve', biz: 'wf', typical: 'wf:approve' },
         { id: 4, code: 'manage', biz: 'dashboard / formdesign', typical: 'dashboard:manage、formdesign:manage' }
       ]);

@@ -74,8 +74,8 @@
             <el-col :span="8">
               <el-form-item label="数据集">
                 <el-select v-model="form.dataset" style="width:100%">
-                  <el-option label="采购申请统计" value="采购申请统计"></el-option>
-                  <el-option label="收付款趋势" value="收付款趋势"></el-option>
+                  <el-option label="业务单据统计" value="业务单据统计"></el-option>
+                  <el-option label="业务流水趋势" value="业务流水趋势"></el-option>
                   <el-option label="待办统计" value="待办统计"></el-option>
                 </el-select>
               </el-form-item>
@@ -122,8 +122,8 @@
     setup: function () {
       var editing = ref(false);
       var form = reactive({
-        id: null, code: 'stats_apply', name: '采购申请统计',
-        type: 'dataset', dataset: '采购申请统计', chartType: '柱状图',
+        id: null, code: 'stats_apply', name: '业务单据统计',
+        type: 'dataset', dataset: '业务单据统计', chartType: '柱状图',
         width: 6, height: 4, status: true
       });
       // 由列表页双击打开时（?id=&name=）回填：id=卡片 code（编辑态锁定），name=卡片名称

@@ -127,8 +127,8 @@
         </el-form-item>
         <el-form-item v-if="dlg.type === 'dataset'" label="数据集（rpt_dataset）">
           <el-select v-model="dlg.dataset" style="width:100%">
-            <el-option label="本月收付款流水" value="本月收付款流水"></el-option>
-            <el-option label="采购订单金额" value="采购订单金额"></el-option>
+            <el-option label="本月业务流水" value="本月业务流水"></el-option>
+            <el-option label="业务订单金额" value="业务订单金额"></el-option>
             <el-option label="审批时长分布" value="审批时长分布"></el-option>
           </el-select>
         </el-form-item>
@@ -174,13 +174,13 @@
       var cards = ref([
         { code: 'todo', name: '待办/已办', type: 'builtin', source: '工作流接口', size: '4×2', status: true },
         { code: 'notice', name: '通知', type: 'builtin', source: '通知中心接口', size: '4×2', status: true },
-        { code: 'stats_flow', name: '收付款趋势', type: 'dataset', source: '数据集 flow_month', dataset: '本月收付款流水', chartType: '柱状图', size: '12×4', status: true },
+        { code: 'stats_flow', name: '业务流水趋势', type: 'dataset', source: '数据集 flow_month', dataset: '本月业务流水', chartType: '柱状图', size: '12×4', status: true },
         { code: 'announce', name: '公告', type: 'builtin', source: '公告接口', size: '4×2', status: false }
       ]);
       var query = reactive({ kw: '', type: '', status: '', page: 1, size: 10 });
       var more = ref(false);
       var selRows = ref([]);
-      var dlg = reactive({ visible: false, id: null, code: '', name: '', type: 'dataset', dataset: '本月收付款流水', chartType: '柱状图', size: '6×4', status: true });
+      var dlg = reactive({ visible: false, id: null, code: '', name: '', type: 'dataset', dataset: '本月业务流水', chartType: '柱状图', size: '6×4', status: true });
       var filtered = computed(function () {
         return cards.value.filter(function (r) {
           var text = (r.code + r.name + r.source).toLowerCase();
@@ -250,14 +250,14 @@
       }
       function openNew() {
         dlg.visible = true; dlg.id = null;
-        dlg.code = 'stats_apply'; dlg.name = '采购申请统计';
-        dlg.type = 'dataset'; dlg.dataset = '本月收付款流水'; dlg.chartType = '柱状图';
+        dlg.code = 'stats_apply'; dlg.name = '业务单据统计';
+        dlg.type = 'dataset'; dlg.dataset = '本月业务流水'; dlg.chartType = '柱状图';
         dlg.size = '6×4'; dlg.status = true;
       }
       function openEdit(row) {
         dlg.visible = true; dlg.id = row.code;
         dlg.code = row.code; dlg.name = row.name; dlg.type = row.type;
-        dlg.dataset = row.dataset || '本月收付款流水'; dlg.chartType = row.chartType || '柱状图';
+        dlg.dataset = row.dataset || '本月业务流水'; dlg.chartType = row.chartType || '柱状图';
         dlg.size = row.size; dlg.status = row.status;
       }
       function delCardDrawer() {

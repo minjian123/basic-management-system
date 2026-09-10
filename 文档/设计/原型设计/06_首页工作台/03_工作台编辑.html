@@ -86,8 +86,8 @@
       <el-form label-position="top">
         <el-form-item label="选择数据集">
           <el-select v-model="chart.dataset" style="width:100%">
-            <el-option label="本月收付款流水" value="本月收付款流水"></el-option>
-            <el-option label="采购订单金额" value="采购订单金额"></el-option>
+            <el-option label="本月业务流水" value="本月业务流水"></el-option>
+            <el-option label="业务订单金额" value="业务订单金额"></el-option>
             <el-option label="审批时长分布" value="审批时长分布"></el-option>
           </el-select>
         </el-form-item>
@@ -127,16 +127,16 @@
       var cards = ref([
         { id: 'todo', name: '待办', desc: '待办 4 · 已办 12', col: 4, row: 2, visible: true },
         { id: 'notice', name: '通知', desc: '3 未读 · 审批通过提醒', col: 4, row: 2, visible: true },
-        { id: 'quick', name: '快捷入口', desc: '采购申请 / 收款登记 / 付款申请 / 报表', col: 4, row: 2, visible: true },
-        { id: 'stats', name: '数据统计', desc: '本月收款 ¥1.2万 · 待审批 4', col: 6, row: 2, visible: true },
-        { id: 'chart', name: '收付款趋势', desc: '数据集图表卡 · 底部手柄可调整尺寸', col: 6, row: 2, visible: true },
+        { id: 'quick', name: '快捷入口', desc: '业务单据 / 报表 / 待办 / 新模块', col: 4, row: 2, visible: true },
+        { id: 'stats', name: '数据统计', desc: '本月流水 ¥1.2万 · 待审批 4', col: 6, row: 2, visible: true },
+        { id: 'chart', name: '业务流水趋势', desc: '数据集图表卡 · 底部手柄可调整尺寸', col: 6, row: 2, visible: true },
         { id: 'announce', name: '公告', desc: '系统公告与通知', col: 4, row: 2, visible: false },
         { id: 'help', name: '帮助入口', desc: '操作帮助与文档', col: 4, row: 2, visible: false }
       ]);
       var drawerCards = ref(false);
       var drawerChart = ref(false);
       var dragId = ref(null);
-      var chart = ref({ dataset: '本月收付款流水', type: '柱状图', size: '6×2' });
+      var chart = ref({ dataset: '本月业务流水', type: '柱状图', size: '6×2' });
       var visibleCards = computed(function () { return cards.value.filter(function (c) { return c.visible; }); });
       var hiddenCards = computed(function () { return cards.value.filter(function (c) { return !c.visible; }); });
       var addBuiltins = [
