@@ -1,10 +1,11 @@
 """services 层基类：通用 CRUD 委派与统一不存在语义。"""
 
+from app.core.base import BaseObject
 from app.core.exceptions import NotFoundError
 from app.repositories.base_repository import BaseRepository
 
 
-class BaseService[ModelT]:
+class BaseService[ModelT](BaseObject):
     """业务服务基类：包装仓储通用 CRUD，不存在统一抛 NotFoundError。"""
 
     def __init__(self, repository: BaseRepository[ModelT]) -> None:
