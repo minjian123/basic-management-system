@@ -31,6 +31,7 @@ workflow:
           - bms文档/基座文档清单.md
 
 stages:
+  - prepare
   - lint
   - test
   - build
@@ -48,6 +49,17 @@ variables:
 
 default:
   tags: [bms]
+
+# ---- CI 基础镜像：按锁文件哈希自动重建（prepare 阶段先于业务 job；同宿主 daemon 本流水线即用）----
+ci-base-build:
+  stage: prepare
+  image:
+    name: docker:27-cli
+    entrypoint: [""]
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  script:
+    - sh deploy/ci/build-base.sh
 
 # ---- 门禁冒烟：所有流水线无条件必跑 ----
 # 阶段一代码落地前，流水线仅含本 job（4-6 秒）；代码目录出现后 lint/test 自动激活，
@@ -74,7 +86,7 @@ base-integrity:
 # ---- 后端：ruff + pytest（SQLite）----
 backend-lint:
   stage: lint
-  image: python:3.14-slim
+  image: $REGISTRY_IMAGE_PREFIX/ci-backend:py314
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       exists:
@@ -83,12 +95,11 @@ backend-lint:
       exists:
         - backend/pyproject.toml
   script:
-    - pip install ruff
-    - cd backend && ruff check .
+    - cd backend && uv run ruff check .
 
 backend-test:
   stage: test
-  image: python:3.14-slim
+  image: $REGISTRY_IMAGE_PREFIX/ci-backend:py314
   variables:
     BMS_ENV: test
   rules:
@@ -99,16 +110,14 @@ backend-test:
       exists:
         - backend/pyproject.toml
   script:
-    - pip install uv
-    - cd backend && uv sync --frozen
-    - uv run pytest --cov=app --cov-branch --cov-report=term --cov-fail-under=70
+    - cd backend && uv run pytest --cov=app --cov-branch --cov-report=term --cov-fail-under=70
   coverage: '/^TOTAL.*?\s+\d+\s+\d+\s+(\d+(?:\.\d+)?%)$/'
   # 核心模块（认证/RBAC/工作流/审计/收付款）≥ 80% 门禁随阶段一骨架确定模块路径后补入
 
 # ---- 前端：ESLint + Vitest + 双端构建 ----
 frontend-check:
   stage: test
-  image: node:22-slim
+  image: $REGISTRY_IMAGE_PREFIX/ci-frontend:node22
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       exists:
@@ -117,13 +126,12 @@ frontend-check:
       exists:
         - frontend/package.json
   script:
-    - cd frontend && npm ci
-    - npm run lint
-    - npm run test
+    - rm -rf frontend/node_modules && cp -a /opt/ci/frontend/node_modules frontend/node_modules
+    - cd frontend && npm run lint && npm run test
 
 frontend-build:
   stage: build
-  image: node:22-slim
+  image: $REGISTRY_IMAGE_PREFIX/ci-frontend:node22
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       exists:
@@ -132,11 +140,12 @@ frontend-build:
       exists:
         - frontend/package.json
   script:
-    - cd frontend && npm ci && npm run build
+    - rm -rf frontend/node_modules && cp -a /opt/ci/frontend/node_modules frontend/node_modules
+    - cd frontend && npm run build
 
 frontend-mobile-build:
   stage: build
-  image: node:22-slim
+  image: $REGISTRY_IMAGE_PREFIX/ci-frontend:node22
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       exists:
@@ -145,7 +154,8 @@ frontend-mobile-build:
       exists:
         - frontend-mobile/package.json
   script:
-    - cd frontend-mobile && npm ci && npm run build
+    - rm -rf frontend-mobile/node_modules && cp -a /opt/ci/frontend-mobile/node_modules frontend-mobile/node_modules
+    - cd frontend-mobile && npm run build
 
 # ==== main 流水线重验证层（《开发部署规划》第 7 节 3）====
 # 全部 job 以 exists 守卫——阶段一代码落地后自动激活，此前 main 流水线空载（仅 gate-smoke）。
