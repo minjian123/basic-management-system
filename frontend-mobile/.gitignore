@@ -12,8 +12,9 @@ dist
 dist-ssr
 *.local
 
-# Editor directories and files
+# Editor directories and files（放行可共享的 settings.json / extensions.json）
 .vscode/*
+!.vscode/settings.json
 !.vscode/extensions.json
 .idea
 .DS_Store
