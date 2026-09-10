@@ -244,6 +244,8 @@ class Demo:
 | demo 更新 | 接口 | PUT `/{id}` → 200、名称变更；再查一致 |
 | demo 删除 | 接口 | DELETE `/{id}` → 200；再查 404 |
 | demo 查询不存在 | 接口 | GET `/{id}`（不存在）→ 404（只断言状态码，body 结构留 02-3 统一） |
+| demo 更新不存在 | 接口 | PUT `/{id}`（不存在）→ 404（失败分支） |
+| demo 删除不存在 | 接口 | DELETE `/{id}`（不存在）→ 404（失败分支） |
 
 **隔离性**：`conftest.py` 的 `client` 夹具每用例创建独立应用实例，`demo_service` 挂 `app.state` 随之隔离，无跨用例污染。
 
@@ -251,12 +253,12 @@ class Demo:
 
 按序执行，每步附验证点：
 
-1. **Kiwi 登记**：先登记 demo 全量 CRUD 用例（6 条）并取得用例 ID（沿用产品「BMS 基础管理系统」/ 分类「平台骨架」）。
+1. **Kiwi 登记**：先登记 demo 全量 CRUD 用例（8 条，含成功与不存在失败分支）并取得用例 ID（沿用产品「BMS 基础管理系统」/ 分类「平台骨架」）。
 2. **分层目录**：建 `core/api/models/schemas/services/repositories/db/tasks/ws/i18n` 与各层 `__init__.py` 职责 docstring（§3/§4）。
 3. **占位文件**：写 8 个占位模块（§5）与 `alembic/README.md`。
 4. **demo 四件套**：models/schemas/repositories/services（内存实现，§7）。
 5. **路由**：新增 `api/health.py`（迁入 `/healthz`）、`api/demo.py`、`api/router.py`；`main.py` 接入聚合与 `app.state.demo_service`，保留根路由。
-6. **测试**：重组 `tests/api/` 并把现有用例迁入；新增 `test_demo.py`（6 条，标注 `kiwi_id`）。
+6. **测试**：重组 `tests/api/` 并把现有用例迁入；新增 `test_demo.py`（8 条，标注 `kiwi_id`）。
 7. **更新 README**：backend 与根 README 目录树同步为 03 完成态。
 8. **验证**：`uv run ruff check .`、`uv run pyright`、`uv run pytest`、`uvicorn` + `curl`（`/api/v1/demos` CRUD、`/healthz`、`/`、`/docs`）。
 9. **提交**：经用户明确指令后再 `git commit`（遵循工作区根《AGENTS.md》提交纪律）。
@@ -287,7 +289,7 @@ class Demo:
 | 1 | 分层占位形态 | 占位文件**仅 docstring + TODO**，不定义符号（归 02/03 域任务填充） | §5 |
 | 2 | demo 实现 | **内存字典 CRUD**，api→service→repository 真实走通；03 域替换 repository | §7 |
 | 3 | 路由前缀 | 业务路由经聚合挂 **`/api/v1`**；`/healthz` 与根路由保持根路径 | §6 |
-| 4 | 测试范围 | **全量 CRUD 用例**（6 条）+ 既有 2 条；用例**先登记 Kiwi 再写代码** | §9 |
+| 4 | 测试范围 | **全量 CRUD 用例**（8 条：成功 + 不存在失败分支）+ 既有 2 条；用例**先登记 Kiwi 再写代码** | §9 |
 | 5 | tests 同构 | 接口测试收 `tests/api/`；其余同构子目录随用例按需创建（不建空目录） | §3/§9 |
 | 6 | alembic 占位 | `alembic/README.md` 目录占位，迁移体系由 03-6 交付 | §5 |
 
