@@ -47,7 +47,7 @@ vaInitialize failed: unknown libva error
 
 ### 2.3 结论 <a id="conclusion"></a>
 
-**根本原因不是 snap 版的问题，也和「输入法跟随光标」的配置无关**，而是本机 **NVIDIA 显卡（RTX 4090、驱动 595.84）与 Electron 应用的 Vulkan/Wayland 初始化不兼容**。
+**根本原因不是 snap 版的问题，也和「输入法跟随光标」的配置无关**，而是本机 **NVIDIA 显卡（RTX 4090、驱动 595.91.07）与 Electron 应用的 Vulkan/Wayland 初始化不兼容**。
 
 - 这个崩溃在 **snap 版**和 **.deb 版**上**都能复现**，证明与打包方式无关；
 - 用 `--ozone-platform=x11` 回退 XWayland**仍然崩溃**（试图切 X11 后 GPU 进程依然 SIGSEGV），说明问题不在 Wayland 本身，而在 GPU 进程初始化；
@@ -76,7 +76,7 @@ CLI 需用官方二进制**单独装回**（见[第 5 节](#cli)），与 deskto
 | --- | --- |
 | 系统 | Ubuntu 26.04.1 LTS（resolute），x86_64 |
 | 桌面 | GNOME（`XDG_SESSION_TYPE=wayland`） |
-| 显卡 | NVIDIA GeForce RTX 4090（AD102），驱动 595.84 |
+| 显卡 | NVIDIA GeForce RTX 4090（AD102），驱动 595.91.07 |
 | opencode（.deb 版，desktop） | 1.18.25 |
 | 安装路径（desktop） | `/opt/OpenCode/ai.opencode.desktop` |
 | 启动器（desktop） | `ai.opencode.desktop`（`/usr/bin/ai.opencode.desktop`，指向 `/opt/OpenCode/ai.opencode.desktop`） |
