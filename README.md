@@ -81,7 +81,7 @@ bms/
 │   ├── alembic/              # 迁移目录占位（03-6 填充）
 │   ├── README.md             # 工程说明
 │   ├── app/                  # 分层：core / api / models / schemas / services / repositories / db / tasks / ws / i18n
-│   └── tests/                # 接口测试（api/ 同构）
+│   └── tests/                # 测试（与 app 同构：api/repositories/services/schemas）
 ├── frontend/                 # Vue 3 + Vite PC 管理端（01 最小占位，04 细化）
 │   ├── .nvmrc                # 固定 Node 版本（22）
 │   ├── package.json
