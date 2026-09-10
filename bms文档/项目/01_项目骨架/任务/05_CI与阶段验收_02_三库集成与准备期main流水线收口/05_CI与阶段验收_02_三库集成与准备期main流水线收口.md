@@ -20,7 +20,7 @@
 ## 2. 任务内容 <a id="content"></a>
 
 1. 三库集成 job 流程：连接 mjbk 常驻 MySQL/PostgreSQL/达梦 DM8，各建 `bms_test` 前缀独立测试库 → Alembic 三套方言迁移 → 集成测试 → 删库清理（失败也清理，留 REPRO 走准备期缺陷上报链路）
-2. 集成用例清单（pytest 标记 integration）：三库迁移建表（sys_tenant + sys_module 字段/索引一致）；基类行为（审计自动填充/软删除复合唯一索引/乐观锁冲突）；拓扑路由（demo 读写落租户库、跨租户不可见）；模块注册（平台域种子 4 行一致、冲突种子启动被拒）；健康检查（测试库为 database 依赖）
+2. 集成用例清单（pytest 标记 integration）：三库迁移建表（sys_tenant + sys_module 字段/索引一致）；基类行为（审计自动填充/软删除复合唯一索引/乐观锁冲突）；拓扑路由（demo 读写落租户库、跨租户不可见）；模块注册（平台域种子 4 行一致、冲突种子启动被拒）；健康检查（测试库为 database 依赖）；Redis 有序封装（真实 Redis：Lua 原子复合操作、WATCH 乐观重试、版本号一致性；用例在 `tests/integration/test_redis_collections_integration.py`，经 `BMS_TEST_REDIS_URL` 注入连接）
 3. 准备期 main 流水线端到端验证收口：E2E、三库集成、镜像推 Registry、契约快照、Allure 导入 Kiwi 以真实数据全部跑通后——回写准备期文档（准备期 main 流水线状态改已完成 + 完成日期 + 00 计划清空剩余排期行）
 4. 测试库命名与清理：bms_test 前缀，清理删库不留残留；达梦 schema bms_test 口径
 
