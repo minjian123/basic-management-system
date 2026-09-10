@@ -44,16 +44,17 @@ frontend-mobile/
 ├── src/
 │   ├── main.ts             # 挂载 router / pinia / i18n + 安全区样式
 │   ├── App.vue             # 路由出口
-│   ├── api/                # 同款 Axios 基线与契约类型
+│   ├── api/                # 同款契约类型 / BaseApi / Axios 基线
 │   ├── router/             # routes.ts（动态路由骨架）
-│   ├── stores/             # useUserStore（token 仅内存）
+│   ├── stores/             # base.ts（createCrudStore）/ useUserStore（token 仅内存）
 │   ├── views/              # HomeView（默认页）
 │   ├── components/         # 组件（占位）
 │   ├── i18n/               # index + zh-CN / en-US（含 error.{code} 占位）
 │   ├── styles/             # safe-area.scss（安全区变量）
-│   └── utils/              # 工具（占位）
+│   └── utils/              # serialize.ts（stableStringify）/ 工具占位
 └── tests/
-    └── home.spec.ts        # 默认页冒烟（Kiwi 20）
+    ├── home.spec.ts        # 默认页冒烟（Kiwi 20）
+    └── base.spec.ts        # 基础类用例（Kiwi 22）
 ```
 
 ## 文档导航
