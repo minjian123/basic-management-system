@@ -51,10 +51,12 @@ frontend-mobile/
 │   ├── components/         # 组件（占位）
 │   ├── i18n/               # index + zh-CN / en-US（含 error.{code} 占位）
 │   ├── styles/             # safe-area.scss（安全区变量）
-│   └── utils/              # serialize.ts（stableStringify）/ 工具占位
+│   └── utils/              # 基座：useRequest/useListPage/validators/useTabs/status/serialize
 └── tests/
+    ├── helpers/            # mountWithPlugins 测试基座
     ├── home.spec.ts        # 默认页冒烟（Kiwi 20）
-    └── base.spec.ts        # 基础类用例（Kiwi 22）
+    ├── base.spec.ts        # 基础类用例（Kiwi 22）
+    └── utils.spec.ts       # 公共基座用例（Kiwi 24）
 ```
 
 ## 文档导航
