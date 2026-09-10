@@ -30,7 +30,7 @@
 | `scripts/` | 已含 `tools/` 工具链（含 `base-check` 基座自检）+ `README.md`（三分法已落地） | 承接开发期工具链（自 `deploy/tools/` 迁入）+ 目录说明 `README.md` | 已落地，核对清单 |
 | `ops/` | 已有 `README.md`（目录说明已就位） | 产品运维脚本目录（脚本后续阶段填充） | 已落地，核对内容 |
 | `graphify-out/`（工作区根） | 工作区层图谱产物 | 不属 bms 仓，本任务不处理（见下方工作区说明） | — |
-| `README.md` | 缺「快速启动」章节、无技术栈概览表；Python 徽标为 3.12+；文档目录树漏 `测试/`、`项目/` | 按四章节重写 | 重写 |
+| `README.md` | 缺「快速启动」章节、无技术栈概览表；Python 徽标为 3.12+；文档目录树漏 `基座文档清单.md`、`项目/` | 按四章节重写 | 重写 |
 | `.gitignore` | 已有 `node_modules/`；编辑器规则为注释态；无 `*.local` | 补编辑器 / `*.local` | 修改 |
 | `.editorconfig` | 缺失 | 新建 | 新建 |
 | `.gitlab-ci.yml` | 存在（内容非 01 范围） | 保留 | — |
@@ -85,12 +85,12 @@ bms/
 ├── ops/                      # 产品运维脚本（种子数据、备份恢复、租户库迁移，按阶段补充）
 │   └── README.md             # 目录说明
 ├── bms文档/                  # 项目文档
+│   ├── 基座文档清单.md        # 通用基座权威清单（产品不复制）
 │   ├── 文档首页.md            # 全量导航
 │   ├── 规划/
 │   ├── 规范/
 │   ├── 设计/
 │   ├── 项目/                 # 需求 / 计划 / 任务（00_准备期、01_项目骨架 …）
-│   ├── 测试/
 │   ├── 资料/
 │   ├── 用户文档/              # 本地资源（已 gitignore）
 │   └── 资源/
@@ -139,7 +139,7 @@ bms/
 
 **快速启动**（三工程命令，均可复制执行）：
 
-```powershell
+```bash
 # 前置：Python 3.14（uv 管理）、Node 22（nvm 管理）
 
 # 后端（端口 8000）
@@ -412,7 +412,7 @@ createApp(App).mount('#app')
 4. **其余说明文件**：核对 `scripts/README.md`、`ops/README.md`（已存在，删 multimodal 词条、补 `base-check`）；图谱产物归工作区根，不新建 `graphify-out/README.md`。
 5. **根 .gitignore**：按 §5 追加 / 替换规则；保留现有 Python 模板主体。
 6. **根 .editorconfig**：按 §6 新建。
-7. **根 README**：按 §4 重写四章节、修正徽标、补技术栈概览表、补全目录树（含 `测试/`、`项目/`）。
+7. **根 README**：按 §4 重写四章节、修正徽标、补技术栈概览表、补全目录树（含 `基座文档清单.md`、`项目/`）。
 8. **整体验证**：
    - `git status` 干净、无 `.venv` / `node_modules` / `.env` 等应忽略产物出现（验证 §2 已知告警消失）；
    - `git check-ignore -v` 按 §5 抽查表逐项核对；
@@ -438,7 +438,7 @@ createApp(App).mount('#app')
 | Python 3.14 兼容性未知（dmPython / Celery / SpiffWorkflow 等） | 01 占位仅用 fastapi / uvicorn，风险低 | 06 逐依赖验证，不兼容整体回退 3.13（`.python-version`、`pyproject.toml` 的 `requires-python` 与 README 徽标同步改，并重新 `uv lock`） |
 | `uv` / `npm` 下载慢 | 国内网络 | 切换国内镜像（PyPI 用阿里云 / 清华源，npm 用淘宝 npmmirror 源），命令注明 |
 | Vite / 依赖版本漂移 | 占位版本随模板 | 以 `package-lock.json` / `uv.lock` 锁定，提交后复现 |
-| 根 `node_modules` 陈旧索引告警 | 见 §2 已知现象 | 加 `node_modules/` 忽略规则后验证，仍在则 `git update-index --again` |
+| 根 `node_modules` 陈旧索引告警 | 已随工作区模型消除（`.opencode` / `node_modules` 移至工作区根，bms 仓不再有该目录） | §10 步骤 8 以 `git status` 验证即可，无需额外处理 |
 | 三库口径跨文档旧表述 | 已全库订正并复核 | 订正《后端开发规范》§2、§10，《项目规划说明》§3.4，知识档案 3 处；复核 grep 仅剩概要设计07「双库引用」（平台库/租户库概念，非方言口径，不改） |
 
 > 本文档依《文档生成规范》编写
