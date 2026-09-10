@@ -36,7 +36,9 @@
 | `.gitlab-ci.yml` | 存在（内容非 01 范围） | 保留 | — |
 | `deploy/` | 已无 `tools/`（已迁入 `scripts/`） | 纯部署（Compose / nginx / setup） | 已落地 |
 | `bms文档/` | 存在 | 保留 | — |
-| `LICENSE`、`AGENTS.md`、`.graphifyignore`、`renovate.json` | 存在 | 保留 | — |
+| `LICENSE`、`renovate.json` | 存在 | 保留 | — |
+
+> 说明：`AGENTS.md`、`.opencode/`、`.graphifyignore` 与知识图谱产物 `graphify-out/` 位于**工作区根**（工作区模型，见《平台可扩展性规划》4.3），不在 bms 仓库根。
 
 > **已知 git 现象**：`git status` 干净，但告警 `could not open directory 'node_modules/.pnpm/node_modules/frontend/'`。根因为根目录 `node_modules/`（`.opencode` 的 pnpm store）残留的陈旧 untracked 缓存条目，该目录实际未被跟踪（`git ls-files node_modules` 为 0）。处理：本任务加入 `node_modules/` 忽略规则后重跑 `git status` 验证告警消失；若仍在，执行 `git update-index --again` 清理索引缓存。
 
@@ -48,7 +50,6 @@
 bms/
 ├── README.md                 # 本仓库说明（简介 / 快速启动 / 目录结构 / 文档导航）
 ├── LICENSE                   # MIT 许可
-├── AGENTS.md                 # AI 协作约定
 ├── .gitignore                # Python / Node / 环境与凭据 / 编辑器 / 图谱产物
 ├── .editorconfig             # 编辑器统一配置（UTF-8 / LF / 缩进）
 ├── .gitlab-ci.yml            # CI 流水线定义（GitLab CE，内容非 01 范围）
@@ -430,7 +431,7 @@ createApp(App).mount('#app')
    - `git check-ignore -v` 按 §5 抽查表逐项核对；
    - 模拟 fresh clone（`git clone` 到临时目录）后按根 README「快速启动」逐条执行三工程启动，确认照做可通；
    - 目录结构与《项目规划说明》§4 逐项一致。
-9. **提交**：经用户明确指令后再 `git commit`（遵循 AGENTS.md 提交纪律）。
+9. **提交**：经用户明确指令后再 `git commit`（遵循工作区根《AGENTS.md》提交纪律）。
 
 ## 11. 验收映射 <a id="accept-map"></a>
 
