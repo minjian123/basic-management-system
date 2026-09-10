@@ -33,10 +33,13 @@
 
 ## 基座同步（base-sync）
 
-- 通用基座（`文档/规范`、`文档/资料` 基础设施部分、`文档/资源`）以本仓库为**权威源**演进，产品仓库（cw、biz）订阅同步；基座文件全量清单见《[基座文档清单](文档/基座文档清单.md)》。
+- 通用基座（`文档/规范`、`文档/资料` 基础设施部分、`文档/资源`）以本仓库为**权威源**演进，产品仓库（cw、biz）订阅同步；基座文件全量清单见《[基座文档清单](文档/基座文档清单.md)》（分「同步文件 / 各仓库自带副本 / 清单本体」三类）。
 - **变更提示**：涉及基座路径的提交，提交信息注明「基座变更，产品仓库需同步」；随后按需运行同步：
   `python3 scripts/tools/base-sync/base-sync.py sync --target <产品仓库> --apply`（先 dry-run 审阅差异，见 `scripts/tools/base-sync/README.md`）。
+- **一致性自检（必须过）**：`python3 scripts/tools/base-sync/check-base.py`（基座链接自洽 + 无跨层引用 + 无措辞残留 + 清单与磁盘一致，CI job `base-integrity` 同款）；产品侧用 `base-sync.py check --target <产品仓库>`（有差异即退出码 1）。提交前可一次跑完：`bash scripts/tools/base-sync/pre-commit.sh`（产品仓库路径登记在 gitignore 的 `scripts/tools/base-sync/.targets`）。
+- **中性化口径**：基座文件的项目称谓用「本项目/本平台」（标识符 `bms`/`BMS_`/`bms_`/`bms:` 保留为平台默认标识）；指向平台专属文档（`文档/规划`、`文档/项目`、`文档/设计`）一律写「平台《文档名》」，**不写相对路径**（否则同步到产品侧必然断链）。
 - 产品侧独有文件（产品专属资料）不受同步影响，不删不覆盖；`文档/用户文档/` 凭据模板不参与同步。
+- `sync --apply` 会在目标仓库写入 `文档/.base-sync-baseline.json`（bms 提交号 + 逐文件 md5，不入库），用于识别「基座已删除」的产品侧残留。
 
 ## 网络与镜像
 
