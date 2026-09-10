@@ -52,6 +52,9 @@ def check_links():
                     if not path:
                         continue
                     tp = os.path.normpath(os.path.join(dp, path))
+                    trel = os.path.relpath(tp, ROOT)
+                    if trel.startswith(LOCAL_ONLY):
+                        continue  # 本地凭据文档不入库（gitignore）：存在与否不参与链接校验
                     if not os.path.exists(tp):
                         problems.append(f"[断链] {rel}:{i} -> {t}")
                         n_file += 1
