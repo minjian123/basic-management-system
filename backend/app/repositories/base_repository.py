@@ -2,8 +2,10 @@
 
 from abc import ABC, abstractmethod
 
+from app.core.base import BaseObject
 
-class BaseRepository[ModelT](ABC):
+
+class BaseRepository[ModelT](BaseObject, ABC):
     """仓储基类（内存基线）。
 
     子类只实现 _build/_apply 两个构造钩子；list/get/create/update/delete

@@ -29,10 +29,12 @@ backend/
 ├── alembic.ini       # 迁移配置占位（03-6 填充）
 ├── alembic/          # 迁移目录占位（03-6 填充）
 ├── README.md         # 本文件
+├── typings/          # 局部类型存根（sortedcontainers / fakeredis，pyright stubPath）
+├── benchmarks/       # 微基准（bench_collections.py，手动执行、CI 不跑）
 ├── app/
 │   ├── __init__.py   # 暴露 __version__
 │   ├── main.py       # 应用工厂：聚合路由 + 404 临时处理器
-│   ├── core/         # 配置 / 安全 / 异常（NotFoundError 占位，02 域填充）
+│   ├── core/         # 根基类/有序集合/并发集合/Redis 封装 + 配置/安全/异常占位
 │   ├── api/          # 路由：health（/healthz）+ demo（/api/v1/demos）
 │   ├── models/       # ORM 模型（base 占位、demo 内存模型）
 │   ├── schemas/      # Pydantic 模型（base 基类、common 占位、demo 请求/响应）
@@ -45,6 +47,7 @@ backend/
 └── tests/
     ├── conftest.py   # ASGITransport 客户端夹具
     ├── api/          # 接口测试：test_main / test_health / test_demo
+    ├── core/         # 根基类/集合/并发/Redis 测试
     ├── repositories/ # 基类测试：test_base_repository
     ├── services/     # 基类测试：test_base_service
     └── schemas/      # 基类测试：test_base_schema
