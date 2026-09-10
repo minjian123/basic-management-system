@@ -32,8 +32,8 @@ llama.cpp 是 C/C++ 实现的本地大模型推理引擎，自带 `llama-server`
 | 项 | 值 |
 | --- | --- |
 | 主机 | mjpc（内网 `192.168.0.124`） |
-| GPU | NVIDIA GeForce RTX 4090，显存 24564 MiB，驱动 595.84 |
-| 编译工具链 | GCC/GNU 15.2.0（Linux x86_64）+ CUDA（`nvcc`） |
+| GPU | NVIDIA GeForce RTX 4090，显存 24564 MiB，驱动 595.91.07 |
+| 编译工具链 | GCC/GNU 15.2.0（Linux x86_64）+ CUDA 13.4.1（`nvcc` V13.4.59，`/usr/local/cuda-13.4`） |
 | llama.cpp | 0.3.0-dev（build 87，commit `9d81721`），CMake Release，CUDA 开启 |
 | 源码目录 | `/home/minjian/develop/llama.cpp` |
 | 模型目录 | `/home/minjian/ai/models/` |
@@ -308,6 +308,20 @@ Qwen3.8-27B 的"思考强度"没有独立模型参数，由 chat 模板（第 3.
 - **速度优先**：确认 `-ngl 999` 与 `--flash-attn on` 已开、编译期 `GGML_CUDA_FA_ALL_QUANTS=ON`（3.1 节）；`-c` 不宜远超实际所需（cache 按上限预留）。
 - **推测解码参数**：27B dense 模型用 `--spec-type ngram-mod --spec-ngram-mod-n-match 16 --spec-ngram-mod-n-min 32 --spec-ngram-mod-n-max 64`（2026-09-01 大样本 A/B 实测：重复文本场景接受率 0.79–1.00、吞吐最高 261 tok/s，默认参数同场景最低 0%、45 tok/s；问答场景两者均无草稿，代码场景相近）。提速效果看服务日志 `draft acceptance rate`。
 - **换模型**：直接运行对应脚本（`qwen-ud/std/unc.sh`），无需改任何配置；opencode 侧 `models` 别名均已注册。
+
+> **推测解码实测（2026-09-10，CUDA 13.4 重编后复测；同 commit `9d81721` / build 87）**
+>
+> 27B Q4 合成重复场景，`n_predict=256`，取复用缓存上下文的第二次请求：
+>
+> | 配置 | 生成速度 | 草稿 / 接受 | 接受率 |
+> | --- | --- | --- | --- |
+> | `--spec-type none`（基线） | 43.5 tok/s | — | — |
+> | `ngram-mod` 默认参数（n-match 24） | 597.8 tok/s | 248 / 248 | 1.000 |
+> | `ngram-mod` + 16/32/64（生产参数，见上条） | 352.9 tok/s | 234 / 234 | 1.000 |
+>
+> 服务日志实测行：`draft acceptance = 1.00000 (234 accepted / 234 generated), mean len = 59.50`。
+>
+> 两点要点：① **ngram-mod 要有「重复内容已进入上下文缓存」才产出草稿**——冷启动首次请求（prompt 未复用缓存）草稿为 0、速度即基线（实测 43.7 tok/s），复用缓存的后续请求才起飞；这正对应「多轮对话里历史含重复思考内容」的真实场景。② 完全精确重复的合成场景下，默认参数（窗口更长、草稿更长）不慢于 16/32/64；微调参数针对的是**默认参数失配（接受率 0%）**的真实思考重复场景，两者不矛盾。
 
 ## 7. 常见问题 <a id="faq"></a>
 
