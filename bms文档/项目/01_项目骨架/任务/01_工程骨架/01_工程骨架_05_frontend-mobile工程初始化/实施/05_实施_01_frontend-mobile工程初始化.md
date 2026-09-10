@@ -49,7 +49,15 @@ flowchart LR
 - `router/routes.ts`、`stores/useUserStore.ts`、`views/HomeView.vue`（连通成功/降级两态）、`i18n/*`（含 `error.{code}` 占位）、`styles/safe-area.scss`（安全区变量）、`components`/`utils` 占位；
 - `main.ts` 接线 router/pinia/i18n + 安全区样式。
 
-### 3.4 验证与提交
+### 3.4 双端同款基座（后续批次）
+
+后续两个嵌套子任务（01-4-1 / 01-4-2）按双端同款落地并复制至本工程：
+
+- 契约与数据层：`api/types.ts`（BaseEntity/BasePageQuery）、`api/base.ts`（BaseApi）、`stores/base.ts`（createCrudStore）、`utils/serialize.ts`（stableStringify）；
+- 公共基座：`utils/useRequest.ts`、`utils/useListPage.ts`、`utils/validators.ts`、`utils/useTabs.ts`、`utils/status.ts`；
+- 测试：`tests/{base,utils,http}.spec.ts` + `tests/helpers/mount.ts`；双端各 18 用例、覆盖率 100%。
+
+### 3.5 验证与提交
 
 `npm ci` → `lint` → `test` → `build`；起 backend + dev 实测代理连通；随后形成本批提交（等用户指令）。
 
@@ -74,7 +82,8 @@ flowchart LR
 
 ## 6. 偏差与遗留 <a id="deviations"></a>
 
-- 375×667 视口与安全区像素级断言随 05-1 Playwright E2E；当前默认页为简单结构、基线配置已就位。
+- 375×667 视口与安全区像素级断言随 05-1 Playwright E2E（05-1 e2e 范围已补该断言项）；当前默认页为简单结构、基线配置已就位。
+- 双端同款基座（基础类/公共组合式）已随后续批次落地并保持同步（见 §3.4），无遗留。
 - Vant 组件按需引入已配置；业务组件使用随阶段二/十三。
 - 视口方案默认 vw；如第三方组件兼容问题可切 rem（配置层）。
 - 企业微信/钉钉免登、401 刷新留阶段二（TODO 标注）。

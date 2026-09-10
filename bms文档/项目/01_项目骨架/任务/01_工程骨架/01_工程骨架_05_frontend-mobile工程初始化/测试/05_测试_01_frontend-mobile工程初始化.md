@@ -15,7 +15,7 @@
 | 测试日期 | 2026-09-10 |
 | 测试人 | minjian |
 | 测试环境 | 开发机（Ubuntu）；Node 22.23.2、npm 10.9.8；backend 本地 8000；Vitest 5（jsdom） |
-| Kiwi 用例 | 本任务新增 Case 20（frontend-mobile 默认页与连通冒烟） |
+| Kiwi 用例 | 本任务新增 Case 20（默认页与连通冒烟）；双端同款基线后续补充 Case 22（基础类）、24（公共基座）、26（Axios 基线），见 01_04 嵌套子任务记录 |
 | 结论 | 2/2 用例通过；lint/build/vue-tsc 通过；覆盖率 100%（已导入文件）；代理连通实测通过 |
 
 ## 2. 测试范围与用例 <a id="scope"></a>
@@ -25,6 +25,9 @@
 | Kiwi ID | 用例 | 类型 | 自动化文件 | 结果 |
 | --- | --- | --- | --- | --- |
 | 20 | frontend-mobile 默认页与连通冒烟（标题 + 连通成功/降级） | 单元·冒烟 | `tests/home.spec.ts`（2 条） | 通过 |
+| 22 | frontend-mobile 基础类（契约类型/BaseApi/createCrudStore/stableStringify） | 单元 | `tests/base.spec.ts`（3 条，见 01-4-1 记录） | 通过 |
+| 24 | frontend-mobile 公共组合式与工具基座 | 单元 | `tests/utils.spec.ts`（6 条，见 01-4-2 记录） | 通过 |
+| 26 | frontend-mobile Axios 基线单元（解包/错误/拦截器） | 单元 | `tests/http.spec.ts`（6 条，见 01_04 测试记录补充） | 通过 |
 | — | 工程门禁：ESLint / vue-tsc / 构建 | 静态·构建 | `npm run lint` / `build` | 通过 |
 | — | 开发代理连通（/info） | 联调 | `curl`（起 backend + dev） | 通过 |
 
@@ -34,7 +37,7 @@
 cd frontend-mobile
 npm ci
 npm run lint     # 通过（--max-warnings 0）
-npm run test     # 2 passed
+npm run test     # 后续双端基线批次后：18 passed（含 Case 22/24/26）
 npm run build    # vue-tsc -b && vite build 通过
 ```
 
@@ -61,8 +64,8 @@ npm run build    # vue-tsc -b && vite build 通过
 
 ## 6. 偏差与遗留 <a id="deviations"></a>
 
-- 375×667 视口与安全区断言随 05-1 Playwright E2E（当前默认页简单结构，视口基线配置已就位）。
-- 覆盖率口径同 04（已导入文件），全量采集随门禁任务。
+- 375×667 视口与安全区断言随 05-1 Playwright E2E（05-1 e2e 范围已补该断言项）。
+- 覆盖率口径已补入 05-1 门禁清单（全量 `src/**` + 阈值定案）；当前双端 18 用例、覆盖率 100%。
 - Vant 按需引入与 vw 适配方案已配置，业务组件样式随后续阶段验证。
 
 > 本文档依《文档生成规范》编写 · 按《任务文档规范》第 6 节测试文档结构组织
