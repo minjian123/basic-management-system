@@ -205,10 +205,10 @@ integration-dm8:
 backend-image:
   <<: *build-push-base
   rules:
+    # exists 为「任一命中」语义：仅以 Dockerfile 守卫，避免被 pyproject 误激活
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       exists:
         - backend/Dockerfile
-        - backend/pyproject.toml
   script:
     - docker build -t $REGISTRY_IMAGE_PREFIX/bms-backend:$CI_COMMIT_SHORT_SHA -f backend/Dockerfile backend/
     - docker push $REGISTRY_IMAGE_PREFIX/bms-backend:$CI_COMMIT_SHORT_SHA
@@ -217,10 +217,10 @@ frontend-image:
   <<: *build-push-base
   needs: [{job: frontend-build, optional: true}]
   rules:
+    # exists 为「任一命中」语义：仅以 Dockerfile 守卫，避免被 package.json 误激活
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       exists:
         - frontend/Dockerfile
-        - frontend/package.json
   script:
     - docker build -t $REGISTRY_IMAGE_PREFIX/bms-frontend:$CI_COMMIT_SHORT_SHA -f frontend/Dockerfile frontend/
     - docker push $REGISTRY_IMAGE_PREFIX/bms-frontend:$CI_COMMIT_SHORT_SHA
