@@ -2,4 +2,5 @@
 
 职责：数据读写、数据源与分片路由、数据范围注入。
 禁止：承载业务规则。
+继承约定：XxxRepository 必须继承 BaseRepository[T]（base_repository.py）。
 """

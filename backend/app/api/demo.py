@@ -2,7 +2,7 @@
 
 from typing import Annotated, cast
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, Request
 
 from app.schemas.demo import DemoCreateRequest, DemoResponse, DemoUpdateRequest
 from app.services.demo_service import DemoService
@@ -55,11 +55,9 @@ def get_demo(demo_id: int, service: DemoDep) -> dict[str, object]:
         dict: 统一响应，data 为 {id, name}。
 
     Raises:
-        HTTPException: 记录不存在（404）。
+        NotFoundError: 记录不存在（全局处理器转 404）。
     """
     demo = service.get_demo(demo_id)
-    if demo is None:
-        raise HTTPException(status_code=404, detail="demo 不存在")
     return _ok(DemoResponse(id=demo.id, name=demo.name).model_dump())
 
 
@@ -75,11 +73,9 @@ def update_demo(demo_id: int, req: DemoUpdateRequest, service: DemoDep) -> dict[
         dict: 统一响应，data 为 {id, name}。
 
     Raises:
-        HTTPException: 记录不存在（404）。
+        NotFoundError: 记录不存在（全局处理器转 404）。
     """
     demo = service.update_demo(demo_id, req.name)
-    if demo is None:
-        raise HTTPException(status_code=404, detail="demo 不存在")
     return _ok(DemoResponse(id=demo.id, name=demo.name).model_dump())
 
 
@@ -94,8 +90,7 @@ def delete_demo(demo_id: int, service: DemoDep) -> dict[str, object]:
         dict: 统一响应，data 为 null。
 
     Raises:
-        HTTPException: 记录不存在（404）。
+        NotFoundError: 记录不存在（全局处理器转 404）。
     """
-    if not service.delete_demo(demo_id):
-        raise HTTPException(status_code=404, detail="demo 不存在")
+    service.delete_demo(demo_id)
     return _ok(None)
