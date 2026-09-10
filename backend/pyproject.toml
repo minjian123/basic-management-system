@@ -57,4 +57,5 @@ testpaths = ["tests"]
 pythonpath = ["."]
 markers = [
     "kiwi_id: Kiwi TCMS 用例编号（如 @pytest.mark.kiwi_id(1)）",
+    "integration: 需要真实外部服务的集成用例（随 05-02 执行，未配置环境时跳过）",
 ]

@@ -1,5 +1,6 @@
 """BaseObject 公共方法测试（Kiwi 14）。"""
 
+import dataclasses
 from dataclasses import dataclass
 
 import pytest
@@ -84,6 +85,17 @@ def test_hash_consistency() -> None:
     assert hash(Entity(1)) == hash(Entity(1))
     bare = Entity(None)
     assert hash(bare) == object.__hash__(bare)
+
+
+@pytest.mark.kiwi_id(14)
+def test_public_fields_fallback_when_fields_unavailable(monkeypatch: pytest.MonkeyPatch) -> None:
+    """dataclasses.fields 不可用时回退 __dict__ 公开字段。"""
+
+    def boom(*args: object, **kwargs: object) -> object:
+        raise TypeError("boom")
+
+    monkeypatch.setattr(dataclasses, "fields", boom)
+    assert Demo(id=1, name="甲").to_dict() == {"id": 1, "name": "甲"}
 
 
 @pytest.mark.kiwi_id(14)

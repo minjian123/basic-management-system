@@ -9,3 +9,10 @@ class NotFoundError(Exception):
 
     02-3 建立 BizError 体系后改为其子类，并接入统一响应与错误码。
     """
+
+
+class ConcurrentConflictError(Exception):
+    """并发冲突（乐观重试超限，占位）。
+
+    02-3 建立 BizError 体系后改为其子类，并接入统一响应与错误码。
+    """

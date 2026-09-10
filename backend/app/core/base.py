@@ -1,9 +1,10 @@
 """core 层根基类：所有可继承类的公共方法落点。"""
 
+import dataclasses
 import json
 from abc import ABC
 from collections.abc import Iterable, Mapping
-from typing import cast
+from typing import Any, cast
 
 
 class BaseObject(ABC):  # noqa: B024  抽象基座：只承载公共方法，不直接实例化
@@ -72,11 +73,20 @@ class BaseObject(ABC):  # noqa: B024  抽象基座：只承载公共方法，不
         return hash((type(self).__name__, item_id))
 
     def _public_fields(self) -> dict[str, object]:
-        """取公开字段（`__dict__` 中不以 `_` 开头的项）。
+        """取公开字段：dataclass 优先声明字段，失败回退 `__dict__` 公开项。
 
         Returns:
             dict[str, object]: 字段映射。
         """
+        if dataclasses.is_dataclass(self) and not isinstance(self, type):
+            try:
+                return {
+                    field.name: getattr(self, field.name)
+                    for field in dataclasses.fields(cast("Any", self))
+                    if not field.name.startswith("_")
+                }
+            except TypeError:
+                pass
         return {key: value for key, value in getattr(self, "__dict__", {}).items() if not key.startswith("_")}
 
     @classmethod
@@ -98,3 +108,10 @@ class BaseObject(ABC):  # noqa: B024  抽象基座：只承载公共方法，不
             sequence = cast("Iterable[object]", value)
             return [cls._convert(item) for item in sequence]
         return value
+
+
+class ValueHolder[ValueT](BaseObject):
+    """`get_locked` 类上下文内可替换的值容器（进程内与 Redis 复用）。"""
+
+    def __init__(self, value: ValueT) -> None:
+        self.value = value

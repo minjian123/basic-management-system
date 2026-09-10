@@ -1,10 +1,12 @@
-"""Redis 有序封装测试（Kiwi 17）。"""
+"""Redis 有序封装测试（Kiwi 17/18）。"""
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 
 import pytest
 from fakeredis.aioredis import FakeRedis
+from redis.exceptions import WatchError
 
+from app.core.exceptions import ConcurrentConflictError
 from app.core.redis_collections import RedisSnapshot, RedisSortedDict, RedisSortedSet
 
 KEY = "bms:global:collections:test"
@@ -104,3 +106,62 @@ async def test_redis_snapshot_lazy_reload(redis_client: FakeRedis) -> None:
     await snapshot.invalidate()
     assert await snapshot.get() == ["b", "a"]
     assert loader_calls == 4
+
+
+@pytest.mark.kiwi_id(18)
+async def test_redis_replace_if_equal_and_get_and_remove(redis_client: FakeRedis) -> None:
+    """CAS 与取走删除：Lua 原子语义与缺失分支。"""
+    mapping = RedisSortedDict[str, str](redis_client, f"{KEY}:cas")
+    await mapping.set("a", "1")
+    assert await mapping.replace_if_equal("a", "1", "2") is True
+    assert await mapping.get("a") == "2"
+    assert await mapping.replace_if_equal("a", "1", "9") is False
+    assert await mapping.replace_if_equal("zzz", "1", "9") is False
+    assert await mapping.get_and_remove("a") == "2"
+    assert await mapping.get_and_remove("a") is None
+    assert await mapping.items() == []
+
+
+@pytest.mark.kiwi_id(18)
+async def test_redis_update_atomic_and_get_locked(redis_client: FakeRedis) -> None:
+    """乐观更新与 WATCH 提交上下文（含缺失分支）。"""
+    mapping = RedisSortedDict[str, str](redis_client, f"{KEY}:atomic")
+    await mapping.set("a", "1")
+    assert await mapping.update_atomic("a", lambda value: value + "!") == "1!"
+    assert await mapping.get("a") == "1!"
+    with pytest.raises(KeyError):
+        await mapping.update_atomic("zzz", lambda value: value)
+
+    async with mapping.get_locked("a") as holder:
+        holder.value = holder.value + "?"
+    assert await mapping.get("a") == "1!?"
+    with pytest.raises(KeyError):
+        async with mapping.get_locked("zzz"):
+            pass
+
+
+@pytest.mark.kiwi_id(18)
+async def test_redis_update_atomic_retry_and_exhaust(redis_client: FakeRedis, monkeypatch: pytest.MonkeyPatch) -> None:
+    """乐观重试：冲突后重放成功；超限抛 ConcurrentConflictError。"""
+    mapping = RedisSortedDict[str, str](redis_client, f"{KEY}:retry")
+    await mapping.set("a", "1")
+    original = mapping._optimistic  # pyright: ignore[reportPrivateUsage]
+    attempts = 0
+
+    async def flaky(key: str, mutate: Callable[[str | None], str]) -> str:
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            raise WatchError("冲突")
+        return await original(key, mutate)
+
+    monkeypatch.setattr(mapping, "_optimistic", flaky)
+    assert await mapping.update_atomic("a", lambda value: value + "!") == "1!"
+    assert attempts == 2
+
+    async def always_conflict(key: str, mutate: Callable[[str | None], str]) -> str:
+        raise WatchError("busy")
+
+    monkeypatch.setattr(mapping, "_optimistic", always_conflict)
+    with pytest.raises(ConcurrentConflictError):
+        await mapping.update_atomic("a", lambda value: value, max_retries=2)
