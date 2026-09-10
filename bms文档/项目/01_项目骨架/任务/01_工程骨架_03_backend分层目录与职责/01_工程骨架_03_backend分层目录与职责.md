@@ -11,23 +11,31 @@
 | 编号 | 03 |
 | 父任务 | [01 工程骨架](../01_工程骨架.md) |
 | 对应需求 | [01-3](../../需求/01_需求_工程骨架.md#r01-3) |
-| 工时（重估） | 3h |
+| 工时（重估） | 7h（重估：自有 3h + 嵌套子任务「基础类」4h） |
 | 依赖 | 02（backend 工程就位） |
 | 负责人 | minjian |
 | 状态 | 已完成 |
 | 完成日期 | 2026-09-10 |
 
-## 2. 任务内容 <a id="content"></a>
+## 2. 子任务清单 <a id="list"></a>
+
+| 编号 | 任务 | 工时（重估） | 状态 | 完成日期 | 任务文件 |
+| --- | --- | --- | --- | --- | --- |
+| 01 | 基础类 | 4h | 已完成 | 2026-09-10 | [01](01_工程骨架_03_backend分层目录与职责_01_基础类/01_工程骨架_03_backend分层目录与职责_01_基础类.md) |
+
+父任务工时 = 自有 3h + 直属子任务 4h = 7h；子任务状态/完成日期随其实施进度回写本表。
+
+## 3. 任务内容 <a id="content"></a>
 
 1. `app/` 分层目录与首版文件：core（config/security/exceptions）、api（deps/router/health + 模块目录）、models（base）、schemas（common）、services、repositories、db（engine/session）、tasks/ws/i18n 占位；alembic/、tests/ 与 app 同构
 2. 分层调用规则写入各层 `__init__.py` docstring：api 只做参数校验与路由分发、禁止操作模型；services 承载业务与事务边界、禁止拼 SQL；repositories 承载数据访问与路由、禁止业务规则；models/schemas 禁止业务逻辑
 3. 路由注册约定：模块内 `APIRouter(prefix="/{资源}", tags=["{模块}"])`，`app/api/router.py` 统一 include；模块四件套缺一不可
 
-## 3. 完成标准 <a id="accept"></a>
+## 4. 完成标准 <a id="accept"></a>
 
 目录树与需求清单逐项一致；各层 docstring 写明职责与禁止项；示例模块 `demo`（占位 CRUD 空壳）按四件套 + 路由注册走通。
 
-## 4. 参考文档 <a id="ref"></a>
+## 5. 参考文档 <a id="ref"></a>
 
 - [03_详细设计_01_backend分层目录与职责](设计/03_详细设计_01_backend分层目录与职责.md)（本任务详细设计，已定稿）
 - [03 实施记录](实施/03_实施_01_backend分层目录与职责.md)（实做内容、问题与处置、验证与遗留）
