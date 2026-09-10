@@ -43,16 +43,17 @@ frontend/
 ├── src/
 │   ├── main.ts         # 挂载 router / pinia / i18n / Element Plus
 │   ├── App.vue         # 路由出口
-│   ├── api/            # types.ts（契约）/ http.ts（Axios 基线）/ types.gen.ts（生成占位）
+│   ├── api/            # types.ts（契约基类）/ base.ts（BaseApi）/ http.ts（Axios 基线）/ types.gen.ts（生成占位）
 │   ├── router/         # routes.ts（动态路由骨架）
-│   ├── stores/         # useUserStore（token 仅内存）
+│   ├── stores/         # base.ts（createCrudStore）/ useUserStore（token 仅内存）
 │   ├── layouts/        # BasicLayout（基础壳）
 │   ├── views/          # HomeView（默认页）
 │   ├── components/     # 通用组件（占位）
 │   ├── i18n/           # index + zh-CN / en-US（含 error.{code} 占位）
-│   └── utils/          # 工具（占位）
+│   └── utils/          # serialize.ts（stableStringify）/ 工具占位
 └── tests/
-    └── home.spec.ts    # 默认页冒烟（Kiwi 19）
+    ├── home.spec.ts    # 默认页冒烟（Kiwi 19）
+    └── base.spec.ts    # 基础类用例（Kiwi 21）
 ```
 
 ## 文档导航

@@ -1,7 +1,18 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<coverage generated="1789046809308" clover="3.2.0">
-  <project timestamp="1789046809308" name="All files">
-    <metrics statements="13" coveredstatements="13" conditionals="2" coveredconditionals="2" methods="1" coveredmethods="1" elements="16" coveredelements="16" complexity="0" loc="13" ncloc="13" packages="2" files="4" classes="4"/>
+<coverage generated="1789051550366" clover="3.2.0">
+  <project timestamp="1789051550366" name="All files">
+    <metrics statements="58" coveredstatements="58" conditionals="24" coveredconditionals="24" methods="24" coveredmethods="24" elements="106" coveredelements="106" complexity="0" loc="58" ncloc="58" packages="5" files="7" classes="7"/>
+    <package name="api">
+      <metrics statements="5" coveredstatements="5" conditionals="4" coveredconditionals="4" methods="5" coveredmethods="5"/>
+      <file name="base.ts" path="/home/minjian/develop/bizs/bms/frontend-mobile/src/api/base.ts">
+        <metrics statements="5" coveredstatements="5" conditionals="4" coveredconditionals="4" methods="5" coveredmethods="5"/>
+        <line num="11" count="1" type="stmt"/>
+        <line num="15" count="1" type="stmt"/>
+        <line num="19" count="1" type="stmt"/>
+        <line num="23" count="1" type="stmt"/>
+        <line num="27" count="1" type="stmt"/>
+      </file>
+    </package>
     <package name="i18n">
       <metrics statements="1" coveredstatements="1" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
       <file name="en-US.ts" path="/home/minjian/develop/bizs/bms/frontend-mobile/src/i18n/en-US.ts">
@@ -13,6 +24,58 @@
       </file>
       <file name="zh-CN.ts" path="/home/minjian/develop/bizs/bms/frontend-mobile/src/i18n/zh-CN.ts">
         <metrics statements="0" coveredstatements="0" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
+      </file>
+    </package>
+    <package name="stores">
+      <metrics statements="17" coveredstatements="17" conditionals="0" coveredconditionals="0" methods="8" coveredmethods="8"/>
+      <file name="base.ts" path="/home/minjian/develop/bizs/bms/frontend-mobile/src/stores/base.ts">
+        <metrics statements="17" coveredstatements="17" conditionals="0" coveredconditionals="0" methods="8" coveredmethods="8"/>
+        <line num="21" count="1" type="stmt"/>
+        <line num="22" count="1" type="stmt"/>
+        <line num="23" count="1" type="stmt"/>
+        <line num="24" count="1" type="stmt"/>
+        <line num="27" count="1" type="stmt"/>
+        <line num="28" count="1" type="stmt"/>
+        <line num="29" count="1" type="stmt"/>
+        <line num="30" count="1" type="stmt"/>
+        <line num="31" count="1" type="stmt"/>
+        <line num="33" count="1" type="stmt"/>
+        <line num="38" count="1" type="stmt"/>
+        <line num="42" count="1" type="stmt"/>
+        <line num="46" count="1" type="stmt"/>
+        <line num="50" count="1" type="stmt"/>
+        <line num="51" count="1" type="stmt"/>
+        <line num="52" count="1" type="stmt"/>
+        <line num="55" count="1" type="stmt"/>
+      </file>
+    </package>
+    <package name="utils">
+      <metrics statements="23" coveredstatements="23" conditionals="18" coveredconditionals="18" methods="10" coveredmethods="10"/>
+      <file name="serialize.ts" path="/home/minjian/develop/bizs/bms/frontend-mobile/src/utils/serialize.ts">
+        <metrics statements="23" coveredstatements="23" conditionals="18" coveredconditionals="18" methods="10" coveredmethods="10"/>
+        <line num="4" count="9" type="cond" truecount="4" falsecount="0"/>
+        <line num="8" count="33" type="cond" truecount="2" falsecount="0"/>
+        <line num="9" count="1" type="stmt"/>
+        <line num="11" count="32" type="cond" truecount="4" falsecount="0"/>
+        <line num="12" count="20" type="stmt"/>
+        <line num="14" count="12" type="cond" truecount="2" falsecount="0"/>
+        <line num="15" count="3" type="stmt"/>
+        <line num="17" count="9" type="cond" truecount="2" falsecount="0"/>
+        <line num="18" count="2" type="stmt"/>
+        <line num="20" count="8" type="cond" truecount="2" falsecount="0"/>
+        <line num="21" count="2" type="stmt"/>
+        <line num="22" count="5" type="stmt"/>
+        <line num="23" count="5" type="stmt"/>
+        <line num="25" count="6" type="cond" truecount="2" falsecount="0"/>
+        <line num="26" count="1" type="stmt"/>
+        <line num="27" count="2" type="stmt"/>
+        <line num="28" count="1" type="stmt"/>
+        <line num="29" count="1" type="stmt"/>
+        <line num="31" count="5" type="stmt"/>
+        <line num="32" count="3" type="stmt"/>
+        <line num="33" count="8" type="stmt"/>
+        <line num="34" count="5" type="stmt"/>
+        <line num="38" count="16" type="stmt"/>
       </file>
     </package>
     <package name="views">
