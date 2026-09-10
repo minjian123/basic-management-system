@@ -110,6 +110,8 @@ target-version = "py314"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF"]
+# 中文标点为文档与注释的有意用法，关闭歧义字符检查
+ignore = ["RUF001", "RUF002", "RUF003"]
 
 [tool.pyright]
 typeCheckingMode = "strict"
@@ -119,6 +121,10 @@ include = ["app", "tests"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+pythonpath = ["."]
+markers = [
+    "kiwi_id: Kiwi TCMS 用例编号（如 @pytest.mark.kiwi_id(1)）",
+]
 ```
 
 口径：
@@ -127,6 +133,8 @@ testpaths = ["tests"]
 - **版本下限取当前稳定线**，实际版本以 `uv.lock` 锁定为准；`dmPython` 不写下限（达梦官方轮子版本线特殊，交 06 锁定与验证）。
 - dev 组按需求 01-2 固定清单；`httpx` 同时是运行时依赖（外部调用）与测试依赖，重复声明无副作用。
 - `target-version = "py314"`、`pythonVersion = "3.14"` 与 `.python-version` 一致；06 若回退 3.13，三处同步调整。
+- `pythonpath = ["."]`：虚拟工程未安装为包，供 `tests/` 能 `import app`；`markers` 登记 `kiwi_id`，避免未注册标记告警。
+- ruff 关闭 `RUF001`–`RUF003`：中文标点（，。（）「」）为文档与注释的有意用法（实施期发现 21 处误报）。
 
 ## 5. 配置与迁移占位设计 <a id="placeholders"></a>
 
@@ -173,7 +181,7 @@ def create_app() -> FastAPI:
     # TODO(02-03): 注册统一异常处理器（BizError / RequestValidationError / 未捕获异常）
 
     @app.get("/")
-    def root() -> dict[str, object]:
+    def root() -> dict[str, object]:  # pyright: ignore[reportUnusedFunction]
         """应用信息（统一响应结构占位，02-3 起换用 ApiResponse）。
 
         Returns:
@@ -186,7 +194,7 @@ def create_app() -> FastAPI:
         }
 
     @app.get("/healthz")
-    def healthz() -> dict[str, str]:
+    def healthz() -> dict[str, str]:  # pyright: ignore[reportUnusedFunction]
         """存活检查端点。
 
         Returns:
@@ -232,9 +240,11 @@ async def client() -> AsyncIterator[AsyncClient]:
 ```python
 """应用工厂冒烟：根路由与应用信息、/healthz 存活。"""
 
+import pytest
 from httpx import AsyncClient
 
 
+@pytest.mark.kiwi_id(1)
 async def test_root_returns_app_info(client: AsyncClient) -> None:
     """GET / 返回统一响应结构与应用名/版本。"""
     resp = await client.get("/")
@@ -246,6 +256,7 @@ async def test_root_returns_app_info(client: AsyncClient) -> None:
     assert body["data"]["version"]
 
 
+@pytest.mark.kiwi_id(2)
 async def test_healthz_returns_ok(client: AsyncClient) -> None:
     """GET /healthz 返回 {"status":"ok"}。"""
     resp = await client.get("/healthz")
@@ -253,7 +264,7 @@ async def test_healthz_returns_ok(client: AsyncClient) -> None:
     assert resp.json() == {"status": "ok"}
 ```
 
-口径：命名与覆盖遵循《后端开发规范》§10；测试库统一 SQLite（本任务无库依赖）；`asyncio_mode = "auto"` 由 `[tool.pytest.ini_options]` 提供。
+口径：命名与覆盖遵循《后端开发规范》§10；测试库统一 SQLite（本任务无库依赖）；`asyncio_mode = "auto"`、`pythonpath` 与 `kiwi_id` 标记由 `[tool.pytest.ini_options]` 提供。**自动化用例先登记 Kiwi TCMS 再写代码**（本任务 Case 1 根路由、Case 2 `/healthz`），测试代码以 `@pytest.mark.kiwi_id(编号)` 标注关联。
 
 ## 8. 职责边界（02 vs 01 / 03 / 06 / 02 域） <a id="boundary"></a>
 
@@ -277,7 +288,7 @@ async def test_healthz_returns_ok(client: AsyncClient) -> None:
 2. **安装依赖**：`uv sync` → 全量依赖安装成功（若 `dmPython`/`aiomysql` 在 3.14 下不可得，按 06 回退口径处置，见 §11）。
 3. **占位文件**：写入 `config.toml`、`alembic.ini`（§5）。
 4. **应用工厂**：`app/main.py` 改为 §6 形态（title、根路由、注册位注释）。
-5. **测试基线**：新增 `tests/conftest.py`、`tests/test_main.py`（§7）；确认 `pytest` 配置生效。
+5. **测试基线（Kiwi 先行）**：先在 Kiwi TCMS 登记用例并取得用例 ID（本任务 Case 1 根路由、Case 2 `/healthz`）→ 新增 `tests/conftest.py`、`tests/test_main.py` 并以 `@pytest.mark.kiwi_id` 标注（§7）；确认 `pytest` 配置生效。
 6. **更新 README**：目录结构补 `config.toml` / `alembic.ini` / `tests/`；其余四章节保持。
 7. **验证**：`uv run ruff check .`、`uv run pyright`、`uv run pytest`、`uv run uvicorn app.main:create_app --factory --port 8000` + `curl /`、`/healthz`、`/docs`、`/openapi.json`（均 200）。
 8. **提交**：经用户明确指令后再 `git commit`（遵循工作区根《AGENTS.md》提交纪律）。
@@ -297,7 +308,7 @@ async def test_healthz_returns_ok(client: AsyncClient) -> None:
 
 | 风险 / 开放项 | 说明 | 处置 |
 | --- | --- | --- |
-| `dmPython` / `aiomysql` 在 Python 3.14 下可用性未知 | 全量依赖一次加入，解析或安装可能失败 | 交 06 按既定口径整体回退 3.13（`.python-version`、`requires-python`、README 徽标同步改并重新锁定） |
+| `dmPython` / `aiomysql` 在 Python 3.14 下可用性未知 | 全量依赖一次加入，解析或安装可能失败 | 交 06 按既定口径整体回退 3.13（`.python-version`、`requires-python`、README 徽标同步改并重新锁定）；实施反馈：`dmPython` 2.5.38 已在 3.14 安装成功，连接实测留 06 |
 | pyright strict 首次启用告警量 | 严格模式对最小代码面（app/tests）可能暴露注解缺失 | 本任务先保证 `app`/`tests` 零错误；规则集后续任务不得放宽 |
 | ruff 规则集范围 | `select` 基线 E/F/W/I/B/UP/SIM/RUF | 后续收紧在设计修订中统一，不在 02 反复调整 |
 | pytest-asyncio 与 pytest 版本协同 | 异步夹具依赖两者兼容 | 以 `uv.lock` 锁定，`asyncio_mode = "auto"` |
@@ -313,6 +324,8 @@ async def test_healthz_returns_ok(client: AsyncClient) -> None:
 | 2 | 统一响应模型 | 根路由先用 **dict 字面量**，`ApiResponse`/`PageResponse` 归 02-3 | §6 |
 | 3 | 健康检查归属 | `/healthz` **保持内联**于 `main.py`；`app/api/` 分层与 `health.py` 迁移归 01-03、契约细化归 02-4 | §6、§8 |
 | 4 | 配置与迁移占位 | 仅注释头，不写实际键/节，避免与 02-1、03-6 冲突 | §5 |
-| 5 | 工具配置基线 | ruff（line-length 120、py314、规则集 E/F/W/I/B/UP/SIM/RUF）+ pyright strict + pytest（asyncio auto） | §4 |
+| 5 | 工具配置基线 | ruff（line-length 120、py314、规则集 E/F/W/I/B/UP/SIM/RUF，忽略 RUF001–003 中文标点）+ pyright strict + pytest（asyncio auto、pythonpath、kiwi_id 标记） | §4 |
+| 6 | 用例登记时机 | 自动化用例**先登记 Kiwi TCMS 再写代码**（Case 1/2），测试代码以 `@pytest.mark.kiwi_id` 标注 | §7、§9 |
+| 7 | 工具配置实施补充 | ruff 忽略 RUF001–003（中文标点误报 21 处）；pytest 补 `pythonpath = ["."]`；pyright 对装饰器注册的路由函数局部忽略 `reportUnusedFunction` | §4、§6 |
 
 > 本文档依《文档生成规范》编写
