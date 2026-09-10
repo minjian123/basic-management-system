@@ -15,7 +15,7 @@
 | 测试日期 | 2026-09-10 |
 | 测试人 | minjian |
 | 测试环境 | 开发机（Ubuntu）；Node 22.23.2（nvm）、npm 10.9.8；backend 本地 8000；Vitest 5（jsdom） |
-| Kiwi 用例 | 本任务新增 Case 19（frontend 默认页与代理链路冒烟） |
+| Kiwi 用例 | 本任务新增 Case 19（frontend 默认页与代理链路冒烟）；补充 Case 25/26（Axios 基线单元） |
 | 结论 | 2/2 用例通过；lint/build/vue-tsc 通过；覆盖率 100%（已导入文件）；代理链路实测通过 |
 
 ## 2. 测试范围与用例 <a id="scope"></a>
@@ -25,6 +25,8 @@
 | Kiwi ID | 用例 | 类型 | 自动化文件 | 结果 |
 | --- | --- | --- | --- | --- |
 | 19 | frontend 默认页与代理链路冒烟（标题 + 应用名/版本；后端未连通降级） | 单元·冒烟 | `tests/home.spec.ts`（2 条） | 通过 |
+| 25 | frontend Axios 基线单元（request 解包/code≠0 拒绝/fetchAppInfo/拦截器 401 与普通错误） | 单元 | `frontend/tests/http.spec.ts`（6 条） | 通过 |
+| 26 | frontend-mobile Axios 基线单元（同款） | 单元 | `frontend-mobile/tests/http.spec.ts`（6 条） | 通过 |
 | — | 工程门禁：ESLint / vue-tsc / 构建 | 静态·构建 | `npm run lint` / `build` | 通过 |
 | — | 开发代理链路（/info、/api、/healthz） | 联调 | `curl`（起 backend + dev） | 通过 |
 
