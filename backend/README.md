@@ -18,6 +18,37 @@ uv run uvicorn app.main:create_app --factory --port 8000
 uv run pytest   # 冒烟用例（含 Kiwi TCMS 用例 ID 标注）
 ```
 
+## 依赖与版本
+
+依赖由 `uv` 管理，版本以 `uv.lock` 锁定（必须提交）；Python 版本由 `.python-version` 固定（当前 **3.14**）。下表为 2026-09-10 验证时的锁定版本，日常以 `uv.lock` 为准。
+
+**运行时依赖**：
+
+| 依赖 | 版本 | 用途 |
+| --- | --- | --- |
+| fastapi | 0.141.1 | Web 框架 |
+| uvicorn[standard] | 0.52.4 | ASGI 服务器 |
+| pydantic / pydantic-settings | 2.13.5 / 2.15.0 | 校验与配置 |
+| sqlalchemy | 2.0.52 | ORM |
+| alembic | 1.19.2 | 数据库迁移 |
+| aiosqlite / aiomysql | 0.22.1 / 0.3.2 | SQLite / MySQL 异步驱动 |
+| psycopg[binary] | 3.3.5 | PostgreSQL 异步驱动 |
+| dmPython | 2.5.38 | 达梦官方同步驱动 |
+| structlog | 26.1.0 | 结构化日志 |
+| redis | 8.1.0 | 缓存 / 有序集合封装（redis.asyncio） |
+| python-multipart | 0.0.32 | 表单 / 文件上传 |
+| httpx | 0.28.1 | HTTP 客户端与测试 |
+| sortedcontainers | 2.4.0 | 有序集合基座（core/collections） |
+
+**开发依赖**：pytest 9.1.1、pytest-asyncio 1.4.0、pytest-cov 7.1.0、ruff 0.16.6、pyright 1.1.411、fakeredis 2.38.0（含 lupa 2.8，Redis 封装测试）。
+
+**Python 3.14 兼容验证（2026-09-10）**：
+
+- 上列全部运行 / 开发依赖在 **Python 3.14.4** 安装并通过 import 冒烟；`uv run pytest` 全量用例通过（覆盖率 100%）。
+- Celery 5.6.3、SpiffWorkflow 3.2.0 以 `uv run --with` **临时环境**安装并通过 import 冒烟（阶段二前仅验证，不写入锁定依赖）。
+- dmPython 2.5.38 连接开发环境达梦 DM8 实例执行 `SELECT 1` 通过（凭据不入库，连接方式见内部部署文档）。
+- **结论：保持 Python 3.14**（未触发回退）。若后续任一核心依赖在 3.14 不兼容：整体回退 3.13（`.python-version`、`requires-python>=3.13`、重新 `uv lock`、全量测试通过），并同步更新《项目规划说明》2.1/17 与《开发部署规划》第 10 节。
+
 ## 目录结构
 
 ```text
