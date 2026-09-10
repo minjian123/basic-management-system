@@ -36,6 +36,7 @@
 - 分支名小写、kebab-case、以「类型/」前缀，描述用英文或语义缩写，不夹带版本号以外的数字编号。
 - 功能分支从最新 main 切出：`git checkout -b feature/xxx gitlab/main`。
 - 禁止直接向 main 推送（保护分支），一切变更经 MR 合入。
+- **单人开发期口径（当前）**：不做分支与 MR 流转，改动直接推 main，由 CI 自动冒烟验证（纯业务文档推送免 CI）；核心模块（认证、RBAC、工作流、审计、收付款）改动提交前经 **AI 交叉评审**（口径更新 2026-08-22，见准备期需求 02-3）。多人协作时恢复保护分支与 MR 流程。
 
 ## 4. 提交信息 <a id="commit"></a>
 
@@ -68,6 +69,8 @@ chore(deps): 升级 fastapi 至 0.115
 
 ## 5. MR 流程 <a id="mr"></a>
 
+> 单人开发期不启用 MR 流程（直推 main + AI 交叉评审）；以下流程在多人协作期生效。
+
 1. **推送**：功能分支 push 至 gitlab：`git push gitlab feature/xxx`。
 2. **创建 MR**：目标分支 main，标题遵循提交信息格式（`feat(wf): ...`），描述注明需求来源与验收点。
 3. **CI 检查**：MR 流水线须全绿（ruff、pytest、ESLint、Vitest、双端构建）方可合并。
@@ -93,7 +96,7 @@ chore(deps): 升级 fastapi 至 0.115
 - □ 分支名符合「类型/描述」，从最新 main 切出
 - □ 提交信息 `type(scope): 中文描述`，单提交单职责
 - □ MR 标题与描述规范，CI 全绿，评审通过后 Squash 合并
-- □ 不直推 main；本地仅配置 gitlab 远端，GitHub 归档走 push mirror 自动同步
+- □ 变更经 MR 合入（多人协作期）；单人开发期直推 main 且核心改动有 AI 交叉评审留痕；本地仅配置 gitlab 远端，GitHub 归档走 push mirror 自动同步
 - □ 发布标签语义化 `vX.Y.Z`，与镜像版本一致
 
 > 依《文档生成规范》编写 · 与《命名规范》《代码评审规范》配套
