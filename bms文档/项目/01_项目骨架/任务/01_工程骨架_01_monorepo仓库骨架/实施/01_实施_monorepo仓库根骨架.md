@@ -14,8 +14,8 @@
 | 实施日期 | 2026-09-10 |
 | 实施人 | minjian |
 | 实施环境 | 开发机（Ubuntu）；Python 3.14.4（uv 0.12.7）；Node 22.23.2（nvm 管理）；npm 11.19.0；依赖镜像：阿里云 PyPI、淘宝 npmmirror |
-| 提交 | `e470985`（设计定案修正）、`2390527`（三工程占位与根文件）；均本地提交 |
-| 结论 | 三工程最小占位与根文件完成，本地验证全部通过；fresh clone 全流程验证待推送后执行 |
+| 提交 | `e470985`（设计定案修正）、`2390527`（三工程占位与根文件）、`1dfeaf8`（实施记录与规范口径）；已于 2026-09-10 推送远端 |
+| 结论 | 三工程最小占位与根文件完成；本地与 fresh clone 全流程验证全部通过，提交已推送远端 |
 
 ## 2. 实施概览 <a id="overview"></a>
 
@@ -99,7 +99,7 @@ npm run dev   # 5173 返回占位页 HTML（title=BMS PC 管理端）
 
 ### 3.6 验证与提交
 
-按 [§5 验证结果](#verify) 逐项验证后，分两条提交：`e470985 docs(设计)`（定案修正）、`2390527 feat(项目)`（占位与根文件，39 文件）。
+按 [§5 验证结果](#verify) 逐项验证后，分两条提交：`e470985 docs(设计)`（定案修正）、`2390527 feat(项目)`（占位与根文件，39 文件）。另按设计 §10 步骤 8 补做 fresh clone 模拟：本地克隆 → `uv sync` / `npm ci` → 三工程启动，全部通过（见 §5）；随后连同实施记录提交一并推送远端（至 `1dfeaf8`）。
 
 ## 4. 问题与处置 <a id="issues"></a>
 
@@ -120,16 +120,16 @@ npm run dev   # 5173 返回占位页 HTML（title=BMS PC 管理端）
 | PC 前端可启动 | `npm run build` + dev 5173 | 通过（build 11 modules；dev 返回占位页） |
 | 移动端可启动 | `npm run build` + dev 5174 | 通过（同上） |
 | README 快速启动照做可通 | 按「快速启动」三工程命令逐条执行 | 通过 |
+| fresh clone 照做可通 | 本地克隆 → `uv sync` / `npm ci` → 三工程启动 | 通过（`/healthz` 200；5173/5174 返回占位页；构建产物哈希与工作区一致） |
 | `git status` 无应忽略产物 | `git status` + `git check-ignore -v` 抽查 | 通过（无 `.venv` / `node_modules` / `dist` / `.env` 入库） |
 | 目录结构与《项目规划说明》§4 一致 | 对照 §4 目录清单 | 通过（模板额外文件已在 README 树列明） |
 | 测试端口释放 | `ss -ltn` 检查 | 通过 |
 
 ## 6. 偏差与遗留 <a id="deviations"></a>
 
-- **fresh clone 全流程验证未执行**：当前提交未推送，无法以远端克隆验证 → 推送后执行「clone → `uv sync` → `npm ci` → 三工程启动」。
 - 首次安装用 `npm install` 生成锁文件；README 快速启动按设计写 `npm ci`（锁文件就位后可用）。
 - 前端子工程保留模板拆分的 `tsconfig.app/node.json`、`public/favicon.svg`、`.vscode/extensions.json`；设计 §3 树为简化示意，根 README 目录树按实际列明。
-- `frontend/.vscode/settings.json` 未跟踪（模板 `.gitignore` 仅放行 `extensions.json`），与设计 §9 第 4 条「根 .gitignore 放行 settings/extensions」在子工程层面存在差异；后续任务如需可调整模板忽略规则。
-- bms 仓当前领先远端 3 条提交（`db6800a`、`e470985`、`2390527`），待推送。
+- 子工程 `.vscode/settings.json` 忽略差异：**已处理**——`frontend/.gitignore`、`frontend-mobile/.gitignore` 放行 `settings.json`（保留 `extensions.json` 放行），与设计 §9 第 4 条及根 `.gitignore` 一致。
+- fresh clone 验证与提交推送均已完成（§5，推送至 `1dfeaf8`）；本任务无待办遗留。
 
 > 本文档依《文档生成规范》编写 · 按《任务文档规范》第 5 节实施文档结构组织
