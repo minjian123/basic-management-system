@@ -1,0 +1,9 @@
+[project]
+name = "bms-backend"
+version = "0.1.0"
+description = "BMS 后端服务（阶段一占位，02 / 03 细化）"
+requires-python = ">=3.14"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+]
