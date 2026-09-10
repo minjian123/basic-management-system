@@ -157,15 +157,15 @@
           { id: 'f1', label: '表单定制' }
         ]},
         { id: 'g1', label: '治理' },
-        { id: 'b1', label: '业务', children: [
-          { id: 'p1', label: '采购申请' },
-          { id: 'p2', label: '收付款管理' }
+        { id: 'b1', label: '业务（示例）', children: [
+          { id: 'p1', label: '业务单据 A' },
+          { id: 'p2', label: '业务单据 B' }
         ]}
       ];
       var menuChecked = ['d1', 'o1', 'u1', 'r1', 'b1', 'p1'];
       var bizTags = [
         { name: 'user', granted: true }, { name: 'role', granted: true }, { name: 'wf', granted: true },
-        { name: 'purchase', granted: true }, { name: 'dashboard', granted: false }, { name: 'notice', granted: false }
+        { name: 'pur_biz', granted: true }, { name: 'dashboard', granted: false }, { name: 'notice', granted: false }
       ];
       var btnPerms = ref([
         { form: '用户管理', btn: '查询', code: 'user:query', granted: true },
@@ -176,7 +176,7 @@
       ]);
       var scopes = ref([
         { action: '用户管理 · 查询', scope: '自定义表达式' },
-        { action: '采购申请 · 查询', scope: '本部门及以下' }
+        { action: '业务单据示例 · 查询', scope: '本部门及以下' }
       ]);
       var scopeOptions = ['全部数据', '本部门及以下', '仅本人', '自定义表达式'];
       var fields = ref([

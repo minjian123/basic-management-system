@@ -51,10 +51,10 @@
         </el-row>
         <el-row :gutter="16">
           <el-col :span="8">
-            <el-form-item label="供应商">
+            <el-form-item label="客户单位">
               <el-select v-model="form.supplier" clearable style="width:100%">
-                <el-option label="办公家具供应商 A" value="A"></el-option>
-                <el-option label="办公家具供应商 B" value="B"></el-option>
+                <el-option label="示例客户 A" value="A"></el-option>
+                <el-option label="示例客户 B" value="B"></el-option>
               </el-select>
             </el-form-item>
           </el-col>
@@ -116,10 +116,10 @@
     template: document.getElementById('app').outerHTML.replace(/<div id="app">/, '<div>').replace(/<\/div>\s*$/, ''),
     setup: function () {
       var editing = ref(false);
-      var form = reactive({ docNo: 'CG202608002（自动生成）', title: '采购办公桌×10', amount: 18000, supplier: 'A' });
+      var form = reactive({ docNo: 'SW202608002（自动生成）', title: '示例业务单据×10', amount: 18000, supplier: 'A' });
       var rows = ref([
-        { name: '办公桌', qty: 10, price: 1800 },
-        { name: '办公椅', qty: 20, price: 500 }
+        { name: '货物', qty: 10, price: 1800 },
+        { name: '服务', qty: 20, price: 500 }
       ]);
       var selRow = ref(null);
       var page = ref(1);

@@ -60,7 +60,7 @@
       <h2 id="purpose">1. 目的与适用范围</h2>
       <p>
         规范 BMS 管理端<strong>表单页</strong>（FormDetailPanel）的统一布局：作为《<a href="06_布局设计_表单框架.html">表单框架布局</a>》FormFrame 的
-        「表单 Tab」内容，展示单条记录的查看与编辑。用户、部门、角色、采购申请等实体模块的表单页均复用本布局。
+        「表单 Tab」内容，展示单条记录的查看与编辑。用户、部门、角色、业务表单等实体模块的表单页均复用本布局。
       </p>
       <div class="note">表单页承载「记录 Tab」形态（见《<a href="06_布局设计_表单框架.html">表单框架布局</a>》1.2）；列表页（列表 Tab）见《<a href="07_布局设计_列表页.html">列表页布局</a>》。</div>
 
@@ -99,7 +99,7 @@
             <div class="sys-cell3"><div class="f-label">创建时间</div><div class="f-input"></div></div>
             <div class="sys-cell3"><div class="f-label">修改用户</div><div class="f-input"></div></div>
             <div class="sys-cell3"><div class="f-label">修改时间</div><div class="f-input"></div></div>
-            <div class="sys-cell3"><div class="f-label">表单标识</div><span class="sys-select">采购申请表单</span></div>
+            <div class="sys-cell3"><div class="f-label">表单标识</div><span class="sys-select">业务表单</span></div>
           </div>
         </div>
         <div class="d-box d-note">字段顺序固定 · label 上方 · 三列只读栅格（disabled 输入框，与主表业务字段一致仅不可编辑；表单标识为禁用下拉框）· 时间按租户时区格式化（无时区后缀）· 无编辑态</div>
@@ -107,7 +107,7 @@
       <ul>
         <li><strong>组件</strong>：<code>el-form</code>，<code>label-position="top"</code>（默认尺寸，与主表字段区同一套样式），栅格<strong>三列</strong>（<code>el-col :span="8"</code>），字段值为 <strong>disabled 输入框</strong>（<code>el-input disabled</code>，与主表业务字段形态一致、仅不可编辑），外层用 <code>.sys-card</code> 包裹留白（<code>padding: 4px 0 16px</code>）。</li>
         <li><strong>字段及顺序固定</strong>：ID、版本号（乐观锁 version）、创建用户、创建时间、修改用户、修改时间、表单标识，共 7 项；除表单标识为禁用下拉框外，其余均为 disabled 输入框。</li>
-        <li><strong>表单标识</strong>：记录当前记录所属的表单（模块），用<strong>禁用下拉框</strong>（<code>el-select disabled</code>）展示——显示中文表单名（如「采购申请表单」），值为英文表单标识（如 <code>purchase</code>），数据由父页传入。</li>
+        <li><strong>表单标识</strong>：记录当前记录所属的表单（模块），用<strong>禁用下拉框</strong>（<code>el-select disabled</code>）展示——显示中文表单名（如「业务表单」），值为英文表单标识（如 <code>biz_form</code>），数据由父页传入；产品业务表单（采购申请等）在 biz 仓库维护。</li>
         <li><strong>时间格式</strong>：统一 <code>yyyy-MM-dd HH:mm</code>（如 2026-08-12 09:30），按当前租户时区格式化，<strong>不加时区后缀</strong>。</li>
         <li>系统信息无编辑态、不参与表单校验与提交；保存冲突（409）时提示「记录已被修改」并重新加载最新数据（见 §6）。</li>
         <li>各模块系统信息布局一致；原型以公共组件统一实现（《<a href="../原型设计/02_公共原型/04_系统信息组件.html">原型-公共组件/04-系统信息组件</a>》），表单页系统信息 Tab 内 iframe 嵌入。</li>

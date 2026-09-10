@@ -57,9 +57,9 @@
       <h2 id="purpose">1. 目的与适用范围</h2>
       <p>
         定义 BMS 首页工作台的布局规范：登录后默认页的网格卡片布局、卡片形态、编辑定制交互与移动端简化形态，
-        是<a href="../概要设计/37_概要设计_首页工作台.html">《概要设计-首页工作台》</a>在布局层面的落地，与<a href="02_布局设计_设计令牌.html">设计令牌</a>、
+        是<a href="../概要设计/35_概要设计_首页工作台.md">《概要设计-首页工作台》</a>在布局层面的落地，与<a href="02_布局设计_设计令牌.html">设计令牌</a>、
         <a href="04_布局设计_主框架.html">主框架</a>、<a href="11_布局设计_响应式适配.html">响应式适配</a>配套。
-        网格能力基于 gridstack.js（见<a href="../../规划/项目规划说明.md">《项目规划说明》</a>技术栈），布局配置与<a href="../架构设计/25_架构设计_子系统_首页工作台.html">《架构设计-首页工作台子系统》</a>一致。
+        网格能力基于 gridstack.js（见<a href="../../规划/项目规划说明.md">《项目规划说明》</a>技术栈），布局配置与<a href="../架构设计/25_架构设计_子系统_首页工作台.md">《架构设计-首页工作台子系统》</a>一致。
       </p>
 
       <h2 id="position">2. 位置与入口</h2>
@@ -67,7 +67,7 @@
       <h3 id="position-pc">2.1 PC 端入口与角标</h3>
       <ul>
         <li>首页工作台是<strong>登录后默认落地页</strong>，同时是主框架 Tab 栏的<strong>固定首 Tab</strong>（不可关闭，见<a href="04_布局设计_主框架.html">主框架</a>）；导航到其他模块后再切回，工作台状态保留（keep-alive）。</li>
-        <li>待办与通知<strong>未读角标统一挂在顶栏通知铃铛</strong>（单一入口，见<a href="05_布局设计_导航.html">导航布局</a>第 6 节），Socket.IO 实时刷新（见<a href="../架构设计/14_架构设计_子系统_实时推送.html">实时推送</a>）；角标为全局元素，不随工作台卡片显隐。</li>
+        <li>待办与通知<strong>未读角标统一挂在顶栏通知铃铛</strong>（单一入口，见<a href="05_布局设计_导航.html">导航布局</a>第 6 节），Socket.IO 实时刷新（见<a href="../架构设计/14_架构设计_子系统_实时推送.md">实时推送</a>）；角标为全局元素，不随工作台卡片显隐。</li>
         <li>工作台卡片管理、模板管理两个管理页走常规侧边菜单（dashboard 业务权限控制）。</li>
       </ul>
 
@@ -109,7 +109,7 @@
             <div style="display:flex;gap:.4rem;margin-top:.5rem">
               <div style="flex:1;border:1px solid var(--border);border-radius:8px;padding:.3rem .6rem">
                 <div class="d-note">待办 4 · 已办 12</div>
-                <div style="font-size:.75rem">采购申请-20260801<br>费用报销-20260802</div>
+                <div style="font-size:.75rem">业务单据-20260801<br>费用报销-20260802</div>
               </div>
               <div style="flex:1;border:1px solid var(--border);border-radius:8px;padding:.3rem .6rem">
                 <div class="d-note">通知 3</div>
@@ -117,7 +117,7 @@
               </div>
               <div style="flex:1;border:1px solid var(--border);border-radius:8px;padding:.3rem .6rem">
                 <div class="d-note">快捷入口</div>
-                <div style="font-size:.75rem">采购申请 · 收款登记<br>付款申请 · 报表中心</div>
+                <div style="font-size:.75rem">业务单据 · 收款登记<br>付款申请 · 报表中心</div>
               </div>
               <div style="flex:1;border:1px solid var(--border);border-radius:8px;padding:.3rem .6rem">
                 <div class="d-note">数据统计</div>
@@ -173,7 +173,7 @@
         <div class="d-box" style="text-align:left;padding:.3rem .7rem">
           <div style="border:1px solid var(--border);border-radius:8px;padding:.35rem .6rem;margin-top:.3rem;font-size:.8rem">
             <b>待办</b> <span style="float:right" class="d-note">4 项</span><br>
-            <span class="d-note">采购申请-20260801 待审批</span>
+            <span class="d-note">业务单据-20260801 待审批</span>
           </div>
           <div style="border:1px solid var(--border);border-radius:8px;padding:.35rem .6rem;margin-top:.3rem;font-size:.8rem">
             <b>通知</b> <span style="float:right" class="d-note">3 条未读</span><br>
@@ -181,7 +181,7 @@
           </div>
           <div style="border:1px solid var(--border);border-radius:8px;padding:.35rem .6rem;margin-top:.3rem;font-size:.8rem">
             <b>快捷入口</b><br>
-            <span class="d-note">采购申请 · 收款登记 · 付款申请 · 报表</span>
+            <span class="d-note">业务单据 · 收款登记 · 付款申请 · 报表</span>
           </div>
         </div>
         <div class="d-box d-tabbar" style="padding:.4rem 0;display:flex;justify-content:space-around;font-size:.75rem">
@@ -213,7 +213,7 @@
     </main>
 
     <footer>
-      依《文档生成规范》编写 · 与《<a href="../概要设计/37_概要设计_首页工作台.html">概要设计-首页工作台</a>》《<a href="04_布局设计_主框架.html">布局设计-主框架</a>》《<a href="11_布局设计_响应式适配.html">布局设计-响应式适配</a>》配套 · 生成日期：2026-08-13
+      依《文档生成规范》编写 · 与《<a href="../概要设计/35_概要设计_首页工作台.md">概要设计-首页工作台</a>》《<a href="04_布局设计_主框架.html">布局设计-主框架</a>》《<a href="11_布局设计_响应式适配.html">布局设计-响应式适配</a>》配套 · 生成日期：2026-08-13
     </footer>
   </div>
 

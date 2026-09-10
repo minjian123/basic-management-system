@@ -38,9 +38,9 @@
     <div class="p-toolbar" style="flex-wrap:wrap">
       <span class="proto-hint">表单：</span>
       <el-select v-model="curForm" style="width:130px" @change="switchForm">
-        <el-option label="采购申请" value="采购申请"></el-option>
-        <el-option label="付款申请" value="付款申请"></el-option>
-        <el-option label="供应商档案" value="供应商档案"></el-option>
+        <el-option label="用户管理" value="用户管理"></el-option>
+        <el-option label="部门与岗位" value="部门与岗位"></el-option>
+        <el-option label="业务示例表单" value="业务示例表单"></el-option>
       </el-select>
       <span class="proto-hint">层级：</span>
       <el-select v-model="scope" style="width:160px" @change="switchScope">
@@ -158,7 +158,7 @@
   var app = createApp({
     template: document.getElementById('app').outerHTML.replace(/<div id="app">/, '<div>').replace(/<\/div>\s*$/, ''),
     setup: function () {
-      var curForm = ref('采购申请');
+      var curForm = ref('用户管理');
       var scope = ref('tenant');
       var role = ref('财务角色');
       var platformFields = ['姓名', '部门', '申请事由', '金额'];

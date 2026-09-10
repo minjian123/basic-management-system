@@ -53,9 +53,9 @@
         <span class="proto-hint">平台域基础能力（sys/wf/rpt/ai）恒开通，不参与勾选；未勾选默认不开通</span>
       </div>
       <el-checkbox-group v-model="form.mods">
-        <el-checkbox value="purchase" style="margin-right:16px">采购（pur_ / 10xxxx）</el-checkbox>
-        <el-checkbox value="payment" style="margin-right:16px">收付款（pay_ / 11xxxx）</el-checkbox>
-        <el-checkbox value="supplier" style="margin-right:16px">供应商（sup_）</el-checkbox>
+        <el-checkbox value="biz·pur" style="margin-right:16px">采购（biz·pur_ / 10xxxx）</el-checkbox>
+        <el-checkbox value="biz·pay" style="margin-right:16px">收付款（biz·pay_ / 11xxxx）</el-checkbox>
+        <el-checkbox value="biz·sup" style="margin-right:16px">供应商（biz·sup_ / 14xxxx）</el-checkbox>
         <el-checkbox value="sale" disabled style="margin-right:16px" title="sys_module 状态为规划中，未交付不可勾选">销售（sale_ / 12xxxx）<span class="proto-hint">规划中（未交付）</span></el-checkbox>
         <el-checkbox value="wh" disabled title="sys_module 状态为规划中，未交付不可勾选">仓储（wh_ / 13xxxx）<span class="proto-hint">规划中（未交付）</span></el-checkbox>
       </el-checkbox-group>
@@ -80,7 +80,7 @@
     setup: function () {
       var formRef = ref(null);
       var opening = ref(false);
-      var form = reactive({ code: '', name: '', domain: '', mods: ['purchase', 'payment', 'supplier'] });
+      var form = reactive({ code: '', name: '', domain: '', mods: ['biz·pur', 'biz·pay', 'biz·sup'] });
       var rules = {
         code: [{ required: true, message: '请输入租户 code', trigger: 'blur' }],
         name: [{ required: true, message: '请输入租户名称', trigger: 'blur' }],

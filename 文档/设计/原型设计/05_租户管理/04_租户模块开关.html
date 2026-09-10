@@ -87,11 +87,11 @@
       var code = new URLSearchParams(location.search).get('code') || 'demo';
       var tenantName = computed(function () { return TENANTS[code] || (code + ' · 演示租户'); });
       var rows = ref([
-        { key: 'purchase', name: '采购', prefix: 'pur_', seg: '10', status: 'enabled', openTime: '2026-08-01' },
-        { key: 'payment', name: '收付款', prefix: 'pay_', seg: '11', status: 'enabled', openTime: '2026-08-01' },
-        { key: 'supplier', name: '供应商', prefix: 'sup_', seg: '—', status: 'enabled', openTime: '2026-08-01' },
-        { key: 'sale', name: '销售', prefix: 'sale_', seg: '12', status: 'pending', openTime: '—' },
-        { key: 'wh', name: '仓储', prefix: 'wh_', seg: '13', status: 'pending', openTime: '—' }
+        { key: 'pur', name: '采购（biz）', prefix: 'pur_', seg: '10', status: 'enabled', openTime: '2026-08-01' },
+        { key: 'pay', name: '收付款（biz）', prefix: 'pay_', seg: '11', status: 'enabled', openTime: '2026-08-01' },
+        { key: 'sup', name: '供应商（biz）', prefix: 'sup_', seg: '14', status: 'enabled', openTime: '2026-08-01' },
+        { key: 'sale', name: '销售（biz 规划中）', prefix: 'sale_', seg: '12', status: 'pending', openTime: '—' },
+        { key: 'wh', name: '仓储（biz 规划中）', prefix: 'wh_', seg: '13', status: 'pending', openTime: '—' }
       ]);
       function statusType(s) {
         return s === 'enabled' ? 'success' : 'info';

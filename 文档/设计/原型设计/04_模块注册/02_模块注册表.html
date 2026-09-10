@@ -124,11 +124,11 @@
         { key: 'wf', name: '工作流', prefix: 'wf_', seg: '—', event: 'wf', type: '平台域固定', status: 'enabled' },
         { key: 'rpt', name: '报表', prefix: 'rpt_', seg: '—', event: 'rpt', type: '平台域固定', status: 'enabled' },
         { key: 'ai', name: 'AI 域', prefix: 'ai_', seg: '—', event: 'ai', type: '平台域固定', status: 'enabled' },
-        { key: 'purchase', name: '采购', prefix: 'pur_', seg: '10', event: 'purchase', type: '业务模块', status: 'enabled' },
-        { key: 'payment', name: '收付款', prefix: 'pay_', seg: '11', event: 'payment', type: '业务模块', status: 'enabled' },
-        { key: 'supplier', name: '供应商', prefix: 'sup_', seg: '—', event: 'supplier', type: '业务模块', status: 'enabled' },
-        { key: 'sale', name: '销售', prefix: 'sale_', seg: '12', event: 'sale', type: '业务模块', status: 'planning' },
-        { key: 'wh', name: '仓储', prefix: 'wh_', seg: '13', event: 'wh', type: '业务模块', status: 'planning' }
+        { key: 'pur', name: '采购（biz）', prefix: 'pur_', seg: '10', event: 'pur', type: '产品模块', status: 'enabled' },
+        { key: 'pay', name: '收付款（biz）', prefix: 'pay_', seg: '11', event: 'pay', type: '产品模块', status: 'enabled' },
+        { key: 'sup', name: '供应商（biz）', prefix: 'sup_', seg: '14', event: 'sup', type: '产品模块', status: 'enabled' },
+        { key: 'sale', name: '销售（biz 规划中）', prefix: 'sale_', seg: '12', event: 'sale', type: '产品模块', status: 'planning' },
+        { key: 'wh', name: '仓储（biz 规划中）', prefix: 'wh_', seg: '13', event: 'wh', type: '产品模块', status: 'planning' }
       ]);
       var query = reactive({ kw: '', status: '', type: '', page: 1, size: 20 });
       var loading = ref(false);

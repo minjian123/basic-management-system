@@ -79,16 +79,16 @@
                 note: '平台域固定种子：数据集/报表/大屏表。' },
     ai:       { key: 'ai',       name: 'AI 域',              en: 'AI',          prefix: 'ai_', seg: '—', event: 'ai',       typ: '平台域固定', status: '启用',
                 note: '平台域固定种子：AI 交互审计/文件分段表（阶段十五）。' },
-    purchase: { key: 'purchase', name: '采购',               en: 'Purchase',    prefix: 'pur_', seg: '10', event: 'purchase', typ: '业务模块', status: '启用',
-                note: '业务模块：申请/订单表（MVP 模拟业务）；错误码段 10xxxx。' },
-    payment:  { key: 'payment',  name: '收付款',             en: 'Payment',     prefix: 'pay_', seg: '11', event: 'payment',  typ: '业务模块', status: '启用',
-                note: '业务模块：收款/付款/退款/流水/渠道表（MVP 实际使用）；错误码段 11xxxx。' },
-    supplier: { key: 'supplier', name: '供应商',             en: 'Supplier',    prefix: 'sup_', seg: '—', event: 'supplier', typ: '业务模块', status: '启用',
-                note: '业务模块：供应商档案表；暂无独立错误码段（业务错误码走引用方）。' },
-    sale:     { key: 'sale',     name: '销售',               en: 'Sales',       prefix: 'sale_', seg: '12', event: 'sale',     typ: '业务模块', status: '规划中',
-                note: '业务模块（规划中）：客户/合同/订单/发货/退货表；错误码段 12xxxx，待阶段启动后注册种子。' },
-    wh:       { key: 'wh',       name: '仓储',               en: 'Warehouse',   prefix: 'wh_', seg: '13', event: 'wh',       typ: '业务模块', status: '规划中',
-                note: '业务模块（规划中）：仓库/库位/库存/出入库/调拨盘点表；错误码段 13xxxx，待阶段启动后注册种子。' }
+    pur:       { key: 'pur',      name: '采购（biz）',        en: 'Purchase',    prefix: 'pur_', seg: '10', event: 'pur',      typ: '产品模块', status: '启用',
+                note: '产品模块（biz）：采购申请/采购订单表，由 biz 仓库按平台扩展接入流程登记；错误码段 10xxxx。' },
+    pay:      { key: 'pay',      name: '收付款（biz）',       en: 'Payment',     prefix: 'pay_', seg: '11', event: 'pay',      typ: '产品模块', status: '启用',
+                note: '产品模块（biz）：收款/付款/退款/流水/渠道表；错误码段 11xxxx。' },
+    sup:      { key: 'sup',      name: '供应商（biz）',       en: 'Supplier',    prefix: 'sup_', seg: '14', event: 'sup',      typ: '产品模块', status: '启用',
+                note: '产品模块（biz）：供应商档案表；错误码段 14xxxx。' },
+    sale:     { key: 'sale',     name: '销售（biz 规划中）',  en: 'Sales',       prefix: 'sale_', seg: '12', event: 'sale',     typ: '产品模块', status: '规划中',
+                note: '产品模块（biz 规划中）：客户/合同/订单/发货/退货表；错误码段 12xxxx，待 biz 阶段启动后登记。' },
+    wh:       { key: 'wh',       name: '仓储（biz 规划中）',  en: 'Warehouse',   prefix: 'wh_', seg: '13', event: 'wh',       typ: '产品模块', status: '规划中',
+                note: '产品模块（biz 规划中）：仓库/库位/库存/出入库/调拨盘点表；错误码段 13xxxx，待 biz 阶段启动后登记。' }
   };
   var app = createApp({
     template: document.getElementById('app').outerHTML.replace(/<div id="app">/, '<div>').replace(/<\/div>\s*$/, ''),

@@ -111,9 +111,9 @@
     template: document.getElementById('app').outerHTML.replace(/<div id="app">/, '<div>').replace(/<\/div>\s*$/, ''),
     setup: function () {
       var rows = ref([
-        { code: 'demo', name: '演示租户', domain: 'demo.bms.example.com', status: 'enabled', mods: '采购、收付款、供应商' },
-        { code: 'acme', name: 'Acme 制造', domain: 'acme.bms.example.com', status: 'enabled', mods: '采购' },
-        { code: 'globex', name: 'Globex 贸易', domain: 'globex.bms.example.com', status: 'disabled', mods: '采购、收付款' },
+        { code: 'demo', name: '演示租户', domain: 'demo.bms.example.com', status: 'enabled', mods: 'biz·采购、biz·收付款、biz·供应商' },
+        { code: 'acme', name: 'Acme 制造', domain: 'acme.bms.example.com', status: 'enabled', mods: 'biz·采购' },
+        { code: 'globex', name: 'Globex 贸易', domain: 'globex.bms.example.com', status: 'disabled', mods: 'biz·采购、biz·收付款' },
         { code: 'initech', name: 'Initech 服务', domain: 'initech.bms.example.com', status: 'opening', mods: '—' }
       ]);
       var query = reactive({ kw: '', status: '', page: 1, size: 20 });
