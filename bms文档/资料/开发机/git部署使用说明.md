@@ -60,7 +60,7 @@ git config --list --show-origin   # 带来源文件查看，确认是全局还�
 
 ## 4. 本项目仓库接入（内网 GitLab） <a id="bms-repo"></a>
 
-本项目仓库 `~/develop/bms/` 的远端配置（`git remote -v` 实测）：
+本项目仓库现按工作区模型克隆，位于 `~/develop/bizs/bms/` 与 `~/develop/cws/bms/`（两份克隆各自独立、经远端同步，详见《[平台可扩展性规划](../../规划/平台可扩展性规划.md)》工作区模型）。任取一份的远端配置（`git remote -v` 实测）：
 
 | 远端 | 地址 | 角色 |
 | --- | --- | --- |
@@ -178,8 +178,8 @@ ping -c 2 192.168.0.107
 curl -s -o /dev/null -w "%{http_code}\n" http://192.168.0.107:8080/users/sign_in
 
 # 3) 机器关机则远程唤醒（等待 SSH 就绪，见《开发服务器电源控制使用说明》）
-cd ~/develop/bms
-python scripts/tools/wol/wake_mjbk.py
+cd ~/develop/bizs/bms
+python3 scripts/tools/wol/wake_mjbk.py
 
 # 4) mjbk 开机后 GitLab 容器随 docker 自动恢复（常驻服务），curl 通过后重试
 git pull origin main
