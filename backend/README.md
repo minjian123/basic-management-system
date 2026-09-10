@@ -15,6 +15,7 @@ cd backend
 uv sync
 uv run uvicorn app.main:create_app --factory --port 8000
 # 验证：访问 http://127.0.0.1:8000/healthz 返回 {"status":"ok"}
+uv run pytest   # 冒烟用例（含 Kiwi TCMS 用例 ID 标注）
 ```
 
 ## 目录结构
@@ -22,12 +23,17 @@ uv run uvicorn app.main:create_app --factory --port 8000
 ```text
 backend/
 ├── .python-version   # 固定 Python 3.14
-├── pyproject.toml    # uv 项目声明
+├── pyproject.toml    # 元数据 + 依赖 + ruff / pyright / pytest 配置
 ├── uv.lock           # 依赖锁定（必须提交）
+├── config.toml       # 配置占位（02-1 填充）
+├── alembic.ini       # 迁移配置占位（03-6 填充）
 ├── README.md         # 本文件
-└── app/
-    ├── __init__.py   # 暴露 __version__
-    └── main.py       # FastAPI 应用工厂 create_app() + /healthz
+├── app/
+│   ├── __init__.py   # 暴露 __version__
+│   └── main.py       # 应用工厂 create_app() + 根路由 + /healthz
+└── tests/
+    ├── conftest.py   # ASGITransport 客户端夹具
+    └── test_main.py  # 根路由 / /healthz 冒烟
 ```
 
 ## 文档导航
