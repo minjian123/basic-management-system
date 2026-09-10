@@ -210,7 +210,7 @@ python scripts/tools/graphify/localize-graph.py   # 汉化 graph.html + 生成 C
 
 ## 8. 与 AI 编程助手的集成 <a id="agent"></a>
 
-项目根目录 `AGENTS.md` 中已写入 graphify 使用规则，AI 助手会遵循（这些是运行时规则，细节见本文档）：
+工作区根 `AGENTS.md` 中已写入 graphify 使用规则，AI 助手会遵循（这些是运行时规则，细节见本文档）：
 
 - 代码库问题优先 `graphify query "<问题>"`，关系用 `graphify path`，概念用 `graphify explain`——返回的子图比全文 grep 小得多。
 - 有 `graphify-out/wiki/index.md` 时用其做广域导航。
@@ -228,7 +228,7 @@ python scripts/tools/graphify/localize-graph.py   # 汉化 graph.html + 生成 C
 
 **DSH 下三种用法（从轻到重）**：
 
-1. **会话内直跑 CLI（零安装，本项目默认方式）**：DSH 会话的 bash 工具直接执行 `graphify query/path/explain`，仓库根 AGENTS.md 的 graphify 规则对 DSH 同样生效。实测 bms 图谱（3365 节点）中文分词查询正常。
+1. **会话内直跑 CLI（零安装，本项目默认方式）**：DSH 会话的 bash 工具直接执行 `graphify query/path/explain`，工作区根 AGENTS.md 的 graphify 规则对 DSH 同样生效。实测 bms 图谱（3365 节点）中文分词查询正常。
 2. **Skill 化**：复制 skill（SKILL.md + references）到 DSH 用户级 skill 目录 `~/.dsh/skills/graphify/`，DSH 会话 skill 目录即可载入 graphify 方法论（目录约定见 DSH 源码 `packages/skill` 与测试）。
 3. **插件化**：向 DSH web profile 安装 `dsh-graphify`，见下。
 

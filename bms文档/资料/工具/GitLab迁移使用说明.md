@@ -83,7 +83,7 @@ GET /api/v4/projects/2/protected_branches   # main: push=Maintainers merge=Maint
 
 | 项目 | 结果 |
 | --- | --- |
-| GitLab 仓库内容 | 7 项（.opencode / deploy / 文档 / .gitignore / AGENTS.md / LICENSE / README.md） |
+| GitLab 仓库内容 | bms文档 / deploy / scripts / ops / .gitignore / .gitlab-ci.yml / LICENSE / README.md / renovate.json |
 | GitHub 同步 | 最新提交 `1d4681a` 已镜像（GitHub API 确认） |
 | main 保护 | push=Maintainers、merge=Maintainers |
 | 本地 remote | gitlab=GitLab（唯一远端），origin（GitHub）已删除 |
