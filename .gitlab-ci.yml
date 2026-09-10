@@ -37,8 +37,13 @@ stages:
   - verify
 
 variables:
-  PIP_INDEX_URL: https://mirrors.aliyun.com/pypi/simple/
+  # 依赖安装走国内源 + runner /cache 持久卷缓存（后续流水线不重下）
+  PIP_INDEX_URL: https://pypi.tuna.tsinghua.edu.cn/simple
+  UV_DEFAULT_INDEX: https://pypi.tuna.tsinghua.edu.cn/simple
   NPM_CONFIG_REGISTRY: https://registry.npmmirror.com
+  UV_CACHE_DIR: /cache/uv
+  PIP_CACHE_DIR: /cache/pip
+  npm_config_cache: /cache/npm
   REGISTRY_IMAGE_PREFIX: 192.168.0.107:5050/bms/bms
 
 default:
