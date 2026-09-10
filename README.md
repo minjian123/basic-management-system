@@ -72,19 +72,16 @@ bms/
 ├── .editorconfig             # 编辑器统一配置（UTF-8 / LF / 缩进）
 ├── .gitlab-ci.yml            # CI 流水线定义（GitLab CE）
 ├── renovate.json             # Renovate 依赖升级配置
-├── backend/                  # FastAPI 后端（01 占位，02 工程初始化完成，03 细化分层）
+├── backend/                  # FastAPI 后端（01 占位，02 初始化，03 分层完成）
 │   ├── .python-version       # 固定 Python 版本（3.14）
 │   ├── pyproject.toml        # 元数据 + 依赖 + ruff / pyright / pytest 配置
 │   ├── uv.lock               # 依赖锁定（必须提交）
 │   ├── config.toml           # 配置占位（02-1 填充）
 │   ├── alembic.ini           # 迁移配置占位（03-6 填充）
+│   ├── alembic/              # 迁移目录占位（03-6 填充）
 │   ├── README.md             # 工程说明
-│   ├── app/
-│   │   ├── __init__.py       # 暴露 __version__
-│   │   └── main.py           # 应用工厂 + 根路由 + /healthz
-│   └── tests/
-│       ├── conftest.py       # ASGITransport 客户端夹具
-│       └── test_main.py      # 根路由 / /healthz 冒烟
+│   ├── app/                  # 分层：core / api / models / schemas / services / repositories / db / tasks / ws / i18n
+│   └── tests/                # 接口测试（api/ 同构）
 ├── frontend/                 # Vue 3 + Vite PC 管理端（01 最小占位，04 细化）
 │   ├── .nvmrc                # 固定 Node 版本（22）
 │   ├── package.json
