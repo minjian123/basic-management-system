@@ -27,11 +27,11 @@
 | `backend/` | 缺失 | 最小可启动占位（FastAPI + `/healthz`） | 新建 |
 | `frontend/` | 缺失 | 最小 Vite + Vue + TS 占位（端口 5173） | 新建 |
 | `frontend-mobile/` | 缺失 | 最小 Vite + Vue + TS 占位（端口 5174） | 新建 |
-| `scripts/` | 已含 `tools/`（7 个工具，无 multimodal）+ `README.md`（三分法已落地） | 承接开发期工具链（自 `deploy/tools/` 迁入）+ 目录说明 `README.md` | 已落地，核对清单 |
+| `scripts/` | 已含 `tools/` 工具链（含 `base-check` 基座自检）+ `README.md`（三分法已落地） | 承接开发期工具链（自 `deploy/tools/` 迁入）+ 目录说明 `README.md` | 已落地，核对清单 |
 | `ops/` | 已有 `README.md`（目录说明已就位） | 产品运维脚本目录（脚本后续阶段填充） | 已落地，核对内容 |
-| `graphify-out/README.md` | 缺失（`graphify-out/` 整目录被忽略） | 提交 `README.md`，产物忽略 | 新增 + 调 .gitignore |
+| `graphify-out/`（工作区根） | 工作区层图谱产物 | 不属 bms 仓，本任务不处理（见下方工作区说明） | — |
 | `README.md` | 缺「快速启动」章节、无技术栈概览表；Python 徽标为 3.12+；文档目录树漏 `测试/`、`项目/` | 按四章节重写 | 重写 |
-| `.gitignore` | 已有 `node_modules/`；编辑器规则为注释态；无 `*.local` | 补编辑器 / `*.local`；调整 graphify-out | 修改 |
+| `.gitignore` | 已有 `node_modules/`；编辑器规则为注释态；无 `*.local` | 补编辑器 / `*.local` | 修改 |
 | `.editorconfig` | 缺失 | 新建 | 新建 |
 | `.gitlab-ci.yml` | 存在（内容非 01 范围） | 保留 | — |
 | `deploy/` | 已无 `tools/`（已迁入 `scripts/`） | 纯部署（Compose / nginx / setup） | 已落地 |
@@ -40,7 +40,7 @@
 
 > 说明：`AGENTS.md`、`.opencode/`、`.graphifyignore` 与知识图谱产物 `graphify-out/` 位于**工作区根**（工作区模型，见《平台可扩展性规划》4.3），不在 bms 仓库根。
 
-> **已知 git 现象**：`git status` 干净，但告警 `could not open directory 'node_modules/.pnpm/node_modules/frontend/'`。根因为根目录 `node_modules/`（`.opencode` 的 pnpm store）残留的陈旧 untracked 缓存条目，该目录实际未被跟踪（`git ls-files node_modules` 为 0）。处理：本任务加入 `node_modules/` 忽略规则后重跑 `git status` 验证告警消失；若仍在，执行 `git update-index --again` 清理索引缓存。
+> **已知 git 现象（已随工作区模型消除）**：曾出现告警 `could not open directory 'node_modules/.pnpm/node_modules/frontend/'`，根因为 `.opencode` 的 pnpm store；`.opencode` 与 `node_modules` 已移至工作区根，bms 仓不再有该目录。本任务仍以 `git status` 验证 bms 仓干净、无应忽略产物出现（若仍在，执行 `git update-index --again` 清理索引缓存）。
 
 ## 3. 目标目录树与交付物清单 <a id="tree"></a>
 
@@ -50,10 +50,9 @@
 bms/
 ├── README.md                 # 本仓库说明（简介 / 快速启动 / 目录结构 / 文档导航）
 ├── LICENSE                   # MIT 许可
-├── .gitignore                # Python / Node / 环境与凭据 / 编辑器 / 图谱产物
+├── .gitignore                # Python / Node / 环境与凭据 / 编辑器
 ├── .editorconfig             # 编辑器统一配置（UTF-8 / LF / 缩进）
 ├── .gitlab-ci.yml            # CI 流水线定义（GitLab CE，内容非 01 范围）
-├── .graphifyignore           # graphify 索引排除规则
 ├── renovate.json             # Renovate 依赖升级配置
 ├── backend/                  # FastAPI 后端（01 最小占位，02 / 03 细化）
 │   ├── .python-version       # 固定 Python 版本（3.14）
@@ -82,7 +81,7 @@ bms/
 │   ├── compose/              # Docker Compose（base / gitlab / kiwi）
 │   └── setup/                # 环境安装脚本
 ├── scripts/                  # 开发期工具链（自 deploy/tools/ 迁入）
-│   └── …                     # wol / bg / graphify / defect / backup / gitlab / reorder-design
+│   └── …                     # wol / bg / graphify / defect / backup / gitlab / reorder-design / base-check
 ├── ops/                      # 产品运维脚本（种子数据、备份恢复、租户库迁移，按阶段补充）
 │   └── README.md             # 目录说明
 ├── bms文档/                  # 项目文档
@@ -95,14 +94,12 @@ bms/
 │   ├── 资料/
 │   ├── 用户文档/              # 本地资源（已 gitignore）
 │   └── 资源/
-├── graphify-out/             # 知识图谱产物（产物 gitignore，仅 README.md 入库）
-│   └── README.md             # 目录说明
 └── temp/                     # 本地临时目录（gitignore，非交付物，不参与 clone 目录一致性校验）
 ```
 
 > **根级文件落位口径**：`.gitlab-ci.yml` 与 `renovate.json` 均为**工具约定决定的根级落位**——GitLab 默认在仓库根查找 `.gitlab-ci.yml`，Renovate 默认在仓库根查找 `renovate.json`。二者不可挪入 `deploy/` 或其他目录：挪动会导致 GitLab 检测不到（流水线不触发）或 Renovate 进入 onboarding 模式。故二者与 `deploy/` **平级**、不在其内；`deploy/` 只装部署产物（Compose 编排 / nginx 配置 / 脚本）。
 
-> **目录职责边界**：`deploy/` 为**纯部署**（Compose 编排 / nginx 配置 / setup）；`scripts/` 为**开发期工具链**（WOL / bg / graphify / defect / backup / gitlab / reorder-design，自 `deploy/tools/` 迁入）；`ops/` 为**产品运维脚本**（种子数据 / 备份恢复 / 租户库迁移，随产品交付、后续阶段填充）。三者职责不同、不可混用：`deploy/` 不装工具链，`scripts/` 不装产品运维脚本，`ops/` 不装开发工具。
+> **目录职责边界**：`deploy/` 为**纯部署**（Compose 编排 / nginx 配置 / setup）；`scripts/` 为**开发期工具链**（WOL / bg / graphify / defect / backup / gitlab / reorder-design / base-check，自 `deploy/tools/` 迁入）；`ops/` 为**产品运维脚本**（种子数据 / 备份恢复 / 租户库迁移，随产品交付、后续阶段填充）。三者职责不同、不可混用：`deploy/` 不装工具链，`scripts/` 不装产品运维脚本，`ops/` 不装开发工具。
 
 交付物清单（01 新建 / 修改的文件）：
 
@@ -111,11 +108,10 @@ bms/
 | `backend/`（6 个文件，见 7.1） | 新建 | 最小可启动占位 |
 | `frontend/`（10 个文件，见 7.2） | 新建 | 最小 Vite 占位 |
 | `frontend-mobile/`（10 个文件，见 7.3） | 新建 | 最小 Vite 占位 |
-| `scripts/README.md` | 已存在，核对 | 目录说明（开发期工具链） |
+| `scripts/README.md` | 已存在，核对 | 目录说明（开发期工具链，含 `base-check` 基座自检） |
 | `ops/README.md` | 已存在，核对 | 目录说明（产品运维脚本） |
-| `graphify-out/README.md` | 新建 | 图谱产物目录说明 |
 | `README.md` | 重写 | 四章节 |
-| `.gitignore` | 修改 | 补编辑器 / `*.local`，调整 graphify-out |
+| `.gitignore` | 修改 | 补编辑器 / `*.local` |
 | `.editorconfig` | 新建 | 编辑器统一配置 |
 
 ## 4. 根 README 设计 <a id="readme"></a>
@@ -193,13 +189,7 @@ node_modules/
 !.vscode/extensions.json
 ```
 
-**替换**——把现有 `graphify-out/` 整目录忽略规则改为「产物忽略、保留说明文件」：
-
-```gitignore
-# graphify 运行产物（图谱可随时重建，含本机绝对路径，不入库；保留目录说明文件）
-graphify-out/*
-!graphify-out/README.md
-```
+**图谱产物口径**（工作区模型）：知识图谱在工作区根生成与忽略，bms 仓不跟踪图谱产物；bms 根 `.gitignore` 保留 `graphify-out/` 忽略行，仅为防本地产物误入库。
 
 **锁定文件口径**：`uv.lock`、`package-lock.json` 在 .gitignore 中**不出现**（现有 `# uv.lock` 保持注释态即可），即两者必须提交。
 
@@ -215,8 +205,6 @@ graphify-out/*
 | `.vscode/extensions.json` | **不**被忽略 |
 | `.vscode/xxx.code-workspace` | 被忽略 |
 | `backend/.env.local` | 被忽略（`*.local`） |
-| `graphify-out/graph.json` | 被忽略 |
-| `graphify-out/README.md` | **不**被忽略 |
 | `backend/uv.lock` | **不**被忽略 |
 | `frontend/package-lock.json` | **不**被忽略 |
 | `bms文档/用户文档/本地资源.md` | 被忽略 |
@@ -396,9 +384,8 @@ createApp(App).mount('#app')
 
 | 文件 | 内容要点 |
 | --- | --- |
-| `scripts/README.md` | 目录用途：开发期工具链（WOL / bg / graphify / defect / backup / gitlab / reorder-design，自 `deploy/tools/` 迁入）；01 核对清单 |
+| `scripts/README.md` | 目录用途：开发期工具链（WOL / bg / graphify / defect / backup / gitlab / reorder-design / base-check，自 `deploy/tools/` 迁入）；01 核对清单 |
 | `ops/README.md` | 目录用途：产品运维脚本（种子数据 / 备份恢复 / 租户库迁移），按阶段补充；01 仅保留目录说明，脚本在后续任务添加 |
-| `graphify-out/README.md` | 知识图谱产物目录（graph.json / graph.html / wiki / GRAPH_REPORT.md 等），可由 graphify 随时重建；因含本机绝对路径，产物不入库（见《graphify 部署使用说明》），本目录仅保留此说明文件 |
 
 ## 9. 与全局设计的对齐记录 <a id="align"></a>
 
@@ -407,7 +394,7 @@ createApp(App).mount('#app')
 | # | 事项 | 定稿口径 | 落点 |
 | --- | --- | --- | --- |
 | 1 | Python 版本 | **钉 3.14**（06 逐依赖验证，不兼容整体回退 3.13，既定口径） | `backend/.python-version`=3.14、根 README 徽标 3.12+→3.14+ |
-| 2 | graphify-out 入库策略 | **产物忽略 + 提交 README.md**（含本机绝对路径，不入库） | `.gitignore` 改 `graphify-out/*` + `!graphify-out/README.md`；新增 `graphify-out/README.md` |
+| 2 | graphify-out 入库策略 | **工作区根图谱产物，bms 仓不跟踪**（工作区模型） | 根 `.gitignore` 保留 `graphify-out/` 忽略行；不新增 `graphify-out/README.md` |
 | 3 | 占位工程范围 | **最小可启动**（非完整骨架），完整骨架归 02 ~ 05 | 本文档 §7；无空目录、无 `.gitkeep` |
 | 4 | 编辑器忽略规则 | `.idea/` 全忽略；`.vscode/*` 忽略但放行 `settings.json` / `extensions.json` | `.gitignore`（§5） |
 | 5 | Node 版本 | **Node 22 LTS**（已全库统一：需求 01-4/01-5、任务 04/05、规划 §17、开发部署规划、架构 02、准备期 01 环境与工具链、npm 知识档案等「≥20.19」口径同步改 22） | `frontend/.nvmrc`、`frontend-mobile/.nvmrc`、根 README 技术栈表 / 徽标 |
@@ -422,7 +409,7 @@ createApp(App).mount('#app')
 1. **backend 占位**：建 `backend/`，写 `.python-version`、`pyproject.toml`、`app/__init__.py`、`app/main.py`、`README.md` → `uv lock`（网络慢切国内 PyPI 镜像）→ `uv sync` → `uv run uvicorn app.main:create_app --factory --port 8000`。验证：`GET http://127.0.0.1:8000/healthz` 返回 `{"status":"ok"}`。
 2. **frontend 占位**：`npm create vite@latest frontend -- --template vue-ts`，按 7.2 调整（name、端口 5173、`.nvmrc`=22、`App.vue` 文案、`README.md`）→ `npm install` 生成 lock。验证：`npm run dev` 访问 `http://127.0.0.1:5173` 看到占位页。
 3. **frontend-mobile 占位**：同步骤 2，端口 5174、name `bms-frontend-mobile`、文案改移动端。验证：访问 `http://127.0.0.1:5174`。
-4. **其余说明文件**：核对 `scripts/README.md`、`ops/README.md`（已存在，删 multimodal 词条），新建 `graphify-out/README.md`（内容见 §8）。
+4. **其余说明文件**：核对 `scripts/README.md`、`ops/README.md`（已存在，删 multimodal 词条、补 `base-check`）；图谱产物归工作区根，不新建 `graphify-out/README.md`。
 5. **根 .gitignore**：按 §5 追加 / 替换规则；保留现有 Python 模板主体。
 6. **根 .editorconfig**：按 §6 新建。
 7. **根 README**：按 §4 重写四章节、修正徽标、补技术栈概览表、补全目录树（含 `测试/`、`项目/`）。

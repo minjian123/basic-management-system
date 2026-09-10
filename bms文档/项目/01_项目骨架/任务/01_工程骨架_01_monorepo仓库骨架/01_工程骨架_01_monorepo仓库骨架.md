@@ -19,9 +19,9 @@
 
 ## 2. 任务内容 <a id="content"></a>
 
-1. 仓库根 `bms/` 顶层目录一次性就位（`backend/`、`frontend/`、`frontend-mobile/`、`deploy/`、`scripts/`、`ops/`、`.gitlab-ci.yml`、`bms文档/`、`graphify-out/`）
+1. 仓库根 `bms/` 顶层目录一次性就位（`backend/`、`frontend/`、`frontend-mobile/`、`deploy/`、`scripts/`、`ops/`、`.gitlab-ci.yml`、`bms文档/`）；`AGENTS.md`、`.opencode`、知识图谱为工作区根配置，不属本仓（工作区模型）
 2. 根 `README.md` 四章节：项目简介（技术栈概览表）、快速启动（三工程启动命令）、目录结构（目录清单）、文档导航；三工程各自 README 同结构简化版
-3. 根 `.gitignore`：Python/Node/环境与凭据/编辑器/图谱产物；`uv.lock`、`package-lock.json` 必须提交
+3. 根 `.gitignore`：Python/Node/环境与凭据/编辑器；`uv.lock`、`package-lock.json` 必须提交（图谱产物由工作区根统一忽略）
 4. 根 `.editorconfig`：UTF-8、LF、尾行空格去除、末尾空行；Python 4 空格、TS/JS/JSON 2 空格缩进
 5. 三工程最小可运行占位（02 ~ 05 细化前可独立启动）
 
