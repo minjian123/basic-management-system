@@ -27,13 +27,24 @@ backend/
 ├── uv.lock           # 依赖锁定（必须提交）
 ├── config.toml       # 配置占位（02-1 填充）
 ├── alembic.ini       # 迁移配置占位（03-6 填充）
+├── alembic/          # 迁移目录占位（03-6 填充）
 ├── README.md         # 本文件
 ├── app/
 │   ├── __init__.py   # 暴露 __version__
-│   └── main.py       # 应用工厂 create_app() + 根路由 + /healthz
+│   ├── main.py       # 应用工厂：聚合路由 + 根路由
+│   ├── core/         # 配置 / 安全 / 异常（占位，02 域填充）
+│   ├── api/          # 路由：health（/healthz）+ demo（/api/v1/demos）
+│   ├── models/       # ORM 模型（base 占位、demo 内存模型）
+│   ├── schemas/      # Pydantic 模型（common 占位、demo 请求/响应）
+│   ├── services/     # 业务服务（demo_service，内存实现）
+│   ├── repositories/ # 数据访问（demo_repository，内存字典）
+│   ├── db/           # 引擎 / 会话（占位，02-5 填充）
+│   ├── tasks/        # Celery 任务占位
+│   ├── ws/           # Socket.IO 占位
+│   └── i18n/         # 国际化占位
 └── tests/
     ├── conftest.py   # ASGITransport 客户端夹具
-    └── test_main.py  # 根路由 / /healthz 冒烟
+    └── api/          # 接口测试：test_main / test_health / test_demo
 ```
 
 ## 文档导航

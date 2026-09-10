@@ -1,4 +1,4 @@
-"""应用工厂冒烟：根路由与应用信息、/healthz 存活。"""
+"""根路由与应用信息冒烟。"""
 
 import pytest
 from httpx import AsyncClient
@@ -14,11 +14,3 @@ async def test_root_returns_app_info(client: AsyncClient) -> None:
     assert body["message"] == "ok"
     assert body["data"]["name"] == "BMS 基础管理系统"
     assert body["data"]["version"]
-
-
-@pytest.mark.kiwi_id(2)
-async def test_healthz_returns_ok(client: AsyncClient) -> None:
-    """GET /healthz 返回 {"status":"ok"}。"""
-    resp = await client.get("/healthz")
-    assert resp.status_code == 200
-    assert resp.json() == {"status": "ok"}
