@@ -10,7 +10,8 @@ export interface AppInfo {
   version: string
 }
 
-const appInfoClient: AxiosInstance = axios.create({ timeout: 10_000 })
+/** 根路径客户端（不挂 baseURL）：/info 连通探针；导出供单元测试注入。 */
+export const appInfoClient: AxiosInstance = axios.create({ timeout: 10_000 })
 
 export const http: AxiosInstance = axios.create({
   baseURL: import.meta.env.VITE_API_BASE ?? '/api',

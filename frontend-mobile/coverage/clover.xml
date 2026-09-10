@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<coverage generated="1789081973472" clover="3.2.0">
-  <project timestamp="1789081973472" name="All files">
-    <metrics statements="141" coveredstatements="141" conditionals="70" coveredconditionals="70" methods="50" coveredmethods="50" elements="261" coveredelements="261" complexity="0" loc="141" ncloc="141" packages="6" files="13" classes="13"/>
+<coverage generated="1789082173920" clover="3.2.0">
+  <project timestamp="1789082173920" name="All files">
+    <metrics statements="156" coveredstatements="156" conditionals="80" coveredconditionals="80" methods="55" coveredmethods="55" elements="291" coveredelements="291" complexity="0" loc="156" ncloc="156" packages="6" files="14" classes="14"/>
     <package name="src.api">
-      <metrics statements="5" coveredstatements="5" conditionals="4" coveredconditionals="4" methods="5" coveredmethods="5"/>
+      <metrics statements="20" coveredstatements="20" conditionals="14" coveredconditionals="14" methods="10" coveredmethods="10"/>
       <file name="base.ts" path="/home/minjian/develop/bizs/bms/frontend-mobile/src/api/base.ts">
         <metrics statements="5" coveredstatements="5" conditionals="4" coveredconditionals="4" methods="5" coveredmethods="5"/>
         <line num="11" count="1" type="stmt"/>
@@ -11,6 +11,24 @@
         <line num="19" count="1" type="stmt"/>
         <line num="23" count="1" type="stmt"/>
         <line num="27" count="1" type="stmt"/>
+      </file>
+      <file name="http.ts" path="/home/minjian/develop/bizs/bms/frontend-mobile/src/api/http.ts">
+        <metrics statements="15" coveredstatements="15" conditionals="10" coveredconditionals="10" methods="5" coveredmethods="5"/>
+        <line num="14" count="1" type="stmt"/>
+        <line num="16" count="1" type="stmt"/>
+        <line num="21" count="1" type="stmt"/>
+        <line num="23" count="1" type="stmt"/>
+        <line num="26" count="1" type="stmt"/>
+        <line num="27" count="1" type="stmt"/>
+        <line num="29" count="3" type="cond" truecount="4" falsecount="0"/>
+        <line num="32" count="3" type="stmt"/>
+        <line num="38" count="3" type="stmt"/>
+        <line num="39" count="3" type="stmt"/>
+        <line num="40" count="3" type="cond" truecount="2" falsecount="0"/>
+        <line num="42" count="2" type="cond" truecount="2" falsecount="0"/>
+        <line num="44" count="1" type="stmt"/>
+        <line num="49" count="1" type="stmt"/>
+        <line num="50" count="1" type="stmt"/>
       </file>
     </package>
     <package name="src.i18n">

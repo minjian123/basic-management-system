@@ -56,7 +56,8 @@ frontend-mobile/
     ├── helpers/            # mountWithPlugins 测试基座
     ├── home.spec.ts        # 默认页冒烟（Kiwi 20）
     ├── base.spec.ts        # 基础类用例（Kiwi 22）
-    └── utils.spec.ts       # 公共基座用例（Kiwi 24）
+    ├── utils.spec.ts       # 公共基座用例（Kiwi 24）
+    └── http.spec.ts        # Axios 基线用例（Kiwi 26）
 ```
 
 ## 文档导航
