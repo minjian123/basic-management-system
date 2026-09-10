@@ -233,3 +233,9 @@ node_modules/
 
 # graphify 运行时状态
 graphify-out/
+
+# 基座同步：产品仓库登记表（含本机路径，不入库）
+scripts/tools/base-sync/.targets
+
+# 基座同步基线（由 base-sync.py --apply 写入目标仓库，不入库）
+文档/.base-sync-baseline.json
