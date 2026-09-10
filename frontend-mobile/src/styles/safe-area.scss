@@ -1,0 +1,8 @@
+/** 移动端安全区变量占位（刘海屏 / 底部指示条）：随布局设计细化使用。 */
+
+:root {
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+}
