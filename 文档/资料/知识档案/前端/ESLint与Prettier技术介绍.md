@@ -1,6 +1,6 @@
 # ESLint 与 Prettier 技术介绍
 
-> 代码规范双工具 · BMS 前端质量门禁
+> 代码规范双工具 · 本项目前端质量门禁
 
 [文档首页](../../../文档首页.md) › [知识档案](../技术栈知识档案总览.md) › [前端](../技术栈知识档案总览.md#frontend) › ESLint 与 Prettier 技术介绍　|　[← 返回总览](../技术栈知识档案总览.md)
 
@@ -17,10 +17,10 @@
 用 `eslint-config-prettier` 关掉 ESLint 里
 与 Prettier 冲突的格式规则，避免「两个工具打架」。
 
-- **定位**：BMS 前端代码规范工具链，MR 流水线门禁之一（见《[项目规划说明](../../../规划/项目规划说明.md#stack-frontend)》2.2 节）。
+- **定位**：本项目前端代码规范工具链，MR 流水线门禁之一（见平台《架构设计 · 总体架构》6.2 节）。
 - **版本**：ESLint 10.x（v10.0.0 于 2026 年 2 月发布，flat config 为唯一配置格式；9.x 已于 2026 年 8 月 EOL）；Prettier 3.9.x（截至 2026 年）。
 - **许可**：均为 MIT，OSI 认证开源。
-- **Vue 插件链**：eslint-plugin-vue（Vue 官方）+ typescript-eslint + eslint-config-prettier（见《[项目规划说明](../../../规划/项目规划说明.md#sel-frontend)》3.2 节）。
+- **Vue 插件链**：eslint-plugin-vue（Vue 官方）+ typescript-eslint + eslint-config-prettier（见平台《项目规划说明》3.2 节）。
 
 ## 2. 核心概念与原理 <a id="principles"></a>
 
@@ -34,14 +34,14 @@
 | Prettier Parser | 按文件扩展名自动选解析器（JS/TS/Vue/JSON/MD），无需逐个配置 |
 | Prettier 选项 | `printWidth`、`singleQuote`、`semi` 等，统一写在 `.prettierrc`，全团队一份口径 |
 | 编辑器集成 | VSCode 装 ESLint + Prettier 扩展，保存即检查/格式化，本地与 CI 同一套配置 |
-| CI 门禁 | `npm run lint` 有 error 即流水线失败，规范不靠自觉靠门禁（见《[项目规划说明](../../../规划/项目规划说明.md#sel-ops)》3.4 节） |
+| CI 门禁 | `npm run lint` 有 error 即流水线失败，规范不靠自觉靠门禁（见平台《项目规划说明》3.4 节） |
 
-## 3. 在 BMS 项目中的用途 <a id="usage"></a>
+## 3. 在本项目中的用途 <a id="usage"></a>
 
-- **代码规范**：frontend 与 frontend-mobile 双工程各自独立配置（各自 package-lock.json、ESLint/Prettier/TS 配置，互不共享），规范统一、工程独立（见《[项目规划说明](../../../规划/项目规划说明.md#sel-frontend)》3.2 节）。
-- **MR 流水线门禁**：前端 ESLint + Vitest（含 coverage 门禁）+ 双端构建，lint 不过 MR 不能合入（见《[项目规划说明](../../../规划/项目规划说明.md#sel-ops)》3.4 节 GitLab CI）。
-- **Vue 官方插件链**：eslint-plugin-vue 覆盖 SFC/模板规则，typescript-eslint 覆盖 TS 规则，与 Prettier 经 eslint-config-prettier 解冲突（见《[项目规划说明](../../../规划/项目规划说明.md#sel-frontend)》3.2 节）。
-- **编辑器体验**：开发机 VSCode 扩展含 ESLint、Prettier（见《[开发部署规划](../../../规划/开发部署规划.md#devpc-tools)》5.1 节），保存即规范，提交前无惊喜。
+- **代码规范**：frontend 与 frontend-mobile 双工程各自独立配置（各自 package-lock.json、ESLint/Prettier/TS 配置，互不共享），规范统一、工程独立（见平台《项目规划说明》3.2 节）。
+- **MR 流水线门禁**：前端 ESLint + Vitest（含 coverage 门禁）+ 双端构建，lint 不过 MR 不能合入（见平台《项目规划说明》3.4 节 GitLab CI）。
+- **Vue 官方插件链**：eslint-plugin-vue 覆盖 SFC/模板规则，typescript-eslint 覆盖 TS 规则，与 Prettier 经 eslint-config-prettier 解冲突（见平台《项目规划说明》3.2 节）。
+- **编辑器体验**：开发机 VSCode 扩展含 ESLint、Prettier（见平台《开发部署规划》5.1 节），保存即规范，提交前无惊喜。
 - **双工程一致**：两个工程规则口径保持一致（同一份规则清单），避免 PC 端与移动端风格分裂。
 
 最小示例（flat config + Prettier 配置）：
@@ -78,10 +78,10 @@ export default [
 
 | 候选技术 | 优缺点 | 结论 |
 | --- | --- | --- |
-| **ESLint + Prettier（选中）** | 分工清晰（查错 vs 格式）、Vue/TS 插件链完整、社区最大、MIT | 与 BMS「Vue 3 + TS 双工程 + CI 门禁」诉求完全匹配 |
+| **ESLint + Prettier（选中）** | 分工清晰（查错 vs 格式）、Vue/TS 插件链完整、社区最大、MIT | 与本项目「Vue 3 + TS 双工程 + CI 门禁」诉求完全匹配 |
 | Biome | lint + format 一体、速度快；但 Vue 支持仍在实验阶段，规则生态不如 ESLint 全 | Vue 场景成熟度不足，暂不选 |
 | ruff | Python 世界 lint + format 一体、极快；但不支持 JS/Vue | 语言不符：后端用 ruff（见《[ruff 技术介绍](../工程化与质量/ruff技术介绍.md)》） |
-| Stylelint | CSS 专项 lint 强；但 BMS 样式是 SCSS，当前栈未列入 | 如样式问题突出可后续补充，不阻塞 |
+| Stylelint | CSS 专项 lint 强；但本项目样式是 SCSS，当前栈未列入 | 如样式问题突出可后续补充，不阻塞 |
 | 自研脚本 | 完全可控；但规则、解析、修复全是坑 | 重复造轮子，不选 |
 
 ## 5. 常见问题与注意事项 <a id="pitfalls"></a>
@@ -111,9 +111,9 @@ export default [
 
 | 文档 | 说明 |
 | --- | --- |
-| 《[项目规划说明](../../../规划/项目规划说明.md#stack-frontend)》2.2 节 | 前端技术栈（ESLint + Prettier 条目） |
-| 《[项目规划说明](../../../规划/项目规划说明.md#sel-frontend)》3.2 节 | 选型理由：与 Vue 官方插件链配合 |
-| 《[项目规划说明](../../../规划/项目规划说明.md#sel-ops)》3.4 节 | GitLab CI：MR 流水线前端门禁 |
+| 平台《架构设计 · 总体架构》6.2 节 | 前端技术栈（ESLint + Prettier 条目） |
+| 平台《项目规划说明》3.2 节 | 选型理由：与 Vue 官方插件链配合 |
+| 平台《项目规划说明》3.4 节 | GitLab CI：MR 流水线前端门禁 |
 | 《[Vitest 技术介绍](Vitest技术介绍.md)》 | 同一 MR 门禁的单元测试与覆盖率部分 |
 | 《[ruff 技术介绍](../工程化与质量/ruff技术介绍.md)》 | 后端对应工具（Python lint + format） |
 | 《[pytest 技术介绍](../工程化与质量/pytest技术介绍.md)》 | 后端对应门禁（测试 + 覆盖率） |

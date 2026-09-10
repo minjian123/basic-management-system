@@ -1,6 +1,6 @@
 # Docker 与 Compose 技术介绍
 
-> 容器引擎 + 编排工具 · BMS 开发与生产环境的统一底座
+> 容器引擎 + 编排工具 · 本项目开发与生产环境的统一底座
 
 [文档首页](../../../文档首页.md) › [知识档案](../技术栈知识档案总览.md) › [部署与运维](../技术栈知识档案总览.md#ops) › Docker 与 Compose 技术介绍　|　[← 返回总览](../技术栈知识档案总览.md)
 
@@ -13,9 +13,9 @@
 **Docker Compose** 是配套的多容器编排工具：用一个 YAML 文件声明全部服务
 （backend、redis、数据库等），一条命令 `docker compose up -d` 全部拉起。
 
-- **定位**：BMS 的容器化底座，保证开发与生产环境一致（《[项目规划说明](../../../规划/项目规划说明.md#stack-ops)》2.4 节）。
+- **定位**：本项目的容器化底座，保证开发与生产环境一致（平台《架构设计 · 总体架构》6.4 节）。
 - **版本**：Engine 为 2x.x 系列（持续更新，装最新稳定版即可）；Compose v2 用 Go 重写，已内置到 `docker compose` 命令行。
-- **许可**：Apache-2.0，免费开源、无商用订阅（《[项目规划说明](../../../规划/项目规划说明.md#stack-license)》2.5 节）。
+- **许可**：Apache-2.0，免费开源、无商用订阅（平台《项目规划说明》2.5 节）。
 - **落地形态**：mjbk 为 Ubuntu 24.04.4，apt 清华 docker-ce 源直装；本地开发机用 Windows 容器方案，命令与行为与 Linux 一致。
 
 ## 2. 核心概念与原理 <a id="principles"></a>
@@ -35,14 +35,14 @@
 | .env 文件 | Compose 变量替换的来源，装密码与密钥，必须 gitignore 不入库 |
 | 镜像加速 | 拉取慢时配国内镜像源；项目约定下载类操作优先国内镜像，不长时间等待默认源 |
 
-## 3. 在 BMS 项目中的用途 <a id="usage"></a>
+## 3. 在本项目中的用途 <a id="usage"></a>
 
-- **一键编排**：backend（多副本）+ celery-worker + celery-beat + event-worker + frontend（nginx）+ redis + rocketmq（nameserver + broker）+ elasticsearch + minio + 数据库 + 监控全家桶，全部由 Compose 拉起（《[项目规划说明](../../../规划/项目规划说明.md#deploy-compose)》19.3 节）。
-- **开发生产一致**：本地与 mjbk 共用同一套 Compose 编排文件；开发期依赖（Redis / RocketMQ / ES / MinIO）本地不装原生服务，统一容器提供（《[项目规划说明](../../../规划/项目规划说明.md#sel-ops)》3.4 节）。
+- **一键编排**：backend（多副本）+ celery-worker + celery-beat + event-worker + frontend（nginx）+ redis + rocketmq（nameserver + broker）+ elasticsearch + minio + 数据库 + 监控全家桶，全部由 Compose 拉起（平台《项目规划说明》19.3 节）。
+- **开发生产一致**：本地与 mjbk 共用同一套 Compose 编排文件；开发期依赖（Redis / RocketMQ / ES / MinIO）本地不装原生服务，统一容器提供（平台《项目规划说明》3.4 节）。
 - **gitlab-runner 容器化**：runner 以容器方式运行，挂载 docker.sock、executor=docker，开发环境并发上限 2（见《[GitLab 技术介绍](GitLab技术介绍.md)》）。
 - **阶段十五 AI**：Milvus（含 etcd，MinIO 复用）随 AI 阶段一并加入 Compose（见《[Milvus 技术介绍](../后端核心/Milvus技术介绍.md)》《[etcd 技术介绍](etcd技术介绍.md)》）。
 - **安装方式**：mjbk 为 Ubuntu 24.04.4，apt 清华 docker-ce 源直装 Docker Engine，systemd 开机自启（见《[DockerEngine 部署使用说明](?../../开发服务器/linux/DockerEngine部署使用说明.md》）。
-- **数据落盘**：IO 敏感数据（数据库 / ES / MinIO / 镜像）走 NVMe SSD 命名卷，备份与读多写少数据走 HDD（《[开发部署规划](../../../规划/开发部署规划.md#server-disk)》4.2 节）。
+- **数据落盘**：IO 敏感数据（数据库 / ES / MinIO / 镜像）走 NVMe SSD 命名卷，备份与读多写少数据走 HDD（平台《开发部署规划》4.2 节）。
 
 ## 4. 选型对比 <a id="compare"></a>
 
@@ -79,10 +79,10 @@
 
 | 文档 | 说明 |
 | --- | --- |
-| 《[项目规划说明](../../../规划/项目规划说明.md#stack-ops)》2.4 节 | 部署与运维技术栈（Docker 条目） |
-| 《[项目规划说明](../../../规划/项目规划说明.md#sel-ops)》3.4 节 | 选型说明：开发生产一致、一键编排 |
-| 《[项目规划说明](../../../规划/项目规划说明.md#deploy-compose)》19.3 节 | 基础设施编排：初版 Compose 服务清单 |
-| 《[开发部署规划](../../../规划/开发部署规划.md#server-base)》4.1 节 | mjbk 基础环境：清华 docker-ce 源安装实录 |
+| 平台《架构设计 · 总体架构》6.4 节 | 部署与运维技术栈（Docker 条目） |
+| 平台《项目规划说明》3.4 节 | 选型说明：开发生产一致、一键编排 |
+| 平台《项目规划说明》19.3 节 | 基础设施编排：初版 Compose 服务清单 |
+| 平台《开发部署规划》4.1 节 | mjbk 基础环境：清华 docker-ce 源安装实录 |
 | 《[DockerEngine 部署使用说明](?../../开发服务器/linux/DockerEngine部署使用说明.md》 | mjbk Docker 安装与配置内部文档 |
 | 《[GitLab 技术介绍](GitLab技术介绍.md)》 | gitlab-runner 以容器方式运行（docker.sock、executor=docker） |
 | 《[nginx 技术介绍](nginx技术介绍.md)》 | frontend 容器：静态托管与反向代理 |

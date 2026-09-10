@@ -1,12 +1,12 @@
 # GitLab 迁移使用说明
 
-> BMS 仓库迁移至 GitLab · GitHub 归档同步实录 · 2026-08-11
+> 本项目仓库迁移至 GitLab · GitHub 归档同步实录 · 2026-08-11
 
 [文档首页](../../文档首页.md) › [资料](../开发服务器/linux/开发服务器部署使用说明总览.md) › GitLab 迁移使用说明　|　[同级：GitLab 部署使用说明 →](../开发服务器/linux/GitLab部署使用说明.md)
 
 ## 1. 目的与现状 <a id="purpose"></a>
 
-按《[开发部署规划](../../规划/开发部署规划.md)》第 4.5、7 节，BMS 代码仓库以**自托管 GitLab 为主仓库**
+按平台《开发部署规划》第 4.5、7 节，本项目代码仓库以**自托管 GitLab 为主仓库**
 （MR 评审 + CI），**GitHub 作只读归档同步**（push mirror 单向）。
 `<mjbk-IP>` 取值见《[本地资源](../../用户文档/本地资源.md)》。
 
@@ -114,7 +114,7 @@ GET /api/v4/projects/2/protected_branches   # main: push=Maintainers merge=Maint
 ## 7. 关联文档 <a id="related"></a>
 
 - 《[GitLab部署使用说明](../开发服务器/linux/GitLab部署使用说明.md)》：GitLab 部署与 runner 注册
-- 《[开发部署规划](../../规划/开发部署规划.md)》：4.5 GitLab 与 CI、第 7 节开发工作流
+- 平台《开发部署规划》：4.5 GitLab 与 CI、第 7 节开发工作流
 - 《[本地资源](../../用户文档/本地资源.md)》：凭据汇总
 - 《[文档首页](../../文档首页.md)》：全量文档索引
 

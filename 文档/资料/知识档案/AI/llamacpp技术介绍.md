@@ -17,7 +17,7 @@ Ollama、LM Studio 等上层工具都构建在 llama.cpp 之上。
 
 - **本地推理后端**（主用途）：跑 [Qwen3.8-27B](Qwen3.8-27B技术介绍.md)（Q4_K_M 量化 + 视觉投影），
   以 `llama-server` 起 OpenAI 兼容服务（端口 8080），作为 [opencode](https://opencode.ai) 的本地模型后端，全程离线免费。
-- **LLM 适配层候选**：OpenAI 兼容端点，可作 BMS LLM 适配层的私有化自托管选项，见《[LLM 适配层技术介绍](../后端核心/LLM适配层技术介绍.md)》。
+- **LLM 适配层候选**：OpenAI 兼容端点，可作本项目  LLM 适配层的私有化自托管选项，见《[LLM 适配层技术介绍](../后端核心/LLM适配层技术介绍.md)》。
 
 | 项 | 值 |
 | --- | --- |
@@ -101,14 +101,14 @@ flowchart TB
 - **本项目实测**：Qwen3.8-27B Q4_K_M 在 RTX 4090（24G）上 `llama-server` 首次加载约 30–60 秒；
   推理模型先输出思考（`reasoning_content`）再出正文，短问答也需给足 `max_tokens`（见《[llamacpp部署使用说明](../../AI/llamacpp部署使用说明.md)》）。
 
-## 5. 在 BMS 项目中的用途 <a id="usage"></a>
+## 5. 在本项目中的用途 <a id="usage"></a>
 
 - **本地推理后端（主用途）**：以 `llama-server` 跑 Qwen3.8-27B，接 opencode 的 `llamacpp` 提供商（8080），
   为 AI 助手提供本地多模态能力（识图、界面评审、文档理解、交叉检查），数据不出机器。部署细节见《[llamacpp部署使用说明](../../AI/llamacpp部署使用说明.md)》。
 - **与 LM Studio 的关系**：opencode 另有一个 `lmstudio` 提供商（1234）；两者都基于 llama.cpp 生态，
   但本项目实际推理走 `llamacpp`（llama.cpp 源码 + `llama-server`，8080）。
-- **LLM 适配层候选**：OpenAI 兼容端点，可作为 BMS LLM 适配层的自托管选项（见《[LLM 适配层技术介绍](../后端核心/LLM适配层技术介绍.md)》）。
-- **边界**：服务本地 AI 工具链（助手能力与模型交叉检查），与 BMS 业务运行时 AI 链路分离。
+- **LLM 适配层候选**：OpenAI 兼容端点，可作为本项目  LLM 适配层的自托管选项（见《[LLM 适配层技术介绍](../后端核心/LLM适配层技术介绍.md)》）。
+- **边界**：服务本地 AI 工具链（助手能力与模型交叉检查），与本项目业务运行时 AI 链路分离。
 
 ## 6. 本地部署与运行 <a id="deploy"></a>
 
@@ -175,7 +175,7 @@ curl -s http://127.0.0.1:8080/v1/chat/completions \
 | 《[llamacpp部署使用说明](../../AI/llamacpp部署使用说明.md)》 | 本项目源码编译、`llama-server` 托管、启停与桌面快捷方式 |
 | 《[Qwen3.8-27B 技术介绍](Qwen3.8-27B技术介绍.md)》 | 本引擎承载的本地多模态模型 |
 | 《[LLM 适配层技术介绍](../后端核心/LLM适配层技术介绍.md)》 | OpenAI 兼容端点作为适配层自托管候选 |
-| 《[项目规划说明](../../../规划/项目规划说明.md)》 | AI 能力与技术栈约定 |
+| 平台《项目规划说明》 | AI 能力与技术栈约定 |
 
 ---
 

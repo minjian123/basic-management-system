@@ -1,6 +1,6 @@
 # FastAPI 技术介绍
 
-> Python 高性能 Web 框架 · BMS 后端核心
+> Python 高性能 Web 框架 · 本项目后端核心
 
 [文档首页](../../../文档首页.md) › [知识档案](../技术栈知识档案总览.md) › [后端核心](../技术栈知识档案总览.md#backend) › FastAPI 技术介绍　|　[← 返回总览](../技术栈知识档案总览.md)
 
@@ -13,7 +13,7 @@
 **原生异步**与**自动生成 API 文档**。
 截至 2026 年，FastAPI 已是 Python Web 框架中增长最快、社区最活跃的之一。
 
-- **定位**：BMS 后端 API 的唯一 Web 框架，承载全部 HTTP 接口。
+- **定位**：本项目后端 API 的唯一 Web 框架，承载全部 HTTP 接口。
 - **版本**：0.1xx 系列（持续迭代，无大版本跳变）。
 - **许可**：MIT，OSI 认证开源。
 - **语言**：Python（本项目 3.14+）。
@@ -32,9 +32,9 @@
 | Background Tasks | 内置后台任务机制，响应返回后异步执行轻量任务（如发邮件），重任务建议走 Celery |
 | 异常处理器 | `@app.exception_handler` 统一捕获异常，转换为统一错误响应格式 |
 | 中间件（Middleware） | 请求进/响应出的钩子链，可用于日志、CORS、限流、请求 ID 注入等横切逻辑 |
-| APIRouter | 路由分组工具，按模块拆分路由文件，BMS 分层架构中 api 层的组织基础 |
+| APIRouter | 路由分组工具，按模块拆分路由文件，本项目分层架构中 api 层的组织基础 |
 
-## 3. 在 BMS 项目中的用途 <a id="usage"></a>
+## 3. 在本项目中的用途 <a id="usage"></a>
 
 - 作为后端唯一 Web 框架，全部 RESTful API（`/api/v1/...`）由 FastAPI 承载。
 - 与异步 SQLAlchemy 天然契合：接口 `async def` + 异步会话，见《[SQLAlchemy 技术介绍](SQLAlchemy技术介绍.md)》。
@@ -48,7 +48,7 @@
 | 框架 | 异步 | 类型校验 | API 文档 | 生态 | 结论 |
 | --- | --- | --- | --- | --- | --- |
 | **FastAPI（选中）** | 原生 async | Pydantic 强校验 | 自动生成 | 活跃、增长最快 | 与项目异步栈、类型安全目标完全契合 |
-| Django + DRF | 部分（3.1+ 有限） | DRF Serializer | 需第三方 | 最成熟、全家桶 | 重、异步支持弱，管理后台与 BMS 场景不匹配 |
+| Django + DRF | 部分（3.1+ 有限） | DRF Serializer | 需第三方 | 最成熟、全家桶 | 重、异步支持弱，管理后台与本项目场景不匹配 |
 | Flask | 需扩展 | 无内置 | 需第三方（flasgger 等） | 轻量经典 | 同步为主，无类型体系，工程化约束靠自觉 |
 | Starlette | 原生 async | 无内置 | 无 | FastAPI 底层 | 太底层，需自建大量基础设施，直接用 FastAPI 即可 |
 | Sanctum / Litestar | 原生 async | 有 | 有 | 较新较小 | 生态与资料不如 FastAPI，团队上手成本高 |
@@ -77,8 +77,8 @@
 
 | 文档 | 说明 |
 | --- | --- |
-| 《[项目规划说明](../../../规划/项目规划说明.md)》2.1 节 | 后端技术栈与选型说明（FastAPI 条目） |
-| 《[项目规划说明](../../../规划/项目规划说明.md#structure)》4 节 | 目录结构：backend/app/api 路由层职责 |
+| 平台《项目规划说明》2.1 节 | 后端技术栈与选型说明（FastAPI 条目） |
+| 平台《项目规划说明》4 节 | 目录结构：backend/app/api 路由层职责 |
 | 《[API 接口规范](../../../规范/API接口规范.md)》 | 统一响应、错误码、幂等限流约定 |
 | 《[pytest 技术介绍](../工程化与质量/pytest技术介绍.md)》 | FastAPI 测试方式（httpx ASGITransport） |
 | 《[Swagger UI 技术介绍](../工程化与质量/SwaggerUI与ReDoc技术介绍.md)》 | 接口文档自动生成机制 |

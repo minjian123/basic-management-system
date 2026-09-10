@@ -6,8 +6,8 @@
 
 ## 1. 目的与适用范围 <a id="purpose"></a>
 
-mjbk 上的 MySQL（容器 `bms-mysql`，版本 8.4）是 BMS 开发环境主数据库，
-常驻供开发联调与 CI 三库方言测试复用（《[开发部署规划](../../../规划/开发部署规划.md)》4.4）。
+mjbk 上的 MySQL（容器 `bms-mysql`，版本 8.4）是本项目开发环境主数据库，
+常驻供开发联调与 CI 三库方言测试复用（平台《开发部署规划》4.4）。
 
 ## 2. Compose 配置 <a id="compose"></a>
 
@@ -84,7 +84,7 @@ docker exec bms-mysql mysql -uroot -p"$密码" -e "SHOW VARIABLES LIKE 'characte
 - 《[开发服务器部署使用说明总览](开发服务器部署使用说明总览.md)》：服务部署总览
 - 《[DockerEngine部署使用说明](DockerEngine部署使用说明.md)》：容器引擎
 - 《[PostgreSQL部署使用说明](PostgreSQL部署使用说明.md)》：备选数据库
-- 《[开发部署规划](../../../规划/开发部署规划.md)》：4.4 常驻数据库方案
+- 平台《开发部署规划》：4.4 常驻数据库方案
 - 《[命名规范](../../../规范/命名规范.md)》：库名约定（bms_dev / bms_test 前缀）
 
 > 依《文档生成规范》编写 · 记录 2026-08-10 实际部署过程

@@ -1,6 +1,6 @@
 # Vite 技术介绍
 
-> 下一代前端构建工具 · 冷启动快 · BMS 双工程构建基础
+> 下一代前端构建工具 · 冷启动快 · 本项目双工程构建基础
 
 [文档首页](../../../文档首页.md) › [知识档案](../技术栈知识档案总览.md) › [前端](../技术栈知识档案总览.md#frontend) › Vite 技术介绍　|　[← 返回总览](../技术栈知识档案总览.md)
 
@@ -13,7 +13,7 @@
 冷启动与热更新（HMR）远快于 Webpack；生产构建则基于 Rollup（Rust 版 Rolldown 正在演进）。
 截至 2026 年，Vite（6.x 系列）已成为 Vue 官方默认构建工具，并广泛用于 React 等生态。
 
-- **定位**：BMS 前端开发服务器与生产构建工具，frontend 与 frontend-mobile 双工程共用。
+- **定位**：本项目前端开发服务器与生产构建工具，frontend 与 frontend-mobile 双工程共用。
 - **版本**：6.x 系列（截至 2026 年，跟随 Node LTS 版本演进）。
 - **许可**：MIT，OSI 认证开源。
 - **运行环境**：Node.js（工程内以 .nvmrc 固定版本）。
@@ -33,11 +33,11 @@
 | Vitest 同构 | Vitest 复用 Vite 的配置与插件，测试环境与构建环境一致（见《[Vitest 技术介绍](Vitest技术介绍.md)》） |
 | 构建产物分析 | vite build --report 或 rollup-plugin-visualizer 分析包体积，优化首屏 |
 
-## 3. 在 BMS 项目中的用途 <a id="usage"></a>
+## 3. 在本项目中的用途 <a id="usage"></a>
 
-- **frontend 与 frontend-mobile 双工程各自独立配置**：各自维护 vite.config.ts（代理、别名、构建输出），互不影响（见《[项目规划说明](../../../规划/项目规划说明.md#sel-frontend)》3.2 节）。
-- **开发代理**：dev server 把 /api/v1 代理到本地/远程后端，配合 [Axios](Axios技术介绍.md) baseURL 联调（见《[开发部署规划](../../../规划/开发部署规划.md)》前端启动说明）。
-- **CI 双端构建**：GitLab CI 流水线执行前端 ESLint + Vitest + 双端构建，产物由 nginx 托管（见《[项目规划说明](../../../规划/项目规划说明.md#sel-ops)》3.4 节）。
+- **frontend 与 frontend-mobile 双工程各自独立配置**：各自维护 vite.config.ts（代理、别名、构建输出），互不影响（见平台《项目规划说明》3.2 节）。
+- **开发代理**：dev server 把 /api/v1 代理到本地/远程后端，配合 [Axios](Axios技术介绍.md) baseURL 联调（见平台《开发部署规划》前端启动说明）。
+- **CI 双端构建**：GitLab CI 流水线执行前端 ESLint + Vitest + 双端构建，产物由 nginx 托管（见平台《项目规划说明》3.4 节）。
 - **配合 Vitest 同构**：单元测试零配置复用 Vite 配置，覆盖率统计进 CI 门禁。
 - **按需引入 Element Plus**：unplugin-vue-components 插件实现组件按需加载，控制包体积（见《[Element Plus 技术介绍](ElementPlus技术介绍.md)》）。
 - **环境区分**：.env.development / .env.production 管理接口地址与构建开关。
@@ -79,7 +79,7 @@ export default defineConfig({
 - **别名两处同步**：vite.config.ts 的 alias 与 tsconfig.json 的 paths 必须一致，否则编辑器报红但运行正常（或反之）。
 - **代理 rewrite**：代理目标接口路径与前端请求前缀不一致时需配置 rewrite，前后端联调前先确认路径约定（见《[API 接口规范](../../../规范/API接口规范.md)》）。
 - **构建产物体积告警**：chunk 超 500KB 警告属正常提示，按需分析（大依赖拆 manualChunks），不必强行压榨。
-- **旧浏览器兼容**：Vite 默认面向现代浏览器（ES2020+），BMS 为内部系统不强制兼容旧 IE；如需兼容走 @vitejs/plugin-legacy。
+- **旧浏览器兼容**：Vite 默认面向现代浏览器（ES2020+），本项目为内部系统不强制兼容旧 IE；如需兼容走 @vitejs/plugin-legacy。
 - **Node 版本**：Vite 各版本对 Node 有最低要求，务必配合 .nvmrc 固定 Node 版本，避免 CI 与本地行为不一致。
 
 ## 6. 学习与参考资料 <a id="learn"></a>
@@ -96,9 +96,9 @@ export default defineConfig({
 
 | 文档 | 说明 |
 | --- | --- |
-| 《[项目规划说明](../../../规划/项目规划说明.md#stack-frontend)》2.2 节 | 前端技术栈（Vite 条目） |
-| 《[项目规划说明](../../../规划/项目规划说明.md#sel-frontend)》3.2 节 | Vite 冷启动快、与 Vitest 同构的选型理由 |
-| 《[开发部署规划](../../../规划/开发部署规划.md)》 | 前端双工程安装、启动与构建流程 |
+| 平台《架构设计 · 总体架构》6.2 节 | 前端技术栈（Vite 条目） |
+| 平台《项目规划说明》3.2 节 | Vite 冷启动快、与 Vitest 同构的选型理由 |
+| 平台《开发部署规划》 | 前端双工程安装、启动与构建流程 |
 | 《[Vue 3 技术介绍](Vue3技术介绍.md)》 | 被构建的前端框架 |
 | 《[TypeScript 技术介绍](TypeScript技术介绍.md)》 | tsconfig 与 Vite 别名同步事项 |
 | 《[npm 技术介绍](npm技术介绍.md)》 | 依赖安装与版本锁定（Vite 经 npm 引入） |
