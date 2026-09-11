@@ -49,7 +49,7 @@
       <h2 id="structure">2. 目录结构</h2>
       <pre><code>bms文档/设计/原型设计/
 ├── 01_原型设计_总览.html          ← 本文件（体系导航）
-├── 共享资源/
+├── 资源/
 │   ├── vendor/                    ← 本地化组件库（vue.global.prod.js / element-plus.min.js+css / vant.min.js+css，npmmirror 镜像）
 │   └── 原型样式.css               ← 公共框架样式（proto-bar / proto-frame / proto-hint 等，组件样式由组件库自带）
 ├── 02_公共原型/                   ← 公共模板与示例（EP 列表页模板 / EP 表单页模板 / EP 组件示例 / 组件展示）
@@ -60,7 +60,7 @@
       <ul>
         <li>模块文件夹命名：<code>{两位编号}_{模块名}</code>（如 03_通用骨架、04_模块注册），编号即阅读顺序；总览为 01 不建文件夹</li>
         <li>模块内文件命名：<code>{两位编号}_{文件名}</code>——设计说明固定为 01_设计说明.html，界面按阅读顺序 02 起编号（如「02_登录页.html」「03_主框架.html」）</li>
-        <li>界面原型使用真实组件库（与正式开发技术栈一致）：PC 端 Element Plus、移动端 Vant，本地化引入（vendor/），file:// 双击即用；框架样式引用 <code>&lt;link rel="stylesheet" href="../共享资源/原型样式.css"&gt;</code>；组件库引入方式见<a href="02_公共原型/01_设计说明.html">《公共资源设计说明》</a>第 3 节</li>
+        <li>界面原型使用真实组件库（与正式开发技术栈一致）：PC 端 Element Plus、移动端 Vant，本地化引入（vendor/），file:// 双击即用；框架样式引用 <code>&lt;link rel="stylesheet" href="../资源/原型样式.css"&gt;</code>；组件库引入方式见<a href="02_公共原型/01_设计说明.html">《公共资源设计说明》</a>第 3 节</li>
         <li>设计说明页列出该模块全部界面，逐条链接到可交互原型，并附交互要点与验收关注点</li>
       </ul>
 
@@ -87,7 +87,7 @@
       <ul>
         <li><strong>可交互程度</strong>：按钮点击有反馈（弹窗/Toast/状态变化）、Tab 可切换、弹窗可开关、表单可录入、列表行可点击进入详情视图、危险操作有确认框——达到可直接演示的程度</li>
         <li><strong>模拟数据</strong>：使用内置假数据（不依赖后端）；交互只做前端模拟，不做真实持久化</li>
-        <li><strong>公共组件</strong>：一律使用 共享资源/ 的按钮/表格/弹窗/表单/标签/Toast 组件，保证全体系风格一致；单界面私有样式内联 <code>&lt;style&gt;</code></li>
+        <li><strong>公共组件</strong>：一律使用 资源/ 的按钮/表格/弹窗/表单/标签/Toast 组件，保证全体系风格一致；单界面私有样式内联 <code>&lt;style&gt;</code></li>
         <li><strong>原型条</strong>：每个界面顶部有原型条（返回设计说明 + 界面名），便于评审时跳转</li>
         <li><strong>真实组件对齐</strong>：交互与视觉对齐 Element Plus / Vant 实际组件行为（原型即验收基准）</li>
         <li><strong>可访问性</strong>：file:// 双击打开即可用，不依赖构建与联网</li>

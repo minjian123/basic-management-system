@@ -48,7 +48,7 @@
       <p>
         原型体系统一使用<strong>真实组件库</strong>（与 BMS 正式开发技术栈一致：PC 端 Element Plus、移动端 Vant），
         本地化引入保证 file:// 双击即用、不依赖构建与联网（原型即验收基准）。
-        公共资源目录：<code>bms文档/设计/原型设计/02_公共原型/</code>（模板与示例）与 <code>共享资源/</code>（vendor 组件、框架样式）。
+        公共资源目录：<code>bms文档/设计/原型设计/02_公共原型/</code>（模板与示例）与 <code>资源/</code>（vendor 组件、框架样式）。
       </p>
 
       <h2 id="components">2. 组件清单</h2>
@@ -84,10 +84,10 @@
 
       <h2 id="usage">3. 引用方式</h2>
       <pre><code>&lt;!-- PC 管理端页面 --&gt;
-&lt;link rel="stylesheet" href="../共享资源/vendor/element-plus.css"&gt;
-&lt;link rel="stylesheet" href="../共享资源/原型样式.css"&gt;   &lt;!-- 仅框架样式（proto-bar/proto-frame） --&gt;
-&lt;script src="../共享资源/vendor/vue.global.prod.js"&gt;&lt;/script&gt;
-&lt;script src="../共享资源/vendor/element-plus.min.js"&gt;&lt;/script&gt;
+&lt;link rel="stylesheet" href="../资源/vendor/element-plus.css"&gt;
+&lt;link rel="stylesheet" href="../资源/原型样式.css"&gt;   &lt;!-- 仅框架样式（proto-bar/proto-frame） --&gt;
+&lt;script src="../资源/vendor/vue.global.prod.js"&gt;&lt;/script&gt;
+&lt;script src="../资源/vendor/element-plus.min.js"&gt;&lt;/script&gt;
 &lt;script&gt;
   var app = Vue.createApp({
     template: document.getElementById('app').outerHTML,  // 或模板字符串
@@ -98,9 +98,9 @@
 &lt;/script&gt;
 
 &lt;!-- 移动端页面 --&gt;
-&lt;link rel="stylesheet" href="../共享资源/vendor/vant.css"&gt;
-&lt;script src="../共享资源/vendor/vue.global.prod.js"&gt;&lt;/script&gt;
-&lt;script src="../共享资源/vendor/vant.min.js"&gt;&lt;/script&gt;
+&lt;link rel="stylesheet" href="../资源/vendor/vant.css"&gt;
+&lt;script src="../资源/vendor/vue.global.prod.js"&gt;&lt;/script&gt;
+&lt;script src="../资源/vendor/vant.min.js"&gt;&lt;/script&gt;
 &lt;script&gt;
   var app = Vue.createApp({ /* ... */ });
   app.use(vant);
@@ -109,10 +109,10 @@
 
       <h2 id="extend">4. 新增组件规则</h2>
       <ul>
-        <li>组件优先用 Element Plus / Vant 真实组件；页面级私有样式内联 <code>&lt;style&gt;</code>，公共样式进 <code>共享资源/原型样式.css</code>。</li>
+        <li>组件优先用 Element Plus / Vant 真实组件；页面级私有样式内联 <code>&lt;style&gt;</code>，公共样式进 <code>资源/原型样式.css</code>。</li>
         <li>新页面从模板复制改造（02_EP模板_列表页 / 03_EP模板_表单页），保证全体系风格一致。</li>
         <li>交互反馈统一 ElMessage / ElMessageBox（PC）、vant.showToast / showConfirmDialog（移动端）。</li>
-        <li>vendor 组件升级：整体替换 共享资源/vendor/ 下文件（保持与 BMS 前端版本对齐），避免版本混用。</li>
+        <li>vendor 组件升级：整体替换 资源/vendor/ 下文件（保持与 BMS 前端版本对齐），避免版本混用。</li>
       </ul>
 
     </main>
