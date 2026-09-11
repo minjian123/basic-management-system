@@ -67,6 +67,9 @@
 | 分页 | `page`（从 1 起）、`size`（默认 20，上限 200） |
 | 排序 | `order_by` 支持多值（逗号分隔，如 `status,created_at`）+ `order` 方向数组（位置一一对应，缺省 `desc`）；排序字段白名单逐项校验，非法字段忽略该项，禁止用户输入直接拼接 |
 | 筛选 | 字段名直传：`status`、`keyword`、`dept_id` |
+| 多值筛选 | `field=v1,v2`（IN 语义，去重；同 02 字典接口 `values` 逗号分隔口径） |
+| 区间筛选 | `field_start` / `field_end`（单边可空；日期为 ISO 8601 UTC） |
+| 布尔筛选 | `field=1` / `field=0`（不传即「全部」） |
 | 游标分页 | `cursor`、`limit`（日志/审计类大数据量场景） |
 | 日期范围 | `start_at` / `end_at`（ISO 8601） |
 
