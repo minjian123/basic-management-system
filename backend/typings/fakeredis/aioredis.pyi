@@ -1,0 +1,3 @@
+from redis.asyncio import Redis
+
+class FakeRedis(Redis): ...
