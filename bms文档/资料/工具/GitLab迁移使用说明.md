@@ -79,6 +79,52 @@ GitLab 新项目默认保护 main（推送/合并仅 Maintainers），与规划�
 GET /api/v4/projects/2/protected_branches   # main: push=Maintainers merge=Maintainers
 ```
 
+## 2.6 GitHub 归档同步的相关设置 <a id="mirror-setup"></a>
+
+> 本节为通用操作说明（bms / biz / bizs 三个仓库一致）：GitLab push mirror 单向同步 main 至 GitHub 归档仓库。机制与验证同第 2.4、3 节。
+
+### 2.6.1 操作流程（全流程） <a id="mirror-steps"></a>
+
+归档目标都是同一 GitHub 账号（`minjian123`），仓库名用产品英文全称（如 bms=basic-management-system）。给新仓库（产品或工作区配置仓库）接入 GitHub 归档按以下顺序：
+
+1. **在 GitHub 创建归档仓库**（公开 private=false / 私有 private=true），用 GitHub PAT（repo 权限）调 API；仓库只做归档、**不 auto_init**（内容由 mirror 推送）：
+
+```bash
+curl -s -H "Authorization: token <GitHub PAT>" \
+  -H "Accept: application/vnd.github.v3+json" \
+  -d '{"name":"<仓库名>","description":"<产品名>（GitLab push mirror 只读归档）","private":false,"auto_init":false}' \
+  https://api.github.com/user/repos
+```
+
+2. **在 GitLab 侧配 push mirror**（项目 id 取之 `GET /api/v4/groups/<组id>/projects`，namespace 用 URL 编码 `组名%2F项目名`）：
+
+```bash
+POST "$GITLAB_API_URL/projects/<项目id>/remote_mirrors"
+{"url": "https://minjian123:<GitHub PAT>@github.com/minjian123/<仓库名>.git",
+ "enabled": true}
+```
+
+> push mirror 需 GitHub PAT（repo 权限）；GitLab 推送 main 后自动同步至 GitHub。若 API 手动触发同步端点 404（GitLab 18），用 rails runner 触发（见第 2.4 节备注，`Project.find(<项目id>).remote_mirrors.first.sync`）。
+
+3. **验证**：配好后已存在的 main 不会自动立刻推，需先触发一次同步；同步后经 GitHub API 确认：
+
+```bash
+curl -s -H "Authorization: token <GitHub PAT>" \
+  "https://api.github.com/repos/minjian123/<仓库名>/commits?per_page=1"
+# 返回 sha 应与本地 main 一致（对 git log --oneline -1）
+```
+
+### 2.6.2 本次新增实录（biz / bizs，2026-09-11） <a id="mirror-log"></a>
+
+工作区延伸：biz（企业运营管理产品）与 bizs（工作区配置仓库）同在 GitLab `mjs` 组下（组 id=46），按上式新增 GitHub 归档：
+
+| 仓库 | GitLab 项目 id | GitLab 路径 | GitHub 归档仓库 | mirror id | 状态 |
+| --- | --- | --- | --- | --- | --- |
+| biz 产品 | 12 | mjs/biz | `business-operation-management` | 2 | enabled，已验证同步 |
+| bizs 工作区配置 | 10 | mjs/bizs | `biz-workspace` | 3 | enabled，已验证同步 |
+
+> 工作区配置仓库公开归档前需做「公开文档红线」审查：AGENTS.md 等随推文件中的服务器名/内网 IP/路径一律泛化为占位或指向本地文档（本地资源细节仅存 gitignore 的《本地资源》与 deploy/.env，见《[AI开发规范](../../规范/AI开发规范.md)》红线条款）。
+
 ## 3. 验证结果 <a id="verify"></a>
 
 | 项目 | 结果 |
@@ -87,6 +133,7 @@ GET /api/v4/projects/2/protected_branches   # main: push=Maintainers merge=Maint
 | GitHub 同步 | 最新提交 `1d4681a` 已镜像（GitHub API 确认） |
 | main 保护 | push=Maintainers、merge=Maintainers |
 | 本地 remote | gitlab=GitLab（唯一远端），origin（GitHub）已删除 |
+| 延伸归档（biz / bizs） | 见第 2.6.2 节实录，mirror enabled 且已验证同步 |
 
 ## 4. 日常使用流程 <a id="workflow"></a>
 
