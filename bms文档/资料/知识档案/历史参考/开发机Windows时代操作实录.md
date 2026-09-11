@@ -16,7 +16,7 @@
 
 ## 2. mjbk SSH 免密配置（mjpc 侧，Windows PowerShell 版） <a id="ssh-keys"></a>
 
-**出处**：《[Ubuntu安装部署使用说明](../../工具/Ubuntu安装部署使用说明.md)》6.1 节（2026-08-15 mjbk 装机实录，当时 mjpc 为 Windows 11）；
+**出处**：《[Ubuntu安装部署使用说明](../../工具/Ubuntu安装部署使用说明.md)》「SSH 免密登录」节（2026-08-15 mjbk 装机实录，当时 mjpc 为 Windows 11）；
 现行 Linux 版见该文档 6.1 节。
 
 原文操作：

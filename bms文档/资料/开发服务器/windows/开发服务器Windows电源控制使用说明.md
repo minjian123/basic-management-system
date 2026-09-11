@@ -66,7 +66,7 @@ Get-NetAdapterPowerManagement -Name '*Realtek*' | Set-NetAdapterPowerManagement 
 Get-NetAdapterPowerManagement -Name '*Realtek*' | Select-Object Name, WakeOnMagicPacket
 ```
 
-输出 `WakeOnMagicPacket: Enabled` 即生效。mjw 侧「禁睡眠 / 休眠关闭 / 合盖不休眠」常驻策略由《[远程控制部署使用说明](远程控制部署使用说明.md)》第 3.2 节脚本统一设置。
+输出 `WakeOnMagicPacket: Enabled` 即生效。mjw 侧「禁睡眠 / 休眠关闭 / 合盖不休眠」常驻策略由《[远程控制部署使用说明](远程控制部署使用说明.md)》「配置脚本」节脚本统一设置。
 
 ### 3.2 每日自动睡眠 / 唤醒任务 <a id="server-task"></a>
 
@@ -285,7 +285,7 @@ Enable-ScheduledTask -TaskName 'mjw-daily-sleep'
 - **夜间服务停用**：00:00 – 08:00 mjw 处于睡眠，本地模型（识图 / 翻译）等服务**不可用**；如需夜间访问，先 `wake_mjw.py` 唤醒。
 - **仅睡眠不关机**：每日循环是 S3 睡眠，内存保电；断电（停电、意外关机）后需 `wake_mjw.py` 唤醒开机，计划任务会随开机自动恢复。
 - **唤醒后保持开机**：08:00 醒来后 mjw 继续开机到下一个 00:00，白天正常使用。
-- mjw 本身「禁睡眠 / 合盖不休眠」常驻策略与每日任务不冲突：前者防**闲置**自动睡，后者是**定时主动**入睡（见《[远程控制部署使用说明](远程控制部署使用说明.md)》第 3.2 节）。
+- mjw 本身「禁睡眠 / 合盖不休眠」常驻策略与每日任务不冲突：前者防**闲置**自动睡，后者是**定时主动**入睡（见《[远程控制部署使用说明](远程控制部署使用说明.md)》「配置脚本」节）。
 
 ## 9. 实测记录 <a id="record"></a>
 

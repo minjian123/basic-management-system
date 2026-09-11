@@ -56,7 +56,7 @@ git config --global --list
 git config --list --show-origin   # 带来源文件查看，确认是全局还是仓库级
 ```
 
-提交信息遵循《[Git协作规范](../../规范/Git协作规范.md)》第 4 节格式：`type(scope): 中文描述`，如 `docs(开发机): 新增 git 部署使用说明`。
+提交信息遵循《[Git协作规范](../../规范/Git协作规范.md)》「提交信息」节格式：`type(scope): 中文描述`，如 `docs(开发机): 新增 git 部署使用说明`。
 
 ## 4. 本项目仓库接入（内网 GitLab） <a id="bms-repo"></a>
 
@@ -68,9 +68,9 @@ git config --list --show-origin   # 带来源文件查看，确认是全局还�
 
 - 地址为内网 HTTP，`8080` 端口即 mjbk 上 GitLab 容器 `bms-gitlab` 的 HTTP 监听口（见《[GitLab部署使用说明](../开发服务器/linux/GitLab部署使用说明.md)》「Compose 配置」节）。
 - 当前 URL 中**内嵌了访问凭据**（`http://root:<访问令牌>@<mjbk-IP>:8080/...`，实测如此），clone/push 无需再输入密码。令牌属敏感信息，仅存于本机，不入文档、不入提交。
-- 分支 `main` 跟踪 `origin/main`；当前为单人直推 main 模式（《Git协作规范》第 1 节「当前阶段简化执行」），feature 分支 → MR 门禁流程暂缓。
+- 分支 `main` 跟踪 `origin/main`；当前为单人直推 main 模式（《Git协作规范》「目的与适用范围」节「当前阶段简化执行」），feature 分支 → MR 门禁流程暂缓。
 
-> **口径说明**：《Git协作规范》第 2 节约定远端命名为 `gitlab`，本机本项目仓库实际配置的远端名为 `origin`（初始 clone 默认名）。日常命令按本机实际以 `origin` 执行；两者指向同一地址，无功能差异。
+> **口径说明**：《Git协作规范》「仓库与远端」节约定远端命名为 `gitlab`，本机本项目仓库实际配置的远端名为 `origin`（初始 clone 默认名）。日常命令按本机实际以 `origin` 执行；两者指向同一地址，无功能差异。
 
 新机器接入（重装后重建）示例：
 
@@ -93,7 +93,7 @@ git status -sb
 git diff                 # 工作区改动
 git log --oneline -10    # 最近提交
 
-# 提交（提交信息格式见《Git协作规范》第 4 节）
+# 提交（提交信息格式见《Git协作规范》「提交信息」节）
 git add <文件>
 git commit -m "docs(开发机): 新增 git 部署使用说明"
 
@@ -185,7 +185,7 @@ python3 scripts/tools/wol/wake_mjbk.py
 git pull origin main
 ```
 
-> 若 ping 通但 8080 不通：GitLab 容器没起来，SSH 登录 mjbk 后 `docker ps` 查 `bms-gitlab` 状态，参照《[GitLab部署使用说明](../开发服务器/linux/GitLab部署使用说明.md)》第 3 节重启。
+> 若 ping 通但 8080 不通：GitLab 容器没起来，SSH 登录 mjbk 后 `docker ps` 查 `bms-gitlab` 状态，参照《[GitLab部署使用说明](../开发服务器/linux/GitLab部署使用说明.md)》「部署步骤」节重启。
 
 ### 8.2 GitHub 仓库 clone/pull 超时或报错 <a id="mirror-down"></a>
 
