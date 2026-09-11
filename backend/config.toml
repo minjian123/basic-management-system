@@ -1,0 +1,3 @@
+# BMS 后端配置（阶段一占位）
+# 分区与键清单由任务 02-1（配置管理）填充：app / server / log / database / redis / minio / security / cors
+# 环境分层：BMS_ENV = dev | test | prod；密钥类配置只走环境变量，不入本文件

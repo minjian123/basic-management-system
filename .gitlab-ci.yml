@@ -31,18 +31,35 @@ workflow:
           - bms文档/基座文档清单.md
 
 stages:
+  - prepare
   - lint
   - test
   - build
   - verify
 
 variables:
-  PIP_INDEX_URL: https://mirrors.aliyun.com/pypi/simple/
+  # 依赖安装走国内源 + runner /cache 持久卷缓存（后续流水线不重下）
+  PIP_INDEX_URL: https://pypi.tuna.tsinghua.edu.cn/simple
+  UV_DEFAULT_INDEX: https://pypi.tuna.tsinghua.edu.cn/simple
   NPM_CONFIG_REGISTRY: https://registry.npmmirror.com
+  UV_CACHE_DIR: /cache/uv
+  PIP_CACHE_DIR: /cache/pip
+  npm_config_cache: /cache/npm
   REGISTRY_IMAGE_PREFIX: 192.168.0.107:5050/bms/bms
 
 default:
   tags: [bms]
+
+# ---- CI 基础镜像：按锁文件哈希自动重建（prepare 阶段先于业务 job；同宿主 daemon 本流水线即用）----
+ci-base-build:
+  stage: prepare
+  image:
+    name: docker:27-cli
+    entrypoint: [""]
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  script:
+    - sh deploy/ci/build-base.sh
 
 # ---- 门禁冒烟：所有流水线无条件必跑 ----
 # 阶段一代码落地前，流水线仅含本 job（4-6 秒）；代码目录出现后 lint/test 自动激活，
@@ -69,7 +86,7 @@ base-integrity:
 # ---- 后端：ruff + pytest（SQLite）----
 backend-lint:
   stage: lint
-  image: python:3.14-slim
+  image: $REGISTRY_IMAGE_PREFIX/ci-backend:py314
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       exists:
@@ -78,12 +95,11 @@ backend-lint:
       exists:
         - backend/pyproject.toml
   script:
-    - pip install ruff
-    - cd backend && ruff check .
+    - cd backend && uv run ruff check .
 
 backend-test:
   stage: test
-  image: python:3.14-slim
+  image: $REGISTRY_IMAGE_PREFIX/ci-backend:py314
   variables:
     BMS_ENV: test
   rules:
@@ -94,16 +110,14 @@ backend-test:
       exists:
         - backend/pyproject.toml
   script:
-    - pip install uv
-    - uv sync --frozen
-    - uv run pytest --cov=bms --cov-branch --cov-report=term --cov-fail-under=70
+    - cd backend && uv run pytest --cov=app --cov-branch --cov-report=term --cov-fail-under=70
   coverage: '/^TOTAL.*?\s+\d+\s+\d+\s+(\d+(?:\.\d+)?%)$/'
   # 核心模块（认证/RBAC/工作流/审计/收付款）≥ 80% 门禁随阶段一骨架确定模块路径后补入
 
 # ---- 前端：ESLint + Vitest + 双端构建 ----
 frontend-check:
   stage: test
-  image: node:22-slim
+  image: $REGISTRY_IMAGE_PREFIX/ci-frontend:node22
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       exists:
@@ -112,13 +126,12 @@ frontend-check:
       exists:
         - frontend/package.json
   script:
-    - cd frontend && npm ci
-    - npm run lint
-    - npm run test
+    - rm -rf frontend/node_modules && cp -a /opt/ci/frontend/node_modules frontend/node_modules
+    - cd frontend && npm run lint && npm run test
 
 frontend-build:
   stage: build
-  image: node:22-slim
+  image: $REGISTRY_IMAGE_PREFIX/ci-frontend:node22
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       exists:
@@ -127,11 +140,12 @@ frontend-build:
       exists:
         - frontend/package.json
   script:
-    - cd frontend && npm ci && npm run build
+    - rm -rf frontend/node_modules && cp -a /opt/ci/frontend/node_modules frontend/node_modules
+    - cd frontend && npm run build
 
 frontend-mobile-build:
   stage: build
-  image: node:22-slim
+  image: $REGISTRY_IMAGE_PREFIX/ci-frontend:node22
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       exists:
@@ -140,7 +154,8 @@ frontend-mobile-build:
       exists:
         - frontend-mobile/package.json
   script:
-    - cd frontend-mobile && npm ci && npm run build
+    - rm -rf frontend-mobile/node_modules && cp -a /opt/ci/frontend-mobile/node_modules frontend-mobile/node_modules
+    - cd frontend-mobile && npm run build
 
 # ==== main 流水线重验证层（《开发部署规划》第 7 节 3）====
 # 全部 job 以 exists 守卫——阶段一代码落地后自动激活，此前 main 流水线空载（仅 gate-smoke）。
@@ -150,10 +165,10 @@ e2e-playwright:
   stage: verify
   image: python:3.14-slim
   rules:
+    # 重验证层开关：05-1（CI 流水线激活）修复就绪后创建 deploy/ci/verify-enabled 激活
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       exists:
-        - backend/pyproject.toml
-        - frontend/package.json
+        - deploy/ci/verify-enabled
   script:
     - pip install uv && cd backend && uv sync --frozen
     - cd frontend && npm ci && npm run build
@@ -166,10 +181,10 @@ e2e-playwright:
   variables:
     BMS_ENV: test
   rules:
+    # 重验证层开关：05-1（CI 流水线激活）修复就绪后创建 deploy/ci/verify-enabled 激活
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       exists:
-        - backend/pyproject.toml
-        - backend/alembic.ini
+        - deploy/ci/verify-enabled
   before_script:
     - pip install uv && cd backend && uv sync --frozen
   script:
@@ -205,10 +220,10 @@ integration-dm8:
 backend-image:
   <<: *build-push-base
   rules:
+    # exists 为「任一命中」语义：仅以 Dockerfile 守卫，避免被 pyproject 误激活
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       exists:
         - backend/Dockerfile
-        - backend/pyproject.toml
   script:
     - docker build -t $REGISTRY_IMAGE_PREFIX/bms-backend:$CI_COMMIT_SHORT_SHA -f backend/Dockerfile backend/
     - docker push $REGISTRY_IMAGE_PREFIX/bms-backend:$CI_COMMIT_SHORT_SHA
@@ -217,10 +232,10 @@ frontend-image:
   <<: *build-push-base
   needs: [{job: frontend-build, optional: true}]
   rules:
+    # exists 为「任一命中」语义：仅以 Dockerfile 守卫，避免被 package.json 误激活
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       exists:
         - frontend/Dockerfile
-        - frontend/package.json
   script:
     - docker build -t $REGISTRY_IMAGE_PREFIX/bms-frontend:$CI_COMMIT_SHORT_SHA -f frontend/Dockerfile frontend/
     - docker push $REGISTRY_IMAGE_PREFIX/bms-frontend:$CI_COMMIT_SHORT_SHA
@@ -231,9 +246,10 @@ container-scanning:
   image: aquasec/trivy:latest
   needs: [{job: backend-image, optional: true}]
   rules:
+    # 重验证层开关：05-1（CI 流水线激活）修复就绪后创建 deploy/ci/verify-enabled 激活
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       exists:
-        - backend/Dockerfile
+        - deploy/ci/verify-enabled
   script:
     - trivy image --exit-code 1 --severity CRITICAL,HIGH --ignore-unfixed $REGISTRY_IMAGE_PREFIX/bms-backend:$CI_COMMIT_SHORT_SHA
 
@@ -243,9 +259,10 @@ swagger-snapshot:
   image: python:3.14-slim
   needs: [{job: backend-test, optional: true}]
   rules:
+    # 重验证层开关：05-1（CI 流水线激活）修复就绪后创建 deploy/ci/verify-enabled 激活
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       exists:
-        - backend/pyproject.toml
+        - deploy/ci/verify-enabled
   script:
     - pip install uv && cd backend && uv sync --frozen
     - uv run python -c "from app.main import app; import json; print(json.dumps(app.openapi(), ensure_ascii=False))" > swagger.json
@@ -259,9 +276,10 @@ allure-report:
   image: python:3.14-slim
   needs: [{job: backend-test, optional: true}, {job: e2e-playwright, optional: true}]
   rules:
+    # 重验证层开关：05-1（CI 流水线激活）修复就绪后创建 deploy/ci/verify-enabled 激活
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       exists:
-        - backend/pyproject.toml
+        - deploy/ci/verify-enabled
   allow_failure: true
   script:
     - pip install allure-pytest
@@ -281,8 +299,11 @@ defect-capture:
   stage: .post
   image: python:3.14-slim
   rules:
+    # 重验证层开关：同上（缺陷链路随 05-1 激活）
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       when: on_failure
+      exists:
+        - deploy/ci/verify-enabled
   variables:
     DEFECT_ARCHIVE_DIR: /mnt/data/backup/defects
   script:
