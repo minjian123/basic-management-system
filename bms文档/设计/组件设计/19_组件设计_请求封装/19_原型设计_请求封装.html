@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 请求封装与错误处理（request / BaseApi / useRequest / useListPage）</title>
+<link rel="stylesheet" href="../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background: #fff; border: 1px solid #d0d7de; border-radius: 6px; padding: 16px; }
+  .ep-section { font-weight: 600; margin: 16px 0 12px; padding-bottom: 8px; border-bottom: 1px solid #eaeef2; font-size: 14px; }
+  .ep-section:first-of-type { margin-top: 0; }
+  .dp-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
+  .dp-title { font-size: 16px; font-weight: 600; }
+  .dp-sub { color: #8c959f; font-size: 12px; margin-top: 2px; }
+  .dp-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; background: #f6f8fa; border: 1px solid #eaeef2; border-radius: 6px; padding: 8px 12px; margin-bottom: 12px; }
+  .dp-code { font-family: Consolas, "Cascadia Mono", monospace; color: #57606a; }
+  .dp-hint { color: #b1b8bf; font-size: 11px; font-style: normal; }
+  .dp-metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 12px; }
+  .dp-metric { background: #fff; border: 1px solid #d0d7de; border-radius: 6px; padding: 12px; }
+  .dp-metric .v { font-size: 22px; font-weight: 600; color: #0969da; }
+  .dp-metric .v.ok { color: #1a7f37; }
+  .dp-metric .v.err { color: #cf222e; }
+  .dp-metric .k { font-size: 12px; color: #57606a; margin-top: 4px; }
+  .dp-log { background: #0d1117; color: #c9d1d9; font-family: Consolas, "Cascadia Mono", monospace; font-size: 12px; border-radius: 6px; padding: 10px 12px; max-height: 300px; overflow: auto; line-height: 1.7; }
+  .dp-log .t { color: #7ee787; }
+  .dp-log .e { color: #ff7b72; }
+  .dp-log .w { color: #e3b341; }
+  .dp-badge { display: inline-block; font-size: 11px; padding: 1px 7px; border-radius: 10px; background: #ddf4ff; color: #0969da; margin-left: 6px; }
+  .dp-badge.warn { background: #fff8c5; color: #9a6700; }
+  .dp-badge.err { background: #ffebe9; color: #cf222e; }
+  @media (max-width: 768px) { .dp-metrics { grid-template-columns: repeat(2, 1fr); } }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="19_组件设计_请求封装.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 请求封装与错误处理 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="19_组件设计_请求封装.md">《组件设计 · 请求封装与错误处理》</a>：演示 <b>request&lt;T&gt;()</b> 解包统一响应、
+    <b>错误码 → i18n 文案</b>映射、<b>401 静默刷新与并发排队</b>、<b>Idempotency-Key</b> 幂等、<b>useRequest</b> 竞态保护、<b>useListPage</b> 分页查询。数据均为前端模拟，交互对齐 Element Plus 实际行为。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-header">
+        <div>
+          <div class="dp-title">请求封装组件原型</div>
+          <div class="dp-sub">http / request&lt;T&gt;() / BaseApi / useRequest / useListPage</div>
+        </div>
+        <div class="dp-bar" style="margin-bottom:0">
+          <span class="proto-hint">locale：</span>
+          <el-radio-group v-model="locale" size="small" @change="onLocaleChange">
+            <el-radio-button label="zh-CN">中文</el-radio-button>
+            <el-radio-button label="en-US">English</el-radio-button>
+          </el-radio-group>
+        </div>
+      </div>
+
+      <el-tabs v-model="tab">
+        <!-- ① 统一响应与错误码 -->
+        <el-tab-pane label="① 统一响应与错误码" name="resp">
+          <div class="dp-bar">
+            <span class="proto-hint">模拟一个 API 调用（request&lt;T&gt;() 自动解开 {code,message,data}）</span>
+          </div>
+          <el-space wrap>
+            <el-button size="small" type="primary" @click="callApi(0, '1xxxx')">调用成功（code=0）</el-button>
+            <el-button size="small" @click="callApi(30001, '3xxxx')">用户名已存在（30001）</el-button>
+            <el-button size="small" @click="callApi(30005, '3xxxx')">引用拒绝（30005）</el-button>
+            <el-button size="small" @click="callApi(40201, '4xxxx')">配置键重复（40201）</el-button>
+            <el-button size="small" @click="callApi(50101, '5xxxx')">文件类型不允许（50101）</el-button>
+            <el-button size="small" @click="callApi(99999, '未知')">未知业务码（99999）</el-button>
+          </el-space>
+
+          <div class="ep-section">错误码 → 文案映射</div>
+          <el-table :data="codeTable" size="small" border style="width:100%">
+            <el-table-column prop="segment" label="分段" width="90"></el-table-column>
+            <el-table-column prop="domain" label="域" width="150"></el-table-column>
+            <el-table-column prop="code" label="示例码" width="90"></el-table-column>
+            <el-table-column label="i18n key" width="180">
+              <template #default="{ row }"><span class="dp-code">error.{{ row.code }}</span></template>
+            </el-table-column>
+            <el-table-column label="当前文案" min-width="200">
+              <template #default="{ row }">{{ errorMessage(row.code, row.fallback) }}</template>
+            </el-table-column>
+          </el-table>
+
+          <div class="ep-section">请求 / 响应日志</div>
+          <div class="dp-log">
+            <div v-for="(l, i) in log" :key="i"><span :class="l.cls">▸</span> {{ l.msg }}</div>
+            <div v-if="!log.length" class="dp-hint">暂无日志，点击上方按钮发起请求</div>
+          </div>
+        </el-tab-pane>
+
+        <!-- ② 401 静默刷新 -->
+        <el-tab-pane label="② 401 静默刷新与并发排队" name="refresh">
+          <div class="dp-bar">
+            <el-button size="small" type="warning" plain @click="expireToken">模拟 access token 过期</el-button>
+            <el-button size="small" type="primary" @click="concurrentCall">并发发起 3 个 API 请求</el-button>
+            <el-button size="small" @click="resetRefresh">重置</el-button>
+            <span class="proto-hint">并发 401 收敛为 1 次 refresh，成功后统一重放</span>
+          </div>
+
+          <div class="dp-metrics">
+            <div class="dp-metric"><div class="v" :class="tokenValid ? 'ok' : 'err'">{{ tokenValid ? '有效' : '已过期' }}</div><div class="k">当前 access token</div></div>
+            <div class="dp-metric"><div class="v">{{ refreshCount }}</div><div class="k">refresh 调用次数（并发应收敛为 1）</div></div>
+            <div class="dp-metric"><div class="v ok">{{ replayCount }}</div><div class="k">刷新后重放请求数</div></div>
+            <div class="dp-metric"><div class="v">{{ queueDepth }}</div><div class="k">等待队列深度</div></div>
+          </div>
+
+          <div class="dp-log">
+            <div v-for="(l, i) in refreshLog" :key="i"><span :class="l.cls">▸</span> {{ l.msg }}</div>
+            <div v-if="!refreshLog.length" class="dp-hint">点击「模拟过期」后「并发发起」体验刷新排队</div>
+          </div>
+
+          <el-alert type="info" :closable="false" show-icon style="margin-top:12px"
+            title="access token 仅存内存，refresh token 走 HttpOnly Cookie；刷新失败则清空会话跳登录，session.revoked 触发强制登出。"></el-alert>
+        </el-tab-pane>
+
+        <!-- ③ 幂等与竞态 -->
+        <el-tab-pane label="③ 幂等键与竞态" name="idem">
+          <div class="ep-section" style="margin-top:0">幂等键 Idempotency-Key（写接口自动生成，重试复用同一键）</div>
+          <div class="dp-bar">
+            <el-button size="small" type="primary" @click="submitOnce">提交新增（生成幂等键）</el-button>
+            <el-button size="small" @click="submitRetry">重试同一操作（复用幂等键）</el-button>
+            <span class="dp-hint">后端 Redis SETNX 前置拦截 + 唯一约束兜底</span>
+          </div>
+          <el-descriptions :column="1" border size="small">
+            <el-descriptions-item label="当前幂等键"><span class="dp-code">{{ idemKey || '—' }}</span></el-descriptions-item>
+            <el-descriptions-item label="服务端结果">{{ idemResult }}</el-descriptions-item>
+          </el-descriptions>
+
+          <div class="ep-section">useRequest 竞态保护（快速切换查询条件，仅最新响应写回）</div>
+          <div class="dp-bar">
+            <el-button size="small" @click="raceCall('A')">发起查询 A（慢 900ms）</el-button>
+            <el-button size="small" @click="raceCall('B')">发起查询 B（快 200ms）</el-button>
+            <el-button size="small" @click="raceCall('C')">发起查询 C（中 500ms）</el-button>
+          </div>
+          <el-descriptions :column="2" border size="small">
+            <el-descriptions-item label="data（仅最新 seq 写回）">{{ raceData || '—' }}</el-descriptions-item>
+            <el-descriptions-item label="已忽略的过期响应">{{ raceStale }}</el-descriptions-item>
+          </el-descriptions>
+          <div class="dp-log" style="margin-top:12px;max-height:200px">
+            <div v-for="(l, i) in raceLog" :key="i"><span :class="l.cls">▸</span> {{ l.msg }}</div>
+            <div v-if="!raceLog.length" class="dp-hint">依次点击 A、B、C：A 最慢最后返回，应被忽略</div>
+          </div>
+        </el-tab-pane>
+
+        <!-- ④ useListPage -->
+        <el-tab-pane label="④ useListPage 列表分页" name="list">
+          <div class="dp-bar">
+            <el-input v-model="query.username" size="small" placeholder="用户名" style="width:150px" clearable></el-input>
+            <el-select v-model="query.status" size="small" placeholder="状态" clearable style="width:120px">
+              <el-option label="启用" value="enabled"></el-option>
+              <el-option label="停用" value="disabled"></el-option>
+            </el-select>
+            <el-button size="small" type="primary" @click="search">查询</el-button>
+            <el-button size="small" @click="reset">重置</el-button>
+            <el-divider direction="vertical"></el-divider>
+            <el-button size="small" :disabled="!selection.length">批量删除（已选 {{ selection.length }}）</el-button>
+            <span class="proto-hint">查询条件变化回第 1 页；分页/排序保留筛选条件</span>
+          </div>
+
+          <el-table :data="pagedList" size="small" border style="width:100%" @selection-change="onSelect">
+            <el-table-column type="selection" width="42"></el-table-column>
+            <el-table-column prop="username" label="用户名" width="130"></el-table-column>
+            <el-table-column prop="nickname" label="昵称" width="120"></el-table-column>
+            <el-table-column label="状态" width="90">
+              <template #default="{ row }">
+                <el-tag :type="row.status === 'enabled' ? 'success' : 'info'" size="small">{{ row.status === 'enabled' ? '启用' : '停用' }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="dept" label="部门" min-width="140"></el-table-column>
+          </el-table>
+
+          <el-pagination style="margin-top:12px;justify-content:flex-end"
+            background layout="total, sizes, prev, pager, next, jumper"
+            :total="total" :page-size="query.size" :current-page="query.page"
+            :page-sizes="[10, 20, 50]"
+            @current-change="onPageChange" @size-change="onSizeChange"></el-pagination>
+
+          <div class="dp-metrics" style="margin-top:12px">
+            <div class="dp-metric"><div class="v">{{ total }}</div><div class="k">total（服务端返回）</div></div>
+            <div class="dp-metric"><div class="v">{{ query.page }}</div><div class="k">page</div></div>
+            <div class="dp-metric"><div class="v">{{ query.size }}</div><div class="k">size</div></div>
+            <div class="dp-metric"><div class="v ok">{{ selection.length }}</div><div class="k">已选行（selection）</div></div>
+          </div>
+        </el-tab-pane>
+      </el-tabs>
+    </div>
+  </div>
+</div>
+
+<script src="../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref, reactive, computed } = Vue;
+  var ElMessage = ElementPlus.ElMessage;
+
+  // 错误码 → 文案（模拟 vue-i18n 语言包 error.{code}）
+  var MESSAGES = {
+    'zh-CN': {
+      0: '操作成功',
+      30001: '用户名已存在',
+      30005: '该记录被引用，无法删除',
+      40201: '配置键已存在',
+      50101: '文件类型不在白名单内',
+      1: '操作失败，请稍后重试',
+      99999: '操作失败，请稍后重试'
+    },
+    'en-US': {
+      0: 'Success',
+      30001: 'Username already exists',
+      30005: 'Record is referenced and cannot be deleted',
+      40201: 'Config key already exists',
+      50101: 'File type is not allowed',
+      1: 'Operation failed, please retry later',
+      99999: 'Operation failed, please retry later'
+    }
+  };
+
+  var app = createApp({
+    template: document.getElementById('app').outerHTML.replace(/<div id="app">/, '<div>').replace(/<\/div>\s*$/, ''),
+    setup: function () {
+      var tab = ref('resp');
+      var locale = ref('zh-CN');
+      var log = ref([]);
+      function push(arr, msg, cls) { arr.value.unshift({ msg: msg, cls: cls || 't' }); if (arr.value.length > 60) arr.value.pop(); }
+      function logLine(msg, cls) { push(log, msg, cls); }
+      function ts() { return new Date().toLocaleTimeString('zh-CN', { hour12: false }); }
+      function onLocaleChange() { logLine('Accept-Language 切换为 ' + locale.value + '，错误文案随之切换', 'w'); }
+
+      function errorMessage(code, fallback) {
+        var m = MESSAGES[locale.value] || {};
+        if (code === 0) return m[0];
+        var msg = m[code] || m['1'];
+        if (!msg || msg === m['1']) return fallback ? (msg + '（' + fallback + '）') : msg;
+        return msg;
+      }
+
+      var codeTable = [
+        { segment: '1xxxx', domain: '通用', code: 10001, fallback: '参数错误' },
+        { segment: '3xxxx', domain: '用户与组织', code: 30001, fallback: '用户名已存在' },
+        { segment: '4xxxx', domain: '系统配置', code: 40201, fallback: '配置键已存在' },
+        { segment: '5xxxx', domain: '文件', code: 50101, fallback: '文件类型不在白名单内' },
+        { segment: '7xxxx', domain: '通知/邮件/任务', code: 71001, fallback: '模板渲染失败' },
+        { segment: '8xxxx', domain: '开放接口/租户/SSO', code: 80001, fallback: '签名校验失败' }
+      ];
+
+      function callApi(code, seg) {
+        logLine('POST /users  →  request<T>() 发起请求', 't');
+        setTimeout(function () {
+          logLine('响应 { code:' + code + ', message:"...", data:{...} }（' + seg + '）', code === 0 ? 't' : 'e');
+          if (code === 0) {
+            logLine('code=0 → 解包返回 data，业务拿到纯数据对象', 't');
+            ElMessage.success(errorMessage(0));
+          } else {
+            logLine('code≠0 → 构造 ApiError 并统一 toast：' + errorMessage(code, ''), 'e');
+            ElMessage.error(errorMessage(code, ''));
+          }
+        }, 260);
+      }
+
+      // ---- 401 静默刷新 ----
+      var tokenValid = ref(true);
+      var refreshCount = ref(0);
+      var replayCount = ref(0);
+      var queueDepth = ref(0);
+      var refreshLog = ref([]);
+      function expireToken() { tokenValid.value = false; push(refreshLog, 'access token 已置为过期', 'w'); ElMessage.warning('已模拟 token 过期'); }
+      function resetRefresh() { tokenValid.value = true; refreshCount.value = 0; replayCount.value = 0; queueDepth.value = 0; refreshLog.value = []; }
+      function concurrentCall() {
+        push(refreshLog, '并发发起 3 个 API 请求', 't');
+        var pending = 3, waiting = 0;
+        for (var i = 1; i <= 3; i++) {
+          (function (n) {
+            setTimeout(function () {
+              if (tokenValid.value) {
+                push(refreshLog, '请求 ' + n + ' 携带有效 token → 200 OK', 't');
+                finish();
+              } else {
+                push(refreshLog, '请求 ' + n + ' 收到 401 → 进入等待队列（不重复刷新）', 'w');
+                waiting++; queueDepth.value = waiting;
+                doRefresh(function () {
+                  waiting--; queueDepth.value = waiting;
+                  replayCount.value++;
+                  push(refreshLog, '请求 ' + n + ' 用新 token 重放 → 200 OK', 't');
+                  finish();
+                });
+              }
+            }, n * 80);
+          })(i);
+        }
+        function finish() { pending--; if (pending === 0) push(refreshLog, '全部请求完成（refresh 共 ' + refreshCount.value + ' 次）', 't'); }
+      }
+      var refreshing = false, callbacks = [];
+      function doRefresh(cb) {
+        if (refreshing) { callbacks.push(cb); return; }
+        refreshing = true; refreshCount.value++;
+        push(refreshLog, 'POST /auth/refresh（refresh 轮换，HttpOnly Cookie）…', 'w');
+        setTimeout(function () {
+          tokenValid.value = true; refreshing = false;
+          push(refreshLog, '刷新成功，唤醒等待队列（' + callbacks.length + ' 个）', 't');
+          var list = callbacks.slice(); callbacks = [];
+          list.forEach(function (f) { f(); }); cb();
+        }, 600);
+      }
+
+      // ---- 幂等 ----
+      var idemKey = ref('');
+      var idemResult = ref('—');
+      var seen = {};
+      function submitOnce() {
+        idemKey.value = 'req-' + Math.random().toString(36).slice(2, 10);
+        idemResult.value = '服务端处理中 → 落库成功（首次）';
+        seen[idemKey.value] = true;
+        ElMessage.success('提交成功（首次）');
+      }
+      function submitRetry() {
+        if (!idemKey.value) { ElMessage.warning('请先提交新增'); return; }
+        if (seen[idemKey.value]) {
+          idemResult.value = '服务端 Redis SETNX 命中 → 返回上次结果，不重复落库';
+          ElMessage.info('幂等命中：未重复落库');
+        }
+      }
+
+      // ---- 竞态 ----
+      var raceData = ref('');
+      var raceStale = ref('—');
+      var raceLog = ref([]);
+      var seq = 0, latest = 0, stale = 0;
+      function raceCall(name) {
+        var my = ++seq; latest = my;
+        push(raceLog, '发起查询 ' + name + '（seq=' + my + '）', 't');
+        var delay = name === 'A' ? 900 : (name === 'B' ? 200 : 500);
+        setTimeout(function () {
+          if (my === latest) {
+            raceData.value = '查询 ' + name + ' 结果（seq=' + my + '）';
+            push(raceLog, '查询 ' + name + ' 响应 seq=' + my + ' 为最新 → 写回 data', 't');
+          } else {
+            stale++; raceStale.value = '已忽略 ' + stale + ' 个过期响应';
+            push(raceLog, '查询 ' + name + ' 响应 seq=' + my + ' < 最新 ' + latest + ' → 忽略', 'e');
+          }
+        }, delay);
+      }
+
+      // ---- useListPage ----
+      var allUsers = [];
+      var names = ['张三', '李四', '王五', '赵六', '钱七', '孙八', '周九', '吴十', '郑一', '冯二', '陈三', '褚四', '卫五', '蒋六', '沈七', '韩八', '杨九', '朱十', '秦一', '尤二', '许三', '何四', '吕五', '施六'];
+      var depts = ['研发部', '市场部', '财务部', '人事部', '运维部'];
+      names.forEach(function (n, i) {
+        allUsers.push({ id: 'u' + i, username: 'user' + String(i + 1).padStart(3, '0'), nickname: n, status: (i % 4 === 0 ? 'disabled' : 'enabled'), dept: depts[i % 5] });
+      });
+      var query = reactive({ username: '', status: '', page: 1, size: 10 });
+      var selection = ref([]);
+      var filtered = computed(function () {
+        return allUsers.filter(function (u) {
+          if (query.username && u.username.indexOf(query.username) < 0 && u.nickname.indexOf(query.username) < 0) return false;
+          if (query.status && u.status !== query.status) return false;
+          return true;
+        });
+      });
+      var total = computed(function () { return filtered.value.length; });
+      var pagedList = computed(function () {
+        var start = (query.page - 1) * query.size;
+        return filtered.value.slice(start, start + query.size);
+      });
+      function search() { query.page = 1; ElMessage.success('查询完成，共 ' + total.value + ' 条'); }
+      function reset() { query.username = ''; query.status = ''; query.page = 1; ElMessage.info('已重置筛选条件并回第 1 页'); }
+      function onPageChange(p) { query.page = p; }
+      function onSizeChange(s) { query.size = s; query.page = 1; }
+      function onSelect(rows) { selection.value = rows; }
+
+      return {
+        tab, locale, log, codeTable, errorMessage, callApi, onLocaleChange,
+        tokenValid, refreshCount, replayCount, queueDepth, refreshLog, expireToken, resetRefresh, concurrentCall,
+        idemKey, idemResult, submitOnce, submitRetry,
+        raceData, raceStale, raceLog, raceCall,
+        query, selection, total, pagedList, search, reset, onPageChange, onSizeChange, onSelect
+      };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>

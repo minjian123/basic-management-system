@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 文件上传字段（FileUploadField / ImageUploadField / useFileUpload）</title>
+<link rel="stylesheet" href="../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background: #fff; border: 1px solid #d0d7de; border-radius: 6px; padding: 16px; }
+  .ep-section { font-weight: 600; margin: 16px 0 12px; padding-bottom: 8px; border-bottom: 1px solid #eaeef2; font-size: 14px; }
+  .ep-section:first-of-type { margin-top: 0; }
+  .dp-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
+  .dp-title { font-size: 16px; font-weight: 600; }
+  .dp-sub { color: #8c959f; font-size: 12px; margin-top: 2px; }
+  .dp-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; background: #f6f8fa; border: 1px solid #eaeef2; border-radius: 6px; padding: 8px 12px; margin-bottom: 12px; }
+  .dp-code { font-family: Consolas, "Cascadia Mono", monospace; color: #57606a; }
+  .dp-hint { color: #b1b8bf; font-size: 11px; font-style: normal; }
+  .dp-drop { border: 2px dashed #d0d7de; border-radius: 8px; padding: 28px; text-align: center; color: #57606a; cursor: pointer; background: #fafbfc; }
+  .dp-drop:hover { border-color: #0969da; background: #f0f7ff; }
+  .dp-drop .big { font-size: 28px; color: #8c959f; }
+  .dp-file { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid #eaeef2; border-radius: 6px; margin-bottom: 8px; }
+  .dp-file .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+  .dp-file .prog { width: 160px; }
+  .dp-imgs { display: flex; gap: 10px; flex-wrap: wrap; }
+  .dp-img { width: 84px; height: 84px; border: 1px solid #d0d7de; border-radius: 6px; display: flex; align-items: center; justify-content: center; background: #f6f8fa; color: #8c959f; font-size: 11px; text-align: center; flex-direction: column; }
+  .dp-metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 12px 0; }
+  .dp-metric { background: #fff; border: 1px solid #d0d7de; border-radius: 6px; padding: 12px; }
+  .dp-metric .v { font-size: 18px; font-weight: 600; color: #0969da; }
+  .dp-metric .k { font-size: 12px; color: #57606a; margin-top: 4px; }
+  @media (max-width: 768px) { .dp-metrics { grid-template-columns: repeat(2, 1fr); } }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="07_组件设计_文件上传字段.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 文件上传字段 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="07_组件设计_文件上传字段.md">《组件设计 · 文件上传字段》</a>：演示 <b>FileUploadField</b> / <b>ImageUploadField</b>、
+    类型与大小校验、<b>整包/分片上传</b>、<b>秒传（SHA-256）</b>、失败重试、只读回显与下载预览。上传为前端模拟（不产生真实请求）；
+    秒传判定接口 <span class="dp-code">POST /files/check</span> 为上游待补项（详见文档第 9 节）。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-header">
+        <div>
+          <div class="dp-title">文件上传字段 原型</div>
+          <div class="dp-sub">FileUploadField · ImageUploadField · FileListField · useFileUpload</div>
+        </div>
+        <div class="dp-bar" style="margin-bottom:0">
+          <el-switch v-model="readonly" active-text="只读态" inactive-text="编辑态" size="small"></el-switch>
+        </div>
+      </div>
+
+      <el-tabs v-model="tab">
+        <!-- ① 文件上传 -->
+        <el-tab-pane label="① 文件上传（分片/秒传）" name="file">
+          <div class="dp-bar">
+            <span class="proto-hint">accept=pdf,doc,docx,xls,xlsx,png,jpg；maxSize=2048MB（对齐 file.upload.max_file_size）；chunkThreshold=20MB（对齐 file.upload.max_size）；concurrency=3</span>
+          </div>
+          <div class="dp-drop" @click="simulatePick">
+            <div class="big">＋</div>
+            <div>点击模拟选择文件，或将文件拖到此处</div>
+            <div class="dp-hint">≤20MB 整包直传；超过 20MB 自动分片；命中已存在 SHA-256 则秒传（判定接口上游待补）</div>
+          </div>
+
+          <div class="ep-section">上传队列（排队 → 校验 → 哈希 → 秒传判定 → 分片上传 → 合并）</div>
+          <div v-for="f in queue" :key="f.id" class="dp-file">
+            <span style="font-size:18px">{{ f.type === 'image' ? '🖼' : '📄' }}</span>
+            <span class="name">{{ f.name }}<span class="dp-hint"> · {{ f.size }}MB</span></span>
+            <el-tag size="small" :type="statusType(f.status)">{{ f.status }}</el-tag>
+            <el-progress class="prog" :percentage="f.percent" :status="f.status === '成功' ? 'success' : (f.status === '失败' ? 'exception' : '')"></el-progress>
+            <el-button v-if="f.status === '失败'" size="small" type="primary" plain @click="retry(f)">重试</el-button>
+            <el-button v-if="f.status !== '成功'" size="small" @click="cancel(f)">取消</el-button>
+            <el-button size="small" text @click="remove(f)">移除</el-button>
+          </div>
+          <span v-if="!queue.length" class="dp-hint">暂无上传任务</span>
+
+          <div class="dp-metrics">
+            <div class="dp-metric"><div class="v">{{ queue.length }}</div><div class="k">文件数（limit=10）</div></div>
+            <div class="dp-metric"><div class="v">{{ uploadedCount }}</div><div class="k">上传成功</div></div>
+            <div class="dp-metric"><div class="v">{{ instantCount }}</div><div class="k">秒传命中</div></div>
+            <div class="dp-metric"><div class="v">{{ chunkCount }}</div><div class="k">已传分片总数</div></div>
+          </div>
+
+          <el-alert type="info" :closable="false" show-icon
+            title="modelValue = 文件 id 数组；上传成功回填 id；失败仅补传缺失分片（断点续传）。"></el-alert>
+        </el-tab-pane>
+
+        <!-- ② 图片上传 -->
+        <el-tab-pane label="② 图片上传（多图/压缩/尺寸）" name="image">
+          <div class="dp-bar">
+            <span class="proto-hint">accept=png,jpg,jpeg,webp；maxSize=5MB；limit=9；支持压缩与尺寸校验</span>
+            <el-space>
+              <el-checkbox v-model="compress">前端压缩（最长边 > 1920px 时）</el-checkbox>
+              <el-checkbox v-model="square">头像模式（1:1 裁剪）</el-checkbox>
+            </el-space>
+          </div>
+
+          <div class="dp-imgs">
+            <div v-for="img in images" :key="img.id" class="dp-img">
+              <span>{{ img.name }}</span>
+              <span class="dp-hint">{{ img.note }}</span>
+            </div>
+            <div v-if="images.length < 9" class="dp-img" style="cursor:pointer" @click="addImage">
+              <span style="font-size:20px">＋</span>
+              <span class="dp-hint">上传图片</span>
+            </div>
+          </div>
+
+          <div class="ep-section">图片处理结果</div>
+          <el-descriptions :column="2" border size="small">
+            <el-descriptions-item label="maxSize 校验">超出 5MB 即拒绝并提示（不发起请求）</el-descriptions-item>
+            <el-descriptions-item label="压缩策略">{{ compress ? '最长边 > 1920px 压缩至 1920px' : '不压缩' }}</el-descriptions-item>
+            <el-descriptions-item label="尺寸校验">{{ square ? '要求 1:1 比例' : '不限比例' }}</el-descriptions-item>
+            <el-descriptions-item label="多图排序">支持拖拽排序，顺序即 modelValue 数组顺序</el-descriptions-item>
+          </el-descriptions>
+        </el-tab-pane>
+
+        <!-- ③ 只读回显 -->
+        <el-tab-pane label="③ 只读回显与下载预览" name="readonly">
+          <div class="dp-bar">
+            <span class="proto-hint">FileListField：文件名 + 大小 + 下载/预览；失效文件占位</span>
+          </div>
+          <el-table :data="fileList" size="small" border style="width:100%">
+            <el-table-column prop="name" label="文件名" min-width="200"></el-table-column>
+            <el-table-column prop="size" label="大小" width="110"></el-table-column>
+            <el-table-column label="类型" width="90">
+              <template #default="{ row }">{{ row.type }}</template>
+            </el-table-column>
+            <el-table-column label="操作" width="200">
+              <template #default="{ row }">
+                <el-link v-if="!row.invalid" type="primary" :underline="false" @click="toast('下载 ' + row.name)">下载</el-link>
+                <el-link v-if="!row.invalid && row.preview" type="primary" :underline="false" style="margin-left:12px" @click="toast('预览 ' + row.name)">预览</el-link>
+                <el-tag v-if="row.invalid" size="small" type="danger">文件已失效</el-tag>
+              </template>
+            </el-table-column>
+          </el-table>
+          <el-descriptions :column="1" border size="small" style="margin-top:12px">
+            <el-descriptions-item label="modelValue（文件 id）"><span class="dp-code">{{ JSON.stringify(fileList.map(function (f) { return f.id; })) }}</span></el-descriptions-item>
+            <el-descriptions-item label="空值场景">未上传时显示 —</el-descriptions-item>
+          </el-descriptions>
+        </el-tab-pane>
+      </el-tabs>
+    </div>
+  </div>
+</div>
+
+<script src="../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref, computed } = Vue;
+  var ElMessage = ElementPlus.ElMessage;
+
+  var app = createApp({
+    template: document.getElementById('app').outerHTML.replace(/<div id="app">/, '<div>').replace(/<\/div>\s*$/, ''),
+    setup: function () {
+      var tab = ref('file');
+      var readonly = ref(false);
+      var queue = ref([]);
+      var seq = 0;
+      var instantCount = ref(0);
+      var chunkCount = ref(0);
+      var uploadedCount = computed(function () { return queue.value.filter(function (f) { return f.status === '成功'; }).length; });
+
+      function statusType(s) {
+        return s === '成功' ? 'success' : (s === '失败' ? 'danger' : (s === '秒传' ? 'warning' : 'info'));
+      }
+      function simulatePick() {
+        if (queue.value.length >= 10) { ElMessage.warning('最多上传 10 个文件'); return; }
+        var variants = [
+          { name: '合同扫描件.pdf', size: 3.2, ext: 'pdf', instant: false, fail: false },
+          { name: '产品手册.pptx', size: 12.6, ext: 'pptx', instant: false, fail: true },
+          { name: '会议纪要.docx', size: 0.8, ext: 'docx', instant: true, fail: false }
+        ];
+        var v = variants[seq % variants.length];
+        seq++;
+        var f = { id: 'f' + seq, name: v.name, size: v.size, status: '排队', percent: 0, instant: v.instant, willFail: v.fail };
+        queue.value.push(f);
+        startUpload(f);
+      }
+      function startUpload(f) {
+        // 校验
+        var allowExts = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'png', 'jpg'];
+        var ext = f.name.split('.').pop().toLowerCase();
+        if (allowExts.indexOf(ext) < 0) { f.status = '失败'; ElMessage.error('文件类型不在白名单内（50101）'); return; }
+        if (f.size > 2048) { f.status = '失败'; ElMessage.error('文件超出大小上限 2GB（50102）'); return; }
+        f.status = '计算哈希(SHA-256)';
+        setTimeout(function () {
+          if (f.instant) {
+            f.status = '秒传'; f.percent = 100; instantCount.value++;
+            ElMessage.success(f.name + ' 秒传命中，无需上传');
+            return;
+          }
+          var chunked = f.size > 20;
+          f.status = chunked ? '分片上传(并发3)' : '整包直传';
+          var total = chunked ? Math.ceil(f.size / 5) : 1;
+          var done = 0;
+          var timer = setInterval(function () {
+            done++;
+            chunkCount.value++;
+            f.percent = Math.round(done / total * 100);
+            if (done >= total) {
+              clearInterval(timer);
+              if (f.willFail && !f.retried) { f.status = '失败'; f.percent = Math.round(f.percent * 0.6); ElMessage.error(f.name + ' 上传中断，可重试（断点续传）'); return; }
+              f.status = '合并中';
+              setTimeout(function () { f.status = '成功'; f.percent = 100; ElMessage.success(f.name + ' 上传成功，回填 file_id'); }, 400);
+            }
+          }, 220);
+        }, 300);
+      }
+      function retry(f) {
+        f.retried = true; f.status = '重试(补缺失分片)'; f.percent = Math.round(f.percent || 0);
+        ElMessage.info(f.name + ' 断点续传：仅补传缺失分片');
+        setTimeout(function () { f.status = '成功'; f.percent = 100; ElMessage.success(f.name + ' 上传成功'); }, 800);
+      }
+      function cancel(f) { f.status = '已取消'; ElMessage.warning(f.name + ' 已取消上传'); }
+      function remove(f) { queue.value = queue.value.filter(function (x) { return x !== f; }); }
+      function toast(m) { ElMessage.success(m); }
+
+      // ---- 图片 ----
+      var compress = ref(true);
+      var square = ref(false);
+      var images = ref([
+        { id: 'i1', name: '封面.png', note: '800×600' },
+        { id: 'i2', name: '详情.webp', note: '1920×1080' }
+      ]);
+      function addImage() { images.value.push({ id: 'i' + (images.value.length + 1 + Date.now() % 100), name: '新图片.jpg', note: '待上传' }); ElMessage.success('已添加图片（模拟）'); }
+
+      // ---- 只读 ----
+      var fileList = ref([
+        { id: 'sf1', name: '合同扫描件.pdf', size: '3.2 MB', type: 'PDF', preview: true, invalid: false },
+        { id: 'sf2', name: '现场照片.jpg', size: '1.1 MB', type: '图片', preview: true, invalid: false },
+        { id: 'sf3', name: '旧附件.doc', size: '0.4 MB', type: 'Word', preview: false, invalid: true }
+      ]);
+
+      return {
+        tab, readonly, queue, statusType, simulatePick, retry, cancel, remove, toast,
+        uploadedCount, instantCount, chunkCount,
+        compress, square, images, addImage, fileList
+      };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>
