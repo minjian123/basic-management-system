@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 通用表格（ProTable / 列配置 / 多列排序 / 列个性化 / 行内编辑）</title>
+<link rel="stylesheet" href="../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background: #fff; border: 1px solid #d0d7de; border-radius: 6px; padding: 16px; }
+  .ep-section { font-weight: 600; margin: 16px 0 12px; padding-bottom: 8px; border-bottom: 1px solid #eaeef2; font-size: 14px; }
+  .ep-section:first-of-type { margin-top: 0; }
+  .dp-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
+  .dp-title { font-size: 16px; font-weight: 600; }
+  .dp-sub { color: #8c959f; font-size: 12px; margin-top: 2px; }
+  .dp-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; background: #f6f8fa; border: 1px solid #eaeef2; border-radius: 6px; padding: 8px 12px; margin-bottom: 12px; }
+  .dp-code { font-family: Consolas, "Cascadia Mono", monospace; color: #57606a; }
+  .dp-hint { color: #b1b8bf; font-size: 11px; font-style: normal; }
+  .dp-out { font-family: Consolas, monospace; font-size: 12px; background: #f6f8fa; border: 1px solid #eaeef2; border-radius: 6px; padding: 10px; max-height: 170px; overflow: auto; white-space: pre-wrap; word-break: break-all; color: #57606a; }
+  .dp-metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 12px 0; }
+  .dp-metric { background: #fff; border: 1px solid #d0d7de; border-radius: 6px; padding: 12px; }
+  .dp-metric .v { font-size: 18px; font-weight: 600; color: #0969da; }
+  .dp-metric .k { font-size: 12px; color: #57606a; margin-top: 4px; }
+  .th-sort { cursor: pointer; user-select: none; display: inline-flex; align-items: center; gap: 4px; }
+  .th-sort .badge { display: inline-block; min-width: 14px; height: 14px; line-height: 14px; text-align: center; border-radius: 7px; background: #0969da; color: #fff; font-size: 10px; padding: 0 3px; }
+  .col-item { display: flex; align-items: center; gap: 10px; padding: 4px 0; }
+  .col-item .name { flex: 1; font-size: 13px; }
+  .money { font-variant-numeric: tabular-nums; }
+  .err-row { background: #fff1f0 !important; }
+  .proto-note b { color: #0969da; }
+  @media (max-width: 768px) { .dp-metrics { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="10_组件设计_通用表格.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 通用表格 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="10_组件设计_通用表格.md">《组件设计 · 通用表格》</a>：演示 <b>ProTable</b> 的列配置与渲染优先级（插槽 / 字典列 / 标签列 / 脱敏列 / 格式化列）、
+    <b>分页与多列排序</b>（Shift 叠加、参数序列化、游标分页）、<b>多选与批量操作</b>、<b>树形表格</b>、<b>列设置与密度</b>（`list.{form_key}` 偏好与恢复默认）、
+    <b>行内编辑</b>（自动空行、空行过滤、校验）。原型不接后端：排序/分页/偏好保存均为前端模拟，组件为真实 Element Plus 2.9.9 行为。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-header">
+        <div>
+          <div class="dp-title">通用表格 ProTable 原型</div>
+          <div class="dp-sub">带 * 的列为可排序列；多列排序请按 Shift + 点击表头</div>
+        </div>
+        <div class="dp-bar" style="margin-bottom:0">
+          <span class="dp-code">密度：{{ prefs.density === 'small' ? '紧凑' : '宽松' }}</span>
+          <span class="dp-code">每页：{{ prefs.pageSize }}</span>
+          <span class="dp-code">偏好：list.user_form</span>
+        </div>
+      </div>
+
+      <el-tabs v-model="tab">
+        <!-- ① 基础列渲染 -->
+        <el-tab-pane label="① 列渲染" name="columns">
+          <div class="dp-bar">
+            <el-switch v-model="plainMode" active-text="data:plain（看明文）" inactive-text="脱敏列（默认）" size="small"></el-switch>
+            <span class="proto-hint">渲染优先级：插槽 &gt; 字典列 &gt; 标签列 &gt; 脱敏列 &gt; formatter &gt; 原值；空值统一 —</span>
+          </div>
+
+          <el-table :data="rows" :size="prefs.density" border style="width:100%">
+            <el-table-column type="index" label="#" width="52"></el-table-column>
+            <el-table-column prop="username" label="用户名" width="120"></el-table-column>
+            <el-table-column prop="deptId" label="部门（字典列）" width="140">
+              <template #default="{ row }">{{ dictLabel('dept', row.deptId) }}</template>
+            </el-table-column>
+            <el-table-column prop="status" label="状态（标签列）" width="120">
+              <template #default="{ row }">
+                <span class="sw-tag" :style="{ background: statusColor(row.status) }">{{ statusLabel(row.status) }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="phone" label="手机号（脱敏列）" width="150">
+              <template #default="{ row }">{{ plainMode ? row.phone : maskPhone(row.phone) }}</template>
+            </el-table-column>
+            <el-table-column prop="amount" label="金额（formatter）" width="140" align="right">
+              <template #default="{ row }"><span class="money">{{ formatAmount(row.amount) }}</span></template>
+            </el-table-column>
+            <el-table-column prop="createdAt" label="创建时间（formatter）" width="170">
+              <template #default="{ row }">{{ formatDateTime(row.createdAt) }}</template>
+            </el-table-column>
+            <el-table-column prop="remark" label="备注（ellipsis）" min-width="160" show-overflow-tooltip></el-table-column>
+          </el-table>
+
+          <div class="dp-metrics">
+            <div class="dp-metric"><div class="v">1</div><div class="k">本页字典列请求次数（批量翻译）</div></div>
+            <div class="dp-metric"><div class="v">{{ rows.length }}</div><div class="k">本页行数</div></div>
+            <div class="dp-metric"><div class="v">0</div><div class="k">逐行字典请求（反例）</div></div>
+            <div class="dp-metric"><div class="v">{{ plainMode ? '明文' : '脱敏' }}</div><div class="k">敏感列口径</div></div>
+          </div>
+          <el-alert type="info" :closable="false" show-icon
+            title="字典列走 02 节点的批量翻译（一列一次 translateDictValues），禁止逐行请求；脱敏列持 data:plain 才渲染明文（20 权限指令）。"></el-alert>
+        </el-tab-pane>
+
+        <!-- ② 分页与多列排序 -->
+        <el-tab-pane label="② 分页与多列排序" name="page">
+          <div class="dp-bar">
+            <span class="proto-hint">点击表头切换单列排序；<b>Shift + 点击</b>叠加多列（≤ 3 列，显示优先级序号）</span>
+            <el-checkbox v-model="cursorMode" size="small">游标分页模式（cursor/limit）</el-checkbox>
+            <el-button size="small" @click="clearSort">清空排序</el-button>
+          </div>
+
+          <el-table :data="pagedRows" :size="prefs.density" border style="width:100%">
+            <el-table-column prop="username" label="用户名" width="130"></el-table-column>
+            <el-table-column prop="status" label="状态 *" width="140">
+              <template #header>
+                <span class="th-sort" @click="toggleSort('status', $event)">状态 *<span v-if="sortIndexOf('status') >= 0" class="badge">{{ sortIndexOf('status') + 1 }}{{ sortDir('status') === 'asc' ? '↑' : '↓' }}</span></span>
+              </template>
+              <template #default="{ row }">{{ statusLabel(row.status) }}</template>
+            </el-table-column>
+            <el-table-column prop="amount" label="金额 *" width="150" align="right">
+              <template #header>
+                <span class="th-sort" @click="toggleSort('amount', $event)">金额 *<span v-if="sortIndexOf('amount') >= 0" class="badge">{{ sortIndexOf('amount') + 1 }}{{ sortDir('amount') === 'asc' ? '↑' : '↓' }}</span></span>
+              </template>
+              <template #default="{ row }"><span class="money">{{ formatAmount(row.amount) }}</span></template>
+            </el-table-column>
+            <el-table-column prop="createdAt" label="创建时间 *" width="180">
+              <template #header>
+                <span class="th-sort" @click="toggleSort('createdAt', $event)">创建时间 *<span v-if="sortIndexOf('createdAt') >= 0" class="badge">{{ sortIndexOf('createdAt') + 1 }}{{ sortDir('createdAt') === 'asc' ? '↑' : '↓' }}</span></span>
+              </template>
+              <template #default="{ row }">{{ formatDateTime(row.createdAt) }}</template>
+            </el-table-column>
+            <el-table-column prop="deptId" label="部门" min-width="140">
+              <template #default="{ row }">{{ dictLabel('dept', row.deptId) }}</template>
+            </el-table-column>
+          </el-table>
+
+          <div class="ep-section">请求参数（序列化）</div>
+          <div class="dp-out">{{ sortParamText }}</div>
+
+          <div class="ep-section">分页区（表格下方一行，靠右）</div>
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+            <span class="dp-hint">左侧为表格工具栏（刷新/密度/列设置/全屏/自动列宽/导出）</span>
+            <template v-if="!cursorMode">
+              <el-pagination background layout="total, sizes, prev, pager, next, jumper"
+                :total="rows.length" :current-page="page" :page-size="prefs.pageSize"
+                :page-sizes="[10, 20, 50, 100]"
+                @current-change="(p) => (page = p)" @size-change="onSizeChange"></el-pagination>
+            </template>
+            <template v-else>
+              <el-button size="small" @click="loadMore">加载更多（cursor / limit=20）</el-button>
+            </template>
+          </div>
+          <el-alert style="margin-top:10px" :type="cursorMode ? 'warning' : 'info'" :closable="false" show-icon
+            :title="cursorMode ? '游标分页：无总页数、排序入口已禁用（游标与排序冲突），用于日志/审计超长列表' : '页码分页：默认 20/页，可选 10/20/50/100，上限 200（对齐 API 接口规范）'"></el-alert>
+        </el-tab-pane>
+
+        <!-- ③ 多选与批量 -->
+        <el-tab-pane label="③ 多选与批量" name="selection">
+          <div class="dp-bar">
+            <span class="proto-hint">多选列宽 48px，行点击不默认勾选；批量按钮随选中态启用/禁用；默认<b>不跨页保留</b>选中行</span>
+            <el-checkbox v-model="keepAcrossPage" size="small">跨页保留选中（可选）</el-checkbox>
+          </div>
+
+          <div class="dp-bar">
+            <el-button size="small" type="danger" plain :disabled="selection.length === 0" @click="batchDelete">批量删除（{{ selection.length }}）</el-button>
+            <el-button size="small" :disabled="selection.length === 0" @click="batchEnable">批量启用</el-button>
+            <span class="dp-code">选中：{{ selection.join(', ') || '无' }}</span>
+          </div>
+
+          <el-table :data="pagedRows" :size="prefs.density" border style="width:100%"
+            @selection-change="onSelectionChange" @row-dblclick="openForm" ref="selTable">
+            <el-table-column type="selection" width="48"></el-table-column>
+            <el-table-column prop="username" label="用户名" width="140"></el-table-column>
+            <el-table-column prop="status" label="状态" width="120">
+              <template #default="{ row }">{{ statusLabel(row.status) }}</template>
+            </el-table-column>
+            <el-table-column prop="deptId" label="部门" min-width="140">
+              <template #default="{ row }">{{ dictLabel('dept', row.deptId) }}</template>
+            </el-table-column>
+            <el-table-column label="说明" min-width="200">
+              <template #default>双击行打开表单 Tab（列表页无操作列，见《布局设计 · 列表页》）</template>
+            </el-table-column>
+          </el-table>
+          <div class="dp-out" style="margin-top:10px">{{ batchLog || '尚未执行批量操作' }}</div>
+        </el-tab-pane>
+
+        <!-- ④ 树形表格 -->
+        <el-tab-pane label="④ 树形表格" name="tree">
+          <div class="dp-bar">
+            <span class="proto-hint">部门/菜单类树形数据（<b>树形不分页</b>，一次返回）；<code>row-key</code> + <code>children</code>；树形模式不与虚拟表格叠加</span>
+            <el-button size="small" @click="expandAllTree">展开全部</el-button>
+          </div>
+
+          <el-table :data="deptTree" row-key="id" :tree-props="{ children: 'children' }" default-expand-all
+            :size="prefs.density" border style="width:100%">
+            <el-table-column prop="name" label="部门名称" min-width="220"></el-table-column>
+            <el-table-column prop="code" label="编码" width="140"></el-table-column>
+            <el-table-column prop="userCount" label="人数" width="100" align="right"></el-table-column>
+            <el-table-column prop="status" label="状态" width="120">
+              <template #default="{ row }">
+                <span class="sw-tag" :style="{ background: statusColor(row.status) }">{{ statusLabel(row.status) }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="ancestors" label="ancestors（路径）" min-width="180" show-overflow-tooltip></el-table-column>
+          </el-table>
+          <el-alert style="margin-top:10px" type="info" :closable="false" show-icon
+            title="树形数据量级小（部门树最大深度 10 / 单节点子部门 ≤ 500），一次返回不分页；深度与子节点数由业务侧约束，前端只展示"></el-alert>
+        </el-tab-pane>
+
+        <!-- ⑤ 列设置与密度 -->
+        <el-tab-pane label="⑤ 列设置与密度" name="prefs">
+          <div class="dp-bar">
+            <span class="proto-hint">列显隐 / 顺序 / 列宽 + 每页条数 + 密度按页面维度存 <code>list.user_form</code>（用户喜好），防抖 500ms 保存</span>
+            <el-button size="small" @click="resetPrefs">恢复默认（DELETE /preferences/list.user_form）</el-button>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+            <div>
+              <div class="ep-section">列设置（勾选显隐，上下移调顺序）</div>
+              <div v-for="(c, i) in prefs.columns" :key="c.prop" class="col-item">
+                <el-checkbox v-model="c.visible" @change="scheduleSave"></el-checkbox>
+                <span class="name">{{ c.label }}</span>
+                <span class="dp-code" style="font-size:11px">{{ c.width }}px</span>
+                <el-button size="small" text :disabled="i === 0" @click="moveCol(i, -1)">↑</el-button>
+                <el-button size="small" text :disabled="i === prefs.columns.length - 1" @click="moveCol(i, 1)">↓</el-button>
+                <el-button size="small" text @click="resetColWidth(i)">重置宽</el-button>
+              </div>
+            </div>
+            <div>
+              <div class="ep-section">密度与每页条数</div>
+              <el-radio-group v-model="prefs.density" @change="scheduleSave">
+                <el-radio-button value="default">宽松</el-radio-button>
+                <el-radio-button value="small">紧凑</el-radio-button>
+              </el-radio-group>
+              <div class="dp-bar" style="margin-top:12px">
+                <span>每页条数</span>
+                <el-select v-model="prefs.pageSize" size="small" style="width:110px" @change="scheduleSave">
+                  <el-option v-for="s in [10, 20, 50, 100]" :key="s" :label="s + ' / 页'" :value="s"></el-option>
+                </el-select>
+                <span class="dp-hint">上限 200（API 规范）；明细区默认 10/页</span>
+              </div>
+              <div class="ep-section">偏好写入日志</div>
+              <div class="dp-out">{{ prefLog }}</div>
+            </div>
+          </div>
+
+          <div class="ep-section">当前生效偏好（list.user_form）</div>
+          <div class="dp-out">{{ prefsJson }}</div>
+          <el-alert style="margin-top:10px" type="info" :closable="false" show-icon
+            title="单 key ≤ 64KB；列配置仅作用于展示层；排序列、页码、展开与选中为会话态，不写入偏好"></el-alert>
+        </el-tab-pane>
+
+        <!-- ⑥ 行内编辑 -->
+        <el-tab-pane label="⑥ 行内编辑" name="edit">
+          <div class="dp-bar">
+            <el-switch v-model="editable" active-text="编辑态" inactive-text="只读态" size="small"></el-switch>
+            <el-button size="small" @click="toggleEditValidate">校验明细</el-button>
+            <el-button size="small" type="primary" @click="saveAll">整体保存（主表 + 明细，单事务）</el-button>
+          </div>
+
+          <el-table :data="editRows" :size="prefs.density" border style="width:100%" :row-class-name="editRowClass">
+            <el-table-column label="物料名称 *" width="190">
+              <template #default="{ row }">
+                <el-input v-model="row.name" size="small" :disabled="!editable" placeholder="必填" @input="onEdit"></el-input>
+              </template>
+            </el-table-column>
+            <el-table-column label="数量 *" width="130">
+              <template #default="{ row }">
+                <el-input-number v-model="row.qty" size="small" :min="0" :controls="false" :disabled="!editable" style="width:100%" @change="onEdit"></el-input-number>
+              </template>
+            </el-table-column>
+            <el-table-column label="单位（字典）" width="140">
+              <template #default="{ row }">
+                <el-select v-model="row.unit" size="small" :disabled="!editable" placeholder="请选择" @change="onEdit">
+                  <el-option v-for="u in unitOptions" :key="u.value" :label="u.label" :value="u.value"></el-option>
+                </el-select>
+              </template>
+            </el-table-column>
+            <el-table-column label="交付日期" width="180">
+              <template #default="{ row }">
+                <el-date-picker v-model="row.deliverAt" type="date" size="small" :disabled="!editable" style="width:100%" @change="onEdit"></el-date-picker>
+              </template>
+            </el-table-column>
+            <el-table-column label="加急" width="100">
+              <template #default="{ row }">
+                <el-switch v-model="row.urgent" size="small" :disabled="!editable" @change="onEdit"></el-switch>
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="110">
+              <template #default="{ $index }">
+                <el-button size="small" text type="danger" :disabled="!editable" @click="removeRow($index)">删除行</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+
+          <div class="dp-metrics">
+            <div class="dp-metric"><div class="v">{{ editRows.length }}</div><div class="k">编辑态总行数（含自动空行）</div></div>
+            <div class="dp-metric"><div class="v">{{ filledCount }}</div><div class="k">保存时参与提交（空行已过滤）</div></div>
+            <div class="dp-metric"><div class="v">{{ emptyCount }}</div><div class="k">被过滤的空行</div></div>
+            <div class="dp-metric"><div class="v">{{ validateState }}</div><div class="k">校验状态</div></div>
+          </div>
+          <el-alert :type="validateInfo.type" :closable="false" show-icon :title="validateInfo.text"></el-alert>
+          <div class="ep-section">提交载荷（getRows({ filterEmpty: true })）</div>
+          <div class="dp-out">{{ editPayload }}</div>
+        </el-tab-pane>
+      </el-tabs>
+    </div>
+  </div>
+</div>
+
+<script src="../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref, computed, watch, nextTick } = Vue;
+  var ElMessage = ElementPlus.ElMessage;
+  var ElMessageBox = ElementPlus.ElMessageBox;
+
+  // ---------- 字典（模拟 02 节点批量翻译结果） ----------
+  var DICT = {
+    dept: [
+      { value: 'd1', label: '研发中心' }, { value: 'd2', label: '财务部' },
+      { value: 'd3', label: '人力资源部' }, { value: 'd4', label: '销售部' }
+    ],
+    status: [
+      { value: 'enabled', label: '启用', color: '#18a058' },
+      { value: 'disabled', label: '停用', color: '#909399' },
+      { value: 'locked', label: '锁定', color: '#d03050' }
+    ]
+  };
+
+  // ---------- 格式化（模拟 21 节点口径） ----------
+  function formatAmount(v) { return v === null || v === undefined ? '—' : '¥' + Number(v).toFixed(2); }
+  function formatDateTime(v) {
+    if (!v) { return '—'; }
+    var d = new Date(v);
+    var p = function (n) { return n < 10 ? '0' + n : '' + n; };
+    return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+  }
+  function maskPhone(v) { return v ? v.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2') : '—'; }
+
+  var app = createApp({
+    template: document.getElementById('app').outerHTML.replace(/<div id="app">/, '<div>').replace(/<\/div>\s*$/, ''),
+    setup: function () {
+      var tab = ref('columns');
+      var plainMode = ref(false);
+      var cursorMode = ref(false);
+      var keepAcrossPage = ref(false);
+      var page = ref(1);
+      var loadMoreCount = ref(1);
+      var selection = ref([]);
+      var batchLog = ref('');
+
+      // ---------- 偏好（list.user_form） ----------
+      var DEFAULT_PREFS = {
+        columns: [
+          { prop: 'username', label: '用户名', visible: true, order: 1, width: 120 },
+          { prop: 'deptId', label: '部门', visible: true, order: 2, width: 140 },
+          { prop: 'status', label: '状态', visible: true, order: 3, width: 120 },
+          { prop: 'phone', label: '手机号', visible: true, order: 4, width: 150 },
+          { prop: 'amount', label: '金额', visible: true, order: 5, width: 140 },
+          { prop: 'createdAt', label: '创建时间', visible: true, order: 6, width: 170 },
+          { prop: 'remark', label: '备注', visible: false, order: 7, width: 200 }
+        ],
+        pageSize: 20,
+        density: 'default'
+      };
+      var prefs = ref(JSON.parse(JSON.stringify(DEFAULT_PREFS)));
+      var prefLog = ref('尚无偏好变更（防抖 500ms 合并写入）');
+      var saveTimer = null;
+      var prefsJson = computed(function () { return JSON.stringify(prefs.value, null, 2); });
+
+      function scheduleSave() {
+        prefLog.value = '变更已捕获，等待 500ms 防抖…';
+        if (saveTimer) { clearTimeout(saveTimer); }
+        saveTimer = setTimeout(function () {
+          var size = new Blob([JSON.stringify(prefs.value)]).size;
+          prefLog.value = 'PUT /preferences/list.user_form\n  payload: ' + JSON.stringify(prefs.value) + '\n  大小 ' + size + ' 字节（上限 64KB）→ 服务端 upsert 后删缓存 bms:{tenant}:pref:{user_id}';
+        }, 500);
+      }
+      function moveCol(i, delta) {
+        var list = prefs.value.columns;
+        var j = i + delta;
+        if (j < 0 || j >= list.length) { return; }
+        var tmp = list[i]; list[i] = list[j]; list[j] = tmp;
+        list.forEach(function (c, idx) { c.order = idx + 1; });
+        scheduleSave();
+      }
+      function resetColWidth(i) { prefs.value.columns[i].width = DEFAULT_PREFS.columns[i].width; scheduleSave(); }
+      function resetPrefs() {
+        prefs.value = JSON.parse(JSON.stringify(DEFAULT_PREFS));
+        prefLog.value = 'DELETE /preferences/list.user_form → 清除服务端偏好 + 本地副本（bms:table:user_form），恢复默认列设置';
+        ElMessage.success('已恢复默认列设置与密度');
+      }
+      function onSizeChange(v) { prefs.value.pageSize = v; page.value = 1; scheduleSave(); }
+
+      // ---------- 列表数据 ----------
+      var rawRows = [];
+      var users = ['zhangsan', 'lisi', 'wangwu', 'zhaoliu', 'sunqi', 'zhouba', 'wujiu', 'zhengshi',
+        'qianyi', 'liuer', 'chengqi', 'chuba', 'huangjiu', 'linmo', 'xuwen', 'gaole'];
+      for (var i = 0; i < 16; i++) {
+        rawRows.push({
+          id: 'u' + (1001 + i),
+          username: users[i],
+          deptId: DICT.dept[i % 4].value,
+          status: ['enabled', 'disabled', 'locked'][i % 3],
+          phone: '138' + (10000000 + i * 137),
+          amount: 1280.5 + i * 317.25,
+          createdAt: new Date(2026, 8, 1 + (i % 20), 9 + (i % 8), (i * 7) % 60).getTime(),
+          remark: '备注信息 ' + (i + 1) + '：' + '该行备注较长用于演示溢出省略与悬浮全文展示。'.repeat(i % 3)
+        });
+      }
+      var rows = ref(rawRows);
+
+      // ---------- 多列排序 ----------
+      var sortState = ref([]);  // [{ prop, order }]
+      function sortIndexOf(prop) { for (var i = 0; i < sortState.value.length; i++) { if (sortState.value[i].prop === prop) { return i; } } return -1; }
+      function sortDir(prop) { var i = sortIndexOf(prop); return i >= 0 ? sortState.value[i].order : ''; }
+      function toggleSort(prop, ev) {
+        if (cursorMode.value) { ElMessage.warning('游标分页模式已禁用排序入口'); return; }
+        var shift = ev && ev.shiftKey;
+        var idx = sortIndexOf(prop);
+        var nextDir = 'desc';
+        if (idx >= 0) { nextDir = sortState.value[idx].order === 'desc' ? 'asc' : null; }
+        if (nextDir === null) {
+          sortState.value = sortState.value.filter(function (s) { return s.prop !== prop; });
+        } else if (!shift) {
+          sortState.value = [{ prop: prop, order: nextDir }];
+        } else {
+          if (idx >= 0) { sortState.value[idx].order = nextDir; }
+          else if (sortState.value.length >= 3) { ElMessage.warning('多列排序最多 3 列'); return; }
+          else { sortState.value = sortState.value.concat([{ prop: prop, order: nextDir }]); }
+        }
+        ElMessage.info(shift ? 'Shift 叠加：当前 ' + sortState.value.length + ' 列排序' : '单列排序：' + prop + ' ' + nextDir);
+      }
+      function clearSort() { sortState.value = []; ElMessage.info('已清空排序（回到后端默认序）'); }
+      var sortParamText = computed(function () {
+        if (!sortState.value.length) { return 'page=' + page.value + '&size=' + prefs.value.pageSize + '  （未传排序 → 后端默认排序）'; }
+        var p = sortState.value.map(function (s) { return s.prop; }).join(',');
+        var o = sortState.value.map(function (s) { return s.order; }).join(',');
+        return 'GET /users?page=' + page.value + '&size=' + prefs.value.pageSize + '&order_by=' + p + '&order=' + o
+          + '\n\n后端：按字段白名单逐项校验，非法字段忽略该项（不报错、不拼接 SQL）';
+      });
+      var sortedRows = computed(function () {
+        var list = rows.value.slice();
+        if (!sortState.value.length) { return list; }
+        list.sort(function (a, b) {
+          for (var i = 0; i < sortState.value.length; i++) {
+            var s = sortState.value[i];
+            var av = a[s.prop], bv = b[s.prop];
+            if (av === bv) { continue; }
+            var r = av > bv ? 1 : -1;
+            return s.order === 'asc' ? r : -r;
+          }
+          return 0;
+        });
+        return list;
+      });
+      var pagedRows = computed(function () {
+        if (cursorMode.value) { return sortedRows.value.slice(0, 20 * loadMoreCount.value); }
+        var start = (page.value - 1) * prefs.value.pageSize;
+        return sortedRows.value.slice(start, start + prefs.value.pageSize);
+      });
+      function loadMore() {
+        if (20 * loadMoreCount.value >= sortedRows.value.length) { ElMessage.info('已到底（next_cursor = null）'); return; }
+        loadMoreCount.value++;
+        ElMessage.success('GET /logs?cursor=xxx&limit=20 → 追加 20 条（不分页页码）');
+      }
+
+      // ---------- 选择与批量 ----------
+      function onSelectionChange(vals) { selection.value = vals.map(function (v) { return v.id; }); }
+      function openForm(row) { ElMessage.success('双击行：打开表单 Tab（' + row.username + '，无操作列）'); }
+      function batchDelete() {
+        ElMessageBox.confirm('确认删除选中的 ' + selection.value.length + ' 条记录？', '批量删除确认',
+          { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消', confirmButtonClass: 'el-button--danger' })
+          .then(function () {
+            rows.value = rows.value.filter(function (r) { return selection.value.indexOf(r.id) < 0; });
+            batchLog.value = '批量删除 ' + selection.value.length + ' 条 → 成功后重新拉取当前页并清空选中（局部刷新，不整表重建）';
+            selection.value = [];
+            ElMessage.success('已删除（模拟）');
+          }).catch(function () { });
+      }
+      function batchEnable() {
+        rows.value.forEach(function (r) { if (selection.value.indexOf(r.id) >= 0) { r.status = 'enabled'; } });
+        batchLog.value = '批量启用 ' + selection.value.length + ' 条 → 成功后局部更新这些行，保留筛选与分页';
+        ElMessage.success('已批量启用（模拟）');
+      }
+
+      // ---------- 树形 ----------
+      var deptTree = ref([
+        { id: '1', name: '集团总部', code: 'HQ', userCount: 12, status: 'enabled', ancestors: '/', children: [
+          { id: '5', name: '研发中心', code: 'RD', userCount: 48, status: 'enabled', ancestors: '/1/', children: [
+            { id: '9', name: '平台组', code: 'RD-PLAT', userCount: 16, status: 'enabled', ancestors: '/1/5/' },
+            { id: '10', name: '前端组', code: 'RD-FE', userCount: 12, status: 'enabled', ancestors: '/1/5/' },
+            { id: '11', name: '测试组', code: 'RD-QA', userCount: 8, status: 'disabled', ancestors: '/1/5/' }
+          ] },
+          { id: '6', name: '财务部', code: 'FIN', userCount: 9, status: 'enabled', ancestors: '/1/' },
+          { id: '7', name: '人力资源部', code: 'HR', userCount: 6, status: 'enabled', ancestors: '/1/' }
+        ] }
+      ]);
+      function expandAllTree() { ElMessage.info('树形表格：展开/收起由首列缩进箭头控制（default-expand-all 可展开全部）'); }
+
+      // ---------- 行内编辑 ----------
+      var editable = ref(true);
+      var editRows = ref([
+        { id: 'l1', name: '钢材 Q235', qty: 120, unit: 'ton', deliverAt: '2026-09-20', urgent: false },
+        { id: 'l2', name: '电缆 4mm²', qty: 800, unit: 'm', deliverAt: '2026-09-25', urgent: true }
+      ]);
+      var validateState = ref('未校验');
+      var validateInfo = ref({ type: 'info', text: '编辑态末行自动追加空行：录入新数据直接写入，无需点「新增行」；保存时未录入任何字段的空行被过滤' });
+      var unitOptions = [{ value: 'ton', label: '吨' }, { value: 'm', label: '米' }, { value: 'pcs', label: '件' }];
+      var seq = 100;
+      function isEmptyRow(r) { return !r.name && !r.qty && !r.unit && !r.deliverAt && !r.urgent; }
+      function ensureTrailingEmpty() {
+        if (!editable.value) { return; }
+        var list = editRows.value;
+        if (!list.length || !isEmptyRow(list[list.length - 1])) {
+          seq++;
+          list.push({ id: 'l' + seq, name: '', qty: null, unit: '', deliverAt: null, urgent: false });
+        }
+      }
+      function onEdit() { ensureTrailingEmpty(); validateState.value = '有未保存修改'; }
+      function removeRow(i) {
+        ElMessageBox.confirm('确认删除该明细行？（未保存修改一并丢弃）', '删除行确认',
+          { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' })
+          .then(function () { editRows.value.splice(i, 1); ensureTrailingEmpty(); ElMessage.success('已删除该行'); })
+          .catch(function () { });
+      }
+      function toggleEditValidate() {
+        var bad = editRows.value.filter(function (r) { return !isEmptyRow(r) && (!r.name || !r.qty); });
+        if (bad.length) {
+          validateState.value = '校验失败';
+          validateInfo.value = { type: 'error', text: 'validate() = false：' + bad.length + ' 行缺少必填项（物料名称/数量），已标红，阻止提交' };
+        } else {
+          validateState.value = '校验通过';
+          validateInfo.value = { type: 'success', text: 'validate() = true：必填项齐备（校验器走 21 节点 validators）' };
+        }
+      }
+      function editRowClass(o) {
+        if (isEmptyRow(o.row)) { return ''; }
+        if (!o.row.name || o.row.qty === null || o.row.qty === undefined) { return 'err-row'; }
+        return '';
+      }
+      var filledCount = computed(function () { return editRows.value.filter(function (r) { return !isEmptyRow(r); }).length; });
+      var emptyCount = computed(function () { return editRows.value.length - filledCount.value; });
+      var editPayload = computed(function () {
+        var body = editRows.value.filter(function (r) { return !isEmptyRow(r); }).map(function (r) {
+          return { name: r.name, qty: r.qty, unit: r.unit, deliver_at: r.deliverAt, urgent: r.urgent ? 1 : 0 };
+        });
+        return 'getRows({ filterEmpty: true }) → 明细 ' + body.length + ' 行\n' + JSON.stringify(body, null, 2)
+          + '\n\n提交：PUT /api/v1/orders/{id}  { version, main: {...}, lines: [...] }（单事务，乐观锁）';
+      });
+      function saveAll() {
+        toggleEditValidate();
+        if (validateState.value === '校验失败') { ElMessage.error('存在必填缺失，未提交'); return; }
+        ElMessage.success('整体保存：主表 + ' + filledCount.value + ' 行明细（单事务，携带 version）');
+      }
+      watch(editable, function () { ensureTrailingEmpty(); });
+      nextTick(ensureTrailingEmpty);
+
+      // ---------- 字典与状态 ----------
+      function dictLabel(type, value) {
+        var list = DICT[type] || [];
+        for (var i = 0; i < list.length; i++) { if (list[i].value === value) { return list[i].label; } }
+        return value;
+      }
+      function statusLabel(v) { return dictLabel('status', v); }
+      function statusColor(v) {
+        var list = DICT.status;
+        for (var i = 0; i < list.length; i++) { if (list[i].value === v) { return list[i].color; } }
+        return '#909399';
+      }
+
+      return {
+        tab, plainMode, cursorMode, keepAcrossPage, page, loadMoreCount, selection, batchLog,
+        prefs, prefLog, prefsJson, scheduleSave, moveCol, resetColWidth, resetPrefs, onSizeChange,
+        rows, pagedRows, sortState, sortIndexOf, sortDir, toggleSort, clearSort, sortParamText,
+        onSelectionChange, openForm, batchDelete, batchEnable,
+        deptTree, expandAllTree,
+        editable, editRows, unitOptions, onEdit, removeRow, toggleEditValidate, editRowClass,
+        filledCount, emptyCount, editPayload, saveAll, validateState, validateInfo,
+        dictLabel, statusLabel, statusColor, formatAmount, formatDateTime, maskPhone
+      };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>
