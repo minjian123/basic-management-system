@@ -17,7 +17,7 @@
 用 `eslint-config-prettier` 关掉 ESLint 里
 与 Prettier 冲突的格式规则，避免「两个工具打架」。
 
-- **定位**：本项目前端代码规范工具链，MR 流水线门禁之一（见平台《架构设计 · 总体架构》「技术栈全景 · 前端」节 节）。
+- **定位**：本项目前端代码规范工具链，MR 流水线门禁之一（见平台《架构设计 · 总体架构》「技术栈全景 · 前端」节）。
 - **版本**：ESLint 10.x（v10.0.0 于 2026 年 2 月发布，flat config 为唯一配置格式；9.x 已于 2026 年 8 月 EOL）；Prettier 3.9.x（截至 2026 年）。
 - **许可**：均为 MIT，OSI 认证开源。
 - **Vue 插件链**：eslint-plugin-vue（Vue 官方）+ typescript-eslint + eslint-config-prettier（见平台《项目规划说明》「前端」节）。
@@ -41,7 +41,7 @@
 - **代码规范**：frontend 与 frontend-mobile 双工程各自独立配置（各自 package-lock.json、ESLint/Prettier/TS 配置，互不共享），规范统一、工程独立（见平台《项目规划说明》「前端」节）。
 - **MR 流水线门禁**：前端 ESLint + Vitest（含 coverage 门禁）+ 双端构建，lint 不过 MR 不能合入（见平台《项目规划说明》「部署与运维」节 GitLab CI）。
 - **Vue 官方插件链**：eslint-plugin-vue 覆盖 SFC/模板规则，typescript-eslint 覆盖 TS 规则，与 Prettier 经 eslint-config-prettier 解冲突（见平台《项目规划说明》「前端」节）。
-- **编辑器体验**：开发机 VSCode 扩展含 ESLint、Prettier（见平台《开发部署规划》「工具链」节 节），保存即规范，提交前无惊喜。
+- **编辑器体验**：开发机 VSCode 扩展含 ESLint、Prettier（见平台《开发部署规划》「工具链」节），保存即规范，提交前无惊喜。
 - **双工程一致**：两个工程规则口径保持一致（同一份规则清单），避免 PC 端与移动端风格分裂。
 
 最小示例（flat config + Prettier 配置）：
@@ -111,7 +111,7 @@ export default [
 
 | 文档 | 说明 |
 | --- | --- |
-| 平台《架构设计 · 总体架构》「技术栈全景 · 前端」节 节 | 前端技术栈（ESLint + Prettier 条目） |
+| 平台《架构设计 · 总体架构》「技术栈全景 · 前端」节 | 前端技术栈（ESLint + Prettier 条目） |
 | 平台《项目规划说明》「前端」节 | 选型理由：与 Vue 官方插件链配合 |
 | 平台《项目规划说明》「部署与运维」节 | GitLab CI：MR 流水线前端门禁 |
 | 《[Vitest 技术介绍](Vitest技术介绍.md)》 | 同一 MR 门禁的单元测试与覆盖率部分 |

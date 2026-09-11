@@ -20,7 +20,7 @@
 ## 2. 任务内容 <a id="content"></a>
 
 1. 引擎工厂（`app/db/engine.py`）：四方言 URL 模板（sqlite+aiosqlite / mysql+aiomysql?charset=utf8mb4 / postgresql+psycopg / dm+dmPython）；统一连接池参数来自 config.toml；字符集 MySQL utf8mb4、PostgreSQL/达梦 UTF8
-2. **达梦同步驱动接入（先修订口径再实现）**：dmPython 为同步驱动，与《后端开发规范》「异步与并发」节「禁止请求路径同步 DB 驱动」及架构 09「多异步 bind」存在口径缺口——先修订《架构设计 09》与《后端开发规范》「异步与并发」节（同步 engine + asyncio.to_thread 执行器封装的例外口径），确认后实现
+2. **达梦同步驱动接入（先修订口径再实现）**：dmPython 为同步驱动，与《后端开发规范》「异步与并发 · 禁止请求路径同步 DB 驱动」节及架构 09「多异步 bind」存在口径缺口——先修订《架构设计 09》与《后端开发规范》「异步与并发」节（同步 engine + asyncio.to_thread 执行器封装的例外口径），确认后实现
 3. 会话工厂（`app/db/session.py`）：async_sessionmaker（expire_on_commit=False）、get_db 请求级依赖、异步会话禁止跨请求共享；事务边界 services 层 `with session.begin()`
 4. Base 与元数据（`app/models/base.py`）：DeclarativeBase + BaseModel 基类（03_02 字段细节）；表名单数 snake_case、idx_/uq_ 前缀、COMMENT 必填
 5. 读写分离占位：读写路由接口（按上下文标记选引擎），阶段一主从同源

@@ -90,7 +90,7 @@ const { xml } = await modeler.saveXML()
 
 | 文档 | 说明 |
 | --- | --- |
-| 平台《架构设计 · 总体架构》「技术栈全景 · 前端」节 节 | 前端技术栈（bpmn-js 条目） |
+| 平台《架构设计 · 总体架构》「技术栈全景 · 前端」节 | 前端技术栈（bpmn-js 条目） |
 | 平台《项目规划说明》「前端」节 | 选型理由：拖拽建模导出 BPMN XML |
 | 《[SpiffWorkflow 技术介绍](../后端核心/SpiffWorkflow技术介绍.md)》 | 后端 BPMN 执行引擎，解析 bpmn-js 导出的 XML |
 | 《[命名规范](../../../规范/命名规范.md)》 | 工作流表 wf_ 前缀、definition_key 命名 |

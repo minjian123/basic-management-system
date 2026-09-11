@@ -95,7 +95,7 @@ window.addEventListener('resize', () => chart.resize())
 
 | 文档 | 说明 |
 | --- | --- |
-| 平台《架构设计 · 总体架构》「技术栈全景 · 前端」节 节 | 前端技术栈（ECharts 条目） |
+| 平台《架构设计 · 总体架构》「技术栈全景 · 前端」节 | 前端技术栈（ECharts 条目） |
 | 平台《项目规划说明》「前端」节 | 选型理由：中文生态最全、覆盖全场景 |
 | 《[vue-flow 技术介绍](vue-flow技术介绍.md)》 | 大屏自由画布，ECharts 渲染图表节点 |
 | 《[gridstack.js 技术介绍](gridstack技术介绍.md)》 | 工作台卡片网格布局（与 ECharts 图表卡配合） |

@@ -37,11 +37,11 @@ ReDoc 偏"读"——单栏排版、只读不执行，适合通读接口全貌。
 
 ## 3. 在本项目中的用途 <a id="usage"></a>
 
-- FastAPI 自动生成 OpenAPI schema 并内置两个文档界面：`/docs`（Swagger UI）与 `/redoc`（ReDoc），开发联调零成本（见平台《架构设计 · 总体架构》「技术栈全景 · 工程化与质量」节 节"API 文档：Swagger UI / ReDoc"）。
+- FastAPI 自动生成 OpenAPI schema 并内置两个文档界面：`/docs`（Swagger UI）与 `/redoc`（ReDoc），开发联调零成本（见平台《架构设计 · 总体架构》「技术栈全景 · 工程化与质量」节"API 文档：Swagger UI / ReDoc"）。
 - **接口联调依据**：前端、移动端与外部系统对接时，以 Swagger UI 的 "Try it out" 实际发请求验证行为，以 ReDoc 通读接口全貌与字段语义（见平台《项目规划说明》「工程化与质量」节）。
 - **验收依据**：UAT 与阶段验收时，接口行为以文档声明为准，文档与实现不一致即缺陷。
 - **契约快照**：main 流水线导出 `swagger.json` 契约快照归档分发；生产环境关闭 Swagger/ReDoc 在线文档，对外只发快照（见平台《项目规划说明》「API 设计规范」节"API 设计规范"）。
-- 本地开发入口：`http://localhost:8000/docs`（见平台《开发部署规划》「前端开发运行」节 节）。
+- 本地开发入口：`http://localhost:8000/docs`（见平台《开发部署规划》「前端开发运行」节）。
 
 导出契约快照（本地起服务后执行）：
 
@@ -89,10 +89,10 @@ Invoke-WebRequest -Uri http://localhost:8000/openapi.json -OutFile swagger.json
 
 | 文档 | 说明 |
 | --- | --- |
-| 平台《架构设计 · 总体架构》「技术栈全景 · 工程化与质量」节 节 | 工程化与质量技术栈（API 文档：Swagger UI / ReDoc 条目） |
+| 平台《架构设计 · 总体架构》「技术栈全景 · 工程化与质量」节 | 工程化与质量技术栈（API 文档：Swagger UI / ReDoc 条目） |
 | 平台《项目规划说明》「工程化与质量」节 | 选型说明：FastAPI 自动生成，接口联调与验收依据 |
 | 平台《项目规划说明》「API 设计规范」节 | API 设计规范：生产关闭在线文档、契约快照分发 |
-| 平台《开发部署规划》「前端开发运行」节 节 | 本地接口调试入口 `http://localhost:8000/docs` |
+| 平台《开发部署规划》「前端开发运行」节 | 本地接口调试入口 `http://localhost:8000/docs` |
 | 《[FastAPI 技术介绍](../后端核心/FastAPI技术介绍.md)》 | OpenAPI schema 的产出方与三个内置端点 |
 | 《[API 接口规范](../../../规范/API接口规范.md)》 | 统一响应、错误码约定，与文档声明保持一致 |
 | 《[TypeScript 技术介绍](../前端/TypeScript技术介绍.md)》 | 前端类型与契约快照（swagger.json）的对应关系 |
