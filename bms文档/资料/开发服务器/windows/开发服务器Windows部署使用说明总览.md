@@ -27,7 +27,7 @@
 - 系统：Windows 11 专业版（Build 26200），静态 IP `<mjw-IP>`（路由器已按主机名绑定保留）
 - 远程通道：WinRM（HTTP 5985）+ RDP（3389），防火墙均限制为内网网段
 - 显卡：NVIDIA RTX 3070 Laptop GPU 8GB（本地模型 / 识图 / 翻译推理可用）
-- 常驻策略：合盖不休眠、禁睡眠、休眠关闭；网卡 WOL 已验证（2026-09-06：S3 睡眠后魔术包唤醒成功，见《[远程控制部署使用说明](远程控制部署使用说明.md)》第 6 节）
+- 常驻策略：合盖不休眠、禁睡眠、休眠关闭；网卡 WOL 已验证（2026-09-06：S3 睡眠后魔术包唤醒成功，见《[远程控制部署使用说明](远程控制部署使用说明.md)》「排障记录」节）
 - 管理员账号：`<账号>`（与 mjbk/mjpc 同用户名口径，密码见《本地资源》）
 - PowerShell：**7.6.6**（2026-09-10 MSI 静默安装，`C:\Program Files\PowerShell\7\pwsh.exe` 已入 PATH；系统自带 Windows PowerShell 5.1 保留并存。安装实录：ghfast 加速下载官方 MSI（112 MB）→ `msiexec /i /quiet /norestart ADD_PATH=1` 退出码 0）
 - DSH：**deepseek-harness 0.1.5-alpha.2**（源码 `C:\Users\minjian\develop\deepseek-harness`，install/build 完成；桌面「启动/停止 dsh web.cmd」手动启停；web 仅绑 127.0.0.1——官方禁止 `--host 0.0.0.0`，远程用 RDP 后本机浏览器访问。详见《[deepseek_harnessWindows部署使用说明](deepseek_harnessWindows部署使用说明.md)》）
@@ -51,7 +51,7 @@
 | 5985 | WinRM HTTP    | 远程命令行（PowerShell Remoting）  |
 | 3389 | RDP           | 远程桌面 GUI                       |
 
-> Windows 防火墙对上述端口仅放行内网网段（见《[远程控制部署使用说明](远程控制部署使用说明.md)》第 3 节）。不启用 Windows 内置 OpenSSH（上次使用时部分命令执行异常，Windows 侧远程一律走 WinRM）。
+> Windows 防火墙对上述端口仅放行内网网段（见《[远程控制部署使用说明](远程控制部署使用说明.md)》「服务端配置」节）。不启用 Windows 内置 OpenSSH（上次使用时部分命令执行异常，Windows 侧远程一律走 WinRM）。
 
 ## 5. 远程通道 <a id="remote"></a>
 

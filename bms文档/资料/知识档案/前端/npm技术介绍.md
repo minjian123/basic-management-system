@@ -36,7 +36,7 @@ Node 24/26 自带；Node 22 自带 10.x）是 Node 生态默认包管理器。
 
 ## 3. 在本项目中的用途 <a id="usage"></a>
 
-- **双工程依赖管理**：frontend 与 frontend-mobile 各自独立 package.json 与 package-lock.json，ESLint/Prettier/TS 配置互不共享（见平台《项目规划说明》3.2 节）。
+- **双工程依赖管理**：frontend 与 frontend-mobile 各自独立 package.json 与 package-lock.json，ESLint/Prettier/TS 配置互不共享（见平台《项目规划说明》「前端」节）。
 - **CI 可复现安装**：流水线用 `npm ci` 锁定安装，保证每次构建依赖完全一致（见《[GitLab 技术介绍](../部署与运维/GitLab技术介绍.md)》CI 流水线）。
 - **构建命令入口**：`npm run dev/build/test/lint` 驱动 Vite、ESLint、Vitest 等工具（见《[Vite 技术介绍](Vite技术介绍.md)》）。
 - **Node 版本管理**：`.nvmrc` 固定 Node 版本（22 LTS），配合 nvm/volta/fnm 切换，npm 随 Node 自带（见平台《项目规划说明》部署约定）。
@@ -73,7 +73,7 @@ npm run test
 
 - **CI 用 npm ci 而非 npm install**：install 可能改 lock 文件导致构建漂移，ci 严格按 lock 安装。
 - **lock 文件必须入库**：package-lock.json 提交到仓库，否则 CI 与本地依赖不一致。
-- **双工程别共享配置**：frontend 与 frontend-mobile 各自 package.json/lock/ESLint/TS 配置，互不引用（见平台《项目规划说明》3.2 节）。
+- **双工程别共享配置**：frontend 与 frontend-mobile 各自 package.json/lock/ESLint/TS 配置，互不引用（见平台《项目规划说明》「前端」节）。
 - **Node 版本一致**：`.nvmrc` 固定版本，本地与 CI 用同一 Node，避免 npm 大版本差异。
 - **国内镜像**：访问 npmjs.com 慢时配 npmmirror 镜像（`.npmrc` 或 `--registry`），别长时间等待。
 - **依赖范围注意**：`^` 允许次版本升级，安全/破坏性变更要 Renovate 提 MR 评审，别盲目自动合入。
@@ -93,8 +93,8 @@ npm run test
 
 | 文档 | 说明 |
 | --- | --- |
-| 平台《架构设计 · 总体架构》6.2 节 | 前端技术栈（npm 条目） |
-| 平台《项目规划说明》3.2 节 | 选型理由：官方自带、双工程独立、CI 锁定 |
+| 平台《架构设计 · 总体架构》「技术栈全景 · 前端」节 节 | 前端技术栈（npm 条目） |
+| 平台《项目规划说明》「前端」节 | 选型理由：官方自带、双工程独立、CI 锁定 |
 | 《[命名规范](../../../规范/命名规范.md)》 | 工程、依赖与脚本命名约定 |
 | 《[Vite 技术介绍](Vite技术介绍.md)》 | 构建工具，经 npm scripts 驱动 |
 | 《[ESLint + Prettier 技术介绍](ESLint与Prettier技术介绍.md)》 | 代码规范工具，双工程各自配置 |

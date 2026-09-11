@@ -75,4 +75,4 @@ BMS_TEST_REDIS_URL="redis://<mjbk>:6379/0" uv run pytest tests/integration -q -m
 - integration 用例在 CI 中的执行依赖 05-02 注入 `BMS_TEST_REDIS_URL`（已补入该任务集成用例清单）。
 - Redis Cluster 与压测口径随阶段十；02-3 接管 `ConcurrentConflictError` 后如需调整断言在设计修订同步。
 
-> 本文档依《文档生成规范》编写 · 按《任务文档规范》第 6 节测试文档结构组织
+> 本文档依《文档生成规范》编写 · 按《任务文档规范》「测试文档（任务测试记录）」节测试文档结构组织

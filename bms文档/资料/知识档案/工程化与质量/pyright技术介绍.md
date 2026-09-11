@@ -34,7 +34,7 @@
 
 ## 3. 在本项目中的用途 <a id="usage"></a>
 
-- 作为平台《架构设计 · 总体架构》6.3 节指定的类型检查工具，采用严格类型检查（strict 模式）作为工程约束（选型依据见平台《项目规划说明》3.3 节）。
+- 作为平台《架构设计 · 总体架构》「技术栈全景 · 工程化与质量」节 节指定的类型检查工具，采用严格类型检查（strict 模式）作为工程约束（选型依据见平台《项目规划说明》「工程化与质量」节）。
 - VS Code 原生支持：装 Pylance 即内置 pyright，保存即检查，问题在编辑器里即时标红，无需等 CI。
 - 与 Pydantic v2 模型配合：schemas 层的字段声明、FastAPI 接口签名全部有类型，类型错误在 IDE 即时发现（见《[Pydantic 技术介绍](../后端核心/Pydantic技术介绍.md)》）。
 - CI 执行：
@@ -43,7 +43,7 @@
 uv run pyright              # 全项目类型检查，错误即非零退出
 ```
 
-- 类型安全贯通前后端：后端 Pydantic schema 与前端 TypeScript 类型经 openapi-typescript 同源生成（见平台《项目规划说明》3.2 节），pyright 守后端这一侧。
+- 类型安全贯通前后端：后端 Pydantic schema 与前端 TypeScript 类型经 openapi-typescript 同源生成（见平台《项目规划说明》「前端」节），pyright 守后端这一侧。
 - 与《[ruff](ruff技术介绍.md)》分工：ruff 管风格、pyright 管类型；SQLAlchemy 模型、依赖注入等复杂泛型处按类型标注推进。
 
 ## 4. 选型对比 <a id="compare"></a>
@@ -78,8 +78,8 @@ uv run pyright              # 全项目类型检查，错误即非零退出
 
 | 文档 | 说明 |
 | --- | --- |
-| 平台《架构设计 · 总体架构》6.3 节 | 技术栈：类型检查 = pyright |
-| 平台《项目规划说明》3.3 节 | 选型说明：严格类型检查、Pylance 即时反馈 |
+| 平台《架构设计 · 总体架构》「技术栈全景 · 工程化与质量」节 节 | 技术栈：类型检查 = pyright |
+| 平台《项目规划说明》「工程化与质量」节 | 选型说明：严格类型检查、Pylance 即时反馈 |
 | 《[Pydantic 技术介绍](../后端核心/Pydantic技术介绍.md)》 | 请求/响应模型即类型声明，与 pyright 强配合 |
 | 《[SQLAlchemy 技术介绍](../后端核心/SQLAlchemy技术介绍.md)》 | ORM 模型的类型标注实践 |
 | 《[ruff 技术介绍](ruff技术介绍.md)》 | 风格检查与 pyright 分工配合 |

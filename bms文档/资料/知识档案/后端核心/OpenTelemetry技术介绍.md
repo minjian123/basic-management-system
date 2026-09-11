@@ -38,12 +38,12 @@
 
 ## 3. 在本项目中的用途 <a id="usage"></a>
 
-- 链路追踪：应用经 **otel-collector** 上报 trace 至 **Jaeger** 存储展示（见平台《架构设计 · 总体架构》6.1 节）。
-- **trace_id 与 structlog 的 request_id 关联**：日志里带上 trace_id，实现「日志 ↔ 链路」互跳定位（见平台《架构设计 · 总体架构》6.1 节structlog 条目）。
-- 随 **Grafana** 统一可视化：Grafana 配置 Jaeger 数据源，与 Prometheus 指标、Loki 日志同屏排查（见平台《项目规划说明》19 节监控）。
+- 链路追踪：应用经 **otel-collector** 上报 trace 至 **Jaeger** 存储展示（见平台《架构设计 · 总体架构》「技术栈全景 · 后端核心」节 节）。
+- **trace_id 与 structlog 的 request_id 关联**：日志里带上 trace_id，实现「日志 ↔ 链路」互跳定位（见平台《架构设计 · 总体架构》「技术栈全景 · 后端核心」节 节structlog 条目）。
+- 随 **Grafana** 统一可视化：Grafana 配置 Jaeger 数据源，与 Prometheus 指标、Loki 日志同屏排查（见平台《项目规划说明》「部署与运维」节监控）。
 - **MVP 即接入**：链路追踪不放到后期，登录、审批等核心链路从早期就可观测。
-- 部署端口：Jaeger UI 16686、otel-collector OTLP 4317/4318，仅内网（见平台《开发部署规划》9 节端口规划）。
-- 验收口径：「链路追踪（Jaeger 链路可见）」纳入功能测试与 MVP 验收（见平台《项目规划说明》16 节）。
+- 部署端口：Jaeger UI 16686、otel-collector OTLP 4317/4318，仅内网（见平台《开发部署规划》「端口与网络规划」节端口规划）。
+- 验收口径：「链路追踪（Jaeger 链路可见）」纳入功能测试与 MVP 验收（见平台《项目规划说明》「测试策略与测试流程」节）。
 
 ## 4. 选型对比 <a id="compare"></a>
 
@@ -79,9 +79,9 @@
 
 | 文档 | 说明 |
 | --- | --- |
-| 平台《架构设计 · 总体架构》6.1 节 | 后端技术栈：链路追踪（OpenTelemetry + Jaeger）条目 |
-| 平台《项目规划说明》19 节 | 部署与运维：监控体系（Prometheus + Loki + Grafana + Jaeger） |
-| 平台《开发部署规划》9 节 | 端口规划：Jaeger UI 16686 / otel-collector 4317、4318 |
+| 平台《架构设计 · 总体架构》「技术栈全景 · 后端核心」节 节 | 后端技术栈：链路追踪（OpenTelemetry + Jaeger）条目 |
+| 平台《项目规划说明》「部署与运维」节 | 部署与运维：监控体系（Prometheus + Loki + Grafana + Jaeger） |
+| 平台《开发部署规划》「端口与网络规划」节 | 端口规划：Jaeger UI 16686 / otel-collector 4317、4318 |
 | 《[日志规范](../../../规范/日志规范.md)》 | structlog 结构化日志与 request_id / trace_id 关联 |
 | 《[FastAPI 技术介绍](FastAPI技术介绍.md)》 | 被埋点的 Web 框架（中间件/请求上下文） |
 | 《[Redis 技术介绍](Redis技术介绍.md)》 | 被自动埋点的缓存/限流依赖（Span 可见） |

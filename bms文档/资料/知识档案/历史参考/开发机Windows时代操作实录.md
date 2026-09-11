@@ -30,7 +30,7 @@ type $env:USERPROFILE\.ssh\id_ed25519.pub | ssh <SSH账号>@<mjbk-IP> "mkdir -p 
 
 ## 3. mjbk 端口连通单端口验证模板（PowerShell 版） <a id="port-probe"></a>
 
-**出处**：mjbk《[防火墙部署使用说明](../../开发服务器/linux/防火墙部署使用说明.md)》第 4 节（验证模板，当时 mjpc 为 Windows）；
+**出处**：mjbk《[防火墙部署使用说明](../../开发服务器/linux/防火墙部署使用说明.md)》「验证」节（验证模板，当时 mjpc 为 Windows）；
 现行 Linux 版见该文档第 4 节。
 
 原文模板：

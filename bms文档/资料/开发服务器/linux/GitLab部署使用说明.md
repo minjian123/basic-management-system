@@ -7,7 +7,7 @@
 ## 1. 目的与适用范围 <a id="purpose"></a>
 
 mjbk 上的 GitLab CE（容器 `bms-gitlab`）承载本项目代码仓库、MR、CI 流水线与容器 Registry；
-`bms-gitlab-runner` 以 Docker executor 执行 CI 任务（平台《开发部署规划》4.5）。
+`bms-gitlab-runner` 以 Docker executor 执行 CI 任务（平台《开发部署规划》「GitLab 与 CI 基础设施」节）。
 
 占位符取值：`<mjbk-IP>`、`<SSH账号>` 见《[本地资源](../../../用户文档/本地资源.md)》与 mjbk 本机 `deploy/.env`（`MJBK_IP` / `MJBK_SSH_USER`）。
 

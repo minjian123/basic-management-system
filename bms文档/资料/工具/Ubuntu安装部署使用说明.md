@@ -224,7 +224,7 @@ lsblk -o NAME,SIZE,FSTYPE,MOUNTPOINT /dev/nvme1n1
 ```
 
 > mjbk 已完成：`/dev/nvme1n1p1`（1.8T，ext4，卷标 `ssd2t`）挂载于 `/mnt/ssd2t`，fstab 自动挂载验证通过。
-> 随后 Docker data-root 迁至 `/mnt/ssd2t/docker`、GitLab 数据迁至 `/mnt/ssd2t/gitlab`（迁移过程见《[DockerEngine部署使用说明](../开发服务器/linux/DockerEngine部署使用说明.md)》2.4 与《[GitLab部署使用说明](../开发服务器/linux/GitLab部署使用说明.md)》第 2 节）。
+> 随后 Docker data-root 迁至 `/mnt/ssd2t/docker`、GitLab 数据迁至 `/mnt/ssd2t/gitlab`（迁移过程见《[DockerEngine部署使用说明](../开发服务器/linux/DockerEngine部署使用说明.md)》2.4 与《[GitLab部署使用说明](../开发服务器/linux/GitLab部署使用说明.md)》「Compose 配置」节）。
 
 ### 6.4 远程桌面（xrdp） <a id="verify-rdp"></a>
 

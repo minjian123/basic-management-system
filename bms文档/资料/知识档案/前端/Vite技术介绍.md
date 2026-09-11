@@ -35,9 +35,9 @@
 
 ## 3. 在本项目中的用途 <a id="usage"></a>
 
-- **frontend 与 frontend-mobile 双工程各自独立配置**：各自维护 vite.config.ts（代理、别名、构建输出），互不影响（见平台《项目规划说明》3.2 节）。
+- **frontend 与 frontend-mobile 双工程各自独立配置**：各自维护 vite.config.ts（代理、别名、构建输出），互不影响（见平台《项目规划说明》「前端」节）。
 - **开发代理**：dev server 把 /api/v1 代理到本地/远程后端，配合 [Axios](Axios技术介绍.md) baseURL 联调（见平台《开发部署规划》前端启动说明）。
-- **CI 双端构建**：GitLab CI 流水线执行前端 ESLint + Vitest + 双端构建，产物由 nginx 托管（见平台《项目规划说明》3.4 节）。
+- **CI 双端构建**：GitLab CI 流水线执行前端 ESLint + Vitest + 双端构建，产物由 nginx 托管（见平台《项目规划说明》「部署与运维」节）。
 - **配合 Vitest 同构**：单元测试零配置复用 Vite 配置，覆盖率统计进 CI 门禁。
 - **按需引入 Element Plus**：unplugin-vue-components 插件实现组件按需加载，控制包体积（见《[Element Plus 技术介绍](ElementPlus技术介绍.md)》）。
 - **环境区分**：.env.development / .env.production 管理接口地址与构建开关。
@@ -96,8 +96,8 @@ export default defineConfig({
 
 | 文档 | 说明 |
 | --- | --- |
-| 平台《架构设计 · 总体架构》6.2 节 | 前端技术栈（Vite 条目） |
-| 平台《项目规划说明》3.2 节 | Vite 冷启动快、与 Vitest 同构的选型理由 |
+| 平台《架构设计 · 总体架构》「技术栈全景 · 前端」节 节 | 前端技术栈（Vite 条目） |
+| 平台《项目规划说明》「前端」节 | Vite 冷启动快、与 Vitest 同构的选型理由 |
 | 平台《开发部署规划》 | 前端双工程安装、启动与构建流程 |
 | 《[Vue 3 技术介绍](Vue3技术介绍.md)》 | 被构建的前端框架 |
 | 《[TypeScript 技术介绍](TypeScript技术介绍.md)》 | tsconfig 与 Vite 别名同步事项 |

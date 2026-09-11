@@ -31,7 +31,7 @@ DSH 用于其上的本机管理与会话（远程访问经 RDP 后进行，见[�
 | npm | 11.17.0 | registry 已配 npmmirror |
 | pnpm | **11.7.0**（2026-09-10 修复重装） | 与 mjpc 同版；bin 为 `.cjs` + `.cmd/.ps1` shim（**不存在 `pnpm.exe`**，属正常） |
 | git | 2.55.0 | 源码经 ghfast 镜像克隆 |
-| pwsh | 7.6.6（可选） | mjpc 侧远程管理 mjw 用（见《[远程控制部署使用说明](远程控制部署使用说明.md)》4.4） |
+| pwsh | 7.6.6（可选） | mjpc 侧远程管理 mjw 用（见《[远程控制部署使用说明](远程控制部署使用说明.md)》「经 pwsh7 远程执行」节） |
 
 网络：GitHub 走 ghfast 镜像；npm/pnpm 包源走 npmmirror（mjw 已配置）。
 
@@ -145,7 +145,7 @@ pnpm run build
 | 计划任务起 `dsh web` 不监听 | 任务 Execute 不能直接指向 `.cmd`（非 PE）；用 `cmd.exe /c` 包装（3.4 模板）；双击桌面 `.cmd` 由 Explorer 执行，二者不互替 |
 | cmd 参数里命令带空格报"不是内部或外部命令" | cmd 引号规则：可执行文件单独引号、参数放引号外（`/c ""exe" args …`）；子命令（如 `run build`）勿进引号 |
 | web 启动打印"could not open the default browser" | Session 0 / 无交互桌面属正常；用打印的 URL 手动访问 |
-| 远程（WinRM）执行 GUI 类命令无反应 | 非交互会话限制；见《[远程控制部署使用说明](远程控制部署使用说明.md)》6.3 计划任务交互法 |
+| 远程（WinRM）执行 GUI 类命令无反应 | 非交互会话限制；见《[远程控制部署使用说明](远程控制部署使用说明.md)》「补充方案：计划任务交互法」节 计划任务交互法 |
 
 ## 8. 关联文档 <a id="related"></a>
 

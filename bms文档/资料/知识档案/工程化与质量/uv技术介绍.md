@@ -35,9 +35,9 @@ Python 包管理器与虚拟环境管理工具，用 Rust 编写，安装依赖�
 
 ## 3. 在本项目中的用途 <a id="usage"></a>
 
-- 作为平台《架构设计 · 总体架构》6.3 节指定的 Python 包管理工具，替代 pip + venv 传统组合。
+- 作为平台《架构设计 · 总体架构》「技术栈全景 · 工程化与质量」节 节指定的 Python 包管理工具，替代 pip + venv 传统组合。
 - pyproject.toml 集中声明依赖与工具配置：依赖写在 `dependencies` 段，ruff、pyright、pytest 等工具的配置全部收进各自 `[tool.*]` 段（见《[ruff 技术介绍](ruff技术介绍.md)》《[pyright 技术介绍](pyright技术介绍.md)》《[pytest 技术介绍](pytest技术介绍.md)》）。
-- uv.lock 锁定依赖版本（选型依据见平台《项目规划说明》3.3 节）：本地与 CI 安装结果一致，FastAPI 等快速迭代的框架升级前先跑全量测试。
+- uv.lock 锁定依赖版本（选型依据见平台《项目规划说明》「工程化与质量」节）：本地与 CI 安装结果一致，FastAPI 等快速迭代的框架升级前先跑全量测试。
 - 日常命令（Windows PowerShell 与 Linux 通用）：
 
 ```bash
@@ -48,7 +48,7 @@ uv run ruff check .          # 在项目环境中跑 lint
 uv run pyright               # 在项目环境中跑类型检查
 ```
 
-- CI 流水线：MR 流水线用 `uv sync` 安装依赖后执行 ruff + pytest（见平台《项目规划说明》3.4 节），与本地命令同源。
+- CI 流水线：MR 流水线用 `uv sync` 安装依赖后执行 ruff + pytest（见平台《项目规划说明》「部署与运维」节），与本地命令同源。
 - 全局工具安装：graphify 用 `uv tool install "graphifyy[chinese,openai]"` 安装（见《[graphify 技术介绍](graphify技术介绍.md)》）。
 
 ## 4. 选型对比 <a id="compare"></a>
@@ -66,7 +66,7 @@ uv run pyright               # 在项目环境中跑类型检查
 - **不要与 pip 混用**：在 uv 管理的项目里手工 `pip install` 会绕过 uv.lock，导致环境与锁文件不一致，统一用 `uv add`。
 - **uv.lock 与 pyproject.toml 不同步**：改依赖一律走 `uv add/remove`；手工编辑 pyproject.toml 后需跑 `uv lock` 重新生成。
 - **extras 互顶**：`uv tool install` 安装带 extras 的包时，后装只带部分 extras 会顶掉之前的（graphify 实测踩过，见《[graphify 技术介绍](graphify技术介绍.md)》），重装必须一次列全。
-- **Python 版本**：项目要求 Python 3.14+，用 `uv python install` 统一装解释器；若某核心依赖与 3.14 不兼容，按平台《项目规划说明》3.1 节口径整体回退 3.13。
+- **Python 版本**：项目要求 Python 3.14+，用 `uv python install` 统一装解释器；若某核心依赖与 3.14 不兼容，按平台《项目规划说明》「后端核心」节口径整体回退 3.13。
 - **CI 提速**：runner 上启用 uv 缓存挂载可大幅缩短流水线依赖安装时间。
 
 ## 6. 学习与参考资料 <a id="learn"></a>
@@ -83,8 +83,8 @@ uv run pyright               # 在项目环境中跑类型检查
 
 | 文档 | 说明 |
 | --- | --- |
-| 平台《架构设计 · 总体架构》6.3 节 | 技术栈：Python 包管理 = uv |
-| 平台《项目规划说明》3.3 节 | 选型说明：uv 一体化管理依赖与虚拟环境 |
+| 平台《架构设计 · 总体架构》「技术栈全景 · 工程化与质量」节 节 | 技术栈：Python 包管理 = uv |
+| 平台《项目规划说明》「工程化与质量」节 | 选型说明：uv 一体化管理依赖与虚拟环境 |
 | 《[ruff 技术介绍](ruff技术介绍.md)》 | 同厂工具，其配置即写在 pyproject.toml 的 [tool.ruff] |
 | 《[pyright 技术介绍](pyright技术介绍.md)》 | 类型检查，配置同样收进 pyproject.toml |
 | 《[pytest 技术介绍](pytest技术介绍.md)》 | 测试运行统一走 `uv run pytest` |

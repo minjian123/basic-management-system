@@ -21,7 +21,7 @@
 
 1. Docker Engine 走清华 docker-ce 源安装（docker-ce + buildx + compose 插件），systemd 自启
 2. 镜像加速：`/etc/docker/daemon.json` 配置国内 registry-mirrors
-3. ufw 防火墙：仅放行内网段服务端口（GitLab 8080/5050/2222、三库 3306/5432/5236、Redis 6379、MinIO 9000/9001、Kiwi 8060 等，完整清单见《开发部署规划》第 9 节），`ufw enable`
+3. ufw 防火墙：仅放行内网段服务端口（GitLab 8080/5050/2222、三库 3306/5432/5236、Redis 6379、MinIO 9000/9001、Kiwi 8060 等，完整清单见《开发部署规划》「端口与网络规划」节），`ufw enable`
 
 ## 3. 完成标准 <a id="accept"></a>
 
@@ -30,6 +30,6 @@
 ## 4. 参考文档 <a id="ref"></a>
 
 - 《DockerEngine部署使用说明》
-- 《开发部署规划》4.1/4.6/9
+- 《开发部署规划》「基础环境准备」节/4.6/9
 
 > 本文档依《文档生成规范》编写

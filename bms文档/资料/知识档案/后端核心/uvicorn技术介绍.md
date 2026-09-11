@@ -34,11 +34,11 @@
 
 ## 3. 在本项目中的用途 <a id="usage"></a>
 
-- 作为唯一 ASGI 服务器承载 FastAPI，开发命令：`uv run uvicorn app.main:app --reload --port 8000`（见平台《开发部署规划》5.3 节）。
-- **多 worker 部署**：生产按规划以多 worker 运行（如 4 worker），并通过 nginx 反向代理统一入口（见平台《项目规划说明》14 节）。
+- 作为唯一 ASGI 服务器承载 FastAPI，开发命令：`uv run uvicorn app.main:app --reload --port 8000`（见平台《开发部署规划》「前端开发运行」节 节）。
+- **多 worker 部署**：生产按规划以多 worker 运行（如 4 worker），并通过 nginx 反向代理统一入口（见平台《项目规划说明》「性能与高并发设计」节）。
 - 支持 HTTP/WebSocket：普通 REST 接口与 python-socketio 实时推送共用同一 uvicorn 进程。
-- **连接池规划联动**：数据库连接池大小按 worker 数规划，确保 `总连接数 = worker × (pool_size + max_overflow) ≤ 数据库 max_connections 的 70%`（见平台《项目规划说明》14 节）。
-- 容器化部署时由 Docker Compose 启动 backend 多副本（见平台《项目规划说明》19.3 节）。
+- **连接池规划联动**：数据库连接池大小按 worker 数规划，确保 `总连接数 = worker × (pool_size + max_overflow) ≤ 数据库 max_connections 的 70%`（见平台《项目规划说明》「性能与高并发设计」节）。
+- 容器化部署时由 Docker Compose 启动 backend 多副本（见平台《项目规划说明》「基础设施编排」节）。
 - 健康检查 `/healthz`、`/readyz` 由 uvicorn 提供 HTTP 入口，供编排与监控探测。
 
 ## 4. 选型对比 <a id="compare"></a>
@@ -74,9 +74,9 @@
 
 | 文档 | 说明 |
 | --- | --- |
-| 平台《架构设计 · 总体架构》6.1 节 | 技术栈：ASGI 服务器条目（多 worker 部署） |
-| 平台《项目规划说明》14 节 | worker 数与数据库连接池规划口径 |
-| 平台《项目规划说明》19.3 节 | Docker Compose：backend 多副本编排 |
+| 平台《架构设计 · 总体架构》「技术栈全景 · 后端核心」节 节 | 技术栈：ASGI 服务器条目（多 worker 部署） |
+| 平台《项目规划说明》「性能与高并发设计」节 | worker 数与数据库连接池规划口径 |
+| 平台《项目规划说明》「基础设施编排」节 | Docker Compose：backend 多副本编排 |
 | 《[FastAPI 技术介绍](FastAPI技术介绍.md)》 | 被承载的 Web 框架 |
 | 《[SQLAlchemy 技术介绍](SQLAlchemy技术介绍.md)》 | 连接池大小与 worker 数的联动规划 |
 | 《[nginx 技术介绍](../部署与运维/nginx技术介绍.md)》 | 反向代理与 TLS 终止，uvicorn 前端网关 |

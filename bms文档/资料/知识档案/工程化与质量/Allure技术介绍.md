@@ -36,10 +36,10 @@
 
 ## 3. 在本项目中的用途 <a id="usage"></a>
 
-- 后端 pytest 与前端 Playwright 的自动化测试结果，统一经 Allure 插件生成可视化报告（见平台《架构设计 · 总体架构》6.3 节"测试报告：Allure"）。
-- 报告作为 **CI 产物归档**：GitLab MR/main 流水线中生成 Allure 报告并保留为 job artifact，随时回看（见平台《项目规划说明》3.4 节流水线说明）。
+- 后端 pytest 与前端 Playwright 的自动化测试结果，统一经 Allure 插件生成可视化报告（见平台《架构设计 · 总体架构》「技术栈全景 · 工程化与质量」节 节"测试报告：Allure"）。
+- 报告作为 **CI 产物归档**：GitLab MR/main 流水线中生成 Allure 报告并保留为 job artifact，随时回看（见平台《项目规划说明》「部署与运维」节流水线说明）。
 - 结果**双出口**：Allure 负责"看得见的报告"，执行结果同时经 Kiwi TCMS 官方 pytest 插件导入用例库归档，平台统计执行情况与历史（见《[Kiwi TCMS 技术介绍](KiwiTCMS技术介绍.md)》）。
-- 全量回归（每阶段末、MVP 验收前）的结果以 Allure 报告形式留档，作为验收材料（见平台《项目规划说明》16.5 节"测试报告"）。
+- 全量回归（每阶段末、MVP 验收前）的结果以 Allure 报告形式留档，作为验收材料（见平台《项目规划说明》「测试报告」节"测试报告"）。
 - 用例命名与分类使用中文（按模块 Category + 标签 Tag），Allure 报告完整支持中文展示。
 
 常用命令（Windows 调用 `allure.bat`，Linux/macOS 调用 `allure`）：
@@ -99,10 +99,10 @@ npx playwright test
 
 | 文档 | 说明 |
 | --- | --- |
-| 平台《架构设计 · 总体架构》6.3 节 | 工程化与质量技术栈（测试报告：Allure 条目） |
-| 平台《项目规划说明》3.3 节 | 选型说明：Allure 自动化测试报告（pytest/Playwright 结果生成，CI 产物归档） |
-| 平台《项目规划说明》16.5 节 | 测试报告：后端 pytest + Allure 生成自动化测试报告 |
-| 平台《开发部署规划》7 节 | 开发工作流与 CI：Allure 报告生成归档、结果导入 Kiwi TCMS |
+| 平台《架构设计 · 总体架构》「技术栈全景 · 工程化与质量」节 节 | 工程化与质量技术栈（测试报告：Allure 条目） |
+| 平台《项目规划说明》「工程化与质量」节 | 选型说明：Allure 自动化测试报告（pytest/Playwright 结果生成，CI 产物归档） |
+| 平台《项目规划说明》「测试报告」节 | 测试报告：后端 pytest + Allure 生成自动化测试报告 |
+| 平台《开发部署规划》「开发工作流与 CI」节 | 开发工作流与 CI：Allure 报告生成归档、结果导入 Kiwi TCMS |
 | 《[Kiwi TCMS 技术介绍](KiwiTCMS技术介绍.md)》 | 用例库归档出口，与 Allure 报告双轨并行 |
 | 《[pytest 技术介绍](pytest技术介绍.md)》 | allure-pytest 插件与 `--alluredir` 用法 |
 | 《[Playwright 技术介绍](../前端/Playwright技术介绍.md)》 | allure-playwright reporter 配置 |

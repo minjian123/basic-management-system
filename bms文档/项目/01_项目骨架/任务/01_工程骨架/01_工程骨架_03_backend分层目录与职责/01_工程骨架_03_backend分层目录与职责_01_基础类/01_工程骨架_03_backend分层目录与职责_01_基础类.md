@@ -21,7 +21,7 @@
 
 1. 三套公共基类：`repositories/base_repository.py`（BaseRepository：统一 CRUD 契约 + 内存基线通用实现，exists/count 派生方法）、`services/base_service.py`（BaseService：委派仓储 + 不存在语义）、`schemas/base.py`（BaseSchema：Pydantic 公共配置）
 2. 现有 demo 三件套改继承基类（DemoRepository / DemoService / demo 请求响应 schema），行为不变、回归全绿
-3. 继承约定写入《后端开发规范》第 4 节：新建类必须继承对应基类，禁止绕过基类另起炉灶
+3. 继承约定写入《后端开发规范》「模块组织」节：新建类必须继承对应基类，禁止绕过基类另起炉灶
 4. 测试：先登记 Kiwi 用例（基类通用行为 + 继承生效），再写自动化（成功 / 失败分支）
 
 ## 3. 完成标准 <a id="accept"></a>

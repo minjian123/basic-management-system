@@ -15,7 +15,7 @@ mjbk 上的 Renovate（容器 `bms-renovate`，随《[GitLab部署使用说明](
 | `pep621`（pyproject.toml） | 启用 | 当前无项目内 pyproject.toml（原 `scripts/tools/multimodal/` 已退役删除）；阶段一 uv 依赖落地后自动纳入 |
 | `gitlabci`（.gitlab-ci.yml 的 docker 镜像） | 禁用 | mjbk 到 Docker Hub 不可达，且 `registryAliases` 对无前缀镜像不生效（Renovate #20225）；CI 镜像为刻意锁版本，不自动升 |
 
-> Renovate 对自托管 GitLab 全本地运行（平台操作走本地 API），查新走各语言官方 registry（PyPI 可达），零 GitHub 依赖（平台《开发部署规划》4.5）；`GITHUB_COM_TOKEN` 仅用于个别依赖的版本数据源查询。
+> Renovate 对自托管 GitLab 全本地运行（平台操作走本地 API），查新走各语言官方 registry（PyPI 可达），零 GitHub 依赖（平台《开发部署规划》「GitLab 与 CI 基础设施」节）；`GITHUB_COM_TOKEN` 仅用于个别依赖的版本数据源查询。
 
 占位符取值：`<mjbk-IP>`、`<SSH账号>` 见《[本地资源](../../../用户文档/本地资源.md)》与 mjbk 本机 `deploy/.env`。
 

@@ -36,7 +36,7 @@
 
 ## 3. 在本项目中的用途 <a id="usage"></a>
 
-- **工作台卡片布局**：首页工作台卡片拖拽、显隐、尺寸调整、响应式，统一用 gridstack（见平台《项目规划说明》3.2 节）。
+- **工作台卡片布局**：首页工作台卡片拖拽、显隐、尺寸调整、响应式，统一用 gridstack（见平台《项目规划说明》「前端」节）。
 - **布局持久化**：个人布局（`sys_user_preference`，pref_key=dashboard:layout）与角色模板（`sys_dashboard_template.layout_config`）均序列化为 gridstack 布局 JSON（见平台《项目规划说明》数据规范）。
 - **三级模板回退**：个人布局 → 角色模板 → 平台默认模板，一键重置逐级回退，布局结构统一为 gridstack 格式便于解析。
 - **报表设计器布局**：报表/大屏卡片在网格中的位置与尺寸用 gridstack 描述，与 ECharts 图表卡配合（见《[ECharts 技术介绍](ECharts技术介绍.md)》）。
@@ -96,8 +96,8 @@ grid.load(layout)
 
 | 文档 | 说明 |
 | --- | --- |
-| 平台《架构设计 · 总体架构》6.2 节 | 前端技术栈（gridstack.js 条目） |
-| 平台《项目规划说明》3.2 节 | 选型理由：框架无关、工作台与报表设计器统一布局 |
+| 平台《架构设计 · 总体架构》「技术栈全景 · 前端」节 节 | 前端技术栈（gridstack.js 条目） |
+| 平台《项目规划说明》「前端」节 | 选型理由：框架无关、工作台与报表设计器统一布局 |
 | 《[ECharts 技术介绍](ECharts技术介绍.md)》 | 工作台/报表图表卡渲染（gridstack 布局 + ECharts 内容） |
 | 《[vue-flow 技术介绍](vue-flow技术介绍.md)》 | 大屏自由画布（与 gridstack 网格布局分工） |
 | 《[vuedraggable 技术介绍](vuedraggable技术介绍.md)》 | 表单设计器列表排序（与 gridstack 网格布局分工） |

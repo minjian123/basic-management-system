@@ -38,7 +38,7 @@
 | `bms文档/` | 存在 | 保留 | — |
 | `LICENSE`、`renovate.json` | 存在 | 保留 | — |
 
-> 说明：`AGENTS.md`、`.opencode/`、`.graphifyignore` 与知识图谱产物 `graphify-out/` 位于**工作区根**（工作区模型，见《平台可扩展性规划》4.3），不在 bms 仓库根。
+> 说明：`AGENTS.md`、`.opencode/`、`.graphifyignore` 与知识图谱产物 `graphify-out/` 位于**工作区根**（工作区模型，见《平台可扩展性规划》「工作区模型与基座引用」节），不在 bms 仓库根。
 
 > **已知 git 现象（已随工作区模型消除）**：曾出现告警 `could not open directory 'node_modules/.pnpm/node_modules/frontend/'`，根因为 `.opencode` 的 pnpm store；`.opencode` 与 `node_modules` 已移至工作区根，bms 仓不再有该目录。本任务仍以 `git status` 验证 bms 仓干净、无应忽略产物出现（若仍在，执行 `git update-index --again` 清理索引缓存）。
 
