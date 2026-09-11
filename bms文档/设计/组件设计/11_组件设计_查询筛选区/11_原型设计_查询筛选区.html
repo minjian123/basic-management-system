@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 查询筛选区（QueryFilter / QueryField / 查询方案）</title>
+<link rel="stylesheet" href="../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background: #fff; border: 1px solid #d0d7de; border-radius: 6px; padding: 16px; }
+  .ep-section { font-weight: 600; margin: 16px 0 12px; padding-bottom: 8px; border-bottom: 1px solid #eaeef2; font-size: 14px; }
+  .ep-section:first-of-type { margin-top: 0; }
+  .dp-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
+  .dp-title { font-size: 16px; font-weight: 600; }
+  .dp-sub { color: #8c959f; font-size: 12px; margin-top: 2px; }
+  .dp-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; background: #f6f8fa; border: 1px solid #eaeef2; border-radius: 6px; padding: 8px 12px; margin-bottom: 12px; }
+  .dp-code { font-family: Consolas, "Cascadia Mono", monospace; color: #57606a; }
+  .dp-hint { color: #b1b8bf; font-size: 11px; font-style: normal; }
+  .dp-out { font-family: Consolas, monospace; font-size: 12px; background: #f6f8fa; border: 1px solid #eaeef2; border-radius: 6px; padding: 10px; max-height: 170px; overflow: auto; white-space: pre-wrap; word-break: break-all; color: #57606a; }
+  .qf { border: 1px dashed #d0d7de; border-radius: 6px; padding: 12px; background: #fcfdfe; }
+  .qf-grid { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 8px 12px; align-items: end; }
+  .qf-cell { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .qf-label { font-size: 12px; color: #57606a; }
+  .qf-actions { display: flex; align-items: center; gap: 6px; }
+  .qf-narrow .qf-grid { grid-template-columns: 1fr auto; }
+  .qf-chips { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+  .scheme-item { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px dashed #eaeef2; font-size: 13px; }
+  .scheme-item .name { flex: 1; }
+  .funnel { cursor: pointer; color: #0969da; font-size: 13px; }
+  .mit { color: #8c959f; font-size: 12px; }
+  table.mini { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.mini th, table.mini td { border: 1px solid #d0d7de; padding: 6px 10px; text-align: left; }
+  table.mini th { background: #f6f8fa; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="11_组件设计_查询筛选区.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 查询筛选区 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="11_组件设计_查询筛选区.md">《组件设计 · 查询筛选区》</a>：演示 <b>QueryFilter</b> 的基础条件区、折叠与窄屏、条件控件矩阵、
+    <b>高级查询入口 + 条件摘要 chips</b>、<b>查询方案</b>（应用/保存/另存为/设默认/删除）；全部交互为前端模拟，条件持久化模拟写入 <span class="dp-code">list.user_form.query</span>。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-header">
+        <div>
+          <div class="dp-title">查询筛选区 QueryFilter 原型</div>
+          <div class="dp-sub">表单：user_form ｜ 查询类字段 7 项（前 3 项默认可见）</div>
+        </div>
+        <div class="dp-bar" style="margin-bottom:0">
+          <el-switch v-model="narrow" active-text="窄屏 <1024px" inactive-text="宽屏" size="small" @change="onNarrowChange"></el-switch>
+          <el-checkbox v-model="hasSchemePerm" size="small">持有 query:scheme（方案管理权限）</el-checkbox>
+        </div>
+      </div>
+
+      <el-tabs v-model="tab">
+        <!-- ① 基础条件区 -->
+        <el-tab-pane label="① 基础条件区" name="base">
+          <div class="dp-bar">
+            <span class="proto-hint">label 在字段上方 · 一行 3 项 · ≤ 3 项不折叠 · 「查询」primary + 「重置」+ 行末「▾」同排</span>
+          </div>
+
+          <div class="qf" :class="{ 'qf-narrow': narrow }">
+            <div class="qf-grid">
+              <div class="qf-cell">
+                <span class="qf-label">关键字</span>
+                <el-input v-model="form.keyword" size="small" placeholder="用户名/昵称/手机号" @keyup.enter="doQuery"></el-input>
+              </div>
+              <div class="qf-cell">
+                <span class="qf-label">状态</span>
+                <el-select v-model="form.status" size="small" clearable placeholder="请选择">
+                  <el-option v-for="o in dictStatus" :key="o.value" :label="o.label" :value="o.value"></el-option>
+                </el-select>
+              </div>
+              <div class="qf-cell">
+                <span class="qf-label">创建时间</span>
+                <el-date-picker v-model="form.created" type="daterange" size="small" start-placeholder="开始" end-placeholder="结束" style="width:100%"></el-date-picker>
+              </div>
+              <div class="qf-actions">
+                <el-button type="primary" size="small" @click="doQuery">查询</el-button>
+                <el-button size="small" @click="resetQuery">重置</el-button>
+                <span class="dp-hint" v-if="false">▾</span>
+              </div>
+            </div>
+            <div class="qf-chips">
+              <span class="dp-hint">已生效条件：</span>
+              <template v-if="chips.length">
+                <el-tag v-for="c in chips" :key="c.key" closable size="small" @close="removeChip(c.key)">{{ c.text }}</el-tag>
+                <el-button size="small" text type="primary" @click="resetQuery">清空全部</el-button>
+              </template>
+              <span v-else class="dp-hint">无（未执行查询或条件为空）</span>
+            </div>
+          </div>
+
+          <div class="ep-section">请求参数（字段名直传 + 多值逗号 + 区间 *_start/*_end）</div>
+          <div class="dp-out">{{ paramsText || '尚未查询' }}</div>
+
+          <div class="ep-section">条件持久化（list.user_form.query）</div>
+          <div class="dp-out">{{ prefsJson }}</div>
+          <div class="dp-bar" style="margin-top:10px">
+            <el-button size="small" @click="simulateStale">模拟「部门字段被停用/不可见」后重新进入页面</el-button>
+            <span class="dp-hint">失效条件会自动剔除并在下一次查询静默生效（连续剔除 ≥1 项时提示一次）</span>
+          </div>
+        </el-tab-pane>
+
+        <!-- ② 折叠与窄屏 -->
+        <el-tab-pane label="② 折叠与窄屏" name="fold">
+          <div class="dp-bar">
+            <span class="proto-hint">&gt; 3 项默认折叠为一行；点行末「▾」展开（每行 3 项，按钮位置不动）；&lt; 1024px 仅保留关键字 + 查询/重置</span>
+            <el-switch v-model="expanded" size="small" active-text="展开" inactive-text="折叠" :disabled="narrow"></el-switch>
+            <span class="dp-code">{{ visibleFields.length }} / {{ fields.length }} 项可见</span>
+          </div>
+
+          <div class="qf" :class="{ 'qf-narrow': narrow }">
+            <div class="qf-grid">
+              <template v-for="f in visibleFields" :key="f.key">
+                <div class="qf-cell">
+                  <span class="qf-label">{{ f.label }}<span v-if="f.type === 'keyword'" class="mit">（恒为第一项）</span></span>
+                  <el-input v-if="f.type === 'keyword'" v-model="form.keyword" size="small" placeholder="跨字段模糊" @keyup.enter="doQuery"></el-input>
+                  <el-select v-else-if="f.type === 'select'" v-model="form.status" size="small" clearable placeholder="请选择">
+                    <el-option v-for="o in dictStatus" :key="o.value" :label="o.label" :value="o.value"></el-option>
+                  </el-select>
+                  <el-date-picker v-else-if="f.type === 'daterange'" v-model="form.created" type="daterange" size="small" start-placeholder="开始" end-placeholder="结束" style="width:100%"></el-date-picker>
+                  <el-tree-select v-else-if="f.type === 'dept'" v-model="form.deptId" size="small" :data="deptTree" check-strictly clearable placeholder="请选择部门" style="width:100%"></el-tree-select>
+                  <div v-else-if="f.type === 'number'" style="display:flex;gap:6px">
+                    <el-input v-model="form.amountStart" size="small" placeholder="最小"></el-input>
+                    <el-input v-model="form.amountEnd" size="small" placeholder="最大"></el-input>
+                  </div>
+                  <el-select v-else-if="f.type === 'switch'" v-model="form.enabled" size="small" clearable placeholder="全部">
+                    <el-option label="是" :value="1"></el-option>
+                    <el-option label="否" :value="0"></el-option>
+                  </el-select>
+                  <el-select v-else-if="f.type === 'enum'" v-model="form.priority" size="small" clearable placeholder="请选择">
+                    <el-option v-for="o in enumPriority" :key="o.value" :label="o.label" :value="o.value"></el-option>
+                  </el-select>
+                </div>
+              </template>
+              <div class="qf-actions">
+                <el-button type="primary" size="small" @click="doQuery">查询</el-button>
+                <el-button size="small" @click="resetQuery">重置</el-button>
+                <el-button size="small" text @click="expanded = !expanded" :disabled="narrow" :title="expanded ? '收起' : '展开'">{{ expanded ? '▴' : '▾' }}</el-button>
+              </div>
+            </div>
+            <div class="dp-bar" style="margin:10px 0 0">
+              <span class="dp-hint">折叠只改变行数：按钮始终在第一行行末，控件用 v-show 保留已填值与校验状态</span>
+            </div>
+          </div>
+        </el-tab-pane>
+
+        <!-- ③ 条件控件矩阵 -->
+        <el-tab-pane label="③ 条件控件矩阵" name="matrix">
+          <div class="dp-bar">
+            <span class="proto-hint">字段类型 → 控件 → 操作符 → 参数序列化（同一套条件模型，控件由 QueryField 按类型分发）</span>
+          </div>
+          <div class="qf">
+            <div class="qf-grid" style="grid-template-columns:1fr 1fr">
+              <div class="qf-cell"><span class="qf-label">关键字（contains）</span>
+                <el-input v-model="form.keyword" size="small" placeholder="跨字段模糊" @keyup.enter="doQuery"></el-input></div>
+              <div class="qf-cell"><span class="qf-label">状态 · 字典单选（eq）<span class="funnel" title="高级查询" @click="openAdvanced('status')">🔎</span></span>
+                <el-select v-model="form.status" size="small" clearable placeholder="请选择">
+                  <el-option v-for="o in dictStatus" :key="o.value" :label="o.label" :value="o.value"></el-option>
+                </el-select></div>
+              <div class="qf-cell"><span class="qf-label">标签 · 字典多选（in，逗号分隔）</span>
+                <el-select v-model="form.tags" size="small" multiple collapse-tags placeholder="可多选">
+                  <el-option v-for="o in dictTag" :key="o.value" :label="o.label" :value="o.value"></el-option>
+                </el-select></div>
+              <div class="qf-cell"><span class="qf-label">启用 · 布尔（eq，全部=不传）</span>
+                <el-select v-model="form.enabled" size="small" clearable placeholder="全部">
+                  <el-option label="是" :value="1"></el-option>
+                  <el-option label="否" :value="0"></el-option>
+                </el-select></div>
+              <div class="qf-cell"><span class="qf-label">创建时间 · 日期范围（between → *_start/*_end）</span>
+                <el-date-picker v-model="form.created" type="daterange" size="small" start-placeholder="开始" end-placeholder="结束" style="width:100%"></el-date-picker></div>
+              <div class="qf-cell"><span class="qf-label">金额 · 数值区间（between，单边可空）</span>
+                <div style="display:flex;gap:6px">
+                  <el-input v-model="form.amountStart" size="small" placeholder="最小"></el-input>
+                  <el-input v-model="form.amountEnd" size="small" placeholder="最大"></el-input>
+                </div></div>
+              <div class="qf-cell"><span class="qf-label">部门 · 树选择（eq + 含下级）</span>
+                <el-tree-select v-model="form.deptId" size="small" :data="deptTree" check-strictly clearable placeholder="请选择部门" style="width:100%"></el-tree-select>
+                <el-checkbox v-model="form.includeChildren" size="small" style="margin-top:2px">含下级（include_children）</el-checkbox></div>
+              <div class="qf-cell"><span class="qf-label">优先级 · 自定义枚举（eq）</span>
+                <el-select v-model="form.priority" size="small" clearable placeholder="请选择">
+                  <el-option v-for="o in enumPriority" :key="o.value" :label="o.label" :value="o.value"></el-option>
+                </el-select></div>
+            </div>
+          </div>
+
+          <div class="ep-section">逐条件序列化预览</div>
+          <table class="mini">
+            <thead><tr><th>条件</th><th>值</th><th>操作符</th><th>请求参数</th></tr></thead>
+            <tbody>
+              <tr v-for="r in matrix" :key="r.field">
+                <td>{{ r.label }}</td><td class="dp-code">{{ r.value }}</td><td>{{ r.operator }}</td><td class="dp-code">{{ r.param || '（未填不传）' }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </el-tab-pane>
+
+        <!-- ④ 高级查询 + 条件摘要 -->
+        <el-tab-pane label="④ 高级查询与摘要" name="adv">
+          <div class="dp-bar">
+            <span class="proto-hint">字典类条件旁漏斗入口 → 打开 02 节点的 <b>DictAdvancedQuery</b>；两种落地：<b>取项回填</b>（结果条目写回条件值）与 <b>筛选注入</b>（作为业务筛选条件注入，摘要显示「高级条件」chip）</span>
+          </div>
+
+          <div class="qf">
+            <div class="qf-grid" style="grid-template-columns:1fr 1fr 1fr auto">
+              <div class="qf-cell"><span class="qf-label">关键字</span>
+                <el-input v-model="form.keyword" size="small" @keyup.enter="doQuery"></el-input></div>
+              <div class="qf-cell"><span class="qf-label">状态<span class="funnel" title="高级查询" @click="openAdvanced('status')">🔎</span></span>
+                <el-select v-model="form.status" size="small" clearable placeholder="请选择">
+                  <el-option v-for="o in dictStatus" :key="o.value" :label="o.label" :value="o.value"></el-option>
+                </el-select></div>
+              <div class="qf-cell"><span class="qf-label">部门<span class="funnel" title="高级查询（行政区划/物料类大字典）" @click="openAdvanced('deptId')">🔎</span></span>
+                <el-tree-select v-model="form.deptId" size="small" :data="deptTree" check-strictly clearable style="width:100%"></el-tree-select></div>
+              <div class="qf-actions">
+                <el-button type="primary" size="small" @click="doQuery">查询</el-button>
+                <el-button size="small" @click="resetQuery">重置</el-button>
+              </div>
+            </div>
+            <div class="qf-chips">
+              <span class="dp-hint">条件摘要：</span>
+              <template v-if="chips.length">
+                <el-tag v-for="c in chips" :key="c.key" :type="c.advanced ? 'warning' : undefined" closable size="small" @close="removeChip(c.key)">{{ c.text }}</el-tag>
+              </template>
+              <span v-else class="dp-hint">无</span>
+            </div>
+          </div>
+
+          <div class="ep-section">高级查询面板（模拟 02 节点 DictAdvancedQuery）</div>
+          <div class="dp-out">{{ advancedLog || '尚未打开高级查询面板' }}</div>
+          <div v-if="advancedResult" style="margin-top:10px">
+            <span class="dp-hint">命中条目：</span>
+            <el-tag v-for="r in advancedResult" :key="r.value" size="small" style="margin-right:6px">{{ r.label }}</el-tag>
+          </div>
+
+          <el-dialog v-model="advVisible" :title="'高级查询 · ' + (advField ? advField.label : '')" width="520px">
+            <el-form label-position="top" size="small">
+              <el-form-item label="条件组（AND/OR 分组 + 操作符白名单）">
+                <div style="display:flex;gap:6px;align-items:center">
+                  <el-select v-model="advAttr" style="width:130px">
+                    <el-option label="条目编码 code" value="code"></el-option>
+                    <el-option label="条目名称 label" value="label"></el-option>
+                    <el-option label="层级 level" value="level"></el-option>
+                  </el-select>
+                  <el-select v-model="advOp" style="width:110px">
+                    <el-option label="包含" value="contains"></el-option>
+                    <el-option label="等于" value="eq"></el-option>
+                    <el-option label="属于" value="in"></el-option>
+                  </el-select>
+                  <el-input v-model="advValue" style="width:150px" placeholder="值"></el-input>
+                </div>
+              </el-form-item>
+              <el-form-item label="应用方式">
+                <el-radio-group v-model="advMode">
+                  <el-radio value="items">取项回填（选中条目写回条件值）</el-radio>
+                  <el-radio value="filter">筛选注入（作为业务筛选条件）</el-radio>
+                </el-radio-group>
+              </el-form-item>
+            </el-form>
+            <template #footer>
+              <el-button size="small" @click="advVisible = false">取消</el-button>
+              <el-button size="small" type="primary" @click="applyAdvanced">应用</el-button>
+            </template>
+          </el-dialog>
+        </el-tab-pane>
+
+        <!-- ⑤ 查询方案 -->
+        <el-tab-pane label="⑤ 查询方案" name="scheme">
+          <div class="dp-bar">
+            <span class="proto-hint">方案存储泛化自 <code>sys_query_scheme</code>（target=business、field_key=form_key、dict_type 空）；三级优先级 个人 &gt; 租户 &gt; 平台；个人方案登录即用，租户/共享需 <code>query:scheme</code></span>
+          </div>
+
+          <div class="qf">
+            <div class="qf-grid" style="grid-template-columns:1fr 1fr 1fr auto">
+              <div class="qf-cell"><span class="qf-label">关键字</span><el-input v-model="form.keyword" size="small"></el-input></div>
+              <div class="qf-cell"><span class="qf-label">状态</span>
+                <el-select v-model="form.status" size="small" clearable placeholder="请选择">
+                  <el-option v-for="o in dictStatus" :key="o.value" :label="o.label" :value="o.value"></el-option>
+                </el-select></div>
+              <div class="qf-cell"><span class="qf-label">优先级</span>
+                <el-select v-model="form.priority" size="small" clearable placeholder="请选择">
+                  <el-option v-for="o in enumPriority" :key="o.value" :label="o.label" :value="o.value"></el-option>
+                </el-select></div>
+              <div class="qf-actions">
+                <el-button type="primary" size="small" @click="doQuery">查询</el-button>
+                <el-button size="small" @click="resetQuery">重置</el-button>
+              </div>
+            </div>
+          </div>
+
+          <div class="ep-section">查询方案（入口在条件区右侧，下拉面板列出可用方案）</div>
+          <div class="scheme-item" v-for="s in schemes" :key="s.id">
+            <el-tag size="small" :type="s.scope === 'user' ? 'success' : 'warning'">{{ scopeText(s.scope) }}</el-tag>
+            <span class="name">{{ s.name }}<span v-if="s.isDefault" class="dp-hint">（默认）</span><span v-if="s.shared" class="dp-hint"> 共享</span></span>
+            <span class="dp-code">{{ s.desc }}</span>
+            <el-button size="small" text type="primary" @click="applyScheme(s)">应用</el-button>
+            <el-button size="small" text @click="setDefault(s)">设默认</el-button>
+            <el-button size="small" text type="danger" @click="removeScheme(s)">删除</el-button>
+          </div>
+
+          <div class="dp-bar" style="margin-top:12px">
+            <el-input v-model="newSchemeName" size="small" style="width:180px" placeholder="方案名称"></el-input>
+            <el-select v-model="newSchemeScope" size="small" style="width:170px">
+              <el-option label="个人方案" value="user"></el-option>
+              <el-option :label="hasSchemePerm ? '租户方案（需 query:scheme）' : '租户方案（无权限）'" value="tenant" :disabled="!hasSchemePerm"></el-option>
+            </el-select>
+            <el-checkbox v-model="newSchemeShared" size="small" :disabled="!hasSchemePerm">共享给他人</el-checkbox>
+            <el-button size="small" type="primary" @click="saveScheme">另存为（保存当前条件）</el-button>
+            <el-button size="small" @click="saveToDefault">保存到当前方案</el-button>
+          </div>
+
+          <div class="ep-section">操作日志</div>
+          <div class="dp-out">{{ schemeLog }}</div>
+        </el-tab-pane>
+      </el-tabs>
+    </div>
+  </div>
+</div>
+
+<script src="../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref, reactive, computed, h, watch } = Vue;
+  var ElMessage = ElementPlus.ElMessage;
+
+  var DICT_STATUS = [{ value: 'enabled', label: '启用' }, { value: 'disabled', label: '停用' }, { value: 'locked', label: '锁定' }];
+  var DICT_TAG = [{ value: 'vip', label: '重点客户' }, { value: 'new', label: '新客户' }, { value: 'risk', label: '风险客户' }];
+  var ENUM_PRIORITY = [{ value: 'high', label: '高' }, { value: 'mid', label: '中' }, { value: 'low', label: '低' }];
+  var DEPT_TREE = [{ value: 'd1', label: '集团总部', children: [{ value: 'd5', label: '研发中心' }, { value: 'd6', label: '财务部' }] }];
+
+  function fmtDate(d) {
+    if (!d) { return ''; }
+    var x = new Date(d);
+    var p = function (n) { return n < 10 ? '0' + n : '' + n; };
+    return x.getFullYear() + '-' + p(x.getMonth() + 1) + '-' + p(x.getDate());
+  }
+
+  var app = createApp({
+    template: document.getElementById('app').outerHTML.replace(/<div id="app">/, '<div>').replace(/<\/div>\s*$/, ''),
+    setup: function () {
+      var tab = ref('base');
+      var narrow = ref(false);
+      var expanded = ref(false);
+      var hasSchemePerm = ref(true);
+
+      var dictStatus = DICT_STATUS, dictTag = DICT_TAG, enumPriority = ENUM_PRIORITY, deptTree = DEPT_TREE;
+      var fields = [
+        { key: 'keyword', label: '关键字', type: 'keyword', def: '' },
+        { key: 'status', label: '状态', type: 'select', def: null },
+        { key: 'created', label: '创建时间', type: 'daterange', def: null },
+        { key: 'deptId', label: '部门', type: 'dept', def: null },
+        { key: 'amount', label: '金额区间', type: 'number', def: null },
+        { key: 'enabled', label: '启用', type: 'switch', def: null },
+        { key: 'priority', label: '优先级', type: 'enum', def: null }
+      ];
+      var defaults = function () {
+        return { keyword: '', status: null, created: null, deptId: null, includeChildren: true, amountStart: '', amountEnd: '', tags: [], enabled: null, priority: null };
+      };
+      var form = reactive(defaults());
+      var applied = ref({});
+      var paramsText = ref('');
+      var prefsLog = ref('偏好：list.user_form（暂无 query 子键）');
+
+      // 查询表单区配置：前 3 项默认可见，展开后全部
+      var visibleFields = computed(function () {
+        if (narrow.value) { return fields.slice(0, 1); }
+        return expanded.value ? fields : fields.slice(0, 3);
+      });
+      function onNarrowChange(v) {
+        expanded.value = false;
+        ElMessage.info(v ? '窄屏 <1024px：默认折叠，仅保留关键字 + 查询/重置' : '宽屏：> 3 项默认折叠为一行，可点「▾」展开');
+      }
+
+      // 序列化（字段名直传 + 多值逗号 + 区间 *_start/*_end）
+      function serialize() {
+        var parts = [];
+        if (form.keyword) { parts.push('keyword=' + form.keyword); }
+        if (form.status) { parts.push('status=' + form.status); }
+        if (form.tags && form.tags.length) { parts.push('tags=' + form.tags.join(',')); }
+        if (form.enabled !== null && form.enabled !== undefined) { parts.push('enabled=' + form.enabled); }
+        if (form.created && form.created.length === 2) {
+          parts.push('created_start=' + fmtDate(form.created[0]) + 'T00:00:00Z');
+          parts.push('created_end=' + fmtDate(form.created[1]) + 'T23:59:59Z');
+        }
+        if (form.amountStart) { parts.push('amount_start=' + form.amountStart); }
+        if (form.amountEnd) { parts.push('amount_end=' + form.amountEnd); }
+        if (form.deptId) { parts.push('dept_id=' + form.deptId + (form.includeChildren ? '&include_children=true' : '')); }
+        if (form.priority) { parts.push('priority=' + form.priority); }
+        return parts;
+      }
+      var query = computed(function () {
+        var parts = serialize();
+        return 'GET /api/v1/users?page=1&size=20' + (parts.length ? '&' + parts.join('&') : '');
+      });
+
+      function labelOf(key) {
+        for (var i = 0; i < fields.length; i++) { if (fields[i].key === key) { return fields[i].label; } }
+        return key;
+      }
+      var chips = computed(function () {
+        var list = [];
+        var a = applied.value;
+        if (a.keyword) { list.push({ key: 'keyword', text: '关键字: ' + a.keyword }); }
+        if (a.status) { list.push({ key: 'status', text: '状态: ' + (dictStatus.filter(function (o) { return o.value === a.status; })[0] || {}).label }); }
+        if (a.tags && a.tags.length) { list.push({ key: 'tags', text: '标签: ' + a.tags.map(function (v) { return (dictTag.filter(function (o) { return o.value === v; })[0] || {}).label || v; }).join('、') }); }
+        if (a.enabled !== null && a.enabled !== undefined) { list.push({ key: 'enabled', text: '启用: ' + (a.enabled ? '是' : '否') }); }
+        if (a.created && a.created.length === 2) { list.push({ key: 'created', text: '创建时间: ' + fmtDate(a.created[0]) + ' ~ ' + fmtDate(a.created[1]) }); }
+        if (a.amountStart || a.amountEnd) { list.push({ key: 'amount', text: '金额: ' + (a.amountStart || '不限') + ' ~ ' + (a.amountEnd || '不限') }); }
+        if (a.deptId) { list.push({ key: 'deptId', text: '部门: ' + (a.deptId === 'd1' ? '集团总部' : '研发中心') + (a.includeChildren ? '（含下级）' : '') }); }
+        if (a.priority) { list.push({ key: 'priority', text: '优先级: ' + (enumPriority.filter(function (o) { return o.value === a.priority; })[0] || {}).label }); }
+        if (a.__advanced) { list.push({ key: '__advanced', text: '高级条件: ' + a.__advanced, advanced: true }); }
+        return list;
+      });
+      function snapshot() {
+        var o = {};
+        ['keyword', 'status', 'created', 'deptId', 'includeChildren', 'amountStart', 'amountEnd', 'enabled', 'priority'].forEach(function (k) { o[k] = form[k]; });
+        o.tags = (form.tags || []).slice();
+        if (applied.value.__advanced) { o.__advanced = applied.value.__advanced; }
+        return o;
+      }
+      function doQuery() {
+        var c = form.created;
+        if (c && c.length === 2 && new Date(c[0]) > new Date(c[1])) { ElMessage.error('创建时间区间非法：起 > 止，不提交'); return; }
+        applied.value = snapshot();
+        paramsText.value = query.value;
+        schedulePrefWrite();
+      }
+      function resetQuery() {
+        Object.assign(form, defaults());
+        applied.value = {};
+        paramsText.value = '';
+        prefsLog.value = '重置：恢复字段默认值（元数据 default，无默认为空）→ 回第 1 页并立即重查；已清除 list.user_form.query 子键';
+        ElMessage.success('已重置并重新查询（回第 1 页）');
+      }
+      function removeChip(key) {
+        var map = { keyword: 'keyword', status: 'status', tags: 'tags', enabled: 'enabled', created: 'created', amount: null, deptId: 'deptId', priority: 'priority', __advanced: null };
+        if (key === 'amount') { form.amountStart = ''; form.amountEnd = ''; }
+        else if (key === '__advanced') { delete applied.value.__advanced; }
+        else if (map[key]) {
+          if (key === 'tags') { form.tags = []; }
+          else if (key === 'keyword') { form.keyword = ''; }
+          else { form[key] = null; }
+        }
+        doQuery();
+        ElMessage.info('已移除该条件并立即重查（回第 1 页）');
+      }
+      var prefTimer = null;
+      function schedulePrefWrite() {
+        prefsLog.value = '变更已捕获，等待 500ms 防抖…';
+        if (prefTimer) { clearTimeout(prefTimer); }
+        prefTimer = setTimeout(function () {
+          var q = { keyword: form.keyword || undefined, status: form.status || undefined, created_start: (form.created && form.created.length === 2) ? fmtDate(form.created[0]) : undefined };
+          prefsLog.value = 'PUT /preferences/list.user_form\n  query 子键: ' + JSON.stringify(q);
+        }, 500);
+      }
+      var prefsJson = computed(function () {
+        return JSON.stringify({
+          query: { keyword: form.keyword || undefined, status: form.status || undefined, dept_id: form.deptId || undefined },
+          columns: [{ prop: 'username', visible: true, order: 1, width: 180 }],
+          pageSize: 20,
+          density: 'default'
+        }, null, 2) + '\n\n' + prefsLog.value;
+      });
+      function simulateStale() {
+        prefsLog.value = '进入页面时校验偏好条件：部门字段已停用/不可见 → 剔除 dept_id；连续剔除 1 项 → 提示一次「部分筛选条件已失效，已忽略」';
+        form.deptId = null;
+        ElMessage.warning('部分筛选条件已失效，已忽略（dept_id）');
+      }
+
+      // 控件矩阵
+      var matrix = computed(function () {
+        return [
+          { field: 'keyword', label: '关键字', value: form.keyword || '—', operator: 'contains', param: form.keyword ? 'keyword=' + form.keyword : '' },
+          { field: 'status', label: '状态（字典单选）', value: form.status || '—', operator: 'eq', param: form.status ? 'status=' + form.status : '' },
+          { field: 'tags', label: '标签（字典多选）', value: (form.tags || []).join('、') || '—', operator: 'in', param: (form.tags || []).length ? 'tags=' + form.tags.join(',') : '' },
+          { field: 'enabled', label: '启用（布尔）', value: form.enabled === null || form.enabled === undefined ? '—' : (form.enabled ? '是' : '否'), operator: 'eq', param: form.enabled === null || form.enabled === undefined ? '' : 'enabled=' + form.enabled },
+          { field: 'created', label: '创建时间（日期范围）', value: form.created ? (fmtDate(form.created[0]) + ' ~ ' + fmtDate(form.created[1])) : '—', operator: 'between', param: form.created ? 'created_start=…&created_end=…' : '' },
+          { field: 'amount', label: '金额（数值区间）', value: (form.amountStart || '不限') + ' ~ ' + (form.amountEnd || '不限'), operator: 'between', param: (form.amountStart || form.amountEnd) ? 'amount_start=…&amount_end=…' : '' },
+          { field: 'deptId', label: '部门（树选择）', value: form.deptId || '—', operator: 'eq', param: form.deptId ? 'dept_id=' + form.deptId + (form.includeChildren ? '&include_children=true' : '') : '' },
+          { field: 'priority', label: '优先级（自定义枚举）', value: form.priority || '—', operator: 'eq', param: form.priority ? 'priority=' + form.priority : '' }
+        ];
+      });
+
+      // 高级查询
+      var advVisible = ref(false), advFieldKey = ref(''), advAttr = ref('label'), advOp = ref('contains'), advValue = ref('研发'), advMode = ref('items');
+      var advancedLog = ref(''), advancedResult = ref(null);
+      var advField = computed(function () {
+        for (var i = 0; i < fields.length; i++) { if (fields[i].key === advFieldKey.value) { return fields[i]; } }
+        return null;
+      });
+      function openAdvanced(key) {
+        advFieldKey.value = key;
+        advVisible.value = true;
+        advancedLog.value = '打开高级查询面板：GET /dicts/' + (key === 'deptId' ? 'dept' : 'user_status') + '/attrs + /dicts/query-providers（按需加载，关闭即释放）\n条件组：' + advAttr.value + ' ' + advOp.value + ' 「' + advValue.value + '」';
+      }
+      function applyAdvanced() {
+        if (advMode.value === 'items') {
+          advancedResult.value = [{ value: 'd5', label: '研发中心' }, { value: 'd9', label: '平台组' }];
+          if (advFieldKey.value === 'deptId') { form.deptId = 'd5'; }
+          advancedLog.value = '取项回填：命中 2 条 → 应用后回填条件值（单选取首项、多选取全部），随后按普通条件提交';
+        } else {
+          advancedResult.value = null;
+          applied.value = Object.assign({}, applied.value, { __advanced: 'code contains 研发' });
+          advancedLog.value = '筛选注入：条件已注入为业务筛选参数，摘要区显示「高级条件」chip（可整体移除）';
+        }
+        advVisible.value = false;
+        doQuery();
+        ElMessage.success('高级查询已应用');
+      }
+
+      // 查询方案
+      var schemes = ref([
+        { id: 1, name: '我负责的启用用户', scope: 'user', shared: false, isDefault: true, desc: '状态=启用', conditions: { status: 'enabled' } },
+        { id: 2, name: '本月新建', scope: 'user', shared: false, isDefault: false, desc: '创建时间=本月', conditions: { created: '本月' } },
+        { id: 3, name: '全租户在途单据', scope: 'tenant', shared: true, isDefault: false, desc: '状态=待审（租户共享）', conditions: { status: 'locked' } }
+      ]);
+      var newSchemeName = ref(''), newSchemeScope = ref('user'), newSchemeShared = ref(false);
+      var schemeLog = ref('尚未执行方案操作');
+      function scopeText(s) { return s === 'user' ? '个人' : (s === 'tenant' ? '租户' : '平台'); }
+      function applyScheme(s) {
+        Object.assign(form, defaults());
+        if (s.conditions.status) { form.status = s.conditions.status; }
+        doQuery();
+        schemeLog.value = '应用方案「' + s.name + '」：载入 conditions → 覆盖当前条件 → 回第 1 页并查询（摘要区显示「方案：' + s.name + '」）';
+        ElMessage.success('已应用方案：' + s.name);
+      }
+      function setDefault(s) {
+        if (s.scope !== 'user' && !hasSchemePerm.value) { ElMessage.error('租户/平台方案需 query:scheme 权限'); return; }
+        schemes.value.forEach(function (x) { x.isDefault = (x.id === s.id); });
+        schemeLog.value = '设默认「' + s.name + '」（scope=' + s.scope + '）：进入该列表页时自动应用；三级优先级 个人 > 租户 > 平台';
+        ElMessage.success('已设为默认方案');
+      }
+      function removeScheme(s) {
+        if (s.scope !== 'user' && !hasSchemePerm.value) { ElMessage.error('租户/平台方案维护需 query:scheme 权限'); return; }
+        schemes.value = schemes.value.filter(function (x) { return x.id !== s.id; });
+        schemeLog.value = '删除方案「' + s.name + '」' + (s.isDefault ? '（原默认，回退上一级）' : '');
+        ElMessage.success('已删除（模拟）');
+      }
+      function saveScheme() {
+        if (!newSchemeName.value) { ElMessage.warning('请填写方案名称'); return; }
+        if (newSchemeScope.value !== 'user' && !hasSchemePerm.value) { ElMessage.error('租户/平台方案需 query:scheme 权限'); return; }
+        var id = schemes.value.length + 1;
+        schemes.value.push({ id: id, name: newSchemeName.value, scope: newSchemeScope.value, shared: newSchemeShared.value, isDefault: false, desc: '当前条件', conditions: { status: form.status } });
+        schemeLog.value = '另存为「' + newSchemeName.value + '」（scope=' + newSchemeScope.value + '，shared=' + newSchemeShared.value + '）：POST /api/v1/query-schemes {target:"business", field_key:"user_form", conditions:[…]}';
+        newSchemeName.value = '';
+        ElMessage.success('已另存为方案');
+      }
+      function saveToDefault() {
+        var d = null;
+        schemes.value.forEach(function (s) { if (s.isDefault) { d = s; } });
+        if (!d) { ElMessage.warning('当前无默认方案，请先「另存为」'); return; }
+        if (d.scope !== 'user' && !hasSchemePerm.value) { ElMessage.error('覆盖租户/平台方案需 query:scheme 权限（可改用「另存为」）'); return; }
+        d.desc = '当前条件（已保存）';
+        schemeLog.value = '保存到当前方案「' + d.name + '」：PUT /api/v1/query-schemes/' + d.id + '（个人方案本人可改）';
+        ElMessage.success('已保存到方案：' + d.name);
+      }
+
+      return {
+        tab, narrow, expanded, hasSchemePerm, onNarrowChange,
+        fields, visibleFields, form, matrix, chips, query, paramsText, prefsJson, prefsLog,
+        doQuery, resetQuery, removeChip, simulateStale,
+        dictStatus, dictTag, enumPriority, deptTree,
+        advVisible, advField, advAttr, advOp, advValue, advMode, advancedLog, advancedResult, openAdvanced, applyAdvanced,
+        schemes, scopeText, applyScheme, setDefault, removeScheme, saveScheme, saveToDefault,
+        newSchemeName, newSchemeScope, newSchemeShared, schemeLog
+      };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>
