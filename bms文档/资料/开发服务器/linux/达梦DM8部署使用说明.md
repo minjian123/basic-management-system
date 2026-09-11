@@ -7,7 +7,7 @@
 ## 1. 目的与适用范围 <a id="purpose"></a>
 
 mjbk 上的达梦数据库（DM8）与 MySQL、PostgreSQL 并称「常驻三库」，用于开发联调与 CI 三库方言测试
-（平台《开发部署规划》4.4）。版本：**DM8（dm8_20260428_x86_Ubuntu22_64）**。
+（平台《开发部署规划》「常驻数据库」节）。版本：**DM8（dm8_20260428_x86_Ubuntu22_64）**。
 `<mjbk-IP>`、`<SSH账号>` 取值见《[本地资源](../../../用户文档/本地资源.md)》与 mjbk 本机 `deploy/.env`（`MJBK_IP` / `MJBK_SSH_USER`）。
 
 ## 2. 部署方式说明（原生安装） <a id="plan"></a>
@@ -115,7 +115,7 @@ echo "SELECT NAME FROM ALL_USERS;" | /opt/dmdbms/bin/disql SYSDBA/"<密码>"@loc
 | 命令行连接 | `/opt/dmdbms/bin/disql SYSDBA/密码@<mjbk-IP>:5236` |
 | 查看日志 | `tail -f /opt/dmdbms/data/DAMENG/log/dm_DMSERVER*.log` |
 | 备份（每日 cron 2 点） | `/opt/dmdbms/bin/dmrman CTLSTMT="BACKUP DATABASE '/opt/dmdbms/data/DAMENG/dm.ini' FULL TO BAK_$(date +%F) BACKUPSET '/mnt/data/backup/dameng/$(date +%F)'"` |
-| 现场导出（缺陷重现，见《[测试规范](../../../规范/测试规范.md)》9 节） | `mkdir -p /mnt/data/backup/defects/<缺陷号> && /opt/dmdbms/bin/dexp SYSDBA/密码@localhost:5236 FILE=<缺陷号>.dmp DIRECTORY=/mnt/data/backup/defects/<缺陷号> OWNER=<模式名> LOG=exp.log` |
+| 现场导出（缺陷重现，见《[测试规范](../../../规范/测试规范.md)》「缺陷管理」节） | `mkdir -p /mnt/data/backup/defects/<缺陷号> && /opt/dmdbms/bin/dexp SYSDBA/密码@localhost:5236 FILE=<缺陷号>.dmp DIRECTORY=/mnt/data/backup/defects/<缺陷号> OWNER=<模式名> LOG=exp.log` |
 | 防火墙 | ufw 已放行内网 5236（含 3306/5432/6379/9000/9001，见总览） |
 
 ## 8. 排障记录 <a id="trouble"></a>

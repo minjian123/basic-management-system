@@ -235,7 +235,7 @@ curl -s http://127.0.0.1:8080/v1/chat/completions \
 ### 5.4 接入 dsh（DeepSeek Harness） <a id="daily-dsh"></a>
 
 dsh 同样以自定义 provider `llamacpp` 接本服务（同一 `127.0.0.1:8080`）：`baseURL` 为 `http://127.0.0.1:8080/v1`，model id 即模型 GGUF 全路径（与 5.2 示例的 `model` 字段一致）。
-注意 dsh 的 pi-ai 适配器要求该 provider **必须配置一个（占位）API key**，否则报 `No API key for provider: llamacpp`；llama.cpp 不校验该 key，占位值即可。完整配置见《deepseek_harness部署使用说明》5.3 节。
+注意 dsh 的 pi-ai 适配器要求该 provider **必须配置一个（占位）API key**，否则报 `No API key for provider: llamacpp`；llama.cpp 不校验该 key，占位值即可。完整配置见《deepseek_harness部署使用说明》「接入本地 llama.cpp 服务（本机）」节 节。
 
 思考强度侧（`~/.dsh/settings.yaml` 的 `llm-pi-ai.providers.llamacpp`）：
 

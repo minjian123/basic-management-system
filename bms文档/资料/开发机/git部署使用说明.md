@@ -6,7 +6,7 @@
 
 ## 1. 目的与适用范围 <a id="purpose"></a>
 
-记录开发机 **mjpc**（Ubuntu 26.04.1 LTS）上 git 的安装方式、全局配置、本项目仓库（内网 GitLab）接入与日常操作，作为重装系统或迁移后的配置参照。它是《[开发机部署使用说明总览](开发机部署使用说明总览.md)》第 3 节「开发工具链 git」一行的详细说明；GitLab 服务器侧的部署见《[GitLab部署使用说明](../开发服务器/linux/GitLab部署使用说明.md)》。
+记录开发机 **mjpc**（Ubuntu 26.04.1 LTS）上 git 的安装方式、全局配置、本项目仓库（内网 GitLab）接入与日常操作，作为重装系统或迁移后的配置参照。它是《[开发机部署使用说明总览](开发机部署使用说明总览.md)》「开发设施清单」节「开发工具链 git」一行的详细说明；GitLab 服务器侧的部署见《[GitLab部署使用说明](../开发服务器/linux/GitLab部署使用说明.md)》。
 
 **取值说明**：`<mjbk-IP>`、`<访问令牌>` 等占位符与真实凭据的具体值见《[本地资源](../../用户文档/本地资源.md)》与 mjbk 本机 `deploy/.env`，不在文档中记录。git 协作规则（分支模型、提交信息、MR 流程）见《[Git协作规范](../../规范/Git协作规范.md)》，本文档只描述本机 git 的部署与使用。
 
@@ -66,7 +66,7 @@ git config --list --show-origin   # 带来源文件查看，确认是全局还�
 | --- | --- | --- |
 | `origin`（唯一） | `http://<mjbk-IP>:8080/bms/bms.git` | 开发、MR、CI、Registry（日常推送目标） |
 
-- 地址为内网 HTTP，`8080` 端口即 mjbk 上 GitLab 容器 `bms-gitlab` 的 HTTP 监听口（见《[GitLab部署使用说明](../开发服务器/linux/GitLab部署使用说明.md)》第 2 节）。
+- 地址为内网 HTTP，`8080` 端口即 mjbk 上 GitLab 容器 `bms-gitlab` 的 HTTP 监听口（见《[GitLab部署使用说明](../开发服务器/linux/GitLab部署使用说明.md)》「Compose 配置」节）。
 - 当前 URL 中**内嵌了访问凭据**（`http://root:<访问令牌>@<mjbk-IP>:8080/...`，实测如此），clone/push 无需再输入密码。令牌属敏感信息，仅存于本机，不入文档、不入提交。
 - 分支 `main` 跟踪 `origin/main`；当前为单人直推 main 模式（《Git协作规范》第 1 节「当前阶段简化执行」），feature 分支 → MR 门禁流程暂缓。
 

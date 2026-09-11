@@ -35,11 +35,11 @@
 
 ## 3. 在本项目中的用途 <a id="usage"></a>
 
-- 作为平台《架构设计 · 总体架构》6.3 节指定的后端测试方案（选型依据见平台《项目规划说明》3.3 节）。
+- 作为平台《架构设计 · 总体架构》「技术栈全景 · 工程化与质量」节 节指定的后端测试方案（选型依据见平台《项目规划说明》「工程化与质量」节）。
 - FastAPI 接口测试用 httpx ASGITransport 免启服务器：测试快、无端口冲突，见《[FastAPI 技术介绍](../后端核心/FastAPI技术介绍.md)》。
 - 测试库统一 SQLite 保证可移植：本地、CI、任何机器跑同一套测试零部署成本（见《[SQLite 技术介绍](../后端核心/SQLite与aiosqlite技术介绍.md)》）。
-- pytest-cov 统计覆盖率并作 CI 门禁：核心模块（认证/RBAC/工作流/审计/收付款）行覆盖 ≥ 80%、整体 ≥ 70%，低于门槛流水线失败（见平台《项目规划说明》16.4 节）。
-- CI 执行：MR 流水线后端 job 即 `uv sync` 后跑 pytest（见平台《项目规划说明》3.4 节），main 流水线另加 MySQL/PostgreSQL/达梦 DM8 三库方言集成测试。
+- pytest-cov 统计覆盖率并作 CI 门禁：核心模块（认证/RBAC/工作流/审计/收付款）行覆盖 ≥ 80%、整体 ≥ 70%，低于门槛流水线失败（见平台《项目规划说明》「进入与准出标准」节）。
+- CI 执行：MR 流水线后端 job 即 `uv sync` 后跑 pytest（见平台《项目规划说明》「部署与运维」节），main 流水线另加 MySQL/PostgreSQL/达梦 DM8 三库方言集成测试。
 - 本地命令（Windows PowerShell 与 Linux 通用）：
 
 ```bash
@@ -49,7 +49,7 @@ uv run pytest -k "login"               # 按名称过滤用例
 uv run pytest --cov=app --cov-report=term-missing --cov-fail-under=70   # 带覆盖率与门禁
 ```
 
-- 结果双出口：Allure 生成可视化报告归档 CI 产物；执行结果经官方插件导入《[Kiwi TCMS](KiwiTCMS技术介绍.md)》用例库归档，用例在代码中以用例 ID 关联（见平台《项目规划说明》16 节）。
+- 结果双出口：Allure 生成可视化报告归档 CI 产物；执行结果经官方插件导入《[Kiwi TCMS](KiwiTCMS技术介绍.md)》用例库归档，用例在代码中以用例 ID 关联（见平台《项目规划说明》「测试策略与测试流程」节）。
 
 ## 4. 选型对比 <a id="compare"></a>
 
@@ -68,7 +68,7 @@ uv run pytest --cov=app --cov-report=term-missing --cov-fail-under=70   # 带覆
 - **覆盖率数字别只看总量**：行覆盖高不等于逻辑覆盖全；核心分支（权限校验、工作流网关、异常分支）优先补用例，门禁只是底线。
 - **ASGITransport 注意事项**：它直接调用应用，不经过真实网络层（无 uvicorn、无中间件网络行为差异），依赖 Host 头等场景需在 base_url 里显式设置。
 - **CI 与本地一致性**：依赖版本由 uv.lock 锁定；pytest 版本漂移会导致"本地绿、CI 红"，统一 `uv sync` 解决。
-- **用例与《[Kiwi TCMS](KiwiTCMS技术介绍.md)》关联**：自动化用例务必标注用例 ID（对应平台登记），保证需求可追溯、无孤儿用例（见平台《项目规划说明》16.3 节）。
+- **用例与《[Kiwi TCMS](KiwiTCMS技术介绍.md)》关联**：自动化用例务必标注用例 ID（对应平台登记），保证需求可追溯、无孤儿用例（见平台《项目规划说明》「回归策略」节）。
 
 ## 6. 学习与参考资料 <a id="learn"></a>
 
@@ -85,7 +85,7 @@ uv run pytest --cov=app --cov-report=term-missing --cov-fail-under=70   # 带覆
 
 | 文档 | 说明 |
 | --- | --- |
-| 平台《项目规划说明》16 节 | 测试策略与测试流程（用例管理、回归、准出标准） |
+| 平台《项目规划说明》「测试策略与测试流程」节 | 测试策略与测试流程（用例管理、回归、准出标准） |
 | 《[测试规范](../../../规范/测试规范.md)》 | 测试分类、用例组织与执行约定 |
 | 《[FastAPI 技术介绍](../后端核心/FastAPI技术介绍.md)》 | 被测对象：接口测试方式（httpx ASGITransport） |
 | 《[Allure 技术介绍](Allure技术介绍.md)》 | 测试结果生成可视化报告 |

@@ -132,4 +132,4 @@ npm run dev   # 5173 返回占位页 HTML（title=BMS PC 管理端）
 - 子工程 `.vscode/settings.json` 忽略差异：**已处理**——`frontend/.gitignore`、`frontend-mobile/.gitignore` 放行 `settings.json`（保留 `extensions.json` 放行），与设计 §9 第 4 条及根 `.gitignore` 一致。
 - fresh clone 验证与提交推送均已完成（§5，推送至 `1dfeaf8`）；本任务无待办遗留。
 
-> 本文档依《文档生成规范》编写 · 按《任务文档规范》第 5 节实施文档结构组织
+> 本文档依《文档生成规范》编写 · 按《任务文档规范》「实施文档（任务执行记录）」节实施文档结构组织

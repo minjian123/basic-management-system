@@ -8,7 +8,7 @@
 
 本文档记录 mjbk（Ubuntu 24.04.4）上 Docker Engine 的安装步骤与验证结果。
 所有开发服务（数据库、缓存、GitLab 等）均以 Docker Compose 方式运行在本文安装的引擎上。
-部署依据平台《开发部署规划》4.1 节；容器引擎方案：开发与生产统一 Docker Engine。
+部署依据平台《开发部署规划》「基础环境准备」节 节；容器引擎方案：开发与生产统一 Docker Engine。
 `<SSH账号>` 取值见《[本地资源](../../../用户文档/本地资源.md)》与 mjbk 本机 `deploy/.env`（`MJBK_SSH_USER`）。
 
 ## 2. 安装步骤 <a id="install"></a>

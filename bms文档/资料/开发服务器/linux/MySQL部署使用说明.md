@@ -7,7 +7,7 @@
 ## 1. 目的与适用范围 <a id="purpose"></a>
 
 mjbk 上的 MySQL（容器 `bms-mysql`，版本 8.4）是本项目开发环境主数据库，
-常驻供开发联调与 CI 三库方言测试复用（平台《开发部署规划》4.4）。
+常驻供开发联调与 CI 三库方言测试复用（平台《开发部署规划》「常驻数据库」节）。
 
 ## 2. Compose 配置 <a id="compose"></a>
 
@@ -71,7 +71,7 @@ docker exec bms-mysql mysql -uroot -p"$密码" -e "SHOW VARIABLES LIKE 'characte
 | 重启 | `docker restart bms-mysql` |
 | 进入客户端 | `docker exec -it bms-mysql mysql -uroot -p` |
 | 备份（每日 cron 2 点） | `mysqldump --single-transaction -uroot -p"$密码" bms_dev > /mnt/data/backup/mysql/bms_dev-$(date +%F).sql` |
-| 现场导出（缺陷重现，见《[测试规范](../../../规范/测试规范.md)》9 节） | `mkdir -p /mnt/data/backup/defects/<缺陷号> && mysqldump --single-transaction -uroot -p"$密码" <库名> > /mnt/data/backup/defects/<缺陷号>/<库名>.sql` |
+| 现场导出（缺陷重现，见《[测试规范](../../../规范/测试规范.md)》「缺陷管理」节） | `mkdir -p /mnt/data/backup/defects/<缺陷号> && mysqldump --single-transaction -uroot -p"$密码" <库名> > /mnt/data/backup/defects/<缺陷号>/<库名>.sql` |
 
 ## 7. 排障记录 <a id="trouble"></a>
 

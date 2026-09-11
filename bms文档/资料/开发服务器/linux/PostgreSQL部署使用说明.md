@@ -7,7 +7,7 @@
 ## 1. 目的与适用范围 <a id="purpose"></a>
 
 mjbk 上的 PostgreSQL（容器 `bms-postgres`，版本 16）与 MySQL、达梦 DM8 并称「常驻三库」，
-用于开发联调与 CI 三库方言测试（平台《开发部署规划》4.4）。
+用于开发联调与 CI 三库方言测试（平台《开发部署规划》「常驻数据库」节）。
 `<mjbk-IP>` 取值见《[本地资源](../../../用户文档/本地资源.md)》。
 
 ## 2. Compose 配置 <a id="compose"></a>
@@ -66,7 +66,7 @@ docker exec bms-postgres psql -U postgres -c "SELECT version();"
 | 查看日志 | `docker logs -f bms-postgres` |
 | 进入客户端 | `docker exec -it bms-postgres psql -U postgres` |
 | 备份（每日 cron 2 点） | `docker exec bms-postgres pg_dump -U postgres -Fc bms_dev > /mnt/data/backup/postgres/bms_dev-$(date +%F).dump` |
-| 现场导出（缺陷重现，见《[测试规范](../../../规范/测试规范.md)》9 节） | `mkdir -p /mnt/data/backup/defects/<缺陷号> && docker exec bms-postgres pg_dump -U postgres -Fc <库名> > /mnt/data/backup/defects/<缺陷号>/<库名>.dump` |
+| 现场导出（缺陷重现，见《[测试规范](../../../规范/测试规范.md)》「缺陷管理」节） | `mkdir -p /mnt/data/backup/defects/<缺陷号> && docker exec bms-postgres pg_dump -U postgres -Fc <库名> > /mnt/data/backup/defects/<缺陷号>/<库名>.dump` |
 
 ## 7. 关联文档 <a id="related"></a>
 

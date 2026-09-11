@@ -37,11 +37,11 @@ ReDoc 偏"读"——单栏排版、只读不执行，适合通读接口全貌。
 
 ## 3. 在本项目中的用途 <a id="usage"></a>
 
-- FastAPI 自动生成 OpenAPI schema 并内置两个文档界面：`/docs`（Swagger UI）与 `/redoc`（ReDoc），开发联调零成本（见平台《架构设计 · 总体架构》6.3 节"API 文档：Swagger UI / ReDoc"）。
-- **接口联调依据**：前端、移动端与外部系统对接时，以 Swagger UI 的 "Try it out" 实际发请求验证行为，以 ReDoc 通读接口全貌与字段语义（见平台《项目规划说明》3.3 节）。
+- FastAPI 自动生成 OpenAPI schema 并内置两个文档界面：`/docs`（Swagger UI）与 `/redoc`（ReDoc），开发联调零成本（见平台《架构设计 · 总体架构》「技术栈全景 · 工程化与质量」节 节"API 文档：Swagger UI / ReDoc"）。
+- **接口联调依据**：前端、移动端与外部系统对接时，以 Swagger UI 的 "Try it out" 实际发请求验证行为，以 ReDoc 通读接口全貌与字段语义（见平台《项目规划说明》「工程化与质量」节）。
 - **验收依据**：UAT 与阶段验收时，接口行为以文档声明为准，文档与实现不一致即缺陷。
-- **契约快照**：main 流水线导出 `swagger.json` 契约快照归档分发；生产环境关闭 Swagger/ReDoc 在线文档，对外只发快照（见平台《项目规划说明》8 节"API 设计规范"）。
-- 本地开发入口：`http://localhost:8000/docs`（见平台《开发部署规划》5.3 节）。
+- **契约快照**：main 流水线导出 `swagger.json` 契约快照归档分发；生产环境关闭 Swagger/ReDoc 在线文档，对外只发快照（见平台《项目规划说明》「API 设计规范」节"API 设计规范"）。
+- 本地开发入口：`http://localhost:8000/docs`（见平台《开发部署规划》「前端开发运行」节 节）。
 
 导出契约快照（本地起服务后执行）：
 
@@ -65,7 +65,7 @@ Invoke-WebRequest -Uri http://localhost:8000/openapi.json -OutFile swagger.json
 
 ## 5. 常见问题与注意事项 <a id="pitfalls"></a>
 
-- **生产环境必须关闭**：`docs_url=None, redoc_url=None` 关掉在线文档，避免泄露接口结构与内部字段；对外契约只发 CI 导出的快照（平台《项目规划说明》8 节已明确）。
+- **生产环境必须关闭**：`docs_url=None, redoc_url=None` 关掉在线文档，避免泄露接口结构与内部字段；对外契约只发 CI 导出的快照（平台《项目规划说明》「API 设计规范」节已明确）。
 - **文档不是契约的唯一事实源**：在线文档随部署环境走，跨团队对接以 main 流水线的 `swagger.json` 快照为基线，避免"你环境和我环境文档不一样"。
 - **接口多了渲染变慢**：本项目接口量大时 `/docs` 首次加载会慢，属正常现象；用 tags 分组折叠缓解，不要为此拆服务。
 - **中文描述要写全**：`summary`、`description`、Pydantic 字段 `description` 用中文写清楚，验收时读文档的人（含外部对接方）全靠它。
@@ -89,10 +89,10 @@ Invoke-WebRequest -Uri http://localhost:8000/openapi.json -OutFile swagger.json
 
 | 文档 | 说明 |
 | --- | --- |
-| 平台《架构设计 · 总体架构》6.3 节 | 工程化与质量技术栈（API 文档：Swagger UI / ReDoc 条目） |
-| 平台《项目规划说明》3.3 节 | 选型说明：FastAPI 自动生成，接口联调与验收依据 |
-| 平台《项目规划说明》8 节 | API 设计规范：生产关闭在线文档、契约快照分发 |
-| 平台《开发部署规划》5.3 节 | 本地接口调试入口 `http://localhost:8000/docs` |
+| 平台《架构设计 · 总体架构》「技术栈全景 · 工程化与质量」节 节 | 工程化与质量技术栈（API 文档：Swagger UI / ReDoc 条目） |
+| 平台《项目规划说明》「工程化与质量」节 | 选型说明：FastAPI 自动生成，接口联调与验收依据 |
+| 平台《项目规划说明》「API 设计规范」节 | API 设计规范：生产关闭在线文档、契约快照分发 |
+| 平台《开发部署规划》「前端开发运行」节 节 | 本地接口调试入口 `http://localhost:8000/docs` |
 | 《[FastAPI 技术介绍](../后端核心/FastAPI技术介绍.md)》 | OpenAPI schema 的产出方与三个内置端点 |
 | 《[API 接口规范](../../../规范/API接口规范.md)》 | 统一响应、错误码约定，与文档声明保持一致 |
 | 《[TypeScript 技术介绍](../前端/TypeScript技术介绍.md)》 | 前端类型与契约快照（swagger.json）的对应关系 |

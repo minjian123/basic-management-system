@@ -13,9 +13,9 @@
 **Docker Compose** 是配套的多容器编排工具：用一个 YAML 文件声明全部服务
 （backend、redis、数据库等），一条命令 `docker compose up -d` 全部拉起。
 
-- **定位**：本项目的容器化底座，保证开发与生产环境一致（平台《架构设计 · 总体架构》6.4 节）。
+- **定位**：本项目的容器化底座，保证开发与生产环境一致（平台《架构设计 · 总体架构》「技术栈全景 · 部署与运维」节 节）。
 - **版本**：Engine 为 2x.x 系列（持续更新，装最新稳定版即可）；Compose v2 用 Go 重写，已内置到 `docker compose` 命令行。
-- **许可**：Apache-2.0，免费开源、无商用订阅（平台《项目规划说明》2.5 节）。
+- **许可**：Apache-2.0，免费开源、无商用订阅（平台《项目规划说明》「开源与许可协议」节）。
 - **落地形态**：mjbk 为 Ubuntu 24.04.4，apt 清华 docker-ce 源直装；本地开发机用 Windows 容器方案，命令与行为与 Linux 一致。
 
 ## 2. 核心概念与原理 <a id="principles"></a>
@@ -37,12 +37,12 @@
 
 ## 3. 在本项目中的用途 <a id="usage"></a>
 
-- **一键编排**：backend（多副本）+ celery-worker + celery-beat + event-worker + frontend（nginx）+ redis + rocketmq（nameserver + broker）+ elasticsearch + minio + 数据库 + 监控全家桶，全部由 Compose 拉起（平台《项目规划说明》19.3 节）。
-- **开发生产一致**：本地与 mjbk 共用同一套 Compose 编排文件；开发期依赖（Redis / RocketMQ / ES / MinIO）本地不装原生服务，统一容器提供（平台《项目规划说明》3.4 节）。
+- **一键编排**：backend（多副本）+ celery-worker + celery-beat + event-worker + frontend（nginx）+ redis + rocketmq（nameserver + broker）+ elasticsearch + minio + 数据库 + 监控全家桶，全部由 Compose 拉起（平台《项目规划说明》「基础设施编排」节）。
+- **开发生产一致**：本地与 mjbk 共用同一套 Compose 编排文件；开发期依赖（Redis / RocketMQ / ES / MinIO）本地不装原生服务，统一容器提供（平台《项目规划说明》「部署与运维」节）。
 - **gitlab-runner 容器化**：runner 以容器方式运行，挂载 docker.sock、executor=docker，开发环境并发上限 2（见《[GitLab 技术介绍](GitLab技术介绍.md)》）。
 - **阶段十五 AI**：Milvus（含 etcd，MinIO 复用）随 AI 阶段一并加入 Compose（见《[Milvus 技术介绍](../后端核心/Milvus技术介绍.md)》《[etcd 技术介绍](etcd技术介绍.md)》）。
 - **安装方式**：mjbk 为 Ubuntu 24.04.4，apt 清华 docker-ce 源直装 Docker Engine，systemd 开机自启（见《[DockerEngine 部署使用说明](?../../开发服务器/linux/DockerEngine部署使用说明.md》）。
-- **数据落盘**：IO 敏感数据（数据库 / ES / MinIO / 镜像）走 NVMe SSD 命名卷，备份与读多写少数据走 HDD（平台《开发部署规划》4.2 节）。
+- **数据落盘**：IO 敏感数据（数据库 / ES / MinIO / 镜像）走 NVMe SSD 命名卷，备份与读多写少数据走 HDD（平台《开发部署规划》「磁盘规划」节 节）。
 
 ## 4. 选型对比 <a id="compare"></a>
 
@@ -51,7 +51,7 @@
 | **Docker Engine + Compose（选中）** | 优点：工业标准、生态最全、Compose 一键编排、团队上手成本低；缺点：守护进程单点（mjbk 常开，可接受） | 开发 / CI / 生产全链路统一，MVP 阶段最优解 |
 | Podman | 优点：无守护进程、兼容 docker 命令；缺点：生态与工具链略弱，Compose 支持靠 podman-compose 拼装 | 备选，本项目无特殊诉求不引入 |
 | containerd + nerdctl | 优点：更底层更精简；缺点：需自行拼装编排与工具链，学习成本高 | 不适合团队当前规模 |
-| Kubernetes | 优点：编排能力强、自愈与扩缩；缺点：组件多、运维重，MVP 规模用不上 | 《项目规划说明》24 节明确 MVP 用 Compose，规模增长后按演进路线再迁移 |
+| Kubernetes | 优点：编排能力强、自愈与扩缩；缺点：组件多、运维重，MVP 规模用不上 | 《项目规划说明》「AI 辅助开发与交付治理」节明确 MVP 用 Compose，规模增长后按演进路线再迁移 |
 | Rancher Desktop（Windows/WSL2） | 优点：Windows 本地友好；缺点：mjbk 已换装 Ubuntu，生产侧不适用 | 仅本地开发机备选，不作为项目方案 |
 
 ## 5. 常见问题与注意事项 <a id="pitfalls"></a>
@@ -79,10 +79,10 @@
 
 | 文档 | 说明 |
 | --- | --- |
-| 平台《架构设计 · 总体架构》6.4 节 | 部署与运维技术栈（Docker 条目） |
-| 平台《项目规划说明》3.4 节 | 选型说明：开发生产一致、一键编排 |
-| 平台《项目规划说明》19.3 节 | 基础设施编排：初版 Compose 服务清单 |
-| 平台《开发部署规划》4.1 节 | mjbk 基础环境：清华 docker-ce 源安装实录 |
+| 平台《架构设计 · 总体架构》「技术栈全景 · 部署与运维」节 节 | 部署与运维技术栈（Docker 条目） |
+| 平台《项目规划说明》「部署与运维」节 | 选型说明：开发生产一致、一键编排 |
+| 平台《项目规划说明》「基础设施编排」节 | 基础设施编排：初版 Compose 服务清单 |
+| 平台《开发部署规划》「基础环境准备」节 节 | mjbk 基础环境：清华 docker-ce 源安装实录 |
 | 《[DockerEngine 部署使用说明](?../../开发服务器/linux/DockerEngine部署使用说明.md》 | mjbk Docker 安装与配置内部文档 |
 | 《[GitLab 技术介绍](GitLab技术介绍.md)》 | gitlab-runner 以容器方式运行（docker.sock、executor=docker） |
 | 《[nginx 技术介绍](nginx技术介绍.md)》 | frontend 容器：静态托管与反向代理 |
