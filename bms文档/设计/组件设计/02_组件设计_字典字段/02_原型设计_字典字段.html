@@ -30,6 +30,10 @@
   .dp-cond-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 13px; font-weight: 600; }
   .dp-cond-head .danger { margin-left: auto; }
   .dp-cond-row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+  .dp-query-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+  .dp-scheme-row { display: flex; align-items: center; gap: 10px; padding: 6px 10px; border: 1px solid #eaeef2; border-radius: 6px; margin-bottom: 6px; }
+  .dp-scheme-name { color: #0969da; cursor: pointer; font-weight: 500; }
+  .dp-scheme-ops { margin-left: auto; display: flex; gap: 2px; }
   @media (max-width: 768px) { .dp-metrics { grid-template-columns: repeat(2, 1fr); } }
 </style>
 </head>
@@ -363,6 +367,11 @@
         </div>
         <el-button size="small" style="margin-top:4px" @click="addGroup">＋ 添加条件组</el-button>
 
+        <div class="dp-query-actions">
+          <el-button @click="resetAdv">重置</el-button>
+          <el-button type="primary" @click="runAdv">执行查询</el-button>
+        </div>
+
         <div class="ep-section">命中结果（前 50 条）<span class="dp-badge">共 {{ advResults.length }} 条</span><span class="dp-badge" v-if="advSelected.length">已选 {{ advSelected.length }}</span></div>
         <el-table :data="advResults.slice(0, 50)" size="small" border height="200" @selection-change="onAdvSelect">
           <el-table-column type="selection" width="40"></el-table-column>
@@ -375,18 +384,25 @@
           <el-table-column prop="stock" label="库存" width="80"></el-table-column>
         </el-table>
 
-        <div class="ep-section">查询方案（个人 / 共享）</div>
+        <div class="ep-section">查询方案（个人 / 共享 · 新增 / 修改 / 查询 / 删除）</div>
         <div class="dp-bar" style="margin-bottom:8px">
           <el-input v-model="adv.schemeName" size="small" placeholder="方案名称" style="width:170px"></el-input>
-          <el-button size="small" @click="saveScheme">保存当前为方案</el-button>
-          <el-tag v-for="s in advSchemes" :key="s.name" closable style="margin-left:4px;cursor:pointer" @click="applyScheme(s)" @close="removeScheme(s)">{{ s.name }}</el-tag>
-          <span v-if="!advSchemes.length" class="dp-hint">暂无方案</span>
+          <el-button size="small" type="primary" @click="saveScheme">{{ adv.editingName ? '保存修改' : '新增方案' }}</el-button>
+          <el-button size="small" v-if="adv.editingName" @click="cancelEditScheme">取消修改</el-button>
+          <span class="dp-hint">{{ adv.editingName ? ('正在修改：' + adv.editingName) : '把当前条件保存为新方案' }}</span>
         </div>
+        <div v-for="s in advSchemes" :key="s.name" class="dp-scheme-row">
+          <a class="dp-scheme-name" @click="applyScheme(s)">{{ s.name }}</a>
+          <span class="dp-hint">{{ s.target === 'items' ? '取项' : '筛选' }} · {{ s.provider === 'builtin' ? '通用引擎' : s.provider }}</span>
+          <span class="dp-scheme-ops">
+            <el-button size="small" text type="primary" @click="editScheme(s)">修改</el-button>
+            <el-button size="small" text type="danger" @click="deleteScheme(s)">删除</el-button>
+          </span>
+        </div>
+        <div v-if="!advSchemes.length" class="dp-hint">暂无方案</div>
 
         <template #footer>
-          <el-button @click="resetAdv">重置</el-button>
           <el-button @click="adv.visible = false">取消</el-button>
-          <el-button type="primary" @click="runAdv">执行查询</el-button>
           <el-button type="success" @click="applyAdv">应用（{{ adv.target === 'items' ? '回填' : '筛选' }}）</el-button>
         </template>
       </el-drawer>
@@ -400,6 +416,7 @@
 <script>
   var { createApp, ref, reactive, computed, watch, onMounted } = Vue;
   var ElMessage = ElementPlus.ElMessage;
+  var ElMessageBox = ElementPlus.ElMessageBox;
 
   var REGION_TREE = [
     { value: '110000', label: '北京市', children: [
@@ -625,7 +642,7 @@
       function newGroup() { return { id: ++uid, logic: 'AND', conditions: [newCond()] }; }
       var adv = reactive({
         visible: false, target: 'items', provider: 'builtin', providerParam: '',
-        groupLogic: 'AND', schemeName: '', groups: [newGroup()]
+        groupLogic: 'AND', schemeName: '', editingName: null, groups: [newGroup()]
       });
       var advSchemes = ref([]);
       var advSelected = ref([]);
@@ -687,17 +704,40 @@
       }
       function saveScheme() {
         if (!adv.schemeName) { ElMessage({ message: '请输入方案名称', type: 'error' }); return; }
-        advSchemes.value.push({
+        var payload = {
           name: adv.schemeName, target: adv.target, provider: adv.provider, providerParam: adv.providerParam,
           groupLogic: adv.groupLogic, groups: JSON.parse(JSON.stringify(adv.groups))
-        });
-        ElMessage({ message: '已保存方案：' + adv.schemeName + '（个人方案）', type: 'success' });
-        adv.schemeName = '';
+        };
+        if (adv.editingName) {
+          var idx = -1;
+          advSchemes.value.forEach(function (x, i) { if (x.name === adv.editingName) idx = i; });
+          if (idx >= 0) advSchemes.value.splice(idx, 1, payload); else advSchemes.value.push(payload);
+          ElMessage({ message: '已修改方案：' + adv.schemeName, type: 'success' });
+        } else {
+          advSchemes.value.push(payload);
+          ElMessage({ message: '已新增方案：' + adv.schemeName + '（个人方案）', type: 'success' });
+        }
+        adv.schemeName = ''; adv.editingName = null;
       }
       function applyScheme(s) {
         adv.target = s.target; adv.provider = s.provider; adv.providerParam = s.providerParam;
         adv.groupLogic = s.groupLogic; adv.groups = JSON.parse(JSON.stringify(s.groups));
         ElMessage({ message: '已应用方案：' + s.name, type: 'info' });
+      }
+      function editScheme(s) {
+        applyScheme(s);
+        adv.editingName = s.name; adv.schemeName = s.name;
+        ElMessage({ message: '修改方案：' + s.name + '，调整条件后点「保存修改」', type: 'info' });
+      }
+      function cancelEditScheme() { adv.editingName = null; adv.schemeName = ''; }
+      function deleteScheme(s) {
+        ElMessageBox.confirm('删除查询方案「' + s.name + '」？', '提示', { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' })
+          .then(function () {
+            advSchemes.value = advSchemes.value.filter(function (x) { return x !== s; });
+            if (adv.editingName === s.name) { adv.editingName = null; adv.schemeName = ''; }
+            ElMessage({ message: '已删除方案：' + s.name, type: 'success' });
+          })
+          .catch(function () {});
       }
       function removeScheme(s) { advSchemes.value = advSchemes.value.filter(function (x) { return x !== s; }); }
 
@@ -712,7 +752,7 @@
         listRows, listRequests, listMissing, listSmallHit, doBatchTranslate, doRowTranslate, resetList,
         advAttrs, advProviders, adv, advSchemes, advSelected, advFilterValues, advResults,
         opsOf, optionsOf, isEnum, onFieldChange, addCond, removeCond, addGroup, removeGroup,
-        openAdv, onAdvSelect, runAdv, resetAdv, applyAdv, saveScheme, applyScheme, removeScheme
+        openAdv, onAdvSelect, runAdv, resetAdv, applyAdv, saveScheme, applyScheme, editScheme, cancelEditScheme, deleteScheme, removeScheme
       };
     }
   });
