@@ -39,7 +39,7 @@ structlog 是本项目后端的**日志底座**，目标是「日志可被机器
 所有业务日志统一走 structlog，禁止 `print`。
 
 - **结构化 JSON 输出**：生产环境渲染为单行 JSON（每行一条），字段名 snake_case，`event` 为动作描述（`user_created`、`login_failed`），便于 Loki 逐行解析与检索（见《[日志规范](../../../规范/日志规范.md#format)》「日志格式」节）。
-- **request_id 贯穿链路**：中间件在请求入口生成 `request_id` 并 bind 到日志上下文，整条请求链路的日志都带上它，配合 Loki 跨实例聚合检索（见平台《项目规划说明》「后端核心」节「structlog」）。
+- **request_id 贯穿链路**：中间件在请求入口生成 `request_id` 并 bind 到日志上下文，整条请求链路的日志都带上它，配合 Loki 跨实例聚合检索（见平台《项目规划说明》「后端核心 · structlog」节）。
 - **与标准 logging 集成**：structlog 接管标准库 `logging`，FastAPI/SQLAlchemy/Celery 等第三方库的日志也能被统一加工，不影响它们原有输出（见平台《架构设计 23 可观测性》「结构化日志」节）。
 - **关联 OpenTelemetry trace_id**：`trace_id` 与 structlog 的 `request_id` 关联，日志可与 Jaeger 链路互查，随 Grafana 统一可视化（见《[OpenTelemetry 技术介绍](OpenTelemetry技术介绍.md)》）。
 - **脱敏**：密码、token、密钥、PII 经脱敏处理器过滤后才落日志，不落原始值（见《[日志规范](../../../规范/日志规范.md#mask)》「脱敏要求」节）。

@@ -90,7 +90,7 @@ function getDisplayName(user: User): string {
 
 | 文档 | 说明 |
 | --- | --- |
-| 平台《架构设计 · 总体架构》「技术栈全景 · 前端」节 节 | 前端技术栈（TypeScript 条目） |
+| 平台《架构设计 · 总体架构》「技术栈全景 · 前端」节 | 前端技术栈（TypeScript 条目） |
 | 平台《项目规划说明》「前端」节 | 契约一致目标：openapi-typescript 自动生成类型 |
 | 《[前端开发规范](../../../规范/前端开发规范.md)》 | TS 写法约定与严格模式要求 |
 | 《[FastAPI 技术介绍](../后端核心/FastAPI技术介绍.md)》 | OpenAPI schema 的产出方（Swagger 文档） |

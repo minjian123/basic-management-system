@@ -36,7 +36,7 @@
 
 ## 3. 在本项目中的用途
 
-- PC 管理端（frontend）与移动端 H5（frontend-mobile）**双工程同用 Vue 3**，分别配合 Element Plus 与 Vant 组件库，复用同一套后端 API 与会话体系（见平台《架构设计 · 总体架构》「技术栈全景 · 前端」节 节）。
+- PC 管理端（frontend）与移动端 H5（frontend-mobile）**双工程同用 Vue 3**，分别配合 Element Plus 与 Vant 组件库，复用同一套后端 API 与会话体系（见平台《架构设计 · 总体架构》「技术栈全景 · 前端」节）。
 - **组合式 API 适合中后台业务**：按业务切片组织代码，配合 TypeScript 类型化 props/emits，团队协作与长期维护成本低（见平台《项目规划说明》「前端」节）。
 - 与 [Vite](Vite技术介绍.md)（构建）、[TypeScript](TypeScript技术介绍.md)（类型）、[Vue Router](VueRouter技术介绍.md)（路由）、[Pinia](Pinia技术介绍.md)（状态）、[Element Plus](ElementPlus技术介绍.md)（PC 组件）组成完整技术栈。
 - 前端工程目录（frontend/src/）按 vue 惯例组织：views（页面）、layouts（布局）、components（组件）、stores（Pinia）、router（动态路由）、api（接口）、i18n（文案），见平台《项目规划说明》「项目目录结构」节。
@@ -92,7 +92,7 @@ function add() { count.value++ }
 
 | 文档 | 说明 |
 | --- | --- |
-| 平台《架构设计 · 总体架构》「技术栈全景 · 前端」节 节 | 前端技术栈选型（Vue 3 条目） |
+| 平台《架构设计 · 总体架构》「技术栈全景 · 前端」节 | 前端技术栈选型（Vue 3 条目） |
 | 平台《项目规划说明》「前端」节 | 前端选型理由（组合式 API、双工程） |
 | 平台《项目规划说明》「项目目录结构」节 | frontend / frontend-mobile 目录结构 |
 | 《[前端开发规范](../../../规范/前端开发规范.md)》 | 编码风格与工程约束（与 Vue 3 写法相关） |

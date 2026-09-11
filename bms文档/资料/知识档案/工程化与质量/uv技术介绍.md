@@ -35,7 +35,7 @@ Python 包管理器与虚拟环境管理工具，用 Rust 编写，安装依赖�
 
 ## 3. 在本项目中的用途 <a id="usage"></a>
 
-- 作为平台《架构设计 · 总体架构》「技术栈全景 · 工程化与质量」节 节指定的 Python 包管理工具，替代 pip + venv 传统组合。
+- 作为平台《架构设计 · 总体架构》「技术栈全景 · 工程化与质量」节指定的 Python 包管理工具，替代 pip + venv 传统组合。
 - pyproject.toml 集中声明依赖与工具配置：依赖写在 `dependencies` 段，ruff、pyright、pytest 等工具的配置全部收进各自 `[tool.*]` 段（见《[ruff 技术介绍](ruff技术介绍.md)》《[pyright 技术介绍](pyright技术介绍.md)》《[pytest 技术介绍](pytest技术介绍.md)》）。
 - uv.lock 锁定依赖版本（选型依据见平台《项目规划说明》「工程化与质量」节）：本地与 CI 安装结果一致，FastAPI 等快速迭代的框架升级前先跑全量测试。
 - 日常命令（Windows PowerShell 与 Linux 通用）：
@@ -83,7 +83,7 @@ uv run pyright               # 在项目环境中跑类型检查
 
 | 文档 | 说明 |
 | --- | --- |
-| 平台《架构设计 · 总体架构》「技术栈全景 · 工程化与质量」节 节 | 技术栈：Python 包管理 = uv |
+| 平台《架构设计 · 总体架构》「技术栈全景 · 工程化与质量」节 | 技术栈：Python 包管理 = uv |
 | 平台《项目规划说明》「工程化与质量」节 | 选型说明：uv 一体化管理依赖与虚拟环境 |
 | 《[ruff 技术介绍](ruff技术介绍.md)》 | 同厂工具，其配置即写在 pyproject.toml 的 [tool.ruff] |
 | 《[pyright 技术介绍](pyright技术介绍.md)》 | 类型检查，配置同样收进 pyproject.toml |
