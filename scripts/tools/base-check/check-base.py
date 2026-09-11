@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """基座完整性校验（bms 权威源侧，CI 与本地运行）。
 
-校验四项：
+校验五项：
   1. 全库 `bms文档/` 相对链接自洽：断链 0、失效锚点 0（跳过行内代码与外部链接）；
   2. 基座文件不含跨层相对链接（指向平台专属 `bms文档/规划`、`bms文档/项目`、`bms文档/设计`）；
   3. 基座文件不含项目专属措辞残留（`BMS 项目`、`在 BMS`、`本项目项目`）；
-  4. 《基座文档清单》与磁盘一致：清单登记的基座文件均存在，且数量与扫描结果一致。
+  4. 《基座文档清单》与磁盘一致：清单登记的基座文件均存在，且数量与扫描结果一致；
+  5. 跨文档引用不得只写编号：指向另一份文档的引用应写章节名（编号随目标文档重排会静默错指）；
+     同文档内引用不受限（同一文件内编号与标题同步修改）。
 
 任一项不通过则退出码 1。工作区模型下基座不再向产品仓库复制/同步，产品侧以符号链接引用基座。
 """
@@ -140,11 +142,38 @@ def check_manifest():
     print(f"4. 清单一致：登记 {len(entries)} 个，磁盘 {disk} 个，缺失 {len(missing)} 个")
 
 
+def check_section_refs():
+    """跨文档引用若只写编号（第 N 节 / N.M 节 / N 章）即报警。"""
+    # 必须有“节/章”字样才判定，避免命中「《X》2026 版」这类非引用文本
+    REF_RE = re.compile(r'《(.+?)》[）)，、\s]*(?:第\s*\d+(?:\.\d+)?\s*[章节]|\d+(?:\.\d+)?\s*[章节])')
+    n = 0
+    for dp, dns, fs in os.walk(os.path.join(ROOT, "bms文档")):
+        dns[:] = [d for d in dns if d not in {".git", "graphify-out"}]
+        for f in fs:
+            if not f.endswith(".md"):
+                continue
+            p = os.path.join(dp, f)
+            rel = os.path.relpath(p, ROOT)
+            stem = f[:-3]
+            for i, line in enumerate(open(p, encoding="utf-8", errors="ignore"), 1):
+                for m in REF_RE.finditer(strip_code(line)):
+                    raw = m.group(1)
+                    name = raw.split("]")[0].lstrip("[") if "]" in raw else raw
+                    name = name.strip()
+                    # 同文档内自引不受限（编号与标题在同一文件内同步修改）
+                    if name == stem or name.replace(" ", "") == stem or stem in name or name in stem:
+                        continue
+                    problems.append(f"[编号引用] {rel}:{i} -> {m.group(0)[:60]}（跨文档引用请写章节名）")
+                    n += 1
+    print(f"5. 跨文档编号引用：{n} 处（应为 0，跨文档引用优先写章节名）")
+
+
 def main():
     check_links()
     check_cross_layer()
     check_wording()
     check_manifest()
+    check_section_refs()
     if problems:
         print(f"\n[base-integrity] 不通过：{len(problems)} 项")
         for p in problems[:50]:
@@ -152,7 +181,7 @@ def main():
         if len(problems) > 50:
             print(f"  ... 其余 {len(problems) - 50} 项")
         sys.exit(1)
-    print("\n[base-integrity] 通过：基座链接自洽、无跨层引用、无措辞残留、清单与磁盘一致。")
+    print("\n[base-integrity] 通过：基座链接自洽、无跨层引用、无措辞残留、清单与磁盘一致、跨文档引用均写章节名。")
 
 
 if __name__ == "__main__":

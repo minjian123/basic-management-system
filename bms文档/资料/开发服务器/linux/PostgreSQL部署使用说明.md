@@ -38,7 +38,7 @@ cd ~/deploy
 docker compose -f compose/base.yml --env-file .env up -d postgres
 ```
 
-> 同样必须带 `--env-file .env`（见《[MySQL部署使用说明](MySQL部署使用说明.md)》第 3 节坑点）。
+> 同样必须带 `--env-file .env`（见《[MySQL部署使用说明](MySQL部署使用说明.md)》「部署步骤」节坑点）。
 
 ## 4. 验证 <a id="verify"></a>
 

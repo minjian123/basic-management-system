@@ -53,7 +53,7 @@ vaInitialize failed: unknown libva error
 - 用 `--ozone-platform=x11` 回退 XWayland**仍然崩溃**（试图切 X11 后 GPU 进程依然 SIGSEGV），说明问题不在 Wayland 本身，而在 GPU 进程初始化；
 - 用 `--disable-gpu`（彻底禁用 GPU 进程，走软件渲染）后**不再崩溃**，主进程稳定、服务就绪、窗口正常。
 
-> **关键**：本结论与《[中文输入法部署使用说明](中文输入法部署使用说明.md)》第 7.4 节中"不要用 `ELECTRON_OZONE_PLATFORM_HINT=x11` 回退"的提醒是两条不同的线——那条针对的是**输入法候选窗**，本条针对的是**窗口能否渲染**。用 `--disable-gpu` 解决渲染问题，不会影响 kimpanel 候选窗跟随光标。
+> **关键**：本结论与《[中文输入法部署使用说明](中文输入法部署使用说明.md)》「候选窗不跟随光标」节中"不要用 `ELECTRON_OZONE_PLATFORM_HINT=x11` 回退"的提醒是两条不同的线——那条针对的是**输入法候选窗**，本条针对的是**窗口能否渲染**。用 `--disable-gpu` 解决渲染问题，不会影响 kimpanel 候选窗跟随光标。
 
 ### 2.4 为什么弃用 snap <a id="why-not-snap"></a>
 
