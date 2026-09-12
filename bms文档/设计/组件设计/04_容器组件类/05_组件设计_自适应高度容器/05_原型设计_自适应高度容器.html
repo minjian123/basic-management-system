@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 自适应高度容器（AutoHeight）</title>
+<link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-code { font-family:Consolas,"Cascadia Mono",monospace; color:#57606a; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+  .wrap { height:220px; border:1px solid #d0d7de; border-radius:8px; display:flex; flex-direction:column; overflow:hidden; }
+  .hd { height:44px; display:flex; align-items:center; padding:0 12px; border-bottom:1px solid #eaeef2; font-size:13px; }
+  .tool { height:36px; display:flex; align-items:center; padding:0 12px; border-bottom:1px solid #eaeef2; background:#fafbfc; font-size:12px; color:#57606a; }
+  .auto { flex:1; overflow:auto; padding:12px; background:#f6f8fa; font-size:13px; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="05_组件设计_自适应高度容器.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 自适应高度容器 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="05_组件设计_自适应高度容器.md">《组件设计 · 自适应高度容器》</a>：演示内容区自动占满父容器剩余空间（减头部/工具栏）、窗口缩放重算与内部滚动；继承 02 基础组件类 L2-04。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-bar"><el-checkbox v-model="scroll" size="small">内部滚动</el-checkbox><span class="dp-hint">缩放窗口观察内容区高度变化</span></div>
+
+      <div class="wrap">
+        <div class="hd">头部（固定高度）</div>
+        <div class="tool">工具栏（固定高度，offset 扣除）</div>
+        <div class="auto" :style="{overflow: scroll ? 'auto':'hidden'}">
+          内容区高度 = 父容器可用高度 − offset（头部+工具栏）<br><br>
+          <div v-for="n in 20" :key="n">行 {{ n }}</div>
+        </div>
+      </div>
+
+      <div class="dp-state" style="margin-top:12px">scroll={{ scroll }}　容器高度=父剩余空间；min/max 可限制；ResizeObserver/窗口 resize 重算（去抖）
+说明：初始 0 高度与异步内容需重新计算；嵌套自适应注意循环触发；移动端用动态视口高度（dvh）避免地址栏抖动。</div>
+    </div>
+  </div>
+</div>
+
+<script src="../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref } = Vue;
+  var app = createApp({ setup: function () { var scroll=ref(true); return { scroll:scroll }; }});
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>

@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 宽高比容器（AspectRatio）</title>
+<link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-code { font-family:Consolas,"Cascadia Mono",monospace; color:#57606a; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+  .ar { background:#eaeef2; border-radius:8px; overflow:hidden; display:flex; align-items:center; justify-content:center; color:#b1b8bf; font-size:12px; width:320px; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="09_组件设计_宽高比容器.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 宽高比容器 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="09_组件设计_宽高比容器.md">《组件设计 · 宽高比容器》</a>：演示固定宽高比（16:9 / 4:3 / 1:1）、占位防抖动与内容填充；继承 02 基础组件类 L2-04，复用 L2-06 媒体能力。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-bar">
+        <el-radio-group v-model="ratio" size="small"><el-radio-button label="16/9">16:9</el-radio-button><el-radio-button label="4/3">4:3</el-radio-button><el-radio-button label="1/1">1:1</el-radio-button></el-radio-group>
+        <el-radio-group v-model="fit" size="small"><el-radio-button label="cover">cover</el-radio-button><el-radio-button label="contain">contain</el-radio-button></el-radio-group>
+      </div>
+
+      <div class="ar" :style="{aspectRatio: ratio}">
+        <span>宽高比容器 {{ ratio }}（{{ fit }}）<br>加载前后占位，布局稳定不抖动</span>
+      </div>
+
+      <div class="dp-state" style="margin-top:12px">ratio={{ ratio }}　fit={{ fit }}
+说明：用 CSS aspect-ratio（旧浏览器降级 padding-top 技巧）；图片/视频/地图/二维码均可放入；
+占位背景/圆角只消费令牌；媒体加载状态机见 02 L2-06 媒体组件基类；文件预览见 07 展示类 08、二维码见 07 展示类 13。</div>
+    </div>
+  </div>
+</div>
+
+<script src="../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref } = Vue;
+  var app = createApp({ setup: function () { var ratio=ref('16/9'), fit=ref('cover'); return { ratio:ratio, fit:fit }; }});
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>
