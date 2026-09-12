@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 审计差异查看（AuditDiffViewer / DiffTable / FieldDiff / ChainVerifyPanel / useAuditDiff）</title>
+<link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-code { font-family:Consolas,"Cascadia Mono",monospace; color:#57606a; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+  .fd-row { display:grid; grid-template-columns:160px 1fr 1fr; gap:10px; padding:8px 0; border-bottom:1px solid #f2f3f5; align-items:start; font-size:13px; }
+  .fd-row .fk { color:#57606a; }
+  .fd-old { color:#cf222e; background:#fff5f5; border-radius:4px; padding:2px 6px; word-break:break-all; }
+  .fd-new { color:#1a7f37; background:#f0fff4; border-radius:4px; padding:2px 6px; word-break:break-all; }
+  .fd-row.changed .fk { font-weight:600; }
+  .hash { font-family:Consolas,monospace; font-size:11px; color:#57606a; }
+  .tampered { background:#fff5f5; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="09_组件设计_审计差异查看.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 审计差异查看 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="09_组件设计_审计差异查看.md">《组件设计 · 审计差异查看》</a>：演示 <b>DiffTable</b> 变更列表与时间范围（分片键）筛选、
+    <b>FieldDiff</b> 字段级旧值→新值差异与类型感知/脱敏渲染、<b>ChainVerifyPanel</b> 链字段展示与校验结果、篡改记录定位。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <!-- 筛选 -->
+      <div class="dp-bar">
+        <el-select v-model="fTable" size="small" style="width:150px" clearable placeholder="表名">
+          <el-option label="sys_user" value="sys_user" /><el-option label="sys_dept" value="sys_dept" /><el-option label="sys_role" value="sys_role" />
+        </el-select>
+        <el-input v-model="fRecord" size="small" placeholder="记录 ID" style="width:120px" />
+        <el-input v-model="fOperator" size="small" placeholder="操作人 ID" style="width:120px" />
+        <el-date-picker v-model="range" type="daterange" size="small" range-separator="~" start-placeholder="开始" end-placeholder="结束" style="width:260px" />
+        <el-button size="small" type="primary" @click="query">查询</el-button>
+        <span class="dp-hint">时间范围（分片键）必填，缺失拒绝执行（91002）</span>
+      </div>
+
+      <!-- 列表 -->
+      <el-table :data="rows" size="small" border style="max-width:860px" :row-class-name="rowClass">
+        <el-table-column prop="table_name" label="表名" width="130" />
+        <el-table-column prop="record_id" label="记录 ID" width="100" />
+        <el-table-column prop="field_count" label="变更字段数" width="100" />
+        <el-table-column prop="operator" label="操作人" width="100" />
+        <el-table-column prop="created_at" label="时间" width="160" />
+        <el-table-column label="链状态" width="110">
+          <template #default="{ row }">
+            <el-tag size="small" :type="row.chain==='normal'?'success':(row.chain==='tampered'?'danger':'info')">
+              {{ row.chain==='normal'?'正常':(row.chain==='tampered'?'篡改':'未校验') }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="100">
+          <template #default="{ row }"><el-button size="small" text type="primary" @click="openDetail(row)">查看差异</el-button></template>
+        </el-table-column>
+      </el-table>
+      <div class="dp-hint" style="margin-top:8px">分页 / 大数据量游标分页兜底（last_id + 排序键）</div>
+
+      <div class="dp-state" style="margin-top:12px">{{ log }}</div>
+    </div>
+
+    <!-- 详情差异 -->
+    <el-drawer v-model="detailVisible" title="变更差异" size="620px">
+      <template v-if="detail">
+        <div class="dp-bar">
+          <span>表 <b>{{ detail.table_name }}</b> · 记录 <b>{{ detail.record_id }}</b> · 操作人 {{ detail.operator }} · {{ detail.created_at }}</span>
+        </div>
+        <div class="fd-row" style="font-weight:600;color:#8c959f">
+          <div>字段</div><div>变更前</div><div>变更后</div>
+        </div>
+        <div v-for="f in detail.fields" :key="f.field" class="fd-row" :class="{ changed: true }">
+          <div class="fk">{{ f.field }}</div>
+          <div><span class="fd-old">{{ renderVal(f.old, f.kind) }}</span></div>
+          <div><span class="fd-new">{{ renderVal(f.new, f.kind) }}</span></div>
+        </div>
+        <div class="dp-hint" style="margin-top:8px">类型感知渲染：文本/数字/日期/布尔/JSON/富文本/字典；敏感字段后端脱敏展示 ***</div>
+
+        <!-- 链字段与校验 -->
+        <el-divider content-position="left">链字段与校验</el-divider>
+        <div class="dp-bar" style="flex-direction:column;align-items:stretch">
+          <div><span class="dp-hint">prev_hash：</span><span class="hash">{{ detail.prev_hash.slice(0,16) }}…</span> <el-button size="small" text @click="copy(detail.prev_hash)">复制全文</el-button></div>
+          <div><span class="dp-hint">record_hash：</span><span class="hash">{{ detail.record_hash.slice(0,16) }}…</span> <el-button size="small" text @click="copy(detail.record_hash)">复制全文</el-button></div>
+        </div>
+        <div class="dp-bar">
+          <el-button size="small" :loading="verifying" @click="verifyChain">触发链校验</el-button>
+          <span v-if="verifyResult" :style="{ color: verifyResult.ok ? '#1a7f37' : '#cf222e', fontSize:'12px' }">{{ verifyResult.text }}</span>
+        </div>
+        <div v-if="verifyResult && !verifyResult.ok" style="margin-top:6px">
+          <div class="dp-hint">篡改记录定位：</div>
+          <div v-for="t in verifyResult.tampered" :key="t.id" class="fd-row tampered" style="grid-template-columns:1fr 2fr">
+            <div class="fd-code">#{{ t.id }} · {{ t.time }}</div>
+            <div>{{ t.reason }} <el-button size="small" text type="primary" @click="locate(t)">定位到列表</el-button></div>
+          </div>
+        </div>
+      </template>
+    </el-drawer>
+  </div>
+</div>
+
+<script src="../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref } = Vue;
+  var ElMessage = ElementPlus.ElMessage;
+
+  var app = createApp({
+    setup: function () {
+      var fTable = ref('sys_user');
+      var fRecord = ref('1001');
+      var fOperator = ref('');
+      var range = ref([new Date(Date.now() - 30 * 864e5), new Date()]);
+      var rows = ref([
+        { id: 'a1', table_name: 'sys_user', record_id: '1001', field_count: 4, operator: '2001', created_at: '2026-09-01 10:20:31', chain: 'normal' },
+        { id: 'a2', table_name: 'sys_user', record_id: '1002', field_count: 2, operator: '2001', created_at: '2026-09-01 10:22:05', chain: 'tampered' },
+        { id: 'a3', table_name: 'sys_dept', record_id: '3005', field_count: 1, operator: '2002', created_at: '2026-09-02 09:10:00', chain: 'normal' }
+      ]);
+      var detail = ref(null);
+      var detailVisible = ref(false);
+      var verifying = ref(false);
+      var verifyResult = ref(null);
+      var log = ref('筛选（时间范围必填）→ 查询变更列表 → 查看字段级差异与链字段');
+
+      function rowClass(o) { return o.row.chain === 'tampered' ? 'tampered' : ''; }
+      function query() {
+        if (!range.value || !range.value[0]) { ElMessage.error('91002 请先选择时间范围（分片键）'); return; }
+        log.value = 'GET /audit/data-changes?table=' + fTable.value + '&record_id=' + fRecord.value + '&time[...]（按月分片路由）';
+        ElMessage.success('查询完成');
+      }
+      function openDetail(row) {
+        detail.value = {
+          table_name: row.table_name, record_id: row.record_id, operator: row.operator, created_at: row.created_at,
+          fields: [
+            { field: 'name', old: '张三', new: '张叁', kind: 'text' },
+            { field: 'dept_id', old: '研发中心', new: '技术中心', kind: 'dict' },
+            { field: 'phone', old: '138****1234', new: '138****5678', kind: 'mask' },
+            { field: 'status', old: '启用', new: '停用', kind: 'boolean' },
+            { field: 'salary', old: '12,000.00', new: '15,000.00', kind: 'number' },
+            { field: 'profile', old: '{"level":2}', new: '{"level":3,"tags":["core"]}', kind: 'json' },
+            { field: 'remark', old: '<p>普通成员</p>', new: '<p><b>核心成员</b>，负责 A 项目</p>', kind: 'richtext' }
+          ],
+          prev_hash: '3f2a9c1b7e4d5061a8c3f9e2b5d7401c6a8e2f3b9d4c7051a2b6c8d3e9f40152',
+          record_hash: '9d4c7051a2b6c8d3e9f401523f2a9c1b7e4d5061a8c3f9e2b5d7401c6a8e2f3b'
+        };
+        detailVisible.value = true; verifyResult.value = null;
+        log.value = 'GET /audit/data-changes/{id} → 字段级旧值/新值 + 链字段 prev_hash/record_hash';
+      }
+      function renderVal(v, kind) {
+        if (kind === 'richtext') return String(v).replace(/<[^>]+>/g, ''); // 摘要/清洗后展示
+        return v; // mask 值后端已脱敏，直接展示
+      }
+      function copy(h) { try { navigator.clipboard && navigator.clipboard.writeText(h); } catch (e) {} ElMessage.success('已复制'); }
+      function verifyChain() {
+        verifying.value = true; verifyResult.value = null;
+        log.value = 'GET /audit/chain/verify（log:manage）→ 逐条重算 record_hash/prev_hash 比对';
+        setTimeout(function () {
+          verifying.value = false;
+          verifyResult.value = { ok: false, text: '91001 链校验不通过：存在被篡改记录', tampered: [{ id: 'a2', time: '2026-09-01 10:22:05', reason: 'record_hash 重算不一致（疑似篡改）' }] };
+          rows.value.forEach(function (r) { if (r.id === 'a2') r.chain = 'tampered'; });
+        }, 900);
+      }
+      function locate(t) { detailVisible.value = false; log.value = '定位到变更记录 #' + t.id + '（列表高亮）'; ElMessage.info('已定位 #' + t.id); }
+
+      return { fTable, fRecord, fOperator, range, rows, detail, detailVisible, verifying, verifyResult, log, query, openDetail, renderVal, copy, verifyChain, locate, rowClass };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>
