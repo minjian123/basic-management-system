@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 代码表达式编辑器（CodeEditor / SqlEditor / ExpressionEditor / CronEditor / CodeViewer）</title>
+<link rel="stylesheet" href="../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../原型设计/资源/vendor/prism.min.css">
+<link rel="stylesheet" href="../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .ep-section { font-weight:600; margin:18px 0 12px; padding-bottom:8px; border-bottom:1px solid #eaeef2; font-size:14px; }
+  .ep-section:first-of-type { margin-top:0; }
+  .dp-bar { display:flex; align-items:center; gap:8px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-code { font-family:Consolas,"Cascadia Mono",monospace; color:#57606a; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+  .ce { position:relative; border:1px solid #d0d7de; border-radius:6px; overflow:hidden; background:#f6f8fa; }
+  .ce-pre, .ce-ta { margin:0; padding:10px 12px; font-family:Consolas,"Cascadia Mono",monospace; font-size:13px; line-height:1.6; white-space:pre; tab-size:2; }
+  .ce-pre { height:100%; overflow:hidden; pointer-events:none; }
+  .ce-ta { position:absolute; inset:0; height:100%; width:100%; overflow:auto; background:transparent; color:transparent; caret-color:#1f2328; border:none; outline:none; resize:none; }
+  .viewer { border:1px solid #d0d7de; border-radius:6px; overflow:hidden; }
+  .viewer .vh { display:flex; justify-content:space-between; align-items:center; padding:6px 12px; background:#f6f8fa; border-bottom:1px solid #eaeef2; font-size:12px; color:#57606a; }
+  .viewer pre { margin:0; max-height:240px; overflow:auto; }
+  .chip { cursor:pointer; }
+  .result-table { margin-top:10px; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="18_组件设计_代码表达式编辑器.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 代码表达式编辑器 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="18_组件设计_代码表达式编辑器.md">《组件设计 · 代码表达式编辑器》</a>：演示 <b>SqlEditor</b> 高亮/格式化/校验/测试执行、
+    <b>ExpressionEditor</b> 变量插入与校验、<b>CronEditor</b> 段编辑与人类可读描述、<b>CodeViewer</b> 只读高亮（PrismJS，离线 vendor）。
+    真实实现内核实为 <span class="dp-code">CodeMirror 6</span>（按需懒加载），原型用 PrismJS 叠加层模拟编辑视觉。
+  </div>
+
+  <div id="app">
+    <el-tabs v-model="tab">
+      <!-- ① SQL 编辑器 -->
+      <el-tab-pane label="① SQL 编辑器" name="sql">
+        <div class="ep-page">
+          <div class="dp-bar">
+            <el-button size="small" @click="sqlFormat">格式化</el-button>
+            <el-button size="small" @click="sqlValidate">校验</el-button>
+            <el-button size="small" type="primary" :loading="sqlRunning" @click="sqlTest">测试执行（只读从库）</el-button>
+            <span class="dp-hint">仅 SELECT 白名单；校验与执行以服务端为准（90002 / 90003）</span>
+          </div>
+          <code-editor v-model="sql" language="sql" :height="200" />
+          <div v-if="sqlError" style="color:#cf222e;font-size:13px;margin-top:8px">✕ {{ sqlError }}</div>
+          <div v-if="sqlFields.length" class="result-table">
+            <div class="dp-hint" style="margin-bottom:4px">字段清单（fields 声明）</div>
+            <el-tag v-for="f in sqlFields" :key="f" size="small" style="margin:0 6px 6px 0">{{ f }}</el-tag>
+          </div>
+          <div v-if="sqlRows.length" class="result-table">
+            <div class="dp-hint" style="margin:8px 0 4px">结果预览（耗时 {{ sqlCost }}ms）</div>
+            <el-table :data="sqlRows" size="small" border>
+              <el-table-column v-for="c in sqlCols" :key="c" :prop="c" :label="c" />
+            </el-table>
+          </div>
+          <div class="dp-state" style="margin-top:12px">{{ sqlLog }}</div>
+        </div>
+      </el-tab-pane>
+
+      <!-- ② 表达式编辑器 -->
+      <el-tab-pane label="② 表达式编辑器" name="expr">
+        <div class="ep-page">
+          <div class="dp-bar">
+            <span class="dp-hint">表达式 = 字段 + 运算符 + 预置变量（数据范围 / 工作流条件同源）</span>
+            <el-button size="small" style="margin-left:auto" @click="exprValidate">校验</el-button>
+          </div>
+          <code-editor v-model="expr" language="javascript" :height="120" />
+          <div class="dp-bar" style="margin-top:12px">
+            <span class="dp-hint">预置变量：</span>
+            <el-tag v-for="v in vars" :key="v" size="small" class="chip" @click="insert(v)">{{ v }}</el-tag>
+          </div>
+          <div class="dp-bar">
+            <span class="dp-hint">字段：</span>
+            <el-tag v-for="f in fields" :key="f" size="small" type="success" class="chip" @click="insert(f)">{{ f }}</el-tag>
+          </div>
+          <div class="dp-bar">
+            <span class="dp-hint">模板：</span>
+            <el-button size="small" @click="expr='dept_id = @current_dept'">本部门</el-button>
+            <el-button size="small" @click="expr='dept_id IN @current_dept_tree'">本部门及下级</el-button>
+            <el-button size="small" @click="expr='created_by = @current_user'">本人</el-button>
+            <el-button size="small" @click="expr='tenant_id = @tenant AND status = 1'">本租户启用</el-button>
+          </div>
+          <div v-if="exprError" style="color:#cf222e;font-size:13px;margin-top:8px">✕ {{ exprError }}</div>
+          <div v-else-if="exprOk" style="color:#1a7f37;font-size:13px;margin-top:8px">✓ 表达式合法（字段/变量均存在）</div>
+          <div class="dp-state" style="margin-top:12px">{{ exprLog }}</div>
+        </div>
+      </el-tab-pane>
+
+      <!-- ③ Cron 编辑器 -->
+      <el-tab-pane label="③ Cron 编辑器" name="cron">
+        <div class="ep-page">
+          <div class="dp-bar"><span class="dp-hint">标准 5 段：分 / 时 / 日 / 月 / 周；保存时校验合法性（70002）</span></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+            <el-input v-for="(seg,i) in cronSegs" :key="i" v-model="cronSegs[i]" :label="segLabel(i)" style="width:120px">
+              <template #prepend>{{ segLabel(i) }}</template>
+            </el-input>
+          </div>
+          <div style="margin-top:12px;font-size:14px">人类可读描述：<b>{{ cronDesc }}</b></div>
+          <div class="dp-bar" style="margin-top:12px">
+            <span class="dp-hint">常用模板：</span>
+            <el-button size="small" @click="applyCron('* * * * *')">每分钟</el-button>
+            <el-button size="small" @click="applyCron('0 * * * *')">每小时整点</el-button>
+            <el-button size="small" @click="applyCron('0 0 * * *')">每天 0 点</el-button>
+            <el-button size="small" @click="applyCron('0 9 * * 1')">每周一 09:00</el-button>
+            <el-button size="small" @click="applyCron('0 2 1 * *')">每月 1 日 02:00</el-button>
+          </div>
+          <div v-if="cronError" style="color:#cf222e;font-size:13px">✕ {{ cronError }}</div>
+          <div class="dp-state" style="margin-top:12px">{{ cronLog }}</div>
+        </div>
+      </el-tab-pane>
+
+      <!-- ④ 只读代码高亮 -->
+      <el-tab-pane label="④ 只读代码高亮" name="viewer">
+        <div class="ep-page">
+          <div class="ep-section">Webhook 载荷（JSON，只读高亮）</div>
+          <code-viewer :content="jsonText" language="json" max-height="220" />
+          <div class="ep-section">任务日志（text）</div>
+          <code-viewer :content="logText" language="text" max-height="180" />
+        </div>
+      </el-tab-pane>
+    </el-tabs>
+  </div>
+</div>
+
+<script src="../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../原型设计/资源/vendor/zh-cn.js"></script>
+<script src="../../原型设计/资源/vendor/prism-core.min.js"></script>
+<script src="../../原型设计/资源/vendor/prism-clike.min.js"></script>
+<script src="../../原型设计/资源/vendor/prism-javascript.min.js"></script>
+<script src="../../原型设计/资源/vendor/prism-sql.min.js"></script>
+<script src="../../原型设计/资源/vendor/prism-json.min.js"></script>
+<script>
+  var { createApp, ref, reactive, computed, watch } = Vue;
+  var ElMessage = ElementPlus.ElMessage;
+
+  var LANG = { sql: 'sql', javascript: 'javascript', json: 'json', text: 'plaintext', expression: 'javascript' };
+  function highlight(code, language) {
+    var lang = LANG[language] || 'plaintext';
+    var grammar = (window.Prism && (Prism.languages[lang] || Prism.languages.javascript)) || null;
+    if (!grammar) return escapeHtml(code);
+    try { return Prism.highlight(code, grammar, language === 'expression' ? 'javascript' : lang); }
+    catch (e) { return escapeHtml(code); }
+  }
+  function escapeHtml(s) {
+    return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  // CodeEditor：PrismJS 叠加层模拟编辑（真实实现用 CodeMirror 6）
+  var CodeEditor = {
+    props: { modelValue: { type: String, default: '' }, language: { default: 'text' }, height: { default: 200 } },
+    emits: ['update:modelValue'],
+    computed: { html: function () { return highlight(this.modelValue, this.language); } },
+    methods: {
+      onInput: function (e) { this.$emit('update:modelValue', e.target.value); },
+      sync: function (e) { var p = this.$refs.pre; if (p) { p.scrollTop = e.target.scrollTop; p.scrollLeft = e.target.scrollLeft; } }
+    },
+    template:
+      '<div class="ce" :style="{height: (typeof height===\'number\' ? height+\'px\' : height)}">' +
+        '<pre class="ce-pre" ref="pre"><code v-html="html"></code></pre>' +
+        '<textarea class="ce-ta" :value="modelValue" spellcheck="false" @input="onInput" @scroll="sync"></textarea>' +
+      '</div>'
+  };
+
+  // CodeViewer：只读高亮
+  var CodeViewer = {
+    props: { content: { type: String, default: '' }, language: { default: 'text' }, maxHeight: { default: 240 }, copyable: { type: Boolean, default: true } },
+    computed: {
+      html: function () { return highlight(this.content, this.language); },
+      lines: function () { return String(this.content || '').split('\n').length; },
+      preStyle: function () { return { maxHeight: (typeof this.maxHeight === 'number' ? this.maxHeight + 'px' : this.maxHeight) }; }
+    },
+    methods: {
+      copy: function () { try { navigator.clipboard && navigator.clipboard.writeText(this.content); } catch (e) {} ElMessage.success('已复制'); }
+    },
+    template:
+      '<div class="viewer">' +
+        '<div class="vh"><span>{{ language }} · {{ lines }} 行</span>' +
+          '<span v-if="copyable" style="cursor:pointer;color:#0969da" @click="copy">复制</span></div>' +
+        '<pre :style="preStyle"><code v-html="html"></code></pre>' +
+      '</div>'
+  };
+
+  var app = createApp({
+    setup: function () {
+      var tab = ref('sql');
+
+      // SQL
+      var sql = ref("SELECT u.username, u.name, d.name AS dept_name, u.created_at\nFROM sys_user u\nLEFT JOIN sys_dept d ON d.id = u.dept_id\nWHERE u.status = 1 AND u.deleted_at IS NULL\nORDER BY u.created_at DESC");
+      var sqlError = ref('');
+      var sqlFields = ref(['username', 'name', 'dept_name', 'created_at']);
+      var sqlRows = ref([]);
+      var sqlCols = ref([]);
+      var sqlCost = ref(0);
+      var sqlRunning = ref(false);
+      var sqlLog = ref('点「校验」或「测试执行」；仅 SELECT 允许，非 SELECT 拒绝（90002）');
+
+      function stripLeadingComments(s) { return String(s).replace(/^\s*(--[^\n]*\n|\/\*[\s\S]*?\*\/|\s)*/g, ''); }
+      function sqlFormat() {
+        var out = sql.value
+          .replace(/\b(select|from|left join|inner join|right join|join|where|and|or|group by|order by|having|limit|as)\b/gi, function (m) { return '\n' + m.toUpperCase(); })
+          .replace(/\n{2,}/g, '\n').replace(/^\n/, '').replace(/\n(as)\b/g, ' AS');
+        sql.value = out; sqlLog.value = 'format() → 保留注释与参数，格式化后保留撤销栈';
+        ElMessage.success('已格式化');
+      }
+      function sqlValidate() {
+        sqlError.value = '';
+        var body = stripLeadingComments(sql.value).trim().toLowerCase();
+        if (!body.startsWith('select') && !body.startsWith('with')) {
+          sqlError.value = '90002 数据集 SQL 校验失败：仅允许 SELECT 语句'; sqlLog.value = '服务端校验拒绝：非 SELECT（90002）'; return;
+        }
+        if (/\b(insert|update|delete|drop|alter|truncate)\b/i.test(sql.value)) {
+          sqlError.value = '90002 检测到禁止的写操作关键字'; sqlLog.value = '服务端白名单拒绝（90002）'; return;
+        }
+        sqlLog.value = '校验通过：仅 SELECT + 参数化 + 字段声明校验（模拟）';
+        ElMessage.success('校验通过');
+      }
+      function sqlTest() {
+        sqlValidate(); if (sqlError.value) return;
+        sqlRunning.value = true; sqlLog.value = 'POST /rpt/datasets/{id}/test（只读从库，限时）…';
+        setTimeout(function () {
+          sqlRunning.value = false; sqlCost.value = 42;
+          sqlCols.value = ['username', 'name', 'dept_name', 'created_at'];
+          sqlRows.value = [
+            { username: 'zhangsan', name: '张三', dept_name: '研发中心', created_at: '2026-09-01 09:30' },
+            { username: 'lisi', name: '李四', dept_name: '财务部', created_at: '2026-09-02 10:10' }
+          ];
+          sqlLog.value = '测试执行成功：4 列 / 2 行，耗时 42ms（只读从库）';
+        }, 700);
+      }
+
+      // 表达式
+      var expr = ref('dept_id = @current_dept AND status = 1');
+      var vars = ['@current_user', '@current_dept', '@current_dept_tree', '@tenant', '@today'];
+      var fields = ['dept_id', 'status', 'amount', 'created_by', 'created_at'];
+      var exprError = ref('');
+      var exprOk = ref(false);
+      var exprLog = ref('点击变量/字段插入到表达式；点「校验」调服务端校验接口');
+      function insert(t) { expr.value = expr.value + ' ' + t; exprOk.value = false; exprError.value = ''; }
+      function exprValidate() {
+        exprError.value = ''; exprOk.value = false;
+        var s = expr.value;
+        var paren = (s.match(/\(/g) || []).length - (s.match(/\)/g) || []).length;
+        if (paren !== 0) { exprError.value = '语法错误：括号不匹配'; exprLog.value = 'POST /expressions/validate → 语法错误（括号）'; return; }
+        var used = (s.match(/@[a-z_]+/g) || []).filter(function (v, i, a) { return a.indexOf(v) === i; });
+        var bad = used.filter(function (v) { return vars.indexOf(v) < 0; });
+        if (bad.length) { exprError.value = '未知预置变量：' + bad.join('、'); exprLog.value = 'POST /expressions/validate → 变量不存在'; return; }
+        exprOk.value = true; exprLog.value = '校验通过：语法/字段/变量均合法（模拟），保存时后端二次强制校验';
+      }
+
+      // Cron
+      var cronSegs = reactive(['0', '9', '*', '*', '1']);
+      function segLabel(i) { return ['分', '时', '日', '月', '周'][i]; }
+      var cronError = ref('');
+      var cronLog = ref('每段支持 *、a-b、a,b、*/n；实时生成人类可读描述');
+      function validSeg(s, i) {
+        if (!/^(\*|(\*\/\d+)|(\d+)(-\d+)?(,\d+(-\d+)?)*)$/.test(s)) return false;
+        return true;
+      }
+      var cronDesc = computed(function () {
+        var m = cronSegs[0], h = cronSegs[1], dom = cronSegs[2], mon = cronSegs[3], dow = cronSegs[4];
+        var c = ['日', '一', '二', '三', '四', '五', '六'];
+        if (m === '*' && h === '*' && dom === '*' && mon === '*' && dow === '*') return '每分钟';
+        if (m === '0' && h === '*' && dom === '*' && dow === '*') return '每小时整点';
+        if (m === '0' && h !== '*' && h.indexOf('*') < 0 && dom === '*' && dow === '*') return '每天 ' + h.padStart(2, '0') + ':00';
+        if (m === '0' && h !== '*' && dow !== '*') return '每周' + (c[+dow] || dow) + ' ' + h.padStart(2, '0') + ':00';
+        if (m === '0' && h !== '*' && dom !== '*') return '每月 ' + dom + ' 日 ' + h.padStart(2, '0') + ':00';
+        return '自定义：' + cronSegs.join(' ');
+      });
+      cronError.value = '';
+      watch(cronSegs, function () { validateCron(); }, { deep: true });
+      function applyCron(str) {
+        var p = str.split(' '); for (var i = 0; i < 5; i++) cronSegs[i] = p[i];
+        cronLog.value = '套用模板：' + str;
+      }
+      function validateCron() {
+        for (var i = 0; i < 5; i++) { if (!validSeg(cronSegs[i], i)) { cronError.value = '70002 cron 表达式非法：' + segLabel(i) + ' 段「' + cronSegs[i] + '」'; cronLog.value = '服务端校验拒绝（70002）'; return; } }
+        cronError.value = ''; cronLog.value = 'cron 合法：' + cronSegs.join(' ') + ' → ' + cronDesc.value;
+      }
+      var stopCron = false;
+      var unwatch = null;
+
+      // 只读内容
+      var jsonText = "{\n  \"event\": \"wf.task.completed\",\n  \"tenant\": \"acme\",\n  \"data\": {\n    \"instance_id\": \"100238471\",\n    \"task_id\": \"T20260901003\",\n    \"assignee\": \"李四\",\n    \"action\": \"approve\"\n  }\n}";
+      var logText = "2026-09-01 11:05:12 INFO  engine 推进节点 财务复核 -> 总经理审批\n2026-09-01 11:05:13 WARN  provider 参考意见为空\n2026-09-01 11:05:14 INFO  notify  推送 approval.todo 给 周八\n2026-09-01 11:05:14 INFO  done    cost=42ms";
+
+      return {
+        tab, sql, sqlError, sqlFields, sqlRows, sqlCols, sqlCost, sqlRunning, sqlLog, sqlFormat, sqlValidate, sqlTest,
+        expr, vars, fields, exprError, exprOk, exprLog, insert, exprValidate,
+        cronSegs, segLabel, cronDesc, cronError, cronLog, applyCron, validateCron,
+        jsonText, logText
+      };
+    }
+  });
+  app.component('code-editor', CodeEditor);
+  app.component('code-viewer', CodeViewer);
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>
