@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 展示域基类（DisplayBase / useDisplayBase）</title>
+<title>原型 · 展示域基类（BaseDisplay / useDisplayBase）</title>
 <link rel="stylesheet" href="../../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../../原型设计/资源/原型样式.css">
 <style>
@@ -76,7 +76,7 @@
     enum: function (v) { var m = { active: '启用', disabled: '停用' }; return v == null ? null : (m[v] || v); }
   };
 
-  var DisplayBase = {
+  var BaseDisplay = {
     props: ['value', 'formatter', 'density', 'copyable', 'ellipsis'],
     template: [
       '<span style="display:inline-flex;align-items:center;gap:6px;min-width:0">',
@@ -109,7 +109,7 @@
   };
 
   var app = createApp({
-    components: { DisplayBase: DisplayBase },
+    components: { BaseDisplay: BaseDisplay },
     setup: function () {
       var density = ref('default');
       var copyable = ref(false);
