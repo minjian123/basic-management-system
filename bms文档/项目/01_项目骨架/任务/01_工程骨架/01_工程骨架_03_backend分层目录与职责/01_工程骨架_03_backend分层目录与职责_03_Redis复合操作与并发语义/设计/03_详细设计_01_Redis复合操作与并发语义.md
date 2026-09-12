@@ -103,7 +103,7 @@ async def _optimistic(self, key, mutate: Callable[[str | None], str]) -> str:
 ## 9. 边界与开放项 <a id="boundary"></a>
 
 - `get_locked` 不做自动重试（语义原因见 §4）；需要重试的调用方自行捕获 `WatchError`/`ConcurrentConflictError` 重做变换。
-- Redis Cluster 下 WATCH 的跨槽限制随部署口径（当前单实例 compose），Cluster 适配随阶段十。
+- Redis Cluster 下 WATCH 的跨槽限制随部署口径（当前单实例 compose），Cluster 适配随阶段十一。
 - 分片/大 key、压测口径沿用 01-3-2 边界。
 
 ## 10. 对齐记录 <a id="align"></a>

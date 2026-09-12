@@ -32,7 +32,7 @@
 2. `package.json` 依赖清单：vue、vue-router@4、pinia、axios、element-plus、vue-i18n、socket.io-client；dev：vite、typescript、vue-tsc、eslint + eslint-plugin-vue、prettier、vitest、@vue/test-utils、openapi-typescript；`.nvmrc` 固定 22
 3. `src/` 目录：api（http.ts Axios 实例 + types.ts 占位 + 模块.ts）、router（动态路由骨架）、stores（useUserStore 等占位）、views（默认首页）、layouts（基础壳）、components、i18n（index + zh-CN/en-US，预留错误码映射段 `error.{code}`，与后端统一响应 message 口径一致）、utils
 4. 工程配置：vite.config.ts（@ 别名、代理 `/api` → `http://localhost:8000`、`/docs` 不代理）；`.env.development`（`VITE_API_BASE=/api`）；ESLint + Prettier；`ApiResponse<T>`/`PageResponse<T>` 手写基类（openapi-typescript 生成类型随 05 域契约接入替换）
-5. Axios 基线：请求拦截器预留 Bearer token 位（仅存内存）、响应拦截器统一处理 `{code, message, data}`；401/会话失效 TODO 占位（阶段二接入）
+5. Axios 基线：请求拦截器预留 Bearer token 位（仅存内存）、响应拦截器统一处理 `{code, message, data}`；401/会话失效 TODO 占位（阶段三接入）
 
 ## 4. 完成标准 <a id="accept"></a>
 

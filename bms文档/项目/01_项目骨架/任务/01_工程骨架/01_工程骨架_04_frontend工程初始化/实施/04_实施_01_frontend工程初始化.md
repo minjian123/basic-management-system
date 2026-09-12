@@ -80,6 +80,6 @@ flowchart LR
 - Element Plus 全量引入构建告警：**已于 2026-09-10 优化为按需引入**（unplugin-vue-components + ElementPlusResolver；主包 1,064.53 kB → 147.34 kB，gzip 342.74 → 53.67 kB，告警消除）。
 - `openapi-typescript` peer 声明滞后（^5 vs 项目 TS 6）：**已评估**——该包运行时不依赖 TypeScript，`npm run gen:api` 在 TS6 下实测可用（对本地 OpenAPI 生成 396 行，42ms）；维持 `legacy-peer-deps` 并注明，待上游支持后移除。
 - 页面渲染断言当前由 Vitest mock 覆盖；真实浏览器链路（含视觉/视口）随 05-1 Playwright E2E。
-- 401 刷新、token 持久化、动态路由注入留阶段二（代码内 TODO 标注）。
+- 401 刷新、token 持久化、动态路由注入留阶段三（代码内 TODO 标注）。
 
 > 本文档依《文档生成规范》编写 · 按《任务文档规范》「实施文档（任务执行记录）」节实施文档结构组织

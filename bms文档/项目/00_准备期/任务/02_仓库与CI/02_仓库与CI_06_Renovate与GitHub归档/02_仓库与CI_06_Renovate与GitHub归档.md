@@ -19,7 +19,7 @@
 
 ## 2. 任务内容 <a id="content"></a>
 
-1. Renovate：阶段二起以容器方式编排（随 `gitlab.yml`），自动提交依赖升级 MR；安全更新优先
+1. Renovate：阶段三起以容器方式编排（随 `gitlab.yml`），自动提交依赖升级 MR；安全更新优先
 2. GitHub push mirror：GitLab 配置 push mirror，main 单向同步至 GitHub 归档仓库
 
 ## 3. 完成标准 <a id="accept"></a>

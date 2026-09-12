@@ -20,7 +20,7 @@
 
 ## 2. 测试范围与用例 <a id="scope"></a>
 
-**范围**：Python 3.14.4 下全量运行/开发依赖的安装与 import 冒烟、Celery/SpiffWorkflow 临时环境安装冒烟、dmPython 连接达梦 `SELECT 1`、锁文件复现与全量回归。不含：SQLAlchemy 三方言接入（02-5）、Celery/SpiffWorkflow 功能验收（阶段二）、free-threading 构建。
+**范围**：Python 3.14.4 下全量运行/开发依赖的安装与 import 冒烟、Celery/SpiffWorkflow 临时环境安装冒烟、dmPython 连接达梦 `SELECT 1`、锁文件复现与全量回归。不含：SQLAlchemy 三方言接入（02-5）、Celery/SpiffWorkflow 功能验收（阶段三）、free-threading 构建。
 
 | Kiwi ID | 用例 | 类型 | 执行方式 | 结果 |
 | --- | --- | --- | --- | --- |
@@ -88,7 +88,7 @@ uv run pytest --cov=app --cov-branch -q
 ## 6. 偏差与遗留 <a id="deviations"></a>
 
 - 矩阵为 2026-09-10 快照，后续以 `uv.lock` 为准；升级走 Renovate MR。
-- Celery / SpiffWorkflow 仅安装冒烟，功能验证随阶段二。
+- Celery / SpiffWorkflow 仅安装冒烟，功能验证随阶段三。
 - 达梦为连接级实测；SQLAlchemy 方言接入与同步驱动封装随 02-5（先修订架构 09/后端规范 §8）。
 - free-threading 构建未启用，启用后复跑并发微基准。
 

@@ -22,7 +22,7 @@
 1. `sys_module` 表（平台库）：module_key VARCHAR(32)（(module_key, deleted_at) 复合唯一）、name VARCHAR(64)、table_prefix VARCHAR(16)（{简称}_ 形如 pur_）、errcode_segment SMALLINT（两位段号 10 起，平台域 0 占位）、event_domain VARCHAR(32)（小写，默认与 module_key 一致）、status SMALLINT（1 启用 / 0 规划中）+ 基类字段；三要素 (字段, deleted_at) 复合唯一索引
 2. i18n 附表 `sys_module_i18n`（module_id + locale 联合主键 + name），中文名存主表、英文名入附表（en-US）
 3. 初始种子：平台域 `sys`（`sys_`）/`wf`（`wf_`）/`rpt`（`rpt_`）/`ai`（`ai_`）4 行（启用）；业务模块不预置（由产品仓库交付时随平台扩展接入登记）
-4. 注册方式：运行时无写接口；新增模块 = Alembic 迁移 revision（建表 + 注册种子）原子落地、平台库单库执行；业务码与模块简称一致（sys_business 阶段三）
+4. 注册方式：运行时无写接口；新增模块 = Alembic 迁移 revision（建表 + 注册种子）原子落地、平台库单库执行；业务码与模块简称一致（sys_business 阶段四）
 
 ## 3. 完成标准 <a id="accept"></a>
 
