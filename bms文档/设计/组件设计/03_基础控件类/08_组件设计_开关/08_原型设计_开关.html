@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 开关（SwitchInput）</title>
+<link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-code { font-family:Consolas,"Cascadia Mono",monospace; color:#57606a; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+  .row { display:flex; align-items:center; gap:12px; margin-bottom:12px; }
+  .row .lb { width:130px; font-size:13px; color:#57606a; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="08_组件设计_开关.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 开关 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="08_组件设计_开关.md">《组件设计 · 开关》</a>：演示布尔开关、启用/停用文案、三态（未设置）、加载态与危险切换确认；继承 02 基础组件类 L4-01。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-bar"><el-checkbox v-model="threeState" size="small">三态（区分未设置/关）</el-checkbox><el-checkbox v-model="dangerConfirm" size="small">危险切换需确认</el-checkbox><el-switch v-model="loading" size="small" active-text="加载态" /></div>
+
+      <div class="row"><span class="lb">启用状态</span>
+        <el-switch v-model="v" :loading="loading" active-text="启用" inactive-text="停用" :active-value="true" :inactive-value="false" @change="onSwitch" />
+        <el-button size="small" @click="v=null">置未设置</el-button>
+      </div>
+
+      <div class="dp-state">值 v = {{ JSON.stringify(v) }}（{{ v===null ? '未设置' : (v ? '启用' : '停用') }}）
+值域：前端仅布尔/null，后端 SMALLINT 1/0 由边界归一（继承链）
+三态：threeState={{ threeState }}（null 显示未设置，与 false 区分）　加载态：切换中禁重复；危险确认：停用关键配置前二次确认
+说明：列表内联切换与失败回滚见 04 字段类 08 开关与枚举字段（继承本控件）；继承链经 L4-01。</div>
+    </div>
+  </div>
+</div>
+
+<script src="../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref } = Vue;
+  var ElMessageBox = ElementPlus.ElMessageBox;
+  var app = createApp({
+    setup: function () {
+      var v = ref(true), threeState = ref(false), loading = ref(false), dangerConfirm = ref(false);
+      function onSwitch(val) {
+        if (dangerConfirm.value && val === false) {
+          ElMessageBox.confirm('停用后相关功能将不可用，确认停用？', '危险操作确认', { type: 'warning' }).catch(function () { v.value = true; });
+        }
+      }
+      return { v: v, threeState: threeState, loading: loading, dangerConfirm: dangerConfirm, onSwitch: onSwitch };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>

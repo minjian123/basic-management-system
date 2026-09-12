@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 文本域（TextareaField）</title>
+<link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-code { font-family:Consolas,"Cascadia Mono",monospace; color:#57606a; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="02_组件设计_文本域.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 文本域 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="02_组件设计_文本域.md">《组件设计 · 文本域》</a>：演示多行文本、固定行数/自适应高度、字数统计、换行保留、trim 与只读；继承 02 基础组件类 L4-01。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-bar">
+        <el-radio-group v-model="mode" size="small"><el-radio-button label="rows">固定行数</el-radio-button><el-radio-button label="auto">自适应</el-radio-button></el-radio-group>
+        <el-checkbox v-model="readonly" size="small">只读</el-checkbox>
+        <span class="dp-hint">换行会被保留；trim 仅去首尾空格</span>
+      </div>
+
+      <div style="margin-bottom:8px">备注</div>
+      <el-input v-model="text" type="textarea" :rows="mode==='rows'?3:undefined" :autosize="mode==='auto'?{minRows:3,maxRows:6}:false"
+        maxlength="200" show-word-limit :readonly="readonly" style="max-width:420px" />
+
+      <div class="dp-state" style="margin-top:12px">值 = {{ JSON.stringify(text) }}
+trim 后 = {{ JSON.stringify(text.trim()) }}　行数 = {{ text.split('\n').length }}　字数 = {{ text.length }}/200
+说明：换行符统一 \n 入库；固定行数或 autosize（min/maxRows）；空串归一 null；只读回显保留换行；
+继承链经 L4-01 输入域基类。富文本（可格式化）不在本控件，见 04 字段类 07 富文本字段。</div>
+    </div>
+  </div>
+</div>
+
+<script src="../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref } = Vue;
+  var app = createApp({
+    setup: function () {
+      var text = ref('第一行说明\n第二行说明');
+      var mode = ref('rows'), readonly = ref(false);
+      return { text: text, mode: mode, readonly: readonly };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>

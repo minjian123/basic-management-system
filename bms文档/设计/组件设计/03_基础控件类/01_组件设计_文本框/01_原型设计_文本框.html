@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 文本框（TextField）</title>
+<link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-code { font-family:Consolas,"Cascadia Mono",monospace; color:#57606a; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+  .row { display:flex; align-items:center; gap:10px; margin-bottom:12px; }
+  .row .lb { width:96px; font-size:13px; color:#57606a; }
+  .req::before { content:"*"; color:#cf222e; margin-right:2px; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="01_组件设计_文本框.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 文本框 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="01_组件设计_文本框.md">《组件设计 · 文本框》</a>：演示受控绑定、长度限制与计数、前后缀/清空、trim、正则校验、只读与三态、脱敏；文本框继承 02 基础组件类 L4-01 输入域基类。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-bar">
+        <el-checkbox v-model="readonly" size="small">只读</el-checkbox>
+        <el-checkbox v-model="disabled" size="small">禁用</el-checkbox>
+        <el-checkbox v-model="mask" size="small">脱敏（手机号）</el-checkbox>
+        <el-switch v-model="plain" size="small" active-text="data:plain 看明文" />
+      </div>
+
+      <div class="row"><span class="lb req">用户名称</span>
+        <el-input v-model="name" maxlength="20" show-word-limit clearable placeholder="请输入用户名称" :disabled="disabled" :readonly="readonly" style="width:260px" />
+      </div>
+      <div class="row"><span class="lb">编码（正则）</span>
+        <el-input v-model="code" placeholder="^[A-Z0-9_]{3,20}$" :disabled="disabled" :readonly="readonly" style="width:260px">
+          <template #prefix>#</template>
+        </el-input>
+      </div>
+      <div class="row"><span class="lb">手机号</span>
+        <el-input :model-value="mask && !plain ? masked : phone" :disabled="disabled" :readonly="readonly" style="width:260px" />
+      </div>
+
+      <div class="dp-state">值 name = {{ JSON.stringify(name) }}（trim 后：{{ JSON.stringify(name.trim()) }}）　三态 = {{ tri }}
+值 code = {{ JSON.stringify(code) }}　codePattern 校验：{{ /^[A-Z0-9_]{3,20}$/.test(code) ? '通过' : '不通过' }}
+脱敏：mask={{ mask }} / plain={{ plain }} → 显示 {{ mask && !plain ? masked : phone }}
+说明：空串归一 null；长度截断+计数；正则提交前校验（后端强制）；脱敏字段持 data:plain 看明文；
+继承链 TextField → BaseInput(L4-01) → BaseField(L3-02) → BaseValue(L3-01) → BaseInputControl(L2-02) → BaseComponent(L1b) → BaseFrontend(L0)。</div>
+    </div>
+  </div>
+</div>
+
+<script src="../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref, computed } = Vue;
+  var app = createApp({
+    setup: function () {
+      var name = ref('张三'), code = ref('USER_01'), phone = ref('13812345678');
+      var readonly = ref(false), disabled = ref(false), mask = ref(false), plain = ref(false);
+      var masked = computed(function () { return phone.value.replace(/^(\d{3})\d{4}(\d{4})$/, '$1****$2'); });
+      var tri = computed(function () { return name.value === '' || name.value === null ? 'unset/empty' : 'value'; });
+      return { name: name, code: code, phone: phone, readonly: readonly, disabled: disabled, mask: mask, plain: plain, masked: masked, tri: tri };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>

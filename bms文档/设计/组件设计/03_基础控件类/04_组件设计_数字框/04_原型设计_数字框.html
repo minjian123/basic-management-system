@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 数字框（NumberInput）</title>
+<link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-code { font-family:Consolas,"Cascadia Mono",monospace; color:#57606a; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+  .row { display:flex; align-items:center; gap:10px; margin-bottom:12px; }
+  .row .lb { width:110px; font-size:13px; color:#57606a; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="04_组件设计_数字框.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 数字框 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="04_组件设计_数字框.md">《组件设计 · 数字框》</a>：演示整数/小数、精度、上下限、步进、千分位显示与空值三态（<span class="dp-code">null</span> 与 <span class="dp-code">0</span> 区分）；继承 02 基础组件类 L4-01。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-bar">
+        <el-radio-group v-model="precision" size="small"><el-radio-button :label="0">整数</el-radio-button><el-radio-button :label="2">2 位小数</el-radio-button></el-radio-group>
+        <el-checkbox v-model="thousands" size="small">千分位显示</el-checkbox>
+        <el-button size="small" @click="n=null">置为 null</el-button>
+      </div>
+
+      <div class="row"><span class="lb">排序号（1-9999）</span>
+        <el-input-number v-model="order" :precision="0" :min="1" :max="9999" :step="1" style="width:200px" />
+      </div>
+      <div class="row"><span class="lb">数量</span>
+        <el-input-number v-model="n" :precision="precision" :min="0" :max="100000" style="width:200px" />
+      </div>
+      <div class="row"><span class="lb">显示值</span>
+        <span class="dp-code">{{ thousands ? fmt : JSON.stringify(n) }}</span>
+      </div>
+
+      <div class="dp-state">值 n = {{ JSON.stringify(n) }}（{{ n === null ? '未设置/空' : (n === 0 ? '已填 0（非空）' : '已填') }}）　精度 = {{ precision }}
+千分位显示 = {{ thousands ? fmt : '关' }}（仅显示层，存储为数值）
+说明：空串归一 null；precision 四舍五入；min/max 越界钳制或校验；非数值拦截；
+金额/百分比语义见 04 字段类 03 数值与金额字段（继承本控件）；继承链经 L4-01。</div>
+    </div>
+  </div>
+</div>
+
+<script src="../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref, computed } = Vue;
+  var app = createApp({
+    setup: function () {
+      var order = ref(10), n = ref(1234.5), precision = ref(2), thousands = ref(false);
+      var fmt = computed(function () { return n.value === null ? '—' : Number(n.value).toLocaleString('zh-CN', { minimumFractionDigits: precision.value, maximumFractionDigits: precision.value }); });
+      return { order: order, n: n, precision: precision, thousands: thousands, fmt: fmt };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>

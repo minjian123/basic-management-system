@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 复选（CheckboxField）</title>
+<link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-code { font-family:Consolas,"Cascadia Mono",monospace; color:#57606a; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="07_组件设计_复选.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 复选 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="07_组件设计_复选.md">《组件设计 · 复选》</a>：演示 <span class="dp-code">checkbox</span> / <span class="dp-code">tag</span> 两种形态、多选、全选、数量上下限（min/max）、只读与空值；继承 02 基础组件类 L4-01。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-bar">
+        <el-radio-group v-model="widget" size="small"><el-radio-button label="checkbox">checkbox</el-radio-button><el-radio-button label="tag">tag</el-radio-button></el-radio-group>
+        <el-checkbox v-model="selectAll" size="small">显示全选</el-checkbox>
+        <span class="dp-hint">最多选 {{ max }} 项</span>
+      </div>
+
+      <div style="margin-bottom:8px" v-if="selectAll">
+        <el-checkbox :model-value="v.length===options.length" :indeterminate="v.length>0 && v.length<options.length" @change="toggleAll">全选</el-checkbox>
+      </div>
+
+      <template v-if="widget==='checkbox'">
+        <el-checkbox-group v-model="v" @change="check"><el-checkbox v-for="o in options" :key="o.value" :label="o.value" :disabled="o.disabled">{{ o.label }}</el-checkbox></el-checkbox-group>
+      </template>
+      <template v-else>
+        <el-checkbox-group v-model="v" @change="check"><el-checkbox-button v-for="o in options" :key="o.value" :label="o.value" :disabled="o.disabled">{{ o.label }}</el-checkbox-button></el-checkbox-group>
+      </template>
+
+      <div class="dp-state" style="margin-top:14px">值 = {{ JSON.stringify(v) }}（按选项顺序去重，与勾选顺序无关）　形态 = {{ widget }}
+数量限制：{{ min }} ≤ 已选 {{ v.length }} ≤ {{ max }} → {{ v.length>=min && v.length<=max ? '通过' : '不通过' }}
+空值归一 []；全选忽略禁用项；标签形态可关闭；继承链经 L4-01。</div>
+    </div>
+  </div>
+</div>
+
+<script src="../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref } = Vue;
+  var ElMessage = ElementPlus.ElMessage;
+  var app = createApp({
+    setup: function () {
+      var widget = ref('checkbox'), selectAll = ref(true), v = ref(['a']);
+      var min = 1, max = 3;
+      var options = [ { value: 'a', label: '标签 A' }, { value: 'b', label: '标签 B' }, { value: 'c', label: '标签 C' }, { value: 'd', label: '标签 D（禁用）', disabled: true } ];
+      function check() { if (v.value.length > max) { v.value = v.value.slice(0, max); ElMessage.warning('最多选 ' + max + ' 项'); } }
+      function toggleAll(val) { v.value = val ? options.filter(function (o) { return !o.disabled; }).map(function (o) { return o.value; }).slice(0, max) : []; }
+      return { widget: widget, selectAll: selectAll, v: v, options: options, min: min, max: max, check: check, toggleAll: toggleAll };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>
