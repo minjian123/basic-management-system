@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 加载遮罩容器（LoadingContainer）</title>
+<link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-code { font-family:Consolas,"Cascadia Mono",monospace; color:#57606a; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+  .lc { position:relative; min-height:140px; border:1px solid #d0d7de; border-radius:8px; display:flex; align-items:center; justify-content:center; padding:14px; font-size:13px; }
+  .mask { position:absolute; inset:0; background:rgba(255,255,255,.7); display:flex; align-items:center; justify-content:center; border-radius:8px; color:#57606a; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="07_组件设计_加载遮罩容器.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 加载遮罩容器 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="07_组件设计_加载遮罩容器.md">《组件设计 · 加载遮罩容器》</a>：四态（loading/骨架/空/错误+重试）与延迟显示防闪烁；继承 02 基础组件类 L2-04。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-bar">
+        <el-radio-group v-model="state" size="small">
+          <el-radio-button label="content">内容</el-radio-button>
+          <el-radio-button label="loading">loading</el-radio-button>
+          <el-radio-button label="empty">空</el-radio-button>
+          <el-radio-button label="error">错误</el-radio-button>
+        </el-radio-group>
+        <el-button size="small" @click="quickLoad">模拟快请求（<200ms 不闪 loading）</el-button>
+      </div>
+
+      <div class="lc">
+        <template v-if="state==='content'">内容区（数据已加载）</template>
+        <template v-else-if="state==='loading'"><el-skeleton :rows="3" animated></el-skeleton></template>
+        <template v-else-if="state==='empty'"><span style="color:#b1b8bf">暂无数据</span></template>
+        <template v-else>
+          <div style="text-align:center; color:#cf222e">加载失败<el-button size="small" link @click="state='content'">重试</el-button></div>
+        </template>
+      </div>
+
+      <div class="dp-state" style="margin-top:12px">当前态 = {{ state }}　延迟显示 delay=200ms（快请求不显示 loading，避免闪烁）
+优先级：loading > error > empty > content
+说明：复用 07 展示类 05 异常与空状态的骨架/空/错误组件；错误信息不泄露技术细节；重试触发 retry。</div>
+    </div>
+  </div>
+</div>
+
+<script src="../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref } = Vue;
+  var app = createApp({ setup: function () {
+    var state=ref('content');
+    function quickLoad(){ state.value='loading'; setTimeout(function(){ state.value='content'; }, 150); }
+    return { state:state, quickLoad:quickLoad };
+  }});
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>

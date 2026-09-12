@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 滚动容器（ScrollContainer）</title>
+<link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-code { font-family:Consolas,"Cascadia Mono",monospace; color:#57606a; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+  .sc { height:180px; overflow-y:auto; border:1px solid #eaeef2; border-radius:8px; padding:10px; font-size:13px; }
+  .sc::-webkit-scrollbar { width:8px; }
+  .sc::-webkit-scrollbar-thumb { background:#d0d7de; border-radius:4px; }
+  .item { padding:8px; border-bottom:1px dashed #eaeef2; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="02_组件设计_滚动容器.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 滚动容器 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="02_组件设计_滚动容器.md">《组件设计 · 滚动容器》</a>：演示固定高度滚动区、自定义滚动条、触底事件与滚动位置保持；继承 02 基础组件类 L2-04 容器组件基类。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-bar">
+        <el-checkbox v-model="native" size="small">原生滚动条</el-checkbox>
+        <el-checkbox v-model="keep" size="small">保持滚动位置</el-checkbox>
+        <span class="dp-hint">滚到底部触发 reach-bottom（模拟加载更多）</span>
+      </div>
+
+      <div class="sc" :style="native ? {} : {scrollbarWidth:'thin'}" @scroll="onScroll">
+        <div class="item" v-for="n in 30" :key="n">列表项 {{ n }}</div>
+      </div>
+
+      <div class="dp-state" style="margin-top:12px">保持位置 = {{ keep }}　触底次数 = {{ bottomCount }}　当前 scrollTop = {{ top }}
+说明：height/maxHeight 固定或 auto（配合 04-05 自适应高度）；自定义滚动条（宽度/颜色令牌）；触底节流触发 reach-bottom（分页/懒加载）；
+keepPosition 切换 Tab/返回时恢复滚动位置；嵌套滚动需防穿透。</div>
+    </div>
+  </div>
+</div>
+
+<script src="../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref } = Vue;
+  var app = createApp({ setup: function () {
+    var native=ref(false), keep=ref(false), top=ref(0), bottomCount=ref(0);
+    function onScroll(e){ var el=e.target; top.value=Math.round(el.scrollTop); if(el.scrollTop+el.clientHeight>=el.scrollHeight-4) bottomCount.value++; }
+    return { native:native, keep:keep, top:top, bottomCount:bottomCount, onScroll:onScroll };
+  }});
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>

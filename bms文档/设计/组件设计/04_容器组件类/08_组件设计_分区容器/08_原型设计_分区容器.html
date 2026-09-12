@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 分区容器（SectionContainer）</title>
+<link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-code { font-family:Consolas,"Cascadia Mono",monospace; color:#57606a; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+  .sec { margin-bottom:14px; }
+  .sec .t { display:flex; align-items:center; gap:8px; font-weight:600; font-size:14px; padding-bottom:6px; border-bottom:1px solid #eaeef2; }
+  .sec .t .e { margin-left:auto; }
+  .sec .d { color:#b1b8bf; font-size:12px; margin-top:4px; }
+  .sec .b { padding-top:10px; font-size:13px; }
+  .pad-none .b { padding:0 } .pad-small .b { padding-top:6px } .pad-default .b { padding-top:10px } .pad-large .b { padding-top:20px }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="08_组件设计_分区容器.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 分区容器 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="08_组件设计_分区容器.md">《组件设计 · 分区容器》</a>：演示轻量分区（标题/描述/工具区/内容/折叠，无卡片边框外观）；继承 02 基础组件类 L2-04。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-bar">
+        <el-checkbox v-model="collapsible" size="small">可折叠</el-checkbox>
+        <el-checkbox v-model="collapsed" size="small">折叠态</el-checkbox>
+        <el-checkbox v-model="divider" size="small">标题分隔线</el-checkbox>
+        <el-radio-group v-model="padding" size="small"><el-radio-button label="none">none</el-radio-button><el-radio-button label="default">默认</el-radio-button><el-radio-button label="large">large</el-radio-button></el-radio-group>
+      </div>
+
+      <div class="sec" :class="'pad-'+padding">
+        <div class="t">
+          <span v-if="collapsible" style="cursor:pointer" @click="collapsed=!collapsed">{{ collapsed?'▸':'▾' }}</span>
+          基本信息
+          <span class="e"><el-button size="small" text>编辑</el-button></span>
+        </div>
+        <div class="d">分区描述（可选）</div>
+        <div class="b" v-show="!collapsed" :style="{borderTop: divider?'none':'none'}">分区内容区（default 插槽）—— 表单字段 / 详情信息 / 设置项</div>
+      </div>
+
+      <div class="sec">
+        <div class="t">系统信息<span class="e"><el-button size="small" text>刷新</el-button></span></div>
+        <div class="b">另一分区</div>
+      </div>
+
+      <div class="dp-state">collapsible={{ collapsible }}　collapsed={{ collapsed }}　divider={{ divider }}　padding={{ padding }}
+说明：轻量分区无卡片边框/阴影（区别 03-10 卡片）；折叠仅隐藏内容，标题保留；右上 extra 工具区；
+分区间距/内边距只消费令牌；折叠面板组（多面板）见 03-11。</div>
+    </div>
+  </div>
+</div>
+
+<script src="../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref } = Vue;
+  var app = createApp({ setup: function () {
+    var collapsible=ref(true), collapsed=ref(false), divider=ref(true), padding=ref('default');
+    return { collapsible:collapsible, collapsed:collapsed, divider:divider, padding:padding };
+  }});
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>

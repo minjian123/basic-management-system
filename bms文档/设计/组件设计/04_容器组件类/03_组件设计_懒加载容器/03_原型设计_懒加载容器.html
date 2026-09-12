@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 懒加载容器（LazyContainer）</title>
+<link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-code { font-family:Consolas,"Cascadia Mono",monospace; color:#57606a; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+  .scroll { height:260px; overflow-y:auto; border:1px solid #d0d7de; border-radius:8px; padding:10px; }
+  .blk { min-height:80px; border:1px dashed #b6d3ff; background:#eef4ff; border-radius:6px; margin-bottom:10px; padding:10px; font-size:12px; color:#0969da; }
+  .ph { min-height:80px; border:1px dashed #d0d7de; border-radius:6px; margin-bottom:10px; display:flex; align-items:center; justify-content:center; color:#b1b8bf; font-size:12px; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="03_组件设计_懒加载容器.html">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 懒加载容器 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="03_组件设计_懒加载容器.md">《组件设计 · 懒加载容器》</a>：滚动列表，区块进入视口才渲染（占位防抖动）；继承 02 基础组件类 L2-04。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-bar"><span class="dp-hint">向下滚动，区块进入视口后由占位变为已渲染</span></div>
+
+      <div class="scroll">
+        <div v-for="n in 8" :key="n">
+          <div class="blk" v-if="rendered[n]">区块 {{ n }} 已渲染（IntersectionObserver 触发）</div>
+          <div class="ph" v-else>区块 {{ n }} 占位（minHeight 防抖动）</div>
+        </div>
+      </div>
+
+      <div class="dp-state" style="margin-top:12px">已渲染区块：{{ renderedCount }} / 8
+说明：进入视口（含 rootMargin 提前量）才挂载；未渲染用占位 + minHeight 防布局抖动；once=true 渲染后不卸载；
+首屏内容应排除懒加载；无 IntersectionObserver 环境降级为直接渲染。</div>
+    </div>
+  </div>
+</div>
+
+<script src="../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, reactive, ref, computed, onMounted } = Vue;
+  var app = createApp({ setup: function () {
+    var rendered=reactive({}); 
+    onMounted(function(){
+      var els=document.querySelectorAll('.ph');
+      if(!('IntersectionObserver' in window)){ for(var i=1;i<=8;i++) rendered[i]=true; return; }
+      var io=new IntersectionObserver(function(ents){ ents.forEach(function(en){ if(en.isIntersecting){ var n=en.target.getAttribute('data-n'); rendered[+n]=true; io.unobserve(en.target); } }); }, {root:document.querySelector('.scroll'), rootMargin:'60px'});
+      els.forEach(function(el){ io.observe(el); });
+      // tag indexes
+      var phs=document.querySelectorAll('.ph'); Array.prototype.forEach.call(document.querySelectorAll('.scroll > div'), function(w,i){ var p=w.querySelector('.ph'); if(p) p.setAttribute('data-n', i+1); });
+      Array.prototype.forEach.call(document.querySelectorAll('.ph, .blk'), function(el){ /* noop */ });
+    });
+    var renderedCount=computed(function(){ return Object.keys(rendered).length; });
+    return { rendered:rendered, renderedCount:renderedCount };
+  }});
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>

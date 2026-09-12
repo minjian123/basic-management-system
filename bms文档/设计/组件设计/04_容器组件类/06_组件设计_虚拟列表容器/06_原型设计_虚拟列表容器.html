@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 虚拟列表容器（VirtualList）</title>
+<link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-code { font-family:Consolas,"Cascadia Mono",monospace; color:#57606a; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+  .vp { height:240px; overflow-y:auto; border:1px solid #d0d7de; border-radius:8px; position:relative; }
+  .vi { height:40px; line-height:40px; padding:0 12px; font-size:13px; border-bottom:1px dashed #eaeef2; box-sizing:border-box; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="06_组件设计_虚拟列表容器.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 虚拟列表容器 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="06_组件设计_虚拟列表容器.md">《组件设计 · 虚拟列表容器》</a>：1 万条数据，只渲染可视区 + 缓冲；继承 02 基础组件类 L2-04。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-bar"><el-button size="small" @click="scrollTo">滚动到第 5000 条</el-button><span class="dp-hint">滚动查看：DOM 只保留可视区 + buffer</span></div>
+
+      <div class="vp" ref="vp" @scroll="onScroll" :style="{height:'240px'}">
+        <div :style="{height: total*itemHeight + 'px', position:'relative'}">
+          <div v-for="it in visible" :key="it.i" class="vi" :style="{position:'absolute', top:(it.i*itemHeight)+'px', left:0, right:0}">
+            第 {{ it.i+1 }} 条记录（虚拟渲染）
+          </div>
+        </div>
+      </div>
+
+      <div class="dp-state" style="margin-top:12px">总数 = {{ total }}　itemHeight = {{ itemHeight }}　buffer = {{ buffer }}
+当前可视区索引：{{ start }} - {{ end }}　实际渲染 DOM 数：{{ visible.length }}（远小于总数）
+说明：只渲染可视区 + buffer；定高按公式；动态高度需测量缓存；触底可加载更多；小列表（<1000）不建议使用。</div>
+    </div>
+  </div>
+</div>
+
+<script src="../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref, computed } = Vue;
+  var app = createApp({ setup: function () {
+    var total=10000, itemHeight=40, buffer=5;
+    var scrollTop=ref(0), vp=ref(null);
+    function onScroll(e){ scrollTop.value=e.target.scrollTop; }
+    var start=computed(function(){ return Math.max(0, Math.floor(scrollTop.value/itemHeight)-buffer); });
+    var end=computed(function(){ return Math.min(total, Math.ceil((scrollTop.value+240)/itemHeight)+buffer); });
+    var visible=computed(function(){ var arr=[]; for(var i=start.value;i<end.value;i++) arr.push({i:i}); return arr; });
+    function scrollTo(){ if(vp.value){ vp.value.scrollTop=5000*itemHeight; scrollTop.value=vp.value.scrollTop; } }
+    return { total:total, itemHeight:itemHeight, buffer:buffer, start:start, end:end, visible:visible, vp:vp, onScroll:onScroll, scrollTo:scrollTo };
+  }});
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>

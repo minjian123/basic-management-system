@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 全屏容器（FullscreenContainer）</title>
+<link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-code { font-family:Consolas,"Cascadia Mono",monospace; color:#57606a; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+  .fs { border:1px solid #d0d7de; border-radius:8px; height:160px; display:flex; align-items:center; justify-content:center; background:#f6f8fa; font-size:13px; }
+  .fs:fullscreen { background:#0d1117; color:#c9d1d9; height:100%; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="04_组件设计_全屏容器.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 全屏容器 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="04_组件设计_全屏容器.md">《组件设计 · 全屏容器》</a>：演示进入/退出全屏（Fullscreen API，按 Esc 退出）、状态同步与内容自适应；继承 02 基础组件类 L2-04。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-bar">
+        <el-button size="small" type="primary" @click="toggle">{{ full ? '退出全屏' : '进入全屏' }}</el-button>
+        <span class="dp-hint">按 Esc 也可退出；浏览器若拒绝则降级为容器内铺满</span>
+      </div>
+
+      <div class="fs" ref="box">
+        <div style="text-align:center">图表/报表/大屏内容区<br><br>全屏状态：{{ full ? '全屏中' : '非全屏' }}</div>
+      </div>
+
+      <div class="dp-state" style="margin-top:12px">full={{ full }}　target=self（可 self/document/元素）
+说明：requestFullscreen 进入；监听 fullscreenchange 同步状态；Esc 退出；失败（浏览器限制/iframe）降级容器内铺满；
+全屏内需重算图表尺寸（resize）；移动端 iOS 元素全屏支持有限。</div>
+    </div>
+  </div>
+</div>
+
+<script src="../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref, onMounted, onUnmounted } = Vue;
+  var app = createApp({ setup: function () {
+    var full=ref(false), box=ref(null);
+    function onChange(){ full.value = !!document.fullscreenElement; }
+    onMounted(function(){ document.addEventListener('fullscreenchange', onChange); });
+    onUnmounted(function(){ document.removeEventListener('fullscreenchange', onChange); });
+    function toggle(){ var el=box.value; if(!document.fullscreenElement){ (el.requestFullscreen&&el.requestFullscreen())||null; } else { document.exitFullscreen(); } }
+    return { full:full, box:box, toggle:toggle };
+  }});
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>
