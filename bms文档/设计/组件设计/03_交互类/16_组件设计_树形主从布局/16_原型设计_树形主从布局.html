@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 树形主从布局（MasterDetail / MasterTree）</title>
+<link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-code { font-family:Consolas,"Cascadia Mono",monospace; color:#57606a; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+  .md { display:flex; border:1px solid #d0d7de; border-radius:8px; overflow:hidden; height:360px; position:relative; }
+  .md-master { background:#fafbfc; border-right:1px solid #eaeef2; overflow:auto; padding:10px; }
+  .md-split { width:6px; cursor:col-resize; background:#eaeef2; }
+  .md-split:hover { background:#0969da; }
+  .md-detail { flex:1; overflow:auto; padding:12px; }
+  .mt-title { font-weight:600; font-size:13px; margin-bottom:8px; color:#24292f; }
+  .md-empty { color:#b1b8bf; text-align:center; padding-top:80px; font-size:13px; }
+  .collapse-btn { position:absolute; top:6px; right:6px; z-index:5; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="16_组件设计_树形主从布局.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 树形主从布局 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="16_组件设计_树形主从布局.md">《组件设计 · 树形主从布局》</a>：演示左树右表联动（选中节点过滤列表）、树搜索、可调分割、主区折叠、未选中占位与空态。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-bar">
+        <el-radio-group v-model="mode" size="small">
+          <el-radio-button label="table">左树右表</el-radio-button>
+          <el-radio-button label="detail">左树右详情</el-radio-button>
+        </el-radio-group>
+        <el-checkbox v-model="showAllOnEmpty" size="small">未选中显示全部</el-checkbox>
+        <el-checkbox v-model="checkable" size="small">树多选</el-checkbox>
+        <span class="dp-hint">拖动中间分割条调整主区宽度（<span class="dp-code">resizable</span>）</span>
+      </div>
+
+      <div class="md">
+        <el-button class="collapse-btn" size="small" text @click="collapsed=!collapsed">{{ collapsed ? '展开主区' : '折叠主区' }}</el-button>
+
+        <!-- 主区（树） -->
+        <div class="md-master" :style="{ width: collapsed ? '0px' : masterWidth + 'px', padding: collapsed ? '0' : '10px', borderRight: collapsed ? 'none' : '1px solid #eaeef2' }">
+          <div class="mt-title">组织（MasterTree）</div>
+          <el-input v-model="kw" size="small" placeholder="搜索组织" clearable style="margin-bottom:8px" />
+          <el-tree :data="treeFiltered" node-key="id" default-expand-all :show-checkbox="checkable" :props="{ label: 'label', children: 'children' }"
+            highlight-current :current-node-key="selectedId" @node-click="onSelect" @check="onCheck" />
+          <div v-if="!treeFiltered.length" class="dp-hint" style="padding:10px;text-align:center">无匹配节点</div>
+        </div>
+
+        <!-- 分割条 -->
+        <div v-show="!collapsed" class="md-split" @mousedown="startDrag"></div>
+
+        <!-- 从区 -->
+        <div class="md-detail">
+          <template v-if="mode==='table'">
+            <div v-if="!selectedLabel && !showAllOnEmpty" class="md-empty">{{ emptyText }}</div>
+            <template v-else>
+              <el-tag size="small" type="info" style="margin-bottom:8px">过滤：{{ filterText }}</el-tag>
+              <el-table :data="rows" size="small" border>
+                <el-table-column prop="id" label="ID" width="70" />
+                <el-table-column prop="name" label="姓名" />
+                <el-table-column prop="dept" label="组织" />
+                <el-table-column prop="status" label="状态" width="90" />
+              </el-table>
+            </template>
+          </template>
+          <template v-else>
+            <div v-if="!selectedLabel" class="md-empty">{{ emptyText }}</div>
+            <div v-else>
+              <b>详情：{{ selectedLabel }}</b>
+              <el-descriptions :column="1" border size="small" style="margin-top:10px;max-width:360px">
+                <el-descriptions-item label="节点 ID">{{ selectedId }}</el-descriptions-item>
+                <el-descriptions-item label="上级">{{ currentParent }}</el-descriptions-item>
+                <el-descriptions-item label="记录数">{{ currentCount }}</el-descriptions-item>
+              </el-descriptions>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <div class="dp-state" style="margin-top:12px">{{ log }}</div>
+    </div>
+  </div>
+</div>
+
+<script src="../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref, computed } = Vue;
+
+  var app = createApp({
+    setup: function () {
+      var mode = ref('table');
+      var showAllOnEmpty = ref(false);
+      var checkable = ref(false);
+      var collapsed = ref(false);
+      var masterWidth = ref(240);
+      var kw = ref('');
+      var selectedId = ref(null);
+      var selectedLabel = ref('');
+      var checkedIds = ref([]);
+      var emptyText = ref('请选择左侧节点');
+      var log = ref('选中树节点 → 从区带 nodeId 重新查询；未选中默认占位；可拖动分割调整比例');
+
+      var tree = [
+        { id: 1, label: '总公司', children: [
+          { id: 11, label: '研发中心', children: [ { id: 111, label: '前端组' }, { id: 112, label: '后端组' } ] },
+          { id: 12, label: '市场部', children: [ { id: 121, label: '华东区' }, { id: 122, label: '华北区' } ] },
+          { id: 13, label: '财务部' }
+        ] }
+      ];
+      var allRows = [
+        { id: 1001, name: '张三', dept: '前端组', node: 111, status: '启用' },
+        { id: 1002, name: '李四', dept: '后端组', node: 112, status: '启用' },
+        { id: 1003, name: '王五', dept: '华东区', node: 121, status: '停用' },
+        { id: 1004, name: '赵六', dept: '华北区', node: 122, status: '启用' },
+        { id: 1005, name: '钱七', dept: '总办', node: 1, status: '启用' }
+      ];
+      function flat(nodes, out) { out = out || []; nodes.forEach(function (n) { out.push(n); if (n.children) flat(n.children, out); }); return out; }
+      function match(n) { return !kw.value || n.label.indexOf(kw.value) >= 0; }
+      var treeFiltered = computed(function () {
+        function filt(nodes) { return nodes.map(function (n) {
+          if (n.children) { var cs = filt(n.children); if (cs.length) return Object.assign({}, n, { children: cs }); if (match(n)) return Object.assign({}, n, { children: undefined }); return null; }
+          return match(n) ? n : null;
+        }).filter(Boolean); }
+        return filt(tree);
+      });
+      var rows = computed(function () {
+        if (!selectedId.value && !showAllOnEmpty.value) return [];
+        var ids = checkedIds.value.length ? checkedIds.value : (selectedId.value ? [selectedId.value] : []);
+        if (!ids.length) return allRows;
+        return allRows.filter(function (r) { return ids.some(function (id) { return r.node === id || String(r.node).indexOf(String(id)) === 0; }); });
+      });
+      var filterText = computed(function () {
+        if (checkedIds.value.length) return '已选 ' + checkedIds.value.length + ' 节点（并集，checkable）';
+        if (selectedId.value) return selectedLabel.value + '（nodeId=' + selectedId.value + '）';
+        return '全部（未选中·showAllOnEmpty）';
+      });
+      var currentParent = computed(function () { return selectedId.value ? '—' : ''; });
+      function nodeCount(id) { return allRows.filter(function (r) { return r.node === id; }).length; }
+      var currentCount = computed(function () { return selectedId.value ? nodeCount(selectedId.value) : 0; });
+
+      function onSelect(n) { if (checkable.value) return; selectedId.value = n.id; selectedLabel.value = n.label; checkedIds.value = []; log.value = 'select(' + n.label + ') → 从区按 nodeId=' + n.id + ' 查询（请求竞态取最新）'; }
+      function onCheck(data, info) { checkedIds.value = info.checkedKeys || []; selectedId.value = null; selectedLabel.value = ''; log.value = '多选 ' + checkedIds.value.length + ' 节点 → 从区按并集过滤'; }
+      function startDrag(e) {
+        var startX = e.clientX, startW = masterWidth.value;
+        function mv(ev) { masterWidth.value = Math.max(140, Math.min(460, startW + (ev.clientX - startX))); }
+        function up() { document.removeEventListener('mousemove', mv); document.removeEventListener('mouseup', up); log.value = '分割比例 → ' + masterWidth.value + 'px（可持久化到用户偏好 splitStorageKey）'; }
+        document.addEventListener('mousemove', mv); document.addEventListener('mouseup', up);
+      }
+      return { mode, showAllOnEmpty, checkable, collapsed, masterWidth, kw, selectedId, selectedLabel, emptyText, log, treeFiltered, rows, filterText, currentParent, currentCount, onSelect, onCheck, startDrag };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>
