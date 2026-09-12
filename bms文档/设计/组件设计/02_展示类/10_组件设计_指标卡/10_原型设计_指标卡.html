@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 指标卡（StatCard / useStat）</title>
+<link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+  .stat-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; }
+  .stat { border:1px solid #eaeef2; border-radius:8px; padding:14px; background:#fff; cursor:pointer; transition:box-shadow .15s; }
+  .stat:hover { box-shadow:0 3px 12px rgba(0,0,0,.08); }
+  .stat .t { font-size:12px; color:#57606a; }
+  .stat .v { font-size:26px; font-weight:700; margin-top:6px; color:#1f2328; }
+  .stat .v .pre { font-size:16px; font-weight:600; }
+  .stat .v .unit { font-size:12px; color:#8c959f; font-weight:400; margin-left:3px; }
+  .stat .foot { display:flex; align-items:center; justify-content:space-between; margin-top:8px; }
+  .stat .cmp { font-size:12px; }
+  .up { color:#2da44e; } .down { color:#cf222e; } .flat { color:#57606a; }
+  .spark { height:34px; margin-top:6px; }
+  .cap { font-size:11px; color:#b1b8bf; margin-top:6px; }
+  .skel { height:72px; border-radius:8px; background:linear-gradient(90deg,#f2f3f5,#e9ecef,#f2f3f5); background-size:200% 100%; animation:sh 1.2s infinite; }
+  @keyframes sh { to { background-position:-200% 0; } }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="10_组件设计_指标卡.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 指标卡 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="10_组件设计_指标卡.md">《组件设计 · 指标卡》</a>：演示数值与单位/前缀、环比同比（箭头与状态色、higherIsBetter 反转）、
+    迷你趋势图（复用 ECharts）、口径说明、数字滚动、加载/空态与点击跳转。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-bar">
+        <el-switch v-model="loading" size="small" active-text="加载态" />
+        <span class="dp-hint">点击卡片跳转（linkTo）；数值首次加载滚动动画；趋势色引用令牌语义色</span>
+      </div>
+
+      <div class="stat-grid">
+        <div v-for="s in stats" :key="s.key" class="stat" @click="go(s)">
+          <template v-if="loading">
+            <div class="skel"></div>
+          </template>
+          <template v-else>
+            <div class="t">{{ s.title }}</div>
+            <div class="v"><span v-if="s.prefix" class="pre">{{ s.prefix }}</span>{{ disp(s) }}<span v-if="s.unit" class="unit">{{ s.unit }}</span></div>
+            <div class="spark" v-if="s.trend"><sparkline :data="s.trend" :color="trendColor(s)" /></div>
+            <div class="foot">
+              <span v-if="s.compare" class="cmp" :class="dirClass(s)">
+                {{ dirIcon(s) }} 较{{ s.compare.type==='mom' ? '上月' : '去年同期' }} {{ s.compare.value }}%
+              </span>
+              <span v-else class="dp-hint">无对比</span>
+            </div>
+            <div class="cap" v-if="s.caption">{{ s.caption }}</div>
+          </template>
+        </div>
+
+        <div class="stat" style="cursor:default">
+          <template v-if="loading"><div class="skel"></div></template>
+          <template v-else>
+            <div class="t">空值示例</div>
+            <div class="v">—</div>
+            <div class="foot"><span class="dp-hint">无数据（统一 — 占位）</span></div>
+          </template>
+        </div>
+      </div>
+
+      <div class="dp-state" style="margin-top:12px">{{ log }}</div>
+    </div>
+  </div>
+</div>
+
+<script src="../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script src="../../../原型设计/资源/vendor/echarts.min.js"></script>
+<script>
+  var { createApp, ref, reactive, onMounted, onBeforeUnmount, watch, nextTick } = Vue;
+  var ElMessage = ElementPlus.ElMessage;
+
+  var Sparkline = {
+    props: { data: Array, color: String },
+    template: '<div ref="el" style="width:100%;height:100%"></div>',
+    setup: function (props) {
+      var el = ref(null), inst = null;
+      function render() {
+        if (!el.value) return;
+        if (!inst) inst = echarts.init(el.value, null, { renderer: 'canvas' });
+        inst.setOption({ grid: { left: 0, right: 0, top: 4, bottom: 4 }, xAxis: { type: 'category', show: false, boundaryGap: false },
+          yAxis: { type: 'value', show: false }, series: [{ type: 'line', smooth: true, symbol: 'none', data: props.data,
+          lineStyle: { width: 2, color: props.color }, areaStyle: { color: props.color, opacity: 0.12 } }] }, true);
+        inst.resize();
+      }
+      onMounted(render);
+      watch(function () { return props.data; }, function () { nextTick(render); });
+      onBeforeUnmount(function () { if (inst) inst.dispose(); });
+      return { el };
+    }
+  };
+
+  var app = createApp({
+    setup: function () {
+      var loading = ref(false);
+      var log = ref('数字滚动一次；上升/下降状态色默认 升=success 降=danger，higherIsBetter=false 反转');
+      var stats = ref([
+        { key: 'todo', title: '待审批', value: 4, unit: '笔', format: 'number', compare: { type: 'mom', value: 12.5, higherIsBetter: false }, caption: '口径：当前待我处理', linkTo: '/todo' },
+        { key: 'receipt', title: '本月收款', value: 128600, prefix: '¥', format: 'amount', compare: { type: 'mom', value: 8.2, higherIsBetter: true }, trend: [42, 48, 45, 52, 60, 58, 66], caption: '口径：含税金额（月累计）', linkTo: '/report/receipt' },
+        { key: 'overdue', title: '逾期率', value: 3.2, unit: '%', format: 'percent', compare: { type: 'yoy', value: -1.1, higherIsBetter: false }, caption: '口径：逾期单/总单', linkTo: '/report/overdue' },
+        { key: 'users', title: '启用用户', value: 1286, unit: '人', format: 'number', compare: null, caption: '口径：status=启用', linkTo: '/user' }
+      ]);
+      var shown = reactive({});
+      function fmt(s, v) {
+        if (v == null) return '—';
+        if (s.format === 'amount') return v.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        if (s.format === 'percent') return v.toFixed(1);
+        return v.toLocaleString('zh-CN');
+      }
+      function disp(s) { return fmt(s, shown[s.key] != null ? shown[s.key] : s.value); }
+      function dir(s) { if (!s.compare || s.compare.value === 0) return 'flat'; var up = s.compare.value > 0; var better = s.compare.higherIsBetter !== false; return (up === better) ? 'up' : 'down'; }
+      function dirClass(s) { return dir(s); }
+      function dirIcon(s) { var d = dir(s); return d === 'up' ? '↑' : (d === 'down' ? '↓' : '—'); }
+      function trendColor(s) { return dir(s) === 'up' ? '#2da44e' : (dir(s) === 'down' ? '#cf222e' : '#57606a'); }
+      function go(s) { log.value = '点击指标卡 → linkTo ' + s.linkTo; ElMessage.success('跳转 ' + s.linkTo); }
+
+      function animate() {
+        stats.value.forEach(function (s) {
+          var target = s.value, start = null, dur = 600;
+          shown[s.key] = 0;
+          function step(ts) {
+            if (!start) start = ts;
+            var p = Math.min(1, (ts - start) / dur);
+            shown[s.key] = target * (0.2 + 0.8 * p) * p; // 缓动近似
+            if (p < 1) requestAnimationFrame(step); else shown[s.key] = target;
+          }
+          requestAnimationFrame(step);
+        });
+      }
+      onMounted(animate);
+
+      return { loading, log, stats, disp, dirClass, dirIcon, trendColor, go };
+    }
+  });
+  app.component('sparkline', Sparkline);
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>
