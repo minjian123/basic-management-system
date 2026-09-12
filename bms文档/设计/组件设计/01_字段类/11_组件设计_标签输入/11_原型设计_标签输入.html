@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 标签输入（TagInput / useTagInput）</title>
+<link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-code { font-family:Consolas,"Cascadia Mono",monospace; color:#57606a; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+  .field { max-width:560px; }
+  .field .label { font-size:12px; color:#57606a; margin-bottom:4px; }
+  .ro-val { border:1px solid #d0d7de; border-radius:6px; padding:6px 10px; background:#f6f8fa; color:#57606a; font-size:13px; min-height:32px; }
+  .preview { margin-top:10px; display:flex; gap:6px; flex-wrap:wrap; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="11_组件设计_标签输入.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 标签输入 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="11_组件设计_标签输入.md">《组件设计 · 标签输入》</a>：演示选项建议与自由新建、去重、数量/长度上限、颜色映射（令牌语义色）、只读纯文本回显、粘贴批量录入。
+    基于 Element Plus <span class="dp-code">el-select</span>（multiple/filterable/allow-create）定制。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-bar">
+        <el-switch v-model="allowCreate" size="small" active-text="allowCreate（自由新建）" />
+        <el-switch v-model="readonlyText" size="small" active-text="只读纯文本回显" />
+        <el-switch v-model="colorOn" size="small" active-text="颜色映射（colorMap）" />
+        <span>上限：</span><el-input-number v-model="max" :min="0" size="small" style="width:110px" />
+        <span>单标签长度：</span><el-input-number v-model="maxLength" :min="0" size="small" style="width:110px" />
+      </div>
+
+      <div class="field">
+        <div class="label">标签（用户/客户标签示意）</div>
+
+        <div v-if="readonlyText" class="ro-val">
+          {{ value.length ? value.join('、') : '—' }}
+          <span class="dp-hint">（只读态：disabled 置灰 / 纯文本回显）</span>
+        </div>
+        <el-select
+          v-else
+          v-model="value"
+          multiple
+          filterable
+          :allow-create="allowCreate"
+          default-first-option
+          :reserve-keyword="false"
+          placeholder="输入标签后回车 / 逗号分隔；可从建议选择"
+          style="width:100%"
+          @change="onChange">
+          <el-option v-for="o in options" :key="o.value" :label="o.label" :value="o.value" />
+        </el-select>
+
+        <div class="preview">
+          <el-tag v-for="t in value" :key="t" :color="tagColor(t)" :effect="colorOn ? 'dark' : 'plain'" closable @close="removeTag(t)">{{ t }}</el-tag>
+          <span v-if="!value.length" class="dp-hint">暂无标签</span>
+        </div>
+        <div class="dp-hint" style="margin-top:8px">已选 {{ value.length }} 个{{ max ? ' / 上限 ' + max : '' }}；<span class="dp-code">value = {{ JSON.stringify(value) }}</span></div>
+      </div>
+
+      <div class="dp-bar" style="margin-top:12px">
+        <el-button size="small" @click="pasteDemo">模拟粘贴「重点客户,新客户，战略客户」</el-button>
+        <el-button size="small" @click="value=[]">清空</el-button>
+      </div>
+
+      <div class="dp-state" style="margin-top:12px">{{ log }}</div>
+    </div>
+  </div>
+</div>
+
+<script src="../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref, computed, watch } = Vue;
+  var ElMessage = ElementPlus.ElMessage;
+
+  var app = createApp({
+    setup: function () {
+      var allowCreate = ref(true);
+      var readonlyText = ref(false);
+      var colorOn = ref(true);
+      var max = ref(5);
+      var maxLength = ref(12);
+      var value = ref(['重点客户', '新客户']);
+      var log = ref('输入后回车/逗号创建；可从建议选择；去重、上限、长度、粘贴批量');
+      var options = ref([
+        { value: '重点客户', label: '重点客户' }, { value: '新客户', label: '新客户' },
+        { value: '战略客户', label: '战略客户' }, { value: '潜在客户', label: '潜在客户' },
+        { value: '流失客户', label: '流失客户' }
+      ]);
+      var colorMap = { '重点客户': '#cf222e', '新客户': '#2da44e', '战略客户': '#8250df', '潜在客户': '#d4a72c' };
+      function tagColor(t) { return colorOn.value ? (colorMap[t] || '') : ''; }
+
+      function normalize(arr) {
+        var seen = {}, out = [];
+        arr.forEach(function (t) {
+          t = String(t == null ? '' : t).trim();
+          if (!t) return;
+          if (maxLength.value && t.length > maxLength.value) t = t.slice(0, maxLength.value);
+          var k = t.toLowerCase();
+          if (seen[k]) return; seen[k] = true; out.push(t);
+        });
+        return out;
+      }
+      watch(value, function (nv) {
+        var norm = normalize(nv);
+        if (max.value && norm.length > max.value) { norm = norm.slice(0, max.value); ElMessage.warning('最多 ' + max.value + ' 个标签'); }
+        if (JSON.stringify(norm) !== JSON.stringify(nv)) value.value = norm;
+      }, { deep: true });
+
+      function onChange(v) { log.value = 'change：' + JSON.stringify(v) + '（去重 trim / 上限 / 长度已归一）'; }
+      function removeTag(t) { value.value = value.value.filter(function (x) { return x !== t; }); log.value = '删除标签 ' + t; }
+      function pasteDemo() {
+        var text = '重点客户,新客户，战略客户';
+        var parts = text.split(/[,，]/);
+        value.value = normalize(value.value.concat(parts));
+        log.value = 'pasteSplit → 按分隔符拆分「' + parts.join(' / ') + '」并归一（去重、截断）';
+        ElMessage.success('已粘贴批量标签');
+      }
+      return { allowCreate, readonlyText, colorOn, max, maxLength, value, log, options, tagColor, onChange, removeTag, pasteDemo };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>
