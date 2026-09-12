@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 展示域基类（DisplayBase / useDisplayBase）</title>
+<link rel="stylesheet" href="../../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-code { font-family:Consolas,"Cascadia Mono",monospace; color:#57606a; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+  .dense-compact .row { padding:3px 8px; font-size:12px; }
+  .dense-default .row { padding:7px 8px; font-size:13px; }
+  .dense-loose .row { padding:12px 8px; font-size:14px; }
+  .row { display:flex; align-items:center; gap:12px; border-bottom:1px solid #eaeef2; }
+  .row .lb { width:130px; color:#57606a; }
+  .row .vl { flex:1; min-width:0; }
+  .ro-empty { color:#b1b8bf; }
+  .ellip { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:240px; display:inline-block; vertical-align:bottom; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="02_组件设计_展示域基类.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 展示域基类 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="02_组件设计_展示域基类.md">《组件设计 · 展示域基类》</a>：演示值格式化（金额/日期/枚举/布尔）、空值统一占位、密度切换、只读不校验、超长省略与可复制；展示类与字段只读回显均继承它。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-bar">
+        <el-radio-group v-model="density" size="small">
+          <el-radio-button label="compact">紧凑</el-radio-button>
+          <el-radio-button label="default">默认</el-radio-button>
+          <el-radio-button label="loose">宽松</el-radio-button>
+        </el-radio-group>
+        <el-switch v-model="copyable" size="small" active-text="可复制" />
+        <el-switch v-model="ellipsis" size="small" active-text="超长省略+tooltip" />
+      </div>
+
+      <div :class="'dense-' + density">
+        <div class="row" v-for="it in rows" :key="it.k">
+          <span class="lb">{{ it.label }}</span>
+          <span class="vl">
+            <display-base :value="it.value" :formatter="it.formatter" :density="density" :copyable="copyable" :ellipsis="ellipsis" />
+          </span>
+        </div>
+      </div>
+
+      <div class="dp-state" style="margin-top:14px">只读：展示基类不接收 modelValue、不参与校验；颜色/字号/间距只消费设计令牌（随主题与品牌自动适配）
+空值判定：null / undefined / '' / [] / {} 统一占位「—」，但 0、false 不为空
+空值 vs 空状态：单元格空值用占位（本组件），整块无数据用「05 展示类 05 异常与空状态」
+脱敏：脱敏字段不提供可复制明文（copyable 对脱敏值禁用，与 L3-04 字段权限基类协作）</div>
+    </div>
+  </div>
+</div>
+
+<script src="../../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref } = Vue;
+
+  var FORMATTERS = {
+    amount: function (v) { return v == null ? null : '￥' + Number(v).toLocaleString('zh-CN', { minimumFractionDigits: 2 }); },
+    date: function (v) { return v == null ? null : String(v).replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3'); },
+    bool: function (v) { return v == null ? null : (v ? '是' : '否'); },
+    enum: function (v) { var m = { active: '启用', disabled: '停用' }; return v == null ? null : (m[v] || v); }
+  };
+
+  var DisplayBase = {
+    props: ['value', 'formatter', 'density', 'copyable', 'ellipsis'],
+    template: [
+      '<span style="display:inline-flex;align-items:center;gap:6px;min-width:0">',
+      '  <span v-if="isNull" class="ro-empty">—</span>',
+      '  <span v-else :class="{ ellip: ellipsis }" :title="ellipsis ? text : \'\'">{{ text }}</span>',
+      '  <el-button v-if="copyable && !isNull" link size="small" @click="copy">{{ copied ? \'已复制\' : \'复制\' }}</el-button>',
+      '</span>'
+    ].join('\n'),
+    setup: function (props) {
+      var copied = ref(false);
+      return { copied: copied };
+    },
+    computed: {
+      formatted: function () {
+        if (this.formatter && FORMATTERS[this.formatter]) return FORMATTERS[this.formatter](this.value);
+        return this.value;
+      },
+      isNull: function () {
+        var v = this.formatted;
+        if (v === null || v === undefined || v === '') return true;
+        if (Array.isArray(v) && v.length === 0) return true;
+        if (typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length === 0) return true;
+        return false; // 0 / false 不为空
+      },
+      text: function () { return this.isNull ? '—' : String(this.formatted); }
+    },
+    methods: {
+      copy: function () { this.copied = true; var self = this; setTimeout(function () { self.copied = false; }, 1200); }
+    }
+  };
+
+  var app = createApp({
+    components: { DisplayBase: DisplayBase },
+    setup: function () {
+      var density = ref('default');
+      var copyable = ref(false);
+      var ellipsis = ref(false);
+      var rows = [
+        { k: 'amount', label: '合同金额', value: 1234567.5, formatter: 'amount' },
+        { k: 'amount0', label: '折扣金额', value: 0, formatter: 'amount' },
+        { k: 'date', label: '签订日期', value: '20260912', formatter: 'date' },
+        { k: 'bool', label: '是否启用', value: false, formatter: 'bool' },
+        { k: 'enum', label: '状态', value: 'active', formatter: 'enum' },
+        { k: 'empty', label: '备注', value: null, formatter: '' },
+        { k: 'long', label: '收货地址', value: '上海市浦东新区张江高科技园区科苑路 399 号某某科技大厦 18 楼 1801 室', formatter: '' }
+      ];
+      return { density: density, copyable: copyable, ellipsis: ellipsis, rows: rows };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>
