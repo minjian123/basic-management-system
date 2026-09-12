@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 文件预览（FilePreview / ImageViewer / PdfViewer / useFilePreview）</title>
+<link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+  .flist { max-width:520px; }
+  .fitem { display:flex; align-items:center; gap:10px; padding:10px 12px; border:1px solid #eaeef2; border-radius:8px; margin-bottom:8px; cursor:pointer; }
+  .fitem:hover { border-color:#0969da; }
+  .fitem .ico { width:32px; height:32px; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:17px; background:#f6f8fa; }
+  .fitem .nm { flex:1; font-size:13px; }
+  .fitem .sz { color:#b1b8bf; font-size:11px; }
+  .overlay { position:fixed; inset:0; z-index:3000; background:rgba(0,0,0,.82); display:flex; flex-direction:column; }
+  .ov-head { display:flex; align-items:center; gap:12px; padding:10px 16px; color:#fff; font-size:13px; }
+  .ov-head .sp { flex:1; }
+  .ov-body { flex:1; position:relative; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+  .ov-body img { transition:transform .12s ease; max-width:70vw; max-height:70vh; }
+  .ov-nav { position:absolute; top:50%; transform:translateY(-50%); font-size:30px; color:#fff; cursor:pointer; padding:8px 14px; user-select:none; background:rgba(0,0,0,.3); border-radius:8px; }
+  .ov-nav.l { left:14px; } .ov-nav.r { right:14px; }
+  .pdf-page { width:420px; height:540px; background:#fff; border-radius:4px; padding:24px; box-shadow:0 4px 20px rgba(0,0,0,.4); color:#1f2328; overflow:auto; }
+  .pdf-page h3 { margin-top:0; }
+  .textbox { width:640px; max-height:70vh; overflow:auto; background:#0d1117; color:#c9d1d9; border-radius:8px; padding:14px; font-family:Consolas,monospace; font-size:13px; white-space:pre; }
+  .player { width:560px; background:#111; border-radius:8px; padding:14px; color:#ddd; }
+  video { width:100%; border-radius:6px; background:#000; min-height:300px; }
+  audio { width:100%; }
+  .thumbs { display:flex; gap:6px; padding:8px 16px; background:rgba(0,0,0,.4); overflow:auto; }
+  .thumbs .t { width:56px; height:42px; border-radius:4px; border:2px solid transparent; cursor:pointer; object-fit:cover; }
+  .thumbs .t.on { border-color:#409eff; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="08_组件设计_文件预览.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 文件预览 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="08_组件设计_文件预览.md">《组件设计 · 文件预览》</a>：演示 <b>FilePreview</b> 按类型分发（图片/<b>PDF</b>/音视频/文本/其他降级下载）、
+    <b>ImageViewer</b> 缩放旋转与多图切换、<b>PdfViewer</b> 翻页、预签名 URL 失效重取、下载。音视频以播放器形态示意（离线无媒体源）。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-bar"><span class="dp-hint">点击文件预览；类型分发：图片/PDF/音视频/文本直预览，其他类型降级下载。预览/下载受 file:download。</span>
+        <el-button size="small" @click="open(0); simulateExpired()">模拟预览地址失效</el-button>
+      </div>
+      <div class="flist">
+        <div v-for="(f,i) in files" :key="f.id" class="fitem" @click="open(i)">
+          <div class="ico">{{ icon(f.kind) }}</div>
+          <div class="nm">{{ f.name }}</div>
+          <div class="sz">{{ f.size }}</div>
+          <el-button size="small" text @click.stop="download(f)">下载</el-button>
+        </div>
+      </div>
+      <div class="dp-state" style="margin-top:12px">{{ log }}</div>
+    </div>
+
+    <!-- 预览遮罩 -->
+    <div v-if="openFlag" class="overlay">
+      <div class="ov-head">
+        <span>{{ current.name }}</span>
+        <span class="dp-hint" style="color:#b6bec7">{{ current.kind }} · {{ currentIndex+1 }}/{{ files.length }}</span>
+        <span class="sp"></span>
+        <template v-if="current.kind==='image'">
+          <el-button size="small" @click="zoom(1.2)">＋</el-button>
+          <el-button size="small" @click="zoom(1/1.2)">－</el-button>
+          <el-button size="small" @click="scale=1">适应</el-button>
+          <el-button size="small" @click="rotate=(rotate+90)%360">⟳</el-button>
+        </template>
+        <el-button v-if="current.kind==='pdf'" size="small" @click="pdfPage=Math.max(1,pdfPage-1)">上一页</el-button>
+        <el-button v-if="current.kind==='pdf'" size="small" @click="pdfPage=Math.min(pdfTotal,pdfPage+1)">下一页</el-button>
+        <span v-if="current.kind==='pdf'" class="dp-hint" style="color:#b6bec7">第 {{ pdfPage }} / {{ pdfTotal }} 页</span>
+        <el-button size="small" @click="download(current)">下载</el-button>
+        <el-button size="small" type="danger" @click="openFlag=false; stopMedia()">关闭</el-button>
+      </div>
+
+      <div class="ov-body">
+        <span v-if="files.length>1" class="ov-nav l" @click="prev">‹</span>
+
+        <!-- 图片 -->
+        <img v-if="current.kind==='image' && !error" :src="current.url" :style="{ transform: 'scale('+scale+') rotate('+rotate+'deg)' }" @click="toast('图片预览：滚轮缩放（示意）')" />
+
+        <!-- PDF -->
+        <div v-else-if="current.kind==='pdf' && !error" class="pdf-page">
+          <h3>采购制度（{{ pdfPage }} / {{ pdfTotal }}）</h3>
+          <p>第 {{ pdfPage }} 页内容（浏览器内置 PDF 阅读器直开预签名 URL；原型以分页占位模拟）。</p>
+          <p>单笔采购 ≥ 1 万元需总经理审批；&lt; 1 万元由部门负责人审批。</p>
+          <p v-if="pdfPage===2">附则：本制度自发布之日起施行。</p>
+        </div>
+
+        <!-- 视频 -->
+        <div v-else-if="current.kind==='video' && !error" class="player">
+          <video controls :poster="poster" @play="toast('视频播放：预签名 URL 直开（支持 Range 分段）')"></video>
+          <div class="dp-hint" style="color:#8b949e;margin-top:8px">示例无媒体源，真实场景为预签名 URL 直开播放（支持 Range 分段按需加载）</div>
+        </div>
+
+        <!-- 音频 -->
+        <div v-else-if="current.kind==='audio' && !error" class="player">
+          <div style="font-size:34px;text-align:center">🎵</div>
+          <audio controls @play="toast('音频播放：预签名 URL 直开')"></audio>
+          <div class="dp-hint" style="color:#8b949e;margin-top:8px">示例无媒体源（真实为预签名 URL 直开）</div>
+        </div>
+
+        <!-- 文本 -->
+        <div v-else-if="current.kind==='text' && !error" class="textbox">{{ current.text }}</div>
+
+        <!-- 其他：降级下载 -->
+        <div v-else-if="current.kind==='other' && !error" style="color:#fff;text-align:center">
+          <div style="font-size:40px">📄</div>
+          <div style="margin:10px 0">该类型不支持在线预览，请下载查看</div>
+          <el-button type="primary" @click="download(current)">下载文件</el-button>
+        </div>
+
+        <!-- 失效/错误 -->
+        <div v-else style="color:#fff;text-align:center">
+          <div style="font-size:40px">⚠️</div>
+          <div style="margin:10px 0">{{ error }}</div>
+          <el-button type="primary" @click="retryUrl">重新获取预览地址</el-button>
+          <el-button @click="download(current)">下载</el-button>
+        </div>
+
+        <span v-if="files.length>1" class="ov-nav r" @click="next">›</span>
+      </div>
+
+      <div v-if="current.kind==='image' && files.filter(f=>f.kind==='image').length>1" class="thumbs">
+        <img v-for="f in files.filter(x=>x.kind==='image')" :key="f.id" class="t" :class="{ on: f.id===current.id }" :src="f.url" @click="open(files.indexOf(f))" />
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref, computed } = Vue;
+  var ElMessage = ElementPlus.ElMessage;
+
+  function svgImg(color, label) {
+    var s = '<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400"><rect width="600" height="400" fill="' + color + '"/><text x="300" y="210" font-size="34" fill="#fff" text-anchor="middle" font-family="sans-serif">' + label + '</text></svg>';
+    return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(s);
+  }
+
+  var app = createApp({
+    setup: function () {
+      var openFlag = ref(false);
+      var currentIndex = ref(0);
+      var scale = ref(1);
+      var rotate = ref(0);
+      var pdfPage = ref(1);
+      var pdfTotal = ref(3);
+      var error = ref(null);
+      var log = ref('点击文件预览；类型分发：图片/PDF/音视频/文本直预览，其他降级下载');
+      var poster = svgImg('#1c3550', '视频封面');
+
+      var files = [
+        { id: 'f1', name: '产品架构图.png', size: '248 KB', kind: 'image', url: svgImg('#0969da', '产品架构图') },
+        { id: 'f2', name: '部署拓扑.png', size: '196 KB', kind: 'image', url: svgImg('#2da44e', '部署拓扑') },
+        { id: 'f3', name: '采购制度.pdf', size: '1.2 MB', kind: 'pdf', url: '#' },
+        { id: 'f4', name: '功能演示.mp4', size: '18.6 MB', kind: 'video', url: '' },
+        { id: 'f5', name: '会议录音.mp3', size: '4.2 MB', kind: 'audio', url: '' },
+        { id: 'f6', name: '环境配置.json', size: '2 KB', kind: 'text', url: '#', text: '{\n  "env": "prod",\n  "tenant": "acme",\n  "features": ["workflow", "report", "search"],\n  "note": "文本预览仅展示前 N KB，超长请下载查看"\n}' },
+        { id: 'f7', name: '合同模板.docx', size: '58 KB', kind: 'other', url: '#' }
+      ];
+      var current = computed(function () { return files[currentIndex.value]; });
+      function icon(kind) { return { image: '🖼️', pdf: '📕', video: '🎬', audio: '🎵', text: '📃', other: '📦' }[kind] || '📄'; }
+
+      function open(i) {
+        currentIndex.value = i; openFlag.value = true; error.value = null; scale.value = 1; rotate.value = 0; pdfPage.value = 1;
+        log.value = 'useFilePreview.resolveUrl(' + files[i].id + ') → 获取预签名 URL（限时直开）；类型分发 ' + files[i].kind;
+      }
+      function next() { open((currentIndex.value + 1) % files.length); }
+      function prev() { open((currentIndex.value - 1 + files.length) % files.length); }
+      function zoom(f) { scale.value = Math.max(0.2, Math.min(4, scale.value * f)); log.value = '图片缩放 scale=' + scale.value.toFixed(2); }
+      function retryUrl() { error.value = null; log.value = '预签名 URL 失效 → 重新获取一次（resolveUrl）'; ElMessage.success('已重新获取预览地址'); }
+      function stopMedia() { document.querySelectorAll('video,audio').forEach(function (m) { m.pause(); }); log.value = '关闭预览 → 停止音视频播放并释放 URL'; }
+      function download(f) { log.value = 'GET /files/{id} 预签名下载（file:download）：' + f.name; ElMessage.success('开始下载 ' + f.name); }
+      function toast(m) { log.value = m; }
+
+      // 模拟 URL 失效入口（演示错误态）
+      function simulateExpired() { error.value = '文件预览地址已失效（预签名过期或对象不可读）'; log.value = '加载失败 → 触发失效重取一次，仍失败进入错误态 + 下载'; }
+
+      return { openFlag, currentIndex, current, scale, rotate, pdfPage, pdfTotal, error, log, poster, files, icon, open, next, prev, zoom, retryUrl, stopMedia, download, toast, simulateExpired };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>
