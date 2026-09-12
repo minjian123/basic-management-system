@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 流程建模器（ProcessDesigner / BpmnCanvas / ElementPalette / NodePropertyPanel）</title>
+<link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../原型设计/资源/vendor/bpmn/diagram-js.css">
+<link rel="stylesheet" href="../../../原型设计/资源/vendor/bpmn/bpmn-js.css">
+<link rel="stylesheet" href="../../../原型设计/资源/vendor/bpmn/bpmn-font/css/bpmn.css">
+<link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-code { font-family:Consolas,"Cascadia Mono",monospace; color:#57606a; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+  .pd-grid { display:grid; grid-template-columns:1fr 300px; gap:12px; align-items:start; }
+  .pd-canvas-wrap { border:1px solid #d0d7de; border-radius:8px; overflow:hidden; }
+  .pd-canvas { height:520px; background:#fff; }
+  .pd-panel { border:1px solid #eaeef2; border-radius:8px; }
+  .pd-panel .hd { padding:8px 12px; border-bottom:1px solid #eaeef2; font-size:13px; font-weight:600; }
+  .pd-panel .bd { padding:10px; }
+  .pd-panel .bd .dp-hint { font-size:12px; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="07_组件设计_流程建模器.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 流程建模器 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="07_组件设计_流程建模器.md">《组件设计 · 流程建模器》</a>：演示 <b>bpmn-js Modeler</b> 真实建模画布（左侧内置调板即元素调板：用户任务/排他网关/结束事件等）、
+    节点属性面板（用户任务审批人/会签；网关出线条件表达式）、XML 导入导出、校验、保存草稿与版本发布、脏数据拦截。仅含 BPMN 子集（对齐 SpiffWorkflow 可解析边界）。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <!-- 工具栏 -->
+      <div class="dp-bar">
+        <el-button size="small" @click="newDiagram">新建</el-button>
+        <el-button size="small" @click="importXml">导入 XML</el-button>
+        <el-button size="small" @click="exportXml">导出 XML</el-button>
+        <el-button size="small" @click="validate">校验</el-button>
+        <el-button size="small" type="primary" :loading="saving" @click="saveDraft">保存草稿</el-button>
+        <el-button size="small" type="success" :disabled="issues.length>0" @click="deploy">发布版本</el-button>
+        <el-button size="small" @click="versionVisible=true">版本历史</el-button>
+        <span v-if="dirty" class="dp-hint" style="color:#cf222e">● 有未保存修改</span>
+        <span style="flex:1"></span>
+        <span class="dp-hint">definition_key：purchase_apply · 当前版本 v{{ version }}</span>
+      </div>
+      <div class="dp-bar">
+        <span class="dp-hint">元素调板 = 画布左侧 bpmn-js 内置调板（点击后在画布放置）：用户任务 / 排他网关 / 结束事件 / 连线；高级元素（服务/脚本任务）不提供。</span>
+      </div>
+
+      <div class="pd-grid">
+        <!-- 画布 -->
+        <div class="pd-canvas-wrap"><div ref="canvasEl" class="pd-canvas"></div></div>
+
+        <!-- 属性面板 -->
+        <div class="pd-panel">
+          <div class="hd">节点属性{{ selected ? '：' + typeLabel(selected.type) : '' }}</div>
+          <div class="bd">
+            <div v-if="!selected" class="dp-hint">未选中元素：点击画布中的节点/连线编辑属性；流程级属性（definition_key/名称）在未选中时可用。</div>
+            <template v-else>
+              <el-form label-position="top" size="small">
+                <el-form-item label="ID"><el-input :model-value="selected.id" disabled /></el-form-item>
+                <el-form-item label="名称">
+                  <el-input v-model="prop.name" @change="applyName" />
+                </el-form-item>
+
+                <template v-if="selected.type === 'bpmn:UserTask'">
+                  <el-divider content-position="left">审批配置</el-divider>
+                  <el-form-item label="审批人来源">
+                    <el-select v-model="prop.assigneeSource">
+                      <el-option label="部门负责人（主体链）" value="dept_manager" />
+                      <el-option label="岗位（主体链）" value="post" />
+                      <el-option label="角色（主体链）" value="role" />
+                      <el-option label="指定用户" value="users" />
+                      <el-option label="发起人主管" value="initiator_superior" />
+                      <el-option label="表单字段人员" value="form_field" />
+                    </el-select>
+                  </el-form-item>
+                  <el-form-item label="多人规则">
+                    <el-radio-group v-model="prop.multiRule">
+                      <el-radio-button label="any">或签</el-radio-button>
+                      <el-radio-button label="all">会签</el-radio-button>
+                    </el-radio-group>
+                  </el-form-item>
+                  <el-form-item label="超时（小时，仅告警）">
+                    <el-input-number v-model="prop.timeout" :min="0" />
+                  </el-form-item>
+                  <el-form-item label="待办通知">
+                    <el-checkbox v-model="prop.notify">站内信 + Socket.IO（approval.todo）</el-checkbox>
+                  </el-form-item>
+                </template>
+
+                <template v-if="isFlow(selected)">
+                  <el-divider content-position="left">条件分支</el-divider>
+                  <el-form-item label="连线条件（空 = 默认流）">
+                    <el-input v-model="prop.condition" type="textarea" :rows="2" placeholder="如 amount > 10000" />
+                  </el-form-item>
+                  <el-button size="small" @click="validateExpr">校验表达式</el-button>
+                  <span class="dp-hint" style="margin-left:8px">变量：amount / dept_id / initiator</span>
+                </template>
+              </el-form>
+            </template>
+          </div>
+        </div>
+      </div>
+
+      <div class="dp-state" style="margin-top:12px">{{ log }}</div>
+      <div v-if="issues.length" style="margin-top:8px;color:#cf222e;font-size:13px">
+        <div v-for="(s,i) in issues" :key="i">✕ {{ s }}</div>
+      </div>
+    </div>
+
+    <!-- 版本历史 -->
+    <el-dialog v-model="versionVisible" title="版本历史（只读）" width="520px">
+      <el-table :data="versions" size="small" border>
+        <el-table-column prop="version" label="版本" width="80" />
+        <el-table-column prop="status" label="状态" width="100" />
+        <el-table-column prop="time" label="发布/保存时间" />
+        <el-table-column label="操作" width="100">
+          <template #default="{ row }"><el-button size="small" text @click="loadVersion(row)">查看（只读）</el-button></template>
+        </el-table-column>
+      </el-table>
+    </el-dialog>
+  </div>
+</div>
+
+<script src="../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script src="../../../原型设计/资源/vendor/bpmn/modeler.min.js"></script>
+<script>
+  var { createApp, ref, reactive, computed, onMounted, onBeforeUnmount } = Vue;
+  var ElMessage = ElementPlus.ElMessage;
+  var ElMessageBox = ElementPlus.ElMessageBox;
+  var TYPE_LABEL = {
+    'bpmn:StartEvent': '开始事件', 'bpmn:EndEvent': '结束事件', 'bpmn:UserTask': '用户任务',
+    'bpmn:ExclusiveGateway': '排他网关', 'bpmn:ParallelGateway': '并行网关', 'bpmn:SequenceFlow': '顺序流'
+  };
+
+  var app = createApp({
+    setup: function () {
+      var canvasEl = ref(null);
+      var selected = ref(null);
+      var dirty = ref(false);
+      var saving = ref(false);
+      var version = ref(1);
+      var versionVisible = ref(false);
+      var log = ref('点画布左侧调板放置节点；选中节点后在右侧配置属性');
+      var issues = ref([]);
+      var prop = reactive({ name: '', assigneeSource: 'dept_manager', multiRule: 'any', timeout: 0, notify: true, condition: '' });
+      var attrStore = {}; // 元素 id -> 审批/条件属性（原型演示；生产写入 BPMN extensionElements）
+      var versions = ref([
+        { version: 1, status: '已发布', time: '2026-09-01 10:00' }
+      ]);
+
+      var modeler = null;
+      var eventBus = null;
+
+      function typeLabel(t) { return TYPE_LABEL[t] || t; }
+      function isFlow(el) { return el && el.type === 'bpmn:SequenceFlow' && el.businessObject && el.businessObject.sourceRef && el.businessObject.sourceRef.$type === 'bpmn:ExclusiveGateway'; }
+
+      function setPanel(el) {
+        selected.value = el;
+        if (!el) return;
+        var bo = el.businessObject || {};
+        prop.name = bo.name || '';
+        var st = attrStore[el.id] || {};
+        prop.assigneeSource = st.assigneeSource || 'dept_manager';
+        prop.multiRule = st.multiRule || 'any';
+        prop.timeout = st.timeout || 0;
+        prop.notify = st.notify !== false;
+        prop.condition = st.condition || '';
+      }
+      function persistPanel() {
+        if (!selected.value) return;
+        attrStore[selected.value.id] = {
+          assigneeSource: prop.assigneeSource, multiRule: prop.multiRule,
+          timeout: prop.timeout, notify: prop.notify, condition: prop.condition
+        };
+      }
+      function applyName() { var m = modeler.get('modeling'); m.updateProperties(selected.value, { name: prop.name }); }
+      function validateExpr() {
+        if (/[^=<>!\s\w.@-]/.test(prop.condition || '')) { ElMessage.error('表达式含非法字符'); return; }
+        ElMessage.success('表达式校验通过（变量 amount/dept_id/initiator 存在）');
+      }
+
+      function initModeler() {
+        modeler = new BpmnJS({ container: canvasEl.value, keyboard: { bindTo: document } });
+        eventBus = modeler.get('eventBus');
+        eventBus.on('selection.changed', function (e) { setPanel((e.newSelection && e.newSelection[0]) || null); });
+        eventBus.on('commandStack.changed', function () { dirty.value = true; });
+        modeler.createDiagram().then(function () {
+          buildSample();
+          log.value = '已创建示例流程：发起 → 部门经理审批 → 金额分支（≤1万 财务复核 / >1万 总经理审批）→ 结束';
+        });
+      }
+      function buildSample() {
+        try {
+          var modeling = modeler.get('modeling');
+          var elementFactory = modeler.get('elementFactory');
+          var elementRegistry = modeler.get('elementRegistry');
+          var canvas = modeler.get('canvas');
+          var root = canvas.getRootElement();
+          var start = elementRegistry.filter(function (e) { return e.type === 'bpmn:StartEvent'; })[0];
+          start.businessObject.name = '发起';
+          function add(type, x, y, name) {
+            var s = elementFactory.createShape({ type: type });
+            var el = modeling.createShape(s, { x: x, y: y }, root);
+            if (name) modeling.updateProperties(el, { name: name });
+            return el;
+          }
+          var t1 = add('bpmn:UserTask', 320, 160, '部门经理审批');
+          var gw = add('bpmn:ExclusiveGateway', 480, 175, '金额分支');
+          var t2 = add('bpmn:UserTask', 620, 90, '财务复核');
+          var t3 = add('bpmn:UserTask', 620, 260, '总经理审批');
+          var end = add('bpmn:EndEvent', 800, 175, '结束');
+          var f1 = modeling.connect(start, t1);
+          var f2 = modeling.connect(t1, gw);
+          var f3 = modeling.connect(gw, t2); modeling.updateProperties(f3, { name: '金额 ≤ 1万' });
+          var f4 = modeling.connect(gw, t3); modeling.updateProperties(f4, { name: '金额 > 1万' });
+          modeling.connect(t2, end);
+          modeling.connect(t3, end);
+          attrStore[t1.id] = { assigneeSource: 'dept_manager', multiRule: 'all', timeout: 24, notify: true };
+          attrStore[f3.id] = { condition: 'amount <= 10000' };
+          attrStore[f4.id] = { condition: 'amount > 10000' };
+          modeling.updateProperties(start, { name: '发起' });
+          dirty.value = false;
+        } catch (e) { log.value = '示例流程构建失败：' + e.message; }
+      }
+
+      function newDiagram() {
+        ElMessageBox.confirm('新建将清空当前画布（未保存修改会丢失），确定？', '新建流程', { type: 'warning' }).then(function () {
+          attrStore = {};
+          return modeler.createDiagram();
+        }).then(function () { dirty.value = false; version.value = 1; log.value = '已新建空流程（含开始事件）'; });
+      }
+      function exportXml() {
+        modeler.saveXML({ format: true }).then(function (r) {
+          var blob = new Blob([r.xml], { type: 'application/xml' });
+          var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'process.bpmn'; a.click();
+          log.value = '导出 BPMN XML（' + r.xml.length + ' 字符）';
+        });
+      }
+      function importXml() {
+        modeler.saveXML({ format: true }).then(function (r) {
+          var xml = prompt('粘贴 BPMN XML（演示）', r.xml);
+          if (xml) { modeler.importXML(xml).then(function () { dirty.value = false; log.value = '已导入 XML'; }); }
+        });
+      }
+      function validate() {
+        var elementRegistry = modeler.get('elementRegistry');
+        var arr = elementRegistry.getAll();
+        var errs = [];
+        var hasStart = arr.some(function (e) { return e.type === 'bpmn:StartEvent'; });
+        var hasEnd = arr.some(function (e) { return e.type === 'bpmn:EndEvent'; });
+        if (!hasStart) errs.push('缺少开始事件');
+        if (!hasEnd) errs.push('缺少结束事件');
+        arr.forEach(function (e) {
+          if (['bpmn:UserTask', 'bpmn:ExclusiveGateway', 'bpmn:ParallelGateway', 'bpmn:EndEvent'].indexOf(e.type) >= 0) {
+            var bo = e.businessObject;
+            var out = bo.outgoing || [];
+            if (e.type !== 'bpmn:EndEvent' && (!out || !out.length)) errs.push('节点「' + (bo.name || e.id) + '」没有出线');
+          }
+        });
+        issues.value = errs;
+        log.value = errs.length ? '校验未通过：' + errs.length + ' 项（发布前还需引擎预解析，错误码 60006）' : '结构校验通过；发布时后端 SpiffWorkflow 预解析';
+        ElMessage[errs.length ? 'error' : 'success'](errs.length ? '校验未通过' : '结构校验通过');
+      }
+      function saveDraft() {
+        saving.value = true;
+        setTimeout(function () { saving.value = false; dirty.value = false; log.value = 'POST /wf/processes（status=draft）→ 草稿已保存'; ElMessage.success('草稿已保存'); }, 600);
+      }
+      function deploy() {
+        ElMessageBox.confirm('发布新版本（version+1）并触发 wf.process.deployed；在途实例仍按原版本执行。确定？', '发布版本', { type: 'info' }).then(function () {
+          version.value += 1;
+          versions.value.unshift({ version: version.value, status: '已发布', time: new Date().toLocaleString('zh-CN', { hour12: false }) });
+          dirty.value = false;
+          log.value = 'POST /wf/processes/purchase_apply/deploy → v' + version.value + ' 已发布（wf.process.deployed）';
+          ElMessage.success('已发布 v' + version.value);
+        });
+      }
+      function loadVersion(row) {
+        versionVisible.value = false;
+        log.value = '载入 v' + row.version + '（只读模式，禁用调板与编辑）';
+        ElMessage.info('只读查看 v' + row.version);
+      }
+
+      onMounted(function () { if (typeof BpmnJS === 'undefined') { log.value = 'bpmn-js 未加载'; return; } initModeler(); });
+      onBeforeUnmount(function () { if (modeler) modeler.destroy(); });
+
+      return {
+        canvasEl, selected, dirty, saving, version, versionVisible, log, issues, prop, versions,
+        typeLabel, isFlow, applyName, validateExpr, newDiagram, exportXml, importXml, validate, saveDraft, deploy, loadVersion
+      };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>
