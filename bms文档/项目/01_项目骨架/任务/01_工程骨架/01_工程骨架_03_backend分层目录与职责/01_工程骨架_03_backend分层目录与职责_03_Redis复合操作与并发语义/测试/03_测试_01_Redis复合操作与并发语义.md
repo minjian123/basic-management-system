@@ -20,7 +20,7 @@
 
 ## 2. 测试范围与用例 <a id="scope"></a>
 
-**范围**：`replace_if_equal`（命中/未命中/缺失）、`get_and_remove`（命中/缺失）、`update_atomic`（成功/缺失/重试/超限）、`get_locked`（提交/缺失）；真实 Redis 上的 Lua 原子与 WATCH 行为。不含：Redis Cluster、阶段十压测、02-3 异常体系替换后的响应口径。
+**范围**：`replace_if_equal`（命中/未命中/缺失）、`get_and_remove`（命中/缺失）、`update_atomic`（成功/缺失/重试/超限）、`get_locked`（提交/缺失）；真实 Redis 上的 Lua 原子与 WATCH 行为。不含：Redis Cluster、阶段十一压测、02-3 异常体系替换后的响应口径。
 
 | Kiwi ID | 用例 | 类型 | 自动化文件 | 结果 |
 | --- | --- | --- | --- | --- |
@@ -73,6 +73,6 @@ BMS_TEST_REDIS_URL="redis://<mjbk>:6379/0" uv run pytest tests/integration -q -m
 
 - `get_locked` 冲突不重试为设计语义（调用方决策），非缺陷；相关说明见设计 §4。
 - integration 用例在 CI 中的执行依赖 05-02 注入 `BMS_TEST_REDIS_URL`（已补入该任务集成用例清单）。
-- Redis Cluster 与压测口径随阶段十；02-3 接管 `ConcurrentConflictError` 后如需调整断言在设计修订同步。
+- Redis Cluster 与压测口径随阶段十一；02-3 接管 `ConcurrentConflictError` 后如需调整断言在设计修订同步。
 
 > 本文档依《文档生成规范》编写 · 按《任务文档规范》「测试文档（任务测试记录）」节测试文档结构组织

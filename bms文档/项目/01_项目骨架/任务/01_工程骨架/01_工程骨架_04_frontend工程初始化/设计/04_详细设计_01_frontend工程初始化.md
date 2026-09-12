@@ -7,7 +7,7 @@
 ## 1. 概述 <a id="overview"></a>
 
 - **目标**：把 01-01 交付的 frontend 最小占位（Vue 3.5 + Vite 8 + TS 6）升级为**需求 01-4 定义的完整工程**：依赖清单、src 分层骨架、统一响应契约类型、Vite 代理链路、ESLint/Prettier/Vitest 质量工具与冒烟测试。
-- **范围**：仅 frontend 工程与其冒烟验证；业务页面/UI 布局不做（默认页占位）；OpenAPI 类型生成为占位（随 05 域契约接入）；认证与 401 处理留 TODO（阶段二）。
+- **范围**：仅 frontend 工程与其冒烟验证；业务页面/UI 布局不做（默认页占位）；OpenAPI 类型生成为占位（随 05 域契约接入）；认证与 401 处理留 TODO（阶段三）。
 - **依据**：需求 [01-4](../../../../需求/01_需求_工程骨架.md#r01-4)、《[前端开发规范](../../../../../../规范/前端开发规范.md)》第 2/4/11 节、《[项目规划说明](../../../../../../规划/项目规划说明.md)》「前端」「环境与配置」节、《[命名规范](../../../../../../规范/命名规范.md)》「前端命名」节。
 
 ## 2. 现状与差距 <a id="gap"></a>
@@ -67,7 +67,7 @@ frontend/
 | `element-plus` | `^2` | 管理端 UI |
 | `@element-plus/icons-vue` | `^2` | 图标 |
 | `vue-i18n` | `^11` | 国际化 |
-| `socket.io-client` | `^4` | 实时通道预留（阶段二接入） |
+| `socket.io-client` | `^4` | 实时通道预留（阶段三接入） |
 
 **开发依赖**：`vite`/`typescript`/`vue-tsc`（已有）、`@vitejs/plugin-vue`（已有）、`sass`（SCSS）、`eslint` + `eslint-plugin-vue` + `typescript-eslint` + `@vue/eslint-config-typescript` + `@vue/eslint-config-prettier`、`prettier`、`vitest` + `@vue/test-utils` + `jsdom`、`openapi-typescript`。
 
@@ -127,7 +127,7 @@ export default defineConfig({
 | `api/http.ts` | Axios 实例、拦截器（token 注入位、统一响应解析、401 TODO）、`fetchAppInfo()` | 不写页面逻辑 |
 | `api/types.gen.ts` | openapi-typescript 生成占位（骨架期空导出） | 不手写业务类型 |
 | `router/routes.ts` | 路由实例与静态壳路由；动态路由骨架（登录后按权限注入） | 不硬编码业务路由表 |
-| `stores/useUserStore.ts` | 用户/token 占位（token 仅内存） | 不持久化 token 到 localStorage（阶段二定案） |
+| `stores/useUserStore.ts` | 用户/token 占位（token 仅内存） | 不持久化 token 到 localStorage（阶段三定案） |
 | `layouts/BasicLayout.vue` | 基础布局壳（`router-view`），后续接菜单/页签 | 不放业务组件 |
 | `views/HomeView.vue` | 默认页：标题 + backend name/version 展示 | 不放业务逻辑 |
 | `i18n/*` | vue-i18n 实例与 zh-CN/en-US 语言包（含 `error.{code}` 段） | 不硬编码文案 |
@@ -150,8 +150,8 @@ export interface PageResponse<T> {
 }
 ```
 
-- 响应拦截器：HTTP 2xx 且 `code === 0` → 返回 `data`；`code !== 0` → 统一错误提示（文案按 `error.${code}` i18n 映射，缺失回退 message）并 reject；HTTP 401 → TODO（阶段二接刷新/登出）；网络错误 → 统一提示。
-- 请求拦截器：预留 `Authorization: Bearer <token>` 注入位（token 仅存内存 Pinia，阶段二接入）。
+- 响应拦截器：HTTP 2xx 且 `code === 0` → 返回 `data`；`code !== 0` → 统一错误提示（文案按 `error.${code}` i18n 映射，缺失回退 message）并 reject；HTTP 401 → TODO（阶段三接刷新/登出）；网络错误 → 统一提示。
+- 请求拦截器：预留 `Authorization: Bearer <token>` 注入位（token 仅存内存 Pinia，阶段三接入）。
 - `fetchAppInfo()`：`GET /info` → `ApiResponse<{ name: string; version: string }>`（代理见 §5）。
 - 生成类型：`openapi-typescript` 以 backend `/openapi.json` 生成 `types.gen.ts`（脚本 `npm run gen:api` 预留，随 05 域契约接入启用）。
 
@@ -187,9 +187,9 @@ export interface PageResponse<T> {
 
 ## 11. 边界与开放项 <a id="boundary"></a>
 
-- 不含业务页面与 UI 设计（默认页占位）；布局/菜单随阶段二权限体系。
+- 不含业务页面与 UI 设计（默认页占位）；布局/菜单随阶段三权限体系。
 - OpenAPI 类型生成与 `gen:api` 脚本占位，随 05 域契约接入启用（生成后 `types.gen.ts` 替换手写业务类型）。
-- 401 刷新与登出、token 持久化口径随阶段二认证任务。
+- 401 刷新与登出、token 持久化口径随阶段三认证任务。
 - `/info` 为骨架期连通探针（生产由网关同路径映射或改用正式信息接口，随部署阶段定案）。
 - socket.io-client 仅登记依赖占位，不建立连接。
 

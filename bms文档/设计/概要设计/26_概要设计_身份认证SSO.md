@@ -168,7 +168,7 @@ idp / sso 业务与 manage / bind 动作码由【平台库】sys_business/sys_ac
 
 ### 8.2 验收要点
 
-- SSO 登录（OIDC）与 JIT 建号可用（对应规划说明阶段二与 MVP 验收「SSO 登录（OIDC）与 JIT 建号可用」）
+- SSO 登录（OIDC）与 JIT 建号可用（对应规划说明阶段三与 MVP 验收「SSO 登录（OIDC）与 JIT 建号可用」）
 - BMS 作 IdP 供第三方登录通过（「BMS 作 IdP 供第三方登录通过」）
 - 本地登录应急通道验证：IdP 故障场景下本地账号可登录
 - 企业微信/钉钉免登复用同一外部身份框架（移动端免登 E2E）
