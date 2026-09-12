@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 批量操作栏（BatchActionBar / useSelection）</title>
+<link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-code { font-family:Consolas,"Cascadia Mono",monospace; color:#57606a; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+  .batchbar { display:flex; align-items:center; gap:10px; background:#eef4ff; border:1px solid #b6d3ff; border-radius:8px; padding:8px 12px; margin-bottom:10px; font-size:13px; }
+  .batchbar .cnt { color:#0969da; font-weight:600; }
+  .progress { height:6px; background:#eaeef2; border-radius:3px; overflow:hidden; width:220px; }
+  .progress > i { display:block; height:100%; background:#0969da; width:0; transition:width .2s; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="16_组件设计_批量操作栏.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 批量操作栏 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="16_组件设计_批量操作栏.md">《组件设计 · 批量操作栏》</a>：勾选行后浮出操作栏（已选 N 项），演示批量启用/停用、危险删除二次确认、批量导出（异步进度）、跨页全选、权限过滤与部分成功反馈。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-bar">
+        <el-checkbox v-model="canDelete" size="small">拥有删除权限</el-checkbox>
+        <el-checkbox v-model="crossPage" size="small">支持跨页全选</el-checkbox>
+        <el-checkbox v-model="clearAfter" size="small">动作后清空选择</el-checkbox>
+        <span class="dp-hint">勾选左侧复选框体验选中浮出</span>
+      </div>
+
+      <!-- 批量操作栏（浮出） -->
+      <div v-if="selected.length" class="batchbar">
+        <span>已选 <span class="cnt">{{ selected.length }}</span> 项<span v-if="crossPage && allChecked">&nbsp;（本条件下共 {{ total }} 项）</span></span>
+        <el-button size="small" @click="act('enable')">批量启用</el-button>
+        <el-button size="small" @click="act('disable')">批量停用</el-button>
+        <el-button size="small" type="danger" plain :disabled="!canDelete" @click="confirmDelete">批量删除</el-button>
+        <el-dropdown size="small" @command="act">
+          <el-button size="small">更多<el-icon><i style="font-style:normal">▾</i></el-icon></el-button>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item command="assign">批量分配</el-dropdown-item>
+              <el-dropdown-item command="export">批量导出（异步）</el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
+        <span style="flex:1"></span>
+        <span v-if="running" class="progress"><i :style="{width: pct + '%'}"></i></span>
+        <el-button size="small" text @click="selected=[]">清除选择</el-button>
+      </div>
+
+      <el-table ref="tb" :data="rows" size="small" border style="max-width:640px" @selection-change="onChange">
+        <el-table-column type="selection" width="44" />
+        <el-table-column prop="id" label="ID" width="70" />
+        <el-table-column prop="name" label="用户名" />
+        <el-table-column prop="dept" label="组织" />
+        <el-table-column label="状态" width="90"><template #default="{row}"><el-tag size="small" :type="row.status==='启用'?'success':'info'">{{ row.status }}</el-tag></template></el-table-column>
+      </el-table>
+      <div v-if="crossPage" style="margin-top:8px">
+        <el-checkbox v-model="allChecked" @change="toggleAll">按当前筛选条件全选（跨页，服务端全选）</el-checkbox>
+      </div>
+
+      <div class="dp-state" style="margin-top:12px">{{ log }}</div>
+    </div>
+  </div>
+</div>
+
+<script src="../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref, computed } = Vue;
+  var ElMessage = ElementPlus.ElMessage;
+  var ElMessageBox = ElementPlus.ElMessageBox;
+
+  var app = createApp({
+    setup: function () {
+      var rows = ref([
+        { id: 1001, name: '张三', dept: '前端组', status: '启用' },
+        { id: 1002, name: '李四', dept: '后端组', status: '启用' },
+        { id: 1003, name: '王五', dept: '华东区', status: '停用' },
+        { id: 1004, name: '赵六', dept: '华北区', status: '启用' }
+      ]);
+      var total = ref(128);
+      var selected = ref([]);
+      var canDelete = ref(true);
+      var crossPage = ref(false);
+      var clearAfter = ref(true);
+      var allChecked = ref(false);
+      var running = ref(false);
+      var pct = ref(0);
+      var log = ref('选中行后操作栏浮出；动作按权限过滤；删除二次确认；导出走异步任务');
+
+      function onChange(sel) { selected.value = sel; if (!sel.length) allChecked.value = false; log.value = sel.length ? 'update:selected → ' + sel.length + ' 项（只存 id 集合，跨页不全量拉取）' : '清空选择 → 操作栏隐藏'; }
+      function toggleAll(v) { if (v) { log.value = '跨页全选 → 服务端按当前筛选条件全选共 ' + total.value + ' 项（条件变化清空）'; } else { log.value = '取消跨页全选'; } }
+      function confirmDelete() {
+        ElMessageBox.confirm('将删除选中的 ' + selected.value.length + ' 项，不可恢复，确定继续？', '批量删除确认', { type: 'warning', confirmButtonText: '删除', confirmButtonClass: 'el-button--danger' })
+          .then(function () { act('delete'); }).catch(function () {});
+      }
+      function act(key) {
+        var n = selected.value.length;
+        if (key === 'export') { runAsync('批量导出 → 异步任务后台执行，完成后通知（避免同步阻塞）'); return; }
+        if (key === 'delete') { ElMessage.warning('危险动作（红色 + 二次确认）'); }
+        if (key === 'assign') { log.value = '批量分配 → 打开分配弹窗（对象为选中 ' + n + ' 项）'; ElMessage.success('打开批量分配'); return; }
+        var ok = Math.max(0, n - 1), fail = n - ok;
+        if (fail > 0) { log.value = '部分成功：成功 ' + ok + ' / 失败 ' + fail + '（选中项已被其他操作删除，执行时跳过并返回失败明细）；逐条记审计日志'; ElMessage.warning('部分成功：成功 ' + ok + ' 失败 ' + fail); }
+        else { log.value = key + ' → 成功 ' + n + ' 项，Toast + 局部刷新列表，逐条记审计日志'; ElMessage.success('操作成功'); }
+        if (clearAfter.value) selected.value = [];
+      }
+      function runAsync(msg) { log.value = msg; running.value = true; pct.value = 0; var t = setInterval(function () { pct.value += 20; if (pct.value >= 100) { clearInterval(t); running.value = false; log.value = '异步任务完成 → 通知「导出完成，可下载」'; ElMessage.success('导出完成'); } }, 300); }
+
+      return { rows, total, selected, canDelete, crossPage, clearAfter, allChecked, running, pct, log, onChange, toggleAll, confirmDelete, act };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>

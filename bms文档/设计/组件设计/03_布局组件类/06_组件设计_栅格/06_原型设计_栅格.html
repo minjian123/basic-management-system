@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 栅格（Grid Row/Col）</title>
+<link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-code { font-family:Consolas,"Cascadia Mono",monospace; color:#57606a; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+  .cell { background:#eef4ff; border:1px solid #b6d3ff; border-radius:4px; padding:8px; text-align:center; font-size:12px; color:#0969da; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="06_组件设计_栅格.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 栅格 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="06_组件设计_栅格.md">《组件设计 · 栅格》</a>：演示 24 栅格 span/offset、gutter 间距、justify/align 与响应式断点（窄屏转单列）；继承 02 基础组件类 L2-07。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-bar">
+        <span class="dp-hint">当前断点 <span class="dp-code">{{ bp }}</span>（{{ w }}px）</span>
+        <el-radio-group v-model="gutter" size="small"><el-radio-button :label="8">gutter 8</el-radio-button><el-radio-button :label="16">16</el-radio-button><el-radio-button :label="24">24</el-radio-button></el-radio-group>
+      </div>
+
+      <div style="display:flex; gap:0; flex-wrap:wrap; margin:0 -8px">
+        <div :style="{flex:'0 0 '+ (narrow?100:33.33)+'%', padding:'0 8px', boxSizing:'border-box', marginBottom:gutter+'px'}"><div class="cell">Col span=8</div></div>
+        <div :style="{flex:'0 0 '+ (narrow?100:33.33)+'%', padding:'0 8px', boxSizing:'border-box', marginBottom:gutter+'px'}"><div class="cell">Col span=8</div></div>
+        <div :style="{flex:'0 0 '+ (narrow?100:33.33)+'%', padding:'0 8px', boxSizing:'border-box', marginBottom:gutter+'px'}"><div class="cell">Col span=8</div></div>
+        <div :style="{flex:'0 0 '+ (narrow?100:50)+'%', padding:'0 8px', boxSizing:'border-box', marginLeft:(narrow?0:'16.66%')}"><div class="cell">Col span=12 offset=4</div></div>
+      </div>
+
+      <div class="dp-state" style="margin-top:12px">24 栅格 + span/offset；gutter={{ gutter }}（横向/纵向，令牌）；响应式断点对象取跨度；窄屏 = {{ narrow ? '单列（xs/sm）' : '三列' }}
+与《布局设计·响应式适配》断点一致；栅格与分栏（03-08）不同：栅格按比例均分、分栏可拖拽。</div>
+    </div>
+  </div>
+</div>
+
+<script src="../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref, computed, onMounted, onUnmounted } = Vue;
+  var app = createApp({ setup: function () {
+    var gutter=ref(16), w=ref(window.innerWidth);
+    function onR(){ w.value=window.innerWidth; }
+    onMounted(function(){ window.addEventListener('resize',onR); }); onUnmounted(function(){ window.removeEventListener('resize',onR); });
+    var bp=computed(function(){ var x=w.value; return x<576?'xs':x<768?'sm':x<992?'md':x<1200?'lg':'xl'; });
+    var narrow=computed(function(){ return ['xs','sm'].indexOf(bp.value)>=0; });
+    return { gutter:gutter, w:w, bp:bp, narrow:narrow };
+  }});
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>

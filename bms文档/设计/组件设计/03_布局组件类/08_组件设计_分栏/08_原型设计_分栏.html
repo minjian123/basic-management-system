@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 分栏（Split）</title>
+<link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-code { font-family:Consolas,"Cascadia Mono",monospace; color:#57606a; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+  .split { display:flex; height:220px; border:1px solid #d0d7de; border-radius:8px; overflow:hidden; }
+  .split .p1 { background:#f6f8fa; overflow:auto; padding:12px; font-size:13px; }
+  .split .p2 { flex:1; overflow:auto; padding:12px; font-size:13px; }
+  .split .bar { width:6px; background:#eaeef2; cursor:col-resize; }
+  .split .bar:hover { background:#0969da; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="08_组件设计_分栏.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 分栏 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="08_组件设计_分栏.md">《组件设计 · 分栏》</a>：演示左右分栏、拖拽调整比例、最小尺寸与折叠；继承 02 基础组件类 L2-07。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-bar"><el-checkbox v-model="collapsed" size="small">折叠左栏</el-checkbox><span class="dp-hint">拖动中间分割条调整比例（min/max 限制）</span></div>
+
+      <div class="split">
+        <div class="p1" v-show="!collapsed" :style="{width: ratio*100 + '%'}">左栏（first 插槽）<br><br>拖拽分割条调整；比例可持久化到用户偏好（storageKey）；窄屏转上下/单栏。</div>
+        <div class="bar" v-show="!collapsed" @mousedown="startDrag"></div>
+        <div class="p2">右栏（second 插槽）</div>
+      </div>
+
+      <div class="dp-state" style="margin-top:12px">direction=horizontal　ratio={{ ratio.toFixed(2) }}　collapsed={{ collapsed }}
+说明：最小/最大尺寸限制；折叠后另一侧占满；拖拽结束才持久化；窄屏转上下或单栏；
+与栅格（03-06，按比例均分）不同，本组件可拖拽；与树形主从（03-05）语义不同（后者为左树右表）。</div>
+    </div>
+  </div>
+</div>
+
+<script src="../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref } = Vue;
+  var app = createApp({ setup: function () {
+    var ratio=ref(0.35), collapsed=ref(false);
+    function startDrag(e){ var startX=e.clientX, startR=ratio.value, total=400;
+      function mv(ev){ var r=startR+(ev.clientX-startX)/total; ratio.value=Math.max(0.2,Math.min(0.8,r)); }
+      function up(){ document.removeEventListener('mousemove',mv); document.removeEventListener('mouseup',up); }
+      document.addEventListener('mousemove',mv); document.addEventListener('mouseup',up); }
+    return { ratio:ratio, collapsed:collapsed, startDrag:startDrag };
+  }});
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>

@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 表单框架壳（FormFrame）</title>
+<link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-code { font-family:Consolas,"Cascadia Mono",monospace; color:#57606a; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+  .ff { border:1px solid #d0d7de; border-radius:8px; overflow:hidden; }
+  .fftabs { display:flex; gap:4px; padding:8px 10px 0; border-bottom:1px solid #eaeef2; background:#fafbfc; }
+  .fftabs .t { padding:5px 12px; border:1px solid #eaeef2; border-bottom:none; border-radius:6px 6px 0 0; font-size:13px; cursor:pointer; background:#fafbfc; color:#57606a; }
+  .fftabs .t.on { background:#fff; color:#0969da; font-weight:600; border-color:#d0d7de; }
+  .fftabs .x { color:#b1b8bf; margin-left:5px; }
+  .ffbody { padding:14px; background:#fff; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="02_组件设计_表单框架壳.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 表单框架壳 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="02_组件设计_表单框架壳.md">《组件设计 · 表单框架壳》</a>：演示列表 Tab 固定 + 详情 Tab 多开（双击行开详情、已开激活不重复、关闭激活相邻）；继承 02 基础组件类 L2-07。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-bar"><el-checkbox v-model="dirty" size="small">当前详情有未保存修改</el-checkbox><span class="dp-hint">双击列表行打开详情</span></div>
+
+      <div class="ff">
+        <div class="fftabs">
+          <div class="t" :class="{on: active==='list'}" @click="active='list'">列表</div>
+          <div class="t" v-for="d in details" :key="d.id" :class="{on: active===d.id}" @click="active=d.id">
+            {{ d.name }}<span class="x" @click.stop="close(d.id)">✕</span>
+          </div>
+        </div>
+        <div class="ffbody">
+          <el-table v-if="active==='list'" :data="rows" size="small" border style="max-width:520px" @row-dblclick="open">
+            <el-table-column prop="id" label="ID" width="70" />
+            <el-table-column prop="name" label="用户名" />
+            <el-table-column prop="dept" label="组织" />
+          </el-table>
+          <div v-else><b>详情：{{ currentName }}</b><div class="dp-hint" style="margin-top:6px">（详情组件在此渲染；默认只读，点「修改」进编辑态）</div></div>
+        </div>
+      </div>
+
+      <div class="dp-state" style="margin-top:12px">{{ log }}
+说明：列表 Tab 固定不可关；不同记录各自新开详情 Tab、已开则激活不重复新建；关闭详情激活相邻；脏数据切换/关闭前确认；
+组件名经 import.meta.glob 映射，未注册拦截提示；保存/删除后刷新列表。</div>
+    </div>
+  </div>
+</div>
+
+<script src="../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref, computed } = Vue;
+  var app = createApp({ setup: function () {
+    var rows=[{id:1001,name:'张三',dept:'前端组'},{id:1002,name:'李四',dept:'后端组'}];
+    var details=ref([]); var active=ref('list'); var dirty=ref(false);
+    var log=ref('列表 Tab 固定；双击行开详情。');
+    function open(row){ var ex=details.value.filter(function(d){return d.id===row.id;})[0]; if(ex){ active.value=row.id; log.value='详情已打开 → 激活（不重复新建）'; return; } details.value.push({id:row.id,name:row.name+'-'+row.id}); active.value=row.id; log.value='双击行 → 新开详情 Tab（记录 '+row.id+'）'; }
+    function close(id){ var i=details.value.findIndex(function(d){return d.id===id;}); details.value=details.value.filter(function(d){return d.id!==id;}); if(active.value===id){ var n=details.value[i]||details.value[i-1]; active.value=n?n.id:'list'; } log.value='关闭详情 Tab → 激活相邻' + (dirty.value?'（脏数据已确认）':''); }
+    var currentName=computed(function(){ var d=details.value.filter(function(x){return x.id===active.value;})[0]; return d?d.name:''; });
+    return { rows:rows, details:details, active:active, dirty:dirty, log:log, open:open, close:close, currentName:currentName };
+  }});
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>

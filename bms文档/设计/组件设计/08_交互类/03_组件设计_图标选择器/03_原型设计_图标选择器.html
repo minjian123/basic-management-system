@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 图标选择器（IconPicker / IconDisplay / IconLibrary / iconRegistry）</title>
+<link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
+<style>
+  :root { --color-primary:#0969da; --color-info:#57606a; }
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .ep-section { font-weight:600; margin:18px 0 12px; padding-bottom:8px; border-bottom:1px solid #eaeef2; font-size:14px; }
+  .ep-section:first-of-type { margin-top:0; }
+  .dp-bar { display:flex; align-items:center; gap:12px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-code { font-family:Consolas,"Cascadia Mono",monospace; color:#57606a; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+  .ip-box { width:100%; }
+  .icon-grid { display:grid; grid-template-columns:repeat(8, 1fr); gap:6px; max-height:260px; overflow:auto; }
+  .icon-cell { display:flex; align-items:center; justify-content:center; height:38px; border:1px solid #eaeef2; border-radius:6px; cursor:pointer; font-size:20px; color:#57606a; background:#fff; }
+  .icon-cell:hover { border-color:var(--color-primary); color:var(--color-primary); }
+  .icon-cell.active { border-color:var(--color-primary); color:#fff; background:var(--color-primary); }
+  .demo-menu { width:260px; border:1px solid #eaeef2; border-radius:8px; overflow:hidden; }
+  .demo-menu .mi { display:flex; align-items:center; gap:10px; padding:10px 14px; font-size:14px; border-bottom:1px solid #f2f3f5; }
+  .demo-menu .mi:last-child { border-bottom:none; }
+  .demo-cards { display:flex; gap:12px; flex-wrap:wrap; }
+  .demo-card { width:150px; border:1px solid #eaeef2; border-radius:8px; padding:14px; text-align:center; }
+  .src-tag { font-size:11px; padding:1px 6px; border-radius:10px; background:#eef4ff; color:#0969da; }
+  .src-tag.biz { background:#e6ffec; color:#1a7f37; }
+  .src-tag.custom { background:#fff8c5; color:#9a6700; }
+  @keyframes ecspin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="03_组件设计_图标选择器.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 图标选择器 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="03_组件设计_图标选择器.md">《组件设计 · 图标选择器》</a>：演示 <b>IconPicker</b> 搜索/分类/网格/最近使用/已选预览与清除、
+    <b>IconDisplay</b> 多来源解析与降级、<b>IconLibrary</b> 清单浏览与自定义图标管理（上传 SVG、引用检查）；图标取自 <span class="dp-code">@element-plus/icons-vue</span>（离线 vendor）。
+  </div>
+
+  <div id="app">
+    <el-tabs v-model="tab">
+      <!-- ① 图标选择器 -->
+      <el-tab-pane label="① 图标选择器" name="picker">
+        <div class="ep-page">
+          <div class="dp-bar">
+            <span>已选：</span>
+            <icon-display :name="form.icon" :size="18" />
+            <span class="dp-code">{{ form.icon || '（未选）' }}</span>
+            <span class="dp-hint">点击输入框打开选择器；支持搜索、分类、最近使用、清除</span>
+          </div>
+          <div style="max-width:340px">
+            <div style="font-size:12px;color:#57606a;margin-bottom:4px">菜单图标（label 上方）</div>
+            <icon-picker v-model="form.icon" />
+          </div>
+          <div class="dp-state" style="margin-top:12px">{{ pickerLog }}</div>
+        </div>
+      </el-tab-pane>
+
+      <!-- ② 只读渲染器 -->
+      <el-tab-pane label="② 只读渲染器" name="display">
+        <div class="ep-page">
+          <div class="ep-section">菜单项（16px）</div>
+          <div class="demo-menu">
+            <div class="mi"><icon-display name="el:HomeFilled" :size="16" /> 工作台</div>
+            <div class="mi"><icon-display name="el:User" :size="16" /> 用户管理</div>
+            <div class="mi"><icon-display name="biz:purchase-order" :size="16" /> 采购申请 <span class="src-tag biz">biz</span></div>
+            <div class="mi"><icon-display name="custom:1024" :size="16" /> 部门徽标 <span class="src-tag custom">custom</span></div>
+            <div class="mi"><icon-display name="el:NotExistIcon" :size="16" /> 未知图标（降级问号）</div>
+          </div>
+
+          <div class="ep-section">按钮图标与卡片（尺寸/颜色随场景）</div>
+          <div class="dp-bar">
+            <el-button type="primary" size="small"><icon-display name="el:Plus" :size="16" style="margin-right:4px" /> 新增</el-button>
+            <el-button size="small"><icon-display name="el:Download" :size="16" style="margin-right:4px" /> 导出</el-button>
+            <el-button size="small"><icon-display name="el:Refresh" :size="16" :spin="spinning" style="margin-right:4px" /> 刷新</el-button>
+            <el-switch v-model="spinning" size="small" active-text="spin" />
+          </div>
+          <div class="demo-cards">
+            <div class="demo-card"><icon-display name="el:Bell" :size="20" color="var(--color-primary)" /><div style="margin-top:6px;font-size:13px">通知 3</div></div>
+            <div class="demo-card"><icon-display name="el:List" :size="20" color="var(--color-info)" /><div style="margin-top:6px;font-size:13px">待办 4</div></div>
+          </div>
+          <div class="dp-state" style="margin-top:12px">解析：el: → ElementPlusIconsVue 组件；biz: → manifest 懒加载 SVG；custom: → 接口 SVG；未知 → fallback 问号 + 开发告警</div>
+        </div>
+      </el-tab-pane>
+
+      <!-- ③ 图标清单管理 -->
+      <el-tab-pane label="③ 图标清单管理" name="library">
+        <div class="ep-page">
+          <div class="dp-bar">
+            <el-radio-group v-model="srcFilter" size="small">
+              <el-radio-button label="el">平台图标</el-radio-button>
+              <el-radio-button label="biz">业务图标</el-radio-button>
+              <el-radio-button label="custom">自定义图标</el-radio-button>
+            </el-radio-group>
+            <el-input v-model="libKeyword" size="small" placeholder="搜索图标名称" style="width:200px" clearable />
+            <span class="dp-hint">共 {{ srcFilter==='custom' ? filteredCustom.length : filteredLib.length }} 个</span>
+            <el-button v-if="srcFilter==='custom'" size="small" type="primary" style="margin-left:auto" @click="openCustom()">上传自定义图标</el-button>
+          </div>
+
+          <template v-if="srcFilter !== 'custom'">
+            <div class="icon-grid">
+              <el-tooltip v-for="it in filteredLib" :key="it.key" :content="it.key" placement="top">
+                <div class="icon-cell" @click="copyKey(it.key)"><component :is="comp(it.icon)" /></div>
+              </el-tooltip>
+            </div>
+            <div class="dp-hint" style="margin-top:8px">点击图标复制 icon key；平台/业务图标随代码维护，清单页只读浏览</div>
+          </template>
+
+          <template v-else>
+            <el-table :data="filteredCustom" size="small" border>
+              <el-table-column label="预览" width="70">
+                <template #default="{ row }"><icon-display :name="row.key" :size="18" /></template>
+              </el-table-column>
+              <el-table-column prop="key" label="icon key" width="150" />
+              <el-table-column prop="name" label="名称" />
+              <el-table-column prop="category" label="分类" width="100" />
+              <el-table-column label="状态" width="90">
+                <template #default="{ row }"><el-tag :type="row.status==='enabled'?'success':'info'" size="small">{{ row.status==='enabled'?'启用':'停用' }}</el-tag></template>
+              </el-table-column>
+              <el-table-column prop="refs" label="引用" width="70" />
+              <el-table-column label="操作" width="190">
+                <template #default="{ row }">
+                  <el-button size="small" text @click="openCustom(row)">编辑</el-button>
+                  <el-button size="small" text @click="toggleCustom(row)">{{ row.status==='enabled'?'停用':'启用' }}</el-button>
+                  <el-button size="small" text type="danger" @click="delCustom(row)">删除</el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+            <div class="dp-hint" style="margin-top:8px">删除前做引用检查：被引用时提示先解除引用或改用「停用」</div>
+          </template>
+          <div class="dp-state" style="margin-top:12px">{{ libLog }}</div>
+        </div>
+      </el-tab-pane>
+    </el-tabs>
+
+    <!-- 自定义图标编辑弹窗 -->
+    <el-dialog v-model="customVisible" :title="customForm.id ? '编辑自定义图标' : '上传自定义图标'" width="480px" :close-on-click-modal="false">
+      <el-form label-position="top">
+        <el-form-item label="SVG 文件（仅 .svg，≤ 100KB，内容将安全清洗）">
+          <el-upload drag :auto-upload="false" :limit="1" accept=".svg" :on-change="onSvgChange" :file-list="svgList" style="width:100%">
+            <div style="padding:10px 0"><div style="font-size:26px">⇪</div><div style="font-size:13px">拖拽或点击上传 SVG</div></div>
+          </el-upload>
+        </el-form-item>
+        <el-form-item label="名称（code，kebab-case）">
+          <el-input v-model="customForm.name" placeholder="如 dept-badge" />
+        </el-form-item>
+        <el-form-item label="分类">
+          <el-select v-model="customForm.category" style="width:100%">
+            <el-option label="业务" value="业务" />
+            <el-option label="通用" value="通用" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="预览">
+          <icon-display :name="customForm.key || 'el:Picture'" :size="22" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="customVisible = false">取消</el-button>
+        <el-button type="primary" :disabled="!customForm.name" @click="saveCustom">保存</el-button>
+      </template>
+    </el-dialog>
+  </div>
+</div>
+
+<script src="../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script src="../../../原型设计/资源/vendor/icons-vue.min.js"></script>
+<script>
+  var { createApp, ref, reactive, computed } = Vue;
+  var ElMessage = ElementPlus.ElMessage;
+  var ICONS = Object.keys(ElementPlusIconsVue).filter(function (k) { return /^[A-Z]/.test(k); });
+
+  function normalize(s) { return String(s || '').toLowerCase().replace(/^el:/, ''); }
+  function catOf(name) {
+    if (/Arrow|Caret|Back|Right|Top|Bottom|Left|Sort|Rank|Fold|Expand|DArrow|DCaret/i.test(name)) return '方向';
+    if (/Edit|Document|Files|Folder|Tickets|Memo|Notebook|Collection|CopyDocument|Delete|Plus|Minus|Search|CirclePlus/i.test(name)) return '编辑';
+    if (/Camera|Video|Picture|Microphone|Headset|Film|Music|Bell|Chat|Message/i.test(name)) return '媒体';
+    if (/User|Avatar|OfficeBuilding|Connection|Promotion|Setting|Tools|Menu|Home|List|Grid/i.test(name)) return '通用';
+    return '其他';
+  }
+  var CATS = ['全部', '方向', '编辑', '媒体', '通用', '其他'];
+  var BIZ = ['biz:purchase-order', 'biz:receipt', 'biz:expense', 'biz:contract'];
+  var BIZ_FALLBACK = { 'biz:purchase-order': 'ShoppingCart', 'biz:receipt': 'Tickets', 'biz:expense': 'Wallet', 'biz:contract': 'Document' };
+
+  // 自定义图标清单（模块级，供 IconDisplay 与清单页共享）
+  var customList = ref([
+    { key: 'custom:1024', name: '部门徽标', category: '业务', status: 'enabled', refs: 2, fallback: 'OfficeBuilding' },
+    { key: 'custom:1025', name: '项目看板', category: '业务', status: 'enabled', refs: 0, fallback: 'Grid' },
+    { key: 'custom:1026', name: '旧版标识', category: '通用', status: 'disabled', refs: 0, fallback: 'Picture' }
+  ]);
+
+  function elComp(name) { return ElementPlusIconsVue[name] || ElementPlusIconsVue.QuestionFilled; }
+
+  // IconDisplay：只读渲染器
+  var IconDisplay = {
+    props: { name: { type: String, default: null }, size: { default: 16 }, color: { type: String, default: null }, spin: Boolean },
+    computed: {
+      resolved: function () {
+        var n = this.name || '';
+        if (n.indexOf('biz:') === 0) return BIZ_FALLBACK[n] || 'QuestionFilled';
+        if (n.indexOf('custom:') === 0) { var c = customList.value.filter(function (x) { return x.key === n; })[0]; return (c && c.fallback) || 'QuestionFilled'; }
+        return n.replace(/^el:/, '') || 'QuestionFilled';
+      },
+      comp: function () { return elComp(this.resolved); },
+      styleObj: function () {
+        return { fontSize: (typeof this.size === 'number' ? this.size + 'px' : this.size), color: this.color || 'currentColor',
+                 animation: this.spin ? 'ecspin 1s linear infinite' : 'none', verticalAlign: '-2px' };
+      }
+    },
+    template: '<component :is="comp" :style="styleObj" />'
+  };
+
+  // IconPicker：选择器
+  var IconPicker = {
+    props: { modelValue: { type: String, default: null } },
+    emits: ['update:modelValue', 'change'],
+    data: function () { return { visible: false, keyword: '', cat: '全部', recent: ['el:Setting', 'el:User', 'el:Bell'] }; },
+    computed: {
+      list: function () {
+        var kw = normalize(this.keyword), cat = this.cat;
+        return ICONS.filter(function (n) { return (cat === '全部' || catOf(n) === cat) && (!kw || n.toLowerCase().indexOf(kw) >= 0); }).slice(0, 240);
+      },
+      selectedIcon: function () { return elComp((this.modelValue || '').replace(/^el:/, '')); }
+    },
+    methods: {
+      elComp: elComp,
+      cats: function () { return CATS; },
+      choose: function (key) {
+        this.$emit('update:modelValue', key); this.$emit('change', key);
+        this.recent = [key].concat(this.recent.filter(function (r) { return r !== key; })).slice(0, 12);
+        this.visible = false;
+      },
+      clear: function () { this.$emit('update:modelValue', null); this.$emit('change', null); }
+    },
+    template:
+      '<div class="ip-box">' +
+        '<el-popover v-model:visible="visible" trigger="click" :width="360" placement="bottom-start">' +
+          '<template #reference>' +
+            '<el-input :model-value="modelValue" readonly placeholder="选择图标" style="width:100%">' +
+              '<template #prefix><component v-if="modelValue" :is="selectedIcon" /></template>' +
+              '<template #suffix>' +
+                '<span v-if="modelValue" @click.stop="clear" style="cursor:pointer;color:#8c959f">✕</span>' +
+                '<span v-else style="color:#b1b8bf">▾</span>' +
+              '</template>' +
+            '</el-input>' +
+          '</template>' +
+          '<div>' +
+            '<el-input v-model="keyword" size="small" placeholder="搜索图标名称" clearable style="margin-bottom:8px" />' +
+            '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">' +
+              '<el-tag v-for="c in cats()" :key="c" size="small" :effect="cat===c?\'dark\':\'plain\'" @click="cat=c" style="cursor:pointer">{{ c }}</el-tag>' +
+            '</div>' +
+            '<div style="font-size:12px;color:#8c959f;margin-bottom:4px">最近使用</div>' +
+            '<div class="icon-grid" style="margin-bottom:8px">' +
+              '<div v-for="r in recent" :key="r" class="icon-cell" @click="choose(r)"><component :is="elComp((r||\'\').replace(/^el:/,\'\'))" /></div>' +
+            '</div>' +
+            '<div class="icon-grid">' +
+              '<el-tooltip v-for="n in list" :key="n" :content="n" placement="top">' +
+                '<div class="icon-cell" :class="{active: modelValue===\'el:\'+n}" @click="choose(\'el:\'+n)"><component :is="elComp(n)" /></div>' +
+              '</el-tooltip>' +
+            '</div>' +
+            '<div v-if="!list.length" style="text-align:center;color:#8c959f;font-size:12px;padding:16px">无匹配图标</div>' +
+          '</div>' +
+        '</el-popover>' +
+      '</div>'
+  };
+
+  var app = createApp({
+    setup: function () {
+      var tab = ref('picker');
+      var form = reactive({ icon: 'el:Setting' });
+      var pickerLog = ref('打开选择器，选择或清除图标；最近使用按用户记录（localStorage）');
+      var spinning = ref(false);
+
+      var srcFilter = ref('el');
+      var libKeyword = ref('');
+      var libLog = ref('平台/业务图标随代码维护；自定义图标支持上传、编辑、启停、删除（引用检查）');
+
+      var filteredLib = computed(function () {
+        var kw = normalize(libKeyword.value);
+        if (srcFilter.value === 'biz') {
+          return BIZ.filter(function (k) { return !kw || k.toLowerCase().indexOf(kw) >= 0; })
+                    .map(function (k) { return { key: k, icon: BIZ_FALLBACK[k] }; });
+        }
+        return ICONS.filter(function (n) { return !kw || n.toLowerCase().indexOf(kw) >= 0; })
+                    .slice(0, 300).map(function (n) { return { key: 'el:' + n, icon: n }; });
+      });
+      var filteredCustom = computed(function () {
+        var kw = normalize(libKeyword.value);
+        return customList.value.filter(function (c) { return !kw || c.name.toLowerCase().indexOf(kw) >= 0; });
+      });
+      function copyKey(k) {
+        try { navigator.clipboard && navigator.clipboard.writeText(k); } catch (e) {}
+        libLog.value = '已复制 icon key：' + k;
+        ElMessage.success('已复制 ' + k);
+      }
+      function comp(n) { return elComp(n); }
+
+      var customVisible = ref(false);
+      var svgList = ref([]);
+      var customForm = reactive({ id: null, key: '', name: '', category: '业务' });
+      function openCustom(row) {
+        if (row) { Object.assign(customForm, { id: row.key, key: row.key, name: row.name, category: row.category }); }
+        else { Object.assign(customForm, { id: null, key: '', name: '', category: '业务' }); }
+        svgList.value = []; customVisible.value = true;
+      }
+      function onSvgChange(f) {
+        var raw = f.raw || {}; var nm = raw.name || f.name || '';
+        if (!/\.svg$/i.test(nm)) { ElMessage.error('仅支持 .svg 文件'); return; }
+        if ((raw.size || 0) > 100 * 1024) { ElMessage.error('SVG 超过 100KB 上限'); return; }
+        libLog.value = 'SVG 上传：' + nm + '（后端存储前清洗：移除 script/事件/外链；前端内联渲染前再清洗）';
+      }
+      function saveCustom() {
+        if (!customForm.name) { ElMessage.error('请填写名称'); return; }
+        if (customForm.id) {
+          var c = customList.value.filter(function (x) { return x.key === customForm.id; })[0];
+          if (c) { c.name = customForm.name; c.category = customForm.category; }
+          libLog.value = '编辑自定义图标 ' + customForm.id;
+        } else {
+          var id = 1024 + customList.value.length + 1;
+          customList.value.push({ key: 'custom:' + id, name: customForm.name, category: customForm.category, status: 'enabled', refs: 0, fallback: 'Picture' });
+          libLog.value = '新增自定义图标 custom:' + id + '（名称 ' + customForm.name + '）';
+        }
+        customVisible.value = false; ElMessage.success('已保存');
+      }
+      function toggleCustom(row) {
+        row.status = row.status === 'enabled' ? 'disabled' : 'enabled';
+        libLog.value = (row.status === 'enabled' ? '启用' : '停用') + ' ' + row.key + '（停用后不出现在选择器候选，引用处降级）';
+      }
+      function delCustom(row) {
+        if (row.refs > 0) { ElMessage.error('该图标被引用 ' + row.refs + ' 处，请先解除引用或改用「停用」'); return; }
+        customList.value = customList.value.filter(function (x) { return x.key !== row.key; });
+        libLog.value = '删除 ' + row.key + '（引用检查通过）';
+        ElMessage.success('已删除');
+      }
+
+      return {
+        tab, form, pickerLog, spinning, comp, srcFilter, libKeyword, libLog, filteredLib, filteredCustom, copyKey,
+        customVisible, svgList, customForm, openCustom, onSvgChange, saveCustom, toggleCustom, delCustom
+      };
+    }
+  });
+  app.component('icon-display', IconDisplay);
+  app.component('icon-picker', IconPicker);
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>

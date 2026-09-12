@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 页面容器（PageContainer）</title>
+<link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-code { font-family:Consolas,"Cascadia Mono",monospace; color:#57606a; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+  .pc { border:1px solid #d0d7de; border-radius:8px; overflow:hidden; height:320px; display:flex; flex-direction:column; }
+  .pc-hd { border-bottom:1px solid #eaeef2; padding:10px 14px; background:#fff; }
+  .pc-hd .bc { font-size:12px; color:#b1b8bf; margin-bottom:3px; }
+  .pc-hd .r { display:flex; align-items:center; gap:8px; }
+  .pc-hd .r .tb { margin-left:auto; display:flex; gap:6px; }
+  .pc-bd { flex:1; overflow:auto; padding:14px; background:#f6f8fa; font-size:13px; }
+  .pc-ft { border-top:1px solid #eaeef2; padding:8px 14px; display:flex; justify-content:flex-end; gap:8px; background:#fff; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="03_组件设计_页面容器.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 页面容器 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="03_组件设计_页面容器.md">《组件设计 · 页面容器》</a>：演示标题/描述/面包屑、右上工具栏、内容区、底部操作栏与返回；继承 02 基础组件类 L2-07。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-bar"><el-checkbox v-model="back" size="small">返回按钮</el-checkbox><el-checkbox v-model="sticky" size="small">头部吸顶</el-checkbox><el-checkbox v-model="footer" size="small">底部操作栏</el-checkbox></div>
+
+      <div class="pc">
+        <div class="pc-hd">
+          <div class="bc">首页 / 系统管理 / 用户详情</div>
+          <div class="r">
+            <el-button v-if="back" size="small" text @click="log='back() → 返回上一页'">← 返回</el-button>
+            <b>用户详情</b><span class="dp-hint">（描述/说明）</span>
+            <span class="tb"><el-button size="small">刷新</el-button><el-button size="small" type="primary">编辑</el-button></span>
+          </div>
+        </div>
+        <div class="pc-bd">内容区（独立滚动）—— 详情/设置/大屏配置等内容<br><br>说明：头部可吸顶；底部操作栏固定（保存/取消），窄屏堆叠；间距/背景/边框只消费令牌。</div>
+        <div class="pc-ft" v-if="footer"><el-button size="small">取消</el-button><el-button size="small" type="primary">保存</el-button></div>
+      </div>
+
+      <div class="dp-state" style="margin-top:12px">back={{ back }}　sticky={{ sticky }}　footer={{ footer }}　|　{{ log }}
+插槽：title / extra（右上工具栏）/ breadcrumb / default / footer
+范围：非表单页页面壳；表单/列表骨架见 03-01/03-02；滚动/自适应见 04 容器组件类。</div>
+    </div>
+  </div>
+</div>
+
+<script src="../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref } = Vue;
+  var app = createApp({ setup: function () {
+    var back=ref(true), sticky=ref(true), footer=ref(true), log=ref('就绪');
+    return { back:back, sticky:sticky, footer:footer, log:log };
+  }});
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>

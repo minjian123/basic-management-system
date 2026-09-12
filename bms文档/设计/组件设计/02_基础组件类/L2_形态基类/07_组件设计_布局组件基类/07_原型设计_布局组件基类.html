@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 布局组件基类（BaseLayout / useLayoutBase）</title>
+<link rel="stylesheet" href="../../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-code { font-family:Consolas,"Cascadia Mono",monospace; color:#57606a; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+  .grid { display:grid; gap:10px; }
+  .cell { border:1px dashed #b6d3ff; background:#eef4ff; border-radius:6px; padding:10px; text-align:center; font-size:12px; color:#0969da; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="07_组件设计_布局组件基类.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 布局组件基类 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="07_组件设计_布局组件基类.md">《组件设计 · 布局组件基类》</a>：演示 24 栅格跨度、响应式断点、间距/对齐令牌、布局根元素与透传、显隐；供 03 布局组件类继承。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-bar">
+        <span class="dp-hint">当前断点：<span class="dp-code">{{ bp }}</span>（窗口宽度 {{ w }}px）</span>
+        <el-radio-group v-model="gap" size="small"><el-radio-button label="small">小间距</el-radio-button><el-radio-button label="default">默认</el-radio-button><el-radio-button label="large">大间距</el-radio-button></el-radio-group>
+        <el-switch v-model="visible" size="small" active-text="visible" />
+      </div>
+
+      <div v-if="visible" class="grid" :style="{ gridTemplateColumns: 'repeat(24, 1fr)', gap: gapPx }">
+        <div class="cell" :style="{ gridColumn: 'span ' + spanA }">跨度 {{ spanA }}/24</div>
+        <div class="cell" :style="{ gridColumn: 'span ' + spanB }">跨度 {{ spanB }}/24</div>
+      </div>
+
+      <div class="dp-state" style="margin-top:12px">栅格：24 栅格 + span/offset；响应式按断点取跨度（当前 bp={{ bp }}：A={{ spanA }}、B={{ spanB }}）
+间距令牌：gap={{ gap }} → {{ gapPx }}；对齐：justify/align 令牌
+断点与《布局设计·响应式适配》一致；窄屏自动转单列（当前窄屏则 A/B 各 24）
+说明：布局组件只消费令牌；容器语义（滚动/懒加载等）在 L2-04 与 04 容器组件类；03 布局组件类继承本层。</div>
+    </div>
+  </div>
+</div>
+
+<script src="../../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref, computed, onMounted, onUnmounted } = Vue;
+  var app = createApp({
+    setup: function () {
+      var gap = ref('default'), visible = ref(true), w = ref(window.innerWidth);
+      function onResize() { w.value = window.innerWidth; }
+      onMounted(function () { window.addEventListener('resize', onResize); });
+      onUnmounted(function () { window.removeEventListener('resize', onResize); });
+      var bp = computed(function () { var x=w.value; return x<576?'xs':x<768?'sm':x<992?'md':x<1200?'lg':'xl'; });
+      var gapPx = computed(function () { return { small: '6px', default: '12px', large: '20px' }[gap.value]; });
+      var spanA = computed(function () { return ['xs','sm'].indexOf(bp.value) >= 0 ? 24 : 8; });
+      var spanB = computed(function () { return ['xs','sm'].indexOf(bp.value) >= 0 ? 24 : 16; });
+      return { gap: gap, visible: visible, w: w, bp: bp, gapPx: gapPx, spanA: spanA, spanB: spanB };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>
