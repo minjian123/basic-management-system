@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 级联选择（CascaderField / useCascader）</title>
+<link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-code { font-family:Consolas,"Cascadia Mono",monospace; color:#57606a; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+  .field { max-width:560px; }
+  .field .label { font-size:12px; color:#57606a; margin-bottom:4px; }
+  .ro-val { border:1px solid #d0d7de; border-radius:6px; padding:6px 10px; background:#f6f8fa; color:#57606a; font-size:13px; min-height:32px; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="12_组件设计_级联选择.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 级联选择 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="12_组件设计_级联选择.md">《组件设计 · 级联选择》</a>：演示省/市/区多级联动、<b>懒加载</b>、任意级可选（checkStrictly）、多选、可搜索、路径回显与只读。
+    基于 Element Plus <span class="dp-code">el-cascader</span> 定制。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-bar">
+        <el-switch v-model="lazy" size="small" active-text="lazy 懒加载（按父拉取子级）" />
+        <el-switch v-model="checkStrictly" size="small" active-text="任意级可选 checkStrictly" />
+        <el-switch v-model="multiple" size="small" active-text="多选" />
+        <el-switch v-model="showPath" size="small" active-text="显示完整路径" />
+        <el-switch v-model="readonlyText" size="small" active-text="只读纯文本回显" />
+      </div>
+
+      <div class="field">
+        <div class="label">所在地区（行政区划示意）</div>
+
+        <div v-if="readonlyText" class="ro-val">
+          {{ pathText || '—' }}
+          <span class="dp-hint">（只读态：disabled 置灰 / 路径纯文本回显）</span>
+        </div>
+        <el-cascader
+          v-else
+          v-model="value"
+          :options="lazy ? [] : options"
+          :props="cascaderProps"
+          :show-all-levels="showPath"
+          filterable
+          clearable
+          placeholder="请选择省 / 市 / 区"
+          style="width:100%"
+          @change="onChange" />
+
+        <div class="dp-hint" style="margin-top:8px">
+          单选回显完整路径；多选为路径数组；<span class="dp-code">value = {{ JSON.stringify(value) }}</span>
+        </div>
+        <div class="dp-hint" style="margin-top:4px">懒加载：展开某级时才请求其子级并缓存（原型用 setTimeout 模拟），失败可重试</div>
+      </div>
+
+      <div class="dp-state" style="margin-top:12px">{{ log }}</div>
+    </div>
+  </div>
+</div>
+
+<script src="../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref, reactive, computed, watch } = Vue;
+  var ElMessage = ElementPlus.ElMessage;
+
+  var TREE = {
+    '广东省': { '深圳市': ['南山区', '福田区', '罗湖区'], '广州市': ['天河区', '越秀区'] },
+    '浙江省': { '杭州市': ['西湖区', '滨江区'], '宁波市': ['海曙区'] },
+    '江苏省': { '南京市': ['鼓楼区', '建邺区'], '苏州市': ['工业园区'] }
+  };
+  function staticOptions() {
+    return Object.keys(TREE).map(function (p) {
+      return { value: p, label: p, children: Object.keys(TREE[p]).map(function (c) {
+        return { value: c, label: c, children: TREE[p][c].map(function (d) { return { value: d, label: d }; }) };
+      }) };
+    });
+  }
+
+  var app = createApp({
+    setup: function () {
+      var lazy = ref(false);
+      var checkStrictly = ref(true);
+      var multiple = ref(false);
+      var showPath = ref(true);
+      var readonlyText = ref(false);
+      var value = ref(['广东省', '深圳市', '南山区']);
+      var log = ref('选择后逐级下钻；仅末级/任意级可选由 checkStrictly 控制；值含完整路径');
+      var options = ref(staticOptions());
+
+      function lazyLoad(node, resolve) {
+        var path = node.path;
+        log.value = 'lazyLoad(parent=' + JSON.stringify(path) + ') → 按父级请求子级并缓存';
+        setTimeout(function () {
+          if (path.length === 0) { resolve(Object.keys(TREE).map(function (p) { return { value: p, label: p, leaf: false }; })); return; }
+          var level0 = path[0];
+          if (path.length === 1) { resolve(Object.keys(TREE[level0] || {}).map(function (c) { return { value: c, label: c, leaf: false }; })); return; }
+          var level1 = path[1];
+          var cities = (TREE[level0] || {})[level1] || [];
+          resolve(cities.map(function (d) { return { value: d, label: d, leaf: true }; }));
+        }, 400);
+      }
+
+      var cascaderProps = computed(function () {
+        return { checkStrictly: checkStrictly.value, multiple: multiple.value, lazy: lazy.value, lazyLoad: lazyLoad, emitPath: true, label: 'label', value: 'value', children: 'children' };
+      });
+
+      watch(lazy, function (v) { value.value = v ? [] : ['广东省', '深圳市', '南山区']; log.value = '切换 lazy=' + v + '（懒加载仅请求展开层级并缓存）'; });
+      watch([checkStrictly, multiple], function () { log.value = 'checkStrictly=' + checkStrictly.value + '，multiple=' + multiple.value; });
+
+      var pathText = computed(function () {
+        if (!value.value) return '';
+        function toText(v) { return Array.isArray(v) && Array.isArray(v[0]) ? v.map(function (x) { return x.join(' / '); }).join('；') : v.join(' / '); }
+        return toText(value.value);
+      });
+      function onChange(v) { log.value = 'change：' + JSON.stringify(v) + '（emitPath=true，含完整路径）'; }
+
+      return { lazy, checkStrictly, multiple, showPath, readonlyText, value, log, options, cascaderProps, pathText, onChange };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>
