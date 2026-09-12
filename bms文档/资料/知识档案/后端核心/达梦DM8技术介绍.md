@@ -39,7 +39,7 @@
 - 三库方言测试：mjbk 常驻 MySQL/PostgreSQL/达梦，CI job 内建 `bms_test` 前缀测试库执行迁移与集成测试后清理（见平台《开发部署规划》）。
 - 数据库兼容约束：ORM 层禁用方言特有功能，JSON 等类型用跨方言通用类型兜底，分页统一 limit/offset；Alembic 维护三套方言迁移脚本，达梦迁移单独验证（见平台《项目规划说明》「数据库兼容」节）。
 - 备份：达梦 DM8 用 dmrman 备份/归档，每日全量 + 归档，保留 30 天异机存储（见平台《项目规划说明》「备份与恢复」节）。
-- 开发期连接：通过环境变量 `BMS_DB_URL` 指向 mjbk 达梦库（如 `dm+dmPython://bms_dev:<password>@<mjbk-IP>:5236/bms_dev`）验证方言。
+- 开发期连接：通过环境变量 `BMS_DATABASE__PLATFORM__URL` 指向 mjbk 达梦库（如 `dm+dmPython://bms_dev:<password>@<mjbk-IP>:5236/bms_dev`）验证方言。
 
 ## 4. 选型对比 <a id="compare"></a>
 
