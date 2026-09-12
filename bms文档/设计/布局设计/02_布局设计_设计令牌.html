@@ -62,6 +62,15 @@
         <tr><td><code>--color-border</code></td><td>边框/分隔线</td><td><code>#d0d7de</code></td></tr>
         <tr><td><code>--color-text</code> / <code>--color-text-secondary</code></td><td>正文/次要文字</td><td><code>#1f2328</code> / <code>#57606a</code></td></tr>
       </table>
+      <p><strong>状态语义色映射</strong>（组件设计 12「状态标签与描述列表」的取色口径）：状态标签语义色按<strong>三层优先级</strong>解析——数据源自带色（字典条目 <code>color</code> / 枚举选项 <code>color</code>）→ 字段级映射（字段属性 <code>colorMap</code>）→ 内置语义映射（下表）→ 兜底 <code>info</code>；形态支持胶囊（默认）/ 点状（状态点 + 文案）/ 圆点（无文案 + tooltip）/ 图标前缀 / 浅色底（plain）。</p>
+      <table>
+        <tr><th>语义色</th><th>令牌</th><th>命中值（内置映射，小写归一）</th></tr>
+        <tr><td>success</td><td><code>--color-success</code></td><td>enabled、normal、active、approved、passed、finished、启用、正常、已通过、已完成</td></tr>
+        <tr><td>warning</td><td><code>--color-warning</code></td><td>pending、auditing、processing、partial、待审、进行中、待处理、部分完成</td></tr>
+        <tr><td>danger</td><td><code>--color-danger</code></td><td>locked、rejected、failed、overdue、锁定、驳回、失败、已逾期</td></tr>
+        <tr><td>info</td><td><code>--color-info</code></td><td>disabled、inactive、draft、canceled、stopped、停用、未开始、草稿、已取消</td></tr>
+        <tr><td>primary</td><td><code>--color-primary</code></td><td>不用于业务状态（仅保留给「当前/主态」标记，如当前节点）</td></tr>
+      </table>
       <ul>
         <li>状态色语义固定：<strong>审批/流程状态</strong>（通过=success、待审=warning、驳回=danger）全局统一，不因模块改色。</li>
         <li>主色允许租户覆盖（品牌化，见《<a href="03_布局设计_主题与租户品牌化.html">主题与租户品牌化</a>》）。</li>

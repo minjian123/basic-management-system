@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 状态标签与描述列表（StatusTag / DescList / DescItem）</title>
+<link rel="stylesheet" href="../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../原型设计/资源/原型样式.css">
+<style>
+  :root { --color-primary: #0969da; --color-success: #2da44e; --color-warning: #d4a72c; --color-danger: #cf222e; --color-info: #57606a; }
+  .ep-page { background: #fff; border: 1px solid #d0d7de; border-radius: 6px; padding: 16px; }
+  .ep-section { font-weight: 600; margin: 16px 0 12px; padding-bottom: 8px; border-bottom: 1px solid #eaeef2; font-size: 14px; }
+  .ep-section:first-of-type { margin-top: 0; }
+  .dp-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
+  .dp-title { font-size: 16px; font-weight: 600; }
+  .dp-sub { color: #8c959f; font-size: 12px; margin-top: 2px; }
+  .dp-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; background: #f6f8fa; border: 1px solid #eaeef2; border-radius: 6px; padding: 8px 12px; margin-bottom: 12px; }
+  .dp-code { font-family: Consolas, "Cascadia Mono", monospace; color: #57606a; }
+  .dp-hint { color: #b1b8bf; font-size: 11px; font-style: normal; }
+  .dp-out { font-family: Consolas, monospace; font-size: 12px; background: #f6f8fa; border: 1px solid #eaeef2; border-radius: 6px; padding: 10px; max-height: 160px; overflow: auto; white-space: pre-wrap; word-break: break-all; color: #57606a; }
+  .st-wrap { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; font-size: 13px; }
+  .dot-tag { display: inline-flex; align-items: center; gap: 6px; }
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; }
+  .dot-only { display: inline-block; width: 8px; height: 8px; border-radius: 50%; cursor: help; }
+  .tag-plain { display: inline-block; padding: 1px 8px; border-radius: 4px; font-size: 12px; border: 1px solid currentColor; }
+  .clamp2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .mini-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .mini-table th, .mini-table td { border: 1px solid #d0d7de; padding: 6px 10px; text-align: left; }
+  .mini-table th { background: #f6f8fa; }
+  .m-card { max-width: 360px; border: 1px solid #eaeef2; border-radius: 8px; overflow: hidden; }
+  .m-cell { display: flex; justify-content: space-between; gap: 12px; padding: 10px 12px; border-bottom: 1px solid #f2f3f5; font-size: 13px; background: #fff; }
+  .m-cell .k { color: #8c959f; }
+  .m-cell .v { text-align: right; }
+  .m-head { padding: 12px; font-size: 13px; font-weight: 600; background: #fafbfc; border-bottom: 1px solid #eaeef2; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="12_组件设计_状态标签与描述列表.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 状态标签与描述列表 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="12_组件设计_状态标签与描述列表.md">《组件设计 · 状态标签与描述列表》</a>：演示 <b>StatusTag</b> 形态与取色三层优先级、
+    <b>DescList / DescItem</b> 的列数响应式与复杂值渲染（长文本折叠、富文本摘要、文件、脱敏）、以及场景集成（弹窗详情/展开行/卡片/移动端）。
+    颜色一律引用设计令牌变量（<span class="dp-code">--color-success</span> 等），不硬编码色值。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-header">
+        <div>
+          <div class="dp-title">状态标签与描述列表 原型</div>
+          <div class="dp-sub">StatusTag · DescList · DescItem · statusColor</div>
+        </div>
+        <div class="dp-bar" style="margin-bottom:0">
+          <el-checkbox v-model="plainMode" size="small">data:plain（敏感字段看明文）</el-checkbox>
+          <el-switch v-model="plainText" active-text="plainText 全纯文本" inactive-text="富形态" size="small"></el-switch>
+        </div>
+      </div>
+
+      <el-tabs v-model="tab">
+        <!-- ① 状态标签形态 -->
+        <el-tab-pane label="① 状态标签形态" name="shape">
+          <div class="dp-bar">
+            <span class="proto-hint">胶囊（默认）/ 点状 / 圆点（无文案 + tooltip）/ 图标 / 浅色底（plain）；尺寸 default 与 small；颜色全部走令牌</span>
+          </div>
+
+          <div class="st-wrap">
+            <span>胶囊：<el-tag type="success" size="small">启用</el-tag> <el-tag type="warning" size="small">待审</el-tag> <el-tag type="danger" size="small">驳回</el-tag> <el-tag type="info" size="small">停用</el-tag></span>
+            <span>点状：<span class="dot-tag"><span class="dot" style="background:var(--color-success)"></span>已通过</span>
+              <span class="dot-tag"><span class="dot" style="background:var(--color-warning)"></span>进行中</span>
+              <span class="dot-tag"><span class="dot" style="background:var(--color-danger)"></span>已逾期</span></span>
+            <span>圆点（无文案，hover 提示）：
+              <el-tooltip content="启用" placement="top"><span class="dot-only" style="background:var(--color-success)"></span></el-tooltip>
+              <el-tooltip content="待审" placement="top"><span class="dot-only" style="background:var(--color-warning)"></span></el-tooltip>
+              <el-tooltip content="驳回" placement="top"><span class="dot-only" style="background:var(--color-danger)"></span></el-tooltip>
+            </span>
+            <span>图标：<el-tag type="success" size="small" effect="light">✓ 已完成</el-tag> <el-tag type="danger" size="small" effect="light">✕ 已驳回</el-tag></span>
+            <span>浅色底 plain：<span class="tag-plain" style="color:var(--color-success)">正常</span> <span class="tag-plain" style="color:var(--color-info)">草稿</span></span>
+          </div>
+
+          <div class="ep-section">尺寸与密度</div>
+          <div class="st-wrap">
+            <span>default：<el-tag type="success">启用</el-tag></span>
+            <span>small（表格内）：<el-tag type="success" size="small">启用</el-tag></span>
+            <span>圆点尺寸 8px（随字号）：<span class="dot-only" style="background:var(--color-success)"></span></span>
+          </div>
+
+          <div class="ep-section">未知值兜底</div>
+          <div class="st-wrap">
+            <span class="dp-hint">value = 「unknown_status」：</span>
+            <el-tag type="info" size="small">unknown_status</el-tag>
+            <span class="dp-hint">→ 回退原值文本 + info 色，开发环境告警一次</span>
+          </div>
+        </el-tab-pane>
+
+        <!-- ② 取色三层优先级 -->
+        <el-tab-pane label="② 取色三层优先级" name="color">
+          <div class="dp-bar">
+            <span class="proto-hint">① 数据源自带色（字典条目 color / 枚举 OptionItem.color）→ ② 字段级 colorMap → ③ 内置语义映射 → 兜底 info</span>
+            <el-select v-model="pick" size="small" style="width:190px">
+              <el-option label="enabled（内置命中）" value="enabled"></el-option>
+              <el-option label="pending（内置命中）" value="pending"></el-option>
+              <el-option label="custom_A（字段映射命中）" value="custom_A"></el-option>
+              <el-option label="custom_B（数据源色命中）" value="custom_B"></el-option>
+              <el-option label="mystery（均未命中 → 兜底）" value="mystery"></el-option>
+            </el-select>
+            <el-switch v-model="hasSourceColor" active-text="数据源自带色" inactive-text="无自带色" size="small"></el-switch>
+          </div>
+
+          <div class="st-wrap">
+            <span>渲染结果：<el-tag :type="resolve(pick).semantic" size="small">{{ pick }}</el-tag></span>
+            <span class="dp-code">命中层：{{ resolve(pick).layer }}</span>
+            <span class="dp-code">语义色：{{ resolve(pick).semantic }}（令牌 {{ resolve(pick).token }}）</span>
+          </div>
+          <div class="dp-out">{{ resolveDetail }}</div>
+
+          <div class="ep-section">字段级 colorMap（登记项③：字段属性配置）</div>
+          <div class="dp-out">colorMap = { "custom_A": "danger", "legacy_open": "warning" }</div>
+
+          <div class="ep-section">内置语义映射表（statusColor.ts 常量，登记项②同步设计令牌）</div>
+          <table class="mini-table">
+            <thead><tr><th>语义色</th><th>令牌</th><th>命中值示例</th></tr></thead>
+            <tbody>
+              <tr v-for="r in builtinMap" :key="r.semantic">
+                <td><el-tag :type="r.semantic" size="small">{{ r.semantic }}</el-tag></td>
+                <td class="dp-code">{{ r.token }}</td>
+                <td class="dp-code">{{ r.values }}</td>
+              </tr>
+            </tbody>
+          </table>
+          <el-alert style="margin-top:10px" type="info" :closable="false" show-icon
+            title="审批/流程状态色固定：通过=success、待审=warning、驳回=danger（设计令牌），不因模块改色"></el-alert>
+        </el-tab-pane>
+
+        <!-- ③ 描述列表基础 -->
+        <el-tab-pane label="③ 描述列表基础" name="list">
+          <div class="dp-bar">
+            <span class="proto-hint">列数 1/2/3 响应式（auto：≥1536→3、1024-1535→2、&lt;1024→1）；跨列、边框可关、label 位置、密度</span>
+            <el-radio-group v-model="cols" size="small">
+              <el-radio-button :value="1">1 列</el-radio-button>
+              <el-radio-button :value="2">2 列</el-radio-button>
+              <el-radio-button :value="3">3 列</el-radio-button>
+            </el-radio-group>
+            <el-checkbox v-model="border" size="small">border</el-checkbox>
+            <el-radio-group v-model="labelPos" size="small">
+              <el-radio-button value="left">label 左</el-radio-button>
+              <el-radio-button value="top">label 上</el-radio-button>
+            </el-radio-group>
+            <el-radio-group v-model="size" size="small">
+              <el-radio-button value="default">默认密度</el-radio-button>
+              <el-radio-button value="small">紧凑</el-radio-button>
+            </el-radio-group>
+          </div>
+
+          <el-descriptions :column="cols" :border="border" :size="size" :label-position="labelPos" title="用户详情">
+            <el-descriptions-item label="用户名">{{ user.username }}</el-descriptions-item>
+            <el-descriptions-item label="状态">
+              <el-tag v-if="!plainText" :type="statusColor(user.status)" size="small">{{ statusLabel(user.status) }}</el-tag>
+              <span v-else>{{ statusLabel(user.status) }}</span>
+            </el-descriptions-item>
+            <el-descriptions-item label="部门">{{ user.dept }}</el-descriptions-item>
+            <el-descriptions-item label="角色">{{ user.role }}</el-descriptions-item>
+            <el-descriptions-item label="手机号">{{ plainMode ? user.phone : maskPhone(user.phone) }}</el-descriptions-item>
+            <el-descriptions-item label="金额">{{ formatAmount(user.amount) }}</el-descriptions-item>
+            <el-descriptions-item label="创建时间">{{ formatDateTime(user.createdAt) }}</el-descriptions-item>
+            <el-descriptions-item label="标签">{{ user.tags.join('、') }}</el-descriptions-item>
+            <el-descriptions-item label="备注" :span="cols">{{ user.remarkShort }}</el-descriptions-item>
+          </el-descriptions>
+
+          <div class="ep-section">分组小标题（> 8 项分段，与表单页分组口径一致）</div>
+          <el-descriptions :column="cols" :border="border" :size="size">
+            <template #title>基本信息</template>
+            <el-descriptions-item label="用户名">{{ user.username }}</el-descriptions-item>
+            <el-descriptions-item label="部门">{{ user.dept }}</el-descriptions-item>
+            <el-descriptions-item label="系统信息（只读栅格口径见《布局设计 · 表单页》）">{{ user.id }} / version {{ user.version }}</el-descriptions-item>
+          </el-descriptions>
+        </el-tab-pane>
+
+        <!-- ④ 复杂值渲染 -->
+        <el-tab-pane label="④ 复杂值渲染" name="value">
+          <div class="dp-bar">
+            <span class="proto-hint">长文本 2 行折叠 + 展开/收起；富文本取纯文本摘要（不渲染 HTML）；文件数量 + 首个名称；多值顿号；脱敏默认掩码；空值统一 —</span>
+          </div>
+
+          <el-descriptions :column="2" border size="small">
+            <el-descriptions-item label="长文本（折叠 2 行）" :span="2">
+              <div :class="{ clamp2: !expandRemark }">{{ user.remark }}</div>
+              <el-button size="small" text type="primary" @click="expandRemark = !expandRemark">{{ expandRemark ? '收起' : '展开' }}</el-button>
+            </el-descriptions-item>
+            <el-descriptions-item label="富文本（纯文本摘要）" :span="2">
+              <span>{{ richSummary }}</span>
+              <span class="dp-hint">（正文由 08 节点渲染器承载，此处不注入 HTML）</span>
+            </el-descriptions-item>
+            <el-descriptions-item label="附件">
+              {{ user.attach.length }} 个：{{ user.attach[0].name }}
+              <el-button size="small" text type="primary" @click="toast('预览/下载受 file:download 权限约束')">预览</el-button>
+            </el-descriptions-item>
+            <el-descriptions-item label="多值（顿号分隔）">{{ user.tags.join('、') }}</el-descriptions-item>
+            <el-descriptions-item label="敏感字段">
+              {{ plainMode ? user.phone : maskPhone(user.phone) }}
+              <el-button size="small" text type="primary" @click="plainMode = !plainMode">{{ plainMode ? '隐藏明文' : '查看明文（data:plain）' }}</el-button>
+            </el-descriptions-item>
+            <el-descriptions-item label="空值">{{ user.emptyValue === null ? '—' : user.emptyValue }}</el-descriptions-item>
+            <el-descriptions-item label="自定义插槽（slot）" :span="2">
+              <span class="dp-code">slot="progress"：</span>
+              <el-progress :percentage="68" style="width:220px;display:inline-block;vertical-align:middle"></el-progress>
+              <span class="dp-hint">（插槽内仍复用本节点格式化/脱敏约定）</span>
+            </el-descriptions-item>
+          </el-descriptions>
+
+          <div class="ep-section">空数组 / 空串 / null 的等价处理</div>
+          <div class="dp-out">remark: "" → —　｜　attach: [] → —　｜　tags: [] → —　｜　emptyText 可覆盖（如「未填写」）</div>
+        </el-tab-pane>
+
+        <!-- ⑤ 场景集成 -->
+        <el-tab-pane label="⑤ 场景集成" name="scenes">
+          <div class="ep-section">① 弹窗 / 抽屉详情（1-2 列、border 可关、size=small）</div>
+          <div class="dp-bar">
+            <el-button size="small" type="primary" @click="dialogVisible = true">打开弹窗详情</el-button>
+            <span class="proto-hint">宽度按《布局设计 · 弹窗》阶梯（640/720）；只读、无表单校验</span>
+          </div>
+          <el-dialog v-model="dialogVisible" title="用户详情（描述列表）" width="640px">
+            <el-descriptions :column="2" size="small" :border="false">
+              <el-descriptions-item label="用户名">{{ user.username }}</el-descriptions-item>
+              <el-descriptions-item label="状态">
+                <el-tag :type="statusColor(user.status)" size="small">{{ statusLabel(user.status) }}</el-tag>
+              </el-descriptions-item>
+              <el-descriptions-item label="部门">{{ user.dept }}</el-descriptions-item>
+              <el-descriptions-item label="创建时间">{{ formatDateTime(user.createdAt) }}</el-descriptions-item>
+            </el-descriptions>
+            <template #footer><el-button size="small" @click="dialogVisible = false">关闭</el-button></template>
+          </el-dialog>
+
+          <div class="ep-section">② 列表展开行（紧凑 1-2 列，只读明细摘要）</div>
+          <el-table :data="rows" size="small" border style="width:100%">
+            <el-table-column type="expand">
+              <template #default="{ row }">
+                <el-descriptions :column="2" size="small" :border="false" style="padding:8px 16px">
+                  <el-descriptions-item label="状态">
+                    <el-tag :type="statusColor(row.status)" size="small">{{ statusLabel(row.status) }}</el-tag>
+                  </el-descriptions-item>
+                  <el-descriptions-item label="部门">{{ row.dept }}</el-descriptions-item>
+                  <el-descriptions-item label="金额">{{ formatAmount(row.amount) }}</el-descriptions-item>
+                  <el-descriptions-item label="备注">{{ row.remark }}</el-descriptions-item>
+                </el-descriptions>
+              </template>
+            </el-table-column>
+            <el-table-column prop="username" label="用户名" width="140"></el-table-column>
+            <el-table-column label="状态列（StatusTag，由 10 节点引用）" width="240">
+              <template #default="{ row }"><el-tag :type="statusColor(row.status)" size="small">{{ statusLabel(row.status) }}</el-tag></template>
+            </el-table-column>
+            <el-table-column prop="dept" label="部门"></el-table-column>
+          </el-table>
+
+          <div class="ep-section">③ 工作台卡片（1 列紧凑 / 少量字段 + 圆点状态）</div>
+          <div style="display:flex;gap:12px;flex-wrap:wrap">
+            <el-card shadow="never" style="width:280px">
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <b>待办审批</b>
+                <span class="dot-tag"><span class="dot" style="background:var(--color-warning)"></span>待审</span>
+              </div>
+              <el-descriptions :column="1" size="small" style="margin-top:8px">
+                <el-descriptions-item label="申请人">zhangsan</el-descriptions-item>
+                <el-descriptions-item label="提交时间">{{ formatDateTime(user.createdAt) }}</el-descriptions-item>
+              </el-descriptions>
+            </el-card>
+            <el-card shadow="never" style="width:280px">
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <b>账号状态</b>
+                <el-tooltip content="启用"><span class="dot-only" style="background:var(--color-success)"></span></el-tooltip>
+              </div>
+              <el-descriptions :column="1" size="small" style="margin-top:8px">
+                <el-descriptions-item label="在线会话">3</el-descriptions-item>
+                <el-descriptions-item label="最近登录">{{ formatDateTime(user.createdAt) }}</el-descriptions-item>
+              </el-descriptions>
+            </el-card>
+          </div>
+
+          <div class="ep-section">④ 移动端卡片（van-tag + van-cell 形态模拟，口径同源）</div>
+          <div class="m-card">
+            <div class="m-head">用户详情</div>
+            <div class="m-cell"><span class="k">用户名</span><span class="v">{{ user.username }}</span></div>
+            <div class="m-cell"><span class="k">状态</span><span class="v"><span class="tag-plain" style="color:var(--color-success)">启用</span></span></div>
+            <div class="m-cell"><span class="k">手机号</span><span class="v">{{ plainMode ? user.phone : maskPhone(user.phone) }}</span></div>
+            <div class="m-cell"><span class="k">金额</span><span class="v">{{ formatAmount(user.amount) }}</span></div>
+            <div class="m-cell"><span class="k">空值</span><span class="v">—</span></div>
+          </div>
+          <div class="dp-bar" style="margin-top:10px">
+            <span class="proto-hint">移动端：<code>van-tag</code>（状态）+ <code>van-cell-group/van-cell</code>（描述项），label 左值右；长文本折叠与空值 <code>—</code> 口径同 PC</span>
+          </div>
+        </el-tab-pane>
+      </el-tabs>
+    </div>
+  </div>
+</div>
+
+<script src="../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref, computed } = Vue;
+  var ElMessage = ElementPlus.ElMessage;
+
+  // ---------- 语义色映射（示意实现，真实实现为 src/utils/statusColor.ts） ----------
+  var BUILTIN = {
+    success: ['enabled', 'normal', 'active', 'approved', 'passed', 'finished', '启用', '正常', '已通过', '已完成'],
+    warning: ['pending', 'auditing', 'processing', 'partial', '待审', '进行中', '待处理', '部分完成'],
+    danger: ['locked', 'rejected', 'failed', 'overdue', '锁定', '驳回', '失败', '已逾期'],
+    info: ['disabled', 'inactive', 'draft', 'canceled', 'stopped', '停用', '未开始', '草稿', '已取消']
+  };
+  var TOKEN = { success: '--color-success', warning: '--color-warning', danger: '--color-danger', info: '--color-info', primary: '--color-primary' };
+
+  function builtinOf(value) {
+    var v = String(value === null || value === undefined ? '' : value).trim().toLowerCase();
+    for (var k in BUILTIN) {
+      if (BUILTIN[k].indexOf(v) >= 0) { return k; }
+    }
+    if (v === 'true') { return 'success'; }
+    if (v === 'false') { return 'info'; }
+    return null;
+  }
+  function resolveStatusColor(input) {
+    // input: { value, semantic, color, colorMap }
+    if (input.semantic) { return { semantic: input.semantic, layer: '① 显式指定 semantic' }; }
+    if (input.color) { return { semantic: input.color, layer: '① 数据源自带色（字典条目 color / 枚举 OptionItem.color）' }; }
+    if (input.colorMap && input.colorMap[input.value]) { return { semantic: input.colorMap[input.value], layer: '② 字段级 colorMap' }; }
+    var b = builtinOf(input.value);
+    if (b) { return { semantic: b, layer: '③ 内置语义映射' }; }
+    return { semantic: 'info', layer: '兜底 info（未知值回退原值文本）' };
+  }
+
+  function formatAmount(v) { return v === null || v === undefined ? '—' : '¥' + Number(v).toFixed(2); }
+  function formatDateTime(v) {
+    if (!v) { return '—'; }
+    var d = new Date(v), p = function (n) { return n < 10 ? '0' + n : '' + n; };
+    return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+  }
+  function maskPhone(v) { return v ? v.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2') : '—'; }
+  function stripHtml(html) { return String(html).replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim(); }
+
+  var app = createApp({
+    template: document.getElementById('app').outerHTML.replace(/<div id="app">/, '<div>').replace(/<\/div>\s*$/, ''),
+    setup: function () {
+      var tab = ref('shape');
+      var plainMode = ref(false);
+      var plainText = ref(false);
+      var expandRemark = ref(false);
+      var dialogVisible = ref(false);
+      var cols = ref(3), border = ref(true), labelPos = ref('left'), size = ref('default');
+
+      var user = {
+        id: '1001', version: 3, username: 'zhangsan', status: 'enabled', dept: '研发中心',
+        role: '审计员', phone: '13800001234', amount: '1280.50', createdAt: '2026-09-01T06:30:00Z',
+        tags: ['重点客户', '新客户'], emptyValue: null,
+        remark: '该行备注较长：用于演示描述列表中的长文本折叠（默认 2 行 + 展开/收起），展开后行高自适应且不重新请求数据。'.repeat(2),
+        remarkShort: '描述列表支持跨列（span=列数）展示长文本、文件与自定义插槽。',
+        attach: [{ name: '合同扫描件.pdf' }, { name: '附件2.docx' }],
+        content: '<p>富文本正文包含 <b>加粗</b> 与 <a href="/x">链接</a>，描述列表只取纯文本摘要，不渲染 HTML。</p>'
+      };
+      var richSummary = computed(function () { return stripHtml(user.content).slice(0, 120) + '…'; });
+      var statusLabel = function (v) { return v === 'enabled' ? '启用' : (v === 'pending' ? '待审' : (v === 'locked' ? '锁定' : v)); };
+      var statusColor = function (v) { return builtinOf(v) || 'info'; };
+
+      // 取色演示
+      var pick = ref('enabled');
+      var hasSourceColor = ref(false);
+      var COLOR_MAP = { custom_A: 'danger', legacy_open: 'warning' };
+      var SOURCE_COLOR = { custom_B: 'success' };
+      function resolve(v) {
+        var r = resolveStatusColor({
+          value: v,
+          color: hasSourceColor.value ? SOURCE_COLOR[v] : null,
+          colorMap: COLOR_MAP
+        });
+        r.token = TOKEN[r.semantic];
+        return r;
+      }
+      var resolveDetail = computed(function () {
+        var r = resolve(pick.value);
+        return '输入：value = ' + pick.value + '，数据源自带色 = ' + (hasSourceColor.value ? JSON.stringify(SOURCE_COLOR[pick.value] || null) : 'null')
+          + '，colorMap = ' + JSON.stringify(COLOR_MAP) + '\n命中层：' + r.layer + '\n语义色：' + r.semantic + '（CSS 变量 var(' + r.token + ')）'
+          + (r.layer.indexOf('兜底') >= 0 ? '\n开发环境告警：未知状态值 ' + pick.value : '');
+      });
+      var builtinMap = [
+        { semantic: 'success', token: '--color-success', values: 'enabled / normal / approved / 启用 / 正常 / 已通过 / 已完成' },
+        { semantic: 'warning', token: '--color-warning', values: 'pending / auditing / processing / 待审 / 进行中 / 待处理' },
+        { semantic: 'danger', token: '--color-danger', values: 'locked / rejected / failed / overdue / 锁定 / 驳回 / 失败 / 已逾期' },
+        { semantic: 'info', token: '--color-info', values: 'disabled / inactive / draft / canceled / 停用 / 未开始 / 草稿 / 已取消' }
+      ];
+
+      var rows = [
+        { username: 'zhangsan', status: 'enabled', dept: '研发中心', amount: '1280.50', remark: '备注 A' },
+        { username: 'lisi', status: 'pending', dept: '财务部', amount: '860.00', remark: '备注 B' },
+        { username: 'wangwu', status: 'locked', dept: '销售部', amount: '3120.75', remark: '备注 C' }
+      ];
+
+      function toast(m) { ElMessage.info(m); }
+
+      return {
+        tab, plainMode, plainText, expandRemark, dialogVisible, cols, border, labelPos, size,
+        user, richSummary, statusLabel, statusColor,
+        pick, hasSourceColor, resolve, resolveDetail, builtinMap,
+        rows, toast,
+        formatAmount, formatDateTime, maskPhone
+      };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>
