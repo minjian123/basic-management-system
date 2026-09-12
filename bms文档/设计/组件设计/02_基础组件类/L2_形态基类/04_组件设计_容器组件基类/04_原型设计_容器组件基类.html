@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 容器组件基类（BaseContainer / useContainerBase）</title>
+<link rel="stylesheet" href="../../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-code { font-family:Consolas,"Cascadia Mono",monospace; color:#57606a; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+  .ctn { border:1px solid #eaeef2; border-radius:8px; overflow:hidden; }
+  .ctn .hd { display:flex; align-items:center; gap:8px; background:#f6f8fa; padding:8px 12px; font-weight:600; font-size:13px; }
+  .ctn .hd .tb { margin-left:auto; display:flex; gap:6px; }
+  .ctn.no-border { border:none; }
+  .ctn .bd.pad-none { padding:0; } .ctn .bd.pad-small { padding:6px 10px; } .ctn .bd.pad-default { padding:12px; } .ctn .bd.pad-large { padding:20px; }
+  .ctn .ft { border-top:1px solid #eaeef2; padding:8px 12px; color:#57606a; font-size:12px; }
+  .cols { display:grid; gap:10px; } .cols.c1 { grid-template-columns:1fr; } .cols.c2 { grid-template-columns:1fr 1fr; } .cols.c3 { grid-template-columns:repeat(3,1fr); }
+  .cell { border:1px dashed #d0d7de; border-radius:6px; padding:10px; text-align:center; color:#57606a; font-size:12px; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="04_组件设计_容器组件基类.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 容器组件基类 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="04_组件设计_容器组件基类.md">《组件设计 · 容器组件基类》</a>：演示标题/工具栏/页脚/内容插槽、折叠展开、分栏与内边距令牌、边框开关；容器只消费令牌，不含表单语义（L2-05）。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-bar">
+        <el-checkbox v-model="collapsible" size="small">可折叠</el-checkbox>
+        <el-checkbox v-model="collapsed" size="small">折叠态</el-checkbox>
+        <el-checkbox v-model="bordered" size="small">边框</el-checkbox>
+        <el-radio-group v-model="padding" size="small"><el-radio-button label="none">none</el-radio-button><el-radio-button label="small">small</el-radio-button><el-radio-button label="default">默认</el-radio-button><el-radio-button label="large">large</el-radio-button></el-radio-group>
+        <el-radio-group v-model="columns" size="small"><el-radio-button :label="1">1 栏</el-radio-button><el-radio-button :label="2">2 栏</el-radio-button><el-radio-button :label="3">3 栏</el-radio-button></el-radio-group>
+      </div>
+
+      <div class="ctn" :class="{ 'no-border': !bordered }">
+        <div class="hd">
+          <span style="cursor:pointer" v-if="collapsible" @click="collapsed=!collapsed">{{ collapsed ? '▸' : '▾' }}</span>
+          区域标题（header 插槽）
+          <span class="tb"><el-button size="small" text>刷新</el-button><el-button size="small" type="primary">新增</el-button></span>
+        </div>
+        <div v-show="!collapsed" class="bd" :class="'pad-' + padding">
+          <div class="cols" :class="'c' + columns">
+            <div class="cell" v-for="n in columns" :key="n">内容区 {{ n }}（default 插槽）</div>
+          </div>
+        </div>
+        <div class="ft" v-show="!collapsed">页脚（footer 插槽）· 内边距令牌：{{ padding }} · 分栏：{{ columns }}</div>
+      </div>
+
+      <div class="dp-state" style="margin-top:12px">折叠仅隐藏内容，标题与工具栏保留（状态可选持久化）
+内边距/背景/边框/圆角只消费设计令牌；支持容器嵌套（建议 ≤3 层）
+本层不含表单语义（L2-05）、弹窗外壳（06 交互类 01）；{{ log }}</div>
+    </div>
+  </div>
+</div>
+
+<script src="../../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref, watch } = Vue;
+  var app = createApp({
+    setup: function () {
+      var collapsible = ref(true), collapsed = ref(false), bordered = ref(true), padding = ref('default'), columns = ref(3);
+      var log = ref('就绪');
+      watch(collapsed, function (v) { log.value = 'collapse-change → ' + v; });
+      return { collapsible: collapsible, collapsed: collapsed, bordered: bordered, padding: padding, columns: columns, log: log };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>
