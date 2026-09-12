@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 字段壳（FieldWrapper）</title>
+<link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-code { font-family:Consolas,"Cascadia Mono",monospace; color:#57606a; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+  .grid { display:grid; grid-template-columns:repeat(3,1fr); gap:14px 18px; }
+  .fw { min-width:0; }
+  .fw.span2 { grid-column:span 2; }
+  .fw.span3 { grid-column:span 3; }
+  .fw.top { display:block; }
+  .fw .lb { font-size:13px; color:#24292f; margin-bottom:4px; display:flex; align-items:center; gap:4px; }
+  .fw.top .lb { margin-bottom:4px; }
+  .req::before { content:"*"; color:#cf222e; margin-right:2px; }
+  .colon::after { content:":"; margin-left:1px; }
+  .help { color:#b1b8bf; cursor:help; font-size:12px; }
+  .extra { color:#b1b8bf; font-size:11px; margin-top:3px; }
+  .err { color:#cf222e; font-size:12px; margin-top:3px; }
+  .ro-text { font-size:13px; color:#24292f; padding:1px 0; min-height:22px; }
+  .ro-empty { color:#b1b8bf; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="02_组件设计_字段壳.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 字段壳 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="02_组件设计_字段壳.md">《组件设计 · 字段壳》</a>：演示 label/必填星号（含 <span class="dp-code">'auto'</span> 推导）/帮助 tooltip/错误位/extra/栅格跨度/标签位置，以及只读回显切换（纯文本 <span class="dp-code">text</span> / 禁用控件 <span class="dp-code">disabled</span> / <span class="dp-code">auto</span>）。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-bar">
+        <el-switch v-model="viewMode" size="small" active-text="查看态（只读）" />
+        <el-radio-group v-model="readonlyMode" size="small">
+          <el-radio-button label="auto">auto</el-radio-button>
+          <el-radio-button label="text">text</el-radio-button>
+          <el-radio-button label="disabled">disabled</el-radio-button>
+        </el-radio-group>
+        <el-switch v-model="labelTop" size="small" active-text="标签顶部（窄容器）" />
+        <el-switch v-model="showErr" size="small" active-text="展示错误" />
+        <el-switch v-model="hidden" size="small" active-text="visible=false（整壳不渲染）" />
+      </div>
+
+      <div class="grid">
+        <field-wrapper label="用户名称" :required="true" help="登录账号所属的显示名称" :readonly="viewMode" :readonly-mode="readonlyMode" :label-top="labelTop">
+          <el-input v-model="form.name" :disabled="viewMode" />
+        </field-wrapper>
+
+        <field-wrapper label="邮箱" :required="true" extra="用于接收通知与找回密码" :readonly="viewMode" :readonly-mode="readonlyMode" :label-top="labelTop" :error="showErr ? '邮箱格式不正确' : ''">
+          <el-input v-model="form.email" :disabled="viewMode" />
+        </field-wrapper>
+
+        <field-wrapper label="手机号" :readonly="viewMode" :readonly-mode="readonlyMode" :label-top="labelTop">
+          <el-input v-model="form.phone" :disabled="viewMode" />
+        </field-wrapper>
+
+        <field-wrapper v-if="!hidden" label="备注" :span="2" :readonly="viewMode" :readonly-mode="readonlyMode" :label-top="labelTop">
+          <el-input v-model="form.memo" type="textarea" :rows="1" :disabled="viewMode" />
+        </field-wrapper>
+
+        <field-wrapper label="状态" :readonly="viewMode" :readonly-mode="readonlyMode" :label-top="labelTop">
+          <el-select v-model="form.status" :disabled="viewMode" style="width:100%"><el-option label="启用" value="active" /><el-option label="停用" value="disabled" /></el-select>
+        </field-wrapper>
+
+        <field-wrapper v-if="!hidden" label="详细地址" :span="3" :readonly="viewMode" :readonly-mode="readonlyMode" :label-top="labelTop">
+          <el-input v-model="form.addr" :disabled="viewMode" />
+        </field-wrapper>
+      </div>
+
+      <div class="dp-state" style="margin-top:14px">只读回显方式 resolved = {{ resolvedMode }}（auto 按字段类型：文本类用纯文本，复杂类型可保留 disabled 控件）
+配置：viewMode={{ viewMode }}　readonlyMode={{ readonlyMode }}　labelTop={{ labelTop }}　visible={{ !hidden }}
+必填星号来源：字段属性 required 或校验规则含必填（'auto' 统一推导，避免两处不一致）</div>
+    </div>
+  </div>
+</div>
+
+<script src="../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref, reactive, computed } = Vue;
+
+  var FieldWrapper = {
+    props: {
+      label: String, required: { default: false }, help: { default: '' }, extra: { default: '' },
+      error: { default: '' }, span: { default: 1 }, readonly: Boolean, readonlyMode: { default: 'auto' },
+      labelTop: Boolean, colon: { default: true }
+    },
+    computed: {
+      cls: function () { return { span2: this.span === 2, span3: this.span >= 3, top: this.labelTop }; }
+    },
+    template: [
+      '<div class="fw" :class="cls">',
+      '  <div class="lb" :class="{ top: labelTop }"><span :class="{ req: required, colon: colon && !labelTop }">{{ label }}</span>',
+      '    <el-tooltip v-if="help" :content="help" placement="top"><span class="help">ⓘ</span></el-tooltip>',
+      '  </div>',
+      '  <div class="ctl"><slot :readonly="readonly" /></div>',
+      '  <div v-if="extra" class="extra">{{ extra }}</div>',
+      '  <div v-if="error" class="err">{{ error }}</div>',
+      '</div>'
+    ].join('\n')
+  };
+
+  var app = createApp({
+    components: { FieldWrapper: FieldWrapper },
+    setup: function () {
+      var viewMode = ref(false);
+      var readonlyMode = ref('auto');
+      var labelTop = ref(false);
+      var showErr = ref(false);
+      var hidden = ref(false);
+      var form = reactive({ name: '张三', email: 'zhangsan@example.com', phone: '13800000000', memo: '', status: 'active', addr: '' });
+      var resolvedMode = computed(function () {
+        if (!viewMode.value) return '编辑态（不适用）';
+        if (readonlyMode.value === 'auto') return 'text（auto：文本类用纯文本）';
+        return readonlyMode.value;
+      });
+      return { viewMode: viewMode, readonlyMode: readonlyMode, labelTop: labelTop, showErr: showErr, hidden: hidden, form: form, resolvedMode: resolvedMode };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>
