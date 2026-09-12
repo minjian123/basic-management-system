@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 媒体组件基类（BaseMedia / useMediaBase）</title>
+<link rel="stylesheet" href="../../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-code { font-family:Consolas,"Cascadia Mono",monospace; color:#57606a; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+  .media { width:280px; background:#f6f8fa; border-radius:8px; overflow:hidden; position:relative; display:flex; align-items:center; justify-content:center; color:#b1b8bf; font-size:12px; }
+  .media img { width:100%; height:100%; object-fit:cover; display:block; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="06_组件设计_媒体组件基类.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 媒体组件基类 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="06_组件设计_媒体组件基类.md">《组件设计 · 媒体组件基类》</a>：演示媒体加载状态机（loading → loaded / error）、宽高比占位防抖动、失败回退、预签名 URL 失效重取一次与降级下载。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-bar">
+        <el-radio-group v-model="ratio" size="small"><el-radio-button value="16/9">16:9</el-radio-button><el-radio-button value="1/1">1:1</el-radio-button><el-radio-button value="4/3">4:3</el-radio-button></el-radio-group>
+        <el-checkbox v-model="willFail" size="small">模拟加载失败</el-checkbox>
+        <el-button size="small" @click="makeExpired">模拟预签名过期</el-button>
+        <el-button size="small" @click="reload">重新加载</el-button>
+      </div>
+
+      <div class="media" :style="{ aspectRatio: ratio }">
+        <span v-if="state==='loading'">加载中…（占位/骨架，按比例防抖动）</span>
+        <template v-else-if="state==='loaded'"><span style="font-size:40px">🖼️</span></template>
+        <span v-else-if="state==='error'">加载失败 <el-button size="small" link @click="retry">重试</el-button></span>
+      </div>
+
+      <div class="dp-state" style="margin-top:12px">状态机：loading → loaded / error；ratio={{ ratio }} 保持布局稳定
+预签名：加载失败且 retryOnExpired → expired → 重取 URL 后重试一次；仍失败显示失败态并支持降级下载
+{{ log }}</div>
+    </div>
+  </div>
+</div>
+
+<script src="../../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref } = Vue;
+  var app = createApp({
+    setup: function () {
+      var ratio = ref('16/9'), willFail = ref(false), state = ref('loaded');
+      var log = ref('就绪');
+      var retried = false;
+      function load(simulate) {
+        state.value = 'loading'; log.value = 'loading…';
+        setTimeout(function () {
+          if (simulate || willFail.value) {
+            state.value = 'error';
+            if (!retried) { log.value = 'error → 检测预签名失效（expired）→ 重取 URL 后重试一次'; retried = true; setTimeout(load, 500); }
+            else { log.value = '重试仍失败 → 显示失败态（可降级下载）'; retried = false; }
+          } else { state.value = 'loaded'; log.value = 'load → 成功（懒加载：进入视口才加载）'; }
+        }, 500);
+      }
+      function retry() { retried = false; load(willFail.value); }
+      function reload() { retried = false; willFail.value = false; load(false); }
+      function makeExpired() { willFail.value = true; log.value = 'URL 已过期（模拟）→ 下次加载触发重取'; }
+      load(false);
+      return { ratio: ratio, willFail: willFail, state: state, log: log, retry: retry, reload: reload, makeExpired: makeExpired };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>

@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 最基础组件基类（BaseComponent / useComponentBase）</title>
+<link rel="stylesheet" href="../../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-code { font-family:Consolas,"Cascadia Mono",monospace; color:#57606a; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+  .bms-demo { border:1px dashed #0969da; border-radius:8px; padding:10px 12px; background:var(--brand-bg,#f6f8fa); display:inline-block; }
+  .bms-demo .inner { font-size:13px; }
+  .size-small .inner { font-size:12px; padding:2px 4px; }
+  .size-default .inner { font-size:13px; padding:4px 6px; }
+  .size-large .inner { font-size:15px; padding:7px 9px; }
+  .density-compact .inner { line-height:1.1; }
+  .density-default .inner { line-height:1.5; }
+  .density-loose .inner { line-height:2; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="01_组件设计_最基础组件基类.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 最基础组件基类 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="01_组件设计_最基础组件基类.md">《组件设计 · 最基础组件基类》</a>：演示所有 UI 组件通用的 <span class="dp-code">attrs 透传</span>（id/class/style/data-*）、<span class="dp-code">size/density/主题令牌</span>、<span class="dp-code">ns 命名空间</span>、<span class="dp-code">loading/disabled/visible</span>、可访问性 aria、<span class="dp-code">expose</span> 与生命周期埋点。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-bar">
+        <el-radio-group v-model="size" size="small"><el-radio-button label="small">small</el-radio-button><el-radio-button label="default">default</el-radio-button><el-radio-button label="large">large</el-radio-button></el-radio-group>
+        <el-radio-group v-model="density" size="small"><el-radio-button label="compact">紧凑</el-radio-button><el-radio-button label="default">默认</el-radio-button><el-radio-button label="loose">宽松</el-radio-button></el-radio-group>
+        <el-checkbox v-model="loading" size="small">loading</el-checkbox>
+        <el-checkbox v-model="disabled" size="small">disabled</el-checkbox>
+        <el-checkbox v-model="visible" size="small">visible</el-checkbox>
+        <span class="dp-hint">外部传入的 id/class/style/data-* 透传到根元素</span>
+      </div>
+
+      <div>
+        <div v-if="visible" class="bms-demo" :class="['size-'+size,'density-'+density]" id="ext-id" data-test="base-demo" data-role="sample"
+             style="margin-right:8px" aria-label="示例组件">
+          <span class="inner">{{ ns }}-组件（透传 me）</span>
+        </div>
+        <el-button size="small" @click="focusIt">调用 expose 的 focus()</el-button>
+      </div>
+
+      <div class="dp-state" style="margin-top:12px">根元素：&lt;div id="ext-id" data-test="base-demo" data-role="sample" class="bms-demo ..."&gt;（外部 attrs 透传 + ns 前缀 + 令牌驱动 size/density）
+loading={{ loading }}　disabled={{ disabled }}　visible={{ visible }}
+主题令牌：颜色/尺寸只消费设计令牌，随亮暗与租户品牌自动适配
+生命周期与埋点：onMounted/onUnmounted 钩子；可访问性 aria-*、键盘焦点；expose 暴露 focus() 等
+{{ hookLog }}</div>
+    </div>
+  </div>
+</div>
+
+<script src="../../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref, reactive, onMounted, onUnmounted } = Vue;
+
+  // 模拟 L1b：useComponentBase() —— 所有 UI 组件通用能力
+  function useComponentBase(props) {
+    var hookLog = ref('');
+    var hooks = [];
+    function push(m) { hooks.push(m); hookLog.value = '生命周期/埋点：' + hooks.join(' → '); }
+    onMounted(function () { push('base-mounted'); });
+    onUnmounted(function () { push('base-unmounted'); });
+    return { ns: props.ns || 'bms', hookLog: hookLog };
+  }
+
+  var app = createApp({
+    setup: function () {
+      var size = ref('default'), density = ref('default');
+      var loading = ref(false), disabled = ref(false), visible = ref(true);
+      var base = useComponentBase({ ns: 'bms' });
+      function focusIt() { document.getElementById('ext-id') && document.getElementById('ext-id').focus(); }
+      return { size: size, density: density, loading: loading, disabled: disabled, visible: visible, ns: base.ns, hookLog: base.hookLog, focusIt: focusIt };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>

@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 总基类（BaseFrontend / useFrontendBase）</title>
+<link rel="stylesheet" href="../../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-code { font-family:Consolas,"Cascadia Mono",monospace; color:#57606a; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+  .lay { display:flex; gap:12px; flex-wrap:wrap; margin-top:10px; }
+  .box { border:1px solid #d0d7de; border-radius:8px; padding:10px 12px; min-width:200px; background:#fafbfc; }
+  .box.l0 { border-color:#0969da; background:#eef4ff; }
+  .box b { font-size:12px; }
+  .box .it { font-size:11px; color:#57606a; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="01_组件设计_总基类.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 总基类 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="01_组件设计_总基类.md">《组件设计 · 总基类》</a>：演示 L0 通用字段（<span class="dp-code">ns</span>/<span class="dp-code">identifier</span>/<span class="dp-code">env</span>/<span class="dp-code">config</span>）与通用方法（<span class="dp-code">log</span>/<span class="dp-code">reportError</span>/<span class="dp-code">getConfig</span>/<span class="dp-code">t</span>/生命周期钩子），以及数据/契约基类与 UI 组件基类并列继承 L0。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-bar">
+        <span class="dp-hint">ns=<span class="dp-code">{{ base.ns }}</span>　identifier=<span class="dp-code">{{ base.identifier }}</span>　env=<span class="dp-code">{{ base.env }}</span></span>
+        <el-button size="small" @click="doLog">log()</el-button>
+        <el-button size="small" @click="doError">reportError()</el-button>
+        <el-button size="small" @click="doConfig">getConfig('api.timeout')</el-button>
+        <el-button size="small" @click="doT">t('common.confirm')</el-button>
+      </div>
+
+      <div class="lay">
+        <div class="box l0"><b>L0 总基类 BaseFrontend</b><div class="it">通用字段 ns/identifier/env/config；通用方法 log/reportError/getConfig/t/生命周期钩子；不含 UI/业务/权限</div></div>
+        <div class="box"><b>L1a 数据/契约基类</b><div class="it">BaseEntity · BasePageQuery · BaseApi · createCrudStore · stableStringify</div></div>
+        <div class="box"><b>L1b 最基础组件基类</b><div class="it">BaseComponent（透传/尺寸·密度·主题/i18n/可访问性/loading…）</div></div>
+      </div>
+      <div class="dp-hint" style="margin-top:8px">依赖方向单向：L0 不依赖任何上层；只有"所有基类共有"的能力才进 L0。</div>
+
+      <div class="dp-state" style="margin-top:12px">{{ log }}</div>
+    </div>
+  </div>
+</div>
+
+<script src="../../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, reactive, ref } = Vue;
+
+  // 模拟 L0：useFrontendBase() —— 组合式提供通用字段/方法
+  function useFrontendBase(ns) {
+    var base = reactive({ ns: ns || 'bms', identifier: 'demo-' + Math.random().toString(16).slice(2, 6), env: 'dev',
+      config: { 'api.timeout': 15000, 'page.size': 20 } });
+    var hooks = [];
+    base.log = function (level, message, meta) { hooks.push('[' + base.ns + '] ' + level.toUpperCase() + ' ' + message + (meta ? ' ' + JSON.stringify(meta) : '')); };
+    base.reportError = function (error, meta) { hooks.push('[' + base.ns + '] REPORT ' + error + (meta ? ' ' + JSON.stringify(meta) : '')); };
+    base.getConfig = function (key, fallback) { return base.config[key] !== undefined ? base.config[key] : fallback; };
+    base.t = function (key) { var m = { 'common.confirm': '确定', 'common.cancel': '取消' }; return m[key] || key; };
+    base.onBaseCreated = function () { hooks.push('[' + base.ns + '] hook onBaseCreated'); };
+    base._hooks = hooks;
+    base.onBaseCreated();
+    return base;
+  }
+
+  var app = createApp({
+    setup: function () {
+      var base = useFrontendBase('bms');
+      var log = ref('就绪。点击上方按钮调用 L0 通用方法。');
+      function flush() { log.value = base._hooks.slice(-6).join('\n'); }
+      function doLog() { base.log('info', '打开页面', { route: '/user' }); flush(); }
+      function doError() { base.reportError(new Error('网络请求失败'), { url: '/api/v1/users', code: 500 }); flush(); }
+      function doConfig() { base.log('info', 'getConfig → ' + base.getConfig('api.timeout', 10000) + 'ms'); flush(); }
+      function doT() { base.log('info', "t('common.confirm') = " + base.t('common.confirm')); flush(); }
+      return { base: base, log: log, doLog: doLog, doError: doError, doConfig: doConfig, doT: doT };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>

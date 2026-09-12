@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>原型 · 字段壳（FieldWrapper）</title>
-<link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
-<link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
+<link rel="stylesheet" href="../../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../../原型设计/资源/原型样式.css">
 <style>
   .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
   .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
@@ -31,13 +31,13 @@
 <body>
 
 <div class="proto-bar">
-  <span class="pb-crumb"><a href="02_组件设计_字段壳.md">← 返回组件设计文档</a></span>
+  <span class="pb-crumb"><a href="03_组件设计_字段壳基类.md">← 返回组件设计文档</a></span>
   <span class="pb-name">组件设计 · 字段壳 原型（可交互）</span>
 </div>
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="02_组件设计_字段壳.md">《组件设计 · 字段壳》</a>：演示 label/必填星号（含 <span class="dp-code">'auto'</span> 推导）/帮助 tooltip/错误位/extra/栅格跨度/标签位置，以及只读回显切换（纯文本 <span class="dp-code">text</span> / 禁用控件 <span class="dp-code">disabled</span> / <span class="dp-code">auto</span>）。
+    本原型对应当前目录 <a href="03_组件设计_字段壳基类.md">《组件设计 · 字段壳》</a>：演示 label/必填星号（含 <span class="dp-code">'auto'</span> 推导）/帮助 tooltip/错误位/extra/栅格跨度/标签位置，以及只读回显切换（纯文本 <span class="dp-code">text</span> / 禁用控件 <span class="dp-code">disabled</span> / <span class="dp-code">auto</span>）。
   </div>
 
   <div id="app">
@@ -87,9 +87,9 @@
   </div>
 </div>
 
-<script src="../../../原型设计/资源/vendor/vue.global.prod.js"></script>
-<script src="../../../原型设计/资源/vendor/element-plus.min.js"></script>
-<script src="../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script src="../../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../../原型设计/资源/vendor/zh-cn.js"></script>
 <script>
   var { createApp, ref, reactive, computed } = Vue;
 

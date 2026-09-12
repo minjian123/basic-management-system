@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 交互组件基类（BaseInteractive / useInteractiveBase）</title>
+<link rel="stylesheet" href="../../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-code { font-family:Consolas,"Cascadia Mono",monospace; color:#57606a; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+  .focusable { outline:2px solid transparent; border-radius:6px; }
+  .focusable:focus-visible { outline:2px solid #0969da; outline-offset:2px; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="01_组件设计_交互组件基类.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 交互组件基类 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="01_组件设计_交互组件基类.md">《组件设计 · 交互组件基类》</a>：演示可点击语义（disabled/loading 不触发）、键盘 Enter/Space、焦点环、点击防抖、危险操作二次确认与点击埋点。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-bar">
+        <el-checkbox v-model="loading" size="small">loading</el-checkbox>
+        <el-checkbox v-model="disabled" size="small">disabled</el-checkbox>
+        <el-checkbox v-model="danger" size="small">危险操作需确认</el-checkbox>
+        <el-checkbox v-model="debounceOn" size="small">防抖 800ms</el-checkbox>
+        <span class="dp-hint">Tab 聚焦后按 Enter/Space 可触发</span>
+      </div>
+
+      <base-interactive :loading="loading" :disabled="disabled" :danger="danger ? '确认删除该记录？' : ''"
+        :debounce="debounceOn ? 800 : 0" @click="onClick" />
+
+      <div class="dp-state" style="margin-top:12px">{{ log }}
+说明：disabled/loading 时点击与键盘均不触发；危险操作先确认后回调；防抖期间重复点击只生效一次；
+焦点环用 :focus-visible（仅键盘可见）；点击触发统一埋点。</div>
+    </div>
+  </div>
+</div>
+
+<script src="../../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref } = Vue;
+  var ElMessageBox = ElementPlus.ElMessageBox;
+
+  // 模拟 L2-01 BaseInteractive
+  var BaseInteractive = {
+    props: ['loading','disabled','danger','debounce'],
+    emits: ['click'],
+    data: function () { return { timer: null }; },
+    methods: {
+      onKey: function (e) { if (this.disabled || this.loading) return; if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.trigger(e); } },
+      onClick: function (e) { if (this.disabled || this.loading) return; this.trigger(e); },
+      trigger: function (e) {
+        var self = this;
+        if (this.timer) return; // 防抖
+        if (this.debounce) { this.timer = setTimeout(function () { self.timer = null; }, this.debounce); }
+        var fire = function () { self.$emit('click', e); };
+        if (this.danger) { ElMessageBox.confirm(this.danger, '确认', { type: 'warning' }).then(fire).catch(function () {}); }
+        else { fire(); }
+      }
+    },
+    template: '<button class="el-button el-button--primary focusable" :disabled="disabled" :aria-busy="loading" ' +
+      'style="padding:8px 16px" @click="onClick" @keydown="onKey">{{ loading ? \'处理中…\' : \'执行操作\' }}</button>'
+  };
+
+  var app = createApp({
+    components: { BaseInteractive: BaseInteractive },
+    setup: function () {
+      var loading = ref(false), disabled = ref(false), danger = ref(false), debounceOn = ref(false);
+      var log = ref('就绪。点击或键盘触发。');
+      function onClick() { log.value = 'click() 有效触发（已通过 disabled/loading/防抖/确认）→ 埋点上报\n时间：' + new Date().toLocaleTimeString(); }
+      return { loading: loading, disabled: disabled, danger: danger, debounceOn: debounceOn, log: log, onClick: onClick };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>
