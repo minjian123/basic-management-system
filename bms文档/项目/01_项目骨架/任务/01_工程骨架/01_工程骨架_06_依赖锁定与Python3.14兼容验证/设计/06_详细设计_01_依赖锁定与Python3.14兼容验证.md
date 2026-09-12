@@ -16,7 +16,7 @@
 | --- | --- |
 | 运行/开发依赖已全量落 `pyproject.toml` + `uv.lock`（01-02 起；后续新增 `sortedcontainers`、`fakeredis[lua]`）× 锁文件变更触发 CI 基础镜像自动重建（05-1） | 清单与锁定已就位；**验证矩阵未登记** |
 | `pytest` 全量在 Python 3.14.4 下全绿（含 sortedcontainers / fakeredis / lupa） | 未形成逐依赖「版本 + import」矩阵与结论 |
-| Celery / SpiffWorkflow 属阶段三占位未安装 | 需按需求做**安装冒烟**（不写入锁定依赖） |
+| Celery / SpiffWorkflow 属阶段四占位未安装 | 需按需求做**安装冒烟**（不写入锁定依赖） |
 | dmPython 已安装（2.5.38）且 import OK | **未做真实连接实测**（mjbk 达梦 5236 `SELECT 1`） |
 | `backend/README.md` 无「依赖与版本」节 | 结论无落点 |
 
@@ -67,7 +67,7 @@
 
 ## 8. 边界与开放项 <a id="boundary"></a>
 
-- Celery / SpiffWorkflow 仅安装冒烟，**不代表阶段三功能验收**（接入时再按模块验证）。
+- Celery / SpiffWorkflow 仅安装冒烟，**不代表阶段四功能验收**（接入时再按模块验证）。
 - 达梦实测为连通性（`SELECT 1`），SQLAlchemy 方言接入在 02-5（含同步驱动口径修订）。
 - 未启用 Python 3.14 free-threading 构建；启用后复跑微基准（01-3-2 边界）。
 - CI 基础镜像重建依赖锁哈希（05-1），本任务不重复实现。

@@ -46,7 +46,7 @@ backend/
 │   ├── core/
 │   │   ├── __init__.py       # 层职责 docstring
 │   │   ├── config.py         # 配置加载占位（02-1）
-│   │   ├── security.py       # 安全占位（阶段三）
+│   │   ├── security.py       # 安全占位（阶段四）
 │   │   └── exceptions.py     # 异常体系占位（02-3）
 │   ├── api/
 │   │   ├── __init__.py       # 层职责 docstring
@@ -156,7 +156,7 @@ backend/
 | 文件 | docstring 要点 |
 | --- | --- |
 | `core/config.py` | 配置加载（占位）：config.toml 分区、`BMS_` 环境变量覆盖与启动校验由任务 02-1 实现 |
-| `core/security.py` | 安全工具（占位）：密码哈希、token 校验等随阶段三认证接入 |
+| `core/security.py` | 安全工具（占位）：密码哈希、token 校验等随阶段四认证接入 |
 | `core/exceptions.py` | 异常体系（占位）：BizError 与全局异常处理器由任务 02-3 实现 |
 | `models/base.py` | ORM 基类（占位）：BaseModel（雪花 ID / 审计 / 软删除 / 乐观锁）由任务 03-2 实现 |
 | `schemas/common.py` | 统一响应模型（占位）：ApiResponse / PageResponse 由任务 02-3 实现 |
