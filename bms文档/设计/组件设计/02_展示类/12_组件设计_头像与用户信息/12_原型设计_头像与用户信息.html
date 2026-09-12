@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 头像与用户信息（UserAvatar / UserPill / useUserDisplay）</title>
+<link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-code { font-family:Consolas,"Cascadia Mono",monospace; color:#57606a; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+  .row { display:flex; align-items:center; gap:16px; flex-wrap:wrap; margin-bottom:14px; }
+  .ual { position:relative; display:inline-flex; }
+  .ual .st { position:absolute; right:-1px; bottom:-1px; width:10px; height:10px; border-radius:50%; border:2px solid #fff; }
+  .grp { display:flex; }
+  .grp .ua { margin-left:-8px; border:2px solid #fff; border-radius:50%; }
+  .grp .ua:first-child { margin-left:0; }
+  .pill { display:inline-flex; align-items:center; gap:8px; }
+  .pill .nm { font-size:13px; }
+  .pill .dp { font-size:11px; color:#8c959f; }
+  .card { border:1px solid #eaeef2; border-radius:8px; padding:10px 12px; font-size:12px; width:220px; }
+  .card .k { color:#8c959f; }
+  .list { border:1px solid #eaeef2; border-radius:8px; max-width:420px; }
+  .list .li { display:flex; align-items:center; gap:10px; padding:8px 12px; border-bottom:1px solid #f2f3f5; font-size:13px; }
+  .list .li:last-child { border-bottom:none; }
+  .list .li .r { margin-left:auto; color:#8c959f; font-size:11px; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="12_组件设计_头像与用户信息.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 头像与用户信息 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="12_组件设计_头像与用户信息.md">《组件设计 · 头像与用户信息》</a>：演示头像（图片/首字母/默认色/尺寸/形状/状态点/组合 +N）、
+    用户胶囊（头像+姓名+部门）、悬浮用户卡片、批量列表回显、空用户与已删除用户。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <!-- 头像 -->
+      <div class="dp-bar"><b style="font-size:13px">① UserAvatar</b><span class="dp-hint">回退链：图片 → 首字母 → 默认图标；尺寸 xs/sm/md/lg；默认色按用户稳定派生（令牌）</span></div>
+      <div class="row">
+        <span v-for="s in ['xs','sm','md','lg']" :key="s">
+          <el-avatar :size="sz(s)" :src="img('张')">{{ '张' }}</el-avatar>
+          <span class="dp-hint" style="display:block;text-align:center">{{ s }}</span>
+        </span>
+        <span class="ual">
+          <el-avatar :size="32" :src="img('李')">{{ '李' }}</el-avatar>
+          <span class="st" style="background:#2da44e"></span>
+        </span>
+        <span class="dp-hint">状态点 online</span>
+        <el-avatar :size="32" :style="{ background: colorOf('wangwu'), color:'#fff' }">{{ initial('王五') }}</el-avatar>
+        <span class="dp-hint">默认色（无图，首字母）</span>
+        <el-avatar :size="32" :src="badUrl">{{ '赵' }}<span class="dp-hint"></span></el-avatar>
+        <span class="dp-hint">图片加载失败 → 首字母兜底</span>
+      </div>
+      <div class="row">
+        <span class="dp-hint">组合头像（会签）：</span>
+        <span class="grp">
+          <el-avatar v-for="n in 3" :key="n" class="ua" :size="30" :src="img(n + '')">{{ n }}</el-avatar>
+          <el-avatar class="ua" :size="30" style="background:#8c959f;color:#fff">+2</el-avatar>
+        </span>
+      </div>
+
+      <!-- 用户胶囊 + 悬浮卡片 -->
+      <div class="dp-bar"><b style="font-size:13px">② UserPill（+ popover 用户卡片）</b></div>
+      <div class="row">
+        <el-popover placement="top" :width="240" trigger="hover">
+          <template #reference>
+            <span class="pill">
+              <el-avatar :size="28" :src="img('张')">{{ '张' }}</el-avatar>
+              <span><span class="nm">张三</span><br><span class="dp">研发中心 · 部门经理</span></span>
+            </span>
+          </template>
+          <div class="card">
+            <div class="row" style="gap:8px;margin-bottom:8px">
+              <el-avatar :size="40" :src="img('张')">{{ '张' }}</el-avatar>
+              <div><b>张三</b><div class="dp-hint">zhangsan</div></div>
+            </div>
+            <div><span class="k">部门：</span>研发中心</div>
+            <div><span class="k">岗位：</span>部门经理</div>
+            <div><span class="k">状态：</span><el-tag size="small" type="success">启用</el-tag></div>
+            <div><span class="k">手机：</span>138****1234 <span class="dp-hint">（脱敏）</span></div>
+          </div>
+        </el-popover>
+        <span class="dp-hint">悬停显示用户卡片（联系方式按脱敏/权限）</span>
+        <span class="pill"><el-avatar :size="28">李</el-avatar><span class="nm">李四</span></span>
+        <span class="pill"><span class="nm">—</span></span>
+        <span class="dp-hint">空用户 → —</span>
+        <span class="pill"><el-avatar :size="28" style="background:#cf222e;color:#fff">?</el-avatar><span class="nm" style="color:#8c959f">已删除用户</span></span>
+      </div>
+
+      <!-- 列表批量回显 -->
+      <div class="dp-bar"><b style="font-size:13px">③ 列表批量回显（批量按 id 查 + 缓存）</b><span class="dp-hint">不逐条请求</span></div>
+      <div class="list">
+        <div v-for="u in users" :key="u.id" class="li">
+          <el-avatar :size="26" :src="u.avatar">{{ u.name ? u.name.charAt(0) : '?' }}</el-avatar>
+          <span>{{ u.deleted ? '已删除用户' : u.name }}</span>
+          <span class="dp-hint">{{ u.deptName || '' }}</span>
+          <span class="r">{{ u.postName || '' }}</span>
+        </div>
+      </div>
+
+      <div class="dp-state" style="margin-top:12px">{{ log }}</div>
+    </div>
+  </div>
+</div>
+
+<script src="../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref } = Vue;
+
+  var PALETTE = ['#0969da', '#2da44e', '#d4a72c', '#cf222e', '#8250df', '#1b7c83', '#bc4c00', '#57606a'];
+  function svgImg(txt, color) {
+    var s = '<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80"><rect width="80" height="80" fill="' + color + '"/><text x="40" y="52" font-size="34" fill="#fff" text-anchor="middle" font-family="sans-serif">' + txt + '</text></svg>';
+    return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(s);
+  }
+
+  var app = createApp({
+    setup: function () {
+      var log = ref('批量按 id 查用户展示信息 + 会话缓存；头像回退链与稳定默认色');
+      var badUrl = 'https://invalid.local/broken.png';
+      function sz(s) { return { xs: 20, sm: 28, md: 32, lg: 40 }[s]; }
+      function img(t) { return svgImg(t, '#0969da'); }
+      function initial(name) { if (!name) return '?'; var n = name.trim(); return /^[a-zA-Z]/.test(n) ? n.charAt(0).toUpperCase() : n.charAt(0); }
+      function colorOf(key) { var h = 0; String(key).split('').forEach(function (c) { h = (h * 31 + c.charCodeAt(0)) % 997; }); return PALETTE[h % PALETTE.length]; }
+      var users = ref([
+        { id: 1, name: '张三', avatar: svgImg('张', '#0969da'), deptName: '研发中心', postName: '部门经理' },
+        { id: 2, name: '李四', avatar: '', deptName: '财务部', postName: '会计' },
+        { id: 3, name: null, deleted: true },
+        { id: 4, name: '王五', avatar: svgImg('王', '#2da44e'), deptName: '销售部', postName: '总监' }
+      ]);
+      return { log, badUrl, sz, img, initial, colorOf, users };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>
