@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 字段基类（BaseField / useFieldMeta）</title>
+<link rel="stylesheet" href="../../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-code { font-family:Consolas,"Cascadia Mono",monospace; color:#57606a; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+  .fw .lb { font-size:13px; margin-bottom:4px; }
+  .req::before { content:"*"; color:#cf222e; margin-right:2px; }
+  .help { color:#b1b8bf; cursor:help; }
+  .err { color:#cf222e; font-size:12px; margin-top:3px; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="02_组件设计_字段基类.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 字段基类 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="02_组件设计_字段基类.md">《组件设计 · 字段基类》</a>：演示字段语义——字段上下文（label/必填/错误）、字段权限（<span class="dp-code">visible</span>/<span class="dp-code">editable</span>）、三态与校验触发、<span class="dp-code">fieldKey</span> 注册；值语义与形态分别来自 L3-01 与 L2。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-bar">
+        <el-switch v-model="perm.visible" size="small" active-text="visible" />
+        <el-switch v-model="perm.editable" size="small" active-text="editable" />
+        <el-switch v-model="perm.required" size="small" active-text="required（元数据）" />
+        <span class="dp-hint">fieldKey = <span class="dp-code">user.name</span>（挂载注册、卸载注销、错误定位）</span>
+      </div>
+
+      <div class="fw" v-if="perm.visible" style="width:320px">
+        <div class="lb"><span :class="{req: perm.required}">用户名称</span> <el-tooltip content="登录账号的显示名称" placement="top"><span class="help">ⓘ</span></el-tooltip></div>
+        <el-input v-model="model.name" :disabled="!perm.editable" @change="onChange" />
+        <div v-if="error" class="err">{{ error }}</div>
+      </div>
+      <div v-else class="dp-hint">visible=false → 整壳不渲染（栅格自然收缩）</div>
+
+      <div class="dp-state" style="margin-top:12px">值语义（L3-01）：三态 = {{ tri }}；change 上报 = {{ lastChange }}
+字段语义（本层）：字段上下文（label/必填/错误由 L3-03 字段壳 provide）+ 字段权限（visible/editable 由 L3-04 provide）+ 校验触发
+校验：值变化触发字段校验并回传上下文；提交时由 L2-05 表单容器 validate 汇总
+editable=false 时编辑态也 disabled；visible=false 任何状态都不渲染（判定权威见 L3-04）</div>
+    </div>
+  </div>
+</div>
+
+<script src="../../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref, reactive, computed } = Vue;
+  var app = createApp({
+    setup: function () {
+      var perm = reactive({ visible: true, editable: true, required: true });
+      var model = reactive({ name: '' });
+      var lastChange = ref('（无）');
+      var error = ref('');
+      function onChange(v) { lastChange.value = JSON.stringify(v); if (perm.required && !v) error.value = '请输入用户名称（值变化触发字段校验）'; else error.value = ''; }
+      var tri = computed(function () { return (model.name === null || model.name === '') ? 'unset/empty' : 'value'; });
+      return { perm: perm, model: model, lastChange: lastChange, error: error, onChange: onChange, tri: tri };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>

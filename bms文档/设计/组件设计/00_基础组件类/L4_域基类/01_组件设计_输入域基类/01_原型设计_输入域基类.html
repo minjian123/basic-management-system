@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 基础输入组件基类（BaseInput / useFieldBase）</title>
-<link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
-<link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
+<title>原型 · 输入域基类（BaseInput / useFieldBase）</title>
+<link rel="stylesheet" href="../../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../../原型设计/资源/原型样式.css">
 <style>
   .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
   .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
@@ -25,13 +25,13 @@
 <body>
 
 <div class="proto-bar">
-  <span class="pb-crumb"><a href="01_组件设计_基础输入组件基类.md">← 返回组件设计文档</a></span>
-  <span class="pb-name">组件设计 · 基础输入组件基类 原型（可交互）</span>
+  <span class="pb-crumb"><a href="01_组件设计_输入域基类.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 输入域基类 原型（可交互）</span>
 </div>
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="01_组件设计_基础输入组件基类.md">《组件设计 · 基础输入组件基类》</a>：演示受控 <span class="dp-code">v-model</span>、<span class="dp-code">change</span> 事件、三态（未设置/空/已填）、<span class="dp-code">disabled</span>/<span class="dp-code">readonly</span>、前后缀插槽与值归一；下方展示 05 基础控件类与 01 字段类对本基类的继承关系。
+    本原型对应当前目录 <a href="01_组件设计_输入域基类.md">《组件设计 · 输入域基类》</a>：演示受控 <span class="dp-code">v-model</span>、<span class="dp-code">change</span> 事件、三态（未设置/空/已填）、<span class="dp-code">disabled</span>/<span class="dp-code">readonly</span>、前后缀插槽与值归一；下方展示 05 基础控件类与 01 字段类对本基类的继承关系。
   </div>
 
   <div id="app">
@@ -75,14 +75,14 @@
         <div class="box"><b>05 基础控件类</b><div class="it">文本框 · 文本域 · 密码框 · 数字框 · 下拉框 · 单选 · 复选 · 开关</div></div>
         <div class="box"><b>01 字段类</b><div class="it">字典 · 日期 · 数值金额 · 组织 · 上传 · 富文本 · 开关枚举 · 穿梭 · 验证码 · 标签 · 级联</div></div>
       </div>
-      <div class="dp-hint" style="margin-top:8px">只读回显由 <span class="dp-code">00-02 字段壳</span> 决定用纯文本或 disabled 输入框；<span class="dp-code">visible=false</span> 由 <span class="dp-code">00-03 字段权限</span> + 壳层控制不渲染，不进入基类。</div>
+      <div class="dp-hint" style="margin-top:8px">只读回显由 <span class="dp-code">L3-03 字段壳基类</span> 决定用纯文本或 disabled 输入框；<span class="dp-code">visible=false</span> 由 <span class="dp-code">L3-04 字段权限基类</span> + 壳层控制不渲染，不进入基类。</div>
     </div>
   </div>
 </div>
 
-<script src="../../../原型设计/资源/vendor/vue.global.prod.js"></script>
-<script src="../../../原型设计/资源/vendor/element-plus.min.js"></script>
-<script src="../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script src="../../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../../原型设计/资源/vendor/zh-cn.js"></script>
 <script>
   var { createApp, ref } = Vue;
 

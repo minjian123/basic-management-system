@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 基础展示组件基类（DisplayBase / useDisplayBase）</title>
-<link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
-<link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
+<title>原型 · 展示域基类（DisplayBase / useDisplayBase）</title>
+<link rel="stylesheet" href="../../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../../原型设计/资源/原型样式.css">
 <style>
   .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
   .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
@@ -25,13 +25,13 @@
 <body>
 
 <div class="proto-bar">
-  <span class="pb-crumb"><a href="04_组件设计_基础展示组件基类.md">← 返回组件设计文档</a></span>
-  <span class="pb-name">组件设计 · 基础展示组件基类 原型（可交互）</span>
+  <span class="pb-crumb"><a href="02_组件设计_展示域基类.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 展示域基类 原型（可交互）</span>
 </div>
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="04_组件设计_基础展示组件基类.md">《组件设计 · 基础展示组件基类》</a>：演示值格式化（金额/日期/枚举/布尔）、空值统一占位、密度切换、只读不校验、超长省略与可复制；展示类与字段只读回显均继承它。
+    本原型对应当前目录 <a href="02_组件设计_展示域基类.md">《组件设计 · 展示域基类》</a>：演示值格式化（金额/日期/枚举/布尔）、空值统一占位、密度切换、只读不校验、超长省略与可复制；展示类与字段只读回显均继承它。
   </div>
 
   <div id="app">
@@ -58,14 +58,14 @@
       <div class="dp-state" style="margin-top:14px">只读：展示基类不接收 modelValue、不参与校验；颜色/字号/间距只消费设计令牌（随主题与品牌自动适配）
 空值判定：null / undefined / '' / [] / {} 统一占位「—」，但 0、false 不为空
 空值 vs 空状态：单元格空值用占位（本组件），整块无数据用「02 展示类 05 异常与空状态」
-脱敏：脱敏字段不提供可复制明文（copyable 对脱敏值禁用，与 00-03 字段权限协作）</div>
+脱敏：脱敏字段不提供可复制明文（copyable 对脱敏值禁用，与 L3-04 字段权限基类协作）</div>
     </div>
   </div>
 </div>
 
-<script src="../../../原型设计/资源/vendor/vue.global.prod.js"></script>
-<script src="../../../原型设计/资源/vendor/element-plus.min.js"></script>
-<script src="../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script src="../../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../../原型设计/资源/vendor/zh-cn.js"></script>
 <script>
   var { createApp, ref } = Vue;
 

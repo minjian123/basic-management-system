@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 展示组件基类（BaseDisplayControl / useDisplayControlBase）</title>
+<link rel="stylesheet" href="../../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-code { font-family:Consolas,"Cascadia Mono",monospace; color:#57606a; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+  .dense-compact .row { padding:3px 8px; font-size:12px; }
+  .dense-default .row { padding:8px 8px; font-size:13px; }
+  .dense-loose .row { padding:13px 8px; font-size:14px; }
+  .row { display:flex; gap:12px; border-bottom:1px solid #eaeef2; }
+  .row .lb { width:120px; color:#57606a; }
+  .ro-empty { color:#b1b8bf; }
+  .ellip { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:220px; display:inline-block; vertical-align:bottom; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="03_组件设计_展示组件基类.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 展示组件基类 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="03_组件设计_展示组件基类.md">《组件设计 · 展示组件基类》</a>：演示只读形态（不校验）、密度/令牌、空值统一占位（<span class="dp-code">0</span>/<span class="dp-code">false</span> 不为空）、超长省略与 tooltip；本层<b>不含</b>值格式化（L3-01）与展示域细化（L4-02）。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-bar">
+        <el-radio-group v-model="density" size="small"><el-radio-button label="compact">紧凑</el-radio-button><el-radio-button label="default">默认</el-radio-button><el-radio-button label="loose">宽松</el-radio-button></el-radio-group>
+        <el-switch v-model="ellipsis" size="small" active-text="超长省略 + tooltip" />
+      </div>
+
+      <div :class="'dense-' + density">
+        <div class="row" v-for="it in rows" :key="it.lb">
+          <span class="lb">{{ it.lb }}</span>
+          <span>
+            <span v-if="isNull(it.v)" class="ro-empty">{{ emptyText }}</span>
+            <span v-else :class="{ ellip: ellipsis }" :title="ellipsis ? String(it.v) : ''">{{ it.v }}</span>
+          </span>
+        </div>
+      </div>
+
+      <div class="dp-state" style="margin-top:14px">只读：不接收 modelValue、不参与校验；需要交互时组合 L2-01 交互基类
+空值判定：null / undefined / '' / [] / {} 统一占位「{{ emptyText }}」，但 0 与 false 不为空
+空值 vs 空状态：单元格空值用占位（本层），整块无数据用「02 展示类 05 异常与空状态」
+本层不含值格式化（金额/日期/枚举文本 → L3-01 + 04-03），展示域细化在 L4-02（组合本层 + BaseValue）</div>
+    </div>
+  </div>
+</div>
+
+<script src="../../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref } = Vue;
+  var app = createApp({
+    setup: function () {
+      var density = ref('default'), ellipsis = ref(false), emptyText = ref('—');
+      var rows = ref([
+        { lb: '文本', v: '张三' },
+        { lb: '数值 0', v: 0 },
+        { lb: '布尔 false', v: false },
+        { lb: '空值 null', v: null },
+        { lb: '空串', v: '' },
+        { lb: '超长地址', v: '上海市浦东新区张江高科技园区科苑路 399 号某某大厦 18 楼 1801 室' }
+      ]);
+      function isNull(v) { if (v === null || v === undefined || v === '') return true; if (Array.isArray(v) && !v.length) return true; if (typeof v === 'object' && !Array.isArray(v) && !Object.keys(v).length) return true; return false; }
+      return { density: density, ellipsis: ellipsis, emptyText: emptyText, rows: rows, isNull: isNull };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>

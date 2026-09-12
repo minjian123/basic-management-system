@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 受控值基类（BaseValue / useValueBase）</title>
+<link rel="stylesheet" href="../../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-code { font-family:Consolas,"Cascadia Mono",monospace; color:#57606a; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+  .row { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+  .row .lb { width:110px; color:#57606a; font-size:13px; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="01_组件设计_受控值基类.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 受控值基类 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="01_组件设计_受控值基类.md">《组件设计 · 受控值基类》</a>：演示值归一（空串/undefined → emptyValue）、三态（未设置/空/已填）、格式化调度与 <span class="dp-code">change</span> 上报；输入与展示共用。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-bar"><el-checkbox v-model="threeState" size="small">启用三态（区分未设置/空）</el-checkbox><span class="dp-hint">清空输入框观察归一到 null</span></div>
+
+      <div class="row"><span class="lb">文本框</span><el-input v-model="v1" clearable style="width:220px" placeholder="输入或清空" /></div>
+      <div class="row"><span class="lb">金额（格式化）</span><el-input-number v-model="v2" :controls="false" style="width:220px" /></div>
+
+      <div class="dp-state">值 v1 = {{ JSON.stringify(v1) }}　三态 = {{ triOf(v1) }}（{{ threeState ? 'unset/empty 区分' : 'unset/empty 合并' }}）
+值 v2 = {{ JSON.stringify(v2) }}　格式化展示 = {{ format(v2, 'amount') }}
+change 上报（归一后）：{{ lastChange }}
+说明：`''`/`undefined` → emptyValue（默认 null）；格式化调度 04-03（金额/日期/枚举/布尔），缺失回退原值；
+本层不含字段语义（上下文/权限/校验 → L3-02），也不含形态（L2）。</div>
+    </div>
+  </div>
+</div>
+
+<script src="../../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref, watch } = Vue;
+  var app = createApp({
+    setup: function () {
+      var v1 = ref('张三'), v2 = ref(1234.5), threeState = ref(false), lastChange = ref('（无）');
+      function emptyValue() { return null; }
+      function normalize(v) { return (v === '' || v === undefined) ? emptyValue() : v; }
+      function triOf(v) { if (v === null || v === undefined) return threeState.value ? 'unset' : 'unset/empty'; return 'value'; }
+      var FMT = { amount: function (v) { return v == null ? '—' : '￥' + Number(v).toLocaleString('zh-CN', { minimumFractionDigits: 2 }); } };
+      function format(v, f) { return v == null ? '—' : (FMT[f] ? FMT[f](v) : v); }
+      watch(v1, function (nv) { lastChange.value = 'change(' + JSON.stringify(normalize(nv)) + ')'; });
+      return { v1: v1, v2: v2, threeState: threeState, lastChange: lastChange, triOf: triOf, format: format };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>

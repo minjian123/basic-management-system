@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 输入组件基类（BaseInputControl / useInputControlBase）</title>
+<link rel="stylesheet" href="../../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-code { font-family:Consolas,"Cascadia Mono",monospace; color:#57606a; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+  .row { margin-bottom:12px; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="02_组件设计_输入组件基类.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 输入组件基类 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="02_组件设计_输入组件基类.md">《组件设计 · 输入组件基类》</a>：演示受控 <span class="dp-code">v-model</span>、前后缀/前置后置插槽、清空、只读、输入法组合事件与聚焦/失焦；本层只做输入形态，<b>不含</b>三态/校验/字段权限（那是 L3）。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-bar">
+        <el-checkbox v-model="readonly" size="small">readonly（可聚焦不可改）</el-checkbox>
+        <el-checkbox v-model="clearable" size="small">clearable</el-checkbox>
+        <span class="dp-hint">切换到中文输入法输入，change 会在组合结束后才触发</span>
+      </div>
+
+      <div class="row"><base-input-control v-model="v1" placeholder="普通输入" :readonly="readonly" :clearable="clearable" @change="onChange" @focus="e=>ev='focus'" @blur="e=>ev='blur'" @clear="ev='clear'" /></div>
+      <div class="row"><base-input-control v-model="v2" placeholder="前后缀" :readonly="readonly" @change="onChange"><template #prefix>🔍</template><template #suffix>⌘K</template></base-input-control></div>
+      <div class="row"><base-input-control v-model="v3" placeholder="account" :readonly="readonly" @change="onChange"><template #prepend>@</template><template #append>.com</template></base-input-control></div>
+
+      <div class="dp-state">值 v1 = {{ JSON.stringify(v1) }}　v2 = {{ JSON.stringify(v2) }}　v3 = {{ JSON.stringify(v3) }}
+最近事件：{{ ev }}；change 值：{{ lastChange }}
+说明：受控只认 modelValue；插槽 prefix/suffix/prepend/append；清空后值由 L3 BaseValue 归一（本层置空）；
+本层不含三态/校验触发/字段上下文/字段权限——它们是 L3 BaseValue/BaseField 的职责。</div>
+    </div>
+  </div>
+</div>
+
+<script src="../../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref } = Vue;
+
+  // 模拟 L2-02 BaseInputControl
+  var BaseInputControl = {
+    props: ['modelValue','placeholder','readonly','clearable'],
+    emits: ['update:modelValue','change','focus','blur','clear'],
+    data: function () { return { composing: false }; },
+    methods: {
+      onInput: function (v) { this.$emit('update:modelValue', v); if (!this.composing) this.$emit('change', v); },
+      onCompositionStart: function () { this.composing = true; },
+      onCompositionEnd: function (e) { this.composing = false; this.$emit('change', e.target.value); },
+      onClear: function () { this.$emit('update:modelValue', ''); this.$emit('clear'); }
+    },
+    template: [
+      '<el-input :model-value="modelValue" :placeholder="placeholder" :readonly="readonly" :clearable="clearable"',
+      '  @update:model-value="onInput" @focus="$emit(\'focus\',$event)" @blur="$emit(\'blur\',$event)" @clear="onClear"',
+      '  @compositionstart="onCompositionStart" @compositionend="onCompositionEnd">',
+      '  <template #prefix v-if="$slots.prefix"><slot name="prefix" /></template>',
+      '  <template #suffix v-if="$slots.suffix"><slot name="suffix" /></template>',
+      '  <template #prepend v-if="$slots.prepend"><slot name="prepend" /></template>',
+      '  <template #append v-if="$slots.append"><slot name="append" /></template>',
+      '</el-input>'
+    ].join('\n')
+  };
+
+  var app = createApp({
+    components: { BaseInputControl: BaseInputControl },
+    setup: function () {
+      var v1 = ref('文本'), v2 = ref(''), v3 = ref('user');
+      var readonly = ref(false), clearable = ref(true);
+      var ev = ref('（无）'), lastChange = ref('（无）');
+      function onChange(v) { ev.value = 'change'; lastChange.value = JSON.stringify(v); }
+      return { v1: v1, v2: v2, v3: v3, readonly: readonly, clearable: clearable, ev: ev, lastChange: lastChange, onChange: onChange };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>
