@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 异常与空状态（ErrorPage / EmptyState / SkeletonBlock / LoadingMask / useFeedback）</title>
+<link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-code { font-family:Consolas,"Cascadia Mono",monospace; color:#57606a; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+  .errgrid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+  .errbox { border:1px solid #eaeef2; border-radius:8px; padding:18px; text-align:center; }
+  .errbox .code { font-size:34px; font-weight:700; color:#0969da; }
+  .errbox .ttl { font-size:14px; margin:6px 0; }
+  .errbox .desc { color:#8c959f; font-size:12px; margin-bottom:10px; }
+  .emptybox { border:1px dashed #d0d7de; border-radius:8px; padding:18px; text-align:center; }
+  .emptybox .ttl { font-size:13px; margin:6px 0; }
+  .emptybox .desc { color:#8c959f; font-size:12px; margin-bottom:8px; }
+  .demo-area { position:relative; border:1px solid #eaeef2; border-radius:8px; min-height:120px; padding:10px; }
+  .mask { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; background:rgba(255,255,255,.8); font-size:13px; color:#57606a; border-radius:8px; }
+  .spin { width:18px; height:18px; border:2px solid #d0d7de; border-top-color:#0969da; border-radius:50%; animation:spin .8s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="05_组件设计_异常与空状态.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 异常与空状态 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="05_组件设计_异常与空状态.md">《组件设计 · 异常与空状态》</a>：演示 <b>ErrorPage</b>（403/404/500）、<b>EmptyState</b> 场景矩阵、
+    <b>SkeletonBlock</b> 骨架屏、<b>LoadingMask</b> 局部遮罩、断网/超时重试。任何场景不白屏、不暴露技术堆栈。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <el-tabs v-model="tab">
+        <!-- 错误页 -->
+        <el-tab-pane label="错误页" name="error">
+          <div class="dp-bar"><span class="dp-hint">居中插画 + 标题 + 说明 + 主操作；不展示技术堆栈（安全规范）</span></div>
+          <div class="errgrid">
+            <div class="errbox">
+              <svg width="54" height="54" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="#cf222e" stroke-width="1.5"/><path d="M8 8l8 8M16 8l-8 8" stroke="#cf222e" stroke-width="1.5" stroke-linecap="round"/></svg>
+              <div class="code">403</div>
+              <div class="ttl">没有访问权限</div>
+              <div class="desc">如需申请请联系管理员</div>
+              <el-button size="small" @click="toast('返回首页')">返回首页</el-button>
+              <el-button size="small" text @click="toast('联系管理员')">联系管理员</el-button>
+            </div>
+            <div class="errbox">
+              <svg width="54" height="54" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="#0969da" stroke-width="1.5"/><path d="M9 9a3 3 0 115 2c-1 .8-2 1.2-2 2.5" stroke="#0969da" stroke-width="1.5" stroke-linecap="round"/><circle cx="12" cy="17" r="1" fill="#0969da"/></svg>
+              <div class="code">404</div>
+              <div class="ttl">页面不存在</div>
+              <div class="desc">或已被移除</div>
+              <el-button size="small" type="primary" @click="toast('返回首页')">返回首页</el-button>
+            </div>
+            <div class="errbox">
+              <svg width="54" height="54" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="#d4a72c" stroke-width="1.5"/><path d="M12 7v6M12 16.5v.5" stroke="#d4a72c" stroke-width="1.5" stroke-linecap="round"/></svg>
+              <div class="code">500</div>
+              <div class="ttl">服务开小差了</div>
+              <div class="desc">请稍后重试</div>
+              <el-button size="small" @click="retryDemo">刷新重试</el-button>
+              <el-button size="small" text @click="toast('返回首页')">返回首页</el-button>
+            </div>
+          </div>
+          <div class="dp-hint" style="margin-top:8px">未登录访问受保护路由 → 由请求层拦截跳登录并携带回跳参数（本节点不处理）</div>
+        </el-tab-pane>
+
+        <!-- 空状态 -->
+        <el-tab-pane label="空状态" name="empty">
+          <div class="dp-bar"><span class="dp-hint">业务空态优先文案引导；引导按钮受权限控制（v-perm）</span></div>
+          <div class="errgrid">
+            <div class="emptybox">
+              <div style="font-size:30px">🕳️</div><div class="ttl">暂无数据</div>
+              <div class="desc">还没有内容</div>
+              <el-button size="small" type="primary" v-if="permCreate" @click="toast('去创建')">去创建</el-button>
+              <div v-else class="dp-hint">无新建权限</div>
+            </div>
+            <div class="emptybox">
+              <div style="font-size:30px">🔍</div><div class="ttl">未找到相关内容</div>
+              <div class="desc">当前筛选条件下无结果</div>
+              <el-button size="small" @click="toast('清除筛选')">清除筛选</el-button>
+            </div>
+            <div class="emptybox">
+              <div style="font-size:30px">☕</div><div class="ttl">暂无待办，享受这一刻</div>
+              <div class="desc">所有审批已处理</div>
+            </div>
+            <div class="emptybox">
+              <div style="font-size:30px">✉️</div><div class="ttl">暂无消息</div>
+              <div class="desc">新消息会在这里出现</div>
+            </div>
+          </div>
+          <div class="dp-bar" style="margin-top:12px">
+            <el-switch v-model="permCreate" size="small" active-text="新建权限（控制「去创建」显隐）" />
+          </div>
+        </el-tab-pane>
+
+        <!-- 加载分级 -->
+        <el-tab-pane label="加载分级" name="loading">
+          <div class="dp-bar">
+            <span class="dp-hint">首屏/页面级=骨架屏 · 局部刷新=内容遮罩 loading（delay 防闪） · 按钮提交=按钮内 loading</span>
+          </div>
+          <el-divider content-position="left">页面级：骨架屏（与内容同结构）</el-divider>
+          <el-skeleton :loading="skLoading" animated :rows="4" style="max-width:520px">
+            <template #default>
+              <div style="color:#57606a;font-size:13px">内容已加载（骨架替换为真实内容，无二次布局抖动）</div>
+            </template>
+          </el-skeleton>
+          <el-button size="small" style="margin-top:8px" @click="toggleSkeleton">{{ skLoading ? '加载完成' : '重新加载' }}</el-button>
+
+          <el-divider content-position="left">局部刷新：内容遮罩 loading</el-divider>
+          <div class="demo-area" style="max-width:520px">
+            <div v-for="i in 4" :key="i" style="padding:6px 0;border-bottom:1px solid #f2f3f5;font-size:13px">数据行 {{ i }}：收款 ¥{{ (i*1200).toLocaleString() }}</div>
+            <div v-if="maskLoading" class="mask"><span class="spin"></span>{{ maskText }}</div>
+          </div>
+          <el-button size="small" style="margin-top:8px" @click="refreshArea">刷新该区域（200ms 延时防闪）</el-button>
+
+          <el-divider content-position="left">按钮提交：按钮内 loading（防重复）</el-divider>
+          <el-button size="small" type="primary" :loading="btnLoading" @click="submitBtn">提交</el-button>
+        </el-tab-pane>
+
+        <!-- 异常兜底 -->
+        <el-tab-pane label="异常兜底" name="fallback">
+          <div class="dp-bar"><span class="dp-hint">断网/超时提示 + 重试；错误码→i18n 文案；运行时错误全局处理器（生产记录监控）</span></div>
+          <el-radio-group v-model="fbCase" size="small" style="margin-bottom:10px">
+            <el-radio-button label="network">断网</el-radio-button>
+            <el-radio-button label="timeout">超时</el-radio-button>
+            <el-radio-button label="server">500</el-radio-button>
+          </el-radio-group>
+          <div class="demo-area" style="max-width:560px">
+            <div v-if="fbState==='loading'" class="mask"><span class="spin"></span>加载中…</div>
+            <div v-else-if="fbState==='error'" style="text-align:center;padding:18px">
+              <div style="font-size:28px">⚠️</div>
+              <div style="margin:6px 0">{{ fbText }}</div>
+              <el-button size="small" type="primary" @click="retryFb">重试</el-button>
+            </div>
+            <div v-else style="color:#57606a;font-size:13px">数据已恢复：{{ fbText }}</div>
+          </div>
+          <el-button size="small" style="margin-top:8px" @click="simulateFb">模拟请求</el-button>
+          <div v-if="fbState==='error'" class="dp-hint" style="margin-top:6px">关键页面支持本地缓存回显（草稿），不白屏</div>
+        </el-tab-pane>
+      </el-tabs>
+
+      <div class="dp-state" style="margin-top:12px">{{ log }}</div>
+    </div>
+  </div>
+</div>
+
+<script src="../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref, computed } = Vue;
+  var ElMessage = ElementPlus.ElMessage;
+
+  var app = createApp({
+    setup: function () {
+      var tab = ref('error');
+      var log = ref('错误页 / 空状态 / 加载分级 / 异常兜底 演示');
+      var permCreate = ref(true);
+      var skLoading = ref(true);
+      var maskLoading = ref(false);
+      var maskText = ref('加载中…');
+      var btnLoading = ref(false);
+      var fbCase = ref('network');
+      var fbState = ref('ready');
+
+      function toast(m) { log.value = m; ElMessage.info(m); }
+      function retryDemo() { log.value = '500 → 刷新重试（请求层统一处理，避免裸错误）'; ElMessage.success('重试中…'); }
+      function toggleSkeleton() { skLoading.value = !skLoading.value; if (!skLoading.value) log.value = '骨架屏替换为真实内容'; }
+      function refreshArea() {
+        maskText.value = '加载中…'; maskLoading.value = true; log.value = '局部刷新遮罩（delay 200ms 防闪，仅覆盖区域）';
+        setTimeout(function () { maskLoading.value = false; }, 900);
+      }
+      function submitBtn() { btnLoading.value = true; log.value = '按钮内 loading 防重复提交'; setTimeout(function () { btnLoading.value = false; ElMessage.success('提交成功'); }, 800); }
+
+      var fbText = computed(function () {
+        return { network: '网络异常，请检查连接', timeout: '请求超时，请稍后重试', server: '服务开小差了（500），请稍后重试' }[fbCase.value];
+      });
+      function simulateFb() { fbState.value = 'loading'; log.value = '发起请求…'; setTimeout(function () { fbState.value = 'error'; log.value = '错误码 → i18n 文案：' + fbText.value + '（可重试）'; }, 700); }
+      function retryFb() { fbState.value = 'loading'; setTimeout(function () { fbState.value = 'ready'; ElMessage.success('请求成功'); }, 700); }
+
+      return { tab, log, permCreate, skLoading, maskLoading, maskText, btnLoading, fbCase, fbState, fbText, toast, retryDemo, toggleSkeleton, refreshArea, submitBtn, simulateFb, retryFb };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>
