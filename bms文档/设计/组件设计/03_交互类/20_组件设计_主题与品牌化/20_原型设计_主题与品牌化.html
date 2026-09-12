@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 主题与品牌化（ThemeSwitcher / ThemeProvider / useTheme）</title>
+<link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
+<style>
+  html[data-theme="dark"] { background:#0d1117; color-scheme:dark; }
+  html[data-theme="dark"] body { background:#0d1117; }
+  .proto-bar, .proto-frame { background:#fff; }
+  html[data-theme="dark"] .proto-bar, html[data-theme="dark"] .proto-frame, html[data-theme="dark"] .ep-page { background:#161b22; color:#c9d1d9; }
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  html[data-theme="dark"] .dp-bar { background:#21262d; border-color:#30363d; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-code { font-family:Consolas,"Cascadia Mono",monospace; color:#57606a; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+  html[data-theme="dark"] .dp-state { background:#21262d; border-color:#30363d; color:#8b949e; }
+  .grid2 { display:grid; grid-template-columns:minmax(280px,1fr) 1.4fr; gap:14px; }
+  .preview-app { border:1px solid #d0d7de; border-radius:8px; overflow:hidden; }
+  .pa-head { display:flex; align-items:center; gap:8px; padding:10px 12px; background:var(--brand-primary,#0969da); color:#fff; font-weight:600; }
+  .pa-head .logo { width:22px; height:22px; border-radius:5px; background:rgba(255,255,255,.25); display:flex; align-items:center; justify-content:center; font-size:13px; }
+  .pa-body { padding:14px; }
+  .pa-card { border:1px solid #eaeef2; border-radius:8px; padding:12px; margin-top:10px; }
+  html[data-theme="dark"] .pa-card { border-color:#30363d; }
+  .login { border:1px dashed #d0d7de; border-radius:8px; padding:18px; text-align:center; margin-top:10px; background:var(--brand-login-bg,#f6f8fa); }
+  .login .lname { font-weight:700; font-size:16px; }
+  .swatch { display:flex; gap:6px; }
+  .swatch span { width:24px; height:24px; border-radius:6px; cursor:pointer; border:2px solid transparent; }
+  .swatch span.on { border-color:#000; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="20_组件设计_主题与品牌化.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 主题与品牌化 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="20_组件设计_主题与品牌化.md">《组件设计 · 主题与品牌化》</a>：演示亮/暗/跟随系统、租户品牌（Logo/名称/主色/登录页）、CSS 变量注入（<span class="dp-code">data-theme</span> + <span class="dp-code">--brand-primary</span>）与解析优先级（用户模式 &gt; 租户默认 &gt; 平台默认）。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="grid2">
+        <div>
+          <el-divider content-position="left">ThemeSwitcher（用户级）</el-divider>
+          <el-radio-group v-model="mode" @change="apply">
+            <el-radio-button label="light">亮色</el-radio-button>
+            <el-radio-button label="dark">暗色</el-radio-button>
+            <el-radio-button label="system">跟随系统</el-radio-button>
+          </el-radio-group>
+          <div class="dp-hint" style="margin-top:6px">系统当前：{{ systemDark ? '暗色' : '亮色' }}（matchMedia 监听）</div>
+
+          <el-divider content-position="left">租户品牌 ThemeProvider（管理员配置）</el-divider>
+          <el-form label-width="80px" size="small">
+            <el-form-item label="品牌名称"><el-input v-model="brand.name" @input="apply" /></el-form-item>
+            <el-form-item label="Logo"><el-input v-model="brand.logo" maxlength="2" @input="apply" /></el-form-item>
+            <el-form-item label="主色">
+              <el-color-picker v-model="brand.primary" @change="apply" />
+              <div class="swatch" style="margin-top:6px">
+                <span v-for="c in presets" :key="c" :style="{background:c}" :class="{on: brand.primary===c}" @click="brand.primary=c;apply()"></span>
+              </div>
+            </el-form-item>
+            <el-form-item label="默认模式">
+              <el-select v-model="brand.defaultMode" @change="apply" style="width:100%"><el-option label="亮色" value="light" /><el-option label="暗色" value="dark" /></el-select>
+            </el-form-item>
+            <el-form-item label="允许改色"><el-switch v-model="brand.allowAccent" @change="apply" /></el-form-item>
+          </el-form>
+        </div>
+
+        <div>
+          <div class="dp-hint" style="margin-bottom:6px">解析结果：有效主题 <span class="dp-code">{{ resolved }}</span>（优先级：用户偏好 > 租户默认 > 平台默认）；品牌色 <span class="dp-code">{{ brand.primary }}</span> 派生 hover/浅底令牌注入根元素</div>
+          <div class="preview-app">
+            <div class="pa-head">
+              <span class="logo">{{ brand.logo }}</span>{{ brand.name }}
+              <span style="flex:1"></span>
+              <span style="font-size:12px">{{ mode==='system' ? '跟随系统' : (mode==='dark'?'🌙 暗色':'☀️ 亮色') }}</span>
+            </div>
+            <div class="pa-body">
+              <el-button type="primary" size="small">主色按钮</el-button>
+              <el-button size="small">默认按钮</el-button>
+              <div class="pa-card">内容卡片：组件只消费设计令牌，不硬编码色值（品牌色覆盖令牌）。</div>
+              <div class="login">
+                <div class="lname">{{ brand.name }}</div>
+                <div class="dp-hint">登录页品牌（Logo/名称/背景）</div>
+                <el-button type="primary" size="small" style="margin-top:8px;width:100%">登录</el-button>
+              </div>
+            </div>
+          </div>
+          <el-input v-model="accent" size="small" placeholder="用户强调色（租户允许时覆盖主色，如 #7c3aed）" style="margin-top:10px" @input="apply" />
+        </div>
+      </div>
+
+      <div class="dp-state" style="margin-top:12px">{{ log }}</div>
+    </div>
+  </div>
+</div>
+
+<script src="../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref, reactive, computed } = Vue;
+
+  function shade(hex, p) {
+    var c = hex.replace('#',''); if (c.length===3) c = c.split('').map(function(x){return x+x;}).join('');
+    var r = parseInt(c.substr(0,2),16), g = parseInt(c.substr(2,2),16), b = parseInt(c.substr(4,2),16);
+    var f = function(v){ return Math.round(p>0 ? v+(255-v)*p : v*(1+p)); };
+    return '#' + [f(r),f(g),f(b)].map(function(v){ return v.toString(16).padStart(2,'0'); }).join('');
+  }
+
+  var app = createApp({
+    setup: function () {
+      var mode = ref('system');
+      var accent = ref('');
+      var systemDark = ref(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      var brand = reactive({ name: 'BMS 控制台', logo: 'B', primary: '#0969da', defaultMode: 'light', allowAccent: true });
+      var presets = ['#0969da', '#1f883d', '#cf222e', '#bf8700', '#8250df', '#0d9488'];
+      var log = ref('首屏由内联脚本预读主题并设 data-theme 防闪烁；租户切换后重新 applyBrand 并重载');
+
+      function resolve() { return mode.value === 'system' ? (systemDark.value ? 'dark' : 'light') : mode.value; }
+      function apply() {
+        var el = document.documentElement;
+        el.setAttribute('data-theme', resolve());
+        var color = (accent.value && brand.allowAccent) ? accent.value : brand.primary;
+        el.style.setProperty('--brand-primary', color);
+        el.style.setProperty('--brand-login-bg', shade(color, .92));
+        el.style.setProperty('--el-color-primary', color);
+        el.style.setProperty('--el-color-primary-light-3', shade(color, .3));
+        el.style.setProperty('--el-color-primary-light-5', shade(color, .5));
+        el.style.setProperty('--el-color-primary-light-7', shade(color, .7));
+        el.style.setProperty('--el-color-primary-light-9', shade(color, .9));
+        el.style.setProperty('--el-color-primary-dark-2', shade(color, -.2));
+        log.value = 'resolve() → 用户模式(' + mode.value + ')' + (mode.value==='system' ? ' 经 matchMedia → ' : ' > ') + '租户默认(' + brand.defaultMode + ') > 平台默认：有效 ' + resolve() + '；注入 data-theme 与品牌令牌（primary=' + color + ' 及派生色）';
+      }
+      if (window.matchMedia) {
+        try { window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function (e) { systemDark.value = e.matches; if (mode.value === 'system') apply(); log.value = '系统主题变化 → system 模式下实时切换（无刷新）'; }); } catch (err) {}
+      }
+      apply();
+
+      return { mode, accent, systemDark, brand, presets, log, resolved: computed(resolve), apply };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>
