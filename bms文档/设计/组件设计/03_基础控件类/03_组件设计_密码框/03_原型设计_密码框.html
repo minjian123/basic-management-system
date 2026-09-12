@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 密码框（PasswordField）</title>
+<link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-code { font-family:Consolas,"Cascadia Mono",monospace; color:#57606a; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+  .bar { height:8px; border-radius:4px; background:#eaeef2; overflow:hidden; width:220px; }
+  .bar > i { display:block; height:100%; width:0; transition:width .2s,background .2s; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="03_组件设计_密码框.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 密码框 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="03_组件设计_密码框.md">《组件设计 · 密码框》</a>：演示掩码显示与明文切换、密码强度、确认一致性校验、不回填（编辑态留空）；继承 02 基础组件类 L4-01。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-bar"><el-checkbox v-model="showStrength" size="small">显示强度</el-checkbox><el-checkbox v-model="noAutofill" size="small">禁自动填充</el-checkbox><span class="dp-hint">密码不回填：初始为空表示不修改</span></div>
+
+      <div style="margin-bottom:6px">新密码</div>
+      <el-input v-model="pwd" type="password" show-password :autocomplete="noAutofill?'new-password':'on'" style="width:260px;margin-bottom:6px" />
+      <div class="bar" v-if="showStrength" style="margin-bottom:12px"><i :style="{width: strength.pct+'%', background: strength.color}"></i></div>
+
+      <div style="margin-bottom:6px">确认密码</div>
+      <el-input v-model="pwd2" type="password" show-password style="width:260px" />
+
+      <div class="dp-state" style="margin-top:12px">强度：{{ strength.label }}（{{ strength.pct }}%）　最小长度：8　一致性：{{ pwd && pwd===pwd2 ? '一致' : (pwd2?'不一致':'待输入') }}
+安全：密码不回填（编辑态为空=不修改）、明文切换仅前端内存、不落日志/本地存储、可禁自动填充
+说明：不 trim（保留空格）；空串归一 null；继承链经 L4-01。</div>
+    </div>
+  </div>
+</div>
+
+<script src="../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref, computed } = Vue;
+  var app = createApp({
+    setup: function () {
+      var pwd = ref(''), pwd2 = ref(''), showStrength = ref(true), noAutofill = ref(true);
+      var strength = computed(function () {
+        var v = pwd.value, score = 0;
+        if (v.length >= 8) score++;
+        if (/[a-z]/.test(v) && /[A-Z]/.test(v)) score++;
+        if (/\d/.test(v)) score++;
+        if (/[^\w]/.test(v)) score++;
+        var label = ['未输入', '弱', '中', '强', '很强'][v ? score : 0];
+        var pct = Math.min(100, score * 25);
+        var color = score <= 1 ? '#cf222e' : (score === 2 ? '#bf8700' : '#1f883d');
+        return { label: label, pct: pct, color: v ? color : '#eaeef2' };
+      });
+      return { pwd: pwd, pwd2: pwd2, showStrength: showStrength, noAutofill: noAutofill, strength: strength };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>

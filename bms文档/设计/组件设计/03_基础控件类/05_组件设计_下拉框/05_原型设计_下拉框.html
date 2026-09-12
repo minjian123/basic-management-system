@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 下拉框（SelectInput）</title>
+<link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-code { font-family:Consolas,"Cascadia Mono",monospace; color:#57606a; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+  .row { display:flex; align-items:center; gap:10px; margin-bottom:12px; }
+  .row .lb { width:110px; font-size:13px; color:#57606a; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="05_组件设计_下拉框.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 下拉框 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="05_组件设计_下拉框.md">《组件设计 · 下拉框》</a>：演示静态选项单选/多选、可搜索、可清空、选项分组与禁用、空值三态；继承 02 基础组件类 L4-01。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-bar"><el-checkbox v-model="multiple" size="small">多选</el-checkbox><el-checkbox v-model="filterable" size="small">可搜索</el-checkbox><el-checkbox v-model="collapseTags" size="small">标签折叠</el-checkbox></div>
+
+      <div class="row"><span class="lb">优先级（分组）</span>
+        <el-select v-model="v" :multiple="multiple" :filterable="filterable" :collapse-tags="collapseTags" clearable placeholder="请选择" style="width:260px">
+          <el-option-group label="高">
+            <el-option label="紧急" value="p0" />
+            <el-option label="高" value="p1" />
+          </el-option-group>
+          <el-option-group label="常规">
+            <el-option label="中" value="p2" />
+            <el-option label="低" value="p3" />
+            <el-option label="已停用" value="p9" disabled />
+          </el-option-group>
+        </el-select>
+      </div>
+
+      <div class="dp-state">值 = {{ JSON.stringify(v) }}　三态 = {{ v===null||v===''||(Array.isArray(v)&&!v.length) ? 'unset/empty' : 'value' }}
+选项模型 OptionItem（value/label/disabled/group）与字典/枚举同构，便于 04 字段类继承
+空值归一并去除无效值；大量选项应改用字典（04-01）或远程搜索；继承链经 L4-01。</div>
+    </div>
+  </div>
+</div>
+
+<script src="../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref, watch } = Vue;
+  var app = createApp({
+    setup: function () {
+      var v = ref('p2'), multiple = ref(false), filterable = ref(false), collapseTags = ref(false);
+      watch(multiple, function () { v.value = multiple.value ? ['p2'] : 'p2'; });
+      return { v: v, multiple: multiple, filterable: filterable, collapseTags: collapseTags };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>

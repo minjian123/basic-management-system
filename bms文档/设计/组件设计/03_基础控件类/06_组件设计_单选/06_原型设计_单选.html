@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 单选（RadioField）</title>
+<link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-code { font-family:Consolas,"Cascadia Mono",monospace; color:#57606a; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="06_组件设计_单选.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 单选 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="06_组件设计_单选.md">《组件设计 · 单选》</a>：演示 <span class="dp-code">radio</span> / <span class="dp-code">button</span> / <span class="dp-code">segmented</span> 三种形态、静态选项、禁用与只读、空值三态；继承 02 基础组件类 L4-01。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-bar"><el-radio-group v-model="widget" size="small"><el-radio-button label="radio">radio</el-radio-button><el-radio-button label="button">button</el-radio-button><el-radio-button label="segmented">segmented</el-radio-button></el-radio-group><el-checkbox v-model="readonly" size="small">只读</el-checkbox></div>
+
+      <div v-if="widget==='radio'">
+        <el-radio-group v-model="v" :disabled="readonly"><el-radio label="A">选项 A</el-radio><el-radio label="B">选项 B</el-radio><el-radio label="C" disabled>选项 C（禁用）</el-radio></el-radio-group>
+      </div>
+      <div v-else-if="widget==='button'">
+        <el-radio-group v-model="v" :disabled="readonly"><el-radio-button label="A">选项 A</el-radio-button><el-radio-button label="B">选项 B</el-radio-button><el-radio-button label="C" disabled>选项 C</el-radio-button></el-radio-group>
+      </div>
+      <div v-else>
+        <el-segmented v-model="v" :disabled="readonly" :options="[{label:'选项 A',value:'A'},{label:'选项 B',value:'B'},{label:'选项 C',value:'C',disabled:true}]" />
+      </div>
+
+      <div class="dp-state" style="margin-top:14px">值 = {{ JSON.stringify(v) }}　形态 = {{ widget }}　只读 = {{ readonly }}
+选项模型复用 OptionItem（与字典/枚举同构）；空值归一 null；无效值回退空；
+选项 ≤7 建议用单选，更多用下拉框；继承链经 L4-01。</div>
+    </div>
+  </div>
+</div>
+
+<script src="../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref } = Vue;
+  var app = createApp({
+    setup: function () {
+      var widget = ref('radio'), v = ref('A'), readonly = ref(false);
+      return { widget: widget, v: v, readonly: readonly };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>
