@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 折叠面板（Collapse）</title>
+<link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-code { font-family:Consolas,"Cascadia Mono",monospace; color:#57606a; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="11_组件设计_折叠面板.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 折叠面板 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="11_组件设计_折叠面板.md">《组件设计 · 折叠面板》</a>：演示手风琴/多开、图标位置、禁用项、默认展开与懒渲染；继承 02 基础组件类 L2-07（折叠语义同 L2-04）。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-bar">
+        <el-checkbox v-model="accordion" size="small">手风琴（同时只开一个）</el-checkbox>
+        <el-radio-group v-model="iconPosition" size="small"><el-radio-button label="left">图标左</el-radio-button><el-radio-button label="right">图标右</el-radio-button></el-radio-group>
+        <el-checkbox v-model="lazy" size="small">懒渲染</el-checkbox>
+      </div>
+
+      <el-collapse v-model="opened" :accordion="accordion">
+        <el-collapse-item title="高级查询条件" name="adv">
+          <div class="dp-hint">首次展开才渲染内容（lazy）：查询条件表单</div>
+        </el-collapse-item>
+        <el-collapse-item title="说明与帮助" name="help">
+          <div class="dp-hint">分组说明文案</div>
+        </el-collapse-item>
+        <el-collapse-item title="无权限内容（禁用）" name="deny" disabled>
+          <div class="dp-hint">禁用项不可展开</div>
+        </el-collapse-item>
+      </el-collapse>
+
+      <div class="dp-state" style="margin-top:12px">accordion={{ accordion }}　iconPosition={{ iconPosition }}　lazy={{ lazy }}　展开项 = {{ JSON.stringify(opened) }}
+说明：手风琴模式同时只展开一个；图标位置可左/右；禁用项不可展开；懒渲染（首次展开才挂载）提升性能；
+展开项可选持久化到用户偏好；本组件为面板组原语，卡片折叠见 03-10。</div>
+    </div>
+  </div>
+</div>
+
+<script src="../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref, watch } = Vue;
+  var app = createApp({ setup: function () {
+    var accordion=ref(false), iconPosition=ref('left'), lazy=ref(true);
+    var opened=ref(['adv','help']);
+    watch(accordion, function(v){ if(v && opened.value.length>1) opened.value=[opened.value[0]]; });
+    return { accordion:accordion, iconPosition:iconPosition, lazy:lazy, opened:opened };
+  }});
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>

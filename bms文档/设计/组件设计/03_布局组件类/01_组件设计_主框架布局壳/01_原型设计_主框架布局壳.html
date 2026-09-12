@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 主框架布局壳（AppLayout）</title>
+<link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-code { font-family:Consolas,"Cascadia Mono",monospace; color:#57606a; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+  .app { display:flex; height:360px; border:1px solid #d0d7de; border-radius:8px; overflow:hidden; }
+  .as { background:#24292f; color:#c9d1d9; transition:width .2s; overflow:auto; }
+  .as .it { padding:9px 14px; font-size:13px; white-space:nowrap; }
+  .main { flex:1; display:flex; flex-direction:column; min-width:0; }
+  .hd { height:44px; display:flex; align-items:center; gap:10px; padding:0 14px; border-bottom:1px solid #eaeef2; background:#fff; }
+  .tabs { height:36px; display:flex; gap:4px; align-items:center; padding:0 10px; border-bottom:1px solid #eaeef2; background:#fafbfc; font-size:12px; }
+  .tabs span { padding:3px 10px; border-radius:4px; background:#eaeef2; color:#57606a; }
+  .ct { flex:1; overflow:auto; padding:14px; background:#f6f8fa; font-size:13px; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="01_组件设计_主框架布局壳.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 主框架布局壳 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="01_组件设计_主框架布局壳.md">《组件设计 · 主框架布局壳》</a>：演示侧栏（可折叠）+ 顶栏 + 多标签栏 + 内容区整体骨架与区域插槽；继承 02 基础组件类 L2-07 布局组件基类。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-bar">
+        <el-switch v-model="collapsed" size="small" active-text="侧栏折叠" />
+        <el-checkbox v-model="showTabs" size="small">多标签栏</el-checkbox>
+        <el-checkbox v-model="showSidebar" size="small">侧栏</el-checkbox>
+        <span class="dp-hint">区域：sidebar / header / tabs / default / footer</span>
+      </div>
+
+      <div class="app">
+        <div class="as" v-if="showSidebar" :style="{width: collapsed ? '56px':'170px'}">
+          <div class="it">🏠 {{ collapsed ? '' : '工作台' }}</div>
+          <div class="it">👤 {{ collapsed ? '' : '用户管理' }}</div>
+          <div class="it">🛡️ {{ collapsed ? '' : '角色管理' }}</div>
+          <div class="it">⚙️ {{ collapsed ? '' : '系统设置' }}</div>
+        </div>
+        <div class="main">
+          <div class="hd"><b>主框架布局壳 AppLayout</b><span style="flex:1"></span><span class="dp-hint">通知 · 搜索 · 用户</span></div>
+          <div class="tabs" v-if="showTabs"><span>工作台</span><span>用户管理</span></div>
+          <div class="ct">内容区（路由出口，独立滚动）<br><br>说明：侧栏折叠为图标态并持久化；窄屏侧栏转抽屉；高度/间距消费设计令牌；标签栏溢出滚动。</div>
+        </div>
+      </div>
+
+      <div class="dp-state" style="margin-top:12px">collapsed={{ collapsed }}　showSidebar={{ showSidebar }}　showTabs={{ showTabs }}
+继承链：AppLayout → 02 L2-07 BaseLayout → L1b BaseComponent → L0 BaseFrontend
+侧边菜单归 08-13、多标签导航归 03-04、顶栏元素归专用组件；本壳只做整体骨架与区域编排。</div>
+    </div>
+  </div>
+</div>
+
+<script src="../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref } = Vue;
+  var app = createApp({ setup: function () {
+    var collapsed=ref(false), showTabs=ref(true), showSidebar=ref(true);
+    return { collapsed:collapsed, showTabs:showTabs, showSidebar:showSidebar };
+  }});
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>

@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 内容页签（Tabs）</title>
+<link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-code { font-family:Consolas,"Cascadia Mono",monospace; color:#57606a; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="09_组件设计_内容页签.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 内容页签 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="09_组件设计_内容页签.md">《组件设计 · 内容页签》</a>：演示 line/card 形态、可关闭/可增删、懒渲染与切换；区别于页面级多标签导航（03-04）。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-bar">
+        <el-radio-group v-model="type" size="small"><el-radio-button label="line">line</el-radio-button><el-radio-button label="card">card</el-radio-button><el-radio-button label="border-card">border-card</el-radio-button></el-radio-group>
+        <el-checkbox v-model="closable" size="small">可关闭</el-checkbox>
+        <el-checkbox v-model="addable" size="small">可新增</el-checkbox>
+      </div>
+
+      <el-tabs v-model="active" :type="type" :closable="closable" :addable="addable" @tab-remove="rm" @tab-add="add">
+        <el-tab-pane label="基本信息" name="base">基本信息内容（懒渲染）</el-tab-pane>
+        <el-tab-pane v-for="t in extra" :key="t.name" :label="t.label" :name="t.name">{{ t.label }} 内容</el-tab-pane>
+      </el-tabs>
+
+      <div class="dp-state" style="margin-top:8px">激活 = {{ active }}　形态 = {{ type }}　可关闭 = {{ closable }}　可新增 = {{ addable }}
+说明：内容页签用于页面内容区（如详情页「基本信息/明细/日志」），不参与页面级多标签导航（03-04）；
+lazy 懒渲染（切换才挂载）；关闭当前后激活相邻；页签过多横向滚动；keep-alive 上限由使用方控制。</div>
+    </div>
+  </div>
+</div>
+
+<script src="../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref } = Vue;
+  var app = createApp({ setup: function () {
+    var type=ref('line'), closable=ref(false), addable=ref(false), active=ref('base');
+    var extra=ref([{name:'detail',label:'明细'},{name:'log',label:'日志'}]);
+    function rm(name){ extra.value=extra.value.filter(function(t){return t.name!==name;}); if(active.value===name) active.value='base'; }
+    function add(){ var n='t'+Date.now(); extra.value.push({name:n,label:'新页签'}); active.value=n; }
+    return { type:type, closable:closable, addable:addable, active:active, extra:extra, rm:rm, add:add };
+  }});
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>

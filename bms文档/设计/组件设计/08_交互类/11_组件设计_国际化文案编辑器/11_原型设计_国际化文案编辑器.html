@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 国际化文案编辑器（I18nEditor / LocaleManager / MessageGrid / MessageFilter / useI18nMessages）</title>
+<link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-code { font-family:Consolas,"Cascadia Mono",monospace; color:#57606a; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+  .miss { color:#cf222e; font-size:11px; }
+  .key { font-family:Consolas,"Cascadia Mono",monospace; font-size:12px; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="11_组件设计_国际化文案编辑器.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 国际化文案编辑器 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="11_组件设计_国际化文案编辑器.md">《组件设计 · 国际化文案编辑器》</a>：演示 <b>LocaleManager</b> 语言清单、
+    <b>MessageGrid</b>（msg_key × 多语言列）可编辑网格、<b>MessageFilter</b> 搜索/前缀/缺失/仅已修改筛选、新增/删除 key、批量保存与缓存失效、导入导出。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <el-tabs v-model="tab">
+        <!-- 语言管理 -->
+        <el-tab-pane label="语言管理" name="locale">
+          <div class="dp-bar">
+            <el-button size="small" type="primary" @click="addLocale">＋ 新增语言</el-button>
+            <span class="dp-hint">新增语言后语言包维护页出现对应列（新增语言免发版）；rtl 标记驱动布局方向</span>
+          </div>
+          <el-table :data="locales" size="small" border style="max-width:720px">
+            <el-table-column prop="code" label="code" width="120" />
+            <el-table-column prop="name" label="语言名" />
+            <el-table-column label="rtl" width="80">
+              <template #default="{ row }"><el-tag v-if="row.rtl" size="small" type="warning">RTL</el-tag><span v-else class="dp-hint">LTR</span></template>
+            </el-table-column>
+            <el-table-column label="状态" width="100">
+              <template #default="{ row }">
+                <el-tag :type="row.status==='enabled'?'success':'info'" size="small">{{ row.status==='enabled'?'启用':'停用' }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="200">
+              <template #default="{ row }">
+                <el-button size="small" text @click="editLocale(row)">编辑</el-button>
+                <el-button size="small" text :disabled="row.code==='zh-CN'" @click="toggleLocale(row)">{{ row.status==='enabled'?'停用':'启用' }}</el-button>
+                <el-button size="small" text type="danger" :disabled="row.code==='zh-CN'" @click="delLocale(row)">删除</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+          <div class="dp-hint" style="margin-top:8px">默认语言 zh-CN 不可停用/删除（44005）；至少保留一种启用语言（44004）；有语言包数据不可删除（44002）</div>
+        </el-tab-pane>
+
+        <!-- 语言包维护 -->
+        <el-tab-pane label="语言包维护" name="messages">
+          <div class="dp-bar">
+            <el-select v-model="prefix" size="small" style="width:180px" clearable placeholder="模块前缀">
+              <el-option label="全部模块" value="" />
+              <el-option label="common." value="common." />
+              <el-option label="user.form." value="user.form." />
+              <el-option label="error." value="error." />
+            </el-select>
+            <el-input v-model="kw" size="small" placeholder="关键词（key 或文案）" clearable style="width:200px" />
+            <el-checkbox v-model="missingOnly" size="small">仅缺失</el-checkbox>
+            <el-checkbox v-model="changedOnly" size="small">仅已修改</el-checkbox>
+            <span style="flex:1"></span>
+            <el-button size="small" @click="addKey">＋ 新增 key</el-button>
+            <el-button size="small" @click="exportPack">导出</el-button>
+            <el-button size="small" @click="importPack">导入</el-button>
+          </div>
+          <div class="dp-bar">
+            <span v-if="dirty" class="dp-hint" style="color:#cf222e">● 有未保存修改</span>
+            <span class="dp-hint">共 {{ filtered.length }} / {{ rows.length }} 条</span>
+            <span style="flex:1"></span>
+            <el-button size="small" :loading="saving" @click="save">保存（批量）</el-button>
+            <el-button size="small" @click="invalidate">缓存失效</el-button>
+          </div>
+          <el-table :data="filtered" size="small" border max-height="420">
+            <el-table-column prop="msgKey" label="msg_key" width="220">
+              <template #default="{ row }">
+                <span class="key">{{ row.msgKey }}</span>
+                <el-button size="small" text type="danger" style="float:right" @click="removeKey(row)">✕</el-button>
+              </template>
+            </el-table-column>
+            <el-table-column v-for="l in activeLocales" :key="l.code" :label="l.name + '（' + l.code + '）'">
+              <template #default="{ row }">
+                <el-input v-model="row.values[l.code]" size="small" @input="onEdit(row)" />
+                <span v-if="!row.values[l.code]" class="miss">缺失（回退默认语言）</span>
+              </template>
+            </el-table-column>
+          </el-table>
+        </el-tab-pane>
+      </el-tabs>
+
+      <div class="dp-state" style="margin-top:12px">{{ log }}</div>
+    </div>
+  </div>
+</div>
+
+<script src="../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref, reactive, computed } = Vue;
+  var ElMessage = ElementPlus.ElMessage;
+  var ElMessageBox = ElementPlus.ElMessageBox;
+
+  var app = createApp({
+    setup: function () {
+      var tab = ref('locale');
+      var prefix = ref('');
+      var kw = ref('');
+      var missingOnly = ref(false);
+      var changedOnly = ref(false);
+      var dirty = ref(false);
+      var saving = ref(false);
+      var log = ref('语言包维护：编辑 msg_key 各语言文案 → 「保存」批量提交 → 缓存失效');
+      var idemKey = '';
+
+      var locales = ref([
+        { code: 'zh-CN', name: '简体中文', rtl: false, status: 'enabled' },
+        { code: 'en-US', name: 'English', rtl: false, status: 'enabled' }
+      ]);
+      var activeLocales = computed(function () { return locales.value.filter(function (l) { return l.status === 'enabled'; }); });
+      var changedKeys = reactive({});
+
+      var rows = ref([
+        { msgKey: 'common.confirm', values: { 'zh-CN': '确认', 'en-US': 'Confirm' } },
+        { msgKey: 'common.cancel', values: { 'zh-CN': '取消', 'en-US': 'Cancel' } },
+        { msgKey: 'user.form.username', values: { 'zh-CN': '用户名', 'en-US': 'Username' } },
+        { msgKey: 'user.form.phone', values: { 'zh-CN': '手机号', 'en-US': '' } },
+        { msgKey: 'error.44003', values: { 'zh-CN': 'msg_key 格式非法', 'en-US': 'Invalid msg_key format' } },
+        { msgKey: 'error.44001', values: { 'zh-CN': '语言 code 已存在', 'en-US': '' } }
+      ]);
+
+      function hasMissing(row) { return activeLocales.value.some(function (l) { return !row.values[l.code]; }); }
+      var filtered = computed(function () {
+        return rows.value.filter(function (r) {
+          if (prefix.value && r.msgKey.indexOf(prefix.value) !== 0) return false;
+          if (kw.value) {
+            var hit = r.msgKey.toLowerCase().indexOf(kw.value.toLowerCase()) >= 0;
+            if (!hit) { hit = Object.keys(r.values).some(function (k) { return String(r.values[k]).toLowerCase().indexOf(kw.value.toLowerCase()) >= 0; }); }
+            if (!hit) return false;
+          }
+          if (missingOnly.value && !hasMissing(r)) return false;
+          if (changedOnly.value && !changedKeys[r.msgKey]) return false;
+          return true;
+        });
+      });
+
+      function touch() { dirty.value = true; }
+      function onEdit(row) { changedKeys[row.msgKey] = true; touch(); }
+
+      function addLocale() {
+        ElMessageBox.prompt('输入语言 code（如 fr-FR）', '新增语言', { inputPlaceholder: 'fr-FR' }).then(function (r) {
+          var code = r.value.trim();
+          if (locales.value.some(function (l) { return l.code === code; })) { ElMessage.error('44001 语言 code 已存在'); return; }
+          locales.value.push({ code: code, name: code, rtl: false, status: 'enabled' });
+          rows.value.forEach(function (x) { x.values[code] = ''; });
+          touch(); log.value = '新增语言 ' + code + ' → 语言包维护页出现该列（免发版：运行时拉取）';
+        }).catch(function () {});
+      }
+      function editLocale(row) { ElMessageBox.prompt('修改语言名', '编辑语言', { inputValue: row.name }).then(function (r) { row.name = r.value; touch(); }); }
+      function toggleLocale(row) {
+        if (row.code === 'zh-CN' && row.status === 'enabled') { ElMessage.error('44005 默认语言不可停用'); return; }
+        if (row.status === 'enabled' && activeLocales.value.length <= 1) { ElMessage.error('44004 至少保留一种启用的语言'); return; }
+        row.status = row.status === 'enabled' ? 'disabled' : 'enabled'; touch();
+      }
+      function delLocale(row) {
+        if (row.code === 'zh-CN') { ElMessage.error('44005 默认语言不可删除'); return; }
+        ElMessageBox.confirm('删除语言 ' + row.code + '？有语言包数据不可删除（44002）。', '删除语言', { type: 'warning' }).then(function () {
+          locales.value = locales.value.filter(function (l) { return l.code !== row.code; });
+          touch(); log.value = '删除语言 ' + row.code;
+        });
+      }
+
+      function addKey() {
+        ElMessageBox.prompt('输入 msg_key（模块.页面.字段）', '新增 key', { inputPlaceholder: 'module.page.field' }).then(function (r) {
+          var key = r.value.trim();
+          if (!/^[a-zA-Z][\w-]*(\.[\w-]+){1,}$/.test(key)) { ElMessage.error('44003 msg_key 格式非法'); return; }
+          if (rows.value.some(function (x) { return x.msgKey === key; })) { ElMessage.error('msg_key 已存在'); return; }
+          var v = {}; activeLocales.value.forEach(function (l) { v[l.code] = ''; });
+          rows.value.push({ msgKey: key, values: v });
+          changedKeys[key] = true; touch(); log.value = '新增 msg_key：' + key;
+        }).catch(function () {});
+      }
+      function removeKey(row) {
+        ElMessageBox.confirm('删除 msg_key「' + row.msgKey + '」？', '删除', { type: 'warning', confirmButtonClass: 'el-button--danger' }).then(function () {
+          rows.value = rows.value.filter(function (x) { return x.msgKey !== row.msgKey; }); touch();
+        });
+      }
+
+      function save() {
+        if (!idemKey) { idemKey = 'ik-' + Math.random().toString(36).slice(2, 8); log.value = '生成 Idempotency-Key=' + idemKey + '\n'; }
+        saving.value = true;
+        setTimeout(function () {
+          saving.value = false; dirty.value = false; idemKey = '';
+          Object.keys(changedKeys).forEach(function (k) { delete changedKeys[k]; });
+          log.value += 'PUT /i18n/messages → 批量保存成功（msg_key 增删 + 各语言 value）；随后 PUT /i18n/cache/invalidate';
+          ElMessage.success('已保存并失效缓存');
+        }, 700);
+      }
+      function invalidate() { log.value = 'PUT /i18n/cache/invalidate → 主动失效 Redis 语言包缓存（失败降级短 TTL；前端 localStorage 下次拉取更新）'; ElMessage.success('缓存已失效'); }
+      function exportPack() { log.value = '导出当前筛选语言包（Excel）→ 复用导入导出通道'; ElMessage.success('已导出'); }
+      function importPack() { log.value = '导入语言包（批量更新 value）→ 统一导入通道 + 错误行报告'; ElMessage.info('导入示例（演示）'); }
+
+      return {
+        tab, prefix, kw, missingOnly, changedOnly, dirty, saving, log, locales, activeLocales, rows, filtered,
+        addLocale, editLocale, toggleLocale, delLocale, addKey, removeKey, onEdit, save, invalidate, exportPack, importPack
+      };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>

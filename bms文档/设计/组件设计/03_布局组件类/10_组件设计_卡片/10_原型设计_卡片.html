@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 卡片（Card）</title>
+<link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-code { font-family:Consolas,"Cascadia Mono",monospace; color:#57606a; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+  .card { border:1px solid #eaeef2; border-radius:8px; overflow:hidden; max-width:380px; }
+  .card.hover { box-shadow:0 4px 14px rgba(0,0,0,.1); }
+  .card .h { display:flex; align-items:center; gap:8px; padding:10px 14px; border-bottom:1px solid #eaeef2; font-weight:600; font-size:13px; }
+  .card .h .e { margin-left:auto; display:flex; gap:6px; }
+  .card .b { padding:14px; font-size:13px; }
+  .card .f { border-top:1px solid #eaeef2; padding:8px 14px; color:#57606a; font-size:12px; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="10_组件设计_卡片.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 卡片 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="10_组件设计_卡片.md">《组件设计 · 卡片》</a>：演示标题/操作/内容/底栏、可折叠、hover 与加载态；继承 02 基础组件类 L2-07（容器语义同 L2-04）。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-bar">
+        <el-checkbox v-model="collapsible" size="small">可折叠</el-checkbox>
+        <el-checkbox v-model="collapsed" size="small">折叠态</el-checkbox>
+        <el-checkbox v-model="hoverable" size="small">hover 阴影</el-checkbox>
+        <el-checkbox v-model="loading" size="small">加载态</el-checkbox>
+        <el-checkbox v-model="bordered" size="small">边框</el-checkbox>
+      </div>
+
+      <div class="card" :class="{hover:hoverable}" :style="{border: bordered?'1px solid #eaeef2':'none'}">
+        <div class="h">
+          <span v-if="collapsible" style="cursor:pointer" @click="collapsed=!collapsed">{{ collapsed?'▸':'▾' }}</span>
+          用户信息
+          <span class="e"><el-button size="small" text>刷新</el-button><el-button size="small" type="primary" text>编辑</el-button></span>
+        </div>
+        <div class="b" v-show="!collapsed">
+          <el-skeleton v-if="loading" :rows="3" animated></el-skeleton>
+          <div v-else>内容区（default 插槽）—— 指标卡/图表卡/详情分组等可放入本卡片；加载态显示骨架。</div>
+        </div>
+        <div class="f" v-show="!collapsed">底栏（footer 插槽）</div>
+      </div>
+
+      <div class="dp-state" style="margin-top:12px">collapsible={{ collapsible }}　collapsed={{ collapsed }}　hoverable={{ hoverable }}　loading={{ loading }}　bordered={{ bordered }}
+结构：头（title/extra）+ 内容（default）+ 底栏（footer）+ 可选封面；折叠仅隐藏内容，头保留；
+背景/边框/圆角/内边距/阴影只消费令牌；常与栅格（03-06）组合；折叠面板组见 03-11。</div>
+    </div>
+  </div>
+</div>
+
+<script src="../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref } = Vue;
+  var app = createApp({ setup: function () {
+    var collapsible=ref(true), collapsed=ref(false), hoverable=ref(false), loading=ref(false), bordered=ref(true);
+    return { collapsible:collapsible, collapsed:collapsed, hoverable:hoverable, loading:loading, bordered:bordered };
+  }});
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>
