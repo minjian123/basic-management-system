@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 字段权限（useFieldPerm / v-plain）</title>
+<link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-code { font-family:Consolas,"Cascadia Mono",monospace; color:#57606a; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+  .grid { display:grid; grid-template-columns:repeat(3,1fr); gap:14px 18px; }
+  .fw .lb { font-size:13px; color:#24292f; margin-bottom:4px; }
+  .req::before { content:"*"; color:#cf222e; margin-right:2px; }
+  .ro-text { font-size:13px; color:#24292f; min-height:22px; padding:1px 0; }
+  .ro-empty { color:#b1b8bf; }
+  .mask { font-family:Consolas,monospace; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="03_组件设计_字段权限.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 字段权限 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="03_组件设计_字段权限.md">《组件设计 · 字段权限》</a>：演示字段 <span class="dp-code">visible</span>/<span class="dp-code">editable</span> 按角色收窄、只读/编辑/隐藏三态、脱敏与 <span class="dp-code">data:plain</span> 明文、必填星号来源与读写双重控制。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-bar">
+        <span class="dp-hint">当前角色：</span>
+        <el-radio-group v-model="role" size="small">
+          <el-radio-button label="admin">管理员（全可见可编辑）</el-radio-button>
+          <el-radio-button label="editor">业务员（部分只读）</el-radio-button>
+          <el-radio-button label="viewer">查看者（大部分隐藏/只读）</el-radio-button>
+        </el-radio-group>
+        <el-switch v-model="viewMode" size="small" active-text="只读态（查看）" />
+        <el-switch v-model="hasPlain" size="small" active-text="持 data:plain（看明文）" />
+      </div>
+
+      <div class="grid">
+        <div class="fw" v-for="f in shownFields" :key="f.key">
+          <div class="lb"><span :class="{req: f.required}">{{ f.label }}</span></div>
+
+          <!-- 只读态：readonlyMode 回显；编辑态：控件 disabled 由 editable 决定 -->
+          <template v-if="f.key==='phone' && f.masked">
+            <div class="ro-text mask">{{ hasPlain ? f.value : maskPhone(f.value) }}</div>
+          </template>
+          <template v-else-if="viewMode">
+            <div class="ro-text" :class="{ 'ro-empty': !f.value }">{{ f.value || '—' }}</div>
+          </template>
+          <template v-else-if="f.type==='select'">
+            <el-select v-model="f.value" :disabled="!isEditable(f)" style="width:100%"><el-option label="启用" value="active" /><el-option label="停用" value="disabled" /></el-select>
+          </template>
+          <template v-else>
+            <el-input v-model="f.value" :disabled="!isEditable(f)" />
+          </template>
+        </div>
+      </div>
+
+      <div class="dp-state" style="margin-top:14px">角色权限（每字段 visible / editable）：
+{{ permText }}
+说明：visible=false 的字段不渲染（栅格自然收缩，如查看者见不到「邮箱/手机号」之外的多数字段）；
+editable=false 的字段在编辑态置 disabled；只读态全部字段只读回显。
+「手机号」为脱敏字段：默认掩码，持 data:plain 才看明文（v-plain），明文仅内存态、不落 localStorage。</div>
+    </div>
+  </div>
+</div>
+
+<script src="../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref, reactive, computed } = Vue;
+
+  // sys_role_field 授予（默认全部可见可编辑，授予后收窄）
+  var MATRIX = {
+    admin:  { name: { v: true, e: true },  email: { v: true, e: true },  phone: { v: true, e: true },  dept: { v: true, e: true },  status: { v: true, e: true } },
+    editor: { name: { v: true, e: false }, email: { v: true, e: true },  phone: { v: true, e: true, masked: true }, dept: { v: true, e: false }, status: { v: true, e: true } },
+    viewer: { name: { v: true, e: false }, email: { v: false, e: false }, phone: { v: true, e: false, masked: true }, dept: { v: true, e: false }, status: { v: false, e: false } }
+  };
+
+  var app = createApp({
+    setup: function () {
+      var role = ref('editor');
+      var viewMode = ref(false);
+      var hasPlain = ref(false);
+      var fields = reactive([
+        { key: 'name', label: '用户名称', value: '张三', required: true, type: 'text' },
+        { key: 'email', label: '邮箱', value: 'zhangsan@example.com', required: true, type: 'text' },
+        { key: 'phone', label: '手机号', value: '13812345678', required: false, type: 'text', masked: true },
+        { key: 'dept', label: '所属部门', value: '研发中心', required: true, type: 'text' },
+        { key: 'status', label: '状态', value: 'active', required: false, type: 'select' }
+      ]);
+      function perm(f) { return MATRIX[role.value][f.key] || { v: false, e: false }; }
+      function isEditable(f) { return perm(f).e; }
+      var shownFields = computed(function () { return fields.filter(function (f) { return perm(f).v; }); });
+      var permText = computed(function () {
+        return fields.map(function (f) { var p = perm(f); return f.key + ': visible=' + p.v + ' editable=' + p.e + (p.masked ? ' 脱敏' : ''); }).join('\n');
+      });
+      function maskPhone(v) { return v ? v.slice(0, 3) + '****' + v.slice(7) : '—'; }
+      return { role: role, viewMode: viewMode, hasPlain: hasPlain, fields: fields, shownFields: shownFields, isEditable: isEditable, permText: permText, maskPhone: maskPhone };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>
