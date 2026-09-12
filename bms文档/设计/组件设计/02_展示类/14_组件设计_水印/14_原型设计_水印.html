@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 水印（Watermark / useWatermark）</title>
+<link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-code { font-family:Consolas,"Cascadia Mono",monospace; color:#57606a; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+  .sensitive { border:1px solid #eaeef2; border-radius:8px; padding:16px; min-height:220px; }
+  .sensitive .row { display:flex; gap:16px; padding:6px 0; border-bottom:1px dashed #f2f3f5; font-size:13px; }
+  .sensitive .k { color:#8c959f; width:90px; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="14_组件设计_水印.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 水印 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="14_组件设计_水印.md">《组件设计 · 水印》</a>：演示 <b>Watermark</b> 文字/多行水印、旋转与间距、透明度、图片水印、全屏与局部、
+    敏感页应用与 <b>防篡改</b>（移除水印层自动恢复）。基于 Element Plus <span class="dp-code">el-watermark</span>。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-bar">
+        <span class="dp-hint">水印内容：</span>
+        <el-input v-model="line1" size="small" style="width:120px" placeholder="用户名" />
+        <el-input v-model="line2" size="small" style="width:120px" placeholder="工号" />
+        <el-switch v-model="showTime" size="small" active-text="含时间" />
+        <span>旋转</span><el-input-number v-model="rotate" :min="-90" :max="0" size="small" style="width:110px" />
+        <span>透明度</span><el-input-number v-model="opacity" :min="0.02" :max="0.5" :step="0.01" size="small" style="width:110px" />
+        <el-switch v-model="fullscreen" size="small" active-text="全屏水印" />
+        <el-button size="small" type="danger" plain @click="tamper">模拟篡改（移除水印层）</el-button>
+      </div>
+
+      <el-watermark :content="content" :rotate="rotate" :opacity="opacity" :gap="[100,100]" :font="font" :fullscreen="fullscreen" :z-index="9">
+        <div class="sensitive">
+          <div style="font-weight:600;margin-bottom:10px">用户详情（敏感页示例）</div>
+          <div class="row"><span class="k">用户名</span><span>zhangsan</span></div>
+          <div class="row"><span class="k">姓名</span><span>张三</span></div>
+          <div class="row"><span class="k">部门</span><span>研发中心</span></div>
+          <div class="row"><span class="k">手机号</span><span>138****1234（脱敏）</span></div>
+          <div class="row"><span class="k">薪资</span><span>¥ 18,000.00（敏感）</span></div>
+          <div class="dp-hint" style="margin-top:10px">水印为可见威慑与溯源，不替代脱敏与访问控制；水印层不可选中、pointer-events:none</div>
+        </div>
+      </el-watermark>
+
+      <div class="dp-state" style="margin-top:12px">{{ log }}</div>
+    </div>
+  </div>
+</div>
+
+<script src="../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref, computed, onMounted } = Vue;
+  var ElMessage = ElementPlus.ElMessage;
+
+  var app = createApp({
+    setup: function () {
+      var line1 = ref('张三（zhangsan）');
+      var line2 = ref('工号 A1024');
+      var showTime = ref(true);
+      var rotate = ref(-22);
+      var opacity = ref(0.15);
+      var fullscreen = ref(false);
+      var log = ref('水印内容 = 用户名 + 工号 + 时间；防篡改监听移除/改样式并自动恢复；透明度 ~0.15');
+
+      var now = ref(new Date().toLocaleString('zh-CN', { hour12: false }).replace(/\//g, '-'));
+      setInterval(function () { now.value = new Date().toLocaleString('zh-CN', { hour12: false }).replace(/\//g, '-'); }, 60000);
+      var content = computed(function () {
+        var arr = [line1.value, line2.value];
+        if (showTime.value) arr.push(now.value);
+        return arr;
+      });
+      var font = { color: '#8c959f', fontSize: 14 };
+
+      function tamper() {
+        var layer = document.querySelector('.el-watermark');
+        if (layer) { layer.remove(); log.value = '模拟：通过开发者工具移除水印层 → MutationObserver 检测到并自动重新插入恢复'; ElMessage.warning('已移除水印层（观察自动恢复）'); }
+        else { log.value = '未找到水印层（可能为全屏模式，位于 body 下）'; ElMessage.info('全屏模式下由 el-watermark 自行防护'); }
+      }
+      onMounted(function () { /* MutationObserver 由 el-watermark 内置处理 */ });
+      return { line1, line2, showTime, rotate, opacity, fullscreen, content, font, log, tamper };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>
