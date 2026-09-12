@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 审批流展示（FlowProgress / ApprovalTimeline / ApprovalActionPanel / BpmnViewer）</title>
+<link rel="stylesheet" href="../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../原型设计/资源/vendor/vant.css">
+<link rel="stylesheet" href="../../原型设计/资源/原型样式.css">
+<style>
+  :root { --color-primary:#0969da; --color-success:#2da44e; --color-warning:#d4a72c; --color-danger:#cf222e; --color-info:#57606a; }
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .ep-section { font-weight:600; margin:18px 0 12px; padding-bottom:8px; border-bottom:1px solid #eaeef2; font-size:14px; }
+  .ep-section:first-of-type { margin-top:0; }
+  .dp-bar { display:flex; align-items:center; gap:12px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-code { font-family:Consolas,"Cascadia Mono",monospace; color:#57606a; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+  .flow-summary { display:flex; align-items:center; gap:10px; margin-bottom:10px; font-size:13px; }
+  .pill { display:inline-block; padding:1px 10px; border-radius:12px; font-size:12px; border:1px solid currentColor; }
+  .m-phone { max-width:360px; background:#f6f8fa; border:1px solid #d0d7de; border-radius:14px; overflow:hidden; }
+  .m-nav { background:#fff; padding:10px 14px; font-size:14px; border-bottom:1px solid #eaeef2; display:flex; justify-content:space-between; }
+  .m-body { padding:12px; min-height:200px; }
+  .m-card { background:#fff; border-radius:8px; padding:10px 12px; margin-bottom:10px; font-size:13px; }
+  .m-actions { display:flex; gap:8px; padding:8px 12px; background:#fff; border-top:1px solid #eaeef2; }
+  .tl-comment { color:#57606a; font-size:12px; margin-top:2px; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="16_组件设计_审批流展示.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 审批流展示 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="16_组件设计_审批流展示.md">《组件设计 · 审批流展示》</a>：演示 <b>FlowProgress</b> 节点进度与当前节点高亮（含会签、驳回、跳过、横向/纵向）、
+    <b>ApprovalTimeline</b> 审批时间线、<b>ApprovalActionPanel</b> 同意/驳回/转办/撤回/评论（二次确认、幂等键、loading、越权错误码），
+    以及移动端详情（状态条 + 信息卡 + 时间线 + 底部操作栏）。BPMN 只读图以说明代替（按需懒加载 bpmn-js，原型不内置）。
+  </div>
+
+  <div id="app">
+    <el-tabs v-model="tab">
+      <!-- ① 流程进度 -->
+      <el-tab-pane label="① 流程进度" name="flow">
+        <div class="ep-page">
+          <div class="dp-bar">
+            <span>方向：</span>
+            <el-radio-group v-model="orientation" size="small">
+              <el-radio-button label="horizontal">横向</el-radio-button>
+              <el-radio-button label="vertical">纵向</el-radio-button>
+            </el-radio-group>
+            <span>场景：</span>
+            <el-radio-group v-model="flowCase" size="small">
+              <el-radio-button label="running">进行中（会签）</el-radio-button>
+              <el-radio-button label="rejected">已驳回</el-radio-button>
+              <el-radio-button label="finished">已完成</el-radio-button>
+            </el-radio-group>
+          </div>
+          <div class="flow-summary">
+            <span>实例状态：</span>
+            <span class="pill" :style="{color: statusColor(flowCase)}">{{ statusText(flowCase) }}</span>
+            <span class="dp-hint">当前节点高亮并可定位；会签节点显示「已完成 n / 共 m」</span>
+          </div>
+          <el-steps :active="activeIndex" :direction="orientation" style="min-height:80px">
+            <el-step v-for="n in nodes" :key="n.nodeId" :title="n.name" :status="stepStatus(n)" :description="nodeDesc(n)" />
+          </el-steps>
+          <div class="dp-state" style="margin-top:12px">{{ flowLog }}</div>
+        </div>
+      </el-tab-pane>
+
+      <!-- ② 审批时间线 -->
+      <el-tab-pane label="② 审批时间线" name="timeline">
+        <div class="ep-page">
+          <div class="dp-bar"><span class="dp-hint">按时间正序展示全链路轨迹；动作语义色：同意 success、驳回 danger、撤回 warning、转办/评论 info</span></div>
+          <el-timeline>
+            <el-timeline-item v-for="(r,i) in records" :key="i" :timestamp="r.createdAt" :color="actionColor(r.action)" placement="top">
+              <div style="font-size:13px">
+                <b>{{ r.assigneeName }}</b>
+                <span class="pill" :style="{color:actionColor(r.action),marginLeft:8}">{{ actionText(r) }}</span>
+                <span class="dp-hint" style="margin-left:8px">{{ r.nodeName }}</span>
+              </div>
+              <div v-if="r.comment" class="tl-comment">意见：{{ r.comment }}</div>
+            </el-timeline-item>
+          </el-timeline>
+        </div>
+      </el-tab-pane>
+
+      <!-- ③ 审批操作 -->
+      <el-tab-pane label="③ 审批操作" name="action">
+        <div class="ep-page">
+          <div class="dp-bar">
+            <span class="dp-hint">当前任务：财务复核（task_id=T20260901003）；操作按钮按 wf:approve 与任务归属显隐</span>
+            <el-switch v-model="canApprove" active-text="canApprove（本人待办 + 权限）" size="small" style="margin-left:auto" />
+          </div>
+          <el-form label-position="top" style="max-width:520px">
+            <el-form-item label="审批意见">
+              <el-input v-model="comment" type="textarea" :rows="3" placeholder="同意可选；驳回必填" />
+            </el-form-item>
+            <el-form-item label="驳回退回节点（可选）">
+              <el-select v-model="rejectTarget" placeholder="默认退回上一节点" clearable style="width:100%">
+                <el-option label="退回：部门经理审批" value="n1" />
+                <el-option label="终止流程" value="terminate" />
+              </el-select>
+            </el-form-item>
+          </el-form>
+          <div class="dp-bar">
+            <el-button type="primary" :disabled="!canApprove" :loading="submitting" @click="doApprove">同意</el-button>
+            <el-button type="danger" :disabled="!canApprove" @click="doReject">驳回</el-button>
+            <el-button :disabled="!canApprove" @click="transferVisible = true">转办</el-button>
+            <el-button :disabled="!canWithdraw" @click="doWithdraw">撤回</el-button>
+            <el-button :disabled="!canApprove" @click="doComment">仅评论</el-button>
+            <span class="dp-hint" style="margin-left:auto">Idempotency-Key：{{ idemKey || '（提交时生成）' }}</span>
+          </div>
+          <div class="dp-state">{{ actionLog }}</div>
+          <div style="margin-top:10px">
+            <el-button size="small" @click="actionLog='60003 任务不存在或非当前审批人 → 提示并刷新实例状态'">模拟越权 60003</el-button>
+            <el-button size="small" @click="actionLog='60008 会签未完成 → 提示剩余待办'">模拟会签未完成 60008</el-button>
+          </div>
+        </div>
+      </el-tab-pane>
+
+      <!-- ④ 综合详情（PC） -->
+      <el-tab-pane label="④ 综合详情（PC）" name="detail">
+        <div class="ep-page">
+          <div class="dp-bar" style="justify-content:space-between">
+            <span><b>费用报销-20260901</b> <span class="dp-hint">实例状态：进行中 · 当前节点：财务复核</span></span>
+            <el-button size="small" @click="bpmnVisible = true">查看流程图（BPMN 只读）</el-button>
+          </div>
+          <el-steps :active="2">
+            <el-step v-for="n in nodes" :key="n.nodeId" :title="n.name" :status="stepStatus(n)" />
+          </el-steps>
+          <el-divider content-position="left">流转记录</el-divider>
+          <el-timeline>
+            <el-timeline-item v-for="(r,i) in records" :key="i" :timestamp="r.createdAt" :color="actionColor(r.action)" placement="top">
+              <div style="font-size:13px"><b>{{ r.assigneeName }}</b>
+                <span class="pill" :style="{color:actionColor(r.action),marginLeft:8}">{{ actionText(r) }}</span>
+                <span class="dp-hint" style="margin-left:8px">{{ r.nodeName }}</span>
+              </div>
+              <div v-if="r.comment" class="tl-comment">意见：{{ r.comment }}</div>
+            </el-timeline-item>
+          </el-timeline>
+          <el-divider content-position="left">审批操作</el-divider>
+          <div class="dp-bar">
+            <el-button type="primary" :loading="submitting" @click="doApprove">同意</el-button>
+            <el-button type="danger" @click="doReject">驳回</el-button>
+            <el-button @click="transferVisible = true">转办</el-button>
+          </div>
+        </div>
+      </el-tab-pane>
+
+      <!-- ⑤ 移动端 -->
+      <el-tab-pane label="⑤ 移动端（Vant）" name="mobile">
+        <div class="ep-page">
+          <div class="dp-hint" style="margin-bottom:12px">移动端不复用 PC 组件：状态条 + 信息卡 + 流转记录 + 底部固定操作栏（安全区避让）；规则与 PC 同源。</div>
+          <div class="m-phone">
+            <div class="m-nav"><span>‹ 审批详情</span><span>⋯</span></div>
+            <div class="m-body">
+              <div class="m-card">
+                <van-steps :active="2" active-color="#0969da" style="padding:6px 0">
+                  <van-step>发起</van-step>
+                  <van-step>部门经理</van-step>
+                  <van-step>财务复核</van-step>
+                  <van-step>总经理</van-step>
+                </van-steps>
+              </div>
+              <div class="m-card">
+                <div style="color:#8c959f;font-size:12px">费用报销-20260901</div>
+                <div style="margin-top:4px">金额：¥1,280.50</div>
+                <div>申请人：张三</div>
+              </div>
+              <div class="m-card">
+                <div style="font-weight:600;margin-bottom:6px">流转记录</div>
+                <div style="border-left:2px solid #eaeef2;padding-left:10px">
+                  <div style="margin-bottom:8px"><b>王五</b> <span style="color:#2da44e;font-size:12px">同意</span><div class="tl-comment">部门经理审批 · 2026-09-01 10:20</div></div>
+                  <div><b>李四</b> <span style="color:#57606a;font-size:12px">转办给孙七</span><div class="tl-comment">财务复核 · 2026-09-01 11:05</div></div>
+                </div>
+              </div>
+            </div>
+            <div class="m-actions">
+              <van-button block type="primary" size="small" @click="doApprove">同意</van-button>
+              <van-button block danger size="small" plain @click="doReject">驳回</van-button>
+              <van-button block size="small" @click="transferVisible = true">转办</van-button>
+            </div>
+          </div>
+        </div>
+      </el-tab-pane>
+    </el-tabs>
+
+    <!-- 转办弹窗 -->
+    <el-dialog v-model="transferVisible" title="转办" width="420px" :close-on-click-modal="false">
+      <el-form label-position="top">
+        <el-form-item label="转办给">
+          <el-select v-model="transferTo" placeholder="选择审批人" style="width:100%">
+            <el-option label="孙七（财务部）" value="sunqi" />
+            <el-option label="周八（财务部）" value="zhouba" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="转办说明">
+          <el-input v-model="comment" type="textarea" :rows="2" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="transferVisible = false">取消</el-button>
+        <el-button type="primary" :disabled="!transferTo" @click="doTransfer">确认转办</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- BPMN 只读图说明 -->
+    <el-dialog v-model="bpmnVisible" title="流程图（BPMN 只读）" width="560px">
+      <div class="dp-state">BpmnViewer（bpmn-js Viewer，按需懒加载）：
+- 输入实例 bpmn_xml + current_node → 渲染完整流程图并高亮当前节点
+- 只读：禁用拖拽/编辑，仅缩放平移
+- 无 XML / 加载失败 → 降级为 FlowProgress 简化进度</div>
+    </el-dialog>
+  </div>
+</div>
+
+<script src="../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../原型设计/资源/vendor/zh-cn.js"></script>
+<script src="../../原型设计/资源/vendor/vant.min.js"></script>
+<script>
+  var { createApp, ref, reactive, computed } = Vue;
+  var ElMessage = ElementPlus.ElMessage;
+  var ElMessageBox = ElementPlus.ElMessageBox;
+
+  function uuid() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+      var r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+    });
+  }
+
+  var RUNNING = [
+    { nodeId: 'start', name: '发起', status: 'done', assignees: [{ name: '张三' }], signed: false, desc: '张三 · 09-01 09:00' },
+    { nodeId: 'n1', name: '部门经理审批', status: 'done', assignees: [{ name: '王五' }, { name: '赵六' }], signed: true, done: 2, total: 2, desc: '会签 2 / 2' },
+    { nodeId: 'n2', name: '财务复核', status: 'active', assignees: [{ name: '李四' }], signed: false, desc: '李四 · 进行中' },
+    { nodeId: 'n3', name: '总经理审批', status: 'pending', assignees: [], signed: false, desc: '待处理' },
+    { nodeId: 'n4', name: '归档', status: 'pending', assignees: [], signed: false, desc: '待处理' }
+  ];
+  var REJECTED = [
+    { nodeId: 'start', name: '发起', status: 'done', desc: '张三 · 09-01 09:00' },
+    { nodeId: 'n1', name: '部门经理审批', status: 'done', desc: '王五 · 同意' },
+    { nodeId: 'n2', name: '财务复核', status: 'rejected', desc: '李四 · 驳回 → 退回部门经理' },
+    { nodeId: 'n3', name: '总经理审批', status: 'skipped', desc: '未走（跳过）' },
+    { nodeId: 'n4', name: '归档', status: 'skipped', desc: '未走（跳过）' }
+  ];
+  var FINISHED = [
+    { nodeId: 'start', name: '发起', status: 'done', desc: '张三 · 09-01 09:00' },
+    { nodeId: 'n1', name: '部门经理审批', status: 'done', desc: '王五、赵六 · 同意' },
+    { nodeId: 'n2', name: '财务复核', status: 'done', desc: '李四 · 同意' },
+    { nodeId: 'n3', name: '总经理审批', status: 'done', desc: '周八 · 同意' },
+    { nodeId: 'n4', name: '归档', status: 'done', desc: '系统 · 已完成' }
+  ];
+  var RECORDS = [
+    { nodeName: '发起', assigneeName: '张三', action: 'approve', comment: '提交申请', createdAt: '2026-09-01 09:00' },
+    { nodeName: '部门经理审批', assigneeName: '王五', action: 'approve', comment: '同意', createdAt: '2026-09-01 10:20' },
+    { nodeName: '部门经理审批', assigneeName: '赵六', action: 'comment', comment: '请补充预算明细（已补充）', createdAt: '2026-09-01 10:35' },
+    { nodeName: '财务复核', assigneeName: '李四', action: 'transfer', comment: '转办给孙七（外出）', createdAt: '2026-09-01 11:05' }
+  ];
+
+  var app = createApp({
+    setup: function () {
+      var tab = ref('flow');
+      var orientation = ref('horizontal');
+      var flowCase = ref('running');
+      var flowLog = ref('状态色与 12 节点语义一致：已完成=success、当前=primary、待处理=info、驳回=danger、跳过=info(灰)');
+      var bpmnVisible = ref(false);
+
+      var nodes = computed(function () {
+        return flowCase.value === 'rejected' ? REJECTED : (flowCase.value === 'finished' ? FINISHED : RUNNING);
+      });
+      var activeIndex = computed(function () {
+        var idx = 0; nodes.value.forEach(function (n, i) { if (n.status === 'done') idx = i + 1; if (n.status === 'active') idx = i; if (n.status === 'rejected') idx = i; });
+        return idx;
+      });
+      function stepStatus(n) {
+        return { done: 'success', active: 'process', pending: 'wait', rejected: 'error', skipped: 'wait' }[n.status] || 'wait';
+      }
+      function nodeDesc(n) { return n.desc || ''; }
+      function statusText(c) { return { running: '进行中', rejected: '已驳回', finished: '已完成' }[c]; }
+      function statusColor(c) { return { running: 'var(--color-primary)', rejected: 'var(--color-danger)', finished: 'var(--color-success)' }[c]; }
+
+      // 时间线
+      var records = RECORDS;
+      var ACTION_COLOR = { approve: '#2da44e', reject: '#cf222e', withdraw: '#d4a72c', transfer: '#57606a', comment: '#57606a' };
+      function actionColor(a) { return ACTION_COLOR[a] || '#57606a'; }
+      function actionText(r) {
+        return { approve: '同意', reject: '驳回', withdraw: '撤回流程', transfer: '转办给 孙七', comment: '添加了评论' }[r.action] || r.action;
+      }
+
+      // 操作
+      var canApprove = ref(true);
+      var canWithdraw = ref(false);
+      var comment = ref('');
+      var rejectTarget = ref('');
+      var transferVisible = ref(false);
+      var transferTo = ref('');
+      var submitting = ref(false);
+      var idemKey = ref('');
+      var actionLog = ref('等待操作…');
+
+      function runAction(name, extra) {
+        if (!idemKey.value) { idemKey.value = uuid(); actionLog.value = '生成 Idempotency-Key=' + idemKey.value + '\n'; }
+        else { actionLog.value += '\n复用 Idempotency-Key（重试/重复点击）\n'; }
+        submitting.value = true;
+        actionLog.value += name + ' 提交中…' + (extra ? '（' + extra + '）' : '');
+        setTimeout(function () {
+          submitting.value = false;
+          idemKey.value = '';
+          ElMessage.success(name + '成功');
+          actionLog.value = name + '成功 → 刷新实例状态 / 审批记录 / 待办角标';
+        }, 700);
+      }
+      function doApprove() {
+        if (!canApprove.value) { ElMessage.warning('无当前待办或无 wf:approve 权限'); return; }
+        runAction('同意', comment.value ? '意见：' + comment.value : '');
+      }
+      function doReject() {
+        if (!canApprove.value) { ElMessage.warning('无当前待办或无 wf:approve 权限'); return; }
+        if (!comment.value) { ElMessage.error('驳回必须填写意见'); return; }
+        var target = rejectTarget.value === 'terminate' ? '终止流程' : '退回：部门经理审批';
+        ElMessageBox.confirm('驳回后流程将' + target + '，确定继续？', '驳回确认', {
+          type: 'warning', confirmButtonText: '确认驳回', cancelButtonText: '取消',
+          confirmButtonClass: 'el-button--danger', closeOnClickModal: false, closeOnPressEscape: false
+        }).then(function () { runAction('驳回', target + '，意见：' + comment.value); }).catch(function () {});
+      }
+      function doTransfer() {
+        transferVisible.value = false;
+        runAction('转办', '转办给 ' + transferTo.value);
+      }
+      function doWithdraw() {
+        ElMessageBox.confirm('撤回后流程实例终止，确定继续？', '撤回确认', {
+          type: 'warning', confirmButtonText: '确认撤回', cancelButtonText: '取消',
+          confirmButtonClass: 'el-button--danger', closeOnClickModal: false, closeOnPressEscape: false
+        }).then(function () { runAction('撤回'); }).catch(function () {});
+      }
+      function doComment() {
+        if (!comment.value) { ElMessage.error('评论不能为空'); return; }
+        runAction('评论（不推进流程）');
+      }
+
+      return {
+        tab, orientation, flowCase, flowLog, bpmnVisible, nodes, activeIndex, stepStatus, nodeDesc,
+        statusText, statusColor, records, actionColor, actionText,
+        canApprove, canWithdraw, comment, rejectTarget, transferVisible, transferTo, submitting, idemKey, actionLog,
+        doApprove, doReject, doTransfer, doWithdraw, doComment
+      };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.use(vant);
+  app.mount('#app');
+</script>
+
+</body>
+</html>
