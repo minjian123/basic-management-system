@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 快捷入口（QuickEntry / useQuickEntry）</title>
+<link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-code { font-family:Consolas,"Cascadia Mono",monospace; color:#57606a; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+  .card { border:1px solid #eaeef2; border-radius:8px; padding:14px; max-width:460px; background:#fff; }
+  .card .hd { font-size:13px; font-weight:600; margin-bottom:12px; }
+  .qgrid { display:grid; gap:12px; }
+  .qitem { display:flex; flex-direction:column; align-items:center; gap:6px; cursor:pointer; padding:8px 4px; border-radius:8px; transition:background .15s; position:relative; }
+  .qitem:hover { background:#f0f7ff; }
+  .qitem .ico { width:40px; height:40px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:22px; color:#0969da; background:#eef4ff; }
+  .qitem .nm { font-size:12px; color:#1f2328; text-align:center; }
+  .group-title { grid-column:1/-1; font-size:12px; color:#8c959f; margin:4px 0; }
+  .empty { text-align:center; color:#8c959f; font-size:13px; padding:24px; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="11_组件设计_快捷入口.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 快捷入口 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="11_组件设计_快捷入口.md">《组件设计 · 快捷入口》</a>：演示图标宫格（3/4 列自适应）、按权限过滤、角标、纯图标 + tooltip、
+    点击路由跳转、分组与空态。图标复用 <span class="dp-code">IconDisplay</span>（Element Plus 官方图标，离线 vendor）。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-bar">
+        <span>列数：</span>
+        <el-radio-group v-model="columns" size="small">
+          <el-radio-button :label="3">3 列</el-radio-button>
+          <el-radio-button :label="4">4 列</el-radio-button>
+        </el-radio-group>
+        <el-switch v-model="showLabel" size="small" active-text="显示名称" />
+        <el-switch v-model="filterByPerm" size="small" active-text="按权限过滤（无权限不渲染）" />
+        <el-switch v-model="grouped" size="small" active-text="分组" />
+        <span style="flex:1"></span>
+        <el-button size="small" @click="togglePerm">切换部分入口权限</el-button>
+      </div>
+
+      <div class="card">
+        <div class="hd">快捷入口{{ grouped ? '（分组）' : '' }}</div>
+        <div class="qgrid" :style="{ gridTemplateColumns: 'repeat(' + columns + ', 1fr)' }">
+          <template v-for="e in visible" :key="e.key">
+            <div v-if="grouped && e.group" class="group-title">{{ e.group }}</div>
+            <el-tooltip :disabled="showLabel" :content="e.label" placement="top">
+              <div class="qitem" @click="open(e)">
+                <div class="ico" :style="e.color ? { color: e.color, background: e.color + '1a' } : {}">
+                  <component :is="comp(e.icon)" />
+                  <span v-if="e.badge" style="position:absolute;top:2px;right:6px;background:#cf222e;color:#fff;border-radius:9px;font-size:10px;padding:0 5px;line-height:15px">{{ e.badge > 99 ? '99+' : e.badge }}</span>
+                </div>
+                <div v-if="showLabel" class="nm">{{ e.label }}</div>
+              </div>
+            </el-tooltip>
+          </template>
+          <div v-if="!visible.length" class="empty">暂无可显示的快捷入口（权限过滤后为空，空态由展示类 05 提供）</div>
+        </div>
+      </div>
+      <div class="dp-hint" style="margin-top:8px">入口随卡片元数据/布局下发（不额外请求）；点击只跳转，不注册路由（未注册路由拦截提示）</div>
+      <div class="dp-state" style="margin-top:12px">{{ log }}</div>
+    </div>
+  </div>
+</div>
+
+<script src="../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script src="../../../原型设计/资源/vendor/icons-vue.min.js"></script>
+<script>
+  var { createApp, ref, computed } = Vue;
+  var ElMessage = ElementPlus.ElMessage;
+
+  function iconComp(icon) { var n = (icon || '').replace(/^el:/, ''); return ElementPlusIconsVue[n] || ElementPlusIconsVue.QuestionFilled; }
+
+  var app = createApp({
+    setup: function () {
+      var columns = ref(4);
+      var showLabel = ref(true);
+      var filterByPerm = ref(true);
+      var grouped = ref(false);
+      var permOn = ref(false);
+      var log = ref('入口按 order 排序、key 去重；perm 过滤无权限入口；角标来自待办/通知');
+
+      var entries = ref([
+        { key: 'purchase', label: '采购申请', icon: 'el:ShoppingCart', route: '/purchase/apply', badge: 4, group: '业务', order: 1, perm: 'purchase:query' },
+        { key: 'payment', label: '付款申请', icon: 'el:Wallet', route: '/payment/apply', group: '业务', order: 2, perm: 'payment:query' },
+        { key: 'receipt', label: '收款登记', icon: 'el:Money', route: '/receipt', group: '业务', order: 3 },
+        { key: 'report', label: '报表中心', icon: 'el:DataAnalysis', route: '/report', group: '分析', order: 4, perm: 'rpt:view' },
+        { key: 'todo', label: '我的待办', icon: 'el:List', route: '/wf/todo', badge: 3, group: '办公', order: 5 },
+        { key: 'user', label: '用户管理', icon: 'el:User', route: '/user', group: '系统', order: 6, perm: 'user:query' },
+        { key: 'setting', label: '系统参数', icon: 'el:Setting', route: '/config', group: '系统', order: 7, perm: 'config:manage' }
+      ]);
+      function hasPerm(e) { if (!filterByPerm.value) return true; if (!e.perm) return true; return permOn.value ? !e.perm.endsWith('manage') : e.perm !== 'config:manage'; }
+      var visible = computed(function () {
+        return entries.value.slice().sort(function (a, b) { return (a.order || 0) - (b.order || 0); })
+          .filter(function (e, i, arr) { return arr.findIndex(function (x) { return x.key === e.key; }) === i; })
+          .filter(hasPerm);
+      });
+      function comp(icon) { return iconComp(icon); }
+      function open(e) { log.value = '点击入口「' + e.label + '」→ router.push(' + e.route + ')（未注册则拦截提示）'; ElMessage.success('跳转 ' + e.route); }
+      function togglePerm() { permOn.value = !permOn.value; log.value = '切换权限：' + (permOn.value ? '普通用户（隐藏 config:manage）' : '管理员（全部可见）'); }
+
+      return { columns, showLabel, filterByPerm, grouped, permOn, log, entries, visible, comp, open, togglePerm };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>
