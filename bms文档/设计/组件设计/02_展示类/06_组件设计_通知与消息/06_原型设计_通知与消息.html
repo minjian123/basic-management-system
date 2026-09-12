@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 通知与消息（NotificationBell / NotificationList / MessageItem / NotificationDetail / useNotification）</title>
+<link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+  .topbar { display:flex; align-items:center; gap:12px; background:#24292f; color:#fff; border-radius:8px; padding:8px 14px; margin-bottom:12px; }
+  .topbar .brand { font-weight:600; }
+  .topbar .sp { flex:1; }
+  .msg { display:flex; gap:10px; padding:10px 12px; border:1px solid #eaeef2; border-radius:8px; margin-bottom:8px; cursor:pointer; background:#fff; }
+  .msg.unread { background:#f0f7ff; border-color:#cfe3ff; }
+  .msg .ico { width:30px; height:30px; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:15px; flex:0 0 30px; }
+  .msg .bd { flex:1; min-width:0; }
+  .msg .ttl { font-size:13px; }
+  .msg.unread .ttl { font-weight:600; }
+  .msg .sum { color:#8c959f; font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .msg .tm { color:#b1b8bf; font-size:11px; }
+  .msg .ops { display:flex; align-items:center; gap:4px; }
+  .recent { width:340px; max-height:340px; overflow:auto; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="06_组件设计_通知与消息.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 通知与消息 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="06_组件设计_通知与消息.md">《组件设计 · 通知与消息》</a>：演示顶栏 <b>NotificationBell</b> 未读角标与下拉、
+    <b>NotificationList</b> 筛选/批量已读/全部已读/删除、<b>MessageItem</b> 未读高亮与跳转、<b>NotificationDetail</b> 查看即已读、模拟 Socket.IO 实时推送与断线补偿。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <!-- 顶栏铃铛 -->
+      <div class="topbar">
+        <span class="brand">BMS 控制台</span>
+        <span class="sp"></span>
+        <el-popover placement="bottom-end" :width="360" trigger="click">
+          <template #reference>
+            <span style="cursor:pointer;color:#fff;position:relative">
+              <el-badge :value="unread" :max="99" :hidden="unread===0"><span style="font-size:18px">🔔</span></el-badge>
+            </span>
+          </template>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+            <b style="font-size:13px">通知（{{ unread }} 条未读）</b>
+            <el-button size="small" text @click="markAllRead(true)">全部已读</el-button>
+          </div>
+          <div class="recent">
+            <div v-for="n in recent" :key="n.id" class="msg" :class="{ unread: !n.is_read }" @click="openDetail(n)">
+              <div class="ico" :style="{ background: typeBg(n.type) }">{{ typeIcon(n.type) }}</div>
+              <div class="bd">
+                <div class="ttl">{{ n.title }}</div>
+                <div class="sum">{{ n.content }}</div>
+                <div class="tm">{{ rel(n.created_at) }}</div>
+              </div>
+            </div>
+            <div v-if="!recent.length" class="dp-hint" style="text-align:center;padding:16px">暂无消息</div>
+          </div>
+          <div style="text-align:center;margin-top:6px"><el-button size="small" text type="primary">查看全部</el-button></div>
+        </el-popover>
+      </div>
+
+      <!-- 通知中心 -->
+      <div class="dp-bar">
+        <el-select v-model="fType" size="small" style="width:150px" clearable placeholder="类型">
+          <el-option label="全部类型" value="" />
+          <el-option label="站内信" value="message" />
+          <el-option label="待办提醒" value="todo" />
+          <el-option label="系统提示" value="system" />
+        </el-select>
+        <el-radio-group v-model="fRead" size="small">
+          <el-radio-button label="all">全部</el-radio-button>
+          <el-radio-button label="unread">未读</el-radio-button>
+          <el-radio-button label="read">已读</el-radio-button>
+        </el-radio-group>
+        <span style="flex:1"></span>
+        <el-button size="small" :disabled="!selected.length" @click="markRead">批量已读（{{ selected.length }}）</el-button>
+        <el-button size="small" @click="markAllRead()">全部已读</el-button>
+      </div>
+
+      <div style="max-width:760px">
+        <div v-for="n in filtered" :key="n.id" class="msg" :class="{ unread: !n.is_read }" @click="openDetail(n)">
+          <el-checkbox :model-value="selected.includes(n.id)" @click.stop @change="toggleSel(n.id)" />
+          <div class="ico" :style="{ background: typeBg(n.type) }">{{ typeIcon(n.type) }}</div>
+          <div class="bd">
+            <div class="ttl">
+              {{ n.title }}
+              <el-tag size="small" :type="n.type==='todo'?'warning':(n.type==='system'?'info':undefined)">{{ typeName(n.type) }}</el-tag>
+            </div>
+            <div class="sum">{{ n.content }}</div>
+            <div class="tm">{{ rel(n.created_at) }}<span v-if="n.biz_type" class="dp-hint"> · 可跳转 {{ n.biz_type }}#{{ n.biz_id }}</span></div>
+          </div>
+          <div class="ops" @click.stop>
+            <el-button v-if="!n.is_read" size="small" text @click="markReadOne(n)">已读</el-button>
+            <el-button size="small" text type="danger" @click="remove(n)">删除</el-button>
+          </div>
+        </div>
+        <div v-if="!filtered.length" class="dp-hint" style="text-align:center;padding:30px">未找到相关内容（空状态由展示类 05 提供）</div>
+      </div>
+
+      <div class="dp-bar" style="margin-top:12px">
+        <el-button size="small" type="primary" @click="simulatePush">模拟收到新通知（Socket.IO）</el-button>
+        <el-button size="small" @click="simulateReconnect">模拟断线重连（拉取未读数补偿）</el-button>
+        <span class="dp-hint">连接状态：{{ connected ? '已连接' : '断线' }}</span>
+      </div>
+
+      <div class="dp-state" style="margin-top:12px">{{ log }}</div>
+    </div>
+
+    <!-- 详情 -->
+    <el-drawer v-model="detailVisible" title="通知详情" size="440px">
+      <template v-if="current">
+        <div style="font-size:16px;font-weight:600;margin-bottom:8px">{{ current.title }}</div>
+        <div class="dp-hint" style="margin-bottom:12px">{{ typeName(current.type) }} · {{ new Date(current.created_at).toLocaleString('zh-CN', { hour12: false }) }}</div>
+        <div style="font-size:13px;line-height:1.8;color:#1f2328">{{ current.content }}</div>
+        <div v-if="current.biz_type" style="margin-top:16px">
+          <el-button size="small" type="primary" @click="toast('跳转业务单据 ' + current.biz_type + '#' + current.biz_id)">查看单据</el-button>
+        </div>
+        <el-alert style="margin-top:16px" type="success" :closable="false" title="查看即标记已读（幂等）" />
+      </template>
+    </el-drawer>
+  </div>
+</div>
+
+<script src="../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref, reactive, computed } = Vue;
+  var ElMessage = ElementPlus.ElMessage;
+
+  function nowMinus(min) { return Date.now() - min * 60000; }
+
+  var app = createApp({
+    setup: function () {
+      var connected = ref(true);
+      var fType = ref('');
+      var fRead = ref('all');
+      var selected = ref([]);
+      var detailVisible = ref(false);
+      var current = ref(null);
+      var log = ref('顶栏铃铛未读角标实时更新；打开详情自动已读；断线重连后拉取未读数补偿');
+      var seq = 5;
+
+      var items = ref([
+        { id: '1', type: 'todo', title: '待审批：采购申请-20260901', content: '张三提交的采购申请等待您审批', is_read: false, biz_type: 'wf_task', biz_id: '1001', created_at: nowMinus(3) },
+        { id: '2', type: 'message', title: '您有一封新的站内信', content: '财务部：本月对账已完成，请查收', is_read: false, biz_type: '', biz_id: '', created_at: nowMinus(40) },
+        { id: '3', type: 'system', title: '系统维护通知', content: '系统将于今晚 00:00-02:00 维护', is_read: true, biz_type: '', biz_id: '', created_at: nowMinus(180) },
+        { id: '4', type: 'todo', title: '待审批：付款申请-20260830', content: '李四提交的付款申请等待您审批', is_read: false, biz_type: 'wf_task', biz_id: '1002', created_at: nowMinus(300) }
+      ]);
+
+      var unread = computed(function () { return items.value.filter(function (n) { return !n.is_read; }).length; });
+      var recent = computed(function () { return items.value.slice(0, 5); });
+      var filtered = computed(function () {
+        return items.value.filter(function (n) {
+          if (fType.value && n.type !== fType.value) return false;
+          if (fRead.value === 'unread' && n.is_read) return false;
+          if (fRead.value === 'read' && !n.is_read) return false;
+          return true;
+        });
+      });
+
+      function typeName(t) { return { todo: '待办提醒', message: '站内信', system: '系统提示' }[t] || t; }
+      function typeIcon(t) { return { todo: '📋', message: '✉️', system: '🔔' }[t] || '🔔'; }
+      function typeBg(t) { return { todo: '#fff8c5', message: '#ddf4ff', system: '#f6f8fa' }[t] || '#f6f8fa'; }
+      function rel(ts) { var d = Math.round((Date.now() - ts) / 60000); if (d < 1) return '刚刚'; if (d < 60) return d + ' 分钟前'; var h = Math.round(d / 60); if (h < 24) return h + ' 小时前'; return Math.round(h / 24) + ' 天前'; }
+
+      function toggleSel(id) { if (selected.value.includes(id)) selected.value = selected.value.filter(function (x) { return x !== id; }); else selected.value.push(id); }
+      function markReadOne(n) { n.is_read = true; log.value = '单条已读（打开详情/点击已读，幂等）；角标以服务端未读数为准'; }
+      function markRead() {
+        items.value.forEach(function (n) { if (selected.value.includes(n.id)) n.is_read = true; });
+        log.value = 'POST /notifications/read（id 列表，上限 500）→ 批量已读，角标校准为 ' + (unread.value);
+        selected.value = [];
+      }
+      function markAllRead(fromBell) { items.value.forEach(function (n) { n.is_read = true; }); log.value = 'POST /notifications/read-all → 全部已读' + (fromBell ? '（铃铛内）' : ''); }
+      function remove(n) { items.value = items.value.filter(function (x) { return x.id !== n.id; }); log.value = 'DELETE /notifications/{id} → 软删除（仅本人，归属校验），不进列表与未读数'; }
+
+      function openDetail(n) { current.value = n; detailVisible.value = true; if (!n.is_read) { n.is_read = true; log.value = '打开详情 → 自动标记已读（幂等），角标同步'; } }
+      function simulatePush() {
+        if (!connected.value) connected.value = true;
+        seq += 1;
+        items.value.unshift({ id: '' + seq, type: 'todo', title: '待审批：业务单据-2026090' + seq, content: 'Socket.IO approval.todo 推送的新待办', is_read: false, biz_type: 'wf_task', biz_id: '100' + seq, created_at: Date.now() });
+        log.value = 'Socket.IO 推送 notification.new/approval.todo → 角标 +1（实时增量）';
+        ElMessage.success('收到新通知，角标 +1');
+      }
+      function simulateReconnect() {
+        connected.value = false;
+        setTimeout(function () { connected.value = true; log.value = '重连成功 → GET /notifications/unread-count 拉取未读数补偿（不依赖逐条推送补齐，当前未读 ' + unread.value + '）'; ElMessage.success('重连并补偿未读数'); }, 500);
+      }
+      function toast(m) { log.value = m; ElMessage.info(m); }
+
+      return { connected, fType, fRead, selected, detailVisible, current, log, items, unread, recent, filtered,
+        typeName, typeIcon, typeBg, rel, toggleSel, markReadOne, markRead, markAllRead, remove, openDetail, simulatePush, simulateReconnect, toast };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>
