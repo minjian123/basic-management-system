@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 表单渲染器（FormRenderer / FormField / useFormRender）</title>
+<link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-code { font-family:Consolas,"Cascadia Mono",monospace; color:#57606a; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+  .fr-section { border:1px dashed #eaeef2; border-radius:8px; padding:12px; margin-bottom:12px; }
+  .fr-section > .st { font-weight:600; font-size:13px; margin-bottom:10px; }
+  .fr-section .st .cols { float:right; font-weight:400; font-size:11px; color:#8c959f; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="13_组件设计_表单渲染器.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 表单渲染器 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="13_组件设计_表单渲染器.md">《组件设计 · 表单渲染器》</a>：演示由布局元数据（<span class="dp-code">layout-effective</span>）驱动的分区/栅格渲染、
+    <b>FormField</b> 按字段类型分发控件、<b>三态</b>（新增/编辑/查看）、权限叠加（visible/editable）、校验与提交、明细区行内编辑。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-bar">
+        <span>三态：</span>
+        <el-radio-group v-model="mode" size="small">
+          <el-radio-button label="create">新增</el-radio-button>
+          <el-radio-button label="edit">编辑</el-radio-button>
+          <el-radio-button label="view">查看</el-radio-button>
+        </el-radio-group>
+        <el-switch v-model="salaryVisible" size="small" active-text="salary visible" />
+        <el-switch v-model="salaryEditable" size="small" active-text="salary editable" :disabled="!salaryVisible" />
+        <span style="flex:1"></span>
+        <el-button size="small" @click="reset">重置</el-button>
+        <el-button size="small" type="primary" :loading="saving" :disabled="mode==='view'" @click="submit">保存</el-button>
+      </div>
+
+      <div v-if="loading" class="dp-hint" style="padding:20px">加载布局元数据（GET /forms/user_form/layout-effective）…</div>
+      <el-form v-else ref="formRef" :model="model" :rules="rules" :label-position="layout.labelPosition" :disabled="mode==='view'">
+        <div v-for="sec in layout.sections" :key="sec.title" class="fr-section">
+          <div class="st">{{ sec.title }}<span class="cols">{{ sec.columns }} 列</span></div>
+          <el-row :gutter="12">
+            <el-col v-for="f in visibleFields(sec)" :key="f.key" :span="span(f, sec)">
+              <form-field :field="f" v-model="model[f.key]" :mode="mode" :value-only="isReadonly(f)" />
+            </el-col>
+          </el-row>
+        </div>
+      </el-form>
+
+      <el-divider content-position="left">明细区（主从，编辑态行内编辑）</el-divider>
+      <el-table :data="details" size="small" border style="max-width:760px">
+        <el-table-column prop="no" label="行号" width="70" />
+        <el-table-column label="物料">
+          <template #default="{ row }">
+            <el-input v-if="mode!=='view'" v-model="row.product" size="small" />
+            <span v-else>{{ row.product }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="数量" width="120">
+          <template #default="{ row }">
+            <el-input v-if="mode!=='view'" v-model.number="row.qty" size="small" />
+            <span v-else>{{ row.qty }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="90">
+          <template #default="{ $index }">
+            <el-button size="small" text type="danger" :disabled="mode==='view'" @click="details.splice($index,1)">删除</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+      <el-button size="small" style="margin-top:8px" :disabled="mode==='view'" @click="details.push({ no: details.length+1, product: '', qty: 1 })">新增行</el-button>
+      <div class="dp-hint" style="margin-top:6px">主表 + 明细单事务提交；明细列配置来自布局 detail 配置</div>
+
+      <div class="dp-state" style="margin-top:12px">{{ log }}</div>
+    </div>
+  </div>
+</div>
+
+<script src="../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref, reactive, computed, onMounted, nextTick } = Vue;
+  var ElMessage = ElementPlus.ElMessage;
+
+  // FormField：按 type 分发控件（简化示意）
+  var FormField = {
+    props: { field: Object, modelValue: [String, Number, Boolean, Array, Object], mode: String, valueOnly: Boolean },
+    emits: ['update:modelValue'],
+    computed: {
+      ro: function () { return this.mode === 'view' || this.valueOnly || this.field.editable === false; },
+      label: function () { return this.field.label + (this.field.required ? ' *' : ''); },
+      displayValue: function () {
+        var v = this.modelValue;
+        if (v === null || v === undefined || v === '') return '—';
+        if (this.field.type === 'switch') return v ? '是' : '否';
+        if (this.field.type === 'select' && this.field.options) { var o = this.field.options.filter(function (x) { return x.value === v; })[0]; return o ? o.label : v; }
+        if (this.field.mask && !window.__plain) return String(v).replace(/(\d{3})\d{4}(\d{4})/, '$1****$2');
+        return v;
+      }
+    },
+    template: `
+      <el-form-item :label="label" :prop="field.key" :required="field.required">
+        <span v-if="ro" class="ro-text">{{ displayValue }}</span>
+        <el-input v-else-if="field.type==='text'" :model-value="modelValue" @update:model-value="$emit('update:modelValue',$event)" placeholder="请输入" />
+        <el-input v-else-if="field.type==='longtext'" type="textarea" :rows="2" :model-value="modelValue" @update:model-value="$emit('update:modelValue',$event)" />
+        <el-input v-else-if="field.type==='number'" type="number" :model-value="modelValue" @update:model-value="$emit('update:modelValue',Number($event))" />
+        <el-select v-else-if="field.type==='select'" :model-value="modelValue" @update:model-value="$emit('update:modelValue',$event)" style="width:100%">
+          <el-option v-for="o in field.options" :key="o.value" :label="o.label" :value="o.value" />
+        </el-select>
+        <el-date-picker v-else-if="field.type==='date'" :model-value="modelValue" @update:model-value="$emit('update:modelValue',$event)" type="date" style="width:100%" />
+        <el-switch v-else-if="field.type==='switch'" :model-value="modelValue" @update:model-value="$emit('update:modelValue',$event)" />
+        <span v-else class="ro-text">{{ modelValue }} <em class="dp-hint">(未知类型，纯文本回退)</em></span>
+      </el-form-item>`
+  };
+
+  var app = createApp({
+    setup: function () {
+      var mode = ref('edit');
+      var loading = ref(true);
+      var saving = ref(false);
+      var log = ref('布局元数据驱动：分区/列数/跨列/顺序；FormField 按 type 分发；三态共用；权限优先');
+      var formRef = ref(null);
+      var salaryVisible = ref(true);
+      var salaryEditable = ref(false);
+
+      var layout = reactive({ labelPosition: 'top', sections: [] });
+      var model = reactive({});
+      var details = ref([{ no: 1, product: 'A4 纸', qty: 10 }, { no: 2, product: '签字笔', qty: 20 }]);
+
+      function buildMeta() {
+        // 模拟 GET /forms/user_form/layout-effective 返回
+        layout.sections = [
+          { title: '基本信息', columns: 2, fields: [
+            { key: 'username', label: '用户名', type: 'text', required: true },
+            { key: 'name', label: '姓名', type: 'text', required: true },
+            { key: 'dept', label: '部门', type: 'select', required: true, options: [{ value: 'rd', label: '研发中心' }, { value: 'fin', label: '财务部' }] },
+            { key: 'hire', label: '入职日期', type: 'date' }
+          ] },
+          { title: '扩展信息', columns: 3, fields: [
+            { key: 'status', label: '状态', type: 'switch' },
+            { key: 'salary', label: '薪资', type: 'number', mask: true },
+            { key: 'remark', label: '备注', type: 'longtext', colSpan: 24 }
+          ] }
+        ];
+        Object.assign(model, { username: 'zhangsan', name: '张三', dept: 'rd', hire: '2026-09-01', status: true, salary: 13800001234, remark: '示例备注' });
+      }
+      function fieldVisible(f) { if (f.key === 'salary' && !salaryVisible.value) return false; if (f.visible === false) return false; return true; }
+      function visibleFields(sec) { return sec.fields.filter(fieldVisible); }
+      function span(f, sec) { if (f.colSpan) return f.colSpan; return Math.floor(24 / sec.columns); }
+      function isReadonly(f) { if (f.key === 'salary' && !salaryEditable.value) return true; return f.editable === false; }
+
+      var rules = { username: [{ required: true, message: '请输入用户名', trigger: 'blur' }], name: [{ required: true, message: '请输入姓名', trigger: 'blur' }], dept: [{ required: true, message: '请选择部门', trigger: 'change' }] };
+
+      function reset() { buildMeta(); ElMessage.info('已重置为后端数据'); }
+      function submit() {
+        formRef.value.validate(function (ok) {
+          if (!ok) { ElMessage.error('校验失败：请检查必填项'); log.value = '前端校验失败 → 定位字段（服务端动态校验强制，规则一致）'; return; }
+          saving.value = true;
+          log.value = 'submit → 主表 + 明细单事务提交（携带 version 乐观锁）';
+          setTimeout(function () { saving.value = false; log.value = '保存成功 → saved(id) → 页面刷新列表'; ElMessage.success('保存成功'); }, 600);
+        });
+      }
+
+      onMounted(function () { buildMeta(); loading.value = false; });
+      return { mode, loading, saving, log, formRef, layout, model, details, rules, salaryVisible, salaryEditable, visibleFields, span, isReadonly, reset, submit };
+    }
+  });
+  app.component('form-field', FormField);
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>
