@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 表单设计器（FormDesigner / FieldPanel / DesignerCanvas / FieldPropertyPanel / ExtFieldDialog）</title>
+<link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-code { font-family:Consolas,"Cascadia Mono",monospace; color:#57606a; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+  .fd-layout { display:grid; grid-template-columns: 220px 1fr 260px; gap:12px; align-items:start; }
+  .fd-pane { border:1px solid #eaeef2; border-radius:8px; background:#fff; min-height:420px; }
+  .fd-pane .hd { padding:8px 12px; border-bottom:1px solid #eaeef2; font-size:13px; font-weight:600; display:flex; justify-content:space-between; align-items:center; }
+  .fd-pane .bd { padding:10px; }
+  .field-item { display:flex; align-items:center; gap:8px; padding:6px 10px; border:1px solid #eaeef2; border-radius:6px; margin-bottom:6px; font-size:13px; cursor:grab; background:#fff; }
+  .field-item.done { opacity:.5; }
+  .field-item .ty { margin-left:auto; font-size:11px; color:#8c959f; }
+  .group-title { font-size:12px; color:#8c959f; margin:6px 0 4px; }
+  .section { border:1px dashed #d0d7de; border-radius:8px; padding:10px; margin-bottom:10px; }
+  .section .sec-head { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+  .section .sec-head b { font-size:13px; }
+  .cell { border:1px dashed #c8d1da; border-radius:6px; padding:6px 8px; font-size:12px; background:#fbfcfd; display:flex; align-items:center; gap:6px; cursor:grab; }
+  .cell.sel { border-color:#0969da; background:#eef4ff; }
+  .cell .x { margin-left:auto; color:#cf222e; cursor:pointer; }
+  .drop-empty { color:#b1b8bf; font-size:12px; padding:12px; text-align:center; border:1px dashed #eaeef2; border-radius:6px; }
+  .q-row, .d-row { display:flex; align-items:center; gap:8px; padding:6px 8px; border:1px solid #eaeef2; border-radius:6px; margin-bottom:6px; font-size:13px; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="06_组件设计_表单设计器.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 表单设计器 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="06_组件设计_表单设计器.md">《组件设计 · 表单设计器》</a>：演示三区结构、字段拖拽入画布与分区内排序、
+    分区列数/跨列、字段属性面板、租户自建字段、查询区/明细区配置、三级层级与保存/发布/恢复、脏数据拦截。拖拽基于 <span class="dp-code">vuedraggable</span>（离线 vendor）。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <!-- 工具栏 -->
+      <div class="dp-bar">
+        <span>表单：</span>
+        <el-select v-model="form" size="small" style="width:180px">
+          <el-option label="用户表单（user_form）" value="user_form" />
+          <el-option label="采购申请（purchase_form）" value="purchase_form" />
+        </el-select>
+        <span>层级：</span>
+        <el-radio-group v-model="level" size="small">
+          <el-radio-button label="platform">平台默认</el-radio-button>
+          <el-radio-button label="tenant">租户覆盖</el-radio-button>
+          <el-radio-button label="role">角色视图</el-radio-button>
+        </el-radio-group>
+        <el-select v-if="level==='role'" v-model="roleId" size="small" style="width:140px">
+          <el-option label="管理员" value="admin" />
+          <el-option label="普通用户" value="user" />
+        </el-select>
+        <span v-if="dirty" class="dp-hint" style="color:#cf222e">● 有未保存修改</span>
+        <span style="flex:1"></span>
+        <el-button size="small" type="primary" :loading="saving" :disabled="readonly" @click="save">保存</el-button>
+        <el-button size="small" :disabled="readonly" @click="publish">发布</el-button>
+        <el-button size="small" :disabled="readonly" @click="restore">恢复默认</el-button>
+      </div>
+      <div v-if="readonly" class="dp-bar" style="background:#fff8c5;border-color:#d4a72c">
+        <span style="font-size:12px;color:#9a6700">平台默认层级对租户管理员只读预览，不可编辑（可切换「租户覆盖」编辑）。</span>
+      </div>
+
+      <el-tabs v-model="view">
+        <!-- 主表设计 -->
+        <el-tab-pane label="主表" name="main">
+          <div class="fd-layout">
+            <!-- 字段面板 -->
+            <div class="fd-pane">
+              <div class="hd">字段面板 <el-button size="small" text type="primary" :disabled="readonly" @click="extVisible=true">＋ 自定义</el-button></div>
+              <div class="bd">
+                <div class="group-title">平台字段</div>
+                <draggable
+                  v-model="palettePlatform" item-key="key"
+                  :group="{ name:'fields', pull:'clone', put:false }" :sort="false"
+                  :clone="cloneField" :disabled="readonly">
+                  <template #item="{ element }">
+                    <div class="field-item" :class="{ done: usedKeys.has(element.key) }">
+                      <span>{{ element.label }}</span><span class="ty">{{ element.type }}</span>
+                    </div>
+                  </template>
+                </draggable>
+                <div class="group-title">租户字段</div>
+                <draggable
+                  v-model="paletteTenant" item-key="key"
+                  :group="{ name:'fields', pull:'clone', put:false }" :sort="false"
+                  :clone="cloneField" :disabled="readonly">
+                  <template #item="{ element }">
+                    <div class="field-item" :class="{ done: usedKeys.has(element.key) }">
+                      <span>{{ element.label }}</span><span class="ty">{{ element.type }}</span>
+                    </div>
+                  </template>
+                </draggable>
+              </div>
+            </div>
+
+            <!-- 画布 -->
+            <div class="fd-pane">
+              <div class="hd">布局画布（实时预览） <span class="dp-hint">label {{ layout.labelPosition }}</span></div>
+              <div class="bd">
+                <div v-if="!layout.sections.length" class="drop-empty">暂无分区，点「＋ 分区」开始</div>
+                <div v-for="sec in layout.sections" :key="sec.id" class="section">
+                  <div class="sec-head">
+                    <b>{{ sec.title }}</b>
+                    <el-select v-model="sec.columns" size="small" style="width:90px" :disabled="readonly" @change="touch">
+                      <el-option :value="1" label="1 列" /><el-option :value="2" label="2 列" /><el-option :value="3" label="3 列" />
+                    </el-select>
+                    <span class="dp-hint">{{ sec.fields.length }} 字段</span>
+                    <el-button size="small" text type="danger" :disabled="readonly" @click="removeSection(sec)">删除分区</el-button>
+                  </div>
+                  <draggable v-model="sec.fields" item-key="key" :group="{name:'fields'}" :disabled="readonly">
+                    <template #item="{ element }">
+                      <div class="cell" :class="{ sel: selected && selected.key===element.key }" @click="select(element)">
+                        <span :style="{ width: element.colSpan===24 ? '100%' : ((100/sec.columns)-8)+'%', display:'inline-block' }">{{ element.label }}</span>
+                        <el-tag size="small" :type="element.colSpan===24?'warning':'info'">{{ element.colSpan===24?'跨整行':element.type }}</el-tag>
+                        <span class="x" @click.stop="removeField(sec, element)">✕</span>
+                      </div>
+                    </template>
+                  </draggable>
+                  <div v-if="!sec.fields.length" class="drop-empty">拖字段到此处</div>
+                </div>
+                <el-button size="small" :disabled="readonly" @click="addSection" style="margin-top:6px">＋ 分区</el-button>
+              </div>
+            </div>
+
+            <!-- 属性面板 -->
+            <div class="fd-pane">
+              <div class="hd">属性面板</div>
+              <div class="bd">
+                <template v-if="selected">
+                  <div class="dp-hint" style="margin-bottom:6px">字段：<b>{{ selected.label }}</b>（{{ selected.key }}）</div>
+                  <el-form label-position="top" size="small" :disabled="readonly">
+                    <el-form-item label="必填"><el-switch v-model="props[selected.key].required" @change="touch" /></el-form-item>
+                    <el-form-item label="默认值"><el-input v-model="props[selected.key].default" @input="touch" /></el-form-item>
+                    <el-form-item label="提示文案"><el-input v-model="props[selected.key].placeholder" @input="touch" /></el-form-item>
+                    <el-form-item label="校验规则"><el-input v-model="props[selected.key].rule" placeholder="如：长度 ≤ 50" @input="touch" /></el-form-item>
+                    <el-form-item label="组件类型">
+                      <el-select v-model="selected.type" @change="touch">
+                        <el-option v-for="t in types" :key="t" :label="t" :value="t" />
+                      </el-select>
+                    </el-form-item>
+                    <el-form-item label="选项集">
+                      <el-select v-model="props[selected.key].options" placeholder="引用字典/自定义" clearable @change="touch">
+                        <el-option label="字典：用户状态" value="dict:user_status" />
+                        <el-option label="自定义" value="custom" />
+                      </el-select>
+                    </el-form-item>
+                    <el-form-item label="跨整行"><el-switch v-model="props[selected.key].cross" @change="toggleCross" /></el-form-item>
+                    <el-form-item label="只读"><el-switch v-model="props[selected.key].readonly" @change="touch" /></el-form-item>
+                    <el-form-item label="隐藏"><el-switch v-model="props[selected.key].hidden" @change="touch" /></el-form-item>
+                  </el-form>
+                </template>
+                <div v-else class="dp-hint">未选中字段：点击画布中的字段编辑属性；或在「查询区/明细区」Tab 配置对应项。</div>
+              </div>
+            </div>
+          </div>
+        </el-tab-pane>
+
+        <!-- 查询区 -->
+        <el-tab-pane label="查询区（列表页筛选）" name="query">
+          <div class="dp-bar"><span class="dp-hint">拖拽调整顺序；默认取查询类字段前 3 项；≤3 不折叠、&gt;3 折叠「更多筛选」</span></div>
+          <div style="max-width:520px">
+            <draggable v-model="queryFields" item-key="key" :disabled="readonly">
+              <template #item="{ element, index }">
+                <div class="q-row">
+                  <span style="cursor:grab;color:#8c959f">⠿</span>
+                  <span>{{ element.label }}</span>
+                  <el-tag v-if="index < 3" size="small" type="success">平铺</el-tag>
+                  <el-tag v-else size="small" type="info">折叠</el-tag>
+                </div>
+              </template>
+            </draggable>
+          </div>
+        </el-tab-pane>
+
+        <!-- 明细区 -->
+        <el-tab-pane label="明细区（主从列配置）" name="detail">
+          <div class="dp-bar"><span class="dp-hint">列显隐/顺序/宽度（仅租户级默认，用户个人偏好可覆盖）</span></div>
+          <el-table :data="detailColumns" size="small" border style="max-width:640px">
+            <el-table-column type="index" label="#" width="50" />
+            <el-table-column prop="label" label="列" />
+            <el-table-column label="显示" width="80">
+              <template #default="{ row }"><el-switch v-model="row.visible" size="small" :disabled="readonly" @change="touch" /></template>
+            </el-table-column>
+            <el-table-column label="宽度(px)" width="140">
+              <template #default="{ row }"><el-input v-model.number="row.width" size="small" :disabled="readonly" @input="touch" /></template>
+            </el-table-column>
+          </el-table>
+        </el-tab-pane>
+      </el-tabs>
+
+      <div class="dp-state" style="margin-top:12px">{{ log }}</div>
+    </div>
+
+    <!-- 自建字段 -->
+    <el-dialog v-model="extVisible" title="新建自定义字段" width="480px" :close-on-click-modal="false">
+      <el-form label-position="top">
+        <el-form-item label="字段名称（中文）"><el-input v-model="ext.name" placeholder="如 项目编号" /></el-form-item>
+        <el-form-item label="字段名称（英文）"><el-input v-model="ext.nameEn" placeholder="Project No" /></el-form-item>
+        <el-form-item label="类型">
+          <el-select v-model="ext.type" style="width:100%">
+            <el-option v-for="t in extTypes" :key="t" :label="t" :value="t" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="列名预览（自动生成，不可改）">
+          <el-input :model-value="columnPreview" disabled />
+        </el-form-item>
+      </el-form>
+      <div v-if="ext.status" class="dp-state" style="margin-top:6px">{{ ext.status }}</div>
+      <template #footer>
+        <el-button @click="extVisible=false">取消</el-button>
+        <el-button type="primary" :disabled="!ext.name" :loading="ext.running" @click="saveExt">
+          {{ ext.status && ext.status.indexOf('失败')>=0 ? '重试' : '保存并建列' }}
+        </el-button>
+      </template>
+    </el-dialog>
+  </div>
+</div>
+
+<script src="../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../原型设计/资源/vendor/sortable.min.js"></script>
+<script src="../../../原型设计/资源/vendor/vuedraggable.umd.min.js"></script>
+<script src="../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref, reactive, computed, watch } = Vue;
+  var ElMessage = ElementPlus.ElMessage;
+  var ElMessageBox = ElementPlus.ElMessageBox;
+  var Draggable = (window.vuedraggable && (window.vuedraggable.default || window.vuedraggable)) || null;
+
+  var TYPES = ['单行文本', '长文本', '数字', '日期时间', '下拉单选', '下拉多选', '开关', '文件'];
+  var EXT_TYPES = ['单行文本', '长文本', '数字', '日期时间', '下拉单选', '下拉多选', '开关', '文件'];
+
+  var app = createApp({
+    setup: function () {
+      var form = ref('user_form');
+      var level = ref('tenant');
+      var roleId = ref('admin');
+      var view = ref('main');
+      var saving = ref(false);
+      var dirty = ref(false);
+      var log = ref('拖拽字段到画布、编辑属性；点「保存」提交布局并清缓存');
+      var baseSnapshot = '';
+
+      var palettePlatform = ref([
+        { key: 'username', label: '用户名', type: '单行文本' },
+        { key: 'name', label: '姓名', type: '单行文本' },
+        { key: 'dept_id', label: '部门', type: '下拉单选' },
+        { key: 'post_id', label: '岗位', type: '下拉单选' },
+        { key: 'phone', label: '手机号', type: '单行文本' },
+        { key: 'email', label: '邮箱', type: '单行文本' },
+        { key: 'status', label: '状态', type: '开关' },
+        { key: 'remark', label: '备注', type: '长文本' }
+      ]);
+      var paletteTenant = ref([
+        { key: 'ext_project_no', label: '项目编号（自建）', type: '单行文本' },
+        { key: 'ext_start_date', label: '立项日期（自建）', type: '日期时间' }
+      ]);
+      var props = reactive({
+        username: { required: true, default: '', placeholder: '请输入用户名', rule: '长度 ≤ 50', options: '', cross: false, readonly: false, hidden: false },
+        name: { required: true, default: '', placeholder: '', rule: '', options: '', cross: false, readonly: false, hidden: false },
+        remark: { required: false, default: '', placeholder: '', rule: '', options: '', cross: true, readonly: false, hidden: false }
+      });
+      function ensureProps(key) { if (!props[key]) props[key] = { required: false, default: '', placeholder: '', rule: '', options: '', cross: false, readonly: false, hidden: false }; }
+
+      var layout = reactive({
+        labelPosition: 'top',
+        sections: [
+          { id: 's1', title: '基本信息', columns: 2, fields: [
+            { key: 'name', label: '姓名', type: '单行文本', colSpan: 12 },
+            { key: 'dept_id', label: '部门', type: '下拉单选', colSpan: 12 }
+          ] },
+          { id: 's2', title: '扩展信息', columns: 3, fields: [] }
+        ]
+      });
+      var usedKeys = computed(function () {
+        var s = {}; layout.sections.forEach(function (sec) { sec.fields.forEach(function (f) { s[f.key] = true; }); }); return { has: function (k) { return !!s[k]; } };
+      });
+      var selected = ref(null);
+
+      function cloneField(el) { ensureProps(el.key); return { key: el.key, label: el.label, type: el.type, colSpan: 24 }; }
+      function select(el) { ensureProps(el.key); selected.value = el; }
+      function addSection() { layout.sections.push({ id: 's' + (layout.sections.length + 1), title: '新分区', columns: 3, fields: [] }); touch(); }
+      function removeSection(sec) { ElMessageBox.confirm('删除分区将移出其中字段（不删除字段定义），确定？', '删除分区', { type: 'warning' }).then(function () { layout.sections = layout.sections.filter(function (s) { return s.id !== sec.id; }); touch(); }); }
+      function removeField(sec, el) { sec.fields = sec.fields.filter(function (f) { return f.key !== el.key; }); if (selected.value && selected.value.key === el.key) selected.value = null; touch(); }
+      function toggleCross() { if (selected.value) { selected.value.colSpan = props[selected.value.key].cross ? 24 : 12; touch(); } }
+
+      function touch() { dirty.value = true; }
+      watch(layout, function () { touch(); }, { deep: true });
+
+      var queryFields = ref([
+        { key: 'username', label: '用户名' }, { key: 'name', label: '姓名' },
+        { key: 'dept_id', label: '部门' }, { key: 'status', label: '状态' }
+      ]);
+      var detailColumns = ref([
+        { key: 'item_no', label: '行号', visible: true, width: 80 },
+        { key: 'product', label: '物料', visible: true, width: 220 },
+        { key: 'qty', label: '数量', visible: true, width: 120 },
+        { key: 'amount', label: '金额', visible: false, width: 140 }
+      ]);
+      watch([queryFields, detailColumns], function () { touch(); }, { deep: true });
+
+      var readonly = computed(function () { return level.value === 'platform'; });
+
+      function save() {
+        saving.value = true;
+        setTimeout(function () {
+          saving.value = false; dirty.value = false;
+          log.value = 'PUT /form-design/layouts（scope=' + level.value + '）→ 保存成功，清布局缓存并生效';
+          ElMessage.success('保存成功');
+        }, 600);
+      }
+      function publish() { ElMessageBox.confirm('发布将触发 form.updated（帮助文档更新与缓存失效），确定？', '发布', { type: 'info' }).then(function () { log.value = '保存 + 发布：触发 form.updated'; ElMessage.success('已发布'); }); }
+      function restore() {
+        var to = level.value === 'role' ? '租户覆盖' : (level.value === 'tenant' ? '平台默认' : '空布局默认栅格');
+        ElMessageBox.confirm('恢复默认将删除当前层级配置，回退到「' + to + '」，确定？', '恢复默认', { type: 'warning', confirmButtonClass: 'el-button--danger' }).then(function () {
+          log.value = '恢复默认：删除 scope=' + level.value + ' 配置 → 回退「' + to + '」';
+          ElMessage.success('已恢复默认');
+        });
+      }
+
+      // 自建字段
+      var extVisible = ref(false);
+      var ext = reactive({ name: '', nameEn: '', type: '单行文本', running: false, status: '' });
+      var columnPreview = computed(function () {
+        var key = (ext.nameEn || ext.name || 'new_field').trim().replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '').toLowerCase();
+        return 'ext_' + (key || 'new_field');
+      });
+      function saveExt() {
+        ext.running = true; ext.status = '写元数据（状态=待建列）…';
+        setTimeout(function () {
+          ext.running = false;
+          if (ext.name.indexOf('失败') >= 0) { ext.status = 'DDL 失败：列已存在 → 可重试（不影响其它字段）'; ElMessage.error('建列失败，可重试'); return; }
+          ext.status = 'DDL 成功：ALTER TABLE ADD COLUMN ' + columnPreview.value + ' → 字段已生效';
+          ElMessage.success('字段已生效');
+          paletteTenant.value.push({ key: columnPreview.value, label: ext.name + '（自建）', type: ext.type });
+          setTimeout(function () { extVisible.value = false; ext.status = ''; ext.name = ''; ext.nameEn = ''; }, 500);
+        }, 800);
+      }
+
+      if (!Draggable) { console.warn('vuedraggable 未加载'); }
+      return {
+        form, level, roleId, view, saving, dirty, log,
+        palettePlatform, paletteTenant, layout, usedKeys, selected, props, types: TYPES,
+        cloneField, select, addSection, removeSection, removeField, toggleCross, touch,
+        queryFields, detailColumns, readonly, save, publish, restore,
+        extVisible, ext, extTypes: EXT_TYPES, columnPreview, saveExt
+      };
+    }
+  });
+  if (Draggable) app.component('draggable', Draggable);
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>
