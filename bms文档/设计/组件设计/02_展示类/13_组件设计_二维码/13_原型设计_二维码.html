@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 二维码（QrCode / useQrCode）</title>
+<link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-code { font-family:Consolas,"Cascadia Mono",monospace; color:#57606a; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+  .qr-wrap { position:relative; display:inline-block; padding:8px; border:1px solid #eaeef2; border-radius:8px; background:#fff; }
+  .qr-wrap svg { display:block; }
+  .qr-logo { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:20%; height:20%; background:#fff; padding:2px; border-radius:4px; }
+  .qr-mask { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; background:rgba(255,255,255,.9); border-radius:8px; font-size:13px; color:#57606a; }
+  .login-box { display:flex; gap:20px; align-items:center; flex-wrap:wrap; }
+  .status-line { font-size:13px; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="13_组件设计_二维码.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 二维码 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="13_组件设计_二维码.md">《组件设计 · 二维码》</a>：演示 <b>真实二维码生成</b>（离线 <span class="dp-code">qrcode</span> 库）、尺寸/容错/前景背景色/居中 logo、
+    下载与复制、以及（可选）<b>扫码登录</b>状态机（待扫/已扫待确认/已确认/过期）与轮询刷新。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <!-- 生成 -->
+      <div class="dp-bar">
+        <el-input v-model="value" size="small" style="width:280px" placeholder="编码内容（URL/文本）" />
+        <span>尺寸</span><el-input-number v-model="size" :min="80" :max="280" :step="20" size="small" style="width:120px" />
+        <span>容错</span>
+        <el-select v-model="level" size="small" style="width:90px">
+          <el-option v-for="l in ['L','M','Q','H']" :key="l" :label="l" :value="l" />
+        </el-select>
+        <span>前景</span><el-color-picker v-model="fg" size="small" />
+        <span>背景</span><el-color-picker v-model="bg" size="small" />
+        <el-checkbox v-model="logoOn">居中 logo（高容错）</el-checkbox>
+      </div>
+      <div class="dp-bar">
+        <el-button size="small" type="primary" @click="download">下载 SVG</el-button>
+        <el-button size="small" @click="copy">复制内容</el-button>
+        <span class="dp-hint">背景不透明（部分扫码器不识别透明底）；含 logo 建议容错 H、logo ≤ 尺寸 1/5</span>
+      </div>
+
+      <div class="qr-wrap">
+        <div v-html="svg"></div>
+        <img v-if="logoOn" class="qr-logo" :src="logoData" alt="logo" />
+      </div>
+      <div class="dp-hint" style="margin-top:6px">内容：<span class="dp-code">{{ value || '（空，不生成）' }}</span></div>
+
+      <!-- 扫码登录（可选） -->
+      <el-divider content-position="left">扫码登录（可选能力 · 状态机 + 轮询）</el-divider>
+      <div class="login-box">
+        <div class="qr-wrap">
+          <div v-html="loginSvg"></div>
+          <div v-if="loginStatus==='expired'" class="qr-mask">
+            <div>二维码已过期</div>
+            <el-button size="small" type="primary" @click="refreshLogin">刷新</el-button>
+          </div>
+          <div v-else-if="loginStatus==='scanning'" class="qr-mask">
+            <div style="font-size:22px">📱</div>
+            <div>已扫码，请在移动端确认</div>
+          </div>
+          <div v-else-if="loginStatus==='confirmed'" class="qr-mask" style="color:#1a7f37">
+            <div style="font-size:24px">✓</div>
+            <div>已确认，正在登录…</div>
+          </div>
+          <div v-else-if="loginStatus==='failed'" class="qr-mask" style="color:#cf222e">
+            <div>登录失败</div>
+            <el-button size="small" @click="refreshLogin">重试</el-button>
+          </div>
+        </div>
+        <div>
+          <div class="status-line">状态：<b>{{ loginStatus }}</b></div>
+          <div class="dp-hint">剩余有效：{{ remaining }}s（到点自动过期，停止轮询）</div>
+          <div style="margin-top:8px">
+            <span class="dp-hint">模拟：</span>
+            <el-button size="small" @click="setStatus('scanning')">移动端扫码</el-button>
+            <el-button size="small" @click="setStatus('confirmed')">移动端确认</el-button>
+            <el-button size="small" @click="setStatus('failed')">失败</el-button>
+          </div>
+          <div class="dp-hint" style="margin-top:6px">一次性短时 token（不含用户凭据）；页面不可见时轮询暂停</div>
+        </div>
+      </div>
+
+      <div class="dp-state" style="margin-top:12px">{{ log }}</div>
+    </div>
+  </div>
+</div>
+
+<script src="../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script src="../../../原型设计/资源/vendor/qrcode.js"></script>
+<script src="../../../原型设计/资源/vendor/qrcode_UTF8.js"></script>
+<script>
+  var { createApp, ref, computed, watch, onMounted, onBeforeUnmount } = Vue;
+  var ElMessage = ElementPlus.ElMessage;
+
+  function genSvg(text, level, size, fg, bg) {
+    if (!text) return '';
+    try {
+      var q = qrcode(0, level);
+      q.addData(text); q.make();
+      var n = q.getModuleCount();
+      var margin = 2;
+      var cell = Math.max(1, Math.floor(size / (n + margin * 2)));
+      var svg = q.createSvgTag(cell, margin);
+      svg = svg.replace(/fill="white"/g, 'fill="' + bg + '"').replace(/fill="black"/g, 'fill="' + fg + '"');
+      return svg;
+    } catch (e) { return '<div style="padding:20px;color:#cf222e;font-size:12px">生成失败：' + e.message + '</div>'; }
+  }
+  function logoData() {
+    var s = '<svg xmlns="http://www.w3.org/2000/svg" width="60" height="60"><rect width="60" height="60" rx="10" fill="#0969da"/><text x="30" y="40" font-size="26" fill="#fff" text-anchor="middle" font-family="sans-serif">B</text></svg>';
+    return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(s);
+  }
+
+  var app = createApp({
+    setup: function () {
+      var value = ref('https://bms.example.com/share/report/1024');
+      var size = ref(180);
+      var level = ref('M');
+      var fg = ref('#1f2328');
+      var bg = ref('#ffffff');
+      var logoOn = ref(false);
+      var log = ref('生成真实二维码（离线 qrcode 库）；含 logo 用容错 H；下载 SVG 高清');
+
+      var svg = computed(function () { return genSvg(value.value, logoOn.value ? 'H' : level.value, size.value, fg.value, bg.value); });
+      var logoDataUrl = logoData();
+
+      // 扫码登录状态机
+      var loginToken = ref('login-token-' + Math.random().toString(36).slice(2, 10));
+      var loginStatus = ref('active');
+      var remaining = ref(60);
+      var timer = null, pollTimer = null;
+      var loginSvg = computed(function () { return genSvg('https://bms.example.com/scan?token=' + loginToken.value, 'M', 180, '#1f2328', '#ffffff'); });
+
+      function startTimers() {
+        clearTimers();
+        remaining.value = 60;
+        timer = setInterval(function () {
+          if (document.hidden) return; // 页面不可见暂停
+          remaining.value -= 1;
+          if (remaining.value <= 0) { loginStatus.value = 'expired'; clearTimers(); log.value = '二维码过期 → 显示遮罩 + 刷新（停止轮询）'; }
+        }, 1000);
+        pollTimer = setInterval(function () {
+          if (document.hidden || ['confirmed', 'expired', 'failed'].indexOf(loginStatus.value) >= 0) return;
+          // 模拟轮询：真实为 GET 状态接口
+        }, 1500);
+      }
+      function clearTimers() { if (timer) { clearInterval(timer); timer = null; } if (pollTimer) { clearInterval(pollTimer); pollTimer = null; } }
+      function setStatus(s) { loginStatus.value = s; log.value = 'status-change → ' + s + (s === 'confirmed' ? '（以 token 换取会话并跳转）' : ''); }
+      function refreshLogin() { loginToken.value = 'login-token-' + Math.random().toString(36).slice(2, 10); loginStatus.value = 'active'; startTimers(); log.value = 'refresh → 重新生成一次性 token（不含凭据）'; }
+
+      function download() {
+        if (!svg.value) { ElMessage.warning('内容为空'); return; }
+        var blob = new Blob([svg.value], { type: 'image/svg+xml' });
+        var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'qrcode.svg'; a.click();
+        log.value = '下载 SVG（矢量高清）；亦可导出 PNG';
+      }
+      function copy() { try { navigator.clipboard && navigator.clipboard.writeText(value.value); } catch (e) {} ElMessage.success('已复制内容'); }
+
+      onMounted(startTimers);
+      onBeforeUnmount(clearTimers);
+
+      return { value, size, level, fg, bg, logoOn, log, svg, logoData: logoDataUrl, loginToken, loginStatus, remaining, loginSvg, setStatus, refreshLogin, download, copy };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>
