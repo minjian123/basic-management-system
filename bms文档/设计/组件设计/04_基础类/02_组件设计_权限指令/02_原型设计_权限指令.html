@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 权限指令与字段权限（v-perm / hasPerm / useFieldPerm / v-plain）</title>
+<link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background: #fff; border: 1px solid #d0d7de; border-radius: 6px; padding: 16px; }
+  .ep-section { font-weight: 600; margin: 16px 0 12px; padding-bottom: 8px; border-bottom: 1px solid #eaeef2; font-size: 14px; }
+  .ep-section:first-of-type { margin-top: 0; }
+  .dp-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
+  .dp-title { font-size: 16px; font-weight: 600; }
+  .dp-sub { color: #8c959f; font-size: 12px; margin-top: 2px; }
+  .dp-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; background: #f6f8fa; border: 1px solid #eaeef2; border-radius: 6px; padding: 8px 12px; margin-bottom: 12px; }
+  .dp-code { font-family: Consolas, "Cascadia Mono", monospace; color: #57606a; }
+  .dp-hint { color: #b1b8bf; font-size: 11px; font-style: normal; }
+  .dp-badge { display: inline-block; font-size: 11px; padding: 1px 7px; border-radius: 10px; background: #ddf4ff; color: #0969da; margin-left: 6px; }
+  .dp-badge.warn { background: #fff8c5; color: #9a6700; }
+  .dp-badge.err { background: #ffebe9; color: #cf222e; }
+  .dp-perm-log { background: #0d1117; color: #c9d1d9; font-family: Consolas, "Cascadia Mono", monospace; font-size: 12px; border-radius: 6px; padding: 10px 12px; max-height: 220px; overflow: auto; line-height: 1.7; }
+  .dp-perm-log .t { color: #7ee787; }
+  .dp-perm-log .e { color: #ff7b72; }
+  .dp-p403 { text-align: center; padding: 40px 0 24px; }
+  .dp-p403 .big { font-size: 56px; font-weight: 700; color: #cf222e; line-height: 1; }
+  .dp-p403 .txt { color: #57606a; margin: 10px 0 18px; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="02_组件设计_权限指令.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 权限指令与字段权限 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="02_组件设计_权限指令.md">《组件设计 · 权限指令与字段权限》</a>：演示 <b>v-perm</b> 按动作权限码显隐按钮、
+    <b>useFieldPerm</b> 字段 visible/editable 渲染、<b>脱敏与 data:plain</b> 明文切换、<b>route guard</b> 无权限跳 403、前后端双重控制。数据均为前端模拟。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-header">
+        <div>
+          <div class="dp-title">权限指令与字段权限 原型</div>
+          <div class="dp-sub">v-perm · hasPerm · usePermissionStore · useFieldPerm · v-plain</div>
+        </div>
+        <div class="dp-bar" style="margin-bottom:0">
+          <span class="proto-hint">切换当前主体角色：</span>
+          <el-select v-model="role" size="small" style="width:190px" @change="onRoleChange">
+            <el-option v-for="r in roles" :key="r.key" :label="r.name" :value="r.key"></el-option>
+          </el-select>
+        </div>
+      </div>
+
+      <el-tabs v-model="tab">
+        <!-- ① v-perm -->
+        <el-tab-pane label="① v-perm 按钮显隐" name="perm">
+          <div class="dp-bar">
+            <span class="proto-hint">工具栏按钮按 <span class="dp-code">业务:动作</span> 显隐（无权限不移入 DOM）</span>
+          </div>
+          <el-card shadow="never" style="margin-bottom:12px">
+            <template #header><span style="font-size:13px">用户管理 · 工具栏</span></template>
+            <el-space wrap>
+              <el-button v-if="hasPerm('user:create')" type="primary" size="small">新增用户</el-button>
+              <el-button v-if="hasPerm('user:update')" size="small">批量修改</el-button>
+              <el-button v-if="hasPerm('user:delete')" size="small" type="danger" plain>批量删除</el-button>
+              <el-button v-if="hasPerm('user:assign_role')" size="small">分配岗位</el-button>
+              <el-button v-if="hasPerm('user:reset_pwd')" size="small">重置密码</el-button>
+              <el-button v-if="hasPerm('export:download')" size="small">导出</el-button>
+              <el-button v-if="hasPerm('import:execute')" size="small">导入</el-button>
+            </el-space>
+          </el-card>
+
+          <el-descriptions :column="1" border size="small" title="当前权限集合 usePermissionStore.permissions">
+            <el-descriptions-item label="角色">{{ currentRole.name }}</el-descriptions-item>
+            <el-descriptions-item label="权限码">
+              <el-tag v-for="p in permList" :key="p" size="small" style="margin:2px 4px 2px 0">{{ p }}</el-tag>
+              <span v-if="!permList.length" class="dp-hint">空集（无任何按钮权限，默认全无）</span>
+            </el-descriptions-item>
+          </el-descriptions>
+
+          <div class="ep-section">按钮 DOM 渲染结果（v-perm 移除 vs disabled 保留）</div>
+          <el-table :data="permTable" size="small" border style="width:100%">
+            <el-table-column prop="code" label="权限码" width="180">
+              <template #default="{ row }"><span class="dp-code">{{ row.code }}</span></template>
+            </el-table-column>
+            <el-table-column prop="button" label="按钮" width="120"></el-table-column>
+            <el-table-column label="渲染策略" width="150">
+              <template #default="{ row }">{{ row.strategy }}</template>
+            </el-table-column>
+            <el-table-column label="当前结果" min-width="180">
+              <template #default="{ row }">
+                <el-tag v-if="hasPerm(row.code)" size="small" type="success">已渲染</el-tag>
+                <el-tag v-else size="small" type="info">已移除（DOM 中不存在）</el-tag>
+              </template>
+            </el-table-column>
+          </el-table>
+
+          <div class="ep-section">权限判断日志</div>
+          <div class="dp-perm-log">
+            <div v-for="(l, i) in permLog" :key="i"><span :class="l.cls">▸</span> {{ l.msg }}</div>
+            <div v-if="!permLog.length" class="dp-hint">切换角色查看权限变化</div>
+          </div>
+        </el-tab-pane>
+
+        <!-- ② 字段权限 -->
+        <el-tab-pane label="② 字段权限 visible / editable" name="field">
+          <div class="dp-bar">
+            <span class="proto-hint">字段权限来自 <span class="dp-code">sys_role_field</span>（随 <span class="dp-code">GET /menus/my</span> 表单元数据下发）</span>
+            <el-divider direction="vertical"></el-divider>
+            <el-switch v-model="editMode" active-text="编辑态" inactive-text="只读态"></el-switch>
+          </div>
+
+          <el-row :gutter="16">
+            <el-col :span="14">
+              <el-card shadow="never">
+                <template #header><span style="font-size:13px">用户表单（FormDetailPanel）</span></template>
+                <el-form label-position="top" :disabled="!editMode">
+                  <el-row :gutter="16">
+                    <el-col :span="12" v-if="f('username').visible">
+                      <el-form-item>
+                        <template #label>用户名<em class="dp-hint" style="font-style:normal"> user:username</em></template>
+                        <el-input v-model="form.username"></el-input>
+                      </el-form-item>
+                    </el-col>
+                    <el-col :span="12" v-if="f('nickname').visible">
+                      <el-form-item>
+                        <template #label>昵称<em class="dp-hint" style="font-style:normal"> user:nickname</em></template>
+                        <el-input v-model="form.nickname"></el-input>
+                      </el-form-item>
+                    </el-col>
+                    <el-col :span="12" v-if="f('phone').visible">
+                      <el-form-item>
+                        <template #label>
+                          手机号<em class="dp-hint" style="font-style:normal"> user:phone</em>
+                          <el-tag v-if="!f('phone').editable" size="small" type="info" style="margin-left:6px">editable=false</el-tag>
+                        </template>
+                        <el-input :model-value="phoneDisplay" :disabled="!f('phone').editable"></el-input>
+                      </el-form-item>
+                    </el-col>
+                    <el-col :span="12" v-if="f('email').visible">
+                      <el-form-item>
+                        <template #label>邮箱<em class="dp-hint" style="font-style:normal"> user:email</em></template>
+                        <el-input :model-value="emailDisplay" :disabled="!f('email').editable"></el-input>
+                      </el-form-item>
+                    </el-col>
+                    <el-col :span="12" v-if="f('salary').visible">
+                      <el-form-item>
+                        <template #label>薪资<em class="dp-hint" style="font-style:normal"> user:salary</em></template>
+                        <el-input v-model="form.salary" :disabled="!f('salary').editable"></el-input>
+                      </el-form-item>
+                    </el-col>
+                  </el-row>
+                </el-form>
+              </el-card>
+            </el-col>
+            <el-col :span="10">
+              <el-card shadow="never">
+                <template #header><span style="font-size:13px">字段权限配置（sys_role_field）</span></template>
+                <el-table :data="fieldPerms" size="small" border style="width:100%">
+                  <el-table-column prop="name" label="字段" width="90"></el-table-column>
+                  <el-table-column label="visible" width="80">
+                    <template #default="{ row }"><el-switch v-model="row.visible" size="small"></el-switch></template>
+                  </el-table-column>
+                  <el-table-column label="editable" width="80">
+                    <template #default="{ row }">
+                      <el-switch v-model="row.editable" size="small" :disabled="!row.visible"></el-switch>
+                    </template>
+                  </el-table-column>
+                </el-table>
+                <el-alert type="info" :closable="false" show-icon style="margin-top:10px"
+                  title="visible=false 字段不渲染；editable=false 即使编辑态也禁用（保存由后端强校验）。"></el-alert>
+              </el-card>
+            </el-col>
+          </el-row>
+        </el-tab-pane>
+
+        <!-- ③ 脱敏 -->
+        <el-tab-pane label="③ 脱敏与 data:plain" name="mask">
+          <div class="dp-bar">
+            <el-switch v-model="plainPerm" active-text="持 data:plain 动作权限" inactive-text="无 data:plain"></el-switch>
+            <span class="proto-hint">脱敏是掩码展示，字段权限是可见性控制；明文需 data:plain 且不落 localStorage</span>
+          </div>
+          <el-table :data="maskRows" size="small" border style="width:100%">
+            <el-table-column prop="name" label="字段" width="140"></el-table-column>
+            <el-table-column prop="raw" label="原始值（后端）" min-width="180">
+              <template #default="{ row }"><span class="dp-code">{{ row.raw }}</span></template>
+            </el-table-column>
+            <el-table-column label="前端展示（v-plain）" min-width="180">
+              <template #default="{ row }">{{ plainPerm ? row.raw : row.mask }}</template>
+            </el-table-column>
+            <el-table-column label="说明" min-width="200">
+              <template #default="{ row }">{{ row.note }}</template>
+            </el-table-column>
+          </el-table>
+          <el-alert type="warning" :closable="false" show-icon style="margin-top:12px"
+            title="导出同样受 data:plain 约束：敏感字段默认脱敏，持权者方可导出明文。"></el-alert>
+        </el-tab-pane>
+
+        <!-- ④ 路由守卫 403 -->
+        <el-tab-pane label="④ 路由守卫与 403" name="guard">
+          <div class="dp-bar">
+            <span class="proto-hint">路由 meta.perm 校验：无权限不注册路由，直接跳 403 页</span>
+            <el-divider direction="vertical"></el-divider>
+            <el-button size="small" @click="tryAccess('user')">访问 · 用户管理（meta.perm=user:query）</el-button>
+            <el-button size="small" @click="tryAccess('role')">访问 · 角色管理（meta.perm=role:query）</el-button>
+            <el-button size="small" @click="tryAccess('sysadmin')">访问 · 系统监控（meta.perm=monitor:query）</el-button>
+          </div>
+
+          <el-card shadow="never" v-if="!denied403">
+            <el-descriptions :column="1" border size="small">
+              <el-descriptions-item label="访问结果">{{ guardResult }}</el-descriptions-item>
+              <el-descriptions-item label="canAccess()">{{ guardPassed ? '通过，路由已注册' : '拒绝' }}</el-descriptions-item>
+            </el-descriptions>
+          </el-card>
+
+          <el-card shadow="never" v-else>
+            <div class="dp-p403">
+              <div class="big">403</div>
+              <div class="txt">抱歉，你无权访问该页面</div>
+              <el-button type="primary" @click="denied403 = false">返回上一页</el-button>
+            </div>
+          </el-card>
+        </el-tab-pane>
+      </el-tabs>
+    </div>
+  </div>
+</div>
+
+<script src="../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref, reactive, computed } = Vue;
+  var ElMessage = ElementPlus.ElMessage;
+
+  var app = createApp({
+    template: document.getElementById('app').outerHTML.replace(/<div id="app">/, '<div>').replace(/<\/div>\s*$/, ''),
+    setup: function () {
+      var tab = ref('perm');
+      var role = ref('admin');
+      var roles = [
+        { key: 'admin', name: '系统管理员（全量权限）', perms: ['user:query', 'user:create', 'user:update', 'user:delete', 'user:assign_role', 'user:reset_pwd', 'export:download', 'import:execute', 'role:query', 'monitor:query', 'data:plain'] },
+        { key: 'hr', name: '人事专员（部分权限）', perms: ['user:query', 'user:create', 'user:update', 'export:download'] },
+        { key: 'viewer', name: '只读用户（仅查询）', perms: ['user:query', 'role:query'] },
+        { key: 'none', name: '无授权主体（空集）', perms: [] }
+      ];
+      var currentRole = computed(function () {
+        for (var i = 0; i < roles.length; i++) if (roles[i].key === role.value) return roles[i];
+        return roles[0];
+      });
+      var permList = computed(function () { return currentRole.value.perms; });
+
+      function hasPerm(code) {
+        if (Array.isArray(code)) return code.some(function (c) { return permList.value.indexOf(c) >= 0; });
+        return permList.value.indexOf(code) >= 0;
+      }
+
+      var permLog = ref([]);
+      function onRoleChange() {
+        permLog.value.unshift({ msg: '权限版本变更 → usePermissionStore.load() 重新装配，当前角色：' + currentRole.value.name + '（' + permList.value.length + ' 个权限码）', cls: 't' });
+        if (permLog.value.length > 40) permLog.value.pop();
+      }
+
+      var permTable = [
+        { code: 'user:create', button: '新增用户', strategy: 'v-perm 移除' },
+        { code: 'user:update', button: '批量修改', strategy: 'v-perm 移除' },
+        { code: 'user:delete', button: '批量删除', strategy: 'v-perm 移除' },
+        { code: 'user:assign_role', button: '分配岗位', strategy: 'v-perm 移除' },
+        { code: 'user:reset_pwd', button: '重置密码', strategy: '需可见但禁用时用 PermButton' },
+        { code: 'export:download', button: '导出', strategy: 'v-perm 移除' },
+        { code: 'import:execute', button: '导入', strategy: 'v-perm 移除' }
+      ];
+
+      // ---- 字段权限 ----
+      var editMode = ref(true);
+      var fieldPerms = reactive([
+        { key: 'username', name: '用户名', visible: true, editable: true },
+        { key: 'nickname', name: '昵称', visible: true, editable: true },
+        { key: 'phone', name: '手机号', visible: true, editable: false },
+        { key: 'email', name: '邮箱', visible: true, editable: false },
+        { key: 'salary', name: '薪资', visible: false, editable: false }
+      ]);
+      function f(key) { for (var i = 0; i < fieldPerms.length; i++) if (fieldPerms[i].key === key) return fieldPerms[i]; return { visible: true, editable: true }; }
+      var form = reactive({ username: 'zhangsan', nickname: '张三', salary: '12000' });
+
+      // ---- 脱敏 ----
+      var plainPerm = ref(false);
+      var maskRows = [
+        { name: '手机号', raw: '13812345678', mask: '138****5678', note: '掩码规则，data:plain 可看明文' },
+        { name: '邮箱', raw: 'zhangsan@example.com', mask: 'z***@example.com', note: '掩码规则' },
+        { name: '身份证', raw: '440300199001011234', mask: '440300********1234', note: '掩码规则' }
+      ];
+      var phoneDisplay = computed(function () { return plainPerm.value ? '13812345678' : '138****5678'; });
+      var emailDisplay = computed(function () { return plainPerm.value ? 'zhangsan@example.com' : 'z***@example.com'; });
+
+      // ---- 路由守卫 ----
+      var guardResult = ref('请选择要访问的页面');
+      var guardPassed = ref(false);
+      var denied403 = ref(false);
+      function tryAccess(page) {
+        var need = { user: 'user:query', role: 'role:query', sysadmin: 'monitor:query' }[page];
+        var ok = hasPerm(need);
+        guardPassed.value = ok;
+        if (ok) { guardResult.value = '允许访问，路由已注册（meta.perm=' + need + '）'; denied403.value = false; ElMessage.success('访问通过'); }
+        else { guardResult.value = '拒绝访问（meta.perm=' + need + ' 不在权限集合）'; denied403.value = true; }
+      }
+
+      return {
+        tab, role, roles, currentRole, permList, hasPerm, permLog, onRoleChange, permTable,
+        editMode, fieldPerms, f, form, phoneDisplay, emailDisplay,
+        plainPerm, maskRows,
+        guardResult, guardPassed, denied403, tryAccess
+      };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>

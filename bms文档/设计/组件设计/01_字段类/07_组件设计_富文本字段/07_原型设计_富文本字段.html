@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 富文本字段（RichTextField / RichTextViewer / MarkdownField）</title>
+<link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background: #fff; border: 1px solid #d0d7de; border-radius: 6px; padding: 16px; }
+  .ep-section { font-weight: 600; margin: 16px 0 12px; padding-bottom: 8px; border-bottom: 1px solid #eaeef2; font-size: 14px; }
+  .ep-section:first-of-type { margin-top: 0; }
+  .dp-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
+  .dp-title { font-size: 16px; font-weight: 600; }
+  .dp-sub { color: #8c959f; font-size: 12px; margin-top: 2px; }
+  .dp-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; background: #f6f8fa; border: 1px solid #eaeef2; border-radius: 6px; padding: 8px 12px; margin-bottom: 12px; }
+  .dp-code { font-family: Consolas, "Cascadia Mono", monospace; color: #57606a; }
+  .dp-hint { color: #b1b8bf; font-size: 11px; font-style: normal; }
+  .rt-toolbar { display: flex; flex-wrap: wrap; gap: 4px; border: 1px solid #d0d7de; border-bottom: none; border-radius: 6px 6px 0 0; padding: 6px 8px; background: #fafbfc; align-items: center; }
+  .rt-toolbar .sep { width: 1px; height: 18px; background: #e1e4e8; margin: 0 4px; }
+  .rt-editor { border: 1px solid #d0d7de; border-radius: 0 0 6px 6px; padding: 12px 14px; min-height: 240px; outline: none; font-size: 14px; line-height: 1.8; }
+  .rt-editor:focus { border-color: #0969da; }
+  .rt-editor h2 { font-size: 18px; margin: 8px 0; }
+  .rt-editor blockquote { border-left: 3px solid #d0d7de; margin: 8px 0; padding: 4px 12px; color: #57606a; background: #f6f8fa; }
+  .rt-editor table { border-collapse: collapse; }
+  .rt-editor table th, .rt-editor table td { border: 1px solid #d0d7de; padding: 4px 10px; }
+  .rt-editor pre { background: #f6f8fa; border-radius: 4px; padding: 10px; font-size: 12px; overflow: auto; }
+  .rt-editor img { max-width: 100%; }
+  .rt-attach { display: inline-flex; align-items: center; gap: 6px; border: 1px solid #d0d7de; border-radius: 6px; padding: 4px 10px; background: #f6f8fa; font-size: 12px; color: #0969da; }
+  .rt-katex { display: inline-block; padding: 1px 6px; border-radius: 4px; background: #f0f7ff; color: #0969da; font-family: Consolas, monospace; font-size: 13px; }
+  .rt-preview { border: 1px solid #d0d7de; border-radius: 6px; padding: 12px 14px; min-height: 200px; font-size: 14px; line-height: 1.8; }
+  .rt-preview h1, .rt-preview h2, .rt-preview h3 { margin: 10px 0 6px; }
+  .rt-preview blockquote { border-left: 3px solid #d0d7de; margin: 8px 0; padding: 4px 12px; color: #57606a; background: #f6f8fa; }
+  .rt-preview pre { background: #f6f8fa; border-radius: 4px; padding: 10px; font-size: 12px; overflow: auto; }
+  .rt-preview table { border-collapse: collapse; margin: 8px 0; }
+  .rt-preview table th, .rt-preview table td { border: 1px solid #d0d7de; padding: 4px 10px; }
+  .rt-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .rt-cols .head { font-size: 12px; color: #57606a; margin-bottom: 6px; }
+  .rt-cols textarea { width: 100%; min-height: 220px; font-family: Consolas, monospace; font-size: 12px; border: 1px solid #d0d7de; border-radius: 6px; padding: 10px; box-sizing: border-box; resize: vertical; }
+  .rt-out { font-family: Consolas, monospace; font-size: 12px; background: #f6f8fa; border: 1px solid #eaeef2; border-radius: 6px; padding: 10px; max-height: 200px; overflow: auto; white-space: pre-wrap; word-break: break-all; color: #57606a; }
+  .rt-toc { border: 1px solid #eaeef2; border-radius: 6px; padding: 8px 12px; background: #fafbfc; font-size: 12px; }
+  .rt-toc a { display: block; color: #0969da; text-decoration: none; padding: 2px 0; }
+  .rt-toc a.lv3 { padding-left: 12px; color: #57606a; }
+  .dp-metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 12px 0; }
+  .dp-metric { background: #fff; border: 1px solid #d0d7de; border-radius: 6px; padding: 12px; }
+  .dp-metric .v { font-size: 18px; font-weight: 600; color: #0969da; }
+  .dp-metric .k { font-size: 12px; color: #57606a; margin-top: 4px; }
+  @media (max-width: 768px) { .rt-cols, .dp-metrics { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="07_组件设计_富文本字段.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 富文本字段 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="07_组件设计_富文本字段.md">《组件设计 · 富文本字段》</a>：演示 <b>RichTextField</b>（全量档工具栏：图片/附件卡片/表格/公式/代码高亮）、
+    <b>MarkdownField</b>（源码 + 预览双栏）、<b>sanitizeHtml</b> 白名单双向净化与 <b>RichTextViewer</b> 只读渲染（含目录导航）。
+    原型不加载真实富文本内核：编辑器用 <span class="dp-code">contenteditable</span> 模拟，净化用白名单示意实现（真实实现为 wangEditor 5 + DOMPurify，见文档第 4、6 节）。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-header">
+        <div>
+          <div class="dp-title">富文本字段 原型</div>
+          <div class="dp-sub">RichTextField · MarkdownField · sanitizeHtml · RichTextViewer</div>
+        </div>
+        <div class="dp-bar" style="margin-bottom:0">
+          <el-select v-model="mode" size="small" style="width:130px" @change="onModeChange">
+            <el-option label="mode=rich" value="rich"></el-option>
+            <el-option label="mode=markdown" value="markdown"></el-option>
+          </el-select>
+          <el-switch v-model="readonly" active-text="只读态" inactive-text="编辑态" size="small"></el-switch>
+        </div>
+      </div>
+
+      <el-tabs v-model="tab">
+        <!-- ① 富文本编辑 -->
+        <el-tab-pane label="① 富文本编辑（全量档工具栏）" name="rich">
+          <div class="dp-bar">
+            <span class="proto-hint">toolbar=full：文本/段落/插入（图片、附件卡片、表格、公式、代码块、目录）；maxLength=20000（纯文本字数）；编辑器内核 wangEditor 5（本原型用 contenteditable 模拟）</span>
+          </div>
+
+          <div class="rt-toolbar">
+            <el-button size="small" text @click="exec('bold')"><b>B</b></el-button>
+            <el-button size="small" text @click="exec('italic')"><i>I</i></el-button>
+            <el-button size="small" text @click="exec('underline')"><u>U</u></el-button>
+            <el-button size="small" text @click="insertHtml('&lt;s&gt;删除线&lt;/s&gt;')">S</el-button>
+            <span class="sep"></span>
+            <el-button size="small" text @click="insertHtml('&lt;h2&gt;小节标题&lt;/h2&gt;')">H2</el-button>
+            <el-button size="small" text @click="insertHtml('&lt;blockquote&gt;引用段落&lt;/blockquote&gt;')">引用</el-button>
+            <el-button size="small" text @click="exec('insertUnorderedList')">• 列表</el-button>
+            <el-button size="small" text @click="exec('insertOrderedList')">1. 列表</el-button>
+            <span class="sep"></span>
+            <el-button size="small" type="primary" plain @click="insertImage">插入图片</el-button>
+            <el-button size="small" type="primary" plain @click="insertAttachment">附件卡片</el-button>
+            <el-button size="small" type="primary" plain @click="insertTable">表格</el-button>
+            <el-button size="small" type="primary" plain @click="insertFormula">公式</el-button>
+            <el-button size="small" type="primary" plain @click="insertCode">代码块</el-button>
+            <span class="sep"></span>
+            <el-button size="small" @click="clearEditor">清空</el-button>
+          </div>
+          <div ref="editor" class="rt-editor" :contenteditable="readonly ? 'false' : 'true'" @input="syncHtml">
+            <h2>系统升级公告</h2>
+            <p>为提升体验，系统将于本周六 <b>22:00 - 24:00</b> 进行版本升级，期间暂停服务。</p>
+            <blockquote>升级内容详见帮助中心文章「版本说明」。</blockquote>
+            <p>关键公式：<span class="rt-katex">E = mc²</span>，代码示例：<code>npm run build</code></p>
+          </div>
+
+          <div class="dp-bar" style="margin-top:12px">
+            <el-checkbox v-model="sanitizeOnSubmit">提交前净化（sanitizeHtml）</el-checkbox>
+            <span class="proto-hint">净化白名单：标签 / 属性 / URL 协议 / style 属性级（第 4 节）</span>
+          </div>
+
+          <div class="dp-metrics">
+            <div class="dp-metric"><div class="v">{{ textLen }}</div><div class="k">纯文本字数（上限 20000）</div></div>
+            <div class="dp-metric"><div class="v">{{ htmlLen }}</div><div class="k">HTML 长度（字节）</div></div>
+            <div class="dp-metric"><div class="v">{{ strippedCount }}</div><div class="k">净化剥离节点/属性</div></div>
+            <div class="dp-metric"><div class="v">{{ hasDanger ? '有' : '无' }}</div><div class="k">检测到危险内容</div></div>
+          </div>
+          <el-alert v-if="hasDanger" type="warning" :closable="false" show-icon
+            title="检测到 script / on* 事件 / javascript: 等危险内容：提交前净化会剔除，后端白名单清洗为权威口径（内容校验失败 → 40005）"></el-alert>
+
+          <div class="ep-section">提交内容（净化后 HTML → content 字段）</div>
+          <div class="rt-out">{{ sanitizeOnSubmit ? cleanedHtml : rawHtml }}</div>
+        </el-tab-pane>
+
+        <!-- ② 轻 Markdown -->
+        <el-tab-pane label="② 轻 Markdown 模式" name="markdown">
+          <div class="dp-bar">
+            <span class="proto-hint">MarkdownField：左源码（等宽） + 右实时预览（防抖 200ms）；保存时 renderMarkdown → sanitizeHtml → 提交 HTML（不保留 Markdown 原文列）</span>
+            <el-checkbox v-model="mdSanitize">解析结果净化（html 仅白名单放行）</el-checkbox>
+          </div>
+          <div class="rt-cols">
+            <div>
+              <div class="head">源码（Markdown）</div>
+              <textarea v-model="mdSource" @input="renderMd"></textarea>
+            </div>
+            <div>
+              <div class="head">实时预览（KaTeX / PrismJS 同源渲染）</div>
+              <div class="rt-preview" v-html="mdPreview"></div>
+            </div>
+          </div>
+          <div class="ep-section">保存结果（统一按 HTML 入库）</div>
+          <div class="rt-out">{{ mdSaved }}</div>
+        </el-tab-pane>
+
+        <!-- ③ 净化与只读渲染 -->
+        <el-tab-pane label="③ 净化与只读渲染" name="viewer">
+          <div class="dp-bar">
+            <span class="proto-hint">sanitizeHtml：渲染前二次净化（防存量脏数据与接口直出）；RichTextViewer = 净化后 HTML + 统一排版样式 + 目录导航（toc=true）</span>
+            <el-button size="small" type="primary" @click="doSanitize">执行净化</el-button>
+            <el-button size="small" @click="fillDanger">载入脏数据样本</el-button>
+          </div>
+          <div class="rt-cols">
+            <div>
+              <div class="head">原始 HTML（模拟后端直出 / 存量脏数据）</div>
+              <textarea v-model="dirtyHtml" @input="doSanitize"></textarea>
+              <div class="head" style="margin-top:10px">净化结果（剥离项）</div>
+              <div class="rt-out">{{ removedList.length ? removedList.join('、') : '未发现需剥离内容' }}</div>
+            </div>
+            <div>
+              <div class="head">RichTextViewer 渲染（净化后）</div>
+              <div class="rt-preview" v-html="safeHtml"></div>
+            </div>
+          </div>
+
+          <div class="ep-section">目录导航（按 h1-h3 自动生成）</div>
+          <div class="rt-toc">
+            <a v-for="t in toc" :key="t.id" :class="{ lv3: t.level === 3 }" href="javascript:void(0)" @click="toast('滚动定位到：' + t.text)">
+              {{ t.level === 3 ? '· ' : '' }}{{ t.text }}
+            </a>
+            <span v-if="!toc.length" class="dp-hint">无 h1-h3 标题，不生成目录</span>
+          </div>
+
+          <div class="ep-section">白名单（前后端同源）</div>
+          <el-table :data="whitelist" size="small" border style="width:100%">
+            <el-table-column prop="kind" label="类别" width="90"></el-table-column>
+            <el-table-column prop="rule" label="允许 / 说明" min-width="420"></el-table-column>
+          </el-table>
+          <el-alert style="margin-top:12px" type="info" :closable="false" show-icon
+            title="禁止：script、style、iframe、object、embed、form、input、video、audio、svg、全部 on* 事件属性、javascript:/data:text/html URL、外链视频嵌入；style 属性仅保留 text-align / text-indent / width / height / max-width"></el-alert>
+        </el-tab-pane>
+      </el-tabs>
+    </div>
+  </div>
+</div>
+
+<script src="../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref, computed, onMounted } = Vue;
+  var ElMessage = ElementPlus.ElMessage;
+
+  // ---------- 白名单（示意实现，真实实现走 DOMPurify） ----------
+  var ALLOWED_TAGS = ['p','div','h1','h2','h3','h4','h5','h6','blockquote','pre','code','hr','ul','ol','li',
+    'table','thead','tbody','tr','th','td','span','strong','b','em','i','u','s','br','sub','sup','a','img'];
+  var ALLOWED_STYLE = ['text-align','text-indent','width','height','max-width'];
+  var GLOBAL_ATTR = ['class','style'];
+  var ATTR_MAP = {
+    a: ['href','title','data-file-id','data-file-name','data-file-size'],
+    img: ['src','alt','title','width','height','data-file-id']
+  };
+  var DANGER_TAGS = ['script','style','iframe','object','embed','form','input','video','audio','svg','link','meta'];
+
+  function sanitize(html) {
+    var doc = new DOMParser().parseFromString('<div id="__root">' + html + '</div>', 'text/html');
+    var root = doc.getElementById('__root');
+    var removed = [];
+    var all = root.querySelectorAll('*');
+    for (var i = 0; i < all.length; i++) {
+      var el = all[i];
+      if (!root.contains(el)) { continue; }
+      var tag = el.tagName.toLowerCase();
+      if (ALLOWED_TAGS.indexOf(tag) < 0) {
+        removed.push('< ' + tag + ' >');
+        el.parentNode.removeChild(el);
+        continue;
+      }
+      var attrs = Array.prototype.slice.call(el.attributes);
+      for (var j = 0; j < attrs.length; j++) {
+        var name = attrs[j].name.toLowerCase();
+        var value = attrs[j].value || '';
+        var allowed = GLOBAL_ATTR.indexOf(name) >= 0 || (ATTR_MAP[tag] || []).indexOf(name) >= 0;
+        if (name.indexOf('on') === 0) { el.removeAttribute(attrs[j].name); removed.push(tag + ' @' + name); continue; }
+        if (!allowed) { el.removeAttribute(attrs[j].name); removed.push(tag + ' @' + name); continue; }
+        if (name === 'href') {
+          if (/^\s*(javascript:|data:text\/html)/i.test(value)) { el.removeAttribute('href'); removed.push('a href(javascript:)'); continue; }
+          el.setAttribute('rel', 'noopener noreferrer');
+        }
+        if (name === 'src') {
+          if (/^\s*(javascript:|data:)/i.test(value)) { el.removeAttribute('src'); removed.push('img src(非法协议)'); continue; }
+          el.setAttribute('referrerpolicy', 'no-referrer');
+        }
+        if (name === 'style') {
+          var kept = [];
+          value.split(';').forEach(function (pair) {
+            var kv = pair.split(':');
+            if (kv.length !== 2) { return; }
+            var prop = kv[0].trim().toLowerCase();
+            var val = kv[1].trim();
+            if (ALLOWED_STYLE.indexOf(prop) < 0) { removed.push('style:' + prop); return; }
+            if (/expression|url\s*\(/i.test(val)) { removed.push('style:' + prop + '(危险值)'); return; }
+            kept.push(prop + ': ' + val);
+          });
+          if (kept.length) { el.setAttribute('style', kept.join('; ')); } else { el.removeAttribute('style'); }
+        }
+        if (name === 'class' && /^(katex|language-|rt-attachment)/.test(value) === false && value.indexOf('rt-') < 0 && value.indexOf('katex') < 0 && value.indexOf('language-') < 0) {
+          el.removeAttribute('class');
+        }
+      }
+    }
+    return { html: root.innerHTML, removed: removed };
+  }
+
+  function plainText(html) {
+    var doc = new DOMParser().parseFromString('<div id="__t">' + html + '</div>', 'text/html');
+    return (doc.getElementById('__t').textContent || '').replace(/\s+/g, ' ').trim();
+  }
+
+  function hasDangerous(html) {
+    return /<script|<iframe|onerror|onclick|javascript:/i.test(html);
+  }
+
+  // ---------- 极简 Markdown 解析（示意） ----------
+  function escapeHtml(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+  function inlineMd(s) {
+    return s
+      .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1">')
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" rel="noopener noreferrer">$1</a>')
+      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+      .replace(/(^|[^*])\*([^*]+)\*/g, '$1<em>$2</em>')
+      .replace(/`([^`]+)`/g, '<code>$1</code>')
+      .replace(/\$\$([^$]+)\$\$/g, '<span class="rt-katex">$1</span>')
+      .replace(/\$([^$]+)\$/g, '<span class="rt-katex">$1</span>')
+      .replace(/\[附件:([^\]]+)\]/g, '<span class="rt-attach">📎 $1</span>');
+  }
+  function renderMarkdown(src) {
+    var lines = escapeHtml(src).split('\n');
+    var out = [];
+    var inCode = false, inList = false, inTable = false;
+    for (var i = 0; i < lines.length; i++) {
+      var l = lines[i];
+      if (/^```/.test(l)) {
+        if (!inCode) { out.push('<pre><code class="language-text">'); inCode = true; }
+        else { out.push('</code></pre>'); inCode = false; }
+        continue;
+      }
+      if (inCode) { out.push(l); continue; }
+      if (inList && !/^\s*[-*] /.test(l)) { out.push('</ul>'); inList = false; }
+      if (inTable && !/^\s*\|/.test(l)) { out.push('</tbody></table>'); inTable = false; }
+      if (/^\s*#{1,6} /.test(l)) {
+        var lv = l.match(/^\s*(#{1,6}) /)[1].length;
+        out.push('<h' + lv + '>' + inlineMd(l.replace(/^\s*#{1,6} /, '')) + '</h' + lv + '>');
+      } else if (/^\s*>\s?/.test(l)) {
+        out.push('<blockquote>' + inlineMd(l.replace(/^\s*>\s?/, '')) + '</blockquote>');
+      } else if (/^\s*[-*] /.test(l)) {
+        if (!inList) { out.push('<ul>'); inList = true; }
+        out.push('<li>' + inlineMd(l.replace(/^\s*[-*] /, '')) + '</li>');
+      } else if (/^\s*\|/.test(l)) {
+        var cells = l.replace(/^\s*\|/, '').replace(/\|\s*$/, '').split('|');
+        if (/^[\s|:-]+$/.test(l)) { continue; }
+        if (!inTable) { out.push('<table><tbody>'); inTable = true; }
+        out.push('<tr>' + cells.map(function (c) { return '<td>' + inlineMd(c.trim()) + '</td>'; }).join('') + '</tr>');
+      } else if (!l.trim()) {
+        /* 空行 */
+      } else {
+        out.push('<p>' + inlineMd(l) + '</p>');
+      }
+    }
+    if (inList) { out.push('</ul>'); }
+    if (inTable) { out.push('</tbody></table>'); }
+    if (inCode) { out.push('</code></pre>'); }
+    return out.join('\n');
+  }
+
+  var DIRTY = [
+    '<h2>公告正文</h2>',
+    '<p>升级期间<b>暂停服务</b>，公式 <span class="rt-katex">E = mc²</span>，代码 <code>npm run build</code>。</p>',
+    '<scr' + 'ipt>alert("xss")</scr' + 'ipt>',
+    '<img src="/api/v1/files/preview/f1001" onerror="alert(1)">',
+    '<a href="javascript:alert(1)">恶意链接</a>',
+    '<p style="color: red; text-align: center">style 属性级白名单：保留 text-align，剥离 color</p>',
+    '<iframe src="https://evil.example.com"></iframe>',
+    '<h3>联系人</h3>',
+    '<p>如有疑问请联系管理员。</p>'
+  ].join('\n');
+
+  var app = createApp({
+    template: document.getElementById('app').outerHTML.replace(/<div id="app">/, '<div>').replace(/<\/div>\s*$/, ''),
+    setup: function () {
+      var tab = ref('rich');
+      var mode = ref('rich');
+      var readonly = ref(false);
+      var editor = ref(null);
+      var rawHtml = ref('');
+      var cleanedHtml = ref('');
+      var strippedCount = ref(0);
+      var sanitizeOnSubmit = ref(true);
+      var textLen = ref(0);
+      var htmlLen = ref(0);
+
+      function syncHtml() {
+        if (!editor.value) { return; }
+        rawHtml.value = editor.value.innerHTML;
+        var res = sanitize(rawHtml.value);
+        cleanedHtml.value = res.html;
+        strippedCount.value = res.removed.length;
+        textLen.value = plainText(cleanedHtml.value).length;
+        htmlLen.value = new Blob([cleanedHtml.value]).size;
+      }
+      var hasDanger = computed(function () { return hasDangerous(rawHtml.value); });
+
+      function exec(cmd) {
+        if (readonly.value || !editor.value) { return; }
+        editor.value.focus();
+        document.execCommand(cmd, false, null);
+        syncHtml();
+      }
+      function insertHtml(html) {
+        if (readonly.value || !editor.value) { return; }
+        editor.value.focus();
+        document.execCommand('insertHTML', false, html);
+        syncHtml();
+      }
+      var imgSeq = 0;
+      function insertImage() {
+        imgSeq++;
+        insertHtml('<img src="/api/v1/files/preview/f' + (2000 + imgSeq) + '" data-file-id="f' + (2000 + imgSeq) + '" alt="升级示意图" style="max-width: 100%">');
+        ElMessage.success('模拟上传：复用 07 useFileUpload（分片/秒传/断点续传）→ 插入预览 URL');
+      }
+      function insertAttachment() {
+        insertHtml('<a class="rt-attachment" data-file-id="f3001" data-file-name="升级说明.pdf" data-file-size="1.2MB">📎 升级说明.pdf (1.2MB)</a>');
+        ElMessage.success('附件卡片：data-file-id 关联文件管理，下载受 file:download 约束');
+      }
+      function insertTable() {
+        insertHtml('<table><tbody><tr><td>模块</td><td>影响</td></tr><tr><td>工作流</td><td>暂停 2 小时</td></tr></tbody></table>');
+      }
+      function insertFormula() {
+        insertHtml('<span class="rt-katex">\\int_0^1 x^2 dx = \\frac{1}{3}</span>');
+        ElMessage.info('公式：KaTeX 输出结构入库，只读渲染复用同一套 CSS');
+      }
+      function insertCode() {
+        insertHtml('<pre><code class="language-bash">npm ci &amp;&amp; npm run build</code></pre>');
+        ElMessage.info('代码块：PrismJS 高亮（language-* 白名单）');
+      }
+      function clearEditor() {
+        if (editor.value) { editor.value.innerHTML = '<p><br></p>'; }
+        syncHtml();
+      }
+      function onModeChange() {
+        ElMessage.info(mode.value === 'markdown'
+          ? 'Markdown 档：源码编辑 + 预览，保存时解析为 HTML（不做 HTML→Markdown 逆向转换）'
+          : '富文本档：所见即所得，输出 HTML');
+      }
+
+      // ---- Markdown 档 ----
+      var mdSource = ref([
+        '## 升级说明',
+        '',
+        '本次升级**不停机**，主要变更如下：',
+        '',
+        '- 支持公式：$E = mc^2$',
+        '- 附件： [附件:f3001]',
+        '',
+        '| 模块 | 影响 |',
+        '| --- | --- |',
+        '| 工作流 | 无 |',
+        '',
+        '```bash',
+        'npm ci && npm run build',
+        '```'
+      ].join('\n'));
+      var mdSanitize = ref(true);
+      var mdPreview = ref('');
+      var mdSaved = ref('');
+      function renderMd() {
+        var html = renderMarkdown(mdSource.value);
+        var res = mdSanitize.value ? sanitize(html) : { html: html, removed: [] };
+        mdPreview.value = res.html;
+        mdSaved.value = res.html;
+      }
+      renderMd();
+
+      // ---- 净化与只读渲染 ----
+      var dirtyHtml = ref(DIRTY);
+      var safeHtml = ref('');
+      var removedList = ref([]);
+      var toc = ref([]);
+      function buildToc(html) {
+        var doc = new DOMParser().parseFromString('<div id="__v">' + html + '</div>', 'text/html');
+        var root = doc.getElementById('__v');
+        var hs = root.querySelectorAll('h1, h2, h3');
+        var list = [];
+        for (var i = 0; i < hs.length; i++) {
+          var t = (hs[i].textContent || '').trim();
+          list.push({ id: 'h' + i, level: Number(hs[i].tagName.substring(1)), text: t });
+        }
+        toc.value = list;
+      }
+      function doSanitize() {
+        var res = sanitize(dirtyHtml.value);
+        safeHtml.value = res.html;
+        removedList.value = res.removed;
+        buildToc(res.html);
+      }
+      function fillDanger() { dirtyHtml.value = DIRTY; doSanitize(); ElMessage.warning('已载入脏数据样本（script / onerror / javascript: / iframe / 危险 style）'); }
+      function toast(m) { ElMessage.success(m); }
+
+      onMounted(syncHtml);
+
+      return {
+        tab, mode, readonly, editor, rawHtml, cleanedHtml, strippedCount, sanitizeOnSubmit,
+        textLen, htmlLen, hasDanger, exec, insertHtml, insertImage, insertAttachment, insertTable,
+        insertFormula, insertCode, clearEditor, onModeChange, syncHtml,
+        mdSource, mdSanitize, mdPreview, mdSaved, renderMd,
+        dirtyHtml, safeHtml, removedList, toc, doSanitize, fillDanger, toast,
+        whitelist: [
+          { kind: '块级', rule: 'p、div、h1-h6、blockquote、pre、hr、ul、ol、li、table、thead、tbody、tr、th、td' },
+          { kind: '行内', rule: 'span、strong、em、u、s、code、br、sub、sup、a（href 限 http/https/mailto/站内相对路径，强制 rel="noopener noreferrer"）' },
+          { kind: '图片', rule: 'img（src 仅站内文件预览 URL，禁 data: 与 javascript:；统一 referrerpolicy="no-referrer"）' },
+          { kind: '公式', rule: 'KaTeX 输出结构（span.katex 及白名单子节点）' },
+          { kind: '代码', rule: 'pre > code 与 class="language-*"（常用语言白名单）' },
+          { kind: '附件', rule: 'a.rt-attachment[data-file-id][data-file-name][data-file-size] → 渲染层转 07 下载/预览' },
+          { kind: '样式', rule: 'style 仅 text-align / text-indent / width / height / max-width；禁 expression() 与 url(...)' }
+        ]
+      };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>
