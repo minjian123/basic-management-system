@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 租户切换（TenantSwitcher / TenantList / useTenant）</title>
+<link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-code { font-family:Consolas,"Cascadia Mono",monospace; color:#57606a; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+  .topbar { display:flex; align-items:center; gap:10px; background:var(--brand-primary,#0969da); color:#fff; padding:8px 14px; border-radius:8px 8px 0 0; }
+  .tenant-btn { display:inline-flex; align-items:center; gap:6px; background:rgba(255,255,255,.18); color:#fff; padding:4px 10px; border-radius:6px; cursor:pointer; font-size:13px; }
+  .tenant-item { display:flex; align-items:center; gap:8px; padding:8px 12px; cursor:pointer; border-radius:6px; }
+  .tenant-item:hover { background:#eef4ff; }
+  .tenant-item.on { background:#e7f0ff; }
+  .tenant-item .nm { font-weight:600; }
+  .tenant-item .meta { color:#b1b8bf; font-size:11px; }
+  .badge-cur { background:#1f883d; color:#fff; border-radius:4px; font-size:10px; padding:0 5px; }
+  .mini { border:1px solid #eaeef2; border-radius:0 0 8px 8px; padding:14px; }
+  .chips span { display:inline-block; background:#f6f8fa; border:1px solid #eaeef2; border-radius:12px; padding:2px 8px; margin:2px; font-size:12px; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="21_组件设计_租户切换.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 租户切换 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="21_组件设计_租户切换.md">《组件设计 · 租户切换》</a>：演示一号多租户列表、搜索、当前租户标记、切换二次确认与切换编排（会话→用户/权限/菜单→品牌→清缓存/标签→跳主页），并展示单租户隐藏。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-bar">
+        <el-switch v-model="multi" size="small" active-text="一号多租户（>1 显示入口）" />
+        <el-checkbox v-model="confirmOn" size="small">切换二次确认</el-checkbox>
+        <el-checkbox v-model="dirty" size="small">当前页有未保存修改</el-checkbox>
+        <span class="dp-hint">切换过程模拟全量重载：重取权限/菜单/品牌并清理旧缓存</span>
+      </div>
+
+      <div class="topbar">
+        <b>BMS 控制台</b>
+        <span style="flex:1"></span>
+        <el-popover v-if="multi" placement="bottom-end" :width="320" trigger="click">
+          <template #reference><span class="tenant-btn">🏢 {{ current.name }} ▾</span></template>
+          <el-input v-model="kw" size="small" placeholder="搜索租户" clearable style="margin-bottom:8px" />
+          <div v-for="t in filtered" :key="t.id" class="tenant-item" :class="{on: t.id===current.id}" @click="pick(t)">
+            <span>🏢</span>
+            <span style="flex:1"><span class="nm">{{ t.name }}</span><br><span class="meta">{{ t.code }} · {{ t.role }}</span></span>
+            <span v-if="t.id===current.id" class="badge-cur">当前</span>
+          </div>
+          <div v-if="!filtered.length" class="dp-hint" style="text-align:center;padding:8px">无匹配租户</div>
+        </el-popover>
+        <span v-else class="dp-hint" style="color:#fff">单租户：不显示租户入口</span>
+      </div>
+      <div class="mini">
+        <el-alert type="info" :closable="false" show-icon style="margin-bottom:10px" :title="'当前租户：' + current.name + '（' + current.code + '）　请求头 X-Tenant-Id: ' + current.id" />
+        <div class="dp-hint" style="margin-bottom:4px">该租户下的权限 / 菜单（切换后重算）：</div>
+        <div class="chips"><span v-for="p in perms" :key="p">{{ p }}</span></div>
+        <div class="dp-hint" style="margin-top:10px">品牌主色：<span class="dp-code">{{ brandColor }}</span>　|　页面级标签：<span class="dp-code">{{ tabs.join(' / ') }}</span></div>
+      </div>
+
+      <div class="dp-state" style="margin-top:12px">{{ log }}</div>
+    </div>
+  </div>
+</div>
+
+<script src="../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref, computed } = Vue;
+  var ElMessage = ElementPlus.ElMessage;
+  var ElMessageBox = ElementPlus.ElMessageBox;
+
+  var app = createApp({
+    setup: function () {
+      var tenants = [
+        { id: 1, name: '总部（平台）', code: 'platform', role: '平台管理员' },
+        { id: 2, name: '华东制造有限公司', code: 'huadong', role: '租户管理员' },
+        { id: 3, name: '北方贸易集团', code: 'beifang', role: '普通用户' },
+        { id: 4, name: '西部物流', code: 'xibu', role: '普通用户' }
+      ];
+      var current = ref(tenants[0]);
+      var kw = ref('');
+      var multi = ref(true);
+      var confirmOn = ref(true);
+      var dirty = ref(false);
+      var switching = ref(false);
+      var perms = ref(['用户管理', '角色管理', '菜单管理', '系统设置']);
+      var brandColor = ref('#0969da');
+      var tabs = ref(['工作台', '用户管理']);
+      var log = ref('可切换租户 >1 时显示入口；切换后重载用户/权限/菜单/品牌并清理旧缓存与标签');
+
+      var filtered = computed(function () { return tenants.filter(function (t) { return !kw.value || t.name.indexOf(kw.value) >= 0 || t.code.indexOf(kw.value) >= 0; }); });
+
+      function pick(t) {
+        if (t.id === current.value.id) { log.value = '所选为当前租户 → 无操作'; return; }
+        var msg = '切换租户将重新加载，' + (dirty.value ? '当前有未保存修改将丢失，' : '') + '确定切换到「' + t.name + '」？';
+        if (!confirmOn.value) { doSwitch(t); return; }
+        ElMessageBox.confirm(msg, '切换租户', { type: 'warning' }).then(function () { doSwitch(t); }).catch(function () { log.value = '取消切换 → 保持当前租户'; });
+      }
+      function doSwitch(t) {
+        switching.value = true;
+        log.value = '切换编排：①POST /tenant/switch 换新会话/令牌 → ②重取用户/权限/菜单 → ③重取品牌 → ④清理缓存与页面级标签 → ⑤跳默认主页';
+        setTimeout(function () {
+          current.value = t;
+          perms.value = t.role === '平台管理员' ? ['用户管理', '租户管理', '审计', '系统设置'] : (t.role === '租户管理员' ? ['用户管理', '角色管理', '系统设置'] : ['工作台', '我的待办']);
+          brandColor.value = t.id === 1 ? '#0969da' : (t.id === 2 ? '#1f883d' : (t.id === 3 ? '#bf8700' : '#8250df'));
+          tabs.value = ['工作台'];
+          switching.value = false;
+          log.value = '切换完成 → 权限/菜单/品牌已重算，旧租户缓存与标签已清理；请求头 X-Tenant-Id=' + t.id + '；深链无权限则回默认主页';
+          ElMessage.success('已切换到 ' + t.name);
+        }, 600);
+      }
+
+      return { tenants, current, kw, multi, confirmOn, dirty, switching, perms, brandColor, tabs, log, filtered, pick };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>
