@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 全局搜索（GlobalSearch / SearchPanel / SearchResults / SearchResultItem / useGlobalSearch）</title>
+<link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+  .topbar { display:flex; align-items:center; gap:12px; background:#24292f; color:#fff; border-radius:8px; padding:8px 14px; margin-bottom:12px; }
+  .topbar .brand { font-weight:600; }
+  .topbar .sp { flex:1; }
+  .searchbox { display:flex; align-items:center; gap:8px; background:#3a4149; border-radius:6px; padding:4px 10px; width:360px; }
+  .searchbox input { border:none; outline:none; background:transparent; color:#fff; width:100%; font-size:13px; }
+  .searchbox .kbd { font-size:11px; color:#b6bec7; border:1px solid #57606a; border-radius:4px; padding:0 5px; }
+  .hit { padding:10px 12px; border:1px solid #eaeef2; border-radius:8px; margin-bottom:8px; cursor:pointer; }
+  .hit:hover { border-color:#0969da; }
+  .hit .dom { font-size:11px; color:#0969da; }
+  .hit .ttl { font-size:13px; font-weight:600; margin:2px 0; }
+  .hit .sm { font-size:12px; color:#57606a; }
+  .hit em { background:#fff8c5; color:#9a6700; font-style:normal; padding:0 1px; border-radius:2px; }
+  .panel { position:absolute; z-index:50; width:420px; background:#fff; border:1px solid #d0d7de; border-radius:8px; box-shadow:0 6px 24px rgba(0,0,0,.15); margin-top:6px; }
+  .panel .sec { padding:6px 12px; font-size:11px; color:#8c959f; border-bottom:1px solid #f2f3f5; }
+  .panel .row { padding:8px 12px; font-size:13px; cursor:pointer; display:flex; gap:8px; }
+  .panel .row:hover, .panel .row.on { background:#eef4ff; }
+  .recent-tag { cursor:pointer; margin:0 6px 6px 0; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="07_组件设计_全局搜索.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 全局搜索 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="07_组件设计_全局搜索.md">《组件设计 · 全局搜索》</a>：演示顶栏 <b>GlobalSearch</b> 入口与快捷键、
+    <b>SearchPanel</b> 命令面板即时建议/最近搜索/键盘导航、<b>SearchResults</b> 多域分组/页签与高亮、审计日志页签（log 权限）、降级提示。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <!-- 顶栏 -->
+      <div class="topbar">
+        <span class="brand">BMS 控制台</span>
+        <span class="sp"></span>
+        <div class="searchbox" style="position:relative">
+          <span>🔍</span>
+          <input ref="inputEl" v-model="q" placeholder="搜索用户、部门、角色、字典、单据、文件…" @input="onInput" @focus="panelOpen=true" @keydown.enter="doSearch" @keydown.esc="panelOpen=false" />
+          <span class="kbd">Ctrl/Cmd K</span>
+          <!-- 命令面板 -->
+          <div v-if="panelOpen && q" class="panel">
+            <div class="sec">即时建议（防抖 250ms）</div>
+            <div v-for="(s,i) in suggestions" :key="s.biz_id" class="row" :class="{ on: i===selIdx }" @mousedown.prevent="openHit(s)">
+              <span class="dom">{{ domainName(s.doc_type) }}</span>
+              <span v-html="hl(s.title)"></span>
+            </div>
+            <div v-if="!suggestions.length" class="row dp-hint">无建议</div>
+            <div class="sec" style="border-top:1px solid #f2f3f5">最近搜索</div>
+            <div style="padding:6px 12px">
+              <el-tag v-for="(r,i) in recent" :key="i" size="small" class="recent-tag" @click="q=r; doSearch()">{{ r }}</el-tag>
+            </div>
+            <div class="row" @mousedown.prevent="doSearch"><b>查看全部结果 →</b></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="dp-bar">
+        <span class="dp-hint">可检索域 = 权限并集（无权限域不展示）；命中只返回 ID + 高亮，详情回查数据库</span>
+        <span style="flex:1"></span>
+        <el-switch v-model="permLog" size="small" active-text="log:query（审计日志页签）" />
+      </div>
+
+      <div v-if="degraded" class="dp-bar" style="background:#fff8c5;border-color:#d4a72c">
+        <span style="font-size:12px;color:#9a6700">⚠ 检索服务降级中（10103）：ES 故障已切换数据库模糊查询，结果可能不完整</span>
+        <el-button size="small" text @click="degraded=false">忽略</el-button>
+      </div>
+
+      <el-tabs v-model="activeDomain" @tab-change="doSearch">
+        <el-tab-pane label="全部" name="all" />
+        <el-tab-pane v-for="d in domains" :key="d.key" :label="d.label" :name="d.key" />
+        <el-tab-pane v-if="permLog" label="审计日志" name="log" />
+      </el-tabs>
+
+      <div v-if="activeDomain==='log'" class="dp-bar">
+        <span class="dp-hint">审计日志检索：时间范围必填，单次 ≤ 31 天（10107）；跨月自动路由多索引</span>
+        <el-date-picker v-model="logRange" type="daterange" size="small" range-separator="~" start-placeholder="开始" end-placeholder="结束" style="width:260px" />
+      </div>
+
+      <div style="max-width:760px">
+        <div v-if="loading" class="dp-hint" style="padding:20px">检索中…（骨架/加载态由展示类 05 提供）</div>
+        <template v-else>
+          <div v-for="(group, dom) in groupedResult" :key="dom" style="margin-bottom:14px">
+            <div class="dp-hint" style="margin-bottom:6px">{{ domainName(dom) }}（{{ group.length }}）<span v-if="dom!=='all'" style="float:right">更多 →</span></div>
+            <div v-for="h in group" :key="h.biz_id" class="hit" @click="openHit(h)">
+              <div class="dom">{{ domainName(h.doc_type) }} · {{ h.updated_at }}</div>
+              <div class="ttl" v-html="hl(h.title)"></div>
+              <div class="sm" v-html="hl(h.highlight)"></div>
+            </div>
+          </div>
+          <div v-if="!Object.keys(groupedResult).length" class="dp-hint" style="text-align:center;padding:30px">未找到相关内容（空状态由展示类 05 提供）</div>
+        </template>
+      </div>
+
+      <div class="dp-state" style="margin-top:12px">{{ log }}</div>
+    </div>
+  </div>
+</div>
+
+<script src="../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref, reactive, computed, onMounted, onBeforeUnmount, nextTick } = Vue;
+  var ElMessage = ElementPlus.ElMessage;
+
+  var DATA = [
+    { doc_type: 'user', biz_id: 'u1', title: '张三', highlight: '研发中心 · 手机 138****1234' },
+    { doc_type: 'user', biz_id: 'u2', title: '张四', highlight: '财务部 · 邮箱 zhang4@x.com' },
+    { doc_type: 'dept', biz_id: 'd1', title: '研发中心', highlight: '上级：技术中心 · 负责人 张三' },
+    { doc_type: 'role', biz_id: 'r1', title: '财务专员', highlight: '业务权限：收款、付款' },
+    { doc_type: 'dict', biz_id: 'k1', title: '用户状态', highlight: '启用 / 停用 / 锁定' },
+    { doc_type: 'purchase', biz_id: 'p1', title: '采购申请-20260901', highlight: '张三提交 · 金额 ¥12,800' },
+    { doc_type: 'file_meta', biz_id: 'f1', title: '采购制度.pdf', highlight: '单笔 ≥ 1 万元需总经理审批' },
+    { doc_type: 'help_article', biz_id: 'h1', title: '如何发起采购申请', highlight: '进入采购模块 → 新增申请' }
+  ];
+  var LOGS = [
+    { doc_type: 'log', biz_id: 'l1', title: '操作日志', highlight: '用户 zhangsan 新增用户 · 2026-09-01 10:20' },
+    { doc_type: 'log', biz_id: 'l2', title: '登录日志', highlight: '用户 lisi 登录成功 · IP 10.0.0.8' }
+  ];
+
+  var app = createApp({
+    setup: function () {
+      var inputEl = ref(null);
+      var q = ref('');
+      var panelOpen = ref(false);
+      var suggestions = ref([]);
+      var selIdx = ref(0);
+      var recent = ref(['采购申请', '张三']);
+      var activeDomain = ref('all');
+      var loading = ref(false);
+      var degraded = ref(false);
+      var permLog = ref(false);
+      var logRange = ref('');
+      var log = ref('输入关键词开始搜索；Ctrl/Cmd+K 呼出命令面板；回车进结果页');
+      var timer = null;
+
+      var domains = ref([
+        { key: 'user', label: '用户' }, { key: 'dept', label: '部门' }, { key: 'role', label: '角色' },
+        { key: 'dict', label: '字典' }, { key: 'purchase', label: '产品单据' }, { key: 'file_meta', label: '文件' },
+        { key: 'help_article', label: '帮助文章' }
+      ]);
+      function domainName(k) { return ({ user: '用户', dept: '部门', role: '角色', dict: '字典', purchase: '产品单据', file_meta: '文件', help_article: '帮助文章', log: '审计日志' })[k] || k; }
+
+      function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+      function hl(s) { if (!q.value) return esc(s); var re = new RegExp('(' + q.value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi'); return esc(s).replace(re, '<em>$1</em>'); }
+
+      function onInput() {
+        panelOpen.value = true;
+        if (timer) clearTimeout(timer);
+        timer = setTimeout(function () { suggest(); }, 250);
+      }
+      function suggest() {
+        suggestions.value = q.value ? DATA.filter(function (h) { return (h.title + h.highlight).indexOf(q.value) >= 0; }).slice(0, 5) : [];
+        selIdx.value = 0;
+        log.value = '即时建议（防抖 250ms）：命中 ' + suggestions.value.length + ' 条（各域 Top 5）';
+      }
+
+      var groupedResult = computed(function () {
+        var base = (activeDomain.value === 'log') ? LOGS : DATA;
+        var hits = q.value ? base.filter(function (h) { return (h.title + h.highlight).indexOf(q.value) >= 0; }) : [];
+        if (activeDomain.value === 'log') return { log: hits };
+        if (activeDomain.value !== 'all') return hits.length ? (function () { var o = {}; o[activeDomain.value] = hits; return o; })() : {};
+        var g = {};
+        hits.forEach(function (h) { (g[h.doc_type] = g[h.doc_type] || []).push(h); });
+        return g;
+      });
+
+      function doSearch() {
+        panelOpen.value = false;
+        if (!q.value.trim()) return;
+        loading.value = true; log.value = 'GET /search/global?q=' + q.value + '&types=' + (activeDomain.value === 'all' ? '*' : activeDomain.value) + '&page=1（限深 ≤ 100 页）';
+        setTimeout(function () { loading.value = false; if (!recent.value.includes(q.value)) recent.value.unshift(q.value); recent.value = recent.value.slice(0, 6); log.value += ' → 多域聚合 + 高亮返回'; }, 350);
+      }
+      function openHit(h) { panelOpen.value = false; log.value = '打开命中 ' + h.doc_type + '#' + h.biz_id + ' → 跳转详情并回查数据库取最新'; ElMessage.success('跳转 ' + domainName(h.doc_type) + '：' + h.title); }
+
+      function onKey(e) {
+        var isK = (e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K');
+        if (isK) { e.preventDefault(); nextTick(function () { inputEl.value && inputEl.value.focus(); }); panelOpen.value = true; log.value = 'Ctrl/Cmd+K 呼出命令面板'; }
+        if (panelOpen.value && q.value) {
+          if (e.key === 'ArrowDown') { selIdx.value = Math.min(selIdx.value + 1, suggestions.value.length - 1); e.preventDefault(); }
+          if (e.key === 'ArrowUp') { selIdx.value = Math.max(selIdx.value - 1, 0); e.preventDefault(); }
+        }
+      }
+      onMounted(function () { window.addEventListener('keydown', onKey); });
+      onBeforeUnmount(function () { window.removeEventListener('keydown', onKey); if (timer) clearTimeout(timer); });
+
+      return { inputEl, q, panelOpen, suggestions, selIdx, recent, activeDomain, domains, loading, degraded, permLog, logRange, log,
+        domainName, hl, onInput, doSearch, openHit, groupedResult };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>
