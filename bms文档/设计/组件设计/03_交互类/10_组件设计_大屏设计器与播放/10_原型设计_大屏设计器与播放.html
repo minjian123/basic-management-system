@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 大屏设计器与播放（ScreenDesigner / ComponentPanel / ScreenCanvas / ScreenPropertyPanel / ScreenPlayer）</title>
+<link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-code { font-family:Consolas,"Cascadia Mono",monospace; color:#57606a; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+  .sd-grid { display:grid; grid-template-columns: 150px 1fr 240px; gap:12px; align-items:start; }
+  .pane { border:1px solid #eaeef2; border-radius:8px; }
+  .pane .hd { padding:8px 12px; border-bottom:1px solid #eaeef2; font-size:13px; font-weight:600; }
+  .pane .bd { padding:10px; }
+  .sc-stage { position:relative; overflow:auto; background:#e9edf2; border-radius:8px; padding:8px; min-height:440px; }
+  .sc-canvas { position:relative; background:#0b2036; transform-origin: top left; box-shadow:0 2px 10px rgba(0,0,0,.2); }
+  .sc-item { position:absolute; border:1px solid #2a4a6b; border-radius:6px; background:#12293f; color:#cfe3ff; overflow:hidden; display:flex; flex-direction:column; cursor:move; }
+  .sc-item.sel { border-color:#409eff; box-shadow:0 0 0 1px #409eff; }
+  .sc-head { padding:2px 8px; font-size:11px; color:#8fb4dc; border-bottom:1px solid #23405c; display:flex; align-items:center; }
+  .sc-head .x { margin-left:auto; cursor:pointer; color:#ff7875; }
+  .sc-body { flex:1; min-height:0; }
+  .sc-resize { position:absolute; right:0; bottom:0; width:12px; height:12px; background:#409eff; cursor:se-resize; opacity:.7; }
+  .comp-btn { display:block; width:100%; margin-bottom:6px; }
+  .player { position:fixed; inset:0; z-index:3000; background:#000; display:flex; flex-direction:column; }
+  .player .p-stage { flex:1; position:relative; overflow:hidden; display:flex; align-items:center; justify-content:center; }
+  .player .p-bar { display:flex; align-items:center; gap:12px; padding:8px 16px; background:#111; color:#ddd; font-size:13px; }
+  .player .dots span { display:inline-block; width:8px; height:8px; border-radius:50%; background:#555; margin:0 3px; }
+  .player .dots span.on { background:#409eff; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="10_组件设计_大屏设计器与播放.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 大屏设计器与播放 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="10_组件设计_大屏设计器与播放.md">《组件设计 · 大屏设计器与播放》</a>：演示自由画布拖放/位置尺寸、组件面板、属性面板、画布配置、多页与轮播播放。
+    真实实现画布为 <span class="dp-code">@vue-flow/core</span>（ESM 独立分包），原型以绝对定位简化模拟；图表复用 <span class="dp-code">EChart</span> + 令牌色板。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-bar">
+        <el-button size="small" @click="preview">预览播放</el-button>
+        <el-button size="small" type="primary" :loading="saving" @click="save">保存</el-button>
+        <el-button size="small" type="success" @click="publish">发布</el-button>
+        <span style="flex:1"></span>
+        <span class="dp-hint">分辨率 {{ W }}×{{ H }} · 缩放 {{ Math.round(scale*100) }}% · {{ pages.length }} 页</span>
+      </div>
+
+      <div class="sd-grid">
+        <!-- 组件面板 -->
+        <div class="pane">
+          <div class="hd">组件面板</div>
+          <div class="bd">
+            <el-button v-for="c in compTypes" :key="c.type" class="comp-btn" size="small" @click="addComponent(c.type)">{{ c.label }}</el-button>
+          </div>
+        </div>
+
+        <!-- 画布 -->
+        <div class="pane">
+          <div class="hd">自由画布（绝对定位 · 拖拽/缩放） <span class="dp-hint">页：{{ page.name }}</span></div>
+          <div class="bd">
+            <div class="sc-stage" ref="stageEl">
+              <div class="sc-canvas" :style="{ width: W+'px', height: H+'px', transform: 'scale('+scale+')', background: config.background }">
+                <div v-for="c in page.components" :key="c.id"
+                  class="sc-item" :class="{ sel: selected && selected.id===c.id }"
+                  :style="{ left:c.x+'px', top:c.y+'px', width:c.w+'px', height:c.h+'px', zIndex:c.z }"
+                  @mousedown.stop="startDrag($event,c)" @click.stop="select(c)">
+                  <div class="sc-head">{{ c.title }}<span class="x" @mousedown.stop @click.stop="removeComponent(c)">✕</span></div>
+                  <div class="sc-body"><screen-widget :comp="c" /></div>
+                  <div class="sc-resize" @mousedown.stop="startResize($event,c)"></div>
+                </div>
+              </div>
+            </div>
+            <div style="margin-top:8px;display:flex;gap:6px;align-items:center">
+              <el-button size="small" @click="addPage">＋ 页</el-button>
+              <el-button size="small" v-for="(p,i) in pages" :key="p.id" :type="p.id===page.id?'primary':'default'" @click="setPage(p)">{{ p.name }}</el-button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 属性面板 -->
+        <div class="pane">
+          <div class="hd">属性面板{{ selected ? '：' + selected.title : '' }}</div>
+          <div class="bd">
+            <template v-if="selected">
+              <el-form label-position="top" size="small">
+                <el-form-item label="标题"><el-input v-model="selected.title" @input="touch" /></el-form-item>
+                <el-form-item label="位置 x / y">
+                  <el-input-number v-model="selected.x" :min="0" @change="touch" /> <el-input-number v-model="selected.y" :min="0" @change="touch" />
+                </el-form-item>
+                <el-form-item label="尺寸 w / h">
+                  <el-input-number v-model="selected.w" :min="40" @change="touch" /> <el-input-number v-model="selected.h" :min="30" @change="touch" />
+                </el-form-item>
+                <el-form-item label="层级 z"><el-input-number v-model="selected.z" :min="0" @change="touch" /></el-form-item>
+                <el-form-item v-if="selected.type==='chart'" label="图表类型">
+                  <el-select v-model="selected.chartType" @change="touch">
+                    <el-option label="柱状图" value="bar" /><el-option label="折线图" value="line" /><el-option label="饼图" value="pie" />
+                  </el-select>
+                </el-form-item>
+                <el-form-item v-if="selected.type==='text'" label="文本内容"><el-input v-model="selected.text" type="textarea" :rows="2" @input="touch" /></el-form-item>
+              </el-form>
+            </template>
+            <template v-else>
+              <el-form label-position="top" size="small">
+                <el-form-item label="分辨率">
+                  <el-select v-model="res" @change="onRes">
+                    <el-option label="1920 × 1080" value="1920x1080" /><el-option label="1280 × 720" value="1280x720" />
+                  </el-select>
+                </el-form-item>
+                <el-form-item label="背景"><el-input v-model="config.background" @input="touch" /></el-form-item>
+                <el-form-item label="轮播间隔（秒）"><el-input-number v-model="config.interval" :min="3" @change="touch" /></el-form-item>
+              </el-form>
+            </template>
+          </div>
+        </div>
+      </div>
+
+      <div class="dp-state" style="margin-top:12px">{{ log }}</div>
+    </div>
+
+    <!-- 播放器 -->
+    <div v-if="playing" class="player">
+      <div class="p-stage">
+        <div class="sc-canvas" :style="{ width: W+'px', height: H+'px', transform: 'scale('+playScale+')', background: config.background, transformOrigin:'center' }">
+          <div v-for="c in playPage.components" :key="c.id" class="sc-item"
+            :style="{ left:c.x+'px', top:c.y+'px', width:c.w+'px', height:c.h+'px', zIndex:c.z, cursor:'default' }">
+            <div v-if="c.type==='text'" style="padding:8px">{{ c.text }}</div>
+            <div v-else class="sc-body"><screen-widget :comp="c" /></div>
+          </div>
+        </div>
+      </div>
+      <div class="p-bar">
+        <span>大屏播放（独立路由 / 全屏 / 轮播）</span>
+        <span class="dots"><span v-for="(p,i) in pages" :key="p.id" :class="{ on: i===playIndex }"></span></span>
+        <span>{{ playPage.name }}</span>
+        <span style="flex:1"></span>
+        <el-button size="small" @click="prevPage">上一页</el-button>
+        <el-button size="small" @click="nextPage">下一页</el-button>
+        <el-button size="small" type="danger" @click="exitPlay">退出播放</el-button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script src="../../../原型设计/资源/vendor/echarts.min.js"></script>
+<script>
+  var { createApp, ref, reactive, computed, onMounted, onBeforeUnmount } = Vue;
+  var ElMessage = ElementPlus.ElMessage;
+  var PALETTE = ['#1c8cff', '#2da44e', '#d4a72c', '#cf222e', '#8250df', '#39c5cf'];
+
+  function buildChartOption(comp) {
+    var months = ['1月', '2月', '3月', '4月', '5月', '6月'];
+    var vals = [120, 180, 150, 220, 260, 240];
+    var dark = { color: PALETTE, tooltip: { trigger: 'axis' }, grid: { left: 6, right: 12, top: 24, bottom: 4, containLabel: true },
+      xAxis: { type: 'category', data: months, axisLabel: { color: '#8fb4dc' }, axisLine: { lineStyle: { color: '#2a4a6b' } } },
+      yAxis: { type: 'value', axisLabel: { color: '#8fb4dc' }, splitLine: { lineStyle: { color: '#1c3550' } } } };
+    if (comp.chartType === 'pie') {
+      return { color: PALETTE, tooltip: { trigger: 'item' }, series: [{ type: 'pie', radius: '62%', label: { color: '#cfe3ff', fontSize: 10 }, data: [{ name: 'A', value: 186 }, { name: 'B', value: 132 }, { name: 'C', value: 78 }] }] };
+    }
+    dark.series = [{ type: comp.chartType === 'line' ? 'line' : 'bar', smooth: true, data: vals, itemStyle: { color: PALETTE[0] } }];
+    return dark;
+  }
+
+  var ScreenWidget = {
+    props: { comp: Object },
+    template: `
+      <div style="width:100%;height:100%">
+        <div v-if="comp.type==='chart'" ref="el" style="width:100%;height:100%"></div>
+        <div v-else-if="comp.type==='metric'" style="height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#cfe3ff">
+          <div style="font-size:30px;font-weight:700;color:#1c8cff">{{ comp.value || '1,286' }}</div>
+          <div style="font-size:12px;color:#8fb4dc">{{ comp.title }} 环比 +12.5%</div>
+        </div>
+        <div v-else-if="comp.type==='text'" style="height:100%;display:flex;align-items:center;justify-content:center;color:#cfe3ff;font-size:16px">{{ comp.text || comp.title }}</div>
+        <div v-else-if="comp.type==='time'" style="height:100%;display:flex;align-items:center;justify-content:center;color:#cfe3ff;font-size:20px">{{ now }}</div>
+        <div v-else-if="comp.type==='table'" style="height:100%;overflow:hidden;color:#cfe3ff;font-size:11px;padding:4px 8px">
+          <div v-for="(r,i) in tableRows" :key="i" style="display:flex;justify-content:space-between;border-bottom:1px solid #1c3550;padding:3px 0"><span>{{ r.k }}</span><span>{{ r.v }}</span></div>
+        </div>
+        <div v-else style="height:100%;display:flex;align-items:center;justify-content:center;color:#8fb4dc;font-size:12px">{{ comp.type }}</div>
+      </div>`,
+    setup: function (props) {
+      var el = ref(null), inst = null, timer = null;
+      var now = ref(new Date().toLocaleTimeString('zh-CN', { hour12: false }));
+      var tableRows = [{ k: '华南', v: 320 }, { k: '华东', v: 280 }, { k: '华北', v: 190 }];
+      function render() {
+        if (props.comp.type === 'chart' && el.value) {
+          if (!inst) inst = echarts.init(el.value, null, { renderer: 'canvas' });
+          inst.setOption(buildChartOption(props.comp), true); inst.resize();
+        }
+      }
+      onMounted(function () {
+        render();
+        if (props.comp.type === 'time') { timer = setInterval(function () { now.value = new Date().toLocaleTimeString('zh-CN', { hour12: false }); }, 1000); }
+        window.addEventListener('resize', resizeAll);
+      });
+      function resizeAll() { if (inst) inst.resize(); }
+      onBeforeUnmount(function () { if (timer) clearInterval(timer); if (inst) inst.dispose(); window.removeEventListener('resize', resizeAll); });
+      return { el, now, tableRows };
+    },
+    watch: { comp: { handler: function () { var self = this; this.$nextTick(function () { render(); }); }, deep: true } }
+  };
+
+  var app = createApp({
+    setup: function () {
+      var W = ref(1280), H = ref(720);
+      var res = ref('1280x720');
+      var scale = ref(0.5);
+      var playScale = ref(0.7);
+      var stageEl = ref(null);
+      var compTypes = [
+        { type: 'chart', label: '图表' }, { type: 'table', label: '数据表' }, { type: 'metric', label: '指标卡' },
+        { type: 'text', label: '文本' }, { type: 'time', label: '时间' }, { type: 'decor', label: '装饰' }
+      ];
+      var config = reactive({ background: '#0b2036', interval: 5 });
+      var seq = 0;
+      var pages = ref([
+        { id: 'p1', name: '总览', components: [] },
+        { id: 'p2', name: '明细', components: [] }
+      ]);
+      var page = ref(pages.value[0]);
+      var selected = ref(null);
+      var dirty = ref(false);
+      var saving = ref(false);
+      var log = ref('点左侧组件面板添加组件；拖动移动、右下角缩放；选中后右侧编辑属性');
+      var playing = ref(false), playIndex = ref(0), playTimer = null;
+      var playPage = computed(function () { return pages.value[playIndex.value]; });
+
+      function addComponent(type) {
+        seq += 1;
+        var size = { chart: [360, 200], table: [300, 180], metric: [180, 90], text: [260, 50], time: [200, 60], decor: [300, 120] }[type] || [200, 100];
+        var c = { id: 'c' + seq, type: type, title: ({ chart: '图表', table: '数据表', metric: '指标卡', text: '标题文本', time: '当前时间', decor: '装饰框' })[type] + seq,
+          x: 40 + (seq % 5) * 30, y: 40 + (seq % 5) * 24, w: size[0], h: size[1], z: seq, chartType: 'bar', text: '数据大屏标题' };
+        page.value.components.push(c); select(c); touch();
+        log.value = 'addComponent(' + type + ') → 绝对定位 (' + c.x + ',' + c.y + ') ' + c.w + '×' + c.h;
+      }
+      function select(c) { selected.value = c; }
+      function removeComponent(c) { page.value.components = page.value.components.filter(function (x) { return x.id !== c.id; }); if (selected.value === c) selected.value = null; touch(); }
+      function touch() { dirty.value = true; }
+
+      // 拖拽
+      var drag = null;
+      function startDrag(e, c) {
+        select(c);
+        drag = { mode: 'move', c: c, sx: e.clientX, sy: e.clientY, ox: c.x, oy: c.y };
+        window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', endDrag);
+      }
+      function startResize(e, c) {
+        select(c);
+        drag = { mode: 'resize', c: c, sx: e.clientX, sy: e.clientY, ow: c.w, oh: c.h };
+        window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', endDrag);
+      }
+      function onMove(e) {
+        if (!drag) return;
+        var dx = (e.clientX - drag.sx) / scale.value, dy = (e.clientY - drag.sy) / scale.value;
+        if (drag.mode === 'move') { drag.c.x = Math.max(0, Math.round(drag.ox + dx)); drag.c.y = Math.max(0, Math.round(drag.oy + dy)); }
+        else { drag.c.w = Math.max(40, Math.round(drag.ow + dx)); drag.c.h = Math.max(30, Math.round(drag.oh + dy)); }
+        touch();
+      }
+      function endDrag() { drag = null; window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', endDrag); log.value = '拖拽/缩放结束 → 写入 canvas_config 坐标（设计态缩放不改坐标）'; }
+
+      function addPage() { var id = 'p' + (pages.value.length + 1); pages.value.push({ id: id, name: '页' + pages.value.length, components: [] }); touch(); }
+      function setPage(p) { page.value = p; selected.value = null; }
+
+      function onRes() { var s = res.value.split('x'); W.value = +s[0]; H.value = +s[1]; fit(); }
+      function fit() { if (stageEl.value) { var w = stageEl.value.clientWidth - 16; scale.value = Math.min(1, w / W.value); } }
+      function preview() { playing.value = true; playIndex.value = Math.max(0, pages.value.findIndex(function (p) { return p.id === page.value.id; })); fitPlay(); startRotate(); log.value = '进入播放：独立路由 / 全屏 / 轮播切页（每 ' + config.interval + 's）'; }
+      function fitPlay() { playScale.value = Math.min((window.innerWidth - 20) / W.value, (window.innerHeight - 60) / H.value); }
+      function startRotate() { stopRotate(); playTimer = setInterval(function () { playIndex.value = (playIndex.value + 1) % pages.value.length; }, config.interval * 1000); }
+      function stopRotate() { if (playTimer) { clearInterval(playTimer); playTimer = null; } }
+      function nextPage() { playIndex.value = (playIndex.value + 1) % pages.value.length; }
+      function prevPage() { playIndex.value = (playIndex.value - 1 + pages.value.length) % pages.value.length; }
+      function exitPlay() { playing.value = false; stopRotate(); }
+      function save() { saving.value = true; setTimeout(function () { saving.value = false; dirty.value = false; log.value = 'PUT /rpt/screens/{id} → canvas_config 保存（Idempotency-Key）'; ElMessage.success('已保存'); }, 600); }
+      function publish() { dirty.value = false; log.value = 'status=published → /screen/play/{code} 可访问（默认需 rpt:view）'; ElMessage.success('已发布'); }
+
+      onMounted(function () { addComponent('chart'); pages.value[1].components = [{ id: 'c9', type: 'table', title: '明细数据表', x: 60, y: 60, w: 360, h: 220, z: 1 }]; selected.value = null; fit(); });
+      onBeforeUnmount(function () { stopRotate(); });
+
+      return {
+        W, H, res, scale, playScale, stageEl, compTypes, config, pages, page, selected, dirty, saving, log,
+        playing, playIndex, playPage, addComponent, removeComponent, select, startDrag, startResize,
+        addPage, setPage, onRes, preview, nextPage, prevPage, exitPlay, save, publish, touch
+      };
+    }
+  });
+  app.component('screen-widget', ScreenWidget);
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>
