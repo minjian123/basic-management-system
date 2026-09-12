@@ -83,8 +83,8 @@ flowchart LR
 ## 6. 偏差与遗留 <a id="deviations"></a>
 
 - `get_locked` 非重试语义为设计决策（见 §4 问题 1），非偏差；调用方需重试时自行捕获 `WatchError`/`ConcurrentConflictError` 重做变换。
-- Redis Cluster 下 WATCH 跨槽限制随部署口径（当前单实例 compose），Cluster 适配随阶段十一。
+- Redis Cluster 下 WATCH 跨槽限制随部署口径（当前单实例 compose），Cluster 适配随阶段十二。
 - `ConcurrentConflictError` 为过渡异常，02-3 统一异常体系接管后替换。
-- 大 key 阈值/分片数、free-threading 复测沿用 01-3-2 边界（阶段十一）。
+- 大 key 阈值/分片数、free-threading 复测沿用 01-3-2 边界（阶段十二）。
 
 > 本文档依《文档生成规范》编写 · 按《任务文档规范》「实施文档（任务执行记录）」节实施文档结构组织

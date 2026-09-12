@@ -61,7 +61,7 @@ flowchart LR
 | --- | --- | --- | --- | --- |
 | 1 | 本地 `deploy/.env` 无达梦口令，实测需凭据 | 口令由达梦部署随机生成，存于 mjbk `~/deploy/.env` | 从远端取回并回填各仓库 `deploy/.env`（gitignore；不回显、不入库） | 本记录 |
 | 2 | 凭据探测脚本在 backend 工作目录下相对路径失效 | 脚本内用了相对 `bms文档/...` | 改为绝对路径 | 本记录 |
-| 3 | Celery / SpiffWorkflow 不在锁定依赖 | 规划为阶段三占位 | 用 `uv run --with` 临时环境冒烟，不动 `uv.lock` | 设计 §3 |
+| 3 | Celery / SpiffWorkflow 不在锁定依赖 | 规划为阶段四占位 | 用 `uv run --with` 临时环境冒烟，不动 `uv.lock` | 设计 §3 |
 
 ## 5. 验证结果 <a id="verify"></a>
 
@@ -78,7 +78,7 @@ flowchart LR
 ## 6. 偏差与遗留 <a id="deviation"></a>
 
 - 矩阵版本为 2026-09-10 快照，日常以 `uv.lock` 为准；依赖升级由 Renovate 走 MR。
-- Celery / SpiffWorkflow 仅安装冒烟，**不代表阶段三功能验收**。
+- Celery / SpiffWorkflow 仅安装冒烟，**不代表阶段四功能验收**。
 - 达梦实测为连接级 `SELECT 1`；SQLAlchemy 方言与同步驱动封装口径在 02-5 落地（先修订架构 09/后端规范第 8 节）。
 - 未启用 Python 3.14 free-threading 构建，启用后复跑并发微基准（01-3-2 边界）。
 
