@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 验证码（Captcha / useCaptcha）</title>
+<link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+  .cap { border:1px solid #eaeef2; border-radius:8px; padding:16px; max-width:420px; }
+  .cap .ttl { font-weight:600; font-size:13px; margin-bottom:10px; }
+  .img-row { display:flex; gap:10px; align-items:center; }
+  .cap-img { height:40px; border:1px solid #d0d7de; border-radius:6px; cursor:pointer; }
+  .slider-box { border:1px solid #d0d7de; border-radius:6px; padding:16px; background:#fafbfc; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="10_组件设计_验证码.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 验证码 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="10_组件设计_验证码.md">《组件设计 · 验证码》</a>：演示 <b>Captcha</b> 图形（失败阈值强制/刷新/校验）、
+    滑块（拖动/通过/复位）、短信（脱敏手机号/倒计时/限流提示）。图形验证码为 canvas 模拟，真实由后端生成图片。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-bar">
+        <span class="dp-hint">登录连续失败阈值（captcha.required_after_failures）：</span>
+        <el-input-number v-model="failCount" :min="0" :max="5" size="small" style="width:120px" />
+        <span class="dp-hint">（≥3 时强制显示图形验证码）</span>
+        <el-button size="small" @click="failCount=0">重置失败次数</el-button>
+      </div>
+
+      <el-row :gutter="16">
+        <!-- 图形验证码 -->
+        <el-col :span="8">
+          <div class="cap">
+            <div class="ttl">① 图形验证码</div>
+            <template v-if="failCount >= 3">
+              <div class="img-row">
+                <img class="cap-img" :src="imgUrl" @click="refresh" title="点击刷新" />
+                <el-button size="small" @click="refresh">刷新</el-button>
+              </div>
+              <el-input v-model="input" size="small" placeholder="输入图中字符" maxlength="4" style="margin-top:10px" @keyup.enter="verify" />
+              <el-button size="small" type="primary" style="margin-top:8px" @click="verify">校验</el-button>
+              <div class="dp-hint" style="margin-top:6px">当前验证码：<b class="dp-code">{{ code }}</b>（真实由后端生成，不前端暴露）</div>
+            </template>
+            <div v-else class="dp-hint">连续失败未达阈值，不显示图形验证码（阈值来自系统参数，后端随登录响应下发）</div>
+          </div>
+        </el-col>
+
+        <!-- 滑块验证码 -->
+        <el-col :span="8">
+          <div class="cap">
+            <div class="ttl">② 滑块验证码</div>
+            <div class="slider-box">
+              <div class="dp-hint" style="margin-bottom:8px">拖动滑块到最右完成验证（真实为缺口对齐 + 轨迹校验）</div>
+              <el-slider v-model="slide" :min="0" :max="100" :disabled="sliderOk" @change="onSlide" />
+              <div v-if="sliderOk" style="color:#1a7f37;font-size:13px;margin-top:6px">✓ 验证通过（提交轨迹 token 由后端判定）</div>
+              <div v-else class="dp-hint" style="margin-top:6px">未通过；失败自动复位可重试</div>
+              <el-button size="small" text @click="resetSlider">复位</el-button>
+            </div>
+          </div>
+        </el-col>
+
+        <!-- 短信验证码 -->
+        <el-col :span="8">
+          <div class="cap">
+            <div class="ttl">③ 短信验证码</div>
+            <div style="display:flex;gap:8px">
+              <el-input v-model="sms" size="small" placeholder="6 位验证码" maxlength="6" autocomplete="one-time-code" />
+              <el-button size="small" :disabled="countdown>0" :loading="sending" @click="sendSms">
+                {{ countdown>0 ? '重新发送(' + countdown + 's)' : '获取验证码' }}
+              </el-button>
+            </div>
+            <div class="dp-hint" style="margin-top:8px">发送到：{{ phoneMask }}；限流：每账号 1 次/5 分钟、每 IP 5 次/小时（命中提示且不重置倒计时）</div>
+            <el-switch v-model="rateLimited" size="small" active-text="模拟限流命中" style="margin-top:8px" />
+          </div>
+        </el-col>
+      </el-row>
+
+      <div class="dp-state" style="margin-top:12px">{{ log }}</div>
+    </div>
+  </div>
+</div>
+
+<script src="../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref, computed, onBeforeUnmount } = Vue;
+  var ElMessage = ElementPlus.ElMessage;
+
+  function randCode() { var s = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789', r = ''; for (var i = 0; i < 4; i++) r += s[Math.floor(Math.random() * s.length)]; return r; }
+  function captchaImg(code) {
+    var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="120" height="40">' +
+      '<rect width="120" height="40" fill="#f6f8fa"/>' +
+      '<text x="60" y="28" font-size="22" font-family="monospace" text-anchor="middle" fill="#0969da" letter-spacing="4">' + code + '</text>' +
+      '<line x1="4" y1="20" x2="116" y2="16" stroke="#d4a72c" stroke-width="1"/>' +
+      '<line x1="8" y1="10" x2="112" y2="32" stroke="#cf222e" stroke-width="1" opacity=".5"/>' +
+      '</svg>';
+    return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+  }
+
+  var app = createApp({
+    setup: function () {
+      var failCount = ref(3);
+      var code = ref(randCode());
+      var imgUrl = ref(captchaImg(code.value));
+      var input = ref('');
+      var slide = ref(0);
+      var sliderOk = ref(false);
+      var sms = ref('');
+      var countdown = ref(0);
+      var sending = ref(false);
+      var rateLimited = ref(false);
+      var log = ref('图形验证码：失败阈值后强制显示，可刷新；滑块：拖动校验；短信：60s 倒计时');
+      var timer = null;
+
+      function refresh() { code.value = randCode(); imgUrl.value = captchaImg(code.value); input.value = ''; log.value = 'refresh() → 重新获取图形验证码（带随机参数防缓存，一次性失效）'; }
+      function verify() {
+        if (input.value.toUpperCase() === code.value) { log.value = '验证码正确（true）；随登录/业务请求提交，后端校验'; ElMessage.success('校验通过'); failCount.value = 0; }
+        else { log.value = '验证码错误 → 提示「验证码错误」并刷新图片（一次性失效）'; ElMessage.error('验证码错误'); refresh(); }
+      }
+      function onSlide(v) { if (v >= 95) { sliderOk.value = true; log.value = 'onSlide → 提交位移/轨迹 token，后端判定通过'; ElMessage.success('滑块验证通过'); } }
+      function resetSlider() { slide.value = 0; sliderOk.value = false; log.value = '滑块失败自动复位，可重试'; }
+
+      var phoneMask = computed(function () { return '138****5678'; });
+      function sendSms() {
+        if (rateLimited.value) { log.value = '命中限流（每账号 1 次/5 分钟、每 IP 5 次/小时）→ 提示「发送过于频繁」，不启动/重置倒计时'; ElMessage.warning('发送过于频繁，请稍后再试'); return; }
+        sending.value = true;
+        setTimeout(function () {
+          sending.value = false; countdown.value = 60;
+          log.value = 'POST /sms/send → 发送成功，启动 60s 倒计时（以后端冷却为准）';
+          ElMessage.success('验证码已发送');
+          timer = setInterval(function () { countdown.value -= 1; if (countdown.value <= 0) { clearInterval(timer); timer = null; } }, 1000);
+        }, 500);
+      }
+      onBeforeUnmount(function () { if (timer) clearInterval(timer); });
+
+      return { failCount, code, imgUrl, input, slide, sliderOk, sms, countdown, sending, rateLimited, log, phoneMask, refresh, verify, onSlide, resetSlider, sendSms };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>
