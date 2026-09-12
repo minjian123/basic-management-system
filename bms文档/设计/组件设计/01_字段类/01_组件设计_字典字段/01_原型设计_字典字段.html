@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 字典字段（DictSelect / DictCascader / getDictLabel / useDictStore）</title>
+<link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background: #fff; border: 1px solid #d0d7de; border-radius: 6px; padding: 16px; }
+  .ep-section { font-weight: 600; margin: 16px 0 12px; padding-bottom: 8px; border-bottom: 1px solid #eaeef2; font-size: 14px; }
+  .ep-section:first-of-type { margin-top: 0; }
+  .dp-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
+  .dp-title { font-size: 16px; font-weight: 600; }
+  .dp-sub { color: #8c959f; font-size: 12px; margin-top: 2px; }
+  .dp-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; background: #f6f8fa; border: 1px solid #eaeef2; border-radius: 6px; padding: 8px 12px; margin-bottom: 12px; }
+  .dp-type { font-style: normal; color: #8c959f; font-size: 11px; font-weight: 400; margin-left: 6px; }
+  .dp-badge { display: inline-block; font-size: 11px; padding: 1px 7px; border-radius: 10px; background: #ddf4ff; color: #0969da; margin-left: 6px; }
+  .dp-badge.warn { background: #fff8c5; color: #9a6700; }
+  .dp-code { font-family: Consolas, "Cascadia Mono", monospace; color: #57606a; }
+  .dp-hint { color: #b1b8bf; font-size: 11px; font-style: normal; }
+  .dp-metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 12px; }
+  .dp-metric { background: #fff; border: 1px solid #d0d7de; border-radius: 6px; padding: 12px; }
+  .dp-metric .v { font-size: 22px; font-weight: 600; color: #0969da; }
+  .dp-metric .v.ok { color: #1a7f37; }
+  .dp-metric .k { font-size: 12px; color: #57606a; margin-top: 4px; }
+  .dp-log { background: #0d1117; color: #c9d1d9; font-family: Consolas, "Cascadia Mono", monospace; font-size: 12px; border-radius: 6px; padding: 10px 12px; max-height: 240px; overflow: auto; line-height: 1.7; }
+  .dp-log .t { color: #7ee787; }
+  .dp-cond-group { border: 1px solid #d0d7de; border-radius: 6px; padding: 8px 10px; margin-bottom: 8px; background: #fafbfc; }
+  .dp-cond-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 13px; font-weight: 600; }
+  .dp-cond-head .danger { margin-left: auto; }
+  .dp-cond-row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+  .dp-query-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+  .dp-scheme-row { display: flex; align-items: center; gap: 10px; padding: 6px 10px; border: 1px solid #eaeef2; border-radius: 6px; margin-bottom: 6px; }
+  .dp-scheme-name { color: #0969da; cursor: pointer; font-weight: 500; }
+  .dp-scheme-ops { margin-left: auto; display: flex; gap: 2px; }
+  @media (max-width: 768px) { .dp-metrics { grid-template-columns: repeat(2, 1fr); } }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="01_组件设计_字典字段.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 字典字段 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="01_组件设计_字典字段.md">《组件设计 · 字典字段》</a>：演示 <b>DictSelect</b>（单选/多选/级联过滤/只读回显）、<b>DictCascader</b> 树形级联、
+    <b>getDictLabel</b> 列表列翻译与超大字典批量翻译、<b>useDictStore</b> 版本比对与缓存失效、<b>DictAdvancedQuery</b> 高级查询（条件组/提供者/方案）。数据均为前端模拟，交互对齐 Element Plus 实际行为。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-header">
+        <div>
+          <div class="dp-title">字典字段组件原型</div>
+          <div class="dp-sub">DictSelect · DictCascader · getDictLabel · useDictStore</div>
+        </div>
+        <div class="dp-bar" style="margin-bottom:0">
+          <span class="proto-hint">locale：</span>
+          <el-radio-group v-model="locale" size="small">
+            <el-radio-button label="zh-CN">中文</el-radio-button>
+            <el-radio-button label="en-US">English</el-radio-button>
+          </el-radio-group>
+        </div>
+      </div>
+
+      <el-tabs v-model="tab">
+        <!-- ① 表单字段 -->
+        <el-tab-pane label="① 表单字段 DictSelect" name="form">
+          <div class="dp-bar">
+            <span class="proto-hint">表单态：</span>
+            <el-switch v-model="readonly" active-text="只读回显" inactive-text="编辑态" inline-prompt></el-switch>
+            <el-divider direction="vertical"></el-divider>
+            <el-button size="small" @click="reopenForm">重新打开表单（版本比对）</el-button>
+            <span class="proto-hint">一个表单页 5 个字典字段合并为 1 次 POST /dicts/batch</span>
+          </div>
+
+          <el-form label-position="top" :disabled="readonly">
+            <el-row :gutter="16">
+              <el-col :span="8">
+                <el-form-item>
+                  <template #label>用户状态<em class="dp-type">user_status · 小字典 el-select</em></template>
+                  <el-select v-model="form.status" clearable placeholder="请选择" style="width:100%">
+                    <el-option v-for="it in itemsOf('user_status')" :key="it.value" :label="labelOf('user_status', it.value)" :value="it.value"></el-option>
+                  </el-select>
+                </el-form-item>
+              </el-col>
+              <el-col :span="8">
+                <el-form-item>
+                  <template #label>性别<em class="dp-type">user_gender · 小字典</em></template>
+                  <el-select v-model="form.gender" clearable placeholder="请选择" style="width:100%">
+                    <el-option v-for="it in itemsOf('user_gender')" :key="it.value" :label="labelOf('user_gender', it.value)" :value="it.value"></el-option>
+                  </el-select>
+                </el-form-item>
+              </el-col>
+              <el-col :span="8">
+                <el-form-item>
+                  <template #label>业务类型（多选）<em class="dp-type">biz_type · mode=multiple</em></template>
+                  <el-select v-model="form.bizTypes" multiple clearable collapse-tags placeholder="请选择" style="width:100%">
+                    <el-option v-for="it in itemsOf('biz_type')" :key="it.value" :label="labelOf('biz_type', it.value)" :value="it.value"></el-option>
+                  </el-select>
+                </el-form-item>
+              </el-col>
+            </el-row>
+
+            <div class="ep-section">级联过滤（DictSelect.parentValue：省 → 市 → 区，父级切换自动清空重载）</div>
+            <el-row :gutter="16">
+              <el-col :span="8">
+                <el-form-item label="省">
+                  <el-select v-model="form.province" clearable placeholder="请选择省份" style="width:100%">
+                    <el-option v-for="p in provinceOptions" :key="p.value" :label="p.label" :value="p.value"></el-option>
+                  </el-select>
+                </el-form-item>
+              </el-col>
+              <el-col :span="8">
+                <el-form-item>
+                  <template #label>市<span class="dp-badge" v-if="form.province">parent_id={{ form.province }}</span></template>
+                  <el-select v-model="form.city" clearable :disabled="!form.province" :placeholder="form.province ? '请选择城市' : '请先选择省份'" style="width:100%">
+                    <el-option v-for="c in cityOptions" :key="c.value" :label="c.label" :value="c.value"></el-option>
+                  </el-select>
+                </el-form-item>
+              </el-col>
+              <el-col :span="8">
+                <el-form-item>
+                  <template #label>区<span class="dp-badge" v-if="form.city">parent_id={{ form.city }}</span></template>
+                  <el-select v-model="form.district" clearable :disabled="!form.city" :placeholder="form.city ? '请选择区县' : '请先选择城市'" style="width:100%">
+                    <el-option v-for="d in districtOptions" :key="d.value" :label="d.label" :value="d.value"></el-option>
+                  </el-select>
+                </el-form-item>
+              </el-col>
+            </el-row>
+
+            <div class="ep-section">树形级联（DictCascader，基于 el-cascader）</div>
+            <el-row :gutter="16">
+              <el-col :span="8">
+                <el-form-item label="行政区划">
+                  <el-cascader v-model="form.regionPath" :options="regionOptions" clearable placeholder="请选择省 / 市 / 区"
+                    :props="{ checkStrictly: form.checkStrictly }" style="width:100%"></el-cascader>
+                </el-form-item>
+              </el-col>
+              <el-col :span="8">
+                <el-form-item label="选择策略">
+                  <el-switch v-model="form.checkStrictly" active-text="可选任意级（checkStrictly）" inactive-text="必须选到底"></el-switch>
+                </el-form-item>
+              </el-col>
+              <el-col :span="8">
+                <el-form-item label="路径回显（getDictLabel 逐级解析）">
+                  <el-input :model-value="pathLabel" readonly></el-input>
+                </el-form-item>
+              </el-col>
+            </el-row>
+          </el-form>
+
+          <el-alert type="info" :closable="false" show-icon
+            :title="readonly ? '只读回显：组件 disabled，显示 label（label 缺失回显原始 value）' : '编辑态：parentValue 变化清空下级并自动重载'"></el-alert>
+        </el-tab-pane>
+
+        <!-- ② 超大字典 -->
+        <el-tab-pane label="② 超大字典（虚拟滚动 + 远程搜索）" name="big">
+          <div class="dp-bar">
+            <span class="dp-badge warn">探针 limit=2001</span>
+            <span class="proto-hint">总条目 {{ bigTotal }} 条 ≥ 阈值 2000 → has_more=true → 自动切换 el-select-v2 虚拟滚动 + 远程搜索（仅缓存已加载片段，不写 localStorage）</span>
+          </div>
+          <el-form label-position="top">
+            <el-row :gutter="16">
+              <el-col :span="12">
+                <el-form-item>
+                  <template #label>物料编码<em class="dp-type">material_code · 超大字典 · el-select-v2</em></template>
+                  <el-select-v2 v-model="form.material" :options="bigOptions" filterable clearable remote
+                    :remote-method="searchBig" :loading="bigLoading" placeholder="输入关键词远程搜索（防抖 300ms）" style="width:100%">
+                  </el-select-v2>
+                </el-form-item>
+              </el-col>
+              <el-col :span="12">
+                <el-form-item label="已选值回显（不受搜索影响）">
+                  <el-input :model-value="form.material ? (form.material + ' → ' + bigLabel(form.material)) : ''" readonly placeholder="未选择"></el-input>
+                </el-form-item>
+              </el-col>
+            </el-row>
+          </el-form>
+          <el-alert type="success" :closable="false" show-icon
+            title="虚拟滚动只渲染可见行，几十万条也流畅；远程搜索结果仅影响当前下拉候选项，已选值回显保持稳定"></el-alert>
+        </el-tab-pane>
+
+        <!-- ③ 列表列渲染 -->
+        <el-tab-pane label="③ 列表列渲染 getDictLabel" name="list">
+          <div class="dp-bar">
+            <el-button size="small" type="primary" @click="doBatchTranslate">translateDictValues 批量翻译</el-button>
+            <el-button size="small" @click="doRowTranslate">逐行 getDictLabel（反例）</el-button>
+            <el-button size="small" @click="resetList">重置</el-button>
+            <el-divider direction="vertical"></el-divider>
+            <span class="proto-hint">批量：1 个 HTTP 请求 ｜ 逐行：{{ listRows.length }} 个 HTTP 请求</span>
+          </div>
+
+          <el-table :data="listRows" border style="width:100%">
+            <el-table-column prop="name" label="用户名" width="140"></el-table-column>
+            <el-table-column label="状态（getDictLabel）" width="170">
+              <template #default="{ row }">{{ labelOf('user_status', row.status) }}</template>
+            </el-table-column>
+            <el-table-column label="性别" width="110">
+              <template #default="{ row }">{{ labelOf('user_gender', row.gender) }}</template>
+            </el-table-column>
+            <el-table-column label="物料编码（超大字典列 · 批量翻译）" min-width="280">
+              <template #default="{ row }">
+                <span v-if="row.materialLabel">{{ row.materialLabel }}</span>
+                <span v-else class="dp-code">{{ row.material }} <em class="dp-hint">（未翻译）</em></span>
+              </template>
+            </el-table-column>
+          </el-table>
+
+          <div class="dp-metrics" style="margin-top:12px">
+            <div class="dp-metric"><div class="v ok">{{ listRequests }}</div><div class="k">列渲染 HTTP 请求次数</div></div>
+            <div class="dp-metric"><div class="v">{{ listMissing }}</div><div class="k">当前缺失 values 数</div></div>
+            <div class="dp-metric"><div class="v">{{ listRows.length }}</div><div class="k">列表行数</div></div>
+            <div class="dp-metric"><div class="v">{{ listSmallHit }}</div><div class="k">小字典命中缓存（0 请求）</div></div>
+          </div>
+        </el-tab-pane>
+
+        <!-- ④ 缓存与版本 -->
+        <el-tab-pane label="④ 缓存与版本 useDictStore" name="store">
+          <div class="dp-bar">
+            <el-button size="small" type="warning" plain @click="simulateChange">模拟字典变更（写路径）</el-button>
+            <el-button size="small" @click="clearClientCache">清空前端缓存</el-button>
+            <el-button size="small" @click="reopenForm">重新打开表单</el-button>
+          </div>
+
+          <div class="dp-metrics">
+            <div class="dp-metric"><div class="v">{{ store.version }}</div><div class="k">全局版本号 bms:{tenant}:dict:version</div></div>
+            <div class="dp-metric"><div class="v">{{ clientVersion === null ? '—' : clientVersion }}</div><div class="k">客户端本地版本（Pinia/localStorage）</div></div>
+            <div class="dp-metric"><div class="v">{{ store.requests }}</div><div class="k">/dicts/batch 请求次数</div></div>
+            <div class="dp-metric"><div class="v ok">{{ store.hit }}</div><div class="k">版本一致命中（items=null 零传输）</div></div>
+            <div class="dp-metric"><div class="v">{{ store.refetch }}</div><div class="k">版本不一致重拉全量</div></div>
+            <div class="dp-metric"><div class="v">{{ store.memHit }}</div><div class="k">内存缓存命中</div></div>
+            <div class="dp-metric"><div class="v">{{ store.localHit }}</div><div class="k">localStorage 二次缓存命中</div></div>
+            <div class="dp-metric"><div class="v">{{ store.types.length }}</div><div class="k">本表单字典类型数（合并请求）</div></div>
+          </div>
+
+          <div class="ep-section">请求 / 缓存日志</div>
+          <div class="dp-log">
+            <div v-for="(l, i) in store.log" :key="i"><span class="t">▸</span> {{ l }}</div>
+            <div v-if="!store.log.length" class="dp-hint">暂无日志</div>
+          </div>
+
+          <el-alert type="info" :closable="false" show-icon style="margin-top:12px"
+            title="步骤演示：① 首次打开表单 → 请求 1 次返回全量；② 点「重新打开表单」→ 版本一致，items=null 零传输；③ 点「模拟字典变更」→ INCR 版本，再打开 → 版本不一致自动重拉。"></el-alert>
+        </el-tab-pane>
+
+        <!-- ⑤ 高级查询 -->
+        <el-tab-pane label="⑤ 高级查询 DictAdvancedQuery" name="adv">
+          <div class="dp-bar">
+            <span class="proto-hint">入口：列表筛选区字段旁 / 表单字段下拉 → 点击弹出高级查询抽屉</span>
+            <el-divider direction="vertical"></el-divider>
+            <el-button size="small" type="primary" @click="openAdv('form')">表单字段：物料编码 → 高级查询</el-button>
+            <el-button size="small" @click="openAdv('list')">列表筛选：物料编码 → 高级查询</el-button>
+          </div>
+
+          <el-form label-position="top">
+            <el-row :gutter="16">
+              <el-col :span="8">
+                <el-form-item>
+                  <template #label>物料编码（表单字段）<em class="dp-type">material_code</em></template>
+                  <el-input :model-value="form.material ? (form.material + ' → ' + bigLabel(form.material)) : ''" readonly placeholder="未选择（可点右侧按钮精确挑选）">
+                    <template #append>
+                      <el-button @click="openAdv('form')">高级查询</el-button>
+                    </template>
+                  </el-input>
+                </el-form-item>
+              </el-col>
+              <el-col :span="10">
+                <el-form-item>
+                  <template #label>列表筛选：物料<em class="dp-type">列表页查询区字段（结果转 value in）</em></template>
+                  <div style="display:flex;gap:8px">
+                    <el-select v-model="advFilterValues" multiple collapse-tags clearable placeholder="筛选值（value in）" style="flex:1">
+                      <el-option v-for="it in bigOptions.slice(0, 50)" :key="it.value" :label="it.label" :value="it.value"></el-option>
+                    </el-select>
+                    <el-button @click="openAdv('list')">高级查询</el-button>
+                  </div>
+                </el-form-item>
+              </el-col>
+              <el-col :span="6">
+                <el-form-item>
+                  <template #label>扩展属性<em class="dp-type">sys_dict_attr（客户可定制）</em></template>
+                  <div>
+                    <el-tag v-for="a in advAttrs" :key="a.key" size="small" style="margin:2px">{{ a.name }}</el-tag>
+                  </div>
+                </el-form-item>
+              </el-col>
+            </el-row>
+          </el-form>
+
+          <el-alert type="info" :closable="false" show-icon
+            title="高级查询 = 条件组（AND/OR 分组 + 常用操作符） + 查询提供者（通用引擎 / 后端注册的自定义实现类） + 查询方案（个人/共享，可保存复用）"></el-alert>
+          <div class="proto-note" style="margin-top:12px">
+            内存评估：扩展属性存 <span class="dp-code">sys_dict_item.attr_json</span>，普通运行时接口<b>不返回</b> attr_json，属性仅在高级查询时按命中子集分页返回，不放大 L1/Redis/localStorage 缓存；属性值长度 ≤ 1KB、属性数 ≤ 50/类型可配。
+          </div>
+        </el-tab-pane>
+      </el-tabs>
+
+      <!-- 高级查询抽屉 -->
+      <el-drawer v-model="adv.visible" size="720px" title="高级查询 · material_code">
+        <div class="dp-bar">
+          <span class="proto-hint">查询目标：</span>
+          <el-radio-group v-model="adv.target" size="small">
+            <el-radio-button label="items">取项（字典条目 → 回填）</el-radio-button>
+            <el-radio-button label="filter">筛选（业务数据 → 列表条件）</el-radio-button>
+          </el-radio-group>
+          <el-divider direction="vertical"></el-divider>
+          <span class="proto-hint">查询提供者：</span>
+          <el-select v-model="adv.provider" size="small" style="width:230px">
+            <el-option v-for="p in advProviders" :key="p.key" :label="p.name" :value="p.key"></el-option>
+          </el-select>
+        </div>
+
+        <div class="dp-bar" v-if="adv.provider !== 'builtin'">
+          <span class="dp-badge warn">自定义 provider</span>
+          <span class="proto-hint">按 param_schema 渲染参数：</span>
+          <el-input v-model="adv.providerParam" size="small" style="width:240px" placeholder="规格关键字（如 S1）"></el-input>
+          <span class="proto-hint">（后端实现类注册后前端发现并调用，impl 不暴露）</span>
+        </div>
+
+        <div class="ep-section" style="margin-top:0">
+          条件组
+          <el-radio-group v-model="adv.groupLogic" size="small" style="margin-left:12px">
+            <el-radio-button label="AND">组间 AND</el-radio-button>
+            <el-radio-button label="OR">组间 OR</el-radio-button>
+          </el-radio-group>
+        </div>
+
+        <div v-for="(g, gi) in adv.groups" :key="g.id" class="dp-cond-group">
+          <div class="dp-cond-head">
+            <span>条件组 {{ gi + 1 }}</span>
+            <el-radio-group v-model="g.logic" size="small">
+              <el-radio-button label="AND">且</el-radio-button>
+              <el-radio-button label="OR">或</el-radio-button>
+            </el-radio-group>
+            <el-button class="danger" size="small" type="danger" plain :disabled="adv.groups.length <= 1" @click="removeGroup(gi)">删除组</el-button>
+          </div>
+          <div v-for="(c, ci) in g.conditions" :key="c.id" class="dp-cond-row">
+            <el-select v-model="c.field" size="small" style="width:120px" @change="onFieldChange(c)">
+              <el-option v-for="a in advAttrs" :key="a.key" :label="a.name" :value="a.key"></el-option>
+            </el-select>
+            <el-select v-model="c.operator" size="small" style="width:110px">
+              <el-option v-for="op in opsOf(c.field)" :key="op.v" :label="op.l" :value="op.v"></el-option>
+            </el-select>
+            <template v-if="c.operator === 'in'">
+              <el-select v-model="c.value" multiple size="small" style="flex:1" placeholder="多值">
+                <el-option v-for="o in optionsOf(c.field)" :key="o.v" :label="o.l" :value="o.v"></el-option>
+              </el-select>
+            </template>
+            <template v-else-if="c.operator === 'between'">
+              <el-input v-model="c.value" size="small" style="width:100px" placeholder="下限"></el-input>
+              <el-input v-model="c.value2" size="small" style="width:100px" placeholder="上限"></el-input>
+            </template>
+            <template v-else-if="isEnum(c.field)">
+              <el-select v-model="c.value" size="small" style="flex:1" clearable placeholder="值">
+                <el-option v-for="o in optionsOf(c.field)" :key="o.v" :label="o.l" :value="o.v"></el-option>
+              </el-select>
+            </template>
+            <template v-else>
+              <el-input v-model="c.value" size="small" style="flex:1" placeholder="值"></el-input>
+            </template>
+            <el-button size="small" circle text @click="removeCond(g, ci)">✕</el-button>
+          </div>
+          <el-button size="small" @click="addCond(g)">＋ 添加条件</el-button>
+        </div>
+        <el-button size="small" style="margin-top:4px" @click="addGroup">＋ 添加条件组</el-button>
+
+        <div class="dp-query-actions">
+          <el-button @click="resetAdv">重置</el-button>
+          <el-button type="primary" @click="runAdv">执行查询</el-button>
+        </div>
+
+        <div class="ep-section">命中结果（前 50 条）<span class="dp-badge">共 {{ advResults.length }} 条</span><span class="dp-badge" v-if="advSelected.length">已选 {{ advSelected.length }}</span></div>
+        <el-table :data="advResults.slice(0, 50)" size="small" border height="200" @selection-change="onAdvSelect">
+          <el-table-column type="selection" width="40"></el-table-column>
+          <el-table-column prop="value" label="编码" width="110"></el-table-column>
+          <el-table-column prop="label" label="名称" min-width="140"></el-table-column>
+          <el-table-column prop="category" label="分类" width="80"></el-table-column>
+          <el-table-column prop="spec" label="规格" width="80"></el-table-column>
+          <el-table-column prop="unit" label="单位" width="70"></el-table-column>
+          <el-table-column prop="status" label="状态" width="80"></el-table-column>
+          <el-table-column prop="stock" label="库存" width="80"></el-table-column>
+        </el-table>
+
+        <div class="ep-section">查询方案（个人 / 共享 · 新增 / 修改 / 查询 / 删除）</div>
+        <div class="dp-bar" style="margin-bottom:8px">
+          <el-input v-model="adv.schemeName" size="small" placeholder="方案名称" style="width:170px"></el-input>
+          <el-button size="small" type="primary" @click="saveScheme">{{ adv.editingName ? '保存修改' : '新增方案' }}</el-button>
+          <el-button size="small" v-if="adv.editingName" @click="cancelEditScheme">取消修改</el-button>
+          <span class="dp-hint">{{ adv.editingName ? ('正在修改：' + adv.editingName) : '把当前条件保存为新方案' }}</span>
+        </div>
+        <div v-for="s in advSchemes" :key="s.name" class="dp-scheme-row">
+          <a class="dp-scheme-name" @click="applyScheme(s)">{{ s.name }}</a>
+          <span class="dp-hint">{{ s.target === 'items' ? '取项' : '筛选' }} · {{ s.provider === 'builtin' ? '通用引擎' : s.provider }}</span>
+          <span class="dp-scheme-ops">
+            <el-button size="small" text type="primary" @click="editScheme(s)">修改</el-button>
+            <el-button size="small" text type="danger" @click="deleteScheme(s)">删除</el-button>
+          </span>
+        </div>
+        <div v-if="!advSchemes.length" class="dp-hint">暂无方案</div>
+
+        <template #footer>
+          <el-button @click="adv.visible = false">取消</el-button>
+          <el-button type="success" @click="applyAdv">应用（{{ adv.target === 'items' ? '回填' : '筛选' }}）</el-button>
+        </template>
+      </el-drawer>
+    </div>
+  </div>
+</div>
+
+<script src="../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref, reactive, computed, watch, onMounted } = Vue;
+  var ElMessage = ElementPlus.ElMessage;
+  var ElMessageBox = ElementPlus.ElMessageBox;
+
+  var REGION_TREE = [
+    { value: '110000', label: '北京市', children: [
+      { value: '110100', label: '北京市', children: [
+        { value: '110101', label: '东城区' }, { value: '110105', label: '朝阳区' }, { value: '110108', label: '海淀区' }
+      ] }
+    ] },
+    { value: '310000', label: '上海市', children: [
+      { value: '310100', label: '上海市', children: [
+        { value: '310101', label: '黄浦区' }, { value: '310104', label: '徐汇区' }, { value: '310115', label: '浦东新区' }
+      ] }
+    ] },
+    { value: '440000', label: '广东省', children: [
+      { value: '440100', label: '广州市', children: [{ value: '440103', label: '荔湾区' }, { value: '440106', label: '天河区' }] },
+      { value: '440300', label: '深圳市', children: [{ value: '440303', label: '罗湖区' }, { value: '440305', label: '南山区' }] }
+    ] }
+  ];
+
+  var DICTS = {
+    user_status: { name: '用户状态', items: [
+      { value: 'enabled', label: '启用', labelEn: 'Enabled' },
+      { value: 'disabled', label: '停用', labelEn: 'Disabled' },
+      { value: 'locked', label: '锁定', labelEn: 'Locked' }
+    ] },
+    user_gender: { name: '性别', items: [
+      { value: '1', label: '男', labelEn: 'Male' },
+      { value: '2', label: '女', labelEn: 'Female' },
+      { value: '0', label: '未知', labelEn: 'Unknown' }
+    ] },
+    biz_type: { name: '业务类型', items: [
+      { value: 'sale', label: '销售', labelEn: 'Sales' },
+      { value: 'purchase', label: '采购', labelEn: 'Purchase' },
+      { value: 'stock', label: '库存', labelEn: 'Inventory' },
+      { value: 'finance', label: '财务', labelEn: 'Finance' },
+      { value: 'hr', label: '人力', labelEn: 'HR' }
+    ] }
+  };
+
+  function flatten(nodes, out) {
+    out = out || [];
+    (nodes || []).forEach(function (n) { out.push(n); if (n.children) flatten(n.children, out); });
+    return out;
+  }
+  function findNode(nodes, value) {
+    for (var i = 0; i < (nodes || []).length; i++) {
+      if (nodes[i].value === value) return nodes[i];
+      var c = findNode(nodes[i].children, value);
+      if (c) return c;
+    }
+    return null;
+  }
+
+  var app = createApp({
+    template: document.getElementById('app').outerHTML.replace(/<div id="app">/, '<div>').replace(/<\/div>\s*$/, ''),
+    setup: function () {
+      var tab = ref('form');
+      var locale = ref('zh-CN');
+      var readonly = ref(false);
+
+      // 超大字典：5000 条物料
+      var bigItems = [];
+      for (var i = 1; i <= 5000; i++) {
+        var code = 'M' + String(i).padStart(5, '0');
+        bigItems.push({ value: code, label: code + ' 物料-' + String(i).padStart(5, '0') });
+      }
+      var bigMap = {};
+      bigItems.forEach(function (x) { bigMap[x.value] = x.label; });
+      var bigOptions = ref(bigItems.slice());
+      var bigLoading = ref(false);
+      var bigTimer = null;
+      var bigTotal = bigItems.length;
+
+      var form = reactive({
+        status: 'enabled', gender: '1', bizTypes: ['sale', 'finance'],
+        province: '440000', city: '440300', district: '440305',
+        regionPath: ['440000', '440300', '440305'],
+        checkStrictly: false, material: ''
+      });
+
+      // ---- useDictStore 版本比对模拟 ----
+      var store = reactive({
+        version: 1, requests: 0, hit: 0, refetch: 0, memHit: 0, localHit: 0,
+        types: ['user_status', 'user_gender', 'biz_type', 'region', 'material_code'],
+        log: []
+      });
+      var clientVersion = ref(null);
+      function log(msg) {
+        var t = new Date().toLocaleTimeString('zh-CN', { hour12: false });
+        store.log.unshift(t + '  ' + msg);
+        if (store.log.length > 60) store.log.pop();
+      }
+      function fetchDicts(reason) {
+        store.requests++;
+        if (clientVersion.value === store.version) {
+          store.hit++;
+          store.memHit++;
+          log(reason + ' → POST /dicts/batch {types:' + store.types.length + '类, version:' + store.version + '} 版本一致，items=null（零传输）');
+        } else {
+          store.refetch++;
+          clientVersion.value = store.version;
+          log(reason + ' → POST /dicts/batch {types:' + store.types.length + '类} 版本不一致，返回全量 items（新版本 v' + store.version + '）');
+        }
+      }
+      function reopenForm() { fetchDicts('重新打开表单'); ElMessage({ message: '表单已重新打开', type: 'success' }); }
+      function simulateChange() {
+        store.version++;
+        log('字典管理页写操作：DEL bms:{tenant}:dict:{locale}:{type} 各 locale + INCR 全局版本 → v' + store.version);
+        ElMessage({ message: '已模拟字典变更（版本 v' + store.version + '）', type: 'warning' });
+      }
+      function clearClientCache() {
+        clientVersion.value = null;
+        log('前端主动失效：清空 Pinia 缓存与 localStorage（invalidate）');
+        ElMessage({ message: '已清空前端缓存', type: 'warning' });
+      }
+
+      // ---- 字典取值与翻译（前端 getDictLabel） ----
+      function allItemsOf(type) {
+        if (type === 'region') return flatten(REGION_TREE);
+        if (type === 'material_code') return bigItems;
+        return (DICTS[type] && DICTS[type].items) || [];
+      }
+      function itemsOf(type) { return allItemsOf(type); }
+      function labelOf(type, value) {
+        if (value === null || value === undefined || value === '') return '';
+        if (Array.isArray(value)) return value.map(function (v) { return labelOf(type, v); }).filter(Boolean).join('、');
+        if (type === 'material_code') return bigMap[value] || String(value);
+        var list = allItemsOf(type);
+        for (var i = 0; i < list.length; i++) {
+          if (list[i].value === value) return (locale.value === 'en-US' && list[i].labelEn) ? list[i].labelEn : list[i].label;
+        }
+        return String(value);
+      }
+      function bigLabel(v) { return bigMap[v] || v; }
+      function searchBig(q) {
+        bigLoading.value = true;
+        if (bigTimer) clearTimeout(bigTimer);
+        bigTimer = setTimeout(function () {
+          if (!q) { bigOptions.value = bigItems.slice(); }
+          else {
+            var kw = String(q).toLowerCase();
+            bigOptions.value = bigItems.filter(function (x) {
+              return x.value.toLowerCase().indexOf(kw) >= 0 || x.label.toLowerCase().indexOf(kw) >= 0;
+            }).slice(0, 2000);
+          }
+          bigLoading.value = false;
+        }, 300);
+      }
+
+      // ---- 级联过滤 ----
+      var provinceOptions = REGION_TREE;
+      var cityOptions = computed(function () { var p = findNode(REGION_TREE, form.province); return p ? (p.children || []) : []; });
+      var districtOptions = computed(function () { var c = findNode(REGION_TREE, form.city); return c ? (c.children || []) : []; });
+      watch(function () { return form.province; }, function () { form.city = ''; form.district = ''; log('级联过滤：省变化 → 清空市/区并按 parent_id=' + form.province + ' 重载'); });
+      watch(function () { return form.city; }, function () { form.district = ''; });
+      var regionOptions = REGION_TREE;
+      var pathLabel = computed(function () {
+        return (form.regionPath || []).map(function (v) { return labelOf('region', v); }).join(' / ');
+      });
+
+      // ---- 列表列渲染 ----
+      var listRows = ref([]);
+      var listRequests = ref(0);
+      var listMissing = ref(0);
+      var listSmallHit = ref(0);
+      function buildRows() {
+        var names = ['张三', '李四', '王五', '赵六', '钱七', '孙八', '周九', '吴十', '郑一', '冯二', '陈三', '褚四'];
+        var sts = ['enabled', 'disabled', 'locked'];
+        var gs = ['1', '2', '0'];
+        listRows.value = names.map(function (n, i) {
+          var idx = (i * 977 + 3) % 5000 + 1;
+          return { name: n, status: sts[i % 3], gender: gs[i % 3], material: 'M' + String(idx).padStart(5, '0'), materialLabel: '' };
+        });
+        listMissing.value = listRows.value.length;
+      }
+      buildRows();
+      function doBatchTranslate() {
+        listRequests.value++;
+        listRows.value.forEach(function (r) { r.materialLabel = bigMap[r.material] || r.material; });
+        listMissing.value = 0;
+        listSmallHit.value = listRows.value.length * 2;
+        log('列渲染：translateDictValues 收集 ' + listRows.value.length + ' 个缺失 values → GET /dicts/material_code?values=...（1 次请求，回填局部子集）');
+        ElMessage({ message: '批量翻译完成：1 次请求翻译 ' + listRows.value.length + ' 行', type: 'success' });
+      }
+      function doRowTranslate() {
+        listRequests.value += listRows.value.length;
+        listRows.value.forEach(function (r) { r.materialLabel = bigMap[r.material] || r.material; });
+        listMissing.value = 0;
+        log('反例：逐行 getDictLabel 未做收集 → ' + listRows.value.length + ' 行各发 1 次请求（N+1）');
+        ElMessage({ message: '逐行翻译完成：发出 ' + listRows.value.length + ' 次请求（反例）', type: 'error' });
+      }
+      function resetList() {
+        buildRows(); listRequests.value = 0; listSmallHit.value = 0;
+        log('列表已重置（清空已翻译 label）');
+      }
+
+      // ---- 高级查询（DictAdvancedQuery） ----
+      var advAttrs = [
+        { key: 'value', name: '编码', type: 'text', ops: ['eq', 'contains', 'starts_with'] },
+        { key: 'label', name: '名称', type: 'text', ops: ['eq', 'contains'] },
+        { key: 'category', name: '分类', type: 'enum', ops: ['eq', 'in'], options: [{ v: '钢材', l: '钢材' }, { v: '电子', l: '电子' }, { v: '化工', l: '化工' }, { v: '包装', l: '包装' }] },
+        { key: 'spec', name: '规格', type: 'text', ops: ['eq', 'contains', 'starts_with'] },
+        { key: 'unit', name: '单位', type: 'enum', ops: ['eq', 'in'], options: [{ v: '件', l: '件' }, { v: 'kg', l: 'kg' }, { v: '米', l: '米' }, { v: '套', l: '套' }] },
+        { key: 'status', name: '状态', type: 'enum', ops: ['eq', 'in'], options: [{ v: 'enabled', l: '启用' }, { v: 'disabled', l: '停用' }] },
+        { key: 'stock', name: '库存', type: 'number', ops: ['eq', 'gt', 'lt', 'between'] }
+      ];
+      var OP_LABEL = { eq: '等于', ne: '不等于', contains: '包含', not_contains: '不包含', starts_with: '前缀', between: '区间', gt: '大于', lt: '小于', in: '属于', is_null: '为空', not_null: '非空' };
+      var advProviders = [
+        { key: 'builtin', name: '内置通用引擎（条件组）' },
+        { key: 'material_by_spec', name: '按规格检索（自定义 provider）' }
+      ];
+      var bigAttr = {};
+      var cats = ['钢材', '电子', '化工', '包装'], units = ['件', 'kg', '米', '套'];
+      bigItems.forEach(function (x, idx) {
+        var n = idx + 1;
+        bigAttr[x.value] = { category: cats[n % 4], spec: 'S' + ((n * 13) % 90), unit: units[n % 4], status: (n % 7 === 0 ? 'disabled' : 'enabled'), stock: (n * 37) % 500 };
+      });
+      function attrDef(key) { for (var i = 0; i < advAttrs.length; i++) { if (advAttrs[i].key === key) return advAttrs[i]; } return null; }
+      function opsOf(key) { var a = attrDef(key); var ops = (a && a.ops) || ['eq']; return ops.map(function (o) { return { v: o, l: OP_LABEL[o] || o }; }); }
+      function optionsOf(key) { var a = attrDef(key); return (a && a.options) || []; }
+      function isEnum(key) { var a = attrDef(key); return !!a && a.type === 'enum'; }
+      var uid = 0;
+      function newCond() { return { id: ++uid, field: 'category', operator: 'eq', value: '', value2: '' }; }
+      function newGroup() { return { id: ++uid, logic: 'AND', conditions: [newCond()] }; }
+      var adv = reactive({
+        visible: false, target: 'items', provider: 'builtin', providerParam: '',
+        groupLogic: 'AND', schemeName: '', editingName: null, groups: [newGroup()]
+      });
+      var advSchemes = ref([]);
+      var advSelected = ref([]);
+      var advFilterValues = ref([]);
+      function openAdv(mode) {
+        adv.target = (mode === 'list') ? 'filter' : 'items';
+        adv.visible = true;
+        ElMessage({ message: '打开高级查询（' + (adv.target === 'filter' ? '筛选模式' : '取项模式') + '）', type: 'info' });
+      }
+      function onFieldChange(c) { var ops = opsOf(c.field); c.operator = ops.length ? ops[0].v : 'eq'; c.value = ''; c.value2 = ''; }
+      function addCond(g) { g.conditions.push(newCond()); }
+      function removeCond(g, ci) { if (g.conditions.length > 1) g.conditions.splice(ci, 1); }
+      function addGroup() { adv.groups.push(newGroup()); }
+      function removeGroup(gi) { if (adv.groups.length > 1) adv.groups.splice(gi, 1); }
+      function matchCond(row, c) {
+        var v = row[c.field], val = c.value;
+        if (v === undefined) return true;
+        switch (c.operator) {
+          case 'eq': return String(v) === String(val);
+          case 'ne': return String(v) !== String(val);
+          case 'contains': return String(v).indexOf(String(val)) >= 0;
+          case 'starts_with': return String(v).indexOf(String(val)) === 0;
+          case 'gt': return Number(v) > Number(val);
+          case 'lt': return Number(v) < Number(val);
+          case 'between': return Number(v) >= Number(val) && Number(v) <= Number(c.value2);
+          case 'in': var arr = Array.isArray(val) ? val : [val]; return arr.map(String).indexOf(String(v)) >= 0;
+          default: return true;
+        }
+      }
+      function evalGroup(row, g) {
+        if (!g.conditions.length) return true;
+        var rs = g.conditions.map(function (c) { return matchCond(row, c); });
+        return g.logic === 'OR' ? rs.some(Boolean) : rs.every(Boolean);
+      }
+      var advRows = bigItems.map(function (x) { return Object.assign({ value: x.value, label: x.label }, bigAttr[x.value]); });
+      var advResults = computed(function () {
+        if (adv.provider && adv.provider !== 'builtin') {
+          return advRows.filter(function (r) { return String(r.spec).indexOf(String(adv.providerParam)) >= 0; });
+        }
+        return advRows.filter(function (r) {
+          var rs = adv.groups.map(function (g) { return evalGroup(r, g); });
+          return adv.groupLogic === 'OR' ? rs.some(Boolean) : rs.every(Boolean);
+        });
+      });
+      function onAdvSelect(rows) { advSelected.value = rows; }
+      function runAdv() { ElMessage({ message: '执行查询：命中 ' + advResults.value.length + ' 条', type: 'success' }); }
+      function resetAdv() { adv.groups = [newGroup()]; adv.provider = 'builtin'; adv.providerParam = ''; adv.groupLogic = 'AND'; ElMessage({ message: '已重置条件', type: 'info' }); }
+      function applyAdv() {
+        if (adv.target === 'items') {
+          if (!advSelected.value.length) { ElMessage({ message: '请先在结果中勾选条目', type: 'error' }); return; }
+          form.material = advSelected.value[0].value;
+          ElMessage({ message: '已回填表单字段：' + form.material, type: 'success' });
+        } else {
+          var vals = advSelected.value.length ? advSelected.value.map(function (r) { return r.value; }) : advResults.value.slice(0, 20).map(function (r) { return r.value; });
+          advFilterValues.value = vals;
+          ElMessage({ message: '已应用为列筛选条件（value in，共 ' + vals.length + ' 个值）', type: 'success' });
+        }
+        adv.visible = false;
+      }
+      function saveScheme() {
+        if (!adv.schemeName) { ElMessage({ message: '请输入方案名称', type: 'error' }); return; }
+        var payload = {
+          name: adv.schemeName, target: adv.target, provider: adv.provider, providerParam: adv.providerParam,
+          groupLogic: adv.groupLogic, groups: JSON.parse(JSON.stringify(adv.groups))
+        };
+        if (adv.editingName) {
+          var idx = -1;
+          advSchemes.value.forEach(function (x, i) { if (x.name === adv.editingName) idx = i; });
+          if (idx >= 0) advSchemes.value.splice(idx, 1, payload); else advSchemes.value.push(payload);
+          ElMessage({ message: '已修改方案：' + adv.schemeName, type: 'success' });
+        } else {
+          advSchemes.value.push(payload);
+          ElMessage({ message: '已新增方案：' + adv.schemeName + '（个人方案）', type: 'success' });
+        }
+        adv.schemeName = ''; adv.editingName = null;
+      }
+      function applyScheme(s) {
+        adv.target = s.target; adv.provider = s.provider; adv.providerParam = s.providerParam;
+        adv.groupLogic = s.groupLogic; adv.groups = JSON.parse(JSON.stringify(s.groups));
+        ElMessage({ message: '已应用方案：' + s.name, type: 'info' });
+      }
+      function editScheme(s) {
+        applyScheme(s);
+        adv.editingName = s.name; adv.schemeName = s.name;
+        ElMessage({ message: '修改方案：' + s.name + '，调整条件后点「保存修改」', type: 'info' });
+      }
+      function cancelEditScheme() { adv.editingName = null; adv.schemeName = ''; }
+      function deleteScheme(s) {
+        ElMessageBox.confirm('删除查询方案「' + s.name + '」？', '提示', { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' })
+          .then(function () {
+            advSchemes.value = advSchemes.value.filter(function (x) { return x !== s; });
+            if (adv.editingName === s.name) { adv.editingName = null; adv.schemeName = ''; }
+            ElMessage({ message: '已删除方案：' + s.name, type: 'success' });
+          })
+          .catch(function () {});
+      }
+      function removeScheme(s) { advSchemes.value = advSchemes.value.filter(function (x) { return x !== s; }); }
+
+      onMounted(function () { fetchDicts('首次打开表单'); });
+
+      return {
+        tab, locale, readonly, form,
+        bigOptions, bigLoading, bigTotal, bigLabel, searchBig,
+        store, clientVersion, reopenForm, simulateChange, clearClientCache,
+        itemsOf, labelOf,
+        provinceOptions, cityOptions, districtOptions, regionOptions, pathLabel,
+        listRows, listRequests, listMissing, listSmallHit, doBatchTranslate, doRowTranslate, resetList,
+        advAttrs, advProviders, adv, advSchemes, advSelected, advFilterValues, advResults,
+        opsOf, optionsOf, isEnum, onFieldChange, addCond, removeCond, addGroup, removeGroup,
+        openAdv, onAdvSelect, runAdv, resetAdv, applyAdv, saveScheme, applyScheme, editScheme, cancelEditScheme, deleteScheme, removeScheme
+      };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>

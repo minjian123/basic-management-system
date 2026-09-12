@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 日期时间字段（DateField / DateRangeField / TimeField）</title>
+<link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background: #fff; border: 1px solid #d0d7de; border-radius: 6px; padding: 16px; }
+  .ep-section { font-weight: 600; margin: 16px 0 12px; padding-bottom: 8px; border-bottom: 1px solid #eaeef2; font-size: 14px; }
+  .ep-section:first-of-type { margin-top: 0; }
+  .dp-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
+  .dp-title { font-size: 16px; font-weight: 600; }
+  .dp-sub { color: #8c959f; font-size: 12px; margin-top: 2px; }
+  .dp-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; background: #f6f8fa; border: 1px solid #eaeef2; border-radius: 6px; padding: 8px 12px; margin-bottom: 12px; }
+  .dp-code { font-family: Consolas, "Cascadia Mono", monospace; color: #57606a; }
+  .dp-hint { color: #b1b8bf; font-size: 11px; font-style: normal; }
+  .dp-metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 12px; }
+  .dp-metric { background: #fff; border: 1px solid #d0d7de; border-radius: 6px; padding: 12px; }
+  .dp-metric .v { font-size: 14px; font-weight: 600; color: #0969da; word-break: break-all; }
+  .dp-metric .k { font-size: 12px; color: #57606a; margin-top: 4px; }
+  .dp-filter { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  @media (max-width: 768px) { .dp-metrics { grid-template-columns: repeat(1, 1fr); } }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="02_组件设计_日期时间字段.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 日期时间字段 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="02_组件设计_日期时间字段.md">《组件设计 · 日期时间字段》</a>：演示 <b>DateField</b> / <b>DateTimeField</b> / <b>TimeField</b> / <b>DateRangeField</b>、
+    快捷键、<b>UTC 存储 ↔ 用户时区展示</b> 换算、只读回显与查询区筛选。数据均为前端模拟。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-header">
+        <div>
+          <div class="dp-title">日期时间字段 原型</div>
+          <div class="dp-sub">DateField · DateTimeField · TimeField · DateRangeField · useDateValue</div>
+        </div>
+        <div class="dp-bar" style="margin-bottom:0">
+          <span class="proto-hint">用户时区（sys_user.timezone）：</span>
+          <el-select v-model="timezone" size="small" style="width:170px">
+            <el-option label="Asia/Shanghai" value="Asia/Shanghai"></el-option>
+            <el-option label="UTC" value="UTC"></el-option>
+            <el-option label="America/New_York" value="America/New_York"></el-option>
+          </el-select>
+          <el-divider direction="vertical"></el-divider>
+          <el-switch v-model="readonly" active-text="只读态" inactive-text="编辑态" size="small"></el-switch>
+        </div>
+      </div>
+
+      <el-tabs v-model="tab">
+        <!-- ① 基本字段 -->
+        <el-tab-pane label="① 日期 / 日期时间 / 时间" name="basic">
+          <el-form label-position="top" style="max-width:560px">
+            <el-form-item>
+              <template #label>生效日期 DateField（type=date）</template>
+              <el-date-picker v-model="dateVal" type="date" :disabled="readonly"
+                placeholder="请选择生效日期" value-format="YYYY-MM-DD" style="width:100%"></el-date-picker>
+            </el-form-item>
+            <el-form-item>
+              <template #label>创建时间 DateTimeField（type=datetime-seconds）</template>
+              <el-date-picker v-model="dtVal" type="datetime" :disabled="readonly"
+                placeholder="请选择创建时间" value-format="YYYY-MM-DDTHH:mm:ss[Z]" :default-time="defaultTime" style="width:100%"></el-date-picker>
+            </el-form-item>
+            <el-form-item>
+              <template #label>每日提醒时间 TimeField（HH:mm）</template>
+              <el-time-picker v-model="timeVal" :disabled="readonly" format="HH:mm" value-format="HH:mm"
+                placeholder="请选择时间" style="width:100%"></el-time-picker>
+            </el-form-item>
+          </el-form>
+
+          <div class="ep-section">值模型与展示（UTC 存储 ↔ 用户时区展示）</div>
+          <el-descriptions :column="1" border size="small">
+            <el-descriptions-item label="生效日期 modelValue">{{ dateVal || 'null（显示 —）' }}</el-descriptions-item>
+            <el-descriptions-item label="创建时间 modelValue（ISO UTC）"><span class="dp-code">{{ dtVal || 'null' }}</span></el-descriptions-item>
+            <el-descriptions-item label="创建时间 展示值（用户时区）">{{ displayOf(dtVal) }}</el-descriptions-item>
+            <el-descriptions-item label="只读回显（系统信息区格式 yyyy-MM-dd HH:mm）">{{ sysInfoOf(dtVal) }}</el-descriptions-item>
+            <el-descriptions-item label="提醒时间（纯时刻，无时区）">{{ timeVal || '—' }}</el-descriptions-item>
+          </el-descriptions>
+          <el-alert type="info" :closable="false" show-icon style="margin-top:10px"
+            title="时区转换只在边界发生：组件接收 UTC，展示按用户时区，提交时把本地选择换算为 UTC。"></el-alert>
+        </el-tab-pane>
+
+        <!-- ② 日期范围与快捷键 -->
+        <el-tab-pane label="② 日期范围与快捷键" name="range">
+          <div class="dp-bar">
+            <span class="proto-hint">DateRangeField（type=daterange）：查询区日期条件统一用日期范围</span>
+          </div>
+          <div class="dp-filter">
+            <el-date-picker v-model="rangeVal" type="daterange" :shortcuts="shortcuts"
+              range-separator="~" start-placeholder="开始日期" end-placeholder="结束日期"
+              value-format="YYYY-MM-DD" :disabled="readonly" style="width:340px"></el-date-picker>
+            <el-button size="small" type="primary" @click="search">查询</el-button>
+            <el-button size="small" @click="reset">重置</el-button>
+          </div>
+
+          <div class="dp-metrics" style="margin-top:12px">
+            <div class="dp-metric"><div class="v" style="font-size:13px">{{ rangeDisplay }}</div><div class="k">formatDateRange 只读展示</div></div>
+            <div class="dp-metric"><div class="v" style="font-size:13px">{{ rangeParams }}</div><div class="k">提交参数（*_start / *_end）</div></div>
+            <div class="dp-metric"><div class="v" style="font-size:13px">{{ rangeSpan }}</div><div class="k">区间跨度校验</div></div>
+          </div>
+
+          <div class="ep-section">快捷键（按用户时区边界计算，文案走 i18n）</div>
+          <el-table :data="shortcutTable" size="small" border style="width:100%">
+            <el-table-column prop="label" label="快捷键" width="160"></el-table-column>
+            <el-table-column label="计算区间（当前时区）" min-width="300">
+              <template #default="{ row }">{{ row.range }}</template>
+            </el-table-column>
+          </el-table>
+        </el-tab-pane>
+
+        <!-- ③ 列表列渲染 -->
+        <el-tab-pane label="③ 列表列渲染与排序" name="table">
+          <div class="dp-bar">
+            <span class="proto-hint">列表时间列用 formatDateTime 渲染；排序按 UTC 值排序（非展示文本）</span>
+            <el-divider direction="vertical"></el-divider>
+            <el-button size="small" @click="toggleSort">切换排序：{{ sortAsc ? '升序' : '降序' }}</el-button>
+          </div>
+          <el-table :data="sortedRows" size="small" border style="width:100%">
+            <el-table-column prop="name" label="记录" width="140"></el-table-column>
+            <el-table-column label="创建时间（展示，用户时区）" width="220">
+              <template #default="{ row }">{{ displayOf(row.utc) }}</template>
+            </el-table-column>
+            <el-table-column label="UTC 存储值（排序依据）" min-width="240">
+              <template #default="{ row }"><span class="dp-code">{{ row.utc }}</span></template>
+            </el-table-column>
+          </el-table>
+          <el-alert type="warning" :closable="false" show-icon style="margin-top:10px"
+            title="空值统一显示 —；时间列排序按 UTC 值，避免按格式化文本排序导致的错序。"></el-alert>
+        </el-tab-pane>
+      </el-tabs>
+    </div>
+  </div>
+</div>
+
+<script src="../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref, computed } = Vue;
+  var ElMessage = ElementPlus.ElMessage;
+
+  var app = createApp({
+    template: document.getElementById('app').outerHTML.replace(/<div id="app">/, '<div>').replace(/<\/div>\s*$/, ''),
+    setup: function () {
+      var tab = ref('basic');
+      var timezone = ref('Asia/Shanghai');
+      var readonly = ref(false);
+      var dateVal = ref('2026-09-11');
+      var dtVal = ref('2026-09-11T06:30:00Z');
+      var timeVal = ref('09:00');
+      var defaultTime = ref(new Date(2000, 0, 1, 0, 0, 0));
+
+      function pad(n) { return String(n).padStart(2, '0'); }
+      function partsInTz(value, tz) {
+        if (!value) return null;
+        var t = Date.parse(value);
+        if (isNaN(t)) return null;
+        var s = new Date(t).toLocaleString('en-US', { timeZone: tz, hour12: false });
+        var m = s.match(/(\d+)\/(\d+)\/(\d+),?\s+(\d+):(\d+):(\d+)/);
+        if (!m) return null;
+        return { y: +m[3], mo: +m[1], d: +m[2], h: +m[4], mi: +m[5], s: +m[6] };
+      }
+      function displayOf(v) {
+        var p = partsInTz(v, timezone.value);
+        if (!p) return '—';
+        return p.y + '-' + pad(p.mo) + '-' + pad(p.d) + ' ' + pad(p.h) + ':' + pad(p.mi) + ':' + pad(p.s);
+      }
+      function sysInfoOf(v) {
+        var p = partsInTz(v, timezone.value);
+        if (!p) return '—';
+        return p.y + '-' + pad(p.mo) + '-' + pad(p.d) + ' ' + pad(p.h) + ':' + pad(p.mi);
+      }
+
+      // ---- 范围 ----
+      var rangeVal = ref(['2026-09-01', '2026-09-11']);
+      var shortcuts = [
+        { text: '今天', value: function () { return dayRange(0); } },
+        { text: '昨天', value: function () { return dayRange(-1); } },
+        { text: '最近 7 天', value: function () { return dayRange(-6, 0); } },
+        { text: '最近 30 天', value: function () { return dayRange(-29, 0); } },
+        { text: '本月', value: function () { return monthRange(0); } },
+        { text: '上月', value: function () { return monthRange(-1); } }
+      ];
+      function dayRange(from, to) {
+        var now = new Date();
+        var a = new Date(now.getFullYear(), now.getMonth(), now.getDate() + from);
+        var b = new Date(now.getFullYear(), now.getMonth(), now.getDate() + (to === undefined ? from : to));
+        return [a, b];
+      }
+      function monthRange(offset) {
+        var now = new Date();
+        var a = new Date(now.getFullYear(), now.getMonth() + offset, 1);
+        var b = new Date(now.getFullYear(), now.getMonth() + offset + 1, 0);
+        return [a, b];
+      }
+      var rangeDisplay = computed(function () {
+        if (!rangeVal.value || !rangeVal.value.length) return '—（不限）';
+        return rangeVal.value[0] + ' ~ ' + rangeVal.value[1];
+      });
+      var rangeParams = computed(function () {
+        if (!rangeVal.value || !rangeVal.value.length) return 'created_start=null, created_end=null';
+        return 'created_start=' + rangeVal.value[0] + 'T00:00:00Z, created_end=' + rangeVal.value[1] + 'T23:59:59Z';
+      });
+      var rangeSpan = computed(function () {
+        if (!rangeVal.value || rangeVal.value.length < 2) return '—';
+        var a = Date.parse(rangeVal.value[0]), b = Date.parse(rangeVal.value[1]);
+        if (b < a) return '起 > 止：区间非法';
+        var days = Math.round((b - a) / 86400000) + 1;
+        return days + ' 天' + (days > 366 ? '（超出跨度上限 366 天）' : '（合法）');
+      });
+      var shortcutTable = computed(function () {
+        var rows = [];
+        shortcuts.forEach(function (s) {
+          var r = s.value();
+          rows.push({ label: s.text, range: r[0].toLocaleDateString('zh-CN') + ' ~ ' + r[1].toLocaleDateString('zh-CN') });
+        });
+        return rows;
+      });
+      function search() {
+        if (rangeSpan.value.indexOf('非法') >= 0) { ElMessage.error('区间非法：开始日期不能晚于结束日期'); return; }
+        ElMessage.success('查询已提交，条件回第 1 页且保留筛选');
+      }
+      function reset() { rangeVal.value = null; ElMessage.info('已重置日期范围并回第 1 页'); }
+
+      // ---- 列表 ----
+      var sortAsc = ref(false);
+      var rows = [
+        { name: '记录 A', utc: '2026-09-11T06:30:00Z' },
+        { name: '记录 B', utc: '2026-09-10T23:10:00Z' },
+        { name: '记录 C', utc: '2026-09-09T16:45:00Z' },
+        { name: '记录 D', utc: '' }
+      ];
+      var sortedRows = computed(function () {
+        var r = rows.slice();
+        r.sort(function (a, b) {
+          var ta = a.utc ? Date.parse(a.utc) : 0, tb = b.utc ? Date.parse(b.utc) : 0;
+          return sortAsc.value ? ta - tb : tb - ta;
+        });
+        return r;
+      });
+      function toggleSort() { sortAsc.value = !sortAsc.value; }
+
+      return {
+        tab, timezone, readonly, dateVal, dtVal, timeVal, defaultTime,
+        displayOf, sysInfoOf,
+        rangeVal, shortcuts, rangeDisplay, rangeParams, rangeSpan, shortcutTable, search, reset,
+        sortAsc, sortedRows, toggleSort
+      };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>
