@@ -37,12 +37,13 @@ def test_methods_output_to_stdout(capsys: pytest.CaptureFixture[str]) -> None:
     logger.info("event_info")
     logger.warning("event_warning")
     logger.error("event_error")
+    logger.critical("event_critical")
     try:
         raise ValueError("boom")
     except ValueError:
         logger.exception("event_exception")
     out = capsys.readouterr().out
-    for token in ("event_debug", "event_info", "event_warning", "event_error", "event_exception"):
+    for token in ("event_debug", "event_info", "event_warning", "event_error", "event_critical", "event_exception"):
         assert token in out
 
 

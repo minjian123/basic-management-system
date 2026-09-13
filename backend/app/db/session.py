@@ -8,7 +8,7 @@ from collections.abc import AsyncIterator
 from fastapi import Request
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
-from app.db.engine import EngineFactory
+from app.db.registry import EngineRegistry
 
 
 def build_session_factory(engine: AsyncEngine) -> async_sessionmaker[AsyncSession]:
@@ -27,12 +27,13 @@ async def get_db(request: Request) -> AsyncIterator[AsyncSession]:
     """请求级会话依赖（每请求独立，退出释放）。
 
     Args:
-        request: 当前请求（取 `app.state.engine_factory`）。
+        request: 当前请求（取 `app.state.engine_registry`）。
 
     Yields:
         AsyncSession: 请求级异步会话。
     """
-    factory: EngineFactory = request.app.state.engine_factory
-    session_factory = build_session_factory(factory.create("platform"))
+    registry: EngineRegistry = request.app.state.engine_registry
+    engine = await registry.get()
+    session_factory = build_session_factory(engine)
     async with session_factory() as session:
         yield session

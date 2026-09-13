@@ -42,7 +42,7 @@ def test_schema_to_dict_matches_model_dump() -> None:
     """BaseSchema 序列化走 Pydantic（to_dict == model_dump），to_json 稳定序。"""
     resp = DemoResponse(id=1, name="甲")
     assert resp.to_dict() == resp.model_dump()
-    assert resp.to_json() == '{"id": 1, "name": "甲"}'
+    assert resp.to_json() == '{"id": "1", "name": "甲"}'
 
 
 @pytest.mark.kiwi_id(13)
@@ -62,7 +62,7 @@ def test_page_and_cursor_response_contracts() -> None:
         list=[DemoResponse(id=1, name="甲")], total=1, page=1, size=20
     )
     assert page.to_dict()["total"] == 1
-    assert page.to_dict()["list"] == [{"id": 1, "name": "甲"}]
+    assert page.to_dict()["list"] == [{"id": "1", "name": "甲"}]
 
     cursor = BaseCursorResponse[DemoResponse](list=[], next_cursor=None, has_more=False)
     assert cursor.to_dict() == {"list": [], "next_cursor": None, "has_more": False}
@@ -76,3 +76,25 @@ def test_pagination_inherits_base_schema() -> None:
     """分页契约基类继承 BaseSchema。"""
     for cls in (BasePageQuery, BasePageResponse, BaseCursorQuery, BaseCursorResponse):
         assert issubclass(cls, BaseSchema)
+
+
+class _IdSchema(BaseSchema):
+    """ID 序列化测试模型。"""
+
+    id: int
+    owner_id: int
+    other: int
+
+
+class _IdListSchema(BaseSchema):
+    """嵌套列表 ID 序列化测试模型。"""
+
+    items: list[_IdSchema]
+
+
+@pytest.mark.kiwi_id(13)
+def test_id_fields_serialized_as_string() -> None:
+    """`id` / `*_id` 序列化为字符串；其余整型原样保留（含嵌套）。"""
+    assert _IdSchema(id=1, owner_id=2, other=3).model_dump() == {"id": "1", "owner_id": "2", "other": 3}
+    nested = _IdListSchema(items=[_IdSchema(id=4, owner_id=5, other=6)]).model_dump()
+    assert nested == {"items": [{"id": "4", "owner_id": "5", "other": 6}]}

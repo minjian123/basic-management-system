@@ -1,10 +1,10 @@
 """repositories 层数据库实现骨架：异步占位，不连库（真实 CRUD 随落库阶段回补）。"""
 
 from app.core.capability import BaseStub
-from app.repositories.base_repository import BaseRepository
+from app.repositories.base_scoped_repository import BaseScopedRepository
 
 
-class BaseDbRepository[ModelT](BaseRepository[ModelT], BaseStub):
+class BaseDbRepository[ModelT](BaseScopedRepository[ModelT], BaseStub):
     """数据库实现骨架（异步占位，不连库）。
 
     冻结数据库侧继承点：真实实现（异步引擎 / 会话 / 四库方言 / 读写分离 /
