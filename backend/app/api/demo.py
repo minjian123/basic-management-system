@@ -1,9 +1,10 @@
-"""demo 示例模块路由：展示四件套调用链与统一响应占位。"""
+"""demo 示例模块路由：展示四件套调用链与统一响应。"""
 
 from typing import Annotated, cast
 
 from fastapi import APIRouter, Depends, Request
 
+from app.schemas.common import ApiResponse
 from app.schemas.demo import DemoCreateRequest, DemoResponse, DemoUpdateRequest
 from app.services.demo_service import DemoService
 
@@ -18,51 +19,46 @@ def get_demo_service(request: Request) -> DemoService:
 DemoDep = Annotated[DemoService, Depends(get_demo_service)]
 
 
-def _ok(data: object) -> dict[str, object]:
-    """统一响应占位（02-3 起换用 ApiResponse）。"""
-    return {"code": 0, "message": "ok", "data": data}
-
-
 @router.post("")
-def create_demo(req: DemoCreateRequest, service: DemoDep) -> dict[str, object]:
+def create_demo(req: DemoCreateRequest, service: DemoDep) -> ApiResponse:
     """创建 demo。
 
     Returns:
-        dict: 统一响应，data 为 {id, name}。
+        ApiResponse: 统一响应，data 为 {id, name}。
     """
     demo = service.create_demo(req.name)
-    return _ok(DemoResponse(id=demo.id, name=demo.name).model_dump())
+    return ApiResponse.ok(DemoResponse(id=demo.id, name=demo.name))
 
 
 @router.get("")
-def list_demos(service: DemoDep) -> dict[str, object]:
+def list_demos(service: DemoDep) -> ApiResponse:
     """demo 列表。
 
     Returns:
-        dict: 统一响应，data 为记录数组。
+        ApiResponse: 统一响应，data 为记录数组。
     """
-    return _ok([DemoResponse(id=item.id, name=item.name).model_dump() for item in service.list_demos()])
+    return ApiResponse.ok([DemoResponse(id=item.id, name=item.name) for item in service.list_demos()])
 
 
 @router.get("/{demo_id}")
-def get_demo(demo_id: int, service: DemoDep) -> dict[str, object]:
+def get_demo(demo_id: int, service: DemoDep) -> ApiResponse:
     """demo 详情。
 
     Args:
         demo_id: 记录 ID。
 
     Returns:
-        dict: 统一响应，data 为 {id, name}。
+        ApiResponse: 统一响应，data 为 {id, name}。
 
     Raises:
         NotFoundError: 记录不存在（全局处理器转 404）。
     """
     demo = service.get_demo(demo_id)
-    return _ok(DemoResponse(id=demo.id, name=demo.name).model_dump())
+    return ApiResponse.ok(DemoResponse(id=demo.id, name=demo.name))
 
 
 @router.put("/{demo_id}")
-def update_demo(demo_id: int, req: DemoUpdateRequest, service: DemoDep) -> dict[str, object]:
+def update_demo(demo_id: int, req: DemoUpdateRequest, service: DemoDep) -> ApiResponse:
     """更新 demo 名称。
 
     Args:
@@ -70,27 +66,27 @@ def update_demo(demo_id: int, req: DemoUpdateRequest, service: DemoDep) -> dict[
         req: 更新请求。
 
     Returns:
-        dict: 统一响应，data 为 {id, name}。
+        ApiResponse: 统一响应，data 为 {id, name}。
 
     Raises:
         NotFoundError: 记录不存在（全局处理器转 404）。
     """
     demo = service.update_demo(demo_id, req.name)
-    return _ok(DemoResponse(id=demo.id, name=demo.name).model_dump())
+    return ApiResponse.ok(DemoResponse(id=demo.id, name=demo.name))
 
 
 @router.delete("/{demo_id}")
-def delete_demo(demo_id: int, service: DemoDep) -> dict[str, object]:
+def delete_demo(demo_id: int, service: DemoDep) -> ApiResponse:
     """删除 demo。
 
     Args:
         demo_id: 记录 ID。
 
     Returns:
-        dict: 统一响应，data 为 null。
+        ApiResponse: 统一响应，data 为 null。
 
     Raises:
         NotFoundError: 记录不存在（全局处理器转 404）。
     """
     service.delete_demo(demo_id)
-    return _ok(None)
+    return ApiResponse.ok()
