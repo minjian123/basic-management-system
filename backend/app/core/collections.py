@@ -5,7 +5,6 @@
 """
 
 import heapq
-import json
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterable, Iterator, Mapping
 from typing import Any, Self, cast
@@ -15,6 +14,7 @@ from sortedcontainers import SortedList as _SortedList
 from sortedcontainers import SortedSet as _SortedSet
 
 from app.core.base import BaseObject
+from app.core.serialization import stable_json_dumps
 
 
 class BaseSorted[ItemT](BaseObject, ABC):
@@ -49,7 +49,7 @@ class BaseSorted[ItemT](BaseObject, ABC):
         Returns:
             str: JSON 字符串。
         """
-        return json.dumps(self._json_data(), ensure_ascii=False, sort_keys=sort_keys, default=str)
+        return stable_json_dumps(self._json_data(), sort_keys=sort_keys)
 
     def sorted_by(self, key: Callable[[ItemT], Any], reverse: bool = False) -> list[ItemT]:
         """排序视图：按自定义键返回有序列表副本，不改动自身。

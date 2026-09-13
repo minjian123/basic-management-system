@@ -8,7 +8,7 @@ import pytest
 from app.core.base import BaseObject
 from app.core.exceptions import NotFoundError
 from app.db.unit_of_work import NullUnitOfWork
-from app.repositories.base_repository import BaseRepository
+from app.repositories.base_memory_repository import BaseMemoryRepository
 from app.services.base_service import BaseService
 from app.services.base_transactional_service import BaseTransactionalService
 
@@ -21,7 +21,7 @@ class Item:
     name: str
 
 
-class ItemRepository(BaseRepository[Item]):
+class ItemRepository(BaseMemoryRepository[Item]):
     """测试仓储：只实现构造钩子。"""
 
     def _build(self, item_id: int, values: dict[str, object]) -> Item:

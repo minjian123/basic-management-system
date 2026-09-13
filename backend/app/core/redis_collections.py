@@ -6,7 +6,6 @@
 - 复合操作（写索引 + 写数据）用 Lua 保证原子；版本号 key 为 `{key}:version`
 """
 
-import json
 from collections.abc import AsyncGenerator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from typing import cast
@@ -16,6 +15,7 @@ from redis.exceptions import WatchError
 
 from app.core.base import BaseObject, ValueHolder
 from app.core.exceptions import ConcurrentConflictError
+from app.core.serialization import stable_json_dumps, stable_json_loads
 
 _SET_SCRIPT = """
 redis.call('HSET', KEYS[2], ARGV[1], ARGV[2])
@@ -71,7 +71,7 @@ def _dump(value: object) -> str:
     Returns:
         str: JSON 字符串。
     """
-    return json.dumps(value, ensure_ascii=False, sort_keys=True, default=str)
+    return stable_json_dumps(value)
 
 
 def _load(raw: bytes | str | None) -> object:
@@ -85,7 +85,7 @@ def _load(raw: bytes | str | None) -> object:
     """
     if raw is None:
         return None
-    return json.loads(raw.decode() if isinstance(raw, bytes) else raw)
+    return stable_json_loads(raw)
 
 
 def _score_for_key(key: object) -> float:

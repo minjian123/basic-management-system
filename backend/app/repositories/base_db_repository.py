@@ -9,25 +9,9 @@ class BaseDbRepository[ModelT](BaseRepository[ModelT]):
     """数据库实现骨架（占位，不连库）。
 
     冻结数据库侧继承点：真实实现（异步引擎 / 会话 / 四库方言 / 读写分离）由
-    02-5-1 数据访问底座在基类统一切换异步后覆写原子方法；`exists` 沿用派生链，
+    02-5-1 数据访问底座在基类统一切换异步后覆写 CRUD 方法；`exists` 沿用派生链，
     真实实现只需提供 `get` / `count`。
     """
-
-    def _build(self, item_id: int, values: dict[str, object]) -> ModelT:
-        """内存基线构造钩子（数据库实现不使用）。
-
-        Raises:
-            NotImplementedError: 始终抛出（占位）。
-        """
-        raise NotImplementedError(_PLACEHOLDER)
-
-    def _apply(self, item: ModelT, values: dict[str, object]) -> ModelT:
-        """内存基线更新钩子（数据库实现不使用）。
-
-        Raises:
-            NotImplementedError: 始终抛出（占位）。
-        """
-        raise NotImplementedError(_PLACEHOLDER)
 
     def list(self) -> list[ModelT]:
         """查询全部（占位）。
