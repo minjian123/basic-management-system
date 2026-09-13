@@ -7,10 +7,15 @@
 from abc import ABC, abstractmethod
 
 from app.core.base import BaseObject
+from app.scope.base import DataScope
+from app.sharding.base import ShardingRouter
 
 
 class BaseRepository[ModelT](BaseObject, ABC):
     """仓储契约基类：CRUD 契约 + `exists` 派生方法 + 路由钩子。"""
+
+    _data_scope: DataScope | None = None
+    _sharding_router: ShardingRouter | None = None
 
     @abstractmethod
     def list(self) -> list[ModelT]:
@@ -58,8 +63,16 @@ class BaseRepository[ModelT](BaseObject, ABC):
         """
         return "default"
 
+    def _apply_data_scope(self, scope: DataScope | None) -> None:
+        """数据范围注入钩子（占位：仅挂载；读写过滤随 RBAC 阶段回补）。
+
+        Args:
+            scope: 数据范围契约；None 表示不限制。
+        """
+        self._data_scope = scope
+
     def _resolve_shard(self, logical_table: str) -> str:
-        """分片路由钩子（占位：不路由，返回逻辑表名）。
+        """分片路由钩子：经 `ShardingRouter` 解析物理表（未注入则不路由）。
 
         Args:
             logical_table: 逻辑表名。
@@ -67,4 +80,6 @@ class BaseRepository[ModelT](BaseObject, ABC):
         Returns:
             str: 物理表名。
         """
-        return logical_table
+        if self._sharding_router is None:
+            return logical_table
+        return self._sharding_router.resolve(logical_table).physical_table
