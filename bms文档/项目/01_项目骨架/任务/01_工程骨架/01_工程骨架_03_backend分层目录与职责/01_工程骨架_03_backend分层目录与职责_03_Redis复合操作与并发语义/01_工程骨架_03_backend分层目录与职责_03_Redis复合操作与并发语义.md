@@ -22,7 +22,7 @@
 1. `replace_if_equal` / `get_and_remove`：以 **Lua 脚本**原子实现（Hash 数据 + ZSET 索引一致），冲突/缺失语义明确
 2. `update_atomic`：**WATCH + MULTI 乐观重试**（默认上限 3 次；键缺失抛 `KeyError`；重试超限抛 `ConcurrentConflictError`）
 3. `get_locked`：异步上下文管理器，WATCH 读-提交（提交冲突上抛不重试，避免丢失调用方变换；键缺失抛 `KeyError`）
-4. 真实 Redis integration 用例（标记 `integration`，读 `BMS_TEST_REDIS_URL`，未配置自动跳过），随 05-02 流水线执行
+4. 真实 Redis integration 用例（标记 `integration`，读 `BMS_TEST_REDIS_URL`，未配置自动跳过），随 04_02 流水线执行
 5. `ConcurrentConflictError` 占位（02-3 接入 BizError 体系后替换）
 6. 测试：先登记 Kiwi 用例（Case 18），fakeredis 单元 + 真实 Redis integration 双口径
 

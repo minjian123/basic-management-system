@@ -79,7 +79,7 @@ async def _optimistic(self, key, mutate: Callable[[str | None], str]) -> str:
 | 17 | 01-3-2 既有 Redis 用例回归 | 同上 |
 | 14 | BaseObject 取字段口径（dataclass fields 优先、回退 `__dict__`） | `tests/core/test_base_object.py` |
 
-真实 Redis integration：`tests/integration/test_redis_collections_integration.py`（`pytestmark = pytest.mark.integration`，读 `BMS_TEST_REDIS_URL`，未配置跳过；随 05-02 流水线执行）。
+真实 Redis integration：`tests/integration/test_redis_collections_integration.py`（`pytestmark = pytest.mark.integration`，读 `BMS_TEST_REDIS_URL`，未配置跳过；随 04_02 流水线执行）。
 
 ## 7. 实施步骤 <a id="steps"></a>
 
@@ -87,7 +87,7 @@ async def _optimistic(self, key, mutate: Callable[[str | None], str]) -> str:
 2. `ValueHolder` 上移 `core/base.py`；新增 `ConcurrentConflictError`。
 3. `core/redis_collections.py`：新增 Lua 两脚本；实现 `replace_if_equal / get_and_remove / update_atomic / get_locked`。
 4. 单元用例（fakeredis + monkeypatch 模拟冲突/重试/超限）与 integration 用例。
-5. `pyproject.toml` 注册 `integration` marker；05-02 任务清单补 Redis 集成用例。
+5. `pyproject.toml` 注册 `integration` marker；04_02 任务清单补 Redis 集成用例。
 6. 验证与回写（ruff / pyright / 覆盖率 / integration 实测）。
 
 ## 8. 验收映射 <a id="accept-map"></a>
@@ -113,7 +113,7 @@ async def _optimistic(self, key, mutate: Callable[[str | None], str]) -> str:
 | 1 | 归属 | 01_03 下嵌套子任务 01-3-3，依赖 01-3-2 |
 | 2 | 机制 | CAS/取走删除用 Lua；update_atomic 用 WATCH 乐观重试（≤3）；get_locked WATCH 提交不重试 |
 | 3 | 工时 | 6h；01_03 重估 21h；父任务 35h；阶段总 86h |
-| 4 | 测试 | fakeredis 单元 + 真实 Redis integration（标 integration，随 05-02） |
+| 4 | 测试 | fakeredis 单元 + 真实 Redis integration（标 integration，随 04_02） |
 | 5 | 基线 | 需求 01-3 追加第 7 条；状态与账目沿用前例同步 |
 
 > 本文档依《文档生成规范》编写 · 关键决策逐项确认

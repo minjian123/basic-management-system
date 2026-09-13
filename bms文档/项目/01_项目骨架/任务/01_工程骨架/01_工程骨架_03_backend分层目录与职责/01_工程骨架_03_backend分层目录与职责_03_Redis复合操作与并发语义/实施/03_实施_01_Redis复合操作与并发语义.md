@@ -25,7 +25,7 @@ flowchart LR
     B --> C[Lua CAS/取走删除]
     C --> D[WATCH 乐观重试 + get_locked]
     D --> E[integration 用例与 marker]
-    E --> F[05-02 清单 + 真实 Redis 实测]
+    E --> F[04_02 清单 + 真实 Redis 实测]
     F --> G[验证与回写]
 ```
 
@@ -35,7 +35,7 @@ flowchart LR
 | 2 | Lua 脚本：`replace_if_equal`、`get_and_remove` | 完成 |
 | 3 | WATCH：`update_atomic`（重试 ≤3）、`get_locked`（提交不重试） | 完成 |
 | 4 | 单元用例（Kiwi 18）+ integration 用例 + `integration` marker | 完成 |
-| 5 | 05-02 集成用例清单补录；真实 Redis 实测 | 通过（2 passed） |
+| 5 | 04_02 集成用例清单补录；真实 Redis 实测 | 通过（2 passed） |
 | 6 | 验证（ruff / pyright / 覆盖率 100%） | 全部通过 |
 
 ## 3. 实施过程 <a id="process"></a>
@@ -60,7 +60,7 @@ flowchart LR
 
 - 单元：Kiwi 18 覆盖 CAS 三分支、取走删除、乐观更新成功/缺失、重试成功（monkeypatch 单轮方法确定性模拟 `WatchError`）、超限；
 - integration：`tests/integration/test_redis_collections_integration.py`（`pytestmark = integration`，`BMS_TEST_REDIS_URL` 未配置则跳过），逻辑覆盖 Lua 原子、乐观更新、上下文提交与版本号；
-- `pyproject.toml` 注册 `integration` marker；05-02 任务「集成用例清单」补录本项目。
+- `pyproject.toml` 注册 `integration` marker；04_02 任务「集成用例清单」补录本项目。
 
 ## 4. 问题与处置 <a id="issues"></a>
 
