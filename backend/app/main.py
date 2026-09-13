@@ -9,11 +9,13 @@ from app import __version__
 from app.api.errors import register_exception_handlers
 from app.api.router import api_router, health_router
 from app.captcha.base import NullCaptcha
+from app.circuit.base import NullCircuitBreaker
 from app.core.config import get_settings
 from app.core.logging import configure_logging, get_logger
 from app.core.resources import ResourceManager
 from app.db.engine import EngineFactory
 from app.db.registry import EngineRegistry
+from app.fallback.base import NullFallbackPolicy
 from app.lock.base import NullDistributedLock
 from app.masking.base import NullMasker
 from app.password.base import NullPasswordPolicy
@@ -78,6 +80,8 @@ def create_app() -> FastAPI:
     app.state.distributed_lock = NullDistributedLock()
     app.state.captcha = NullCaptcha()
     app.state.password_policy = NullPasswordPolicy()
+    app.state.fallback_policy = NullFallbackPolicy()
+    app.state.circuit_breaker = NullCircuitBreaker()
 
     app.state.demo_service = DemoService(DemoRepository())
 
