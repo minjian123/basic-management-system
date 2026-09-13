@@ -59,6 +59,16 @@ class EngineFactory(BaseAsyncResource):
         self._engines[db_key] = engine
         return engine
 
+    async def drop(self, db_key: str) -> None:
+        """释放并移除指定引擎（若存在）。
+
+        Args:
+            db_key: 数据源键。
+        """
+        engine = self._engines.pop(db_key, None)
+        if engine is not None:
+            await engine.dispose()
+
     async def aclose(self) -> None:
         """释放全部缓存引擎（幂等）。"""
         for engine in self._engines.values():
