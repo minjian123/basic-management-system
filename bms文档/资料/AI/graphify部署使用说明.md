@@ -28,7 +28,7 @@ graphify 是一个开源命令行工具（Python 包名 `graphifyy`），能把�
 | Python | ≥ 3.10 | 3.14.4 |
 | uv | 推荐（工具安装/隔离环境） | 0.12.7 |
 | git | 克隆 GitHub 仓库时使用 | 2.53.0 |
-| graphify | uv 安装（含 extras） | 0.9.51 |
+| graphify | uv 安装（含 extras） | 0.9.61 |
 
 > graphify 本身**不需要任何 API Key**。只有对文档/论文/图片做语义抽取时才需要 LLM（Gemini Key 或 AI 助手会话），纯代码目录完全免费离线运行。
 
@@ -242,6 +242,55 @@ python scripts/tools/graphify/localize-graph.py   # 汉化 graph.html + 生成 C
 - graphify 已随 `dsh-update.sh` 纳入自动更新（2026-09-10）：默认比对 dsh-graphify 已装版本与 ghfast 远端 tag（落后则源码 git pull → pnpm install/build → remove → add file: 重装）、graphifyy 已装版本与 PyPI 清华源最新（落后则 uv tool upgrade，受原版本 pin 约束时自动转 `--force` 直装 `[chinese,openai,mcp]`，随后 graphify-mcp 探活）；`--skip-kg` 可跳过。实测 0.9.51 → 0.9.57 自动升级成功、旧图谱（0.9.51 构建）读取兼容（3365 节点不变）。
 - **重启后验证（2026-09-10）**：会话内 `graph_stats` / `query_graph`（中文 BFS）正常，自动解析当前项目图谱（3365 节点 / 4801 边 / 304 社区）；`graphify_*` 兼容工具与 PR 系列工具随插件注册。opencode 侧 skill 为 0.9.51 版本副本，`graphify --version` 提示可 `graphify install --platform opencode` 刷新（不影响 DSH 使用）。
 
+### 8.2 CodeBuddy 集成 <a id="agent-codebuddy"></a>
+
+> 2026-09-13 实测落地。结论：**官方支持 CodeBuddy 平台**——一条 `graphify install --platform codebuddy` 即写入用户级 skill 与常驻说明；需要「原生工具」（免终端）再挂 MCP，可选。
+
+**安装（用户级，推荐）**：
+
+```bash
+graphify install --platform codebuddy
+#   references       ->  ~/.codebuddy/skills/graphify/references
+#   skill installed  ->  ~/.codebuddy/skills/graphify/SKILL.md
+#   CODEBUDDY.md     ->  created at ~/.codebuddy/CODEBUDDY.md
+```
+
+- 落点：skill（`SKILL.md` + `references/` 8 份）在 `~/.codebuddy/skills/graphify/`；`~/.codebuddy/CODEBUDDY.md` 写入常驻块（触发词 `/graphify`）。
+- 平台清单见 `graphify install --help`（含 `codebuddy`）；`--project` 改为项目级（在工作区根写 `CODEBUDDY.md`）——本工作区**未采用**，避免向工作区仓库新增文件（工作区只跟踪 `AGENTS.md`、`README.md`、`.opencode/` 等配置）。
+- 不装 skill 也能用：会话内直接用 bash 调 CLI（`graphify query` / `path` / `explain`，见第 6 节），本工作区此前一直这样用。
+
+**MCP 原生工具（可选）**：本机 `graphify-mcp`（等价 `python -m graphify.serve`，支持 `stdio` / `http`）。在 `~/.codebuddy/mcp.json` 注册图谱服务：
+
+```json
+{
+  "mcpServers": {
+    "graphify": {
+      "command": "~/.local/bin/graphify-mcp",
+      "args": ["--graph", "<工作区根>/graphify-out/graph.json"]
+    },
+    "graphify-cws": {
+      "command": "~/.local/bin/graphify-mcp",
+      "args": ["--graph", "<另一工作区根>/graphify-out/graph.json"]
+    }
+  }
+}
+```
+
+- `--graph` 指向各工作区图谱；多工作区各注册一条（本机按 bizs / cws 两个工作区各一条，切换工作区即切换图谱来源）。
+- 生效方式：MCP 配置在 **IDE 启动时读取，改后需重载 / 重启窗口**；skill 与 `CODEBUDDY.md` 在下次会话载入。
+
+**实测（2026-09-13）**：
+
+| 项 | 结果 |
+| --- | --- |
+| stdio 握手 | 成功，服务端 `graphify 0.9.61` |
+| 工具清单（10 项） | `query_graph` / `get_node` / `get_neighbors` / `get_community` / `god_nodes` / `graph_stats` / `shortest_path`，另含 PR 影响分析 3 项（`list_prs` / `get_pr_impact` / `triage_prs`） |
+| bizs 图谱统计 | `Nodes: 11166 Edges: 23310 Communities: 718`（EXTRACTED 90% · INFERRED 10%） |
+| cws 图谱统计 | `Nodes: 6975 Edges: 12108 Communities: 522`（EXTRACTED 93% · INFERRED 7%） |
+
+- 版本提示：`graphify --version` 会提示 `~/.config/opencode/skills/graphify` 为旧版副本（0.9.58），与 CodeBuddy 集成无关；需要时 `graphify install --platform opencode` 刷新。
+- 工作区内 `.opencode/`（`plugins/graphify.js` + `opencode.json`）只对 OpenCode 生效，CodeBuddy 不读取。
+
 ## 9. 常见问题 <a id="faq"></a>
 
 | 问题 | 处理 |
@@ -278,4 +327,4 @@ graphify 的独特价值在于**同时**做了两件事：代码 AST 抽取（tr
 - 若未来只想对 `bms文档/` 规划做语义问答（不要代码图谱），再评估 LightRAG 本地版（HKUDS/LightRAG，MIT，可 Ollama 离线）。
 - GraphRAG / Neo4j / KuzuDB 均与「轻量本地、离线免费」诉求相悖，不建议折腾。
 
-> 本文档基于 graphify 0.9.51（Linux 环境）编写。项目：[github.com/safishamsi/graphify](https://github.com/safishamsi/graphify)
+> 本文档基于 graphify 0.9.61（Linux 环境）编写。项目：[github.com/safishamsi/graphify](https://github.com/safishamsi/graphify)
