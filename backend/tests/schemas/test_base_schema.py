@@ -47,8 +47,8 @@ def test_schema_to_dict_matches_model_dump() -> None:
 
 @pytest.mark.kiwi_id(13)
 def test_page_query_defaults_and_bounds() -> None:
-    """页码分页请求默认值与范围校验（page≥1、size≤200）。"""
-    assert BasePageQuery().model_dump() == {"page": 1, "size": 20}
+    """页码分页请求默认值与范围校验（page≥1、size≤200；含排序参数默认空）。"""
+    assert BasePageQuery().model_dump() == {"order_by": None, "order": None, "page": 1, "size": 20}
     with pytest.raises(ValidationError):
         BasePageQuery(page=0)
     with pytest.raises(ValidationError):

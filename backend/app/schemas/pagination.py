@@ -1,12 +1,16 @@
-"""schemas 层公共分页契约：页码与游标分页的请求 / 响应基类。"""
+"""schemas 层公共分页契约：页码与游标分页的请求 / 响应基类。
+
+分页请求继承排序契约 `BaseSortQuery`，列表接口天然带统一排序参数（见 `app/schemas/sorting.py`）。
+"""
 
 from pydantic import Field
 
 from app.schemas.base import BaseSchema
+from app.schemas.sorting import BaseSortQuery
 
 
-class BasePageQuery(BaseSchema):
-    """页码分页请求。"""
+class BasePageQuery(BaseSortQuery):
+    """页码分页请求（含排序参数）。"""
 
     page: int = Field(default=1, ge=1, description="页码（从 1 起）")
     size: int = Field(default=20, ge=1, le=200, description="每页条数（默认 20，上限 200）")
@@ -21,8 +25,8 @@ class BasePageResponse[ItemT](BaseSchema):
     size: int
 
 
-class BaseCursorQuery(BaseSchema):
-    """游标分页请求（日志 / 审计等大数据量场景）。"""
+class BaseCursorQuery(BaseSortQuery):
+    """游标分页请求（日志 / 审计等大数据量场景，含排序参数）。"""
 
     cursor: str | None = Field(default=None, description="游标（首页为空）")
     limit: int = Field(default=20, ge=1, le=200, description="每批条数（默认 20，上限 200）")
