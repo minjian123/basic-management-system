@@ -53,7 +53,7 @@ flowchart LR
 
 ### 3.3 占位文件
 
-8 个占位模块仅 docstring + TODO（`core/config|security|exceptions`、`models/base`、`schemas/common`、`db/engine|session`、`api/deps`）；新增 `alembic/README.md` 目录占位（迁移体系由 03-6 交付）。
+8 个占位模块仅 docstring + TODO（`core/config|security|exceptions`、`models/base`、`schemas/common`、`db/engine|session`、`api/deps`）；新增 `alembic/README.md` 目录占位（迁移体系由落库阶段（认证 / RBAC）交付）。
 
 ### 3.4 demo 四件套（内存实现）
 

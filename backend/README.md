@@ -57,8 +57,8 @@ backend/
 ├── pyproject.toml    # 元数据 + 依赖 + ruff / pyright / pytest 配置
 ├── uv.lock           # 依赖锁定（必须提交）
 ├── config.toml       # 配置占位（02-1 填充）
-├── alembic.ini       # 迁移配置占位（03-6 填充）
-├── alembic/          # 迁移目录占位（03-6 填充）
+├── alembic.ini       # 迁移配置占位（落库阶段（认证 / RBAC）填充）
+├── alembic/          # 迁移目录占位（落库阶段（认证 / RBAC）填充）
 ├── README.md         # 本文件
 ├── typings/          # 局部类型存根（sortedcontainers / fakeredis，pyright stubPath）
 ├── benchmarks/       # 微基准（bench_collections.py，手动执行、CI 不跑）

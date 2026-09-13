@@ -16,7 +16,7 @@
 - 《[命名规范](../../../../../../规范/命名规范.md)》§3 项目与目录命名、§6 Python 命名
 - 需求 [01-3](../../../../需求/01_需求_工程骨架.md#r01-3)
 
-与前后任务的关系：01（仓库根骨架）、02（backend 工程初始化：工厂基线、根路由、测试基线）已交付；03 建 `app/` 分层目录与职责 docstring、路由聚合（`/api/v1`）、示例模块 `demo`（四件套 + 路由走通）；02-1/02-3/02-4/02-5、03-2、03-6 在对应占位文件上填充实现。职责边界见 [第 8 节](#boundary)。
+与前后任务的关系：01（仓库根骨架）、02（backend 工程初始化：工厂基线、根路由、测试基线）已交付；03 建 `app/` 分层目录与职责 docstring、路由聚合（`/api/v1`）、示例模块 `demo`（四件套 + 路由走通）；02-1/02-3/02-4/02-5、03-2、落库阶段（认证 / RBAC） 在对应占位文件上填充实现。职责边界见 [第 8 节](#boundary)。
 
 ## 2. 现状与差距 <a id="gap"></a>
 
@@ -28,7 +28,7 @@
 | 端点定义 | 根路由与 `/healthz` 内联于 `main.py` | `/healthz` 迁至 `app/api/health.py`；业务路由经 `app/api/router.py` 聚合挂 `/api/v1`；根路由保留 `main.py` | 修改 |
 | 分层占位文件 | 缺失 | `core/{config,security,exceptions}.py`、`models/base.py`、`schemas/common.py`、`db/{engine,session}.py`、`api/deps.py`（仅 docstring + TODO，归 02 域/03-2 填充） | 新建 |
 | 示例模块 | 缺失 | `demo` 四件套（models/schemas/services/repositories）+ api 路由，内存 CRUD 走通 | 新建 |
-| `alembic/` | 缺失（仅 `alembic.ini` 占位） | `alembic/README.md` 目录占位（迁移体系由 03-6 交付） | 新建 |
+| `alembic/` | 缺失（仅 `alembic.ini` 占位） | `alembic/README.md` 目录占位（迁移体系由落库阶段（认证 / RBAC）交付） | 新建 |
 | `tests/` 结构 | `conftest.py` + `test_main.py` | 按 `tests/api/` 同构重组；新增 health 与 demo 全量用例 | 修改 |
 | 路由注册 | 无序 | 模块内 `APIRouter(prefix="/demos", tags=["demo"])`，`api/router.py` 统一 include | 新建 |
 
@@ -39,7 +39,7 @@
 ```text
 backend/
 ├── alembic/
-│   └── README.md             # 迁移目录占位（03-6 填充 env.py / versions）
+│   └── README.md             # 迁移目录占位（落库阶段（认证 / RBAC）填充 env.py / versions）
 ├── app/
 │   ├── __init__.py           # 版本（保持）
 │   ├── main.py               # 工厂：聚合路由挂载 + demo 服务状态 + 根路由（修改）
@@ -164,7 +164,7 @@ backend/
 | `db/session.py` | 会话工厂（占位）：async_sessionmaker 与 `get_db` 依赖由任务 02-5 实现 |
 | `api/deps.py` | 公共依赖（占位）：`get_db` / redis 等依赖由任务 02-5 起实现 |
 
-`alembic/README.md`：说明迁移体系（三套方言 `env.py`、`versions/`）由任务 03-6 交付。
+`alembic/README.md`：说明迁移体系（三套方言 `env.py`、`versions/`）由任务 落库阶段（认证 / RBAC）交付。
 
 ## 6. 路由聚合与端点设计 <a id="router"></a>
 
@@ -217,7 +217,7 @@ class Demo:
 
 > 分层走通证明：请求路径 `api（校验/分发）→ service（业务规则）→ repository（数据访问）→ 返回`，01-03 验收以此为准。
 
-## 8. 职责边界（03 vs 01/02/02 域/03-2/03-6） <a id="boundary"></a>
+## 8. 职责边界（03 vs 01/02/02 域/03-2/落库阶段） <a id="boundary"></a>
 
 | 事项 | 归属 | 说明 |
 | --- | --- | --- |
@@ -226,7 +226,7 @@ class Demo:
 | 配置加载、日志、统一响应/异常、健康检查契约 | 02-1 / 02-2 / 02-3 / 02-4 | 在 03 占位文件上实现 |
 | SQLAlchemy 底座（engine/session/`get_db`） | 02-5 | 填充 `db/` 与 `api/deps.py` |
 | `BaseModel` 基类与表规范 | 03-2 | 填充 `models/base.py` |
-| Alembic 迁移体系（env.py / versions） | 03-6 | 替换 `alembic/README.md` 占位 |
+| Alembic 迁移体系（env.py / versions） | 落库阶段（认证 / RBAC） | 替换 `alembic/README.md` 占位 |
 
 > 原则：03 只搭骨架与示例，不实现 02 域能力；demo 的内存实现对上层接口稳定，03 域落库时只替换 repository 实现。
 
@@ -291,6 +291,6 @@ class Demo:
 | 3 | 路由前缀 | 业务路由经聚合挂 **`/api/v1`**；`/healthz` 与根路由保持根路径 | §6 |
 | 4 | 测试范围 | **全量 CRUD 用例**（8 条：成功 + 不存在失败分支）+ 既有 2 条；用例**先登记 Kiwi 再写代码** | §9 |
 | 5 | tests 同构 | 接口测试收 `tests/api/`；其余同构子目录随用例按需创建（不建空目录） | §3/§9 |
-| 6 | alembic 占位 | `alembic/README.md` 目录占位，迁移体系由 03-6 交付 | §5 |
+| 6 | alembic 占位 | `alembic/README.md` 目录占位，迁移体系由落库阶段（认证 / RBAC）交付 | §5 |
 
 > 本文档依《文档生成规范》编写

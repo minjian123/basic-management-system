@@ -1,4 +1,4 @@
-"""批量迁移脚本占位：逐库执行 Alembic 迁移（真实迁移归 03-6）。
+"""批量迁移脚本占位：逐库执行 Alembic 迁移（真实迁移归落库阶段）。
 
 用法：
 
@@ -62,7 +62,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         for name in databases:
             print(f"[迁移] {args.db} → {name}（dry-run）")
         return 0
-    print("[迁移] 真实迁移归 03-6（本阶段占位）")
+    print("[迁移] 真实迁移归落库阶段（本阶段占位）")
     return 0
 
 
