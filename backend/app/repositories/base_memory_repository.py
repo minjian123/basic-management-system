@@ -6,9 +6,10 @@ from app.repositories.base_repository import BaseRepository
 
 
 class BaseMemoryRepository[ModelT](BaseRepository[ModelT]):
-    """内存基线仓储：字典存储 + 自增 ID；子类只实现 `_build` / `_apply`。"""
+    """异步内存基线仓储：字典存储 + 自增 ID；子类只实现 `_build` / `_apply`。"""
 
     def __init__(self) -> None:
+        """初始化空存储。"""
         self._items: dict[int, ModelT] = {}
         self._next_id = 1
 
@@ -36,7 +37,7 @@ class BaseMemoryRepository[ModelT](BaseRepository[ModelT]):
             ModelT: 更新后的实体。
         """
 
-    def list(self) -> list[ModelT]:
+    async def list(self) -> list[ModelT]:
         """返回全部记录（按 ID 升序）。
 
         Returns:
@@ -44,7 +45,7 @@ class BaseMemoryRepository[ModelT](BaseRepository[ModelT]):
         """
         return [self._items[key] for key in sorted(self._items)]
 
-    def get(self, item_id: int) -> ModelT | None:
+    async def get(self, item_id: int) -> ModelT | None:
         """按 ID 查询记录。
 
         Args:
@@ -55,7 +56,7 @@ class BaseMemoryRepository[ModelT](BaseRepository[ModelT]):
         """
         return self._items.get(item_id)
 
-    def count(self) -> int:
+    async def count(self) -> int:
         """记录总数。
 
         Returns:
@@ -63,7 +64,7 @@ class BaseMemoryRepository[ModelT](BaseRepository[ModelT]):
         """
         return len(self._items)
 
-    def create(self, **values: object) -> ModelT:
+    async def create(self, **values: object) -> ModelT:
         """创建记录并分配自增 ID。
 
         Args:
@@ -72,12 +73,13 @@ class BaseMemoryRepository[ModelT](BaseRepository[ModelT]):
         Returns:
             ModelT: 新建记录。
         """
-        item = self._build(self._next_id, values)
-        self._items[self._next_id] = item
+        item_id = self._next_id
         self._next_id += 1
+        item = self._build(item_id, values)
+        self._items[item_id] = item
         return item
 
-    def update(self, item_id: int, **values: object) -> ModelT | None:
+    async def update(self, item_id: int, **values: object) -> ModelT | None:
         """更新记录。
 
         Args:
@@ -85,7 +87,7 @@ class BaseMemoryRepository[ModelT](BaseRepository[ModelT]):
             **values: 更新字段值。
 
         Returns:
-            ModelT | None: 更新后的记录，不存在时 None。
+            ModelT | None: 更新后的记录；不存在返回 None。
         """
         item = self._items.get(item_id)
         if item is None:
@@ -94,16 +96,13 @@ class BaseMemoryRepository[ModelT](BaseRepository[ModelT]):
         self._items[item_id] = updated
         return updated
 
-    def delete(self, item_id: int) -> bool:
+    async def delete(self, item_id: int) -> bool:
         """删除记录。
 
         Args:
             item_id: 记录 ID。
 
         Returns:
-            bool: 删除成功 True，不存在 False。
+            bool: 删除成功 True；不存在 False。
         """
-        if item_id not in self._items:
-            return False
-        del self._items[item_id]
-        return True
+        return self._items.pop(item_id, None) is not None

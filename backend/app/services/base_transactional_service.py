@@ -1,4 +1,4 @@
-"""services 层事务基类：在通用服务之上叠加事务边界（写操作包事务）。"""
+"""services 层事务基类：在通用服务之上叠加异步事务边界（写操作包事务）。"""
 
 from app.db.unit_of_work import NullUnitOfWork, UnitOfWork
 from app.repositories.base_repository import BaseRepository
@@ -13,10 +13,16 @@ class BaseTransactionalService[ModelT](BaseService[ModelT]):
     """
 
     def __init__(self, repository: BaseRepository[ModelT], uow: UnitOfWork | None = None) -> None:
+        """初始化。
+
+        Args:
+            repository: 仓储契约实现。
+            uow: 工作单元；None 用空实现。
+        """
         super().__init__(repository)
         self._uow = uow if uow is not None else NullUnitOfWork()
 
-    def create(self, **values: object) -> ModelT:
+    async def create(self, **values: object) -> ModelT:
         """创建记录（事务内）。
 
         Args:
@@ -25,10 +31,10 @@ class BaseTransactionalService[ModelT](BaseService[ModelT]):
         Returns:
             ModelT: 新建记录。
         """
-        with self._uow.begin():
-            return super().create(**values)
+        async with self._uow.begin():
+            return await super().create(**values)
 
-    def update(self, item_id: int, **values: object) -> ModelT:
+    async def update(self, item_id: int, **values: object) -> ModelT:
         """更新记录（事务内），不存在抛 NotFoundError。
 
         Args:
@@ -41,10 +47,10 @@ class BaseTransactionalService[ModelT](BaseService[ModelT]):
         Raises:
             NotFoundError: 记录不存在。
         """
-        with self._uow.begin():
-            return super().update(item_id, **values)
+        async with self._uow.begin():
+            return await super().update(item_id, **values)
 
-    def delete(self, item_id: int) -> None:
+    async def delete(self, item_id: int) -> None:
         """删除记录（事务内），不存在抛 NotFoundError。
 
         Args:
@@ -53,5 +59,5 @@ class BaseTransactionalService[ModelT](BaseService[ModelT]):
         Raises:
             NotFoundError: 记录不存在。
         """
-        with self._uow.begin():
-            super().delete(item_id)
+        async with self._uow.begin():
+            await super().delete(item_id)
