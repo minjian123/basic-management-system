@@ -10,7 +10,7 @@ from app.api.errors import register_exception_handlers
 API = "/api/v1/demos"
 
 
-@pytest.mark.kiwi_id(20)
+@pytest.mark.kiwi_id(31)
 async def test_not_found_returns_unified_response(client: AsyncClient) -> None:
     """资源不存在 → HTTP 404 + 统一响应 code=10002。"""
     resp = await client.get(f"{API}/9999")
@@ -20,7 +20,7 @@ async def test_not_found_returns_unified_response(client: AsyncClient) -> None:
     assert body["data"] is None
 
 
-@pytest.mark.kiwi_id(20)
+@pytest.mark.kiwi_id(31)
 async def test_validation_error_returns_param_error(client: AsyncClient) -> None:
     """参数校验失败 → 统一参数异常 code=10001。"""
     resp = await client.post(API, json={"name": ""})
@@ -28,14 +28,14 @@ async def test_validation_error_returns_param_error(client: AsyncClient) -> None
     assert resp.json()["code"] == 10001
 
 
-@pytest.mark.kiwi_id(20)
+@pytest.mark.kiwi_id(31)
 async def test_request_id_header_echoed(client: AsyncClient) -> None:
     """`X-Request-Id` 请求头回写到响应头。"""
     resp = await client.get(f"{API}/9999", headers={"X-Request-Id": "abc123"})
     assert resp.headers.get("x-request-id") == "abc123"
 
 
-@pytest.mark.kiwi_id(20)
+@pytest.mark.kiwi_id(31)
 async def test_uncaught_exception_returns_500_without_stack() -> None:
     """未捕获异常 → 500 统一响应，不泄露堆栈细节。"""
     app = FastAPI()

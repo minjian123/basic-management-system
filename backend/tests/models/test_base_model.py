@@ -39,7 +39,7 @@ def session(engine: Engine) -> Iterator[Session]:
         yield s
 
 
-@pytest.mark.kiwi_id(19)
+@pytest.mark.kiwi_id(30)
 def test_fields_and_snowflake_id(session: Session) -> None:
     """字段齐备；id 为雪花值；审计 / 软删除 / 版本默认正确；to_dict 排除内部状态。"""
     widget = Widget(name="a")
@@ -54,7 +54,7 @@ def test_fields_and_snowflake_id(session: Session) -> None:
     assert "_sa_instance_state" not in data
 
 
-@pytest.mark.kiwi_id(19)
+@pytest.mark.kiwi_id(30)
 def test_audit_context_and_update(session: Session) -> None:
     """审计从上下文填充；更新刷新 updated_at / updated_by，保留 created_at。"""
     token = current_user_id.set(7)
@@ -78,7 +78,7 @@ def test_audit_context_and_update(session: Session) -> None:
     assert widget.updated_by == 9
 
 
-@pytest.mark.kiwi_id(19)
+@pytest.mark.kiwi_id(30)
 def test_optimistic_lock_and_stale(engine: Engine) -> None:
     """version 自动 +1；并发旧版本更新抛 StaleDataError。"""
     with Session(engine) as s1, Session(engine) as s2:
@@ -99,7 +99,7 @@ def test_optimistic_lock_and_stale(engine: Engine) -> None:
             s2.commit()
 
 
-@pytest.mark.kiwi_id(19)
+@pytest.mark.kiwi_id(30)
 def test_soft_delete_frees_unique(session: Session) -> None:
     """软删除写 deleted_at 释放复合唯一键；删除行同键可共存。"""
     first = Widget(name="a")
@@ -119,7 +119,7 @@ def test_soft_delete_frees_unique(session: Session) -> None:
     assert third.id not in {first.id, second.id}
 
 
-@pytest.mark.kiwi_id(19)
+@pytest.mark.kiwi_id(30)
 def test_snowflake_unique_and_monotonic() -> None:
     """雪花 ID 唯一且单调递增。"""
     generator = SnowflakeGenerator(worker_id=1)
@@ -128,7 +128,7 @@ def test_snowflake_unique_and_monotonic() -> None:
     assert ids == sorted(ids)
 
 
-@pytest.mark.kiwi_id(19)
+@pytest.mark.kiwi_id(30)
 def test_snowflake_seq_wrap(monkeypatch: pytest.MonkeyPatch) -> None:
     """同毫秒序列用尽后等待下一毫秒，ID 不重复。"""
     generator = SnowflakeGenerator(worker_id=0)
@@ -143,7 +143,7 @@ def test_snowflake_seq_wrap(monkeypatch: pytest.MonkeyPatch) -> None:
     assert len(set(ids)) == 4097
 
 
-@pytest.mark.kiwi_id(19)
+@pytest.mark.kiwi_id(30)
 def test_snowflake_clock_rollback(monkeypatch: pytest.MonkeyPatch) -> None:
     """小幅回拨等待追平；大幅回拨抛错。"""
     small = iter([2_000_000_000.0, 1_999_999_999.996])
@@ -160,7 +160,7 @@ def test_snowflake_clock_rollback(monkeypatch: pytest.MonkeyPatch) -> None:
         generator2.next_id()
 
 
-@pytest.mark.kiwi_id(19)
+@pytest.mark.kiwi_id(30)
 def test_configure_and_invalid_worker() -> None:
     """配置生成器生效；边界 WorkerId 合法、越界报错。"""
     configure_id_generator(2)
@@ -170,7 +170,7 @@ def test_configure_and_invalid_worker() -> None:
         SnowflakeGenerator(worker_id=9999)
 
 
-@pytest.mark.kiwi_id(19)
+@pytest.mark.kiwi_id(30)
 def test_initial_worker_id_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
     """WorkerId 从环境变量解析，非法 / 越界回退 0。"""
     read_env = initial_worker_id
@@ -184,14 +184,14 @@ def test_initial_worker_id_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
     assert read_env() == 0
 
 
-@pytest.mark.kiwi_id(19)
+@pytest.mark.kiwi_id(30)
 def test_demo_model_and_generator_inherit_base_object() -> None:
     """demo 示例模型继承 BaseModel；雪花生成器纳入 L0 继承体系。"""
     assert issubclass(Demo, BaseModel)
     assert issubclass(SnowflakeGenerator, BaseObject)
 
 
-@pytest.mark.kiwi_id(19)
+@pytest.mark.kiwi_id(30)
 def test_soft_delete_and_restore(session: Session) -> None:
     """软删除辅助：`soft_delete` 置 deleted_at、`restore` 清空。"""
     widget = Widget(name="a")
