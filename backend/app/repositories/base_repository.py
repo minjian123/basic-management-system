@@ -79,6 +79,28 @@ class BaseRepository[ModelT](BaseObject, ABC):
         """
         return len(self._items)
 
+    def _resolve_binding(self, *, read_only: bool) -> str:
+        """数据源绑定钩子（占位：单源同源，读写同库）。
+
+        Args:
+            read_only: 是否只读请求（供读写分离路由使用）。
+
+        Returns:
+            str: 数据源键（db_key）。
+        """
+        return "default"
+
+    def _resolve_shard(self, logical_table: str) -> str:
+        """分片路由钩子（占位：不路由，返回逻辑表名）。
+
+        Args:
+            logical_table: 逻辑表名。
+
+        Returns:
+            str: 物理表名。
+        """
+        return logical_table
+
     def create(self, **values: object) -> ModelT:
         """创建记录并分配自增 ID。
 
