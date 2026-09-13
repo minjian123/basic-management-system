@@ -1,19 +1,19 @@
 """core 层根基类：所有可继承类的公共方法落点。"""
 
 import dataclasses
-from abc import ABC
 from collections.abc import Iterable, Mapping
 from typing import Any, cast
 
 from app.core.serialization import stable_json_dumps
 
 
-class BaseObject(ABC):  # noqa: B024  抽象基座：只承载公共方法，不直接实例化
+class BaseObject:
     """后端根基类：字符串输出、序列化、相等与哈希的统一实现。
 
-    - 只放方法、不放字段（字段归模型基类 BaseModel，见 03-2）
+    - 只放方法、不放字段（字段归模型基类 BaseModel）
     - 子类自带实现优先（dataclass/Pydantic 生成的 __eq__/__repr__ 覆盖本类同名方法）
     - __eq__/__hash__：有主键（id）按 (类名, 主键)，无主键按身份
+    - 普通类（非 ABC）：可被 SQLAlchemy 声明式基类等混合继承（元类兼容）
     """
 
     def to_dict(self) -> dict[str, object]:
