@@ -1,10 +1,11 @@
 """core 层根基类：所有可继承类的公共方法落点。"""
 
 import dataclasses
-import json
 from abc import ABC
 from collections.abc import Iterable, Mapping
 from typing import Any, cast
+
+from app.core.serialization import stable_json_dumps
 
 
 class BaseObject(ABC):  # noqa: B024  抽象基座：只承载公共方法，不直接实例化
@@ -32,7 +33,7 @@ class BaseObject(ABC):  # noqa: B024  抽象基座：只承载公共方法，不
         Returns:
             str: JSON 字符串。
         """
-        return json.dumps(self.to_dict(), ensure_ascii=False, sort_keys=sort_keys, default=str)
+        return stable_json_dumps(self.to_dict(), sort_keys=sort_keys)
 
     def __str__(self) -> str:
         """字符串输出：类名 + 公开字段字典。"""

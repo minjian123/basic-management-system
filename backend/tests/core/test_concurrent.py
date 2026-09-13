@@ -11,9 +11,8 @@ from app.core.concurrent import (
     ConcurrentSortedDict,
     ConcurrentSortedList,
     ConcurrentSortedSet,
-    LockStrategy,
-    ReadWriteLock,
 )
+from app.core.locking import LockStrategy, ReadWriteLock
 
 STRATEGIES = [LockStrategy.RW, LockStrategy.RLCK, LockStrategy.SHARDED, LockStrategy.SNAPSHOT]
 

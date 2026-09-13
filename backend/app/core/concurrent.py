@@ -1,6 +1,6 @@
-"""core 层进程内并发集合：锁策略、原子复合方法与快照遍历。
+"""core 层进程内并发集合：原子复合方法与快照遍历。
 
-- 策略：读写锁（默认）、单锁、分片锁（dict/set）、快照替换（读无锁）
+- 锁策略与守卫见 app.core.locking（公共横切，可被其它模块复用）
 - 遍历一律返回快照副本；跨副本共享见 app.core.redis_collections
 """
 
@@ -9,100 +9,11 @@ import threading
 from abc import abstractmethod
 from collections.abc import Callable, Generator, Iterable, Iterator, Mapping
 from contextlib import contextmanager
-from enum import StrEnum
 from typing import Any, TypeVar, cast
 
 from app.core.base import ValueHolder
 from app.core.collections import BaseSorted, SortedDict, SortedList, SortedSet
-
-
-class LockStrategy(StrEnum):
-    """进程内并发集合的锁策略。"""
-
-    RW = "rw"
-    """读写锁（默认）：读并行、写独占、写优先防饿死。"""
-
-    RLCK = "rlock"
-    """单锁：实现最简，读写互斥。"""
-
-    SHARDED = "sharded"
-    """分片锁：按键哈希分桶（仅 dict/set；list 自动降级为读写锁）。"""
-
-    SNAPSHOT = "snapshot"
-    """快照替换：读无锁、写复制后原子替换（读极多写极少）。"""
-
-
-class ReadWriteLock:
-    """读写锁：读并行、写独占、写优先（有等待写者时新读者排队，防饿死）。"""
-
-    def __init__(self) -> None:
-        self._condition = threading.Condition()
-        self._readers = 0
-        self._writer = False
-        self._waiting_writers = 0
-
-    @contextmanager
-    def read(self) -> Generator[None]:
-        """读上下文：无写者且无等待写者时进入，可并行。"""
-        with self._condition:
-            while self._writer or self._waiting_writers:
-                self._condition.wait()
-            self._readers += 1
-        try:
-            yield
-        finally:
-            with self._condition:
-                self._readers -= 1
-                if self._readers == 0:
-                    self._condition.notify_all()
-
-    @contextmanager
-    def write(self) -> Generator[None]:
-        """写上下文：独占（无读者且无写者）。"""
-        with self._condition:
-            self._waiting_writers += 1
-            while self._writer or self._readers:
-                self._condition.wait()
-            self._waiting_writers -= 1
-            self._writer = True
-        try:
-            yield
-        finally:
-            with self._condition:
-                self._writer = False
-                self._condition.notify_all()
-
-
-class _LockGuard:
-    """按策略统一读/写上下文（SNAPSHOT 读不取锁、写取互斥锁）。"""
-
-    def __init__(self, strategy: LockStrategy) -> None:
-        self.strategy = strategy
-        self._rw: ReadWriteLock | None = ReadWriteLock() if strategy is LockStrategy.RW else None
-        self._lock = threading.RLock()
-
-    @contextmanager
-    def read(self) -> Generator[None]:
-        """读上下文。"""
-        if self._rw is not None:
-            with self._rw.read():
-                yield
-        elif self.strategy is LockStrategy.SNAPSHOT:
-            yield
-        else:
-            with self._lock:
-                yield
-
-    @contextmanager
-    def write(self) -> Generator[None]:
-        """写上下文。"""
-        if self._rw is not None:
-            with self._rw.write():
-                yield
-        else:
-            with self._lock:
-                yield
-
+from app.core.locking import LockGuard, LockStrategy, ReadWriteLock
 
 DataT = TypeVar("DataT")
 
@@ -114,11 +25,11 @@ class BaseConcurrentSorted[ItemT, DataT](BaseSorted[ItemT]):
     SNAPSHOT 策略写时复制后替换，其余策略直接操作内部数据。
     """
 
-    _guard: _LockGuard
+    _guard: LockGuard
     _data: DataT
 
     def __init__(self, *, strategy: LockStrategy) -> None:
-        self._guard = _LockGuard(strategy)
+        self._guard = LockGuard(strategy)
 
     @abstractmethod
     def _copy_data(self) -> DataT:

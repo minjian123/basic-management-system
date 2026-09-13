@@ -1,10 +1,12 @@
-"""BaseRepository 通用行为测试（Kiwi 11）。"""
+"""仓储基类测试（Kiwi 11）：契约 / 内存基线 / DB 骨架。"""
 
 from dataclasses import dataclass
 
 import pytest
 
+from app.core.base import BaseObject
 from app.repositories.base_db_repository import BaseDbRepository
+from app.repositories.base_memory_repository import BaseMemoryRepository
 from app.repositories.base_repository import BaseRepository
 
 
@@ -16,8 +18,8 @@ class Item:
     name: str
 
 
-class ItemRepository(BaseRepository[Item]):
-    """测试仓储：只实现构造钩子，通用流程走基类。"""
+class ItemRepository(BaseMemoryRepository[Item]):
+    """测试仓储：只实现内存构造钩子。"""
 
     def _build(self, item_id: int, values: dict[str, object]) -> Item:
         return Item(id=item_id, name=str(values["name"]))
@@ -34,22 +36,14 @@ class ItemRepository(BaseRepository[Item]):
         return self._resolve_shard(logical_table)
 
 
-class DbItemRepository(BaseDbRepository[Item]):
-    """测试用：暴露数据库骨架的占位方法（含内存构造钩子）。"""
-
-    def build(self, item_id: int, values: dict[str, object]) -> Item:
-        """暴露内存构造钩子（测试用）。"""
-        return self._build(item_id, values)
-
-    def apply(self, item: Item, values: dict[str, object]) -> Item:
-        """暴露内存更新钩子（测试用）。"""
-        return self._apply(item, values)
+def _repo() -> ItemRepository:
+    return ItemRepository()
 
 
 @pytest.mark.kiwi_id(11)
 def test_create_assigns_incrementing_id() -> None:
     """create 依次分配自增 ID。"""
-    repo = ItemRepository()
+    repo = _repo()
     first = repo.create(name="甲")
     second = repo.create(name="乙")
     assert (first.id, second.id) == (1, 2)
@@ -58,7 +52,7 @@ def test_create_assigns_incrementing_id() -> None:
 @pytest.mark.kiwi_id(11)
 def test_list_returns_items_sorted_by_id() -> None:
     """list 按 ID 升序返回。"""
-    repo = ItemRepository()
+    repo = _repo()
     repo.create(name="甲")
     repo.create(name="乙")
     assert [item.name for item in repo.list()] == ["甲", "乙"]
@@ -67,7 +61,7 @@ def test_list_returns_items_sorted_by_id() -> None:
 @pytest.mark.kiwi_id(11)
 def test_get_and_derived_methods() -> None:
     """get 命中/缺失与 exists/count 派生方法。"""
-    repo = ItemRepository()
+    repo = _repo()
     repo.create(name="甲")
     assert repo.get(1) is not None
     assert repo.get(999) is None
@@ -79,7 +73,7 @@ def test_get_and_derived_methods() -> None:
 @pytest.mark.kiwi_id(11)
 def test_update_success_and_missing_returns_none() -> None:
     """update 更新成功；不存在返回 None。"""
-    repo = ItemRepository()
+    repo = _repo()
     repo.create(name="甲")
     updated = repo.update(1, name="乙")
     assert updated is not None
@@ -91,7 +85,7 @@ def test_update_success_and_missing_returns_none() -> None:
 @pytest.mark.kiwi_id(11)
 def test_delete_success_and_missing_returns_false() -> None:
     """delete 删除成功；不存在返回 False。"""
-    repo = ItemRepository()
+    repo = _repo()
     repo.create(name="甲")
     assert repo.delete(1) is True
     assert repo.count() == 0
@@ -99,31 +93,31 @@ def test_delete_success_and_missing_returns_false() -> None:
 
 
 @pytest.mark.kiwi_id(11)
-def test_demo_repository_inherits_base() -> None:
-    """demo 仓库继承 BaseRepository（继承约定生效）。"""
-    from app.repositories.demo_repository import DemoRepository
-
-    assert issubclass(DemoRepository, BaseRepository)
-
-
-@pytest.mark.kiwi_id(11)
 def test_routing_hooks_default_to_single_source() -> None:
     """路由钩子占位：单源同源、不路由（原表名）。"""
-    repo = ItemRepository()
+    repo = _repo()
     assert repo.binding(read_only=False) == "default"
     assert repo.binding(read_only=True) == "default"
     assert repo.shard("sys_demo") == "sys_demo"
 
 
 @pytest.mark.kiwi_id(11)
-def test_db_repository_is_placeholder() -> None:
-    """数据库实现骨架：继承 BaseRepository，方法占位抛错、不连库。"""
+def test_inheritance_chain() -> None:
+    """继承链：内存基线 / DB 骨架 → 契约 → BaseObject。"""
+    assert issubclass(BaseRepository, BaseObject)
+    assert issubclass(BaseMemoryRepository, BaseRepository)
     assert issubclass(BaseDbRepository, BaseRepository)
-    skeleton = DbItemRepository()
-    with pytest.raises(NotImplementedError):
-        skeleton.build(1, {"name": "甲"})
-    with pytest.raises(NotImplementedError):
-        skeleton.apply(Item(id=1, name="甲"), {"name": "乙"})
+    assert issubclass(ItemRepository, BaseMemoryRepository)
+
+    from app.repositories.demo_repository import DemoRepository
+
+    assert issubclass(DemoRepository, BaseMemoryRepository)
+
+
+@pytest.mark.kiwi_id(11)
+def test_db_repository_is_placeholder() -> None:
+    """数据库实现骨架：CRUD 占位抛错、不连库；exists 经派生链。"""
+    skeleton = BaseDbRepository[Item]()
     with pytest.raises(NotImplementedError):
         skeleton.list()
     with pytest.raises(NotImplementedError):
