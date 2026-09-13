@@ -8,8 +8,10 @@
 from abc import ABC, abstractmethod
 from contextlib import AbstractContextManager, nullcontext
 
+from app.core.base import BaseObject
 
-class UnitOfWork(ABC):
+
+class UnitOfWork(BaseObject, ABC):
     """工作单元：统一事务边界与提交 / 回滚。"""
 
     @abstractmethod

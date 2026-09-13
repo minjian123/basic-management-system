@@ -2,7 +2,15 @@
 
 import pytest
 
+from app.core.base import BaseObject
 from app.db.unit_of_work import NullUnitOfWork, UnitOfWork
+
+
+@pytest.mark.kiwi_id(12)
+def test_unit_of_work_inherits_base_object() -> None:
+    """工作单元纳入 L0 继承体系。"""
+    assert issubclass(UnitOfWork, BaseObject)
+    assert issubclass(NullUnitOfWork, BaseObject)
 
 
 @pytest.mark.kiwi_id(12)

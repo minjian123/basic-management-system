@@ -9,9 +9,11 @@ from sqlalchemy import Engine, String, UniqueConstraint, create_engine
 from sqlalchemy.orm import Mapped, Session, mapped_column
 from sqlalchemy.orm.exc import StaleDataError
 
+from app.core.base import BaseObject
 from app.core.context import current_user_id
 from app.core.id import SnowflakeGenerator, configure_id_generator, generate_id, initial_worker_id
 from app.models.base import Base, BaseModel
+from app.models.demo import Demo
 
 
 class Widget(BaseModel):
@@ -180,3 +182,10 @@ def test_initial_worker_id_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
     assert read_env() == 5
     monkeypatch.setenv("BMS_WORKER_ID", "99999")
     assert read_env() == 0
+
+
+@pytest.mark.kiwi_id(19)
+def test_demo_model_and_generator_inherit_base_object() -> None:
+    """demo 示例模型继承 BaseModel；雪花生成器纳入 L0 继承体系。"""
+    assert issubclass(Demo, BaseModel)
+    assert issubclass(SnowflakeGenerator, BaseObject)

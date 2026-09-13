@@ -96,7 +96,11 @@ def test_public_fields_fallback_when_fields_unavailable(monkeypatch: pytest.Monk
         raise TypeError("boom")
 
     monkeypatch.setattr(dataclasses, "fields", boom)
-    assert Demo(id=1, name="甲").to_dict() == {"id": 1, "name": "甲"}
+    assert Nested(name="n", point=Point(id=1, x=2), tags=[]).to_dict() == {
+        "name": "n",
+        "point": {"id": 1, "x": 2},
+        "tags": [],
+    }
 
 
 @pytest.mark.kiwi_id(14)
