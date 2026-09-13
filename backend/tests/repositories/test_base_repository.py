@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 import pytest
 
+from app.repositories.base_db_repository import BaseDbRepository
 from app.repositories.base_repository import BaseRepository
 
 
@@ -23,6 +24,26 @@ class ItemRepository(BaseRepository[Item]):
 
     def _apply(self, item: Item, values: dict[str, object]) -> Item:
         return Item(id=item.id, name=str(values["name"]))
+
+    def binding(self, *, read_only: bool) -> str:
+        """暴露数据源绑定钩子（测试用）。"""
+        return self._resolve_binding(read_only=read_only)
+
+    def shard(self, logical_table: str) -> str:
+        """暴露分片路由钩子（测试用）。"""
+        return self._resolve_shard(logical_table)
+
+
+class DbItemRepository(BaseDbRepository[Item]):
+    """测试用：暴露数据库骨架的占位方法（含内存构造钩子）。"""
+
+    def build(self, item_id: int, values: dict[str, object]) -> Item:
+        """暴露内存构造钩子（测试用）。"""
+        return self._build(item_id, values)
+
+    def apply(self, item: Item, values: dict[str, object]) -> Item:
+        """暴露内存更新钩子（测试用）。"""
+        return self._apply(item, values)
 
 
 @pytest.mark.kiwi_id(11)
@@ -83,3 +104,37 @@ def test_demo_repository_inherits_base() -> None:
     from app.repositories.demo_repository import DemoRepository
 
     assert issubclass(DemoRepository, BaseRepository)
+
+
+@pytest.mark.kiwi_id(11)
+def test_routing_hooks_default_to_single_source() -> None:
+    """路由钩子占位：单源同源、不路由（原表名）。"""
+    repo = ItemRepository()
+    assert repo.binding(read_only=False) == "default"
+    assert repo.binding(read_only=True) == "default"
+    assert repo.shard("sys_demo") == "sys_demo"
+
+
+@pytest.mark.kiwi_id(11)
+def test_db_repository_is_placeholder() -> None:
+    """数据库实现骨架：继承 BaseRepository，方法占位抛错、不连库。"""
+    assert issubclass(BaseDbRepository, BaseRepository)
+    skeleton = DbItemRepository()
+    with pytest.raises(NotImplementedError):
+        skeleton.build(1, {"name": "甲"})
+    with pytest.raises(NotImplementedError):
+        skeleton.apply(Item(id=1, name="甲"), {"name": "乙"})
+    with pytest.raises(NotImplementedError):
+        skeleton.list()
+    with pytest.raises(NotImplementedError):
+        skeleton.get(1)
+    with pytest.raises(NotImplementedError):
+        skeleton.count()
+    with pytest.raises(NotImplementedError):
+        skeleton.create(name="甲")
+    with pytest.raises(NotImplementedError):
+        skeleton.update(1, name="乙")
+    with pytest.raises(NotImplementedError):
+        skeleton.delete(1)
+    with pytest.raises(NotImplementedError):
+        skeleton.exists(1)
