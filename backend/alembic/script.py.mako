@@ -4,7 +4,7 @@ Revision ID: ${up_revision}
 Revises: ${down_revision | comma,n}
 Create Date: ${create_date}
 
-迁移脚本模板（骨架，随 03-6 完善）。
+迁移脚本模板（骨架，随落库阶段（认证 / RBAC）完善）。
 """
 
 from collections.abc import Sequence

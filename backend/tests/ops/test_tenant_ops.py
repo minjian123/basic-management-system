@@ -22,7 +22,7 @@ def test_migrate_targets_and_placeholder(capsys: pytest.CaptureFixture[str]) -> 
     assert migrate_tenants.resolve_databases("tenant_demo") == [migrate_tenants.TENANT_DB]
     assert migrate_tenants.main(["--target", "platform", "--dry-run"]) == 0
     assert migrate_tenants.main([]) == 0
-    assert "归 03-6" in capsys.readouterr().out
+    assert "落库阶段" in capsys.readouterr().out
 
 
 @pytest.mark.kiwi_id(27)
@@ -33,4 +33,4 @@ def test_init_tenant(capsys: pytest.CaptureFixture[str]) -> None:
     for step in init_tenant.STEPS:
         assert step in out
     assert init_tenant.main([]) == 0
-    assert "归 03-6" in capsys.readouterr().out
+    assert "落库阶段" in capsys.readouterr().out

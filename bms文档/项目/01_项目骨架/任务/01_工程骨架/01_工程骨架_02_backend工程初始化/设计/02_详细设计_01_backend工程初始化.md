@@ -29,7 +29,7 @@
 | `app/__init__.py` | `__version__ = "0.1.0"` | 保持 | — |
 | `app/main.py` | 最小工厂 + `/healthz`（title「BMS 后端」） | 工厂基线（title「BMS 基础管理系统」、根路由 `GET /`、注册位预留）+ `/healthz` 保持 | 修改 |
 | `config.toml` | 缺失 | 占位文件（分区与键清单由 02-1 填充） | 新建 |
-| `alembic.ini` | 缺失 | 占位文件（迁移配置由 03-6 填充） | 新建 |
+| `alembic.ini` | 缺失 | 占位文件（迁移配置由落库阶段（认证 / RBAC）填充） | 新建 |
 | `tests/` | 缺失 | `conftest.py`（ASGITransport 客户端夹具）+ 根路由/健康检查冒烟用例 | 新建 |
 | `README.md` | 四章节（01 简化版） | 目录结构补 `config.toml` / `alembic.ini` / `tests/`；「依赖与版本」节待 01-06 | 更新 |
 | `uv.lock` | 20 包（01 版） | 重新锁定（全量依赖） | 更新 |
@@ -44,7 +44,7 @@ backend/
 ├── pyproject.toml        # 元数据 + 全量依赖 + dev 组 + 工具配置（修改）
 ├── uv.lock               # 依赖锁定（重新生成）
 ├── config.toml           # 配置占位（02-1 填充）
-├── alembic.ini           # 迁移配置占位（03-6 填充）
+├── alembic.ini           # 迁移配置占位（落库阶段（认证 / RBAC）填充）
 ├── README.md             # 工程说明（更新）
 ├── app/
 │   ├── __init__.py       # 暴露 __version__（保持）
@@ -146,11 +146,11 @@ markers = [
 # 环境分层：BMS_ENV = dev | test | prod；密钥类配置只走环境变量，不入本文件
 ```
 
-**`alembic.ini`**（仅注释头，完整内容由 03-6 交付）：
+**`alembic.ini`**（仅注释头，完整内容由落库阶段（认证 / RBAC）交付）：
 
 ```ini
 # Alembic 迁移配置（阶段一占位）
-# 完整内容由任务 03-6（批量迁移与租户库初始化）交付：script_location、
+# 完整内容由落库阶段（认证 / RBAC）交付：script_location、
 # 三套方言 URL 读取方式（config.toml + 环境变量）、日志配置
 ```
 
@@ -323,7 +323,7 @@ async def test_healthz_returns_ok(client: AsyncClient) -> None:
 | 1 | 运行时依赖范围 | **全量一次加入**（含 `dmPython` / `aiomysql`），兼容性问题交 06 回退口径 | §4、§11 |
 | 2 | 统一响应模型 | 根路由先用 **dict 字面量**，`ApiResponse`/`PageResponse` 归 02-3 | §6 |
 | 3 | 健康检查归属 | `/healthz` **保持内联**于 `main.py`；`app/api/` 分层与 `health.py` 迁移归 01-03、契约细化归 02-4 | §6、§8 |
-| 4 | 配置与迁移占位 | 仅注释头，不写实际键/节，避免与 02-1、03-6 冲突 | §5 |
+| 4 | 配置与迁移占位 | 仅注释头，不写实际键/节，避免与 02-1、落库阶段（认证 / RBAC） 冲突 | §5 |
 | 5 | 工具配置基线 | ruff（line-length 120、py314、规则集 E/F/W/I/B/UP/SIM/RUF，忽略 RUF001–003 中文标点）+ pyright strict + pytest（asyncio auto、pythonpath、kiwi_id 标记） | §4 |
 | 6 | 用例登记时机 | 自动化用例**先登记 Kiwi TCMS 再写代码**（Case 1/2），测试代码以 `@pytest.mark.kiwi_id` 标注 | §7、§9 |
 | 7 | 工具配置实施补充 | ruff 忽略 RUF001–003（中文标点误报 21 处）；pytest 补 `pythonpath = ["."]`；pyright 对装饰器注册的路由函数局部忽略 `reportUnusedFunction` | §4、§6 |

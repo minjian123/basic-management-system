@@ -1,7 +1,7 @@
-"""Alembic 迁移环境骨架（真实迁移 / 种子 / 四库方言归 03-6）。
+"""Alembic 迁移环境骨架（真实迁移 / 种子 / 四库方言归落库阶段）。
 
 本阶段仅落结构：URL 经配置基座 / 环境变量读取的口径在此预留；
-在线迁移（引擎创建与连接）由 03-6 完善。
+在线迁移（引擎创建与连接）由落库阶段（认证 / RBAC）完善。
 """
 
 from alembic import context
@@ -31,12 +31,12 @@ def run_migrations_offline() -> None:
 
 
 def run_migrations_online() -> None:
-    """在线模式：真实连接与迁移执行（归 03-6）。
+    """在线模式：真实连接与迁移执行（归落库阶段）。
 
     Raises:
         NotImplementedError: 本阶段占位。
     """
-    raise NotImplementedError("Alembic 在线迁移由 03-6 交付")
+    raise NotImplementedError("Alembic 在线迁移由落库阶段（认证 / RBAC）交付")
 
 
 if context.is_offline_mode():

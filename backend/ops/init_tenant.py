@@ -1,4 +1,4 @@
-"""新租户初始化脚本占位：建库 → 迁移 → 幂等种子（真实实现归 03-6 / 租户管理）。
+"""新租户初始化脚本占位：建库 → 迁移 → 幂等种子（真实实现归落库阶段 / 租户管理阶段）。
 
 用法：
 
@@ -39,7 +39,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         for step in STEPS:
             print(f"[初始化 {args.code}] {step}（dry-run）")
         return 0
-    print("[初始化] 真实实现归 03-6 / 租户管理阶段")
+    print("[初始化] 真实实现归落库阶段 / 租户管理阶段")
     return 0
 
 
