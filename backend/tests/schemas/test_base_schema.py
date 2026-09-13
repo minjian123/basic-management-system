@@ -58,9 +58,7 @@ def test_page_query_defaults_and_bounds() -> None:
 @pytest.mark.kiwi_id(13)
 def test_page_and_cursor_response_contracts() -> None:
     """页码 / 游标分页响应组装与序列化；游标请求默认 cursor 为空。"""
-    page = BasePageResponse[DemoResponse](
-        list=[DemoResponse(id=1, name="甲")], total=1, page=1, size=20
-    )
+    page = BasePageResponse[DemoResponse](list=[DemoResponse(id=1, name="甲")], total=1, page=1, size=20)
     assert page.to_dict()["total"] == 1
     assert page.to_dict()["list"] == [{"id": "1", "name": "甲"}]
 

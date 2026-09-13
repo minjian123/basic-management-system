@@ -168,4 +168,3 @@ async def test_scope_condition_list_and_write_scope() -> None:
     repo.use_scope(None)
     repo.soft_delete_enabled = True
     assert await repo.delete(3) is False
-
