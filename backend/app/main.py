@@ -13,6 +13,7 @@ from app.core.logging import configure_logging, get_logger
 from app.core.resources import ResourceManager
 from app.db.engine import EngineFactory
 from app.db.registry import EngineRegistry
+from app.lock.base import NullDistributedLock
 from app.masking.base import NullMasker
 from app.permission.base import NullPermissionChecker
 from app.repositories.demo_repository import DemoRepository
@@ -72,6 +73,7 @@ def create_app() -> FastAPI:
     permission_checker = NullPermissionChecker()
     app.state.permission_checker = permission_checker
     app.state.masker = NullMasker(checker=permission_checker)
+    app.state.distributed_lock = NullDistributedLock()
 
     app.state.demo_service = DemoService(DemoRepository())
 
