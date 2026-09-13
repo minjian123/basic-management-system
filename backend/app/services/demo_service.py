@@ -9,17 +9,22 @@ class DemoService(BaseTransactionalService[Demo]):
     """demo 业务服务（内存实现）：模块命名方法转发基类通用 CRUD。"""
 
     def __init__(self, repository: DemoRepository) -> None:
+        """初始化。
+
+        Args:
+            repository: demo 仓储。
+        """
         super().__init__(repository)
 
-    def list_demos(self) -> list[Demo]:
+    async def list_demos(self) -> list[Demo]:
         """返回全部 demo。
 
         Returns:
             list[Demo]: 按 ID 升序的记录列表。
         """
-        return self.list()
+        return await self.list()
 
-    def get_demo(self, demo_id: int) -> Demo:
+    async def get_demo(self, demo_id: int) -> Demo:
         """按 ID 查询 demo。
 
         Args:
@@ -31,9 +36,9 @@ class DemoService(BaseTransactionalService[Demo]):
         Raises:
             NotFoundError: 记录不存在。
         """
-        return self.get(demo_id)
+        return await self.get(demo_id)
 
-    def create_demo(self, name: str) -> Demo:
+    async def create_demo(self, name: str) -> Demo:
         """创建 demo。
 
         Args:
@@ -42,9 +47,9 @@ class DemoService(BaseTransactionalService[Demo]):
         Returns:
             Demo: 新建记录。
         """
-        return self.create(name=name)
+        return await self.create(name=name)
 
-    def update_demo(self, demo_id: int, name: str) -> Demo:
+    async def update_demo(self, demo_id: int, name: str) -> Demo:
         """更新 demo 名称。
 
         Args:
@@ -57,9 +62,9 @@ class DemoService(BaseTransactionalService[Demo]):
         Raises:
             NotFoundError: 记录不存在。
         """
-        return self.update(demo_id, name=name)
+        return await self.update(demo_id, name=name)
 
-    def delete_demo(self, demo_id: int) -> None:
+    async def delete_demo(self, demo_id: int) -> None:
         """删除 demo。
 
         Args:
@@ -68,4 +73,4 @@ class DemoService(BaseTransactionalService[Demo]):
         Raises:
             NotFoundError: 记录不存在。
         """
-        self.delete(demo_id)
+        await self.delete(demo_id)

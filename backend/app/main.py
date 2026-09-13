@@ -7,6 +7,7 @@ from app.api.errors import register_exception_handlers
 from app.api.router import api_router, health_router
 from app.core.config import get_settings
 from app.core.logging import configure_logging
+from app.db.engine import EngineFactory
 from app.repositories.demo_repository import DemoRepository
 from app.schemas.common import ApiResponse
 from app.services.demo_service import DemoService
@@ -28,6 +29,7 @@ def create_app() -> FastAPI:
 
     register_exception_handlers(app)
 
+    app.state.engine_factory = EngineFactory(get_settings())
     app.state.demo_service = DemoService(DemoRepository())
 
     @app.get("/")

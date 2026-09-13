@@ -1,8 +1,9 @@
-"""services 层基类：通用 CRUD 委派与统一不存在语义。"""
+"""services 层基类：通用 CRUD 委派、统一不存在语义与分页。"""
 
 from app.core.base import BaseObject
 from app.core.exceptions import NotFoundError
 from app.repositories.base_repository import BaseRepository
+from app.schemas.pagination import BaseCursorQuery, BaseCursorResponse, BasePageQuery, BasePageResponse
 
 
 class BaseService[ModelT](BaseObject):
@@ -12,17 +13,22 @@ class BaseService[ModelT](BaseObject):
     """
 
     def __init__(self, repository: BaseRepository[ModelT]) -> None:
+        """初始化。
+
+        Args:
+            repository: 仓储契约实现。
+        """
         self._repository = repository
 
-    def list(self) -> list[ModelT]:
+    async def list(self) -> list[ModelT]:
         """返回全部记录。
 
         Returns:
             list[ModelT]: 记录列表。
         """
-        return self._repository.list()
+        return await self._repository.list()
 
-    def exists(self, item_id: int) -> bool:
+    async def exists(self, item_id: int) -> bool:
         """记录是否存在。
 
         Args:
@@ -31,17 +37,17 @@ class BaseService[ModelT](BaseObject):
         Returns:
             bool: 存在 True。
         """
-        return self._repository.exists(item_id)
+        return await self._repository.exists(item_id)
 
-    def count(self) -> int:
+    async def count(self) -> int:
         """记录总数。
 
         Returns:
             int: 记录条数。
         """
-        return self._repository.count()
+        return await self._repository.count()
 
-    def get(self, item_id: int) -> ModelT:
+    async def get(self, item_id: int) -> ModelT:
         """按 ID 查询记录，不存在抛 NotFoundError。
 
         Args:
@@ -53,12 +59,12 @@ class BaseService[ModelT](BaseObject):
         Raises:
             NotFoundError: 记录不存在。
         """
-        item = self._repository.get(item_id)
+        item = await self._repository.get(item_id)
         if item is None:
             raise NotFoundError(f"记录不存在：{item_id}")
         return item
 
-    def create(self, **values: object) -> ModelT:
+    async def create(self, **values: object) -> ModelT:
         """创建记录。
 
         Args:
@@ -67,9 +73,9 @@ class BaseService[ModelT](BaseObject):
         Returns:
             ModelT: 新建记录。
         """
-        return self._repository.create(**values)
+        return await self._repository.create(**values)
 
-    def update(self, item_id: int, **values: object) -> ModelT:
+    async def update(self, item_id: int, **values: object) -> ModelT:
         """更新记录，不存在抛 NotFoundError。
 
         Args:
@@ -82,12 +88,12 @@ class BaseService[ModelT](BaseObject):
         Raises:
             NotFoundError: 记录不存在。
         """
-        item = self._repository.update(item_id, **values)
+        item = await self._repository.update(item_id, **values)
         if item is None:
             raise NotFoundError(f"记录不存在：{item_id}")
         return item
 
-    def delete(self, item_id: int) -> None:
+    async def delete(self, item_id: int) -> None:
         """删除记录，不存在抛 NotFoundError。
 
         Args:
@@ -96,5 +102,33 @@ class BaseService[ModelT](BaseObject):
         Raises:
             NotFoundError: 记录不存在。
         """
-        if not self._repository.delete(item_id):
+        if not await self._repository.delete(item_id):
             raise NotFoundError(f"记录不存在：{item_id}")
+
+    async def page(self, query: BasePageQuery) -> BasePageResponse[ModelT]:
+        """页码分页查询。
+
+        Args:
+            query: 页码分页请求。
+
+        Returns:
+            BasePageResponse[ModelT]: 分页响应（当前页 + 总数）。
+        """
+        items = await self._repository.list_page(query)
+        total = await self._repository.count()
+        return BasePageResponse[ModelT](list=items, total=total, page=query.page, size=query.size)
+
+    async def cursor_page(self, query: BaseCursorQuery) -> BaseCursorResponse[ModelT]:
+        """游标分页查询。
+
+        Args:
+            query: 游标分页请求。
+
+        Returns:
+            BaseCursorResponse[ModelT]: 游标分页响应（当前批 + 下批游标）。
+        """
+        items = await self._repository.list_cursor(query)
+        has_more = len(items) == query.limit
+        offset = int(query.cursor) if query.cursor else 0
+        next_cursor = str(offset + query.limit) if has_more else None
+        return BaseCursorResponse[ModelT](list=items, next_cursor=next_cursor, has_more=has_more)
