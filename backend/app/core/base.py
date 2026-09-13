@@ -74,11 +74,14 @@ class BaseObject(ABC):  # noqa: B024  抽象基座：只承载公共方法，不
         return hash((type(self).__name__, item_id))
 
     def _public_fields(self) -> dict[str, object]:
-        """取公开字段：dataclass 优先声明字段，失败回退 `__dict__` 公开项。
+        """取公开字段：Pydantic 序列化器 → dataclass 声明字段 → 实例字典兜底。
 
         Returns:
             dict[str, object]: 字段映射。
         """
+        model_dump = getattr(self, "model_dump", None)
+        if callable(model_dump) and getattr(type(self), "model_fields", None) is not None:
+            return cast("dict[str, object]", model_dump())
         if dataclasses.is_dataclass(self) and not isinstance(self, type):
             try:
                 return {

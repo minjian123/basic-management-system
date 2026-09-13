@@ -10,7 +10,7 @@ class BaseSchema(BaseModel, BaseObject):
 
     - from_attributes：允许 ORM/实体对象直接校验（03-2 落库后响应模型使用）
     - str_strip_whitespace：字符串字段自动去除首尾空白
-    - 继承 BaseObject：to_dict/to_json 可用；Pydantic 自身语义优先（见 MRO 约定）
+    - 序列化：不覆写，继承 BaseObject（声明字段优先，Pydantic 走 model_dump）
     """
 
     model_config = ConfigDict(from_attributes=True, str_strip_whitespace=True)
