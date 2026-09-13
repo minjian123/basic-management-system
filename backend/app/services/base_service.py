@@ -1,25 +1,18 @@
 """services 层基类：通用 CRUD 委派与统一不存在语义。"""
 
-from contextlib import AbstractContextManager, nullcontext
-
 from app.core.base import BaseObject
 from app.core.exceptions import NotFoundError
 from app.repositories.base_repository import BaseRepository
 
 
 class BaseService[ModelT](BaseObject):
-    """业务服务基类：包装仓储通用 CRUD，不存在统一抛 NotFoundError。"""
+    """业务服务基类：包装仓储通用 CRUD，不存在统一抛 NotFoundError。
+
+    只承载业务无关的通用能力；事务边界由 `BaseTransactionalService` 叠加。
+    """
 
     def __init__(self, repository: BaseRepository[ModelT]) -> None:
         self._repository = repository
-
-    def _transaction(self) -> AbstractContextManager[None]:
-        """事务边界钩子（占位：无事务）。02-5-1 覆写为会话事务。
-
-        Returns:
-            AbstractContextManager[None]: 事务上下文（占位为无副作用）。
-        """
-        return nullcontext()
 
     def list(self) -> list[ModelT]:
         """返回全部记录。
@@ -74,8 +67,7 @@ class BaseService[ModelT](BaseObject):
         Returns:
             ModelT: 新建记录。
         """
-        with self._transaction():
-            return self._repository.create(**values)
+        return self._repository.create(**values)
 
     def update(self, item_id: int, **values: object) -> ModelT:
         """更新记录，不存在抛 NotFoundError。
@@ -90,11 +82,10 @@ class BaseService[ModelT](BaseObject):
         Raises:
             NotFoundError: 记录不存在。
         """
-        with self._transaction():
-            item = self._repository.update(item_id, **values)
-            if item is None:
-                raise NotFoundError(f"记录不存在：{item_id}")
-            return item
+        item = self._repository.update(item_id, **values)
+        if item is None:
+            raise NotFoundError(f"记录不存在：{item_id}")
+        return item
 
     def delete(self, item_id: int) -> None:
         """删除记录，不存在抛 NotFoundError。
@@ -105,6 +96,5 @@ class BaseService[ModelT](BaseObject):
         Raises:
             NotFoundError: 记录不存在。
         """
-        with self._transaction():
-            if not self._repository.delete(item_id):
-                raise NotFoundError(f"记录不存在：{item_id}")
+        if not self._repository.delete(item_id):
+            raise NotFoundError(f"记录不存在：{item_id}")

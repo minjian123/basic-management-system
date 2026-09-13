@@ -1,11 +1,11 @@
-"""demo 示例模块：业务服务（继承 BaseService，内存实现）。"""
+"""demo 示例模块：业务服务（继承 BaseTransactionalService，内存实现）。"""
 
 from app.models.demo import Demo
 from app.repositories.demo_repository import DemoRepository
-from app.services.base_service import BaseService
+from app.services.base_transactional_service import BaseTransactionalService
 
 
-class DemoService(BaseService[Demo]):
+class DemoService(BaseTransactionalService[Demo]):
     """demo 业务服务（内存实现）：模块命名方法转发基类通用 CRUD。"""
 
     def __init__(self, repository: DemoRepository) -> None:

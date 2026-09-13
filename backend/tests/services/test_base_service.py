@@ -1,6 +1,5 @@
 """BaseService 通用行为与不存在语义测试（Kiwi 12）。"""
 
-from contextlib import AbstractContextManager
 from dataclasses import dataclass
 
 import pytest
@@ -30,19 +29,6 @@ class ItemRepository(BaseRepository[Item]):
 
 def _service() -> BaseService[Item]:
     return BaseService(ItemRepository())
-
-
-class SpyService(BaseService[Item]):
-    """测试服务：记录事务钩子进入次数。"""
-
-    def __init__(self, repository: ItemRepository) -> None:
-        super().__init__(repository)
-        self.transactions = 0
-
-    def _transaction(self) -> AbstractContextManager[None]:
-        """覆写事务钩子以计数（其余行为不变）。"""
-        self.transactions += 1
-        return super()._transaction()
 
 
 @pytest.mark.kiwi_id(12)
@@ -93,28 +79,3 @@ def test_demo_service_inherits_base() -> None:
     from app.services.demo_service import DemoService
 
     assert issubclass(DemoService, BaseService)
-
-
-@pytest.mark.kiwi_id(12)
-def test_transaction_hook_wraps_writes_only() -> None:
-    """事务钩子：写操作进入事务；只读不进入；缺失分支同样在事务内抛错。"""
-    service = SpyService(ItemRepository())
-    service.create(name="甲")
-    assert service.transactions == 1
-
-    service.list()
-    service.get(1)
-    service.exists(1)
-    service.count()
-    assert service.transactions == 1
-
-    assert service.update(1, name="乙").name == "乙"
-    assert service.transactions == 2
-    service.delete(1)
-    assert service.transactions == 3
-
-    with pytest.raises(NotFoundError):
-        service.update(999, name="丙")
-    with pytest.raises(NotFoundError):
-        service.delete(999)
-    assert service.transactions == 5
