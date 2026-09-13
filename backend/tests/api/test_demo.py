@@ -13,7 +13,7 @@ async def test_create_demo_returns_created(client: AsyncClient) -> None:
     assert resp.status_code == 200
     body = resp.json()
     assert body["code"] == 0
-    assert body["data"]["id"] == 1
+    assert body["data"]["id"] == "1"
     assert body["data"]["name"] == "示例 A"
 
 

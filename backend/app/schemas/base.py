@@ -1,16 +1,56 @@
-"""schemas 层基类：Pydantic 公共配置。"""
+"""schemas 层基类：Pydantic 公共配置与 ID 序列化口径。"""
 
-from pydantic import BaseModel, ConfigDict
+from collections.abc import Callable, Iterable
+from typing import Any, cast
+
+from pydantic import BaseModel, ConfigDict, SerializationInfo, model_serializer
 
 from app.core.base import BaseObject
+
+
+def _stringify_ids(value: object) -> object:
+    """递归把 `id` / `*_id` 的整型值转字符串（雪花 ID 防 JS 精度丢失）。
+
+    Args:
+        value: 待转换的序列化结果。
+
+    Returns:
+        object: 转换后的结果。
+    """
+    if isinstance(value, dict):
+        mapping = cast("dict[object, object]", value)
+        result: dict[object, object] = {}
+        for key, item in mapping.items():
+            if isinstance(key, str) and (key == "id" or key.endswith("_id")) and type(item) is int:
+                result[key] = str(item)
+            else:
+                result[key] = _stringify_ids(item)
+        return result
+    if isinstance(value, (list, tuple)):
+        return [_stringify_ids(item) for item in cast("Iterable[object]", value)]
+    return value
 
 
 class BaseSchema(BaseModel, BaseObject):
     """Pydantic 模型基类：请求/响应模型统一继承。
 
-    - from_attributes：允许 ORM/实体对象直接校验（03-2 落库后响应模型使用）
+    - from_attributes：允许 ORM/实体对象直接校验（响应模型使用）
     - str_strip_whitespace：字符串字段自动去除首尾空白
-    - 序列化：不覆写，继承 BaseObject（声明字段优先，Pydantic 走 model_dump）
+    - 序列化：继承 `BaseObject`（声明字段优先）；统一把 `id` / `*_id` 按字符串输出（JS 安全整数）
     """
 
     model_config = ConfigDict(from_attributes=True, str_strip_whitespace=True)
+
+    @model_serializer(mode="wrap")
+    def _serialize_ids(self, serializer: Callable[..., Any], info: SerializationInfo) -> Any:
+        """序列化包装：对字段 ID 值做字符串化。
+
+        Args:
+            serializer: Pydantic 序列化器。
+            info: 序列化信息。
+
+        Returns:
+            Any: 序列化结果。
+        """
+        del info
+        return _stringify_ids(serializer(self))

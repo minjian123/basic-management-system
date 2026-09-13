@@ -1,8 +1,24 @@
 """数据范围能力域：数据范围注入基座契约（规则由 RBAC 提供，阶段五回补）。"""
 
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 
+from app.core.base import BaseObject
 from app.core.capability import BaseCapability, BaseNullObject
+
+SCOPE_OPERATORS: tuple[str, ...] = ("eq", "ne", "in", "is_null", "is_not_null")
+
+
+@dataclass(frozen=True)
+class ScopeCondition(BaseObject):
+    """作用域过滤条件：字段 + 操作符 + 值（跨实现统一表示）。
+
+    内存基线按操作符过滤；DB 实现回补时拼 WHERE。
+    """
+
+    field: str
+    operator: str = "eq"
+    value: object = None
 
 
 class DataScope(BaseCapability, ABC):

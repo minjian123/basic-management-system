@@ -2,10 +2,10 @@
 
 from abc import abstractmethod
 
-from app.repositories.base_repository import BaseRepository
+from app.repositories.base_scoped_repository import BaseScopedRepository
 
 
-class BaseMemoryRepository[ModelT](BaseRepository[ModelT]):
+class BaseMemoryRepository[ModelT](BaseScopedRepository[ModelT]):
     """异步内存基线仓储：字典存储 + 自增 ID；子类只实现 `_build` / `_apply`。"""
 
     def __init__(self) -> None:
@@ -38,12 +38,12 @@ class BaseMemoryRepository[ModelT](BaseRepository[ModelT]):
         """
 
     async def list(self) -> list[ModelT]:
-        """返回全部记录（按 ID 升序）。
+        """返回全部记录（按 ID 升序，经作用域过滤）。
 
         Returns:
             list[ModelT]: 记录列表。
         """
-        return [self._items[key] for key in sorted(self._items)]
+        return [self._items[key] for key in sorted(self._items) if self._matches_scope(self._items[key])]
 
     async def get(self, item_id: int) -> ModelT | None:
         """按 ID 查询记录。
@@ -52,17 +52,20 @@ class BaseMemoryRepository[ModelT](BaseRepository[ModelT]):
             item_id: 记录 ID。
 
         Returns:
-            ModelT | None: 存在时返回记录，否则 None。
+            ModelT | None: 存在时返回记录（经作用域过滤），否则 None。
         """
-        return self._items.get(item_id)
+        item = self._items.get(item_id)
+        if item is None or not self._matches_scope(item):
+            return None
+        return item
 
     async def count(self) -> int:
-        """记录总数。
+        """记录总数（经作用域过滤）。
 
         Returns:
             int: 记录条数。
         """
-        return len(self._items)
+        return sum(1 for item in self._items.values() if self._matches_scope(item))
 
     async def create(self, **values: object) -> ModelT:
         """创建记录并分配自增 ID。

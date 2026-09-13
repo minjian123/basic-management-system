@@ -1,6 +1,5 @@
 """BMS 后端入口：应用工厂 create_app()，提供根路由、业务聚合路由与存活检查。"""
 
-import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
@@ -10,14 +9,14 @@ from app import __version__
 from app.api.errors import register_exception_handlers
 from app.api.router import api_router, health_router
 from app.core.config import get_settings
-from app.core.logging import configure_logging
+from app.core.logging import configure_logging, get_logger
+from app.core.resources import ResourceManager
 from app.db.engine import EngineFactory
+from app.db.registry import EngineRegistry
 from app.repositories.demo_repository import DemoRepository
 from app.schemas.common import ApiResponse
 from app.services.demo_service import DemoService
 from app.services.module_registry import ModuleRegistry
-
-_logger = logging.getLogger("bms")
 
 
 @asynccontextmanager
@@ -35,10 +34,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     """
     errors = app.state.module_registry.validate()
     if errors:
-        _logger.critical("模块注册校验失败：%s", errors)
+        get_logger("bms").critical("模块注册校验失败", errors=errors)
         raise RuntimeError("模块注册校验失败：" + "；".join(errors))
     yield
-    await app.state.engine_factory.aclose()
+    await app.state.resources.aclose()
 
 
 def create_app() -> FastAPI:
@@ -57,7 +56,14 @@ def create_app() -> FastAPI:
 
     register_exception_handlers(app)
 
-    app.state.engine_factory = EngineFactory(get_settings())
+    engine_factory = EngineFactory(get_settings())
+    engine_registry = EngineRegistry(engine_factory)
+    resources = ResourceManager()
+    resources.register(engine_registry)
+
+    app.state.engine_factory = engine_factory
+    app.state.engine_registry = engine_registry
+    app.state.resources = resources
     app.state.module_registry = ModuleRegistry()
     app.state.demo_service = DemoService(DemoRepository())
 

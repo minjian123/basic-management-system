@@ -40,6 +40,10 @@ class BaseLogger(BaseObject, ABC):
         """ERROR 日志。"""
 
     @abstractmethod
+    def critical(self, event: str, **fields: object) -> None:
+        """CRITICAL 日志（系统级故障）。"""
+
+    @abstractmethod
     def exception(self, event: str, **fields: object) -> None:
         """ERROR 日志（附当前异常堆栈）。"""
 
@@ -81,6 +85,10 @@ class StdoutLogger(BaseLogger):
     def error(self, event: str, **fields: object) -> None:
         """ERROR 日志。"""
         self._emit(logging.ERROR, event, fields)
+
+    def critical(self, event: str, **fields: object) -> None:
+        """CRITICAL 日志。"""
+        self._emit(logging.CRITICAL, event, fields)
 
     def exception(self, event: str, **fields: object) -> None:
         """ERROR 日志（附当前异常堆栈）。"""

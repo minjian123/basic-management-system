@@ -85,6 +85,30 @@ async def test_async_resource_context() -> None:
 
 
 @pytest.mark.kiwi_id(26)
+async def test_resource_manager_closes_in_reverse() -> None:
+    """资源登记表：逆序统一释放。"""
+    from app.core.resources import ResourceManager
+
+    closed: list[str] = []
+
+    class DummyResource(BaseAsyncResource):
+        """记录释放顺序的测试资源。"""
+
+        def __init__(self, name: str) -> None:
+            self.name = name
+
+        async def aclose(self) -> None:
+            """记录释放。"""
+            closed.append(self.name)
+
+    manager = ResourceManager()
+    manager.register(DummyResource("a"))
+    manager.register(DummyResource("b"))
+    await manager.aclose()
+    assert closed == ["b", "a"]
+
+
+@pytest.mark.kiwi_id(26)
 async def test_app_lifespan_closes_resources() -> None:
     """应用生命周期：关闭时统一释放异步资源。"""
     from app.main import create_app, lifespan
