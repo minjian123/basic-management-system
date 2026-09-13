@@ -13,6 +13,8 @@ from app.core.logging import configure_logging, get_logger
 from app.core.resources import ResourceManager
 from app.db.engine import EngineFactory
 from app.db.registry import EngineRegistry
+from app.masking.base import NullMasker
+from app.permission.base import NullPermissionChecker
 from app.repositories.demo_repository import DemoRepository
 from app.schemas.common import ApiResponse
 from app.services.demo_service import DemoService
@@ -65,6 +67,12 @@ def create_app() -> FastAPI:
     app.state.engine_registry = engine_registry
     app.state.resources = resources
     app.state.module_registry = ModuleRegistry()
+
+    # 能力域基座（占位实现）：权限检查器先装配，掩码器依赖其判定 data:plain
+    permission_checker = NullPermissionChecker()
+    app.state.permission_checker = permission_checker
+    app.state.masker = NullMasker(checker=permission_checker)
+
     app.state.demo_service = DemoService(DemoRepository())
 
     @app.get("/")
