@@ -145,3 +145,17 @@ async def test_pagination_page_and_cursor() -> None:
     assert [item.name for item in last.list] == ["戊"]
     assert last.has_more is False
     assert last.next_cursor is None
+
+
+@pytest.mark.kiwi_id(25)
+def test_api_deps_reexports() -> None:
+    """公共依赖汇总：get_db / get_uow / get_tenant 可从 api.deps 导入。"""
+    from app.api.deps import get_db as dep_get_db
+    from app.api.deps import get_tenant as dep_get_tenant
+    from app.api.deps import get_uow as dep_get_uow
+    from app.db.session import get_db, get_uow
+    from app.db.tenant import get_tenant
+
+    assert dep_get_db is get_db
+    assert dep_get_uow is get_uow
+    assert dep_get_tenant is get_tenant
