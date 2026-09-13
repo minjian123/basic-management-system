@@ -1,4 +1,4 @@
-/** Axios 基线用例（Kiwi 25）：request 解包/错误、fetchAppInfo、请求与响应拦截器分支。 */
+/** Axios 基线用例（Kiwi 26）：request 解包/错误、fetchAppInfo、请求与响应拦截器分支。 */
 
 import { AxiosError } from 'axios'
 import type { AxiosResponse } from 'axios'
@@ -23,7 +23,7 @@ function requestHandlers(): InterceptorHandlers[] {
   return (http.interceptors.request as unknown as { handlers: InterceptorHandlers[] }).handlers
 }
 
-describe('Axios 基线（Kiwi 25）', () => {
+describe('Axios 基线（Kiwi 26）', () => {
   afterEach(() => {
     vi.restoreAllMocks()
   })

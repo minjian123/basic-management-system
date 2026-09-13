@@ -1,4 +1,4 @@
-/** 默认页冒烟（Kiwi 19）：标题与 backend 应用信息渲染（mock 接口）。 */
+/** 默认页冒烟（Kiwi 20）：标题与 backend 应用信息渲染（mock 接口）。 */
 
 import { flushPromises } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -9,7 +9,7 @@ import { mountWithPlugins } from './helpers/mount'
 
 vi.mock('@/api/http', () => ({ fetchAppInfo: vi.fn() }))
 
-describe('HomeView 默认页（Kiwi 19）', () => {
+describe('HomeView 默认页（Kiwi 20）', () => {
   beforeEach(() => {
     vi.mocked(fetchAppInfo).mockResolvedValue({ name: 'BMS 基础管理系统', version: '0.1.0' })
   })
