@@ -62,13 +62,13 @@ async def test_engine_factory_creates_and_caches() -> None:
     assert factory.create("platform") is engine
     assert isinstance(factory.create("archive"), AsyncEngine)
     assert isinstance(factory.create("tenant_demo"), AsyncEngine)
-    await factory.dispose()
+    await factory.aclose()
 
     server_settings = Settings()
     server_settings.database.platform.url = "postgresql+psycopg://user@localhost/bms"
     server_factory = EngineFactory(server_settings)
     assert isinstance(server_factory.create("platform"), AsyncEngine)
-    await server_factory.dispose()
+    await server_factory.aclose()
 
 
 @pytest.mark.kiwi_id(25)
@@ -92,7 +92,7 @@ async def test_session_factory_and_get_db_dependency() -> None:
         resp = await client.get("/db")
         assert resp.status_code == 200
         assert resp.json() == {"value": 1}
-    await factory.dispose()
+    await factory.aclose()
 
 
 @pytest.mark.kiwi_id(25)

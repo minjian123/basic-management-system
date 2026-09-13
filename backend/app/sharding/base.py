@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
 from app.core.base import BaseObject
+from app.core.capability import BaseCapability, BaseNullObject
 
 
 @dataclass
@@ -14,8 +15,10 @@ class ShardBinding(BaseObject):
     physical_table: str = ""
 
 
-class ShardingRouter(BaseObject, ABC):
+class ShardingRouter(BaseCapability, ABC):
     """分片路由基座契约：分片键 → 物理库 / 表解析。"""
+
+    key: str = "sharding"
 
     @abstractmethod
     def resolve(self, logical_table: str, *, shard_key: object | None = None) -> ShardBinding:
@@ -30,7 +33,7 @@ class ShardingRouter(BaseObject, ABC):
         """
 
 
-class NullShardingRouter(ShardingRouter):
+class NullShardingRouter(ShardingRouter, BaseNullObject):
     """占位分片路由：不路由，返回默认库 + 逻辑表名。"""
 
     def resolve(self, logical_table: str, *, shard_key: object | None = None) -> ShardBinding:

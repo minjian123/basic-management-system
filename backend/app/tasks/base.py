@@ -2,11 +2,13 @@
 
 from abc import ABC, abstractmethod
 
-from app.core.base import BaseObject
+from app.core.capability import BaseCapability
 
 
-class BaseTask(BaseObject, ABC):
+class BaseTask(BaseCapability, ABC):
     """任务调度基座契约：名称 / 队列 / 执行体。"""
+
+    key: str = "task"
 
     queue: str = "default"
 

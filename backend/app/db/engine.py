@@ -7,11 +7,11 @@
 
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
-from app.core.base import BaseObject
+from app.core.capability import BaseAsyncResource
 from app.core.config import DatabaseTargetSettings, Settings
 
 
-class EngineFactory(BaseObject):
+class EngineFactory(BaseAsyncResource):
     """异步引擎工厂：按 `db_key` 创建并缓存引擎。"""
 
     def __init__(self, settings: Settings) -> None:
@@ -59,8 +59,8 @@ class EngineFactory(BaseObject):
         self._engines[db_key] = engine
         return engine
 
-    async def dispose(self) -> None:
-        """释放全部缓存引擎。"""
+    async def aclose(self) -> None:
+        """释放全部缓存引擎（幂等）。"""
         for engine in self._engines.values():
             await engine.dispose()
         self._engines.clear()
