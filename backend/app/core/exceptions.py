@@ -101,3 +101,14 @@ class PermissionError(UserOrgError):
 
     def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
         super().__init__(ErrorCode.PERMISSION, message, http_status=403, data=data)
+
+
+class OpenTenantError(BizError):
+    """开放 / 租户 / SSO 段（`8xxxx`）异常基类。"""
+
+
+class TenantNotFoundError(OpenTenantError):
+    """租户不存在（未知租户）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        super().__init__(ErrorCode.TENANT_NOT_FOUND, message, http_status=404, data=data)

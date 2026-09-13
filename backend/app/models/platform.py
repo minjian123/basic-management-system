@@ -5,10 +5,26 @@
 - 表结构以《数据库设计》数据表文件为唯一事实源。
 """
 
-from sqlalchemy import BigInteger, String, UniqueConstraint
+from datetime import datetime
+
+from sqlalchemy import BigInteger, DateTime, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import BaseModel
+
+
+class SysTenant(BaseModel):
+    """租户注册表（`sys_tenant`）：租户注册与路由依据（平台库）。"""
+
+    __tablename__ = "sys_tenant"
+    __table_args__ = (UniqueConstraint("code", "deleted_at", name="uq_sys_tenant_code_deleted_at"),)
+
+    code: Mapped[str] = mapped_column(String(64), comment="租户编码（全小写）")
+    name: Mapped[str] = mapped_column(String(128), comment="租户名称")
+    domain: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True, comment="子域名")
+    db_key: Mapped[str] = mapped_column(String(64), comment="数据源键（tenant_{code}）")
+    status: Mapped[str] = mapped_column(String(16), default="active", comment="状态（active/suspended）")
+    expire_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, comment="到期时间（UTC）")
 
 
 class SysModule(BaseModel):
