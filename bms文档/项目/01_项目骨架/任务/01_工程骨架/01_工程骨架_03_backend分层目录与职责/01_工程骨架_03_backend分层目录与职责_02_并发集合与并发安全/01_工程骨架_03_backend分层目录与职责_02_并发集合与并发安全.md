@@ -26,7 +26,7 @@
 
 ## 3. 完成标准 <a id="accept"></a>
 
-进程内三种集合在读写混合并发下无数据丢失与异常，遍历快照一致；Redis 封装的有序查询与 Lua 原子复合操作可用（fakeredis 用例全绿，integration 用例随 05-02 验证）；微基准报告产出（记录锁开销与吞吐对比）；`uv run ruff check .` 与 `uv run pyright` 无错误；覆盖率 100%；Kiwi 用例登记并标注。
+进程内三种集合在读写混合并发下无数据丢失与异常，遍历快照一致；Redis 封装的有序查询与 Lua 原子复合操作可用（fakeredis 用例全绿，integration 用例随 04_02 验证）；微基准报告产出（记录锁开销与吞吐对比）；`uv run ruff check .` 与 `uv run pyright` 无错误；覆盖率 100%；Kiwi 用例登记并标注。
 
 ## 4. 参考文档 <a id="ref"></a>
 
