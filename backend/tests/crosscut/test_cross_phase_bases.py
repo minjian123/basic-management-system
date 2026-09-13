@@ -78,6 +78,11 @@ class RoutedRepository(DemoRepository):
 class StubPublisher(EventPublisher):
     """测试事件发布器。"""
 
+    @property
+    def event_type(self) -> str:
+        """事件类型。"""
+        return "user_created"
+
     def __init__(self) -> None:
         self.events: list[EventEnvelope] = []
 
@@ -97,8 +102,8 @@ class StubConsumer(EventConsumer):
         self.received: list[EventEnvelope] = []
 
     @property
-    def subscribed_type(self) -> str:
-        """订阅事件类型。"""
+    def event_type(self) -> str:
+        """事件类型。"""
         return "user_created"
 
     def consume(self, event: EventEnvelope) -> None:
@@ -201,7 +206,7 @@ def test_event_base() -> None:
     publisher.publish_transactional(event)
     assert len(publisher.events) == 2
     consumer = StubConsumer()
-    assert consumer.subscribed_type == "user_created"
+    assert consumer.event_type == "user_created"
     consumer.consume(event)
     assert consumer.received == [event]
 

@@ -2,11 +2,13 @@
 
 from abc import ABC, abstractmethod
 
-from app.core.base import BaseObject
+from app.core.capability import BaseCapability, BaseNullObject
 
 
-class DataScope(BaseObject, ABC):
+class DataScope(BaseCapability, ABC):
     """数据范围契约：读过滤条件 + 写校验（写读双向）。"""
+
+    key: str = "data_scope"
 
     @abstractmethod
     def read_predicate(self) -> object:
@@ -24,7 +26,7 @@ class DataScope(BaseObject, ABC):
         """
 
 
-class NullDataScope(DataScope):
+class NullDataScope(DataScope, BaseNullObject):
     """占位数据范围：无过滤、恒定允许（未接入 RBAC 时使用）。"""
 
     def read_predicate(self) -> object:

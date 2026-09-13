@@ -2,7 +2,7 @@
 
 from abc import ABC, abstractmethod
 
-from app.core.base import BaseObject
+from app.core.capability import BaseCapability
 
 CACHE_KEY_PREFIX = "bms"
 GLOBAL_TENANT = "global"
@@ -22,13 +22,14 @@ def build_cache_key(*, tenant: str | None, domain: str, business_key: str) -> st
     return f"{CACHE_KEY_PREFIX}:{tenant or GLOBAL_TENANT}:{domain}:{business_key}"
 
 
-class CacheRegion(BaseObject, ABC):
+class CacheRegion(BaseCapability, ABC):
     """缓存 Region 分域基座契约：key 规范、TTL、全局版本号惰性比对。
 
     - 全 key 带 TTL；三防（穿透 / 击穿 / 雪崩）在基座统一。
     - 真实读写接 dogpile.cache Region（回补通用能力阶段）。
     """
 
+    key: str = "cache"
     default_ttl: int = 300
 
     @property

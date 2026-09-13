@@ -12,6 +12,7 @@ from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.base import BaseObject
+from app.core.capability import BaseNullObject
 
 
 @asynccontextmanager
@@ -41,7 +42,7 @@ class UnitOfWork(BaseObject, ABC):
         return None
 
 
-class NullUnitOfWork(UnitOfWork):
+class NullUnitOfWork(UnitOfWork, BaseNullObject):
     """空工作单元（占位 / 内存基线）：无事务、无副作用。"""
 
     def begin(self) -> AbstractAsyncContextManager[object]:
