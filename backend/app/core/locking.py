@@ -10,6 +10,8 @@ from collections.abc import Generator
 from contextlib import contextmanager
 from enum import StrEnum
 
+from app.core.base import BaseObject
+
 
 class LockStrategy(StrEnum):
     """进程内并发结构的锁策略。"""
@@ -27,7 +29,7 @@ class LockStrategy(StrEnum):
     """快照替换：读无锁、写复制后原子替换（读极多写极少）。"""
 
 
-class ReadWriteLock:
+class ReadWriteLock(BaseObject):
     """读写锁：读并行、写独占、写优先（有等待写者时新读者排队，防饿死）。"""
 
     def __init__(self) -> None:
@@ -68,7 +70,7 @@ class ReadWriteLock:
                 self._condition.notify_all()
 
 
-class LockGuard:
+class LockGuard(BaseObject):
     """按策略统一读/写上下文（SNAPSHOT 读不取锁、写取互斥锁）。"""
 
     def __init__(self, strategy: LockStrategy) -> None:

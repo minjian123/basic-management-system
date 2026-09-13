@@ -11,6 +11,8 @@ import os
 import threading
 import time
 
+from app.core.base import BaseObject
+
 _EPOCH_MS = 1_600_000_000_000  # 自定义基点（约 2020-09-13 UTC），固定不变
 _WORKER_BITS = 10
 _SEQ_BITS = 12
@@ -21,7 +23,7 @@ _TIMESTAMP_SHIFT = _SEQ_BITS + _WORKER_BITS
 _MAX_ROLLBACK_MS = 5
 
 
-class SnowflakeGenerator:
+class SnowflakeGenerator(BaseObject):
     """标准雪花生成器（单实例线程安全）。"""
 
     def __init__(self, worker_id: int = 0) -> None:

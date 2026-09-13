@@ -1,16 +1,14 @@
-"""demo 示例模块：领域模型（内存占位，03 域落库时替换为 SQLAlchemy 模型）。"""
+"""demo 示例模块：ORM 模型（继承 BaseModel）。"""
 
-from dataclasses import dataclass
+from sqlalchemy import String
+from sqlalchemy.orm import Mapped, mapped_column
 
-from app.core.base import BaseObject
+from app.models.base import BaseModel
 
 
-@dataclass
-class Demo(BaseObject):
-    """demo 示例实体（内存实现）。
+class Demo(BaseModel):
+    """demo 示例实体（ORM 模型；示例模块，表前缀按注册制登记）。"""
 
-    说明：@dataclass 生成的 __eq__/__repr__ 优先，to_dict/to_json 从根基类继承。
-    """
+    __tablename__ = "demo"
 
-    id: int
-    name: str
+    name: Mapped[str] = mapped_column(String(64), comment="demo 名称")
