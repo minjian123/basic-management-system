@@ -1,6 +1,8 @@
-"""core 层异常体系：统一业务异常基类与常用子类。
+"""core 层异常体系：统一业务异常基类、段位基类与常用子类。
 
 - `BizError` 继承 `BaseObject`（纳入 L0 继承体系，统一序列化 / 字符串输出），同时是 `Exception`。
+- **段位基类**（按错误码段位分基）：`GeneralError`（1xxxx 通用）、`AuthError`（2xxxx 认证）、
+  `UserOrgError`（3xxxx 用户与组织）；新增同段位错误码继承对应段位基。
 - 错误码统一登记于 `app/core/error_codes.py`（段位见《架构设计 · 接口与集成》「错误码分段」节）。
 - `http_status` 承载传输层语义（404 / 401 / 403 / 409 / 500），其余业务失败统一 200。
 """
@@ -44,35 +46,39 @@ class BizError(BaseObject, Exception):
         return self.message or f"error.{self.code}"
 
 
-class InternalError(BizError):
+class GeneralError(BizError):
+    """通用段（`1xxxx`）异常基类。"""
+
+
+class InternalError(GeneralError):
     """系统内部错误（未预期）。"""
 
     def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
         super().__init__(ErrorCode.INTERNAL, message, http_status=500, data=data)
 
 
-class ParamError(BizError):
+class ParamError(GeneralError):
     """参数 / 校验失败。"""
 
     def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
         super().__init__(ErrorCode.PARAM, message, data=data)
 
 
-class NotFoundError(BizError):
+class NotFoundError(GeneralError):
     """资源不存在。"""
 
     def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
         super().__init__(ErrorCode.NOT_FOUND, message, http_status=404, data=data)
 
 
-class ConflictError(BizError):
+class ConflictError(GeneralError):
     """业务冲突（唯一键 / 状态）。"""
 
     def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
         super().__init__(ErrorCode.CONFLICT, message, data=data)
 
 
-class ConcurrentConflictError(BizError):
+class ConcurrentConflictError(GeneralError):
     """并发冲突（乐观锁 / 重试超限）。"""
 
     def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
@@ -80,13 +86,17 @@ class ConcurrentConflictError(BizError):
 
 
 class AuthError(BizError):
-    """认证失效。"""
+    """认证段（`2xxxx`）异常基类；本阶段码位 `20001`（认证失效）。"""
 
     def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
         super().__init__(ErrorCode.AUTH, message, http_status=401, data=data)
 
 
-class PermissionError(BizError):
+class UserOrgError(BizError):
+    """用户与组织段（`3xxxx`）异常基类。"""
+
+
+class PermissionError(UserOrgError):
     """权限不足。"""
 
     def __init__(self, message: str | None = None, *, data: object | None = None) -> None:

@@ -3,7 +3,7 @@
 import pytest
 from pydantic import ValidationError
 
-from app.core.config import AppSettings, Settings, get_settings
+from app.core.config import AppSettings, BaseSettings, Settings, get_settings
 
 
 @pytest.mark.kiwi_id(21)
@@ -47,6 +47,16 @@ def test_env_validation() -> None:
     assert AppSettings(env="prod").env == "prod"
     with pytest.raises(ValidationError):
         AppSettings.model_validate({"env": "bad"})
+
+
+@pytest.mark.kiwi_id(21)
+def test_base_settings_config() -> None:
+    """配置分区公共基：拒绝未知键，并继承 BaseSchema 公共配置。"""
+    assert BaseSettings.model_config.get("extra") == "forbid"
+    assert BaseSettings.model_config.get("from_attributes") is True
+    assert BaseSettings.model_config.get("str_strip_whitespace") is True
+    with pytest.raises(ValidationError):
+        AppSettings.model_validate({"unknown": 1})
 
 
 @pytest.mark.kiwi_id(21)
