@@ -1,4 +1,4 @@
-"""core 层有序集合：BaseCollection + SortedList / SortedDict / SortedSet。
+"""core 层有序集合：BaseSorted + SortedList / SortedDict / SortedSet。
 
 基于 sortedcontainers（插入即有序），统一稳定序列化、排序视图、分批与集合运算；
 并发安全版本见 app.core.concurrent，跨副本共享版本见 app.core.redis_collections。
@@ -17,7 +17,7 @@ from sortedcontainers import SortedSet as _SortedSet
 from app.core.base import BaseObject
 
 
-class BaseCollection[ItemT](BaseObject, ABC):
+class BaseSorted[ItemT](BaseObject, ABC):
     """有序集合基类：稳定序列化、排序视图、分批与集合运算。"""
 
     @abstractmethod
@@ -117,7 +117,7 @@ class BaseCollection[ItemT](BaseObject, ABC):
         """
 
 
-class SortedList[ItemT](_SortedList[ItemT], BaseCollection[ItemT]):
+class SortedList[ItemT](_SortedList[ItemT], BaseSorted[ItemT]):
     """有序列表：按元素（或构造 key=）升序，插入即有序。"""
 
     def to_list(self) -> list[ItemT]:
@@ -137,7 +137,7 @@ class SortedList[ItemT](_SortedList[ItemT], BaseCollection[ItemT]):
         return self.to_list()
 
 
-class SortedDict[KeyT, ValueT](_SortedDict[KeyT, ValueT], BaseCollection[tuple[KeyT, ValueT]]):
+class SortedDict[KeyT, ValueT](_SortedDict[KeyT, ValueT], BaseSorted[tuple[KeyT, ValueT]]):
     """有序字典：按键升序，插入即有序。"""
 
     def to_list(self) -> list[tuple[KeyT, ValueT]]:
@@ -201,7 +201,7 @@ class SortedDict[KeyT, ValueT](_SortedDict[KeyT, ValueT], BaseCollection[tuple[K
         return dict(self.items())
 
 
-class SortedSet[ItemT](_SortedSet[ItemT], BaseCollection[ItemT]):
+class SortedSet[ItemT](_SortedSet[ItemT], BaseSorted[ItemT]):
     """有序集合：按元素升序去重，插入即有序。"""
 
     def to_list(self) -> list[ItemT]:

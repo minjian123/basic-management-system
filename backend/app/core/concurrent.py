@@ -12,7 +12,7 @@ from enum import StrEnum
 from typing import Any, cast
 
 from app.core.base import ValueHolder
-from app.core.collections import BaseCollection, SortedDict, SortedList, SortedSet
+from app.core.collections import BaseSorted, SortedDict, SortedList, SortedSet
 
 
 class LockStrategy(StrEnum):
@@ -103,7 +103,7 @@ class _LockGuard:
                 yield
 
 
-class ConcurrentSortedList[ItemT](BaseCollection[ItemT]):
+class ConcurrentSortedList[ItemT](BaseSorted[ItemT]):
     """并发有序列表：RW（默认）/ RLCK / SNAPSHOT；SHARDED 自动降级为 RW。"""
 
     def __init__(
@@ -172,7 +172,7 @@ class ConcurrentSortedList[ItemT](BaseCollection[ItemT]):
         return iter(self.to_list())
 
 
-class ConcurrentSortedSet[ItemT](BaseCollection[ItemT]):
+class ConcurrentSortedSet[ItemT](BaseSorted[ItemT]):
     """并发有序集合：RW（默认）/ RLCK / SHARDED / SNAPSHOT。"""
 
     def __init__(
@@ -312,7 +312,7 @@ class ConcurrentSortedSet[ItemT](BaseCollection[ItemT]):
         return iter(self.to_list())
 
 
-class ConcurrentSortedDict[KeyT, ValueT](BaseCollection[tuple[KeyT, ValueT]]):
+class ConcurrentSortedDict[KeyT, ValueT](BaseSorted[tuple[KeyT, ValueT]]):
     """并发有序字典：RW（默认）/ RLCK / SHARDED / SNAPSHOT。"""
 
     def __init__(
