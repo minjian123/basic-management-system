@@ -62,9 +62,7 @@ async def test_release_and_lock_reuse() -> None:
 @pytest.mark.kiwi_id(38)
 def test_connection_budget() -> None:
     """连接预算：`workers × (pool + overflow) ≤ max_connections × 70%`。"""
-    assert EngineRegistry.check_connection_budget(
-        workers=2, pool_size=5, max_overflow=10, max_connections=100
-    ) is True
-    assert EngineRegistry.check_connection_budget(
-        workers=10, pool_size=5, max_overflow=10, max_connections=100
-    ) is False
+    assert EngineRegistry.check_connection_budget(workers=2, pool_size=5, max_overflow=10, max_connections=100) is True
+    assert (
+        EngineRegistry.check_connection_budget(workers=10, pool_size=5, max_overflow=10, max_connections=100) is False
+    )
