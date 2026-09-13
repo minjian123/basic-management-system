@@ -1,12 +1,12 @@
 # CodeBuddy 部署使用说明
 
-> mjpc 开发机 CodeBuddy（腾讯云代码助手 IDE，codebuddy-cn 4.12.0 / 应用 1.106.1）部署、配置、扩展管理、文档预览、权限与排障实录 · 2026-09-12
+> mjpc 开发机 CodeBuddy（腾讯云代码助手 IDE，codebuddy-cn 4.12.0 / 应用 1.106.1）部署、配置、扩展管理、文档预览、权限与排障实录 · 2026-09-12 部署 / 2026-09-13 免确认排障
 
 [文档首页](../../文档首页.md) › 资料 › 开发机 › CodeBuddy 部署使用说明　|　[同级：开发机部署使用说明总览](开发机部署使用说明总览.md)　[opencode部署使用说明 →](opencode部署使用说明.md)
 
 ## 1. 目的与适用范围 <a id="purpose"></a>
 
-记录开发机 **mjpc**（Ubuntu 26.04.1 LTS，GNOME，Wayland，NVIDIA RTX 4090）上 **CodeBuddy** 的部署与使用：安装来源与版本、四个用户数据目录的作用、首次配置项（登录/语言/插件/技能/MCP）、**权限与免确认设置**（自动运行命令、文件自动修改、安全检查类别、黑名单、安全删除）、**扩展管理（扩展目录 / open-vsx 市场 / 应用自带 CLI）与 HTML 文档预览**（内置 HTML 预览、Live Preview、Simple Browser；bms 文档资产与 md mermaid 的预览办法）、常用设置与排障入口。
+记录开发机 **mjpc**（Ubuntu 26.04.1 LTS，GNOME，Wayland，NVIDIA RTX 4090）上 **CodeBuddy** 的部署与使用：安装来源与版本、四个用户数据目录的作用、首次配置项（登录/语言/插件/技能/MCP）、**权限与免确认设置**（自动运行命令、文件自动修改、安全检查类别、黑名单、安全删除；含**免确认失效的排查：安全类别的真正存储与生效链路**，见[6.3](#permission-security)）、**扩展管理（扩展目录 / open-vsx 市场 / 应用自带 CLI）与 HTML 文档预览**（内置 HTML 预览、Live Preview、Simple Browser；bms 文档资产与 md mermaid 的预览办法）、常用设置与排障入口。
 
 本文档与《[开发机部署使用说明总览](开发机部署使用说明总览.md)》「开发设施清单」节与「桌面快捷方式设置（通用）」节配套；CodeBuddy 与 [opencode](opencode部署使用说明.md)、[deepseek-harness](../AI/deepseek_harness部署使用说明.md) 同属本机 AI 编码工具，三者互不干扰、各自独立部署。
 
@@ -66,7 +66,7 @@ CodeBuddy 的用户数据分散在 **四个目录**（实测体积为 2026-09-12
 | --- | --- | --- | --- |
 | `~/.config/CodeBuddy CN/` | 131 MB | `User/settings.json`（**IDE 设置，含本文的权限开关**）、`History/`、`workspaceStorage/`、`logs/<时间戳>/`、`CrashReport/` | 与 VS Code 一致的用户数据布局 |
 | `~/.codebuddycn/` | 200 MB | `extensions/`（已装扩展 + `extensions.json`）、`argv.json`（持久启动参数） | 扩展宿主目录 |
-| `~/.codebuddy/` | 141 MB | `settings.json`（**插件启用登记**）、`mcp.json`（MCP server 登记）、`plugins/`（插件市场）、`skills-marketplace/`（技能市场）、`inspiration/`、`logs/`、`diagnostics/` | CodeBuddy AI 侧配置（与 IDE 设置分开） |
+| `~/.codebuddy/` | 141 MB | `settings.json`（**插件启用登记**）、`mcp.json`（MCP server 登记）、`skills/`（AI 技能，含 graphify）、`plugins/`（插件市场）、`skills-marketplace/`（技能市场）、`inspiration/`、`logs/`、`diagnostics/` | CodeBuddy AI 侧配置（与 IDE 设置分开） |
 | `~/.local/share/CodeBuddyExtension/` | 71 MB | `Logs/CodeBuddyIDE/<日期>/<工作区>__<hash>.log`、会话与工作区缓存 | **对话与扩展运行日志**，排障首选 |
 
 清理建议：`History/`、`logs/`、`Logs/` 属可清缓存；`User/settings.json`、`~/.codebuddy/settings.json`、`argv.json` 属配置，勿随意删。
@@ -80,7 +80,7 @@ CodeBuddy 的用户数据分散在 **四个目录**（实测体积为 2026-09-12
 | 硬件加速 | `~/.codebuddycn/argv.json` → `disable-hardware-acceleration` | 注释态（未启用软件渲染） |
 | 插件启用 | `~/.codebuddy/settings.json` → `enabledPlugins` | 已启用官方插件：`pptx`、`pdf`、`docx`、`xlsx`、`agent-browser`、`playwright-cli`、`skills-sec-audit`、`find-skills` |
 | 插件/技能市场 | `~/.codebuddy/plugins/`、`~/.codebuddy/skills-marketplace/` | 已拉取官方市场；技能市场版本号见 `~/.codebuddy/.skills-marketplace-version` |
-| MCP server | `~/.codebuddy/mcp.json` | `{"mcpServers": {}}`（暂未接入 MCP） |
+| MCP server | `~/.codebuddy/mcp.json` | 已接入 **graphify** / **graphify-cws** 两个知识图谱服务（`~/.local/bin/graphify-mcp --graph <工作区>/graphify-out/graph.json`）；安装与用法见《[graphify部署使用说明](../AI/graphify部署使用说明.md)》「8.2 CodeBuddy 集成」节 |
 | 补全模型 | 设置 `codingcopilot.selectedCompletionModel` | 空值 = 使用默认模型；可在补全状态栏菜单切换 |
 | 提交信息风格 | `codingcopilot.commitMessageStyle` / `commitMessageLanguage` | `Auto` / `zh_CN` |
 | 编辑器关联（双击行为） | `~/.config/CodeBuddy CN/User/settings.json` → `workbench.editorAssociations` | `*.html` / `*.htm` → 内置 HTML 预览 `codebuddy.html.previewEditor`；`*.md` / `*.markdown` → 内置 Markdown 预览 `vscode.markdown.preview.editor`（详见[第 7 节](#html-preview)） |
@@ -100,11 +100,13 @@ CodeBuddy 的权限开关都在 **IDE 用户设置** `~/.config/CodeBuddy CN/Use
 | `codingcopilot.autoModifyFile` | `true` | 大模型自动修改文件，无需手动确认（开关级） |
 | `codingcopilot.autoAcceptWebSearch` | `true`（默认） | 自动接受网络搜索结果 |
 | `codingcopilot.customBlacklistCommands` | `[]` | 自定义危险命令黑名单：每项为对整条命令匹配的正则，命中的命令会被拦截或需确认（在内置安全规则之上生效） |
-| `codingcopilot.disabledSecurityCategories` | `["injection","scriptExec","powershell"]` | 禁用的内置安全检查类别：被禁用类别下的检查全部跳过。可选值：`diskOps`、`windowsSystem`、`network`、`systemServices`、`userManagement`、`fileDelete`、`permissions`、`processControl`、`gitOps`、`injection`、`scriptExec`、`powershell`、`custom` |
+| `codingcopilot.disabledSecurityCategories` | 全部 13 类（本机 2026-09-13 取值，见[6.3](#permission-security)） | 禁用的内置安全检查类别：被禁用类别下的检查全部跳过。可选值：`diskOps`、`windowsSystem`、`network`、`systemServices`、`userManagement`、`fileDelete`、`permissions`、`processControl`、`gitOps`、`injection`、`scriptExec`、`powershell`、`custom`。**该设置的真正存储不是本文件**，手改会被回写，改法见[6.3](#permission-security) |
 | `codingcopilot.safeDeleteEnabled` | 默认 `true` | 删除操作（`rm`/`unlink`/`rmdir`/`del`/`delete_file` 等）先移入回收站；批量删除达阈值仍需确认。**建议保留默认** |
 | `codingcopilot.safeDeleteBulkThreshold` | 默认 `500` | 单次删除文件数达该值触发批量删除确认；值越大提示越少 |
 
 > 安全边界：`autoRunMode = runEverything` 等于允许 AI 不经确认执行本机命令与写文件。若临时收紧，改回 `askEveryTime` 并重载窗口即可；删除类操作另有回收站与批量阈值兜底（上表后两行）。
+>
+> 本机 2026-09-13 已放开全部 13 类安全类别：`injection`、`scriptExec`、`powershell`、`fileDelete`、`gitOps`、`permissions`、`processControl`、`network`、`diskOps`、`windowsSystem`、`systemServices`、`userManagement`、`custom`；放开 `fileDelete` 后 `rm` 等删除命令不再弹确认（仍走回收站兜底）。收紧办法与失效排查见[6.3](#permission-security)。
 
 ### 6.2 修改与生效 <a id="permission-apply"></a>
 
@@ -121,20 +123,111 @@ PY
 ```
 
 - **改法**：编辑 `~/.config/CodeBuddy CN/User/settings.json`，或 IDE 内 `Ctrl+,` 打开设置后搜索 `autoRun` / `autoRunMode`。
-- **生效**：设置文件改动需 `Ctrl+Shift+P` → 「重新加载窗口」（或重启 IDE）；对话侧若还有模式级同名开关，需在对话设置里再确认一次。
-- **还原**：本机改配置前均留有带时间戳的备份，形如 `~/.config/CodeBuddy CN/User/settings.json.bak-YYYYmmdd-HHMMSS`，直接覆盖回去再重载窗口即可。
+- **生效**：设置文件改动需 `Ctrl+Shift+P` → 「重新加载窗口」（或重启 IDE）；对话侧若还有模式级同名开关，需在对话设置里再确认一次。**例外**：`disabledSecurityCategories` 重载窗口不生效（会被权威存储回写），按[6.3](#permission-security)处理。
+- **还原**：改配置前有带时间戳备份——`settings.json` 形如 `~/.config/CodeBuddy CN/User/settings.json.bak-YYYYmmdd-HHMMSS`，安全类别的权威存储形如 `~/.config/CodeBuddy CN/User/globalStorage/state.vscdb.bak-YYYYmmddHHMMSS`，直接覆盖回去再重启 IDE（安全类别需冷启动）即可。
 
-本机 2026-09-12 生效片段（其余键略）：
+本机 2026-09-13 生效片段（其余键略）：
 
 ```json
 {
   "codingcopilot.customBlacklistCommands": [],
-  "codingcopilot.disabledSecurityCategories": ["injection", "scriptExec", "powershell"],
+  "codingcopilot.disabledSecurityCategories": ["injection", "scriptExec", "powershell", "fileDelete", "gitOps", "permissions", "processControl", "network", "diskOps", "windowsSystem", "systemServices", "userManagement", "custom"],
   "codingcopilot.autoRun": true,
   "codingcopilot.autoModifyFile": true,
   "codingcopilot.autoRunMode": "runEverything"
 }
 ```
+
+### 6.3 免确认失效的排查：安全类别的真正存储与生效链路 <a id="permission-security"></a>
+
+**现象**：`codingcopilot.disabledSecurityCategories` 明明已放开，命令仍弹安全确认（IDE 日志里该命令的 `Permission decision: source=safety_rule_ask`）。
+
+**原因**：这个设置的权威值**不在** `settings.json`。实测链路是三段：
+
+1. 权威值存在 `~/.config/CodeBuddy CN/User/globalStorage/state.vscdb` → `ItemTable["CodeBuddy.settings"]` → `autoApprovalSettings.disabledSecurityCategories`（明文 JSON）；
+2. IDE **每次启动**用它的值回写 `User/settings.json`，并同步给扩展（`SyncSettingsFromIDECommand` → LocalStorage `chatModeSettings.craft`，该键为加密 secret，不可直接改）；
+3. 每条命令执行时，终端安全校验再读一次（日志 `[SecurityCheck] Loaded N disabled security categories: …`）。
+
+由此得出三个坑（本机逐条实测）：
+
+| 做法 | 结果 | 原因 |
+| --- | --- | --- |
+| 手改 `settings.json` 后重载窗口 | 无效，值被还原 | 启动/重载时用权威存储回写 `settings.json` |
+| 只「重新加载窗口」 | 无效 | 重载不重读权威存储（进程没重启，用的还是内存里的旧值） |
+| 写 `~/.codebuddy/settings.json` | 无效 | 那是插件/技能/MCP 登记，不参与安全检查 |
+
+内置类别与对应命令（扩展内置表，判断该放开哪一类时查这里）：
+
+| 类别 | 命令 |
+| --- | --- |
+| `fileDelete` | `rm` / `rmdir` / `del` / `erase` / `find` / `locate` |
+| `permissions` | `chmod` / `chown` / `chgrp` / `attrib` / `icacls` |
+| `processControl` | `kill` / `killall` / `pkill` / `taskkill` |
+| `gitOps` | `git` |
+| `injection` | `open` / `start` / `xdg-open` 及下载执行类正则 |
+| `diskOps` | `dd` / `mkfs` / `fdisk` / `parted` / `cfdisk` / `sfdisk` / `format` / `diskpart` |
+| `network` | `nc` / `ncat` / `netcat` / `socat` / `iptables` / `ufw` / `firewall-cmd` |
+| `systemServices` | `systemctl` / `service` / `chkconfig` / `crontab` / `at` |
+| `userManagement` | `passwd` / `usermod` / `useradd` / `userdel` |
+| `windowsSystem` | `wmic` / `takeown` / `cipher` |
+| `scriptExec` / `powershell` / `custom` | 脚本执行类正则 / PowerShell 专属 / 自定义黑名单（即 `customBlacklistCommands`） |
+
+**改法 A（推荐，一次到位）：完全退出 → 改权威存储 → 冷启动**
+
+```bash
+# 1) 完全退出 CodeBuddy（确认进程已退出：应无输出）
+pgrep -f buddycn
+
+# 2) 改写权威存储（先自动备份 state.vscdb）
+python3 - <<'PY'
+import json, os, shutil, sqlite3, time
+
+DB = os.path.expanduser('~/.config/CodeBuddy CN/User/globalStorage/state.vscdb')
+KEY = 'CodeBuddy.settings'
+TARGET = ['injection', 'scriptExec', 'powershell', 'fileDelete', 'gitOps',
+          'permissions', 'processControl', 'network', 'diskOps', 'windowsSystem',
+          'systemServices', 'userManagement', 'custom']
+
+shutil.copy2(DB, DB + '.bak-' + time.strftime('%Y%m%d%H%M%S'))
+conn = sqlite3.connect(DB)
+data = json.loads(conn.execute('SELECT value FROM ItemTable WHERE key=?', (KEY,)).fetchone()[0])
+print('改前:', data['autoApprovalSettings'].get('disabledSecurityCategories'))
+data['autoApprovalSettings']['disabledSecurityCategories'] = TARGET
+conn.execute('UPDATE ItemTable SET value=? WHERE key=?', (json.dumps(data, ensure_ascii=False), KEY))
+conn.commit()
+conn.close()
+print('改后:', TARGET)
+PY
+
+# 3) 启动 CodeBuddy（是重启应用，不是「重新加载窗口」）
+```
+
+收紧时把 `TARGET` 换回 `['injection', 'scriptExec', 'powershell']`，或只保留需要的类别。
+
+**改法 B（设置界面）**：`Ctrl+,` → 搜 `disabledSecurityCategories`（中文项名「要禁用的内置安全检查类别」）→ 逐项加入需要的类别。界面改动写的是 IDE 内存与权威存储，不会被回写；若命令仍弹确认，重载窗口一次即可。
+
+**验证（四步取证）**
+
+```bash
+# ① 确认真冷启动：进程启动时间刚变、logs 下出现新的时间戳目录
+ps -eo pid,lstart,args | grep buddycn | head -1
+ls -dt ~/.config/"CodeBuddy CN"/logs/*/ | head -1
+
+# ② 同步与加载日志：类别数与目标一致
+D=$(ls -dt ~/.config/"CodeBuddy CN"/logs/*/ | head -1)
+grep -rhoa "Synced disabledSecurityCategories to chat mode settings: \[.*\]" "$D"
+grep -rhoa "\[SecurityCheck\] Loaded [0-9]* disabled security categories: .*" "$D" | sort -u
+
+# ③ 跑一条此前必弹的命令
+touch /tmp/cb_check.txt && rm -f /tmp/cb_check.txt && echo "rm 已执行"
+
+# ④ 看决策来源：还有 safety_rule_ask 说明仍被拦，只剩 auto_run_allow / default_allow 即已放开
+grep -rhoa "Permission decision: source=[a-z_]*, allowed=[a-z]*, needConfirm=[a-z]*" "$D" | sort | uniq -c
+```
+
+> 判断技巧：第 ④ 步的统计里可能混着旧会话残留的命中，确认方法是在同一条命令里先跑目标命令、再立即统计，看新增的命中指向哪条命令（本机即以此确认 `rm` 已免确认）。
+
+**生效边界**：放开 `fileDelete` 后 `rm` 不再弹确认，删除仍走 `safeDeleteEnabled` 回收站兜底；放开其余类别同理。放开期间建议：临时文件放 `/tmp`、重要目录靠 git 兜底。
 
 ## 7. 扩展管理与 HTML 文档预览 <a id="extensions"></a>
 
@@ -240,6 +333,7 @@ pkill -f "http.server 8765"                         # 用完关闭
 | 对话卡住/反复超时（市场拉取阻塞） | 开启 `codingcopilot.disableBuiltInMarketplace`（或设等效环境变量）后重载窗口 |
 | 界面白屏/花屏等渲染异常 | 在 `~/.codebuddycn/argv.json` 打开 `"disable-hardware-acceleration": true`，重启 IDE（本机当前未启用） |
 | 命令被拦截或反复确认 | 检查 `codingcopilot.customBlacklistCommands`（命中正则会拦截）与 `codingcopilot.autoRunMode` 取值 |
+| 改了 `disabledSecurityCategories` 仍在弹确认 | 见[6.3](#permission-security)：权威存储在 `state.vscdb` → `CodeBuddy.settings.autoApprovalSettings`，需完全退出后改并**冷启动**；重载窗口与手改 `settings.json` 均无效 |
 | 删除的文件想找回 | `safeDeleteEnabled` 默认开启时删除先进回收站；关闭后为永久删除 |
 | 需要看运行日志 | 对话/扩展日志 `~/.local/share/CodeBuddyExtension/Logs/CodeBuddyIDE/<日期>/<工作区>__<hash>.log`；IDE 日志 `~/.config/CodeBuddy CN/logs/<时间戳>/` |
 | 崩溃排查 | `~/.config/CodeBuddy CN/CrashReport/`（崩溃转储）与 `~/.codebuddy/diagnostics/` |
@@ -258,4 +352,4 @@ pkill -f "http.server 8765"                         # 用完关闭
 - □ 排障入口齐备：日志三处、崩溃转储、市场超时与渲染异常的处置办法
 - □ 本机事实均经核实（2026-09-12），未写入账号/令牌等凭据
 
-> 依《[文档生成规范](../../规范/文档生成规范.md)》编写 · 与《[开发机部署使用说明总览](开发机部署使用说明总览.md)》《[opencode部署使用说明](opencode部署使用说明.md)》《[命名规范](../../规范/命名规范.md)》配套 · 记录 2026-09-12 mjpc 本机核实结果
+> 依《[文档生成规范](../../规范/文档生成规范.md)》编写 · 与《[开发机部署使用说明总览](开发机部署使用说明总览.md)》《[opencode部署使用说明](opencode部署使用说明.md)》《[命名规范](../../规范/命名规范.md)》配套 · 记录 2026-09-12 部署核实与 2026-09-13 免确认排障（mjpc 本机）
