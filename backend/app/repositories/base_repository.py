@@ -6,8 +6,9 @@
 """
 
 from abc import ABC, abstractmethod
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Sequence
 from contextlib import asynccontextmanager
+from typing import ClassVar
 
 from sqlalchemy.orm.exc import StaleDataError
 
@@ -16,19 +17,27 @@ from app.core.context import is_read_only
 from app.core.exceptions import ConcurrentConflictError
 from app.db.routing import READ_BINDING, WRITE_BINDING
 from app.schemas.pagination import BaseCursorQuery, BasePageQuery
+from app.schemas.sorting import BaseSortQuery, SortSpec
 from app.scope.base import DataScope
 from app.sharding.base import ShardingRouter
 
 
 class BaseRepository[ModelT](BaseObject, ABC):
-    """仓储契约基类：CRUD 契约 + `exists` 派生方法 + 路由钩子。"""
+    """仓储契约基类：CRUD 契约 + `exists` 派生方法 + 路由 / 排序钩子。"""
+
+    sortable_fields: ClassVar[frozenset[str]] = frozenset()
+    """可排序字段白名单（默认空＝不开放排序，排序请求被整体忽略）。"""
 
     _data_scope: DataScope | None = None
     _sharding_router: ShardingRouter | None = None
 
     @abstractmethod
-    async def list(self) -> list[ModelT]:
-        """返回全部记录（顺序由实现定义，内存基线按 ID 升序）。"""
+    async def list(self, *, sort: Sequence[SortSpec] | None = None) -> list[ModelT]:
+        """返回全部记录（传 `sort` 时按规格排序，不传由实现给默认顺序，内存基线按 ID 升序）。
+
+        Args:
+            sort: 生效排序规格（经 `_resolve_sort` 白名单校验后传入）。
+        """
 
     @abstractmethod
     async def get(self, item_id: int) -> ModelT | None:
@@ -65,12 +74,12 @@ class BaseRepository[ModelT](BaseObject, ABC):
         """页码分页查询（派生：内存基线切片；DB 实现回补 LIMIT/OFFSET）。
 
         Args:
-            query: 页码分页请求。
+            query: 页码分页请求（含排序参数）。
 
         Returns:
-            list[ModelT]: 当前页记录。
+            list[ModelT]: 当前页记录（已按白名单校验后的排序规格排序）。
         """
-        items = await self.list()
+        items = await self.list(sort=self._resolve_sort(query))
         start = (query.page - 1) * query.size
         return items[start : start + query.size]
 
@@ -78,14 +87,43 @@ class BaseRepository[ModelT](BaseObject, ABC):
         """游标分页查询（派生：内存基线按序号切片；DB 实现回补 WHERE 游标）。
 
         Args:
-            query: 游标分页请求。
+            query: 游标分页请求（含排序参数）。
 
         Returns:
-            list[ModelT]: 当前批记录。
+            list[ModelT]: 当前批记录（已按白名单校验后的排序规格排序）。
         """
-        items = await self.list()
+        items = await self.list(sort=self._resolve_sort(query))
         start = int(query.cursor) if query.cursor else 0
         return items[start : start + query.limit]
+
+    def _resolve_sort(self, query: BaseSortQuery | None) -> list[SortSpec]:
+        """排序请求解析钩子：按类属性白名单校验排序规格（类属性为默认、`specs(whitelist=...)` 可覆盖）。
+
+        Args:
+            query: 排序请求（分页请求继承之）；None 表示不排序。
+
+        Returns:
+            list[SortSpec]: 生效排序规格（白名单外字段已忽略）。
+        """
+        if query is None:
+            return []
+        return query.specs(self.sortable_fields)
+
+    def _apply_sort[StatementT](self, statement: StatementT, sort: Sequence[SortSpec]) -> StatementT:
+        """排序语句钩子（占位：原样返回）。
+
+        数据库实现侧拼接 ORDER BY 的接入点：字段须经白名单过滤后拼接，禁止透传用户原始输入；
+        真实实现随列表接口阶段回补（内存侧排序见 `BaseMemoryRepository`）。
+
+        Args:
+            statement: 查询语句。
+            sort: 生效排序规格。
+
+        Returns:
+            StatementT: 附加排序后的语句（占位原样返回）。
+        """
+        del sort
+        return statement
 
     def _resolve_binding(self, *, read_only: bool | None = None) -> str:
         """数据源绑定钩子：只读走读绑定、写走写绑定（本阶段主从同源）。

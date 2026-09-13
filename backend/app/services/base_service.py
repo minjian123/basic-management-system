@@ -1,9 +1,12 @@
-"""services 层基类：通用 CRUD 委派、统一不存在语义与分页。"""
+"""services 层基类：通用 CRUD 委派、统一不存在语义与分页（含排序透传）。"""
+
+from collections.abc import Sequence
 
 from app.core.base import BaseObject
 from app.core.exceptions import NotFoundError
 from app.repositories.base_repository import BaseRepository
 from app.schemas.pagination import BaseCursorQuery, BaseCursorResponse, BasePageQuery, BasePageResponse
+from app.schemas.sorting import SortSpec
 
 
 class BaseService[ModelT](BaseObject):
@@ -20,13 +23,16 @@ class BaseService[ModelT](BaseObject):
         """
         self._repository = repository
 
-    async def list(self) -> list[ModelT]:
+    async def list(self, *, sort: Sequence[SortSpec] | None = None) -> list[ModelT]:
         """返回全部记录。
+
+        Args:
+            sort: 生效排序规格（经仓储白名单校验）；空则不排序。
 
         Returns:
             list[ModelT]: 记录列表。
         """
-        return await self._repository.list()
+        return await self._repository.list(sort=sort)
 
     async def exists(self, item_id: int) -> bool:
         """记录是否存在。
