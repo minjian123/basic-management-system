@@ -1,4 +1,4 @@
-/** 基础类用例（Kiwi 21）：契约类型 / BaseApi / createCrudStore / stableStringify。 */
+/** 基础类用例（Kiwi 22）：契约类型 / BaseApi / createCrudStore / stableStringify。 */
 
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -42,7 +42,7 @@ class DemoApi extends BaseApi {
   }
 }
 
-describe('基础类（Kiwi 21）', () => {
+describe('基础类（Kiwi 22）', () => {
   beforeEach(() => {
     vi.mocked(request).mockReset()
   })

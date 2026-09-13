@@ -1,4 +1,4 @@
-/** 公共基座用例（Kiwi 23）：useRequest / useListPage / validators / useTabs / EntityStatus。 */
+/** 公共基座用例（Kiwi 24）：useRequest / useListPage / validators / useTabs / EntityStatus。 */
 
 import { describe, expect, it, vi } from 'vitest'
 
@@ -10,7 +10,7 @@ import { useRequest } from '@/utils/useRequest'
 import { useTabs, TABS_STORAGE_KEY } from '@/utils/useTabs'
 import { isEmail, isIdCard, isPhone, isUrl, passwordStrength, pattern, required } from '@/utils/validators'
 
-describe('公共基座（Kiwi 23）', () => {
+describe('公共基座（Kiwi 24）', () => {
   it('useRequest：成功与失败状态', async () => {
     const onSuccess = vi.fn()
     const onError = vi.fn()
