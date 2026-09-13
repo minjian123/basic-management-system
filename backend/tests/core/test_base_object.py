@@ -4,6 +4,7 @@ import dataclasses
 from dataclasses import dataclass
 
 import pytest
+from pydantic import computed_field
 
 from app.core.base import BaseObject
 from app.models.demo import Demo
@@ -113,3 +114,30 @@ def test_bases_inherit_base_object() -> None:
     assert issubclass(BaseRepository, BaseObject)
     assert issubclass(BaseService, BaseObject)
     assert issubclass(BaseSchema, BaseObject)
+
+
+class _ComputedSchema(BaseSchema):
+    """带计算字段的 Pydantic 模型（测试分型序列化）。"""
+
+    a: int = 1
+
+    @computed_field
+    @property
+    def plus(self) -> int:
+        """计算字段。"""
+        return self.a + 1
+
+
+@pytest.mark.kiwi_id(14)
+def test_public_fields_declared_first() -> None:
+    """声明字段优先：Pydantic 走 model_dump（含计算字段）；普通对象走 __dict__ 公开项。"""
+    schema = _ComputedSchema()
+    assert schema.to_dict() == schema.model_dump()
+    assert schema.to_dict() == {"a": 1, "plus": 2}
+
+    class Plain(BaseObject):
+        def __init__(self) -> None:
+            self.a = 1
+            self._hidden = 2
+
+    assert Plain().to_dict() == {"a": 1}
