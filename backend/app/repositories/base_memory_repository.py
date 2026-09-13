@@ -93,7 +93,7 @@ class BaseMemoryRepository[ModelT](BaseScopedRepository[ModelT]):
             ModelT | None: 更新后的记录；不存在返回 None。
         """
         item = self._items.get(item_id)
-        if item is None:
+        if item is None or not self._matches_scope(item):
             return None
         updated = self._apply(item, values)
         self._items[item_id] = updated
@@ -106,6 +106,10 @@ class BaseMemoryRepository[ModelT](BaseScopedRepository[ModelT]):
             item_id: 记录 ID。
 
         Returns:
-            bool: 删除成功 True；不存在 False。
+            bool: 删除成功 True；不存在（或不在作用域）False。
         """
-        return self._items.pop(item_id, None) is not None
+        item = self._items.get(item_id)
+        if item is None or not self._matches_scope(item):
+            return False
+        del self._items[item_id]
+        return True

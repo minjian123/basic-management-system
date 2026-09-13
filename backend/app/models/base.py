@@ -64,6 +64,14 @@ class BaseModel(Base, BaseObject):
 
     __mapper_args__ = {"version_id_col": version}  # noqa: RUF012
 
+    def soft_delete(self) -> None:
+        """标记软删除（置 `deleted_at`，由 ORM 事件刷新审计）。"""
+        self.deleted_at = _utc_now()
+
+    def restore(self) -> None:
+        """恢复软删除（清空 `deleted_at`）。"""
+        self.deleted_at = None
+
 
 @event.listens_for(BaseModel, "before_insert", propagate=True)
 def _fill_audit_on_insert(mapper: Mapper[Any], connection: Connection, target: BaseModel) -> None:  # pyright: ignore[reportUnusedFunction]

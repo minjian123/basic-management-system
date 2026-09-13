@@ -1,34 +1,12 @@
 """schemas 层基类：Pydantic 公共配置与 ID 序列化口径。"""
 
-from collections.abc import Callable, Iterable
-from typing import Any, cast
+from collections.abc import Callable
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, SerializationInfo, model_serializer
 
 from app.core.base import BaseObject
-
-
-def _stringify_ids(value: object) -> object:
-    """递归把 `id` / `*_id` 的整型值转字符串（雪花 ID 防 JS 精度丢失）。
-
-    Args:
-        value: 待转换的序列化结果。
-
-    Returns:
-        object: 转换后的结果。
-    """
-    if isinstance(value, dict):
-        mapping = cast("dict[object, object]", value)
-        result: dict[object, object] = {}
-        for key, item in mapping.items():
-            if isinstance(key, str) and (key == "id" or key.endswith("_id")) and type(item) is int:
-                result[key] = str(item)
-            else:
-                result[key] = _stringify_ids(item)
-        return result
-    if isinstance(value, (list, tuple)):
-        return [_stringify_ids(item) for item in cast("Iterable[object]", value)]
-    return value
+from app.core.serialization import stringify_ids
 
 
 class BaseSchema(BaseModel, BaseObject):
@@ -53,4 +31,4 @@ class BaseSchema(BaseModel, BaseObject):
             Any: 序列化结果。
         """
         del info
-        return _stringify_ids(serializer(self))
+        return stringify_ids(serializer(self))

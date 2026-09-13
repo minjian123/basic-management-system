@@ -5,6 +5,34 @@
 """
 
 import json
+from collections.abc import Iterable
+from typing import cast
+
+_ID_KEYS = ("id",)
+
+
+def stringify_ids(value: object) -> object:
+    """递归把 `id` / `*_id` 的整型值转字符串（雪花 ID 防 JS 精度丢失）。
+
+    Args:
+        value: 待转换的序列化结果。
+
+    Returns:
+        object: 转换后的结果。
+    """
+    if isinstance(value, dict):
+        mapping = cast("dict[object, object]", value)
+        result: dict[object, object] = {}
+        for key, item in mapping.items():
+            is_id_key = isinstance(key, str) and (key in _ID_KEYS or key.endswith("_id"))
+            if is_id_key and type(item) is int:
+                result[key] = str(item)
+            else:
+                result[key] = stringify_ids(item)
+        return result
+    if isinstance(value, (list, tuple)):
+        return [stringify_ids(item) for item in cast("Iterable[object]", value)]
+    return value
 
 
 def stable_json_dumps(value: object, *, sort_keys: bool = True) -> str:

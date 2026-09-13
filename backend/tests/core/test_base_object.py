@@ -44,8 +44,8 @@ def test_to_dict_reflects_public_fields_recursively() -> None:
     nested = Nested(name="n", point=Point(id=1, x=2), tags=[Point(id=3, x=4), {"a": Point(id=5, x=6)}])
     assert nested.to_dict() == {
         "name": "n",
-        "point": {"id": 1, "x": 2},
-        "tags": [{"id": 3, "x": 4}, {"a": {"id": 5, "x": 6}}],
+        "point": {"id": "1", "x": 2},
+        "tags": [{"id": "3", "x": 4}, {"a": {"id": "5", "x": 6}}],
     }
 
 
@@ -98,7 +98,7 @@ def test_public_fields_fallback_when_fields_unavailable(monkeypatch: pytest.Monk
     monkeypatch.setattr(dataclasses, "fields", boom)
     assert Nested(name="n", point=Point(id=1, x=2), tags=[]).to_dict() == {
         "name": "n",
-        "point": {"id": 1, "x": 2},
+        "point": {"id": "1", "x": 2},
         "tags": [],
     }
 
@@ -108,8 +108,8 @@ def test_demo_model_inherits_base_object() -> None:
     """demo 模型继承根基类，to_dict/to_json 可用。"""
     demo = Demo(id=1, name="甲")
     assert isinstance(demo, BaseObject)
-    assert demo.to_dict() == {"id": 1, "name": "甲"}
-    assert demo.to_json() == '{"id": 1, "name": "甲"}'
+    assert demo.to_dict() == {"id": "1", "name": "甲"}
+    assert demo.to_json() == '{"id": "1", "name": "甲"}'
 
 
 @pytest.mark.kiwi_id(14)

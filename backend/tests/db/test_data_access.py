@@ -16,7 +16,8 @@ from app.core.context import is_read_only, reset_read_only, set_read_only
 from app.core.exceptions import ConcurrentConflictError
 from app.db.engine import EngineFactory
 from app.db.registry import EngineRegistry
-from app.db.session import build_session_factory, get_db
+from app.db.session import build_session_factory, get_db, get_uow
+from app.db.unit_of_work import DbUnitOfWork
 from app.repositories.base_memory_repository import BaseMemoryRepository
 from app.schemas.pagination import BaseCursorQuery, BasePageQuery
 from app.services.base_service import BaseService
@@ -91,10 +92,15 @@ async def test_session_factory_and_get_db_dependency() -> None:
     async def read(session: Annotated[AsyncSession, Depends(get_db)]) -> dict[str, int]:  # pyright: ignore[reportUnusedFunction]
         return {"value": (await session.execute(text("SELECT 1"))).scalar() or 0}
 
+    @app.get("/uow")
+    async def read_uow(uow: Annotated[DbUnitOfWork, Depends(get_uow)]) -> dict[str, bool]:  # pyright: ignore[reportUnusedFunction]
+        return {"has_session": uow.session is not None}  # pyright: ignore[reportUnnecessaryComparison]
+
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         resp = await client.get("/db")
         assert resp.status_code == 200
         assert resp.json() == {"value": 1}
+        assert (await client.get("/uow")).json() == {"has_session": True}
     await registry.aclose()
 
 

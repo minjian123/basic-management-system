@@ -46,9 +46,9 @@ class ScopedRowRepository(RowRepository):
 
 
 class FixedScope(DataScope):
-    """固定返回单个条件的测试数据范围。"""
+    """固定返回条件的测试数据范围。"""
 
-    def __init__(self, condition: ScopeCondition) -> None:
+    def __init__(self, condition: ScopeCondition | list[ScopeCondition]) -> None:
         self._condition = condition
 
     def read_predicate(self) -> object:
@@ -91,7 +91,7 @@ async def test_soft_delete_disabled() -> None:
 
 @pytest.mark.kiwi_id(11)
 async def test_scope_operators() -> None:
-    """数据范围条件：eq / ne / in / is_null / is_not_null / 未知操作符。"""
+    """数据范围条件：eq / ne / in / like / 比较 / between / 空值 / 异常与未知。"""
     repo = await _repo_with_rows()
     repo.disable_soft_delete()
 
@@ -107,14 +107,65 @@ async def test_scope_operators() -> None:
     repo.use_scope(FixedScope(ScopeCondition("owner_id", "in", 2)))
     assert await repo.list() == []
 
+    repo.use_scope(FixedScope(ScopeCondition("name", "like", "乙")))
+    assert [row.name for row in await repo.list()] == ["乙"]
+
+    repo.use_scope(FixedScope(ScopeCondition("owner_id", "gt", 2)))
+    assert [row.name for row in await repo.list()] == ["丙"]
+
+    repo.use_scope(FixedScope(ScopeCondition("owner_id", "gte", 2)))
+    assert [row.name for row in await repo.list()] == ["乙", "丙", "删"]
+
+    repo.use_scope(FixedScope(ScopeCondition("owner_id", "lt", 2)))
+    assert [row.name for row in await repo.list()] == ["甲"]
+
+    repo.use_scope(FixedScope(ScopeCondition("owner_id", "lte", 2)))
+    assert [row.name for row in await repo.list()] == ["甲", "乙", "删"]
+
+    repo.use_scope(FixedScope(ScopeCondition("owner_id", "between", [2, 2])))
+    assert [row.name for row in await repo.list()] == ["乙", "删"]
+
+    repo.use_scope(FixedScope(ScopeCondition("owner_id", "between", 2)))
+    assert await repo.list() == []
+
+    repo.use_scope(FixedScope(ScopeCondition("owner_id", "between", [1, 2, 3])))
+    assert await repo.list() == []
+
+    repo.use_scope(FixedScope(ScopeCondition("owner_id", "gt", "x")))
+    assert await repo.list() == []
+
     repo.use_scope(FixedScope(ScopeCondition("deleted_at", "is_null", None)))
     assert [row.name for row in await repo.list()] == ["甲", "乙", "丙"]
 
     repo.use_scope(FixedScope(ScopeCondition("deleted_at", "is_not_null", None)))
     assert [row.name for row in await repo.list()] == ["删"]
 
-    repo.use_scope(FixedScope(ScopeCondition("owner_id", "gt", 1)))
+    repo.use_scope(FixedScope(ScopeCondition("owner_id", "regex", 1)))
     assert await repo.list() == []
 
     repo.use_scope(NullDataScope())
     assert len(await repo.list()) == 4
+
+
+@pytest.mark.kiwi_id(11)
+async def test_scope_condition_list_and_write_scope() -> None:
+    """条件列表（AND）；越权 / 已删记录不可改删。"""
+    repo = ScopedRowRepository()
+    repo.disable_soft_delete()
+    await repo.create(name="甲", owner_id=1)
+    await repo.create(name="乙", owner_id=2)
+    await repo.create(name="删", owner_id=2, deleted_at="2026-09-13")
+
+    repo.use_scope(FixedScope([ScopeCondition("owner_id", "eq", 2), ScopeCondition("name", "eq", "乙")]))
+    assert [row.name for row in await repo.list()] == ["乙"]
+
+    repo.use_scope(FixedScope(ScopeCondition("owner_id", "eq", 1)))
+    assert await repo.update(2, name="越权") is None
+    assert await repo.delete(2) is False
+    assert await repo.update(1, name="甲改") is not None
+    assert await repo.delete(1) is True
+
+    repo.use_scope(None)
+    repo.soft_delete_enabled = True
+    assert await repo.delete(3) is False
+

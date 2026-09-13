@@ -189,3 +189,20 @@ def test_demo_model_and_generator_inherit_base_object() -> None:
     """demo 示例模型继承 BaseModel；雪花生成器纳入 L0 继承体系。"""
     assert issubclass(Demo, BaseModel)
     assert issubclass(SnowflakeGenerator, BaseObject)
+
+
+@pytest.mark.kiwi_id(19)
+def test_soft_delete_and_restore(session: Session) -> None:
+    """软删除辅助：`soft_delete` 置 deleted_at、`restore` 清空。"""
+    widget = Widget(name="a")
+    session.add(widget)
+    session.commit()
+    assert widget.deleted_at is None
+
+    widget.soft_delete()
+    session.commit()
+    assert widget.deleted_at is not None
+
+    widget.restore()
+    session.commit()
+    assert widget.deleted_at is None
