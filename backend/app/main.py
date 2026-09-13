@@ -8,6 +8,7 @@ from fastapi import FastAPI
 from app import __version__
 from app.api.errors import register_exception_handlers
 from app.api.router import api_router, health_router
+from app.captcha.base import NullCaptcha
 from app.core.config import get_settings
 from app.core.logging import configure_logging, get_logger
 from app.core.resources import ResourceManager
@@ -15,6 +16,7 @@ from app.db.engine import EngineFactory
 from app.db.registry import EngineRegistry
 from app.lock.base import NullDistributedLock
 from app.masking.base import NullMasker
+from app.password.base import NullPasswordPolicy
 from app.permission.base import NullPermissionChecker
 from app.repositories.demo_repository import DemoRepository
 from app.schemas.common import ApiResponse
@@ -74,6 +76,8 @@ def create_app() -> FastAPI:
     app.state.permission_checker = permission_checker
     app.state.masker = NullMasker(checker=permission_checker)
     app.state.distributed_lock = NullDistributedLock()
+    app.state.captcha = NullCaptcha()
+    app.state.password_policy = NullPasswordPolicy()
 
     app.state.demo_service = DemoService(DemoRepository())
 
