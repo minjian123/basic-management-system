@@ -79,7 +79,7 @@ backend/
     ├── conftest.py   # ASGITransport 客户端夹具
     ├── api/          # 接口测试：test_main / test_health / test_demo
     ├── core/         # 根基类/集合/并发/Redis 测试
-    ├── integration/  # 真实外部服务集成用例（标 integration，随 05-02 执行）
+    ├── integration/  # 真实外部服务集成用例（标 integration，随 04_02 执行）
     ├── repositories/ # 基类测试：test_base_repository
     ├── services/     # 基类测试：test_base_service
     └── schemas/      # 基类测试：test_base_schema
