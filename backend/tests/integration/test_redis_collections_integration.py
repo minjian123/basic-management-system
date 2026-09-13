@@ -1,4 +1,4 @@
-"""真实 Redis 集成用例（标记 integration；需 BMS_TEST_REDIS_URL，随 05-02 执行）。"""
+"""真实 Redis 集成用例（标记 integration；需 BMS_TEST_REDIS_URL，随 04_02 执行）。"""
 
 import os
 from collections.abc import AsyncIterator
