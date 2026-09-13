@@ -6,10 +6,11 @@
 
 import heapq
 import threading
+from abc import abstractmethod
 from collections.abc import Callable, Generator, Iterable, Iterator, Mapping
 from contextlib import contextmanager
 from enum import StrEnum
-from typing import Any, cast
+from typing import Any, TypeVar, cast
 
 from app.core.base import ValueHolder
 from app.core.collections import BaseSorted, SortedDict, SortedList, SortedSet
@@ -103,7 +104,38 @@ class _LockGuard:
                 yield
 
 
-class ConcurrentSortedList[ItemT](BaseSorted[ItemT]):
+DataT = TypeVar("DataT")
+
+
+class BaseConcurrentSorted[ItemT, DataT](BaseSorted[ItemT]):
+    """进程内并发有序集合基类：锁策略守卫 + SNAPSHOT 写时复制模板。
+
+    子类实现 `_copy_data`（复制内部数据）；读改写由 `_guard` 按策略加锁，
+    SNAPSHOT 策略写时复制后替换，其余策略直接操作内部数据。
+    """
+
+    _guard: _LockGuard
+    _data: DataT
+
+    def __init__(self, *, strategy: LockStrategy) -> None:
+        self._guard = _LockGuard(strategy)
+
+    @abstractmethod
+    def _copy_data(self) -> DataT:
+        """复制内部数据（SNAPSHOT 策略写时复制）。"""
+
+    @contextmanager
+    def _write_data(self) -> Generator[DataT]:
+        """写上下文：SNAPSHOT 写时复制，其余直接操作内部数据。"""
+        with self._guard.write():
+            snapshot = self._guard.strategy is LockStrategy.SNAPSHOT
+            data = self._copy_data() if snapshot else self._data
+            yield data
+            if snapshot:
+                self._data = data
+
+
+class ConcurrentSortedList[ItemT](BaseConcurrentSorted[ItemT, SortedList[ItemT]]):
     """并发有序列表：RW（默认）/ RLCK / SNAPSHOT；SHARDED 自动降级为 RW。"""
 
     def __init__(
@@ -114,18 +146,13 @@ class ConcurrentSortedList[ItemT](BaseSorted[ItemT]):
         key: Callable[[ItemT], object] | None = None,
     ) -> None:
         effective = LockStrategy.RW if strategy is LockStrategy.SHARDED else strategy
-        self._guard = _LockGuard(effective)
+        super().__init__(strategy=effective)
         self._key = key
-        self._data: SortedList[ItemT] = SortedList(items, key=key)
+        self._data = SortedList(items, key=key)
 
-    @contextmanager
-    def _write_data(self) -> Generator[SortedList[ItemT]]:
-        with self._guard.write():
-            snapshot = self._guard.strategy is LockStrategy.SNAPSHOT
-            data = SortedList(self._data, key=self._key) if snapshot else self._data
-            yield data
-            if snapshot:
-                self._data = data
+    def _copy_data(self) -> SortedList[ItemT]:
+        """复制内部数据（SNAPSHOT 写时复制）。"""
+        return SortedList(self._data, key=self._key)
 
     def add(self, item: ItemT) -> None:
         """插入元素。"""
@@ -172,7 +199,7 @@ class ConcurrentSortedList[ItemT](BaseSorted[ItemT]):
         return iter(self.to_list())
 
 
-class ConcurrentSortedSet[ItemT](BaseSorted[ItemT]):
+class ConcurrentSortedSet[ItemT](BaseConcurrentSorted[ItemT, SortedSet[ItemT]]):
     """并发有序集合：RW（默认）/ RLCK / SHARDED / SNAPSHOT。"""
 
     def __init__(
@@ -191,10 +218,10 @@ class ConcurrentSortedSet[ItemT](BaseSorted[ItemT]):
             ]
         else:
             self._shards = []
-        self._guard = _LockGuard(strategy if strategy is not LockStrategy.SHARDED else LockStrategy.RW)
+        super().__init__(strategy=strategy if strategy is not LockStrategy.SHARDED else LockStrategy.RW)
         self._strategy = strategy
         materialized = list(items)
-        self._data: SortedSet[ItemT] = SortedSet(materialized)
+        self._data = SortedSet(materialized)
         if self._strategy is LockStrategy.SHARDED:
             for item in materialized:
                 self._shards[hash(item) % len(self._shards)][1].add(item)
@@ -213,13 +240,9 @@ class ConcurrentSortedSet[ItemT](BaseSorted[ItemT]):
         with self._guard.read():
             return list(self._data)
 
-    @contextmanager
-    def _write_data(self) -> Generator[SortedSet[ItemT]]:
-        with self._guard.write():
-            data = SortedSet(self._data) if self._strategy is LockStrategy.SNAPSHOT else self._data
-            yield data
-            if self._strategy is LockStrategy.SNAPSHOT:
-                self._data = data
+    def _copy_data(self) -> SortedSet[ItemT]:
+        """复制内部数据（SNAPSHOT 写时复制）。"""
+        return SortedSet(self._data)
 
     def add(self, item: ItemT) -> None:
         """插入元素（去重）。"""
@@ -312,7 +335,7 @@ class ConcurrentSortedSet[ItemT](BaseSorted[ItemT]):
         return iter(self.to_list())
 
 
-class ConcurrentSortedDict[KeyT, ValueT](BaseSorted[tuple[KeyT, ValueT]]):
+class ConcurrentSortedDict[KeyT, ValueT](BaseConcurrentSorted[tuple[KeyT, ValueT], SortedDict[KeyT, ValueT]]):
     """并发有序字典：RW（默认）/ RLCK / SHARDED / SNAPSHOT。"""
 
     def __init__(
@@ -331,12 +354,12 @@ class ConcurrentSortedDict[KeyT, ValueT](BaseSorted[tuple[KeyT, ValueT]]):
             ]
         else:
             self._shards = []
-        self._guard = _LockGuard(strategy if strategy is not LockStrategy.SHARDED else LockStrategy.RW)
+        super().__init__(strategy=strategy if strategy is not LockStrategy.SHARDED else LockStrategy.RW)
         self._strategy = strategy
         entries: list[tuple[KeyT, ValueT]] = (
             list(cast("Mapping[KeyT, ValueT]", items).items()) if isinstance(items, Mapping) else list(items)
         )
-        self._data: SortedDict[KeyT, ValueT] = SortedDict(entries)
+        self._data = SortedDict(entries)
         if self._strategy is LockStrategy.SHARDED:
             for key, value in entries:
                 self._shards[hash(key) % len(self._shards)][1][key] = value
@@ -355,13 +378,9 @@ class ConcurrentSortedDict[KeyT, ValueT](BaseSorted[tuple[KeyT, ValueT]]):
         with self._guard.read():
             return self._data.to_list()
 
-    @contextmanager
-    def _write_data(self) -> Generator[SortedDict[KeyT, ValueT]]:
-        with self._guard.write():
-            data = SortedDict(self._data) if self._strategy is LockStrategy.SNAPSHOT else self._data
-            yield data
-            if self._strategy is LockStrategy.SNAPSHOT:
-                self._data = data
+    def _copy_data(self) -> SortedDict[KeyT, ValueT]:
+        """复制内部数据（SNAPSHOT 写时复制）。"""
+        return SortedDict(self._data)
 
     def set(self, key: KeyT, value: ValueT) -> None:
         """写入键值。"""

@@ -4,7 +4,10 @@ import threading
 
 import pytest
 
+from app.core.base import BaseObject
+from app.core.collections import BaseSorted
 from app.core.concurrent import (
+    BaseConcurrentSorted,
     ConcurrentSortedDict,
     ConcurrentSortedList,
     ConcurrentSortedSet,
@@ -180,3 +183,13 @@ def test_snapshot_reader_keeps_immutable_view() -> None:
     data.set("b", 2)
     assert snapshot == {"a": 1}
     assert data.to_dict() == {"a": 1, "b": 2}
+
+
+@pytest.mark.kiwi_id(16)
+def test_concurrent_sorted_inherit_base_concurrent_sorted() -> None:
+    """并发集合继承链：ConcurrentSorted* → BaseConcurrentSorted → BaseSorted → BaseObject。"""
+    assert issubclass(BaseConcurrentSorted, BaseSorted)
+    assert issubclass(BaseSorted, BaseObject)
+    assert issubclass(ConcurrentSortedList, BaseConcurrentSorted)
+    assert issubclass(ConcurrentSortedSet, BaseConcurrentSorted)
+    assert issubclass(ConcurrentSortedDict, BaseConcurrentSorted)
