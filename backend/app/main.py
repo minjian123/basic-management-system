@@ -5,6 +5,8 @@ from fastapi import FastAPI
 from app import __version__
 from app.api.errors import register_exception_handlers
 from app.api.router import api_router, health_router
+from app.core.config import get_settings
+from app.core.logging import configure_logging
 from app.repositories.demo_repository import DemoRepository
 from app.schemas.common import ApiResponse
 from app.services.demo_service import DemoService
@@ -20,8 +22,9 @@ def create_app() -> FastAPI:
     """
     app = FastAPI(title="BMS 基础管理系统", version=__version__)
 
-    # TODO(02-01/02-02): lifespan 内加载配置与日志
     # TODO(02-05): demo 服务改由依赖注入提供（get_db 等）
+
+    configure_logging(get_settings())
 
     register_exception_handlers(app)
 
