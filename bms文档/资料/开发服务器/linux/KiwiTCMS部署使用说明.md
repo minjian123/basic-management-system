@@ -93,6 +93,8 @@ curl -sk https://<mjbk-IP>:8060/accounts/login/ | grep "<title>"      # Kiwi TCM
 
 ## 5. 使用说明 <a id="use"></a>
 
+### 5.1 平台信息 <a id="use-info"></a>
+
 | 项目 | 值 |
 | --- | --- |
 | 访问地址 | `https://<mjbk-IP>:8060`（自签名证书，浏览器首次访问需接受警告；仅内网） |
@@ -100,7 +102,73 @@ curl -sk https://<mjbk-IP>:8060/accounts/login/ | grep "<title>"      # Kiwi TCM
 | 界面语言 | 官方简体中文翻译为主，浏览器自动翻译兜底（系统设置 → 语言偏好） |
 | 数据存储 | 业务数据在 MySQL `kiwi` 库；上传附件在命名卷 `compose_kiwi-uploads`（项目名 compose，位于 `/mnt/ssd2t/docker/volumes/`） |
 
+### 5.2 用例约定 <a id="use-cases"></a>
+
 本项目中的用法（《[测试规范](../../../规范/测试规范.md)》）：用例按模块建 **Category**、用 **Tag** 组织；用例名称/描述使用中文；自动化用例在代码中以用例 ID 标注关联；pytest/Playwright 执行结果经官方插件导入平台归档；平台缺陷链接指向 GitLab Issue。
+
+各字段取值与登记口径：
+
+| 字段 | 平台取值 | 约定 |
+| --- | --- | --- |
+| 分类 Category | 产品「BMS 基础管理系统」下按模块建分类 | 平台骨架类用例统一归「平台骨架」 |
+| 优先级 Priority | `P1` ~ `P5` | 平台骨架用例用 `P2` |
+| 状态 | `PROPOSED`（提议）/ `CONFIRMED`（已确认）/ `DISABLED`（停用）/ `NEED_UPDATE`（待更新） | 正式登记用 `CONFIRMED` |
+| 标签 Tag | 自由标签 | 自动化用例加「自动化」 |
+| 用例号 | 平台自增主键 | **先登记、后写自动化代码**，代码以 `@pytest.mark.kiwi_id(<用例号>)` 标注 |
+| 用例文本 text | 中文 | 写覆盖范围（用例清单）与自动化文件路径 |
+| 作者 author | 平台账号 | 当前 `admin` |
+
+### 5.3 用例登记（脚本化批量） <a id="use-register"></a>
+
+少量用例用 Web 界面单条录入；**批量登记走容器内 Django shell**（不依赖登录态、可脚本化、用例号顺延可预期）：
+
+```bash
+ssh <账号>@<mjbk-IP> "docker exec -i bms-kiwi /Kiwi/manage.py shell" < register_cases.py
+```
+
+`manage.py shell` 从标准输入读代码（非 tty），脚本不必落盘进容器。`register_cases.py` 模板：
+
+```python
+from django.contrib.auth import get_user_model
+from tcms.management.models import Priority, Tag
+from tcms.testcases.models import Category, TestCase, TestCaseStatus
+
+author = get_user_model().objects.get(username="admin")
+category = Category.objects.get(name="平台骨架")        # 分类：按模块建
+priority = Priority.objects.get(value="P2")              # 优先级：P1 ~ P5
+status = TestCaseStatus.objects.get(name="CONFIRMED")    # 状态：登记用 CONFIRMED
+
+case = TestCase.objects.create(
+    summary="<用例标题：任务编号 + 主题 + 关键断言摘要>",
+    category=category,
+    priority=priority,
+    case_status=status,
+    author=author,
+    text="<覆盖范围（用例清单）/ 自动化文件路径 / kiwi_id 标注方式>",
+)
+tag, _ = Tag.objects.get_or_create(name="自动化")
+case.add_tag(tag)
+print("created case id =", case.pk)
+```
+
+登记后回读核对（用例号须与代码 `kiwi_id` 标注一致）：
+
+```bash
+ssh <账号>@<mjbk-IP> "docker exec bms-kiwi /Kiwi/manage.py shell -c \"from tcms.testcases.models import TestCase as T; print([(c.pk, c.summary) for c in T.objects.order_by('-pk')[:5]])\""
+```
+
+口径说明：
+
+- 一个任务通常登记**一条**用例（多条自动化断言共用同一 `kiwi_id`），用例文本内列覆盖范围，避免平台条目碎片化。
+- 中文脚本经管道传输按 UTF-8 编码；Windows 侧建议先写脚本文件再重定向（避免控制台编码把中文破坏）。
+- 用例**先登记再写自动化代码**（《测试规范》「用例管理（Kiwi TCMS）」节），执行结果经官方插件导入归档。
+
+### 5.4 JSON-RPC 接口 <a id="use-rpc"></a>
+
+平台提供 JSON-RPC 端点 `https://<mjbk-IP>:8060/json-rpc/`，请求体形如 `{"jsonrpc": "2.0", "method": "<方法名>", "params": {...}, "id": 1}`：
+
+- `jsonrpc` 字段**必填**，缺失直接返回 `Invalid request: jsonrpc required`；方法名不存在返回 `-32601 Method not found`。
+- 需鉴权方法的**会话口径尚未验证**（实测 `Auth.login` 返回 `Invalid request: Unsupported field`）；批量登记与维护当前一律走 Web 界面或 Django shell（见 5.3 节），RPC 登录口径验证后再补充本节。
 
 ## 6. 日常运维 <a id="ops"></a>
 
@@ -112,7 +180,11 @@ curl -sk https://<mjbk-IP>:8060/accounts/login/ | grep "<title>"      # Kiwi TCM
 | 数据库迁移 | `docker exec bms-kiwi /Kiwi/manage.py migrate` |
 | Django 管理命令 | `docker exec bms-kiwi /Kiwi/manage.py <命令>`（如 `createsuperuser`） |
 | 修改管理员密码 | `docker exec bms-kiwi /Kiwi/manage.py changepassword admin` |
+| 列最近用例 | `docker exec bms-kiwi /Kiwi/manage.py shell -c "from tcms.testcases.models import TestCase as T; print([(c.pk, c.summary) for c in T.objects.order_by('-pk')[:10]])"` |
+| 查分类 / 优先级 / 状态 | `docker exec bms-kiwi /Kiwi/manage.py shell -c "from tcms.testcases.models import Category as C, TestCaseStatus as S; from tcms.management.models import Priority as P; print([c.name for c in C.objects.all()], [p.value for p in P.objects.all()], [s.name for s in S.objects.all()])"` |
 
+> 批量建立用例、回读核对与用例约定见 5.2 / 5.3 节。
+>
 > 防火墙：mjbk ufw 已启用（2026-08-22），内网 8060 已放行；规则总表与维护口径见《[防火墙部署使用说明](防火墙部署使用说明.md)》。
 
 ## 7. 备份与恢复 <a id="backup"></a>
