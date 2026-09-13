@@ -27,7 +27,7 @@ async def test_null_unit_of_work_is_noop() -> None:
     assert uow.session is None
 
 
-@pytest.mark.kiwi_id(25)
+@pytest.mark.kiwi_id(36)
 async def test_db_unit_of_work_uses_session() -> None:
     """数据库工作单元：会话可解析、事务边界可开关。"""
     engine = create_async_engine("sqlite+aiosqlite:///:memory:")

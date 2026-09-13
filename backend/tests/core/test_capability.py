@@ -32,7 +32,7 @@ class EmptyStub(BaseStub):
         raise self._not_implemented("导出")
 
 
-@pytest.mark.kiwi_id(26)
+@pytest.mark.kiwi_id(37)
 def test_placeholder_hierarchy() -> None:
     """占位层级与描述：空实现带占位标记。"""
     assert issubclass(BaseNullObject, BasePlaceholder)
@@ -42,7 +42,7 @@ def test_placeholder_hierarchy() -> None:
     assert "占位实现" in placeholder.describe()
 
 
-@pytest.mark.kiwi_id(26)
+@pytest.mark.kiwi_id(37)
 def test_stub_uniform_error() -> None:
     """未实现占位：统一异常消息（含 / 不含功能点）。"""
     stub = EmptyStub()
@@ -54,7 +54,7 @@ def test_stub_uniform_error() -> None:
     assert "导出" in str(with_feature.value)
 
 
-@pytest.mark.kiwi_id(26)
+@pytest.mark.kiwi_id(37)
 def test_capability_keys() -> None:
     """能力域标识：各契约 `key` 就位。"""
     assert BaseCapability().key == "capability"
@@ -66,14 +66,14 @@ def test_capability_keys() -> None:
     assert BaseEventWorker.key == "event"
 
 
-@pytest.mark.kiwi_id(26)
+@pytest.mark.kiwi_id(37)
 def test_event_worker_contract() -> None:
     """事件工作单元：发布 / 消费共享父类。"""
     assert issubclass(EventPublisher, BaseEventWorker)
     assert issubclass(EventConsumer, BaseEventWorker)
 
 
-@pytest.mark.kiwi_id(26)
+@pytest.mark.kiwi_id(37)
 async def test_async_resource_context() -> None:
     """异步资源：`async with` 进入并释放；`aclose` 幂等。"""
     settings = Settings()
@@ -84,7 +84,7 @@ async def test_async_resource_context() -> None:
     await factory.aclose()
 
 
-@pytest.mark.kiwi_id(26)
+@pytest.mark.kiwi_id(37)
 async def test_resource_manager_closes_in_reverse() -> None:
     """资源登记表：逆序统一释放。"""
     from app.core.resources import ResourceManager
@@ -108,7 +108,7 @@ async def test_resource_manager_closes_in_reverse() -> None:
     assert closed == ["b", "a"]
 
 
-@pytest.mark.kiwi_id(26)
+@pytest.mark.kiwi_id(37)
 async def test_app_lifespan_closes_resources() -> None:
     """应用生命周期：关闭时统一释放异步资源。"""
     from app.main import create_app, lifespan

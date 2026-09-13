@@ -155,7 +155,7 @@ def engine(tmp_path: Path) -> Iterator[Engine]:
     eng.dispose()
 
 
-@pytest.mark.kiwi_id(24)
+@pytest.mark.kiwi_id(35)
 def test_cache_region() -> None:
     """缓存基座：key 规范 / 收写 / 版本陈旧判定。"""
     region = StubRegion(version=5)
@@ -172,7 +172,7 @@ def test_cache_region() -> None:
     assert region.delete("k") is False
 
 
-@pytest.mark.kiwi_id(24)
+@pytest.mark.kiwi_id(35)
 def test_data_scope_and_repository_hook() -> None:
     """数据范围：占位规则 + 仓储钩子挂载。"""
     scope = NullDataScope()
@@ -184,7 +184,7 @@ def test_data_scope_and_repository_hook() -> None:
     assert repo.current_scope() is scope
 
 
-@pytest.mark.kiwi_id(24)
+@pytest.mark.kiwi_id(35)
 def test_sharding_router_and_repository_hook() -> None:
     """分片路由：空路由 / 注入路由。"""
     assert NullShardingRouter().resolve("demo") == ShardBinding(db_key="default", physical_table="demo")
@@ -196,7 +196,7 @@ def test_sharding_router_and_repository_hook() -> None:
     assert repo.physical("demo") == "demo"
 
 
-@pytest.mark.kiwi_id(24)
+@pytest.mark.kiwi_id(35)
 async def test_event_base() -> None:
     """事件基座：信封字段 / 发布 / 消费契约。"""
     event = EventEnvelope(event_type="user_created", payload={"id": 1}, trace_id="t1")
@@ -216,7 +216,7 @@ async def test_event_base() -> None:
     assert consumer.received == [event]
 
 
-@pytest.mark.kiwi_id(24)
+@pytest.mark.kiwi_id(35)
 def test_task_base_and_models(engine: Engine) -> None:
     """任务基座：契约 + 模型骨架建表与写入。"""
     task = StubTask()
@@ -235,7 +235,7 @@ def test_task_base_and_models(engine: Engine) -> None:
         assert log.id > 0
 
 
-@pytest.mark.kiwi_id(24)
+@pytest.mark.kiwi_id(35)
 def test_audit_base() -> None:
     """审计基座：字段变更 / 捕获契约。"""
     change = FieldChange(field="name", old="a", new="b")

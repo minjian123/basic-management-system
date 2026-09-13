@@ -55,7 +55,7 @@ def _memory_settings() -> Settings:
     return settings
 
 
-@pytest.mark.kiwi_id(25)
+@pytest.mark.kiwi_id(36)
 async def test_engine_factory_creates_and_caches() -> None:
     """引擎工厂：创建并缓存；覆盖平台 / 归档 / 租户分支；不建连；可释放。"""
     factory = EngineFactory(_memory_settings())
@@ -73,7 +73,7 @@ async def test_engine_factory_creates_and_caches() -> None:
     await server_factory.aclose()
 
 
-@pytest.mark.kiwi_id(25)
+@pytest.mark.kiwi_id(36)
 async def test_session_factory_and_get_db_dependency() -> None:
     """会话工厂产出会话；get_db 依赖可用。"""
     factory = EngineFactory(_memory_settings())
@@ -104,7 +104,7 @@ async def test_session_factory_and_get_db_dependency() -> None:
     await registry.aclose()
 
 
-@pytest.mark.kiwi_id(25)
+@pytest.mark.kiwi_id(36)
 def test_read_only_context_marker() -> None:
     """只读标记：设置 / 读取 / 复位；绑定钩子读取上下文。"""
     repo = ItemRepository()
@@ -117,7 +117,7 @@ def test_read_only_context_marker() -> None:
     assert is_read_only() is False
 
 
-@pytest.mark.kiwi_id(25)
+@pytest.mark.kiwi_id(36)
 async def test_version_guard_translates_conflict() -> None:
     """乐观锁转译：StaleDataError → ConcurrentConflictError。"""
     with pytest.raises(ConcurrentConflictError):
@@ -125,7 +125,7 @@ async def test_version_guard_translates_conflict() -> None:
             raise StaleDataError("版本冲突")
 
 
-@pytest.mark.kiwi_id(25)
+@pytest.mark.kiwi_id(36)
 async def test_pagination_page_and_cursor() -> None:
     """分页：页码切片与游标推进。"""
     service = BaseService(ItemRepository())
@@ -147,7 +147,7 @@ async def test_pagination_page_and_cursor() -> None:
     assert last.next_cursor is None
 
 
-@pytest.mark.kiwi_id(25)
+@pytest.mark.kiwi_id(36)
 def test_api_deps_reexports() -> None:
     """公共依赖汇总：get_db / get_uow / get_tenant 可从 api.deps 导入。"""
     from app.api.deps import get_db as dep_get_db

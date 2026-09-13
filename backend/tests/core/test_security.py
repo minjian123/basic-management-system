@@ -6,7 +6,7 @@ from app.core.base import BaseObject
 from app.core.security import BaseSecurity, PasswordHasher, SessionSecurity, TokenCodec
 
 
-@pytest.mark.kiwi_id(22)
+@pytest.mark.kiwi_id(33)
 def test_inheritance() -> None:
     """安全原语纳入 L0：原语类 → BaseSecurity → BaseObject。"""
     assert issubclass(BaseSecurity, BaseObject)
@@ -14,14 +14,14 @@ def test_inheritance() -> None:
         assert issubclass(cls, BaseSecurity)
 
 
-@pytest.mark.kiwi_id(22)
+@pytest.mark.kiwi_id(33)
 def test_constructible() -> None:
     """原语类可实例化（构造可解析、应用可启动）。"""
     for cls in (PasswordHasher, TokenCodec, SessionSecurity):
         assert isinstance(cls(), BaseSecurity)
 
 
-@pytest.mark.kiwi_id(22)
+@pytest.mark.kiwi_id(33)
 def test_placeholder_raises() -> None:
     """占位实现一律抛 NotImplementedError（防误用）。"""
     hasher = PasswordHasher()

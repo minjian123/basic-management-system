@@ -6,7 +6,7 @@ import ops.init_tenant as init_tenant
 import ops.migrate_tenants as migrate_tenants
 
 
-@pytest.mark.kiwi_id(27)
+@pytest.mark.kiwi_id(38)
 def test_migrate_dry_run_lists_fixed_databases(capsys: pytest.CaptureFixture[str]) -> None:
     """--dry-run 输出固定库清单。"""
     assert migrate_tenants.main(["--target", "all", "--db", "mysql", "--dry-run"]) == 0
@@ -15,7 +15,7 @@ def test_migrate_dry_run_lists_fixed_databases(capsys: pytest.CaptureFixture[str
         assert name in out
 
 
-@pytest.mark.kiwi_id(27)
+@pytest.mark.kiwi_id(38)
 def test_migrate_targets_and_placeholder(capsys: pytest.CaptureFixture[str]) -> None:
     """目标解析与占位执行分支。"""
     assert migrate_tenants.resolve_databases("platform") == [migrate_tenants.PLATFORM_DB]
@@ -25,7 +25,7 @@ def test_migrate_targets_and_placeholder(capsys: pytest.CaptureFixture[str]) -> 
     assert "落库阶段" in capsys.readouterr().out
 
 
-@pytest.mark.kiwi_id(27)
+@pytest.mark.kiwi_id(38)
 def test_init_tenant(capsys: pytest.CaptureFixture[str]) -> None:
     """初始化占位：dry-run 输出步骤；非 dry-run 提示归属。"""
     assert init_tenant.main(["--code", "demo", "--dry-run"]) == 0

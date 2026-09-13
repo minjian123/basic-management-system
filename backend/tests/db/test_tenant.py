@@ -16,7 +16,7 @@ from app.models.base import Base
 from app.models.platform import SysTenant
 
 
-@pytest.mark.kiwi_id(27)
+@pytest.mark.kiwi_id(38)
 def test_resolve_chain_and_fallback() -> None:
     """解析链：子域名 / 请求头 / token 命中 demo；无来源回落 demo。"""
     assert resolve_tenant(host="demo.bms.example.com") == DEMO_TENANT
@@ -27,7 +27,7 @@ def test_resolve_chain_and_fallback() -> None:
     assert resolve_tenant() == DEMO_TENANT
 
 
-@pytest.mark.kiwi_id(27)
+@pytest.mark.kiwi_id(38)
 def test_resolve_unknown_tenant() -> None:
     """未知租户：404 / 80001，属 8xxxx 段位。"""
     with pytest.raises(TenantNotFoundError) as excinfo:
@@ -37,14 +37,14 @@ def test_resolve_unknown_tenant() -> None:
     assert isinstance(excinfo.value, OpenTenantError)
 
 
-@pytest.mark.kiwi_id(27)
+@pytest.mark.kiwi_id(38)
 def test_is_exempt_path() -> None:
     """豁免路径判定。"""
     assert is_exempt_path("/healthz") is True
     assert is_exempt_path("/api/v1/modules") is False
 
 
-@pytest.mark.kiwi_id(27)
+@pytest.mark.kiwi_id(38)
 async def test_get_tenant_dependency() -> None:
     """依赖：豁免路径放行；命中解析；未知 404 / 80001。"""
     app = FastAPI()
@@ -67,7 +67,7 @@ async def test_get_tenant_dependency() -> None:
         assert unknown.json()["code"] == 80001
 
 
-@pytest.mark.kiwi_id(27)
+@pytest.mark.kiwi_id(38)
 def test_sys_tenant_declared_and_persistable(tmp_path: Path) -> None:
     """`sys_tenant` 声明：建表 / 字段 / 唯一约束可用。"""
     assert "sys_tenant" in Base.metadata.tables

@@ -19,7 +19,7 @@ from app.core.exceptions import (
 from app.schemas.common import ApiResponse
 
 
-@pytest.mark.kiwi_id(20)
+@pytest.mark.kiwi_id(31)
 def test_biz_error_attributes_and_base_object() -> None:
     """BizError 携带错误码 / 消息 / HTTP 状态 / 数据，且纳入 L0 继承体系。"""
     error = BizError(12345, "boom", http_status=418, data={"k": 1})
@@ -30,7 +30,7 @@ def test_biz_error_attributes_and_base_object() -> None:
     assert error.to_dict() == {"code": 12345, "message": "boom", "http_status": 418, "data": {"k": 1}}
 
 
-@pytest.mark.kiwi_id(20)
+@pytest.mark.kiwi_id(31)
 def test_subclass_codes_and_status() -> None:
     """子类错误码（引用 ErrorCode）与 HTTP 状态正确，且均继承 BizError。"""
     cases = {
@@ -48,7 +48,7 @@ def test_subclass_codes_and_status() -> None:
         assert issubclass(cls, BizError)
 
 
-@pytest.mark.kiwi_id(20)
+@pytest.mark.kiwi_id(31)
 def test_segment_base_classes() -> None:
     """按段位分基：通用段子类继承 GeneralError；权限不足继承 UserOrgError。"""
     for cls in (InternalError, ParamError, NotFoundError, ConflictError, ConcurrentConflictError):
@@ -59,7 +59,7 @@ def test_segment_base_classes() -> None:
     assert issubclass(AuthError, BizError)
 
 
-@pytest.mark.kiwi_id(20)
+@pytest.mark.kiwi_id(31)
 def test_error_segments() -> None:
     """错误码段位常量与平台码位一致。"""
     assert ErrorSegment.GENERAL == 1
@@ -68,7 +68,7 @@ def test_error_segments() -> None:
     assert ErrorCode.PERMISSION // 10000 == ErrorSegment.USER_ORG
 
 
-@pytest.mark.kiwi_id(20)
+@pytest.mark.kiwi_id(31)
 def test_api_response_ok() -> None:
     """ApiResponse 默认结构与 ok() 助手。"""
     assert ApiResponse().model_dump() == {"code": 0, "message": "ok", "data": None}

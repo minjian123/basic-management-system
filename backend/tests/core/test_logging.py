@@ -9,7 +9,7 @@ from app.core.config import Settings
 from app.core.logging import BaseLogger, StdoutLogger, configure_logging, get_logger
 
 
-@pytest.mark.kiwi_id(23)
+@pytest.mark.kiwi_id(34)
 def test_inheritance_and_factory() -> None:
     """门面纳入 L0；get_logger 返回门面。"""
     assert issubclass(BaseLogger, BaseObject)
@@ -17,7 +17,7 @@ def test_inheritance_and_factory() -> None:
     assert isinstance(get_logger(), BaseLogger)
 
 
-@pytest.mark.kiwi_id(23)
+@pytest.mark.kiwi_id(34)
 def test_configure_logging_idempotent_and_level() -> None:
     """初始化幂等；级别取自 settings.log.level。"""
     configure_logging(Settings())
@@ -28,7 +28,7 @@ def test_configure_logging_idempotent_and_level() -> None:
     assert len(root.handlers) == handler_count
 
 
-@pytest.mark.kiwi_id(23)
+@pytest.mark.kiwi_id(34)
 def test_methods_output_to_stdout(capsys: pytest.CaptureFixture[str]) -> None:
     """各日志方法输出到 stdout、不落文件。"""
     configure_logging(Settings())
@@ -47,7 +47,7 @@ def test_methods_output_to_stdout(capsys: pytest.CaptureFixture[str]) -> None:
         assert token in out
 
 
-@pytest.mark.kiwi_id(23)
+@pytest.mark.kiwi_id(34)
 def test_bind_context(capsys: pytest.CaptureFixture[str]) -> None:
     """bind 返回新门面，绑定字段只影响新实例。"""
     configure_logging(Settings())

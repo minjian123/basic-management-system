@@ -16,7 +16,7 @@ def _factory() -> EngineFactory:
     return EngineFactory(settings)
 
 
-@pytest.mark.kiwi_id(27)
+@pytest.mark.kiwi_id(38)
 async def test_platform_resident_and_tenant_lazy() -> None:
     """平台常驻（缓存复用）；租户懒加载。"""
     registry = EngineRegistry(_factory())
@@ -29,7 +29,7 @@ async def test_platform_resident_and_tenant_lazy() -> None:
     assert registry.active_keys() == []
 
 
-@pytest.mark.kiwi_id(27)
+@pytest.mark.kiwi_id(38)
 async def test_lru_and_idle_eviction() -> None:
     """活跃上限 LRU 逐出；闲置阈值回收。"""
     registry = EngineRegistry(_factory(), max_active=1)
@@ -45,7 +45,7 @@ async def test_lru_and_idle_eviction() -> None:
     await idle.aclose()
 
 
-@pytest.mark.kiwi_id(27)
+@pytest.mark.kiwi_id(38)
 async def test_release_and_lock_reuse() -> None:
     """释放可回收；平台不可回收；创建锁可复用。"""
     registry = EngineRegistry(_factory())
@@ -59,7 +59,7 @@ async def test_release_and_lock_reuse() -> None:
     await registry.aclose()
 
 
-@pytest.mark.kiwi_id(27)
+@pytest.mark.kiwi_id(38)
 def test_connection_budget() -> None:
     """连接预算：`workers × (pool + overflow) ≤ max_connections × 70%`。"""
     assert EngineRegistry.check_connection_budget(

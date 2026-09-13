@@ -6,7 +6,7 @@ from pydantic import ValidationError
 from app.core.config import AppSettings, BaseSettings, Settings, get_settings
 
 
-@pytest.mark.kiwi_id(21)
+@pytest.mark.kiwi_id(32)
 def test_defaults_and_sections() -> None:
     """八分区齐备、默认值正确。"""
     settings = Settings()
@@ -21,7 +21,7 @@ def test_defaults_and_sections() -> None:
     assert settings.cors.allow_credentials is True
 
 
-@pytest.mark.kiwi_id(21)
+@pytest.mark.kiwi_id(32)
 def test_nested_defaults_not_shared() -> None:
     """嵌套 / 集合默认值不共享（避免可变默认串改）。"""
     first = Settings()
@@ -31,7 +31,7 @@ def test_nested_defaults_not_shared() -> None:
     assert first.database.platform.replicas == []
 
 
-@pytest.mark.kiwi_id(21)
+@pytest.mark.kiwi_id(32)
 def test_get_settings_singleton() -> None:
     """读取接口为单例，cache_clear 后可重载。"""
     get_settings.cache_clear()
@@ -41,7 +41,7 @@ def test_get_settings_singleton() -> None:
     assert get_settings() is not first
 
 
-@pytest.mark.kiwi_id(21)
+@pytest.mark.kiwi_id(32)
 def test_env_validation() -> None:
     """env 取值受 Literal 约束。"""
     assert AppSettings(env="prod").env == "prod"
@@ -49,7 +49,7 @@ def test_env_validation() -> None:
         AppSettings.model_validate({"env": "bad"})
 
 
-@pytest.mark.kiwi_id(21)
+@pytest.mark.kiwi_id(32)
 def test_base_settings_config() -> None:
     """配置分区公共基：拒绝未知键，并继承 BaseSchema 公共配置。"""
     assert BaseSettings.model_config.get("extra") == "forbid"
@@ -59,7 +59,7 @@ def test_base_settings_config() -> None:
         AppSettings.model_validate({"unknown": 1})
 
 
-@pytest.mark.kiwi_id(21)
+@pytest.mark.kiwi_id(32)
 def test_serialization() -> None:
     """Settings 经 BaseSchema 稳定序列化。"""
     data = Settings().to_dict()
