@@ -18,10 +18,10 @@ class EventEnvelope(BaseObject):
 
 
 class EventPublisher(BaseEventWorker):
-    """事件发布基座契约：统一发布接口（事务消息回补）。"""
+    """事件发布基座契约：统一异步发布接口（事务消息回补）。"""
 
     @abstractmethod
-    def publish(self, event: EventEnvelope) -> None:
+    async def publish(self, event: EventEnvelope) -> None:
         """发布事件（至少一次投递）。
 
         Args:
@@ -29,7 +29,7 @@ class EventPublisher(BaseEventWorker):
         """
 
     @abstractmethod
-    def publish_transactional(self, event: EventEnvelope) -> None:
+    async def publish_transactional(self, event: EventEnvelope) -> None:
         """事务消息发布（本地事务与消息一致，RocketMQ 回补）。
 
         Args:
@@ -38,10 +38,10 @@ class EventPublisher(BaseEventWorker):
 
 
 class EventConsumer(BaseEventWorker):
-    """事件消费基座契约：分区有序消费（回补系统集成与消息阶段）。"""
+    """事件消费基座契约：分区有序异步消费（回补系统集成与消息阶段）。"""
 
     @abstractmethod
-    def consume(self, event: EventEnvelope) -> None:
+    async def consume(self, event: EventEnvelope) -> None:
         """消费事件（分区内有序）。
 
         Args:

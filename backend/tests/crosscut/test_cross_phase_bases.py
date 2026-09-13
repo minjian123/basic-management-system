@@ -86,11 +86,11 @@ class StubPublisher(EventPublisher):
     def __init__(self) -> None:
         self.events: list[EventEnvelope] = []
 
-    def publish(self, event: EventEnvelope) -> None:
+    async def publish(self, event: EventEnvelope) -> None:
         """发布事件。"""
         self.events.append(event)
 
-    def publish_transactional(self, event: EventEnvelope) -> None:
+    async def publish_transactional(self, event: EventEnvelope) -> None:
         """事务消息发布。"""
         self.events.append(event)
 
@@ -106,7 +106,7 @@ class StubConsumer(EventConsumer):
         """事件类型。"""
         return "user_created"
 
-    def consume(self, event: EventEnvelope) -> None:
+    async def consume(self, event: EventEnvelope) -> None:
         """消费事件。"""
         self.received.append(event)
 
@@ -197,7 +197,7 @@ def test_sharding_router_and_repository_hook() -> None:
 
 
 @pytest.mark.kiwi_id(24)
-def test_event_base() -> None:
+async def test_event_base() -> None:
     """事件基座：信封字段 / 发布 / 消费契约。"""
     event = EventEnvelope(event_type="user_created", payload={"id": 1}, trace_id="t1")
     assert event.to_dict() == {
@@ -207,12 +207,12 @@ def test_event_base() -> None:
         "trace_id": "t1",
     }
     publisher = StubPublisher()
-    publisher.publish(event)
-    publisher.publish_transactional(event)
+    await publisher.publish(event)
+    await publisher.publish_transactional(event)
     assert len(publisher.events) == 2
     consumer = StubConsumer()
     assert consumer.event_type == "user_created"
-    consumer.consume(event)
+    await consumer.consume(event)
     assert consumer.received == [event]
 
 
