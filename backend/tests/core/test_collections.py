@@ -2,7 +2,17 @@
 
 import pytest
 
-from app.core.collections import SortedDict, SortedList, SortedSet
+from app.core.base import BaseObject
+from app.core.collections import BaseSorted, SortedDict, SortedList, SortedSet
+
+
+@pytest.mark.kiwi_id(15)
+def test_inheritance_chain() -> None:
+    """有序集合继承链：BaseSorted → BaseObject；Sorted* → BaseSorted。"""
+    assert issubclass(BaseSorted, BaseObject)
+    assert issubclass(SortedList, BaseSorted)
+    assert issubclass(SortedDict, BaseSorted)
+    assert issubclass(SortedSet, BaseSorted)
 
 
 @pytest.mark.kiwi_id(15)

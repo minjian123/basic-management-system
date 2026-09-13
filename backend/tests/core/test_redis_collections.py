@@ -6,10 +6,19 @@ import pytest
 from fakeredis.aioredis import FakeRedis
 from redis.exceptions import WatchError
 
+from app.core.base import BaseObject
 from app.core.exceptions import ConcurrentConflictError
 from app.core.redis_collections import RedisSnapshot, RedisSortedDict, RedisSortedSet
 
 KEY = "bms:global:collections:test"
+
+
+@pytest.mark.kiwi_id(17)
+def test_inheritance_chain() -> None:
+    """跨副本封装继承链：RedisSortedSet / RedisSortedDict / RedisSnapshot → BaseObject。"""
+    assert issubclass(RedisSortedSet, BaseObject)
+    assert issubclass(RedisSortedDict, BaseObject)
+    assert issubclass(RedisSnapshot, BaseObject)
 
 
 @pytest.fixture
