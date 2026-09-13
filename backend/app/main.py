@@ -1,5 +1,6 @@
 """BMS 后端入口：应用工厂 create_app()，提供根路由、业务聚合路由与存活检查。"""
 
+import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
@@ -14,18 +15,28 @@ from app.db.engine import EngineFactory
 from app.repositories.demo_repository import DemoRepository
 from app.schemas.common import ApiResponse
 from app.services.demo_service import DemoService
+from app.services.module_registry import ModuleRegistry
+
+_logger = logging.getLogger("bms")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
-    """应用生命周期：关闭时统一释放异步资源。
+    """应用生命周期：启动校验模块注册，关闭时统一释放异步资源。
 
     Args:
         app: 应用实例。
 
     Yields:
         None: 应用运行期。
+
+    Raises:
+        RuntimeError: 模块注册校验失败（冲突 / 非法）。
     """
+    errors = app.state.module_registry.validate()
+    if errors:
+        _logger.critical("模块注册校验失败：%s", errors)
+        raise RuntimeError("模块注册校验失败：" + "；".join(errors))
     yield
     await app.state.engine_factory.aclose()
 
@@ -47,6 +58,7 @@ def create_app() -> FastAPI:
     register_exception_handlers(app)
 
     app.state.engine_factory = EngineFactory(get_settings())
+    app.state.module_registry = ModuleRegistry()
     app.state.demo_service = DemoService(DemoRepository())
 
     @app.get("/")
