@@ -4,11 +4,13 @@
 """
 
 from collections.abc import AsyncIterator
+from typing import Annotated
 
-from fastapi import Request
+from fastapi import Depends, Request
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from app.db.registry import EngineRegistry
+from app.db.unit_of_work import DbUnitOfWork
 
 
 def build_session_factory(engine: AsyncEngine) -> async_sessionmaker[AsyncSession]:
@@ -37,3 +39,15 @@ async def get_db(request: Request) -> AsyncIterator[AsyncSession]:
     session_factory = build_session_factory(engine)
     async with session_factory() as session:
         yield session
+
+
+async def get_uow(session: Annotated[AsyncSession, Depends(get_db)]) -> DbUnitOfWork:
+    """请求级工作单元依赖（基于请求级会话）。
+
+    Args:
+        session: 请求级异步会话。
+
+    Returns:
+        DbUnitOfWork: 数据库工作单元。
+    """
+    return DbUnitOfWork(session)

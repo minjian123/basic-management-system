@@ -4,7 +4,7 @@ import dataclasses
 from collections.abc import Iterable, Mapping
 from typing import Any, cast
 
-from app.core.serialization import stable_json_dumps
+from app.core.serialization import stable_json_dumps, stringify_ids
 
 
 class BaseObject:
@@ -17,12 +17,13 @@ class BaseObject:
     """
 
     def to_dict(self) -> dict[str, object]:
-        """公开字段字典（递归转换嵌套对象）。
+        """公开字段字典（递归转换嵌套对象；ID 值按字符串输出）。
 
         Returns:
             dict[str, object]: 字段名到转换后值的映射。
         """
-        return {key: self._convert(value) for key, value in self._public_fields().items()}
+        fields = {key: self._convert(value) for key, value in self._public_fields().items()}
+        return cast("dict[str, object]", stringify_ids(fields))
 
     def to_json(self, sort_keys: bool = True) -> str:
         """JSON 字符串（稳定序；不可序列化值降级 str）。

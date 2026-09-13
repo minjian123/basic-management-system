@@ -9,10 +9,11 @@ from app.core.capability import BaseEventWorker
 
 @dataclass
 class EventEnvelope(BaseObject):
-    """事件信封：统一事件载体（类型 + 负载 + 链路标识）。"""
+    """事件信封：统一事件载体（类型 + 负载 + 租户 + 链路标识）。"""
 
     event_type: str
     payload: dict[str, object] = field(default_factory=dict[str, object])
+    tenant_id: str | None = None
     trace_id: str | None = None
 
 

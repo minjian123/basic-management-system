@@ -200,7 +200,12 @@ def test_sharding_router_and_repository_hook() -> None:
 def test_event_base() -> None:
     """事件基座：信封字段 / 发布 / 消费契约。"""
     event = EventEnvelope(event_type="user_created", payload={"id": 1}, trace_id="t1")
-    assert event.to_dict() == {"event_type": "user_created", "payload": {"id": 1}, "trace_id": "t1"}
+    assert event.to_dict() == {
+        "event_type": "user_created",
+        "payload": {"id": "1"},
+        "tenant_id": None,
+        "trace_id": "t1",
+    }
     publisher = StubPublisher()
     publisher.publish(event)
     publisher.publish_transactional(event)

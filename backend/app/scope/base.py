@@ -6,7 +6,19 @@ from dataclasses import dataclass
 from app.core.base import BaseObject
 from app.core.capability import BaseCapability, BaseNullObject
 
-SCOPE_OPERATORS: tuple[str, ...] = ("eq", "ne", "in", "is_null", "is_not_null")
+SCOPE_OPERATORS: tuple[str, ...] = (
+    "eq",
+    "ne",
+    "in",
+    "like",
+    "gt",
+    "gte",
+    "lt",
+    "lte",
+    "between",
+    "is_null",
+    "is_not_null",
+)
 
 
 @dataclass(frozen=True)
@@ -28,7 +40,7 @@ class DataScope(BaseCapability, ABC):
 
     @abstractmethod
     def read_predicate(self) -> object:
-        """读过滤条件（供仓储拼接查询；None 表示不过滤）。"""
+        """读过滤条件（`ScopeCondition` 或条件列表；None 表示不过滤）。"""
 
     @abstractmethod
     def allow_write(self, values: dict[str, object]) -> bool:

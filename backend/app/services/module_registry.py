@@ -8,12 +8,21 @@ import re
 from collections import Counter
 from collections.abc import Sequence
 from dataclasses import dataclass
+from enum import StrEnum
 
 from app.core.base import BaseObject
 
 _PREFIX_RE = re.compile(r"^[a-z][a-z0-9]*_$")
 _SEGMENT_RE = re.compile(r"^\d{2}$")
 _DOMAIN_RE = re.compile(r"^[a-z][a-z0-9_]*$")
+
+
+class ModuleStatus(StrEnum):
+    """模块状态（`sys_module.status`）。"""
+
+    ENABLED = "enabled"
+    DISABLED = "disabled"
+    PLANNED = "planned"
 
 
 @dataclass(frozen=True)
@@ -25,7 +34,7 @@ class ModuleRecord(BaseObject):
     table_prefix: str
     errcode_segment: str
     event_domain: str
-    status: str = "enabled"
+    status: str = ModuleStatus.ENABLED
 
 
 PLATFORM_MODULES: tuple[ModuleRecord, ...] = (

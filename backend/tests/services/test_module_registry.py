@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.models.base import Base
 from app.models.platform import SysModule, SysModuleI18n
-from app.services.module_registry import PLATFORM_MODULES, ModuleRecord, ModuleRegistry
+from app.services.module_registry import PLATFORM_MODULES, ModuleRecord, ModuleRegistry, ModuleStatus
 
 
 def _record(module_key: str = "pur", **overrides: str) -> ModuleRecord:
@@ -32,7 +32,8 @@ def test_platform_seed_list_and_filter() -> None:
     keys = [module.module_key for module in registry.list_modules()]
     assert keys == ["sys", "wf", "rpt", "ai"]
     assert [m.module_key for m in registry.list_modules(status="enabled")] == keys
-    assert registry.list_modules(status="planned") == []
+    assert registry.list_modules(status=ModuleStatus.PLANNED) == []
+    assert PLATFORM_MODULES[0].status == ModuleStatus.ENABLED
     assert len(PLATFORM_MODULES) == 4
 
 
