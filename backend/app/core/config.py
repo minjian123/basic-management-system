@@ -8,12 +8,18 @@
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field
+from pydantic import ConfigDict, Field
 
 from app.schemas.base import BaseSchema
 
 
-class AppSettings(BaseSchema):
+class BaseSettings(BaseSchema):
+    """配置分区公共基：拒绝未知键、允许字段名填充（继承 BaseSchema 公共配置）。"""
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+
+class AppSettings(BaseSettings):
     """应用元信息。"""
 
     name: str = "BMS 基础管理系统"
@@ -21,7 +27,7 @@ class AppSettings(BaseSchema):
     debug: bool = True
 
 
-class ServerSettings(BaseSchema):
+class ServerSettings(BaseSettings):
     """HTTP 服务。"""
 
     host: str = "0.0.0.0"
@@ -29,7 +35,7 @@ class ServerSettings(BaseSchema):
     workers: int = 1
 
 
-class LogSettings(BaseSchema):
+class LogSettings(BaseSettings):
     """日志（真实实现见 03-2）。"""
 
     level: str = "DEBUG"
@@ -37,7 +43,7 @@ class LogSettings(BaseSchema):
     slow_request_ms: int = 1000
 
 
-class DbPoolSettings(BaseSchema):
+class DbPoolSettings(BaseSettings):
     """数据库连接池参数。"""
 
     pool_size: int = 5
@@ -46,7 +52,7 @@ class DbPoolSettings(BaseSchema):
     pool_recycle: int = 1800
 
 
-class DatabaseTargetSettings(BaseSchema):
+class DatabaseTargetSettings(BaseSettings):
     """单个数据库目标（url 不含密码；密码经环境变量注入）。"""
 
     url: str = ""
@@ -54,7 +60,7 @@ class DatabaseTargetSettings(BaseSchema):
     pool: DbPoolSettings = Field(default_factory=DbPoolSettings)
 
 
-class DatabaseSettings(BaseSchema):
+class DatabaseSettings(BaseSettings):
     """三库目标（平台 / 租户 / 归档；dev 默认多 SQLite 文件）。"""
 
     platform: DatabaseTargetSettings = Field(
@@ -68,13 +74,13 @@ class DatabaseSettings(BaseSchema):
     )
 
 
-class RedisSettings(BaseSchema):
+class RedisSettings(BaseSettings):
     """Redis。"""
 
     url: str = "redis://localhost:6379/0"
 
 
-class MinioSettings(BaseSchema):
+class MinioSettings(BaseSettings):
     """对象存储（占位）。"""
 
     endpoint: str = ""
@@ -84,7 +90,7 @@ class MinioSettings(BaseSchema):
     secure: bool = False
 
 
-class SecuritySettings(BaseSchema):
+class SecuritySettings(BaseSettings):
     """安全（占位；真实实现随认证阶段）。"""
 
     secret_key: str = ""
@@ -92,7 +98,7 @@ class SecuritySettings(BaseSchema):
     access_token_expire_minutes: int = 60
 
 
-class CorsSettings(BaseSchema):
+class CorsSettings(BaseSettings):
     """跨域。"""
 
     allow_origins: list[str] = Field(default_factory=lambda: ["http://localhost:5173"])
@@ -101,7 +107,7 @@ class CorsSettings(BaseSchema):
     allow_credentials: bool = True
 
 
-class Settings(BaseSchema):
+class Settings(BaseSettings):
     """应用配置（占位：默认值，不读文件 / 环境变量）。"""
 
     app: AppSettings = Field(default_factory=AppSettings)

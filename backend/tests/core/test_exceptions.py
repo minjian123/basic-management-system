@@ -9,10 +9,12 @@ from app.core.exceptions import (
     BizError,
     ConcurrentConflictError,
     ConflictError,
+    GeneralError,
     InternalError,
     NotFoundError,
     ParamError,
     PermissionError,
+    UserOrgError,
 )
 from app.schemas.common import ApiResponse
 
@@ -44,6 +46,17 @@ def test_subclass_codes_and_status() -> None:
         instance = cls()
         assert (instance.code, instance.http_status) == (int(code), status)
         assert issubclass(cls, BizError)
+
+
+@pytest.mark.kiwi_id(20)
+def test_segment_base_classes() -> None:
+    """按段位分基：通用段子类继承 GeneralError；权限不足继承 UserOrgError。"""
+    for cls in (InternalError, ParamError, NotFoundError, ConflictError, ConcurrentConflictError):
+        assert issubclass(cls, GeneralError)
+    assert issubclass(GeneralError, BizError)
+    assert issubclass(UserOrgError, BizError)
+    assert issubclass(PermissionError, UserOrgError)
+    assert issubclass(AuthError, BizError)
 
 
 @pytest.mark.kiwi_id(20)
