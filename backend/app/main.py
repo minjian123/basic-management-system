@@ -17,6 +17,7 @@ from app.core.resources import ResourceManager
 from app.db.engine import EngineFactory
 from app.db.registry import EngineRegistry
 from app.fallback.base import NullFallbackPolicy
+from app.health.base import NullHealthCheckRegistry
 from app.idempotency.base import NullIdempotencyStore
 from app.lock.base import NullDistributedLock
 from app.masking.base import NullMasker
@@ -96,6 +97,7 @@ def create_app() -> FastAPI:
     app.state.replay_guard = NullReplayGuard()
     app.state.metrics = NullMetrics()
     app.state.tracer = NullTracer()
+    app.state.health_check_registry = NullHealthCheckRegistry()
 
     app.state.demo_service = DemoService(DemoRepository())
 

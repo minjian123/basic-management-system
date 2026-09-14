@@ -1,4 +1,4 @@
-"""公共依赖汇总：数据访问（会话 / 工作单元）、租户解析与能力域基座（掩码 / 权限 / 锁 / 认证 / 故障应对 / 写接口防护）。
+"""公共依赖汇总：数据访问、租户解析与能力域基座（掩码 / 权限 / 锁 / 认证 / 故障应对 / 可观测 / 健康检查）。
 
 统一从本模块导出，业务路由按需导入，避免分散引用。
 """
@@ -8,6 +8,7 @@ from app.circuit.base import get_circuit_breaker
 from app.db.session import build_session_factory, get_db, get_uow
 from app.db.tenant import get_tenant
 from app.fallback.base import get_fallback_policy
+from app.health.base import get_health_check_registry
 from app.idempotency.base import get_idempotency_store
 from app.lock.base import get_distributed_lock
 from app.masking.base import get_masker
@@ -25,6 +26,7 @@ __all__ = [
     "get_db",
     "get_distributed_lock",
     "get_fallback_policy",
+    "get_health_check_registry",
     "get_idempotency_store",
     "get_masker",
     "get_metrics",
