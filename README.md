@@ -104,7 +104,7 @@ bms/
 │   ├── compose/              # Docker Compose（base / gitlab / kiwi）
 │   └── setup/                # 环境安装脚本
 ├── scripts/                  # 开发期工具链
-│   └── tools/                # backup / bg / defect / dsh / gitlab / graphify / reorder-design / vision / winrm / wol / base-check
+│   └── tools/                # backup / bg / defect / dsh / gitlab / graphify / reorder-design / reorder-stage / vision / winrm / wol / workbuddy / base-check
 ├── ops/                      # 产品运维脚本（种子数据、备份恢复、租户库迁移，后续阶段填充）
 │   └── README.md             # 目录说明
 └── bms文档/                  # 项目文档
@@ -137,5 +137,6 @@ bms/
 | 命名约定（代码 / 数据库 / API / 基础设施） | [规范/命名规范](bms文档/规范/命名规范.md) |
 | 原型审查 | [规范/原型审查规范](bms文档/规范/原型审查规范.md) |
 | 开发服务器环境部署 | [资料/开发服务器/开发服务器部署使用说明总览](bms文档/资料/开发服务器/linux/开发服务器部署使用说明总览.md) |
+| 开发机环境与 AI 工具（CodeBuddy / WorkBuddy / opencode 等） | [资料/开发机/开发机部署使用说明总览](bms文档/资料/开发机/开发机部署使用说明总览.md) |
 | 技术栈知识档案（选型背景） | [资料/知识档案/技术栈知识档案总览](bms文档/资料/知识档案/技术栈知识档案总览.md) |
 | 架构设计入口 | [设计/架构设计/01_总览](bms文档/设计/架构设计/01_架构设计_总览.md) |
