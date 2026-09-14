@@ -82,7 +82,7 @@ $ cd backend && uv run pytest -q --cov=app --cov-branch --cov-fail-under=70
 Required test coverage of 70% reached. Total coverage: 99.75%
 ```
 
-**结果汇总**：报告与 README 交付物齐备，脚本与自检全绿，门禁第 10 行转「达标」、**阶段一 54/54 闭环**；本任务未产生缺陷 Issue。
+**结果汇总**：报告与 README 交付物齐备，脚本与自检全绿，门禁第 10 行转「达标」、**阶段一 54/54 闭环**；收口推送流水线 **177**（`70d6434`，12 job）全绿；本任务未产生缺陷 Issue。
 
 ## 4. 问题与处置 <a id="issues"></a>
 
