@@ -143,6 +143,23 @@ backend-test:
   coverage: '/^TOTAL.*?\s+\d+\s+\d+\s+(\d+(?:\.\d+)?%)$/'
   # 核心模块（认证/RBAC/工作流/审计/收付款）≥ 80% 子阈值随对应模块落地（认证 / RBAC 阶段）接入（见 04_01 详细设计 §6.1）
 
+# ---- 三库测试库流程计划校验（无需真库；脚本占位期的 CI 实证，见 04_02 详细设计 §5.1）----
+integration-plan:
+  stage: test
+  image: $REGISTRY_IMAGE_PREFIX/ci-backend:py314
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      exists:
+        - backend/ops/test_db.py
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      exists:
+        - backend/ops/test_db.py
+  script:
+    - cd backend
+    - uv run python -m ops.test_db plan --engine mysql
+    - uv run python -m ops.test_db plan --engine postgres
+    - uv run python -m ops.test_db plan --engine dm8
+
 # ---- 前端：ESLint + Vitest + 双端构建 ----
 frontend-check:
   stage: test
@@ -232,20 +249,29 @@ e2e-playwright:
     - cd frontend && npm ci && npm run build
     - cd ../backend && uv run pytest tests/e2e --e2e-headless
 
-# ---- 三库方言集成测试：连 mjbk 常驻库，bms_test 前缀建库 → Alembic → 测试 → 删库 ----
+# ---- 三库方言集成测试：连 mjbk 常驻库，bms_test 前缀建库 → Alembic 迁移 → 集成用例 → 删库清理 ----
+# 激活前置（见 04_02 详细设计 §7.3；本阶段不激活）：
+#   1) 仓库创建 deploy/ci/verify-enabled 开关；
+#   2) CI/CD 变量配齐（masked）：MYSQL_TEST_PASSWORD / POSTGRES_TEST_PASSWORD / DM8_TEST_PASSWORD（连接库）、
+#      MYSQL_ROOT_PASSWORD（缺陷现场 dump）、GITLAB_API_TOKEN（Issue 创建）；
+#   3) ops/test_db.py 的 create / migrate / drop 填实现 + alembic/env.py 在线分支接通；
+#   4) 真库用例按方言命名或加方言标记，保证 pytest -k "$DB_DIALECT" 有匹配用例
+#      （否则 pytest 退出码 5「无用例收集」会被误判为失败）。
 .integration-base: &integration-base
   stage: verify
-  image: python:3.14-slim
+  image: $REGISTRY_IMAGE_PREFIX/ci-backend:py314
   variables:
     BMS_ENV: test
   rules:
-    # 重验证层开关：04-1（CI 流水线激活）修复就绪后创建 deploy/ci/verify-enabled 激活
+    # 重验证层开关：创建 deploy/ci/verify-enabled 后激活
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       exists:
         - deploy/ci/verify-enabled
-  before_script:
-    - pip install uv && cd backend && uv sync --frozen
   script:
+    # 真库阶段：在 plan 与 pytest 之间插入 `create --execute` / `migrate --execute`；
+    # 失败路径先导出 dump（defect_capture.py --engine "$DB_DIALECT"）再 `drop --execute`（|| true 保证清理）
+    - cd backend
+    - uv run python -m ops.test_db plan --engine "$DB_DIALECT"
     - uv run pytest tests/integration -k "$DB_DIALECT" -v
 
 integration-mysql:
