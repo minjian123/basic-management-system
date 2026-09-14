@@ -352,7 +352,8 @@ swagger-snapshot:
         - deploy/ci/verify-enabled
   script:
     - pip install uv && cd backend && uv sync --frozen
-    - uv run python -c "from app.main import app; import json; print(json.dumps(app.openapi(), ensure_ascii=False))" > swagger.json
+    # 应用工厂形态：模块级无 app（04-3 核对时发现旧写法在激活后会报 AttributeError）
+    - uv run python -c "from app.main import create_app; import json; print(json.dumps(create_app().openapi(), ensure_ascii=False))" > swagger.json
   artifacts:
     paths: [backend/swagger.json]
     expire_in: 30 days
