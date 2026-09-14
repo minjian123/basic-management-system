@@ -1,7 +1,7 @@
 """公共依赖汇总：数据访问、租户解析与各能力域基座提供者。
 
 掩码 / 权限 / 锁 / 认证 / 故障应对 / 可观测 / 探针 / 开放接口 / 存储 / LLM / 检索 / 通知 / 推送 / 出站 / 工作流等
-各能力域基座提供者（归档 / 身份源 / 会话 / 查询 / 导入导出 / 审计链 / 字段类型）统一从本模块导出，
+各能力域基座提供者（归档 / 身份源 / 会话 / 查询 / 导入导出 / 审计链 / 字段类型 / 国际化）统一从本模块导出，
 业务路由按需导入，避免分散引用。
 """
 
@@ -14,6 +14,7 @@ from app.db.tenant import get_tenant
 from app.fallback.base import get_fallback_policy
 from app.fieldtype.base import get_field_type_registry
 from app.health.base import get_health_check_registry
+from app.i18n.base import get_translator
 from app.idempotency.base import get_idempotency_store
 from app.idp.base import get_identity_provider
 from app.llm.base import get_llm_provider
@@ -72,6 +73,7 @@ __all__ = [
     "get_session_store",
     "get_tenant",
     "get_tracer",
+    "get_translator",
     "get_uow",
     "get_webhook_sender",
     "get_workflow_engine",

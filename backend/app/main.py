@@ -21,6 +21,7 @@ from app.db.registry import EngineRegistry
 from app.fallback.base import NullFallbackPolicy
 from app.fieldtype.base import NullFieldTypeRegistry
 from app.health.base import NullHealthCheckRegistry
+from app.i18n.base import NullTranslator
 from app.idempotency.base import NullIdempotencyStore
 from app.idp.base import NullIdentityProvider
 from app.llm.base import NullLlmProvider
@@ -134,6 +135,7 @@ def create_app() -> FastAPI:
     app.state.archive_policy = NullArchivePolicy()
     app.state.archive_query_router = NullArchiveQueryRouter()
     app.state.field_type_registry = NullFieldTypeRegistry()
+    app.state.translator = NullTranslator()
 
     app.state.demo_service = DemoService(DemoRepository())
 
