@@ -22,6 +22,7 @@ from app.idempotency.base import NullIdempotencyStore
 from app.lock.base import NullDistributedLock
 from app.masking.base import NullMasker
 from app.metrics.base import NullMetrics
+from app.oauth.base import NullOAuthServer, NullScopeChecker
 from app.password.base import NullPasswordPolicy
 from app.permission.base import NullPermissionChecker
 from app.ratelimit.base import NullRateLimiter
@@ -98,6 +99,8 @@ def create_app() -> FastAPI:
     app.state.metrics = NullMetrics()
     app.state.tracer = NullTracer()
     app.state.health_check_registry = NullHealthCheckRegistry()
+    app.state.oauth_server = NullOAuthServer()
+    app.state.scope_checker = NullScopeChecker()
 
     app.state.demo_service = DemoService(DemoRepository())
 
