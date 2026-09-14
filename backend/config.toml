@@ -28,6 +28,12 @@ format = "json"
 # 慢请求阈值（毫秒）
 slow_request_ms = 1000
 
+[health]
+# 就绪探针单项检查超时（毫秒）
+check_timeout_ms = 2000
+# 就绪探针整体总超时（毫秒；建议 ≥ check_timeout_ms）
+total_timeout_ms = 5000
+
 [database.platform]
 # 平台库连接串（不含密码；密码经 BMS_DATABASE__PLATFORM__PASSWORD 或完整 URL 注入）
 url = "sqlite+aiosqlite:///./bms_platform.db"

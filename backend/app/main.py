@@ -21,7 +21,8 @@ from app.db.engine import EngineFactory
 from app.db.registry import EngineRegistry
 from app.fallback.base import NullFallbackPolicy
 from app.fieldtype.base import NullFieldTypeRegistry
-from app.health.base import NullHealthCheckRegistry
+from app.health.checks import DatabaseHealthCheck, RedisHealthCheck
+from app.health.registry import HealthCheckRegistry
 from app.i18n.base import NullTranslator
 from app.idempotency.base import NullIdempotencyStore
 from app.idp.base import NullIdentityProvider
@@ -54,7 +55,7 @@ from app.ws.base import NullRealtimePublisher
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
-    """应用生命周期：启动校验模块注册，关闭时统一释放异步资源。
+    """应用生命周期：启动校验模块注册（完成后标记就绪），关闭时先摘流再统一释放异步资源。
 
     Args:
         app: 应用实例。
@@ -70,8 +71,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     if errors:
         get_logger("bms").critical("模块注册校验失败", errors=errors)
         raise RuntimeError("模块注册校验失败：" + "；".join(errors))
-    yield
-    await app.state.resources.aclose()
+    app.state.startup_complete = True
+    try:
+        yield
+    finally:
+        app.state.startup_complete = False
+        await app.state.resources.aclose()
 
 
 def create_app() -> FastAPI:
@@ -104,6 +109,7 @@ def create_app() -> FastAPI:
     app.state.engine_registry = engine_registry
     app.state.resources = resources
     app.state.module_registry = ModuleRegistry()
+    app.state.startup_complete = False
 
     # 能力域基座（占位实现）：权限检查器先装配，掩码器依赖其判定 data:plain
     permission_checker = NullPermissionChecker()
@@ -119,7 +125,18 @@ def create_app() -> FastAPI:
     app.state.replay_guard = NullReplayGuard()
     app.state.metrics = NullMetrics()
     app.state.tracer = NullTracer()
-    app.state.health_check_registry = NullHealthCheckRegistry()
+
+    # 健康检查（03-3 真实探针）：注册表 + redis / database 检查项；redis 客户端随应用生命周期释放
+    health_registry = HealthCheckRegistry(
+        check_timeout_ms=settings.health.check_timeout_ms,
+        total_timeout_ms=settings.health.total_timeout_ms,
+    )
+    redis_check = RedisHealthCheck(settings.redis.url)
+    health_registry.register(redis_check)
+    health_registry.register(DatabaseHealthCheck(engine_registry))
+    resources.register(redis_check)
+    app.state.health_check_registry = health_registry
+
     app.state.oauth_server = NullOAuthServer()
     app.state.scope_checker = NullScopeChecker()
     app.state.object_storage = NullObjectStorage()

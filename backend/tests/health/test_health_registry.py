@@ -1,5 +1,7 @@
-"""健康检查项注册表基座契约测试（Kiwi 45）：继承 / 常量复用 / 结果契约 / 聚合模板 / 占位固定通过 / 依赖解析。"""
+"""健康检查项注册表基座契约与聚合模板测试（Kiwi 45 / 65）。"""
 
+import asyncio
+import time
 from dataclasses import FrozenInstanceError
 from typing import Annotated
 
@@ -12,6 +14,8 @@ from app.core.base import BaseObject
 from app.core.capability import BaseCapability, BaseNullObject
 from app.fallback.base import DEPENDENCIES as FALLBACK_DEPENDENCIES
 from app.health.base import (
+    DEFAULT_CHECK_TIMEOUT_MS,
+    DEFAULT_TOTAL_TIMEOUT_MS,
     DEPENDENCIES,
     BaseHealthCheck,
     BaseHealthCheckRegistry,
@@ -19,21 +23,29 @@ from app.health.base import (
     HealthCheckResult,
     NullHealthCheckRegistry,
 )
+from app.health.registry import HealthCheckRegistry
 from app.main import create_app
 
 
 class _PassingCheck(BaseHealthCheck):
-    """测试用通过检查项。"""
+    """测试用通过检查项（可配延迟与起止时刻，供并发 / 超时用例）。"""
 
-    def __init__(self, name: str) -> None:
+    def __init__(self, name: str, *, delay: float = 0.0) -> None:
         self._name = name
+        self._delay = delay
+        self.started_at: float | None = None
+        self.finished_at: float | None = None
 
     @property
     def name(self) -> str:
         return self._name
 
     async def check(self) -> HealthCheckResult:
-        return HealthCheckResult(name=self._name, healthy=True)
+        self.started_at = time.monotonic()
+        if self._delay:
+            await asyncio.sleep(self._delay)
+        self.finished_at = time.monotonic()
+        return HealthCheckResult(name=self._name, ok=True)
 
 
 class _FailingCheck(BaseHealthCheck):
@@ -44,24 +56,33 @@ class _FailingCheck(BaseHealthCheck):
         return "redis"
 
     async def check(self) -> HealthCheckResult:
-        return HealthCheckResult(name=self.name, healthy=False, detail="连接失败")
+        return HealthCheckResult(name=self.name, ok=False, error="ConnectionError")
 
 
 class _RaisingCheck(BaseHealthCheck):
     """测试用抛错检查项。"""
 
+    def __init__(self, name: str = "database") -> None:
+        self._name = name
+
     @property
     def name(self) -> str:
-        return "database"
+        return self._name
 
     async def check(self) -> HealthCheckResult:
         raise RuntimeError("探针异常")
 
 
 class _InMemoryRegistry(BaseHealthCheckRegistry):
-    """测试用内存注册表：验证聚合模板（真实注册表随 03_03 回补）。"""
+    """测试用内存注册表：验证聚合模板（真实注册表见 `HealthCheckRegistry`）。"""
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        *,
+        check_timeout_ms: int = DEFAULT_CHECK_TIMEOUT_MS,
+        total_timeout_ms: int = DEFAULT_TOTAL_TIMEOUT_MS,
+    ) -> None:
+        super().__init__(check_timeout_ms=check_timeout_ms, total_timeout_ms=total_timeout_ms)
         self._checks: list[BaseHealthCheck] = []
 
     def register(self, check: BaseHealthCheck) -> None:
@@ -78,6 +99,7 @@ def test_inheritance_and_key() -> None:
     assert issubclass(BaseHealthCheckRegistry, BaseCapability)
     assert issubclass(NullHealthCheckRegistry, BaseHealthCheckRegistry)
     assert issubclass(NullHealthCheckRegistry, BaseNullObject)
+    assert issubclass(HealthCheckRegistry, BaseHealthCheckRegistry)
     assert BaseHealthCheckRegistry.key == "health_check_registry"
 
     registry = NullHealthCheckRegistry()
@@ -91,7 +113,7 @@ async def test_base_health_check_contract() -> None:
     check = _PassingCheck("minio")
     assert check.name == "minio"
     result = await check.check()
-    assert result == HealthCheckResult(name="minio", healthy=True)
+    assert result == HealthCheckResult(name="minio", ok=True)
 
 
 @pytest.mark.kiwi_id(45)
@@ -111,12 +133,12 @@ def test_dependencies_reuse() -> None:
 
 @pytest.mark.kiwi_id(45)
 def test_result_and_report_contract() -> None:
-    """结果 / 报告数据契约：默认值与不可变（frozen）。"""
-    result = HealthCheckResult(name="database", healthy=True)
-    assert result.detail is None
-    assert HealthCheckReport(healthy=True).items == ()
+    """结果 / 报告数据契约：响应形态字段与不可变（frozen）。"""
+    result = HealthCheckResult(name="database", ok=True)
+    assert result.error is None
+    assert HealthCheckReport(ok=True).checks == ()
 
-    field = "healthy"
+    field = "ok"
     with pytest.raises(FrozenInstanceError):
         setattr(result, field, False)
 
@@ -129,9 +151,9 @@ async def test_aggregate_all_healthy() -> None:
     registry.register(_PassingCheck("redis"))
 
     report = await registry.aggregate()
-    assert report.healthy is True
-    assert [item.name for item in report.items] == ["database", "redis"]
-    assert all(item.healthy for item in report.items)
+    assert report.ok is True
+    assert [item.name for item in report.checks] == ["database", "redis"]
+    assert all(item.ok for item in report.checks)
 
 
 @pytest.mark.kiwi_id(45)
@@ -142,22 +164,65 @@ async def test_aggregate_with_failure() -> None:
     registry.register(_FailingCheck())
 
     report = await registry.aggregate()
-    assert report.healthy is False
-    assert [item.name for item in report.items] == ["database", "redis"]
-    assert report.items[1].detail == "连接失败"
+    assert report.ok is False
+    assert [item.name for item in report.checks] == ["database", "redis"]
+    assert report.checks[1].error == "ConnectionError"
 
 
 @pytest.mark.kiwi_id(45)
 async def test_aggregate_handles_exception() -> None:
-    """聚合模板（单项抛异常）：该项未就绪且不泄露异常、不中断其他项。"""
+    """聚合模板（单项抛异常）：该项未就绪且 error 为异常类名、不中断其他项。"""
     registry = _InMemoryRegistry()
     registry.register(_RaisingCheck())
     registry.register(_PassingCheck("redis"))
 
     report = await registry.aggregate()
-    assert report.healthy is False
-    assert report.items[0] == HealthCheckResult(name="database", healthy=False, detail="检查执行异常")
-    assert report.items[1].healthy is True
+    assert report.ok is False
+    assert report.checks[0] == HealthCheckResult(name="database", ok=False, error="RuntimeError")
+    assert report.checks[1].ok is True
+
+
+@pytest.mark.kiwi_id(65)
+async def test_aggregate_is_concurrent() -> None:
+    """聚合模板并发执行：两项慢检查执行区间重叠（非串行）。"""
+    first = _PassingCheck("database", delay=0.05)
+    second = _PassingCheck("redis", delay=0.05)
+    registry = _InMemoryRegistry()
+    registry.register(first)
+    registry.register(second)
+
+    report = await registry.aggregate()
+
+    assert report.ok is True
+    assert first.started_at is not None and first.finished_at is not None
+    assert second.started_at is not None and second.finished_at is not None
+    assert first.started_at < second.finished_at
+    assert second.started_at < first.finished_at
+
+
+@pytest.mark.kiwi_id(65)
+async def test_aggregate_item_timeout() -> None:
+    """单项超时：超时检查项记 TimeoutError，其他项不受影响。"""
+    registry = _InMemoryRegistry(check_timeout_ms=30, total_timeout_ms=1000)
+    registry.register(_PassingCheck("database", delay=0.2))
+    registry.register(_PassingCheck("redis"))
+
+    report = await registry.aggregate()
+    assert report.ok is False
+    assert report.checks[0] == HealthCheckResult(name="database", ok=False, error="TimeoutError")
+    assert report.checks[1].ok is True
+
+
+@pytest.mark.kiwi_id(65)
+async def test_aggregate_total_timeout() -> None:
+    """整体超时：未完成项统一记 TimeoutError（单项超时未触发）。"""
+    registry = _InMemoryRegistry(check_timeout_ms=1000, total_timeout_ms=30)
+    registry.register(_PassingCheck("database", delay=0.2))
+    registry.register(_PassingCheck("redis", delay=0.2))
+
+    report = await registry.aggregate()
+    assert report.ok is False
+    assert [item.error for item in report.checks] == ["TimeoutError", "TimeoutError"]
 
 
 @pytest.mark.kiwi_id(45)
@@ -169,15 +234,15 @@ async def test_null_registry_fixed_pass() -> None:
 
     assert registry.checks() == ()
     report = await registry.aggregate()
-    assert report.healthy is True
-    assert report.items == ()
+    assert report.ok is True
+    assert report.checks == ()
 
 
 @pytest.mark.kiwi_id(45)
 async def test_dependency_provider_resolves() -> None:
-    """依赖解析：应用装配占位注册表；路由经 get_health_check_registry 取到同一实例。"""
+    """依赖解析：应用装配真实注册表；路由经 get_health_check_registry 取到同一实例。"""
     app = create_app()
-    assert isinstance(app.state.health_check_registry, NullHealthCheckRegistry)
+    assert isinstance(app.state.health_check_registry, HealthCheckRegistry)
 
     @app.get("/health-registry-probe")
     async def probe(  # pyright: ignore[reportUnusedFunction]
@@ -189,4 +254,4 @@ async def test_dependency_provider_resolves() -> None:
         resp = await client.get("/health-registry-probe")
 
     assert resp.status_code == 200
-    assert resp.json() == {"key": "health_check_registry", "type": "NullHealthCheckRegistry"}
+    assert resp.json() == {"key": "health_check_registry", "type": "HealthCheckRegistry"}
