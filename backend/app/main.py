@@ -7,7 +7,7 @@ from fastapi import FastAPI
 
 from app import __version__
 from app.api.errors import register_exception_handlers
-from app.api.middleware import TraceIdMiddleware
+from app.api.middleware import RequestLoggingMiddleware, TraceIdMiddleware
 from app.api.router import api_router, health_router
 from app.archive.base import NullArchivePolicy, NullArchiveQueryRouter
 from app.audit.hashchain import NullHashChain
@@ -86,10 +86,12 @@ def create_app() -> FastAPI:
 
     # TODO(02-05): demo 服务改由依赖注入提供（get_db 等）
 
-    configure_logging(get_settings())
+    settings = get_settings()
+    configure_logging(settings)
 
-    # 中间件先于路由注册：入站链路 id 贯穿（纯 ASGI，上下文变量可传至接口内）
+    # 中间件先于路由注册：请求日志外层（request_id 先生效）→ 入站链路 id 贯穿（缺失回退 request_id）
     app.add_middleware(TraceIdMiddleware)
+    app.add_middleware(RequestLoggingMiddleware, slow_request_ms=settings.log.slow_request_ms)
 
     register_exception_handlers(app)
 

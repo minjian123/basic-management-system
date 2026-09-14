@@ -20,6 +20,8 @@ read_only: ContextVar[bool] = ContextVar("read_only", default=False)
 current_masker: ContextVar[BaseMasker | None] = ContextVar("current_masker", default=None)
 current_trace_id: ContextVar[str | None] = ContextVar("current_trace_id", default=None)
 current_span_id: ContextVar[str | None] = ContextVar("current_span_id", default=None)
+current_request_id: ContextVar[str | None] = ContextVar("current_request_id", default=None)
+current_client_ip: ContextVar[str | None] = ContextVar("current_client_ip", default=None)
 
 
 def set_current_tenant(tenant_code: str | None) -> Token[str | None]:
@@ -170,3 +172,63 @@ def get_current_span_id() -> str | None:
         str | None: span id；不在 span 内为 None。
     """
     return current_span_id.get()
+
+
+def set_current_request_id(request_id: str | None) -> Token[str | None]:
+    """设置当前请求 id。
+
+    Args:
+        request_id: 请求 id；None 表示清除。
+
+    Returns:
+        Token[str | None]: 复位令牌。
+    """
+    return current_request_id.set(request_id)
+
+
+def reset_current_request_id(token: Token[str | None]) -> None:
+    """复位当前请求 id 上下文。
+
+    Args:
+        token: `set_current_request_id` 返回的令牌。
+    """
+    current_request_id.reset(token)
+
+
+def get_current_request_id() -> str | None:
+    """当前请求 id。
+
+    Returns:
+        str | None: 请求 id；不在请求内为 None。
+    """
+    return current_request_id.get()
+
+
+def set_current_client_ip(client_ip: str | None) -> Token[str | None]:
+    """设置当前请求来源 IP。
+
+    Args:
+        client_ip: 来源 IP；None 表示清除。
+
+    Returns:
+        Token[str | None]: 复位令牌。
+    """
+    return current_client_ip.set(client_ip)
+
+
+def reset_current_client_ip(token: Token[str | None]) -> None:
+    """复位当前来源 IP 上下文。
+
+    Args:
+        token: `set_current_client_ip` 返回的令牌。
+    """
+    current_client_ip.reset(token)
+
+
+def get_current_client_ip() -> str | None:
+    """当前请求来源 IP。
+
+    Returns:
+        str | None: 来源 IP；不在请求内为 None。
+    """
+    return current_client_ip.get()

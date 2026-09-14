@@ -3,6 +3,8 @@
 [log]
 level = "WARNING"
 format = "json"
+# 慢请求阈值（prod 松：避免偶发抖动刷 WARNING）
+slow_request_ms = 2000
 
 [cors]
 allow_origins = []
