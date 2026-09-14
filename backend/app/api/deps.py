@@ -1,7 +1,7 @@
 """公共依赖汇总：数据访问、租户解析与各能力域基座提供者。
 
-掩码 / 权限 / 锁 / 认证 / 故障应对 / 可观测 / 健康检查 / 开放接口 / 对象存储 / LLM 适配等提供者统一从本模块导出，
-业务路由按需导入，避免分散引用。
+掩码 / 权限 / 锁 / 认证 / 故障应对 / 可观测 / 健康检查 / 开放接口 / 对象存储 / LLM 适配 / 全文检索等提供者
+统一从本模块导出，业务路由按需导入，避免分散引用。
 """
 
 from app.captcha.base import get_captcha
@@ -20,6 +20,7 @@ from app.password.base import get_password_policy
 from app.permission.base import get_permission_checker
 from app.ratelimit.base import get_rate_limiter
 from app.replay.base import get_replay_guard
+from app.search.base import get_search_index
 from app.storage.base import get_object_storage
 from app.tracing.base import get_tracer
 
@@ -42,6 +43,7 @@ __all__ = [
     "get_rate_limiter",
     "get_replay_guard",
     "get_scope_checker",
+    "get_search_index",
     "get_tenant",
     "get_tracer",
     "get_uow",
