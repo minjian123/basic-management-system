@@ -30,6 +30,7 @@ from app.outbound.http import NullHttpClient
 from app.outbound.webhook import NullWebhookSender
 from app.password.base import NullPasswordPolicy
 from app.permission.base import NullPermissionChecker
+from app.query.base import NullQueryProviderRegistry
 from app.ratelimit.base import NullRateLimiter
 from app.replay.base import NullReplayGuard
 from app.repositories.demo_repository import DemoRepository
@@ -121,6 +122,7 @@ def create_app() -> FastAPI:
     app.state.workflow_engine = NullWorkflowEngine()
     app.state.identity_provider = NullIdentityProvider()
     app.state.session_store = NullSessionStore()
+    app.state.query_provider_registry = NullQueryProviderRegistry()
 
     app.state.demo_service = DemoService(DemoRepository())
 
