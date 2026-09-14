@@ -1,6 +1,6 @@
 """公共依赖汇总：数据访问、租户解析与各能力域基座提供者。
 
-掩码 / 权限 / 锁 / 认证 / 故障应对 / 可观测 / 健康检查 / 开放接口 / 对象存储 / LLM / 检索 / 通知等提供者
+掩码 / 权限 / 锁 / 认证 / 故障应对 / 可观测 / 健康检查 / 开放接口 / 存储 / LLM / 检索 / 通知 / 推送等提供者
 统一从本模块导出，业务路由按需导入，避免分散引用。
 """
 
@@ -24,6 +24,7 @@ from app.replay.base import get_replay_guard
 from app.search.base import get_search_index
 from app.storage.base import get_object_storage
 from app.tracing.base import get_tracer
+from app.ws.base import get_realtime_publisher
 
 __all__ = [
     "build_session_factory",
@@ -43,6 +44,7 @@ __all__ = [
     "get_password_policy",
     "get_permission_checker",
     "get_rate_limiter",
+    "get_realtime_publisher",
     "get_replay_guard",
     "get_scope_checker",
     "get_search_index",
