@@ -38,6 +38,7 @@ from app.services.demo_service import DemoService
 from app.services.module_registry import ModuleRegistry
 from app.storage.base import NullObjectStorage
 from app.tracing.base import NullTracer
+from app.workflow.base import NullWorkflowEngine
 from app.ws.base import NullRealtimePublisher
 
 
@@ -115,6 +116,7 @@ def create_app() -> FastAPI:
     app.state.realtime_publisher = NullRealtimePublisher()
     app.state.http_client = NullHttpClient()
     app.state.webhook_sender = NullWebhookSender()
+    app.state.workflow_engine = NullWorkflowEngine()
 
     app.state.demo_service = DemoService(DemoRepository())
 
