@@ -16,6 +16,7 @@ from app.circuit.base import NullCircuitBreaker
 from app.core.config import get_settings
 from app.core.logging import configure_logging, get_logger
 from app.core.resources import ResourceManager
+from app.dashboard.base import NullDashboardCardRegistry
 from app.db.engine import EngineFactory
 from app.db.registry import EngineRegistry
 from app.fallback.base import NullFallbackPolicy
@@ -136,6 +137,7 @@ def create_app() -> FastAPI:
     app.state.archive_query_router = NullArchiveQueryRouter()
     app.state.field_type_registry = NullFieldTypeRegistry()
     app.state.translator = NullTranslator()
+    app.state.dashboard_card_registry = NullDashboardCardRegistry()
 
     app.state.demo_service = DemoService(DemoRepository())
 
