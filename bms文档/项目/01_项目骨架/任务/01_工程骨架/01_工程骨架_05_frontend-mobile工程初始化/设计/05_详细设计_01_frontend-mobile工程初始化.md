@@ -42,7 +42,7 @@ frontend-mobile/
 │   ├── api/
 │   │   ├── types.ts                # 新增：ApiResponse<T> / PageResponse<T>（与 04 同款）
 │   │   ├── http.ts                 # 新增：Axios 实例 + 拦截器 + fetchAppInfo()
-│   │   └── types.gen.ts            # 新增：openapi-typescript 生成占位（随 05 域替换）
+│   │   └── types.gen.ts            # 新增：openapi-typescript 生成占位（随 04 域替换）
 │   ├── router/routes.ts            # 新增：路由骨架（不硬编码业务路由表）
 │   ├── stores/useUserStore.ts      # 新增：Pinia 占位（token 仅内存）
 │   ├── views/HomeView.vue          # 新增：默认页（标题 + backend 连通状态）
@@ -115,8 +115,8 @@ export default defineConfig({
 | --- | --- | --- |
 | 20 | frontend-mobile 默认页与连通冒烟（标题、backend 连通状态成功/降级两种渲染） | `tests/home.spec.ts`（Vitest + @vue/test-utils，mock `fetchAppInfo`） |
 
-- 质量门禁：`npm run lint`、`vue-tsc -b`、`npm run test`、`npm run build` 全通过；frontend-mobile/ 落地后 main 冒烟层前端 job（05-1 exists 激活，双构建含 mobile）全绿。
-- 视口（375×667）布局正常为手工/阶段验收核对项（自动化视口断言随 Playwright E2E，05-1 重验证层）。
+- 质量门禁：`npm run lint`、`vue-tsc -b`、`npm run test`、`npm run build` 全通过；frontend-mobile/ 落地后 main 冒烟层前端 job（04-1 exists 激活，双构建含 mobile）全绿。
+- 视口（375×667）布局正常为手工/阶段验收核对项（自动化视口断言随 Playwright E2E，04-1 重验证层）。
 
 ## 8. 实施步骤 <a id="steps"></a>
 
@@ -144,7 +144,7 @@ export default defineConfig({
 - 不含移动端业务页面与交互细节（默认页占位；随阶段十七细化）。
 - 视口方案默认 vw（postcss-px-to-viewport），如遇第三方组件兼容问题可切 rem 方案（配置层切换）。
 - 企业微信/钉钉免登、401 刷新与 token 口径随阶段六。
-- OpenAPI 类型生成为占位，随 05 域契约接入启用。
+- OpenAPI 类型生成为占位，随 04 域契约接入启用。
 
 ## 11. 对齐记录 <a id="align"></a>
 
@@ -154,6 +154,6 @@ export default defineConfig({
 | 2 | 连通探针 | `/info` 代理重写至 backend `/`（与 04 同口径） |
 | 3 | Kiwi | Case 20 一条冒烟（含连通成功/降级两种状态） |
 | 4 | 视口方案 | postcss px→vw（设计稿 375、保留 1px）+ 安全区 CSS 变量；rem 方案可切换 |
-| 5 | CI | frontend-mobile/ 落地激活 05-1 前端 job（ESLint/Vitest/双构建） |
+| 5 | CI | frontend-mobile/ 落地激活 04-1 前端 job（ESLint/Vitest/双构建） |
 
 > 本文档依《文档生成规范》编写 · 关键决策逐项确认

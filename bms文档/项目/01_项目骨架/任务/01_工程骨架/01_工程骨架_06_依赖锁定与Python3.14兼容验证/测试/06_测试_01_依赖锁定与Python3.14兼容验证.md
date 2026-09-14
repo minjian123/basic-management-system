@@ -83,7 +83,7 @@ uv run pytest --cov=app --cov-branch -q
 | --- | --- | --- | --- | --- |
 | `backend/app`（全量） | 842 | 0 | 100% | 99%（1 处 partial，非门禁阻断） |
 
-口径：`uv run pytest --cov=app --cov-branch`；CI 门禁阈值（整体 ≥ 70%）由 05-1 执行。
+口径：`uv run pytest --cov=app --cov-branch`；CI 门禁阈值（整体 ≥ 70%）由 04-1 执行。
 
 ## 6. 偏差与遗留 <a id="deviations"></a>
 

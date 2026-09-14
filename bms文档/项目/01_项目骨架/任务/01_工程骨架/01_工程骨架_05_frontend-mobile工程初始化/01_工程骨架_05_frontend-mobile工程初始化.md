@@ -26,7 +26,7 @@
 
 ## 3. 完成标准 <a id="accept"></a>
 
-`npm ci`、`npm run dev`、`npm run build`、ESLint、`vitest run` 全通过；移动端视口（375×667）默认页布局正常，标题「BMS 基础管理系统」并显示 backend 连通状态；frontend-mobile/ 落地后 main 冒烟层前端 job（exists 激活，见 05-1）全绿。
+`npm ci`、`npm run dev`、`npm run build`、ESLint、`vitest run` 全通过；移动端视口（375×667）默认页布局正常，标题「BMS 基础管理系统」并显示 backend 连通状态；frontend-mobile/ 落地后 main 冒烟层前端 job（exists 激活，见 04-1）全绿。
 
 ## 4. 参考文档 <a id="ref"></a>
 

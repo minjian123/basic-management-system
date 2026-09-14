@@ -67,7 +67,7 @@ BMS_TEST_REDIS_URL="redis://<mjbk>:6379/0" uv run pytest tests/integration -q -m
 | 其余模块 | 230 | 0 | 100% |
 | **合计** | **842** | **0** | **100%** |
 
-口径：任务级覆盖率快照；门禁随 05-1 接入 CI。
+口径：任务级覆盖率快照；门禁随 04-1 接入 CI。
 
 ## 6. 偏差与遗留 <a id="deviations"></a>
 
