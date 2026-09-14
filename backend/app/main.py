@@ -23,6 +23,7 @@ from app.llm.base import NullLlmProvider
 from app.lock.base import NullDistributedLock
 from app.masking.base import NullMasker
 from app.metrics.base import NullMetrics
+from app.notify.base import NullNotifier
 from app.oauth.base import NullOAuthServer, NullScopeChecker
 from app.password.base import NullPasswordPolicy
 from app.permission.base import NullPermissionChecker
@@ -107,6 +108,7 @@ def create_app() -> FastAPI:
     app.state.object_storage = NullObjectStorage()
     app.state.llm_provider = NullLlmProvider()
     app.state.search_index = NullSearchIndex()
+    app.state.notifier = NullNotifier()
 
     app.state.demo_service = DemoService(DemoRepository())
 
