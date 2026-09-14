@@ -94,7 +94,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(f"[test-db] {step}（plan）")
         return 0
 
-    mode = "计划模式" if not args.execute else "占位（--execute）"
+    mode = "计划模式" if not args.execute else "占位执行请求"
     print(f"[test-db] {args.command} {args.engine} → {database}（{mode}）")
     if not args.execute:
         for step in FLOW_STEPS:
