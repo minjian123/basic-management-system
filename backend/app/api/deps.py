@@ -1,9 +1,10 @@
 """公共依赖汇总：数据访问、租户解析与各能力域基座提供者。
 
 掩码 / 权限 / 锁 / 认证 / 故障应对 / 可观测 / 探针 / 开放接口 / 存储 / LLM / 检索 / 通知 / 推送 / 出站 / 工作流等
-各能力域基座提供者（含身份源 / 会话 / 查询 / 导入导出）统一从本模块导出，业务路由按需导入，避免分散引用。
+各能力域基座提供者（含身份源 / 会话 / 查询 / 导入导出 / 审计链）统一从本模块导出，业务路由按需导入，避免分散引用。
 """
 
+from app.audit.hashchain import get_hash_chain
 from app.captcha.base import get_captcha
 from app.circuit.base import get_circuit_breaker
 from app.db.session import build_session_factory, get_db, get_uow
@@ -42,6 +43,7 @@ __all__ = [
     "get_distributed_lock",
     "get_exporter",
     "get_fallback_policy",
+    "get_hash_chain",
     "get_health_check_registry",
     "get_http_client",
     "get_idempotency_store",

@@ -9,6 +9,7 @@ from app import __version__
 from app.api.errors import register_exception_handlers
 from app.api.middleware import TraceIdMiddleware
 from app.api.router import api_router, health_router
+from app.audit.hashchain import NullHashChain
 from app.captcha.base import NullCaptcha
 from app.circuit.base import NullCircuitBreaker
 from app.core.config import get_settings
@@ -127,6 +128,7 @@ def create_app() -> FastAPI:
     app.state.query_provider_registry = NullQueryProviderRegistry()
     app.state.importer = NullImporter()
     app.state.exporter = NullExporter()
+    app.state.hash_chain = NullHashChain()
 
     app.state.demo_service = DemoService(DemoRepository())
 
