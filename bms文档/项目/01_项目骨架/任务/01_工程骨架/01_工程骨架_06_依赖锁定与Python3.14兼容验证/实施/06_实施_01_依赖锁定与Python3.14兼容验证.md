@@ -33,7 +33,7 @@ flowchart LR
 ### 3.1 锁定与复现
 
 - `uv.lock` 持续提交（01-02 起，后续新增 `sortedcontainers`、`fakeredis[lua]` 均入库）；`uv sync --frozen` 在当前环境可复现；
-- 锁文件变更触发 CI 基础镜像自动重建（05-1 基础镜像按 lock 哈希 label）——本任务登记关联，不重复实现。
+- 锁文件变更触发 CI 基础镜像自动重建（04-1 基础镜像按 lock 哈希 label）——本任务登记关联，不重复实现。
 
 ### 3.2 依赖矩阵（版本 + import）
 

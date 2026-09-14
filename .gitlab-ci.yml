@@ -1,5 +1,5 @@
 # MR 流水线门禁（《开发部署规划》第 7 节）
-# 口径：后端 ruff + pytest（SQLite，覆盖率整体 ≥ 70%、核心模块 ≥ 80%）；
+# 口径：后端 ruff + pyright + pytest（SQLite，覆盖率整体 ≥ 70%、核心模块 ≥ 80%）；
 #       前端 ESLint + Vitest + frontend / frontend-mobile 双端构建。
 # backend/ frontend/ 尚未落地（阶段一骨架），对应 job 以 exists 守卫，
 # 目录与清单文件出现后自动启用。
@@ -97,6 +97,20 @@ backend-lint:
   script:
     - cd backend && uv run ruff check .
 
+# ---- 后端：pyright 严格类型检查（《测试规范》第 13 节；随 04-1 接入）----
+backend-typecheck:
+  stage: lint
+  image: $REGISTRY_IMAGE_PREFIX/ci-backend:py314
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      exists:
+        - backend/pyproject.toml
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      exists:
+        - backend/pyproject.toml
+  script:
+    - cd backend && uv run pyright
+
 backend-test:
   stage: test
   image: $REGISTRY_IMAGE_PREFIX/ci-backend:py314
@@ -165,7 +179,7 @@ e2e-playwright:
   stage: verify
   image: python:3.14-slim
   rules:
-    # 重验证层开关：05-1（CI 流水线激活）修复就绪后创建 deploy/ci/verify-enabled 激活
+    # 重验证层开关：04-1（CI 流水线激活）修复就绪后创建 deploy/ci/verify-enabled 激活
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       exists:
         - deploy/ci/verify-enabled
@@ -181,7 +195,7 @@ e2e-playwright:
   variables:
     BMS_ENV: test
   rules:
-    # 重验证层开关：05-1（CI 流水线激活）修复就绪后创建 deploy/ci/verify-enabled 激活
+    # 重验证层开关：04-1（CI 流水线激活）修复就绪后创建 deploy/ci/verify-enabled 激活
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       exists:
         - deploy/ci/verify-enabled
@@ -246,7 +260,7 @@ container-scanning:
   image: aquasec/trivy:latest
   needs: [{job: backend-image, optional: true}]
   rules:
-    # 重验证层开关：05-1（CI 流水线激活）修复就绪后创建 deploy/ci/verify-enabled 激活
+    # 重验证层开关：04-1（CI 流水线激活）修复就绪后创建 deploy/ci/verify-enabled 激活
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       exists:
         - deploy/ci/verify-enabled
@@ -259,7 +273,7 @@ swagger-snapshot:
   image: python:3.14-slim
   needs: [{job: backend-test, optional: true}]
   rules:
-    # 重验证层开关：05-1（CI 流水线激活）修复就绪后创建 deploy/ci/verify-enabled 激活
+    # 重验证层开关：04-1（CI 流水线激活）修复就绪后创建 deploy/ci/verify-enabled 激活
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       exists:
         - deploy/ci/verify-enabled
@@ -276,7 +290,7 @@ allure-report:
   image: python:3.14-slim
   needs: [{job: backend-test, optional: true}, {job: e2e-playwright, optional: true}]
   rules:
-    # 重验证层开关：05-1（CI 流水线激活）修复就绪后创建 deploy/ci/verify-enabled 激活
+    # 重验证层开关：04-1（CI 流水线激活）修复就绪后创建 deploy/ci/verify-enabled 激活
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       exists:
         - deploy/ci/verify-enabled
@@ -299,7 +313,7 @@ defect-capture:
   stage: .post
   image: python:3.14-slim
   rules:
-    # 重验证层开关：同上（缺陷链路随 05-1 激活）
+    # 重验证层开关：同上（缺陷链路随 04-1 激活）
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       when: on_failure
       exists:

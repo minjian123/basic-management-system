@@ -35,7 +35,7 @@ build_if_needed() {
   fi
   echo "[ci-base] 构建 $image（lock-hash=$TAG）"
   docker build --label "bms.lock-hash=$TAG" -t "$image" "$ctx"
-  # push 尽力而为：registry 对层报 blob unknown（见 05-1 遗留），单 runner 场景本机镜像即可用
+  # push 尽力而为：registry 对层报 blob unknown（见 04-1 遗留），单 runner 场景本机镜像即可用
   docker push "$image" || echo "[ci-base] 警告：push $image 失败，使用本机镜像继续"
 }
 

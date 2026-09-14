@@ -7,7 +7,7 @@
 ## 1. 概述 <a id="overview"></a>
 
 - **目标**：把 01-01 交付的 frontend 最小占位（Vue 3.5 + Vite 8 + TS 6）升级为**需求 01-4 定义的完整工程**：依赖清单、src 分层骨架、统一响应契约类型、Vite 代理链路、ESLint/Prettier/Vitest 质量工具与冒烟测试。
-- **范围**：仅 frontend 工程与其冒烟验证；业务页面/UI 布局不做（默认页占位）；OpenAPI 类型生成为占位（随 05 域契约接入）；认证与 401 处理留 TODO（阶段六）。
+- **范围**：仅 frontend 工程与其冒烟验证；业务页面/UI 布局不做（默认页占位）；OpenAPI 类型生成为占位（随 04 域契约接入）；认证与 401 处理留 TODO（阶段六）。
 - **依据**：需求 [01-4](../../../../需求/01_需求_工程骨架.md#r01-4)、《[前端开发规范](../../../../../../规范/前端开发规范.md)》第 2/4/11 节、《[项目规划说明](../../../../../../规划/项目规划说明.md)》「前端」「环境与配置」节、《[命名规范](../../../../../../规范/命名规范.md)》「前端命名」节。
 
 ## 2. 现状与差距 <a id="gap"></a>
@@ -40,7 +40,7 @@ frontend/
 │   ├── api/
 │   │   ├── types.ts            # 新增：ApiResponse<T> / PageResponse<T> 契约类型
 │   │   ├── http.ts             # 新增：Axios 实例 + 拦截器 + fetchAppInfo()
-│   │   └── types.gen.ts        # 新增：openapi-typescript 生成占位（随 05 域替换）
+│   │   └── types.gen.ts        # 新增：openapi-typescript 生成占位（随 04 域替换）
 │   ├── router/routes.ts        # 新增：动态路由骨架（不硬编码业务路由表）
 │   ├── stores/useUserStore.ts  # 新增：Pinia 占位（token 仅内存）
 │   ├── layouts/BasicLayout.vue # 新增：基础布局壳（router-view）
@@ -153,7 +153,7 @@ export interface PageResponse<T> {
 - 响应拦截器：HTTP 2xx 且 `code === 0` → 返回 `data`；`code !== 0` → 统一错误提示（文案按 `error.${code}` i18n 映射，缺失回退 message）并 reject；HTTP 401 → TODO（阶段六接刷新/登出）；网络错误 → 统一提示。
 - 请求拦截器：预留 `Authorization: Bearer <token>` 注入位（token 仅存内存 Pinia，阶段六接入）。
 - `fetchAppInfo()`：`GET /info` → `ApiResponse<{ name: string; version: string }>`（代理见 §5）。
-- 生成类型：`openapi-typescript` 以 backend `/openapi.json` 生成 `types.gen.ts`（脚本 `npm run gen:api` 预留，随 05 域契约接入启用）。
+- 生成类型：`openapi-typescript` 以 backend `/openapi.json` 生成 `types.gen.ts`（脚本 `npm run gen:api` 预留，随 04 域契约接入启用）。
 
 ## 8. 测试设计（Kiwi 先行） <a id="tests"></a>
 
@@ -162,7 +162,7 @@ export interface PageResponse<T> {
 | 19 | frontend 默认页与代理链路冒烟（标题「BMS 基础管理系统」、展示 backend name/version） | `tests/home.spec.ts`（Vitest + @vue/test-utils，mock `fetchAppInfo`） |
 
 - 冒烟范围：HomeView 渲染标题与 mock 的应用名/版本；不依赖真实 backend（代理链路由手工/CI 冒烟复核）。
-- 质量门禁：`npm run lint`、`vue-tsc -b`、`npm run test`、`npm run build` 全通过；frontend/ 落地后 main 冒烟层前端 job（05-1 exists 激活）全绿。
+- 质量门禁：`npm run lint`、`vue-tsc -b`、`npm run test`、`npm run build` 全通过；frontend/ 落地后 main 冒烟层前端 job（04-1 exists 激活）全绿。
 
 ## 9. 实施步骤 <a id="steps"></a>
 
@@ -188,7 +188,7 @@ export interface PageResponse<T> {
 ## 11. 边界与开放项 <a id="boundary"></a>
 
 - 不含业务页面与 UI 设计（默认页占位）；布局/菜单随阶段六权限体系。
-- OpenAPI 类型生成与 `gen:api` 脚本占位，随 05 域契约接入启用（生成后 `types.gen.ts` 替换手写业务类型）。
+- OpenAPI 类型生成与 `gen:api` 脚本占位，随 04 域契约接入启用（生成后 `types.gen.ts` 替换手写业务类型）。
 - 401 刷新与登出、token 持久化口径随阶段六认证任务。
 - `/info` 为骨架期连通探针（生产由网关同路径映射或改用正式信息接口，随部署阶段定案）。
 - socket.io-client 仅登记依赖占位，不建立连接。
@@ -201,7 +201,7 @@ export interface PageResponse<T> {
 | 2 | 连通探针 | `/info` 代理重写至 backend `/`（避免与前端根路由冲突） |
 | 3 | Kiwi | Case 19 一条冒烟；Vitest + @vue/test-utils |
 | 4 | npm 源 | `.npmrc` 配 npmmirror；锁文件提交 |
-| 5 | CI | frontend/ 落地激活 05-1 前端 job（ESLint/Vitest/构建） |
+| 5 | CI | frontend/ 落地激活 04-1 前端 job（ESLint/Vitest/构建） |
 | 6 | Element Plus | 按需引入（unplugin-vue-components + ElementPlusResolver）：主包 1,064.53 → 147.34 kB，告警消除（2026-09-10 优化） |
 | 7 | openapi-typescript | peer 声明滞后但运行时不依赖 TS，`gen:api` 在 TS6 实测可用；维持 legacy-peer-deps 待上游支持 |
 

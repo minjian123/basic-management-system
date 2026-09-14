@@ -106,7 +106,7 @@ uv run pytest -q   # 2 passed
 ## 6. 偏差与遗留 <a id="deviations"></a>
 
 - 设计 §4/§6/§7/§9/§11 已按实施反馈回写（`pythonpath`、ruff 中文标点忽略、`kiwi_id` 标记、路由函数局部忽略、Kiwi 先行、dmPython 安装反馈）。
-- Allure 报告与测试结果导入 Kiwi TCMS（执行归档链路）属阶段末 05-4，本任务只完成用例登记与本地 pytest 执行。
+- Allure 报告与测试结果导入 Kiwi TCMS（执行归档链路）属阶段末 04-4，本任务只完成用例登记与本地 pytest 执行。
 - `dmPython` 达梦连接实测（`SELECT 1`）与兼容矩阵留 01-06；若连接不兼容再按回退口径处置。
 - 前端（frontend / frontend-mobile）测试基线归 01-04 / 01-05 实施。
 - 根 README 的 backend 目录树已同步为 02 完成态。
