@@ -11,10 +11,12 @@ from app.fallback.base import get_fallback_policy
 from app.idempotency.base import get_idempotency_store
 from app.lock.base import get_distributed_lock
 from app.masking.base import get_masker
+from app.metrics.base import get_metrics
 from app.password.base import get_password_policy
 from app.permission.base import get_permission_checker
 from app.ratelimit.base import get_rate_limiter
 from app.replay.base import get_replay_guard
+from app.tracing.base import get_tracer
 
 __all__ = [
     "build_session_factory",
@@ -25,10 +27,12 @@ __all__ = [
     "get_fallback_policy",
     "get_idempotency_store",
     "get_masker",
+    "get_metrics",
     "get_password_policy",
     "get_permission_checker",
     "get_rate_limiter",
     "get_replay_guard",
     "get_tenant",
+    "get_tracer",
     "get_uow",
 ]
