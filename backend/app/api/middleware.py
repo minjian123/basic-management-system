@@ -12,13 +12,14 @@
 from starlette.datastructures import Headers, MutableHeaders
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
+from app.core.base import BaseObject
 from app.core.context import reset_current_trace_id, set_current_trace_id
 from app.tracing.base import TRACE_ID_HEADER, new_trace_id
 
 __all__ = ["TraceIdMiddleware"]
 
 
-class TraceIdMiddleware:
+class TraceIdMiddleware(BaseObject):
     """入站链路 id 中间件（纯 ASGI）：读请求头 → 缺省生成 → 上下文 → 回写响应头。"""
 
     def __init__(self, app: ASGIApp) -> None:

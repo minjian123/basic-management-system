@@ -20,6 +20,7 @@ from typing import cast
 
 from fastapi import Request
 
+from app.core.base import BaseObject
 from app.core.capability import BaseCapability, BaseNullObject
 
 __all__ = [
@@ -38,7 +39,7 @@ ARCHIVE_LOCATIONS: tuple[str, ...] = ("online", "archive")
 
 
 @dataclass(frozen=True)
-class ArchiveResult:
+class ArchiveResult(BaseObject):
     """归档结果。"""
 
     matched: int

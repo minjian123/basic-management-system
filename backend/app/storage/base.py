@@ -18,6 +18,7 @@ from typing import cast
 
 from fastapi import Request
 
+from app.core.base import BaseObject
 from app.core.capability import BaseCapability, BaseNullObject
 
 __all__ = [
@@ -46,7 +47,7 @@ NULL_PRESIGNED_URL = "null-presigned-url"
 
 
 @dataclass(frozen=True)
-class StoredObject:
+class StoredObject(BaseObject):
     """对象元数据。"""
 
     key: str
@@ -63,7 +64,7 @@ class StoredObject:
 
 
 @dataclass(frozen=True)
-class PresignedUrl:
+class PresignedUrl(BaseObject):
     """预签名结果。"""
 
     url: str

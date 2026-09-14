@@ -15,6 +15,7 @@ from typing import cast
 
 from fastapi import Request
 
+from app.core.base import BaseObject
 from app.core.capability import BaseCapability, BaseNullObject
 from app.transfer.base import ColumnSpec
 
@@ -28,7 +29,7 @@ __all__ = [
 
 
 @dataclass(frozen=True)
-class RowError:
+class RowError(BaseObject):
     """行错误回执。"""
 
     row: int
@@ -42,7 +43,7 @@ class RowError:
 
 
 @dataclass(frozen=True)
-class ImportResult:
+class ImportResult(BaseObject):
     """导入结果：有效行 + 错误回执。"""
 
     rows: tuple[Mapping[str, object], ...]

@@ -18,6 +18,7 @@ from typing import cast
 
 from fastapi import Request
 
+from app.core.base import BaseObject
 from app.core.capability import BaseCapability, BaseNullObject
 
 __all__ = [
@@ -48,7 +49,7 @@ class NotifyChannel(StrEnum):
 
 
 @dataclass(frozen=True)
-class NotificationMessage:
+class NotificationMessage(BaseObject):
     """通知消息（内容已按收件人 locale 渲染）。"""
 
     channel: NotifyChannel
@@ -71,7 +72,7 @@ class NotificationMessage:
 
 
 @dataclass(frozen=True)
-class SendResult:
+class SendResult(BaseObject):
     """发送结果。"""
 
     delivered: bool

@@ -14,6 +14,7 @@ from typing import cast
 
 from fastapi import Request
 
+from app.core.base import BaseObject
 from app.core.capability import BaseCapability, BaseNullObject
 from app.transfer.base import ColumnSpec
 
@@ -47,7 +48,7 @@ class BaseExporter(BaseCapability, ABC):
         """
 
 
-class _EmptyExporterStream:
+class _EmptyExporterStream(BaseObject):
     """占位导出流：不产出任何分块。"""
 
     def __aiter__(self) -> _EmptyExporterStream:

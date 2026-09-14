@@ -35,7 +35,7 @@ __all__ = [
 
 
 @dataclass(frozen=True)
-class HealthCheckResult:
+class HealthCheckResult(BaseObject):
     """单项健康检查结果。"""
 
     name: str
@@ -49,7 +49,7 @@ class HealthCheckResult:
 
 
 @dataclass(frozen=True)
-class HealthCheckReport:
+class HealthCheckReport(BaseObject):
     """聚合报告：各检查项结果与总体就绪。"""
 
     healthy: bool

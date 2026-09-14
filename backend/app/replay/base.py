@@ -22,6 +22,7 @@ from typing import cast
 
 from fastapi import Request
 
+from app.core.base import BaseObject
 from app.core.capability import BaseCapability, BaseNullObject
 from app.core.exceptions import AuthError
 from app.core.security import SIGNATURE_HEADER, SignatureCodec
@@ -62,7 +63,7 @@ class ReplayReason(StrEnum):
 
 
 @dataclass(frozen=True)
-class ReplayDecision:
+class ReplayDecision(BaseObject):
     """防重放判定结果。"""
 
     allowed: bool

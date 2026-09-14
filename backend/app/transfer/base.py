@@ -2,11 +2,13 @@
 
 from dataclasses import dataclass
 
+from app.core.base import BaseObject
+
 __all__ = ["ColumnSpec"]
 
 
 @dataclass(frozen=True)
-class ColumnSpec:
+class ColumnSpec(BaseObject):
     """列定义（导入期望列 / 导出输出列共用）。"""
 
     key: str

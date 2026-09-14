@@ -17,6 +17,7 @@ from typing import cast
 
 from fastapi import Request
 
+from app.core.base import BaseObject
 from app.core.capability import BaseCapability, BaseNullObject
 
 __all__ = [
@@ -37,7 +38,7 @@ HASH_ALGORITHM = "sha256"
 
 
 @dataclass(frozen=True)
-class HashChainEntry:
+class HashChainEntry(BaseObject):
     """链上一条记录。"""
 
     prev_hash: str
@@ -51,7 +52,7 @@ class HashChainEntry:
 
 
 @dataclass(frozen=True)
-class ChainVerifyResult:
+class ChainVerifyResult(BaseObject):
     """链校验结果。"""
 
     valid: bool

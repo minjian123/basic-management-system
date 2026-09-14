@@ -17,6 +17,7 @@ from typing import cast
 
 from fastapi import Request
 
+from app.core.base import BaseObject
 from app.core.capability import BaseCapability, BaseNullObject
 
 __all__ = [
@@ -32,7 +33,7 @@ REALTIME_EVENTS: tuple[str, ...] = ("approval.todo", "notification.new", "sessio
 
 
 @dataclass(frozen=True)
-class RealtimeEvent:
+class RealtimeEvent(BaseObject):
     """推送事件（目标三选一：用户 / 会话 / 房间）。"""
 
     event: str

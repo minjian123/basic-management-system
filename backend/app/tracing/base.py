@@ -26,6 +26,7 @@ from typing import cast
 
 from fastapi import Request
 
+from app.core.base import BaseObject
 from app.core.capability import BaseCapability, BaseNullObject
 from app.core.context import (
     get_current_trace_id,
@@ -80,7 +81,7 @@ def new_span_id() -> str:
 
 
 @dataclass(frozen=True)
-class SpanContext:
+class SpanContext(BaseObject):
     """span 上下文：链路 id / span id / 父 span / 名称 / 属性。"""
 
     trace_id: str
