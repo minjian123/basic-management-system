@@ -2,7 +2,8 @@
 
 - `BizError` 继承 `BaseObject`（纳入 L0 继承体系，统一序列化 / 字符串输出），同时是 `Exception`。
 - **段位基类**（按错误码段位分基）：`GeneralError`（1xxxx 通用）、`AuthError`（2xxxx 认证）、
-  `UserOrgError`（3xxxx 用户与组织）；新增同段位错误码继承对应段位基。
+  `UserOrgError`（3xxxx 用户与组织）、`ConfigError`（4xxxx 系统配置）、`OpenTenantError`（8xxxx 开放 / 租户 / SSO）；
+  新增同段位错误码继承对应段位基。
 - 错误码统一登记于 `app/core/error_codes.py`（段位见《架构设计 · 接口与集成》「错误码分段」节）。
 - `http_status` 承载传输层语义（404 / 401 / 403 / 409 / 500），其余业务失败统一 200。
 """
@@ -108,6 +109,13 @@ class PermissionError(UserOrgError):
 
     def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
         super().__init__(ErrorCode.PERMISSION, message, http_status=403, data=data)
+
+
+class ConfigError(BizError):
+    """系统配置段（`4xxxx`）异常基类：配置加载 / 校验失败（启动期致命，走启动失败路径）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        super().__init__(ErrorCode.CONFIG, message, http_status=500, data=data)
 
 
 class OpenTenantError(BizError):

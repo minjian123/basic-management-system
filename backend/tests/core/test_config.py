@@ -9,12 +9,12 @@ from app.core import config
 from app.core.config import (
     AppSettings,
     BaseSettings,
-    ConfigError,
     Settings,
     get_settings,
     load_settings,
     validate_startup,
 )
+from app.core.exceptions import ConfigError
 
 _VALID_BASE = """
 [app]
