@@ -4,7 +4,8 @@
 - `current_tenant`：当前租户编码（审计 / 日志 / 同库过滤统一来源），占位默认 None。
 - `read_only`：只读上下文标记（读写分离路由依据），占位默认 False。
 - `current_masker`：当前请求的掩码器（`BaseSchema` 序列化期掩码依据），占位默认 None。
-- 认证 / 日志 / 多租户 / 脱敏阶段接入后设置对应变量。
+- `current_trace_id` / `current_span_id`：链路追踪上下文（日志关联与链路贯穿依据），占位默认 None。
+- 认证 / 日志 / 多租户 / 脱敏 / 链路阶段接入后设置对应变量。
 """
 
 from contextvars import ContextVar, Token
@@ -17,6 +18,8 @@ current_user_id: ContextVar[int | None] = ContextVar("current_user_id", default=
 current_tenant: ContextVar[str | None] = ContextVar("current_tenant", default=None)
 read_only: ContextVar[bool] = ContextVar("read_only", default=False)
 current_masker: ContextVar[BaseMasker | None] = ContextVar("current_masker", default=None)
+current_trace_id: ContextVar[str | None] = ContextVar("current_trace_id", default=None)
+current_span_id: ContextVar[str | None] = ContextVar("current_span_id", default=None)
 
 
 def set_current_tenant(tenant_code: str | None) -> Token[str | None]:
@@ -107,3 +110,63 @@ def get_current_masker() -> BaseMasker | None:
         BaseMasker | None: 掩码器；未注入则为 None（序列化直通）。
     """
     return current_masker.get()
+
+
+def set_current_trace_id(trace_id: str | None) -> Token[str | None]:
+    """设置当前链路 id。
+
+    Args:
+        trace_id: 链路 id；None 表示清除。
+
+    Returns:
+        Token[str | None]: 复位令牌。
+    """
+    return current_trace_id.set(trace_id)
+
+
+def reset_current_trace_id(token: Token[str | None]) -> None:
+    """复位当前链路 id 上下文。
+
+    Args:
+        token: `set_current_trace_id` 返回的令牌。
+    """
+    current_trace_id.reset(token)
+
+
+def get_current_trace_id() -> str | None:
+    """当前链路 id。
+
+    Returns:
+        str | None: 链路 id；不在链路内为 None。
+    """
+    return current_trace_id.get()
+
+
+def set_current_span_id(span_id: str | None) -> Token[str | None]:
+    """设置当前 span id。
+
+    Args:
+        span_id: span id；None 表示清除。
+
+    Returns:
+        Token[str | None]: 复位令牌。
+    """
+    return current_span_id.set(span_id)
+
+
+def reset_current_span_id(token: Token[str | None]) -> None:
+    """复位当前 span id 上下文。
+
+    Args:
+        token: `set_current_span_id` 返回的令牌。
+    """
+    current_span_id.reset(token)
+
+
+def get_current_span_id() -> str | None:
+    """当前 span id。
+
+    Returns:
+        str | None: span id；不在 span 内为 None。
+    """
+    return current_span_id.get()

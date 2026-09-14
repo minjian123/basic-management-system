@@ -7,6 +7,7 @@ from fastapi import FastAPI
 
 from app import __version__
 from app.api.errors import register_exception_handlers
+from app.api.middleware import TraceIdMiddleware
 from app.api.router import api_router, health_router
 from app.captcha.base import NullCaptcha
 from app.circuit.base import NullCircuitBreaker
@@ -19,6 +20,7 @@ from app.fallback.base import NullFallbackPolicy
 from app.idempotency.base import NullIdempotencyStore
 from app.lock.base import NullDistributedLock
 from app.masking.base import NullMasker
+from app.metrics.base import NullMetrics
 from app.password.base import NullPasswordPolicy
 from app.permission.base import NullPermissionChecker
 from app.ratelimit.base import NullRateLimiter
@@ -27,6 +29,7 @@ from app.repositories.demo_repository import DemoRepository
 from app.schemas.common import ApiResponse
 from app.services.demo_service import DemoService
 from app.services.module_registry import ModuleRegistry
+from app.tracing.base import NullTracer
 
 
 @asynccontextmanager
@@ -64,6 +67,9 @@ def create_app() -> FastAPI:
 
     configure_logging(get_settings())
 
+    # 中间件先于路由注册：入站链路 id 贯穿（纯 ASGI，上下文变量可传至接口内）
+    app.add_middleware(TraceIdMiddleware)
+
     register_exception_handlers(app)
 
     engine_factory = EngineFactory(get_settings())
@@ -88,6 +94,8 @@ def create_app() -> FastAPI:
     app.state.rate_limiter = NullRateLimiter()
     app.state.idempotency_store = NullIdempotencyStore()
     app.state.replay_guard = NullReplayGuard()
+    app.state.metrics = NullMetrics()
+    app.state.tracer = NullTracer()
 
     app.state.demo_service = DemoService(DemoRepository())
 
