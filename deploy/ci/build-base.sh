@@ -1,13 +1,15 @@
 #!/bin/sh
 # CI 基础镜像构建（POSIX sh；CI job 与本地 bootstrap 共用）
-# - 标签：三份锁文件合并哈希前 12 位；镜像写入 label bms.lock-hash
+# - 标签：三份锁文件 + 两份 Dockerfile 合并哈希前 12 位；镜像写入 label bms.lock-hash
+#   （Dockerfile 变更——如系统依赖调整——同样触发重建，2026-09-14 补）
 # - 幂等：本地已存在同哈希镜像则跳过（构建与消费共用宿主 docker daemon，本流水线即用新镜像）
 # - 产物：$REGISTRY_IMAGE_PREFIX/ci-backend:<tag>、ci-frontend:<tag>
 set -eu
 
 REGISTRY_IMAGE_PREFIX="${REGISTRY_IMAGE_PREFIX:?REGISTRY_IMAGE_PREFIX 未设置}"
-TAG=$(cat backend/uv.lock frontend/package-lock.json frontend-mobile/package-lock.json | sha256sum | cut -c1-12)
-echo "[ci-base] 锁文件哈希标签: $TAG"
+TAG=$(cat backend/uv.lock frontend/package-lock.json frontend-mobile/package-lock.json \
+  deploy/ci/Dockerfile.backend deploy/ci/Dockerfile.frontend | sha256sum | cut -c1-12)
+echo "[ci-base] 构建输入哈希标签（锁文件 + Dockerfile）: $TAG"
 
 if [ -n "${CI_REGISTRY_USER:-}" ]; then
   echo "$CI_REGISTRY_PASSWORD" | docker login "$CI_REGISTRY" -u "$CI_REGISTRY_USER" --password-stdin
