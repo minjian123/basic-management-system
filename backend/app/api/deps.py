@@ -1,4 +1,4 @@
-"""公共依赖汇总：数据访问、租户解析与能力域基座（掩码 / 权限 / 锁 / 认证 / 故障应对 / 可观测 / 健康检查）。
+"""公共依赖汇总：数据访问、租户解析与能力域基座（掩码 / 权限 / 锁 / 认证 / 故障应对 / 可观测 / 健康检查 / 开放接口）。
 
 统一从本模块导出，业务路由按需导入，避免分散引用。
 """
@@ -13,6 +13,7 @@ from app.idempotency.base import get_idempotency_store
 from app.lock.base import get_distributed_lock
 from app.masking.base import get_masker
 from app.metrics.base import get_metrics
+from app.oauth.base import get_oauth_server, get_scope_checker
 from app.password.base import get_password_policy
 from app.permission.base import get_permission_checker
 from app.ratelimit.base import get_rate_limiter
@@ -30,10 +31,12 @@ __all__ = [
     "get_idempotency_store",
     "get_masker",
     "get_metrics",
+    "get_oauth_server",
     "get_password_policy",
     "get_permission_checker",
     "get_rate_limiter",
     "get_replay_guard",
+    "get_scope_checker",
     "get_tenant",
     "get_tracer",
     "get_uow",
