@@ -30,6 +30,7 @@ from app.ratelimit.base import NullRateLimiter
 from app.replay.base import NullReplayGuard
 from app.repositories.demo_repository import DemoRepository
 from app.schemas.common import ApiResponse
+from app.search.base import NullSearchIndex
 from app.services.demo_service import DemoService
 from app.services.module_registry import ModuleRegistry
 from app.storage.base import NullObjectStorage
@@ -105,6 +106,7 @@ def create_app() -> FastAPI:
     app.state.scope_checker = NullScopeChecker()
     app.state.object_storage = NullObjectStorage()
     app.state.llm_provider = NullLlmProvider()
+    app.state.search_index = NullSearchIndex()
 
     app.state.demo_service = DemoService(DemoRepository())
 
