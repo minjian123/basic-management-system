@@ -19,6 +19,7 @@ from app.db.registry import EngineRegistry
 from app.fallback.base import NullFallbackPolicy
 from app.health.base import NullHealthCheckRegistry
 from app.idempotency.base import NullIdempotencyStore
+from app.llm.base import NullLlmProvider
 from app.lock.base import NullDistributedLock
 from app.masking.base import NullMasker
 from app.metrics.base import NullMetrics
@@ -103,6 +104,7 @@ def create_app() -> FastAPI:
     app.state.oauth_server = NullOAuthServer()
     app.state.scope_checker = NullScopeChecker()
     app.state.object_storage = NullObjectStorage()
+    app.state.llm_provider = NullLlmProvider()
 
     app.state.demo_service = DemoService(DemoRepository())
 
