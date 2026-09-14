@@ -11,7 +11,7 @@ from sqlalchemy.orm.exc import StaleDataError
 
 from app.core.base import BaseObject
 from app.core.context import current_user_id
-from app.core.id import SnowflakeGenerator, configure_id_generator, generate_id, initial_worker_id
+from app.core.id import SnowflakeGenerator, configure_id_generator, generate_id
 from app.models.base import Base, BaseModel
 from app.models.demo import Demo
 
@@ -171,17 +171,10 @@ def test_configure_and_invalid_worker() -> None:
 
 
 @pytest.mark.kiwi_id(30)
-def test_initial_worker_id_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
-    """WorkerId 从环境变量解析，非法 / 越界回退 0。"""
-    read_env = initial_worker_id
-    monkeypatch.delenv("BMS_WORKER_ID", raising=False)
-    assert read_env() == 0
-    monkeypatch.setenv("BMS_WORKER_ID", "abc")
-    assert read_env() == 0
-    monkeypatch.setenv("BMS_WORKER_ID", "5")
-    assert read_env() == 5
-    monkeypatch.setenv("BMS_WORKER_ID", "99999")
-    assert read_env() == 0
+def test_default_worker_id_is_zero() -> None:
+    """导入期默认 WorkerId 为 0（旧名 `BMS_WORKER_ID` 兜底已移除，部署经 `BMS_APP__WORKER_ID` 注入）。"""
+    worker_id = (SnowflakeGenerator().next_id() >> 12) & 1023
+    assert worker_id == 0
 
 
 @pytest.mark.kiwi_id(30)

@@ -2,12 +2,11 @@
 
 - 位宽 41 + 10 + 12 = 63 位（正数）：约 69 年、1024 个 Worker、单 Worker 4096 ID/ms
   （≈ 400 万/秒），支持分布式与高并发；ID 超过 JS 安全整数，接口按字符串输出。
-- WorkerId 由部署 / 配置注入（环境变量 `BMS_WORKER_ID` 或 `configure_id_generator`），
+- WorkerId 由配置基座注入（`BMS_APP__WORKER_ID`，启动期经 `configure_id_generator` 生效），
   部署须保证全局唯一；Redis 自动注册 WorkerId 作为后续回补。
 - 进程内线程安全；同毫秒序列用尽等待下一毫秒；时钟小幅回拨等待追平，超阈值抛错。
 """
 
-import os
 import threading
 import time
 
@@ -68,20 +67,7 @@ class SnowflakeGenerator(BaseObject):
             return ((ts - _EPOCH_MS) << _TIMESTAMP_SHIFT) | (self._worker_id << _WORKER_SHIFT) | self._seq
 
 
-def initial_worker_id() -> int:
-    """从环境变量读取初始 WorkerId（`BMS_WORKER_ID`，非法回退 0）。
-
-    Returns:
-        int: WorkerId。
-    """
-    try:
-        value = int(os.environ.get("BMS_WORKER_ID", "0"))
-    except ValueError:
-        return 0
-    return value if 0 <= value <= _MAX_WORKER_ID else 0
-
-
-_generator = SnowflakeGenerator(initial_worker_id())
+_generator = SnowflakeGenerator()
 _configure_lock = threading.Lock()
 
 
