@@ -200,7 +200,7 @@ python scripts/tools/graphify/localize-graph.py   # 汉化 graph.html + 生成 C
 
 ### 7.3 重建的取舍：语义层不可再生 <a id="maintain-rebuild"></a>
 
-- **代码改动**：`graphify update .` 即可，AST 层重抽、语义层保留。
+- **代码改动**：需要时运行 `graphify update .`（按需，仅用户要求时执行），AST 层重抽、语义层保留。
 - **彻底删除重建（清空 graphify-out/ 后 update）**：AST 层全量重抽，但**语义层永久丢失**——文档概念节点退化为标题级，节点数大幅缩水（本项目实测 951 → 139）。恢复只能重新跑语义抽取（4.2 节）或从备份恢复。
 - **备份**：重建前先整体复制 `graphify-out/` 到临时目录；graphify 自身也会按日期备份当日图谱。
 

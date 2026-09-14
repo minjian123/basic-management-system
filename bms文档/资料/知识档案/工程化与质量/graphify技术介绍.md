@@ -40,7 +40,7 @@
 - 知识图谱辅助**代码理解与架构分析**：AI 助手处理代码库问题时优先 `graphify query`，关系用 `graphify path`，概念用 `graphify explain`（见平台《架构设计 · 总体架构》「技术栈全景 · 工程化与质量」节"知识图谱：graphify"）。
 - 图谱索引范围覆盖**代码与「文档」目录**：规划、规范、设计文档的语义层一并入图，文档与代码的关联可查（见平台《项目规划说明》「工程化与质量」节）。
 - **中文查询分词**：安装 `chinese` 扩展（jieba），中文问题先分词再匹配节点，避免"两字滑动窗口"的降级效果（安装命令见下）。
-- **日常维护纪律**：修改代码或文档后运行 `graphify update .` 保持图谱最新（纯 AST，无 API 开销），再跑 `python scripts/tools/graphify/localize-graph.py` 收尾（汉化 graph.html + 生成中文架构图 CALLFLOW.html）。
+- **更新纪律（按需）**：图谱**仅在用户要求时**运行 `graphify update .` 更新（纯 AST，无 API 开销），再跑 `python scripts/tools/graphify/localize-graph.py` 收尾（汉化 graph.html + 生成中文架构图 CALLFLOW.html）；**不随代码 / 文档变更自动更新**。
 - **AI 能力输入源**：帮助文档智能维护以功能代码的 graphify 知识图谱为输入之一（见平台《项目规划说明》「后端核心」节 AI 能力、《[LLM 适配层技术介绍](../后端核心/LLM适配层技术介绍.md)》）。
 - 安装与排障细节以《[graphify 部署使用说明](?../../AI/graphify部署使用说明.md》为准（本机 Windows 环境实测）。
 
