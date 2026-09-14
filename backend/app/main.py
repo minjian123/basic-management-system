@@ -25,6 +25,8 @@ from app.masking.base import NullMasker
 from app.metrics.base import NullMetrics
 from app.notify.base import NullNotifier
 from app.oauth.base import NullOAuthServer, NullScopeChecker
+from app.outbound.http import NullHttpClient
+from app.outbound.webhook import NullWebhookSender
 from app.password.base import NullPasswordPolicy
 from app.permission.base import NullPermissionChecker
 from app.ratelimit.base import NullRateLimiter
@@ -111,6 +113,8 @@ def create_app() -> FastAPI:
     app.state.search_index = NullSearchIndex()
     app.state.notifier = NullNotifier()
     app.state.realtime_publisher = NullRealtimePublisher()
+    app.state.http_client = NullHttpClient()
+    app.state.webhook_sender = NullWebhookSender()
 
     app.state.demo_service = DemoService(DemoRepository())
 
