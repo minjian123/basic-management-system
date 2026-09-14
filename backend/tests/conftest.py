@@ -7,6 +7,7 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from app.core.config import Settings, get_settings
+from app.core.context import current_client_ip, current_request_id, current_tenant, current_trace_id, current_user_id
 from app.main import create_app
 
 
@@ -27,6 +28,21 @@ def isolate_settings(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()
+
+
+@pytest.fixture(autouse=True)
+def reset_request_context() -> Iterator[None]:
+    """用例结束后复位请求上下文（链路 / 请求 / 来源 / 租户 / 用户），防跨用例污染。
+
+    Yields:
+        None: 用例运行期。
+    """
+    yield
+    current_trace_id.set(None)
+    current_request_id.set(None)
+    current_client_ip.set(None)
+    current_tenant.set(None)
+    current_user_id.set(None)
 
 
 @pytest.fixture

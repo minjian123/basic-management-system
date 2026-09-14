@@ -1,4 +1,4 @@
-"""入站链路 id 中间件测试（Kiwi 44）：生成 / 回显 / 上下文贯穿 / 请求结束复位。"""
+"""入站链路 id 中间件测试（Kiwi 44 生成 / 回显 / 上下文贯穿 / 复位；Kiwi 63 request_id 兜底）。"""
 
 import pytest
 from fastapi import FastAPI
@@ -6,7 +6,13 @@ from httpx import ASGITransport, AsyncClient
 from starlette.types import Message, Receive, Scope, Send
 
 from app.api.middleware import TraceIdMiddleware
-from app.core.context import get_current_trace_id, reset_current_trace_id, set_current_trace_id
+from app.core.context import (
+    get_current_trace_id,
+    reset_current_request_id,
+    reset_current_trace_id,
+    set_current_request_id,
+    set_current_trace_id,
+)
 from app.tracing.base import TRACE_ID_HEADER, TRACE_ID_LENGTH
 
 
@@ -62,6 +68,21 @@ async def test_resets_and_restores_previous_context() -> None:
     assert first_trace != second_trace
     assert first_trace != outer
     assert get_current_trace_id() is None
+
+
+@pytest.mark.kiwi_id(63)
+async def test_falls_back_to_request_id() -> None:
+    """上下文已有 request_id（请求日志中间件先设）时，trace_id 取其兜底。"""
+    request_id = "r" * TRACE_ID_LENGTH
+    token = set_current_request_id(request_id)
+    try:
+        async with AsyncClient(transport=ASGITransport(app=_build_app()), base_url="http://test") as client:
+            resp = await client.get("/whoami")
+    finally:
+        reset_current_request_id(token)
+
+    assert resp.headers[TRACE_ID_HEADER] == request_id
+    assert resp.json() == {"trace_id": request_id}
 
 
 @pytest.mark.kiwi_id(44)

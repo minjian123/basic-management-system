@@ -6,6 +6,8 @@ debug = true
 [log]
 level = "DEBUG"
 format = "console"
+# 慢请求阈值（dev 严：便于发现性能问题）
+slow_request_ms = 500
 
 [cors]
 allow_origins = ["http://localhost:5173", "http://127.0.0.1:5173"]

@@ -3,6 +3,8 @@
 [log]
 level = "INFO"
 format = "json"
+# 慢请求阈值（test 基线：与基线配置一致，显式保留）
+slow_request_ms = 1000
 
 [cors]
 allow_origins = []
