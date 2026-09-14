@@ -39,4 +39,5 @@ class ErrorCode(IntEnum):
     RATE_LIMIT = 10005
     AUTH = 20001
     PERMISSION = 30001
+    CONFIG = 40001
     TENANT_NOT_FOUND = 80001

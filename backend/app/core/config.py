@@ -27,6 +27,7 @@ from pydantic_settings import (
 )
 from sqlalchemy.engine import make_url
 
+from app.core.exceptions import ConfigError
 from app.core.id import configure_id_generator
 from app.schemas.base import BaseSchema
 
@@ -36,10 +37,6 @@ _CONFIG_DIR = Path(__file__).resolve().parents[2]  # backend/
 _BASE_CONFIG = "config.toml"
 _ENV_FILE = ".env"
 _LOG_LEVELS = ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL")
-
-
-class ConfigError(RuntimeError):
-    """配置加载 / 校验失败（启动即报错，消息含键名、不含键值）。"""
 
 
 class BaseSettings(BaseSchema):
