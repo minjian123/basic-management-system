@@ -14,6 +14,7 @@
 | `tools/gitlab/` | GitLab 流水线盯守（`watch_pipeline.py`） |
 | `tools/reorder-design/` | 设计文档节点编号重排 |
 | `tools/base-check/` | 基座完整性自检（`check-base.py`，CI job `base-integrity`） |
+| `tools/check-docs/` | 项目文档状态一致性核对（`check-status.py`：需求 / 任务 / 计划三处，同挂 `base-integrity`） |
 | `tools/winrm/` | mjw（Windows）远程控制（WinRM 会话与电源） |
 | `tools/vision/` | mjw 识图 MCP（opencode MCP 服务） |
 | `tools/dsh/` | DeepSeek Harness（dsh）维护脚本 |
