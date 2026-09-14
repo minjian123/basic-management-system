@@ -7,9 +7,12 @@ ENV PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple \
     UV_PROJECT_ENVIRONMENT=/opt/bms-venv \
     UV_NO_SYNC=1
 
+# apt 换清华源（python:3.14-slim 为 Debian trixie，DEB822 格式源文件；官方源 2026-09-14 在 mjbk
+# 实测仅 ~76 KB/s，会长时间卡在 trixie/main Packages 索引上——见流水线 165）
 # libatomic1：pyright 自带预编译 node 的运行依赖；slim 镜像缺失时报
 # 「libatomic.so.1: cannot open shared object file」（2026-09-14 实测，backend-typecheck job）
-RUN apt-get update \
+RUN sed -i 's|deb.debian.org|mirrors.tuna.tsinghua.edu.cn|g' /etc/apt/sources.list.d/debian.sources \
+ && apt-get update \
  && apt-get install -y --no-install-recommends libatomic1 \
  && rm -rf /var/lib/apt/lists/*
 
