@@ -42,7 +42,8 @@ BMS 作为平台支撑独立业务产品按"平台扩展"复用（产品仓库�
 
 > 阶段划分与验收口径见《[项目规划说明](bms文档/规划/项目规划说明.md)》「开发计划与验收标准」节；工期、里程碑与甘特图见《[总体项目规划](bms文档/规划/总体项目规划.md)》（19 个阶段：Alpha 阶段一~十 / Beta 阶段十一~十五 / GA 阶段十六~十九）。
 
-- 阶段一（项目骨架）收尾中：工程骨架 6/6、后端基座 5/5 已交付；后端基础能力 2/3（配置管理、日志体系完成，健康检查待执行）；CI 与阶段验收任务待推进。
+- **阶段一（项目骨架）已完成（2026-09-15）**：54/54 需求闭环（工程骨架 6、后端基座 41、后端基础能力 3、CI 与阶段验收 4）；**M1 门禁 10 项全部达标**（骨架 + 基座体系可用），逐项结论与证据索引见《[阶段测试报告](bms文档/项目/01_项目骨架/测试报告_项目骨架.md)》与《[需求总览](bms文档/项目/01_项目骨架/需求/00_需求_项目骨架.md)》「M1 验收门禁」表。
+- 后端基座与机制类当前为**接口占位**（应用可启动、依赖注入可解析、占位可断言），真实实现随首个落库阶段（认证 / RBAC）回补；52 条待办逐条登记于《[项目骨架计划](bms文档/项目/01_项目骨架/计划/01_计划_项目骨架.md)》「后续阶段待办」节。
 - 阶段三（后端插件化）目录已建、待启动；阶段四（前端组件库）需求基线已建（任务 / 计划待生成）；阶段五（前端插件化）目录已建。
 - 三工程均可本地起服务：后端 `/healthz`（存活）与 `/readyz`（就绪）+ PC / 移动端前端页面；详细进度见《[文档首页](bms文档/文档首页.md)》第 5 节「项目文档」。
 
@@ -69,6 +70,19 @@ cd frontend-mobile
 npm ci
 npm run dev
 npm run test
+```
+
+本地门禁（与 CI 同口径；先 `cd backend`）：
+
+```bash
+uv run ruff check . && uv run ruff format --check . && uv run pyright
+uv run pytest -q --cov=app --cov-branch --cov-fail-under=70    # 覆盖率门禁 ≥ 70%
+uv run python -m ops.check_modules                             # 模块注册清单校验
+cd ../frontend && npm run lint && npm run test                 # 移动端：cd ../frontend-mobile
+cd .. && python3 scripts/tools/base-check/check-base.py        # 基座自检（须在仓库根）
+python3 scripts/tools/check-docs/check-status.py              # 需求 / 任务 / 计划状态一致性
+python3 scripts/tools/governance/collect_metrics.py           # 阶段度量与用例统计（阶段末）
+python3 scripts/tools/governance/review_stage.py              # 阶段末复盘清单
 ```
 
 ## 目录结构
@@ -176,7 +190,7 @@ bms/
 │   ├── compose/              # Docker Compose（base / gitlab / kiwi）
 │   └── setup/                # 环境安装脚本（install-all.sh）
 ├── scripts/                  # 开发期工具链
-│   └── tools/                # backup / base-check / bg / defect / dsh / gitlab / graphify / reorder-design / reorder-stage / vision / winrm / wol / workbuddy
+│   └── tools/                # backup / base-check / bg / check-docs / defect / dsh / gitlab / governance / graphify / reorder-design / reorder-stage / vision / winrm / wol / workbuddy
 ├── ops/                      # 产品运维脚本（种子数据、备份恢复、租户库迁移，后续阶段填充）
 │   └── README.md             # 目录说明
 └── bms文档/                  # 项目文档
@@ -209,6 +223,10 @@ bms/
 | 阶段工期、里程碑与甘特图、交付物、质量与风险 | [规划/总体项目规划](bms文档/规划/总体项目规划.md) |
 | 开发环境部署方案（分工、服务清单、端口与磁盘规划） | [规划/开发部署规划](bms文档/规划/开发部署规划.md) |
 | 平台可扩展性（三层模型、工作区模型） | [规划/平台可扩展性规划](bms文档/规划/平台可扩展性规划.md) |
+| 阶段一 需求基线（54 条）与 M1 验收门禁 | [项目/01_项目骨架/需求/00_需求_项目骨架](bms文档/项目/01_项目骨架/需求/00_需求_项目骨架.md) |
+| 阶段一 任务基线（需求域 01 ~ 04） | [项目/01_项目骨架/任务/01_工程骨架](bms文档/项目/01_项目骨架/任务/01_工程骨架/01_工程骨架.md) · [04_CI与阶段验收](bms文档/项目/01_项目骨架/任务/04_CI与阶段验收/04_CI与阶段验收.md) |
+| 阶段一 排期计划与遗留台账 | [项目/01_项目骨架/计划/01_计划_项目骨架](bms文档/项目/01_项目骨架/计划/01_计划_项目骨架.md) |
+| **阶段测试报告（阶段一）** | [项目/01_项目骨架/测试报告_项目骨架](bms文档/项目/01_项目骨架/测试报告_项目骨架.md) |
 | 全量文档导航 | [文档首页](bms文档/文档首页.md) |
 | 通用基座文件权威清单（产品引用口径） | [基座文档清单](bms文档/基座文档清单.md) |
 | 后端基类体系（基类清单 + 强制用法） | [后端基类清单](bms文档/后端基类清单.md) · [规范/后端开发规范](bms文档/规范/后端开发规范.md) |

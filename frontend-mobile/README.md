@@ -4,7 +4,9 @@
 
 ## 项目简介
 
-BMS 平台移动端 H5：Vue 3 + Vite + TypeScript 严格模式；Vant 4（unplugin 按需引入）、Vue Router 4、Pinia、Axios 统一响应解析（与 PC 端同款基线）、vue-i18n；postcss px→vw 视口适配（设计稿 375）+ 安全区变量；ESLint + Prettier + Vitest 质量链路。
+BMS 平台移动端 H5：Vue 3 + Vite + TypeScript 严格模式；Vant 4（unplugin 按需引入）、Vue Router 4、Pinia、Axios 统一响应解析（与 PC 端同款基线）、vue-i18n；postcss px→vw 视口适配（设计稿 375）+ 安全区变量；ESLint + Prettier + Vitest 质量链路（覆盖率阈值 70%，当前 **100%**）。
+
+阶段一交付：工程初始化 + 前端基类体系与公共组合式基座（与 PC 端同款），Vitest **4 文件 / 18 用例**全绿（《[阶段测试报告](../bms文档/项目/01_项目骨架/测试报告_项目骨架.md)》）；移动端页面与审批流随对应阶段展开。
 
 ## 快速启动
 
@@ -15,7 +17,8 @@ cd frontend-mobile
 npm ci
 npm run dev       # http://127.0.0.1:5174（默认页展示 backend 连通状态；375×667 视口）
 npm run lint      # ESLint（--max-warnings 0）
-npm run test      # Vitest 冒烟（Kiwi 20）
+npm run test      # Vitest（4 文件 / 18 用例；Kiwi 20 / 22 / 24 / 26）
+npm run test:cov  # 同上 + 覆盖率（v8，阈值 70%，当前 100%）
 npm run build     # vue-tsc -b && vite build
 ```
 
@@ -64,5 +67,6 @@ frontend-mobile/
 
 - 仓库根 [README](../README.md)
 - [01_05 任务文档](../bms文档/项目/01_项目骨架/任务/01_工程骨架/01_工程骨架_05_frontend-mobile工程初始化/01_工程骨架_05_frontend-mobile工程初始化.md) · [详细设计](../bms文档/项目/01_项目骨架/任务/01_工程骨架/01_工程骨架_05_frontend-mobile工程初始化/设计/05_详细设计_01_frontend-mobile工程初始化.md)
-- 《[前端开发规范](../bms文档/规范/前端开发规范.md)》
-- 《[架构设计 · 前端架构](../bms文档/设计/架构设计/28_架构设计_前端架构.md)》移动端节
+- 阶段一：[需求总览](../bms文档/项目/01_项目骨架/需求/00_需求_项目骨架.md) · [排期计划](../bms文档/项目/01_项目骨架/计划/01_计划_项目骨架.md) · [阶段测试报告](../bms文档/项目/01_项目骨架/测试报告_项目骨架.md)
+- 《[前端开发规范](../bms文档/规范/前端开发规范.md)》·《[前端基类清单](../bms文档/前端基类清单.md)》
+- 《[架构设计 · 前端架构](../bms文档/设计/架构设计/08_架构设计_前端架构.md)》移动端节

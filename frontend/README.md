@@ -4,7 +4,9 @@
 
 ## 项目简介
 
-BMS 平台 PC 管理端：Vue 3 + Vite + TypeScript 严格模式；Element Plus UI、Vue Router 4、Pinia、Axios 统一响应解析、vue-i18n；ESLint + Prettier + Vitest 质量链路；开发代理连通 backend。
+BMS 平台 PC 管理端：Vue 3 + Vite + TypeScript 严格模式；Element Plus UI、Vue Router 4、Pinia、Axios 统一响应解析、vue-i18n；ESLint + Prettier + Vitest 质量链路（覆盖率阈值 70%，当前 **100%**）；开发代理连通 backend。
+
+阶段一交付：工程初始化 + 前端基类体系与公共组合式基座（`utils/` 六个基座、`stores/base.ts`、`api/` 契约与 Axios 基线），Vitest **4 文件 / 18 用例**全绿（《[阶段测试报告](../bms文档/项目/01_项目骨架/测试报告_项目骨架.md)》）；组件库与页面随阶段四（前端组件库）展开。
 
 ## 快速启动
 
@@ -15,7 +17,8 @@ cd frontend
 npm ci
 npm run dev       # http://127.0.0.1:5173（默认页展示 backend 应用名/版本）
 npm run lint      # ESLint（--max-warnings 0）
-npm run test      # Vitest 冒烟（Kiwi 19）
+npm run test      # Vitest（4 文件 / 18 用例；Kiwi 19 / 21 / 23 / 25）
+npm run test:cov  # 同上 + 覆盖率（v8，阈值 70%，当前 100%）
 npm run build     # vue-tsc -b && vite build
 ```
 
@@ -63,5 +66,6 @@ frontend/
 
 - 仓库根 [README](../README.md)
 - [01_04 任务文档](../bms文档/项目/01_项目骨架/任务/01_工程骨架/01_工程骨架_04_frontend工程初始化/01_工程骨架_04_frontend工程初始化.md) · [详细设计](../bms文档/项目/01_项目骨架/任务/01_工程骨架/01_工程骨架_04_frontend工程初始化/设计/04_详细设计_01_frontend工程初始化.md)
-- 《[前端开发规范](../bms文档/规范/前端开发规范.md)》
-- 《[架构设计 · 前端架构](../bms文档/设计/架构设计/28_架构设计_前端架构.md)》
+- 阶段一：[需求总览](../bms文档/项目/01_项目骨架/需求/00_需求_项目骨架.md) · [排期计划](../bms文档/项目/01_项目骨架/计划/01_计划_项目骨架.md) · [阶段测试报告](../bms文档/项目/01_项目骨架/测试报告_项目骨架.md)
+- 《[前端开发规范](../bms文档/规范/前端开发规范.md)》·《[前端基类清单](../bms文档/前端基类清单.md)》
+- 《[架构设计 · 前端架构](../bms文档/设计/架构设计/08_架构设计_前端架构.md)》
