@@ -83,6 +83,8 @@ base-integrity:
   image: python:3.14-slim
   script:
     - python scripts/tools/base-check/check-base.py
+    # 项目文档状态一致性（需求 / 任务 / 计划三处；规则见《任务文档规范》§7 与 04-3 详细设计 §5）
+    - python scripts/tools/check-docs/check-status.py
 
 # ---- 后端：ruff + pytest（SQLite）----
 backend-lint:
