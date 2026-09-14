@@ -19,6 +19,7 @@ from typing import cast
 
 from fastapi import Request
 
+from app.core.base import BaseObject
 from app.core.capability import BaseCapability, BaseNullObject
 
 __all__ = [
@@ -45,7 +46,7 @@ NULL_SEARCH_HIT_ID = "null-search-hit"
 
 
 @dataclass(frozen=True)
-class SearchDocument:
+class SearchDocument(BaseObject):
     """待索引文档（`tenant_id` 由实现从上下文注入，不在本契约显式声明）。"""
 
     index: str
@@ -59,7 +60,7 @@ class SearchDocument:
 
 
 @dataclass(frozen=True)
-class SearchQuery:
+class SearchQuery(BaseObject):
     """检索请求。"""
 
     index: str
@@ -79,7 +80,7 @@ class SearchQuery:
 
 
 @dataclass(frozen=True)
-class SearchHit:
+class SearchHit(BaseObject):
     """命中项（只含 id / 分数 / 高亮，详情回查数据库）。"""
 
     id: str
@@ -93,7 +94,7 @@ class SearchHit:
 
 
 @dataclass(frozen=True)
-class SearchResult:
+class SearchResult(BaseObject):
     """检索结果。"""
 
     hits: tuple[SearchHit, ...]

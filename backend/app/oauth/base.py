@@ -22,6 +22,7 @@ from typing import cast
 
 from fastapi import Request
 
+from app.core.base import BaseObject
 from app.core.capability import BaseCapability, BaseNullObject
 
 __all__ = [
@@ -49,7 +50,7 @@ NULL_ACCESS_TOKEN = "null-access-token"
 
 
 @dataclass(frozen=True)
-class ClientCredentials:
+class ClientCredentials(BaseObject):
     """客户端凭证（Client Credentials 签发入参）。"""
 
     client_id: str
@@ -63,7 +64,7 @@ class ClientCredentials:
 
 
 @dataclass(frozen=True)
-class OAuthToken:
+class OAuthToken(BaseObject):
     """令牌响应（OAuth2 令牌语义；占位为固定值）。"""
 
     access_token: str

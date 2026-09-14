@@ -20,6 +20,7 @@ from typing import cast
 
 from fastapi import Request
 
+from app.core.base import BaseObject
 from app.core.capability import BaseCapability, BaseNullObject
 from app.core.exceptions import RateLimitError
 
@@ -51,7 +52,7 @@ def build_rate_limit_key(*, dimension: str, target: str, tenant: str | None = No
 
 
 @dataclass(frozen=True)
-class RateLimitRule:
+class RateLimitRule(BaseObject):
     """限流规则：窗口内允许的最大次数。"""
 
     limit: int
@@ -62,7 +63,7 @@ class RateLimitRule:
 
 
 @dataclass(frozen=True)
-class RateLimitDecision:
+class RateLimitDecision(BaseObject):
     """限流判定结果（供放行判断与 `X-RateLimit-*` 响应头）。"""
 
     allowed: bool

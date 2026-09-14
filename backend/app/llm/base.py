@@ -19,6 +19,7 @@ from typing import cast
 
 from fastapi import Request
 
+from app.core.base import BaseObject
 from app.core.capability import BaseCapability, BaseNullObject
 
 __all__ = [
@@ -49,7 +50,7 @@ NULL_OCR_TEXT = "null-ocr-text"
 
 
 @dataclass(frozen=True)
-class ChatMessage:
+class ChatMessage(BaseObject):
     """对话消息。"""
 
     content: str
@@ -60,7 +61,7 @@ class ChatMessage:
 
 
 @dataclass(frozen=True)
-class ChatResult:
+class ChatResult(BaseObject):
     """对话结果。"""
 
     content: str
@@ -74,7 +75,7 @@ class ChatResult:
 
 
 @dataclass(frozen=True)
-class EmbeddingResult:
+class EmbeddingResult(BaseObject):
     """向量化结果。"""
 
     vectors: tuple[tuple[float, ...], ...]
@@ -88,7 +89,7 @@ class EmbeddingResult:
 
 
 @dataclass(frozen=True)
-class OcrResult:
+class OcrResult(BaseObject):
     """识别结果。"""
 
     text: str

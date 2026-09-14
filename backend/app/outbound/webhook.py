@@ -16,6 +16,7 @@ from typing import cast
 
 from fastapi import Request
 
+from app.core.base import BaseObject
 from app.core.capability import BaseCapability, BaseNullObject
 
 __all__ = [
@@ -27,7 +28,7 @@ __all__ = [
 
 
 @dataclass(frozen=True)
-class WebhookResult:
+class WebhookResult(BaseObject):
     """投递结果数据契约。"""
 
     delivered: bool

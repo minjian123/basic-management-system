@@ -14,6 +14,7 @@ from typing import cast
 
 from fastapi import Request
 
+from app.core.base import BaseObject
 from app.core.capability import BaseCapability, BaseNullObject
 
 __all__ = [
@@ -33,7 +34,7 @@ DEFAULT_MAX_RETRIES = 3
 
 
 @dataclass(frozen=True)
-class HttpResponse:
+class HttpResponse(BaseObject):
     """响应数据契约。"""
 
     status_code: int

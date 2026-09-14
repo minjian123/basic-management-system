@@ -33,7 +33,7 @@ __all__ = [
 
 
 @dataclass(frozen=True)
-class QueryResult:
+class QueryResult(BaseObject):
     """查询结果。"""
 
     rows: tuple[Mapping[str, object], ...]

@@ -20,6 +20,7 @@ from typing import cast
 
 from fastapi import Request
 
+from app.core.base import BaseObject
 from app.core.capability import BaseCapability, BaseNullObject
 
 __all__ = [
@@ -59,7 +60,7 @@ class WorkflowAction(StrEnum):
 
 
 @dataclass(frozen=True)
-class ProcessDefinition:
+class ProcessDefinition(BaseObject):
     """流程定义（BPMN 2.0）。"""
 
     definition_key: str
@@ -73,7 +74,7 @@ class ProcessDefinition:
 
 
 @dataclass(frozen=True)
-class ProcessInstance:
+class ProcessInstance(BaseObject):
     """流程实例。"""
 
     process_id: str
@@ -96,7 +97,7 @@ class ProcessInstance:
 
 
 @dataclass(frozen=True)
-class WorkflowTask:
+class WorkflowTask(BaseObject):
     """流程任务（待办）。"""
 
     task_id: str

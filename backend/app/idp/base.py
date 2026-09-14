@@ -18,6 +18,7 @@ from typing import cast
 
 from fastapi import Request
 
+from app.core.base import BaseObject
 from app.core.capability import BaseCapability, BaseNullObject
 
 __all__ = [
@@ -34,7 +35,7 @@ IDP_PROTOCOLS: tuple[str, ...] = ("oidc", "cas", "wecom", "dingtalk")
 
 
 @dataclass(frozen=True)
-class IdentityToken:
+class IdentityToken(BaseObject):
     """身份源令牌。"""
 
     access_token: str
@@ -48,7 +49,7 @@ class IdentityToken:
 
 
 @dataclass(frozen=True)
-class IdentityUser:
+class IdentityUser(BaseObject):
     """身份源用户。"""
 
     subject: str
