@@ -1,0 +1,8 @@
+{
+  // Python 后端：解释器与分析根
+  // 多根工作区（bizs.code-workspace）下，本文件只对 bms folder 生效；
+  // 工作区根的 .vscode/settings.json 仅作用于「工作区（配置）」folder，管不到后端代码。
+  "python.defaultInterpreterPath": "backend/.venv/bin/python",
+  // 让 `app` / `tests` 可被解析（[tool.pyright] include 相对 backend/）
+  "python.analysis.extraPaths": ["backend"]
+}

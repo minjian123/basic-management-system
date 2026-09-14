@@ -1,0 +1,16 @@
+{
+  // 打开工作区时 VS Code 会提示安装缺失的推荐扩展
+  "recommendations": [
+    // Vue 3 官方语言支持（Volar）：.vue 与 TS 之间跳转、类型检查、模板补全
+    "Vue.volar",
+    // Python：解释器管理与调试
+    "ms-python.python",
+    // Python：语言服务（跳转 / 补全 / 类型检查，后端跳转依赖它）
+    "ms-python.vscode-pylance",
+    // 前端 ESLint 与 Prettier（frontend / frontend-mobile 双工程）
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode",
+    // md 文档中 mermaid 图形预览（见 AGENTS.md「文档要求」节）
+    "bierner.markdown-mermaid"
+  ]
+}
