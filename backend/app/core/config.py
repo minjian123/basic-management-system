@@ -1,16 +1,45 @@
-"""core 层配置基座：分区模型与读取接口（结构占位）。
+"""core 层配置基座：真实读取 config.toml + 环境分层 + `BMS_` 覆盖 + 启动校验。
 
-- 占位实现返回默认值，**不读 `config.toml` / 环境变量**；真实读取、`BMS_` 覆盖、
-  `BMS_ENV` 分层与启动校验由 03-1 配置管理落地后回填本基座登记。
+- 加载优先级（高 → 低）：生效环境回写 `app.env` → 显式入参 → 进程环境变量（`BMS_` 前缀，
+  嵌套键双层下划线）→ `backend/.env` → `config.{env}.toml`（环境覆盖）→ `config.toml`（基线）。
+- 生效环境由 `BMS_ENV`（进程环境 / `backend/.env`）指定，未设置时取 `[app].env`，再缺省 `dev`；
+  非法值、缺必填键、类型 / 取值非法、未知或拼错键一律启动即报错并指出键名（不打印键值）。
+- 密钥类配置只走环境变量，不入 `config.toml` / `.env.example` / 日志。
 - 所有模型继承 `BaseSchema`（纳入基类体系，稳定序列化）。
 """
 
+import os
+import tomllib
 from functools import lru_cache
-from typing import Literal
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Literal, cast
 
-from pydantic import ConfigDict, Field
+from dotenv import dotenv_values
+from pydantic import ConfigDict, Field, ValidationError, field_validator
+from pydantic.fields import FieldInfo
+from pydantic_settings import (
+    BaseSettings as PydanticBaseSettings,
+)
+from pydantic_settings import (
+    PydanticBaseSettingsSource,
+    SettingsConfigDict,
+    TomlConfigSettingsSource,
+)
+from sqlalchemy.engine import make_url
 
+from app.core.id import configure_id_generator
 from app.schemas.base import BaseSchema
+
+_ENVIRONMENTS = ("dev", "test", "prod")
+_ENV_SELECTOR = "BMS_ENV"
+_CONFIG_DIR = Path(__file__).resolve().parents[2]  # backend/
+_BASE_CONFIG = "config.toml"
+_ENV_FILE = ".env"
+_LOG_LEVELS = ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL")
+
+
+class ConfigError(RuntimeError):
+    """配置加载 / 校验失败（启动即报错，消息含键名、不含键值）。"""
 
 
 class BaseSettings(BaseSchema):
@@ -22,25 +51,45 @@ class BaseSettings(BaseSchema):
 class AppSettings(BaseSettings):
     """应用元信息。"""
 
-    name: str = "BMS 基础管理系统"
+    name: str
     env: Literal["dev", "test", "prod"] = "dev"
-    debug: bool = True
+    debug: bool = False
+    worker_id: int = Field(default=0, ge=0, le=1023)
 
 
 class ServerSettings(BaseSettings):
     """HTTP 服务。"""
 
-    host: str = "0.0.0.0"
-    port: int = 8000
+    host: str
+    port: int
     workers: int = 1
 
 
 class LogSettings(BaseSettings):
-    """日志（真实实现见 03-2）。"""
+    """日志（真实渲染见 03-2）。"""
 
-    level: str = "DEBUG"
-    format: str = "console"
+    level: str
+    format: Literal["console", "json"] = "json"
     slow_request_ms: int = 1000
+
+    @field_validator("level")
+    @classmethod
+    def _normalize_level(cls, value: str) -> str:
+        """日志级别归一化为大写并校验取值。
+
+        Args:
+            value: 原始级别字符串。
+
+        Returns:
+            str: 归一化级别。
+
+        Raises:
+            ValueError: 取值不在允许集合内。
+        """
+        upper = value.strip().upper()
+        if upper not in _LOG_LEVELS:
+            raise ValueError(f"log.level 取值非法：{value}（允许 {'/'.join(_LOG_LEVELS)}）")
+        return upper
 
 
 class DbPoolSettings(BaseSettings):
@@ -55,17 +104,26 @@ class DbPoolSettings(BaseSettings):
 class DatabaseTargetSettings(BaseSettings):
     """单个数据库目标（url 不含密码；密码经环境变量注入）。"""
 
-    url: str = ""
+    url: str
     replicas: list[str] = Field(default_factory=list)
+    password: str = ""
     pool: DbPoolSettings = Field(default_factory=DbPoolSettings)
+
+    def resolved_url(self) -> str:
+        """取最终连接串（分字段密码优先合成，供建引擎使用）。
+
+        Returns:
+            str: 可能含密码的连接串（禁止写入日志）。
+        """
+        if not self.password:
+            return self.url
+        return make_url(self.url).set(password=self.password).render_as_string(hide_password=False)
 
 
 class DatabaseSettings(BaseSettings):
     """三库目标（平台 / 租户 / 归档；dev 默认多 SQLite 文件）。"""
 
-    platform: DatabaseTargetSettings = Field(
-        default_factory=lambda: DatabaseTargetSettings(url="sqlite+aiosqlite:///./bms_platform.db")
-    )
+    platform: DatabaseTargetSettings
     tenants: DatabaseTargetSettings = Field(
         default_factory=lambda: DatabaseTargetSettings(url="sqlite+aiosqlite:///./bms_tenant_demo.db")
     )
@@ -101,30 +159,205 @@ class SecuritySettings(BaseSettings):
 class CorsSettings(BaseSettings):
     """跨域。"""
 
-    allow_origins: list[str] = Field(default_factory=lambda: ["http://localhost:5173"])
+    allow_origins: list[str] = Field(default_factory=list)
     allow_methods: list[str] = Field(default_factory=lambda: ["*"])
     allow_headers: list[str] = Field(default_factory=lambda: ["*"])
     allow_credentials: bool = True
 
 
-class Settings(BaseSettings):
-    """应用配置（占位：默认值，不读文件 / 环境变量）。"""
+def _config_dir() -> Path:
+    """配置目录（默认 backend/ 根；测试可 monkeypatch）。
 
-    app: AppSettings = Field(default_factory=AppSettings)
-    server: ServerSettings = Field(default_factory=ServerSettings)
-    log: LogSettings = Field(default_factory=LogSettings)
-    database: DatabaseSettings = Field(default_factory=DatabaseSettings)
+    Returns:
+        Path: 配置目录。
+    """
+    return _CONFIG_DIR
+
+
+def _read_base_app_env() -> str:
+    """读取基线 `config.toml` 的 `[app].env`（不存在时返回空串）。
+
+    Returns:
+        str: `[app].env` 原始值，缺失返回空串。
+    """
+    base = _config_dir() / _BASE_CONFIG
+    if not base.is_file():
+        return ""
+    raw = tomllib.loads(base.read_text(encoding="utf-8"))
+    app = raw.get("app")
+    if not isinstance(app, dict):
+        return ""
+    return str(cast("dict[str, Any]", app).get("env", "")).strip()
+
+
+def _resolve_environment() -> str:
+    """解析生效环境：`BMS_ENV`（进程 / `.env`）→ `[app].env` → `dev`。
+
+    Returns:
+        str: 生效环境（dev / test / prod）。
+
+    Raises:
+        ConfigError: 环境取值非法。
+    """
+    raw = os.environ.get(_ENV_SELECTOR, "").strip()
+    env_file = _config_dir() / _ENV_FILE
+    if not raw and env_file.is_file():
+        raw = (dotenv_values(env_file).get(_ENV_SELECTOR) or "").strip()
+    if not raw:
+        raw = _read_base_app_env()
+    if not raw:
+        return "dev"
+    if raw not in _ENVIRONMENTS:
+        allowed = "/".join(_ENVIRONMENTS)
+        raise ConfigError(f"环境取值非法：{raw}（允许 {allowed}；由 BMS_ENV 或 [app].env 指定）")
+    return raw
+
+
+class _EnvSelectorSource(PydanticBaseSettingsSource):
+    """强制回写 `app.env = 生效环境` 的配置源（优先序最高）。"""
+
+    def __init__(self, settings_cls: type[PydanticBaseSettings], env: str) -> None:
+        """初始化。
+
+        Args:
+            settings_cls: Settings 类。
+            env: 生效环境。
+        """
+        super().__init__(settings_cls)
+        self._env = env
+
+    def get_field_value(self, field: FieldInfo, field_name: str) -> tuple[Any, str, bool]:  # pragma: no cover
+        """不按字段取单值（统一在 `__call__` 返回；协议要求实现，运行期不经此路径）。
+
+        Args:
+            field: 字段信息。
+            field_name: 字段名。
+
+        Returns:
+            tuple: 固定空值占位。
+        """
+        del field, field_name
+        return None, "", False
+
+    def __call__(self) -> dict[str, Any]:
+        """返回 `app.env` 覆盖。
+
+        Returns:
+            dict: 仅含生效环境的嵌套字典。
+        """
+        return {"app": {"env": self._env}}
+
+
+class Settings(PydanticBaseSettings, BaseSettings):  # pyright: ignore[reportIncompatibleVariableOverride]
+    """应用配置（真实读取 `config.toml` + 分层覆盖 + 启动校验）。"""
+
+    model_config = SettingsConfigDict(
+        extra="forbid",
+        populate_by_name=True,
+        env_prefix="BMS_",
+        env_nested_delimiter="__",
+        env_file=_CONFIG_DIR / _ENV_FILE,
+        case_sensitive=False,
+    )
+
+    app: AppSettings
+    server: ServerSettings
+    log: LogSettings
+    database: DatabaseSettings
     redis: RedisSettings = Field(default_factory=RedisSettings)
     minio: MinioSettings = Field(default_factory=MinioSettings)
     security: SecuritySettings = Field(default_factory=SecuritySettings)
     cors: CorsSettings = Field(default_factory=CorsSettings)
 
+    if TYPE_CHECKING:
+        # 仅类型检查期：真实初始化由 pydantic-settings 从多源装配，运行时字段键由源提供；
+        # 该存根避免严格模式把「必填模型字段」误判为构造必传实参。
+        def __init__(self, **data: Any) -> None: ...
+
+    @classmethod
+    def settings_customise_sources(
+        cls,
+        settings_cls: type[PydanticBaseSettings],
+        init_settings: PydanticBaseSettingsSource,
+        env_settings: PydanticBaseSettingsSource,
+        dotenv_settings: PydanticBaseSettingsSource,
+        file_secret_settings: PydanticBaseSettingsSource,
+    ) -> tuple[PydanticBaseSettingsSource, ...]:
+        """组装配置源（高 → 低：生效环境 → 入参 → 环境变量 → .env → 环境覆盖 → 基线）。
+
+        Args:
+            settings_cls: Settings 类。
+            init_settings: 显式入参源。
+            env_settings: 进程环境变量源。
+            dotenv_settings: `.env` 源。
+            file_secret_settings: 密钥目录源。
+
+        Returns:
+            tuple: 配置源元组（靠前优先）。
+        """
+        env = _resolve_environment()
+        overlay = _config_dir() / f"config.{env}.toml"
+        files = [_config_dir() / _BASE_CONFIG] + ([overlay] if overlay.is_file() else [])
+        return (
+            _EnvSelectorSource(settings_cls, env),
+            init_settings,
+            env_settings,
+            dotenv_settings,
+            file_secret_settings,
+            TomlConfigSettingsSource(settings_cls, toml_file=files, deep_merge=True),
+        )
+
+
+def _summarize(error: ValidationError) -> str:
+    """汇总校验错误（仅键路径与原因，不含键值）。
+
+    Args:
+        error: Pydantic 校验异常。
+
+    Returns:
+        str: 逐条「键路径：原因」的汇总文本。
+    """
+    lines: list[str] = []
+    for item in error.errors():
+        path = ".".join(str(part) for part in item["loc"]) or "(根)"
+        lines.append(f"{path}：{item['msg']}")
+    return "配置校验失败：" + "；".join(lines)
+
+
+def load_settings() -> Settings:
+    """读取并校验配置（缺必填键 / 类型取值非法 / 未知键 → 启动失败并指出键名）。
+
+    Returns:
+        Settings: 应用配置。
+
+    Raises:
+        ConfigError: 校验失败。
+    """
+    try:
+        return Settings()
+    except ValidationError as exc:
+        raise ConfigError(_summarize(exc)) from exc
+
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
-    """取应用配置（占位：返回默认值；真实读取由 03-1 接入）。
+    """取应用配置单例（首次取用即读取 + 校验）。
 
     Returns:
         Settings: 应用配置单例。
     """
-    return Settings()
+    return load_settings()
+
+
+def validate_startup(settings: Settings) -> None:
+    """启动期补充校验与接线（lifespan 调用）。
+
+    Args:
+        settings: 应用配置。
+
+    Raises:
+        ConfigError: 生产环境缺少必要密钥。
+    """
+    if settings.app.env == "prod" and not settings.security.secret_key:
+        raise ConfigError("生产环境必须提供 security.secret_key（BMS_SECURITY__SECRET_KEY）")
+    configure_id_generator(settings.app.worker_id)

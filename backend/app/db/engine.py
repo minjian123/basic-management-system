@@ -44,12 +44,13 @@ class EngineFactory(BaseAsyncResource):
         if engine is not None:
             return engine
         target = self._target(db_key)
-        if target.url.startswith("sqlite"):
-            engine = create_async_engine(target.url, pool_pre_ping=True)
+        url = target.resolved_url()
+        if url.startswith("sqlite"):
+            engine = create_async_engine(url, pool_pre_ping=True)
         else:
             pool = target.pool
             engine = create_async_engine(
-                target.url,
+                url,
                 pool_pre_ping=True,
                 pool_size=pool.pool_size,
                 max_overflow=pool.max_overflow,

@@ -1,0 +1,11 @@
+# dev 环境覆盖（可读日志 + 放行本地前端开发服务器）
+
+[app]
+debug = true
+
+[log]
+level = "DEBUG"
+format = "console"
+
+[cors]
+allow_origins = ["http://localhost:5173", "http://127.0.0.1:5173"]

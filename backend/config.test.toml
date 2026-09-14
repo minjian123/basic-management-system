@@ -1,0 +1,8 @@
+# test 环境覆盖（结构化日志，不开放跨域）
+
+[log]
+level = "INFO"
+format = "json"
+
+[cors]
+allow_origins = []
