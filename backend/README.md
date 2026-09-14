@@ -1,10 +1,10 @@
 # BMS 后端（backend）
 
-> FastAPI 后端工程（阶段一最小可启动占位，02 / 03 细化为完整分层）
+> FastAPI 后端工程（**阶段一已交付**：分层目录 + 后端基座（接口占位）+ 配置 / 日志 / 健康检查真实落地）
 
 ## 项目简介
 
-BMS 平台后端服务：Python 3.14 + FastAPI + uvicorn（后续按阶段引入 Pydantic v2、SQLAlchemy 2.0 异步、Alembic 等）。阶段一先交付最小可启动占位，配置 / 日志 / 异常 / 健康检查 / 数据底座在 02、03 细化。
+BMS 平台后端服务：Python 3.14 + FastAPI + uvicorn + Pydantic v2 + SQLAlchemy 2.0（异步）+ Alembic。阶段一交付：monorepo 分层目录、L0 根基类与集合体系、模块基类（仓储 / 服务 / 请求响应 / ORM）、core 横切基座（异常体系 + 配置 / 安全 / 日志）、跨阶段基座与能力域基座**接口占位**（应用可启动、依赖注入可解析、占位可断言）、配置管理 / 日志体系 / 健康检查（`/healthz` `/readyz`）真实实现。机制类真实实现随首个落库阶段（认证 / RBAC）回补，待办见《[项目骨架计划](../bms文档/项目/01_项目骨架/计划/01_计划_项目骨架.md)》「后续阶段待办」节。
 
 ## 快速启动
 
@@ -14,8 +14,15 @@ BMS 平台后端服务：Python 3.14 + FastAPI + uvicorn（后续按阶段引入
 cd backend
 uv sync
 uv run uvicorn app.main:create_app --factory --port 8000
-# 验证：访问 http://127.0.0.1:8000/healthz 返回 {"status":"ok"}
-uv run pytest   # 冒烟用例（含 Kiwi TCMS 用例 ID 标注）
+# 验证：/healthz 返回 {"status":"ok"}；/readyz 就绪（依赖不可达为 503）；/docs Swagger
+uv run pytest   # 全量用例（含 Kiwi TCMS 用例 ID 标注）
+
+# 本地门禁（与 CI 同口径）
+uv run ruff check . && uv run ruff format --check . && uv run pyright
+uv run pytest -q --cov=app --cov-branch --cov-fail-under=70   # 覆盖率门禁 ≥ 70%
+uv run python -m ops.check_modules                            # 模块注册清单校验
+cd .. && python3 scripts/tools/base-check/check-base.py        # 基座自检（须在仓库根）
+python3 scripts/tools/check-docs/check-status.py              # 需求 / 任务 / 计划状态一致性
 ```
 
 ## 依赖与版本
@@ -66,31 +73,37 @@ backend/
 ├── README.md         # 本文件
 ├── typings/          # 局部类型存根（sortedcontainers / fakeredis，pyright stubPath）
 ├── benchmarks/       # 微基准（bench_collections.py，手动执行、CI 不跑）
+├── ops/              # 运维脚本：check_modules（模块注册清单）/ migrate_tenants / init_tenant / test_db（测试库流程，占位）
 ├── app/
 │   ├── __init__.py   # 暴露 __version__
-│   ├── main.py       # 应用工厂：聚合路由 + 404 临时处理器
-│   ├── core/         # 根基类/有序集合/并发集合/Redis 封装 + 配置/安全/异常占位
-│   ├── api/          # 路由：health（/healthz）+ demo（/api/v1/demos）
-│   ├── models/       # ORM 模型（base 占位、demo 内存模型）
-│   ├── schemas/      # Pydantic 模型（base 基类、common 占位、demo 请求/响应）
-│   ├── services/     # 业务服务（base_service 基类 + demo_service）
-│   ├── repositories/ # 数据访问（base_repository 基类 + demo_repository）
-│   ├── db/           # 引擎 / 会话（占位，02-5 填充）
-│   ├── tasks/        # Celery 任务占位
-│   ├── ws/           # Socket.IO 占位
-│   └── i18n/         # 国际化占位
+│   ├── main.py       # 应用工厂 create_app：中间件 / 异常处理器 / 路由 / 能力域装配（无模块级 app）
+│   ├── core/         # L0 根基类 · 集合体系（有序 / 并发 / Redis）· 中间层基类 · core 横切（配置 / 异常 / 安全 / 日志 / 序列化 / 锁 / 雪花 ID / 上下文 / 资源）
+│   ├── api/          # 聚合路由（demo / modules / health）+ 依赖 / 中间件 / 异常处理器
+│   ├── models/       # ORM 模型：BaseModel + platform / system / demo（落库阶段填充）
+│   ├── schemas/      # 契约基类 BaseSchema + 分页 / 排序 / 统一响应
+│   ├── services/     # 服务基类（含事务扩展）+ 模块注册表 + demo 服务
+│   ├── repositories/ # 仓储基类（契约 / 内存 / 作用域 / DB 骨架）+ demo 仓储
+│   ├── db/           # 数据访问底座（引擎 / 会话 / 读写路由 / 租户 / 引擎注册表 / 工作单元，接口占位）
+│   ├── health/       # 健康检查项注册表 + 真实探针（redis / database）
+│   ├── cache/ scope/ sharding/ events/ tasks/ audit/
+│   │                 # 六类跨阶段基座（缓存 Region / 数据范围 / 分片路由 / 事件 / 任务 / 审计），接口占位
+│   ├── archive/ captcha/ circuit/ dashboard/ fallback/ fieldtype/ i18n/ idempotency/ idp/ llm/ lock/ masking/
+│   ├── metrics/ notify/ oauth/ outbound/ password/ permission/ query/ ratelimit/ replay/ search/ session/
+│   ├── storage/ tracing/ transfer/ workflow/ ws/
+│   │                 # 补充扩展基座（需求 02-17 ~ 02-41），接口占位（Null 实现），真实实现随对应阶段回补
+│   └── …             # 分层、基类与占位状态以《后端基类清单》为准
 └── tests/
     ├── conftest.py   # ASGITransport 客户端夹具
-    ├── api/          # 接口测试：test_main / test_health / test_demo
-    ├── core/         # 根基类/集合/并发/Redis 测试
-    ├── integration/  # 真实外部服务集成用例（标 integration，随 04_02 执行）
-    ├── repositories/ # 基类测试：test_base_repository
-    ├── services/     # 基类测试：test_base_service
-    └── schemas/      # 基类测试：test_base_schema
+    ├── api/ core/ repositories/ services/ schemas/   # 与 app/ 同构的单元与接口用例
+    ├── db/ ops/      # 机制底座与运维脚本用例（占位断言、库清单一致性）
+    ├── crosscut/     # 横切能力（限流 / 幂等 / 可观测性 / 权限等）用例
+    └── integration/  # 真实外部服务集成用例（标 integration，未配环境变量即跳过）
 ```
 
 ## 文档导航
 
 - 仓库根 [README](../README.md)
-- 《[后端开发规范](../bms文档/规范/后端开发规范.md)》（02 起遵循）
+- 《[后端开发规范](../bms文档/规范/后端开发规范.md)》·《[后端基类清单](../bms文档/后端基类清单.md)》
+- 《[架构设计 · 后端基础类体系](../bms文档/设计/架构设计/04_架构设计_后端基础类体系.md)》
+- 阶段一：[需求总览](../bms文档/项目/01_项目骨架/需求/00_需求_项目骨架.md) · [任务基线](../bms文档/项目/01_项目骨架/任务/04_CI与阶段验收/04_CI与阶段验收.md) · [排期计划](../bms文档/项目/01_项目骨架/计划/01_计划_项目骨架.md) · [阶段测试报告](../bms文档/项目/01_项目骨架/测试报告_项目骨架.md)
 - 《[项目规划说明](../bms文档/规划/项目规划说明.md)》
