@@ -19,6 +19,7 @@ from app.db.registry import EngineRegistry
 from app.fallback.base import NullFallbackPolicy
 from app.health.base import NullHealthCheckRegistry
 from app.idempotency.base import NullIdempotencyStore
+from app.idp.base import NullIdentityProvider
 from app.llm.base import NullLlmProvider
 from app.lock.base import NullDistributedLock
 from app.masking.base import NullMasker
@@ -36,6 +37,7 @@ from app.schemas.common import ApiResponse
 from app.search.base import NullSearchIndex
 from app.services.demo_service import DemoService
 from app.services.module_registry import ModuleRegistry
+from app.session.base import NullSessionStore
 from app.storage.base import NullObjectStorage
 from app.tracing.base import NullTracer
 from app.workflow.base import NullWorkflowEngine
@@ -117,6 +119,8 @@ def create_app() -> FastAPI:
     app.state.http_client = NullHttpClient()
     app.state.webhook_sender = NullWebhookSender()
     app.state.workflow_engine = NullWorkflowEngine()
+    app.state.identity_provider = NullIdentityProvider()
+    app.state.session_store = NullSessionStore()
 
     app.state.demo_service = DemoService(DemoRepository())
 
