@@ -1,3 +1,86 @@
-# BMS 后端配置（阶段一占位）
-# 分区与键清单由任务 02-1（配置管理）填充：app / server / log / database / redis / minio / security / cors
-# 环境分层：BMS_ENV = dev | test | prod；密钥类配置只走环境变量，不入本文件
+# BMS 后端配置（基线；三环境差异见 config.dev.toml / config.test.toml / config.prod.toml）
+# 环境由 BMS_ENV 指定（缺省取本文件 [app].env，再缺省 dev）；环境变量（BMS_ 前缀）优先级最高。
+# 密钥类配置一律不写入本文件，经 BMS_ 环境变量注入。
+
+[app]
+# 应用名（进入 OpenAPI 与日志）
+name = "BMS 基础管理系统"
+# 运行环境（dev/test/prod；实际生效值由 BMS_ENV 决定并回写）
+env = "dev"
+# 调试开关（dev 覆盖为 true）
+debug = false
+# 雪花 ID WorkerId（0~1023，同环境多副本须全局唯一）
+worker_id = 0
+
+[server]
+# 监听地址
+host = "0.0.0.0"
+# 监听端口
+port = 8000
+# 工作进程数
+workers = 1
+
+[log]
+# 日志级别（DEBUG/INFO/WARNING/ERROR/CRITICAL；真实渲染见 03-2）
+level = "INFO"
+# 渲染形态（console 可读 / json 单行；真实渲染见 03-2）
+format = "json"
+# 慢请求阈值（毫秒）
+slow_request_ms = 1000
+
+[database.platform]
+# 平台库连接串（不含密码；密码经 BMS_DATABASE__PLATFORM__PASSWORD 或完整 URL 注入）
+url = "sqlite+aiosqlite:///./bms_platform.db"
+# 只读副本连接串（可选，空表示不分离）
+replicas = []
+[database.platform.pool]
+# 连接池参数（SQLite 不生效）
+pool_size = 5
+max_overflow = 10
+pool_timeout = 30.0
+pool_recycle = 1800
+
+[database.tenants]
+# 租户库连接串模板（每租户库经 EngineRegistry 解析，MVP 占位为单文件）
+url = "sqlite+aiosqlite:///./bms_tenant_demo.db"
+replicas = []
+[database.tenants.pool]
+pool_size = 5
+max_overflow = 10
+pool_timeout = 30.0
+pool_recycle = 1800
+
+[database.archive]
+# 归档库连接串（只读）
+url = "sqlite+aiosqlite:///./bms_archive.db"
+replicas = []
+[database.archive.pool]
+pool_size = 5
+max_overflow = 10
+pool_timeout = 30.0
+pool_recycle = 1800
+
+[redis]
+# Redis 连接串（密钥经 BMS_REDIS__URL 注入）
+url = "redis://localhost:6379/0"
+
+[minio]
+# 对象存储（占位；真实接入随文件管理阶段）
+endpoint = ""
+access_key = ""
+secret_key = ""
+bucket = "bms"
+secure = false
+
+[security]
+# 安全（占位；真实实现随认证阶段）；secret_key 仅经环境变量注入
+secret_key = ""
+algorithm = "HS256"
+access_token_expire_minutes = 60
+
+[cors]
+# 允许来源（dev 覆盖放行前端开发服务器；test/prod 空，生产由 nginx 同源反代）
+allow_origins = []
+allow_methods = ["*"]
+allow_headers = ["*"]
+allow_credentials = true

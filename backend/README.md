@@ -56,7 +56,11 @@ backend/
 ├── .python-version   # 固定 Python 3.14
 ├── pyproject.toml    # 元数据 + 依赖 + ruff / pyright / pytest 配置
 ├── uv.lock           # 依赖锁定（必须提交）
-├── config.toml       # 配置占位（02-1 填充）
+├── config.toml       # 配置基线（分区与关键键，逐项注释；不含密钥）
+├── config.dev.toml   # dev 环境覆盖（日志 console/DEBUG、CORS 放行本地前端）
+├── config.test.toml  # test 环境覆盖（日志 json/INFO、CORS 空）
+├── config.prod.toml  # prod 环境覆盖（日志 json/WARNING、CORS 空）
+├── .env.example      # 全部 BMS_ 应用键模板（复制为 .env 使用，密钥留空）
 ├── alembic.ini       # 迁移配置占位（落库阶段（认证 / RBAC）填充）
 ├── alembic/          # 迁移目录占位（落库阶段（认证 / RBAC）填充）
 ├── README.md         # 本文件

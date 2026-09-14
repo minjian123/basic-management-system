@@ -1,0 +1,8 @@
+# prod 环境覆盖（结构化日志、收紧级别，不开放跨域）
+
+[log]
+level = "WARNING"
+format = "json"
+
+[cors]
+allow_origins = []

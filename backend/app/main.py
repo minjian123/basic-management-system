@@ -13,7 +13,7 @@ from app.archive.base import NullArchivePolicy, NullArchiveQueryRouter
 from app.audit.hashchain import NullHashChain
 from app.captcha.base import NullCaptcha
 from app.circuit.base import NullCircuitBreaker
-from app.core.config import get_settings
+from app.core.config import get_settings, validate_startup
 from app.core.logging import configure_logging, get_logger
 from app.core.resources import ResourceManager
 from app.dashboard.base import NullDashboardCardRegistry
@@ -65,6 +65,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     Raises:
         RuntimeError: 模块注册校验失败（冲突 / 非法）。
     """
+    validate_startup(get_settings())
     errors = app.state.module_registry.validate()
     if errors:
         get_logger("bms").critical("模块注册校验失败", errors=errors)
