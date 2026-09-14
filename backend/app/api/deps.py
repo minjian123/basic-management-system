@@ -1,6 +1,6 @@
 """公共依赖汇总：数据访问、租户解析与各能力域基座提供者。
 
-掩码 / 权限 / 锁 / 认证 / 故障应对 / 可观测 / 健康检查 / 开放接口 / 对象存储等提供者统一从本模块导出，
+掩码 / 权限 / 锁 / 认证 / 故障应对 / 可观测 / 健康检查 / 开放接口 / 对象存储 / LLM 适配等提供者统一从本模块导出，
 业务路由按需导入，避免分散引用。
 """
 
@@ -11,6 +11,7 @@ from app.db.tenant import get_tenant
 from app.fallback.base import get_fallback_policy
 from app.health.base import get_health_check_registry
 from app.idempotency.base import get_idempotency_store
+from app.llm.base import get_llm_provider
 from app.lock.base import get_distributed_lock
 from app.masking.base import get_masker
 from app.metrics.base import get_metrics
@@ -31,6 +32,7 @@ __all__ = [
     "get_fallback_policy",
     "get_health_check_registry",
     "get_idempotency_store",
+    "get_llm_provider",
     "get_masker",
     "get_metrics",
     "get_oauth_server",
