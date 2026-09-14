@@ -1,6 +1,6 @@
 """公共依赖汇总：数据访问、租户解析与各能力域基座提供者。
 
-掩码 / 权限 / 锁 / 认证 / 故障应对 / 可观测 / 健康检查 / 开放接口 / 存储 / LLM / 检索 / 通知 / 推送等提供者
+掩码 / 权限 / 锁 / 认证 / 故障应对 / 可观测 / 健康检查 / 开放接口 / 存储 / LLM / 检索 / 通知 / 推送 / 出站等提供者
 统一从本模块导出，业务路由按需导入，避免分散引用。
 """
 
@@ -17,6 +17,8 @@ from app.masking.base import get_masker
 from app.metrics.base import get_metrics
 from app.notify.base import get_notifier
 from app.oauth.base import get_oauth_server, get_scope_checker
+from app.outbound.http import get_http_client
+from app.outbound.webhook import get_webhook_sender
 from app.password.base import get_password_policy
 from app.permission.base import get_permission_checker
 from app.ratelimit.base import get_rate_limiter
@@ -34,6 +36,7 @@ __all__ = [
     "get_distributed_lock",
     "get_fallback_policy",
     "get_health_check_registry",
+    "get_http_client",
     "get_idempotency_store",
     "get_llm_provider",
     "get_masker",
@@ -51,4 +54,5 @@ __all__ = [
     "get_tenant",
     "get_tracer",
     "get_uow",
+    "get_webhook_sender",
 ]
