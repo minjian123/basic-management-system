@@ -39,7 +39,7 @@ flowchart LR
 2. **依赖注入装配**：`app/api/deps.py` 导出两提供者（模块 docstring 补「开放接口」）；`app/main.py` 装配 `app.state.oauth_server = NullOAuthServer()`、`app.state.scope_checker = NullScopeChecker()`。
 3. **不落路由**：按设计不落 `/api/open` 路由（真实开放接口路由归系统集成 / 认证阶段），无中间件与路由改动。
 4. **测试**：新增 `tests/oauth/test_oauth.py`（8 条 Kiwi 46：契约 / 标识 / 常量 / 数据契约 / 占位固定返回 / 撤销空操作 / 恒定允许 / 提供者解析）。
-5. **Kiwi 登记**：计划在 mjbk Kiwi TCMS（分类「平台骨架」、P2、CONFIRMED、标签「自动化」）登记用例 **46「开放接口 OAuth2 服务端与 scope 基座（签发 / 撤销 / scope 校验占位）」**，与 `@pytest.mark.kiwi_id(46)` 一致（平台登记待完成）。
+5. **Kiwi 登记**：已在 mjbk Kiwi TCMS（分类「平台骨架」、P2、CONFIRMED、标签「自动化」）登记用例 **46「开放接口 OAuth2 服务端与 scope 基座（签发与撤销契约 / scope 校验 / 数据契约与常量 / 占位固定返回与恒定允许 / 依赖解析）」**（2026-09-14），与 `@pytest.mark.kiwi_id(46)` 一致。
 6. **登记回写**：架构 04 §4 / §6 / §8、《后端基类清单》§2 / §9 / §10、《后端开发规范》§3.1、计划「后续阶段待办」（新增 OAuth2 服务端 / scope 真实实现行 + 02_03 偏差跟踪）、需求 02-41 注块 / 状态、需求总览状态、任务 / 父任务状态回写。
 
 关键命令：
@@ -81,11 +81,11 @@ python3 scripts/tools/base-check/check-base.py    # 需在 bms 根目录执行
   - 客户端 IdP 适配与会话存储（`BaseIdentityProvider` / `BaseSessionStore`）→ 02-4-8（需求 02-27）。
   - 开放接口管理模块（scope 分配回收、IP 白名单、客户端注册 `sys_client`）→ 系统集成阶段；`sys_client` / `sys_open_log` 落库 → 落库阶段。
   - 真实签发 / scope 校验 / 撤销用例（JWT 校验、scope 最小化、撤销后拒绝）→ 回补阶段补充。
-- **Kiwi 平台登记**：用例 46 的平台登记待完成（本地无 mjbk Kiwi 管理凭据），代码已以 `@pytest.mark.kiwi_id(46)` 关联；登记后回填测试记录。
+- **Kiwi 平台登记**：已完成（2026-09-14）：用例 46「开放接口 OAuth2 服务端与 scope 基座（签发与撤销契约 / scope 校验 / 数据契约与常量 / 占位固定返回与恒定允许 / 依赖解析）」登记于 mjbk Kiwi TCMS（分类「平台骨架」、P2、CONFIRMED、标签「自动化」），与 `@pytest.mark.kiwi_id(46)` 一致。
 - **处理偏差与遗留（2026-09-14 闭环）**：
   - 计划 §3.1 新增「开放接口 OAuth2 服务端 / scope 真实实现」行（出处 02-3-13）；需求 02-41 `> 注：` 块补齐实现期要点（authlib 签发 / scope 最小化 / 撤销黑名单 / `sys_open_log` 审计 / `/api/open` ingress 防护）。
   - 消费方 / 边界标注：[02-4-8 IdP 与会话存储扩展基座](../../../02_后端基座_04_跨阶段基座/02_后端基座_04_跨阶段基座_08_IdP与会话存储扩展基座/02_后端基座_04_跨阶段基座_08_IdP与会话存储扩展基座.md) 任务文档补「协同契约（边界口径）」（**客户端侧** IdP 归 02-4-8、**服务端** OIDC Provider / Client Credentials 归 02-3-13，两侧不重复建设）。
   - 无任务文档的消费方（`/api/open` 路由与 ingress 防护、开放接口管理模块、`sys_client` / `sys_open_log` 落库）已在计划 §3.1 与需求 02-41 注块登记去向，待其阶段建任务后回引。
-- **结论**：本任务遗留已全部登记去向，偏差与遗留处理完成（除 Kiwi 46 平台登记待办）。
+- **结论**：本任务遗留已全部登记去向，偏差与遗留处理完成。
 
 > 本文档依《文档生成规范》编写
