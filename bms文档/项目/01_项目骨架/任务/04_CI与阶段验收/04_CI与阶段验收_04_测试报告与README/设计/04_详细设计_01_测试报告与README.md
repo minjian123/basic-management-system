@@ -93,7 +93,7 @@ bms文档/
 | 路径 | `scripts/tools/governance/collect_metrics.py` |
 | 依赖 | Python 3.14 标准库 + 仓库既有工具（uv / pytest）；GitLab 数据经 HTTP API（凭据取 `deploy/.env`，不入库） |
 | 调用 | `python3 scripts/tools/governance/collect_metrics.py [--stage 01_项目骨架] [--root .] [--with-frontend] [--out <path>] [--skip-tests]` |
-| 输出 | 终端分区摘要（度量三表 + 用例执行统计）+ 可选 `--out` 写 JSON/Markdown 片段；**默认不落中间产物到仓库**（附录里粘命令与输出） |
+| 输出 | 终端分区摘要（度量三表 + 用例执行统计）+ 可选 `--out` 写 JSON；**默认不落仓库文件**（跑测试会生成 `.coverage` / `coverage/` 等本地产物，均已被 `.gitignore` 忽略；附录里粘命令与输出） |
 | 只读 | 不改代码、不改数据、不建 Issue（§25.3「两个 AI 均只产出报告」口径） |
 
 ### 5.2 采集项 <a id="cm-items"></a>
@@ -101,7 +101,7 @@ bms文档/
 | # | 采集项 | 手法 | 输出字段 |
 | --- | --- | --- | --- |
 | 1 | 阶段工期偏差 | 计划「里程碑对照」取 M1 基线日期；需求 / 任务文档取本阶段实际完成日（域内最后一条完成日期） | `baseline` / `actual` / `delta_days` / `delta_pct` / 是否 > 20% |
-| 2 | 缺陷分布与收敛 | GitLab API：`GET /projects/:id/issues?state=all`（分页）→ 按 `labels`（`defect-auto` / `defect-manual`）与 state 聚合 | `total` / `open` / `closed` / `p0_p1_open` |
+| 2 | 缺陷分布与收敛 | GitLab API：`GET /projects/:id/issues?state=all`（分页）→ 按 `labels`（`defect-*` 标签区分自动 / 手工）与 state 聚合 | `total` / `open` / `closed` / `defect_auto` / `defect_manual` / `p0_p1_open` |
 | 3 | 覆盖率 | 后端：`uv run pytest -q --cov=app --cov-branch`（解析 `TOTAL` 行与 `passed/skipped`）；前端：读 `frontend/coverage` / `frontend-mobile/coverage` 产物（`--with-frontend` 时先跑 `npm run test:cov`） | 后端 statements / branch %；前端双端 %；门禁阈值与是否达标 |
 | 4 | 用例执行统计 | 同 #3 的 pytest 摘要 + 双端 Vitest 摘要 + Playwright（本阶段无 `tests/e2e`，标「未启用」） | passed / skipped / failed / duration |
 
@@ -117,7 +117,7 @@ bms文档/
 | 项 | 取值 |
 | --- | --- |
 | 路径 | `scripts/tools/governance/review_stage.py` |
-| 调用 | `python3 scripts/tools/governance/review_stage.py [--stage 01_项目骨架] [--root .] [--strict]` |
+| 调用 | `python3 scripts/tools/governance/review_stage.py [--stage 01_项目骨架] [--root .]` |
 | 输出 | 逐项结果表（通过 / 不通过 + 证据）+ 遗留项汇总；退出码：有「不通过」→ 1 |
 | 只读 | 同上；不修改任何文档（发现不一致只报，不自动改） |
 
