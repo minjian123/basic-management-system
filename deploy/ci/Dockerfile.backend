@@ -1,11 +1,17 @@
-# BMS 后端 CI 基础镜像：预装 uv + backend 依赖（按 uv.lock 哈希打标签）
-# 消费方：backend-lint / backend-test / e2e / 三库集成 / swagger（uv run + 预建 venv）
+# BMS 后端 CI 基础镜像：预装 uv + backend 依赖（按「锁文件 + Dockerfile」哈希打标签，见 build-base.sh）
+# 消费方：backend-lint / backend-typecheck / backend-test / e2e / 三库集成 / swagger（uv run + 预建 venv）
 FROM python:3.14-slim
 
 ENV PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple \
     UV_DEFAULT_INDEX=https://pypi.tuna.tsinghua.edu.cn/simple \
     UV_PROJECT_ENVIRONMENT=/opt/bms-venv \
     UV_NO_SYNC=1
+
+# libatomic1：pyright 自带预编译 node 的运行依赖；slim 镜像缺失时报
+# 「libatomic.so.1: cannot open shared object file」（2026-09-14 实测，backend-typecheck job）
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends libatomic1 \
+ && rm -rf /var/lib/apt/lists/*
 
 RUN pip install --no-cache-dir uv
 
