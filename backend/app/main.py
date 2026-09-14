@@ -41,6 +41,8 @@ from app.services.module_registry import ModuleRegistry
 from app.session.base import NullSessionStore
 from app.storage.base import NullObjectStorage
 from app.tracing.base import NullTracer
+from app.transfer.exporter import NullExporter
+from app.transfer.importer import NullImporter
 from app.workflow.base import NullWorkflowEngine
 from app.ws.base import NullRealtimePublisher
 
@@ -123,6 +125,8 @@ def create_app() -> FastAPI:
     app.state.identity_provider = NullIdentityProvider()
     app.state.session_store = NullSessionStore()
     app.state.query_provider_registry = NullQueryProviderRegistry()
+    app.state.importer = NullImporter()
+    app.state.exporter = NullExporter()
 
     app.state.demo_service = DemoService(DemoRepository())
 
