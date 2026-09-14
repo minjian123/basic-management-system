@@ -31,6 +31,7 @@ from app.repositories.demo_repository import DemoRepository
 from app.schemas.common import ApiResponse
 from app.services.demo_service import DemoService
 from app.services.module_registry import ModuleRegistry
+from app.storage.base import NullObjectStorage
 from app.tracing.base import NullTracer
 
 
@@ -101,6 +102,7 @@ def create_app() -> FastAPI:
     app.state.health_check_registry = NullHealthCheckRegistry()
     app.state.oauth_server = NullOAuthServer()
     app.state.scope_checker = NullScopeChecker()
+    app.state.object_storage = NullObjectStorage()
 
     app.state.demo_service = DemoService(DemoRepository())
 
