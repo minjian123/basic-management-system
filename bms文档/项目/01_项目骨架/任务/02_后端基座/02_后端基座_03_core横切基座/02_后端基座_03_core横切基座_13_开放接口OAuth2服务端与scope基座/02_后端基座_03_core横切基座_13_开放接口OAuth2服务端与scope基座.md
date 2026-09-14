@@ -23,6 +23,7 @@
 2. 登记：平台《架构设计 · 后端基础类体系》「阶段落地（地基波 + 回补）」跨阶段基座表 + 《后端基类清单》
 3. 真实实现随对应阶段回补（同一任务文档，不重复立项；实现期要点见[需求 02-41](../../../../需求/02_需求_后端基座.md#r02-41)）
 4. **协同契约（scope 与权限码分工）**：OAuth2 `scope` 为**授权面收敛**（第三方应用可访问范围），权限码校验仍一律走 [02-3-9 权限校验基座](../02_后端基座_03_core横切基座_09_权限校验基座/02_后端基座_03_core横切基座_09_权限校验基座.md) 的 `BasePermissionChecker` / `require_permission`（两者叠加：先 scope 后权限码），本任务落 scope 契约时对齐该口径
+5. **前置契约（已交付）· 开放接口防重放与限流**：`/api/open` ingress 防重放（请求头 `X-Timestamp` / `X-Signature` / `X-Nonce` 解析、时间窗 + HMAC 签名 + nonce 去重）取 [02-3-10 限流幂等防重放中间层](../02_后端基座_03_core横切基座_10_限流幂等防重放中间层/02_后端基座_03_core横切基座_10_限流幂等防重放中间层.md)（2026-09-14 交付）的 `BaseReplayGuard`（`require`）与 `core/security.py` 的 `SignatureCodec`（常量 `TIMESTAMP_HEADER` / `SIGNATURE_HEADER` / `NONCE_HEADER` / `REPLAY_WINDOW`）；按 client 维度的开放接口限流取 `BaseRateLimiter`；本任务叠加上述守卫，不重复实现 HMAC / nonce 去重
 
 ## 3. 完成标准 <a id="accept"></a>
 
