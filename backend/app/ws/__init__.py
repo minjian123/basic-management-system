@@ -1,1 +1,1 @@
-"""ws：Socket.IO 连接与会话事件（占位，随对应阶段实现）。"""
+"""ws：Socket.IO 实时推送能力域（推送契约与占位实现，真实 python-socketio + Redis 跨实例广播随实时推送阶段回补）。"""

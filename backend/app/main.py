@@ -36,6 +36,7 @@ from app.services.demo_service import DemoService
 from app.services.module_registry import ModuleRegistry
 from app.storage.base import NullObjectStorage
 from app.tracing.base import NullTracer
+from app.ws.base import NullRealtimePublisher
 
 
 @asynccontextmanager
@@ -109,6 +110,7 @@ def create_app() -> FastAPI:
     app.state.llm_provider = NullLlmProvider()
     app.state.search_index = NullSearchIndex()
     app.state.notifier = NullNotifier()
+    app.state.realtime_publisher = NullRealtimePublisher()
 
     app.state.demo_service = DemoService(DemoRepository())
 
