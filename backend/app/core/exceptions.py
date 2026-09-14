@@ -92,6 +92,13 @@ class AuthError(BizError):
         super().__init__(ErrorCode.AUTH, message, http_status=401, data=data)
 
 
+class RateLimitError(GeneralError):
+    """限流拒绝（超出配额；防重放失败归 `AuthError`）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        super().__init__(ErrorCode.RATE_LIMIT, message, http_status=429, data=data)
+
+
 class UserOrgError(BizError):
     """用户与组织段（`3xxxx`）异常基类。"""
 

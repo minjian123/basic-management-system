@@ -16,10 +16,13 @@ from app.core.resources import ResourceManager
 from app.db.engine import EngineFactory
 from app.db.registry import EngineRegistry
 from app.fallback.base import NullFallbackPolicy
+from app.idempotency.base import NullIdempotencyStore
 from app.lock.base import NullDistributedLock
 from app.masking.base import NullMasker
 from app.password.base import NullPasswordPolicy
 from app.permission.base import NullPermissionChecker
+from app.ratelimit.base import NullRateLimiter
+from app.replay.base import NullReplayGuard
 from app.repositories.demo_repository import DemoRepository
 from app.schemas.common import ApiResponse
 from app.services.demo_service import DemoService
@@ -82,6 +85,9 @@ def create_app() -> FastAPI:
     app.state.password_policy = NullPasswordPolicy()
     app.state.fallback_policy = NullFallbackPolicy()
     app.state.circuit_breaker = NullCircuitBreaker()
+    app.state.rate_limiter = NullRateLimiter()
+    app.state.idempotency_store = NullIdempotencyStore()
+    app.state.replay_guard = NullReplayGuard()
 
     app.state.demo_service = DemoService(DemoRepository())
 
