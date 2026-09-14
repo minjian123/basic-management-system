@@ -1,6 +1,7 @@
 # MR 流水线门禁（《开发部署规划》第 7 节）
-# 口径：后端 ruff + pyright + pytest（SQLite，覆盖率整体 ≥ 70%、核心模块 ≥ 80%）；
-#       前端 ESLint + Vitest + frontend / frontend-mobile 双端构建。
+# 口径：后端 ruff + pyright + pytest（SQLite，覆盖率整体 ≥ 70%）+ 模块注册清单校验；
+#       前端 ESLint + Vitest（双端，覆盖率整体 ≥ 70%）+ frontend / frontend-mobile 双端构建。
+# 核心模块（认证/RBAC/工作流/审计/收付款）≥ 80% 子阈值随对应模块落地（认证 / RBAC 阶段）接入。
 # backend/ frontend/ 尚未落地（阶段一骨架），对应 job 以 exists 守卫，
 # 目录与清单文件出现后自动启用。
 
@@ -111,6 +112,20 @@ backend-typecheck:
   script:
     - cd backend && uv run pyright
 
+# ---- 后端：模块注册清单校验（复用 ModuleRegistry.validate；须以 -m 方式运行，直接跑脚本会 ModuleNotFoundError）----
+backend-modules:
+  stage: lint
+  image: $REGISTRY_IMAGE_PREFIX/ci-backend:py314
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      exists:
+        - backend/pyproject.toml
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      exists:
+        - backend/pyproject.toml
+  script:
+    - cd backend && uv run python -m ops.check_modules
+
 backend-test:
   stage: test
   image: $REGISTRY_IMAGE_PREFIX/ci-backend:py314
@@ -126,12 +141,13 @@ backend-test:
   script:
     - cd backend && uv run pytest --cov=app --cov-branch --cov-report=term --cov-fail-under=70
   coverage: '/^TOTAL.*?\s+\d+\s+\d+\s+(\d+(?:\.\d+)?%)$/'
-  # 核心模块（认证/RBAC/工作流/审计/收付款）≥ 80% 门禁随阶段一骨架确定模块路径后补入
+  # 核心模块（认证/RBAC/工作流/审计/收付款）≥ 80% 子阈值随对应模块落地（认证 / RBAC 阶段）接入（见 04_01 详细设计 §6.1）
 
 # ---- 前端：ESLint + Vitest + 双端构建 ----
 frontend-check:
   stage: test
   image: $REGISTRY_IMAGE_PREFIX/ci-frontend:node22
+  needs: [{job: ci-base-build, optional: true}]
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       exists:
@@ -141,11 +157,38 @@ frontend-check:
         - frontend/package.json
   script:
     - rm -rf frontend/node_modules && cp -a /opt/ci/frontend/node_modules frontend/node_modules
-    - cd frontend && npm run lint && npm run test
+    - cd frontend && npm run lint && npm run test:cov
+  coverage: '/^All files\s*\|\s*(\d+(?:\.\d+)?)/'
+  artifacts:
+    when: always
+    paths: [frontend/coverage/]
+    expire_in: 30 days
+
+# ---- 移动端：ESLint + Vitest（含覆盖率门禁，与 frontend-check 对称）----
+frontend-mobile-check:
+  stage: test
+  image: $REGISTRY_IMAGE_PREFIX/ci-frontend:node22
+  needs: [{job: ci-base-build, optional: true}]
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      exists:
+        - frontend-mobile/package.json
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      exists:
+        - frontend-mobile/package.json
+  script:
+    - rm -rf frontend-mobile/node_modules && cp -a /opt/ci/frontend-mobile/node_modules frontend-mobile/node_modules
+    - cd frontend-mobile && npm run lint && npm run test:cov
+  coverage: '/^All files\s*\|\s*(\d+(?:\.\d+)?)/'
+  artifacts:
+    when: always
+    paths: [frontend-mobile/coverage/]
+    expire_in: 30 days
 
 frontend-build:
   stage: build
   image: $REGISTRY_IMAGE_PREFIX/ci-frontend:node22
+  needs: [{job: frontend-check, optional: true}]
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       exists:
@@ -160,6 +203,7 @@ frontend-build:
 frontend-mobile-build:
   stage: build
   image: $REGISTRY_IMAGE_PREFIX/ci-frontend:node22
+  needs: [{job: frontend-mobile-check, optional: true}]
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       exists:
@@ -233,6 +277,7 @@ integration-dm8:
 
 backend-image:
   <<: *build-push-base
+  needs: [{job: backend-test, optional: true}]
   rules:
     # exists 为「任一命中」语义：仅以 Dockerfile 守卫，避免被 pyproject 误激活
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
