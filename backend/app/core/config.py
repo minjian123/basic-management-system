@@ -89,6 +89,13 @@ class LogSettings(BaseSettings):
         return upper
 
 
+class HealthSettings(BaseSettings):
+    """健康检查（就绪探针超时，毫秒；见 03-3）。"""
+
+    check_timeout_ms: int = Field(default=2000, ge=1)
+    total_timeout_ms: int = Field(default=5000, ge=1)
+
+
 class DbPoolSettings(BaseSettings):
     """数据库连接池参数。"""
 
@@ -260,6 +267,7 @@ class Settings(PydanticBaseSettings, BaseSettings):  # pyright: ignore[reportInc
     app: AppSettings
     server: ServerSettings
     log: LogSettings
+    health: HealthSettings = Field(default_factory=HealthSettings)
     database: DatabaseSettings
     redis: RedisSettings = Field(default_factory=RedisSettings)
     minio: MinioSettings = Field(default_factory=MinioSettings)
