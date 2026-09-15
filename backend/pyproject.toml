@@ -31,6 +31,8 @@ dev = [
     "ruff>=0.6",
     "pyright>=1.1.380",
     "fakeredis[lua]>=2.38.0",
+    "allure-pytest>=2.16.0",
+    "kiwitcms-pytest-plugin>=15.4",
 ]
 
 [tool.ruff]

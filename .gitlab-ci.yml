@@ -236,24 +236,33 @@ frontend-mobile-build:
 
 # ==== main 流水线重验证层（《开发部署规划》第 7 节 3）====
 # 全部 job 以 exists 守卫——阶段一代码落地后自动激活，此前 main 流水线空载（仅 gate-smoke）。
+#
+# 开关采用**分档文件**（2026-09-15，04-4 后的重验证层就绪评估结论；激活路线见《项目骨架计划》§3.1）：
+#   deploy/ci/verify/contract  契约快照（swagger）        —— P1 已开
+#   deploy/ci/verify/defect    缺陷自动上报（on_failure）  —— P1 已开
+#   deploy/ci/verify/report    Allure 归档 + Kiwi 导入     —— P2 已开
+#   deploy/ci/verify/image     镜像构建推送 + Trivy 扫描   —— P3 待开（前置：backend/Dockerfile、frontend/Dockerfile）
+#   deploy/ci/verify/e2e       Playwright E2E             —— P4 待开（前置：tests/e2e 用例、--e2e-headless、Playwright 依赖与浏览器、job 内服务编排）
+#   deploy/ci/verify/db        三库真库集成                —— P4 待开（前置：test_db 实现 + alembic 在线分支 + 方言用例 + masked 变量）
+# 各 job 只守自己的档；删除对应文件即关闭该档（不再使用旧单开关 deploy/ci/verify-enabled）。
 
 # ---- E2E：服务容器起 backend（SQLite）+ 前端产物，Playwright 驱动 ----
 e2e-playwright:
   stage: verify
   image: python:3.14-slim
   rules:
-    # 重验证层开关：04-1（CI 流水线激活）修复就绪后创建 deploy/ci/verify-enabled 激活
+    # 重验证层分档开关：deploy/ci/verify/e2e（P4；开启前置见文件头注释与计划 §3.1）
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       exists:
-        - deploy/ci/verify-enabled
+        - deploy/ci/verify/e2e
   script:
     - pip install uv && cd backend && uv sync --frozen
     - cd frontend && npm ci && npm run build
     - cd ../backend && uv run pytest tests/e2e --e2e-headless
 
 # ---- 三库方言集成测试：连 mjbk 常驻库，bms_test 前缀建库 → Alembic 迁移 → 集成用例 → 删库清理 ----
-# 激活前置（见 04_02 详细设计 §7.3；本阶段不激活）：
-#   1) 仓库创建 deploy/ci/verify-enabled 开关；
+# 分档开关 deploy/ci/verify/db；激活前置（见 04_02 详细设计 §7.3 与《项目骨架计划》§3.1）：
+#   1) 仓库创建 deploy/ci/verify/db 开关文件（P4 档）；
 #   2) CI/CD 变量配齐（masked）：MYSQL_TEST_PASSWORD / POSTGRES_TEST_PASSWORD / DM8_TEST_PASSWORD（连接库）、
 #      MYSQL_ROOT_PASSWORD（缺陷现场 dump）、GITLAB_API_TOKEN（Issue 创建）；
 #   3) ops/test_db.py 的 create / migrate / drop 填实现 + alembic/env.py 在线分支接通；
@@ -265,10 +274,10 @@ e2e-playwright:
   variables:
     BMS_ENV: test
   rules:
-    # 重验证层开关：创建 deploy/ci/verify-enabled 后激活
+    # 重验证层分档开关：deploy/ci/verify/db（P4）
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       exists:
-        - deploy/ci/verify-enabled
+        - deploy/ci/verify/db
   script:
     # 真库阶段：在 plan 与 pytest 之间插入 `create --execute` / `migrate --execute`；
     # 失败路径先导出 dump（defect_capture.py --engine "$DB_DIALECT"）再 `drop --execute`（|| true 保证清理）
@@ -307,10 +316,10 @@ backend-image:
   <<: *build-push-base
   needs: [{job: backend-test, optional: true}]
   rules:
-    # exists 为「任一命中」语义：仅以 Dockerfile 守卫，避免被 pyproject 误激活
+    # 重验证层分档开关：deploy/ci/verify/image（P3；开启前提＝backend/Dockerfile 已就绪）
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       exists:
-        - backend/Dockerfile
+        - deploy/ci/verify/image
   script:
     - docker build -t $REGISTRY_IMAGE_PREFIX/bms-backend:$CI_COMMIT_SHORT_SHA -f backend/Dockerfile backend/
     - docker push $REGISTRY_IMAGE_PREFIX/bms-backend:$CI_COMMIT_SHORT_SHA
@@ -319,10 +328,10 @@ frontend-image:
   <<: *build-push-base
   needs: [{job: frontend-build, optional: true}]
   rules:
-    # exists 为「任一命中」语义：仅以 Dockerfile 守卫，避免被 package.json 误激活
+    # 重验证层分档开关：deploy/ci/verify/image（P3；开启前提＝frontend/Dockerfile 已就绪）
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       exists:
-        - frontend/Dockerfile
+        - deploy/ci/verify/image
   script:
     - docker build -t $REGISTRY_IMAGE_PREFIX/bms-frontend:$CI_COMMIT_SHORT_SHA -f frontend/Dockerfile frontend/
     - docker push $REGISTRY_IMAGE_PREFIX/bms-frontend:$CI_COMMIT_SHORT_SHA
@@ -333,10 +342,10 @@ container-scanning:
   image: aquasec/trivy:latest
   needs: [{job: backend-image, optional: true}]
   rules:
-    # 重验证层开关：04-1（CI 流水线激活）修复就绪后创建 deploy/ci/verify-enabled 激活
+    # 重验证层分档开关：deploy/ci/verify/image（P3；与镜像构建同档，Trivy 需 mjbk 可达 ghcr.io 拉 DB——2026-09-15 实测可达）
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       exists:
-        - deploy/ci/verify-enabled
+        - deploy/ci/verify/image
   script:
     - trivy image --exit-code 1 --severity CRITICAL,HIGH --ignore-unfixed $REGISTRY_IMAGE_PREFIX/bms-backend:$CI_COMMIT_SHORT_SHA
 
@@ -346,10 +355,10 @@ swagger-snapshot:
   image: python:3.14-slim
   needs: [{job: backend-test, optional: true}]
   rules:
-    # 重验证层开关：04-1（CI 流水线激活）修复就绪后创建 deploy/ci/verify-enabled 激活
+    # 重验证层分档开关：deploy/ci/verify/contract（P1 档，2026-09-15 开启）
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       exists:
-        - deploy/ci/verify-enabled
+        - deploy/ci/verify/contract
   script:
     - pip install uv && cd backend && uv sync --frozen
     # 应用工厂形态：模块级无 app（04-3 核对时发现旧写法在激活后会报 AttributeError）
@@ -358,24 +367,43 @@ swagger-snapshot:
     paths: [backend/swagger.json]
     expire_in: 30 days
 
-# ---- Allure 报告归档（阶段一测试用例就绪后随执行产出）----
+# ---- Allure 结果归档 + Kiwi TCMS 导入（分档开关 deploy/ci/verify/report，P2 档，2026-09-15 开启）----
+# 口径（04-4 后重验证层就绪评估结论）：
+#   - 结果产出：全量 pytest 带 --alluredir（HTML 报告需 Allure CLI（Java 工具，非 pip 包），由需方按需生成；CI 归档原始结果）
+#   - Kiwi 导入：配置 masked 变量 TCMS_API_URL / TCMS_USERNAME / TCMS_PASSWORD 后自动启用
+#     （kiwitcms-pytest-plugin 为 pytest11 插件，执行时 `--kiwitcms` 直写平台，非解析 Allure 报告）；
+#     **配置载体为 ~/.tcms.conf**（插件走 tcms-api 的文件配置，环境变量对 url/凭据无效）
+#   - 用例口径：插件按用例 summary 匹配、缺失即新建，故自动用例集中在新产品「BMS 自动化用例（CI）」（summary 为 pytest nodeid），
+#     与策展用例库（产品「BMS 基础管理系统」，编号 1~69）隔离，策展库不受影响
 allure-report:
   stage: verify
   image: python:3.14-slim
   needs: [{job: backend-test, optional: true}, {job: e2e-playwright, optional: true}]
   rules:
-    # 重验证层开关：04-1（CI 流水线激活）修复就绪后创建 deploy/ci/verify-enabled 激活
+    # 重验证层分档开关：deploy/ci/verify/report（P2）
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       exists:
-        - deploy/ci/verify-enabled
+        - deploy/ci/verify/report
   allow_failure: true
+  variables:
+    TCMS_PRODUCT: "BMS 自动化用例（CI）"
+    TCMS_PREFIX: "BMS CI"
   script:
-    - pip install allure-pytest
-    - uv run pytest tests/unit tests/integration --alluredir=allure-results || true
-    - pip install allure-cli 2>/dev/null || pip install allure-composite 2>/dev/null || true
-    - python -m allure generate allure-results -o allure-report --clean 2>/dev/null || echo "allure cli 缺失，结果目录已归档"
+    - pip install uv && cd backend && uv sync --frozen
+    - |
+      if [ -n "$TCMS_API_URL" ] && [ -n "$TCMS_USERNAME" ] && [ -n "$TCMS_PASSWORD" ]; then
+        printf '[tcms]\nurl = %s\nusername = %s\npassword = %s\n' "$TCMS_API_URL" "$TCMS_USERNAME" "$TCMS_PASSWORD" > "$HOME/.tcms.conf"
+        chmod 600 "$HOME/.tcms.conf"
+        export TCMS_PRODUCT_VERSION="${CI_COMMIT_SHORT_SHA:-local}"
+        export TCMS_BUILD="${CI_PIPELINE_ID:-0}"
+        echo "Kiwi 凭据已配置：执行结果导入 Kiwi TCMS（产品 $TCMS_PRODUCT / 版本 $TCMS_PRODUCT_VERSION / 构建 $TCMS_BUILD）"
+        uv run pytest -q --alluredir=allure-results --kiwitcms
+      else
+        echo "Kiwi 凭据未配置（TCMS_API_URL / TCMS_USERNAME / TCMS_PASSWORD）：仅归档 Allure 结果，跳过导入"
+        uv run pytest -q --alluredir=allure-results
+      fi
   artifacts:
-    paths: [allure-results/, allure-report/]
+    paths: [backend/allure-results/]
     when: always
     expire_in: 30 days
 
@@ -387,11 +415,11 @@ defect-capture:
   stage: .post
   image: python:3.14-slim
   rules:
-    # 重验证层开关：同上（缺陷链路随 04-1 激活）
+    # 重验证层分档开关：deploy/ci/verify/defect（P1 档，2026-09-15 开启；仅流水线失败时触发）
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       when: on_failure
       exists:
-        - deploy/ci/verify-enabled
+        - deploy/ci/verify/defect
   variables:
     DEFECT_ARCHIVE_DIR: /mnt/data/backup/defects
   script:

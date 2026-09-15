@@ -1,5 +1,6 @@
 """ORM 模型基类测试（Kiwi 19）：SQLite 临时库验证字段 / 审计 / 软删除 / 乐观锁。"""
 
+import types
 from collections.abc import Iterator
 from datetime import datetime
 from pathlib import Path
@@ -128,17 +129,24 @@ def test_snowflake_unique_and_monotonic() -> None:
     assert ids == sorted(ids)
 
 
+def _fake_time_module(values: list[float]) -> types.SimpleNamespace:
+    """构造只暴露 `time.time()` 的假 time 模块。
+
+    直接 patch 全局 `time.time`（`app.core.id.time` 即 time 模块本身）会影响进程内所有调用方
+    ——pytest 插件（Kiwi 结果导入）、IDE 侧 shim 等都会读到假时钟，序列用尽即 `StopIteration`。
+    故这里替换 `app.core.id.time` 对象，并让序列用尽后回落到最后一个值：既保留原用例的
+    时钟序列语义，又不干扰外部调用方。
+    """
+    seq = iter(values)
+    fallback = values[-1]
+    return types.SimpleNamespace(time=lambda: next(seq, fallback))
+
+
 @pytest.mark.kiwi_id(30)
 def test_snowflake_seq_wrap(monkeypatch: pytest.MonkeyPatch) -> None:
     """同毫秒序列用尽后等待下一毫秒，ID 不重复。"""
     generator = SnowflakeGenerator(worker_id=0)
-    calls = {"n": 0}
-
-    def fake_time() -> float:
-        calls["n"] += 1
-        return 2_000_000_000.0 if calls["n"] <= 4097 else 2_000_000_000.001
-
-    monkeypatch.setattr("app.core.id.time.time", fake_time)
+    monkeypatch.setattr("app.core.id.time", _fake_time_module([2_000_000_000.0] * 4097 + [2_000_000_000.001]))
     ids = [generator.next_id() for _ in range(4097)]
     assert len(set(ids)) == 4097
 
@@ -146,14 +154,18 @@ def test_snowflake_seq_wrap(monkeypatch: pytest.MonkeyPatch) -> None:
 @pytest.mark.kiwi_id(30)
 def test_snowflake_clock_rollback(monkeypatch: pytest.MonkeyPatch) -> None:
     """小幅回拨等待追平；大幅回拨抛错。"""
-    small = iter([2_000_000_000.0, 1_999_999_999.996])
-    monkeypatch.setattr("app.core.id.time.time", lambda: next(small))
+    monkeypatch.setattr(
+        "app.core.id.time",
+        _fake_time_module([2_000_000_000.0, 1_999_999_999.996, 2_000_000_000.0]),
+    )
     generator = SnowflakeGenerator(worker_id=0)
     generator.next_id()
     assert generator.next_id() > 0
 
-    large = iter([2_000_000_000.0, 1_999_000_000.0])
-    monkeypatch.setattr("app.core.id.time.time", lambda: next(large))
+    monkeypatch.setattr(
+        "app.core.id.time",
+        _fake_time_module([2_000_000_000.0, 1_999_000_000.0, 2_000_000_000.0]),
+    )
     generator2 = SnowflakeGenerator(worker_id=0)
     generator2.next_id()
     with pytest.raises(RuntimeError):
