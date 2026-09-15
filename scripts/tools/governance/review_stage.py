@@ -168,7 +168,7 @@ def check_deferred(stage_dir: Path) -> Check:
 def check_deliverables(root: Path, stage_dir: Path) -> Check:
     """报告与 README 就位（章节 + 关键命令 + 导航）。"""
     problems: list[str] = []
-    report = stage_dir / "测试报告_项目骨架.md"
+    report = stage_dir / "01_测试报告_项目骨架.md"
     if not report.is_file():
         problems.append("缺测试报告")
     else:
@@ -177,7 +177,7 @@ def check_deliverables(root: Path, stage_dir: Path) -> Check:
             if heading not in text:
                 problems.append(f"报告缺「{heading}」")
     readme_expect = {
-        "README.md": ["app.main:create_app --factory", "测试报告_项目骨架.md", "npm run dev"],
+        "README.md": ["app.main:create_app --factory", "01_测试报告_项目骨架.md", "npm run dev"],
         "backend/README.md": ["uv run uvicorn", "文档导航", "check-status.py"],
         "frontend/README.md": ["npm run dev", "文档导航", "5173"],
         "frontend-mobile/README.md": ["npm run dev", "文档导航", "5174"],
