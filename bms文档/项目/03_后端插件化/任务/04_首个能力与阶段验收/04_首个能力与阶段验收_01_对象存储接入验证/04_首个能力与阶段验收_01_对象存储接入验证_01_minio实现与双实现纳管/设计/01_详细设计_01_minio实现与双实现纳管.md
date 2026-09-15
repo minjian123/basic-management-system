@@ -66,14 +66,14 @@ class MinioObjectStorage(BaseObjectStorage):
 
 ## 5. 测试设计（Kiwi 先行） <a id="tests"></a>
 
-用例先登记 Kiwi（**一条**：延迟导入 / 校验拒启 / 密钥分离 / 纳管；平台自增顺延，以实际登记为准）：
+用例先登记 Kiwi（**一条**：延迟导入 / 校验拒启 / 密钥分离 / 纳管；平台实际登记 **662**）：
 
 | Kiwi | 用例 | 断言要点 |
 | --- | --- | --- |
-| 待登记 | `test_minio_factory_registered_and_lazy` | 缺省 `local` 下 `minio` 不出现在 `sys.modules`；快照含 `object_storage:minio`；清单状态 `registered` |
-| 待登记 | `test_minio_rejects_missing_config` | 端点 / 凭据缺失 → `PluginError`（信息可读、不含密钥值） |
-| 待登记 | `test_minio_secret_not_leaked` | 哨兵密钥经环境变量注入 → 启动 / 清单 / 日志不含哨兵 |
-| 待登记 | `test_minio_client_methods_with_stub` | 以假 SDK / 假客户端验证方法映射（无服务连通）：`NoSuchKey → NotFoundError` / `remove_object` 幂等 / presign 方法分派 |
+| 662 | `test_minio_module_import_is_lazy` | 构造实例不导入 SDK（`sys.modules` 无 `minio*`）；快照含 `object_storage:minio` |
+| 662 | `test_minio_rejects_missing_config` | 端点 / 凭据缺失 → `PluginError`（信息可读、不含密钥值） |
+| 662 | `test_minio_secret_not_leaked` | 哨兵密钥经环境变量注入 → 启动 / 清单 / 日志不含哨兵 |
+| 662 | `test_minio_client_methods_with_stub` | 以假客户端验证方法映射（无服务连通）：`NoSuchKey → NotFoundError` / `remove_object` 幂等 / presign 方法分派 |
 
 （缺依赖拒启路径：SDK 未安装时断言 `PluginError` 提示安装；安装后该路径由缺配置用例覆盖——条件断言，不依赖外部服务。）
 
@@ -107,6 +107,6 @@ class MinioObjectStorage(BaseObjectStorage):
 | 2 | 启动校验 | 不连通：SDK 可导入 + 端点 / 凭据齐备 |
 | 3 | 密钥分离 | 仅环境变量注入；启动 / 清单 / 日志三方断言 |
 | 4 | 桶名口径 | `[storage].options.bucket`（缺省 `bms-files`）；`[minio].bucket` 注记废弃 |
-| 5 | 测试编号 | 一条 Kiwi（平台自增顺延，以实际登记为准） |
+| 5 | 测试编号 | 一条 Kiwi：**662**（平台实际登记） |
 
 > 本文档依《文档生成规范》编写 · 关键决策逐项确认
