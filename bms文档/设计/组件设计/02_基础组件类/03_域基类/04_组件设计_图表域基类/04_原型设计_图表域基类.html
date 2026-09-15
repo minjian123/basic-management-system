@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 图表域基类（BaseChart）</title>
+<link rel="stylesheet" href="../../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-code { font-family:Consolas,"Cascadia Mono",monospace; color:#57606a; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+  .chart-wrap { border:1px solid #eaeef2; border-radius:6px; padding:10px; transition:width .2s; background:#fff; }
+  .chart-wrap.dark { background:#0d1117; border-color:#30363d; }
+  .ph-empty { border:1px dashed #d0d7de; border-radius:6px; padding:40px; text-align:center; color:#8c959f; font-size:13px; }
+  .skeleton { height:200px; border-radius:6px; background:linear-gradient(90deg,#f6f8fa 25%,#eaeef2 37%,#f6f8fa 63%); background-size:400% 100%; animation:sk 1.2s infinite; }
+  @keyframes sk { 0% { background-position:100% 50%; } 100% { background-position:0 50%; } }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="04_组件设计_图表域基类.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 图表域基类 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="04_组件设计_图表域基类.md">《组件设计 · 图表域基类》</a>：演示主题随亮暗适配（令牌色，不硬编码）、空数据占位（不初始化实例）、容器尺寸变化自适应重绘与加载骨架；原型图表以 SVG 示意，真实实现用 ECharts（独立分包）。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-bar">
+        <span class="dp-hint">themeMode：</span>
+        <el-radio-group v-model="themeMode" size="small">
+          <el-radio-button label="auto">auto（跟随亮暗）</el-radio-button>
+          <el-radio-button label="light">light</el-radio-button>
+          <el-radio-button label="dark">dark</el-radio-button>
+        </el-radio-group>
+        <el-switch v-model="empty" active-text="空数据 empty" size="small" />
+        <el-switch v-model="loading" active-text="加载态 loading" size="small" />
+        <el-button size="small" @click="toggleWidth">切换容器宽度（触发 resize）</el-button>
+      </div>
+
+      <div class="chart-wrap" :class="{ dark: dark }" :style="{ width: wide ? '100%' : '55%' }">
+        <div v-if="loading" class="skeleton"></div>
+        <div v-else-if="empty" class="ph-empty">（图表空态占位：empty=true 时不初始化 ECharts 实例）</div>
+        <svg v-else viewBox="0 0 600 200" style="width:100%; height:200px">
+          <g v-for="(v, i) in bars" :key="i">
+            <rect :x="40 + i * 90" :y="180 - v" width="50" :height="v" rx="3" :fill="barColor" />
+            <text :x="65 + i * 90" y="196" :fill="textColor" font-size="12" text-anchor="middle">{{ months[i] }}</text>
+          </g>
+          <line x1="30" y1="180" x2="580" y2="180" :stroke="axisColor" />
+        </svg>
+      </div>
+
+      <div class="dp-state" style="margin-top:12px">日志
+{{ logs.length ? logs.join('\n') : '（尚无操作）' }}
+说明：auto 跟随全局亮暗 / 租户品牌令牌；主题切换按令牌重建 option（颜色不硬编码）；
+ResizeObserver 监听容器（重绘节流）；容器隐藏尺寸 0 的守卫；实例销毁走异步资源基类。</div>
+    </div>
+  </div>
+</div>
+
+<script src="../../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref, computed, watch } = Vue;
+  var app = createApp({
+    setup: function () {
+      var themeMode = ref('auto'), empty = ref(false), loading = ref(false), wide = ref(true);
+      var logs = ref([]);
+      function stamp() { return String(logs.value.length + 1).padStart(2, '0'); }
+      var dark = computed(function () {
+        if (themeMode.value === 'dark') return true;
+        if (themeMode.value === 'light') return false;
+        return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      });
+      var bars = [60, 110, 80, 150, 95, 130], months = ['1月', '2月', '3月', '4月', '5月', '6月'];
+      var barColor = computed(function () { return dark.value ? '#58a6ff' : '#0969da'; });
+      var axisColor = computed(function () { return dark.value ? '#30363d' : '#d0d7de'; });
+      var textColor = computed(function () { return dark.value ? '#8b949e' : '#57606a'; });
+      watch(themeMode, function (v) { logs.value.push('[' + stamp() + '] themeMode=' + v + ' → 按设计令牌重建 option（dark=' + dark.value + '）'); });
+      watch(empty, function (v) { logs.value.push('[' + stamp() + '] empty=' + v + (v ? ' → dispose 实例、渲染空态占位' : ' → 容器可见后 init 实例')); });
+      watch(loading, function (v) { logs.value.push('[' + stamp() + '] loading=' + v + (v ? ' → 骨架（实例保持/暂停）' : ' → 骨架收起')); });
+      function toggleWidth() {
+        wide.value = !wide.value;
+        logs.value.push('[' + stamp() + '] 容器宽度变化 → ResizeObserver → resize()（节流 100ms）');
+      }
+      return { themeMode: themeMode, empty: empty, loading: loading, wide: wide, dark: dark, bars: bars, months: months, barColor: barColor, axisColor: axisColor, textColor: textColor, logs: logs, toggleWidth: toggleWidth };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>

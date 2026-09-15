@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 表单页组合片段（useFormPage）</title>
+<link rel="stylesheet" href="../../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-code { font-family:Consolas,"Cascadia Mono",monospace; color:#57606a; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+  .row { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+  .row .lb { width:100px; color:#57606a; font-size:13px; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="25_组件设计_表单页组合片段.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 表单页组合片段 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="25_组件设计_表单页组合片段.md">《组件设计 · 表单页组合片段》</a>：演示三态（新增 / 编辑 / 详情）、详情加载、脏数据跟踪、提交（含乐观锁）与离开拦截确认。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-bar">
+        <el-radio-group v-model="mode" size="small" @change="switchMode">
+          <el-radio-button label="create">新增 create</el-radio-button>
+          <el-radio-button label="edit">编辑 edit</el-radio-button>
+          <el-radio-button label="detail">详情 detail</el-radio-button>
+        </el-radio-group>
+        <span class="dp-hint" :class="{ dp-code: true }">isDirty={{ dirty ? 'true' : 'false' }}</span>
+        <el-button size="small" type="primary" :loading="saving" :disabled="mode === 'detail'" @click="submit">提交（整体 + version）</el-button>
+        <el-button size="small" @click="leave">返回列表（leave）</el-button>
+      </div>
+
+      <div class="row"><span class="lb">用户名</span>
+        <el-input v-model="form.username" :disabled="mode === 'detail'" size="small" style="width:240px" @input="mark" /></div>
+      <div class="row"><span class="lb">所属组织</span>
+        <el-input v-model="form.dept" :disabled="mode === 'detail'" size="small" style="width:240px" @input="mark" /></div>
+      <div class="row"><span class="lb">version(乐观锁)</span><span class="dp-code">{{ version }}</span></div>
+
+      <div class="dp-state">日志
+{{ logs.length ? logs.join('\n') : '（尚无操作）' }}
+说明：进入 edit/detail 先 loadDetail（建立初始快照）；任一字段变化 → isDirty=true（同步 FormFrame / 页签拦截）；
+提交经校验 → useRequest（主表 + 明细单事务、携带 version）；成功后 saved 事件 → FormFrame 刷新列表；
+脏数据时离开 → 弹确认（放弃修改 / 继续编辑），页签关闭与路由切换同口径。</div>
+    </div>
+  </div>
+</div>
+
+<script src="../../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref } = Vue;
+  var app = createApp({
+    setup: function () {
+      var mode = ref('edit'), form = ref({ username: '张三', dept: '研发中心' }), snapshot = { username: '张三', dept: '研发中心' };
+      var dirty = ref(false), saving = ref(false), version = ref(3), logs = ref([]);
+      function stamp() { return String(logs.value.length + 1).padStart(2, '0'); }
+      function mark() { dirty.value = form.value.username !== snapshot.username || form.value.dept !== snapshot.dept; }
+      function switchMode() {
+        if (mode.value === 'create') { form.value = { username: '', dept: '' }; snapshot = { username: '', dept: '' }; version.value = 0; logs.value.push('[' + stamp() + '] 进入 create：空表单 + 默认值'); }
+        else {
+          var data = { username: '张三', dept: '研发中心' };
+          logs.value.push('[' + stamp() + '] loadDetail() → GET /api/users/1（version=3，建立初始快照）');
+          form.value = Object.assign({}, data); snapshot = data; version.value = 3;
+          logs.value.push('[' + stamp() + '] 进入 ' + mode.value + '：' + (mode.value === 'detail' ? '只读（复用编辑组件 disabled）' : '可编辑'));
+        }
+        mark();
+      }
+      function submit() {
+        if (mode.value === 'detail') { logs.value.push('[' + stamp() + '] detail 态：提交按钮不展示'); return; }
+        saving.value = true;
+        logs.value.push('[' + stamp() + '] submit() → 校验通过 → POST/PUT（主表 + 明细单事务，version=' + version.value + '）');
+        setTimeout(function () {
+          saving.value = false;
+          if (mode.value !== 'create' && Math.random() < 0.25) {
+            logs.value.push('[' + stamp() + '] 409 乐观锁冲突：数据已被他人修改 → 提示刷新后重试');
+            return;
+          }
+          version.value += 1; snapshot = Object.assign({}, form.value); dirty.value = false;
+          logs.value.push('[' + stamp() + '] saved 事件 → FormFrame 刷新列表（version=' + version.value + '）');
+        }, 500);
+      }
+      function leave() {
+        if (dirty.value) { logs.value.push('[' + stamp() + '] leave() → 脏数据拦截：确认框「放弃修改 / 继续编辑」→（演示选择继续编辑）'); }
+        else { logs.value.push('[' + stamp() + '] leave() → 无脏数据，直接返回列表'); }
+      }
+      return { mode: mode, form: form, dirty: dirty, saving: saving, version: version, logs: logs, mark: mark, switchMode: switchMode, submit: submit, leave: leave };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>

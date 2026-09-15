@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 注册表基类（BaseProviderRegistry / BaseProvider）</title>
+<link rel="stylesheet" href="../../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-code { font-family:Consolas,"Cascadia Mono",monospace; color:#57606a; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+  .lst { border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .lst .it { display:flex; gap:10px; font-size:13px; padding:3px 0; font-family:Consolas,monospace; color:#57606a; }
+  .lst .it .k { width:100px; color:#0969da; }
+  .lst .it .n { color:#b1b8bf; margin-left:auto; font-size:11px; }
+  .dup { color:#cf222e; } .hit { color:#1a7f37; } .miss { color:#9a6700; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="06_组件设计_注册表基类.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 注册表基类 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="06_组件设计_注册表基类.md">《组件设计 · 注册表基类》</a>：以「字段渲染器注册表」为例，演示登记 / 唯一性拒重 / 解析命中与未命中 / 保序清单与只读快照。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-bar">
+        <el-input v-model="key" size="small" placeholder="key（如 dict / date）" style="width:180px" />
+        <el-input v-model="desc" size="small" placeholder="describe()（如字典下拉渲染器）" style="width:260px" />
+        <el-button type="primary" size="small" @click="register">登记</el-button>
+        <el-select v-model="probe" size="small" placeholder="解析 key" style="width:160px">
+          <el-option v-for="p in providers" :key="p.key" :label="p.key" :value="p.key" />
+          <el-option label="unknown-xx（未登记）" value="unknown-xx" />
+        </el-select>
+        <span :class="probeResult.ok ? 'hit' : 'miss'">{{ probeResult.text }}</span>
+        <el-button size="small" @click="snapshot">只读快照</el-button>
+      </div>
+
+      <div class="lst">
+        <div class="it" v-for="(p, i) in providers" :key="p.key">
+          <span class="k">{{ p.key }}</span>
+          <span>{{ p.desc }}</span>
+          <span class="n">#{{ i + 1 }}（登记顺序保序）</span>
+        </div>
+        <div v-if="!providers.length" class="dp-hint">（注册表为空）</div>
+      </div>
+
+      <div class="dp-state">操作结果
+{{ message }}
+快照：{{ snapText }}
+说明：register() 同 key 拒重（严格域抛错、一般域告警保留首个）；get() 未命中返回 undefined（各域自行兜底）；
+keys() / values() 保序输出；snapshot() 返回冻结副本，防外部改写。</div>
+    </div>
+  </div>
+</div>
+
+<script src="../../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref } = Vue;
+  var app = createApp({
+    setup: function () {
+      var providers = ref([
+        { key: 'text', desc: '文本框渲染器' },
+        { key: 'select', desc: '下拉渲染器' }
+      ]);
+      var key = ref(''), desc = ref(''), probe = ref(''), message = ref('（无）'), snapText = ref('（未生成）');
+      var probeResult = ref({ ok: true, text: '' });
+      function register() {
+        if (!key.value || !desc.value) { message.value = '请填写 key 与 describe()'; return; }
+        if (providers.value.some(function (p) { return p.key === key.value; })) {
+          message.value = '拒重：key「' + key.value + '」已登记（唯一性拒重，登记顺序保留首个）';
+          return;
+        }
+        providers.value.push({ key: key.value, desc: desc.value });
+        message.value = '登记成功：' + key.value + ' → ' + desc.value;
+        key.value = ''; desc.value = '';
+      }
+      function snapshot() {
+        snapText.value = JSON.stringify(Object.freeze(providers.value.map(function (p) { return { key: p.key, describe: p.desc }; })), null, 0);
+      }
+      Vue.watch(probe, function (k) {
+        if (!k) return;
+        var hit = providers.value.find(function (p) { return p.key === k; });
+        probeResult.value = hit ? { ok: true, text: '命中：' + hit.desc } : { ok: false, text: '未命中：get() 返回 undefined（渲染兜底占位）' };
+      });
+      return { providers: providers, key: key, desc: desc, probe: probe, message: message, snapText: snapText, probeResult: probeResult, register: register, snapshot: snapshot };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>

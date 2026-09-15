@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 水印片段（useWatermark）</title>
+<link rel="stylesheet" href="../../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-code { font-family:Consolas,"Cascadia Mono",monospace; color:#57606a; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+  .wm-host { position:relative; border:1px solid #eaeef2; border-radius:6px; padding:18px; min-height:220px; overflow:hidden; }
+  .wm-layer { position:absolute; inset:0; pointer-events:none; }
+  .wm-content { position:relative; z-index:1; font-size:13px; color:#57606a; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="30_组件设计_水印片段.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 水印片段 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="30_组件设计_水印片段.md">《组件设计 · 水印片段》</a>：演示水印内容组装（用户 / 租户 / 日期）、透明度 / 旋转 / 间距调节、防移除重建与 toDataURL 导出注入。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-bar">
+        <span class="dp-hint">透明度</span><el-slider v-model="opacity" :min="0.05" :max="0.4" :step="0.01" style="width:120px" />
+        <span class="dp-hint">旋转</span><el-slider v-model="rotate" :min="-45" :max="0" style="width:100px" />
+        <span class="dp-hint">间距</span><el-slider v-model="gap" :min="100" :max="260" :step="10" style="width:100px" />
+        <el-button size="small" @click="removeWatermark">模拟移除水印层（防移除重建）</el-button>
+      </div>
+
+      <div class="wm-host" ref="host">
+        <div class="wm-layer" :style="wmStyle" v-show="showLayer"></div>
+        <div class="wm-content">
+          <p><b>敏感区域示例：员工信息</b></p>
+          <p>姓名：张三　组织：研发中心　状态：在职</p>
+          <p><span class="dp-hint">页面级水印由 useWatermark 注入；导出 / 打印经 toDataURL 注入相同水印。</span></p>
+        </div>
+      </div>
+
+      <div class="dp-state" style="margin-top:12px">水印内容：{{ text }}
+{{ logs.length ? logs.join('\n') : '（尚无操作）' }}
+说明：canvas 生成平铺图案（一次生成，参数变化才重生成）；guard=true 时 MutationObserver 监听水印层被删 / 样式篡改并重建；
+水印内容默认组装 用户 + 租户 + 日期（不引入超范围敏感信息）；卸载自动移除（登记异步资源基类）。</div>
+    </div>
+  </div>
+</div>
+
+<script src="../../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref, computed } = Vue;
+  var app = createApp({
+    setup: function () {
+      var opacity = ref(0.15), rotate = ref(-20), gap = ref(180), showLayer = ref(true), logs = ref([]), host = ref(null);
+      var text = '张三 10086 · 集团总部 · 2026-09-16';
+      function stamp() { return String(logs.value.length + 1).padStart(2, '0'); }
+      var wmStyle = computed(function () {
+        var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + gap.value + '" height="' + Math.round(gap.value * 0.7) + '">' +
+          '<text x="10" y="60" font-size="14" fill="rgba(87,96,106,' + opacity.value + ')" transform="rotate(' + rotate.value + ' 10 60)">' + text + '</text></svg>';
+        var url = 'url("data:image/svg+xml;utf8,' + encodeURIComponent(svg) + '")';
+        return { backgroundImage: url, backgroundRepeat: 'repeat' };
+      });
+      function removeWatermark() {
+        showLayer.value = false;
+        logs.value.push('[' + stamp() + '] 水印层被移除 → guard=true：MutationObserver 检测到删除，重建水印层');
+        setTimeout(function () { showLayer.value = true; logs.value.push('[' + stamp() + '] 已重建（提高摘除成本；不承诺绝对防）'); }, 600);
+      }
+      logs.value.push('[' + stamp() + '] apply(host)：canvas/SVG 生成平铺图案（opacity=0.15, rotate=-20, gap=180）');
+      return { opacity: opacity, rotate: rotate, gap: gap, showLayer: showLayer, logs: logs, host: host, text: text, wmStyle: wmStyle, removeWatermark: removeWatermark };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>
