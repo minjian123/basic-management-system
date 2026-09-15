@@ -4,7 +4,7 @@
 **只读脚本**：逐项核对阶段收口状态，输出「通过 / 不通过 + 证据」，不修改任何文档；
 发现不一致只报告，由人决定处置（异常项处理留痕见任务实施记录 §4 / §6）。
 
-核对清单（八项）：
+核对清单（九项）：
 
 1. 三类文档状态一致（复用 `check-docs/check-status.py`）
 2. 基座自检通过（复用 `base-check/check-base.py`）
@@ -14,6 +14,7 @@
 6. 报告与 README 就位（报告章节齐备；四份 README 关键命令与导航存在）
 7. 记录齐备（已完成任务目录存在 `实施/`，有嵌套时容许子目录承担）
 8. Kiwi 用例编号引用（任务测试记录均含 Kiwi 字段）
+9. 微服务重评触发条件复核（打印 T1~T8 供人工判断；档案《微服务 · 10 项目评估》）
 
 用法::
 
@@ -38,6 +39,18 @@ CONCLUSIONS = {"达标", "进行中", "不达标"}
 REQ_META_RE = re.compile(r"^优先级：\S+（[^）]*）\u3000\|\u3000状态：(\S+)\u3000\|\u3000完成日期：\S+\s*$")
 TASK_META_RE = re.compile(r"^\|\s*状态\s*\|\s*(\S+?)\s*\|")
 ROW_RE = re.compile(r"^\|(?P<cells>.*)\|\s*$")
+
+# 微服务重评触发条件（《微服务 · 10 项目评估》§7；人工逐条判断，脚本只提醒不判定）
+MICROSERVICE_TRIGGERS = (
+    "T1 团队规模（≥ 5~8 人且需独立交付节奏）",
+    "T2 领域边界稳定（≥ 2~3 个大阶段未调整）",
+    "T3 发布瓶颈（单体发布风险/频率成为瓶颈）",
+    "T4 资源画像（某模块独立伸缩收益可量化）",
+    "T5 故障隔离（模块级故障拖垮全局且进程内隔离无法覆盖）",
+    "T6 隔离/合规（物理隔离要求且独立服务出口不满足）",
+    "T7 运维能力（有专职平台/运维角色且 CD/可观测/编排达到前提）",
+    "T8 性能证据（瓶颈在非可拆模块内部）",
+)
 
 
 @dataclass
@@ -217,8 +230,17 @@ def check_kiwi(stage_dir: Path) -> Check:
     )
 
 
+def check_microservice_triggers() -> Check:
+    """微服务重评触发条件提醒：打印 T1~T8 供人工逐条判断（脚本不作自动判定）。"""
+    return Check(
+        "微服务重评触发条件复核（人工）",
+        True,
+        "T1~T8 见知识档案《微服务 · 10 项目评估》§7；本项为提醒，不自动判定",
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
-    """入口：跑八项复盘清单并汇总。"""
+    """入口：跑九项复盘清单并汇总。"""
     parser = argparse.ArgumentParser(description="阶段末复盘清单自动核对（只读）")
     parser.add_argument("--stage", default="01_项目骨架", help="阶段目录名（默认 01_项目骨架）")
     parser.add_argument("--root", default=".", help="仓库根目录（默认当前目录）")
@@ -241,6 +263,7 @@ def main(argv: list[str] | None = None) -> int:
         check_deliverables(root, stage_dir),
         check_records(stage_dir),
         check_kiwi(stage_dir),
+        check_microservice_triggers(),
     ]
 
     print(f"== 阶段末复盘清单（{args.stage}）==")
@@ -248,6 +271,9 @@ def main(argv: list[str] | None = None) -> int:
         print(f"[{idx}/{len(checks)}] {'通过' if item.passed else '不通过'} {item.name}：{item.evidence}")
     failed = [item for item in checks if not item.passed]
     print(f"\n汇总：{len(checks) - len(failed)}/{len(checks)} 通过" + ("；不通过项见上" if failed else "（全部通过）"))
+    print("\n微服务重评触发条件（逐条人工判断，见知识档案《微服务 · 10 项目评估》§7）：")
+    for trigger in MICROSERVICE_TRIGGERS:
+        print(f"  - {trigger}")
     return 1 if failed else 0
 
 
