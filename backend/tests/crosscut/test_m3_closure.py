@@ -51,9 +51,18 @@ def test_gate_table_has_conclusions_and_evidence() -> None:
 
 @pytest.mark.kiwi_id(663)
 def test_plan_closure_state() -> None:
-    """计划收口状态：头部计数 11/11、甘特 M3 里程碑、报告引用齐备。"""
+    """计划收口状态：头部计数与已完成任务表一致且剩余 0、甘特 M3 里程碑、报告引用齐备。
+
+    头部项数不写死（任务会随收口后遗留处理增减），改为校验结构自洽：
+    「已完成 N 项，剩余 0 项」且 N 等于「已完成任务」表数据行数。
+    """
     text = _PLAN.read_text(encoding="utf-8")
-    assert re.search(r"已完成\s*11\s*项", text)
+    match = re.search(r"已完成\s*(\d+)\s*项[，,]\s*剩余\s*(\d+)\s*项", text)
+    assert match, "计划头部应写明「已完成 N 项，剩余 M 项」"
+    assert match.group(2) == "0", "阶段收口后剩余项应为 0"
+    done_section = text.split("## 2. 已完成任务", 1)[1].split("## 3.", 1)[0]
+    done_rows = _table_rows(done_section)
+    assert int(match.group(1)) == len(done_rows), "头部已完成项数应与已完成任务表行数一致"
     assert "M3" in text and "milestone" in text
     assert "01_测试报告_后端插件化.md" in text
 
