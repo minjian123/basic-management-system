@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 输入形态片段（BaseInputControl / useInputControlBase）</title>
+<title>原型 · 输入形态片段（useInputControl / useInputControl）</title>
 <link rel="stylesheet" href="../../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../../原型设计/资源/原型样式.css">
 <style>
@@ -41,8 +41,8 @@
 
       <div class="dp-state">值 v1 = {{ JSON.stringify(v1) }}　v2 = {{ JSON.stringify(v2) }}　v3 = {{ JSON.stringify(v3) }}
 最近事件：{{ ev }}；change 值：{{ lastChange }}
-说明：受控只认 modelValue；插槽 prefix/suffix/prepend/append；清空后值由 能力片段 BaseValue 归一（本层置空）；
-本层不含三态/校验触发/字段上下文/字段权限——它们是 能力片段 BaseValue/BaseField 的职责。</div>
+说明：受控只认 modelValue；插槽 prefix/suffix/prepend/append；清空后值由 能力片段 useValue 归一（本层置空）；
+本层不含三态/校验触发/字段上下文/字段权限——它们是 能力片段 useValue/useField 的职责。</div>
     </div>
   </div>
 </div>
@@ -53,8 +53,8 @@
 <script>
   var { createApp, ref } = Vue;
 
-  // 模拟 输入形态片段 BaseInputControl
-  var BaseInputControl = {
+  // 模拟 输入形态片段 useInputControl
+  var useInputControl = {
     props: ['modelValue','placeholder','readonly','clearable'],
     emits: ['update:modelValue','change','focus','blur','clear'],
     data: function () { return { composing: false }; },
@@ -77,7 +77,7 @@
   };
 
   var app = createApp({
-    components: { BaseInputControl: BaseInputControl },
+    components: { useInputControl: useInputControl },
     setup: function () {
       var v1 = ref('文本'), v2 = ref(''), v3 = ref('user');
       var readonly = ref(false), clearable = ref(true);

@@ -54,7 +54,7 @@
 值 code = {{ JSON.stringify(code) }}　codePattern 校验：{{ /^[A-Z0-9_]{3,20}$/.test(code) ? '通过' : '不通过' }}
 脱敏：mask={{ mask }} / plain={{ plain }} → 显示 {{ mask && !plain ? masked : phone }}
 说明：空串归一 null；长度截断+计数；正则提交前校验（后端强制）；脱敏字段持 data:plain 看明文；
-继承链 TextField → BaseInput(输入域基类) → BaseField(字段编排片段) → BaseValue(受控值片段) → BaseInputControl(输入形态片段) → BaseComponent(组件根) → BaseFrontend(根系)。</div>
+继承链 TextField → BaseInput(输入域基类) → useField(字段编排片段) → useValue(受控值片段) → useInputControl(输入形态片段) → BaseComponent(组件根) → BaseFrontend(根系)。</div>
     </div>
   </div>
 </div>

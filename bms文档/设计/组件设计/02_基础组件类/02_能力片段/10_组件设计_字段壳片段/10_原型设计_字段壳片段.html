@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 字段壳（FieldWrapper）</title>
+<title>原型 · 字段壳（BaseFieldShell）</title>
 <link rel="stylesheet" href="../../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../../原型设计/资源/原型样式.css">
 <style>
@@ -93,7 +93,7 @@
 <script>
   var { createApp, ref, reactive, computed } = Vue;
 
-  var FieldWrapper = {
+  var BaseFieldShell = {
     props: {
       label: String, required: { default: false }, help: { default: '' }, extra: { default: '' },
       error: { default: '' }, span: { default: 1 }, readonly: Boolean, readonlyMode: { default: 'auto' },
@@ -115,7 +115,7 @@
   };
 
   var app = createApp({
-    components: { FieldWrapper: FieldWrapper },
+    components: { BaseFieldShell: BaseFieldShell },
     setup: function () {
       var viewMode = ref(false);
       var readonlyMode = ref('auto');
