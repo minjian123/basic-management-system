@@ -84,12 +84,12 @@ UNIQUENESS_REGISTRIES: tuple[tuple[str, Callable[[], object]], ...] = (
 
 ## 5. 测试设计（Kiwi 先行） <a id="tests"></a>
 
-用例先登记 Kiwi（**一条**：域注册表唯一性口径对齐与 Null 真实登记；平台自增顺延，以实际登记为准）→ 扩展 `tests/contracts/test_domain_registry_contracts.py`：
+用例先登记 Kiwi（**一条**：域注册表唯一性口径对齐与 Null 真实登记；平台实际登记 **655**，自增序列被 CI 导入用例推进）→ 扩展 `tests/contracts/test_domain_registry_contracts.py`：
 
 | Kiwi | 用例 | 断言要点 |
 | --- | --- | --- |
-| 待登记 | `test_uniqueness_registries_reject_duplicates` | 4 域清单：同键二次登记 → `ConflictError`（与插件注册表语义一致） |
-| 待登记 | `test_null_registry_registers_really` | 3 域 `Null`：登记后 `keys()` / `get` 反映、聚合模板仍恒过 / 空结果 |
+| 655 | `test_uniqueness_registries_reject_duplicates` | 4 域清单：同键二次登记 → `ConflictError`（与插件注册表语义一致） |
+| 655 | `test_null_registry_registers_really` | 3 域 `Null`：登记后 `keys()` / `get` 反映、聚合模板仍恒过 / 空结果 |
 
 ## 6. 实施步骤 <a id="steps"></a>
 
@@ -122,6 +122,6 @@ UNIQUENESS_REGISTRIES: tuple[tuple[str, Callable[[], object]], ...] = (
 | 2 | 唯一性断言 | **独立清单**（4 域），`RegistryContract` 去 `uniqueness` 开关 |
 | 3 | 基类抽象性 | 保留 `_provider_key` 抽象（基类不可实例化，防误登记） |
 | 4 | 测试替身 | 删重复实现改继承（验证语义等价） |
-| 5 | 测试编号 | 一条 Kiwi（平台自增顺延，以实际登记为准） |
+| 5 | 测试编号 | 一条 Kiwi：**655**（平台实际登记，CI 导入推进自增） |
 
 > 本文档依《文档生成规范》编写 · 关键决策逐项确认
