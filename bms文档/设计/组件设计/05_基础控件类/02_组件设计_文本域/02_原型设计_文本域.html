@@ -23,7 +23,7 @@
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="02_组件设计_文本域.md">《组件设计 · 文本域》</a>：演示多行文本、固定行数/自适应高度、字数统计、换行保留、trim 与只读；继承 02 基础组件类 L4-01。
+    本原型对应当前目录 <a href="02_组件设计_文本域.md">《组件设计 · 文本域》</a>：演示多行文本、固定行数/自适应高度、字数统计、换行保留、trim 与只读；继承 02 基础组件类 输入域基类。
   </div>
 
   <div id="app">
@@ -41,7 +41,7 @@
       <div class="dp-state" style="margin-top:12px">值 = {{ JSON.stringify(text) }}
 trim 后 = {{ JSON.stringify(text.trim()) }}　行数 = {{ text.split('\n').length }}　字数 = {{ text.length }}/200
 说明：换行符统一 \n 入库；固定行数或 autosize（min/maxRows）；空串归一 null；只读回显保留换行；
-继承链经 L4-01 输入域基类。富文本（可格式化）不在本控件，见 04 字段类 07 富文本字段。</div>
+继承链经 输入域基类 输入域基类。富文本（可格式化）不在本控件，见 04 字段类 07 富文本字段。</div>
     </div>
   </div>
 </div>

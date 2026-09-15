@@ -26,7 +26,7 @@
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="01_组件设计_文本框.md">《组件设计 · 文本框》</a>：演示受控绑定、长度限制与计数、前后缀/清空、trim、正则校验、只读与三态、脱敏；文本框继承 02 基础组件类 L4-01 输入域基类。
+    本原型对应当前目录 <a href="01_组件设计_文本框.md">《组件设计 · 文本框》</a>：演示受控绑定、长度限制与计数、前后缀/清空、trim、正则校验、只读与三态、脱敏；文本框继承 02 基础组件类 输入域基类 输入域基类。
   </div>
 
   <div id="app">
@@ -54,7 +54,7 @@
 值 code = {{ JSON.stringify(code) }}　codePattern 校验：{{ /^[A-Z0-9_]{3,20}$/.test(code) ? '通过' : '不通过' }}
 脱敏：mask={{ mask }} / plain={{ plain }} → 显示 {{ mask && !plain ? masked : phone }}
 说明：空串归一 null；长度截断+计数；正则提交前校验（后端强制）；脱敏字段持 data:plain 看明文；
-继承链 TextField → BaseInput(L4-01) → BaseField(L3-02) → BaseValue(L3-01) → BaseInputControl(L2-02) → BaseComponent(L1b) → BaseFrontend(L0)。</div>
+继承链 TextField → BaseInput(输入域基类) → BaseField(字段编排片段) → BaseValue(受控值片段) → BaseInputControl(输入形态片段) → BaseComponent(组件根) → BaseFrontend(根系)。</div>
     </div>
   </div>
 </div>

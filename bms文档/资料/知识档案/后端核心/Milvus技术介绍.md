@@ -28,7 +28,7 @@
 | Embedding | 用 embedding 模型把文本转成向量的过程，是向量检索的前提；本项目的 embedding 管线经 RocketMQ 事件驱动 |
 | Collection | 向量「表」：一批同结构向量的集合；本项目按租户建（`bms-{tenant}-doc`、`bms-{tenant}-embedding`） |
 | 向量索引 | 加速相似度检索的数据结构（如 IVF、HNSW 系列）：用内存换速度，数据量大时必建 |
-| 相似度度量 | 衡量向量远近的方法：余弦（cosine）、欧氏距离（L2）、内积（IP）等，建集合时选定 |
+| 相似度度量 | 衡量向量远近的方法：余弦（cosine）、欧氏距离（片段）、内积（IP）等，建集合时选定 |
 | 标量字段 | 向量之外的普通字段（如 `file_id`、`chunk_no`、`tenant_id`），用于过滤与回查定位 |
 | etcd | 分布式键值存储，Milvus 用它保存集群元数据（集合定义、分片分布）；etcd 数据丢失 = 元数据丢失 |
 | MinIO（对象存储） | Milvus 把向量数据文件落在对象存储上；本项目直接复用现有 MinIO，不新增存储组件 |

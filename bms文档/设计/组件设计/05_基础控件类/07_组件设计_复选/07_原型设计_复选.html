@@ -23,7 +23,7 @@
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="07_组件设计_复选.md">《组件设计 · 复选》</a>：演示 <span class="dp-code">checkbox</span> / <span class="dp-code">tag</span> 两种形态、多选、全选、数量上下限（min/max）、只读与空值；继承 02 基础组件类 L4-01。
+    本原型对应当前目录 <a href="07_组件设计_复选.md">《组件设计 · 复选》</a>：演示 <span class="dp-code">checkbox</span> / <span class="dp-code">tag</span> 两种形态、多选、全选、数量上下限（min/max）、只读与空值；继承 02 基础组件类 输入域基类。
   </div>
 
   <div id="app">
@@ -47,7 +47,7 @@
 
       <div class="dp-state" style="margin-top:14px">值 = {{ JSON.stringify(v) }}（按选项顺序去重，与勾选顺序无关）　形态 = {{ widget }}
 数量限制：{{ min }} ≤ 已选 {{ v.length }} ≤ {{ max }} → {{ v.length>=min && v.length<=max ? '通过' : '不通过' }}
-空值归一 []；全选忽略禁用项；标签形态可关闭；继承链经 L4-01。</div>
+空值归一 []；全选忽略禁用项；标签形态可关闭；继承链经 输入域基类。</div>
     </div>
   </div>
 </div>
