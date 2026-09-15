@@ -40,4 +40,5 @@ class ErrorCode(IntEnum):
     AUTH = 20001
     PERMISSION = 30001
     CONFIG = 40001
+    PLUGIN = 40002
     TENANT_NOT_FOUND = 80001
