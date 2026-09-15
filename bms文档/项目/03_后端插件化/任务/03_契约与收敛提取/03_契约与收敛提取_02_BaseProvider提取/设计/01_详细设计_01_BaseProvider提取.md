@@ -81,12 +81,12 @@ class BaseProvider(BaseCapability, ABC):
 
 ## 5. 测试设计（Kiwi 先行） <a id="tests"></a>
 
-用例先登记 Kiwi（**两条**：契约与键口径 / 组合轨边界；平台自增顺延，以实际登记为准）→ `tests/crosscut/test_provider_contracts.py`：
+用例先登记 Kiwi（**两条**：契约与键口径 / 组合轨边界；平台实际登记 **651 / 652**，自增序列被 CI 导入用例推进）→ `tests/crosscut/test_provider_contracts.py`：
 
 | Kiwi | 用例 | 断言要点 |
 | --- | --- | --- |
-| 待登记 | `test_provider_contract_semantics` | 4 端口 `issubclass(BaseProvider)`；实现类 `key` 非空 + `describe` 含键名；健康 `name == key` |
-| 待登记 | `test_provider_composition_track_boundary` | 4 端口非 `BasePluggable` 子类；插件快照不含提供者条目（36 键不变）；域注册表登记不经 `resolve_plugin` |
+| 651 | `test_provider_contract_semantics` | 4 端口 `issubclass(BaseProvider)`；实现类 `key` 非空 + `describe` 含键名；健康 `name == key` |
+| 652 | `test_provider_composition_track_boundary` | 4 端口非 `BasePluggable` 子类；插件快照与提供者实现类互斥（组合轨不由继承混入） |
 
 ## 6. 实施步骤 <a id="steps"></a>
 
@@ -120,6 +120,7 @@ class BaseProvider(BaseCapability, ABC):
 | 3 | 元信息 | `describe` 抽象强约束（4 端口抽象、16 实现类显式提供） |
 | 4 | 组合轨边界 | 新增护栏用例（非 `BasePluggable` 子类 + 快照不含提供者） |
 | 5 | 注册表归位 | `BaseProviderRegistry` 移入 `provider.py` + `registry.py` 过渡导出 |
-| 6 | 测试编号 | 两条 Kiwi（平台自增顺延，以实际登记为准） |
+| 6 | 测试编号 | 两条 Kiwi：**651 / 652**（平台实际登记，CI 导入推进自增） |
+| 7 | 快照断言口径 | 边界用例以「实现类与快照条目互斥」断言（36 键完整性由 03-1 完整性用例承载，避免重复断言） |
 
 > 本文档依《文档生成规范》编写 · 关键决策逐项确认
