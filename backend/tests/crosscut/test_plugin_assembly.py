@@ -17,7 +17,7 @@ from app.main import create_app, lifespan
 from app.masking.null import NullMasker
 from app.permission.base import BasePermissionChecker
 from app.permission.null import NullPermissionChecker
-from app.storage.null import NullObjectStorage
+from app.storage.local import LocalObjectStorage
 
 
 def _isolated_registry(monkeypatch: pytest.MonkeyPatch) -> PluginRegistry:
@@ -46,14 +46,14 @@ def _isolated_registry(monkeypatch: pytest.MonkeyPatch) -> PluginRegistry:
 
 @pytest.mark.kiwi_id(533)
 async def test_default_assembly_wires_null_implementations() -> None:
-    """默认装配：lifespan 后各能力 `app.state` 为对应 `NullXxx`；非插件项不受影响。"""
+    """默认装配：lifespan 后各能力 `app.state` 为配置实现（对象存储缺省 local，其余占位）。"""
     app = create_app()
     async with lifespan(app):
-        assert isinstance(app.state.object_storage, NullObjectStorage)
+        assert isinstance(app.state.object_storage, LocalObjectStorage)
         assert isinstance(app.state.masker, NullMasker)
         assert isinstance(app.state.permission_checker, NullPermissionChecker)
         assert isinstance(app.state.health_check_registry, HealthCheckRegistry)
-        assert resolve_plugin("object_storage", "") is app.state.object_storage
+        assert resolve_plugin("object_storage", "local") is app.state.object_storage
 
 
 @pytest.mark.kiwi_id(533)
