@@ -15,8 +15,9 @@ from typing import cast
 
 from fastapi import Request
 
+from app.core.config import Settings
 from app.core.exceptions import PermissionError
-from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
+from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 
 
 class BasePermissionChecker(BasePluggable, ABC):
@@ -60,7 +61,15 @@ def get_permission_checker(request: Request) -> BasePermissionChecker:
     Returns:
         BasePermissionChecker: 应用装配的检查器实例。
     """
-    return cast("BasePermissionChecker", request.app.state.permission_checker)
+    settings = cast("Settings", request.app.state.settings)
+    return cast(
+        "BasePermissionChecker",
+        resolve_plugin(
+            "permission",
+            settings.permission.provider,
+            expected_version=BasePermissionChecker.contract_version,
+        ),
+    )
 
 
 def require_permission(code: str) -> Callable[..., None]:

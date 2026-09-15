@@ -15,7 +15,8 @@ from typing import cast
 
 from fastapi import Request
 
-from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
+from app.core.config import Settings
+from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 from app.fallback.base import DEPENDENCIES
 
 __all__ = [
@@ -95,4 +96,12 @@ def get_circuit_breaker(request: Request) -> BaseCircuitBreaker:
     Returns:
         BaseCircuitBreaker: 应用装配的熔断器实例。
     """
-    return cast("BaseCircuitBreaker", request.app.state.circuit_breaker)
+    settings = cast("Settings", request.app.state.settings)
+    return cast(
+        "BaseCircuitBreaker",
+        resolve_plugin(
+            "circuit_breaker",
+            settings.circuit_breaker.provider,
+            expected_version=BaseCircuitBreaker.contract_version,
+        ),
+    )

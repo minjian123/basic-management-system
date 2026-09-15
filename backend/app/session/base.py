@@ -15,7 +15,8 @@ from typing import cast
 
 from fastapi import Request
 
-from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
+from app.core.config import Settings
+from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 
 __all__ = [
     "DEFAULT_SESSION_TTL",
@@ -80,4 +81,12 @@ def get_session_store(request: Request) -> BaseSessionStore:
     Returns:
         BaseSessionStore: 应用装配的会话存储实例。
     """
-    return cast("BaseSessionStore", request.app.state.session_store)
+    settings = cast("Settings", request.app.state.settings)
+    return cast(
+        "BaseSessionStore",
+        resolve_plugin(
+            "session_store",
+            settings.session_store.provider,
+            expected_version=BaseSessionStore.contract_version,
+        ),
+    )

@@ -17,7 +17,8 @@ from typing import cast
 from fastapi import Request
 
 from app.core.base import BaseObject
-from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
+from app.core.config import Settings
+from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 
 __all__ = [
     "GENESIS_HASH",
@@ -101,4 +102,12 @@ def get_hash_chain(request: Request) -> BaseHashChain:
     Returns:
         BaseHashChain: 应用装配的哈希链实例。
     """
-    return cast("BaseHashChain", request.app.state.hash_chain)
+    settings = cast("Settings", request.app.state.settings)
+    return cast(
+        "BaseHashChain",
+        resolve_plugin(
+            "hash_chain",
+            settings.hash_chain.provider,
+            expected_version=BaseHashChain.contract_version,
+        ),
+    )

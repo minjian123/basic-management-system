@@ -6,9 +6,12 @@ import pytest
 from fastapi import Depends, FastAPI
 from httpx import ASGITransport, AsyncClient
 
+from app.core import plugin as plugin_module
 from app.core.base import BaseObject
 from app.core.capability import BaseCapability, BaseNullObject
+from app.core.config import PluginSelection, Settings
 from app.core.context import get_current_masker, reset_current_masker, set_current_masker
+from app.core.plugin import PluginRegistry
 from app.masking.base import MASK_STRATEGIES, BaseMasker, MaskRule, get_masker
 from app.masking.null import NullMasker
 from app.permission.base import BasePermissionChecker
@@ -58,17 +61,21 @@ class UserResponse(BaseSchema):
     phone: str
 
 
-def _build_app(masker: BaseMasker) -> FastAPI:
-    """构造带掩码依赖的测试应用。
+def _build_app(masker: BaseMasker, monkeypatch: pytest.MonkeyPatch) -> FastAPI:
+    """构造带掩码依赖的测试应用（隔离注册表 + 配置解析注入测试掩码器）。
 
     Args:
-        masker: 装配到 `app.state` 的掩码器。
+        masker: 测试掩码器（登记为 provider `test`）。
+        monkeypatch: pytest 补丁夹具。
 
     Returns:
         FastAPI: 测试应用实例。
     """
+    registry = PluginRegistry()
+    registry.register("masking", "test", lambda: masker)
+    monkeypatch.setattr(plugin_module, "_DEFAULT_REGISTRY", registry)
     app = FastAPI()
-    app.state.masker = masker
+    app.state.settings = Settings(masking=PluginSelection(provider="test"))
 
     @app.get("/user")
     async def user(_: Annotated[BaseMasker, Depends(get_masker)]) -> dict[str, object]:  # pyright: ignore[reportUnusedFunction]
@@ -126,9 +133,9 @@ def test_check_plain_uses_injected_checker() -> None:
 
 
 @pytest.mark.kiwi_id(39)
-async def test_get_masker_injects_context_and_masks() -> None:
+async def test_get_masker_injects_context_and_masks(monkeypatch: pytest.MonkeyPatch) -> None:
     """依赖提供者：注入上下文后序列化自动掩码；请求结束上下文复位。"""
-    app = _build_app(FixedMasker(checker=NullPermissionChecker()))
+    app = _build_app(FixedMasker(checker=NullPermissionChecker()), monkeypatch)
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         resp = await client.get("/user")
         assert resp.status_code == 200
@@ -138,9 +145,9 @@ async def test_get_masker_injects_context_and_masks() -> None:
 
 
 @pytest.mark.kiwi_id(39)
-async def test_serialization_passthrough_without_masker() -> None:
+async def test_serialization_passthrough_without_masker(monkeypatch: pytest.MonkeyPatch) -> None:
     """无掩码器直通：未注入上下文时序列化与既有行为一致（占位期默认）。"""
-    app = _build_app(NullMasker(checker=NullPermissionChecker()))
+    app = _build_app(NullMasker(checker=NullPermissionChecker()), monkeypatch)
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         resp = await client.get("/user")
         assert resp.json() == {"id": "1", "name": "甲", "phone": "13800001111"}

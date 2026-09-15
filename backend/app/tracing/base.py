@@ -26,6 +26,7 @@ from typing import cast
 from fastapi import Request
 
 from app.core.base import BaseObject
+from app.core.config import Settings
 from app.core.context import (
     get_current_trace_id,
     reset_current_span_id,
@@ -33,7 +34,7 @@ from app.core.context import (
     set_current_span_id,
     set_current_trace_id,
 )
-from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
+from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 
 __all__ = [
     "SPAN_ID_LENGTH",
@@ -189,4 +190,12 @@ def get_tracer(request: Request) -> BaseTracer:
     Returns:
         BaseTracer: 应用装配的链路器实例。
     """
-    return cast("BaseTracer", request.app.state.tracer)
+    settings = cast("Settings", request.app.state.settings)
+    return cast(
+        "BaseTracer",
+        resolve_plugin(
+            "tracer",
+            settings.tracer.provider,
+            expected_version=BaseTracer.contract_version,
+        ),
+    )

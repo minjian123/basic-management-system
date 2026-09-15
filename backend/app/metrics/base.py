@@ -18,7 +18,8 @@ from typing import cast
 
 from fastapi import Request
 
-from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
+from app.core.config import Settings
+from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 from app.fallback.base import DEPENDENCIES
 
 __all__ = [
@@ -95,4 +96,12 @@ def get_metrics(request: Request) -> BaseMetrics:
     Returns:
         BaseMetrics: 应用装配的指标器实例。
     """
-    return cast("BaseMetrics", request.app.state.metrics)
+    settings = cast("Settings", request.app.state.settings)
+    return cast(
+        "BaseMetrics",
+        resolve_plugin(
+            "metrics",
+            settings.metrics.provider,
+            expected_version=BaseMetrics.contract_version,
+        ),
+    )

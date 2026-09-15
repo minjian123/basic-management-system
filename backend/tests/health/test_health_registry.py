@@ -14,8 +14,6 @@ from app.core.base import BaseObject
 from app.core.capability import BaseCapability, BaseNullObject
 from app.fallback.base import DEPENDENCIES as FALLBACK_DEPENDENCIES
 from app.health.base import (
-    DEFAULT_CHECK_TIMEOUT_MS,
-    DEFAULT_TOTAL_TIMEOUT_MS,
     DEPENDENCIES,
     BaseHealthCheck,
     BaseHealthCheckRegistry,
@@ -73,25 +71,6 @@ class _RaisingCheck(BaseHealthCheck):
         raise RuntimeError("探针异常")
 
 
-class _InMemoryRegistry(BaseHealthCheckRegistry):
-    """测试用内存注册表：验证聚合模板（真实注册表见 `HealthCheckRegistry`）。"""
-
-    def __init__(
-        self,
-        *,
-        check_timeout_ms: int = DEFAULT_CHECK_TIMEOUT_MS,
-        total_timeout_ms: int = DEFAULT_TOTAL_TIMEOUT_MS,
-    ) -> None:
-        super().__init__(check_timeout_ms=check_timeout_ms, total_timeout_ms=total_timeout_ms)
-        self._checks: list[BaseHealthCheck] = []
-
-    def register(self, check: BaseHealthCheck) -> None:
-        self._checks.append(check)
-
-    def checks(self) -> tuple[BaseHealthCheck, ...]:
-        return tuple(self._checks)
-
-
 @pytest.mark.kiwi_id(45)
 def test_inheritance_and_key() -> None:
     """注册表契约继承链、占位标记与能力域标识。"""
@@ -146,7 +125,7 @@ def test_result_and_report_contract() -> None:
 @pytest.mark.kiwi_id(45)
 async def test_aggregate_all_healthy() -> None:
     """聚合模板（全通过）：顺序＝注册顺序、总体就绪。"""
-    registry = _InMemoryRegistry()
+    registry = HealthCheckRegistry()
     registry.register(_PassingCheck("database"))
     registry.register(_PassingCheck("redis"))
 
@@ -159,7 +138,7 @@ async def test_aggregate_all_healthy() -> None:
 @pytest.mark.kiwi_id(45)
 async def test_aggregate_with_failure() -> None:
     """聚合模板（含失败项）：总体未就绪、其余项仍在。"""
-    registry = _InMemoryRegistry()
+    registry = HealthCheckRegistry()
     registry.register(_PassingCheck("database"))
     registry.register(_FailingCheck())
 
@@ -172,7 +151,7 @@ async def test_aggregate_with_failure() -> None:
 @pytest.mark.kiwi_id(45)
 async def test_aggregate_handles_exception() -> None:
     """聚合模板（单项抛异常）：该项未就绪且 error 为异常类名、不中断其他项。"""
-    registry = _InMemoryRegistry()
+    registry = HealthCheckRegistry()
     registry.register(_RaisingCheck())
     registry.register(_PassingCheck("redis"))
 
@@ -187,7 +166,7 @@ async def test_aggregate_is_concurrent() -> None:
     """聚合模板并发执行：两项慢检查执行区间重叠（非串行）。"""
     first = _PassingCheck("database", delay=0.05)
     second = _PassingCheck("redis", delay=0.05)
-    registry = _InMemoryRegistry()
+    registry = HealthCheckRegistry()
     registry.register(first)
     registry.register(second)
 
@@ -203,7 +182,7 @@ async def test_aggregate_is_concurrent() -> None:
 @pytest.mark.kiwi_id(65)
 async def test_aggregate_item_timeout() -> None:
     """单项超时：超时检查项记 TimeoutError，其他项不受影响。"""
-    registry = _InMemoryRegistry(check_timeout_ms=30, total_timeout_ms=1000)
+    registry = HealthCheckRegistry(check_timeout_ms=30, total_timeout_ms=1000)
     registry.register(_PassingCheck("database", delay=0.2))
     registry.register(_PassingCheck("redis"))
 
@@ -216,7 +195,7 @@ async def test_aggregate_item_timeout() -> None:
 @pytest.mark.kiwi_id(65)
 async def test_aggregate_total_timeout() -> None:
     """整体超时：未完成项统一记 TimeoutError（单项超时未触发）。"""
-    registry = _InMemoryRegistry(check_timeout_ms=1000, total_timeout_ms=30)
+    registry = HealthCheckRegistry(check_timeout_ms=1000, total_timeout_ms=30)
     registry.register(_PassingCheck("database", delay=0.2))
     registry.register(_PassingCheck("redis", delay=0.2))
 

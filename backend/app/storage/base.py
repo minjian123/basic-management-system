@@ -18,7 +18,8 @@ from typing import cast
 from fastapi import Request
 
 from app.core.base import BaseObject
-from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
+from app.core.config import Settings
+from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 
 __all__ = [
     "DEFAULT_PRESIGN_TTL",
@@ -158,4 +159,12 @@ def get_object_storage(request: Request) -> BaseObjectStorage:
     Returns:
         BaseObjectStorage: 应用装配的对象存储实例。
     """
-    return cast("BaseObjectStorage", request.app.state.object_storage)
+    settings = cast("Settings", request.app.state.settings)
+    return cast(
+        "BaseObjectStorage",
+        resolve_plugin(
+            "object_storage",
+            settings.storage.provider,
+            expected_version=BaseObjectStorage.contract_version,
+        ),
+    )

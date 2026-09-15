@@ -17,7 +17,8 @@ from typing import cast
 
 from fastapi import Request
 
-from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
+from app.core.config import Settings
+from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 
 IDEM_KEY_PREFIX = "bms"
 """幂等 key 前缀（与缓存 / 锁 key 同前缀）。"""
@@ -99,4 +100,12 @@ def get_idempotency_store(request: Request) -> IdempotencyStore:
     Returns:
         IdempotencyStore: 应用装配的幂等存储实例。
     """
-    return cast("IdempotencyStore", request.app.state.idempotency_store)
+    settings = cast("Settings", request.app.state.settings)
+    return cast(
+        "IdempotencyStore",
+        resolve_plugin(
+            "idempotency",
+            settings.idempotency.provider,
+            expected_version=IdempotencyStore.contract_version,
+        ),
+    )

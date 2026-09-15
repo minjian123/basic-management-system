@@ -17,7 +17,8 @@ from typing import cast
 from fastapi import Request
 
 from app.core.base import BaseObject
-from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
+from app.core.config import Settings
+from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 
 CAPTCHA_KEY_PREFIX = "bms"
 """验证码 key 前缀（与缓存 key 同前缀）。"""
@@ -95,4 +96,12 @@ def get_captcha(request: Request) -> BaseCaptcha:
     Returns:
         BaseCaptcha: 应用装配的验证码实例。
     """
-    return cast("BaseCaptcha", request.app.state.captcha)
+    settings = cast("Settings", request.app.state.settings)
+    return cast(
+        "BaseCaptcha",
+        resolve_plugin(
+            "captcha",
+            settings.captcha.provider,
+            expected_version=BaseCaptcha.contract_version,
+        ),
+    )

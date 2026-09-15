@@ -19,7 +19,8 @@ from typing import cast
 from fastapi import Request
 
 from app.core.base import BaseObject
-from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
+from app.core.config import Settings
+from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 
 __all__ = [
     "LLM_PROVIDER_TYPES",
@@ -175,4 +176,12 @@ def get_llm_provider(request: Request) -> BaseLlmProvider:
     Returns:
         BaseLlmProvider: 应用装配的 Provider 实例。
     """
-    return cast("BaseLlmProvider", request.app.state.llm_provider)
+    settings = cast("Settings", request.app.state.settings)
+    return cast(
+        "BaseLlmProvider",
+        resolve_plugin(
+            "llm_provider",
+            settings.llm_provider.provider,
+            expected_version=BaseLlmProvider.contract_version,
+        ),
+    )

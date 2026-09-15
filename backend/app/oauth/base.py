@@ -21,7 +21,8 @@ from typing import cast
 from fastapi import Request
 
 from app.core.base import BaseObject
-from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
+from app.core.config import Settings
+from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 
 __all__ = [
     "GRANT_TYPES",
@@ -134,7 +135,15 @@ def get_oauth_server(request: Request) -> BaseOAuthServer:
     Returns:
         BaseOAuthServer: 应用装配的服务端实例。
     """
-    return cast("BaseOAuthServer", request.app.state.oauth_server)
+    settings = cast("Settings", request.app.state.settings)
+    return cast(
+        "BaseOAuthServer",
+        resolve_plugin(
+            "oauth_server",
+            settings.oauth_server.provider,
+            expected_version=BaseOAuthServer.contract_version,
+        ),
+    )
 
 
 def get_scope_checker(request: Request) -> BaseScopeChecker:
@@ -146,4 +155,12 @@ def get_scope_checker(request: Request) -> BaseScopeChecker:
     Returns:
         BaseScopeChecker: 应用装配的检查器实例。
     """
-    return cast("BaseScopeChecker", request.app.state.scope_checker)
+    settings = cast("Settings", request.app.state.settings)
+    return cast(
+        "BaseScopeChecker",
+        resolve_plugin(
+            "scope_checker",
+            settings.scope_checker.provider,
+            expected_version=BaseScopeChecker.contract_version,
+        ),
+    )

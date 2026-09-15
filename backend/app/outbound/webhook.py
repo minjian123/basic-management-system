@@ -16,7 +16,8 @@ from typing import cast
 from fastapi import Request
 
 from app.core.base import BaseObject
-from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
+from app.core.config import Settings
+from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 
 __all__ = [
     "BaseWebhookSender",
@@ -70,4 +71,12 @@ def get_webhook_sender(request: Request) -> BaseWebhookSender:
     Returns:
         BaseWebhookSender: 应用装配的发送器实例。
     """
-    return cast("BaseWebhookSender", request.app.state.webhook_sender)
+    settings = cast("Settings", request.app.state.settings)
+    return cast(
+        "BaseWebhookSender",
+        resolve_plugin(
+            "webhook_sender",
+            settings.webhook_sender.provider,
+            expected_version=BaseWebhookSender.contract_version,
+        ),
+    )

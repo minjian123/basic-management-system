@@ -18,7 +18,8 @@ from typing import cast
 from fastapi import Request
 
 from app.core.base import BaseObject
-from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
+from app.core.config import Settings
+from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 
 __all__ = [
     "IDP_PROTOCOLS",
@@ -114,4 +115,12 @@ def get_identity_provider(request: Request) -> BaseIdentityProvider:
     Returns:
         BaseIdentityProvider: 应用装配的身份源实例。
     """
-    return cast("BaseIdentityProvider", request.app.state.identity_provider)
+    settings = cast("Settings", request.app.state.settings)
+    return cast(
+        "BaseIdentityProvider",
+        resolve_plugin(
+            "identity_provider",
+            settings.identity_provider.provider,
+            expected_version=BaseIdentityProvider.contract_version,
+        ),
+    )

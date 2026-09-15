@@ -16,7 +16,8 @@ from typing import cast
 
 from fastapi import Request
 
-from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
+from app.core.config import Settings
+from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 
 DEPENDENCIES: tuple[str, ...] = (
     "redis",
@@ -76,4 +77,12 @@ def get_fallback_policy(request: Request) -> BaseFallbackPolicy:
     Returns:
         BaseFallbackPolicy: 应用装配的降级策略实例。
     """
-    return cast("BaseFallbackPolicy", request.app.state.fallback_policy)
+    settings = cast("Settings", request.app.state.settings)
+    return cast(
+        "BaseFallbackPolicy",
+        resolve_plugin(
+            "fallback",
+            settings.fallback.provider,
+            expected_version=BaseFallbackPolicy.contract_version,
+        ),
+    )

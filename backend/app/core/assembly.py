@@ -32,8 +32,12 @@ from app.core.plugin import (
 )
 from app.core.resources import ResourceManager
 from app.dashboard.base import BaseDashboardCardRegistry
+from app.db.registry import EngineRegistry
 from app.fallback.base import BaseFallbackPolicy
 from app.fieldtype.base import BaseFieldTypeRegistry
+from app.health.base import BaseHealthCheckRegistry
+from app.health.checks import DatabaseHealthCheck, RedisHealthCheck
+from app.health.registry import HealthCheckRegistry
 from app.i18n.base import BaseTranslator
 from app.idempotency.base import IdempotencyStore
 from app.idp.base import BaseIdentityProvider
@@ -142,6 +146,7 @@ PLUGIN_WIRINGS: tuple[PluginWiring, ...] = (
     PluginWiring("replay_guard", BaseReplayGuard, "replay_guard", "replay_guard"),
     PluginWiring("metrics", BaseMetrics, "metrics", "metrics"),
     PluginWiring("tracer", BaseTracer, "tracer", "tracer"),
+    PluginWiring("health_check_registry", BaseHealthCheckRegistry, "health_check_registry", "health_check_registry"),
     PluginWiring("oauth_server", BaseOAuthServer, "oauth_server", "oauth_server"),
     PluginWiring("scope_checker", BaseScopeChecker, "scope_checker", "scope_checker"),
     PluginWiring("object_storage", BaseObjectStorage, "storage", "object_storage"),
@@ -172,11 +177,13 @@ PLUGIN_WIRINGS: tuple[PluginWiring, ...] = (
 )
 
 
-def register_platform_plugins(settings: Settings) -> None:
+def register_platform_plugins(settings: Settings, app: FastAPI, resources: ResourceManager) -> None:
     """登记平台内建实现（显式工厂：延迟导入 / 依赖注入）；同一注册表仅登记一次。
 
     Args:
         settings: 应用配置（工厂登记可读取能力选择）。
+        app: 应用实例（依赖注入型工厂读取运行期对象，如引擎注册表）。
+        resources: 应用资源登记表（工厂内需要随生命周期释放的检查项）。
     """
     registry = default_plugin_registry()
     if any(item is registry for item in _PREPARED_REGISTRIES):
@@ -184,7 +191,45 @@ def register_platform_plugins(settings: Settings) -> None:
     for module in _NULL_MODULES:
         import_module(module)
     register_plugin("masking", NULL_PLUGIN_NAME, _null_masker_factory(settings))
+    register_plugin(
+        "health_check_registry",
+        "local",
+        _health_check_registry_factory(settings, app, resources),
+    )
     _PREPARED_REGISTRIES.append(registry)
+
+
+def _health_check_registry_factory(
+    settings: Settings, app: FastAPI, resources: ResourceManager
+) -> Callable[[], HealthCheckRegistry]:
+    """构造真实健康检查注册表工厂（注入超时配置与 `redis` / `database` 检查项）。
+
+    Args:
+        settings: 应用配置。
+        app: 应用实例。
+        resources: 资源登记表（`redis` 检查项随生命周期释放）。
+
+    Returns:
+        Callable[[], HealthCheckRegistry]: 零参工厂。
+    """
+
+    def build() -> HealthCheckRegistry:
+        """构造真实注册表并登记检查项。
+
+        Returns:
+            HealthCheckRegistry: 注册表实例。
+        """
+        registry = HealthCheckRegistry(
+            check_timeout_ms=settings.health.check_timeout_ms,
+            total_timeout_ms=settings.health.total_timeout_ms,
+        )
+        redis_check = RedisHealthCheck(settings.redis.url)
+        registry.register(redis_check)
+        registry.register(DatabaseHealthCheck(cast("EngineRegistry", app.state.engine_registry)))
+        resources.register(redis_check)
+        return registry
+
+    return build
 
 
 def _null_masker_factory(settings: Settings) -> Callable[[], BaseMasker]:
