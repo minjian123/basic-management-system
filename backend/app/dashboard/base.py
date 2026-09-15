@@ -18,8 +18,8 @@ from fastapi import Request
 
 from app.core.config import Settings
 from app.core.exceptions import NotFoundError
-from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
-from app.core.provider import BaseProvider
+from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, resolve_plugin
+from app.core.provider import BaseProvider, BaseProviderRegistry
 
 __all__ = [
     "CARD_TYPES",
@@ -55,40 +55,13 @@ class BaseDashboardCardProvider(BaseProvider, ABC):
         """
 
 
-class BaseDashboardCardRegistry(BasePluggable, ABC):
-    """卡片注册表契约：注册 / 解析 / 卡片集 + 元数据与取数聚合。"""
+class BaseDashboardCardRegistry(BaseProviderRegistry[BaseDashboardCardProvider], ABC):
+    """卡片注册表契约：注册 / 解析 / 清单（公共实现继承）+ 元数据与取数聚合（模板留域）。"""
 
     key: str = "dashboard_card_registry"
     plugin_key: str = "dashboard_card_registry"
     plugin_name: str = NULL_PLUGIN_NAME
     contract_version: str = DEFAULT_CONTRACT_VERSION
-
-    @abstractmethod
-    def register(self, provider: BaseDashboardCardProvider) -> None:
-        """注册卡片（启动期注册）。
-
-        Args:
-            provider: 卡片提供者。
-        """
-
-    @abstractmethod
-    def get(self, key: str) -> BaseDashboardCardProvider | None:
-        """按 key 解析卡片。
-
-        Args:
-            key: 卡片标识。
-
-        Returns:
-            BaseDashboardCardProvider | None: 提供者；未命中返回 None。
-        """
-
-    @abstractmethod
-    def keys(self) -> tuple[str, ...]:
-        """已注册卡片 key 清单（注册顺序）。
-
-        Returns:
-            tuple[str, ...]: 卡片 key 元组。
-        """
 
     def metadata(self, card_key: str) -> Mapping[str, object]:
         """聚合元数据（模板方法：解析卡片 → 委托）。

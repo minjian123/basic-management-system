@@ -1,20 +1,22 @@
-"""域注册表契约套件（Kiwi 568）：变体与聚合模板 / Null 无副作用 / 注册项自动纳入。"""
+"""域注册表契约套件（Kiwi 568 + 655）：变体与聚合模板 / 唯一性口径 / 注册项自动纳入。"""
 
+from collections.abc import Callable
 from typing import cast
 
 import pytest
 
 from app.core.exceptions import ConflictError, NotFoundError
 from app.core.plugin import resolve_plugin
+from app.core.provider import BaseProvider, BaseProviderRegistry
 from app.dashboard.null import NullDashboardCardRegistry
 from app.fieldtype.base import NULL_COLUMN_TYPE
 from app.fieldtype.null import NullFieldTypeRegistry
-from app.health.base import BaseHealthCheckRegistry
 from app.health.null import NullHealthCheckRegistry
 from app.health.registry import HealthCheckRegistry
 from app.query.null import NullQueryProviderRegistry
 from tests.contracts.support import (
     REGISTRY_CONTRACTS,
+    UNIQUENESS_REGISTRIES,
     DictQueryProvider,
     EmptyRegistryProbe,
     MemoryDashboardCardRegistry,
@@ -28,6 +30,13 @@ from tests.contracts.support import (
 
 pytestmark = pytest.mark.kiwi_id(568)
 
+_UNIQUENESS_PROVIDERS: dict[str, Callable[[], BaseProvider]] = {
+    "fieldtype": TextFieldType,
+    "query": DictQueryProvider,
+    "dashboard": TodoCardProvider,
+    "health": lambda: NamedCheck("duplicated"),
+}
+
 
 @pytest.mark.parametrize("contract", REGISTRY_CONTRACTS, ids=lambda item: item.suite_name)
 def test_null_registry_variants_empty(contract: RegistryContract) -> None:
@@ -37,18 +46,41 @@ def test_null_registry_variants_empty(contract: RegistryContract) -> None:
     assert registry.get("missing") is None
 
 
-def test_registry_contract_uniqueness() -> None:
-    """唯一性契约：已收敛域重复登记拒重（3 域开关随 03-3 翻转后自动纳入）。"""
-    checked = 0
-    for contract in REGISTRY_CONTRACTS:
-        if not contract.uniqueness:
-            continue
-        registry = cast("BaseHealthCheckRegistry", contract.registry_factory())
-        registry.register(NamedCheck("duplicated"))
-        with pytest.raises(ConflictError, match="重复登记"):
-            registry.register(NamedCheck("duplicated"))
-        checked += 1
-    assert checked == 1
+@pytest.mark.kiwi_id(655)
+@pytest.mark.parametrize(
+    ("suite_name", "registry_factory"),
+    UNIQUENESS_REGISTRIES,
+    ids=[name for name, _ in UNIQUENESS_REGISTRIES],
+)
+def test_uniqueness_registries_reject_duplicates(suite_name: str, registry_factory: Callable[[], object]) -> None:
+    """唯一性口径对齐（4 域）：同键二次登记 → ConflictError（与插件注册表一致）。"""
+    registry = cast("BaseProviderRegistry[BaseProvider]", registry_factory())
+    provider_factory = _UNIQUENESS_PROVIDERS[suite_name]
+    registry.register(provider_factory())
+    with pytest.raises(ConflictError, match="重复登记"):
+        registry.register(provider_factory())
+
+
+@pytest.mark.kiwi_id(655)
+def test_null_registry_registers_really() -> None:
+    """3 域 Null 注册表登记改真实：登记后枚举可见；聚合模板语义不变。"""
+    fieldtypes = NullFieldTypeRegistry()
+    fieldtypes.register(TextFieldType())
+    assert fieldtypes.keys() == ("text",)
+    assert isinstance(fieldtypes.get("text"), TextFieldType)
+    assert fieldtypes.validate("text", "value") == ()
+    assert fieldtypes.column_type("text", "mysql") == NULL_COLUMN_TYPE
+
+    queries = NullQueryProviderRegistry()
+    queries.register(DictQueryProvider())
+    assert queries.keys() == ("dict:user",)
+    assert isinstance(queries.get("dict:user"), DictQueryProvider)
+
+    cards = NullDashboardCardRegistry()
+    cards.register(TodoCardProvider())
+    assert cards.keys() == ("todo",)
+    assert isinstance(cards.get("todo"), TodoCardProvider)
+    assert cards.metadata("todo") == {}
 
 
 def test_null_fieldtype_semantics() -> None:

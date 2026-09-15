@@ -40,19 +40,11 @@ class _FakeFieldType(BaseFieldType):
 
 
 class _InMemoryRegistry(BaseFieldTypeRegistry):
-    """测试用内存注册表：验证聚合模板（真实注册表随回补阶段）。"""
+    """测试用内存注册表：登记 / 解析继承公共实现，验证聚合模板（真实注册表随回补阶段）。"""
 
-    def __init__(self) -> None:
-        self._providers: dict[str, BaseFieldType] = {}
-
-    def register(self, provider: BaseFieldType) -> None:
-        self._providers[provider.key] = provider
-
-    def get(self, key: str) -> BaseFieldType | None:
-        return self._providers.get(key)
-
-    def keys(self) -> tuple[str, ...]:
-        return tuple(self._providers)
+    @classmethod
+    def _provider_key(cls, provider: BaseFieldType) -> str:
+        return provider.key
 
 
 @pytest.mark.kiwi_id(59)
@@ -97,11 +89,12 @@ def test_registry_template_resolution() -> None:
 
 @pytest.mark.kiwi_id(59)
 def test_null_registry_fixed() -> None:
-    """占位注册表：注册空操作、get None、keys 空、校验恒定通过、类型映射固定。"""
+    """占位注册表：登记改真实（可解析 / 可枚举）、校验恒定通过、类型映射固定。"""
     registry = NullFieldTypeRegistry()
-    registry.register(_FakeFieldType("text"))
-    assert registry.get("text") is None
-    assert registry.keys() == ()
+    provider = _FakeFieldType("text")
+    registry.register(provider)
+    assert registry.get("text") is provider
+    assert registry.keys() == ("text",)
     assert registry.validate("text", "") == ()
     assert registry.column_type("text", "mysql") == NULL_COLUMN_TYPE
 

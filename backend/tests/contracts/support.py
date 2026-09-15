@@ -30,16 +30,21 @@ class RegistryContract(BaseObject):
     registry_factory: Callable[[], object]
     """注册表变体（`Null`）实例工厂。"""
 
-    uniqueness: bool
-    """唯一性断言开关（当前仅 `health=True`；其余 3 域待 03-3 收敛翻转）。"""
-
 
 REGISTRY_CONTRACTS: tuple[RegistryContract, ...] = (
-    RegistryContract("fieldtype", NullFieldTypeRegistry, False),
-    RegistryContract("query", NullQueryProviderRegistry, False),
-    RegistryContract("dashboard", NullDashboardCardRegistry, False),
-    RegistryContract("health", HealthCheckRegistry, True),
+    RegistryContract("fieldtype", NullFieldTypeRegistry),
+    RegistryContract("query", NullQueryProviderRegistry),
+    RegistryContract("dashboard", NullDashboardCardRegistry),
+    RegistryContract("health", HealthCheckRegistry),
 )
+
+UNIQUENESS_REGISTRIES: tuple[tuple[str, Callable[[], object]], ...] = (
+    ("fieldtype", NullFieldTypeRegistry),
+    ("query", NullQueryProviderRegistry),
+    ("dashboard", NullDashboardCardRegistry),
+    ("health", HealthCheckRegistry),
+)
+"""唯一性断言独立清单（4 域；03-3 收敛后 3 域 Null 登记改真实拒重）。"""
 
 
 class EmptyRegistryProbe(Protocol):
@@ -183,108 +188,51 @@ class TodoCardProvider(BaseDashboardCardProvider):
 
 
 class MemoryFieldTypeRegistry(BaseFieldTypeRegistry):
-    """测试用字段类型注册表替身（内存、保序）。"""
+    """测试用字段类型注册表替身（登记 / 解析继承公共实现）。"""
 
-    def __init__(self) -> None:
-        """初始化空注册表。"""
-        self._items: dict[str, BaseFieldType] = {}
-
-    def register(self, provider: BaseFieldType) -> None:
-        """登记字段类型。
+    @classmethod
+    def _provider_key(cls, provider: BaseFieldType) -> str:
+        """注册项键。
 
         Args:
             provider: 字段类型提供者。
-        """
-        self._items[provider.key] = provider
-
-    def get(self, key: str) -> BaseFieldType | None:
-        """按键取字段类型。
-
-        Args:
-            key: 字段类型标识。
 
         Returns:
-            BaseFieldType | None: 提供者；未命中为 None。
+            str: 字段类型标识。
         """
-        return self._items.get(key)
-
-    def keys(self) -> tuple[str, ...]:
-        """已登记键（注册顺序）。
-
-        Returns:
-            tuple[str, ...]: 键元组。
-        """
-        return tuple(self._items)
+        return provider.key
 
 
 class MemoryQueryProviderRegistry(BaseQueryProviderRegistry):
-    """测试用查询提供者注册表替身（内存、保序）。"""
+    """测试用查询提供者注册表替身（登记 / 解析继承公共实现）。"""
 
-    def __init__(self) -> None:
-        """初始化空注册表。"""
-        self._items: dict[str, BaseQueryProvider] = {}
-
-    def register(self, provider: BaseQueryProvider) -> None:
-        """登记查询提供者。
+    @classmethod
+    def _provider_key(cls, provider: BaseQueryProvider) -> str:
+        """注册项键。
 
         Args:
             provider: 查询提供者。
-        """
-        self._items[provider.key] = provider
-
-    def get(self, key: str) -> BaseQueryProvider | None:
-        """按键取查询提供者。
-
-        Args:
-            key: 提供者标识。
 
         Returns:
-            BaseQueryProvider | None: 提供者；未命中为 None。
+            str: 提供者标识。
         """
-        return self._items.get(key)
-
-    def keys(self) -> tuple[str, ...]:
-        """已登记键（注册顺序）。
-
-        Returns:
-            tuple[str, ...]: 键元组。
-        """
-        return tuple(self._items)
+        return provider.key
 
 
 class MemoryDashboardCardRegistry(BaseDashboardCardRegistry):
-    """测试用仪表盘卡片注册表替身（内存、保序）。"""
+    """测试用仪表盘卡片注册表替身（登记 / 解析继承公共实现）。"""
 
-    def __init__(self) -> None:
-        """初始化空注册表。"""
-        self._items: dict[str, BaseDashboardCardProvider] = {}
-
-    def register(self, provider: BaseDashboardCardProvider) -> None:
-        """登记卡片提供者。
+    @classmethod
+    def _provider_key(cls, provider: BaseDashboardCardProvider) -> str:
+        """注册项键。
 
         Args:
             provider: 卡片提供者。
-        """
-        self._items[provider.key] = provider
-
-    def get(self, key: str) -> BaseDashboardCardProvider | None:
-        """按键取卡片提供者。
-
-        Args:
-            key: 卡片标识。
 
         Returns:
-            BaseDashboardCardProvider | None: 提供者；未命中为 None。
+            str: 卡片标识。
         """
-        return self._items.get(key)
-
-    def keys(self) -> tuple[str, ...]:
-        """已登记键（注册顺序）。
-
-        Returns:
-            tuple[str, ...]: 键元组。
-        """
-        return tuple(self._items)
+        return provider.key
 
 
 class NamedCheck(BaseHealthCheck):

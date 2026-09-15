@@ -18,8 +18,8 @@ from fastapi import Request
 
 from app.core.config import Settings
 from app.core.exceptions import NotFoundError
-from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
-from app.core.provider import BaseProvider
+from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, resolve_plugin
+from app.core.provider import BaseProvider, BaseProviderRegistry
 
 __all__ = [
     "COLUMN_TYPE_DIALECTS",
@@ -71,40 +71,13 @@ class BaseFieldType(BaseProvider, ABC):
         """
 
 
-class BaseFieldTypeRegistry(BasePluggable, ABC):
-    """字段类型注册表契约：注册 / 解析 / 清单 + 校验与类型映射聚合。"""
+class BaseFieldTypeRegistry(BaseProviderRegistry[BaseFieldType], ABC):
+    """字段类型注册表契约：注册 / 解析 / 清单（公共实现继承）+ 校验与类型映射聚合（模板留域）。"""
 
     key: str = "field_type_registry"
     plugin_key: str = "field_type_registry"
     plugin_name: str = NULL_PLUGIN_NAME
     contract_version: str = DEFAULT_CONTRACT_VERSION
-
-    @abstractmethod
-    def register(self, provider: BaseFieldType) -> None:
-        """注册字段类型（启动期注册）。
-
-        Args:
-            provider: 字段类型提供者。
-        """
-
-    @abstractmethod
-    def get(self, key: str) -> BaseFieldType | None:
-        """按 key 解析字段类型。
-
-        Args:
-            key: 字段类型标识。
-
-        Returns:
-            BaseFieldType | None: 提供者；未命中返回 None。
-        """
-
-    @abstractmethod
-    def keys(self) -> tuple[str, ...]:
-        """已注册字段类型 key 清单（注册顺序）。
-
-        Returns:
-            tuple[str, ...]: 字段类型 key 元组。
-        """
 
     def validate(
         self, field_type: str, value: object, *, options: Mapping[str, object] | None = None

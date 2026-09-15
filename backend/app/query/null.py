@@ -44,33 +44,19 @@ class NullQueryProvider(BaseQueryProvider, BaseNullObject):
 
 
 class NullQueryProviderRegistry(BaseQueryProviderRegistry, BaseNullObject):
-    """占位注册表：注册空操作、无提供者；`query` 固定返回空结果（不执行 SQL）。"""
+    """占位注册表：登记与解析继承公共实现（唯一性拒重）；`query` 固定返回空结果（不执行 SQL）。"""
 
-    def register(self, provider: BaseQueryProvider) -> None:
-        """空操作（占位不注册）。
-
-        Args:
-            provider: 查询提供者（占位忽略）。
-        """
-
-    def get(self, key: str) -> BaseQueryProvider | None:
-        """无提供者。
+    @classmethod
+    def _provider_key(cls, provider: BaseQueryProvider) -> str:
+        """注册项键：提供者 `key`。
 
         Args:
-            key: 提供者标识（占位忽略）。
+            provider: 查询提供者。
 
         Returns:
-            BaseQueryProvider | None: None。
+            str: 提供者标识。
         """
-        return None
-
-    def keys(self) -> tuple[str, ...]:
-        """空提供者清单。
-
-        Returns:
-            tuple[str, ...]: 空元组。
-        """
-        return ()
+        return provider.key
 
     async def query(self, key: str, params: Mapping[str, object]) -> QueryResult:
         """固定返回空结果（占位不抛错、不执行 SQL）。
