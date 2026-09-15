@@ -32,8 +32,10 @@ services:
       KIWI_SECRET_KEY: ${KIWI_SECRET_KEY}
     ports:
       - "8060:8443"
+      - "8061:8080"                                  # 内网 HTTP 入口（2026-09-15 增）：见下方说明
     volumes:
       - kiwi-uploads:/Kiwi/uploads
+      - ./kiwi-nginx.conf:/etc/nginx/nginx.conf:ro   # 改写镜像内 8080 的策略：反代本机 8443 并跳过上游证书校验
 
 volumes:
   kiwi-uploads:
@@ -44,6 +46,13 @@ volumes:
 > **镜像说明**：`kiwitcms/kiwi:latest` 为官方公共镜像，滚动发布（当前 16.x，随官方更新自动变化）。
 > 镜像内 nginx 实际监听 **8443（HTTPS，自签名证书）/ 8080（HTTP，301 跳转 HTTPS）**，
 > 因此端口映射为 `8060:8443`，访问地址是 `https://`。
+
+> **8061（内网 HTTP 入口，2026-09-15 增）**：镜像把 8080 做成「301 跳 HTTPS」，而 Kiwi 应用层 `SECURE_SSL_REDIRECT`
+> **硬编码为真**（`tcms/settings/common.py`，无法用环境变量关闭），自签名证书 SAN 又是容器内主机名（用 IP 访问必报校验失败），
+> 故 CI 侧无法直连 8443。解法：宿主 **8061 → 容器 8080**，并用 `deploy/compose/kiwi-nginx.conf` 覆盖镜像内 nginx 配置——
+> 8080 不再跳转，改为**反向代理本机 8443 且 `proxy_ssl_verify off`**（Django 侧仍认为自己是 https，不再触发跳转）。
+> 用途：`kiwitcms-pytest-plugin` 在流水线中经该入口以明文 HTTP 导入执行结果（口径见《[测试规范](../../../规范/测试规范.md)》「结果导入平台归档」节）。
+> 该端口用于「GitLab Runner 容器 → 宿主端口」的内部调用，经 Docker 自身链放行，**未单独加入 ufw 规则**；若跨主机访问须另行放行。
 
 ## 3. 部署步骤 <a id="deploy"></a>
 
@@ -87,9 +96,14 @@ volumes:
 docker ps --filter name=bms-kiwi                  # Up ... (healthy)
 curl -sk -o /dev/null -w "%{http_code}" https://127.0.0.1:8060/accounts/login/   # 200
 curl -sk https://<mjbk-IP>:8060/accounts/login/ | grep "<title>"      # Kiwi TCMS - Login
+curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8061/xml-rpc/                               # 415（XML-RPC 服务在，未带 POST 体）
+curl -s -X POST -H "Content-Type: application/xml" -d '<methodCall><methodName>Auth.login</methodName></methodCall>' \
+  http://127.0.0.1:8061/xml-rpc/                                                                     # 200 且 Content-Type: application/xml
 ```
 
 本次部署结果：容器 healthy，登录页 HTTP 200，管理员 `admin` 登录验证通过（POST 登录 302 → 首页含退出入口）。
+2026-09-15 增补：8061 HTTP 入口可用（`POST /xml-rpc/` 返回 200、`Content-Type: application/xml`，**不再 301**）；
+流水线 178 的 `allure-report` job 经该入口把 424 条执行结果导入成功。
 
 ## 5. 使用说明 <a id="use"></a>
 
@@ -183,9 +197,12 @@ ssh <账号>@<mjbk-IP> "docker exec bms-kiwi /Kiwi/manage.py shell -c \"from tcm
 | 列最近用例 | `docker exec bms-kiwi /Kiwi/manage.py shell -c "from tcms.testcases.models import TestCase as T; print([(c.pk, c.summary) for c in T.objects.order_by('-pk')[:10]])"` |
 | 查分类 / 优先级 / 状态 | `docker exec bms-kiwi /Kiwi/manage.py shell -c "from tcms.testcases.models import Category as C, TestCaseStatus as S; from tcms.management.models import Priority as P; print([c.name for c in C.objects.all()], [p.value for p in P.objects.all()], [s.name for s in S.objects.all()])"` |
 
+| 重建容器（**必须 --env-file**） | `cd ~/deploy && docker compose --env-file .env -f compose/kiwi.yml up -d`（漏 `--env-file` 会让 DB 变量插值为空，见排障第 4 项） |
+| 核对 HTTP 入口 8061 | `curl -s -X POST -d '<methodCall/>' http://127.0.0.1:8061/xml-rpc/`（应为 200 + `application/xml`，非 301） |
+
 > 批量建立用例、回读核对与用例约定见 5.2 / 5.3 节。
 >
-> 防火墙：mjbk ufw 已启用（2026-08-22），内网 8060 已放行；规则总表与维护口径见《[防火墙部署使用说明](防火墙部署使用说明.md)》。
+> 防火墙：mjbk ufw 已启用（2026-08-22），内网 8060 已放行；规则总表与维护口径见《[防火墙部署使用说明](防火墙部署使用说明.md)》。8061 为容器到宿主的内部调用（未单独入 ufw 规则）。
 
 ## 7. 备份与恢复 <a id="backup"></a>
 
@@ -200,6 +217,8 @@ ssh <账号>@<mjbk-IP> "docker exec bms-kiwi /Kiwi/manage.py shell -c \"from tcm
 | KIWI_DB_ENGINE 简写导致启动失败 | 容器 unhealthy，uWSGI 报 `no python application found`，日志根因 `ModuleNotFoundError: No module named 'mysql'` | `KIWI_DB_ENGINE` 须写完整 Django 引擎名 `django.db.backends.mysql`（镜像默认值即完整名，写简写 `mysql` 会覆盖默认值触发错误）；修正后重建容器 |
 | 16.x 镜像不自动建表 | 容器 healthy、页面可访问，但登录/创建用户报 `Table 'kiwi.auth_user' doesn't exist`，且提示 100 个未应用迁移 | 公共镜像启动时不再自动迁移，需手动执行 `docker exec bms-kiwi /Kiwi/manage.py migrate`（约 1 分钟） |
 | 端口映射后宿主机访问不通 | 映射 `8060:80` 后容器 healthy 但宿主 127.0.0.1:8060 连接被重置（RST） | 16.x 镜像内 nginx 只监听 8080（HTTP 跳转）与 8443（HTTPS 实际服务），不监听 80；映射改为 `8060:8443`，用 `https://` 访问（自签名证书） |
+| HTTP 入口加到 8061 后仍 301 / 500（2026-09-15） | `SECURE_SSL_REDIRECT` 硬编码为真 + 自签名证书 SAN 为容器内主机名，CI 用 IP 直连必然失败 | 宿主 8061 → 容器 8080，并用 `kiwi-nginx.conf` 把 8080 从「跳转」改为**反代本机 8443 且 `proxy_ssl_verify off`**；Django 侧收到 https scheme 不再跳转 |
+| **重建容器后落到未初始化态**（2026-09-15） | 在 `compose/` 目录直接 `docker compose -f kiwi.yml up -d`，全部请求 302 到 `/init-db/`，DB 环境变量为空 | compose 目录下没有 `.env`，缺省 `env_file` 导致 `${KIWI_DB_*}` 插值为空。必须用 `cd ~/deploy && docker compose --env-file .env -f compose/kiwi.yml up -d`（已核验容器内 `KIWI_DB_*` 非空） |
 
 ## 9. 关联文档 <a id="related"></a>
 
