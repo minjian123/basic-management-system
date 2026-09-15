@@ -15,7 +15,7 @@
 | `tools/reorder-design/` | 设计文档节点编号重排 |
 | `tools/reorder-stage/` | 阶段目录编号重排（`renumber_stage.py`） |
 | `tools/workbuddy/` | WorkBuddy 桌面端补丁脚本 |
-| `tools/base-check/` | 基座完整性自检（`check-base.py`，CI job `base-integrity`） |
+| `tools/base-check/` | 基座完整性自检（`check-base.py` 四项：跨层引用 / 措辞 / 清单一致 / 编号引用，CI job `base-integrity`）；`check-links.py` 链接自洽校验**本地手工跑**（不挂 CI，约束过强会逼着文档少写链接） |
 | `tools/check-docs/` | 项目文档状态一致性核对（`check-status.py`：需求 / 任务 / 计划三处，同挂 `base-integrity`） |
 | `tools/governance/` | 治理脚本（`collect_metrics.py` 阶段度量 + 用例统计、`review_stage.py` 阶段末复盘清单；《项目规划说明》§25.3） |
 | `tools/winrm/` | mjw（Windows）远程控制（WinRM 会话与电源） |

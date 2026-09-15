@@ -75,9 +75,11 @@ gate-smoke:
     - python -c "import sys; assert sys.version_info >= (3, 14), 'Python < 3.14'"
     - echo "gate ok"
 
-# ---- 基座完整性：链接自洽 + 无跨层引用 + 无措辞残留 + 清单与磁盘一致 ----
+# ---- 基座完整性：跨层引用 + 措辞残留 + 清单与磁盘一致 + 编号引用（四项）----
 # 口径见《基座文档清单》第 3/5 节与《平台可扩展性规划》R1；工作区模型下基座不再向产品
 # 仓库复制/同步（产品侧以符号链接引用），本检查仅面向 bms 权威源。
+# 链接自洽校验已拆出（scripts/tools/base-check/check-links.py，本地手工跑）：
+# 其约束过强会逼着文档少写导航链接、损害阅读，故不作 CI 强制项。
 base-integrity:
   stage: lint
   image: python:3.14-slim
