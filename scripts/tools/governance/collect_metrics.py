@@ -289,7 +289,7 @@ def main(argv: list[str] | None = None) -> int:
     for name, data in coverage["frontend"].items():
         if data.get("ran"):
             print(f"  {name}：Test Files {data.get('files_passed')} passed / Tests {data.get('tests_passed')} passed")
-    print("  Playwright E2E：本阶段未启用（tests/e2e 待建，重验证层随 verify-enabled 开关）")
+    print("  Playwright E2E：本阶段未启用（tests/e2e 待建，重验证层分档开关 deploy/ci/verify/e2e 未开）")
 
     if args.out:
         Path(args.out).write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
