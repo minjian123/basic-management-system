@@ -173,6 +173,19 @@ graphify watch bms文档/               # 监视目录，代码变更自动重�
 graphify cluster-only .            # 只重跑聚类和报告
 ```
 
+### 6.5 查询实战要点（实测） <a id="daily-practice"></a>
+
+```bash
+graphify query "双轨注册 继承自动登记"                                             # 具体名词组合，命中精准
+graphify path "插件化架构总览" "架构设计 · 子系统 · 扩展点与插件化" --undirected   # 文档间引用链（3 跳）
+graphify explain "插件化架构总览"                                                  # 看节点全部 contains 关系
+```
+
+- **query 先探名，path/explain 再钻取**：`path` / `explain` 的节点名需**精确匹配**（含大小写与符号），先用 `query` 命中目标、复制节点名再钻取；`path` 报「No directed path」时加 `--undirected` 忽略边方向重查。
+- **宽查询会散**：一次塞多个宽泛词（如「后端插件化 BasePluggable 插件注册表」多词并列）会命中数百节点、被 token 预算截断——改用具体名词组合，或提高 `--budget`。
+- **节点名形态**：文档标题节点**带锚点后缀**（如 `3. 基类承载与双轨 <a id="carrier"></a>`）；代码节点为符号名（函数节点的名字带其首行 docstring 摘要）；完整 ID 可从 `explain` 输出的 `ID` 行获取。
+- **图谱是文档 + 代码混合体**：纯文档的引用关系（`contains` / `references`）查得很准；**尚未实现的代码没有节点**（如阶段三的 `app/core/plugin.py` 在实现前查不到），设计文档侧的对应节点仍可查。
+
 ## 7. 维护与更新 <a id="maintain"></a>
 
 ### 7.1 排除规则（.graphifyignore） <a id="maintain-ignore"></a>
