@@ -245,3 +245,6 @@ node_modules/
 
 # graphify 运行时状态
 graphify-out/
+
+# 测试资产仓库软链（测试资产在工作区平级的 test 仓库，此处仅为导航，内容不入库）
+test文档
