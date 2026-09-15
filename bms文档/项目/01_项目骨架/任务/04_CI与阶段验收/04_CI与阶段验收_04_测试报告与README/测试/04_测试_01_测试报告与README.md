@@ -55,7 +55,7 @@ $ python3 scripts/tools/governance/collect_metrics.py --with-frontend --out /tmp
 [4/4] 用例执行统计
   frontend：Test Files 4 passed / Tests 18 passed
   frontend-mobile：Test Files 4 passed / Tests 18 passed
-  Playwright E2E：本阶段未启用（tests/e2e 待建，重验证层随 verify-enabled 开关）
+  Playwright E2E：本阶段未启用（tests/e2e 待建，重验证层随 verify-enabled 开关；2026-09-15 改分档 `verify/e2e` 守门，见 04-01 实施 02）
 已写入 JSON：/tmp/bms_metrics.json
 
 $ python3 scripts/tools/governance/review_stage.py
@@ -64,7 +64,7 @@ $ python3 scripts/tools/governance/review_stage.py
 [2/8] 通过 基座自检通过：check-base.py 退出码 0
 [3/8] 通过 验收门禁表结论齐备：10 行（期望 10）
 [4/8] 通过 阶段残留为 0（需求 / 任务全部已完成）：残留 0 项
-[5/8] 通过 遗留项已登记：计划「后续阶段待办」52 条
+[5/8] 通过 遗留项已登记：计划「后续阶段待办」52 条（后补登核心模块覆盖率 / 前端覆盖率扩面两项，现为 55 条）
 [6/8] 通过 报告与 README 就位：报告章节齐备；四份 README 关键命令与导航齐备
 [7/8] 通过 记录齐备（已完成任务有实施记录）：缺 0 项
 [8/8] 通过 Kiwi 用例编号引用齐备：缺 0 份
@@ -105,7 +105,7 @@ Required test coverage of 70% reached. Total coverage: 99.75%
 ## 6. 偏差与遗留 <a id="deviations"></a>
 
 - **偏差**：报告章节超需求「四章节」（增复盘与附录）、脚本解析口径三处细化——均已在设计 §14 与实施记录 §6 登记。
-- **未覆盖项**：门禁各功能项的复现由 04-3 实施 / 测试记录承担；重验证层就绪项（E2E / 三库真库 / Trivy / Allure 接线）随 `verify-enabled` 激活，前置见计划 §3.1。
+- **未覆盖项**：门禁各功能项的复现由 04-3 实施 / 测试记录承担；重验证层就绪项（E2E / 三库真库 / Trivy / Allure 接线）随 `verify-enabled` 激活，前置见计划 §3.1（2026-09-15 改分档 `verify/*` 并开 P1 + P2，见 04-01 实施 02）。
 - **遗留**：无新增（阶段一收口）。
 
 > 本文档依《文档生成规范》编写
