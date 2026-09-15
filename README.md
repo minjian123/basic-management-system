@@ -80,6 +80,7 @@ uv run pytest -q --cov=app --cov-branch --cov-fail-under=70    # 覆盖率门禁
 uv run python -m ops.check_modules                             # 模块注册清单校验
 cd ../frontend && npm run lint && npm run test                 # 移动端：cd ../frontend-mobile
 cd .. && python3 scripts/tools/base-check/check-base.py        # 基座自检（须在仓库根）
+python3 scripts/tools/base-check/check-links.py                # 链接自洽校验（本地手工跑，不挂 CI）
 python3 scripts/tools/check-docs/check-status.py              # 需求 / 任务 / 计划状态一致性
 python3 scripts/tools/governance/collect_metrics.py           # 阶段度量与用例统计（阶段末）
 python3 scripts/tools/governance/review_stage.py              # 阶段末复盘清单
@@ -193,6 +194,7 @@ bms/
 │   └── tools/                # backup / base-check / bg / check-docs / defect / dsh / gitlab / governance / graphify / reorder-design / reorder-stage / vision / winrm / wol / workbuddy
 ├── ops/                      # 产品运维脚本（种子数据、备份恢复、租户库迁移，后续阶段填充）
 │   └── README.md             # 目录说明
+├── test文档 -> ../test/test文档  # 测试资产仓软链（工作区并置，不入库）
 └── bms文档/                  # 项目文档
     ├── 基座文档清单.md        # 通用基座权威清单（产品不复制）
     ├── 后端基类清单.md        # 后端基类权威清单（分层 / 代码位置 / 状态）
