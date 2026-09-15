@@ -8,14 +8,8 @@ from fastapi import Depends
 from httpx import ASGITransport, AsyncClient
 
 from app.api.deps import get_captcha
-from app.captcha.base import (
-    CAPTCHA_SCENES,
-    CAPTCHA_TTL,
-    BaseCaptcha,
-    CaptchaChallenge,
-    NullCaptcha,
-    build_captcha_key,
-)
+from app.captcha.base import CAPTCHA_SCENES, CAPTCHA_TTL, BaseCaptcha, CaptchaChallenge, build_captcha_key
+from app.captcha.null import NullCaptcha
 from app.core.base import BaseObject
 from app.core.capability import BaseCapability, BaseNullObject
 from app.main import create_app

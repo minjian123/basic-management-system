@@ -1,0 +1,27 @@
+"""health 能力域缺省实现（Null Object）：占位返回、无副作用（02-3 自 app.health.base.py 迁入）。"""
+
+from app.core.capability import BaseNullObject
+from app.health.base import BaseHealthCheck, BaseHealthCheckRegistry
+
+__all__ = [
+    "NullHealthCheckRegistry",
+]
+
+
+class NullHealthCheckRegistry(BaseHealthCheckRegistry, BaseNullObject):
+    """占位注册表：注册空操作、无检查项 → 固定通过（不探依赖，未接入真实探针时使用）。"""
+
+    def register(self, check: BaseHealthCheck) -> None:
+        """空操作（占位不登记）。
+
+        Args:
+            check: 检查项（占位忽略）。
+        """
+
+    def checks(self) -> tuple[BaseHealthCheck, ...]:
+        """空检查项集。
+
+        Returns:
+            tuple[BaseHealthCheck, ...]: 空元组。
+        """
+        return ()

@@ -6,7 +6,6 @@
 - `BaseTracer`：能力域中间层契约（`key = "tracer"`）——`span` 为**异步上下文管理器**（进入开启、退出结束，
   与 02-3-6 `BaseDistributedLock.hold` 同款），内部固定编排「取父 span → 开启 → 写上下文变量 → 结束 → 复位」；
   抽象 `start_span` / `end_span` 由实现（真实 / 占位）提供。
-- `NullTracer`：占位实现——生成真实形态占位 ID、维护嵌套父链与上下文变量、**不上报**（不连 OTel）。
 - `current_span` / `current_trace_id`：读当前链路上下文（日志体系与业务埋点统一取值入口）。
 - `get_tracer`：依赖注入提供者（应用级单例；公共依赖经 `app/api/deps.py` 统一导出）。
 
@@ -27,7 +26,6 @@ from typing import cast
 from fastapi import Request
 
 from app.core.base import BaseObject
-from app.core.capability import BaseNullObject
 from app.core.context import (
     get_current_trace_id,
     reset_current_span_id,
@@ -42,7 +40,6 @@ __all__ = [
     "TRACE_ID_HEADER",
     "TRACE_ID_LENGTH",
     "BaseTracer",
-    "NullTracer",
     "SpanContext",
     "current_span",
     "current_trace_id",
@@ -181,46 +178,6 @@ def current_trace_id() -> str | None:
         str | None: 链路 id；不在链路内为 None。
     """
     return get_current_trace_id()
-
-
-class NullTracer(BaseTracer, BaseNullObject):
-    """占位链路：生成真实形态占位 ID 与父子链、维护上下文变量，**不上报**（不连 OTel）。"""
-
-    async def start_span(
-        self,
-        name: str,
-        *,
-        attributes: Mapping[str, object] | None = None,
-        parent: SpanContext | None = None,
-    ) -> SpanContext:
-        """开启占位 span。
-
-        链路 id 取值顺序：父 span 的链路 id → 当前上下文链路 id（入站中间件设置）→ 新生成；
-        span id 每次新生成（16 位 hex）。
-
-        Args:
-            name: span 名称。
-            attributes: span 属性（占位仅随上下文携带）。
-            parent: 父 span 上下文。
-
-        Returns:
-            SpanContext: 占位 span 上下文。
-        """
-        trace_id = parent.trace_id if parent is not None else (get_current_trace_id() or new_trace_id())
-        return SpanContext(
-            trace_id=trace_id,
-            span_id=new_span_id(),
-            name=name,
-            parent_span_id=parent.span_id if parent is not None else None,
-            attributes=attributes,
-        )
-
-    async def end_span(self, span: SpanContext) -> None:
-        """空操作（占位不上报）。
-
-        Args:
-            span: 待结束的 span 上下文（占位忽略）。
-        """
 
 
 def get_tracer(request: Request) -> BaseTracer:

@@ -5,10 +5,8 @@
 - `ClientCredentials` / `OAuthToken`：客户端凭证与令牌响应数据契约（frozen dataclass）。
 - `BaseOAuthServer`：能力域中间层契约（`key = "oauth_server"`）——异步 `issue_token`（Client Credentials 签发）/
   `revoke`（独立撤销）。
-- `NullOAuthServer`：占位实现——固定返回占位令牌（**不签发、不落库存**）、`revoke` 空操作。
 - `BaseScopeChecker`：能力域中间层契约（`key = "scope_checker"`）——同步 `check(granted, required)`
   判定授权面 scope（与内部权限码 `BasePermissionChecker` 分工，开放接口**先 scope 后权限码**）。
-- `NullScopeChecker`：占位实现，**恒定允许**（不校验）。
 - `get_oauth_server` / `get_scope_checker`：依赖注入提供者（应用级单例；公共依赖经 `app/api/deps.py` 统一导出）。
 
 口径：本域只覆盖**开放接口 client 侧**（Client Credentials）；用户 access / refresh 双 token 归认证阶段（架构 13 §2）；
@@ -23,7 +21,6 @@ from typing import cast
 from fastapi import Request
 
 from app.core.base import BaseObject
-from app.core.capability import BaseNullObject
 from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
 
 __all__ = [
@@ -33,8 +30,6 @@ __all__ = [
     "BaseOAuthServer",
     "BaseScopeChecker",
     "ClientCredentials",
-    "NullOAuthServer",
-    "NullScopeChecker",
     "OAuthToken",
     "get_oauth_server",
     "get_scope_checker",
@@ -109,28 +104,6 @@ class BaseOAuthServer(BasePluggable, ABC):
         """
 
 
-class NullOAuthServer(BaseOAuthServer, BaseNullObject):
-    """占位服务端：固定返回占位令牌（不签发、不落库存），撤销空操作。"""
-
-    async def issue_token(self, credentials: ClientCredentials) -> OAuthToken:
-        """固定返回占位令牌。
-
-        Args:
-            credentials: 客户端凭证（占位忽略）。
-
-        Returns:
-            OAuthToken: 占位令牌（NULL_ACCESS_TOKEN / 有效期 0 / 空 scope）。
-        """
-        return OAuthToken(access_token=NULL_ACCESS_TOKEN)
-
-    async def revoke(self, token: str) -> None:
-        """空操作（占位不撤销）。
-
-        Args:
-            token: 访问令牌（占位忽略）。
-        """
-
-
 class BaseScopeChecker(BasePluggable, ABC):
     """scope 校验契约：已授权范围是否覆盖接口所需范围。"""
 
@@ -150,22 +123,6 @@ class BaseScopeChecker(BasePluggable, ABC):
         Returns:
             bool: 覆盖为 True。
         """
-
-
-class NullScopeChecker(BaseScopeChecker, BaseNullObject):
-    """占位 scope 校验：恒定允许（不校验，未接入真实 scope 体系时使用）。"""
-
-    def check(self, granted: Iterable[str], required: str) -> bool:
-        """恒定允许。
-
-        Args:
-            granted: 已授权 scope（占位不校验）。
-            required: 接口所需 scope（占位不校验）。
-
-        Returns:
-            bool: True。
-        """
-        return True
 
 
 def get_oauth_server(request: Request) -> BaseOAuthServer:

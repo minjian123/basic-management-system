@@ -4,7 +4,6 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
 from app.core.base import BaseObject
-from app.core.capability import BaseNullObject
 from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
 
 SCOPE_OPERATORS: tuple[str, ...] = (
@@ -56,26 +55,3 @@ class DataScope(BasePluggable, ABC):
         Returns:
             bool: 允许为 True。
         """
-
-
-class NullDataScope(DataScope, BaseNullObject):
-    """占位数据范围：无过滤、恒定允许（未接入 RBAC 时使用）。"""
-
-    def read_predicate(self) -> object:
-        """无过滤条件。
-
-        Returns:
-            object: None（不过滤）。
-        """
-        return None
-
-    def allow_write(self, values: dict[str, object]) -> bool:
-        """恒定允许写入。
-
-        Args:
-            values: 待写入字段值（占位不校验）。
-
-        Returns:
-            bool: True。
-        """
-        return True

@@ -8,14 +8,8 @@ from fastapi import Depends
 from httpx import ASGITransport, AsyncClient
 
 from app.api.deps import get_archive_policy, get_archive_query_router
-from app.archive.base import (
-    ARCHIVE_LOCATIONS,
-    ArchiveResult,
-    BaseArchivePolicy,
-    BaseArchiveQueryRouter,
-    NullArchivePolicy,
-    NullArchiveQueryRouter,
-)
+from app.archive.base import ARCHIVE_LOCATIONS, ArchiveResult, BaseArchivePolicy, BaseArchiveQueryRouter
+from app.archive.null import NullArchivePolicy, NullArchiveQueryRouter
 from app.core.base import BaseObject
 from app.core.capability import BaseCapability, BaseNullObject
 from app.main import create_app

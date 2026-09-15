@@ -2,7 +2,6 @@
 
 - `RowError` / `ImportResult`：行错误回执与导入结果数据契约（frozen）。
 - `BaseImporter`：能力域中间层契约（`key = "importer"`）——异步 `parse`（解析为行）/ `validate`（行校验 → 结果 + 回执）。
-- `NullImporter`：占位实现——空行 / 空结果（**不读写文件**）。
 - `get_importer`：依赖注入提供者（应用级单例；公共依赖经 `app/api/deps.py` 统一导出）。
 
 口径：文件字节由调用方经 02-4-1 `BaseObjectStorage` 取后传入；批量入库幂等（幂等键 + 唯一约束兜底）归上层。
@@ -16,14 +15,12 @@ from typing import cast
 from fastapi import Request
 
 from app.core.base import BaseObject
-from app.core.capability import BaseNullObject
 from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
 from app.transfer.base import ColumnSpec
 
 __all__ = [
     "BaseImporter",
     "ImportResult",
-    "NullImporter",
     "RowError",
     "get_importer",
 ]
@@ -90,39 +87,6 @@ class BaseImporter(BasePluggable, ABC):
         Returns:
             ImportResult: 有效行与错误回执。
         """
-
-
-class NullImporter(BaseImporter, BaseNullObject):
-    """占位导入器：空行 / 空结果（不读写文件，未接入真实实现时使用）。"""
-
-    async def parse(self, data: bytes, *, columns: Sequence[ColumnSpec]) -> tuple[Mapping[str, object], ...]:
-        """返回空行。
-
-        Args:
-            data: 文件字节（占位忽略）。
-            columns: 列定义（占位忽略）。
-
-        Returns:
-            tuple[Mapping[str, object], ...]: 空元组。
-        """
-        return ()
-
-    async def validate(
-        self,
-        rows: Sequence[Mapping[str, object]],
-        *,
-        columns: Sequence[ColumnSpec],
-    ) -> ImportResult:
-        """返回空结果。
-
-        Args:
-            rows: 原始行（占位忽略）。
-            columns: 列定义（占位忽略）。
-
-        Returns:
-            ImportResult: 空结果（无有效行 / 无错误）。
-        """
-        return ImportResult(rows=(), errors=())
 
 
 def get_importer(request: Request) -> BaseImporter:

@@ -4,7 +4,6 @@
 - `BaseFieldType`：字段类型提供者契约（抽象 `key` + 同步 `validate` / `render_metadata` / `column_type`）。
 - `BaseFieldTypeRegistry`：能力域中间层契约（`key = "field_type_registry"`）——抽象 `register` / `get` / `keys`
   + **具体聚合模板** `validate` / `column_type`（解析字段类型 → 委托；未命中抛 `NotFoundError`）。
-- `NullFieldTypeRegistry`：占位实现——恒定通过 / 固定映射（**不校验 / 不映射**）。
 - `get_field_type_registry`：依赖注入提供者（应用级单例；公共依赖经 `app/api/deps.py` 统一导出）。
 
 口径：本域负责**自建字段类型**级校验与列类型映射；`BaseModel` 四库映射负责公共字段、动态 DDL（`ext_*` 物理列）
@@ -18,7 +17,6 @@ from typing import cast
 from fastapi import Request
 
 from app.core.base import BaseObject
-from app.core.capability import BaseNullObject
 from app.core.exceptions import NotFoundError
 from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
 
@@ -27,7 +25,6 @@ __all__ = [
     "NULL_COLUMN_TYPE",
     "BaseFieldType",
     "BaseFieldTypeRegistry",
-    "NullFieldTypeRegistry",
     "get_field_type_registry",
 ]
 
@@ -151,63 +148,6 @@ class BaseFieldTypeRegistry(BasePluggable, ABC):
         if provider is None:
             raise NotFoundError(f"字段类型不存在：{field_type}")
         return provider.column_type(dialect)
-
-
-class NullFieldTypeRegistry(BaseFieldTypeRegistry, BaseNullObject):
-    """占位注册表：注册空操作、无字段类型；校验恒定通过、类型映射固定返回（不校验 / 不映射）。"""
-
-    def register(self, provider: BaseFieldType) -> None:
-        """空操作（占位不注册）。
-
-        Args:
-            provider: 字段类型提供者（占位忽略）。
-        """
-
-    def get(self, key: str) -> BaseFieldType | None:
-        """无字段类型。
-
-        Args:
-            key: 字段类型标识（占位忽略）。
-
-        Returns:
-            BaseFieldType | None: None。
-        """
-        return None
-
-    def keys(self) -> tuple[str, ...]:
-        """空字段类型清单。
-
-        Returns:
-            tuple[str, ...]: 空元组。
-        """
-        return ()
-
-    def validate(
-        self, field_type: str, value: object, *, options: Mapping[str, object] | None = None
-    ) -> tuple[str, ...]:
-        """恒定通过（占位不校验）。
-
-        Args:
-            field_type: 字段类型标识（占位忽略）。
-            value: 字段值（占位忽略）。
-            options: 字段选项（占位忽略）。
-
-        Returns:
-            tuple[str, ...]: 空违规元组。
-        """
-        return ()
-
-    def column_type(self, field_type: str, dialect: str) -> str:
-        """固定返回占位列类型（占位不映射）。
-
-        Args:
-            field_type: 字段类型标识（占位忽略）。
-            dialect: 方言（占位忽略）。
-
-        Returns:
-            str: `NULL_COLUMN_TYPE`。
-        """
-        return NULL_COLUMN_TYPE
 
 
 def get_field_type_registry(request: Request) -> BaseFieldTypeRegistry:

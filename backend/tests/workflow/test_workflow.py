@@ -16,12 +16,12 @@ from app.workflow.base import (
     NULL_TASK_ID,
     WORKFLOW_STATUS,
     BaseWorkflowEngine,
-    NullWorkflowEngine,
     ProcessDefinition,
     ProcessInstance,
     WorkflowAction,
     WorkflowTask,
 )
+from app.workflow.null import NullWorkflowEngine
 
 
 @pytest.mark.kiwi_id(53)

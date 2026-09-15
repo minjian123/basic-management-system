@@ -11,12 +11,8 @@ from app.api.deps import get_realtime_publisher
 from app.core.base import BaseObject
 from app.core.capability import BaseCapability, BaseNullObject
 from app.main import create_app
-from app.ws.base import (
-    REALTIME_EVENTS,
-    BaseRealtimePublisher,
-    NullRealtimePublisher,
-    RealtimeEvent,
-)
+from app.ws.base import REALTIME_EVENTS, BaseRealtimePublisher, RealtimeEvent
+from app.ws.null import NullRealtimePublisher
 
 
 @pytest.mark.kiwi_id(51)

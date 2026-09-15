@@ -10,11 +10,8 @@ from app.api.deps import get_circuit_breaker
 from app.circuit.base import (
     DEPENDENCIES as CIRCUIT_DEPENDENCIES,
 )
-from app.circuit.base import (
-    BaseCircuitBreaker,
-    CircuitState,
-    NullCircuitBreaker,
-)
+from app.circuit.base import BaseCircuitBreaker, CircuitState
+from app.circuit.null import NullCircuitBreaker
 from app.core.base import BaseObject
 from app.core.capability import BaseCapability, BaseNullObject
 from app.fallback.base import (

@@ -15,11 +15,11 @@ from app.ratelimit.base import (
     DEFAULT_RATE_WINDOW,
     RATE_LIMIT_DIMENSIONS,
     BaseRateLimiter,
-    NullRateLimiter,
     RateLimitDecision,
     RateLimitRule,
     build_rate_limit_key,
 )
+from app.ratelimit.null import NullRateLimiter
 
 
 class DenyRateLimiter(BaseRateLimiter):

@@ -11,18 +11,9 @@ from app.api.deps import get_http_client, get_webhook_sender
 from app.core.base import BaseObject
 from app.core.capability import BaseCapability, BaseNullObject
 from app.main import create_app
-from app.outbound.http import (
-    DEFAULT_MAX_RETRIES,
-    DEFAULT_TIMEOUT,
-    BaseHttpClient,
-    HttpResponse,
-    NullHttpClient,
-)
-from app.outbound.webhook import (
-    BaseWebhookSender,
-    NullWebhookSender,
-    WebhookResult,
-)
+from app.outbound.http import DEFAULT_MAX_RETRIES, DEFAULT_TIMEOUT, BaseHttpClient, HttpResponse
+from app.outbound.null import NullHttpClient, NullWebhookSender
+from app.outbound.webhook import BaseWebhookSender, WebhookResult
 
 
 @pytest.mark.kiwi_id(52)

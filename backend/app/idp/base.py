@@ -4,7 +4,6 @@
 - `IdentityToken` / `IdentityUser`：身份源令牌与用户数据契约（frozen dataclass）。
 - `BaseIdentityProvider`：能力域中间层契约（`key = "identity_provider"`）——异步 `authorize` /
   `exchange_token` / `userinfo`。
-- `NullIdentityProvider`：占位实现——固定返回（**不连外部 IdP**）。
 - `get_identity_provider`：依赖注入提供者（应用级单例；公共依赖经 `app/api/deps.py` 统一导出）。
 
 口径：本域为**客户端侧**（BMS 作为客户端接外部 IdP）；BMS 兼作服务端（对外 OIDC Provider / Client Credentials）
@@ -19,7 +18,6 @@ from typing import cast
 from fastapi import Request
 
 from app.core.base import BaseObject
-from app.core.capability import BaseNullObject
 from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
 
 __all__ = [
@@ -27,7 +25,6 @@ __all__ = [
     "BaseIdentityProvider",
     "IdentityToken",
     "IdentityUser",
-    "NullIdentityProvider",
     "get_identity_provider",
 ]
 
@@ -106,43 +103,6 @@ class BaseIdentityProvider(BasePluggable, ABC):
         Returns:
             IdentityUser: 身份源用户。
         """
-
-
-class NullIdentityProvider(BaseIdentityProvider, BaseNullObject):
-    """占位身份源：固定返回（不连外部 IdP，未接入真实实现时使用）。"""
-
-    async def authorize(self, state: str) -> str:
-        """返回占位授权 URL。
-
-        Args:
-            state: 防 CSRF 的 state（占位忽略）。
-
-        Returns:
-            str: 占位授权 URL。
-        """
-        return "https://null-idp/authorize"
-
-    async def exchange_token(self, code: str) -> IdentityToken:
-        """返回占位令牌。
-
-        Args:
-            code: 授权码（占位忽略）。
-
-        Returns:
-            IdentityToken: 占位令牌。
-        """
-        return IdentityToken(access_token="null-idp-token")
-
-    async def userinfo(self, access_token: str) -> IdentityUser:
-        """返回占位用户。
-
-        Args:
-            access_token: 访问令牌（占位忽略）。
-
-        Returns:
-            IdentityUser: 占位用户。
-        """
-        return IdentityUser(subject="null-idp-subject", username="null-idp-user")
 
 
 def get_identity_provider(request: Request) -> BaseIdentityProvider:

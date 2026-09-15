@@ -9,12 +9,8 @@ from httpx import ASGITransport, AsyncClient
 from app.api.deps import get_fallback_policy
 from app.core.base import BaseObject
 from app.core.capability import BaseCapability, BaseNullObject
-from app.fallback.base import (
-    DEPENDENCIES,
-    BaseFallbackPolicy,
-    FallbackAction,
-    NullFallbackPolicy,
-)
+from app.fallback.base import DEPENDENCIES, BaseFallbackPolicy, FallbackAction
+from app.fallback.null import NullFallbackPolicy
 from app.main import create_app
 
 

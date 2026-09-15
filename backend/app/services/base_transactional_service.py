@@ -1,6 +1,7 @@
 """services 层事务基类：在通用服务之上叠加异步事务边界（写操作包事务）。"""
 
-from app.db.unit_of_work import NullUnitOfWork, UnitOfWork
+from app.db.null import NullUnitOfWork
+from app.db.unit_of_work import UnitOfWork
 from app.repositories.base_repository import BaseRepository
 from app.services.base_service import BaseService
 

@@ -4,7 +4,6 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
 from app.core.base import BaseObject
-from app.core.capability import BaseNullObject
 from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
 
 
@@ -35,19 +34,3 @@ class ShardingRouter(BasePluggable, ABC):
         Returns:
             ShardBinding: 物理库 / 表绑定。
         """
-
-
-class NullShardingRouter(ShardingRouter, BaseNullObject):
-    """占位分片路由：不路由，返回默认库 + 逻辑表名。"""
-
-    def resolve(self, logical_table: str, *, shard_key: object | None = None) -> ShardBinding:
-        """不路由解析。
-
-        Args:
-            logical_table: 逻辑表名。
-            shard_key: 分片键（占位忽略）。
-
-        Returns:
-            ShardBinding: `default` + 逻辑表名。
-        """
-        return ShardBinding(db_key="default", physical_table=logical_table)

@@ -13,8 +13,10 @@ from app.events.base import EventConsumer, EventEnvelope, EventPublisher
 from app.models.base import Base, BaseModel
 from app.models.system import SysTask, SysTaskLog
 from app.repositories.demo_repository import DemoRepository
-from app.scope.base import DataScope, NullDataScope
-from app.sharding.base import NullShardingRouter, ShardBinding, ShardingRouter
+from app.scope.base import DataScope
+from app.scope.null import NullDataScope
+from app.sharding.base import ShardBinding, ShardingRouter
+from app.sharding.null import NullShardingRouter
 from app.tasks.base import BaseTask
 
 

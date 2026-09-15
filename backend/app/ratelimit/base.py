@@ -6,7 +6,6 @@
 - `RateLimitDecision`：判定结果（`allowed` / `limit` / `remaining` / `reset_after`，供 `X-RateLimit-*` 响应头）。
 - `BaseRateLimiter`：能力域中间层契约（`key = "rate_limiter"`）——`check` 判定配额、
   `require` 强制放行（失败抛 `RateLimitError`，10005 / 429）。
-- `NullRateLimiter`：占位实现，**恒定放行**（不连 Redis、不计数）。
 - `build_rate_limit_key`：限流 key 统一拼接（`bms:{租户|global}:rate:{维度}:{目标}`，
   见《架构设计 · 数据架构》「key 空间规划」节）。
 - `get_rate_limiter`：依赖注入提供者（应用级单例；公共依赖经 `app/api/deps.py` 统一导出）。
@@ -21,7 +20,6 @@ from typing import cast
 from fastapi import Request
 
 from app.core.base import BaseObject
-from app.core.capability import BaseNullObject
 from app.core.exceptions import RateLimitError
 from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
 
@@ -117,22 +115,6 @@ class BaseRateLimiter(BasePluggable, ABC):
         if not decision.allowed:
             raise RateLimitError(f"超出限流配额：{key}")
         return decision
-
-
-class NullRateLimiter(BaseRateLimiter, BaseNullObject):
-    """占位限流：**恒定放行**（不连 Redis、不计数，未接入真实限流时使用）。"""
-
-    async def check(self, key: str, rule: RateLimitRule) -> RateLimitDecision:
-        """恒定放行。
-
-        Args:
-            key: 限流 key（占位不区分）。
-            rule: 限流规则（`limit` / `window` 回显，不计数）。
-
-        Returns:
-            RateLimitDecision: 放行决策（剩余配额等于上限、无重置等待）。
-        """
-        return RateLimitDecision(allowed=True, limit=rule.limit, remaining=rule.limit, reset_after=0)
 
 
 def get_rate_limiter(request: Request) -> BaseRateLimiter:

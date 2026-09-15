@@ -3,7 +3,6 @@
 - `REALTIME_EVENTS`：事件清单（`approval.todo` / `notification.new` / `session.revoked`，架构 17「事件路由」节）。
 - `RealtimeEvent`：推送事件数据契约（frozen）——事件名 + 载荷 + 目标（用户 / 会话 / 房间）。
 - `BaseRealtimePublisher`：能力域中间层契约（`key = "realtime_publisher"`）——异步 `emit` / `join` / `leave`。
-- `NullRealtimePublisher`：占位实现——三方法空操作（**不连 Socket.IO / Redis**）。
 - `get_realtime_publisher`：依赖注入提供者（应用级单例；公共依赖经 `app/api/deps.py` 统一导出）。
 
 口径：原生 WebSocket 不采用（统一 Socket.IO，架构 17）；握手鉴权、连接注册（Redis `user_id → [{session_id, sid}]`）、
@@ -18,13 +17,11 @@ from typing import cast
 from fastapi import Request
 
 from app.core.base import BaseObject
-from app.core.capability import BaseNullObject
 from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
 
 __all__ = [
     "REALTIME_EVENTS",
     "BaseRealtimePublisher",
-    "NullRealtimePublisher",
     "RealtimeEvent",
     "get_realtime_publisher",
 ]
@@ -85,33 +82,6 @@ class BaseRealtimePublisher(BasePluggable, ABC):
         Args:
             session_id: 连接所在会话。
             room: 房间名。
-        """
-
-
-class NullRealtimePublisher(BaseRealtimePublisher, BaseNullObject):
-    """占位推送器：三方法空操作（不连 Socket.IO / Redis，未接入真实实现时使用）。"""
-
-    async def emit(self, event: RealtimeEvent) -> None:
-        """空操作（占位不推送）。
-
-        Args:
-            event: 推送事件（占位忽略）。
-        """
-
-    async def join(self, session_id: str, room: str) -> None:
-        """空操作（占位不加入房间）。
-
-        Args:
-            session_id: 连接所在会话（占位忽略）。
-            room: 房间名（占位忽略）。
-        """
-
-    async def leave(self, session_id: str, room: str) -> None:
-        """空操作（占位不离开房间）。
-
-        Args:
-            session_id: 连接所在会话（占位忽略）。
-            room: 房间名（占位忽略）。
         """
 
 

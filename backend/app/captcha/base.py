@@ -2,7 +2,6 @@
 
 - `BaseCaptcha`：能力域中间层契约（`key = "captcha"`）——`generate`（返回挑战值对象：编号 + 图片字节 +
   有效期 + 场景）/ `verify`（校验，真实实现单次有效）。
-- `NullCaptcha`：占位实现，**恒定通过**（`generate` 返回空图片字节的挑战、`verify` 恒定 True，不连 Redis）。
 - `build_captcha_key`：验证码存储 key 统一拼接（`bms:global:captcha:{uuid}`，见《架构设计 · 数据架构》
   「key 空间规划」节）。
 - `get_captcha`：依赖注入提供者（应用级单例；公共依赖经 `app/api/deps.py` 统一导出）。
@@ -14,12 +13,10 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import cast
-from uuid import uuid4
 
 from fastapi import Request
 
 from app.core.base import BaseObject
-from app.core.capability import BaseNullObject
 from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
 
 CAPTCHA_KEY_PREFIX = "bms"
@@ -87,33 +84,6 @@ class BaseCaptcha(BasePluggable, ABC):
         Returns:
             bool: 校验通过为 True；过期 / 不存在 / 不匹配为 False。
         """
-
-
-class NullCaptcha(BaseCaptcha, BaseNullObject):
-    """占位验证码：**恒定通过**（不连 Redis、不出图，未接入真实实现时使用）。"""
-
-    async def generate(self, scene: str = "login") -> CaptchaChallenge:
-        """恒定返回挑战（占位不出图，`image` 为空字节）。
-
-        Args:
-            scene: 使用场景（占位透传不校验）。
-
-        Returns:
-            CaptchaChallenge: 挑战值对象。
-        """
-        return CaptchaChallenge(captcha_id=uuid4().hex, image=b"", expires_in=CAPTCHA_TTL, scene=scene)
-
-    async def verify(self, captcha_id: str, code: str) -> bool:
-        """恒定通过（占位不校验编号与验证码）。
-
-        Args:
-            captcha_id: 验证码编号（占位不校验）。
-            code: 用户输入的验证码（占位不校验）。
-
-        Returns:
-            bool: True。
-        """
-        return True
 
 
 def get_captcha(request: Request) -> BaseCaptcha:

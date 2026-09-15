@@ -4,7 +4,6 @@
 - `BaseQueryProvider`：提供者契约（抽象属性 `key` + 异步 `query`，**只读数据源约束**）。
 - `BaseQueryProviderRegistry`：能力域中间层契约（`key = "query_provider_registry"`）——抽象 `register` / `get` / `keys`
   + **具体聚合模板** `query`（解析提供者 → 委托；未命中抛 `NotFoundError`）。
-- `NullQueryProvider` / `NullQueryProviderRegistry`：占位实现——空结果 / 固定返回（**不执行 SQL**）。
 - `get_query_provider_registry`：依赖注入提供者（应用级单例；公共依赖经 `app/api/deps.py` 统一导出）。
 
 口径：报表数据集与字典高级查询各自注册提供者，前端只做发现与调用（架构 29）；数据集白名单 + 只读从库 +
@@ -19,15 +18,12 @@ from typing import cast
 from fastapi import Request
 
 from app.core.base import BaseObject
-from app.core.capability import BaseNullObject
 from app.core.exceptions import NotFoundError
 from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
 
 __all__ = [
     "BaseQueryProvider",
     "BaseQueryProviderRegistry",
-    "NullQueryProvider",
-    "NullQueryProviderRegistry",
     "QueryResult",
     "get_query_provider_registry",
 ]
@@ -116,72 +112,6 @@ class BaseQueryProviderRegistry(BasePluggable, ABC):
         if provider is None:
             raise NotFoundError(f"查询提供者不存在：{key}")
         return await provider.query(params)
-
-
-class NullQueryProvider(BaseQueryProvider, BaseNullObject):
-    """占位查询提供者：恒定返回空结果（不执行 SQL）。"""
-
-    @property
-    def key(self) -> str:
-        """提供者标识。
-
-        Returns:
-            str: 占位提供者 key。
-        """
-        return "null_query_provider"
-
-    async def query(self, params: Mapping[str, object]) -> QueryResult:
-        """恒定返回空结果。
-
-        Args:
-            params: 查询参数（占位忽略）。
-
-        Returns:
-            QueryResult: 空结果（`rows == ()` / `total == 0`）。
-        """
-        return QueryResult(rows=(), total=0)
-
-
-class NullQueryProviderRegistry(BaseQueryProviderRegistry, BaseNullObject):
-    """占位注册表：注册空操作、无提供者；`query` 固定返回空结果（不执行 SQL）。"""
-
-    def register(self, provider: BaseQueryProvider) -> None:
-        """空操作（占位不注册）。
-
-        Args:
-            provider: 查询提供者（占位忽略）。
-        """
-
-    def get(self, key: str) -> BaseQueryProvider | None:
-        """无提供者。
-
-        Args:
-            key: 提供者标识（占位忽略）。
-
-        Returns:
-            BaseQueryProvider | None: None。
-        """
-        return None
-
-    def keys(self) -> tuple[str, ...]:
-        """空提供者清单。
-
-        Returns:
-            tuple[str, ...]: 空元组。
-        """
-        return ()
-
-    async def query(self, key: str, params: Mapping[str, object]) -> QueryResult:
-        """固定返回空结果（占位不抛错、不执行 SQL）。
-
-        Args:
-            key: 提供者标识（占位忽略）。
-            params: 查询参数（占位忽略）。
-
-        Returns:
-            QueryResult: 空结果。
-        """
-        return QueryResult(rows=(), total=0)
 
 
 def get_query_provider_registry(request: Request) -> BaseQueryProviderRegistry:

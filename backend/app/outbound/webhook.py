@@ -2,7 +2,6 @@
 
 - `WebhookResult`：投递结果数据契约（frozen）。
 - `BaseWebhookSender`：能力域中间层契约（`key = "webhook_sender"`）——异步 `send`（签名 / 重试由实现内部处理）。
-- `NullWebhookSender`：占位实现——固定返回投递成功（**不外呼**）。
 - `get_webhook_sender`：依赖注入提供者（应用级单例；公共依赖经 `app/api/deps.py` 统一导出）。
 
 签名口径：真实实现按出站口径 `sha256(secret, body)` 经 `core/security.py` 的 `SignatureCodec` 计算
@@ -17,12 +16,10 @@ from typing import cast
 from fastapi import Request
 
 from app.core.base import BaseObject
-from app.core.capability import BaseNullObject
 from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
 
 __all__ = [
     "BaseWebhookSender",
-    "NullWebhookSender",
     "WebhookResult",
     "get_webhook_sender",
 ]
@@ -62,23 +59,6 @@ class BaseWebhookSender(BasePluggable, ABC):
         Returns:
             WebhookResult: 投递结果。
         """
-
-
-class NullWebhookSender(BaseWebhookSender, BaseNullObject):
-    """占位 Webhook 发送器：固定返回投递成功（不外呼，未接入真实实现时使用）。"""
-
-    async def send(self, url: str, payload: Mapping[str, object], *, secret: str | None = None) -> WebhookResult:
-        """恒定返回投递成功（不外呼）。
-
-        Args:
-            url: 目标地址（占位忽略）。
-            payload: 载荷（占位忽略）。
-            secret: 签名密钥（占位忽略）。
-
-        Returns:
-            WebhookResult: 成功结果（`delivered=True`、`status_code=200`、`attempts=1`）。
-        """
-        return WebhookResult(delivered=True, status_code=200, attempts=1)
 
 
 def get_webhook_sender(request: Request) -> BaseWebhookSender:

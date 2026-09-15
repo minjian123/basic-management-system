@@ -9,12 +9,8 @@ from httpx import ASGITransport, AsyncClient
 from app.api.deps import get_translator
 from app.core.base import BaseObject
 from app.core.capability import BaseCapability, BaseNullObject
-from app.i18n.base import (
-    DEFAULT_LOCALE,
-    SUPPORTED_LOCALES,
-    BaseTranslator,
-    NullTranslator,
-)
+from app.i18n.base import DEFAULT_LOCALE, SUPPORTED_LOCALES, BaseTranslator
+from app.i18n.null import NullTranslator
 from app.main import create_app
 
 

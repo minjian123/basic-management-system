@@ -12,13 +12,9 @@ from app.core.base import BaseObject
 from app.core.capability import BaseCapability, BaseNullObject
 from app.main import create_app
 from app.transfer.base import ColumnSpec
-from app.transfer.exporter import BaseExporter, NullExporter
-from app.transfer.importer import (
-    BaseImporter,
-    ImportResult,
-    NullImporter,
-    RowError,
-)
+from app.transfer.exporter import BaseExporter
+from app.transfer.importer import BaseImporter, ImportResult, RowError
+from app.transfer.null import NullExporter, NullImporter
 
 _COLUMNS = (ColumnSpec(key="name", title="姓名", required=True),)
 

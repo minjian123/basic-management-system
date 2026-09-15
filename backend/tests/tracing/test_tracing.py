@@ -21,12 +21,12 @@ from app.tracing.base import (
     TRACE_ID_HEADER,
     TRACE_ID_LENGTH,
     BaseTracer,
-    NullTracer,
     current_span,
     current_trace_id,
     new_span_id,
     new_trace_id,
 )
+from app.tracing.null import NullTracer
 
 
 class BoomError(RuntimeError):

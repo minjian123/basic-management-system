@@ -5,7 +5,6 @@
 - `ChatMessage` / `ChatResult` / `EmbeddingResult` / `OcrResult`：输入与结果数据契约（frozen dataclass）。
 - `BaseLlmProvider`：能力域中间层契约（`key = "llm_provider"`）——异步 `chat` / `embedding` / `ocr`，
   均带可选 `provider_key` / `model`（真实实现按 `sys_ai_provider` 选择端点与模型）。
-- `NullLlmProvider`：占位实现——固定返回（**不调模型**）。
 - `get_llm_provider`：依赖注入提供者（应用级单例；公共依赖经 `app/api/deps.py` 统一导出）。
 
 口径：外部 / 私有化端点切换不侵入业务（模型切换只改配置）；AI 接口独立限流与预算、RAG 管线、
@@ -20,7 +19,6 @@ from typing import cast
 from fastapi import Request
 
 from app.core.base import BaseObject
-from app.core.capability import BaseNullObject
 from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
 
 __all__ = [
@@ -32,7 +30,6 @@ __all__ = [
     "ChatMessage",
     "ChatResult",
     "EmbeddingResult",
-    "NullLlmProvider",
     "OcrResult",
     "get_llm_provider",
 ]
@@ -167,72 +164,6 @@ class BaseLlmProvider(BasePluggable, ABC):
         Returns:
             OcrResult: 识别结果。
         """
-
-
-class NullLlmProvider(BaseLlmProvider, BaseNullObject):
-    """占位 LLM Provider：固定返回（不调模型，未接入真实实现时使用）。"""
-
-    async def chat(
-        self,
-        messages: Sequence[ChatMessage],
-        *,
-        provider_key: str | None = None,
-        model: str | None = None,
-    ) -> ChatResult:
-        """恒定返回占位回复。
-
-        Args:
-            messages: 对话消息（占位忽略）。
-            provider_key: Provider 标识（占位回显）。
-            model: 模型名（占位回显）。
-
-        Returns:
-            ChatResult: 占位回复（content 为 `NULL_CHAT_REPLY`）。
-        """
-        return ChatResult(content=NULL_CHAT_REPLY, model=model, provider_key=provider_key)
-
-    async def embedding(
-        self,
-        texts: Sequence[str],
-        *,
-        provider_key: str | None = None,
-        model: str | None = None,
-    ) -> EmbeddingResult:
-        """恒定返回固定维度零向量。
-
-        Args:
-            texts: 待向量化文本（占位仅取条数）。
-            provider_key: Provider 标识（占位回显）。
-            model: 模型名（占位回显）。
-
-        Returns:
-            EmbeddingResult: 零向量结果（每条维度 `NULL_EMBEDDING_DIM`）。
-        """
-        zero_vector = tuple(0.0 for _ in range(NULL_EMBEDDING_DIM))
-        return EmbeddingResult(
-            vectors=tuple(zero_vector for _ in texts),
-            model=model,
-            provider_key=provider_key,
-        )
-
-    async def ocr(
-        self,
-        image: bytes,
-        *,
-        provider_key: str | None = None,
-        model: str | None = None,
-    ) -> OcrResult:
-        """恒定返回占位识别文本。
-
-        Args:
-            image: 图片字节（占位忽略）。
-            provider_key: Provider 标识（占位回显）。
-            model: 模型名（占位回显）。
-
-        Returns:
-            OcrResult: 占位识别结果（text 为 `NULL_OCR_TEXT`）。
-        """
-        return OcrResult(text=NULL_OCR_TEXT, model=model, provider_key=provider_key)
 
 
 def get_llm_provider(request: Request) -> BaseLlmProvider:

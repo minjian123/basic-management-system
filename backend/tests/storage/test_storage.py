@@ -17,10 +17,10 @@ from app.storage.base import (
     NULL_PRESIGNED_URL,
     STORAGE_BUCKET,
     BaseObjectStorage,
-    NullObjectStorage,
     PresignedUrl,
     StoredObject,
 )
+from app.storage.null import NullObjectStorage
 
 
 @pytest.mark.kiwi_id(47)

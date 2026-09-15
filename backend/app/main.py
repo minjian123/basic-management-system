@@ -9,48 +9,46 @@ from app import __version__
 from app.api.errors import register_exception_handlers
 from app.api.middleware import RequestLoggingMiddleware, TraceIdMiddleware
 from app.api.router import api_router, health_router
-from app.archive.base import NullArchivePolicy, NullArchiveQueryRouter
-from app.audit.hashchain import NullHashChain
-from app.captcha.base import NullCaptcha
-from app.circuit.base import NullCircuitBreaker
+from app.archive.null import NullArchivePolicy, NullArchiveQueryRouter
+from app.audit.null import NullHashChain
+from app.captcha.null import NullCaptcha
+from app.circuit.null import NullCircuitBreaker
 from app.core.config import get_settings, validate_startup
 from app.core.logging import configure_logging, get_logger
 from app.core.resources import ResourceManager
-from app.dashboard.base import NullDashboardCardRegistry
+from app.dashboard.null import NullDashboardCardRegistry
 from app.db.engine import EngineFactory
 from app.db.registry import EngineRegistry
-from app.fallback.base import NullFallbackPolicy
-from app.fieldtype.base import NullFieldTypeRegistry
+from app.fallback.null import NullFallbackPolicy
+from app.fieldtype.null import NullFieldTypeRegistry
 from app.health.checks import DatabaseHealthCheck, RedisHealthCheck
 from app.health.registry import HealthCheckRegistry
-from app.i18n.base import NullTranslator
-from app.idempotency.base import NullIdempotencyStore
-from app.idp.base import NullIdentityProvider
-from app.llm.base import NullLlmProvider
-from app.lock.base import NullDistributedLock
-from app.masking.base import NullMasker
-from app.metrics.base import NullMetrics
-from app.notify.base import NullNotifier
-from app.oauth.base import NullOAuthServer, NullScopeChecker
-from app.outbound.http import NullHttpClient
-from app.outbound.webhook import NullWebhookSender
-from app.password.base import NullPasswordPolicy
-from app.permission.base import NullPermissionChecker
-from app.query.base import NullQueryProviderRegistry
-from app.ratelimit.base import NullRateLimiter
-from app.replay.base import NullReplayGuard
+from app.i18n.null import NullTranslator
+from app.idempotency.null import NullIdempotencyStore
+from app.idp.null import NullIdentityProvider
+from app.llm.null import NullLlmProvider
+from app.lock.null import NullDistributedLock
+from app.masking.null import NullMasker
+from app.metrics.null import NullMetrics
+from app.notify.null import NullNotifier
+from app.oauth.null import NullOAuthServer, NullScopeChecker
+from app.outbound.null import NullHttpClient, NullWebhookSender
+from app.password.null import NullPasswordPolicy
+from app.permission.null import NullPermissionChecker
+from app.query.null import NullQueryProviderRegistry
+from app.ratelimit.null import NullRateLimiter
+from app.replay.null import NullReplayGuard
 from app.repositories.demo_repository import DemoRepository
 from app.schemas.common import ApiResponse
-from app.search.base import NullSearchIndex
+from app.search.null import NullSearchIndex
 from app.services.demo_service import DemoService
 from app.services.module_registry import ModuleRegistry
-from app.session.base import NullSessionStore
-from app.storage.base import NullObjectStorage
-from app.tracing.base import NullTracer
-from app.transfer.exporter import NullExporter
-from app.transfer.importer import NullImporter
-from app.workflow.base import NullWorkflowEngine
-from app.ws.base import NullRealtimePublisher
+from app.session.null import NullSessionStore
+from app.storage.null import NullObjectStorage
+from app.tracing.null import NullTracer
+from app.transfer.null import NullExporter, NullImporter
+from app.workflow.null import NullWorkflowEngine
+from app.ws.null import NullRealtimePublisher
 
 
 @asynccontextmanager

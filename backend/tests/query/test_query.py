@@ -13,13 +13,8 @@ from app.core.base import BaseObject
 from app.core.capability import BaseCapability, BaseNullObject
 from app.core.exceptions import NotFoundError
 from app.main import create_app
-from app.query.base import (
-    BaseQueryProvider,
-    BaseQueryProviderRegistry,
-    NullQueryProvider,
-    NullQueryProviderRegistry,
-    QueryResult,
-)
+from app.query.base import BaseQueryProvider, BaseQueryProviderRegistry, QueryResult
+from app.query.null import NullQueryProvider, NullQueryProviderRegistry
 
 
 class _FakeProvider(BaseQueryProvider):

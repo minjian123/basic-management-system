@@ -3,7 +3,6 @@
 - `GENESIS_HASH`：首月链头约定初始值（64 位零 hex）；`HASH_ALGORITHM`：哈希算法（`sha256`）。
 - `HashChainEntry` / `ChainVerifyResult`：链上记录与校验结果数据契约（frozen）。
 - `BaseHashChain`：能力域中间层契约（`key = "hash_chain"`）——同步 `compute`（prev + 记录 → 哈希）/ `verify`（链校验）。
-- `NullHashChain`：占位实现——固定返回 / 恒定通过（**不计算**）。
 - `get_hash_chain`：依赖注入提供者（应用级单例；公共依赖经 `app/api/deps.py` 统一导出）。
 
 口径：`record_hash = SHA256(prev_hash + 规范化记录内容)`、分片表内成链、跨月表首尾衔接（归实现）；
@@ -18,7 +17,6 @@ from typing import cast
 from fastapi import Request
 
 from app.core.base import BaseObject
-from app.core.capability import BaseNullObject
 from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
 
 __all__ = [
@@ -27,7 +25,6 @@ __all__ = [
     "BaseHashChain",
     "ChainVerifyResult",
     "HashChainEntry",
-    "NullHashChain",
     "get_hash_chain",
 ]
 
@@ -93,33 +90,6 @@ class BaseHashChain(BasePluggable, ABC):
         Returns:
             ChainVerifyResult: 校验结果（含断裂位置）。
         """
-
-
-class NullHashChain(BaseHashChain, BaseNullObject):
-    """占位哈希链：固定返回 / 恒定通过（不计算，未接入真实实现时使用）。"""
-
-    def compute(self, prev_hash: str, record: Mapping[str, object]) -> str:
-        """恒定返回占位哈希。
-
-        Args:
-            prev_hash: 前一条记录哈希（占位忽略）。
-            record: 记录内容（占位忽略）。
-
-        Returns:
-            str: 占位记录哈希。
-        """
-        return "null-record-hash"
-
-    def verify(self, entries: Sequence[HashChainEntry]) -> ChainVerifyResult:
-        """恒定通过。
-
-        Args:
-            entries: 链上记录序列（占位不校验）。
-
-        Returns:
-            ChainVerifyResult: `valid=True`、无断裂。
-        """
-        return ChainVerifyResult(valid=True)
 
 
 def get_hash_chain(request: Request) -> BaseHashChain:

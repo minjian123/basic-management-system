@@ -4,7 +4,6 @@
 - `BaseDashboardCardProvider`：卡片提供者契约（抽象 `key` + 同步 `metadata` / 异步 `fetch`）。
 - `BaseDashboardCardRegistry`：能力域中间层契约（`key = "dashboard_card_registry"`）——抽象 `register` / `get` / `keys`
   + **具体聚合模板** `metadata` / `fetch`（解析卡片 → 委托；未命中抛 `NotFoundError`）。
-- `NullDashboardCardRegistry`：占位实现——空卡片集（**不注册 / 不取数**）。
 - `get_dashboard_card_registry`：依赖注入提供者（应用级单例；公共依赖经 `app/api/deps.py` 统一导出）。
 
 口径：卡片元数据随布局接口下发（前端不硬编码卡片清单）；`fetch` 转发来源模块既有接口、**不绕行其权限校验**；
@@ -18,7 +17,6 @@ from typing import cast
 from fastapi import Request
 
 from app.core.base import BaseObject
-from app.core.capability import BaseNullObject
 from app.core.exceptions import NotFoundError
 from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
 
@@ -26,7 +24,6 @@ __all__ = [
     "CARD_TYPES",
     "BaseDashboardCardProvider",
     "BaseDashboardCardRegistry",
-    "NullDashboardCardRegistry",
     "get_dashboard_card_registry",
 ]
 
@@ -131,59 +128,6 @@ class BaseDashboardCardRegistry(BasePluggable, ABC):
         if provider is None:
             raise NotFoundError(f"工作台卡片不存在：{card_key}")
         return await provider.fetch(params)
-
-
-class NullDashboardCardRegistry(BaseDashboardCardRegistry, BaseNullObject):
-    """占位注册表：注册空操作、无卡片；元数据与取数固定返回空映射（空卡片集）。"""
-
-    def register(self, provider: BaseDashboardCardProvider) -> None:
-        """空操作（占位不注册）。
-
-        Args:
-            provider: 卡片提供者（占位忽略）。
-        """
-
-    def get(self, key: str) -> BaseDashboardCardProvider | None:
-        """无卡片。
-
-        Args:
-            key: 卡片标识（占位忽略）。
-
-        Returns:
-            BaseDashboardCardProvider | None: None。
-        """
-        return None
-
-    def keys(self) -> tuple[str, ...]:
-        """空卡片集。
-
-        Returns:
-            tuple[str, ...]: 空元组。
-        """
-        return ()
-
-    def metadata(self, card_key: str) -> Mapping[str, object]:
-        """固定返回空元数据（占位空卡片集）。
-
-        Args:
-            card_key: 卡片标识（占位忽略）。
-
-        Returns:
-            Mapping[str, object]: 空映射。
-        """
-        return {}
-
-    async def fetch(self, card_key: str, params: Mapping[str, object]) -> Mapping[str, object]:
-        """固定返回空数据（占位空卡片集）。
-
-        Args:
-            card_key: 卡片标识（占位忽略）。
-            params: 取数参数（占位忽略）。
-
-        Returns:
-            Mapping[str, object]: 空映射。
-        """
-        return {}
 
 
 def get_dashboard_card_registry(request: Request) -> BaseDashboardCardRegistry:
