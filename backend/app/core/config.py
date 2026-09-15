@@ -296,6 +296,7 @@ class Settings(PydanticBaseSettings, BaseSettings):  # pyright: ignore[reportInc
     fallback: PluginSelection = Field(default_factory=PluginSelection)
     field_type_registry: PluginSelection = Field(default_factory=PluginSelection)
     hash_chain: PluginSelection = Field(default_factory=PluginSelection)
+    health_check_registry: PluginSelection = Field(default_factory=PluginSelection)
     http_client: PluginSelection = Field(default_factory=PluginSelection)
     idempotency: PluginSelection = Field(default_factory=PluginSelection)
     identity_provider: PluginSelection = Field(default_factory=PluginSelection)

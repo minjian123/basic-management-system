@@ -18,8 +18,9 @@ from typing import cast
 from fastapi import Request
 
 from app.core.base import BaseObject
+from app.core.config import Settings
 from app.core.exceptions import NotFoundError
-from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
+from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 
 __all__ = [
     "BaseQueryProvider",
@@ -123,4 +124,12 @@ def get_query_provider_registry(request: Request) -> BaseQueryProviderRegistry:
     Returns:
         BaseQueryProviderRegistry: 应用装配的注册表实例。
     """
-    return cast("BaseQueryProviderRegistry", request.app.state.query_provider_registry)
+    settings = cast("Settings", request.app.state.settings)
+    return cast(
+        "BaseQueryProviderRegistry",
+        resolve_plugin(
+            "query_provider_registry",
+            settings.query_provider_registry.provider,
+            expected_version=BaseQueryProviderRegistry.contract_version,
+        ),
+    )

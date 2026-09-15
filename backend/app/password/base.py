@@ -15,7 +15,8 @@ from typing import cast
 
 from fastapi import Request
 
-from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
+from app.core.config import Settings
+from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 
 PASSWORD_VIOLATIONS: tuple[str, ...] = (
     "too_short",
@@ -83,4 +84,12 @@ def get_password_policy(request: Request) -> BasePasswordPolicy:
     Returns:
         BasePasswordPolicy: 应用装配的密码策略实例。
     """
-    return cast("BasePasswordPolicy", request.app.state.password_policy)
+    settings = cast("Settings", request.app.state.settings)
+    return cast(
+        "BasePasswordPolicy",
+        resolve_plugin(
+            "password_policy",
+            settings.password_policy.provider,
+            expected_version=BasePasswordPolicy.contract_version,
+        ),
+    )

@@ -15,8 +15,9 @@ from typing import cast
 from fastapi import Request
 
 from app.core.base import BaseObject
+from app.core.config import Settings
 from app.core.context import reset_current_masker, set_current_masker
-from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
+from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 from app.permission.base import BasePermissionChecker
 
 MASK_STRATEGIES: tuple[str, ...] = ("phone", "id_card", "email", "bank_card", "name", "custom")
@@ -131,7 +132,15 @@ async def get_masker(request: Request) -> AsyncIterator[BaseMasker]:
     Yields:
         BaseMasker: 应用装配的掩码器实例。
     """
-    masker = cast("BaseMasker", request.app.state.masker)
+    settings = cast("Settings", request.app.state.settings)
+    masker = cast(
+        "BaseMasker",
+        resolve_plugin(
+            "masking",
+            settings.masking.provider,
+            expected_version=BaseMasker.contract_version,
+        ),
+    )
     token = set_current_masker(masker)
     try:
         yield masker

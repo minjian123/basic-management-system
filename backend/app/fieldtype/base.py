@@ -17,8 +17,9 @@ from typing import cast
 from fastapi import Request
 
 from app.core.base import BaseObject
+from app.core.config import Settings
 from app.core.exceptions import NotFoundError
-from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
+from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 
 __all__ = [
     "COLUMN_TYPE_DIALECTS",
@@ -159,4 +160,12 @@ def get_field_type_registry(request: Request) -> BaseFieldTypeRegistry:
     Returns:
         BaseFieldTypeRegistry: 应用装配的注册表实例。
     """
-    return cast("BaseFieldTypeRegistry", request.app.state.field_type_registry)
+    settings = cast("Settings", request.app.state.settings)
+    return cast(
+        "BaseFieldTypeRegistry",
+        resolve_plugin(
+            "field_type_registry",
+            settings.field_type_registry.provider,
+            expected_version=BaseFieldTypeRegistry.contract_version,
+        ),
+    )

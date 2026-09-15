@@ -18,7 +18,8 @@ from typing import cast
 from fastapi import Request
 
 from app.core.base import BaseObject
-from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
+from app.core.config import Settings
+from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 
 __all__ = [
     "NULL_MESSAGE_ID",
@@ -112,4 +113,12 @@ def get_notifier(request: Request) -> BaseNotifier:
     Returns:
         BaseNotifier: 应用装配的通知器实例。
     """
-    return cast("BaseNotifier", request.app.state.notifier)
+    settings = cast("Settings", request.app.state.settings)
+    return cast(
+        "BaseNotifier",
+        resolve_plugin(
+            "notifier",
+            settings.notifier.provider,
+            expected_version=BaseNotifier.contract_version,
+        ),
+    )

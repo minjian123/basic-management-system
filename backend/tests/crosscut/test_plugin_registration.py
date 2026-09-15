@@ -19,6 +19,7 @@ from app.core.plugin import (
     PluginImpl,
     PluginRegistry,
 )
+from app.core.registry import BaseProviderRegistry
 from app.events.base import BaseEventWorker, EventConsumer, EventPublisher
 from app.health.registry import HealthCheckRegistry
 
@@ -100,7 +101,11 @@ def _ports() -> list[type[BasePluggable]]:
     Returns:
         list[type[BasePluggable]]: 端口基类列表。
     """
-    return [cls for cls in _collect_app_classes() if BasePluggable in cls.__bases__]
+    return [
+        cls
+        for cls in _collect_app_classes()
+        if cls is not BaseProviderRegistry and (BasePluggable in cls.__bases__ or BaseProviderRegistry in cls.__bases__)
+    ]
 
 
 def _snapshot_of_app_classes() -> dict[str, dict[str, PluginImpl]]:

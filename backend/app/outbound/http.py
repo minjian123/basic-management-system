@@ -14,7 +14,8 @@ from typing import cast
 from fastapi import Request
 
 from app.core.base import BaseObject
-from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
+from app.core.config import Settings
+from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 
 __all__ = [
     "DEFAULT_MAX_RETRIES",
@@ -86,4 +87,12 @@ def get_http_client(request: Request) -> BaseHttpClient:
     Returns:
         BaseHttpClient: 应用装配的客户端实例。
     """
-    return cast("BaseHttpClient", request.app.state.http_client)
+    settings = cast("Settings", request.app.state.settings)
+    return cast(
+        "BaseHttpClient",
+        resolve_plugin(
+            "http_client",
+            settings.http_client.provider,
+            expected_version=BaseHttpClient.contract_version,
+        ),
+    )

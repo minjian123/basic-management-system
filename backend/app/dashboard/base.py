@@ -17,8 +17,9 @@ from typing import cast
 from fastapi import Request
 
 from app.core.base import BaseObject
+from app.core.config import Settings
 from app.core.exceptions import NotFoundError
-from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
+from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 
 __all__ = [
     "CARD_TYPES",
@@ -139,4 +140,12 @@ def get_dashboard_card_registry(request: Request) -> BaseDashboardCardRegistry:
     Returns:
         BaseDashboardCardRegistry: 应用装配的注册表实例。
     """
-    return cast("BaseDashboardCardRegistry", request.app.state.dashboard_card_registry)
+    settings = cast("Settings", request.app.state.settings)
+    return cast(
+        "BaseDashboardCardRegistry",
+        resolve_plugin(
+            "dashboard_card_registry",
+            settings.dashboard_card_registry.provider,
+            expected_version=BaseDashboardCardRegistry.contract_version,
+        ),
+    )

@@ -7,9 +7,12 @@ from fastapi import Depends, FastAPI
 from httpx import ASGITransport, AsyncClient
 
 from app.api.errors import register_exception_handlers
+from app.core import plugin as plugin_module
 from app.core.base import BaseObject
 from app.core.capability import BaseCapability, BaseNullObject
+from app.core.config import PluginSelection, Settings
 from app.core.exceptions import PermissionError
+from app.core.plugin import PluginRegistry
 from app.permission.base import BasePermissionChecker, get_permission_checker, require_permission
 from app.permission.null import NullPermissionChecker
 
@@ -29,17 +32,21 @@ class DenyChecker(BasePermissionChecker):
         return False
 
 
-def _build_app(checker: BasePermissionChecker) -> FastAPI:
-    """构造带权限校验路由的测试应用。
+def _build_app(checker: BasePermissionChecker, monkeypatch: pytest.MonkeyPatch) -> FastAPI:
+    """构造带权限校验路由的测试应用（隔离注册表 + 配置解析注入测试检查器）。
 
     Args:
-        checker: 装配到 `app.state` 的权限检查器。
+        checker: 测试检查器（登记为 provider `test`）。
+        monkeypatch: pytest 补丁夹具。
 
     Returns:
         FastAPI: 测试应用实例。
     """
+    registry = PluginRegistry()
+    registry.register("permission", "test", lambda: checker)
+    monkeypatch.setattr(plugin_module, "_DEFAULT_REGISTRY", registry)
     app = FastAPI()
-    app.state.permission_checker = checker
+    app.state.settings = Settings(permission=PluginSelection(provider="test"))
     register_exception_handlers(app)
 
     @app.get("/protected")
@@ -83,9 +90,9 @@ def test_require_raises_permission_error() -> None:
 
 
 @pytest.mark.kiwi_id(39)
-async def test_require_permission_dependency_allows() -> None:
+async def test_require_permission_dependency_allows(monkeypatch: pytest.MonkeyPatch) -> None:
     """依赖工厂：占位检查器下放行，检查器可经依赖解析取到。"""
-    app = _build_app(NullPermissionChecker())
+    app = _build_app(NullPermissionChecker(), monkeypatch)
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         protected = await client.get("/protected")
         assert protected.status_code == 200
@@ -96,9 +103,9 @@ async def test_require_permission_dependency_allows() -> None:
 
 
 @pytest.mark.kiwi_id(39)
-async def test_require_permission_dependency_denies() -> None:
+async def test_require_permission_dependency_denies(monkeypatch: pytest.MonkeyPatch) -> None:
     """依赖工厂：拒绝实现下返回 403 统一响应（code 30001）。"""
-    app = _build_app(DenyChecker())
+    app = _build_app(DenyChecker(), monkeypatch)
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         resp = await client.get("/protected")
         assert resp.status_code == 403

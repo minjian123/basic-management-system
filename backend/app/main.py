@@ -16,8 +16,6 @@ from app.core.plugin import build_plugin_registry
 from app.core.resources import ResourceManager
 from app.db.engine import EngineFactory
 from app.db.registry import EngineRegistry
-from app.health.checks import DatabaseHealthCheck, RedisHealthCheck
-from app.health.registry import HealthCheckRegistry
 from app.repositories.demo_repository import DemoRepository
 from app.schemas.common import ApiResponse
 from app.services.demo_service import DemoService
@@ -44,7 +42,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     if errors:
         get_logger("bms").critical("模块注册校验失败", errors=errors)
         raise RuntimeError("模块注册校验失败：" + "；".join(errors))
-    register_platform_plugins(settings)
+    register_platform_plugins(settings, app, app.state.resources)
     build_plugin_registry()
     await assemble_plugins(app, settings, app.state.resources)
     app.state.startup_complete = True
@@ -85,18 +83,8 @@ def create_app() -> FastAPI:
     app.state.engine_registry = engine_registry
     app.state.resources = resources
     app.state.module_registry = ModuleRegistry()
+    app.state.settings = settings
     app.state.startup_complete = False
-
-    # 健康检查（03-3 真实探针）：注册表 + redis / database 检查项；redis 客户端随应用生命周期释放
-    health_registry = HealthCheckRegistry(
-        check_timeout_ms=settings.health.check_timeout_ms,
-        total_timeout_ms=settings.health.total_timeout_ms,
-    )
-    redis_check = RedisHealthCheck(settings.redis.url)
-    health_registry.register(redis_check)
-    health_registry.register(DatabaseHealthCheck(engine_registry))
-    resources.register(redis_check)
-    app.state.health_check_registry = health_registry
 
     app.state.demo_service = DemoService(DemoRepository())
 

@@ -19,7 +19,8 @@ from typing import cast
 from fastapi import Request
 
 from app.core.base import BaseObject
-from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
+from app.core.config import Settings
+from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 
 __all__ = [
     "DEFAULT_SEARCH_SIZE",
@@ -148,4 +149,12 @@ def get_search_index(request: Request) -> BaseSearchIndex:
     Returns:
         BaseSearchIndex: 应用装配的索引实例。
     """
-    return cast("BaseSearchIndex", request.app.state.search_index)
+    settings = cast("Settings", request.app.state.settings)
+    return cast(
+        "BaseSearchIndex",
+        resolve_plugin(
+            "search_index",
+            settings.search_index.provider,
+            expected_version=BaseSearchIndex.contract_version,
+        ),
+    )

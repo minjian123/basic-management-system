@@ -20,8 +20,9 @@ from typing import cast
 from fastapi import Request
 
 from app.core.base import BaseObject
+from app.core.config import Settings
 from app.core.exceptions import RateLimitError
-from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
+from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 
 RATE_KEY_PREFIX = "bms"
 """限流 key 前缀（与缓存 / 锁 key 同前缀）。"""
@@ -126,4 +127,12 @@ def get_rate_limiter(request: Request) -> BaseRateLimiter:
     Returns:
         BaseRateLimiter: 应用装配的限流器实例。
     """
-    return cast("BaseRateLimiter", request.app.state.rate_limiter)
+    settings = cast("Settings", request.app.state.settings)
+    return cast(
+        "BaseRateLimiter",
+        resolve_plugin(
+            "rate_limiter",
+            settings.rate_limiter.provider,
+            expected_version=BaseRateLimiter.contract_version,
+        ),
+    )

@@ -7,16 +7,20 @@ uv run python -m ops.check_plugins
 ```
 
 校验失败（非法 provider / 重名 / 版本格式等）→ 打印明细并退出码 1；通过 → 退出码 0。
-离线校验（不实例化实现、不连依赖服务）；工厂实现的版本兼容由装配运行时校验。
+离线校验（不连依赖服务、不进入应用生命周期）；以应用工厂提供离线 app / resources 供
+依赖注入型工厂登记（如 `health_check_registry:local`）；工厂实现的版本兼容由装配运行时校验。
 """
 
 import sys
 from collections.abc import Sequence
+from typing import cast
 
 from app.core.assembly import PLUGIN_WIRINGS, register_platform_plugins
-from app.core.config import PluginSelection, load_settings
+from app.core.config import PluginSelection, Settings
 from app.core.exceptions import PluginError
 from app.core.plugin import NULL_PLUGIN_NAME, build_plugin_registry
+from app.core.resources import ResourceManager
+from app.main import create_app
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -29,9 +33,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         int: 退出码（0 通过 / 1 失败）。
     """
     del argv
-    settings = load_settings()
+    app = create_app()
+    settings = cast("Settings", app.state.settings)
+    resources = cast("ResourceManager", app.state.resources)
     try:
-        register_platform_plugins(settings)
+        register_platform_plugins(settings, app, resources)
         snapshot = build_plugin_registry()
     except PluginError as exc:
         print(f"[插件装配] {exc}")

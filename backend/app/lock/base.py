@@ -16,8 +16,9 @@ from typing import cast
 
 from fastapi import Request
 
+from app.core.config import Settings
 from app.core.exceptions import ConcurrentConflictError
-from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
+from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 
 LOCK_KEY_PREFIX = "bms"
 """锁 key 前缀（与缓存 key 同前缀）。"""
@@ -130,4 +131,12 @@ def get_distributed_lock(request: Request) -> BaseDistributedLock:
     Returns:
         BaseDistributedLock: 应用装配的锁实例。
     """
-    return cast("BaseDistributedLock", request.app.state.distributed_lock)
+    settings = cast("Settings", request.app.state.settings)
+    return cast(
+        "BaseDistributedLock",
+        resolve_plugin(
+            "distributed_lock",
+            settings.distributed_lock.provider,
+            expected_version=BaseDistributedLock.contract_version,
+        ),
+    )

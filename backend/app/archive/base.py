@@ -19,7 +19,8 @@ from typing import cast
 from fastapi import Request
 
 from app.core.base import BaseObject
-from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
+from app.core.config import Settings
+from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 
 __all__ = [
     "ARCHIVE_LOCATIONS",
@@ -109,7 +110,15 @@ def get_archive_policy(request: Request) -> BaseArchivePolicy:
     Returns:
         BaseArchivePolicy: 应用装配的归档策略实例。
     """
-    return cast("BaseArchivePolicy", request.app.state.archive_policy)
+    settings = cast("Settings", request.app.state.settings)
+    return cast(
+        "BaseArchivePolicy",
+        resolve_plugin(
+            "archive_policy",
+            settings.archive_policy.provider,
+            expected_version=BaseArchivePolicy.contract_version,
+        ),
+    )
 
 
 def get_archive_query_router(request: Request) -> BaseArchiveQueryRouter:
@@ -121,4 +130,12 @@ def get_archive_query_router(request: Request) -> BaseArchiveQueryRouter:
     Returns:
         BaseArchiveQueryRouter: 应用装配的查询路由实例。
     """
-    return cast("BaseArchiveQueryRouter", request.app.state.archive_query_router)
+    settings = cast("Settings", request.app.state.settings)
+    return cast(
+        "BaseArchiveQueryRouter",
+        resolve_plugin(
+            "archive_query_router",
+            settings.archive_query_router.provider,
+            expected_version=BaseArchiveQueryRouter.contract_version,
+        ),
+    )

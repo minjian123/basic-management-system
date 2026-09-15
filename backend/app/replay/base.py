@@ -22,8 +22,9 @@ from typing import cast
 from fastapi import Request
 
 from app.core.base import BaseObject
+from app.core.config import Settings
 from app.core.exceptions import AuthError
-from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
+from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 from app.core.security import SIGNATURE_HEADER, SignatureCodec
 
 __all__ = [
@@ -203,4 +204,12 @@ def get_replay_guard(request: Request) -> BaseReplayGuard:
     Returns:
         BaseReplayGuard: 应用装配的防重放守卫实例。
     """
-    return cast("BaseReplayGuard", request.app.state.replay_guard)
+    settings = cast("Settings", request.app.state.settings)
+    return cast(
+        "BaseReplayGuard",
+        resolve_plugin(
+            "replay_guard",
+            settings.replay_guard.provider,
+            expected_version=BaseReplayGuard.contract_version,
+        ),
+    )

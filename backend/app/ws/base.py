@@ -17,7 +17,8 @@ from typing import cast
 from fastapi import Request
 
 from app.core.base import BaseObject
-from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
+from app.core.config import Settings
+from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 
 __all__ = [
     "REALTIME_EVENTS",
@@ -94,4 +95,12 @@ def get_realtime_publisher(request: Request) -> BaseRealtimePublisher:
     Returns:
         BaseRealtimePublisher: 应用装配的推送器实例。
     """
-    return cast("BaseRealtimePublisher", request.app.state.realtime_publisher)
+    settings = cast("Settings", request.app.state.settings)
+    return cast(
+        "BaseRealtimePublisher",
+        resolve_plugin(
+            "realtime_publisher",
+            settings.realtime_publisher.provider,
+            expected_version=BaseRealtimePublisher.contract_version,
+        ),
+    )

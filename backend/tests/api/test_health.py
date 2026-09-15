@@ -1,5 +1,7 @@
 """健康检查路由测试：/healthz 存活 + /readyz 就绪契约与启动完成态（Kiwi 2 / 64 / 65）。"""
 
+import importlib
+import pkgutil
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
@@ -7,6 +9,10 @@ import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
+import app as app_pkg
+from app.core import plugin as plugin_module
+from app.core.config import PluginSelection, Settings
+from app.core.plugin import BasePluggable, PluginRegistry
 from app.health.base import BaseHealthCheck, HealthCheckResult
 from app.health.registry import HealthCheckRegistry
 from app.main import create_app
@@ -55,6 +61,32 @@ def _registry(*checks: BaseHealthCheck) -> HealthCheckRegistry:
     return registry
 
 
+def _use_fake_registry(monkeypatch: pytest.MonkeyPatch, fake: HealthCheckRegistry) -> None:
+    """以隔离注册表 + 自定义配置注入测试注册表（provider=test，替换进程级默认注册表）。
+
+    Args:
+        monkeypatch: pytest 补丁夹具。
+        fake: 测试注册表实例。
+    """
+    for info in pkgutil.walk_packages(app_pkg.__path__, prefix="app."):
+        if ".tests" in info.name or info.name.endswith("main"):
+            continue
+        importlib.import_module(info.name)
+    registry = PluginRegistry()
+    pending = list(BasePluggable.__subclasses__())
+    while pending:
+        cls = pending.pop()
+        if cls.__module__.startswith("app."):
+            registry.collect(cls)
+        pending.extend(cls.__subclasses__())
+    registry.register("health_check_registry", "test", lambda: fake)
+    monkeypatch.setattr(plugin_module, "_DEFAULT_REGISTRY", registry)
+    monkeypatch.setattr(
+        "app.main.get_settings",
+        lambda: Settings(health_check_registry=PluginSelection(provider="test")),
+    )
+
+
 @asynccontextmanager
 async def _lifespan_client(app: FastAPI) -> AsyncGenerator[AsyncClient]:
     """运行 lifespan（startup_complete 置 True）并返回测试客户端。
@@ -81,10 +113,10 @@ async def test_healthz_returns_ok(client: AsyncClient) -> None:
 
 
 @pytest.mark.kiwi_id(64)
-async def test_readyz_all_ok() -> None:
+async def test_readyz_all_ok(monkeypatch: pytest.MonkeyPatch) -> None:
     """全部检查项就绪：200 + status ok + checks 动态键结构（注册顺序）。"""
+    _use_fake_registry(monkeypatch, _registry(_PassingCheck("redis"), _PassingCheck("database")))
     app = create_app()
-    app.state.health_check_registry = _registry(_PassingCheck("redis"), _PassingCheck("database"))
 
     async with _lifespan_client(app) as client:
         resp = await client.get("/readyz")
@@ -99,10 +131,10 @@ async def test_readyz_all_ok() -> None:
 
 
 @pytest.mark.kiwi_id(64)
-async def test_readyz_failure_returns_503_without_leak() -> None:
+async def test_readyz_failure_returns_503_without_leak(monkeypatch: pytest.MonkeyPatch) -> None:
     """检查项不可达：503 + status down + error 为异常类名且不泄露敏感串。"""
+    _use_fake_registry(monkeypatch, _registry(_PassingCheck("database"), _FailingCheck("redis")))
     app = create_app()
-    app.state.health_check_registry = _registry(_PassingCheck("database"), _FailingCheck("redis"))
 
     async with _lifespan_client(app) as client:
         resp = await client.get("/readyz")
@@ -118,10 +150,10 @@ async def test_readyz_failure_returns_503_without_leak() -> None:
 
 
 @pytest.mark.kiwi_id(64)
-async def test_readyz_omits_unregistered_checks() -> None:
+async def test_readyz_omits_unregistered_checks(monkeypatch: pytest.MonkeyPatch) -> None:
     """未注册检查项（如阶段八前的 minio）从 checks 省略，不做「未接入即失败」判定。"""
+    _use_fake_registry(monkeypatch, _registry(_PassingCheck("redis")))
     app = create_app()
-    app.state.health_check_registry = _registry(_PassingCheck("redis"))
 
     async with _lifespan_client(app) as client:
         resp = await client.get("/readyz")
@@ -133,10 +165,10 @@ async def test_readyz_omits_unregistered_checks() -> None:
 
 
 @pytest.mark.kiwi_id(65)
-async def test_readyz_startup_incomplete_returns_503() -> None:
+async def test_readyz_startup_incomplete_returns_503(monkeypatch: pytest.MonkeyPatch) -> None:
     """lifespan 未启动（startup_complete=False）：503 + 空 checks，不执行依赖探测。"""
+    _use_fake_registry(monkeypatch, _registry(_FailingCheck("redis")))
     app = create_app()
-    app.state.health_check_registry = _registry(_FailingCheck("redis"))
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         resp = await client.get("/readyz")
@@ -146,10 +178,10 @@ async def test_readyz_startup_incomplete_returns_503() -> None:
 
 
 @pytest.mark.kiwi_id(65)
-async def test_readyz_after_lifespan_startup_returns_200() -> None:
+async def test_readyz_after_lifespan_startup_returns_200(monkeypatch: pytest.MonkeyPatch) -> None:
     """lifespan 启动完成后（startup_complete=True）就绪检查正常聚合。"""
+    _use_fake_registry(monkeypatch, _registry(_PassingCheck("redis")))
     app = create_app()
-    app.state.health_check_registry = _registry(_PassingCheck("redis"))
 
     async with _lifespan_client(app) as client:
         resp = await client.get("/readyz")

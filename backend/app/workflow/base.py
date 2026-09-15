@@ -20,7 +20,8 @@ from typing import cast
 from fastapi import Request
 
 from app.core.base import BaseObject
-from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
+from app.core.config import Settings
+from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 
 __all__ = [
     "NULL_INSTANCE_ID",
@@ -172,4 +173,12 @@ def get_workflow_engine(request: Request) -> BaseWorkflowEngine:
     Returns:
         BaseWorkflowEngine: 应用装配的引擎实例。
     """
-    return cast("BaseWorkflowEngine", request.app.state.workflow_engine)
+    settings = cast("Settings", request.app.state.settings)
+    return cast(
+        "BaseWorkflowEngine",
+        resolve_plugin(
+            "workflow_engine",
+            settings.workflow_engine.provider,
+            expected_version=BaseWorkflowEngine.contract_version,
+        ),
+    )

@@ -13,7 +13,8 @@ from typing import cast
 
 from fastapi import Request
 
-from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
+from app.core.config import Settings
+from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 from app.transfer.base import ColumnSpec
 
 __all__ = [
@@ -57,4 +58,12 @@ def get_exporter(request: Request) -> BaseExporter:
     Returns:
         BaseExporter: 应用装配的导出器实例。
     """
-    return cast("BaseExporter", request.app.state.exporter)
+    settings = cast("Settings", request.app.state.settings)
+    return cast(
+        "BaseExporter",
+        resolve_plugin(
+            "exporter",
+            settings.exporter.provider,
+            expected_version=BaseExporter.contract_version,
+        ),
+    )

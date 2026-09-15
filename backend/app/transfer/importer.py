@@ -15,7 +15,8 @@ from typing import cast
 from fastapi import Request
 
 from app.core.base import BaseObject
-from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
+from app.core.config import Settings
+from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 from app.transfer.base import ColumnSpec
 
 __all__ = [
@@ -98,4 +99,12 @@ def get_importer(request: Request) -> BaseImporter:
     Returns:
         BaseImporter: 应用装配的导入器实例。
     """
-    return cast("BaseImporter", request.app.state.importer)
+    settings = cast("Settings", request.app.state.settings)
+    return cast(
+        "BaseImporter",
+        resolve_plugin(
+            "importer",
+            settings.importer.provider,
+            expected_version=BaseImporter.contract_version,
+        ),
+    )
