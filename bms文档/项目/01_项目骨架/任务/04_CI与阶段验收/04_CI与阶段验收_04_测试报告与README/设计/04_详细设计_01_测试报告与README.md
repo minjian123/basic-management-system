@@ -236,7 +236,7 @@ cd backend && uv run pytest -q --cov=app --cov-branch --cov-fail-under=70
 | --- | --- | --- | --- |
 | 1 | 治理脚本 | **两个都实现**：`collect_metrics.py`（报告数据源）+ `review_stage.py`（复盘清单），登记 `scripts/tools/governance/` | [§5](#collect-metrics) / [§6](#review-stage) |
 | 2 | 报告章节 | 四章节 + 「5. 复盘与经验教训」+ 附录「数据采集命令与原始输出」 | [§4.1](#report-struct) |
-| 3 | 缺陷统计口径 | 如实统计阶段一 **0 条**缺陷 Issue；附「当场修复未建单」2 项清单与缺陷链路现状（`defect-capture` 随 `verify-enabled` 未激活） | [§4.2](#report-data) |
+| 3 | 缺陷统计口径 | 如实统计阶段一 **0 条**缺陷 Issue；附「当场修复未建单」2 项清单与缺陷链路现状（`defect-capture` 随 `verify/defect` 档守卫；该档于 2026-09-15 开启，见 04-01 实施 02） | [§4.2](#report-data) |
 | 4 | README 深度 | 四份**全面同步**（状态 / 快速启动含门禁命令 / 目录结构 / 导航补阶段一四件套与报告） | [§7](#readme) |
 | 5 | 度量项范围 | 只列 §25.2 三项（工期偏差 / 缺陷收敛 / 覆盖率），用例通过率等不单列 | [§4.2](#report-data) |
 | 6 | 计划剩余表口径（自定） | 清空明细但保留表头 + 「本阶段全部完成，无剩余任务」一行 | [§13](#risk) |
