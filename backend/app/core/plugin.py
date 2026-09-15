@@ -8,8 +8,10 @@
   `(plugin_key, plugin_name)` 重名 / 契约版本格式非法等构建期即拒（`PluginError`，明细聚合）。
 - 注册项为实现类或零参工厂（`PluginImpl`）；延迟导入由工厂承担（工厂内导入具体实现模块），
   组合路径（虚拟子类 / `Protocol` 结构化）以工厂承载。
+- `resolve` / `resolve_plugin`：按配置解析实现（缺省回退 `null`）、同 provider 复用唯一实例
+  （实例缓存，`build` 重建清缓存）、未注册即拒、契约版本主版本兼容校验（显式期望版本）。
 
-解析（`resolve_plugin`）与实例缓存见后续任务（01-2）；配置驱动装配见 01-3。
+解析后的装配与生命周期调用（`setup()` / `aclose`）见后续任务（02）；配置驱动装配见 02。
 """
 
 import inspect
@@ -26,6 +28,7 @@ from app.core.capability import (
     BasePlaceholder,
 )
 from app.core.exceptions import PluginError
+from app.core.logging import get_logger
 
 __all__ = [
     "DEFAULT_CONTRACT_VERSION",
@@ -36,6 +39,7 @@ __all__ = [
     "build_plugin_registry",
     "plugin_registry_snapshot",
     "register_plugin",
+    "resolve_plugin",
 ]
 
 NULL_PLUGIN_NAME = "null"
@@ -46,8 +50,65 @@ DEFAULT_CONTRACT_VERSION = "0.1.0"
 
 _CONTRACT_VERSION_RE = re.compile(r"\d+\.\d+\.\d+")
 
+_LOGGER = get_logger("bms")
+"""插件机制日志（契约版本不兼容等告警）。"""
+
 type PluginImpl = type[BasePluggable] | Callable[[], object]
 """注册项：实现类（继承轨同款）或零参工厂（组合路径 / 延迟导入）。"""
+
+
+def _contract_major(version: str) -> int | None:
+    """取契约版本主版本号。
+
+    Args:
+        version: 契约版本字符串。
+
+    Returns:
+        int | None: 主版本号；非 `X.Y.Z` 返回 None。
+    """
+    if not _CONTRACT_VERSION_RE.fullmatch(version):
+        return None
+    return int(version.split(".", 1)[0])
+
+
+def _ensure_contract_compatible(
+    plugin_key: str,
+    name: str,
+    instance: object,
+    expected_version: str,
+) -> None:
+    """校验实现与期望契约版本主版本一致（不匹配告警并拒）。
+
+    Args:
+        plugin_key: 能力域键。
+        name: 实现名。
+        instance: 实现实例。
+        expected_version: 期望契约版本（端口 `contract_version`）。
+
+    Raises:
+        PluginError: 期望 / 实现版本格式非法、实现缺失版本属性或主版本不匹配。
+    """
+    expected_major = _contract_major(expected_version)
+    if expected_major is None:
+        raise PluginError(f"期望契约版本格式非法：{plugin_key}:{name} → {expected_version!r}（应为 X.Y.Z）")
+    actual = getattr(instance, "contract_version", None)
+    if not isinstance(actual, str):
+        raise PluginError(f"实现缺少 contract_version，无法校验契约版本：{plugin_key}:{name}")
+    actual_major = _contract_major(actual)
+    if actual_major is None:
+        raise PluginError(f"实现契约版本格式非法：{plugin_key}:{name} → {actual!r}（应为 X.Y.Z）")
+    if actual_major != expected_major:
+        _LOGGER.error(
+            "插件契约版本不兼容",
+            plugin_key=plugin_key,
+            plugin_name=name,
+            expected=expected_version,
+            actual=actual,
+        )
+        raise PluginError(
+            f"插件契约版本不兼容：{plugin_key}:{name} 期望 {expected_version}（主版本 {expected_major}），"
+            f"实现 {actual}（主版本 {actual_major}）"
+        )
 
 
 def _registration_key(impl_cls: type[BasePluggable]) -> str:
@@ -165,6 +226,7 @@ class PluginRegistry(BaseObject):
         self._candidates: list[type[BasePluggable]] = []
         self._explicit: list[tuple[str, str, PluginImpl]] = []
         self._plugins: Mapping[str, Mapping[str, PluginImpl]] | None = None
+        self._instances: dict[tuple[str, str], object] = {}
 
     def collect(self, impl_cls: type[BasePluggable]) -> None:
         """收集自动登记候选（`__init_subclass__` 调用；构建后再收集不影响已冻结快照）。
@@ -235,7 +297,45 @@ class PluginRegistry(BaseObject):
                 for key in sorted(registry)
             }
         )
+        self._instances.clear()
         return self._plugins
+
+    def resolve(
+        self,
+        plugin_key: str,
+        provider: str | None = None,
+        *,
+        expected_version: str | None = None,
+    ) -> object:
+        """按配置解析实现（同 provider 复用唯一实例；不调用生命周期钩子）。
+
+        Args:
+            plugin_key: 能力域键。
+            provider: 配置选定的实现名；缺省（`None` / 空串）回退 `null`。
+            expected_version: 期望契约版本（端口 `contract_version`）；传入时校验主版本兼容。
+
+        Returns:
+            object: 已缓存的实现实例（组合路径结构化实现不继承 `BasePluggable`）。
+
+        Raises:
+            PluginError: 未注册实现 / 契约版本不兼容 / 版本格式非法。
+        """
+        name = provider or NULL_PLUGIN_NAME
+        plugins = self.snapshot()
+        bucket = plugins.get(plugin_key)
+        if bucket is None or name not in bucket:
+            registered = "、".join(sorted(bucket)) if bucket else "无"
+            raise PluginError(f"未注册的 {plugin_key} 实现：{name}（已注册：{registered}）")
+        cache_key = (plugin_key, name)
+        instance = self._instances.get(cache_key)
+        fresh = instance is None
+        if instance is None:
+            instance = bucket[name]()
+        if expected_version is not None:
+            _ensure_contract_compatible(plugin_key, name, instance, expected_version)
+        if fresh:
+            self._instances[cache_key] = instance
+        return instance
 
     def snapshot(self) -> Mapping[str, Mapping[str, PluginImpl]]:
         """只读快照（未构建则先构建）。
@@ -285,3 +385,25 @@ def plugin_registry_snapshot() -> Mapping[str, Mapping[str, PluginImpl]]:
         Mapping[str, Mapping[str, PluginImpl]]: 两级映射只读视图。
     """
     return _DEFAULT_REGISTRY.snapshot()
+
+
+def resolve_plugin(
+    plugin_key: str,
+    provider: str | None = None,
+    *,
+    expected_version: str | None = None,
+) -> object:
+    """按配置解析默认注册表中的实现（同 provider 复用唯一实例）。
+
+    Args:
+        plugin_key: 能力域键。
+        provider: 配置选定的实现名；缺省（`None` / 空串）回退 `null`。
+        expected_version: 期望契约版本（端口 `contract_version`）。
+
+    Returns:
+        object: 已缓存的实现实例。
+
+    Raises:
+        PluginError: 未注册实现 / 契约版本不兼容 / 版本格式非法。
+    """
+    return _DEFAULT_REGISTRY.resolve(plugin_key, provider, expected_version=expected_version)
