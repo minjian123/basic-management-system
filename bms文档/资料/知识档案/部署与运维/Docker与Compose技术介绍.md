@@ -52,7 +52,7 @@
 | Podman | 优点：无守护进程、兼容 docker 命令；缺点：生态与工具链略弱，Compose 支持靠 podman-compose 拼装 | 备选，本项目无特殊诉求不引入 |
 | containerd + nerdctl | 优点：更底层更精简；缺点：需自行拼装编排与工具链，学习成本高 | 不适合团队当前规模 |
 | Kubernetes | 优点：编排能力强、自愈与扩缩；缺点：组件多、运维重，MVP 规模用不上 | 《项目规划说明》「AI 辅助开发与交付治理」节明确 MVP 用 Compose，规模增长后按演进路线再迁移 |
-| Rancher Desktop（Windows/WSL2） | 优点：Windows 本地友好；缺点：mjbk 已换装 Ubuntu，生产侧不适用 | 仅本地开发机备选，不作为项目方案 |
+| Rancher Desktop（Windows/WS片段） | 优点：Windows 本地友好；缺点：mjbk 已换装 Ubuntu，生产侧不适用 | 仅本地开发机备选，不作为项目方案 |
 
 ## 5. 常见问题与注意事项 <a id="pitfalls"></a>
 

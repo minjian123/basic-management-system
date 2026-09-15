@@ -25,7 +25,7 @@
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="05_组件设计_下拉框.md">《组件设计 · 下拉框》</a>：演示静态选项单选/多选、可搜索、可清空、选项分组与禁用、空值三态；继承 02 基础组件类 L4-01。
+    本原型对应当前目录 <a href="05_组件设计_下拉框.md">《组件设计 · 下拉框》</a>：演示静态选项单选/多选、可搜索、可清空、选项分组与禁用、空值三态；继承 02 基础组件类 输入域基类。
   </div>
 
   <div id="app">
@@ -48,7 +48,7 @@
 
       <div class="dp-state">值 = {{ JSON.stringify(v) }}　三态 = {{ v===null||v===''||(Array.isArray(v)&&!v.length) ? 'unset/empty' : 'value' }}
 选项模型 OptionItem（value/label/disabled/group）与字典/枚举同构，便于 04 字段类继承
-空值归一并去除无效值；大量选项应改用字典（04-01）或远程搜索；继承链经 L4-01。</div>
+空值归一并去除无效值；大量选项应改用字典（04-01）或远程搜索；继承链经 输入域基类。</div>
     </div>
   </div>
 </div>
