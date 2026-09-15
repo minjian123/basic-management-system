@@ -111,10 +111,13 @@ async def test_null_dashboard_fetch_semantics() -> None:
 
 
 async def test_null_health_semantics() -> None:
-    """Null 健康注册表：登记空操作、聚合空集就绪（不探依赖）。"""
+    """Null 健康注册表：登记真实可枚举、聚合空集就绪（不探依赖）。"""
     registry = NullHealthCheckRegistry()
-    registry.register(NamedCheck("dependency"))
-    assert registry.keys() == ()
+    check = NamedCheck("dependency")
+    registry.register(check)
+    assert registry.keys() == ("dependency",)
+    assert registry.get("dependency") is check
+    assert registry.checks() == ()
     report = await registry.aggregate()
     assert report.ok is True
     assert report.checks == ()

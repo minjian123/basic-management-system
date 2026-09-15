@@ -90,9 +90,12 @@ def test_defaults_and_sections() -> None:
     assert settings.log.level == "DEBUG"
     assert settings.database.platform.url.endswith("bms_platform.db")
     assert settings.redis.url.startswith("redis://")
-    assert settings.minio.bucket == "bms"
     assert settings.security.algorithm == "HS256"
     assert settings.cors.allow_credentials is True
+    assert settings.cache.provider == ""
+    assert settings.audit.provider == ""
+    assert settings.task.provider == ""
+    assert settings.event.provider == ""
 
 
 @pytest.mark.kiwi_id(32)

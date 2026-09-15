@@ -14,7 +14,9 @@ from typing import cast
 from fastapi import FastAPI
 
 from app.archive.base import BaseArchivePolicy, BaseArchiveQueryRouter
+from app.audit.base import AuditCapturer
 from app.audit.hashchain import BaseHashChain
+from app.cache.base import CacheRegion
 from app.captcha.base import BaseCaptcha
 from app.circuit.base import BaseCircuitBreaker
 from app.core.base import BaseObject
@@ -33,6 +35,7 @@ from app.core.plugin import (
 from app.core.resources import ResourceManager
 from app.dashboard.base import BaseDashboardCardRegistry
 from app.db.registry import EngineRegistry
+from app.events.base import EventPublisher
 from app.fallback.base import BaseFallbackPolicy
 from app.fieldtype.base import BaseFieldTypeRegistry
 from app.health.base import BaseHealthCheckRegistry
@@ -60,6 +63,7 @@ from app.search.base import BaseSearchIndex
 from app.session.base import BaseSessionStore
 from app.sharding.base import ShardingRouter
 from app.storage.base import BaseObjectStorage
+from app.tasks.base import BaseTask
 from app.tracing.base import BaseTracer
 from app.transfer.exporter import BaseExporter
 from app.transfer.importer import BaseImporter
@@ -81,10 +85,12 @@ _PREPARED_REGISTRIES: list[PluginRegistry] = []
 _NULL_MODULES: tuple[str, ...] = (
     "app.archive.null",
     "app.audit.null",
+    "app.cache.null",
     "app.captcha.null",
     "app.circuit.null",
     "app.dashboard.null",
     "app.db.null",
+    "app.events.null",
     "app.fallback.null",
     "app.fieldtype.null",
     "app.health.null",
@@ -108,6 +114,7 @@ _NULL_MODULES: tuple[str, ...] = (
     "app.session.null",
     "app.sharding.null",
     "app.storage.null",
+    "app.tasks.null",
     "app.tracing.null",
     "app.transfer.null",
     "app.workflow.null",
@@ -174,6 +181,10 @@ PLUGIN_WIRINGS: tuple[PluginWiring, ...] = (
     ),
     PluginWiring("data_scope", DataScope, "data_scope", None),
     PluginWiring("sharding", ShardingRouter, "sharding", None),
+    PluginWiring("cache", CacheRegion, "cache", "cache"),
+    PluginWiring("audit", AuditCapturer, "audit", "audit"),
+    PluginWiring("task", BaseTask, "task", "task"),
+    PluginWiring("event", EventPublisher, "event", "event_publisher"),
 )
 
 

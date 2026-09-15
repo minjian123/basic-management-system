@@ -22,7 +22,7 @@ def isolate_settings(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
         None: 用例运行期。
     """
     for key in list(os.environ):
-        if key.startswith("BMS_"):
+        if key.startswith("BMS_") and not key.startswith("BMS_TEST_"):
             monkeypatch.delenv(key, raising=False)
     monkeypatch.setitem(Settings.model_config, "env_file", None)
     get_settings.cache_clear()

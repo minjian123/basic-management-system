@@ -19,9 +19,13 @@ async def test_list_contract(client: AsyncClient) -> None:
     groups = cast("list[dict[str, object]]", body["data"])
     assert isinstance(groups, list)
     keys = [str(group["plugin_key"]) for group in groups]
-    assert len(keys) == 36
+    assert len(keys) == 40
     assert keys == sorted(keys)
     by_key = {str(group["plugin_key"]): group for group in groups}
+    for plugin_key in ("audit", "cache", "event", "task"):
+        group = by_key[plugin_key]
+        assert group["provider"] == "null"
+        assert group["implementations"] == [{"plugin_name": "null", "contract_version": "0.1.0", "status": "active"}]
     storage = by_key["object_storage"]
     assert storage["provider"] == "local"
     assert storage["implementations"] == [

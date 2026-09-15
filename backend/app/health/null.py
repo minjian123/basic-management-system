@@ -9,11 +9,11 @@ __all__ = [
 
 
 class NullHealthCheckRegistry(BaseHealthCheckRegistry, BaseNullObject):
-    """占位注册表：注册空操作、无检查项 → 固定通过（不探依赖，未接入真实探针时使用）。"""
+    """占位注册表：登记与解析继承公共实现；聚合固定通过（不探依赖，未接入真实探针时使用）。"""
 
     @classmethod
     def _provider_key(cls, provider: BaseHealthCheck) -> str:
-        """注册项键：检查项 `key`（占位语义下不实际登记）。
+        """注册项键：检查项 `key`。
 
         Args:
             provider: 检查项。
@@ -22,13 +22,6 @@ class NullHealthCheckRegistry(BaseHealthCheckRegistry, BaseNullObject):
             str: 检查项键。
         """
         return provider.key
-
-    def register(self, provider: BaseHealthCheck) -> None:
-        """空操作（占位不登记）。
-
-        Args:
-            provider: 检查项（占位忽略）。
-        """
 
     def checks(self) -> tuple[BaseHealthCheck, ...]:
         """空检查项集。

@@ -6,12 +6,15 @@
 """
 
 from app.archive.base import get_archive_policy, get_archive_query_router
+from app.audit.base import get_audit_capturer
 from app.audit.hashchain import get_hash_chain
+from app.cache.base import get_cache_region
 from app.captcha.base import get_captcha
 from app.circuit.base import get_circuit_breaker
 from app.dashboard.base import get_dashboard_card_registry
 from app.db.session import build_session_factory, get_db, get_uow
 from app.db.tenant import get_tenant
+from app.events.base import get_event_publisher
 from app.fallback.base import get_fallback_policy
 from app.fieldtype.base import get_field_type_registry
 from app.health.base import get_health_check_registry
@@ -34,6 +37,7 @@ from app.replay.base import get_replay_guard
 from app.search.base import get_search_index
 from app.session.base import get_session_store
 from app.storage.base import get_object_storage
+from app.tasks.base import get_task
 from app.tracing.base import get_tracer
 from app.transfer.exporter import get_exporter
 from app.transfer.importer import get_importer
@@ -44,11 +48,14 @@ __all__ = [
     "build_session_factory",
     "get_archive_policy",
     "get_archive_query_router",
+    "get_audit_capturer",
+    "get_cache_region",
     "get_captcha",
     "get_circuit_breaker",
     "get_dashboard_card_registry",
     "get_db",
     "get_distributed_lock",
+    "get_event_publisher",
     "get_exporter",
     "get_fallback_policy",
     "get_field_type_registry",
@@ -73,6 +80,7 @@ __all__ = [
     "get_scope_checker",
     "get_search_index",
     "get_session_store",
+    "get_task",
     "get_tenant",
     "get_tracer",
     "get_translator",

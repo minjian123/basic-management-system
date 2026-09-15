@@ -1,8 +1,12 @@
 """缓存能力域：Region 分域基座契约（真实实现 → 阶段六 通用能力回补）。"""
 
 from abc import ABC, abstractmethod
+from typing import cast
 
-from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
+from fastapi import Request
+
+from app.core.config import Settings
+from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 
 CACHE_KEY_PREFIX = "bms"
 GLOBAL_TENANT = "global"
@@ -79,3 +83,23 @@ class CacheRegion(BasePluggable, ABC):
             bool: 陈旧为 True。
         """
         return version != self.get_global_version()
+
+
+def get_cache_region(request: Request) -> CacheRegion:
+    """依赖注入提供者（应用级单例；公共依赖经 `app/api/deps.py` 统一导出）。
+
+    Args:
+        request: 应用请求（取装配 settings）。
+
+    Returns:
+        CacheRegion: 应用装配的缓存 Region 实例。
+    """
+    settings = cast("Settings", request.app.state.settings)
+    return cast(
+        "CacheRegion",
+        resolve_plugin(
+            "cache",
+            settings.cache.provider,
+            expected_version=CacheRegion.contract_version,
+        ),
+    )

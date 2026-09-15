@@ -71,17 +71,37 @@ pool_recycle = 1800
 url = "redis://localhost:6379/0"
 
 [minio]
-# 对象存储端点 / 凭据（密钥经 BMS_MINIO__* 环境变量注入；"bucket" 已废弃：桶名统一取 [storage].options.bucket）
+# 对象存储端点 / 凭据（密钥经 BMS_MINIO__* 环境变量注入；桶名统一取 [storage].options.bucket）
 endpoint = ""
 access_key = ""
 secret_key = ""
-bucket = "bms"  # 已废弃（不再读取；保留键位以兼容既有环境变量覆盖）
 secure = false
 
 [storage]
 # 对象存储实现选择（插件化配置；local = 本地文件系统真实读写（缺省）、minio = MinIO、空串 = null 占位）
 provider = "local"
 # 非敏感选项（root = 本地根目录，缺省 var/storage；bucket = 桶名，缺省 bms-files；密钥一律经环境变量注入）
+options = {}
+
+[audit]
+# 审计捕获实现选择（插件化配置；空串解析到 null 占位实现；真实实现随审计阶段）
+provider = ""
+# 非敏感选项（密钥一律经环境变量注入，不写入本文件）
+options = {}
+
+[cache]
+# 缓存实现选择（插件化配置；空串解析到 null 占位实现；真实实现随通用能力阶段）
+provider = ""
+options = {}
+
+[event]
+# 事件发布实现选择（插件化配置；空串解析到 null 占位实现；消费轨随阶段八）
+provider = ""
+options = {}
+
+[task]
+# 任务调度实现选择（插件化配置；空串解析到 null 占位实现；调度入库随阶段六）
+provider = ""
 options = {}
 
 [health_check_registry]

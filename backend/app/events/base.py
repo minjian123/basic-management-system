@@ -2,12 +2,17 @@
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
+from typing import cast
+
+from fastapi import Request
 
 from app.core.base import BaseObject
+from app.core.config import Settings
 from app.core.plugin import (
     DEFAULT_CONTRACT_VERSION,
     NULL_PLUGIN_NAME,
     BasePluggable,
+    resolve_plugin,
 )
 
 
@@ -65,3 +70,23 @@ class EventConsumer(BaseEventWorker):
         Args:
             event: 事件信封。
         """
+
+
+def get_event_publisher(request: Request) -> EventPublisher:
+    """依赖注入提供者（应用级单例；公共依赖经 `app/api/deps.py` 统一导出）。
+
+    Args:
+        request: 应用请求（取装配 settings）。
+
+    Returns:
+        EventPublisher: 应用装配的事件发布实例。
+    """
+    settings = cast("Settings", request.app.state.settings)
+    return cast(
+        "EventPublisher",
+        resolve_plugin(
+            "event",
+            settings.event.provider,
+            expected_version=EventPublisher.contract_version,
+        ),
+    )

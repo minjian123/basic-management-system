@@ -143,12 +143,11 @@ class RedisSettings(BaseSettings):
 
 
 class MinioSettings(BaseSettings):
-    """对象存储（占位）。"""
+    """对象存储端点 / 凭据（桶名统一取 `[storage].options.bucket`）。"""
 
     endpoint: str = ""
     access_key: str = ""
     secret_key: str = ""
-    bucket: str = "bms"
     secure: bool = False
 
 
@@ -287,11 +286,14 @@ class Settings(PydanticBaseSettings, BaseSettings):  # pyright: ignore[reportInc
     # 能力实现选择（分区名 = plugin_key；`object_storage` 别名 `storage`；未列分区取默认 → null）
     archive_policy: PluginSelection = Field(default_factory=PluginSelection)
     archive_query_router: PluginSelection = Field(default_factory=PluginSelection)
+    audit: PluginSelection = Field(default_factory=PluginSelection)
+    cache: PluginSelection = Field(default_factory=PluginSelection)
     captcha: PluginSelection = Field(default_factory=PluginSelection)
     circuit_breaker: PluginSelection = Field(default_factory=PluginSelection)
     dashboard_card_registry: PluginSelection = Field(default_factory=PluginSelection)
     data_scope: PluginSelection = Field(default_factory=PluginSelection)
     distributed_lock: PluginSelection = Field(default_factory=PluginSelection)
+    event: PluginSelection = Field(default_factory=PluginSelection)
     exporter: PluginSelection = Field(default_factory=PluginSelection)
     fallback: PluginSelection = Field(default_factory=PluginSelection)
     field_type_registry: PluginSelection = Field(default_factory=PluginSelection)
@@ -317,6 +319,7 @@ class Settings(PydanticBaseSettings, BaseSettings):  # pyright: ignore[reportInc
     session_store: PluginSelection = Field(default_factory=PluginSelection)
     sharding: PluginSelection = Field(default_factory=PluginSelection)
     storage: PluginSelection = Field(default_factory=PluginSelection)
+    task: PluginSelection = Field(default_factory=PluginSelection)
     tracer: PluginSelection = Field(default_factory=PluginSelection)
     translator: PluginSelection = Field(default_factory=PluginSelection)
     webhook_sender: PluginSelection = Field(default_factory=PluginSelection)
