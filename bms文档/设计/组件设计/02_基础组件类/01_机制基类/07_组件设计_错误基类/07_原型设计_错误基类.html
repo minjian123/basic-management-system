@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 错误基类（BaseError）</title>
+<link rel="stylesheet" href="../../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-code { font-family:Consolas,"Cascadia Mono",monospace; color:#57606a; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+  .row { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+  .row .lb { width:120px; color:#57606a; font-size:13px; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="07_组件设计_错误基类.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 错误基类 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="07_组件设计_错误基类.md">《组件设计 · 错误基类》</a>：演示统一响应解析（<span class="dp-code">{code, message, data}</span>）、错误码到用户提示的 i18n 映射与回退、上报去重限流与段位判定。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-bar">
+        <span class="dp-hint">模拟响应：</span>
+        <el-select v-model="code" size="small" style="width:340px">
+          <el-option v-for="c in codes" :key="c.code" :label="c.label" :value="c.code" />
+        </el-select>
+        <el-button type="primary" size="small" @click="constructFrom">fromResponse()</el-button>
+        <el-button size="small" @click="report">report()</el-button>
+        <el-button size="small" @click="report">再报一次（演示去重）</el-button>
+      </div>
+
+      <div class="row"><span class="lb">技术信息 message</span><span class="dp-code">{{ err.message }}</span></div>
+      <div class="row"><span class="lb">用户提示 userMessage</span><el-tag :type="err.mapped ? 'success' : 'warning'" size="small">{{ err.userMessage }}</el-tag>
+        <span class="dp-hint">{{ err.mapped ? '（i18n error.' + code + ' 命中）' : '（未映射，回退通用文案）' }}</span></div>
+      <div class="row"><span class="lb">段位判定</span><span class="dp-code">{{ err.seg }}</span></div>
+
+      <div class="dp-state">上报记录（根系 reportError：去重 / 限流 / 不阻断）
+{{ reports.join('\n') || '（尚无上报）' }}
+说明：code !== 0 → BaseError.fromResponse()；401（2xxxx）由请求层静默刷新、不提示；
+用户取消（AbortError）不计错误；展示层禁止硬编码错误文案，统一取 userMessage。</div>
+    </div>
+  </div>
+</div>
+
+<script src="../../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref, watch } = Vue;
+  var app = createApp({
+    setup: function () {
+      var codes = [
+        { code: 0, label: '0 成功（不构造错误）' },
+        { code: 30001, label: '30001 用户名已存在（3xxxx 用户组织）' },
+        { code: 20001, label: '20001 认证过期（2xxxx 认证）' },
+        { code: 10005, label: '10005 触发限流（1xxxx 通用）' },
+        { code: 99999, label: '99999 未映射错误码' }
+      ];
+      var code = ref(30001);
+      var MESSAGES = {
+        30001: '用户名已存在', 20001: '登录已过期', 10005: '操作过于频繁，请稍后再试'
+      };
+      var err = ref({ message: '', userMessage: '', mapped: false, seg: '' });
+      var reports = ref([]);
+      var lastReport = { code: 0, at: 0 };
+      function segOf(c) {
+        var s = Math.floor(c / 10000);
+        return { 1: '1xxxx 通用（提示重试）', 2: '2xxxx 认证（刷新 / 跳登录）', 3: '3xxxx 用户组织（业务提示）', 4: '4xxxx 配置', 8: '8xxxx 开放·租户' }[s] || '未知段位（按通用处理）';
+      }
+      function build() {
+        var mapped = !!MESSAGES[code.value];
+        err.value = {
+          message: 'backend message: ' + code.value,
+          userMessage: mapped ? MESSAGES[code.value] : '操作失败，请稍后重试（回退）',
+          mapped: mapped,
+          seg: code.value === 0 ? '（成功，无段位）' : segOf(code.value)
+        };
+      }
+      watch(code, build); build();
+      function constructFrom() {
+        if (code.value === 0) { err.value = { message: 'code = 0，无错误', userMessage: '（不构造）', mapped: true, seg: '—' }; return; }
+        build();
+      }
+      function report() {
+        var now = Date.now();
+        if (lastReport.code === code.value && now - lastReport.at < 5000) {
+          reports.value.push('· 上报去重：同码 ' + code.value + ' 在 5s 内合并（未重复上报）');
+        } else {
+          reports.value.push('· report(code=' + code.value + ', page=原型页, component=错误基类原型)');
+        }
+        lastReport = { code: code.value, at: now };
+      }
+      return { codes: codes, code: code, err: err, reports: reports, constructFrom: constructFrom, report: report };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>

@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 编辑器域基类（BaseEditor / useEditorKernel）</title>
+<link rel="stylesheet" href="../../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-code { font-family:Consolas,"Cascadia Mono",monospace; color:#57606a; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+  .ed { border:1px solid #d0d7de; border-radius:6px; overflow:hidden; }
+  .ed .tb { display:flex; gap:6px; padding:6px 8px; border-bottom:1px solid #eaeef2; background:#f6f8fa; }
+  .ed .body { min-height:120px; padding:10px 12px; font-size:13px; outline:none; }
+  .ed.readonly .body { background:#f6f8fa; color:#57606a; }
+  .ed textarea { width:100%; min-height:120px; border:0; padding:10px 12px; outline:none; font-family:Consolas,monospace; font-size:12px; resize:vertical; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="05_组件设计_编辑器域基类.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 编辑器域基类 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="05_组件设计_编辑器域基类.md">《组件设计 · 编辑器域基类》</a>：演示内核懒加载、内容协议（rich＝HTML / code＝纯文本）、只读态与去抖变更上报；原型以可编辑区示意，真实实现用 CodeMirror / 富文本（独立分包）。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-bar">
+        <span class="dp-hint">kind：</span>
+        <el-radio-group v-model="kind" size="small">
+          <el-radio-button label="rich">rich 富文本（HTML）</el-radio-button>
+          <el-radio-button label="code">code 代码（纯文本）</el-radio-button>
+        </el-radio-group>
+        <el-switch v-model="readonly" active-text="只读 readonly" size="small" />
+        <el-button size="small" @click="touch">触发内核加载（首次）</el-button>
+      </div>
+
+      <div class="ed" :class="{ readonly: readonly }">
+        <div class="tb" v-if="kind === 'rich'">
+          <el-button size="small" @click="exec('bold')"><b>B</b></el-button>
+          <el-button size="small" @click="exec('italic')"><i>I</i></el-button>
+          <span class="dp-hint" style="align-self:center">工具栏插槽 · 图片上传走上传引擎片段（占位先行）</span>
+        </div>
+        <div v-if="kind === 'rich'" class="body" contenteditable="true" :contenteditable="!readonly" @input="onInput" v-html="html"></div>
+        <textarea v-else :readonly="readonly" v-model="code" @input="onInput"></textarea>
+      </div>
+
+      <div class="dp-state" style="margin-top:12px">内核与内容
+kernel: {{ kernelReady ? '已加载（异步分包）' : '未加载（首次交互懒加载）' }}
+协议: {{ kind === 'rich' ? 'rich（HTML，提交前净化 + 服务端二次净化）' : 'code（纯文本，language=javascript）' }}
+变更上报（去抖）: {{ lastChange || '（无）' }}
+字数: {{ len }}
+说明：readonly 禁编辑保复制与滚动；实例销毁走异步资源基类（卸载自动 destroy）。</div>
+    </div>
+  </div>
+</div>
+
+<script src="../../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref, computed } = Vue;
+  var app = createApp({
+    setup: function () {
+      var kind = ref('rich'), readonly = ref(false), kernelReady = ref(false);
+      var html = ref('公告正文：<b>本周五</b> 进行系统升级维护。');
+      var code = ref('/* 表达式示例 */\nreturn amount > 1000 ? 0.95 : 1;');
+      var lastChange = ref(''), timer = null;
+      var len = computed(function () { return kind.value === 'rich' ? html.value.replace(/<[^>]+>/g, '').length : code.value.length; });
+      function touch() {
+        if (kernelReady.value) { lastChange.value = '（内核已加载，无需重复加载）'; return; }
+        kernelReady.value = true;
+        lastChange.value = 'kernel-ready：import(独立分包) 完成';
+      }
+      function emitChange() {
+        if (!kernelReady.value) touch();
+        clearTimeout(timer);
+        timer = setTimeout(function () { lastChange.value = 'change(' + len.value + ' 字，去抖 300ms)'; }, 300);
+      }
+      function onInput(e) {
+        if (e && e.target && kind.value === 'rich') html.value = e.target.innerHTML;
+        emitChange();
+      }
+      function exec(cmd) { if (!readonly.value && kernelReady.value) { document.execCommand(cmd, false, null); emitChange(); } else if (!kernelReady.value) { touch(); } }
+      return { kind: kind, readonly: readonly, kernelReady: kernelReady, html: html, code: code, lastChange: lastChange, len: len, touch: touch, onInput: onInput, exec: exec };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>

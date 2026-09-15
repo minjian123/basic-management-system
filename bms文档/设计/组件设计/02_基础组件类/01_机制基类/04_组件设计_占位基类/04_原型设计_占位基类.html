@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 占位基类（BasePlaceholder / usePlaceholder）</title>
+<link rel="stylesheet" href="../../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-code { font-family:Consolas,"Cascadia Mono",monospace; color:#57606a; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+  .row { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+  .row .lb { width:110px; color:#57606a; font-size:13px; }
+  .ph-box { border:1px dashed #d0d7de; border-radius:6px; padding:14px; background:#fafbfc; color:#8c959f; font-size:13px; }
+  .ph-box[data-ph]::after { content:attr(data-ph); float:right; font-size:11px; color:#b1b8bf; font-family:Consolas,monospace; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="04_组件设计_占位基类.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 占位基类 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="04_组件设计_占位基类.md">《组件设计 · 占位基类》</a>：演示占位标记与 <span class="dp-code">describe</span>、三类占位原因（待实现 / 空实现 / 未实现）与空态·禁用·降级三种降级语义；占位态不请求。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-bar">
+        <span class="dp-hint">reason：</span>
+        <el-radio-group v-model="reason" size="small">
+          <el-radio-button label="pending">pending 待实现</el-radio-button>
+          <el-radio-button label="null">null 空实现</el-radio-button>
+          <el-radio-button label="stub">stub 未实现</el-radio-button>
+        </el-radio-group>
+        <span class="dp-hint">degrade：</span>
+        <el-radio-group v-model="degrade" size="small">
+          <el-radio-button label="empty">empty 空态</el-radio-button>
+          <el-radio-button label="disabled">disabled 禁用</el-radio-button>
+          <el-radio-button label="hidden">hidden 隐藏</el-radio-button>
+        </el-radio-group>
+      </div>
+
+      <div class="row"><span class="lb">组织选择字段</span>
+        <template v-if="degrade === 'empty'">
+          <div class="ph-box" :data-ph="'data-placeholder=' + reason" style="width:320px">（占位空态：{{ label }}）</div>
+        </template>
+        <template v-else-if="degrade === 'disabled'">
+          <el-select v-model="dept" disabled placeholder="组织选择（占位禁用）" style="width:320px">
+            <el-option label="（占位，无可选项）" value="" />
+          </el-select>
+        </template>
+        <template v-else>
+          <span class="dp-hint">（hidden：整块不渲染）</span>
+        </template>
+        <span class="dp-hint">← 占位态不发起请求</span>
+      </div>
+
+      <div class="row"><span class="lb">调用占位 API</span>
+        <el-button size="small" :type="reason === 'stub' ? 'danger' : 'default'" @click="call">调用 resolve()</el-button>
+        <span class="dp-hint">{{ callResult }}</span>
+      </div>
+
+      <div class="dp-state">describe() → {{ describeText }}
+属性：data-placeholder="{{ reason }}"（开发态标记，silentInProd 时生产静默）
+降级：{{ degradeText }}
+说明：pending＝依赖后端能力未就绪（空结果 / 降级）；null＝空实现（恒空 / 恒成功、无副作用）；
+stub＝未实现（调用即抛错，对齐后端 BaseStub）；占位与真实实现跑同一套契约测试。</div>
+    </div>
+  </div>
+</div>
+
+<script src="../../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref, computed } = Vue;
+  var app = createApp({
+    setup: function () {
+      var reason = ref('pending'), degrade = ref('empty'), dept = ref('');
+      var callResult = ref('（未调用）');
+      var LABELS = { pending: '组织选择数据源（依赖后端 RBAC 阶段，占位先行）', null: '组织选择数据源（空实现：恒空列表）', stub: '组织选择数据源（未实现）' };
+      var label = computed(function () { return LABELS[reason.value]; });
+      var describeText = computed(function () {
+        return (reason.value === 'stub' ? 'stub:' : reason.value + ':') + '组织选择 · ' + label.value;
+      });
+      var degradeText = computed(function () {
+        return { empty: '空态占位（不请求、空结果）', disabled: '保留结构、整体禁用（不可交互）', hidden: '整块隐藏（不渲染）' }[degrade.value];
+      });
+      function call() {
+        callResult.value = reason.value === 'stub' ? '抛错：未实现（_not_implemented）' : '占位返回：[]（无副作用、不请求）';
+      }
+      return { reason: reason, degrade: degrade, dept: dept, label: label, describeText: describeText, degradeText: degradeText, callResult: callResult, call: call };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>

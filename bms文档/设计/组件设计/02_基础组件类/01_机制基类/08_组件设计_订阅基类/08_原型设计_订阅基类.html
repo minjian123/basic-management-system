@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 订阅基类（BaseSubscription / useSubscription）</title>
+<link rel="stylesheet" href="../../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-code { font-family:Consolas,"Cascadia Mono",monospace; color:#57606a; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+  .subs { border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; min-height:34px; }
+  .subs .it { display:inline-flex; gap:6px; align-items:center; margin:3px 8px 3px 0; font-size:12px; border:1px solid #ddf4ff; background:#ddf4ff; color:#0969da; border-radius:10px; padding:2px 10px; font-family:Consolas,monospace; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="08_组件设计_订阅基类.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 订阅基类 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="08_组件设计_订阅基类.md">《组件设计 · 订阅基类》</a>：演示订阅注册 / 取消、事件触发（占位总线，不连 socket）与卸载自动取消；事件名与后端同源（点分小写）。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-bar">
+        <el-select v-model="topic" size="small" style="width:240px">
+          <el-option v-for="t in topics" :key="t" :label="t" :value="t" />
+        </el-select>
+        <el-button type="primary" size="small" @click="subscribe">订阅（自动登记异步资源）</el-button>
+        <el-button size="small" @click="unsubscribe">取消订阅</el-button>
+        <el-button size="small" @click="emit">触发事件（占位总线 publish）</el-button>
+        <el-button size="small" @click="unmount">卸载面板（自动取消全部）</el-button>
+      </div>
+
+      <div class="subs">
+        <span v-if="!subs.length" class="dp-hint">（无订阅）</span>
+        <span class="it" v-for="s in subs" :key="s">{{ s }}</span>
+      </div>
+
+      <div class="dp-state">事件日志
+{{ logs.length ? logs.join('\n') : '（尚无事件）' }}
+说明：source = placeholder（未接后端推送时绑占位总线：订阅正常注册、不连 socket）；
+真实推送接入后来源切换为 realtime / local，调用方不改；
+取消函数经异步资源基类 track() 登记，卸载自动取消（幂等，重复取消仅一次生效）。</div>
+    </div>
+  </div>
+</div>
+
+<script src="../../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref } = Vue;
+  var app = createApp({
+    setup: function () {
+      var topics = ['approval.todo', 'notification.new', 'session.revoked'];
+      var topic = ref('approval.todo');
+      var subs = ref([]), logs = ref([]), released = false;
+      function stamp() { return String(logs.value.length + 1).padStart(2, '0'); }
+      function subscribe() {
+        if (released) { logs.value.push('[' + stamp() + '] 拒绝订阅：面板已卸载'); return; }
+        if (subs.value.indexOf(topic.value) >= 0) { logs.value.push('[' + stamp() + '] 已订阅：' + topic.value + '（重复订阅合法，多 handler）'); return; }
+        subs.value.push(topic.value);
+        logs.value.push('[' + stamp() + '] subscribe(' + topic.value + ') · source=placeholder · 句柄已登记异步资源');
+      }
+      function unsubscribe() {
+        var i = subs.value.indexOf(topic.value);
+        if (i < 0) { logs.value.push('[' + stamp() + '] 取消失败：未订阅 ' + topic.value); return; }
+        subs.value.splice(i, 1);
+        logs.value.push('[' + stamp() + '] unsubscribe(' + topic.value + ')（幂等）');
+      }
+      function emit() {
+        if (subs.value.indexOf(topic.value) < 0) { logs.value.push('[' + stamp() + '] publish(' + topic.value + ') → 无订阅者，忽略'); return; }
+        logs.value.push('[' + stamp() + '] publish(' + topic.value + ') → handler 触发：刷新业务数据');
+      }
+      function unmount() {
+        if (released) { logs.value.push('[' + stamp() + '] 卸载幂等：无重复取消'); return; }
+        released = true;
+        subs.value.forEach(function (s) { logs.value.push('[' + stamp() + '] 自动取消 ' + s); });
+        subs.value = [];
+      }
+      return { topics: topics, topic: topic, subs: subs, logs: logs, subscribe: subscribe, unsubscribe: unsubscribe, emit: emit, unmount: unmount };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>

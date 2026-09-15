@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 拖拽基座片段（useDragDrop）</title>
+<link rel="stylesheet" href="../../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-code { font-family:Consolas,"Cascadia Mono",monospace; color:#57606a; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+  .cols { display:flex; gap:14px; margin-bottom:12px; }
+  .zone { flex:1; border:1px dashed #d0d7de; border-radius:6px; padding:10px; min-height:150px; background:#fafbfc; }
+  .zone .zt { font-size:12px; color:#57606a; margin-bottom:8px; }
+  .it { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:6px 10px; margin-bottom:6px; font-size:13px; cursor:grab; display:flex; gap:8px; align-items:center; }
+  .it .hd { color:#b1b8bf; }
+  .it.over { border-color:#0969da; background:#ddf4ff; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="23_组件设计_拖拽基座片段.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 拖拽基座片段 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="23_组件设计_拖拽基座片段.md">《组件设计 · 拖拽基座片段》</a>：演示同区排序与跨区移动（组件列表 → 画布）、拖拽把手（⠿）与 change 载荷；真实实现封装 Sortable.js，供设计器共用。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="cols">
+        <div class="zone" @dragover.prevent @drop="drop('palette')" :class="{ }">
+          <div class="zt">组件列表（拖入右侧画布）</div>
+          <div class="it" v-for="it in palette" :key="it.id" draggable="true"
+               @dragstart="start(it, 'palette')" :class="{ over: overZone === 'palette' && dragItem && dragItem.zone === 'palette' }">
+            <span class="hd">⠿</span>{{ it.label }}
+          </div>
+        </div>
+        <div class="zone" @dragover.prevent @drop="drop('canvas')">
+          <div class="zt">画布（可排序 / 可跨区移动）</div>
+          <div class="it" v-for="it in canvas" :key="it.id" draggable="true"
+               @dragstart="start(it, 'canvas')">
+            <span class="hd">⠿</span>{{ it.label }}
+          </div>
+          <div v-if="!canvas.length" class="dp-hint">（空：从左区拖入）</div>
+        </div>
+      </div>
+
+      <div class="dp-bar">
+        <el-button size="small" @click="reset">重置</el-button>
+        <span class="dp-hint">拖拽把手：⠿（handle 选择器；列表排序可整项拖）</span>
+      </div>
+
+      <div class="dp-state">change 事件载荷 / 日志
+lastChange: {{ lastChange || '（无）' }}
+{{ logs.length ? logs.join('\n') : '（尚无拖拽）' }}
+说明：group='designer' 内跨区移动；change 上报 {from, to, item, oldIndex, newIndex}；移动后由设计器压入撤销栈；
+每个区域独立拖拽实例（create/destroy 幂等，事件监听登记异步资源基类）。</div>
+    </div>
+  </div>
+</div>
+
+<script src="../../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref } = Vue;
+  var app = createApp({
+    setup: function () {
+      var P0 = [{ id: 'p1', label: '文本框' }, { id: 'p2', label: '下拉框' }, { id: 'p3', label: '日期' }, { id: 'p4', label: '数字' }];
+      var C0 = [{ id: 'c1', label: '用户名（文本框）' }];
+      var palette = ref(P0.slice()), canvas = ref(C0.slice());
+      var dragItem = ref(null), overZone = ref(''), lastChange = ref(''), logs = ref([]);
+      function stamp() { return String(logs.value.length + 1).padStart(2, '0'); }
+      function start(it, zone) { dragItem.value = { id: it.id, zone: zone }; logs.value.push('[' + stamp() + '] dragstart(' + it.label + ' @' + zone + ')'); }
+      function drop(target) {
+        var d = dragItem.value; if (!d) return;
+        var src = d.zone === 'palette' ? palette : canvas;
+        var dst = target === 'palette' ? palette : canvas;
+        var i = src.value.findIndex(function (x) { return x.id === d.id; });
+        if (i >= 0) {
+          var item = src.value.splice(i, 1)[0];
+          dst.value.push(item);
+          lastChange.value = JSON.stringify({ from: d.zone, to: target, item: item.label, oldIndex: i, newIndex: dst.value.length - 1 });
+          logs.value.push('[' + stamp() + '] change → ' + lastChange.value);
+          if (target === 'canvas' && d.zone === 'palette' && item.label.indexOf('（') < 0) item.label = item.label + '（已入画布）';
+        }
+        dragItem.value = null;
+      }
+      function reset() { palette.value = P0.slice(); canvas.value = C0.slice(); lastChange.value = ''; logs.value.push('[' + stamp() + '] reset → 恢复初始顺序'); }
+      return { palette: palette, canvas: canvas, overZone: overZone, dragItem: dragItem, lastChange: lastChange, logs: logs, start: start, drop: drop, reset: reset };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>

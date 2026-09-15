@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 树域基类（BaseTree / useTreeData）</title>
+<link rel="stylesheet" href="../../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+  .pt { width:340px; border:1px solid #eaeef2; border-radius:6px; padding:10px; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="03_组件设计_树域基类.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 树域基类 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="03_组件设计_树域基类.md">《组件设计 · 树域基类》</a>：演示数据归一、展开收起、单选与勾选（含半选）、关键字过滤与懒加载；被树选择 / 组织选择 / 权限树 / 树形主从共用。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-bar">
+        <el-input v-model="keyword" size="small" placeholder="关键字过滤（如 研发）" style="width:200px" clearable />
+        <el-switch v-model="showCheckbox" active-text="勾选模式（级联）" size="small" />
+        <el-switch v-model="checkStrictly" active-text="父子独立" size="small" :disabled="!showCheckbox" />
+        <span class="dp-hint">懒加载：展开「运维部」加载子级</span>
+      </div>
+
+      <div style="display:flex; gap:16px; align-items:flex-start">
+        <div class="pt">
+          <el-tree ref="treeRef" :data="tree" node-key="id" :props="{ label: 'label', children: 'children' }"
+                   :filter-node-method="filterNode" :check-strictly="checkStrictly" :show-checkbox="showCheckbox"
+                   :expand-on-click-node="false" default-expand-all
+                   @node-click="onSelect" @check="onCheck" @expand="onExpand">
+          </el-tree>
+        </div>
+
+        <div class="dp-state" style="flex:1">选中（单选）: {{ selected || '（未选中）' }}
+勾选（含半选）: {{ checkedText }}
+懒加载记录: {{ lazyLog || '（尚未懒加载）' }}
+说明：nodeKey=id、labelKey=label（数据归一）；过滤保留命中节点及祖先路径；
+勾选级联 / checkStrictly 父子独立两种模式；懒加载子级缓存，重复展开不重复请求。</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="../../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+      var { createApp, ref, watch } = Vue;
+      var app = createApp({
+        setup: function () {
+          var tree = ref([
+            { id: 'hq', label: '集团总部', children: [
+              { id: 'rd', label: '研发中心', children: [
+                { id: 'rd-fe', label: '前端组' },
+                { id: 'rd-be', label: '后端组' }
+              ] },
+              { id: 'mk', label: '市场部' }
+            ] },
+            { id: 'ops', label: '运维部（懒加载）' }
+          ]);
+          var keyword = ref(''), showCheckbox = ref(true), checkStrictly = ref(false);
+          var selected = ref(''), checkedText = ref('（无）'), lazyLog = ref('');
+          var treeRef = ref(null);
+          var lazyLoaded = false;
+          function filterNode(value, data) { return !value || data.label.indexOf(value) >= 0; }
+          watch(keyword, function (v) { treeRef.value && treeRef.value.filter(v); });
+          function fetchChildren(id) {
+            if (lazyLoaded) return [];
+            lazyLoaded = true;
+            lazyLog.value = 'load(运维部) → 请求子级并缓存（重复展开不重复请求）';
+            return [{ id: 'ops-sre', label: 'SRE 组' }, { id: 'ops-db', label: 'DBA 组' }];
+          }
+          function onSelect(data, node) {
+            selected.value = data.label + '（id=' + data.id + '）';
+            if (data.id === 'ops' && !data.children) {
+              data.children = fetchChildren(data.id);
+            }
+          }
+          function onCheck(data, info) {
+            var all = info.checkedNodes.concat(info.halfCheckedNodes).map(function (n) { return n.label; });
+            checkedText.value = all.length ? all.join('、') : '（无）';
+          }
+          function onExpand(data, node, comp) {
+            if (data.id === 'ops' && !lazyLog.value) { lazyLog.value = 'expand(运维部) → 触发懒加载'; }
+          }
+          return { tree: tree, keyword: keyword, showCheckbox: showCheckbox, checkStrictly: checkStrictly, selected: selected, checkedText: checkedText, lazyLog: lazyLog, treeRef: treeRef, filterNode: filterNode, onSelect: onSelect, onCheck: onCheck, onExpand: onExpand };
+        }
+      });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>

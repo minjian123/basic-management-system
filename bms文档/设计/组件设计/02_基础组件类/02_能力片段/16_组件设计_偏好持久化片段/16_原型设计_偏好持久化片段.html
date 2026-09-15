@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 偏好持久化片段（usePersistedState）</title>
+<link rel="stylesheet" href="../../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-code { font-family:Consolas,"Cascadia Mono",monospace; color:#57606a; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+  .row { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+  .row .lb { width:130px; color:#57606a; font-size:13px; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="16_组件设计_偏好持久化片段.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 偏好持久化片段 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="16_组件设计_偏好持久化片段.md">《组件设计 · 偏好持久化片段》</a>：演示本地即时生效、远端防抖同步与状态指示、重置默认与占位降级（偏好表未就绪 → 仅本地）。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-bar">
+        <el-switch v-model="remoteReady" active-text="偏好表 / 查询方案接口就绪" size="small" />
+        <span class="dp-hint" :class="{ 'dp-code': true }">同步状态：{{ syncText }}</span>
+        <el-button size="small" @click="reset">重置默认</el-button>
+      </div>
+
+      <div class="row"><span class="lb">表格密度</span>
+        <el-radio-group v-model="density" size="small" @change="onChange">
+          <el-radio-button label="compact">紧凑</el-radio-button>
+          <el-radio-button label="default">默认</el-radio-button>
+          <el-radio-button label="loose">宽松</el-radio-button>
+        </el-radio-group>
+      </div>
+      <div class="row"><span class="lb">每页条数</span>
+        <el-select v-model="pageSize" size="small" style="width:120px" @change="onChange">
+          <el-option :value="10" label="10 条" /><el-option :value="20" label="20 条" /><el-option :value="50" label="50 条" />
+        </el-select>
+      </div>
+
+      <div class="dp-state">偏好数据（key = table:user:prefs）
+本地（即时）: {{ localText }}
+远端（防抖同步）: {{ remoteText }}
+说明：set() 本地即时生效（离线可用）；远端 800ms 防抖推送；登录 / 切租户后拉取远端与本地深合并；
+未就绪时占位降级为「仅本地」（同步状态提示），接入后无改调用方。</div>
+    </div>
+  </div>
+</div>
+
+<script src="../../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref } = Vue;
+  var app = createApp({
+    setup: function () {
+      var remoteReady = ref(true);
+      var DEFAULTS = { density: 'default', pageSize: 20 };
+      var density = ref(DEFAULTS.density), pageSize = ref(DEFAULTS.pageSize);
+      var syncText = ref('已同步 (synced)');
+      var localText = ref(''), remoteText = ref('');
+      var timer = null;
+      function refresh() {
+        localText.value = JSON.stringify({ density: density.value, pageSize: pageSize.value });
+        if (!remoteReady.value) { remoteText.value = '（占位降级：未就绪，仅本地）'; return; }
+        remoteText.value = JSON.stringify({ density: density.value, pageSize: pageSize.value });
+      }
+      function onChange() {
+        refresh();
+        if (!remoteReady.value) { syncText.value = '仅本地（占位降级：偏好表未就绪）'; return; }
+        syncText.value = '同步中 (syncing)…';
+        clearTimeout(timer);
+        timer = setTimeout(function () { syncText.value = '已同步 (synced)（防抖 800ms 合并推送）'; }, 800);
+      }
+      function reset() { density.value = DEFAULTS.density; pageSize.value = DEFAULTS.pageSize; onChange(); syncText.value = '已重置默认（本地 + 远端）'; }
+      refresh();
+      return { remoteReady: remoteReady, density: density, pageSize: pageSize, syncText: syncText, localText: localText, remoteText: remoteText, reset: reset, onChange: onChange };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>

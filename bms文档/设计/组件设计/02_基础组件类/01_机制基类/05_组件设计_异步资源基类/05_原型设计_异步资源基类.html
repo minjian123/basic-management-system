@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 异步资源基类（BaseAsyncResource / useAsyncResource）</title>
+<link rel="stylesheet" href="../../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-code { font-family:Consolas,"Cascadia Mono",monospace; color:#57606a; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+  .res { border:1px solid #eaeef2; border-radius:6px; padding:10px 12px; margin-bottom:12px; font-size:13px; }
+  .res .it { display:flex; gap:10px; padding:3px 0; font-family:Consolas,monospace; color:#57606a; }
+  .res .it .k { width:110px; color:#0969da; }
+  .tag { font-size:11px; padding:1px 6px; border-radius:8px; background:#ddf4ff; color:#0969da; font-family:Consolas,monospace; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="05_组件设计_异步资源基类.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 异步资源基类 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="05_组件设计_异步资源基类.md">《组件设计 · 异步资源基类》</a>：演示定时器 / 事件订阅 / 请求取消的统一登记、卸载自动释放与逆序回收；释放后拒绝新登记。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-bar">
+        <el-button size="small" @click="addTimer">启动定时器</el-button>
+        <el-button size="small" @click="addSub">注册订阅</el-button>
+        <el-button size="small" @click="addAbort">发起请求</el-button>
+        <el-button size="small" type="primary" @click="unmount">卸载组件（自动释放）</el-button>
+        <el-button size="small" @click="addAfter">释放后再登记</el-button>
+        <span class="dp-hint">释放顺序：后登记先释放（逆序）</span>
+      </div>
+
+      <div class="res">
+        <div class="it"><span class="k">已登记资源</span>
+          <span v-if="!resources.length" class="dp-hint">（空）</span>
+          <span v-for="r in resources" :key="r.id"><span class="tag">{{ r.kind }}</span> {{ r.id }}　</span>
+        </div>
+        <div class="it"><span class="k">定时器计数</span> {{ ticks }}</div>
+        <div class="it"><span class="k">订阅事件数</span> {{ events }}</div>
+      </div>
+
+      <div class="dp-state">释放日志（逆序回收、幂等）
+{{ logs.length ? logs.join('\n') : '（尚无释放）' }}
+说明：track() 登记定时器 / 订阅 / AbortController；组件卸载经 onScopeDispose 自动 releaseAll()；
+释放后 track() 拒绝登记并告警（「释放后再登记」按钮演示）。</div>
+    </div>
+  </div>
+</div>
+
+<script src="../../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref, onUnmounted } = Vue;
+  var app = createApp({
+    setup: function () {
+      var resources = ref([]), logs = ref([]), ticks = ref(0), events = ref(0);
+      var seq = 0, released = false, timer = null, subTimer = null;
+      function stamp() { return String(logs.value.length + 1).padStart(2, '0'); }
+      function track(kind, id, releaser) {
+        if (released) { logs.value.push('[' + stamp() + '] 拒绝登记：' + kind + '/' + id + '（组件已释放）'); return; }
+        seq += 1;
+        var rid = kind + '-' + seq;
+        resources.value.push({ id: rid, kind: kind });
+        resources.value[resources.value.length - 1].releaser = releaser;
+      }
+      function releaseAll() {
+        if (released) { logs.value.push('[' + stamp() + '] dispose() 幂等：无重复执行'); return; }
+        released = true;
+        var list = resources.value.slice().reverse();
+        list.forEach(function (r) {
+          try { r.releaser && r.releaser(); } catch (e) { /* 单资源失败不阻断 */ }
+          logs.value.push('[' + stamp() + '] release ' + r.kind + ' ' + r.id);
+        });
+        resources.value = [];
+      }
+      function addTimer() {
+        track('timer', 'poll', function () { clearInterval(timer); });
+        if (!timer) timer = setInterval(function () { ticks.value += 1; }, 1000);
+      }
+      function addSub() {
+        track('subscription', 'realtime.notify', function () { clearInterval(subTimer); });
+        if (!subTimer) subTimer = setInterval(function () { events.value += 1; }, 1500);
+      }
+      function addAbort() {
+        track('request', 'GET /api/user/list', function () { /* controller.abort() */ });
+      }
+      function unmount() { releaseAll(); }
+      function addAfter() { track('timer', 'late-poll', function () { }); }
+      onUnmounted(function () { releaseAll(); });
+      return { resources: resources, logs: logs, ticks: ticks, events: events, addTimer: addTimer, addSub: addSub, addAbort: addAbort, unmount: unmount, addAfter: addAfter };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>
