@@ -17,7 +17,7 @@ from app.core.base import BaseObject
 from app.core.config import PluginSelection, Settings
 from app.core.exceptions import ConflictError
 from app.core.plugin import BasePluggable, PluginRegistry, plugin_registry_snapshot, resolve_plugin
-from app.core.registry import BaseProviderRegistry
+from app.core.provider import BaseProviderRegistry
 from app.health.base import BaseHealthCheck, BaseHealthCheckRegistry, HealthCheckResult
 from app.health.registry import HealthCheckRegistry
 from app.main import create_app, lifespan

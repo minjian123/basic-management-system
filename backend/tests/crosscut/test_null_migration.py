@@ -1,4 +1,4 @@
-"""null.py 拆分迁移护栏测试（Kiwi 532）：38 类落点 / 旧路径不可用 / 语义与登记不变。"""
+"""null.py 拆分迁移护栏测试（Kiwi 532 + 05 扩量）：42 类落点 / 旧路径不可用 / 语义与登记不变。"""
 
 import ast
 import importlib
@@ -79,14 +79,14 @@ def _null_class_defs() -> list[tuple[str, str]]:
 def test_no_null_class_outside_null_modules() -> None:
     """落点护栏：`null.py` 之外模块不得定义 `Null*` 类。"""
     defs = _null_class_defs()
-    assert len(defs) == 38
+    assert len(defs) == 42
     offenders = [(path, name) for path, name in defs if not path.endswith("null.py")]
     assert not offenders, offenders
 
 
 @pytest.mark.kiwi_id(532)
 def test_migrated_classes_importable_and_old_paths_removed() -> None:
-    """38 类可自 `app.<domain>.null` 导入且 `__module__` 指向 null 模块；旧路径不可用。"""
+    """42 类可自 `app.<domain>.null` 导入且 `__module__` 指向 null 模块；旧路径不可用。"""
     _import_all()
     for old_module, null_module, name in _MIGRATED:
         module = importlib.import_module(null_module)

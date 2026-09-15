@@ -19,7 +19,7 @@ from app.core.plugin import (
     PluginImpl,
     PluginRegistry,
 )
-from app.core.registry import BaseProviderRegistry
+from app.core.provider import BaseProviderRegistry
 from app.events.base import BaseEventWorker, EventConsumer, EventPublisher
 from app.health.registry import HealthCheckRegistry
 
@@ -69,8 +69,8 @@ _EXPECTED_PLUGIN_KEYS = frozenset(
 )
 
 
-_PORTS_WITHOUT_NULL = frozenset({"audit", "cache", "event", "task"})
-"""暂无 `NullXxx` 缺省实现的端口（不登记 `null`，随对应阶段补实现）。"""
+_PORTS_WITHOUT_NULL: frozenset[str] = frozenset()
+"""暂无 `NullXxx` 缺省实现的端口（05 已补齐 cache / audit / task / event，当前为空集）。"""
 
 _PLATFORM_FACTORY_KEYS = frozenset({"masking"})
 """构造需参数（`NullMasker` 需注入 checker），不自动登记、由装配清单显式工厂登记（01_02）。"""
@@ -137,7 +137,7 @@ def registry(monkeypatch: pytest.MonkeyPatch) -> PluginRegistry:
 
 @pytest.mark.kiwi_id(531)
 def test_ports_declared_and_abstract() -> None:
-    """40 个端口：清单一致、抽象、三属性自身声明（plugin_key 与 key 一致）。"""
+    """44 个端口：清单一致、抽象、三属性自身声明（plugin_key 与 key 一致）。"""
     ports = _ports()
     assert {port.plugin_key for port in ports} == _EXPECTED_PLUGIN_KEYS
     for port in ports:

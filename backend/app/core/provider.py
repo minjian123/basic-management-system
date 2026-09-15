@@ -7,7 +7,7 @@
   `keys` / `values` 保序）；聚合模板（校验 / 查询 / 聚合等）留在各能力域。
 - 注册项键由各域以 `_provider_key` 钩子声明（统一取 `provider.key`；健康检查项键经 `name` 别名兼容）。
 
-`BaseProviderRegistry` 自 `app/core/registry.py` 归位本模块（03-2）；后者保留过渡导出。
+`BaseProviderRegistry` 自 `app/core/registry.py` 归位本模块（03-2）；过渡导出模块已于 05 清理删除。
 """
 
 from abc import ABC, abstractmethod
