@@ -4,7 +4,6 @@
 - `StoredObject` / `PresignedUrl`：对象元数据与预签名结果数据契约（frozen dataclass）。
 - `BaseObjectStorage`：能力域中间层契约（`key = "object_storage"`）——异步 `put` / `get` / `delete` /
   `exists` / `presign`（预签名 URL 直连，后端不代理文件流）。
-- `NullObjectStorage`：占位实现——固定返回（**不连 MinIO、不落盘**）。
 - `get_object_storage`：依赖注入提供者（应用级单例；公共依赖经 `app/api/deps.py` 统一导出）。
 
 口径：安全控制（类型白名单 / 大小上限 / SHA256 校验 / 租户配额联动）与上传下载 / 分片状态机归上层
@@ -19,7 +18,6 @@ from typing import cast
 from fastapi import Request
 
 from app.core.base import BaseObject
-from app.core.capability import BaseNullObject
 from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
 
 __all__ = [
@@ -28,7 +26,6 @@ __all__ = [
     "NULL_PRESIGNED_URL",
     "STORAGE_BUCKET",
     "BaseObjectStorage",
-    "NullObjectStorage",
     "PresignedUrl",
     "StoredObject",
     "get_object_storage",
@@ -150,71 +147,6 @@ class BaseObjectStorage(BasePluggable, ABC):
         Returns:
             PresignedUrl: 预签名结果。
         """
-
-
-class NullObjectStorage(BaseObjectStorage, BaseNullObject):
-    """占位对象存储：固定返回（不连 MinIO、不落盘，未接入真实实现时使用）。"""
-
-    async def put(self, key: str, data: bytes, *, content_type: str | None = None) -> StoredObject:
-        """回显对象元数据（占位不写入）。
-
-        Args:
-            key: 对象 key（占位透传）。
-            data: 对象内容（占位不落盘，仅取长度）。
-            content_type: 内容类型（占位透传）。
-
-        Returns:
-            StoredObject: 对象元数据（etag 为 `NULL_ETAG`）。
-        """
-        return StoredObject(key=key, size=len(data), content_type=content_type, etag=NULL_ETAG)
-
-    async def get(self, key: str) -> bytes:
-        """返回空字节（占位不读取）。
-
-        Args:
-            key: 对象 key（占位忽略）。
-
-        Returns:
-            bytes: 空字节。
-        """
-        return b""
-
-    async def delete(self, key: str) -> None:
-        """空操作（占位不删除）。
-
-        Args:
-            key: 对象 key（占位忽略）。
-        """
-
-    async def exists(self, key: str) -> bool:
-        """恒定存在。
-
-        Args:
-            key: 对象 key（占位忽略）。
-
-        Returns:
-            bool: True。
-        """
-        return True
-
-    async def presign(
-        self,
-        key: str,
-        *,
-        method: str = "GET",
-        expires_in: int = DEFAULT_PRESIGN_TTL,
-    ) -> PresignedUrl:
-        """固定返回预签名结果。
-
-        Args:
-            key: 对象 key（占位忽略）。
-            method: HTTP 方法（占位透传）。
-            expires_in: 有效期（占位透传）。
-
-        Returns:
-            PresignedUrl: 占位预签名结果（url 为 `NULL_PRESIGNED_URL`）。
-        """
-        return PresignedUrl(url=NULL_PRESIGNED_URL, expires_in=expires_in, method=method)
 
 
 def get_object_storage(request: Request) -> BaseObjectStorage:

@@ -11,14 +11,8 @@ from app.api.deps import get_notifier
 from app.core.base import BaseObject
 from app.core.capability import BaseCapability, BaseNullObject
 from app.main import create_app
-from app.notify.base import (
-    NULL_MESSAGE_ID,
-    BaseNotifier,
-    NotificationMessage,
-    NotifyChannel,
-    NullNotifier,
-    SendResult,
-)
+from app.notify.base import NULL_MESSAGE_ID, BaseNotifier, NotificationMessage, NotifyChannel, SendResult
+from app.notify.null import NullNotifier
 
 
 @pytest.mark.kiwi_id(50)

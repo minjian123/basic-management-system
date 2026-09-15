@@ -5,7 +5,8 @@ from dataclasses import dataclass
 import pytest
 
 from app.repositories.base_memory_repository import BaseMemoryRepository
-from app.scope.base import DataScope, NullDataScope, ScopeCondition
+from app.scope.base import DataScope, ScopeCondition
+from app.scope.null import NullDataScope
 
 
 @dataclass

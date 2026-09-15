@@ -4,7 +4,6 @@
   `app/circuit/base.py` **单向复用**本常量（circuit → fallback，不反向）。
 - `FallbackAction`：降级动作枚举（`raise` 不降级 / `default` 默认值 / `skip` 跳过 / `degrade` 降级通道）。
 - `BaseFallbackPolicy`：能力域中间层契约（`key = "fallback"`）——`resolve` 按依赖返回应采取的降级动作。
-- `NullFallbackPolicy`：占位实现，**不降级**（恒定 `raise`，保持现状调用链语义）。
 - `get_fallback_policy`：依赖注入提供者（应用级单例；公共依赖经 `app/api/deps.py` 统一导出）。
 
 口径：基座只返回**动作**、不接管调用链（不执行降级路径、不捕获异常）；调用方按动作处理
@@ -17,7 +16,6 @@ from typing import cast
 
 from fastapi import Request
 
-from app.core.capability import BaseNullObject
 from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
 
 DEPENDENCIES: tuple[str, ...] = (
@@ -67,22 +65,6 @@ class BaseFallbackPolicy(BasePluggable, ABC):
         Returns:
             FallbackAction: 应采取的降级动作。
         """
-
-
-class NullFallbackPolicy(BaseFallbackPolicy, BaseNullObject):
-    """占位降级策略：**不降级**（恒定返回 `raise`，未接入真实降级矩阵时使用）。"""
-
-    async def resolve(self, dependency: str, *, exc: BaseException | None = None) -> FallbackAction:
-        """恒定不降级。
-
-        Args:
-            dependency: 依赖标识（占位不区分）。
-            exc: 触发异常（占位不区分）。
-
-        Returns:
-            FallbackAction: `FallbackAction.RAISE`。
-        """
-        return FallbackAction.RAISE
 
 
 def get_fallback_policy(request: Request) -> BaseFallbackPolicy:

@@ -4,7 +4,6 @@
 - `WorkflowAction`：审批动作枚举（`approve` 同意 / `reject` 驳回 / `withdraw` 撤回）。
 - `ProcessDefinition` / `ProcessInstance` / `WorkflowTask`：定义 / 实例 / 任务数据契约（frozen dataclass）。
 - `BaseWorkflowEngine`：能力域中间层契约（`key = "workflow_engine"`）——异步 `deploy` / `start` / `complete_task`。
-- `NullWorkflowEngine`：占位实现——`deploy` 空操作、`start` / `complete_task` 固定返回占位实例（**不连引擎**）。
 - `get_workflow_engine`：依赖注入提供者（应用级单例；公共依赖经 `app/api/deps.py` 统一导出）。
 
 口径：真实实现用 SpiffWorkflow（同步引擎在异步栈中以线程池运行）；引擎本身不持久化，流程 / 实例 / 任务 /
@@ -21,7 +20,6 @@ from typing import cast
 from fastapi import Request
 
 from app.core.base import BaseObject
-from app.core.capability import BaseNullObject
 from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
 
 __all__ = [
@@ -29,7 +27,6 @@ __all__ = [
     "NULL_TASK_ID",
     "WORKFLOW_STATUS",
     "BaseWorkflowEngine",
-    "NullWorkflowEngine",
     "ProcessDefinition",
     "ProcessInstance",
     "WorkflowAction",
@@ -164,56 +161,6 @@ class BaseWorkflowEngine(BasePluggable, ABC):
         Returns:
             ProcessInstance: 推进后的实例。
         """
-
-
-class NullWorkflowEngine(BaseWorkflowEngine, BaseNullObject):
-    """占位工作流引擎：部署空操作、启动 / 完成任务固定返回占位实例（不连引擎）。"""
-
-    async def deploy(self, definition: ProcessDefinition) -> None:
-        """空操作（占位不部署）。
-
-        Args:
-            definition: 流程定义（占位忽略）。
-        """
-
-    async def start(self, definition_key: str, *, business_type: str, business_id: str) -> ProcessInstance:
-        """固定返回占位实例（不连引擎）。
-
-        Args:
-            definition_key: 流程标识（占位回显）。
-            business_type: 业务类型（占位回显）。
-            business_id: 业务单据 id（占位回显）。
-
-        Returns:
-            ProcessInstance: 占位实例（`process_id` 为 `NULL_INSTANCE_ID`、`status="running"`）。
-        """
-        return ProcessInstance(
-            process_id=NULL_INSTANCE_ID,
-            definition_key=definition_key,
-            business_type=business_type,
-            business_id=business_id,
-            current_node="start",
-            status="running",
-        )
-
-    async def complete_task(
-        self,
-        task_id: str,
-        *,
-        action: WorkflowAction,
-        variables: Mapping[str, object] | None = None,
-    ) -> ProcessInstance:
-        """固定返回占位实例（不连引擎）。
-
-        Args:
-            task_id: 任务 id（占位忽略）。
-            action: 审批动作（占位忽略）。
-            variables: 推进变量（占位忽略）。
-
-        Returns:
-            ProcessInstance: 占位实例（`process_id` 为 `NULL_INSTANCE_ID`、`status="completed"`）。
-        """
-        return ProcessInstance(process_id=NULL_INSTANCE_ID, status="completed")
 
 
 def get_workflow_engine(request: Request) -> BaseWorkflowEngine:

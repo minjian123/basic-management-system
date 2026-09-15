@@ -8,7 +8,7 @@ import pytest
 
 from app.core.base import BaseObject
 from app.core.exceptions import NotFoundError
-from app.db.unit_of_work import NullUnitOfWork
+from app.db.null import NullUnitOfWork
 from app.repositories.base_memory_repository import BaseMemoryRepository
 from app.services.base_service import BaseService
 from app.services.base_transactional_service import BaseTransactionalService

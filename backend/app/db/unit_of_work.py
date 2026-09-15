@@ -1,24 +1,15 @@
 """db 层工作单元：统一异步事务公共方法。
 
 - 事务边界、提交与回滚收敛到工作单元，服务写操作统一经其 `begin()` 进入事务。
-- `NullUnitOfWork` 无副作用（内存基线 / 无事务场景）；
   `DbUnitOfWork` 基于 `AsyncSession`（真实数据库场景）。
 """
 
 from abc import ABC, abstractmethod
-from collections.abc import AsyncGenerator
-from contextlib import AbstractAsyncContextManager, asynccontextmanager
+from contextlib import AbstractAsyncContextManager
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.base import BaseObject
-from app.core.capability import BaseNullObject
-
-
-@asynccontextmanager
-async def _null_transaction() -> AsyncGenerator[None]:
-    """无副作用异步事务上下文。"""
-    yield
 
 
 class UnitOfWork(BaseObject, ABC):
@@ -39,26 +30,6 @@ class UnitOfWork(BaseObject, ABC):
     @property
     def session(self) -> AsyncSession | None:
         """请求级会话（占位 None；`DbUnitOfWork` 提供 `AsyncSession`）。"""
-        return None
-
-
-class NullUnitOfWork(UnitOfWork, BaseNullObject):
-    """空工作单元（占位 / 内存基线）：无事务、无副作用。"""
-
-    def begin(self) -> AbstractAsyncContextManager[object]:
-        """无事务上下文。
-
-        Returns:
-            AbstractAsyncContextManager[object]: 无副作用上下文。
-        """
-        return _null_transaction()
-
-    async def commit(self) -> None:
-        """空提交（无操作）。"""
-        return None
-
-    async def rollback(self) -> None:
-        """空回滚（无操作）。"""
         return None
 
 

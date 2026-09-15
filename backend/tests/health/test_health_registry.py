@@ -21,8 +21,8 @@ from app.health.base import (
     BaseHealthCheckRegistry,
     HealthCheckReport,
     HealthCheckResult,
-    NullHealthCheckRegistry,
 )
+from app.health.null import NullHealthCheckRegistry
 from app.health.registry import HealthCheckRegistry
 from app.main import create_app
 

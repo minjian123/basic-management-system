@@ -4,7 +4,6 @@
 - `IdempotencyStore`：能力域中间层契约（`key = "idempotency"`）——`begin` 前置去重（首次 True）、
   `load` 取首次结果、`save` 写首次结果；重复请求直接返回首次响应，并发穿透由幂等键字段唯一约束兜底
   （约束归落库阶段，见《架构设计 · 接口与集成》「对外 API」节）。
-- `NullIdempotencyStore`：占位实现，**恒定首次**（不连 Redis、不缓存结果）。
 - `build_idempotency_key`：幂等 key 统一拼接（`bms:{租户|global}:idem:{键}`，
   见《架构设计 · 数据架构》「key 空间规划」节）。
 - `get_idempotency_store`：依赖注入提供者（应用级单例；公共依赖经 `app/api/deps.py` 统一导出）。
@@ -18,7 +17,6 @@ from typing import cast
 
 from fastapi import Request
 
-from app.core.capability import BaseNullObject
 from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
 
 IDEM_KEY_PREFIX = "bms"
@@ -89,42 +87,6 @@ class IdempotencyStore(BasePluggable, ABC):
             key: 幂等 key。
             payload: 首次结果的序列化载荷。
             ttl: 键有效期（秒）。
-        """
-
-
-class NullIdempotencyStore(IdempotencyStore, BaseNullObject):
-    """占位幂等存储：**恒定首次**（不连 Redis、不缓存结果，未接入真实存储时使用）。"""
-
-    async def begin(self, key: str, *, ttl: int = DEFAULT_IDEMPOTENCY_TTL) -> bool:
-        """恒定首次（占位不写入任何存储，不拦截重复请求）。
-
-        Args:
-            key: 幂等 key（占位不区分）。
-            ttl: 键有效期（占位忽略）。
-
-        Returns:
-            bool: True。
-        """
-        return True
-
-    async def load(self, key: str) -> IDEMPOTENCY_PAYLOAD_TYPE | None:
-        """恒定无缓存结果。
-
-        Args:
-            key: 幂等 key（占位不区分）。
-
-        Returns:
-            IDEMPOTENCY_PAYLOAD_TYPE | None: None。
-        """
-        return None
-
-    async def save(self, key: str, payload: IDEMPOTENCY_PAYLOAD_TYPE, *, ttl: int = DEFAULT_IDEMPOTENCY_TTL) -> None:
-        """空操作（占位不缓存结果）。
-
-        Args:
-            key: 幂等 key（占位不区分）。
-            payload: 首次结果载荷（占位忽略）。
-            ttl: 键有效期（占位忽略）。
         """
 
 

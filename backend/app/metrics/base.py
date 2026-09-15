@@ -6,7 +6,6 @@
 - `DEPENDENCIES`：依赖标识清单**单向复用** `app/fallback/base.py`（metrics → fallback，不反向），
   使 `bms_dependency_up` 等依赖状态类指标的 `dependency` 标签口径与降级矩阵 / 熔断域一致。
 - `BaseMetrics`：能力域中间层契约（`key = "metrics"`）——异步 `counter` / `gauge` / `histogram` 三入口。
-- `NullMetrics`：占位实现，**空操作**（不连 Prometheus、不采集）。
 - `get_metrics`：依赖注入提供者（应用级单例；公共依赖经 `app/api/deps.py` 统一导出）。
 
 口径：基座只**记录**数值（不聚合、不暴露 HTTP 端点、不做业务判定）；Prometheus 采集端点（`/metrics`）、
@@ -19,7 +18,6 @@ from typing import cast
 
 from fastapi import Request
 
-from app.core.capability import BaseNullObject
 from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
 from app.fallback.base import DEPENDENCIES
 
@@ -29,7 +27,6 @@ __all__ = [
     "METRIC_NAMES",
     "BaseMetrics",
     "MetricLabels",
-    "NullMetrics",
     "get_metrics",
 ]
 
@@ -86,37 +83,6 @@ class BaseMetrics(BasePluggable, ABC):
             name: 指标名（建议取 `METRIC_NAMES` 之一）。
             value: 观测值（如秒）。
             labels: 标签集（可选）。
-        """
-
-
-class NullMetrics(BaseMetrics, BaseNullObject):
-    """占位指标：**空操作**（不连 Prometheus、不采集，未接入真实指标时使用）。"""
-
-    async def counter(self, name: str, *, value: float = 1.0, labels: MetricLabels | None = None) -> None:
-        """空操作（占位不采集）。
-
-        Args:
-            name: 指标名（占位忽略）。
-            value: 增量（占位忽略）。
-            labels: 标签集（占位忽略）。
-        """
-
-    async def gauge(self, name: str, *, value: float, labels: MetricLabels | None = None) -> None:
-        """空操作（占位不采集）。
-
-        Args:
-            name: 指标名（占位忽略）。
-            value: 当前值（占位忽略）。
-            labels: 标签集（占位忽略）。
-        """
-
-    async def histogram(self, name: str, *, value: float, labels: MetricLabels | None = None) -> None:
-        """空操作（占位不采集）。
-
-        Args:
-            name: 指标名（占位忽略）。
-            value: 观测值（占位忽略）。
-            labels: 标签集（占位忽略）。
         """
 
 

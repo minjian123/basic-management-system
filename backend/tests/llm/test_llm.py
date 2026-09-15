@@ -19,9 +19,9 @@ from app.llm.base import (
     ChatMessage,
     ChatResult,
     EmbeddingResult,
-    NullLlmProvider,
     OcrResult,
 )
+from app.llm.null import NullLlmProvider
 from app.main import create_app
 
 

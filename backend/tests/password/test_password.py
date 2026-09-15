@@ -11,11 +11,8 @@ from app.api.deps import get_password_policy
 from app.core.base import BaseObject
 from app.core.capability import BaseCapability, BaseNullObject
 from app.main import create_app
-from app.password.base import (
-    PASSWORD_VIOLATIONS,
-    BasePasswordPolicy,
-    NullPasswordPolicy,
-)
+from app.password.base import PASSWORD_VIOLATIONS, BasePasswordPolicy
+from app.password.null import NullPasswordPolicy
 
 
 @pytest.mark.kiwi_id(41)

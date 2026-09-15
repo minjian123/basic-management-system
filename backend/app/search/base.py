@@ -4,7 +4,6 @@
 - `DEFAULT_SEARCH_SIZE` / `NULL_SEARCH_HIT_ID`：默认返回条数与占位命中 id。
 - `SearchDocument` / `SearchQuery` / `SearchHit` / `SearchResult`：写入 / 查询 / 命中 / 结果数据契约（frozen）。
 - `BaseSearchIndex`：能力域中间层契约（`key = "search_index"`）——异步 `index` / `delete` / `search`。
-- `NullSearchIndex`：占位实现——写入 / 删除空操作、`search` 固定返回单条占位命中（**不连 ES**）。
 - `get_search_index`：依赖注入提供者（应用级单例；公共依赖经 `app/api/deps.py` 统一导出）。
 
 口径：索引均含 `tenant_id` 字段、查询**强制**租户隔离并叠加动作级数据权限过滤——`tenant_id` 与权限过滤由**实现**
@@ -20,7 +19,6 @@ from typing import cast
 from fastapi import Request
 
 from app.core.base import BaseObject
-from app.core.capability import BaseNullObject
 from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
 
 __all__ = [
@@ -28,7 +26,6 @@ __all__ = [
     "NULL_SEARCH_HIT_ID",
     "SEARCH_INDEX_PREFIX",
     "BaseSearchIndex",
-    "NullSearchIndex",
     "SearchDocument",
     "SearchHit",
     "SearchQuery",
@@ -140,36 +137,6 @@ class BaseSearchIndex(BasePluggable, ABC):
         Returns:
             SearchResult: 检索结果。
         """
-
-
-class NullSearchIndex(BaseSearchIndex, BaseNullObject):
-    """占位全文检索：写入 / 删除空操作，检索固定返回单条占位命中（不连 ES）。"""
-
-    async def index(self, document: SearchDocument) -> None:
-        """空操作（占位不写索引）。
-
-        Args:
-            document: 待索引文档（占位忽略）。
-        """
-
-    async def delete(self, index: str, doc_id: str) -> None:
-        """空操作（占位不删除）。
-
-        Args:
-            index: 索引名（占位忽略）。
-            doc_id: 文档 id（占位忽略）。
-        """
-
-    async def search(self, query: SearchQuery) -> SearchResult:
-        """固定返回单条占位命中（不连 ES）。
-
-        Args:
-            query: 检索请求（占位忽略）。
-
-        Returns:
-            SearchResult: 单条占位命中（id 为 `NULL_SEARCH_HIT_ID`、`total=1`）。
-        """
-        return SearchResult(hits=(SearchHit(id=NULL_SEARCH_HIT_ID, score=0.0),), total=1)
 
 
 def get_search_index(request: Request) -> BaseSearchIndex:

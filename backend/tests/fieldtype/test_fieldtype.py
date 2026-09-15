@@ -11,13 +11,8 @@ from app.api.deps import get_field_type_registry
 from app.core.base import BaseObject
 from app.core.capability import BaseCapability, BaseNullObject
 from app.core.exceptions import NotFoundError
-from app.fieldtype.base import (
-    COLUMN_TYPE_DIALECTS,
-    NULL_COLUMN_TYPE,
-    BaseFieldType,
-    BaseFieldTypeRegistry,
-    NullFieldTypeRegistry,
-)
+from app.fieldtype.base import COLUMN_TYPE_DIALECTS, NULL_COLUMN_TYPE, BaseFieldType, BaseFieldTypeRegistry
+from app.fieldtype.null import NullFieldTypeRegistry
 from app.main import create_app
 
 

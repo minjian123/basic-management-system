@@ -14,7 +14,8 @@ from app.core.capability import (
 from app.core.config import Settings
 from app.db.engine import EngineFactory
 from app.events.base import BaseEventWorker, EventConsumer, EventPublisher
-from app.scope.base import DataScope, NullDataScope
+from app.scope.base import DataScope
+from app.scope.null import NullDataScope
 from app.sharding.base import ShardingRouter
 from app.tasks.base import BaseTask
 

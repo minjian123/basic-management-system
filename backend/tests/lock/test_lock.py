@@ -10,13 +10,8 @@ from app.api.deps import get_distributed_lock
 from app.core.base import BaseObject
 from app.core.capability import BaseCapability, BaseNullObject
 from app.core.exceptions import ConcurrentConflictError
-from app.lock.base import (
-    DEFAULT_LOCK_TTL,
-    DEFAULT_WAIT,
-    BaseDistributedLock,
-    NullDistributedLock,
-    build_lock_key,
-)
+from app.lock.base import DEFAULT_LOCK_TTL, DEFAULT_WAIT, BaseDistributedLock, build_lock_key
+from app.lock.null import NullDistributedLock
 from app.main import create_app
 
 

@@ -5,7 +5,6 @@
   与判定结果。
 - `BaseReplayGuard`：能力域中间层契约（`key = "replay_guard"`）——`verify` 为**模板方法**，
   固定按「时间窗 → HMAC 签名 → nonce 去重」编排（短路）；`require` 供接口层一行接入（失败抛 `AuthError`）。
-- `NullReplayGuard`：占位实现——**时间窗与签名占位期即真实生效**（纯计算、零外部依赖），
   `claim_nonce` 恒定 True（不连 Redis＝不拦截重复 nonce）。
 - `get_replay_guard`：依赖注入提供者（应用级单例；公共依赖经 `app/api/deps.py` 统一导出）。
 
@@ -23,7 +22,6 @@ from typing import cast
 from fastapi import Request
 
 from app.core.base import BaseObject
-from app.core.capability import BaseNullObject
 from app.core.exceptions import AuthError
 from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
 from app.core.security import SIGNATURE_HEADER, SignatureCodec
@@ -34,7 +32,6 @@ __all__ = [
     "SIGNATURE_HEADER",
     "TIMESTAMP_HEADER",
     "BaseReplayGuard",
-    "NullReplayGuard",
     "ReplayDecision",
     "ReplayReason",
     "get_replay_guard",
@@ -195,22 +192,6 @@ class BaseReplayGuard(BasePluggable, ABC):
         if not decision.allowed:
             raise AuthError(f"防重放校验失败：{decision.reason}")
         return decision
-
-
-class NullReplayGuard(BaseReplayGuard, BaseNullObject):
-    """占位防重放：时间窗与签名真实校验，nonce 去重**恒定通过**（不连 Redis）。"""
-
-    async def claim_nonce(self, nonce: str, *, ttl: int = REPLAY_WINDOW) -> bool:
-        """恒定占用成功（占位不写入任何存储＝不拦截重复 nonce）。
-
-        Args:
-            nonce: 随机唯一串（占位不区分）。
-            ttl: 占用有效期（占位忽略）。
-
-        Returns:
-            bool: True。
-        """
-        return True
 
 
 def get_replay_guard(request: Request) -> BaseReplayGuard:

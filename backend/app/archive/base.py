@@ -3,9 +3,7 @@
 - `ARCHIVE_LOCATIONS`：数据位置清单（`online` 在线库 / `archive` 归档库 `bms_archive`）。
 - `ArchiveResult`：归档结果数据契约（frozen）——命中 / 已归档条数。
 - `BaseArchivePolicy`：能力域中间层契约（`key = "archive_policy"`）——异步 `matches`（是否达条件）/ `archive`（搬迁）。
-- `NullArchivePolicy`：占位实现——恒定不归档（**不搬数据**）。
 - `BaseArchiveQueryRouter`：能力域中间层契约（`key = "archive_query_router"`）——同步 `resolve`（查询位置路由）。
-- `NullArchiveQueryRouter`：占位实现——恒定在线库。
 - 提供者 `get_archive_policy` / `get_archive_query_router`（应用级单例；公共依赖经 `app/api/deps.py` 统一导出）。
 
 口径：归档前链完整性校验取 02-4-11 `BaseHashChain.verify`、冷化 / 归档文件存取取 02-4-1 `BaseObjectStorage`，
@@ -21,7 +19,6 @@ from typing import cast
 from fastapi import Request
 
 from app.core.base import BaseObject
-from app.core.capability import BaseNullObject
 from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
 
 __all__ = [
@@ -29,8 +26,6 @@ __all__ = [
     "ArchiveResult",
     "BaseArchivePolicy",
     "BaseArchiveQueryRouter",
-    "NullArchivePolicy",
-    "NullArchiveQueryRouter",
     "get_archive_policy",
     "get_archive_query_router",
 ]
@@ -103,48 +98,6 @@ class BaseArchiveQueryRouter(BasePluggable, ABC):
         Returns:
             str: 位置（取值见 `ARCHIVE_LOCATIONS`）。
         """
-
-
-class NullArchivePolicy(BaseArchivePolicy, BaseNullObject):
-    """占位归档策略：恒定不归档（不搬数据，未接入真实实现时使用）。"""
-
-    async def matches(self, record: Mapping[str, object], *, now: datetime | None = None) -> bool:
-        """恒定不归档。
-
-        Args:
-            record: 记录数据（占位忽略）。
-            now: 当前时间（占位忽略）。
-
-        Returns:
-            bool: False。
-        """
-        return False
-
-    async def archive(self, records: Sequence[Mapping[str, object]]) -> ArchiveResult:
-        """返回空归档结果（不搬迁）。
-
-        Args:
-            records: 待归档记录（占位忽略）。
-
-        Returns:
-            ArchiveResult: 空结果（命中 0 / 归档 0）。
-        """
-        return ArchiveResult(matched=0, archived=0)
-
-
-class NullArchiveQueryRouter(BaseArchiveQueryRouter, BaseNullObject):
-    """占位查询路由：恒定返回在线库（不路由归档库）。"""
-
-    def resolve(self, *, table: str) -> str:
-        """恒定在线库。
-
-        Args:
-            table: 逻辑表名（占位忽略）。
-
-        Returns:
-            str: `"online"`。
-        """
-        return "online"
 
 
 def get_archive_policy(request: Request) -> BaseArchivePolicy:

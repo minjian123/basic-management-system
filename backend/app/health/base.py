@@ -8,7 +8,6 @@
 - `BaseHealthCheckRegistry`：能力域中间层契约（`key = "health_check_registry"`）——抽象 `register` / `checks`；
   `aggregate` 为**具体聚合模板**（并发执行 + 单项 / 整体两级超时 → 保序收集 → 汇总），
   异常兜底（异常类名）与空集语义单点收敛，超时值经构造注入（默认取本模块常量）。
-- `NullHealthCheckRegistry`：占位实现——注册空操作、无检查项 → 固定通过（`ok=True`、`checks=()`），**不探依赖**。
 - `get_health_check_registry`：依赖注入提供者（应用级单例；公共依赖经 `app/api/deps.py` 统一导出）。
 - 真实注册表与检查项（`redis` / `database`）见 `app/health/registry.py` / `app/health/checks.py`（03-3 落地）。
 
@@ -25,7 +24,6 @@ from typing import cast
 from fastapi import Request
 
 from app.core.base import BaseObject
-from app.core.capability import BaseNullObject
 from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
 from app.fallback.base import DEPENDENCIES
 
@@ -37,7 +35,6 @@ __all__ = [
     "BaseHealthCheckRegistry",
     "HealthCheckReport",
     "HealthCheckResult",
-    "NullHealthCheckRegistry",
     "get_health_check_registry",
 ]
 
@@ -157,25 +154,6 @@ class BaseHealthCheckRegistry(BasePluggable, ABC):
             for index, check in enumerate(checks)
         )
         return HealthCheckReport(ok=all(result.ok for result in ordered), checks=ordered)
-
-
-class NullHealthCheckRegistry(BaseHealthCheckRegistry, BaseNullObject):
-    """占位注册表：注册空操作、无检查项 → 固定通过（不探依赖，未接入真实探针时使用）。"""
-
-    def register(self, check: BaseHealthCheck) -> None:
-        """空操作（占位不登记）。
-
-        Args:
-            check: 检查项（占位忽略）。
-        """
-
-    def checks(self) -> tuple[BaseHealthCheck, ...]:
-        """空检查项集。
-
-        Returns:
-            tuple[BaseHealthCheck, ...]: 空元组。
-        """
-        return ()
 
 
 def get_health_check_registry(request: Request) -> BaseHealthCheckRegistry:

@@ -10,19 +10,11 @@ from httpx import ASGITransport, AsyncClient
 from app.api.deps import get_identity_provider, get_session_store
 from app.core.base import BaseObject
 from app.core.capability import BaseCapability, BaseNullObject
-from app.idp.base import (
-    IDP_PROTOCOLS,
-    BaseIdentityProvider,
-    IdentityToken,
-    IdentityUser,
-    NullIdentityProvider,
-)
+from app.idp.base import IDP_PROTOCOLS, BaseIdentityProvider, IdentityToken, IdentityUser
+from app.idp.null import NullIdentityProvider
 from app.main import create_app
-from app.session.base import (
-    DEFAULT_SESSION_TTL,
-    BaseSessionStore,
-    NullSessionStore,
-)
+from app.session.base import DEFAULT_SESSION_TTL, BaseSessionStore
+from app.session.null import NullSessionStore
 
 
 @pytest.mark.kiwi_id(54)

@@ -16,12 +16,12 @@ from app.search.base import (
     NULL_SEARCH_HIT_ID,
     SEARCH_INDEX_PREFIX,
     BaseSearchIndex,
-    NullSearchIndex,
     SearchDocument,
     SearchHit,
     SearchQuery,
     SearchResult,
 )
+from app.search.null import NullSearchIndex
 
 
 @pytest.mark.kiwi_id(49)

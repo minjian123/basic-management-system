@@ -18,10 +18,9 @@ from app.oauth.base import (
     BaseOAuthServer,
     BaseScopeChecker,
     ClientCredentials,
-    NullOAuthServer,
-    NullScopeChecker,
     OAuthToken,
 )
+from app.oauth.null import NullOAuthServer, NullScopeChecker
 
 
 @pytest.mark.kiwi_id(46)

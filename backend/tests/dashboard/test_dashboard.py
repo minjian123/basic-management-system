@@ -11,12 +11,8 @@ from app.api.deps import get_dashboard_card_registry
 from app.core.base import BaseObject
 from app.core.capability import BaseCapability, BaseNullObject
 from app.core.exceptions import NotFoundError
-from app.dashboard.base import (
-    CARD_TYPES,
-    BaseDashboardCardProvider,
-    BaseDashboardCardRegistry,
-    NullDashboardCardRegistry,
-)
+from app.dashboard.base import CARD_TYPES, BaseDashboardCardProvider, BaseDashboardCardRegistry
+from app.dashboard.null import NullDashboardCardRegistry
 from app.main import create_app
 
 

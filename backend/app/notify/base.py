@@ -3,7 +3,6 @@
 - `NotifyChannel`：渠道枚举（`inbox` 站内信 / `email` 邮件 / `sms` 短信）。
 - `NotificationMessage` / `SendResult`：通知消息与发送结果数据契约（frozen dataclass）。
 - `BaseNotifier`：能力域中间层契约（`key = "notifier"`）——异步 `send(message)` 统一发送（按渠道分派）。
-- `NullNotifier`：占位实现——固定返回成功（**不真实发送**）。
 - `get_notifier`：依赖注入提供者（应用级单例；公共依赖经 `app/api/deps.py` 统一导出）。
 
 口径：渠道偏好过滤（`sys_user_preference`）、模板落库与按 locale 渲染、发送记录（`sys_mail_log` / `sys_sms_log`）、
@@ -19,7 +18,6 @@ from typing import cast
 from fastapi import Request
 
 from app.core.base import BaseObject
-from app.core.capability import BaseNullObject
 from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
 
 __all__ = [
@@ -27,7 +25,6 @@ __all__ = [
     "BaseNotifier",
     "NotificationMessage",
     "NotifyChannel",
-    "NullNotifier",
     "SendResult",
     "get_notifier",
 ]
@@ -104,21 +101,6 @@ class BaseNotifier(BasePluggable, ABC):
         Returns:
             SendResult: 发送结果。
         """
-
-
-class NullNotifier(BaseNotifier, BaseNullObject):
-    """占位通知器：固定返回成功（不真实发送，未接入真实渠道时使用）。"""
-
-    async def send(self, message: NotificationMessage) -> SendResult:
-        """恒定发送成功。
-
-        Args:
-            message: 通知消息（占位忽略）。
-
-        Returns:
-            SendResult: 成功结果（`delivered=True`、`message_id=NULL_MESSAGE_ID`）。
-        """
-        return SendResult(delivered=True, message_id=NULL_MESSAGE_ID)
 
 
 def get_notifier(request: Request) -> BaseNotifier:

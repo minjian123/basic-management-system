@@ -9,14 +9,8 @@ from fastapi import Depends
 from httpx import ASGITransport, AsyncClient
 
 from app.api.deps import get_hash_chain
-from app.audit.hashchain import (
-    GENESIS_HASH,
-    HASH_ALGORITHM,
-    BaseHashChain,
-    ChainVerifyResult,
-    HashChainEntry,
-    NullHashChain,
-)
+from app.audit.hashchain import GENESIS_HASH, HASH_ALGORITHM, BaseHashChain, ChainVerifyResult, HashChainEntry
+from app.audit.null import NullHashChain
 from app.core.base import BaseObject
 from app.core.capability import BaseCapability, BaseNullObject
 from app.main import create_app

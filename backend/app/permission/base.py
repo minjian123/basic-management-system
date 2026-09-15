@@ -3,7 +3,6 @@
 - `BasePermissionChecker`：能力域中间层契约（`key = "permission"`）——`check` 判定权限码、
   `require` 强制校验（失败抛 `PermissionError`，30001 / 403）；与数据侧 `DataScope` 分工
   （权限码校验 vs 数据范围过滤）。
-- `NullPermissionChecker`：占位实现，**恒定允许**（不读权限数据），未接入 RBAC 时使用。
 - `get_permission_checker` / `require_permission`：依赖注入提供者与 FastAPI 依赖工厂；
   公共依赖经 `app/api/deps.py` 统一导出。
 
@@ -16,7 +15,6 @@ from typing import cast
 
 from fastapi import Request
 
-from app.core.capability import BaseNullObject
 from app.core.exceptions import PermissionError
 from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
 
@@ -51,21 +49,6 @@ class BasePermissionChecker(BasePluggable, ABC):
         """
         if not self.check(code):
             raise PermissionError(f"缺少权限：{code}")
-
-
-class NullPermissionChecker(BasePermissionChecker, BaseNullObject):
-    """占位权限校验：恒定允许（不读权限数据，未接入 RBAC 时使用）。"""
-
-    def check(self, code: str) -> bool:
-        """恒定允许。
-
-        Args:
-            code: 权限码（占位不校验）。
-
-        Returns:
-            bool: True。
-        """
-        return True
 
 
 def get_permission_checker(request: Request) -> BasePermissionChecker:

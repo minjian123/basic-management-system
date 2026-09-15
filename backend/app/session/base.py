@@ -2,7 +2,6 @@
 
 - `DEFAULT_SESSION_TTL`：默认会话 TTL（秒，14 天，与 refresh token 对齐）。
 - `BaseSessionStore`：能力域中间层契约（`key = "session_store"`）——异步 `save` / `load` / `delete`。
-- `NullSessionStore`：占位实现——`save` / `delete` 空操作、`load` 返回占位会话（**不连 Redis**）。
 - `get_session_store`：依赖注入提供者（应用级单例；公共依赖经 `app/api/deps.py` 统一导出）。
 
 口径：`session_id` 对应架构「会话管理」的会话 id（真实 key `bms:{租户}:sess:{session_id}` 由实现拼接）；
@@ -16,13 +15,11 @@ from typing import cast
 
 from fastapi import Request
 
-from app.core.capability import BaseNullObject
 from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
 
 __all__ = [
     "DEFAULT_SESSION_TTL",
     "BaseSessionStore",
-    "NullSessionStore",
     "get_session_store",
 ]
 
@@ -71,43 +68,6 @@ class BaseSessionStore(BasePluggable, ABC):
 
         Args:
             session_id: 会话 id。
-        """
-
-
-class NullSessionStore(BaseSessionStore, BaseNullObject):
-    """占位会话存储：写入 / 删除空操作、读取返回占位会话（不连 Redis，未接入真实实现时使用）。"""
-
-    async def save(
-        self,
-        session_id: str,
-        payload: Mapping[str, object],
-        *,
-        ttl: int = DEFAULT_SESSION_TTL,
-    ) -> None:
-        """空操作（占位不写入）。
-
-        Args:
-            session_id: 会话 id（占位忽略）。
-            payload: 会话数据（占位忽略）。
-            ttl: 有效期（占位忽略）。
-        """
-
-    async def load(self, session_id: str) -> Mapping[str, object] | None:
-        """固定返回占位会话。
-
-        Args:
-            session_id: 会话 id（占位回显）。
-
-        Returns:
-            Mapping[str, object] | None: 占位会话（`{"session_id": session_id}`）。
-        """
-        return {"session_id": session_id}
-
-    async def delete(self, session_id: str) -> None:
-        """空操作（占位不删除）。
-
-        Args:
-            session_id: 会话 id（占位忽略）。
         """
 
 

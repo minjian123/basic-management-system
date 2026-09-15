@@ -5,7 +5,8 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.core.base import BaseObject
-from app.db.unit_of_work import DbUnitOfWork, NullUnitOfWork, UnitOfWork
+from app.db.null import NullUnitOfWork
+from app.db.unit_of_work import DbUnitOfWork, UnitOfWork
 
 
 @pytest.mark.kiwi_id(12)

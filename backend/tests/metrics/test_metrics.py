@@ -11,7 +11,8 @@ from app.core.base import BaseObject
 from app.core.capability import BaseCapability, BaseNullObject
 from app.fallback.base import DEPENDENCIES as FALLBACK_DEPENDENCIES
 from app.main import create_app
-from app.metrics.base import DEPENDENCIES, METRIC_KINDS, METRIC_NAMES, BaseMetrics, NullMetrics
+from app.metrics.base import DEPENDENCIES, METRIC_KINDS, METRIC_NAMES, BaseMetrics
+from app.metrics.null import NullMetrics
 
 
 @pytest.mark.kiwi_id(44)

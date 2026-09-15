@@ -3,7 +3,6 @@
 - `DEFAULT_TIMEOUT` / `DEFAULT_MAX_RETRIES`：默认超时（秒）与最大重试次数。
 - `HttpResponse`：响应数据契约（frozen）。
 - `BaseHttpClient`：能力域中间层契约（`key = "http_client"`）——异步 `request`（超时 / 重试 / 熔断由实现内部处理）。
-- `NullHttpClient`：占位实现——固定返回成功响应（**不外呼**）。
 - `get_http_client`：依赖注入提供者（应用级单例；公共依赖经 `app/api/deps.py` 统一导出）。
 """
 
@@ -15,7 +14,6 @@ from typing import cast
 from fastapi import Request
 
 from app.core.base import BaseObject
-from app.core.capability import BaseNullObject
 from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
 
 __all__ = [
@@ -23,7 +21,6 @@ __all__ = [
     "DEFAULT_TIMEOUT",
     "BaseHttpClient",
     "HttpResponse",
-    "NullHttpClient",
     "get_http_client",
 ]
 
@@ -78,33 +75,6 @@ class BaseHttpClient(BasePluggable, ABC):
         Returns:
             HttpResponse: 响应（状态码 / 头 / 字节内容）。
         """
-
-
-class NullHttpClient(BaseHttpClient, BaseNullObject):
-    """占位 HTTP 客户端：固定返回成功响应（不外呼，未接入真实实现时使用）。"""
-
-    async def request(
-        self,
-        method: str,
-        url: str,
-        *,
-        headers: Mapping[str, str] | None = None,
-        content: bytes | None = None,
-        timeout: int | None = None,
-    ) -> HttpResponse:
-        """恒定返回成功响应（不外呼）。
-
-        Args:
-            method: HTTP 方法（占位忽略）。
-            url: 目标地址（占位忽略）。
-            headers: 请求头（占位忽略）。
-            content: 请求体（占位忽略）。
-            timeout: 超时（占位忽略）。
-
-        Returns:
-            HttpResponse: 成功响应（`status_code=200`、空头 / 空 body）。
-        """
-        return HttpResponse(status_code=200, headers={}, content=b"")
 
 
 def get_http_client(request: Request) -> BaseHttpClient:

@@ -3,7 +3,6 @@
 - `CircuitState`：熔断状态枚举（`closed` 闭合放行 / `open` 断开快速失败 / `half_open` 半开探测）。
 - `BaseCircuitBreaker`：能力域中间层契约（`key = "circuit_breaker"`）——`allow` 放行判定 +
   `record_success` / `record_failure` 结果记录 + `state` 状态查询。
-- `NullCircuitBreaker`：占位实现，**恒定闭合**（`allow` 恒 True、`state` 恒 `closed`、记录为空操作）。
 - `get_circuit_breaker`：依赖注入提供者（应用级单例；公共依赖经 `app/api/deps.py` 统一导出）。
 
 与降级域分工：熔断回答「**要不要发这次调用**」（快速失败），降级回答「**失败后怎么办**」（动作选择）；
@@ -16,7 +15,6 @@ from typing import cast
 
 from fastapi import Request
 
-from app.core.capability import BaseNullObject
 from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
 from app.fallback.base import DEPENDENCIES
 
@@ -24,7 +22,6 @@ __all__ = [
     "DEPENDENCIES",
     "BaseCircuitBreaker",
     "CircuitState",
-    "NullCircuitBreaker",
     "get_circuit_breaker",
 ]
 
@@ -87,48 +84,6 @@ class BaseCircuitBreaker(BasePluggable, ABC):
         Returns:
             CircuitState: 熔断状态。
         """
-
-
-class NullCircuitBreaker(BaseCircuitBreaker, BaseNullObject):
-    """占位熔断器：**恒定闭合**（不计数、不熔断，未接入真实实现时使用）。"""
-
-    async def allow(self, dependency: str) -> bool:
-        """恒定放行。
-
-        Args:
-            dependency: 依赖标识（占位不区分）。
-
-        Returns:
-            bool: True。
-        """
-        return True
-
-    async def record_success(self, dependency: str) -> None:
-        """记录成功（占位空操作）。
-
-        Args:
-            dependency: 依赖标识（占位不区分）。
-        """
-        return None
-
-    async def record_failure(self, dependency: str) -> None:
-        """记录失败（占位空操作）。
-
-        Args:
-            dependency: 依赖标识（占位不区分）。
-        """
-        return None
-
-    async def state(self, dependency: str) -> CircuitState:
-        """恒定闭合。
-
-        Args:
-            dependency: 依赖标识（占位不区分）。
-
-        Returns:
-            CircuitState: `CircuitState.CLOSED`。
-        """
-        return CircuitState.CLOSED
 
 
 def get_circuit_breaker(request: Request) -> BaseCircuitBreaker:

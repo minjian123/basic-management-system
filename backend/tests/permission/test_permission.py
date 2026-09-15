@@ -10,12 +10,8 @@ from app.api.errors import register_exception_handlers
 from app.core.base import BaseObject
 from app.core.capability import BaseCapability, BaseNullObject
 from app.core.exceptions import PermissionError
-from app.permission.base import (
-    BasePermissionChecker,
-    NullPermissionChecker,
-    get_permission_checker,
-    require_permission,
-)
+from app.permission.base import BasePermissionChecker, get_permission_checker, require_permission
+from app.permission.null import NullPermissionChecker
 
 
 class DenyChecker(BasePermissionChecker):

@@ -3,7 +3,6 @@
 - `BaseMasker`：能力域中间层契约（`key = "masking"`）——字段注册（`register`）+ 掩码（`mask`）
   + 明文还原（`reveal`）；「持 `data:plain` 权限方可看明文」由基座内 `check_plain()` **单点判定**
   （权限检查器构造注入），调用方不传权限参数。
-- `NullMasker`：占位实现，`mask` / `reveal` **原样返回**（不掩码、不解密），注册照常登记。
 - `get_masker`：依赖注入提供者——取应用级掩码器并把掩码器写入 `current_masker` 上下文变量
   （请求结束复位），供 `BaseSchema` 序列化期取用；公共依赖经 `app/api/deps.py` 统一导出。
 """
@@ -16,7 +15,6 @@ from typing import cast
 from fastapi import Request
 
 from app.core.base import BaseObject
-from app.core.capability import BaseNullObject
 from app.core.context import reset_current_masker, set_current_masker
 from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
 from app.permission.base import BasePermissionChecker
@@ -116,34 +114,6 @@ class BaseMasker(BasePluggable, ABC):
         Returns:
             object: 持 `data:plain` 时为明文，否则为掩码值。
         """
-
-
-class NullMasker(BaseMasker, BaseNullObject):
-    """占位脱敏：原样返回（不掩码、不解密，未接入真实规则时使用）。"""
-
-    def mask(self, field: str, value: object) -> object:
-        """原样返回（占位不掩码）。
-
-        Args:
-            field: 字段名（占位不区分）。
-            value: 原始值。
-
-        Returns:
-            object: 传入值本身。
-        """
-        return value
-
-    def reveal(self, field: str, value: object) -> object:
-        """原样返回（占位不解密）。
-
-        Args:
-            field: 字段名（占位不区分）。
-            value: 存储值。
-
-        Returns:
-            object: 传入值本身。
-        """
-        return value
 
 
 async def get_masker(request: Request) -> AsyncIterator[BaseMasker]:
