@@ -12,7 +12,7 @@ from app.archive.base import ARCHIVE_LOCATIONS, ArchiveResult, BaseArchivePolicy
 from app.archive.null import NullArchivePolicy, NullArchiveQueryRouter
 from app.core.base import BaseObject
 from app.core.capability import BaseCapability, BaseNullObject
-from app.main import create_app
+from app.main import create_app, lifespan
 
 
 @pytest.mark.kiwi_id(58)
@@ -70,29 +70,30 @@ def test_null_router_online() -> None:
 async def test_dependency_providers_resolve() -> None:
     """依赖解析：应用装配两占位单例；路由经两提供者取到同一实例。"""
     app = create_app()
-    assert isinstance(app.state.archive_policy, NullArchivePolicy)
-    assert isinstance(app.state.archive_query_router, NullArchiveQueryRouter)
+    async with lifespan(app):
+        assert isinstance(app.state.archive_policy, NullArchivePolicy)
+        assert isinstance(app.state.archive_query_router, NullArchiveQueryRouter)
 
-    @app.get("/archive-probe")
-    async def probe(  # pyright: ignore[reportUnusedFunction]
-        policy: Annotated[BaseArchivePolicy, Depends(get_archive_policy)],
-        router: Annotated[BaseArchiveQueryRouter, Depends(get_archive_query_router)],
-    ) -> dict[str, object]:
-        result = await policy.archive([])
-        return {
-            "policy_key": policy.key,
-            "archived": result.archived,
-            "router_key": router.key,
-            "loc": router.resolve(table="t"),
+        @app.get("/archive-probe")
+        async def probe(  # pyright: ignore[reportUnusedFunction]
+            policy: Annotated[BaseArchivePolicy, Depends(get_archive_policy)],
+            router: Annotated[BaseArchiveQueryRouter, Depends(get_archive_query_router)],
+        ) -> dict[str, object]:
+            result = await policy.archive([])
+            return {
+                "policy_key": policy.key,
+                "archived": result.archived,
+                "router_key": router.key,
+                "loc": router.resolve(table="t"),
+            }
+
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            resp = await client.get("/archive-probe")
+
+        assert resp.status_code == 200
+        assert resp.json() == {
+            "policy_key": "archive_policy",
+            "archived": 0,
+            "router_key": "archive_query_router",
+            "loc": "online",
         }
-
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        resp = await client.get("/archive-probe")
-
-    assert resp.status_code == 200
-    assert resp.json() == {
-        "policy_key": "archive_policy",
-        "archived": 0,
-        "router_key": "archive_query_router",
-        "loc": "online",
-    }

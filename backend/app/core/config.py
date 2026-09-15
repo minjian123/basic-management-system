@@ -169,6 +169,16 @@ class CorsSettings(BaseSettings):
     allow_credentials: bool = True
 
 
+class PluginSelection(BaseSettings):
+    """能力实现选择：`provider` + 非敏感 `options`（密钥只走 Secret / 环境变量）。"""
+
+    provider: str = ""
+    """实现名（空串 / 未配置 → 解析到 `null` 缺省实现）。"""
+
+    options: dict[str, object] = Field(default_factory=dict[str, object])
+    """非敏感选项（键位由各实现解读；密钥不入配置 / 不入日志）。"""
+
+
 def _config_dir() -> Path:
     """配置目录（默认 backend/ 根；测试可 monkeypatch）。
 
@@ -273,6 +283,43 @@ class Settings(PydanticBaseSettings, BaseSettings):  # pyright: ignore[reportInc
     minio: MinioSettings = Field(default_factory=MinioSettings)
     security: SecuritySettings = Field(default_factory=SecuritySettings)
     cors: CorsSettings = Field(default_factory=CorsSettings)
+
+    # 能力实现选择（分区名 = plugin_key；`object_storage` 别名 `storage`；未列分区取默认 → null）
+    archive_policy: PluginSelection = Field(default_factory=PluginSelection)
+    archive_query_router: PluginSelection = Field(default_factory=PluginSelection)
+    captcha: PluginSelection = Field(default_factory=PluginSelection)
+    circuit_breaker: PluginSelection = Field(default_factory=PluginSelection)
+    dashboard_card_registry: PluginSelection = Field(default_factory=PluginSelection)
+    data_scope: PluginSelection = Field(default_factory=PluginSelection)
+    distributed_lock: PluginSelection = Field(default_factory=PluginSelection)
+    exporter: PluginSelection = Field(default_factory=PluginSelection)
+    fallback: PluginSelection = Field(default_factory=PluginSelection)
+    field_type_registry: PluginSelection = Field(default_factory=PluginSelection)
+    hash_chain: PluginSelection = Field(default_factory=PluginSelection)
+    http_client: PluginSelection = Field(default_factory=PluginSelection)
+    idempotency: PluginSelection = Field(default_factory=PluginSelection)
+    identity_provider: PluginSelection = Field(default_factory=PluginSelection)
+    importer: PluginSelection = Field(default_factory=PluginSelection)
+    llm_provider: PluginSelection = Field(default_factory=PluginSelection)
+    masking: PluginSelection = Field(default_factory=PluginSelection)
+    metrics: PluginSelection = Field(default_factory=PluginSelection)
+    notifier: PluginSelection = Field(default_factory=PluginSelection)
+    oauth_server: PluginSelection = Field(default_factory=PluginSelection)
+    password_policy: PluginSelection = Field(default_factory=PluginSelection)
+    permission: PluginSelection = Field(default_factory=PluginSelection)
+    query_provider_registry: PluginSelection = Field(default_factory=PluginSelection)
+    rate_limiter: PluginSelection = Field(default_factory=PluginSelection)
+    realtime_publisher: PluginSelection = Field(default_factory=PluginSelection)
+    replay_guard: PluginSelection = Field(default_factory=PluginSelection)
+    scope_checker: PluginSelection = Field(default_factory=PluginSelection)
+    search_index: PluginSelection = Field(default_factory=PluginSelection)
+    session_store: PluginSelection = Field(default_factory=PluginSelection)
+    sharding: PluginSelection = Field(default_factory=PluginSelection)
+    storage: PluginSelection = Field(default_factory=PluginSelection)
+    tracer: PluginSelection = Field(default_factory=PluginSelection)
+    translator: PluginSelection = Field(default_factory=PluginSelection)
+    webhook_sender: PluginSelection = Field(default_factory=PluginSelection)
+    workflow_engine: PluginSelection = Field(default_factory=PluginSelection)
 
     if TYPE_CHECKING:
         # 仅类型检查期：真实初始化由 pydantic-settings 从多源装配，运行时字段键由源提供；

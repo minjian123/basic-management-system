@@ -116,6 +116,20 @@ backend-typecheck:
   script:
     - cd backend && uv run pyright
 
+# ---- 后端：插件装配离线校验（复用装配清单与注册表语义；见 01-2-1 详细设计）----
+backend-plugins:
+  stage: lint
+  image: $REGISTRY_IMAGE_PREFIX/ci-backend:py314
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      exists:
+        - backend/pyproject.toml
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      exists:
+        - backend/pyproject.toml
+  script:
+    - cd backend && uv run python -m ops.check_plugins
+
 # ---- 后端：模块注册清单校验（复用 ModuleRegistry.validate；须以 -m 方式运行，直接跑脚本会 ModuleNotFoundError）----
 backend-modules:
   stage: lint

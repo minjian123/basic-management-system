@@ -15,7 +15,7 @@ from app.core.context import (
     reset_current_trace_id,
     set_current_trace_id,
 )
-from app.main import create_app
+from app.main import create_app, lifespan
 from app.tracing.base import (
     SPAN_ID_LENGTH,
     TRACE_ID_HEADER,
@@ -120,19 +120,20 @@ async def test_span_resets_on_exception() -> None:
 async def test_dependency_provider_resolves() -> None:
     """依赖解析：应用装配占位链路器；接口内 span 起的链路 id 与响应头一致。"""
     app = create_app()
-    assert isinstance(app.state.tracer, NullTracer)
+    async with lifespan(app):
+        assert isinstance(app.state.tracer, NullTracer)
 
-    @app.get("/trace-probe")
-    async def trace_probe(  # pyright: ignore[reportUnusedFunction]
-        tracer: Annotated[BaseTracer, Depends(get_tracer)],
-    ) -> dict[str, object]:
-        async with tracer.span("http.request"):
-            return {"key": tracer.key, "trace_id": current_trace_id()}
+        @app.get("/trace-probe")
+        async def trace_probe(  # pyright: ignore[reportUnusedFunction]
+            tracer: Annotated[BaseTracer, Depends(get_tracer)],
+        ) -> dict[str, object]:
+            async with tracer.span("http.request"):
+                return {"key": tracer.key, "trace_id": current_trace_id()}
 
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as http:
-        resp = await http.get("/trace-probe")
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as http:
+            resp = await http.get("/trace-probe")
 
-    assert resp.status_code == 200
-    body = resp.json()
-    assert body["key"] == "tracer"
-    assert body["trace_id"] == resp.headers[TRACE_ID_HEADER]
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["key"] == "tracer"
+        assert body["trace_id"] == resp.headers[TRACE_ID_HEADER]

@@ -8,7 +8,7 @@ from httpx import ASGITransport, AsyncClient
 
 from app.core.config import Settings, get_settings
 from app.core.context import current_client_ip, current_request_id, current_tenant, current_trace_id, current_user_id
-from app.main import create_app
+from app.main import create_app, lifespan
 
 
 @pytest.fixture(autouse=True)
@@ -47,7 +47,7 @@ def reset_request_context() -> Iterator[None]:
 
 @pytest.fixture
 async def client() -> AsyncIterator[AsyncClient]:
-    """ASGITransport 异步客户端夹具（每个用例独立应用实例）。"""
+    """ASGITransport 异步客户端夹具（每个用例独立应用实例，经 lifespan 装配）。"""
     app = create_app()
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+    async with lifespan(app), AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         yield c

@@ -10,7 +10,7 @@ from httpx import ASGITransport, AsyncClient
 from app.api.deps import get_notifier
 from app.core.base import BaseObject
 from app.core.capability import BaseCapability, BaseNullObject
-from app.main import create_app
+from app.main import create_app, lifespan
 from app.notify.base import NULL_MESSAGE_ID, BaseNotifier, NotificationMessage, NotifyChannel, SendResult
 from app.notify.null import NullNotifier
 
@@ -67,17 +67,18 @@ async def test_null_send_fixed_success() -> None:
 async def test_dependency_provider_resolves() -> None:
     """依赖解析：应用装配占位通知器；路由经 get_notifier 取到同一实例。"""
     app = create_app()
-    assert isinstance(app.state.notifier, NullNotifier)
+    async with lifespan(app):
+        assert isinstance(app.state.notifier, NullNotifier)
 
-    @app.get("/notify-probe")
-    async def probe(  # pyright: ignore[reportUnusedFunction]
-        notifier: Annotated[BaseNotifier, Depends(get_notifier)],
-    ) -> dict[str, object]:
-        result = await notifier.send(NotificationMessage(channel=NotifyChannel.INBOX, recipient="1", content="hi"))
-        return {"key": notifier.key, "type": type(notifier).__name__, "delivered": result.delivered}
+        @app.get("/notify-probe")
+        async def probe(  # pyright: ignore[reportUnusedFunction]
+            notifier: Annotated[BaseNotifier, Depends(get_notifier)],
+        ) -> dict[str, object]:
+            result = await notifier.send(NotificationMessage(channel=NotifyChannel.INBOX, recipient="1", content="hi"))
+            return {"key": notifier.key, "type": type(notifier).__name__, "delivered": result.delivered}
 
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        resp = await client.get("/notify-probe")
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            resp = await client.get("/notify-probe")
 
-    assert resp.status_code == 200
-    assert resp.json() == {"key": "notifier", "type": "NullNotifier", "delivered": True}
+        assert resp.status_code == 200
+        assert resp.json() == {"key": "notifier", "type": "NullNotifier", "delivered": True}

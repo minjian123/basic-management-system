@@ -13,7 +13,7 @@ from app.core.capability import BaseCapability, BaseNullObject
 from app.core.exceptions import NotFoundError
 from app.fieldtype.base import COLUMN_TYPE_DIALECTS, NULL_COLUMN_TYPE, BaseFieldType, BaseFieldTypeRegistry
 from app.fieldtype.null import NullFieldTypeRegistry
-from app.main import create_app
+from app.main import create_app, lifespan
 
 
 class _FakeFieldType(BaseFieldType):
@@ -107,17 +107,18 @@ def test_null_registry_fixed() -> None:
 async def test_dependency_provider_resolves() -> None:
     """依赖解析：应用装配占位注册表；路由经 get_field_type_registry 取到同一实例。"""
     app = create_app()
-    assert isinstance(app.state.field_type_registry, NullFieldTypeRegistry)
+    async with lifespan(app):
+        assert isinstance(app.state.field_type_registry, NullFieldTypeRegistry)
 
-    @app.get("/fieldtype-probe")
-    async def probe(  # pyright: ignore[reportUnusedFunction]
-        registry: Annotated[BaseFieldTypeRegistry, Depends(get_field_type_registry)],
-    ) -> dict[str, object]:
-        violations = registry.validate("text", "")
-        return {"key": registry.key, "type": type(registry).__name__, "violations": list(violations)}
+        @app.get("/fieldtype-probe")
+        async def probe(  # pyright: ignore[reportUnusedFunction]
+            registry: Annotated[BaseFieldTypeRegistry, Depends(get_field_type_registry)],
+        ) -> dict[str, object]:
+            violations = registry.validate("text", "")
+            return {"key": registry.key, "type": type(registry).__name__, "violations": list(violations)}
 
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        resp = await client.get("/fieldtype-probe")
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            resp = await client.get("/fieldtype-probe")
 
-    assert resp.status_code == 200
-    assert resp.json() == {"key": "field_type_registry", "type": "NullFieldTypeRegistry", "violations": []}
+        assert resp.status_code == 200
+        assert resp.json() == {"key": "field_type_registry", "type": "NullFieldTypeRegistry", "violations": []}

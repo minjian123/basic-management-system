@@ -78,6 +78,12 @@ secret_key = ""
 bucket = "bms"
 secure = false
 
+[storage]
+# 对象存储实现选择（插件化配置；空串解析到 null 占位实现；local / minio 随 04-1 落地）
+provider = ""
+# 非敏感选项（密钥一律经 BMS_STORAGE__OPTIONS__* 环境变量注入，不写入本文件）
+options = {}
+
 [security]
 # 安全（占位；真实实现随认证阶段）；secret_key 仅经环境变量注入
 secret_key = ""

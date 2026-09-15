@@ -12,7 +12,7 @@ from app.api.deps import get_query_provider_registry
 from app.core.base import BaseObject
 from app.core.capability import BaseCapability, BaseNullObject
 from app.core.exceptions import NotFoundError
-from app.main import create_app
+from app.main import create_app, lifespan
 from app.query.base import BaseQueryProvider, BaseQueryProviderRegistry, QueryResult
 from app.query.null import NullQueryProvider, NullQueryProviderRegistry
 
@@ -112,17 +112,18 @@ async def test_registry_template_resolution() -> None:
 async def test_dependency_provider_resolves() -> None:
     """依赖解析：应用装配占位注册表；路由经 get_query_provider_registry 取到同一实例。"""
     app = create_app()
-    assert isinstance(app.state.query_provider_registry, NullQueryProviderRegistry)
+    async with lifespan(app):
+        assert isinstance(app.state.query_provider_registry, NullQueryProviderRegistry)
 
-    @app.get("/query-probe")
-    async def probe(  # pyright: ignore[reportUnusedFunction]
-        registry: Annotated[BaseQueryProviderRegistry, Depends(get_query_provider_registry)],
-    ) -> dict[str, object]:
-        result = await registry.query("any", {})
-        return {"key": registry.key, "type": type(registry).__name__, "total": result.total}
+        @app.get("/query-probe")
+        async def probe(  # pyright: ignore[reportUnusedFunction]
+            registry: Annotated[BaseQueryProviderRegistry, Depends(get_query_provider_registry)],
+        ) -> dict[str, object]:
+            result = await registry.query("any", {})
+            return {"key": registry.key, "type": type(registry).__name__, "total": result.total}
 
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        resp = await client.get("/query-probe")
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            resp = await client.get("/query-probe")
 
-    assert resp.status_code == 200
-    assert resp.json() == {"key": "query_provider_registry", "type": "NullQueryProviderRegistry", "total": 0}
+        assert resp.status_code == 200
+        assert resp.json() == {"key": "query_provider_registry", "type": "NullQueryProviderRegistry", "total": 0}

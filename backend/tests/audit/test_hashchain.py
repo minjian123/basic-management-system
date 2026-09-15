@@ -13,7 +13,7 @@ from app.audit.hashchain import GENESIS_HASH, HASH_ALGORITHM, BaseHashChain, Cha
 from app.audit.null import NullHashChain
 from app.core.base import BaseObject
 from app.core.capability import BaseCapability, BaseNullObject
-from app.main import create_app
+from app.main import create_app, lifespan
 
 
 @pytest.mark.kiwi_id(57)
@@ -70,17 +70,18 @@ def test_null_verify_always_valid() -> None:
 async def test_dependency_provider_resolves() -> None:
     """依赖解析：应用装配占位哈希链；路由经 get_hash_chain 取到同一实例。"""
     app = create_app()
-    assert isinstance(app.state.hash_chain, NullHashChain)
+    async with lifespan(app):
+        assert isinstance(app.state.hash_chain, NullHashChain)
 
-    @app.get("/hash-chain-probe")
-    async def probe(  # pyright: ignore[reportUnusedFunction]
-        chain: Annotated[BaseHashChain, Depends(get_hash_chain)],
-    ) -> dict[str, object]:
-        digest = chain.compute(GENESIS_HASH, {"a": 1})
-        return {"key": chain.key, "type": type(chain).__name__, "digest": digest}
+        @app.get("/hash-chain-probe")
+        async def probe(  # pyright: ignore[reportUnusedFunction]
+            chain: Annotated[BaseHashChain, Depends(get_hash_chain)],
+        ) -> dict[str, object]:
+            digest = chain.compute(GENESIS_HASH, {"a": 1})
+            return {"key": chain.key, "type": type(chain).__name__, "digest": digest}
 
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        resp = await client.get("/hash-chain-probe")
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            resp = await client.get("/hash-chain-probe")
 
-    assert resp.status_code == 200
-    assert resp.json() == {"key": "hash_chain", "type": "NullHashChain", "digest": "null-record-hash"}
+        assert resp.status_code == 200
+        assert resp.json() == {"key": "hash_chain", "type": "NullHashChain", "digest": "null-record-hash"}

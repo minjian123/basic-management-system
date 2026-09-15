@@ -10,7 +10,7 @@ from httpx import ASGITransport, AsyncClient
 from app.api.deps import get_realtime_publisher
 from app.core.base import BaseObject
 from app.core.capability import BaseCapability, BaseNullObject
-from app.main import create_app
+from app.main import create_app, lifespan
 from app.ws.base import REALTIME_EVENTS, BaseRealtimePublisher, RealtimeEvent
 from app.ws.null import NullRealtimePublisher
 
@@ -62,17 +62,18 @@ async def test_null_publisher_noop() -> None:
 async def test_dependency_provider_resolves() -> None:
     """依赖解析：应用装配占位推送器；路由经 get_realtime_publisher 取到同一实例。"""
     app = create_app()
-    assert isinstance(app.state.realtime_publisher, NullRealtimePublisher)
+    async with lifespan(app):
+        assert isinstance(app.state.realtime_publisher, NullRealtimePublisher)
 
-    @app.get("/realtime-probe")
-    async def probe(  # pyright: ignore[reportUnusedFunction]
-        publisher: Annotated[BaseRealtimePublisher, Depends(get_realtime_publisher)],
-    ) -> dict[str, object]:
-        await publisher.emit(RealtimeEvent(event="notification.new", data={}, user_id="1"))
-        return {"key": publisher.key, "type": type(publisher).__name__}
+        @app.get("/realtime-probe")
+        async def probe(  # pyright: ignore[reportUnusedFunction]
+            publisher: Annotated[BaseRealtimePublisher, Depends(get_realtime_publisher)],
+        ) -> dict[str, object]:
+            await publisher.emit(RealtimeEvent(event="notification.new", data={}, user_id="1"))
+            return {"key": publisher.key, "type": type(publisher).__name__}
 
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        resp = await client.get("/realtime-probe")
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            resp = await client.get("/realtime-probe")
 
-    assert resp.status_code == 200
-    assert resp.json() == {"key": "realtime_publisher", "type": "NullRealtimePublisher"}
+        assert resp.status_code == 200
+        assert resp.json() == {"key": "realtime_publisher", "type": "NullRealtimePublisher"}
