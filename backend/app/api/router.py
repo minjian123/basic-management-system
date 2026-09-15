@@ -2,11 +2,12 @@
 
 from fastapi import APIRouter
 
-from app.api import demo, health, modules
+from app.api import demo, health, modules, plugins
 
 api_router = APIRouter()
 api_router.include_router(demo.router)
 api_router.include_router(modules.router)
+api_router.include_router(plugins.router)
 
 health_router = APIRouter()
 health_router.include_router(health.router)

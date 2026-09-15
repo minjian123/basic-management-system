@@ -286,6 +286,7 @@ async def assemble_plugins(app: FastAPI, settings: Settings, resources: Resource
         if wiring.state_attr:
             setattr(app.state, wiring.state_attr, instance)
         providers[wiring.plugin_key] = provider or NULL_PLUGIN_NAME
+    app.state.plugin_providers = providers
     _LOGGER.info("插件装配完成", providers=providers)
     return providers
 
