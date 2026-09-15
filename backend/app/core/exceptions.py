@@ -118,6 +118,19 @@ class ConfigError(BizError):
         super().__init__(ErrorCode.CONFIG, message, http_status=500, data=data)
 
 
+class PluginError(ConfigError):
+    """插件注册 / 构建校验失败（启动期致命；错误码 `40002`）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化插件异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.PLUGIN, message, http_status=500, data=data)
+
+
 class OpenTenantError(BizError):
     """开放 / 租户 / SSO 段（`8xxxx`）异常基类。"""
 
