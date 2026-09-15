@@ -50,7 +50,7 @@
         </div>
       </div>
 
-      <div class="dp-state" style="margin-top:14px">只读：不接收 modelValue、不参与校验；需要交互时组合 交互片段 交互基类
+      <div class="dp-state" style="margin-top:14px">只读：不接收 modelValue、不参与校验；需要交互时组合 交互片段
 空值判定：null / undefined / '' / [] / {} 统一占位「{{ emptyText }}」，但 0 与 false 不为空
 空值 vs 空状态：单元格空值用占位（本层），整块无数据用「05 展示类 05 异常与空状态」
 本层不含值格式化（金额/日期/枚举文本 → 受控值片段 + 04-03），展示域细化在 展示域基类（组合本层 + useValue）</div>
