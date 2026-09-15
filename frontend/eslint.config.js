@@ -14,5 +14,10 @@ export default tseslint.config(
     files: ['**/*.vue'],
     languageOptions: { parserOptions: { parser: tseslint.parser } },
   },
+  {
+    name: 'app/node-scripts',
+    files: ['scripts/**/*.mjs'],
+    languageOptions: { globals: { console: 'readonly', URL: 'readonly' } },
+  },
   skipFormatting,
 )

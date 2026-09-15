@@ -14,7 +14,7 @@
 6. 报告与 README 就位（报告章节齐备；四份 README 关键命令与导航存在）
 7. 记录齐备（已完成任务目录存在 `实施/`，有嵌套时容许子目录承担）
 8. Kiwi 用例编号引用（任务测试记录均含 Kiwi 字段）
-9. 微服务重评触发条件复核（打印 T1~T8 供人工判断；档案《微服务 · 10 项目评估》）
+9. 架构重评触发条件复核（打印微服务 T1~T8 与微前端 F1~F8 供人工判断；档案《微服务 · 10 项目评估》《微前端 · 06 项目评估》）
 
 用法::
 
@@ -40,7 +40,7 @@ REQ_META_RE = re.compile(r"^优先级：\S+（[^）]*）\u3000\|\u3000状态：(
 TASK_META_RE = re.compile(r"^\|\s*状态\s*\|\s*(\S+?)\s*\|")
 ROW_RE = re.compile(r"^\|(?P<cells>.*)\|\s*$")
 
-# 微服务重评触发条件（《微服务 · 10 项目评估》§7；人工逐条判断，脚本只提醒不判定）
+# 架构重评触发条件（微服务《10 项目评估》§7 T1~T8；微前端《06 项目评估》§7 F1~F8；人工判断，脚本只提醒不判定）
 MICROSERVICE_TRIGGERS = (
     "T1 团队规模（≥ 5~8 人且需独立交付节奏）",
     "T2 领域边界稳定（≥ 2~3 个大阶段未调整）",
@@ -50,6 +50,18 @@ MICROSERVICE_TRIGGERS = (
     "T6 隔离/合规（物理隔离要求且独立服务出口不满足）",
     "T7 运维能力（有专职平台/运维角色且 CD/可观测/编排达到前提）",
     "T8 性能证据（瓶颈在非可拆模块内部）",
+
+)
+
+MICRO_FRONTEND_TRIGGERS = (
+    "F1 团队规模（前端/产品出现 ≥ 2~3 个独立交付节奏的团队）",
+    "F2 技术异构（确有团队需要不同框架/技术栈或旧栈接续）",
+    "F3 独立发布（产品前端需独立于平台发版且构建期合并无法满足）",
+    "F4 性能/体积（首屏体积或构建时长成为瓶颈）",
+    "F5 隔离/嵌入（需嵌入第三方不可信前端，先评估 iframe）",
+    "F6 多形态差异（PC/H5/大屏/门户共存，先评估 BFF）",
+    "F7 治理就绪（设计系统、体积预算、按模块归因与契约测试就绪）",
+    "F8 试点验证（Module Federation 试点证明收益 > 代价）",
 )
 
 
@@ -230,12 +242,12 @@ def check_kiwi(stage_dir: Path) -> Check:
     )
 
 
-def check_microservice_triggers() -> Check:
-    """微服务重评触发条件提醒：打印 T1~T8 供人工逐条判断（脚本不作自动判定）。"""
+def check_review_triggers() -> Check:
+    """架构重评触发条件提醒：打印微服务 T1~T8 与微前端 F1~F8 供人工逐条判断（脚本不作自动判定）。"""
     return Check(
-        "微服务重评触发条件复核（人工）",
+        "架构重评触发条件复核（人工）",
         True,
-        "T1~T8 见知识档案《微服务 · 10 项目评估》§7；本项为提醒，不自动判定",
+        "T1~T8（微服务）与 F1~F8（微前端）见知识档案对应评估篇；本项为提醒，不自动判定",
     )
 
 
@@ -263,7 +275,7 @@ def main(argv: list[str] | None = None) -> int:
         check_deliverables(root, stage_dir),
         check_records(stage_dir),
         check_kiwi(stage_dir),
-        check_microservice_triggers(),
+        check_review_triggers(),
     ]
 
     print(f"== 阶段末复盘清单（{args.stage}）==")
@@ -271,8 +283,12 @@ def main(argv: list[str] | None = None) -> int:
         print(f"[{idx}/{len(checks)}] {'通过' if item.passed else '不通过'} {item.name}：{item.evidence}")
     failed = [item for item in checks if not item.passed]
     print(f"\n汇总：{len(checks) - len(failed)}/{len(checks)} 通过" + ("；不通过项见上" if failed else "（全部通过）"))
-    print("\n微服务重评触发条件（逐条人工判断，见知识档案《微服务 · 10 项目评估》§7）：")
+    print("\n架构重评触发条件（逐条人工判断）：")
+    print("微服务（见知识档案《微服务 · 10 项目评估》§7）：")
     for trigger in MICROSERVICE_TRIGGERS:
+        print(f"  - {trigger}")
+    print("微前端（见知识档案《微前端 · 06 项目评估》§7）：")
+    for trigger in MICRO_FRONTEND_TRIGGERS:
         print(f"  - {trigger}")
     return 1 if failed else 0
 
