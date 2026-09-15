@@ -26,6 +26,9 @@ class _FakeFieldType(BaseFieldType):
     def key(self) -> str:
         return self._key
 
+    def describe(self) -> str:
+        return f"测试字段类型 {self._key}"
+
     def validate(self, value: object, *, options: Mapping[str, object] | None = None) -> tuple[str, ...]:
         return () if value else ("required",)
 

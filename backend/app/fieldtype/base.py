@@ -16,10 +16,10 @@ from typing import cast
 
 from fastapi import Request
 
-from app.core.base import BaseObject
 from app.core.config import Settings
 from app.core.exceptions import NotFoundError
 from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
+from app.core.provider import BaseProvider
 
 __all__ = [
     "COLUMN_TYPE_DIALECTS",
@@ -36,13 +36,8 @@ NULL_COLUMN_TYPE = "varchar(255)"
 """占位列类型（NullFieldTypeRegistry.column_type 固定返回）。"""
 
 
-class BaseFieldType(BaseObject, ABC):
+class BaseFieldType(BaseProvider, ABC):
     """字段类型提供者契约：校验 / 渲染元数据 / 类型映射。"""
-
-    @property
-    @abstractmethod
-    def key(self) -> str:
-        """字段类型标识（注册表以 key 解析；如 `text` / `number` / `date` / `select`）。"""
 
     @abstractmethod
     def validate(self, value: object, *, options: Mapping[str, object] | None = None) -> tuple[str, ...]:

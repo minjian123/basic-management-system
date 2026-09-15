@@ -23,6 +23,14 @@ class NullQueryProvider(BaseQueryProvider, BaseNullObject):
         """
         return "null_query_provider"
 
+    def describe(self) -> str:
+        """元信息描述。
+
+        Returns:
+            str: 占位提供者说明。
+        """
+        return f"查询提供者 {self.key}（占位实现）"
+
     async def query(self, params: Mapping[str, object]) -> QueryResult:
         """恒定返回空结果。
 

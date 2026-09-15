@@ -16,10 +16,10 @@ from typing import cast
 
 from fastapi import Request
 
-from app.core.base import BaseObject
 from app.core.config import Settings
 from app.core.exceptions import NotFoundError
 from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
+from app.core.provider import BaseProvider
 
 __all__ = [
     "CARD_TYPES",
@@ -32,13 +32,8 @@ CARD_TYPES: tuple[str, ...] = ("builtin", "dataset")
 """卡片类型（双轨制：内置功能卡 / 数据集图表卡）；占位期仅登记不校验。"""
 
 
-class BaseDashboardCardProvider(BaseObject, ABC):
+class BaseDashboardCardProvider(BaseProvider, ABC):
     """卡片提供者契约：元数据 + 取数。"""
-
-    @property
-    @abstractmethod
-    def key(self) -> str:
-        """卡片标识（注册表以 key 解析；如 `todo` / `notice` / `stats` / `dataset:{id}`）。"""
 
     @abstractmethod
     def metadata(self) -> Mapping[str, object]:

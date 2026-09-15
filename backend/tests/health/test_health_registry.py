@@ -35,8 +35,11 @@ class _PassingCheck(BaseHealthCheck):
         self.finished_at: float | None = None
 
     @property
-    def name(self) -> str:
+    def key(self) -> str:
         return self._name
+
+    def describe(self) -> str:
+        return f"通过检查项 {self._name}"
 
     async def check(self) -> HealthCheckResult:
         self.started_at = time.monotonic()
@@ -50,11 +53,14 @@ class _FailingCheck(BaseHealthCheck):
     """测试用未通过检查项。"""
 
     @property
-    def name(self) -> str:
+    def key(self) -> str:
         return "redis"
 
+    def describe(self) -> str:
+        return "未通过检查项 redis"
+
     async def check(self) -> HealthCheckResult:
-        return HealthCheckResult(name=self.name, ok=False, error="ConnectionError")
+        return HealthCheckResult(name=self.key, ok=False, error="ConnectionError")
 
 
 class _RaisingCheck(BaseHealthCheck):
@@ -64,8 +70,11 @@ class _RaisingCheck(BaseHealthCheck):
         self._name = name
 
     @property
-    def name(self) -> str:
+    def key(self) -> str:
         return self._name
+
+    def describe(self) -> str:
+        return f"抛错检查项 {self._name}"
 
     async def check(self) -> HealthCheckResult:
         raise RuntimeError("探针异常")

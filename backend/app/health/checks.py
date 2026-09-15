@@ -30,9 +30,17 @@ class RedisHealthCheck(BaseHealthCheck, BaseAsyncResource):
         self._client: Redis | None = None
 
     @property
-    def name(self) -> str:
-        """检查项名称（取 `DEPENDENCIES` 的 `redis`）。"""
+    def key(self) -> str:
+        """检查项键（取 `DEPENDENCIES` 的 `redis`）。"""
         return "redis"
+
+    def describe(self) -> str:
+        """元信息描述。
+
+        Returns:
+            str: 检查项说明。
+        """
+        return f"Redis 健康检查（{self.key}）"
 
     async def check(self) -> HealthCheckResult:
         """执行 `PING` 探测。
@@ -45,7 +53,7 @@ class RedisHealthCheck(BaseHealthCheck, BaseAsyncResource):
             client = Redis.from_url(self._url)  # pyright: ignore[reportUnknownMemberType]
             self._client = client
         await client.ping()  # pyright: ignore[reportUnknownMemberType]
-        return HealthCheckResult(name=self.name, ok=True)
+        return HealthCheckResult(name=self.key, ok=True)
 
     async def aclose(self) -> None:
         """关闭 Redis 客户端（幂等，随应用生命周期调用）。"""
@@ -66,9 +74,17 @@ class DatabaseHealthCheck(BaseHealthCheck):
         self._registry = registry
 
     @property
-    def name(self) -> str:
-        """检查项名称（取 `DEPENDENCIES` 的 `database`）。"""
+    def key(self) -> str:
+        """检查项键（取 `DEPENDENCIES` 的 `database`）。"""
         return "database"
+
+    def describe(self) -> str:
+        """元信息描述。
+
+        Returns:
+            str: 检查项说明。
+        """
+        return f"数据库健康检查（{self.key}）"
 
     async def check(self) -> HealthCheckResult:
         """执行平台库连通性探测。
@@ -79,4 +95,4 @@ class DatabaseHealthCheck(BaseHealthCheck):
         engine = await self._registry.get(PLATFORM_DB_KEY)
         async with engine.connect() as connection:
             await connection.execute(text("SELECT 1"))
-        return HealthCheckResult(name=self.name, ok=True)
+        return HealthCheckResult(name=self.key, ok=True)

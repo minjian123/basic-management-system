@@ -27,6 +27,9 @@ class _FakeProvider(BaseQueryProvider):
     def key(self) -> str:
         return self._key
 
+    def describe(self) -> str:
+        return f"测试查询提供者 {self._key}"
+
     async def query(self, params: Mapping[str, object]) -> QueryResult:
         return QueryResult(rows=({"provider": self._key, "arg": params.get("x")},), total=1)
 

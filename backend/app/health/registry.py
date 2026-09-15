@@ -34,12 +34,12 @@ class HealthCheckRegistry(BaseHealthCheckRegistry):
 
     @classmethod
     def _provider_key(cls, provider: BaseHealthCheck) -> str:
-        """注册项键：检查项 `name`。
+        """注册项键：检查项 `key`。
 
         Args:
             provider: 检查项。
 
         Returns:
-            str: 检查项名称。
+            str: 检查项键。
         """
-        return provider.name
+        return provider.key

@@ -58,8 +58,11 @@ class _NamedCheck(BaseHealthCheck):
         self._name = name
 
     @property
-    def name(self) -> str:
+    def key(self) -> str:
         return self._name
+
+    def describe(self) -> str:
+        return f"测试检查项 {self._name}"
 
     async def check(self) -> HealthCheckResult:
         return HealthCheckResult(name=self._name, ok=True)

@@ -26,6 +26,9 @@ class _FakeCard(BaseDashboardCardProvider):
     def key(self) -> str:
         return self._key
 
+    def describe(self) -> str:
+        return f"测试卡片提供者 {self._key}"
+
     def metadata(self) -> Mapping[str, object]:
         return {"name": self._key, "card_type": "builtin", "render_key": self._key}
 
