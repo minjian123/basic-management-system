@@ -7,14 +7,13 @@ from app.cache.base import CacheRegion
 from app.core.capability import (
     BaseAsyncResource,
     BaseCapability,
-    BaseEventWorker,
     BaseNullObject,
     BasePlaceholder,
     BaseStub,
 )
 from app.core.config import Settings
 from app.db.engine import EngineFactory
-from app.events.base import EventConsumer, EventPublisher
+from app.events.base import BaseEventWorker, EventConsumer, EventPublisher
 from app.scope.base import DataScope, NullDataScope
 from app.sharding.base import ShardingRouter
 from app.tasks.base import BaseTask

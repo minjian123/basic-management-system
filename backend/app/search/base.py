@@ -20,7 +20,8 @@ from typing import cast
 from fastapi import Request
 
 from app.core.base import BaseObject
-from app.core.capability import BaseCapability, BaseNullObject
+from app.core.capability import BaseNullObject
+from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
 
 __all__ = [
     "DEFAULT_SEARCH_SIZE",
@@ -104,10 +105,13 @@ class SearchResult(BaseObject):
     """命中总数。"""
 
 
-class BaseSearchIndex(BaseCapability, ABC):
+class BaseSearchIndex(BasePluggable, ABC):
     """全文检索契约：写入 / 删除 / 检索（租户隔离与数据权限过滤由实现强制注入）。"""
 
     key: str = "search_index"
+    plugin_key: str = "search_index"
+    plugin_name: str = NULL_PLUGIN_NAME
+    contract_version: str = DEFAULT_CONTRACT_VERSION
 
     @abstractmethod
     async def index(self, document: SearchDocument) -> None:

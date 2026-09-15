@@ -21,8 +21,9 @@ from typing import cast
 from fastapi import Request
 
 from app.core.base import BaseObject
-from app.core.capability import BaseCapability, BaseNullObject
+from app.core.capability import BaseNullObject
 from app.core.exceptions import RateLimitError
+from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
 
 RATE_KEY_PREFIX = "bms"
 """限流 key 前缀（与缓存 / 锁 key 同前缀）。"""
@@ -79,10 +80,13 @@ class RateLimitDecision(BaseObject):
     """窗口重置剩余秒数（回显 `X-RateLimit-Reset`）。"""
 
 
-class BaseRateLimiter(BaseCapability, ABC):
+class BaseRateLimiter(BasePluggable, ABC):
     """限流契约：按 key + 规则判定配额。"""
 
     key: str = "rate_limiter"
+    plugin_key: str = "rate_limiter"
+    plugin_name: str = NULL_PLUGIN_NAME
+    contract_version: str = DEFAULT_CONTRACT_VERSION
 
     @abstractmethod
     async def check(self, key: str, rule: RateLimitRule) -> RateLimitDecision:

@@ -16,7 +16,8 @@ from typing import cast
 from fastapi import Request
 
 from app.core.base import BaseObject
-from app.core.capability import BaseCapability, BaseNullObject
+from app.core.capability import BaseNullObject
+from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
 from app.transfer.base import ColumnSpec
 
 __all__ = [
@@ -53,10 +54,13 @@ class ImportResult(BaseObject):
     """错误回执。"""
 
 
-class BaseImporter(BaseCapability, ABC):
+class BaseImporter(BasePluggable, ABC):
     """导入契约：解析 / 行校验 / 错误回执。"""
 
     key: str = "importer"
+    plugin_key: str = "importer"
+    plugin_name: str = NULL_PLUGIN_NAME
+    contract_version: str = DEFAULT_CONTRACT_VERSION
 
     @abstractmethod
     async def parse(self, data: bytes, *, columns: Sequence[ColumnSpec]) -> tuple[Mapping[str, object], ...]:

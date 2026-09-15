@@ -16,7 +16,8 @@ from typing import cast
 
 from fastapi import Request
 
-from app.core.capability import BaseCapability, BaseNullObject
+from app.core.capability import BaseNullObject
+from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
 from app.fallback.base import DEPENDENCIES
 
 __all__ = [
@@ -41,10 +42,13 @@ class CircuitState(StrEnum):
     """半开：探测放行（成功则闭合、失败则回到断开）。"""
 
 
-class BaseCircuitBreaker(BaseCapability, ABC):
+class BaseCircuitBreaker(BasePluggable, ABC):
     """熔断契约：放行判定 + 结果记录 + 状态查询（基座不接管调用链）。"""
 
     key: str = "circuit_breaker"
+    plugin_key: str = "circuit_breaker"
+    plugin_name: str = NULL_PLUGIN_NAME
+    contract_version: str = DEFAULT_CONTRACT_VERSION
 
     @abstractmethod
     async def allow(self, dependency: str) -> bool:

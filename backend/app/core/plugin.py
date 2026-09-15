@@ -124,7 +124,9 @@ def _registration_key(impl_cls: type[BasePluggable]) -> str:
 
 
 def _registration_name(impl_cls: type[BasePluggable]) -> str:
-    """登记名：显式 `plugin_name` 优先；`BaseNullObject` 子类未显式时取 `null`；其余为空（不登记）。
+    """登记名：**类自身声明**的 `plugin_name` 优先；`BaseNullObject` 子类未声明时取 `null`；其余为空（不登记）。
+
+    端口基类声明的 `plugin_name`（缺省实现名）仅作契约文档值，不被具体子类继承生效。
 
     Args:
         impl_cls: `BasePluggable` 子类。
@@ -132,8 +134,9 @@ def _registration_name(impl_cls: type[BasePluggable]) -> str:
     Returns:
         str: 登记名；空串表示非插件实现（实工具类）。
     """
-    if impl_cls.plugin_name:
-        return impl_cls.plugin_name
+    declared = impl_cls.__dict__.get("plugin_name")
+    if isinstance(declared, str) and declared:
+        return declared
     if issubclass(impl_cls, BaseNullObject):
         return NULL_PLUGIN_NAME
     return ""

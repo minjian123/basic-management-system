@@ -16,14 +16,18 @@ from typing import cast
 
 from fastapi import Request
 
-from app.core.capability import BaseCapability, BaseNullObject
+from app.core.capability import BaseNullObject
 from app.core.exceptions import PermissionError
+from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
 
 
-class BasePermissionChecker(BaseCapability, ABC):
+class BasePermissionChecker(BasePluggable, ABC):
     """权限校验契约：权限码判定 + 强制校验。"""
 
     key: str = "permission"
+    plugin_key: str = "permission"
+    plugin_name: str = NULL_PLUGIN_NAME
+    contract_version: str = DEFAULT_CONTRACT_VERSION
 
     @abstractmethod
     def check(self, code: str) -> bool:

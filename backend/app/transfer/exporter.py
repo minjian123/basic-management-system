@@ -15,7 +15,8 @@ from typing import cast
 from fastapi import Request
 
 from app.core.base import BaseObject
-from app.core.capability import BaseCapability, BaseNullObject
+from app.core.capability import BaseNullObject
+from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
 from app.transfer.base import ColumnSpec
 
 __all__ = [
@@ -25,10 +26,13 @@ __all__ = [
 ]
 
 
-class BaseExporter(BaseCapability, ABC):
+class BaseExporter(BasePluggable, ABC):
     """导出契约：按列定义流式写出。"""
 
     key: str = "exporter"
+    plugin_key: str = "exporter"
+    plugin_name: str = NULL_PLUGIN_NAME
+    contract_version: str = DEFAULT_CONTRACT_VERSION
 
     @abstractmethod
     def export(

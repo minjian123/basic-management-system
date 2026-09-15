@@ -2,13 +2,16 @@
 
 from abc import ABC, abstractmethod
 
-from app.core.capability import BaseCapability
+from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
 
 
-class BaseTask(BaseCapability, ABC):
+class BaseTask(BasePluggable, ABC):
     """任务调度基座契约：名称 / 队列 / 执行体。"""
 
     key: str = "task"
+    plugin_key: str = "task"
+    plugin_name: str = NULL_PLUGIN_NAME
+    contract_version: str = DEFAULT_CONTRACT_VERSION
 
     queue: str = "default"
 

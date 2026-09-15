@@ -19,7 +19,8 @@ from typing import cast
 from fastapi import Request
 
 from app.core.base import BaseObject
-from app.core.capability import BaseCapability, BaseNullObject
+from app.core.capability import BaseNullObject
+from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
 
 __all__ = [
     "NULL_MESSAGE_ID",
@@ -85,10 +86,13 @@ class SendResult(BaseObject):
     """失败说明（可选）。"""
 
 
-class BaseNotifier(BaseCapability, ABC):
+class BaseNotifier(BasePluggable, ABC):
     """通知发送契约：按渠道统一发送。"""
 
     key: str = "notifier"
+    plugin_key: str = "notifier"
+    plugin_name: str = NULL_PLUGIN_NAME
+    contract_version: str = DEFAULT_CONTRACT_VERSION
 
     @abstractmethod
     async def send(self, message: NotificationMessage) -> SendResult:

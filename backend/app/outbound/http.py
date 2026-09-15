@@ -15,7 +15,8 @@ from typing import cast
 from fastapi import Request
 
 from app.core.base import BaseObject
-from app.core.capability import BaseCapability, BaseNullObject
+from app.core.capability import BaseNullObject
+from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
 
 __all__ = [
     "DEFAULT_MAX_RETRIES",
@@ -47,10 +48,13 @@ class HttpResponse(BaseObject):
     """响应体字节。"""
 
 
-class BaseHttpClient(BaseCapability, ABC):
+class BaseHttpClient(BasePluggable, ABC):
     """出站 HTTP 契约：统一请求（超时 / 重试 / 熔断由实现内部处理）。"""
 
     key: str = "http_client"
+    plugin_key: str = "http_client"
+    plugin_name: str = NULL_PLUGIN_NAME
+    contract_version: str = DEFAULT_CONTRACT_VERSION
 
     @abstractmethod
     async def request(

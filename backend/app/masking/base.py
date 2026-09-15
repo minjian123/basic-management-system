@@ -16,8 +16,9 @@ from typing import cast
 from fastapi import Request
 
 from app.core.base import BaseObject
-from app.core.capability import BaseCapability, BaseNullObject
+from app.core.capability import BaseNullObject
 from app.core.context import reset_current_masker, set_current_masker
+from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
 from app.permission.base import BasePermissionChecker
 
 MASK_STRATEGIES: tuple[str, ...] = ("phone", "id_card", "email", "bank_card", "name", "custom")
@@ -35,10 +36,13 @@ class MaskRule(BaseObject):
     strategy: str = "custom"
 
 
-class BaseMasker(BaseCapability, ABC):
+class BaseMasker(BasePluggable, ABC):
     """数据脱敏契约：字段注册 + 掩码 / 明文还原。"""
 
     key: str = "masking"
+    plugin_key: str = "masking"
+    plugin_name: str = NULL_PLUGIN_NAME
+    contract_version: str = DEFAULT_CONTRACT_VERSION
 
     def __init__(self, *, checker: BasePermissionChecker) -> None:
         """初始化脱敏基座。

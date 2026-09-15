@@ -18,8 +18,9 @@ from typing import cast
 from fastapi import Request
 
 from app.core.base import BaseObject
-from app.core.capability import BaseCapability, BaseNullObject
+from app.core.capability import BaseNullObject
 from app.core.exceptions import NotFoundError
+from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
 
 __all__ = [
     "CARD_TYPES",
@@ -61,10 +62,13 @@ class BaseDashboardCardProvider(BaseObject, ABC):
         """
 
 
-class BaseDashboardCardRegistry(BaseCapability, ABC):
+class BaseDashboardCardRegistry(BasePluggable, ABC):
     """卡片注册表契约：注册 / 解析 / 卡片集 + 元数据与取数聚合。"""
 
     key: str = "dashboard_card_registry"
+    plugin_key: str = "dashboard_card_registry"
+    plugin_name: str = NULL_PLUGIN_NAME
+    contract_version: str = DEFAULT_CONTRACT_VERSION
 
     @abstractmethod
     def register(self, provider: BaseDashboardCardProvider) -> None:

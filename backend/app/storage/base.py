@@ -19,7 +19,8 @@ from typing import cast
 from fastapi import Request
 
 from app.core.base import BaseObject
-from app.core.capability import BaseCapability, BaseNullObject
+from app.core.capability import BaseNullObject
+from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
 
 __all__ = [
     "DEFAULT_PRESIGN_TTL",
@@ -77,10 +78,13 @@ class PresignedUrl(BaseObject):
     """HTTP 方法。"""
 
 
-class BaseObjectStorage(BaseCapability, ABC):
+class BaseObjectStorage(BasePluggable, ABC):
     """对象存储契约：写入 / 读取 / 删除 / 存在判定 / 预签名。"""
 
     key: str = "object_storage"
+    plugin_key: str = "object_storage"
+    plugin_name: str = NULL_PLUGIN_NAME
+    contract_version: str = DEFAULT_CONTRACT_VERSION
 
     @abstractmethod
     async def put(self, key: str, data: bytes, *, content_type: str | None = None) -> StoredObject:

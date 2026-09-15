@@ -18,7 +18,8 @@ from typing import cast
 
 from fastapi import Request
 
-from app.core.capability import BaseCapability, BaseNullObject
+from app.core.capability import BaseNullObject
+from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
 
 IDEM_KEY_PREFIX = "bms"
 """幂等 key 前缀（与缓存 / 锁 key 同前缀）。"""
@@ -49,10 +50,13 @@ def build_idempotency_key(*, key: str, tenant: str | None = None) -> str:
     return f"{IDEM_KEY_PREFIX}:{tenant or GLOBAL_IDEM_SCOPE}:idem:{key}"
 
 
-class IdempotencyStore(BaseCapability, ABC):
+class IdempotencyStore(BasePluggable, ABC):
     """幂等存储契约：前置去重 + 首次结果复用。"""
 
     key: str = "idempotency"
+    plugin_key: str = "idempotency"
+    plugin_name: str = NULL_PLUGIN_NAME
+    contract_version: str = DEFAULT_CONTRACT_VERSION
 
     @abstractmethod
     async def begin(self, key: str, *, ttl: int = DEFAULT_IDEMPOTENCY_TTL) -> bool:

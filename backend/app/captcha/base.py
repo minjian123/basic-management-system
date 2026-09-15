@@ -19,7 +19,8 @@ from uuid import uuid4
 from fastapi import Request
 
 from app.core.base import BaseObject
-from app.core.capability import BaseCapability, BaseNullObject
+from app.core.capability import BaseNullObject
+from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
 
 CAPTCHA_KEY_PREFIX = "bms"
 """验证码 key 前缀（与缓存 key 同前缀）。"""
@@ -56,10 +57,13 @@ class CaptchaChallenge(BaseObject):
     scene: str = "login"
 
 
-class BaseCaptcha(BaseCapability, ABC):
+class BaseCaptcha(BasePluggable, ABC):
     """图形验证码契约：生成挑战与校验（真实实现经 Redis 存取）。"""
 
     key: str = "captcha"
+    plugin_key: str = "captcha"
+    plugin_name: str = NULL_PLUGIN_NAME
+    contract_version: str = DEFAULT_CONTRACT_VERSION
 
     @abstractmethod
     async def generate(self, scene: str = "login") -> CaptchaChallenge:

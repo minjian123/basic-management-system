@@ -27,7 +27,7 @@ from typing import cast
 from fastapi import Request
 
 from app.core.base import BaseObject
-from app.core.capability import BaseCapability, BaseNullObject
+from app.core.capability import BaseNullObject
 from app.core.context import (
     get_current_trace_id,
     reset_current_span_id,
@@ -35,6 +35,7 @@ from app.core.context import (
     set_current_span_id,
     set_current_trace_id,
 )
+from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
 
 __all__ = [
     "SPAN_ID_LENGTH",
@@ -100,10 +101,13 @@ class SpanContext(BaseObject):
     """span 属性（键值，贴 OTel `AttributeValue` 口径）。"""
 
 
-class BaseTracer(BaseCapability, ABC):
+class BaseTracer(BasePluggable, ABC):
     """链路契约：span 开启 / 结束 + 上下文贯穿。"""
 
     key: str = "tracer"
+    plugin_key: str = "tracer"
+    plugin_name: str = NULL_PLUGIN_NAME
+    contract_version: str = DEFAULT_CONTRACT_VERSION
 
     @abstractmethod
     async def start_span(

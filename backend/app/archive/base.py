@@ -21,7 +21,8 @@ from typing import cast
 from fastapi import Request
 
 from app.core.base import BaseObject
-from app.core.capability import BaseCapability, BaseNullObject
+from app.core.capability import BaseNullObject
+from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
 
 __all__ = [
     "ARCHIVE_LOCATIONS",
@@ -52,10 +53,13 @@ class ArchiveResult(BaseObject):
     """说明（可选）。"""
 
 
-class BaseArchivePolicy(BaseCapability, ABC):
+class BaseArchivePolicy(BasePluggable, ABC):
     """归档策略契约：条件判定 + 归档搬迁。"""
 
     key: str = "archive_policy"
+    plugin_key: str = "archive_policy"
+    plugin_name: str = NULL_PLUGIN_NAME
+    contract_version: str = DEFAULT_CONTRACT_VERSION
 
     @abstractmethod
     async def matches(self, record: Mapping[str, object], *, now: datetime | None = None) -> bool:
@@ -81,10 +85,13 @@ class BaseArchivePolicy(BaseCapability, ABC):
         """
 
 
-class BaseArchiveQueryRouter(BaseCapability, ABC):
+class BaseArchiveQueryRouter(BasePluggable, ABC):
     """归档查询路由契约：解析查询位置。"""
 
     key: str = "archive_query_router"
+    plugin_key: str = "archive_query_router"
+    plugin_name: str = NULL_PLUGIN_NAME
+    contract_version: str = DEFAULT_CONTRACT_VERSION
 
     @abstractmethod
     def resolve(self, *, table: str) -> str:

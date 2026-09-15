@@ -16,7 +16,8 @@ from typing import cast
 
 from fastapi import Request
 
-from app.core.capability import BaseCapability, BaseNullObject
+from app.core.capability import BaseNullObject
+from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
 
 __all__ = [
     "DEFAULT_SESSION_TTL",
@@ -29,10 +30,13 @@ DEFAULT_SESSION_TTL = 1209600
 """默认会话 TTL（秒，14 天，与 refresh token 有效期对齐）。"""
 
 
-class BaseSessionStore(BaseCapability, ABC):
+class BaseSessionStore(BasePluggable, ABC):
     """会话存储契约：写入 / 读取 / 删除。"""
 
     key: str = "session_store"
+    plugin_key: str = "session_store"
+    plugin_name: str = NULL_PLUGIN_NAME
+    contract_version: str = DEFAULT_CONTRACT_VERSION
 
     @abstractmethod
     async def save(
