@@ -13,15 +13,15 @@ class NullHealthCheckRegistry(BaseHealthCheckRegistry, BaseNullObject):
 
     @classmethod
     def _provider_key(cls, provider: BaseHealthCheck) -> str:
-        """注册项键：检查项 `name`（占位语义下不实际登记）。
+        """注册项键：检查项 `key`（占位语义下不实际登记）。
 
         Args:
             provider: 检查项。
 
         Returns:
-            str: 检查项名称。
+            str: 检查项键。
         """
-        return provider.name
+        return provider.key
 
     def register(self, provider: BaseHealthCheck) -> None:
         """空操作（占位不登记）。

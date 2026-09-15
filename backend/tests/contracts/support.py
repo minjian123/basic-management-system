@@ -74,6 +74,14 @@ class TextFieldType(BaseFieldType):
         """字段类型标识。"""
         return "text"
 
+    def describe(self) -> str:
+        """元信息描述。
+
+        Returns:
+            str: 字段类型说明。
+        """
+        return f"字段类型 {self.key}"
+
     def validate(self, value: object, *, options: Mapping[str, object] | None = None) -> tuple[str, ...]:
         """恒定通过。
 
@@ -116,6 +124,14 @@ class DictQueryProvider(BaseQueryProvider):
         """提供者标识。"""
         return "dict:user"
 
+    def describe(self) -> str:
+        """元信息描述。
+
+        Returns:
+            str: 查询提供者说明。
+        """
+        return f"查询提供者 {self.key}"
+
     async def query(self, params: Mapping[str, object]) -> QueryResult:
         """返回空结果。
 
@@ -136,6 +152,14 @@ class TodoCardProvider(BaseDashboardCardProvider):
     def key(self) -> str:
         """卡片标识。"""
         return "todo"
+
+    def describe(self) -> str:
+        """元信息描述。
+
+        Returns:
+            str: 卡片提供者说明。
+        """
+        return f"卡片提供者 {self.key}"
 
     def metadata(self) -> Mapping[str, object]:
         """卡片元数据。
@@ -288,9 +312,17 @@ class NamedCheck(BaseHealthCheck):
         self._delay = delay
 
     @property
-    def name(self) -> str:
-        """检查项名称。"""
+    def key(self) -> str:
+        """检查项键。"""
         return self._name
+
+    def describe(self) -> str:
+        """元信息描述。
+
+        Returns:
+            str: 检查项说明。
+        """
+        return f"健康检查项 {self._name}"
 
     async def check(self) -> HealthCheckResult:
         """执行检查（延迟 / 抛错 / 通过）。

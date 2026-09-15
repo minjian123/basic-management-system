@@ -21,6 +21,7 @@ from app.core.base import BaseObject
 from app.core.config import Settings
 from app.core.exceptions import NotFoundError
 from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
+from app.core.provider import BaseProvider
 
 __all__ = [
     "BaseQueryProvider",
@@ -41,13 +42,8 @@ class QueryResult(BaseObject):
     """结果总数。"""
 
 
-class BaseQueryProvider(BaseObject, ABC):
+class BaseQueryProvider(BaseProvider, ABC):
     """查询提供者契约：`key` + 只读查询。"""
-
-    @property
-    @abstractmethod
-    def key(self) -> str:
-        """提供者标识（注册表以 key 解析；如 `dict:user` / `dataset:xxx`）。"""
 
     @abstractmethod
     async def query(self, params: Mapping[str, object]) -> QueryResult:

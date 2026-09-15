@@ -25,8 +25,11 @@ class _PassingCheck(BaseHealthCheck):
         self._name = name
 
     @property
-    def name(self) -> str:
+    def key(self) -> str:
         return self._name
+
+    def describe(self) -> str:
+        return f"通过检查项 {self._name}"
 
     async def check(self) -> HealthCheckResult:
         return HealthCheckResult(name=self._name, ok=True)
@@ -39,8 +42,11 @@ class _FailingCheck(BaseHealthCheck):
         self._name = name
 
     @property
-    def name(self) -> str:
+    def key(self) -> str:
         return self._name
+
+    def describe(self) -> str:
+        return f"不可达检查项 {self._name}"
 
     async def check(self) -> HealthCheckResult:
         raise ConnectionError("redis://bms:secret@127.0.0.1:6379/0 连接失败")

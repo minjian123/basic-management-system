@@ -28,7 +28,7 @@ from fastapi import Request
 from app.core.base import BaseObject
 from app.core.config import Settings
 from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, resolve_plugin
-from app.core.registry import BaseProviderRegistry
+from app.core.provider import BaseProvider, BaseProviderRegistry
 from app.fallback.base import DEPENDENCIES
 
 __all__ = [
@@ -74,13 +74,22 @@ class HealthCheckReport(BaseObject):
     """各检查项结果（注册顺序，稳定）。"""
 
 
-class BaseHealthCheck(BaseObject, ABC):
-    """检查项契约：名称 + 异步检查。"""
+class BaseHealthCheck(BaseProvider, ABC):
+    """检查项契约：键 + 异步检查（`name` 为 `key` 的兼容别名，`/readyz` 与聚合报告口径不变）。"""
 
     @property
     @abstractmethod
+    def key(self) -> str:
+        """检查项键（依赖类检查项建议取 `DEPENDENCIES` 之一）。"""
+
+    @property
     def name(self) -> str:
-        """检查项名称（依赖类检查项建议取 `DEPENDENCIES` 之一）。"""
+        """检查项名称别名（等价 `key`）。
+
+        Returns:
+            str: 与 `key` 相同的检查项名称。
+        """
+        return self.key
 
     @abstractmethod
     async def check(self) -> HealthCheckResult:
