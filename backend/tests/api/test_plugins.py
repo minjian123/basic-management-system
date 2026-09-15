@@ -23,8 +23,12 @@ async def test_list_contract(client: AsyncClient) -> None:
     assert keys == sorted(keys)
     by_key = {str(group["plugin_key"]): group for group in groups}
     storage = by_key["object_storage"]
-    assert storage["provider"] == "null"
-    assert storage["implementations"] == [{"plugin_name": "null", "contract_version": "0.1.0", "status": "active"}]
+    assert storage["provider"] == "local"
+    assert storage["implementations"] == [
+        {"plugin_name": "local", "contract_version": "0.1.0", "status": "active"},
+        {"plugin_name": "minio", "contract_version": "0.1.0", "status": "registered"},
+        {"plugin_name": "null", "contract_version": "0.1.0", "status": "registered"},
+    ]
     health = by_key["health_check_registry"]
     assert health["provider"] == "local"
     items = cast("list[dict[str, str]]", health["implementations"])

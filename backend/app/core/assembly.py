@@ -196,7 +196,71 @@ def register_platform_plugins(settings: Settings, app: FastAPI, resources: Resou
         "local",
         _health_check_registry_factory(settings, app, resources),
     )
+    register_plugin("object_storage", "local", _local_storage_factory(settings))
+    register_plugin("object_storage", "minio", _minio_storage_factory(settings))
     _PREPARED_REGISTRIES.append(registry)
+
+
+def _local_storage_factory(settings: Settings) -> Callable[[], BaseObjectStorage]:
+    """构造本地文件系统存储工厂（根目录取 `[storage].options.root`，缺省 `var/storage`）。
+
+    Args:
+        settings: 应用配置。
+
+    Returns:
+        Callable[[], BaseObjectStorage]: 零参工厂。
+    """
+
+    def build() -> BaseObjectStorage:
+        """构造本地存储实例（延迟导入实现模块）。
+
+        Returns:
+            BaseObjectStorage: 本地文件系统实现。
+        """
+        from app.storage.local import DEFAULT_ROOT, LocalObjectStorage
+
+        root = settings.storage.options.get("root") or DEFAULT_ROOT
+        return LocalObjectStorage(root=cast("str", root))
+
+    return build
+
+
+def _minio_storage_factory(settings: Settings) -> Callable[[], BaseObjectStorage]:
+    """构造 MinIO 存储工厂（校验 SDK 依赖与端点 / 凭据齐备；不建连）。
+
+    Args:
+        settings: 应用配置。
+
+    Returns:
+        Callable[[], BaseObjectStorage]: 零参工厂；依赖缺失 / 配置不全时抛 `PluginError`。
+    """
+
+    def build() -> BaseObjectStorage:
+        """构造 MinIO 存储实例（依赖 / 配置校验在实例化前完成）。
+
+        Returns:
+            BaseObjectStorage: MinIO 实现。
+        """
+        try:
+            import_module("minio")
+        except ModuleNotFoundError as exc:
+            raise PluginError("minio 实现依赖未安装：uv sync --extra storage-minio") from exc
+        minio_settings = settings.minio
+        if not (minio_settings.endpoint and minio_settings.access_key and minio_settings.secret_key):
+            raise PluginError("minio 实现缺少端点 / 凭据配置（经 BMS_MINIO__* 环境变量注入）")
+        from app.storage.base import STORAGE_BUCKET
+        from app.storage.minio import MinioObjectStorage
+
+        bucket = settings.storage.options.get("bucket") or STORAGE_BUCKET
+        return MinioObjectStorage(
+            endpoint=minio_settings.endpoint,
+            access_key=minio_settings.access_key,
+            secret_key=minio_settings.secret_key,
+            bucket=cast("str", bucket),
+            secure=minio_settings.secure,
+        )
+
+    return build
 
 
 def _health_check_registry_factory(
