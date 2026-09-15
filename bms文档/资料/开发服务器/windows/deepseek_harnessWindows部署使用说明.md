@@ -132,7 +132,7 @@ pnpm run build
 | 一键更新 | `scripts/tools/dsh/dsh-update.sh`（桌面项） | 无，按第 5 节手动 |
 | 启停 | `dsh-web-start.sh` / `dsh-web-stop.sh` | 桌面「启动/停止 dsh web.cmd」 |
 | web 绑定 | 127.0.0.1（同） | 127.0.0.1（同，官方禁 0.0.0.0） |
-| 插件 bundle | free-vision / undo-savepoint / graphify 等 | 默认全新（按需 `dsh plugin add`） |
+| 插件 bundle | free-vision / undo-savepoint 等 | 默认全新（按需 `dsh plugin add`） |
 | 通用内容 | 插件/撤销/救援工具见 Linux 版第 8 节 | 同左（mjw 未装时先看再装） |
 
 ## 7. 排障（Windows 特有） <a id="faq"></a>

@@ -28,7 +28,7 @@ Python 包管理器与虚拟环境管理工具，用 Rust 编写，安装依赖�
 | uv add / uv remove | 增删依赖的命令，自动写入 pyproject.toml 并更新 uv.lock，无需手工编辑 |
 | uv run | 在项目虚拟环境中执行命令（`uv run pytest`），环境不存在时自动创建，免手动激活 |
 | uv python | Python 解释器管理：`uv python install 3.14` 直接下载安装指定版本，类似 pyenv |
-| uv tool | 全局工具安装（类似 pipx）：`uv tool install "graphifyy[chinese,openai]"` 装独立命令 |
+| uv tool | 全局工具安装（类似 pipx）：`uv tool install <包>[...extras]` 装独立命令 |
 | 虚拟环境（.venv） | 项目隔离的依赖目录，uv 默认创建在项目根下；与 CI 容器内行为一致 |
 | 内容寻址缓存 | uv 把下载的包缓存到全局目录，跨项目复用，重复安装几乎零成本 |
 | 构建后端 | 支持 PEP 517/518：安装本项目（`uv pip install -e .`）与安装第三方包走同一套标准 |
@@ -49,7 +49,7 @@ uv run pyright               # 在项目环境中跑类型检查
 ```
 
 - CI 流水线：MR 流水线用 `uv sync` 安装依赖后执行 ruff + pytest（见平台《项目规划说明》「部署与运维」节），与本地命令同源。
-- 全局工具安装：graphify 用 `uv tool install "graphifyy[chinese,openai]"` 安装（见《[graphify 技术介绍](graphify技术介绍.md)》）。
+- 全局工具安装：用 `uv tool install <包>[...extras]` 装独立命令行工具。
 
 ## 4. 选型对比 <a id="compare"></a>
 
@@ -65,7 +65,7 @@ uv run pyright               # 在项目环境中跑类型检查
 - **国内网络**：默认 PyPI 源在部分地区慢，可按项目规范配置国内镜像（清华 TUNA / 阿里云），配置写在环境变量或 `uv.toml` 中。
 - **不要与 pip 混用**：在 uv 管理的项目里手工 `pip install` 会绕过 uv.lock，导致环境与锁文件不一致，统一用 `uv add`。
 - **uv.lock 与 pyproject.toml 不同步**：改依赖一律走 `uv add/remove`；手工编辑 pyproject.toml 后需跑 `uv lock` 重新生成。
-- **extras 互顶**：`uv tool install` 安装带 extras 的包时，后装只带部分 extras 会顶掉之前的（graphify 实测踩过，见《[graphify 技术介绍](graphify技术介绍.md)》），重装必须一次列全。
+- **extras 互顶**：`uv tool install` 安装带 extras 的包时，后装只带部分 extras 会顶掉之前的，重装必须一次列全。
 - **Python 版本**：项目要求 Python 3.14+，用 `uv python install` 统一装解释器；若某核心依赖与 3.14 不兼容，按平台《项目规划说明》「后端核心」节口径整体回退 3.13。
 - **CI 提速**：runner 上启用 uv 缓存挂载可大幅缩短流水线依赖安装时间。
 
@@ -88,7 +88,6 @@ uv run pyright               # 在项目环境中跑类型检查
 | 《[ruff 技术介绍](ruff技术介绍.md)》 | 同厂工具，其配置即写在 pyproject.toml 的 [tool.ruff] |
 | 《[pyright 技术介绍](pyright技术介绍.md)》 | 类型检查，配置同样收进 pyproject.toml |
 | 《[pytest 技术介绍](pytest技术介绍.md)》 | 测试运行统一走 `uv run pytest` |
-| 《[graphify 技术介绍](graphify技术介绍.md)》 | 经 `uv tool install` 安装的全局工具示例 |
 | 《[FastAPI 技术介绍](../后端核心/FastAPI技术介绍.md)》 | 后端框架，其全部依赖由 uv 管理 |
 
 ---

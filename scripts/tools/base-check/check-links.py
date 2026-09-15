@@ -36,7 +36,7 @@ def strip_code(line):
 def check_links():
     n_file = n_anchor = 0
     for dp, dns, fs in os.walk(os.path.join(ROOT, "bms文档")):
-        dns[:] = [d for d in dns if d not in {".git", "graphify-out"}]
+        dns[:] = [d for d in dns if d not in {".git"}]
         for f in fs:
             if not f.endswith(".md"):
                 continue

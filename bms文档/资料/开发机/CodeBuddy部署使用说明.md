@@ -66,7 +66,7 @@ CodeBuddy 的用户数据分散在 **四个目录**（实测体积为 2026-09-12
 | --- | --- | --- | --- |
 | `~/.config/CodeBuddy CN/` | 131 MB | `User/settings.json`（**IDE 设置，含本文的权限开关**）、`History/`、`workspaceStorage/`、`logs/<时间戳>/`、`CrashReport/` | 与 VS Code 一致的用户数据布局 |
 | `~/.codebuddycn/` | 200 MB | `extensions/`（已装扩展 + `extensions.json`）、`argv.json`（持久启动参数） | 扩展宿主目录 |
-| `~/.codebuddy/` | 141 MB | `settings.json`（**插件启用登记**）、`mcp.json`（MCP server 登记）、`skills/`（AI 技能，含 graphify）、`plugins/`（插件市场）、`skills-marketplace/`（技能市场）、`inspiration/`、`logs/`、`diagnostics/` | CodeBuddy AI 侧配置（与 IDE 设置分开） |
+| `~/.codebuddy/` | 141 MB | `settings.json`（**插件启用登记**）、`mcp.json`（MCP server 登记）、`skills/`（AI 技能）、`plugins/`（插件市场）、`skills-marketplace/`（技能市场）、`inspiration/`、`logs/`、`diagnostics/` | CodeBuddy AI 侧配置（与 IDE 设置分开） |
 | `~/.local/share/CodeBuddyExtension/` | 71 MB | `Logs/CodeBuddyIDE/<日期>/<工作区>__<hash>.log`、会话与工作区缓存 | **对话与扩展运行日志**，排障首选 |
 
 清理建议：`History/`、`logs/`、`Logs/` 属可清缓存；`User/settings.json`、`~/.codebuddy/settings.json`、`argv.json` 属配置，勿随意删。
@@ -80,7 +80,7 @@ CodeBuddy 的用户数据分散在 **四个目录**（实测体积为 2026-09-12
 | 硬件加速 | `~/.codebuddycn/argv.json` → `disable-hardware-acceleration` | 注释态（未启用软件渲染） |
 | 插件启用 | `~/.codebuddy/settings.json` → `enabledPlugins` | 已启用官方插件：`pptx`、`pdf`、`docx`、`xlsx`、`agent-browser`、`playwright-cli`、`skills-sec-audit`、`find-skills` |
 | 插件/技能市场 | `~/.codebuddy/plugins/`、`~/.codebuddy/skills-marketplace/` | 已拉取官方市场；技能市场版本号见 `~/.codebuddy/.skills-marketplace-version` |
-| MCP server | `~/.codebuddy/mcp.json` | 已接入 **graphify** / **graphify-cws** 两个知识图谱服务（`~/.local/bin/graphify-mcp --graph <工作区>/graphify-out/graph.json`）；安装与用法见《[graphify部署使用说明](../AI/graphify部署使用说明.md)》「8.2 CodeBuddy 集成」节 |
+| MCP server | `~/.codebuddy/mcp.json` | 按需登记 MCP server（登记与用法见《[deepseek_harness部署使用说明](../AI/deepseek_harness部署使用说明.md)》MCP 相关节与工具自身文档） |
 | 补全模型 | 设置 `codingcopilot.selectedCompletionModel` | 空值 = 使用默认模型；可在补全状态栏菜单切换 |
 | 提交信息风格 | `codingcopilot.commitMessageStyle` / `commitMessageLanguage` | `Auto` / `zh_CN` |
 | 编辑器关联（双击行为） | `~/.config/CodeBuddy CN/User/settings.json` → `workbench.editorAssociations` | `*.html` / `*.htm` → 内置 HTML 预览 `codebuddy.html.previewEditor`；`*.md` / `*.markdown` → 内置 Markdown 预览 `vscode.markdown.preview.editor`（详见[第 7 节](#html-preview)） |
