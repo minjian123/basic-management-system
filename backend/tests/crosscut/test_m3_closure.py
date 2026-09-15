@@ -72,5 +72,5 @@ def test_stage_report_archived_with_sections() -> None:
         "附录 A",
     ):
         assert heading in text
-    assert "544 passed" in text
+    assert "547 passed" in text
     assert "check-links" in text
