@@ -2,7 +2,7 @@
 
 > 官方桌面版 ISO 安装步骤 · 通用 + mjbk 参数
 
-[文档首页](../../文档首页.md) › 资料 › Ubuntu 安装部署使用说明　|　[同级：graphify 部署使用说明 →](../AI/graphify部署使用说明.md)
+[文档首页](../../文档首页.md) › 资料 › Ubuntu 安装部署使用说明　|　[同级：llamacpp 部署使用说明 →](../AI/llamacpp部署使用说明.md)
 
 ## 1. 目的与适用范围 <a id="purpose"></a>
 

@@ -24,7 +24,7 @@
 
 基础管理系统（BMS）是一个面向企业级场景的后端管理系统，支持分布式、集群部署；多租户 SaaS 架构（租户独立库），支持 SSO 单点登录，内置报表 BI 与移动端 H5。
 
-后端基于 FastAPI + SQLAlchemy，前端基于 Vue 3 + Vite（PC 管理端 + 移动端 H5 双工程），通过知识图谱（graphify）辅助代码理解与架构分析。
+后端基于 FastAPI + SQLAlchemy，前端基于 Vue 3 + Vite（PC 管理端 + 移动端 H5 双工程）。
 
 BMS 作为平台支撑独立业务产品按"平台扩展"复用（产品仓库：biz 企业运营管理、CW 创作系统），业务不入平台，机制见《[平台可扩展性规划](bms文档/规划/平台可扩展性规划.md)》。
 
@@ -191,7 +191,7 @@ bms/
 │   ├── compose/              # Docker Compose（base / gitlab / kiwi）
 │   └── setup/                # 环境安装脚本（install-all.sh）
 ├── scripts/                  # 开发期工具链
-│   └── tools/                # backup / base-check / bg / check-docs / defect / dsh / gitlab / governance / graphify / reorder-design / reorder-stage / vision / winrm / wol / workbuddy
+│   └── tools/                # backup / base-check / bg / check-docs / defect / dsh / gitlab / governance / reorder-design / reorder-stage / vision / winrm / wol / workbuddy
 ├── ops/                      # 产品运维脚本（种子数据、备份恢复、租户库迁移，后续阶段填充）
 │   └── README.md             # 目录说明
 ├── test文档 -> ../test/test文档  # 测试资产仓软链（工作区并置，不入库）
@@ -211,7 +211,7 @@ bms/
 
 > 凭据统一存 `deploy/.env`（已 gitignore，模板见 `deploy/.env.example`）。
 >
-> `AGENTS.md`、`.opencode` 与知识图谱 `graphify-out/` 位于**工作区根**（工作区模型见《[平台可扩展性规划](bms文档/规划/平台可扩展性规划.md)》4.3），不在本仓库内。
+> `AGENTS.md` 与 `.opencode` 位于**工作区根**（工作区模型见《[平台可扩展性规划](bms文档/规划/平台可扩展性规划.md)》4.3），不在本仓库内。
 >
 > `app/` 下除 core / api / models / repositories / schemas / services / db 外，跨阶段基座与能力域基座（cache ~ ws，如缓存、事件、能力域横切）当前均为**占位契约**（Null 实现），真实实现随对应阶段回补；分层、职责与状态以《[后端基类清单](bms文档/后端基类清单.md)》为准。
 
