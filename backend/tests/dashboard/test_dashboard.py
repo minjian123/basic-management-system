@@ -37,19 +37,11 @@ class _FakeCard(BaseDashboardCardProvider):
 
 
 class _InMemoryRegistry(BaseDashboardCardRegistry):
-    """测试用内存注册表：验证聚合模板（真实注册表随回补阶段）。"""
+    """测试用内存注册表：登记 / 解析继承公共实现，验证聚合模板（真实注册表随回补阶段）。"""
 
-    def __init__(self) -> None:
-        self._providers: dict[str, BaseDashboardCardProvider] = {}
-
-    def register(self, provider: BaseDashboardCardProvider) -> None:
-        self._providers[provider.key] = provider
-
-    def get(self, key: str) -> BaseDashboardCardProvider | None:
-        return self._providers.get(key)
-
-    def keys(self) -> tuple[str, ...]:
-        return tuple(self._providers)
+    @classmethod
+    def _provider_key(cls, provider: BaseDashboardCardProvider) -> str:
+        return provider.key
 
 
 @pytest.mark.kiwi_id(61)
@@ -91,11 +83,12 @@ async def test_registry_template_resolution() -> None:
 
 @pytest.mark.kiwi_id(61)
 async def test_null_registry_empty_cards() -> None:
-    """占位注册表：注册空操作、get None、keys 空、元数据与取数固定空映射。"""
+    """占位注册表：登记改真实（可解析 / 可枚举）、元数据与取数固定空映射。"""
     registry = NullDashboardCardRegistry()
-    registry.register(_FakeCard("todo"))
-    assert registry.get("todo") is None
-    assert registry.keys() == ()
+    card = _FakeCard("todo")
+    registry.register(card)
+    assert registry.get("todo") is card
+    assert registry.keys() == ("todo",)
     assert registry.metadata("todo") == {}
     assert await registry.fetch("todo", {}) == {}
 

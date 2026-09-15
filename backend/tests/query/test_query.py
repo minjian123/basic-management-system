@@ -35,19 +35,11 @@ class _FakeProvider(BaseQueryProvider):
 
 
 class _InMemoryRegistry(BaseQueryProviderRegistry):
-    """测试用内存注册表：验证聚合模板（真实注册表随回补阶段）。"""
+    """测试用内存注册表：登记 / 解析继承公共实现，验证聚合模板（真实注册表随回补阶段）。"""
 
-    def __init__(self) -> None:
-        self._providers: dict[str, BaseQueryProvider] = {}
-
-    def register(self, provider: BaseQueryProvider) -> None:
-        self._providers[provider.key] = provider
-
-    def get(self, key: str) -> BaseQueryProvider | None:
-        return self._providers.get(key)
-
-    def keys(self) -> tuple[str, ...]:
-        return tuple(self._providers)
+    @classmethod
+    def _provider_key(cls, provider: BaseQueryProvider) -> str:
+        return provider.key
 
 
 @pytest.mark.kiwi_id(55)
@@ -66,6 +58,7 @@ def test_inheritance_and_keys() -> None:
     assert registry.placeholder is True
     assert "占位实现" in registry.describe()
     assert NullQueryProvider().key == "null_query_provider"
+    assert "null_query_provider" in NullQueryProvider().describe()
 
 
 @pytest.mark.kiwi_id(55)
@@ -88,11 +81,12 @@ async def test_null_query_provider_empty() -> None:
 
 @pytest.mark.kiwi_id(55)
 async def test_null_registry_fixed() -> None:
-    """占位注册表：注册空操作、get None、keys 空、query 固定空结果（不抛）。"""
+    """占位注册表：登记改真实（可解析 / 可枚举）、query 固定空结果（不抛）。"""
     registry = NullQueryProviderRegistry()
-    registry.register(_FakeProvider("p1"))
-    assert registry.get("p1") is None
-    assert registry.keys() == ()
+    provider = _FakeProvider("p1")
+    registry.register(provider)
+    assert registry.get("p1") is provider
+    assert registry.keys() == ("p1",)
     assert await registry.query("p1", {}) == QueryResult(rows=(), total=0)
 
 

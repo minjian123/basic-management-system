@@ -20,8 +20,8 @@ from fastapi import Request
 from app.core.base import BaseObject
 from app.core.config import Settings
 from app.core.exceptions import NotFoundError
-from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
-from app.core.provider import BaseProvider
+from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, resolve_plugin
+from app.core.provider import BaseProvider, BaseProviderRegistry
 
 __all__ = [
     "BaseQueryProvider",
@@ -57,40 +57,13 @@ class BaseQueryProvider(BaseProvider, ABC):
         """
 
 
-class BaseQueryProviderRegistry(BasePluggable, ABC):
-    """查询提供者注册表契约：注册 / 解析 / 清单 + 聚合查询。"""
+class BaseQueryProviderRegistry(BaseProviderRegistry[BaseQueryProvider], ABC):
+    """查询提供者注册表契约：注册 / 解析 / 清单（公共实现继承）+ 聚合查询（模板留域）。"""
 
     key: str = "query_provider_registry"
     plugin_key: str = "query_provider_registry"
     plugin_name: str = NULL_PLUGIN_NAME
     contract_version: str = DEFAULT_CONTRACT_VERSION
-
-    @abstractmethod
-    def register(self, provider: BaseQueryProvider) -> None:
-        """注册查询提供者（启动期注册）。
-
-        Args:
-            provider: 查询提供者。
-        """
-
-    @abstractmethod
-    def get(self, key: str) -> BaseQueryProvider | None:
-        """按 key 解析提供者。
-
-        Args:
-            key: 提供者标识。
-
-        Returns:
-            BaseQueryProvider | None: 提供者；未命中返回 None。
-        """
-
-    @abstractmethod
-    def keys(self) -> tuple[str, ...]:
-        """已注册提供者 key 清单（注册顺序）。
-
-        Returns:
-            tuple[str, ...]: 提供者 key 元组。
-        """
 
     async def query(self, key: str, params: Mapping[str, object]) -> QueryResult:
         """聚合查询（模板方法：解析提供者 → 委托）。

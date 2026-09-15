@@ -11,33 +11,19 @@ __all__ = [
 
 
 class NullDashboardCardRegistry(BaseDashboardCardRegistry, BaseNullObject):
-    """占位注册表：注册空操作、无卡片；元数据与取数固定返回空映射（空卡片集）。"""
+    """占位注册表：登记与解析继承公共实现（唯一性拒重）；元数据与取数固定返回空映射（空卡片集）。"""
 
-    def register(self, provider: BaseDashboardCardProvider) -> None:
-        """空操作（占位不注册）。
-
-        Args:
-            provider: 卡片提供者（占位忽略）。
-        """
-
-    def get(self, key: str) -> BaseDashboardCardProvider | None:
-        """无卡片。
+    @classmethod
+    def _provider_key(cls, provider: BaseDashboardCardProvider) -> str:
+        """注册项键：卡片 `key`。
 
         Args:
-            key: 卡片标识（占位忽略）。
+            provider: 卡片提供者。
 
         Returns:
-            BaseDashboardCardProvider | None: None。
+            str: 卡片标识。
         """
-        return None
-
-    def keys(self) -> tuple[str, ...]:
-        """空卡片集。
-
-        Returns:
-            tuple[str, ...]: 空元组。
-        """
-        return ()
+        return provider.key
 
     def metadata(self, card_key: str) -> Mapping[str, object]:
         """固定返回空元数据（占位空卡片集）。

@@ -11,33 +11,19 @@ __all__ = [
 
 
 class NullFieldTypeRegistry(BaseFieldTypeRegistry, BaseNullObject):
-    """占位注册表：注册空操作、无字段类型；校验恒定通过、类型映射固定返回（不校验 / 不映射）。"""
+    """占位注册表：登记与解析继承公共实现（唯一性拒重）；校验恒定通过、类型映射固定返回（不校验 / 不映射）。"""
 
-    def register(self, provider: BaseFieldType) -> None:
-        """空操作（占位不注册）。
-
-        Args:
-            provider: 字段类型提供者（占位忽略）。
-        """
-
-    def get(self, key: str) -> BaseFieldType | None:
-        """无字段类型。
+    @classmethod
+    def _provider_key(cls, provider: BaseFieldType) -> str:
+        """注册项键：字段类型 `key`。
 
         Args:
-            key: 字段类型标识（占位忽略）。
+            provider: 字段类型提供者。
 
         Returns:
-            BaseFieldType | None: None。
+            str: 字段类型标识。
         """
-        return None
-
-    def keys(self) -> tuple[str, ...]:
-        """空字段类型清单。
-
-        Returns:
-            tuple[str, ...]: 空元组。
-        """
-        return ()
+        return provider.key
 
     def validate(
         self, field_type: str, value: object, *, options: Mapping[str, object] | None = None
