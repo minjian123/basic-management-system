@@ -2,7 +2,7 @@
 
 from abc import ABC, abstractmethod
 
-from app.core.capability import BaseCapability
+from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
 
 CACHE_KEY_PREFIX = "bms"
 GLOBAL_TENANT = "global"
@@ -22,7 +22,7 @@ def build_cache_key(*, tenant: str | None, domain: str, business_key: str) -> st
     return f"{CACHE_KEY_PREFIX}:{tenant or GLOBAL_TENANT}:{domain}:{business_key}"
 
 
-class CacheRegion(BaseCapability, ABC):
+class CacheRegion(BasePluggable, ABC):
     """缓存 Region 分域基座契约：key 规范、TTL、全局版本号惰性比对。
 
     - 全 key 带 TTL；三防（穿透 / 击穿 / 雪崩）在基座统一。
@@ -30,6 +30,9 @@ class CacheRegion(BaseCapability, ABC):
     """
 
     key: str = "cache"
+    plugin_key: str = "cache"
+    plugin_name: str = NULL_PLUGIN_NAME
+    contract_version: str = DEFAULT_CONTRACT_VERSION
     default_ttl: int = 300
 
     @property

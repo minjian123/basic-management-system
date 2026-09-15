@@ -18,7 +18,8 @@ from typing import cast
 from fastapi import Request
 
 from app.core.base import BaseObject
-from app.core.capability import BaseCapability, BaseNullObject
+from app.core.capability import BaseNullObject
+from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
 
 __all__ = [
     "GENESIS_HASH",
@@ -62,10 +63,13 @@ class ChainVerifyResult(BaseObject):
     """断裂位置（从 0 起的记录序号）；完整为 None。"""
 
 
-class BaseHashChain(BaseCapability, ABC):
+class BaseHashChain(BasePluggable, ABC):
     """哈希链契约：单条计算 + 链校验。"""
 
     key: str = "hash_chain"
+    plugin_key: str = "hash_chain"
+    plugin_name: str = NULL_PLUGIN_NAME
+    contract_version: str = DEFAULT_CONTRACT_VERSION
 
     @abstractmethod
     def compute(self, prev_hash: str, record: Mapping[str, object]) -> str:

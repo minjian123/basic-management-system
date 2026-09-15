@@ -19,7 +19,8 @@ from typing import cast
 from fastapi import Request
 
 from app.core.base import BaseObject
-from app.core.capability import BaseCapability, BaseNullObject
+from app.core.capability import BaseNullObject
+from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
 
 __all__ = [
     "IDP_PROTOCOLS",
@@ -65,10 +66,13 @@ class IdentityUser(BaseObject):
     """租户（可选）。"""
 
 
-class BaseIdentityProvider(BaseCapability, ABC):
+class BaseIdentityProvider(BasePluggable, ABC):
     """身份源契约：授权 / 换取令牌 / 拉取用户信息。"""
 
     key: str = "identity_provider"
+    plugin_key: str = "identity_provider"
+    plugin_name: str = NULL_PLUGIN_NAME
+    contract_version: str = DEFAULT_CONTRACT_VERSION
 
     @abstractmethod
     async def authorize(self, state: str) -> str:

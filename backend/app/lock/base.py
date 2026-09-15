@@ -18,8 +18,9 @@ from uuid import uuid4
 
 from fastapi import Request
 
-from app.core.capability import BaseCapability, BaseNullObject
+from app.core.capability import BaseNullObject
 from app.core.exceptions import ConcurrentConflictError
+from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
 
 LOCK_KEY_PREFIX = "bms"
 """锁 key 前缀（与缓存 key 同前缀）。"""
@@ -47,10 +48,13 @@ def build_lock_key(*, tenant: str | None, resource: str) -> str:
     return f"{LOCK_KEY_PREFIX}:{tenant or GLOBAL_LOCK_SCOPE}:lock:{resource}"
 
 
-class BaseDistributedLock(BaseCapability, ABC):
+class BaseDistributedLock(BasePluggable, ABC):
     """分布式锁契约：跨实例互斥（获取 / 释放 / 续租 + 异步上下文）。"""
 
     key: str = "distributed_lock"
+    plugin_key: str = "distributed_lock"
+    plugin_name: str = NULL_PLUGIN_NAME
+    contract_version: str = DEFAULT_CONTRACT_VERSION
 
     @abstractmethod
     async def acquire(self, key: str, *, ttl: int = DEFAULT_LOCK_TTL, wait: float = DEFAULT_WAIT) -> str | None:

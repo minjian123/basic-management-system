@@ -1,10 +1,14 @@
 """事件能力域：事件发布 / 消费基座契约（消息中间件在阶段八回补）。"""
 
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 
 from app.core.base import BaseObject
-from app.core.capability import BaseEventWorker
+from app.core.plugin import (
+    DEFAULT_CONTRACT_VERSION,
+    NULL_PLUGIN_NAME,
+    BasePluggable,
+)
 
 
 @dataclass
@@ -15,6 +19,20 @@ class EventEnvelope(BaseObject):
     payload: dict[str, object] = field(default_factory=dict[str, object])
     tenant_id: str | None = None
     trace_id: str | None = None
+
+
+class BaseEventWorker(BasePluggable, ABC):
+    """事件工作单元契约：发布 / 消费共享的事件类型（插件化中间层，02-1 迁入）。"""
+
+    key: str = "event"
+    plugin_key: str = "event"
+    plugin_name: str = NULL_PLUGIN_NAME
+    contract_version: str = DEFAULT_CONTRACT_VERSION
+
+    @property
+    @abstractmethod
+    def event_type(self) -> str:
+        """事件类型（发布主题 / 订阅类型）。"""
 
 
 class EventPublisher(BaseEventWorker):

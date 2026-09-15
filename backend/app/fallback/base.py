@@ -17,7 +17,8 @@ from typing import cast
 
 from fastapi import Request
 
-from app.core.capability import BaseCapability, BaseNullObject
+from app.core.capability import BaseNullObject
+from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
 
 DEPENDENCIES: tuple[str, ...] = (
     "redis",
@@ -47,10 +48,13 @@ class FallbackAction(StrEnum):
     """走降级通道（具体降级路径由调用方实现，如直连 DB、同步直写）。"""
 
 
-class BaseFallbackPolicy(BaseCapability, ABC):
+class BaseFallbackPolicy(BasePluggable, ABC):
     """降级契约：按依赖返回当前应采取的降级动作。"""
 
     key: str = "fallback"
+    plugin_key: str = "fallback"
+    plugin_name: str = NULL_PLUGIN_NAME
+    contract_version: str = DEFAULT_CONTRACT_VERSION
 
     @abstractmethod
     async def resolve(self, dependency: str, *, exc: BaseException | None = None) -> FallbackAction:

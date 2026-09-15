@@ -23,8 +23,9 @@ from typing import cast
 from fastapi import Request
 
 from app.core.base import BaseObject
-from app.core.capability import BaseCapability, BaseNullObject
+from app.core.capability import BaseNullObject
 from app.core.exceptions import AuthError
+from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
 from app.core.security import SIGNATURE_HEADER, SignatureCodec
 
 __all__ = [
@@ -73,10 +74,13 @@ class ReplayDecision(BaseObject):
     """拒绝原因；放行为 None。"""
 
 
-class BaseReplayGuard(BaseCapability, ABC):
+class BaseReplayGuard(BasePluggable, ABC):
     """防重放契约：时间窗 + 签名 + nonce 去重的固定编排。"""
 
     key: str = "replay_guard"
+    plugin_key: str = "replay_guard"
+    plugin_name: str = NULL_PLUGIN_NAME
+    contract_version: str = DEFAULT_CONTRACT_VERSION
 
     def __init__(self, *, codec: SignatureCodec | None = None) -> None:
         """初始化防重放守卫。

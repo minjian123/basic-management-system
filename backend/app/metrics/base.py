@@ -19,7 +19,8 @@ from typing import cast
 
 from fastapi import Request
 
-from app.core.capability import BaseCapability, BaseNullObject
+from app.core.capability import BaseNullObject
+from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
 from app.fallback.base import DEPENDENCIES
 
 __all__ = [
@@ -49,10 +50,13 @@ MetricLabels = Mapping[str, str]
 """指标标签集（维度键值，如 `{"route": "/api/v1/users", "method": "GET"}`）。"""
 
 
-class BaseMetrics(BaseCapability, ABC):
+class BaseMetrics(BasePluggable, ABC):
     """指标契约：计数器 / 瞬时值 / 直方图三入口。"""
 
     key: str = "metrics"
+    plugin_key: str = "metrics"
+    plugin_name: str = NULL_PLUGIN_NAME
+    contract_version: str = DEFAULT_CONTRACT_VERSION
 
     @abstractmethod
     async def counter(self, name: str, *, value: float = 1.0, labels: MetricLabels | None = None) -> None:

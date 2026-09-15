@@ -19,8 +19,9 @@ from typing import cast
 from fastapi import Request
 
 from app.core.base import BaseObject
-from app.core.capability import BaseCapability, BaseNullObject
+from app.core.capability import BaseNullObject
 from app.core.exceptions import NotFoundError
+from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
 
 __all__ = [
     "BaseQueryProvider",
@@ -63,10 +64,13 @@ class BaseQueryProvider(BaseObject, ABC):
         """
 
 
-class BaseQueryProviderRegistry(BaseCapability, ABC):
+class BaseQueryProviderRegistry(BasePluggable, ABC):
     """查询提供者注册表契约：注册 / 解析 / 清单 + 聚合查询。"""
 
     key: str = "query_provider_registry"
+    plugin_key: str = "query_provider_registry"
+    plugin_name: str = NULL_PLUGIN_NAME
+    contract_version: str = DEFAULT_CONTRACT_VERSION
 
     @abstractmethod
     def register(self, provider: BaseQueryProvider) -> None:

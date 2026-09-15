@@ -23,7 +23,8 @@ from typing import cast
 from fastapi import Request
 
 from app.core.base import BaseObject
-from app.core.capability import BaseCapability, BaseNullObject
+from app.core.capability import BaseNullObject
+from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
 
 __all__ = [
     "GRANT_TYPES",
@@ -80,10 +81,13 @@ class OAuthToken(BaseObject):
     """生效的授权范围。"""
 
 
-class BaseOAuthServer(BaseCapability, ABC):
+class BaseOAuthServer(BasePluggable, ABC):
     """开放接口服务端契约：Client Credentials 签发 + 独立撤销。"""
 
     key: str = "oauth_server"
+    plugin_key: str = "oauth_server"
+    plugin_name: str = NULL_PLUGIN_NAME
+    contract_version: str = DEFAULT_CONTRACT_VERSION
 
     @abstractmethod
     async def issue_token(self, credentials: ClientCredentials) -> OAuthToken:
@@ -127,10 +131,13 @@ class NullOAuthServer(BaseOAuthServer, BaseNullObject):
         """
 
 
-class BaseScopeChecker(BaseCapability, ABC):
+class BaseScopeChecker(BasePluggable, ABC):
     """scope 校验契约：已授权范围是否覆盖接口所需范围。"""
 
     key: str = "scope_checker"
+    plugin_key: str = "scope_checker"
+    plugin_name: str = NULL_PLUGIN_NAME
+    contract_version: str = DEFAULT_CONTRACT_VERSION
 
     @abstractmethod
     def check(self, granted: Iterable[str], required: str) -> bool:

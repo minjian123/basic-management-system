@@ -18,8 +18,9 @@ from typing import cast
 from fastapi import Request
 
 from app.core.base import BaseObject
-from app.core.capability import BaseCapability, BaseNullObject
+from app.core.capability import BaseNullObject
 from app.core.exceptions import NotFoundError
+from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
 
 __all__ = [
     "COLUMN_TYPE_DIALECTS",
@@ -77,10 +78,13 @@ class BaseFieldType(BaseObject, ABC):
         """
 
 
-class BaseFieldTypeRegistry(BaseCapability, ABC):
+class BaseFieldTypeRegistry(BasePluggable, ABC):
     """字段类型注册表契约：注册 / 解析 / 清单 + 校验与类型映射聚合。"""
 
     key: str = "field_type_registry"
+    plugin_key: str = "field_type_registry"
+    plugin_name: str = NULL_PLUGIN_NAME
+    contract_version: str = DEFAULT_CONTRACT_VERSION
 
     @abstractmethod
     def register(self, provider: BaseFieldType) -> None:

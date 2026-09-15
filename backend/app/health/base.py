@@ -25,7 +25,8 @@ from typing import cast
 from fastapi import Request
 
 from app.core.base import BaseObject
-from app.core.capability import BaseCapability, BaseNullObject
+from app.core.capability import BaseNullObject
+from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
 from app.fallback.base import DEPENDENCIES
 
 __all__ = [
@@ -89,10 +90,13 @@ class BaseHealthCheck(BaseObject, ABC):
         """
 
 
-class BaseHealthCheckRegistry(BaseCapability, ABC):
+class BaseHealthCheckRegistry(BasePluggable, ABC):
     """注册表契约：登记检查项 + 聚合就绪。"""
 
     key: str = "health_check_registry"
+    plugin_key: str = "health_check_registry"
+    plugin_name: str = NULL_PLUGIN_NAME
+    contract_version: str = DEFAULT_CONTRACT_VERSION
 
     def __init__(
         self,

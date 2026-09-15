@@ -21,7 +21,8 @@ from typing import cast
 from fastapi import Request
 
 from app.core.base import BaseObject
-from app.core.capability import BaseCapability, BaseNullObject
+from app.core.capability import BaseNullObject
+from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
 
 __all__ = [
     "NULL_INSTANCE_ID",
@@ -116,10 +117,13 @@ class WorkflowTask(BaseObject):
     """任务状态。"""
 
 
-class BaseWorkflowEngine(BaseCapability, ABC):
+class BaseWorkflowEngine(BasePluggable, ABC):
     """工作流引擎适配契约：部署定义 / 启动实例 / 完成任务。"""
 
     key: str = "workflow_engine"
+    plugin_key: str = "workflow_engine"
+    plugin_name: str = NULL_PLUGIN_NAME
+    contract_version: str = DEFAULT_CONTRACT_VERSION
 
     @abstractmethod
     async def deploy(self, definition: ProcessDefinition) -> None:

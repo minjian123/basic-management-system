@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
 from app.core.base import BaseObject
-from app.core.capability import BaseCapability
+from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
 from app.events.base import EventEnvelope
 
 
@@ -17,10 +17,13 @@ class FieldChange(BaseObject):
     new: object = None
 
 
-class AuditCapturer(BaseCapability, ABC):
+class AuditCapturer(BasePluggable, ABC):
     """审计捕获基座契约：关键表字段级变更 → 审计事件。"""
 
     key: str = "audit"
+    plugin_key: str = "audit"
+    plugin_name: str = NULL_PLUGIN_NAME
+    contract_version: str = DEFAULT_CONTRACT_VERSION
 
     @abstractmethod
     def is_audited(self, table: str) -> bool:

@@ -17,7 +17,8 @@ from typing import cast
 from fastapi import Request
 
 from app.core.base import BaseObject
-from app.core.capability import BaseCapability, BaseNullObject
+from app.core.capability import BaseNullObject
+from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
 
 __all__ = [
     "BaseWebhookSender",
@@ -41,10 +42,13 @@ class WebhookResult(BaseObject):
     """实际尝试次数。"""
 
 
-class BaseWebhookSender(BaseCapability, ABC):
+class BaseWebhookSender(BasePluggable, ABC):
     """Webhook 投递契约：签名 / 投递 / 重试（后两者由实现内部处理）。"""
 
     key: str = "webhook_sender"
+    plugin_key: str = "webhook_sender"
+    plugin_name: str = NULL_PLUGIN_NAME
+    contract_version: str = DEFAULT_CONTRACT_VERSION
 
     @abstractmethod
     async def send(self, url: str, payload: Mapping[str, object], *, secret: str | None = None) -> WebhookResult:

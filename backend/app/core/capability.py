@@ -4,7 +4,6 @@
   - `BaseNullObject`：空实现（Null Object，无副作用）。
   - `BaseStub`：未实现占位（统一 `_not_implemented()` 抛错）。
 - `BaseCapability`：能力域契约中间层（统一 `key`）。
-  - `BaseEventWorker`：事件发布 / 消费契约（共享 `event_type`）。
 - `BaseAsyncResource`：异步资源生命周期（`aclose()` + `async with`），供引擎 / 客户端复用。
 """
 
@@ -53,17 +52,6 @@ class BaseCapability(BaseObject, ABC):
     """能力域契约中间层：统一能力域标识（供注册 / 依赖注入 / 文档对齐）。"""
 
     key: str = "capability"
-
-
-class BaseEventWorker(BaseCapability, ABC):
-    """事件工作单元契约：发布 / 消费共享的事件类型。"""
-
-    key: str = "event"
-
-    @property
-    @abstractmethod
-    def event_type(self) -> str:
-        """事件类型（发布主题 / 订阅类型）。"""
 
 
 class BaseAsyncResource(BaseObject, ABC):

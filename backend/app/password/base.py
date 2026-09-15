@@ -16,7 +16,8 @@ from typing import cast
 
 from fastapi import Request
 
-from app.core.capability import BaseCapability, BaseNullObject
+from app.core.capability import BaseNullObject
+from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
 
 PASSWORD_VIOLATIONS: tuple[str, ...] = (
     "too_short",
@@ -30,10 +31,13 @@ PASSWORD_VIOLATIONS: tuple[str, ...] = (
 """密码违规原因码（占位期仅登记；上层据此映射提示文案，如 `error.password.too_short`）。"""
 
 
-class BasePasswordPolicy(BaseCapability, ABC):
+class BasePasswordPolicy(BasePluggable, ABC):
     """密码策略契约：复杂度校验 + 有效期 + 历史重复判定。"""
 
     key: str = "password_policy"
+    plugin_key: str = "password_policy"
+    plugin_name: str = NULL_PLUGIN_NAME
+    contract_version: str = DEFAULT_CONTRACT_VERSION
 
     @abstractmethod
     async def validate(self, password: str, *, username: str | None = None) -> tuple[str, ...]:

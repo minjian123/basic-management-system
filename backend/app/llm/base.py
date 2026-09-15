@@ -20,7 +20,8 @@ from typing import cast
 from fastapi import Request
 
 from app.core.base import BaseObject
-from app.core.capability import BaseCapability, BaseNullObject
+from app.core.capability import BaseNullObject
+from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
 
 __all__ = [
     "LLM_PROVIDER_TYPES",
@@ -102,10 +103,13 @@ class OcrResult(BaseObject):
     """实际使用的 Provider。"""
 
 
-class BaseLlmProvider(BaseCapability, ABC):
+class BaseLlmProvider(BasePluggable, ABC):
     """LLM 适配契约：对话 / 向量化 / 识别。"""
 
     key: str = "llm_provider"
+    plugin_key: str = "llm_provider"
+    plugin_name: str = NULL_PLUGIN_NAME
+    contract_version: str = DEFAULT_CONTRACT_VERSION
 
     @abstractmethod
     async def chat(

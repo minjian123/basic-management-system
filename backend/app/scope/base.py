@@ -4,7 +4,8 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
 from app.core.base import BaseObject
-from app.core.capability import BaseCapability, BaseNullObject
+from app.core.capability import BaseNullObject
+from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
 
 SCOPE_OPERATORS: tuple[str, ...] = (
     "eq",
@@ -33,10 +34,13 @@ class ScopeCondition(BaseObject):
     value: object = None
 
 
-class DataScope(BaseCapability, ABC):
+class DataScope(BasePluggable, ABC):
     """数据范围契约：读过滤条件 + 写校验（写读双向）。"""
 
     key: str = "data_scope"
+    plugin_key: str = "data_scope"
+    plugin_name: str = NULL_PLUGIN_NAME
+    contract_version: str = DEFAULT_CONTRACT_VERSION
 
     @abstractmethod
     def read_predicate(self) -> object:

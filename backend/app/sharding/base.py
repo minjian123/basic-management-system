@@ -4,7 +4,8 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
 from app.core.base import BaseObject
-from app.core.capability import BaseCapability, BaseNullObject
+from app.core.capability import BaseNullObject
+from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
 
 
 @dataclass
@@ -15,10 +16,13 @@ class ShardBinding(BaseObject):
     physical_table: str = ""
 
 
-class ShardingRouter(BaseCapability, ABC):
+class ShardingRouter(BasePluggable, ABC):
     """分片路由基座契约：分片键 → 物理库 / 表解析。"""
 
     key: str = "sharding"
+    plugin_key: str = "sharding"
+    plugin_name: str = NULL_PLUGIN_NAME
+    contract_version: str = DEFAULT_CONTRACT_VERSION
 
     @abstractmethod
     def resolve(self, logical_table: str, *, shard_key: object | None = None) -> ShardBinding:
