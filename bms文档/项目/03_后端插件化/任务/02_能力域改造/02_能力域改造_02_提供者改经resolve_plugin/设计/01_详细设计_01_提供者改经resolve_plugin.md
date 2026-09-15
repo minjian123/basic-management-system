@@ -32,7 +32,7 @@ backend/
 ├── config.toml                # 修改：[health_check_registry] provider = "local"
 ├── app/<各域>/*.py            # 修改：33 个提供者薄封装（get_masker 保异步生成器）
 ├── ops/check_plugins.py       # 修改：以 create_app() 提供离线 app/resources 后登记平台实现
-└── tests/crosscut/test_plugin_providers.py   # 新增：Kiwi 535 用例
+└── tests/crosscut/test_plugin_providers.py   # 新增：Kiwi 565 用例
 ```
 
 ## 4. 提供者薄封装口径 <a id="providers"></a>
@@ -86,7 +86,7 @@ class BaseProviderRegistry[ItemT](BasePluggable, ABC):
 
 ## 6. 测试设计（Kiwi 先行） <a id="tests"></a>
 
-用例先登记 Kiwi（本任务登记 **Kiwi 535**，平台自增顺延）；新增 `tests/crosscut/test_plugin_providers.py`：
+用例先登记 Kiwi（本任务登记 **Kiwi 565（平台登记为 565，自增顺延）**，平台自增顺延）；新增 `tests/crosscut/test_plugin_providers.py`：
 
 | Kiwi | 用例 | 断言要点 |
 | --- | --- | --- |
@@ -104,7 +104,7 @@ class BaseProviderRegistry[ItemT](BasePluggable, ABC):
 1. `core/capability.py` 落 `BaseProviderRegistry[ItemT]`（导出登记）。
 2. 健康域重构（base / registry / null）；`assembly.py` 签名扩展 + health `local` 工厂；`main.py` 删手工健康构造、加 `app.state.settings`；`config.toml` 分区。
 3. 33 个提供者薄封装（含 `get_masker`）；`ops/check_plugins.py` 同步（离线 app）。
-4. Kiwi 535 登记 → 新增用例；`test_health_registry` / 集成用例回归。
+4. Kiwi 565（平台登记为 565，自增顺延） 登记 → 新增用例；`test_health_registry` / 集成用例回归。
 5. 验证：全量 `pytest` / `ruff` / `pyright`；`python -m ops.check_plugins`。
 6. 回写：01_02 设计（登记签名 + 健康口径）、基类清单 / 架构 04（`BaseProviderRegistry` 提前交付登记、03-3 边界）；任务 / 需求 / 计划状态与记录。
 
@@ -131,6 +131,6 @@ class BaseProviderRegistry[ItemT](BasePluggable, ABC):
 | 2 | 健康注册表 | 拆真实实现 + 提取 `BaseProviderRegistry`；`local` 工厂注入超时 / 检查项 / 资源；`config.toml` 显式 `provider = "local"` |
 | 3 | 基类边界 | `BaseProviderRegistry` 本次随 02-2 提前交付；其余 3 注册表归 03-3 |
 | 4 | 登记签名 | `register_platform_plugins(settings, app, resources)`（01_02 设计口径回写） |
-| 5 | 测试编号 | Kiwi 535（平台自增顺延） |
+| 5 | 测试编号 | Kiwi 565（平台登记为 565，自增顺延）（平台自增顺延） |
 
 > 本文档依《文档生成规范》编写 · 关键决策逐项确认
