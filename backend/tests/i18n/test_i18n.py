@@ -11,7 +11,7 @@ from app.core.base import BaseObject
 from app.core.capability import BaseCapability, BaseNullObject
 from app.i18n.base import DEFAULT_LOCALE, SUPPORTED_LOCALES, BaseTranslator
 from app.i18n.null import NullTranslator
-from app.main import create_app
+from app.main import create_app, lifespan
 
 
 @pytest.mark.kiwi_id(60)
@@ -50,17 +50,18 @@ async def test_null_translator_fixed() -> None:
 async def test_dependency_provider_resolves() -> None:
     """依赖解析：应用装配占位翻译器；路由经 get_translator 取到同一实例。"""
     app = create_app()
-    assert isinstance(app.state.translator, NullTranslator)
+    async with lifespan(app):
+        assert isinstance(app.state.translator, NullTranslator)
 
-    @app.get("/i18n-probe")
-    async def probe(  # pyright: ignore[reportUnusedFunction]
-        translator: Annotated[BaseTranslator, Depends(get_translator)],
-    ) -> dict[str, object]:
-        text = await translator.translate("common.confirm")
-        return {"key": translator.key, "type": type(translator).__name__, "text": text}
+        @app.get("/i18n-probe")
+        async def probe(  # pyright: ignore[reportUnusedFunction]
+            translator: Annotated[BaseTranslator, Depends(get_translator)],
+        ) -> dict[str, object]:
+            text = await translator.translate("common.confirm")
+            return {"key": translator.key, "type": type(translator).__name__, "text": text}
 
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        resp = await client.get("/i18n-probe")
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            resp = await client.get("/i18n-probe")
 
-    assert resp.status_code == 200
-    assert resp.json() == {"key": "translator", "type": "NullTranslator", "text": "common.confirm"}
+        assert resp.status_code == 200
+        assert resp.json() == {"key": "translator", "type": "NullTranslator", "text": "common.confirm"}

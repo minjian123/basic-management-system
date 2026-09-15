@@ -12,7 +12,7 @@ from app.core.capability import BaseCapability, BaseNullObject
 from app.core.exceptions import ConcurrentConflictError
 from app.lock.base import DEFAULT_LOCK_TTL, DEFAULT_WAIT, BaseDistributedLock, build_lock_key
 from app.lock.null import NullDistributedLock
-from app.main import create_app
+from app.main import create_app, lifespan
 
 
 class RecordingLock(BaseDistributedLock):
@@ -144,14 +144,15 @@ async def test_hold_raises_conflict_when_not_acquired() -> None:
 async def test_dependency_provider_resolves() -> None:
     """依赖解析：应用装配占位锁；路由经 get_distributed_lock 取到实例。"""
     app = create_app()
-    assert isinstance(app.state.distributed_lock, NullDistributedLock)
+    async with lifespan(app):
+        assert isinstance(app.state.distributed_lock, NullDistributedLock)
 
-    @app.get("/lock")
-    async def lock_info(lock: Annotated[BaseDistributedLock, Depends(get_distributed_lock)]) -> dict[str, str]:  # pyright: ignore[reportUnusedFunction]
-        return {"key": lock.key, "type": type(lock).__name__, "same": str(lock is app.state.distributed_lock)}
+        @app.get("/lock")
+        async def lock_info(lock: Annotated[BaseDistributedLock, Depends(get_distributed_lock)]) -> dict[str, str]:  # pyright: ignore[reportUnusedFunction]
+            return {"key": lock.key, "type": type(lock).__name__, "same": str(lock is app.state.distributed_lock)}
 
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        resp = await client.get("/lock")
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            resp = await client.get("/lock")
 
-    assert resp.status_code == 200
-    assert resp.json() == {"key": "distributed_lock", "type": "NullDistributedLock", "same": "True"}
+        assert resp.status_code == 200
+        assert resp.json() == {"key": "distributed_lock", "type": "NullDistributedLock", "same": "True"}

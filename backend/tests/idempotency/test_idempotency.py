@@ -11,7 +11,7 @@ from app.core.base import BaseObject
 from app.core.capability import BaseCapability, BaseNullObject
 from app.idempotency.base import DEFAULT_IDEMPOTENCY_TTL, IDEMPOTENCY_HEADER, IdempotencyStore, build_idempotency_key
 from app.idempotency.null import NullIdempotencyStore
-from app.main import create_app
+from app.main import create_app, lifespan
 
 
 @pytest.mark.kiwi_id(43)
@@ -52,19 +52,20 @@ async def test_null_store_always_first() -> None:
 async def test_dependency_provider_resolves() -> None:
     """依赖解析：应用装配占位幂等存储；路由经 get_idempotency_store 取到同一实例。"""
     app = create_app()
-    assert isinstance(app.state.idempotency_store, NullIdempotencyStore)
+    async with lifespan(app):
+        assert isinstance(app.state.idempotency_store, NullIdempotencyStore)
 
-    @app.post("/idem")
-    async def idem_probe(  # pyright: ignore[reportUnusedFunction]
-        store: Annotated[IdempotencyStore, Depends(get_idempotency_store)],
-    ) -> dict[str, object]:
-        key = build_idempotency_key(key="abc-1", tenant="t1")
-        first = await store.begin(key)
-        await store.save(key, {"ok": True})
-        return {"key": store.key, "type": type(store).__name__, "first": first, "cached": await store.load(key)}
+        @app.post("/idem")
+        async def idem_probe(  # pyright: ignore[reportUnusedFunction]
+            store: Annotated[IdempotencyStore, Depends(get_idempotency_store)],
+        ) -> dict[str, object]:
+            key = build_idempotency_key(key="abc-1", tenant="t1")
+            first = await store.begin(key)
+            await store.save(key, {"ok": True})
+            return {"key": store.key, "type": type(store).__name__, "first": first, "cached": await store.load(key)}
 
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        resp = await client.post("/idem")
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            resp = await client.post("/idem")
 
-    assert resp.status_code == 200
-    assert resp.json() == {"key": "idempotency", "type": "NullIdempotencyStore", "first": True, "cached": None}
+        assert resp.status_code == 200
+        assert resp.json() == {"key": "idempotency", "type": "NullIdempotencyStore", "first": True, "cached": None}

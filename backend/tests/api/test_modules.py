@@ -10,7 +10,7 @@ from app.main import create_app, lifespan
 async def test_list_modules_contract() -> None:
     """GET /api/v1/modules 返回平台域 4 行；?status 筛选；POST 404。"""
     app = create_app()
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+    async with lifespan(app), AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         resp = await client.get("/api/v1/modules")
         assert resp.status_code == 200
         body = resp.json()

@@ -11,7 +11,7 @@ from app.api.middleware import RequestLoggingMiddleware, TraceIdMiddleware
 from app.core.config import LogSettings, Settings
 from app.core.context import get_current_request_id, get_current_trace_id
 from app.core.logging import configure_logging
-from app.main import create_app
+from app.main import create_app, lifespan
 from app.tracing.base import TRACE_ID_HEADER
 
 
@@ -34,8 +34,13 @@ def _build_app(*, slow_ms: int = 1000) -> FastAPI:
 
 
 def _records(capsys: pytest.CaptureFixture[str]) -> list[dict[str, object]]:
-    """读取 stdout 并按 JSON 行解析（忽略空行）。"""
-    return [json.loads(line) for line in capsys.readouterr().out.splitlines() if line.strip()]
+    """读取 stdout 并按 JSON 行解析（跳过非 JSON 行，如 lifespan 装配日志的其它渲染形态）。"""
+    records: list[dict[str, object]] = []
+    for line in capsys.readouterr().out.splitlines():
+        text = line.strip()
+        if text.startswith("{"):
+            records.append(json.loads(text))
+    return records
 
 
 @pytest.mark.kiwi_id(63)
@@ -78,13 +83,14 @@ async def test_inbound_trace_id_echoed(capsys: pytest.CaptureFixture[str]) -> No
 async def test_excluded_paths_not_logged(capsys: pytest.CaptureFixture[str]) -> None:
     """探针与文档路径不产生访问日志（任何级别）。"""
     app = create_app()
-    configure_logging(_json_settings())
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        for path in ("/healthz", "/readyz", "/docs", "/openapi.json"):
-            await client.get(path)
+    async with lifespan(app):
+        configure_logging(_json_settings())
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            for path in ("/healthz", "/readyz", "/docs", "/openapi.json"):
+                await client.get(path)
 
-    records = _records(capsys)
-    assert [record for record in records if record["event"] in {"request", "slow_request"}] == []
+        records = _records(capsys)
+        assert [record for record in records if record["event"] in {"request", "slow_request"}] == []
 
 
 @pytest.mark.kiwi_id(63)
@@ -134,25 +140,26 @@ async def test_slow_request_warning(capsys: pytest.CaptureFixture[str]) -> None:
 async def test_uncaught_exception_logged_with_context(capsys: pytest.CaptureFixture[str]) -> None:
     """未捕获异常：响应 500 不回显堆栈；ERROR 行含堆栈与上下文；X-Request-Id 与日志同值。"""
     app = create_app()
-    configure_logging(_json_settings())
+    async with lifespan(app):
+        configure_logging(_json_settings())
 
-    @app.get("/boom")
-    async def boom() -> None:  # pyright: ignore[reportUnusedFunction]
-        raise RuntimeError("boom")
+        @app.get("/boom")
+        async def boom() -> None:  # pyright: ignore[reportUnusedFunction]
+            raise RuntimeError("boom")
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app, raise_app_exceptions=False), base_url="http://test"
-    ) as client:
-        resp = await client.get("/boom")
+        async with AsyncClient(
+            transport=ASGITransport(app=app, raise_app_exceptions=False), base_url="http://test"
+        ) as client:
+            resp = await client.get("/boom")
 
-    assert resp.status_code == 500
-    assert "RuntimeError" not in resp.text
-    assert "Traceback" not in resp.text
-    records = _records(capsys)
-    error = next(record for record in records if record["event"] == "uncaught_exception")
-    access = next(record for record in records if record["event"] == "request")
-    assert error["level"] == "error"
-    assert "RuntimeError: boom" in str(error["exception"])
-    assert error["trace_id"] == resp.headers[TRACE_ID_HEADER]
-    assert resp.headers["X-Request-Id"] == error["request_id"]
-    assert access["status"] == 500
+        assert resp.status_code == 500
+        assert "RuntimeError" not in resp.text
+        assert "Traceback" not in resp.text
+        records = _records(capsys)
+        error = next(record for record in records if record["event"] == "uncaught_exception")
+        access = next(record for record in records if record["event"] == "request")
+        assert error["level"] == "error"
+        assert "RuntimeError: boom" in str(error["exception"])
+        assert error["trace_id"] == resp.headers[TRACE_ID_HEADER]
+        assert resp.headers["X-Request-Id"] == error["request_id"]
+        assert access["status"] == 500

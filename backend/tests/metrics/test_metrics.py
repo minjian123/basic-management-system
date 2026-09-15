@@ -10,7 +10,7 @@ from app.api.deps import get_metrics
 from app.core.base import BaseObject
 from app.core.capability import BaseCapability, BaseNullObject
 from app.fallback.base import DEPENDENCIES as FALLBACK_DEPENDENCIES
-from app.main import create_app
+from app.main import create_app, lifespan
 from app.metrics.base import DEPENDENCIES, METRIC_KINDS, METRIC_NAMES, BaseMetrics
 from app.metrics.null import NullMetrics
 
@@ -74,17 +74,18 @@ async def test_null_metrics_is_noop() -> None:
 async def test_dependency_provider_resolves() -> None:
     """依赖解析：应用装配占位指标器；路由经 get_metrics 取到同一实例。"""
     app = create_app()
-    assert isinstance(app.state.metrics, NullMetrics)
+    async with lifespan(app):
+        assert isinstance(app.state.metrics, NullMetrics)
 
-    @app.get("/metrics-probe")
-    async def metrics_probe(  # pyright: ignore[reportUnusedFunction]
-        metrics: Annotated[BaseMetrics, Depends(get_metrics)],
-    ) -> dict[str, object]:
-        await metrics.counter("bms_request_total", labels={"route": "/metrics-probe"})
-        return {"key": metrics.key, "type": type(metrics).__name__}
+        @app.get("/metrics-probe")
+        async def metrics_probe(  # pyright: ignore[reportUnusedFunction]
+            metrics: Annotated[BaseMetrics, Depends(get_metrics)],
+        ) -> dict[str, object]:
+            await metrics.counter("bms_request_total", labels={"route": "/metrics-probe"})
+            return {"key": metrics.key, "type": type(metrics).__name__}
 
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        resp = await client.get("/metrics-probe")
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            resp = await client.get("/metrics-probe")
 
-    assert resp.status_code == 200
-    assert resp.json() == {"key": "metrics", "type": "NullMetrics"}
+        assert resp.status_code == 200
+        assert resp.json() == {"key": "metrics", "type": "NullMetrics"}

@@ -11,7 +11,7 @@ from app.core.base import BaseObject
 from app.core.capability import BaseCapability, BaseNullObject
 from app.core.exceptions import AuthError
 from app.core.security import SIGNATURE_HEADER, SignatureCodec
-from app.main import create_app
+from app.main import create_app, lifespan
 from app.replay.base import NONCE_HEADER, REPLAY_WINDOW, TIMESTAMP_HEADER, BaseReplayGuard, ReplayDecision, ReplayReason
 from app.replay.null import NullReplayGuard
 
@@ -190,17 +190,18 @@ async def test_require_raises_auth_error() -> None:
 async def test_dependency_provider_resolves() -> None:
     """依赖解析：应用装配占位守卫；路由经 get_replay_guard 取到同一实例并完成校验。"""
     app = create_app()
-    assert isinstance(app.state.replay_guard, NullReplayGuard)
+    async with lifespan(app):
+        assert isinstance(app.state.replay_guard, NullReplayGuard)
 
-    @app.post("/open-probe")
-    async def open_probe(  # pyright: ignore[reportUnusedFunction]
-        guard: Annotated[BaseReplayGuard, Depends(get_replay_guard)],
-    ) -> dict[str, object]:
-        decision = await _verify(guard)
-        return {"key": guard.key, "type": type(guard).__name__, "allowed": decision.allowed}
+        @app.post("/open-probe")
+        async def open_probe(  # pyright: ignore[reportUnusedFunction]
+            guard: Annotated[BaseReplayGuard, Depends(get_replay_guard)],
+        ) -> dict[str, object]:
+            decision = await _verify(guard)
+            return {"key": guard.key, "type": type(guard).__name__, "allowed": decision.allowed}
 
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        resp = await client.post("/open-probe")
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            resp = await client.post("/open-probe")
 
-    assert resp.status_code == 200
-    assert resp.json() == {"key": "replay_guard", "type": "NullReplayGuard", "allowed": True}
+        assert resp.status_code == 200
+        assert resp.json() == {"key": "replay_guard", "type": "NullReplayGuard", "allowed": True}

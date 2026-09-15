@@ -24,7 +24,7 @@ from app.health.base import (
 )
 from app.health.null import NullHealthCheckRegistry
 from app.health.registry import HealthCheckRegistry
-from app.main import create_app
+from app.main import create_app, lifespan
 
 
 class _PassingCheck(BaseHealthCheck):
@@ -242,16 +242,17 @@ async def test_null_registry_fixed_pass() -> None:
 async def test_dependency_provider_resolves() -> None:
     """依赖解析：应用装配真实注册表；路由经 get_health_check_registry 取到同一实例。"""
     app = create_app()
-    assert isinstance(app.state.health_check_registry, HealthCheckRegistry)
+    async with lifespan(app):
+        assert isinstance(app.state.health_check_registry, HealthCheckRegistry)
 
-    @app.get("/health-registry-probe")
-    async def probe(  # pyright: ignore[reportUnusedFunction]
-        registry: Annotated[BaseHealthCheckRegistry, Depends(get_health_check_registry)],
-    ) -> dict[str, object]:
-        return {"key": registry.key, "type": type(registry).__name__}
+        @app.get("/health-registry-probe")
+        async def probe(  # pyright: ignore[reportUnusedFunction]
+            registry: Annotated[BaseHealthCheckRegistry, Depends(get_health_check_registry)],
+        ) -> dict[str, object]:
+            return {"key": registry.key, "type": type(registry).__name__}
 
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        resp = await client.get("/health-registry-probe")
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            resp = await client.get("/health-registry-probe")
 
-    assert resp.status_code == 200
-    assert resp.json() == {"key": "health_check_registry", "type": "HealthCheckRegistry"}
+        assert resp.status_code == 200
+        assert resp.json() == {"key": "health_check_registry", "type": "HealthCheckRegistry"}

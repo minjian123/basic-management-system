@@ -12,7 +12,7 @@ from app.captcha.base import CAPTCHA_SCENES, CAPTCHA_TTL, BaseCaptcha, CaptchaCh
 from app.captcha.null import NullCaptcha
 from app.core.base import BaseObject
 from app.core.capability import BaseCapability, BaseNullObject
-from app.main import create_app
+from app.main import create_app, lifespan
 
 
 @pytest.mark.kiwi_id(41)
@@ -67,14 +67,15 @@ async def test_null_captcha_always_passes() -> None:
 async def test_dependency_provider_resolves() -> None:
     """依赖解析：应用装配占位验证码；路由经 get_captcha 取到实例。"""
     app = create_app()
-    assert isinstance(app.state.captcha, NullCaptcha)
+    async with lifespan(app):
+        assert isinstance(app.state.captcha, NullCaptcha)
 
-    @app.get("/captcha")
-    async def captcha_info(captcha: Annotated[BaseCaptcha, Depends(get_captcha)]) -> dict[str, str]:  # pyright: ignore[reportUnusedFunction]
-        return {"key": captcha.key, "type": type(captcha).__name__}
+        @app.get("/captcha")
+        async def captcha_info(captcha: Annotated[BaseCaptcha, Depends(get_captcha)]) -> dict[str, str]:  # pyright: ignore[reportUnusedFunction]
+            return {"key": captcha.key, "type": type(captcha).__name__}
 
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        resp = await client.get("/captcha")
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            resp = await client.get("/captcha")
 
-    assert resp.status_code == 200
-    assert resp.json() == {"key": "captcha", "type": "NullCaptcha"}
+        assert resp.status_code == 200
+        assert resp.json() == {"key": "captcha", "type": "NullCaptcha"}

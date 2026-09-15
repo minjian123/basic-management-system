@@ -37,6 +37,7 @@ __all__ = [
     "PluginImpl",
     "PluginRegistry",
     "build_plugin_registry",
+    "default_plugin_registry",
     "plugin_registry_snapshot",
     "register_plugin",
     "resolve_plugin",
@@ -121,6 +122,29 @@ def _registration_key(impl_cls: type[BasePluggable]) -> str:
         str: 登记键。
     """
     return impl_cls.plugin_key or impl_cls.key
+
+
+def _requires_constructor_args(impl_cls: type[BasePluggable]) -> bool:
+    """类构造是否需显式参数（非零参可实例化）。
+
+    Args:
+        impl_cls: `BasePluggable` 子类。
+
+    Returns:
+        bool: 存在无默认值的构造参数则为 True（不自动登记，需显式工厂）。
+    """
+    try:
+        params = inspect.signature(impl_cls).parameters.values()
+    except TypeError, ValueError:  # pragma: no cover - 内建签名不可解析的兜底
+        return False
+    for param in params:
+        if param.default is inspect.Parameter.empty and param.kind in (
+            inspect.Parameter.POSITIONAL_ONLY,
+            inspect.Parameter.POSITIONAL_OR_KEYWORD,
+            inspect.Parameter.KEYWORD_ONLY,
+        ):
+            return True
+    return False
 
 
 def _registration_name(impl_cls: type[BasePluggable]) -> str:
@@ -255,7 +279,7 @@ class PluginRegistry(BaseObject):
         self._explicit.append((plugin_key, plugin_name, impl))
 
     def build(self) -> Mapping[str, Mapping[str, PluginImpl]]:
-        """构建并冻结注册表：合并双轨 → 校验（抽象剔除 / 无名跳过 / 唯一性 / 版本格式）→ 只读快照。
+        """构建并冻结注册表：合并双轨 → 校验（抽象剔除 / 非零参剔除 / 无名跳过 / 唯一性 / 版本格式）→ 只读快照。
 
         Returns:
             Mapping[str, Mapping[str, PluginImpl]]: 两级映射（按 `plugin_key`、`plugin_name` 排序）。
@@ -267,6 +291,8 @@ class PluginRegistry(BaseObject):
         errors: list[str] = []
         for impl_cls in self._candidates:
             if inspect.isabstract(impl_cls):
+                continue
+            if _requires_constructor_args(impl_cls):
                 continue
             name = _registration_name(impl_cls)
             if not name:
@@ -353,6 +379,15 @@ class PluginRegistry(BaseObject):
 
 _DEFAULT_REGISTRY = PluginRegistry()
 """进程级默认插件注册表（`BasePluggable.__init_subclass__` 候选汇入）。"""
+
+
+def default_plugin_registry() -> PluginRegistry:
+    """取进程级默认插件注册表（装配登记幂等 / 测试隔离使用）。
+
+    Returns:
+        PluginRegistry: 默认注册表实例。
+    """
+    return _DEFAULT_REGISTRY
 
 
 def register_plugin(plugin_key: str, plugin_name: str, impl: PluginImpl) -> None:

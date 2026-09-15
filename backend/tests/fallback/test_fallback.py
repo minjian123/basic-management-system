@@ -11,7 +11,7 @@ from app.core.base import BaseObject
 from app.core.capability import BaseCapability, BaseNullObject
 from app.fallback.base import DEPENDENCIES, BaseFallbackPolicy, FallbackAction
 from app.fallback.null import NullFallbackPolicy
-from app.main import create_app
+from app.main import create_app, lifespan
 
 
 @pytest.mark.kiwi_id(42)
@@ -58,17 +58,18 @@ async def test_null_policy_never_degrades() -> None:
 async def test_dependency_provider_resolves() -> None:
     """依赖解析：应用装配占位降级策略；路由经 get_fallback_policy 取到同一实例。"""
     app = create_app()
-    assert isinstance(app.state.fallback_policy, NullFallbackPolicy)
+    async with lifespan(app):
+        assert isinstance(app.state.fallback_policy, NullFallbackPolicy)
 
-    @app.get("/fallback")
-    async def fallback_info(  # pyright: ignore[reportUnusedFunction]
-        policy: Annotated[BaseFallbackPolicy, Depends(get_fallback_policy)],
-    ) -> dict[str, str]:
-        action = await policy.resolve("redis")
-        return {"key": policy.key, "type": type(policy).__name__, "action": action.value}
+        @app.get("/fallback")
+        async def fallback_info(  # pyright: ignore[reportUnusedFunction]
+            policy: Annotated[BaseFallbackPolicy, Depends(get_fallback_policy)],
+        ) -> dict[str, str]:
+            action = await policy.resolve("redis")
+            return {"key": policy.key, "type": type(policy).__name__, "action": action.value}
 
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        resp = await client.get("/fallback")
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            resp = await client.get("/fallback")
 
-    assert resp.status_code == 200
-    assert resp.json() == {"key": "fallback", "type": "NullFallbackPolicy", "action": "raise"}
+        assert resp.status_code == 200
+        assert resp.json() == {"key": "fallback", "type": "NullFallbackPolicy", "action": "raise"}

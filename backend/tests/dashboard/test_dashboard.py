@@ -13,7 +13,7 @@ from app.core.capability import BaseCapability, BaseNullObject
 from app.core.exceptions import NotFoundError
 from app.dashboard.base import CARD_TYPES, BaseDashboardCardProvider, BaseDashboardCardRegistry
 from app.dashboard.null import NullDashboardCardRegistry
-from app.main import create_app
+from app.main import create_app, lifespan
 
 
 class _FakeCard(BaseDashboardCardProvider):
@@ -101,22 +101,23 @@ async def test_null_registry_empty_cards() -> None:
 async def test_dependency_provider_resolves() -> None:
     """依赖解析：应用装配占位注册表；路由经 get_dashboard_card_registry 取到同一实例。"""
     app = create_app()
-    assert isinstance(app.state.dashboard_card_registry, NullDashboardCardRegistry)
+    async with lifespan(app):
+        assert isinstance(app.state.dashboard_card_registry, NullDashboardCardRegistry)
 
-    @app.get("/dashboard-probe")
-    async def probe(  # pyright: ignore[reportUnusedFunction]
-        registry: Annotated[BaseDashboardCardRegistry, Depends(get_dashboard_card_registry)],
-    ) -> dict[str, object]:
-        data = await registry.fetch("todo", {})
-        return {"key": registry.key, "type": type(registry).__name__, "cards": registry.keys(), "data": dict(data)}
+        @app.get("/dashboard-probe")
+        async def probe(  # pyright: ignore[reportUnusedFunction]
+            registry: Annotated[BaseDashboardCardRegistry, Depends(get_dashboard_card_registry)],
+        ) -> dict[str, object]:
+            data = await registry.fetch("todo", {})
+            return {"key": registry.key, "type": type(registry).__name__, "cards": registry.keys(), "data": dict(data)}
 
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        resp = await client.get("/dashboard-probe")
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            resp = await client.get("/dashboard-probe")
 
-    assert resp.status_code == 200
-    assert resp.json() == {
-        "key": "dashboard_card_registry",
-        "type": "NullDashboardCardRegistry",
-        "cards": [],
-        "data": {},
-    }
+        assert resp.status_code == 200
+        assert resp.json() == {
+            "key": "dashboard_card_registry",
+            "type": "NullDashboardCardRegistry",
+            "cards": [],
+            "data": {},
+        }

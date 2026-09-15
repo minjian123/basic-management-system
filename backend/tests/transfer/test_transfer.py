@@ -10,7 +10,7 @@ from httpx import ASGITransport, AsyncClient
 from app.api.deps import get_exporter, get_importer
 from app.core.base import BaseObject
 from app.core.capability import BaseCapability, BaseNullObject
-from app.main import create_app
+from app.main import create_app, lifespan
 from app.transfer.base import ColumnSpec
 from app.transfer.exporter import BaseExporter
 from app.transfer.importer import BaseImporter, ImportResult, RowError
@@ -82,20 +82,26 @@ async def test_null_exporter_empty_stream() -> None:
 async def test_dependency_providers_resolve() -> None:
     """依赖解析：应用装配两占位单例；路由经两提供者取到同一实例。"""
     app = create_app()
-    assert isinstance(app.state.importer, NullImporter)
-    assert isinstance(app.state.exporter, NullExporter)
+    async with lifespan(app):
+        assert isinstance(app.state.importer, NullImporter)
+        assert isinstance(app.state.exporter, NullExporter)
 
-    @app.get("/transfer-probe")
-    async def probe(  # pyright: ignore[reportUnusedFunction]
-        importer: Annotated[BaseImporter, Depends(get_importer)],
-        exporter: Annotated[BaseExporter, Depends(get_exporter)],
-    ) -> dict[str, object]:
-        parsed = await importer.parse(b"", columns=())
-        chunks = [chunk async for chunk in exporter.export([], columns=())]
-        return {"importer_key": importer.key, "rows": len(parsed), "exporter_key": exporter.key, "chunks": len(chunks)}
+        @app.get("/transfer-probe")
+        async def probe(  # pyright: ignore[reportUnusedFunction]
+            importer: Annotated[BaseImporter, Depends(get_importer)],
+            exporter: Annotated[BaseExporter, Depends(get_exporter)],
+        ) -> dict[str, object]:
+            parsed = await importer.parse(b"", columns=())
+            chunks = [chunk async for chunk in exporter.export([], columns=())]
+            return {
+                "importer_key": importer.key,
+                "rows": len(parsed),
+                "exporter_key": exporter.key,
+                "chunks": len(chunks),
+            }
 
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        resp = await client.get("/transfer-probe")
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            resp = await client.get("/transfer-probe")
 
-    assert resp.status_code == 200
-    assert resp.json() == {"importer_key": "importer", "rows": 0, "exporter_key": "exporter", "chunks": 0}
+        assert resp.status_code == 200
+        assert resp.json() == {"importer_key": "importer", "rows": 0, "exporter_key": "exporter", "chunks": 0}

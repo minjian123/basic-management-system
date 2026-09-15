@@ -71,6 +71,9 @@ _EXPECTED_PLUGIN_KEYS = frozenset(
 _PORTS_WITHOUT_NULL = frozenset({"audit", "cache", "event", "task"})
 """暂无 `NullXxx` 缺省实现的端口（不登记 `null`，随对应阶段补实现）。"""
 
+_PLATFORM_FACTORY_KEYS = frozenset({"masking"})
+"""构造需参数（`NullMasker` 需注入 checker），不自动登记、由装配清单显式工厂登记（01_02）。"""
+
 
 def _collect_app_classes() -> list[type[BasePluggable]]:
     """导入 app 包全部模块并收集 `BasePluggable` 子类（仅 app 模块，过滤测试类）。
@@ -142,11 +145,12 @@ def test_ports_declared_and_abstract() -> None:
 
 @pytest.mark.kiwi_id(531)
 def test_null_defaults_registered() -> None:
-    """Null 缺省登记：有缺省实现的端口 `(plugin_key, null)` 登记为对应 `NullXxx`；无实现端口不登记。"""
+    """Null 缺省登记：有缺省实现的端口 `(plugin_key, null)` 登记为对应 `NullXxx`；无实现 / 需工厂的端口不登记。"""
     snapshot = _snapshot_of_app_classes()
-    assert set(snapshot) == _EXPECTED_PLUGIN_KEYS - _PORTS_WITHOUT_NULL
+    excluded = _PORTS_WITHOUT_NULL | _PLATFORM_FACTORY_KEYS
+    assert set(snapshot) == _EXPECTED_PLUGIN_KEYS - excluded
     for port in _ports():
-        if port.plugin_key in _PORTS_WITHOUT_NULL:
+        if port.plugin_key in excluded:
             assert port.plugin_key not in snapshot
             continue
         assert set(snapshot[port.plugin_key]) == {NULL_PLUGIN_NAME}

@@ -10,7 +10,7 @@ from httpx import ASGITransport, AsyncClient
 from app.api.deps import get_http_client, get_webhook_sender
 from app.core.base import BaseObject
 from app.core.capability import BaseCapability, BaseNullObject
-from app.main import create_app
+from app.main import create_app, lifespan
 from app.outbound.http import DEFAULT_MAX_RETRIES, DEFAULT_TIMEOUT, BaseHttpClient, HttpResponse
 from app.outbound.null import NullHttpClient, NullWebhookSender
 from app.outbound.webhook import BaseWebhookSender, WebhookResult
@@ -78,30 +78,31 @@ async def test_null_webhook_sender_fixed() -> None:
 async def test_dependency_providers_resolve() -> None:
     """依赖解析：应用装配两占位单例；路由经两提供者取到同一实例。"""
     app = create_app()
-    assert isinstance(app.state.http_client, NullHttpClient)
-    assert isinstance(app.state.webhook_sender, NullWebhookSender)
+    async with lifespan(app):
+        assert isinstance(app.state.http_client, NullHttpClient)
+        assert isinstance(app.state.webhook_sender, NullWebhookSender)
 
-    @app.get("/outbound-probe")
-    async def probe(  # pyright: ignore[reportUnusedFunction]
-        client: Annotated[BaseHttpClient, Depends(get_http_client)],
-        sender: Annotated[BaseWebhookSender, Depends(get_webhook_sender)],
-    ) -> dict[str, object]:
-        response = await client.request("GET", "https://example.com")
-        result = await sender.send("https://example.com/hook", {})
-        return {
-            "http_key": client.key,
-            "http_status": response.status_code,
-            "webhook_key": sender.key,
-            "delivered": result.delivered,
+        @app.get("/outbound-probe")
+        async def probe(  # pyright: ignore[reportUnusedFunction]
+            client: Annotated[BaseHttpClient, Depends(get_http_client)],
+            sender: Annotated[BaseWebhookSender, Depends(get_webhook_sender)],
+        ) -> dict[str, object]:
+            response = await client.request("GET", "https://example.com")
+            result = await sender.send("https://example.com/hook", {})
+            return {
+                "http_key": client.key,
+                "http_status": response.status_code,
+                "webhook_key": sender.key,
+                "delivered": result.delivered,
+            }
+
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            resp = await client.get("/outbound-probe")
+
+        assert resp.status_code == 200
+        assert resp.json() == {
+            "http_key": "http_client",
+            "http_status": 200,
+            "webhook_key": "webhook_sender",
+            "delivered": True,
         }
-
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        resp = await client.get("/outbound-probe")
-
-    assert resp.status_code == 200
-    assert resp.json() == {
-        "http_key": "http_client",
-        "http_status": 200,
-        "webhook_key": "webhook_sender",
-        "delivered": True,
-    }

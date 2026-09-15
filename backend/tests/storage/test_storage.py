@@ -10,7 +10,7 @@ from httpx import ASGITransport, AsyncClient
 from app.api.deps import get_object_storage
 from app.core.base import BaseObject
 from app.core.capability import BaseCapability, BaseNullObject
-from app.main import create_app
+from app.main import create_app, lifespan
 from app.storage.base import (
     DEFAULT_PRESIGN_TTL,
     NULL_ETAG,
@@ -89,17 +89,18 @@ async def test_null_presign_fixed() -> None:
 async def test_dependency_provider_resolves() -> None:
     """依赖解析：应用装配占位对象存储；路由经 get_object_storage 取到同一实例。"""
     app = create_app()
-    assert isinstance(app.state.object_storage, NullObjectStorage)
+    async with lifespan(app):
+        assert isinstance(app.state.object_storage, NullObjectStorage)
 
-    @app.get("/object-storage-probe")
-    async def probe(  # pyright: ignore[reportUnusedFunction]
-        storage: Annotated[BaseObjectStorage, Depends(get_object_storage)],
-    ) -> dict[str, object]:
-        stored = await storage.put("probe.txt", b"abc")
-        return {"key": storage.key, "type": type(storage).__name__, "size": stored.size}
+        @app.get("/object-storage-probe")
+        async def probe(  # pyright: ignore[reportUnusedFunction]
+            storage: Annotated[BaseObjectStorage, Depends(get_object_storage)],
+        ) -> dict[str, object]:
+            stored = await storage.put("probe.txt", b"abc")
+            return {"key": storage.key, "type": type(storage).__name__, "size": stored.size}
 
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        resp = await client.get("/object-storage-probe")
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            resp = await client.get("/object-storage-probe")
 
-    assert resp.status_code == 200
-    assert resp.json() == {"key": "object_storage", "type": "NullObjectStorage", "size": 3}
+        assert resp.status_code == 200
+        assert resp.json() == {"key": "object_storage", "type": "NullObjectStorage", "size": 3}

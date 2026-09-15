@@ -10,7 +10,7 @@ from httpx import ASGITransport, AsyncClient
 from app.api.deps import get_workflow_engine
 from app.core.base import BaseObject
 from app.core.capability import BaseCapability, BaseNullObject
-from app.main import create_app
+from app.main import create_app, lifespan
 from app.workflow.base import (
     NULL_INSTANCE_ID,
     NULL_TASK_ID,
@@ -100,17 +100,18 @@ async def test_null_start_and_complete_task() -> None:
 async def test_dependency_provider_resolves() -> None:
     """依赖解析：应用装配占位引擎；路由经 get_workflow_engine 取到同一实例。"""
     app = create_app()
-    assert isinstance(app.state.workflow_engine, NullWorkflowEngine)
+    async with lifespan(app):
+        assert isinstance(app.state.workflow_engine, NullWorkflowEngine)
 
-    @app.get("/workflow-probe")
-    async def probe(  # pyright: ignore[reportUnusedFunction]
-        engine: Annotated[BaseWorkflowEngine, Depends(get_workflow_engine)],
-    ) -> dict[str, object]:
-        instance = await engine.start("k", business_type="b", business_id="1")
-        return {"key": engine.key, "type": type(engine).__name__, "status": instance.status}
+        @app.get("/workflow-probe")
+        async def probe(  # pyright: ignore[reportUnusedFunction]
+            engine: Annotated[BaseWorkflowEngine, Depends(get_workflow_engine)],
+        ) -> dict[str, object]:
+            instance = await engine.start("k", business_type="b", business_id="1")
+            return {"key": engine.key, "type": type(engine).__name__, "status": instance.status}
 
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        resp = await client.get("/workflow-probe")
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            resp = await client.get("/workflow-probe")
 
-    assert resp.status_code == 200
-    assert resp.json() == {"key": "workflow_engine", "type": "NullWorkflowEngine", "status": "running"}
+        assert resp.status_code == 200
+        assert resp.json() == {"key": "workflow_engine", "type": "NullWorkflowEngine", "status": "running"}

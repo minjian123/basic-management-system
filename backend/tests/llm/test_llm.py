@@ -22,7 +22,7 @@ from app.llm.base import (
     OcrResult,
 )
 from app.llm.null import NullLlmProvider
-from app.main import create_app
+from app.main import create_app, lifespan
 
 
 @pytest.mark.kiwi_id(48)
@@ -95,17 +95,18 @@ async def test_null_ocr_fixed() -> None:
 async def test_dependency_provider_resolves() -> None:
     """依赖解析：应用装配占位 Provider；路由经 get_llm_provider 取到同一实例。"""
     app = create_app()
-    assert isinstance(app.state.llm_provider, NullLlmProvider)
+    async with lifespan(app):
+        assert isinstance(app.state.llm_provider, NullLlmProvider)
 
-    @app.get("/llm-probe")
-    async def probe(  # pyright: ignore[reportUnusedFunction]
-        provider: Annotated[BaseLlmProvider, Depends(get_llm_provider)],
-    ) -> dict[str, object]:
-        chat = await provider.chat([ChatMessage(content="hi")])
-        return {"key": provider.key, "type": type(provider).__name__, "reply": chat.content}
+        @app.get("/llm-probe")
+        async def probe(  # pyright: ignore[reportUnusedFunction]
+            provider: Annotated[BaseLlmProvider, Depends(get_llm_provider)],
+        ) -> dict[str, object]:
+            chat = await provider.chat([ChatMessage(content="hi")])
+            return {"key": provider.key, "type": type(provider).__name__, "reply": chat.content}
 
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        resp = await client.get("/llm-probe")
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            resp = await client.get("/llm-probe")
 
-    assert resp.status_code == 200
-    assert resp.json() == {"key": "llm_provider", "type": "NullLlmProvider", "reply": "null-chat-reply"}
+        assert resp.status_code == 200
+        assert resp.json() == {"key": "llm_provider", "type": "NullLlmProvider", "reply": "null-chat-reply"}

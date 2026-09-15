@@ -9,51 +9,24 @@ from app import __version__
 from app.api.errors import register_exception_handlers
 from app.api.middleware import RequestLoggingMiddleware, TraceIdMiddleware
 from app.api.router import api_router, health_router
-from app.archive.null import NullArchivePolicy, NullArchiveQueryRouter
-from app.audit.null import NullHashChain
-from app.captcha.null import NullCaptcha
-from app.circuit.null import NullCircuitBreaker
+from app.core.assembly import assemble_plugins, register_platform_plugins
 from app.core.config import get_settings, validate_startup
 from app.core.logging import configure_logging, get_logger
+from app.core.plugin import build_plugin_registry
 from app.core.resources import ResourceManager
-from app.dashboard.null import NullDashboardCardRegistry
 from app.db.engine import EngineFactory
 from app.db.registry import EngineRegistry
-from app.fallback.null import NullFallbackPolicy
-from app.fieldtype.null import NullFieldTypeRegistry
 from app.health.checks import DatabaseHealthCheck, RedisHealthCheck
 from app.health.registry import HealthCheckRegistry
-from app.i18n.null import NullTranslator
-from app.idempotency.null import NullIdempotencyStore
-from app.idp.null import NullIdentityProvider
-from app.llm.null import NullLlmProvider
-from app.lock.null import NullDistributedLock
-from app.masking.null import NullMasker
-from app.metrics.null import NullMetrics
-from app.notify.null import NullNotifier
-from app.oauth.null import NullOAuthServer, NullScopeChecker
-from app.outbound.null import NullHttpClient, NullWebhookSender
-from app.password.null import NullPasswordPolicy
-from app.permission.null import NullPermissionChecker
-from app.query.null import NullQueryProviderRegistry
-from app.ratelimit.null import NullRateLimiter
-from app.replay.null import NullReplayGuard
 from app.repositories.demo_repository import DemoRepository
 from app.schemas.common import ApiResponse
-from app.search.null import NullSearchIndex
 from app.services.demo_service import DemoService
 from app.services.module_registry import ModuleRegistry
-from app.session.null import NullSessionStore
-from app.storage.null import NullObjectStorage
-from app.tracing.null import NullTracer
-from app.transfer.null import NullExporter, NullImporter
-from app.workflow.null import NullWorkflowEngine
-from app.ws.null import NullRealtimePublisher
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
-    """应用生命周期：启动校验模块注册（完成后标记就绪），关闭时先摘流再统一释放异步资源。
+    """应用生命周期：启动校验模块注册 + 插件装配（完成后标记就绪），关闭时先摘流再统一释放异步资源。
 
     Args:
         app: 应用实例。
@@ -63,12 +36,17 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
 
     Raises:
         RuntimeError: 模块注册校验失败（冲突 / 非法）。
+        PluginError: 插件装配失败（非法 provider / 重名 / 契约版本不符 / 依赖不可用）。
     """
-    validate_startup(get_settings())
+    settings = get_settings()
+    validate_startup(settings)
     errors = app.state.module_registry.validate()
     if errors:
         get_logger("bms").critical("模块注册校验失败", errors=errors)
         raise RuntimeError("模块注册校验失败：" + "；".join(errors))
+    register_platform_plugins(settings)
+    build_plugin_registry()
+    await assemble_plugins(app, settings, app.state.resources)
     app.state.startup_complete = True
     try:
         yield
@@ -80,7 +58,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
 def create_app() -> FastAPI:
     """创建 FastAPI 应用。
 
-    注册位按序预留：中间件 → 异常处理器 → 路由。
+    注册位按序预留：中间件 → 异常处理器 → 路由；能力实例由 lifespan 装配（`assemble_plugins`）。
 
     Returns:
         FastAPI: 已注册基线配置与端点的应用实例。
@@ -109,21 +87,6 @@ def create_app() -> FastAPI:
     app.state.module_registry = ModuleRegistry()
     app.state.startup_complete = False
 
-    # 能力域基座（占位实现）：权限检查器先装配，掩码器依赖其判定 data:plain
-    permission_checker = NullPermissionChecker()
-    app.state.permission_checker = permission_checker
-    app.state.masker = NullMasker(checker=permission_checker)
-    app.state.distributed_lock = NullDistributedLock()
-    app.state.captcha = NullCaptcha()
-    app.state.password_policy = NullPasswordPolicy()
-    app.state.fallback_policy = NullFallbackPolicy()
-    app.state.circuit_breaker = NullCircuitBreaker()
-    app.state.rate_limiter = NullRateLimiter()
-    app.state.idempotency_store = NullIdempotencyStore()
-    app.state.replay_guard = NullReplayGuard()
-    app.state.metrics = NullMetrics()
-    app.state.tracer = NullTracer()
-
     # 健康检查（03-3 真实探针）：注册表 + redis / database 检查项；redis 客户端随应用生命周期释放
     health_registry = HealthCheckRegistry(
         check_timeout_ms=settings.health.check_timeout_ms,
@@ -134,28 +97,6 @@ def create_app() -> FastAPI:
     health_registry.register(DatabaseHealthCheck(engine_registry))
     resources.register(redis_check)
     app.state.health_check_registry = health_registry
-
-    app.state.oauth_server = NullOAuthServer()
-    app.state.scope_checker = NullScopeChecker()
-    app.state.object_storage = NullObjectStorage()
-    app.state.llm_provider = NullLlmProvider()
-    app.state.search_index = NullSearchIndex()
-    app.state.notifier = NullNotifier()
-    app.state.realtime_publisher = NullRealtimePublisher()
-    app.state.http_client = NullHttpClient()
-    app.state.webhook_sender = NullWebhookSender()
-    app.state.workflow_engine = NullWorkflowEngine()
-    app.state.identity_provider = NullIdentityProvider()
-    app.state.session_store = NullSessionStore()
-    app.state.query_provider_registry = NullQueryProviderRegistry()
-    app.state.importer = NullImporter()
-    app.state.exporter = NullExporter()
-    app.state.hash_chain = NullHashChain()
-    app.state.archive_policy = NullArchivePolicy()
-    app.state.archive_query_router = NullArchiveQueryRouter()
-    app.state.field_type_registry = NullFieldTypeRegistry()
-    app.state.translator = NullTranslator()
-    app.state.dashboard_card_registry = NullDashboardCardRegistry()
 
     app.state.demo_service = DemoService(DemoRepository())
 

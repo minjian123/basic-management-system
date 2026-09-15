@@ -12,7 +12,7 @@ from app.core.base import BaseObject
 from app.core.capability import BaseCapability, BaseNullObject
 from app.idp.base import IDP_PROTOCOLS, BaseIdentityProvider, IdentityToken, IdentityUser
 from app.idp.null import NullIdentityProvider
-from app.main import create_app
+from app.main import create_app, lifespan
 from app.session.base import DEFAULT_SESSION_TTL, BaseSessionStore
 from app.session.null import NullSessionStore
 
@@ -85,30 +85,31 @@ async def test_null_session_store() -> None:
 async def test_dependency_providers_resolve() -> None:
     """依赖解析：应用装配两占位单例；路由经两提供者取到同一实例。"""
     app = create_app()
-    assert isinstance(app.state.identity_provider, NullIdentityProvider)
-    assert isinstance(app.state.session_store, NullSessionStore)
+    async with lifespan(app):
+        assert isinstance(app.state.identity_provider, NullIdentityProvider)
+        assert isinstance(app.state.session_store, NullSessionStore)
 
-    @app.get("/idp-probe")
-    async def probe(  # pyright: ignore[reportUnusedFunction]
-        provider: Annotated[BaseIdentityProvider, Depends(get_identity_provider)],
-        store: Annotated[BaseSessionStore, Depends(get_session_store)],
-    ) -> dict[str, object]:
-        user = await provider.userinfo("t")
-        session = await store.load("sess-1")
-        return {
-            "idp_key": provider.key,
-            "idp_subject": user.subject,
-            "session_key": store.key,
-            "session": session,
+        @app.get("/idp-probe")
+        async def probe(  # pyright: ignore[reportUnusedFunction]
+            provider: Annotated[BaseIdentityProvider, Depends(get_identity_provider)],
+            store: Annotated[BaseSessionStore, Depends(get_session_store)],
+        ) -> dict[str, object]:
+            user = await provider.userinfo("t")
+            session = await store.load("sess-1")
+            return {
+                "idp_key": provider.key,
+                "idp_subject": user.subject,
+                "session_key": store.key,
+                "session": session,
+            }
+
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            resp = await client.get("/idp-probe")
+
+        assert resp.status_code == 200
+        assert resp.json() == {
+            "idp_key": "identity_provider",
+            "idp_subject": "null-idp-subject",
+            "session_key": "session_store",
+            "session": {"session_id": "sess-1"},
         }
-
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        resp = await client.get("/idp-probe")
-
-    assert resp.status_code == 200
-    assert resp.json() == {
-        "idp_key": "identity_provider",
-        "idp_subject": "null-idp-subject",
-        "session_key": "session_store",
-        "session": {"session_id": "sess-1"},
-    }

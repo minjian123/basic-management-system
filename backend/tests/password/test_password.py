@@ -10,7 +10,7 @@ from httpx import ASGITransport, AsyncClient
 from app.api.deps import get_password_policy
 from app.core.base import BaseObject
 from app.core.capability import BaseCapability, BaseNullObject
-from app.main import create_app
+from app.main import create_app, lifespan
 from app.password.base import PASSWORD_VIOLATIONS, BasePasswordPolicy
 from app.password.null import NullPasswordPolicy
 
@@ -64,14 +64,15 @@ async def test_null_policy_always_allows() -> None:
 async def test_dependency_provider_resolves() -> None:
     """依赖解析：应用装配占位密码策略；路由经 get_password_policy 取到实例。"""
     app = create_app()
-    assert isinstance(app.state.password_policy, NullPasswordPolicy)
+    async with lifespan(app):
+        assert isinstance(app.state.password_policy, NullPasswordPolicy)
 
-    @app.get("/policy")
-    async def policy_info(policy: Annotated[BasePasswordPolicy, Depends(get_password_policy)]) -> dict[str, str]:  # pyright: ignore[reportUnusedFunction]
-        return {"key": policy.key, "type": type(policy).__name__}
+        @app.get("/policy")
+        async def policy_info(policy: Annotated[BasePasswordPolicy, Depends(get_password_policy)]) -> dict[str, str]:  # pyright: ignore[reportUnusedFunction]
+            return {"key": policy.key, "type": type(policy).__name__}
 
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        resp = await client.get("/policy")
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            resp = await client.get("/policy")
 
-    assert resp.status_code == 200
-    assert resp.json() == {"key": "password_policy", "type": "NullPasswordPolicy"}
+        assert resp.status_code == 200
+        assert resp.json() == {"key": "password_policy", "type": "NullPasswordPolicy"}

@@ -10,7 +10,7 @@ from httpx import ASGITransport, AsyncClient
 from app.api.deps import get_oauth_server, get_scope_checker
 from app.core.base import BaseObject
 from app.core.capability import BaseCapability, BaseNullObject
-from app.main import create_app
+from app.main import create_app, lifespan
 from app.oauth.base import (
     GRANT_TYPES,
     NULL_ACCESS_TOKEN,
@@ -108,29 +108,30 @@ def test_null_scope_checker_always_allows() -> None:
 async def test_dependency_providers_resolve() -> None:
     """依赖解析：应用装配两占位单例；路由经两提供者取到同一实例。"""
     app = create_app()
-    assert isinstance(app.state.oauth_server, NullOAuthServer)
-    assert isinstance(app.state.scope_checker, NullScopeChecker)
+    async with lifespan(app):
+        assert isinstance(app.state.oauth_server, NullOAuthServer)
+        assert isinstance(app.state.scope_checker, NullScopeChecker)
 
-    @app.get("/oauth-probe")
-    async def probe(  # pyright: ignore[reportUnusedFunction]
-        server: Annotated[BaseOAuthServer, Depends(get_oauth_server)],
-        checker: Annotated[BaseScopeChecker, Depends(get_scope_checker)],
-    ) -> dict[str, object]:
-        token = await server.issue_token(ClientCredentials(client_id="c", client_secret="s"))
-        return {
-            "server_key": server.key,
-            "checker_key": checker.key,
-            "token": token.access_token,
-            "allowed": checker.check(("user:read",), "user:read"),
+        @app.get("/oauth-probe")
+        async def probe(  # pyright: ignore[reportUnusedFunction]
+            server: Annotated[BaseOAuthServer, Depends(get_oauth_server)],
+            checker: Annotated[BaseScopeChecker, Depends(get_scope_checker)],
+        ) -> dict[str, object]:
+            token = await server.issue_token(ClientCredentials(client_id="c", client_secret="s"))
+            return {
+                "server_key": server.key,
+                "checker_key": checker.key,
+                "token": token.access_token,
+                "allowed": checker.check(("user:read",), "user:read"),
+            }
+
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            resp = await client.get("/oauth-probe")
+
+        assert resp.status_code == 200
+        assert resp.json() == {
+            "server_key": "oauth_server",
+            "checker_key": "scope_checker",
+            "token": "null-access-token",
+            "allowed": True,
         }
-
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        resp = await client.get("/oauth-probe")
-
-    assert resp.status_code == 200
-    assert resp.json() == {
-        "server_key": "oauth_server",
-        "checker_key": "scope_checker",
-        "token": "null-access-token",
-        "allowed": True,
-    }

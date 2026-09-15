@@ -10,7 +10,7 @@ from app.api.deps import get_rate_limiter
 from app.core.base import BaseObject
 from app.core.capability import BaseCapability, BaseNullObject
 from app.core.exceptions import RateLimitError
-from app.main import create_app
+from app.main import create_app, lifespan
 from app.ratelimit.base import (
     DEFAULT_RATE_WINDOW,
     RATE_LIMIT_DIMENSIONS,
@@ -92,23 +92,24 @@ async def test_require_raises_rate_limit() -> None:
 async def test_dependency_provider_resolves() -> None:
     """依赖解析：应用装配占位限流器；路由经 get_rate_limiter 取到同一实例。"""
     app = create_app()
-    assert isinstance(app.state.rate_limiter, NullRateLimiter)
+    async with lifespan(app):
+        assert isinstance(app.state.rate_limiter, NullRateLimiter)
 
-    @app.get("/rate")
-    async def rate_info(  # pyright: ignore[reportUnusedFunction]
-        limiter: Annotated[BaseRateLimiter, Depends(get_rate_limiter)],
-    ) -> dict[str, object]:
-        key = build_rate_limit_key(dimension="user", target="1", tenant="t1")
-        decision = await limiter.check(key, RateLimitRule(limit=5))
-        return {
-            "key": limiter.key,
-            "type": type(limiter).__name__,
-            "allowed": decision.allowed,
-            "limit": decision.limit,
-        }
+        @app.get("/rate")
+        async def rate_info(  # pyright: ignore[reportUnusedFunction]
+            limiter: Annotated[BaseRateLimiter, Depends(get_rate_limiter)],
+        ) -> dict[str, object]:
+            key = build_rate_limit_key(dimension="user", target="1", tenant="t1")
+            decision = await limiter.check(key, RateLimitRule(limit=5))
+            return {
+                "key": limiter.key,
+                "type": type(limiter).__name__,
+                "allowed": decision.allowed,
+                "limit": decision.limit,
+            }
 
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        resp = await client.get("/rate")
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            resp = await client.get("/rate")
 
-    assert resp.status_code == 200
-    assert resp.json() == {"key": "rate_limiter", "type": "NullRateLimiter", "allowed": True, "limit": 5}
+        assert resp.status_code == 200
+        assert resp.json() == {"key": "rate_limiter", "type": "NullRateLimiter", "allowed": True, "limit": 5}
