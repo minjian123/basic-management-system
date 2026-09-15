@@ -107,6 +107,35 @@ runner 容器已启动并注册（2026-08-10，runner `bacf4fd652a2`，concurren
 
 4. 验证：管理区域 Runners 页面显示 **在线**。
 
+### 6.1 运行形态与配置 <a id="runner-config"></a>
+
+runner 容器的定义在 `deploy/compose/gitlab.yml`（值取自 `~/deploy/.env`）：
+
+| 项 | 取值 | 说明 |
+| --- | --- | --- |
+| 容器 | `bms-gitlab-runner`（`depends_on: gitlab`） | 与 GitLab 本体同 compose 编排 |
+| 挂载 | `/var/run/docker.sock`、`runner-config:/etc/gitlab-runner` | 通过宿主 docker.sock 起 job 容器；配置持久化在命名卷 |
+| 环境变量 | `RUNNER_EXECUTOR=docker`、`RUNNER_DOCKER_IMAGE=python:3.14-slim` | job 未声明 `image:` 时的默认镜像 |
+| `concurrent` | 2 | mjbk 6 核 12 线程下的并发上限（流水线 job 排队上限以此为界） |
+| `executor` | docker | 每个 job 起独立容器，互不污染 |
+| `pull_policy` | `["if-not-present"]` | **本地已有同名标签就不再拉取**——CI 基础镜像在本机构建后可直接复用 |
+| `tls_verify` / `privileged` | `false` / `false` | GitLab Registry 走 HTTP（8080/5050），关闭 TLS 校验；job 容器不提权 |
+
+查看与校验：
+
+```bash
+docker exec bms-gitlab-runner cat /etc/gitlab-runner/config.toml   # 上述字段
+docker exec bms-gitlab-runner gitlab-runner verify                 # 与 GitLab 握手
+docker exec bms-gitlab-runner gitlab-runner list                   # 已注册 runner 列表
+docker ps --filter name=bms-gitlab-runner
+```
+
+### 6.2 CI 基础镜像免拉取 <a id="runner-image"></a>
+
+流水线用两套自研基础镜像（`$REGISTRY_IMAGE_PREFIX/ci-backend:py314`、`ci-frontend:node22`），由 `ci-base-build` job 在**本机**构建并推送 Registry。
+
+由于 runner 的 `pull_policy = if-not-present`，job 会直接使用本机已构建的同标签镜像，**不强依赖 Registry 拉取**——这也是 04-01 阶段「Registry push 报 `blob unknown`」退化为 best-effort 后流水线仍全绿的原因（单 runner 本机即可闭环）。反过来说：换机器或更换 runner 后必须确认 Registry 推送链路可用，否则 job 会用旧镜像或拉取失败。
+
 ## 7. 日常运维 <a id="ops"></a>
 
 | 操作 | 命令 |
