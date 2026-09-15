@@ -219,7 +219,7 @@ frontend-build:
         - frontend/package.json
   script:
     - rm -rf frontend/node_modules && cp -a /opt/ci/frontend/node_modules frontend/node_modules
-    - cd frontend && npm run build
+    - cd frontend && npm run build && npm run budget
 
 frontend-mobile-build:
   stage: build
@@ -234,7 +234,7 @@ frontend-mobile-build:
         - frontend-mobile/package.json
   script:
     - rm -rf frontend-mobile/node_modules && cp -a /opt/ci/frontend-mobile/node_modules frontend-mobile/node_modules
-    - cd frontend-mobile && npm run build
+    - cd frontend-mobile && npm run build && npm run budget
 
 # ==== main 流水线重验证层（《开发部署规划》第 7 节 3）====
 # 全部 job 以 exists 守卫——阶段一代码落地后自动激活，此前 main 流水线空载（仅 gate-smoke）。
