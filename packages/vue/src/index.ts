@@ -5,5 +5,6 @@
  * 不重复实现能力逻辑，不依赖 Element Plus / Vant（UI 实现在 ui-ep / ui-vant 插件）。
  */
 
+export { useComponentBase, type UseComponentBaseReturn } from './bindings/useComponentBase'
 export { useValue, type UseValueReturn } from './bindings/useValue'
 export { useField, type UseFieldReturn } from './bindings/useField'

@@ -14,14 +14,15 @@ export interface FieldPermOptions extends Omit<CapabilityOptions, 'key'> {
 }
 
 export class BaseFieldPerm extends BaseCapability {
-  readonly visible: boolean
+  /** 可见（域语义名，避让组件根 `visible`） */
+  readonly permVisible: boolean
   readonly editable: boolean
   readonly required: boolean
   readonly masked: boolean
 
   constructor(options: FieldPermOptions = {}) {
     super({ ...options, key: options.key ?? 'field-perm' })
-    this.visible = options.visible ?? true
+    this.permVisible = options.visible ?? true
     this.editable = options.editable ?? true
     this.required = options.required ?? false
     this.masked = options.masked ?? false
@@ -33,6 +34,6 @@ export class BaseFieldPerm extends BaseCapability {
   }
 
   describe(): Record<string, unknown> {
-    return { ...super.describe(), visible: this.visible, editable: this.editable, masked: this.masked }
+    return { ...super.describe(), visible: this.permVisible, editable: this.editable, masked: this.masked }
   }
 }

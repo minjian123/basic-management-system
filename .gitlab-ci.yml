@@ -227,6 +227,7 @@ core-check:
     - cp -a /opt/ci/frontend/node_modules .
     - mkdir -p node_modules/@bms && ln -sfn ../../packages/core node_modules/@bms/core
     - test -d packages/vue && ln -sfn ../../packages/vue node_modules/@bms/vue || true
+    - test -d packages/ui-ep && ln -sfn ../../packages/ui-ep node_modules/@bms/ui-ep || true
     - npm run check
 
 # ---- 移动端：ESLint + Vitest（含覆盖率门禁，与 frontend-check 对称）----
