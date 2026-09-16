@@ -113,6 +113,7 @@
         <li>删除二次确认（<code>ElMessageBox.confirm</code>），危险操作明确按钮样式（danger）。</li>
         <li>列表数据实时性要求高的模块（通知中心）轮询或下拉刷新，避免整页闪烁。</li>
         <li>列过多时提供「自定义列」抽屉（存用户偏好，见《<a href="../概要设计/04_概要设计_用户喜好.md">用户喜好</a>》）。</li>
+        <li><b>加载更多与虚拟滚动（2026-09-16 登记）</b>：无限滚动 / 加载更多经容器件触底事件（<code>ScrollContainer.reach-bottom</code> 或 <code>VirtualList.reach-bottom</code>）驱动；大数据列表（≥1000 条）用 <code>VirtualList</code> 虚拟滚动，小列表普通渲染（见《<a href="../架构设计/08_架构设计_前端架构.md">架构设计 · 前端架构</a>》「前端性能」）。</li>
       </ul>
 
       <h2 id="checklist">7. 检查清单</h2>
