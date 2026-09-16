@@ -91,6 +91,9 @@ export default {
   // 容器组件类文案
   container: {
     fullscreenTip: '已进入全屏，按 Esc 退出',
+    retry: '重试',
+    loadingFailed: '加载失败',
+    emptyText: '暂无数据',
   },
   // 错误码文案：error.{code}（最小集；完整错误码总表随后端接入补齐）
   error: {

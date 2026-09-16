@@ -8,6 +8,8 @@ export { default as VirtualList } from './VirtualList.vue'
 export { default as FullscreenContainer } from './FullscreenContainer.vue'
 export { default as AutoHeight } from './AutoHeight.vue'
 export { default as AspectRatio } from './AspectRatio.vue'
+export { default as LoadingContainer } from './LoadingContainer.vue'
+export { default as SectionContainer } from './SectionContainer.vue'
 export {
   createMemoryScrollStorage,
   createScrollPositionStore,
