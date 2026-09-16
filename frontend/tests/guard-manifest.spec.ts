@@ -10,7 +10,7 @@ const manifestText = readManifest()
 const manifest = parseManifest(manifestText ?? '')
 
 describe.skipIf(!manifestText)('清单对账（Kiwi 715）', () => {
-  it('① 清单 §5 与 fragments.ts 双向一致（当前仓库）', () => {
+  it('① 清单『能力片段』节与 fragments.ts 双向一致（当前仓库）', () => {
     expect(reconcileManifest(manifest, repo)).toEqual([])
   })
 
