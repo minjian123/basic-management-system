@@ -5,6 +5,7 @@ import 'element-plus/es/components/message/style/css'
 
 import App from './App.vue'
 import { configureHttpAdapter } from './api/adapter'
+import { vPerm } from './directives/perm'
 import { i18n } from './i18n'
 import { router } from './router/routes'
 import './styles/tokens.scss'
@@ -22,5 +23,8 @@ configureHttpAdapter({
   },
 })
 
-// Element Plus 组件按需引入（unplugin-vue-components，见 vite.config.ts）
-createApp(App).use(createPinia()).use(router).use(i18n).mount('#app')
+const app = createApp(App)
+app.use(createPinia()).use(router).use(i18n)
+// 动作权限指令（权限集合与判定经 usePermissionStore → useAccess 片段）
+app.directive('perm', vPerm)
+app.mount('#app')
