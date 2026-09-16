@@ -43,8 +43,10 @@ BMS 作为平台支撑独立业务产品按"平台扩展"复用（产品仓库�
 > 阶段划分与验收口径见《[项目规划说明](bms文档/规划/项目规划说明.md)》「开发计划与验收标准」节；工期、里程碑与甘特图见《[总体项目规划](bms文档/规划/总体项目规划.md)》（19 个阶段：Alpha 阶段一~十 / Beta 阶段十一~十五 / GA 阶段十六~十九）。
 
 - **阶段一（项目骨架）已完成（2026-09-15）**：54/54 需求闭环（工程骨架 6、后端基座 41、后端基础能力 3、CI 与阶段验收 4）；**M1 门禁 10 项全部达标**（骨架 + 基座体系（占位口径）可用），逐项结论与证据索引见《[阶段测试报告](bms文档/项目/01_项目骨架/01_测试报告_项目骨架.md)》与《[需求总览](bms文档/项目/01_项目骨架/需求/00_需求_项目骨架.md)》「M1 验收门禁」表。
-- 后端基座与机制类当前为**接口占位**（应用可启动、依赖注入可解析、占位可断言），真实实现随**阶段二 后端基座**回补；55 条待办逐条登记于《[项目骨架计划](bms文档/项目/01_项目骨架/计划/01_计划_项目骨架.md)》「后续阶段待办」节。
-- 阶段二（后端基座真实实现）待启动；阶段三（后端插件化）需求基线已建（任务 / 计划待生成）；阶段四（前端组件库）需求基线已建（任务 / 计划待生成）；阶段五（前端插件化）目录已建。
+- **阶段三（后端插件化）已完成（2026-09-15）**：11 条需求全部闭环，M3 门禁 8/8 达标，[阶段测试报告](bms文档/项目/03_后端插件化/01_测试报告_后端插件化.md)归档（Kiwi 529 ~ 534、565 ~ 568、651 / 652 / 655、661 ~ 664、675 ~ 678）。
+- **阶段四（前端组件库）进行中（2026-09-16 起）**：需求基线 39 条（地基波 18 / 依赖回补 21）；需求域 02 基础组件类 **6 项已完成 5 项**——`02_01` 根系基类 6h、`02_02` 组件根基类 12h、`02_03` 片段机制与预置片段 40h、`02_04` 域基类 11h、`02_05` 扩展与登记机制 4h（合计 73h），剩余 `02_06` 基础类横切底座 15h（请求封装 / 权限指令 / 格式化工具）；双端 `src/base/`（根系 / 组件根 / 6 机制基类）与 `src/components/base/`（31 能力片段 + 4 域基类）**同款交付**（`diff -r` 无差异），用例 Kiwi 698 ~ 716 入 Kiwi TCMS。
+- 阶段二（后端基座真实实现）待启动；阶段五（前端插件化）目录已建。
+- 阶段一交付的后端基座与机制类当前为**接口占位**（应用可启动、依赖注入可解析、占位可断言），真实实现随**阶段二 后端基座**回补；55 条待办逐条登记于《[项目骨架计划](bms文档/项目/01_项目骨架/计划/01_计划_项目骨架.md)》「后续阶段待办」节。
 - 三工程均可本地起服务：后端 `/healthz`（存活）与 `/readyz`（就绪）+ PC / 移动端前端页面；详细进度见《[文档首页](bms文档/文档首页.md)》第 5 节「项目文档」。
 
 ## 快速启动
@@ -78,7 +80,7 @@ npm run test
 uv run ruff check . && uv run ruff format --check . && uv run pyright
 uv run pytest -q --cov=app --cov-branch --cov-fail-under=70    # 覆盖率门禁 ≥ 70%
 uv run python -m ops.check_modules                             # 模块注册清单校验
-cd ../frontend && npm run lint && npm run test                 # 移动端：cd ../frontend-mobile
+cd ../frontend && npm run lint && npm run test:cov && npm run build && npm run budget   # 移动端：cd ../frontend-mobile（覆盖率 ≥ 70%、体积预算门禁）
 cd .. && python3 scripts/tools/base-check/check-base.py        # 基座自检（须在仓库根）
 python3 scripts/tools/base-check/check-links.py                # 链接自洽校验（本地手工跑，不挂 CI）
 python3 scripts/tools/check-docs/check-status.py              # 需求 / 任务 / 计划状态一致性
@@ -157,7 +159,7 @@ bms/
 │   │   ├── workflow/         # 工作流引擎适配
 │   │   └── ws/               # 实时推送
 │   └── tests/                # 测试（与 app 同构 + crosscut / ops / integration）
-├── frontend/                 # Vue 3 + Vite PC 管理端（Element Plus + Router + Pinia + i18n）
+├── frontend/                 # Vue 3 + Vite PC 管理端（Element Plus + Router + Pinia + i18n + 基础组件类）
 │   ├── .npmrc                # npmmirror 源 + legacy-peer-deps
 │   ├── .nvmrc                # 固定 Node 版本（22）
 │   ├── .env.development      # VITE_API_BASE=/api
@@ -172,19 +174,21 @@ bms/
 │   ├── README.md             # 工程说明
 │   ├── public/favicon.svg
 │   ├── src/
-│   │   ├── main.ts           # 挂载 router / pinia / i18n / Element Plus
+│   │   ├── main.ts           # 挂载 router / pinia / i18n（Element Plus 组件按需自动引入）
 │   │   ├── App.vue           # 路由出口
 │   │   ├── api/              # 契约基类 / BaseApi / Axios 基线 / OpenAPI 生成类型
 │   │   ├── router/           # 动态路由骨架
 │   │   ├── stores/           # Pinia：createCrudStore / useUserStore
 │   │   ├── layouts/          # BasicLayout 基础壳
 │   │   ├── views/            # HomeView 默认页
-│   │   ├── components/       # 通用组件（占位）
+│   │   ├── base/             # 机制层：根系 BaseFrontend / 组件根 BaseComponent / 6 机制基类（占位·异步资源·错误·订阅·片段机制·注册表基座）
+│   │   ├── components/       # 业务组件（占位）+ base/ 能力片段 31 与域基类（input / display / tree / editor）
 │   │   ├── i18n/             # vue-i18n（zh-CN / en-US）
+│   │   ├── styles/           # 设计令牌 tokens.scss（size / density）
 │   │   └── utils/            # useRequest / useListPage / useTabs / validators / status / serialize
-│   └── tests/                # Vitest（home / base / utils / http + helpers）
+│   └── tests/                # Vitest：base-*（根系 / 组件根 / 机制 / 片段 / 域基类）+ guard-*（继承·依赖·演进·清单护栏）+ home / http / utils + helpers
 ├── frontend-mobile/          # Vue 3 + Vant 移动端 H5（视口 375 + 安全区适配）
-│   └── …                     # 结构同 frontend，Vant 4 + px→vw，端口固定 5174
+│   └── …                     # 结构同 frontend（含同款 `src/base/` 与 `src/components/base/`，双端字节级同款）；Vant 4 + px→vw，端口固定 5174
 ├── deploy/                   # 部署配置
 │   ├── .env.example          # 开发服务器与服务凭据模板（复制为 .env）
 │   ├── ci/                   # CI 构建（后端 / 前端 Dockerfile + 基础镜像构建脚本）
@@ -229,6 +233,11 @@ bms/
 | 阶段一 任务基线（需求域 01 ~ 04） | [项目/01_项目骨架/任务/01_工程骨架](bms文档/项目/01_项目骨架/任务/01_工程骨架/01_工程骨架.md) · [04_CI与阶段验收](bms文档/项目/01_项目骨架/任务/04_CI与阶段验收/04_CI与阶段验收.md) |
 | 阶段一 排期计划与遗留台账 | [项目/01_项目骨架/计划/01_计划_项目骨架](bms文档/项目/01_项目骨架/计划/01_计划_项目骨架.md) |
 | **阶段测试报告（阶段一）** | [项目/01_项目骨架/01_测试报告_项目骨架](bms文档/项目/01_项目骨架/01_测试报告_项目骨架.md) |
+| 阶段三 需求基线（11 条）与 M3 验收门禁 | [项目/03_后端插件化/需求/00_需求_后端插件化](bms文档/项目/03_后端插件化/需求/00_需求_后端插件化.md) |
+| 阶段三 任务基线（需求域 01 ~ 05） | [任务/01_插件化基座](bms文档/项目/03_后端插件化/任务/01_插件化基座/01_插件化基座.md) · [计划](bms文档/项目/03_后端插件化/计划/01_计划_后端插件化.md) |
+| **阶段测试报告（阶段三）** | [项目/03_后端插件化/01_测试报告_后端插件化](bms文档/项目/03_后端插件化/01_测试报告_后端插件化.md) |
+| 阶段四 需求基线（39 条）与 M4 验收门禁 | [项目/04_前端组件库/需求/00_需求_前端组件库](bms文档/项目/04_前端组件库/需求/00_需求_前端组件库.md) |
+| 阶段四 任务基线（需求域 02 基础组件类） | [任务/02_基础组件类](bms文档/项目/04_前端组件库/任务/02_基础组件类/02_基础组件类.md) · [计划](bms文档/项目/04_前端组件库/计划/01_计划_前端组件库.md) |
 | 全量文档导航 | [文档首页](bms文档/文档首页.md) |
 | 通用基座文件权威清单（产品引用口径） | [基座文档清单](bms文档/基座文档清单.md) |
 | 后端基类体系（基类清单 + 强制用法） | [后端基类清单](bms文档/后端基类清单.md) · [规范/后端开发规范](bms文档/规范/后端开发规范.md) |
