@@ -1,0 +1,19 @@
+{
+  "name": "bms-frontend-workspace",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "core:typecheck": "npm run -w @bms/core typecheck",
+    "core:test": "npm run -w @bms/core test",
+    "core:check": "npm run core:typecheck && npm run core:test"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "~6.0.2",
+    "vitest": "^5.0.0",
+    "vite": "^8.2.2"
+  }
+}
