@@ -2,12 +2,16 @@
 
 import type { AxiosRequestConfig } from 'axios'
 
+import { BaseFrontend, type FrontendBaseOptions } from '@/base/BaseFrontend'
+
 import { request } from './http'
 
-export class BaseApi {
+export class BaseApi extends BaseFrontend {
   private readonly basePath: string
 
-  constructor(basePath: string) {
+  constructor(basePath: string, options: FrontendBaseOptions = {}) {
+    // 根系接入：ns 固定 api，identifier 取模块路径前缀（日志与错误上报定位）
+    super({ ns: 'api', identifier: basePath, ...options })
     this.basePath = basePath
   }
 

@@ -1,10 +1,11 @@
-/** 基础类用例（Kiwi 21）：契约类型 / BaseApi / createCrudStore / stableStringify。 */
+/** 基础类用例（Kiwi 21）：契约类型 / BaseApi / createCrudStore / stableStringify / 契约数据根接根系。 */
 
 import { createPinia, setActivePinia } from 'pinia'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { BaseApi } from '@/api/base'
 import type { BaseEntity, BasePageQuery, PageResponse } from '@/api/types'
+import { BaseFrontend, resetFrontendBaseConfig, setFrontendSinks, type ErrorRecord } from '@/base/BaseFrontend'
 import { createCrudStore, type CrudApi } from '@/stores/base'
 import { stableStringify } from '@/utils/serialize'
 
@@ -45,6 +46,12 @@ class DemoApi extends BaseApi {
 describe('基础类（Kiwi 21）', () => {
   beforeEach(() => {
     vi.mocked(request).mockReset()
+    setFrontendSinks({ log: () => {}, error: () => {} })
+  })
+
+  afterEach(() => {
+    setFrontendSinks({ log: undefined, error: undefined })
+    resetFrontendBaseConfig()
   })
 
   it('BaseApi 拼接路径并透传方法与参数', async () => {
@@ -67,6 +74,14 @@ describe('基础类（Kiwi 21）', () => {
 
     await api.removeDemo('1')
     expect(request).toHaveBeenCalledWith({ url: '/api/v1/demos/1', method: 'DELETE' })
+  })
+
+  it('BaseApi 继承根系（ns=api、identifier=模块路径前缀）', () => {
+    const api = new DemoApi()
+    expect(api).toBeInstanceOf(BaseFrontend)
+    expect(api.ns).toBe('api')
+    expect(api.identifier).toBe('/api/v1/demos')
+    expect(api.getConfig('missing', 'fallback')).toBe('fallback')
   })
 
   it('createCrudStore 提供通用 CRUD 字段与动作', async () => {
@@ -96,6 +111,28 @@ describe('基础类（Kiwi 21）', () => {
     expect(await store.update('1', { name: 'd' })).toEqual({ ...item, name: 'b' })
   })
 
+  it('createCrudStore 取数失败经根系上报后原样抛出', async () => {
+    const failure = new Error('list failed')
+    const errors: ErrorRecord[] = []
+    setFrontendSinks({ error: (record) => errors.push(record) })
+
+    const api: CrudApi<Demo, DemoQuery> = {
+      list: vi.fn().mockRejectedValue(failure),
+      get: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+      remove: vi.fn(),
+    }
+    setActivePinia(createPinia())
+    const useStore = createCrudStore<Demo, DemoQuery>('demo-failure', api)
+    const store = useStore()
+
+    await expect(store.fetchList({ page: 1, size: 20 })).rejects.toBe(failure)
+    expect(store.loading).toBe(false)
+    expect(errors).toHaveLength(1)
+    expect(errors[0]).toMatchObject({ ns: 'store', identifier: 'demo-failure', message: 'list failed' })
+  })
+
   it('stableStringify 输出稳定序', () => {
     expect(stableStringify({ b: 1, a: { d: 2, c: [3, { f: 4, e: 5 }] } })).toBe(
       '{"a":{"c":[3,{"e":5,"f":4}],"d":2},"b":1}',
@@ -103,10 +140,15 @@ describe('基础类（Kiwi 21）', () => {
     expect(stableStringify(new Set([3, 1, 2]))).toBe('[1,2,3]')
     const sameTime = new Set([new Date(0), new Date(0)])
     expect(stableStringify(sameTime)).toBe('["1970-01-01T00:00:00.000Z","1970-01-01T00:00:00.000Z"]')
-    expect(stableStringify(new Map([['b', 2], ['a', 1]]))).toBe('{"a":1,"b":2}')
+    expect(
+      stableStringify(
+        new Map([
+          ['b', 2],
+          ['a', 1],
+        ]),
+      ),
+    ).toBe('{"a":1,"b":2}')
     expect(stableStringify({ id: 1800000000000000123n })).toBe('{"id":"1800000000000000123"}')
-    expect(stableStringify({ at: new Date('2026-09-10T00:00:00.000Z') })).toBe(
-      '{"at":"2026-09-10T00:00:00.000Z"}',
-    )
+    expect(stableStringify({ at: new Date('2026-09-10T00:00:00.000Z') })).toBe('{"at":"2026-09-10T00:00:00.000Z"}')
   })
 })

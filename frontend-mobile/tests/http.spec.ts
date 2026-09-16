@@ -1,10 +1,11 @@
-/** Axios 基线用例（Kiwi 26）：request 解包/错误、fetchAppInfo、请求与响应拦截器分支。 */
+/** Axios 基线用例（Kiwi 26）：request 解包/错误、fetchAppInfo、请求与响应拦截器分支、根系上报。 */
 
 import { AxiosError } from 'axios'
 import type { AxiosResponse } from 'axios'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { appInfoClient, fetchAppInfo, http, request } from '@/api/http'
+import { resetFrontendBaseConfig, setFrontendSinks, type ErrorRecord } from '@/base/BaseFrontend'
 
 function asResponse<T>(data: T): AxiosResponse<T> {
   return { data } as unknown as AxiosResponse<T>
@@ -24,7 +25,14 @@ function requestHandlers(): InterceptorHandlers[] {
 }
 
 describe('Axios 基线（Kiwi 26）', () => {
+  beforeEach(() => {
+    // 默认静音：错误上报断言在用例内自行注入 sink，避免控制台噪声
+    setFrontendSinks({ log: () => {}, error: () => {} })
+  })
+
   afterEach(() => {
+    setFrontendSinks({ log: undefined, error: undefined })
+    resetFrontendBaseConfig()
     vi.restoreAllMocks()
   })
 
@@ -39,6 +47,27 @@ describe('Axios 基线（Kiwi 26）', () => {
 
     vi.spyOn(http, 'request').mockResolvedValueOnce(asResponse({ code: 500, message: '', data: null }))
     await expect(request({ url: '/x' })).rejects.toThrow('业务错误 500')
+  })
+
+  it('request：业务错误与 401 分支经根系上报（拒绝值不变）', async () => {
+    const errors: ErrorRecord[] = []
+    setFrontendSinks({ error: (record) => errors.push(record) })
+
+    vi.spyOn(http, 'request').mockResolvedValueOnce(asResponse({ code: 500, message: '业务失败', data: null }))
+    await expect(request({ url: '/x' })).rejects.toThrow('业务失败')
+    expect(errors[0]).toMatchObject({
+      ns: 'http',
+      identifier: 'request',
+      message: '业务失败',
+      meta: { code: 500, url: '/x' },
+    })
+
+    const unauthorized = new AxiosError('unauthorized', 'ERR_BAD_REQUEST', undefined, undefined, {
+      status: 401,
+    } as AxiosResponse)
+    const rejected = responseHandlers()[0]?.rejected?.(unauthorized) as Promise<never>
+    await expect(rejected).rejects.toBe(unauthorized)
+    expect(errors[1]).toMatchObject({ ns: 'http', name: 'AxiosError', meta: { status: 401 } })
   })
 
   it('fetchAppInfo：解析 /info 应用信息', async () => {
