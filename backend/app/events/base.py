@@ -1,4 +1,4 @@
-"""事件能力域：事件发布 / 消费基座契约（消息中间件在阶段八回补）。"""
+"""事件能力域：事件发布 / 消费基座契约（消息中间件在阶段十 M10 集成消息可用回补）。"""
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
@@ -40,7 +40,14 @@ class BaseEventWorker(BasePluggable, ABC):
         """事件类型（发布主题 / 订阅类型）。"""
 
 
-class EventPublisher(BaseEventWorker):
+class BaseEventPublisher(BaseEventWorker):
+    """发布侧基类（共享父 `BaseEventWorker` 之下的层）：能力域键沿用 `event`。"""
+
+    key: str = "event"
+    plugin_key: str = "event"
+
+
+class EventPublisher(BaseEventPublisher):
     """事件发布基座契约：统一异步发布接口（事务消息回补）。"""
 
     @abstractmethod
@@ -60,8 +67,20 @@ class EventPublisher(BaseEventWorker):
         """
 
 
-class EventConsumer(BaseEventWorker):
-    """事件消费基座契约：分区有序异步消费（回补系统集成与消息阶段）。"""
+class BaseEventConsumer(BaseEventWorker):
+    """消费侧基类（共享父 `BaseEventWorker` 之下的层）：与发布侧**分轨**，独立能力域键 `event_consumer`。
+
+    作为独立端口，三属性自身声明（与 `BaseEventWorker` 同口径）。
+    """
+
+    key: str = "event_consumer"
+    plugin_key: str = "event_consumer"
+    plugin_name: str = NULL_PLUGIN_NAME
+    contract_version: str = DEFAULT_CONTRACT_VERSION
+
+
+class EventConsumer(BaseEventConsumer):
+    """事件消费基座契约：分区有序异步消费（真实实现随阶段十 M10 集成消息可用）。"""
 
     @abstractmethod
     async def consume(self, event: EventEnvelope) -> None:

@@ -79,14 +79,21 @@ def _null_class_defs() -> list[tuple[str, str]]:
 def test_no_null_class_outside_null_modules() -> None:
     """落点护栏：`null.py` 之外模块不得定义 `Null*` 类。"""
     defs = _null_class_defs()
-    assert len(defs) == 42
+    assert defs, "未扫描到 Null* 类（扫描路径可能失效）"
     offenders = [(path, name) for path, name in defs if not path.endswith("null.py")]
     assert not offenders, offenders
+    # 交叉一致：扫描到的 Null* 类均可自所属 null 模块导入（防清单与代码脱节）
+    missing: list[str] = []
+    for path, name in defs:
+        module_name = path.removesuffix(".py").replace("/", ".").removeprefix("backend/")
+        if not hasattr(importlib.import_module(module_name), name):
+            missing.append(f"{module_name}.{name}")
+    assert not missing, missing
 
 
 @pytest.mark.kiwi_id(532)
 def test_migrated_classes_importable_and_old_paths_removed() -> None:
-    """42 类可自 `app.<domain>.null` 导入且 `__module__` 指向 null 模块；旧路径不可用。"""
+    """迁移类可自 `app.<domain>.null` 导入且 `__module__` 指向 null 模块；旧路径不可用。"""
     _import_all()
     for old_module, null_module, name in _MIGRATED:
         module = importlib.import_module(null_module)

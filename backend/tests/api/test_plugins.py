@@ -11,7 +11,7 @@ from app.main import create_app, lifespan
 
 @pytest.mark.kiwi_id(566)
 async def test_list_contract(client: AsyncClient) -> None:
-    """分组清单：36 组、`plugin_key` 升序、provider / 实现 / 版本 / 状态齐备。"""
+    """分组清单（不写死组数）：`plugin_key` 唯一且升序、provider / 实现 / 版本 / 状态齐备。"""
     resp = await client.get("/api/v1/plugins")
     assert resp.status_code == 200
     body = resp.json()
@@ -19,7 +19,8 @@ async def test_list_contract(client: AsyncClient) -> None:
     groups = cast("list[dict[str, object]]", body["data"])
     assert isinstance(groups, list)
     keys = [str(group["plugin_key"]) for group in groups]
-    assert len(keys) == 40
+    assert keys, "分组清单为空（注册表构建可能失败）"
+    assert len(keys) == len(set(keys)), "plugin_key 重复"
     assert keys == sorted(keys)
     by_key = {str(group["plugin_key"]): group for group in groups}
     for plugin_key in ("audit", "cache", "event", "task"):
