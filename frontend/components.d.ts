@@ -12,6 +12,8 @@ export {}
 declare module 'vue' {
   export interface GlobalComponents {
     AppLayout: typeof import('./src/components/layout/AppLayout.vue')['default']
+    AspectRatio: typeof import('./src/components/container/AspectRatio.vue')['default']
+    AutoHeight: typeof import('./src/components/container/AutoHeight.vue')['default']
     BaseDisplay: typeof import('./src/components/base/display/BaseDisplay.vue')['default']
     BaseEditor: typeof import('./src/components/base/editor/BaseEditor.vue')['default']
     BaseInput: typeof import('./src/components/base/input/BaseInput.vue')['default']
@@ -33,6 +35,7 @@ declare module 'vue' {
     FormDrawer: typeof import('./src/components/modal/FormDrawer.vue')['default']
     FormFrame: typeof import('./src/components/layout/FormFrame.vue')['default']
     FormFrameTabs: typeof import('./src/components/tabs/FormFrameTabs.vue')['default']
+    FullscreenContainer: typeof import('./src/components/container/FullscreenContainer.vue')['default']
     GridCol: typeof import('./src/components/layout/GridCol.vue')['default']
     GridRow: typeof import('./src/components/layout/GridRow.vue')['default']
     LazyContainer: typeof import('./src/components/container/LazyContainer.vue')['default']
