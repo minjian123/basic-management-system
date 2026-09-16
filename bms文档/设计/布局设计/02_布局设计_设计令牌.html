@@ -181,6 +181,12 @@
         <li><code>nativeScrollbar</code> 时不消费（用系统默认）；令牌值只引用基础色 / 圆角令牌，不硬编码。</li>
       </ul>
 
+      <h3 id="skeleton-token">骨架与占位（2026-09-16 登记）</h3>
+      <ul>
+        <li>骨架件 <code>SkeletonBlock</code>（<code>03_02</code>）与懒加载占位（<code>LazyContainer</code> 内置轻量骨架）均消费基础色 / 圆角令牌，不新增专用令牌。</li>
+        <li>懒加载占位高度覆盖点：<code>--bms-lazy-min-height</code>（未登记为正式令牌；消费方可全局覆盖，随品牌化评估）。</li>
+      </ul>
+
       <h2 id="checklist">8. 检查清单</h2>
       <ul>
         <li>□ 无硬编码色值/字号/间距（全部走令牌）</li>
