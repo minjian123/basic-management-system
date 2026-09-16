@@ -164,7 +164,7 @@
       <h2 id="form-org">5. 表单组织</h2>
       <ul>
         <li>布局：label 置于字段上方（<code>label-position="top"</code>），栅格三列为主（<code>el-col :span="8"</code>），窄抽屉单列；长文本/备注跨整行。</li>
-        <li>分组：&gt; 8 字段用分区标题（<code>el-divider</code>）分组（基本信息/扩展信息）。</li>
+        <li>分组：&gt; 8 字段用分区标题（<code>el-divider</code>）分组（基本信息/扩展信息）；组件实现用 <code>SectionContainer</code>（轻量分区：标题 / 描述 / 工具区 / 可折叠 / 内边距档位，无卡片外观；2026-09-16 登记）。</li>
         <li>校验：必填项 <code>required</code> + 规则与后端一致（《<a href="../../规范/API接口规范.md">API接口规范</a>》）；错误信息走 i18n。</li>
         <li>提交：保存按钮 loading 防重复提交；成功后关闭并刷新列表（或局部更新）。</li>
         <li>系统字段（ID/版本号/创建用户/创建时间/修改用户/修改时间/表单标识）用 disabled 输入框/禁用下拉框展示，与主表业务字段形态一致、仅不可编辑；主表业务字段按 §3 只读/编辑分态。</li>
