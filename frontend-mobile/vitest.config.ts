@@ -19,6 +19,8 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['text', 'lcov', 'json-summary'],
       reportsDirectory: 'coverage',
+      // 纯再导出的 barrel 文件（无逻辑）不计入统计，避免 0% 拉低聚合口径
+      exclude: ['src/components/base/index.ts', 'src/components/base/*/index.ts'],
       thresholds: { statements: 70, branches: 70, functions: 70, lines: 70 },
     },
   },
