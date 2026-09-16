@@ -5,7 +5,7 @@
 
 import type { GuardProblem } from './ast'
 
-/** 清单 §5 片段行 */
+/** 清单『能力片段』节片段行 */
 export interface ManifestFragmentRow {
   name: string
   key: string
@@ -44,10 +44,10 @@ function sectionOf(text: string, startPattern: RegExp, endPattern: RegExp): stri
   return lines.slice(startIndex).join('\n')
 }
 
-/** 解析《前端基类清单》：§5 片段表 / §2 机制基类名 / §6 域基类实现文件 */
+/** 解析《前端基类清单》：『能力片段』节表 / 全文机制基类名 / 『域基类』节实现文件（按章节名定位，免节号依赖） */
 export function parseManifest(text: string): ManifestIndex {
   const fragments: ManifestFragmentRow[] = []
-  for (const line of sectionOf(text, /^## 5\./, /^## 6\./).split('\n')) {
+  for (const line of sectionOf(text, /^## \d+\. 能力片段/, /^## \d+\. 域基类/).split('\n')) {
     const match = /^\|\s*`(use[A-Za-z0-9]+)`\s*\|\s*`([a-z0-9-]+)`\s*\|\s*([^|]*)\|/.exec(line)
     const name = match?.[1]
     const key = match?.[2]
@@ -61,7 +61,8 @@ export function parseManifest(text: string): ManifestIndex {
   }
 
   const baseNames: string[] = []
-  for (const line of sectionOf(text, /^## 2\./, /^## 3\./).split('\n')) {
+  // 机制基类名：全文扫描角色列（『角色总览』总表 + 『根系』/『组件根』/『机制基类』分节表）
+  for (const line of text.split('\n')) {
     const cells = line.split('|').map((cell) => cell.trim())
     const role = cells[1] ?? ''
     if (!['根系', '组件根', '片段机制', '机制基类'].includes(role)) {
@@ -76,7 +77,9 @@ export function parseManifest(text: string): ManifestIndex {
     }
   }
 
-  const domainFiles = [...sectionOf(text, /^## 6\./, /^## 7\./).matchAll(/`(Base[A-Za-z0-9]+\.vue)`/g)]
+  const domainFiles = [
+    ...sectionOf(text, /^## \d+\. 域基类/, /^## \d+\. 契约与横切底座/).matchAll(/`(Base[A-Za-z0-9]+\.vue)`/g),
+  ]
     .map((match) => match[1] ?? '')
     .filter((item) => item.length > 0)
 
@@ -92,7 +95,7 @@ export function reconcileManifest(manifest: ManifestIndex, code: CodeIndex): Gua
   for (const row of manifest.fragments) {
     if (!(row.key in code.fragmentDepends)) {
       problems.push({
-        file: '前端基类清单 §5',
+        file: '前端基类清单『能力片段』节',
         rule: 'manifest.fragment-missing',
         message: `清单片段「${row.key}」在 fragments.ts 缺失（僵尸条目）`,
       })
@@ -102,14 +105,14 @@ export function reconcileManifest(manifest: ManifestIndex, code: CodeIndex): Gua
     const same = [...row.depends].sort().join(',') === [...codeDepends].sort().join(',')
     if (!same) {
       problems.push({
-        file: '前端基类清单 §5',
+        file: '前端基类清单『能力片段』节',
         rule: 'manifest.fragment-depends',
         message: `片段「${row.key}」depends 不一致：清单 [${row.depends.join(', ')}] / 代码 [${codeDepends.join(', ')}]`,
       })
     }
     if (!code.fragmentFiles.includes(`${row.name}.ts`)) {
       problems.push({
-        file: '前端基类清单 §5',
+        file: '前端基类清单『能力片段』节',
         rule: 'manifest.fragment-file',
         message: `片段「${row.name}」实现文件缺失`,
       })
@@ -121,7 +124,7 @@ export function reconcileManifest(manifest: ManifestIndex, code: CodeIndex): Gua
       problems.push({
         file: 'src/components/base/fragments.ts',
         rule: 'manifest.fragment-unregistered',
-        message: `片段「${key}」未在清单 §5 登记（漏登记）`,
+        message: `片段「${key}」未在清单『能力片段』节登记（漏登记）`,
       })
     }
   }
@@ -130,7 +133,7 @@ export function reconcileManifest(manifest: ManifestIndex, code: CodeIndex): Gua
       problems.push({
         file: 'src/components/base',
         rule: 'manifest.fragment-file-unregistered',
-        message: `片段实现「${fileName}」未在清单 §5 登记（漏登记）`,
+        message: `片段实现「${fileName}」未在清单『能力片段』节登记（漏登记）`,
       })
     }
   }
@@ -138,7 +141,7 @@ export function reconcileManifest(manifest: ManifestIndex, code: CodeIndex): Gua
   for (const name of manifest.baseNames) {
     if (!code.baseExports.includes(name)) {
       problems.push({
-        file: '前端基类清单 §2',
+        file: '前端基类清单『角色总览』/『机制基类』节',
         rule: 'manifest.base-missing',
         message: `基类「${name}」在 src/base/ 未导出`,
       })
@@ -149,7 +152,7 @@ export function reconcileManifest(manifest: ManifestIndex, code: CodeIndex): Gua
     const basename = file.split('/').pop() ?? file
     if (!code.domainFiles.some((path) => path.endsWith(`/${basename}`))) {
       problems.push({
-        file: '前端基类清单 §6',
+        file: '前端基类清单『域基类』节',
         rule: 'manifest.domain-missing',
         message: `域基类「${file}」实现缺失`,
       })
