@@ -151,8 +151,8 @@ function runAction(action: FeedbackAction): void {
 }
 
 .bms-error-page-illustration {
-  width: 96px;
-  height: 96px;
+  width: var(--bms-illustration-size);
+  height: var(--bms-illustration-size);
   color: var(--bms-color-text-secondary);
 }
 

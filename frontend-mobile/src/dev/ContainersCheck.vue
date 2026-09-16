@@ -133,7 +133,7 @@ onMounted(async () => {
       <ul class="checks">
         <li v-for="(value, key) in checks" :key="key">{{ key }}：{{ value }}</li>
       </ul>
-      <p>触底事件次数：{{ reachBottomCount }}　重试次数：{{ retryCount }}</p>
+      <p>触底事件次数：{{ reachBottomCount }} · 重试次数：{{ retryCount }}</p>
     </section>
 
     <div class="grid">
@@ -168,7 +168,7 @@ onMounted(async () => {
         >
           <div class="fs-inner">
             <button type="button" @click="fullscreenRef?.toggle?.()">进入 / 退出全屏</button>
-            <p>全屏态：{{ fullscreenRef?.isFullscreen ?? false }}　降级：{{ fullscreenRef?.isFallback ?? false }}</p>
+            <p>全屏态：{{ fullscreenRef?.isFullscreen ?? false }} · 降级：{{ fullscreenRef?.isFallback ?? false }}</p>
           </div>
         </FullscreenContainer>
       </section>
@@ -206,7 +206,7 @@ onMounted(async () => {
         >
           <div class="line">四态切换示例内容</div>
         </LoadingContainer>
-        <p>当前：{{ stateSwitch }}　重试次数：{{ retryCount }}</p>
+        <p>当前：{{ stateSwitch }} · 重试次数：{{ retryCount }}</p>
       </section>
 
       <section class="card">

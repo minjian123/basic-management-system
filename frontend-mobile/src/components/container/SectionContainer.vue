@@ -172,8 +172,8 @@ const elAttrs = computed(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
+  width: var(--bms-size-icon-large);
+  height: var(--bms-size-icon-large);
   padding: 0;
   background: transparent;
   border: none;

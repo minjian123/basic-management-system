@@ -8,9 +8,14 @@
 
 import { computed } from 'vue'
 
+import { useComponentBase } from '@/base/useComponentBase'
+
 import { menuKey, type MenuItem } from './types'
 
 defineOptions({ name: 'MenuNode' })
+
+// 组件根（nsClass；渲染根为 Element Plus 菜单件，透传由其承接）
+const base = useComponentBase({ ns: 'bms', identifier: 'menu-node' })
 
 const props = withDefaults(
   defineProps<{
@@ -35,8 +40,8 @@ const highlighted = computed(() => {
 <template>
   <el-sub-menu v-if="hasChildren" :index="index">
     <template #title>
-      <span :class="['bms-menu-label', highlighted && 'is-hit']">{{ node.name }}</span>
-      <span v-if="node.badge" class="bms-menu-badge">{{ node.badge }}</span>
+      <span :class="[base.nsClass('menu-label'), highlighted && 'is-hit']">{{ node.name }}</span>
+      <span v-if="node.badge" :class="base.nsClass('menu-badge')">{{ node.badge }}</span>
     </template>
     <MenuNode
       v-for="child in children"
@@ -48,8 +53,8 @@ const highlighted = computed(() => {
   </el-sub-menu>
 
   <el-menu-item v-else :index="index">
-    <span :class="['bms-menu-label', highlighted && 'is-hit']">{{ node.name }}</span>
-    <span v-if="node.badge" class="bms-menu-badge">{{ node.badge }}</span>
+    <span :class="[base.nsClass('menu-label'), highlighted && 'is-hit']">{{ node.name }}</span>
+    <span v-if="node.badge" :class="base.nsClass('menu-badge')">{{ node.badge }}</span>
   </el-menu-item>
 </template>
 
@@ -70,7 +75,7 @@ const highlighted = computed(() => {
   padding: 0 6px;
   border-radius: 8px;
   background: var(--bms-color-danger);
-  color: #fff;
+  color: var(--bms-color-text-inverse);
   font-size: var(--bms-font-size-xs);
   line-height: 16px;
 }
