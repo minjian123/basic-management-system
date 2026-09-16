@@ -193,6 +193,7 @@
         <li>工具栏（具体按钮由内容页定义，见《<a href="07_布局设计_列表页.html">列表页布局</a>》《<a href="08_布局设计_表单页.html">表单页布局</a>》）见《<a href="06_布局设计_表单框架.html">表单框架布局设计</a>》。</li>
         <li><code>.main-content</code> 宽度随浏览器缩放自适应（窗口宽 − 侧栏 220px − 内边距），不设固定最大宽度（见《<a href="11_布局设计_响应式适配.html">响应式适配</a>》第 3 节）。</li>
         <li>面包屑：<strong>不采用</strong>——Tab 栏已承担页面定位与导航职责，内容栏不再展示面包屑。</li>
+        <li><b>内容区独立滚动（2026-09-16 登记）</b>：长内容由 <code>ScrollContainer</code>（容器组件类「滚动容器」）承担独立滚动——样式化滚动条、触底加载（<code>reach-bottom</code>）、位置保持（<code>keepPosition</code>，Tab 切换 / 返回可恢复）。</li>
       </ul>
 
       <h2 id="home">5. 工作台首页</h2>
