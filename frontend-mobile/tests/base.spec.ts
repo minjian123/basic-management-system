@@ -1,4 +1,4 @@
-/** 基础类用例（Kiwi 22）：契约类型 / BaseApi / createCrudStore / stableStringify / 契约数据根接根系。 */
+/** 基础类用例（Kiwi 21）：契约类型 / BaseApi / createCrudStore / stableStringify / 契约数据根接根系。 */
 
 import { createPinia, setActivePinia } from 'pinia'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -9,9 +9,9 @@ import { BaseFrontend, resetFrontendBaseConfig, setFrontendSinks, type ErrorReco
 import { createCrudStore, type CrudApi } from '@/stores/base'
 import { stableStringify } from '@/utils/serialize'
 
-vi.mock('@/api/http', () => ({ request: vi.fn() }))
+vi.mock('@/api/request', () => ({ request: vi.fn() }))
 
-import { request } from '@/api/http'
+import { request } from '@/api/request'
 
 interface Demo extends BaseEntity {
   name: string
@@ -27,7 +27,7 @@ class DemoApi extends BaseApi {
   }
 
   listDemos(query: DemoQuery): Promise<PageResponse<Demo>> {
-    return this.get('', { params: query })
+    return this.get('', query)
   }
 
   createDemo(data: Record<string, unknown>): Promise<Demo> {
@@ -43,7 +43,7 @@ class DemoApi extends BaseApi {
   }
 }
 
-describe('基础类（Kiwi 22）', () => {
+describe('基础类（Kiwi 21）', () => {
   beforeEach(() => {
     vi.mocked(request).mockReset()
     setFrontendSinks({ log: () => {}, error: () => {} })
@@ -58,22 +58,30 @@ describe('基础类（Kiwi 22）', () => {
     vi.mocked(request).mockResolvedValue({ list: [], total: 0, page: 1, size: 20 })
     const api = new DemoApi()
     await api.listDemos({ page: 1, size: 20, keyword: 'k' })
-    expect(request).toHaveBeenCalledWith({
-      url: '/api/v1/demos',
-      method: 'GET',
-      params: { page: 1, size: 20, keyword: 'k' },
-    })
+    expect(request).toHaveBeenCalledWith(
+      { url: '/api/v1/demos', method: 'GET', params: { page: 1, size: 20, keyword: 'k' } },
+      undefined,
+    )
 
     const demo: Demo = { id: '1', name: 'a', createdAt: '', updatedAt: '' }
     vi.mocked(request).mockResolvedValue(demo)
     await api.createDemo({ name: 'a' })
-    expect(request).toHaveBeenCalledWith({ url: '/api/v1/demos', method: 'POST', data: { name: 'a' } })
+    expect(request).toHaveBeenCalledWith(
+      { url: '/api/v1/demos', method: 'POST', data: { name: 'a' } },
+      { idempotencyKey: expect.any(String) },
+    )
 
     await api.updateDemo('1', { name: 'b' })
-    expect(request).toHaveBeenCalledWith({ url: '/api/v1/demos/1', method: 'PUT', data: { name: 'b' } })
+    expect(request).toHaveBeenCalledWith(
+      { url: '/api/v1/demos/1', method: 'PUT', data: { name: 'b' } },
+      { idempotencyKey: expect.any(String) },
+    )
 
     await api.removeDemo('1')
-    expect(request).toHaveBeenCalledWith({ url: '/api/v1/demos/1', method: 'DELETE' })
+    expect(request).toHaveBeenCalledWith(
+      { url: '/api/v1/demos/1', method: 'DELETE' },
+      { idempotencyKey: expect.any(String) },
+    )
   })
 
   it('BaseApi 继承根系（ns=api、identifier=模块路径前缀）', () => {
