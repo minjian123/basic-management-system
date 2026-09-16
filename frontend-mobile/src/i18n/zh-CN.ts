@@ -7,6 +7,8 @@ export default {
   common: {
     enabled: '启用',
     disabled: '停用',
+    noPermission: '没有操作权限',
+    forbidden: '无权访问该页面',
   },
   // 错误码文案：error.{code}（最小集；完整错误码总表随后端接入补齐）
   error: {
