@@ -37,6 +37,22 @@ export default {
     deleteConfirm: 'This cannot be undone. Continue?',
     detailFailed: 'Failed to load data, please close and retry',
   },
+  // 异常与空状态（错误页 / 空态 / 加载）文案
+  feedback: {
+    error404Title: 'Page not found (or removed)',
+    error403Title: 'Access denied (contact an administrator if needed)',
+    error500Title: 'Service is temporarily unavailable (please retry later)',
+    backHome: 'Back to home',
+    retry: 'Retry',
+    contactAdmin: 'Contact admin',
+    emptyList: 'No data',
+    emptySearch: 'No matching results',
+    emptyTodo: 'No pending tasks, enjoy the moment',
+    emptyMessage: 'No messages',
+    goCreate: 'Create',
+    clearFilters: 'Clear filters',
+    loading: 'Loading…',
+  },
   // 错误码文案：error.{code}（最小集；完整错误码总表随后端接入补齐）
   error: {
     default: 'Operation failed, please try again later',

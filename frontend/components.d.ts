@@ -17,12 +17,14 @@ declare module 'vue' {
     BaseTree: typeof import('./src/components/base/tree/BaseTree.vue')['default']
     ConfirmDialog: typeof import('./src/components/modal/ConfirmDialog.vue')['default']
     ElButton: typeof import('element-plus/es')['ElButton']
-    ElDialog: typeof import('element-plus/es')['ElDialog']
-    ElDrawer: typeof import('element-plus/es')['ElDrawer']
+    EmptyState: typeof import('./src/components/feedback/EmptyState.vue')['default']
+    ErrorPage: typeof import('./src/components/feedback/ErrorPage.vue')['default']
     FormDialog: typeof import('./src/components/modal/FormDialog.vue')['default']
     FormDrawer: typeof import('./src/components/modal/FormDrawer.vue')['default']
+    LoadingMask: typeof import('./src/components/feedback/LoadingMask.vue')['default']
     PermButton: typeof import('./src/components/common/PermButton.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
+    SkeletonBlock: typeof import('./src/components/feedback/SkeletonBlock.vue')['default']
   }
 }
