@@ -16,9 +16,10 @@ afterEach(() => {
 })
 
 describe('展示域基类（Kiwi 710）', () => {
-  it('① 格式化：函数 / 名义格式化器回退 / 空值占位', () => {
+  it('① 格式化：函数 / 名义格式化器（内置命中 / 未注册回退） / 空值占位', () => {
     expect(useDisplayBase({ value: 1234.5, formatter: (value) => `${String(value)}元` }).fullText).toBe('1234.5元')
-    expect(useDisplayBase({ value: 5, formatter: 'amount' }).fullText).toBe('5')
+    expect(useDisplayBase({ value: 5, formatter: 'amount' }).fullText).toBe('¥5.00')
+    expect(useDisplayBase({ value: 5, formatter: 'ghost' }).fullText).toBe('5')
 
     const empty = useDisplayBase({ value: null })
     expect(empty.isEmpty).toBe(true)

@@ -8,6 +8,7 @@
 
 import { computed, toValue, type MaybeRefOrGetter } from 'vue'
 
+import { resolveFormatter as resolveNamedFormatter } from '../formatters'
 import { useDisplayControl } from '../display-control/useDisplayControl'
 import { useValue } from '../value/useValue'
 
@@ -25,6 +26,10 @@ export interface UseDisplayBaseOptions {
   masked?: MaybeRefOrGetter<boolean>
   /** 可点击取值（缺省：提供 `onClickValue` 即视为可点击） */
   clickable?: MaybeRefOrGetter<boolean>
+  /** 名义格式化器的 locale 基准（缺省取格式化工具默认值） */
+  locale?: MaybeRefOrGetter<string | undefined>
+  /** 名义格式化器的时区基准（缺省取格式化工具默认值） */
+  timezone?: MaybeRefOrGetter<string | undefined>
   onClickValue?: (value: unknown) => void
   onCopy?: (value: unknown) => void
 }
@@ -64,7 +69,18 @@ export function useDisplayBase(options: UseDisplayBaseOptions = {}): UseDisplayB
       return setting as (value: unknown) => string
     }
     const resolved = toValue(setting)
-    return typeof resolved === 'function' ? resolved : undefined
+    if (typeof resolved === 'function') {
+      return resolved
+    }
+    // 名义格式化器：片段层注册表（内置 amount / date / boolean 等；未注册回退 String）
+    if (typeof resolved === 'string' && resolved) {
+      const named = resolveNamedFormatter(resolved)
+      if (named) {
+        return (value: unknown) =>
+          named(value, { locale: toValue(options.locale), timezone: toValue(options.timezone) })
+      }
+    }
+    return undefined
   }
 
   const format = (value: unknown): string => {
