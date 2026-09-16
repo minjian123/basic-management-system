@@ -17,6 +17,10 @@ export default {
     minute: '分',
     second: '秒',
   },
+  // 容器组件类文案
+  container: {
+    fullscreenTip: '已进入全屏，按 Esc 退出',
+  },
   // 错误码文案：error.{code}（最小集；完整错误码总表随后端接入补齐）
   error: {
     default: '操作失败，请稍后重试',

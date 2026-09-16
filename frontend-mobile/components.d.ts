@@ -11,10 +11,13 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
+    AspectRatio: typeof import('./src/components/container/AspectRatio.vue')['default']
+    AutoHeight: typeof import('./src/components/container/AutoHeight.vue')['default']
     BaseDisplay: typeof import('./src/components/base/display/BaseDisplay.vue')['default']
     BaseEditor: typeof import('./src/components/base/editor/BaseEditor.vue')['default']
     BaseInput: typeof import('./src/components/base/input/BaseInput.vue')['default']
     BaseTree: typeof import('./src/components/base/tree/BaseTree.vue')['default']
+    FullscreenContainer: typeof import('./src/components/container/FullscreenContainer.vue')['default']
     LazyContainer: typeof import('./src/components/container/LazyContainer.vue')['default']
     PermButton: typeof import('./src/components/common/PermButton.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
