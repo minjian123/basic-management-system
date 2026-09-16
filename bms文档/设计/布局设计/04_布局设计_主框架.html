@@ -205,7 +205,7 @@
       <h2 id="tech">6. 技术要点</h2>
       <ul>
         <li>Tab 状态管理经**页签状态片段 <code>useTabs</code>**（受控 / 非受控）+ 组件 <code>TabsNav</code> / <code>FormFrameTabs</code>（<code>03_03</code>，2026-09-16）；阶段一过渡单例已删除。</li>
-        <li><code>keep-alive</code> 落地口径（2026-09-16，<code>03_05</code>）：<code>:max</code>（= maxOpen 12）LRU 缓存 + 内容 key（标签键 + refresh 版本），refresh 变更即重挂载；关闭标签即时释放缓存为后续优化项。</li>
+        <li><code>keep-alive</code> 落地口径（2026-09-16，<code>03_05</code>）：<code>:include</code> 按已开标签签精确缓存（关闭标签即时释放）+ <code>:max</code>（= maxOpen 12）上限兜底 + 内容 key（标签键 + refresh 版本），refresh 变更即重挂载。</li>
         <li>宿主接线：菜单 → 路由注册（占位菜单 → <code>buildRoutes</code> → <code>addRoute</code>，未注册组件回退占位视图）；路由守卫（登录占位 / <code>meta.perm</code> → 403）；侧栏折叠持久化（<code>bms:pref:sidebar-collapsed</code>）；窄屏侧栏抽屉；路由变化开签 + 菜单 / 标签同步高亮。</li>
         <li>路由组件根节点需支持缓存（避免缓存后组件卸载副作用），激活切换用路由 <code>push</code>。</li>
         <li>更多按钮：监听 Tab 栏容器宽度（resize + tabs 变化），溢出时显示下拉。</li>
