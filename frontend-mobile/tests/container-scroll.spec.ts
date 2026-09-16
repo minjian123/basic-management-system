@@ -6,44 +6,7 @@ import { nextTick } from 'vue'
 import { ScrollContainer } from '@/components/container'
 
 import { mountWithPlugins } from './helpers/mount'
-
-interface IOEntry {
-  target: Element
-  isIntersecting: boolean
-}
-
-type IOCallback = (entries: IOEntry[]) => void
-
-interface IOOptions {
-  root?: Element | null
-  rootMargin?: string
-  threshold?: number
-}
-
-class IOStub {
-  static instances: IOStub[] = []
-  callback: IOCallback
-  options: IOOptions | undefined
-  observed: Element[] = []
-
-  constructor(callback: IOCallback, options?: IOOptions) {
-    this.callback = callback
-    this.options = options
-    IOStub.instances.push(this)
-  }
-
-  observe(el: Element): void {
-    this.observed.push(el)
-  }
-
-  unobserve(): void {}
-
-  disconnect(): void {}
-
-  takeRecords(): IOEntry[] {
-    return []
-  }
-}
+import { IOStub } from './helpers/observers'
 
 type Wrapper = ReturnType<typeof mountWithPlugins>
 

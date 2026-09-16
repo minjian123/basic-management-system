@@ -26,23 +26,28 @@ export function createMemoryScrollStorage(): ScrollStorage {
 /** 默认适配器单例（组件模块共享；跨挂载保持） */
 export const defaultScrollStorage: ScrollStorage = createMemoryScrollStorage()
 
+/** 探测可用的 `sessionStorage`（隐私模式 / SSR 返回 `null`） */
+function probeSessionStorage(prefix: string): Storage | null {
+  try {
+    if (typeof window === 'undefined') {
+      return null
+    }
+    const storage = window.sessionStorage
+    // 探测可写（Safari 隐私模式会抛错）
+    storage.setItem(`${prefix}__probe__`, '1')
+    storage.removeItem(`${prefix}__probe__`)
+    return storage
+  } catch {
+    return null
+  }
+}
+
 /** `sessionStorage` 适配器（前缀默认 `bms:scroll:`；不可用时回落内存适配器） */
 export function createSessionScrollStorage(prefix = 'bms:scroll:'): ScrollStorage {
-  let storage: Storage | null = null
-  try {
-    storage = typeof window !== 'undefined' ? window.sessionStorage : null
-    if (storage) {
-      // 探测可写（Safari 隐私模式会抛错）
-      storage.setItem(`${prefix}__probe__`, '1')
-      storage.removeItem(`${prefix}__probe__`)
-    }
-  } catch {
-    storage = null
-  }
-  if (!storage) {
+  const target = probeSessionStorage(prefix)
+  if (!target) {
     return createMemoryScrollStorage()
   }
-  const target = storage
   return {
     getItem: (key) => {
       try {

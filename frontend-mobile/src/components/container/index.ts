@@ -1,12 +1,22 @@
 /**
- * 容器组件类出口（通用容器；滚动容器起步）。
+ * 容器组件类出口（通用容器；滚动容器 / 懒加载容器 / 虚拟列表容器起步）。
  */
 
 export { default as ScrollContainer } from './ScrollContainer.vue'
+export { default as LazyContainer } from './LazyContainer.vue'
+export { default as VirtualList } from './VirtualList.vue'
 export {
   createMemoryScrollStorage,
   createScrollPositionStore,
   createSessionScrollStorage,
   defaultScrollStorage,
 } from './scrollPosition'
-export type { ScrollMetrics, ScrollPositionStore, ScrollStorage } from './types'
+export { resolveSize } from './size'
+export { useVirtualRange } from './useVirtualRange'
+export type { VirtualRangeOptions, VirtualRangeReturn } from './useVirtualRange'
+export type {
+  ScrollMetrics,
+  ScrollPositionStore,
+  ScrollStorage,
+  VirtualScrollMetrics,
+} from './types'

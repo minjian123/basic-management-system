@@ -35,6 +35,7 @@ declare module 'vue' {
     FormFrameTabs: typeof import('./src/components/tabs/FormFrameTabs.vue')['default']
     GridCol: typeof import('./src/components/layout/GridCol.vue')['default']
     GridRow: typeof import('./src/components/layout/GridRow.vue')['default']
+    LazyContainer: typeof import('./src/components/container/LazyContainer.vue')['default']
     LoadingMask: typeof import('./src/components/feedback/LoadingMask.vue')['default']
     MasterDetail: typeof import('./src/components/layout/MasterDetail.vue')['default']
     MasterTree: typeof import('./src/components/layout/MasterTree.vue')['default']
@@ -51,5 +52,6 @@ declare module 'vue' {
     TabPane: typeof import('./src/components/layout/TabPane.vue')['default']
     Tabs: typeof import('./src/components/layout/Tabs.vue')['default']
     TabsNav: typeof import('./src/components/tabs/TabsNav.vue')['default']
+    VirtualList: typeof import('./src/components/container/VirtualList.vue')['default']
   }
 }

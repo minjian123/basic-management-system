@@ -15,9 +15,11 @@ declare module 'vue' {
     BaseEditor: typeof import('./src/components/base/editor/BaseEditor.vue')['default']
     BaseInput: typeof import('./src/components/base/input/BaseInput.vue')['default']
     BaseTree: typeof import('./src/components/base/tree/BaseTree.vue')['default']
+    LazyContainer: typeof import('./src/components/container/LazyContainer.vue')['default']
     PermButton: typeof import('./src/components/common/PermButton.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
     ScrollContainer: typeof import('./src/components/container/ScrollContainer.vue')['default']
+    VirtualList: typeof import('./src/components/container/VirtualList.vue')['default']
   }
 }
