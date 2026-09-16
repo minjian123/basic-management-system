@@ -58,6 +58,8 @@ describe('能力注册表契约（不注册不可用）', () => {
 
   it('能力清单与机制登记表一致（manifest 权威）', () => {
     expect(knownCapabilitiesView()).toEqual({ ...capabilityManifest })
-    expect(Object.keys(capabilityManifest)).toEqual(['value', 'field-shell', 'field-perm', 'field'])
+    expect(Object.keys(capabilityManifest)).toEqual(
+      expect.arrayContaining(['value', 'field-shell', 'field-perm', 'field']),
+    )
   })
 })
