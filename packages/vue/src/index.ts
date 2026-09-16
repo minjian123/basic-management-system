@@ -6,5 +6,10 @@
  */
 
 export { useComponentBase, type UseComponentBaseReturn } from './bindings/useComponentBase'
+export {
+  usePersistedState,
+  type UsePersistedStateOptions,
+  type UsePersistedStateReturn,
+} from './bindings/usePersistedState'
 export { useValue, type UseValueReturn } from './bindings/useValue'
 export { useField, type UseFieldReturn } from './bindings/useField'
