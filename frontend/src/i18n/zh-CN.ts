@@ -77,6 +77,12 @@ export default {
     selectNode: '请选择左侧节点',
     loadFailed: '加载失败，请重试',
   },
+  // 侧边菜单文案
+  menu: {
+    searchPlaceholder: '搜索菜单',
+    empty: '暂无菜单',
+    noMatch: '未找到匹配菜单',
+  },
   // 错误码文案：error.{code}（最小集；完整错误码总表随后端接入补齐）
   error: {
     default: '操作失败，请稍后重试',
