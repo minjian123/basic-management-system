@@ -4,7 +4,7 @@ import { createMemoryHistory, createRouter, type Router } from 'vue-router'
 import { mount } from '@vue/test-utils'
 import { createI18n } from 'vue-i18n'
 
-import { configureDirtyConfirm, TabsNav } from '../src'
+import { configureConfirm, TabsNav } from '../src'
 
 const confirmMock = vi.fn<(options: unknown) => Promise<boolean>>(async () => true)
 
@@ -27,11 +27,11 @@ const i18n = createI18n({
 
 beforeEach(() => {
   confirmMock.mockReset().mockResolvedValue(true)
-  configureDirtyConfirm((options) => confirmMock(options))
+  configureConfirm((options) => confirmMock(options))
 })
 
 afterEach(() => {
-  configureDirtyConfirm(undefined)
+  configureConfirm(undefined)
 })
 
 function createTestRouter(): Router {

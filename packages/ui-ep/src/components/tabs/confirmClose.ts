@@ -1,35 +1,22 @@
 /**
  * 标签脏数据关闭确认（多标签导航 / 双层标签共用内部辅助）。
  *
- * **注入式**：确认弹窗实现由宿主 / 插件注入（`configureDirtyConfirm`；文案归注入实现）；
- * 未注入时按占位语义放行（不阻断）。
+ * 复用 ui-ep 确认注入点（`confirm`；默认 ElMessageBox）。文案为缺省中文，
+ * 宿主经 i18n 覆盖确认实现时可自行取词。
  */
 
-export interface DirtyConfirmOptions {
-  title: string
-  message: string
-  confirmText: string
-  cancelText: string
-}
+import { confirm } from '../../confirm'
 
-export type DirtyConfirm = (options: DirtyConfirmOptions) => Promise<boolean>
-
-let dirtyConfirm: DirtyConfirm | undefined
-
-/** 注入脏数据确认实现（宿主 / ui-ep 弹窗能力接入时调用） */
-export function configureDirtyConfirm(confirm: DirtyConfirm | undefined): void {
-  dirtyConfirm = confirm
-}
-
-/** 关闭前脏数据确认：`enabled` 为假或非 dirty 或未注入确认实现时直接放行 */
+/** 关闭前脏数据确认：`enabled` 为假或非 dirty 时直接放行 */
 export async function confirmDirtyClose(tab: { dirty?: boolean }, enabled: boolean): Promise<boolean> {
-  if (!enabled || !tab.dirty || !dirtyConfirm) {
+  if (!enabled || !tab.dirty) {
     return true
   }
-  return dirtyConfirm({
-    title: 'unsaved.title',
-    message: 'unsaved.message',
-    confirmText: 'unsaved.abandon',
-    cancelText: 'unsaved.continueEdit',
+  return confirm({
+    title: '未保存的修改',
+    message: '有未保存的修改，确定放弃吗？',
+    confirmText: '放弃修改',
+    cancelText: '继续编辑',
+    danger: true,
   })
 }
