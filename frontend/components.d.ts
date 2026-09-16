@@ -43,6 +43,7 @@ declare module 'vue' {
     PermButton: typeof import('./src/components/common/PermButton.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
+    ScrollContainer: typeof import('./src/components/container/ScrollContainer.vue')['default']
     SideMenu: typeof import('./src/components/menu/SideMenu.vue')['default']
     SkeletonBlock: typeof import('./src/components/feedback/SkeletonBlock.vue')['default']
     Space: typeof import('./src/components/layout/Space.vue')['default']
