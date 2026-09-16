@@ -35,8 +35,8 @@ export class BaseColumnConfig extends BaseCapability {
     this.columns.set(dragDrop.reorder(this.columns.get(), from, to))
   }
 
-  /** 可见列（保序） */
-  get visible(): readonly ColumnMeta[] {
+  /** 可见列（保序；域语义名，避让组件根 `visible`） */
+  get visibleColumns(): readonly ColumnMeta[] {
     return this.columns.get().filter((column) => !column.hidden)
   }
 

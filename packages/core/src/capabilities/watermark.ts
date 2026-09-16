@@ -10,7 +10,8 @@ export interface WatermarkOptions extends Omit<CapabilityOptions, 'key'> {
 
 export class BaseWatermark extends BaseCapability {
   readonly text = observable('')
-  readonly visible = observable(false)
+  /** 显示中（域语义名，避让组件根 `visible`） */
+  readonly shown = observable(false)
 
   constructor(options: WatermarkOptions = {}) {
     super({ ...options, key: options.key ?? 'watermark' })
@@ -24,14 +25,14 @@ export class BaseWatermark extends BaseCapability {
   }
 
   show(): void {
-    this.visible.set(true)
+    this.shown.set(true)
   }
 
   hide(): void {
-    this.visible.set(false)
+    this.shown.set(false)
   }
 
   describe(): Record<string, unknown> {
-    return { ...super.describe(), visible: this.visible.get() }
+    return { ...super.describe(), shown: this.shown.get() }
   }
 }

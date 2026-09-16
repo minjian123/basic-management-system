@@ -273,9 +273,9 @@ describe('S2 复用类行为（二）', () => {
       ],
     })
     columns.toggleHidden('b')
-    expect(columns.visible).toHaveLength(2)
+    expect(columns.visibleColumns).toHaveLength(2)
     columns.move(0, 1, drag)
-    expect(columns.visible[1]?.key).toBe('a')
+    expect(columns.visibleColumns[1]?.key).toBe('a')
 
     const scheme = new BaseQueryScheme()
     scheme.setConditions([{ field: 'name', op: 'like', value: 'x' }])
@@ -286,7 +286,7 @@ describe('S2 复用类行为（二）', () => {
     const watermark = new BaseWatermark()
     expect(watermark.build(['张三', undefined, '2026-09-16'])).toBe('张三 · 2026-09-16')
     watermark.show()
-    expect(watermark.visible.get()).toBe(true)
+    expect(watermark.shown.get()).toBe(true)
 
     const context = new BaseFragmentContext()
     context.provide({ user: { id: 'u1', name: '张三' } })

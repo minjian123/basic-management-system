@@ -3,7 +3,14 @@
  */
 
 export { BaseFrontend, silentLogger, emptyConfig, type FrontendLogger, type FrontendConfigReader, type FrontendBaseOptions, type LogLevel } from './base/BaseFrontend'
-export { BaseComponent, type ComponentBaseOptions, type SizeLevel, type DensityLevel } from './base/BaseComponent'
+export {
+  BaseComponent,
+  RESERVED_ATTR_KEYS,
+  type ComponentBaseOptions,
+  type SizeLevel,
+  type DensityLevel,
+  type MechanismRegistry,
+} from './base/BaseComponent'
 export { BaseError, ErrorCodes, type BaseErrorOptions } from './mechanisms/error'
 export {
   BaseCapability,
