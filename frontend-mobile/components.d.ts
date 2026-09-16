@@ -19,10 +19,12 @@ declare module 'vue' {
     BaseTree: typeof import('./src/components/base/tree/BaseTree.vue')['default']
     FullscreenContainer: typeof import('./src/components/container/FullscreenContainer.vue')['default']
     LazyContainer: typeof import('./src/components/container/LazyContainer.vue')['default']
+    LoadingContainer: typeof import('./src/components/container/LoadingContainer.vue')['default']
     PermButton: typeof import('./src/components/common/PermButton.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
     ScrollContainer: typeof import('./src/components/container/ScrollContainer.vue')['default']
+    SectionContainer: typeof import('./src/components/container/SectionContainer.vue')['default']
     VirtualList: typeof import('./src/components/container/VirtualList.vue')['default']
   }
 }
