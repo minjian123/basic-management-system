@@ -15,6 +15,12 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     include: ['tests/**/*.spec.ts'],
+    // EP 组件（按需导入）内联处理：其 `style/css` 依赖 theme-chalk CSS，外部化后 Node 无法加载 .css
+    server: {
+      deps: {
+        inline: ['element-plus'],
+      },
+    },
     // 覆盖率门禁（骨架期口径：统计被用例导入的文件；全量 src/** 随阶段四组件库扩面）
     // 阈值口径见《测试规范》「覆盖率要求」节与 04_01 详细设计 §6.2
     coverage: {
