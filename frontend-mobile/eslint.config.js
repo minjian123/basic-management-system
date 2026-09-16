@@ -15,6 +15,16 @@ export default tseslint.config(
     languageOptions: { parserOptions: { parser: tseslint.parser } },
   },
   {
+    name: 'app/vue-no-undef',
+    files: ['**/*.vue'],
+    rules: { 'no-undef': 'off' },
+  },
+  {
+    name: 'app/tests',
+    files: ['tests/**/*.{ts,mts,tsx}'],
+    rules: { 'vue/one-component-per-file': 'off' },
+  },
+  {
     name: 'app/node-scripts',
     files: ['scripts/**/*.mjs'],
     languageOptions: { globals: { console: 'readonly', URL: 'readonly' } },
