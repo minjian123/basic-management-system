@@ -9,6 +9,13 @@ export default {
     disabled: '停用',
     noPermission: '没有操作权限',
     forbidden: '无权访问该页面',
+    justNow: '刚刚',
+    yesterday: '昨天',
+    yes: '是',
+    no: '否',
+    hour: '小时',
+    minute: '分',
+    second: '秒',
   },
   // 错误码文案：error.{code}（最小集；完整错误码总表随后端接入补齐）
   error: {
