@@ -167,6 +167,20 @@
         <li>组件样式不硬编码色值与尺寸；新增令牌同样先在本文件登记后使用。</li>
       </ul>
 
+      <h3 id="scrollbar-token">滚动条令牌（2026-09-16 登记）</h3>
+      <pre><code>/* src/styles/tokens.scss —— 滚动条（双端同款；容器组件类「滚动容器」消费） */
+:root {
+  --bms-scrollbar-size: 8px;
+  --bms-scrollbar-radius: var(--bms-radius-sm);
+  --bms-scrollbar-thumb: var(--bms-color-border);
+  --bms-scrollbar-thumb-hover: var(--bms-color-text-secondary);
+  --bms-scrollbar-track: transparent;
+}</code></pre>
+      <ul>
+        <li>用途：<code>ScrollContainer</code> 默认样式化滚动条（<code>scrollbar-width/color</code> + <code>::-webkit-scrollbar-*</code>）；移动端媒体查询隐藏自绘（触屏原生滚动）。</li>
+        <li><code>nativeScrollbar</code> 时不消费（用系统默认）；令牌值只引用基础色 / 圆角令牌，不硬编码。</li>
+      </ul>
+
       <h2 id="checklist">8. 检查清单</h2>
       <ul>
         <li>□ 无硬编码色值/字号/间距（全部走令牌）</li>
