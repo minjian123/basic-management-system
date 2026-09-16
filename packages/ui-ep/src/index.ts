@@ -23,6 +23,18 @@ export type { FeedbackAction } from './components/feedback/types'
 export { default as PermButton } from './components/common/PermButton.vue'
 export { checkPerm, configurePermissionChecker, type PermissionChecker, type PermissionMode } from './permission'
 export { confirm, configureConfirm, type ConfirmHandler, type ConfirmOptions } from './confirm'
+export { default as MenuNode } from './components/menu/MenuNode.vue'
+export { default as SideMenu } from './components/menu/SideMenu.vue'
+export {
+  configureMenuSource,
+  getMenuSource,
+  filterMenuTree,
+  findAncestorKeys,
+  menuKey,
+  sortVisible,
+  type MenuItem,
+  type MenuSourceProvider,
+} from './components/menu'
 export { default as FormDrawer } from './components/modal/FormDrawer.vue'
 export { default as FormDialog } from './components/modal/FormDialog.vue'
 export { default as ConfirmDialog } from './components/modal/ConfirmDialog.vue'
