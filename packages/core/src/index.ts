@@ -17,4 +17,21 @@ export { BasePlaceholder, type PlaceholderOptions, type PlaceholderReason, type 
 export { BaseAsyncResource, type ResourceDisposer } from './mechanisms/resource'
 export { BaseSubscription, nullSubscriptionBus, type SubscriptionBus, type SubscriptionHandler } from './mechanisms/subscription'
 export { ProviderRegistry, getProvider, requireProvider } from './providers'
+export { observable, type Observable, type MutableObservable } from './base/observable'
+export {
+  BaseValue,
+  BaseFieldShell,
+  BaseFieldPerm,
+  BaseField,
+  CapabilityRegistry,
+  capabilityRegistry,
+  createCapability,
+  registerCapability,
+  capabilityManifest,
+  type CapabilityRegistration,
+  type ValueOptions,
+  type FieldShellOptions,
+  type FieldPermOptions,
+  type FieldOptions,
+} from './capabilities'
 export type { CapabilityDescriptor, RenderBinding } from './contracts'

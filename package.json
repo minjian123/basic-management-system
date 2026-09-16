@@ -8,7 +8,11 @@
   "scripts": {
     "core:typecheck": "npm run -w @bms/core typecheck",
     "core:test": "npm run -w @bms/core test",
-    "core:check": "npm run core:typecheck && npm run core:test"
+    "core:check": "npm run core:typecheck && npm run core:test",
+    "vue:typecheck": "npm run -w @bms/vue typecheck",
+    "vue:test": "npm run -w @bms/vue test",
+    "vue:check": "npm run vue:typecheck && npm run vue:test",
+    "check": "npm run core:check && npm run vue:check"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

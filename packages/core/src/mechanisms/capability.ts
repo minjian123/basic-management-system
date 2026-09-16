@@ -115,4 +115,15 @@ export class BaseCapability extends BaseComponent {
   describe(): Record<string, unknown> {
     return { key: this.key, depends: this.depends }
   }
+
+  /** 释放状态（能力释放可观测；具体释放动作由子类覆写 `dispose` 并调用 `super.dispose()`） */
+  get isDisposed(): boolean {
+    return this.disposed
+  }
+
+  override dispose(): void {
+    this.disposed = true
+  }
+
+  private disposed = false
 }
