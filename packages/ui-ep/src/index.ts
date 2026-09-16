@@ -22,8 +22,20 @@ export { default as EmptyState } from './components/feedback/EmptyState.vue'
 export type { FeedbackAction } from './components/feedback/types'
 export { default as PermButton } from './components/common/PermButton.vue'
 export { checkPerm, configurePermissionChecker, type PermissionChecker, type PermissionMode } from './permission'
+export { confirm, configureConfirm, type ConfirmHandler, type ConfirmOptions } from './confirm'
+export { default as FormDrawer } from './components/modal/FormDrawer.vue'
+export { default as FormDialog } from './components/modal/FormDialog.vue'
+export { default as ConfirmDialog } from './components/modal/ConfirmDialog.vue'
+export type {
+  FormModalMode,
+  FormModalWidth,
+  SharedModalEmits,
+  SharedModalProps,
+  UseModalShellOptions,
+  UseModalShellReturn,
+} from './components/modal/useModalShell'
 
 export { default as TabsNav } from './components/tabs/TabsNav.vue'
 export { default as FormFrameTabs } from './components/tabs/FormFrameTabs.vue'
-export { configureDirtyConfirm, type DirtyConfirm } from './components/tabs/confirmClose'
+export { confirmDirtyClose } from './components/tabs/confirmClose'
 export type { TabNavItem } from './components/tabs/types'

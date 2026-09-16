@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { createI18n } from 'vue-i18n'
 
-import { configureDirtyConfirm, FormFrameTabs } from '../src'
+import { configureConfirm, FormFrameTabs } from '../src'
 
 const confirmMock = vi.fn<(options: unknown) => Promise<boolean>>(async () => true)
 
@@ -14,11 +14,11 @@ const i18n = createI18n({
 
 beforeEach(() => {
   confirmMock.mockReset().mockResolvedValue(true)
-  configureDirtyConfirm((options) => confirmMock(options))
+  configureConfirm((options) => confirmMock(options))
 })
 
 afterEach(() => {
-  configureDirtyConfirm(undefined)
+  configureConfirm(undefined)
 })
 
 const LIST_TAB = { key: 'user:list', title: '用户列表' }
