@@ -60,7 +60,7 @@ describe('注册表基座（Kiwi 706）', () => {
     expect(warnings().some((record) => record.message.includes('已登记'))).toBe(true)
   })
 
-  it('⑨ strict 下同 key 抛 BaseError（码 10002）', () => {
+  it('⑨ strict 下同 key 抛 BaseError（码 10003）', () => {
     const registry = new BaseRegistry({ strict: true })
     registry.register(new ProbeItem('dict', 'DictSelect'))
     let caught: unknown
