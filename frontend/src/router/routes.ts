@@ -5,12 +5,21 @@ import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import BasicLayout from '@/layouts/BasicLayout.vue'
 
 import { setupRouterGuard } from './guard'
+import { nameComponent } from './routeComponent'
 
 const routes: RouteRecordRaw[] = [
   {
     path: '/',
+    name: 'layout',
     component: BasicLayout,
-    children: [{ path: '', name: 'home', component: () => import('@/views/HomeView.vue') }],
+    children: [
+      {
+        path: '',
+        name: 'home',
+        // 组件名约定（keep-alive include 按路由 name 匹配）
+        component: nameComponent('home', () => import('@/views/HomeView.vue')),
+      },
+    ],
   },
   // 错误页独立路由（懒加载；共享 ErrorPage 组件，按 code 区分；公开路由）
   {

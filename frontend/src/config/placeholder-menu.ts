@@ -8,15 +8,15 @@
 import type { MenuItem } from '@/components/menu/types'
 
 export const PLACEHOLDER_MENU: MenuItem[] = [
-  { name: '工作台', path: '/', icon: 'dashboard', sort: 1 },
+  { name: '工作台', path: '/', component: 'HomeView', icon: 'dashboard', sort: 1 },
   {
     name: '系统管理',
     icon: 'setting',
     sort: 10,
     children: [
-      { name: '用户管理', path: '/system/user', sort: 1 },
-      { name: '角色管理', path: '/system/role', sort: 2 },
-      { name: '菜单管理', path: '/system/menu', sort: 3 },
+      { name: '用户管理', path: '/system/user', component: 'PlaceholderView', sort: 1 },
+      { name: '角色管理', path: '/system/role', component: 'PlaceholderView', sort: 2 },
+      { name: '菜单管理', path: '/system/menu', component: 'PlaceholderView', sort: 3 },
     ],
   },
   {
@@ -24,10 +24,10 @@ export const PLACEHOLDER_MENU: MenuItem[] = [
     icon: 'document',
     sort: 20,
     children: [
-      { name: '文章管理', path: '/content/article', sort: 1 },
-      { name: '分类管理', path: '/content/category', sort: 2 },
+      { name: '文章管理', path: '/content/article', component: 'PlaceholderView', sort: 1 },
+      { name: '分类管理', path: '/content/category', component: 'PlaceholderView', sort: 2 },
     ],
   },
   { name: '平台文档', path: 'https://example.com/docs', icon: 'link', external: true, sort: 90 },
-  { name: '隐藏页面', path: '/hidden/demo', hidden: true, sort: 100 },
+  { name: '隐藏页面', path: '/hidden/demo', component: 'PlaceholderView', hidden: true, sort: 100 },
 ]
