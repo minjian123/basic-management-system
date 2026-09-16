@@ -16,6 +16,26 @@ export default {
     hour: '小时',
     minute: '分',
     second: '秒',
+    save: '保存',
+    cancel: '取消',
+    close: '关闭',
+    delete: '删除',
+    edit: '编辑',
+    confirm: '确定',
+    reset: '重置',
+  },
+  // 弹窗（抽屉 / 对话框）文案
+  modal: {
+    titleCreate: '新增{name}',
+    titleEdit: '编辑{name}',
+    titleView: '查看{name}',
+    unsavedTitle: '未保存的修改',
+    unsavedMessage: '有未保存的修改，确定放弃吗？',
+    abandon: '放弃修改',
+    continueEdit: '继续编辑',
+    confirmTitle: '操作确认',
+    deleteConfirm: '删除后不可恢复，确定继续？',
+    detailFailed: '数据加载失败，请关闭后重试',
   },
   // 错误码文案：error.{code}（最小集；完整错误码总表随后端接入补齐）
   error: {

@@ -16,6 +16,26 @@ export default {
     hour: 'h',
     minute: 'm',
     second: 's',
+    save: 'Save',
+    cancel: 'Cancel',
+    close: 'Close',
+    delete: 'Delete',
+    edit: 'Edit',
+    confirm: 'OK',
+    reset: 'Reset',
+  },
+  // 弹窗（抽屉 / 对话框）文案
+  modal: {
+    titleCreate: 'Create {name}',
+    titleEdit: 'Edit {name}',
+    titleView: 'View {name}',
+    unsavedTitle: 'Unsaved changes',
+    unsavedMessage: 'There are unsaved changes. Discard them?',
+    abandon: 'Discard',
+    continueEdit: 'Keep editing',
+    confirmTitle: 'Confirm',
+    deleteConfirm: 'This cannot be undone. Continue?',
+    detailFailed: 'Failed to load data, please close and retry',
   },
   // 错误码文案：error.{code}（最小集；完整错误码总表随后端接入补齐）
   error: {
