@@ -18,5 +18,6 @@ declare module 'vue' {
     PermButton: typeof import('./src/components/common/PermButton.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
+    ScrollContainer: typeof import('./src/components/container/ScrollContainer.vue')['default']
   }
 }
