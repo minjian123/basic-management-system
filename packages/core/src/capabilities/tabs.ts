@@ -41,6 +41,8 @@ export class BaseTabs extends BaseCapability {
       }
       list.push(tab)
     }
+    // 固定签排前（稳定排序；对齐旧片段 `sortTabs` 语义）
+    list.sort((a, b) => Number(Boolean(b.pinned)) - Number(Boolean(a.pinned)))
     this.tabs.set(list)
     this.activeKey.set(tab.key)
   }
@@ -55,6 +57,20 @@ export class BaseTabs extends BaseCapability {
     this.tabs.set(next)
     if (this.activeKey.get() === key) {
       this.activeKey.set(next[next.length - 1]?.key ?? '')
+    }
+  }
+
+  find(key: string): TabEntry | undefined {
+    return this.tabs.get().find((item) => item.key === key)
+  }
+
+  has(key: string): boolean {
+    return this.tabs.get().some((item) => item.key === key)
+  }
+
+  activate(key: string): void {
+    if (this.has(key)) {
+      this.activeKey.set(key)
     }
   }
 

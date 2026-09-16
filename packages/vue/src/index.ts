@@ -6,6 +6,7 @@
  */
 
 export { useComponentBase, type UseComponentBaseReturn } from './bindings/useComponentBase'
+export { useTabs, type TabItem, type UseTabsOptions, type UseTabsReturn } from './bindings/useTabs'
 export {
   usePersistedState,
   type UsePersistedStateOptions,
