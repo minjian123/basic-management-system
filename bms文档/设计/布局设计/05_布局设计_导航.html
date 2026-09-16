@@ -102,9 +102,10 @@
         <tr><td>图标</td><td>一级菜单配图标，二级菜单纯文字（<code>--space-sm</code> 缩进）</td></tr>
         <tr><td>激活态</td><td>当前路由高亮（含子页面路由匹配），父级自动展开</td></tr>
         <tr><td>筛选</td><td>菜单 > 30 项时提供顶部搜索过滤（按名称/路由匹配）</td></tr>
-        <tr><td>徽标</td><td>侧边菜单项<strong>不采用徽标/角标</strong>；全局待办/未读角标统一放顶栏通知铃铛（见第 3 节），避免双角标重复</td></tr>
+        <tr><td>徽标</td><td>侧边菜单项默认<strong>不采用</strong>徽标（全局待办/未读角标统一放顶栏通知铃铛，避免双角标重复）；组件契约保留<strong>可选</strong>徽标能力（<code>badge</code>，默认不配置；见《<a href="../组件设计/08_交互类/13_组件设计_侧边菜单/13_组件设计_侧边菜单.md">组件设计 · 侧边菜单</a>》2026-09-16 登记）</td></tr>
       </table>
       <div class="note">菜单与按钮权限联动：菜单项由 <code>v-perm</code>/路由守卫双重控制（《<a href="../../规范/API接口规范.md">API接口规范</a>》第 6 节）。</div>
+      <div class="note">组件契约依据：《组件设计 · 侧边菜单》（08 类 13 节点，含可交互原型）与《组件设计 · 多标签导航》（03 类 04 节点）；路由守卫 2026-09-16 接入（<code>src/router/guard.ts</code>：无 token 跳登录占位、<code>meta.perm</code> → 403）。</div>
 
       <h2 id="topbar">3. 顶栏</h2>
       <ul>
