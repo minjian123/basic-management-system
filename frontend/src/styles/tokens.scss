@@ -1,30 +1,80 @@
 /**
- * 最小设计令牌（size / density）：组件根把档位写在根元素属性上，组件只消费语义变量。
+ * 设计令牌（PC 端；基础段与 frontend-mobile 同款）。
  *
- * 口径（《布局设计 · 设计令牌》「组件令牌」节）：
- * - `size`（small / default / large）→ 控件高度、字号、图标三组变量；
- * - `density`（compact / default / loose）→ 间距、行高两组变量；
- * - 组件侧只消费 `--bms-size-*` / `--bms-density-*` 五个**语义变量**，不关心档位；
- * - 本文件为阶段四组件库先行落地的最小集：`--color-*` / `--font-*` / `--space-*` / `--radius-*`
- *   基础令牌随布局域令牌任务落地，届时本文件改为引用基础令牌（不改变属性协议）。
+ * 权威定义：《布局设计 · 设计令牌》——色板 / 字体 / 间距 / 圆角 / 阴影；
+ * 消费口径（《前端开发规范》§3）：组件只消费令牌语义变量，不硬编码色值与尺寸。
+ *
+ * 结构：
+ * - 基础令牌（`--bms-*` 五组）——本文件为唯一来源（新增令牌先登记后使用）；
+ * - 组件档位（size / density）——组件根把档位写在根元素属性上，令牌文件用属性选择器映射；
+ *   组件侧只消费 `--bms-size-*` / `--bms-density-*` 五个**语义变量**，不关心档位；
+ * - 组件库映射段——Element Plus 主题变量（色阶经 `color-mix()` 运行时派生，租户主色覆盖自动跟随）；
+ *   暗色主题与租户品牌覆盖（`[data-theme]` / `[data-tenant]`）归「主题与租户品牌化」任务。
  */
 
 :root {
-  /* size：控件高度 / 字号 / 图标 */
+  /* ===== 基础令牌 · 色彩（《设计令牌》§2） ===== */
+  --bms-color-primary: #0969da; /* 品牌 / 主按钮 / 选中态（可租户覆盖） */
+  --bms-color-success: #2da44e;
+  --bms-color-warning: #d4a72c;
+  --bms-color-danger: #cf222e;
+  --bms-color-info: #57606a;
+  --bms-color-bg-page: #f7f8fa; /* 页面底色 */
+  --bms-color-bg: #ffffff; /* 卡片 / 容器面 */
+  --bms-color-border: #d0d7de;
+  --bms-color-text: #1f2328;
+  --bms-color-text-secondary: #57606a;
+
+  /* ===== 基础令牌 · 字体（《设计令牌》§3） ===== */
+  --bms-font-family: 'Microsoft YaHei', 'PingFang SC', 'Segoe UI', sans-serif;
+  --bms-font-family-mono: Consolas, 'Cascadia Mono', monospace;
+  --bms-font-size-xs: 12px;
+  --bms-font-size-sm: 13px;
+  --bms-font-size-base: 14px;
+  --bms-font-size-lg: 16px;
+  --bms-font-size-xl: 20px;
+  --bms-font-size-xxl: 24px;
+  --bms-font-weight-normal: 400;
+  --bms-font-weight-medium: 500;
+  --bms-font-weight-semibold: 600;
+  --bms-font-weight-bold: 700;
+  --bms-line-height-compact: 1.5;
+  --bms-line-height-base: 1.75;
+  --bms-line-height-loose: 2;
+
+  /* ===== 基础令牌 · 间距（《设计令牌》§4；4px 基准，--bms-space-{n} = n × 4px） ===== */
+  --bms-space-1: 4px;
+  --bms-space-2: 8px;
+  --bms-space-3: 12px;
+  --bms-space-4: 16px;
+  --bms-space-6: 24px;
+  --bms-space-8: 32px;
+
+  /* ===== 基础令牌 · 圆角与阴影（《设计令牌》§5） ===== */
+  --bms-radius-sm: 4px;
+  --bms-radius-md: 6px;
+  --bms-radius-lg: 8px;
+  --bms-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06);
+  --bms-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
+  --bms-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.14);
+}
+
+:root {
+  /* ===== 组件档位 · size：控件高度 / 字号（引用字体令牌）/ 图标 ===== */
   --bms-size-control-height-small: 24px;
   --bms-size-control-height-default: 32px;
   --bms-size-control-height-large: 40px;
-  --bms-size-font-small: 12px;
-  --bms-size-font-default: 14px;
-  --bms-size-font-large: 16px;
+  --bms-size-font-small: var(--bms-font-size-xs);
+  --bms-size-font-default: var(--bms-font-size-base);
+  --bms-size-font-large: var(--bms-font-size-lg);
   --bms-size-icon-small: 14px;
   --bms-size-icon-default: 16px;
   --bms-size-icon-large: 20px;
 
-  /* density：间距 / 行高 */
-  --bms-density-gap-compact: 4px;
-  --bms-density-gap-default: 8px;
-  --bms-density-gap-loose: 16px;
+  /* ===== 组件档位 · density：间距（引用间距令牌）/ 行高 ===== */
+  --bms-density-gap-compact: var(--bms-space-1);
+  --bms-density-gap-default: var(--bms-space-2);
+  --bms-density-gap-loose: var(--bms-space-4);
   --bms-density-row-compact: 28px;
   --bms-density-row-default: 32px;
   --bms-density-row-loose: 40px;
@@ -69,4 +119,31 @@
 [data-density='loose'] {
   --bms-density-gap: var(--bms-density-gap-loose);
   --bms-density-row: var(--bms-density-row-loose);
+}
+
+/* ===== 组件库映射 · Element Plus（色阶运行时派生，租户主色覆盖自动跟随） ===== */
+$ep-semantic-colors: primary, success, warning, danger, info;
+
+:root {
+  @each $name in $ep-semantic-colors {
+    --el-color-#{$name}: var(--bms-color-#{$name});
+    --el-color-#{$name}-light-3: color-mix(in srgb, var(--bms-color-#{$name}) 70%, #fff);
+    --el-color-#{$name}-light-5: color-mix(in srgb, var(--bms-color-#{$name}) 50%, #fff);
+    --el-color-#{$name}-light-7: color-mix(in srgb, var(--bms-color-#{$name}) 30%, #fff);
+    --el-color-#{$name}-light-8: color-mix(in srgb, var(--bms-color-#{$name}) 20%, #fff);
+    --el-color-#{$name}-light-9: color-mix(in srgb, var(--bms-color-#{$name}) 10%, #fff);
+    --el-color-#{$name}-dark-2: color-mix(in srgb, var(--bms-color-#{$name}) 80%, #000);
+  }
+
+  /* EP 透明场景（rgba(var(--el-color-*-rgb), α)）使用的 rgb 三元组（静态值；租户动态覆盖时随品牌化任务由运行时重设） */
+  --el-color-primary-rgb: 9, 105, 218;
+  --el-color-success-rgb: 45, 164, 78;
+  --el-color-warning-rgb: 212, 167, 44;
+  --el-color-danger-rgb: 207, 34, 46;
+  --el-color-info-rgb: 87, 96, 106;
+
+  --el-border-radius-small: var(--bms-radius-sm);
+  --el-border-radius-base: var(--bms-radius-md);
+  --el-font-family: var(--bms-font-family);
+  --el-font-size-base: var(--bms-font-size-base);
 }
