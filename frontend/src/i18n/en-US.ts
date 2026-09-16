@@ -53,6 +53,30 @@ export default {
     clearFilters: 'Clear filters',
     loading: 'Loading…',
   },
+  // 多标签导航文案
+  tabs: {
+    refresh: 'Refresh',
+    closeCurrent: 'Close current',
+    closeOthers: 'Close others',
+    closeRight: 'Close right',
+    closeAll: 'Close all',
+    exceed: 'Too many tabs opened; the earliest one was closed',
+  },
+  // 树形主从布局文案
+  tree: {
+    searchPlaceholder: 'Search',
+    empty: 'No data',
+    create: 'Create',
+    edit: 'Edit',
+    delete: 'Delete',
+    refresh: 'Refresh',
+    selectedCount: '{count} selected',
+    browse: 'Browse',
+    expand: 'Expand',
+    collapse: 'Collapse',
+    selectNode: 'Select a node on the left',
+    loadFailed: 'Failed to load, please retry',
+  },
   // 错误码文案：error.{code}（最小集；完整错误码总表随后端接入补齐）
   error: {
     default: 'Operation failed, please try again later',

@@ -105,7 +105,7 @@ const actionVisible = computed(() => {
 const elAttrs = computed(() => {
   const { class: cls, style: sty, ...rest } = base.passthroughAttrs(attrs as Record<string, unknown>)
   return base.rootAttrs({
-    class: [base.nsClass(), props.size === 'small' && base.nsClass('empty-state--small'), cls],
+    class: [base.nsClass('empty-state'), props.size === 'small' && base.nsClass('empty-state--small'), cls],
     style: sty,
     ...rest,
   })

@@ -69,7 +69,7 @@ const elAttrs = computed(() => {
   const { class: cls, style: sty, ...rest } = base.passthroughAttrs(
     attrs as Record<string, unknown>,
   )
-  return base.rootAttrs({ class: [base.nsClass(), cls], style: sty, ...rest })
+  return base.rootAttrs({ class: [base.nsClass('form-dialog'), cls], style: sty, ...rest })
 })
 
 watch(() => props.submitLoading, (value) => base.setProps({ loading: value }), { immediate: true })

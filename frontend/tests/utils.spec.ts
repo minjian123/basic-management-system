@@ -1,4 +1,4 @@
-/** 公共基座用例（Kiwi 23）：useRequest / useListPage / validators / useTabs / EntityStatus。 */
+/** 公共基座用例（Kiwi 23）：useRequest / useListPage / validators / EntityStatus（useTabs 段随阶段一过渡单例删除移除，能力由 tabs 片段与 03-03 用例承接）。 */
 
 import { describe, expect, it, vi } from 'vitest'
 
@@ -7,7 +7,6 @@ import { i18n } from '@/i18n'
 import { EntityStatus, entityStatusI18nKey } from '@/utils/status'
 import { useListPage } from '@/utils/useListPage'
 import { useRequest } from '@/utils/useRequest'
-import { useTabs, TABS_STORAGE_KEY } from '@/utils/useTabs'
 import { isEmail, isIdCard, isPhone, isUrl, passwordStrength, pattern, required } from '@/utils/validators'
 
 describe('公共基座（Kiwi 23）', () => {
@@ -91,56 +90,6 @@ describe('公共基座（Kiwi 23）', () => {
     expect(passwordStrength('ABC12345678!')).toBe('strong')
     expect(required()).toEqual({ required: true, message: '必填项', trigger: 'blur' })
     expect(pattern(/^\d+$/, '仅数字')).toEqual({ pattern: /^\d+$/, message: '仅数字', trigger: 'blur' })
-  })
-
-  it('useTabs：建/切/关、白名单、持久化与恢复', () => {
-    localStorage.clear()
-    const navigate = vi.fn()
-    const tabsApi = useTabs({ navigate })
-    tabsApi.tabs.value = []
-    tabsApi.active.value = ''
-
-    tabsApi.openTab('/home', '首页')
-    tabsApi.openTab('/home', '首页') // 重复不新增
-    expect(tabsApi.tabs.value).toHaveLength(1)
-    expect(tabsApi.active.value).toBe('/home')
-    expect(navigate).toHaveBeenLastCalledWith('/home')
-
-    tabsApi.openTab('/other', '其它') // 白名单外忽略
-    expect(tabsApi.tabs.value).toHaveLength(1)
-
-    tabsApi.openTab('/', '根')
-    expect(tabsApi.active.value).toBe('/')
-    expect(tabsApi.tabs.value).toHaveLength(2)
-    expect(JSON.parse(localStorage.getItem(TABS_STORAGE_KEY) ?? '[]')).toHaveLength(2)
-
-    tabsApi.closeTab('/home') // 关闭非激活 Tab：不切换激活
-    expect(tabsApi.active.value).toBe('/')
-
-    tabsApi.openTab('/home', '首页')
-    expect(tabsApi.tabs.value).toHaveLength(2)
-    tabsApi.closeTab('/home') // 关闭激活项且仍有剩余：回退最后一个
-    expect(tabsApi.active.value).toBe('/')
-    tabsApi.closeTab('/') // 关闭激活项且无剩余：清空激活
-    expect(tabsApi.active.value).toBe('')
-
-    localStorage.setItem(TABS_STORAGE_KEY, JSON.stringify([{ path: '/home', title: '首页' }]))
-    tabsApi.restore()
-    expect(tabsApi.tabs.value).toEqual([{ path: '/home', title: '首页' }])
-
-    localStorage.setItem(TABS_STORAGE_KEY, 'not-json')
-    tabsApi.restore()
-    expect(tabsApi.tabs.value).toEqual([])
-
-    localStorage.removeItem(TABS_STORAGE_KEY)
-    tabsApi.restore() // 无持久化数据回退分支
-
-    tabsApi.restore() // 无持久化数据时保持现状
-    expect(tabsApi.tabs.value).toEqual([])
-
-    const bare = useTabs() // 无 navigate 回调分支
-    bare.activate('/home')
-    expect(bare.active.value).toBe('/home')
   })
 
   it('EntityStatus 映射与 i18n 键', () => {
