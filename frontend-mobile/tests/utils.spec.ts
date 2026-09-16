@@ -1,4 +1,4 @@
-/** 公共基座用例（Kiwi 24）：useRequest / useListPage / validators / useTabs / EntityStatus。 */
+/** 公共基座用例（Kiwi 23）：useRequest / useListPage / validators / useTabs / EntityStatus。 */
 
 import { describe, expect, it, vi } from 'vitest'
 
@@ -10,14 +10,14 @@ import { useRequest } from '@/utils/useRequest'
 import { useTabs, TABS_STORAGE_KEY } from '@/utils/useTabs'
 import { isEmail, isIdCard, isPhone, isUrl, passwordStrength, pattern, required } from '@/utils/validators'
 
-describe('公共基座（Kiwi 24）', () => {
+describe('公共基座（Kiwi 23）', () => {
   it('useRequest：成功与失败状态', async () => {
     const onSuccess = vi.fn()
     const onError = vi.fn()
-    const request = useRequest(
-      vi.fn().mockResolvedValueOnce('ok').mockRejectedValueOnce(new Error('boom')),
-      { onSuccess, onError },
-    )
+    const request = useRequest(vi.fn().mockResolvedValueOnce('ok').mockRejectedValueOnce(new Error('boom')), {
+      onSuccess,
+      onError,
+    })
     expect(await request.run()).toBe('ok')
     expect(request.data.value).toBe('ok')
     expect(onSuccess).toHaveBeenCalledWith('ok')
@@ -59,14 +59,14 @@ describe('公共基座（Kiwi 24）', () => {
     expect(page.list.value).toEqual([]) // 请求前空数据回退分支
     expect(page.total.value).toBe(0)
     await page.search()
-    expect(page.query.value.page).toBe(1)
-    page.query.value.keyword = 'k'
+    expect(page.query.page).toBe(1)
+    page.query.keyword = 'k'
     await page.search()
-    expect(list).toHaveBeenLastCalledWith({ page: 1, size: 20, keyword: 'k' })
-    await page.changePage(3)
-    expect(list).toHaveBeenLastCalledWith({ page: 3, size: 20, keyword: 'k' })
+    expect(list).toHaveBeenLastCalledWith({ page: 1, size: 20, keyword: 'k' }, expect.anything())
+    await page.onPageChange(3)
+    expect(list).toHaveBeenLastCalledWith({ page: 3, size: 20, keyword: 'k' }, expect.anything())
     await page.reset()
-    expect(page.query.value).toEqual({ page: 1, size: 20 })
+    expect(page.query).toEqual({ page: 1, size: 20 })
     await page.reload()
     expect(list).toHaveBeenCalledTimes(5)
     expect(page.list.value).toEqual([])

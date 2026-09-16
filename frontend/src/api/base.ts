@@ -1,10 +1,20 @@
-/** 模块 API 基类：统一路径前缀与请求方法封装（复用 http.ts 的 request<T> 统一响应解析）。 */
-
-import type { AxiosRequestConfig } from 'axios'
+/**
+ * 模块 API 基类：统一路径前缀与请求方法封装（经 `request<T>` 解包，禁止裸用 axios）。
+ *
+ * 写方法（POST / PUT / DELETE）未显式给幂等键时**自动生成** `Idempotency-Key`；
+ * 请求选项（`silent` / `raw` / `timeout` / `signal` / `idempotencyKey`）透传。
+ */
 
 import { BaseFrontend, type FrontendBaseOptions } from '@/base/BaseFrontend'
 
-import { request } from './http'
+import { createRequestId } from './http'
+import { request, type RequestOptions } from './request'
+
+/** 写方法（自动幂等键） */
+const WRITE_METHODS = new Set(['POST', 'PUT', 'DELETE'])
+
+/** BaseApi 请求选项（`RequestOptions` 别名，供模块 API 签名引用） */
+export type BaseApiRequestOptions = RequestOptions
 
 export class BaseApi extends BaseFrontend {
   private readonly basePath: string
@@ -15,19 +25,33 @@ export class BaseApi extends BaseFrontend {
     this.basePath = basePath
   }
 
-  protected get<T>(url = '', config?: AxiosRequestConfig): Promise<T> {
-    return request<T>({ ...config, url: `${this.basePath}${url}`, method: 'GET' })
+  /** 补默认选项（写方法自动生成幂等键；显式传入优先） */
+  private withOptions(method: string, options?: RequestOptions): RequestOptions | undefined {
+    if (!WRITE_METHODS.has(method)) {
+      return options
+    }
+    if (options?.idempotencyKey) {
+      return options
+    }
+    return { ...(options ?? {}), idempotencyKey: createRequestId() }
   }
 
-  protected post<T>(url = '', data?: unknown, config?: AxiosRequestConfig): Promise<T> {
-    return request<T>({ ...config, url: `${this.basePath}${url}`, method: 'POST', data })
+  protected get<T>(url = '', params?: object, options?: RequestOptions): Promise<T> {
+    return request<T>({ url: `${this.basePath}${url}`, method: 'GET', params }, options)
   }
 
-  protected put<T>(url = '', data?: unknown, config?: AxiosRequestConfig): Promise<T> {
-    return request<T>({ ...config, url: `${this.basePath}${url}`, method: 'PUT', data })
+  protected post<T>(url = '', data?: unknown, options?: RequestOptions): Promise<T> {
+    const finalOptions = this.withOptions('POST', options)
+    return request<T>({ url: `${this.basePath}${url}`, method: 'POST', data }, finalOptions)
   }
 
-  protected delete<T>(url = '', config?: AxiosRequestConfig): Promise<T> {
-    return request<T>({ ...config, url: `${this.basePath}${url}`, method: 'DELETE' })
+  protected put<T>(url = '', data?: unknown, options?: RequestOptions): Promise<T> {
+    const finalOptions = this.withOptions('PUT', options)
+    return request<T>({ url: `${this.basePath}${url}`, method: 'PUT', data }, finalOptions)
+  }
+
+  protected delete<T>(url = '', params?: object, options?: RequestOptions): Promise<T> {
+    const finalOptions = this.withOptions('DELETE', options)
+    return request<T>({ url: `${this.basePath}${url}`, method: 'DELETE', params }, finalOptions)
   }
 }
