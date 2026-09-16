@@ -1,10 +1,11 @@
 /** 主框架壳与宿主编排用例（Kiwi 739）：区域 / 折叠 / 菜单路由 / keep-alive。 */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { nextTick } from 'vue'
+import { defineComponent, nextTick } from 'vue'
 import { createMemoryHistory, createRouter, type Router } from 'vue-router'
 
 import AppLayout from '@/components/layout/AppLayout.vue'
+import { TabsNav } from '@/components/tabs'
 import BasicLayout from '@/layouts/BasicLayout.vue'
 import { nameComponent } from '@/router/routeComponent'
 import { registerMenuRoutes } from '@/router/menuRoutes'
@@ -95,12 +96,15 @@ describe('主框架壳与宿主编排（Kiwi 739）', () => {
     expect(wrapper.findComponent({ name: 'ElDrawer' }).props('modelValue')).toBe(true)
   })
 
-  it('宿主编排：开签 / keep-alive 缓存复用（DOM 复用）/ refresh 重挂载', async () => {
+  it('宿主编排：开签 / keep-alive 缓存复用（DOM 复用）/ refresh 重挂载 / 关闭释放', async () => {
     const router = makeHostRouter()
     await router.push('/')
     await router.isReady()
 
-    const wrapper = mountWithPlugins(BasicLayout, { global: { plugins: [router] } })
+    // 经根 router-view 挂载（路由驱动）：BasicLayout 内部 router-view 才是 children 层级，
+    // keep-alive 缓存的即页面组件（直接 mount BasicLayout 会使内部 router-view 成为根级、层级错位）
+    const RootView = defineComponent({ template: '<router-view />' })
+    const wrapper = mountWithPlugins(RootView, { global: { plugins: [router] } })
     await nextTick()
     await nextTick()
 
@@ -113,6 +117,7 @@ describe('主框架壳与宿主编排（Kiwi 739）', () => {
     await nextTick()
     expect(wrapper.find('.pg-a').exists()).toBe(true)
     expect(wrapper.text()).toContain('page-a')
+    const pageAElement = wrapper.find('.pg-a').element
 
     // 切回 home：keep-alive 缓存命中（DOM 元素复用，状态保留）
     await router.push('/')
@@ -121,10 +126,28 @@ describe('主框架壳与宿主编排（Kiwi 739）', () => {
     expect(wrapper.find('.pg-home').element).toBe(homeElement)
 
     // refresh：版本 key 变化 → 重挂载（DOM 元素更新）
-    wrapper.findComponent({ name: 'TabsNav' }).vm.$emit('refresh', 'home')
+    wrapper.findComponent(TabsNav).vm.$emit('refresh', 'home')
     await nextTick()
     await nextTick()
-    expect(wrapper.find('.pg-home').element).not.toBe(homeElement)
+    const refreshedHome = wrapper.find('.pg-home').element
+    expect(refreshedHome).not.toBe(homeElement)
+
+    // 关闭 page-a 标签：缓存即时释放 → 再次进入重挂载（新元素）
+    const tabsVm = wrapper.findComponent(TabsNav).vm as unknown as {
+      closeTab: (key: string) => void
+    }
+    tabsVm.closeTab('page-a')
+    await nextTick()
+    await router.push('/page-a')
+    await nextTick()
+    await nextTick()
+    expect(wrapper.find('.pg-a').element).not.toBe(pageAElement)
+
+    // 关闭其他标签不影响 home 缓存复用
+    await router.push('/')
+    await nextTick()
+    await nextTick()
+    expect(wrapper.find('.pg-home').element).toBe(refreshedHome)
   })
 
   it('registerMenuRoutes：菜单 → 路由注册 / 未注册组件回退占位 + 告警', async () => {
