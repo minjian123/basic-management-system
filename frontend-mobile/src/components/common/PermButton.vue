@@ -7,8 +7,9 @@
  * - 禁用态点击被拦截（不 emit `click`）；关闭自动 attrs 继承由原生 button 承接 class / style。
  */
 
-import { computed } from 'vue'
+import { computed, useAttrs } from 'vue'
 
+import { useComponentBase } from '@/base/useComponentBase'
 import { i18n } from '@/i18n'
 import { hasPerm } from '@/utils/perm'
 
@@ -37,6 +38,19 @@ const props = withDefaults(
 const emit = defineEmits<{
   click: [event: MouseEvent]
 }>()
+
+// 组件根（通用 props / 令牌属性协议 / 透传；原生 button 承接）
+const base = useComponentBase({ ns: 'bms', identifier: 'perm-button' })
+const attrs = useAttrs()
+
+const buttonAttrs = computed(() => {
+  const { class: cls, style: sty, ...rest } = base.passthroughAttrs(attrs as Record<string, unknown>)
+  return base.rootAttrs({
+    class: [base.nsClass('perm-button'), cls],
+    style: sty,
+    ...rest,
+  })
+})
 
 const allowed = computed(() => {
   const perm = props.perm
@@ -70,7 +84,14 @@ const onClick = (event: MouseEvent): void => {
 </script>
 
 <template>
-  <button v-if="visible" type="button" :disabled="blocked" :title="tipText" @click="onClick">
+  <button
+    v-if="visible"
+    v-bind="buttonAttrs"
+    type="button"
+    :disabled="blocked"
+    :title="tipText"
+    @click="onClick"
+  >
     <slot />
   </button>
 </template>

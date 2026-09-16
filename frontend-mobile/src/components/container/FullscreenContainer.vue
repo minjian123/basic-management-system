@@ -250,7 +250,7 @@ defineExpose({
   padding: var(--bms-space-1) var(--bms-space-3);
   font-size: var(--bms-font-size-sm);
   color: var(--bms-color-bg);
-  background: rgba(31, 35, 40, 0.78);
+  background: color-mix(in srgb, var(--bms-color-text) 78%, transparent);
   border-radius: var(--bms-radius-sm);
   pointer-events: none;
   z-index: 1;

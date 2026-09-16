@@ -28,10 +28,27 @@ const DOMAIN_WRAPPERS: Record<string, string> = {
 /** 非片段的 `useXxx` 文件（上下文机制等，不要求 `declareFragment`） */
 const DEFAULT_NON_FRAGMENTS = ['useFieldContext.ts']
 
+const STYLE_BLOCK_RE = /<style[^>]*>([\s\S]*?)<\/style>/g
+const HARD_COLOR_RE = /#[0-9a-fA-F]{3,8}\b|\brgba?\(/g
+const COMMENT_RE = /\/\*[\s\S]*?\*\//g
+
+/** SFC 样式段中的硬编码色值（`#hex` / `rgb()` / `rgba()`；注释除外） */
+function hardCodedColors(source: string): string[] {
+  const found = new Set<string>()
+  for (const match of source.matchAll(STYLE_BLOCK_RE)) {
+    const block = (match[1] ?? '').replace(COMMENT_RE, '')
+    for (const color of block.match(HARD_COLOR_RE) ?? []) {
+      found.add(color.toLowerCase())
+    }
+  }
+  return [...found]
+}
+
 /**
  * 扫描继承护栏：
  * ① `src/base/*.ts` 机制层类父类链；② 片段实现 `declareFragment('key')`；
- * ③ 域基类组合式（组合面齐备、不声明片段）；④ `BaseXxx.vue` 包装调用组件根与域组合式。
+ * ③ 域基类组合式（组合面齐备、不声明片段）；④ `BaseXxx.vue` 包装调用组件根与域组合式；
+ * ⑤ 业务组件（`src/components/**`，不含 base 包装）必须调用组件根；⑥ 样式段禁止硬编码色值。
  */
 export function scanInheritance(
   files: GuardFile[],
@@ -103,6 +120,25 @@ export function scanInheritance(
             message: `片段 key「${declaration.firstString}」不在 fragments.ts 登记表内`,
           })
         }
+      }
+    }
+
+    if (file.path.endsWith('.vue') && file.path.startsWith('src/components/')) {
+      const isDomainWrapper = file.path.startsWith('src/components/base/')
+      if (!isDomainWrapper && !calls.some((call) => call.name === 'useComponentBase')) {
+        problems.push({
+          file: file.path,
+          rule: 'inheritance.component-root',
+          message: `${fileName} 必须调用 useComponentBase（组件根）`,
+        })
+      }
+      const colors = hardCodedColors(file.source)
+      if (colors.length > 0) {
+        problems.push({
+          file: file.path,
+          rule: 'style.hard-coded-color',
+          message: `样式含硬编码色值：${colors.join(', ')}（应消费令牌）`,
+        })
       }
     }
 

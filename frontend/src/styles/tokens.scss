@@ -24,6 +24,7 @@
   --bms-color-border: #d0d7de;
   --bms-color-text: #1f2328;
   --bms-color-text-secondary: #57606a;
+  --bms-color-text-inverse: #ffffff; /* 深色底反白文字（激活标签 / 徽标） */
 
   /* ===== 基础令牌 · 字体（《设计令牌》§3） ===== */
   --bms-font-family: 'Microsoft YaHei', 'PingFang SC', 'Segoe UI', sans-serif;
@@ -64,6 +65,9 @@
   --bms-scrollbar-thumb: var(--bms-color-border);
   --bms-scrollbar-thumb-hover: var(--bms-color-text-secondary);
   --bms-scrollbar-track: transparent;
+
+  /* ===== 基础令牌 · 图形与占位尺寸（空态 / 错误页插画等） ===== */
+  --bms-illustration-size: 96px;
 }
 
 :root {

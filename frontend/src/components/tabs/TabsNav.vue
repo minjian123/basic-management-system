@@ -493,7 +493,7 @@ defineExpose({
   flex: none;
   align-items: center;
   gap: var(--bms-space-1);
-  padding: 4px 10px;
+  padding: var(--bms-space-1) 10px;
   border: 1px solid transparent;
   border-radius: var(--bms-radius-sm);
   color: var(--bms-color-text-secondary);
@@ -518,7 +518,7 @@ defineExpose({
   padding: 0 6px;
   border-radius: 8px;
   background: var(--bms-color-danger);
-  color: #fff;
+  color: var(--bms-color-text-inverse);
   font-size: var(--bms-font-size-xs);
   line-height: 16px;
 }
@@ -528,8 +528,8 @@ defineExpose({
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 16px;
-  height: 16px;
+  width: var(--bms-size-icon-default);
+  height: var(--bms-size-icon-default);
   border-radius: 50%;
   font-size: var(--bms-font-size-sm);
   line-height: 1;

@@ -24,12 +24,32 @@ describe('继承护栏（Kiwi 713）', () => {
     expect(problems).toEqual([])
   })
 
-  it('③ 组件包装调用组件根与域组合式全绿（BaseXxx.vue）', () => {
+  it('③ 组件根 / 域组合式 / 样式令牌全绿（全部 .vue）', () => {
     const problems = scanInheritance(
       repo.files.filter((file) => file.path.endsWith('.vue')),
       repo.fragmentKeys,
     )
     expect(problems).toEqual([])
+  })
+
+  it('⑥ 业务组件缺组件根与样式硬编码色值 fixture 被拦截', () => {
+    const problems = scanInheritance(
+      [
+        {
+          path: 'src/components/layout/Probe.vue',
+          source: '<script setup lang="ts">\nconst x = 1\n</script>\n<template><div /></template>',
+        },
+        {
+          path: 'src/components/layout/ProbeStyled.vue',
+          source:
+            '<script setup lang="ts">\nimport { useComponentBase } from \'@/base/useComponentBase\'\nuseComponentBase({ ns: \'bms\', identifier: \'probe-styled\' })\n</script>\n<template><div /></template>\n<style scoped>\n.a { color: #fff; background: rgba(0, 0, 0, 0.5) }\n/* 注释内 #abc 不算 */\n</style>',
+        },
+      ],
+      repo.fragmentKeys,
+    )
+    const rules = problems.map((problem) => problem.rule)
+    expect(rules).toContain('inheritance.component-root')
+    expect(rules).toContain('style.hard-coded-color')
   })
 
   it('④ 违规继承 / 未声明片段 / 包装缺调用 fixture 被拦截', () => {

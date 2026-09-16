@@ -144,8 +144,8 @@ function onAction(): void {
 }
 
 .bms-empty-state-illustration {
-  width: 96px;
-  height: 96px;
+  width: var(--bms-illustration-size);
+  height: var(--bms-illustration-size);
   color: var(--bms-color-text-secondary);
 }
 
