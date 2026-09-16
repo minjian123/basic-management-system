@@ -13,4 +13,10 @@ export {
   type UsePersistedStateReturn,
 } from './bindings/usePersistedState'
 export { useValue, type UseValueReturn } from './bindings/useValue'
+export {
+  useContainer,
+  type ContainerSlotName,
+  type UseContainerOptions,
+  type UseContainerReturn,
+} from './bindings/useContainer'
 export { useField, type UseFieldReturn } from './bindings/useField'

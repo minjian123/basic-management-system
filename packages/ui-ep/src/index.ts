@@ -23,6 +23,26 @@ export type { FeedbackAction } from './components/feedback/types'
 export { default as PermButton } from './components/common/PermButton.vue'
 export { checkPerm, configurePermissionChecker, type PermissionChecker, type PermissionMode } from './permission'
 export { confirm, configureConfirm, type ConfirmHandler, type ConfirmOptions } from './confirm'
+export { default as ScrollContainer } from './components/container/ScrollContainer.vue'
+export { default as SectionContainer } from './components/container/SectionContainer.vue'
+export { default as LoadingContainer } from './components/container/LoadingContainer.vue'
+export { default as LazyContainer } from './components/container/LazyContainer.vue'
+export { default as AutoHeight } from './components/container/AutoHeight.vue'
+export { default as AspectRatio } from './components/container/AspectRatio.vue'
+export {
+  createMemoryScrollStorage,
+  createScrollPositionStore,
+  createSessionScrollStorage,
+  defaultScrollStorage,
+  resolveSize,
+  useVirtualRange,
+  type ScrollMetrics,
+  type ScrollPositionStore,
+  type ScrollStorage,
+  type VirtualRangeOptions,
+  type VirtualRangeReturn,
+  type VirtualScrollMetrics,
+} from './components/container'
 export { default as AppLayout } from './components/layout/AppLayout.vue'
 export { default as PageContainer } from './components/layout/PageContainer.vue'
 export { default as FormFrame } from './components/layout/FormFrame.vue'
