@@ -58,7 +58,7 @@
         <tr><td><code>--color-warning</code></td><td>警告/待审批</td><td><code>#d4a72c</code></td></tr>
         <tr><td><code>--color-danger</code></td><td>危险/驳回/删除</td><td><code>#cf222e</code></td></tr>
         <tr><td><code>--color-info</code></td><td>信息/次要</td><td><code>#57606a</code></td></tr>
-        <tr><td><code>--color-bg</code> / <code>--color-bg-page</code></td><td>页面/卡片背景</td><td><code>#f7f8fa</code> / <code>#ffffff</code></td></tr>
+        <tr><td><code>--color-bg-page</code> / <code>--color-bg</code></td><td>页面 / 卡片背景</td><td><code>#f7f8fa</code> / <code>#ffffff</code></td></tr>
         <tr><td><code>--color-border</code></td><td>边框/分隔线</td><td><code>#d0d7de</code></td></tr>
         <tr><td><code>--color-text</code> / <code>--color-text-secondary</code></td><td>正文/次要文字</td><td><code>#1f2328</code> / <code>#57606a</code></td></tr>
       </table>
@@ -110,7 +110,7 @@
         <tr><td><code>--radius-sm</code></td><td>4px</td><td>输入框、按钮、标签</td></tr>
         <tr><td><code>--radius-md</code></td><td>6px</td><td>卡片、下拉、弹窗</td></tr>
         <tr><td><code>--radius-lg</code></td><td>8px</td><td>大卡片、抽屉</td></tr>
-        <tr><td><code>--shadow-sm / md / lg</code></td><td>层级递进</td><td>悬浮卡片 / 弹窗 / 抽屉遮罩层叠</td></tr>
+        <tr><td><code>--shadow-sm / md / lg</code></td><td><code>0 1px 2px rgba(0,0,0,.06)</code> / <code>0 4px 12px rgba(0,0,0,.10)</code> / <code>0 8px 24px rgba(0,0,0,.14)</code></td><td>悬浮卡片 / 弹窗 / 抽屉遮罩层叠</td></tr>
       </table>
 
       <h2 id="icon">6. 图标与图片</h2>
@@ -121,7 +121,7 @@
       </ul>
 
       <h2 id="token">7. 令牌落地（CSS 变量）</h2>
-      <pre><code>/* src/styles/tokens.css */
+      <pre><code>/* src/styles/tokens.scss */
 :root {
   --color-primary: #0969da;
   --color-success: #2da44e;
@@ -133,8 +133,15 @@
   --el-border-radius-base: var(--radius-md);
 }</code></pre>
       <ul>
-        <li>令牌定义唯一来源：<code>src/styles/tokens.css</code>；暗色模式与租户主题通过 <code>[data-theme]</code> / <code>[data-tenant]</code> 覆盖（见《<a href="03_布局设计_主题与租户品牌化.html">主题与租户品牌化</a>》）。</li>
+        <li>令牌定义唯一来源：<code>src/styles/tokens.scss</code>；暗色模式与租户主题通过 <code>[data-theme]</code> / <code>[data-tenant]</code> 覆盖（见《<a href="03_布局设计_主题与租户品牌化.html">主题与租户品牌化</a>》）。</li>
         <li>新令牌必须在此文件登记后使用；组件样式不复制令牌值。</li>
+      </ul>
+
+      <h3 id="engine-map">工程命名映射（2026-09-17 登记）</h3>
+      <ul>
+        <li>前缀：基础令牌在工程中统一加 <code>--bms-</code> 前缀（<code>--bms-color-*</code> / <code>--bms-font-*</code> / <code>--bms-line-height-*</code> / <code>--bms-space-*</code> / <code>--bms-radius-*</code> / <code>--bms-shadow-*</code>），避免与组件库变量（<code>--el-*</code> / <code>--van-*</code>）及第三方冲突。</li>
+        <li>间距命名：工程采用<b>数字步进</b> <code>--bms-space-{n}</code>（n × 4px）——与语义名映射：<code>xs</code>→<code>1</code>(4px) / <code>sm</code>→<code>2</code>(8px) / <code>md</code>→<code>3</code>(12px) / <code>lg</code>→<code>4</code>(16px) / <code>xl</code>→<code>6</code>(24px) / <code>xxl</code>→<code>8</code>(32px)；新增档位零命名成本。</li>
+        <li>组件库映射：PC 端映射 Element Plus（五语义色 + 全色阶经 <code>color-mix()</code> 运行时派生 + 圆角 + 字体族与基础字号）；移动端映射 Vant 四语义色；租户品牌覆盖（动态主色与色阶跟随）归《<a href="03_布局设计_主题与租户品牌化.html">主题与租户品牌化</a>》。</li>
       </ul>
 
       <h3 id="component-token">组件令牌（size / density，2026-09-16 登记）</h3>
@@ -156,7 +163,7 @@
       <ul>
         <li><b>档位</b>：<code>size</code>（small / default / large）与 <code>density</code>（compact / default / loose）；组件只消费语义变量 <code>--bms-size-control-height</code> / <code>--bms-size-font</code> / <code>--bms-size-icon</code> / <code>--bms-density-gap</code> / <code>--bms-density-row</code>，不关心档位。</li>
         <li><b>属性协议</b>：组件根（<code>BaseComponent</code> / <code>useComponentBase</code> / <code>BaseComponent.vue</code>）把档位写在根元素属性 <code>data-size</code> / <code>data-density</code> 上，令牌文件用属性选择器映射；<b>不设 <code>data-density</code> 表示继承上层</b>（密度上下文提供者随布局域任务）。</li>
-        <li><b>文件与落地</b>：阶段四组件库先行实现为 <code>src/styles/tokens.scss</code>（双端同款 + <code>main.ts</code> 导入）；<code>--color-*</code> / <code>--font-*</code> / <code>--space-*</code> / <code>--radius-*</code> 基础令牌随布局域令牌任务落地，届时本文件改为引用基础令牌（属性协议不变）。</li>
+        <li><b>文件与落地</b>：阶段四组件库先行实现为 <code>src/styles/tokens.scss</code>（双端同款 + <code>main.ts</code> 导入）；基础令牌（<code>--bms-*</code> 五组）已随 <code>03_06</code> 落地（2026-09-17），size 字号 / density 间距已改为引用基础令牌（属性协议不变）。</li>
         <li>组件样式不硬编码色值与尺寸；新增令牌同样先在本文件登记后使用。</li>
       </ul>
 
