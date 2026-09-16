@@ -17,8 +17,8 @@ import { BaseError } from './error'
 /** 机制标识 */
 export const REGISTRY_MECHANISM_KEY = 'registry'
 
-/** 注册表唯一性冲突（同 `key` 重复登记，严格域）——前端内建，段位待与后端清单对齐（归 `02_05`） */
-export const REGISTRY_DUPLICATE_CODE = 10002
+/** 注册表唯一性冲突（同 `key` 重复登记，严格域）——镜像平台 `10003`（冲突） */
+export const REGISTRY_DUPLICATE_CODE = 10003
 
 /** 注册项契约：`key` + `describe()`（域扩展字段由各域子类补充） */
 export interface RegistryItemLike {

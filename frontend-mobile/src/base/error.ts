@@ -9,8 +9,8 @@
 
 import type { BaseFrontend } from './BaseFrontend'
 
-/** 未实现（占位 `stub` 调用）——前端内建，待与《后端基类清单》错误码段位对齐 */
-export const NOT_IMPLEMENTED_CODE = 10001
+/** 未实现（占位 `stub` 调用）——前端内建保留子段 `19xxx`（`19001`；平台无同义码，登记见《命名规范》§9 与《后端基类清单》§9.1） */
+export const NOT_IMPLEMENTED_CODE = 19001
 
 /** 限流段（组件设计错误节点 §4） */
 export const RATE_LIMIT_CODE = 10005

@@ -17,8 +17,8 @@ import { BaseError } from './error'
 /** 机制标识 */
 export const CAPABILITY_MECHANISM_KEY = 'capability'
 
-/** 片段声明违规（未登记依赖 / 循环依赖 / 非法 key）——前端内建，段位待与后端清单对齐（归 `02_05`） */
-export const CAPABILITY_VIOLATION_CODE = 10003
+/** 片段声明违规（未登记依赖 / 循环依赖 / 非法 key）——镜像平台 `10001`（参数校验失败） */
+export const CAPABILITY_VIOLATION_CODE = 10001
 
 /** 片段 key 口径：kebab-case（`value` / `field-shell` / `option-source`） */
 const KEY_PATTERN = /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/
