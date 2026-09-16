@@ -21,8 +21,14 @@ workflow:
           - backend/**/*
           - frontend/**/*
           - frontend-mobile/**/*
+          - packages/**/*
+          - apps/**/*
           - deploy/**/*
           - scripts/tools/**/*
+          - package.json
+          - package-lock.json
+          - tsconfig.base.json
+          - .npmrc
           - .gitlab-ci.yml
           # 基座路径（2026-09-10）：基座文档改动需过 base-integrity 校验
           # （链接自洽 / 无跨层引用 / 无措辞残留 / 清单与磁盘一致）；
@@ -203,6 +209,25 @@ frontend-check:
     when: always
     paths: [frontend/coverage/]
     expire_in: 30 days
+
+# ---- 前端核心：@bms/core / @bms/vue（框架无关核心与绑定插件，2026-09-16 S1 接入）----
+core-check:
+  stage: test
+  image: $REGISTRY_IMAGE_PREFIX/ci-frontend:node22
+  needs: [{job: ci-base-build, optional: true}]
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      exists:
+        - packages/core/package.json
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      exists:
+        - packages/core/package.json
+  script:
+    # 复用镜像内预置的前端依赖（workspace 根）；@bms/* 包以 symlink 装配（等价 npm workspaces 链接）
+    - cp -a /opt/ci/frontend/node_modules .
+    - mkdir -p node_modules/@bms && ln -sfn ../../packages/core node_modules/@bms/core
+    - test -d packages/vue && ln -sfn ../../packages/vue node_modules/@bms/vue || true
+    - npm run check
 
 # ---- 移动端：ESLint + Vitest（含覆盖率门禁，与 frontend-check 对称）----
 frontend-mobile-check:
