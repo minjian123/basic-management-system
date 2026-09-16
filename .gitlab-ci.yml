@@ -22,6 +22,7 @@ workflow:
           - frontend/**/*
           - frontend-mobile/**/*
           - deploy/**/*
+          - scripts/tools/**/*
           - .gitlab-ci.yml
           # 基座路径（2026-09-10）：基座文档改动需过 base-integrity 校验
           # （链接自洽 / 无跨层引用 / 无措辞残留 / 清单与磁盘一致）；
@@ -85,6 +86,10 @@ base-integrity:
   image: python:3.14-slim
   script:
     - python scripts/tools/base-check/check-base.py
+    # 后端基座合规对账（继承链 / 清单对账 / 错误码段位 / 迁移链；《后端审计规范》附录）
+    - python scripts/tools/base-check/check-backend-base.py
+    # 护栏自检（fixture 拦截验证；《后端审计规范》§8）
+    - python scripts/tools/base-check/check-backend-base.py --self-test
     # 项目文档状态一致性（需求 / 任务 / 计划三处；规则见《任务文档规范》§7 与 04-3 详细设计 §5）
     - python scripts/tools/check-docs/check-status.py
 
