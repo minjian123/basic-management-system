@@ -53,6 +53,30 @@ export default {
     clearFilters: '清除筛选',
     loading: '加载中…',
   },
+  // 多标签导航文案
+  tabs: {
+    refresh: '刷新',
+    closeCurrent: '关闭当前',
+    closeOthers: '关闭其他',
+    closeRight: '关闭右侧',
+    closeAll: '关闭全部',
+    exceed: '打开的标签过多，已自动关闭最早打开的标签',
+  },
+  // 树形主从布局文案
+  tree: {
+    searchPlaceholder: '搜索',
+    empty: '暂无数据',
+    create: '新增',
+    edit: '编辑',
+    delete: '删除',
+    refresh: '刷新',
+    selectedCount: '已选 {count} 项',
+    browse: '目录',
+    expand: '展开',
+    collapse: '收起',
+    selectNode: '请选择左侧节点',
+    loadFailed: '加载失败，请重试',
+  },
   // 错误码文案：error.{code}（最小集；完整错误码总表随后端接入补齐）
   error: {
     default: '操作失败，请稍后重试',

@@ -68,7 +68,7 @@ const actionList = computed(() => props.actions ?? defaultActions.value)
 
 const elAttrs = computed(() => {
   const { class: cls, style: sty, ...rest } = base.passthroughAttrs(attrs as Record<string, unknown>)
-  return base.rootAttrs({ class: [base.nsClass(), cls], style: sty, ...rest })
+  return base.rootAttrs({ class: [base.nsClass('error-page'), cls], style: sty, ...rest })
 })
 
 function actionText(action: FeedbackAction): string {

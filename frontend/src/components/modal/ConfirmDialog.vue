@@ -63,7 +63,7 @@ const elAttrs = computed(() => {
   const { class: cls, style: sty, ...rest } = base.passthroughAttrs(
     attrs as Record<string, unknown>,
   )
-  return base.rootAttrs({ class: [base.nsClass(), cls], style: sty, ...rest })
+  return base.rootAttrs({ class: [base.nsClass('confirm-dialog'), cls], style: sty, ...rest })
 })
 
 function onCancel(): void {
