@@ -294,6 +294,7 @@ class Settings(PydanticBaseSettings, BaseSettings):  # pyright: ignore[reportInc
     data_scope: PluginSelection = Field(default_factory=PluginSelection)
     distributed_lock: PluginSelection = Field(default_factory=PluginSelection)
     event: PluginSelection = Field(default_factory=PluginSelection)
+    event_consumer: PluginSelection = Field(default_factory=PluginSelection)
     exporter: PluginSelection = Field(default_factory=PluginSelection)
     fallback: PluginSelection = Field(default_factory=PluginSelection)
     field_type_registry: PluginSelection = Field(default_factory=PluginSelection)

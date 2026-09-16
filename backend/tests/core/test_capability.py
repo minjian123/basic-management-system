@@ -68,9 +68,10 @@ def test_capability_keys() -> None:
 
 @pytest.mark.kiwi_id(37)
 def test_event_worker_contract() -> None:
-    """事件工作单元：发布 / 消费共享父类。"""
+    """事件工作单元：发布侧继承 `BaseEventWorker`；消费轨分轨为独立端口。"""
     assert issubclass(EventPublisher, BaseEventWorker)
     assert issubclass(EventConsumer, BaseEventWorker)
+    assert EventConsumer.key == "event_consumer"
 
 
 @pytest.mark.kiwi_id(37)

@@ -35,7 +35,7 @@ from app.core.plugin import (
 from app.core.resources import ResourceManager
 from app.dashboard.base import BaseDashboardCardRegistry
 from app.db.registry import EngineRegistry
-from app.events.base import EventPublisher
+from app.events.base import BaseEventConsumer, EventPublisher
 from app.fallback.base import BaseFallbackPolicy
 from app.fieldtype.base import BaseFieldTypeRegistry
 from app.health.base import BaseHealthCheckRegistry
@@ -185,6 +185,7 @@ PLUGIN_WIRINGS: tuple[PluginWiring, ...] = (
     PluginWiring("audit", AuditCapturer, "audit", "audit"),
     PluginWiring("task", BaseTask, "task", "task"),
     PluginWiring("event", EventPublisher, "event", "event_publisher"),
+    PluginWiring("event_consumer", BaseEventConsumer, "event_consumer", None),  # 消费轨：仅预热，无 app.state 落点
 )
 
 

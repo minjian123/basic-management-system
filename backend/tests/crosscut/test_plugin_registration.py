@@ -20,7 +20,7 @@ from app.core.plugin import (
     PluginRegistry,
 )
 from app.core.provider import BaseProviderRegistry
-from app.events.base import BaseEventWorker, EventConsumer, EventPublisher
+from app.events.base import BaseEventConsumer, BaseEventWorker, EventConsumer, EventPublisher
 from app.health.registry import HealthCheckRegistry
 
 _EXPECTED_PLUGIN_KEYS = frozenset(
@@ -35,6 +35,7 @@ _EXPECTED_PLUGIN_KEYS = frozenset(
         "data_scope",
         "distributed_lock",
         "event",
+        "event_consumer",
         "exporter",
         "fallback",
         "field_type_registry",
@@ -96,16 +97,22 @@ def _collect_app_classes() -> list[type[BasePluggable]]:
 
 
 def _ports() -> list[type[BasePluggable]]:
-    """40 个直接 BasePluggable 子类（能力域端口）。
+    """能力域端口（不写死数量）：按 `plugin_key` 取最顶层抽象类。
+
+    发布 / 消费在共享父 `BaseEventWorker` 之下各加一层基类后仍各自成端口——
+    `BaseEventWorker`（`event`）与 `BaseEventConsumer`（`event_consumer`）分别代表两个能力域。
 
     Returns:
         list[type[BasePluggable]]: 端口基类列表。
     """
-    return [
-        cls
-        for cls in _collect_app_classes()
-        if cls is not BaseProviderRegistry and (BasePluggable in cls.__bases__ or BaseProviderRegistry in cls.__bases__)
-    ]
+    ports: dict[str, type[BasePluggable]] = {}
+    for cls in _collect_app_classes():
+        if cls in (BasePluggable, BaseProviderRegistry) or not inspect.isabstract(cls):
+            continue
+        current = ports.get(cls.plugin_key)
+        if current is None or issubclass(current, cls):  # 取最顶层（最接近 BasePluggable 的抽象类）
+            ports[cls.plugin_key] = cls
+    return list(ports.values())
 
 
 def _snapshot_of_app_classes() -> dict[str, dict[str, PluginImpl]]:
@@ -137,7 +144,7 @@ def registry(monkeypatch: pytest.MonkeyPatch) -> PluginRegistry:
 
 @pytest.mark.kiwi_id(531)
 def test_ports_declared_and_abstract() -> None:
-    """44 个端口：清单一致、抽象、三属性自身声明（plugin_key 与 key 一致）。"""
+    """端口清单一致（不写死数量）：抽象、三属性自身声明（plugin_key 与 key 一致）。"""
     ports = _ports()
     assert {port.plugin_key for port in ports} == _EXPECTED_PLUGIN_KEYS
     for port in ports:
@@ -226,6 +233,7 @@ def test_event_worker_location_and_abstraction() -> None:
     assert inspect.isabstract(BaseEventWorker)
     assert issubclass(EventPublisher, BaseEventWorker)
     assert issubclass(EventConsumer, BaseEventWorker)
+    assert BaseEventConsumer.plugin_key == "event_consumer"  # 消费侧在共享父之下独立成域
     assert inspect.isabstract(EventPublisher)
     assert inspect.isabstract(EventConsumer)
     snapshot = _snapshot_of_app_classes()

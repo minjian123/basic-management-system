@@ -95,7 +95,12 @@ provider = ""
 options = {}
 
 [event]
-# 事件发布实现选择（插件化配置；空串解析到 null 占位实现；消费轨随阶段八）
+# 事件发布实现选择（插件化配置；空串解析到 null 占位实现；消费轨随阶段十 M10 集成消息可用）
+provider = ""
+options = {}
+
+[event_consumer]
+# 事件消费实现选择（插件化配置；空串解析到 null 占位实现；真实消费随阶段十 M10 集成消息可用）
 provider = ""
 options = {}
 
