@@ -4,7 +4,8 @@
  * 契约见《组件设计 · 设计令牌片段》：`token(name, fallback?)` / `spacing(n)` / `color(name)` /
  * `density` / `breakpoints` / `onThemeChange(cb)`。
  * 令牌唯一来源为 `src/styles/tokens.scss`（CSS 自定义属性）：本片段**只读**令牌，
- * 不复制值、不硬编码色值与尺寸；非浏览器环境（SSR / 测试）读不到变量时回落 `fallback`。
+ * 不复制值、不硬编码色值与尺寸；非浏览器环境（SSR / 测试）读不到变量时回落 `fallback`；
+ * 未定义令牌（读不到且无显式回退）开发态告警一次（按名去重，生产静默）。
  */
 
 import { computed, onScopeDispose, ref, toValue, type MaybeRefOrGetter } from 'vue'
@@ -71,6 +72,18 @@ function resolveBreakpoint(): keyof typeof BREAKPOINTS {
   return 'sm'
 }
 
+/** 已告警的未定义令牌（模块级去重，避免刷屏） */
+const warnedTokens = new Set<string>()
+
+/** 未定义令牌开发态告警（按令牌名去重；生产静默，不依赖根系） */
+function warnUndefinedToken(name: string): void {
+  if (!import.meta.env.DEV || warnedTokens.has(name)) {
+    return
+  }
+  warnedTokens.add(name)
+  console.warn(`[useDesignToken] 未定义令牌: ${name}（先登记 src/styles/tokens.scss 后再使用）`)
+}
+
 /**
  * 获取设计令牌能力。
  *
@@ -87,6 +100,9 @@ export function useDesignToken(options: UseDesignTokenOptions = {}): UseDesignTo
     const value = readToken(name)
     if (value) {
       return value
+    }
+    if (localFallback === undefined && !fallback.value) {
+      warnUndefinedToken(name)
     }
     return localFallback ?? fallback.value
   }
@@ -123,6 +139,7 @@ export function useDesignToken(options: UseDesignTokenOptions = {}): UseDesignTo
       if (value) {
         return value
       }
+      warnUndefinedToken(variable)
       return fallback.value || `${steps * 4}${unit.value}`
     },
     color: (name) => token(`--bms-color-${name}`),

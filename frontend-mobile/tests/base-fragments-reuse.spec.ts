@@ -304,11 +304,19 @@ describe('复用 19 片段（Kiwi 708）', () => {
     expect(drag.dragging).toBe(false)
   })
 
-  it('设计令牌：读取回落 / 间距 / 断点 / 密度', () => {
+  it('设计令牌：读取回落 / 间距 / 断点 / 密度 / 未定义告警', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const token = useDesignToken()
-    expect(token.token('--bms-not-exist', 'none')).toBe('none')
-    expect(token.spacing(4)).toBe('16px')
+    expect(token.token('--bms-not-exist', 'none')).toBe('none') // 显式回退：不告警
+    expect(warn).not.toHaveBeenCalled()
+    expect(token.color('primary')).toBe('') // 无回退：开发态告警一次
     expect(token.color('primary')).toBe('')
+    expect(warn).toHaveBeenCalledTimes(1) // 同名去重
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('--bms-color-primary'))
+    expect(token.spacing(4)).toBe('16px') // 测试环境读不到令牌：告警并回落计算值
+    expect(warn).toHaveBeenCalledTimes(2)
+    expect(token.spacing(4)).toBe('16px')
+    expect(warn).toHaveBeenCalledTimes(2)
     expect(token.breakpoints).toEqual(BREAKPOINTS)
     expect(['sm', 'md', 'lg', 'xl']).toContain(token.currentBreakpoint)
     expect(typeof token.density).toBe('string')
@@ -318,6 +326,7 @@ describe('复用 19 片段（Kiwi 708）', () => {
     cancel()
     expect(cancel()).toBeUndefined()
     document.documentElement.removeAttribute('data-theme')
+    warn.mockRestore()
   })
 
   it('表单页：三态判定 / 脏数据 / 占位提交 / 离开确认', async () => {
