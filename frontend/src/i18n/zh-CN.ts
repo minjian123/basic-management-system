@@ -83,6 +83,11 @@ export default {
     empty: '暂无菜单',
     noMatch: '未找到匹配菜单',
   },
+  // 壳与容器（框架）文案
+  layout: {
+    placeholder: '建设中',
+    unknownComponent: '未注册的组件',
+  },
   // 错误码文案：error.{code}（最小集；完整错误码总表随后端接入补齐）
   error: {
     default: '操作失败，请稍后重试',

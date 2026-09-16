@@ -83,6 +83,11 @@ export default {
     empty: 'No menu',
     noMatch: 'No matching menu',
   },
+  // 壳与容器（框架）文案
+  layout: {
+    placeholder: 'Under construction',
+    unknownComponent: 'Unregistered component',
+  },
   // 错误码文案：error.{code}（最小集；完整错误码总表随后端接入补齐）
   error: {
     default: 'Operation failed, please try again later',

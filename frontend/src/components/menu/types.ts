@@ -8,6 +8,8 @@ export interface MenuItem {
   name: string
   /** 路由 path（叶子菜单必填） */
   path?: string
+  /** 路由组件名（菜单 → 路由注册用；缺省占位视图） */
+  component?: string
   /** 图标 key（`IconDisplay` 回补前不渲染） */
   icon?: string
   /** 排序（升序） */
