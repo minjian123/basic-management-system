@@ -24,6 +24,7 @@ import {
 import { useComponentBase } from '@/base/useComponentBase'
 
 import { createScrollPositionStore } from './scrollPosition'
+import { resolveSize } from './size'
 import type { ScrollMetrics } from './types'
 
 const props = withDefaults(
@@ -71,14 +72,6 @@ const store = createScrollPositionStore()
 const instance = getCurrentInstance()
 const fallbackKey = `uid:${instance?.uid ?? 0}`
 const positionKey = computed(() => props.positionKey ?? fallbackKey)
-
-/** 尺寸解析：数字按 px，字符串原样 */
-function resolveSize(value: number | string | undefined): string | undefined {
-  if (value === undefined) {
-    return undefined
-  }
-  return typeof value === 'number' ? `${value}px` : value
-}
 
 const bodyStyle = computed<Record<string, string>>(() => {
   const style: Record<string, string> = {}
