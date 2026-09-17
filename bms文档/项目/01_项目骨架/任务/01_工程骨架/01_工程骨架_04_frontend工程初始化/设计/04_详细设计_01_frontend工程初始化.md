@@ -1,13 +1,13 @@
-# frontend 工程初始化详细设计
+# apps/desktop 工程初始化详细设计
 
 > 项目骨架 · 01 工程骨架 · 子任务 04 · 详细设计
 
-[文档首页](../../../../../../文档首页.md) › [04 frontend 工程初始化](../01_工程骨架_04_frontend工程初始化.md) › 01 详细设计　|　[← 任务文档](../01_工程骨架_04_frontend工程初始化.md)　[父任务](../../01_工程骨架.md)
+[文档首页](../../../../../../文档首页.md) › [04 apps/desktop 工程初始化](../01_工程骨架_04_frontend工程初始化.md) › 01 详细设计　|　[← 任务文档](../01_工程骨架_04_frontend工程初始化.md)　[父任务](../../01_工程骨架.md)
 
 ## 1. 概述 <a id="overview"></a>
 
-- **目标**：把 01-01 交付的 frontend 最小占位（Vue 3.5 + Vite 8 + TS 6）升级为**需求 01-4 定义的完整工程**：依赖清单、src 分层骨架、统一响应契约类型、Vite 代理链路、ESLint/Prettier/Vitest 质量工具与冒烟测试。
-- **范围**：仅 frontend 工程与其冒烟验证；业务页面/UI 布局不做（默认页占位）；OpenAPI 类型生成为占位（随 04 域契约接入）；认证与 401 处理留 TODO（阶段六）。
+- **目标**：把 01-01 交付的 apps/desktop 最小占位（Vue 3.5 + Vite 8 + TS 6）升级为**需求 01-4 定义的完整工程**：依赖清单、src 分层骨架、统一响应契约类型、Vite 代理链路、ESLint/Prettier/Vitest 质量工具与冒烟测试。
+- **范围**：仅 apps/desktop 工程与其冒烟验证；业务页面/UI 布局不做（默认页占位）；OpenAPI 类型生成为占位（随 04 域契约接入）；认证与 401 处理留 TODO（阶段六）。
 - **依据**：需求 [01-4](../../../../需求/01_需求_工程骨架.md#r01-4)、《[前端开发规范](../../../../../../规范/前端开发规范.md)》第 2/4/11 节、《[项目规划说明](../../../../../../规划/项目规划说明.md)》「前端」「环境与配置」节、《[命名规范](../../../../../../规范/命名规范.md)》「前端命名」节。
 
 ## 2. 现状与差距 <a id="gap"></a>
@@ -23,7 +23,7 @@
 ## 3. 目标目录与交付物清单 <a id="tree"></a>
 
 ```text
-frontend/
+apps/desktop/
 ├── .npmrc                      # 新增：npmmirror 国内源
 ├── .nvmrc                      # 已有：22
 ├── .env.development            # 新增：VITE_API_BASE=/api
@@ -159,10 +159,10 @@ export interface PageResponse<T> {
 
 | Kiwi | 用例 | 自动化 |
 | --- | --- | --- |
-| 19 | frontend 默认页与代理链路冒烟（标题「BMS 基础管理系统」、展示 backend name/version） | `tests/home.spec.ts`（Vitest + @vue/test-utils，mock `fetchAppInfo`） |
+| 19 | apps/desktop 默认页与代理链路冒烟（标题「BMS 基础管理系统」、展示 backend name/version） | `tests/home.spec.ts`（Vitest + @vue/test-utils，mock `fetchAppInfo`） |
 
 - 冒烟范围：HomeView 渲染标题与 mock 的应用名/版本；不依赖真实 backend（代理链路由手工/CI 冒烟复核）。
-- 质量门禁：`npm run lint`、`vue-tsc -b`、`npm run test`、`npm run build` 全通过；frontend/ 落地后 main 冒烟层前端 job（04-1 exists 激活）全绿。
+- 质量门禁：`npm run lint`、`vue-tsc -b`、`npm run test`、`npm run build` 全通过；apps/desktop/ 落地后 main 冒烟层前端 job（04-1 exists 激活）全绿。
 
 ## 9. 实施步骤 <a id="steps"></a>
 
@@ -201,7 +201,7 @@ export interface PageResponse<T> {
 | 2 | 连通探针 | `/info` 代理重写至 backend `/`（避免与前端根路由冲突） |
 | 3 | Kiwi | Case 19 一条冒烟；Vitest + @vue/test-utils |
 | 4 | npm 源 | `.npmrc` 配 npmmirror；锁文件提交 |
-| 5 | CI | frontend/ 落地激活 04-1 前端 job（ESLint/Vitest/构建） |
+| 5 | CI | apps/desktop/ 落地激活 04-1 前端 job（ESLint/Vitest/构建） |
 | 6 | Element Plus | 按需引入（unplugin-vue-components + ElementPlusResolver）：主包 1,064.53 → 147.34 kB，告警消除（2026-09-10 优化） |
 | 7 | openapi-typescript | peer 声明滞后但运行时不依赖 TS，`gen:api` 在 TS6 实测可用；维持 legacy-peer-deps 待上游支持 |
 

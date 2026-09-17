@@ -86,7 +86,7 @@ uv run pytest --cov=app --cov-report=term-missing -q
 
 - Allure 报告生成与测试结果导入 Kiwi TCMS（执行归档链路）属阶段末 04-4；本任务只完成用例登记与本地执行。
 - `dmPython` 达梦连接实测与 Python 3.14 兼容矩阵留 01-06。
-- `/readyz`、租户拓扑、模块注册等深层用例归 03-3 与 02-14 ~ 02-16；前端（frontend / frontend-mobile）测试基线归 01-04/05。
+- `/readyz`、租户拓扑、模块注册等深层用例归 03-3 与 02-14 ~ 02-16；前端（apps/desktop / frontend-mobile）测试基线归 01-04/05。
 - 覆盖率暂未接流水线门禁（随 04-1）。
 
 > 本文档依《文档生成规范》编写 · 按《任务文档规范》「测试文档（任务测试记录）」节测试文档结构组织

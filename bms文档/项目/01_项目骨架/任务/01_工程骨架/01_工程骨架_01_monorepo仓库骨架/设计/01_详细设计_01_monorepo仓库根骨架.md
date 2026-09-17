@@ -16,7 +16,7 @@
 - 《[后端开发规范](../../../../../../规范/后端开发规范.md)》§2 目录分层、《[前端开发规范](../../../../../../规范/前端开发规范.md)》§2 目录约定
 - 《[命名规范](../../../../../../规范/命名规范.md)》§3 项目与目录命名
 
-与后续任务的关系：01 只交付「仓库根骨架 + 三工程最小可启动占位」；三工程的完整骨架与分层在 02（backend 工程初始化）、03（backend 分层）、04（frontend 工程初始化）、05（frontend-mobile 工程初始化）细化，06 做依赖锁定与 Python 3.14 兼容性验证。职责边界见 [7.4 节](#boundary)。
+与后续任务的关系：01 只交付「仓库根骨架 + 三工程最小可启动占位」；三工程的完整骨架与分层在 02（backend 工程初始化）、03（backend 分层）、04（apps/desktop 工程初始化）、05（frontend-mobile 工程初始化）细化，06 做依赖锁定与 Python 3.14 兼容性验证。职责边界见 [7.4 节](#boundary)。
 
 ## 2. 现状与差距 <a id="gap"></a>
 
@@ -25,7 +25,7 @@
 | 项 | 现状 | 01 目标 | 动作 |
 | --- | --- | --- | --- |
 | `backend/` | 缺失 | 最小可启动占位（FastAPI + `/healthz`） | 新建 |
-| `frontend/` | 缺失 | 最小 Vite + Vue + TS 占位（端口 5173） | 新建 |
+| `apps/desktop/` | 缺失 | 最小 Vite + Vue + TS 占位（端口 5173） | 新建 |
 | `frontend-mobile/` | 缺失 | 最小 Vite + Vue + TS 占位（端口 5174） | 新建 |
 | `scripts/` | 已含 `tools/` 工具链（含 `base-check` 基座自检）+ `README.md`（三分法已落地） | 承接开发期工具链（自 `deploy/tools/` 迁入）+ 目录说明 `README.md` | 已落地，核对清单 |
 | `ops/` | 已有 `README.md`（目录说明已就位） | 产品运维脚本目录（脚本后续阶段填充） | 已落地，核对内容 |
@@ -40,7 +40,7 @@
 
 > 说明：`AGENTS.md`、`.opencode/`、`.graphifyignore` 与知识图谱产物 `graphify-out/` 位于**工作区根**（工作区模型，见《平台可扩展性规划》「工作区模型与基座引用」节），不在 bms 仓库根。
 
-> **已知 git 现象（已随工作区模型消除）**：曾出现告警 `could not open directory 'node_modules/.pnpm/node_modules/frontend/'`，根因为 `.opencode` 的 pnpm store；`.opencode` 与 `node_modules` 已移至工作区根，bms 仓不再有该目录。本任务仍以 `git status` 验证 bms 仓干净、无应忽略产物出现（若仍在，执行 `git update-index --again` 清理索引缓存）。
+> **已知 git 现象（已随工作区模型消除）**：曾出现告警 `could not open directory 'node_modules/.pnpm/node_modules/apps/desktop/'`，根因为 `.opencode` 的 pnpm store；`.opencode` 与 `node_modules` 已移至工作区根，bms 仓不再有该目录。本任务仍以 `git status` 验证 bms 仓干净、无应忽略产物出现（若仍在，执行 `git update-index --again` 清理索引缓存）。
 
 ## 3. 目标目录树与交付物清单 <a id="tree"></a>
 
@@ -62,7 +62,7 @@ bms/
 │   └── app/                  # 应用包（core / api / … / i18n，02 / 03 细化）
 │       ├── __init__.py       # 暴露 __version__
 │       └── main.py           # FastAPI 应用工厂 create_app() + /healthz
-├── frontend/                 # Vue 3 + Vite（01 最小占位，04 细化）
+├── apps/desktop/                 # Vue 3 + Vite（01 最小占位，04 细化）
 │   ├── .nvmrc                # 固定 Node 版本（22）
 │   ├── package.json
 │   ├── package-lock.json     # 依赖锁定（必须提交）
@@ -75,7 +75,7 @@ bms/
 │       ├── App.vue           # 占位页面
 │       └── vite-env.d.ts
 ├── frontend-mobile/          # Vue 3 + Vant 移动端 H5（01 最小占位，05 细化）
-│   └── …                     # 结构同 frontend，端口固定 5174
+│   └── …                     # 结构同 apps/desktop，端口固定 5174
 ├── deploy/                   # 纯部署配置
 │   ├── .env.example          # 凭据模板
 │   ├── compose/              # Docker Compose（base / gitlab / kiwi）
@@ -106,7 +106,7 @@ bms/
 | 文件 | 类型 | 说明 |
 | --- | --- | --- |
 | `backend/`（6 个文件，见 7.1） | 新建 | 最小可启动占位 |
-| `frontend/`（10 个文件，见 7.2） | 新建 | 最小 Vite 占位 |
+| `apps/desktop/`（10 个文件，见 7.2） | 新建 | 最小 Vite 占位 |
 | `frontend-mobile/`（10 个文件，见 7.3） | 新建 | 最小 Vite 占位 |
 | `scripts/README.md` | 已存在，核对 | 目录说明（开发期工具链，含 `base-check` 基座自检） |
 | `ops/README.md` | 已存在，核对 | 目录说明（产品运维脚本） |
@@ -149,7 +149,7 @@ uv run uvicorn app.main:create_app --factory --port 8000
 # 验证：访问 http://127.0.0.1:8000/healthz 返回 {"status":"ok"}
 
 # PC 前端（端口 5173）
-cd frontend
+cd apps/desktop
 npm ci
 npm run dev
 # 验证：访问 http://127.0.0.1:5173 看到占位页
@@ -206,7 +206,7 @@ node_modules/
 | `.vscode/xxx.code-workspace` | 被忽略 |
 | `backend/.env.local` | 被忽略（`*.local`） |
 | `backend/uv.lock` | **不**被忽略 |
-| `frontend/package-lock.json` | **不**被忽略 |
+| `apps/desktop/package-lock.json` | **不**被忽略 |
 | `bms文档/用户文档/本地资源.md` | 被忽略 |
 
 ## 6. .editorconfig <a id="editorconfig"></a>
@@ -298,9 +298,9 @@ def create_app() -> FastAPI:
 - `README.md`：四章节简化版（见 7.5）
 - 启动验证：`uv sync` → `uv run uvicorn app.main:create_app --factory --port 8000` → `GET /healthz` 返回 `{"status":"ok"}`
 
-### 7.2 frontend <a id="frontend"></a>
+### 7.2 apps/desktop <a id="apps/desktop"></a>
 
-以 `npm create vite@latest frontend -- --template vue-ts` 生成的 Vite + Vue + TS 工程为基，做以下调整（版本号以模板为准，记录在 `package-lock.json`，不在此硬编码）：
+以 `npm create vite@latest apps/desktop -- --template vue-ts` 生成的 Vite + Vue + TS 工程为基，做以下调整（版本号以模板为准，记录在 `package-lock.json`，不在此硬编码）：
 
 - `package.json`：`name` 字段改为 `bms-frontend`，`version` 为 `0.1.0`，保留 `dev` / `build` / `preview` 脚本与 `vue` 依赖、`vite` / `@vitejs/plugin-vue` / `typescript` / `vue-tsc` 开发依赖
 - `vite.config.ts`：
@@ -362,7 +362,7 @@ createApp(App).mount('#app')
 | --- | --- | --- |
 | 仓库根骨架、三工程目录、根 README / .gitignore / .editorconfig、最小可启动占位 | **01（本文档）** | 本任务交付 |
 | backend 完整分层（app 下 core/api/models/schemas/services/repositories/db/tasks/ws/i18n）、config.toml、alembic、tests | 02 / 03 | 在 01 占位之上细化 |
-| frontend 完整工程（Element Plus、Router、Pinia、ESLint / Prettier、SCSS、i18n） | 04 | 在 01 占位之上细化 |
+| apps/desktop 完整工程（Element Plus、Router、Pinia、ESLint / Prettier、SCSS、i18n） | 04 | 在 01 占位之上细化 |
 | frontend-mobile 完整工程（Vant、移动端骨架） | 05 | 在 01 占位之上细化 |
 | 依赖锁定复核、Python 3.14 兼容性逐依赖验证（不兼容整体回退 3.13） | 06 | 复核 01 生成的 lock 与 `.python-version` |
 | CI 流水线内容 | 后续任务 | 01 仅保留既有 `.gitlab-ci.yml`，不改内容 |
@@ -371,14 +371,14 @@ createApp(App).mount('#app')
 
 ### 7.5 三工程 README（简化四章节）<a id="proj-readme"></a>
 
-`backend/README.md`、`frontend/README.md`、`frontend-mobile/README.md` 统一四章节简化结构：
+`backend/README.md`、`apps/desktop/README.md`、`frontend-mobile/README.md` 统一四章节简化结构：
 
 | 章节 | 内容 |
 | --- | --- |
 | 项目简介 | 1~2 句定位 + 技术栈一行（取自对应规范） |
 | 快速启动 | 前置条件 + 该工程启动命令 + 预期结果（端口 / 访问地址） |
 | 目录结构 | 该工程文件清单（等宽目录清单） |
-| 文档导航 | 链接根 README 与对应规范（backend → 《后端开发规范》；frontend → 《前端开发规范》+《架构设计 · 前端架构》；frontend-mobile → 《架构设计 · 前端架构》移动端节） |
+| 文档导航 | 链接根 README 与对应规范（backend → 《后端开发规范》；apps/desktop → 《前端开发规范》+《架构设计 · 前端架构》；frontend-mobile → 《架构设计 · 前端架构》移动端节） |
 
 ## 8. 其他新增文件 <a id="others"></a>
 
@@ -397,7 +397,7 @@ createApp(App).mount('#app')
 | 2 | graphify-out 入库策略 | **工作区根图谱产物，bms 仓不跟踪**（工作区模型） | 根 `.gitignore` 保留 `graphify-out/` 忽略行；不新增 `graphify-out/README.md` |
 | 3 | 占位工程范围 | **最小可启动**（非完整骨架），完整骨架归 02 ~ 05 | 本文档 §7；无空目录、无 `.gitkeep` |
 | 4 | 编辑器忽略规则 | `.idea/` 全忽略；`.vscode/*` 忽略但放行 `settings.json` / `extensions.json` | `.gitignore`（§5） |
-| 5 | Node 版本 | **Node 22 LTS**（已全库统一：需求 01-4/01-5、任务 04/05、规划 §17、开发部署规划、架构 02、准备期 01 环境与工具链、npm 知识档案等「≥20.19」口径同步改 22） | `frontend/.nvmrc`、`frontend-mobile/.nvmrc`、根 README 技术栈表 / 徽标 |
+| 5 | Node 版本 | **Node 22 LTS**（已全库统一：需求 01-4/01-5、任务 04/05、规划 §17、开发部署规划、架构 02、准备期 01 环境与工具链、npm 知识档案等「≥20.19」口径同步改 22） | `apps/desktop/.nvmrc`、`frontend-mobile/.nvmrc`、根 README 技术栈表 / 徽标 |
 | 6 | 三库 / 双库口径 | **统一三库**（MySQL / PostgreSQL / 达梦 DM8），对齐 03_总体架构与测试规范 §7 | 全库订正「双库」旧表述：《后端开发规范》§2、§10，《项目规划说明》§3.4，知识档案 3 处（GitLab / pytest 技术介绍）；概要设计07「双库引用」为平台库/租户库概念，非方言口径，不改 |
 
 > 第 6 项为跨文档口径订正，不属于 01 仓库改动，单独执行并核对。
@@ -407,7 +407,7 @@ createApp(App).mount('#app')
 按序执行，每步附验证点（依赖：无）：
 
 1. **backend 占位**：建 `backend/`，写 `.python-version`、`pyproject.toml`、`app/__init__.py`、`app/main.py`、`README.md` → `uv lock`（网络慢切国内 PyPI 镜像）→ `uv sync` → `uv run uvicorn app.main:create_app --factory --port 8000`。验证：`GET http://127.0.0.1:8000/healthz` 返回 `{"status":"ok"}`。
-2. **frontend 占位**：`npm create vite@latest frontend -- --template vue-ts`，按 7.2 调整（name、端口 5173、`.nvmrc`=22、`App.vue` 文案、`README.md`）→ `npm install` 生成 lock。验证：`npm run dev` 访问 `http://127.0.0.1:5173` 看到占位页。
+2. **apps/desktop 占位**：`npm create vite@latest apps/desktop -- --template vue-ts`，按 7.2 调整（name、端口 5173、`.nvmrc`=22、`App.vue` 文案、`README.md`）→ `npm install` 生成 lock。验证：`npm run dev` 访问 `http://127.0.0.1:5173` 看到占位页。
 3. **frontend-mobile 占位**：同步骤 2，端口 5174、name `bms-frontend-mobile`、文案改移动端。验证：访问 `http://127.0.0.1:5174`。
 4. **其余说明文件**：核对 `scripts/README.md`、`ops/README.md`（已存在，删 multimodal 词条、补 `base-check`）；图谱产物归工作区根，不新建 `graphify-out/README.md`。
 5. **根 .gitignore**：按 §5 追加 / 替换规则；保留现有 Python 模板主体。

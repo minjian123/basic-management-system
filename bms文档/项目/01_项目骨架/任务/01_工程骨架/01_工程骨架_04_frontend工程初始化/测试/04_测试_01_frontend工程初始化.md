@@ -1,21 +1,21 @@
-# frontend 工程初始化测试记录
+# apps/desktop 工程初始化测试记录
 
 > 项目骨架 · 01 工程骨架 · 子任务 04 · 测试记录 01
 
-[文档首页](../../../../../../文档首页.md) › [04 frontend 工程初始化](../01_工程骨架_04_frontend工程初始化.md) › 01 测试记录　|　[实施记录 →](../实施/04_实施_01_frontend工程初始化.md)　[详细设计 →](../设计/04_详细设计_01_frontend工程初始化.md)
+[文档首页](../../../../../../文档首页.md) › [04 apps/desktop 工程初始化](../01_工程骨架_04_frontend工程初始化.md) › 01 测试记录　|　[实施记录 →](../实施/04_实施_01_frontend工程初始化.md)　[详细设计 →](../设计/04_详细设计_01_frontend工程初始化.md)
 
 ## 1. 测试信息 <a id="meta"></a>
 
 | 项 | 值 |
 | --- | --- |
-| 任务 | [04 frontend 工程初始化](../01_工程骨架_04_frontend工程初始化.md) |
+| 任务 | [04 apps/desktop 工程初始化](../01_工程骨架_04_frontend工程初始化.md) |
 | 对应需求 | [01-4](../../../../需求/01_需求_工程骨架.md#r01-4) |
 | 详细设计 | [04_详细设计_01_frontend工程初始化](../设计/04_详细设计_01_frontend工程初始化.md) |
 | 实施记录 | [01 实施记录](../实施/04_实施_01_frontend工程初始化.md) |
 | 测试日期 | 2026-09-10 |
 | 测试人 | minjian |
 | 测试环境 | 开发机（Ubuntu）；Node 22.23.2（nvm）、npm 10.9.8；backend 本地 8000；Vitest 5（jsdom） |
-| Kiwi 用例 | 本任务新增 Case 19（frontend 默认页与代理链路冒烟）；补充 Case 25/26（Axios 基线单元） |
+| Kiwi 用例 | 本任务新增 Case 19（apps/desktop 默认页与代理链路冒烟）；补充 Case 25/26（Axios 基线单元） |
 | 结论 | 2/2 用例通过；lint/build/vue-tsc 通过；覆盖率 100%（已导入文件）；代理链路实测通过 |
 
 ## 2. 测试范围与用例 <a id="scope"></a>
@@ -24,8 +24,8 @@
 
 | Kiwi ID | 用例 | 类型 | 自动化文件 | 结果 |
 | --- | --- | --- | --- | --- |
-| 19 | frontend 默认页与代理链路冒烟（标题 + 应用名/版本；后端未连通降级） | 单元·冒烟 | `tests/home.spec.ts`（2 条） | 通过 |
-| 25 | frontend Axios 基线单元（request 解包/code≠0 拒绝/fetchAppInfo/拦截器 401 与普通错误） | 单元 | `frontend/tests/http.spec.ts`（6 条） | 通过 |
+| 19 | apps/desktop 默认页与代理链路冒烟（标题 + 应用名/版本；后端未连通降级） | 单元·冒烟 | `tests/home.spec.ts`（2 条） | 通过 |
+| 25 | apps/desktop Axios 基线单元（request 解包/code≠0 拒绝/fetchAppInfo/拦截器 401 与普通错误） | 单元 | `apps/desktop/tests/http.spec.ts`（6 条） | 通过 |
 | 26 | frontend-mobile Axios 基线单元（同款） | 单元 | `frontend-mobile/tests/http.spec.ts`（6 条） | 通过 |
 | — | 工程门禁：ESLint / vue-tsc / 构建 | 静态·构建 | `npm run lint` / `build` | 通过 |
 | — | 开发代理链路（/info、/api、/healthz） | 联调 | `curl`（起 backend + dev） | 通过 |
@@ -33,7 +33,7 @@
 ## 3. 执行记录与结果 <a id="run"></a>
 
 ```bash
-cd frontend
+cd apps/desktop
 npm ci
 npm run lint     # 通过（--max-warnings 0）
 npm run test     # 2 passed

@@ -1,8 +1,8 @@
-# 04 frontend 工程初始化
+# 04 apps/desktop 工程初始化
 
 > 项目骨架 · 01 工程骨架 · 子任务 04
 
-[文档首页](../../../../../文档首页.md) › [01 工程骨架](../01_工程骨架.md) › 04 frontend 工程初始化　|　[← 父任务](../01_工程骨架.md)
+[文档首页](../../../../../文档首页.md) › [01 工程骨架](../01_工程骨架.md) › 04 apps/desktop 工程初始化　|　[← 父任务](../01_工程骨架.md)
 
 ## 1. 任务信息 <a id="meta"></a>
 
@@ -36,7 +36,7 @@
 
 ## 4. 完成标准 <a id="accept"></a>
 
-`npm ci` 通过；`npm run dev` 默认页（标题「BMS 基础管理系统」）显示 backend `/` 返回的 name/version（代理与响应解析链路通）；`npm run build`、`vue-tsc`、ESLint、`vitest run`（1 条冒烟用例）全通过；`node -v` ≥ 22；frontend/ 落地后 main 冒烟层前端 job（exists 激活，见 04-1）全绿。
+`npm ci` 通过；`npm run dev` 默认页（标题「BMS 基础管理系统」）显示 backend `/` 返回的 name/version（代理与响应解析链路通）；`npm run build`、`vue-tsc`、ESLint、`vitest run`（1 条冒烟用例）全通过；`node -v` ≥ 22；apps/desktop/ 落地后 main 冒烟层前端 job（exists 激活，见 04-1）全绿。
 
 ## 5. 参考文档 <a id="ref"></a>
 
