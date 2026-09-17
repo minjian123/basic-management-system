@@ -26,4 +26,24 @@ export { BaseSubscription, nullSubscriptionBus, type SubscriptionBus, type Subsc
 export { ProviderRegistry, getProvider, requireProvider } from './providers'
 export { observable, type Observable, type MutableObservable } from './base/observable'
 export * from './capabilities'
-export type { CapabilityDescriptor, RenderBinding } from './contracts'
+export * from './contracts'
+export {
+  computeVirtualRange,
+  type VirtualRangeInput,
+  type VirtualRangeResult,
+  type VirtualScrollMetrics,
+} from './domain/virtual-range'
+export {
+  createMemoryScrollStorage,
+  createScrollPositionStore,
+  createSessionScrollStorage,
+  defaultScrollStorage,
+  type ScrollMetrics,
+  type ScrollPositionStore,
+  type ScrollStorage,
+} from './domain/scroll-position'
+export { resolveSize } from './domain/size'
+export { createConfirmService, type ConfirmService } from './domain/confirm-service'
+export { createPermissionGate, type PermissionGate } from './domain/permission-gate'
+export { createMenuSourceService, type MenuSourceService } from './domain/menu-source-service'
+export { createViewResolverService, type ViewResolverService } from './domain/view-resolver-service'

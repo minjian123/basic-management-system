@@ -13,7 +13,7 @@ import { computed, onBeforeUnmount, onMounted, ref, useAttrs, watch } from 'vue'
 
 import { useComponentBase } from '@bms/vue'
 
-import { resolveSize } from './size'
+import { resolveSize } from '@bms/core'
 
 const props = withDefaults(
   defineProps<{

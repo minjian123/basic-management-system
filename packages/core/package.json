@@ -5,7 +5,8 @@
   "type": "module",
   "description": "BMS 前端框架无关核心（纯 TS；不得依赖 Vue / UI 库 / 插件 / 宿主）",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./testing": "./testing/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json",

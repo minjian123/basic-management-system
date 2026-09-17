@@ -23,11 +23,9 @@ import {
   watch,
 } from 'vue'
 
-import { useComponentBase } from '@bms/vue'
+import { useComponentBase, useVirtualRange } from '@bms/vue'
 
-import { resolveSize } from './size'
-import type { VirtualScrollMetrics } from './types'
-import { useVirtualRange } from './useVirtualRange'
+import { resolveSize, type VirtualScrollMetrics } from '@bms/core'
 
 const props = withDefaults(
   defineProps<{

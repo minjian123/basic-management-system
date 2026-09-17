@@ -1,5 +1,5 @@
 /**
- * 组件域出口：通用容器（域 04 交付；滚动基建随迁，其余件分批迁移）。
+ * 组件域出口：通用容器（域 04 交付；S4a 起滚动基建与可视区计算单份在 `@bms/core` / `@bms/vue`）。
  */
 
 export { default as ScrollContainer } from './ScrollContainer.vue'
@@ -15,12 +15,10 @@ export {
   createScrollPositionStore,
   createSessionScrollStorage,
   defaultScrollStorage,
-} from './scrollPosition'
-export { resolveSize } from './size'
-export { useVirtualRange, type VirtualRangeOptions, type VirtualRangeReturn } from './useVirtualRange'
-export type {
-  ScrollMetrics,
-  ScrollPositionStore,
-  ScrollStorage,
-  VirtualScrollMetrics,
-} from './types'
+  resolveSize,
+  type ScrollMetrics,
+  type ScrollPositionStore,
+  type ScrollStorage,
+  type VirtualScrollMetrics,
+} from '@bms/core'
+export { useVirtualRange, type VirtualRangeOptions, type VirtualRangeReturn } from '@bms/vue'

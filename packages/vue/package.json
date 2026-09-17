@@ -5,7 +5,8 @@
   "type": "module",
   "description": "BMS 前端 Vue 绑定插件（组合式投影：核心实例 ↔ Vue 响应式；不依赖 UI 库）",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./testing": "./testing/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json",
