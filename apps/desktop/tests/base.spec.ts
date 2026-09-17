@@ -5,7 +5,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { BaseApi } from '@/api/base'
 import type { BaseEntity, BasePageQuery, PageResponse } from '@/api/types'
-import { BaseFrontend, resetFrontendBaseConfig, setFrontendSinks, type ErrorRecord } from '@/base/BaseFrontend'
+import { BaseFrontend } from '@bms/core'
+
+import { resetHostSinks, setHostSinks, type HostErrorRecord } from '@/adapters/host-base'
 import { createCrudStore, type CrudApi } from '@/stores/base'
 import { stableStringify } from '@/utils/serialize'
 
@@ -46,12 +48,12 @@ class DemoApi extends BaseApi {
 describe('基础类（Kiwi 21）', () => {
   beforeEach(() => {
     vi.mocked(request).mockReset()
-    setFrontendSinks({ log: () => {}, error: () => {} })
+    setHostSinks({ log: () => {}, error: () => {} })
   })
 
   afterEach(() => {
-    setFrontendSinks({ log: undefined, error: undefined })
-    resetFrontendBaseConfig()
+    setHostSinks({ log: undefined, error: undefined })
+    resetHostSinks()
   })
 
   it('BaseApi 拼接路径并透传方法与参数', async () => {
@@ -121,8 +123,8 @@ describe('基础类（Kiwi 21）', () => {
 
   it('createCrudStore 取数失败经根系上报后原样抛出', async () => {
     const failure = new Error('list failed')
-    const errors: ErrorRecord[] = []
-    setFrontendSinks({ error: (record) => errors.push(record) })
+    const errors: HostErrorRecord[] = []
+    setHostSinks({ error: (record) => errors.push(record) })
 
     const api: CrudApi<Demo, DemoQuery> = {
       list: vi.fn().mockRejectedValue(failure),

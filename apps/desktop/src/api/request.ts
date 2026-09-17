@@ -8,7 +8,9 @@
 
 import type { AxiosRequestConfig } from 'axios'
 
-import { useFrontendBase } from '@/base/useFrontendBase'
+import { useFrontendBase } from '@bms/vue'
+
+import { hostBaseOptions } from '@/adapters/host-base'
 
 import { getHttpAdapter } from './adapter'
 import { ApiError, errorMessage, NETWORK_ERROR_CODE } from './error'
@@ -16,7 +18,7 @@ import { http } from './http'
 import type { ApiResponse } from './types'
 
 /** 请求层根系实例：统一日志与错误上报出口 */
-const base = useFrontendBase({ ns: 'http', identifier: 'request' })
+const base = useFrontendBase(hostBaseOptions({ ns: 'http', identifier: 'request' }))
 
 /** 请求选项 */
 export interface RequestOptions {

@@ -10,7 +10,7 @@ import { ApiError, AUTH_SESSION_CODE, errorMessage, NETWORK_ERROR_CODE } from '@
 import { http } from '@/api/http'
 import { request } from '@/api/request'
 import { tokenManager } from '@/api/token'
-import { resetFrontendBaseConfig, setFrontendSinks } from '@/base/BaseFrontend'
+import { resetHostSinks, setHostSinks } from '@/adapters/host-base'
 
 function asResponse<T>(data: T, status = 200): AxiosResponse<T> {
   return { data, status } as unknown as AxiosResponse<T>
@@ -54,12 +54,12 @@ class DemoApi extends BaseApi {
 
 describe('请求层（Kiwi 717）', () => {
   beforeEach(() => {
-    setFrontendSinks({ log: () => {}, error: () => {} })
+    setHostSinks({ log: () => {}, error: () => {} })
   })
 
   afterEach(() => {
-    setFrontendSinks({ log: undefined, error: undefined })
-    resetFrontendBaseConfig()
+    setHostSinks({ log: undefined, error: undefined })
+    resetHostSinks()
     resetHttpAdapter()
     tokenManager.clear()
     vi.restoreAllMocks()
