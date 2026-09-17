@@ -2,12 +2,14 @@
 # 更新 DeepSeek Harness（dsh）源码与 web profile 插件，并确保 dsh web 运行
 #
 # 用法: dsh-update.sh [--force] [--no-restart]
-#   --force       忽略版本检查，强制完整更新（pull + install + build + 插件 --latest）
+#   --force       忽略版本检查，强制完整更新（pull + install + build + 插件 up --latest + 重编译）
 #   --no-restart  需要更新时只更新不重启（下次手动重启生效）
 #
 # 幂等逻辑（各部分分别比对版本，一致即跳过更新与编译）：
 #   dsh 主体：本地 HEAD 与 origin/master 一致 → 跳过 git pull / pnpm install / pnpm run build；
-#   web 插件：已装版本 == npm 最新 → 跳过 up --latest；
+#   web 插件：已装版本 == npm 最新 → 跳过 up --latest 与重编译；
+#             有新版 → up --latest 更新后，rebuild 重跑插件构建脚本（编译/postinstall），
+#             并核对更新后版本，未落实则告警；
 #   全部无需更新时：web 已在运行 → 提示退出；web 未运行 → 直接启动。
 #
 # 桌面入口:「更新 dsh与插件」（~/.local/share/applications/更新 dsh与插件.desktop）
@@ -15,6 +17,7 @@
 set -u
 
 REPO=/home/minjian/develop/deepseek-harness
+PROFILE="$HOME/.dsh/profiles/web"
 LOG=/home/minjian/.dsh/dsh-update.log
 STOP_SH=/home/minjian/.local/bin/dsh-web-stop.sh
 PLUGINS="dsh-free-vision dsh-undo-savepoint"
@@ -62,16 +65,17 @@ if [ -n "$(git -C "$REPO" status --porcelain)" ]; then
   fail "dsh 仓库有未提交改动，请先处理再更新：cd $REPO && git status"
 fi
 
-installed_version() { # 已装插件版本（profiles/web/node_modules）
-  python3 -c "import json;print(json.load(open('$HOME/.dsh/profiles/web/node_modules/$1/package.json'))['version'])" 2>/dev/null
+installed_version() { # 已装插件版本（profile 的 node_modules）
+  python3 -c "import json;print(json.load(open('$PROFILE/node_modules/$1/package.json'))['version'])" 2>/dev/null
 }
-latest_version() { # npm 最新版本（pnpm view，走 npmmirror 配置）
-  timeout 20 pnpm view "$1" version 2>/dev/null
+latest_version() { # npm 最新版本（在 profile 目录内查询，与安装同源同注册表）
+  (cd "$PROFILE" 2>/dev/null && timeout 20 pnpm view "$1" version 2>/dev/null)
 }
 
 # ---------- 版本比对 ----------
 NEED_SRC=0
 NEED_PLUGINS=""
+declare -A PLUGIN_FROM=() PLUGIN_TO=()
 if [ "$FORCE" = 1 ]; then
   log "── --force：跳过版本检查，强制完整更新 ──"
   NEED_SRC=1
@@ -85,7 +89,7 @@ else
       log "dsh 有新版本: 本地 ${LOCAL:0:8} → 远端 ${REMOTE:0:8}，需更新"
       NEED_SRC=1
     else
-      log "dsh 主体已是最新（${LOCAL:0:8}），跳过 pull/install/build"
+      log "dsh 主体已是最新（${LOCAL:0:8}），跳过源码拉取/依赖安装/构建"
     fi
   else
     log "⚠ 无法连接远端（离线或网络慢），按现有版本处理，不更新主体"
@@ -100,10 +104,12 @@ else
     elif [ -z "$latest" ]; then
       log "⚠ 无法查询插件 $p 最新版本（离线或网络慢），跳过该插件，不更新"
     elif [ "$have" = "$latest" ]; then
-      log "插件 $p 已是最新（$have），跳过 up"
+      log "插件 $p 已是最新（$have），跳过更新"
     else
       log "插件 $p 可更新: 已装 $have → 最新 $latest"
       NEED_PLUGINS="$NEED_PLUGINS $p"
+      PLUGIN_FROM[$p]="$have"
+      PLUGIN_TO[$p]="$latest"
     fi
   done
 fi
@@ -133,17 +139,32 @@ else
   fi
 
   if [ "$NEED_SRC" = 1 ]; then
-    log "git pull origin master …"
-    timeout 300 git -C "$REPO" pull --ff-only origin master || fail "git pull 失败（网络或冲突，见上）"
-    log "pnpm install（npmmirror 源，最长 10 分钟）…"
-    (cd "$REPO" && timeout 600 pnpm install) || fail "pnpm install 失败"
-    log "pnpm run build（最长 15 分钟）…"
-    (cd "$REPO" && timeout 900 pnpm run build) || fail "pnpm run build 失败"
+    log "── 拉取源码（git pull origin master，外部输出为英文）──"
+    timeout 300 git -C "$REPO" pull --ff-only origin master || fail "拉取源码失败（网络或冲突，见上）"
+    log "✓ 源码已更新（HEAD $(git -C "$REPO" rev-parse --short HEAD)）"
+    log "── 安装依赖（pnpm install，最长 10 分钟，外部输出为英文）──"
+    (cd "$REPO" && timeout 600 pnpm install) || fail "依赖安装失败（见上）"
+    log "✓ 依赖安装完成"
+    log "── 构建（pnpm run build，最长 15 分钟，外部输出为英文）──"
+    (cd "$REPO" && timeout 900 pnpm run build) || fail "构建失败（见上）"
+    log "✓ 构建完成"
   fi
 
   if [ -n "$NEED_PLUGINS" ]; then
-    log "更新插件:$NEED_PLUGINS"
-    (cd "$REPO" && timeout 300 pnpm dsh plugin --profile web up --latest $NEED_PLUGINS) || fail "插件更新失败"
+    log "── 更新插件（up --latest，外部输出为英文）: $NEED_PLUGINS ──"
+    (cd "$REPO" && timeout 300 pnpm dsh plugin --profile web up --latest $NEED_PLUGINS) || fail "插件更新失败（见上）"
+    log "✓ 插件更新完成"
+    log "── 重跑插件构建脚本（rebuild 即编译，外部输出为英文）: $NEED_PLUGINS ──"
+    (cd "$REPO" && timeout 300 pnpm dsh plugin --profile web rebuild $NEED_PLUGINS) || fail "插件重编译失败（构建脚本，见上）"
+    log "✓ 插件重编译完成"
+    for p in $NEED_PLUGINS; do
+      now=$(installed_version "$p")
+      if [ -n "${PLUGIN_FROM[$p]:-}" ] && [ "$now" = "${PLUGIN_FROM[$p]}" ]; then
+        log "⚠ 插件 $p 更新后版本仍为 $now（期望 ${PLUGIN_TO[$p]:-未知}），请检查上面的 pnpm 输出"
+      else
+        log "插件 $p 已装版本 ${now:-未知}，更新与重编译均已完成"
+      fi
+    done
   fi
 
   [ "$RESTART" = 0 ] && { log "更新完成（--no-restart），请手动重启 dsh web 生效。"; exit 0; }
