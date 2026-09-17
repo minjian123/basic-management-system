@@ -1,13 +1,33 @@
 /**
- * 滚动位置存储（`ScrollContainer` 的 `keepPosition` 消费）。
+ * 滚动位置存储（框架无关核心领域层）：`ScrollContainer` 的 `keepPosition` 消费。
  *
  * - **内存适配器**（默认）：模块级单例，同一会话内跨挂载保持（进程级不落盘）；
- * - **`sessionStorage` 适配器**（预留）：本轮交付不默认启用；环境不可用（隐私模式 / SSR）
- *   时自动回落内存适配器，读取不抛错；
+ * - **`sessionStorage` 适配器**：环境不可用（隐私模式 / SSR）时自动回落内存适配器，读取不抛错；
  * - 存储键 = `positionKey`（缺省由组件以实例 uid 代键）。
+ *
+ * 本模块纯 TS（不依赖 DOM 类型：宿主存储以最小结构面探测 `globalThis`）。
  */
 
-import type { ScrollPositionStore, ScrollStorage } from './types'
+/** 滚动度量（`scroll` / `reach-bottom` / `reach-top` 事件载荷） */
+export interface ScrollMetrics {
+  scrollTop: number
+  scrollHeight: number
+  clientHeight: number
+}
+
+/** 滚动位置存储适配器（Storage 兼容子集；可接 `sessionStorage` 等） */
+export interface ScrollStorage {
+  getItem(key: string): string | null
+  setItem(key: string, value: string): void
+  removeItem(key: string): void
+}
+
+/** 滚动位置存储（键 = `ScrollContainer` 的 `positionKey`，缺省为组件 uid） */
+export interface ScrollPositionStore {
+  get(key: string): number | undefined
+  set(key: string, top: number): void
+  remove(key: string): void
+}
 
 /** 内存适配器（Map 实现，进程内存活） */
 export function createMemoryScrollStorage(): ScrollStorage {
@@ -27,16 +47,15 @@ export function createMemoryScrollStorage(): ScrollStorage {
 export const defaultScrollStorage: ScrollStorage = createMemoryScrollStorage()
 
 /** 探测可用的 `sessionStorage`（隐私模式 / SSR 返回 `null`） */
-function probeSessionStorage(prefix: string): Storage | null {
+function probeSessionStorage(prefix: string): ScrollStorage | null {
   try {
-    if (typeof window === 'undefined') {
+    const candidate = (globalThis as { sessionStorage?: ScrollStorage }).sessionStorage
+    if (!candidate) {
       return null
     }
-    const storage = window.sessionStorage
-    // 探测可写（Safari 隐私模式会抛错）
-    storage.setItem(`${prefix}__probe__`, '1')
-    storage.removeItem(`${prefix}__probe__`)
-    return storage
+    candidate.setItem(`${prefix}__probe__`, '1')
+    candidate.removeItem(`${prefix}__probe__`)
+    return candidate
   } catch {
     return null
   }

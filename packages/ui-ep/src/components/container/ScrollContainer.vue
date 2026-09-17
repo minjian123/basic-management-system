@@ -23,9 +23,7 @@ import {
 
 import { useComponentBase } from '@bms/vue'
 
-import { createScrollPositionStore } from './scrollPosition'
-import { resolveSize } from './size'
-import type { ScrollMetrics } from './types'
+import { createScrollPositionStore, resolveSize, type ScrollMetrics } from '@bms/core'
 
 const props = withDefaults(
   defineProps<{

@@ -1,27 +1,12 @@
 /**
- * 侧边菜单数据契约（`MenuNode` / `SideMenu` / 菜单状态注入点共用）。
+ * 侧边菜单数据工具（`MenuNode` / `SideMenu` / 菜单状态注入点共用）。
+ *
+ * 数据契约（`MenuItem`）在 `@bms/core`（框架无关）；本文件只保留 PC 菜单的纯工具函数。
  */
 
-/** 菜单项（后端 `GET /menus/my` 下发结构的最小集） */
-export interface MenuItem {
-  /** 菜单名（后端按 locale 下发 i18n 文案） */
-  name: string
-  /** 路由 path（叶子菜单必填） */
-  path?: string
-  /** 路由组件名（菜单 → 路由注册用；缺省占位视图） */
-  component?: string
-  /** 图标 key（`IconDisplay` 回补前不渲染） */
-  icon?: string
-  /** 排序（升序） */
-  sort?: number
-  /** 不上菜单但可用于路由 */
-  hidden?: boolean
-  /** 徽标（可选；占位与传统口径默认不配——角标统一放顶栏） */
-  badge?: string | number
-  /** 外链（新开窗口） */
-  external?: boolean
-  children?: MenuItem[]
-}
+import type { MenuItem } from '@bms/core'
+
+export type { MenuItem } from '@bms/core'
 
 /** 菜单项唯一键（叶子取 path，父级取 name） */
 export function menuKey(item: MenuItem): string {

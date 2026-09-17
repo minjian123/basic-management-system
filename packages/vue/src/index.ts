@@ -20,3 +20,14 @@ export {
   type UseContainerReturn,
 } from './bindings/useContainer'
 export { useField, type UseFieldReturn } from './bindings/useField'
+export {
+  useVirtualRange,
+  type VirtualRangeOptions,
+  type VirtualRangeReturn,
+} from './bindings/useVirtualRange'
+export { useAccess, type UseAccessOptions, type UseAccessReturn } from './bindings/useAccess'
+export {
+  useFrontendBase,
+  type UseFrontendBaseOptions,
+  type UseFrontendBaseReturn,
+} from './bindings/useFrontendBase'

@@ -15,7 +15,7 @@ import { useI18n } from 'vue-i18n'
 
 import { useComponentBase } from '@bms/vue'
 
-import { resolveSize } from './size'
+import { resolveSize } from '@bms/core'
 
 const props = withDefaults(
   defineProps<{
