@@ -193,7 +193,7 @@
             </el-descriptions-item>
             <el-descriptions-item label="富文本（纯文本摘要）" :span="2">
               <span>{{ richSummary }}</span>
-              <span class="dp-hint">（正文由 08 节点渲染器承载，此处不注入 HTML）</span>
+              <span class="dp-hint">（正文由富文本字段渲染承载，此处不注入 HTML）</span>
             </el-descriptions-item>
             <el-descriptions-item label="附件">
               {{ user.attach.length }} 个：{{ user.attach[0].name }}
@@ -250,7 +250,7 @@
               </template>
             </el-table-column>
             <el-table-column prop="username" label="用户名" width="140"></el-table-column>
-            <el-table-column label="状态列（StatusTag，由 10 节点引用）" width="240">
+            <el-table-column label="状态列（StatusTag，由通用表格引用）" width="240">
               <template #default="{ row }"><el-tag :type="statusColor(row.status)" size="small">{{ statusLabel(row.status) }}</el-tag></template>
             </el-table-column>
             <el-table-column prop="dept" label="部门"></el-table-column>
