@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 预签名能力（usePresignedUrl）</title>
+<link rel="stylesheet" href="../../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-code { font-family:Consolas,"Cascadia Mono",monospace; color:#57606a; word-break:break-all; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+  .f { border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:8px; font-size:13px; display:flex; align-items:center; gap:10px; }
+  .f .nm { font-family:Consolas,monospace; color:#0969da; }
+  .f .mt { margin-left:auto; display:flex; gap:8px; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="22_组件设计_预签名能力.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 预签名能力 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="22_组件设计_预签名能力.md">《组件设计 · 预签名能力》</a>：演示签名 URL 缓存与 TTL（提前刷新）、失效自动重取一次、并发合并与降级下载。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-bar">
+        <el-switch v-model="expired" active-text="模拟「本地缓存的签名 URL 已过期」" size="small" />
+        <el-switch v-model="resignFail" active-text="模拟「签发接口失败」" size="small" />
+        <span class="dp-hint">TTL 3600s · 提前 60s 视为将过期</span>
+      </div>
+
+      <div class="f" v-for="f in files" :key="f.id">
+        <span class="nm">{{ f.id }}</span><span>{{ f.name }}</span>
+        <span class="mt">
+          <el-button size="small" @click="preview(f)">预览（get）</el-button>
+          <el-button size="small" @click="download(f)">下载（download）</el-button>
+        </span>
+      </div>
+
+      <div class="dp-state">签名缓存（fileId → url / 过期）
+{{ cacheText || '（空）' }}
+{{ logs.length ? logs.join('\n') : '（尚无操作）' }}
+说明：同一 fileId 并发请求合并为一次签发；剩余 < 60s 提前重取；403 / 过期自动重取一次后重试；
+重取失败按 fallback 降级走后端下载接口（带鉴权，后端代理流）；敏感 URL 不落盘。</div>
+    </div>
+  </div>
+</div>
+
+<script src="../../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref, computed } = Vue;
+  var app = createApp({
+    setup: function () {
+      var files = [
+        { id: 'file_8f21', name: '年度总结.pdf' },
+        { id: 'file_30aa', name: '架构图.png' }
+      ];
+      var expired = ref(false), resignFail = ref(false), logs = ref([]), cache = ref({});
+      function stamp() { return String(logs.value.length + 1).padStart(2, '0'); }
+      function get(f) {
+        var c = cache.value[f.id];
+        if (c && !expired.value) { logs.value.push('[' + stamp() + '] get(' + f.id + ') → 命中缓存（剩余 > 60s，0 请求）'); return c.url; }
+        if (c && expired.value) {
+          logs.value.push('[' + stamp() + '] 使用缓存 URL → 403（已过期）→ 自动重取一次');
+          if (resignFail.value) {
+            logs.value.push('[' + stamp() + '] 重取失败 → fallback: 降级走后端下载接口 /api/files/' + f.id + '/download（后端代理流）');
+            delete cache.value[f.id]; return null;
+          }
+        }
+        logs.value.push('[' + stamp() + '] GET /api/files/' + f.id + '/presign?method=GET → 签发（并发合并为一次）');
+        var url = 'https://oss.example.com/bms-files/' + f.id + '?sign=***&expires=3600';
+        cache.value[f.id] = { url: url, expiresAt: Date.now() + 3600000 };
+        return url;
+      }
+      function preview(f) { var u = get(f); logs.value.push('[' + stamp() + '] 预览 ' + f.name + ' → ' + (u || '（降级：后端流式预览）')); }
+      function download(f) { var u = get(f); logs.value.push('[' + stamp() + '] download ' + f.name + ' → ' + (u ? '<a download> 直连 OSS' : 'fallback 后端下载接口')); }
+      var cacheText = computed(function () {
+        var ks = Object.keys(cache.value);
+        return ks.length ? ks.map(function (k) { return k + ' → ' + cache.value[k].url; }).join('\n') : '';
+      });
+      return { files: files, expired: expired, resignFail: resignFail, logs: logs, cacheText: cacheText, preview: preview, download: download };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>

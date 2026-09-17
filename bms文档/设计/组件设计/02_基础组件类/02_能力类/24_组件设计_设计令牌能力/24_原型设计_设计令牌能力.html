@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 设计令牌能力（useDesignToken）</title>
+<link rel="stylesheet" href="../../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-code { font-family:Consolas,"Cascadia Mono",monospace; color:#57606a; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+  .tk { border:1px solid #eaeef2; border-radius:6px; padding:10px 12px; font-size:13px; margin-bottom:12px; }
+  .tk .r { display:flex; align-items:center; gap:10px; padding:3px 0; }
+  .sw { width:18px; height:18px; border-radius:4px; border:1px solid #eaeef2; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="24_组件设计_设计令牌能力.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 设计令牌能力 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="24_组件设计_设计令牌能力.md">《组件设计 · 设计令牌能力》</a>：演示亮暗切换下令牌取值（间距 / 色板 / 密度 / 断点）与 JS 侧消费、主题变化通知；令牌值仅示意，权威在《布局设计 · 设计令牌》。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-bar">
+        <el-radio-group v-model="theme" size="small">
+          <el-radio-button label="light">亮色</el-radio-button>
+          <el-radio-button label="dark">暗色</el-radio-button>
+        </el-radio-group>
+        <span class="dp-hint">data-theme={{ theme }} → CSS 变量切换，组件样式自动生效</span>
+      </div>
+
+      <div class="tk" :style="{ background: theme === 'dark' ? '#0d1117' : '#fff', color: theme === 'dark' ? '#e6edf3' : '#1f2328' }">
+        <div class="r"><span>色板 primary</span><span class="sw" :style="{ background: c('primary') }"></span><span class="dp-code">{{ c('primary') }}</span></div>
+        <div class="r"><span>色板 success</span><span class="sw" :style="{ background: c('success') }"></span><span class="dp-code">{{ c('success') }}</span></div>
+        <div class="r"><span>间距 space-2 / space-4</span><span class="dp-code">{{ s(2) }} / {{ s(4) }}</span><span class="dp-hint">CSS 侧直接 var(--bms-space-2)</span></div>
+        <div class="r"><span>密度 density</span><span class="dp-code">{{ density }}</span></div>
+        <div class="r"><span>断点 breakpoints</span><span class="dp-code">{{ breakpoints.join(' / ') }}</span></div>
+      </div>
+
+      <div class="dp-state">JS 侧与主题通知
+token('--bms-color-primary') → {{ c('primary') }}（JS 读取带缓存；主题变化失效）
+onThemeChange 日志: {{ lastNotify || '（尚无变化）' }}
+说明：组件样式直接消费 CSS 变量（无 JS 开销）；图表等需 JS 值的场景经本能力读取；
+主题 / 品牌切换触发回调（图表重建 option）；令牌缺失回退 fallback 并开发态告警；禁止硬编码色值 / 尺寸。</div>
+    </div>
+  </div>
+</div>
+
+<script src="../../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref, watch, computed } = Vue;
+  var app = createApp({
+    setup: function () {
+      var theme = ref('light'), lastNotify = ref('');
+      var TOKENS = {
+        light: { primary: '#0969da', success: '#1a7f37' },
+        dark: { primary: '#58a6ff', success: '#3fb950' }
+      };
+      var density = computed(function () { return 'default（compact / default / loose）'; });
+      var breakpoints = ['xs:0', 'sm:576', 'md:768', 'lg:992', 'xl:1200'];
+      function c(name) { return TOKENS[theme.value][name]; }
+      function s(n) { return (n * 8) + 'px（令牌阶梯）'; }
+      watch(theme, function (t) {
+        lastNotify.value = "onThemeChange(data-theme=" + t + ") → JS 缓存失效 + 图表重建 option；CSS 变量已由根节点切换";
+      });
+      return { theme: theme, lastNotify: lastNotify, density: density, breakpoints: breakpoints, c: c, s: s };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>

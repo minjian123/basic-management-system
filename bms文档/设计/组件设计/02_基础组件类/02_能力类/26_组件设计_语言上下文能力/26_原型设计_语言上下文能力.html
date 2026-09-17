@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 语言上下文能力（useLocale）</title>
+<link rel="stylesheet" href="../../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-code { font-family:Consolas,"Cascadia Mono",monospace; color:#57606a; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+  .row { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+  .row .lb { width:130px; color:#57606a; font-size:13px; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="26_组件设计_语言上下文能力.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 语言上下文能力 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="26_组件设计_语言上下文能力.md">《组件设计 · 语言上下文能力》</a>：演示 locale 切换（i18n / Element Plus / dayjs 联动）、时区格式化（UTC → 用户时区）与格式缓存；语言 / 时区偏好经偏好持久化能力同步。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-bar">
+        <el-radio-group v-model="locale" size="small">
+          <el-radio-button label="zh-CN">中文 zh-CN</el-radio-button>
+          <el-radio-button label="en-US">English en-US</el-radio-button>
+        </el-radio-group>
+        <el-select v-model="timezone" size="small" style="width:200px">
+          <el-option label="Asia/Shanghai (UTC+8)" value="Asia/Shanghai" />
+          <el-option label="America/New_York (UTC-5)" value="America/New_York" />
+        </el-select>
+        <el-date-picker :locale="locale" placeholder="日期选择（跟随 Element Plus locale）" size="small" style="width:240px" />
+      </div>
+
+      <div class="row"><span class="lb">界面文案</span><span class="dp-code">{{ T.save }} / {{ T.cancel }} / {{ T.confirm }}</span></div>
+      <div class="row"><span class="lb">后端时间（UTC）</span><span class="dp-code">2026-09-16T02:30:00Z</span></div>
+      <div class="row"><span class="lb">formatDate()</span><span class="dp-code">{{ fmt() }}</span></div>
+
+      <div class="dp-state">上下文与缓存
+locale={{ locale }}　timezone={{ timezone }}　&lt;html lang&gt;={{ locale }}
+{{ logs.length ? logs.join('\n') : '（尚无操作）' }}
+说明：setLocale 联动 vue-i18n / Element Plus / dayjs 并触发 locale-change（菜单 / 字典 / 元数据按新 locale 重新拉取）；
+时区格式化统一经 formatDate（UTC → 用户时区），禁止各组件自拼；Intl / dayjs 实例按 locale+时区缓存。</div>
+    </div>
+  </div>
+</div>
+
+<script src="../../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref, computed, watch } = Vue;
+  var app = createApp({
+    setup: function () {
+      var locale = ref('zh-CN'), timezone = ref('Asia/Shanghai'), logs = ref([]);
+      var TEXTS = {
+        'zh-CN': { save: '保存', cancel: '取消', confirm: '确定' },
+        'en-US': { save: 'Save', cancel: 'Cancel', confirm: 'OK' }
+      };
+      var T = computed(function () { return TEXTS[locale.value]; });
+      function fmt() {
+        var utc = Date.parse('2026-09-16T02:30:00Z');
+        var off = timezone.value === 'Asia/Shanghai' ? 8 : -5;
+        var d = new Date(utc + off * 3600 * 1000);
+        var pad = function (n) { return String(n).padStart(2, '0'); };
+        var s = d.getUTCFullYear() + '-' + pad(d.getUTCMonth() + 1) + '-' + pad(d.getUTCDate()) + ' ' + pad(d.getUTCHours()) + ':' + pad(d.getUTCMinutes());
+        return locale.value === 'zh-CN' ? s + '（' + timezone.value + '）' : s + ' (' + timezone.value + ')';
+      }
+      watch(locale, function (v) {
+        document.documentElement.lang = v;
+        logs.value.push('setLocale(' + v + ') → i18n 语言包 + Element Plus locale + dayjs locale 联动；触发 locale-change（菜单 / 字典 / 元数据重取）');
+      });
+      watch(timezone, function (v) { logs.value.push('setTimezone(' + v + ') → 偏好持久化 + 全部 formatDate 重算（Intl 缓存按新时区）'); });
+      return { locale: locale, timezone: timezone, T: T, fmt: fmt, logs: logs };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>

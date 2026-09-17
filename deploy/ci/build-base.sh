@@ -4,7 +4,7 @@
 #   （Dockerfile 变更——如系统依赖调整——同样触发重建，2026-09-14 补）
 # - 幂等：本地已存在同哈希镜像则跳过（构建与消费共用宿主 docker daemon，本流水线即用新镜像）
 # - 产物：$REGISTRY_IMAGE_PREFIX/ci-backend:<tag>、ci-frontend:<tag>
-#   ci-frontend 含三套预装依赖：workspace 根（frontend/packages/*，S4b 起）/ frontend/apps/desktop / frontend/apps/mobile（镜像内路径 /opt/ci/frontend、/opt/ci/frontend-mobile 保持）
+#   ci-frontend 含三套预装依赖：workspace 根（frontend/packages/*，S4b 起）/ frontend/apps/desktop / frontend/apps/mobile（镜像内路径 /opt/ci/frontend/apps/desktop、/opt/ci/frontend/apps/mobile）
 set -eu
 
 REGISTRY_IMAGE_PREFIX="${REGISTRY_IMAGE_PREFIX:?REGISTRY_IMAGE_PREFIX 未设置}"

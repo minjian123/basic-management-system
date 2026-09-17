@@ -12,7 +12,7 @@ describe('S2 能力矩阵契约（31 项）', () => {
   it('清单规模与分组：值·字段链 4 / 形态 7 / 复用 20 = 31', () => {
     expect(KEYS).toHaveLength(31)
     expect(KEYS).toEqual(
-      expect.arrayContaining(['value', 'field-shell', 'field-perm', 'field', 'interactive', 'media', 'layout', 'tabs', 'fragment-context']),
+      expect.arrayContaining(['value', 'field-shell', 'field-perm', 'field', 'interactive', 'media', 'layout', 'tabs', 'module-context']),
     )
   })
 
