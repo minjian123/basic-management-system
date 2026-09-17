@@ -1,0 +1,158 @@
+<script setup lang="ts">
+/**
+ * 文本域（PC / Element Plus 侧）：多行文本输入（《组件设计 · 文本域》）。
+ *
+ * 结构：输入域包装 `BaseInput`（字段壳）+ `el-input type="textarea"` 内核；
+ * 行数 / 自适应高度 / 字数统计交给内核；换行符经域归一钩子统一为 `\n`（提交原样保留）。
+ */
+
+import { ElInput } from 'element-plus'
+import 'element-plus/es/components/input/style/css'
+
+import { ref, watch } from 'vue'
+
+import { useComponentBase } from '@bms/vue'
+
+import BaseInput from './BaseInput.vue'
+
+defineOptions({ inheritAttrs: false })
+
+const props = withDefaults(
+  defineProps<{
+    /** 受控值 */
+    modelValue?: string | null
+    /** 初始行数 */
+    rows?: number
+    /** 高度自适应（boolean 或 { minRows, maxRows }） */
+    autosize?: boolean | { minRows?: number; maxRows?: number }
+    maxlength?: number
+    showWordLimit?: boolean
+    /** 失焦归一时去首尾空格 */
+    trim?: boolean
+    mask?: boolean
+    plain?: boolean
+    placeholder?: string
+    clearable?: boolean
+    disabled?: boolean
+    readonly?: boolean
+    readonlyMode?: 'text' | 'disabled'
+    label?: string
+    required?: boolean
+    help?: string
+    error?: string
+    size?: 'small' | 'default' | 'large'
+    density?: 'default' | 'compact'
+    span?: number
+    fieldKey?: string
+  }>(),
+  {
+    modelValue: null,
+    rows: 3,
+    autosize: false,
+    maxlength: undefined,
+    showWordLimit: false,
+    trim: true,
+    mask: false,
+    plain: false,
+    placeholder: '',
+    clearable: true,
+    disabled: false,
+    readonly: false,
+    readonlyMode: 'text',
+    label: '',
+    required: false,
+    help: '',
+    error: '',
+    size: 'default',
+    density: 'default',
+    span: 24,
+    fieldKey: '',
+  },
+)
+
+const emit = defineEmits<{
+  'update:modelValue': [value: string | null]
+  change: [value: string | null]
+  validate: [valid: boolean]
+}>()
+
+const base = useComponentBase({ ns: 'bms', identifier: 'textarea-field' })
+
+const current = ref<string | null>(props.modelValue ?? null)
+watch(
+  () => props.modelValue,
+  (next) => {
+    current.value = next ?? null
+  },
+)
+
+/** 换行符归一：`\r\n` / `\r` → `\n`（后端存储口径） */
+function normalizeNewline(value: unknown): unknown {
+  return typeof value === 'string' ? value.replace(/\r\n?/g, '\n') : value
+}
+
+function ownValidate(): boolean {
+  return current.value === null || current.value !== ''
+}
+
+function handleUpdate(value: unknown): void {
+  const next = normalizeNewline(value)
+  current.value = (next as string | null) ?? null
+  emit('update:modelValue', current.value)
+}
+
+function handleChange(value: unknown): void {
+  current.value = (value as string | null) ?? null
+  emit('change', current.value)
+}
+
+function handleValidate(shellValid: boolean): void {
+  emit('validate', shellValid && ownValidate())
+}
+</script>
+
+<template>
+  <BaseInput
+    v-bind="$attrs"
+    :class="base.nsClass('textarea-field')"
+    :model-value="modelValue"
+    :label="label"
+    :required="required"
+    :help="help"
+    :error="error"
+    :disabled="disabled"
+    :readonly="readonly"
+    :readonly-mode="readonlyMode"
+    :size="size"
+    :density="density"
+    :span="span"
+    :trim="trim"
+    :field-key="fieldKey"
+    :mask="mask"
+    :plain="plain"
+    @update:model-value="handleUpdate"
+    @change="handleChange"
+    @validate="handleValidate"
+  >
+    <template #default="slot">
+      <ElInput
+        type="textarea"
+        :model-value="(slot.value as string | null) ?? ''"
+        :rows="rows"
+        :autosize="autosize"
+        :maxlength="maxlength"
+        :show-word-limit="showWordLimit"
+        :placeholder="placeholder"
+        :disabled="slot.disabled"
+        :readonly="slot.readonly"
+        :class="slot.invalid ? 'is-error' : ''"
+        @update:model-value="(value) => slot.setValue(normalizeNewline(value))"
+        @focus="slot.onFocus"
+        @blur="slot.onBlur"
+        @compositionstart="slot.onCompositionStart"
+        @compositionend="slot.onCompositionEnd"
+        @clear="slot.clear"
+      />
+    </template>
+  </BaseInput>
+</template>

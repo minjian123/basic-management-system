@@ -16,3 +16,4 @@ export {
   type ComponentViewHandle,
   type ScrollMetricsStub,
 } from './components'
+export { describeInputControlsContract } from './input'

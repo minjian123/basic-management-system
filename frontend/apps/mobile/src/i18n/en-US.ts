@@ -24,6 +24,18 @@ export default {
     loadingFailed: 'Failed to load',
     emptyText: 'No data',
   },
+  // 输入控件（基础控件类）文案
+  input: {
+    required: 'This field is required',
+    emptyText: '—',
+    password: {
+      weak: 'Weak',
+      medium: 'Medium',
+      strong: 'Strong',
+      show: 'Show',
+      hide: 'Hide',
+    },
+  },
   // 反馈件文案（03-2-1；与 PC 同键）
   feedback: {
     error404Title: 'Page not found (or removed)',

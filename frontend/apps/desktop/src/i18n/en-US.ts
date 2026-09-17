@@ -95,6 +95,18 @@ export default {
     loadingFailed: 'Failed to load',
     emptyText: 'No data',
   },
+  // 输入控件（基础控件类）文案
+  input: {
+    required: 'This field is required',
+    emptyText: '—',
+    password: {
+      weak: 'Weak',
+      medium: 'Medium',
+      strong: 'Strong',
+      show: 'Show',
+      hide: 'Hide',
+    },
+  },
   // 错误码文案：error.{code}（最小集；完整错误码总表随后端接入补齐）
   error: {
     default: 'Operation failed, please try again later',

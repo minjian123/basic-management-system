@@ -20,6 +20,7 @@ export {
   type UseContainerReturn,
 } from './bindings/useContainer'
 export { useField, type UseFieldReturn } from './bindings/useField'
+export { useInput, type UseInputOptions, type UseInputReturn } from './bindings/useInput'
 export {
   useVirtualRange,
   type VirtualRangeOptions,

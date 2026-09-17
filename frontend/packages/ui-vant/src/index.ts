@@ -6,6 +6,7 @@
  */
 
 export { default as PermButton } from './components/common/PermButton.vue'
+export { BaseInput, PasswordField, TextareaField, TextField } from './components/input'
 export { checkPerm, configurePermissionChecker, type PermissionChecker, type PermissionMode } from './permission'
 export { confirm, configureConfirm, type ConfirmHandler, type ConfirmOptions } from './confirm'
 export {

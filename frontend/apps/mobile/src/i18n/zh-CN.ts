@@ -24,6 +24,18 @@ export default {
     loadingFailed: '加载失败',
     emptyText: '暂无数据',
   },
+  // 输入控件（基础控件类）文案
+  input: {
+    required: '必填项',
+    emptyText: '—',
+    password: {
+      weak: '弱',
+      medium: '中',
+      strong: '强',
+      show: '显示',
+      hide: '隐藏',
+    },
+  },
   // 反馈件文案（03-2-1；与 PC 同键）
   feedback: {
     error404Title: '页面不存在（或已被移除）',

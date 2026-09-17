@@ -33,6 +33,11 @@ const i18n = createI18n({
         goCreate: '去创建',
         clearFilters: '清除筛选',
       },
+      input: {
+        required: '必填项',
+        emptyText: '—',
+        password: { weak: '弱', medium: '中', strong: '强', show: '显示', hide: '隐藏' },
+      },
     },
   },
 })

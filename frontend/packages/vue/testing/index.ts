@@ -19,6 +19,7 @@ interface ElementLike {
   exists(): boolean
   attributes(name: string): string | undefined
   trigger(event: string): Promise<void>
+  setValue?(value: string): Promise<void>
   element: unknown
 }
 
@@ -75,6 +76,14 @@ export function createContractKit(options: CreateContractKitOptions): ComponentC
         attr: (selector: string, attribute: string) =>
           wrapper.find(selector).attributes(attribute),
         trigger: (selector: string, event: string) => wrapper.find(selector).trigger(event),
+        setValue: async (selector: string, value: string) => {
+          const target = wrapper.find(selector)
+          if (!target.setValue) {
+            throw new Error(`契约套件：选择器「${selector}」不支持 setValue（非输入元素）`)
+          }
+          await target.setValue(value)
+          await nextFrame()
+        },
         emitted: (event: string) => wrapper.emitted(event) ?? [],
         flushRender: nextFrame,
         stubMetrics: async (selector: string, metrics: ScrollMetricsStub) => {

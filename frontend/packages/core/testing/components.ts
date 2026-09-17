@@ -30,6 +30,8 @@ export interface ComponentViewHandle {
   count(selector: string): number
   attr(selector: string, name: string): string | undefined
   trigger(selector: string, event: string): Promise<void>
+  /** 输入类组件赋值（`@vue/test-utils` setValue 适配）；输入控件契约需要，未实现即报错 */
+  setValue?(selector: string, value: string): Promise<void>
   /** 注入滚动度量（jsdom 无布局）并等一次渲染 */
   stubMetrics(selector: string, metrics: ScrollMetricsStub): Promise<void>
   /** 等一帧 + 渲染（rAF 合并类组件如 VirtualList 用） */

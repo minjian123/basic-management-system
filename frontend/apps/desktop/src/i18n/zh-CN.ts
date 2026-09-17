@@ -95,6 +95,18 @@ export default {
     loadingFailed: '加载失败',
     emptyText: '暂无数据',
   },
+  // 输入控件（基础控件类）文案
+  input: {
+    required: '必填项',
+    emptyText: '—',
+    password: {
+      weak: '弱',
+      medium: '中',
+      strong: '强',
+      show: '显示',
+      hide: '隐藏',
+    },
+  },
   // 错误码文案：error.{code}（最小集；完整错误码总表随后端接入补齐）
   error: {
     default: '操作失败，请稍后重试',
