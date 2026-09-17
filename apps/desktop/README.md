@@ -1,4 +1,4 @@
-# BMS PC 管理端（frontend）
+# BMS PC 管理端（apps/desktop）
 
 > Vue 3 + Vite + TypeScript 前端工程（01-04 完整初始化：Element Plus / Router / Pinia / Axios / i18n + 质量链路）
 
@@ -13,7 +13,7 @@ BMS 平台 PC 管理端：Vue 3 + Vite + TypeScript 严格模式；Element Plus 
 前置：Node 22（nvm 管理）；先启动 backend（`cd ../backend && uv run uvicorn app.main:create_app --factory --port 8000`）。
 
 ```bash
-cd frontend
+cd apps/desktop
 npm ci
 npm run dev       # http://127.0.0.1:5173（默认页展示 backend 应用名/版本）
 npm run lint      # ESLint（--max-warnings 0）
@@ -28,7 +28,7 @@ npm run build     # vue-tsc -b && vite build
 ## 目录结构
 
 ```text
-frontend/
+apps/desktop/
 ├── .npmrc              # npmmirror + legacy-peer-deps（见上）
 ├── .nvmrc              # 固定 Node 22
 ├── .env.development    # VITE_API_BASE=/api

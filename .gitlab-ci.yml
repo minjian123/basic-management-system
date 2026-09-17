@@ -1,8 +1,8 @@
 # MR 流水线门禁（《开发部署规划》第 7 节）
 # 口径：后端 ruff + pyright + pytest（SQLite，覆盖率整体 ≥ 70%）+ 模块注册清单校验；
-#       前端 ESLint + Vitest（双端，覆盖率整体 ≥ 70%）+ frontend / frontend-mobile 双端构建。
+#       前端 ESLint + Vitest（双端，覆盖率整体 ≥ 70%）+ apps/desktop / frontend-mobile 双端构建。
 # 核心模块（认证/RBAC/工作流/审计/收付款）≥ 80% 子阈值随对应模块落地（认证 / RBAC 阶段）接入。
-# backend/ frontend/ 尚未落地（阶段一骨架），对应 job 以 exists 守卫，
+# backend/ apps/desktop/ 尚未落地（阶段一骨架），对应 job 以 exists 守卫，
 # 目录与清单文件出现后自动启用。
 
 workflow:
@@ -19,7 +19,7 @@ workflow:
       changes:
         paths:
           - backend/**/*
-          - frontend/**/*
+          - apps/desktop/**/*
           - frontend-mobile/**/*
           - packages/**/*
           - apps/**/*
@@ -197,22 +197,22 @@ frontend-check:
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       exists:
-        - frontend/package.json
+        - apps/desktop/package.json
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       exists:
-        - frontend/package.json
+        - apps/desktop/package.json
   script:
-    - rm -rf frontend/node_modules && cp -a /opt/ci/frontend/node_modules frontend/node_modules
-    # S5a 切流：frontend 消费 @bms/*（源码直出）——根 node_modules 桥 + 包 symlink（packages 源码向上解析依赖）
+    - rm -rf apps/desktop/node_modules && cp -a /opt/ci/frontend/node_modules apps/desktop/node_modules
+    # S5a 切流：apps/desktop 消费 @bms/*（源码直出）——根 node_modules 桥 + 包 symlink（packages 源码向上解析依赖）
     - cp -a /opt/ci/frontend/node_modules .
     - mkdir -p node_modules/@bms && ln -sfn ../../packages/core node_modules/@bms/core
     - test -d packages/vue && ln -sfn ../../packages/vue node_modules/@bms/vue || true
     - test -d packages/ui-ep && ln -sfn ../../packages/ui-ep node_modules/@bms/ui-ep || true
-    - cd frontend && npm run lint && npm run test:cov
+    - cd apps/desktop && npm run lint && npm run test:cov
   coverage: '/^All files\s*\|\s*(\d+(?:\.\d+)?)/'
   artifacts:
     when: always
-    paths: [frontend/coverage/]
+    paths: [apps/desktop/coverage/]
     expire_in: 30 days
 
 # ---- 前端核心：@bms/core / @bms/vue（框架无关核心与绑定插件，2026-09-16 S1 接入）----
@@ -263,18 +263,18 @@ frontend-build:
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       exists:
-        - frontend/package.json
+        - apps/desktop/package.json
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       exists:
-        - frontend/package.json
+        - apps/desktop/package.json
   script:
-    - rm -rf frontend/node_modules && cp -a /opt/ci/frontend/node_modules frontend/node_modules
+    - rm -rf apps/desktop/node_modules && cp -a /opt/ci/frontend/node_modules apps/desktop/node_modules
     # S5a 切流：构建同样经根 node_modules 桥解析 packages 源码依赖
     - cp -a /opt/ci/frontend/node_modules .
     - mkdir -p node_modules/@bms && ln -sfn ../../packages/core node_modules/@bms/core
     - test -d packages/vue && ln -sfn ../../packages/vue node_modules/@bms/vue || true
     - test -d packages/ui-ep && ln -sfn ../../packages/ui-ep node_modules/@bms/ui-ep || true
-    - cd frontend && npm run build && npm run budget
+    - cd apps/desktop && npm run build && npm run budget
 
 frontend-mobile-build:
   stage: build
@@ -298,7 +298,7 @@ frontend-mobile-build:
 #   deploy/ci/verify/contract  契约快照（swagger）        —— P1 已开
 #   deploy/ci/verify/defect    缺陷自动上报（on_failure）  —— P1 已开
 #   deploy/ci/verify/report    Allure 归档 + Kiwi 导入     —— P2 已开
-#   deploy/ci/verify/image     镜像构建推送 + Trivy 扫描   —— P3 待开（前置：backend/Dockerfile、frontend/Dockerfile）
+#   deploy/ci/verify/image     镜像构建推送 + Trivy 扫描   —— P3 待开（前置：backend/Dockerfile、apps/desktop/Dockerfile）
 #   deploy/ci/verify/e2e       Playwright E2E             —— P4 待开（前置：tests/e2e 用例、--e2e-headless、Playwright 依赖与浏览器、job 内服务编排）
 #   deploy/ci/verify/db        三库真库集成                —— P4 待开（前置：test_db 实现 + alembic 在线分支 + 方言用例 + masked 变量）
 # 各 job 只守自己的档；删除对应文件即关闭该档（不再使用旧单开关 deploy/ci/verify-enabled）。
@@ -314,7 +314,7 @@ e2e-playwright:
         - deploy/ci/verify/e2e
   script:
     - pip install uv && cd backend && uv sync --frozen
-    - cd frontend && npm ci && npm run build
+    - cd apps/desktop && npm ci && npm run build
     - cd ../backend && uv run pytest tests/e2e --e2e-headless
 
 # ---- 三库方言集成测试：连 mjbk 常驻库，bms_test 前缀建库 → Alembic 迁移 → 集成用例 → 删库清理 ----
@@ -385,12 +385,12 @@ frontend-image:
   <<: *build-push-base
   needs: [{job: frontend-build, optional: true}]
   rules:
-    # 重验证层分档开关：deploy/ci/verify/image（P3；开启前提＝frontend/Dockerfile 已就绪）
+    # 重验证层分档开关：deploy/ci/verify/image（P3；开启前提＝apps/desktop/Dockerfile 已就绪）
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       exists:
         - deploy/ci/verify/image
   script:
-    - docker build -t $REGISTRY_IMAGE_PREFIX/bms-frontend:$CI_COMMIT_SHORT_SHA -f frontend/Dockerfile frontend/
+    - docker build -t $REGISTRY_IMAGE_PREFIX/bms-frontend:$CI_COMMIT_SHORT_SHA -f apps/desktop/Dockerfile apps/desktop/
     - docker push $REGISTRY_IMAGE_PREFIX/bms-frontend:$CI_COMMIT_SHORT_SHA
 
 # ---- 容器镜像安全扫描：Trivy 高危阻断发版 ----

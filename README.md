@@ -62,7 +62,7 @@ uv run uvicorn app.main:create_app --factory --port 8000
 uv run pytest          # 全量用例（含 Kiwi TCMS 用例编号标注）
 
 # PC 前端（端口 5173）
-cd frontend
+cd apps/desktop
 npm ci
 npm run dev
 npm run test           # Vitest 冒烟
@@ -159,7 +159,7 @@ bms/
 │   │   ├── workflow/         # 工作流引擎适配
 │   │   └── ws/               # 实时推送
 │   └── tests/                # 测试（与 app 同构 + crosscut / ops / integration）
-├── frontend/                 # Vue 3 + Vite PC 管理端（Element Plus + Router + Pinia + i18n + 基础组件类）
+├── apps/desktop/                 # Vue 3 + Vite PC 管理端（Element Plus + Router + Pinia + i18n + 基础组件类）
 │   ├── .npmrc                # npmmirror 源 + legacy-peer-deps
 │   ├── .nvmrc                # 固定 Node 版本（22）
 │   ├── .env.development      # VITE_API_BASE=/api
@@ -188,7 +188,7 @@ bms/
 │   │   └── utils/            # useRequest / useListPage / useTabs / validators / status / serialize
 │   └── tests/                # Vitest：base-*（根系 / 组件根 / 机制 / 片段 / 域基类）+ guard-*（继承·依赖·演进·清单护栏）+ home / http / utils + helpers
 ├── frontend-mobile/          # Vue 3 + Vant 移动端 H5（视口 375 + 安全区适配）
-│   └── …                     # 结构同 frontend（含同款 `src/base/` 与 `src/components/base/`，双端字节级同款）；Vant 4 + px→vw，端口固定 5174
+│   └── …                     # 结构同 apps/desktop（含同款 `src/base/` 与 `src/components/base/`，双端字节级同款）；Vant 4 + px→vw，端口固定 5174
 ├── deploy/                   # 部署配置
 │   ├── .env.example          # 开发服务器与服务凭据模板（复制为 .env）
 │   ├── ci/                   # CI 构建（后端 / 前端 Dockerfile + 基础镜像构建脚本）

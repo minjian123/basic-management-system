@@ -48,7 +48,7 @@ export function repoFiles(dirs: string[], extensions: string[]): GuardFile[] {
 /** 读取《前端基类清单》（monorepo 口径；不存在返回 `undefined`，独立克隆时对账用例跳过） */
 export function readManifest(): string | undefined {
   try {
-    return readFileSync(resolve(repoRoot, '../bms文档/前端基类清单.md'), 'utf8')
+    return readFileSync(resolve(repoRoot, '../../bms文档/前端基类清单.md'), 'utf8')
   } catch {
     return undefined
   }
