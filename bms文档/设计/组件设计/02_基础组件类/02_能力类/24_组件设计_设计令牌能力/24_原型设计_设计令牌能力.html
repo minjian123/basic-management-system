@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 设计令牌能力（useDesignToken）</title>
+<title>原型 · 设计令牌能力</title>
 <link rel="stylesheet" href="../../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../../原型设计/资源/原型样式.css">
 <style>
@@ -48,10 +48,10 @@
       </div>
 
       <div class="dp-state">JS 侧与主题通知
-token('--bms-color-primary') → {{ c('primary') }}（JS 读取带缓存；主题变化失效）
-onThemeChange 日志: {{ lastNotify || '（尚无变化）' }}
+令牌读取（--bms-color-primary）→ {{ c('primary') }}（JS 读取带缓存；主题变化失效）
+主题变化通知日志: {{ lastNotify || '（尚无变化）' }}
 说明：组件样式直接消费 CSS 变量（无 JS 开销）；图表等需 JS 值的场景经本能力读取；
-主题 / 品牌切换触发回调（图表重建 option）；令牌缺失回退 fallback 并开发态告警；禁止硬编码色值 / 尺寸。</div>
+主题 / 品牌切换触发回调（图表重建配置）；令牌缺失回退缺省值并开发态告警；禁止硬编码色值 / 尺寸。</div>
     </div>
   </div>
 </div>
@@ -73,7 +73,7 @@ onThemeChange 日志: {{ lastNotify || '（尚无变化）' }}
       function c(name) { return TOKENS[theme.value][name]; }
       function s(n) { return (n * 8) + 'px（令牌阶梯）'; }
       watch(theme, function (t) {
-        lastNotify.value = "onThemeChange(data-theme=" + t + ") → JS 缓存失效 + 图表重建 option；CSS 变量已由根节点切换";
+        lastNotify.value = "主题变化通知（data-theme=" + t + "）→ JS 缓存失效 + 图表重建配置；CSS 变量已由根节点切换";
       });
       return { theme: theme, lastNotify: lastNotify, density: density, breakpoints: breakpoints, c: c, s: s };
     }

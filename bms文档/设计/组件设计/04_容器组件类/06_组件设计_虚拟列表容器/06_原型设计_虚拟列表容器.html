@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 虚拟列表容器（VirtualList）</title>
+<title>原型 · 虚拟列表容器</title>
 <link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
 <style>
@@ -25,7 +25,7 @@
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="06_组件设计_虚拟列表容器.md">《组件设计 · 虚拟列表容器》</a>：1 万条数据，只渲染可视区 + 缓冲；继承 02 基础组件类 容器能力。
+    本原型对应当前目录 <a href="06_组件设计_虚拟列表容器.md">《组件设计 · 虚拟列表容器》</a>：1 万条数据，只渲染可视区 + 缓冲；容器能力为继承链上的一层。
   </div>
 
   <div id="app">
@@ -40,9 +40,9 @@
         </div>
       </div>
 
-      <div class="dp-state" style="margin-top:12px">总数 = {{ total }}　itemHeight = {{ itemHeight }}　buffer = {{ buffer }}
+      <div class="dp-state" style="margin-top:12px">总数 = {{ total }}　项高 = {{ itemHeight }}　缓冲 = {{ buffer }}
 当前可视区索引：{{ start }} - {{ end }}　实际渲染 DOM 数：{{ visible.length }}（远小于总数）
-说明：只渲染可视区 + buffer；定高按公式；动态高度需测量缓存；触底可加载更多；小列表（<1000）不建议使用。</div>
+说明：只渲染可视区 + 缓冲；定高按公式；动态高度需测量缓存；触底可加载更多；小列表（<1000）不建议使用。</div>
     </div>
   </div>
 </div>

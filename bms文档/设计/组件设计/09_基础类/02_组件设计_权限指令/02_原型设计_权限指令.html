@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 权限指令与字段权限（v-perm / hasPerm / useFieldPerm / v-plain）</title>
+<title>原型 · 权限指令与字段权限</title>
 <link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
 <style>
@@ -36,8 +36,8 @@
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="02_组件设计_权限指令.md">《组件设计 · 权限指令与字段权限》</a>：演示 <b>v-perm</b> 按动作权限码显隐按钮、
-    <b>useFieldPerm</b> 字段 visible/editable 渲染、<b>脱敏与 data:plain</b> 明文切换、<b>route guard</b> 无权限跳 403、前后端双重控制。数据均为前端模拟。
+    本原型对应当前目录 <a href="02_组件设计_权限指令.md">《组件设计 · 权限指令》</a>：演示 <b>动作权限判定</b> 按动作权限码显隐按钮、
+    <b>字段权限</b> visible/editable 渲染、<b>脱敏与 data:plain</b> 明文切换、<b>路由守卫</b> 无权限跳 403、前后端双重控制。数据均为前端模拟。
   </div>
 
   <div id="app">
@@ -45,7 +45,7 @@
       <div class="dp-header">
         <div>
           <div class="dp-title">权限指令与字段权限 原型</div>
-          <div class="dp-sub">v-perm · hasPerm · usePermissionStore · useFieldPerm · v-plain</div>
+          <div class="dp-sub">动作权限判定 · 编程式判断 · 权限状态 · 字段权限 · 明文权限切换</div>
         </div>
         <div class="dp-bar" style="margin-bottom:0">
           <span class="proto-hint">切换当前主体角色：</span>
@@ -56,25 +56,25 @@
       </div>
 
       <el-tabs v-model="tab">
-        <!-- ① v-perm -->
-        <el-tab-pane label="① v-perm 按钮显隐" name="perm">
+        <!-- ① 动作权限判定 -->
+        <el-tab-pane label="① 动作权限按钮显隐" name="perm">
           <div class="dp-bar">
             <span class="proto-hint">工具栏按钮按 <span class="dp-code">业务:动作</span> 显隐（无权限不移入 DOM）</span>
           </div>
           <el-card shadow="never" style="margin-bottom:12px">
             <template #header><span style="font-size:13px">用户管理 · 工具栏</span></template>
             <el-space wrap>
-              <el-button v-if="hasPerm('user:create')" type="primary" size="small">新增用户</el-button>
-              <el-button v-if="hasPerm('user:update')" size="small">批量修改</el-button>
-              <el-button v-if="hasPerm('user:delete')" size="small" type="danger" plain>批量删除</el-button>
-              <el-button v-if="hasPerm('user:assign_role')" size="small">分配岗位</el-button>
-              <el-button v-if="hasPerm('user:reset_pwd')" size="small">重置密码</el-button>
-              <el-button v-if="hasPerm('export:download')" size="small">导出</el-button>
-              <el-button v-if="hasPerm('import:execute')" size="small">导入</el-button>
+              <el-button v-if="allowed('user:create')" type="primary" size="small">新增用户</el-button>
+              <el-button v-if="allowed('user:update')" size="small">批量修改</el-button>
+              <el-button v-if="allowed('user:delete')" size="small" type="danger" plain>批量删除</el-button>
+              <el-button v-if="allowed('user:assign_role')" size="small">分配岗位</el-button>
+              <el-button v-if="allowed('user:reset_pwd')" size="small">重置密码</el-button>
+              <el-button v-if="allowed('export:download')" size="small">导出</el-button>
+              <el-button v-if="allowed('import:execute')" size="small">导入</el-button>
             </el-space>
           </el-card>
 
-          <el-descriptions :column="1" border size="small" title="当前权限集合 usePermissionStore.permissions">
+          <el-descriptions :column="1" border size="small" title="当前权限集合">
             <el-descriptions-item label="角色">{{ currentRole.name }}</el-descriptions-item>
             <el-descriptions-item label="权限码">
               <el-tag v-for="p in permList" :key="p" size="small" style="margin:2px 4px 2px 0">{{ p }}</el-tag>
@@ -82,7 +82,7 @@
             </el-descriptions-item>
           </el-descriptions>
 
-          <div class="ep-section">按钮 DOM 渲染结果（v-perm 移除 vs disabled 保留）</div>
+          <div class="ep-section">按钮 DOM 渲染结果（动作权限判定移出 vs 禁用保留）</div>
           <el-table :data="permTable" size="small" border style="width:100%">
             <el-table-column prop="code" label="权限码" width="180">
               <template #default="{ row }"><span class="dp-code">{{ row.code }}</span></template>
@@ -93,7 +93,7 @@
             </el-table-column>
             <el-table-column label="当前结果" min-width="180">
               <template #default="{ row }">
-                <el-tag v-if="hasPerm(row.code)" size="small" type="success">已渲染</el-tag>
+                <el-tag v-if="allowed(row.code)" size="small" type="success">已渲染</el-tag>
                 <el-tag v-else size="small" type="info">已移除（DOM 中不存在）</el-tag>
               </template>
             </el-table-column>
@@ -117,7 +117,7 @@
           <el-row :gutter="16">
             <el-col :span="14">
               <el-card shadow="never">
-                <template #header><span style="font-size:13px">用户表单（FormDetailPanel）</span></template>
+                <template #header><span style="font-size:13px">用户表单</span></template>
                 <el-form label-position="top" :disabled="!editMode">
                   <el-row :gutter="16">
                     <el-col :span="12" v-if="f('username').visible">
@@ -182,14 +182,14 @@
         <el-tab-pane label="③ 脱敏与 data:plain" name="mask">
           <div class="dp-bar">
             <el-switch v-model="plainPerm" active-text="持 data:plain 动作权限" inactive-text="无 data:plain"></el-switch>
-            <span class="proto-hint">脱敏是掩码展示，字段权限是可见性控制；明文需 data:plain 且不落 localStorage</span>
+            <span class="proto-hint">脱敏是掩码展示，字段权限是可见性控制；明文需 data:plain 且不落本地存储</span>
           </div>
           <el-table :data="maskRows" size="small" border style="width:100%">
             <el-table-column prop="name" label="字段" width="140"></el-table-column>
             <el-table-column prop="raw" label="原始值（后端）" min-width="180">
               <template #default="{ row }"><span class="dp-code">{{ row.raw }}</span></template>
             </el-table-column>
-            <el-table-column label="前端展示（v-plain）" min-width="180">
+            <el-table-column label="前端展示（明文权限）" min-width="180">
               <template #default="{ row }">{{ plainPerm ? row.raw : row.mask }}</template>
             </el-table-column>
             <el-table-column label="说明" min-width="200">
@@ -203,17 +203,17 @@
         <!-- ④ 路由守卫 403 -->
         <el-tab-pane label="④ 路由守卫与 403" name="guard">
           <div class="dp-bar">
-            <span class="proto-hint">路由 meta.perm 校验：无权限不注册路由，直接跳 403 页</span>
+            <span class="proto-hint">路由权限码校验：无权限不注册路由，直接跳 403 页</span>
             <el-divider direction="vertical"></el-divider>
-            <el-button size="small" @click="tryAccess('user')">访问 · 用户管理（meta.perm=user:query）</el-button>
-            <el-button size="small" @click="tryAccess('role')">访问 · 角色管理（meta.perm=role:query）</el-button>
-            <el-button size="small" @click="tryAccess('sysadmin')">访问 · 系统监控（meta.perm=monitor:query）</el-button>
+            <el-button size="small" @click="tryAccess('user')">访问 · 用户管理（user:query）</el-button>
+            <el-button size="small" @click="tryAccess('role')">访问 · 角色管理（role:query）</el-button>
+            <el-button size="small" @click="tryAccess('sysadmin')">访问 · 系统监控（monitor:query）</el-button>
           </div>
 
           <el-card shadow="never" v-if="!denied403">
             <el-descriptions :column="1" border size="small">
               <el-descriptions-item label="访问结果">{{ guardResult }}</el-descriptions-item>
-              <el-descriptions-item label="canAccess()">{{ guardPassed ? '通过，路由已注册' : '拒绝' }}</el-descriptions-item>
+              <el-descriptions-item label="路由守卫判定">{{ guardPassed ? '通过，路由已注册' : '拒绝' }}</el-descriptions-item>
             </el-descriptions>
           </el-card>
 
@@ -254,25 +254,25 @@
       });
       var permList = computed(function () { return currentRole.value.perms; });
 
-      function hasPerm(code) {
+      function allowed(code) {
         if (Array.isArray(code)) return code.some(function (c) { return permList.value.indexOf(c) >= 0; });
         return permList.value.indexOf(code) >= 0;
       }
 
       var permLog = ref([]);
       function onRoleChange() {
-        permLog.value.unshift({ msg: '权限版本变更 → usePermissionStore.load() 重新装配，当前角色：' + currentRole.value.name + '（' + permList.value.length + ' 个权限码）', cls: 't' });
+        permLog.value.unshift({ msg: '权限版本变更 → 权限状态重新装配，当前角色：' + currentRole.value.name + '（' + permList.value.length + ' 个权限码）', cls: 't' });
         if (permLog.value.length > 40) permLog.value.pop();
       }
 
       var permTable = [
-        { code: 'user:create', button: '新增用户', strategy: 'v-perm 移除' },
-        { code: 'user:update', button: '批量修改', strategy: 'v-perm 移除' },
-        { code: 'user:delete', button: '批量删除', strategy: 'v-perm 移除' },
-        { code: 'user:assign_role', button: '分配岗位', strategy: 'v-perm 移除' },
-        { code: 'user:reset_pwd', button: '重置密码', strategy: '需可见但禁用时用 PermButton' },
-        { code: 'export:download', button: '导出', strategy: 'v-perm 移除' },
-        { code: 'import:execute', button: '导入', strategy: 'v-perm 移除' }
+        { code: 'user:create', button: '新增用户', strategy: '动作权限判定移出' },
+        { code: 'user:update', button: '批量修改', strategy: '动作权限判定移出' },
+        { code: 'user:delete', button: '批量删除', strategy: '动作权限判定移出' },
+        { code: 'user:assign_role', button: '分配岗位', strategy: '动作权限判定移出' },
+        { code: 'user:reset_pwd', button: '重置密码', strategy: '需可见但禁用时用权限按钮' },
+        { code: 'export:download', button: '导出', strategy: '动作权限判定移出' },
+        { code: 'import:execute', button: '导入', strategy: '动作权限判定移出' }
       ];
 
       // ---- 字段权限 ----
@@ -303,14 +303,14 @@
       var denied403 = ref(false);
       function tryAccess(page) {
         var need = { user: 'user:query', role: 'role:query', sysadmin: 'monitor:query' }[page];
-        var ok = hasPerm(need);
+        var ok = allowed(need);
         guardPassed.value = ok;
-        if (ok) { guardResult.value = '允许访问，路由已注册（meta.perm=' + need + '）'; denied403.value = false; ElMessage.success('访问通过'); }
-        else { guardResult.value = '拒绝访问（meta.perm=' + need + ' 不在权限集合）'; denied403.value = true; }
+        if (ok) { guardResult.value = '允许访问，路由已注册（权限码=' + need + '）'; denied403.value = false; ElMessage.success('访问通过'); }
+        else { guardResult.value = '拒绝访问（权限码=' + need + ' 不在权限集合）'; denied403.value = true; }
       }
 
       return {
-        tab, role, roles, currentRole, permList, hasPerm, permLog, onRoleChange, permTable,
+        tab, role, roles, currentRole, permList, allowed, permLog, onRoleChange, permTable,
         editMode, fieldPerms, f, form, phoneDisplay, emailDisplay,
         plainPerm, maskRows,
         guardResult, guardPassed, denied403, tryAccess

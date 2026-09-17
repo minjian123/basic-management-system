@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · AI 助手（AiAssistant / ChatPanel / MessageBubble / PromptInput / ConversationList）</title>
+<title>原型 · AI 助手（会话列表 / 对话面板 / 输入区 / 流式输出）</title>
 <link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
 <style>
@@ -43,8 +43,8 @@
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="10_组件设计_AI助手.md">《组件设计 · AI 助手》</a>：演示 <b>ConversationList</b> 会话、<b>ChatPanel/MessageBubble</b> 消息流与流式输出、
-    <b>PromptInput</b> 发送/停止、四模式（通用/问数/审批辅助/文档问答）、问数图表结果、引用与风险提示、审计标识、自动执行二次确认与撤销。
+    本原型对应当前目录 <a href="10_组件设计_AI助手.md">《组件设计 · AI 助手》</a>：演示会话列表、<b>对话面板与消息渲染</b>（消息流与流式输出）、
+    <b>输入区</b>发送/停止、四模式（通用/问数/审批辅助/文档问答）、问数图表结果、引用与风险提示、审计标识、自动执行二次确认与撤销。
   </div>
 
   <div id="app">
@@ -80,7 +80,7 @@
 
         <!-- 对话面板 -->
         <div class="pane">
-          <div class="hd">对话 <span class="dp-hint">{{ modeLabel(mode) }} · 流式输出（SSE）· 默认仅辅助</span></div>
+          <div class="hd">对话 <span class="dp-hint">{{ modeLabel(mode) }} · 流式输出（服务端事件流）· 默认仅辅助</span></div>
           <div class="chat" ref="chatEl">
             <div v-for="m in messages" :key="m.id" class="msg" :class="m.role==='user' ? 'user' : 'ai'">
               <div class="avatar">{{ m.role==='user' ? '我' : 'AI' }}</div>
@@ -88,7 +88,7 @@
                 <span>{{ m.text }}</span>
                 <div v-if="m.code" class="code">{{ m.code }}</div>
                 <div v-if="m.result && m.result.kind==='chart'" style="margin-top:8px;height:180px">
-                  <mini-chart :spec="m.result" />
+                  <demo-chart :spec="m.result" />
                 </div>
                 <div v-if="m.risk && m.risk.length" class="risk">
                   <el-tag v-for="(r,i) in m.risk" :key="i" type="warning" size="small" style="margin-right:6px">⚠ {{ r }}</el-tag>
@@ -142,7 +142,7 @@
   var { createApp, ref, reactive, computed, nextTick, onBeforeUnmount } = Vue;
   var ElMessage = ElementPlus.ElMessage;
 
-  var MiniChart = {
+  var DemoChart = {
     props: { spec: Object },
     template: '<div ref="el" style="width:100%;height:100%"></div>',
     setup: function (props) {
@@ -225,7 +225,7 @@
           }
         }, 30);
       }
-      function stop() { if (timer) { clearInterval(timer); timer = null; } if (streamMsg) { streamMsg.status = 'stopped'; } streaming.value = false; log.value = 'AbortController → 停止流式输出（保留已接收内容，可重新生成）'; }
+      function stop() { if (timer) { clearInterval(timer); timer = null; } if (streamMsg) { streamMsg.status = 'stopped'; } streaming.value = false; log.value = '中断在途请求 → 停止流式输出（保留已接收内容，可重新生成）'; }
       function regenerate() { var last = messages.value.filter(function (m) { return m.role === 'user'; }).pop(); if (last) { input.value = last.text; send(); } }
       function scrollBottom() { nextTick(function () { if (chatEl.value) chatEl.value.scrollTop = chatEl.value.scrollHeight; }); }
 
@@ -239,7 +239,7 @@
       };
     }
   });
-  app.component('mini-chart', MiniChart);
+  app.component('demo-chart', DemoChart);
   app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
   app.mount('#app');
 </script>

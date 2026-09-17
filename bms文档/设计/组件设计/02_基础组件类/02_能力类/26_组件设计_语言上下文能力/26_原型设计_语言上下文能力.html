@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 语言上下文能力（useLocale）</title>
+<title>原型 · 语言上下文能力</title>
 <link rel="stylesheet" href="../../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../../原型设计/资源/原型样式.css">
 <style>
@@ -25,7 +25,7 @@
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="26_组件设计_语言上下文能力.md">《组件设计 · 语言上下文能力》</a>：演示 locale 切换（i18n / Element Plus / dayjs 联动）、时区格式化（UTC → 用户时区）与格式缓存；语言 / 时区偏好经偏好持久化能力同步。
+    本原型对应当前目录 <a href="26_组件设计_语言上下文能力.md">《组件设计 · 语言上下文能力》</a>：演示语言切换（文案 / 组件库 / 日期库联动）、时区格式化（UTC → 用户时区）与格式缓存；语言 / 时区偏好经偏好持久化能力同步。
   </div>
 
   <div id="app">
@@ -39,18 +39,18 @@
           <el-option label="Asia/Shanghai (UTC+8)" value="Asia/Shanghai" />
           <el-option label="America/New_York (UTC-5)" value="America/New_York" />
         </el-select>
-        <el-date-picker :locale="locale" placeholder="日期选择（跟随 Element Plus locale）" size="small" style="width:240px" />
+        <el-date-picker :locale="locale" placeholder="日期选择（跟随组件库语言）" size="small" style="width:240px" />
       </div>
 
       <div class="row"><span class="lb">界面文案</span><span class="dp-code">{{ T.save }} / {{ T.cancel }} / {{ T.confirm }}</span></div>
       <div class="row"><span class="lb">后端时间（UTC）</span><span class="dp-code">2026-09-16T02:30:00Z</span></div>
-      <div class="row"><span class="lb">formatDate()</span><span class="dp-code">{{ fmt() }}</span></div>
+      <div class="row"><span class="lb">日期时间格式化</span><span class="dp-code">{{ fmt() }}</span></div>
 
       <div class="dp-state">上下文与缓存
-locale={{ locale }}　timezone={{ timezone }}　&lt;html lang&gt;={{ locale }}
+语言={{ locale }}　时区={{ timezone }}　页面语言属性={{ locale }}
 {{ logs.length ? logs.join('\n') : '（尚无操作）' }}
-说明：setLocale 联动 vue-i18n / Element Plus / dayjs 并触发 locale-change（菜单 / 字典 / 元数据按新 locale 重新拉取）；
-时区格式化统一经 formatDate（UTC → 用户时区），禁止各组件自拼；Intl / dayjs 实例按 locale+时区缓存。</div>
+说明：语言切换联动全站文案 / 组件库 / 日期库，并触发语言变化事件（菜单 / 字典 / 元数据按新语言重新拉取）；
+时区格式化统一经本能力契约（UTC → 用户时区），禁止各组件自拼；格式化实例按语言 + 时区缓存。</div>
     </div>
   </div>
 </div>
@@ -78,9 +78,9 @@ locale={{ locale }}　timezone={{ timezone }}　&lt;html lang&gt;={{ locale }}
       }
       watch(locale, function (v) {
         document.documentElement.lang = v;
-        logs.value.push('setLocale(' + v + ') → i18n 语言包 + Element Plus locale + dayjs locale 联动；触发 locale-change（菜单 / 字典 / 元数据重取）');
+        logs.value.push('切到 ' + v + ' → 全站文案 + 组件库 + 日期库联动；触发语言变化事件（菜单 / 字典 / 元数据重取）');
       });
-      watch(timezone, function (v) { logs.value.push('setTimezone(' + v + ') → 偏好持久化 + 全部 formatDate 重算（Intl 缓存按新时区）'); });
+      watch(timezone, function (v) { logs.value.push('时区切到 ' + v + ' → 偏好持久化 + 全部日期时间格式化重算（格式化实例缓存按新时区）'); });
       return { locale: locale, timezone: timezone, T: T, fmt: fmt, logs: logs };
     }
   });

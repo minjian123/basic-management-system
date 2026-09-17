@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 动态路由能力（useDynamicRoutes）</title>
+<title>原型 · 动态路由能力</title>
 <link rel="stylesheet" href="../../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../../原型设计/资源/原型样式.css">
 <style>
@@ -48,9 +48,9 @@
 
       <div class="dp-state">日志
 {{ logs.length ? logs.join('\n') : '（尚无操作）' }}
-说明：菜单树由后端按权限下发（含 locale）；buildRoutes 组件名经注册表映射（import.meta.glob 批量注册）；
-未注册组件名拦截提示（防菜单配置错误白屏）；allowedPaths 白名单不参与动态注册；未注册路径 404 兜底；
-退出 / 切租户卸载全部动态路由（removeRoute）；阶段五模块以同一套契约注册（mode 为原设计面）。</div>
+说明：菜单树由后端按权限下发（含 locale）；路由构建时组件名经注册表映射（批量注册）；
+未注册组件名拦截提示（防菜单配置错误白屏）；白名单路径不参与动态注册；未注册路径 404 兜底；
+退出 / 切租户卸载全部动态路由；阶段五模块以同一套契约注册（模块来源模式按需评估）。</div>
     </div>
   </div>
 </div>
@@ -77,7 +77,7 @@
         MENUS.forEach(function (m) {
           var ok = REGISTRY.indexOf(m.component) >= 0;
           registered.value.push({ path: m.path, name: m.name, component: m.component, ok: ok });
-          logs.value.push('[' + stamp() + '] addRoute(' + m.path + ') → ' + m.component + (ok ? '' : ' —— 组件未注册，拦截并提示（防白屏）'));
+          logs.value.push('[' + stamp() + '] 注册路由 ' + m.path + ' → ' + m.component + (ok ? '' : ' —— 组件未注册，拦截并提示（防白屏）'));
         });
         logs.value.push('[' + stamp() + '] 注册完成：' + registered.value.filter(function (r) { return r.ok; }).length + ' 条可用');
       }
@@ -85,7 +85,7 @@
       function logout() {
         var n = registered.value.length;
         registered.value = [];
-        logs.value.push('[' + stamp() + '] unregister() → removeRoute 全部动态路由（' + n + ' 条，防越权残留）');
+        logs.value.push('[' + stamp() + '] 卸载全部动态路由（' + n + ' 条，防越权残留）');
       }
       return { registered: registered, logs: logs, init: init, visitUnknown: visitUnknown, logout: logout };
     }

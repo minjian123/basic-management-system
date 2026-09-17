@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 树数据能力（useTreeData）</title>
+<title>原型 · 树数据能力</title>
 <link rel="stylesheet" href="../../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../../原型设计/资源/原型样式.css">
 <style>
@@ -36,7 +36,7 @@
     <div class="ep-page">
       <div class="dp-bar">
         <el-input v-model="keyword" size="small" placeholder="过滤（如 研发）" style="width:180px" clearable @input="filter" />
-        <el-button size="small" @click="loadRoot">loadRoot()</el-button>
+        <el-button size="small" @click="load">加载根节点</el-button>
         <el-button size="small" @click="expandOps">展开「运维部」（懒加载）</el-button>
         <el-button size="small" @click="expandOps">再展开一次（命中缓存）</el-button>
       </div>
@@ -66,7 +66,7 @@
 selectedKeys: {{ selectedKeys }}
 checkedKeys（含半选）: {{ checkedKeys }}　半选: {{ halfKeys.length ? halfKeys.join(',') : '（无）' }}
 {{ logs.length ? logs.join('\n') : '（尚无操作）' }}
-说明：归一（nodeKey/labelKey/childrenKey）；懒加载记录 loaded 标记（重复展开 0 请求）；勾选级联计算半选；
+说明：归一（节点键 / 文本 / 子级）；懒加载记录已加载标记（重复展开 0 请求）；勾选级联计算半选；
 过滤保留命中节点及祖先路径；在途请求登记异步资源（参数变化自动取消）。</div>
     </div>
   </div>
@@ -103,7 +103,7 @@ checkedKeys（含半选）: {{ checkedKeys }}　半选: {{ halfKeys.length ? hal
         return '';
       }
       function markText(key) { return mark(key) === 'ck' ? '☑' : (mark(key) === 'half' ? '◪' : '☐'); }
-      function loadRoot() { logs.value.push('[' + stamp() + '] loadRoot() → GET /api/org/tree（归一：id/label/children）'); }
+      function load() { logs.value.push('[' + stamp() + '] 加载根节点 → 请求组织树接口（归一：键 / 文本 / 子级）'); }
       function expandOps() {
         if (opsLoaded.value) { logs.value.push('[' + stamp() + '] expand(运维部) → loaded 标记命中缓存（0 请求）'); return; }
         logs.value.push('[' + stamp() + '] expand(运维部) → loadChildren(node) → GET /api/org/children?pid=ops');
@@ -114,8 +114,8 @@ checkedKeys（含半选）: {{ checkedKeys }}　半选: {{ halfKeys.length ? hal
         }, 300);
       }
       function filter() { logs.value.push('[' + stamp() + '] filter(' + (keyword.value || '清空') + ') → 保留命中节点及祖先路径'); }
-      loadRoot();
-      return { keyword: keyword, selectedKeys: selectedKeys, checkedKeys: checkedKeys, halfKeys: halfKeys, logs: logs, opsLoaded: opsLoaded, opsChildren: opsChildren, visible: visible, select: select, toggle: toggle, mark: mark, markText: markText, loadRoot: loadRoot, expandOps: expandOps, filter: filter };
+      load();
+      return { keyword: keyword, selectedKeys: selectedKeys, checkedKeys: checkedKeys, halfKeys: halfKeys, logs: logs, opsLoaded: opsLoaded, opsChildren: opsChildren, visible: visible, select: select, toggle: toggle, mark: mark, markText: markText, load: load, expandOps: expandOps, filter: filter };
     }
   });
   app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 错误基类（BaseError）</title>
+<title>原型 · 错误基类</title>
 <link rel="stylesheet" href="../../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../../原型设计/资源/原型样式.css">
 <style>
@@ -25,7 +25,7 @@
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="07_组件设计_错误基类.md">《组件设计 · 错误基类》</a>：演示宿主请求层的统一响应解析（<span class="dp-code">{code, message, data}</span>）、错误码到用户提示的 i18n 映射与回退、上报去重限流与段位判定（相关方法为原设计面，由宿主承载）。
+    本原型对应当前目录 <a href="07_组件设计_错误基类.md">《组件设计 · 错误基类》</a>：演示宿主请求层的统一响应解析（<span class="dp-code">{code, message, data}</span>）、错误码到用户提示的 i18n 映射与回退、上报去重限流与段位判定。
   </div>
 
   <div id="app">
@@ -35,9 +35,9 @@
         <el-select v-model="code" size="small" style="width:340px">
           <el-option v-for="c in codes" :key="c.code" :label="c.label" :value="c.code" />
         </el-select>
-        <el-button type="primary" size="small" @click="constructFrom">fromResponse()</el-button>
-        <el-button size="small" @click="report">report()</el-button>
-        <el-button size="small" @click="report">再报一次（演示去重）</el-button>
+        <el-button type="primary" size="small" @click="parseResponse">解析响应构造错误</el-button>
+        <el-button size="small" @click="doReport">上报</el-button>
+        <el-button size="small" @click="doReport">再报一次（演示去重）</el-button>
       </div>
 
       <div class="row"><span class="lb">技术信息 message</span><span class="dp-code">{{ err.message }}</span></div>
@@ -45,10 +45,10 @@
         <span class="dp-hint">{{ err.mapped ? '（i18n error.' + code + ' 命中）' : '（未映射，回退通用文案）' }}</span></div>
       <div class="row"><span class="lb">段位判定</span><span class="dp-code">{{ err.seg }}</span></div>
 
-      <div class="dp-state">上报记录（根系 reportError：去重 / 限流 / 不阻断）
+      <div class="dp-state">上报记录（根系错误上报：去重 / 限流 / 不阻断）
 {{ reports.join('\n') || '（尚无上报）' }}
-说明：code !== 0 → 宿主请求层构造 BaseError（fromResponse 为原设计面）；401（2xxxx）由请求层静默刷新、不提示；
-用户取消（AbortError）不计错误；展示层禁止硬编码错误文案，统一取 userMessage。</div>
+说明：响应 code !== 0 → 宿主请求层构造错误；认证段（2xxxx）由请求层静默刷新、不提示；
+用户主动取消不计错误；展示层禁止硬编码错误文案，统一取用户提示。</div>
     </div>
   </div>
 </div>
@@ -88,20 +88,20 @@
         };
       }
       watch(code, build); build();
-      function constructFrom() {
+      function parseResponse() {
         if (code.value === 0) { err.value = { message: 'code = 0，无错误', userMessage: '（不构造）', mapped: true, seg: '—' }; return; }
         build();
       }
-      function report() {
+      function doReport() {
         var now = Date.now();
         if (lastReport.code === code.value && now - lastReport.at < 5000) {
           reports.value.push('· 上报去重：同码 ' + code.value + ' 在 5s 内合并（未重复上报）');
         } else {
-          reports.value.push('· report(code=' + code.value + ', page=原型页, component=错误基类原型)');
+          reports.value.push('· 上报（错误码=' + code.value + '，页面=原型页，组件=错误基类原型）');
         }
         lastReport = { code: code.value, at: now };
       }
-      return { codes: codes, code: code, err: err, reports: reports, constructFrom: constructFrom, report: report };
+      return { codes: codes, code: code, err: err, reports: reports, parseResponse: parseResponse, doReport: doReport };
     }
   });
   app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });

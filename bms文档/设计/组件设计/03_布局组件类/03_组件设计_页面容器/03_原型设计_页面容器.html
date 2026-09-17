@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 页面容器（PageContainer）</title>
+<title>原型 · 页面容器</title>
 <link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
 <style>
@@ -30,7 +30,7 @@
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="03_组件设计_页面容器.md">《组件设计 · 页面容器》</a>：演示标题/描述/面包屑、右上工具栏、内容区、底部操作栏与返回；继承 02 基础组件类 布局能力。
+    本原型对应当前目录 <a href="03_组件设计_页面容器.md">《组件设计 · 页面容器》</a>：演示标题/描述/面包屑、右上工具栏、内容区、底部操作栏与返回；经继承链上的布局能力层取得布局语义。
   </div>
 
   <div id="app">
@@ -51,8 +51,8 @@
       </div>
 
       <div class="dp-state" style="margin-top:12px">back={{ back }}　sticky={{ sticky }}　footer={{ footer }}　|　{{ log }}
-插槽：title / extra（右上工具栏）/ breadcrumb / default / footer
-范围：非表单页页面壳；表单/列表骨架见 03-01/03-02；滚动/自适应见 04 容器组件类。</div>
+区域插槽：标题 / 右上工具栏 / 面包屑 / 内容 / 底部操作栏
+范围：非表单页页面壳；表单/列表骨架见 主框架布局壳 / 表单框架壳；滚动/自适应见 容器组件类。</div>
     </div>
   </div>
 </div>

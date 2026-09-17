@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 树域基类（BaseTree / useTreeData）</title>
+<title>原型 · 树域基类</title>
 <link rel="stylesheet" href="../../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../../原型设计/资源/原型样式.css">
 <style>
@@ -47,8 +47,8 @@
         <div class="dp-state" style="flex:1">选中（单选）: {{ selected || '（未选中）' }}
 勾选（含半选）: {{ checkedText }}
 懒加载记录: {{ lazyLog || '（尚未懒加载）' }}
-说明：nodeKey=id、labelKey=label（数据归一）；过滤保留命中节点及祖先路径；
-勾选级联 / checkStrictly 父子独立两种模式；懒加载子级缓存，重复展开不重复请求。</div>
+说明：节点唯一键 / 显示文本字段（数据归一）；过滤保留命中节点及祖先路径；
+勾选级联与父子独立两种模式；懒加载子级缓存，重复展开不重复请求。</div>
       </div>
     </div>
   </div>

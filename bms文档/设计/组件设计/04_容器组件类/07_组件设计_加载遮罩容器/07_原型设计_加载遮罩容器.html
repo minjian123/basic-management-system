@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 加载遮罩容器（LoadingContainer）</title>
+<title>原型 · 加载遮罩容器</title>
 <link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
 <style>
@@ -25,7 +25,7 @@
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="07_组件设计_加载遮罩容器.md">《组件设计 · 加载遮罩容器》</a>：四态（loading/骨架/空/错误+重试）与延迟显示防闪烁；继承 02 基础组件类 容器能力。
+    本原型对应当前目录 <a href="07_组件设计_加载遮罩容器.md">《组件设计 · 加载遮罩容器》</a>：四态（loading/骨架/空/错误+重试）与延迟显示防闪烁；容器能力为继承链上的一层。
   </div>
 
   <div id="app">
@@ -51,7 +51,7 @@
 
       <div class="dp-state" style="margin-top:12px">当前态 = {{ state }}　延迟显示 delay=200ms（快请求不显示 loading，避免闪烁）
 优先级：loading > error > empty > content
-说明：复用 07 展示类 05 异常与空状态的骨架/空/错误组件；错误信息不泄露技术细节；重试触发 retry。</div>
+说明：骨架/空/错误展示件复用展示类「异常与空状态」；错误信息不泄露技术细节；重试触发重试通知。</div>
     </div>
   </div>
 </div>

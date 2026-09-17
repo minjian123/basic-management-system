@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 占位基类（BasePlaceholder / usePlaceholderBase）</title>
+<title>原型 · 占位基类</title>
 <link rel="stylesheet" href="../../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../../原型设计/资源/原型样式.css">
 <style>
@@ -27,19 +27,19 @@
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="04_组件设计_占位基类.md">《组件设计 · 占位基类》</a>：演示占位标记与 <span class="dp-code">describe</span>、三类占位原因（待实现 / 空实现 / 未实现）与空态·禁用·降级三种降级语义；占位态不请求。
+    本原型对应当前目录 <a href="04_组件设计_占位基类.md">《组件设计 · 占位基类》</a>：演示占位标记与占位说明、三类占位原因（待实现 / 空实现 / 未实现）与空态·禁用·降级三种降级语义；占位态不请求。
   </div>
 
   <div id="app">
     <div class="ep-page">
       <div class="dp-bar">
-        <span class="dp-hint">reason：</span>
+        <span class="dp-hint">占位原因：</span>
         <el-radio-group v-model="reason" size="small">
           <el-radio-button label="pending">pending 待实现</el-radio-button>
           <el-radio-button label="null">null 空实现</el-radio-button>
           <el-radio-button label="stub">stub 未实现</el-radio-button>
         </el-radio-group>
-        <span class="dp-hint">fallback：</span>
+        <span class="dp-hint">降级语义：</span>
         <el-radio-group v-model="degrade" size="small">
           <el-radio-button label="empty">empty 空态</el-radio-button>
           <el-radio-button label="disabled">disabled 禁用</el-radio-button>
@@ -49,7 +49,7 @@
 
       <div class="row"><span class="lb">组织选择字段</span>
         <template v-if="degrade === 'empty'">
-          <div class="ph-box" :data-ph="'data-placeholder=' + reason" style="width:320px">（占位空态：{{ label }}）</div>
+          <div class="ph-box" :data-ph="'占位标记=' + reason" style="width:320px">（占位空态：{{ label }}）</div>
         </template>
         <template v-else-if="degrade === 'disabled'">
           <el-select v-model="dept" disabled placeholder="组织选择（占位禁用）" style="width:320px">
@@ -62,16 +62,16 @@
         <span class="dp-hint">← 占位态不发起请求</span>
       </div>
 
-      <div class="row"><span class="lb">调用占位 API</span>
-        <el-button size="small" :type="reason === 'stub' ? 'danger' : 'default'" @click="call">调用 resolve()</el-button>
+      <div class="row"><span class="lb">调用占位能力</span>
+        <el-button size="small" :type="reason === 'stub' ? 'danger' : 'default'" @click="call">调用占位能力</el-button>
         <span class="dp-hint">{{ callResult }}</span>
       </div>
 
-      <div class="dp-state">describe() → {{ describeText }}
-属性：data-placeholder="{{ reason }}"（开发态标记；mark() / silentInProd 为原设计面）
+      <div class="dp-state">占位说明（元信息） → {{ describeText }}
+占位标记：值取占位原因（开发态标记）
 降级：{{ degradeText }}
 说明：pending＝依赖后端能力未就绪（空结果 / 降级）；null＝空实现（恒空 / 恒成功、无副作用）；
-stub＝未实现（调用即抛错，对齐后端 BaseStub）；占位与真实实现跑同一套契约测试。</div>
+stub＝未实现（调用即抛错，对齐后端未实现语义）；占位与真实实现跑同一套契约测试。</div>
     </div>
   </div>
 </div>
@@ -94,7 +94,7 @@ stub＝未实现（调用即抛错，对齐后端 BaseStub）；占位与真实�
         return { empty: '空态占位（不请求、空结果）', disabled: '保留结构、整体禁用（不可交互）', hidden: '整块隐藏（不渲染）' }[degrade.value];
       });
       function call() {
-        callResult.value = reason.value === 'stub' ? '抛错：未实现（_not_implemented）' : '占位返回：[]（无副作用、不请求）';
+        callResult.value = reason.value === 'stub' ? '抛错：未实现（占位语义）' : '占位返回：[]（无副作用、不请求）';
       }
       return { reason: reason, degrade: degrade, dept: dept, label: label, describeText: describeText, degradeText: degradeText, callResult: callResult, call: call };
     }

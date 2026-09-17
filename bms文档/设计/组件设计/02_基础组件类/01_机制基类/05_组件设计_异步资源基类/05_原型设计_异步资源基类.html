@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 异步资源基类（BaseAsyncResource / useAsyncResourceBase）</title>
+<title>原型 · 异步资源基类</title>
 <link rel="stylesheet" href="../../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../../原型设计/资源/原型样式.css">
 <style>
@@ -52,8 +52,8 @@
 
       <div class="dp-state">释放日志（逆序回收、幂等）
 {{ logs.length ? logs.join('\n') : '（尚无释放）' }}
-说明：registerResource() 登记释放函数（定时器 / 订阅 / AbortController）；组件卸载经 onScopeDispose 自动 dispose()；
-释放后 registerResource() 拒绝登记（抛 NOT_IMPLEMENTED，「释放后再登记」按钮演示）。</div>
+说明：统一登记释放函数（定时器 / 订阅 / 请求取消）；组件卸载自动释放；
+释放后拒绝登记（「释放后再登记」按钮演示）。</div>
     </div>
   </div>
 </div>
@@ -68,15 +68,15 @@
       var resources = ref([]), logs = ref([]), ticks = ref(0), events = ref(0);
       var seq = 0, released = false, timer = null, subTimer = null;
       function stamp() { return String(logs.value.length + 1).padStart(2, '0'); }
-      function track(kind, id, releaser) {
+      function addResource(kind, id, releaser) {
         if (released) { logs.value.push('[' + stamp() + '] 拒绝登记：' + kind + '/' + id + '（组件已释放）'); return; }
         seq += 1;
         var rid = kind + '-' + seq;
         resources.value.push({ id: rid, kind: kind });
         resources.value[resources.value.length - 1].releaser = releaser;
       }
-      function releaseAll() {
-        if (released) { logs.value.push('[' + stamp() + '] dispose() 幂等：无重复执行'); return; }
+      function releaseResources() {
+        if (released) { logs.value.push('[' + stamp() + '] 释放幂等：无重复执行'); return; }
         released = true;
         var list = resources.value.slice().reverse();
         list.forEach(function (r) {
@@ -86,19 +86,19 @@
         resources.value = [];
       }
       function addTimer() {
-        track('timer', 'poll', function () { clearInterval(timer); });
+        addResource('timer', 'poll', function () { clearInterval(timer); });
         if (!timer) timer = setInterval(function () { ticks.value += 1; }, 1000);
       }
       function addSub() {
-        track('subscription', 'realtime.notify', function () { clearInterval(subTimer); });
+        addResource('subscription', 'realtime.notify', function () { clearInterval(subTimer); });
         if (!subTimer) subTimer = setInterval(function () { events.value += 1; }, 1500);
       }
       function addAbort() {
-        track('request', 'GET /api/user/list', function () { /* controller.abort() */ });
+        addResource('request', 'GET /api/user/list', function () { /* 请求取消 */ });
       }
-      function unmount() { releaseAll(); }
-      function addAfter() { track('timer', 'late-poll', function () { }); }
-      onUnmounted(function () { releaseAll(); });
+      function unmount() { releaseResources(); }
+      function addAfter() { addResource('timer', 'late-poll', function () { }); }
+      onUnmounted(function () { releaseResources(); });
       return { resources: resources, logs: logs, ticks: ticks, events: events, addTimer: addTimer, addSub: addSub, addAbort: addAbort, unmount: unmount, addAfter: addAfter };
     }
   });

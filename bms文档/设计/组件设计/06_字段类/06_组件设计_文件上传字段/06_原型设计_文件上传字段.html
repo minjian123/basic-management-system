@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 文件上传字段（FileUploadField / ImageUploadField / useFileUpload）</title>
+<title>原型 · 文件上传字段（文件 / 图片 / 只读文件列表）</title>
 <link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
 <style>
@@ -40,7 +40,7 @@
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="06_组件设计_文件上传字段.md">《组件设计 · 文件上传字段》</a>：演示 <b>FileUploadField</b> / <b>ImageUploadField</b>、
+    本原型对应当前目录 <a href="06_组件设计_文件上传字段.md">《组件设计 · 文件上传字段》</a>：演示 文件上传 / 图片上传、
     类型与大小校验、<b>整包/分片上传</b>、<b>秒传（SHA-256）</b>、失败重试、只读回显与下载预览。上传为前端模拟（不产生真实请求）；
     秒传判定接口 <span class="dp-code">POST /files/check</span> 为上游待补项（详见文档第 9 节）。
   </div>
@@ -50,7 +50,7 @@
       <div class="dp-header">
         <div>
           <div class="dp-title">文件上传字段 原型</div>
-          <div class="dp-sub">FileUploadField · ImageUploadField · FileListField · useFileUpload</div>
+          <div class="dp-sub">文件上传 · 图片上传 · 只读文件列表 · 上传引擎</div>
         </div>
         <div class="dp-bar" style="margin-bottom:0">
           <el-switch v-model="readonly" active-text="只读态" inactive-text="编辑态" size="small"></el-switch>
@@ -61,7 +61,7 @@
         <!-- ① 文件上传 -->
         <el-tab-pane label="① 文件上传（分片/秒传）" name="file">
           <div class="dp-bar">
-            <span class="proto-hint">accept=pdf,doc,docx,xls,xlsx,png,jpg；maxSize=2048MB（对齐 file.upload.max_file_size）；chunkThreshold=20MB（对齐 file.upload.max_size）；concurrency=3</span>
+            <span class="proto-hint">类型白名单 pdf,doc,docx,xls,xlsx,png,jpg；单文件上限 2048MB（对齐 file.upload.max_file_size）；分片阈值 20MB（对齐 file.upload.max_size）；分片并发 3</span>
           </div>
           <div class="dp-drop" @click="simulatePick">
             <div class="big">＋</div>
@@ -89,13 +89,13 @@
           </div>
 
           <el-alert type="info" :closable="false" show-icon
-            title="modelValue = 文件 id 数组；上传成功回填 id；失败仅补传缺失分片（断点续传）。"></el-alert>
+            title="受控值 = 文件 id 数组；上传成功回填 id；失败仅补传缺失分片（断点续传）。"></el-alert>
         </el-tab-pane>
 
         <!-- ② 图片上传 -->
         <el-tab-pane label="② 图片上传（多图/压缩/尺寸）" name="image">
           <div class="dp-bar">
-            <span class="proto-hint">accept=png,jpg,jpeg,webp；maxSize=5MB；limit=9；支持压缩与尺寸校验</span>
+            <span class="proto-hint">类型白名单 png,jpg,jpeg,webp；单文件上限 5MB；数量上限 9；支持压缩与尺寸校验</span>
             <el-space>
               <el-checkbox v-model="compress">前端压缩（最长边 > 1920px 时）</el-checkbox>
               <el-checkbox v-model="square">头像模式（1:1 裁剪）</el-checkbox>
@@ -115,17 +115,17 @@
 
           <div class="ep-section">图片处理结果</div>
           <el-descriptions :column="2" border size="small">
-            <el-descriptions-item label="maxSize 校验">超出 5MB 即拒绝并提示（不发起请求）</el-descriptions-item>
+            <el-descriptions-item label="单文件上限校验">超出 5MB 即拒绝并提示（不发起请求）</el-descriptions-item>
             <el-descriptions-item label="压缩策略">{{ compress ? '最长边 > 1920px 压缩至 1920px' : '不压缩' }}</el-descriptions-item>
             <el-descriptions-item label="尺寸校验">{{ square ? '要求 1:1 比例' : '不限比例' }}</el-descriptions-item>
-            <el-descriptions-item label="多图排序">支持拖拽排序，顺序即 modelValue 数组顺序</el-descriptions-item>
+            <el-descriptions-item label="多图排序">支持拖拽排序，顺序即受控值数组顺序</el-descriptions-item>
           </el-descriptions>
         </el-tab-pane>
 
         <!-- ③ 只读回显 -->
         <el-tab-pane label="③ 只读回显与下载预览" name="readonly">
           <div class="dp-bar">
-            <span class="proto-hint">FileListField：文件名 + 大小 + 下载/预览；失效文件占位</span>
+            <span class="proto-hint">只读文件列表：文件名 + 大小 + 下载/预览；失效文件占位</span>
           </div>
           <el-table :data="fileList" size="small" border style="width:100%">
             <el-table-column prop="name" label="文件名" min-width="200"></el-table-column>
@@ -142,7 +142,7 @@
             </el-table-column>
           </el-table>
           <el-descriptions :column="1" border size="small" style="margin-top:12px">
-            <el-descriptions-item label="modelValue（文件 id）"><span class="dp-code">{{ JSON.stringify(fileList.map(function (f) { return f.id; })) }}</span></el-descriptions-item>
+            <el-descriptions-item label="受控值（文件 id）"><span class="dp-code">{{ JSON.stringify(fileList.map(function (f) { return f.id; })) }}</span></el-descriptions-item>
             <el-descriptions-item label="空值场景">未上传时显示 —</el-descriptions-item>
           </el-descriptions>
         </el-tab-pane>

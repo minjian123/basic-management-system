@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 查询方案能力（useQueryScheme）</title>
+<title>原型 · 查询方案能力</title>
 <link rel="stylesheet" href="../../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../../原型设计/资源/原型样式.css">
 <style>
@@ -24,7 +24,7 @@
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="29_组件设计_查询方案能力.md">《组件设计 · 查询方案能力》</a>：演示条件模型（字段 + 运算符 + 值）、方案另存 / 应用 / 删除 / 设默认与 toParams 输出；存储后端为 sys_query_scheme（未就绪降级本地）。
+    本原型对应当前目录 <a href="29_组件设计_查询方案能力.md">《组件设计 · 查询方案能力》</a>：演示条件模型（字段 + 运算符 + 值）、方案另存 / 应用 / 删除 / 设默认与条件转查询参数输出；存储后端为方案表（未就绪降级本地）。
   </div>
 
   <div id="app">
@@ -49,7 +49,7 @@
       <div class="dp-bar">
         <el-input v-model="name" size="small" placeholder="方案名（如 本月新增）" style="width:180px" />
         <el-button size="small" type="primary" @click="saveAs">另存方案</el-button>
-        <span class="dp-hint">toParams(): {{ toParams() }}</span>
+        <span class="dp-hint">条件转查询参数：{{ toParams() }}</span>
       </div>
 
       <el-table :data="schemes" size="small" border style="margin-bottom:12px">
@@ -69,8 +69,8 @@
 
       <div class="dp-state">日志
 {{ logs.length ? logs.join('\n') : '（尚无操作）' }}
-说明：条件模型 {field, operator, value} 与后端查询契约同源（操作符：eq / ne / in / like / gt / gte / lt / lte / between / is_null / is_not_null）；
-应用方案回填条件 → toParams() → 列表首屏查询（重置分页第 1 页）；默认方案进入页面自动应用；
+说明：条件模型（字段 + 运算符 + 值）与后端查询契约同源（操作符：eq / ne / in / like / gt / gte / lt / lte / between / is_null / is_not_null）；
+应用方案回填条件 → 条件转查询参数 → 列表首屏查询（重置分页第 1 页）；默认方案进入页面自动应用；
 方案归属用户（共享方案按权限）；失效字段忽略并提示；未就绪占位降级本地存储。</div>
     </div>
   </div>
@@ -91,24 +91,24 @@
       var name = ref(''), logs = ref([]), seq = 2;
       function stamp() { return String(logs.value.length + 1).padStart(2, '0'); }
       function addCondition() { conditions.value.push({ field: 'status', operator: 'eq', value: '' }); }
-      function clear() { conditions.value = []; logs.value.push('[' + stamp() + '] clear() → 空条件模型'); }
+      function clear() { conditions.value = []; logs.value.push('[' + stamp() + '] 清空条件 → 空条件模型'); }
       function toParams() {
         if (!conditions.value.length) return '（空）';
         return conditions.value.map(function (c) { return c.field + ':' + c.operator + '=' + (c.value || '?'); }).join(' & ');
       }
       function saveAs() {
-        if (!name.value) { logs.value.push('[' + stamp() + '] saveAs 失败：方案名为空'); return; }
+        if (!name.value) { logs.value.push('[' + stamp() + '] 另存失败：方案名为空'); return; }
         seq += 1;
         schemes.value.push({ id: 's' + seq, name: name.value, owner: '我', isDefault: false, conditions: JSON.parse(JSON.stringify(conditions.value)) });
-        logs.value.push('[' + stamp() + '] saveAs("' + name.value + '") → POST /api/query-skims（sys_query_scheme）；重名询问覆盖');
+        logs.value.push('[' + stamp() + '] 另存方案「' + name.value + '」→ 方案表存储（未就绪降级本地）；重名询问覆盖');
         name.value = '';
       }
       function apply(s) {
         conditions.value = JSON.parse(JSON.stringify(s.conditions));
-        logs.value.push('[' + stamp() + '] apply("' + s.name + '") → 回填条件 → toParams() → 首屏查询（分页重置第 1 页）');
+        logs.value.push('[' + stamp() + '] 应用方案「' + s.name + '」→ 回填条件 → 条件转查询参数 → 首屏查询（分页重置第 1 页）');
       }
-      function setDefault(s) { schemes.value.forEach(function (x) { x.isDefault = false; }); s.isDefault = true; logs.value.push('[' + stamp() + '] setDefault("' + s.name + '") → 进入页面自动应用'); }
-      function remove(s) { schemes.value = schemes.value.filter(function (x) { return x.id !== s.id; }); logs.value.push('[' + stamp() + '] remove("' + s.name + '") → 删除方案（仅本人可删）'); }
+      function setDefault(s) { schemes.value.forEach(function (x) { x.isDefault = false; }); s.isDefault = true; logs.value.push('[' + stamp() + '] 设为默认「' + s.name + '」→ 进入页面自动应用'); }
+      function remove(s) { schemes.value = schemes.value.filter(function (x) { return x.id !== s.id; }); logs.value.push('[' + stamp() + '] 删除方案「' + s.name + '」（仅本人可删）'); }
       return { conditions: conditions, schemes: schemes, name: name, logs: logs, addCondition: addCondition, clear: clear, toParams: toParams, saveAs: saveAs, apply: apply, setDefault: setDefault, remove: remove };
     }
   });

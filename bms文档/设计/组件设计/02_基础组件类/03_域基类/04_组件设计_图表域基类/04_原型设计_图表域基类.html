@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 图表域基类（BaseChart）</title>
+<title>原型 · 图表域基类</title>
 <link rel="stylesheet" href="../../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../../原型设计/资源/原型样式.css">
 <style>
@@ -28,7 +28,7 @@
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="04_组件设计_图表域基类.md">《组件设计 · 图表域基类》</a>：演示主题随亮暗适配（令牌色，不硬编码）、空数据占位（不初始化实例）、容器尺寸变化自适应重绘与加载骨架；原型图表以 SVG 示意，真实实现用 ECharts（独立分包）。
+    本原型对应当前目录 <a href="04_组件设计_图表域基类.md">《组件设计 · 图表域基类》</a>：演示主题随亮暗适配（令牌色，不硬编码）、空数据占位（不初始化实例）、容器尺寸变化自适应重绘与加载骨架；原型图表以 SVG 示意，真实实现由图表库承接（独立分包）。
   </div>
 
   <div id="app">
@@ -36,18 +36,18 @@
       <div class="dp-bar">
         <span class="dp-hint">themeMode：</span>
         <el-radio-group v-model="themeMode" size="small">
-          <el-radio-button label="auto">auto（跟随亮暗）</el-radio-button>
-          <el-radio-button label="light">light</el-radio-button>
-          <el-radio-button label="dark">dark</el-radio-button>
+          <el-radio-button label="auto">自动（跟随亮暗）</el-radio-button>
+          <el-radio-button label="light">亮色</el-radio-button>
+          <el-radio-button label="dark">暗色</el-radio-button>
         </el-radio-group>
-        <el-switch v-model="empty" active-text="空数据 empty" size="small" />
-        <el-switch v-model="loading" active-text="加载态 loading" size="small" />
-        <el-button size="small" @click="toggleWidth">切换容器宽度（触发 resize）</el-button>
+        <el-switch v-model="empty" active-text="空数据" size="small" />
+        <el-switch v-model="loading" active-text="加载态" size="small" />
+        <el-button size="small" @click="toggleWidth">切换容器宽度（触发重绘）</el-button>
       </div>
 
       <div class="chart-wrap" :class="{ dark: dark }" :style="{ width: wide ? '100%' : '55%' }">
         <div v-if="loading" class="skeleton"></div>
-        <div v-else-if="empty" class="ph-empty">（图表空态占位：empty=true 时不初始化 ECharts 实例）</div>
+        <div v-else-if="empty" class="ph-empty">（图表空态占位：空数据时不初始化图表实例）</div>
         <svg v-else viewBox="0 0 600 200" style="width:100%; height:200px">
           <g v-for="(v, i) in bars" :key="i">
             <rect :x="40 + i * 90" :y="180 - v" width="50" :height="v" rx="3" :fill="barColor" />
@@ -59,8 +59,8 @@
 
       <div class="dp-state" style="margin-top:12px">日志
 {{ logs.length ? logs.join('\n') : '（尚无操作）' }}
-说明：auto 跟随全局亮暗 / 租户品牌令牌；主题切换按令牌重建 option（颜色不硬编码）；
-ResizeObserver 监听容器（重绘节流）；容器隐藏尺寸 0 的守卫；实例销毁走异步资源基类。</div>
+说明：主题模式为自动时跟随全局亮暗 / 租户品牌令牌；主题切换按令牌重建图表配置（颜色不硬编码）；
+尺寸监听容器（重绘节流）；容器隐藏时尺寸为 0 的守卫；实例销毁走异步资源基类。</div>
     </div>
   </div>
 </div>
@@ -84,12 +84,12 @@ ResizeObserver 监听容器（重绘节流）；容器隐藏尺寸 0 的守卫�
       var barColor = computed(function () { return dark.value ? '#58a6ff' : '#0969da'; });
       var axisColor = computed(function () { return dark.value ? '#30363d' : '#d0d7de'; });
       var textColor = computed(function () { return dark.value ? '#8b949e' : '#57606a'; });
-      watch(themeMode, function (v) { logs.value.push('[' + stamp() + '] themeMode=' + v + ' → 按设计令牌重建 option（dark=' + dark.value + '）'); });
-      watch(empty, function (v) { logs.value.push('[' + stamp() + '] empty=' + v + (v ? ' → dispose 实例、渲染空态占位' : ' → 容器可见后 init 实例')); });
-      watch(loading, function (v) { logs.value.push('[' + stamp() + '] loading=' + v + (v ? ' → 骨架（实例保持/暂停）' : ' → 骨架收起')); });
+      watch(themeMode, function (v) { logs.value.push('[' + stamp() + '] 主题模式=' + v + ' → 按设计令牌重建图表配置（暗色=' + dark.value + '）'); });
+      watch(empty, function (v) { logs.value.push('[' + stamp() + '] 空数据=' + v + (v ? ' → 销毁实例、渲染空态占位' : ' → 容器可见后初始化实例')); });
+      watch(loading, function (v) { logs.value.push('[' + stamp() + '] 加载态=' + v + (v ? ' → 骨架（实例保持/暂停）' : ' → 骨架收起')); });
       function toggleWidth() {
         wide.value = !wide.value;
-        logs.value.push('[' + stamp() + '] 容器宽度变化 → ResizeObserver → resize()（节流 100ms）');
+        logs.value.push('[' + stamp() + '] 容器宽度变化 → 尺寸监听 → 重绘（节流 100ms）');
       }
       return { themeMode: themeMode, empty: empty, loading: loading, wide: wide, dark: dark, bars: bars, months: months, barColor: barColor, axisColor: axisColor, textColor: textColor, logs: logs, toggleWidth: toggleWidth };
     }

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 分区容器（SectionContainer）</title>
+<title>原型 · 分区容器</title>
 <link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
 <style>
@@ -29,7 +29,7 @@
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="08_组件设计_分区容器.md">《组件设计 · 分区容器》</a>：演示轻量分区（标题/描述/工具区/内容/折叠，无卡片边框外观）；继承 02 基础组件类 容器能力。
+    本原型对应当前目录 <a href="08_组件设计_分区容器.md">《组件设计 · 分区容器》</a>：演示轻量分区（标题/描述/工具区/内容/折叠，无卡片边框外观）；容器能力为继承链上的一层。
   </div>
 
   <div id="app">
@@ -56,9 +56,9 @@
         <div class="b">另一分区</div>
       </div>
 
-      <div class="dp-state">collapsible={{ collapsible }}　collapsed={{ collapsed }}　divider={{ divider }}　padding={{ padding }}
-说明：轻量分区无卡片边框/阴影（区别 03-10 卡片）；折叠仅隐藏内容，标题保留；右上 extra 工具区；
-分区间距/内边距只消费令牌；折叠面板组（多面板）见 03-11。</div>
+      <div class="dp-state">可折叠 = {{ collapsible }}　折叠态 = {{ collapsed }}　分隔线 = {{ divider }}　内边距 = {{ padding }}
+说明：轻量分区无卡片边框/阴影（区别于布局组件类「卡片」）；折叠仅隐藏内容，标题保留；右上工具区承载操作/筛选；
+分区间距/内边距只消费令牌；折叠面板组（多面板）归布局组件类「折叠面板」。</div>
     </div>
   </div>
 </div>

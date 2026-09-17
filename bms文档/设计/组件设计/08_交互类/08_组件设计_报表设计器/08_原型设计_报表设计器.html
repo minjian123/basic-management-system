@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 报表设计器（ReportDesigner / DatasetSelector / ChartConfigPanel / ReportCanvas）</title>
+<title>原型 · 报表设计器（数据集选择 / 图表配置 / 网格画布 / 保存发布）</title>
 <link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../原型设计/资源/vendor/gridstack.min.css">
 <link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
@@ -36,8 +36,8 @@
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="08_组件设计_报表设计器.md">《组件设计 · 报表设计器》</a>：演示数据集选择与字段清单、图表类型与配置面板、<b>ECharts</b> 实时渲染、
-    <b>gridstack</b> 网格拖拽/缩放布局、数据预览、保存/发布/另存。渲染复用 <span class="dp-code">EChart</span> + 令牌色板（原型用 vendor 资源）。
+    本原型对应当前目录 <a href="08_组件设计_报表设计器.md">《组件设计 · 报表设计器》</a>：演示数据集选择与字段清单、图表类型与配置面板、<b>图表实时渲染</b>、
+    <b>网格拖拽/缩放布局</b>、数据预览、保存/发布/另存。渲染复用图表渲染件与令牌色板（原型用 vendor 资源）。
   </div>
 
   <div id="app">
@@ -74,7 +74,7 @@
 
         <!-- 画布 -->
         <div class="pane">
-          <div class="hd">报表画布（gridstack 12 列 · 拖拽/缩放）</div>
+          <div class="hd">报表画布（12 列网格 · 拖拽/缩放）</div>
           <div class="bd">
             <div ref="gridEl" class="grid-stack"></div>
           </div>
@@ -105,7 +105,7 @@
                   <i v-for="(c,i) in palette" :key="i" :style="{ background: c }" :title="'--chart-color-'+(i+1)"></i>
                 </div>
               </el-form-item>
-              <el-form-item label="高级 option（覆盖，JSON）">
+              <el-form-item label="高级配置（覆盖，JSON）">
                 <el-input v-model="cfg.optionJson" type="textarea" :rows="3" placeholder='{"yAxis":{"name":"金额"}}' @change="applyCfg" />
               </el-form-item>
             </el-form>

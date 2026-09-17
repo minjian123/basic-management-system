@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 密码框（PasswordField）</title>
+<title>原型 · 密码框</title>
 <link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
 <style>
@@ -25,7 +25,7 @@
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="03_组件设计_密码框.md">《组件设计 · 密码框》</a>：演示掩码显示与明文切换、密码强度、确认一致性校验、不回填（编辑态留空）；继承 02 基础组件类 输入域基类。
+    本原型对应当前目录 <a href="03_组件设计_密码框.md">《组件设计 · 密码框》</a>：演示掩码显示与明文切换、密码强度、确认一致性校验、不回填（编辑态留空）；继承基础组件类·输入域基类。
   </div>
 
   <div id="app">
@@ -40,8 +40,8 @@
       <el-input v-model="pwd2" type="password" show-password style="width:260px" />
 
       <div class="dp-state" style="margin-top:12px">强度：{{ strength.label }}（{{ strength.pct }}%）　最小长度：8　一致性：{{ pwd && pwd===pwd2 ? '一致' : (pwd2?'不一致':'待输入') }}
-安全：密码不回填（编辑态为空=不修改）、明文切换仅前端内存、不落日志/本地存储、可禁自动填充
-说明：不 trim（保留空格）；空串归一 null；继承链经 输入域基类。</div>
+安全：密码不回填（编辑态为空=不修改）、明文切换仅前端内存、不落日志与本地存储、可禁自动填充
+说明：不去首尾空格（保留空格）；空串归一统一空值；继承链：密码框 → 输入域（域基类层）→ 组件根 → 根系。</div>
     </div>
   </div>
 </div>

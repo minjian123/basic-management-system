@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 表单元数据能力（useFormMeta）</title>
+<title>原型 · 表单元数据能力</title>
 <link rel="stylesheet" href="../../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../../原型设计/资源/原型样式.css">
 <style>
@@ -33,9 +33,9 @@
           <el-option label="user.form（用户表单）" value="user.form" />
           <el-option label="order.form（订单表单）" value="order.form" />
         </el-select>
-        <el-button type="primary" size="small" @click="load">load(menuKey)</el-button>
-        <el-button size="small" @click="load">再 load（版本比对）</el-button>
-        <el-button size="small" @click="designSave">设计器保存 refresh(newMeta)</el-button>
+        <el-button type="primary" size="small" @click="load">加载元数据</el-button>
+        <el-button size="small" @click="load">再加载（版本比对）</el-button>
+        <el-button size="small" @click="designSave">设计器保存后刷新</el-button>
       </div>
 
       <el-table :data="meta" size="small" border style="margin-bottom:12px">
@@ -48,8 +48,8 @@
       <div class="dp-state">版本与日志
 version: {{ version || '—' }}　menuKey: {{ menuKey }}
 {{ logs.length ? logs.join('\n') : '（尚无加载）' }}
-说明：请求带当前版本号（未变化命中缓存、返回 not-modified）；元数据结构归一（key/label/type/rules/perm/layout）；
-设计态保存后 refresh(newMeta) 直接更新缓存（无需额外请求）；接口未就绪时占位降级（空元数据 + 提示）。</div>
+说明：请求带当前版本号（未变化命中缓存、返回未修改标识）；元数据结构归一（字段键 / 标签 / 类型 / 校验 / 权限 / 布局）；
+设计态保存后携带新元数据直接更新缓存（无需额外请求）；接口未就绪时占位降级（空元数据 + 提示）。</div>
     </div>
   </div>
 </div>
@@ -80,10 +80,10 @@ version: {{ version || '—' }}　menuKey: {{ menuKey }}
         var cached = cache[menuKey.value];
         var latest = META[menuKey.value];
         if (cached && cached.version === latest.version) {
-          logs.value.push('[' + stamp() + '] load(' + menuKey.value + ') → If-None-Match v' + cached.version + ' → 304 not-modified（命中缓存）');
+          logs.value.push('[' + stamp() + '] 加载(' + menuKey.value + ') → 版本比对 v' + cached.version + ' → 未修改（命中缓存）');
           meta.value = cached.fields; version.value = cached.version; return;
         }
-        logs.value.push('[' + stamp() + '] load(' + menuKey.value + ') → GET /api/form-meta?menu=' + menuKey.value + '&version=' + (cached ? cached.version : 0));
+        logs.value.push('[' + stamp() + '] 加载(' + menuKey.value + ') → GET /api/form-meta?menu=' + menuKey.value + '&version=' + (cached ? cached.version : 0));
         setTimeout(function () {
           cache[menuKey.value] = latest;
           meta.value = latest.fields; version.value = latest.version;
@@ -95,7 +95,7 @@ version: {{ version || '—' }}　menuKey: {{ menuKey }}
         META[menuKey.value].fields = META[menuKey.value].fields.concat([{ key: 'newField', label: '新字段', type: 'text', rules: '（设计器新增）' }]);
         cache[menuKey.value] = META[menuKey.value];
         version.value = META[menuKey.value].version; meta.value = META[menuKey.value].fields;
-        logs.value.push('[' + stamp() + '] 设计器保存 → refresh(newMeta) → 缓存直接更新为 v' + META[menuKey.value].version + '（无需额外请求）');
+        logs.value.push('[' + stamp() + '] 设计器保存 → 携带新元数据刷新 → 缓存直接更新为 v' + META[menuKey.value].version + '（无需额外请求）');
       }
       load();
       return { menuKey: menuKey, version: version, meta: meta, logs: logs, load: load, designSave: designSave };

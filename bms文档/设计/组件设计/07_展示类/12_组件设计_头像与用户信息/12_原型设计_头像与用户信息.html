@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 头像与用户信息（UserAvatar / UserPill / useUserDisplay）</title>
+<title>原型 · 头像与用户信息（头像 / 用户胶囊 / 悬浮卡片）</title>
 <link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
 <style>
@@ -45,7 +45,7 @@
   <div id="app">
     <div class="ep-page">
       <!-- 头像 -->
-      <div class="dp-bar"><b style="font-size:13px">① UserAvatar</b><span class="dp-hint">回退链：图片 → 首字母 → 默认图标；尺寸 xs/sm/md/lg；默认色按用户稳定派生（令牌）</span></div>
+      <div class="dp-bar"><b style="font-size:13px">① 头像件</b><span class="dp-hint">回退链：图片 → 首字母 → 默认图标；尺寸 xs/sm/md/lg；默认色按用户稳定派生（令牌）</span></div>
       <div class="row">
         <span v-for="s in ['xs','sm','md','lg']" :key="s">
           <el-avatar :size="sz(s)" :src="img('张')">{{ '张' }}</el-avatar>
@@ -70,7 +70,7 @@
       </div>
 
       <!-- 用户胶囊 + 悬浮卡片 -->
-      <div class="dp-bar"><b style="font-size:13px">② UserPill（+ popover 用户卡片）</b></div>
+      <div class="dp-bar"><b style="font-size:13px">② 用户胶囊件（+ 悬浮用户卡片）</b></div>
       <div class="row">
         <el-popover placement="top" :width="240" trigger="hover">
           <template #reference>

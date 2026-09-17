@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 展示域基类（BaseDisplay（组合 useDisplayControl + useValue））</title>
+<title>原型 · 展示域基类</title>
 <link rel="stylesheet" href="../../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../../原型设计/资源/原型样式.css">
 <style>
@@ -50,15 +50,15 @@
         <div class="row" v-for="it in rows" :key="it.k">
           <span class="lb">{{ it.label }}</span>
           <span class="vl">
-            <display-base :value="it.value" :formatter="it.formatter" :density="density" :copyable="copyable" :ellipsis="ellipsis" />
+            <display-domain :value="it.value" :formatter="it.formatter" :density="density" :copyable="copyable" :ellipsis="ellipsis" />
           </span>
         </div>
       </div>
 
-      <div class="dp-state" style="margin-top:14px">只读：展示域基类不接收 modelValue、不参与校验；颜色/字号/间距只消费设计令牌（随主题与品牌自动适配）
+      <div class="dp-state" style="margin-top:14px">只读：展示域基类不接收受控值、不参与校验；颜色/字号/间距只消费设计令牌（随主题与品牌自动适配）
 空值判定：null / undefined / '' / [] / {} 统一占位「—」，但 0、false 不为空
-空值 vs 空状态：单元格空值用占位（本组件），整块无数据用「05 展示类 05 异常与空状态」
-脱敏：脱敏字段不提供可复制明文（copyable 对脱敏值禁用，与 字段权限能力协作）</div>
+空值 vs 空状态：单元格空值用占位（展示域基类），整块无数据用「05 展示类 05 异常与空状态」
+脱敏：脱敏字段不提供可复制明文（可复制对脱敏值禁用，与 字段权限能力协作）</div>
     </div>
   </div>
 </div>
@@ -76,7 +76,7 @@
     enum: function (v) { var m = { active: '启用', disabled: '停用' }; return v == null ? null : (m[v] || v); }
   };
 
-  var BaseDisplay = {
+  var DisplayDomain = {
     props: ['value', 'formatter', 'density', 'copyable', 'ellipsis'],
     template: [
       '<span style="display:inline-flex;align-items:center;gap:6px;min-width:0">',
@@ -109,7 +109,7 @@
   };
 
   var app = createApp({
-    components: { BaseDisplay: BaseDisplay },
+    components: { DisplayDomain: DisplayDomain },
     setup: function () {
       var density = ref('default');
       var copyable = ref(false);

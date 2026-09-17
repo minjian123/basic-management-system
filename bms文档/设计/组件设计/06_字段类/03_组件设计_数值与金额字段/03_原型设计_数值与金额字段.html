@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 数值与金额字段（NumberField / AmountField / PercentField）</title>
+<title>原型 · 数值与金额字段（数值 / 金额 / 百分比）</title>
 <link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
 <style>
@@ -33,7 +33,7 @@
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="03_组件设计_数值与金额字段.md">《组件设计 · 数值与金额字段》</a>：演示 <b>NumberField</b> / <b>AmountField</b> / <b>PercentField</b>、
+    本原型对应当前目录 <a href="03_组件设计_数值与金额字段.md">《组件设计 · 数值与金额字段》</a>：演示 数值 / 金额 / 百分比、
     精度与范围校验、千分位与币种、<b>大写金额</b>、只读回显与查询区区间。数据均为前端模拟。
   </div>
 
@@ -42,7 +42,7 @@
       <div class="dp-header">
         <div>
           <div class="dp-title">数值与金额字段 原型</div>
-          <div class="dp-sub">NumberField · AmountField · PercentField · useNumberInput · toChineseAmount</div>
+          <div class="dp-sub">数值 · 金额 · 百分比 · 校验规则 · 金额大写</div>
         </div>
         <div class="dp-bar" style="margin-bottom:0">
           <el-switch v-model="readonly" active-text="只读态" inactive-text="编辑态" size="small"></el-switch>
@@ -53,31 +53,31 @@
         <!-- ① 录入 -->
         <el-tab-pane label="① 数值 / 金额 / 百分比录入" name="input">
           <el-form label-position="top" style="max-width:600px" :disabled="readonly">
-            <el-form-item :label="'数量 NumberField（precision=0, 范围 1~9999, 单位：件）'">
+            <el-form-item :label="'数量（precision=0, 范围 1~9999, 单位：件）'">
               <el-input v-model="numVal" @blur="numVal = normalize(numVal, 0)" style="width:100%">
                 <template #append>件</template>
               </el-input>
               <div class="dp-hint">失焦补精度 + 千分位；聚焦还原纯数字</div>
             </el-form-item>
 
-            <el-form-item label="排序号 NumberField（precision=0, 范围 0~999, 允许千分位）">
+            <el-form-item label="排序号（precision=0, 范围 0~999, 允许千分位）">
               <el-input v-model="sortVal" @blur="sortVal = normalize(sortVal, 0)" style="width:100%"></el-input>
             </el-form-item>
 
-            <el-form-item label="合同金额 AmountField（precision=2, 币种 CNY, 范围 0~99999999.99, 大写）">
+            <el-form-item label="合同金额（precision=2, 币种 CNY, 范围 0~99999999.99, 大写）">
               <el-input v-model="amountVal" @blur="amountVal = normalize(amountVal, 2)" style="width:100%">
                 <template #prepend>¥</template>
               </el-input>
-              <div class="dp-upper" v-if="amountVal">大写：{{ toChineseAmount(amountVal) }}</div>
+              <div class="dp-upper" v-if="amountVal">大写：{{ toChineseUpper(amountVal) }}</div>
             </el-form-item>
 
-            <el-form-item label="费率 PercentField（ratio=false, precision=2, 范围 0~100）">
+            <el-form-item label="费率（ratio=false, precision=2, 范围 0~100）">
               <el-input v-model="percentVal" @blur="percentVal = normalize(percentVal, 2)" style="width:100%">
                 <template #append>%</template>
               </el-input>
             </el-form-item>
 
-            <el-form-item label="增长率 PercentField（ratio=true, precision=2, 允许负数）">
+            <el-form-item label="增长率（ratio=true, precision=2, 允许负数）">
               <el-input v-model="growthVal" style="width:100%">
                 <template #append>%</template>
               </el-input>
@@ -92,12 +92,12 @@
 
           <div class="ep-section">值模型与格式化展示</div>
           <el-descriptions :column="1" border size="small">
-            <el-descriptions-item label="数量 modelValue（字符串）">{{ numVal || 'null（显示 —）' }}</el-descriptions-item>
-            <el-descriptions-item label="金额 modelValue（字符串，定点）"><span class="dp-code">{{ amountVal || 'null' }}</span></el-descriptions-item>
-            <el-descriptions-item label="金额 formatAmount()">{{ formatAmount(amountVal, 2) }}</el-descriptions-item>
-            <el-descriptions-item label="金额 大写 toChineseAmount()">{{ toChineseAmount(amountVal) }}</el-descriptions-item>
-            <el-descriptions-item label="费率 formatPercent()">{{ formatPercent(percentVal, false) }}</el-descriptions-item>
-            <el-descriptions-item label="增长率 formatPercent(ratio=true)">{{ formatPercent(growthVal, true) }}</el-descriptions-item>
+            <el-descriptions-item label="数量 受控值（字符串）">{{ numVal || 'null（显示 —）' }}</el-descriptions-item>
+            <el-descriptions-item label="金额 受控值（字符串，定点）"><span class="dp-code">{{ amountVal || 'null' }}</span></el-descriptions-item>
+            <el-descriptions-item label="金额 格式化">{{ formatAmount(amountVal, 2) }}</el-descriptions-item>
+            <el-descriptions-item label="金额大写（中文）">{{ toChineseUpper(amountVal) }}</el-descriptions-item>
+            <el-descriptions-item label="费率 格式化">{{ formatPercent(percentVal, false) }}</el-descriptions-item>
+            <el-descriptions-item label="增长率 格式化（比值口径）">{{ formatPercent(growthVal, true) }}</el-descriptions-item>
           </el-descriptions>
           <el-alert type="warning" :closable="false" show-icon style="margin-top:10px"
             title="金额/数值以字符串或定点传输，前端不做浮点累加；汇总由后端定点运算返回。"></el-alert>
@@ -107,7 +107,7 @@
         <el-tab-pane label="② 精度与范围校验" name="validate">
           <div class="dp-bar">
             <el-button size="small" type="primary" @click="validateAll">按当前输入执行校验</el-button>
-            <span class="proto-hint">规则由 useNumberInput 生成，与后端同边界</span>
+            <span class="proto-hint">规则由校验语义生成，与后端同边界</span>
           </div>
           <el-table :data="validateRows" size="small" border style="width:100%">
             <el-table-column prop="field" label="字段" width="150"></el-table-column>
@@ -220,7 +220,7 @@
       var CN_DIGITS = ['零', '壹', '贰', '叁', '肆', '伍', '陆', '柒', '捌', '玖'];
       var CN_UNITS = ['', '拾', '佰', '仟'];
       var CN_BIG = ['', '万', '亿', '万亿'];
-      function toChineseAmount(v) {
+      function toChineseUpper(v) {
         if (!v && v !== 0) return '—';
         var n = parseFloat(String(v).replace(/,/g, ''));
         if (isNaN(n)) return '—';
@@ -311,7 +311,7 @@
 
       return {
         tab, readonly, numVal, sortVal, amountVal, percentVal, growthVal, normalize,
-        formatNumber, formatAmount, formatPercent, toChineseAmount,
+        formatNumber, formatAmount, formatPercent, toChineseUpper,
         validateRows, validateAll, resetAll,
         listRows, amtMin, amtMax, rangeValid, rangeParams, doSearch, doReset
       };

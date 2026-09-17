@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 滚动容器（ScrollContainer）</title>
+<title>原型 · 滚动容器</title>
 <link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
 <style>
@@ -27,7 +27,7 @@
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="02_组件设计_滚动容器.md">《组件设计 · 滚动容器》</a>：演示固定高度滚动区、自定义滚动条、触底事件与滚动位置保持；继承 02 基础组件类 容器能力。
+    本原型对应当前目录 <a href="02_组件设计_滚动容器.md">《组件设计 · 滚动容器》</a>：演示固定高度滚动区、自定义滚动条、触底事件与滚动位置保持；继承容器能力（继承链上的一层）。
   </div>
 
   <div id="app">
@@ -35,16 +35,16 @@
       <div class="dp-bar">
         <el-checkbox v-model="native" size="small">原生滚动条</el-checkbox>
         <el-checkbox v-model="keep" size="small">保持滚动位置</el-checkbox>
-        <span class="dp-hint">滚到底部触发 reach-bottom（模拟加载更多）</span>
+        <span class="dp-hint">滚到底部触发触底通知（模拟加载更多）</span>
       </div>
 
       <div class="sc" :style="native ? {} : {scrollbarWidth:'thin'}" @scroll="onScroll">
         <div class="item" v-for="n in 30" :key="n">列表项 {{ n }}</div>
       </div>
 
-      <div class="dp-state" style="margin-top:12px">保持位置 = {{ keep }}　触底次数 = {{ bottomCount }}　当前 scrollTop = {{ top }}
-说明：height/maxHeight 固定或 auto（配合 04-05 自适应高度）；自定义滚动条（宽度/颜色令牌）；触底节流触发 reach-bottom（分页/懒加载）；
-keepPosition 切换 Tab/返回时恢复滚动位置；嵌套滚动需防穿透。</div>
+      <div class="dp-state" style="margin-top:12px">保持位置 = {{ keep }}　触底次数 = {{ bottomCount }}　当前滚动位置 = {{ top }}
+说明：高度固定或按内容自撑（auto，配合自适应高度容器）；自定义滚动条（宽度/颜色令牌）；触底节流触发加载通知（分页/懒加载）；
+切换 Tab/返回时恢复滚动位置；嵌套滚动需防穿透。</div>
     </div>
   </div>
 </div>

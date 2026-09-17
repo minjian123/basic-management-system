@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 查询筛选区（QueryFilter / QueryField / 查询方案）</title>
+<title>原型 · 查询筛选区（基础条件区 / 折叠与窄屏 / 条件控件矩阵 / 条件摘要 / 查询方案）</title>
 <link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
 <style>
@@ -42,7 +42,7 @@
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="02_组件设计_查询筛选区.md">《组件设计 · 查询筛选区》</a>：演示 <b>QueryFilter</b> 的基础条件区、折叠与窄屏、条件控件矩阵、
+    本原型对应当前目录 <a href="02_组件设计_查询筛选区.md">《组件设计 · 查询筛选区》</a>：演示 <b>查询筛选区</b>的基础条件区、折叠与窄屏、条件控件矩阵、
     <b>高级查询入口 + 条件摘要 chips</b>、<b>查询方案</b>（应用/保存/另存为/设默认/删除）；全部交互为前端模拟，条件持久化模拟写入 <span class="dp-code">list.user_form.query</span>。
   </div>
 
@@ -50,7 +50,7 @@
     <div class="ep-page">
       <div class="dp-header">
         <div>
-          <div class="dp-title">查询筛选区 QueryFilter 原型</div>
+          <div class="dp-title">查询筛选区原型</div>
           <div class="dp-sub">表单：user_form ｜ 查询类字段 7 项（前 3 项默认可见）</div>
         </div>
         <div class="dp-bar" style="margin-bottom:0">
@@ -156,7 +156,7 @@
         <!-- ③ 条件控件矩阵 -->
         <el-tab-pane label="③ 条件控件矩阵" name="matrix">
           <div class="dp-bar">
-            <span class="proto-hint">字段类型 → 控件 → 操作符 → 参数序列化（同一套条件模型，控件由 QueryField 按类型分发）</span>
+            <span class="proto-hint">字段类型 → 控件 → 操作符 → 参数序列化（同一套条件模型，条件渲染器按字段类型分发）</span>
           </div>
           <div class="qf">
             <div class="qf-grid" style="grid-template-columns:1fr 1fr">
@@ -206,7 +206,7 @@
         <!-- ④ 高级查询 + 条件摘要 -->
         <el-tab-pane label="④ 高级查询与摘要" name="adv">
           <div class="dp-bar">
-            <span class="proto-hint">字典类条件旁漏斗入口 → 打开字典字段的 <b>DictAdvancedQuery</b>；两种落地：<b>取项回填</b>（结果条目写回条件值）与 <b>筛选注入</b>（作为业务筛选条件注入，摘要显示「高级条件」chip）</span>
+            <span class="proto-hint">字典类条件旁漏斗入口 → 打开字典字段的<b>高级查询面板</b>；两种落地：<b>取项回填</b>（结果条目写回条件值）与 <b>筛选注入</b>（作为业务筛选条件注入，摘要显示「高级条件」chip）</span>
           </div>
 
           <div class="qf">
@@ -233,7 +233,7 @@
             </div>
           </div>
 
-          <div class="ep-section">高级查询面板（模拟字典字段 DictAdvancedQuery）</div>
+          <div class="ep-section">高级查询面板（模拟字典字段高级查询）</div>
           <div class="dp-out">{{ advancedLog || '尚未打开高级查询面板' }}</div>
           <div v-if="advancedResult" style="margin-top:10px">
             <span class="dp-hint">命中条目：</span>

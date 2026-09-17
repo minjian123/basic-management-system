@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 折叠面板（Collapse）</title>
+<title>原型 · 折叠面板</title>
 <link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
 <style>
@@ -23,7 +23,7 @@
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="11_组件设计_折叠面板.md">《组件设计 · 折叠面板》</a>：演示手风琴/多开、图标位置、禁用项、默认展开与懒渲染；继承 02 基础组件类 布局能力（折叠语义同 容器能力）。
+    本原型对应当前目录 <a href="11_组件设计_折叠面板.md">《组件设计 · 折叠面板》</a>：演示手风琴/多开、图标位置、禁用项、默认展开与懒渲染；继承基础组件类·布局能力（折叠语义对齐容器能力）。
   </div>
 
   <div id="app">
@@ -36,7 +36,7 @@
 
       <el-collapse v-model="opened" :accordion="accordion">
         <el-collapse-item title="高级查询条件" name="adv">
-          <div class="dp-hint">首次展开才渲染内容（lazy）：查询条件表单</div>
+          <div class="dp-hint">首次展开才渲染内容（懒渲染）：查询条件表单</div>
         </el-collapse-item>
         <el-collapse-item title="说明与帮助" name="help">
           <div class="dp-hint">分组说明文案</div>
@@ -46,7 +46,7 @@
         </el-collapse-item>
       </el-collapse>
 
-      <div class="dp-state" style="margin-top:12px">accordion={{ accordion }}　iconPosition={{ iconPosition }}　lazy={{ lazy }}　展开项 = {{ JSON.stringify(opened) }}
+      <div class="dp-state" style="margin-top:12px">手风琴={{ accordion ? '开' : '关' }}　图标位置={{ iconPosition === 'left' ? '左' : '右' }}　懒渲染={{ lazy ? '开' : '关' }}　展开项 = {{ JSON.stringify(opened) }}
 说明：手风琴模式同时只展开一个；图标位置可左/右；禁用项不可展开；懒渲染（首次展开才挂载）提升性能；
 展开项可选持久化到用户偏好；本组件为面板组原语，卡片折叠见 03-10。</div>
     </div>

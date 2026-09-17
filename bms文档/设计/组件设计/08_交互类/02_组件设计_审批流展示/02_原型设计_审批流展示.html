@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 审批流展示（FlowProgress / ApprovalTimeline / ApprovalActionPanel / BpmnViewer）</title>
+<title>原型 · 审批流展示</title>
 <link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../原型设计/资源/vendor/vant.css">
 <link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
@@ -35,9 +35,9 @@
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="02_组件设计_审批流展示.md">《组件设计 · 审批流展示》</a>：演示 <b>FlowProgress</b> 节点进度与当前节点高亮（含会签、驳回、跳过、横向/纵向）、
-    <b>ApprovalTimeline</b> 审批时间线、<b>ApprovalActionPanel</b> 同意/驳回/转办/撤回/评论（二次确认、幂等键、loading、越权错误码），
-    以及移动端详情（状态条 + 信息卡 + 时间线 + 底部操作栏）。BPMN 只读图以说明代替（按需懒加载 bpmn-js，原型不内置）。
+    本原型对应当前目录 <a href="02_组件设计_审批流展示.md">《组件设计 · 审批流展示》</a>：演示<b>流程进度</b>节点进度与当前节点高亮（含会签、驳回、跳过、横向/纵向）、
+    <b>审批时间线</b>、<b>审批操作面板</b>的同意/驳回/转办/撤回/评论（二次确认、幂等键、提交中加载态、越权错误码），
+    以及移动端详情（状态条 + 信息卡 + 时间线 + 底部操作栏）。BPMN 只读图以说明代替（按需加载，原型不内置）。
   </div>
 
   <div id="app">
@@ -209,10 +209,10 @@
 
     <!-- BPMN 只读图说明 -->
     <el-dialog v-model="bpmnVisible" title="流程图（BPMN 只读）" width="560px">
-      <div class="dp-state">BpmnViewer（bpmn-js Viewer，按需懒加载）：
+      <div class="dp-state">BPMN 只读图（按需加载）：
 - 输入实例 bpmn_xml + current_node → 渲染完整流程图并高亮当前节点
 - 只读：禁用拖拽/编辑，仅缩放平移
-- 无 XML / 加载失败 → 降级为 FlowProgress 简化进度</div>
+- 无 XML / 加载失败 → 降级为简化进度</div>
     </el-dialog>
   </div>
 </div>

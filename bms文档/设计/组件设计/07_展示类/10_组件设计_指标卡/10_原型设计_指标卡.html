@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 指标卡（StatCard / useStat）</title>
+<title>原型 · 指标卡（数值 / 环比同比 / 迷你趋势）</title>
 <link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
 <style>
@@ -37,7 +37,7 @@
 <div class="proto-frame">
   <div class="proto-note">
     本原型对应当前目录 <a href="10_组件设计_指标卡.md">《组件设计 · 指标卡》</a>：演示数值与单位/前缀、环比同比（箭头与状态色、higherIsBetter 反转）、
-    迷你趋势图（复用 ECharts）、口径说明、数字滚动、加载/空态与点击跳转。
+    迷你趋势图（复用图表卡能力）、口径说明、数字滚动、加载/空态与点击跳转。
   </div>
 
   <div id="app">
@@ -89,7 +89,7 @@
   var { createApp, ref, reactive, onMounted, onBeforeUnmount, watch, nextTick } = Vue;
   var ElMessage = ElementPlus.ElMessage;
 
-  var Sparkline = {
+  var 迷你趋势组件 = {
     props: { data: Array, color: String },
     template: '<div ref="el" style="width:100%;height:100%"></div>',
     setup: function (props) {
@@ -151,7 +151,7 @@
       return { loading, log, stats, disp, dirClass, dirIcon, trendColor, go };
     }
   });
-  app.component('sparkline', Sparkline);
+  app.component('sparkline', 迷你趋势组件);
   app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
   app.mount('#app');
 </script>

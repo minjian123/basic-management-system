@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 表单框架壳（FormFrame）</title>
+<title>原型 · 表单框架壳</title>
 <link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
 <style>
@@ -29,7 +29,7 @@
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="02_组件设计_表单框架壳.md">《组件设计 · 表单框架壳》</a>：演示列表 Tab 固定 + 详情 Tab 多开（双击行开详情、已开激活不重复、关闭激活相邻）；继承 02 基础组件类 布局能力。
+    本原型对应当前目录 <a href="02_组件设计_表单框架壳.md">《组件设计 · 表单框架壳》</a>：演示列表 Tab 固定 + 详情 Tab 多开（双击行开详情、已开激活不重复、关闭激活相邻）；经继承链上的布局能力层与页签状态能力层取得语义。
   </div>
 
   <div id="app">
@@ -55,7 +55,7 @@
 
       <div class="dp-state" style="margin-top:12px">{{ log }}
 说明：列表 Tab 固定不可关；不同记录各自新开详情 Tab、已开则激活不重复新建；关闭详情激活相邻；脏数据切换/关闭前确认；
-组件名经 import.meta.glob 映射，未注册拦截提示；保存/删除后刷新列表。</div>
+组件名经注册映射解析，未注册拦截提示；保存/删除后刷新列表。</div>
     </div>
   </div>
 </div>

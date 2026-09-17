@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 树选择字段（TreeSelectField / DeptTreeSelect / MenuTreeSelect）</title>
+<title>原型 · 树选择字段（部门树 / 菜单树）</title>
 <link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
 <style>
@@ -32,7 +32,7 @@
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="04_组件设计_树选择字段.md">《组件设计 · 树选择字段》</a>：演示 <b>DeptTreeSelect</b> / <b>MenuTreeSelect</b>、
+    本原型对应当前目录 <a href="04_组件设计_树选择字段.md">《组件设计 · 树选择字段》</a>：演示 部门树 / 菜单树、
     单选/多选/只允许叶子、联想过滤、<b>排除自身防环</b>、只读路径回显、查询区「含下级」筛选。数据均为前端模拟。
   </div>
 
@@ -41,7 +41,7 @@
       <div class="dp-header">
         <div>
           <div class="dp-title">树选择字段 原型</div>
-          <div class="dp-sub">TreeSelectField · DeptTreeSelect · MenuTreeSelect · useTreeData</div>
+          <div class="dp-sub">通用树选择 · 部门树 · 菜单树 · 树数据</div>
         </div>
         <div class="dp-bar" style="margin-bottom:0">
           <el-switch v-model="readonly" active-text="只读态" inactive-text="编辑态" size="small"></el-switch>
@@ -52,35 +52,35 @@
         <!-- ① 部门树 -->
         <el-tab-pane label="① 部门树单选" name="dept">
           <el-form label-position="top" style="max-width:520px">
-            <el-form-item label="所属部门 DeptTreeSelect（单选，仅叶子可选）">
+            <el-form-item label="所属部门（单选，仅叶子可选）">
               <el-tree-select v-model="deptVal" :data="deptTree" :props="treeProps"
                 check-strictly node-key="id" :disabled="readonly"
                 :filter-node-method="filterNode" filterable clearable
                 :render-after-expand="false" style="width:100%"
                 placeholder="请选择部门"></el-tree-select>
             </el-form-item>
-            <el-form-item label="上级部门 DeptTreeSelect（排除自身与子树，防环）">
+            <el-form-item label="上级部门（排除自身与子树，防环）">
               <el-tree-select v-model="parentVal" :data="deptTreeExcluded" :props="treeProps"
                 check-strictly node-key="id" :disabled="readonly"
                 filterable clearable style="width:100%" placeholder="请选择上级部门"></el-tree-select>
             </el-form-item>
           </el-form>
 
-          <div class="ep-section">只读路径回显（useTreeData.pathOf）</div>
+          <div class="ep-section">只读路径回显（路径查找）</div>
           <el-descriptions :column="1" border size="small">
-            <el-descriptions-item label="所属部门 modelValue">{{ deptVal || 'null（显示 —）' }}</el-descriptions-item>
-            <el-descriptions-item label="所属部门 路径回显">{{ pathOf(deptVal) }}</el-descriptions-item>
-            <el-descriptions-item label="上级部门 路径回显">{{ pathOf(parentVal) }}</el-descriptions-item>
-            <el-descriptions-item label="已删除节点回退">{{ pathOf('deleted-node') }}</el-descriptions-item>
+            <el-descriptions-item label="所属部门 受控值">{{ deptVal || 'null（显示 —）' }}</el-descriptions-item>
+            <el-descriptions-item label="所属部门 路径回显">{{ nodePath(deptVal) }}</el-descriptions-item>
+            <el-descriptions-item label="上级部门 路径回显">{{ nodePath(parentVal) }}</el-descriptions-item>
+            <el-descriptions-item label="已删除节点回退">{{ nodePath('deleted-node') }}</el-descriptions-item>
           </el-descriptions>
           <el-alert type="info" :closable="false" show-icon style="margin-top:10px"
-            title="选上级时 excludeIds 排除自身与子树，避免形成环；节点已删除时回显回退 id。"></el-alert>
+            title="选上级时排除自身与子树，避免形成环；节点已删除时回显回退 id。"></el-alert>
         </el-tab-pane>
 
         <!-- ② 菜单树多选 -->
         <el-tab-pane label="② 菜单树多选" name="menu">
           <div class="dp-bar">
-            <span class="proto-hint">MenuTreeSelect：多选，picker 含目录/菜单/按钮，展示类型图标与权限码</span>
+            <span class="proto-hint">菜单树：多选，picker 含目录/菜单/按钮，展示类型图标与权限码</span>
           </div>
           <el-form label-position="top" style="max-width:560px">
             <el-form-item label="可访问菜单（多选，父节点可独立选）">
@@ -104,7 +104,7 @@
             </el-descriptions-item>
           </el-descriptions>
           <el-alert type="warning" :closable="false" show-icon style="margin-top:10px"
-            title="多选校验策略 checkStrategy：检查选中集合是否含父+子，避免数据权限重叠。"></el-alert>
+            title="多选校验策略：检查选中集合是否含父+子，避免数据权限重叠。"></el-alert>
         </el-tab-pane>
 
         <!-- ③ 查询区 -->
@@ -121,7 +121,7 @@
           </el-space>
           <div class="dp-metrics" style="margin-top:12px">
             <div class="dp-metric"><div class="v" style="font-size:12px">{{ filterParams }}</div><div class="k">提交参数</div></div>
-            <div class="dp-metric"><div class="v" style="font-size:13px">{{ pathOf(filterDept) }}</div><div class="k">部门路径回显</div></div>
+            <div class="dp-metric"><div class="v" style="font-size:13px">{{ nodePath(filterDept) }}</div><div class="k">部门路径回显</div></div>
             <div class="dp-metric"><div class="v" style="font-size:13px">page=1</div><div class="k">查询变化回第 1 页</div></div>
           </div>
         </el-tab-pane>
@@ -135,10 +135,10 @@
           <div class="dp-metrics">
             <div class="dp-metric"><div class="v">{{ lazyMode ? '按需' : '1 次' }}</div><div class="k">接口请求次数</div></div>
             <div class="dp-metric"><div class="v">{{ lazyMode ? 0 : treeNodeCount }}</div><div class="k">首屏加载节点数</div></div>
-            <div class="dp-metric"><div class="v">缓存 key：dept</div><div class="k">invalidate 精准失效</div></div>
+            <div class="dp-metric"><div class="v">按数据源</div><div class="k">缓存精准失效</div></div>
           </div>
           <el-alert type="info" :closable="false" show-icon
-            title="整树拉取后展平建 Map<id,node> 与路径表，O(1) 回显路径；增删改后 invalidate('dept') 清缓存。"></el-alert>
+            title="整树拉取后展平建节点索引与路径表，常数级回显路径；增删改后按数据源清缓存。"></el-alert>
         </el-tab-pane>
       </el-tabs>
     </div>
@@ -191,7 +191,7 @@
       })(deptTree.concat(menuTree));
       index['d111'] = index['d111'] || { name: '前端组' };
 
-      function pathOf(id) {
+      function nodePath(id) {
         if (!id) return '—';
         var found = null;
         function dfs(nodes, trail) {
@@ -226,7 +226,7 @@
 
       // ---- 菜单多选 ----
       var menuVal = ref(['m11', 'm12', 'm21']);
-      var menuCheckStrategy = ref('checkStrategy = all（允许父子并存）');
+      var menuCheckStrategy = ref('多选校验策略 = all（允许父子并存）');
       var menuCheck = computed(function () {
         var sel = menuVal.value || [];
         if (!sel.length) return { ok: false, msg: '未选择' };
@@ -255,7 +255,7 @@
 
       return {
         tab, readonly, treeProps, menuProps, deptTree, menuTree,
-        pathOf, nodeName, deptVal, parentVal, deptTreeExcluded, filterNode,
+        nodePath, nodeName, deptVal, parentVal, deptTreeExcluded, filterNode,
         menuVal, menuCheckStrategy, menuCheck,
         filterDept, includeChildren, filterParams, doSearch, doReset,
         lazyMode, treeNodeCount

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 图表卡（EChart / ChartCard / useChart / chartTheme）</title>
+<title>原型 · 图表卡（常用图表类型 / 数据集与卡片 / 令牌色板与主题 / 容器自适应）</title>
 <link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
 <style>
@@ -74,8 +74,8 @@
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="04_组件设计_图表卡.md">《组件设计 · 图表卡》</a>：演示 <b>EChart</b> 基础封装的常用图表类型与地图、
-    <b>ChartCard</b> 工作台卡片形态（卡头 / 刷新 / 详情 / 编辑态移除 / 空·加载·错误·数据集不可用·无权限降级）、<b>chartTheme</b> 令牌色板与深浅主题、
+    本原型对应当前目录 <a href="04_组件设计_图表卡.md">《组件设计 · 图表卡》</a>：演示 <b>基础图表封装</b>的常用图表类型与地图、
+    <b>图表卡</b>工作台卡片形态（卡头 / 刷新 / 详情 / 编辑态移除 / 空·加载·错误·数据集不可用·无权限降级）、<b>图表主题</b>令牌色板与深浅主题、
     以及容器 resize 自适应。颜色全部引用设计令牌变量（<span class="dp-code">--chart-color-1..8</span>），不硬编码通道。
   </div>
 
@@ -86,7 +86,7 @@
         <el-radio-button label="light">浅色</el-radio-button>
         <el-radio-button label="dark">深色</el-radio-button>
       </el-radio-group>
-      <span class="dp-hint">主题切换 → 重建 ECharts 实例；色板随令牌/租户品牌变化</span>
+      <span class="dp-hint">主题切换 → 重建图表实例；色板随令牌/租户品牌变化</span>
     </div>
 
     <el-tabs v-model="tab">
@@ -182,7 +182,7 @@
       <el-tab-pane label="④ 工作台卡片形态" name="cards">
         <div class="ep-page">
           <div class="dp-bar">
-            <span class="dp-hint">ChartCard：卡头（标题 / 视图切换 / 刷新 / 详情 / 编辑态移除）+ 内容区 + 脚注（数据集标注）；卡片尺寸由 gridstack 决定，图表随容器 resize 自适应。</span>
+            <span class="dp-hint">图表卡：卡头（标题 / 视图切换 / 刷新 / 详情 / 编辑态移除）+ 内容区 + 脚注（数据集标注）；卡片尺寸由 gridstack 决定，图表随容器 resize 自适应。</span>
             <el-switch v-model="editing" active-text="编辑态" size="small" style="margin-left:auto" />
           </div>
           <div class="dash-grid">
@@ -229,7 +229,7 @@
     try { echarts.registerMap('china', window.__BMS_CHINA_GEO__); } catch (e) { console.warn('registerMap 失败', e); }
   }
 
-  // ---------- 令牌色板（示意实现，真实实现为 src/utils/chartTheme.ts 读 CSS 变量） ----------
+  // ---------- 令牌色板（示意：读取设计令牌 CSS 变量） ----------
   var PAL = {
     light: { colors: ['#0969da', '#2da44e', '#d4a72c', '#cf222e', '#57606a', '#8250df', '#1b7c83', '#bc4c00'], text: '#57606a', axis: '#d0d7de', grid: '#eaeef2', tipBg: '#ffffff', tipText: '#1f2328', strong: '#1f2328' },
     dark:  { colors: ['#58a6ff', '#3fb950', '#d9a72c', '#f85149', '#8b949e', '#a371f7', '#39c5cf', '#e3893b'], text: '#8b949e', axis: '#30363d', grid: '#21262d', tipBg: '#161b22', tipText: '#c9d1d9', strong: '#c9d1d9' }
@@ -273,7 +273,7 @@
       legend: { top: 0, right: 0, icon: 'roundRect' }
     };
   }
-  // 由 chart_type + dataset 生成基础 option（对齐 EChart.vue 的 type + dataset 生成逻辑）
+  // 由图表类型 + 数据集生成基础配置（示意）
   function buildOption(type, theme, opts) {
     var p = PAL[theme]; opts = opts || {};
     var o = baseOpt(theme);
@@ -326,8 +326,8 @@
     return o;
   }
 
-  // ---------- 基础封装 EChart.vue 示意 ----------
-  var EChartBox = {
+  // ---------- 基础图表封装示意 ----------
+  var 图表画布 = {
     props: { option: { type: Object, default: null }, height: { default: 200 }, theme: { default: 'light' },
              loading: Boolean, empty: Boolean, error: { type: String, default: null } },
     emits: ['retry', 'ready'],
@@ -360,8 +360,8 @@
     }
   };
 
-  // ---------- 工作台卡片 ChartCard.vue 示意 ----------
-  var ChartCard = {
+  // ---------- 工作台图表卡示意 ----------
+  var 图表卡件 = {
     props: { title: String, subtitle: String, chartType: { default: 'line' }, state: { default: 'normal' },
              theme: { default: 'light' }, error: String, dataSource: String, editable: Boolean,
              showViewToggle: Boolean, height: { default: 200 } },
@@ -429,8 +429,8 @@
 
       var titleMap = {}; COMMON.concat([{ type: 'map', label: '地图 Map' }]).forEach(function (t) { titleMap[t.type] = t.label; });
 
-      function optionOf(type, useSwitches) {
-        return buildOption(type, theme.value, useSwitches ? { showLegend: showLegend.value, smooth: smooth.value } : {});
+      function optionOf(type, withToggles) {
+        return buildOption(type, theme.value, withToggles ? { showLegend: showLegend.value, smooth: smooth.value } : {});
       }
       function titleOf(type) { return titleMap[type] || type; }
       function toast(m) { ElMessage.info(m); }
@@ -469,8 +469,8 @@
                optionOf: optionOf, titleOf: titleOf, toast: toast, reload: reload, cards: cards, reloadCard: reloadCard, removeCard: removeCard, tableRows: tableRows };
     }
   });
-  app.component('echart-box', EChartBox);
-  app.component('chart-card', ChartCard);
+  app.component('echart-box', 图表画布);
+  app.component('chart-card', 图表卡件);
   app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
   app.mount('#app');
 </script>

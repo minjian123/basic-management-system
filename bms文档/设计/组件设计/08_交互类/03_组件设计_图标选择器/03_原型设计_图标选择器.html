@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 图标选择器（IconPicker / IconDisplay / IconLibrary / iconRegistry）</title>
+<title>原型 · 图标选择器</title>
 <link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
 <style>
@@ -40,8 +40,8 @@
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="03_组件设计_图标选择器.md">《组件设计 · 图标选择器》</a>：演示 <b>IconPicker</b> 搜索/分类/网格/最近使用/已选预览与清除、
-    <b>IconDisplay</b> 多来源解析与降级、<b>IconLibrary</b> 清单浏览与自定义图标管理（上传 SVG、引用检查）；图标取自 <span class="dp-code">@element-plus/icons-vue</span>（离线 vendor）。
+    本原型对应当前目录 <a href="03_组件设计_图标选择器.md">《组件设计 · 图标选择器》</a>：演示<b>图标选择器</b>搜索/分类/网格/最近使用/已选预览与清除、
+    <b>只读渲染器</b>多来源解析与降级、<b>图标清单管理</b>浏览与自定义图标管理（上传 SVG、引用检查）；图标取自离线 vendor 图标集。
   </div>
 
   <div id="app">
@@ -51,13 +51,13 @@
         <div class="ep-page">
           <div class="dp-bar">
             <span>已选：</span>
-            <icon-display :name="form.icon" :size="18" />
+            <icon-viewer :name="form.icon" :size="18" />
             <span class="dp-code">{{ form.icon || '（未选）' }}</span>
             <span class="dp-hint">点击输入框打开选择器；支持搜索、分类、最近使用、清除</span>
           </div>
           <div style="max-width:340px">
             <div style="font-size:12px;color:#57606a;margin-bottom:4px">菜单图标（label 上方）</div>
-            <icon-picker v-model="form.icon" />
+            <icon-chooser v-model="form.icon" />
           </div>
           <div class="dp-state" style="margin-top:12px">{{ pickerLog }}</div>
         </div>
@@ -68,25 +68,25 @@
         <div class="ep-page">
           <div class="ep-section">菜单项（16px）</div>
           <div class="demo-menu">
-            <div class="mi"><icon-display name="el:HomeFilled" :size="16" /> 工作台</div>
-            <div class="mi"><icon-display name="el:User" :size="16" /> 用户管理</div>
-            <div class="mi"><icon-display name="biz:purchase-order" :size="16" /> 采购申请 <span class="src-tag biz">biz</span></div>
-            <div class="mi"><icon-display name="custom:1024" :size="16" /> 部门徽标 <span class="src-tag custom">custom</span></div>
-            <div class="mi"><icon-display name="el:NotExistIcon" :size="16" /> 未知图标（降级问号）</div>
+            <div class="mi"><icon-viewer name="el:HomeFilled" :size="16" /> 工作台</div>
+            <div class="mi"><icon-viewer name="el:User" :size="16" /> 用户管理</div>
+            <div class="mi"><icon-viewer name="biz:purchase-order" :size="16" /> 采购申请 <span class="src-tag biz">biz</span></div>
+            <div class="mi"><icon-viewer name="custom:1024" :size="16" /> 部门徽标 <span class="src-tag custom">custom</span></div>
+            <div class="mi"><icon-viewer name="el:NotExistIcon" :size="16" /> 未知图标（降级问号）</div>
           </div>
 
           <div class="ep-section">按钮图标与卡片（尺寸/颜色随场景）</div>
           <div class="dp-bar">
-            <el-button type="primary" size="small"><icon-display name="el:Plus" :size="16" style="margin-right:4px" /> 新增</el-button>
-            <el-button size="small"><icon-display name="el:Download" :size="16" style="margin-right:4px" /> 导出</el-button>
-            <el-button size="small"><icon-display name="el:Refresh" :size="16" :spin="spinning" style="margin-right:4px" /> 刷新</el-button>
+            <el-button type="primary" size="small"><icon-viewer name="el:Plus" :size="16" style="margin-right:4px" /> 新增</el-button>
+            <el-button size="small"><icon-viewer name="el:Download" :size="16" style="margin-right:4px" /> 导出</el-button>
+            <el-button size="small"><icon-viewer name="el:Refresh" :size="16" :spin="spinning" style="margin-right:4px" /> 刷新</el-button>
             <el-switch v-model="spinning" size="small" active-text="spin" />
           </div>
           <div class="demo-cards">
-            <div class="demo-card"><icon-display name="el:Bell" :size="20" color="var(--color-primary)" /><div style="margin-top:6px;font-size:13px">通知 3</div></div>
-            <div class="demo-card"><icon-display name="el:List" :size="20" color="var(--color-info)" /><div style="margin-top:6px;font-size:13px">待办 4</div></div>
+            <div class="demo-card"><icon-viewer name="el:Bell" :size="20" color="var(--color-primary)" /><div style="margin-top:6px;font-size:13px">通知 3</div></div>
+            <div class="demo-card"><icon-viewer name="el:List" :size="20" color="var(--color-info)" /><div style="margin-top:6px;font-size:13px">待办 4</div></div>
           </div>
-          <div class="dp-state" style="margin-top:12px">解析：el: → ElementPlusIconsVue 组件；biz: → manifest 懒加载 SVG；custom: → 接口 SVG；未知 → fallback 问号 + 开发告警</div>
+          <div class="dp-state" style="margin-top:12px">解析：el: → 官方图标集组件；biz: → 业务图标清单按需加载 SVG；custom: → 接口 SVG；未知 → 兜底问号 + 开发告警</div>
         </div>
       </el-tab-pane>
 
@@ -116,7 +116,7 @@
           <template v-else>
             <el-table :data="filteredCustom" size="small" border>
               <el-table-column label="预览" width="70">
-                <template #default="{ row }"><icon-display :name="row.key" :size="18" /></template>
+                <template #default="{ row }"><icon-viewer :name="row.key" :size="18" /></template>
               </el-table-column>
               <el-table-column prop="key" label="icon key" width="150" />
               <el-table-column prop="name" label="名称" />
@@ -158,7 +158,7 @@
           </el-select>
         </el-form-item>
         <el-form-item label="预览">
-          <icon-display :name="customForm.key || 'el:Picture'" :size="22" />
+          <icon-viewer :name="customForm.key || 'el:Picture'" :size="22" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -190,7 +190,7 @@
   var BIZ = ['biz:purchase-order', 'biz:receipt', 'biz:expense', 'biz:contract'];
   var BIZ_FALLBACK = { 'biz:purchase-order': 'ShoppingCart', 'biz:receipt': 'Tickets', 'biz:expense': 'Wallet', 'biz:contract': 'Document' };
 
-  // 自定义图标清单（模块级，供 IconDisplay 与清单页共享）
+  // 自定义图标清单（模块级，供只读渲染器与清单页共享）
   var customList = ref([
     { key: 'custom:1024', name: '部门徽标', category: '业务', status: 'enabled', refs: 2, fallback: 'OfficeBuilding' },
     { key: 'custom:1025', name: '项目看板', category: '业务', status: 'enabled', refs: 0, fallback: 'Grid' },
@@ -199,8 +199,8 @@
 
   function elComp(name) { return ElementPlusIconsVue[name] || ElementPlusIconsVue.QuestionFilled; }
 
-  // IconDisplay：只读渲染器
-  var IconDisplay = {
+  // 只读渲染器（演示包装）
+  var IconViewer = {
     props: { name: { type: String, default: null }, size: { default: 16 }, color: { type: String, default: null }, spin: Boolean },
     computed: {
       resolved: function () {
@@ -218,8 +218,8 @@
     template: '<component :is="comp" :style="styleObj" />'
   };
 
-  // IconPicker：选择器
-  var IconPicker = {
+  // 图标选择器（演示包装）
+  var IconChooser = {
     props: { modelValue: { type: String, default: null } },
     emits: ['update:modelValue', 'change'],
     data: function () { return { visible: false, keyword: '', cat: '全部', recent: ['el:Setting', 'el:User', 'el:Bell'] }; },
@@ -347,8 +347,8 @@
       };
     }
   });
-  app.component('icon-display', IconDisplay);
-  app.component('icon-picker', IconPicker);
+  app.component('icon-viewer', IconViewer);
+  app.component('icon-chooser', IconChooser);
   app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
   app.mount('#app');
 </script>

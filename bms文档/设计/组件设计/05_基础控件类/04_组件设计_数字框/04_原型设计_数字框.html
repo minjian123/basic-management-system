@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 数字框（NumberInput）</title>
+<title>原型 · 数字框</title>
 <link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
 <style>
@@ -25,7 +25,7 @@
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="04_组件设计_数字框.md">《组件设计 · 数字框》</a>：演示整数/小数、精度、上下限、步进、千分位显示与空值三态（<span class="dp-code">null</span> 与 <span class="dp-code">0</span> 区分）；继承 02 基础组件类 输入域基类。
+    本原型对应当前目录 <a href="04_组件设计_数字框.md">《组件设计 · 数字框》</a>：演示整数/小数、精度、上下限、步进、千分位显示与空值三态（<span class="dp-code">null</span> 与 <span class="dp-code">0</span> 区分）；继承基础组件类·输入域基类。
   </div>
 
   <div id="app">
@@ -48,8 +48,8 @@
 
       <div class="dp-state">值 n = {{ JSON.stringify(n) }}（{{ n === null ? '未设置/空' : (n === 0 ? '已填 0（非空）' : '已填') }}）　精度 = {{ precision }}
 千分位显示 = {{ thousands ? fmt : '关' }}（仅显示层，存储为数值）
-说明：空串归一 null；precision 四舍五入；min/max 越界钳制或校验；非数值拦截；
-金额/百分比语义见 04 字段类 03 数值与金额字段（继承本控件）；继承链经 输入域基类。</div>
+说明：空串归一统一空值；精度四舍五入；上下限越界钳制或校验；非数值拦截；
+金额/百分比语义见字段类「数值与金额字段」（继承本控件）；继承链：数字框 → 输入域（域基类层）→ 组件根 → 根系。</div>
     </div>
   </div>
 </div>

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 穿梭框（TransferField / useTransfer）</title>
+<title>原型 · 穿梭框（双列表 / 搜索 / 分组 / 异步候选）</title>
 <link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
 <style>
@@ -25,14 +25,14 @@
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="09_组件设计_穿梭框.md">《组件设计 · 穿梭框》</a>：演示 <b>TransferField</b> 双列表穿梭、搜索、全选、上限、异步补充候选、
-    只读纯文本回显、禁用态与值失效标记。基于 Element Plus <span class="dp-code">el-transfer</span> 定制。
+    本原型对应当前目录 <a href="09_组件设计_穿梭框.md">《组件设计 · 穿梭框》</a>：演示 <b>穿梭框字段</b>双列表穿梭、搜索、全选、上限、异步补充候选、
+    只读纯文本回显、禁用态与值失效标记。基于基础穿梭控件定制。
   </div>
 
   <div id="app">
     <div class="ep-page">
       <div class="dp-bar">
-        <el-switch v-model="disabled" size="small" active-text="disabled（字段不可编辑）" />
+        <el-switch v-model="disabled" size="small" active-text="禁用（字段不可编辑）" />
         <el-switch v-model="readonlyText" size="small" active-text="只读纯文本回显" />
         <el-switch v-model="filterable" size="small" active-text="可搜索" />
         <span>上限：</span>
@@ -86,7 +86,7 @@
       var filterable = ref(true);
       var max = ref(3);
       var value = ref([1, 3]);
-      var log = ref('左候选 → 穿梭 → 右已选；受控 modelValue 为 id 列表');
+      var log = ref('左候选 → 穿梭 → 右已选；受控值为标识列表');
 
       var options = ref([
         { key: 1, label: '张三（研发中心）' }, { key: 2, label: '李四（财务部）' }, { key: 3, label: '王五（销售部）' },
@@ -107,7 +107,7 @@
         var add = [];
         for (var i = 0; i < 3; i++) { seq += 1; add.push({ key: seq, label: '候选' + seq + '（异步分页）' }); }
         options.value = options.value.concat(add);
-        log.value = 'dataSource.load({ keyword, page }) → 异步补充 3 个候选（el-transfer 大数据分页/虚拟滚动）';
+        log.value = '异步候选源（按关键字/分页）→ 异步补充 3 个候选（大数据走分页/虚拟滚动）';
         ElMessage.success('已补充候选');
       }
       function injectStale() { var k = 999; if (!staleKeys.value.includes(k)) { staleKeys.value.push(k); value.value = value.value.concat([k]); } log.value = '已选项在候选中不存在（停用/删除）→ 保留展示并标记「已失效」#' + k + '，提交由后端校验'; }

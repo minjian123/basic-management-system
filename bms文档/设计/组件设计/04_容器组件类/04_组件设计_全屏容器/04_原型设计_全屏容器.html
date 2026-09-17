@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 全屏容器（FullscreenContainer）</title>
+<title>原型 · 全屏容器</title>
 <link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
 <style>
@@ -25,7 +25,7 @@
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="04_组件设计_全屏容器.md">《组件设计 · 全屏容器》</a>：演示进入/退出全屏（Fullscreen API，按 Esc 退出）、状态同步与内容自适应；继承 02 基础组件类 容器能力。
+    本原型对应当前目录 <a href="04_组件设计_全屏容器.md">《组件设计 · 全屏容器》</a>：演示进入/退出全屏（按 Esc 退出）、状态同步与内容自适应；继承容器能力（继承链上的一层）。
   </div>
 
   <div id="app">
@@ -39,9 +39,9 @@
         <div style="text-align:center">图表/报表/大屏内容区<br><br>全屏状态：{{ full ? '全屏中' : '非全屏' }}</div>
       </div>
 
-      <div class="dp-state" style="margin-top:12px">full={{ full }}　target=self（可 self/document/元素）
-说明：requestFullscreen 进入；监听 fullscreenchange 同步状态；Esc 退出；失败（浏览器限制/iframe）降级容器内铺满；
-全屏内需重算图表尺寸（resize）；移动端 iOS 元素全屏支持有限。</div>
+      <div class="dp-state" style="margin-top:12px">全屏={{ full }}　目标=容器自身（可为 容器自身/整个文档/指定元素）
+说明：请求浏览器全屏进入；监听全屏状态变化同步；Esc 退出；失败（浏览器限制/iframe）降级容器内铺满；
+全屏内需重算图表尺寸；移动端 iOS 元素全屏支持有限。</div>
     </div>
   </div>
 </div>

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 能力机制（BaseCapability / capabilities/manifest.ts）</title>
+<title>原型 · 能力机制</title>
 <link rel="stylesheet" href="../../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../../原型设计/资源/原型样式.css">
 <style>
@@ -28,14 +28,14 @@
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="03_组件设计_能力机制.md">《组件设计 · 能力机制》</a>：演示能力声明（<span class="dp-code">key</span> / <span class="dp-code">depends</span> / <span class="dp-code">describe</span>）、依赖单向校验与非法依赖的开发态告警。
+    本原型对应当前目录 <a href="03_组件设计_能力机制.md">《组件设计 · 能力机制》</a>：演示能力声明（<span class="dp-code">能力标识</span> / <span class="dp-code">依赖声明</span> / <span class="dp-code">元信息说明</span>）、依赖单向校验与非法依赖的开发态告警。
   </div>
 
   <div id="app">
     <div class="ep-page">
       <div class="dp-bar">
         <span class="dp-hint">校验场景：</span>
-        <el-select v-model="scene" size="small" style="width:260px">
+        <el-select v-model="scene" size="small" style="width:300px">
           <el-option v-for="s in scenes" :key="s.value" :label="s.label" :value="s.value" />
         </el-select>
         <el-button type="primary" size="small" @click="check">运行依赖校验</el-button>
@@ -45,7 +45,7 @@
       <div class="lst">
         <div class="it" v-for="f in frags" :key="f.key">
           <span class="k">{{ f.key }}</span>
-          <span class="d">depends: [{{ f.depends.join(', ') }}]</span>
+          <span class="d">依赖: [{{ f.depends.join(', ') }}]</span>
           <span class="d" style="margin-left:auto">{{ f.desc }}</span>
         </div>
       </div>
@@ -54,7 +54,7 @@
 {{ result }}
 告警列表
 {{ warns.length ? warns.map(function (w) { return '· ' + w; }).join('\n') : '（无）' }}
-说明：能力声明经 BaseCapability 子类 + capabilities/manifest.ts 登记；开发态校验、生产态零开销；
+说明：能力声明经能力机制统一登记（能力标识 + 依赖 + 元信息说明）；开发态校验、生产态零开销；
 维护「已登记能力表」为唯一合法依赖源（对齐《前端基类清单》）。</div>
     </div>
   </div>
@@ -67,35 +67,36 @@
   var { createApp, ref, computed } = Vue;
   var app = createApp({
     setup: function () {
-      var REGISTERED = ['interactive', 'input-control', 'display-control', 'container', 'value', 'field-shell', 'field-perm', 'field', 'option-source', 'tree-data'];
+      var REGISTERED = ['交互', '输入形态', '展示形态', '容器', '值语义', '字段壳', '字段权限', '字段编排', '选项源', '树数据'];
+      var LAYER = { '交互': 1, '输入形态': 1, '展示形态': 1, '容器': 1, '值语义': 1, '字段壳': 1, '字段权限': 1, '选项源': 1, '树数据': 1, '字段编排': 2, '图例': 2 };
       var scenes = [
-        { value: 'ok', label: '合法：field → value + field-shell + field-perm' },
-        { value: 'reverse', label: '反向依赖：field-shell → field（下层依赖上层）' },
-        { value: 'cycle', label: '循环依赖：value ↔ field' },
-        { value: 'unknown', label: '未登记能力：tree-data → chart-legend' }
+        { value: 'ok', label: '合法：字段编排 → 值语义 + 字段壳 + 字段权限' },
+        { value: 'reverse', label: '反向依赖：字段壳 → 字段编排（下层依赖上层）' },
+        { value: 'cycle', label: '循环依赖：值语义 ↔ 字段编排' },
+        { value: 'unknown', label: '未登记能力：树数据 → 图例' }
       ];
       var scene = ref('ok');
       var result = ref('（未运行）');
       var warns = ref([]);
       var SCENE_FRAGS = {
         ok: [
-          { key: 'value', depends: [], desc: '值语义（无依赖）' },
-          { key: 'field-shell', depends: [], desc: '字段壳' },
-          { key: 'field-perm', depends: [], desc: '字段权限' },
-          { key: 'field', depends: ['value', 'field-shell', 'field-perm'], desc: '字段编排' }
+          { key: '值语义', depends: [], desc: '值语义（无依赖）' },
+          { key: '字段壳', depends: [], desc: '字段壳' },
+          { key: '字段权限', depends: [], desc: '字段权限' },
+          { key: '字段编排', depends: ['值语义', '字段壳', '字段权限'], desc: '字段编排' }
         ],
         reverse: [
-          { key: 'value', depends: [], desc: '值语义' },
-          { key: 'field', depends: ['value'], desc: '字段编排' },
-          { key: 'field-shell', depends: ['field'], desc: '字段壳 ← 非法' }
+          { key: '值语义', depends: [], desc: '值语义' },
+          { key: '字段编排', depends: ['值语义'], desc: '字段编排' },
+          { key: '字段壳', depends: ['字段编排'], desc: '字段壳 ← 非法' }
         ],
         cycle: [
-          { key: 'value', depends: ['field'], desc: '值语义 ← 非法' },
-          { key: 'field', depends: ['value'], desc: '字段编排' }
+          { key: '值语义', depends: ['字段编排'], desc: '值语义 ← 非法' },
+          { key: '字段编排', depends: ['值语义'], desc: '字段编排' }
         ],
         unknown: [
-          { key: 'tree-data', depends: [], desc: '树数据' },
-          { key: 'chart-legend', depends: ['tree-data'], desc: '图例 ← 未登记' }
+          { key: '树数据', depends: [], desc: '树数据' },
+          { key: '图例', depends: ['树数据'], desc: '图例 ← 未登记' }
         ]
       };
       var frags = computed(function () { return SCENE_FRAGS[scene.value]; });
@@ -103,17 +104,20 @@
         var map = {};
         frags.value.forEach(function (f) { map[f.key] = f; });
         var w = [];
+        var seenCycle = {};
         frags.value.forEach(function (f) {
+          if (REGISTERED.indexOf(f.key) < 0) { w.push(f.key + '：能力未在《前端基类清单》登记'); return; }
           f.depends.forEach(function (d) {
             if (REGISTERED.indexOf(d) < 0) { w.push(f.key + ' → ' + d + '：依赖未登记能力'); return; }
-            if (!map[d]) return;
-            var dep = map[d];
-            if (dep.depends.indexOf(f.key) >= 0) { w.push(f.key + ' ↔ ' + d + '：循环依赖'); }
+            if (map[d] && map[d].depends.indexOf(f.key) >= 0) {
+              var pair = [f.key, d].sort().join('↔');
+              if (!seenCycle[pair]) { seenCycle[pair] = 1; w.push(f.key + ' ↔ ' + d + '：循环依赖'); }
+              return;
+            }
+            if (LAYER[d] !== undefined && LAYER[f.key] !== undefined && LAYER[d] > LAYER[f.key]) {
+              w.push(f.key + ' → ' + d + '：反向依赖（下层不得依赖上层）');
+            }
           });
-          if (f.depends.length === 0 && f.key === 'field-shell' && map['field'] && map['field'].depends.indexOf(f.key) >= 0) {
-            w.push(f.key + ' → field：反向依赖（下层不得依赖上层）');
-          }
-          if (f.key === 'chart-legend') { w.push(f.key + '：能力未在《前端基类清单》登记'); }
         });
         warns.value = w;
         result.value = w.length ? '校验未通过：' + w.length + ' 项告警（开发态提示，不阻断渲染）' : '校验通过：依赖方向单向、均已登记';

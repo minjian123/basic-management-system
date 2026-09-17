@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 侧边菜单（SideMenu / MenuNode）</title>
+<title>原型 · 侧边菜单（动态菜单树 / 折叠 / 搜索 / 徽标）</title>
 <link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
 <style>
@@ -33,7 +33,7 @@
 <div class="proto-frame">
   <div class="proto-note">
     本原型对应当前目录 <a href="13_组件设计_侧边菜单.md">《组件设计 · 侧边菜单》</a>：演示动态菜单树渲染、折叠图标态、子菜单展开、当前路由高亮、菜单搜索、徽标与隐藏项。
-    图标复用 <span class="dp-code">IconDisplay</span>（Element Plus 官方图标，离线 vendor）。
+    图标按菜单图标标识渲染（原型用离线 vendor 图标）。
   </div>
 
   <div id="app">
@@ -99,7 +99,7 @@
       var uniqueOpen = ref(false);
       var kw = ref('');
       var activePath = ref('/user');
-      var log = ref('菜单树按权限下发；图标经 IconDisplay 渲染；hidden 不上菜单；当前高亮 + 父级自动展开');
+      var log = ref('菜单树按权限下发；图标按图标标识渲染；hidden 不上菜单；当前高亮 + 父级自动展开');
 
       var menus = ref([
         { name: '系统管理', icon: 'el:Setting', children: [

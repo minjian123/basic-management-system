@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 表单容器能力（BaseFormContainer）</title>
+<title>原型 · 表单容器能力</title>
 <link rel="stylesheet" href="../../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../../原型设计/资源/原型样式.css">
 <style>
@@ -24,7 +24,7 @@
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="05_组件设计_表单容器能力.md">《组件设计 · 表单容器能力》</a>：演示 label 位置/宽度、栅格列数、规则汇总、validate/reset/clearValidate、错误汇总与滚动定位、只读态。
+    本原型对应当前目录 <a href="05_组件设计_表单容器能力.md">《组件设计 · 表单容器能力》</a>：演示标签位置/宽度、栅格列数、规则汇总、校验/重置/清除校验、错误汇总与滚动定位、只读态。
   </div>
 
   <div id="app">
@@ -33,9 +33,9 @@
         <el-radio-group v-model="labelPosition" size="small"><el-radio-button label="right">标签右</el-radio-button><el-radio-button label="top">标签上</el-radio-button></el-radio-group>
         <el-radio-group v-model="columns" size="small"><el-radio-button :label="1">1 列</el-radio-button><el-radio-button :label="2">2 列</el-radio-button><el-radio-button :label="3">3 列</el-radio-button></el-radio-group>
         <el-checkbox v-model="readonly" size="small">只读态</el-checkbox>
-        <el-button size="small" @click="doValidate">validate()</el-button>
-        <el-button size="small" @click="doReset">resetFields()</el-button>
-        <el-button size="small" @click="doClear">clearValidate()</el-button>
+        <el-button size="small" @click="doValidate">校验</el-button>
+        <el-button size="small" @click="doReset">重置</el-button>
+        <el-button size="small" @click="doClear">清除校验</el-button>
       </div>
 
       <el-form ref="formRef" :model="model" :rules="rules" :label-position="labelPosition" label-width="90px" :disabled="readonly">
@@ -46,8 +46,8 @@
         </div>
       </el-form>
 
-      <div class="dp-state" style="margin-top:12px">规则汇总自字段/元数据；validate 汇总结果并按失败字段滚动定位；clearValidate 清错误；resetFields 复位初始值
-只读态：全字段只读（不区分字段 editable，字段权限见 字段权限能力）
+      <div class="dp-state" style="margin-top:12px">规则汇总自字段/元数据；校验汇总结果并按失败字段滚动定位；清除校验清错误；重置复位初始值
+只读态：全字段只读（不区分字段可编辑性，字段权限见 字段权限能力）
 {{ log }}</div>
     </div>
   </div>
@@ -67,9 +67,9 @@
       var rules = { name: [{ required: true, message: '请输入用户名称' }], email: [{ type: 'email', message: '邮箱格式不正确' }] };
       var formRef = ref(null);
       var log = ref('就绪');
-      function doValidate() { formRef.value.validate(function (ok, fields) { if (ok) { log.value = 'validate() 通过 → 提交'; ElMessage.success('校验通过'); } else { log.value = 'validate() 失败字段：' + Object.keys(fields).join(', ') + ' → 滚动定位到首个错误'; } }); }
-      function doReset() { formRef.value.resetFields(); Object.assign(model, INIT); log.value = 'resetFields() → 复位初始值'; }
-      function doClear() { formRef.value.clearValidate(); log.value = 'clearValidate() → 清除错误提示'; }
+      function doValidate() { formRef.value.validate(function (ok, fields) { if (ok) { log.value = '校验通过 → 提交'; ElMessage.success('校验通过'); } else { log.value = '校验失败字段：' + Object.keys(fields).join(', ') + ' → 滚动定位到首个错误'; } }); }
+      function doReset() { formRef.value.resetFields(); Object.assign(model, INIT); log.value = '重置 → 复位初始值'; }
+      function doClear() { formRef.value.clearValidate(); log.value = '清除校验 → 清除错误提示'; }
       return { labelPosition: labelPosition, columns: columns, readonly: readonly, model: model, rules: rules, formRef: formRef, log: log, doValidate: doValidate, doReset: doReset, doClear: doClear };
     }
   });

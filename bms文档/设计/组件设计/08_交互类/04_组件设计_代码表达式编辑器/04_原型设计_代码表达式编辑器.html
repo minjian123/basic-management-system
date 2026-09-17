@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 代码表达式编辑器（CodeEditor / SqlEditor / ExpressionEditor / CronEditor / CodeViewer）</title>
+<title>原型 · 代码/表达式编辑器</title>
 <link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../原型设计/资源/vendor/prism.min.css">
 <link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
@@ -35,9 +35,8 @@
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="04_组件设计_代码表达式编辑器.md">《组件设计 · 代码表达式编辑器》</a>：演示 <b>SqlEditor</b> 高亮/格式化/校验/测试执行、
-    <b>ExpressionEditor</b> 变量插入与校验、<b>CronEditor</b> 段编辑与人类可读描述、<b>CodeViewer</b> 只读高亮（PrismJS，离线 vendor）。
-    真实实现内核实为 <span class="dp-code">CodeMirror 6</span>（按需懒加载），原型用 PrismJS 叠加层模拟编辑视觉。
+    本原型对应当前目录 <a href="04_组件设计_代码表达式编辑器.md">《组件设计 · 代码/表达式编辑器》</a>：演示 SQL 编辑器高亮/格式化/校验/测试执行、
+    表达式编辑器变量插入与校验、cron 编辑器段编辑与人类可读描述、只读代码/JSON 高亮（离线 vendor 高亮）。
   </div>
 
   <div id="app">
@@ -51,7 +50,7 @@
             <el-button size="small" type="primary" :loading="sqlRunning" @click="sqlTest">测试执行（只读从库）</el-button>
             <span class="dp-hint">仅 SELECT 白名单；校验与执行以服务端为准（90002 / 90003）</span>
           </div>
-          <code-editor v-model="sql" language="sql" :height="200" />
+          <editor-area v-model="sql" language="sql" :height="200" />
           <div v-if="sqlError" style="color:#cf222e;font-size:13px;margin-top:8px">✕ {{ sqlError }}</div>
           <div v-if="sqlFields.length" class="result-table">
             <div class="dp-hint" style="margin-bottom:4px">字段清单（fields 声明）</div>
@@ -74,7 +73,7 @@
             <span class="dp-hint">表达式 = 字段 + 运算符 + 预置变量（数据范围 / 工作流条件同源）</span>
             <el-button size="small" style="margin-left:auto" @click="exprValidate">校验</el-button>
           </div>
-          <code-editor v-model="expr" language="javascript" :height="120" />
+          <editor-area v-model="expr" language="javascript" :height="120" />
           <div class="dp-bar" style="margin-top:12px">
             <span class="dp-hint">预置变量：</span>
             <el-tag v-for="v in vars" :key="v" size="small" class="chip" @click="insert(v)">{{ v }}</el-tag>
@@ -123,9 +122,9 @@
       <el-tab-pane label="④ 只读代码高亮" name="viewer">
         <div class="ep-page">
           <div class="ep-section">Webhook 载荷（JSON，只读高亮）</div>
-          <code-viewer :content="jsonText" language="json" max-height="220" />
+          <source-viewer :content="jsonText" language="json" max-height="220" />
           <div class="ep-section">任务日志（text）</div>
-          <code-viewer :content="logText" language="text" max-height="180" />
+          <source-viewer :content="logText" language="text" max-height="180" />
         </div>
       </el-tab-pane>
     </el-tabs>
@@ -156,8 +155,8 @@
     return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
 
-  // CodeEditor：PrismJS 叠加层模拟编辑（真实实现用 CodeMirror 6）
-  var CodeEditor = {
+  // 编辑区（演示包装）：高亮叠加层模拟编辑交互
+  var EditorArea = {
     props: { modelValue: { type: String, default: '' }, language: { default: 'text' }, height: { default: 200 } },
     emits: ['update:modelValue'],
     computed: { html: function () { return highlight(this.modelValue, this.language); } },
@@ -172,8 +171,8 @@
       '</div>'
   };
 
-  // CodeViewer：只读高亮
-  var CodeViewer = {
+  // 源码查看器（演示包装）：只读高亮
+  var SourceViewer = {
     props: { content: { type: String, default: '' }, language: { default: 'text' }, maxHeight: { default: 240 }, copyable: { type: Boolean, default: true } },
     computed: {
       html: function () { return highlight(this.content, this.language); },
@@ -302,8 +301,8 @@
       };
     }
   });
-  app.component('code-editor', CodeEditor);
-  app.component('code-viewer', CodeViewer);
+  app.component('editor-area', EditorArea);
+  app.component('source-viewer', SourceViewer);
   app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
   app.mount('#app');
 </script>
