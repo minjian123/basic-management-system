@@ -198,7 +198,7 @@ refs:
 （更新脚本位于 bms 仓库 scripts/tools/dsh/dsh-update.sh，桌面项 Exec 直接指向仓库路径）
 ```
 
-`dsh-update.sh` **幂等更新流程**：先比对版本——dsh 主体比对本地 HEAD 与 origin/master，插件（dsh-free-vision、dsh-undo-savepoint）比对已装版本与 npm 最新；**全部一致且 web 在跑 → 提示退出（不动 web）；web 未跑 → 直接启动**；任一落后才停 web → 只更新落后项（`git pull --ff-only` / `pnpm install` / `pnpm run build`、插件 `up --latest`）→ 重启。网络查询失败（离线/慢）时跳过对应项、**不误停 web**；更新命令均带超时（pull 5min / install 10min / build 15min / up 5min），任何失败路径由 EXIT 兜底把 web 拉起，不会出现"停了起不来"。支持 `--force`（跳过版本检查强制全量更新）、`--no-restart`（只更新不重启）。更新前的 profile 配置/插件树已被 dsh-undo-savepoint 自动快照，出错可 undo 回滚（见 8.2）。
+`dsh-update.sh` **幂等更新流程**：先比对版本——dsh 主体比对本地 HEAD 与 origin/master，插件（dsh-free-vision、dsh-undo-savepoint）比对已装版本与 npm 最新（查询在 profile 目录内执行，与安装同源同注册表）；**全部一致且 web 在跑 → 提示退出（不动 web）；web 未跑 → 直接启动**；任一落后才停 web → 只更新落后项（`git pull --ff-only` / `pnpm install` / `pnpm run build`、插件 `up --latest` + `rebuild` 重跑插件构建脚本（编译）并核对更新后版本）→ 重启。网络查询失败（离线/慢）时跳过对应项、**不误停 web**；更新命令均带超时（pull 5min / install 10min / build 15min / up 5min / rebuild 5min），任何失败路径由 EXIT 兜底把 web 拉起，不会出现"停了起不来"。支持 `--force`（跳过版本检查强制全量更新，插件同样走更新+重编译）、`--no-restart`（只更新不重启）。更新前的 profile 配置/插件树已被 dsh-undo-savepoint 自动快照，出错可 undo 回滚（见 8.2）。
 
 ## 7. 维护与排障 <a id="maintain"></a>
 
@@ -209,7 +209,7 @@ cd /home/minjian/develop/deepseek-harness
 pnpm run typecheck    # 类型检查
 pnpm run lint         # oxlint
 pnpm test             # vitest
-bash /home/minjian/develop/bizs/bms/scripts/tools/dsh/dsh-update.sh   # 一键更新（桌面「更新 dsh与插件」同款，桌面走 ~/.local/bin/bms-tools.sh dsh-update）：源码 git pull + 依赖 + 构建 + 插件最新 + 重启 web
+bash /home/minjian/develop/bizs/bms/scripts/tools/dsh/dsh-update.sh   # 一键更新（桌面「更新 dsh与插件」同款，桌面走 ~/.local/bin/bms-tools.sh dsh-update）：源码 git pull + 依赖 + 构建 + 插件最新（含重编译） + 重启 web
 ```
 
 ### 7.2 常见问题 <a id="faq"></a>
@@ -256,10 +256,10 @@ dsh **启动崩溃 / 插件树损坏**时也能救回——SAFE MODE（只留本
 | 项 | 值 |
 | --- | --- |
 | 安装 | `pnpm dsh plugin --profile web add dsh-undo-savepoint`（2026-09-09 装） |
-| 版本 | 0.3.5（npm 包 `dsh-undo-savepoint`） |
+| 版本 | 0.4.9（npm 包 `dsh-undo-savepoint`） |
 | 使用 | Web UI 快照面板；会话内 `undo_list` / `undo_diff` / `undo_restore` / `undo_snapshot` 等工具；崩溃告警会点名最近良好快照 |
 | 落位 | bundle 图层；快照存 `~/.dsh/undo-snapshots/{manual,auto}` |
-| 与更新脚本 | `dsh-update.sh` 更新前后状态可经它回滚；插件版本纳入脚本 `up --latest`（见 6 节） |
+| 与更新脚本 | `dsh-update.sh` 更新前后状态可经它回滚；插件版本纳入脚本 `up --latest` + `rebuild`（见 6 节） |
 
 > **误报提醒**：主动停止 dsh web（`dsh-web-stop.sh` 或更新脚本的停启流程）会被插件记为「上次运行未正常结束」，
 > `undo_list` 顶部出现崩溃告警属预期，当前实例运行正常即可忽略，**不要**为此 undo 回滚。
