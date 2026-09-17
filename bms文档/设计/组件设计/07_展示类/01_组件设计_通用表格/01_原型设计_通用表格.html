@@ -97,7 +97,7 @@
             <div class="dp-metric"><div class="v">{{ plainMode ? '明文' : '脱敏' }}</div><div class="k">敏感列口径</div></div>
           </div>
           <el-alert type="info" :closable="false" show-icon
-            title="字典列走 02 节点的批量翻译（一列一次 translateDictValues），禁止逐行请求；脱敏列持 data:plain 才渲染明文（20 权限指令）。"></el-alert>
+            title="字典列走字典字段的批量翻译（一列一次 translateDictValues），禁止逐行请求；脱敏列持 data:plain 才渲染明文（权限指令）。"></el-alert>
         </el-tab-pane>
 
         <!-- ② 分页与多列排序 -->
@@ -315,7 +315,7 @@
   var ElMessage = ElementPlus.ElMessage;
   var ElMessageBox = ElementPlus.ElMessageBox;
 
-  // ---------- 字典（模拟 02 节点批量翻译结果） ----------
+  // ---------- 字典（模拟字典字段批量翻译结果） ----------
   var DICT = {
     dept: [
       { value: 'd1', label: '研发中心' }, { value: 'd2', label: '财务部' },
@@ -328,7 +328,7 @@
     ]
   };
 
-  // ---------- 格式化（模拟 21 节点口径） ----------
+  // ---------- 格式化（模拟格式化工具口径） ----------
   function formatAmount(v) { return v === null || v === undefined ? '—' : '¥' + Number(v).toFixed(2); }
   function formatDateTime(v) {
     if (!v) { return '—'; }
@@ -532,7 +532,7 @@
           validateInfo.value = { type: 'error', text: 'validate() = false：' + bad.length + ' 行缺少必填项（物料名称/数量），已标红，阻止提交' };
         } else {
           validateState.value = '校验通过';
-          validateInfo.value = { type: 'success', text: 'validate() = true：必填项齐备（校验器走 21 节点 validators）' };
+          validateInfo.value = { type: 'success', text: 'validate() = true：必填项齐备（校验器走格式化工具 validators）' };
         }
       }
       function editRowClass(o) {

@@ -206,7 +206,7 @@
         <!-- ④ 高级查询 + 条件摘要 -->
         <el-tab-pane label="④ 高级查询与摘要" name="adv">
           <div class="dp-bar">
-            <span class="proto-hint">字典类条件旁漏斗入口 → 打开 02 节点的 <b>DictAdvancedQuery</b>；两种落地：<b>取项回填</b>（结果条目写回条件值）与 <b>筛选注入</b>（作为业务筛选条件注入，摘要显示「高级条件」chip）</span>
+            <span class="proto-hint">字典类条件旁漏斗入口 → 打开字典字段的 <b>DictAdvancedQuery</b>；两种落地：<b>取项回填</b>（结果条目写回条件值）与 <b>筛选注入</b>（作为业务筛选条件注入，摘要显示「高级条件」chip）</span>
           </div>
 
           <div class="qf">
@@ -233,7 +233,7 @@
             </div>
           </div>
 
-          <div class="ep-section">高级查询面板（模拟 02 节点 DictAdvancedQuery）</div>
+          <div class="ep-section">高级查询面板（模拟字典字段 DictAdvancedQuery）</div>
           <div class="dp-out">{{ advancedLog || '尚未打开高级查询面板' }}</div>
           <div v-if="advancedResult" style="margin-top:10px">
             <span class="dp-hint">命中条目：</span>
