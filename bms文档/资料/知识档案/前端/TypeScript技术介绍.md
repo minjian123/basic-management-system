@@ -39,7 +39,7 @@ TS 在编译期发现类型错误，配合编辑器（VS Code 原生支持）即
 - **严格模式**：tsconfig 开启 strict，全项目统一类型纪律，CI 中以 vue-tsc 做类型检查门禁。
 - **Vue 3 组合式 API 类型化**：defineProps/defineEmits 泛型写法，组件间通信契约在编译期保证（见《[Vue 3 技术介绍](Vue3技术介绍.md)》）。
 - **接口层类型共享**：api/ 目录中接口函数入参出参直接引用生成的契约类型，联调阶段少一半"字段对不上"问题。
-- **双工程统一语言**：apps/desktop 与 frontend-mobile 均以 TS 编写，[Axios](Axios技术介绍.md)、[Pinia](Pinia技术介绍.md)、[vue-i18n](vue-i18n技术介绍.md) 等库本身即 TS 友好。
+- **双工程统一语言**：frontend/apps/desktop 与 frontend/apps/mobile 均以 TS 编写，[Axios](Axios技术介绍.md)、[Pinia](Pinia技术介绍.md)、[vue-i18n](vue-i18n技术介绍.md) 等库本身即 TS 友好。
 - **与 ESLint 配合**：typescript-eslint 解析器让 lint 覆盖类型相关规则（见《[ESLint 与 Prettier 技术介绍](ESLint与Prettier技术介绍.md)》）。
 
 最小示例（类型注解）：

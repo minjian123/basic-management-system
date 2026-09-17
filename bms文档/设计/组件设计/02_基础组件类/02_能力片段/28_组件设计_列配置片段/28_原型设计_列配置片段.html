@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 列配置片段（useColumnConfig）</title>
+<title>原型 · 列配置能力（useColumnConfig）</title>
 <link rel="stylesheet" href="../../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../../原型设计/资源/原型样式.css">
 <style>
@@ -24,12 +24,12 @@
 
 <div class="proto-bar">
   <span class="pb-crumb"><a href="28_组件设计_列配置片段.md">← 返回组件设计文档</a></span>
-  <span class="pb-name">组件设计 · 列配置片段 原型（可交互）</span>
+  <span class="pb-name">组件设计 · 列配置能力 原型（可交互）</span>
 </div>
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="28_组件设计_列配置片段.md">《组件设计 · 列配置片段》</a>：演示列显隐、顺序调整、宽度调整、重置与持久化（key = <span class="dp-code">table:user:columns</span>）；拖拽排序真实实现经拖拽基座片段。
+    本原型对应当前目录 <a href="28_组件设计_列配置片段.md">《组件设计 · 列配置能力》</a>：演示列显隐、顺序调整、宽度调整、重置与持久化（key = <span class="dp-code">table:user:columns</span>）；拖拽排序真实实现经拖拽基座能力。
   </div>
 
   <div id="app">
@@ -64,8 +64,8 @@
       <div class="dp-state" style="margin-top:12px">持久化与日志
 visibleColumns: {{ visibleCols.map(function (c) { return c.key; }).join(' → ') }}
 {{ logs.length ? logs.join('\n') : '（尚无变更）' }}
-说明：列定义（页面提供）与用户配置层（本片段）分离；显隐至少保留一列；顺序即渲染顺序；
-宽度拖拽松手后一次性写模型；变更防抖后经偏好持久化片段保存（跨设备同步）；reset 同步清远端。</div>
+说明：列定义（页面提供）与用户配置层（本能力）分离；显隐至少保留一列；顺序即渲染顺序；
+宽度拖拽松手后一次性写模型；变更防抖后经偏好持久化能力保存（跨设备同步）；reset 同步清远端。</div>
     </div>
   </div>
 </div>

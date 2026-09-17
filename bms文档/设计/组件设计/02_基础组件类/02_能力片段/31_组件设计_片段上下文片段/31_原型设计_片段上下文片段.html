@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 片段上下文片段（useFragmentContext）</title>
+<title>原型 · 上下文能力（useFragmentContext）</title>
 <link rel="stylesheet" href="../../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../../原型设计/资源/原型样式.css">
 <style>
@@ -20,12 +20,12 @@
 
 <div class="proto-bar">
   <span class="pb-crumb"><a href="31_组件设计_片段上下文片段.md">← 返回组件设计文档</a></span>
-  <span class="pb-name">组件设计 · 片段上下文片段 原型（可交互）</span>
+  <span class="pb-name">组件设计 · 上下文能力 原型（可交互）</span>
 </div>
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="31_组件设计_片段上下文片段.md">《组件设计 · 片段上下文片段》</a>：演示宿主注入（router / pinia / i18n / 用户 / 租户）、片段只读消费、未注入时的严格模式报错与只读冻结告警。
+    本原型对应当前目录 <a href="31_组件设计_片段上下文片段.md">《组件设计 · 上下文能力》</a>：演示宿主注入（router / pinia / i18n / 用户 / 租户）、能力只读消费、未注入时的严格模式报错与只读冻结告警。
   </div>
 
   <div id="app">
@@ -34,7 +34,7 @@
         <el-switch v-model="injected" active-text="宿主已注入上下文" size="small" />
         <el-switch v-model="strict" active-text="strict 严格模式" size="small" :disabled="!injected" />
         <el-button size="small" @click="tryMutate">尝试修改上下文（只读约束）</el-button>
-        <el-button size="small" @click="navigate">片段内跳转（router.push）</el-button>
+        <el-button size="small" @click="navigate">能力内跳转（router.push）</el-button>
       </div>
 
       <div class="row"><span class="lb">router</span><span class="dp-code">{{ injected ? '/user?tab=list（宿主 router 引用）' : '（未注入）' }}</span></div>
@@ -45,8 +45,8 @@
       <div class="dp-state">上下文与日志
 has(): {{ injected ? 'true' : 'false' }}　get() 只读：{{ injected ? 'Object.freeze（开发态冻结）' : '—' }}
 {{ logs.length ? logs.join('\n') : '（尚无操作）' }}
-说明：片段只读消费上下文（不得改写宿主状态，写操作走 action / 事件）；未注入时 strict → 开发态报错、生产降级安全默认；
-user 不含 token（token 由请求层自持，片段不接触）；用户 / 租户切换 → context-change → 片段重读并重初始化。</div>
+说明：能力只读消费上下文（不得改写宿主状态，写操作走 action / 事件）；未注入时 strict → 开发态报错、生产降级安全默认；
+user 不含 token（token 由请求层自持，能力不接触）；用户 / 租户切换 → context-change → 能力重读并重初始化。</div>
     </div>
   </div>
 </div>
@@ -61,7 +61,7 @@ user 不含 token（token 由请求层自持，片段不接触）；用户 / 租
       var injected = ref(true), strict = ref(true), logs = ref([]);
       function stamp() { return String(logs.value.length + 1).padStart(2, '0'); }
       watch(injected, function (v) {
-        logs.value.push('[' + stamp() + '] ' + (v ? '宿主 provide(上下文) → 片段 inject 成功' : '上下文移除 → has()=false' + (strict.value ? '；strict=true → 开发态报错（片段脱离宿主）' : '；生产降级：安全默认（空用户 / 默认租户）')));
+        logs.value.push('[' + stamp() + '] ' + (v ? '宿主 provide(上下文) → 能力 inject 成功' : '上下文移除 → has()=false' + (strict.value ? '；strict=true → 开发态报错（能力脱离宿主）' : '；生产降级：安全默认（空用户 / 默认租户）')));
       });
       watch(strict, function (v) { logs.value.push('[' + stamp() + '] strict=' + v + '（未注入时的行为开关）'); });
       function tryMutate() {
@@ -70,7 +70,7 @@ user 不含 token（token 由请求层自持，片段不接触）；用户 / 租
       }
       function navigate() {
         if (!injected.value) { logs.value.push('[' + stamp() + '] router.push 不可用：上下文未注入'); return; }
-        logs.value.push('[' + stamp() + '] router.push({ name: "UserManagement" }) → 片段内跳转（宿主路由实例）');
+        logs.value.push('[' + stamp() + '] router.push({ name: "UserManagement" }) → 能力内跳转（宿主路由实例）');
       }
       return { injected: injected, strict: strict, logs: logs, tryMutate: tryMutate, navigate: navigate };
     }

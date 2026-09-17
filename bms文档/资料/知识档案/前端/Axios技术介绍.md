@@ -13,7 +13,7 @@
 **请求取消**。截至 2026 年，Axios（1.19.0）仍是 Vue/React 生态中使用最广的
 HTTP 库之一，周下载量过亿。
 
-- **定位**：本项目前端（PC 管理端 apps/desktop 与移动端 frontend-mobile）的统一 HTTP 客户端，所有接口请求都经它发出。
+- **定位**：本项目前端（PC 管理端 `frontend/apps/desktop` 与移动端 `frontend/apps/mobile`）的统一 HTTP 客户端，所有接口请求都经它发出。
 - **版本**：1.x 系列（1.19.0，截至 2026 年，持续迭代）。
 - **许可**：MIT，OSI 认证开源。
 - **语言**：TypeScript 编写，自带类型定义。
@@ -37,7 +37,7 @@ HTTP 库之一，周下载量过亿。
 
 - **统一请求封装**：请求拦截器注入 access token、处理 401 刷新；响应拦截器统一错误提示（见平台《项目规划说明》「前端」节）。
 - **与后端统一响应格式配合**：后端返回固定结构（code/message/data + 5 位错误码），响应拦截器按 code 分支——成功取 data、失败弹 ElMessage 并按错误码跳转（见《[API 接口规范](../../../规范/API接口规范.md)》）。
-- **双端复用**：apps/desktop 与 frontend-mobile 各自封装一份 Axios 实例，逻辑一致、配置独立（见《[npm 技术介绍](npm技术介绍.md)》双工程独立约定）。
+- **双端复用**：`frontend/apps/desktop` 与 `frontend/apps/mobile` 各自封装一份 Axios 实例，逻辑一致、配置独立（见《[npm 技术介绍](npm技术介绍.md)》双工程独立约定）。
 - **认证链路**：access token 存内存、refresh token 走 httpOnly cookie；401 时静默刷新并重放原请求，用户无感（见《[JWT 与 PBKDF2 技术介绍](../后端核心/JWT与PBKDF2技术介绍.md)》）。
 - **上传/下载**：文件分片上传、预签名 URL 下载均经 Axios 发出，统一携带 token 与超时。
 

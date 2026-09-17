@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 受控值片段（useValue / useValue）</title>
+<title>原型 · 受控值能力（useValue / useValue）</title>
 <link rel="stylesheet" href="../../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../../原型设计/资源/原型样式.css">
 <style>
@@ -20,12 +20,12 @@
 
 <div class="proto-bar">
   <span class="pb-crumb"><a href="08_组件设计_受控值片段.md">← 返回组件设计文档</a></span>
-  <span class="pb-name">组件设计 · 受控值片段 原型（可交互）</span>
+  <span class="pb-name">组件设计 · 受控值能力 原型（可交互）</span>
 </div>
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="08_组件设计_受控值片段.md">《组件设计 · 受控值片段》</a>：演示值归一（空串/undefined → emptyValue）、三态（未设置/空/已填）、格式化调度与 <span class="dp-code">change</span> 上报；输入与展示共用。
+    本原型对应当前目录 <a href="08_组件设计_受控值片段.md">《组件设计 · 受控值能力》</a>：演示值归一（空串/undefined → emptyValue）、三态（未设置/空/已填）、格式化调度与 <span class="dp-code">change</span> 上报；输入与展示共用。
   </div>
 
   <div id="app">
@@ -39,7 +39,7 @@
 值 v2 = {{ JSON.stringify(v2) }}　格式化展示 = {{ format(v2, 'amount') }}
 change 上报（归一后）：{{ lastChange }}
 说明：`''`/`undefined` → emptyValue（默认 null）；格式化调度 04-03（金额/日期/枚举/布尔），缺失回退原值；
-本层不含字段语义（上下文/权限/校验 → 字段编排片段），也不含形态（能力片段）。</div>
+本层不含字段语义（上下文/权限/校验 → 字段编排能力），也不含形态（形态能力）。</div>
     </div>
   </div>
 </div>

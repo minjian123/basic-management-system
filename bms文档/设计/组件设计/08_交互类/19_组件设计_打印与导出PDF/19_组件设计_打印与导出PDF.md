@@ -8,7 +8,7 @@
 
 ## 1. 目的与适用范围 <a id="purpose"></a>
 
-定义 BMS 前端 `apps/desktop/` **打印与导出 PDF** 的组件设计：打印模板 `PrintTemplate.vue`（页眉/标题/字段区/明细表格/签章/页脚，按数据渲染）、打印预览 `PrintPreview.vue`（A4 预览、分页、缩放、黑白/彩色）、编排 `usePrint.ts`（浏览器打印、服务端 PDF 导出、批量打印、打印任务与下载）。用于**单据打印**（业务表单/详情）、**列表导出 PDF**、**批量打印**（交异步任务），是[《布局设计 · 表单页》](../../../布局设计/08_布局设计_表单页.html)「打印」与[《概要设计 · 导入导出》](../../../概要设计/19_概要设计_导入导出.md)的 PDF 导出前端实现。
+定义 BMS 前端 PC 管理端（目标落点 `frontend/packages/ui-ep/src/components/print/`，随交互类回补波交付）**打印与导出 PDF** 的组件设计：打印模板 `PrintTemplate.vue`（页眉/标题/字段区/明细表格/签章/页脚，按数据渲染）、打印预览 `PrintPreview.vue`（A4 预览、分页、缩放、黑白/彩色）、编排 `usePrint.ts`（浏览器打印、服务端 PDF 导出、批量打印、打印任务与下载）。用于**单据打印**（业务表单/详情）、**列表导出 PDF**、**批量打印**（交异步任务），是[《布局设计 · 表单页》](../../../布局设计/08_布局设计_表单页.html)「打印」与[《概要设计 · 导入导出》](../../../概要设计/19_概要设计_导入导出.md)的 PDF 导出前端实现。
 
 ### 1.1 定位与边界 <a id="positioning"></a>
 
@@ -37,11 +37,12 @@ flowchart TD
 
 | 组件 / 工具 | 位置 | 职责 |
 | --- | --- | --- |
-| `PrintTemplate.vue` | `src/components/print/` | 打印模板：页眉（Logo/租户名）、标题、字段区、明细表格、汇总、签章区、页脚（页码/打印时间），按数据渲染 |
-| `PrintPreview.vue` | `src/components/print/` | 打印预览：A4 纸张分页、缩放、单/多页、黑白/彩色、直接打印、导出 PDF |
-| `usePrint.ts` | `src/components/print/` | 编排：模板选择、数据装配、浏览器打印、服务端导出、批量打印任务、下载/通知 |
+| `PrintTemplate.vue` | `frontend/packages/ui-ep/src/components/print/` | 打印模板：页眉（Logo/租户名）、标题、字段区、明细表格、汇总、签章区、页脚（页码/打印时间），按数据渲染 |
+| `PrintPreview.vue` | `frontend/packages/ui-ep/src/components/print/` | 打印预览：A4 纸张分页、缩放、单/多页、黑白/彩色、直接打印、导出 PDF |
+| `usePrint.ts` | `frontend/packages/ui-ep/src/components/print/` | 编排：模板选择、数据装配、浏览器打印、服务端导出、批量打印任务、下载/通知 |
 
-- 命名遵循[《命名规范》](../../../../规范/命名规范.md)：组件 PascalCase；目录遵循[《前端开发规范》](../../../../规范/前端开发规范.md)（打印归 `print/`）。
+- 命名遵循[《命名规范》](../../../../规范/命名规范.md)：组件 PascalCase；落点遵循[《前端开发规范》](../../../../规范/前端开发规范.md)（组件与编排同域落 `frontend/packages/ui-ep/src/components/print/`；移动端按需 `frontend/packages/ui-vant/src/components/print/`；宿主页面落 `frontend/apps/*/src/`）。
+- **实现口径（2026-09-17，新体系）**：本节点属**交互类回补波**（尚未落码）——组件与组合式同域落 `frontend/packages/ui-ep/src/components/print/`；移动端按需 `frontend/packages/ui-vant/src/components/print/`；宿主页面与装配落 `frontend/apps/*/src/`。批量打印经核心能力 `async-task`、水印经 `watermark`（投影按需回补）。契约语义（Props / 事件 / 插槽 / 行为规则）保持不变。
 
 ## 3. Props 与事件 <a id="props"></a>
 

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 设计令牌片段（useDesignToken）</title>
+<title>原型 · 设计令牌能力（useDesignToken）</title>
 <link rel="stylesheet" href="../../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../../原型设计/资源/原型样式.css">
 <style>
@@ -21,12 +21,12 @@
 
 <div class="proto-bar">
   <span class="pb-crumb"><a href="24_组件设计_设计令牌片段.md">← 返回组件设计文档</a></span>
-  <span class="pb-name">组件设计 · 设计令牌片段 原型（可交互）</span>
+  <span class="pb-name">组件设计 · 设计令牌能力 原型（可交互）</span>
 </div>
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="24_组件设计_设计令牌片段.md">《组件设计 · 设计令牌片段》</a>：演示亮暗切换下令牌取值（间距 / 色板 / 密度 / 断点）与 JS 侧消费、主题变化通知；令牌值仅示意，权威在《布局设计 · 设计令牌》。
+    本原型对应当前目录 <a href="24_组件设计_设计令牌片段.md">《组件设计 · 设计令牌能力》</a>：演示亮暗切换下令牌取值（间距 / 色板 / 密度 / 断点）与 JS 侧消费、主题变化通知；令牌值仅示意，权威在《布局设计 · 设计令牌》。
   </div>
 
   <div id="app">
@@ -50,7 +50,7 @@
       <div class="dp-state">JS 侧与主题通知
 token('--bms-color-primary') → {{ c('primary') }}（JS 读取带缓存；主题变化失效）
 onThemeChange 日志: {{ lastNotify || '（尚无变化）' }}
-说明：组件样式直接消费 CSS 变量（无 JS 开销）；图表等需 JS 值的场景经本片段读取；
+说明：组件样式直接消费 CSS 变量（无 JS 开销）；图表等需 JS 值的场景经本能力读取；
 主题 / 品牌切换触发回调（图表重建 option）；令牌缺失回退 fallback 并开发态告警；禁止硬编码色值 / 尺寸。</div>
     </div>
   </div>

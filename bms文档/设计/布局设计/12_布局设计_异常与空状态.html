@@ -134,7 +134,7 @@
         <tr><td><code>EmptyState</code>（场景矩阵）</td><td>场景 <code>list</code> / <code>search</code> / <code>todo</code> / <code>message</code> / <code>custom</code>（缺省文案与插画按场景）；引导按钮 <code>action</code> + <code>actionPerm</code>（无权限不渲染）；<code>size=small</code> 供表格 / 卡片内；优先文案引导而非纯插画</td></tr>
         <tr><td><code>SkeletonBlock</code></td><td>形态 <code>list</code> / <code>table</code> / <code>form</code> / <code>card</code>、<code>rows</code>、<code>animated</code>；<code>loading=false</code> 渲染内容（首屏与内容结构一致）</td></tr>
         <tr><td><code>LoadingMask</code></td><td>局部覆盖（缺省）/ <code>fullscreen</code>；<code>delay</code> 防闪烁（缺省 200ms，短请求不显示）；按钮内 loading 用 Element Plus 自带</td></tr>
-        <tr><td><code>LoadingContainer</code>（四态容器）</td><td>四态 <code>loading</code> / <code>empty</code> / <code>error</code> / <code>content</code> 互斥（优先级 <code>loading &gt; error &gt; empty &gt; content</code>）；<code>mode</code> mask / skeleton / spin（内置轻量，双端同款）；<code>delay=200</code> 防闪烁；<code>retry</code> 点击自锁；<code>empty</code> / <code>error</code> 插槽可传 <code>EmptyState</code> / <code>ErrorPage</code>（2026-09-16 登记）</td></tr>
+        <tr><td><code>LoadingContainer</code>（四态容器）</td><td>四态 <code>loading</code> / <code>empty</code> / <code>error</code> / <code>content</code> 互斥（优先级 <code>loading &gt; error &gt; empty &gt; content</code>）；<code>mode</code> mask / skeleton / spin（内置轻量，两端同契约）；<code>delay=200</code> 防闪烁；<code>retry</code> 点击自锁；<code>empty</code> / <code>error</code> 插槽可传 <code>EmptyState</code> / <code>ErrorPage</code>（2026-09-16 登记）</td></tr>
       </table>
       <ul>
         <li>插画资源统一 <code>src/assets/images/empty-*.svg</code>（kebab-case，自绘线性、<code>currentColor</code>）；不内联大段 SVG。</li>

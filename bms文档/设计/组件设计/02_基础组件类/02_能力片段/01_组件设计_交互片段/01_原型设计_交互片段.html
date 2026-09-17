@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 交互片段（useInteractive / useInteractive）</title>
+<title>原型 · 交互能力（useInteractive / useInteractive）</title>
 <link rel="stylesheet" href="../../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../../原型设计/资源/原型样式.css">
 <style>
@@ -20,12 +20,12 @@
 
 <div class="proto-bar">
   <span class="pb-crumb"><a href="01_组件设计_交互片段.md">← 返回组件设计文档</a></span>
-  <span class="pb-name">组件设计 · 交互片段 原型（可交互）</span>
+  <span class="pb-name">组件设计 · 交互能力 原型（可交互）</span>
 </div>
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="01_组件设计_交互片段.md">《组件设计 · 交互片段》</a>：演示可点击语义（disabled/loading 不触发）、键盘 Enter/Space、焦点环、点击防抖、危险操作二次确认与点击埋点。
+    本原型对应当前目录 <a href="01_组件设计_交互片段.md">《组件设计 · 交互能力》</a>：演示可点击语义（disabled/loading 不触发）、键盘 Enter/Space、焦点环、点击防抖、危险操作二次确认与点击埋点。
   </div>
 
   <div id="app">
@@ -55,7 +55,7 @@
   var { createApp, ref } = Vue;
   var ElMessageBox = ElementPlus.ElMessageBox;
 
-  // 模拟 交互片段 useInteractive
+  // 模拟 交互能力 useInteractive
   var useInteractive = {
     props: ['loading','disabled','danger','debounce'],
     emits: ['click'],

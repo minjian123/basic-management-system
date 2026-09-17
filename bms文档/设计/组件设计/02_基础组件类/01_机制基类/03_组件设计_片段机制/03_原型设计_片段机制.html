@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 片段机制（BaseCapability / useCapabilityBase）</title>
+<title>原型 · 能力机制（BaseCapability / capabilities/manifest.ts）</title>
 <link rel="stylesheet" href="../../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../../原型设计/资源/原型样式.css">
 <style>
@@ -23,12 +23,12 @@
 
 <div class="proto-bar">
   <span class="pb-crumb"><a href="03_组件设计_片段机制.md">← 返回组件设计文档</a></span>
-  <span class="pb-name">组件设计 · 片段机制 原型（可交互）</span>
+  <span class="pb-name">组件设计 · 能力机制 原型（可交互）</span>
 </div>
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="03_组件设计_片段机制.md">《组件设计 · 片段机制》</a>：演示片段声明（<span class="dp-code">key</span> / <span class="dp-code">depends</span> / <span class="dp-code">describe</span>）、依赖单向校验与非法依赖的开发态告警。
+    本原型对应当前目录 <a href="03_组件设计_片段机制.md">《组件设计 · 能力机制》</a>：演示能力声明（<span class="dp-code">key</span> / <span class="dp-code">depends</span> / <span class="dp-code">describe</span>）、依赖单向校验与非法依赖的开发态告警。
   </div>
 
   <div id="app">
@@ -54,8 +54,8 @@
 {{ result }}
 告警列表
 {{ warns.length ? warns.map(function (w) { return '· ' + w; }).join('\n') : '（无）' }}
-说明：片段声明经 useCapabilityBase({ key, depends }) 登记；开发态校验、生产态零开销；
-维护「已登记片段表」为唯一合法依赖源（对齐《前端基类清单》）。</div>
+说明：能力声明经 BaseCapability 子类 + capabilities/manifest.ts 登记；开发态校验、生产态零开销；
+维护「已登记能力表」为唯一合法依赖源（对齐《前端基类清单》）。</div>
     </div>
   </div>
 </div>
@@ -72,7 +72,7 @@
         { value: 'ok', label: '合法：field → value + field-shell + field-perm' },
         { value: 'reverse', label: '反向依赖：field-shell → field（下层依赖上层）' },
         { value: 'cycle', label: '循环依赖：value ↔ field' },
-        { value: 'unknown', label: '未登记片段：tree-data → chart-legend' }
+        { value: 'unknown', label: '未登记能力：tree-data → chart-legend' }
       ];
       var scene = ref('ok');
       var result = ref('（未运行）');
@@ -105,7 +105,7 @@
         var w = [];
         frags.value.forEach(function (f) {
           f.depends.forEach(function (d) {
-            if (REGISTERED.indexOf(d) < 0) { w.push(f.key + ' → ' + d + '：依赖未登记片段'); return; }
+            if (REGISTERED.indexOf(d) < 0) { w.push(f.key + ' → ' + d + '：依赖未登记能力'); return; }
             if (!map[d]) return;
             var dep = map[d];
             if (dep.depends.indexOf(f.key) >= 0) { w.push(f.key + ' ↔ ' + d + '：循环依赖'); }
@@ -113,7 +113,7 @@
           if (f.depends.length === 0 && f.key === 'field-shell' && map['field'] && map['field'].depends.indexOf(f.key) >= 0) {
             w.push(f.key + ' → field：反向依赖（下层不得依赖上层）');
           }
-          if (f.key === 'chart-legend') { w.push(f.key + '：片段未在《前端基类清单》登记'); }
+          if (f.key === 'chart-legend') { w.push(f.key + '：能力未在《前端基类清单》登记'); }
         });
         warns.value = w;
         result.value = w.length ? '校验未通过：' + w.length + ' 项告警（开发态提示，不阻断渲染）' : '校验通过：依赖方向单向、均已登记';
