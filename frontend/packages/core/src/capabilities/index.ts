@@ -35,7 +35,7 @@ import { BaseAccess } from './access'
 import { BaseColumnConfig } from './column-config'
 import { BaseQueryScheme } from './query-scheme'
 import { BaseWatermark } from './watermark'
-import { BaseFragmentContext } from './fragment-context'
+import { BaseModuleContext } from './module-context'
 
 import './manifest'
 
@@ -221,10 +221,10 @@ const registrations: CapabilityRegistration[] = [
     create: (options) => new BaseWatermark(options as never),
   },
   {
-    key: 'fragment-context',
+    key: 'module-context',
     depends: [],
-    describe: () => ({ key: 'fragment-context' }),
-    create: (options) => new BaseFragmentContext(options as never),
+    describe: () => ({ key: 'module-context' }),
+    create: (options) => new BaseModuleContext(options as never),
   },
 ]
 
@@ -262,7 +262,7 @@ export * from './access'
 export * from './column-config'
 export * from './query-scheme'
 export * from './watermark'
-export * from './fragment-context'
+export * from './module-context'
 export {
   CapabilityRegistry,
   capabilityRegistry,

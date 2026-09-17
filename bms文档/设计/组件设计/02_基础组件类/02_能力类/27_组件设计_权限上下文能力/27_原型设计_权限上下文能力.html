@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 权限上下文能力（useAccess）</title>
+<link rel="stylesheet" href="../../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-code { font-family:Consolas,"Cascadia Mono",monospace; color:#57606a; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="27_组件设计_权限上下文能力.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 权限上下文能力 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="27_组件设计_权限上下文能力.md">《组件设计 · 权限上下文能力》</a>：演示权限码集合（变更即时生效）、按钮显隐 v-perm（默认拒绝）、菜单按权限过滤与版本号刷新；前端判定仅为体验，安全边界在后端。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-bar">
+        <el-checkbox v-model="permCreate">user:create</el-checkbox>
+        <el-checkbox v-model="permDelete">user:delete</el-checkbox>
+        <el-checkbox v-model="permExport">user:export</el-checkbox>
+        <el-button size="small" @click="refresh">refresh()（版本号变更）</el-button>
+        <span class="dp-hint">勾选 = 当前用户拥有该权限码（模拟后端下发）</span>
+      </div>
+
+      <div class="dp-bar">
+        <el-button size="small" type="primary" v-if="has('user:create')">新建用户（v-perm user:create）</el-button>
+        <el-button size="small" type="danger" v-if="has('user:delete')">删除（v-perm user:delete）</el-button>
+        <el-button size="small" v-if="has('user:export')">导出（v-perm user:export）</el-button>
+        <span class="dp-hint" v-if="!has('user:create') && !has('user:delete') && !has('user:export')">（无动作权限：按钮全部隐藏 —— 默认拒绝）</span>
+      </div>
+
+      <div class="dp-state">菜单 / 路由过滤（filterRoutes）
+{{ filtered.join('  ·  ') }}
+说明：权限码集合登录后与菜单一起拉取；has() 为 Set 查询（纯内存）；菜单与路由注册前过滤（与后端下发双保险）；
+无权限直达由路由守卫拦截（403）；角色变更 → 版本号变化 → refresh() 重建路由与菜单；
+前端显隐不构成安全边界，后端接口二次校验。</div>
+    </div>
+  </div>
+</div>
+
+<script src="../../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref, computed, watch } = Vue;
+  var app = createApp({
+    setup: function () {
+      var permCreate = ref(true), permDelete = ref(false), permExport = ref(false), version = ref('v3');
+      var MENUS = [
+        { label: '用户管理', code: 'user:view' },
+        { label: '角色管理', code: 'role:view' },
+        { label: '系统设置', code: 'sys:view' }
+      ];
+      function codes() {
+        var s = ['user:view'];
+        if (permCreate.value) s.push('user:create');
+        if (permDelete.value) s.push('user:delete');
+        if (permExport.value) s.push('user:export');
+        s.push('role:view');
+        return s;
+      }
+      function has(code) { return codes().indexOf(code) >= 0; }
+      var filtered = computed(function () {
+        return MENUS.filter(function (m) { return has(m.code); }).map(function (m) { return m.label + '（' + m.code + '）'; });
+      });
+      function refresh() {
+        version.value = 'v' + (parseInt(version.value.slice(1)) + 1);
+        alert('access-change：权限版本 ' + version.value + ' → 重建动态路由 + 刷新侧边菜单（无刷新页面）');
+      }
+      return { permCreate: permCreate, permDelete: permDelete, permExport: permExport, has: has, filtered: filtered, refresh: refresh };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>

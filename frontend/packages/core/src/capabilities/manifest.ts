@@ -40,7 +40,7 @@ export const capabilityManifest: Readonly<Record<string, readonly string[]>> = {
   'column-config': ['persisted-state'],
   'query-scheme': ['persisted-state'],
   watermark: [],
-  'fragment-context': [],
+  'module-context': [],
 }
 
 registerKnownCapabilities(capabilityManifest)

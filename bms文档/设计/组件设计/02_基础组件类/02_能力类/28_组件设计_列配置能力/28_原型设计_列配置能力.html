@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 列配置能力（useColumnConfig）</title>
+<link rel="stylesheet" href="../../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-code { font-family:Consolas,"Cascadia Mono",monospace; color:#57606a; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+  .cols { display:flex; gap:14px; }
+  .panel { width:230px; border:1px solid #eaeef2; border-radius:6px; padding:10px; font-size:13px; }
+  .panel .it { display:flex; align-items:center; gap:8px; padding:3px 0; }
+  .panel .it .ord { margin-left:auto; display:flex; gap:4px; }
+  table.demo { border-collapse:collapse; width:100%; font-size:12px; }
+  table.demo th, table.demo td { border:1px solid #eaeef2; padding:6px 8px; text-align:left; color:#57606a; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="28_组件设计_列配置能力.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 列配置能力 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="28_组件设计_列配置能力.md">《组件设计 · 列配置能力》</a>：演示列显隐、顺序调整、宽度调整、重置与持久化（key = <span class="dp-code">table:user:columns</span>）；拖拽排序真实实现经拖拽基座能力。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-bar">
+        <span class="dp-hint">列设置面板（用户配置层：显隐 / 顺序 / 宽度）</span>
+        <el-button size="small" @click="reset">重置默认</el-button>
+        <span class="dp-hint">持久化：{{ persisted }}</span>
+      </div>
+
+      <div class="cols">
+        <div class="panel">
+          <div class="it" v-for="(c, i) in cols" :key="c.key">
+            <el-checkbox v-model="c.visible" :disabled="visibleCount <= 1 && c.visible" size="small" @change="save">{{ c.title }}</el-checkbox>
+            <span class="ord">
+              <el-button size="small" text @click="move(i, i - 1)" :disabled="i === 0">↑</el-button>
+              <el-button size="small" text @click="move(i, i + 1)" :disabled="i === cols.length - 1">↓</el-button>
+              <el-button size="small" text @click="widen(c)">宽+</el-button>
+            </span>
+          </div>
+        </div>
+
+        <div style="flex:1">
+          <table class="demo">
+            <tr><th v-for="c in visibleCols" :key="c.key" :style="{ width: c.width + 'px' }">{{ c.title }}（{{ c.width }}）</th></tr>
+            <tr><td v-for="c in visibleCols" :key="c.key">{{ c.sample }}</td></tr>
+          </table>
+          <div class="dp-hint" style="margin-top:6px">列宽经 minWidth / maxWidth 边界；双击列边界自适应（真实表格）；操作列默认右冻结。</div>
+        </div>
+      </div>
+
+      <div class="dp-state" style="margin-top:12px">持久化与日志
+visibleColumns: {{ visibleCols.map(function (c) { return c.key; }).join(' → ') }}
+{{ logs.length ? logs.join('\n') : '（尚无变更）' }}
+说明：列定义（页面提供）与用户配置层（本能力）分离；显隐至少保留一列；顺序即渲染顺序；
+宽度拖拽松手后一次性写模型；变更防抖后经偏好持久化能力保存（跨设备同步）；reset 同步清远端。</div>
+    </div>
+  </div>
+</div>
+
+<script src="../../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref, computed } = Vue;
+  var app = createApp({
+    setup: function () {
+      var DEFAULTS = [
+        { key: 'username', title: '用户名', visible: true, width: 120, sample: '张三' },
+        { key: 'dept', title: '组织', visible: true, width: 140, sample: '研发中心' },
+        { key: 'status', title: '状态', visible: true, width: 80, sample: '在职' },
+        { key: 'createdAt', title: '创建时间', visible: false, width: 160, sample: '2026-09-16' }
+      ];
+      var cols = ref(JSON.parse(JSON.stringify(DEFAULTS)));
+      var logs = ref([]), persisted = ref('table:user:columns（未变更）');
+      var visibleCols = computed(function () { return cols.value.filter(function (c) { return c.visible; }); });
+      var visibleCount = computed(function () { return visibleCols.value.length; });
+      function save(note) { persisted.value = 'table:user:columns → 防抖保存（' + (note || '变更') + '）'; }
+      function stamp() { return String(logs.value.length + 1).padStart(2, '0'); }
+      function move(i, j) {
+        if (j < 0 || j >= cols.value.length) return;
+        var arr = cols.value; var t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+        logs.value.push('[' + stamp() + '] move(' + arr[j].key + ' → 位置 ' + (j + 1) + ') 顺序调整（拖拽基座协作）');
+        save('顺序');
+      }
+      function widen(c) { c.width = Math.min(240, c.width + 20); logs.value.push('[' + stamp() + '] setWidth(' + c.key + ', ' + c.width + ')（边界 min/max）'); save('宽度'); }
+      function reset() { cols.value = JSON.parse(JSON.stringify(DEFAULTS)); logs.value.push('[' + stamp() + '] reset() → 恢复列定义默认（defaultHidden 生效）'); persisted.value = 'table:user:columns → 已清远端（reset）'; }
+      return { cols: cols, logs: logs, persisted: persisted, visibleCols: visibleCols, visibleCount: visibleCount, move: move, widen: widen, reset: reset, save: save };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>

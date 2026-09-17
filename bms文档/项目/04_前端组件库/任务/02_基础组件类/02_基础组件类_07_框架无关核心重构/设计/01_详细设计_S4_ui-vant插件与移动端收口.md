@@ -35,7 +35,7 @@ flowchart LR
 | 2 | 容器共享逻辑 | 纯 TS 下沉 `@bms/core`；`useVirtualRange` 投影移入 `@bms/vue`；`ui-ep` 同步改造引用 |
 | 3 | 注入点归属 | 契约类型在 core（纯 TS）；注入存储 + `configureXxx` + 默认实现留各插件 |
 | 4 | 契约测试 | core 出「契约用例工厂」，`ui-ep` / `ui-vant` 各传 adapter 跑同一套断言 |
-| 5 | 结构迁移 | 随 S4 同步移动端归位 `frontend/apps/mobile/`（镜像路径 `/opt/ci/frontend-mobile`、job 名 `frontend-mobile-check` 保持） |
+| 5 | 结构迁移 | 随 S4 同步移动端归位 `frontend/apps/mobile/`（镜像路径 `/opt/ci/frontend/apps/mobile`、job 名 `mobile-check` 保持） |
 | 6 | 宿主收口 | 全量：宿主切 `@bms/*`；旧基座层 + 31 能力 + 9 旧件 + 旧 spec 删除；Kiwi 对账 |
 | 7 | CI job | 并入 `core-check`（根 `check` 加 `ui-vant:check`） |
 | 8 | CI 依赖 | 扩展 `ci-frontend` 镜像（workspace 根 `npm ci`，含 vant）；`build-base.sh` 哈希输入加根锁文件 |
@@ -135,7 +135,7 @@ tests/ 旧层 spec                   # 28 个（base-* 14 / guard-* 4 / format-r
 
 | 块 | 内容 |
 | --- | --- |
-| 结构迁移 | 移动端归位 `frontend/apps/mobile/`（git 历史保留）；vite / tsconfig / scripts / CI / 文档全链引用更新；镜像内路径 `/opt/ci/frontend-mobile` 与 job 名保持 |
+| 结构迁移 | 移动端归位 `frontend/apps/mobile/`（git 历史保留）；vite / tsconfig / scripts / CI / 文档全链引用更新；镜像内路径 `/opt/ci/frontend/apps/mobile` 与 job 名保持 |
 | 宿主切流 | `vite.config.ts` 加 `@bms/*` alias（同 `frontend/apps/desktop` 口径）+ 手动分包；`main.ts` 接线；`src/adapters/ui-bootstrap.ts`（`configurePermissionChecker` ← 权限 store）；stores / api / directives / views / dev 页切 `@bms/*` |
 | `@bms/vue` 补投影 | `useAccess`（core `BaseAccess` ↔ 响应式；`codes` / `has` / `hasAny` / `hasAll`）、`useFrontendBase`（core `BaseFrontend` ↔ 组合式；`log` / `reportError` / `getConfig` / `dispose`） |
 | 旧件删除 | 删除清单见第 3 节；旧 spec 随层删除；`container-*` 用例已随 S4b 迁入 `ui-vant/tests/` |
@@ -371,7 +371,7 @@ export function useFrontendBase(options?: UseFrontendBaseOptions): UseFrontendBa
 | `frontend/packages/ui-vant` 插件就位且可替换 | S4b：9 件同契约实现 + 注入点 + 出口；契约套件对 ui-ep / ui-vant 同一套断言全绿 |
 | 移动端宿主接入（移动端工程可复用部分迁移） | S4c：`frontend/apps/mobile` 全量切 `@bms/*`；旧件删除 |
 | 契约测试同一套断言 | S4a：`@bms/core/testing` 工厂；S4b：双实现执行 |
-| 工程门禁全通过 | S4a / S4b / S4c：`vue-tsc` / ESLint / Vitest / 构建 / 预算；CI `core-check` / `frontend-mobile-check` / `frontend-mobile-build` 全绿 |
+| 工程门禁全通过 | S4a / S4b / S4c：`vue-tsc` / ESLint / Vitest / 构建 / 预算；CI `core-check` / `mobile-check` / `mobile-build` 全绿 |
 | 审计重跑通过 | S4c：基类与能力合规审计（mobile 侧口径）重跑 |
 | 文档回写 | S4c：清单 / 计划 / 任务 / 会话交接 / Kiwi 台账对账 |
 

@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 能力机制（BaseCapability / capabilities/manifest.ts）</title>
+<link rel="stylesheet" href="../../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-code { font-family:Consolas,"Cascadia Mono",monospace; color:#57606a; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+  .lst { display:flex; flex-direction:column; gap:6px; margin-bottom:12px; }
+  .lst .it { display:flex; align-items:center; gap:8px; border:1px solid #eaeef2; border-radius:6px; padding:6px 10px; font-size:13px; }
+  .lst .it .k { font-family:Consolas,monospace; color:#0969da; width:120px; }
+  .lst .it .d { font-family:Consolas,monospace; color:#57606a; }
+  .ok { color:#1a7f37; } .bad { color:#cf222e; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="03_组件设计_能力机制.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 能力机制 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="03_组件设计_能力机制.md">《组件设计 · 能力机制》</a>：演示能力声明（<span class="dp-code">key</span> / <span class="dp-code">depends</span> / <span class="dp-code">describe</span>）、依赖单向校验与非法依赖的开发态告警。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-bar">
+        <span class="dp-hint">校验场景：</span>
+        <el-select v-model="scene" size="small" style="width:260px">
+          <el-option v-for="s in scenes" :key="s.value" :label="s.label" :value="s.value" />
+        </el-select>
+        <el-button type="primary" size="small" @click="check">运行依赖校验</el-button>
+        <span class="dp-hint">校验规则：依赖已登记 / 无循环 / 不依赖上层</span>
+      </div>
+
+      <div class="lst">
+        <div class="it" v-for="f in frags" :key="f.key">
+          <span class="k">{{ f.key }}</span>
+          <span class="d">depends: [{{ f.depends.join(', ') }}]</span>
+          <span class="d" style="margin-left:auto">{{ f.desc }}</span>
+        </div>
+      </div>
+
+      <div class="dp-state">校验结果
+{{ result }}
+告警列表
+{{ warns.length ? warns.map(function (w) { return '· ' + w; }).join('\n') : '（无）' }}
+说明：能力声明经 BaseCapability 子类 + capabilities/manifest.ts 登记；开发态校验、生产态零开销；
+维护「已登记能力表」为唯一合法依赖源（对齐《前端基类清单》）。</div>
+    </div>
+  </div>
+</div>
+
+<script src="../../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref, computed } = Vue;
+  var app = createApp({
+    setup: function () {
+      var REGISTERED = ['interactive', 'input-control', 'display-control', 'container', 'value', 'field-shell', 'field-perm', 'field', 'option-source', 'tree-data'];
+      var scenes = [
+        { value: 'ok', label: '合法：field → value + field-shell + field-perm' },
+        { value: 'reverse', label: '反向依赖：field-shell → field（下层依赖上层）' },
+        { value: 'cycle', label: '循环依赖：value ↔ field' },
+        { value: 'unknown', label: '未登记能力：tree-data → chart-legend' }
+      ];
+      var scene = ref('ok');
+      var result = ref('（未运行）');
+      var warns = ref([]);
+      var SCENE_FRAGS = {
+        ok: [
+          { key: 'value', depends: [], desc: '值语义（无依赖）' },
+          { key: 'field-shell', depends: [], desc: '字段壳' },
+          { key: 'field-perm', depends: [], desc: '字段权限' },
+          { key: 'field', depends: ['value', 'field-shell', 'field-perm'], desc: '字段编排' }
+        ],
+        reverse: [
+          { key: 'value', depends: [], desc: '值语义' },
+          { key: 'field', depends: ['value'], desc: '字段编排' },
+          { key: 'field-shell', depends: ['field'], desc: '字段壳 ← 非法' }
+        ],
+        cycle: [
+          { key: 'value', depends: ['field'], desc: '值语义 ← 非法' },
+          { key: 'field', depends: ['value'], desc: '字段编排' }
+        ],
+        unknown: [
+          { key: 'tree-data', depends: [], desc: '树数据' },
+          { key: 'chart-legend', depends: ['tree-data'], desc: '图例 ← 未登记' }
+        ]
+      };
+      var frags = computed(function () { return SCENE_FRAGS[scene.value]; });
+      function check() {
+        var map = {};
+        frags.value.forEach(function (f) { map[f.key] = f; });
+        var w = [];
+        frags.value.forEach(function (f) {
+          f.depends.forEach(function (d) {
+            if (REGISTERED.indexOf(d) < 0) { w.push(f.key + ' → ' + d + '：依赖未登记能力'); return; }
+            if (!map[d]) return;
+            var dep = map[d];
+            if (dep.depends.indexOf(f.key) >= 0) { w.push(f.key + ' ↔ ' + d + '：循环依赖'); }
+          });
+          if (f.depends.length === 0 && f.key === 'field-shell' && map['field'] && map['field'].depends.indexOf(f.key) >= 0) {
+            w.push(f.key + ' → field：反向依赖（下层不得依赖上层）');
+          }
+          if (f.key === 'chart-legend') { w.push(f.key + '：能力未在《前端基类清单》登记'); }
+        });
+        warns.value = w;
+        result.value = w.length ? '校验未通过：' + w.length + ' 项告警（开发态提示，不阻断渲染）' : '校验通过：依赖方向单向、均已登记';
+      }
+      return { scene: scene, scenes: scenes, frags: frags, result: result, warns: warns, check: check };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>

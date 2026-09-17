@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 动态路由能力（useDynamicRoutes）</title>
+<link rel="stylesheet" href="../../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-code { font-family:Consolas,"Cascadia Mono",monospace; color:#57606a; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+  .rt { border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; font-size:12px; font-family:Consolas,monospace; color:#57606a; }
+  .rt .r { padding:2px 0; }
+  .rt .r .nm { color:#0969da; }
+  .rt .r .bad { color:#cf222e; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="20_组件设计_动态路由能力.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 动态路由能力 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="20_组件设计_动态路由能力.md">《组件设计 · 动态路由能力》</a>：演示菜单树 → 路由构建（组件映射经注册表）、注册 / 卸载、未注册组件拦截与未注册路径 404 兜底；前端不硬编码路由表。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-bar">
+        <el-button size="small" type="primary" @click="init">拉取菜单树并注册路由（登录后）</el-button>
+        <el-button size="small" @click="visitUnknown">访问未注册路径 /unknown</el-button>
+        <el-button size="small" @click="logout">退出登录（卸载动态路由）</el-button>
+      </div>
+
+      <div class="rt">
+        <div v-if="!registered.length" class="dp-hint">（尚无已注册路由）</div>
+        <div class="r" v-for="r in registered" :key="r.name">
+          <span class="nm">{{ r.path }}</span> → {{ r.name }} · component={{ r.component }}
+          <span v-if="!r.ok" class="bad">（组件未注册：拦截并提示）</span>
+        </div>
+      </div>
+
+      <div class="dp-state">日志
+{{ logs.length ? logs.join('\n') : '（尚无操作）' }}
+说明：菜单树由后端按权限下发（含 locale）；buildRoutes 组件名经注册表映射（import.meta.glob 批量注册）；
+未注册组件名拦截提示（防菜单配置错误白屏）；allowedPaths 白名单不参与动态注册；未注册路径 404 兜底；
+退出 / 切租户卸载全部动态路由（removeRoute）；阶段五模块以同一套契约注册（mode 为原设计面）。</div>
+    </div>
+  </div>
+</div>
+
+<script src="../../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref } = Vue;
+  var app = createApp({
+    setup: function () {
+      var registered = ref([]), logs = ref([]);
+      var REGISTRY = ['UserList', 'UserEdit', 'RoleList'];
+      var MENUS = [
+        { path: '/user', name: 'UserManagement', component: 'UserList' },
+        { path: '/user/:id', name: 'UserEdit', component: 'UserEdit' },
+        { path: '/role', name: 'RoleManagement', component: 'RoleList' },
+        { path: '/setting', name: 'SystemSetting', component: 'SettingPage' }
+      ];
+      function stamp() { return String(logs.value.length + 1).padStart(2, '0'); }
+      function init() {
+        if (registered.value.length) { logs.value.push('[' + stamp() + '] 幂等：已注册，跳过重复注册'); return; }
+        logs.value.push('[' + stamp() + '] GET /api/menu/tree → 菜单 ' + MENUS.length + ' 项（按权限下发）');
+        MENUS.forEach(function (m) {
+          var ok = REGISTRY.indexOf(m.component) >= 0;
+          registered.value.push({ path: m.path, name: m.name, component: m.component, ok: ok });
+          logs.value.push('[' + stamp() + '] addRoute(' + m.path + ') → ' + m.component + (ok ? '' : ' —— 组件未注册，拦截并提示（防白屏）'));
+        });
+        logs.value.push('[' + stamp() + '] 注册完成：' + registered.value.filter(function (r) { return r.ok; }).length + ' 条可用');
+      }
+      function visitUnknown() { logs.value.push('[' + stamp() + '] 访问 /unknown → 未注册路径，由宿主守卫兜底 404（菜单配置错误提示）'); }
+      function logout() {
+        var n = registered.value.length;
+        registered.value = [];
+        logs.value.push('[' + stamp() + '] unregister() → removeRoute 全部动态路由（' + n + ' 条，防越权残留）');
+      }
+      return { registered: registered, logs: logs, init: init, visitUnknown: visitUnknown, logout: logout };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>

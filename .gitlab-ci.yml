@@ -229,7 +229,7 @@ integration-plan:
     - uv run python -m ops.test_db plan --engine dm8
 
 # ---- 前端：ESLint + Vitest + 双端构建 ----
-frontend-check:
+desktop-check:
   stage: test
   image: $REGISTRY_IMAGE_PREFIX/ci-frontend:node22
   needs: [{job: ci-base-build, optional: true}]
@@ -250,9 +250,9 @@ frontend-check:
       exists:
         - frontend/apps/desktop/package.json
   script:
-    - rm -rf frontend/apps/desktop/node_modules && cp -a /opt/ci/frontend/node_modules frontend/apps/desktop/node_modules
+    - rm -rf frontend/apps/desktop/node_modules && cp -a /opt/ci/frontend/apps/desktop/node_modules frontend/apps/desktop/node_modules
     # S5a 切流：frontend/apps/desktop 消费 @bms/*（源码直出）——根 node_modules 桥 + 包 symlink（frontend/packages 源码向上解析依赖）
-    - cp -a /opt/ci/frontend/node_modules .
+    - cp -a /opt/ci/frontend/apps/desktop/node_modules .
     - mkdir -p node_modules/@bms && ln -sfn ../../frontend/packages/core node_modules/@bms/core
     - test -d frontend/packages/vue && ln -sfn ../../frontend/packages/vue node_modules/@bms/vue || true
     - test -d frontend/packages/ui-ep && ln -sfn ../../frontend/packages/ui-ep node_modules/@bms/ui-ep || true
@@ -292,8 +292,8 @@ core-check:
     - for p in core vue ui-ep ui-vant; do test -d frontend/packages/$p && ln -sfn ../../frontend/packages/$p node_modules/@bms/$p || true; done
     - npm run check
 
-# ---- 移动端：ESLint + Vitest（含覆盖率门禁，与 frontend-check 对称；S4c 起路径 frontend/apps/mobile）----
-frontend-mobile-check:
+# ---- 移动端：ESLint + Vitest（含覆盖率门禁，与 desktop-check 对称；S4c 起路径 frontend/apps/mobile）----
+mobile-check:
   stage: test
   image: $REGISTRY_IMAGE_PREFIX/ci-frontend:node22
   needs: [{job: ci-base-build, optional: true}]
@@ -314,7 +314,7 @@ frontend-mobile-check:
       exists:
         - frontend/apps/mobile/package.json
   script:
-    - rm -rf frontend/apps/mobile/node_modules && cp -a /opt/ci/frontend-mobile/node_modules frontend/apps/mobile/node_modules
+    - rm -rf frontend/apps/mobile/node_modules && cp -a /opt/ci/frontend/apps/mobile/node_modules frontend/apps/mobile/node_modules
     # S4c 切流：frontend/apps/mobile 消费 @bms/*（源码直出）——根 node_modules 桥（workspace 依赖集）+ 包 symlink
     - cp -a /opt/ci/workspace/node_modules .
     - mkdir -p node_modules/@bms
@@ -326,10 +326,10 @@ frontend-mobile-check:
     paths: [frontend/apps/mobile/coverage/]
     expire_in: 30 days
 
-frontend-build:
+desktop-build:
   stage: build
   image: $REGISTRY_IMAGE_PREFIX/ci-frontend:node22
-  needs: [{job: frontend-check, optional: true}]
+  needs: [{job: desktop-check, optional: true}]
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       exists:
@@ -347,18 +347,18 @@ frontend-build:
       exists:
         - frontend/apps/desktop/package.json
   script:
-    - rm -rf frontend/apps/desktop/node_modules && cp -a /opt/ci/frontend/node_modules frontend/apps/desktop/node_modules
+    - rm -rf frontend/apps/desktop/node_modules && cp -a /opt/ci/frontend/apps/desktop/node_modules frontend/apps/desktop/node_modules
     # S5a 切流：构建同样经根 node_modules 桥解析 packages 源码依赖
-    - cp -a /opt/ci/frontend/node_modules .
+    - cp -a /opt/ci/frontend/apps/desktop/node_modules .
     - mkdir -p node_modules/@bms && ln -sfn ../../frontend/packages/core node_modules/@bms/core
     - test -d frontend/packages/vue && ln -sfn ../../frontend/packages/vue node_modules/@bms/vue || true
     - test -d frontend/packages/ui-ep && ln -sfn ../../frontend/packages/ui-ep node_modules/@bms/ui-ep || true
     - cd frontend/apps/desktop && npm run build && npm run budget
 
-frontend-mobile-build:
+mobile-build:
   stage: build
   image: $REGISTRY_IMAGE_PREFIX/ci-frontend:node22
-  needs: [{job: frontend-mobile-check, optional: true}]
+  needs: [{job: mobile-check, optional: true}]
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       exists:
@@ -376,7 +376,7 @@ frontend-mobile-build:
       exists:
         - frontend/apps/mobile/package.json
   script:
-    - rm -rf frontend/apps/mobile/node_modules && cp -a /opt/ci/frontend-mobile/node_modules frontend/apps/mobile/node_modules
+    - rm -rf frontend/apps/mobile/node_modules && cp -a /opt/ci/frontend/apps/mobile/node_modules frontend/apps/mobile/node_modules
     # S4c 切流：构建同样经根 node_modules 桥解析 packages 源码依赖
     - cp -a /opt/ci/workspace/node_modules .
     - mkdir -p node_modules/@bms
@@ -495,7 +495,7 @@ backend-image:
 
 frontend-image:
   <<: *build-push-base
-  needs: [{job: frontend-build, optional: true}]
+  needs: [{job: desktop-build, optional: true}]
   rules:
     # 重验证层分档开关：deploy/ci/verify/image（P3；开启前提＝frontend/apps/desktop/Dockerfile 已就绪）
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH

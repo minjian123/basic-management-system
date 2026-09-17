@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 编辑器内核能力（useEditorKernel）</title>
+<link rel="stylesheet" href="../../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-code { font-family:Consolas,"Cascadia Mono",monospace; color:#57606a; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+  .inst { border:1px solid #eaeef2; border-radius:6px; padding:8px 10px; margin-bottom:8px; font-size:13px; }
+  .inst .nm { font-family:Consolas,monospace; color:#0969da; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="17_组件设计_编辑器内核能力.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 编辑器内核能力 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="17_组件设计_编辑器内核能力.md">《组件设计 · 编辑器内核能力》</a>：演示内核懒加载（独立分包 + 模块缓存）、实例创建 / 销毁与内容协议读写；同屏多实例共享内核模块。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-bar">
+        <el-button size="small" type="primary" @click="loadKernel">loadKernel()（懒加载）</el-button>
+        <el-button size="small" @click="create">create(el)（创建实例）</el-button>
+        <el-button size="small" @click="setContent">setContent()</el-button>
+        <el-button size="small" @click="getContent">getContent()</el-button>
+        <el-button size="small" @click="destroy">destroy()（销毁实例）</el-button>
+      </div>
+
+      <div class="inst" v-for="(i, idx) in instances" :key="i.id">
+        <span class="nm">{{ i.id }}</span> · 协议 {{ i.protocol }} · {{ i.state }}
+        <div v-if="i.content" class="dp-code" style="margin-top:4px">{{ i.content }}</div>
+      </div>
+      <div v-if="!instances.length" class="dp-hint">（无实例；先加载内核再创建实例）</div>
+
+      <div class="dp-state">内核状态与日志
+kernel module: {{ kernelLoaded ? '已加载（code-split chunk 缓存，同屏多实例共享）' : '未加载' }}
+{{ logs.length ? logs.join('\n') : '（尚无操作）' }}
+说明：动态 import() 独立分包（首屏不含）；create 返回统一句柄（getContent / setContent / destroy）；
+destroy 幂等并登记异步资源（卸载自动销毁）；内容协议：rich=HTML（净化）、code=纯文本。</div>
+    </div>
+  </div>
+</div>
+
+<script src="../../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref } = Vue;
+  var app = createApp({
+    setup: function () {
+      var kernelLoaded = ref(false), instances = ref([]), logs = ref([]), seq = 0;
+      function stamp() { return String(logs.value.length + 1).padStart(2, '0'); }
+      function loadKernel() {
+        if (kernelLoaded.value) { logs.value.push('[' + stamp() + '] loadKernel() → 命中模块缓存（0 加载）'); return; }
+        logs.value.push('[' + stamp() + '] loadKernel() → import(独立分包)…');
+        setTimeout(function () { kernelLoaded.value = true; logs.value.push('[' + stamp() + '] kernel-ready（模块级缓存，后续实例共享）'); }, 500);
+      }
+      function create() {
+        if (!kernelLoaded.value) { logs.value.push('[' + stamp() + '] create 失败：内核未加载（先 loadKernel）'); return; }
+        seq += 1;
+        instances.value.push({ id: 'editor-' + seq, protocol: 'rich(HTML)', state: '已创建', content: '' });
+        logs.value.push('[' + stamp() + '] create(el, opts) → editor-' + seq + '（统一句柄：getContent / setContent / destroy）');
+      }
+      function setContent() {
+        if (!instances.value.length) { logs.value.push('[' + stamp() + '] setContent 失败：无实例'); return; }
+        var i = instances.value[instances.value.length - 1];
+        i.content = '<p>公告：<b>周五</b> 系统升级</p>';
+        logs.value.push('[' + stamp() + '] setContent(' + i.id + ') → 协议归一（rich=HTML）');
+      }
+      function getContent() {
+        if (!instances.value.length) { logs.value.push('[' + stamp() + '] getContent 失败：无实例'); return; }
+        var i = instances.value[instances.value.length - 1];
+        logs.value.push('[' + stamp() + '] getContent(' + i.id + ') → ' + (i.content || '（空）'));
+      }
+      function destroy() {
+        if (!instances.value.length) { logs.value.push('[' + stamp() + '] destroy 失败：无实例'); return; }
+        var i = instances.value.pop();
+        logs.value.push('[' + stamp() + '] destroy(' + i.id + ') → 幂等销毁（事件 / 定时器 / observers 已清理，登记异步资源）');
+      }
+      return { kernelLoaded: kernelLoaded, instances: instances, logs: logs, loadKernel: loadKernel, create: create, setContent: setContent, getContent: getContent, destroy: destroy };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>

@@ -17,7 +17,7 @@ import {
   BaseFormContainer,
   BaseFormMeta,
   BaseFormPage,
-  BaseFragmentContext,
+  BaseModuleContext,
   BaseInputControl,
   BaseInteractive,
   BaseLayout,
@@ -264,7 +264,7 @@ describe('S2 复用类行为（二）', () => {
     expect(new BaseAccess().placeholder).toBe(true)
   })
 
-  it('column-config / query-scheme / watermark / fragment-context', () => {
+  it('column-config / query-scheme / watermark / module-context', () => {
     const drag = new BaseDragDrop()
     const columns = new BaseColumnConfig({
       columns: [
@@ -288,7 +288,7 @@ describe('S2 复用类行为（二）', () => {
     watermark.show()
     expect(watermark.shown.get()).toBe(true)
 
-    const context = new BaseFragmentContext()
+    const context = new BaseModuleContext()
     context.provide({ user: { id: 'u1', name: '张三' } })
     expect(context.get('user')?.name).toBe('张三')
     expect(context.describe().provided).toEqual(['user'])

@@ -1,6 +1,6 @@
 # BMS 前端 CI 基础镜像：预装 workspace 根依赖（frontend/packages/*：core / vue / ui-ep / ui-vant）
-# 与 frontend/apps/desktop / frontend/apps/mobile node_modules（镜像内路径 /opt/ci/frontend、/opt/ci/frontend-mobile 保持；按锁文件哈希打标签）
-# 消费方：core-check（workspace 根依赖）/ frontend-check / frontend-build / frontend-mobile-build
+# 与 frontend/apps/desktop / frontend/apps/mobile node_modules（镜像内路径 /opt/ci/frontend/apps/desktop、/opt/ci/frontend/apps/mobile 保持；按锁文件哈希打标签）
+# 消费方：core-check（workspace 根依赖）/ desktop-check / mobile-check / desktop-build / mobile-build
 FROM node:22-slim
 
 ENV npm_config_registry=https://registry.npmmirror.com \
@@ -13,8 +13,8 @@ COPY package.json package-lock.json tsconfig.base.json /opt/ci/workspace/
 COPY frontend/packages/ /opt/ci/workspace/frontend/packages/
 RUN cd /opt/ci/workspace && npm ci
 
-COPY frontend/apps/desktop/ /opt/ci/frontend/
-COPY frontend/apps/mobile/ /opt/ci/frontend-mobile/
+COPY frontend/apps/desktop/ /opt/ci/frontend/apps/desktop/
+COPY frontend/apps/mobile/ /opt/ci/frontend/apps/mobile/
 
-RUN cd /opt/ci/frontend && npm ci \
- && cd /opt/ci/frontend-mobile && npm ci
+RUN cd /opt/ci/frontend/apps/desktop && npm ci \
+ && cd /opt/ci/frontend/apps/mobile && npm ci

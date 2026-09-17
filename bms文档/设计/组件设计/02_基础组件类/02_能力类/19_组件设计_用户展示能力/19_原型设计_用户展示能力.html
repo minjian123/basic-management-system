@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 用户展示能力（useUserDisplay）</title>
+<link rel="stylesheet" href="../../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-code { font-family:Consolas,"Cascadia Mono",monospace; color:#57606a; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+  .u { display:flex; align-items:center; gap:10px; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:8px; font-size:13px; }
+  .u .av { width:30px; height:30px; border-radius:15px; background:#0969da; color:#fff; display:flex; align-items:center; justify-content:center; font-size:12px; }
+  .u .av.off { background:#d0d7de; color:#57606a; }
+  .u .nm { font-weight:600; color:#1f2328; }
+  .u .dp { color:#57606a; font-size:12px; }
+  .u .st { margin-left:auto; font-size:11px; font-family:Consolas,monospace; }
+  .u .st.off { color:#cf222e; } .u .st.ok { color:#1a7f37; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="19_组件设计_用户展示能力.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 用户展示能力 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="19_组件设计_用户展示能力.md">《组件设计 · 用户展示能力》</a>：演示批量加载与缓存（同 id 不重复请求）、头像 / 姓名 / 部门路径 / 状态组合展示、离职灰显与缺失降级。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-bar">
+        <el-button size="small" type="primary" @click="load">loadUsers(['u1','u2','u3','u9']) 批量加载</el-button>
+        <el-button size="small" @click="load">再加载（缓存命中 0 请求）</el-button>
+      </div>
+
+      <div class="u" v-for="id in ids" :key="id">
+        <span class="av" :class="{ off: info(id).status !== '在职' }">{{ info(id).name.charAt(0) }}</span>
+        <span class="nm">{{ info(id).name }}</span>
+        <span class="dp">{{ info(id).deptPath }}</span>
+        <span class="st" :class="info(id).status === '在职' ? 'ok' : 'off'">{{ info(id).status }}</span>
+      </div>
+
+      <div class="dp-state">缓存与日志
+{{ logs.length ? logs.join('\n') : '（尚无加载）' }}
+说明：批量接口一次取多 id（避免 N+1）；按 id 缓存（命中不请求）；头像为空回退姓名首字；
+离职 / 停用灰显（历史审批节点仍显示）；缺失 id 按 fallback 降级（默认显示原 id 占位）。</div>
+    </div>
+  </div>
+</div>
+
+<script src="../../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref } = Vue;
+  var app = createApp({
+    setup: function () {
+      var ids = ['u1', 'u2', 'u3', 'u9'];
+      var cache = {};
+      var logs = ref([]);
+      function stamp() { return String(logs.value.length + 1).padStart(2, '0'); }
+      function load() {
+        var missing = ids.filter(function (id) { return !cache[id]; });
+        if (!missing.length) { logs.value.push('[' + stamp() + '] loadUsers → 全部命中缓存（0 请求）'); return; }
+        logs.value.push('[' + stamp() + '] loadUsers([' + missing.join(',') + ']) → GET /api/users?ids=…（批量一次）');
+        setTimeout(function () {
+          if (missing.indexOf('u1') >= 0) cache['u1'] = { name: '张三', deptPath: '集团总部 / 研发中心 / 前端组', status: '在职' };
+          if (missing.indexOf('u2') >= 0) cache['u2'] = { name: '李四', deptPath: '集团总部 / 研发中心 / 后端组', status: '在职' };
+          if (missing.indexOf('u3') >= 0) cache['u3'] = { name: '王五', deptPath: '集团总部 / 市场部', status: '离职' };
+          if (missing.indexOf('u9') >= 0) cache['u9'] = { name: 'u9', deptPath: '（用户不存在，fallback 显示原 id）', status: '未知' };
+          logs.value.push('[' + stamp() + '] ← 返回 ' + missing.length + ' 项（已缓存，按 id 命中）');
+        }, 350);
+      }
+      function info(id) {
+        var c = cache[id];
+        if (!c) return { name: '（未加载）', deptPath: '—', status: '加载中' };
+        return c;
+      }
+      return { ids: ids, logs: logs, load: load, info: info };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>
