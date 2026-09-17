@@ -93,11 +93,22 @@ const input = useInput<unknown>({
   readonlyMode: props.readonlyMode,
 })
 
+/** 值内容比较（数组按内容比较：多值件的受控回写每次都是新引用，引用比较会触发回环） */
+function isSameValue(left: unknown, right: unknown): boolean {
+  if (left === right) {
+    return true
+  }
+  if (Array.isArray(left) && Array.isArray(right)) {
+    return left.length === right.length && left.every((item, index) => item === right[index])
+  }
+  return false
+}
+
 /** 外部受控值回写（跳过与域值相同的更新，避免回环） */
 watch(
   () => props.modelValue,
   (next) => {
-    if (next !== input.value.value) {
+    if (!isSameValue(next, input.value.value)) {
       input.setValue(next)
     }
   },
