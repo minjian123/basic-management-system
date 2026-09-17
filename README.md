@@ -159,7 +159,7 @@ bms/
 │   │   ├── workflow/         # 工作流引擎适配
 │   │   └── ws/               # 实时推送
 │   └── tests/                # 测试（与 app 同构 + crosscut / ops / integration）
-├── apps/desktop/                 # Vue 3 + Vite PC 管理端（Element Plus + Router + Pinia + i18n + 基础组件类）
+├── apps/desktop/                 # Vue 3 + Vite PC 管理端（Element Plus + Router + Pinia + i18n；消费 @bms/* 新体系）
 │   ├── .npmrc                # npmmirror 源 + legacy-peer-deps
 │   ├── .nvmrc                # 固定 Node 版本（22）
 │   ├── .env.development      # VITE_API_BASE=/api
@@ -168,25 +168,24 @@ bms/
 │   ├── vitest.config.ts
 │   ├── package.json
 │   ├── package-lock.json     # 依赖锁定（必须提交）
-│   ├── vite.config.ts        # 固定开发端口 5173 + @ 别名 + 代理
-│   ├── tsconfig.json         # 及 tsconfig.app.json / tsconfig.node.json
+│   ├── vite.config.ts        # 固定开发端口 5173 + @ / @bms/* 别名 + 分包 + 代理
+│   ├── tsconfig.json         # 及 tsconfig.app.json / tsconfig.node.json（@bms/* paths）
 │   ├── index.html
 │   ├── README.md             # 工程说明
 │   ├── public/favicon.svg
 │   ├── src/
-│   │   ├── main.ts           # 挂载 router / pinia / i18n（Element Plus 组件按需自动引入）
+│   │   ├── main.ts           # 挂载 router / pinia / i18n + ui-ep 装配 + v-perm
 │   │   ├── App.vue           # 路由出口
-│   │   ├── api/              # 契约基类 / BaseApi / Axios 基线 / OpenAPI 生成类型
-│   │   ├── router/           # 动态路由骨架
-│   │   ├── stores/           # Pinia：createCrudStore / useUserStore
+│   │   ├── adapters/         # ui-ep 注入接线 / 标签桥接 / 宿主根系出口（host-base）
+│   │   ├── api/              # 契约类型 / BaseApi / Axios 基线 / OpenAPI 生成类型
+│   │   ├── router/           # 静态路由 + 菜单 → 动态路由（@bms/vue useDynamicRoutes）
+│   │   ├── stores/           # Pinia：createCrudStore / permission / menu / user
 │   │   ├── layouts/          # BasicLayout 基础壳
 │   │   ├── views/            # HomeView 默认页
-│   │   ├── base/             # 机制层：根系 BaseFrontend / 组件根 BaseComponent / 6 机制基类（占位·异步资源·错误·订阅·片段机制·注册表基座）
-│   │   ├── components/       # 业务组件（占位）+ base/ 能力片段 31 与域基类（input / display / tree / editor）
 │   │   ├── i18n/             # vue-i18n（zh-CN / en-US）
 │   │   ├── styles/           # 设计令牌 tokens.scss（size / density）
 │   │   └── utils/            # useRequest / useListPage / useTabs / validators / status / serialize
-│   └── tests/                # Vitest：base-*（根系 / 组件根 / 机制 / 片段 / 域基类）+ guard-*（继承·依赖·演进·清单护栏）+ home / http / utils + helpers
+│   └── tests/                # Vitest：宿主用例（base / http / request / permission / layout / menu / tabs / modal / home / utils 等）
 ├── apps/mobile/                  # Vue 3 + Vant 移动端 H5（视口 375 + 安全区适配）
 │   └── …                         # 端口固定 5174；消费 `@bms/core` / `@bms/vue` / `@bms/ui-vant`（S4c 起，旧 `src/base` 与片段层已删除）
 ├── packages/                     # 前端单仓多包（源码头，宿主经 vite alias / tsconfig paths 消费）
