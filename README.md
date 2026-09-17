@@ -62,13 +62,13 @@ uv run uvicorn app.main:create_app --factory --port 8000
 uv run pytest          # 全量用例（含 Kiwi TCMS 用例编号标注）
 
 # PC 前端（端口 5173）
-cd apps/desktop
+cd frontend/apps/desktop
 npm ci
 npm run dev
 npm run test           # Vitest 冒烟
 
 # 移动端（端口 5174）
-cd apps/mobile
+cd frontend/apps/mobile
 npm ci
 npm run dev
 npm run test
@@ -80,7 +80,7 @@ npm run test
 uv run ruff check . && uv run ruff format --check . && uv run pyright
 uv run pytest -q --cov=app --cov-branch --cov-fail-under=70    # 覆盖率门禁 ≥ 70%
 uv run python -m ops.check_modules                             # 模块注册清单校验
-cd ../apps/desktop && npm run lint && npm run test:cov && npm run build && npm run budget   # 移动端：cd ../apps/mobile（覆盖率 ≥ 70%、体积预算门禁）
+cd ../frontend/apps/desktop && npm run lint && npm run test:cov && npm run build && npm run budget   # 移动端：cd ../frontend/apps/mobile（覆盖率 ≥ 70%、体积预算门禁）
 cd .. && python3 scripts/tools/base-check/check-base.py        # 基座自检（须在仓库根）
 python3 scripts/tools/base-check/check-links.py                # 链接自洽校验（本地手工跑，不挂 CI）
 python3 scripts/tools/check-docs/check-status.py              # 需求 / 任务 / 计划状态一致性
@@ -159,49 +159,50 @@ bms/
 │   │   ├── workflow/         # 工作流引擎适配
 │   │   └── ws/               # 实时推送
 │   └── tests/                # 测试（与 app 同构 + crosscut / ops / integration）
-├── apps/desktop/                 # Vue 3 + Vite PC 管理端（Element Plus + Router + Pinia + i18n；消费 @bms/* 新体系）
-│   ├── .npmrc                # npmmirror 源 + legacy-peer-deps
-│   ├── .nvmrc                # 固定 Node 版本（22）
-│   ├── .env.development      # VITE_API_BASE=/api
-│   ├── eslint.config.js      # ESLint flat config
-│   ├── .prettierrc.json
-│   ├── vitest.config.ts
-│   ├── package.json
-│   ├── package-lock.json     # 依赖锁定（必须提交）
-│   ├── vite.config.ts        # 固定开发端口 5173 + @ / @bms/* 别名 + 分包 + 代理
-│   ├── tsconfig.json         # 及 tsconfig.app.json / tsconfig.node.json（@bms/* paths）
-│   ├── index.html
-│   ├── README.md             # 工程说明
-│   ├── public/favicon.svg
-│   ├── src/
-│   │   ├── main.ts           # 挂载 router / pinia / i18n + ui-ep 装配 + v-perm
-│   │   ├── App.vue           # 路由出口
-│   │   ├── adapters/         # ui-ep 注入接线 / 标签桥接 / 宿主根系出口（host-base）
-│   │   ├── api/              # 契约类型 / BaseApi / Axios 基线 / OpenAPI 生成类型
-│   │   ├── router/           # 静态路由 + 菜单 → 动态路由（@bms/vue useDynamicRoutes）
-│   │   ├── stores/           # Pinia：createCrudStore / permission / menu / user
-│   │   ├── layouts/          # BasicLayout 基础壳
-│   │   ├── views/            # HomeView 默认页
-│   │   ├── i18n/             # vue-i18n（zh-CN / en-US）
-│   │   ├── styles/           # 设计令牌 tokens.scss（size / density）
-│   │   └── utils/            # useRequest / useListPage / useTabs / validators / status / serialize
-│   └── tests/                # Vitest：宿主用例（base / http / request / permission / layout / menu / tabs / modal / home / utils 等）
-├── apps/mobile/                  # Vue 3 + Vant 移动端 H5（视口 375 + 安全区适配）
-│   └── …                         # 端口固定 5174；消费 `@bms/core` / `@bms/vue` / `@bms/ui-vant`（S4c 起，旧 `src/base` 与片段层已删除）
-├── packages/                     # 前端单仓多包（源码头，宿主经 vite alias / tsconfig paths 消费）
-│   ├── core/                     # 框架无关核心（纯 TS：根系 / 机制 / 31 能力 / 领域 / 契约；`@bms/core/testing` 契约用例工厂）
-│   ├── vue/                      # Vue 绑定插件（组合式投影：useValue / useField / useAccess / useVirtualRange …）
-│   ├── ui-ep/                    # PC 实现插件（Element Plus，34 组件 + 注入点）
-│   └── ui-vant/                  # 移动端实现插件（Vant，9 组件 + 注入点；与 ui-ep 同契约）
+├── frontend/                     # 前端单仓多包（与 backend/ 对称：apps 宿主 + packages 基座）
+│   ├── apps/desktop/                 # Vue 3 + Vite PC 管理端（Element Plus + Router + Pinia + i18n；消费 @bms/* 新体系）
+│   │   ├── .npmrc                # npmmirror 源 + legacy-peer-deps
+│   │   ├── .nvmrc                # 固定 Node 版本（22）
+│   │   ├── .env.development      # VITE_API_BASE=/api
+│   │   ├── eslint.config.js      # ESLint flat config
+│   │   ├── .prettierrc.json
+│   │   ├── vitest.config.ts
+│   │   ├── package.json
+│   │   ├── package-lock.json     # 依赖锁定（必须提交）
+│   │   ├── vite.config.ts        # 固定开发端口 5173 + @ / @bms/* 别名 + 分包 + 代理
+│   │   ├── tsconfig.json         # 及 tsconfig.app.json / tsconfig.node.json（@bms/* paths）
+│   │   ├── index.html
+│   │   ├── README.md             # 工程说明
+│   │   ├── public/favicon.svg
+│   │   ├── src/
+│   │   │   ├── main.ts           # 挂载 router / pinia / i18n + ui-ep 装配 + v-perm
+│   │   │   ├── App.vue           # 路由出口
+│   │   │   ├── adapters/         # ui-ep 注入接线 / 标签桥接 / 宿主根系出口（host-base）
+│   │   │   ├── api/              # 契约类型 / BaseApi / Axios 基线 / OpenAPI 生成类型
+│   │   │   ├── router/           # 静态路由 + 菜单 → 动态路由（@bms/vue useDynamicRoutes）
+│   │   │   ├── stores/           # Pinia：createCrudStore / permission / menu / user
+│   │   │   ├── layouts/          # BasicLayout 基础壳
+│   │   │   ├── views/            # HomeView 默认页
+│   │   │   ├── i18n/             # vue-i18n（zh-CN / en-US）
+│   │   │   ├── styles/           # 设计令牌 tokens.scss（size / density）
+│   │   │   └── utils/            # useRequest / useListPage / useTabs / validators / status / serialize
+│   │   └── tests/                # Vitest：宿主用例（base / http / request / permission / layout / menu / tabs / modal / home / utils 等）
+│   ├── apps/mobile/                  # Vue 3 + Vant 移动端 H5（视口 375 + 安全区适配）
+│   │   └── …                         # 端口固定 5174；消费 `@bms/core` / `@bms/vue` / `@bms/ui-vant`（S4c 起，旧 `src/base` 与片段层已删除）
+│   └── packages/                 # 前端基座多包（源码头，宿主经 vite alias / tsconfig paths 消费）
+│       ├── core/                     # 框架无关核心（纯 TS：根系 / 机制 / 31 能力 / 领域 / 契约；`@bms/core/testing` 契约用例工厂）
+│       ├── vue/                      # Vue 绑定插件（组合式投影：useValue / useField / useAccess / useVirtualRange …）
+│       ├── ui-ep/                    # PC 实现插件（Element Plus，34 组件 + 注入点）
+│       └── ui-vant/                  # 移动端实现插件（Vant，13 组件 + 注入点；与 ui-ep 同契约）
 ├── deploy/                   # 部署配置
-│   ├── .env.example          # 开发服务器与服务凭据模板（复制为 .env）
-│   ├── ci/                   # CI 构建（后端 / 前端 Dockerfile + 基础镜像构建脚本）
-│   ├── compose/              # Docker Compose（base / gitlab / kiwi）
-│   └── setup/                # 环境安装脚本（install-all.sh）
+│   │   ├── .env.example          # 开发服务器与服务凭据模板（复制为 .env）
+│   │   ├── ci/                   # CI 构建（后端 / 前端 Dockerfile + 基础镜像构建脚本）
+│   │   ├── compose/              # Docker Compose（base / gitlab / kiwi）
+│       └── setup/                # 环境安装脚本（install-all.sh）
 ├── scripts/                  # 开发期工具链
-│   └── tools/                # backup / base-check / bg / check-docs / defect / dsh / gitlab / governance / reorder-design / reorder-stage / vision / winrm / wol / workbuddy
+│       └── tools/                # backup / base-check / bg / check-docs / defect / dsh / gitlab / governance / reorder-design / reorder-stage / vision / winrm / wol / workbuddy
 ├── ops/                      # 产品运维脚本（种子数据、备份恢复、租户库迁移，后续阶段填充）
-│   └── README.md             # 目录说明
+│       └── README.md             # 目录说明
 ├── test文档 -> ../test/test文档  # 测试资产仓软链（工作区并置，不入库）
 └── bms文档/                  # 项目文档
     ├── 基座文档清单.md        # 通用基座权威清单（产品不复制）
