@@ -3,12 +3,15 @@
  *
  * - 无权限**移除 DOM**（非 `display:none`）；移除时插入注释锚点，权限恢复后原位回插；
  * - 写法：string / string[]（默认任一满足 anyOf）、`.all`（全部满足）、`.not`（取反）；
- * - 求值时机：`mounted` / `updated`；并监听权限版本（`usePermissionStore.permVersion`）变化重评。
+ * - 求值时机：`mounted` / `updated`；判定经 `@bms/ui-ep` 注入点（`checkPerm`）；
+ *   并监听权限版本（`usePermissionStore.permVersion`）变化重评。
  *
  * 前端显隐不构成安全边界，后端 `require_permission` 强校验为准。
  */
 
 import { effectScope, watch, type Directive, type DirectiveBinding, type EffectScope } from 'vue'
+
+import { checkPerm } from '@bms/ui-ep'
 
 import { usePermissionStore } from '@/stores/permission'
 
@@ -36,9 +39,8 @@ function allows(binding: DirectiveBinding<string | string[]>): boolean {
   if (codes.length === 0) {
     return true
   }
-  const store = usePermissionStore()
-  const matched =
-    binding.modifiers.all === true ? codes.every((code) => store.has(code)) : codes.some((code) => store.has(code))
+  // 判定经 ui-ep 注入点（宿主装配接权限 store；`any` / `all` 语义一致）
+  const matched = checkPerm(codes, binding.modifiers.all === true ? 'all' : 'any')
   return binding.modifiers.not === true ? !matched : matched
 }
 

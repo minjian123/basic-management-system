@@ -5,6 +5,8 @@ import { createPinia, setActivePinia } from 'pinia'
 import { defineComponent, h, nextTick, withDirectives, type DirectiveArguments } from 'vue'
 import { afterEach, describe, expect, it } from 'vitest'
 
+import { configurePermissionChecker } from '@bms/ui-ep'
+
 import { vPerm } from '@/directives/perm'
 import { i18n } from '@/i18n'
 import { usePermissionStore } from '@/stores/permission'
@@ -33,6 +35,10 @@ function mountHost(codes: string[], permValue: string | string[] = 'a', modifier
   const pinia = createPinia()
   setActivePinia(pinia)
   const store = usePermissionStore()
+  // 指令经 ui-ep 注入点判定；接权限 store 语义
+  configurePermissionChecker((list, mode) =>
+    mode === 'all' ? store.hasAll([...list]) : store.hasAny([...list]),
+  )
   store.setCodes(codes)
   const container = document.createElement('div')
   document.body.appendChild(container)

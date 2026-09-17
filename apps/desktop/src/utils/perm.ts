@@ -1,11 +1,11 @@
 /**
  * 动作权限脚本判断：`hasPerm` / `canAccess`（不可指令化场景：表格列、工具栏、路由 meta）。
  *
- * 权限码集合与判定唯一来自 `useAccess` 片段（经 `usePermissionStore` 汇聚）；
+ * 权限码集合与判定经 `@bms/ui-ep` 注入点（宿主装配 `configurePermissionChecker` 接权限 store）；
  * 前端显隐不构成安全边界，后端 `require_permission` 强校验为准。
  */
 
-import { usePermissionStore } from '@/stores/permission'
+import { checkPerm } from '@bms/ui-ep'
 
 /** `canAccess` 可判定目标：权限码或路由 / 菜单节点（`public` 或未声明 `permission` 视为公开） */
 export interface AccessTarget {
@@ -15,12 +15,8 @@ export interface AccessTarget {
 
 /** 编程式权限判断（`[]` 空数组视为不限制） */
 export function hasPerm(code: string | string[], mode: 'any' | 'all' = 'any'): boolean {
-  const codes = Array.isArray(code) ? code : [code]
-  if (codes.length === 0) {
-    return true
-  }
-  const store = usePermissionStore()
-  return mode === 'all' ? store.hasAll(codes) : store.hasAny(codes)
+  // 判定经 ui-ep 注入点（宿主装配接权限 store）
+  return code === '' ? true : checkPerm(code, mode)
 }
 
 /** 访问判定：字符串 / 数组等价 `hasPerm`；节点对象取 `permission`；`null` / `undefined` 视为允许 */
