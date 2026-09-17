@@ -231,5 +231,134 @@ export function describeInputControlsContract(kit: ComponentContractKit): void {
       ).toBe(true)
       limited.unmount()
     })
+
+    it('RadioField：根类名 / 只读文本 / 无效值剔除 / 点选与禁用 / 形态类', async () => {
+      const options = [
+        { value: 'a', label: 'A' },
+        { value: 'b', label: 'B' },
+        { value: 'c', label: 'C', disabled: true },
+      ]
+
+      const value = kit.mount('RadioField', { props: { modelValue: 'a', options, readonly: true } })
+      expect(value.has('.bms-radio-field'), '根类名钩子').toBe(true)
+      expect(value.text()).toContain('A')
+      value.unmount()
+
+      const ghost = kit.mount('RadioField', {
+        props: { modelValue: 'ghost', options, readonly: true },
+      })
+      expect(ghost.text(), '无效值剔除').not.toContain('ghost')
+      ghost.unmount()
+
+      const change = kit.mount('RadioField', { props: { modelValue: null, options } })
+      const vm = change.exposed<{ selectOption?: (value: string | number) => void }>()
+      vm.selectOption?.('b')
+      await change.flushRender()
+      expect(lastEmitted(change, 'update:modelValue'), '点选写入').toBe('b')
+      vm.selectOption?.('c')
+      await change.flushRender()
+      expect(lastEmitted(change, 'update:modelValue'), '禁用项拒绝').toBe('b')
+      change.unmount()
+
+      const button = kit.mount('RadioField', {
+        props: { modelValue: null, options, widget: 'button' },
+      })
+      expect(button.has('.bms-radio-field--button'), 'button 形态类').toBe(true)
+      button.unmount()
+
+      const segmented = kit.mount('RadioField', {
+        props: { modelValue: null, options, widget: 'segmented' },
+      })
+      expect(segmented.has('.bms-radio-field--segmented'), 'segmented 形态类').toBe(true)
+      segmented.unmount()
+    })
+
+    it('CheckboxField：只读顺序 / 取消选中 / 上限拒绝 / 全选忽略禁用 / 下限校验', async () => {
+      const options = [
+        { value: 'a', label: 'A' },
+        { value: 'b', label: 'B' },
+        { value: 'c', label: 'C' },
+        { value: 'd', label: 'D', disabled: true },
+      ]
+
+      const ordered = kit.mount('CheckboxField', {
+        props: { modelValue: ['b', 'a'], options, readonly: true },
+      })
+      expect(ordered.has('.bms-checkbox-field'), '根类名钩子').toBe(true)
+      expect(ordered.text().replace(/\s/g, ''), '按选项顺序').toContain('A、B')
+      ordered.unmount()
+
+      const toggle = kit.mount('CheckboxField', { props: { modelValue: ['a', 'b'], options } })
+      const toggleVm = toggle.exposed<{ selectOption?: (value: string | number) => void }>()
+      toggleVm.selectOption?.('b')
+      await toggle.flushRender()
+      expect(lastEmitted(toggle, 'update:modelValue'), '再次点选取消').toEqual(['a'])
+      toggle.unmount()
+
+      const limited = kit.mount('CheckboxField', { props: { modelValue: ['a'], options, max: 1 } })
+      const limitedVm = limited.exposed<{ selectOption?: (value: string | number) => void }>()
+      limitedVm.selectOption?.('b')
+      await limited.flushRender()
+      const last = lastEmitted(limited, 'update:modelValue')
+      expect(
+        last === undefined || (Array.isArray(last) && !(last as unknown[]).includes('b')),
+        '达上限拒绝再选',
+      ).toBe(true)
+      limited.unmount()
+
+      const all = kit.mount('CheckboxField', {
+        props: { modelValue: [], options, selectAll: true },
+      })
+      const allVm = all.exposed<{ toggleSelectAll?: () => void }>()
+      allVm.toggleSelectAll?.()
+      await all.flushRender()
+      expect(lastEmitted(all, 'update:modelValue'), '全选忽略禁用项').toEqual(['a', 'b', 'c'])
+      all.unmount()
+
+      const short = kit.mount('CheckboxField', { props: { modelValue: ['a'], options, min: 2 } })
+      const shortVm = short.exposed<{ validate?: () => boolean }>()
+      expect(shortVm.validate?.(), '不足下限校验失败').toBe(false)
+      short.unmount()
+    })
+
+    it('SwitchInput：布尔归一 / 三态文案 / 切换写值 / 加载态 / 危险确认取消', async () => {
+      const on = kit.mount('SwitchInput', { props: { modelValue: 1, readonly: true } })
+      expect(on.has('.bms-switch-input'), '根类名钩子').toBe(true)
+      expect(on.text()).toContain('是')
+      on.unmount()
+
+      const unset = kit.mount('SwitchInput', {
+        props: { modelValue: null, threeState: true, readonly: true },
+      })
+      expect(unset.text()).toContain('未设置')
+      unset.unmount()
+
+      const toggle = kit.mount('SwitchInput', { props: { modelValue: null } })
+      const toggleVm = toggle.exposed<{ toggle?: () => void | Promise<void> }>()
+      await toggleVm.toggle?.()
+      expect(lastEmitted(toggle, 'update:modelValue'), '只发布尔').toBe(true)
+      toggle.unmount()
+
+      const loading = kit.mount('SwitchInput', { props: { modelValue: false, loading: true } })
+      const loadingVm = loading.exposed<{ toggle?: () => void | Promise<void> }>()
+      await loadingVm.toggle?.()
+      expect(loading.emitted('update:modelValue') ?? [], '加载态不外发').toHaveLength(0)
+      loading.unmount()
+
+      if (kit.configureConfirm) {
+        kit.configureConfirm(async () => false)
+        try {
+          const guarded = kit.mount('SwitchInput', {
+            props: { modelValue: true, dangerConfirm: '停用后不可用' },
+          })
+          const guardedVm = guarded.exposed<{ toggle?: () => void | Promise<void> }>()
+          await guardedVm.toggle?.()
+          expect(guarded.emitted('update:modelValue') ?? [], '确认取消不外发').toHaveLength(0)
+          guarded.unmount()
+        } finally {
+          kit.configureConfirm(undefined)
+        }
+      }
+    })
   })
 }

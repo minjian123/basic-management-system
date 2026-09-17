@@ -10,6 +10,7 @@
 
 import { describe, expect, it } from 'vitest'
 
+import type { ConfirmHandler } from '../src/contracts/confirm'
 import type { PermissionChecker } from '../src/contracts/permission'
 
 export interface ComponentMountOptions {
@@ -45,6 +46,8 @@ export interface ComponentContractKit {
   /** 按插件出口名挂载组件（`ScrollContainer` / `VirtualList` / `PermButton` …） */
   mount(name: string, options?: ComponentMountOptions): ComponentViewHandle
   configurePermissionChecker(next: PermissionChecker | undefined): void
+  /** 覆盖插件确认实现（危险切换确认契约用；未提供即跳过该组断言） */
+  configureConfirm?(next: ConfirmHandler | undefined): void
 }
 
 const SCROLL_SLUGS = [
