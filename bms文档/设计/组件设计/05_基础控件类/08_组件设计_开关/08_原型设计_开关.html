@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 开关（SwitchInput）</title>
+<title>原型 · 开关</title>
 <link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
 <style>
@@ -25,7 +25,7 @@
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="08_组件设计_开关.md">《组件设计 · 开关》</a>：演示布尔开关、启用/停用文案、三态（未设置）、加载态与危险切换确认；继承 02 基础组件类 输入域基类。
+    本原型对应当前目录 <a href="08_组件设计_开关.md">《组件设计 · 开关》</a>：演示布尔开关、启用/停用文案、三态（未设置）、加载态与危险切换确认；继承基础组件类·输入域基类。
   </div>
 
   <div id="app">
@@ -38,9 +38,9 @@
       </div>
 
       <div class="dp-state">值 v = {{ JSON.stringify(v) }}（{{ v===null ? '未设置' : (v ? '启用' : '停用') }}）
-值域：前端仅布尔/null，后端 SMALLINT 1/0 由边界归一（继承链）
-三态：threeState={{ threeState }}（null 显示未设置，与 false 区分）　加载态：切换中禁重复；危险确认：停用关键配置前二次确认
-说明：列表内联切换与失败回滚见 04 字段类 08 开关与枚举字段（继承本控件）；继承链经 输入域基类。</div>
+值域：前端仅布尔/未设置，后端 1/0 由边界归一（继承域基类语义）
+三态 = {{ threeState }}（开启时区分「未设置」与「关」）　加载态：切换中禁重复；危险确认：停用关键配置前二次确认
+说明：列表内联切换与失败回滚见字段类「开关与枚举字段」（继承本控件）；继承链：开关 → 输入域（域基类层）→ 组件根 → 根系。</div>
     </div>
   </div>
 </div>

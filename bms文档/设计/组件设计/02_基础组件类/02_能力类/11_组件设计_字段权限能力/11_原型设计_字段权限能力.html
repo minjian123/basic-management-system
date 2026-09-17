@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 字段权限（useFieldPerm / v-plain）</title>
+<title>原型 · 字段权限</title>
 <link rel="stylesheet" href="../../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../../原型设计/资源/原型样式.css">
 <style>
@@ -49,7 +49,7 @@
         <div class="fw" v-for="f in shownFields" :key="f.key">
           <div class="lb"><span :class="{req: f.required}">{{ f.label }}</span></div>
 
-          <!-- 只读态：readonlyMode 回显；编辑态：控件 disabled 由 editable 决定 -->
+          <!-- 只读态：按只读回显方式展示；编辑态：控件禁用由可编辑判定决定 -->
           <template v-if="f.key==='phone' && f.masked">
             <div class="ro-text mask">{{ hasPlain ? f.value : maskPhone(f.value) }}</div>
           </template>
@@ -69,7 +69,7 @@
 {{ permText }}
 说明：visible=false 的字段不渲染（栅格自然收缩，如查看者见不到「邮箱/手机号」之外的多数字段）；
 editable=false 的字段在编辑态置 disabled；只读态全部字段只读回显。
-「手机号」为脱敏字段：默认掩码，持 data:plain 才看明文（v-plain），明文仅内存态、不落 localStorage。</div>
+「手机号」为脱敏字段：默认掩码，持 data:plain 才看明文（脱敏明文），明文仅内存态、不落 localStorage。</div>
     </div>
   </div>
 </div>

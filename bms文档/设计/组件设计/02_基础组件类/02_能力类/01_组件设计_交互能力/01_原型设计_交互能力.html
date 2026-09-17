@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 交互能力（BaseInteractive）</title>
+<title>原型 · 交互能力</title>
 <link rel="stylesheet" href="../../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../../原型设计/资源/原型样式.css">
 <style>
@@ -25,25 +25,25 @@
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="01_组件设计_交互能力.md">《组件设计 · 交互能力》</a>：演示可点击语义（disabled/loading 不触发）、键盘 Enter/Space、焦点环、点击防抖、危险操作二次确认与点击埋点。
+    本原型对应当前目录 <a href="01_组件设计_交互能力.md">《组件设计 · 交互能力》</a>：演示可点击语义（禁用/加载中不触发）、键盘 Enter/Space、焦点环、点击防抖、危险操作二次确认与点击埋点。
   </div>
 
   <div id="app">
     <div class="ep-page">
       <div class="dp-bar">
-        <el-checkbox v-model="loading" size="small">loading</el-checkbox>
-        <el-checkbox v-model="disabled" size="small">disabled</el-checkbox>
+        <el-checkbox v-model="loading" size="small">加载中</el-checkbox>
+        <el-checkbox v-model="disabled" size="small">禁用</el-checkbox>
         <el-checkbox v-model="danger" size="small">危险操作需确认</el-checkbox>
         <el-checkbox v-model="debounceOn" size="small">防抖 800ms</el-checkbox>
         <span class="dp-hint">Tab 聚焦后按 Enter/Space 可触发</span>
       </div>
 
-      <base-interactive :loading="loading" :disabled="disabled" :danger="danger ? '确认删除该记录？' : ''"
+      <interactive-control :loading="loading" :disabled="disabled" :danger="danger ? '确认删除该记录？' : ''"
         :debounce="debounceOn ? 800 : 0" @click="onClick" />
 
       <div class="dp-state" style="margin-top:12px">{{ log }}
-说明：disabled/loading 时点击与键盘均不触发；危险操作先确认后回调；防抖期间重复点击只生效一次；
-焦点环用 :focus-visible（仅键盘可见）；点击触发统一埋点。</div>
+说明：禁用/加载中时点击与键盘均不触发；危险操作先确认后回调；防抖期间重复点击只生效一次；
+焦点环仅键盘聚焦可见；点击触发统一埋点。</div>
     </div>
   </div>
 </div>
@@ -55,8 +55,8 @@
   var { createApp, ref } = Vue;
   var ElMessageBox = ElementPlus.ElMessageBox;
 
-  // 模拟 交互能力 useInteractive
-  var useInteractive = {
+  // 模拟 交互能力（演示包装）
+  var InteractiveControl = {
     props: ['loading','disabled','danger','debounce'],
     emits: ['click'],
     data: function () { return { timer: null }; },
@@ -77,11 +77,11 @@
   };
 
   var app = createApp({
-    components: { useInteractive: useInteractive },
+    components: { InteractiveControl: InteractiveControl },
     setup: function () {
       var loading = ref(false), disabled = ref(false), danger = ref(false), debounceOn = ref(false);
       var log = ref('就绪。点击或键盘触发。');
-      function onClick() { log.value = 'click() 有效触发（已通过 disabled/loading/防抖/确认）→ 埋点上报\n时间：' + new Date().toLocaleTimeString(); }
+      function onClick() { log.value = '有效触发（已通过禁用/加载/防抖/确认）→ 埋点上报\n时间：' + new Date().toLocaleTimeString(); }
       return { loading: loading, disabled: disabled, danger: danger, debounceOn: debounceOn, log: log, onClick: onClick };
     }
   });

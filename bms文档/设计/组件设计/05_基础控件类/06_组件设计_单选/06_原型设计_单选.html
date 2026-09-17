@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 单选（RadioField）</title>
+<title>原型 · 单选</title>
 <link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
 <style>
@@ -23,7 +23,7 @@
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="06_组件设计_单选.md">《组件设计 · 单选》</a>：演示 <span class="dp-code">radio</span> / <span class="dp-code">button</span> / <span class="dp-code">segmented</span> 三种形态、静态选项、禁用与只读、空值三态；继承 02 基础组件类 输入域基类。
+    本原型对应当前目录 <a href="06_组件设计_单选.md">《组件设计 · 单选》</a>：演示 <span class="dp-code">radio</span> / <span class="dp-code">button</span> / <span class="dp-code">segmented</span> 三种形态、静态选项、禁用与只读、空值三态；继承基础组件类·输入域基类。
   </div>
 
   <div id="app">
@@ -41,8 +41,8 @@
       </div>
 
       <div class="dp-state" style="margin-top:14px">值 = {{ JSON.stringify(v) }}　形态 = {{ widget }}　只读 = {{ readonly }}
-选项模型复用 OptionItem（与字典/枚举同构）；空值归一 null；无效值回退空；
-选项 ≤7 建议用单选，更多用下拉框；继承链经 输入域基类。</div>
+选项模型（值/文本/禁用）与字典/枚举同构；空值归一统一空值；无效值回退空；
+选项 ≤7 建议用单选，更多用下拉框；继承链：单选 → 输入域（域基类层）→ 组件根 → 根系。</div>
     </div>
   </div>
 </div>

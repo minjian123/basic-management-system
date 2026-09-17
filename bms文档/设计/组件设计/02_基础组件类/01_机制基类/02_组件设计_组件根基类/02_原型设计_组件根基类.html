@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 组件根基类（BaseComponent / useComponentBase）</title>
+<title>原型 · 组件根基类</title>
 <link rel="stylesheet" href="../../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../../原型设计/资源/原型样式.css">
 <style>
@@ -31,7 +31,7 @@
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="02_组件设计_组件根基类.md">《组件设计 · 组件根基类》</a>：演示所有 UI 组件通用的 <span class="dp-code">attrs 透传</span>（id/class/style/data-*）、<span class="dp-code">size/density/主题令牌</span>、<span class="dp-code">ns 命名空间</span>、<span class="dp-code">loading/disabled/visible</span>、可访问性 aria、<span class="dp-code">expose</span> 与生命周期埋点。
+    本原型对应当前目录 <a href="02_组件设计_组件根基类.md">《组件设计 · 组件根基类》</a>：演示所有 UI 组件通用的 <span class="dp-code">未声明属性透传</span>（id/class/style/data-*）、<span class="dp-code">尺寸 / 密度 / 主题令牌</span>、<span class="dp-code">命名空间</span>、<span class="dp-code">加载 / 禁用 / 显隐</span>、可访问性属性、<span class="dp-code">对外暴露</span> 与生命周期埋点。
   </div>
 
   <div id="app">
@@ -39,9 +39,9 @@
       <div class="dp-bar">
         <el-radio-group v-model="size" size="small"><el-radio-button label="small">small</el-radio-button><el-radio-button label="default">default</el-radio-button><el-radio-button label="large">large</el-radio-button></el-radio-group>
         <el-radio-group v-model="density" size="small"><el-radio-button label="compact">紧凑</el-radio-button><el-radio-button label="default">默认</el-radio-button><el-radio-button label="loose">宽松</el-radio-button></el-radio-group>
-        <el-checkbox v-model="loading" size="small">loading</el-checkbox>
-        <el-checkbox v-model="disabled" size="small">disabled</el-checkbox>
-        <el-checkbox v-model="visible" size="small">visible</el-checkbox>
+        <el-checkbox v-model="loading" size="small">加载</el-checkbox>
+        <el-checkbox v-model="disabled" size="small">禁用</el-checkbox>
+        <el-checkbox v-model="visible" size="small">显隐</el-checkbox>
         <span class="dp-hint">外部传入的 id/class/style/data-* 透传到根元素</span>
       </div>
 
@@ -50,13 +50,13 @@
              style="margin-right:8px" aria-label="示例组件">
           <span class="inner">{{ ns }}-组件（透传 me）</span>
         </div>
-        <el-button size="small" @click="focusIt">调用 expose 的 focus()</el-button>
+        <el-button size="small" @click="focusIt">调用对外暴露的聚焦方法</el-button>
       </div>
 
-      <div class="dp-state" style="margin-top:12px">根元素：&lt;div id="ext-id" data-test="base-demo" data-role="sample" class="bms-demo ..."&gt;（外部 attrs 透传 + ns 前缀 + 令牌驱动 size/density）
-loading={{ loading }}　disabled={{ disabled }}　visible={{ visible }}
+      <div class="dp-state" style="margin-top:12px">根元素：&lt;div id="ext-id" data-test="base-demo" data-role="sample" class="bms-demo ..."&gt;（外部属性透传 + 命名空间前缀 + 令牌驱动尺寸/密度）
+加载={{ loading }}　禁用={{ disabled }}　显隐={{ visible }}
 主题令牌：颜色/尺寸只消费设计令牌，随亮暗与租户品牌自动适配
-生命周期与埋点：onMounted/onUnmounted 钩子；可访问性 aria-*、键盘焦点；expose 暴露 focus() 等
+生命周期与埋点：挂载/卸载钩子；可访问性属性、键盘焦点；对外暴露聚焦等方法
 {{ hookLog }}</div>
     </div>
   </div>
@@ -68,13 +68,13 @@ loading={{ loading }}　disabled={{ disabled }}　visible={{ visible }}
 <script>
   var { createApp, ref, reactive, onMounted, onUnmounted } = Vue;
 
-  // 模拟 组件根：useComponentBase() —— 所有 UI 组件通用能力
-  function useComponentBase(props) {
+  // 模拟 组件根：所有 UI 组件通用能力的统一入口（演示用）
+  function createComponentRoot(props) {
     var hookLog = ref('');
     var hooks = [];
     function push(m) { hooks.push(m); hookLog.value = '生命周期/埋点：' + hooks.join(' → '); }
-    onMounted(function () { push('base-mounted'); });
-    onUnmounted(function () { push('base-unmounted'); });
+    onMounted(function () { push('挂载'); });
+    onUnmounted(function () { push('卸载'); });
     return { ns: props.ns || 'bms', hookLog: hookLog };
   }
 
@@ -82,9 +82,9 @@ loading={{ loading }}　disabled={{ disabled }}　visible={{ visible }}
     setup: function () {
       var size = ref('default'), density = ref('default');
       var loading = ref(false), disabled = ref(false), visible = ref(true);
-      var base = useComponentBase({ ns: 'bms' });
+      var root = createComponentRoot({ ns: 'bms' });
       function focusIt() { document.getElementById('ext-id') && document.getElementById('ext-id').focus(); }
-      return { size: size, density: density, loading: loading, disabled: disabled, visible: visible, ns: base.ns, hookLog: base.hookLog, focusIt: focusIt };
+      return { size: size, density: density, loading: loading, disabled: disabled, visible: visible, ns: root.ns, hookLog: root.hookLog, focusIt: focusIt };
     }
   });
   app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });

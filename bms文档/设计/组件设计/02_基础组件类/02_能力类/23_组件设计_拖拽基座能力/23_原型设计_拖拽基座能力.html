@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 拖拽基座能力（useDragDrop）</title>
+<title>原型 · 拖拽基座能力</title>
 <link rel="stylesheet" href="../../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../../原型设计/资源/原型样式.css">
 <style>
@@ -29,7 +29,7 @@
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="23_组件设计_拖拽基座能力.md">《组件设计 · 拖拽基座能力》</a>：演示同区排序与跨区移动（组件列表 → 画布）、拖拽把手（⠿）与 change 载荷；真实实现封装 Sortable.js，供设计器共用。
+    本原型对应当前目录 <a href="23_组件设计_拖拽基座能力.md">《组件设计 · 拖拽基座能力》</a>：演示同区排序与跨区移动（组件列表 → 画布）、拖拽把手（⠿）与顺序变更载荷；拖拽库由渲染插件侧统一封装，供设计器共用。
   </div>
 
   <div id="app">
@@ -54,14 +54,14 @@
 
       <div class="dp-bar">
         <el-button size="small" @click="reset">重置</el-button>
-        <span class="dp-hint">拖拽把手：⠿（handle 选择器；列表排序可整项拖）</span>
+        <span class="dp-hint">拖拽把手：⠿（把手选择器；列表排序可整项拖）</span>
       </div>
 
-      <div class="dp-state">change 事件载荷 / 日志
+      <div class="dp-state">顺序变更载荷 / 日志
 lastChange: {{ lastChange || '（无）' }}
 {{ logs.length ? logs.join('\n') : '（尚无拖拽）' }}
-说明：group='designer' 内跨区移动；change 上报 {from, to, item, oldIndex, newIndex}；移动后由设计器压入撤销栈；
-每个区域独立拖拽实例（create/destroy 幂等，事件监听登记异步资源基类）。</div>
+说明：同一拖拽组内跨区移动；顺序变更上报（起止区 / 项 / 原位置 / 新位置）；移动后由设计器压入撤销栈；
+每个区域独立拖拽实例（初始化 / 销毁幂等，事件监听登记异步资源基类）。</div>
     </div>
   </div>
 </div>
@@ -88,7 +88,7 @@ lastChange: {{ lastChange || '（无）' }}
           var item = src.value.splice(i, 1)[0];
           dst.value.push(item);
           lastChange.value = JSON.stringify({ from: d.zone, to: target, item: item.label, oldIndex: i, newIndex: dst.value.length - 1 });
-          logs.value.push('[' + stamp() + '] change → ' + lastChange.value);
+          logs.value.push('[' + stamp() + '] 顺序变更 → ' + lastChange.value);
           if (target === 'canvas' && d.zone === 'palette' && item.label.indexOf('（') < 0) item.label = item.label + '（已入画布）';
         }
         dragItem.value = null;

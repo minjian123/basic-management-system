@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 栅格（Grid Row/Col）</title>
+<title>原型 · 栅格</title>
 <link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
 <style>
@@ -24,7 +24,7 @@
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="06_组件设计_栅格.md">《组件设计 · 栅格》</a>：演示 24 栅格 span/offset、gutter 间距、justify/align 与响应式断点（窄屏转单列）；继承 02 基础组件类 布局能力。
+    本原型对应当前目录 <a href="06_组件设计_栅格.md">《组件设计 · 栅格》</a>：演示 24 栅格 span/offset、gutter 间距、justify/align 与响应式断点（窄屏转单列）；经继承链上的布局能力层取得布局语义。
   </div>
 
   <div id="app">
@@ -42,7 +42,7 @@
       </div>
 
       <div class="dp-state" style="margin-top:12px">24 栅格 + span/offset；gutter={{ gutter }}（横向/纵向，令牌）；响应式断点对象取跨度；窄屏 = {{ narrow ? '单列（xs/sm）' : '三列' }}
-与《布局设计·响应式适配》断点一致；栅格与分栏（03-08）不同：栅格按比例均分、分栏可拖拽。</div>
+与《布局设计·响应式适配》断点一致；栅格与分栏不同：栅格按比例均分、分栏可拖拽。</div>
     </div>
   </div>
 </div>

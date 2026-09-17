@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 请求封装与错误处理（request / BaseApi / useRequest / useListPage）</title>
+<title>原型 · 请求封装</title>
 <link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
 <style>
@@ -36,21 +36,21 @@
 
 <div class="proto-bar">
   <span class="pb-crumb"><a href="01_组件设计_请求封装.md">← 返回组件设计文档</a></span>
-  <span class="pb-name">组件设计 · 请求封装与错误处理 原型（可交互）</span>
+  <span class="pb-name">组件设计 · 请求封装 原型（可交互）</span>
 </div>
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="01_组件设计_请求封装.md">《组件设计 · 请求封装与错误处理》</a>：演示 <b>request&lt;T&gt;()</b> 解包统一响应、
-    <b>错误码 → i18n 文案</b>映射、<b>401 静默刷新与并发排队</b>、<b>Idempotency-Key</b> 幂等、<b>useRequest</b> 竞态保护、<b>useListPage</b> 分页查询。数据均为前端模拟，交互对齐 Element Plus 实际行为。
+    本原型对应当前目录 <a href="01_组件设计_请求封装.md">《组件设计 · 请求封装》</a>：演示<b>统一响应解包</b>、
+    <b>错误码 → 文案映射</b>、<b>401 静默刷新与并发排队</b>、<b>幂等键</b>、<b>异步状态竞态保护</b>、<b>列表页公共逻辑分页查询</b>。数据均为前端模拟，交互对齐 Element Plus 实际行为。
   </div>
 
   <div id="app">
     <div class="ep-page">
       <div class="dp-header">
         <div>
-          <div class="dp-title">请求封装组件原型</div>
-          <div class="dp-sub">http / request&lt;T&gt;() / BaseApi / useRequest / useListPage</div>
+          <div class="dp-title">请求封装原型</div>
+          <div class="dp-sub">统一请求实例 · 响应解包 · 错误码映射 · 401 刷新 · 异步状态与列表分页</div>
         </div>
         <div class="dp-bar" style="margin-bottom:0">
           <span class="proto-hint">locale：</span>
@@ -65,7 +65,7 @@
         <!-- ① 统一响应与错误码 -->
         <el-tab-pane label="① 统一响应与错误码" name="resp">
           <div class="dp-bar">
-            <span class="proto-hint">模拟一个 API 调用（request&lt;T&gt;() 自动解开 {code,message,data}）</span>
+            <span class="proto-hint">模拟一个 API 调用（统一请求自动解开 {code,message,data}）</span>
           </div>
           <el-space wrap>
             <el-button size="small" type="primary" @click="callApi(0, '1xxxx')">调用成功（code=0）</el-button>
@@ -85,7 +85,7 @@
               <template #default="{ row }"><span class="dp-code">error.{{ row.code }}</span></template>
             </el-table-column>
             <el-table-column label="当前文案" min-width="200">
-              <template #default="{ row }">{{ errorMessage(row.code, row.fallback) }}</template>
+              <template #default="{ row }">{{ messageOf(row.code, row.fallback) }}</template>
             </el-table-column>
           </el-table>
 
@@ -134,7 +134,7 @@
             <el-descriptions-item label="服务端结果">{{ idemResult }}</el-descriptions-item>
           </el-descriptions>
 
-          <div class="ep-section">useRequest 竞态保护（快速切换查询条件，仅最新响应写回）</div>
+          <div class="ep-section">异步状态竞态保护（快速切换查询条件，仅最新响应写回）</div>
           <div class="dp-bar">
             <el-button size="small" @click="raceCall('A')">发起查询 A（慢 900ms）</el-button>
             <el-button size="small" @click="raceCall('B')">发起查询 B（快 200ms）</el-button>
@@ -150,8 +150,8 @@
           </div>
         </el-tab-pane>
 
-        <!-- ④ useListPage -->
-        <el-tab-pane label="④ useListPage 列表分页" name="list">
+        <!-- ④ 列表页公共逻辑 -->
+        <el-tab-pane label="④ 列表页公共逻辑" name="list">
           <div class="dp-bar">
             <el-input v-model="query.username" size="small" placeholder="用户名" style="width:150px" clearable></el-input>
             <el-select v-model="query.status" size="small" placeholder="状态" clearable style="width:120px">
@@ -202,7 +202,7 @@
   var { createApp, ref, reactive, computed } = Vue;
   var ElMessage = ElementPlus.ElMessage;
 
-  // 错误码 → 文案（模拟 vue-i18n 语言包 error.{code}）
+  // 错误码 → 文案（模拟语言包 error.{code}）
   var MESSAGES = {
     'zh-CN': {
       0: '操作成功',
@@ -235,7 +235,7 @@
       function ts() { return new Date().toLocaleTimeString('zh-CN', { hour12: false }); }
       function onLocaleChange() { logLine('Accept-Language 切换为 ' + locale.value + '，错误文案随之切换', 'w'); }
 
-      function errorMessage(code, fallback) {
+      function messageOf(code, fallback) {
         var m = MESSAGES[locale.value] || {};
         if (code === 0) return m[0];
         var msg = m[code] || m['1'];
@@ -253,15 +253,15 @@
       ];
 
       function callApi(code, seg) {
-        logLine('POST /users  →  request<T>() 发起请求', 't');
+        logLine('POST /users  →  统一请求发起', 't');
         setTimeout(function () {
           logLine('响应 { code:' + code + ', message:"...", data:{...} }（' + seg + '）', code === 0 ? 't' : 'e');
           if (code === 0) {
             logLine('code=0 → 解包返回 data，业务拿到纯数据对象', 't');
-            ElMessage.success(errorMessage(0));
+            ElMessage.success(messageOf(0));
           } else {
-            logLine('code≠0 → 构造 ApiError 并统一 toast：' + errorMessage(code, ''), 'e');
-            ElMessage.error(errorMessage(code, ''));
+            logLine('code≠0 → 构造统一错误对象并统一提示：' + messageOf(code, ''), 'e');
+            ElMessage.error(messageOf(code, ''));
           }
         }, 260);
       }
@@ -349,7 +349,7 @@
         }, delay);
       }
 
-      // ---- useListPage ----
+      // ---- 列表页公共逻辑 ----
       var allUsers = [];
       var names = ['张三', '李四', '王五', '赵六', '钱七', '孙八', '周九', '吴十', '郑一', '冯二', '陈三', '褚四', '卫五', '蒋六', '沈七', '韩八', '杨九', '朱十', '秦一', '尤二', '许三', '何四', '吕五', '施六'];
       var depts = ['研发部', '市场部', '财务部', '人事部', '运维部'];
@@ -377,7 +377,7 @@
       function onSelect(rows) { selection.value = rows; }
 
       return {
-        tab, locale, log, codeTable, errorMessage, callApi, onLocaleChange,
+        tab, locale, log, codeTable, messageOf, callApi, onLocaleChange,
         tokenValid, refreshCount, replayCount, queueDepth, refreshLog, expireToken, resetRefresh, concurrentCall,
         idemKey, idemResult, submitOnce, submitRetry,
         raceData, raceStale, raceLog, raceCall,

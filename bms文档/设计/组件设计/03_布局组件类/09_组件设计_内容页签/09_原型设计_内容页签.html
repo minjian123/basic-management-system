@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 内容页签（Tabs）</title>
+<title>原型 · 内容页签</title>
 <link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
 <style>
@@ -23,13 +23,13 @@
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="09_组件设计_内容页签.md">《组件设计 · 内容页签》</a>：演示 line/card 形态、可关闭/可增删、懒渲染与切换；区别于页面级多标签导航（03-04）。
+    本原型对应当前目录 <a href="09_组件设计_内容页签.md">《组件设计 · 内容页签》</a>：演示线条/卡片/带边框卡片形态、可关闭/可增删、懒渲染与切换；区别于页面级多标签导航。
   </div>
 
   <div id="app">
     <div class="ep-page">
       <div class="dp-bar">
-        <el-radio-group v-model="type" size="small"><el-radio-button label="line">line</el-radio-button><el-radio-button label="card">card</el-radio-button><el-radio-button label="border-card">border-card</el-radio-button></el-radio-group>
+        <el-radio-group v-model="type" size="small"><el-radio-button label="line">线条</el-radio-button><el-radio-button label="card">卡片</el-radio-button><el-radio-button label="border-card">带边框卡片</el-radio-button></el-radio-group>
         <el-checkbox v-model="closable" size="small">可关闭</el-checkbox>
         <el-checkbox v-model="addable" size="small">可新增</el-checkbox>
       </div>
@@ -39,9 +39,9 @@
         <el-tab-pane v-for="t in extra" :key="t.name" :label="t.label" :name="t.name">{{ t.label }} 内容</el-tab-pane>
       </el-tabs>
 
-      <div class="dp-state" style="margin-top:8px">激活 = {{ active }}　形态 = {{ type }}　可关闭 = {{ closable }}　可新增 = {{ addable }}
-说明：内容页签用于页面内容区（如详情页「基本信息/明细/日志」），不参与页面级多标签导航（03-04）；
-lazy 懒渲染（切换才挂载）；关闭当前后激活相邻；页签过多横向滚动；keep-alive 上限由使用方控制。</div>
+      <div class="dp-state" style="margin-top:8px">激活 = {{ active }}　形态 = {{ type === 'line' ? '线条' : (type === 'card' ? '卡片' : '带边框卡片') }}　可关闭 = {{ closable ? '是' : '否' }}　可新增 = {{ addable ? '是' : '否' }}
+说明：内容页签用于页面内容区（如详情页「基本信息/明细/日志」），不参与页面级多标签导航；
+懒渲染（切换才挂载）；关闭当前后激活相邻；页签过多横向滚动；缓存（保活）上限由使用方控制。</div>
     </div>
   </div>
 </div>

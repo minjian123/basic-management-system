@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 主框架布局壳（AppLayout）</title>
+<title>原型 · 主框架布局壳</title>
 <link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
 <style>
@@ -31,7 +31,7 @@
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="01_组件设计_主框架布局壳.md">《组件设计 · 主框架布局壳》</a>：演示侧栏（可折叠）+ 顶栏 + 多标签栏 + 内容区整体骨架与区域插槽；继承 02 基础组件类 布局能力。
+    本原型对应当前目录 <a href="01_组件设计_主框架布局壳.md">《组件设计 · 主框架布局壳》</a>：演示侧栏（可折叠）+ 顶栏 + 多标签栏 + 内容区整体骨架与区域插槽；经继承链上的布局能力层取得布局语义（栅格 / 断点 / 令牌）。
   </div>
 
   <div id="app">
@@ -51,15 +51,15 @@
           <div class="it">⚙️ {{ collapsed ? '' : '系统设置' }}</div>
         </div>
         <div class="main">
-          <div class="hd"><b>主框架布局壳 AppLayout</b><span style="flex:1"></span><span class="dp-hint">通知 · 搜索 · 用户</span></div>
+          <div class="hd"><b>主框架布局壳</b><span style="flex:1"></span><span class="dp-hint">通知 · 搜索 · 用户</span></div>
           <div class="tabs" v-if="showTabs"><span>工作台</span><span>用户管理</span></div>
           <div class="ct">内容区（路由出口，独立滚动）<br><br>说明：侧栏折叠为图标态并持久化；窄屏侧栏转抽屉；高度/间距消费设计令牌；标签栏溢出滚动。</div>
         </div>
       </div>
 
       <div class="dp-state" style="margin-top:12px">collapsed={{ collapsed }}　showSidebar={{ showSidebar }}　showTabs={{ showTabs }}
-继承链：AppLayout → 02 布局能力 useLayout → 组件根 BaseComponent → 根系 BaseFrontend
-侧边菜单归 08-13、多标签导航归 03-04、顶栏元素归专用组件；本壳只做整体骨架与区域编排。</div>
+继承链：主框架布局壳件 → 布局能力层（栅格/断点/令牌）→ 组件根 → 根系
+侧边菜单、多标签导航、顶栏元素归各专用组件；本壳只做整体骨架与区域编排。</div>
     </div>
   </div>
 </div>

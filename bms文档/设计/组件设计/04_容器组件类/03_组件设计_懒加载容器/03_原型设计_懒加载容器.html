@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 懒加载容器（LazyContainer）</title>
+<title>原型 · 懒加载容器</title>
 <link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
 <style>
@@ -26,7 +26,7 @@
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="03_组件设计_懒加载容器.md">《组件设计 · 懒加载容器》</a>：滚动列表，区块进入视口才渲染（占位防抖动）；继承 02 基础组件类 容器能力。
+    本原型对应当前目录 <a href="03_组件设计_懒加载容器.md">《组件设计 · 懒加载容器》</a>：滚动列表，区块进入视口才渲染（占位防抖动）；继承容器能力（继承链上的一层）。
   </div>
 
   <div id="app">
@@ -35,14 +35,14 @@
 
       <div class="scroll">
         <div v-for="n in 8" :key="n">
-          <div class="blk" v-if="rendered[n]">区块 {{ n }} 已渲染（IntersectionObserver 触发）</div>
-          <div class="ph" v-else>区块 {{ n }} 占位（minHeight 防抖动）</div>
+          <div class="blk" v-if="rendered[n]">区块 {{ n }} 已渲染（进入视口触发）</div>
+          <div class="ph" v-else>区块 {{ n }} 占位（占位高度防抖动）</div>
         </div>
       </div>
 
       <div class="dp-state" style="margin-top:12px">已渲染区块：{{ renderedCount }} / 8
-说明：进入视口（含 rootMargin 提前量）才挂载；未渲染用占位 + minHeight 防布局抖动；once=true 渲染后不卸载；
-首屏内容应排除懒加载；无 IntersectionObserver 环境降级为直接渲染。</div>
+说明：进入视口（含提前量）才挂载；未渲染用占位高度防布局抖动；一次性渲染后不卸载；
+首屏内容应排除懒加载；无法观察视口的环境降级为直接渲染。</div>
     </div>
   </div>
 </div>

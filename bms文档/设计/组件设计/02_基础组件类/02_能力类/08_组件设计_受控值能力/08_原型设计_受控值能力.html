@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 受控值能力（BaseValue / useValue）</title>
+<title>原型 · 受控值能力</title>
 <link rel="stylesheet" href="../../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../../原型设计/资源/原型样式.css">
 <style>
@@ -38,7 +38,7 @@
       <div class="dp-state">值 v1 = {{ JSON.stringify(v1) }}　三态 = {{ triOf(v1) }}（{{ threeState ? 'unset/empty 区分' : 'unset/empty 合并' }}）
 值 v2 = {{ JSON.stringify(v2) }}　格式化展示 = {{ format(v2, 'amount') }}
 change 上报（归一后）：{{ lastChange }}
-说明：`''`/`undefined` → emptyValue（默认 null）；格式化调度 04-03（金额/日期/枚举/布尔），缺失回退原值；
+说明：`''`/`undefined` → emptyValue（默认 null）；格式化调度走 基础类「格式化工具」（金额/日期/枚举/布尔），缺失回退原值；
 本层不含字段语义（上下文/权限/校验 → 字段编排能力），也不含形态（形态能力）。</div>
     </div>
   </div>

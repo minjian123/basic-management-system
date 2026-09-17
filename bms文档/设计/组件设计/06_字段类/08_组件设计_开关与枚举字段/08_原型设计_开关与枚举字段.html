@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 开关与枚举字段（SwitchField / EnumField / EnumCheckboxField / InlineSwitch）</title>
+<title>原型 · 开关与枚举字段（三态 / 内联切换 / 五种形态 / 只读回显）</title>
 <link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
 <style>
@@ -41,10 +41,10 @@
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="08_组件设计_开关与枚举字段.md">《组件设计 · 开关与枚举字段》</a>：演示 <b>SwitchField</b>（三态、启用/停用文案、危险确认、值域归一）、
-    <b>InlineSwitch</b>（列表内联切换、行级 loading、失败回滚、局部刷新）、<b>EnumField / EnumCheckboxField</b>（radio / button / segmented / checkbox / tag 五种形态）、
-    <b>选项集</b>（静态 options 与字典引用两条来源）、<b>只读回显与导入导出映射</b>。
-    全部交互为前端模拟（不落库）；控件为真实 Element Plus 2.9.9 行为，属验收基准。
+    本原型对应当前目录 <a href="08_组件设计_开关与枚举字段.md">《组件设计 · 开关与枚举字段》</a>：演示 <b>布尔开关</b>（三态、启用/停用文案、危险确认、值域归一）、
+    <b>内联切换</b>（列表内联切换、行级加载、失败回滚、局部刷新）、<b>枚举单选 / 多选</b>（radio / button / segmented / checkbox / tag 五种形态）、
+    <b>选项集</b>（静态选项与字典引用两条来源）、<b>只读回显与导入导出映射</b>。
+    全部交互为前端模拟（不落库）；控件行为对齐基础控件库，属验收基准。
   </div>
 
   <div id="app">
@@ -52,7 +52,7 @@
       <div class="dp-header">
         <div>
           <div class="dp-title">开关与枚举字段 原型</div>
-          <div class="dp-sub">SwitchField · InlineSwitch · EnumField · EnumCheckboxField · useEnumOptions · getEnumLabel</div>
+          <div class="dp-sub">布尔开关 · 内联切换 · 枚举单选/多选 · 选项集解析 · 枚举回显</div>
         </div>
         <div class="dp-bar" style="margin-bottom:0">
           <el-switch v-model="readonly" active-text="只读态" inactive-text="编辑态" size="small"></el-switch>
@@ -64,7 +64,7 @@
         <!-- ① 开关编辑与三态 -->
         <el-tab-pane label="① 开关编辑与三态" name="switch">
           <div class="dp-bar">
-            <span class="proto-hint">modelValue 为 <b>boolean | null</b>；库值 SMALLINT 1/0（null 存 NULL）；启用/停用文案走 active-text / inactive-text；危险切换先确认再提交（确认前不改 modelValue）</span>
+            <span class="proto-hint">受控值为 <b>布尔或未设置</b>；库值 SMALLINT 1/0（未设置存 NULL）；启用/停用文案走文案变体；危险切换先确认再提交（确认前不改受控值）</span>
           </div>
 
           <div class="ep-section">基础开关与文案变体</div>
@@ -74,19 +74,19 @@
             <span>列表尺寸：<el-switch v-model="smallOn" size="small" :disabled="readonly"></el-switch></span>
           </div>
 
-          <div class="ep-section">三态（allowNull：null 表示未设置）</div>
+          <div class="ep-section">三态（允许未设置；未设置态为 null）</div>
           <div class="dp-bar">
             <span>三态开关：<el-switch :model-value="triValue === true" :disabled="readonly || triValue === null"
               @change="(v) => (triValue = v)"></el-switch>
               <span class="dp-code">{{ triValue === null ? '不确定态（null，置灰）' : (triValue ? 'true' : 'false') }}</span></span>
-            <el-checkbox v-model="allowNull">allowNull（允许未设置）</el-checkbox>
+            <el-checkbox v-model="allowNull">允许未设置（三态）</el-checkbox>
             <el-button size="small" @click="clearTri" :disabled="readonly">清空为 null（未设置）</el-button>
           </div>
           <div class="dp-bar">
-            <span class="dp-code">前端值 {{ triValue === null ? 'null' : triValue }} / 库值 {{ triValue === null ? 'NULL' : (triValue ? 1 : 0) }} / 只读文本 {{ formatBoolText(triValue, '是', '否') }}</span>
+            <span class="dp-code">前端值 {{ triValue === null ? 'null' : triValue }} / 库值 {{ triValue === null ? 'NULL' : (triValue ? 1 : 0) }} / 只读文本 {{ boolText(triValue, '是', '否') }}</span>
           </div>
           <el-alert v-if="triValue === null" type="info" :closable="false" show-icon
-            title="未设置态：不确定态展示（indeterminate），必填校验按「未填」拦截"></el-alert>
+            title="未设置态：不确定态展示，必填校验按「未填」拦截"></el-alert>
 
           <div class="ep-section">危险开关：二次确认后才提交</div>
           <div class="sw-cell">
@@ -101,7 +101,7 @@
           </div>
           <el-alert v-if="validateResult" :type="validateResult.type" :closable="false" show-icon :title="validateResult.text"></el-alert>
 
-          <div class="ep-section">值域归一 toBoolValue（后端历史值与接口直出容错）</div>
+          <div class="ep-section">值域归一（后端历史值与接口直出容错）</div>
           <div class="dp-bar">
             <el-input v-model="normInput" size="small" style="width:200px" placeholder="如 0 / 1 / '是' / TRUE"></el-input>
             <el-button size="small" @click="doNormalize">归一</el-button>
@@ -110,7 +110,7 @@
         </el-tab-pane>
 
         <!-- ② 列表内联切换 -->
-        <el-tab-pane label="② 列表内联切换（InlineSwitch）" name="inline">
+        <el-tab-pane label="② 列表内联切换" name="inline">
           <div class="dp-bar">
             <span class="proto-hint">列表页<b>无操作列</b>（《布局设计 · 列表页》），内联切换放在状态列；复用业务既有写接口（专用状态接口优先），不新增 toggle 接口；失败回滚、局部刷新、行级 loading</span>
           </div>
@@ -127,7 +127,7 @@
                   <el-switch v-if="row.editable" :model-value="row.enabled" size="small"
                     :loading="loadingRow === row.id" :disabled="loadingRow === row.id || readonly"
                     :before-change="() => beforeInlineChange(row)"></el-switch>
-                  <span v-else class="dp-code">{{ formatBoolText(row.enabled, '启用', '停用') }}（无编辑权限）</span>
+                  <span v-else class="dp-code">{{ boolText(row.enabled, '启用', '停用') }}（无编辑权限）</span>
                 </td>
                 <td class="dp-code">{{ row.version }}</td>
                 <td class="dp-hint">{{ row.dangerous ? '危险开关（切换前二次确认）' : '普通开关（免确认）' }}</td>
@@ -172,7 +172,7 @@
             :disabled="readonly || o.disabled" style="margin-right:8px"
             @change="() => toggleTag(o.value)">{{ o.label }}</el-check-tag>
 
-          <div class="ep-section">各形态 modelValue（提交入库的值）</div>
+          <div class="ep-section">各形态受控值（提交入库的值）</div>
           <div class="dp-out">radio: {{ j(wRadio) }}
 button: {{ j(wButton) }}
 segmented: {{ j(wSegment) }}
@@ -185,8 +185,8 @@ tag: {{ j(wCheckbox) }}（与 checkbox 同一字段，仅形态不同）</div>
           <div class="dp-bar">
             <span class="proto-hint">选项集来源二选一：静态 <b>options</b>（字段属性 JSON）或引用字典 <b>dictType</b>（取数与翻译复用 02 字典字段：POST /dicts/batch + 版本比对）</span>
             <el-radio-group v-model="source" size="small" :disabled="readonly">
-              <el-radio-button value="static">静态 options</el-radio-button>
-              <el-radio-button value="dict">引用字典 dictType</el-radio-button>
+              <el-radio-button value="static">静态选项集</el-radio-button>
+              <el-radio-button value="dict">引用字典类型</el-radio-button>
             </el-radio-group>
           </div>
 
@@ -236,7 +236,7 @@ tag: {{ j(wCheckbox) }}（与 checkbox 同一字段，仅形态不同）</div>
             </el-table>
           </template>
 
-          <div class="ep-section">解析结果 useEnumOptions（sort 升序 → value 去重 → i18n 回退）</div>
+          <div class="ep-section">解析结果（sort 升序 → value 去重 → i18n 回退）</div>
           <div class="dp-metrics">
             <div class="dp-metric"><div class="v">{{ rawCount }}</div><div class="k">原始选项数</div></div>
             <div class="dp-metric"><div class="v">{{ parsedOptions.length }}</div><div class="k">解析后选项数</div></div>
@@ -250,28 +250,28 @@ tag: {{ j(wCheckbox) }}（与 checkbox 同一字段，仅形态不同）</div>
         <el-tab-pane label="⑤ 只读回显与导入导出" name="readonly">
           <div class="ep-section">只读回显（纯文本为主，颜色标签为可选项）</div>
           <div class="dp-bar">
-            <el-checkbox v-model="tagColor">tagColor=true（枚举只读以颜色标签渲染，与 12 状态标签同源）</el-checkbox>
+            <el-checkbox v-model="tagColor">颜色标签（枚举只读以颜色标签渲染，与状态标签节点同源）</el-checkbox>
           </div>
           <div class="ro-list">
             <div class="k">开关（无文案）</div>
-            <div>{{ formatBoolText(true, '', '') || '是' }}</div>
+            <div>{{ boolText(true, '', '') || '是' }}</div>
             <div class="k">开关（启用/停用文案）</div>
-            <div>{{ formatBoolText(enableText, '启用', '停用') }}</div>
+            <div>{{ boolText(enableText, '启用', '停用') }}</div>
             <div class="k">开关（未设置）</div>
-            <div>{{ formatBoolText(null, '启用', '停用') }}</div>
+            <div>{{ boolText(null, '启用', '停用') }}</div>
             <div class="k">枚举单选</div>
-            <div>{{ getEnumLabel(wRadio) }}</div>
+            <div>{{ enumText(wRadio) }}</div>
             <div class="k">枚举多选（顿号分隔）</div>
-            <div>{{ getEnumLabel(wCheckbox) }}</div>
+            <div>{{ enumText(wCheckbox) }}</div>
             <div class="k">枚举（值缺 label 回退原值）</div>
-            <div>{{ getEnumLabel('legacy_code') }} <span class="dp-hint">（选项集无此值：回退原值并告警）</span></div>
+            <div>{{ enumText('legacy_code') }} <span class="dp-hint">（选项集无此值：回退原值并告警）</span></div>
             <div class="k">颜色标签渲染</div>
             <div>
               <template v-if="tagColor">
-                <span v-for="k in wCheckbox" :key="k" class="sw-tag" :style="{ background: colorOf(k) }" style="margin-right:6px">{{ getEnumLabel(k) }}</span>
+                <span v-for="k in wCheckbox" :key="k" class="sw-tag" :style="{ background: optionColor(k) }" style="margin-right:6px">{{ enumText(k) }}</span>
                 <span v-if="!wCheckbox.length" class="dp-hint">未选择</span>
               </template>
-              <span v-else class="dp-code">tagColor=false → 纯文本：{{ getEnumLabel(wCheckbox) }}</span>
+              <span v-else class="dp-code">关闭颜色标签 → 纯文本：{{ enumText(wCheckbox) }}</span>
             </div>
           </div>
 
@@ -297,8 +297,8 @@ tag: {{ j(wCheckbox) }}（与 checkbox 同一字段，仅形态不同）</div>
             <tbody>
               <tr><td>启用开关</td><td class="dp-code">1</td><td>是</td></tr>
               <tr><td>启用开关（停用文案）</td><td class="dp-code">0</td><td>停用</td></tr>
-              <tr><td>枚举单选</td><td class="dp-code">{{ j(wRadio) }}</td><td>{{ getEnumLabel(wRadio) }}</td></tr>
-              <tr><td>枚举多选</td><td class="dp-code">{{ j(wCheckbox) }}</td><td>{{ getEnumLabel(wCheckbox) }}</td></tr>
+              <tr><td>枚举单选</td><td class="dp-code">{{ j(wRadio) }}</td><td>{{ enumText(wRadio) }}</td></tr>
+              <tr><td>枚举多选</td><td class="dp-code">{{ j(wCheckbox) }}</td><td>{{ enumText(wCheckbox) }}</td></tr>
             </tbody>
           </table>
         </el-tab-pane>
@@ -314,8 +314,8 @@ tag: {{ j(wCheckbox) }}（与 checkbox 同一字段，仅形态不同）</div>
   var { createApp, ref, computed } = Vue;
   var ElMessage = ElementPlus.ElMessage;
 
-  // ---------- 值域归一（示意实现，真实实现走 src/utils/boolValue.ts） ----------
-  function toBoolValue(input) {
+  // ---------- 值域归一（示意实现） ----------
+  function normalizeBool(input) {
     if (input === null || input === undefined) { return null; }
     if (typeof input === 'boolean') { return input; }
     if (typeof input === 'number') { return input === 1 ? true : (input === 0 ? false : null); }
@@ -324,8 +324,8 @@ tag: {{ j(wCheckbox) }}（与 checkbox 同一字段，仅形态不同）</div>
     if (/^[0０]$/.test(s) || /^(false|否|n|no|停用|关)$/i.test(s)) { return false; }
     return null;
   }
-  function fromBoolValue(v) { return v === null || v === undefined ? null : (v ? 1 : 0); }
-  function formatBoolText(v, onText, offText) {
+  function boolToStorage(v) { return v === null || v === undefined ? null : (v ? 1 : 0); }
+  function boolText(v, onText, offText) {
     if (v === null || v === undefined) { return '—'; }
     if (onText || offText) { return v ? (onText || '是') : (offText || '否'); }
     return v ? '是' : '否';
@@ -348,7 +348,7 @@ tag: {{ j(wCheckbox) }}（与 checkbox 同一字段，仅形态不同）</div>
       var triValue = ref(null);
       var dangerOn = ref(true);
       var normInput = ref('1');
-      var normResult = ref(toBoolValue('1'));
+      var normResult = ref(normalizeBool('1'));
       var validateResult = ref(null);
 
       function clearTri() { triValue.value = null; }
@@ -359,7 +359,7 @@ tag: {{ j(wCheckbox) }}（与 checkbox 同一字段，仅形态不同）</div>
           '危险操作确认',
           { type: 'warning', confirmButtonText: '确认停用', cancelButtonText: '取消', confirmButtonClass: 'el-button--danger' }
         ).then(function () { ElMessage.success('已确认，提交业务写接口（复用二次确认机制）'); return true; })
-         .catch(function () { ElMessage.info('已取消，modelValue 不变'); return false; });
+         .catch(function () { ElMessage.info('已取消，受控值不变'); return false; });
       }
       function runValidate() {
         var pass = !(allowNull.value && triValue.value === null);
@@ -368,9 +368,9 @@ tag: {{ j(wCheckbox) }}（与 checkbox 同一字段，仅形态不同）</div>
           : { type: 'error', text: '校验失败：三态字段值为 null（未设置），必填拦截' };
       }
       function doNormalize() {
-        var r = toBoolValue(normInput.value);
+        var r = normalizeBool(normInput.value);
         normResult.value = r;
-        ElMessage.info('toBoolValue("' + normInput.value + '") = ' + (r === null ? 'null' : r) + '，库值写回 ' + JSON.stringify(fromBoolValue(r)));
+        ElMessage.info('归一("' + normInput.value + '") = ' + (r === null ? 'null' : r) + '，库值写回 ' + JSON.stringify(boolToStorage(r)));
       }
 
       // ---- ② 内联切换 ----
@@ -406,7 +406,7 @@ tag: {{ j(wCheckbox) }}（与 checkbox 同一字段，仅形态不同）</div>
                 lastInlineLog.value = '切换失败（模拟业务错误码）：已回滚为原值 ' + (old ? '1' : '0') + '，行内提示错误文案（错误码 → i18n）';
                 ElMessage.error('切换失败，已回滚（错误码 → i18n 文案，见 19 请求封装）');
               } else {
-                lastInlineLog.value = '切换成功：局部刷新该行（id=' + row.id + '，enabled=' + (next ? 1 : 0) + '，version=' + row.version + '），ElMessage.success 提示，不整表重载';
+                lastInlineLog.value = '切换成功：局部刷新该行（id=' + row.id + '，enabled=' + (next ? 1 : 0) + '，version=' + row.version + '），成功提示，不整表重载';
                 ElMessage.success('已' + (next ? '启用' : '停用') + '，局部刷新该行');
               }
               resolve(true);
@@ -474,7 +474,7 @@ tag: {{ j(wCheckbox) }}（与 checkbox 同一字段，仅形态不同）</div>
         }
         dictVersion.value = DICT_FIXTURE.version;
         dictOptions.value = DICT_FIXTURE.items.slice();
-        ElMessage.success('POST /dicts/batch 返回 items + version=' + dictVersion.value + '（回填 Pinia 与 localStorage）');
+        ElMessage.success('POST /dicts/batch 返回 items + version=' + dictVersion.value + '（回填本地缓存与版本）');
       }
 
       var rawCount = computed(function () {
@@ -497,12 +497,12 @@ tag: {{ j(wCheckbox) }}（与 checkbox 同一字段，仅形态不同）</div>
       });
       var dupCount = computed(function () { return rawCount.value - parsedOptions.value.length; });
       var parsedJson = computed(function () { return JSON.stringify(parsedOptions.value, null, 2); });
-      function colorOf(v) {
+      function optionColor(v) {
         var list = parsedOptions.value;
         for (var i = 0; i < list.length; i++) { if (list[i].value === v) { return list[i].color || '#909399'; } }
         return '#909399';
       }
-      function getEnumLabel(v) {
+      function enumText(v) {
         var list = parsedOptions.value;
         var hit = function (x) {
           for (var i = 0; i < list.length; i++) { if (list[i].value === x) { return list[i].label; } }
@@ -530,11 +530,11 @@ tag: {{ j(wCheckbox) }}（与 checkbox 同一字段，仅形态不同）</div>
 
       function parseSingle() {
         var raw = importCell.value;
-        var r = toBoolValue(raw);
+        var r = normalizeBool(raw);
         if (r === null) {
           importSingle.value = { type: 'error', text: '「' + raw + '」无法识别 → 行级错误（记行号与原因，该行跳过，不落库）' };
         } else {
-          importSingle.value = { type: 'success', text: '「' + raw + '」→ ' + r + '（库值 ' + fromBoolValue(r) + '）；导入校验阶段完成，行内不中断整体导入' };
+          importSingle.value = { type: 'success', text: '「' + raw + '」→ ' + r + '（库值 ' + boolToStorage(r) + '）；导入校验阶段完成，行内不中断整体导入' };
         }
       }
       function parseEnum() {
@@ -567,10 +567,10 @@ tag: {{ j(wCheckbox) }}（与 checkbox 同一字段，仅形态不同）</div>
         loadingRow, lastInlineLog, rows, beforeInlineChange,
         minItems, maxItems, priorityOptions, segmentOptions, wRadio, wButton, wSegment, wCheckbox, toggleTag,
         source, colorChoices, staticOptions, addOption, addDup, removeOption,
-        dictVersion, dictOptions, loadDict, rawCount, dupCount, parsedJson, colorOf, getEnumLabel,
+        dictVersion, dictOptions, loadDict, rawCount, dupCount, parsedJson, optionColor, enumText,
         parsedOptions, options: parsedOptions,
         tagColor, importCell, importSingle, importEnumCell, importEnum, parseSingle, parseEnum,
-        formatBoolText
+        boolText
       };
     }
   });

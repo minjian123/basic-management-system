@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 树形主从布局（MasterDetail / MasterTree）</title>
+<title>原型 · 树形主从布局</title>
 <link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
 <style>
@@ -51,7 +51,7 @@
 
         <!-- 主区（树） -->
         <div class="md-master" :style="{ width: collapsed ? '0px' : masterWidth + 'px', padding: collapsed ? '0' : '10px', borderRight: collapsed ? 'none' : '1px solid #eaeef2' }">
-          <div class="mt-title">组织（MasterTree）</div>
+          <div class="mt-title">组织（主树）</div>
           <el-input v-model="kw" size="small" placeholder="搜索组织" clearable style="margin-bottom:8px" />
           <el-tree :data="treeFiltered" node-key="id" default-expand-all :show-checkbox="checkable" :props="{ label: 'label', children: 'children' }"
             highlight-current :current-node-key="selectedId" @node-click="onSelect" @check="onCheck" />

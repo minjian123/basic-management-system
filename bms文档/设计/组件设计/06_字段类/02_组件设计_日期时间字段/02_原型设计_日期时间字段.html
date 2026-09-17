@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 日期时间字段（DateField / DateRangeField / TimeField）</title>
+<title>原型 · 日期时间字段（日期 / 日期时间 / 时间 / 日期范围）</title>
 <link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
 <style>
@@ -33,7 +33,7 @@
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="02_组件设计_日期时间字段.md">《组件设计 · 日期时间字段》</a>：演示 <b>DateField</b> / <b>DateTimeField</b> / <b>TimeField</b> / <b>DateRangeField</b>、
+    本原型对应当前目录 <a href="02_组件设计_日期时间字段.md">《组件设计 · 日期时间字段》</a>：演示 日期 / 日期时间 / 时间 / 日期范围、
     快捷键、<b>UTC 存储 ↔ 用户时区展示</b> 换算、只读回显与查询区筛选。数据均为前端模拟。
   </div>
 
@@ -42,7 +42,7 @@
       <div class="dp-header">
         <div>
           <div class="dp-title">日期时间字段 原型</div>
-          <div class="dp-sub">DateField · DateTimeField · TimeField · DateRangeField · useDateValue</div>
+          <div class="dp-sub">日期 · 日期时间 · 时间 · 日期范围 · 值模型（时区换算）</div>
         </div>
         <div class="dp-bar" style="margin-bottom:0">
           <span class="proto-hint">用户时区（sys_user.timezone）：</span>
@@ -61,17 +61,17 @@
         <el-tab-pane label="① 日期 / 日期时间 / 时间" name="basic">
           <el-form label-position="top" style="max-width:560px">
             <el-form-item>
-              <template #label>生效日期 DateField（type=date）</template>
+              <template #label>生效日期（日期型）</template>
               <el-date-picker v-model="dateVal" type="date" :disabled="readonly"
                 placeholder="请选择生效日期" value-format="YYYY-MM-DD" style="width:100%"></el-date-picker>
             </el-form-item>
             <el-form-item>
-              <template #label>创建时间 DateTimeField（type=datetime-seconds）</template>
+              <template #label>创建时间（日期时间型·秒）</template>
               <el-date-picker v-model="dtVal" type="datetime" :disabled="readonly"
                 placeholder="请选择创建时间" value-format="YYYY-MM-DDTHH:mm:ss[Z]" :default-time="defaultTime" style="width:100%"></el-date-picker>
             </el-form-item>
             <el-form-item>
-              <template #label>每日提醒时间 TimeField（HH:mm）</template>
+              <template #label>每日提醒时间（HH:mm）</template>
               <el-time-picker v-model="timeVal" :disabled="readonly" format="HH:mm" value-format="HH:mm"
                 placeholder="请选择时间" style="width:100%"></el-time-picker>
             </el-form-item>
@@ -79,8 +79,8 @@
 
           <div class="ep-section">值模型与展示（UTC 存储 ↔ 用户时区展示）</div>
           <el-descriptions :column="1" border size="small">
-            <el-descriptions-item label="生效日期 modelValue">{{ dateVal || 'null（显示 —）' }}</el-descriptions-item>
-            <el-descriptions-item label="创建时间 modelValue（ISO UTC）"><span class="dp-code">{{ dtVal || 'null' }}</span></el-descriptions-item>
+            <el-descriptions-item label="生效日期 受控值">{{ dateVal || 'null（显示 —）' }}</el-descriptions-item>
+            <el-descriptions-item label="创建时间 受控值（ISO UTC）"><span class="dp-code">{{ dtVal || 'null' }}</span></el-descriptions-item>
             <el-descriptions-item label="创建时间 展示值（用户时区）">{{ displayOf(dtVal) }}</el-descriptions-item>
             <el-descriptions-item label="只读回显（系统信息区格式 yyyy-MM-dd HH:mm）">{{ sysInfoOf(dtVal) }}</el-descriptions-item>
             <el-descriptions-item label="提醒时间（纯时刻，无时区）">{{ timeVal || '—' }}</el-descriptions-item>
@@ -92,7 +92,7 @@
         <!-- ② 日期范围与快捷键 -->
         <el-tab-pane label="② 日期范围与快捷键" name="range">
           <div class="dp-bar">
-            <span class="proto-hint">DateRangeField（type=daterange）：查询区日期条件统一用日期范围</span>
+            <span class="proto-hint">日期范围：查询区日期条件统一用日期范围</span>
           </div>
           <div class="dp-filter">
             <el-date-picker v-model="rangeVal" type="daterange" :shortcuts="shortcuts"
@@ -103,7 +103,7 @@
           </div>
 
           <div class="dp-metrics" style="margin-top:12px">
-            <div class="dp-metric"><div class="v" style="font-size:13px">{{ rangeDisplay }}</div><div class="k">formatDateRange 只读展示</div></div>
+            <div class="dp-metric"><div class="v" style="font-size:13px">{{ rangeDisplay }}</div><div class="k">范围格式化只读展示</div></div>
             <div class="dp-metric"><div class="v" style="font-size:13px">{{ rangeParams }}</div><div class="k">提交参数（*_start / *_end）</div></div>
             <div class="dp-metric"><div class="v" style="font-size:13px">{{ rangeSpan }}</div><div class="k">区间跨度校验</div></div>
           </div>
@@ -120,7 +120,7 @@
         <!-- ③ 列表列渲染 -->
         <el-tab-pane label="③ 列表列渲染与排序" name="table">
           <div class="dp-bar">
-            <span class="proto-hint">列表时间列用 formatDateTime 渲染；排序按 UTC 值排序（非展示文本）</span>
+            <span class="proto-hint">列表时间列统一日期时间格式化渲染；排序按 UTC 值排序（非展示文本）</span>
             <el-divider direction="vertical"></el-divider>
             <el-button size="small" @click="toggleSort">切换排序：{{ sortAsc ? '升序' : '降序' }}</el-button>
           </div>

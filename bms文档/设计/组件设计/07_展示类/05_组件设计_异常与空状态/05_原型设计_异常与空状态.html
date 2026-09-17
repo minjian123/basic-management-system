@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 异常与空状态（ErrorPage / EmptyState / SkeletonBlock / LoadingMask / useFeedback）</title>
+<title>原型 · 异常与空状态（错误页 / 空状态矩阵 / 骨架屏 / 内容遮罩 / 反馈状态机）</title>
 <link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
 <style>
@@ -35,8 +35,8 @@
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="05_组件设计_异常与空状态.md">《组件设计 · 异常与空状态》</a>：演示 <b>ErrorPage</b>（403/404/500）、<b>EmptyState</b> 场景矩阵、
-    <b>SkeletonBlock</b> 骨架屏、<b>LoadingMask</b> 局部遮罩、断网/超时重试。任何场景不白屏、不暴露技术堆栈。
+    本原型对应当前目录 <a href="05_组件设计_异常与空状态.md">《组件设计 · 异常与空状态》</a>：演示 <b>错误页</b>（403/404/500）、<b>空状态</b>场景矩阵、
+    <b>骨架屏</b>、<b>内容遮罩</b>局部刷新、断网/超时重试。任何场景不白屏、不暴露技术堆栈。
   </div>
 
   <div id="app">
@@ -75,7 +75,7 @@
 
         <!-- 空状态 -->
         <el-tab-pane label="空状态" name="empty">
-          <div class="dp-bar"><span class="dp-hint">业务空态优先文案引导；引导按钮受权限控制（v-perm）</span></div>
+          <div class="dp-bar"><span class="dp-hint">业务空态优先文案引导；引导按钮受权限码控制</span></div>
           <div class="errgrid">
             <div class="emptybox">
               <div style="font-size:30px">🕳️</div><div class="ttl">暂无数据</div>

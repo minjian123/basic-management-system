@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 文本域（TextareaField）</title>
+<title>原型 · 文本域</title>
 <link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
 <style>
@@ -23,7 +23,7 @@
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="02_组件设计_文本域.md">《组件设计 · 文本域》</a>：演示多行文本、固定行数/自适应高度、字数统计、换行保留、trim 与只读；继承 02 基础组件类 输入域基类。
+    本原型对应当前目录 <a href="02_组件设计_文本域.md">《组件设计 · 文本域》</a>：演示多行文本、固定行数/高度自适应、字数统计、换行保留、去首尾空格与只读；继承基础组件类·输入域基类。
   </div>
 
   <div id="app">
@@ -39,9 +39,9 @@
         maxlength="200" show-word-limit :readonly="readonly" style="max-width:420px" />
 
       <div class="dp-state" style="margin-top:12px">值 = {{ JSON.stringify(text) }}
-trim 后 = {{ JSON.stringify(text.trim()) }}　行数 = {{ text.split('\n').length }}　字数 = {{ text.length }}/200
-说明：换行符统一 \n 入库；固定行数或 autosize（min/maxRows）；空串归一 null；只读回显保留换行；
-继承链经 输入域基类 输入域基类。富文本（可格式化）不在本控件，见 04 字段类 07 富文本字段。</div>
+去首尾空格后 = {{ JSON.stringify(text.trim()) }}　行数 = {{ text.split('\n').length }}　字数 = {{ text.length }}/200
+说明：换行符统一存储；固定行数或高度自适应（最小/最大行数）；空串归一统一空值；只读回显保留换行；
+继承链：文本域 → 输入域（域基类层）→ 组件根 → 根系。富文本（可格式化）不在本控件，见字段类「富文本字段」。</div>
     </div>
   </div>
 </div>

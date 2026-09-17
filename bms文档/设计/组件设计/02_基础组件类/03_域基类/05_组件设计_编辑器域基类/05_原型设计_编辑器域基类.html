@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 编辑器域基类（BaseEditor / useEditorKernel）</title>
+<title>原型 · 编辑器域基类</title>
 <link rel="stylesheet" href="../../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../../原型设计/资源/原型样式.css">
 <style>
@@ -28,7 +28,7 @@
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="05_组件设计_编辑器域基类.md">《组件设计 · 编辑器域基类》</a>：演示内核懒加载、内容协议（rich＝HTML / code＝纯文本）、只读态与去抖变更上报；原型以可编辑区示意，真实实现用 CodeMirror / 富文本（独立分包）。
+    本原型对应当前目录 <a href="05_组件设计_编辑器域基类.md">《组件设计 · 编辑器域基类》</a>：演示内核懒加载、内容协议（富文本＝HTML / 代码＝纯文本）、只读态与去抖变更上报；原型以可编辑区示意，真实实现由编辑器内核承接（独立分包）。
   </div>
 
   <div id="app">
@@ -36,10 +36,10 @@
       <div class="dp-bar">
         <span class="dp-hint">kind：</span>
         <el-radio-group v-model="kind" size="small">
-          <el-radio-button label="rich">rich 富文本（HTML）</el-radio-button>
-          <el-radio-button label="code">code 代码（纯文本）</el-radio-button>
+          <el-radio-button label="rich">富文本（HTML）</el-radio-button>
+          <el-radio-button label="code">代码（纯文本）</el-radio-button>
         </el-radio-group>
-        <el-switch v-model="readonly" active-text="只读 readonly" size="small" />
+        <el-switch v-model="readonly" active-text="只读" size="small" />
         <el-button size="small" @click="touch">触发内核加载（首次）</el-button>
       </div>
 
@@ -55,10 +55,10 @@
 
       <div class="dp-state" style="margin-top:12px">内核与内容
 kernel: {{ kernelReady ? '已加载（异步分包）' : '未加载（首次交互懒加载）' }}
-协议: {{ kind === 'rich' ? 'rich（HTML，提交前净化 + 服务端二次净化）' : 'code（纯文本，language=javascript）' }}
+协议: {{ kind === 'rich' ? '富文本（HTML，提交前净化 + 服务端二次净化）' : '代码（纯文本，语言：javascript）' }}
 变更上报（去抖）: {{ lastChange || '（无）' }}
 字数: {{ len }}
-说明：readonly 禁编辑保复制与滚动；实例销毁走异步资源基类（卸载自动 destroy）。</div>
+说明：只读时禁编辑、保复制与滚动；实例销毁走异步资源基类（卸载自动销毁）。</div>
     </div>
   </div>
 </div>
@@ -78,12 +78,12 @@ kernel: {{ kernelReady ? '已加载（异步分包）' : '未加载（首次交�
       function touch() {
         if (kernelReady.value) { lastChange.value = '（内核已加载，无需重复加载）'; return; }
         kernelReady.value = true;
-        lastChange.value = 'kernel-ready：import(独立分包) 完成';
+        lastChange.value = '内核就绪：异步加载（独立分包）完成';
       }
       function emitChange() {
         if (!kernelReady.value) touch();
         clearTimeout(timer);
-        timer = setTimeout(function () { lastChange.value = 'change(' + len.value + ' 字，去抖 300ms)'; }, 300);
+        timer = setTimeout(function () { lastChange.value = '业务变更（' + len.value + ' 字，去抖 300ms）'; }, 300);
       }
       function onInput(e) {
         if (e && e.target && kind.value === 'rich') html.value = e.target.innerHTML;

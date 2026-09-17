@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 字典字段（DictSelect / DictCascader / getDictLabel / useDictStore）</title>
+<title>原型 · 字典字段（下拉选择 / 树形级联 / 标签翻译 / 缓存版本比对）</title>
 <link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
 <style>
@@ -46,8 +46,8 @@
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="01_组件设计_字典字段.md">《组件设计 · 字典字段》</a>：演示 <b>DictSelect</b>（单选/多选/级联过滤/只读回显）、<b>DictCascader</b> 树形级联、
-    <b>getDictLabel</b> 列表列翻译与超大字典批量翻译、<b>useDictStore</b> 版本比对与缓存失效、<b>DictAdvancedQuery</b> 高级查询（条件组/提供者/方案）。数据均为前端模拟，交互对齐 Element Plus 实际行为。
+    本原型对应当前目录 <a href="01_组件设计_字典字段.md">《组件设计 · 字典字段》</a>：演示 字典下拉（单选/多选/级联过滤/只读回显）、树形级联、
+    标签翻译列表列翻译与超大字典批量翻译、缓存版本比对与失效、高级查询（条件组/提供者/方案）。数据均为前端模拟，交互对齐基础控件库实际行为。
   </div>
 
   <div id="app">
@@ -55,7 +55,7 @@
       <div class="dp-header">
         <div>
           <div class="dp-title">字典字段组件原型</div>
-          <div class="dp-sub">DictSelect · DictCascader · getDictLabel · useDictStore</div>
+          <div class="dp-sub">字典下拉 · 树形级联 · 标签翻译 · 缓存版本比对</div>
         </div>
         <div class="dp-bar" style="margin-bottom:0">
           <span class="proto-hint">locale：</span>
@@ -68,7 +68,7 @@
 
       <el-tabs v-model="tab">
         <!-- ① 表单字段 -->
-        <el-tab-pane label="① 表单字段 DictSelect" name="form">
+        <el-tab-pane label="① 表单字段（字典下拉）" name="form">
           <div class="dp-bar">
             <span class="proto-hint">表单态：</span>
             <el-switch v-model="readonly" active-text="只读回显" inactive-text="编辑态" inline-prompt></el-switch>
@@ -81,7 +81,7 @@
             <el-row :gutter="16">
               <el-col :span="8">
                 <el-form-item>
-                  <template #label>用户状态<em class="dp-type">user_status · 小字典 el-select</em></template>
+                  <template #label>用户状态<em class="dp-type">user_status · 小字典下拉</em></template>
                   <el-select v-model="form.status" clearable placeholder="请选择" style="width:100%">
                     <el-option v-for="it in itemsOf('user_status')" :key="it.value" :label="labelOf('user_status', it.value)" :value="it.value"></el-option>
                   </el-select>
@@ -97,7 +97,7 @@
               </el-col>
               <el-col :span="8">
                 <el-form-item>
-                  <template #label>业务类型（多选）<em class="dp-type">biz_type · mode=multiple</em></template>
+                  <template #label>业务类型（多选）<em class="dp-type">biz_type · 多选</em></template>
                   <el-select v-model="form.bizTypes" multiple clearable collapse-tags placeholder="请选择" style="width:100%">
                     <el-option v-for="it in itemsOf('biz_type')" :key="it.value" :label="labelOf('biz_type', it.value)" :value="it.value"></el-option>
                   </el-select>
@@ -105,7 +105,7 @@
               </el-col>
             </el-row>
 
-            <div class="ep-section">级联过滤（DictSelect.parentValue：省 → 市 → 区，父级切换自动清空重载）</div>
+            <div class="ep-section">级联过滤（级联父值：省 → 市 → 区，父级切换自动清空重载）</div>
             <el-row :gutter="16">
               <el-col :span="8">
                 <el-form-item label="省">
@@ -132,21 +132,21 @@
               </el-col>
             </el-row>
 
-            <div class="ep-section">树形级联（DictCascader，基于 el-cascader）</div>
+            <div class="ep-section">树形级联（多级父子字典）</div>
             <el-row :gutter="16">
               <el-col :span="8">
                 <el-form-item label="行政区划">
                   <el-cascader v-model="form.regionPath" :options="regionOptions" clearable placeholder="请选择省 / 市 / 区"
-                    :props="{ checkStrictly: form.checkStrictly }" style="width:100%"></el-cascader>
+                    :props="{ checkStrictly: form.allowAnyLevel }" style="width:100%"></el-cascader>
                 </el-form-item>
               </el-col>
               <el-col :span="8">
                 <el-form-item label="选择策略">
-                  <el-switch v-model="form.checkStrictly" active-text="可选任意级（checkStrictly）" inactive-text="必须选到底"></el-switch>
+                  <el-switch v-model="form.allowAnyLevel" active-text="可选任意级" inactive-text="必须选到底"></el-switch>
                 </el-form-item>
               </el-col>
               <el-col :span="8">
-                <el-form-item label="路径回显（getDictLabel 逐级解析）">
+                <el-form-item label="路径回显（逐级标签翻译）">
                   <el-input :model-value="pathLabel" readonly></el-input>
                 </el-form-item>
               </el-col>
@@ -154,20 +154,20 @@
           </el-form>
 
           <el-alert type="info" :closable="false" show-icon
-            :title="readonly ? '只读回显：组件 disabled，显示 label（label 缺失回显原始 value）' : '编辑态：parentValue 变化清空下级并自动重载'"></el-alert>
+            :title="readonly ? '只读回显：组件禁用，显示 label（label 缺失回显原始 value）' : '编辑态：级联父值变化清空下级并自动重载'"></el-alert>
         </el-tab-pane>
 
         <!-- ② 超大字典 -->
         <el-tab-pane label="② 超大字典（虚拟滚动 + 远程搜索）" name="big">
           <div class="dp-bar">
             <span class="dp-badge warn">探针 limit=2001</span>
-            <span class="proto-hint">总条目 {{ bigTotal }} 条 ≥ 阈值 2000 → has_more=true → 自动切换 el-select-v2 虚拟滚动 + 远程搜索（仅缓存已加载片段，不写 localStorage）</span>
+            <span class="proto-hint">总条目 {{ bigTotal }} 条 ≥ 阈值 2000 → has_more=true → 自动切换虚拟滚动下拉 + 远程搜索（仅缓存已加载片段，不写本地缓存）</span>
           </div>
           <el-form label-position="top">
             <el-row :gutter="16">
               <el-col :span="12">
                 <el-form-item>
-                  <template #label>物料编码<em class="dp-type">material_code · 超大字典 · el-select-v2</em></template>
+                  <template #label>物料编码<em class="dp-type">material_code · 超大字典 · 虚拟滚动下拉</em></template>
                   <el-select-v2 v-model="form.material" :options="bigOptions" filterable clearable remote
                     :remote-method="searchBig" :loading="bigLoading" placeholder="输入关键词远程搜索（防抖 300ms）" style="width:100%">
                   </el-select-v2>
@@ -185,10 +185,10 @@
         </el-tab-pane>
 
         <!-- ③ 列表列渲染 -->
-        <el-tab-pane label="③ 列表列渲染 getDictLabel" name="list">
+        <el-tab-pane label="③ 列表列渲染（标签翻译）" name="list">
           <div class="dp-bar">
-            <el-button size="small" type="primary" @click="doBatchTranslate">translateDictValues 批量翻译</el-button>
-            <el-button size="small" @click="doRowTranslate">逐行 getDictLabel（反例）</el-button>
+            <el-button size="small" type="primary" @click="doBatchTranslate">批量翻译</el-button>
+            <el-button size="small" @click="doRowTranslate">逐行翻译（反例）</el-button>
             <el-button size="small" @click="resetList">重置</el-button>
             <el-divider direction="vertical"></el-divider>
             <span class="proto-hint">批量：1 个 HTTP 请求 ｜ 逐行：{{ listRows.length }} 个 HTTP 请求</span>
@@ -196,7 +196,7 @@
 
           <el-table :data="listRows" border style="width:100%">
             <el-table-column prop="name" label="用户名" width="140"></el-table-column>
-            <el-table-column label="状态（getDictLabel）" width="170">
+            <el-table-column label="状态（标签翻译）" width="170">
               <template #default="{ row }">{{ labelOf('user_status', row.status) }}</template>
             </el-table-column>
             <el-table-column label="性别" width="110">
@@ -219,7 +219,7 @@
         </el-tab-pane>
 
         <!-- ④ 缓存与版本 -->
-        <el-tab-pane label="④ 缓存与版本 useDictStore" name="store">
+        <el-tab-pane label="④ 缓存与版本比对" name="store">
           <div class="dp-bar">
             <el-button size="small" type="warning" plain @click="simulateChange">模拟字典变更（写路径）</el-button>
             <el-button size="small" @click="clearClientCache">清空前端缓存</el-button>
@@ -228,12 +228,12 @@
 
           <div class="dp-metrics">
             <div class="dp-metric"><div class="v">{{ store.version }}</div><div class="k">全局版本号 bms:{tenant}:dict:version</div></div>
-            <div class="dp-metric"><div class="v">{{ clientVersion === null ? '—' : clientVersion }}</div><div class="k">客户端本地版本（Pinia/localStorage）</div></div>
+            <div class="dp-metric"><div class="v">{{ clientVersion === null ? '—' : clientVersion }}</div><div class="k">客户端本地版本（前端内存/本地缓存）</div></div>
             <div class="dp-metric"><div class="v">{{ store.requests }}</div><div class="k">/dicts/batch 请求次数</div></div>
             <div class="dp-metric"><div class="v ok">{{ store.hit }}</div><div class="k">版本一致命中（items=null 零传输）</div></div>
             <div class="dp-metric"><div class="v">{{ store.refetch }}</div><div class="k">版本不一致重拉全量</div></div>
             <div class="dp-metric"><div class="v">{{ store.memHit }}</div><div class="k">内存缓存命中</div></div>
-            <div class="dp-metric"><div class="v">{{ store.localHit }}</div><div class="k">localStorage 二次缓存命中</div></div>
+            <div class="dp-metric"><div class="v">{{ store.localHit }}</div><div class="k">本地二次缓存命中</div></div>
             <div class="dp-metric"><div class="v">{{ store.types.length }}</div><div class="k">本表单字典类型数（合并请求）</div></div>
           </div>
 
@@ -248,7 +248,7 @@
         </el-tab-pane>
 
         <!-- ⑤ 高级查询 -->
-        <el-tab-pane label="⑤ 高级查询 DictAdvancedQuery" name="adv">
+        <el-tab-pane label="⑤ 高级查询" name="adv">
           <div class="dp-bar">
             <span class="proto-hint">入口：列表筛选区字段旁 / 表单字段下拉 → 点击弹出高级查询抽屉</span>
             <el-divider direction="vertical"></el-divider>
@@ -293,7 +293,7 @@
           <el-alert type="info" :closable="false" show-icon
             title="高级查询 = 条件组（AND/OR 分组 + 常用操作符） + 查询提供者（通用引擎 / 后端注册的自定义实现类） + 查询方案（个人/共享，可保存复用）"></el-alert>
           <div class="proto-note" style="margin-top:12px">
-            内存评估：扩展属性存 <span class="dp-code">sys_dict_item.attr_json</span>，普通运行时接口<b>不返回</b> attr_json，属性仅在高级查询时按命中子集分页返回，不放大 L1/Redis/localStorage 缓存；属性值长度 ≤ 1KB、属性数 ≤ 50/类型可配。
+            内存评估：扩展属性存 <span class="dp-code">sys_dict_item.attr_json</span>，普通运行时接口<b>不返回</b> attr_json，属性仅在高级查询时按命中子集分页返回，不放大 L1/Redis/前端本地缓存；属性值长度 ≤ 1KB、属性数 ≤ 50/类型可配。
           </div>
         </el-tab-pane>
       </el-tabs>
@@ -493,10 +493,10 @@
         status: 'enabled', gender: '1', bizTypes: ['sale', 'finance'],
         province: '440000', city: '440300', district: '440305',
         regionPath: ['440000', '440300', '440305'],
-        checkStrictly: false, material: ''
+        allowAnyLevel: false, material: ''
       });
 
-      // ---- useDictStore 版本比对模拟 ----
+      // ---- 缓存版本比对模拟 ----
       var store = reactive({
         version: 1, requests: 0, hit: 0, refetch: 0, memHit: 0, localHit: 0,
         types: ['user_status', 'user_gender', 'biz_type', 'region', 'material_code'],
@@ -528,11 +528,11 @@
       }
       function clearClientCache() {
         clientVersion.value = null;
-        log('前端主动失效：清空 Pinia 缓存与 localStorage（invalidate）');
+        log('前端主动失效：清空前端内存缓存与本地缓存（主动失效）');
         ElMessage({ message: '已清空前端缓存', type: 'warning' });
       }
 
-      // ---- 字典取值与翻译（前端 getDictLabel） ----
+      // ---- 字典取值与翻译（标签翻译） ----
       function allItemsOf(type) {
         if (type === 'region') return flatten(REGION_TREE);
         if (type === 'material_code') return bigItems;
@@ -597,14 +597,14 @@
         listRows.value.forEach(function (r) { r.materialLabel = bigMap[r.material] || r.material; });
         listMissing.value = 0;
         listSmallHit.value = listRows.value.length * 2;
-        log('列渲染：translateDictValues 收集 ' + listRows.value.length + ' 个缺失 values → GET /dicts/material_code?values=...（1 次请求，回填局部子集）');
+        log('列渲染：批量翻译收集 ' + listRows.value.length + ' 个缺失 values → GET /dicts/material_code?values=...（1 次请求，回填局部子集）');
         ElMessage({ message: '批量翻译完成：1 次请求翻译 ' + listRows.value.length + ' 行', type: 'success' });
       }
       function doRowTranslate() {
         listRequests.value += listRows.value.length;
         listRows.value.forEach(function (r) { r.materialLabel = bigMap[r.material] || r.material; });
         listMissing.value = 0;
-        log('反例：逐行 getDictLabel 未做收集 → ' + listRows.value.length + ' 行各发 1 次请求（N+1）');
+        log('反例：逐行翻译未做收集 → ' + listRows.value.length + ' 行各发 1 次请求（N+1）');
         ElMessage({ message: '逐行翻译完成：发出 ' + listRows.value.length + ' 次请求（反例）', type: 'error' });
       }
       function resetList() {
@@ -612,7 +612,7 @@
         log('列表已重置（清空已翻译 label）');
       }
 
-      // ---- 高级查询（DictAdvancedQuery） ----
+      // ---- 高级查询 ----
       var advAttrs = [
         { key: 'value', name: '编码', type: 'text', ops: ['eq', 'contains', 'starts_with'] },
         { key: 'label', name: '名称', type: 'text', ops: ['eq', 'contains'] },

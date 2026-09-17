@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 媒体能力（BaseMedia）</title>
+<title>原型 · 媒体能力</title>
 <link rel="stylesheet" href="../../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../../原型设计/资源/原型样式.css">
 <style>
@@ -44,7 +44,7 @@
       </div>
 
       <div class="dp-state" style="margin-top:12px">状态机：loading → loaded / error；ratio={{ ratio }} 保持布局稳定
-预签名：加载失败且 retryOnExpired → expired → 重取 URL 后重试一次；仍失败显示失败态并支持降级下载
+预签名：加载失败且开启重取 → 失效通知 → 重取 URL 后重试一次；仍失败显示失败态并支持降级下载
 {{ log }}</div>
     </div>
   </div>
@@ -65,9 +65,9 @@
         setTimeout(function () {
           if (simulate || willFail.value) {
             state.value = 'error';
-            if (!retried) { log.value = 'error → 检测预签名失效（expired）→ 重取 URL 后重试一次'; retried = true; setTimeout(load, 500); }
+            if (!retried) { log.value = 'error → 检测预签名失效（失效通知）→ 重取 URL 后重试一次'; retried = true; setTimeout(load, 500); }
             else { log.value = '重试仍失败 → 显示失败态（可降级下载）'; retried = false; }
-          } else { state.value = 'loaded'; log.value = 'load → 成功（懒加载：进入视口才加载）'; }
+          } else { state.value = 'loaded'; log.value = '加载成功（懒加载：进入视口才加载）'; }
         }, 500);
       }
       function retry() { retried = false; load(willFail.value); }

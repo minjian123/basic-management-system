@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 页签状态能力（useTabs）</title>
+<title>原型 · 页签状态能力</title>
 <link rel="stylesheet" href="../../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../../原型设计/资源/原型样式.css">
 <style>
@@ -28,7 +28,7 @@
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="15_组件设计_页签状态能力.md">《组件设计 · 页签状态能力》</a>：演示打开去重、关闭激活相邻、固定不可关与 keep-alive 缓存清单；持久化 key 为 <span class="dp-code">bms_open_tabs</span>。
+    本原型对应当前目录 <a href="15_组件设计_页签状态能力.md">《组件设计 · 页签状态能力》</a>：演示打开去重、关闭激活相邻、固定不可关与缓存清单；持久化键为 <span class="dp-code">bms_open_tabs</span>。
   </div>
 
   <div id="app">
@@ -50,10 +50,10 @@
       <div class="dp-state">状态
 tabs: {{ tabs.map(function (t) { return t.title; }).join(' / ') }}
 activeKey: {{ activeKey }}
-cachedNames（keep-alive 清单）: {{ cachedText }}
+cachedNames（缓存组件清单）: {{ cachedText }}
 持久化: localStorage['bms_open_tabs'] = {{ persisted }}
 说明：同 key 去重（重复打开只激活）；关闭激活相邻（右 → 左 → 首页）；固定签不可关且常驻缓存；
-表单框架双层 Tab 由 FormFrame 管理缓存策略后并入 cachedNames。</div>
+表单框架双层 Tab 由表单框架壳管理缓存策略后并入缓存清单。</div>
     </div>
   </div>
 </div>

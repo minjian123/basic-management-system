@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 水印能力（useWatermark）</title>
+<title>原型 · 水印能力</title>
 <link rel="stylesheet" href="../../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../../原型设计/资源/原型样式.css">
 <style>
@@ -26,7 +26,7 @@
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="30_组件设计_水印能力.md">《组件设计 · 水印能力》</a>：演示水印内容组装（用户 / 租户 / 日期）、透明度 / 旋转 / 间距调节、防移除重建与 toDataURL 导出注入。
+    本原型对应当前目录 <a href="30_组件设计_水印能力.md">《组件设计 · 水印能力》</a>：演示水印内容组装（用户 / 租户 / 日期）、透明度 / 旋转 / 间距调节、防移除重建与水印图片导出注入。
   </div>
 
   <div id="app">
@@ -43,13 +43,13 @@
         <div class="wm-content">
           <p><b>敏感区域示例：员工信息</b></p>
           <p>姓名：张三　组织：研发中心　状态：在职</p>
-          <p><span class="dp-hint">页面级水印由 useWatermark 注入；导出 / 打印经 toDataURL 注入相同水印。</span></p>
+          <p><span class="dp-hint">页面级水印经本能力注入；导出 / 打印经水印图片注入相同水印。</span></p>
         </div>
       </div>
 
       <div class="dp-state" style="margin-top:12px">水印内容：{{ text }}
 {{ logs.length ? logs.join('\n') : '（尚无操作）' }}
-说明：canvas 生成平铺图案（一次生成，参数变化才重生成）；guard=true 时 MutationObserver 监听水印层被删 / 样式篡改并重建；
+说明：平铺图案一次生成（不逐块 DOM，参数变化才重生成）；防移除开启时监视水印层被删 / 样式篡改并重建；
 水印内容默认组装 用户 + 租户 + 日期（不引入超范围敏感信息）；卸载自动移除（登记异步资源基类）。</div>
     </div>
   </div>
@@ -73,10 +73,10 @@
       });
       function removeWatermark() {
         showLayer.value = false;
-        logs.value.push('[' + stamp() + '] 水印层被移除 → guard=true：MutationObserver 检测到删除，重建水印层');
+        logs.value.push('[' + stamp() + '] 水印层被移除 → 防移除开启：检测到删除，重建水印层');
         setTimeout(function () { showLayer.value = true; logs.value.push('[' + stamp() + '] 已重建（提高摘除成本；不承诺绝对防）'); }, 600);
       }
-      logs.value.push('[' + stamp() + '] apply(host)：canvas/SVG 生成平铺图案（opacity=0.15, rotate=-20, gap=180）');
+      logs.value.push('[' + stamp() + '] 水印注入（示例区域）：生成平铺图案（透明度 0.15、旋转 -20、间距 180）');
       return { opacity: opacity, rotate: rotate, gap: gap, showLayer: showLayer, logs: logs, host: host, text: text, wmStyle: wmStyle, removeWatermark: removeWatermark };
     }
   });

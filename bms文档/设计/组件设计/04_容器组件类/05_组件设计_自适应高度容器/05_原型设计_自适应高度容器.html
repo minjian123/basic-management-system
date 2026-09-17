@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 自适应高度容器（AutoHeight）</title>
+<title>原型 · 自适应高度容器</title>
 <link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
 <style>
@@ -27,7 +27,7 @@
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="05_组件设计_自适应高度容器.md">《组件设计 · 自适应高度容器》</a>：演示内容区自动占满父容器剩余空间（减头部/工具栏）、窗口缩放重算与内部滚动；继承 02 基础组件类 容器能力。
+    本原型对应当前目录 <a href="05_组件设计_自适应高度容器.md">《组件设计 · 自适应高度容器》</a>：演示内容区自动占满父容器剩余空间（减头部/工具栏）、窗口缩放重算与内部滚动；继承容器能力（继承链上的一层）。
   </div>
 
   <div id="app">
@@ -43,8 +43,8 @@
         </div>
       </div>
 
-      <div class="dp-state" style="margin-top:12px">scroll={{ scroll }}　容器高度=父剩余空间；min/max 可限制；ResizeObserver/窗口 resize 重算（去抖）
-说明：初始 0 高度与异步内容需重新计算；嵌套自适应注意循环触发；移动端用动态视口高度（dvh）避免地址栏抖动。</div>
+      <div class="dp-state" style="margin-top:12px">内部滚动={{ scroll }}　容器高度=父容器剩余空间；最小/最大高度可限制；尺寸变化重算（去抖）
+说明：初始 0 高度与异步内容需重新计算；嵌套自适应注意循环触发；移动端用动态视口高度避免地址栏抖动。</div>
     </div>
   </div>
 </div>

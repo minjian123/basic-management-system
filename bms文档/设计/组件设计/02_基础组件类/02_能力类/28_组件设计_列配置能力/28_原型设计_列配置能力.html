@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 列配置能力（useColumnConfig）</title>
+<title>原型 · 列配置能力</title>
 <link rel="stylesheet" href="../../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../../原型设计/资源/原型样式.css">
 <style>
@@ -57,15 +57,15 @@
             <tr><th v-for="c in visibleCols" :key="c.key" :style="{ width: c.width + 'px' }">{{ c.title }}（{{ c.width }}）</th></tr>
             <tr><td v-for="c in visibleCols" :key="c.key">{{ c.sample }}</td></tr>
           </table>
-          <div class="dp-hint" style="margin-top:6px">列宽经 minWidth / maxWidth 边界；双击列边界自适应（真实表格）；操作列默认右冻结。</div>
+          <div class="dp-hint" style="margin-top:6px">列宽受最小 / 最大宽度边界约束；双击列边界自适应（真实表格）；操作列默认右冻结。</div>
         </div>
       </div>
 
       <div class="dp-state" style="margin-top:12px">持久化与日志
-visibleColumns: {{ visibleCols.map(function (c) { return c.key; }).join(' → ') }}
+可见列：{{ visibleCols.map(function (c) { return c.key; }).join(' → ') }}
 {{ logs.length ? logs.join('\n') : '（尚无变更）' }}
 说明：列定义（页面提供）与用户配置层（本能力）分离；显隐至少保留一列；顺序即渲染顺序；
-宽度拖拽松手后一次性写模型；变更防抖后经偏好持久化能力保存（跨设备同步）；reset 同步清远端。</div>
+宽度拖拽松手后一次性写模型；变更防抖后经偏好持久化能力保存（跨设备同步）；重置同步清远端。</div>
     </div>
   </div>
 </div>
@@ -92,11 +92,11 @@ visibleColumns: {{ visibleCols.map(function (c) { return c.key; }).join(' → ')
       function move(i, j) {
         if (j < 0 || j >= cols.value.length) return;
         var arr = cols.value; var t = arr[i]; arr[i] = arr[j]; arr[j] = t;
-        logs.value.push('[' + stamp() + '] move(' + arr[j].key + ' → 位置 ' + (j + 1) + ') 顺序调整（拖拽基座协作）');
+        logs.value.push('[' + stamp() + '] 顺序调整：' + arr[j].key + ' → 位置 ' + (j + 1) + '（拖拽基座协作）');
         save('顺序');
       }
-      function widen(c) { c.width = Math.min(240, c.width + 20); logs.value.push('[' + stamp() + '] setWidth(' + c.key + ', ' + c.width + ')（边界 min/max）'); save('宽度'); }
-      function reset() { cols.value = JSON.parse(JSON.stringify(DEFAULTS)); logs.value.push('[' + stamp() + '] reset() → 恢复列定义默认（defaultHidden 生效）'); persisted.value = 'table:user:columns → 已清远端（reset）'; }
+      function widen(c) { c.width = Math.min(240, c.width + 20); logs.value.push('[' + stamp() + '] 宽度调整：' + c.key + ' → ' + c.width + 'px（受边界约束）'); save('宽度'); }
+      function reset() { cols.value = JSON.parse(JSON.stringify(DEFAULTS)); logs.value.push('[' + stamp() + '] 重置为默认配置（列定义默认隐藏生效）'); persisted.value = 'table:user:columns → 已清远端（重置）'; }
       return { cols: cols, logs: logs, persisted: persisted, visibleCols: visibleCols, visibleCount: visibleCount, move: move, widen: widen, reset: reset, save: save };
     }
   });

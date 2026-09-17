@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 状态标签与描述列表（StatusTag / DescList / DescItem）</title>
+<title>原型 · 状态标签与描述列表（标签形态 / 取色三层优先级 / 描述列表与值渲染）</title>
 <link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
 <style>
@@ -43,8 +43,8 @@
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="03_组件设计_状态标签与描述列表.md">《组件设计 · 状态标签与描述列表》</a>：演示 <b>StatusTag</b> 形态与取色三层优先级、
-    <b>DescList / DescItem</b> 的列数响应式与复杂值渲染（长文本折叠、富文本摘要、文件、脱敏）、以及场景集成（弹窗详情/展开行/卡片/移动端）。
+    本原型对应当前目录 <a href="03_组件设计_状态标签与描述列表.md">《组件设计 · 状态标签与描述列表》</a>：演示 <b>状态标签</b> 形态与取色三层优先级、
+    <b>描述列表 / 描述项</b> 的列数响应式与复杂值渲染（长文本折叠、富文本摘要、文件、脱敏）、以及场景集成（弹窗详情/展开行/卡片/移动端）。
     颜色一律引用设计令牌变量（<span class="dp-code">--color-success</span> 等），不硬编码色值。
   </div>
 
@@ -53,7 +53,7 @@
       <div class="dp-header">
         <div>
           <div class="dp-title">状态标签与描述列表 原型</div>
-          <div class="dp-sub">StatusTag · DescList · DescItem · statusColor</div>
+          <div class="dp-sub">状态标签 · 描述列表 · 描述项 · 语义色映射</div>
         </div>
         <div class="dp-bar" style="margin-bottom:0">
           <el-checkbox v-model="plainMode" size="small">data:plain（敏感字段看明文）</el-checkbox>
@@ -121,7 +121,7 @@
           <div class="ep-section">字段级 colorMap（登记项③：字段属性配置）</div>
           <div class="dp-out">colorMap = { "custom_A": "danger", "legacy_open": "warning" }</div>
 
-          <div class="ep-section">内置语义映射表（statusColor.ts 常量，登记项②同步设计令牌）</div>
+          <div class="ep-section">内置语义映射表（常量表，登记项②同步设计令牌）</div>
           <table class="mini-table">
             <thead><tr><th>语义色</th><th>令牌</th><th>命中值示例</th></tr></thead>
             <tbody>
@@ -250,7 +250,7 @@
               </template>
             </el-table-column>
             <el-table-column prop="username" label="用户名" width="140"></el-table-column>
-            <el-table-column label="状态列（StatusTag，由通用表格引用）" width="240">
+            <el-table-column label="状态列（状态标签，由通用表格引用）" width="240">
               <template #default="{ row }"><el-tag :type="statusColor(row.status)" size="small">{{ statusLabel(row.status) }}</el-tag></template>
             </el-table-column>
             <el-table-column prop="dept" label="部门"></el-table-column>
@@ -280,7 +280,7 @@
             </el-card>
           </div>
 
-          <div class="ep-section">④ 移动端卡片（van-tag + van-cell 形态模拟，口径同源）</div>
+          <div class="ep-section">④ 移动端卡片（标签 + 单元格形态模拟，口径同源）</div>
           <div class="m-card">
             <div class="m-head">用户详情</div>
             <div class="m-cell"><span class="k">用户名</span><span class="v">{{ user.username }}</span></div>
@@ -290,7 +290,7 @@
             <div class="m-cell"><span class="k">空值</span><span class="v">—</span></div>
           </div>
           <div class="dp-bar" style="margin-top:10px">
-            <span class="proto-hint">移动端：<code>van-tag</code>（状态）+ <code>van-cell-group/van-cell</code>（描述项），label 左值右；长文本折叠与空值 <code>—</code> 口径同 PC</span>
+            <span class="proto-hint">移动端：标签（状态）+ 单元格（描述项），label 左值右；长文本折叠与空值 <code>—</code> 口径同 PC</span>
           </div>
         </el-tab-pane>
       </el-tabs>
@@ -305,7 +305,7 @@
   var { createApp, ref, computed } = Vue;
   var ElMessage = ElementPlus.ElMessage;
 
-  // ---------- 语义色映射（示意实现，真实实现为 src/utils/statusColor.ts） ----------
+  // ---------- 语义色映射（示意；三层优先级取色） ----------
   var BUILTIN = {
     success: ['enabled', 'normal', 'active', 'approved', 'passed', 'finished', '启用', '正常', '已通过', '已完成'],
     warning: ['pending', 'auditing', 'processing', 'partial', '待审', '进行中', '待处理', '部分完成'],

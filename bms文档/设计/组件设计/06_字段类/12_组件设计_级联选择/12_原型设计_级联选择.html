@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 级联选择（CascaderField / useCascader）</title>
+<title>原型 · 级联选择（懒加载 / 任意级 / 多选 / 路径回显）</title>
 <link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
 <style>
@@ -27,14 +27,14 @@
 <div class="proto-frame">
   <div class="proto-note">
     本原型对应当前目录 <a href="12_组件设计_级联选择.md">《组件设计 · 级联选择》</a>：演示省/市/区多级联动、<b>懒加载</b>、任意级可选（checkStrictly）、多选、可搜索、路径回显与只读。
-    基于 Element Plus <span class="dp-code">el-cascader</span> 定制。
+    基于基础级联控件定制。
   </div>
 
   <div id="app">
     <div class="ep-page">
       <div class="dp-bar">
-        <el-switch v-model="lazy" size="small" active-text="lazy 懒加载（按父拉取子级）" />
-        <el-switch v-model="checkStrictly" size="small" active-text="任意级可选 checkStrictly" />
+        <el-switch v-model="lazy" size="small" active-text="懒加载（按父拉取子级）" />
+        <el-switch v-model="checkStrictly" size="small" active-text="任意级可选" />
         <el-switch v-model="multiple" size="small" active-text="多选" />
         <el-switch v-model="showPath" size="small" active-text="显示完整路径" />
         <el-switch v-model="readonlyText" size="small" active-text="只读纯文本回显" />

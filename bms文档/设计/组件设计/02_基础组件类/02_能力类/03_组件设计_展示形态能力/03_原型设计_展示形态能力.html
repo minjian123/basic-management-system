@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 展示形态能力（BaseDisplayControl）</title>
+<title>原型 · 展示形态能力</title>
 <link rel="stylesheet" href="../../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../../原型设计/资源/原型样式.css">
 <style>
@@ -50,10 +50,10 @@
         </div>
       </div>
 
-      <div class="dp-state" style="margin-top:14px">只读：不接收 modelValue、不参与校验；需要交互时组合 交互能力
+      <div class="dp-state" style="margin-top:14px">只读：不接收受控值、不参与校验；需要交互时组合 交互能力
 空值判定：null / undefined / '' / [] / {} 统一占位「{{ emptyText }}」，但 0 与 false 不为空
-空值 vs 空状态：单元格空值用占位（本层），整块无数据用「05 展示类 05 异常与空状态」
-本层不含值格式化（金额/日期/枚举文本 → 受控值能力 + 04-03），展示域细化在 展示域基类（组合本层 + useValue）</div>
+空值 vs 空状态：单元格空值用占位（本层），整块无数据用展示类「异常与空状态」
+本层不含值格式化（金额/日期/枚举文本 → 受控值能力与格式化工具），展示域细化在展示域基类（展示形态 + 受控值语义）</div>
     </div>
   </div>
 </div>

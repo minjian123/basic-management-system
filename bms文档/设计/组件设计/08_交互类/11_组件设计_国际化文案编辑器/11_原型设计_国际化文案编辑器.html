@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 国际化文案编辑器（I18nEditor / LocaleManager / MessageGrid / MessageFilter / useI18nMessages）</title>
+<title>原型 · 国际化文案编辑器（语言清单 / 文案网格 / 筛选 / 批量保存）</title>
 <link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
 <style>
@@ -25,8 +25,8 @@
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="11_组件设计_国际化文案编辑器.md">《组件设计 · 国际化文案编辑器》</a>：演示 <b>LocaleManager</b> 语言清单、
-    <b>MessageGrid</b>（msg_key × 多语言列）可编辑网格、<b>MessageFilter</b> 搜索/前缀/缺失/仅已修改筛选、新增/删除 key、批量保存与缓存失效、导入导出。
+    本原型对应当前目录 <a href="11_组件设计_国际化文案编辑器.md">《组件设计 · 国际化文案编辑器》</a>：演示语言清单、
+    文案网格（msg_key × 多语言列）可编辑网格、筛选（搜索/前缀/缺失/仅已修改）、新增/删除 key、批量保存与缓存失效、导入导出。
   </div>
 
   <div id="app">
@@ -209,7 +209,7 @@
           ElMessage.success('已保存并失效缓存');
         }, 700);
       }
-      function invalidate() { log.value = 'PUT /i18n/cache/invalidate → 主动失效 Redis 语言包缓存（失败降级短 TTL；前端 localStorage 下次拉取更新）'; ElMessage.success('缓存已失效'); }
+      function invalidate() { log.value = 'PUT /i18n/cache/invalidate → 主动失效服务端语言包缓存（失败降级短 TTL；浏览器本地缓存下次拉取更新）'; ElMessage.success('缓存已失效'); }
       function exportPack() { log.value = '导出当前筛选语言包（Excel）→ 复用导入导出通道'; ElMessage.success('已导出'); }
       function importPack() { log.value = '导入语言包（批量更新 value）→ 统一导入通道 + 错误行报告'; ElMessage.info('导入示例（演示）'); }
 

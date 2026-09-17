@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 布局能力（BaseLayout）</title>
+<title>原型 · 布局能力</title>
 <link rel="stylesheet" href="../../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../../原型设计/资源/原型样式.css">
 <style>
@@ -25,7 +25,7 @@
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="07_组件设计_布局能力.md">《组件设计 · 布局能力》</a>：演示 24 栅格跨度、响应式断点、间距/对齐令牌、布局根元素与透传、显隐；供 03 布局组件类继承。
+    本原型对应当前目录 <a href="07_组件设计_布局能力.md">《组件设计 · 布局能力》</a>：演示 24 栅格跨度、响应式断点、间距/对齐令牌、布局根元素与透传、显隐；供布局组件类继承消费。
   </div>
 
   <div id="app">
@@ -44,7 +44,7 @@
       <div class="dp-state" style="margin-top:12px">栅格：24 栅格 + span/offset；响应式按断点取跨度（当前 bp={{ bp }}：A={{ spanA }}、B={{ spanB }}）
 间距令牌：gap={{ gap }} → {{ gapPx }}；对齐：justify/align 令牌
 断点与《布局设计·响应式适配》一致；窄屏自动转单列（当前窄屏则 A/B 各 24）
-说明：布局组件只消费令牌；容器语义（滚动/懒加载等）在 容器能力 与 04 容器组件类；03 布局组件类继承本层。</div>
+说明：布局组件只消费令牌；容器语义（滚动/懒加载等）归 容器能力 与 容器组件类；布局组件类继承本层。</div>
     </div>
   </div>
 </div>

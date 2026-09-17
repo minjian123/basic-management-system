@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 弹窗抽屉表单（FormDialog / FormDrawer / ConfirmDialog / useFormModal）</title>
+<title>原型 · 弹窗抽屉表单</title>
 <link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../原型设计/资源/vendor/vant.css">
 <link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
@@ -33,9 +33,9 @@
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="01_组件设计_弹窗抽屉表单.md">《组件设计 · 弹窗抽屉表单》</a>：演示 <b>FormDrawer / FormDialog</b> 的选用与尺寸阶梯、
+    本原型对应当前目录 <a href="01_组件设计_弹窗抽屉表单.md">《组件设计 · 弹窗抽屉表单》</a>：演示<b>表单抽屉与表单对话框</b>的选用与尺寸阶梯、
     <b>新增 / 编辑 / 查看</b> 三态、<b>脏数据拦截与关闭规则</b>（遮罩 / Esc / 提交中禁关）、提交反馈、<b>页脚动作权限</b>，
-    以及 <b>ConfirmDialog / useConfirm</b> 确认类与<b>嵌套弹窗</b>、移动端底部弹出。
+    以及<b>确认对话框</b>与<b>嵌套弹窗</b>、移动端底部弹出。
   </div>
 
   <div id="app">
@@ -56,9 +56,9 @@
             </el-radio-group>
           </div>
           <div class="dp-bar">
-            <el-switch v-model="confirmOnClose" active-text="confirmOnClose（脏数据拦截）" size="small" />
-            <el-switch v-model="closeOnClickModal" active-text="closeOnClickModal" size="small" />
-            <el-switch v-model="closeOnPressEscape" active-text="closeOnPressEscape" size="small" />
+            <el-switch v-model="confirmOnClose" active-text="脏数据拦截" size="small" />
+            <el-switch v-model="closeOnClickModal" active-text="点遮罩关闭" size="small" />
+            <el-switch v-model="closeOnPressEscape" active-text="Esc 关闭" size="small" />
             <span class="dp-hint">表单类默认关闭遮罩关闭，Esc 走脏数据拦截，提交中一律禁关</span>
           </div>
           <div class="info-strip">
@@ -71,13 +71,13 @@
       <!-- ② 对话框 / 确认 / 嵌套 -->
       <el-tab-pane label="② 对话框与确认" name="dialog">
         <div class="ep-page">
-          <div class="ep-section">简单表单（FormDialog · ≤ 4 字段）</div>
+          <div class="ep-section">简单表单（对话框 · ≤ 4 字段）</div>
           <div class="dp-bar">
             <el-button size="small" type="primary" @click="dialogVisible = true">重置密码（480）</el-button>
             <span class="dp-hint">对话框内字段少而短，不承载大表单</span>
           </div>
 
-          <div class="ep-section">确认类（useConfirm / ConfirmDialog · danger）</div>
+          <div class="ep-section">确认类（轻量确认 / 确认对话框 · 危险语义）</div>
           <div class="dp-bar">
             <el-button size="small" type="danger" plain @click="confirmDelete">删除（ElMessageBox 确认）</el-button>
             <el-button size="small" type="danger" plain @click="confirmDialogVisible = true">删除（自定义二次确认）</el-button>
@@ -101,15 +101,15 @@
             <span class="perm-chip"><el-switch v-model="perm.update" size="small" /> update</span>
             <span class="perm-chip"><el-switch v-model="perm.delete" size="small" /> delete</span>
           </div>
-          <div class="info-strip">页脚「保存 / 删除」按钮按动作权限码显隐；无权限不渲染（对齐 20 权限指令）。打开抽屉观察页脚变化。</div>
+          <div class="info-strip">页脚「保存 / 删除」按钮按动作权限码显隐；无权限不渲染（对齐权限指令节点）。打开抽屉观察页脚变化。</div>
           <div class="dp-bar"><el-button size="small" type="primary" @click="openDrawer('edit')">打开抽屉看页脚</el-button></div>
         </div>
       </el-tab-pane>
 
       <!-- ④ 移动端 -->
-      <el-tab-pane label="④ 移动端（Vant）" name="mobile">
+      <el-tab-pane label="④ 移动端" name="mobile">
         <div class="ep-page">
-          <div class="info-strip">移动端不复用 PC 组件：底部弹出 <span class="dp-code">van-popup</span> + <span class="dp-code">van-form</span>，确认类 <span class="dp-code">van-dialog</span>；三态/字段权限/校验同源，提交走同一后端接口。</div>
+          <div class="info-strip">移动端不复用 PC 组件：快捷操作按底部弹出 + 表单实现，确认类用移动端确认对话框；三态/字段权限/校验同源，提交走同一后端接口。</div>
           <div class="m-phone">
             <div class="m-head"><span>移动端模拟</span><span>⋯</span></div>
             <div class="m-body">
@@ -122,7 +122,7 @@
       </el-tab-pane>
     </el-tabs>
 
-    <!-- ===== FormDrawer ===== -->
+    <!-- ===== 表单抽屉 ===== -->
     <el-drawer
       v-model="drawerVisible"
       :title="drawerTitle"
@@ -168,7 +168,7 @@
       </template>
     </el-drawer>
 
-    <!-- ===== FormDialog（简单表单） ===== -->
+    <!-- ===== 表单对话框（简单表单） ===== -->
     <el-dialog
       v-model="dialogVisible"
       title="重置密码"
@@ -189,7 +189,7 @@
       </template>
     </el-dialog>
 
-    <!-- ===== ConfirmDialog（自定义二次确认） ===== -->
+    <!-- ===== 确认对话框（自定义二次确认） ===== -->
     <el-dialog
       v-model="confirmDialogVisible"
       title="删除确认"
@@ -286,7 +286,7 @@
       var showDelete = computed(function () { return drawerMode.value !== 'create' && perm.delete; });
       var stateText = computed(function () {
         return '模式=' + drawerMode.value + '  尺寸=' + drawerWidth.value + '  脏数据=' + isDirty() +
-          '\nconfirmOnClose=' + confirmOnClose.value + '  closeOnClickModal=' + closeOnClickModal.value + '  closeOnPressEscape=' + closeOnPressEscape.value +
+          '\n脏数据拦截=' + confirmOnClose.value + '  点遮罩关闭=' + closeOnClickModal.value + '  Esc 关闭=' + closeOnPressEscape.value +
           '\n提交权限 create=' + perm.create + ' update=' + perm.update + ' delete=' + perm.delete +
           '\n日志：' + stateLog.value;
       });
@@ -300,7 +300,7 @@
         var data = mode === 'create' ? EMPTY() : (mode === 'edit' ? EDIT : VIEW);
         fill(data);
         drawerVisible.value = true;
-        stateLog.value = 'open' + mode.charAt(0).toUpperCase() + mode.slice(1) + '()（已重置表单与脏数据基线）';
+        stateLog.value = '打开（' + mode + '）（已重置表单与脏数据基线）';
       }
       function requestCloseDrawer() { drawerVisible.value = false; }
 
@@ -322,13 +322,13 @@
         formRef.value.validate(function (ok) {
           if (!ok) { ElMessage.error('校验失败，请检查必填项'); return; }
           submitting.value = true;
-          stateLog.value = 'save → submit loading…';
+          stateLog.value = '提交中…';
           setTimeout(function () {
             submitting.value = false;
             ElMessage.success('保存成功，关闭并刷新列表');
             baseline.value = snapshot();
             drawerVisible.value = false;
-            stateLog.value = '提交成功 → success 事件 → 关闭 + 刷新列表';
+            stateLog.value = '提交成功 → 关闭并刷新列表';
           }, 700);
         });
       }
@@ -344,14 +344,14 @@
         ElMessageBox.confirm('删除后不可恢复，确定继续？', '删除确认', {
           confirmButtonText: '删除', cancelButtonText: '取消', type: 'warning',
           confirmButtonClass: 'el-button--danger', closeOnClickModal: false, closeOnPressEscape: false
-        }).then(function () { confirmLog.value = 'useConfirm → 确认删除 → 刷新列表 / 局部移除行'; ElMessage.success('已删除'); })
-          .catch(function () { confirmLog.value = 'useConfirm → 取消'; });
+        }).then(function () { confirmLog.value = '轻量确认 → 确认删除 → 刷新列表 / 局部移除行'; ElMessage.success('已删除'); })
+          .catch(function () { confirmLog.value = '轻量确认 → 取消'; });
       }
       function doDelete() {
         submitting.value = true;
         setTimeout(function () {
           submitting.value = false; confirmDialogVisible.value = false; confirmInput.value = '';
-          confirmLog.value = 'ConfirmDialog（二次输入确认）→ 删除成功';
+          confirmLog.value = '确认对话框（二次输入确认）→ 删除成功';
           ElMessage.success('已删除');
         }, 600);
       }
@@ -365,7 +365,7 @@
 
       function vanConfirm() {
         vant.showConfirmDialog({ title: '删除确认', message: '删除后不可恢复，确定继续？' })
-          .then(function () { ElMessage.success('移动端 van-dialog 确认'); });
+          .then(function () { ElMessage.success('移动端确认对话框 → 已确认'); });
       }
       function vanSave() {
         if (!vanForm.username) { ElMessage.error('请输入用户名'); return; }

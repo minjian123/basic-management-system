@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 用户展示能力（useUserDisplay）</title>
+<title>原型 · 用户展示能力</title>
 <link rel="stylesheet" href="../../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../../原型设计/资源/原型样式.css">
 <style>
@@ -36,7 +36,7 @@
   <div id="app">
     <div class="ep-page">
       <div class="dp-bar">
-        <el-button size="small" type="primary" @click="load">loadUsers(['u1','u2','u3','u9']) 批量加载</el-button>
+        <el-button size="small" type="primary" @click="load">批量加载（4 个用户标识）</el-button>
         <el-button size="small" @click="load">再加载（缓存命中 0 请求）</el-button>
       </div>
 
@@ -68,8 +68,8 @@
       function stamp() { return String(logs.value.length + 1).padStart(2, '0'); }
       function load() {
         var missing = ids.filter(function (id) { return !cache[id]; });
-        if (!missing.length) { logs.value.push('[' + stamp() + '] loadUsers → 全部命中缓存（0 请求）'); return; }
-        logs.value.push('[' + stamp() + '] loadUsers([' + missing.join(',') + ']) → GET /api/users?ids=…（批量一次）');
+        if (!missing.length) { logs.value.push('[' + stamp() + '] 批量加载 → 全部命中缓存（0 请求）'); return; }
+        logs.value.push('[' + stamp() + '] 批量加载（标识：' + missing.join(',') + '）→ 批量用户接口（一次）');
         setTimeout(function () {
           if (missing.indexOf('u1') >= 0) cache['u1'] = { name: '张三', deptPath: '集团总部 / 研发中心 / 前端组', status: '在职' };
           if (missing.indexOf('u2') >= 0) cache['u2'] = { name: '李四', deptPath: '集团总部 / 研发中心 / 后端组', status: '在职' };

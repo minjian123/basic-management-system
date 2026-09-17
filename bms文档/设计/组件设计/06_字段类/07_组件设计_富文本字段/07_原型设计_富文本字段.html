@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 富文本字段（RichTextField / RichTextViewer / MarkdownField）</title>
+<title>原型 · 富文本字段（双模式 / 白名单净化 / 只读渲染）</title>
 <link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
 <style>
@@ -57,9 +57,9 @@
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="07_组件设计_富文本字段.md">《组件设计 · 富文本字段》</a>：演示 <b>RichTextField</b>（全量档工具栏：图片/附件卡片/表格/公式/代码高亮）、
-    <b>MarkdownField</b>（源码 + 预览双栏）、<b>sanitizeHtml</b> 白名单双向净化与 <b>RichTextViewer</b> 只读渲染（含目录导航）。
-    原型不加载真实富文本内核：编辑器用 <span class="dp-code">contenteditable</span> 模拟，净化用白名单示意实现（真实实现为 wangEditor 5 + DOMPurify，见文档第 4、6 节）。
+    本原型对应当前目录 <a href="07_组件设计_富文本字段.md">《组件设计 · 富文本字段》</a>：演示 <b>富文本档</b>（全量档工具栏：图片/附件卡片/表格/公式/代码高亮）、
+    <b>轻 Markdown 档</b>（源码 + 预览双栏）、<b>内容净化</b>白名单双向净化与 <b>只读渲染件</b>（含目录导航）。
+    原型不加载真实编辑器内核：编辑器用 <span class="dp-code">contenteditable</span> 模拟，净化用白名单示意实现（编辑器内核与净化组件属实现侧，见详细设计）。
   </div>
 
   <div id="app">
@@ -67,7 +67,7 @@
       <div class="dp-header">
         <div>
           <div class="dp-title">富文本字段 原型</div>
-          <div class="dp-sub">RichTextField · MarkdownField · sanitizeHtml · RichTextViewer</div>
+          <div class="dp-sub">富文本档 · 轻 Markdown 档 · 提交前净化 · 只读渲染</div>
         </div>
         <div class="dp-bar" style="margin-bottom:0">
           <el-select v-model="mode" size="small" style="width:130px" @change="onModeChange">
@@ -82,7 +82,7 @@
         <!-- ① 富文本编辑 -->
         <el-tab-pane label="① 富文本编辑（全量档工具栏）" name="rich">
           <div class="dp-bar">
-            <span class="proto-hint">toolbar=full：文本/段落/插入（图片、附件卡片、表格、公式、代码块、目录）；maxLength=20000（纯文本字数）；编辑器内核 wangEditor 5（本原型用 contenteditable 模拟）</span>
+            <span class="proto-hint">全量档工具栏：文本/段落/插入（图片、附件卡片、表格、公式、代码块、目录）；纯文本字数上限 20000；编辑器内核（本原型用可编辑区域模拟）</span>
           </div>
 
           <div class="rt-toolbar">
@@ -112,7 +112,7 @@
           </div>
 
           <div class="dp-bar" style="margin-top:12px">
-            <el-checkbox v-model="sanitizeOnSubmit">提交前净化（sanitizeHtml）</el-checkbox>
+            <el-checkbox v-model="filterOnSubmit">提交前净化（白名单）</el-checkbox>
             <span class="proto-hint">净化白名单：标签 / 属性 / URL 协议 / style 属性级（第 4 节）</span>
           </div>
 
@@ -126,13 +126,13 @@
             title="检测到 script / on* 事件 / javascript: 等危险内容：提交前净化会剔除，后端白名单清洗为权威口径（内容校验失败 → 40005）"></el-alert>
 
           <div class="ep-section">提交内容（净化后 HTML → content 字段）</div>
-          <div class="rt-out">{{ sanitizeOnSubmit ? cleanedHtml : rawHtml }}</div>
+          <div class="rt-out">{{ filterOnSubmit ? cleanedHtml : rawHtml }}</div>
         </el-tab-pane>
 
         <!-- ② 轻 Markdown -->
         <el-tab-pane label="② 轻 Markdown 模式" name="markdown">
           <div class="dp-bar">
-            <span class="proto-hint">MarkdownField：左源码（等宽） + 右实时预览（防抖 200ms）；保存时 renderMarkdown → sanitizeHtml → 提交 HTML（不保留 Markdown 原文列）</span>
+            <span class="proto-hint">轻 Markdown 档：左源码（等宽） + 右实时预览（防抖 200ms）；保存时 Markdown 解析 → 提交前净化 → 提交 HTML（不保留 Markdown 原文）</span>
             <el-checkbox v-model="mdSanitize">解析结果净化（html 仅白名单放行）</el-checkbox>
           </div>
           <div class="rt-cols">
@@ -141,7 +141,7 @@
               <textarea v-model="mdSource" @input="renderMd"></textarea>
             </div>
             <div>
-              <div class="head">实时预览（KaTeX / PrismJS 同源渲染）</div>
+              <div class="head">实时预览（公式 / 代码高亮同源渲染）</div>
               <div class="rt-preview" v-html="mdPreview"></div>
             </div>
           </div>
@@ -152,7 +152,7 @@
         <!-- ③ 净化与只读渲染 -->
         <el-tab-pane label="③ 净化与只读渲染" name="viewer">
           <div class="dp-bar">
-            <span class="proto-hint">sanitizeHtml：渲染前二次净化（防存量脏数据与接口直出）；RichTextViewer = 净化后 HTML + 统一排版样式 + 目录导航（toc=true）</span>
+            <span class="proto-hint">内容净化：渲染前二次净化（防存量脏数据与接口直出）；只读渲染件 = 净化后 HTML + 统一排版样式 + 目录导航（toc=true）</span>
             <el-button size="small" type="primary" @click="doSanitize">执行净化</el-button>
             <el-button size="small" @click="fillDanger">载入脏数据样本</el-button>
           </div>
@@ -164,7 +164,7 @@
               <div class="rt-out">{{ removedList.length ? removedList.join('、') : '未发现需剥离内容' }}</div>
             </div>
             <div>
-              <div class="head">RichTextViewer 渲染（净化后）</div>
+              <div class="head">只读渲染件渲染（净化后）</div>
               <div class="rt-preview" v-html="safeHtml"></div>
             </div>
           </div>
@@ -197,7 +197,7 @@
   var { createApp, ref, computed, onMounted } = Vue;
   var ElMessage = ElementPlus.ElMessage;
 
-  // ---------- 白名单（示意实现，真实实现走 DOMPurify） ----------
+  // ---------- 白名单（示意实现，真实实现走白名单净化组件） ----------
   var ALLOWED_TAGS = ['p','div','h1','h2','h3','h4','h5','h6','blockquote','pre','code','hr','ul','ol','li',
     'table','thead','tbody','tr','th','td','span','strong','b','em','i','u','s','br','sub','sup','a','img'];
   var ALLOWED_STYLE = ['text-align','text-indent','width','height','max-width'];
@@ -208,7 +208,7 @@
   };
   var DANGER_TAGS = ['script','style','iframe','object','embed','form','input','video','audio','svg','link','meta'];
 
-  function sanitize(html) {
+  function filterHtml(html) {
     var doc = new DOMParser().parseFromString('<div id="__root">' + html + '</div>', 'text/html');
     var root = doc.getElementById('__root');
     var removed = [];
@@ -258,20 +258,20 @@
     return { html: root.innerHTML, removed: removed };
   }
 
-  function plainText(html) {
+  function textOf(html) {
     var doc = new DOMParser().parseFromString('<div id="__t">' + html + '</div>', 'text/html');
     return (doc.getElementById('__t').textContent || '').replace(/\s+/g, ' ').trim();
   }
 
-  function hasDangerous(html) {
+  function containsDanger(html) {
     return /<script|<iframe|onerror|onclick|javascript:/i.test(html);
   }
 
   // ---------- 极简 Markdown 解析（示意） ----------
-  function escapeHtml(s) {
+  function escapeText(s) {
     return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
-  function inlineMd(s) {
+  function renderInline(s) {
     return s
       .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1">')
       .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" rel="noopener noreferrer">$1</a>')
@@ -282,8 +282,8 @@
       .replace(/\$([^$]+)\$/g, '<span class="rt-katex">$1</span>')
       .replace(/\[附件:([^\]]+)\]/g, '<span class="rt-attach">📎 $1</span>');
   }
-  function renderMarkdown(src) {
-    var lines = escapeHtml(src).split('\n');
+  function parseMarkdown(src) {
+    var lines = escapeText(src).split('\n');
     var out = [];
     var inCode = false, inList = false, inTable = false;
     for (var i = 0; i < lines.length; i++) {
@@ -298,21 +298,21 @@
       if (inTable && !/^\s*\|/.test(l)) { out.push('</tbody></table>'); inTable = false; }
       if (/^\s*#{1,6} /.test(l)) {
         var lv = l.match(/^\s*(#{1,6}) /)[1].length;
-        out.push('<h' + lv + '>' + inlineMd(l.replace(/^\s*#{1,6} /, '')) + '</h' + lv + '>');
+        out.push('<h' + lv + '>' + renderInline(l.replace(/^\s*#{1,6} /, '')) + '</h' + lv + '>');
       } else if (/^\s*>\s?/.test(l)) {
-        out.push('<blockquote>' + inlineMd(l.replace(/^\s*>\s?/, '')) + '</blockquote>');
+        out.push('<blockquote>' + renderInline(l.replace(/^\s*>\s?/, '')) + '</blockquote>');
       } else if (/^\s*[-*] /.test(l)) {
         if (!inList) { out.push('<ul>'); inList = true; }
-        out.push('<li>' + inlineMd(l.replace(/^\s*[-*] /, '')) + '</li>');
+        out.push('<li>' + renderInline(l.replace(/^\s*[-*] /, '')) + '</li>');
       } else if (/^\s*\|/.test(l)) {
         var cells = l.replace(/^\s*\|/, '').replace(/\|\s*$/, '').split('|');
         if (/^[\s|:-]+$/.test(l)) { continue; }
         if (!inTable) { out.push('<table><tbody>'); inTable = true; }
-        out.push('<tr>' + cells.map(function (c) { return '<td>' + inlineMd(c.trim()) + '</td>'; }).join('') + '</tr>');
+        out.push('<tr>' + cells.map(function (c) { return '<td>' + renderInline(c.trim()) + '</td>'; }).join('') + '</tr>');
       } else if (!l.trim()) {
         /* 空行 */
       } else {
-        out.push('<p>' + inlineMd(l) + '</p>');
+        out.push('<p>' + renderInline(l) + '</p>');
       }
     }
     if (inList) { out.push('</ul>'); }
@@ -343,20 +343,20 @@
       var rawHtml = ref('');
       var cleanedHtml = ref('');
       var strippedCount = ref(0);
-      var sanitizeOnSubmit = ref(true);
+      var filterOnSubmit = ref(true);
       var textLen = ref(0);
       var htmlLen = ref(0);
 
       function syncHtml() {
         if (!editor.value) { return; }
         rawHtml.value = editor.value.innerHTML;
-        var res = sanitize(rawHtml.value);
+        var res = filterHtml(rawHtml.value);
         cleanedHtml.value = res.html;
         strippedCount.value = res.removed.length;
-        textLen.value = plainText(cleanedHtml.value).length;
+        textLen.value = textOf(cleanedHtml.value).length;
         htmlLen.value = new Blob([cleanedHtml.value]).size;
       }
-      var hasDanger = computed(function () { return hasDangerous(rawHtml.value); });
+      var hasDanger = computed(function () { return containsDanger(rawHtml.value); });
 
       function exec(cmd) {
         if (readonly.value || !editor.value) { return; }
@@ -374,7 +374,7 @@
       function insertImage() {
         imgSeq++;
         insertHtml('<img src="/api/v1/files/preview/f' + (2000 + imgSeq) + '" data-file-id="f' + (2000 + imgSeq) + '" alt="升级示意图" style="max-width: 100%">');
-        ElMessage.success('模拟上传：复用 07 useFileUpload（分片/秒传/断点续传）→ 插入预览 URL');
+        ElMessage.success('模拟上传：复用上传引擎（分片/秒传/断点续传）→ 插入预览地址');
       }
       function insertAttachment() {
         insertHtml('<a class="rt-attachment" data-file-id="f3001" data-file-name="升级说明.pdf" data-file-size="1.2MB">📎 升级说明.pdf (1.2MB)</a>');
@@ -385,11 +385,11 @@
       }
       function insertFormula() {
         insertHtml('<span class="rt-katex">\\int_0^1 x^2 dx = \\frac{1}{3}</span>');
-        ElMessage.info('公式：KaTeX 输出结构入库，只读渲染复用同一套 CSS');
+        ElMessage.info('公式：公式输出结构入库，只读渲染复用同一套样式');
       }
       function insertCode() {
         insertHtml('<pre><code class="language-bash">npm ci &amp;&amp; npm run build</code></pre>');
-        ElMessage.info('代码块：PrismJS 高亮（language-* 白名单）');
+        ElMessage.info('代码块：按语言高亮（language-* 白名单）');
       }
       function clearEditor() {
         if (editor.value) { editor.value.innerHTML = '<p><br></p>'; }
@@ -418,12 +418,12 @@
         'npm ci && npm run build',
         '```'
       ].join('\n'));
-      var mdSanitize = ref(true);
+      var mdFilter = ref(true);
       var mdPreview = ref('');
       var mdSaved = ref('');
       function renderMd() {
-        var html = renderMarkdown(mdSource.value);
-        var res = mdSanitize.value ? sanitize(html) : { html: html, removed: [] };
+        var html = parseMarkdown(mdSource.value);
+        var res = mdFilter.value ? filterHtml(html) : { html: html, removed: [] };
         mdPreview.value = res.html;
         mdSaved.value = res.html;
       }
@@ -434,7 +434,7 @@
       var safeHtml = ref('');
       var removedList = ref([]);
       var toc = ref([]);
-      function buildToc(html) {
+      function collectToc(html) {
         var doc = new DOMParser().parseFromString('<div id="__v">' + html + '</div>', 'text/html');
         var root = doc.getElementById('__v');
         var hs = root.querySelectorAll('h1, h2, h3');
@@ -446,10 +446,10 @@
         toc.value = list;
       }
       function doSanitize() {
-        var res = sanitize(dirtyHtml.value);
+        var res = filterHtml(dirtyHtml.value);
         safeHtml.value = res.html;
         removedList.value = res.removed;
-        buildToc(res.html);
+        collectToc(res.html);
       }
       function fillDanger() { dirtyHtml.value = DIRTY; doSanitize(); ElMessage.warning('已载入脏数据样本（script / onerror / javascript: / iframe / 危险 style）'); }
       function toast(m) { ElMessage.success(m); }
@@ -457,16 +457,16 @@
       onMounted(syncHtml);
 
       return {
-        tab, mode, readonly, editor, rawHtml, cleanedHtml, strippedCount, sanitizeOnSubmit,
+        tab, mode, readonly, editor, rawHtml, cleanedHtml, strippedCount, filterOnSubmit,
         textLen, htmlLen, hasDanger, exec, insertHtml, insertImage, insertAttachment, insertTable,
         insertFormula, insertCode, clearEditor, onModeChange, syncHtml,
-        mdSource, mdSanitize, mdPreview, mdSaved, renderMd,
+        mdSource, mdFilter, mdPreview, mdSaved, renderMd,
         dirtyHtml, safeHtml, removedList, toc, doSanitize, fillDanger, toast,
         whitelist: [
           { kind: '块级', rule: 'p、div、h1-h6、blockquote、pre、hr、ul、ol、li、table、thead、tbody、tr、th、td' },
           { kind: '行内', rule: 'span、strong、em、u、s、code、br、sub、sup、a（href 限 http/https/mailto/站内相对路径，强制 rel="noopener noreferrer"）' },
           { kind: '图片', rule: 'img（src 仅站内文件预览 URL，禁 data: 与 javascript:；统一 referrerpolicy="no-referrer"）' },
-          { kind: '公式', rule: 'KaTeX 输出结构（span.katex 及白名单子节点）' },
+          { kind: '公式', rule: '公式输出结构（公式节点及白名单子节点）' },
           { kind: '代码', rule: 'pre > code 与 class="language-*"（常用语言白名单）' },
           { kind: '附件', rule: 'a.rt-attachment[data-file-id][data-file-name][data-file-size] → 渲染层转 07 下载/预览' },
           { kind: '样式', rule: 'style 仅 text-align / text-indent / width / height / max-width；禁 expression() 与 url(...)' }

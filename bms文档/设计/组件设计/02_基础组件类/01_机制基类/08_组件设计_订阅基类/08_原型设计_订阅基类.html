@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 订阅基类（BaseSubscription / useSubscriptionBase）</title>
+<title>原型 · 订阅基类</title>
 <link rel="stylesheet" href="../../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../../原型设计/资源/原型样式.css">
 <style>
@@ -25,7 +25,7 @@
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="08_组件设计_订阅基类.md">《组件设计 · 订阅基类》</a>：演示订阅注册 / 取消、事件触发（占位总线，不连 socket）与卸载自动取消；事件名与后端同源（点分小写）。
+    本原型对应当前目录 <a href="08_组件设计_订阅基类.md">《组件设计 · 订阅基类》</a>：演示订阅注册 / 取消、事件触发（占位总线，不连实时通道）与卸载自动取消；事件名与后端同源（点分小写）。
   </div>
 
   <div id="app">
@@ -36,7 +36,7 @@
         </el-select>
         <el-button type="primary" size="small" @click="subscribe">订阅（自动登记异步资源）</el-button>
         <el-button size="small" @click="unsubscribe">取消订阅</el-button>
-        <el-button size="small" @click="emit">触发事件（占位总线 publish）</el-button>
+        <el-button size="small" @click="emit">触发事件（占位总线发布）</el-button>
         <el-button size="small" @click="unmount">卸载面板（自动取消全部）</el-button>
       </div>
 
@@ -47,9 +47,9 @@
 
       <div class="dp-state">事件日志
 {{ logs.length ? logs.join('\n') : '（尚无事件）' }}
-说明：未接后端推送时注入占位总线（订阅正常注册、不连 socket；source 枚举为原设计面）；
-真实推送接入后来源切换为 realtime / local，调用方不改；
-取消函数经异步资源基类 registerResource() 登记，卸载自动取消（幂等，重复取消仅一次生效）。</div>
+说明：未接后端推送时注入占位总线（订阅正常注册、不连实时通道）；
+真实推送接入后来源切换为实时 / 本地，调用方不改；
+取消函数经异步资源基类登记，卸载自动取消（幂等，重复取消仅一次生效）。</div>
     </div>
   </div>
 </div>
@@ -67,19 +67,19 @@
       function stamp() { return String(logs.value.length + 1).padStart(2, '0'); }
       function subscribe() {
         if (released) { logs.value.push('[' + stamp() + '] 拒绝订阅：面板已卸载'); return; }
-        if (subs.value.indexOf(topic.value) >= 0) { logs.value.push('[' + stamp() + '] 已订阅：' + topic.value + '（重复订阅合法，多 handler）'); return; }
+        if (subs.value.indexOf(topic.value) >= 0) { logs.value.push('[' + stamp() + '] 已订阅：' + topic.value + '（重复订阅合法，多处理函数）'); return; }
         subs.value.push(topic.value);
-        logs.value.push('[' + stamp() + '] subscribe(' + topic.value + ') · source=placeholder · 句柄已登记异步资源');
+        logs.value.push('[' + stamp() + '] 订阅 ' + topic.value + ' · 来源=占位 · 句柄已登记异步资源');
       }
       function unsubscribe() {
         var i = subs.value.indexOf(topic.value);
         if (i < 0) { logs.value.push('[' + stamp() + '] 取消失败：未订阅 ' + topic.value); return; }
         subs.value.splice(i, 1);
-        logs.value.push('[' + stamp() + '] unsubscribe(' + topic.value + ')（幂等）');
+        logs.value.push('[' + stamp() + '] 取消订阅 ' + topic.value + '（幂等）');
       }
       function emit() {
-        if (subs.value.indexOf(topic.value) < 0) { logs.value.push('[' + stamp() + '] publish(' + topic.value + ') → 无订阅者，忽略'); return; }
-        logs.value.push('[' + stamp() + '] publish(' + topic.value + ') → handler 触发：刷新业务数据');
+        if (subs.value.indexOf(topic.value) < 0) { logs.value.push('[' + stamp() + '] 发布 ' + topic.value + ' → 无订阅者，忽略'); return; }
+        logs.value.push('[' + stamp() + '] 发布 ' + topic.value + ' → 处理函数触发：刷新业务数据');
       }
       function unmount() {
         if (released) { logs.value.push('[' + stamp() + '] 卸载幂等：无重复取消'); return; }

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 卡片（Card）</title>
+<title>原型 · 卡片</title>
 <link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
 <style>
@@ -29,7 +29,7 @@
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="10_组件设计_卡片.md">《组件设计 · 卡片》</a>：演示标题/操作/内容/底栏、可折叠、hover 与加载态；继承 02 基础组件类 布局能力（容器语义同 容器能力）。
+    本原型对应当前目录 <a href="10_组件设计_卡片.md">《组件设计 · 卡片》</a>：演示标题/操作/内容/底栏、可折叠、悬浮与加载态；继承基础组件类·布局能力（容器形态语义对齐容器能力）。
   </div>
 
   <div id="app">
@@ -37,7 +37,7 @@
       <div class="dp-bar">
         <el-checkbox v-model="collapsible" size="small">可折叠</el-checkbox>
         <el-checkbox v-model="collapsed" size="small">折叠态</el-checkbox>
-        <el-checkbox v-model="hoverable" size="small">hover 阴影</el-checkbox>
+        <el-checkbox v-model="hoverable" size="small">悬浮阴影</el-checkbox>
         <el-checkbox v-model="loading" size="small">加载态</el-checkbox>
         <el-checkbox v-model="bordered" size="small">边框</el-checkbox>
       </div>
@@ -50,13 +50,13 @@
         </div>
         <div class="b" v-show="!collapsed">
           <el-skeleton v-if="loading" :rows="3" animated></el-skeleton>
-          <div v-else>内容区（default 插槽）—— 指标卡/图表卡/详情分组等可放入本卡片；加载态显示骨架。</div>
+          <div v-else>内容区（内容区域位）—— 指标卡/图表卡/详情分组等可放入本卡片；加载态显示骨架。</div>
         </div>
-        <div class="f" v-show="!collapsed">底栏（footer 插槽）</div>
+        <div class="f" v-show="!collapsed">底栏（底栏区域位）</div>
       </div>
 
-      <div class="dp-state" style="margin-top:12px">collapsible={{ collapsible }}　collapsed={{ collapsed }}　hoverable={{ hoverable }}　loading={{ loading }}　bordered={{ bordered }}
-结构：头（title/extra）+ 内容（default）+ 底栏（footer）+ 可选封面；折叠仅隐藏内容，头保留；
+      <div class="dp-state" style="margin-top:12px">可折叠={{ collapsible ? '是' : '否' }}　折叠态={{ collapsed ? '是' : '否' }}　悬浮={{ hoverable ? '是' : '否' }}　加载态={{ loading ? '是' : '否' }}　边框={{ bordered ? '是' : '否' }}
+结构：头（标题/操作）+ 内容 + 底栏 + 可选封面；折叠仅隐藏内容，头保留；
 背景/边框/圆角/内边距/阴影只消费令牌；常与栅格（03-06）组合；折叠面板组见 03-11。</div>
     </div>
   </div>

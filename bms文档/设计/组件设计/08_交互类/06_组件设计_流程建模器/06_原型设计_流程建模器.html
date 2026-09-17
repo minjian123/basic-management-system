@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 流程建模器（ProcessDesigner / BpmnCanvas / ElementPalette / NodePropertyPanel）</title>
+<title>原型 · 流程建模器</title>
 <link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../原型设计/资源/vendor/bpmn/diagram-js.css">
 <link rel="stylesheet" href="../../../原型设计/资源/vendor/bpmn/bpmn-js.css">
@@ -33,8 +33,8 @@
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="06_组件设计_流程建模器.md">《组件设计 · 流程建模器》</a>：演示 <b>bpmn-js Modeler</b> 真实建模画布（左侧内置调板即元素调板：用户任务/排他网关/结束事件等）、
-    节点属性面板（用户任务审批人/会签；网关出线条件表达式）、XML 导入导出、校验、保存草稿与版本发布、脏数据拦截。仅含 BPMN 子集（对齐 SpiffWorkflow 可解析边界）。
+    本原型对应当前目录 <a href="06_组件设计_流程建模器.md">《组件设计 · 流程建模器》</a>：演示 <b>BPMN 建模画布</b>（左侧内置调板即元素调板：用户任务/排他网关/结束事件等）、
+    节点属性面板（用户任务审批人/会签；网关出线条件表达式）、XML 导入导出、校验、保存草稿与版本发布、脏数据拦截。仅含 BPMN 子集（对齐工作流引擎可解析边界）。
   </div>
 
   <div id="app">
@@ -53,7 +53,7 @@
         <span class="dp-hint">definition_key：purchase_apply · 当前版本 v{{ version }}</span>
       </div>
       <div class="dp-bar">
-        <span class="dp-hint">元素调板 = 画布左侧 bpmn-js 内置调板（点击后在画布放置）：用户任务 / 排他网关 / 结束事件 / 连线；高级元素（服务/脚本任务）不提供。</span>
+        <span class="dp-hint">元素调板 = 画布左侧内置调板（点击后在画布放置）：用户任务 / 排他网关 / 结束事件 / 连线；高级元素（服务/脚本任务）不提供。</span>
       </div>
 
       <div class="pd-grid">
@@ -156,7 +156,7 @@
       var log = ref('点画布左侧调板放置节点；选中节点后在右侧配置属性');
       var issues = ref([]);
       var prop = reactive({ name: '', assigneeSource: 'dept_manager', multiRule: 'any', timeout: 0, notify: true, condition: '' });
-      var attrStore = {}; // 元素 id -> 审批/条件属性（原型演示；生产写入 BPMN extensionElements）
+      var attrStore = {}; // 元素 id -> 审批/条件属性（原型演示；实际写入 BPMN 扩展属性）
       var versions = ref([
         { version: 1, status: '已发布', time: '2026-09-01 10:00' }
       ]);
@@ -271,7 +271,7 @@
           }
         });
         issues.value = errs;
-        log.value = errs.length ? '校验未通过：' + errs.length + ' 项（发布前还需引擎预解析，错误码 60006）' : '结构校验通过；发布时后端 SpiffWorkflow 预解析';
+        log.value = errs.length ? '校验未通过：' + errs.length + ' 项（发布前还需引擎预解析，错误码 60006）' : '结构校验通过；发布时后端引擎预解析';
         ElMessage[errs.length ? 'error' : 'success'](errs.length ? '校验未通过' : '结构校验通过');
       }
       function saveDraft() {
@@ -293,7 +293,7 @@
         ElMessage.info('只读查看 v' + row.version);
       }
 
-      onMounted(function () { if (typeof BpmnJS === 'undefined') { log.value = 'bpmn-js 未加载'; return; } initModeler(); });
+      onMounted(function () { if (typeof BpmnJS === 'undefined') { log.value = 'BPMN 建模依赖未加载'; return; } initModeler(); });
       onBeforeUnmount(function () { if (modeler) modeler.destroy(); });
 
       return {

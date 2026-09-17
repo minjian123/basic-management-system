@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 表单渲染器（FormRenderer / FormField / useFormRender）</title>
+<title>原型 · 表单渲染器（分区栅格 / 字段分发 / 三态 / 校验提交）</title>
 <link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
 <style>
@@ -27,7 +27,7 @@
 <div class="proto-frame">
   <div class="proto-note">
     本原型对应当前目录 <a href="12_组件设计_表单渲染器.md">《组件设计 · 表单渲染器》</a>：演示由布局元数据（<span class="dp-code">layout-effective</span>）驱动的分区/栅格渲染、
-    <b>FormField</b> 按字段类型分发控件、<b>三态</b>（新增/编辑/查看）、权限叠加（visible/editable）、校验与提交、明细区行内编辑。
+    字段渲染件按字段类型分发控件、<b>三态</b>（新增/编辑/查看）、权限叠加（visible/editable）、校验与提交、明细区行内编辑。
   </div>
 
   <div id="app">
@@ -52,7 +52,7 @@
           <div class="st">{{ sec.title }}<span class="cols">{{ sec.columns }} 列</span></div>
           <el-row :gutter="12">
             <el-col v-for="f in visibleFields(sec)" :key="f.key" :span="span(f, sec)">
-              <form-field :field="f" v-model="model[f.key]" :mode="mode" :value-only="isReadonly(f)" />
+              <demo-field :field="f" v-model="model[f.key]" :mode="mode" :value-only="isReadonly(f)" />
             </el-col>
           </el-row>
         </div>
@@ -94,8 +94,8 @@
   var { createApp, ref, reactive, computed, onMounted, nextTick } = Vue;
   var ElMessage = ElementPlus.ElMessage;
 
-  // FormField：按 type 分发控件（简化示意）
-  var FormField = {
+  // 字段演示件：按 type 分发控件（简化示意）
+  var DemoField = {
     props: { field: Object, modelValue: [String, Number, Boolean, Array, Object], mode: String, valueOnly: Boolean },
     emits: ['update:modelValue'],
     computed: {
@@ -130,7 +130,7 @@
       var mode = ref('edit');
       var loading = ref(true);
       var saving = ref(false);
-      var log = ref('布局元数据驱动：分区/列数/跨列/顺序；FormField 按 type 分发；三态共用；权限优先');
+      var log = ref('布局元数据驱动：分区/列数/跨列/顺序；字段渲染件按 type 分发；三态共用；权限优先');
       var formRef = ref(null);
       var salaryVisible = ref(true);
       var salaryEditable = ref(false);
@@ -177,7 +177,7 @@
       return { mode, loading, saving, log, formRef, layout, model, details, rules, salaryVisible, salaryEditable, visibleFields, span, isReadonly, reset, submit };
     }
   });
-  app.component('form-field', FormField);
+  app.component('demo-field', DemoField);
   app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
   app.mount('#app');
 </script>

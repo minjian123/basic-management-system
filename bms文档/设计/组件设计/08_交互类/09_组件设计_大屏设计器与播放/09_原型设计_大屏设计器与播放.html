@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 大屏设计器与播放（ScreenDesigner / ComponentPanel / ScreenCanvas / ScreenPropertyPanel / ScreenPlayer）</title>
+<title>原型 · 大屏设计器与播放（组件面板 / 自由画布 / 属性面板 / 播放器）</title>
 <link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
 <style>
@@ -42,7 +42,7 @@
 <div class="proto-frame">
   <div class="proto-note">
     本原型对应当前目录 <a href="09_组件设计_大屏设计器与播放.md">《组件设计 · 大屏设计器与播放》</a>：演示自由画布拖放/位置尺寸、组件面板、属性面板、画布配置、多页与轮播播放。
-    真实实现画布为 <span class="dp-code">@vue-flow/core</span>（ESM 独立分包），原型以绝对定位简化模拟；图表复用 <span class="dp-code">EChart</span> + 令牌色板。
+    正式实现画布为自由画布（独立分包），原型以绝对定位简化模拟；图表复用图表渲染件与令牌色板。
   </div>
 
   <div id="app">
@@ -75,7 +75,7 @@
                   :style="{ left:c.x+'px', top:c.y+'px', width:c.w+'px', height:c.h+'px', zIndex:c.z }"
                   @mousedown.stop="startDrag($event,c)" @click.stop="select(c)">
                   <div class="sc-head">{{ c.title }}<span class="x" @mousedown.stop @click.stop="removeComponent(c)">✕</span></div>
-                  <div class="sc-body"><screen-widget :comp="c" /></div>
+                  <div class="sc-body"><demo-widget :comp="c" /></div>
                   <div class="sc-resize" @mousedown.stop="startResize($event,c)"></div>
                 </div>
               </div>
@@ -134,7 +134,7 @@
           <div v-for="c in playPage.components" :key="c.id" class="sc-item"
             :style="{ left:c.x+'px', top:c.y+'px', width:c.w+'px', height:c.h+'px', zIndex:c.z, cursor:'default' }">
             <div v-if="c.type==='text'" style="padding:8px">{{ c.text }}</div>
-            <div v-else class="sc-body"><screen-widget :comp="c" /></div>
+            <div v-else class="sc-body"><demo-widget :comp="c" /></div>
           </div>
         </div>
       </div>
@@ -173,7 +173,7 @@
     return dark;
   }
 
-  var ScreenWidget = {
+  var DemoWidget = {
     props: { comp: Object },
     template: `
       <div style="width:100%;height:100%">
@@ -294,7 +294,7 @@
       };
     }
   });
-  app.component('screen-widget', ScreenWidget);
+  app.component('demo-widget', DemoWidget);
   app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
   app.mount('#app');
 </script>

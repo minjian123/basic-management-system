@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 文件预览（FilePreview / ImageViewer / PdfViewer / useFilePreview）</title>
+<title>原型 · 文件预览（类型分发 / 图片与 PDF 预览 / 音视频与文本 / 失效重取与降级下载）</title>
 <link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
 <style>
@@ -44,8 +44,8 @@
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="08_组件设计_文件预览.md">《组件设计 · 文件预览》</a>：演示 <b>FilePreview</b> 按类型分发（图片/<b>PDF</b>/音视频/文本/其他降级下载）、
-    <b>ImageViewer</b> 缩放旋转与多图切换、<b>PdfViewer</b> 翻页、预签名 URL 失效重取、下载。音视频以播放器形态示意（离线无媒体源）。
+    本原型对应当前目录 <a href="08_组件设计_文件预览.md">《组件设计 · 文件预览》</a>：演示<b>预览容器</b>按类型分发（图片/<b>PDF</b>/音视频/文本/其他降级下载）、
+    <b>图片预览</b>缩放旋转与多图切换、<b>PDF 预览</b>翻页、预签名 URL 失效重取、下载。音视频以播放器形态示意（离线无媒体源）。
   </div>
 
   <div id="app">
@@ -176,12 +176,12 @@
 
       function open(i) {
         currentIndex.value = i; openFlag.value = true; error.value = null; scale.value = 1; rotate.value = 0; pdfPage.value = 1;
-        log.value = 'useFilePreview.resolveUrl(' + files[i].id + ') → 获取预签名 URL（限时直开）；类型分发 ' + files[i].kind;
+        log.value = '预签名地址解析：' + files[i].id + ' → 获取预签名 URL（限时直开）；类型分发 ' + files[i].kind;
       }
       function next() { open((currentIndex.value + 1) % files.length); }
       function prev() { open((currentIndex.value - 1 + files.length) % files.length); }
       function zoom(f) { scale.value = Math.max(0.2, Math.min(4, scale.value * f)); log.value = '图片缩放 scale=' + scale.value.toFixed(2); }
-      function retryUrl() { error.value = null; log.value = '预签名 URL 失效 → 重新获取一次（resolveUrl）'; ElMessage.success('已重新获取预览地址'); }
+      function retryUrl() { error.value = null; log.value = '预签名 URL 失效 → 重新获取一次；仍失败则错误态 + 下载'; ElMessage.success('已重新获取预览地址'); }
       function stopMedia() { document.querySelectorAll('video,audio').forEach(function (m) { m.pause(); }); log.value = '关闭预览 → 停止音视频播放并释放 URL'; }
       function download(f) { log.value = 'GET /files/{id} 预签名下载（file:download）：' + f.name; ElMessage.success('开始下载 ' + f.name); }
       function toast(m) { log.value = m; }

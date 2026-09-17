@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 预签名能力（usePresignedUrl）</title>
+<title>原型 · 预签名能力</title>
 <link rel="stylesheet" href="../../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../../原型设计/资源/原型样式.css">
 <style>
@@ -40,8 +40,8 @@
       <div class="f" v-for="f in files" :key="f.id">
         <span class="nm">{{ f.id }}</span><span>{{ f.name }}</span>
         <span class="mt">
-          <el-button size="small" @click="preview(f)">预览（get）</el-button>
-          <el-button size="small" @click="download(f)">下载（download）</el-button>
+          <el-button size="small" @click="preview(f)">预览</el-button>
+          <el-button size="small" @click="download(f)">下载</el-button>
         </span>
       </div>
 
@@ -49,7 +49,7 @@
 {{ cacheText || '（空）' }}
 {{ logs.length ? logs.join('\n') : '（尚无操作）' }}
 说明：同一 fileId 并发请求合并为一次签发；剩余 < 60s 提前重取；403 / 过期自动重取一次后重试；
-重取失败按 fallback 降级走后端下载接口（带鉴权，后端代理流）；敏感 URL 不落盘。</div>
+重取失败按降级策略走后端下载接口（带鉴权，后端代理流）；敏感 URL 不落盘。</div>
     </div>
   </div>
 </div>
@@ -67,13 +67,13 @@
       ];
       var expired = ref(false), resignFail = ref(false), logs = ref([]), cache = ref({});
       function stamp() { return String(logs.value.length + 1).padStart(2, '0'); }
-      function get(f) {
+      function resolveUrl(f) {
         var c = cache.value[f.id];
-        if (c && !expired.value) { logs.value.push('[' + stamp() + '] get(' + f.id + ') → 命中缓存（剩余 > 60s，0 请求）'); return c.url; }
+        if (c && !expired.value) { logs.value.push('[' + stamp() + '] 取签名(' + f.id + ') → 命中缓存（剩余 > 60s，0 请求）'); return c.url; }
         if (c && expired.value) {
           logs.value.push('[' + stamp() + '] 使用缓存 URL → 403（已过期）→ 自动重取一次');
           if (resignFail.value) {
-            logs.value.push('[' + stamp() + '] 重取失败 → fallback: 降级走后端下载接口 /api/files/' + f.id + '/download（后端代理流）');
+            logs.value.push('[' + stamp() + '] 重取失败 → 按降级策略走后端下载接口 /api/files/' + f.id + '/download（后端代理流）');
             delete cache.value[f.id]; return null;
           }
         }
@@ -82,8 +82,8 @@
         cache.value[f.id] = { url: url, expiresAt: Date.now() + 3600000 };
         return url;
       }
-      function preview(f) { var u = get(f); logs.value.push('[' + stamp() + '] 预览 ' + f.name + ' → ' + (u || '（降级：后端流式预览）')); }
-      function download(f) { var u = get(f); logs.value.push('[' + stamp() + '] download ' + f.name + ' → ' + (u ? '<a download> 直连 OSS' : 'fallback 后端下载接口')); }
+      function preview(f) { var u = resolveUrl(f); logs.value.push('[' + stamp() + '] 预览 ' + f.name + ' → ' + (u || '（降级：后端流式预览）')); }
+      function download(f) { var u = resolveUrl(f); logs.value.push('[' + stamp() + '] 下载 ' + f.name + ' → ' + (u ? '直连对象存储下载' : '降级走后端下载接口')); }
       var cacheText = computed(function () {
         var ks = Object.keys(cache.value);
         return ks.length ? ks.map(function (k) { return k + ' → ' + cache.value[k].url; }).join('\n') : '';

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 分栏（Split）</title>
+<title>原型 · 分栏</title>
 <link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
 <style>
@@ -28,20 +28,20 @@
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="08_组件设计_分栏.md">《组件设计 · 分栏》</a>：演示左右分栏、拖拽调整比例、最小尺寸与折叠；继承 02 基础组件类 布局能力。
+    本原型对应当前目录 <a href="08_组件设计_分栏.md">《组件设计 · 分栏》</a>：演示左右分栏、拖拽调整比例、最小尺寸与折叠；继承基础组件类·布局能力。
   </div>
 
   <div id="app">
     <div class="ep-page">
-      <div class="dp-bar"><el-checkbox v-model="collapsed" size="small">折叠左栏</el-checkbox><span class="dp-hint">拖动中间分割条调整比例（min/max 限制）</span></div>
+      <div class="dp-bar"><el-checkbox v-model="collapsed" size="small">折叠左栏</el-checkbox><span class="dp-hint">拖动中间分割条调整比例（最小/最大尺寸限制）</span></div>
 
       <div class="split">
-        <div class="p1" v-show="!collapsed" :style="{width: ratio*100 + '%'}">左栏（first 插槽）<br><br>拖拽分割条调整；比例可持久化到用户偏好（storageKey）；窄屏转上下/单栏。</div>
+        <div class="p1" v-show="!collapsed" :style="{width: ratio*100 + '%'}">左栏（第一区域）<br><br>拖拽分割条调整；比例可持久化到用户偏好（持久化键）；窄屏转上下/单栏。</div>
         <div class="bar" v-show="!collapsed" @mousedown="startDrag"></div>
-        <div class="p2">右栏（second 插槽）</div>
+        <div class="p2">右栏（第二区域）</div>
       </div>
 
-      <div class="dp-state" style="margin-top:12px">direction=horizontal　ratio={{ ratio.toFixed(2) }}　collapsed={{ collapsed }}
+      <div class="dp-state" style="margin-top:12px">方向=左右　比例={{ ratio.toFixed(2) }}　折叠={{ collapsed ? '是' : '否' }}
 说明：最小/最大尺寸限制；折叠后另一侧占满；拖拽结束才持久化；窄屏转上下或单栏；
 与栅格（03-06，按比例均分）不同，本组件可拖拽；与树形主从（03-05）语义不同（后者为左树右表）。</div>
     </div>

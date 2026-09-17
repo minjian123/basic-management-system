@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 多标签导航（TabsNav / FormFrameTabs / useTabs）</title>
+<title>原型 · 多标签导航</title>
 <link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
 <style>
@@ -33,7 +33,7 @@
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="04_组件设计_多标签导航.md">《组件设计 · 多标签导航》</a>：演示页面级多标签（固定首 Tab、右键菜单、关闭激活相邻、脏数据拦截、keep-alive 状态保留）与表单框架双层 Tab（列表固定 + 详情多开）。
+    本原型对应当前目录 <a href="04_组件设计_多标签导航.md">《组件设计 · 多标签导航》</a>：演示页面级多标签（固定首 Tab、右键菜单、关闭激活相邻、脏数据拦截、标签缓存状态保留）与表单框架双层 Tab（列表固定 + 详情多开）。
   </div>
 
   <div id="app">
@@ -56,7 +56,7 @@
       <div class="content-area">
         <div v-if="activeKey==='dashboard'">工作台（固定首 Tab，不可关闭）</div>
         <div v-else-if="activeKey==='user'">
-          <b>用户管理</b>（keep-alive 状态保留：访问计数 <b>{{ counters.user }}</b>）
+          <b>用户管理</b>（标签缓存状态保留：访问计数 <b>{{ counters.user }}</b>）
           <el-button size="small" style="margin-left:10px" @click="counters.user++">+1</el-button>
         </div>
         <div v-else-if="activeKey==='role'"><b>角色管理</b></div>
@@ -127,7 +127,7 @@
         if (ex) { activeKey.value = t.key; log.value = '已有标签，激活不重复新建：' + t.title; return; }
         tabs.value.push({ key: t.key, title: t.title, icon: t.icon || '', closable: true, dirty: false });
         activeKey.value = t.key;
-        log.value = '打开新标签：' + t.title + '（追加到标签栏，keep-alive 缓存）';
+        log.value = '打开新标签：' + t.title + '（追加到标签栏，参与标签缓存）';
       }
       function select(key) { activeKey.value = key; log.value = '切换标签 → ' + key + '（复用缓存，不重复请求）'; }
       function doClose(key) {
@@ -152,7 +152,7 @@
       function closeOthers(key) { var keep = tabs.value.filter(function (x) { return !x.closable || x.key === key; }); tabs.value = keep; activeKey.value = key; log.value = '关闭其他（保留固定标签与当前）'; }
       function closeRight(key) { var i = tabs.value.findIndex(function (x) { return x.key === key; }); var removed = tabs.value.filter(function (x, idx) { return idx > i && x.closable; }).length; tabs.value = tabs.value.filter(function (x, idx) { return idx <= i || !x.closable; }); log.value = '关闭右侧 ' + removed + ' 个标签'; }
       function closeAll() { tabs.value = tabs.value.filter(function (x) { return !x.closable; }); activeKey.value = 'dashboard'; log.value = '关闭全部（保留固定标签）'; }
-      function refreshTab(key) { tabs.value.forEach(function (t) { if (t.key === key) t.dirty = false; }); log.value = 'refresh(' + key + ') → 移除该标签 keep-alive 缓存并重挂载（精确刷新）'; ElMessage.success('已刷新 ' + key); }
+      function refreshTab(key) { tabs.value.forEach(function (t) { if (t.key === key) t.dirty = false; }); log.value = 'refresh(' + key + ') → 移除该标签缓存并重挂载（精确刷新）'; ElMessage.success('已刷新 ' + key); }
 
       function openCtx(e, t) { ctx.show = true; ctx.x = e.clientX; ctx.y = e.clientY; ctx.key = t.key; }
       window.addEventListener('click', function () { ctx.show = false; });

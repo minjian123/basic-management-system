@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 宽高比容器（AspectRatio）</title>
+<title>原型 · 宽高比容器</title>
 <link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
 <style>
@@ -24,7 +24,7 @@
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="09_组件设计_宽高比容器.md">《组件设计 · 宽高比容器》</a>：演示固定宽高比（16:9 / 4:3 / 1:1）、占位防抖动与内容填充；继承 02 基础组件类 容器能力，复用 媒体能力。
+    本原型对应当前目录 <a href="09_组件设计_宽高比容器.md">《组件设计 · 宽高比容器》</a>：演示固定宽高比（16:9 / 4:3 / 1:1）、占位防抖动与内容填充；容器能力为继承链上的一层，媒体能力按需复用。
   </div>
 
   <div id="app">
@@ -38,9 +38,9 @@
         <span>宽高比容器 {{ ratio }}（{{ fit }}）<br>加载前后占位，布局稳定不抖动</span>
       </div>
 
-      <div class="dp-state" style="margin-top:12px">ratio={{ ratio }}　fit={{ fit }}
-说明：用 CSS aspect-ratio（旧浏览器降级 padding-top 技巧）；图片/视频/地图/二维码均可放入；
-占位背景/圆角只消费令牌；媒体加载状态机见 02 媒体能力；文件预览见 07 展示类 08、二维码见 07 展示类 13。</div>
+      <div class="dp-state" style="margin-top:12px">比例 = {{ ratio }}　填充 = {{ fit }}
+说明：固定宽高比提前占位（旧浏览器降级为占位撑高），加载前后布局稳定不抖动；图片/视频/地图/二维码均可放入；
+占位背景/圆角只消费令牌；媒体加载状态机归媒体能力；文件预览、二维码归展示类对应节点。</div>
     </div>
   </div>
 </div>

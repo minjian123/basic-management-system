@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 注册表基类（BaseProviderRegistry / BaseProvider）</title>
+<title>原型 · 注册表基类</title>
 <link rel="stylesheet" href="../../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../../原型设计/资源/原型样式.css">
 <style>
@@ -34,12 +34,12 @@
   <div id="app">
     <div class="ep-page">
       <div class="dp-bar">
-        <el-input v-model="key" size="small" placeholder="key（如 dict / date）" style="width:180px" />
-        <el-input v-model="desc" size="small" placeholder="describe()（如字典下拉渲染器）" style="width:260px" />
+        <el-input v-model="key" size="small" placeholder="唯一标识（如 文本 / 日期）" style="width:180px" />
+        <el-input v-model="desc" size="small" placeholder="元信息说明（如字典下拉渲染器）" style="width:260px" />
         <el-button type="primary" size="small" @click="register">登记</el-button>
-        <el-select v-model="probe" size="small" placeholder="解析 key" style="width:160px">
+        <el-select v-model="probe" size="small" placeholder="解析标识" style="width:160px">
           <el-option v-for="p in providers" :key="p.key" :label="p.key" :value="p.key" />
-          <el-option label="unknown-xx（未登记）" value="unknown-xx" />
+          <el-option label="未登记标识（演示）" value="unknown-xx" />
         </el-select>
         <span :class="probeResult.ok ? 'hit' : 'miss'">{{ probeResult.text }}</span>
         <el-button size="small" @click="snapshot">只读快照</el-button>
@@ -57,8 +57,8 @@
       <div class="dp-state">操作结果
 {{ message }}
 快照：{{ snapText }}
-说明：register() 同 key 拒重（严格域抛错、一般域告警保留首个）；get() 未命中返回 undefined（各域自行兜底）；
-keys() / values() 保序输出；snapshot() 返回冻结副本，防外部改写。</div>
+说明：登记同标识拒重（严格域抛错、一般域告警保留首个）；解析未命中返回空（各域自行兜底）；
+保序清单按登记顺序输出；只读快照返回冻结副本，防外部改写。</div>
     </div>
   </div>
 </div>
@@ -71,15 +71,15 @@ keys() / values() 保序输出；snapshot() 返回冻结副本，防外部改写
   var app = createApp({
     setup: function () {
       var providers = ref([
-        { key: 'text', desc: '文本框渲染器' },
-        { key: 'select', desc: '下拉渲染器' }
+        { key: '文本', desc: '文本框渲染器' },
+        { key: '下拉', desc: '下拉渲染器' }
       ]);
       var key = ref(''), desc = ref(''), probe = ref(''), message = ref('（无）'), snapText = ref('（未生成）');
       var probeResult = ref({ ok: true, text: '' });
       function register() {
-        if (!key.value || !desc.value) { message.value = '请填写 key 与 describe()'; return; }
+        if (!key.value || !desc.value) { message.value = '请填写唯一标识与元信息说明'; return; }
         if (providers.value.some(function (p) { return p.key === key.value; })) {
-          message.value = '拒重：key「' + key.value + '」已登记（唯一性拒重，登记顺序保留首个）';
+          message.value = '拒重：标识「' + key.value + '」已登记（唯一性拒重，登记顺序保留首个）';
           return;
         }
         providers.value.push({ key: key.value, desc: desc.value });
@@ -87,12 +87,12 @@ keys() / values() 保序输出；snapshot() 返回冻结副本，防外部改写
         key.value = ''; desc.value = '';
       }
       function snapshot() {
-        snapText.value = JSON.stringify(Object.freeze(providers.value.map(function (p) { return { key: p.key, describe: p.desc }; })), null, 0);
+        snapText.value = JSON.stringify(Object.freeze(providers.value.map(function (p) { return { 标识: p.key, 说明: p.desc }; })), null, 0);
       }
       Vue.watch(probe, function (k) {
         if (!k) return;
         var hit = providers.value.find(function (p) { return p.key === k; });
-        probeResult.value = hit ? { ok: true, text: '命中：' + hit.desc } : { ok: false, text: '未命中：get() 返回 undefined（渲染兜底占位）' };
+        probeResult.value = hit ? { ok: true, text: '命中：' + hit.desc } : { ok: false, text: '未命中：解析返回空（渲染兜底占位）' };
       });
       return { providers: providers, key: key, desc: desc, probe: probe, message: message, snapText: snapText, probeResult: probeResult, register: register, snapshot: snapshot };
     }

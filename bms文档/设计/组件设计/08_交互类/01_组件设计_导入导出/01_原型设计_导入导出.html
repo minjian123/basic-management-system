@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 导入导出（ImportDialog / ExportButton / useImport / useExport）</title>
+<title>原型 · 导入导出</title>
 <link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
 <style>
@@ -31,8 +31,8 @@
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="01_组件设计_导入导出.md">《组件设计 · 导入导出》</a>：演示 <b>ImportDialog</b> 的模板下载 / 文件校验 / 上传进度 / 错误行报告与错误明细下载、
-    <b>ExportButton / useExport</b> 的当前筛选导出、脱敏提示与大数据量异步反馈、导入导出按钮的动作权限显隐。
+    本原型对应当前目录 <a href="01_组件设计_导入导出.md">《组件设计 · 导入导出》</a>：演示<b>导入对话框</b>的模板下载 / 文件校验 / 上传进度 / 错误行报告与错误明细下载、
+    <b>导出按钮</b>的当前筛选导出、脱敏提示与大数据量异步反馈、导入导出按钮的动作权限显隐。
   </div>
 
   <div id="app">
@@ -90,7 +90,7 @@
       </el-tab-pane>
     </el-tabs>
 
-    <!-- ===== ImportDialog ===== -->
+    <!-- ===== 导入对话框 ===== -->
     <el-dialog
       v-model="importVisible"
       :title="'批量导入' + '用户'"

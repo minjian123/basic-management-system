@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 水印（Watermark / useWatermark）</title>
+<title>原型 · 水印（内容 / 旋转间距 / 防篡改）</title>
 <link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
 <style>
@@ -26,8 +26,8 @@
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="14_组件设计_水印.md">《组件设计 · 水印》</a>：演示 <b>Watermark</b> 文字/多行水印、旋转与间距、透明度、图片水印、全屏与局部、
-    敏感页应用与 <b>防篡改</b>（移除水印层自动恢复）。基于 Element Plus <span class="dp-code">el-watermark</span>。
+    本原型对应当前目录 <a href="14_组件设计_水印.md">《组件设计 · 水印》</a>：演示水印容器的文字/多行水印、旋转与间距、透明度、图片水印、全屏与局部、
+    敏感页应用与 <b>防篡改</b>（移除水印层自动恢复）。
   </div>
 
   <div id="app">
@@ -88,10 +88,10 @@
 
       function tamper() {
         var layer = document.querySelector('.el-watermark');
-        if (layer) { layer.remove(); log.value = '模拟：通过开发者工具移除水印层 → MutationObserver 检测到并自动重新插入恢复'; ElMessage.warning('已移除水印层（观察自动恢复）'); }
+        if (layer) { layer.remove(); log.value = '模拟：通过开发者工具移除水印层 → 防篡改监视检测到并自动重新插入恢复'; ElMessage.warning('已移除水印层（观察自动恢复）'); }
         else { log.value = '未找到水印层（可能为全屏模式，位于 body 下）'; ElMessage.info('全屏模式下由 el-watermark 自行防护'); }
       }
-      onMounted(function () { /* MutationObserver 由 el-watermark 内置处理 */ });
+      onMounted(function () { /* 防篡改由水印渲染实现内置处理 */ });
       return { line1, line2, showTime, rotate, opacity, fullscreen, content, font, log, tamper };
     }
   });

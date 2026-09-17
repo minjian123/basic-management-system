@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 输入形态能力（BaseInputControl）</title>
+<title>原型 · 输入形态能力</title>
 <link rel="stylesheet" href="../../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../../原型设计/资源/原型样式.css">
 <style>
@@ -24,7 +24,7 @@
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="02_组件设计_输入形态能力.md">《组件设计 · 输入形态能力》</a>：演示受控 <span class="dp-code">v-model</span>、前后缀/前置后置插槽、清空、只读、输入法组合事件与聚焦/失焦；本层只做输入形态，<b>不含</b>三态/校验/字段权限（那是 能力）。
+    本原型对应当前目录 <a href="02_组件设计_输入形态能力.md">《组件设计 · 输入形态能力》</a>：演示受控值绑定、前后缀/前置后置插槽、清空、只读、输入法组合事件与聚焦/失焦；本层只做输入形态，<b>不含</b>三态/校验/字段权限（那是受控值/字段编排能力）。
   </div>
 
   <div id="app">
@@ -35,14 +35,14 @@
         <span class="dp-hint">切换到中文输入法输入，change 会在组合结束后才触发</span>
       </div>
 
-      <div class="row"><base-input-control v-model="v1" placeholder="普通输入" :readonly="readonly" :clearable="clearable" @change="onChange" @focus="e=>ev='focus'" @blur="e=>ev='blur'" @clear="ev='clear'" /></div>
-      <div class="row"><base-input-control v-model="v2" placeholder="前后缀" :readonly="readonly" @change="onChange"><template #prefix>🔍</template><template #suffix>⌘K</template></base-input-control></div>
-      <div class="row"><base-input-control v-model="v3" placeholder="account" :readonly="readonly" @change="onChange"><template #prepend>@</template><template #append>.com</template></base-input-control></div>
+      <div class="row"><input-control v-model="v1" placeholder="普通输入" :readonly="readonly" :clearable="clearable" @change="onChange" @focus="e=>ev='focus'" @blur="e=>ev='blur'" @clear="ev='clear'" /></div>
+      <div class="row"><input-control v-model="v2" placeholder="前后缀" :readonly="readonly" @change="onChange"><template #prefix>🔍</template><template #suffix>⌘K</template></input-control></div>
+      <div class="row"><input-control v-model="v3" placeholder="account" :readonly="readonly" @change="onChange"><template #prepend>@</template><template #append>.com</template></input-control></div>
 
       <div class="dp-state">值 v1 = {{ JSON.stringify(v1) }}　v2 = {{ JSON.stringify(v2) }}　v3 = {{ JSON.stringify(v3) }}
 最近事件：{{ ev }}；change 值：{{ lastChange }}
-说明：受控只认 modelValue；插槽 prefix/suffix/prepend/append；清空后值由 能力 useValue 归一（本层置空）；
-本层不含三态/校验触发/字段上下文/字段权限——它们是 能力 useValue/useField 的职责。</div>
+说明：受控只认外部受控值；插槽 prefix/suffix/prepend/append；清空后值由受控值能力归一（本层置空）；
+本层不含三态/校验触发/字段上下文/字段权限——它们是受控值能力/字段编排能力的职责。</div>
     </div>
   </div>
 </div>
@@ -53,8 +53,8 @@
 <script>
   var { createApp, ref } = Vue;
 
-  // 模拟 输入形态能力 useInputControl
-  var useInputControl = {
+  // 模拟 输入形态能力（演示包装）
+  var InputControl = {
     props: ['modelValue','placeholder','readonly','clearable'],
     emits: ['update:modelValue','change','focus','blur','clear'],
     data: function () { return { composing: false }; },
@@ -77,7 +77,7 @@
   };
 
   var app = createApp({
-    components: { useInputControl: useInputControl },
+    components: { InputControl: InputControl },
     setup: function () {
       var v1 = ref('文本'), v2 = ref(''), v3 = ref('user');
       var readonly = ref(false), clearable = ref(true);
