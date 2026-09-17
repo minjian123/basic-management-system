@@ -29,6 +29,8 @@ export { default as LoadingContainer } from './components/container/LoadingConta
 export { default as LazyContainer } from './components/container/LazyContainer.vue'
 export { default as AutoHeight } from './components/container/AutoHeight.vue'
 export { default as AspectRatio } from './components/container/AspectRatio.vue'
+export { default as VirtualList } from './components/container/VirtualList.vue'
+export { default as FullscreenContainer } from './components/container/FullscreenContainer.vue'
 export {
   createMemoryScrollStorage,
   createScrollPositionStore,
