@@ -1,0 +1,34 @@
+{
+  "name": "@bms/ui-vant",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "BMS 前端移动端实现插件（Vant）：组件与样式实现（依赖 @bms/core + @bms/vue）",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "vue-tsc --noEmit -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@bms/core": "*",
+    "@bms/vue": "*",
+    "vant": "^4.10.2"
+  },
+  "peerDependencies": {
+    "vue": "^3.5.0",
+    "vue-i18n": "^11.0.0",
+    "vue-router": "^4.0.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^6.0.8",
+    "@vue/test-utils": "^2.5.0",
+    "jsdom": "^30.0.1",
+    "sass": "^1.104.0",
+    "vue": "^3.5.41",
+    "vue-tsc": "^3.3.11",
+    "vue-i18n": "^11.4.10",
+    "vue-router": "^4.6.4"
+  }
+}

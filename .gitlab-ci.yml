@@ -1,6 +1,6 @@
 # MR 流水线门禁（《开发部署规划》第 7 节）
 # 口径：后端 ruff + pyright + pytest（SQLite，覆盖率整体 ≥ 70%）+ 模块注册清单校验；
-#       前端 ESLint + Vitest（双端，覆盖率整体 ≥ 70%）+ apps/desktop / frontend-mobile 双端构建。
+#       前端 ESLint + Vitest（双端，覆盖率整体 ≥ 70%）+ apps/desktop / apps/mobile 双端构建。
 # 核心模块（认证/RBAC/工作流/审计/收付款）≥ 80% 子阈值随对应模块落地（认证 / RBAC 阶段）接入。
 # backend/ apps/desktop/ 尚未落地（阶段一骨架），对应 job 以 exists 守卫，
 # 目录与清单文件出现后自动启用。
@@ -20,9 +20,8 @@ workflow:
         paths:
           - backend/**/*
           - apps/desktop/**/*
-          - frontend-mobile/**/*
-          - packages/**/*
           - apps/**/*
+          - packages/**/*
           - deploy/**/*
           - scripts/tools/**/*
           - package.json
@@ -228,14 +227,14 @@ core-check:
       exists:
         - packages/core/package.json
   script:
-    # 复用镜像内预置的前端依赖（workspace 根）；@bms/* 包以 symlink 装配（等价 npm workspaces 链接）
-    - cp -a /opt/ci/frontend/node_modules .
-    - mkdir -p node_modules/@bms && ln -sfn ../../packages/core node_modules/@bms/core
-    - test -d packages/vue && ln -sfn ../../packages/vue node_modules/@bms/vue || true
-    - test -d packages/ui-ep && ln -sfn ../../packages/ui-ep node_modules/@bms/ui-ep || true
+    # 复用镜像内预置的 workspace 根依赖（packages/*：core / vue / ui-ep / ui-vant，S4b 起含 vant）；
+    # @bms/* 以仓库内源码 symlink 装配（防旧镜像），全包门禁经根 `npm run check`
+    - cp -a /opt/ci/workspace/node_modules .
+    - mkdir -p node_modules/@bms
+    - for p in core vue ui-ep ui-vant; do test -d packages/$p && ln -sfn ../../packages/$p node_modules/@bms/$p || true; done
     - npm run check
 
-# ---- 移动端：ESLint + Vitest（含覆盖率门禁，与 frontend-check 对称）----
+# ---- 移动端：ESLint + Vitest（含覆盖率门禁，与 frontend-check 对称；S4c 起路径 apps/mobile）----
 frontend-mobile-check:
   stage: test
   image: $REGISTRY_IMAGE_PREFIX/ci-frontend:node22
@@ -243,17 +242,21 @@ frontend-mobile-check:
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       exists:
-        - frontend-mobile/package.json
+        - apps/mobile/package.json
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       exists:
-        - frontend-mobile/package.json
+        - apps/mobile/package.json
   script:
-    - rm -rf frontend-mobile/node_modules && cp -a /opt/ci/frontend-mobile/node_modules frontend-mobile/node_modules
-    - cd frontend-mobile && npm run lint && npm run test:cov
+    - rm -rf apps/mobile/node_modules && cp -a /opt/ci/frontend-mobile/node_modules apps/mobile/node_modules
+    # S4c 切流：apps/mobile 消费 @bms/*（源码直出）——根 node_modules 桥（workspace 依赖集）+ 包 symlink
+    - cp -a /opt/ci/workspace/node_modules .
+    - mkdir -p node_modules/@bms
+    - for p in core vue ui-vant; do test -d packages/$p && ln -sfn ../../packages/$p node_modules/@bms/$p || true; done
+    - cd apps/mobile && npm run lint && npm run test:cov
   coverage: '/^All files\s*\|\s*(\d+(?:\.\d+)?)/'
   artifacts:
     when: always
-    paths: [frontend-mobile/coverage/]
+    paths: [apps/mobile/coverage/]
     expire_in: 30 days
 
 frontend-build:
@@ -283,13 +286,17 @@ frontend-mobile-build:
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       exists:
-        - frontend-mobile/package.json
+        - apps/mobile/package.json
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       exists:
-        - frontend-mobile/package.json
+        - apps/mobile/package.json
   script:
-    - rm -rf frontend-mobile/node_modules && cp -a /opt/ci/frontend-mobile/node_modules frontend-mobile/node_modules
-    - cd frontend-mobile && npm run build && npm run budget
+    - rm -rf apps/mobile/node_modules && cp -a /opt/ci/frontend-mobile/node_modules apps/mobile/node_modules
+    # S4c 切流：构建同样经根 node_modules 桥解析 packages 源码依赖
+    - cp -a /opt/ci/workspace/node_modules .
+    - mkdir -p node_modules/@bms
+    - for p in core vue ui-vant; do test -d packages/$p && ln -sfn ../../packages/$p node_modules/@bms/$p || true; done
+    - cd apps/mobile && npm run build && npm run budget
 
 # ==== main 流水线重验证层（《开发部署规划》第 7 节 3）====
 # 全部 job 以 exists 守卫——阶段一代码落地后自动激活，此前 main 流水线空载（仅 gate-smoke）。

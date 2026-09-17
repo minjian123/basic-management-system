@@ -1,13 +1,14 @@
 #!/bin/sh
 # CI 基础镜像构建（POSIX sh；CI job 与本地 bootstrap 共用）
-# - 标签：三份锁文件 + 两份 Dockerfile 合并哈希前 12 位；镜像写入 label bms.lock-hash
+# - 标签：锁文件（含 workspace 根）+ 两份 Dockerfile 合并哈希前 12 位；镜像写入 label bms.lock-hash
 #   （Dockerfile 变更——如系统依赖调整——同样触发重建，2026-09-14 补）
 # - 幂等：本地已存在同哈希镜像则跳过（构建与消费共用宿主 docker daemon，本流水线即用新镜像）
 # - 产物：$REGISTRY_IMAGE_PREFIX/ci-backend:<tag>、ci-frontend:<tag>
+#   ci-frontend 含三套预装依赖：workspace 根（packages/*，S4b 起）/ apps/desktop / apps/mobile（镜像内路径 /opt/ci/frontend-mobile 保持）
 set -eu
 
 REGISTRY_IMAGE_PREFIX="${REGISTRY_IMAGE_PREFIX:?REGISTRY_IMAGE_PREFIX 未设置}"
-TAG=$(cat backend/uv.lock apps/desktop/package-lock.json frontend-mobile/package-lock.json \
+TAG=$(cat backend/uv.lock apps/desktop/package-lock.json apps/mobile/package-lock.json package-lock.json \
   deploy/ci/Dockerfile.backend deploy/ci/Dockerfile.frontend | sha256sum | cut -c1-12)
 echo "[ci-base] 构建输入哈希标签（锁文件 + Dockerfile）: $TAG"
 
@@ -20,9 +21,15 @@ cp backend/pyproject.toml backend/uv.lock "$backend_ctx/"
 cp deploy/ci/Dockerfile.backend "$backend_ctx/Dockerfile"
 
 frontend_ctx=$(mktemp -d)
-mkdir -p "$frontend_ctx/apps/desktop" "$frontend_ctx/frontend-mobile"
+mkdir -p "$frontend_ctx/apps/desktop" "$frontend_ctx/frontend-mobile" "$frontend_ctx/packages"
 cp apps/desktop/package.json apps/desktop/package-lock.json "$frontend_ctx/apps/desktop/"
-cp frontend-mobile/package.json frontend-mobile/package-lock.json "$frontend_ctx/frontend-mobile/"
+cp apps/mobile/package.json apps/mobile/package-lock.json "$frontend_ctx/frontend-mobile/"
+# workspace 根依赖集：根清单 + 各包清单（npm ci 按 packages/* 计算依赖，镜像内只需清单）
+cp package.json package-lock.json tsconfig.base.json "$frontend_ctx/"
+for manifest in packages/*/package.json; do
+  mkdir -p "$frontend_ctx/$(dirname "$manifest")"
+  cp "$manifest" "$frontend_ctx/$manifest"
+done
 cp deploy/ci/Dockerfile.frontend "$frontend_ctx/Dockerfile"
 
 build_if_needed() {
