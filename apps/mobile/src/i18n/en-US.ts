@@ -24,6 +24,22 @@ export default {
     loadingFailed: 'Failed to load',
     emptyText: 'No data',
   },
+  // 反馈件文案（03-2-1；与 PC 同键）
+  feedback: {
+    error404Title: 'Page not found (or removed)',
+    error403Title: 'Access denied (contact an administrator if needed)',
+    error500Title: 'Service is temporarily unavailable (please retry later)',
+    backHome: 'Back to home',
+    retry: 'Retry',
+    contactAdmin: 'Contact admin',
+    emptyList: 'No data',
+    emptySearch: 'No matching results',
+    emptyTodo: 'No pending tasks, enjoy the moment',
+    emptyMessage: 'No messages',
+    goCreate: 'Create',
+    clearFilters: 'Clear filters',
+    loading: 'Loading…',
+  },
   // 错误码文案：error.{code}（最小集；完整错误码总表随后端接入补齐）
   error: {
     default: 'Operation failed, please try again later',
