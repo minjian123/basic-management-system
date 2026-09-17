@@ -372,17 +372,28 @@ def check_stage(stage_dir: Path, report: Report) -> None:
             if plan_id.split("_")[1] not in listed:
                 report.fail("硬", "H5", f"任务文档未登记进域总览：{plan_id}")
 
-    # H5b：任务已完成 ⇒ 对应需求已完成
-    for plan_id, doc in tasks.items():
-        if doc.status != "已完成":
-            continue
+    # H5b：需求状态与任务完成度一致（一需求可拆多任务，分段交付）
+    #   ① 该需求下任务**全部**已完成 ⇒ 需求必须已完成；
+    #   ② 已有任务完成 ⇒ 需求不得仍为未开始。
+    req_states: dict[str, list[bool]] = {}
+    for doc in tasks.values():
         for req in doc.reqs:
-            report.ok()
-            if req in overview and overview[req][0] != "已完成":
-                report.fail(
-                    "硬", "H5",
-                    f"任务已完成而需求未完成：{plan_id} → {req}（{overview[req][0]}）",
-                )
+            req_states.setdefault(req, []).append(doc.status == "已完成")
+    for req, states in sorted(req_states.items()):
+        report.ok()
+        if req not in overview:
+            continue
+        status = overview[req][0]
+        if all(states) and status != "已完成":
+            report.fail(
+                "硬", "H5",
+                f"需求下任务已全部完成而需求未完成：{req}（{status}）",
+            )
+        elif any(states) and status == "未开始":
+            report.fail(
+                "硬", "H5",
+                f"需求已有任务完成而需求仍为未开始：{req}",
+            )
 
     # 计划类
     plan_files = sorted(plan_dir.glob("01_计划_*.md"))
