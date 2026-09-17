@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 通用表格（ProTable / 列配置 / 多列排序 / 列个性化 / 行内编辑）</title>
+<title>原型 · 通用表格（列配置 / 多列排序 / 列个性化 / 行内编辑）</title>
 <link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
 <style>
@@ -40,16 +40,16 @@
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="01_组件设计_通用表格.md">《组件设计 · 通用表格》</a>：演示 <b>ProTable</b> 的列配置与渲染优先级（插槽 / 字典列 / 标签列 / 脱敏列 / 格式化列）、
+    本原型对应当前目录 <a href="01_组件设计_通用表格.md">《组件设计 · 通用表格》</a>：演示通用表格的列配置与渲染优先级（插槽 / 字典列 / 标签列 / 脱敏列 / 格式化列）、
     <b>分页与多列排序</b>（Shift 叠加、参数序列化、游标分页）、<b>多选与批量操作</b>、<b>树形表格</b>、<b>列设置与密度</b>（`list.{form_key}` 偏好与恢复默认）、
-    <b>行内编辑</b>（自动空行、空行过滤、校验）。原型不接后端：排序/分页/偏好保存均为前端模拟，组件为真实 Element Plus 2.9.9 行为。
+    <b>行内编辑</b>（自动空行、空行过滤、校验）。原型不接后端：排序/分页/偏好保存均为前端模拟，组件行为对齐 Element Plus。
   </div>
 
   <div id="app">
     <div class="ep-page">
       <div class="dp-header">
         <div>
-          <div class="dp-title">通用表格 ProTable 原型</div>
+          <div class="dp-title">通用表格原型</div>
           <div class="dp-sub">带 * 的列为可排序列；多列排序请按 Shift + 点击表头</div>
         </div>
         <div class="dp-bar" style="margin-bottom:0">
