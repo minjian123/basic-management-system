@@ -8,22 +8,34 @@
   "scripts": {
     "core:typecheck": "npm run -w @bms/core typecheck",
     "core:test": "npm run -w @bms/core test",
-    "core:check": "npm run core:typecheck && npm run core:test",
+    "core:lint": "npm run -w @bms/core lint",
+    "core:check": "npm run core:typecheck && npm run core:lint && npm run core:test",
     "vue:typecheck": "npm run -w @bms/vue typecheck",
     "vue:test": "npm run -w @bms/vue test",
-    "vue:check": "npm run vue:typecheck && npm run vue:test",
-    "check": "npm run core:check && npm run vue:check && npm run ui-ep:check && npm run ui-vant:check",
+    "vue:lint": "npm run -w @bms/vue lint",
+    "vue:check": "npm run vue:typecheck && npm run vue:lint && npm run vue:test",
     "ui-ep:typecheck": "npm run -w @bms/ui-ep typecheck",
     "ui-ep:test": "npm run -w @bms/ui-ep test",
-    "ui-ep:check": "npm run ui-ep:typecheck && npm run ui-ep:test",
+    "ui-ep:lint": "npm run -w @bms/ui-ep lint",
+    "ui-ep:check": "npm run ui-ep:typecheck && npm run ui-ep:lint && npm run ui-ep:test",
     "ui-vant:typecheck": "npm run -w @bms/ui-vant typecheck",
     "ui-vant:test": "npm run -w @bms/ui-vant test",
-    "ui-vant:check": "npm run ui-vant:typecheck && npm run ui-vant:test"
+    "ui-vant:lint": "npm run -w @bms/ui-vant lint",
+    "ui-vant:check": "npm run ui-vant:typecheck && npm run ui-vant:lint && npm run ui-vant:test",
+    "lint": "npm run core:lint && npm run vue:lint && npm run ui-ep:lint && npm run ui-vant:lint",
+    "check": "npm run core:check && npm run vue:check && npm run ui-ep:check && npm run ui-vant:check"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/node": "^24.0.0",
+    "@vue/eslint-config-prettier": "^10.2.0",
+    "eslint": "^10.10.0",
+    "eslint-plugin-vue": "^10.11.0",
+    "prettier": "^3.9.6",
     "typescript": "~6.0.2",
+    "typescript-eslint": "^8.70.0",
+    "vite": "^8.2.2",
     "vitest": "^5.0.0",
-    "vite": "^8.2.2"
+    "vue-eslint-parser": "^10.4.1"
   }
 }
