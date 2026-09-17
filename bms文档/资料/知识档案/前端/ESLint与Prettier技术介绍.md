@@ -38,7 +38,7 @@
 
 ## 3. 在本项目中的用途 <a id="usage"></a>
 
-- **代码规范**：apps/desktop 与 frontend-mobile 双工程各自独立配置（各自 package-lock.json、ESLint/Prettier/TS 配置，互不共享），规范统一、工程独立（见平台《项目规划说明》「前端」节）。
+- **代码规范**：frontend/apps/desktop 与 frontend/apps/mobile 双工程各自独立配置（各自 package-lock.json、ESLint/Prettier/TS 配置，互不共享），规范统一、工程独立（见平台《项目规划说明》「前端」节）。
 - **MR 流水线门禁**：前端 ESLint + Vitest（含 coverage 门禁）+ 双端构建，lint 不过 MR 不能合入（见平台《项目规划说明》「部署与运维」节 GitLab CI）。
 - **Vue 官方插件链**：eslint-plugin-vue 覆盖 SFC/模板规则，typescript-eslint 覆盖 TS 规则，与 Prettier 经 eslint-config-prettier 解冲突（见平台《项目规划说明》「前端」节）。
 - **编辑器体验**：开发机 VSCode 扩展含 ESLint、Prettier（见平台《开发部署规划》「工具链」节），保存即规范，提交前无惊喜。
@@ -88,7 +88,7 @@ export default [
 
 - **eslint-config-prettier 必须放最后**：它靠「后配置覆盖前配置」生效，位置错了冲突规则关不掉。
 - **flat config 迁移**：ESLint 9/10 用 `eslint.config.js`，旧 `.eslintrc.*` 在 10 中已移除，老项目要迁移（官方有 `@eslint/v8-to-9-config` codemod）。
-- **双工程独立配置**：apps/desktop 与 frontend-mobile 各自一份配置，别跨工程共享文件（规划既定决策）。
+- **双工程独立配置**：frontend/apps/desktop 与 frontend/apps/mobile 各自一份配置，别跨工程共享文件（规划既定决策）。
 - **别在 ESLint 里写格式规则**：缩进、引号、换行全交给 Prettier，ESLint 只管错误类规则。
 - **门禁不绕过**：CI 里 lint 有 error 即失败，别用 `--no-verify` 或临时关规则糊弄过去。
 - **版本锁定**：ESLint/Prettier/插件版本锁在 package-lock.json，本地与 CI 一致，避免「本地过、CI 挂」。

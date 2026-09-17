@@ -42,7 +42,7 @@
 - **覆盖率门禁**：核心模块（认证/RBAC/工作流/审计/收付款）行覆盖 ≥ 80%、整体 ≥ 70%，CI 门禁——前端由 Vitest coverage 统计，低于门槛流水线失败（见平台《项目规划说明》「进入与准出标准」节）。
 - **MR 流水线**：前端 ESLint + Vitest（含 coverage 门禁）+ 双端构建（见平台《项目规划说明》「部署与运维」节 GitLab CI）。
 - **测试报告**：Vitest 生成自动化测试报告（CI 产物归档），结果经官方插件导入 Kiwi TCMS（见平台《项目规划说明》「测试报告」节）。
-- **双工程**：apps/desktop 与 frontend-mobile 各自独立 vitest 配置，口径一致、工程独立。
+- **双工程**：frontend/apps/desktop 与 frontend/apps/mobile 各自独立 vitest 配置，口径一致、工程独立。
 
 最小示例（单元测试 + 组件测试）：
 
@@ -89,7 +89,7 @@ describe('TodoBadge', () => {
 - **组件测试要 DOM 环境**：配置 `environment: 'happy-dom'`（或 jsdom），并在 package.json 装对应依赖。
 - **vi.mock 提升**：模块级 mock 会被提升到文件顶部，mock 工厂里引用外部变量会报错，注意写法。
 - **阈值配置**：coverage 门槛写进 `vitest.config.ts`（对齐 80%/70% 口径），低于门槛流水线失败，别只出报告不设门槛。
-- **双工程独立配置**：apps/desktop 与 frontend-mobile 各自 vitest 配置，别跨工程共享。
+- **双工程独立配置**：frontend/apps/desktop 与 frontend/apps/mobile 各自 vitest 配置，别跨工程共享。
 - **版本跟踪**：4.x 为当前稳定线，5.0 RC 阶段，升级前看迁移说明，走 [Renovate](../部署与运维/Renovate技术介绍.md) 提 MR + 回归。
 - **测试文件命名**：统一 `*.spec.ts`（或 `*.test.ts`）放源码旁，避免散落难找。
 

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 字段编排片段（useField / useField）</title>
+<title>原型 · 字段编排能力（useField / useField）</title>
 <link rel="stylesheet" href="../../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../../原型设计/资源/原型样式.css">
 <style>
@@ -22,12 +22,12 @@
 
 <div class="proto-bar">
   <span class="pb-crumb"><a href="09_组件设计_字段编排片段.md">← 返回组件设计文档</a></span>
-  <span class="pb-name">组件设计 · 字段编排片段 原型（可交互）</span>
+  <span class="pb-name">组件设计 · 字段编排能力 原型（可交互）</span>
 </div>
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="09_组件设计_字段编排片段.md">《组件设计 · 字段编排片段》</a>：演示字段语义——字段上下文（label/必填/错误）、字段权限（<span class="dp-code">visible</span>/<span class="dp-code">editable</span>）、三态与校验触发、<span class="dp-code">fieldKey</span> 注册；值语义与形态分别来自 受控值片段 与 能力片段。
+    本原型对应当前目录 <a href="09_组件设计_字段编排片段.md">《组件设计 · 字段编排能力》</a>：演示字段语义——字段上下文（label/必填/错误）、字段权限（<span class="dp-code">visible</span>/<span class="dp-code">editable</span>）、三态与校验触发、<span class="dp-code">fieldKey</span> 注册；值语义与形态分别来自 受控值能力 与 形态能力。
   </div>
 
   <div id="app">
@@ -46,10 +46,10 @@
       </div>
       <div v-else class="dp-hint">visible=false → 整壳不渲染（栅格自然收缩）</div>
 
-      <div class="dp-state" style="margin-top:12px">值语义（受控值片段）：三态 = {{ tri }}；change 上报 = {{ lastChange }}
-字段语义（本层）：字段上下文（label/必填/错误由 字段壳片段 字段壳 provide）+ 字段权限（visible/editable 由 字段权限片段 provide）+ 校验触发
-校验：值变化触发字段校验并回传上下文；提交时由 表单容器片段 表单容器 validate 汇总
-editable=false 时编辑态也 disabled；visible=false 任何状态都不渲染（判定权威见 字段权限片段）</div>
+      <div class="dp-state" style="margin-top:12px">值语义（受控值能力）：三态 = {{ tri }}；change 上报 = {{ lastChange }}
+字段语义（本层）：字段上下文（label/必填/错误由 字段壳能力 provide）+ 字段权限（visible/editable 由 字段权限能力 provide）+ 校验触发
+校验：值变化触发字段校验并回传上下文；提交时由 表单容器能力 validate 汇总
+editable=false 时编辑态也 disabled；visible=false 任何状态都不渲染（判定权威见 字段权限能力）</div>
     </div>
   </div>
 </div>

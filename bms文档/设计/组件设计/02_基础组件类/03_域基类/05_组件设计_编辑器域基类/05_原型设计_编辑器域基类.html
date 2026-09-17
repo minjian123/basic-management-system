@@ -47,7 +47,7 @@
         <div class="tb" v-if="kind === 'rich'">
           <el-button size="small" @click="exec('bold')"><b>B</b></el-button>
           <el-button size="small" @click="exec('italic')"><i>I</i></el-button>
-          <span class="dp-hint" style="align-self:center">工具栏插槽 · 图片上传走上传引擎片段（占位先行）</span>
+          <span class="dp-hint" style="align-self:center">工具栏插槽 · 图片上传走上传引擎能力（占位先行）</span>
         </div>
         <div v-if="kind === 'rich'" class="body" contenteditable="true" :contenteditable="!readonly" @input="onInput" v-html="html"></div>
         <textarea v-else :readonly="readonly" v-model="code" @input="onInput"></textarea>

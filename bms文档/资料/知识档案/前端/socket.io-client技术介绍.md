@@ -112,7 +112,7 @@ socket.on('disconnect', () => {
 | 《[python-socketio 技术介绍](../后端核心/python-socketio技术介绍.md)》 | 服务端协议实现与 Redis 适配器 |
 | 《[Redis 技术介绍](../后端核心/Redis技术介绍.md)》 | 跨实例广播的 Redis 底座 |
 | 《[Pinia 技术介绍](Pinia技术介绍.md)》 | 全局连接状态与待办角标数据管理 |
-| 《[Vant 技术介绍](Vant技术介绍.md)》 | 移动端通知/待办界面（frontend-mobile） |
+| 《[Vant 技术介绍](Vant技术介绍.md)》 | 移动端通知/待办界面（frontend/apps/mobile） |
 | 《[命名规范](../../../规范/命名规范.md)》 | 事件名（todo:created 等）命名 |
 
 ---
