@@ -24,6 +24,22 @@ export default {
     loadingFailed: '加载失败',
     emptyText: '暂无数据',
   },
+  // 反馈件文案（03-2-1；与 PC 同键）
+  feedback: {
+    error404Title: '页面不存在（或已被移除）',
+    error403Title: '没有访问权限（如需申请请联系管理员）',
+    error500Title: '服务开小差了（请稍后重试）',
+    backHome: '返回首页',
+    retry: '刷新重试',
+    contactAdmin: '联系管理员',
+    emptyList: '暂无数据',
+    emptySearch: '未找到相关内容',
+    emptyTodo: '暂无待办，享受这一刻',
+    emptyMessage: '暂无消息',
+    goCreate: '去创建',
+    clearFilters: '清除筛选',
+    loading: '加载中…',
+  },
   // 错误码文案：error.{code}（最小集；完整错误码总表随后端接入补齐）
   error: {
     default: '操作失败，请稍后重试',
