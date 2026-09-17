@@ -256,6 +256,107 @@ export function describePermButtonContract(kit: ComponentContractKit): void {
   })
 }
 
+export function describeFeedbackComponentsContract(kit: ComponentContractKit): void {
+  describe('反馈件契约（同一套断言）', () => {
+    it('EmptyState：场景缺省标题 / small 修饰类 / 引导按钮与权限', async () => {
+      const view = kit.mount('EmptyState', { props: { type: 'search' } })
+      expect(view.has('.bms-empty-state')).toBe(true)
+      expect(view.has('.bms-empty-state-title')).toBe(true)
+      expect(view.text()).toContain('未找到相关内容')
+      view.unmount()
+
+      const small = kit.mount('EmptyState', { props: { type: 'list', size: 'small' } })
+      expect(small.has('.bms-empty-state--small')).toBe(true)
+      small.unmount()
+
+      kit.configurePermissionChecker(() => false)
+      try {
+        const blocked = kit.mount('EmptyState', {
+          props: { type: 'list', action: { key: 'create' }, actionPerm: 'user:create' },
+        })
+        expect(blocked.has('.bms-empty-state-action')).toBe(false)
+        blocked.unmount()
+      } finally {
+        kit.configurePermissionChecker(undefined)
+      }
+
+      const allowed = kit.mount('EmptyState', {
+        props: { type: 'list', action: { key: 'create' } },
+      })
+      expect(allowed.has('.bms-empty-state-action')).toBe(true)
+      await allowed.trigger('.bms-empty-state-action button', 'click')
+      expect(allowed.emitted('action')).toHaveLength(1)
+      allowed.unmount()
+    })
+
+    it('ErrorPage：code 决定动作集；[data-action] 点击 emit 对应事件', async () => {
+      const notFound = kit.mount('ErrorPage', { props: { code: 404 } })
+      expect(notFound.has('.bms-error-page-title')).toBe(true)
+      expect(notFound.count('.bms-error-page-actions button')).toBe(1)
+      await notFound.trigger('[data-action="home"]', 'click')
+      expect(notFound.emitted('home')).toHaveLength(1)
+      notFound.unmount()
+
+      const server = kit.mount('ErrorPage', { props: { code: 500 } })
+      expect(server.count('.bms-error-page-actions button')).toBe(2)
+      expect(server.has('[data-action="retry"]')).toBe(true)
+      await server.trigger('[data-action="home"]', 'click')
+      expect(server.emitted('home')).toHaveLength(1)
+      server.unmount()
+
+      const forbidden = kit.mount('ErrorPage', { props: { code: 403 } })
+      expect(forbidden.count('.bms-error-page-actions button')).toBe(2)
+      await forbidden.trigger('[data-action="contact"]', 'click')
+      expect(forbidden.emitted('contact')).toHaveLength(1)
+      forbidden.unmount()
+
+      const custom = kit.mount('ErrorPage', {
+        props: { code: 403, actions: [{ key: 'custom', text: '自定义', handler: () => {} }] },
+      })
+      expect(custom.count('.bms-error-page-actions button')).toBe(1)
+      expect(custom.text()).toContain('自定义')
+      custom.unmount()
+    })
+
+    it('SkeletonBlock：variant 修饰类 / 行数 / loading=false 渲染插槽', () => {
+      const table = kit.mount('SkeletonBlock', { props: { variant: 'table', rows: 3 } })
+      expect(table.has('.bms-skeleton--table')).toBe(true)
+      expect(table.count('.bms-skeleton-row')).toBe(4)
+      table.unmount()
+
+      const list = kit.mount('SkeletonBlock', { props: { variant: 'list', rows: 4 } })
+      expect(list.has('.bms-skeleton--list')).toBe(true)
+      expect(list.count('.bms-skeleton-line')).toBe(4)
+      list.unmount()
+
+      const loaded = kit.mount('SkeletonBlock', {
+        props: { loading: false },
+        slots: { default: '<div class="probe-content">内容</div>' },
+      })
+      expect(loaded.has('.probe-content')).toBe(true)
+      expect(loaded.has('.bms-skeleton')).toBe(false)
+      loaded.unmount()
+    })
+
+    it('LoadingMask：delay=0 显示遮罩 / 关闭移除 / fullscreen 修饰类', async () => {
+      const shown = kit.mount('LoadingMask', { props: { loading: true, delay: 0 } })
+      expect(shown.has('.bms-loading-mask-overlay')).toBe(true)
+      expect(shown.attr('.bms-loading-mask-overlay', 'role')).toBe('status')
+      shown.unmount()
+
+      const hidden = kit.mount('LoadingMask', { props: { loading: false, delay: 0 } })
+      expect(hidden.has('.bms-loading-mask-overlay')).toBe(false)
+      hidden.unmount()
+
+      const fullscreen = kit.mount('LoadingMask', {
+        props: { loading: true, delay: 0, fullscreen: true },
+      })
+      expect(fullscreen.has('.bms-loading-mask--fullscreen')).toBe(true)
+      fullscreen.unmount()
+    })
+  })
+}
+
 /** 组件名 → 共同不变量所需的最小 props（VirtualList 需数据源才渲染项） */
 function minimalProps(name: string): Record<string, unknown> {
   if (name === 'VirtualList') {

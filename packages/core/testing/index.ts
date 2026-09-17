@@ -9,6 +9,7 @@ export { describeConfirmContract, type ConfirmContractSubject } from './confirm'
 export { describePermissionContract, type PermissionContractSubject } from './permission'
 export {
   describeContainerComponentsContract,
+  describeFeedbackComponentsContract,
   describePermButtonContract,
   type ComponentContractKit,
   type ComponentMountOptions,

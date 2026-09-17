@@ -1,23 +1,24 @@
 <script setup lang="ts">
 /**
- * 错误页：403 / 404 / 500 缺省插画 + 标题 + 说明 + 操作（《布局设计 · 异常与空状态》）。
+ * 错误页（移动端）：403 / 404 / 500 缺省插画 + 标题 + 说明 + 操作（《布局设计 · 异常与空状态》）。
  *
- * 契约见《组件设计 · 异常与空状态》§3：`code` 决定缺省插画 / 文案 / 操作；**不展示技术堆栈**；
- * 缺省操作点击始终 emit（`home` / `retry` / `contact`，通知语义）并执行缺省行为
- * （返回首页 / 刷新重试），传 `actions` 完全覆盖；独立路由接入 `/403` `/404` `/500`。
+ * 契约与 `ui-ep` 同源：`code` 决定缺省插画 / 文案 / 操作；**不展示技术堆栈**；缺省操作点击
+ * 始终 emit（`home` / `retry` / `contact`）并执行缺省行为（返回首页 / 刷新重试），传 `actions`
+ * 完全覆盖；按钮视觉经 `van-button`。
  */
 
 import { useI18n } from 'vue-i18n'
 import { computed, useAttrs } from 'vue'
 import { useRouter } from 'vue-router'
 
-import { ElButton } from 'element-plus'
-import 'element-plus/es/components/button/style/css'
+import { Button as VanButton } from 'vant/es/button'
+import 'vant/es/button/style'
+
+import { useComponentBase } from '@bms/vue'
 
 import empty403 from '../../assets/images/empty-403.svg'
 import empty404 from '../../assets/images/empty-404.svg'
 import empty500 from '../../assets/images/empty-500.svg'
-import { useComponentBase } from '@bms/vue'
 
 import type { FeedbackAction } from './types'
 
@@ -126,15 +127,16 @@ function runAction(action: FeedbackAction): void {
     <h2 :class="base.nsClass('error-page-title')">{{ titleText }}</h2>
     <p v-if="description" :class="base.nsClass('error-page-description')">{{ description }}</p>
     <div v-if="actionList.length > 0" :class="base.nsClass('error-page-actions')">
-      <el-button
+      <van-button
         v-for="action in actionList"
         :key="action.key ?? action.text"
         :data-action="action.key"
+        size="small"
         :type="action.type === 'primary' ? 'primary' : 'default'"
         @click="runAction(action)"
       >
         {{ actionText(action) }}
-      </el-button>
+      </van-button>
     </div>
     <slot />
   </div>
