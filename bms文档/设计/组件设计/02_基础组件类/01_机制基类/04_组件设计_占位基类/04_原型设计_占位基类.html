@@ -39,7 +39,7 @@
           <el-radio-button label="null">null 空实现</el-radio-button>
           <el-radio-button label="stub">stub 未实现</el-radio-button>
         </el-radio-group>
-        <span class="dp-hint">degrade：</span>
+        <span class="dp-hint">fallback：</span>
         <el-radio-group v-model="degrade" size="small">
           <el-radio-button label="empty">empty 空态</el-radio-button>
           <el-radio-button label="disabled">disabled 禁用</el-radio-button>
@@ -68,7 +68,7 @@
       </div>
 
       <div class="dp-state">describe() → {{ describeText }}
-属性：data-placeholder="{{ reason }}"（开发态标记，silentInProd 时生产静默）
+属性：data-placeholder="{{ reason }}"（开发态标记；mark() / silentInProd 为原设计面）
 降级：{{ degradeText }}
 说明：pending＝依赖后端能力未就绪（空结果 / 降级）；null＝空实现（恒空 / 恒成功、无副作用）；
 stub＝未实现（调用即抛错，对齐后端 BaseStub）；占位与真实实现跑同一套契约测试。</div>

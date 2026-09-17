@@ -52,8 +52,8 @@
 
       <div class="dp-state">释放日志（逆序回收、幂等）
 {{ logs.length ? logs.join('\n') : '（尚无释放）' }}
-说明：track() 登记定时器 / 订阅 / AbortController；组件卸载经 onScopeDispose 自动 releaseAll()；
-释放后 track() 拒绝登记并告警（「释放后再登记」按钮演示）。</div>
+说明：registerResource() 登记释放函数（定时器 / 订阅 / AbortController）；组件卸载经 onScopeDispose 自动 dispose()；
+释放后 registerResource() 拒绝登记（抛 NOT_IMPLEMENTED，「释放后再登记」按钮演示）。</div>
     </div>
   </div>
 </div>

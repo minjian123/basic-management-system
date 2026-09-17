@@ -25,7 +25,7 @@
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="07_组件设计_错误基类.md">《组件设计 · 错误基类》</a>：演示统一响应解析（<span class="dp-code">{code, message, data}</span>）、错误码到用户提示的 i18n 映射与回退、上报去重限流与段位判定。
+    本原型对应当前目录 <a href="07_组件设计_错误基类.md">《组件设计 · 错误基类》</a>：演示宿主请求层的统一响应解析（<span class="dp-code">{code, message, data}</span>）、错误码到用户提示的 i18n 映射与回退、上报去重限流与段位判定（相关方法为原设计面，由宿主承载）。
   </div>
 
   <div id="app">
@@ -47,7 +47,7 @@
 
       <div class="dp-state">上报记录（根系 reportError：去重 / 限流 / 不阻断）
 {{ reports.join('\n') || '（尚无上报）' }}
-说明：code !== 0 → BaseError.fromResponse()；401（2xxxx）由请求层静默刷新、不提示；
+说明：code !== 0 → 宿主请求层构造 BaseError（fromResponse 为原设计面）；401（2xxxx）由请求层静默刷新、不提示；
 用户取消（AbortError）不计错误；展示层禁止硬编码错误文案，统一取 userMessage。</div>
     </div>
   </div>
