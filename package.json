@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "workspaces": [
-    "packages/*"
+    "frontend/packages/*"
   ],
   "scripts": {
     "core:typecheck": "npm run -w @bms/core typecheck",

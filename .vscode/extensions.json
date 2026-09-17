@@ -7,7 +7,7 @@
     "ms-python.python",
     // Python：语言服务（跳转 / 补全 / 类型检查，后端跳转依赖它）
     "ms-python.vscode-pylance",
-    // 前端 ESLint 与 Prettier（apps/desktop / apps/mobile + packages/*）
+    // 前端 ESLint 与 Prettier（frontend/apps/desktop / frontend/apps/mobile + frontend/packages/*）
     "dbaeumer.vscode-eslint",
     "esbenp.prettier-vscode",
     // md 文档中 mermaid 图形预览（见 AGENTS.md「文档要求」节）
