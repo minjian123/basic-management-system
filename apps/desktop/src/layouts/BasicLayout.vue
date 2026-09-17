@@ -14,9 +14,9 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
 import { AppLayout, SideMenu, TabsNav } from '@bms/ui-ep'
+import { usePersistedState } from '@bms/vue'
 
 import { useAppTabs } from '@/adapters/use-app-tabs'
-import { usePersistedState } from '@/components/base/persisted-state'
 
 const route = useRoute()
 const { t } = useI18n()

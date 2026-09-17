@@ -5,7 +5,8 @@
  * 由调用方捕获（`code` / `httpStatus` / `details` / `traceId`），提示经适配注入。
  */
 
-import { BaseError } from '@/base/error'
+import { BaseError } from '@bms/core'
+
 import { i18n } from '@/i18n'
 
 /** 会话失效（镜像平台 AUTH 段；后端 `/auth` 未接入时用于 401 占位） */
@@ -43,6 +44,8 @@ export interface ApiErrorInit {
 
 /** 请求层统一错误对象（对齐后端 `BizError`：码 + 提示 + 附加数据） */
 export class ApiError extends BaseError {
+  /** 用户提示（构造时经 `errorMessage` 映射，必有值） */
+  declare readonly userMessage: string
   /** HTTP 状态码（业务错误为响应状态，网络异常为 0） */
   readonly httpStatus: number
   /** 业务附加数据（后端 `data`） */
@@ -52,11 +55,8 @@ export class ApiError extends BaseError {
 
   constructor(init: ApiErrorInit) {
     const message = init.message ?? `[${init.code}]`
-    super({
-      code: init.code,
-      message,
+    super(init.code, message, {
       userMessage: errorMessage(init.code, message),
-      ...(init.details !== undefined ? { data: init.details } : {}),
       ...(init.cause !== undefined ? { cause: init.cause } : {}),
     })
     this.name = 'ApiError'

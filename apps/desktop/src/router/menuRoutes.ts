@@ -1,5 +1,5 @@
 /**
- * 菜单 → 路由注册（宿主编排）：统一经动态路由片段 `useDynamicRoutes`（前端不硬编码路由表）。
+ * 菜单 → 路由注册（宿主编排）：统一经 `@bms/vue` 的动态路由投影 `useDynamicRoutes`（前端不硬编码路由表）。
  *
  * 占位先行：菜单树来自 `stores/menu`（占位 loader 可注入）；真实菜单随阶段七 ~ 八。
  * 叶子记录挂到布局父路由（`layout`）的 children；组件名经 `resolveView` 解析，
@@ -8,12 +8,10 @@
 
 import type { RouteRecordRaw, Router } from 'vue-router'
 
-import {
-  useDynamicRoutes,
-  type MenuNode,
-  type RouteRecord,
-} from '@/components/base/dynamic-routes'
+import type { MenuNode, RouteRecord } from '@bms/core'
+import { useDynamicRoutes } from '@bms/vue'
 import { nameComponent, resolveView, type MenuItem } from '@bms/ui-ep'
+
 import PlaceholderView from '@/views/PlaceholderView.vue'
 
 export interface RegisterMenuRoutesOptions {

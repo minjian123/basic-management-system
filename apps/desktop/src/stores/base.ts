@@ -3,8 +3,10 @@
 import { defineStore } from 'pinia'
 import { ref, type Ref } from 'vue'
 
+import { useFrontendBase } from '@bms/vue'
+
+import { hostBaseOptions } from '@/adapters/host-base'
 import type { BaseEntity, BasePageQuery, PageResponse } from '@/api/types'
-import { useFrontendBase } from '@/base/useFrontendBase'
 
 /** 模块 API 接入约定：实现五个方法即可接入 createCrudStore。 */
 export interface CrudApi<Entity extends BaseEntity, Query extends BasePageQuery> {
@@ -21,7 +23,7 @@ export function createCrudStore<Entity extends BaseEntity, Query extends BasePag
 ) {
   return defineStore(storeId, () => {
     /** store 级根系组合：日志与错误上报出口（契约/数据根接根系；随 store 作用域释放）。 */
-    const base = useFrontendBase({ ns: 'store', identifier: storeId })
+    const base = useFrontendBase(hostBaseOptions({ ns: 'store', identifier: storeId }))
 
     const list = ref<Entity[]>([]) as Ref<Entity[]>
     const total = ref(0)

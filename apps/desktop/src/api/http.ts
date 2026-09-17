@@ -14,7 +14,9 @@ import axios, {
   type InternalAxiosRequestConfig,
 } from 'axios'
 
-import { useFrontendBase } from '@/base/useFrontendBase'
+import { useFrontendBase } from '@bms/vue'
+
+import { hostBaseOptions } from '@/adapters/host-base'
 import { i18n } from '@/i18n'
 
 import { getHttpAdapter } from './adapter'
@@ -39,7 +41,7 @@ export interface AppInfo {
 }
 
 /** 请求层根系实例：统一日志与错误上报出口（`request.ts` 同源复用）。 */
-const base = useFrontendBase({ ns: 'http', identifier: 'request' })
+const base = useFrontendBase(hostBaseOptions({ ns: 'http', identifier: 'request' }))
 
 /** 根路径客户端（不挂 baseURL）：/info 连通探针；导出供单元测试注入。 */
 export const appInfoClient: AxiosInstance = axios.create({ timeout: 10_000 })

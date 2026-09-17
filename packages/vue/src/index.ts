@@ -31,3 +31,8 @@ export {
   type UseFrontendBaseOptions,
   type UseFrontendBaseReturn,
 } from './bindings/useFrontendBase'
+export {
+  useDynamicRoutes,
+  type UseDynamicRoutesOptions,
+  type UseDynamicRoutesReturn,
+} from './bindings/useDynamicRoutes'

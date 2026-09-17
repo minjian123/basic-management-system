@@ -9,7 +9,7 @@ import { ApiError, AUTH_SESSION_CODE, NETWORK_ERROR_CODE } from '@/api/error'
 import { appInfoClient, fetchAppInfo, http } from '@/api/http'
 import { request } from '@/api/request'
 import { tokenManager } from '@/api/token'
-import { resetFrontendBaseConfig, setFrontendSinks, type ErrorRecord } from '@/base/BaseFrontend'
+import { resetHostSinks, setHostSinks, type HostErrorRecord } from '@/adapters/host-base'
 
 function asResponse<T>(data: T): AxiosResponse<T> {
   return { data } as unknown as AxiosResponse<T>
@@ -37,12 +37,12 @@ function requestHandlers(): InterceptorHandlers[] {
 describe('Axios 基线（Kiwi 25）', () => {
   beforeEach(() => {
     // 默认静音：错误上报断言在用例内自行注入 sink，避免控制台噪声
-    setFrontendSinks({ log: () => {}, error: () => {} })
+    setHostSinks({ log: () => {}, error: () => {} })
   })
 
   afterEach(() => {
-    setFrontendSinks({ log: undefined, error: undefined })
-    resetFrontendBaseConfig()
+    setHostSinks({ log: undefined, error: undefined })
+    resetHostSinks()
     resetHttpAdapter()
     tokenManager.clear()
     vi.restoreAllMocks()
@@ -62,8 +62,8 @@ describe('Axios 基线（Kiwi 25）', () => {
   })
 
   it('request：业务错误与 401 分支经根系上报', async () => {
-    const errors: ErrorRecord[] = []
-    setFrontendSinks({ error: (record) => errors.push(record) })
+    const errors: HostErrorRecord[] = []
+    setHostSinks({ error: (record) => errors.push(record) })
     const redirectToLogin = vi.fn()
     configureHttpAdapter({ redirectToLogin })
 

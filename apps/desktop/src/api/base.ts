@@ -5,7 +5,9 @@
  * 请求选项（`silent` / `raw` / `timeout` / `signal` / `idempotencyKey`）透传。
  */
 
-import { BaseFrontend, type FrontendBaseOptions } from '@/base/BaseFrontend'
+import { BaseFrontend, type FrontendBaseOptions } from '@bms/core'
+
+import { hostBaseOptions } from '@/adapters/host-base'
 
 import { createRequestId } from './http'
 import { request, type RequestOptions } from './request'
@@ -16,12 +18,23 @@ const WRITE_METHODS = new Set(['POST', 'PUT', 'DELETE'])
 /** BaseApi 请求选项（`RequestOptions` 别名，供模块 API 签名引用） */
 export type BaseApiRequestOptions = RequestOptions
 
+/** BaseApi 构造选项（根系选项 + 实例标识） */
+export interface BaseApiOptions extends FrontendBaseOptions {
+  /** 实例标识（日志与上报定位；缺省取模块路径前缀） */
+  identifier?: string
+}
+
 export class BaseApi extends BaseFrontend {
+  /** 实例标识（日志与错误上报定位） */
+  readonly identifier: string
   private readonly basePath: string
 
-  constructor(basePath: string, options: FrontendBaseOptions = {}) {
+  constructor(basePath: string, options: BaseApiOptions = {}) {
     // 根系接入：ns 固定 api，identifier 取模块路径前缀（日志与错误上报定位）
-    super({ ns: 'api', identifier: basePath, ...options })
+    const identifier = options.identifier ?? basePath
+    const ns = options.ns ?? 'api'
+    super({ ...hostBaseOptions({ ns, identifier }), ...options })
+    this.identifier = identifier
     this.basePath = basePath
   }
 
