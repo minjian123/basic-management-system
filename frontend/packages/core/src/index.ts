@@ -43,6 +43,21 @@ export {
   type ScrollStorage,
 } from './domain/scroll-position'
 export { resolveSize } from './domain/size'
+export {
+  createInputContext,
+  type InputContext,
+  type InputContextOptions,
+  type InputMode,
+  type ReadonlyMode,
+} from './domain/input'
+export {
+  defaultPasswordStrengthRules,
+  evaluatePasswordStrength,
+  type PasswordStrengthLevel,
+  type PasswordStrengthMissing,
+  type PasswordStrengthResult,
+  type PasswordStrengthRules,
+} from './domain/password'
 export { createConfirmService, type ConfirmService } from './domain/confirm-service'
 export { createPermissionGate, type PermissionGate } from './domain/permission-gate'
 export { createMenuSourceService, type MenuSourceService } from './domain/menu-source-service'
