@@ -58,6 +58,25 @@ export {
   type PasswordStrengthResult,
   type PasswordStrengthRules,
 } from './domain/password'
+export {
+  applyPrecision,
+  clampNumber,
+  formatNumber,
+  inNumberRange,
+  parseFormattedNumber,
+  parseNumberInput,
+  type NumberParseOptions,
+  type NumberParseResult,
+} from './domain/number'
+export {
+  filterOptions,
+  groupOptions,
+  isOptionSelectable,
+  labelOfOption,
+  normalizeOptionValue,
+  orderOptionValues,
+  reachMaxCount,
+} from './domain/option'
 export { createConfirmService, type ConfirmService } from './domain/confirm-service'
 export { createPermissionGate, type PermissionGate } from './domain/permission-gate'
 export { createMenuSourceService, type MenuSourceService } from './domain/menu-source-service'

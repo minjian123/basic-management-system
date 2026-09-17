@@ -2,11 +2,10 @@
 
 import { BaseCapability, type CapabilityOptions } from '../mechanisms/capability'
 import { observable } from '../base/observable'
+import type { OptionItem } from '../contracts/option'
 
-export interface OptionItem {
-  value: string
-  label: string
-}
+/** 选项模型统一落 `contracts/option.ts`（本处 re-export 保持既有导入路径可用） */
+export type { OptionItem } from '../contracts/option'
 
 export type OptionSourceLoader = (keyword?: string) => Promise<readonly OptionItem[]>
 

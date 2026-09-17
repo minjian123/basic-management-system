@@ -150,5 +150,86 @@ export function describeInputControlsContract(kit: ComponentContractKit): void {
       expect(view.has('.is-inline'), '半宽类').toBe(true)
       view.unmount()
     })
+
+    it('NumberInput：数值写入 / 空值 / 精度 / 越界钳制与校验 / `0` 与 `null` 区分', async () => {
+      const view = kit.mount('NumberInput', { props: { modelValue: null } })
+      const setValue = requireSetValue(view)
+      expect(view.has('.bms-number-input'), '根类名钩子').toBe(true)
+
+      await setValue('input', '12')
+      expect(lastEmitted(view, 'update:modelValue'), '数值写入').toBe(12)
+
+      await setValue('input', '')
+      await view.trigger('input', 'blur')
+      expect(lastEmitted(view, 'change'), '空值 → null').toBeNull()
+      view.unmount()
+
+      const precision = kit.mount('NumberInput', { props: { modelValue: null, precision: 1 } })
+      await requireSetValue(precision)('input', '1.2')
+      await precision.trigger('input', 'blur')
+      expect(lastEmitted(precision, 'change'), '精度保留一位').toBe(1.2)
+      precision.unmount()
+
+      const rounded = kit.mount('NumberInput', { props: { modelValue: null, precision: 0 } })
+      await requireSetValue(rounded)('input', '1.6')
+      await rounded.trigger('input', 'blur')
+      expect(lastEmitted(rounded, 'change'), '四舍五入到整数').toBe(2)
+      rounded.unmount()
+
+      const clamped = kit.mount('NumberInput', { props: { modelValue: null, min: 0, max: 10 } })
+      await requireSetValue(clamped)('input', '20')
+      await clamped.trigger('input', 'blur')
+      expect(lastEmitted(clamped, 'change'), '越界钳制').toBe(10)
+      clamped.unmount()
+
+      const loose = kit.mount('NumberInput', {
+        props: { modelValue: null, min: 0, max: 10, clamp: false },
+      })
+      await requireSetValue(loose)('input', '20')
+      await loose.trigger('input', 'blur')
+      expect(lastEmitted(loose, 'validate'), 'clamp=false 报越界').toBe(false)
+      loose.unmount()
+
+      const zero = kit.mount('NumberInput', { props: { modelValue: 0, readonly: true } })
+      expect(zero.text(), '`0` 视为已填').toContain('0')
+      zero.unmount()
+    })
+
+    it('SelectInput：只读文本 / 多选顺序 / 无效值剔除 / 上限拒绝再选', () => {
+      const options = [
+        { value: 'a', label: 'A' },
+        { value: 'b', label: 'B' },
+        { value: 'c', label: 'C' },
+      ]
+
+      const single = kit.mount('SelectInput', { props: { modelValue: 'a', options, readonly: true } })
+      expect(single.has('.bms-select-input'), '根类名钩子').toBe(true)
+      expect(single.text()).toContain('A')
+      single.unmount()
+
+      const multi = kit.mount('SelectInput', {
+        props: { modelValue: ['b', 'a'], options, multiple: true, readonly: true },
+      })
+      expect(multi.text().replace(/\s/g, ''), '多选按选项顺序').toContain('A、B')
+      multi.unmount()
+
+      const ghost = kit.mount('SelectInput', {
+        props: { modelValue: 'ghost', options, readonly: true },
+      })
+      expect(ghost.text(), '无效值剔除').not.toContain('ghost')
+      ghost.unmount()
+
+      const limited = kit.mount('SelectInput', {
+        props: { modelValue: ['a'], options, multiple: true, maxCount: 1 },
+      })
+      const vm = limited.exposed<{ selectOption?: (value: string | number) => void }>()
+      vm.selectOption?.('b')
+      const last = lastEmitted(limited, 'update:modelValue')
+      expect(
+        last === undefined || (Array.isArray(last) && !(last as unknown[]).includes('b')),
+        '达上限拒绝再选',
+      ).toBe(true)
+      limited.unmount()
+    })
   })
 }

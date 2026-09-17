@@ -8,6 +8,7 @@ import type { RegistryItemLike } from '../mechanisms/registry'
 
 export * from './confirm'
 export * from './menu-source'
+export * from './option'
 export * from './permission'
 export * from './view-resolver'
 
