@@ -203,6 +203,11 @@ frontend-check:
         - frontend/package.json
   script:
     - rm -rf frontend/node_modules && cp -a /opt/ci/frontend/node_modules frontend/node_modules
+    # S5a 切流：frontend 消费 @bms/*（源码直出）——根 node_modules 桥 + 包 symlink（packages 源码向上解析依赖）
+    - cp -a /opt/ci/frontend/node_modules .
+    - mkdir -p node_modules/@bms && ln -sfn ../../packages/core node_modules/@bms/core
+    - test -d packages/vue && ln -sfn ../../packages/vue node_modules/@bms/vue || true
+    - test -d packages/ui-ep && ln -sfn ../../packages/ui-ep node_modules/@bms/ui-ep || true
     - cd frontend && npm run lint && npm run test:cov
   coverage: '/^All files\s*\|\s*(\d+(?:\.\d+)?)/'
   artifacts:
@@ -264,6 +269,11 @@ frontend-build:
         - frontend/package.json
   script:
     - rm -rf frontend/node_modules && cp -a /opt/ci/frontend/node_modules frontend/node_modules
+    # S5a 切流：构建同样经根 node_modules 桥解析 packages 源码依赖
+    - cp -a /opt/ci/frontend/node_modules .
+    - mkdir -p node_modules/@bms && ln -sfn ../../packages/core node_modules/@bms/core
+    - test -d packages/vue && ln -sfn ../../packages/vue node_modules/@bms/vue || true
+    - test -d packages/ui-ep && ln -sfn ../../packages/ui-ep node_modules/@bms/ui-ep || true
     - cd frontend && npm run build && npm run budget
 
 frontend-mobile-build:
