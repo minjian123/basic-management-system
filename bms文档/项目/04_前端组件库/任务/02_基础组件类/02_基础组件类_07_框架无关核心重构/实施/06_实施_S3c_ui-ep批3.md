@@ -18,7 +18,7 @@
 | 块 | 内容 |
 | --- | --- |
 | 核心扩充 | `BaseTabs`：补 `find` / `has` / `activate` + **固定签排前（稳定排序，对齐旧 `sortTabs`）** |
-| 新投影 | `@bms/vue` 增 `useTabs`（核心 `BaseTabs` ↔ Vue）：受控（`tabs` / `activeKey` 传入即受控，只经 `onChange` 回写）/ 非受控（核心状态 + 通知）；返回面 `tabs` / `activeKey` / `cachedNames` / `open` / `close` / `find` / `has` / `activate`（与旧片段同构） |
+| 新投影 | `@bms/vue` 增 `useTabs`（核心 `BaseTabs` ↔ Vue）：受控（`tabs` / `activeKey` 传入即受控，只经 `onChange` 回写）/ 非受控（核心状态 + 通知）；返回面 `tabs` / `activeKey` / `cachedNames` / `open` / `close` / `find` / `has` / `activate`（与旧实现同构） |
 | 迁移（4 文件） | `TabsNav.vue`（多标签导航）/ `FormFrameTabs.vue`（双层标签）/ `types.ts`（`TabNavItem extends TabEntry`）/ `confirmClose.ts`——**注入式改造**：`configureDirtyConfirm`（宿主 / 弹窗能力接入时注入；未注入按占位语义放行），去除对旧 `@/i18n` 与 `@/utils/useConfirm` 的依赖 |
 | 用例（+11，移植） | `tests/tabs-nav.spec.ts`（7 条：固定首签 / 点击导航 / 关闭相邻 / 右键五项 / 上限淘汰 / dirty 确认 / refresh 与受控回写）+ `tests/tabs-form-frame.spec.ts`（4 条：列表固定 / 多开激活 / 关闭相邻 / dirty）——由旧工程用例移植，`useConfirm` mock 改 **注入式**、i18n 消息子集自带 |
 | 工程 | ui-ep devDeps 增 `vue-router`（用例路由场景） |
@@ -34,7 +34,7 @@
 
 | # | 问题 | 处置 |
 | --- | --- | --- |
-| 1 | ui-ep 用例加载失败（缺 `vue-router`） | devDeps 补 `vue-router@^4.6.4`（与 apps/desktop 对齐） |
+| 1 | ui-ep 用例加载失败（缺 `vue-router`） | devDeps 补 `vue-router@^4.6.4`（与 frontend/apps/desktop 对齐） |
 | 2 | 「固定首签排首位」用例失败 | 根因：**排序未随迁移**——核心 `BaseTabs` 与投影 `open` 均未做 pinned 前置 → 核心补稳定排序，投影 `open` 两路径统一 `sortTabs`（与旧 `sortTabs` 同口径） |
 | 3 | `TabsNav` 依赖旧 `@/utils/useConfirm`（弹窗能力，批 4 才迁） | `confirmClose` 改**注入式**（`configureDirtyConfirm`；未注入放行）——解耦标签与弹窗的批次依赖 |
 | 4 | ui-ep 用例 i18n 文案 | 测试自建 i18n 消息子集（`tabs.*`），不再依赖旧工程 `src/i18n` |

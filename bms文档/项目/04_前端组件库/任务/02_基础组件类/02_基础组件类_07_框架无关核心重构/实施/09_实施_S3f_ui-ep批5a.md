@@ -17,7 +17,7 @@
 
 | 块 | 内容 |
 | --- | --- |
-| 菜单状态注入点（新） | `ui-ep/src/components/menu/menuSource.ts`：`configureMenuSource(provider)` / `getMenuSource()`（可见菜单 / 展开集 / `setExpanded` / `expandByPath`）——非受控模式消费；**未注入 = 空菜单**（占位保真，对齐旧 store「未注入 loader 置空清单」）；受控模式（传 `menus` 数组）不依赖注入 |
+| 菜单状态注入点（新） | `frontend/packages/ui-ep/src/components/menu/menuSource.ts`：`configureMenuSource(provider)` / `getMenuSource()`（可见菜单 / 展开集 / `setExpanded` / `expandByPath`）——非受控模式消费；**未注入 = 空菜单**（占位保真，对齐旧 store「未注入 loader 置空清单」）；受控模式（传 `menus` 数组）不依赖注入 |
 | 纯函数随迁 | `sortVisible` 从旧 store 移入 `menu/types.ts`（与 `filterMenuTree` / `findAncestorKeys` / `menuKey` 同处，去除 pinia 依赖） |
 | 迁移（2 件） | `MenuNode`（递归；EP `ElSubMenu` / `ElMenuItem` 显式导入）、`SideMenu`（`@/stores/menu` → 注入点；`getCurrentInstance().$router` → `useRouter()`；`EmptyState` 复用迁移件）；搜索 / 手风琴 / 外链 / 高亮自动展开语义保持 |
 | 用例（+4） | `tests/menu.spec.ts`：受控渲染（hidden 过滤 / sort 排序 / 子菜单保留与顺序）、搜索（父链命中 / 无匹配空态 / 折叠隐藏搜索框）、导航（`navigate` + `router.push` / 外链 `window.open` 且不导航）、非受控（注入菜单渲染 + `expandByPath` 回写 / 未注入为空 + 空态） |

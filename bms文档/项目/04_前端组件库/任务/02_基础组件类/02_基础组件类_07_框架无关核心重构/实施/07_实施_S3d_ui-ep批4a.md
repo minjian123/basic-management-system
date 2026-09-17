@@ -34,7 +34,7 @@
 
 | # | 问题 | 处置 |
 | --- | --- | --- |
-| 1 | `PermButton` 仍 import 旧 `@/base/useComponentBase`（迁移遗漏） | 改源 `@bms/vue`（typecheck 捕获） |
+| 1 | `PermButton` 仍 import 旧基座组合式（迁移遗漏） | 改源 `@bms/vue`（typecheck 捕获） |
 | 2 | `ErrorPage` 缺省「返回首页」依赖 `appContext.$router`（组件实例桥） | 改 `useRouter()`（Vue Router 组合式；绑定层合理依赖）；无路由环境回退 `location.assign`（保真） |
 | 3 | 权限判定原依赖 pinia 权限 store（应用态） | ui-ep 提供**模块级注入点**（`configurePermissionChecker`）；宿主装配时注入（占位期空集语义 = 受控按钮不显示，与旧一致） |
 

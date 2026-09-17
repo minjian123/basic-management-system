@@ -19,10 +19,10 @@
 
 | 块 | 内容 |
 | --- | --- |
-| 根依赖 | `package.json` `devDependencies` 统一装：`@eslint/js` / `eslint` / `eslint-plugin-vue` / `vue-eslint-parser` / `typescript-eslint` / `@vue/eslint-config-prettier` / `prettier`（与 `apps/*` 同版本口径）；根锁文件更新 |
-| 各包配置 | `packages/{core,vue,ui-ep,ui-vant}/eslint.config.js`：core 为 TS 规则集；三 Vue 包叠加 `eslint-plugin-vue`（flat/recommended）+ TS parser 于 SFC + `skip-formatting`（格式化规则交 Prettier，不在 ESLint 重复）；忽略 `node_modules` / `coverage` |
+| 根依赖 | `package.json` `devDependencies` 统一装：`@eslint/js` / `eslint` / `eslint-plugin-vue` / `vue-eslint-parser` / `typescript-eslint` / `@vue/eslint-config-prettier` / `prettier`（与 `frontend/apps/*` 同版本口径）；根锁文件更新 |
+| 各包配置 | `frontend/packages/{core,vue,ui-ep,ui-vant}/eslint.config.js`：core 为 TS 规则集；三 Vue 包叠加 `eslint-plugin-vue`（flat/recommended）+ TS parser 于 SFC + `skip-formatting`（格式化规则交 Prettier，不在 ESLint 重复）；忽略 `node_modules` / `coverage` |
 | 脚本 | 各包 `"lint": "eslint . --max-warnings 0"`；根 `lint`（四包聚合）与各包 `check`（typecheck + lint + test）串联；CI `core-check` 经 `npm run check` 自动覆盖 |
-| 修复 | `packages/core/tests/guard-core-framework-agnostic.spec.ts`：护栏正则字符类内多余转义 `[\/]` → `[/]`（`no-useless-escape`） |
+| 修复 | `frontend/packages/core/tests/guard-core-framework-agnostic.spec.ts`：护栏正则字符类内多余转义 `[\/]` → `[/]`（`no-useless-escape`） |
 | 规范 | 《前端开发规范》§2「工程约定」新增「包级门禁（S7 工程化批次）」条 |
 
 ## 3. 验证结果 <a id="verify"></a>
@@ -36,7 +36,7 @@
 
 | # | 问题 | 处置 |
 | --- | --- | --- |
-| 1 | 包配置首跑产生 193 条告警（0 error），多为 `vue/max-attributes-per-line` / `vue/singleline-html-element-content-newline` 等格式化类规则 | 与 `apps/*` 同口径引入 `@vue/eslint-config-prettier/skip-formatting`（格式化交 Prettier）；重跑零告警 |
+| 1 | 包配置首跑产生 193 条告警（0 error），多为 `vue/max-attributes-per-line` / `vue/singleline-html-element-content-newline` 等格式化类规则 | 与 `frontend/apps/*` 同口径引入 `@vue/eslint-config-prettier/skip-formatting`（格式化交 Prettier）；重跑零告警 |
 | 2 | core 护栏用例正则字符类 `[\/]` 触发 `no-useless-escape`（错误级） | 改 `[/]`（语义等价） |
 
 ## 5. 偏差与遗留 <a id="deviation"></a>

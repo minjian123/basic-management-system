@@ -6,14 +6,14 @@
 
 ## 1. 概述 <a id="overview"></a>
 
-本设计定义专项 `02_07` S4 阶段（`ui-vant` 插件与移动端收口）的目标、分批、契约与落点：建立 `packages/ui-vant` 移动端实现插件（9 件：8 容器件 + `PermButton`），把 `frontend-mobile/` 收口为 `apps/mobile/` 宿主（全量切 `@bms/*`、删除旧基座与片段层），并以「同接口多实现 + 契约测试同一套断言」落定双端一致性。上游依据见《[架构设计 · 前端组件体系](../../../../../../设计/架构设计/05_架构设计_前端组件体系.md)》「框架无关核心与插件架构」节；对应需求 [02-3](../../../../需求/02_需求_基础组件类.md#r02-3)（片段机制与预置片段）与域 02 各层需求的框架无关口径重做。
+本设计定义专项 `02_07` S4 阶段（`ui-vant` 插件与移动端收口）的目标、分批、契约与落点：建立 `frontend/packages/ui-vant` 移动端实现插件（9 件：8 容器件 + `PermButton`），把移动端工程收口为 `frontend/apps/mobile/` 宿主（全量切 `@bms/*`、删除旧基座与旧能力层），并以「同接口多实现 + 契约测试同一套断言」落定双端一致性。上游依据见《[架构设计 · 前端组件体系](../../../../../../设计/架构设计/05_架构设计_前端组件体系.md)》「框架无关核心与插件架构」节；对应需求 [02-3](../../../../需求/02_需求_基础组件类.md#r02-3)（能力机制与预置能力类）与域 02 各层需求的框架无关口径重做。
 
 目标依赖方向：
 
 ```mermaid
 flowchart LR
-    M["apps/mobile 宿主"] --> V["@bms/ui-vant 移动端插件"]
-    D["apps/desktop 宿主"] --> E["@bms/ui-ep PC 插件"]
+    M["frontend/apps/mobile 宿主"] --> V["@bms/ui-vant 移动端插件"]
+    D["frontend/apps/desktop 宿主"] --> E["@bms/ui-ep PC 插件"]
     V --> B["@bms/vue 绑定插件"]
     E --> B
     B --> C["@bms/core 框架无关核心"]
@@ -24,8 +24,8 @@ flowchart LR
 | 批 | 内容 | 关键产物 |
 | --- | --- | --- |
 | S4a | 共享逻辑与契约机制：容器共享纯逻辑下沉 `@bms/core`、注入契约与共享工厂、`@bms/core/testing` 契约用例工厂、`useVirtualRange` 迁 `@bms/vue`、`ui-ep` 改造引用 | core `domain/` + `contracts/` + `testing/`；`@bms/vue` 新投影；ui-ep 无本地产权逻辑 |
-| S4b | `ui-vant` 插件：包骨架 + 9 件迁入 + 注入实现 + 组件契约工厂 + CI / 镜像扩展 | `packages/ui-vant/`；`core-check` 覆盖 ui-vant；`ci-frontend` 镜像根依赖 |
-| S4c | 移动端宿主收口与结构迁移：`frontend-mobile/` → `apps/mobile/`、宿主全量切流、旧件删除、`@bms/vue` 两个新投影、审计重跑与文档回写 | `apps/mobile/`；旧层删除；台账 / 审计 / 清单回写 |
+| S4b | `ui-vant` 插件：包骨架 + 9 件迁入 + 注入实现 + 组件契约工厂 + CI / 镜像扩展 | `frontend/packages/ui-vant/`；`core-check` 覆盖 ui-vant；`ci-frontend` 镜像根依赖 |
+| S4c | 移动端宿主收口与结构迁移：移动端归位 `frontend/apps/mobile/`、宿主全量切流、旧件删除、`@bms/vue` 两个新投影、审计重跑与文档回写 | `frontend/apps/mobile/`；旧层删除；台账 / 审计 / 清单回写 |
 
 ## 2. 确认口径（2026-09-17 启动确认） <a id="decisions"></a>
 
@@ -35,15 +35,15 @@ flowchart LR
 | 2 | 容器共享逻辑 | 纯 TS 下沉 `@bms/core`；`useVirtualRange` 投影移入 `@bms/vue`；`ui-ep` 同步改造引用 |
 | 3 | 注入点归属 | 契约类型在 core（纯 TS）；注入存储 + `configureXxx` + 默认实现留各插件 |
 | 4 | 契约测试 | core 出「契约用例工厂」，`ui-ep` / `ui-vant` 各传 adapter 跑同一套断言 |
-| 5 | 结构迁移 | 随 S4 同步 `frontend-mobile/` → `apps/mobile/`（镜像路径 `/opt/ci/frontend-mobile`、job 名 `frontend-mobile-check` 保持） |
-| 6 | 宿主收口 | 全量：宿主切 `@bms/*`；旧 `src/base` + 31 片段 + 9 旧件 + 旧 spec 删除；Kiwi 对账 |
+| 5 | 结构迁移 | 随 S4 同步移动端归位 `frontend/apps/mobile/`（镜像路径 `/opt/ci/frontend-mobile`、job 名 `frontend-mobile-check` 保持） |
+| 6 | 宿主收口 | 全量：宿主切 `@bms/*`；旧基座层 + 31 能力 + 9 旧件 + 旧 spec 删除；Kiwi 对账 |
 | 7 | CI job | 并入 `core-check`（根 `check` 加 `ui-vant:check`） |
 | 8 | CI 依赖 | 扩展 `ci-frontend` 镜像（workspace 根 `npm ci`，含 vant）；`build-base.sh` 哈希输入加根锁文件 |
 | 9 | 缺失件 | 严格同构；反馈件等另立「移动端缺口清单」批次 |
 | 10 | Vant 深度 | 契约驱动按需用；结构件保持 Vue + CSS |
 | 11 | 执行粒度 | 分 3 批（S4a / S4b / S4c）+ 实施记录 + 分批提交 |
 | 12 | Kiwi | 随 S4 对账台账（`test/test文档/用例/Kiwi用例台账.md`）；平台置 DISABLED 清单交用户执行 |
-| 13 | 纯逻辑落点 | `packages/core/src/domain/`（新建，架构预留层） |
+| 13 | 纯逻辑落点 | `frontend/packages/core/src/domain/`（新建，架构预留层） |
 | 14 | 契约工厂入口 | `@bms/core/testing` 子路径导出（仅测试消费，运行时入口不引入 vitest） |
 | 15 | 注入实现层次 | core 附共享工厂（`createConfirmService` / `createPermissionGate` 等，插件各建实例） |
 | 16 | 注入契约迁移范围 | **四个全迁**（`confirm` / `permission` / `menuSource` / `viewResolver`）；`viewResolver` 用泛型 `TView` 去掉 Vue 类型 |
@@ -52,7 +52,7 @@ flowchart LR
 ## 3. 目标结构与交付物 <a id="tree"></a>
 
 ```text
-packages/core/
+frontend/packages/core/
 ├── src/
 │   ├── contracts/
 │   │   ├── confirm.ts             # 新增：确认服务契约类型（ConfirmOptions / ConfirmHandler）
@@ -75,12 +75,12 @@ packages/core/
 │   └── components.ts              # 组件契约工厂（S4b：容器件 / 权限按钮）
 └── package.json                   # 扩展：exports 加 "./testing"
 
-packages/vue/src/bindings/
+frontend/packages/vue/src/bindings/
 ├── useVirtualRange.ts             # 迁入：可视区投影（API 与旧件同构）
 ├── useAccess.ts                   # 新增：权限上下文投影（S4c 宿主用）
 └── useFrontendBase.ts             # 新增：根系投影（S4c 宿主用）
 
-packages/ui-vant/                  # 新增：移动端实现插件（Vant）
+frontend/packages/ui-vant/         # 新增：移动端实现插件（Vant）
 ├── src/
 │   ├── components/
 │   │   ├── common/PermButton.vue
@@ -92,20 +92,20 @@ packages/ui-vant/                  # 新增：移动端实现插件（Vant）
 ├── env.d.ts · vitest.config.ts · tsconfig.json · package.json
 └── README.md（按需）
 
-apps/mobile/                       # frontend-mobile/ 经 git mv 迁入（宿主装配）
+frontend/apps/mobile/              # 宿主装配（git 历史保留）
 ```
 
-删除清单（S4c，均在 `apps/mobile/`；实施修正见实施记录 19 §5）：
+删除清单（S4c，均在 `frontend/apps/mobile/`；实施修正见实施记录 19 §5）：
 
 ```text
-src/base/                          # 旧基座层 12 文件（切 @bms/core / @bms/vue）
-src/components/base/               # 31 片段 + fragments.ts / index.ts + 4 域包装件（mobile 无消费）
-src/components/container/          # 8 件 + scrollPosition / size / useVirtualRange / types
-src/components/common/PermButton.vue
+旧基座层                           # 12 文件（切 @bms/core / @bms/vue）
+旧能力层                           # 31 能力 + 清单 / 出口文件 + 4 域包装件（mobile 无消费）
+旧容器组件层                       # 8 件 + scrollPosition / size / useVirtualRange / types
+旧权限按钮 PermButton.vue
 tests/ 旧层 spec                   # 28 个（base-* 14 / guard-* 4 / format-registry 1 / container-* 9，容器件迁 ui-vant）随旧层删除
 ```
 
-> 实施修正（2026-09-17）：`src/utils/perm.ts` **保留**（与 `apps/desktop` 同口径的宿主侧 `checkPerm` 包装 + `canAccess`，判定源切 `@bms/ui-vant`）；`permission` store 保留 host 侧 `filterRoutes` 实现（保 Kiwi 720 第 ⑮ 条覆盖）。
+> 实施修正（2026-09-17）：`src/utils/perm.ts` **保留**（与 `frontend/apps/desktop` 同口径的宿主侧 `checkPerm` 包装 + `canAccess`，判定源切 `@bms/ui-vant`）；`permission` store 保留 host 侧 `filterRoutes` 实现（保 Kiwi 720 第 ⑮ 条覆盖）。
 
 ## 4. 分批设计 <a id="batches"></a>
 
@@ -135,8 +135,8 @@ tests/ 旧层 spec                   # 28 个（base-* 14 / guard-* 4 / format-r
 
 | 块 | 内容 |
 | --- | --- |
-| 结构迁移 | `git mv frontend-mobile apps/mobile`（git 历史保留）；vite / tsconfig / scripts / CI / 文档全链引用更新；镜像内路径 `/opt/ci/frontend-mobile` 与 job 名保持 |
-| 宿主切流 | `vite.config.ts` 加 `@bms/*` alias（同 `apps/desktop` 口径）+ 手动分包；`main.ts` 接线；`src/adapters/ui-bootstrap.ts`（`configurePermissionChecker` ← 权限 store）；stores / api / directives / views / dev 页切 `@bms/*` |
+| 结构迁移 | 移动端归位 `frontend/apps/mobile/`（git 历史保留）；vite / tsconfig / scripts / CI / 文档全链引用更新；镜像内路径 `/opt/ci/frontend-mobile` 与 job 名保持 |
+| 宿主切流 | `vite.config.ts` 加 `@bms/*` alias（同 `frontend/apps/desktop` 口径）+ 手动分包；`main.ts` 接线；`src/adapters/ui-bootstrap.ts`（`configurePermissionChecker` ← 权限 store）；stores / api / directives / views / dev 页切 `@bms/*` |
 | `@bms/vue` 补投影 | `useAccess`（core `BaseAccess` ↔ 响应式；`codes` / `has` / `hasAny` / `hasAll`）、`useFrontendBase`（core `BaseFrontend` ↔ 组合式；`log` / `reportError` / `getConfig` / `dispose`） |
 | 旧件删除 | 删除清单见第 3 节；旧 spec 随层删除；`container-*` 用例已随 S4b 迁入 `ui-vant/tests/` |
 | 宿主测试改造 | 保留并改造 `request` / `http` / `home` / `directive-perm` / `permission` 等宿主用例；覆盖率不低于现状 |
@@ -144,9 +144,9 @@ tests/ 旧层 spec                   # 28 个（base-* 14 / guard-* 4 / format-r
 
 ## 5. 契约设计 <a id="contract"></a>
 
-### 5.1 `packages/core/src/domain/` <a id="domain"></a>
+### 5.1 `frontend/packages/core/src/domain/` <a id="domain"></a>
 
-**`scroll-position.ts`**（自 `ui-ep/components/container/scrollPosition.ts` 照迁，行为不变）
+**`scroll-position.ts`**（自原容器件 `scrollPosition.ts` 照迁，行为不变）
 
 ```ts
 export interface ScrollStorage { getItem(key: string): string | null; setItem(key: string, value: string): void; removeItem(key: string): void }
@@ -213,7 +213,7 @@ export function createViewResolverService<TView = unknown>(): ViewResolverServic
 
 语义：未覆盖 → 默认实现在场（`confirm`）/ 未注入语义（`permission` 空码放行、非空拒绝；`menuSource` / `viewResolver` 未注入返回空 / `null`）；覆盖传 `undefined` 即恢复；覆盖实现的 rejection 原样传播（默认实现自捕获取消）。
 
-### 5.2 `packages/core/src/contracts/` <a id="contracts"></a>
+### 5.2 `frontend/packages/core/src/contracts/` <a id="contracts"></a>
 
 ```ts
 // confirm.ts
@@ -281,7 +281,7 @@ export function describePermButtonContract(kit: ComponentContractKit): void
 - `confirm`：覆盖生效（收到完整 `options`、`true` / `false` 透传、reject 原样传播）；多次覆盖取最后一次；`configure(undefined)` 后覆盖探针不再被调用（真实默认 UI 不触发，默认实现行为由各插件自测）；
 - `permission`：未注入语义（空码放行 / 非空拒绝）；注入后 `string` 归一为单元素数组、`mode` 透传、返回值透传；`configure(undefined)` 回未注入语义；
 - 组件（S4b）：结构性不变量（根类名钩子、插槽渲染、关键 props 语义）+ 关键交互（懒加载降级、加载态、虚拟切片、全屏切换、权限按钮显隐）；细粒度行为保留在各插件自有 spec；
-- 契约套件属「实现一致性护栏」（类比 `guard-*.spec.ts`），向 Kiwi 平台不单独登记编号；组件行为用例沿用既有 Kiwi 编号（mobile 侧 `742 ~ 750` 等随迁）。
+- 契约套件属「实现一致性护栏」（类比核心护栏与契约用例），向 Kiwi 平台不单独登记编号；组件行为用例沿用既有 Kiwi 编号（mobile 侧 `742 ~ 750` 等随迁）。
 
 ### 5.4 `@bms/vue` 绑定 <a id="vue"></a>
 
@@ -348,19 +348,19 @@ export function useFrontendBase(options?: UseFrontendBaseOptions): UseFrontendBa
 
 | 批 | 用例 | 覆盖 |
 | --- | --- | --- |
-| S4a | `core/tests/domain-*.spec.ts` 新增 + 契约工厂探针自测 | 滚动位置存储（内存 / session / 非法值）、`resolveSize`、虚拟区计算（定高 / 动态 / 二分 / 空列表）、四个共享工厂（覆盖 / 恢复 / 透传） |
-| S4a | `core/tests/contracts-*.spec.ts`（工厂自身）+ `ui-ep/tests/contracts.spec.ts`（跑工厂） | confirm / permission 契约对 `ui-ep` 实现全绿 |
-| S4a | `vue/tests`（`useVirtualRange` 迁移 2 条）+ ui-ep 既有 `container-*.spec.ts` | 投影行为与旧件一致（原断言不变） |
-| S4b | `ui-vant/tests/`：随迁 mobile `container-*.spec.ts`（Kiwi 742 ~ 750 等）+ 契约套件执行 | 9 件行为 + 双端契约一致 |
-| S4c | `apps/mobile` 宿主用例改造（request / http / home / directive-perm / permission 等） | 宿主切流无回归；覆盖率不低于现状（语句 89.17% / 分支 79.88%） |
+| S4a | `frontend/packages/core/tests/domain-*.spec.ts` 新增 + 契约工厂探针自测 | 滚动位置存储（内存 / session / 非法值）、`resolveSize`、虚拟区计算（定高 / 动态 / 二分 / 空列表）、四个共享工厂（覆盖 / 恢复 / 透传） |
+| S4a | `frontend/packages/core/tests/contracts/*.spec.ts`（工厂自身）+ `frontend/packages/ui-ep/tests/contracts.spec.ts`（跑工厂） | confirm / permission 契约对 `ui-ep` 实现全绿 |
+| S4a | `frontend/packages/vue/tests`（`useVirtualRange` 迁移 2 条）+ `frontend/packages/ui-ep/tests/container-*.spec.ts` | 投影行为与旧件一致（原断言不变） |
+| S4b | `frontend/packages/ui-vant/tests/`：随迁 mobile `container-*.spec.ts`（Kiwi 742 ~ 750 等）+ 契约套件执行 | 9 件行为 + 双端契约一致 |
+| S4c | `frontend/apps/mobile` 宿主用例改造（request / http / home / directive-perm / permission 等） | 宿主切流无回归；覆盖率不低于现状（语句 89.17% / 分支 79.88%） |
 
 - jsdom 缺口沿用现状处置：无 `ResizeObserver` / 无真实布局 / 无 Fullscreen API → stub 或降级路径；
-- 契约与护栏用例不登记 Kiwi；需求行为用例编号以平台自增为准，mobile 侧随迁后与 apps 侧做双端对账。
+- 契约与护栏用例不登记 Kiwi；需求行为用例编号以平台自增为准，mobile 侧随迁后与 desktop 侧做双端对账。
 
 ## 7. 实施步骤 <a id="steps"></a>
 
 1. **S4a**：core `domain/`（纯逻辑 + 共享工厂）→ `core/testing`（契约工厂）→ `@bms/vue` 投影迁入 → `ui-ep` 改造引用与用例 → `npm run check` 全绿 → 实施记录 17；回写《前端基类清单》相关条目（core 层新增领域 / 契约）。
-2. **S4b**：`packages/ui-vant` 骨架 → 9 件迁入 + 注入实现 → 组件契约工厂（core/testing/components + vue/testing adapter）→ 用例迁入 → 根 `check` / CI / 镜像与锁文件更新 → 实施记录 18。
+2. **S4b**：`frontend/packages/ui-vant` 骨架 → 9 件迁入 + 注入实现 → 组件契约工厂（core/testing/components + vue/testing adapter）→ 用例迁入 → 根 `check` / CI / 镜像与锁文件更新 → 实施记录 18。
 3. **S4c**：`git mv` 结构迁移 + 全链引用 → 宿主切流（含 `@bms/vue` 两投影）→ 旧件与旧 spec 删除 → 宿主用例改造 → 台账对账 / 审计重跑 / 文档回写（清单 / 计划 / 任务 / 规范 / 会话交接）→ 实施记录 19。
 4. 提交分笔：代码（`feat` / `refactor`）与文档（`docs`）分开；推送按两级指令独立确认。
 
@@ -368,18 +368,18 @@ export function useFrontendBase(options?: UseFrontendBaseOptions): UseFrontendBa
 
 | 完成标准（任务 §3 与 S4 行） | 本设计对应 |
 | --- | --- |
-| `packages/ui-vant` 插件就位且可替换 | S4b：9 件同契约实现 + 注入点 + 出口；契约套件对 ui-ep / ui-vant 同一套断言全绿 |
-| 移动端宿主接入（原 `frontend-mobile` 可复用部分迁移） | S4c：`apps/mobile` 全量切 `@bms/*`；旧件删除 |
+| `frontend/packages/ui-vant` 插件就位且可替换 | S4b：9 件同契约实现 + 注入点 + 出口；契约套件对 ui-ep / ui-vant 同一套断言全绿 |
+| 移动端宿主接入（移动端工程可复用部分迁移） | S4c：`frontend/apps/mobile` 全量切 `@bms/*`；旧件删除 |
 | 契约测试同一套断言 | S4a：`@bms/core/testing` 工厂；S4b：双实现执行 |
 | 工程门禁全通过 | S4a / S4b / S4c：`vue-tsc` / ESLint / Vitest / 构建 / 预算；CI `core-check` / `frontend-mobile-check` / `frontend-mobile-build` 全绿 |
-| 审计重跑通过 | S4c：基类与片段合规审计（mobile 侧口径）重跑 |
+| 审计重跑通过 | S4c：基类与能力合规审计（mobile 侧口径）重跑 |
 | 文档回写 | S4c：清单 / 计划 / 任务 / 会话交接 / Kiwi 台账对账 |
 
 ## 9. 边界与开放项 <a id="boundary"></a>
 
 | # | 项 | 处置 |
 | --- | --- | --- |
-| 1 | `apps/desktop` 旧基座层与片段层（`src/base`、`src/components/base`、4 域包装件）仍在消费 | 本批不动（S4 口径为移动端收口）；建议另立收口批次按 mobile 同口径处置，登记为后续遗留 |
+| 1 | `frontend/apps/desktop` 旧基座层与能力层（4 域包装件）仍在消费 | 本批不动（S4 口径为移动端收口）；建议另立收口批次按 mobile 同口径处置，登记为后续遗留 |
 | 2 | `menuSource` / `viewResolver` 契约迁 core 后仅 desktop 消费 | mobile 无侧边菜单 / 标签需求；未来出现需求直接消费 core 契约，不重复建 |
 | 3 | 移动端缺失件（`EmptyState` / `LoadingMask` / `SkeletonBlock` / `ErrorPage` 等） | 另立「移动端缺口清单」批次处理（本次确认严格同构） |
 | 4 | Kiwi 平台侧旧件用例置 `DISABLED` | 随 S4c 输出执行清单，平台操作由用户执行 |
@@ -396,10 +396,10 @@ export function useFrontendBase(options?: UseFrontendBaseOptions): UseFrontendBa
 | 3 | 注入点归属 | 契约在 core、实现在插件；core 附共享工厂 | 启动确认（用户）+ 落点确认（用户） |
 | 4 | 契约测试组织形式 | core 契约用例工厂（`@bms/core/testing` 子路径） | 启动确认（用户） |
 | 5 | 结构迁移时机 | 随 S4 同步（不改镜像路径与 job 名） | 启动确认（用户） |
-| 6 | 宿主收口范围 | 全量（含旧基座 / 片段层删除与 KiB 台账对账） | 启动确认（用户） |
+| 6 | 宿主收口范围 | 全量（含旧基座 / 能力层删除与 KiB 台账对账） | 启动确认（用户） |
 | 7 | CI 结构 | 并入 `core-check`；镜像根依赖扩展 | 启动确认（用户） |
 | 8 | 注入契约四全迁 | `viewResolver` 泛型 `TView` 去 Vue，`ui-ep` 专化为 `Component` | 设计确认（用户） |
 | 9 | `@bms/vue` 新投影 | `useAccess` / `useFrontendBase` 最小面 | 设计确认（用户） |
-| 10 | desktop 片段层不动 | S4 只收口 mobile；desktop 收口另立遗留 | 设计取舍（边界开放项 1） |
+| 10 | desktop 旧能力层不动 | S4 只收口 mobile；desktop 收口另立遗留 | 设计取舍（边界开放项 1） |
 
 > 本文档依《[文档生成规范](../../../../../../规范/文档生成规范.md)》编写
