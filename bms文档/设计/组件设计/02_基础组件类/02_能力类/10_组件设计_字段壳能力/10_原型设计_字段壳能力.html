@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 字段壳（BaseFieldShell）</title>
+<title>原型 · 字段壳</title>
 <link rel="stylesheet" href="../../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../../原型设计/资源/原型样式.css">
 <style>
@@ -37,7 +37,7 @@
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="10_组件设计_字段壳能力.md">《组件设计 · 字段壳》</a>：演示 label/必填星号（含 <span class="dp-code">'auto'</span> 推导）/帮助 tooltip/错误位/extra/栅格跨度/标签位置，以及只读回显切换（纯文本 <span class="dp-code">text</span> / 禁用控件 <span class="dp-code">disabled</span> / <span class="dp-code">auto</span>）。
+    本原型对应当前目录 <a href="10_组件设计_字段壳能力.md">《组件设计 · 字段壳》</a>：演示 标签/必填星号（含自动推导）/帮助提示/错误位/额外说明/栅格跨度/标签位置，以及只读回显切换（纯文本 <span class="dp-code">text</span> / 禁用控件 <span class="dp-code">disabled</span> / 自动 <span class="dp-code">auto</span>）。
   </div>
 
   <div id="app">
@@ -51,7 +51,7 @@
         </el-radio-group>
         <el-switch v-model="labelTop" size="small" active-text="标签顶部（窄容器）" />
         <el-switch v-model="showErr" size="small" active-text="展示错误" />
-        <el-switch v-model="hidden" size="small" active-text="visible=false（整壳不渲染）" />
+        <el-switch v-model="hidden" size="small" active-text="不可见（整壳不渲染）" />
       </div>
 
       <div class="grid">
@@ -82,7 +82,7 @@
 
       <div class="dp-state" style="margin-top:14px">只读回显方式 resolved = {{ resolvedMode }}（auto 按字段类型：文本类用纯文本，复杂类型可保留 disabled 控件）
 配置：viewMode={{ viewMode }}　readonlyMode={{ readonlyMode }}　labelTop={{ labelTop }}　visible={{ !hidden }}
-必填星号来源：字段属性 required 或校验规则含必填（'auto' 统一推导，避免两处不一致）</div>
+必填星号来源：字段必填属性或校验规则（自动统一推导，避免两处不一致）</div>
     </div>
   </div>
 </div>
@@ -93,7 +93,7 @@
 <script>
   var { createApp, ref, reactive, computed } = Vue;
 
-  var BaseFieldShell = {
+  var FieldWrapper = {
     props: {
       label: String, required: { default: false }, help: { default: '' }, extra: { default: '' },
       error: { default: '' }, span: { default: 1 }, readonly: Boolean, readonlyMode: { default: 'auto' },
@@ -115,7 +115,7 @@
   };
 
   var app = createApp({
-    components: { BaseFieldShell: BaseFieldShell },
+    components: { FieldWrapper: FieldWrapper },
     setup: function () {
       var viewMode = ref(false);
       var readonlyMode = ref('auto');
