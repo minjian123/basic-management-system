@@ -106,6 +106,10 @@ export default {
       show: '显示',
       hide: '隐藏',
     },
+    maxCount: '最多可选 {max} 项',
+    outOfRange: '数值超出允许范围',
+    selectPlaceholder: '请选择',
+    searchPlaceholder: '搜索',
   },
   // 错误码文案：error.{code}（最小集；完整错误码总表随后端接入补齐）
   error: {

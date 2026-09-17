@@ -14,8 +14,8 @@ import { useComponentBase, useInput } from '@bms/vue'
 
 const props = withDefaults(
   defineProps<{
-    /** 受控值（文本 / 数字 / 布尔 / 空） */
-    modelValue?: string | number | boolean | null
+    /** 受控值（文本 / 数字 / 布尔 / 多值数组 / 空） */
+    modelValue?: string | number | boolean | Array<string | number> | null
     /** 字段标签（空则不渲染标签元素） */
     label?: string
     /** 必填（星号 + 校验） */
@@ -40,6 +40,8 @@ const props = withDefaults(
     mask?: boolean
     /** 显示明文（配合 `mask`） */
     plain?: boolean
+    /** 只读文本覆盖（缺省用域值直出；数字框千分位 / 下拉框已选文本等场景传） */
+    displayText?: string
   }>(),
   {
     modelValue: null,
@@ -57,6 +59,7 @@ const props = withDefaults(
     fieldKey: '',
     mask: false,
     plain: false,
+    displayText: undefined,
   },
 )
 
@@ -128,9 +131,9 @@ const errorText = computed(() => {
   return props.error
 })
 
-/** 只读文本（空值占位；`mask` 且非 `plain` 时脱敏） */
-const displayText = computed(() => {
-  const raw = input.instance.displayText()
+/** 只读文本（外部覆盖优先；空值占位；`mask` 且非 `plain` 时脱敏） */
+const readonlyText = computed(() => {
+  const raw = props.displayText !== undefined ? props.displayText : input.instance.displayText()
   if (raw === '') {
     return t('input.emptyText')
   }
@@ -198,6 +201,16 @@ defineExpose({
   get error() {
     return errorText.value
   },
+  /** 写域（件层经 `shellRef` 调用；禁用 / 只读时域拒绝写入） */
+  setValue: (value: unknown) => {
+    input.setValue(value)
+  },
+  /** 清空（`clearable` 为真时） */
+  clear: () => {
+    input.clear()
+  },
+  /** 归一 + 写回 + 失焦 */
+  commit: () => input.commit(),
 })
 </script>
 
@@ -209,7 +222,7 @@ defineExpose({
     </label>
     <div :class="base.nsClass('input-control')">
       <span v-if="mode === 'text'" :class="base.nsClass('input-text')" data-testid="input-text">
-        {{ displayText }}
+        {{ readonlyText }}
       </span>
       <slot v-else v-bind="slotProps" />
     </div>

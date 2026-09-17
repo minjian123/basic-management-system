@@ -106,6 +106,10 @@ export default {
       show: 'Show',
       hide: 'Hide',
     },
+    maxCount: 'Up to {max} selections',
+    outOfRange: 'Value out of range',
+    selectPlaceholder: 'Please select',
+    searchPlaceholder: 'Search',
   },
   // 错误码文案：error.{code}（最小集；完整错误码总表随后端接入补齐）
   error: {

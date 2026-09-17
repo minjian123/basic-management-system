@@ -35,6 +35,10 @@ export default {
       show: 'Show',
       hide: 'Hide',
     },
+    maxCount: 'Up to {max} selections',
+    outOfRange: 'Value out of range',
+    selectPlaceholder: 'Please select',
+    searchPlaceholder: 'Search',
   },
   // 反馈件文案（03-2-1；与 PC 同键）
   feedback: {
