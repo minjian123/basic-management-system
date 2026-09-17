@@ -77,11 +77,11 @@
 
       <h3 id="relation">1.2 与 PC 端的关系</h3>
       <table>
-        <tr><th>维度</th><th>PC 管理端（frontend）</th><th>移动端（frontend-mobile）</th></tr>
+        <tr><th>维度</th><th>PC 管理端（apps/desktop）</th><th>移动端（frontend-mobile）</th></tr>
         <tr><td>导航模式</td><td>左侧树状导航 + 多 Tab 页</td><td>底部 TabBar + 页面栈（单页展开）</td></tr>
         <tr><td>页面容器</td><td>FormFrame（列表/详情多 Tab）</td><td>单页表单（列表 → 详情页跳转）</td></tr>
         <tr><td>权限体系</td><td>动态菜单 + v-perm + 字段权限</td><td>同一权限体系，按需渲染入口与按钮</td></tr>
-        <tr><td>工程</td><td>frontend（独立工程）</td><td>frontend-mobile（独立工程，npm 各自管理）</td></tr>
+        <tr><td>工程</td><td>apps/desktop（独立工程）</td><td>frontend-mobile（独立工程，npm 各自管理）</td></tr>
       </table>
       <div class="note">移动端不采用 PC 端的主框架/Tab 布局（见《<a href="04_布局设计_主框架.html">主框架布局设计</a>》《<a href="06_布局设计_表单框架.html">表单框架布局设计</a>》），两者相互独立、互不影响。</div>
 

@@ -33,7 +33,7 @@
 
 | # | 问题 | 处置 |
 | --- | --- | --- |
-| 1 | 新装 EP 类型更严（对照 frontend lock）：`Tabs.type`（`'line'` 不在 EP 类型面）/ `TabPaneName`（含 number）/ `CollapseModelValue` | 类型收口（**运行期行为不变**）：`epType`（`line → ''`，EP 空值即线型默认）、事件 `String($event)`、`normalize/onUpdate` 参数放宽 `unknown` 并按字符串归一 |
+| 1 | 新装 EP 类型更严（对照 apps/desktop lock）：`Tabs.type`（`'line'` 不在 EP 类型面）/ `TabPaneName`（含 number）/ `CollapseModelValue` | 类型收口（**运行期行为不变**）：`epType`（`line → ''`，EP 空值即线型默认）、事件 `String($event)`、`normalize/onUpdate` 参数放宽 `unknown` 并按字符串归一 |
 | 2 | 测试断言与真实结构不符（Card 无 `#header` 插槽；Split 拖拽条类名 `split-splitter`；LoadingMask 根常驻 + `delay` 默认 200ms） | 按真实结构/行为校准用例（Card 用 `title` prop；Split 断言实际类名；LoadingMask 断言遮罩层 + `delay=0`） |
 | 3 | `TabPane` 独立 mount 无上下文（不渲染） | 用例改为在 `Tabs` 内验证内容区（TabPane 的上下文依赖属 EP 语义，不单测脱离场景） |
 

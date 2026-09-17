@@ -34,7 +34,7 @@
 
 | # | 问题 | 处置 |
 | --- | --- | --- |
-| 1 | ui-ep 用例加载失败（缺 `vue-router`） | devDeps 补 `vue-router@^4.6.4`（与 frontend 对齐） |
+| 1 | ui-ep 用例加载失败（缺 `vue-router`） | devDeps 补 `vue-router@^4.6.4`（与 apps/desktop 对齐） |
 | 2 | 「固定首签排首位」用例失败 | 根因：**排序未随迁移**——核心 `BaseTabs` 与投影 `open` 均未做 pinned 前置 → 核心补稳定排序，投影 `open` 两路径统一 `sortTabs`（与旧 `sortTabs` 同口径） |
 | 3 | `TabsNav` 依赖旧 `@/utils/useConfirm`（弹窗能力，批 4 才迁） | `confirmClose` 改**注入式**（`configureDirtyConfirm`；未注入放行）——解耦标签与弹窗的批次依赖 |
 | 4 | ui-ep 用例 i18n 文案 | 测试自建 i18n 消息子集（`tabs.*`），不再依赖旧工程 `src/i18n` |

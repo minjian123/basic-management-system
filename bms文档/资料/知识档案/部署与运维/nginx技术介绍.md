@@ -16,7 +16,7 @@
 - **定位**：本项目生产入口层，所有浏览器流量先到 nginx 再分发（平台《架构设计 · 总体架构》「技术栈全景 · 部署与运维」节）。
 - **版本**：1.2x 系列（stable 与 mainline 双轨发布，生产用 stable）。
 - **许可**：BSD-2-Clause，免费开源无商用限制（平台《项目规划说明》「开源与许可协议」节）。
-- **落地形态**：frontend 容器内运行，托管 PC + 移动端静态资源并反代 /api（平台《项目规划说明》「部署与运维」节）。
+- **落地形态**：apps/desktop 容器内运行，托管 PC + 移动端静态资源并反代 /api（平台《项目规划说明》「部署与运维」节）。
 
 ## 2. 核心概念与原理 <a id="principles"></a>
 
@@ -83,7 +83,7 @@
 | 平台《项目规划说明》「部署与运维」节 | 选型说明：静态托管 / 反代 / 负载均衡 / 子域名租户路由 |
 | 平台《项目规划说明》「部署拓扑」节 | 部署拓扑：nginx 为统一入口 |
 | 平台《项目规划说明》「集群设计要点」节 | WebSocket 放行、安全响应头、X-Frame-Options 约定 |
-| 《[Docker 与 Compose 技术介绍](Docker与Compose技术介绍.md)》 | nginx 以 frontend 容器方式编排 |
+| 《[Docker 与 Compose 技术介绍](Docker与Compose技术介绍.md)》 | nginx 以 apps/desktop 容器方式编排 |
 | 《[Vite 技术介绍](../前端/Vite技术介绍.md)》 | 产出被 nginx 托管的前端构建产物 |
 | 《[python-socketio 技术介绍](../后端核心/python-socketio技术介绍.md)》 | 被 nginx 代理的 WebSocket 长连接 |
 | 《[Grafana 技术介绍](Grafana技术介绍.md)》 | 同源嵌入依赖 X-Frame-Options SAMEORIGIN |

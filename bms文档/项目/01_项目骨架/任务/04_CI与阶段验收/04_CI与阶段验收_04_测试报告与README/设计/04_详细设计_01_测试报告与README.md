@@ -41,7 +41,7 @@ scripts/tools/governance/
 
 README.md                                               # 修改：项目状态 / 快速启动（本地门禁）/ 文档导航（阶段一四件套 + 报告）
 backend/README.md                                       # 修改：状态 / 快速启动 / 目录结构 / 导航
-frontend/README.md                                      # 修改：同上
+apps/desktop/README.md                                      # 修改：同上
 frontend-mobile/README.md                               # 修改：同上
 scripts/README.md                                       # 修改：工具链清单登记 governance
 
@@ -102,7 +102,7 @@ bms文档/
 | --- | --- | --- | --- |
 | 1 | 阶段工期偏差 | 计划「里程碑对照」取 M1 基线日期；需求 / 任务文档取本阶段实际完成日（域内最后一条完成日期） | `baseline` / `actual` / `delta_days` / `delta_pct` / 是否 > 20% |
 | 2 | 缺陷分布与收敛 | GitLab API：`GET /projects/:id/issues?state=all`（分页）→ 按 `labels`（`defect-*` 标签区分自动 / 手工）与 state 聚合 | `total` / `open` / `closed` / `defect_auto` / `defect_manual` / `p0_p1_open` |
-| 3 | 覆盖率 | 后端：`uv run pytest -q --cov=app --cov-branch`（解析 `TOTAL` 行与 `passed/skipped`）；前端：读 `frontend/coverage` / `frontend-mobile/coverage` 产物（`--with-frontend` 时先跑 `npm run test:cov`） | 后端 statements / branch %；前端双端 %；门禁阈值与是否达标 |
+| 3 | 覆盖率 | 后端：`uv run pytest -q --cov=app --cov-branch`（解析 `TOTAL` 行与 `passed/skipped`）；前端：读 `apps/desktop/coverage` / `frontend-mobile/coverage` 产物（`--with-frontend` 时先跑 `npm run test:cov`） | 后端 statements / branch %；前端双端 %；门禁阈值与是否达标 |
 | 4 | 用例执行统计 | 同 #3 的 pytest 摘要 + 双端 Vitest 摘要 + Playwright（本阶段无 `tests/e2e`，标「未启用」） | passed / skipped / failed / duration |
 
 ### 5.3 与报告的关系 <a id="cm-report"></a>
@@ -144,7 +144,7 @@ bms文档/
 | --- | --- | --- | --- | --- |
 | `README.md`（根） | 改为「阶段一收尾：54/54 完成（或 53/54 + 本任务收口），M1 门禁 10 项结论（9 达标 + 1 待本任务）」；阶段二 ~ 五现状保留 | 保留既有命令；**补本地门禁命令块**（ruff / format / pyright / pytest 含覆盖率 / check_modules / `check-status.py` / `check-base.py`）与前端 `npm run test:cov` | 与现状同步（新增 `backend/ops/`、`scripts/tools/governance/` 等本阶段新增目录） | 新增「阶段一四件套」行（需求总览 / 任务基线 / 计划 / **测试报告**）与基座 / 架构链接保持 |
 | `backend/README.md` | 补「阶段一后端交付现状」（基座占位口径 + 基础能力 3/3） | 校对启动命令（应用工厂）、补门禁命令 | 同步 `app/` 新增基座目录与 `ops/` | 补阶段一需求 / 任务 / 计划 / 报告链接 |
-| `frontend/README.md` | 补阶段一交付现状（工程骨架 + 基类体系） | 校对 5173 / 命令与 `test:cov` | 同步 `src/` 现状 | 同上（报告 + 阶段一文档） |
+| `apps/desktop/README.md` | 补阶段一交付现状（工程骨架 + 基类体系） | 校对 5173 / 命令与 `test:cov` | 同步 `src/` 现状 | 同上（报告 + 阶段一文档） |
 | `frontend-mobile/README.md` | 同上（5174） | 同上 | 同上 | 同上 |
 
 口径：README 只写**现状事实**（命令可粘贴执行、结构与磁盘一致），不写计划性内容；链接一律指向 `bms文档/` 内既有文件。
@@ -223,7 +223,7 @@ cd backend && uv run pytest -q --cov=app --cov-branch --cov-fail-under=70
 
 | 风险 / 开放项 | 说明 | 处置 |
 | --- | --- | --- |
-| 前端覆盖率取数依赖产物 | `frontend/coverage` 可能缺失或过时 | 默认读产物并标注采集时间；需要时 `--with-frontend` 重跑 `npm run test:cov` |
+| 前端覆盖率取数依赖产物 | `apps/desktop/coverage` 可能缺失或过时 | 默认读产物并标注采集时间；需要时 `--with-frontend` 重跑 `npm run test:cov` |
 | GitLab API 凭据 | `collect_metrics.py` 取 Issue 需 token | 从 `deploy/.env` 读取（不入库、不打印）；无凭据时降级为「缺陷数据未采集（附查询命令）」而非报错退出 |
 | 工期偏差为「提前」 | 偏差 > 20% 须记录（§25.2） | 报告中说明原因（占位口径 + 串行无阻塞），并注明基线来源 |
 | 计划 §3 剩余排期表清空 | 阶段一收口后无剩余任务，固定列头需保留 | 保留表头 + 一行「本阶段全部完成，无剩余任务」（不破坏《计划文档规范》列头固定要求） |

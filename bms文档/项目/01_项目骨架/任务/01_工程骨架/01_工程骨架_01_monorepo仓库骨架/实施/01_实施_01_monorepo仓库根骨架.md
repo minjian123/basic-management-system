@@ -22,7 +22,7 @@
 ```mermaid
 flowchart LR
     A[设计定案修正] --> B[backend 占位]
-    B --> C[frontend 占位]
+    B --> C[apps/desktop 占位]
     C --> D[frontend-mobile 占位]
     D --> E[根文件与说明文件]
     E --> F[本地验证]
@@ -33,7 +33,7 @@ flowchart LR
 | --- | --- | --- |
 | 1 | 设计定案修正（4 处） | 完成并单独提交 `e470985` |
 | 2 | backend 最小占位 + 依赖锁定 | `uv lock`/`uv sync` 通过；`/healthz` 200 |
-| 3 | frontend 最小占位 | `npm run build` 与 dev 5173 通过 |
+| 3 | apps/desktop 最小占位 | `npm run build` 与 dev 5173 通过 |
 | 4 | frontend-mobile 最小占位 | `npm run build` 与 dev 5174 通过 |
 | 5 | 根文件（.editorconfig / .gitignore / README）与 `scripts`、`ops` 说明核对 | 完成 |
 | 6 | 本地验证（启动、构建、忽略、端口） | 全部通过 |
@@ -63,12 +63,12 @@ uv run uvicorn app.main:create_app --factory --port 8000
 
 验证：`GET /healthz` → `{"status":"ok"}`；`GET /docs` → HTTP 200；验证后停止服务。
 
-### 3.3 frontend 占位
+### 3.3 apps/desktop 占位
 
 脚手架（Node 22 + npmmirror 源）：
 
 ```bash
-npm create vite@latest frontend -- --template vue-ts
+npm create vite@latest apps/desktop -- --template vue-ts
 ```
 
 create-vite 9.2.0 生成：Vue 3.5.41 / Vite 8.2.2 / TypeScript 6.0.2 / vue-tsc 3.3.11 / @vitejs/plugin-vue 6.0.8。按设计调整：
@@ -88,7 +88,7 @@ npm run dev   # 5173 返回占位页 HTML（title=BMS PC 管理端）
 
 ### 3.4 frontend-mobile 占位
 
-以调整后的 `frontend/` 为基复制，差异：`name`=`bms-frontend-mobile`、端口 `5174`、标题与 `App.vue` 文案改移动端。`npm install`（48 包）、`npm run build` 通过、dev 5174 可访问占位页。
+以调整后的 `apps/desktop/` 为基复制，差异：`name`=`bms-frontend-mobile`、端口 `5174`、标题与 `App.vue` 文案改移动端。`npm install`（48 包）、`npm run build` 通过、dev 5174 可访问占位页。
 
 ### 3.5 根文件与说明文件
 
@@ -129,7 +129,7 @@ npm run dev   # 5173 返回占位页 HTML（title=BMS PC 管理端）
 
 - 首次安装用 `npm install` 生成锁文件；README 快速启动按设计写 `npm ci`（锁文件就位后可用）。
 - 前端子工程保留模板拆分的 `tsconfig.app/node.json`、`public/favicon.svg`、`.vscode/extensions.json`；设计 §3 树为简化示意，根 README 目录树按实际列明。
-- 子工程 `.vscode/settings.json` 忽略差异：**已处理**——`frontend/.gitignore`、`frontend-mobile/.gitignore` 放行 `settings.json`（保留 `extensions.json` 放行），与设计 §9 第 4 条及根 `.gitignore` 一致。
+- 子工程 `.vscode/settings.json` 忽略差异：**已处理**——`apps/desktop/.gitignore`、`frontend-mobile/.gitignore` 放行 `settings.json`（保留 `extensions.json` 放行），与设计 §9 第 4 条及根 `.gitignore` 一致。
 - fresh clone 验证与提交推送均已完成（§5，推送至 `1dfeaf8`）；本任务无待办遗留。
 
 > 本文档依《文档生成规范》编写 · 按《任务文档规范》「实施文档（任务执行记录）」节实施文档结构组织

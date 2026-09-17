@@ -50,10 +50,10 @@ $ python3 scripts/tools/governance/collect_metrics.py --with-frontend --out /tmp
     #1 [closed] [自动缺陷] main pipeline failure @ 7ef8a345 | ['defect-auto']
 [3/4] 覆盖率（后端行 / 分支；前端行 / 分支）
   后端：行/语句 99.75%、分支覆盖 已启用（用例 417 passed / 7 skipped / 0 failed，1.59s） → 门禁 ≥ 70%：达标
-  frontend：行 100%、分支 100%（产物日期 2026-09-15） → 门禁 ≥ 70%：达标
+  apps/desktop：行 100%、分支 100%（产物日期 2026-09-15） → 门禁 ≥ 70%：达标
   frontend-mobile：行 100%、分支 100%（产物日期 2026-09-15） → 门禁 ≥ 70%：达标
 [4/4] 用例执行统计
-  frontend：Test Files 4 passed / Tests 18 passed
+  apps/desktop：Test Files 4 passed / Tests 18 passed
   frontend-mobile：Test Files 4 passed / Tests 18 passed
   Playwright E2E：本阶段未启用（tests/e2e 待建，重验证层随 verify-enabled 开关；2026-09-15 改分档 `verify/e2e` 守门，见 04-01 实施 02）
 已写入 JSON：/tmp/bms_metrics.json
@@ -97,7 +97,7 @@ Required test coverage of 70% reached. Total coverage: 99.75%
 | 项 | 实测 | 门禁口径 | 结论 |
 | --- | --- | --- | --- |
 | 后端全量覆盖率 | **99.75%**（语句 3668 未覆盖 3；分支 392 未覆盖 7） | 整体 ≥ 70%（核心模块 ≥ 80% 待模块路径确定后接入） | 达标 |
-| 前端双端覆盖率 | frontend / frontend-mobile 各 **100%**（行 / 分支 / 函数） | ≥ 70% | 达标 |
+| 前端双端覆盖率 | apps/desktop / frontend-mobile 各 **100%**（行 / 分支 / 函数） | ≥ 70% | 达标 |
 | 用例通过率 | 后端 417 passed / 7 skipped；前端各 18 用例（双端 4 文件） | 冒烟层全绿 | 达标 |
 
 > 数据同《[项目骨架阶段测试报告](../../../../01_测试报告_项目骨架.md)》§3；覆盖率只作本任务快照，阈值以《测试规范》§6 与流水线为准。
