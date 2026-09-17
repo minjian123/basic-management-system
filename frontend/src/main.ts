@@ -4,6 +4,7 @@ import { ElMessage } from 'element-plus'
 import 'element-plus/es/components/message/style/css'
 
 import App from './App.vue'
+import { bootstrapUiBridge } from './adapters/ui-bootstrap'
 import { configureHttpAdapter } from './api/adapter'
 import { vPerm } from './directives/perm'
 import { i18n } from './i18n'
@@ -27,6 +28,8 @@ const app = createApp(App)
 app.use(createPinia()).use(router).use(i18n)
 // 动作权限指令（权限集合与判定经 usePermissionStore → useAccess 片段）
 app.directive('perm', vPerm)
+// 新体系装配（注入点接线：权限判定 / 菜单状态 / 视图解析）
+bootstrapUiBridge()
 
 app.mount('#app')
 

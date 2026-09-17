@@ -2,6 +2,8 @@
 
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 
+import { ErrorPage } from '@bms/ui-ep'
+
 import BasicLayout from '@/layouts/BasicLayout.vue'
 
 import { setupRouterGuard } from './guard'
@@ -25,21 +27,21 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/403',
     name: 'error-403',
-    component: () => import('@/components/feedback/ErrorPage.vue'),
+    component: ErrorPage,
     props: { code: 403 },
     meta: { public: true },
   },
   {
     path: '/404',
     name: 'error-404',
-    component: () => import('@/components/feedback/ErrorPage.vue'),
+    component: ErrorPage,
     props: { code: 404 },
     meta: { public: true },
   },
   {
     path: '/500',
     name: 'error-500',
-    component: () => import('@/components/feedback/ErrorPage.vue'),
+    component: ErrorPage,
     props: { code: 500 },
     meta: { public: true },
   },
