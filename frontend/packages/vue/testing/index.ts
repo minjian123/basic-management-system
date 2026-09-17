@@ -7,7 +7,7 @@
 
 import { nextTick } from 'vue'
 
-import type { PermissionChecker } from '@bms/core'
+import type { ConfirmHandler, PermissionChecker } from '@bms/core'
 import type {
   ComponentContractKit,
   ComponentMountOptions,
@@ -44,6 +44,8 @@ export interface CreateContractKitOptions {
   components: Record<string, unknown>
   /** 插件的 `configurePermissionChecker`（权限按钮契约注入判定器） */
   configurePermissionChecker(next: PermissionChecker | undefined): void
+  /** 插件的 `configureConfirm`（危险切换确认契约注入实现；不传则该组断言跳过） */
+  configureConfirm?(next: ConfirmHandler | undefined): void
   /** 全局挂载选项（i18n 等插件；各实现按需注入） */
   global?: Record<string, unknown>
 }
@@ -110,5 +112,6 @@ export function createContractKit(options: CreateContractKitOptions): ComponentC
       }
     },
     configurePermissionChecker: options.configurePermissionChecker,
+    ...(options.configureConfirm ? { configureConfirm: options.configureConfirm } : {}),
   }
 }

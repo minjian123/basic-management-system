@@ -39,6 +39,11 @@ export default {
     outOfRange: 'Value out of range',
     selectPlaceholder: 'Please select',
     searchPlaceholder: 'Search',
+    minCount: 'Select at least {min}',
+    selectAll: 'Select all',
+    notSet: 'Not set',
+    switchOn: 'Yes',
+    switchOff: 'No',
   },
   // 反馈件文案（03-2-1；与 PC 同键）
   feedback: {

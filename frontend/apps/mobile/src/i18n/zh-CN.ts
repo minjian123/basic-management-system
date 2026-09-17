@@ -39,6 +39,11 @@ export default {
     outOfRange: '数值超出允许范围',
     selectPlaceholder: '请选择',
     searchPlaceholder: '搜索',
+    minCount: '至少选择 {min} 项',
+    selectAll: '全选',
+    notSet: '未设置',
+    switchOn: '是',
+    switchOff: '否',
   },
   // 反馈件文案（03-2-1；与 PC 同键）
   feedback: {

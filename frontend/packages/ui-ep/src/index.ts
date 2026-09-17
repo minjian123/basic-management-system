@@ -23,9 +23,12 @@ export type { FeedbackAction } from './components/feedback/types'
 export { default as PermButton } from './components/common/PermButton.vue'
 export {
   BaseInput,
+  CheckboxField,
   NumberInput,
   PasswordField,
+  RadioField,
   SelectInput,
+  SwitchInput,
   TextareaField,
   TextField,
 } from './components/input'

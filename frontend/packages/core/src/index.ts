@@ -77,6 +77,7 @@ export {
   orderOptionValues,
   reachMaxCount,
 } from './domain/option'
+export { normalizeBooleanValue } from './domain/boolean'
 export { createConfirmService, type ConfirmService } from './domain/confirm-service'
 export { createPermissionGate, type PermissionGate } from './domain/permission-gate'
 export { createMenuSourceService, type MenuSourceService } from './domain/menu-source-service'

@@ -41,6 +41,11 @@ const i18n = createI18n({
         selectPlaceholder: '请选择',
         searchPlaceholder: '搜索',
         maxCount: '最多可选 {max} 项',
+        minCount: '至少选择 {min} 项',
+        selectAll: '全选',
+        notSet: '未设置',
+        switchOn: '是',
+        switchOff: '否',
         password: { weak: '弱', medium: '中', strong: '强', show: '显示', hide: '隐藏' },
       },
     },
@@ -56,5 +61,6 @@ export const contractKit = createContractKit({
   mount: mount as unknown as MountLike,
   components: plugin as unknown as Record<string, unknown>,
   configurePermissionChecker: plugin.configurePermissionChecker,
+  configureConfirm: plugin.configureConfirm,
   global: { plugins: [i18n, router] },
 })

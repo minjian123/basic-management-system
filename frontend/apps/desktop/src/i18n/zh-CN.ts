@@ -110,6 +110,11 @@ export default {
     outOfRange: '数值超出允许范围',
     selectPlaceholder: '请选择',
     searchPlaceholder: '搜索',
+    minCount: '至少选择 {min} 项',
+    selectAll: '全选',
+    notSet: '未设置',
+    switchOn: '是',
+    switchOff: '否',
   },
   // 错误码文案：error.{code}（最小集；完整错误码总表随后端接入补齐）
   error: {
