@@ -50,7 +50,7 @@
 {{ logs.length ? logs.join('\n') : '（尚无操作）' }}
 说明：菜单树由后端按权限下发（含 locale）；buildRoutes 组件名经注册表映射（import.meta.glob 批量注册）；
 未注册组件名拦截提示（防菜单配置错误白屏）；allowedPaths 白名单不参与动态注册；未注册路径 404 兜底；
-退出 / 切租户卸载全部动态路由（removeRoute）；阶段五片段以 mode='fragment' 同契约注册。</div>
+退出 / 切租户卸载全部动态路由（removeRoute）；阶段五片段以同一套契约注册（mode 为原设计面）。</div>
     </div>
   </div>
 </div>
@@ -81,7 +81,7 @@
         });
         logs.value.push('[' + stamp() + '] 注册完成：' + registered.value.filter(function (r) { return r.ok; }).length + ' 条可用');
       }
-      function visitUnknown() { logs.value.push('[' + stamp() + '] 访问 /unknown → 未注册路径，fallback404 兜底（菜单配置错误提示）'); }
+      function visitUnknown() { logs.value.push('[' + stamp() + '] 访问 /unknown → 未注册路径，由宿主守卫兜底 404（菜单配置错误提示）'); }
       function logout() {
         var n = registered.value.length;
         registered.value = [];

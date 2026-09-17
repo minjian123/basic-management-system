@@ -47,9 +47,9 @@
 
       <div class="dp-state">事件日志
 {{ logs.length ? logs.join('\n') : '（尚无事件）' }}
-说明：source = placeholder（未接后端推送时绑占位总线：订阅正常注册、不连 socket）；
+说明：未接后端推送时注入占位总线（订阅正常注册、不连 socket；source 枚举为原设计面）；
 真实推送接入后来源切换为 realtime / local，调用方不改；
-取消函数经异步资源基类 track() 登记，卸载自动取消（幂等，重复取消仅一次生效）。</div>
+取消函数经异步资源基类 registerResource() 登记，卸载自动取消（幂等，重复取消仅一次生效）。</div>
     </div>
   </div>
 </div>
