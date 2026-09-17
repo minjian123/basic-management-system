@@ -4,7 +4,7 @@ import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import PermButton from '@/components/common/PermButton.vue'
+import { configurePermissionChecker, PermButton } from '@bms/ui-ep'
 import { i18n } from '@/i18n'
 import { usePermissionStore } from '@/stores/permission'
 import { canAccess, hasPerm } from '@/utils/perm'
@@ -101,6 +101,10 @@ describe('权限判定（Kiwi 720）', () => {
 
   it('⑯ PermButton fallback=hide / ⑰ disable + 提示 + 点击拦截', async () => {
     const { pinia, store } = withStore()
+    // 组件经 ui-ep 权限注入点（未注入=空集）；此处接权限 store 语义
+    configurePermissionChecker((codes, mode) =>
+      mode === 'all' ? store.hasAll([...codes]) : store.hasAny([...codes]),
+    )
     store.setCodes([])
 
     const hidden = mount(PermButton, {
@@ -127,5 +131,6 @@ describe('权限判定（Kiwi 720）', () => {
     expect(disabled.find('button').attributes('disabled')).toBeUndefined()
     await disabled.find('button').trigger('click')
     expect(disabled.emitted('click')).toHaveLength(1)
+    configurePermissionChecker(undefined)
   })
 })

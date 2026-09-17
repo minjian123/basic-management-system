@@ -7,7 +7,7 @@ import { useI18n } from 'vue-i18n'
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 
-import { EmptyState } from '@/components/feedback'
+import { EmptyState } from '@bms/ui-ep'
 
 const route = useRoute()
 const { t } = useI18n()

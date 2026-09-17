@@ -17,7 +17,7 @@ import {
   findAncestorKeys,
   menuKey,
   type MenuItem,
-} from '@/components/menu/types'
+} from '@bms/ui-ep'
 
 /** 展开集持久化键（规范 §8.1：localStorage key 统一 bms_ 前缀） */
 export const MENU_EXPANDED_KEY = 'bms_menu_expanded'

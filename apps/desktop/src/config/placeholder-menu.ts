@@ -5,7 +5,7 @@
  * `configureMenuLoader` 注入替换；本文件只作占位演示（无徽标、含外链与隐藏项演示）。
  */
 
-import type { MenuItem } from '@/components/menu/types'
+import type { MenuItem } from '@bms/ui-ep'
 
 export const PLACEHOLDER_MENU: MenuItem[] = [
   { name: '工作台', path: '/', component: 'HomeView', icon: 'dashboard', sort: 1 },
