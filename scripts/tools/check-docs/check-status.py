@@ -239,6 +239,9 @@ def collect_tasks(stage_dir: Path, report: Report) -> dict[str, TaskDoc]:
     for domain_dir in sorted(p for p in task_root.iterdir() if p.is_dir()):
         domain = domain_dir.name.split("_")[0]
         for task_dir in sorted(p for p in domain_dir.iterdir() if p.is_dir()):
+            if task_dir.name in ("设计", "测试", "实施"):
+                # 域级任务附属目录（任务级设计 / 测试记录 / 实施记录），非任务目录
+                continue
             docs = [p for p in task_dir.glob("*.md")]
             if len(docs) != 1:
                 report.fail("硬", "H5", f"任务目录文档数异常（{len(docs)}）：{task_dir}")
