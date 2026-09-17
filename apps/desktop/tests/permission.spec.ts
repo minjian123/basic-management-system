@@ -17,6 +17,10 @@ function withStore() {
 
 describe('权限判定（Kiwi 720）', () => {
   beforeEach(() => {
+    configurePermissionChecker((codes, mode) => {
+      const store = usePermissionStore()
+      return mode === 'all' ? store.hasAll([...codes]) : store.hasAny([...codes])
+    })
     setActivePinia(createPinia())
   })
 

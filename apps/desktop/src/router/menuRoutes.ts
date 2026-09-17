@@ -13,10 +13,8 @@ import {
   type MenuNode,
   type RouteRecord,
 } from '@/components/base/dynamic-routes'
-import type { MenuItem } from '@bms/ui-ep'
+import { nameComponent, resolveView, type MenuItem } from '@bms/ui-ep'
 import PlaceholderView from '@/views/PlaceholderView.vue'
-
-import { nameComponent, resolveView } from './routeComponent'
 
 export interface RegisterMenuRoutesOptions {
   /** 布局父路由名（菜单路由挂其 children；缺省 `layout`） */
