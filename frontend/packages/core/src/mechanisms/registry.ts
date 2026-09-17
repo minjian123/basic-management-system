@@ -1,9 +1,12 @@
 /**
- * 注册表基座（框架无关核心，对齐后端 `BaseProviderRegistry`）：
+ * 注册表基座（框架无关核心，继承组件根；对齐后端 `BaseProviderRegistry`）：
  * 唯一性拒重（严格域抛错 / 一般域告警保留首个）、`get` 未命中 `undefined`（不替各域裁决）、
  * 保序（`keys` / `values`）、只读快照（`snapshot`，数量取 `count`）。
+ *
+ * 继承链：注册表基座继承组件根（机制基类层），供能力与扩展点注册复用。
  */
 
+import { BaseComponent, type ComponentBaseOptions } from '../base/BaseComponent'
 import { BaseError, ErrorCodes } from './error'
 
 export interface RegistryItemLike {
@@ -18,8 +21,12 @@ export interface RegisterOptions {
   onWarn?: (message: string) => void
 }
 
-export class BaseRegistry<T extends RegistryItemLike = RegistryItemLike> {
+export class BaseRegistry<T extends RegistryItemLike = RegistryItemLike> extends BaseComponent {
   private readonly items = new Map<string, T>()
+
+  constructor(options: ComponentBaseOptions = {}) {
+    super(options)
+  }
 
   register(item: T, options: RegisterOptions = {}): void {
     const existing = this.items.get(item.key)
