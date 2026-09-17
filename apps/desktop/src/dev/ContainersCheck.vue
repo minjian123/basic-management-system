@@ -17,7 +17,7 @@ import {
   ScrollContainer,
   SectionContainer,
   VirtualList,
-} from '@/components/container'
+} from '@bms/ui-ep'
 
 const checks = ref<Record<string, string>>({})
 const reachBottomCount = ref(0)

@@ -13,7 +13,7 @@ import {
   type MenuNode,
   type RouteRecord,
 } from '@/components/base/dynamic-routes'
-import type { MenuItem } from '@/components/menu/types'
+import type { MenuItem } from '@bms/ui-ep'
 import PlaceholderView from '@/views/PlaceholderView.vue'
 
 import { nameComponent, resolveView } from './routeComponent'

@@ -17,6 +17,22 @@ export default defineConfig({
       '@bms/ui-ep': fileURLToPath(new URL('../../packages/ui-ep/src/index.ts', import.meta.url)),
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        // 手动分包：第三方大件与基座源码独立 chunk（主包/页面包体积可控，预算可校验）
+        manualChunks: (id: string): string | undefined => {
+          if (id.includes('node_modules/element-plus') || id.includes('node_modules/@element-plus')) {
+            return 'vendor-element-plus'
+          }
+          if (id.includes('/packages/')) {
+            return 'bms-base'
+          }
+          return undefined
+        },
+      },
+    },
+  },
   server: {
     port: 5173,
     strictPort: true,
