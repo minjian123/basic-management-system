@@ -7,7 +7,7 @@
 set -eu
 
 REGISTRY_IMAGE_PREFIX="${REGISTRY_IMAGE_PREFIX:?REGISTRY_IMAGE_PREFIX 未设置}"
-TAG=$(cat backend/uv.lock frontend/package-lock.json frontend-mobile/package-lock.json \
+TAG=$(cat backend/uv.lock apps/desktop/package-lock.json frontend-mobile/package-lock.json \
   deploy/ci/Dockerfile.backend deploy/ci/Dockerfile.frontend | sha256sum | cut -c1-12)
 echo "[ci-base] 构建输入哈希标签（锁文件 + Dockerfile）: $TAG"
 
@@ -20,8 +20,8 @@ cp backend/pyproject.toml backend/uv.lock "$backend_ctx/"
 cp deploy/ci/Dockerfile.backend "$backend_ctx/Dockerfile"
 
 frontend_ctx=$(mktemp -d)
-mkdir -p "$frontend_ctx/frontend" "$frontend_ctx/frontend-mobile"
-cp frontend/package.json frontend/package-lock.json "$frontend_ctx/frontend/"
+mkdir -p "$frontend_ctx/apps/desktop" "$frontend_ctx/frontend-mobile"
+cp apps/desktop/package.json apps/desktop/package-lock.json "$frontend_ctx/apps/desktop/"
 cp frontend-mobile/package.json frontend-mobile/package-lock.json "$frontend_ctx/frontend-mobile/"
 cp deploy/ci/Dockerfile.frontend "$frontend_ctx/Dockerfile"
 
