@@ -62,35 +62,44 @@ def load_env(path: Path) -> dict:
     return env
 
 
-def run(cmd: list[str]) -> subprocess.CompletedProcess:
-    result = subprocess.run(cmd, capture_output=True, text=True)
+def run(cmd: list[str]) -> subprocess.CompletedProcess | None:
+    """执行命令；失败或工具缺失返回 `None`（现场捕获尽力而为，不阻断归档）。"""
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True)
+    except FileNotFoundError:
+        print(f"[跳过] 工具不可用: {cmd[0]}")
+        return None
     if result.returncode != 0:
-        print(f"[失败] 命令执行失败: {' '.join(cmd)}\n{result.stderr.strip()}")
-        sys.exit(1)
+        print(f"[跳过] 命令执行失败: {' '.join(cmd)}\n{result.stderr.strip()}")
+        return None
     return result
 
 
-def dump_mysql(args) -> Path:
+def dump_mysql(args) -> Path | None:
     out = args.out_dir / f"{args.db_name}-{date.today().isoformat()}.sql"
     # --ssl=0：内网自签证书环境（mariadb 客户端默认尝试 TLS 会握手失败）
-    run(["mysqldump", "--single-transaction", "--ssl=0", "-h", args.db_host, "-P", str(args.db_port),
-         "-u", args.db_user, f"-p{args.db_password}", args.db_name, "-r", str(out)])
-    return out
+    result = run(["mysqldump", "--single-transaction", "--ssl=0", "-h", args.db_host, "-P", str(args.db_port),
+                  "-u", args.db_user, f"-p{args.db_password}", args.db_name, "-r", str(out)])
+    return out if result is not None else None
 
 
-def dump_postgres(args) -> Path:
+def dump_postgres(args) -> Path | None:
     out = args.out_dir / f"{args.db_name}-{date.today().isoformat()}.dump"
     env = dict(os.environ, PGPASSWORD=args.db_password)
-    subprocess.run(["pg_dump", "-h", args.db_host, "-p", str(args.db_port), "-U", args.db_user,
-                    "-Fc", args.db_name, "-f", str(out)], env=env, check=True)
+    try:
+        subprocess.run(["pg_dump", "-h", args.db_host, "-p", str(args.db_port), "-U", args.db_user,
+                        "-Fc", args.db_name, "-f", str(out)], env=env, check=True)
+    except (subprocess.CalledProcessError, FileNotFoundError) as error:
+        print(f"[跳过] pg_dump 不可用: {error}")
+        return None
     return out
 
 
-def dump_dm8(args) -> Path:
+def dump_dm8(args) -> Path | None:
     out = args.out_dir / f"{args.db_name}-{date.today().isoformat()}.dmp"
-    run(["/opt/dmdbms/bin/dexp", f"SYSDBA/{args.db_password}@{args.db_host}:{args.db_port}",
-         f"FILE={out.name}", f"DIRECTORY={args.out_dir}", f"OWNER={args.db_name}", "LOG=exp.log"])
-    return out
+    result = run(["/opt/dmdbms/bin/dexp", f"SYSDBA/{args.db_password}@{args.db_host}:{args.db_port}",
+                  f"FILE={out.name}", f"DIRECTORY={args.out_dir}", f"OWNER={args.db_name}", "LOG=exp.log"])
+    return out if result is not None else None
 
 
 def fingerprint(case_id: str, summary: str) -> str:
@@ -115,7 +124,7 @@ def collect_logs(log_dir: str | None, out_dir: Path) -> list[str]:
     return names
 
 
-def write_repro(args, fp: str, dump_path: Path) -> Path:
+def write_repro(args, fp: str, dump_path: Path | None) -> Path:
     stack = ""
     st = args.out_dir / "stacktrace.txt"
     if args.stacktrace:
@@ -129,7 +138,7 @@ def write_repro(args, fp: str, dump_path: Path) -> Path:
         "case_id": args.case_id,
         "engine": args.engine,
         "db_name": args.db_name,
-        "dump_path": str(dump_path),
+        "dump_path": str(dump_path) if dump_path else "",
         "test_file": args.test_file,
         "test_command": args.test_command,
         "stacktrace": stack,
@@ -238,7 +247,10 @@ def main() -> int:
 
     print(f"[1/3] 导出 {args.engine} 现场数据 -> {args.out_dir}")
     dump = {"mysql": dump_mysql, "postgres": dump_postgres, "dm8": dump_dm8}[args.engine](args)
-    print(f"[完成] 现场 dump: {dump}")
+    if dump:
+        print(f"[完成] 现场 dump: {dump}")
+    else:
+        print("[跳过] 现场数据 dump 不可用（库不存在 / 客户端缺失）；继续归档 REPRO 包")
 
     fp = fingerprint(args.case_id or "n/a", args.summary)
     repro_md = write_repro(args, fp, dump)
