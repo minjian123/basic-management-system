@@ -188,7 +188,7 @@ refs:
 | 项 | 位置 / 行为 |
 | --- | --- |
 | 桌面项 `更新 dsh与插件` | `~/.local/share/applications/更新 dsh与插件.desktop`，`Terminal=true` 直跑 `bms/scripts/tools/dsh/dsh-update.sh`（2026-09-09 新增） |
-| `~/.local/bin/dsh-web-start.sh` | 启动 dsh web：加载 nvm(Node24+pnpm) → cd 仓库 → exec `pnpm dsh web`（前台，终端内跑便于看日志；未建独立桌面启动项，需要时在终端手跑或自建项） |
+| `~/.local/bin/dsh-web-start.sh` | 启动 dsh web：加载 nvm(Node24+pnpm) → cd 仓库 → exec `node apps/cli/lib/bin.js web`（**构建产物方式**；前台，终端内跑便于看日志；缺产物时提示先构建。**不得用 `pnpm dsh web`**，原因见 7.2 FAQ） |
 | `~/.local/bin/dsh-web-stop.sh` | 停止 dsh web：按端口 3080 定位 PID → kill → 等端口释放(≤5s) → 兜底 kill -9 → notify-send |
 
 ```text
@@ -198,7 +198,7 @@ refs:
 （更新脚本位于 bms 仓库 scripts/tools/dsh/dsh-update.sh，桌面项 Exec 直接指向仓库路径）
 ```
 
-`dsh-update.sh` **幂等更新流程**：先比对版本——dsh 主体比对本地 HEAD 与 origin/master，插件（dsh-free-vision、dsh-undo-savepoint）比对已装版本与 npm 最新（查询在 profile 目录内执行，与安装同源同注册表）；**全部一致且 web 在跑 → 提示退出（不动 web）；web 未跑 → 直接启动**；任一落后才停 web → 只更新落后项（`git pull --ff-only` / `pnpm install` / `pnpm run build`、插件 `up --latest` + `rebuild` 重跑插件构建脚本（编译）并核对更新后版本）→ 重启。网络查询失败（离线/慢）时跳过对应项、**不误停 web**；更新命令均带超时（pull 5min / install 10min / build 15min / up 5min / rebuild 5min），任何失败路径由 EXIT 兜底把 web 拉起，不会出现"停了起不来"。支持 `--force`（跳过版本检查强制全量更新，插件同样走更新+重编译）、`--no-restart`（只更新不重启）。更新前的 profile 配置/插件树已被 dsh-undo-savepoint 自动快照，出错可 undo 回滚（见 8.2）。
+`dsh-update.sh` **幂等更新流程**：先比对版本——dsh 主体比对本地 HEAD 与 origin/master，插件（dsh-free-vision、dsh-undo-savepoint）比对已装版本与 npm 最新（查询在 profile 目录内执行，与安装同源同注册表）；**全部一致且 web 在跑 → 提示退出（不动 web）；web 未跑 → 直接启动**；任一落后才停 web → 只更新落后项（`git pull --ff-only` / `pnpm install` / `pnpm run build`、插件 `up --latest` + `rebuild` 重跑插件构建脚本（编译）并核对更新后版本）→ 以构建产物重启（`node apps/cli/lib/bin.js web`）。网络查询失败（离线/慢）时跳过对应项、**不误停 web**；更新命令均带超时（pull 5min / install 10min / build 15min / up 5min / rebuild 5min），任何失败路径由 EXIT 兜底把 web 拉起，不会出现"停了起不来"。支持 `--force`（跳过版本检查强制全量更新，插件同样走更新+重编译）、`--no-restart`（只更新不重启）。更新前的 profile 配置/插件树已被 dsh-undo-savepoint 自动快照，出错可 undo 回滚（见 8.2）。
 
 ## 7. 维护与排障 <a id="maintain"></a>
 
@@ -219,7 +219,8 @@ bash /home/minjian/develop/bizs/bms/scripts/tools/dsh/dsh-update.sh   # 一键�
 | 端口 3080 被占用？ | `dsh web --port 0`（系统自选，看打印的 URL）或换 `--port <n>`；停止用 `dsh-web-stop.sh`。 |
 | 传 `--host 0.0.0.0` 报用法错误？ | CLI 有意禁止 `0.0.0.0`（安全围栏），只能绑定具体地址；对外暴露走反向代理。 |
 | SSH 启动没自动开浏览器？ | 预期行为：检测到 `SSH_CONNECTION`/`SSH_TTY` 就只打印宿主机 URL，靠 SSH 端口转发访问。 |
-| `dsh web` 报错找不到产物？ | 先 `pnpm run build` 准备产物（生产 runner 依赖构建产物）。 |
+| `dsh web` 报错找不到产物？ | 先 `pnpm run build` 准备产物（生产 runner 依赖构建产物）；启动一律走 `node apps/cli/lib/bin.js web`。 |
+| 每次工具调用都报 `Cannot read properties of undefined (reading 'prepare')`，整个会话不可用？ | 根因：用 `pnpm dsh web`（tsx 源码模式）启动时，tsconfig paths 把部分核心包解析到 `src`、profile 加载器解析到 `lib`，同一进程加载两份 `@deepseek-ai/dsh-tools`，其模块级 `Symbol` 不相等，工具调度器查不到。处置：改用构建产物启动（`node apps/cli/lib/bin.js web`，启动脚本与更新脚本已固化此方式，2026-09-18 定位）；**已报错的会话留有悬空 `tool/call`，须新建会话**继续。 |
 | 换模型后没生效？ | 改配置后**下一次请求**即生效，无需重启；若仍不行查 `~/.dsh/settings.yaml` 与 `.credentials.yaml` 引用是否一致。 |
 | Web UI 模型下拉只剩 DeepSeek 官方、自定义 provider（本地 llamacpp / 硅基流动等）全消失？ | `llm-pi-ai.providers` **整段校验（全有或全无）**：段内任一路由不被服务即整段拒绝。典型触发：路由缺 `api`（模型不在 pi-ai 目录）、残留旧字段（`provider`、`maxRetries`/`maxRetryDelayMs`）、空 `baseURL`/`displayName`、空 `defaultInput`。修复后**重启 dsh web** 才重新装配（校验失败后 settings watcher 不自动恢复）。可本地快速验证：`python3 -c "import yaml,json;json.dump(yaml.safe_load(open('$HOME/.dsh/settings.yaml'))['llm-pi-ai']['providers'],open('/tmp/p.json','w'))"` 后在 `deepseek-harness/packages/llm/llm-pi-ai` 跑 `node --import tsx -e "import {resolveProfiles} from './src/config.ts'; import fs from 'node:fs'; resolveProfiles(JSON.parse(fs.readFileSync('/tmp/p.json','utf8'))); console.log('OK')"`。 |
 | 报 `provider "xxx" model "…" needs an api; the installed catalog does not describe it`？ | 该 provider/模型不在 pi-ai 安装目录且路由未声明协议。给该 provider 段补 `api: openai-completions` + `baseURL`（2026-09-08 实测：`opencode` 免费翻译段缺这两字段，导致整个 `llm-pi-ai` 段失效、本地模型一并消失；补上并重启 dsh web 后恢复）。 |

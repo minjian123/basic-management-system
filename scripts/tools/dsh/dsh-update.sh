@@ -13,11 +13,15 @@
 #   全部无需更新时：web 已在运行 → 提示退出；web 未运行 → 直接启动。
 #
 # 桌面入口:「更新 dsh与插件」（~/.local/share/applications/更新 dsh与插件.desktop）
+# 启动方式: 一律用构建产物 + 纯 node（node apps/cli/lib/bin.js web），不用 pnpm dsh web；
+#   tsx 源码模式会同时加载 src 与 lib 两份核心包，dsh-tools 模块级 Symbol 分裂，
+#   所有工具调用报 undefined.prepare（2026-09-18 定位，详见部署文档 FAQ）。
 # 回滚: web profile 配置/插件树变化由 dsh-undo-savepoint 自动快照，可 undo 回滚（部署文档 8.2 节）。
 set -u
 
 REPO=/home/minjian/develop/deepseek-harness
 PROFILE="$HOME/.dsh/profiles/web"
+WEB_ENTRY="apps/cli/lib/bin.js"
 LOG=/home/minjian/.dsh/dsh-update.log
 STOP_SH=/home/minjian/.local/bin/dsh-web-stop.sh
 PLUGINS="dsh-free-vision dsh-undo-savepoint"
@@ -49,9 +53,13 @@ fail() {
 ensure_web() { # EXIT 兜底：任何退出路径都保证 dsh web 在跑（--no-restart 除外）
   [ "$RESTART" = 1 ] || return 0
   ss -lptnH 2>/dev/null | grep -q ":$PORT" && return 0
+  if [ ! -f "$REPO/$WEB_ENTRY" ]; then
+    log "（兜底）缺少构建产物 $WEB_ENTRY，无法启动 dsh web；请重跑本脚本（会执行 pnpm run build）"
+    return 0
+  fi
   log "（兜底）dsh web 未在运行，后台启动…"
   rm -f "$LOG"
-  (cd "$REPO" && setsid nohup pnpm dsh web >>"$LOG" 2>&1 </dev/null &)
+  (cd "$REPO" && setsid nohup node "$WEB_ENTRY" web >>"$LOG" 2>&1 </dev/null &)
   sleep 5
   log "兜底启动已发出，约 20-40 秒后就绪；启动日志: $LOG"
 }
@@ -174,9 +182,10 @@ fi
 if ss -lptnH 2>/dev/null | grep -q ":$PORT"; then
   log "dsh web 已在运行（:$PORT），跳过启动"
 else
-  log "后台启动 dsh web …"
+  log "后台启动 dsh web（构建产物方式）…"
+  [ -f "$REPO/$WEB_ENTRY" ] || fail "缺少构建产物 $WEB_ENTRY；请重跑本脚本（会执行 pnpm run build）或手动: cd $REPO && pnpm run build"
   rm -f "$LOG"
-  (cd "$REPO" && setsid nohup pnpm dsh web >>"$LOG" 2>&1 </dev/null &) || fail "dsh web 启动失败"
+  (cd "$REPO" && setsid nohup node "$WEB_ENTRY" web >>"$LOG" 2>&1 </dev/null &) || fail "dsh web 启动失败"
   ok=""
   for _ in $(seq 1 60); do
     if ss -lptnH 2>/dev/null | grep -q ":$PORT"; then ok=1; break; fi
