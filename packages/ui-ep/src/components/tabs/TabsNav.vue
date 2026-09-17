@@ -29,8 +29,8 @@ import type { TabNavItem } from './types'
 
 const props = withDefaults(
   defineProps<{
-    /** 标签项；传数组即受控，传 null 即非受控（内部自管） */
-    tabs?: TabNavItem[] | null
+    /** 标签项；传数组即受控（只读），传 null 即非受控（内部自管） */
+    tabs?: readonly TabNavItem[] | null
     activeKey?: string | null
     /** 固定标签（工作台，不可关，首位） */
     pinnedKey?: string | null

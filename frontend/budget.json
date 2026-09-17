@@ -1,5 +1,6 @@
 {
   "distDir": "dist",
-  "totalGzipKb": 200,
-  "largestGzipKb": 100
+  "totalGzipKb": 240,
+  "largestGzipKb": 120,
+  "note": "2026-09-16 S5a 切流：基座新体系（@bms/core + @bms/vue + @bms/ui-ep，源码直出）合入主包，合计预算 200→240、单文件 100→120；后续 S5b 结构调整时按路由级分割复评"
 }

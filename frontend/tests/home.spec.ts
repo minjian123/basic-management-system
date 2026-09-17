@@ -1,4 +1,4 @@
-/** 默认页冒烟（Kiwi 19）：标题与 backend 应用信息渲染（mock 接口）。 */
+/** 默认页冒烟（Kiwi 19）：标题与 backend 应用信息渲染（mock 接口；S5a 切流后结构）。 */
 
 import { flushPromises } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -17,7 +17,7 @@ describe('HomeView 默认页（Kiwi 19）', () => {
   it('渲染标题并展示 backend 应用名与版本', async () => {
     const wrapper = mountWithPlugins(HomeView)
     await flushPromises()
-    expect(wrapper.get('h1').text()).toBe('BMS 基础管理系统')
+    expect(wrapper.find('.bms-page-container-title').text()).toBe('BMS 基础管理系统')
     expect(wrapper.text()).toContain('BMS 基础管理系统 0.1.0')
   })
 

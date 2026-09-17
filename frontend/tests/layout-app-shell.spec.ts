@@ -4,8 +4,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, nextTick } from 'vue'
 import { createMemoryHistory, createRouter, type Router } from 'vue-router'
 
-import AppLayout from '@/components/layout/AppLayout.vue'
-import { TabsNav } from '@/components/tabs'
+import { AppLayout, TabsNav } from '@bms/ui-ep'
+
+import { resetAppTabs } from '@/adapters/use-app-tabs'
 import BasicLayout from '@/layouts/BasicLayout.vue'
 import { nameComponent } from '@/router/routeComponent'
 import { registerMenuRoutes } from '@/router/menuRoutes'
@@ -22,6 +23,7 @@ type MatchMediaStub = {
 let mediaMatches = false
 
 beforeEach(() => {
+  resetAppTabs()
   mediaMatches = false
   vi.stubGlobal('matchMedia', (query: string): MatchMediaStub => ({
     matches: mediaMatches,
@@ -133,10 +135,7 @@ describe('主框架壳与宿主编排（Kiwi 739）', () => {
     expect(refreshedHome).not.toBe(homeElement)
 
     // 关闭 page-a 标签：缓存即时释放 → 再次进入重挂载（新元素）
-    const tabsVm = wrapper.findComponent(TabsNav).vm as unknown as {
-      closeTab: (key: string) => void
-    }
-    tabsVm.closeTab('page-a')
+    wrapper.findComponent(TabsNav).vm.$emit('close', 'page-a')
     await nextTick()
     await router.push('/page-a')
     await nextTick()
