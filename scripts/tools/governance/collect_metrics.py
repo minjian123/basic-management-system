@@ -187,7 +187,7 @@ def collect_coverage(root: Path, skip_tests: bool, with_frontend: bool) -> dict[
             "lines_pct": float(precise.group(1)) if precise else (int(total.group("pct")) if total else None),
         }
     frontend: dict[str, object] = {}
-    for name in ("apps/desktop", "apps/mobile"):
+    for name in ("frontend/apps/desktop", "frontend/apps/mobile"):
         project = root / name
         if with_frontend and not skip_tests:
             code, raw = run(["npm", "run", "test:cov"], cwd=project, timeout=900)

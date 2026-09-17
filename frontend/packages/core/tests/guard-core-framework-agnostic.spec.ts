@@ -1,4 +1,4 @@
-/** 护栏：核心框架无关（`packages/core` 不得依赖 Vue / UI 库 / 插件 / 宿主）。 */
+/** 护栏：核心框架无关（`frontend/packages/core` 不得依赖 Vue / UI 库 / 插件 / 宿主）。 */
 
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, resolve } from 'node:path'
@@ -57,7 +57,7 @@ describe('核心框架无关护栏', () => {
     const problems = scanForbiddenImports([
       { path: 'src/probe.ts', source: "import { ref } from 'vue'" },
       { path: 'src/probe2.ts', source: "import { ElButton } from 'element-plus'" },
-      { path: 'src/probe3.ts', source: "import { x } from '../../apps/desktop/src/x'" },
+      { path: 'src/probe3.ts', source: "import { x } from '../../frontend/apps/desktop/src/x'" },
     ])
     expect(problems).toHaveLength(3)
   })

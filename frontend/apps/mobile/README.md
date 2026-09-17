@@ -1,4 +1,4 @@
-# BMS 移动端 H5（apps/mobile）
+# BMS 移动端 H5（frontend/apps/mobile）
 
 > Vue 3 + Vite + TypeScript 移动端工程（Vant 4 / Router / Pinia / Axios / i18n + 视口适配；S4c 起消费基座新体系 `@bms/*`）
 
@@ -10,10 +10,10 @@ BMS 平台移动端 H5：Vue 3 + Vite + TypeScript 严格模式；Vant 4（unplu
 
 ## 快速启动
 
-前置：Node 22（nvm 管理）；先启动 backend（`cd ../../backend && uv run uvicorn app.main:create_app --factory --port 8000`）。
+前置：Node 22（nvm 管理）；先启动 backend（`cd ../../../backend && uv run uvicorn app.main:create_app --factory --port 8000`）。
 
 ```bash
-cd apps/mobile
+cd frontend/apps/mobile
 npm ci
 npm run dev       # http://127.0.0.1:5174（默认页展示 backend 连通状态；375×667 视口）
 npm run lint      # ESLint（--max-warnings 0）
@@ -29,7 +29,7 @@ npm run budget    # 构建体积预算（budget.json：合计 140 KB / 最大单
 ## 目录结构
 
 ```text
-apps/mobile/
+frontend/apps/mobile/
 ├── .npmrc · .nvmrc · eslint.config.js · .prettierrc.json
 ├── postcss.config.js         # px→vw（设计稿 375，保留 1px）
 ├── vite.config.ts            # 端口 5174 + @ / @bms/* 别名 + 分包（vendor-vant / bms-base）+ 代理
@@ -56,7 +56,7 @@ apps/mobile/
 ## 文档导航
 
 - 仓库根 [README](../../README.md)
-- 专项 [02-7 框架无关核心重构](../../bms文档/项目/04_前端组件库/任务/02_基础组件类/02_基础组件类_07_框架无关核心重构/02_基础组件类_07_框架无关核心重构.md)（S4 详细设计与实施记录）
-- 阶段一：[01-05 任务文档](../../bms文档/项目/01_项目骨架/任务/01_工程骨架/01_工程骨架_05_frontend-mobile工程初始化/01_工程骨架_05_frontend-mobile工程初始化.md) · [阶段测试报告](../../bms文档/项目/01_项目骨架/01_测试报告_项目骨架.md)
-- 《[前端开发规范](../../bms文档/规范/前端开发规范.md)》·《[前端基类清单](../../bms文档/前端基类清单.md)》
-- 《[架构设计 · 前端组件体系](../../bms文档/设计/架构设计/05_架构设计_前端组件体系.md)》「框架无关核心与插件架构」节
+- 专项 [02-7 框架无关核心重构](../../../bms文档/项目/04_前端组件库/任务/02_基础组件类/02_基础组件类_07_框架无关核心重构/02_基础组件类_07_框架无关核心重构.md)（S4 详细设计与实施记录）
+- 阶段一：[01-05 任务文档](../../../bms文档/项目/01_项目骨架/任务/01_工程骨架/01_工程骨架_05_frontend-mobile工程初始化/01_工程骨架_05_frontend-mobile工程初始化.md) · [阶段测试报告](../../../bms文档/项目/01_项目骨架/01_测试报告_项目骨架.md)
+- 《[前端开发规范](../../../bms文档/规范/前端开发规范.md)》·《[前端基类清单](../../../bms文档/前端基类清单.md)》
+- 《[架构设计 · 前端组件体系](../../../bms文档/设计/架构设计/05_架构设计_前端组件体系.md)》「框架无关核心与插件架构」节

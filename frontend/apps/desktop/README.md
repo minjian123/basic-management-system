@@ -1,4 +1,4 @@
-# BMS PC 管理端（apps/desktop）
+# BMS PC 管理端（frontend/apps/desktop）
 
 > Vue 3 + Vite + TypeScript 前端工程（01-04 完整初始化：Element Plus / Router / Pinia / Axios / i18n + 质量链路）
 
@@ -6,14 +6,14 @@
 
 BMS 平台 PC 管理端：Vue 3 + Vite + TypeScript 严格模式；Element Plus UI、Vue Router 4、Pinia、Axios 统一响应解析、vue-i18n；ESLint + Prettier + Vitest 质量链路（覆盖率阈值 70%，当前 **100%**）；开发代理连通 backend。
 
-阶段一交付：工程初始化 + 前端基类体系与公共组合式基座（`utils/` 六个基座、`stores/base.ts`、`api/` 契约与 Axios 基线），Vitest **4 文件 / 18 用例**全绿（《[阶段测试报告](../bms文档/项目/01_项目骨架/01_测试报告_项目骨架.md)》）；组件库与页面随阶段四（前端组件库）展开。
+阶段一交付：工程初始化 + 前端基类体系与公共组合式基座（`utils/` 六个基座、`stores/base.ts`、`api/` 契约与 Axios 基线），Vitest **4 文件 / 18 用例**全绿（《[阶段测试报告](../../../bms文档/项目/01_项目骨架/01_测试报告_项目骨架.md)》）；组件库与页面随阶段四（前端组件库）展开。
 
 ## 快速启动
 
-前置：Node 22（nvm 管理）；先启动 backend（`cd ../backend && uv run uvicorn app.main:create_app --factory --port 8000`）。
+前置：Node 22（nvm 管理）；先启动 backend（`cd ../../../backend && uv run uvicorn app.main:create_app --factory --port 8000`）。
 
 ```bash
-cd apps/desktop
+cd frontend/apps/desktop
 npm ci
 npm run dev       # http://127.0.0.1:5173（默认页展示 backend 应用名/版本）
 npm run lint      # ESLint（--max-warnings 0）
@@ -28,7 +28,7 @@ npm run build     # vue-tsc -b && vite build
 ## 目录结构
 
 ```text
-apps/desktop/
+frontend/apps/desktop/
 ├── .npmrc              # npmmirror + legacy-peer-deps（见上）
 ├── .nvmrc              # 固定 Node 22
 ├── .env.development    # VITE_API_BASE=/api
@@ -65,7 +65,7 @@ apps/desktop/
 ## 文档导航
 
 - 仓库根 [README](../README.md)
-- [01_04 任务文档](../bms文档/项目/01_项目骨架/任务/01_工程骨架/01_工程骨架_04_frontend工程初始化/01_工程骨架_04_frontend工程初始化.md) · [详细设计](../bms文档/项目/01_项目骨架/任务/01_工程骨架/01_工程骨架_04_frontend工程初始化/设计/04_详细设计_01_frontend工程初始化.md)
-- 阶段一：[需求总览](../bms文档/项目/01_项目骨架/需求/00_需求_项目骨架.md) · [排期计划](../bms文档/项目/01_项目骨架/计划/01_计划_项目骨架.md) · [阶段测试报告](../bms文档/项目/01_项目骨架/01_测试报告_项目骨架.md)
-- 《[前端开发规范](../bms文档/规范/前端开发规范.md)》·《[前端基类清单](../bms文档/前端基类清单.md)》
-- 《[架构设计 · 前端架构](../bms文档/设计/架构设计/08_架构设计_前端架构.md)》
+- [01_04 任务文档](../../../bms文档/项目/01_项目骨架/任务/01_工程骨架/01_工程骨架_04_frontend工程初始化/01_工程骨架_04_frontend工程初始化.md) · [详细设计](../../../bms文档/项目/01_项目骨架/任务/01_工程骨架/01_工程骨架_04_frontend工程初始化/设计/04_详细设计_01_frontend工程初始化.md)
+- 阶段一：[需求总览](../../../bms文档/项目/01_项目骨架/需求/00_需求_项目骨架.md) · [排期计划](../../../bms文档/项目/01_项目骨架/计划/01_计划_项目骨架.md) · [阶段测试报告](../../../bms文档/项目/01_项目骨架/01_测试报告_项目骨架.md)
+- 《[前端开发规范](../../../bms文档/规范/前端开发规范.md)》·《[前端基类清单](../../../bms文档/前端基类清单.md)》
+- 《[架构设计 · 前端架构](../../../bms文档/设计/架构设计/08_架构设计_前端架构.md)》
