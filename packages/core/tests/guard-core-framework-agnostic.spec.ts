@@ -8,7 +8,7 @@ import { describe, expect, it } from 'vitest'
 const coreRoot = resolve(import.meta.dirname, '..')
 
 /** 禁止的 import 来源（渲染框架 / UI 库 / 插件 / 宿主） */
-const FORBIDDEN_IMPORT = /(^|[\/])(vue|@vue[\/]|element-plus|vant|@bms[\/](vue|ui-ep|ui-vant)|apps[\/])/i
+const FORBIDDEN_IMPORT = /(^|[/])(vue|@vue[/]|element-plus|vant|@bms[/](vue|ui-ep|ui-vant)|apps[/])/i
 
 function sourceFiles(dir: string): string[] {
   const out: string[] = []

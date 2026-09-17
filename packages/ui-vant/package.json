@@ -9,6 +9,7 @@
   },
   "scripts": {
     "typecheck": "vue-tsc --noEmit -p tsconfig.json",
+    "lint": "eslint . --max-warnings 0",
     "test": "vitest run"
   },
   "dependencies": {
