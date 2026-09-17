@@ -14,13 +14,13 @@
 | 实施人 | minjian |
 | 环境 | Linux 开发机（mjpc）；Node v24.20.0；npm workspaces（core / vue / ui-ep / ui-vant） |
 | 实测工时 | ≈3h |
-| 结论 | S4b 完成：`packages/ui-vant` 建立并迁入 9 件（8 容器件 + `PermButton`）+ 注入实现；组件契约工厂与 Vue 挂载适配就位，**ui-ep 与 ui-vant 跑同一套断言全绿**；CI `core-check` 切 workspace 根依赖、镜像扩展（含 vant）与 `build-base.sh` 哈希输入更新 |
+| 结论 | S4b 完成：`frontend/packages/ui-vant` 建立并迁入 9 件（8 容器件 + `PermButton`）+ 注入实现；组件契约工厂与 Vue 挂载适配就位，**ui-ep 与 ui-vant 跑同一套断言全绿**；CI `core-check` 切 workspace 根依赖、镜像扩展（含 vant）与 `build-base.sh` 哈希输入更新 |
 
 ## 2. 交付物 <a id="deliverables"></a>
 
 | 块 | 内容 |
 | --- | --- |
-| 包骨架 | `packages/ui-vant/`：`package.json`（deps `@bms/core` / `@bms/vue` / `vant@^4.10.2`；peer `vue` / `vue-i18n` / `vue-router`）/ `tsconfig.json` / `vitest.config.ts`（jsdom + vant inline）/ `env.d.ts`（Vant 按需样式声明） |
+| 包骨架 | `frontend/packages/ui-vant/`：`package.json`（deps `@bms/core` / `@bms/vue` / `vant@^4.10.2`；peer `vue` / `vue-i18n` / `vue-router`）/ `tsconfig.json` / `vitest.config.ts`（jsdom + vant inline）/ `env.d.ts`（Vant 按需样式声明） |
 | 组件迁入（9 件） | 8 容器件 + `PermButton`：import 源切 `@bms/vue` / `@bms/core`；`PermButton` 判定切本插件 `checkPerm`（原 `@/utils/perm` 宿主依赖去除）；类名钩子 / props / emits / 暴露方法契约不变 |
 | 注入实现 | `confirm.ts`：Vant `showConfirmDialog` 默认实现（`danger` 映射危险色）+ core 共享工厂实例；`permission.ts`：core `createPermissionGate` 实例（未注入 = 无权限） |
 | 契约套件 | core `testing/components.ts`：`describeContainerComponentsContract` / `describePermButtonContract`（结构不变量 + 关键交互）；`@bms/vue/testing` 新增子路径导出：`createContractKit` 挂载适配（结构接口，core 不引入 Vue 类型） |
@@ -34,7 +34,7 @@
 | --- | --- |
 | `npm run check`（core + vue + ui-ep + ui-vant） | 全绿：core **10 / 60** + vue **2 / 6** + ui-ep **12 / 78**（含契约套件）+ ui-vant **11 / 64**（含契约套件）；合计 **35 文件 / 208 用例** |
 | `npm run -w @bms/ui-vant typecheck` | 通过（vue-tsc） |
-| `apps/desktop`：`npm run lint` + `npm run test` | lint 零告警；**33 文件 / 234 用例**全绿（ui-ep 改造对 PC 宿主无回归） |
+| `frontend/apps/desktop`：`npm run lint` + `npm run test` | lint 零告警；**33 文件 / 234 用例**全绿（ui-ep 改造对 PC 宿主无回归） |
 | 契约一致性 | `ui-ep` 与 `ui-vant` 对同一套契约（确认 / 权限 / 8 容器件 + 权限按钮）断言全绿 |
 
 ## 4. 问题与处置 <a id="issues"></a>
@@ -53,10 +53,10 @@
 
 | # | 项 | 归口 / 去向 |
 | --- | --- | --- |
-| 1 | 包级 ESLint 未覆盖（`ui-vant` 与 `ui-ep` 一致，仅 `vue-tsc` + Vitest 门禁） | 如需包级 lint，另立工程化批次（沿用 `apps/*` 口径） |
+| 1 | 包级 ESLint 未覆盖（`ui-vant` 与 `ui-ep` 一致，仅 `vue-tsc` + Vitest 门禁） | 如需包级 lint，另立工程化批次（沿用 `frontend/apps/*` 口径） |
 | 2 | 镜像首次重建（含 workspace 根 `npm ci`）耗时增加 | 随 CI 首跑观察；如超时再评估分层缓存 |
 | 3 | 契约套件覆盖面为「结构不变量 + 关键交互」（约 9 组） | 后续新增组件时按同模板补契约；细粒度行为保留在两插件 spec |
-| 4 | mobile 旧件（9 件 + 31 片段 + 旧基座 + 38 spec）未删；宿主未切流 | S4c（实施记录 19） |
+| 4 | mobile 旧件（9 件 + 31 能力 + 旧基座 + 38 spec）未删；宿主未切流 | S4c（实施记录 19） |
 | 5 | Kiwi 台账 mobile 侧对账与平台置 `DISABLED` 清单 | S4c |
 
 > 本文档依《[文档生成规范](../../../../../../规范/文档生成规范.md)》编写
