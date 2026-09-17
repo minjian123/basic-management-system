@@ -68,7 +68,7 @@ npm run dev
 npm run test           # Vitest 冒烟
 
 # 移动端（端口 5174）
-cd frontend-mobile
+cd apps/mobile
 npm ci
 npm run dev
 npm run test
@@ -80,7 +80,7 @@ npm run test
 uv run ruff check . && uv run ruff format --check . && uv run pyright
 uv run pytest -q --cov=app --cov-branch --cov-fail-under=70    # 覆盖率门禁 ≥ 70%
 uv run python -m ops.check_modules                             # 模块注册清单校验
-cd ../frontend && npm run lint && npm run test:cov && npm run build && npm run budget   # 移动端：cd ../frontend-mobile（覆盖率 ≥ 70%、体积预算门禁）
+cd ../apps/desktop && npm run lint && npm run test:cov && npm run build && npm run budget   # 移动端：cd ../apps/mobile（覆盖率 ≥ 70%、体积预算门禁）
 cd .. && python3 scripts/tools/base-check/check-base.py        # 基座自检（须在仓库根）
 python3 scripts/tools/base-check/check-links.py                # 链接自洽校验（本地手工跑，不挂 CI）
 python3 scripts/tools/check-docs/check-status.py              # 需求 / 任务 / 计划状态一致性
@@ -187,8 +187,13 @@ bms/
 │   │   ├── styles/           # 设计令牌 tokens.scss（size / density）
 │   │   └── utils/            # useRequest / useListPage / useTabs / validators / status / serialize
 │   └── tests/                # Vitest：base-*（根系 / 组件根 / 机制 / 片段 / 域基类）+ guard-*（继承·依赖·演进·清单护栏）+ home / http / utils + helpers
-├── frontend-mobile/          # Vue 3 + Vant 移动端 H5（视口 375 + 安全区适配）
-│   └── …                     # 结构同 apps/desktop（含同款 `src/base/` 与 `src/components/base/`，双端字节级同款）；Vant 4 + px→vw，端口固定 5174
+├── apps/mobile/                  # Vue 3 + Vant 移动端 H5（视口 375 + 安全区适配）
+│   └── …                         # 端口固定 5174；消费 `@bms/core` / `@bms/vue` / `@bms/ui-vant`（S4c 起，旧 `src/base` 与片段层已删除）
+├── packages/                     # 前端单仓多包（源码头，宿主经 vite alias / tsconfig paths 消费）
+│   ├── core/                     # 框架无关核心（纯 TS：根系 / 机制 / 31 能力 / 领域 / 契约；`@bms/core/testing` 契约用例工厂）
+│   ├── vue/                      # Vue 绑定插件（组合式投影：useValue / useField / useAccess / useVirtualRange …）
+│   ├── ui-ep/                    # PC 实现插件（Element Plus，34 组件 + 注入点）
+│   └── ui-vant/                  # 移动端实现插件（Vant，9 组件 + 注入点；与 ui-ep 同契约）
 ├── deploy/                   # 部署配置
 │   ├── .env.example          # 开发服务器与服务凭据模板（复制为 .env）
 │   ├── ci/                   # CI 构建（后端 / 前端 Dockerfile + 基础镜像构建脚本）
