@@ -73,7 +73,7 @@ chore(deps): 升级 fastapi 至 0.115
 
 1. **推送**：功能分支 push 至 gitlab：`git push gitlab feature/xxx`。
 2. **创建 MR**：目标分支 main，标题遵循提交信息格式（`feat(wf): ...`），描述注明需求来源与验收点。
-3. **CI 检查**：MR 流水线须全绿（ruff、pytest、ESLint、Vitest、双端构建）方可合并。
+3. **CI 检查**：MR 流水线须全绿（后端 lint / 类型检查 / 测试 + 前端 lint / 单测 + 双端构建）方可合并。
 4. **评审**：至少 1 人评审通过（见《[代码评审规范](代码评审规范.md)》），评审意见逐条处理。
 5. **合入**：Squash 合并（保持 main 历史线性），删除源分支。
 
