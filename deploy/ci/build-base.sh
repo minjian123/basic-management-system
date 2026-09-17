@@ -21,9 +21,9 @@ cp backend/pyproject.toml backend/uv.lock "$backend_ctx/"
 cp deploy/ci/Dockerfile.backend "$backend_ctx/Dockerfile"
 
 frontend_ctx=$(mktemp -d)
-mkdir -p "$frontend_ctx/apps/desktop" "$frontend_ctx/frontend-mobile" "$frontend_ctx/packages"
+mkdir -p "$frontend_ctx/apps/desktop" "$frontend_ctx/apps/mobile" "$frontend_ctx/packages"
 cp apps/desktop/package.json apps/desktop/package-lock.json "$frontend_ctx/apps/desktop/"
-cp apps/mobile/package.json apps/mobile/package-lock.json "$frontend_ctx/frontend-mobile/"
+cp apps/mobile/package.json apps/mobile/package-lock.json "$frontend_ctx/apps/mobile/"
 # workspace 根依赖集：根清单 + 各包清单（npm ci 按 packages/* 计算依赖，镜像内只需清单）
 cp package.json package-lock.json tsconfig.base.json "$frontend_ctx/"
 for manifest in packages/*/package.json; do
