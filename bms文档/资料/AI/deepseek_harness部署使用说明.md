@@ -188,7 +188,7 @@ refs:
 | 项 | 位置 / 行为 |
 | --- | --- |
 | 桌面项 `更新 dsh与插件` | `~/.local/share/applications/更新 dsh与插件.desktop`，`Terminal=true` 直跑 `bms/scripts/tools/dsh/dsh-update.sh`（2026-09-09 新增） |
-| `~/.local/bin/dsh-web-start.sh` | 启动 dsh web：加载 nvm(Node24+pnpm) → cd 仓库 → exec `node apps/cli/lib/bin.js web`（**构建产物方式**；前台，终端内跑便于看日志；缺产物时提示先构建。**不得用 `pnpm dsh web`**，原因见 7.2 FAQ） |
+| `~/.local/bin/dsh-web-start.sh` | 启动 dsh web：加载 nvm(Node24+pnpm) → **启动前自动检查并更新**（调 `dsh-update.sh --boot`，无人值守，失败不阻断；`DSH_START_SKIP_UPDATE=1` 可临时跳过）→ cd 仓库 → exec `node apps/cli/lib/bin.js web`（**构建产物方式**；前台，终端内跑便于看日志；缺产物时提示先构建。**不得用 `pnpm dsh web`**，原因见 7.2 FAQ） |
 | `~/.local/bin/dsh-web-stop.sh` | 停止 dsh web：按端口 3080 定位 PID → kill → 等端口释放(≤5s) → 兜底 kill -9 → notify-send |
 
 ```text
@@ -198,7 +198,9 @@ refs:
 （更新脚本位于 bms 仓库 scripts/tools/dsh/dsh-update.sh，桌面项 Exec 直接指向仓库路径）
 ```
 
-`dsh-update.sh` **幂等更新流程**：先比对版本——dsh 主体比对本地 HEAD 与 origin/master，插件（dsh-free-vision、dsh-undo-savepoint）比对已装版本与 npm 最新（查询在 profile 目录内执行，与安装同源同注册表）；**全部一致且 web 在跑 → 提示退出（不动 web）；web 未跑 → 直接启动**；任一落后才停 web → 只更新落后项（`git pull --ff-only` / `pnpm install` / `pnpm run build`、插件 `up --latest` + `rebuild` 重跑插件构建脚本（编译）并核对更新后版本）→ 以构建产物重启（`node apps/cli/lib/bin.js web`）。网络查询失败（离线/慢）时跳过对应项、**不误停 web**；更新命令均带超时（pull 5min / install 10min / build 15min / up 5min / rebuild 5min），任何失败路径由 EXIT 兜底把 web 拉起，不会出现"停了起不来"。支持 `--force`（跳过版本检查强制全量更新，插件同样走更新+重编译）、`--no-restart`（只更新不重启）。更新前的 profile 配置/插件树已被 dsh-undo-savepoint 自动快照，出错可 undo 回滚（见 8.2）。
+`dsh-update.sh` **幂等更新流程**：先比对版本——dsh 主体比对本地 HEAD 与 origin/master，插件（dsh-free-vision、dsh-undo-savepoint、dshmarket）比对已装版本与 npm 最新（查询在 profile 目录内执行，**走国内镜像 npmmirror**）；**全部一致且 web 在跑 → 提示退出（不动 web）；web 未跑 → 直接启动**；任一落后才停 web → 只更新落后项（`git pull --ff-only` / `pnpm install` / `pnpm run build`、插件 `up --latest` + `rebuild` 重跑插件构建脚本（编译）并核对更新后版本）→ 以构建产物重启（`node apps/cli/lib/bin.js web`）。网络查询失败（离线/慢）时跳过对应项、**不误停 web**；更新命令均带超时（pull 5min / install 10min / build 15min / up 5min / rebuild 5min），任何失败路径由 EXIT 兜底把 web 拉起，不会出现"停了起不来"。支持 `--force`（跳过版本检查强制全量更新，插件同样走更新+重编译）、`--no-restart`（只更新不重启）、`--boot`（启动前模式，见下）。更新前的 profile 配置/插件树已被 dsh-undo-savepoint 自动快照，出错可 undo 回滚（见 8.2）。
+
+**每次启动先自动更新**（2026-09-18 新增）：`dsh-web-start.sh` 在 exec 启动前调用 `dsh-update.sh --boot`——启动前模式**只检查/更新，绝不启停 web**；web 已在运行则直接跳过；检出有未提交改动时降级为「跳过源码更新、只更新插件」而不中止；更新失败仅打印告警，仍用当前版本继续启动。即「启动 dsh web」与「更新 dsh与插件」共用同一套版本比对与更新逻辑，不必先点更新再点启动。临时跳过本次检查：`DSH_START_SKIP_UPDATE=1 bash ~/.local/bin/dsh-web-start.sh`。
 
 ## 7. 维护与排障 <a id="maintain"></a>
 
@@ -210,6 +212,7 @@ pnpm run typecheck    # 类型检查
 pnpm run lint         # oxlint
 pnpm test             # vitest
 bash /home/minjian/develop/bizs/bms/scripts/tools/dsh/dsh-update.sh   # 一键更新（桌面「更新 dsh与插件」同款，桌面走 ~/.local/bin/bms-tools.sh dsh-update）：源码 git pull + 依赖 + 构建 + 插件最新（含重编译） + 重启 web
+DSH_START_SKIP_UPDATE=1 bash ~/.local/bin/dsh-web-start.sh            # 启动 dsh web，但跳过「启动前自动更新检查」
 ```
 
 ### 7.2 常见问题 <a id="faq"></a>
@@ -227,12 +230,12 @@ bash /home/minjian/develop/bizs/bms/scripts/tools/dsh/dsh-update.sh   # 一键�
 | 发消息报 `No API key for provider: llamacpp`（或某自定义 provider）？ | pi-ai 的 OpenAI 兼容实现对无鉴权本地服务也要求凭据；给路由加 `apiKeyEnv` 指向占位 key（见 5.3）。 |
 | 视觉模型附图被拒？ | 自定义 provider 手填模型默认纯文本，需按 5.2 加 `input: [text, image]` 或 `defaultInput`。 |
 | 依赖安装慢 / 超时？ | pnpm 配 npmmirror 源；nvm 下 Node 用 `NVM_NODEJS_ORG_MIRROR=https://npmmirror.com/mirrors/node`。 |
-| `dsh web` 报 `Cannot find package '@deepseek-ai/dsh-host-apiproxy'`？ | 插件 `@linxin666/dsh-remote-web-ui` 与当前 dsh 不兼容（缺该 host 包，启动即崩）；`pnpm dsh plugin --profile web remove @linxin666/dsh-remote-web-ui` 卸载（见 8.4）。 |
+| `dsh web` 报 `Cannot find package '@deepseek-ai/dsh-host-apiproxy'`？ | 插件 `@linxin666/dsh-remote-web-ui` 与当前 dsh 不兼容（缺该 host 包，启动即崩）；`pnpm dsh plugin --profile web remove @linxin666/dsh-remote-web-ui` 卸载（见 8.5）。 |
 | 想彻底停止后台 dsh web？ | `bash ~/.local/bin/dsh-web-stop.sh`，或 `ss -lptnH | awk '$4 ~ /:3080$/'` 找 PID 后 `kill`。 |
 
 ## 8. 插件扩展 <a id="plugins"></a>
 
-「一切皆插件」，可通过 `dsh plugin --profile <name> add|remove <pkg>` 给 profile 装/卸插件（转发给 pnpm，并自动 reconcile `dsh.profile.bundles` 图层）。本机**当前装有**两个挂进 `web` profile 的 bundle 扩展：`dsh-free-vision`（见 8.1）、`dsh-undo-savepoint`（见 8.2）。曾装过已移除：`dshmarket` / `dsh-context`（0.1.5 重构后未保留，见 8.3）、`dsh-remote-web-ui`（见 8.4）、`dsh-tui`（见 8.5）。
+「一切皆插件」，可通过 `dsh plugin --profile <name> add|remove <pkg>` 给 profile 装/卸插件（转发给 pnpm，并自动 reconcile `dsh.profile.bundles` 图层）。本机**当前装有**三个挂进 `web` profile 的 bundle 扩展：`dsh-free-vision`（见 8.1）、`dsh-undo-savepoint`（见 8.2）、`dshmarket`（插件市场，见 8.3）。曾装过已移除：`dsh-context`（0.1.5 重构后未保留，见 8.4）、`dsh-remote-web-ui`（见 8.5）、`dsh-tui`（见 8.6）。
 
 ### 8.1 免费视觉 dsh-free-vision（web profile bundle，当前装有） <a id="plugins-free-vision"></a>
 
@@ -295,23 +298,46 @@ PowerShell 7（`pwsh`）才能跑。**已决定暂不装 pwsh**（2026-09-09）�
 真遇 DSH 起不来的离线场景，届时再评估补装 pwsh（CLI 用法同上，文件路径
 `~/.dsh/profiles/web/node_modules/dsh-undo-savepoint/tools/dsh-undo.ps1`）或 Windows 侧 GUI 救援。
 
-### 8.3 曾装已移除：dshmarket 与 dsh-context <a id="plugins-removed"></a>
+### 8.3 插件市场 dshmarket（web profile bundle，当前装有） <a id="plugins-dshmarket"></a>
 
-0.1.2 时代装过两个 web bundle 扩展，随 **2026-09-08 升级 0.1.5 的 profile 重构未再保留**
-（bundles 现为 dsh-base / dsh-web-app / dsh-free-vision / dsh-undo-savepoint）：
+dsh 内建的侧边栏「插件」面板只能**安装**插件（包名 / Git / tarball / 本地路径），没有市场目录；
+`dshmarket` 补上这一环：在 Web UI **设置 → 插件市场** 浏览与搜索社区插件并一键安装，主题类插件装完即时切换、不必重启。
+仓库：<https://github.com/dsh-market/dsh-market>（MIT）。选它的依据是热度与维护活跃度断层领先——
+npm 月下载量约 45.9 万、GitHub 4086 星（同类第二名的月下载量不足其三分之一），且仍在按日提交。
 
-- `dshmarket`：可视化插件市场（浏览/搜索/一键安装社区插件），当时 ^1.37.0，npm 最新 1.45.1；
+| 项 | 值 |
+| --- | --- |
+| 安装 | `pnpm dsh plugin --profile web add dshmarket`（2026-09-18 装，走 npmmirror 源） |
+| 版本 | 1.47.0（要求 `dsh web ≥ 0.1.0-rc.6`，本机 0.1.6-alpha.2 满足） |
+| 落位 | bundle 图层（`dsh.profile.bundles` 自动登记），patch 插入 `id: dsh-market` |
+| 生效时机 | 装/卸需**重启 dsh web**；市场内装主题为一键即时生效 |
+| 与更新脚本 | 已纳入 `dsh-update.sh` 的插件清单，与另两个插件同样比对版本、`up --latest` + `rebuild`（见 6 节） |
+
+装回时的兼容性验证（2026-09-18，0.1.6-alpha.2）：`dsh --profile web --dump-config` 组合通过、启动预检
+7 bundle / 304 link 无阻塞问题、`import dshmarket` 成功（导出 `apply, name`）。`pnpm peers check` 会报
+`missing peer @deepseek-ai/cordis ^4.0.1`，属 profile「hoisted + 模块回退」机制下的 pnpm 层误报——运行时实际
+解析到 `vendor/cordis@4.0.2`，不影响加载。
+
+> **来龙去脉**：0.1.2 时代装过 `dshmarket`（^1.37.0）与 `dsh-context`，2026-09-08 升级 0.1.5 的 profile
+> 重构未再保留，文档当时标注「装回兼容性未验证」。2026-09-18 以 1.47.0 装回，兼容性结论已如上更新。
+>
+> **取舍**：第三方社区插件（非 DeepSeek 官方），会联网访问 dshmarket.com；解包 3.1 MB、依赖 `undici` 与
+> `js-yaml`，并注入设置页与主题；GitHub 上有数十个 open issue 在跟进。卸载：`pnpm dsh plugin --profile web remove dshmarket`。
+
+### 8.4 曾装已移除：dsh-context <a id="plugins-removed"></a>
+
+0.1.2 时代装过的客户端上下文注入 bundle，随 **2026-09-08 升级 0.1.5 的 profile 重构未再保留**：
+
 - `dsh-context`：客户端上下文注入 bundle，当时 ^0.38.1，npm 最新 0.47.0。
 
 如需装回（0.1.5 兼容性未验证；装后启动崩溃可 remove 还原或用 dsh-undo-savepoint 回滚）：
 
 ```bash
 cd /home/minjian/develop/deepseek-harness
-pnpm dsh plugin --profile web add dshmarket
 pnpm dsh plugin --profile web add dsh-context
 ```
 
-### 8.4 远程 Web UI dsh-remote-web-ui（web profile bundle，**已卸载**） <a id="plugins-remote-web-ui"></a>
+### 8.5 远程 Web UI dsh-remote-web-ui（web profile bundle，**已卸载**） <a id="plugins-remote-web-ui"></a>
 
 > **结论：`dsh web` 启动即崩溃（plugin tree failed to load），已用官方 `dsh plugin remove` 卸载。**
 
@@ -335,7 +361,7 @@ pnpm dsh plugin --profile web remove @linxin666/dsh-remote-web-ui   # 转发 pnp
 
 卸载后 `dsh web` 恢复正常启动。装上它须等该包适配当前 dsh（移除对 `@deepseek-ai/dsh-host-apiproxy` 的依赖或等官方补包）再试；安装命令备查：`pnpm dsh plugin --profile web add @linxin666/dsh-remote-web-ui`。
 
-### 8.5 终端客户端 dsh-tui（全局 CLI，**已卸载**） <a id="plugins-tui"></a>
+### 8.6 终端客户端 dsh-tui（全局 CLI，**已卸载**） <a id="plugins-tui"></a>
 
 > **结论：与 dsh 不兼容（0.1.2 时代实测，0.1.5 未复测），已全局卸载，暂不使用。**
 

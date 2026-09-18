@@ -1,9 +1,14 @@
 #!/usr/bin/env bash
 # 更新 DeepSeek Harness（dsh）源码与 web profile 插件，并确保 dsh web 运行
 #
-# 用法: dsh-update.sh [--force] [--no-restart]
+# 用法: dsh-update.sh [--force] [--no-restart] [--boot]
 #   --force       忽略版本检查，强制完整更新（pull + install + build + 插件 up --latest + 重编译）
 #   --no-restart  需要更新时只更新不重启（下次手动重启生效）
+#   --boot        启动前模式（供 dsh-web-start.sh 调用）：只检查/更新，绝不启动或停止 web；
+#                 web 已在运行则直接跳过；检出有未提交改动时降级为「跳过源码更新、只更新插件」，
+#                 不中止——保证「启动」这条路径不会被更新失败卡死。更新失败由调用方决定是否继续启动。
+#
+# 插件版本查询与插件更新一律走国内镜像（REGISTRY），避免每次启动都卡在 npm 官方源。
 #
 # 幂等逻辑（各部分分别比对版本，一致即跳过更新与编译）：
 #   dsh 主体：本地 HEAD 与 origin/master 一致 → 跳过 git pull / pnpm install / pnpm run build；
@@ -13,6 +18,8 @@
 #   全部无需更新时：web 已在运行 → 提示退出；web 未运行 → 直接启动。
 #
 # 桌面入口:「更新 dsh与插件」（~/.local/share/applications/更新 dsh与插件.desktop）
+# 启动入口:「启动 dsh web」（~/.local/bin/dsh-web-start.sh）在 exec 启动前调用本脚本 --boot：
+#   每次启动先自动检查并更新（无人值守），更新失败不阻断启动；临时跳过用 DSH_START_SKIP_UPDATE=1。
 # 启动方式: 一律用构建产物 + 纯 node（node apps/cli/lib/bin.js web），不用 pnpm dsh web；
 #   tsx 源码模式会同时加载 src 与 lib 两份核心包，dsh-tools 模块级 Symbol 分裂，
 #   所有工具调用报 undefined.prepare（2026-09-18 定位，详见部署文档 FAQ）。
@@ -24,15 +31,19 @@ PROFILE="$HOME/.dsh/profiles/web"
 WEB_ENTRY="apps/cli/lib/bin.js"
 LOG=/home/minjian/.dsh/dsh-update.log
 STOP_SH=/home/minjian/.local/bin/dsh-web-stop.sh
-PLUGINS="dsh-free-vision dsh-undo-savepoint"
+PLUGINS="dsh-free-vision dsh-undo-savepoint dshmarket"
+REGISTRY=https://registry.npmmirror.com
 PORT=3080
 FORCE=0
 RESTART=1
+BOOT=0
+DIRTY=0
 for arg in "$@"; do
   case "$arg" in
     --force) FORCE=1 ;;
     --no-restart) RESTART=0 ;;
-    *) echo "未知参数: $arg（可用 --force / --no-restart）" >&2; exit 2 ;;
+    --boot) BOOT=1; RESTART=0 ;;
+    *) echo "未知参数: $arg（可用 --force / --no-restart / --boot）" >&2; exit 2 ;;
   esac
 done
 
@@ -65,19 +76,32 @@ ensure_web() { # EXIT 兜底：任何退出路径都保证 dsh web 在跑（--no
 }
 trap ensure_web EXIT
 
-log "== dsh 更新检查开始 =="
+log "== dsh 更新检查开始（$([ "$BOOT" = 1 ] && echo 启动前模式 || echo 手动模式)$([ "$FORCE" = 1 ] && echo " / --force")）=="
 command -v node >/dev/null 2>&1 || fail "node 不可用（需 nvm 加载 Node 24）"
 command -v pnpm >/dev/null 2>&1 || fail "pnpm 不可用"
 [ -d "$REPO/.git" ] || fail "dsh 仓库不存在: $REPO"
+
+# --boot：web 已在运行说明无需更新（也避免动运行中的实例），交回启动流程处理
+if [ "$BOOT" = 1 ] && ss -lptnH 2>/dev/null | grep -q ":$PORT"; then
+  log "dsh web 已在 :$PORT 运行，跳过启动前更新检查。"
+  exit 0
+fi
+
+# 检出有未提交改动：手动模式中止（避免误覆盖）；启动前模式降级为只更新插件，不阻断启动
 if [ -n "$(git -C "$REPO" status --porcelain)" ]; then
-  fail "dsh 仓库有未提交改动，请先处理再更新：cd $REPO && git status"
+  if [ "$BOOT" = 1 ]; then
+    DIRTY=1
+    log "⚠ dsh 仓库有未提交改动，本次跳过源码更新（只检查/更新插件）"
+  else
+    fail "dsh 仓库有未提交改动，请先处理再更新：cd $REPO && git status"
+  fi
 fi
 
 installed_version() { # 已装插件版本（profile 的 node_modules）
   python3 -c "import json;print(json.load(open('$PROFILE/node_modules/$1/package.json'))['version'])" 2>/dev/null
 }
-latest_version() { # npm 最新版本（在 profile 目录内查询，与安装同源同注册表）
-  (cd "$PROFILE" 2>/dev/null && timeout 20 pnpm view "$1" version 2>/dev/null)
+latest_version() { # npm 最新版本（在 profile 目录内查询；走国内镜像 REGISTRY）
+  (cd "$PROFILE" 2>/dev/null && timeout 20 env npm_config_registry="$REGISTRY" pnpm view "$1" version 2>/dev/null)
 }
 
 # ---------- 版本比对 ----------
@@ -89,8 +113,10 @@ if [ "$FORCE" = 1 ]; then
   NEED_SRC=1
   NEED_PLUGINS="$PLUGINS"
 else
-  # 1) dsh 主体：fetch 远端后比较 HEAD
-  if timeout 60 git -C "$REPO" fetch origin master --quiet 2>/dev/null; then
+  # 1) dsh 主体：fetch 远端后比较 HEAD（启动前模式且检出不干净时整段跳过）
+  if [ "$DIRTY" = 1 ]; then
+    log "dsh 主体：检出有未提交改动，跳过源码更新"
+  elif timeout 60 git -C "$REPO" fetch origin master --quiet 2>/dev/null; then
     LOCAL=$(git -C "$REPO" rev-parse HEAD)
     REMOTE=$(git -C "$REPO" rev-parse origin/master)
     if [ "$LOCAL" != "$REMOTE" ]; then
@@ -124,6 +150,10 @@ fi
 
 # ---------- 无需更新：直接启动 / 维持运行 ----------
 if [ "$NEED_SRC" = 0 ] && [ -z "$NEED_PLUGINS" ]; then
+  if [ "$BOOT" = 1 ]; then
+    log "全部已是最新，交回启动流程。"
+    exit 0
+  fi
   if ss -lptnH 2>/dev/null | grep -q ":$PORT"; then
     PID=$(ss -lptnH 2>/dev/null | grep ":$PORT" | grep -oP 'pid=\K[0-9]+' | head -1)
     log "全部已是最新，dsh web 正在运行（:$PORT，pid $PID），无需动作。"
@@ -160,7 +190,7 @@ else
 
   if [ -n "$NEED_PLUGINS" ]; then
     log "── 更新插件（up --latest，外部输出为英文）: $NEED_PLUGINS ──"
-    (cd "$REPO" && timeout 300 pnpm dsh plugin --profile web up --latest $NEED_PLUGINS) || fail "插件更新失败（见上）"
+    (cd "$REPO" && timeout 300 env npm_config_registry="$REGISTRY" pnpm dsh plugin --profile web up --latest $NEED_PLUGINS) || fail "插件更新失败（见上）"
     log "✓ 插件更新完成"
     log "── 重跑插件构建脚本（rebuild 即编译，外部输出为英文）: $NEED_PLUGINS ──"
     (cd "$REPO" && timeout 300 pnpm dsh plugin --profile web rebuild $NEED_PLUGINS) || fail "插件重编译失败（构建脚本，见上）"
@@ -175,6 +205,10 @@ else
     done
   fi
 
+  if [ "$BOOT" = 1 ]; then
+    log "更新完成，交回启动流程（随后启动 dsh web 使更新生效）。"
+    exit 0
+  fi
   [ "$RESTART" = 0 ] && { log "更新完成（--no-restart），请手动重启 dsh web 生效。"; exit 0; }
 fi
 
