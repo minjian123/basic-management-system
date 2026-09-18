@@ -87,6 +87,22 @@ export {
   type ModuleContextKey,
 } from './capabilities/module-context'
 
+export {
+  BaseAsyncTask,
+  type TaskExecutor,
+  type TaskProgress,
+  type TaskStatus,
+} from './capabilities/async-task'
+export { BaseUploadEngine, type Uploader } from './capabilities/upload-engine'
+export { BaseEditorKernel, type EditorMode } from './capabilities/editor-kernel'
+export { BaseOptionSource, type OptionItem } from './capabilities/option-source'
+export { BasePresignedUrl, type PresignedResult } from './capabilities/presigned-url'
+export { BaseWatermark } from './capabilities/watermark'
+export { BaseUserDisplay, type UserDisplayInfo, type UserStatus } from './capabilities/user-display'
+export { BaseDynamicRoutes, type RouteNode } from './capabilities/dynamic-routes'
+export { BaseFormMeta } from './capabilities/form-meta'
+export { BaseFormPage, type FormMode } from './capabilities/form-page'
+
 export { BaseApi, type HttpMethod } from './contracts/api'
 export { BaseDataObject } from './contracts/data-object'
 export { BaseEntity } from './contracts/entity'

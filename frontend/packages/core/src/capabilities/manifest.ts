@@ -28,6 +28,16 @@ export const CAPABILITY_MANIFEST: Readonly<Record<string, readonly string[]>> = 
   locale: [],
   access: [],
   'module-context': [],
+  'async-task': [],
+  'upload-engine': ['presigned-url'],
+  'editor-kernel': [],
+  'option-source': [],
+  'presigned-url': [],
+  watermark: [],
+  'user-display': [],
+  'dynamic-routes': [],
+  'form-meta': [],
+  'form-page': ['form-meta'],
 }
 
 /** 校验问题种类。 */
