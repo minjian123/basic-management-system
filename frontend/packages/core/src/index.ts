@@ -189,15 +189,18 @@ export {
   FieldRendererRegistry,
   IconProvider,
   IconRegistry,
+  ICON_KEY_PATTERN,
   REGISTRY_KEY_PATTERN,
   RouteMenuProvider,
   RouteMenuRegistry,
   WorkbenchCardProvider,
   WorkbenchCardRegistry,
+  assertIconKey,
   assertNamespacedKey,
   createRegistries,
   schemaError,
   type FrontendRegistries,
+  type IconProviderOptions,
 } from './registries'
 export { LocalModuleLoader } from './module/loader'
 

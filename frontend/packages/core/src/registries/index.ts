@@ -30,6 +30,26 @@ export function assertNamespacedKey(key: string, scope: string): void {
   }
 }
 
+/** icon key 模式（`el:User` / `biz:purchase-order` / `custom:1024` / `van:todo-o`）。 */
+export const ICON_KEY_PATTERN = /^[a-z][a-z0-9-]*:[A-Za-z0-9][A-Za-z0-9._-]*$/
+
+/**
+ * 校验 icon key（前缀 + 大小写/数字/连字符段）。
+ *
+ * @param key icon key。
+ * @throws BaseError 键非法（`CAPABILITY_VIOLATION`）。
+ */
+export function assertIconKey(key: string): void {
+  if (!ICON_KEY_PATTERN.test(key)) {
+    throw new BaseError(ErrorCodes.CAPABILITY_VIOLATION, `图标键非法：${key}`)
+  }
+}
+
+/** 归一化图标检索文本（小写、去分隔符，保留中英文；kebab/Pascal 归一后可匹配）。 */
+function normalizeIconSearch(value: string): string {
+  return value.toLowerCase().replace(/[\s:._-]+/g, '')
+}
+
 /** 路由·菜单注册表。 */
 export class RouteMenuRegistry extends BaseProviderRegistry<RouteMenuProvider> {
   /** 插件键。 */
@@ -139,13 +159,50 @@ export class IconRegistry extends BaseProviderRegistry<IconProvider> {
   }
 
   /**
-   * 登记图标（键须为命名空间键）。
+   * 登记图标（键须为 icon key：`前缀:段`，段允许大小写 / 数字 / `._-`）。
    *
    * @param provider 注册项。
    */
   override register(provider: IconProvider): void {
-    assertNamespacedKey(provider.key, '图标')
+    assertIconKey(provider.key)
     super.register(provider)
+  }
+
+  /**
+   * 按来源前缀取图标（`el` / `biz` / `custom` / `van`，冒号可省）。
+   *
+   * @param prefix 来源前缀。
+   */
+  byPrefix(prefix: string): IconProvider[] {
+    const normalized = prefix.endsWith(':') ? prefix : `${prefix}:`
+    return this.values().filter((provider) => provider.key.startsWith(normalized))
+  }
+
+  /**
+   * 按关键词检索（归一匹配 key / name / tags；空串返回全部）。
+   *
+   * @param keyword 关键词。
+   */
+  search(keyword: string): IconProvider[] {
+    const text = normalizeIconSearch(keyword)
+    if (text === '') {
+      return this.values()
+    }
+    return this.values().filter((provider) => {
+      const key = normalizeIconSearch(provider.key)
+      const name = normalizeIconSearch(provider.name ?? '')
+      const tags = provider.tags.map((tag) => normalizeIconSearch(tag))
+      return key.includes(text) || name.includes(text) || tags.some((tag) => tag.includes(text))
+    })
+  }
+
+  /**
+   * 解析图标资源（未登记返回 `undefined`）。
+   *
+   * @param key icon key。
+   */
+  resolve(key: string): unknown {
+    return this.get(key)?.source
   }
 }
 

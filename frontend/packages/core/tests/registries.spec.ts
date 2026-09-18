@@ -69,3 +69,30 @@ describe('FieldRendererRegistry', () => {
     expect(registries.fieldRenderer.get('missing')).toBeUndefined()
   })
 })
+
+describe('IconRegistry icon key 扩展（08_02）', () => {
+  it('接受 icon key（大小写 / 数字段）并拒绝非法与重复', () => {
+    const registries = createRegistries()
+    registries.icon.register(new IconProvider('el:User', {}, { name: 'User', category: 'common' }))
+    registries.icon.register(new IconProvider('biz:purchase-order', {}))
+    registries.icon.register(new IconProvider('custom:1024', {}))
+
+    expect(registries.icon.keys()).toEqual(['el:User', 'biz:purchase-order', 'custom:1024'])
+    expect(() => registries.icon.register(new IconProvider('noPrefix', {}))).toThrow(BaseError)
+    expect(() => registries.icon.register(new IconProvider('el:User', {}))).toThrow(BaseError)
+  })
+
+  it('来源前缀、检索与解析', () => {
+    const registries = createRegistries()
+    registries.icon.register(new IconProvider('el:User', {}, { name: 'User', category: 'common', tags: ['用户'] }))
+    registries.icon.register(new IconProvider('biz:PurchaseOrder', {}, { name: '采购单' }))
+
+    expect(registries.icon.byPrefix('el').map((item) => item.key)).toEqual(['el:User'])
+    expect(registries.icon.byPrefix('biz:').map((item) => item.key)).toEqual(['biz:PurchaseOrder'])
+    expect(registries.icon.search('user').map((item) => item.key)).toEqual(['el:User'])
+    expect(registries.icon.search('采购').map((item) => item.key)).toEqual(['biz:PurchaseOrder'])
+    expect(registries.icon.search('')).toHaveLength(2)
+    expect(registries.icon.resolve('el:User')).toBeDefined()
+    expect(registries.icon.resolve('el:Missing')).toBeUndefined()
+  })
+})

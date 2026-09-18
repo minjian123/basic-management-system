@@ -81,23 +81,43 @@ export class FieldRendererProvider extends BaseProvider {
   }
 }
 
+/** 图标注册项选项。 */
+export interface IconProviderOptions {
+  /** 展示名（官方图标为专有名，自定义为名称）。 */
+  name?: string
+  /** 分类（如 `direction` / `edit` / `media` / `common` / `custom`）。 */
+  category?: string
+  /** 搜索标签（中文别名等）。 */
+  tags?: string[]
+}
+
 /** 图标注册项。 */
 export class IconProvider extends BaseProvider {
-  /** 命名空间键。 */
+  /** icon key（`el:User` / `biz:purchase-order` / `custom:1024` / `van:todo-o`）。 */
   readonly key: string
-  /** 图标资源。 */
+  /** 图标资源（组件 / SVG 文本 / 懒加载器）。 */
   readonly source: unknown
+  /** 展示名。 */
+  readonly name: string | undefined
+  /** 分类。 */
+  readonly category: string | undefined
+  /** 搜索标签。 */
+  readonly tags: string[]
 
   /**
    * 构造图标注册项。
    *
-   * @param key 命名空间键。
+   * @param key icon key。
    * @param source 图标资源。
+   * @param options 元信息（可选）。
    */
-  constructor(key: string, source: unknown) {
+  constructor(key: string, source: unknown, options: IconProviderOptions = {}) {
     super()
     this.key = key
     this.source = source
+    this.name = options.name
+    this.category = options.category
+    this.tags = options.tags ?? []
   }
 }
 
