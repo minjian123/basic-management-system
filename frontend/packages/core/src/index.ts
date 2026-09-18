@@ -145,6 +145,15 @@ export {
 } from './domain/validators'
 export { evaluatePermission, type PermissionMode } from './domain/permission'
 export { resolveToken } from './domain/token'
+export {
+  PLACEHOLDER_MENU,
+  filterMenuByKeyword,
+  filterMenuByPermission,
+  findMenuByPath,
+  flattenMenu,
+  toRouteNodes,
+  type MenuNode,
+} from './domain/menu'
 
 export { BaseApi, type HttpMethod } from './contracts/api'
 export {
