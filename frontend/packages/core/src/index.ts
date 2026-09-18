@@ -160,6 +160,18 @@ export {
   type MenuNode,
 } from './domain/menu'
 
+export {
+  type LoadedModule,
+  type ModuleDefinition,
+  type ModuleHostContext,
+  type ModuleLoader,
+  type ModuleManifest,
+  type ModuleRegistration,
+  type ModuleRouteDeclaration,
+} from './module/types'
+export { MODULE_NAME_PATTERN, defineModule } from './module/define'
+export { LocalModuleLoader } from './module/loader'
+
 export { BaseApi, type HttpMethod } from './contracts/api'
 export {
   configureRequestAdapter,

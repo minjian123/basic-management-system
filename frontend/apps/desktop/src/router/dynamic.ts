@@ -1,6 +1,6 @@
 /** 动态路由接线：占位菜单树 → 路由注册（基于核心 `BaseDynamicRoutes`）。 */
 
-import { BaseDynamicRoutes, findMenuByPath, flattenMenu, toRouteNodes, type MenuNode } from '@bms/core'
+import { BaseDynamicRoutes, findMenuByPath, flattenMenu, toRouteNodes, type MenuNode, type ModuleRouteDeclaration } from '@bms/core'
 import type { Router } from 'vue-router'
 
 /** 具体动态路由注册器（可实例化）。 */
@@ -61,4 +61,43 @@ export function uninstallMenuRoutes(router: Router, paths: readonly string[]): v
  */
 export function menuPaths(menu: readonly MenuNode[]): string[] {
   return flattenMenu(menu).map((node) => node.path)
+}
+
+/**
+ * 注册模块路由声明（跳过根路径与已存在路由名）。
+ *
+ * @param router 路由实例。
+ * @param routes 模块路由声明。
+ * @returns 本次注册的**路由名**清单（卸载按名进行）。
+ */
+export function registerModuleRoutes(router: Router, routes: readonly ModuleRouteDeclaration[]): string[] {
+  const registered: string[] = []
+  for (const route of routes) {
+    const name = route.name ?? route.path
+    if (route.path === '/' || router.hasRoute(name)) {
+      continue
+    }
+    router.addRoute({
+      path: route.path,
+      name,
+      component: route.component as () => Promise<unknown>,
+      meta: { ...(route.meta ?? {}) },
+    })
+    registered.push(name)
+  }
+  return registered
+}
+
+/**
+ * 卸载模块路由（按路由名）。
+ *
+ * @param router 路由实例。
+ * @param names 路由名清单。
+ */
+export function unregisterModuleRoutes(router: Router, names: readonly string[]): void {
+  for (const name of names) {
+    if (router.hasRoute(name)) {
+      router.removeRoute(name)
+    }
+  }
 }

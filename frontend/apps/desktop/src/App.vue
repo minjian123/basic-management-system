@@ -1,9 +1,12 @@
 <script setup lang="ts">
-// 应用根组件：主框架装配（侧栏菜单 + 多标签 + 路由出口 keep-alive）。
+// 应用根组件：主框架装配（侧栏菜单 + 多标签 + 路由出口 keep-alive）+ 模块边界兜底。
 import { PLACEHOLDER_MENU } from '@bms/core'
 import { MainLayout, useSideMenu, useTabNav } from '@bms/ui-ep'
 import { computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+
+import ModuleBoundary from '@/components/ModuleBoundary.vue'
+import { moduleMenuNodes } from '@/module/host'
 
 const router = useRouter()
 const route = useRoute()
@@ -11,6 +14,14 @@ const route = useRoute()
 // 占位阶段：菜单显隐暂全量放行，真实权限码过滤随认证 / RBAC 接入。
 const sideMenu = useSideMenu({ menu: PLACEHOLDER_MENU, canAccess: () => true })
 const tabNav = useTabNav({ storageKey: 'bms:desktop:tabs' })
+
+// 演示模块分组仅开发态可见（需求：不进生产菜单）。
+const demoNodes = import.meta.env.DEV ? moduleMenuNodes('demo') : []
+const menu = computed(() =>
+  demoNodes.length === 0
+    ? sideMenu.menu.value
+    : [...sideMenu.menu.value, { path: '/demo', title: '演示模块', icon: 'sparkles', children: demoNodes }],
+)
 
 watch(
   () => route.fullPath,
@@ -54,7 +65,7 @@ async function onTabClose(key: string): Promise<void> {
 
 <template>
   <main-layout
-    :menu="sideMenu.menu.value"
+    :menu="menu"
     :active-path="route.path"
     :tabs="tabNav.tabs.value"
     :active-tab-key="tabNav.activeKey.value"
@@ -68,10 +79,12 @@ async function onTabClose(key: string): Promise<void> {
     @tab-close-all="tabNav.closeAll"
     @tab-refresh="tabNav.refresh"
   >
-    <router-view v-slot="{ Component }">
-      <keep-alive :include="keepAliveNames">
-        <component :is="Component" :key="route.fullPath" />
-      </keep-alive>
-    </router-view>
+    <module-boundary>
+      <router-view v-slot="{ Component }">
+        <keep-alive :include="keepAliveNames">
+          <component :is="Component" :key="route.fullPath" />
+        </keep-alive>
+      </router-view>
+    </module-boundary>
   </main-layout>
 </template>
