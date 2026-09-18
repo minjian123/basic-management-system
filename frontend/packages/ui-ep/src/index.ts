@@ -26,6 +26,10 @@ export {
 export { default as EnumField, type EnumFieldForm, type EnumFieldValue } from './components/field/EnumField.vue'
 export { default as InlineSwitchCell } from './components/field/InlineSwitchCell.vue'
 export { default as NumberField } from './components/field/NumberField.vue'
+export {
+  default as RichTextField,
+  type RichTextFieldMode,
+} from './components/field/RichTextField.vue'
 export { default as SwitchField } from './components/field/SwitchField.vue'
 export {
   default as TreeSelectField,
@@ -94,6 +98,12 @@ export {
   useBaseAccess,
   type UseBaseAccessResult,
 } from './composables/useBaseAccess'
+export {
+  useRichTextKernel,
+  type UseRichTextKernelOptions,
+  type UseRichTextKernelResult,
+} from './composables/useRichTextKernel'
+export { RICH_TEXT_ALLOWED_ATTR, RICH_TEXT_ALLOWED_TAGS, sanitizeHtml, sanitizeToText } from './utils/sanitizeHtml'
 export {
   useFieldPlaceholder,
   type UseFieldPlaceholderOptions,
