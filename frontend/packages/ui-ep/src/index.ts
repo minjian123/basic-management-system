@@ -10,6 +10,8 @@ export { default as LoadingMask } from './components/feedback/LoadingMask.vue'
 export { default as SkeletonBlock, type SkeletonBlockVariant } from './components/feedback/SkeletonBlock.vue'
 export { default as CollapsePanel } from './components/layout/CollapsePanel.vue'
 export { default as DualTabs } from './components/layout/DualTabs.vue'
+export { default as SideMenu } from './components/layout/SideMenu.vue'
+export { default as SideMenuItem } from './components/layout/SideMenuItem.vue'
 export { default as TabNavBar } from './components/layout/TabNavBar.vue'
 export { default as TabNavContextMenu, type TabNavAction } from './components/layout/TabNavContextMenu.vue'
 export { default as CollapsePanelGroup } from './components/layout/CollapsePanelGroup.vue'
@@ -25,6 +27,11 @@ export { default as FormDialog } from './components/modal/FormDialog.vue'
 export { default as FormDrawer } from './components/modal/FormDrawer.vue'
 export { useConfirm, type ConfirmOptions, type ConfirmState } from './composables/useConfirm'
 export { useFeedback, type UseFeedbackResult } from './composables/useFeedback'
+export {
+  useSideMenu,
+  type UseSideMenuOptions,
+  type UseSideMenuResult,
+} from './composables/useSideMenu'
 export {
   useTabNav,
   type TabNavItem,
