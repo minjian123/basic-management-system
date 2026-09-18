@@ -8,7 +8,7 @@
 
 - **目标**：`MinioObjectStorage` 落 `app/storage/minio.py`——**延迟导入**（模块导入不拉 SDK）、端点 / 凭据取 `settings.minio`（密钥分离）、桶名统一 `[storage].options.bucket`；工厂登记 `object_storage:minio`；双实现（`local` / `minio`）纳入契约套件与插件清单。
 - **范围**：`app/storage/minio.py`、`[minio].bucket` 口径收敛、可选依赖组登记、密钥分离与延迟导入验证。
-- **不含**：MinIO 真实连通 E2E（随阶段八文件管理）；分片 / 断点续传。
+- **不含**：MinIO 真实连通 E2E（随后续文件管理）；分片 / 断点续传。
 - **依据**：[需求 04-1](../../../../../需求/04_需求_首个能力与阶段验收.md#r04-1)、《架构设计 · 扩展点与插件化》「配置驱动装配」节（延迟导入 / 密钥分离）、《安全开发规范》「密钥与脱敏」节、《[04-1 详细设计](../../设计/01_详细设计_01_对象存储接入验证.md)》。
 
 ## 2. 现状与差距 <a id="gap"></a>
@@ -52,7 +52,7 @@ class MinioObjectStorage(BaseObjectStorage):
 - `register_plugin("object_storage", "minio", _minio_storage_factory(settings))`；工厂实例化时：
   1. `import_module("minio")` 失败 → `PluginError`（提示 `uv sync --extra storage-minio`）；
   2. `settings.minio.endpoint` / `access_key` / `secret_key` 任一为空 → `PluginError`（可读信息，不含密钥值）；
-  3. 通过则构造实例（**不建连**；真实连通随阶段八），超时 / 探活不做。
+  3. 通过则构造实例（**不建连**；真实连通随后续），超时 / 探活不做。
 - 缺省 `provider = local`，`minio` 工厂不实例化 → `minio` SDK 不被导入（延迟导入可证：`sys.modules` 断言）。
 
 ### 4.3 密钥分离

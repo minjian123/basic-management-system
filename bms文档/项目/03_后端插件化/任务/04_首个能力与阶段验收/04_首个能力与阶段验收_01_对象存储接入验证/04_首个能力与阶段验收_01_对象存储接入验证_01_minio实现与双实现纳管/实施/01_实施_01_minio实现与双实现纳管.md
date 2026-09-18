@@ -65,7 +65,7 @@ uv run ruff check . && uv run ruff format --check . && uv run pyright
 
 ## 6. 偏差与遗留 <a id="deviations"></a>
 
-- 真实连通（服务可达 / 桶策略）与端到端上传下载随阶段八文件管理。
+- 真实连通（服务可达 / 桶策略）与端到端上传下载随后续文件管理。
 - `[minio].bucket` 键位保留兼容（注记废弃），清理随后续版本。
 
 > 本文档依《文档生成规范》编写
