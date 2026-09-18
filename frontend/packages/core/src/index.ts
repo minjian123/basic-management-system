@@ -69,6 +69,24 @@ export {
   type CapabilityProblemKind,
 } from './capabilities/manifest'
 
+export { BasePersistedState } from './capabilities/persisted-state'
+export { BaseMounted, type MountListener } from './capabilities/mounted'
+export {
+  BaseDesignToken,
+  type DesignTokens,
+  type ThemeListener,
+} from './capabilities/design-token'
+export { BaseClickable } from './capabilities/interactive'
+export { BaseDragDrop, type DragListener, type DragPayload, type DragPhase } from './capabilities/drag-drop'
+export { BaseTabs, type TabItem } from './capabilities/tabs'
+export { BaseLocale, type LocaleFormatContext } from './capabilities/locale'
+export { BaseAccess } from './capabilities/access'
+export {
+  BaseModuleContext,
+  type ModuleContext,
+  type ModuleContextKey,
+} from './capabilities/module-context'
+
 export { BaseApi, type HttpMethod } from './contracts/api'
 export { BaseDataObject } from './contracts/data-object'
 export { BaseEntity } from './contracts/entity'
