@@ -32,6 +32,10 @@ export {
 } from './components/field/RichTextField.vue'
 export { default as SwitchField } from './components/field/SwitchField.vue'
 export {
+  default as TagInputField,
+  type TagColorMap,
+} from './components/field/TagInputField.vue'
+export {
   default as TransferField,
   type TransferItem,
   type TransferValue,
