@@ -1,6 +1,6 @@
 /** 演示模块定义（本地模块；阶段五远端模块按同一契约接入）。 */
 
-import { defineModule } from '@bms/core'
+import { WorkbenchCardProvider, defineModule } from '@bms/core'
 
 /** 演示模块。 */
 export const demoModule = defineModule({
@@ -20,6 +20,8 @@ export const demoModule = defineModule({
         meta: { title: '组件契约演示' },
       },
     ],
-    icons: { demo: 'sparkles' },
+    components: { 'demo:toolbox': () => import('./views/DemoToolbox.vue') },
+    icons: { 'demo:sparkles': 'sparkles' },
+    cards: [new WorkbenchCardProvider('demo:summary', () => import('./views/DemoHome.vue'), '模块概览')],
   }),
 })

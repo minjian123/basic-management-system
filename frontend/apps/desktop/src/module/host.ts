@@ -5,9 +5,11 @@ import { LocalModuleLoader, type LoadedModule, type MenuNode, type ModuleHostCon
 import { demoModule } from '@/modules/demo'
 import { router } from '@/router'
 import { registerModuleRoutes, unregisterModuleRoutes } from '@/router/dynamic'
+import { applyModuleRegistration, removeRegistration } from './registries'
 
 const loader = new LocalModuleLoader([demoModule])
 const mountedRoutes = new Map<string, string[]>()
+const registrationKeys = new Map<string, string[]>()
 
 /** 模块加载器实例（阶段五换远端实现，装配不变）。 */
 export function getModuleLoader(): LocalModuleLoader {
@@ -25,6 +27,7 @@ export async function mountModule(name: string, context: ModuleHostContext = {})
   const loaded = await loader.load(name, context)
   loader.mount(loaded)
   mountedRoutes.set(name, registerModuleRoutes(router, loaded.registration.routes ?? []))
+  registrationKeys.set(name, applyModuleRegistration(name, loaded.registration))
   return loaded
 }
 
@@ -36,6 +39,8 @@ export async function mountModule(name: string, context: ModuleHostContext = {})
 export function unmountModule(name: string): void {
   unregisterModuleRoutes(router, mountedRoutes.get(name) ?? [])
   mountedRoutes.delete(name)
+  removeRegistration(registrationKeys.get(name) ?? [])
+  registrationKeys.delete(name)
   loader.unmount(name)
 }
 

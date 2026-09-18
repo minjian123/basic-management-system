@@ -32,6 +32,16 @@ export abstract class BaseProviderRegistry<T> extends BasePluggable {
     this.providers.set(key, provider)
   }
 
+  /**
+   * 注销提供者（幂等）。
+   *
+   * @param key 注册项键。
+   * @returns 是否命中并移除。
+   */
+  unregister(key: string): boolean {
+    return this.providers.delete(key)
+  }
+
   /** 按 key 取提供者（未命中返回 `undefined`）。 */
   get(key: string): T | undefined {
     return this.providers.get(key)
