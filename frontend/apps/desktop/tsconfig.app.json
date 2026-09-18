@@ -7,7 +7,8 @@
     "paths": {
       "@/*": ["./src/*"],
       "@bms/core": ["../../packages/core/src/index.ts"],
-      "@bms/vue": ["../../packages/vue/src/index.ts"]
+      "@bms/vue": ["../../packages/vue/src/index.ts"],
+      "@bms/ui-ep": ["../../packages/ui-ep/src/index.ts"]
     },
 
     /* Linting */

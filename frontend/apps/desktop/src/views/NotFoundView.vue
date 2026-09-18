@@ -1,19 +1,19 @@
 <script setup lang="ts">
-// 404 页（骨架）
+// 404 页（页面不存在）：复用组件库错误页。
+import { ErrorPage } from '@bms/ui-ep'
 </script>
 
 <template>
   <main class="status-page">
-    <h1>404</h1>
-    <p>页面不存在。</p>
+    <ErrorPage :code="404" @home="$router.push('/')" @back="$router.back()" />
   </main>
 </template>
 
 <style scoped>
 .status-page {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  padding: 64px;
+  justify-content: center;
+  min-height: 60vh;
 }
 </style>
