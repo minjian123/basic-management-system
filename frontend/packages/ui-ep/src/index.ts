@@ -125,6 +125,30 @@ export {
   type AiRole,
   type AiSession,
 } from './components/interaction/AiAssistant.vue'
+export { default as IconRenderer } from './components/interaction/IconRenderer.vue'
+export { default as IconPicker, type IconPickerSize } from './components/interaction/IconPicker.vue'
+export {
+  default as IconLibrary,
+  type CustomIcon,
+  type IconSourceGroup,
+} from './components/interaction/IconLibrary.vue'
+export {
+  default as CodeEditor,
+  type EditorDiagnostic,
+  type EditorLanguage,
+} from './components/interaction/CodeEditor.vue'
+export {
+  default as SqlEditor,
+  type SqlValidateResult,
+} from './components/interaction/SqlEditor.vue'
+export {
+  default as ExpressionEditor,
+  type ExpressionTemplate,
+  type ExpressionToken,
+  type ExpressionValidateResult,
+} from './components/interaction/ExpressionEditor.vue'
+export { default as CronEditor } from './components/interaction/CronEditor.vue'
+export { default as CodeViewer, type ViewerLanguage } from './components/interaction/CodeViewer.vue'
 export { default as CaptchaField, type CaptchaKind } from './components/field/CaptchaField.vue'
 export { default as AmountField } from './components/field/AmountField.vue'
 export {
@@ -255,6 +279,36 @@ export {
   type SubscriptionHandler,
   type UseBaseSubscriptionResult,
 } from './composables/useBaseSubscription'
+export {
+  getCodeModuleLoadCount,
+  loadCodeModules,
+  resetCodeModuleCache,
+  useCodeKernel,
+  type CodeModules,
+  type UseCodeKernelResult,
+} from './composables/useCodeKernel'
+export {
+  escapeHtml,
+  getHighlightLoadCount,
+  highlightCode,
+  HIGHLIGHT_LANGUAGES,
+  loadHighlight,
+  resetHighlightCache,
+  useHighlight,
+  type UseHighlightResult,
+} from './composables/useHighlight'
+export { getIconRegistry, resetIconRegistry, setIconRegistry, useIconRegistry } from './composables/useIconRegistry'
+export { ensureOfficialIcons, getOfficialIconsLoadCount } from './icons/official'
+export {
+  CRON_TEMPLATES,
+  describeCron,
+  formatCron,
+  parseCron,
+  validateCron,
+  type CronFields,
+  type CronTemplate,
+  type CronValidateResult,
+} from './utils/cron'
 export {
   useBaseTreeData,
   type UseBaseTreeDataOptions,
