@@ -45,7 +45,7 @@ main 流水线端到端通过；契约快照与 Allure 报告已归档；高危�
 | main job 骨架 | E2E、三库集成 ×3（mysql/postgres/dm8）、镜像构建推 Registry ×2、Trivy 高危阻断、swagger 快照、Allure——全部以 exists 守卫落地（`backend/pyproject.toml` 等出现即激活） |
 | 空载流水线验证 | pipeline #23 success：gate-smoke 绿，业务 job 按设计跳过 ✅ |
 
-待办（随阶段一骨架）：
+待办（随后续骨架）：
 
 - E2E / 三库集成 / 镜像构建 / 扫描的真实数据验证
 - 三库 `bms_test` 测试库与对应 CI 变量（BMS_TEST_DB_*）建立

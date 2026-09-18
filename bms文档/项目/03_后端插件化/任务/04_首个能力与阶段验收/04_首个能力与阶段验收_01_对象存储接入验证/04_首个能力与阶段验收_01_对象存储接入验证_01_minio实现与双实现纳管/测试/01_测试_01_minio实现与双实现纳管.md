@@ -58,7 +58,7 @@ All checks passed! / 274 files already formatted / 0 errors, 0 warnings, 0 infor
 
 ## 6. 偏差与遗留 <a id="deviations"></a>
 
-- 真实连通 E2E（服务可达 / 桶策略 / 端到端上传下载）随阶段八文件管理。
+- 真实连通 E2E（服务可达 / 桶策略 / 端到端上传下载）随后续文件管理。
 - 缺依赖拒启路径与缺配置同法（工厂校验），本次以缺配置路径实测。
 
 > 本文档依《文档生成规范》编写
