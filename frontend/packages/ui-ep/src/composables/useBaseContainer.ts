@@ -26,6 +26,10 @@ export interface UseBaseContainerResult {
   collapsed: Ref<boolean>
   /** 是否分栏（响应式）。 */
   split: Ref<boolean>
+  /** 尺寸语义值（响应式）。 */
+  sizeToken: Ref<string>
+  /** 是否紧凑密度（响应式）。 */
+  isCompact: Ref<boolean>
   /** 设置可折叠。 */
   setCollapsible: (value: boolean) => void
   /** 设置折叠态（可折叠时生效）。 */
@@ -55,11 +59,15 @@ export function useBaseContainer(options: UseBaseContainerOptions = {}): UseBase
   const collapsible = ref(container.collapsible)
   const collapsed = ref(container.collapsed)
   const split = ref(container.split)
+  const sizeToken = ref<string>(container.sizeToken)
+  const isCompact = ref(container.isCompact)
   const off = container.onLifecycle((event) => {
     if (event === 'update') {
       collapsible.value = container.collapsible
       collapsed.value = container.collapsed
       split.value = container.split
+      sizeToken.value = container.sizeToken
+      isCompact.value = container.isCompact
     }
   })
   onScopeDispose(off)
@@ -69,6 +77,8 @@ export function useBaseContainer(options: UseBaseContainerOptions = {}): UseBase
     collapsible,
     collapsed,
     split,
+    sizeToken,
+    isCompact,
     setCollapsible: (value) => {
       container.collapsible = value
       container.notifyLifecycle('update')
