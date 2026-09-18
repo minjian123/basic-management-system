@@ -32,6 +32,11 @@ export {
 } from './components/field/RichTextField.vue'
 export { default as SwitchField } from './components/field/SwitchField.vue'
 export {
+  default as TransferField,
+  type TransferItem,
+  type TransferValue,
+} from './components/field/TransferField.vue'
+export {
   default as TreeSelectField,
   type TreeFieldNode,
   type TreeFieldValue,
