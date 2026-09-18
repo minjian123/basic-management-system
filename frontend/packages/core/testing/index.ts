@@ -276,3 +276,46 @@ export function describePlaceholderFieldContract(name: string, create: () => Pla
     })
   })
 }
+
+/** 占位展示契约面（依赖后端的展示件：表格 / 通知 / 预览 / 审计 / 图表 / 搜索）。 */
+export interface PlaceholderDisplayContractTarget {
+  /** 数据通路是否就绪。 */
+  readonly ready: boolean
+  /** 是否处于降级（占位）态。 */
+  readonly degraded: boolean
+  /** 切换就绪态。 */
+  setReady(value: boolean): void
+  /** 已发起的后端请求计数（占位态必须为 0）。 */
+  readonly requestCount: number
+  /** 触发一次可能的加载（占位态不得产生请求）。 */
+  load(): void
+}
+
+/**
+ * 占位展示契约（`07_01` 冻结；真实实现 `07_03` ~ `07_07` 继续跑同一套件）。
+ *
+ * 断言：占位态降级、不产生后端请求；就绪态不再降级。
+ *
+ * @param name 契约名。
+ * @param create 目标工厂。
+ */
+export function describePlaceholderDisplayContract(name: string, create: () => PlaceholderDisplayContractTarget): void {
+  describeContract(name, () => {
+    it('未就绪时降级，不产生请求', () => {
+      const target = create()
+      expect(target.ready).toBe(false)
+      expect(target.degraded).toBe(true)
+      expect(target.requestCount).toBe(0)
+
+      target.load()
+      expect(target.requestCount).toBe(0)
+    })
+
+    it('就绪后不再降级', () => {
+      const target = create()
+      target.setReady(true)
+      expect(target.ready).toBe(true)
+      expect(target.degraded).toBe(false)
+    })
+  })
+}
