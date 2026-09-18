@@ -45,7 +45,7 @@
         <span class="dp-hint">{{ err.mapped ? '（i18n error.' + code + ' 命中）' : '（未映射，回退通用文案）' }}</span></div>
       <div class="row"><span class="lb">段位判定</span><span class="dp-code">{{ err.seg }}</span></div>
 
-      <div class="dp-state">上报记录（根系错误上报：去重 / 限流 / 不阻断）
+      <div class="dp-state">上报记录（总基类错误上报：去重 / 限流 / 不阻断）
 {{ reports.join('\n') || '（尚无上报）' }}
 说明：响应 code !== 0 → 宿主请求层构造错误；认证段（2xxxx）由请求层静默刷新、不提示；
 用户主动取消不计错误；展示层禁止硬编码错误文案，统一取用户提示。</div>

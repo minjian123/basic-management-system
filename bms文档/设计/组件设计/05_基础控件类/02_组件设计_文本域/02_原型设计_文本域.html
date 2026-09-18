@@ -23,7 +23,7 @@
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="02_组件设计_文本域.md">《组件设计 · 文本域》</a>：演示多行文本、固定行数/高度自适应、字数统计、换行保留、去首尾空格与只读；继承基础组件类·输入域基类。
+    本原型对应当前目录 <a href="02_组件设计_文本域.md">《组件设计 · 文本域》</a>：演示多行文本、固定行数/高度自适应、字数统计、换行保留、去首尾空格与只读；继承输入族基类（`BaseInput`；继承链见《前端基类清单》§2，全系统唯一一份）。
   </div>
 
   <div id="app">
@@ -41,7 +41,7 @@
       <div class="dp-state" style="margin-top:12px">值 = {{ JSON.stringify(text) }}
 去首尾空格后 = {{ JSON.stringify(text.trim()) }}　行数 = {{ text.split('\n').length }}　字数 = {{ text.length }}/200
 说明：换行符统一存储；固定行数或高度自适应（最小/最大行数）；空串归一统一空值；只读回显保留换行；
-继承链：文本域 → 输入域（域基类层）→ 组件根 → 根系。富文本（可格式化）不在本控件，见字段类「富文本字段」。</div>
+继承链（全系统唯一一份，见《前端基类清单》§2）：文本域 → `BaseInput` → `BaseField` → `BaseValue` → `BaseComponent` → `BaseObject`（唯一权威见《前端基类清单》§2，全系统唯一一份）。富文本（可格式化）不在本控件，见字段类「富文本字段」。</div>
     </div>
   </div>
 </div>
