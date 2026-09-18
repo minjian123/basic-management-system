@@ -23,6 +23,11 @@ export { default as InlineSwitchCell } from './components/field/InlineSwitchCell
 export { default as NumberField } from './components/field/NumberField.vue'
 export { default as SwitchField } from './components/field/SwitchField.vue'
 export {
+  default as TreeSelectField,
+  type TreeFieldNode,
+  type TreeFieldValue,
+} from './components/field/TreeSelectField.vue'
+export {
   default as DateTimeField,
   type DateTimeKind,
   type DateTimeValue,
