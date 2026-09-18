@@ -17,6 +17,15 @@ export {
   type LogLevel,
 } from './base/BaseObject'
 export { withBaseObject, type BaseObjectSurface } from './base/mixin'
+export {
+  BaseComponent,
+  type ComponentProps,
+  type DensityToken,
+  type LifecycleEvent,
+  type LifecycleListener,
+  type LifecyclePayload,
+  type SizeToken,
+} from './base/BaseComponent'
 
 export {
   ErrorCodes,
