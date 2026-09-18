@@ -5,9 +5,12 @@
  * 基类与能力导出随 `02_01` ~ `02_06` 就位后在本入口追加。
  */
 
+export { BaseObject, configureBase, resetBaseSinks, type BaseSinks, type LogLevel } from './base/BaseObject'
 export {
   ErrorCodes,
   FRONTEND_RESERVED_SEGMENT,
   isFrontendReservedCode,
   type ErrorCode,
 } from './mechanisms/error-codes'
+export { BaseCapability } from './mechanisms/capability'
+export { BasePluggable, DEFAULT_CONTRACT_VERSION } from './mechanisms/pluggable'
