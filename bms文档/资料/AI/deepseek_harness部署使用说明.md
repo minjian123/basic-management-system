@@ -198,7 +198,7 @@ refs:
 （更新脚本位于 bms 仓库 scripts/tools/dsh/dsh-update.sh，桌面项 Exec 直接指向仓库路径）
 ```
 
-`dsh-update.sh` **幂等更新流程**：先比对版本——dsh 主体比对本地 HEAD 与 origin/master，插件（dsh-free-vision、dsh-undo-savepoint、dshmarket）比对已装版本与 npm 最新（查询在 profile 目录内执行，**走国内镜像 npmmirror**）；**全部一致且 web 在跑 → 提示退出（不动 web）；web 未跑 → 直接启动**；任一落后才停 web → 只更新落后项（`git pull --ff-only` / `pnpm install` / `pnpm run build`、插件 `up --latest` + `rebuild` 重跑插件构建脚本（编译）并核对更新后版本）→ 以构建产物重启（`node apps/cli/lib/bin.js web`）。网络查询失败（离线/慢）时跳过对应项、**不误停 web**；更新命令均带超时（pull 5min / install 10min / build 15min / up 5min / rebuild 5min），任何失败路径由 EXIT 兜底把 web 拉起，不会出现"停了起不来"。支持 `--force`（跳过版本检查强制全量更新，插件同样走更新+重编译）、`--no-restart`（只更新不重启）、`--boot`（启动前模式，见下）。更新前的 profile 配置/插件树已被 dsh-undo-savepoint 自动快照，出错可 undo 回滚（见 8.2）。
+`dsh-update.sh` **幂等更新流程**：先比对版本——dsh 主体比对本地 HEAD 与 origin/master，插件（dsh-free-vision、dsh-undo-savepoint、dshmarket、dsh-mnemon）比对已装版本与 npm 最新（查询在 profile 目录内执行，**走国内镜像 npmmirror**）；**全部一致且 web 在跑 → 提示退出（不动 web）；web 未跑 → 直接启动**；任一落后才停 web → 只更新落后项（`git pull --ff-only` / `pnpm install` / `pnpm run build`、插件 `up --latest` + `rebuild` 重跑插件构建脚本（编译）并核对更新后版本）→ 以构建产物重启（`node apps/cli/lib/bin.js web`）。网络查询失败（离线/慢）时跳过对应项、**不误停 web**；更新命令均带超时（pull 5min / install 10min / build 15min / up 5min / rebuild 5min），任何失败路径由 EXIT 兜底把 web 拉起，不会出现"停了起不来"。支持 `--force`（跳过版本检查强制全量更新，插件同样走更新+重编译）、`--no-restart`（只更新不重启）、`--boot`（启动前模式，见下）。更新前的 profile 配置/插件树已被 dsh-undo-savepoint 自动快照，出错可 undo 回滚（见 8.2）。
 
 **每次启动先自动更新**（2026-09-18 新增）：`dsh-web-start.sh` 在 exec 启动前调用 `dsh-update.sh --boot`——启动前模式**只检查/更新，绝不启停 web**；web 已在运行则直接跳过；检出有未提交改动时降级为「跳过源码更新、只更新插件」而不中止；更新失败仅打印告警，仍用当前版本继续启动。即「启动 dsh web」与「更新 dsh与插件」共用同一套版本比对与更新逻辑，不必先点更新再点启动。临时跳过本次检查：`DSH_START_SKIP_UPDATE=1 bash ~/.local/bin/dsh-web-start.sh`。
 
@@ -230,12 +230,12 @@ DSH_START_SKIP_UPDATE=1 bash ~/.local/bin/dsh-web-start.sh            # 启动 d
 | 发消息报 `No API key for provider: llamacpp`（或某自定义 provider）？ | pi-ai 的 OpenAI 兼容实现对无鉴权本地服务也要求凭据；给路由加 `apiKeyEnv` 指向占位 key（见 5.3）。 |
 | 视觉模型附图被拒？ | 自定义 provider 手填模型默认纯文本，需按 5.2 加 `input: [text, image]` 或 `defaultInput`。 |
 | 依赖安装慢 / 超时？ | pnpm 配 npmmirror 源；nvm 下 Node 用 `NVM_NODEJS_ORG_MIRROR=https://npmmirror.com/mirrors/node`。 |
-| `dsh web` 报 `Cannot find package '@deepseek-ai/dsh-host-apiproxy'`？ | 插件 `@linxin666/dsh-remote-web-ui` 与当前 dsh 不兼容（缺该 host 包，启动即崩）；`pnpm dsh plugin --profile web remove @linxin666/dsh-remote-web-ui` 卸载（见 8.5）。 |
+| `dsh web` 报 `Cannot find package '@deepseek-ai/dsh-host-apiproxy'`？ | 插件 `@linxin666/dsh-remote-web-ui` 与当前 dsh 不兼容（缺该 host 包，启动即崩）；`pnpm dsh plugin --profile web remove @linxin666/dsh-remote-web-ui` 卸载（见 8.6）。 |
 | 想彻底停止后台 dsh web？ | `bash ~/.local/bin/dsh-web-stop.sh`，或 `ss -lptnH | awk '$4 ~ /:3080$/'` 找 PID 后 `kill`。 |
 
 ## 8. 插件扩展 <a id="plugins"></a>
 
-「一切皆插件」，可通过 `dsh plugin --profile <name> add|remove <pkg>` 给 profile 装/卸插件（转发给 pnpm，并自动 reconcile `dsh.profile.bundles` 图层）。本机**当前装有**三个挂进 `web` profile 的 bundle 扩展：`dsh-free-vision`（见 8.1）、`dsh-undo-savepoint`（见 8.2）、`dshmarket`（插件市场，见 8.3）。曾装过已移除：`dsh-context`（0.1.5 重构后未保留，见 8.4）、`dsh-remote-web-ui`（见 8.5）、`dsh-tui`（见 8.6）。
+「一切皆插件」，可通过 `dsh plugin --profile <name> add|remove <pkg>` 给 profile 装/卸插件（转发给 pnpm，并自动 reconcile `dsh.profile.bundles` 图层）。本机**当前装有**四个挂进 `web` profile 的 bundle 扩展：`dsh-free-vision`（见 8.1）、`dsh-undo-savepoint`（见 8.2）、`dshmarket`（插件市场，见 8.3）、`dsh-mnemon`（跨会话记忆，见 8.4）。曾装过已移除：`dsh-context`（0.1.5 重构后未保留，见 8.5）、`dsh-remote-web-ui`（见 8.6）、`dsh-tui`（见 8.7）。
 
 ### 8.1 免费视觉 dsh-free-vision（web profile bundle，当前装有） <a id="plugins-free-vision"></a>
 
@@ -324,7 +324,34 @@ npm 月下载量约 45.9 万、GitHub 4086 星（同类第二名的月下载量�
 > **取舍**：第三方社区插件（非 DeepSeek 官方），会联网访问 dshmarket.com；解包 3.1 MB、依赖 `undici` 与
 > `js-yaml`，并注入设置页与主题；GitHub 上有数十个 open issue 在跟进。卸载：`pnpm dsh plugin --profile web remove dshmarket`。
 
-### 8.4 曾装已移除：dsh-context <a id="plugins-removed"></a>
+### 8.4 跨会话记忆 dsh-mnemon（web profile bundle，当前装有） <a id="plugins-mnemon"></a>
+
+给 DSH 装上**跨会话长期记忆**：每回合把相关记忆投影进上下文，会话结束自动沉淀。三层结构——运行时热记忆
+（`USER.md` / `MEMORY.md`）、可检索 Markdown 档案、长期证据（记忆空间），三层共用侧栏「记忆系统」。
+仓库：<https://github.com/omdsh-dev/dsh-mnemon>（MIT）。选它的依据是热度与评价双第一：npm 月下载约 3.86 万、
+GitHub 383 星（同类第二为 315 星、下载量第二为 2.21 万），被社区生态盘点称为「工程化标杆」。
+
+| 项 | 值 |
+| --- | --- |
+| 安装 | `pnpm dsh plugin --profile web add dsh-mnemon`（2026-09-18 装，走 npmmirror 源，含 16 个官方子包） |
+| 版本 | 0.5.10 |
+| 附带组件 | `mnemon` CLI（`npm install -g @mnemon-dev/mnemon`，同日装 0.2.9）——本地长期记忆（Mnemon Native）需要它 |
+| 存储 | `~/.mnemon/{runtime,documents}`（本地 Markdown / JSON，首次加载自动建空模板） |
+| 落位 | bundle 图层（`dsh.profile.bundles` 自动登记），patch 插入 `mnemon-bundle` 分组 |
+| 生效时机 | 装/卸需**重启 dsh web** |
+| 与更新脚本 | 已纳入 `dsh-update.sh` 的插件清单（见 6 节），与其他插件一样自动 `up --latest` + `rebuild` |
+
+**只用本地、不接云端**（2026-09-18 决定）：profile 补丁层已把记忆空间的 Provider 收窄为仅
+`dsh-mnemon-provider-mnemon-native`（见 `~/.dsh/profiles/web/cordis.patch.yml` 的 dsh-mnemon 段），
+8 个云端 Provider（openviking / honcho / mem0 / hindsight / holographic / retaindb / byterover /
+supermemory）不再装载；插件默认亦关闭向量嵌入（`embedding.enabled: false`）、远程访问为只读。
+需要接云端时删除该段即恢复默认。
+
+> **注意**：`mnemon` CLI 装在 nvm 当前 Node 版本目录下（`~/.nvm/versions/node/v24.20.0/bin/mnemon`），
+> 切换 Node 版本后可能找不到；届时用环境变量 `MNEMON_CLI_PATH` 或用户设置里的 `mnemon.cliPath` 指定绝对路径，
+> **不要**为此整体替换插件的 profile patch。
+
+### 8.5 曾装已移除：dsh-context <a id="plugins-removed"></a>
 
 0.1.2 时代装过的客户端上下文注入 bundle，随 **2026-09-08 升级 0.1.5 的 profile 重构未再保留**：
 
@@ -337,7 +364,7 @@ cd /home/minjian/develop/deepseek-harness
 pnpm dsh plugin --profile web add dsh-context
 ```
 
-### 8.5 远程 Web UI dsh-remote-web-ui（web profile bundle，**已卸载**） <a id="plugins-remote-web-ui"></a>
+### 8.6 远程 Web UI dsh-remote-web-ui（web profile bundle，**已卸载**） <a id="plugins-remote-web-ui"></a>
 
 > **结论：`dsh web` 启动即崩溃（plugin tree failed to load），已用官方 `dsh plugin remove` 卸载。**
 
@@ -361,7 +388,7 @@ pnpm dsh plugin --profile web remove @linxin666/dsh-remote-web-ui   # 转发 pnp
 
 卸载后 `dsh web` 恢复正常启动。装上它须等该包适配当前 dsh（移除对 `@deepseek-ai/dsh-host-apiproxy` 的依赖或等官方补包）再试；安装命令备查：`pnpm dsh plugin --profile web add @linxin666/dsh-remote-web-ui`。
 
-### 8.6 终端客户端 dsh-tui（全局 CLI，**已卸载**） <a id="plugins-tui"></a>
+### 8.7 终端客户端 dsh-tui（全局 CLI，**已卸载**） <a id="plugins-tui"></a>
 
 > **结论：与 dsh 不兼容（0.1.2 时代实测，0.1.5 未复测），已全局卸载，暂不使用。**
 
