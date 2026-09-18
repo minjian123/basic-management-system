@@ -43,6 +43,11 @@ export {
   type NoticeItem,
   type NoticeType,
 } from './components/display/NoticeList.vue'
+export { default as QrCode, type QrLevel, type QrStatus } from './components/display/QrCode.vue'
+export { default as QuickEntry, type QuickEntryItem } from './components/display/QuickEntry.vue'
+export { default as UserAvatar, type AvatarSize } from './components/display/UserAvatar.vue'
+export { default as UserInfo } from './components/display/UserInfo.vue'
+export { default as WatermarkOverlay } from './components/display/WatermarkOverlay.vue'
 export { default as CaptchaField, type CaptchaKind } from './components/field/CaptchaField.vue'
 export { default as AmountField } from './components/field/AmountField.vue'
 export {
@@ -139,6 +144,14 @@ export {
   useBaseAccess,
   type UseBaseAccessResult,
 } from './composables/useBaseAccess'
+export {
+  useBaseUserDisplay,
+  type UseBaseUserDisplayResult,
+} from './composables/useBaseUserDisplay'
+export {
+  useBaseWatermark,
+  type UseBaseWatermarkResult,
+} from './composables/useBaseWatermark'
 export {
   useRichTextKernel,
   type UseRichTextKernelOptions,
