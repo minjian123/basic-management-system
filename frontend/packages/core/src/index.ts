@@ -146,6 +146,11 @@ export {
 export { evaluatePermission, type PermissionMode } from './domain/permission'
 export { resolveToken } from './domain/token'
 export {
+  computeVirtualRange,
+  type VirtualRange,
+  type VirtualRangeOptions,
+} from './domain/virtual-range'
+export {
   PLACEHOLDER_MENU,
   filterMenuByKeyword,
   filterMenuByPermission,
