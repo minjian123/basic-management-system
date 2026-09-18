@@ -17,6 +17,8 @@ export { default as StatusContainer, type StatusContainerState } from './compone
 export { default as VirtualListContainer } from './components/container/VirtualListContainer.vue'
 export { default as SectionContainer } from './components/container/SectionContainer.vue'
 export { default as CaptchaField, type CaptchaKind } from './components/field/CaptchaField.vue'
+export { default as AmountField } from './components/field/AmountField.vue'
+export { default as NumberField } from './components/field/NumberField.vue'
 export {
   default as DateTimeField,
   type DateTimeKind,

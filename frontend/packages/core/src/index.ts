@@ -146,6 +146,17 @@ export {
 export { evaluatePermission, type PermissionMode } from './domain/permission'
 export { resolveToken } from './domain/token'
 export {
+  MAX_DECIMAL_PRECISION,
+  compareDecimal,
+  fromMinorUnits,
+  isDecimal,
+  isDecimalInRange,
+  normalizeDecimal,
+  sanitizePrecision,
+  toMinorUnits,
+  type DecimalRangeOptions,
+} from './domain/decimal'
+export {
   computeVirtualRange,
   type VirtualRange,
   type VirtualRangeOptions,
