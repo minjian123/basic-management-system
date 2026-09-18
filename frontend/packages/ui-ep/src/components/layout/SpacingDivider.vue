@@ -3,6 +3,9 @@
 import { ElDivider } from 'element-plus'
 import { computed, type CSSProperties } from 'vue'
 
+import { useBaseLayout } from '../../composables/useBaseLayout'
+
+
 /** 间距档位。 */
 export type SpacingSize = 'sm' | 'md' | 'lg'
 
@@ -26,6 +29,7 @@ const props = withDefaults(defineProps<Props>(), {
   dashed: false,
 })
 
+const { hidden } = useBaseLayout({ gap: SPACING[props.size] })
 const style = computed<CSSProperties>(() =>
   props.direction === 'horizontal' ? { marginBlock: SPACING[props.size] } : { marginInline: SPACING[props.size] },
 )
@@ -33,6 +37,7 @@ const style = computed<CSSProperties>(() =>
 
 <template>
   <el-divider
+    v-show="!hidden"
     class="bms-spacing-divider"
     :style="style"
     :direction="direction"

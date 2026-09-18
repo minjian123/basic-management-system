@@ -2,6 +2,8 @@
 // 折叠面板组：`el-collapse` 薄封装，支持手风琴与多项展开。
 import { ElCollapse, type CollapseModelValue } from 'element-plus'
 
+import { useBaseLayout } from '../../composables/useBaseLayout'
+
 interface Props {
   /** 当前展开项（手风琴为字符串，多项为数组）。 */
   modelValue?: string | string[]
@@ -10,6 +12,8 @@ interface Props {
 }
 
 withDefaults(defineProps<Props>(), { modelValue: undefined, accordion: false })
+
+const { hidden } = useBaseLayout()
 
 const emit = defineEmits<{ 'update:modelValue': [value: string | string[]]; change: [value: string | string[]] }>()
 
@@ -21,7 +25,7 @@ function onChange(value: CollapseModelValue): void {
 </script>
 
 <template>
-  <el-collapse class="bms-collapse-panel-group" :model-value="modelValue" :accordion="accordion" @change="onChange">
+  <el-collapse v-show="!hidden" class="bms-collapse-panel-group" :model-value="modelValue" :accordion="accordion" @change="onChange">
     <slot />
   </el-collapse>
 </template>

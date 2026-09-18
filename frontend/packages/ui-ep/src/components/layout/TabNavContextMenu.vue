@@ -4,6 +4,8 @@ import { type CSSProperties } from 'vue'
 
 import type { TabNavItem } from '../../composables/useTabNav'
 
+import { useBaseLayout } from '../../composables/useBaseLayout'
+
 /** 菜单动作。 */
 export type TabNavAction = 'refresh' | 'close' | 'close-others' | 'close-right' | 'close-all'
 
@@ -21,6 +23,8 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), { x: 0, y: 0, item: undefined })
 const emit = defineEmits<{ action: [action: TabNavAction] }>()
 
+const { hidden } = useBaseLayout()
+
 const ACTIONS: { key: TabNavAction; label: string }[] = [
   { key: 'refresh', label: '刷新' },
   { key: 'close', label: '关闭' },
@@ -35,7 +39,7 @@ function style(): CSSProperties {
 </script>
 
 <template>
-  <div v-if="visible" class="bms-tab-nav-context" data-test="tab-context" :style="style()">
+  <div v-if="visible" v-show="!hidden" class="bms-tab-nav-context" data-test="tab-context" :style="style()">
     <button
       v-for="action in ACTIONS"
       :key="action.key"

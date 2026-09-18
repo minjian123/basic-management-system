@@ -3,6 +3,8 @@
 import { computed, ref } from 'vue'
 
 import type { TabNavItem } from '../../composables/useTabNav'
+
+import { useBaseLayout } from '../../composables/useBaseLayout'
 import TabNavContextMenu from './TabNavContextMenu.vue'
 
 interface Props {
@@ -15,6 +17,8 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), { maxVisible: 0 })
+
+const { hidden } = useBaseLayout()
 
 const emit = defineEmits<{
   select: [key: string]
@@ -73,7 +77,7 @@ function onMoreSelect(key: string): void {
 </script>
 
 <template>
-  <div class="bms-tab-nav" data-test="tab-nav">
+  <div v-show="!hidden" class="bms-tab-nav" data-test="tab-nav">
     <div
       v-for="tab in visibleTabs"
       :key="tab.key"

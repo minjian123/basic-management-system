@@ -2,6 +2,8 @@
 // 骨架屏：列表 / 卡片 / 详情三形态的加载占位。
 import { ElSkeleton, ElSkeletonItem } from 'element-plus'
 
+import { useFeedback } from '../../composables/useFeedback'
+
 /** 骨架屏形态。 */
 export type SkeletonBlockVariant = 'list' | 'card' | 'detail'
 
@@ -15,6 +17,9 @@ interface Props {
 }
 
 withDefaults(defineProps<Props>(), { variant: 'list', rows: 4, animated: true })
+
+const { begin } = useFeedback()
+begin()
 </script>
 
 <template>

@@ -2,6 +2,8 @@
 // 内容遮罩：局部加载遮罩，延迟展示防闪烁。
 import { onBeforeUnmount, ref, watch } from 'vue'
 
+import { useFeedback } from '../../composables/useFeedback'
+
 interface Props {
   /** 加载中。 */
   loading: boolean
@@ -13,12 +15,18 @@ interface Props {
 
 const props = withDefaults(defineProps<Props>(), { delay: 200, text: '' })
 
+const { begin, ready } = useFeedback()
 const shown = ref(false)
 let timer: ReturnType<typeof setTimeout> | undefined
 
 watch(
   () => props.loading,
   (loading) => {
+    if (loading) {
+      begin()
+    } else {
+      ready()
+    }
     if (timer !== undefined) {
       clearTimeout(timer)
       timer = undefined

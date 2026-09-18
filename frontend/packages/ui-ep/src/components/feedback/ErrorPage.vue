@@ -1,9 +1,10 @@
 <script setup lang="ts">
 // 错误页：按状态码呈现缺省文案与操作（返回 / 重试），不暴露技术堆栈。
 import { ElButton } from 'element-plus'
-import { computed } from 'vue'
+import { computed, watch } from 'vue'
 
 import errorImage from '../../assets/images/error.svg'
+import { useBaseDisplay } from '../../composables/useBaseDisplay'
 
 /** 错误页状态码。 */
 export type ErrorPageCode = 403 | 404 | 500
@@ -31,13 +32,16 @@ const emit = defineEmits<{ home: []; retry: []; back: [] }>()
 const resolvedTitle = computed(() => props.title || DEFAULT_TEXT[props.code].title)
 const resolvedDescription = computed(() => props.description || DEFAULT_TEXT[props.code].description)
 const retryable = computed(() => props.retry === true || props.code === 500)
+
+const { display, value: titleValue } = useBaseDisplay<string>()
+watch(resolvedTitle, (title) => display.setValue(title), { immediate: true })
 </script>
 
 <template>
   <div class="bms-error-page">
     <img class="bms-error-page__image" :src="errorImage" :alt="`错误 ${code}`" />
     <p class="bms-error-page__code" data-test="error-code">{{ code }}</p>
-    <h2 class="bms-error-page__title">{{ resolvedTitle }}</h2>
+    <h2 class="bms-error-page__title">{{ titleValue }}</h2>
     <p class="bms-error-page__description">{{ resolvedDescription }}</p>
     <div class="bms-error-page__actions">
       <el-button data-test="error-back" @click="emit('back')">返回上一页</el-button>

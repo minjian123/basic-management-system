@@ -1,6 +1,8 @@
 <script setup lang="ts">
 // 双层页签（表单框架）：上层业务分组，下层组内页签；下层切换不改上层。
 import type { TabNavItem } from '../../composables/useTabNav'
+
+import { useBaseLayout } from '../../composables/useBaseLayout'
 import TabNavBar from './TabNavBar.vue'
 
 interface Props {
@@ -16,6 +18,8 @@ interface Props {
 
 defineProps<Props>()
 
+const { hidden } = useBaseLayout()
+
 const emit = defineEmits<{
   'update:primaryKey': [key: string]
   'update:secondaryKey': [key: string]
@@ -24,7 +28,7 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <div class="bms-dual-tabs">
+  <div v-show="!hidden" class="bms-dual-tabs">
     <tab-nav-bar
       class="bms-dual-tabs__primary"
       :tabs="primary"

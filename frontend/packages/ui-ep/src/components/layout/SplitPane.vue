@@ -2,6 +2,9 @@
 // 可调分栏：指针拖拽 + 键盘微调 + 双击复位；轻量自研，不引入第三方。
 import { computed, onBeforeUnmount, ref, watch, type CSSProperties } from 'vue'
 
+import { useBaseLayout } from '../../composables/useBaseLayout'
+
+
 /** 分割方向。 */
 export type SplitDirection = 'horizontal' | 'vertical'
 
@@ -43,6 +46,7 @@ watch(
   },
 )
 
+const { hidden } = useBaseLayout({ gap: size.value })
 const firstStyle = computed<CSSProperties>(() =>
   props.direction === 'horizontal' ? { width: `${size.value}px` } : { height: `${size.value}px` },
 )
@@ -129,6 +133,7 @@ onBeforeUnmount(() => {
 
 <template>
   <div
+    v-show="!hidden"
     ref="container"
     class="bms-split-pane"
     :class="{ 'is-dragging': dragging }"
