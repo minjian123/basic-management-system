@@ -12,6 +12,7 @@ import { BasePluggable } from './pluggable'
 
 /** 提供者注册表基座（抽象）。 */
 export abstract class BaseProviderRegistry<T> extends BasePluggable {
+  /** 已登记提供者（保持登记顺序）。 */
   private readonly providers = new Map<string, T>()
 
   /** 注册项键（各域注册表覆写）。 */
@@ -54,9 +55,12 @@ export abstract class BaseProviderRegistry<T> extends BasePluggable {
 
 /** 能力注册表（缺省实现，注册项为能力基类）。 */
 export class CapabilityRegistry extends BaseProviderRegistry<BaseCapability> {
+  /** 插件键。 */
   readonly pluginKey = 'capability-registry'
+  /** 实现名。 */
   readonly pluginName = 'core'
 
+  /** 注册项键取能力键。 */
   protected providerKey(provider: BaseCapability): string {
     return provider.key
   }

@@ -26,11 +26,13 @@ export abstract class BasePlaceholder extends BaseObject {
 
 /** 空实现（Null Object）：实现全部契约但无副作用。 */
 export abstract class BaseNullObject extends BasePlaceholder {
+  /** 占位原因：空值。 */
   readonly reason = 'null' as const
 }
 
 /** 未实现桩：调用未实现能力统一抛错。 */
 export abstract class BaseStub extends BasePlaceholder {
+  /** 占位原因：未实现。 */
   readonly reason = 'stub' as const
 
   /**

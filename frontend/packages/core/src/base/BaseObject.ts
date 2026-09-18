@@ -21,16 +21,21 @@ export interface BaseReporterSink {
 
 /** 配置读取源。 */
 export interface BaseConfigSource {
+  /** 读取配置项（未命中返回 `undefined`）。 */
   get(key: string): unknown
 }
 
 /** 可注入的基础 sink 集。 */
 export interface BaseSinks {
+  /** 日志 sink。 */
   logger?: BaseLoggerSink
+  /** 错误上报 sink。 */
   reporter?: BaseReporterSink
+  /** 配置读取源。 */
   config?: BaseConfigSource
 }
 
+/** 缺省日志 sink（console，按级别）。 */
 const defaultLogger: BaseLoggerSink = (level, message, meta) => {
   const fn =
     level === 'error' ? console.error : level === 'warn' ? console.warn : level === 'debug' ? console.debug : console.info
@@ -41,6 +46,7 @@ const defaultLogger: BaseLoggerSink = (level, message, meta) => {
   }
 }
 
+/** 缺省错误上报 sink（`console.error`）。 */
 const defaultReporter: BaseReporterSink = (error, meta) => {
   if (meta === undefined) {
     console.error(error)
@@ -49,6 +55,7 @@ const defaultReporter: BaseReporterSink = (error, meta) => {
   }
 }
 
+/** 缺省配置源（恒空，`getConfig` 返回 `fallback`）。 */
 const emptyConfig: BaseConfigSource = { get: () => undefined }
 
 let sinks: Required<BaseSinks> = {
@@ -82,6 +89,7 @@ export class BaseObject {
   readonly namespace: string
   /** 版本。 */
   readonly version: string
+  /** 是否已释放（生命周期幂等标记）。 */
   private disposed = false
 
   constructor(namespace = 'base', version = '0.0.0') {
