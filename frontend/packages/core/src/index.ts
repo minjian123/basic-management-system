@@ -170,6 +170,24 @@ export {
   type ModuleRouteDeclaration,
 } from './module/types'
 export { MODULE_NAME_PATTERN, defineModule } from './module/define'
+
+export {
+  ComponentProvider,
+  ComponentRegistry,
+  FieldRendererProvider,
+  FieldRendererRegistry,
+  IconProvider,
+  IconRegistry,
+  REGISTRY_KEY_PATTERN,
+  RouteMenuProvider,
+  RouteMenuRegistry,
+  WorkbenchCardProvider,
+  WorkbenchCardRegistry,
+  assertNamespacedKey,
+  createRegistries,
+  schemaError,
+  type FrontendRegistries,
+} from './registries'
 export { LocalModuleLoader } from './module/loader'
 
 export { BaseApi, type HttpMethod } from './contracts/api'
