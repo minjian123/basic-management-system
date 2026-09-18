@@ -3,6 +3,8 @@
 import type { MenuNode } from '@bms/core'
 import { ElBadge, ElMenuItem, ElSubMenu } from 'element-plus'
 
+import { useBaseLayout } from '../../composables/useBaseLayout'
+
 defineOptions({ name: 'SideMenuItem' })
 
 interface Props {
@@ -13,16 +15,18 @@ interface Props {
 }
 
 withDefaults(defineProps<Props>(), { showBadge: true })
+
+const { hidden } = useBaseLayout()
 </script>
 
 <template>
-  <el-sub-menu v-if="node.children !== undefined && node.children.length > 0" :index="node.path">
+  <el-sub-menu v-if="node.children !== undefined && node.children.length > 0" v-show="!hidden" :index="node.path">
     <template #title>
       <span class="bms-side-menu__title" :data-test="`menu-sub-${node.path}`">{{ node.title }}</span>
     </template>
     <side-menu-item v-for="child in node.children" :key="child.path" :node="child" :show-badge="showBadge" />
   </el-sub-menu>
-  <el-menu-item v-else :index="node.path">
+  <el-menu-item v-else v-show="!hidden" :index="node.path">
     <span class="bms-side-menu__title" :data-test="`menu-item-${node.path}`">
       <el-badge v-if="showBadge && node.badge !== undefined" :value="node.badge" class="bms-side-menu__badge">
         {{ node.title }}
