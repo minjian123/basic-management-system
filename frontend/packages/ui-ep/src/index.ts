@@ -10,6 +10,9 @@ export { default as LoadingMask } from './components/feedback/LoadingMask.vue'
 export { default as SkeletonBlock, type SkeletonBlockVariant } from './components/feedback/SkeletonBlock.vue'
 export { default as CollapsePanel } from './components/layout/CollapsePanel.vue'
 export { default as DualTabs } from './components/layout/DualTabs.vue'
+export { default as FormLayoutShell } from './components/layout/FormLayoutShell.vue'
+export { default as MainLayout } from './components/layout/MainLayout.vue'
+export { default as PageContainer, type BreadcrumbItem } from './components/layout/PageContainer.vue'
 export { default as SideMenu } from './components/layout/SideMenu.vue'
 export { default as SideMenuItem } from './components/layout/SideMenuItem.vue'
 export { default as TabNavBar } from './components/layout/TabNavBar.vue'
@@ -27,6 +30,53 @@ export { default as FormDialog } from './components/modal/FormDialog.vue'
 export { default as FormDrawer } from './components/modal/FormDrawer.vue'
 export { useConfirm, type ConfirmOptions, type ConfirmState } from './composables/useConfirm'
 export { useFeedback, type UseFeedbackResult } from './composables/useFeedback'
+export {
+  useBaseContainer,
+  type UseBaseContainerOptions,
+  type UseBaseContainerResult,
+} from './composables/useBaseContainer'
+export {
+  useBaseLayout,
+  type UseBaseLayoutOptions,
+  type UseBaseLayoutResult,
+} from './composables/useBaseLayout'
+export {
+  useBaseDisplay,
+  type UseBaseDisplayResult,
+} from './composables/useBaseDisplay'
+export {
+  useBaseTreeData,
+  type UseBaseTreeDataOptions,
+  type UseBaseTreeDataResult,
+} from './composables/useBaseTreeData'
+export {
+  useBaseAccess,
+  type UseBaseAccessResult,
+} from './composables/useBaseAccess'
+export {
+  useBasePersistedState,
+  type UseBasePersistedStateOptions,
+  type UseBasePersistedStateResult,
+} from './composables/useBasePersistedState'
+export {
+  useBaseDesignToken,
+  type UseBaseDesignTokenOptions,
+  type UseBaseDesignTokenResult,
+} from './composables/useBaseDesignToken'
+export {
+  DEFAULT_BREAKPOINTS,
+  useResponsive,
+  type ResponsiveBreakpoint,
+  type ResponsiveBreakpoints,
+  type UseResponsiveOptions,
+  type UseResponsiveResult,
+} from './composables/useResponsive'
+export {
+  useFormShell,
+  type DetailRecord,
+  type UseFormShellOptions,
+  type UseFormShellResult,
+} from './composables/useFormShell'
 export {
   useSideMenu,
   type UseSideMenuOptions,

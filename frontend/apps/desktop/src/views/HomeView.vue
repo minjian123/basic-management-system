@@ -1,25 +1,19 @@
 <script setup lang="ts">
-// 首页（骨架）：演示组件根属性协议与权限指令
-import { ref } from 'vue'
+// 工作台（骨架）：以页面容器承载内容。
+import { PageContainer } from '@bms/ui-ep'
 
-const clicked = ref(false)
+defineOptions({ name: 'HomeView' })
 </script>
 
 <template>
-  <main class="home" data-size="default" data-density="default">
-    <h1>BMS 平台前端</h1>
-    <p>宿主骨架已就绪（Vue 3 + Vite + TypeScript + Element Plus）。</p>
-    <el-button type="primary" data-test="demo-button" @click="clicked = true">
-      {{ clicked ? '已点击' : '点击测试' }}
-    </el-button>
-    <el-button v-perm="'demo:write'" type="success">权限按钮（无权限移除）</el-button>
-  </main>
+  <page-container title="工作台" description="BMS 基础管理系统">
+    <p class="home__hint">请从左侧菜单进入功能页；本页为前端组件库阶段的骨架首页。</p>
+  </page-container>
 </template>
 
-<style scoped lang="scss">
-.home {
-  padding: var(--bms-spacing-lg);
-  color: var(--bms-color-text);
-  font-family: var(--bms-font-family);
+<style scoped>
+.home__hint {
+  margin: 0;
+  color: var(--bms-color-text-secondary, #666);
 }
 </style>
