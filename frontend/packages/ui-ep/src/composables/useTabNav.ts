@@ -3,6 +3,7 @@
 import { BaseTabs } from '@bms/core'
 import { ref, type Ref } from 'vue'
 
+import { useBasePersistedState } from './useBasePersistedState'
 import { useConfirm } from './useConfirm'
 
 /** 页签项。 */
@@ -85,6 +86,7 @@ class TabNavState extends BaseTabs {
  */
 export function useTabNav(options: UseTabNavOptions = {}): UseTabNavResult {
   const { confirm } = useConfirm()
+  const storage = useBasePersistedState({ stateKey: options.storageKey ?? '' })
   const state = new TabNavState()
   const tabs = ref<TabNavItem[]>([])
   const activeKey = ref('')
@@ -95,11 +97,9 @@ export function useTabNav(options: UseTabNavOptions = {}): UseTabNavResult {
     if (options.storageKey === undefined) {
       return
     }
+    storage.setLocal({ tabs: tabs.value, activeKey: activeKey.value })
     try {
-      sessionStorage.setItem(
-        options.storageKey,
-        JSON.stringify({ tabs: tabs.value, activeKey: activeKey.value }),
-      )
+      sessionStorage.setItem(options.storageKey, JSON.stringify(storage.local.value))
     } catch {
       // 隐私模式等场景降级为不持久化。
     }
@@ -187,11 +187,15 @@ export function useTabNav(options: UseTabNavOptions = {}): UseTabNavResult {
 
   function restore(): void {
     const stored = options.storageKey === undefined ? undefined : sessionStorage.getItem(options.storageKey)
-    const source: TabNavItem[] =
-      stored !== null && stored !== undefined
-        ? (JSON.parse(stored) as { tabs: TabNavItem[] }).tabs
-        : (options.initial ?? [])
-    const storedActive = stored !== null && stored !== undefined ? (JSON.parse(stored) as { activeKey: string }).activeKey : ''
+    const parsed =
+      stored === null || stored === undefined
+        ? undefined
+        : (JSON.parse(stored) as { tabs: TabNavItem[]; activeKey: string })
+    if (parsed !== undefined) {
+      storage.setLocal(parsed)
+    }
+    const source: TabNavItem[] = parsed?.tabs ?? options.initial ?? []
+    const storedActive = parsed?.activeKey ?? ''
     for (const item of source) {
       open({ ...item, dirty: false })
     }
