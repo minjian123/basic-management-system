@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 根系基类</title>
+<title>原型 · 总基类</title>
 <link rel="stylesheet" href="../../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../../原型设计/资源/原型样式.css">
 <style>
@@ -22,13 +22,13 @@
 <body>
 
 <div class="proto-bar">
-  <span class="pb-crumb"><a href="01_组件设计_根系基类.md">← 返回组件设计文档</a></span>
-  <span class="pb-name">组件设计 · 根系基类 原型（可交互）</span>
+  <span class="pb-crumb"><a href="01_组件设计_总基类.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 总基类 原型（可交互）</span>
 </div>
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="01_组件设计_根系基类.md">《组件设计 · 根系基类》</a>：演示 根系 通用字段（命名空间/实例标识/运行环境/只读配置）与通用方法（日志/错误上报/配置读取/i18n 取词/生命周期钩子），以及契约/数据根与组件根并列继承 根系。
+    本原型对应当前目录 <a href="01_组件设计_总基类.md">《组件设计 · 总基类》</a>：演示 总基类 通用字段（命名空间/实例标识/运行环境/只读配置）与通用方法（日志/错误上报/配置读取/i18n 取词/生命周期钩子），以及契约/数据根与组件根并列继承 总基类。
   </div>
 
   <div id="app">
@@ -42,11 +42,11 @@
       </div>
 
       <div class="lay">
-        <div class="box l0"><b>根系基类</b><div class="it">通用字段与通用方法（日志/错误上报/配置读取/i18n 取词/生命周期钩子）；不含 UI/业务/权限</div></div>
+        <div class="box l0"><b>总基类</b><div class="it">通用字段与通用方法（日志/错误上报/配置读取/i18n 取词/生命周期钩子）；不含 UI/业务/权限</div></div>
         <div class="box"><b>契约/数据根</b><div class="it">响应类型 · 分页查询 · 请求 · CRUD 状态仓库 · 稳定序列化</div></div>
         <div class="box"><b>组件根基类</b><div class="it">组件根（透传/尺寸·密度·主题/i18n/可访问性/加载…）</div></div>
       </div>
-      <div class="dp-hint" style="margin-top:8px">依赖方向单向：根系 不依赖任何上层；只有"所有基类共有"的能力才进 根系。</div>
+      <div class="dp-hint" style="margin-top:8px">依赖方向单向：总基类 不依赖任何上层；只有"所有基类共有"的能力才进 总基类。</div>
 
       <div class="dp-state" style="margin-top:12px">{{ log }}</div>
     </div>
@@ -59,7 +59,7 @@
 <script>
   var { createApp, reactive, ref } = Vue;
 
-  // 模拟 根系：提供通用字段与通用方法（演示用）
+  // 模拟 总基类：提供通用字段与通用方法（演示用）
   function createBase(ns) {
     var base = reactive({ ns: ns || 'bms', identifier: 'demo-' + Math.random().toString(16).slice(2, 6), env: 'dev',
       config: { 'api.timeout': 15000, 'page.size': 20 } });
@@ -77,7 +77,7 @@
   var app = createApp({
     setup: function () {
       var base = createBase('bms');
-      var log = ref('就绪。点击上方按钮调用 根系 通用方法。');
+      var log = ref('就绪。点击上方按钮调用 总基类 通用方法。');
       function flush() { log.value = base._hooks.slice(-6).join('\n'); }
       function doLog() { base.log('info', '打开页面', { route: '/user' }); flush(); }
       function doError() { base.reportError(new Error('网络请求失败'), { url: '/api/v1/users', code: 500 }); flush(); }
