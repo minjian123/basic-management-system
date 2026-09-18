@@ -16,6 +16,10 @@ export { default as ScrollContainer } from './components/container/ScrollContain
 export { default as StatusContainer, type StatusContainerState } from './components/container/StatusContainer.vue'
 export { default as VirtualListContainer } from './components/container/VirtualListContainer.vue'
 export { default as SectionContainer } from './components/container/SectionContainer.vue'
+export { default as CaptchaField, type CaptchaKind } from './components/field/CaptchaField.vue'
+export { default as DictSelectField, type DictFieldValue } from './components/field/DictSelectField.vue'
+export { default as FileUploadField, type UploadFieldItem } from './components/field/FileUploadField.vue'
+export { default as OrgSelectField, type OrgFieldValue } from './components/field/OrgSelectField.vue'
 export { default as CheckboxInput, type CheckboxForm, type CheckboxValue } from './components/input/CheckboxInput.vue'
 export { default as NumberInput } from './components/input/NumberInput.vue'
 export { default as RadioInput, type RadioForm, type RadioValue } from './components/input/RadioInput.vue'
@@ -70,6 +74,11 @@ export {
   useBaseAccess,
   type UseBaseAccessResult,
 } from './composables/useBaseAccess'
+export {
+  useFieldPlaceholder,
+  type UseFieldPlaceholderOptions,
+  type UseFieldPlaceholderResult,
+} from './composables/useFieldPlaceholder'
 export {
   useBaseInput,
   type UseBaseInputOptions,
