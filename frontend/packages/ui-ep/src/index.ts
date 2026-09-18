@@ -18,6 +18,11 @@ export { default as VirtualListContainer } from './components/container/VirtualL
 export { default as SectionContainer } from './components/container/SectionContainer.vue'
 export { default as CaptchaField, type CaptchaKind } from './components/field/CaptchaField.vue'
 export { default as AmountField } from './components/field/AmountField.vue'
+export {
+  default as CascadeField,
+  type CascadeOption,
+  type CascadeValue,
+} from './components/field/CascadeField.vue'
 export { default as EnumField, type EnumFieldForm, type EnumFieldValue } from './components/field/EnumField.vue'
 export { default as InlineSwitchCell } from './components/field/InlineSwitchCell.vue'
 export { default as NumberField } from './components/field/NumberField.vue'
