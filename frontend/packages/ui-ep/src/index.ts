@@ -16,6 +16,10 @@ export { default as ScrollContainer } from './components/container/ScrollContain
 export { default as StatusContainer, type StatusContainerState } from './components/container/StatusContainer.vue'
 export { default as VirtualListContainer } from './components/container/VirtualListContainer.vue'
 export { default as SectionContainer } from './components/container/SectionContainer.vue'
+export { default as NumberInput } from './components/input/NumberInput.vue'
+export { default as PasswordInput, type PasswordStrength } from './components/input/PasswordInput.vue'
+export { default as TextareaInput } from './components/input/TextareaInput.vue'
+export { default as TextInput } from './components/input/TextInput.vue'
 export { default as CollapsePanel } from './components/layout/CollapsePanel.vue'
 export { default as DualTabs } from './components/layout/DualTabs.vue'
 export { default as FormLayoutShell } from './components/layout/FormLayoutShell.vue'
@@ -61,6 +65,16 @@ export {
   useBaseAccess,
   type UseBaseAccessResult,
 } from './composables/useBaseAccess'
+export {
+  useBaseInput,
+  type UseBaseInputOptions,
+  type UseBaseInputResult,
+} from './composables/useBaseInput'
+export {
+  useBaseField,
+  type UseBaseFieldOptions,
+  type UseBaseFieldResult,
+} from './composables/useBaseField'
 export {
   useBasePersistedState,
   type UseBasePersistedStateOptions,
