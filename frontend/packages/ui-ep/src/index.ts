@@ -75,6 +75,35 @@ export {
   type ModelerElementType,
   type ModelerValidateResult,
 } from './components/interaction/ProcessModeler.vue'
+export {
+  default as ImportDialog,
+  type ImportResult,
+  type ImportStep,
+} from './components/interaction/ImportDialog.vue'
+export {
+  default as ExportButton,
+  type ExportPayload,
+  type ExportScope,
+} from './components/interaction/ExportButton.vue'
+export {
+  default as FormDesigner,
+  type DesignerField,
+  type DesignerLevel,
+  type DesignerSection,
+  type DesignerSelection,
+  type FormLayout,
+} from './components/interaction/FormDesigner.vue'
+export {
+  default as FormRenderer,
+  type FormRenderMode,
+  type FormValidateResult,
+} from './components/interaction/FormRenderer.vue'
+export {
+  default as I18nMessageEditor,
+  type I18nChangePayload,
+  type I18nLocale,
+  type I18nMessageRow,
+} from './components/interaction/I18nMessageEditor.vue'
 export { default as CaptchaField, type CaptchaKind } from './components/field/CaptchaField.vue'
 export { default as AmountField } from './components/field/AmountField.vue'
 export {
@@ -171,6 +200,30 @@ export {
   type UseInteractionPlaceholderOptions,
   type UseInteractionPlaceholderResult,
 } from './composables/useInteractionPlaceholder'
+export {
+  useBaseUploadEngine,
+  type UseBaseUploadEngineOptions,
+  type UseBaseUploadEngineResult,
+} from './composables/useBaseUploadEngine'
+export {
+  useBaseAsyncTask,
+  type UseBaseAsyncTaskOptions,
+  type UseBaseAsyncTaskResult,
+} from './composables/useBaseAsyncTask'
+export {
+  useBaseDragDrop,
+  type UseBaseDragDropResult,
+} from './composables/useBaseDragDrop'
+export {
+  useBaseFormMeta,
+  type UseBaseFormMetaOptions,
+  type UseBaseFormMetaResult,
+} from './composables/useBaseFormMeta'
+export {
+  useBaseLocale,
+  type UseBaseLocaleOptions,
+  type UseBaseLocaleResult,
+} from './composables/useBaseLocale'
 export {
   useBaseTreeData,
   type UseBaseTreeDataOptions,

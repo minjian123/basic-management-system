@@ -16,8 +16,8 @@ export interface UseBaseDataStateResult {
   begin: () => number
   /** 以令牌结算（非最新令牌忽略）。 */
   settle: (token: number, state: SettleState) => boolean
-  /** 便捷结算（自动取令牌）。 */
-  setState: (state: SettleState) => void
+  /** 便捷置状态（`loading` 走 `begin`，其余自动取令牌结算）。 */
+  setState: (state: DataStateName) => void
 }
 
 /**
@@ -40,7 +40,9 @@ export function useBaseDataState(): UseBaseDataStateResult {
     settle: (token, next) => dataState.settle(token, next),
     setState: (next) => {
       const token = dataState.begin()
-      dataState.settle(token, next)
+      if (next !== 'loading') {
+        dataState.settle(token, next)
+      }
     },
   }
 }
