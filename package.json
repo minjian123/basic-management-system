@@ -22,8 +22,8 @@
     "ui-vant:test": "npm run -w @bms/ui-vant test",
     "ui-vant:lint": "npm run -w @bms/ui-vant lint",
     "ui-vant:check": "npm run ui-vant:typecheck && npm run ui-vant:lint && npm run ui-vant:test",
-    "lint": "npm run core:lint && npm run vue:lint",
-    "check": "npm run core:check && npm run vue:check"
+    "lint": "npm run core:lint && npm run vue:lint && npm run ui-ep:lint",
+    "check": "npm run core:check && npm run vue:check && npm run ui-ep:check"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
