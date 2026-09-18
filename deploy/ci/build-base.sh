@@ -4,11 +4,11 @@
 #   （Dockerfile 变更——如系统依赖调整——同样触发重建，2026-09-14 补）
 # - 幂等：本地已存在同哈希镜像则跳过（构建与消费共用宿主 docker daemon，本流水线即用新镜像）
 # - 产物：$REGISTRY_IMAGE_PREFIX/ci-backend:<tag>、ci-frontend:<tag>
-#   ci-frontend 含三套预装依赖：workspace 根（frontend/packages/*，S4b 起）/ frontend/apps/desktop / frontend/apps/mobile（镜像内路径 /opt/ci/frontend/apps/desktop、/opt/ci/frontend/apps/mobile）
+#   ci-frontend 含两套预装依赖：workspace 根（frontend/packages/*：core / vue）/ frontend/apps/desktop（镜像内路径 /opt/ci/workspace、/opt/ci/frontend/apps/desktop）
 set -eu
 
 REGISTRY_IMAGE_PREFIX="${REGISTRY_IMAGE_PREFIX:?REGISTRY_IMAGE_PREFIX 未设置}"
-TAG=$(cat backend/uv.lock frontend/apps/desktop/package-lock.json frontend/apps/mobile/package-lock.json package-lock.json \
+TAG=$(cat backend/uv.lock frontend/apps/desktop/package-lock.json package-lock.json \
   deploy/ci/Dockerfile.backend deploy/ci/Dockerfile.frontend | sha256sum | cut -c1-12)
 echo "[ci-base] 构建输入哈希标签（锁文件 + Dockerfile）: $TAG"
 
@@ -21,9 +21,8 @@ cp backend/pyproject.toml backend/uv.lock "$backend_ctx/"
 cp deploy/ci/Dockerfile.backend "$backend_ctx/Dockerfile"
 
 frontend_ctx=$(mktemp -d)
-mkdir -p "$frontend_ctx/frontend/apps/desktop" "$frontend_ctx/frontend/apps/mobile" "$frontend_ctx/frontend/packages"
+mkdir -p "$frontend_ctx/frontend/apps/desktop" "$frontend_ctx/frontend/packages"
 cp frontend/apps/desktop/package.json frontend/apps/desktop/package-lock.json "$frontend_ctx/frontend/apps/desktop/"
-cp frontend/apps/mobile/package.json frontend/apps/mobile/package-lock.json "$frontend_ctx/frontend/apps/mobile/"
 # workspace 根依赖集：根清单 + 各包清单（npm ci 按 frontend/packages/* 计算依赖，镜像内只需清单）
 cp package.json package-lock.json tsconfig.base.json "$frontend_ctx/"
 for manifest in frontend/packages/*/package.json; do

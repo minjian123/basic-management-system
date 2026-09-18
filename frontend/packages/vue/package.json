@@ -1,0 +1,22 @@
+{
+  "name": "@bms/vue",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "BMS 前端 Vue 绑定（组合式投影：核心实例 ↔ Vue 响应式薄适配）",
+  "exports": {
+    ".": "./src/index.ts",
+    "./testing": "./testing/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "eslint . --max-warnings 0",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@bms/core": "0.0.0"
+  },
+  "devDependencies": {
+    "vue": "^3.5.0"
+  }
+}

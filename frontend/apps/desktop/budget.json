@@ -1,0 +1,6 @@
+{
+  "distDir": "dist",
+  "totalGzipKb": 260,
+  "largestGzipKb": 150,
+  "note": "2026-09-18 宿主骨架重建：@bms/core + @bms/vue 源码直出合入主包，Element Plus 独立 vendor chunk；后续按路由级分割复评"
+}
