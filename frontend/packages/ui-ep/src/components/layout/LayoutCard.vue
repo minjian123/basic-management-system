@@ -3,6 +3,9 @@
 import { ElCard } from 'element-plus'
 import { computed, ref, useSlots, type CSSProperties } from 'vue'
 
+import { useBaseLayout } from '../../composables/useBaseLayout'
+
+
 /** 内边距档位。 */
 export type CardPadding = 'none' | 'sm' | 'md' | 'lg'
 
@@ -29,6 +32,7 @@ const props = withDefaults(defineProps<Props>(), {
   bordered: true,
 })
 
+const { hidden } = useBaseLayout()
 const slots = useSlots()
 const collapsed = ref(false)
 const bodyStyle = computed<CSSProperties>(() => ({ padding: PADDING[props.padding] }))
@@ -43,7 +47,7 @@ function toggle(): void {
 </script>
 
 <template>
-  <el-card class="bms-layout-card" :shadow="shadow" :body-style="bodyStyle" :class="{ 'is-bordered': bordered }">
+  <el-card v-show="!hidden" class="bms-layout-card" :shadow="shadow" :body-style="bodyStyle" :class="{ 'is-bordered': bordered }">
     <template v-if="hasHeader" #header>
       <div class="bms-layout-card__header" :class="{ 'is-collapsible': collapsible }" @click="toggle">
         <span class="bms-layout-card__title">

@@ -1,7 +1,9 @@
 <script setup lang="ts">
 // 通用二次确认对话框：供页签关闭、删除确认等场景复用。
 import { ElButton, ElDialog } from 'element-plus'
-import { computed } from 'vue'
+import { computed, watch } from 'vue'
+
+import { useModalShell } from '../../composables/useModalShell'
 
 interface Props {
   /** 显隐。 */
@@ -35,10 +37,31 @@ const emit = defineEmits<{
   cancel: []
 }>()
 
-const visible = computed({
-  get: () => props.modelValue,
-  set: (value: boolean) => emit('update:modelValue', value),
+const { visible, open, close, requestClose } = useModalShell()
+
+const dialogVisible = computed({
+  get: () => visible.value,
+  set: (value: boolean) => {
+    if (value) {
+      open()
+      return
+    }
+    requestClose('close')
+  },
 })
+
+watch(visible, (value) => emit('update:modelValue', value))
+watch(
+  () => props.modelValue,
+  (value) => {
+    if (value) {
+      open()
+    } else {
+      close('model')
+    }
+  },
+  { immediate: true },
+)
 
 function onConfirm(): void {
   emit('confirm')
@@ -46,12 +69,12 @@ function onConfirm(): void {
 
 function onCancel(): void {
   emit('cancel')
-  emit('update:modelValue', false)
+  requestClose('cancel')
 }
 </script>
 
 <template>
-  <el-dialog v-model="visible" :title="title" width="420px" append-to-body>
+  <el-dialog v-model="dialogVisible" :title="title" width="420px" append-to-body>
     <p class="confirm-dialog__content">{{ content }}</p>
     <template #footer>
       <el-button data-test="confirm-cancel" @click="onCancel">{{ cancelText }}</el-button>

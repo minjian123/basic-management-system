@@ -41,7 +41,12 @@ export {
 export { useModalShell, type UseModalShellResult } from './composables/useModalShell'
 export {
   useFormModal,
-  type FormMode,
   type UseFormModalOptions,
   type UseFormModalResult,
 } from './composables/useFormModal'
+export {
+  useBaseFormPage,
+  type FormMode,
+  type UseBaseFormPageOptions,
+  type UseBaseFormPageResult,
+} from './composables/useBaseFormPage'

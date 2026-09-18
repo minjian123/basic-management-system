@@ -3,11 +3,15 @@
 import { BaseDynamicRoutes, filterMenuByKeyword, filterMenuByPermission, toRouteNodes, type MenuNode } from '@bms/core'
 import { ref, type Ref } from 'vue'
 
+import { useBaseAccess } from './useBaseAccess'
+
 /** 选项。 */
 export interface UseSideMenuOptions {
   /** 原始菜单树。 */
   menu?: MenuNode[]
-  /** 权限判定（缺省全部放行）。 */
+  /** 权限码集合（缺省空）。 */
+  codes?: Iterable<string>
+  /** 权限判定（缺省使用 `codes`）。 */
   canAccess?: (code: string) => boolean
 }
 
@@ -29,6 +33,10 @@ export interface UseSideMenuResult {
   register: () => string[]
   /** 卸载路由。 */
   unregister: (path?: string) => void
+  /** 权限上下文（响应式）。 */
+  codes: Ref<string[]>
+  /** 整体替换权限码。 */
+  setCodes: (codes: Iterable<string>) => void
 }
 
 /** 具体动态路由状态（可实例化）。 */
@@ -41,7 +49,9 @@ class MenuRouteState extends BaseDynamicRoutes {}
  * @returns 菜单状态与路由操作。
  */
 export function useSideMenu(options: UseSideMenuOptions = {}): UseSideMenuResult {
-  const canAccess = options.canAccess ?? (() => true)
+  const access = useBaseAccess(options.codes ?? [])
+  const canAccess =
+    options.canAccess ?? (options.codes === undefined ? () => true : (code: string) => access.canAccess(code))
   const menu = ref(filterMenuByPermission(options.menu ?? [], canAccess))
   const keyword = ref('')
   const filtered = ref<MenuNode[]>(menu.value)
@@ -65,5 +75,16 @@ export function useSideMenu(options: UseSideMenuOptions = {}): UseSideMenuResult
     routes.value = [...state.routes]
   }
 
-  return { menu, keyword, filtered, setKeyword, routes, routePaths, register, unregister }
+  return {
+    menu,
+    keyword,
+    filtered,
+    setKeyword,
+    routes,
+    routePaths,
+    register,
+    unregister,
+    codes: access.codes,
+    setCodes: access.setCodes,
+  }
 }

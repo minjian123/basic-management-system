@@ -1,5 +1,6 @@
 /** 通用二次确认组合式：`confirm()` 返回 Promise，由挂载的 `ConfirmDialog` 结算。 */
 
+import { BaseModalShell } from '@bms/core'
 import { ref, type Ref } from 'vue'
 
 /** 确认选项。 */
@@ -43,6 +44,14 @@ const state: ConfirmState = {
 
 let resolver: ((value: boolean) => void) | undefined
 
+/** 确认模态壳（经核心 `BaseModalShell` 派生）。 */
+class ConfirmShell extends BaseModalShell {}
+
+const shell = new ConfirmShell()
+shell.onToggle((open) => {
+  state.visible.value = open
+})
+
 /**
  * 使用通用二次确认。
  *
@@ -59,14 +68,14 @@ export function useConfirm(): {
     state.danger.value = options.danger ?? false
     state.confirmText.value = options.confirmText ?? '确定'
     state.cancelText.value = options.cancelText ?? '取消'
-    state.visible.value = true
+    shell.show()
     return new Promise<boolean>((resolve) => {
       resolver = resolve
     })
   }
 
   function resolveConfirm(value: boolean): void {
-    state.visible.value = false
+    shell.hide('resolve')
     resolver?.(value)
     resolver = undefined
   }

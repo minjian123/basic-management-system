@@ -1,9 +1,10 @@
-/** 弹窗表单组合式：打开 / 关闭 / 提交 / 重置 / 加载态。 */
+/** 弹窗表单组合式：打开 / 关闭 / 提交 / 重置 / 加载态（状态经核心 `BaseFormPage` 与 `BaseModalShell` 投影）。 */
 
+import { type FormMode } from '@bms/core'
 import { ref, type Ref } from 'vue'
 
-/** 表单三态。 */
-export type FormMode = 'create' | 'edit' | 'detail'
+import { useBaseFormPage } from './useBaseFormPage'
+import { useModalShell } from './useModalShell'
 
 /** 选项。 */
 export interface UseFormModalOptions<T> {
@@ -41,40 +42,54 @@ export interface UseFormModalResult<T> {
  * @param options 选项。
  */
 export function useFormModal<T = unknown>(options: UseFormModalOptions<T> = {}): UseFormModalResult<T> {
-  const visible = ref(false)
-  const mode = ref<FormMode>('create')
+  const shell = useModalShell()
   const title = ref('')
-  const dirty = ref(false)
   const loading = ref(false)
+  let pending: T | undefined
 
-  function open(next: FormMode = 'create', nextTitle = ''): void {
-    mode.value = next
+  const form = useBaseFormPage({
+    submitter:
+      options.submit === undefined
+        ? undefined
+        : async () => {
+            await options.submit?.(pending as T)
+          },
+  })
+
+  function open(mode: FormMode = 'create', nextTitle = ''): void {
+    form.setMode(mode)
+    form.markDirty(false)
     title.value = nextTitle
-    dirty.value = false
-    visible.value = true
+    shell.open()
   }
 
   function close(): void {
-    visible.value = false
-  }
-
-  function reset(): void {
-    dirty.value = false
-  }
-
-  function markDirty(value = true): void {
-    dirty.value = value
+    shell.close('close')
   }
 
   async function submit(values?: T): Promise<void> {
+    pending = values
     loading.value = true
     try {
-      await options.submit?.(values as T)
-      dirty.value = false
+      await form.submit()
+      if (options.submit === undefined) {
+        form.markDirty(false)
+      }
     } finally {
       loading.value = false
     }
   }
 
-  return { visible, mode, title, dirty, loading, open, close, reset, markDirty, submit }
+  return {
+    visible: shell.visible,
+    mode: form.mode,
+    title,
+    dirty: form.dirty,
+    loading,
+    open,
+    close,
+    reset: () => form.markDirty(false),
+    markDirty: (dirty = true) => form.markDirty(dirty),
+    submit,
+  }
 }

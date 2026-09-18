@@ -4,6 +4,7 @@ import { filterMenuByKeyword, type MenuNode } from '@bms/core'
 import { ElInput, ElMenu } from 'element-plus'
 import { computed, ref } from 'vue'
 
+import { useBaseLayout } from '../../composables/useBaseLayout'
 import SideMenuItem from './SideMenuItem.vue'
 
 interface Props {
@@ -33,6 +34,7 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<{ select: [path: string]; 'update:collapsed': [value: boolean]; search: [keyword: string] }>()
 
+const { hidden } = useBaseLayout()
 const keyword = ref('')
 const filteredMenu = computed(() => filterMenuByKeyword(props.menu, keyword.value))
 
@@ -42,7 +44,7 @@ function onSearch(): void {
 </script>
 
 <template>
-  <div class="bms-side-menu" :class="{ 'is-collapsed': collapsed }">
+  <div v-show="!hidden" class="bms-side-menu" :class="{ 'is-collapsed': collapsed }">
     <div v-if="$slots.logo" class="bms-side-menu__logo">
       <slot name="logo" />
     </div>

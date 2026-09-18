@@ -2,6 +2,8 @@
 // 栅格子项：`el-col` 薄封装，支持响应式断点。
 import { ElCol } from 'element-plus'
 
+import { useBaseLayout } from '../../composables/useBaseLayout'
+
 interface Props {
   /** 列宽（24 栅）。 */
   span?: number
@@ -28,10 +30,12 @@ withDefaults(defineProps<Props>(), {
   lg: undefined,
   xl: undefined,
 })
+
+const { hidden } = useBaseLayout()
 </script>
 
 <template>
-  <el-col class="bms-grid-item" :span="span" :offset="offset" :xs="xs" :sm="sm" :md="md" :lg="lg" :xl="xl">
+  <el-col v-show="!hidden" class="bms-grid-item" :span="span" :offset="offset" :xs="xs" :sm="sm" :md="md" :lg="lg" :xl="xl">
     <slot />
   </el-col>
 </template>

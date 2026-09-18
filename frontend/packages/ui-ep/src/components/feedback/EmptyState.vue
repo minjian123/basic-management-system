@@ -1,8 +1,9 @@
 <script setup lang="ts">
 // 空状态：无数据 / 无结果 / 无权限 / 未选择 四场景，按场景映射插画与缺省文案。
-import { computed } from 'vue'
+import { computed, watch } from 'vue'
 
 import emptyData from '../../assets/images/empty-data.svg'
+import { useBaseDisplay } from '../../composables/useBaseDisplay'
 import emptyPermission from '../../assets/images/empty-permission.svg'
 import emptyResult from '../../assets/images/empty-result.svg'
 import emptyUnselected from '../../assets/images/empty-unselected.svg'
@@ -45,6 +46,9 @@ const props = withDefaults(defineProps<Props>(), {
 const image = computed(() => props.illustration || TYPE_IMAGE[props.type])
 const resolvedTitle = computed(() => props.title || TYPE_TEXT[props.type].title)
 const resolvedDescription = computed(() => props.description || TYPE_TEXT[props.type].description)
+
+const { display, value: titleValue } = useBaseDisplay<string>()
+watch(resolvedTitle, (title) => display.setValue(title), { immediate: true })
 </script>
 
 <template>
@@ -52,7 +56,7 @@ const resolvedDescription = computed(() => props.description || TYPE_TEXT[props.
     <slot name="illustration">
       <img class="bms-empty-state__image" :src="image" :alt="resolvedTitle" />
     </slot>
-    <p class="bms-empty-state__title" data-test="empty-title">{{ resolvedTitle }}</p>
+    <p class="bms-empty-state__title" data-test="empty-title">{{ titleValue }}</p>
     <p class="bms-empty-state__description">{{ resolvedDescription }}</p>
     <div class="bms-empty-state__actions">
       <slot name="action" />

@@ -3,6 +3,8 @@
 import { ElInput, ElTree } from 'element-plus'
 import { ref, watch } from 'vue'
 
+import { useBaseLayout } from '../../composables/useBaseLayout'
+import { useBaseTreeData } from '../../composables/useBaseTreeData'
 import EmptyState from '../feedback/EmptyState.vue'
 import SplitPane from './SplitPane.vue'
 
@@ -48,10 +50,19 @@ const emit = defineEmits<{
   'tree-width-change': [width: number]
 }>()
 
+const { hidden } = useBaseLayout()
+const { setNodes, setFilterText, state: treeState } = useBaseTreeData()
 const keyword = ref('')
 const treeRef = ref<InstanceType<typeof ElTree>>()
 
+watch(
+  () => props.treeData,
+  (data) => setNodes(data),
+  { immediate: true },
+)
+
 watch(keyword, (value) => {
+  setFilterText(value)
   treeRef.value?.filter(value)
 })
 
@@ -77,6 +88,7 @@ function onNodeClick(node: MasterTreeNode): void {
 
 <template>
   <split-pane
+    v-show="!hidden"
     class="bms-tree-master-detail"
     :model-value="treeWidth"
     :min="minTreeWidth"
@@ -91,7 +103,7 @@ function onNodeClick(node: MasterTreeNode): void {
             <el-input v-model="keyword" :placeholder="filterPlaceholder" clearable />
           </slot>
         </div>
-        <empty-state v-if="treeData.length === 0" type="data" />
+        <empty-state v-if="treeState === 'empty'" type="data" />
         <el-tree
           v-else
           ref="treeRef"

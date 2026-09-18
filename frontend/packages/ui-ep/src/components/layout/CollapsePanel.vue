@@ -2,6 +2,8 @@
 // 折叠面板项：`el-collapse-item` 薄封装。
 import { ElCollapseItem } from 'element-plus'
 
+import { useBaseLayout } from '../../composables/useBaseLayout'
+
 interface Props {
   /** 项键。 */
   name: string
@@ -12,10 +14,12 @@ interface Props {
 }
 
 withDefaults(defineProps<Props>(), { title: '', disabled: false })
+
+const { hidden } = useBaseLayout()
 </script>
 
 <template>
-  <el-collapse-item class="bms-collapse-panel" :name="name" :title="title" :disabled="disabled">
+  <el-collapse-item v-show="!hidden" class="bms-collapse-panel" :name="name" :title="title" :disabled="disabled">
     <template v-if="$slots.title" #title>
       <slot name="title" />
     </template>
