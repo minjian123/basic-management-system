@@ -1,0 +1,77 @@
+// 设计令牌（宿主权威源）：基础令牌五组 + 尺寸 / 密度档位 + 语义变量 + 属性协议选择器 + 组件库映射。
+
+:root {
+  // 色
+  --bms-color-primary: #409eff;
+  --bms-color-success: #67c23a;
+  --bms-color-warning: #e6a23c;
+  --bms-color-danger: #f56c6c;
+  --bms-color-text: #303133;
+  --bms-color-text-secondary: #909399;
+  --bms-color-bg: #ffffff;
+  --bms-color-border: #dcdfe6;
+  // 字
+  --bms-font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+  --bms-font-size: 14px;
+  --bms-line-height: 1.5;
+  // 间距
+  --bms-spacing-sm: 4px;
+  --bms-spacing-md: 8px;
+  --bms-spacing-lg: 16px;
+  // 圆角
+  --bms-radius-sm: 2px;
+  --bms-radius-md: 4px;
+  // 阴影
+  --bms-shadow-1: 0 1px 4px rgba(0, 0, 0, 0.08);
+
+  --bms-size: default;
+  --bms-density: default;
+  --bms-control-height: 32px;
+}
+
+// 尺寸档位（档位只写根元素属性）
+[data-size='small'] {
+  --bms-control-height: 24px;
+  --bms-font-size: 12px;
+}
+[data-size='default'] {
+  --bms-control-height: 32px;
+  --bms-font-size: 14px;
+}
+[data-size='large'] {
+  --bms-control-height: 40px;
+  --bms-font-size: 16px;
+}
+
+// 密度档位
+[data-density='compact'] {
+  --bms-gap: 4px;
+}
+[data-density='default'] {
+  --bms-gap: 8px;
+}
+[data-density='loose'] {
+  --bms-gap: 16px;
+}
+
+// 状态类（状态只加状态类）
+.is-loading {
+  opacity: 0.7;
+}
+.is-disabled {
+  cursor: not-allowed;
+}
+.is-hidden {
+  display: none;
+}
+
+// 组件库（Element Plus）主题映射
+:root {
+  --el-color-primary: var(--bms-color-primary);
+  --el-color-success: var(--bms-color-success);
+  --el-color-warning: var(--bms-color-warning);
+  --el-color-danger: var(--bms-color-danger);
+  --el-text-color-primary: var(--bms-color-text);
+  --el-border-color: var(--bms-color-border);
+  --el-font-family: var(--bms-font-family);
+}
