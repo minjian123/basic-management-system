@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
-"""需求 / 任务 / 计划三类项目文档的状态一致性核对。
+"""需求 / 任务 / 计划三类项目文档的一致性核对。
 
-用途（《需求文档规范》§5、《任务文档规范》§7、《计划文档规范》§6）：进度事实源为三类文档
-（需求 / 任务 / 计划），任一处的状态、完成日期、工时漂移都会让「进度」失真。本脚本按固定规则
-扫描阶段目录，输出不一致清单，供阶段收口与 CI 常跑使用。
+用途（《需求文档规范》「进度口径」节、《任务文档规范》§7、《计划文档规范》§6）：需求文档只承载
+「做什么与验收标准」，进度（状态 / 完成日期 / 工时）以任务与计划两类文档为准；需求侧只校验
+**编号集合**（域文档 ↔ 总览总清单）。本脚本按固定规则扫描阶段目录，输出不一致清单，供阶段收口
+与 CI 常跑使用。
 
 规则分两层：
-- **硬规则（默认阻断）**：结构性约束，任何时点都必须成立（编号集合、状态取值、日期口径、
-  跨文档一致、计划两表互斥、工时对齐、排期窗口格式）。
-- **软提示（默认告警，``--strict`` 时阻断）**：统计与叙述类（计划头计数、工时合计、域地图计数、
+- **硬规则（默认阻断）**：结构性约束，任何时点都必须成立（需求编号集合、任务状态取值与日期口径、
+  任务 ↔ 域总览 ↔ 计划一致、计划两表互斥、工时对齐、排期窗口格式）。
+- **软提示（默认告警，``--strict`` 时阻断）**：统计与叙述类（计划头计数、工时合计、
   甘特与剩余表），阶段在途时可能暂不一致。
 
 用法::
@@ -35,18 +36,12 @@ from pathlib import Path
 
 STATUSES = ("未开始", "进行中", "部分完成", "已完成", "搁置")
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
-FIELD_SEP = "\u3000|\u3000"  # 全角竖线分隔（需求元信息行）
 
 REQ_ID_RE = re.compile(r"^\d{2}-\d+$")
 TASK_ID_RE = re.compile(r"^\d{2}-\d+-\d+$")  # 嵌套子任务编号（如 01-3-1）
 PLAN_ID_RE = re.compile(r"^\d{2}_\d{2}$")
 
 REQ_HEADING_RE = re.compile(r"^## \d+\. 需求 (?P<id>\d{2}-\d+)：")
-REQ_META_RE = re.compile(
-    r"^优先级：(?P<pri>\S+)（[^）]*）" + re.escape(FIELD_SEP) +
-    r"状态：(?P<status>\S+)" + re.escape(FIELD_SEP) +
-    r"完成日期：(?P<date>\S+)\s*$"
-)
 ROW_RE = re.compile(r"^\|(?P<cells>.*)\|\s*$")
 GANTT_NODE_RE = re.compile(r"^\s*(?P<id>\d{2}_\d{2})\s")
 STATS_HEAD_RE = re.compile(r"已完成\s*(?P<done>\d+)\s*项，剩余\s*(?P<todo>\d+)\s*项")
@@ -137,30 +132,21 @@ def read_section(text: str, heading_re: str) -> str:
 
 def parse_req_domain(path: Path) -> dict[str, tuple[str, str]]:
     """解析需求域文档：编号 → (状态, 完成日期)。"""
-    result: dict[str, tuple[str, str]] = {}
-    current: str | None = None
+    result: set[str] = set()
     for line in path.read_text(encoding="utf-8").splitlines():
         heading = REQ_HEADING_RE.match(line)
         if heading:
-            current = heading.group("id")
-            continue
-        meta = REQ_META_RE.match(line)
-        if meta and current:
-            result[current] = (meta.group("status"), meta.group("date"))
-            current = None
+            result.add(heading.group("id"))
     return result
 
 
-def parse_overview(path: Path) -> dict[str, tuple[str, str]]:
-    """解析需求总览总清单表：编号 → (状态, 完成日期)。"""
-    result: dict[str, tuple[str, str]] = {}
+def parse_overview(path: Path) -> set[str]:
+    """解析需求总览总清单表：编号集合（需求文档不承载进度）。"""
+    result: set[str] = set()
     for line in path.read_text(encoding="utf-8").splitlines():
         cells = split_row(line)
-        if not cells or len(cells) != 6:
-            continue
-        if not REQ_ID_RE.match(cells[0]):
-            continue
-        result[cells[0]] = (cells[4], cells[5])
+        if cells and REQ_ID_RE.match(cells[0]):
+            result.add(cells[0])
     return result
 
 
@@ -310,14 +296,14 @@ def check_stage(stage_dir: Path, report: Report) -> None:
     overview_path = overview_files[0]
     overview = parse_overview(overview_path)
 
-    domain_reqs: dict[str, dict[str, tuple[str, str]]] = {}
+    domain_reqs: dict[str, set[str]] = {}
     for domain_path in sorted(p for p in req_dir.glob("*.md") if not p.name.startswith("00_")):
         domain = domain_path.name.split("_")[0]
         domain_reqs[domain] = parse_req_domain(domain_path)
         for req in domain_reqs[domain]:
             REQ_INDEX[req] = str(domain_path)
 
-    # H1：域文档章节编号集合 == 总览总清单编号集合
+    # H1：域文档编号集合 == 总览总清单编号集合（需求文档不承载进度）
     seen: dict[str, str] = {}
     for domain, reqs in domain_reqs.items():
         for req in reqs:
@@ -329,20 +315,6 @@ def check_stage(stage_dir: Path, report: Report) -> None:
         report.fail("硬", "H1", f"域文档有而总清单缺：{req}")
     for req in sorted(set(overview) - set(seen)):
         report.fail("硬", "H1", f"总清单有而域文档缺：{req}")
-
-    # H2 / H3 / H4：需求状态取值、日期口径、元信息行与总清单一致
-    for domain, reqs in domain_reqs.items():
-        for req, (status, date) in reqs.items():
-            report.ok()
-            if status not in STATUSES:
-                report.fail("硬", "H2", f"需求状态取值非法：{req} → {status}")
-            check_date(report, f"需求 {req}", status, date)
-            if req in overview and overview[req] != (status, date):
-                report.fail(
-                    "硬", "H4",
-                    f"需求元信息行与总清单不一致：{req} 元信息 {status} / {date}，"
-                    f"总清单 {overview[req][0]} / {overview[req][1]}",
-                )
 
     # 任务类
     tasks = collect_tasks(stage_dir, report)
@@ -371,29 +343,6 @@ def check_stage(stage_dir: Path, report: Report) -> None:
             report.ok()
             if plan_id.split("_")[1] not in listed:
                 report.fail("硬", "H5", f"任务文档未登记进域总览：{plan_id}")
-
-    # H5b：需求状态与任务完成度一致（一需求可拆多任务，分段交付）
-    #   ① 该需求下任务**全部**已完成 ⇒ 需求必须已完成；
-    #   ② 已有任务完成 ⇒ 需求不得仍为未开始。
-    req_states: dict[str, list[bool]] = {}
-    for doc in tasks.values():
-        for req in doc.reqs:
-            req_states.setdefault(req, []).append(doc.status == "已完成")
-    for req, states in sorted(req_states.items()):
-        report.ok()
-        if req not in overview:
-            continue
-        status = overview[req][0]
-        if all(states) and status != "已完成":
-            report.fail(
-                "硬", "H5",
-                f"需求下任务已全部完成而需求未完成：{req}（{status}）",
-            )
-        elif any(states) and status == "未开始":
-            report.fail(
-                "硬", "H5",
-                f"需求已有任务完成而需求仍为未开始：{req}",
-            )
 
     # 计划类
     plan_files = sorted(plan_dir.glob("01_计划_*.md"))
@@ -460,25 +409,6 @@ def check_stage(stage_dir: Path, report: Report) -> None:
                 "软", "S1",
                 f"计划工时统计与明细不符：头部 {effort}，明细 {(sum_done, sum_todo, sum_done + sum_todo)}",
             )
-
-    # S1b：域文档地图计数与需求状态一致
-    map_section = read_section(overview_path.read_text(encoding="utf-8"), r"^## \d+\. 需求域文档地图")
-    for line in map_section.splitlines():
-        cells = split_row(line)
-        if not cells or len(cells) < 3 or not cells[1].isdigit():
-            continue
-        match = re.search(r"(\d+)\s*/\s*(\d+)", cells[2])
-        if not match:
-            report.checks += 1
-            report.fail("软", "S1", f"域地图计数写法未识别：{cells[0]}")
-            continue
-        report.checks += 1
-        domain = cells[0].split("_")[0].lstrip("[").strip()
-        reqs = domain_reqs.get(domain, {})
-        got = (sum(1 for s, _ in reqs.values() if s == "已完成"), sum(1 for s, _ in reqs.values() if s != "已完成"))
-        want = (int(match.group(1)), int(match.group(2)))
-        if got != want:
-            report.fail("软", "S1", f"域地图计数与需求状态不符：{cells[0]} 表 {want}，实际 {got}")
 
     # S2：甘特与剩余排期表一致
     gantt: set[str] = plan["gantt"]  # type: ignore[assignment]
