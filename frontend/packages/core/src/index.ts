@@ -120,7 +120,42 @@ export { BaseQueryScheme, type QueryCondition, type QueryScheme } from './capabi
 export { BaseFieldShell } from './capabilities/field-shell'
 export { BaseFieldPerm, type FieldPermission } from './capabilities/field-perm'
 
+export {
+  EMPTY_PLACEHOLDER,
+  formatAmount,
+  formatDate,
+  formatDateTime,
+  formatDuration,
+  formatFileSize,
+  formatNumber,
+  formatPercent,
+  formatRelativeTime,
+  mask,
+  type FormatContext,
+} from './domain/format'
+export {
+  amount,
+  codePattern,
+  email,
+  lengthRange,
+  numberRange,
+  phone,
+  required,
+  url,
+} from './domain/validators'
+export { evaluatePermission, type PermissionMode } from './domain/permission'
+export { resolveToken } from './domain/token'
+
 export { BaseApi, type HttpMethod } from './contracts/api'
+export {
+  configureRequestAdapter,
+  getRequestAdapter,
+  request,
+  type ApiResponse,
+  type PageResponse,
+  type RequestAdapter,
+  type RequestConfig,
+} from './contracts/request'
 export { BaseDataObject } from './contracts/data-object'
 export { BaseEntity } from './contracts/entity'
 export { BasePageQuery, type SortOrder } from './contracts/page-query'
