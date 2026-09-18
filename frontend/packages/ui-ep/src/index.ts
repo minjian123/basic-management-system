@@ -19,6 +19,7 @@ export { default as SectionContainer } from './components/container/SectionConta
 export {
   default as AuditDiff,
   type AuditChainStatus,
+  type AuditFieldDiff,
   type AuditRecord,
 } from './components/display/AuditDiff.vue'
 export { default as ChartCard, type ChartType } from './components/display/ChartCard.vue'
@@ -31,6 +32,7 @@ export {
   default as FilePreview,
   type PreviewErrorReason,
   type PreviewFile,
+  type PreviewKind,
 } from './components/display/FilePreview.vue'
 export {
   default as GlobalSearch,
@@ -153,11 +155,22 @@ export {
   type UseBaseWatermarkResult,
 } from './composables/useBaseWatermark'
 export {
+  useBasePresignedUrl,
+  type UseBasePresignedUrlResult,
+} from './composables/useBasePresignedUrl'
+export {
   useRichTextKernel,
   type UseRichTextKernelOptions,
   type UseRichTextKernelResult,
 } from './composables/useRichTextKernel'
 export { RICH_TEXT_ALLOWED_ATTR, RICH_TEXT_ALLOWED_TAGS, sanitizeHtml, sanitizeToText } from './utils/sanitizeHtml'
+export {
+  diffKind,
+  formatDiffValue,
+  inferValueType,
+  type AuditDiffKind,
+  type AuditValueType,
+} from './utils/auditDiff'
 export {
   useFieldPlaceholder,
   type UseFieldPlaceholderOptions,
