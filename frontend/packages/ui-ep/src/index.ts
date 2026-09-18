@@ -50,6 +50,31 @@ export { default as QuickEntry, type QuickEntryItem } from './components/display
 export { default as UserAvatar, type AvatarSize } from './components/display/UserAvatar.vue'
 export { default as UserInfo } from './components/display/UserInfo.vue'
 export { default as WatermarkOverlay } from './components/display/WatermarkOverlay.vue'
+export {
+  default as PermissionConfig,
+  type DataScopeRow,
+  type FieldPermRow,
+  type PermissionNode,
+  type PermissionTab,
+  type SubjectItem,
+} from './components/interaction/PermissionConfig.vue'
+export {
+  default as ApprovalFlow,
+  type ApprovalAction,
+  type ApprovalActionPayload,
+  type ApprovalInstance,
+  type ApprovalInstanceStatus,
+  type ApprovalNode,
+  type ApprovalNodeStatus,
+  type ApprovalRecord,
+  type ApprovalTask,
+} from './components/interaction/ApprovalFlow.vue'
+export {
+  default as ProcessModeler,
+  type ModelerElement,
+  type ModelerElementType,
+  type ModelerValidateResult,
+} from './components/interaction/ProcessModeler.vue'
 export { default as CaptchaField, type CaptchaKind } from './components/field/CaptchaField.vue'
 export { default as AmountField } from './components/field/AmountField.vue'
 export {
@@ -137,6 +162,15 @@ export {
   type UseDisplayPlaceholderOptions,
   type UseDisplayPlaceholderResult,
 } from './composables/useDisplayPlaceholder'
+export {
+  useBaseDataState,
+  type UseBaseDataStateResult,
+} from './composables/useBaseDataState'
+export {
+  useInteractionPlaceholder,
+  type UseInteractionPlaceholderOptions,
+  type UseInteractionPlaceholderResult,
+} from './composables/useInteractionPlaceholder'
 export {
   useBaseTreeData,
   type UseBaseTreeDataOptions,

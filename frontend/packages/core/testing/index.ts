@@ -319,3 +319,53 @@ export function describePlaceholderDisplayContract(name: string, create: () => P
     })
   })
 }
+
+/** 占位交互契约面（依赖后端的交互件：权限配置 / 审批流展示 / 流程建模器）。 */
+export interface PlaceholderInteractionContractTarget {
+  /** 数据通路是否就绪。 */
+  readonly ready: boolean
+  /** 是否处于降级（占位）态。 */
+  readonly degraded: boolean
+  /** 是否禁用（占位态必须禁用）。 */
+  readonly disabled: boolean
+  /** 切换就绪态。 */
+  setReady(value: boolean): void
+  /** 已发起的后端请求计数（占位态必须为 0）。 */
+  readonly requestCount: number
+  /** 触发一次可能的加载（占位态不得产生请求）。 */
+  load(): void
+}
+
+/**
+ * 占位交互契约（`08_01_01` 冻结；真实实现 `08_04` / `08_08` 继续跑同一套件）。
+ *
+ * 断言：占位态降级且禁用、不产生后端请求；就绪态不再降级、不再禁用。
+ *
+ * @param name 契约名。
+ * @param create 目标工厂。
+ */
+export function describePlaceholderInteractionContract(
+  name: string,
+  create: () => PlaceholderInteractionContractTarget,
+): void {
+  describeContract(name, () => {
+    it('未就绪时降级且禁用，不产生请求', () => {
+      const target = create()
+      expect(target.ready).toBe(false)
+      expect(target.degraded).toBe(true)
+      expect(target.disabled).toBe(true)
+      expect(target.requestCount).toBe(0)
+
+      target.load()
+      expect(target.requestCount).toBe(0)
+    })
+
+    it('就绪后不再降级、不再禁用', () => {
+      const target = create()
+      target.setReady(true)
+      expect(target.ready).toBe(true)
+      expect(target.degraded).toBe(false)
+      expect(target.disabled).toBe(false)
+    })
+  })
+}
