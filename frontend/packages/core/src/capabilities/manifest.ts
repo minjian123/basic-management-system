@@ -19,6 +19,15 @@ export const CAPABILITY_MANIFEST: Readonly<Record<string, readonly string[]>> = 
   notice: [],
   labeled: [],
   validatable: ['labeled'],
+  'persisted-state': [],
+  mounted: [],
+  'design-token': [],
+  clickable: [],
+  'drag-drop': [],
+  tabs: [],
+  locale: [],
+  access: [],
+  'module-context': [],
 }
 
 /** 校验问题种类。 */
