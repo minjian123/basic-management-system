@@ -1,4 +1,4 @@
-# BMS 前端 CI 基础镜像：预装 workspace 根依赖（frontend/packages/*：core / vue）
+# BMS 前端 CI 基础镜像：预装 workspace 根依赖（frontend/packages/*：core / vue / ui-ep）
 # 与 frontend/apps/desktop node_modules（镜像内路径 /opt/ci/frontend/apps/desktop；按锁文件哈希打标签）
 # 消费方：core-check（workspace 根依赖）/ desktop-check / desktop-build
 FROM node:22-slim
