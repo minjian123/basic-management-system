@@ -71,6 +71,11 @@ export function resetBaseSinks(): void {
   sinks = { logger: defaultLogger, reporter: defaultReporter, config: emptyConfig }
 }
 
+/** 读取当前基础 sink（供混入 `withBaseObject` 复用）。 */
+export function getBaseSinks(): Required<BaseSinks> {
+  return sinks
+}
+
 /** 总基类。 */
 export class BaseObject {
   /** 命名空间（日志前缀 / 埋点域 / 错误定位）。 */
