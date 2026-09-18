@@ -10,11 +10,13 @@ import { ErrorCodes } from './error-codes'
 
 /** 可释放对象。 */
 export interface Disposable {
+  /** 释放资源（幂等由实现方保证）。 */
   dispose(): void
 }
 
 /** 异步资源基类（抽象）。 */
 export abstract class BaseAsyncResource extends BaseObject {
+  /** 已登记资源（释放时逆序）。 */
   private readonly disposables: Disposable[] = []
 
   /**

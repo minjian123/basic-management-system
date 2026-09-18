@@ -15,6 +15,7 @@ export interface BaseErrorOptions {
   cause?: unknown
 }
 
+/** 已混入总基类公共面的 `Error` 基类。 */
 const BaseObjectError = withBaseObject(Error, 'bms:error')
 
 /** 错误基座。 */
