@@ -48,6 +48,27 @@ export {
   type PlaceholderReason,
 } from './mechanisms/placeholder'
 
+export { BaseValue, type ValueListener } from './capabilities/value'
+export { BaseField, type FieldTrigger } from './capabilities/field'
+export { BaseSized } from './capabilities/sized'
+export {
+  BaseDataState,
+  type DataStateListener,
+  type DataStateName,
+  type SettleState,
+} from './capabilities/data-state'
+export { BaseOverlay, type OverlayListener } from './capabilities/overlay'
+export { BaseNotice, type NoticeItem, type NoticeType } from './capabilities/notice'
+export { BaseLabeled, type LabelPosition } from './capabilities/labeled'
+export { BaseValidatable, type Validator } from './capabilities/validatable'
+export {
+  assertCapabilityGraph,
+  CAPABILITY_MANIFEST,
+  validateCapabilityGraph,
+  type CapabilityProblem,
+  type CapabilityProblemKind,
+} from './capabilities/manifest'
+
 export { BaseApi, type HttpMethod } from './contracts/api'
 export { BaseDataObject } from './contracts/data-object'
 export { BaseEntity } from './contracts/entity'
