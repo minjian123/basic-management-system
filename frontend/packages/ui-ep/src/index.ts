@@ -13,6 +13,7 @@ export { default as AutoHeightContainer } from './components/container/AutoHeigh
 export { default as FullscreenContainer } from './components/container/FullscreenContainer.vue'
 export { default as LazyContainer } from './components/container/LazyContainer.vue'
 export { default as ScrollContainer } from './components/container/ScrollContainer.vue'
+export { default as StatusContainer, type StatusContainerState } from './components/container/StatusContainer.vue'
 export { default as VirtualListContainer } from './components/container/VirtualListContainer.vue'
 export { default as SectionContainer } from './components/container/SectionContainer.vue'
 export { default as CollapsePanel } from './components/layout/CollapsePanel.vue'
