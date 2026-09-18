@@ -16,6 +16,33 @@ export { default as ScrollContainer } from './components/container/ScrollContain
 export { default as StatusContainer, type StatusContainerState } from './components/container/StatusContainer.vue'
 export { default as VirtualListContainer } from './components/container/VirtualListContainer.vue'
 export { default as SectionContainer } from './components/container/SectionContainer.vue'
+export {
+  default as AuditDiff,
+  type AuditChainStatus,
+  type AuditRecord,
+} from './components/display/AuditDiff.vue'
+export { default as ChartCard, type ChartType } from './components/display/ChartCard.vue'
+export {
+  default as DataTable,
+  type DataTableColumn,
+  type DataTableSort,
+} from './components/display/DataTable.vue'
+export {
+  default as FilePreview,
+  type PreviewErrorReason,
+  type PreviewFile,
+} from './components/display/FilePreview.vue'
+export {
+  default as GlobalSearch,
+  type SearchDomain,
+  type SearchGroup,
+  type SearchHit,
+} from './components/display/GlobalSearch.vue'
+export {
+  default as NoticeList,
+  type NoticeItem,
+  type NoticeType,
+} from './components/display/NoticeList.vue'
 export { default as CaptchaField, type CaptchaKind } from './components/field/CaptchaField.vue'
 export { default as AmountField } from './components/field/AmountField.vue'
 export {
@@ -98,6 +125,11 @@ export {
   useBaseDisplay,
   type UseBaseDisplayResult,
 } from './composables/useBaseDisplay'
+export {
+  useDisplayPlaceholder,
+  type UseDisplayPlaceholderOptions,
+  type UseDisplayPlaceholderResult,
+} from './composables/useDisplayPlaceholder'
 export {
   useBaseTreeData,
   type UseBaseTreeDataOptions,
