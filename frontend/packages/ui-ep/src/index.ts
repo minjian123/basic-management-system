@@ -17,6 +17,11 @@ export { default as StatusContainer, type StatusContainerState } from './compone
 export { default as VirtualListContainer } from './components/container/VirtualListContainer.vue'
 export { default as SectionContainer } from './components/container/SectionContainer.vue'
 export { default as CaptchaField, type CaptchaKind } from './components/field/CaptchaField.vue'
+export {
+  default as DateTimeField,
+  type DateTimeKind,
+  type DateTimeValue,
+} from './components/field/DateTimeField.vue'
 export { default as DictSelectField, type DictFieldValue } from './components/field/DictSelectField.vue'
 export { default as FileUploadField, type UploadFieldItem } from './components/field/FileUploadField.vue'
 export { default as OrgSelectField, type OrgFieldValue } from './components/field/OrgSelectField.vue'
