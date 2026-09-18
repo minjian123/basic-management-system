@@ -104,6 +104,27 @@ export {
   type I18nLocale,
   type I18nMessageRow,
 } from './components/interaction/I18nMessageEditor.vue'
+export {
+  default as ReportDesigner,
+  type ReportChartItem,
+  type ReportDataset,
+} from './components/interaction/ReportDesigner.vue'
+export {
+  default as ScreenDesigner,
+  type ScreenComponent,
+  type ScreenComponentType,
+  type ScreenPage,
+} from './components/interaction/ScreenDesigner.vue'
+export { default as ScreenPlayer, type ScreenPlayerPage } from './components/interaction/ScreenPlayer.vue'
+export {
+  default as AiAssistant,
+  type AiCitation,
+  type AiMessage,
+  type AiMessageStatus,
+  type AiMode,
+  type AiRole,
+  type AiSession,
+} from './components/interaction/AiAssistant.vue'
 export { default as CaptchaField, type CaptchaKind } from './components/field/CaptchaField.vue'
 export { default as AmountField } from './components/field/AmountField.vue'
 export {
@@ -224,6 +245,16 @@ export {
   type UseBaseLocaleOptions,
   type UseBaseLocaleResult,
 } from './composables/useBaseLocale'
+export {
+  useBaseOptionSource,
+  type UseBaseOptionSourceOptions,
+  type UseBaseOptionSourceResult,
+} from './composables/useBaseOptionSource'
+export {
+  useBaseSubscription,
+  type SubscriptionHandler,
+  type UseBaseSubscriptionResult,
+} from './composables/useBaseSubscription'
 export {
   useBaseTreeData,
   type UseBaseTreeDataOptions,
