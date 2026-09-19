@@ -23,11 +23,7 @@ export {
   type AuditRecord,
 } from './components/display/AuditDiff.vue'
 export { default as ChartCard, type ChartType } from './components/display/ChartCard.vue'
-export {
-  default as DataTable,
-  type DataTableColumn,
-  type DataTableSort,
-} from './components/display/DataTable.vue'
+export { default as DataTable, type DataTableColumn, type DataTableSort } from './components/display/DataTable.vue'
 export {
   default as FilePreview,
   type PreviewErrorReason,
@@ -40,24 +36,21 @@ export {
   type SearchGroup,
   type SearchHit,
 } from './components/display/GlobalSearch.vue'
-export {
-  default as NoticeList,
-  type NoticeItem,
-  type NoticeType,
-} from './components/display/NoticeList.vue'
+export { default as NoticeList, type NoticeItem, type NoticeType } from './components/display/NoticeList.vue'
 export { default as QrCode, type QrLevel, type QrStatus } from './components/display/QrCode.vue'
 export { default as QuickEntry, type QuickEntryItem } from './components/display/QuickEntry.vue'
 export { default as UserAvatar, type AvatarSize } from './components/display/UserAvatar.vue'
 export { default as UserInfo } from './components/display/UserInfo.vue'
 export { default as WatermarkOverlay } from './components/display/WatermarkOverlay.vue'
+export { default as PermissionConfig } from './components/interaction/PermissionConfig.vue'
+// 权限配置对外类型经核心领域模块统一导出（`SubjectItem` 为既有公开名，映射到核心 `PermissionSubject`）。
 export {
-  default as PermissionConfig,
   type DataScopeRow,
   type FieldPermRow,
   type PermissionNode,
+  type PermissionSubject as SubjectItem,
   type PermissionTab,
-  type SubjectItem,
-} from './components/interaction/PermissionConfig.vue'
+} from '@bms/core'
 export {
   default as ApprovalFlow,
   type ApprovalAction,
@@ -75,11 +68,7 @@ export {
   type ModelerElementType,
   type ModelerValidateResult,
 } from './components/interaction/ProcessModeler.vue'
-export {
-  default as ImportDialog,
-  type ImportResult,
-  type ImportStep,
-} from './components/interaction/ImportDialog.vue'
+export { default as ImportDialog, type ImportResult, type ImportStep } from './components/interaction/ImportDialog.vue'
 export {
   default as ExportButton,
   type ExportPayload,
@@ -127,20 +116,13 @@ export {
 } from './components/interaction/AiAssistant.vue'
 export { default as IconRenderer } from './components/interaction/IconRenderer.vue'
 export { default as IconPicker, type IconPickerSize } from './components/interaction/IconPicker.vue'
-export {
-  default as IconLibrary,
-  type CustomIcon,
-  type IconSourceGroup,
-} from './components/interaction/IconLibrary.vue'
+export { default as IconLibrary, type CustomIcon, type IconSourceGroup } from './components/interaction/IconLibrary.vue'
 export {
   default as CodeEditor,
   type EditorDiagnostic,
   type EditorLanguage,
 } from './components/interaction/CodeEditor.vue'
-export {
-  default as SqlEditor,
-  type SqlValidateResult,
-} from './components/interaction/SqlEditor.vue'
+export { default as SqlEditor, type SqlValidateResult } from './components/interaction/SqlEditor.vue'
 export {
   default as ExpressionEditor,
   type ExpressionTemplate,
@@ -151,38 +133,20 @@ export { default as CronEditor } from './components/interaction/CronEditor.vue'
 export { default as CodeViewer, type ViewerLanguage } from './components/interaction/CodeViewer.vue'
 export { default as CaptchaField, type CaptchaKind } from './components/field/CaptchaField.vue'
 export { default as AmountField } from './components/field/AmountField.vue'
-export {
-  default as CascadeField,
-  type CascadeOption,
-  type CascadeValue,
-} from './components/field/CascadeField.vue'
+export { default as CascadeField, type CascadeOption, type CascadeValue } from './components/field/CascadeField.vue'
 export { default as EnumField, type EnumFieldForm, type EnumFieldValue } from './components/field/EnumField.vue'
 export { default as InlineSwitchCell } from './components/field/InlineSwitchCell.vue'
 export { default as NumberField } from './components/field/NumberField.vue'
-export {
-  default as RichTextField,
-  type RichTextFieldMode,
-} from './components/field/RichTextField.vue'
+export { default as RichTextField, type RichTextFieldMode } from './components/field/RichTextField.vue'
 export { default as SwitchField } from './components/field/SwitchField.vue'
-export {
-  default as TagInputField,
-  type TagColorMap,
-} from './components/field/TagInputField.vue'
-export {
-  default as TransferField,
-  type TransferItem,
-  type TransferValue,
-} from './components/field/TransferField.vue'
+export { default as TagInputField, type TagColorMap } from './components/field/TagInputField.vue'
+export { default as TransferField, type TransferItem, type TransferValue } from './components/field/TransferField.vue'
 export {
   default as TreeSelectField,
   type TreeFieldNode,
   type TreeFieldValue,
 } from './components/field/TreeSelectField.vue'
-export {
-  default as DateTimeField,
-  type DateTimeKind,
-  type DateTimeValue,
-} from './components/field/DateTimeField.vue'
+export { default as DateTimeField, type DateTimeKind, type DateTimeValue } from './components/field/DateTimeField.vue'
 export { default as DictSelectField, type DictFieldValue } from './components/field/DictSelectField.vue'
 export { default as FileUploadField, type UploadFieldItem } from './components/field/FileUploadField.vue'
 export { default as OrgSelectField, type OrgFieldValue } from './components/field/OrgSelectField.vue'
@@ -222,24 +186,14 @@ export {
   type UseBaseContainerOptions,
   type UseBaseContainerResult,
 } from './composables/useBaseContainer'
-export {
-  useBaseLayout,
-  type UseBaseLayoutOptions,
-  type UseBaseLayoutResult,
-} from './composables/useBaseLayout'
-export {
-  useBaseDisplay,
-  type UseBaseDisplayResult,
-} from './composables/useBaseDisplay'
+export { useBaseLayout, type UseBaseLayoutOptions, type UseBaseLayoutResult } from './composables/useBaseLayout'
+export { useBaseDisplay, type UseBaseDisplayResult } from './composables/useBaseDisplay'
 export {
   useDisplayPlaceholder,
   type UseDisplayPlaceholderOptions,
   type UseDisplayPlaceholderResult,
 } from './composables/useDisplayPlaceholder'
-export {
-  useBaseDataState,
-  type UseBaseDataStateResult,
-} from './composables/useBaseDataState'
+export { useBaseDataState, type UseBaseDataStateResult } from './composables/useBaseDataState'
 export {
   useInteractionPlaceholder,
   type UseInteractionPlaceholderOptions,
@@ -255,20 +209,9 @@ export {
   type UseBaseAsyncTaskOptions,
   type UseBaseAsyncTaskResult,
 } from './composables/useBaseAsyncTask'
-export {
-  useBaseDragDrop,
-  type UseBaseDragDropResult,
-} from './composables/useBaseDragDrop'
-export {
-  useBaseFormMeta,
-  type UseBaseFormMetaOptions,
-  type UseBaseFormMetaResult,
-} from './composables/useBaseFormMeta'
-export {
-  useBaseLocale,
-  type UseBaseLocaleOptions,
-  type UseBaseLocaleResult,
-} from './composables/useBaseLocale'
+export { useBaseDragDrop, type UseBaseDragDropResult } from './composables/useBaseDragDrop'
+export { useBaseFormMeta, type UseBaseFormMetaOptions, type UseBaseFormMetaResult } from './composables/useBaseFormMeta'
+export { useBaseLocale, type UseBaseLocaleOptions, type UseBaseLocaleResult } from './composables/useBaseLocale'
 export {
   useBaseOptionSource,
   type UseBaseOptionSourceOptions,
@@ -309,55 +252,25 @@ export {
   type CronTemplate,
   type CronValidateResult,
 } from './utils/cron'
-export {
-  useBaseTreeData,
-  type UseBaseTreeDataOptions,
-  type UseBaseTreeDataResult,
-} from './composables/useBaseTreeData'
-export {
-  useBaseAccess,
-  type UseBaseAccessResult,
-} from './composables/useBaseAccess'
-export {
-  useBaseUserDisplay,
-  type UseBaseUserDisplayResult,
-} from './composables/useBaseUserDisplay'
-export {
-  useBaseWatermark,
-  type UseBaseWatermarkResult,
-} from './composables/useBaseWatermark'
-export {
-  useBasePresignedUrl,
-  type UseBasePresignedUrlResult,
-} from './composables/useBasePresignedUrl'
+export { useBaseTreeData, type UseBaseTreeDataOptions, type UseBaseTreeDataResult } from './composables/useBaseTreeData'
+export { useBaseAccess, type UseBaseAccessResult } from './composables/useBaseAccess'
+export { useBaseUserDisplay, type UseBaseUserDisplayResult } from './composables/useBaseUserDisplay'
+export { useBaseWatermark, type UseBaseWatermarkResult } from './composables/useBaseWatermark'
+export { useBasePresignedUrl, type UseBasePresignedUrlResult } from './composables/useBasePresignedUrl'
 export {
   useRichTextKernel,
   type UseRichTextKernelOptions,
   type UseRichTextKernelResult,
 } from './composables/useRichTextKernel'
 export { RICH_TEXT_ALLOWED_ATTR, RICH_TEXT_ALLOWED_TAGS, sanitizeHtml, sanitizeToText } from './utils/sanitizeHtml'
-export {
-  diffKind,
-  formatDiffValue,
-  inferValueType,
-  type AuditDiffKind,
-  type AuditValueType,
-} from './utils/auditDiff'
+export { diffKind, formatDiffValue, inferValueType, type AuditDiffKind, type AuditValueType } from './utils/auditDiff'
 export {
   useFieldPlaceholder,
   type UseFieldPlaceholderOptions,
   type UseFieldPlaceholderResult,
 } from './composables/useFieldPlaceholder'
-export {
-  useBaseInput,
-  type UseBaseInputOptions,
-  type UseBaseInputResult,
-} from './composables/useBaseInput'
-export {
-  useBaseField,
-  type UseBaseFieldOptions,
-  type UseBaseFieldResult,
-} from './composables/useBaseField'
+export { useBaseInput, type UseBaseInputOptions, type UseBaseInputResult } from './composables/useBaseInput'
+export { useBaseField, type UseBaseFieldOptions, type UseBaseFieldResult } from './composables/useBaseField'
 export {
   useBasePersistedState,
   type UseBasePersistedStateOptions,
@@ -382,23 +295,10 @@ export {
   type UseFormShellOptions,
   type UseFormShellResult,
 } from './composables/useFormShell'
-export {
-  useSideMenu,
-  type UseSideMenuOptions,
-  type UseSideMenuResult,
-} from './composables/useSideMenu'
-export {
-  useTabNav,
-  type TabNavItem,
-  type UseTabNavOptions,
-  type UseTabNavResult,
-} from './composables/useTabNav'
+export { useSideMenu, type UseSideMenuOptions, type UseSideMenuResult } from './composables/useSideMenu'
+export { useTabNav, type TabNavItem, type UseTabNavOptions, type UseTabNavResult } from './composables/useTabNav'
 export { useModalShell, type UseModalShellResult } from './composables/useModalShell'
-export {
-  useFormModal,
-  type UseFormModalOptions,
-  type UseFormModalResult,
-} from './composables/useFormModal'
+export { useFormModal, type UseFormModalOptions, type UseFormModalResult } from './composables/useFormModal'
 export {
   useBaseFormPage,
   type FormMode,
@@ -424,26 +324,10 @@ export {
   type UseBaseBulkActionOptions,
   type UseBaseBulkActionResult,
 } from './composables/useBaseBulkAction'
-export {
-  useBaseTheme,
-  type UseBaseThemeOptions,
-  type UseBaseThemeResult,
-} from './composables/useBaseTheme'
-export {
-  useBaseTenant,
-  type UseBaseTenantOptions,
-  type UseBaseTenantResult,
-} from './composables/useBaseTenant'
-export {
-  useBaseWizard,
-  type UseBaseWizardOptions,
-  type UseBaseWizardResult,
-} from './composables/useBaseWizard'
-export {
-  usePreferences,
-  type UsePreferencesOptions,
-  type UsePreferencesResult,
-} from './composables/usePreferences'
+export { useBaseTheme, type UseBaseThemeOptions, type UseBaseThemeResult } from './composables/useBaseTheme'
+export { useBaseTenant, type UseBaseTenantOptions, type UseBaseTenantResult } from './composables/useBaseTenant'
+export { useBaseWizard, type UseBaseWizardOptions, type UseBaseWizardResult } from './composables/useBaseWizard'
+export { usePreferences, type UsePreferencesOptions, type UsePreferencesResult } from './composables/usePreferences'
 export {
   DEFAULT_PREFERENCE_GROUPS,
   resolvePreferenceGroups,
@@ -462,3 +346,18 @@ export {
 } from './composables/useBasePrintTemplate'
 export { useBasePrint, type UseBasePrintOptions, type UseBasePrintResult } from './composables/useBasePrint'
 export { invokeBrowserPrint } from './utils/printWindow'
+export { default as PermissionTree } from './components/interaction/PermissionTree.vue'
+export { default as FieldPermMatrix } from './components/interaction/FieldPermMatrix.vue'
+export { default as FieldPermCell } from './components/interaction/FieldPermCell.vue'
+export { default as DataScopePanel } from './components/interaction/DataScopePanel.vue'
+export { default as SubjectBinding } from './components/interaction/SubjectBinding.vue'
+export {
+  useBasePermissionConfig,
+  type UseBasePermissionConfigOptions,
+  type UseBasePermissionConfigResult,
+} from './composables/useBasePermissionConfig'
+export {
+  useBaseFieldPerm,
+  type UseBaseFieldPermOptions,
+  type UseBaseFieldPermResult,
+} from './composables/useBaseFieldPerm'

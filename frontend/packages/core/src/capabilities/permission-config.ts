@@ -19,6 +19,7 @@ import {
   findPermissionNode,
   flattenPermissionTree,
   isGrantable,
+  normalizeDataScopes,
   normalizeFieldPerms,
   payloadKey,
   resolveCheckState,
@@ -291,7 +292,7 @@ export abstract class BasePermissionConfig extends BaseComponent {
     this.roleId = snapshot.roleId ?? this.roleId
     this.nodes = cloneNodes(snapshot.nodes)
     this.fieldPerms = normalizeFieldPerms(snapshot.fieldPerms)
-    this.dataScopes = snapshot.dataScopes.map((row) => ({ ...row }))
+    this.dataScopes = normalizeDataScopes(snapshot.dataScopes)
     this.subjects = snapshot.subjects.map((row) => ({ ...row }))
     this.baseline = this.snapshot()
     this.baselineKey = this.currentKey()
