@@ -321,6 +321,17 @@ async function runDeploy(): Promise<void> {
   reportFailure()
 }
 
+/** 重试失败提交（复用上次种类与入参）。 */
+async function runRetry(): Promise<void> {
+  const result = await api.retry()
+  if (result !== undefined) {
+    validateErrors.value = []
+    emit('deployed', result)
+    return
+  }
+  reportFailure()
+}
+
 /** 上报失败（含错误码项元素定位与高亮）。 */
 function reportFailure(): void {
   if (api.phase.value !== 'failed') {
@@ -400,7 +411,10 @@ function onCanvasError(): void {
 }
 
 defineExpose({
-  api,
+  /** 编排基类实例（核对页与宿主读取普通字段用）。 */
+  modeler: api.modeler,
+  /** 编排投影（响应式面）。 */
+  projection: api,
   canvas: canvasRef,
   undo,
   redo,
@@ -448,6 +462,7 @@ defineExpose({
             >
               版本历史
             </button>
+            <button v-if="api.phase.value === 'failed'" type="button" data-test="retry" @click="runRetry">重试</button>
             <span v-if="dirty" data-test="dirty">未保存</span>
           </slot>
         </div>
