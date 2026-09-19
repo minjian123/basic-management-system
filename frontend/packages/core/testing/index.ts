@@ -599,3 +599,403 @@ export function describePreferencesContract(name: string, create: () => Preferen
     })
   })
 }
+
+/** 批量契约动作结果。 */
+export interface BulkActionContractResult {
+  /** 成功数量。 */
+  success: number
+  /** 失败数量。 */
+  failed: number
+}
+
+/** 批量契约动作定义（最小面）。 */
+export interface BulkActionContractAction {
+  /** 动作键。 */
+  key: string
+  /** 权限码（权限能力未注入或无此码时不可见）。 */
+  perm?: string
+  /** 危险动作（默认二次确认）。 */
+  danger?: boolean
+  /** 执行逻辑。 */
+  run(context: {
+    keys: (string | number)[]
+    allAcrossPages: boolean
+  }): BulkActionContractResult | Promise<BulkActionContractResult>
+}
+
+/** 批量操作契约面（选中集合 + 动作编排）。 */
+export interface BulkActionContractTarget {
+  /** 选择模式（`page` / `cross-page`）。 */
+  readonly mode: string
+  /** 已选数量。 */
+  readonly count: number
+  /** 是否按条件全选（跨页）。 */
+  readonly allAcrossPages: boolean
+  /** 选中键（字符串序）。 */
+  selectedKeys(): string[]
+  /** 设置总记录数。 */
+  setTotal(total: number): void
+  /** 设置当前页键。 */
+  setPageKeys(keys: (string | number)[]): void
+  /** 设置选中态。 */
+  select(key: string | number, selected?: boolean): void
+  /** 当前页全选。 */
+  selectPage(): void
+  /** 当前页反选。 */
+  invertPage(): void
+  /** 跨页全选。 */
+  selectAllAcrossPages(): void
+  /** 清空选中集合。 */
+  clear(): void
+  /** 注册动作集合。 */
+  setActions(actions: BulkActionContractAction[]): void
+  /** 可见动作键（权限过滤后）。 */
+  visibleActionKeys(): string[]
+  /** 是否需要二次确认。 */
+  needsConfirm(key: string): boolean
+  /** 请求执行（需确认时返回 `undefined` 并进入确认阶段）。 */
+  request(key: string): Promise<BulkActionContractResult | undefined>
+  /** 确认执行。 */
+  confirm(): Promise<BulkActionContractResult | undefined>
+  /** 执行阶段（`idle` / `confirming` / `running` / `done`）。 */
+  readonly phase: string
+}
+
+/**
+ * 批量操作契约（`BaseBulkAction` / `useBaseBulkAction` 投影；`08_03_02` 首次落地，后续移动端复用同一套断言）。
+ *
+ * 目标约定：选择模式为 `cross-page`；权限上下文含 `user.enable`、不含 `user.delete`；
+ * `clearAfterDone` 为真（动作完成后清空选择）。
+ *
+ * @param name 契约名。
+ * @param create 目标工厂。
+ */
+export function describeBulkActionContract(name: string, create: () => BulkActionContractTarget): void {
+  describeContract(name, () => {
+    it('选中集合去重保序；page 模式翻页剔除不在当前页的键', () => {
+      const target = create()
+      target.setPageKeys(['1', '2'])
+      target.select('2')
+      target.select('1')
+      target.select('1')
+      expect(target.selectedKeys()).toEqual(['2', '1'])
+      expect(target.count).toBe(2)
+      expect(target.mode).toBe('cross-page')
+    })
+
+    it('跨页全选取总记录数，切换页后清条件全选标记', () => {
+      const target = create()
+      target.setTotal(120)
+      target.setPageKeys(['1', '2'])
+      target.select('1')
+      target.selectAllAcrossPages()
+      expect(target.allAcrossPages).toBe(true)
+      expect(target.count).toBe(120)
+
+      target.setPageKeys(['3', '4'])
+      expect(target.allAcrossPages).toBe(false)
+      expect(target.count).toBe(0)
+    })
+
+    it('权限过滤：无权动作不可见', () => {
+      const target = create()
+      target.setActions([
+        { key: 'enable', perm: 'user.enable', run: () => ({ success: 1, failed: 0 }) },
+        { key: 'delete', perm: 'user.delete', danger: true, run: () => ({ success: 1, failed: 0 }) },
+      ])
+      expect(target.visibleActionKeys()).toEqual(['enable'])
+    })
+
+    it('危险动作进入确认阶段，确认后执行并按需清空', async () => {
+      const target = create()
+      target.setActions([{ key: 'delete', danger: true, run: () => ({ success: 1, failed: 0 }) }])
+      target.setPageKeys(['1'])
+      target.select('1')
+      expect(target.needsConfirm('delete')).toBe(true)
+
+      await expect(target.request('delete')).resolves.toBeUndefined()
+      expect(target.phase).toBe('confirming')
+
+      await expect(target.confirm()).resolves.toEqual({ success: 1, failed: 0 })
+      expect(target.phase).toBe('done')
+      expect(target.count).toBe(0)
+    })
+
+    it('执行中重复请求不动作（防重复提交）', async () => {
+      const target = create()
+      let release: () => void = () => {}
+      const gate = new Promise<void>((resolve) => {
+        release = resolve
+      })
+      target.setActions([
+        {
+          key: 'export',
+          run: async () => {
+            await gate
+            return { success: 1, failed: 0 }
+          },
+        },
+      ])
+      target.setPageKeys(['1'])
+      target.select('1')
+      const pending = target.request('export')
+      expect(target.phase).toBe('running')
+      await expect(target.request('export')).resolves.toBeUndefined()
+      release()
+      await expect(pending).resolves.toEqual({ success: 1, failed: 0 })
+    })
+
+    it('部分成功汇总成功与失败数', async () => {
+      const target = create()
+      target.setActions([{ key: 'disable', run: () => ({ success: 2, failed: 1 }) }])
+      target.setPageKeys(['1', '2', '3'])
+      target.selectPage()
+      await expect(target.request('disable')).resolves.toEqual({ success: 2, failed: 1 })
+    })
+  })
+}
+
+/** 主题契约品牌配置（最小面）。 */
+export interface ThemeContractBrand {
+  /** 品牌主色。 */
+  primaryColor?: string
+  /** 租户默认模式。 */
+  defaultMode?: 'light' | 'dark' | 'system'
+  /** 是否允许用户强调色。 */
+  allowUserAccent?: boolean
+  /** 是否禁用暗色。 */
+  disableDark?: boolean
+}
+
+/** 主题契约面。 */
+export interface ThemeContractTarget {
+  /** 用户模式（`light` / `dark` / `system`）。 */
+  readonly mode: string
+  /** 有效主题（`light` / `dark`）。 */
+  readonly resolved: string
+  /** 有效主色。 */
+  readonly primary: string
+  /** 品牌派生令牌。 */
+  brandTokens(): Record<string, string>
+  /** 设置用户模式。 */
+  setMode(mode: 'light' | 'dark' | 'system'): void
+  /** 设置品牌。 */
+  setBrand(brand?: ThemeContractBrand): void
+  /** 设置用户强调色。 */
+  setAccent(color?: string): void
+  /** 写入系统偏好。 */
+  setSystemPrefersDark(value: boolean): void
+  /** 亮暗互切。 */
+  toggle(): void
+}
+
+/**
+ * 主题契约（`BaseTheme` / `useBaseTheme` 投影；`08_03_02` 首次落地，后续移动端复用同一套断言）。
+ *
+ * 目标约定：初始模式 `light`、系统偏好为亮色、无品牌配置。
+ *
+ * @param name 契约名。
+ * @param create 目标工厂。
+ */
+export function describeThemeContract(name: string, create: () => ThemeContractTarget): void {
+  describeContract(name, () => {
+    it('解析优先级：用户模式 > 品牌默认 > 平台默认', () => {
+      const target = create()
+      expect(target.resolved).toBe('light')
+
+      target.setBrand({ defaultMode: 'dark' })
+      expect(target.resolved).toBe('dark')
+
+      target.setMode('light')
+      expect(target.resolved).toBe('light')
+
+      target.setMode('system')
+      expect(target.resolved).toBe('light')
+    })
+
+    it('system 随系统偏好；disableDark 强制亮色', () => {
+      const target = create()
+      target.setMode('system')
+      target.setSystemPrefersDark(true)
+      expect(target.resolved).toBe('dark')
+
+      target.setBrand({ defaultMode: 'dark', disableDark: true })
+      expect(target.resolved).toBe('light')
+
+      target.setSystemPrefersDark(false)
+      expect(target.resolved).toBe('light')
+    })
+
+    it('强调色仅在品牌允许时生效；主色派生六项令牌', () => {
+      const target = create()
+      target.setBrand({ primaryColor: '#1677ff' })
+      target.setAccent('#ff0000')
+      expect(target.primary).toBe('#1677ff')
+      expect(Object.keys(target.brandTokens()).length).toBe(6)
+
+      target.setBrand({ primaryColor: '#1677ff', allowUserAccent: true })
+      expect(target.primary).toBe('#ff0000')
+      expect(target.brandTokens()['--bms-color-primary']).toBe('#ff0000')
+      expect(target.brandTokens()['--bms-color-primary-hover']).not.toBe('#ff0000')
+    })
+
+    it('亮暗互切', () => {
+      const target = create()
+      target.toggle()
+      expect(target.mode).toBe('dark')
+      expect(target.resolved).toBe('dark')
+
+      target.toggle()
+      expect(target.mode).toBe('light')
+      expect(target.resolved).toBe('light')
+    })
+  })
+}
+
+/** 租户契约摘要。 */
+export interface TenantContractSummary {
+  /** 租户标识。 */
+  id: string
+  /** 租户名称。 */
+  name: string
+  /** 租户编码。 */
+  code?: string
+  /** 角色名。 */
+  roleName?: string
+}
+
+/** 租户契约切换步骤（最小面）。 */
+export interface TenantContractSteps {
+  /** 换取会话。 */
+  switchSession?(): Promise<void>
+  /** 重取用户 / 权限 / 菜单。 */
+  reloadContext?(): Promise<void>
+  /** 重取品牌。 */
+  reloadBrand?(): Promise<void>
+  /** 清缓存与标签。 */
+  clearCache?(): Promise<void>
+  /** 跳默认主页。 */
+  navigateHome?(): Promise<void>
+}
+
+/** 租户切换契约面。 */
+export interface TenantContractTarget {
+  /** 切换阶段。 */
+  readonly phase: string
+  /** 当前租户标识。 */
+  readonly currentId: string | undefined
+  /** 是否多租户（可切换租户数 > 1）。 */
+  readonly multiTenant: boolean
+  /** 设置租户列表。 */
+  setTenants(list: TenantContractSummary[]): void
+  /** 设置当前租户。 */
+  setCurrent(tenant: TenantContractSummary | undefined): void
+  /** 注入切换步骤。 */
+  setSteps(steps: TenantContractSteps): void
+  /** 搜索（返回租户标识）。 */
+  search(keyword: string): string[]
+  /** 请求切换（需确认时返回 `false`）。 */
+  request(targetId: string): Promise<boolean>
+  /** 确认切换。 */
+  confirm(targetId: string): Promise<boolean>
+  /** 直接切换。 */
+  switchTo(targetId: string): Promise<boolean>
+  /** 重试失败切换。 */
+  retry(): Promise<boolean>
+  /** 重置阶段。 */
+  reset(): void
+}
+
+/**
+ * 租户切换契约（`BaseTenant` / `useBaseTenant` 投影；`08_03_02` 首次落地，后续移动端复用同一套断言）。
+ *
+ * 目标约定：初始租户列表含 `t1`（当前，名称「租户一」，编码 `A1`，角色「管理员」）
+ * 与 `t2`（名称「租户二」，编码 `B2`，角色「操作员」）；`confirmRequired` 为真。
+ *
+ * @param name 契约名。
+ * @param create 目标工厂。
+ */
+export function describeTenantContract(name: string, create: () => TenantContractTarget): void {
+  describeContract(name, () => {
+    it('单租户不显示入口；搜索按名称 / 编码 / 角色匹配', () => {
+      const target = create()
+      expect(target.multiTenant).toBe(true)
+      expect(target.search('租户二')).toEqual(['t2'])
+      expect(target.search('B2')).toEqual(['t2'])
+      expect(target.search('操作员')).toEqual(['t2'])
+
+      target.setTenants([{ id: 't1', name: '租户一' }])
+      expect(target.multiTenant).toBe(false)
+    })
+
+    it('确认后切换阶段依序推进并提交当前租户', async () => {
+      const target = create()
+      const phases: string[] = []
+      target.setSteps({
+        switchSession: async () => {
+          phases.push('switching')
+        },
+        reloadContext: async () => {
+          phases.push('reloading')
+        },
+        clearCache: async () => {
+          phases.push('clearing')
+        },
+        navigateHome: async () => {
+          phases.push('navigating')
+        },
+      })
+
+      await expect(target.request('t2')).resolves.toBe(false)
+      expect(target.currentId).toBe('t1')
+
+      await expect(target.confirm('t2')).resolves.toBe(true)
+      expect(phases).toEqual(['switching', 'reloading', 'clearing', 'navigating'])
+      expect(target.currentId).toBe('t2')
+      expect(target.phase).toBe('done')
+    })
+
+    it('中段失败置 failed 且保留原租户；retry 从失败目标重试', async () => {
+      const target = create()
+      let fail = true
+      target.setSteps({
+        switchSession: async () => {
+          if (fail) {
+            throw new Error('会话失效')
+          }
+        },
+      })
+
+      await expect(target.switchTo('t2')).resolves.toBe(false)
+      expect(target.phase).toBe('failed')
+      expect(target.currentId).toBe('t1')
+
+      fail = false
+      await expect(target.retry()).resolves.toBe(true)
+      expect(target.currentId).toBe('t2')
+      expect(target.phase).toBe('done')
+    })
+
+    it('切换中重复请求不动作；reset 归 idle', async () => {
+      const target = create()
+      let release: () => void = () => {}
+      const gate = new Promise<void>((resolve) => {
+        release = resolve
+      })
+      target.setSteps({
+        switchSession: async () => {
+          await gate
+        },
+      })
+
+      const pending = target.switchTo('t2')
+      await expect(target.switchTo('t2')).resolves.toBe(false)
+      release()
+      await expect(pending).resolves.toBe(true)
+
+      target.reset()
+      expect(target.phase).toBe('idle')
+      expect(target.currentId).toBe('t2')
+    })
+  })
+}

@@ -10,7 +10,11 @@ import { mountModule } from './module/host'
 import { router } from './router'
 import { installMenuRoutes } from './router/dynamic'
 import { useSessionStore } from './stores/session'
+import { applyInitialTheme } from './utils/initialTheme'
 import './styles/tokens.scss'
+
+// 首屏主题预读：挂载前解析偏好并写根元素 data-theme，避免闪白 / 闪黑。
+applyInitialTheme()
 
 installMenuRoutes(router, PLACEHOLDER_MENU)
 
