@@ -6,6 +6,8 @@
  * 框架无关、不触 DOM、不请求，同输入同输出。
  */
 
+import type { FieldPermission } from '../capabilities/field-perm'
+
 import { stableStringify } from './serialize'
 
 /** 自建字段类型白名单（对齐《概要设计 · 表单定制》「组件类型与自建字段边界」节；富文本不放开）。 */
@@ -214,8 +216,44 @@ export interface FormLayout {
   dictAdvanced?: LayoutDictAdvanced
 }
 
+/** 字段属性规则描述（声明式，编译归 `domain/form-render`）。 */
+export interface FieldRule {
+  /** 规则种类（必填 / 长度 / 数值范围 / 正则 / 选项集）。 */
+  kind: 'required' | 'length' | 'range' | 'pattern' | 'options'
+  /** 长度或数值下限。 */
+  min?: number
+  /** 长度或数值上限。 */
+  max?: number
+  /** 正则（`pattern` 规则）。 */
+  pattern?: string
+  /** 自定义错误文案（缺省按规则种类取默认文案）。 */
+  message?: string
+}
+
+/**
+ * 字段渲染属性（后端可省略；省略项按缺省，运行态由 `domain/form-render` 归一）。
+ *
+ * 由 `08-6-2` 渲染器按需**向后兼容新增**（既有字段语义不变），随 `layout-effective` 一次下发。
+ */
+export interface FieldRenderAttrs {
+  /** 是否必填（权限 `required` 可覆盖）。 */
+  required?: boolean
+  /** 占位提示。 */
+  placeholder?: string
+  /** 默认值（记录未提供该字段值时使用）。 */
+  defaultValue?: unknown
+  /** 校验规则（声明式）。 */
+  rules?: readonly FieldRule[]
+  /** 选项集（下拉 / 单选 / 复选 / 穿梭等）。 */
+  options?: readonly ExtFieldOption[]
+  /** 只读（编辑态亦只读）。 */
+  readonly?: boolean
+  /** 隐藏（布局引用但默认不渲染）。 */
+  hidden?: boolean
+}
+
 /** 字段清单项（平台字段 + 租户自建字段合并下发）。 */
-export interface FormField {
+export interface FormField extends FieldRenderAttrs {
   /** 字段键。 */
   key: string
   /** 字段名（当前 locale）。 */
@@ -254,6 +292,8 @@ export interface LayoutEffective {
   readonly: boolean
   /** 是否走了空布局回退。 */
   fallback: boolean
+  /** 当前用户字段权限标记（键为字段键；缺省项按全开，由 `08-6-2` 渲染器叠加）。 */
+  permissions?: Readonly<Record<string, FieldPermission>>
 }
 
 /** 恢复默认目标。 */
@@ -968,12 +1008,13 @@ export function resolveEffectiveLayout(input: {
   fields?: readonly FormField[]
   hasManage?: boolean
   readOnly?: boolean
+  permissions?: Readonly<Record<string, FieldPermission>>
 }): LayoutEffective {
   const fields = [...(input.fields ?? [])]
   const resolved = resolveLayoutForLevel(input.levels, input.level)
   const fallback = resolved.layout === undefined
   const layout = fallback ? defaultLayout(fields) : (resolved.layout as FormLayout)
-  return {
+  const effective: LayoutEffective = {
     layout,
     fields,
     level: input.level,
@@ -981,6 +1022,10 @@ export function resolveEffectiveLayout(input: {
     readonly: resolveLevelReadOnly(input.level, input.hasManage ?? true, input.readOnly ?? false),
     fallback,
   }
+  if (input.permissions !== undefined) {
+    effective.permissions = input.permissions
+  }
+  return effective
 }
 
 /**
@@ -989,7 +1034,7 @@ export function resolveEffectiveLayout(input: {
  * @param effective 生效布局。
  */
 export function toRenderMetadata(effective: LayoutEffective): LayoutEffective {
-  return {
+  const metadata: LayoutEffective = {
     layout: normalizeLayout(effective.layout),
     fields: [...effective.fields],
     level: effective.level,
@@ -997,6 +1042,10 @@ export function toRenderMetadata(effective: LayoutEffective): LayoutEffective {
     readonly: effective.readonly,
     fallback: effective.fallback,
   }
+  if (effective.permissions !== undefined) {
+    metadata.permissions = effective.permissions
+  }
+  return metadata
 }
 
 /**

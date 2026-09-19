@@ -97,11 +97,24 @@ export {
 export type { FieldPropertyPatch, SectionPropertyPatch, CanvasPropertyPatch } from './components/form-design/FieldPropertyPanel.vue'
 export type { ExtFieldCreated } from './components/form-design/ExtFieldDialog.vue'
 export type { DesignerMoveEvent } from './components/form-design/FormDesignerCanvas.vue'
+// 说明：`FormRendererBody` 为独立分包懒加载入口（`defineAsyncComponent`），
+// 不作为根出口静态导出，否则会被静态引入而使动态导入无法分包。
 export {
   default as FormRenderer,
   type FormRenderMode,
   type FormValidateResult,
-} from './components/interaction/FormRenderer.vue'
+} from './components/form-render/FormRenderer.vue'
+export {
+  useBaseFormRenderer,
+  type UseBaseFormRendererOptions,
+  type UseBaseFormRendererResult,
+} from './composables/useBaseFormRenderer'
+export {
+  MULTIPLE_WIDGETS,
+  getFieldWidget,
+  resolveFieldComponent,
+  resolveFieldComponentByType,
+} from './utils/formWidgets'
 export {
   default as I18nMessageEditor,
   type I18nChangePayload,
