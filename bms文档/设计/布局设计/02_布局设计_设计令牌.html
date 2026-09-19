@@ -77,6 +77,21 @@
         <li>禁止在组件内硬编码色值，一律引用令牌。</li>
       </ul>
 
+      <h2 id="chart-color">2.1 图表色板令牌（2026-09-19 登记）</h2>
+      <table>
+        <tr><th>令牌</th><th>用途</th><th>默认值</th></tr>
+        <tr><td><code>--bms-chart-color-1..8</code></td><td>图表序列色板（多序列按序循环；1 对齐主色）</td><td><code>#0969da</code> / <code>#2da44e</code> / <code>#d4a72c</code> / <code>#cf222e</code> / <code>#57606a</code> / <code>#8250df</code> / <code>#1b7c83</code> / <code>#bc4c00</code></td></tr>
+        <tr><td><code>--bms-chart-axis</code></td><td>坐标轴线 / 刻度</td><td><code>--bms-color-border</code></td></tr>
+        <tr><td><code>--bms-chart-grid</code></td><td>数值轴网格线</td><td>边框色（低透明度）</td></tr>
+        <tr><td><code>--bms-chart-text</code></td><td>坐标轴标签 / 图例文字</td><td><code>--bms-color-text-secondary</code></td></tr>
+        <tr><td><code>--bms-chart-tooltip-bg</code> / <code>--bms-chart-tooltip-text</code></td><td>提示背景 / 提示文字</td><td><code>--bms-color-bg</code> / <code>--bms-color-text</code></td></tr>
+      </table>
+      <ul>
+        <li>图表配色统一来自以上令牌，由图表主题工具运行时读取生成图表主题；<strong>禁止在图表配置中硬编码色值</strong>；深浅模式与租户品牌随令牌变化，实例按主题名重建。</li>
+        <li>语义场景（达标/预警、地域高低）显式映射语义色（<code>--bms-color-success</code> / <code>warning</code> / <code>danger</code>），不因图表自造色。</li>
+        <li>实现落点：宿主 <code>apps/desktop/src/styles/tokens.scss</code>（亮 / 暗两套，只增不改）；代码侧令牌前缀沿用 <code>--bms-</code>（与 <code>--bms-color-*</code> 一致）。</li>
+      </ul>
+
       <h2 id="font">3. 字体令牌</h2>
       <table>
         <tr><th>令牌</th><th>值</th></tr>
