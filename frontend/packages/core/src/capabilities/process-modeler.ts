@@ -524,29 +524,31 @@ export abstract class BaseProcessModeler extends BaseComponent {
       this.touch()
       return undefined
     }
+    // 先占位再校验：校验为异步（可含引擎预解析），若不先置提交中，并发重复提交会双双穿过 `busy` 判定。
     if (!this.canEdit || this.busy) {
       return undefined
-    }
-    const check = await this.validate({ engine: kind === 'deploy' })
-    if (!check.valid) {
-      this.#retryKind = kind
-      return undefined
-    }
-    const payload = {
-      definitionKey: this.definition.definitionKey,
-      name: this.definition.name,
-      xml: this.definition.xml,
-      version: kind === 'draft' ? this.definition.version : this.nextVersion,
-      idempotencyKey: this.idempotencyKey(kind),
     }
     this.#submitting = true
     this.#retryKind = kind
     this.phase = kind === 'draft' ? 'saving' : 'deploying'
     this.errorMessage = ''
     this.errorTarget = undefined
-    this.requestCount += 1
     this.touch()
     try {
+      const check = await this.validate({ engine: kind === 'deploy' })
+      if (!check.valid) {
+        this.phase = 'failed'
+        return undefined
+      }
+      const payload = {
+        definitionKey: this.definition.definitionKey,
+        name: this.definition.name,
+        xml: this.definition.xml,
+        version: kind === 'draft' ? this.definition.version : this.nextVersion,
+        idempotencyKey: this.idempotencyKey(kind),
+      }
+      this.requestCount += 1
+      this.touch()
       const result = await handler(payload)
       if (this.isDisposed) {
         return undefined

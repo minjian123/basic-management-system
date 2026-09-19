@@ -51,23 +51,35 @@ export {
   type PermissionSubject as SubjectItem,
   type PermissionTab,
 } from '@bms/core'
+export { default as ApprovalFlow } from './components/approval/ApprovalFlow.vue'
+export { default as ApprovalProgress, type ApprovalProgressDirection } from './components/approval/ApprovalProgress.vue'
+export { default as ApprovalTimeline } from './components/approval/ApprovalTimeline.vue'
+export { default as ApprovalActionPanel, type ApprovalPanelPayload } from './components/approval/ApprovalActionPanel.vue'
+// 说明：`ApprovalFlowDiagram` / `ProcessCanvas` 为独立分包懒加载入口（`defineAsyncComponent`），
+// 不作为根出口静态导出，否则会被静态引入而使动态导入无法分包。
 export {
-  default as ApprovalFlow,
+  default as ProcessModeler,
+  type ModelerHistoryItem,
+} from './components/approval/ProcessModeler.vue'
+export { default as ProcessPalette } from './components/approval/ProcessPalette.vue'
+export { default as ProcessProperties } from './components/approval/ProcessProperties.vue'
+// 审批与建模的对外类型经核心领域模块统一导出（保持既有公开名）。
+export {
   type ApprovalAction,
-  type ApprovalActionPayload,
+  type ApprovalAssignee,
+  type ApprovalAttachment,
   type ApprovalInstance,
   type ApprovalInstanceStatus,
   type ApprovalNode,
   type ApprovalNodeStatus,
   type ApprovalRecord,
   type ApprovalTask,
-} from './components/interaction/ApprovalFlow.vue'
-export {
-  default as ProcessModeler,
+  type ApprovalTimelineOrder,
   type ModelerElement,
+  type ModelerElementProperties,
   type ModelerElementType,
   type ModelerValidateResult,
-} from './components/interaction/ProcessModeler.vue'
+} from '@bms/core'
 export {
   default as ImportDialog,
   type ImportResult,
@@ -426,3 +438,15 @@ export {
   type UseBaseFormDesignerOptions,
   type UseBaseFormDesignerResult,
 } from './composables/useBaseFormDesigner'
+export {
+  useBaseApprovalFlow,
+  type UseBaseApprovalFlowOptions,
+  type UseBaseApprovalFlowResult,
+} from './composables/useBaseApprovalFlow'
+export {
+  useBaseProcessModeler,
+  type UseBaseProcessModelerOptions,
+  type UseBaseProcessModelerResult,
+} from './composables/useBaseProcessModeler'
+export { APPROVAL_ACTION_METAS, approvalActionMeta, type ApprovalActionMeta } from './utils/approvalActions'
+export { equivalentBpmnStrong, parseBpmnStrongStructure, type BpmnStrongStructure } from './utils/bpmnRoundTrip'
