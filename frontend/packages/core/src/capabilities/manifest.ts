@@ -72,6 +72,8 @@ export const CAPABILITY_MANIFEST: Readonly<Record<string, readonly string[]>> = 
   'form-page': ['form-meta'],
   chart: ['data-state'],
   'report-designer': ['access', 'notice', 'data-state', 'drag-drop', 'async-task'],
+  'screen-designer': ['access', 'notice', 'data-state', 'drag-drop', 'async-task'],
+  'screen-player': ['access', 'notice', 'data-state', 'async-task'],
 }
 
 /** 校验问题种类。 */
