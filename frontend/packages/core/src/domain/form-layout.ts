@@ -26,6 +26,10 @@ export const EXT_OPTION_TYPES: readonly string[] = ['select', 'multi_select']
 export const FORMDESIGN_PERM = 'formdesign:manage'
 /** 渲染路径权限码（登录即可）。 */
 export const FORMDESIGN_VIEW_PERM = 'formdesign:query'
+/** 设计器占位文案（数据通路未就绪）。 */
+export const DESIGNER_PLACEHOLDER_TEXT = '表单设计器未就绪（占位）'
+/** 布局落点提示文案（拖入字段自动建分区）。 */
+export const DESIGNER_EMPTY_HINT = '暂无布局分区（拖入字段将自动新建分区）'
 /** 自建字段列名前缀（后端生成，前端仅预览）。 */
 export const EXT_COLUMN_PREFIX = 'ext_'
 /** 分区列数白名单。 */
