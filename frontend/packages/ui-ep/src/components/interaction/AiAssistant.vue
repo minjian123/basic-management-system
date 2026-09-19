@@ -4,7 +4,7 @@ import { defineAsyncComponent, ref, watch } from 'vue'
 
 import { useBaseSubscription } from '../../composables/useBaseSubscription'
 import { useInteractionPlaceholder } from '../../composables/useInteractionPlaceholder'
-import type { ReportDataset } from './ReportDesigner.vue'
+import type { ReportDataset } from '@bms/core'
 
 // 对话面板独立分包（流式输出 / 消息渲染，真实实现 08_10 接入）。
 const AiChatPanel = defineAsyncComponent(() => import('./AiChatPanel.vue'))
