@@ -54,6 +54,15 @@
   --bms-gap: 16px;
 }
 
+// 主题语义（深色最小集：背景 / 文本 / 边框 / 阴影；完整深色令牌与组件适配登记为遗留）
+[data-theme='dark'] {
+  --bms-color-text: #e5eaf3;
+  --bms-color-text-secondary: #a3a6ad;
+  --bms-color-bg: #1d1e1f;
+  --bms-color-border: #4c4d4f;
+  --bms-shadow-1: 0 1px 4px rgba(0, 0, 0, 0.36);
+}
+
 // 状态类（状态只加状态类）
 .is-loading {
   opacity: 0.7;

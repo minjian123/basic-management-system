@@ -409,6 +409,31 @@ export { default as StepWizard } from './components/interaction/StepWizard.vue'
 export { default as WizardStep } from './components/interaction/WizardStep.vue'
 export { default as PreferencePanel } from './components/interaction/PreferencePanel.vue'
 export { default as PreferenceGroup } from './components/interaction/PreferenceGroup.vue'
+export { default as BulkActionBar } from './components/interaction/BulkActionBar.vue'
+export { default as ThemeSwitch } from './components/interaction/ThemeSwitch.vue'
+export { default as BrandProvider } from './components/interaction/BrandProvider.vue'
+export { default as TenantSwitcher } from './components/interaction/TenantSwitcher.vue'
+export { default as TenantList } from './components/interaction/TenantList.vue'
+export {
+  useBaseSelection,
+  type UseBaseSelectionOptions,
+  type UseBaseSelectionResult,
+} from './composables/useBaseSelection'
+export {
+  useBaseBulkAction,
+  type UseBaseBulkActionOptions,
+  type UseBaseBulkActionResult,
+} from './composables/useBaseBulkAction'
+export {
+  useBaseTheme,
+  type UseBaseThemeOptions,
+  type UseBaseThemeResult,
+} from './composables/useBaseTheme'
+export {
+  useBaseTenant,
+  type UseBaseTenantOptions,
+  type UseBaseTenantResult,
+} from './composables/useBaseTenant'
 export {
   useBaseWizard,
   type UseBaseWizardOptions,

@@ -81,6 +81,32 @@ export {
   type WizardValidation,
   type WizardValidatorResult,
 } from './capabilities/wizard'
+export {
+  BaseSelection,
+  type SelectionKey,
+  type SelectionMode,
+  type SelectionSummary,
+} from './capabilities/selection'
+export {
+  BaseBulkAction,
+  type BulkActionContext,
+  type BulkActionDef,
+  type BulkActionPhase,
+  type BulkActionProgress,
+  type BulkActionResult,
+} from './capabilities/bulk-action'
+export {
+  BaseTheme,
+  type BrandConfig,
+  type ResolvedTheme,
+  type ThemeMode,
+} from './capabilities/theme'
+export {
+  BaseTenant,
+  type TenantSummary,
+  type TenantSwitchPhase,
+  type TenantSwitchSteps,
+} from './capabilities/tenant'
 export { BaseMounted, type MountListener } from './capabilities/mounted'
 export {
   BaseDesignToken,
@@ -156,6 +182,22 @@ export {
 } from './domain/validators'
 export { evaluatePermission, type PermissionMode } from './domain/permission'
 export { resolveToken } from './domain/token'
+export {
+  DEFAULT_BRAND_PRIMARY,
+  darken,
+  deriveBrandTokens,
+  isValidColor,
+  lighten,
+  luminance,
+  mixColor,
+  normalizeBrand,
+  parseColor,
+  resolveThemeMode,
+  toHex,
+  type BrandTokenMap,
+  type RgbColor,
+  type ThemeResolveInput,
+} from './domain/brand'
 export {
   MAX_DECIMAL_PRECISION,
   compareDecimal,
