@@ -185,10 +185,29 @@ const RECORDS: readonly ApprovalContractRecord[] = [
  * @param create 目标工厂。
  */
 export function describeApprovalFlowContract(name: string, create: () => ApprovalFlowContractTarget): void {
-  /** 构造「已就绪且已装载」的目标。 */
-  const readyTarget = (handlers: ApprovalContractHandlers = {}): ApprovalFlowContractTarget => {
+  /**
+   * 构造「已就绪且已装载」的目标。
+   *
+   * 缺省注入只读图图片通路取址（`loadDiagramUrl`），使「XML → 图片 → 失败」三级判定可完整断言；
+   * `withDiagram` 为假时不注入该取址（用于断言「未注入即占位、零请求」）。
+   *
+   * @param handlers 处理函数集（覆盖缺省项）。
+   * @param options 选项（`withDiagram` 缺省为真）。
+   * @returns 契约目标。
+   */
+  const readyTarget = (
+    handlers: ApprovalContractHandlers = {},
+    options: { withDiagram?: boolean } = {},
+  ): ApprovalFlowContractTarget => {
     const target = create()
-    target.setHandlers(handlers)
+    const merged: ApprovalContractHandlers =
+      options.withDiagram === false
+        ? { ...handlers }
+        : {
+            loadDiagramUrl: async () => ({ url: 'https://example.test/diagram.png', expiresAt: Date.now() + 60_000 }),
+            ...handlers,
+          }
+    target.setHandlers(merged)
     target.setReady(true)
     target.applyInstance(INSTANCE)
     target.applyRecords(RECORDS)
@@ -430,7 +449,7 @@ export function describeApprovalFlowContract(name: string, create: () => Approva
     })
 
     it('只读图未注入取址时不产生请求', async () => {
-      const target = readyTarget()
+      const target = readyTarget({}, { withDiagram: false })
       const before = target.requestCount
       await expect(target.loadDiagramImage()).resolves.toBeUndefined()
       expect(target.requestCount).toBe(before)
