@@ -163,9 +163,9 @@ describe('编辑与增删 key', () => {
     const catalog = makeCatalog()
     await catalog.load()
     expect(catalog.editCell({ key: 'user.form.email', locale: 'fr-FR', value: 'x' })).toBe(false)
-    expect(catalog.editCell({ key: 'user.form.email', locale: 'en-US', value: 'x'.repeat(2001) })).toBe(false)
+    expect(catalog.editCell({ key: 'user.form.email', locale: 'en-US', value: 'x'.repeat(4001) })).toBe(false)
     expect(catalog.errorCode).toBe(0)
-    expect(catalog.errorMessage).toBe('文案值超长（最多 2000 字）')
+    expect(catalog.errorMessage).toBe('文案值超长（最多 4000 字）')
     expect(catalog.dirty).toBe(false)
 
     catalog.toggleLocale('en-US', false)

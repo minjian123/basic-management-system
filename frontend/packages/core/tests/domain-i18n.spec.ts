@@ -132,10 +132,12 @@ describe('文案键与值校验', () => {
     }
   })
 
-  it('值长度上限 2000（空值不报错）', () => {
+  it('值长度上限 4000 码点（空值不报错；emoji 按 1 计数）', () => {
     expect(validateMessageValue('')).toMatchObject({ valid: true, code: 0 })
-    expect(validateMessageValue('x'.repeat(2000))).toMatchObject({ valid: true, code: 0 })
-    expect(validateMessageValue('x'.repeat(2001))).toMatchObject({ valid: false, message: I18N_VALUE_TOO_LONG_TEXT })
+    expect(validateMessageValue('x'.repeat(4000))).toMatchObject({ valid: true, code: 0 })
+    expect(validateMessageValue('x'.repeat(4001))).toMatchObject({ valid: false, message: I18N_VALUE_TOO_LONG_TEXT })
+    expect(validateMessageValue('👍'.repeat(4000))).toMatchObject({ valid: true, code: 0 })
+    expect(validateMessageValue('👍'.repeat(4001))).toMatchObject({ valid: false, message: I18N_VALUE_TOO_LONG_TEXT })
   })
 })
 
