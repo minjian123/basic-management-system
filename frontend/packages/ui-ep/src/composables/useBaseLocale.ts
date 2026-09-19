@@ -16,6 +16,8 @@ export interface UseBaseLocaleOptions {
 
 /** `useBaseLocale` 返回面。 */
 export interface UseBaseLocaleResult {
+  /** 语言上下文基类实例（向后兼容新增；供需注入基类实例的件与投影复用）。 */
+  localeContext: BaseLocale
   /** 当前语言（响应式）。 */
   locale: Ref<string>
   /** 当前时区（响应式）。 */
@@ -59,6 +61,7 @@ export function useBaseLocale(options: UseBaseLocaleOptions = {}): UseBaseLocale
   onScopeDispose(off)
 
   return {
+    localeContext: state,
     locale,
     timezone,
     formatContext,
