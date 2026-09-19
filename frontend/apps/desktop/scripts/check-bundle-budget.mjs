@@ -1,10 +1,14 @@
 #!/usr/bin/env node
 /**
- * 前端构建体积预算校验（零依赖，CI 与本地同口径）。
+ * 前端首屏体积预算校验（零依赖，CI 与本地同口径）。
  *
- * 统计 `dist/` 下 js / css 产物的 gzip 体积，与 `budget.json` 中的上限比较；
- * 超限退出码 1（CI 红）。上限口径：初次落地取「当前基线 + 20%」，
- * 因需求增长需要放宽时，在 PR 中同步调整 budget.json 并说明原因。
+ * 口径：**只统计首屏入口块**——解析 `dist/index.html` 静态引用的 js / css
+ * （`<script type="module">` / `<link rel="modulepreload">` / `<link rel="stylesheet">`），
+ * 对其 gzip 体积求和与取最大值，和 `budget.json` 的上限比较；超限退出码 1（CI 红）。
+ *
+ * 路由级 / 组件级 **异步块**（如 `vendor-echarts`）由 `import()` 按需加载，**不计入首屏预算**，
+ * 仅打印观察值。上限口径：初次落地取「当前基线 + 20%」，因需求增长需要放宽时，
+ * 在 PR 中同步调整 budget.json 并说明原因。
  *
  * 用法：
  *     npm run build && npm run budget
@@ -37,26 +41,42 @@ try {
   exit(1)
 }
 
-const measured = files
-  .map((path) => ({ path: relative(root, path), gzip: gzipSync(readFileSync(path)).length }))
-  .sort((a, b) => b.gzip - a.gzip)
+// 解析入口块：index.html 静态引用的 js / css（异步块不在其中）。
+const html = readFileSync(join(distDir, 'index.html'), 'utf8')
+const entryRel = new Set()
+for (const match of html.matchAll(/(?:src|href)="([^"]+\.(?:js|css))"/g)) {
+  const url = match[1]
+  if (/^https?:/.test(url)) continue
+  entryRel.add(url.replace(/^\//, ''))
+}
+if (entryRel.size === 0) {
+  console.error('[budget] 未从 index.html 解析到入口块（js/css）')
+  exit(1)
+}
 
-const total = measured.reduce((sum, item) => sum + item.gzip, 0)
-const largest = measured[0]?.gzip ?? 0
+const measure = (path) => ({ path: relative(root, path), gzip: gzipSync(readFileSync(path)).length })
+const entry = files.filter((path) => entryRel.has(relative(distDir, path).split('\\').join('/'))).map(measure)
+const asyncFiles = files.filter((path) => !entryRel.has(relative(distDir, path).split('\\').join('/'))).map(measure)
+
+const total = entry.reduce((sum, item) => sum + item.gzip, 0)
+const largest = entry.reduce((max, item) => Math.max(max, item.gzip), 0)
 const kb = (bytes) => (bytes / 1024).toFixed(1)
 
-console.log(`[budget] 统计 ${measured.length} 个 js/css 产物（gzip）：`)
-for (const item of measured.slice(0, 5)) {
+console.log(`[budget] 首屏入口块 ${entry.length} 个（gzip）：`)
+for (const item of [...entry].sort((a, b) => b.gzip - a.gzip)) {
   console.log(`  ${kb(item.gzip).padStart(7)} KB  ${item.path}`)
 }
-if (measured.length > 5) console.log(`  ...（其余 ${measured.length - 5} 个）`)
+console.log(`[budget] 异步块 ${asyncFiles.length} 个（不计入首屏预算）：`)
+for (const item of [...asyncFiles].sort((a, b) => b.gzip - a.gzip).slice(0, 5)) {
+  console.log(`  ${kb(item.gzip).padStart(7)} KB  ${item.path}`)
+}
 
 const problems = []
 if (total > budget.totalGzipKb * 1024) {
-  problems.push(`合计 ${kb(total)} KB 超预算 ${budget.totalGzipKb} KB`)
+  problems.push(`首屏合计 ${kb(total)} KB 超预算 ${budget.totalGzipKb} KB`)
 }
 if (largest > budget.largestGzipKb * 1024) {
-  problems.push(`最大单文件 ${kb(largest)} KB 超预算 ${budget.largestGzipKb} KB`)
+  problems.push(`首屏最大单文件 ${kb(largest)} KB 超预算 ${budget.largestGzipKb} KB`)
 }
 
 if (problems.length) {
@@ -65,6 +85,6 @@ if (problems.length) {
   exit(1)
 }
 console.log(
-  `[budget] 通过：合计 ${kb(total)} KB（预算 ${budget.totalGzipKb} KB），` +
-    `最大单文件 ${kb(largest)} KB（预算 ${budget.largestGzipKb} KB）`,
+  `[budget] 通过：首屏合计 ${kb(total)} KB（预算 ${budget.totalGzipKb} KB），` +
+    `首屏最大单文件 ${kb(largest)} KB（预算 ${budget.largestGzipKb} KB）`,
 )

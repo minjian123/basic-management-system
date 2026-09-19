@@ -22,7 +22,8 @@ export {
   type AuditFieldDiff,
   type AuditRecord,
 } from './components/display/AuditDiff.vue'
-export { default as ChartCard, type ChartType } from './components/display/ChartCard.vue'
+export { default as ChartRenderer } from './components/chart/ChartRenderer.vue'
+export { default as ChartCard, type ChartType } from './components/chart/ChartCard.vue'
 export { default as DataTable, type DataTableColumn, type DataTableSort } from './components/display/DataTable.vue'
 export {
   default as FilePreview,
@@ -448,5 +449,10 @@ export {
   type UseBaseProcessModelerOptions,
   type UseBaseProcessModelerResult,
 } from './composables/useBaseProcessModeler'
+export {
+  useBaseChart,
+  type UseBaseChartOptions,
+  type UseBaseChartResult,
+} from './composables/useBaseChart'
 export { APPROVAL_ACTION_METAS, approvalActionMeta, type ApprovalActionMeta } from './utils/approvalActions'
 export { equivalentBpmnStrong, parseBpmnStrongStructure, type BpmnStrongStructure } from './utils/bpmnRoundTrip'

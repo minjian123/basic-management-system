@@ -10,6 +10,20 @@
   --bms-color-text-secondary: #909399;
   --bms-color-bg: #ffffff;
   --bms-color-border: #dcdfe6;
+  // 图表色板（令牌图表色板：序列色 + 辅助色；禁止硬编码色值）
+  --bms-chart-color-1: #0969da;
+  --bms-chart-color-2: #2da44e;
+  --bms-chart-color-3: #d4a72c;
+  --bms-chart-color-4: #cf222e;
+  --bms-chart-color-5: #57606a;
+  --bms-chart-color-6: #8250df;
+  --bms-chart-color-7: #1b7c83;
+  --bms-chart-color-8: #bc4c00;
+  --bms-chart-axis: #dcdfe6;
+  --bms-chart-grid: #ebeef5;
+  --bms-chart-text: #909399;
+  --bms-chart-tooltip-bg: #ffffff;
+  --bms-chart-tooltip-text: #303133;
   // 字
   --bms-font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
   --bms-font-size: 14px;
@@ -61,6 +75,12 @@
   --bms-color-bg: #1d1e1f;
   --bms-color-border: #4c4d4f;
   --bms-shadow-1: 0 1px 4px rgba(0, 0, 0, 0.36);
+  // 图表辅助色随深色调整对比度；序列色保持语义一致
+  --bms-chart-axis: #4c4d4f;
+  --bms-chart-grid: #3a3b3c;
+  --bms-chart-text: #a3a6ad;
+  --bms-chart-tooltip-bg: #1d1e1f;
+  --bms-chart-tooltip-text: #e5eaf3;
 }
 
 // 打印样式令牌（打印与屏幕样式解耦；件层消费 var(--bms-print-*, fallback)，黑白色值不与屏幕主题联动）

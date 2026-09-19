@@ -42,6 +42,12 @@ export { BaseValue, type ValueListener } from './capabilities/value'
 export { BaseField, type FieldTrigger } from './capabilities/field'
 export { BaseSized } from './capabilities/sized'
 export { BaseDataState, type DataStateListener, type DataStateName, type SettleState } from './capabilities/data-state'
+export {
+  BaseChart,
+  type ChartEngineAdapter,
+  type ChartJobs,
+  type ChartLoadInput,
+} from './capabilities/chart'
 export { BaseOverlay, type OverlayListener } from './capabilities/overlay'
 export { BaseNotice, type NoticeItem, type NoticeType } from './capabilities/notice'
 export { BaseLabeled, type LabelPosition } from './capabilities/labeled'
@@ -552,6 +558,57 @@ export {
   type LayoutValidationResult,
   type SectionColumns,
 } from './domain/form-layout'
+export {
+  buildChartOption,
+  buildChartTheme,
+  chartConfigEqual,
+  chartKindOption,
+  chartOptionSignature,
+  CHART_AXIS_TOKEN,
+  CHART_CACHE_TTL,
+  CHART_COLOR_FALLBACK,
+  CHART_COLOR_TOKENS,
+  CHART_CONFIG_VERSION,
+  CHART_EMPTY_TEXT,
+  CHART_GRID_TOKEN,
+  CHART_KINDS,
+  CHART_PLACEHOLDER_TEXT,
+  CHART_RESIZE_INTERVAL,
+  CHART_TEXT_TOKEN,
+  CHART_TOOLTIP_BG_TOKEN,
+  CHART_TOOLTIP_TEXT_TOKEN,
+  CHART_VIEW_PERM,
+  deepMerge,
+  defaultMapping,
+  emptyMapping,
+  hasChartAxis,
+  isChartEmpty,
+  isMappingEmpty,
+  isNumericField,
+  mergeChartOption,
+  normalizeChartConfig,
+  normalizeChartKind,
+  normalizeMapping,
+  resolveChartMode,
+  rotatePalette,
+  serializeChartConfig,
+  shouldReplaceOption,
+  shouldResize,
+  toNumber,
+  type ChartConfig,
+  type ChartDatasetResult,
+  type ChartField,
+  type ChartKind,
+  type ChartKindOption,
+  type ChartMapping,
+  type ChartRenderMode,
+  type ChartStateName,
+  type ChartStyleOptions,
+  type ChartTheme,
+  type ChartThemeMode,
+  type ChartTokenReader,
+  type ChartView,
+} from './domain/chart'
 export {
   DEFAULT_DETAIL_COLUMNS,
   DEFAULT_DETAIL_PAGE_SIZE,

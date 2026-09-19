@@ -2,5 +2,5 @@
   "distDir": "dist",
   "totalGzipKb": 260,
   "largestGzipKb": 150,
-  "note": "2026-09-18 宿主骨架重建：@bms/core + @bms/vue 源码直出合入主包，Element Plus 独立 vendor chunk；后续按路由级分割复评"
+  "note": "2026-09-19 口径调整：首屏预算只统计 index.html 静态引用的入口块（js/css），路由级 / 组件级异步块（vendor-echarts 等）不计入首屏；@bms/core + @bms/vue + @bms/ui-ep 源码直出合入 bms-base 入口块，Element Plus 独立 vendor chunk。"
 }
