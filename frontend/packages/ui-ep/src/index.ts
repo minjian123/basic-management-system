@@ -144,11 +144,8 @@ export {
   type UseBaseMessageCatalogOptions,
   type UseBaseMessageCatalogResult,
 } from './composables/useBaseMessageCatalog'
-export {
-  default as ReportDesigner,
-  type ReportChartItem,
-  type ReportDataset,
-} from './components/interaction/ReportDesigner.vue'
+export { default as ReportDesigner } from './components/report/ReportDesigner.vue'
+export type { ReportChartItem, ReportDataset } from '@bms/core'
 export {
   default as ScreenDesigner,
   type ScreenComponent,
@@ -454,5 +451,10 @@ export {
   type UseBaseChartOptions,
   type UseBaseChartResult,
 } from './composables/useBaseChart'
+export {
+  useBaseReportDesigner,
+  type UseBaseReportDesignerOptions,
+  type UseBaseReportDesignerResult,
+} from './composables/useBaseReportDesigner'
 export { APPROVAL_ACTION_METAS, approvalActionMeta, type ApprovalActionMeta } from './utils/approvalActions'
 export { equivalentBpmnStrong, parseBpmnStrongStructure, type BpmnStrongStructure } from './utils/bpmnRoundTrip'

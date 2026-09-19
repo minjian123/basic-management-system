@@ -28,6 +28,10 @@ export default defineConfig({
           if (id.includes('node_modules/echarts') || id.includes('node_modules/zrender')) {
             return 'vendor-echarts'
           }
+          // 网格库独立分包（仅动态 import 时成为异步块，不进首屏）
+          if (id.includes('node_modules/gridstack')) {
+            return 'vendor-gridstack'
+          }
           if (id.includes('/packages/')) {
             return 'bms-base'
           }
