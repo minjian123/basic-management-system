@@ -107,6 +107,22 @@ export {
   type TenantSwitchPhase,
   type TenantSwitchSteps,
 } from './capabilities/tenant'
+export {
+  BasePrintTemplate,
+  type PrintBrand,
+  type PrintContext,
+} from './capabilities/print-template'
+export {
+  BasePrint,
+  PRINT_JOB_PLACEHOLDER,
+  type PrintBatchMode,
+  type PrintJobHandler,
+  type PrintJobPayload,
+  type PrintJobResult,
+  type PrintJobs,
+  type PrintPhase,
+  type PrintProgress,
+} from './capabilities/print'
 export { BaseMounted, type MountListener } from './capabilities/mounted'
 export {
   BaseDesignToken,
@@ -240,6 +256,38 @@ export {
   type PreferencePolicyMap,
   type PreferenceValues,
 } from './domain/preference'
+
+export {
+  PAPER_SIZES,
+  PRINT_MISSING_TEXT,
+  PRINT_STYLE_VARS,
+  buildPrintPages,
+  computeRowsPerPage,
+  distributeFields,
+  formatCellValue,
+  formatPageFooter,
+  paginateRows,
+  resolvePaperSize,
+  resolvePrintTone,
+  resolveRowsPerPage,
+  sumNumeric,
+  type BuildPagesInput,
+  type PageFooterInput,
+  type PaperName,
+  type PaperOrientation,
+  type PaperSize,
+  type PrintCellFormat,
+  type PrintColumnDef,
+  type PrintData,
+  type PrintFieldDef,
+  type PrintPage,
+  type PrintRowData,
+  type PrintStyleVar,
+  type PrintTemplateDef,
+  type PrintTone,
+  type PrintToneResolve,
+  type RowCapacityInput,
+} from './domain/print'
 
 export {
   type LoadedModule,

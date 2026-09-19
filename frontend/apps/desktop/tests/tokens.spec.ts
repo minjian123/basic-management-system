@@ -28,4 +28,20 @@ describe('设计令牌 tokens.scss', () => {
     expect(scss).toContain('.is-hidden')
     expect(scss).toContain('--el-color-primary: var(--bms-color-primary)')
   })
+
+  it('打印样式令牌组齐备（打印与屏幕样式解耦）', () => {
+    for (const token of [
+      '--bms-print-paper-bg',
+      '--bms-print-text',
+      '--bms-print-margin',
+      '--bms-print-font-size',
+      '--bms-print-line-height',
+      '--bms-print-line-width',
+      '--bms-print-watermark-color',
+      '--bms-print-mono-filter',
+    ]) {
+      expect(scss).toContain(token)
+    }
+    expect(scss).toContain('@media print')
+  })
 })

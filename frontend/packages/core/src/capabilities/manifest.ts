@@ -37,6 +37,8 @@ export const CAPABILITY_MANIFEST: Readonly<Record<string, readonly string[]>> = 
   'bulk-action': ['selection', 'access', 'notice'],
   theme: ['design-token', 'persisted-state'],
   tenant: ['module-context', 'theme', 'notice'],
+  'print-template': ['watermark', 'locale'],
+  print: ['print-template', 'async-task', 'access', 'notice'],
   mounted: [],
   'design-token': [],
   container: ['sized'],

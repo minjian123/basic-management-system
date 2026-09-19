@@ -63,6 +63,24 @@
   --bms-shadow-1: 0 1px 4px rgba(0, 0, 0, 0.36);
 }
 
+// 打印样式令牌（打印与屏幕样式解耦；件层消费 var(--bms-print-*, fallback)，黑白色值不与屏幕主题联动）
+:root {
+  --bms-print-paper-bg: #ffffff;
+  --bms-print-text: #111111;
+  --bms-print-margin: 12mm;
+  --bms-print-font-size: 11pt;
+  --bms-print-line-height: 1.5;
+  --bms-print-line-width: 0.2mm;
+  --bms-print-watermark-color: rgba(200, 0, 0, 0.12);
+  --bms-print-mono-filter: grayscale(1);
+}
+
+@media print {
+  @page {
+    margin: var(--bms-print-margin);
+  }
+}
+
 // 状态类（状态只加状态类）
 .is-loading {
   opacity: 0.7;

@@ -878,6 +878,241 @@ export interface TenantContractSteps {
   navigateHome?(): Promise<void>
 }
 
+/** 打印契约结果。 */
+export interface PrintContractResult {
+  /** 文件标识。 */
+  fileId?: string
+}
+
+/** 打印契约进度上报（已完成量 / 总量）。 */
+export type PrintContractReport = (current: number, total: number) => void
+
+/** 打印契约处理函数（宿主注入的导出处理）。 */
+export type PrintContractHandler = (report: PrintContractReport) => Promise<PrintContractResult>
+
+/** 打印契约字段（最小面）。 */
+export interface PrintContractField {
+  /** 字段键。 */
+  key: string
+  /** 字段名。 */
+  label: string
+}
+
+/** 打印契约模板（最小面）。 */
+export interface PrintContractTemplate {
+  /** 模板键。 */
+  key: string
+  /** 标题。 */
+  title: string
+  /** 每页明细行容量。 */
+  rowsPerPage?: number
+  /** 字段区。 */
+  fields?: PrintContractField[]
+  /** 明细列。 */
+  columns?: PrintContractField[]
+}
+
+/** 打印契约面（模板 + 编排）。 */
+export interface PrintContractTarget {
+  /** 当前模板键。 */
+  readonly templateKey: string | undefined
+  /** 纸张尺寸（毫米，已按方向换算）。 */
+  readonly paperSize: { width: number; height: number }
+  /** 每页明细行容量。 */
+  readonly rowsPerPage: number
+  /** 总页数。 */
+  readonly pageCount: number
+  /** 是否黑白。 */
+  readonly mono: boolean
+  /** 水印文案。 */
+  readonly watermarkText: string
+  /** 缩放值。 */
+  readonly zoom: number
+  /** 预览显隐。 */
+  readonly previewVisible: boolean
+  /** 编排阶段。 */
+  readonly phase: string
+  /** 批量模式。 */
+  readonly batchMode: string
+  /** 是否可导出。 */
+  readonly canExport: boolean
+  /** 设置模板集。 */
+  setTemplates(templates: PrintContractTemplate[]): void
+  /** 选择模板。 */
+  selectTemplate(key: string): void
+  /** 设置单据数据。 */
+  setData(data: { fields?: Record<string, unknown>; rows?: Record<string, unknown>[] }): void
+  /** 设置纸张与方向。 */
+  setPaper(paper: string, orientation: string): void
+  /** 设置色调。 */
+  setTone(tone: string): void
+  /** 设置单据级水印标签。 */
+  setWatermarkLabel(label: string): void
+  /** 设置缩放（返回夹取后的值）。 */
+  setZoom(value: number): number
+  /** 设置批量模式。 */
+  setBatchMode(mode: string): void
+  /** 设置导出许可。 */
+  setAllowExport(value: boolean): void
+  /** 注入导出处理（`undefined` 为占位）。 */
+  setExportHandler(handler: PrintContractHandler | undefined): void
+  /** 打开预览。 */
+  open(): void
+  /** 关闭预览。 */
+  close(): void
+  /** 每页明细行数（按页序）。 */
+  pageRows(): number[]
+  /** 页码序列（1 起，连续）。 */
+  pageIndexes(): number[]
+  /** 字段渲染文本（含缺失占位）。 */
+  fieldText(key: string): string
+  /** 导出 PDF。 */
+  exportPdf(): Promise<PrintContractResult | undefined>
+  /** 重试上次失败任务。 */
+  retry(): Promise<PrintContractResult | undefined>
+}
+
+/**
+ * 打印契约（`BasePrint` / `useBasePrint` 投影；`08_03_03` 首次落地，后续移动端复用同一套断言）。
+ *
+ * 目标约定：模板两个——`order`（三列明细 + 每页 2 行，字段 `customer` / `remark`）与 `label`（单列）；
+ * 数据五行明细、`fields.customer` 有值而 `fields.remark` 缺失；
+ * 水印信息注入为用户「张三」与租户「租户一」；初始未注入导出处理（占位）。
+ *
+ * @param name 契约名。
+ * @param create 目标工厂。
+ */
+export function describePrintContract(name: string, create: () => PrintContractTarget): void {
+  describeContract(name, () => {
+    it('模板选择与纸张方向（横向交换宽高）', () => {
+      const target = create()
+      expect(target.templateKey).toBe('order')
+
+      target.selectTemplate('label')
+      expect(target.templateKey).toBe('label')
+
+      target.setPaper('A5', 'landscape')
+      expect(target.paperSize).toEqual({ width: 210, height: 148 })
+
+      target.selectTemplate('absent')
+      expect(target.templateKey).toBe('label')
+    })
+
+    it('预分页：每页行容量、页码连续、末页余量', () => {
+      const target = create()
+      expect(target.rowsPerPage).toBe(2)
+      expect(target.pageRows()).toEqual([2, 2, 1])
+      expect(target.pageIndexes()).toEqual([1, 2, 3])
+      expect(target.pageCount).toBe(3)
+    })
+
+    it('字段渲染与缺失占位', () => {
+      const target = create()
+      expect(target.fieldText('customer')).toBe('华东制造有限公司')
+      expect(target.fieldText('remark')).toBe('—')
+    })
+
+    it('水印（单据级标签 + 用户信息）与黑白', () => {
+      const target = create()
+      expect(target.mono).toBe(false)
+
+      target.setWatermarkLabel('作废')
+      expect(target.watermarkText).toContain('作废')
+      expect(target.watermarkText).toContain('张三')
+
+      target.setTone('mono')
+      expect(target.mono).toBe(true)
+    })
+
+    it('预览显隐与缩放夹取', () => {
+      const target = create()
+      expect(target.previewVisible).toBe(false)
+
+      target.open()
+      expect(target.previewVisible).toBe(true)
+
+      expect(target.setZoom(2)).toBe(1.2)
+      expect(target.setZoom(0.1)).toBe(0.6)
+
+      target.close()
+      expect(target.previewVisible).toBe(false)
+    })
+
+    it('批量模式切换', () => {
+      const target = create()
+      expect(target.batchMode).toBe('separate')
+      target.setBatchMode('merged')
+      expect(target.batchMode).toBe('merged')
+    })
+
+    it('导出占位：未注入处理不动作', async () => {
+      const target = create()
+      await expect(target.exportPdf()).resolves.toBeUndefined()
+      expect(target.phase).toBe('idle')
+    })
+
+    it('注入后导出阶段推进并保留结果', async () => {
+      const target = create()
+      const progress: number[] = []
+      target.setExportHandler(async (report) => {
+        report(1, 3)
+        progress.push(1)
+        return { fileId: 'f1' }
+      })
+
+      await expect(target.exportPdf()).resolves.toEqual({ fileId: 'f1' })
+      expect(target.phase).toBe('done')
+      expect(progress).toEqual([1])
+    })
+
+    it('导出失败置 failed，retry 恢复', async () => {
+      const target = create()
+      let fail = true
+      target.setExportHandler(async () => {
+        if (fail) {
+          throw new Error('导出失败')
+        }
+        return { fileId: 'f2' }
+      })
+
+      await expect(target.exportPdf()).resolves.toBeUndefined()
+      expect(target.phase).toBe('failed')
+
+      fail = false
+      await expect(target.retry()).resolves.toEqual({ fileId: 'f2' })
+      expect(target.phase).toBe('done')
+    })
+
+    it('导出中重复请求不动作（防重复提交）', async () => {
+      const target = create()
+      let release: () => void = () => {}
+      const gate = new Promise<void>((resolve) => {
+        release = resolve
+      })
+      target.setExportHandler(async () => {
+        await gate
+        return { fileId: 'f3' }
+      })
+
+      const pending = target.exportPdf()
+      expect(target.phase).toBe('exporting')
+      await expect(target.exportPdf()).resolves.toBeUndefined()
+
+      release()
+      await expect(pending).resolves.toEqual({ fileId: 'f3' })
+    })
+
+    it('导出许可关闭时不可导出', async () => {
+      const target = create()
+      target.setExportHandler(async () => ({ fileId: 'f4' }))
+
+      target.setAllowExport(false)
+      expect(target.canExport).toBe(false)
+      await expect(target.exportPdf()).resolves.toBeUndefined()
+    })
+  })
+}
+
 /** 租户切换契约面。 */
 export interface TenantContractTarget {
   /** 切换阶段。 */
