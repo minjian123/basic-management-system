@@ -39,6 +39,7 @@ export const CAPABILITY_MANIFEST: Readonly<Record<string, readonly string[]>> = 
   tenant: ['module-context', 'theme', 'notice'],
   'print-template': ['watermark', 'locale'],
   print: ['print-template', 'async-task', 'access', 'notice'],
+  'permission-config': ['tree-data', 'access', 'notice'],
   mounted: [],
   'design-token': [],
   container: ['sized'],
