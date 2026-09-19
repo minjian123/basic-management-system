@@ -81,14 +81,22 @@ export {
   type ExportPayload,
   type ExportScope,
 } from './components/import-export/ExportButton.vue'
+// 说明：`FormDesignerCanvas` / `FieldPropertyPanel` / `ExtFieldDialog` 为独立分包懒加载入口（`defineAsyncComponent`），
+// 不作为根出口静态导出，否则会被静态引入而使动态导入无法分包。
 export {
   default as FormDesigner,
+  type DesignerBlockAction,
   type DesignerField,
-  type DesignerLevel,
+  type DesignerLayer,
+  type DesignerLevelType as DesignerLevel,
   type DesignerSection,
   type DesignerSelection,
-  type FormLayout,
-} from './components/interaction/FormDesigner.vue'
+  type DesignerView,
+  type FormLayoutShape as FormLayout,
+} from './components/form-design/FormDesigner.vue'
+export type { FieldPropertyPatch, SectionPropertyPatch, CanvasPropertyPatch } from './components/form-design/FieldPropertyPanel.vue'
+export type { ExtFieldCreated } from './components/form-design/ExtFieldDialog.vue'
+export type { DesignerMoveEvent } from './components/form-design/FormDesignerCanvas.vue'
 export {
   default as FormRenderer,
   type FormRenderMode,
@@ -384,3 +392,14 @@ export {
   type UseBaseExportFlowResult,
 } from './composables/useBaseExportFlow'
 export { triggerDownload, type TriggerDownloadInput } from './utils/downloadFile'
+export {
+  toDesignerDrop,
+  toDragPayload,
+  type SortableMoveInput,
+  type SortablePhaseInput,
+} from './utils/dragSortable'
+export {
+  useBaseFormDesigner,
+  type UseBaseFormDesignerOptions,
+  type UseBaseFormDesignerResult,
+} from './composables/useBaseFormDesigner'
