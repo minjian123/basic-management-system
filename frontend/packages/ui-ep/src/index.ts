@@ -146,13 +146,19 @@ export {
 } from './composables/useBaseMessageCatalog'
 export { default as ReportDesigner } from './components/report/ReportDesigner.vue'
 export type { ReportChartItem, ReportDataset } from '@bms/core'
+export { default as ScreenDesigner, type ScreenPage } from './components/screen/ScreenDesigner.vue'
+export type { ScreenComponent, ScreenComponentType } from '@bms/core'
+export { default as ScreenPlayer, type ScreenPlayerPage } from './components/screen/ScreenPlayer.vue'
 export {
-  default as ScreenDesigner,
-  type ScreenComponent,
-  type ScreenComponentType,
-  type ScreenPage,
-} from './components/interaction/ScreenDesigner.vue'
-export { default as ScreenPlayer, type ScreenPlayerPage } from './components/interaction/ScreenPlayer.vue'
+  useBaseScreenDesigner,
+  type UseBaseScreenDesignerOptions,
+  type UseBaseScreenDesignerResult,
+} from './composables/useBaseScreenDesigner'
+export {
+  useBaseScreenPlayer,
+  type UseBaseScreenPlayerOptions,
+  type UseBaseScreenPlayerResult,
+} from './composables/useBaseScreenPlayer'
 export {
   default as AiAssistant,
   type AiCitation,

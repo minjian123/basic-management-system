@@ -18,6 +18,8 @@ export * from './approval-flow'
 export * from './process-modeler'
 export * from './chart'
 export * from './report-designer'
+export * from './screen-designer'
+export * from './screen-player'
 
 /** 契约用例套件定义体。 */
 export type ContractDefine = () => void
