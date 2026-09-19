@@ -16,6 +16,7 @@ export * from './form-render'
 export * from './message-catalog'
 export * from './approval-flow'
 export * from './process-modeler'
+export * from './chart'
 
 /** 契约用例套件定义体。 */
 export type ContractDefine = () => void

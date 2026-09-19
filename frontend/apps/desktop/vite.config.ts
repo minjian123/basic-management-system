@@ -24,6 +24,10 @@ export default defineConfig({
           if (id.includes('node_modules/element-plus') || id.includes('node_modules/@element-plus')) {
             return 'vendor-element-plus'
           }
+          // 图表库独立分包（仅动态 import 时成为异步块，不进首屏）
+          if (id.includes('node_modules/echarts') || id.includes('node_modules/zrender')) {
+            return 'vendor-echarts'
+          }
           if (id.includes('/packages/')) {
             return 'bms-base'
           }

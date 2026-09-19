@@ -70,6 +70,7 @@ export const CAPABILITY_MANIFEST: Readonly<Record<string, readonly string[]>> = 
   'dynamic-routes': [],
   'form-meta': [],
   'form-page': ['form-meta'],
+  chart: ['data-state'],
 }
 
 /** 校验问题种类。 */
