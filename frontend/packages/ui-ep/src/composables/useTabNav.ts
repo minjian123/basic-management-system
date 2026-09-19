@@ -86,7 +86,7 @@ class TabNavState extends BaseTabs {
  */
 export function useTabNav(options: UseTabNavOptions = {}): UseTabNavResult {
   const { confirm } = useConfirm()
-  const storage = useBasePersistedState({ stateKey: options.storageKey ?? '' })
+  const storage = useBasePersistedState({ stateKey: options.storageKey ?? '', storage: 'session' })
   const state = new TabNavState()
   const tabs = ref<TabNavItem[]>([])
   const activeKey = ref('')
@@ -98,11 +98,7 @@ export function useTabNav(options: UseTabNavOptions = {}): UseTabNavResult {
       return
     }
     storage.setLocal({ tabs: tabs.value, activeKey: activeKey.value })
-    try {
-      sessionStorage.setItem(options.storageKey, JSON.stringify(storage.local.value))
-    } catch {
-      // 隐私模式等场景降级为不持久化。
-    }
+    storage.persist()
   }
 
   function sync(): void {
@@ -186,14 +182,7 @@ export function useTabNav(options: UseTabNavOptions = {}): UseTabNavResult {
   }
 
   function restore(): void {
-    const stored = options.storageKey === undefined ? undefined : sessionStorage.getItem(options.storageKey)
-    const parsed =
-      stored === null || stored === undefined
-        ? undefined
-        : (JSON.parse(stored) as { tabs: TabNavItem[]; activeKey: string })
-    if (parsed !== undefined) {
-      storage.setLocal(parsed)
-    }
+    const parsed = storage.restore() ? (storage.local.value as { tabs: TabNavItem[]; activeKey: string }) : undefined
     const source: TabNavItem[] = parsed?.tabs ?? options.initial ?? []
     const storedActive = parsed?.activeKey ?? ''
     for (const item of source) {

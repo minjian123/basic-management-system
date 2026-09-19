@@ -405,3 +405,25 @@ export {
   type UseBaseFormPageOptions,
   type UseBaseFormPageResult,
 } from './composables/useBaseFormPage'
+export { default as StepWizard } from './components/interaction/StepWizard.vue'
+export { default as WizardStep } from './components/interaction/WizardStep.vue'
+export { default as PreferencePanel } from './components/interaction/PreferencePanel.vue'
+export { default as PreferenceGroup } from './components/interaction/PreferenceGroup.vue'
+export {
+  useBaseWizard,
+  type UseBaseWizardOptions,
+  type UseBaseWizardResult,
+} from './composables/useBaseWizard'
+export {
+  usePreferences,
+  type UsePreferencesOptions,
+  type UsePreferencesResult,
+} from './composables/usePreferences'
+export {
+  DEFAULT_PREFERENCE_GROUPS,
+  resolvePreferenceGroups,
+  type PreferenceControl,
+  type PreferenceGroupDef,
+  type PreferenceItem,
+  type PreferenceOption,
+} from './utils/preferenceItems'

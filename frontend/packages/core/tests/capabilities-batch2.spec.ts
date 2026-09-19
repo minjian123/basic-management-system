@@ -56,6 +56,69 @@ describe('BasePersistedState 偏好持久化能力', () => {
     state.remoteVersion = 5
     expect(state.needsRemoteRefresh(3)).toBe(false)
   })
+
+  it('本地存储读写 / 快照回滚 / 保存与待同步 / 恢复默认', async () => {
+    const store = new Map<string, string>()
+    const state = new DemoPersisted()
+    expect(state.persist()).toBe(false)
+
+    state.stateKey = 'bms_preferences'
+    state.storage = {
+      getItem: (key: string): string | null => store.get(key) ?? null,
+      setItem: (key: string, value: string): void => {
+        store.set(key, value)
+      },
+      removeItem: (key: string): void => {
+        store.delete(key)
+      },
+    }
+
+    state.setLocal({ themeMode: 'dark' })
+    expect(state.hasLocal).toBe(true)
+    expect(state.persist()).toBe(true)
+    expect(store.get('bms_preferences')).toBe('{"themeMode":"dark"}')
+
+    state.snapshot()
+    state.setLocal({ themeMode: 'light' })
+    expect(state.dirty).toBe(true)
+    expect(state.rollback()).toBe(true)
+    expect(state.local).toEqual({ themeMode: 'dark' })
+    expect(state.dirty).toBe(false)
+
+    store.set('bms_preferences', '{"themeMode":"system"}')
+    expect(state.restore()).toBe(true)
+    expect(state.local).toEqual({ themeMode: 'system' })
+
+    store.set('bms_preferences', '{oops')
+    expect(state.restore()).toBe(false)
+
+    state.setLocal({ themeMode: 'dark' })
+    await expect(state.save()).resolves.toBe(false)
+    expect(state.pendingSync).toBe(true)
+
+    const sent: unknown[] = []
+    state.remoteSaver = async (value): Promise<void> => {
+      sent.push(value)
+    }
+    await expect(state.save()).resolves.toBe(true)
+    expect(state.pendingSync).toBe(false)
+    expect(sent).toEqual([{ themeMode: 'dark' }])
+
+    state.remoteSaver = async (): Promise<void> => {
+      throw new Error('network')
+    }
+    await expect(state.save()).resolves.toBe(false)
+    expect(state.pendingSync).toBe(true)
+
+    state.remoteSaver = undefined
+    await state.reset({ themeMode: 'light' })
+    expect(state.local).toEqual({ themeMode: 'light' })
+
+    state.clear()
+    expect(state.hasLocal).toBe(false)
+    expect(state.local).toBeUndefined()
+    expect(store.has('bms_preferences')).toBe(false)
+  })
 })
 
 describe('BaseMounted 可挂载能力', () => {
