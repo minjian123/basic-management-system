@@ -27,12 +27,7 @@ export {
   type SizeToken,
 } from './base/BaseComponent'
 
-export {
-  ErrorCodes,
-  FRONTEND_RESERVED_SEGMENT,
-  isFrontendReservedCode,
-  type ErrorCode,
-} from './mechanisms/error-codes'
+export { ErrorCodes, FRONTEND_RESERVED_SEGMENT, isFrontendReservedCode, type ErrorCode } from './mechanisms/error-codes'
 export { BaseCapability } from './mechanisms/capability'
 export { BasePluggable, DEFAULT_CONTRACT_VERSION } from './mechanisms/pluggable'
 export { BaseError, type BaseErrorOptions } from './mechanisms/error'
@@ -41,22 +36,12 @@ export { BaseProvider } from './mechanisms/provider'
 export { BaseFactory } from './mechanisms/factory'
 export { BaseAsyncResource, type Disposable } from './mechanisms/resource'
 export { BaseSubscription } from './mechanisms/subscription'
-export {
-  BaseNullObject,
-  BasePlaceholder,
-  BaseStub,
-  type PlaceholderReason,
-} from './mechanisms/placeholder'
+export { BaseNullObject, BasePlaceholder, BaseStub, type PlaceholderReason } from './mechanisms/placeholder'
 
 export { BaseValue, type ValueListener } from './capabilities/value'
 export { BaseField, type FieldTrigger } from './capabilities/field'
 export { BaseSized } from './capabilities/sized'
-export {
-  BaseDataState,
-  type DataStateListener,
-  type DataStateName,
-  type SettleState,
-} from './capabilities/data-state'
+export { BaseDataState, type DataStateListener, type DataStateName, type SettleState } from './capabilities/data-state'
 export { BaseOverlay, type OverlayListener } from './capabilities/overlay'
 export { BaseNotice, type NoticeItem, type NoticeType } from './capabilities/notice'
 export { BaseLabeled, type LabelPosition } from './capabilities/labeled'
@@ -69,11 +54,7 @@ export {
   type CapabilityProblemKind,
 } from './capabilities/manifest'
 
-export {
-  BasePersistedState,
-  type PersistedRemoteSaver,
-  type PersistedStorage,
-} from './capabilities/persisted-state'
+export { BasePersistedState, type PersistedRemoteSaver, type PersistedStorage } from './capabilities/persisted-state'
 export {
   BaseWizard,
   type WizardResult,
@@ -81,12 +62,7 @@ export {
   type WizardValidation,
   type WizardValidatorResult,
 } from './capabilities/wizard'
-export {
-  BaseSelection,
-  type SelectionKey,
-  type SelectionMode,
-  type SelectionSummary,
-} from './capabilities/selection'
+export { BaseSelection, type SelectionKey, type SelectionMode, type SelectionSummary } from './capabilities/selection'
 export {
   BaseBulkAction,
   type BulkActionContext,
@@ -95,23 +71,9 @@ export {
   type BulkActionProgress,
   type BulkActionResult,
 } from './capabilities/bulk-action'
-export {
-  BaseTheme,
-  type BrandConfig,
-  type ResolvedTheme,
-  type ThemeMode,
-} from './capabilities/theme'
-export {
-  BaseTenant,
-  type TenantSummary,
-  type TenantSwitchPhase,
-  type TenantSwitchSteps,
-} from './capabilities/tenant'
-export {
-  BasePrintTemplate,
-  type PrintBrand,
-  type PrintContext,
-} from './capabilities/print-template'
+export { BaseTheme, type BrandConfig, type ResolvedTheme, type ThemeMode } from './capabilities/theme'
+export { BaseTenant, type TenantSummary, type TenantSwitchPhase, type TenantSwitchSteps } from './capabilities/tenant'
+export { BasePrintTemplate, type PrintBrand, type PrintContext } from './capabilities/print-template'
 export {
   BasePrint,
   PRINT_JOB_PLACEHOLDER,
@@ -123,29 +85,25 @@ export {
   type PrintPhase,
   type PrintProgress,
 } from './capabilities/print'
-export { BaseMounted, type MountListener } from './capabilities/mounted'
 export {
-  BaseDesignToken,
-  type DesignTokens,
-  type ThemeListener,
-} from './capabilities/design-token'
+  BasePermissionConfig,
+  type PermissionCodesHandler,
+  type PermissionJobs,
+  type PermissionLoadHandler,
+  type PermissionPhase,
+  type PermissionSubmitHandler,
+  type PermissionSubmitResult,
+} from './capabilities/permission-config'
+export { BaseMounted, type MountListener } from './capabilities/mounted'
+export { BaseDesignToken, type DesignTokens, type ThemeListener } from './capabilities/design-token'
 export { BaseClickable } from './capabilities/interactive'
 export { BaseDragDrop, type DragListener, type DragPayload, type DragPhase } from './capabilities/drag-drop'
 export { BaseTabs, type TabItem } from './capabilities/tabs'
 export { BaseLocale, type LocaleFormatContext } from './capabilities/locale'
 export { BaseAccess } from './capabilities/access'
-export {
-  BaseModuleContext,
-  type ModuleContext,
-  type ModuleContextKey,
-} from './capabilities/module-context'
+export { BaseModuleContext, type ModuleContext, type ModuleContextKey } from './capabilities/module-context'
 
-export {
-  BaseAsyncTask,
-  type TaskExecutor,
-  type TaskProgress,
-  type TaskStatus,
-} from './capabilities/async-task'
+export { BaseAsyncTask, type TaskExecutor, type TaskProgress, type TaskStatus } from './capabilities/async-task'
 export { BaseUploadEngine, type Uploader } from './capabilities/upload-engine'
 export { BaseEditorKernel, type EditorMode } from './capabilities/editor-kernel'
 export { BaseOptionSource, type OptionItem } from './capabilities/option-source'
@@ -186,17 +144,54 @@ export {
   mask,
   type FormatContext,
 } from './domain/format'
-export {
-  amount,
-  codePattern,
-  email,
-  lengthRange,
-  numberRange,
-  phone,
-  required,
-  url,
-} from './domain/validators'
+export { amount, codePattern, email, lengthRange, numberRange, phone, required, url } from './domain/validators'
 export { evaluatePermission, type PermissionMode } from './domain/permission'
+export {
+  PERMISSION_ERROR_TARGETS,
+  PERMISSION_GRANT_CODE,
+  PERMISSION_PLACEHOLDER_TEXT,
+  PERMISSION_SUBJECT_LIMIT,
+  PERMISSION_TABS,
+  applyPermissionCheck,
+  bindSubject,
+  collectDataScopes,
+  collectFieldEntries,
+  collectPayload,
+  deriveGranted,
+  deriveIdempotencyKey,
+  findFieldMismatch,
+  findFieldPerm,
+  findPermissionNode,
+  flattenPermissionTree,
+  isGrantable,
+  normalizeFieldPerms,
+  payloadKey,
+  resolveCheckState,
+  resolveErrorCode,
+  resolveErrorTarget,
+  setDataScope,
+  setFieldPerm,
+  unbindSubject,
+  type DataScopeEntry,
+  type DataScopeRow,
+  type FieldPermCell,
+  type FieldPermEntry,
+  type FieldPermInputCell,
+  type FieldPermInputRow,
+  type FieldPermRow,
+  type FlatPermissionNode,
+  type PermissionCheckState,
+  type PermissionErrorTarget,
+  type PermissionGranted,
+  type PermissionNode,
+  type PermissionNodeType,
+  type PermissionPayload,
+  type PermissionSnapshot,
+  type PermissionSubject,
+  type PermissionSubjectType,
+  type PermissionTab,
+  type SubjectBindResult,
+} from './domain/permission-config'
 export { resolveToken } from './domain/token'
 export {
   DEFAULT_BRAND_PRIMARY,
@@ -225,11 +220,7 @@ export {
   toMinorUnits,
   type DecimalRangeOptions,
 } from './domain/decimal'
-export {
-  computeVirtualRange,
-  type VirtualRange,
-  type VirtualRangeOptions,
-} from './domain/virtual-range'
+export { computeVirtualRange, type VirtualRange, type VirtualRangeOptions } from './domain/virtual-range'
 export {
   PLACEHOLDER_MENU,
   filterMenuByKeyword,
