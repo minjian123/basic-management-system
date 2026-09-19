@@ -197,3 +197,18 @@ export function mask(value: string, options: { head?: number; tail?: number } = 
   }
   return `${value.slice(0, head)}${'*'.repeat(value.length - head - tail)}${value.slice(value.length - tail)}`
 }
+
+/**
+ * 紧凑时间戳（`yyyyMMddHHmmss`，本地时区；下载文件名用）。
+ *
+ * @param value 日期（缺省当前时间）。
+ * @returns 14 位紧凑时间戳；非法值回落空串。
+ */
+export function formatCompactTimestamp(value: Date | number = new Date()): string {
+  const date = value instanceof Date ? value : new Date(value)
+  if (Number.isNaN(date.getTime())) {
+    return ''
+  }
+  const pad = (input: number): string => String(input).padStart(2, '0')
+  return `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}`
+}

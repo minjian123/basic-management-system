@@ -103,8 +103,49 @@ export { BaseLocale, type LocaleFormatContext } from './capabilities/locale'
 export { BaseAccess } from './capabilities/access'
 export { BaseModuleContext, type ModuleContext, type ModuleContextKey } from './capabilities/module-context'
 
-export { BaseAsyncTask, type TaskExecutor, type TaskProgress, type TaskStatus } from './capabilities/async-task'
-export { BaseUploadEngine, type Uploader } from './capabilities/upload-engine'
+export {
+  BaseAsyncTask,
+  type TaskExecutor,
+  type TaskPollOutcome,
+  type TaskPoller,
+  type TaskProgress,
+  type TaskStatus,
+  type TaskSubmitter,
+} from './capabilities/async-task'
+export {
+  BaseUploadEngine,
+  type UploadProgressReporter,
+  type Uploader,
+} from './capabilities/upload-engine'
+export {
+  BaseFileDownload,
+  DOWNLOAD_PLACEHOLDER_TEXT,
+  type DownloadFetcher,
+  type DownloadPhase,
+  type DownloadRequest,
+  type DownloadResult,
+  type DownloadSource,
+  type DownloadTrigger,
+} from './capabilities/file-download'
+export {
+  BaseImportFlow,
+  type ImportAbortSignal,
+  type ImportDownloadHandler,
+  type ImportDownloadInput,
+  type ImportExecuteHandler,
+  type ImportJobs,
+  type ImportPhase,
+  type ImportStep,
+} from './capabilities/import-flow'
+export {
+  BaseExportFlow,
+  type ExportHandler,
+  type ExportJobs,
+  type ExportPhase,
+  type ExportPollHandler,
+  type ExportRequest,
+  type ExportResult,
+} from './capabilities/export-flow'
 export { BaseEditorKernel, type EditorMode } from './capabilities/editor-kernel'
 export { BaseOptionSource, type OptionItem } from './capabilities/option-source'
 export { BasePresignedUrl, type PresignedResult } from './capabilities/presigned-url'
@@ -140,6 +181,7 @@ export {
   formatFileSize,
   formatNumber,
   formatPercent,
+  formatCompactTimestamp,
   formatRelativeTime,
   mask,
   type FormatContext,
@@ -281,6 +323,55 @@ export {
   type PrintToneResolve,
   type RowCapacityInput,
 } from './domain/print'
+export {
+  IMPORT_ACCEPT,
+  IMPORT_DEFAULT_MAX_SIZE,
+  IMPORT_ERROR_DISPLAY_LIMIT,
+  IMPORT_ERROR_PAGE_SIZE,
+  IMPORT_FILE_ERROR_RANGE,
+  IMPORT_PERM,
+  IMPORT_PLACEHOLDER_TEXT,
+  checkImportFile,
+  deriveImportKey,
+  errorReportFileName,
+  fileExtension,
+  isFileLevelError,
+  normalizeAccept,
+  normalizeImportResult,
+  paginateImportErrors,
+  resolveImportErrorText,
+  resolveImportSummary,
+  templateFileName,
+  type ImportErrorPage,
+  type ImportErrorRow,
+  type ImportErrorText,
+  type ImportFailReason,
+  type ImportFileCheck,
+  type ImportFileMeta,
+  type ImportResult,
+  type ImportResultInput,
+  type ImportSummaryState,
+} from './domain/import'
+export {
+  EXPORT_EMPTY_TEXT,
+  EXPORT_FILE_EXT,
+  EXPORT_PERM,
+  EXPORT_PLACEHOLDER_TEXT,
+  EXPORT_PLAIN_PERM,
+  EXPORT_QUEUED_TEXT,
+  canExportPlain,
+  exportErrorMessage,
+  exportFileName,
+  normalizeExportParams,
+  normalizeSelectedIds,
+  resolveExportDecision,
+  resolveExportMode,
+  type ExportDecision,
+  type ExportDecisionInput,
+  type ExportMode,
+  type ExportQueryParams,
+  type ExportScope,
+} from './domain/export'
 
 export {
   type LoadedModule,
@@ -328,4 +419,4 @@ export {
 export { BaseDataObject } from './contracts/data-object'
 export { BaseEntity } from './contracts/entity'
 export { BasePageQuery, type SortOrder } from './contracts/page-query'
-export { stableStringify } from './domain/serialize'
+export { fnv1aHex, stableStringify } from './domain/serialize'
