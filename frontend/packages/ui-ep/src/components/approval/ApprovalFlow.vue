@@ -345,7 +345,15 @@ async function retry(): Promise<void> {
   }
 }
 
-defineExpose({ api, submit, load: api.load, retry })
+defineExpose({
+  /** 编排基类实例（核对页与宿主读取普通字段用）。 */
+  approval: api.approval,
+  /** 编排投影（响应式面）。 */
+  projection: api,
+  submit,
+  load: api.load,
+  retry,
+})
 </script>
 
 <template>
