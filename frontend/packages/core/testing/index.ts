@@ -11,6 +11,8 @@ import { describe, expect, it } from 'vitest'
 
 import type { FeedbackState } from '../src'
 
+export * from './form-layout'
+
 /** 契约用例套件定义体。 */
 export type ContractDefine = () => void
 
