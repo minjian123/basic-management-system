@@ -68,12 +68,19 @@ export {
   type ModelerElementType,
   type ModelerValidateResult,
 } from './components/interaction/ProcessModeler.vue'
-export { default as ImportDialog, type ImportResult, type ImportStep } from './components/interaction/ImportDialog.vue'
+export {
+  default as ImportDialog,
+  type ImportResult,
+  type ImportStep,
+} from './components/import-export/ImportDialog.vue'
+export { default as ImportErrorReport } from './components/import-export/ImportErrorReport.vue'
+// 说明：`ExportProgress` / `ImportDialogBody` 为独立分包懒加载入口（`defineAsyncComponent`），
+// 不作为根出口静态导出，否则会被静态引入而使动态导入无法分包。
 export {
   default as ExportButton,
   type ExportPayload,
   type ExportScope,
-} from './components/interaction/ExportButton.vue'
+} from './components/import-export/ExportButton.vue'
 export {
   default as FormDesigner,
   type DesignerField,
@@ -361,3 +368,19 @@ export {
   type UseBaseFieldPermOptions,
   type UseBaseFieldPermResult,
 } from './composables/useBaseFieldPerm'
+export {
+  useBaseFileDownload,
+  type UseBaseFileDownloadOptions,
+  type UseBaseFileDownloadResult,
+} from './composables/useBaseFileDownload'
+export {
+  useBaseImportFlow,
+  type UseBaseImportFlowOptions,
+  type UseBaseImportFlowResult,
+} from './composables/useBaseImportFlow'
+export {
+  useBaseExportFlow,
+  type UseBaseExportFlowOptions,
+  type UseBaseExportFlowResult,
+} from './composables/useBaseExportFlow'
+export { triggerDownload, type TriggerDownloadInput } from './utils/downloadFile'
