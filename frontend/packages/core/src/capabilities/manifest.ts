@@ -32,6 +32,7 @@ export const CAPABILITY_MANIFEST: Readonly<Record<string, readonly string[]>> = 
   'persisted-state': [],
   'column-config': ['persisted-state'],
   'query-scheme': ['persisted-state'],
+  wizard: ['persisted-state'],
   mounted: [],
   'design-token': [],
   container: ['sized'],

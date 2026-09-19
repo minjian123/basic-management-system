@@ -369,3 +369,233 @@ export function describePlaceholderInteractionContract(
     })
   })
 }
+
+/** 向导契约面（步骤编排：可见步骤 / 分步与整体校验 / 跳转 / 分支 / 结果态）。 */
+export interface WizardContractTarget {
+  /** 可见步骤键（顺序）。 */
+  readonly visibleKeys: readonly string[]
+  /** 当前步骤键。 */
+  readonly currentKey: string | undefined
+  /** 已到达步骤键（保序）。 */
+  readonly visited: readonly string[]
+  /** 当前步校验失败文案。 */
+  readonly stepError: string
+  /** 是否处于结果态。 */
+  readonly isResult: boolean
+  /** 设置步骤集（含校验器）。 */
+  setSteps(steps: readonly WizardContractStep[]): void
+  /** 设置某步可见性（分支步骤）。 */
+  setVisible(key: string, visible: boolean): void
+  /** 下一步（含当前步校验）。 */
+  next(): Promise<boolean>
+  /** 上一步。 */
+  prev(): boolean
+  /** 跳转到指定步骤。 */
+  goTo(key: string): boolean
+  /** 整体校验。 */
+  validateAll(): Promise<WizardContractValidation>
+  /** 完成（进入结果态）。 */
+  complete(result: { status: 'success' | 'error'; title?: string; message?: string }): void
+  /** 重置。 */
+  reset(): void
+}
+
+/** 向导契约步骤（最小面）。 */
+export interface WizardContractStep {
+  /** 步骤键。 */
+  key: string
+  /** 可见条件（分支步骤）。 */
+  visible?: boolean
+  /** 当前步校验器。 */
+  validate?: () => boolean | string | Promise<boolean | string>
+}
+
+/** 向导契约校验结果。 */
+export interface WizardContractValidation {
+  /** 是否通过。 */
+  valid: boolean
+  /** 首个出错步骤键。 */
+  stepKey?: string
+  /** 错误文案。 */
+  message?: string
+}
+
+/**
+ * 向导契约（`BaseWizard` / `useBaseWizard` 投影；`08_03_01` 首次落地，后续移动端复用同一套断言）。
+ *
+ * 目标约定：`setSteps` 传入三步 `base` / `plan`（分支，`visible: false`）/ `admin`，
+ * `base` 校验器为 `() => false`（可通过 `setVisible` 驱动分支）之外的行为以本套件断言为准。
+ *
+ * @param name 契约名。
+ * @param create 目标工厂。
+ */
+export function describeWizardContract(name: string, create: () => WizardContractTarget): void {
+  describeContract(name, () => {
+    it('初始定位首个可见步（分支步不可见时跳过）', () => {
+      const target = create()
+      target.setSteps([
+        { key: 'base', validate: () => true },
+        { key: 'plan', visible: false, validate: () => true },
+        { key: 'admin', validate: () => true },
+      ])
+      expect(target.visibleKeys).toEqual(['base', 'admin'])
+      expect(target.currentKey).toBe('base')
+      expect(target.visited).toEqual(['base'])
+    })
+
+    it('分步校验：失败停本步并写错误文案，通过后前进并记已到达', async () => {
+      const target = create()
+      target.setSteps([
+        { key: 'base', validate: () => '请填写名称' },
+        { key: 'admin', validate: () => true },
+      ])
+
+      await expect(target.next()).resolves.toBe(false)
+      expect(target.currentKey).toBe('base')
+      expect(target.stepError).toBe('请填写名称')
+
+      target.setSteps([
+        { key: 'base', validate: () => true },
+        { key: 'admin', validate: () => true },
+      ])
+      await expect(target.next()).resolves.toBe(true)
+      expect(target.currentKey).toBe('admin')
+      expect(target.stepError).toBe('')
+      expect(target.visited).toEqual(['base', 'admin'])
+      expect(target.prev()).toBe(true)
+      expect(target.currentKey).toBe('base')
+    })
+
+    it('仅可跳「已到达」步骤', async () => {
+      const target = create()
+      target.setSteps([
+        { key: 'base', validate: () => true },
+        { key: 'plan', validate: () => true },
+        { key: 'admin', validate: () => true },
+      ])
+      expect(target.goTo('admin')).toBe(false)
+      expect(target.currentKey).toBe('base')
+
+      await target.next()
+      expect(target.currentKey).toBe('plan')
+      expect(target.goTo('base')).toBe(true)
+      expect(target.currentKey).toBe('base')
+    })
+
+    it('分支隐藏当前步后回退到最近有效可见步', async () => {
+      const target = create()
+      target.setSteps([
+        { key: 'base', validate: () => true },
+        { key: 'plan', validate: () => true },
+        { key: 'admin', validate: () => true },
+      ])
+      await target.next()
+      expect(target.currentKey).toBe('plan')
+
+      target.setVisible('plan', false)
+      expect(target.visibleKeys).toEqual(['base', 'admin'])
+      expect(target.currentKey).toBe('base')
+      expect(target.visited).not.toContain('plan')
+    })
+
+    it('整体校验停于首个出错步并定位', async () => {
+      const target = create()
+      target.setSteps([
+        { key: 'base', validate: () => true },
+        { key: 'admin', validate: () => '请填写账号' },
+        { key: 'confirm', validate: () => false },
+      ])
+      const result = await target.validateAll()
+      expect(result.valid).toBe(false)
+      expect(result.stepKey).toBe('admin')
+      expect(target.currentKey).toBe('admin')
+      expect(target.stepError).toBe('请填写账号')
+    })
+
+    it('结果态后导航不动作，重置归零', async () => {
+      const target = create()
+      target.setSteps([
+        { key: 'base', validate: () => true },
+        { key: 'admin', validate: () => true },
+      ])
+      await target.next()
+      target.complete({ status: 'success', title: '提交成功' })
+      expect(target.isResult).toBe(true)
+      await expect(target.next()).resolves.toBe(false)
+      expect(target.prev()).toBe(false)
+      expect(target.goTo('base')).toBe(false)
+
+      target.reset()
+      expect(target.isResult).toBe(false)
+      expect(target.currentKey).toBe('base')
+      expect(target.visited).toEqual(['base'])
+    })
+  })
+}
+
+/** 偏好契约面（偏好状态编排：写入 / 脏判定 / 保存与待同步 / 取消回滚 / 恢复默认）。 */
+export interface PreferencesContractTarget {
+  /** 全量偏好值（扁平键：`themeMode` / `notify.inbox` …）。 */
+  read(): Record<string, unknown>
+  /** 当前默认值（平台默认 ∩ 租户默认）。 */
+  defaults(): Record<string, unknown>
+  /** 是否有未保存变更。 */
+  readonly dirty: boolean
+  /** 远端待同步标记。 */
+  readonly pendingSync: boolean
+  /** 写入单项（不可选项不生效）。 */
+  setValue(key: string, value: unknown): void
+  /** 保存（返回是否全部成功，含远端）。 */
+  save(): Promise<boolean>
+  /** 取消（回滚到打开前快照）。 */
+  cancel(): void
+  /** 恢复默认（跳过不可选项）。 */
+  reset(): Promise<boolean>
+}
+
+/**
+ * 偏好契约（`usePreferences` 投影 / 偏好状态编排）。
+ *
+ * 目标约定：默认值 `themeMode = 'light'`，租户策略将 `accent` 置为不可选（`enabled: false`）；
+ * `create()` 返回「面板已打开（快照已记录）」的状态。
+ *
+ * @param name 契约名。
+ * @param create 目标工厂。
+ */
+export function describePreferencesContract(name: string, create: () => PreferencesContractTarget): void {
+  describeContract(name, () => {
+    it('写入后置脏标记，取消回滚到打开前快照', () => {
+      const target = create()
+      expect(target.dirty).toBe(false)
+      expect(target.read().themeMode).toBe('light')
+
+      target.setValue('themeMode', 'dark')
+      expect(target.read().themeMode).toBe('dark')
+      expect(target.dirty).toBe(true)
+
+      target.cancel()
+      expect(target.read().themeMode).toBe('light')
+      expect(target.dirty).toBe(false)
+    })
+
+    it('保存写本地；无远端注入时置待同步标记且不发请求', async () => {
+      const target = create()
+      target.setValue('listDensity', 'compact')
+      await expect(target.save()).resolves.toBe(false)
+      expect(target.pendingSync).toBe(true)
+      expect(target.read().listDensity).toBe('compact')
+    })
+
+    it('不可选项写入不生效，恢复默认跳过不可选项', async () => {
+      const target = create()
+      target.setValue('accent', true)
+      expect(target.read().accent).toBe(false)
+      expect(target.dirty).toBe(false)
+
+      target.setValue('themeMode', 'dark')
+      await target.reset()
+      expect(target.read().themeMode).toBe(target.defaults().themeMode)
+      expect(target.read().accent).toBe(false)
+    })
+  })
+}

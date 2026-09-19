@@ -60,7 +60,7 @@ const emit = defineEmits<{
 }>()
 
 const { hidden } = useBaseLayout()
-const persisted = useBasePersistedState({ stateKey: props.storageKey })
+const persisted = useBasePersistedState({ stateKey: props.storageKey, storage: 'session' })
 const { collapsed: collapsedState, setCollapsed, toggle } = useBaseContainer({ collapsible: true, collapsed: false })
 const { breakpoint, isMobile, isNarrow } = useResponsive({ breakpoints: props.breakpoints })
 
@@ -68,17 +68,6 @@ const drawerOpen = ref(false)
 
 const restored = (persisted.local.value as { collapsed?: boolean } | undefined)?.collapsed
 setCollapsed(props.collapsed ?? restored ?? false)
-
-function writeStorage(value: boolean): void {
-  if (props.storageKey === '') {
-    return
-  }
-  try {
-    sessionStorage.setItem(props.storageKey, JSON.stringify({ collapsed: value }))
-  } catch {
-    // 隐私模式等场景降级为不持久化。
-  }
-}
 
 watch(
   () => props.collapsed,
@@ -90,7 +79,7 @@ watch(
 )
 watch(collapsedState, (value) => {
   persisted.setLocal({ collapsed: value })
-  writeStorage(value)
+  persisted.persist()
 })
 watch(
   () => breakpoint.value,

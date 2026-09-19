@@ -69,7 +69,18 @@ export {
   type CapabilityProblemKind,
 } from './capabilities/manifest'
 
-export { BasePersistedState } from './capabilities/persisted-state'
+export {
+  BasePersistedState,
+  type PersistedRemoteSaver,
+  type PersistedStorage,
+} from './capabilities/persisted-state'
+export {
+  BaseWizard,
+  type WizardResult,
+  type WizardStep,
+  type WizardValidation,
+  type WizardValidatorResult,
+} from './capabilities/wizard'
 export { BaseMounted, type MountListener } from './capabilities/mounted'
 export {
   BaseDesignToken,
@@ -170,6 +181,23 @@ export {
   toRouteNodes,
   type MenuNode,
 } from './domain/menu'
+export {
+  PREFERENCE_DEFAULTS,
+  PREFERENCE_KEYS,
+  applyPreferenceDefaults,
+  diffPreferences,
+  isPreferenceEnabled,
+  isPreferenceVisible,
+  mergePreferences,
+  readPreferenceValue,
+  resolvePreferenceDefaults,
+  sanitizePreferences,
+  writePreferenceValue,
+  type PreferenceKey,
+  type PreferencePolicy,
+  type PreferencePolicyMap,
+  type PreferenceValues,
+} from './domain/preference'
 
 export {
   type LoadedModule,
