@@ -14,6 +14,8 @@ import type { FeedbackState } from '../src'
 export * from './form-layout'
 export * from './form-render'
 export * from './message-catalog'
+export * from './approval-flow'
+export * from './process-modeler'
 
 /** 契约用例套件定义体。 */
 export type ContractDefine = () => void

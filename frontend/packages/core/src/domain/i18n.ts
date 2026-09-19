@@ -12,8 +12,8 @@ import { fnv1aHex, stableStringify } from './serialize'
 export const I18N_PERM = 'i18n:manage'
 /** 默认语言（不可停用）。 */
 export const DEFAULT_LOCALE = 'zh-CN'
-/** 单条文案值长度上限。 */
-export const MESSAGE_VALUE_MAX = 2000
+/** 单条文案值长度上限（Unicode 码点；与后端 `len()` 同口径，中文与 emoji 均按 1 计）。 */
+export const MESSAGE_VALUE_MAX = 4000
 /** 文案网格每页行数（缺省）。 */
 export const MESSAGE_PAGE_SIZE = 50
 /** 筛选态每页行数（宿主可加大；用于切虚拟滚动）。 */
@@ -355,13 +355,13 @@ export function validateMessageKey(key: string): I18nCheckResult {
 }
 
 /**
- * 校验文案值长度（空值不算超长）。
+ * 校验文案值长度（空值不算超长；按 **Unicode 码点**计，中文与 emoji 均按 1 计）。
  *
  * @param value 文案值。
  * @returns 校验结果。
  */
 export function validateMessageValue(value: string): I18nCheckResult {
-  return String(value ?? '').length > MESSAGE_VALUE_MAX
+  return Array.from(String(value ?? '')).length > MESSAGE_VALUE_MAX
     ? fail(0, I18N_VALUE_TOO_LONG_TEXT)
     : OK
 }

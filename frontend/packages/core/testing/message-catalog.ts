@@ -251,7 +251,7 @@ export function describeMessageCatalogContract(
 
     it('值超长与非法命名拒绝，且不改动本地数据', async () => {
       const { target } = await loadedTarget()
-      expect(target.editCell({ key: 'user.form.email', locale: 'en-US', value: 'x'.repeat(2001) })).toBe(false)
+      expect(target.editCell({ key: 'user.form.email', locale: 'en-US', value: 'x'.repeat(4001) })).toBe(false)
       expect(target.dirty).toBe(false)
       expect(target.addKey({ key: 'invalidkey' })).toBe(false)
       expect(target.addKey({ key: 'user.form.phone' })).toBe(true)
