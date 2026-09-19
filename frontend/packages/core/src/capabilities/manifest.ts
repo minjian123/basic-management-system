@@ -45,6 +45,7 @@ export const CAPABILITY_MANIFEST: Readonly<Record<string, readonly string[]>> = 
   'export-flow': ['async-task', 'file-download', 'access', 'notice'],
   'form-designer': ['drag-drop', 'form-meta', 'access', 'notice'],
   'form-renderer': ['form-meta', 'field-perm', 'access', 'notice', 'validatable'],
+  'message-catalog': ['locale', 'access', 'notice'],
   mounted: [],
   'design-token': [],
   container: ['sized'],

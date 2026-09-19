@@ -115,12 +115,22 @@ export {
   resolveFieldComponent,
   resolveFieldComponentByType,
 } from './utils/formWidgets'
+// 说明：`MessageGrid` 为独立分包懒加载入口（`defineAsyncComponent`），
+// 不作为根出口静态导出，否则会被静态引入而使动态导入无法分包。
 export {
   default as I18nMessageEditor,
   type I18nChangePayload,
   type I18nLocale,
   type I18nMessageRow,
-} from './components/interaction/I18nMessageEditor.vue'
+  type MessageTab,
+} from './components/i18n/I18nMessageEditor.vue'
+export { default as LocaleList } from './components/i18n/LocaleList.vue'
+export { default as MessageFilter } from './components/i18n/MessageFilter.vue'
+export {
+  useBaseMessageCatalog,
+  type UseBaseMessageCatalogOptions,
+  type UseBaseMessageCatalogResult,
+} from './composables/useBaseMessageCatalog'
 export {
   default as ReportDesigner,
   type ReportChartItem,
