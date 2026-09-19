@@ -65,6 +65,59 @@ describe('BaseAsyncTask 异步任务能力', () => {
     await running
     expect(task.status).toBe('canceled')
   })
+
+  it('仅注入 executor 时单段路径不变（poller 不参与）', async () => {
+    const task = new DemoTask()
+    task.executor = async () => 1
+    task.poller = async () => ({ done: true, result: 99 })
+    await task.submit()
+    expect(task.result).toBe(1)
+    expect(task.status).toBe('done')
+  })
+
+  it('poller 两段：提交 → 轮询 → 结果（进度透出与退避重试）', async () => {
+    const task = new DemoTask()
+    task.pollInterval = 1
+    const attempts: number[] = []
+    task.submitter = async () => 'handle-1'
+    task.poller = async (handle, attempt) => {
+      expect(handle).toBe('handle-1')
+      attempts.push(attempt)
+      return attempt < 3 ? { done: false, progress: { value: attempt, total: 3 } } : { done: true, result: 7 }
+    }
+    await task.submit()
+    expect(attempts).toEqual([1, 2, 3])
+    expect(task.status).toBe('done')
+    expect(task.result).toBe(7)
+    expect(task.progress).toEqual({ value: 2, total: 3 })
+  })
+
+  it('poller 两段：取消后置 canceled 且不再轮询', async () => {
+    const task = new DemoTask()
+    task.pollInterval = 1
+    let aborted = false
+    task.abort = () => {
+      aborted = true
+    }
+    task.submitter = async () => 'handle-2'
+    task.poller = async () => ({ done: false, progress: { value: 1, total: 10 } })
+    const pending = task.submit()
+    task.cancel()
+    await pending
+    expect(aborted).toBe(true)
+    expect(task.status).toBe('canceled')
+  })
+
+  it('poller 两段：轮询抛错置 error', async () => {
+    const task = new DemoTask()
+    task.pollInterval = 1
+    task.submitter = async () => 'handle-3'
+    task.poller = async () => {
+      throw new Error('轮询失败')
+    }
+    await task.submit()
+    expect(task.status).toBe('error')
+  })
 })
 
 describe('BaseUploadEngine 上传引擎能力', () => {
@@ -77,6 +130,51 @@ describe('BaseUploadEngine 上传引擎能力', () => {
     expect(await upload.upload('f')).toBe('key-1')
     expect(upload.progress).toBe(100)
     upload.cancel()
+    expect(upload.progress).toBe(0)
+  })
+
+  it('进度回传夹取到 0 ~ 100；失败保留当前进度', async () => {
+    const upload = new DemoUpload()
+    const seen: number[] = []
+    upload.uploader = async (_file, report) => {
+      report(-10)
+      seen.push(upload.progress)
+      report(150)
+      seen.push(upload.progress)
+      return 'key-2'
+    }
+    await expect(upload.upload('f')).resolves.toBe('key-2')
+    expect(seen).toEqual([0, 100])
+
+    upload.uploader = async (_file, report) => {
+      report(30)
+      throw new Error('上传失败')
+    }
+    await expect(upload.upload('f')).rejects.toThrow('上传失败')
+    expect(upload.progress).toBe(30)
+  })
+
+  it('取消中断在途上传（返回 undefined、置取消态且不置满）', async () => {
+    const upload = new DemoUpload()
+    let aborted = false
+    let release: () => void = () => {}
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    upload.abort = () => {
+      aborted = true
+    }
+    upload.uploader = async (_file, report) => {
+      report(50)
+      await gate
+      return 'key-3'
+    }
+    const pending = upload.upload('f')
+    upload.cancel()
+    release()
+    await expect(pending).resolves.toBeUndefined()
+    expect(aborted).toBe(true)
+    expect(upload.canceled).toBe(true)
     expect(upload.progress).toBe(0)
   })
 })

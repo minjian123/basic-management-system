@@ -1686,3 +1686,654 @@ export function describePermissionConfigContract(name: string, create: () => Per
     })
   })
 }
+
+/** 导入流契约结果装载输入（后端可省略字段）。 */
+export interface ImportContractResultInput {
+  /** 总行数。 */
+  total?: number
+  /** 成功行数。 */
+  successCount?: number
+  /** 失败行数。 */
+  failCount?: number
+  /** 错误行。 */
+  errors?: readonly { row?: number; column?: string; message?: string }[]
+}
+
+/** 导入流契约结果（归一后）。 */
+export interface ImportContractResult {
+  /** 总行数。 */
+  total: number
+  /** 成功行数。 */
+  successCount: number
+  /** 失败行数。 */
+  failCount: number
+  /** 错误行。 */
+  errors: readonly { row: number; column?: string; message: string }[]
+}
+
+/** 导入流契约执行处理函数。 */
+export type ImportContractExecute = (input: {
+  /** 业务标识。 */
+  biz: string
+  /** 文件对象。 */
+  file: unknown
+  /** 幂等键。 */
+  idempotencyKey: string
+  /** 上传进度回传。 */
+  report: (percent: number) => void
+  /** 中断信号。 */
+  signal: { readonly aborted: boolean }
+}) => Promise<ImportContractResultInput | undefined>
+
+/** 导入流契约下载处理函数（取址）。 */
+export type ImportContractDownload = (input: {
+  /** 业务标识。 */
+  biz: string
+  /** 用途。 */
+  kind: 'template' | 'errors'
+  /** 请求文件名。 */
+  filename: string
+  /** 幂等键（错误明细用）。 */
+  idempotencyKey?: string
+}) => Promise<{ url?: string; filename?: string } | undefined>
+
+/** 导入流契约注入面。 */
+export interface ImportContractJobs {
+  /** 执行导入。 */
+  execute?: ImportContractExecute
+  /** 模板下载取址。 */
+  downloadTemplate?: ImportContractDownload
+  /** 错误明细下载取址。 */
+  downloadErrors?: ImportContractDownload
+}
+
+/** 导入流契约面（结构化；实现侧可用基类实例或投影适配器接入）。 */
+export interface ImportFlowContractTarget {
+  /** 是否就绪。 */
+  readonly ready: boolean
+  /** 是否降级（占位）态。 */
+  readonly degraded: boolean
+  /** 是否进行中。 */
+  readonly busy: boolean
+  /** 请求计数（占位期恒 0）。 */
+  readonly requestCount: number
+  /** 阶段。 */
+  readonly phase: string
+  /** 步骤。 */
+  readonly step: string
+  /** 进度（0 ~ 100）。 */
+  readonly progress: number
+  /** 幂等键。 */
+  readonly idempotencyKey: string
+  /** 文件校验失败文案。 */
+  readonly fileError: string
+  /** 结果汇总态。 */
+  readonly summary: string
+  /** 错误行总页数。 */
+  readonly errorPageCount: number
+  /** 当前页错误行。 */
+  readonly errorRows: readonly { row: number; column?: string; message: string }[]
+  /** 是否触发展示上限截断。 */
+  readonly errorTruncated: boolean
+  /** 设置就绪态。 */
+  setReady(value: boolean): void
+  /** 设置业务标识与中文名。 */
+  setBiz(biz: string, bizName?: string): void
+  /** 注入处理函数集。 */
+  setJobs(jobs: ImportContractJobs): void
+  /** 注入下载触发（实现侧可传下载基类实例；套件不解释其内部）。 */
+  setDownload(download: unknown): void
+  /** 选择文件并校验。 */
+  selectFile(file: unknown, meta: { name: string; size: number; lastModified?: number }): boolean
+  /** 清空文件与幂等键。 */
+  clearFile(): void
+  /** 切换错误行页码。 */
+  setErrorPage(page: number): void
+  /** 提交导入。 */
+  submit(): Promise<unknown>
+  /** 重试失败导入。 */
+  retry(): Promise<unknown>
+  /** 重新导入（整体重置）。 */
+  reset(): void
+  /** 取消导入。 */
+  cancel(): void
+  /** 下载模板。 */
+  downloadTemplate(): Promise<unknown>
+  /** 下载错误明细。 */
+  downloadErrors(): Promise<unknown>
+  /** 当前结果。 */
+  result(): ImportContractResult | undefined
+}
+
+/**
+ * 导入流契约（`BaseImportFlow` / `useBaseImportFlow` 投影；`08-5-1` 首次落地，后续移动端复用同一套断言）。
+ *
+ * 目标约定：业务 `users` / 中文名「用户」；文件 `users.xlsx`（1KB）；执行处理函数返回部分失败结果；
+ * 「未注入执行处理」与「未就绪」两条占位路径均要求零请求。实现侧不得改动对外形状。
+ *
+ * @param name 契约名。
+ * @param create 目标工厂。
+ */
+export function describeImportFlowContract(name: string, create: () => ImportFlowContractTarget): void {
+  /** 契约文件元信息。 */
+  const meta = { name: 'users.xlsx', size: 1024, lastModified: 1_700_000_000_000 }
+  /** 契约文件对象（透传用）。 */
+  const file = { kind: 'file', name: 'users.xlsx' }
+  /** 部分失败结果。 */
+  const partial: ImportContractResultInput = {
+    total: 100,
+    successCount: 98,
+    failCount: 2,
+    errors: [
+      { row: 3, column: 'email', message: '邮箱格式非法' },
+      { row: 7, message: '唯一性冲突' },
+    ],
+  }
+
+  /** 构造已就绪且已选文件的目标。 */
+  const readyTarget = (jobs: ImportContractJobs): ImportFlowContractTarget => {
+    const target = create()
+    target.setBiz('users', '用户')
+    target.setJobs(jobs)
+    target.setReady(true)
+    target.selectFile(file, meta)
+    return target
+  }
+
+  describeContract(name, () => {
+    it('未就绪时降级且不产生请求', async () => {
+      const target = create()
+      target.setBiz('users', '用户')
+      target.setJobs({ execute: async () => partial })
+      expect(target.ready).toBe(false)
+      expect(target.degraded).toBe(true)
+      target.selectFile(file, meta)
+      await expect(target.submit()).resolves.toBeUndefined()
+      expect(target.requestCount).toBe(0)
+    })
+
+    it('就绪但未注入执行处理时不产生请求（占位）', async () => {
+      const target = readyTarget({})
+      await expect(target.submit()).resolves.toBeUndefined()
+      expect(target.requestCount).toBe(0)
+    })
+
+    it('文件校验：类型 / 大小 / 空文件不通过且不生成幂等键', () => {
+      const target = create()
+      target.setBiz('users', '用户')
+      target.setReady(true)
+      expect(target.selectFile(file, { name: 'users.txt', size: 10 })).toBe(false)
+      expect(target.fileError).toContain('.xlsx')
+      expect(target.selectFile(file, { name: 'users.xlsx', size: 30 * 1024 * 1024 })).toBe(false)
+      expect(target.fileError).toContain('MB')
+      expect(target.selectFile(file, { name: 'users.xlsx', size: 0 })).toBe(false)
+      expect(target.fileError).toContain('空')
+      expect(target.idempotencyKey).toBe('')
+    })
+
+    it('幂等键为内容派生：同文件同键、换文件换键、清空重置', () => {
+      const target = create()
+      target.setBiz('users', '用户')
+      target.setReady(true)
+      expect(target.selectFile(file, meta)).toBe(true)
+      const first = target.idempotencyKey
+      expect(first).not.toBe('')
+      expect(target.selectFile(file, meta)).toBe(true)
+      expect(target.idempotencyKey).toBe(first)
+      target.selectFile(file, { ...meta, size: meta.size + 1 })
+      expect(target.idempotencyKey).not.toBe(first)
+      target.clearFile()
+      expect(target.idempotencyKey).toBe('')
+    })
+
+    it('提交：阶段推进、进度透出、结果归一与汇总态', async () => {
+      const target = readyTarget({
+        execute: async ({ idempotencyKey, report }) => {
+          expect(idempotencyKey).toBe(target.idempotencyKey)
+          report(30)
+          report(100)
+          return partial
+        },
+      })
+      await expect(target.submit()).resolves.toEqual(partial)
+      expect(target.requestCount).toBe(1)
+      expect(target.phase).toBe('done')
+      expect(target.step).toBe('result')
+      expect(target.progress).toBe(100)
+      expect(target.summary).toBe('warning')
+      expect(target.result()).toEqual(partial)
+      expect(target.errorRows).toHaveLength(2)
+      expect(target.errorPageCount).toBe(1)
+    })
+
+    it('汇总态：全部成功与无数据', async () => {
+      const ok = readyTarget({ execute: async () => ({ total: 3, successCount: 3, failCount: 0 }) })
+      await ok.submit()
+      expect(ok.summary).toBe('success')
+
+      const empty = readyTarget({ execute: async () => undefined })
+      await empty.submit()
+      expect(empty.summary).toBe('empty')
+      expect(empty.result()).toEqual({ total: 0, successCount: 0, failCount: 0, errors: [] })
+    })
+
+    it('错误行分页与展示上限截断标记', async () => {
+      const target = readyTarget({
+        execute: async () => ({
+          total: 1500,
+          successCount: 400,
+          failCount: 1100,
+          errors: Array.from({ length: 1100 }, (_, index) => ({ row: index + 2, message: '格式非法' })),
+        }),
+      })
+      await target.submit()
+      expect(target.errorTruncated).toBe(true)
+      expect(target.errorPageCount).toBe(50)
+      expect(target.errorRows).toHaveLength(20)
+      target.setErrorPage(2)
+      expect(target.errorRows[0]?.row).toBe(22)
+    })
+
+    it('执行失败：阶段置失败、不展示错误行、重试复用同一幂等键', async () => {
+      const keys: string[] = []
+      let attempt = 0
+      const target = readyTarget({
+        execute: async ({ idempotencyKey }) => {
+          keys.push(idempotencyKey)
+          attempt += 1
+          if (attempt === 1) {
+            throw new Error('文件解析失败')
+          }
+          return { total: 1, successCount: 1, failCount: 0 }
+        },
+      })
+      await expect(target.submit()).resolves.toBeUndefined()
+      expect(target.phase).toBe('failed')
+      expect(target.errorRows).toHaveLength(0)
+      await expect(target.retry()).resolves.toEqual({ total: 1, successCount: 1, failCount: 0, errors: [] })
+      expect(keys).toHaveLength(2)
+      expect(keys[0]).toBe(keys[1])
+      expect(target.phase).toBe('done')
+    })
+
+    it('进行中重复提交不动作', async () => {
+      let release: () => void = () => {}
+      const gate = new Promise<void>((resolve) => {
+        release = resolve
+      })
+      const target = readyTarget({
+        execute: async () => {
+          await gate
+          return { total: 1, successCount: 1, failCount: 0 }
+        },
+      })
+      const pending = target.submit()
+      expect(target.busy).toBe(true)
+      await expect(target.submit()).resolves.toBeUndefined()
+      release()
+      await expect(pending).resolves.toEqual({ total: 1, successCount: 1, failCount: 0, errors: [] })
+      expect(target.requestCount).toBe(1)
+    })
+
+    it('取消：中断在途执行并复位阶段与进度', async () => {
+      let release: () => void = () => {}
+      const gate = new Promise<void>((resolve) => {
+        release = resolve
+      })
+      const target = readyTarget({
+        execute: async () => {
+          await gate
+          return { total: 1, successCount: 1, failCount: 0 }
+        },
+      })
+      const pending = target.submit()
+      target.cancel()
+      release()
+      await expect(pending).resolves.toBeUndefined()
+      expect(target.phase).toBe('idle')
+      expect(target.progress).toBe(0)
+      expect(target.result()).toBeUndefined()
+    })
+
+    it('模板与错误明细下载：注入取址后返回结果，未注入则不动作', async () => {
+      const target = readyTarget({})
+      await expect(target.downloadTemplate()).resolves.toBeUndefined()
+
+      const calls: string[] = []
+      target.setJobs({
+        downloadTemplate: async ({ kind, filename }) => {
+          calls.push(`${kind}:${filename}`)
+          return { url: 'https://example.test/template.xlsx' }
+        },
+        downloadErrors: async ({ kind, filename, idempotencyKey }) => {
+          calls.push(`${kind}:${filename}:${idempotencyKey}`)
+          return { url: 'https://example.test/errors.xlsx' }
+        },
+      })
+      await expect(target.downloadTemplate()).resolves.toEqual({
+        url: 'https://example.test/template.xlsx',
+        filename: '用户-导入模板.xlsx',
+      })
+      await expect(target.downloadErrors()).resolves.toBeDefined()
+      expect(calls[0]).toBe('template:用户-导入模板.xlsx')
+      expect(calls[1]?.startsWith('errors:用户-导入错误明细-')).toBe(true)
+      expect(calls[1]?.endsWith(`:${target.idempotencyKey}`)).toBe(true)
+    })
+  })
+}
+
+/** 导出流契约结果。 */
+export interface ExportContractResult {
+  /** 文件标识。 */
+  fileId?: string
+  /** 文件名。 */
+  fileName?: string
+  /** 下载地址。 */
+  url?: string
+  /** 一次性令牌。 */
+  token?: string
+  /** 是否转后台任务。 */
+  async?: boolean
+  /** 提示文案。 */
+  message?: string
+}
+
+/** 导出流契约导出处理函数。 */
+export type ExportContractHandler = (input: {
+  /** 业务标识。 */
+  biz: string
+  /** 导出范围。 */
+  scope: string
+  /** 取数参数。 */
+  params?: Record<string, unknown>
+  /** 选中行标识。 */
+  selectedIds?: readonly string[]
+  /** 是否明文导出。 */
+  plain: boolean
+  /** 文件名。 */
+  filename: string
+  /** 中断信号。 */
+  signal: { readonly aborted: boolean }
+  /** 进度回传。 */
+  report: (progress: { value: number; total?: number }) => void
+}) => Promise<ExportContractResult | undefined>
+
+/** 导出流契约轮询处理函数。 */
+export type ExportContractPoll = (
+  handle: unknown,
+  attempt: number,
+) => Promise<{ done: boolean; progress?: { value: number; total?: number }; result?: ExportContractResult }>
+
+/** 导出流契约注入面。 */
+export interface ExportContractJobs {
+  /** 导出执行。 */
+  export?: ExportContractHandler
+  /** 后台任务轮询。 */
+  poll?: ExportContractPoll
+}
+
+/** 导出流契约面（结构化；实现侧可用基类实例或投影适配器接入）。 */
+export interface ExportFlowContractTarget {
+  /** 是否就绪。 */
+  readonly ready: boolean
+  /** 是否降级（占位）态。 */
+  readonly degraded: boolean
+  /** 是否进行中。 */
+  readonly busy: boolean
+  /** 请求计数（占位期恒 0）。 */
+  readonly requestCount: number
+  /** 阶段。 */
+  readonly phase: string
+  /** 进度。 */
+  readonly progress: { value: number; total?: number }
+  /** 是否可导出。 */
+  readonly canExport: boolean
+  /** 是否走后台异步通路。 */
+  readonly asyncMode: boolean
+  /** 当前筛选是否无数据。 */
+  readonly empty: boolean
+  /** 导出处理函数是否已注入。 */
+  readonly exportReady: boolean
+  /** 导出载荷。 */
+  plan(): {
+    biz: string
+    scope: string
+    params?: Record<string, unknown>
+    selectedIds?: string[]
+    plain: boolean
+    filename: string
+  }
+  /** 设置就绪态。 */
+  setReady(value: boolean): void
+  /** 设置业务标识与中文名。 */
+  setBiz(biz: string, bizName?: string): void
+  /** 设置取数参数。 */
+  setParams(params?: Record<string, unknown>): void
+  /** 设置导出范围与选中行。 */
+  setScope(scope: string, selectedIds?: readonly (string | number)[]): void
+  /** 设置当前筛选总条数。 */
+  setTotal(total: number): void
+  /** 设置是否申请明文导出。 */
+  setPlain(plain: boolean): void
+  /** 设置异步阈值。 */
+  setThreshold(threshold: number): void
+  /** 设置外部禁用。 */
+  setDisabled(disabled: boolean): void
+  /** 注入权限码集合（`undefined` 表示不注入权限上下文）。 */
+  setAccess(codes?: readonly string[]): void
+  /** 注入处理函数集。 */
+  setJobs(jobs: ExportContractJobs): void
+  /** 注入异步任务（实现侧应提供 `pollInterval` 尽可能小的实例以免测试等待）。 */
+  newTask(): unknown
+  /** 注入异步任务实例。 */
+  setTask(task: unknown): void
+  /** 注入下载触发（实现侧可传下载基类实例；套件不解释其内部）。 */
+  setDownload(download: unknown): void
+  /** 最近一次结果。 */
+  lastResult(): ExportContractResult | undefined
+  /** 触发导出。 */
+  export(): Promise<unknown>
+  /** 重试失败导出。 */
+  retry(): Promise<unknown>
+  /** 取消导出。 */
+  cancel(): void
+  /** 复位编排状态。 */
+  reset(): void
+}
+
+/**
+ * 导出流契约（`BaseExportFlow` / `useBaseExportFlow` 投影；`08-5-1` 首次落地，后续移动端复用同一套断言）。
+ *
+ * 目标约定：业务 `users` / 中文名「用户」；默认取数参数 `{ keyword: 'a' }`、总条数 10、阈值 0（同步）；
+ * 异步目标总条数 1000 / 阈值 500（经 `newTask()` 提供任务实例、`poll` 两轮完成）。
+ *
+ * @param name 契约名。
+ * @param create 目标工厂。
+ */
+export function describeExportFlowContract(name: string, create: () => ExportFlowContractTarget): void {
+  /** 构造已就绪目标。 */
+  const readyTarget = (
+    jobs: ExportContractJobs,
+    input: { total?: number; threshold?: number } = {},
+  ): ExportFlowContractTarget => {
+    const target = create()
+    target.setBiz('users', '用户')
+    target.setTotal(input.total ?? 10)
+    target.setThreshold(input.threshold ?? 0)
+    target.setParams({ keyword: 'a' })
+    target.setJobs(jobs)
+    target.setReady(true)
+    return target
+  }
+
+  describeContract(name, () => {
+    it('未就绪时降级且不产生请求', async () => {
+      const target = create()
+      target.setBiz('users', '用户')
+      target.setTotal(10)
+      target.setJobs({ export: async () => ({ url: 'https://example.test/1.xlsx' }) })
+      expect(target.ready).toBe(false)
+      expect(target.degraded).toBe(true)
+      await expect(target.export()).resolves.toBeUndefined()
+      expect(target.requestCount).toBe(0)
+    })
+
+    it('就绪但未注入导出处理时不产生请求（占位）', async () => {
+      const target = readyTarget({})
+      expect(target.exportReady).toBe(false)
+      await expect(target.export()).resolves.toBeUndefined()
+      expect(target.requestCount).toBe(0)
+    })
+
+    it('决策：无数据 / 选中未选 / 无权 / 外部禁用 各自不动作', async () => {
+      const jobs: ExportContractJobs = { export: async () => ({ url: 'https://example.test/1.xlsx' }) }
+
+      const empty = readyTarget(jobs, { total: 0 })
+      expect(empty.empty).toBe(true)
+      expect(empty.canExport).toBe(false)
+      await expect(empty.export()).resolves.toBeUndefined()
+
+      const selected = readyTarget(jobs)
+      selected.setScope('selected', [])
+      expect(selected.canExport).toBe(false)
+      await expect(selected.export()).resolves.toBeUndefined()
+
+      const denied = readyTarget(jobs)
+      denied.setAccess([])
+      expect(denied.canExport).toBe(false)
+      await expect(denied.export()).resolves.toBeUndefined()
+
+      const disabled = readyTarget(jobs)
+      disabled.setDisabled(true)
+      expect(disabled.canExport).toBe(false)
+      await expect(disabled.export()).resolves.toBeUndefined()
+
+      expect(empty.requestCount + selected.requestCount + denied.requestCount + disabled.requestCount).toBe(0)
+    })
+
+    it('载荷：取数参数归一、选中去重排序、明文按权限收窄', () => {
+      const target = readyTarget({})
+      target.setParams({ keyword: 'a', empty: '', list: [], keep: 1 })
+      target.setScope('selected', ['2', 1, '2'])
+      target.setPlain(true)
+      expect(target.plan().params).toEqual({ keyword: 'a', keep: 1 })
+      expect(target.plan().selectedIds).toEqual(['1', '2'])
+      expect(target.plan().plain).toBe(false)
+      expect(target.plan().filename.endsWith('.xlsx')).toBe(true)
+      expect(target.asyncMode).toBe(false)
+
+      target.setAccess(['data:plain'])
+      expect(target.plan().plain).toBe(true)
+    })
+
+    it('同步导出：阶段推进、结果与下载触发', async () => {
+      const downloads: string[] = []
+      const target = readyTarget({
+        export: async ({ report }) => {
+          report({ value: 1, total: 10 })
+          return { url: 'https://example.test/export.xlsx', fileName: 'users.xlsx' }
+        },
+      })
+      target.setDownload({
+        download: async (input: { url?: string; filename?: string }) => {
+          downloads.push(input.filename ?? '')
+          return { url: input.url ?? '', filename: input.filename ?? '' }
+        },
+      })
+      await expect(target.export()).resolves.toMatchObject({ url: 'https://example.test/export.xlsx' })
+      expect(target.phase).toBe('done')
+      expect(target.requestCount).toBe(1)
+      expect(target.lastResult()?.url).toBe('https://example.test/export.xlsx')
+      expect(downloads).toEqual(['users.xlsx'])
+    })
+
+    it('超阈值异步：经两段轮询推进进度并结算结果', async () => {
+      const attempts: number[] = []
+      const target = readyTarget(
+        {
+          export: async () => ({ fileId: 'task-1' }),
+          poll: async (_handle, attempt) => {
+            attempts.push(attempt)
+            return attempt < 2
+              ? { done: false, progress: { value: attempt, total: 2 } }
+              : {
+                  done: true,
+                  progress: { value: 2, total: 2 },
+                  result: { fileId: 'file-1', fileName: 'users.xlsx', url: 'https://example.test/1.xlsx' },
+                }
+          },
+        },
+        { total: 1000, threshold: 500 },
+      )
+      target.setTask(target.newTask())
+      expect(target.asyncMode).toBe(true)
+      await expect(target.export()).resolves.toMatchObject({ fileId: 'file-1' })
+      expect(attempts).toEqual([1, 2])
+      expect(target.phase).toBe('done')
+      expect(target.progress).toMatchObject({ value: 2, total: 2 })
+    })
+
+    it('异步阈值但轮询未注入：回落单次调用并按已转后台标记', async () => {
+      const target = readyTarget({ export: async () => ({ fileId: 'task-1' }) }, { total: 1000, threshold: 500 })
+      target.setTask(target.newTask())
+      await expect(target.export()).resolves.toMatchObject({ async: true, fileId: 'task-1' })
+      expect(target.phase).toBe('done')
+    })
+
+    it('失败可重试（同参数重放）', async () => {
+      let attempt = 0
+      const target = readyTarget({
+        export: async () => {
+          attempt += 1
+          if (attempt === 1) {
+            throw new Error('导出失败')
+          }
+          return { url: 'https://example.test/1.xlsx' }
+        },
+      })
+      await expect(target.export()).resolves.toBeUndefined()
+      expect(target.phase).toBe('failed')
+      await expect(target.retry()).resolves.toMatchObject({ url: 'https://example.test/1.xlsx' })
+      expect(target.phase).toBe('done')
+      expect(target.requestCount).toBe(2)
+    })
+
+    it('进行中重复提交不动作', async () => {
+      let release: () => void = () => {}
+      const gate = new Promise<void>((resolve) => {
+        release = resolve
+      })
+      const target = readyTarget({
+        export: async () => {
+          await gate
+          return { url: 'https://example.test/1.xlsx' }
+        },
+      })
+      const pending = target.export()
+      expect(target.busy).toBe(true)
+      await expect(target.export()).resolves.toBeUndefined()
+      release()
+      await pending
+      expect(target.requestCount).toBe(1)
+    })
+
+    it('取消：中断在途导出并复位阶段', async () => {
+      let release: () => void = () => {}
+      const gate = new Promise<void>((resolve) => {
+        release = resolve
+      })
+      const target = readyTarget({
+        export: async () => {
+          await gate
+          return { url: 'https://example.test/1.xlsx' }
+        },
+      })
+      const pending = target.export()
+      target.cancel()
+      release()
+      await expect(pending).resolves.toBeUndefined()
+      expect(target.phase).toBe('idle')
+      expect(target.requestCount).toBe(1)
+    })
+  })
+}

@@ -5,7 +5,7 @@
  * 权限**计算**（主体链收敛、缓存与版本失效）归权限计算引擎；本模块只做**授权配置**侧的纯数据推导。
  */
 
-import { stableStringify } from './serialize'
+import { fnv1aHex, stableStringify } from './serialize'
 
 /** 权限节点类型（业务为推导只读）。 */
 export type PermissionNodeType = 'menu' | 'form' | 'business' | 'action'
@@ -588,7 +588,7 @@ export function payloadKey(snapshot: PermissionSnapshot): string {
  * @returns 幂等键（`Idempotency-Key` 头取值）。
  */
 export function deriveIdempotencyKey(roleId: string | number | undefined, key: string): string {
-  return `perm:${roleId ?? '-'}:${hashString(key)}`
+  return `perm:${roleId ?? '-'}:${fnv1aHex(key)}`
 }
 
 /**
@@ -646,17 +646,4 @@ function hasCheckedDescendant(node: PermissionNode): boolean {
   return (node.children ?? []).some((child) => child.checked === true || hasCheckedDescendant(child))
 }
 
-/**
- * FNV-1a（32 位）字符串散列（内容派生幂等键用，不依赖加密库）。
- *
- * @param value 待散列文本。
- * @returns 8 位十六进制散列值。
- */
-function hashString(value: string): string {
-  let hash = 0x811c9dc5
-  for (let index = 0; index < value.length; index += 1) {
-    hash ^= value.charCodeAt(index)
-    hash = Math.imul(hash, 0x01000193) >>> 0
-  }
-  return hash.toString(16).padStart(8, '0')
-}
+
