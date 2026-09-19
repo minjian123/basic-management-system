@@ -90,6 +90,18 @@ export interface DataScopeRow {
   builtin?: boolean
 }
 
+/** 动作数据范围输入行（表达式可省略，省略即无数据权限）。 */
+export interface DataScopeInputRow {
+  /** 动作键。 */
+  actionKey: string
+  /** 动作名称。 */
+  actionLabel: string
+  /** 规则表达式（省略即无数据权限）。 */
+  expression?: string
+  /** 是否预置模板行。 */
+  builtin?: boolean
+}
+
 /** 主体类型（后续实体仅扩枚举）。 */
 export type PermissionSubjectType = 'user' | 'position' | 'dept'
 
@@ -111,8 +123,8 @@ export interface PermissionSnapshot {
   nodes: PermissionNode[]
   /** 字段权限矩阵（可省略可见 / 可编辑，省略即默认全开）。 */
   fieldPerms: FieldPermInputRow[]
-  /** 动作数据范围。 */
-  dataScopes: DataScopeRow[]
+  /** 动作数据范围（可省略表达式，省略即无数据权限）。 */
+  dataScopes: DataScopeInputRow[]
   /** 主体绑定。 */
   subjects: PermissionSubject[]
 }
@@ -450,6 +462,21 @@ export function findFieldMismatch(
 }
 
 /**
+ * 归一数据范围行（省略表达式按空串处理，默认无数据权限）。
+ *
+ * @param rows 数据范围输入行。
+ * @returns 新行集合（表达式均为确定字符串）。
+ */
+export function normalizeDataScopes(rows: readonly DataScopeInputRow[]): DataScopeRow[] {
+  return rows.map((row) => ({
+    actionKey: row.actionKey,
+    actionLabel: row.actionLabel,
+    expression: row.expression ?? '',
+    builtin: row.builtin,
+  }))
+}
+
+/**
  * 设置动作数据范围表达式（不可变；动作不存在时原内容返回）。
  *
  * @param rows 数据范围行。
@@ -457,20 +484,24 @@ export function findFieldMismatch(
  * @param expression 规则表达式。
  * @returns 新行集合。
  */
-export function setDataScope(rows: readonly DataScopeRow[], actionKey: string, expression: string): DataScopeRow[] {
-  return rows.map((row) => (row.actionKey === actionKey ? { ...row, expression } : { ...row }))
+export function setDataScope(
+  rows: readonly DataScopeInputRow[],
+  actionKey: string,
+  expression: string,
+): DataScopeRow[] {
+  return normalizeDataScopes(rows).map((row) => (row.actionKey === actionKey ? { ...row, expression } : row))
 }
 
 /**
  * 收集数据范围项（仅非空表达式入选，默认无数据权限）。
  *
- * @param rows 数据范围行。
+ * @param rows 数据范围行（省略项按无数据权限处理）。
  * @returns 数据范围项集合（按动作键升序）。
  */
-export function collectDataScopes(rows: readonly DataScopeRow[]): DataScopeEntry[] {
+export function collectDataScopes(rows: readonly DataScopeInputRow[]): DataScopeEntry[] {
   return rows
-    .filter((row) => row.expression.trim() !== '')
-    .map((row) => ({ actionKey: row.actionKey, expression: row.expression }))
+    .filter((row) => (row.expression ?? '').trim() !== '')
+    .map((row) => ({ actionKey: row.actionKey, expression: row.expression ?? '' }))
     .sort((left, right) => left.actionKey.localeCompare(right.actionKey))
 }
 
