@@ -67,6 +67,8 @@ _EXPECTED_PLUGIN_KEYS = frozenset(
         "password_policy",
         "permission",
         "preference",
+        "print_exporter",
+        "print_template",
         "query_provider_registry",
         "query_scheme_store",
         "rate_limiter",

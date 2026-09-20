@@ -63,6 +63,7 @@ from app.outbound.webhook import BaseWebhookSender
 from app.password.base import BasePasswordPolicy
 from app.permission.base import BasePermissionChecker
 from app.preference.base import BasePreferenceStore
+from app.print.base import BasePrintExporter, BasePrintTemplateProvider
 from app.query.base import BaseQueryProviderRegistry
 from app.ratelimit.base import BaseRateLimiter
 from app.replay.base import BaseReplayGuard
@@ -122,6 +123,7 @@ _NULL_MODULES: tuple[str, ...] = (
     "app.password.null",
     "app.permission.null",
     "app.preference.null",
+    "app.print.null",
     "app.query.null",
     "app.ratelimit.null",
     "app.replay.null",
@@ -217,6 +219,8 @@ PLUGIN_WIRINGS: tuple[PluginWiring, ...] = (
     PluginWiring("audit", AuditCapturer, "audit", "audit"),
     PluginWiring("task", BaseTask, "task", "task"),
     PluginWiring("tenant_self_service", BaseTenantSelfService, "tenant_self_service", "tenant_self_service"),
+    PluginWiring("print_template", BasePrintTemplateProvider, "print_template", "print_template"),
+    PluginWiring("print_exporter", BasePrintExporter, "print_exporter", "print_exporter"),
     PluginWiring("event", EventPublisher, "event", "event_publisher"),
     PluginWiring("event_consumer", BaseEventConsumer, "event_consumer", None),  # 消费轨：仅预热，无 app.state 落点
 )

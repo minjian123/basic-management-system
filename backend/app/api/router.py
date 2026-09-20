@@ -18,6 +18,7 @@ from app.api import (
     tenant,
 )
 from app.api import dict as dict_api
+from app.api import print as print_api
 from app.api.base import build_api_router, register_router
 
 for _module in (
@@ -34,6 +35,7 @@ for _module in (
     file,
     captcha,
     tenant,
+    print_api,
 ):
     register_router(_module.router)
 

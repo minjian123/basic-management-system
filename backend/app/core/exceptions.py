@@ -2,10 +2,11 @@
 
 - `BizError` 继承 `BaseObject`（纳入 L0 继承体系，统一序列化 / 字符串输出），同时是 `Exception`。
 - **段位基类**（按错误码段位分基）：`GeneralError`（1xxxx 通用）、`AuthError`（2xxxx 认证）、
-  `UserOrgError`（3xxxx 用户与组织）、`ConfigError`（4xxxx 系统配置）、`OpenTenantError`（8xxxx 开放 / 租户 / SSO）；
-  新增同段位错误码继承对应段位基。
-- **段内子段基类**（同段位内的能力域细分）：`CaptchaError`（认证段验证码 `201xx` 子段）；
-  新增子段错误码继承对应子段基，子类构造时预置码位与 HTTP 状态。
+  `UserOrgError`（3xxxx 用户与组织）、`ConfigError`（4xxxx 系统配置）、`FileError`（5xxxx 文件）、
+  `OpenTenantError`（8xxxx 开放 / 租户 / SSO）；新增同段位错误码继承对应段位基。
+- **段内子段基类**（同段位内的能力域细分）：`CaptchaError`（认证段验证码 `201xx` 子段）、
+  `PrintError`（文件段打印与导出 PDF `502xx` 子段）；新增子段错误码继承对应子段基，
+  子类构造时预置码位与 HTTP 状态。
 - 错误码统一登记于 `app/core/error_codes.py`（段位见《架构设计 · 接口与集成》「错误码分段」节）。
 - `http_status` 承载传输层语义（404 / 401 / 403 / 409 / 500），其余业务失败统一 200。
 """
@@ -174,6 +175,53 @@ class PluginError(ConfigError):
             data: 随附数据（可选）。
         """
         BizError.__init__(self, ErrorCode.PLUGIN, message, http_status=500, data=data)
+
+
+class FileError(BizError):
+    """文件段（`5xxxx`）异常基类：上传 / 下载 / 分片 / 导入导出与打印导出。"""
+
+
+class PrintError(FileError):
+    """打印与导出 PDF 子段（文件段内 `502xx`）异常基类；子类在构造时预置码位与 HTTP 状态。"""
+
+
+class PrintTemplateNotFoundError(PrintError):
+    """打印模板不存在（`50201` / 404）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化打印模板不存在异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.PRINT_TEMPLATE_NOT_FOUND, message, http_status=404, data=data)
+
+
+class PrintArtifactNotFoundError(PrintError):
+    """导出产物不存在或已过期（`50202` / 404）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化导出产物不存在异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.PRINT_ARTIFACT_NOT_FOUND, message, http_status=404, data=data)
+
+
+class PrintBatchLimitError(PrintError):
+    """批量打印超限（`50203`；业务失败，HTTP 统一 200）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化批量打印超限异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.PRINT_BATCH_LIMIT_EXCEEDED, message, data=data)
 
 
 class OpenTenantError(BizError):
