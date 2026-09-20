@@ -1,4 +1,4 @@
 契约快照档（重验证层）——开启于 2026-09-15（04-4 后重验证层就绪评估结论，P1）
-管控 job：swagger-snapshot（导出 create_app().openapi() 为 swagger.json 并归档 30 天）
+管控 job：swagger-snapshot（导出 ApplicationFactory().create(None).openapi() 为 swagger.json 并归档 30 天）
 
 删除本文件即关闭该档；分档语义与激活路线见 .gitlab-ci.yml 文件头注释与《项目骨架计划》§3.1。
