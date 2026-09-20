@@ -1,8 +1,8 @@
 """公共依赖汇总：数据访问、租户解析与各能力域基座提供者。
 
 掩码 / 权限 / 锁 / 认证 / 故障应对 / 可观测 / 探针 / 开放接口 / 存储 / 分片上传 / LLM / 检索 / 通知 /
-推送 / 出站 / 工作流 / 归档 / 身份源 / 会话 / 查询 / 导入导出 / 审计链 / 字段类型 / 国际化 / 工作台
-等各能力域基座提供者统一从本模块导出，业务路由按需导入，避免分散引用。
+推送 / 出站 / 工作流 / 归档 / 身份源 / 会话 / 查询 / 导入导出 / 打印导出 / 审计链 / 字段类型 / 国际化 /
+工作台等各能力域基座提供者统一从本模块导出，业务路由按需导入，避免分散引用。
 """
 
 from app.archive.base import get_archive_policy, get_archive_query_router
@@ -38,6 +38,7 @@ from app.outbound.webhook import get_webhook_sender
 from app.password.base import get_password_policy
 from app.permission.base import get_permission_checker
 from app.preference.base import get_preference_store
+from app.print.base import get_print_exporter, get_print_template_provider
 from app.query.base import get_query_provider_registry
 from app.ratelimit.base import get_rate_limiter
 from app.replay.base import get_replay_guard
@@ -95,6 +96,8 @@ __all__ = [
     "get_password_policy",
     "get_permission_checker",
     "get_preference_store",
+    "get_print_exporter",
+    "get_print_template_provider",
     "get_query_provider_registry",
     "get_query_scheme_store",
     "get_rate_limiter",
