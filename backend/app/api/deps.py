@@ -10,6 +10,7 @@ from app.audit.base import get_audit_capturer
 from app.audit.hashchain import get_hash_chain
 from app.cache.base import get_cache_region
 from app.captcha.base import get_captcha
+from app.chat.base import get_chat_action_gate, get_chat_session_store, get_chat_stream
 from app.circuit.base import get_circuit_breaker
 from app.dashboard.base import get_dashboard_card_registry
 from app.db.session import SessionFactory, get_db, get_uow
@@ -54,6 +55,9 @@ __all__ = [
     "get_audit_capturer",
     "get_cache_region",
     "get_captcha",
+    "get_chat_action_gate",
+    "get_chat_session_store",
+    "get_chat_stream",
     "get_circuit_breaker",
     "get_dashboard_card_registry",
     "get_db",

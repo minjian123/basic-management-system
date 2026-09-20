@@ -18,6 +18,7 @@ from app.audit.base import AuditCapturer
 from app.audit.hashchain import BaseHashChain
 from app.cache.base import CacheRegion
 from app.captcha.base import BaseCaptcha
+from app.chat.base import BaseChatActionGate, BaseChatSessionStore, BaseChatStream
 from app.circuit.base import BaseCircuitBreaker
 from app.core.base import BaseObject
 from app.core.capability import BaseAsyncResource
@@ -91,6 +92,7 @@ _NULL_MODULES: tuple[str, ...] = (
     "app.audit.null",
     "app.cache.null",
     "app.captcha.null",
+    "app.chat.null",
     "app.circuit.null",
     "app.dashboard.null",
     "app.db.null",
@@ -153,6 +155,9 @@ PLUGIN_WIRINGS: tuple[PluginWiring, ...] = (
     PluginWiring("masking", BaseMasker, "masking", "masker"),
     PluginWiring("distributed_lock", BaseDistributedLock, "distributed_lock", "distributed_lock"),
     PluginWiring("captcha", BaseCaptcha, "captcha", "captcha"),
+    PluginWiring("chat_stream", BaseChatStream, "chat_stream", "chat_stream"),
+    PluginWiring("chat_session_store", BaseChatSessionStore, "chat_session_store", "chat_session_store"),
+    PluginWiring("chat_action_gate", BaseChatActionGate, "chat_action_gate", "chat_action_gate"),
     PluginWiring("password_policy", BasePasswordPolicy, "password_policy", "password_policy"),
     PluginWiring("fallback", BaseFallbackPolicy, "fallback", "fallback_policy"),
     PluginWiring("circuit_breaker", BaseCircuitBreaker, "circuit_breaker", "circuit_breaker"),
