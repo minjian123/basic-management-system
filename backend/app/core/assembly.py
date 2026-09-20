@@ -56,6 +56,7 @@ from app.outbound.http import BaseHttpClient
 from app.outbound.webhook import BaseWebhookSender
 from app.password.base import BasePasswordPolicy
 from app.permission.base import BasePermissionChecker
+from app.preference.base import BasePreferenceStore
 from app.query.base import BaseQueryProviderRegistry
 from app.ratelimit.base import BaseRateLimiter
 from app.replay.base import BaseReplayGuard
@@ -107,6 +108,7 @@ _NULL_MODULES: tuple[str, ...] = (
     "app.outbound.null",
     "app.password.null",
     "app.permission.null",
+    "app.preference.null",
     "app.query.null",
     "app.ratelimit.null",
     "app.replay.null",
@@ -143,6 +145,7 @@ class PluginWiring(BaseObject):
 
 PLUGIN_WIRINGS: tuple[PluginWiring, ...] = (
     PluginWiring("permission", BasePermissionChecker, "permission", "permission_checker"),
+    PluginWiring("preference", BasePreferenceStore, "preference", "preference_store"),
     PluginWiring("masking", BaseMasker, "masking", "masker"),
     PluginWiring("distributed_lock", BaseDistributedLock, "distributed_lock", "distributed_lock"),
     PluginWiring("captcha", BaseCaptcha, "captcha", "captcha"),

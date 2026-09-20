@@ -85,7 +85,7 @@ async def test_unified_mount_and_prefix() -> None:
     assert API_PREFIX + "/demos" in paths
     assert API_PREFIX + "/modules" in paths
     assert API_PREFIX + "/plugins" in paths
-    assert router_registry().keys() == ("demo", "modules", "plugins")
+    assert router_registry().keys() == ("demo", "modules", "plugins", "preference")
 
     router = BaseRouter(key="probe", prefix="/probe")
 

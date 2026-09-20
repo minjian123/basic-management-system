@@ -1,4 +1,4 @@
-"""系统平台表模型骨架：任务定义与执行记录（调度入库在阶段六回补落地）。"""
+"""系统平台表模型骨架：任务定义与执行记录（调度入库在阶段六回补落地）、用户偏好表声明。"""
 
 from datetime import datetime
 
@@ -30,3 +30,20 @@ class SysTaskLog(BaseModel):
     started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, comment="开始时间（UTC）")
     finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, comment="结束时间（UTC）")
     result: Mapped[str | None] = mapped_column(Text, nullable=True, comment="执行结果 / 异常摘要")
+
+
+class SysUserPreference(BaseModel):
+    """用户偏好（`sys_user_preference`）：用户维度、键唯一（真实建表以《数据库设计》为准）。
+
+    偏好只作展示与交互状态（向导开关 / 列表个性化 / 通知偏好 / 工作台布局）；值存 JSON 字符串，
+    跨方言安全（避免 MySQL 专用 `JSON`）。表结构以《数据库设计》数据表文件为唯一事实源。
+    """
+
+    __tablename__ = "sys_user_preference"
+    __table_args__ = (
+        UniqueConstraint("user_id", "pref_key", "deleted_at", name="uq_sys_user_preference_user_key_deleted_at"),
+    )
+
+    user_id: Mapped[int] = mapped_column(BigInteger, index=True, comment="用户 ID（逻辑外键 → sys_user.id）")
+    pref_key: Mapped[str] = mapped_column(String(128), comment="偏好键（域.键，如 list.user_form）")
+    pref_value: Mapped[str] = mapped_column(Text, comment="偏好值（JSON 字符串）")

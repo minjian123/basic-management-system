@@ -53,6 +53,7 @@ _EXPECTED_PLUGIN_KEYS = frozenset(
         "object_storage",
         "password_policy",
         "permission",
+        "preference",
         "query_provider_registry",
         "rate_limiter",
         "realtime_publisher",
