@@ -31,6 +31,7 @@ from app.metrics.base import get_metrics
 from app.notification.base import get_notification_center
 from app.notify.base import get_notifier
 from app.oauth.base import get_oauth_server, get_scope_checker
+from app.org.base import get_org_data_source, get_org_name_resolver
 from app.outbound.http import get_http_client
 from app.outbound.webhook import get_webhook_sender
 from app.password.base import get_password_policy
@@ -83,6 +84,8 @@ __all__ = [
     "get_notifier",
     "get_oauth_server",
     "get_object_storage",
+    "get_org_data_source",
+    "get_org_name_resolver",
     "get_password_policy",
     "get_permission_checker",
     "get_preference_store",

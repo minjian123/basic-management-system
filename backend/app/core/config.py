@@ -315,6 +315,8 @@ class Settings(PydanticBaseSettings, BaseSettings):  # pyright: ignore[reportInc
     notifier: PluginSelection = Field(default_factory=PluginSelection)
     notification_center: PluginSelection = Field(default_factory=PluginSelection)
     oauth_server: PluginSelection = Field(default_factory=PluginSelection)
+    org_data_source: PluginSelection = Field(default_factory=PluginSelection)
+    org_name_resolver: PluginSelection = Field(default_factory=PluginSelection)
     password_policy: PluginSelection = Field(default_factory=PluginSelection)
     permission: PluginSelection = Field(default_factory=PluginSelection)
     preference: PluginSelection = Field(default_factory=PluginSelection)
