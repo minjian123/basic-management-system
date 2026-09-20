@@ -51,6 +51,7 @@ from app.lock.base import BaseDistributedLock
 from app.masking.base import BaseMasker
 from app.masking.null import NullMasker
 from app.metrics.base import BaseMetrics
+from app.notification.base import BaseNotificationCenter
 from app.notify.base import BaseNotifier
 from app.oauth.base import BaseOAuthServer, BaseScopeChecker
 from app.outbound.http import BaseHttpClient
@@ -105,6 +106,7 @@ _NULL_MODULES: tuple[str, ...] = (
     "app.lock.null",
     "app.masking.null",
     "app.metrics.null",
+    "app.notification.null",
     "app.notify.null",
     "app.oauth.null",
     "app.outbound.null",
@@ -166,6 +168,7 @@ PLUGIN_WIRINGS: tuple[PluginWiring, ...] = (
     PluginWiring("llm_provider", BaseLlmProvider, "llm_provider", "llm_provider"),
     PluginWiring("search_index", BaseSearchIndex, "search_index", "search_index"),
     PluginWiring("notifier", BaseNotifier, "notifier", "notifier"),
+    PluginWiring("notification_center", BaseNotificationCenter, "notification_center", "notification_center"),
     PluginWiring("realtime_publisher", BaseRealtimePublisher, "realtime_publisher", "realtime_publisher"),
     PluginWiring("http_client", BaseHttpClient, "http_client", "http_client"),
     PluginWiring("webhook_sender", BaseWebhookSender, "webhook_sender", "webhook_sender"),
