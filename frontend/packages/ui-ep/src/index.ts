@@ -178,15 +178,23 @@ export {
   type UseBaseScreenPlayerOptions,
   type UseBaseScreenPlayerResult,
 } from './composables/useBaseScreenPlayer'
+export { default as AiAssistant } from './components/ai/AiAssistant.vue'
+export { default as AiSessionList } from './components/ai/AiSessionList.vue'
+export { default as AiMessageItem } from './components/ai/AiMessageItem.vue'
+export { default as AiComposer } from './components/ai/AiComposer.vue'
+export { default as AiActionConfirm } from './components/ai/AiActionConfirm.vue'
+// 说明：`AiChatPanel` 为独立分包懒加载入口（`defineAsyncComponent`），不作为根出口静态导出。
+// AI 助手对外类型经核心领域模块统一导出（保持既有公开名）。
 export {
-  default as AiAssistant,
+  type AiActionState,
   type AiCitation,
   type AiMessage,
   type AiMessageStatus,
   type AiMode,
+  type AiPendingAction,
   type AiRole,
   type AiSession,
-} from './components/interaction/AiAssistant.vue'
+} from '@bms/core'
 export { default as IconRenderer } from './components/interaction/IconRenderer.vue'
 export { default as IconPicker, type IconPickerSize } from './components/interaction/IconPicker.vue'
 export { default as IconLibrary, type CustomIcon, type IconSourceGroup } from './components/interaction/IconLibrary.vue'
@@ -339,6 +347,13 @@ export {
   type UseBaseNotificationOptions,
   type UseBaseNotificationResult,
 } from './composables/useBaseNotification'
+export {
+  useBaseAiAssistant,
+  type UseBaseAiAssistantOptions,
+  type UseBaseAiAssistantResult,
+} from './composables/useBaseAiAssistant'
+export { createSseStreamAdapter, type SseStreamAdapterOptions } from './utils/aiStream'
+export { loadMarked, renderAiMarkdown, resetMarkedCache, splitAiContent } from './utils/aiMarkdown'
 export {
   startUnreadPolling,
   onVisibilityChange,

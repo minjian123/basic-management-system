@@ -35,6 +35,14 @@
   --bms-notice-unread-bg: #ecf5ff;
   --bms-notice-item-hover-bg: #f5f7fa;
   --bms-notice-badge-bg: var(--bms-color-danger);
+  // AI 助手（气泡 / 流式光标 / 风险 / 引用 / 审计；禁止硬编码色值）
+  --bms-ai-bubble-assistant-bg: #f5f7fa;
+  --bms-ai-bubble-user-bg: var(--bms-color-primary);
+  --bms-ai-stream-cursor: var(--bms-color-primary);
+  --bms-ai-risk-bg: #fdf6ec;
+  --bms-ai-risk-border: var(--bms-color-warning);
+  --bms-ai-citation-bg: #ecf5ff;
+  --bms-ai-audit-color: var(--bms-color-text-secondary);
   // 字
   --bms-font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
   --bms-font-size: 14px;
@@ -100,6 +108,10 @@
   // 通知底随深色调整对比度；角标底色沿用 danger 语义色
   --bms-notice-unread-bg: #1d3049;
   --bms-notice-item-hover-bg: #262727;
+  // AI 助手底随深色调整对比度；气泡 / 风险 / 引用 / 审计走语义色
+  --bms-ai-bubble-assistant-bg: #262727;
+  --bms-ai-risk-bg: #3a2f1c;
+  --bms-ai-citation-bg: #1d3049;
 }
 
 // 打印样式令牌（打印与屏幕样式解耦；件层消费 var(--bms-print-*, fallback)，黑白色值不与屏幕主题联动）
