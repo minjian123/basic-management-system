@@ -56,6 +56,7 @@ from app.metrics.base import BaseMetrics
 from app.notification.base import BaseNotificationCenter
 from app.notify.base import BaseNotifier
 from app.oauth.base import BaseOAuthServer, BaseScopeChecker
+from app.org.base import BaseOrgDataSource, BaseOrgNameResolver
 from app.outbound.http import BaseHttpClient
 from app.outbound.webhook import BaseWebhookSender
 from app.password.base import BasePasswordPolicy
@@ -113,6 +114,7 @@ _NULL_MODULES: tuple[str, ...] = (
     "app.notification.null",
     "app.notify.null",
     "app.oauth.null",
+    "app.org.null",
     "app.outbound.null",
     "app.password.null",
     "app.permission.null",
@@ -171,6 +173,8 @@ PLUGIN_WIRINGS: tuple[PluginWiring, ...] = (
     PluginWiring("health_check_registry", BaseHealthCheckRegistry, "health_check_registry", "health_check_registry"),
     PluginWiring("oauth_server", BaseOAuthServer, "oauth_server", "oauth_server"),
     PluginWiring("scope_checker", BaseScopeChecker, "scope_checker", "scope_checker"),
+    PluginWiring("org_data_source", BaseOrgDataSource, "org_data_source", "org_data_source"),
+    PluginWiring("org_name_resolver", BaseOrgNameResolver, "org_name_resolver", "org_name_resolver"),
     PluginWiring("object_storage", BaseObjectStorage, "storage", "object_storage"),
     PluginWiring("llm_provider", BaseLlmProvider, "llm_provider", "llm_provider"),
     PluginWiring("search_index", BaseSearchIndex, "search_index", "search_index"),

@@ -58,6 +58,8 @@ _EXPECTED_PLUGIN_KEYS = frozenset(
         "notifier",
         "oauth_server",
         "object_storage",
+        "org_data_source",
+        "org_name_resolver",
         "password_policy",
         "permission",
         "preference",
