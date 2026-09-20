@@ -5,7 +5,8 @@
  * 未注入适配器时能力基类即占位（不发请求）；本适配器为可选的真实通路实现。
  */
 
-import type { AiChatRequest, AiStreamAdapter, AiStreamDonePayload, AiStreamHandlers } from '@bms/core'
+import type { AiChatRequest, AiStreamDonePayload, AiStreamHandlers } from '@bms/core'
+import { BaseAiStream, type AiStreamInput } from '@bms/core'
 
 /** SSE 流适配器选项。 */
 export interface SseStreamAdapterOptions {
@@ -83,69 +84,95 @@ function dispatchLine(
   handlers.onDone(parsed)
 }
 
-/**
- * 创建浏览器原生 SSE 流适配器。
- *
- * @param options 选项。
- * @returns 流式适配器。
- */
-export function createSseStreamAdapter(options: SseStreamAdapterOptions = {}): AiStreamAdapter {
-  const endpoint = options.endpoint ?? '/api/v1/ai/chat/stream'
-  return {
-    start({ request, handlers }) {
-      const controller = new AbortController()
-      const run = async (): Promise<void> => {
-        if (typeof fetch !== 'function' || typeof TextDecoder !== 'function') {
-          handlers.onError(new Error('当前环境不支持流式请求'))
+/** 浏览器原生 SSE 流（插件基类 `BaseAiStream` 的内建实现）。 */
+class SseAiStream extends BaseAiStream {
+  /** 实现名。 */
+  override readonly pluginName = 'sse'
+
+  /** 适配器选项。 */
+  readonly #options: SseStreamAdapterOptions
+
+  /**
+   * 构造 SSE 流插件。
+   *
+   * @param options 适配器选项。
+   */
+  constructor(options: SseStreamAdapterOptions) {
+    super()
+    this.#options = options
+  }
+
+  /**
+   * 发起一次流式对话。
+   *
+   * @param input 请求与回调。
+   * @returns 可中止句柄。
+   */
+  override start({ request, handlers }: AiStreamInput): { abort(): void } {
+    const options = this.#options
+    const endpoint = options.endpoint ?? '/api/v1/ai/chat/stream'
+    const controller = new AbortController()
+    const run = async (): Promise<void> => {
+      if (typeof fetch !== 'function' || typeof TextDecoder !== 'function') {
+        handlers.onError(new Error('当前环境不支持流式请求'))
+        return
+      }
+      try {
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...resolveHeaders(options.headers) },
+          body: JSON.stringify(toBody(request)),
+          signal: controller.signal,
+        })
+        if (!response.ok) {
+          throw new Error(`流式请求失败（${response.status}）`)
+        }
+        if (response.body === null) {
+          handlers.onError(new Error('流式响应为空'))
           return
         }
-        try {
-          const response = await fetch(endpoint, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', ...resolveHeaders(options.headers) },
-            body: JSON.stringify(toBody(request)),
-            signal: controller.signal,
-          })
-          if (!response.ok) {
-            throw new Error(`流式请求失败（${response.status}）`)
+        const reader = response.body.getReader()
+        const decoder = new TextDecoder()
+        let buffer = ''
+        for (;;) {
+          const { done, value } = await reader.read()
+          if (done) {
+            break
           }
-          if (response.body === null) {
-            handlers.onError(new Error('流式响应为空'))
-            return
+          buffer += decoder.decode(value, { stream: true })
+          const lines = buffer.split('\n')
+          buffer = lines.pop() ?? ''
+          for (const line of lines) {
+            dispatchLine(line, options.parse, handlers)
           }
-          const reader = response.body.getReader()
-          const decoder = new TextDecoder()
-          let buffer = ''
-          for (;;) {
-            const { done, value } = await reader.read()
-            if (done) {
-              break
-            }
-            buffer += decoder.decode(value, { stream: true })
-            const lines = buffer.split('\n')
-            buffer = lines.pop() ?? ''
-            for (const line of lines) {
-              dispatchLine(line, options.parse, handlers)
-            }
-          }
-          if (buffer.trim() !== '') {
-            dispatchLine(buffer, options.parse, handlers)
-          }
-        } catch (error) {
-          if (error instanceof Error && error.name === 'AbortError') {
-            return
-          }
-          handlers.onError(error)
         }
+        if (buffer.trim() !== '') {
+          dispatchLine(buffer, options.parse, handlers)
+        }
+      } catch (error) {
+        if (error instanceof Error && error.name === 'AbortError') {
+          return
+        }
+        handlers.onError(error)
       }
-      void run()
-      return {
-        abort: () => {
-          controller.abort()
-        },
-      }
-    },
+    }
+    void run()
+    return {
+      abort: () => {
+        controller.abort()
+      },
+    }
   }
+}
+
+/**
+ * 创建浏览器原生 SSE 流（`BaseAiStream` 内建实现）。
+ *
+ * @param options 选项。
+ * @returns 流式插件实例。
+ */
+export function createSseStreamAdapter(options: SseStreamAdapterOptions = {}): BaseAiStream {
+  return new SseAiStream(options)
 }
 
 /**

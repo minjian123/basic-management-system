@@ -2,7 +2,7 @@
  * 提示通知能力基类：类型 / 时长 / 关闭语义 / 队列。
  */
 
-import { BaseComponent } from '../base/BaseComponent'
+import { BasePlaceholderState } from './placeholder-state'
 
 /** 提示类型。 */
 export type NoticeType = 'info' | 'success' | 'warning' | 'error'
@@ -18,7 +18,7 @@ export interface NoticeItem {
 }
 
 /** 通知能力基类（抽象）。 */
-export abstract class BaseNotice extends BaseComponent {
+export abstract class BaseNotice extends BasePlaceholderState {
   /** 能力键。 */
   readonly identifier: string = 'notice'
   /** 缺省类型。 */

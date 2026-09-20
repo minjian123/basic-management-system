@@ -152,7 +152,7 @@ const goPage = (next: number): void => {
 
 .bms-tenant-list__search {
   padding: 4px 8px;
-  border: 1px solid var(--bms-color-border, #dcdfe6);
+  border: 1px solid var(--bms-color-border);
   border-radius: var(--bms-radius-sm, 4px);
   font: inherit;
 }
@@ -181,8 +181,8 @@ const goPage = (next: number): void => {
 }
 
 .bms-tenant-list__entry[data-active='true'] {
-  background: var(--bms-color-primary-light, #e3efff);
-  color: var(--bms-color-primary, #1677ff);
+  background: var(--bms-color-primary-light);
+  color: var(--bms-color-primary);
 }
 
 .bms-tenant-list__logo {
@@ -192,7 +192,7 @@ const goPage = (next: number): void => {
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: var(--bms-color-primary-light, #e3efff);
+  background: var(--bms-color-primary-light);
   font-size: 12px;
 }
 
@@ -201,19 +201,19 @@ const goPage = (next: number): void => {
 }
 
 .bms-tenant-list__meta {
-  color: var(--bms-color-text-secondary, #909399);
+  color: var(--bms-color-text-secondary);
   font-size: 12px;
 }
 
 .bms-tenant-list__mark {
   margin-left: auto;
-  color: var(--bms-color-primary, #1677ff);
+  color: var(--bms-color-primary);
   font-size: 12px;
 }
 
 .bms-tenant-list__empty {
   margin: 0;
-  color: var(--bms-color-text-secondary, #909399);
+  color: var(--bms-color-text-secondary);
   font-size: 12px;
 }
 

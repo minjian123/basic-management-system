@@ -270,7 +270,7 @@ defineExpose({ comment, target, errorText, onClick })
 
 .bms-approval-actions__input {
   padding: 4px 6px;
-  border: 1px solid var(--bms-color-border, #dcdfe6);
+  border: 1px solid var(--bms-color-border);
   border-radius: var(--bms-radius-sm, 2px);
   font: inherit;
   resize: vertical;
@@ -278,17 +278,17 @@ defineExpose({ comment, target, errorText, onClick })
 
 .bms-approval-actions__count {
   align-self: flex-end;
-  color: var(--bms-color-text-secondary, #909399);
+  color: var(--bms-color-text-secondary);
   font-size: 0.8em;
 }
 
 .bms-approval-actions__count[data-over='true'] {
-  color: var(--bms-color-danger, #f56c6c);
+  color: var(--bms-color-danger);
 }
 
 .bms-approval-actions__target select {
   padding: 4px 6px;
-  border: 1px solid var(--bms-color-border, #dcdfe6);
+  border: 1px solid var(--bms-color-border);
   border-radius: var(--bms-radius-sm, 2px);
   font: inherit;
 }
@@ -300,23 +300,23 @@ defineExpose({ comment, target, errorText, onClick })
 
 .bms-approval-actions__button {
   padding: 4px 12px;
-  border: 1px solid var(--bms-color-border, #dcdfe6);
+  border: 1px solid var(--bms-color-border);
   border-radius: var(--bms-radius-sm, 2px);
-  background: var(--bms-color-bg, #ffffff);
+  background: var(--bms-color-bg);
   color: inherit;
   font: inherit;
   cursor: pointer;
 }
 
 .bms-approval-actions__button--primary {
-  border-color: var(--bms-color-primary, #409eff);
-  background: var(--bms-color-primary, #409eff);
-  color: #ffffff;
+  border-color: var(--bms-color-primary);
+  background: var(--bms-color-primary);
+  color: var(--bms-color-white);
 }
 
 .bms-approval-actions__button--danger {
-  border-color: var(--bms-color-danger, #f56c6c);
-  color: var(--bms-color-danger, #f56c6c);
+  border-color: var(--bms-color-danger);
+  color: var(--bms-color-danger);
 }
 
 .bms-approval-actions__button:disabled {
@@ -326,7 +326,7 @@ defineExpose({ comment, target, errorText, onClick })
 
 .bms-approval-actions__error {
   margin: 0;
-  color: var(--bms-color-danger, #f56c6c);
+  color: var(--bms-color-danger);
   font-size: 0.85em;
 }
 
@@ -334,7 +334,7 @@ defineExpose({ comment, target, errorText, onClick })
 .bms-approval-actions__readonly,
 .bms-approval-actions__loading {
   margin: 0;
-  color: var(--bms-color-text-secondary, #909399);
+  color: var(--bms-color-text-secondary);
   font-size: 0.85em;
 }
 </style>

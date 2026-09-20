@@ -63,7 +63,7 @@ function isDisabled(): boolean {
 }
 .bms-component-palette__title {
   margin: 0 0 6px;
-  color: var(--bms-color-text-secondary, #909399);
+  color: var(--bms-color-text-secondary);
   font-size: 12px;
 }
 .bms-component-palette__items {
@@ -73,9 +73,9 @@ function isDisabled(): boolean {
 }
 .bms-component-palette__item {
   padding: 6px 8px;
-  border: 1px solid var(--bms-color-border, #dcdfe6);
+  border: 1px solid var(--bms-color-border);
   border-radius: var(--bms-radius-md, 4px);
-  background: var(--bms-color-bg, #fff);
+  background: var(--bms-color-bg);
   cursor: grab;
 }
 .bms-component-palette__item:disabled {

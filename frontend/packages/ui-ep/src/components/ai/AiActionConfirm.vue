@@ -117,13 +117,13 @@ setState(props.ready ? 'ready' : 'empty')
 }
 .bms-ai-action__summary {
   margin: 0 0 8px;
-  color: var(--bms-color-text-secondary, #909399);
+  color: var(--bms-color-text-secondary);
 }
 .bms-ai-action__content {
   padding: 8px 12px;
   overflow: auto;
   white-space: pre-wrap;
-  background: var(--bms-ai-bubble-assistant-bg, #f5f7fa);
+  background: var(--bms-ai-bubble-assistant-bg);
   border-radius: 4px;
 }
 .bms-ai-action__state {
@@ -132,31 +132,31 @@ setState(props.ready ? 'ready' : 'empty')
   padding: 0 8px;
   font-size: 12px;
   line-height: 20px;
-  color: var(--bms-color-warning, #e6a23c);
-  background: var(--bms-ai-risk-bg, #fdf6ec);
+  color: var(--bms-color-warning);
+  background: var(--bms-ai-risk-bg);
   border-radius: 10px;
 }
 .bms-ai-action__confirm {
   margin-right: 8px;
   padding: 4px 16px;
-  color: #fff;
+  color: var(--bms-color-white);
   cursor: pointer;
-  background: var(--bms-color-primary, #409eff);
+  background: var(--bms-color-primary);
   border: none;
   border-radius: 4px;
 }
 .bms-ai-action__revoke {
   margin-right: 8px;
   padding: 4px 16px;
-  color: var(--bms-color-danger, #f56c6c);
+  color: var(--bms-color-danger);
   cursor: pointer;
   background: none;
-  border: 1px solid var(--bms-color-danger, #f56c6c);
+  border: 1px solid var(--bms-color-danger);
   border-radius: 4px;
 }
 .bms-ai-action__placeholder {
   padding: 16px;
-  color: var(--bms-color-text-secondary, #909399);
+  color: var(--bms-color-text-secondary);
   text-align: center;
 }
 </style>

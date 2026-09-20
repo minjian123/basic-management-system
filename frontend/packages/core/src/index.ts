@@ -220,6 +220,19 @@ export {
 export { BaseEditorKernel, type EditorMode } from './capabilities/editor-kernel'
 export { BaseOptionSource, type OptionItem } from './capabilities/option-source'
 export { BasePresignedUrl, type PresignedResult } from './capabilities/presigned-url'
+export { BasePlaceholderState } from './capabilities/placeholder-state'
+export {
+  BaseChartEngine,
+  ChartEngineProvider,
+  ChartEngineRegistry,
+  type ChartEngineOptions,
+} from './capabilities/chart-engine'
+export {
+  BaseRealtimeChannel,
+  RealtimeChannelProvider,
+  RealtimeChannelRegistry,
+} from './capabilities/realtime-channel'
+export { BaseAiStream, AiStreamProvider, AiStreamRegistry, type AiStreamInput } from './capabilities/ai-stream'
 export { BaseWatermark } from './capabilities/watermark'
 export { BaseUserDisplay, type UserDisplayInfo, type UserStatus } from './capabilities/user-display'
 export { BaseDynamicRoutes, type RouteNode } from './capabilities/dynamic-routes'
@@ -325,6 +338,7 @@ export {
 export { resolveToken } from './domain/token'
 export {
   DEFAULT_BRAND_PRIMARY,
+  THEME_ACCENT_PRESETS,
   darken,
   deriveBrandTokens,
   isValidColor,
@@ -733,6 +747,7 @@ export {
   SCREEN_COMPONENT_TYPES,
   SCREEN_DEFAULT_COMPONENT_SIZE,
   SCREEN_DEFAULT_RESOLUTION,
+  DEFAULT_CANVAS_BACKGROUND,
   SCREEN_DESIGN_PERM,
   SCREEN_DESIGNER_PLACEHOLDER_TEXT,
   SCREEN_MIN_COMPONENT_SIZE,

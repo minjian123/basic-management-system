@@ -4,6 +4,7 @@ import { computed, ref, watch } from 'vue'
 
 import { useBasePresignedUrl } from '../../composables/useBasePresignedUrl'
 import { useDisplayPlaceholder } from '../../composables/useDisplayPlaceholder'
+import { triggerDownload } from '../../utils/downloadFile'
 import type { PresignedResult } from '@bms/core'
 
 /** 待预览文件。 */
@@ -218,15 +219,8 @@ function download(): void {
     return
   }
   emit('download', file)
-  if (sourceUrl.value !== '' && typeof document !== 'undefined') {
-    try {
-      const anchor = document.createElement('a')
-      anchor.href = sourceUrl.value
-      anchor.download = file.name
-      anchor.click()
-    } catch {
-      // 非浏览器环境或下载不可用时忽略（事件已上报）
-    }
+  if (sourceUrl.value !== '') {
+    triggerDownload({ url: sourceUrl.value, filename: file.name })
   }
 }
 </script>

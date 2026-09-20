@@ -176,15 +176,15 @@ onBeforeUnmount(() => {
 .bms-report-grid {
   position: relative;
   min-height: 320px;
-  background: var(--bms-color-bg, #fff);
+  background: var(--bms-color-bg);
 }
 .grid-stack-item-content {
   overflow: hidden;
-  border: 1px solid var(--bms-color-border, #dcdfe6);
+  border: 1px solid var(--bms-color-border);
   border-radius: var(--bms-radius-md, 4px);
 }
 .grid-stack-item[data-selected='true'] .grid-stack-item-content {
-  border-color: var(--bms-color-primary, #409eff);
-  box-shadow: 0 0 0 1px var(--bms-color-primary, #409eff);
+  border-color: var(--bms-color-primary);
+  box-shadow: 0 0 0 1px var(--bms-color-primary);
 }
 </style>

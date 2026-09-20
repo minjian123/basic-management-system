@@ -39,8 +39,8 @@ describe('BaseFormRenderer 能力身份与依赖', () => {
   it('能力键与依赖登记一致且图无环', () => {
     const renderer = new RendererState()
     expect(renderer.identifier).toBe('form-renderer')
-    expect(renderer.depends).toEqual(['form-meta', 'field-perm', 'access', 'notice', 'validatable'])
-    expect(CAPABILITY_MANIFEST['form-renderer']).toEqual(['form-meta', 'field-perm', 'access', 'notice', 'validatable'])
+    expect(renderer.depends).toEqual(['placeholder-state', 'form-meta', 'field-perm', 'access', 'notice', 'validatable'])
+    expect(CAPABILITY_MANIFEST['form-renderer']).toEqual(['placeholder-state', 'form-meta', 'field-perm', 'access', 'notice', 'validatable'])
     expect(validateCapabilityGraph()).toEqual([])
   })
 

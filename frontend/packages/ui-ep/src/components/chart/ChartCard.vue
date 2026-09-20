@@ -18,6 +18,7 @@ import type {
 } from '@bms/core'
 
 import { useBaseChart } from '../../composables/useBaseChart'
+import { isDocumentHidden } from '../../utils/visibility'
 import DataTable from '../data/DataTable.vue'
 import ChartRenderer from './ChartRenderer.vue'
 
@@ -212,7 +213,7 @@ function startPoll(): void {
     return
   }
   timer = setInterval(() => {
-    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+    if (isDocumentHidden()) {
       return
     }
     emit('refresh')

@@ -12,6 +12,10 @@ import type {
 } from '@bms/core'
 
 import { useBaseChart } from '../../composables/useBaseChart'
+import { chartEngineRegistry } from '../../utils/chartEngine'
+import { readCssVar } from '../../utils/cssVar'
+import { prefersDark } from '../../utils/media'
+import { observeIntersection, supportsIntersection } from '../../utils/observe'
 
 interface Props {
   /** 数据通路是否就绪。 */
@@ -71,16 +75,12 @@ const emit = defineEmits<{
 
 /** 读取设计令牌（图表色板 / 辅助令牌）。 */
 function readToken(name: string): string | undefined {
-  if (typeof document === 'undefined') {
-    return undefined
-  }
-  const value = globalThis.getComputedStyle(document.documentElement).getPropertyValue(name).trim()
-  return value === '' ? undefined : value
+  return readCssVar(name)
 }
 
 /** 初始深色偏好。 */
 function initialPrefersDark(): boolean {
-  return typeof globalThis.matchMedia === 'function' ? globalThis.matchMedia('(prefers-color-scheme: dark)').matches : false
+  return prefersDark()
 }
 
 const base = useBaseChart({
@@ -98,7 +98,7 @@ const base = useBaseChart({
 
 const containerRef = ref<HTMLElement>()
 const engineRef = shallowRef<ChartEngineAdapter>()
-let observer: IntersectionObserver | undefined
+let offIntersect: () => void = () => {}
 
 /** 状态派生。 */
 const isLoading = computed(() => props.loading || base.state.value === 'loading')
@@ -116,13 +116,19 @@ async function loadEngine(): Promise<void> {
     props.engineFactory !== undefined
       ? await props.engineFactory()
       : await (async () => {
-          const { createEchartsEngine } = await import('../../utils/echartsKernel')
-          return createEchartsEngine({
+          const provider = chartEngineRegistry.get('echarts')
+          if (provider === undefined) {
+            return undefined
+          }
+          return provider.create({
             container: () => containerRef.value,
             renderMode: props.renderMode,
             theme: base.chart.theme,
           })
         })()
+  if (engine === undefined) {
+    return
+  }
   engineRef.value = engine
   base.setEngine(engine)
   emit('ready')
@@ -135,15 +141,14 @@ function schedule(): void {
   if (engineRef.value !== undefined) {
     return
   }
-  if (props.lazy && typeof IntersectionObserver !== 'undefined' && containerRef.value !== undefined) {
-    observer = new IntersectionObserver((entries) => {
-      if (entries.some((entry) => entry.isIntersecting)) {
-        observer?.disconnect()
-        observer = undefined
+  if (props.lazy && supportsIntersection() && containerRef.value !== undefined) {
+    offIntersect = observeIntersection(containerRef.value, (entry) => {
+      if (entry.isIntersecting) {
+        offIntersect()
+        offIntersect = () => {}
         void loadEngine()
       }
     })
-    observer.observe(containerRef.value)
     return
   }
   void loadEngine()
@@ -201,8 +206,8 @@ watch(
 )
 
 onBeforeUnmount(() => {
-  observer?.disconnect()
-  observer = undefined
+  offIntersect()
+  offIntersect = () => {}
 })
 </script>
 

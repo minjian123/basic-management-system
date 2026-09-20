@@ -5,7 +5,7 @@
  * 未注入即占位（不请求、返回 `undefined` / `false`）；判定落在 `domain/report-layout.ts`。
  */
 
-import { BaseComponent } from '../base/BaseComponent'
+import { BasePlaceholderState } from './placeholder-state'
 import { BaseAccess } from './access'
 import { BaseAsyncTask } from './async-task'
 import { BaseDataState } from './data-state'
@@ -71,15 +71,13 @@ export interface ReportJobs {
 export type ReportBlockAction = 'new' | 'open' | 'leave'
 
 /** 报表设计器编排能力基类（抽象）。 */
-export abstract class BaseReportDesigner extends BaseComponent {
+export abstract class BaseReportDesigner extends BasePlaceholderState {
   /** 能力键。 */
   readonly identifier: string = 'report-designer'
   /** 依赖登记。 */
-  override readonly depends = ['access', 'notice', 'data-state', 'drag-drop', 'async-task']
+  override readonly depends = ['placeholder-state', 'access', 'notice', 'data-state', 'drag-drop', 'async-task']
   /** 数据通路是否就绪（占位语义，缺省 `false`）。 */
   ready = false
-  /** 占位态请求计数（占位态恒 0）。 */
-  requestCount = 0
   /** 报表编码。 */
   reportCode = ''
   /** 报表名称。 */
@@ -113,10 +111,6 @@ export abstract class BaseReportDesigner extends BaseComponent {
   /** 是否进行中。 */
   #busy = false
 
-  /** 是否降级（占位）态。 */
-  get degraded(): boolean {
-    return !this.ready
-  }
 
   /** 是否只读（占位 / 无权限）。 */
   get readonly(): boolean {
@@ -163,18 +157,6 @@ export abstract class BaseReportDesigner extends BaseComponent {
     return this.currentDataset?.fields !== undefined ? [...this.currentDataset.fields] : []
   }
 
-  /**
-   * 切换就绪态。
-   *
-   * @param value 是否就绪。
-   */
-  setReady(value: boolean): void {
-    if (this.ready === value) {
-      return
-    }
-    this.ready = value
-    this.notifyLifecycle('update')
-  }
 
   /**
    * 注入处理函数集。

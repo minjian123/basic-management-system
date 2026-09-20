@@ -230,13 +230,13 @@ async function runChecks(): Promise<void> {
   flex-direction: column;
   gap: var(--bms-spacing-lg, 16px);
   padding: var(--bms-spacing-lg, 16px);
-  color: var(--bms-color-text, #303133);
-  background: var(--bms-color-bg, #ffffff);
+  color: var(--bms-color-text);
+  background: var(--bms-color-bg);
 }
 
 .check-page__hint {
   margin: 0;
-  color: var(--bms-color-text-secondary, #909399);
+  color: var(--bms-color-text-secondary);
   font-size: 12px;
 }
 
@@ -245,7 +245,7 @@ async function runChecks(): Promise<void> {
   flex-direction: column;
   gap: var(--bms-spacing-sm, 6px);
   padding: var(--bms-spacing-lg, 16px);
-  border: 1px solid var(--bms-color-border, #dcdfe6);
+  border: 1px solid var(--bms-color-border);
   border-radius: var(--bms-radius-md, 4px);
 }
 
@@ -255,10 +255,10 @@ async function runChecks(): Promise<void> {
 }
 
 .check-page__checks li[data-check='pass'] {
-  color: var(--bms-color-success, #67c23a);
+  color: var(--bms-color-success);
 }
 
 .check-page__checks li[data-check='fail'] {
-  color: var(--bms-color-danger, #f56c6c);
+  color: var(--bms-color-danger);
 }
 </style>

@@ -1,9 +1,11 @@
-/** 交互类占位组合式：依赖后端的交互件在数据通路未就绪时的降级语义（禁用 / 不请求 / 就绪切换）。 */
+/** 交互类占位组合式：数据状态能力基类 `BaseDataState`（经 `BasePlaceholderState` 继承占位语义）的薄投影。 */
 
-import type { BaseDataState, DataStateName, SettleState } from '@bms/core'
-import { computed, ref, watch, type Ref } from 'vue'
+import type { DataStateName, SettleState } from '@bms/core'
+import { BaseDataState } from '@bms/core'
+import { computed, onScopeDispose, ref, watch, type Ref } from 'vue'
 
-import { useBaseDataState } from './useBaseDataState'
+/** 具体占位数据状态件（直接继承数据状态能力基类，占位语义经链上继承取得）。 */
+class InteractionPlaceholderState extends BaseDataState {}
 
 /** 选项。 */
 export interface UseInteractionPlaceholderOptions {
@@ -23,7 +25,7 @@ export interface UseInteractionPlaceholderResult {
   requestCount: Ref<number>
   /** 数据状态（`loading` / `ready` / `empty` / `error`，响应式）。 */
   state: Ref<DataStateName>
-  /** 数据状态基类实例（经 `BaseDataState` 挂链）。 */
+  /** 数据状态基类实例（即占位状态件本身）。 */
   dataState: BaseDataState
   /** 切换就绪态。 */
   setReady: (value: boolean) => void
@@ -44,16 +46,36 @@ export interface UseInteractionPlaceholderResult {
 export function useInteractionPlaceholder(
   options: UseInteractionPlaceholderOptions = {},
 ): UseInteractionPlaceholderResult {
-  const ready = ref(options.ready ?? false)
-  const requestCount = ref(0)
-  const data = useBaseDataState()
-  const degraded = computed(() => !ready.value)
+  const state = new InteractionPlaceholderState()
+  state.setReady(options.ready ?? false)
+
+  const ready = ref(state.ready)
+  const degraded = ref(state.degraded)
+  const requestCount = ref(state.requestCount)
+  const currentState = ref<DataStateName>(state.state)
   const disabled = computed(() => !ready.value)
+
+  const off = state.onLifecycle((event) => {
+    if (event === 'update') {
+      ready.value = state.ready
+      degraded.value = state.degraded
+      requestCount.value = state.requestCount
+    }
+  })
+  const offState = state.onStateChange((next) => {
+    currentState.value = next
+  })
+  onScopeDispose(() => {
+    off()
+    offState()
+    state.dispose()
+  })
 
   watch(
     ready,
     (value) => {
-      data.setState(value ? 'ready' : 'empty')
+      const token = state.begin()
+      state.settle(token, value ? 'ready' : 'empty')
     },
     { immediate: true, flush: 'sync' },
   )
@@ -63,18 +85,11 @@ export function useInteractionPlaceholder(
     degraded,
     disabled,
     requestCount,
-    state: data.state,
-    dataState: data.dataState,
-    setReady: (value) => {
-      ready.value = value
-    },
-    markLoaded: () => {
-      if (!ready.value) {
-        return
-      }
-      requestCount.value += 1
-    },
-    begin: data.begin,
-    settle: data.settle,
+    state: currentState,
+    dataState: state,
+    setReady: (value) => state.setReady(value),
+    markLoaded: () => state.markLoaded(),
+    begin: () => state.begin(),
+    settle: (token, next) => state.settle(token, next),
   }
 }

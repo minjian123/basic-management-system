@@ -20,6 +20,7 @@ import { useConfirm } from '../../composables/useConfirm'
 import { usePreferences } from '../../composables/usePreferences'
 import { useResponsive } from '../../composables/useResponsive'
 import { resolvePreferenceGroups, type PreferenceGroupDef, type PreferenceItem } from '../../utils/preferenceItems'
+import { prefersDark } from '../../utils/media'
 import PreferenceGroup from './PreferenceGroup.vue'
 
 interface Props {
@@ -100,10 +101,7 @@ const rootElement = typeof document === 'undefined' ? undefined : document.docum
  * @returns 生效主题（`matchMedia` 不可用时回退亮色）。
  */
 function resolveSystemTheme(): 'light' | 'dark' {
-  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
-    return 'light'
-  }
-  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+  return prefersDark() ? 'dark' : 'light'
 }
 
 /**
@@ -343,7 +341,7 @@ function controlValue(key: PreferenceKey): PreferenceControlValue {
 <style scoped>
 .bms-preference-panel__pending {
   margin: 0 0 var(--bms-spacing-md, 8px);
-  color: var(--bms-color-warning, #e6a23c);
+  color: var(--bms-color-warning);
   font-size: 12px;
 }
 

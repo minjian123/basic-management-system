@@ -51,4 +51,23 @@ describe('组件继承链护栏', () => {
     })
     expect(offenders, `以下组合式未接基类：${offenders.join(', ')}`).toEqual([])
   })
+
+  it('组件内不得定义继承核心基类的类（链上类须落 composables 投影）', () => {
+    const components = walk(join(SRC, 'components'), '.vue')
+    const offenders = components.filter((file) => /class\s+\w+\s+extends\s+Base[A-Z]\w*/.test(readFileSync(file, 'utf8')))
+    expect(offenders, `以下组件内联了链上类：${offenders.join(', ')}`).toEqual([])
+  })
+
+  it('ui-ep 不得存在经 BaseObject 直挂的链外类', () => {
+    const files = [...walk(join(SRC, 'components'), '.vue'), ...walk(join(SRC, 'composables'), '.ts')]
+    const offenders = files.filter((file) => /extends\s+BaseObject\b/.test(readFileSync(file, 'utf8')))
+    expect(offenders, `以下文件存在链外类：${offenders.join(', ')}`).toEqual([])
+  })
+
+  it('fixture 违规被拦截（内联链上类 / 链外类）', () => {
+    const inline = /class\s+\w+\s+extends\s+Base[A-Z]\w*/
+    const object = /extends\s+BaseObject\b/
+    expect(inline.test('class X extends BaseTabs {}')).toBe(true)
+    expect(object.test('class Y extends BaseObject {}')).toBe(true)
+  })
 })

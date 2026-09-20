@@ -6,7 +6,7 @@
  * 核心不触 DOM、不发请求。
  */
 
-import { BaseComponent } from '../base/BaseComponent'
+import { BasePlaceholderState } from './placeholder-state'
 import {
   EXPORT_EMPTY_TEXT,
   EXPORT_PERM,
@@ -79,11 +79,11 @@ export interface ExportJobs {
 }
 
 /** 导出流能力基类（抽象）。 */
-export abstract class BaseExportFlow extends BaseComponent {
+export abstract class BaseExportFlow extends BasePlaceholderState {
   /** 能力键。 */
   readonly identifier: string = 'export-flow'
   /** 依赖能力键。 */
-  override readonly depends = ['async-task', 'file-download', 'access', 'notice']
+  override readonly depends = ['placeholder-state', 'async-task', 'file-download', 'access', 'notice']
   /** 业务标识。 */
   biz = ''
   /** 业务中文名（文件名前缀缺省取此值）。 */
@@ -104,8 +104,19 @@ export abstract class BaseExportFlow extends BaseComponent {
   filenamePrefix = ''
   /** 数据通路是否就绪（占位语义开关）。 */
   ready = false
-  /** 实际发起的请求计数（占位期恒 0）。 */
-  requestCount = 0
+
+  /**
+   * 切换就绪态（就绪以 `touch` 刷新）。
+   *
+   * @param value 是否就绪。
+   */
+  setReady(value: boolean): void {
+    if (this.ready === value) {
+      return
+    }
+    this.ready = value
+    this.touch()
+  }
   /** 当前阶段。 */
   phase: ExportPhase = 'idle'
   /** 任务进度。 */
@@ -127,10 +138,6 @@ export abstract class BaseExportFlow extends BaseComponent {
   /** 当前中断信号（导出时重建）。 */
   #signal: { aborted: boolean } = { aborted: false }
 
-  /** 是否降级（占位）态。 */
-  get degraded(): boolean {
-    return !this.ready
-  }
 
   /** 是否进行中（导出 / 排队）。 */
   get busy(): boolean {
@@ -176,18 +183,6 @@ export abstract class BaseExportFlow extends BaseComponent {
     }
   }
 
-  /**
-   * 设置就绪态（占位语义开关）。
-   *
-   * @param value 是否就绪。
-   */
-  setReady(value: boolean): void {
-    if (this.ready === value) {
-      return
-    }
-    this.ready = value
-    this.touch()
-  }
 
   /**
    * 设置业务标识与中文名。

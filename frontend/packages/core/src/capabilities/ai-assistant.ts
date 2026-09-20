@@ -6,7 +6,7 @@
  * 由宿主注入，**未注入即占位零请求**；核心不依赖 Vue / DOM / 浏览器 API。
  */
 
-import { BaseComponent } from '../base/BaseComponent'
+import { BasePlaceholderState } from './placeholder-state'
 import {
   AI_CHAT_PERM,
   AI_MANAGE_PERM,
@@ -156,15 +156,31 @@ function toDonePayload(value: unknown): AiStreamDonePayload | undefined {
 }
 
 /** AI 助手编排能力基类（抽象）。 */
-export abstract class BaseAiAssistant extends BaseComponent {
+export abstract class BaseAiAssistant extends BasePlaceholderState {
   /** 能力键。 */
   readonly identifier: string = 'ai-assistant'
   /** 依赖登记。 */
-  override readonly depends = ['access', 'notice', 'data-state', 'option-source', 'async-task']
+  override readonly depends = ['placeholder-state', 'access', 'notice', 'data-state', 'option-source', 'async-task']
   /** 数据通路是否就绪（占位语义，缺省 `false`）。 */
   ready = false
-  /** 占位态请求计数（占位态恒 0）。 */
-  requestCount = 0
+
+  /**
+   * 切换就绪态（降级时中止流式）。
+   *
+   * @param value 是否就绪。
+   */
+  setReady(value: boolean): void {
+    if (this.ready === value) {
+      return
+    }
+    this.ready = value
+    if (!value) {
+      this.#abortStream()
+      this.streaming = false
+      this.streamingMessageId = ''
+    }
+    this.notifyLifecycle('update')
+  }
   /** 当前模式。 */
   mode: AiMode = 'ask'
   /** 会话列表。 */
@@ -208,10 +224,6 @@ export abstract class BaseAiAssistant extends BaseComponent {
   /** 是否取数中（防重复）。 */
   #busy = false
 
-  /** 是否降级（占位）态。 */
-  get degraded(): boolean {
-    return !this.ready
-  }
 
   /** 是否进行中（会话 / 消息取数）。 */
   get busy(): boolean {
@@ -253,23 +265,6 @@ export abstract class BaseAiAssistant extends BaseComponent {
     return autoApproveAvailableNow(this.autoExecute, this.autoApprove)
   }
 
-  /**
-   * 切换就绪态。
-   *
-   * @param value 是否就绪。
-   */
-  setReady(value: boolean): void {
-    if (this.ready === value) {
-      return
-    }
-    this.ready = value
-    if (!value) {
-      this.#abortStream()
-      this.streaming = false
-      this.streamingMessageId = ''
-    }
-    this.notifyLifecycle('update')
-  }
 
   /**
    * 注入处理函数集。

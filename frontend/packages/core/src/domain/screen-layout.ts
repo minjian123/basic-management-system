@@ -19,6 +19,9 @@ export const SCREEN_DESIGNER_PLACEHOLDER_TEXT = '大屏设计器未就绪（占�
 export const SCREEN_PLAYER_PLACEHOLDER_TEXT = '大屏播放未就绪（占位）'
 /** 默认画布分辨率（px）。 */
 export const SCREEN_DEFAULT_RESOLUTION = { width: 1920, height: 1080 }
+
+/** 画布默认背景色（设计态默认，与设计令牌 `--bms-color-bg` 一致）。 */
+export const DEFAULT_CANVAS_BACKGROUND = '#ffffff'
 /** 组件默认尺寸（px）。 */
 export const SCREEN_DEFAULT_COMPONENT_SIZE = { w: 320, h: 200 }
 /** 组件最小尺寸（px）。 */

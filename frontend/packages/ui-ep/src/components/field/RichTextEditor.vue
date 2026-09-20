@@ -1,10 +1,8 @@
 <script setup lang="ts">
-// 富文本编辑器内核宿主（TipTap）：仅在 rich 模式挂载，避免源码模式加载内核。
-import StarterKit from '@tiptap/starter-kit'
-import { EditorContent, useEditor } from '@tiptap/vue-3'
-import { onBeforeUnmount, watch } from 'vue'
+// 富文本编辑器内核宿主（TipTap）：仅在 rich 模式挂载，避免源码模式加载内核；TipTap 经投影单一落点。
+import { watch } from 'vue'
 
-import { useRichTextKernel } from '../../composables/useRichTextKernel'
+import { useRichTextEditor } from '../../composables/useRichTextEditor'
 import { sanitizeHtml } from '../../utils/sanitizeHtml'
 
 interface Props {
@@ -20,14 +18,11 @@ const props = withDefaults(defineProps<Props>(), { readOnly: false, placeholder:
 
 const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
 
-const { setReadOnly } = useRichTextKernel()
-
-const editor = useEditor({
-  content: sanitizeHtml(props.modelValue),
-  editable: !props.readOnly,
-  extensions: [StarterKit],
-  onUpdate: ({ editor: instance }) => {
-    emit('update:modelValue', sanitizeHtml(instance.getHTML()))
+const { editor, content: RichTextContent, setReadOnly } = useRichTextEditor({
+  content: props.modelValue,
+  readOnly: props.readOnly,
+  onUpdate: (html) => {
+    emit('update:modelValue', html)
   },
 })
 
@@ -49,13 +44,9 @@ watch(
   },
 )
 
-onBeforeUnmount(() => {
-  editor.value?.destroy()
-})
-
 defineExpose({ editor })
 </script>
 
 <template>
-  <editor-content class="bms-rich-text-editor" :editor="editor" />
+  <component :is="RichTextContent" class="bms-rich-text-editor" :editor="editor" />
 </template>

@@ -4,6 +4,7 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 
 import { useBaseDisplay } from '../../composables/useBaseDisplay'
+import { triggerDownload } from '../../utils/downloadFile'
 
 /** 容错级别。 */
 export type QrLevel = 'L' | 'M' | 'Q' | 'H'
@@ -144,16 +145,7 @@ function download(): void {
     return
   }
   emit('download', dataUrl.value)
-  if (typeof document !== 'undefined') {
-    try {
-      const anchor = document.createElement('a')
-      anchor.href = dataUrl.value
-      anchor.download = `qrcode-${Date.now()}.png`
-      anchor.click()
-    } catch {
-      // 非浏览器环境或下载不可用时忽略（数据地址已随事件上报）
-    }
-  }
+  triggerDownload({ url: dataUrl.value, filename: `qrcode-${Date.now()}.png` })
 }
 
 async function copy(): Promise<void> {

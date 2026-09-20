@@ -126,7 +126,7 @@ watch(
   display: flex;
   flex-direction: column;
   width: 220px;
-  border-right: 1px solid var(--bms-color-border, #ebeef5);
+  border-right: 1px solid var(--bms-color-border);
 }
 .bms-ai-sessions__head {
   padding: 8px 12px;
@@ -134,9 +134,9 @@ watch(
 .bms-ai-sessions__head button {
   width: 100%;
   padding: 6px;
-  color: #fff;
+  color: var(--bms-color-white);
   cursor: pointer;
-  background: var(--bms-color-primary, #409eff);
+  background: var(--bms-color-primary);
   border: none;
   border-radius: 4px;
 }
@@ -163,17 +163,17 @@ watch(
   align-items: center;
   padding: 8px 12px;
   cursor: pointer;
-  border-bottom: 1px solid var(--bms-color-border, #ebeef5);
+  border-bottom: 1px solid var(--bms-color-border);
 }
 .bms-ai-sessions__item[data-active] {
-  background: var(--bms-ai-citation-bg, #ecf5ff);
+  background: var(--bms-ai-citation-bg);
 }
 .bms-ai-sessions__mode {
   flex: 0 0 auto;
   padding: 0 6px;
   font-size: 12px;
-  color: var(--bms-color-text-secondary, #909399);
-  background: var(--bms-ai-bubble-assistant-bg, #f5f7fa);
+  color: var(--bms-color-text-secondary);
+  background: var(--bms-ai-bubble-assistant-bg);
   border-radius: 9px;
 }
 .bms-ai-sessions__title {
@@ -186,14 +186,14 @@ watch(
 .bms-ai-sessions__remove {
   flex: 0 0 auto;
   font-size: 12px;
-  color: var(--bms-color-danger, #f56c6c);
+  color: var(--bms-color-danger);
   cursor: pointer;
   background: none;
   border: none;
 }
 .bms-ai-sessions__empty {
   padding: 24px;
-  color: var(--bms-color-text-secondary, #909399);
+  color: var(--bms-color-text-secondary);
   text-align: center;
 }
 </style>

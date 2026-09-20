@@ -105,7 +105,7 @@ describe('能力身份与依赖', () => {
   it('能力键与依赖登记无环', () => {
     const designer = new DemoDesigner()
     expect(designer.identifier).toBe('report-designer')
-    expect(designer.depends).toEqual(['access', 'notice', 'data-state', 'drag-drop', 'async-task'])
+    expect(designer.depends).toEqual(['placeholder-state', 'access', 'notice', 'data-state', 'drag-drop', 'async-task'])
     const problems = validateCapabilityGraph().filter((problem) => problem.key === 'report-designer' || problem.detail.includes('report-designer'))
     expect(problems).toEqual([])
   })

@@ -4,14 +4,12 @@ import type { IconRegistry, IconProvider } from '@bms/core'
 import { computed, ref } from 'vue'
 
 import { ensureOfficialIcons } from '../../icons/official'
+import { useBasePersistedState } from '../../composables/useBasePersistedState'
 import { useIconRegistry } from '../../composables/useIconRegistry'
 import IconRenderer from './IconRenderer.vue'
 
 /** 图标选择器尺寸。 */
 export type IconPickerSize = 'small' | 'default' | 'large'
-
-/** 最近使用本地存储键。 */
-const RECENT_KEY = 'bms_icon_recent'
 
 interface Props {
   /** 选中的 icon key（受控）。 */
@@ -59,31 +57,19 @@ const visible = ref(false)
 const keyword = ref('')
 const activeCategory = ref('all')
 const bumped = ref(0)
-const recent = ref<string[]>(readRecent())
+const recentState = useBasePersistedState({ stateKey: 'bms_icon_recent' })
+const recent = ref<string[]>(normalizeRecent(recentState.local.value))
 
-/** 读取最近使用（本地按用户）。 */
-function readRecent(): string[] {
-  try {
-    const raw = globalThis.localStorage?.getItem(RECENT_KEY)
-    return raw ? (JSON.parse(raw) as string[]) : []
-  } catch {
-    return []
-  }
-}
-
-/** 写入最近使用（去重、裁剪）。 */
-function writeRecent(keys: string[]): void {
-  try {
-    globalThis.localStorage?.setItem(RECENT_KEY, JSON.stringify(keys))
-  } catch {
-    // 本地存储不可用时静默降级
-  }
+/** 归一最近使用清单（非字符串项剔除）。 */
+function normalizeRecent(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : []
 }
 
 /** 记录最近使用。 */
 function pushRecent(key: string): void {
   recent.value = [key, ...recent.value.filter((item) => item !== key)].slice(0, Math.max(props.recentLimit, 0))
-  writeRecent(recent.value)
+  recentState.setLocal(recent.value)
+  void recentState.save()
 }
 
 /** 分类清单（注册表分类 + `custom`）。 */

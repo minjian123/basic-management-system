@@ -14,8 +14,8 @@ import {
 } from '@bms/core'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 
-import { useBaseDisplay } from '../../composables/useBaseDisplay'
 import { useDisplayPlaceholder } from '../../composables/useDisplayPlaceholder'
+import { prefersReducedMotion } from '../../utils/media'
 
 /** 数字滚动时长（毫秒）。 */
 const METRIC_ANIMATE_DURATION = 400
@@ -90,7 +90,6 @@ const emit = defineEmits<{
 }>()
 
 const placeholder = useDisplayPlaceholder({ ready: props.ready })
-const display = useBaseDisplay<number>()
 
 watch(
   () => props.ready,
@@ -148,12 +147,6 @@ const geometry = computed(() =>
   buildSparkline(normalizeTrend(props.trend), { width: TREND_WIDTH, height: TREND_HEIGHT }),
 )
 
-/** 系统是否要求减弱动效。 */
-function prefersReducedMotion(): boolean {
-  const scope = globalThis as { matchMedia?: (query: string) => { matches: boolean } }
-  return scope.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true
-}
-
 /** 取消未完成的动画帧。 */
 function cancelFrame(): void {
   if (frame !== 0) {
@@ -208,7 +201,7 @@ watch(
       return
     }
     playAnimate(target)
-    display.setValue(target)
+    placeholder.setValue(target)
   },
   { immediate: true },
 )

@@ -208,12 +208,12 @@ function copyMessage(): void {
   max-width: 82%;
   padding: 8px 12px;
   border-radius: 8px;
-  color: var(--bms-color-text, #303133);
-  background: var(--bms-ai-bubble-assistant-bg, #f5f7fa);
+  color: var(--bms-color-text);
+  background: var(--bms-ai-bubble-assistant-bg);
 }
 .bms-ai-message__bubble.is-user {
-  color: #fff;
-  background: var(--bms-ai-bubble-user-bg, var(--bms-color-primary, #409eff));
+  color: var(--bms-color-white);
+  background: var(--bms-ai-bubble-user-bg, var(--bms-color-primary));
 }
 .bms-ai-message__markdown {
   word-break: break-word;
@@ -229,7 +229,7 @@ function copyMessage(): void {
   width: 6px;
   height: 14px;
   vertical-align: text-bottom;
-  background: var(--bms-ai-stream-cursor, var(--bms-color-primary, #409eff));
+  background: var(--bms-ai-stream-cursor, var(--bms-color-primary));
   animation: bms-ai-blink 1s steps(2, start) infinite;
 }
 @keyframes bms-ai-blink {
@@ -250,19 +250,19 @@ function copyMessage(): void {
   margin-bottom: 4px;
   font-size: 12px;
   cursor: pointer;
-  background: var(--bms-ai-citation-bg, #ecf5ff);
+  background: var(--bms-ai-citation-bg);
   border-radius: 4px;
 }
 .bms-ai-message__cite-type {
   margin-right: 6px;
-  color: var(--bms-color-text-secondary, #909399);
+  color: var(--bms-color-text-secondary);
 }
 .bms-ai-message__risks {
   padding: 6px 10px;
   margin: 8px 0 0;
   list-style: none;
-  background: var(--bms-ai-risk-bg, #fdf6ec);
-  border-left: 3px solid var(--bms-ai-risk-border, var(--bms-color-warning, #e6a23c));
+  background: var(--bms-ai-risk-bg);
+  border-left: 3px solid var(--bms-ai-risk-border, var(--bms-color-warning));
   border-radius: 4px;
 }
 .bms-ai-message__risks li {
@@ -276,10 +276,10 @@ function copyMessage(): void {
   font-size: 12px;
 }
 .bms-ai-message__audit {
-  color: var(--bms-ai-audit-color, var(--bms-color-text-secondary, #909399));
+  color: var(--bms-ai-audit-color, var(--bms-color-text-secondary));
 }
 .bms-ai-message__actions button {
-  color: var(--bms-color-primary, #409eff);
+  color: var(--bms-color-primary);
   cursor: pointer;
   background: none;
   border: none;

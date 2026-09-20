@@ -274,11 +274,11 @@ const showPager = computed(() => !props.virtualized && props.total > props.pageS
 }
 
 .bms-message-grid__table td[data-missing] {
-  background: var(--bms-color-warning-bg, #fdf6ec);
+  background: var(--bms-color-warning-bg);
 }
 
 .bms-message-grid__table td[data-disabled] {
-  background: var(--bms-color-fill, #f5f7fa);
+  background: var(--bms-color-fill);
   color: var(--bms-color-text-secondary);
 }
 

@@ -2,13 +2,13 @@
  * 值语义能力基类：值归一 / 三态 / 变更上报（输入与展示共用）。
  */
 
-import { BaseComponent } from '../base/BaseComponent'
+import { BasePlaceholderState } from './placeholder-state'
 
 /** 值变更监听器。 */
 export type ValueListener<T> = (value: T | undefined) => void
 
 /** 值能力基类（抽象）。 */
-export abstract class BaseValue<T = unknown> extends BaseComponent {
+export abstract class BaseValue<T = unknown> extends BasePlaceholderState {
   /** 能力键。 */
   readonly identifier: string = 'value'
   /** 当前值。 */

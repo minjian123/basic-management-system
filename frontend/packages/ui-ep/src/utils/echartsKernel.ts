@@ -5,7 +5,7 @@
  * 浏览器 API 与 ECharts 只出现在本工具与图表件；核心与投影不触 DOM / 第三方。
  */
 
-import { shouldResize, type ChartEngineAdapter, type ChartRenderMode, type ChartTheme } from '@bms/core'
+import { BaseChartEngine, shouldResize, type ChartRenderMode, type ChartTheme } from '@bms/core'
 
 /** ECharts 实例最小面。 */
 interface EchartsInstance {
@@ -116,12 +116,12 @@ function toEchartsTheme(theme: ChartTheme): Record<string, unknown> {
 }
 
 /**
- * 创建 ECharts 引擎适配器（动态装载内核，独立分包）。
+ * 创建 ECharts 引擎（插件基类 `BaseChartEngine` 的内建实现，动态装载内核 / 独立分包）。
  *
  * @param options 装载选项。
- * @returns 引擎适配器。
+ * @returns 引擎插件实例。
  */
-export async function createEchartsEngine(options: EchartsEngineOptions): Promise<ChartEngineAdapter> {
+export async function createEchartsEngine(options: EchartsEngineOptions): Promise<BaseChartEngine> {
   const core = await loadCore()
   let instance: EchartsInstance | undefined
   let observer: ResizeObserver | undefined
@@ -176,21 +176,44 @@ export async function createEchartsEngine(options: EchartsEngineOptions): Promis
     return instance
   }
 
-  return {
-    init: (payload) => {
+  /** ECharts 图表引擎（插件基类内建实现）。 */
+  class EchartsChartEngine extends BaseChartEngine {
+    /** 实现名。 */
+    override readonly pluginName = 'echarts'
+
+    /**
+     * 初始化实例。
+     *
+     * @param payload 主题与渲染模式。
+     */
+    override init(payload: { theme: ChartTheme; renderMode: ChartRenderMode }): void {
       theme = payload.theme
       renderMode = payload.renderMode
       ensure()
-    },
-    update: (option, replace) => {
+    }
+
+    /**
+     * 写入选项。
+     *
+     * @param option 选项。
+     * @param replace 是否全量替换。
+     */
+    override update(option: Record<string, unknown>, replace: boolean): void {
       const target = ensure()
       if (target === undefined) {
         pendingOption = option
         return
       }
       target.setOption(option, replace)
-    },
-    applyTheme: (nextTheme, option) => {
+    }
+
+    /**
+     * 主题切换重建。
+     *
+     * @param nextTheme 主题。
+     * @param option 选项。
+     */
+    override applyTheme(nextTheme: ChartTheme, option: Record<string, unknown>): void {
       theme = nextTheme
       observer?.disconnect()
       observer = undefined
@@ -200,34 +223,56 @@ export async function createEchartsEngine(options: EchartsEngineOptions): Promis
       if (target !== undefined) {
         target.setOption(option, true)
       }
-    },
-    resize: () => {
+    }
+
+    /** 重算尺寸。 */
+    override resize(): void {
       instance?.resize()
-    },
-    exportImage: (type = 'png') => {
+    }
+
+    /**
+     * 导出图片。
+     *
+     * @param type 图片类型。
+     * @returns dataURL。
+     */
+    override exportImage(type: 'png' | 'svg' = 'png'): string | undefined {
       if (instance === undefined) {
         return undefined
       }
       return instance.getDataURL({ type, pixelRatio: 2 })
-    },
-    on: (event, handler) => {
+    }
+
+    /**
+     * 注册事件。
+     *
+     * @param event 事件名。
+     * @param handler 处理器。
+     */
+    override on(event: string, handler: (params: unknown) => void): void {
       handlers.set(event, handler)
       instance?.on(event, handler)
-    },
-    offAll: () => {
+    }
+
+    /** 全量解绑。 */
+    override offAll(): void {
       for (const event of handlers.keys()) {
         instance?.off(event)
       }
       handlers.clear()
-    },
-    dispose: () => {
+    }
+
+    /** 销毁（幂等）。 */
+    override dispose(): void {
       observer?.disconnect()
       observer = undefined
       instance?.dispose()
       instance = undefined
       pendingOption = undefined
-    },
+    }
   }
+
+  return new EchartsChartEngine()
 }
 
 /** 地图地理数据加载器（按需分包；新增地区在此登记）。 */

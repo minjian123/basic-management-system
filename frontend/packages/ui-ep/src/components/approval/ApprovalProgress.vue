@@ -236,25 +236,25 @@ void normalizeNode
   width: 10px;
   height: 10px;
   margin-top: 4px;
-  border: 2px solid var(--bms-color-border, #dcdfe6);
+  border: 2px solid var(--bms-color-border);
   border-radius: 50%;
-  background: var(--bms-color-bg, #ffffff);
+  background: var(--bms-color-bg);
 }
 
 .bms-approval-progress__item[data-status='done'] .bms-approval-progress__dot {
-  border-color: var(--bms-color-success, #67c23a);
-  background: var(--bms-color-success, #67c23a);
+  border-color: var(--bms-color-success);
+  background: var(--bms-color-success);
 }
 
 .bms-approval-progress__item[data-status='active'] .bms-approval-progress__dot {
-  border-color: var(--bms-color-primary, #409eff);
-  background: var(--bms-color-primary, #409eff);
-  box-shadow: 0 0 0 3px rgba(64, 158, 255, 0.2);
+  border-color: var(--bms-color-primary);
+  background: var(--bms-color-primary);
+  box-shadow: 0 0 0 3px var(--bms-color-focus-ring);
 }
 
 .bms-approval-progress__item[data-status='rejected'] .bms-approval-progress__dot {
-  border-color: var(--bms-color-danger, #f56c6c);
-  background: var(--bms-color-danger, #f56c6c);
+  border-color: var(--bms-color-danger);
+  background: var(--bms-color-danger);
 }
 
 .bms-approval-progress__item[data-status='skipped'] {
@@ -282,17 +282,17 @@ void normalizeNode
 .bms-approval-progress__assignees {
   display: flex;
   gap: var(--bms-spacing-sm, 4px);
-  color: var(--bms-color-text-secondary, #909399);
+  color: var(--bms-color-text-secondary);
   font-size: 0.85em;
 }
 
 .bms-approval-progress__time {
-  color: var(--bms-color-text-secondary, #909399);
+  color: var(--bms-color-text-secondary);
   font-size: 0.85em;
 }
 
 .bms-approval-progress__sign {
-  color: var(--bms-color-primary, #409eff);
+  color: var(--bms-color-primary);
   font-size: 0.85em;
 }
 
@@ -306,18 +306,18 @@ void normalizeNode
   gap: var(--bms-spacing-sm, 4px);
   margin-top: var(--bms-spacing-sm, 4px);
   padding: var(--bms-spacing-sm, 4px);
-  border: 1px solid var(--bms-color-border, #dcdfe6);
+  border: 1px solid var(--bms-color-border);
   border-radius: var(--bms-radius-sm, 2px);
   font-size: 0.85em;
 }
 
 .bms-approval-progress__signed-item[data-handled='true'] {
-  color: var(--bms-color-success, #67c23a);
+  color: var(--bms-color-success);
 }
 
 .bms-approval-progress__summary {
   margin: var(--bms-spacing-sm, 4px) 0 0;
-  color: var(--bms-color-text-secondary, #909399);
+  color: var(--bms-color-text-secondary);
   font-size: 0.85em;
 }
 </style>

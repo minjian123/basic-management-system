@@ -142,7 +142,7 @@ onBeforeUnmount(() => {
   font-weight: 600;
 }
 .bms-screen-widget__unit {
-  color: var(--bms-color-text-secondary, #909399);
+  color: var(--bms-color-text-secondary);
   font-size: 14px;
 }
 .bms-screen-widget__text {
@@ -163,7 +163,7 @@ onBeforeUnmount(() => {
 .bms-screen-widget__decor {
   width: 100%;
   height: 100%;
-  border: 1px solid var(--bms-color-border, #dcdfe6);
+  border: 1px solid var(--bms-color-border);
   border-radius: var(--bms-radius-md, 4px);
 }
 </style>

@@ -23,7 +23,6 @@ import { computed, defineAsyncComponent, ref, watch } from 'vue'
 
 import { useBaseDragDrop } from '../../composables/useBaseDragDrop'
 import { useBaseFormDesigner } from '../../composables/useBaseFormDesigner'
-import { useInteractionPlaceholder } from '../../composables/useInteractionPlaceholder'
 import type { ExtFieldCreated } from './ExtFieldDialog.vue'
 import type { CanvasPropertyPatch, FieldPropertyPatch, SectionPropertyPatch } from './FieldPropertyPanel.vue'
 import type { DesignerMoveEvent, DesignerView } from './FormDesignerCanvas.vue'
@@ -159,7 +158,6 @@ const emit = defineEmits<{
   'field-created': [result: ExtFieldCreated]
 }>()
 
-const placeholder = useInteractionPlaceholder({ ready: props.ready })
 const designer = useBaseFormDesigner({
   ready: props.ready,
   formCode: props.formCode,
@@ -194,7 +192,6 @@ const panelFields = computed<DesignerField[]>(() => [...props.fields, ...extraFi
 watch(
   () => props.ready,
   (next) => {
-    placeholder.setReady(next)
     designer.setReady(next)
     if (next) {
       void designer.load()
@@ -496,14 +493,14 @@ defineExpose({ designer: designer.designer, layout, dirty, readonly })
   <div
     class="bms-form-designer"
     data-test="form-designer"
-    :data-ready="placeholder.ready.value"
-    :data-degraded="placeholder.degraded.value"
+    :data-ready="designer.ready.value"
+    :data-degraded="designer.degraded.value"
     :data-readonly="readonly"
     :data-dirty="dirty"
     :data-dragging="dragState.dragging.value"
     :data-level="level"
   >
-    <slot v-if="placeholder.degraded.value" name="degrade">
+    <slot v-if="designer.degraded.value" name="degrade">
       <div class="bms-interaction-placeholder" data-test="placeholder">{{ degradeText }}</div>
     </slot>
     <template v-else>

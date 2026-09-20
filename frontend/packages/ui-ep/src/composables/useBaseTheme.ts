@@ -9,6 +9,8 @@ import {
 } from '@bms/core'
 import { markRaw, onScopeDispose, ref, toRaw, type Ref } from 'vue'
 
+import { matchesMedia, onMediaChange as subscribeMediaChange, supportsMediaQuery } from '../utils/media'
+
 /** 具体主题件（可实例化）。 */
 class Theme extends BaseTheme {}
 
@@ -83,17 +85,15 @@ export function useBaseTheme(options: UseBaseThemeOptions = {}): UseBaseThemeRes
   }
 
   const mediaQuery = options.mediaQuery ?? '(prefers-color-scheme: dark)'
-  const media =
-    theme.followSystem && typeof globalThis.matchMedia === 'function' ? globalThis.matchMedia(mediaQuery) : undefined
-  if (media !== undefined) {
-    theme.setSystemPrefersDark(media.matches)
+  if (theme.followSystem && supportsMediaQuery()) {
+    theme.setSystemPrefersDark(matchesMedia(mediaQuery))
   }
-  /** 系统偏好变化回调。 */
-  const onMediaChange = (event: MediaQueryListEvent): void => {
-    theme.setSystemPrefersDark(event.matches)
-  }
-  media?.addEventListener('change', onMediaChange)
-  onScopeDispose(() => media?.removeEventListener('change', onMediaChange))
+  const offMedia = theme.followSystem
+    ? subscribeMediaChange(mediaQuery, (matches) => {
+        theme.setSystemPrefersDark(matches)
+      })
+    : () => {}
+  onScopeDispose(offMedia)
 
   const mode = ref<ThemeMode>(theme.mode)
   const resolved = ref<ResolvedTheme>(theme.resolved)

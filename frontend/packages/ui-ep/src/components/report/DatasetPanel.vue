@@ -124,7 +124,7 @@ function requestPreview(): void {
 }
 .bms-report-dataset th,
 .bms-report-dataset td {
-  border: 1px solid var(--bms-color-border, #dcdfe6);
+  border: 1px solid var(--bms-color-border);
   padding: 2px 4px;
   text-align: left;
 }

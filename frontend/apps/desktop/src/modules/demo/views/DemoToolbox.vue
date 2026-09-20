@@ -34,6 +34,6 @@ const range = computeVirtualRange({ scrollTop: 0, viewportHeight: 240, count: ro
 }
 .demo__text {
   margin: 8px 0 0;
-  color: var(--bms-color-text-secondary, #666);
+  color: var(--bms-color-text-secondary);
 }
 </style>

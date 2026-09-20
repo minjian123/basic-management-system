@@ -301,14 +301,14 @@ const resultInfo = computed(() => result.value ?? ({ status: 'success' } as Wiza
   gap: var(--bms-spacing-md, 8px);
   padding: var(--bms-spacing-md, 8px) var(--bms-spacing-lg, 16px);
   margin-bottom: var(--bms-spacing-md, 8px);
-  border: 1px solid var(--bms-color-border, #dcdfe6);
+  border: 1px solid var(--bms-color-border);
   border-radius: var(--bms-radius-md, 4px);
 }
 
 .bms-step-wizard__draft-text {
   flex: 1;
   font-size: 12px;
-  color: var(--bms-color-text-secondary, #909399);
+  color: var(--bms-color-text-secondary);
 }
 
 .bms-step-wizard__body {

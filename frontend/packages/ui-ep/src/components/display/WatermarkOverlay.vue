@@ -38,7 +38,7 @@ const props = withDefaults(defineProps<Props>(), {
   user: '',
   tenant: '',
   image: '',
-  color: '#909399',
+  color: 'var(--bms-color-text-secondary)',
   opacity: 0.15,
   rotate: -22,
   gap: () => [100, 100],

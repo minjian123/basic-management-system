@@ -2,7 +2,6 @@
 // 打印预览壳（08_03_03）：工具栏（纸张 / 方向 / 黑白 / 缩放 / 水印开关 / 模板选择）+ 多页纸面 + 浏览器打印 / 导出 PDF / 批量打印（进度、失败与重试）。
 import { computed, ref, watch } from 'vue'
 
-import { BaseWatermark } from '@bms/core'
 import type {
   BaseLocale,
   PaperName,
@@ -16,6 +15,7 @@ import type {
   PrintTone,
 } from '@bms/core'
 import { useBasePrint } from '../../composables/useBasePrint'
+import { useBaseWatermark } from '../../composables/useBaseWatermark'
 import { invokeBrowserPrint } from '../../utils/printWindow'
 import EmptyState from '../feedback/EmptyState.vue'
 import PrintSheet from './PrintSheet.vue'
@@ -102,10 +102,7 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 /** 内联水印能力（把宿主传入的水印文案按水印能力语义承接，真源仍是宿主的水印能力）。 */
-class InlineWatermark extends BaseWatermark {}
-
-const watermarkCapability = new InlineWatermark()
-watermarkCapability.setUser(props.watermark)
+const { watermark: watermarkCapability, setUser: setWatermarkUser } = useBaseWatermark({ user: props.watermark })
 
 const emit = defineEmits<{
   'update:visible': [value: boolean]
@@ -243,7 +240,7 @@ watch(
 watch(
   () => props.watermark,
   (value) => {
-    watermarkCapability.setUser(value)
+    setWatermarkUser(value)
     print.notifyLifecycle('update')
   },
 )
@@ -579,8 +576,8 @@ defineExpose({
   align-items: center;
   gap: var(--bms-spacing-sm, 4px);
   padding: var(--bms-spacing-sm, 4px) var(--bms-spacing-md, 8px);
-  border-bottom: 1px solid var(--bms-color-border, #dcdfe6);
-  background: var(--bms-color-bg, #ffffff);
+  border-bottom: 1px solid var(--bms-color-border);
+  background: var(--bms-color-bg);
 }
 
 .bms-print-preview__title {
@@ -596,9 +593,9 @@ defineExpose({
 
 .bms-print-preview__button {
   padding: 2px 8px;
-  border: 1px solid var(--bms-color-border, #dcdfe6);
+  border: 1px solid var(--bms-color-border);
   border-radius: var(--bms-radius-sm, 2px);
-  background: var(--bms-color-bg, #ffffff);
+  background: var(--bms-color-bg);
   color: inherit;
   font: inherit;
   cursor: pointer;
@@ -606,8 +603,8 @@ defineExpose({
 
 .bms-print-preview__button.is-active,
 .bms-print-preview__button.is-primary {
-  border-color: var(--bms-color-primary, #409eff);
-  color: var(--bms-color-primary, #409eff);
+  border-color: var(--bms-color-primary);
+  color: var(--bms-color-primary);
 }
 
 .bms-print-preview__button:disabled {
@@ -624,10 +621,10 @@ defineExpose({
   flex-direction: column;
   min-width: 120px;
   padding: 4px;
-  border: 1px solid var(--bms-color-border, #dcdfe6);
+  border: 1px solid var(--bms-color-border);
   border-radius: var(--bms-radius-sm, 2px);
-  background: var(--bms-color-bg, #ffffff);
-  box-shadow: var(--bms-shadow-1, 0 1px 4px rgba(0, 0, 0, 0.08));
+  background: var(--bms-color-bg);
+  box-shadow: var(--bms-shadow-1);
 }
 
 .bms-print-preview__menu-item {
@@ -652,14 +649,14 @@ defineExpose({
 }
 
 .bms-print-preview__hint {
-  color: var(--bms-color-text-secondary, #909399);
+  color: var(--bms-color-text-secondary);
   font-size: 0.85em;
 }
 
 .bms-print-preview__progress,
 .bms-print-preview__result {
   padding: 2px var(--bms-spacing-md, 8px);
-  color: var(--bms-color-text-secondary, #909399);
+  color: var(--bms-color-text-secondary);
   font-size: 0.85em;
 }
 
@@ -668,13 +665,13 @@ defineExpose({
   align-items: center;
   gap: var(--bms-spacing-sm, 4px);
   padding: 2px var(--bms-spacing-md, 8px);
-  color: var(--bms-color-danger, #f56c6c);
+  color: var(--bms-color-danger);
   font-size: 0.85em;
 }
 
 .bms-print-preview__body {
   padding: var(--bms-spacing-lg, 16px);
-  background: var(--bms-color-bg, #ffffff);
+  background: var(--bms-color-bg);
   overflow: auto;
 }
 

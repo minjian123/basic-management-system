@@ -6,7 +6,7 @@
  * Excel 解析、模板列核对与行级校验归后端；核心不触 DOM、不发请求。
  */
 
-import { BaseComponent } from '../base/BaseComponent'
+import { BasePlaceholderState } from './placeholder-state'
 import {
   IMPORT_ACCEPT,
   IMPORT_DEFAULT_MAX_SIZE,
@@ -82,11 +82,11 @@ export interface ImportJobs {
 }
 
 /** 导入流能力基类（抽象）。 */
-export abstract class BaseImportFlow extends BaseComponent {
+export abstract class BaseImportFlow extends BasePlaceholderState {
   /** 能力键。 */
   readonly identifier: string = 'import-flow'
   /** 依赖能力键。 */
-  override readonly depends = ['upload-engine', 'file-download', 'access', 'notice']
+  override readonly depends = ['placeholder-state', 'upload-engine', 'file-download', 'access', 'notice']
   /** 业务标识（后端路径段，如 `users`）。 */
   biz = ''
   /** 业务中文名（标题与错误明细文件名）。 */
@@ -101,8 +101,19 @@ export abstract class BaseImportFlow extends BaseComponent {
   successAutoClose = false
   /** 数据通路是否就绪（占位语义开关）。 */
   ready = false
-  /** 实际发起的请求计数（占位期恒 0）。 */
-  requestCount = 0
+
+  /**
+   * 切换就绪态（就绪以 `touch` 刷新）。
+   *
+   * @param value 是否就绪。
+   */
+  setReady(value: boolean): void {
+    if (this.ready === value) {
+      return
+    }
+    this.ready = value
+    this.touch()
+  }
   /** 当前步骤。 */
   step: ImportStep = 'select'
   /** 当前阶段。 */
@@ -138,10 +149,6 @@ export abstract class BaseImportFlow extends BaseComponent {
   /** 当前中断信号（提交时重建）。 */
   #signal: { aborted: boolean } | undefined
 
-  /** 是否降级（占位）态。 */
-  get degraded(): boolean {
-    return !this.ready
-  }
 
   /** 是否进行中（上传 / 解析）。 */
   get busy(): boolean {
@@ -178,18 +185,6 @@ export abstract class BaseImportFlow extends BaseComponent {
     return paginateImportErrors(this.result?.errors ?? [], this.errorPage, this.errorPageSize)
   }
 
-  /**
-   * 设置就绪态（占位语义开关）。
-   *
-   * @param value 是否就绪。
-   */
-  setReady(value: boolean): void {
-    if (this.ready === value) {
-      return
-    }
-    this.ready = value
-    this.touch()
-  }
 
   /**
    * 设置业务标识与中文名。

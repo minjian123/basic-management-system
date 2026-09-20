@@ -70,8 +70,6 @@ export abstract class BaseChart extends BaseDataState {
   override readonly depends = ['data-state']
   /** 数据通路是否就绪（占位语义，缺省 `false`）。 */
   ready = false
-  /** 占位态请求计数（占位态恒 0）。 */
-  requestCount = 0
   /** 图表配置。 */
   config: ChartConfig
   /** 数据集结果。 */
@@ -119,10 +117,6 @@ export abstract class BaseChart extends BaseDataState {
     this.theme = buildChartTheme((name) => (this.tokens !== undefined ? this.tokens(name) : undefined), 'light')
   }
 
-  /** 是否处于降级（占位）态。 */
-  get degraded(): boolean {
-    return !this.ready
-  }
 
   /** 是否空数据。 */
   get isEmpty(): boolean {
@@ -160,18 +154,6 @@ export abstract class BaseChart extends BaseDataState {
     return this.theme
   }
 
-  /**
-   * 切换就绪态。
-   *
-   * @param value 是否就绪。
-   */
-  setReady(value: boolean): void {
-    if (this.ready === value) {
-      return
-    }
-    this.ready = value
-    this.notifyLifecycle('update')
-  }
 
   /**
    * 注入令牌读取口。

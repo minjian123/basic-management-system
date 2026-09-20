@@ -5,7 +5,7 @@
  * **未注入即占位**（不发请求、返回 `undefined` / `false`）；判定全部经领域纯函数 `domain/form-layout`。
  */
 
-import { BaseComponent } from '../base/BaseComponent'
+import { BasePlaceholderState } from './placeholder-state'
 import { BaseAccess } from './access'
 import { BaseDragDrop } from './drag-drop'
 import { BaseFormMeta } from './form-meta'
@@ -121,11 +121,11 @@ export interface DesignerJobs {
 export type DesignerBlockAction = 'switch-form' | 'switch-level' | 'leave'
 
 /** 表单设计器能力基类（抽象）。 */
-export abstract class BaseFormDesigner extends BaseComponent {
+export abstract class BaseFormDesigner extends BasePlaceholderState {
   /** 能力键。 */
   readonly identifier: string = 'form-designer'
   /** 依赖能力键（拖拽 / 表单元数据 / 权限 / 提示）。 */
-  override readonly depends = ['drag-drop', 'form-meta', 'access', 'notice']
+  override readonly depends = ['placeholder-state', 'drag-drop', 'form-meta', 'access', 'notice']
   /** 表单标识。 */
   formCode = ''
   /** 当前层级。 */
@@ -134,8 +134,6 @@ export abstract class BaseFormDesigner extends BaseComponent {
   roleId = ''
   /** 数据通路是否就绪。 */
   ready = false
-  /** 已发起的后端请求计数（占位期恒 0）。 */
-  requestCount = 0
   /** 合并字段清单。 */
   fields: FormField[] = []
   /** 三级层级布局。 */
@@ -165,10 +163,6 @@ export abstract class BaseFormDesigner extends BaseComponent {
   /** 已注册字段类型（空数组视为不限类型）。 */
   registeredTypes: readonly string[] = []
 
-  /** 是否处于占位（降级）态。 */
-  get degraded(): boolean {
-    return !this.ready
-  }
 
   /** 层级是否只读（平台默认层级恒只读）。 */
   get levelReadonly(): boolean {
@@ -244,15 +238,6 @@ export abstract class BaseFormDesigner extends BaseComponent {
     return this.access === undefined || this.access.has(FORMDESIGN_PERM)
   }
 
-  /**
-   * 设置就绪态。
-   *
-   * @param value 是否就绪。
-   */
-  setReady(value: boolean): void {
-    this.ready = value
-    this.notifyLifecycle('update')
-  }
 
   /**
    * 注入处理函数集（整体替换；未注入的项按占位）。

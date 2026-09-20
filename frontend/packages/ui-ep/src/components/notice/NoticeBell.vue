@@ -136,9 +136,9 @@ const connection = computed(() => connectionLabel(props.connectionState))
   padding: 0 4px;
   font-size: 11px;
   line-height: 16px;
-  color: #fff;
+  color: var(--bms-color-white);
   text-align: center;
-  background: var(--bms-notice-badge-bg, var(--bms-color-danger, #f56c6c));
+  background: var(--bms-notice-badge-bg, var(--bms-color-danger));
   border-radius: 8px;
 }
 .bms-notice-bell__dropdown {
@@ -146,10 +146,10 @@ const connection = computed(() => connectionLabel(props.connectionState))
   right: 0;
   z-index: 2000;
   width: 320px;
-  background: var(--bms-color-bg, #fff);
-  border: 1px solid var(--bms-color-border, #ebeef5);
+  background: var(--bms-color-bg);
+  border: 1px solid var(--bms-color-border);
   border-radius: 4px;
-  box-shadow: 0 4px 12px rgb(0 0 0 / 12%);
+  box-shadow: var(--bms-shadow-md);
 }
 .bms-notice-bell__head,
 .bms-notice-bell__foot {
@@ -158,7 +158,7 @@ const connection = computed(() => connectionLabel(props.connectionState))
   justify-content: space-between;
   padding: 8px 12px;
   font-size: 12px;
-  color: var(--bms-color-text-secondary, #909399);
+  color: var(--bms-color-text-secondary);
 }
 .bms-notice-bell__recent {
   max-height: 360px;
@@ -168,7 +168,7 @@ const connection = computed(() => connectionLabel(props.connectionState))
   list-style: none;
 }
 .bms-notice-bell__foot button {
-  color: var(--bms-color-primary, #409eff);
+  color: var(--bms-color-primary);
   cursor: pointer;
   background: none;
   border: none;
