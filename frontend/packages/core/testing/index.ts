@@ -20,6 +20,10 @@ export * from './chart'
 export * from './report-designer'
 export * from './screen-designer'
 export * from './screen-player'
+export * from './table'
+export * from './query-scheme'
+export * from './status'
+export * from './metric'
 
 /** 契约用例套件定义体。 */
 export type ContractDefine = () => void

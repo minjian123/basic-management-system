@@ -18,7 +18,7 @@ export const CAPABILITY_MANIFEST: Readonly<Record<string, readonly string[]>> = 
   sized: [],
   'data-state': [],
   list: ['data-state'],
-  table: ['data-state'],
+  table: ['data-state', 'selection', 'column-config'],
   'tree-data': ['data-state'],
   overlay: ['sized'],
   notice: [],

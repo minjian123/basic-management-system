@@ -24,7 +24,23 @@ export {
 } from './components/display/AuditDiff.vue'
 export { default as ChartRenderer } from './components/chart/ChartRenderer.vue'
 export { default as ChartCard, type ChartType } from './components/chart/ChartCard.vue'
-export { default as DataTable, type DataTableColumn, type DataTableSort } from './components/display/DataTable.vue'
+export {
+  default as DataTable,
+  type DataTableCellChange,
+  type DataTableColumn,
+  type DataTableSort,
+} from './components/data/DataTable.vue'
+export {
+  default as QueryFilter,
+  type QueryFilterSearchPayload,
+} from './components/data/QueryFilter.vue'
+export {
+  default as StatusTag,
+  type StatusTagSemantic,
+  type StatusTagShape,
+} from './components/data/StatusTag.vue'
+export { default as DescriptionList, type DescGroup, type DescItem, type DescItemType } from './components/data/DescriptionList.vue'
+export { default as MetricCard } from './components/data/MetricCard.vue'
 export {
   default as FilePreview,
   type PreviewErrorReason,
@@ -242,6 +258,12 @@ export {
 } from './composables/useBaseContainer'
 export { useBaseLayout, type UseBaseLayoutOptions, type UseBaseLayoutResult } from './composables/useBaseLayout'
 export { useBaseDisplay, type UseBaseDisplayResult } from './composables/useBaseDisplay'
+export { useBaseTable, type UseBaseTableOptions, type UseBaseTableResult } from './composables/useBaseTable'
+export {
+  useBaseQueryScheme,
+  type UseBaseQuerySchemeOptions,
+  type UseBaseQuerySchemeResult,
+} from './composables/useBaseQueryScheme'
 export {
   useDisplayPlaceholder,
   type UseDisplayPlaceholderOptions,

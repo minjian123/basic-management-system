@@ -18,7 +18,7 @@ import type {
 } from '@bms/core'
 
 import { useBaseChart } from '../../composables/useBaseChart'
-import DataTable from '../display/DataTable.vue'
+import DataTable from '../data/DataTable.vue'
 import ChartRenderer from './ChartRenderer.vue'
 
 /** 图表类型（沿用 07_01 导出名；值域与图表域 `ChartKind` 同源）。 */

@@ -6,7 +6,7 @@ import type { FieldPermission, FieldRendererRegistry, RenderDetailColumn, Render
 import { MASK_TEXT, displayFieldText, resolveFieldRenderState } from '@bms/core'
 import { computed, ref, watch } from 'vue'
 
-import DataTable from '../display/DataTable.vue'
+import DataTable from '../data/DataTable.vue'
 import { resolveFieldComponent } from '../../utils/formWidgets'
 import { useBaseDataState } from '../../composables/useBaseDataState'
 
