@@ -2,15 +2,16 @@
 
 from typing import Annotated, cast
 
-from fastapi import APIRouter, Path, Request
+from fastapi import Path, Request
 
+from app.api.base import BaseRouter
 from app.core.assembly import PLUGIN_WIRINGS
 from app.core.exceptions import NotFoundError
 from app.core.plugin import NULL_PLUGIN_NAME, PluginImpl, plugin_registry_snapshot
 from app.schemas.common import ApiResponse
 from app.schemas.plugin import PluginGroupResponse, PluginImplementationResponse
 
-router = APIRouter(prefix="/plugins", tags=["plugin"])
+router = BaseRouter(key="plugins", prefix="/plugins", tags=["plugin"])
 
 _PORT_VERSIONS: dict[str, str] = {wiring.plugin_key: wiring.port.contract_version for wiring in PLUGIN_WIRINGS}
 """登记能力 → 端口契约版本（工厂实现报端口版本）。"""

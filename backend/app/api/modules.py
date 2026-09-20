@@ -2,13 +2,14 @@
 
 from typing import Annotated, cast
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import Depends, Query, Request
 
+from app.api.base import BaseRouter
 from app.schemas.common import ApiResponse
 from app.schemas.module import ModuleResponse
 from app.services.module_registry import ModuleRegistry
 
-router = APIRouter(prefix="/modules", tags=["module"])
+router = BaseRouter(key="modules", prefix="/modules", tags=["module"])
 
 
 def get_module_registry(request: Request) -> ModuleRegistry:

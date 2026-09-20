@@ -126,7 +126,7 @@ class ApplicationFactory(BaseApplicationFactory):
             """
             return ApiResponse.ok({"name": "BMS 基础管理系统", "version": __version__})
 
-        app.include_router(api_router, prefix="/api/v1")
+        app.include_router(api_router)
         app.include_router(health_router)
 
         return app
