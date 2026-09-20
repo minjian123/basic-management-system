@@ -15,6 +15,7 @@ from app.api import (
     preference,
     query_scheme,
     search,
+    tenant,
 )
 from app.api import dict as dict_api
 from app.api.base import build_api_router, register_router
@@ -32,6 +33,7 @@ for _module in (
     dict_api,
     file,
     captcha,
+    tenant,
 ):
     register_router(_module.router)
 

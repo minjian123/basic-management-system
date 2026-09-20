@@ -77,6 +77,7 @@ _EXPECTED_PLUGIN_KEYS = frozenset(
         "session_store",
         "sharding",
         "task",
+        "tenant_self_service",
         "tracer",
         "translator",
         "webhook_sender",

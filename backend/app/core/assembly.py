@@ -72,6 +72,7 @@ from app.session.base import BaseSessionStore
 from app.sharding.base import ShardingRouter
 from app.storage.base import BaseMultipartUpload, BaseObjectStorage
 from app.tasks.base import BaseTask
+from app.tenant.base import BaseTenantSelfService
 from app.tracing.base import BaseTracer
 from app.transfer.exporter import BaseExporter
 from app.transfer.importer import BaseImporter
@@ -130,6 +131,7 @@ _NULL_MODULES: tuple[str, ...] = (
     "app.sharding.null",
     "app.storage.null",
     "app.tasks.null",
+    "app.tenant.null",
     "app.tracing.null",
     "app.transfer.null",
     "app.workflow.null",
@@ -214,6 +216,7 @@ PLUGIN_WIRINGS: tuple[PluginWiring, ...] = (
     PluginWiring("cache", CacheRegion, "cache", "cache"),
     PluginWiring("audit", AuditCapturer, "audit", "audit"),
     PluginWiring("task", BaseTask, "task", "task"),
+    PluginWiring("tenant_self_service", BaseTenantSelfService, "tenant_self_service", "tenant_self_service"),
     PluginWiring("event", EventPublisher, "event", "event_publisher"),
     PluginWiring("event_consumer", BaseEventConsumer, "event_consumer", None),  # 消费轨：仅预热，无 app.state 落点
 )

@@ -335,6 +335,7 @@ class Settings(PydanticBaseSettings, BaseSettings):  # pyright: ignore[reportInc
     sharding: PluginSelection = Field(default_factory=PluginSelection)
     storage: PluginSelection = Field(default_factory=PluginSelection)
     task: PluginSelection = Field(default_factory=PluginSelection)
+    tenant_self_service: PluginSelection = Field(default_factory=PluginSelection)
     tracer: PluginSelection = Field(default_factory=PluginSelection)
     translator: PluginSelection = Field(default_factory=PluginSelection)
     webhook_sender: PluginSelection = Field(default_factory=PluginSelection)
