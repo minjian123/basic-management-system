@@ -348,8 +348,11 @@ desktop-build:
         - frontend/apps/desktop/package.json
   script:
     - rm -rf frontend/apps/desktop/node_modules && cp -a /opt/ci/frontend/apps/desktop/node_modules frontend/apps/desktop/node_modules
-    # S5a 切流：构建同样经根 node_modules 桥解析 packages 源码依赖
-    - cp -a /opt/ci/frontend/apps/desktop/node_modules .
+    # S5a 切流：构建经根 node_modules 桥解析 packages 源码依赖。根依赖取 workspace 预装集
+    # （含 ui-ep 独立分包外部依赖：echarts / tiptap / gridstack / vue-flow / bpmn-js / codemirror 等），
+    # 再叠加桌面工具链（vite / vue-tsc），避免 packages 源码向上解析依赖时报 TS2307。
+    - cp -a /opt/ci/workspace/node_modules .
+    - cp -a /opt/ci/frontend/apps/desktop/node_modules/. node_modules/
     - mkdir -p node_modules/@bms && ln -sfn ../../frontend/packages/core node_modules/@bms/core
     - test -d frontend/packages/vue && ln -sfn ../../frontend/packages/vue node_modules/@bms/vue || true
     - test -d frontend/packages/ui-ep && ln -sfn ../../frontend/packages/ui-ep node_modules/@bms/ui-ep || true
