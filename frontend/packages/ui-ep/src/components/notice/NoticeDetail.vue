@@ -116,7 +116,7 @@ const absolute = computed(() => (props.message?.createdAt ? formatDateTime(props
   gap: 8px;
   align-items: center;
   font-size: 12px;
-  color: var(--bms-color-text-secondary, #909399);
+  color: var(--bms-color-text-secondary);
 }
 .bms-notice-detail__type {
   padding: 0 6px;
@@ -125,27 +125,27 @@ const absolute = computed(() => (props.message?.createdAt ? formatDateTime(props
   background: color-mix(in srgb, currentcolor 12%, transparent);
 }
 .bms-notice-detail__type.is-info {
-  color: var(--bms-color-info, #909399);
+  color: var(--bms-color-info);
 }
 .bms-notice-detail__type.is-warning {
-  color: var(--bms-color-warning, #e6a23c);
+  color: var(--bms-color-warning);
 }
 .bms-notice-detail__type.is-primary {
-  color: var(--bms-color-primary, #409eff);
+  color: var(--bms-color-primary);
 }
 .bms-notice-detail__title {
   margin: 0;
   font-size: 16px;
 }
 .bms-notice-detail__content {
-  color: var(--bms-color-text, #303133);
+  color: var(--bms-color-text);
   white-space: pre-wrap;
 }
 .bms-notice-detail__foot {
   padding-top: 8px;
 }
 .bms-notice-detail__foot button {
-  color: var(--bms-color-primary, #409eff);
+  color: var(--bms-color-primary);
   cursor: pointer;
   background: none;
   border: none;

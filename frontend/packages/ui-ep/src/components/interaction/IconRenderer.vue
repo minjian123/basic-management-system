@@ -1,11 +1,11 @@
 <script setup lang="ts">
 // 图标只读渲染件（08_02）：按 icon key 统一解析多来源图标（官方 / 业务 / 自定义），未知降级 + 去重告警。
-import DOMPurify from 'dompurify'
 import type { IconRegistry } from '@bms/core'
 import { computed, ref, shallowRef, watch, type Component } from 'vue'
 
 import { ensureOfficialIcons } from '../../icons/official'
 import { useIconRegistry } from '../../composables/useIconRegistry'
+import { sanitizeSvg } from '../../utils/sanitizeHtml'
 
 interface Props {
   /** icon key（`el:` / `biz:` / `custom:`；无前缀按 `el:` 兼容）。 */
@@ -99,7 +99,7 @@ const svgHtml = computed(() => {
   if (typeof source !== 'string') {
     return ''
   }
-  return DOMPurify.sanitize(source, { USE_PROFILES: { svg: true, svgFilters: true } })
+  return sanitizeSvg(source)
 })
 
 /** 兜底组件。 */

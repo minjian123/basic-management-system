@@ -174,7 +174,7 @@ describe('能力身份与依赖', () => {
   it('能力键与依赖登记', () => {
     const designer = new DemoDesigner()
     expect(designer.identifier).toBe('form-designer')
-    expect(designer.depends).toEqual(['drag-drop', 'form-meta', 'access', 'notice'])
+    expect(designer.depends).toEqual(['placeholder-state', 'drag-drop', 'form-meta', 'access', 'notice'])
     expect(designer.pluginKey).toBe('form-designer')
   })
 

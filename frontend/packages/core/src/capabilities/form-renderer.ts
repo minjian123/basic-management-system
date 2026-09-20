@@ -6,7 +6,7 @@
  * **未注入即占位**（不发请求、返回 `undefined`）；渲染语义全部经领域纯函数 `domain/form-render`。
  */
 
-import { BaseComponent } from '../base/BaseComponent'
+import { BasePlaceholderState } from './placeholder-state'
 import {
   FORM_RENDER_PERM,
   buildRenderPlan,
@@ -74,11 +74,11 @@ export interface FormRendererJobs {
 }
 
 /** 表单渲染器能力基类（抽象）。 */
-export abstract class BaseFormRenderer extends BaseComponent {
+export abstract class BaseFormRenderer extends BasePlaceholderState {
   /** 能力键。 */
   readonly identifier: string = 'form-renderer'
   /** 依赖能力键（表单元数据 / 字段权限 / 权限 / 提示 / 校验）。 */
-  override readonly depends = ['form-meta', 'field-perm', 'access', 'notice', 'validatable']
+  override readonly depends = ['placeholder-state', 'form-meta', 'field-perm', 'access', 'notice', 'validatable']
   /** 表单标识。 */
   formCode = ''
   /** 三态。 */
@@ -89,8 +89,6 @@ export abstract class BaseFormRenderer extends BaseComponent {
   forceReadOnly = false
   /** 数据通路是否就绪。 */
   ready = false
-  /** 已发起的后端请求计数（占位期恒 0）。 */
-  requestCount = 0
   /** 生效布局元数据。 */
   meta: LayoutEffective = normalizeRenderMetadata(undefined)
   /** 主表数据。 */
@@ -124,10 +122,6 @@ export abstract class BaseFormRenderer extends BaseComponent {
   /** 校验能力（组合；未注入即用领域规则）。 */
   validatable: BaseValidatable | undefined
 
-  /** 是否处于占位（降级）态。 */
-  get degraded(): boolean {
-    return !this.ready
-  }
 
   /** 是否只读（占位 / 强制只读 / 查看态 / 无渲染权限）。 */
   get readonly(): boolean {
@@ -251,15 +245,6 @@ export abstract class BaseFormRenderer extends BaseComponent {
     return result
   }
 
-  /**
-   * 设置就绪态。
-   *
-   * @param value 是否就绪。
-   */
-  setReady(value: boolean): void {
-    this.ready = value
-    this.notifyLifecycle('update')
-  }
 
   /**
    * 注入处理函数集（整体替换；未注入的项按占位）。

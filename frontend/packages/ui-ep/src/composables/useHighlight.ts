@@ -1,11 +1,13 @@
-/** 只读高亮投影：highlight.js 模块级缓存 + 按需语言注册（与编辑内核分工，只读不引编辑内核）。 */
+/**
+ * 只读高亮投影：核心编辑器内核能力基类 `BaseEditorKernel` 的薄投影；highlight.js 模块级缓存 + 按需语言注册。
+ *
+ * 具体件 `HighlightKernelState` **直接继承** `BaseEditorKernel`（经链上继承取得内核装配语义），
+ * 浏览器 / 第三方库只在本投影与件内落点。
+ */
 
-import { BaseObject } from '@bms/core'
+import { BaseEditorKernel } from '@bms/core'
 import type { HLJSApi } from 'highlight.js'
-import { onScopeDispose } from 'vue'
-
-/** 高亮运行时（挂总基类：生命周期与释放登记）。 */
-class HighlightRuntime extends BaseObject {}
+import { onScopeDispose, ref, type Ref } from 'vue'
 
 /** 模块级缓存（Promise 复用 → 不重复加载）。 */
 let highlightPromise: Promise<HLJSApi> | undefined
@@ -84,12 +86,17 @@ export async function highlightCode(code: string, language: string): Promise<str
   }
 }
 
+/** 具体高亮内核件（直接继承编辑器内核能力基类）。 */
+class HighlightKernelState extends BaseEditorKernel {}
+
 /** `useHighlight` 返回面。 */
 export interface UseHighlightResult {
-  /** 高亮运行时（总基类实例）。 */
-  runtime: BaseObject
+  /** 内核能力基类实例。 */
+  kernel: BaseEditorKernel
+  /** 是否已加载内核（响应式）。 */
+  loaded: Ref<boolean>
   /** 加载 highlight.js（模块级缓存）。 */
-  load: () => Promise<HLJSApi>
+  load: () => Promise<void>
   /** 高亮代码（不支持语言转义降级）。 */
   highlight: (code: string, language: string) => Promise<string>
 }
@@ -100,13 +107,29 @@ export interface UseHighlightResult {
  * @returns 运行时与加载 / 高亮方法。
  */
 export function useHighlight(): UseHighlightResult {
-  const runtime = new HighlightRuntime()
+  const kernel = new HighlightKernelState()
+  kernel.mode = 'code'
+  kernel.loader = () => loadHighlight()
+  const loaded = ref(kernel.loaded)
+  const off = kernel.onLifecycle((event) => {
+    if (event === 'update') {
+      loaded.value = kernel.loaded
+    }
+  })
   onScopeDispose(() => {
-    runtime.dispose()
+    off()
+    kernel.dispose()
   })
   return {
-    runtime,
-    load: loadHighlight,
-    highlight: highlightCode,
+    kernel,
+    loaded,
+    load: async () => {
+      await kernel.load()
+      loaded.value = kernel.loaded
+    },
+    highlight: async (code, language) => {
+      await kernel.load()
+      return highlightCode(code, language)
+    },
   }
 }

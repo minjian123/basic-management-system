@@ -282,10 +282,10 @@ function goPage(offset: number): void {
 }
 .bms-notice-list__header {
   justify-content: space-between;
-  border-bottom: 1px solid var(--bms-color-border, #ebeef5);
+  border-bottom: 1px solid var(--bms-color-border);
 }
 .bms-notice-list__header button {
-  color: var(--bms-color-primary, #409eff);
+  color: var(--bms-color-primary);
   cursor: pointer;
   background: none;
   border: none;
@@ -308,7 +308,7 @@ function goPage(offset: number): void {
   align-items: center;
   justify-content: center;
   padding: 32px;
-  color: var(--bms-color-text-secondary, #909399);
+  color: var(--bms-color-text-secondary);
 }
 .bms-notice-list__skeleton {
   display: flex;
@@ -318,7 +318,7 @@ function goPage(offset: number): void {
 }
 .bms-notice-list__skeleton-row {
   height: 16px;
-  background: var(--bms-notice-item-hover-bg, #f5f7fa);
+  background: var(--bms-notice-item-hover-bg);
   border-radius: 4px;
 }
 .bms-notice-list__pagination {

@@ -98,13 +98,13 @@ const absolute = computed(() => (props.message.createdAt ? formatDateTime(props.
   align-items: flex-start;
   padding: 10px 12px;
   cursor: pointer;
-  border-bottom: 1px solid var(--bms-color-border, #ebeef5);
+  border-bottom: 1px solid var(--bms-color-border);
 }
 .bms-notice-item:hover {
-  background: var(--bms-notice-item-hover-bg, #f5f7fa);
+  background: var(--bms-notice-item-hover-bg);
 }
 .bms-notice-item[data-unread] {
-  background: var(--bms-notice-unread-bg, #ecf5ff);
+  background: var(--bms-notice-unread-bg);
 }
 .bms-notice-item__dot {
   flex: 0 0 auto;
@@ -112,16 +112,16 @@ const absolute = computed(() => (props.message.createdAt ? formatDateTime(props.
   height: 8px;
   margin-top: 6px;
   border-radius: 50%;
-  background: var(--bms-color-info, #909399);
+  background: var(--bms-color-info);
 }
 .bms-notice-item__dot.is-info {
-  background: var(--bms-color-info, #909399);
+  background: var(--bms-color-info);
 }
 .bms-notice-item__dot.is-warning {
-  background: var(--bms-color-warning, #e6a23c);
+  background: var(--bms-color-warning);
 }
 .bms-notice-item__dot.is-primary {
-  background: var(--bms-color-primary, #409eff);
+  background: var(--bms-color-primary);
 }
 .bms-notice-item__body {
   flex: 1 1 auto;
@@ -138,21 +138,21 @@ const absolute = computed(() => (props.message.createdAt ? formatDateTime(props.
   font-size: 12px;
   line-height: 18px;
   border-radius: 9px;
-  color: var(--bms-color-info, #909399);
+  color: var(--bms-color-info);
   background: color-mix(in srgb, currentcolor 12%, transparent);
 }
 .bms-notice-item__type.is-info {
-  color: var(--bms-color-info, #909399);
+  color: var(--bms-color-info);
 }
 .bms-notice-item__type.is-warning {
-  color: var(--bms-color-warning, #e6a23c);
+  color: var(--bms-color-warning);
 }
 .bms-notice-item__type.is-primary {
-  color: var(--bms-color-primary, #409eff);
+  color: var(--bms-color-primary);
 }
 .bms-notice-item__title {
   overflow: hidden;
-  color: var(--bms-color-text, #303133);
+  color: var(--bms-color-text);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -164,13 +164,13 @@ const absolute = computed(() => (props.message.createdAt ? formatDateTime(props.
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--bms-color-danger, #f56c6c);
+  background: var(--bms-color-danger);
 }
 .bms-notice-item__summary {
   overflow: hidden;
   margin-top: 2px;
   font-size: 12px;
-  color: var(--bms-color-text-secondary, #909399);
+  color: var(--bms-color-text-secondary);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -179,7 +179,7 @@ const absolute = computed(() => (props.message.createdAt ? formatDateTime(props.
   gap: 8px;
   margin-top: 4px;
   font-size: 12px;
-  color: var(--bms-color-text-secondary, #909399);
+  color: var(--bms-color-text-secondary);
 }
 .bms-notice-item__actions {
   display: flex;
@@ -189,7 +189,7 @@ const absolute = computed(() => (props.message.createdAt ? formatDateTime(props.
 .bms-notice-item__actions button {
   padding: 0 4px;
   font-size: 12px;
-  color: var(--bms-color-primary, #409eff);
+  color: var(--bms-color-primary);
   cursor: pointer;
   background: none;
   border: none;

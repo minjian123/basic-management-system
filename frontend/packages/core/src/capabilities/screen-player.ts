@@ -5,7 +5,7 @@
  * 轮播切页与间隔判定落在 `domain/screen-play.ts`，页面与组件归一落在 `domain/screen-layout.ts`。
  */
 
-import { BaseComponent } from '../base/BaseComponent'
+import { BasePlaceholderState } from './placeholder-state'
 import { BaseAccess } from './access'
 import { BaseAsyncTask } from './async-task'
 import { BaseDataState } from './data-state'
@@ -50,15 +50,13 @@ export interface ScreenPlayerJobs {
 }
 
 /** 大屏播放编排能力基类（抽象）。 */
-export abstract class BaseScreenPlayer extends BaseComponent {
+export abstract class BaseScreenPlayer extends BasePlaceholderState {
   /** 能力键。 */
   readonly identifier: string = 'screen-player'
   /** 依赖登记。 */
-  override readonly depends = ['access', 'notice', 'data-state', 'async-task']
+  override readonly depends = ['placeholder-state', 'access', 'notice', 'data-state', 'async-task']
   /** 数据通路是否就绪（占位语义，缺省 `false`）。 */
   ready = false
-  /** 占位态请求计数（占位态恒 0）。 */
-  requestCount = 0
   /** 大屏编码。 */
   screenCode = ''
   /** 画布配置。 */
@@ -94,10 +92,6 @@ export abstract class BaseScreenPlayer extends BaseComponent {
   /** 是否进行中（定义取数）。 */
   #busy = false
 
-  /** 是否降级（占位）态。 */
-  get degraded(): boolean {
-    return !this.ready
-  }
 
   /** 是否进行中。 */
   get busy(): boolean {
@@ -134,18 +128,6 @@ export abstract class BaseScreenPlayer extends BaseComponent {
     return pageDuration(this.activePage, this.interval)
   }
 
-  /**
-   * 切换就绪态。
-   *
-   * @param value 是否就绪。
-   */
-  setReady(value: boolean): void {
-    if (this.ready === value) {
-      return
-    }
-    this.ready = value
-    this.notifyLifecycle('update')
-  }
 
   /**
    * 注入处理函数集。
@@ -330,15 +312,6 @@ export abstract class BaseScreenPlayer extends BaseComponent {
       this.notifyLifecycle('update')
     }
     return this.playing
-  }
-
-  /** 标记一次外部装载（宿主自行取数时使用）。 */
-  markLoaded(): void {
-    if (!this.ready) {
-      return
-    }
-    this.requestCount += 1
-    this.notifyLifecycle('update')
   }
 
   /**

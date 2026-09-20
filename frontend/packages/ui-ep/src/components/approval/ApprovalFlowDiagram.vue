@@ -146,7 +146,7 @@ void presigned
 
 .bms-flow-diagram__note,
 .bms-flow-diagram__error {
-  color: var(--bms-color-text-secondary, #909399);
+  color: var(--bms-color-text-secondary);
   font-size: 0.85em;
 }
 </style>

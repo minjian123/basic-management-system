@@ -228,7 +228,7 @@ defineExpose({ createElement, updateProperties, undo, redo, zoomBy, fitViewport,
 
 .bms-process-canvas__note,
 .bms-process-canvas__error {
-  color: var(--bms-color-text-secondary, #909399);
+  color: var(--bms-color-text-secondary);
   font-size: 0.85em;
 }
 </style>

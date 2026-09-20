@@ -3,6 +3,8 @@
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import { useBaseContainer } from '../../composables/useBaseContainer'
+import { canFullscreen, enterFullscreen, exitFullscreen, fullscreenElement, isFullscreen, onFullscreenChange } from '../../utils/fullscreen'
+import { onGlobalKeydown } from '../../utils/keyboard'
 
 interface Props {
   /** 全屏态（`v-model`）。 */
@@ -23,6 +25,8 @@ const { sizeToken, isCompact } = useBaseContainer()
 const root = ref<HTMLElement>()
 const active = ref(props.modelValue ?? false)
 const degraded = ref(false)
+let offFullscreen: () => void = () => {}
+let offKeydown: () => void = () => {}
 
 function resolveTarget(): HTMLElement | undefined {
   return props.target ?? root.value
@@ -39,14 +43,14 @@ function setActive(value: boolean): void {
 
 async function enter(): Promise<void> {
   const element = resolveTarget()
-  if (element === undefined || typeof element.requestFullscreen !== 'function') {
+  if (element === undefined || !canFullscreen(element)) {
     degraded.value = true
     setActive(true)
     emit('error', 'unsupported')
     return
   }
   try {
-    await element.requestFullscreen()
+    await enterFullscreen(element)
     setActive(true)
   } catch {
     degraded.value = true
@@ -56,17 +60,17 @@ async function enter(): Promise<void> {
 }
 
 async function exit(): Promise<void> {
-  if (!degraded.value && typeof document !== 'undefined' && document.fullscreenElement != null && typeof document.exitFullscreen === 'function') {
-    await document.exitFullscreen()
+  if (!degraded.value && isFullscreen()) {
+    await exitFullscreen()
   }
   setActive(false)
 }
 
-function onFullscreenChange(): void {
+function onFullscreenChangeEvent(): void {
   if (degraded.value) {
     return
   }
-  setActive(typeof document !== 'undefined' && document.fullscreenElement != null && document.fullscreenElement === resolveTarget())
+  setActive(isFullscreen() && fullscreenElement() === resolveTarget())
 }
 
 function onKeydown(event: KeyboardEvent): void {
@@ -90,13 +94,13 @@ watch(
 )
 
 onMounted(() => {
-  document.addEventListener('fullscreenchange', onFullscreenChange)
-  window.addEventListener('keydown', onKeydown)
+  offFullscreen = onFullscreenChange(onFullscreenChangeEvent)
+  offKeydown = onGlobalKeydown(onKeydown)
 })
 
 onBeforeUnmount(() => {
-  document.removeEventListener('fullscreenchange', onFullscreenChange)
-  window.removeEventListener('keydown', onKeydown)
+  offFullscreen()
+  offKeydown()
 })
 </script>
 

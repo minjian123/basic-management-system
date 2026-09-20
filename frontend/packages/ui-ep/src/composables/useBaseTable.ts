@@ -26,7 +26,6 @@ import {
 import { computed, onScopeDispose, ref, type ComputedRef, type Ref } from 'vue'
 
 import { useBasePersistedState } from './useBasePersistedState'
-import { useDisplayPlaceholder } from './useDisplayPlaceholder'
 
 /** 具体表格件（可实例化）。 */
 class Table extends BaseTable {}
@@ -175,8 +174,8 @@ export interface UseBaseTableResult {
  * @returns 表格基类实例与响应式面。
  */
 export function useBaseTable(options: UseBaseTableOptions = {}): UseBaseTableResult {
-  const placeholder = useDisplayPlaceholder({ ready: options.ready })
   const table = new Table()
+  table.setReady(options.ready ?? false)
   const columns = ref<TableColumn[]>(mergeTableColumns(options.columns ?? [], options.columnMeta ?? []))
 
   if (options.rowKey !== undefined) {
@@ -238,10 +237,16 @@ export function useBaseTable(options: UseBaseTableOptions = {}): UseBaseTableRes
   const expandedKeys = ref<string[]>([...table.expandedKeys].map((key) => String(key)))
   const columnPreferences = ref<ListPreference['columns']>(toColumnPreferences(table.columnConfig.columns))
   const revision = ref(0)
+  const ready = ref(table.ready)
+  const degraded = ref(table.degraded)
+  const requestCount = ref(table.requestCount)
 
   /** 从基类实例同步响应式面（并递增变更序号，供非响应式实例态驱动的重算）。 */
   const sync = (): void => {
     revision.value += 1
+    ready.value = table.ready
+    degraded.value = table.degraded
+    requestCount.value = table.requestCount
     rows.value = [...table.rows]
     total.value = table.total
     page.value = table.page
@@ -301,9 +306,9 @@ export function useBaseTable(options: UseBaseTableOptions = {}): UseBaseTableRes
 
   return {
     table,
-    ready: placeholder.ready,
-    degraded: placeholder.degraded,
-    requestCount: placeholder.requestCount,
+    ready,
+    degraded,
+    requestCount,
     rows,
     total,
     page,
@@ -322,8 +327,14 @@ export function useBaseTable(options: UseBaseTableOptions = {}): UseBaseTableRes
     keyword: computed(() => preference.value.query.keyword ?? ''),
     oversized: computed(() => isListPreferenceOversized(preference.value)),
     revision,
-    setReady: (value) => placeholder.setReady(value),
-    markLoaded: () => placeholder.markLoaded(),
+    setReady: (value) => {
+      table.setReady(value)
+      sync()
+    },
+    markLoaded: () => {
+      table.markLoaded()
+      sync()
+    },
     setRows: (next, nextTotal) => {
       table.setRows(next, nextTotal)
       sync()

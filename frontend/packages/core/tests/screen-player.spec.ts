@@ -93,7 +93,7 @@ describe('能力身份与依赖', () => {
   it('能力键与依赖登记无环', () => {
     const player = new DemoPlayer()
     expect(player.identifier).toBe('screen-player')
-    expect(player.depends).toEqual(['access', 'notice', 'data-state', 'async-task'])
+    expect(player.depends).toEqual(['placeholder-state', 'access', 'notice', 'data-state', 'async-task'])
     const problems = validateCapabilityGraph().filter(
       (problem) => problem.key === 'screen-player' || problem.detail.includes('screen-player'),
     )

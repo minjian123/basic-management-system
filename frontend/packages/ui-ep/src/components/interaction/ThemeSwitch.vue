@@ -3,6 +3,7 @@
 import { computed, ref, watch } from 'vue'
 
 import type { ThemeMode } from '@bms/core'
+import { THEME_ACCENT_PRESETS } from '@bms/core'
 import { useBaseTheme } from '../../composables/useBaseTheme'
 
 interface Props {
@@ -35,8 +36,8 @@ const emit = defineEmits<{
   change: [payload: { mode: ThemeMode; resolved: 'light' | 'dark' }]
 }>()
 
-/** 强调色预设。 */
-const PRESET_ACCENTS = ['#1677ff', '#00b96b', '#fa8c16', '#eb2f96', '#722ed1']
+/** 强调色预设（域层集中维护）。 */
+const PRESET_ACCENTS = THEME_ACCENT_PRESETS
 
 const { mode, resolved, displayMode, setMode, setAccent } = useBaseTheme({
   mode: props.modelValue,
@@ -193,17 +194,17 @@ const toggleMode = (): void => {
 .bms-theme-switch__icon,
 .bms-theme-switch__option {
   padding: 4px 10px;
-  border: 1px solid var(--bms-color-border, #dcdfe6);
+  border: 1px solid var(--bms-color-border);
   border-radius: var(--bms-radius-sm, 4px);
-  background: var(--bms-color-bg, #ffffff);
+  background: var(--bms-color-bg);
   color: inherit;
   font: inherit;
   cursor: pointer;
 }
 
 .bms-theme-switch__option[data-active='true'] {
-  border-color: var(--bms-color-primary, #1677ff);
-  color: var(--bms-color-primary, #1677ff);
+  border-color: var(--bms-color-primary);
+  color: var(--bms-color-primary);
 }
 
 .bms-theme-switch__icon:disabled,
@@ -216,7 +217,7 @@ const toggleMode = (): void => {
   padding: 0;
   border: 0;
   background: transparent;
-  color: var(--bms-color-primary, #1677ff);
+  color: var(--bms-color-primary);
   font: inherit;
   cursor: pointer;
 }
@@ -229,10 +230,10 @@ const toggleMode = (): void => {
   flex-direction: column;
   min-width: 120px;
   padding: 4px;
-  border: 1px solid var(--bms-color-border, #dcdfe6);
+  border: 1px solid var(--bms-color-border);
   border-radius: var(--bms-radius-sm, 4px);
-  background: var(--bms-color-bg, #ffffff);
-  box-shadow: var(--bms-shadow-sm, 0 2px 8px rgba(0, 0, 0, 0.12));
+  background: var(--bms-color-bg);
+  box-shadow: var(--bms-shadow-sm);
   z-index: 20;
 }
 
@@ -247,7 +248,7 @@ const toggleMode = (): void => {
 }
 
 .bms-theme-switch__menu-item[data-active='true'] {
-  color: var(--bms-color-primary, #1677ff);
+  color: var(--bms-color-primary);
 }
 
 .bms-theme-switch__accents {
@@ -259,13 +260,13 @@ const toggleMode = (): void => {
 .bms-theme-switch__accent {
   width: 16px;
   height: 16px;
-  border: 1px solid var(--bms-color-border, #dcdfe6);
+  border: 1px solid var(--bms-color-border);
   border-radius: 50%;
   cursor: pointer;
 }
 
 .bms-theme-switch__accent[data-active='true'] {
-  outline: 2px solid var(--bms-color-primary, #1677ff);
+  outline: 2px solid var(--bms-color-primary);
   outline-offset: 1px;
 }
 </style>

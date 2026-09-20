@@ -3,6 +3,8 @@
 import { computed, onScopeDispose, ref, type Ref } from 'vue'
 
 import { useBaseDesignToken } from './useBaseDesignToken'
+import { onMediaChange, supportsMediaQuery } from '../utils/media'
+import { onWindowResize, viewportWidth } from '../utils/observe'
 
 /** 断点档位（像素）。 */
 export interface ResponsiveBreakpoints {
@@ -40,8 +42,9 @@ export interface UseResponsiveResult {
   breakpoints: Ref<ResponsiveBreakpoints>
 }
 
-function viewportWidth(): number {
-  return typeof window === 'undefined' ? DEFAULT_BREAKPOINTS.wide : window.innerWidth
+/** 当前视口宽度（非浏览器回退宽屏阈值，保持原口径）。 */
+function currentWidth(): number {
+  return viewportWidth() || DEFAULT_BREAKPOINTS.wide
 }
 
 /**
@@ -57,22 +60,21 @@ export function useResponsive(options: UseResponsiveOptions = {}): UseResponsive
     ...(token.tokens.value.breakpoints ?? {}),
     ...(options.breakpoints ?? {}),
   }))
-  const width = ref(viewportWidth())
+  const width = ref(currentWidth())
 
   const cleanups: (() => void)[] = []
-  if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
-    const narrow = window.matchMedia(`(max-width: ${breakpoints.value.narrow}px)`)
-    const onChange = (): void => {
-      width.value = viewportWidth()
-    }
-    narrow.addEventListener('change', onChange)
-    cleanups.push(() => narrow.removeEventListener('change', onChange))
-  } else if (typeof window !== 'undefined') {
-    const onChange = (): void => {
-      width.value = viewportWidth()
-    }
-    window.addEventListener('resize', onChange)
-    cleanups.push(() => window.removeEventListener('resize', onChange))
+  if (supportsMediaQuery()) {
+    cleanups.push(
+      onMediaChange(`(max-width: ${breakpoints.value.narrow}px)`, () => {
+        width.value = currentWidth()
+      }),
+    )
+  } else {
+    cleanups.push(
+      onWindowResize(() => {
+        width.value = currentWidth()
+      }),
+    )
   }
 
   const breakpoint = computed<ResponsiveBreakpoint>(() => {

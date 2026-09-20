@@ -7,7 +7,7 @@
  * 核心不触 DOM、不发请求；Excel 列头核对与行级校验归后端。
  */
 
-import { BaseComponent } from '../base/BaseComponent'
+import { BasePlaceholderState } from './placeholder-state'
 import {
   DEFAULT_LOCALE,
   EMPTY_I18N_FILTER,
@@ -126,19 +126,30 @@ export interface SaveResult {
 const FILTER_DEFAULTS: I18nFilter = { ...EMPTY_I18N_FILTER }
 
 /** 文案目录编排能力基类（抽象）。 */
-export abstract class BaseMessageCatalog extends BaseComponent {
+export abstract class BaseMessageCatalog extends BasePlaceholderState {
   /** 能力键。 */
   readonly identifier: string = 'message-catalog'
   /** 依赖能力键（语言上下文 / 权限 / 提示）。 */
-  override readonly depends = ['locale', 'access', 'notice']
+  override readonly depends = ['placeholder-state', 'locale', 'access', 'notice']
   /** 业务标识（后端路径段，导入导出复用）。 */
   biz = 'i18n'
   /** 业务中文名（导出文件名与标题）。 */
   bizName = '语言包'
   /** 数据通路是否就绪（占位语义开关）。 */
   ready = false
-  /** 实际发起的请求计数（占位期恒 0）。 */
-  requestCount = 0
+
+  /**
+   * 切换就绪态（就绪以 `touch` 刷新）。
+   *
+   * @param value 是否就绪。
+   */
+  setReady(value: boolean): void {
+    if (this.ready === value) {
+      return
+    }
+    this.ready = value
+    this.touch()
+  }
   /** 当前阶段。 */
   phase: MessagePhase = 'idle'
   /** 语言清单（运行态）。 */
@@ -178,10 +189,6 @@ export abstract class BaseMessageCatalog extends BaseComponent {
   /** 提示通知（未注入不发通知）。 */
   notice: BaseNotice | undefined
 
-  /** 是否降级（占位）态。 */
-  get degraded(): boolean {
-    return !this.ready
-  }
 
   /** 是否进行中（取数 / 保存 / 失效）。 */
   get busy(): boolean {
@@ -252,18 +259,6 @@ export abstract class BaseMessageCatalog extends BaseComponent {
     return resolveFilterParams(this.filter)
   }
 
-  /**
-   * 设置就绪态（占位语义开关）。
-   *
-   * @param value 是否就绪。
-   */
-  setReady(value: boolean): void {
-    if (this.ready === value) {
-      return
-    }
-    this.ready = value
-    this.touch()
-  }
 
   /**
    * 注入处理函数集（整体替换）。

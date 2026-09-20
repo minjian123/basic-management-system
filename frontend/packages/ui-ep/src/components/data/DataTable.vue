@@ -22,6 +22,7 @@ import {
 import { computed, ref, watch } from 'vue'
 
 import { useBaseTable } from '../../composables/useBaseTable'
+import { canFullscreen, enterFullscreen, exitFullscreen } from '../../utils/fullscreen'
 
 import StatusTag from './StatusTag.vue'
 
@@ -626,15 +627,15 @@ function onAutoWidth(): void {
 function onToggleFullscreen(): void {
   const element = rootRef.value
   fullscreen.value = !fullscreen.value
-  const scope = element as unknown as { requestFullscreen?: () => Promise<void> } | undefined
   if (fullscreen.value) {
-    void scope?.requestFullscreen?.().catch(() => {
-      fullscreen.value = true
-    })
+    if (element !== undefined && canFullscreen(element)) {
+      void enterFullscreen(element).catch(() => {
+        fullscreen.value = true
+      })
+    }
     return
   }
-  const doc = globalThis as { document?: { exitFullscreen?: () => Promise<void> } }
-  void doc.document?.exitFullscreen?.()
+  void exitFullscreen()
 }
 
 /**

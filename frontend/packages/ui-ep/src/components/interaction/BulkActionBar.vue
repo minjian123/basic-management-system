@@ -309,10 +309,10 @@ defineExpose({
   align-items: center;
   gap: var(--bms-spacing-md, 8px);
   padding: var(--bms-spacing-sm, 6px) var(--bms-spacing-md, 8px);
-  border: 1px solid var(--bms-color-primary-border, #b4d3ff);
+  border: 1px solid var(--bms-color-primary-border);
   border-radius: var(--bms-radius-md, 6px);
-  background: var(--bms-color-primary-light, #e3efff);
-  color: var(--bms-color-text, #303133);
+  background: var(--bms-color-primary-light);
+  color: var(--bms-color-text);
 }
 
 .bms-bulk-bar[data-position='sticky'] {
@@ -333,7 +333,7 @@ defineExpose({
 }
 
 .bms-bulk-bar__hint {
-  color: var(--bms-color-text-secondary, #909399);
+  color: var(--bms-color-text-secondary);
   font-size: 12px;
 }
 
@@ -346,17 +346,17 @@ defineExpose({
 
 .bms-bulk-bar__action {
   padding: 4px 10px;
-  border: 1px solid var(--bms-color-border, #dcdfe6);
+  border: 1px solid var(--bms-color-border);
   border-radius: var(--bms-radius-sm, 4px);
-  background: var(--bms-color-bg, #ffffff);
+  background: var(--bms-color-bg);
   color: inherit;
   font: inherit;
   cursor: pointer;
 }
 
 .bms-bulk-bar__action[data-danger='true'] {
-  border-color: var(--bms-color-danger, #f56c6c);
-  color: var(--bms-color-danger, #f56c6c);
+  border-color: var(--bms-color-danger);
+  color: var(--bms-color-danger);
 }
 
 .bms-bulk-bar__action:disabled {
@@ -368,7 +368,7 @@ defineExpose({
   padding: 0;
   border: 0;
   background: transparent;
-  color: var(--bms-color-primary, #1677ff);
+  color: var(--bms-color-primary);
   font: inherit;
   cursor: pointer;
 }
@@ -386,10 +386,10 @@ defineExpose({
   flex-direction: column;
   min-width: 120px;
   padding: 4px;
-  border: 1px solid var(--bms-color-border, #dcdfe6);
+  border: 1px solid var(--bms-color-border);
   border-radius: var(--bms-radius-sm, 4px);
-  background: var(--bms-color-bg, #ffffff);
-  box-shadow: var(--bms-shadow-sm, 0 2px 8px rgba(0, 0, 0, 0.12));
+  background: var(--bms-color-bg);
+  box-shadow: var(--bms-shadow-sm);
   z-index: 20;
 }
 
@@ -404,12 +404,12 @@ defineExpose({
 }
 
 .bms-bulk-bar__menu-item[data-danger='true'] {
-  color: var(--bms-color-danger, #f56c6c);
+  color: var(--bms-color-danger);
 }
 
 .bms-bulk-bar__progress {
   font-size: 12px;
-  color: var(--bms-color-text-secondary, #909399);
+  color: var(--bms-color-text-secondary);
 }
 
 .bms-bulk-bar__confirm {

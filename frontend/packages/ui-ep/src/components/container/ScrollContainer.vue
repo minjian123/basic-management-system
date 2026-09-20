@@ -4,6 +4,7 @@ import { ElScrollbar } from 'element-plus'
 import { nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 
 import { useBaseContainer } from '../../composables/useBaseContainer'
+import { useBasePersistedState } from '../../composables/useBasePersistedState'
 
 interface Props {
   /** 高度（缺省自适应父容器）。 */
@@ -35,16 +36,21 @@ const { sizeToken, isCompact } = useBaseContainer()
 const scrollbarRef = ref<InstanceType<typeof ElScrollbar>>()
 const wrap = ref<HTMLElement>()
 const reached = ref(false)
+const positionState = useBasePersistedState({
+  storage: 'session',
+  restore: false,
+  stateKey: props.positionKey === '' ? '' : `scroll:${props.positionKey}`,
+})
 
-function wrapElement(): HTMLElement | undefined {
-  const instance = scrollbarRef.value as unknown as { wrapRef?: HTMLElement } | undefined
+function wrapElement(): HTMLElement | null | undefined {
+  const instance = scrollbarRef.value as unknown as { wrapRef?: HTMLElement | null } | undefined
   return instance?.wrapRef ?? wrap.value
 }
 
 function onScroll(payload: { scrollTop: number; scrollLeft: number }): void {
   emit('scroll', { top: payload.scrollTop, left: payload.scrollLeft })
   const element = wrapElement()
-  if (element === undefined) {
+  if (element == null) {
     return
   }
   const atBottom = payload.scrollTop + element.clientHeight >= element.scrollHeight - props.reachThreshold
@@ -62,16 +68,11 @@ onMounted(async () => {
   }
   await nextTick()
   const element = wrapElement()
-  if (element === undefined) {
+  if (element == null) {
     return
   }
-  try {
-    const stored = sessionStorage.getItem(`scroll:${props.positionKey}`)
-    if (stored !== null) {
-      element.scrollTop = Number(stored)
-    }
-  } catch {
-    // 隐私模式等场景降级为不保持位置。
+  if (positionState.restore() && typeof positionState.local.value === 'number') {
+    element.scrollTop = positionState.local.value
   }
 })
 
@@ -80,14 +81,11 @@ onBeforeUnmount(() => {
     return
   }
   const element = wrapElement()
-  if (element === undefined) {
+  if (element == null) {
     return
   }
-  try {
-    sessionStorage.setItem(`scroll:${props.positionKey}`, String(element.scrollTop))
-  } catch {
-    // 同上。
-  }
+  positionState.setLocal(element.scrollTop)
+  positionState.persist()
 })
 </script>
 

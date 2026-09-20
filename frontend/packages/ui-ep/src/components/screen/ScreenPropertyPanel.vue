@@ -3,7 +3,7 @@
 import { computed } from 'vue'
 
 import type { ReportDataset, ScreenCanvasConfig, ScreenComponent, ScreenComponentType } from '@bms/core'
-import { SCREEN_COMPONENT_TYPES, componentLabel } from '@bms/core'
+import { SCREEN_COMPONENT_TYPES, componentLabel, DEFAULT_CANVAS_BACKGROUND } from '@bms/core'
 
 import { useBaseDataState } from '../../composables/useBaseDataState'
 
@@ -205,7 +205,7 @@ function onBackground(event: Event): void {
     </template>
     <template v-else>
       <label class="bms-screen-property__field">分辨率 <input data-test="prop-resolution" type="number" :value="canvasConfig.width" :disabled="readOnly" @change="onResolution('width', $event)" /> × <input data-test="prop-resolution-height" type="number" :value="canvasConfig.height" :disabled="readOnly" @change="onResolution('height', $event)" /></label>
-      <label class="bms-screen-property__field">背景 <input data-test="prop-background" type="color" :value="canvasConfig.background?.color ?? '#ffffff'" @change="onBackground" /></label>
+      <label class="bms-screen-property__field">背景 <input data-test="prop-background" type="color" :value="canvasConfig.background?.color ?? DEFAULT_CANVAS_BACKGROUND" @change="onBackground" /></label>
       <label class="bms-screen-property__field"
         >主题
         <select data-test="prop-theme" :value="canvasConfig.theme ?? 'auto'" :disabled="readOnly" @change="onTheme">

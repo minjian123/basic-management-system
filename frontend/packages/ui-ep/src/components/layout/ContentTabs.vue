@@ -1,8 +1,9 @@
 <script setup lang="ts">
-// 内容页签：`el-tabs` 薄封装；状态经核心页签能力基类 `BaseTabs`。
-import { BaseTabs } from '@bms/core'
+// 内容页签：`el-tabs` 薄封装；状态经内容页签投影（核心页签能力基类 `BaseTabs`）。
 import { ElTabPane, ElTabs, type TabPaneName } from 'element-plus'
 import { computed, watch } from 'vue'
+
+import { useContentTabs } from '../../composables/useContentTabs'
 
 /** 页签项。 */
 export interface ContentTabItem {
@@ -13,9 +14,6 @@ export interface ContentTabItem {
   /** 是否禁用。 */
   disabled?: boolean
 }
-
-/** 具体页签状态（可实例化）。 */
-class ContentTabsState extends BaseTabs {}
 
 interface Props {
   /** 当前激活键。 */
@@ -31,19 +29,19 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), { type: 'line', lazy: true })
 const emit = defineEmits<{ 'update:modelValue': [key: string]; change: [key: string] }>()
 
-const state = new ContentTabsState()
+const { open, activate } = useContentTabs()
 watch(
   () => props.tabs,
   (tabs) => {
     for (const tab of tabs) {
-      state.open({ key: tab.key, title: tab.title })
+      open({ key: tab.key, title: tab.title })
     }
   },
   { immediate: true, deep: true },
 )
 watch(
   () => props.modelValue,
-  (key) => state.activate(key),
+  (key) => activate(key),
   { immediate: true },
 )
 
@@ -52,7 +50,7 @@ const tabType = computed(() => (props.type === 'line' ? '' : props.type))
 
 function onChange(name: TabPaneName): void {
   const key = String(name)
-  state.activate(key)
+  activate(key)
   emit('update:modelValue', key)
   emit('change', key)
 }

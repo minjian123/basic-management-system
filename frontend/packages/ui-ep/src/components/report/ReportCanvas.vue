@@ -138,7 +138,7 @@ watch(
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: var(--bms-color-bg, #fff);
+  background: var(--bms-color-bg);
 }
 .bms-report-canvas__head {
   display: flex;
@@ -150,7 +150,7 @@ watch(
 .bms-report-canvas__footnote {
   margin: 0;
   padding: 2px 8px;
-  color: var(--bms-color-text-secondary, #909399);
+  color: var(--bms-color-text-secondary);
   font-size: 12px;
 }
 </style>

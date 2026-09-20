@@ -12,6 +12,7 @@ import {
 } from '@bms/core'
 
 import { useBaseDataState } from '../../composables/useBaseDataState'
+import { observeResize, supportsResize } from '../../utils/observe'
 import ScreenWidget from './ScreenWidget.vue'
 
 interface Props {
@@ -46,7 +47,7 @@ const { state, setState } = useBaseDataState()
 const stageRef = ref<HTMLElement>()
 /** 容器尺寸。 */
 const containerSize = ref({ width: 0, height: 0 })
-let observer: ResizeObserver | undefined
+let offResize: () => void = () => {}
 
 watch(
   () => props.components.length,
@@ -65,20 +66,16 @@ const transform = computed(() => computeScale(design.value, containerSize.value,
 const viewportStyle = computed(() => ({ width: `${design.value.width}px`, height: `${design.value.height}px`, transform: `translate(${transform.value.offsetX}px, ${transform.value.offsetY}px) scale(${transform.value.scale})`, transformOrigin: 'top left' }))
 
 onMounted(() => {
-  if (typeof ResizeObserver !== 'undefined' && stageRef.value !== undefined) {
-    observer = new ResizeObserver((entries) => {
-      const rect = entries[0]?.contentRect
-      if (rect !== undefined) {
-        containerSize.value = { width: rect.width, height: rect.height }
-      }
+  if (supportsResize() && stageRef.value !== undefined) {
+    offResize = observeResize(stageRef.value, (entry) => {
+      const rect = entry.contentRect
+      containerSize.value = { width: rect.width, height: rect.height }
     })
-    observer.observe(stageRef.value)
   }
 })
 
 onBeforeUnmount(() => {
-  observer?.disconnect()
-  observer = undefined
+  offResize()
 })
 </script>
 
@@ -116,7 +113,7 @@ onBeforeUnmount(() => {
   height: 100%;
   min-height: 360px;
   overflow: hidden;
-  background: var(--bms-color-bg, #fff);
+  background: var(--bms-color-bg);
 }
 .bms-screen-stage__viewport {
   position: absolute;

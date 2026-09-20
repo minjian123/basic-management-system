@@ -87,9 +87,9 @@ void modeler
 
 .bms-process-palette__item {
   padding: 4px 8px;
-  border: 1px solid var(--bms-color-border, #dcdfe6);
+  border: 1px solid var(--bms-color-border);
   border-radius: var(--bms-radius-sm, 2px);
-  background: var(--bms-color-bg, #ffffff);
+  background: var(--bms-color-bg);
   color: inherit;
   font: inherit;
   text-align: left;

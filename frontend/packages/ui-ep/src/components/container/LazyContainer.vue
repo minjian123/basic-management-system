@@ -3,6 +3,7 @@
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 
 import { useBaseContainer } from '../../composables/useBaseContainer'
+import { observeIntersection, supportsIntersection } from '../../utils/observe'
 
 interface Props {
   /** 视口扩展边距。 */
@@ -27,7 +28,7 @@ const emit = defineEmits<{ visible: [] }>()
 const { sizeToken, isCompact } = useBaseContainer()
 const root = ref<HTMLElement>()
 const shown = ref(false)
-let observer: IntersectionObserver | undefined
+let off: () => void = () => {}
 
 function show(): void {
   if (shown.value) {
@@ -36,19 +37,19 @@ function show(): void {
   shown.value = true
   emit('visible')
   if (props.once) {
-    observer?.disconnect()
+    off()
   }
 }
 
 onMounted(() => {
-  if (typeof IntersectionObserver === 'undefined') {
+  if (!supportsIntersection() || root.value === undefined) {
     show()
     return
   }
-  observer = new IntersectionObserver(
-    (entries) => {
-      const intersecting = entries.some((entry) => entry.isIntersecting)
-      if (intersecting) {
+  off = observeIntersection(
+    root.value,
+    (entry) => {
+      if (entry.isIntersecting) {
         show()
       } else if (!props.once) {
         shown.value = false
@@ -56,13 +57,10 @@ onMounted(() => {
     },
     { rootMargin: props.rootMargin, threshold: props.threshold },
   )
-  if (root.value !== undefined) {
-    observer.observe(root.value)
-  }
 })
 
 onBeforeUnmount(() => {
-  observer?.disconnect()
+  off()
 })
 </script>
 

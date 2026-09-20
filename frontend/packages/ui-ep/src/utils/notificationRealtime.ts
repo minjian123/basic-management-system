@@ -2,6 +2,10 @@
 
 import { NOTIFICATION_POLL_INTERVAL } from '@bms/core'
 
+import { onVisibilityChange } from './visibility'
+
+export { onVisibilityChange }
+
 /** 轮询占位选项。 */
 export interface UnreadPollingOptions {
   /** 轮询间隔（毫秒；缺省 `NOTIFICATION_POLL_INTERVAL`）。 */
@@ -41,20 +45,4 @@ export function startUnreadPolling(options: UnreadPollingOptions): UnreadPolling
       }
     },
   }
-}
-
-/**
- * 订阅页面可见性变化（能力缺失降级为恒可见且不注册监听）。
- *
- * @param handler 可见性回调。
- * @returns 取消函数（幂等）。
- */
-export function onVisibilityChange(handler: (visible: boolean) => void): () => void {
-  if (typeof document === 'undefined' || typeof document.addEventListener !== 'function') {
-    handler(true)
-    return () => {}
-  }
-  const listener = (): void => handler(document.visibilityState !== 'hidden')
-  document.addEventListener('visibilitychange', listener)
-  return () => document.removeEventListener('visibilitychange', listener)
 }

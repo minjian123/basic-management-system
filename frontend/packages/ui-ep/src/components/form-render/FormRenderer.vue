@@ -21,7 +21,6 @@ import type {
 import { RENDERER_PLACEHOLDER_TEXT } from '@bms/core'
 import { computed, defineAsyncComponent, ref, watch } from 'vue'
 
-import { useInteractionPlaceholder } from '../../composables/useInteractionPlaceholder'
 import { useBaseFormMeta } from '../../composables/useBaseFormMeta'
 import { useBaseFormRenderer } from '../../composables/useBaseFormRenderer'
 import type { BodyDetailChange } from './FormRendererBody.vue'
@@ -120,7 +119,6 @@ const emit = defineEmits<{
   'detail-change': [payload: { detailKey: string; rows: Record<string, unknown>[] }]
 }>()
 
-const placeholder = useInteractionPlaceholder({ ready: props.ready })
 // 件层表单元数据投影（与 Props 的 `formMeta` 能力实例区分，避免 `vue/no-dupe-keys`）。
 const formMetaState = useBaseFormMeta()
 
@@ -159,7 +157,6 @@ const detailError = ref('')
 watch(
   () => props.ready,
   (next) => {
-    placeholder.setReady(next)
     renderer.setReady(next)
     if (next) {
       void load()
@@ -416,13 +413,13 @@ defineExpose({
   <div
     class="bms-form-renderer"
     data-test="form-renderer"
-    :data-ready="placeholder.ready.value"
-    :data-degraded="placeholder.degraded.value"
+    :data-ready="renderer.ready.value"
+    :data-degraded="renderer.degraded.value"
     :data-mode="mode"
     :data-readonly="readonly"
     :data-label-position="labelPosition"
   >
-    <slot v-if="placeholder.degraded.value" name="degrade">
+    <slot v-if="renderer.degraded.value" name="degrade">
       <div class="bms-interaction-placeholder" data-test="placeholder">{{ degradeText }}</div>
     </slot>
     <template v-else>

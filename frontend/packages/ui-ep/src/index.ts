@@ -353,6 +353,7 @@ export {
   type UseBaseAiAssistantResult,
 } from './composables/useBaseAiAssistant'
 export { createSseStreamAdapter, type SseStreamAdapterOptions } from './utils/aiStream'
+export { chartEngineRegistry, registerChartEngine } from './utils/chartEngine'
 export { loadMarked, renderAiMarkdown, resetMarkedCache, splitAiContent } from './utils/aiMarkdown'
 export {
   startUnreadPolling,
@@ -360,6 +361,26 @@ export {
   type UnreadPollingOptions,
   type UnreadPollingHandle,
 } from './utils/notificationRealtime'
+export {
+  canFullscreen,
+  enterFullscreen,
+  exitFullscreen,
+  fullscreenElement,
+  isFullscreen,
+  onFullscreenChange,
+} from './utils/fullscreen'
+export { isDocumentHidden } from './utils/visibility'
+export {
+  observeIntersection,
+  observeResize,
+  onWindowResize,
+  supportsIntersection,
+  supportsResize,
+  viewportWidth,
+} from './utils/observe'
+export { matchesMedia, onMediaChange, prefersDark, prefersReducedMotion, supportsMediaQuery } from './utils/media'
+export { onGlobalKeydown, startPointerDrag } from './utils/keyboard'
+export { readCssVar } from './utils/cssVar'
 export {
   createNotificationChannel,
   type NotificationChannelMessage,
@@ -372,7 +393,7 @@ export {
   type UseRichTextKernelOptions,
   type UseRichTextKernelResult,
 } from './composables/useRichTextKernel'
-export { RICH_TEXT_ALLOWED_ATTR, RICH_TEXT_ALLOWED_TAGS, sanitizeHtml, sanitizeToText } from './utils/sanitizeHtml'
+export { RICH_TEXT_ALLOWED_ATTR, RICH_TEXT_ALLOWED_TAGS, sanitizeHtml, sanitizeSvg, sanitizeToText } from './utils/sanitizeHtml'
 export { diffKind, formatDiffValue, inferValueType, type AuditDiffKind, type AuditValueType } from './utils/auditDiff'
 export {
   useFieldPlaceholder,

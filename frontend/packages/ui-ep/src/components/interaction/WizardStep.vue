@@ -88,14 +88,14 @@ watch(
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  border: 1px solid var(--bms-color-border, #dcdfe6);
+  border: 1px solid var(--bms-color-border);
   font-size: 12px;
   font-weight: 400;
 }
 
 .bms-wizard-step__description {
   margin: var(--bms-spacing-sm, 4px) 0 0;
-  color: var(--bms-color-text-secondary, #909399);
+  color: var(--bms-color-text-secondary);
   font-size: 12px;
 }
 
@@ -105,7 +105,7 @@ watch(
 
 .bms-wizard-step__error {
   margin: var(--bms-spacing-md, 8px) 0 0;
-  color: var(--bms-color-danger, #f56c6c);
+  color: var(--bms-color-danger);
   font-size: 12px;
 }
 </style>

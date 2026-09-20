@@ -7,6 +7,8 @@ import type { BaseAccess, BaseNotice, ChartDatasetResult, ReportDataset, ScreenC
 
 import { useBaseAsyncTask } from '../../composables/useBaseAsyncTask'
 import { useBaseScreenPlayer } from '../../composables/useBaseScreenPlayer'
+import { enterFullscreen, exitFullscreen, isFullscreen as isBrowserFullscreen } from '../../utils/fullscreen'
+import { onVisibilityChange } from '../../utils/visibility'
 
 // 播放舞台独立分包（自适应缩放 / 轮播渲染）。
 const ScreenStage = defineAsyncComponent(() => import('./ScreenStage.vue'))
@@ -102,6 +104,7 @@ const { status, progress, submit } = useBaseAsyncTask<unknown>()
 const localPlaying = ref(props.autoplay)
 /** 轮播计时器。 */
 let timer: ReturnType<typeof setTimeout> | undefined
+let offVisibility: () => void = () => {}
 
 /** 是否注入处理函数（事件与注入双轨）。 */
 const hasJobs = computed(() => props.jobs !== undefined)
@@ -164,8 +167,8 @@ watch([playing, activeValue, stay], () => {
 })
 
 /** 页面可见性变化（不可见暂停调度）。 */
-function onVisibility(): void {
-  if (typeof document !== 'undefined' && document.hidden) {
+function onVisibility(visible: boolean): void {
+  if (!visible) {
     clearTimer()
   } else {
     schedule()
@@ -232,13 +235,10 @@ function onDot(pageId: string): void {
 
 /** 全屏切换（浏览器支持时）。 */
 function toggleFullscreen(): void {
-  if (typeof document === 'undefined') {
-    return
-  }
-  if (document.fullscreenElement === null) {
-    void document.documentElement.requestFullscreen?.()
+  if (!isBrowserFullscreen()) {
+    void enterFullscreen()
   } else {
-    void document.exitFullscreen?.()
+    void exitFullscreen()
   }
 }
 
@@ -252,17 +252,13 @@ onMounted(() => {
       }
     })
   }
-  if (typeof document !== 'undefined') {
-    document.addEventListener('visibilitychange', onVisibility)
-  }
+  offVisibility = onVisibilityChange(onVisibility)
   schedule()
 })
 
 onBeforeUnmount(() => {
   clearTimer()
-  if (typeof document !== 'undefined') {
-    document.removeEventListener('visibilitychange', onVisibility)
-  }
+  offVisibility()
 })
 </script>
 
@@ -337,6 +333,6 @@ onBeforeUnmount(() => {
   padding: 0 6px 6px;
 }
 .bms-screen-player__dots button[data-active='true'] {
-  color: var(--bms-color-primary, #409eff);
+  color: var(--bms-color-primary);
 }
 </style>

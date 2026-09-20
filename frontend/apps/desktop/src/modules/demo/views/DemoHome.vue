@@ -27,6 +27,6 @@ function toggle(): void {
 <style scoped>
 .demo__text {
   margin: 0 0 8px;
-  color: var(--bms-color-text-secondary, #666);
+  color: var(--bms-color-text-secondary);
 }
 </style>

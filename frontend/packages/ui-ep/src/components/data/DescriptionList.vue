@@ -15,6 +15,7 @@ import {
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import { useBaseDisplay } from '../../composables/useBaseDisplay'
+import { onWindowResize, viewportWidth as getViewportWidth } from '../../utils/observe'
 
 import StatusTag from './StatusTag.vue'
 
@@ -145,20 +146,20 @@ watch(
 const dataSource = computed<Record<string, unknown>>(() => base.value.value ?? {})
 const revealed = ref<string[]>([])
 const detectedWidth = ref(0)
+let offResize: () => void = () => {}
 
 /** 监听视口宽度（`auto` 列数用）。 */
 function onResize(): void {
-  const scope = globalThis as { innerWidth?: number }
-  detectedWidth.value = scope.innerWidth ?? 0
+  detectedWidth.value = getViewportWidth()
 }
 
 onMounted(() => {
   onResize()
-  globalThis.addEventListener?.('resize', onResize)
+  offResize = onWindowResize(onResize)
 })
 
 onBeforeUnmount(() => {
-  globalThis.removeEventListener?.('resize', onResize)
+  offResize()
 })
 
 /** 生效视口宽度。 */

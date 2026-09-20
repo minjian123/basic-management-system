@@ -11,6 +11,13 @@
   --bms-color-text-secondary: #909399;
   --bms-color-bg: #ffffff;
   --bms-color-border: #dcdfe6;
+  // 通用语义补充（填充底 / 主色浅底 / 主色描边 / 警告底 / 纯白前景）
+  --bms-color-white: #ffffff;
+  --bms-color-fill: #f5f7fa;
+  --bms-color-primary-light: #ecf5ff;
+  --bms-color-primary-border: #b4d3ff;
+  --bms-color-warning-bg: #fdf6ec;
+  --bms-color-focus-ring: rgba(64, 158, 255, 0.2);
   // 图表色板（令牌图表色板：序列色 + 辅助色；禁止硬编码色值）
   --bms-chart-color-1: #0969da;
   --bms-chart-color-2: #2da44e;
@@ -56,6 +63,8 @@
   --bms-radius-md: 4px;
   // 阴影
   --bms-shadow-1: 0 1px 4px rgba(0, 0, 0, 0.08);
+  --bms-shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.12);
+  --bms-shadow-md: 0 4px 16px rgba(0, 0, 0, 0.16);
 
   --bms-size: default;
   --bms-density: default;
@@ -93,6 +102,11 @@
   --bms-color-text-secondary: #a3a6ad;
   --bms-color-bg: #1d1e1f;
   --bms-color-border: #4c4d4f;
+  // 通用语义补充随深色调整对比度（纯白前景两主题一致）
+  --bms-color-fill: #262727;
+  --bms-color-primary-light: #1d3049;
+  --bms-color-primary-border: #2c4a72;
+  --bms-color-warning-bg: #3a2e1a;
   --bms-shadow-1: 0 1px 4px rgba(0, 0, 0, 0.36);
   // 图表辅助色随深色调整对比度；序列色保持语义一致
   --bms-chart-axis: #4c4d4f;

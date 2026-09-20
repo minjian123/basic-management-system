@@ -102,7 +102,7 @@ watch(collapsedState, (value) => emit('update:collapsed', value))
 
 .bms-preference-group__description {
   margin: var(--bms-spacing-sm, 4px) 0 0;
-  color: var(--bms-color-text-secondary, #909399);
+  color: var(--bms-color-text-secondary);
   font-size: 12px;
 }
 

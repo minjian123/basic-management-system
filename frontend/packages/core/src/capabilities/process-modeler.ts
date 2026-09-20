@@ -6,7 +6,7 @@
  * 写占位文案。**画布与命令栈归件层 bpmn-js**；核心只持 XML 与结构结论；不触 DOM、不依赖第三方库。
  */
 
-import { BaseComponent } from '../base/BaseComponent'
+import { BasePlaceholderState } from './placeholder-state'
 import {
   MODELER_DEFINE_PERM,
   MODELER_PLACEHOLDER_TEXT,
@@ -87,21 +87,30 @@ export interface ModelerJobs {
 export type ModelerSubmitKind = 'draft' | 'deploy'
 
 /** 流程建模编排能力基类（抽象）。 */
-export abstract class BaseProcessModeler extends BaseComponent {
+export abstract class BaseProcessModeler extends BasePlaceholderState {
   /** 能力键。 */
   readonly identifier: string = 'process-modeler'
   /** 依赖能力键。 */
-  override readonly depends = ['access', 'notice']
+  override readonly depends = ['placeholder-state', 'access', 'notice']
   /** 当前定义。 */
   definition: ModelerDefinition = normalizeDefinition()
   /** 数据通路是否就绪（占位语义开关）。 */
   ready = false
+
+  /**
+   * 切换就绪态（占位态强制禁用）。
+   *
+   * @param value 是否就绪。
+   */
+  setReady(value: boolean): void {
+    this.ready = value
+    this.disabled = !value
+    this.touch()
+  }
   /** 占位态强制禁用（随就绪态联动）。 */
   override disabled = true
   /** 只读（历史版本 / 无 `wf:define`）。 */
   readOnly = false
-  /** 实际发起的请求计数（就绪且注入处理函数时才计数）。 */
-  requestCount = 0
   /** 编排阶段。 */
   phase: ModelerPhase = 'idle'
   /** 选中元素标识（空串表示未选中）。 */
@@ -131,10 +140,6 @@ export abstract class BaseProcessModeler extends BaseComponent {
   /** 重试种类（失败提交的最近一次）。 */
   #retryKind: ModelerSubmitKind | undefined
 
-  /** 是否降级（占位）态。 */
-  get degraded(): boolean {
-    return !this.ready
-  }
 
   /** 是否进行中（取数 / 提交 / 校验）。 */
   get busy(): boolean {
@@ -191,16 +196,6 @@ export abstract class BaseProcessModeler extends BaseComponent {
     return this.jobs.deploy !== undefined
   }
 
-  /**
-   * 切换数据通路就绪态（占位语义开关）。
-   *
-   * @param value 是否就绪。
-   */
-  setReady(value: boolean): void {
-    this.ready = value
-    this.disabled = !value
-    this.touch()
-  }
 
   /**
    * 切换只读（历史版本 / 无权限）。

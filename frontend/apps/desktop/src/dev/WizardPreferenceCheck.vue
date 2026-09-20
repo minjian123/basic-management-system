@@ -364,6 +364,6 @@ const allPassed = computed(() => CHECK_ITEMS.every((item) => checks.value[item.i
 
 .check-page-state {
   font-size: 12px;
-  color: var(--bms-color-text-secondary, #909399);
+  color: var(--bms-color-text-secondary);
 }
 </style>

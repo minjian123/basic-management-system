@@ -555,9 +555,9 @@ defineExpose({
 
 .bms-process-modeler__toolbar button {
   padding: 4px 10px;
-  border: 1px solid var(--bms-color-border, #dcdfe6);
+  border: 1px solid var(--bms-color-border);
   border-radius: var(--bms-radius-sm, 2px);
-  background: var(--bms-color-bg, #ffffff);
+  background: var(--bms-color-bg);
   color: inherit;
   font: inherit;
   cursor: pointer;
@@ -569,7 +569,7 @@ defineExpose({
 }
 
 .bms-process-modeler__errors {
-  color: var(--bms-color-danger, #f56c6c);
+  color: var(--bms-color-danger);
   font-size: 0.85em;
 }
 
@@ -581,7 +581,7 @@ defineExpose({
 
 .bms-process-modeler__loading,
 .bms-process-modeler__readonly {
-  color: var(--bms-color-text-secondary, #909399);
+  color: var(--bms-color-text-secondary);
   font-size: 0.85em;
 }
 </style>

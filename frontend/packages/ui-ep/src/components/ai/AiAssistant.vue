@@ -446,7 +446,7 @@ function onActionRevoke(payload: { actionId: string }): void {
   display: flex;
   flex-direction: column;
   height: 100%;
-  border: 1px solid var(--bms-color-border, #ebeef5);
+  border: 1px solid var(--bms-color-border);
   border-radius: 6px;
 }
 .bms-ai-assistant__modes {
@@ -454,7 +454,7 @@ function onActionRevoke(payload: { actionId: string }): void {
   gap: 8px;
   align-items: center;
   padding: 8px 12px;
-  border-bottom: 1px solid var(--bms-color-border, #ebeef5);
+  border-bottom: 1px solid var(--bms-color-border);
 }
 .bms-ai-assistant__modes button {
   padding: 2px 10px;
@@ -464,17 +464,17 @@ function onActionRevoke(payload: { actionId: string }): void {
   border-radius: 12px;
 }
 .bms-ai-assistant__modes button[data-active] {
-  color: var(--bms-color-primary, #409eff);
-  background: var(--bms-ai-citation-bg, #ecf5ff);
-  border-color: var(--bms-color-primary, #409eff);
+  color: var(--bms-color-primary);
+  background: var(--bms-ai-citation-bg);
+  border-color: var(--bms-color-primary);
 }
 .bms-ai-assistant__hint {
   margin-left: auto;
   font-size: 12px;
-  color: var(--bms-color-text-secondary, #909399);
+  color: var(--bms-color-text-secondary);
 }
 .bms-ai-assistant__hint.is-error {
-  color: var(--bms-color-danger, #f56c6c);
+  color: var(--bms-color-danger);
 }
 .bms-ai-assistant__body {  display: flex;
   flex: 1 1 auto;
@@ -486,6 +486,6 @@ function onActionRevoke(payload: { actionId: string }): void {
   overflow: auto;
 }
 .bms-ai-assistant__input {
-  border-top: 1px solid var(--bms-color-border, #ebeef5);
+  border-top: 1px solid var(--bms-color-border);
 }
 </style>

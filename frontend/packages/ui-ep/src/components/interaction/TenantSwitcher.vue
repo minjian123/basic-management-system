@@ -211,9 +211,9 @@ const onRetry = async (): Promise<void> => {
   align-items: center;
   gap: var(--bms-spacing-sm, 6px);
   padding: 4px 10px;
-  border: 1px solid var(--bms-color-border, #dcdfe6);
+  border: 1px solid var(--bms-color-border);
   border-radius: var(--bms-radius-sm, 4px);
-  background: var(--bms-color-bg, #ffffff);
+  background: var(--bms-color-bg);
   color: inherit;
   font: inherit;
   cursor: pointer;
@@ -221,7 +221,7 @@ const onRetry = async (): Promise<void> => {
 
 .bms-tenant-switcher__state,
 .bms-tenant-switcher__arrow {
-  color: var(--bms-color-text-secondary, #909399);
+  color: var(--bms-color-text-secondary);
   font-size: 12px;
 }
 
@@ -234,10 +234,10 @@ const onRetry = async (): Promise<void> => {
   gap: var(--bms-spacing-sm, 6px);
   min-width: 240px;
   padding: var(--bms-spacing-md, 8px);
-  border: 1px solid var(--bms-color-border, #dcdfe6);
+  border: 1px solid var(--bms-color-border);
   border-radius: var(--bms-radius-md, 6px);
-  background: var(--bms-color-bg, #ffffff);
-  box-shadow: var(--bms-shadow-md, 0 4px 16px rgba(0, 0, 0, 0.16));
+  background: var(--bms-color-bg);
+  box-shadow: var(--bms-shadow-md);
   z-index: 30;
 }
 
@@ -250,6 +250,6 @@ const onRetry = async (): Promise<void> => {
 }
 
 .bms-tenant-switcher__error {
-  color: var(--bms-color-danger, #f56c6c);
+  color: var(--bms-color-danger);
 }
 </style>

@@ -22,6 +22,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import { useBaseQueryScheme } from '../../composables/useBaseQueryScheme'
 import { useDisplayPlaceholder } from '../../composables/useDisplayPlaceholder'
+import { onWindowResize, viewportWidth as getViewportWidth } from '../../utils/observe'
 
 /** 查询事件载荷。 */
 export interface QueryFilterSearchPayload {
@@ -110,22 +111,22 @@ const placeholder = useDisplayPlaceholder({ ready: props.ready })
 const scheme = useBaseQueryScheme({ fields: props.fields })
 
 const detectedWidth = ref(0)
+let offResize: () => void = () => {}
 const collapsedState = ref<boolean | undefined>(undefined)
 const schemePanelOpen = ref(false)
 
 /** 监听视口宽度（窄屏口径）。 */
 function onResize(): void {
-  const scope = globalThis as { innerWidth?: number }
-  detectedWidth.value = scope.innerWidth ?? 0
+  detectedWidth.value = getViewportWidth()
 }
 
 onMounted(() => {
   onResize()
-  globalThis.addEventListener?.('resize', onResize)
+  offResize = onWindowResize(onResize)
 })
 
 onBeforeUnmount(() => {
-  globalThis.removeEventListener?.('resize', onResize)
+  offResize()
 })
 
 watch(

@@ -3,6 +3,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch, type Component } from 'vue'
 
 import { useBaseAccess } from '../../composables/useBaseAccess'
+import { observeResize, supportsResize } from '../../utils/observe'
 
 /** 快捷入口项。 */
 export interface QuickEntryItem {
@@ -94,25 +95,20 @@ function iconComponent(key?: string): Component | undefined {
 
 const container = ref<HTMLElement>()
 const autoColumns = ref(4)
-let observer: ResizeObserver | undefined
+let offResize: () => void = () => {}
 
 onMounted(() => {
   if (props.entries.some((entry) => entry.icon?.startsWith('el:'))) {
     ensureIcons()
   }
-  if (
-    props.columns === 'auto' &&
-    typeof ResizeObserver !== 'undefined' &&
-    container.value !== undefined
-  ) {
-    observer = new ResizeObserver((entries) => {
-      const width = entries[0]?.contentRect.width ?? 0
+  if (props.columns === 'auto' && supportsResize() && container.value !== undefined) {
+    offResize = observeResize(container.value, (entry) => {
+      const width = entry.contentRect.width
       autoColumns.value = width >= 320 ? 4 : 3
     })
-    observer.observe(container.value)
   }
 })
-onBeforeUnmount(() => observer?.disconnect())
+onBeforeUnmount(() => offResize())
 
 const columnCount = computed(() => (props.columns === 'auto' ? autoColumns.value : props.columns))
 

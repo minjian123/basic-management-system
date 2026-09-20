@@ -51,6 +51,16 @@ export function sanitizeHtml(html: string): string {
 }
 
 /**
+ * 清洗 SVG 文本（自定义图标内联 SVG；仅启用 SVG 配置，第三方库单一落点）。
+ *
+ * @param svg 原始 SVG HTML。
+ * @returns 清洗后的 SVG HTML。
+ */
+export function sanitizeSvg(svg: string): string {
+  return DOMPurify.sanitize(svg, { USE_PROFILES: { svg: true, svgFilters: true } })
+}
+
+/**
  * 取净化后的纯文本（用于字数统计 / 校验）。
  *
  * @param html HTML。

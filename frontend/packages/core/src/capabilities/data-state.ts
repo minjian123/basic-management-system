@@ -2,7 +2,7 @@
  * 数据状态能力基类：`loading → ready / empty / error` 状态机与竞态处理。
  */
 
-import { BaseComponent } from '../base/BaseComponent'
+import { BasePlaceholderState } from './placeholder-state'
 
 /** 数据状态。 */
 export type DataStateName = 'loading' | 'ready' | 'empty' | 'error'
@@ -12,7 +12,7 @@ export type SettleState = Exclude<DataStateName, 'loading'>
 export type DataStateListener = (state: DataStateName) => void
 
 /** 数据状态能力基类（抽象）。 */
-export abstract class BaseDataState extends BaseComponent {
+export abstract class BaseDataState extends BasePlaceholderState {
   /** 能力键。 */
   readonly identifier: string = 'data-state'
   /** 当前状态。 */

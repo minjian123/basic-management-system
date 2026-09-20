@@ -7,7 +7,7 @@
  * 写占位文案；只读图图片通路经组合的 `BasePresignedUrl` 承载。核心不触 DOM、不发请求；工作流引擎执行归后端。
  */
 
-import { BaseComponent } from '../base/BaseComponent'
+import { BasePlaceholderState } from './placeholder-state'
 import {
   APPROVAL_ACTION_LABELS,
   APPROVAL_COMMENT_MAX,
@@ -83,19 +83,28 @@ export interface ApprovalSubmitInput {
 }
 
 /** 审批流编排能力基类（抽象）。 */
-export abstract class BaseApprovalFlow extends BaseComponent {
+export abstract class BaseApprovalFlow extends BasePlaceholderState {
   /** 能力键。 */
   readonly identifier: string = 'approval-flow'
   /** 依赖能力键。 */
-  override readonly depends = ['presigned-url', 'access', 'notice']
+  override readonly depends = ['placeholder-state', 'presigned-url', 'access', 'notice']
   /** 实例标识。 */
   instanceId = ''
   /** 数据通路是否就绪（占位语义开关）。 */
   ready = false
+
+  /**
+   * 切换就绪态（占位态强制禁用）。
+   *
+   * @param value 是否就绪。
+   */
+  setReady(value: boolean): void {
+    this.ready = value
+    this.disabled = !value
+    this.touch()
+  }
   /** 占位态强制禁用（随就绪态联动）。 */
   override disabled = true
-  /** 实际发起的请求计数（就绪且注入处理函数时才计数）。 */
-  requestCount = 0
   /** 编排阶段。 */
   phase: ApprovalPhase = 'idle'
   /** 流程实例。 */
@@ -143,10 +152,6 @@ export abstract class BaseApprovalFlow extends BaseComponent {
   /** 重试入参（失败提交的最近一次动作与入参）。 */
   #retryAction: { action: ApprovalAction; comment?: string; target?: string } | undefined
 
-  /** 是否降级（占位）态。 */
-  get degraded(): boolean {
-    return !this.ready
-  }
 
   /** 是否进行中（取数 / 提交）。 */
   get busy(): boolean {
@@ -207,16 +212,6 @@ export abstract class BaseApprovalFlow extends BaseComponent {
     return this.jobs.submit !== undefined
   }
 
-  /**
-   * 切换数据通路就绪态（占位语义开关）。
-   *
-   * @param value 是否就绪。
-   */
-  setReady(value: boolean): void {
-    this.ready = value
-    this.disabled = !value
-    this.touch()
-  }
 
   /**
    * 切换实例标识（清空装载结果，须重新取数）。

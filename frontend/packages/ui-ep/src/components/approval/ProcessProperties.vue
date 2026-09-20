@@ -202,28 +202,28 @@ defineExpose({ draft, errors })
 }
 
 .bms-process-properties__label {
-  color: var(--bms-color-text-secondary, #909399);
+  color: var(--bms-color-text-secondary);
   font-size: 0.85em;
 }
 
 .bms-process-properties__field input,
 .bms-process-properties__field select {
   padding: 4px 6px;
-  border: 1px solid var(--bms-color-border, #dcdfe6);
+  border: 1px solid var(--bms-color-border);
   border-radius: var(--bms-radius-sm, 2px);
   font: inherit;
 }
 
 .bms-process-properties__error,
 .bms-process-properties__errors {
-  color: var(--bms-color-danger, #f56c6c);
+  color: var(--bms-color-danger);
   font-size: 0.85em;
 }
 
 .bms-process-properties__empty,
 .bms-process-properties__selected {
   margin: 0;
-  color: var(--bms-color-text-secondary, #909399);
+  color: var(--bms-color-text-secondary);
   font-size: 0.9em;
 }
 </style>

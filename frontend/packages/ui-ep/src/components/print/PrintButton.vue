@@ -260,9 +260,9 @@ defineExpose({ run, toggle: toggleOpen, print })
 
 .bms-print-button__trigger {
   padding: 4px 10px;
-  border: 1px solid var(--bms-color-border, #dcdfe6);
+  border: 1px solid var(--bms-color-border);
   border-radius: var(--bms-radius-sm, 2px);
-  background: var(--bms-color-bg, #ffffff);
+  background: var(--bms-color-bg);
   color: inherit;
   font: inherit;
   cursor: pointer;
@@ -282,10 +282,10 @@ defineExpose({ run, toggle: toggleOpen, print })
   flex-direction: column;
   min-width: 132px;
   padding: 4px;
-  border: 1px solid var(--bms-color-border, #dcdfe6);
+  border: 1px solid var(--bms-color-border);
   border-radius: var(--bms-radius-sm, 2px);
-  background: var(--bms-color-bg, #ffffff);
-  box-shadow: var(--bms-shadow-1, 0 1px 4px rgba(0, 0, 0, 0.08));
+  background: var(--bms-color-bg);
+  box-shadow: var(--bms-shadow-1);
 }
 
 .bms-print-button__item {
@@ -304,7 +304,7 @@ defineExpose({ run, toggle: toggleOpen, print })
 }
 
 .bms-print-button__hint {
-  color: var(--bms-color-text-secondary, #909399);
+  color: var(--bms-color-text-secondary);
   font-size: 0.85em;
 }
 </style>

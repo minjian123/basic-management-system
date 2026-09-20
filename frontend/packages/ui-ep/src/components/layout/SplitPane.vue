@@ -3,6 +3,7 @@
 import { computed, onBeforeUnmount, ref, watch, type CSSProperties } from 'vue'
 
 import { useBaseLayout } from '../../composables/useBaseLayout'
+import { startPointerDrag } from '../../utils/keyboard'
 
 
 /** 分割方向。 */
@@ -76,19 +77,10 @@ function pointerPosition(event: Event): number {
 
 let startPosition = 0
 let startSize = 0
+let cancelDrag: (() => void) | undefined
 
 function onPointerMove(event: Event): void {
   apply(startSize + (pointerPosition(event) - startPosition))
-}
-
-function onPointerUp(): void {
-  if (!dragging.value) {
-    return
-  }
-  dragging.value = false
-  window.removeEventListener('pointermove', onPointerMove)
-  window.removeEventListener('pointerup', onPointerUp)
-  emit('resize-end', size.value)
 }
 
 function onPointerDown(event: Event): void {
@@ -98,8 +90,14 @@ function onPointerDown(event: Event): void {
   dragging.value = true
   startPosition = pointerPosition(event)
   startSize = size.value
-  window.addEventListener('pointermove', onPointerMove)
-  window.addEventListener('pointerup', onPointerUp)
+  cancelDrag = startPointerDrag(onPointerMove, () => {
+    if (!dragging.value) {
+      return
+    }
+    dragging.value = false
+    cancelDrag = undefined
+    emit('resize-end', size.value)
+  })
 }
 
 function onKeydown(event: KeyboardEvent): void {
@@ -126,8 +124,7 @@ function onDblclick(): void {
 }
 
 onBeforeUnmount(() => {
-  window.removeEventListener('pointermove', onPointerMove)
-  window.removeEventListener('pointerup', onPointerUp)
+  cancelDrag?.()
 })
 </script>
 

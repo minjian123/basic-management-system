@@ -75,8 +75,23 @@ export abstract class BaseNotificationCenter extends BaseNotice {
   override readonly depends: readonly string[] = ['notice']
   /** 数据通路是否就绪（占位语义，缺省 `false`）。 */
   ready = false
-  /** 占位态请求计数（占位态恒 0）。 */
-  requestCount = 0
+
+  /**
+   * 切换就绪态（就绪时按有无实时适配器启动连接或轮询）。
+   *
+   * @param value 是否就绪。
+   */
+  setReady(value: boolean): void {
+    this.ready = value
+    if (!value) {
+      this.stopPolling()
+    } else if (this.hasRealtime) {
+      this.connect()
+    } else {
+      this.startPolling()
+    }
+    this.emitUpdate()
+  }
   /** 编排阶段。 */
   phase: NotificationPhase = 'idle'
   /** 错误文案。 */
@@ -115,10 +130,6 @@ export abstract class BaseNotificationCenter extends BaseNotice {
   /** 是否曾经连接成功（用于区分首次连接与断线重连补偿）。 */
   private everConnected = false
 
-  /** 是否降级（占位）态。 */
-  get degraded(): boolean {
-    return !this.ready
-  }
 
   /** 列表是否加载中（命名避让组件根 `loading` 字段）。 */
   get listLoading(): boolean {
@@ -160,22 +171,6 @@ export abstract class BaseNotificationCenter extends BaseNotice {
     return shouldShowBadge(this.unreadCount)
   }
 
-  /**
-   * 切换就绪态（就绪时按有无实时适配器启动连接或轮询）。
-   *
-   * @param value 是否就绪。
-   */
-  setReady(value: boolean): void {
-    this.ready = value
-    if (!value) {
-      this.stopPolling()
-    } else if (this.hasRealtime) {
-      this.connect()
-    } else {
-      this.startPolling()
-    }
-    this.emitUpdate()
-  }
 
   /**
    * 注入取数处理函数集。

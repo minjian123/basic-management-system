@@ -7,6 +7,9 @@ import type { BrandConfig, ResolvedTheme, ThemeMode } from '../capabilities/them
 /** 平台默认主色（未配置或非法色值时的回退值）。 */
 export const DEFAULT_BRAND_PRIMARY = '#1677ff'
 
+/** 强调色预设（主题切换件的可选主色；与设计令牌 `--bms-color-*` 语义一致，域层集中维护）。 */
+export const THEME_ACCENT_PRESETS: readonly string[] = ['#1677ff', '#00b96b', '#fa8c16', '#eb2f96', '#722ed1']
+
 /** RGB 三元组（0 ~ 255）。 */
 export interface RgbColor {
   /** 红通道。 */

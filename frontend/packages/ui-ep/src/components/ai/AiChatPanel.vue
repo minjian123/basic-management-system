@@ -118,7 +118,7 @@ watch(
 .bms-ai-chat-panel__empty,
 .bms-ai-chat-panel__placeholder {
   padding: 32px;
-  color: var(--bms-color-text-secondary, #909399);
+  color: var(--bms-color-text-secondary);
   text-align: center;
 }
 .bms-ai-chat-panel__error {
@@ -127,12 +127,12 @@ watch(
   align-items: center;
   padding: 8px 12px;
   margin-bottom: 8px;
-  color: var(--bms-color-danger, #f56c6c);
-  background: var(--bms-ai-risk-bg, #fdf6ec);
+  color: var(--bms-color-danger);
+  background: var(--bms-ai-risk-bg);
   border-radius: 4px;
 }
 .bms-ai-chat-panel__error button {
-  color: var(--bms-color-primary, #409eff);
+  color: var(--bms-color-primary);
   cursor: pointer;
   background: none;
   border: none;

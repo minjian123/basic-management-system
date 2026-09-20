@@ -5,6 +5,8 @@ import { computed, onMounted, ref, shallowRef, watch, type Component } from 'vue
 import { canvasStyle, type ChartDatasetResult, type ReportDataset, type ScreenCanvasConfig, type ScreenComponent } from '@bms/core'
 
 import { useBaseDataState } from '../../composables/useBaseDataState'
+import { startPointerDrag } from '../../utils/keyboard'
+import { supportsResize } from '../../utils/observe'
 import ScreenWidget from './ScreenWidget.vue'
 
 /** vue-flow 模块最小面（经 `utils/vueFlow.ts` 单一落点异步装载）。 */
@@ -104,7 +106,7 @@ const nodes = computed<FlowNode[]>(() =>
 
 /** 是否支持 vue-flow（需要布局观测 API）。 */
 function supportsVueFlow(): boolean {
-  return typeof globalThis.ResizeObserver !== 'undefined' && typeof globalThis.document !== 'undefined'
+  return supportsResize() && typeof globalThis.document !== 'undefined'
 }
 
 onMounted(async () => {
@@ -168,13 +170,9 @@ function startResize(event: PointerEvent, component: ScreenComponent): void {
     nextW = Math.max(40, Math.round(component.w + (moveEvent.clientX - startX)))
     nextH = Math.max(32, Math.round(component.h + (moveEvent.clientY - startY)))
   }
-  const onUp = (): void => {
-    window.removeEventListener('pointermove', onMove)
-    window.removeEventListener('pointerup', onUp)
+  startPointerDrag(onMove, () => {
     emit('resize-component', { id: component.id, w: nextW, h: nextH })
-  }
-  window.addEventListener('pointermove', onMove)
-  window.addEventListener('pointerup', onUp)
+  })
 }
 </script>
 
@@ -269,7 +267,7 @@ function startResize(event: PointerEvent, component: ScreenComponent): void {
   position: relative;
   width: 100%;
   min-height: 360px;
-  background: var(--bms-color-bg, #fff);
+  background: var(--bms-color-bg);
 }
 .bms-screen-canvas__flow {
   width: 100%;
@@ -283,13 +281,13 @@ function startResize(event: PointerEvent, component: ScreenComponent): void {
 .bms-screen-canvas__node {
   position: relative;
   overflow: hidden;
-  border: 1px solid var(--bms-color-border, #dcdfe6);
+  border: 1px solid var(--bms-color-border);
   border-radius: var(--bms-radius-md, 4px);
-  background: var(--bms-color-bg, #fff);
+  background: var(--bms-color-bg);
 }
 .bms-screen-canvas__node[data-selected='true'] {
-  border-color: var(--bms-color-primary, #409eff);
-  box-shadow: 0 0 0 1px var(--bms-color-primary, #409eff);
+  border-color: var(--bms-color-primary);
+  box-shadow: 0 0 0 1px var(--bms-color-primary);
 }
 .bms-screen-canvas__remove {
   position: absolute;
@@ -305,8 +303,8 @@ function startResize(event: PointerEvent, component: ScreenComponent): void {
   z-index: 2;
   width: 12px;
   height: 12px;
-  border-right: 2px solid var(--bms-color-primary, #409eff);
-  border-bottom: 2px solid var(--bms-color-primary, #409eff);
+  border-right: 2px solid var(--bms-color-primary);
+  border-bottom: 2px solid var(--bms-color-primary);
   cursor: nwse-resize;
 }
 </style>

@@ -205,9 +205,9 @@ void approval
 
 .bms-approval-timeline__order {
   padding: 2px 8px;
-  border: 1px solid var(--bms-color-border, #dcdfe6);
+  border: 1px solid var(--bms-color-border);
   border-radius: var(--bms-radius-sm, 2px);
-  background: var(--bms-color-bg, #ffffff);
+  background: var(--bms-color-bg);
   color: inherit;
   font: inherit;
   font-size: 0.85em;
@@ -225,12 +225,12 @@ void approval
   flex-direction: column;
   gap: 2px;
   padding: var(--bms-spacing-sm, 4px) 0;
-  border-bottom: 1px solid var(--bms-color-border, #dcdfe6);
+  border-bottom: 1px solid var(--bms-color-border);
   cursor: pointer;
 }
 
 .bms-approval-timeline__item[data-node-active='true'] {
-  background: rgba(64, 158, 255, 0.08);
+  background: var(--bms-color-primary-light);
 }
 
 .bms-approval-timeline__head {
@@ -244,31 +244,31 @@ void approval
 }
 
 .bms-approval-timeline__item[data-action='approve'] .bms-approval-timeline__action {
-  color: var(--bms-color-success, #67c23a);
+  color: var(--bms-color-success);
 }
 
 .bms-approval-timeline__item[data-action='reject'] .bms-approval-timeline__action {
-  color: var(--bms-color-danger, #f56c6c);
+  color: var(--bms-color-danger);
 }
 
 .bms-approval-timeline__item[data-action='withdraw'] .bms-approval-timeline__action {
-  color: var(--bms-color-warning, #e6a23c);
+  color: var(--bms-color-warning);
 }
 
 .bms-approval-timeline__item[data-action='transfer'] .bms-approval-timeline__action,
 .bms-approval-timeline__item[data-action='comment'] .bms-approval-timeline__action {
-  color: var(--bms-color-text-secondary, #909399);
+  color: var(--bms-color-text-secondary);
 }
 
 .bms-approval-timeline__time {
   margin-left: auto;
-  color: var(--bms-color-text-secondary, #909399);
+  color: var(--bms-color-text-secondary);
   font-size: 0.85em;
 }
 
 .bms-approval-timeline__node,
 .bms-approval-timeline__comment {
-  color: var(--bms-color-text-secondary, #909399);
+  color: var(--bms-color-text-secondary);
   font-size: 0.9em;
 }
 
@@ -276,7 +276,7 @@ void approval
   margin-left: var(--bms-spacing-sm, 4px);
   border: 0;
   background: transparent;
-  color: var(--bms-color-primary, #409eff);
+  color: var(--bms-color-primary);
   font: inherit;
   font-size: 0.9em;
   cursor: pointer;
@@ -291,7 +291,7 @@ void approval
 .bms-approval-timeline__attachment {
   border: 0;
   background: transparent;
-  color: var(--bms-color-primary, #409eff);
+  color: var(--bms-color-primary);
   font: inherit;
   font-size: 0.85em;
   cursor: pointer;
@@ -299,6 +299,6 @@ void approval
 
 .bms-approval-timeline__empty,
 .bms-approval-timeline__group-title {
-  color: var(--bms-color-text-secondary, #909399);
+  color: var(--bms-color-text-secondary);
 }
 </style>

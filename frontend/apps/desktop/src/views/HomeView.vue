@@ -14,6 +14,6 @@ defineOptions({ name: 'HomeView' })
 <style scoped>
 .home__hint {
   margin: 0;
-  color: var(--bms-color-text-secondary, #666);
+  color: var(--bms-color-text-secondary);
 }
 </style>

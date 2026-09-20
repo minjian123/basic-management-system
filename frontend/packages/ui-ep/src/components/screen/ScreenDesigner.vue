@@ -534,7 +534,7 @@ defineExpose({
   gap: 8px;
 }
 .bms-screen-designer__preview {
-  border-top: 1px solid var(--bms-color-border, #dcdfe6);
+  border-top: 1px solid var(--bms-color-border);
   padding-top: 8px;
 }
 </style>

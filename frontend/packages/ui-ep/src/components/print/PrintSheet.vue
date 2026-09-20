@@ -165,9 +165,9 @@ defineExpose({ sheet: print })
   box-sizing: border-box;
   margin: 0 auto var(--bms-spacing-lg, 16px);
   padding: var(--bms-print-margin, 12mm);
-  border: 1px solid var(--bms-color-border, #dcdfe6);
-  background: var(--bms-print-paper-bg, #ffffff);
-  color: var(--bms-print-text, #111111);
+  border: 1px solid var(--bms-color-border);
+  background: var(--bms-print-paper-bg);
+  color: var(--bms-print-text);
   font-size: var(--bms-print-font-size, 11pt);
   line-height: var(--bms-print-line-height, 1.5);
   overflow: hidden;
@@ -188,7 +188,7 @@ defineExpose({ sheet: print })
 }
 
 .bms-print-sheet__watermark span {
-  color: var(--bms-print-watermark-color, rgba(200, 0, 0, 0.12));
+  color: var(--bms-print-watermark-color);
   font-size: 3em;
   font-weight: 700;
   letter-spacing: 0.2em;
@@ -200,7 +200,7 @@ defineExpose({ sheet: print })
   align-items: center;
   gap: var(--bms-spacing-sm, 4px);
   padding-bottom: var(--bms-spacing-sm, 4px);
-  border-bottom: calc(var(--bms-print-line-width, 0.2mm) * 2) solid var(--bms-print-text, #111111);
+  border-bottom: calc(var(--bms-print-line-width, 0.2mm) * 2) solid var(--bms-print-text);
 }
 
 .bms-print-sheet__logo {
@@ -210,14 +210,14 @@ defineExpose({ sheet: print })
   width: 1.4em;
   height: 1.4em;
   border-radius: var(--bms-radius-sm, 2px);
-  background: var(--bms-color-primary, #409eff);
-  color: var(--bms-print-paper-bg, #ffffff);
+  background: var(--bms-color-primary);
+  color: var(--bms-print-paper-bg);
   font-size: 0.9em;
 }
 
 .bms-print-sheet__subtitle {
   margin-left: auto;
-  color: var(--bms-color-text-secondary, #909399);
+  color: var(--bms-color-text-secondary);
   font-size: 0.85em;
 }
 
@@ -241,7 +241,7 @@ defineExpose({ sheet: print })
 }
 
 .bms-print-sheet__label {
-  color: var(--bms-color-text-secondary, #909399);
+  color: var(--bms-color-text-secondary);
 }
 
 .bms-print-sheet__table {
@@ -253,7 +253,7 @@ defineExpose({ sheet: print })
 .bms-print-sheet__table th,
 .bms-print-sheet__table td {
   padding: 4px 6px;
-  border: var(--bms-print-line-width, 0.2mm) solid var(--bms-print-text, #111111);
+  border: var(--bms-print-line-width, 0.2mm) solid var(--bms-print-text);
   text-align: left;
 }
 
@@ -282,8 +282,8 @@ defineExpose({ sheet: print })
 .bms-print-sheet__footer {
   margin-top: var(--bms-spacing-md, 8px);
   padding-top: var(--bms-spacing-sm, 4px);
-  border-top: var(--bms-print-line-width, 0.2mm) solid var(--bms-color-text-secondary, #909399);
-  color: var(--bms-color-text-secondary, #909399);
+  border-top: var(--bms-print-line-width, 0.2mm) solid var(--bms-color-text-secondary);
+  color: var(--bms-color-text-secondary);
   font-size: 0.85em;
 }
 

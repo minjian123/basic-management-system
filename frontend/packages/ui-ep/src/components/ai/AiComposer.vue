@@ -173,7 +173,7 @@ function handleKeydown(event: KeyboardEvent): void {
 <style scoped>
 .bms-ai-composer {
   padding: 8px 12px;
-  border-top: 1px solid var(--bms-color-border, #ebeef5);
+  border-top: 1px solid var(--bms-color-border);
 }
 .bms-ai-composer__shortcuts {
   display: flex;
@@ -183,10 +183,10 @@ function handleKeydown(event: KeyboardEvent): void {
 }
 .bms-ai-composer__shortcuts button {
   padding: 2px 8px;
-  color: var(--bms-color-primary, #409eff);
+  color: var(--bms-color-primary);
   white-space: nowrap;
   cursor: pointer;
-  background: var(--bms-ai-citation-bg, #ecf5ff);
+  background: var(--bms-ai-citation-bg);
   border: none;
   border-radius: 10px;
 }
@@ -195,9 +195,9 @@ function handleKeydown(event: KeyboardEvent): void {
   width: 100%;
   padding: 8px;
   font-family: inherit;
-  color: var(--bms-color-text, #303133);
+  color: var(--bms-color-text);
   resize: vertical;
-  border: 1px solid var(--bms-color-border, #dcdfe6);
+  border: 1px solid var(--bms-color-border);
   border-radius: 4px;
 }
 .bms-ai-composer__toolbar {
@@ -208,21 +208,21 @@ function handleKeydown(event: KeyboardEvent): void {
   font-size: 12px;
 }
 .bms-ai-composer__mode {
-  color: var(--bms-color-text-secondary, #909399);
+  color: var(--bms-color-text-secondary);
 }
 .bms-ai-composer__count {
   margin-left: auto;
-  color: var(--bms-color-text-secondary, #909399);
+  color: var(--bms-color-text-secondary);
 }
 .bms-ai-composer__count[data-over] {
-  color: var(--bms-color-danger, #f56c6c);
+  color: var(--bms-color-danger);
 }
 .bms-ai-composer__send,
 .bms-ai-composer__stop {
   padding: 4px 16px;
-  color: #fff;
+  color: var(--bms-color-white);
   cursor: pointer;
-  background: var(--bms-color-primary, #409eff);
+  background: var(--bms-color-primary);
   border: none;
   border-radius: 4px;
 }
@@ -231,7 +231,7 @@ function handleKeydown(event: KeyboardEvent): void {
   opacity: 0.5;
 }
 .bms-ai-composer__stop {
-  background: var(--bms-color-danger, #f56c6c);
+  background: var(--bms-color-danger);
 }
 .bms-ai-composer__error {
   display: flex;
@@ -239,10 +239,10 @@ function handleKeydown(event: KeyboardEvent): void {
   align-items: center;
   margin-top: 6px;
   font-size: 12px;
-  color: var(--bms-color-danger, #f56c6c);
+  color: var(--bms-color-danger);
 }
 .bms-ai-composer__error button {
-  color: var(--bms-color-primary, #409eff);
+  color: var(--bms-color-primary);
   cursor: pointer;
   background: none;
   border: none;

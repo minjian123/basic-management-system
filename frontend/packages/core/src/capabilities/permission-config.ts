@@ -40,7 +40,7 @@ import {
   type PermissionSubjectType,
   type PermissionTab,
 } from '../domain/permission-config'
-import { BaseComponent } from '../base/BaseComponent'
+import { BasePlaceholderState } from './placeholder-state'
 import { BaseTreeData } from './tree-data'
 import type { BaseAccess } from './access'
 import type { BaseNotice } from './notice'
@@ -88,7 +88,7 @@ export interface PermissionJobs {
 class PermissionTreeState extends BaseTreeData {}
 
 /** 授权编排能力基类（抽象）。 */
-export abstract class BasePermissionConfig extends BaseComponent {
+export abstract class BasePermissionConfig extends BasePlaceholderState {
   /** 能力键。 */
   readonly identifier: string = 'permission-config'
   /** 当前角色标识。 */
@@ -105,10 +105,19 @@ export abstract class BasePermissionConfig extends BaseComponent {
   tab: PermissionTab = 'tree'
   /** 数据通路是否就绪（占位语义开关）。 */
   ready = false
+
+  /**
+   * 切换就绪态（占位态强制禁用）。
+   *
+   * @param value 是否就绪。
+   */
+  setReady(value: boolean): void {
+    this.ready = value
+    this.disabled = !value
+    this.touch()
+  }
   /** 占位态强制禁用（随就绪态联动）。 */
   override disabled = true
-  /** 实际发起的请求计数（就绪且注入处理函数时才计数）。 */
-  requestCount = 0
   /** 编排阶段。 */
   phase: PermissionPhase = 'idle'
   /** 失败文案。 */
@@ -140,10 +149,6 @@ export abstract class BasePermissionConfig extends BaseComponent {
   /** 刷新进行中标记（防重复刷新）。 */
   private refreshing = false
 
-  /** 是否降级（占位）态。 */
-  get degraded(): boolean {
-    return !this.ready
-  }
 
   /** 是否进行中（取数 / 提交 / 刷新）。 */
   get busy(): boolean {
@@ -198,16 +203,6 @@ export abstract class BasePermissionConfig extends BaseComponent {
     return this.jobs.submit !== undefined
   }
 
-  /**
-   * 切换数据通路就绪态（占位语义开关）。
-   *
-   * @param value 是否就绪。
-   */
-  setReady(value: boolean): void {
-    this.ready = value
-    this.disabled = !value
-    this.touch()
-  }
 
   /**
    * 切换页签。
