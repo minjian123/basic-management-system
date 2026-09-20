@@ -315,6 +315,7 @@ class Settings(PydanticBaseSettings, BaseSettings):  # pyright: ignore[reportInc
     llm_provider: PluginSelection = Field(default_factory=PluginSelection)
     masking: PluginSelection = Field(default_factory=PluginSelection)
     metrics: PluginSelection = Field(default_factory=PluginSelection)
+    multipart_upload: PluginSelection = Field(default_factory=PluginSelection)
     notifier: PluginSelection = Field(default_factory=PluginSelection)
     notification_center: PluginSelection = Field(default_factory=PluginSelection)
     oauth_server: PluginSelection = Field(default_factory=PluginSelection)

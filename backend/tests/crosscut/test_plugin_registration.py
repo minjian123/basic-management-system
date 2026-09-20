@@ -57,6 +57,7 @@ _EXPECTED_PLUGIN_KEYS = frozenset(
         "llm_provider",
         "masking",
         "metrics",
+        "multipart_upload",
         "notification_center",
         "notifier",
         "oauth_server",

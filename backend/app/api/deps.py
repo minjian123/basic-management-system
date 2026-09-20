@@ -1,8 +1,8 @@
 """公共依赖汇总：数据访问、租户解析与各能力域基座提供者。
 
-掩码 / 权限 / 锁 / 认证 / 故障应对 / 可观测 / 探针 / 开放接口 / 存储 / LLM / 检索 / 通知 / 推送 / 出站 / 工作流等
-各能力域基座提供者（归档 / 身份源 / 会话 / 查询 / 导入导出 / 审计链 / 字段类型 / 国际化 / 工作台）统一从本模块导出，
-业务路由按需导入，避免分散引用。
+掩码 / 权限 / 锁 / 认证 / 故障应对 / 可观测 / 探针 / 开放接口 / 存储 / 分片上传 / LLM / 检索 / 通知 /
+推送 / 出站 / 工作流 / 归档 / 身份源 / 会话 / 查询 / 导入导出 / 审计链 / 字段类型 / 国际化 / 工作台
+等各能力域基座提供者统一从本模块导出，业务路由按需导入，避免分散引用。
 """
 
 from app.archive.base import get_archive_policy, get_archive_query_router
@@ -43,7 +43,7 @@ from app.ratelimit.base import get_rate_limiter
 from app.replay.base import get_replay_guard
 from app.search.base import get_search_index
 from app.session.base import get_session_store
-from app.storage.base import get_object_storage
+from app.storage.base import get_multipart_upload, get_object_storage
 from app.tasks.base import get_task
 from app.tracing.base import get_tracer
 from app.transfer.exporter import get_exporter
@@ -84,6 +84,7 @@ __all__ = [
     "get_llm_provider",
     "get_masker",
     "get_metrics",
+    "get_multipart_upload",
     "get_notification_center",
     "get_notifier",
     "get_oauth_server",

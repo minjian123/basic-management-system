@@ -70,7 +70,7 @@ from app.scope.base import DataScope
 from app.search.base import BaseSearchIndex
 from app.session.base import BaseSessionStore
 from app.sharding.base import ShardingRouter
-from app.storage.base import BaseObjectStorage
+from app.storage.base import BaseMultipartUpload, BaseObjectStorage
 from app.tasks.base import BaseTask
 from app.tracing.base import BaseTracer
 from app.transfer.exporter import BaseExporter
@@ -181,6 +181,7 @@ PLUGIN_WIRINGS: tuple[PluginWiring, ...] = (
     PluginWiring("dict_translator", BaseDictTranslator, "dict_translator", "dict_translator"),
     PluginWiring("dict_cache_region", DictCacheRegion, "dict_cache_region", "dict_cache_region"),
     PluginWiring("object_storage", BaseObjectStorage, "storage", "object_storage"),
+    PluginWiring("multipart_upload", BaseMultipartUpload, "multipart_upload", "multipart_upload"),
     PluginWiring("llm_provider", BaseLlmProvider, "llm_provider", "llm_provider"),
     PluginWiring("search_index", BaseSearchIndex, "search_index", "search_index"),
     PluginWiring("global_search", BaseGlobalSearch, "global_search", "global_search"),
