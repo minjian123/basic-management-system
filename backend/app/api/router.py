@@ -2,10 +2,10 @@
 
 from fastapi import APIRouter
 
-from app.api import demo, health, modules, plugins, preference, query_scheme
+from app.api import demo, health, modules, notification, plugins, preference, query_scheme
 from app.api.base import build_api_router, register_router
 
-for _module in (demo, modules, plugins, preference, query_scheme):
+for _module in (demo, modules, plugins, preference, query_scheme, notification):
     register_router(_module.router)
 
 api_router = build_api_router()

@@ -26,6 +26,7 @@ from app.llm.base import get_llm_provider
 from app.lock.base import get_distributed_lock
 from app.masking.base import get_masker
 from app.metrics.base import get_metrics
+from app.notification.base import get_notification_center
 from app.notify.base import get_notifier
 from app.oauth.base import get_oauth_server, get_scope_checker
 from app.outbound.http import get_http_client
@@ -70,6 +71,7 @@ __all__ = [
     "get_llm_provider",
     "get_masker",
     "get_metrics",
+    "get_notification_center",
     "get_notifier",
     "get_oauth_server",
     "get_object_storage",
