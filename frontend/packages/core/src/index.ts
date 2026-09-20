@@ -237,6 +237,12 @@ export { BaseContainer } from './capabilities/container'
 export { BaseLayout } from './capabilities/layout'
 export { BaseMediaContent, type MediaState } from './capabilities/media'
 export { BaseFeedback, type FeedbackState } from './capabilities/feedback'
+export {
+  BaseNotificationCenter,
+  type NotificationJobs,
+  type NotificationPhase,
+  type NotificationRealtimeAdapter,
+} from './capabilities/notification-center'
 export { BaseNotification, type NotificationItem } from './capabilities/notification'
 export { BaseColumnConfig, type ColumnSeed, type ColumnState } from './capabilities/column-config'
 export { BaseQueryScheme, type QueryCondition, type QueryScheme } from './capabilities/query-scheme'
@@ -1089,6 +1095,49 @@ export {
   type StatusSemantic,
   type StatusShape,
 } from './domain/status'
+export {
+  NOTIFICATION_BADGE_MAX,
+  NOTIFICATION_BATCH_MAX,
+  NOTIFICATION_PAGE_SIZE_DEFAULT,
+  NOTIFICATION_PAGE_SIZE_MAX,
+  NOTIFICATION_POLL_INTERVAL,
+  NOTIFICATION_READ_FILTERS,
+  NOTIFICATION_RECENT_LIMIT,
+  NOTIFICATION_TYPES,
+  applyIncoming,
+  applyOptimisticRead,
+  applyOptimisticReadAll,
+  applyOptimisticRemove,
+  badgeTextOf,
+  buildNotificationParams,
+  clampBadgeCount,
+  connectionLabel,
+  countUnread,
+  filterNotificationMessages,
+  hasJumpTarget,
+  isPollingNeeded,
+  isUnread,
+  jumpTargetOf,
+  mergeMessages,
+  messageTypeLabel,
+  normalizeNotificationMessage,
+  normalizeNotificationMessages,
+  normalizeNotificationPage,
+  parseUnreadCount,
+  recentMessages,
+  resolveMessageSemantic,
+  restoreSnapshot,
+  shouldPoll,
+  shouldShowBadge,
+  type NotificationConnectionState,
+  type NotificationMessage,
+  type NotificationMessageType,
+  type NotificationPage,
+  type NotificationQuery,
+  type NotificationReadFilter,
+  type NotificationRealtimePayload,
+  type NotificationSnapshot,
+} from './domain/notification'
 export {
   METRIC_COMPACT_THRESHOLD,
   METRIC_COMPACT_UNITS,

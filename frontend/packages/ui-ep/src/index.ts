@@ -53,7 +53,10 @@ export {
   type SearchGroup,
   type SearchHit,
 } from './components/display/GlobalSearch.vue'
-export { default as NoticeList, type NoticeItem, type NoticeType } from './components/display/NoticeList.vue'
+export { default as NoticeList, type NoticeItem, type NoticeType } from './components/notice/NoticeList.vue'
+export { default as NoticeMessageItem } from './components/notice/NoticeMessageItem.vue'
+export { default as NoticeBell } from './components/notice/NoticeBell.vue'
+export { default as NoticeDetail } from './components/notice/NoticeDetail.vue'
 export { default as QrCode, type QrLevel, type QrStatus } from './components/display/QrCode.vue'
 export { default as QuickEntry, type QuickEntryItem } from './components/display/QuickEntry.vue'
 export { default as UserAvatar, type AvatarSize } from './components/display/UserAvatar.vue'
@@ -331,6 +334,22 @@ export {
 export { useBaseTreeData, type UseBaseTreeDataOptions, type UseBaseTreeDataResult } from './composables/useBaseTreeData'
 export { useBaseAccess, type UseBaseAccessResult } from './composables/useBaseAccess'
 export { useBaseUserDisplay, type UseBaseUserDisplayResult } from './composables/useBaseUserDisplay'
+export {
+  useBaseNotification,
+  type UseBaseNotificationOptions,
+  type UseBaseNotificationResult,
+} from './composables/useBaseNotification'
+export {
+  startUnreadPolling,
+  onVisibilityChange,
+  type UnreadPollingOptions,
+  type UnreadPollingHandle,
+} from './utils/notificationRealtime'
+export {
+  createNotificationChannel,
+  type NotificationChannelMessage,
+  type NotificationChannelHandle,
+} from './utils/notificationChannel'
 export { useBaseWatermark, type UseBaseWatermarkResult } from './composables/useBaseWatermark'
 export { useBasePresignedUrl, type UseBasePresignedUrlResult } from './composables/useBasePresignedUrl'
 export {
