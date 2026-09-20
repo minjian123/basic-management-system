@@ -31,6 +31,7 @@ from app.outbound.http import get_http_client
 from app.outbound.webhook import get_webhook_sender
 from app.password.base import get_password_policy
 from app.permission.base import get_permission_checker
+from app.preference.base import get_preference_store
 from app.query.base import get_query_provider_registry
 from app.ratelimit.base import get_rate_limiter
 from app.replay.base import get_replay_guard
@@ -73,6 +74,7 @@ __all__ = [
     "get_object_storage",
     "get_password_policy",
     "get_permission_checker",
+    "get_preference_store",
     "get_query_provider_registry",
     "get_rate_limiter",
     "get_realtime_publisher",

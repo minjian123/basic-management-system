@@ -310,6 +310,7 @@ class Settings(PydanticBaseSettings, BaseSettings):  # pyright: ignore[reportInc
     oauth_server: PluginSelection = Field(default_factory=PluginSelection)
     password_policy: PluginSelection = Field(default_factory=PluginSelection)
     permission: PluginSelection = Field(default_factory=PluginSelection)
+    preference: PluginSelection = Field(default_factory=PluginSelection)
     query_provider_registry: PluginSelection = Field(default_factory=PluginSelection)
     rate_limiter: PluginSelection = Field(default_factory=PluginSelection)
     realtime_publisher: PluginSelection = Field(default_factory=PluginSelection)
