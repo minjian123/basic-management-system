@@ -312,6 +312,7 @@ class Settings(PydanticBaseSettings, BaseSettings):  # pyright: ignore[reportInc
     permission: PluginSelection = Field(default_factory=PluginSelection)
     preference: PluginSelection = Field(default_factory=PluginSelection)
     query_provider_registry: PluginSelection = Field(default_factory=PluginSelection)
+    query_scheme_store: PluginSelection = Field(default_factory=PluginSelection)
     rate_limiter: PluginSelection = Field(default_factory=PluginSelection)
     realtime_publisher: PluginSelection = Field(default_factory=PluginSelection)
     replay_guard: PluginSelection = Field(default_factory=PluginSelection)
