@@ -110,7 +110,7 @@ describe('BaseTable / BaseList / BaseTreeData 数据族', () => {
     table.sortBy('id', 'desc')
     expect(table.sort).toEqual({ field: 'id', order: 'desc' })
     table.toggleSelect(1)
-    expect(table.selectedKeys).toEqual([1])
+    expect(table.selectedKeys).toEqual(['1'])
     table.toggleSelect(1)
     expect(table.selectedKeys).toEqual([])
   })

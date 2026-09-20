@@ -13,7 +13,7 @@ import {
 
 import { useBaseDataState } from '../../composables/useBaseDataState'
 import ChartRenderer from '../chart/ChartRenderer.vue'
-import DataTable from '../display/DataTable.vue'
+import DataTable from '../data/DataTable.vue'
 
 interface Props {
   /** 组件模型。 */

@@ -6,6 +6,7 @@
   --bms-color-success: #67c23a;
   --bms-color-warning: #e6a23c;
   --bms-color-danger: #f56c6c;
+  --bms-color-info: #909399;
   --bms-color-text: #303133;
   --bms-color-text-secondary: #909399;
   --bms-color-bg: #ffffff;
@@ -24,6 +25,12 @@
   --bms-chart-text: #909399;
   --bms-chart-tooltip-bg: #ffffff;
   --bms-chart-tooltip-text: #303133;
+  // 表格（斑马纹 / 边框 / 悬停 / 选中 / 表头底色；禁止硬编码色值）
+  --bms-table-border: var(--bms-color-border);
+  --bms-table-header-bg: #f5f7fa;
+  --bms-table-row-hover-bg: #f5f7fa;
+  --bms-table-zebra-bg: #fafafa;
+  --bms-table-selected-bg: #ecf5ff;
   // 字
   --bms-font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
   --bms-font-size: 14px;
@@ -81,6 +88,11 @@
   --bms-chart-text: #a3a6ad;
   --bms-chart-tooltip-bg: #1d1e1f;
   --bms-chart-tooltip-text: #e5eaf3;
+  // 表格底与边框随深色调整对比度；语义序列色保持语义一致
+  --bms-table-header-bg: #262727;
+  --bms-table-row-hover-bg: #262727;
+  --bms-table-zebra-bg: #232324;
+  --bms-table-selected-bg: #1d3049;
 }
 
 // 打印样式令牌（打印与屏幕样式解耦；件层消费 var(--bms-print-*, fallback)，黑白色值不与屏幕主题联动）
@@ -118,6 +130,7 @@
   --el-color-success: var(--bms-color-success);
   --el-color-warning: var(--bms-color-warning);
   --el-color-danger: var(--bms-color-danger);
+  --el-color-info: var(--bms-color-info);
   --el-text-color-primary: var(--bms-color-text);
   --el-border-color: var(--bms-color-border);
   --el-font-family: var(--bms-font-family);
