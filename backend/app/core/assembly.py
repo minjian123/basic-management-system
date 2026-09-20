@@ -37,6 +37,7 @@ from app.core.plugin import (
 from app.core.resources import ResourceManager
 from app.dashboard.base import BaseDashboardCardRegistry
 from app.db.registry import EngineRegistry
+from app.dict.base import BaseDictSource, BaseDictTranslator, DictCacheRegion
 from app.events.base import BaseEventConsumer, EventPublisher
 from app.fallback.base import BaseFallbackPolicy
 from app.fieldtype.base import BaseFieldTypeRegistry
@@ -98,6 +99,7 @@ _NULL_MODULES: tuple[str, ...] = (
     "app.circuit.null",
     "app.dashboard.null",
     "app.db.null",
+    "app.dict.null",
     "app.events.null",
     "app.fallback.null",
     "app.fieldtype.null",
@@ -175,6 +177,9 @@ PLUGIN_WIRINGS: tuple[PluginWiring, ...] = (
     PluginWiring("scope_checker", BaseScopeChecker, "scope_checker", "scope_checker"),
     PluginWiring("org_data_source", BaseOrgDataSource, "org_data_source", "org_data_source"),
     PluginWiring("org_name_resolver", BaseOrgNameResolver, "org_name_resolver", "org_name_resolver"),
+    PluginWiring("dict_source", BaseDictSource, "dict_source", "dict_source"),
+    PluginWiring("dict_translator", BaseDictTranslator, "dict_translator", "dict_translator"),
+    PluginWiring("dict_cache_region", DictCacheRegion, "dict_cache_region", "dict_cache_region"),
     PluginWiring("object_storage", BaseObjectStorage, "storage", "object_storage"),
     PluginWiring("llm_provider", BaseLlmProvider, "llm_provider", "llm_provider"),
     PluginWiring("search_index", BaseSearchIndex, "search_index", "search_index"),
