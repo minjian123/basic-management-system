@@ -31,6 +31,10 @@
   --bms-table-row-hover-bg: #f5f7fa;
   --bms-table-zebra-bg: #fafafa;
   --bms-table-selected-bg: #ecf5ff;
+  // 通知（未读高亮 / 悬停 / 角标底色；禁止硬编码色值）
+  --bms-notice-unread-bg: #ecf5ff;
+  --bms-notice-item-hover-bg: #f5f7fa;
+  --bms-notice-badge-bg: var(--bms-color-danger);
   // 字
   --bms-font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
   --bms-font-size: 14px;
@@ -93,6 +97,9 @@
   --bms-table-row-hover-bg: #262727;
   --bms-table-zebra-bg: #232324;
   --bms-table-selected-bg: #1d3049;
+  // 通知底随深色调整对比度；角标底色沿用 danger 语义色
+  --bms-notice-unread-bg: #1d3049;
+  --bms-notice-item-hover-bg: #262727;
 }
 
 // 打印样式令牌（打印与屏幕样式解耦；件层消费 var(--bms-print-*, fallback)，黑白色值不与屏幕主题联动）
