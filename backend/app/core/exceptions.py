@@ -4,6 +4,8 @@
 - **段位基类**（按错误码段位分基）：`GeneralError`（1xxxx 通用）、`AuthError`（2xxxx 认证）、
   `UserOrgError`（3xxxx 用户与组织）、`ConfigError`（4xxxx 系统配置）、`OpenTenantError`（8xxxx 开放 / 租户 / SSO）；
   新增同段位错误码继承对应段位基。
+- **段内子段基类**（同段位内的能力域细分）：`CaptchaError`（认证段验证码 `201xx` 子段）；
+  新增子段错误码继承对应子段基，子类构造时预置码位与 HTTP 状态。
 - 错误码统一登记于 `app/core/error_codes.py`（段位见《架构设计 · 接口与集成》「错误码分段」节）。
 - `http_status` 承载传输层语义（404 / 401 / 403 / 409 / 500），其余业务失败统一 200。
 """
@@ -91,6 +93,49 @@ class AuthError(BizError):
 
     def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
         super().__init__(ErrorCode.AUTH, message, http_status=401, data=data)
+
+
+class CaptchaError(AuthError):
+    """验证码段（认证段内 `201xx` 子段）异常基类；子类在构造时预置码位与 HTTP 状态。"""
+
+
+class CaptchaVerifyError(CaptchaError):
+    """验证码校验不通过（`20101`；业务失败，HTTP 统一 200）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化验证码校验异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.CAPTCHA_VERIFY_FAILED, message, data=data)
+
+
+class CaptchaExpiredError(CaptchaError):
+    """验证码不存在或已过期（`20102` / 404）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化验证码失效异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.CAPTCHA_EXPIRED, message, http_status=404, data=data)
+
+
+class CaptchaTooFrequentError(CaptchaError):
+    """验证码发送过于频繁（`20103` / 429）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化验证码频次异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.CAPTCHA_TOO_FREQUENT, message, http_status=429, data=data)
 
 
 class RateLimitError(GeneralError):

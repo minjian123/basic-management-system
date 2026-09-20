@@ -34,7 +34,7 @@ def test_key_ttl_and_scenes() -> None:
     """验证码 key 拼接、TTL 与场景常量就位。"""
     assert build_captcha_key("u1") == "bms:global:captcha:u1"
     assert CAPTCHA_TTL == 300
-    assert CAPTCHA_SCENES == ("login", "reset_password", "bind")
+    assert CAPTCHA_SCENES == ("login", "reset_password", "bind", "unbind", "register")
 
 
 @pytest.mark.kiwi_id(41)
