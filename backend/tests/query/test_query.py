@@ -12,7 +12,7 @@ from app.api.deps import get_query_provider_registry
 from app.core.base import BaseObject
 from app.core.capability import BaseCapability, BaseNullObject
 from app.core.exceptions import NotFoundError
-from app.main import create_app, lifespan
+from app.main import ApplicationFactory, lifespan
 from app.query.base import BaseQueryProvider, BaseQueryProviderRegistry, QueryResult
 from app.query.null import NullQueryProvider, NullQueryProviderRegistry
 
@@ -108,7 +108,7 @@ async def test_registry_template_resolution() -> None:
 @pytest.mark.kiwi_id(55)
 async def test_dependency_provider_resolves() -> None:
     """依赖解析：应用装配占位注册表；路由经 get_query_provider_registry 取到同一实例。"""
-    app = create_app()
+    app = ApplicationFactory().create(None)
     async with lifespan(app):
         assert isinstance(app.state.query_provider_registry, NullQueryProviderRegistry)
 

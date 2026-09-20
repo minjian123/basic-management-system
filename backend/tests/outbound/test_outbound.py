@@ -10,7 +10,7 @@ from httpx import ASGITransport, AsyncClient
 from app.api.deps import get_http_client, get_webhook_sender
 from app.core.base import BaseObject
 from app.core.capability import BaseCapability, BaseNullObject
-from app.main import create_app, lifespan
+from app.main import ApplicationFactory, lifespan
 from app.outbound.http import DEFAULT_MAX_RETRIES, DEFAULT_TIMEOUT, BaseHttpClient, HttpResponse
 from app.outbound.null import NullHttpClient, NullWebhookSender
 from app.outbound.webhook import BaseWebhookSender, WebhookResult
@@ -77,7 +77,7 @@ async def test_null_webhook_sender_fixed() -> None:
 @pytest.mark.kiwi_id(52)
 async def test_dependency_providers_resolve() -> None:
     """依赖解析：应用装配两占位单例；路由经两提供者取到同一实例。"""
-    app = create_app()
+    app = ApplicationFactory().create(None)
     async with lifespan(app):
         assert isinstance(app.state.http_client, NullHttpClient)
         assert isinstance(app.state.webhook_sender, NullWebhookSender)

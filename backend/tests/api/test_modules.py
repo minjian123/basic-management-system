@@ -3,13 +3,13 @@
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from app.main import create_app, lifespan
+from app.main import ApplicationFactory, lifespan
 
 
 @pytest.mark.kiwi_id(28)
 async def test_list_modules_contract() -> None:
     """GET /api/v1/modules 返回平台域 4 行；?status 筛选；POST 404。"""
-    app = create_app()
+    app = ApplicationFactory().create(None)
     async with lifespan(app), AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         resp = await client.get("/api/v1/modules")
         assert resp.status_code == 200
@@ -31,7 +31,7 @@ async def test_list_modules_contract() -> None:
 @pytest.mark.kiwi_id(28)
 async def test_startup_validation_aborts_on_conflict(monkeypatch: pytest.MonkeyPatch) -> None:
     """启动校验：冲突时中止启动。"""
-    app = create_app()
+    app = ApplicationFactory().create(None)
     monkeypatch.setattr(app.state.module_registry, "validate", lambda: ["table_prefix 重复：pur_"])
     with pytest.raises(RuntimeError, match="模块注册校验失败"):
         async with lifespan(app):
@@ -41,6 +41,6 @@ async def test_startup_validation_aborts_on_conflict(monkeypatch: pytest.MonkeyP
 @pytest.mark.kiwi_id(28)
 async def test_startup_validation_passes_for_platform_seed() -> None:
     """启动校验：平台域占位清单恒通过。"""
-    app = create_app()
+    app = ApplicationFactory().create(None)
     async with lifespan(app):
         assert app.state.module_registry.validate() == []

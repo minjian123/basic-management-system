@@ -177,7 +177,7 @@ def check_deliverables(root: Path, stage_dir: Path) -> Check:
             if heading not in text:
                 problems.append(f"报告缺「{heading}」")
     readme_expect = {
-        "README.md": ["app.main:create_app --factory", "01_测试报告_项目骨架.md", "npm run dev"],
+        "README.md": ["app.asgi:app", "01_测试报告_项目骨架.md", "npm run dev"],
         "backend/README.md": ["uv run uvicorn", "文档导航", "check-status.py"],
         "frontend/apps/desktop/README.md": ["npm run dev", "文档导航", "5173"],
         "frontend/apps/mobile/README.md": ["npm run dev", "文档导航", "5174"],

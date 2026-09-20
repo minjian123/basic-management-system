@@ -15,7 +15,7 @@ from app.fieldtype.base import BaseFieldType, BaseFieldTypeRegistry
 from app.fieldtype.null import NullFieldTypeRegistry
 from app.health.base import BaseHealthCheck, HealthCheckResult
 from app.health.registry import HealthCheckRegistry
-from app.main import create_app
+from app.main import ApplicationFactory
 from app.query.base import BaseQueryProvider, BaseQueryProviderRegistry, QueryResult
 from app.query.null import NullQueryProviderRegistry
 
@@ -65,7 +65,7 @@ def build_snapshot() -> Mapping[str, Mapping[str, PluginImpl]]:
     Returns:
         Mapping[str, Mapping[str, PluginImpl]]: 两级映射快照。
     """
-    app = create_app()
+    app = ApplicationFactory().create(None)
     settings = cast("Settings", app.state.settings)
     register_platform_plugins(settings, app, app.state.resources)
     return build_plugin_registry()

@@ -10,7 +10,7 @@ from httpx import ASGITransport, AsyncClient
 from app.api.deps import get_exporter, get_importer
 from app.core.base import BaseObject
 from app.core.capability import BaseCapability, BaseNullObject
-from app.main import create_app, lifespan
+from app.main import ApplicationFactory, lifespan
 from app.transfer.base import ColumnSpec
 from app.transfer.exporter import BaseExporter
 from app.transfer.importer import BaseImporter, ImportResult, RowError
@@ -81,7 +81,7 @@ async def test_null_exporter_empty_stream() -> None:
 @pytest.mark.kiwi_id(56)
 async def test_dependency_providers_resolve() -> None:
     """依赖解析：应用装配两占位单例；路由经两提供者取到同一实例。"""
-    app = create_app()
+    app = ApplicationFactory().create(None)
     async with lifespan(app):
         assert isinstance(app.state.importer, NullImporter)
         assert isinstance(app.state.exporter, NullExporter)

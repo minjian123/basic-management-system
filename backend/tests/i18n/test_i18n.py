@@ -11,7 +11,7 @@ from app.core.base import BaseObject
 from app.core.capability import BaseCapability, BaseNullObject
 from app.i18n.base import DEFAULT_LOCALE, SUPPORTED_LOCALES, BaseTranslator
 from app.i18n.null import NullTranslator
-from app.main import create_app, lifespan
+from app.main import ApplicationFactory, lifespan
 
 
 @pytest.mark.kiwi_id(60)
@@ -49,7 +49,7 @@ async def test_null_translator_fixed() -> None:
 @pytest.mark.kiwi_id(60)
 async def test_dependency_provider_resolves() -> None:
     """依赖解析：应用装配占位翻译器；路由经 get_translator 取到同一实例。"""
-    app = create_app()
+    app = ApplicationFactory().create(None)
     async with lifespan(app):
         assert isinstance(app.state.translator, NullTranslator)
 

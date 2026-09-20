@@ -11,7 +11,7 @@ from app.core.base import BaseObject
 from app.core.capability import BaseCapability, BaseNullObject
 from app.fallback.base import DEPENDENCIES, BaseFallbackPolicy, FallbackAction
 from app.fallback.null import NullFallbackPolicy
-from app.main import create_app, lifespan
+from app.main import ApplicationFactory, lifespan
 
 
 @pytest.mark.kiwi_id(42)
@@ -57,7 +57,7 @@ async def test_null_policy_never_degrades() -> None:
 @pytest.mark.kiwi_id(42)
 async def test_dependency_provider_resolves() -> None:
     """依赖解析：应用装配占位降级策略；路由经 get_fallback_policy 取到同一实例。"""
-    app = create_app()
+    app = ApplicationFactory().create(None)
     async with lifespan(app):
         assert isinstance(app.state.fallback_policy, NullFallbackPolicy)
 

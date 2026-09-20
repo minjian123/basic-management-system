@@ -12,7 +12,7 @@ from app.captcha.base import CAPTCHA_SCENES, CAPTCHA_TTL, BaseCaptcha, CaptchaCh
 from app.captcha.null import NullCaptcha
 from app.core.base import BaseObject
 from app.core.capability import BaseCapability, BaseNullObject
-from app.main import create_app, lifespan
+from app.main import ApplicationFactory, lifespan
 
 
 @pytest.mark.kiwi_id(41)
@@ -66,7 +66,7 @@ async def test_null_captcha_always_passes() -> None:
 @pytest.mark.kiwi_id(41)
 async def test_dependency_provider_resolves() -> None:
     """依赖解析：应用装配占位验证码；路由经 get_captcha 取到实例。"""
-    app = create_app()
+    app = ApplicationFactory().create(None)
     async with lifespan(app):
         assert isinstance(app.state.captcha, NullCaptcha)
 

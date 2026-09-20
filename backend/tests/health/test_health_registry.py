@@ -22,7 +22,7 @@ from app.health.base import (
 )
 from app.health.null import NullHealthCheckRegistry
 from app.health.registry import HealthCheckRegistry
-from app.main import create_app, lifespan
+from app.main import ApplicationFactory, lifespan
 
 
 class _PassingCheck(BaseHealthCheck):
@@ -229,7 +229,7 @@ async def test_null_registry_fixed_pass() -> None:
 @pytest.mark.kiwi_id(45)
 async def test_dependency_provider_resolves() -> None:
     """依赖解析：应用装配真实注册表；路由经 get_health_check_registry 取到同一实例。"""
-    app = create_app()
+    app = ApplicationFactory().create(None)
     async with lifespan(app):
         assert isinstance(app.state.health_check_registry, HealthCheckRegistry)
 

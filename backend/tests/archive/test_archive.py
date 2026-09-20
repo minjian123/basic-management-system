@@ -12,7 +12,7 @@ from app.archive.base import ARCHIVE_LOCATIONS, ArchiveResult, BaseArchivePolicy
 from app.archive.null import NullArchivePolicy, NullArchiveQueryRouter
 from app.core.base import BaseObject
 from app.core.capability import BaseCapability, BaseNullObject
-from app.main import create_app, lifespan
+from app.main import ApplicationFactory, lifespan
 
 
 @pytest.mark.kiwi_id(58)
@@ -69,7 +69,7 @@ def test_null_router_online() -> None:
 @pytest.mark.kiwi_id(58)
 async def test_dependency_providers_resolve() -> None:
     """依赖解析：应用装配两占位单例；路由经两提供者取到同一实例。"""
-    app = create_app()
+    app = ApplicationFactory().create(None)
     async with lifespan(app):
         assert isinstance(app.state.archive_policy, NullArchivePolicy)
         assert isinstance(app.state.archive_query_router, NullArchiveQueryRouter)

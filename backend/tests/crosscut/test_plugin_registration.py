@@ -107,6 +107,8 @@ def _ports() -> list[type[BasePluggable]]:
     """
     ports: dict[str, type[BasePluggable]] = {}
     for cls in _collect_app_classes():
+        if cls.__module__.startswith("app.core.factory"):
+            continue  # 工厂基类（02-54）不属能力域端口
         if cls in (BasePluggable, BaseProviderRegistry) or not inspect.isabstract(cls):
             continue
         current = ports.get(cls.plugin_key)
@@ -244,9 +246,9 @@ def test_event_worker_location_and_abstraction() -> None:
 
 @pytest.mark.kiwi_id(531)
 async def test_app_starts() -> None:
-    """应用可启动：`create_app` + lifespan 进出正常（装配接线前行为不变）。"""
-    from app.main import create_app, lifespan
+    """应用可启动：`ApplicationFactory` + lifespan 进出正常（装配接线前行为不变）。"""
+    from app.main import ApplicationFactory, lifespan
 
-    application = create_app()
+    application = ApplicationFactory().create(None)
     async with lifespan(application):
         assert application.state.startup_complete is True

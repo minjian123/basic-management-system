@@ -16,7 +16,7 @@ from app.core.base import BaseObject
 from app.core.config import PluginSelection, Settings
 from app.core.exceptions import PluginError
 from app.core.plugin import BasePluggable, PluginRegistry
-from app.main import create_app, lifespan
+from app.main import ApplicationFactory, lifespan
 
 _BACKEND = Path(__file__).resolve().parents[2]
 
@@ -60,7 +60,7 @@ async def test_illegal_provider_rejected(monkeypatch: pytest.MonkeyPatch) -> Non
     """非法 provider 拒启：lifespan 抛出 `PluginError`（含键与 provider）。"""
     _isolated_registry(monkeypatch)
     _prepare_app(monkeypatch, Settings(storage=PluginSelection(provider="ghost")))
-    app = create_app()
+    app = ApplicationFactory().create(None)
     with pytest.raises(PluginError, match="未注册的 object_storage 实现：ghost"):
         async with lifespan(app):
             pass
@@ -78,7 +78,7 @@ async def test_contract_version_mismatch_rejected(monkeypatch: pytest.MonkeyPatc
     registry = _isolated_registry(monkeypatch)
     registry.register("object_storage", "badver", lambda: BadVersionImpl())
     _prepare_app(monkeypatch, Settings(storage=PluginSelection(provider="badver")))
-    app = create_app()
+    app = ApplicationFactory().create(None)
     with pytest.raises(PluginError, match="插件契约版本不兼容"):
         async with lifespan(app):
             pass
@@ -100,7 +100,7 @@ async def test_setup_failure_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
     registry = _isolated_registry(monkeypatch)
     registry.register("object_storage", "failing", lambda: FailingSetupImpl())
     _prepare_app(monkeypatch, Settings(storage=PluginSelection(provider="failing")))
-    app = create_app()
+    app = ApplicationFactory().create(None)
     with pytest.raises(PluginError, match="插件 setup 失败"):
         async with lifespan(app):
             pass
@@ -121,7 +121,7 @@ async def test_factory_import_failure_rejected(monkeypatch: pytest.MonkeyPatch) 
     registry = _isolated_registry(monkeypatch)
     registry.register("object_storage", "ghostimport", factory)
     _prepare_app(monkeypatch, Settings(storage=PluginSelection(provider="ghostimport")))
-    app = create_app()
+    app = ApplicationFactory().create(None)
     with pytest.raises(PluginError, match="插件实例化失败"):
         async with lifespan(app):
             pass
@@ -160,7 +160,7 @@ async def test_unselected_factory_not_imported(monkeypatch: pytest.MonkeyPatch, 
     registry.register("object_storage", "used", make_factory("plugin_probe_used"))
     registry.register("object_storage", "unused", make_factory("plugin_probe_unused"))
     _prepare_app(monkeypatch, Settings(storage=PluginSelection(provider="used")))
-    app = create_app()
+    app = ApplicationFactory().create(None)
     async with lifespan(app):
         assert "plugin_probe_used" in sys.modules
         assert "plugin_probe_unused" not in sys.modules

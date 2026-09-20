@@ -12,7 +12,7 @@ from app.cache.base import get_cache_region
 from app.captcha.base import get_captcha
 from app.circuit.base import get_circuit_breaker
 from app.dashboard.base import get_dashboard_card_registry
-from app.db.session import build_session_factory, get_db, get_uow
+from app.db.session import SessionFactory, get_db, get_uow
 from app.db.tenant import get_tenant
 from app.events.base import get_event_publisher
 from app.fallback.base import get_fallback_policy
@@ -45,7 +45,7 @@ from app.workflow.base import get_workflow_engine
 from app.ws.base import get_realtime_publisher
 
 __all__ = [
-    "build_session_factory",
+    "SessionFactory",
     "get_archive_policy",
     "get_archive_query_router",
     "get_audit_capturer",

@@ -13,7 +13,7 @@ from app.core.capability import BaseCapability, BaseNullObject
 from app.core.exceptions import NotFoundError
 from app.dashboard.base import CARD_TYPES, BaseDashboardCardProvider, BaseDashboardCardRegistry
 from app.dashboard.null import NullDashboardCardRegistry
-from app.main import create_app, lifespan
+from app.main import ApplicationFactory, lifespan
 
 
 class _FakeCard(BaseDashboardCardProvider):
@@ -96,7 +96,7 @@ async def test_null_registry_empty_cards() -> None:
 @pytest.mark.kiwi_id(61)
 async def test_dependency_provider_resolves() -> None:
     """依赖解析：应用装配占位注册表；路由经 get_dashboard_card_registry 取到同一实例。"""
-    app = create_app()
+    app = ApplicationFactory().create(None)
     async with lifespan(app):
         assert isinstance(app.state.dashboard_card_registry, NullDashboardCardRegistry)
 

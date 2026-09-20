@@ -112,8 +112,8 @@ async def test_resource_manager_closes_in_reverse() -> None:
 @pytest.mark.kiwi_id(37)
 async def test_app_lifespan_closes_resources() -> None:
     """应用生命周期：关闭时统一释放异步资源。"""
-    from app.main import create_app, lifespan
+    from app.main import ApplicationFactory, lifespan
 
-    app = create_app()
+    app = ApplicationFactory().create(None)
     async with lifespan(app):
         assert app.state.engine_factory is not None

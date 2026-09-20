@@ -20,7 +20,7 @@ from app.core.plugin import BasePluggable, PluginRegistry, plugin_registry_snaps
 from app.core.provider import BaseProviderRegistry
 from app.health.base import BaseHealthCheck, BaseHealthCheckRegistry, HealthCheckResult
 from app.health.registry import HealthCheckRegistry
-from app.main import create_app, lifespan
+from app.main import ApplicationFactory, lifespan
 from app.storage.base import BaseObjectStorage, get_object_storage
 from app.storage.null import NullObjectStorage
 
@@ -73,7 +73,7 @@ async def test_provider_resolves_from_registry(monkeypatch: pytest.MonkeyPatch) 
     """提供者经注册表解析：路由依赖与 `resolve_plugin` / `app.state` 取到同一实例。"""
     _isolated_registry(monkeypatch)
     monkeypatch.setattr("app.main.get_settings", lambda: Settings(storage=PluginSelection(provider="")))
-    app = create_app()
+    app = ApplicationFactory().create(None)
 
     @app.get("/storage-probe")
     async def probe(  # pyright: ignore[reportUnusedFunction]
@@ -101,7 +101,7 @@ async def test_config_switch_with_no_consumer_change(monkeypatch: pytest.MonkeyP
     registry = _isolated_registry(monkeypatch)
     registry.register("object_storage", "custom", lambda: CustomStorage())
     monkeypatch.setattr("app.main.get_settings", lambda: Settings(storage=PluginSelection(provider="custom")))
-    app = create_app()
+    app = ApplicationFactory().create(None)
 
     @app.get("/storage-probe")
     async def probe(  # pyright: ignore[reportUnusedFunction]
@@ -119,7 +119,7 @@ async def test_config_switch_with_no_consumer_change(monkeypatch: pytest.MonkeyP
 @pytest.mark.kiwi_id(565)
 async def test_health_registry_pluginized() -> None:
     """健康注册表插件化：`local` 真实探针接入 `/readyz`；`null` 缺省仍登记；解析同实例。"""
-    app = create_app()
+    app = ApplicationFactory().create(None)
     async with lifespan(app):
         registry = app.state.health_check_registry
         assert isinstance(registry, HealthCheckRegistry)

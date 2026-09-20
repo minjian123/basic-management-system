@@ -6,7 +6,7 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from app.core.config import get_settings
-from app.main import create_app
+from app.main import ApplicationFactory
 
 pytestmark = pytest.mark.integration
 
@@ -21,7 +21,7 @@ async def test_readyz_with_real_redis(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("BMS_DATABASE__PLATFORM__URL", "sqlite+aiosqlite:///:memory:")
     get_settings.cache_clear()
 
-    app = create_app()
+    app = ApplicationFactory().create(None)
     async with (
         app.router.lifespan_context(app),
         AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client,

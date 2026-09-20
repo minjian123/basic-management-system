@@ -15,7 +15,7 @@ from app.core.context import (
     reset_current_trace_id,
     set_current_trace_id,
 )
-from app.main import create_app, lifespan
+from app.main import ApplicationFactory, lifespan
 from app.tracing.base import (
     SPAN_ID_LENGTH,
     TRACE_ID_HEADER,
@@ -119,7 +119,7 @@ async def test_span_resets_on_exception() -> None:
 @pytest.mark.kiwi_id(44)
 async def test_dependency_provider_resolves() -> None:
     """依赖解析：应用装配占位链路器；接口内 span 起的链路 id 与响应头一致。"""
-    app = create_app()
+    app = ApplicationFactory().create(None)
     async with lifespan(app):
         assert isinstance(app.state.tracer, NullTracer)
 

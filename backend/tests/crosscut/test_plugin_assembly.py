@@ -13,7 +13,7 @@ from app.core.config import LogSettings, PluginSelection, Settings
 from app.core.logging import configure_logging
 from app.core.plugin import BasePluggable, PluginRegistry, resolve_plugin
 from app.health.registry import HealthCheckRegistry
-from app.main import create_app, lifespan
+from app.main import ApplicationFactory, lifespan
 from app.masking.null import NullMasker
 from app.permission.base import BasePermissionChecker
 from app.permission.null import NullPermissionChecker
@@ -47,7 +47,7 @@ def _isolated_registry(monkeypatch: pytest.MonkeyPatch) -> PluginRegistry:
 @pytest.mark.kiwi_id(533)
 async def test_default_assembly_wires_null_implementations() -> None:
     """默认装配：lifespan 后各能力 `app.state` 为配置实现（对象存储缺省 local，其余占位）。"""
-    app = create_app()
+    app = ApplicationFactory().create(None)
     async with lifespan(app):
         assert isinstance(app.state.object_storage, LocalObjectStorage)
         assert isinstance(app.state.masker, NullMasker)
@@ -69,7 +69,7 @@ async def test_config_switch_takes_effect(monkeypatch: pytest.MonkeyPatch) -> No
     registry.register("object_storage", "custom", lambda: CustomStorage())
     settings = Settings(storage=PluginSelection(provider="custom"))
     monkeypatch.setattr("app.main.get_settings", lambda: settings)
-    app = create_app()
+    app = ApplicationFactory().create(None)
     async with lifespan(app):
         assert isinstance(app.state.object_storage, CustomStorage)
         assert resolve_plugin("object_storage", "custom") is app.state.object_storage
@@ -98,7 +98,7 @@ async def test_masker_factory_injects_permission_checker(monkeypatch: pytest.Mon
     registry.register("permission", "deny", lambda: DenyChecker())
     settings = Settings(permission=PluginSelection(provider="deny"))
     monkeypatch.setattr("app.main.get_settings", lambda: settings)
-    app = create_app()
+    app = ApplicationFactory().create(None)
     async with lifespan(app):
         masker = cast("NullMasker", app.state.masker)
         assert masker.check_plain() is False
@@ -124,7 +124,7 @@ async def test_setup_and_aclose_lifecycle(monkeypatch: pytest.MonkeyPatch) -> No
     registry.register("object_storage", "probe", Probe)
     settings = Settings(storage=PluginSelection(provider="probe"))
     monkeypatch.setattr("app.main.get_settings", lambda: settings)
-    app = create_app()
+    app = ApplicationFactory().create(None)
     async with lifespan(app):
         assert calls["setup"] == 1
         assert isinstance(app.state.object_storage, Probe)
@@ -140,7 +140,7 @@ async def test_startup_log_excludes_options(
         storage=PluginSelection(provider="", options={"secret_key": "top-secret"}),
     )
     monkeypatch.setattr("app.main.get_settings", lambda: settings)
-    app = create_app()
+    app = ApplicationFactory().create(None)
     configure_logging(Settings(log=LogSettings(level="INFO", format="json")))
     async with lifespan(app):
         pass

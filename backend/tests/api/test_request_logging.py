@@ -11,7 +11,7 @@ from app.api.middleware import RequestLoggingMiddleware, TraceIdMiddleware
 from app.core.config import LogSettings, Settings
 from app.core.context import get_current_request_id, get_current_trace_id
 from app.core.logging import configure_logging
-from app.main import create_app, lifespan
+from app.main import ApplicationFactory, lifespan
 from app.tracing.base import TRACE_ID_HEADER
 
 
@@ -82,7 +82,7 @@ async def test_inbound_trace_id_echoed(capsys: pytest.CaptureFixture[str]) -> No
 @pytest.mark.kiwi_id(63)
 async def test_excluded_paths_not_logged(capsys: pytest.CaptureFixture[str]) -> None:
     """探针与文档路径不产生访问日志（任何级别）。"""
-    app = create_app()
+    app = ApplicationFactory().create(None)
     async with lifespan(app):
         configure_logging(_json_settings())
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
@@ -139,7 +139,7 @@ async def test_slow_request_warning(capsys: pytest.CaptureFixture[str]) -> None:
 @pytest.mark.kiwi_id(63)
 async def test_uncaught_exception_logged_with_context(capsys: pytest.CaptureFixture[str]) -> None:
     """未捕获异常：响应 500 不回显堆栈；ERROR 行含堆栈与上下文；X-Request-Id 与日志同值。"""
-    app = create_app()
+    app = ApplicationFactory().create(None)
     async with lifespan(app):
         configure_logging(_json_settings())
 

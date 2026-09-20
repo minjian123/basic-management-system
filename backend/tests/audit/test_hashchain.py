@@ -13,7 +13,7 @@ from app.audit.hashchain import GENESIS_HASH, HASH_ALGORITHM, BaseHashChain, Cha
 from app.audit.null import NullHashChain
 from app.core.base import BaseObject
 from app.core.capability import BaseCapability, BaseNullObject
-from app.main import create_app, lifespan
+from app.main import ApplicationFactory, lifespan
 
 
 @pytest.mark.kiwi_id(57)
@@ -69,7 +69,7 @@ def test_null_verify_always_valid() -> None:
 @pytest.mark.kiwi_id(57)
 async def test_dependency_provider_resolves() -> None:
     """依赖解析：应用装配占位哈希链；路由经 get_hash_chain 取到同一实例。"""
-    app = create_app()
+    app = ApplicationFactory().create(None)
     async with lifespan(app):
         assert isinstance(app.state.hash_chain, NullHashChain)
 

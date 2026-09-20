@@ -17,7 +17,7 @@ from app.core.capability import BaseCapability, BaseNullObject
 from app.fallback.base import (
     DEPENDENCIES as FALLBACK_DEPENDENCIES,
 )
-from app.main import create_app, lifespan
+from app.main import ApplicationFactory, lifespan
 
 
 @pytest.mark.kiwi_id(42)
@@ -59,7 +59,7 @@ async def test_null_breaker_always_closed() -> None:
 @pytest.mark.kiwi_id(42)
 async def test_dependency_provider_resolves() -> None:
     """依赖解析：应用装配占位熔断器；路由经 get_circuit_breaker 取到同一实例。"""
-    app = create_app()
+    app = ApplicationFactory().create(None)
     async with lifespan(app):
         assert isinstance(app.state.circuit_breaker, NullCircuitBreaker)
 
