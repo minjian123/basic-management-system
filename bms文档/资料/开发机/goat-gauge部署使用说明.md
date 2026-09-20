@@ -43,7 +43,15 @@ goat-gauge 支持两种凭据：**浏览器登录会话**与 **API Key**。两�
 
 - 以 `entry.py --chrome` 启动，拉起本地服务并用**专用 Chromium 配置目录**打开看板；
 - 在该专用窗口登录一次 Command Code 后，goat-gauge 经 **Chrome DevTools Protocol（CDP）**读取 `commandcode.ai` 的会话 cookie 并缓存在内存，之后自动刷新与同步；
+- 登录完成后自动把**看板窗口切到前台**（登录标签页保留常开，见 2.4）；
 - 同时注入 **API Key 作为兜底**，即使登录态失效，配额与余额仍可用。
+
+### 2.4 登录会话有效期 <a id="session"></a>
+
+- 会话 cookie `__Secure-commandcode_prod_.session_token` 有效期约 **7 天**，且站点在有活动时会续期，因此**正常情况不需要每次启动都登录**；完整重启（停止后再启动）实测不弹登录、明细照常同步。
+- 另有一个短命 cookie `session_data`（约 2 分钟、频繁轮换），是站点自身机制；只要**专用 Chromium 常开、且登录标签页不关**，站点会持续刷新它，goat-gauge 的 cookie 监听（每 2 秒）随之续上。
+- 因此本机把「登录后切回看板」实现为**把看板窗口切到前台**，而**不把登录标签页导航走**——导航走会断了会话续期。
+- **能否永久有效取决于上游**，不能保证；但按上述做法可做到长时间免登录，真正失效时重登一次即可，期间配额/余额始终由 API Key 兜底。
 
 ## 3. 技术环境 <a id="environment"></a>
 
@@ -109,14 +117,15 @@ python3 -m venv .venv
 - **`启动.sh`**：设好环境变量后执行 `entry.py --chrome`；
 - **`停止.sh`**：关闭本地服务与专用 Chromium 窗口。
 
-`启动.sh` 做四件事：
+`启动.sh` 做五件事：
 
-1. `GOATGAUGE_CHROME_EXE=/snap/bin/chromium` —— 本机无 Google Chrome，指定 snap Chromium；
-2. `GOATGAUGE_CHROME_PROFILE=~/snap/chromium/common/goat-gauge-profile` —— **专用配置目录必须放在 snap 可写区**（原因见 4.3.1）；
-3. 从 opencode 凭据文件 `~/.local/share/opencode/auth.json` 读取 `commandcode` 的 key，注入环境变量 `COMMAND_CODE_API_KEY` 作为兜底（**不二次落盘明文**）；
-4. 首次运行（专用配置目录尚无登录态）时，服务与 CDP 就绪后自动打开 Command Code 登录页。
+1. **检查上游版本**：`git fetch` 比对本地与 `origin/master`，有上游新提交就先 `git pull --rebase` 更新（`requirements.txt` 有变化时再 `pip install` 同步依赖）再启动；取不到远端或已是最新则直接启动（见[第 7 节](#maintain)）；
+2. `GOATGAUGE_CHROME_EXE=/snap/bin/chromium` —— 本机无 Google Chrome，指定 snap Chromium；
+3. `GOATGAUGE_CHROME_PROFILE=~/snap/chromium/common/goat-gauge-profile` —— **专用配置目录必须放在 snap 可写区**（原因见 4.3.1）；
+4. 从 opencode 凭据文件 `~/.local/share/opencode/auth.json` 读取 `commandcode` 的 key，注入环境变量 `COMMAND_CODE_API_KEY` 作为兜底（**不二次落盘明文**）；
+5. 首次运行（专用配置目录尚无登录态）时，服务与 CDP 就绪后自动打开 Command Code 登录页；**登录完成后自动把看板窗口切到前台**（登录标签页保留常开，供会话续期，见 2.4）。
 
-> 权限：两个脚本需可执行位（`chmod 755 启动.sh 停止.sh`）。脚本内不使用 `exec` 直接替换进程，而是后台拉起服务、前台等待，以便插入「首次自动打开登录页」的辅助逻辑。
+> 权限：两个脚本需可执行位（`chmod 755 启动.sh 停止.sh`）。脚本内不使用 `exec` 直接替换进程，而是后台拉起服务、前台等待，以便插入「自动打开登录页 + 登录后切回看板」的辅助逻辑。
 
 #### 4.3.1 snap Chromium 的配置目录限制 <a id="snap-profile"></a>
 
@@ -150,7 +159,7 @@ update-desktop-database ~/.local/share/applications
 
 ### 4.5 首次登录与验证 <a id="first-login"></a>
 
-双击 **GOAT Gauge 启动**（或跑 `~/develop/goat-gauge/启动.sh`）。首次运行时专用 Chromium 会打开两个窗口：看板页与 Command Code 登录页；在登录页完成一次登录后，goat-gauge 自动捕获会话并开始同步用量明细。
+双击 **GOAT Gauge 启动**（或跑 `~/develop/goat-gauge/启动.sh`）。首次运行时专用 Chromium 会打开两个窗口：看板页与 Command Code 登录页；在登录页完成一次登录后，goat-gauge 自动捕获会话并开始同步用量明细，同时把看板窗口切到前台（登录标签页保留常开，不再需要我们手动切窗口）。
 
 启动流程：
 
@@ -172,6 +181,7 @@ sequenceDiagram
         S->>C: 打开 Command Code 登录页
         U->>CC: 登录一次
         C-->>G: CDP 读取会话 cookie（自动捕获）
+        S->>C: 把看板窗口切到前台（登录标签页保留常开）
     end
     G->>CC: 拉取配额 / 余额 / 用量明细
     CC-->>G: 返回账号级数据
@@ -246,13 +256,13 @@ tail -n 5 ~/.local/share/goat-gauge/chrome-mode.log        # server started / ca
 - **API Key**：重新验证或更换；「自动检测」尝试从环境/已知位置发现 Key；
 - **刷新频率**：服务端向上游拉取额度的时间间隔（30 秒 / 1 分钟 / 2 分钟 / 5 分钟）；
 - **计费货币**：`USD`（默认）/ `CNY`；费用始终以 USD 存储，切换只影响显示，CNY 用可编辑汇率换算（默认 1 USD = 7.2 CNY）；
-- **浏览器登录**：「打开 Chrome 登录」在专用窗口打开登录页（该按钮位于首次连接的引导界面，服务已连接后主要供首次登录使用）。
+- **浏览器登录**：登录页在**未登录时由启动脚本自动打开**并等待登录完成（也可手动触发接口 `POST /api/open-login`）。保持专用 Chromium 与登录标签页常开可持续续期会话（见 2.4）。
 
 > 说明：账号配额与余额的数字是 Command Code 的 **credits**，不是美元，货币换算不适用。
 
 ## 7. 维护与升级 <a id="maintain"></a>
 
-- **升级 goat-gauge**：仓库基于 git，升级走拉取：
+- **升级 goat-gauge**：`启动.sh` **每次启动会自动检查上游版本**——`git fetch` 后若 `origin/master` 有本地没有的新提交，先 `git pull --rebase`（本地新增脚本提交会自动 rebase 到最新）更新，且仅当 `requirements.txt` 变化时才 `pip install` 同步依赖；取不到远端或已是最新则直接启动，不阻塞。也可手动升级：
 
   ```bash
   cd ~/develop/goat-gauge
@@ -260,10 +270,10 @@ tail -n 5 ~/.local/share/goat-gauge/chrome-mode.log        # server started / ca
   .venv/bin/pip install -i https://mirrors.aliyun.com/pypi/simple/ -r requirements.txt
   ```
 
-  升级后重新启动服务生效。注意 `启动.sh` / `停止.sh` 为**本机新增的未跟踪文件**，`git pull` 不会覆盖，也不参与上游更新。
+  升级后重新启动服务生效。注意 `启动.sh` / `停止.sh` 为**本机新增并已提交的文件**，`git pull --rebase` 会保留并 rebase 到上游最新之上。
 
 - **数据保留**：历史记录存 `~/.local/share/goat-gauge/gauge.db`，可整目录备份/迁移；迁移后登录态随专用浏览器配置目录 `~/snap/chromium/common/goat-gauge-profile` 一并带走。
-- **登录态失效**：Command Code 会话过期后，明细同步会失败；重新跑一次「打开 Chrome 登录」登录即可；期间配额与余额由 API Key 兜底维持。
+- **登录态失效**：Command Code 会话过期后，明细同步会失败；重跑一次启动脚本（未登录时自动打开登录页，登完自动切回看板）即可。保持专用 Chromium 常开、登录标签页不关可延长有效期（见 2.4）；期间配额与余额由 API Key 兜底维持。
 
 ## 8. 常见问题与故障排查 <a id="troubleshoot"></a>
 
@@ -271,7 +281,9 @@ tail -n 5 ~/.local/share/goat-gauge/chrome-mode.log        # server started / ca
 | --- | --- |
 | 启动报 `SingletonLock: Permission denied` | 专用配置目录落在 `~/.local` 等 snap 不可写的隐藏目录；改到 `~/snap/chromium/common/goat-gauge-profile`（见 4.3.1） |
 | 端口 18927 / 9333 被占用 | 已有实例在跑，先执行 `停止.sh`；或核查占用：`ss -lptn 'sport = :18927 or sport = :9333'` |
-| 明细/趋势一直为空 | 未登录浏览器会话：API Key 模式取不到明细（返回 `usage-records-requires-browser-session`）；跑「打开 Chrome 登录」登录一次 |
+| 明细/趋势一直为空 | 未登录浏览器会话：API Key 模式取不到明细（返回 `usage-records-requires-browser-session`）；重跑启动脚本，在自动弹出的登录页登录一次 |
+| 登录后停在 commandcode.ai 页面 | 登录后 Command Code 自身页面会跳转到其用量页；启动脚本会自动把 goat-gauge 看板窗口切到前台，看板其实是另一个窗口（见 2.4） |
+| 反复要求登录 | 会话 `session_token` 约 7 天；若频繁失效，确认专用 Chromium 与登录标签页保持常开、未用 `停止.sh` 清掉会话（见 2.4） |
 | 日志出现 `'--ozone-platform=wayland' is not compatible with Vulkan` | snap Chromium 在 Wayland 下的告警，本机实测不影响看板渲染（窗口与页面正常），可忽略 |
 | 页面显示但配额为 0 / 报 Key 无效 | 兜底 Key 失效或过期：在「设置」里重新验证/更换 API Key |
 | 更换了登录账号 | 「设置」内清除本机保存的登录状态与连接后，重新登录一次 |
