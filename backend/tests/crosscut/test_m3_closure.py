@@ -32,21 +32,26 @@ def _table_rows(section: str) -> list[str]:
 
 @pytest.mark.kiwi_id(663)
 def test_gate_table_has_conclusions_and_evidence() -> None:
-    """门禁表 8 项均有结论（达标）与证据索引；需求总清单 11 条全部已完成。"""
-    text = _OVERVIEW.read_text(encoding="utf-8")
-    gate_section = text.split("## 4. M3 验收门禁", 1)[1].split("## 5.", 1)[0]
+    """门禁表 8 项均有结论与达成路径（计划 §5）；需求总览标明 11 条全部完成、门禁 8/8 达标。
+
+    门禁表随排期清理迁至计划 §5（需求文档不承载进度与门禁），故本断言读计划核对 8 项结论 / 达成路径；
+    需求完成口径由需求总览进度注文承载。
+    """
+    plan_text = _PLAN.read_text(encoding="utf-8")
+    gate_section = plan_text.split("## 5. M3 验收门禁", 1)[1].split("## 6.", 1)[0]
     gate_rows = _table_rows(gate_section)
     assert len(gate_rows) == 8
     for row in gate_rows:
-        assert "达标" in row
-        evidence = row.rsplit("|", 2)[1].strip()
+        cells = [cell.strip() for cell in row.strip().strip("|").split("|")]
+        assert len(cells) == 3
+        assert cells[1] != ""  # 对应任务非空
+        evidence = cells[2]  # 达成路径（结论与证据）
         assert len(evidence) > 10
         assert evidence != "—"
 
-    list_section = text.split("## 3. 需求总清单", 1)[1].split("## 4.", 1)[0]
-    requirement_rows = _table_rows(list_section)
-    assert len(requirement_rows) == 11
-    assert all("已完成" in row for row in requirement_rows)
+    overview_text = _OVERVIEW.read_text(encoding="utf-8")
+    assert "11 条需求全部完成" in overview_text
+    assert "8/8 达标" in overview_text
 
 
 @pytest.mark.kiwi_id(663)
