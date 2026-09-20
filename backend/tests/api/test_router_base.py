@@ -100,6 +100,8 @@ async def test_unified_mount_and_prefix() -> None:
         "captcha",
         "tenant",
         "print",
+        "icon",
+        "codecheck",
     )
 
     router = BaseRouter(key="probe", prefix="/probe")

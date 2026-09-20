@@ -5,9 +5,11 @@ from fastapi import APIRouter
 from app.api import (
     captcha,
     chat,
+    codecheck,
     demo,
     file,
     health,
+    icon,
     modules,
     notification,
     org,
@@ -36,6 +38,8 @@ for _module in (
     captcha,
     tenant,
     print_api,
+    icon,
+    codecheck,
 ):
     register_router(_module.router)
 

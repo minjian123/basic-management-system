@@ -20,6 +20,7 @@ from app.cache.base import CacheRegion
 from app.captcha.base import BaseCaptcha
 from app.chat.base import BaseChatActionGate, BaseChatSessionStore, BaseChatStream
 from app.circuit.base import BaseCircuitBreaker
+from app.codecheck.base import BaseCodeValidator
 from app.core.base import BaseObject
 from app.core.capability import BaseAsyncResource
 from app.core.config import PluginSelection, Settings
@@ -46,6 +47,7 @@ from app.health.base import BaseHealthCheckRegistry
 from app.health.checks import DatabaseHealthCheck, RedisHealthCheck
 from app.health.registry import HealthCheckRegistry
 from app.i18n.base import BaseTranslator
+from app.icon.base import BaseIconRegistry
 from app.idempotency.base import IdempotencyStore
 from app.idp.base import BaseIdentityProvider
 from app.listing.base import BaseQuerySchemeStore
@@ -99,6 +101,7 @@ _NULL_MODULES: tuple[str, ...] = (
     "app.captcha.null",
     "app.chat.null",
     "app.circuit.null",
+    "app.codecheck.null",
     "app.dashboard.null",
     "app.db.null",
     "app.dict.null",
@@ -108,6 +111,7 @@ _NULL_MODULES: tuple[str, ...] = (
     "app.globalsearch.null",
     "app.health.null",
     "app.i18n.null",
+    "app.icon.null",
     "app.idempotency.null",
     "app.idp.null",
     "app.listing.null",
@@ -221,6 +225,8 @@ PLUGIN_WIRINGS: tuple[PluginWiring, ...] = (
     PluginWiring("tenant_self_service", BaseTenantSelfService, "tenant_self_service", "tenant_self_service"),
     PluginWiring("print_template", BasePrintTemplateProvider, "print_template", "print_template"),
     PluginWiring("print_exporter", BasePrintExporter, "print_exporter", "print_exporter"),
+    PluginWiring("icon_registry", BaseIconRegistry, "icon_registry", "icon_registry"),
+    PluginWiring("code_validator", BaseCodeValidator, "code_validator", "code_validator"),
     PluginWiring("event", EventPublisher, "event", "event_publisher"),
     PluginWiring("event_consumer", BaseEventConsumer, "event_consumer", None),  # 消费轨：仅预热，无 app.state 落点
 )

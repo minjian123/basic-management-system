@@ -12,6 +12,7 @@ from app.cache.base import get_cache_region
 from app.captcha.base import get_captcha
 from app.chat.base import get_chat_action_gate, get_chat_session_store, get_chat_stream
 from app.circuit.base import get_circuit_breaker
+from app.codecheck.base import get_code_validator
 from app.dashboard.base import get_dashboard_card_registry
 from app.db.session import SessionFactory, get_db, get_uow
 from app.db.tenant import get_tenant
@@ -22,6 +23,7 @@ from app.fieldtype.base import get_field_type_registry
 from app.globalsearch.base import get_audit_search, get_file_content_search, get_global_search
 from app.health.base import get_health_check_registry
 from app.i18n.base import get_translator
+from app.icon.base import get_icon_registry
 from app.idempotency.base import get_idempotency_store
 from app.idp.base import get_identity_provider
 from app.listing.base import get_query_scheme_store
@@ -65,6 +67,7 @@ __all__ = [
     "get_chat_session_store",
     "get_chat_stream",
     "get_circuit_breaker",
+    "get_code_validator",
     "get_dashboard_card_registry",
     "get_db",
     "get_dict_cache_region",
@@ -80,6 +83,7 @@ __all__ = [
     "get_hash_chain",
     "get_health_check_registry",
     "get_http_client",
+    "get_icon_registry",
     "get_idempotency_store",
     "get_identity_provider",
     "get_importer",
