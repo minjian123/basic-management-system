@@ -25,7 +25,7 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, Mapper, mapped_column
 
 from app.core.base import BaseObject
 from app.core.context import current_user_id
-from app.core.id import generate_id
+from app.core.id import id_generator
 
 
 def _utc_now() -> datetime:
@@ -52,7 +52,9 @@ class BaseModel(Base, BaseObject):
 
     __abstract__ = True
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, default=generate_id, comment="主键（雪花 ID）")
+    id: Mapped[int] = mapped_column(
+        BigInteger, primary_key=True, default=id_generator.next_id, comment="主键（雪花 ID）"
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, comment="创建时间（UTC）")
     created_by: Mapped[int | None] = mapped_column(BigInteger, nullable=True, comment="创建人")
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, comment="更新时间（UTC）")

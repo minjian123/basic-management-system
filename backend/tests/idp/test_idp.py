@@ -12,7 +12,7 @@ from app.core.base import BaseObject
 from app.core.capability import BaseCapability, BaseNullObject
 from app.idp.base import IDP_PROTOCOLS, BaseIdentityProvider, IdentityToken, IdentityUser
 from app.idp.null import NullIdentityProvider
-from app.main import create_app, lifespan
+from app.main import ApplicationFactory, lifespan
 from app.session.base import DEFAULT_SESSION_TTL, BaseSessionStore
 from app.session.null import NullSessionStore
 
@@ -84,7 +84,7 @@ async def test_null_session_store() -> None:
 @pytest.mark.kiwi_id(54)
 async def test_dependency_providers_resolve() -> None:
     """依赖解析：应用装配两占位单例；路由经两提供者取到同一实例。"""
-    app = create_app()
+    app = ApplicationFactory().create(None)
     async with lifespan(app):
         assert isinstance(app.state.identity_provider, NullIdentityProvider)
         assert isinstance(app.state.session_store, NullSessionStore)

@@ -20,7 +20,7 @@ from app.core.capability import BaseCapability, BaseNullObject
 from app.core.config import MinioSettings, PluginSelection, Settings
 from app.core.exceptions import NotFoundError, PluginError
 from app.core.plugin import BasePluggable, PluginRegistry, resolve_plugin
-from app.main import create_app, lifespan
+from app.main import ApplicationFactory, lifespan
 from app.storage.base import (
     DEFAULT_PRESIGN_TTL,
     NULL_ETAG,
@@ -106,7 +106,7 @@ async def test_dependency_provider_resolves(monkeypatch: pytest.MonkeyPatch, tmp
         lambda: Settings(storage=PluginSelection(provider="local", options={"root": str(tmp_path)})),
     )
     _isolated_registry(monkeypatch)
-    app = create_app()
+    app = ApplicationFactory().create(None)
     async with lifespan(app):
         assert isinstance(app.state.object_storage, LocalObjectStorage)
 
@@ -270,7 +270,7 @@ async def test_storage_provider_switch_zero_change(monkeypatch: pytest.MonkeyPat
             minio=MinioSettings(endpoint="localhost:9000", access_key="ak", secret_key="sk"),
         ),
     )
-    app = create_app()
+    app = ApplicationFactory().create(None)
     async with lifespan(app):
         assert isinstance(app.state.object_storage, MinioObjectStorage)
         assert resolve_plugin("object_storage", "minio") is app.state.object_storage
@@ -294,7 +294,7 @@ async def test_dual_implementations_enlisted() -> None:
     snapshot = build_snapshot()
     assert set(snapshot["object_storage"]) == {"local", "minio", "null"}
 
-    app = create_app()
+    app = ApplicationFactory().create(None)
     async with lifespan(app), AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         resp = await client.get("/api/v1/plugins")
 
@@ -329,7 +329,7 @@ async def test_minio_rejects_missing_config(monkeypatch: pytest.MonkeyPatch) -> 
         "app.main.get_settings",
         lambda: Settings(storage=PluginSelection(provider="minio"), minio=MinioSettings()),
     )
-    app = create_app()
+    app = ApplicationFactory().create(None)
     with pytest.raises(PluginError, match="端点 / 凭据"):
         async with lifespan(app):
             pass
@@ -344,7 +344,7 @@ async def test_minio_secret_not_leaked(monkeypatch: pytest.MonkeyPatch, caplog: 
     monkeypatch.setenv("BMS_MINIO__SECRET_KEY", sentinel)
     monkeypatch.setenv("BMS_STORAGE__PROVIDER", "minio")
     _isolated_registry(monkeypatch)
-    app = create_app()
+    app = ApplicationFactory().create(None)
     with caplog.at_level(logging.INFO):
         async with lifespan(app):
             assert isinstance(app.state.object_storage, MinioObjectStorage)

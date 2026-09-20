@@ -13,7 +13,7 @@ BMS 平台后端服务：Python 3.14 + FastAPI + uvicorn + Pydantic v2 + SQLAlch
 ```bash
 cd backend
 uv sync
-uv run uvicorn app.main:create_app --factory --port 8000
+uv run uvicorn app.asgi:app --port 8000
 # 验证：/healthz 返回 {"status":"ok"}；/readyz 就绪（依赖不可达为 503）；/docs Swagger
 uv run pytest   # 全量用例（含 Kiwi TCMS 用例 ID 标注）
 

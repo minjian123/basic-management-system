@@ -10,7 +10,7 @@ from httpx import ASGITransport, AsyncClient
 from app.api.deps import get_notifier
 from app.core.base import BaseObject
 from app.core.capability import BaseCapability, BaseNullObject
-from app.main import create_app, lifespan
+from app.main import ApplicationFactory, lifespan
 from app.notify.base import NULL_MESSAGE_ID, BaseNotifier, NotificationMessage, NotifyChannel, SendResult
 from app.notify.null import NullNotifier
 
@@ -66,7 +66,7 @@ async def test_null_send_fixed_success() -> None:
 @pytest.mark.kiwi_id(50)
 async def test_dependency_provider_resolves() -> None:
     """依赖解析：应用装配占位通知器；路由经 get_notifier 取到同一实例。"""
-    app = create_app()
+    app = ApplicationFactory().create(None)
     async with lifespan(app):
         assert isinstance(app.state.notifier, NullNotifier)
 

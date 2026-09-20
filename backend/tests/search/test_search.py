@@ -10,7 +10,7 @@ from httpx import ASGITransport, AsyncClient
 from app.api.deps import get_search_index
 from app.core.base import BaseObject
 from app.core.capability import BaseCapability, BaseNullObject
-from app.main import create_app, lifespan
+from app.main import ApplicationFactory, lifespan
 from app.search.base import (
     DEFAULT_SEARCH_SIZE,
     NULL_SEARCH_HIT_ID,
@@ -82,7 +82,7 @@ async def test_null_search_fixed_hit() -> None:
 @pytest.mark.kiwi_id(49)
 async def test_dependency_provider_resolves() -> None:
     """依赖解析：应用装配占位索引；路由经 get_search_index 取到同一实例。"""
-    app = create_app()
+    app = ApplicationFactory().create(None)
     async with lifespan(app):
         assert isinstance(app.state.search_index, NullSearchIndex)
 

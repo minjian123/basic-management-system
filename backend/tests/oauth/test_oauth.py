@@ -10,7 +10,7 @@ from httpx import ASGITransport, AsyncClient
 from app.api.deps import get_oauth_server, get_scope_checker
 from app.core.base import BaseObject
 from app.core.capability import BaseCapability, BaseNullObject
-from app.main import create_app, lifespan
+from app.main import ApplicationFactory, lifespan
 from app.oauth.base import (
     GRANT_TYPES,
     NULL_ACCESS_TOKEN,
@@ -107,7 +107,7 @@ def test_null_scope_checker_always_allows() -> None:
 @pytest.mark.kiwi_id(46)
 async def test_dependency_providers_resolve() -> None:
     """依赖解析：应用装配两占位单例；路由经两提供者取到同一实例。"""
-    app = create_app()
+    app = ApplicationFactory().create(None)
     async with lifespan(app):
         assert isinstance(app.state.oauth_server, NullOAuthServer)
         assert isinstance(app.state.scope_checker, NullScopeChecker)

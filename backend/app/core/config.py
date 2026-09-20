@@ -28,7 +28,6 @@ from pydantic_settings import (
 from sqlalchemy.engine import make_url
 
 from app.core.exceptions import ConfigError
-from app.core.id import configure_id_generator
 from app.schemas.base import BaseSchema
 
 _ENVIRONMENTS = ("dev", "test", "prod")
@@ -325,6 +324,9 @@ class Settings(PydanticBaseSettings, BaseSettings):  # pyright: ignore[reportInc
     translator: PluginSelection = Field(default_factory=PluginSelection)
     webhook_sender: PluginSelection = Field(default_factory=PluginSelection)
     workflow_engine: PluginSelection = Field(default_factory=PluginSelection)
+    engine_factory: PluginSelection = Field(default_factory=PluginSelection)
+    session_factory: PluginSelection = Field(default_factory=PluginSelection)
+    id_generator: PluginSelection = Field(default_factory=PluginSelection)
 
     if TYPE_CHECKING:
         # 仅类型检查期：真实初始化由 pydantic-settings 从多源装配，运行时字段键由源提供；
@@ -417,4 +419,6 @@ def validate_startup(settings: Settings) -> None:
     """
     if settings.app.env == "prod" and not settings.security.secret_key:
         raise ConfigError("生产环境必须提供 security.secret_key（BMS_SECURITY__SECRET_KEY）")
-    configure_id_generator(settings.app.worker_id)
+    from app.core.id import id_generator
+
+    id_generator.reconfigure(settings.app.worker_id)

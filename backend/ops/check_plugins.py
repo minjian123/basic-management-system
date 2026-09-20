@@ -20,7 +20,7 @@ from app.core.config import PluginSelection, Settings
 from app.core.exceptions import PluginError
 from app.core.plugin import NULL_PLUGIN_NAME, build_plugin_registry
 from app.core.resources import ResourceManager
-from app.main import create_app
+from app.main import ApplicationFactory
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -33,7 +33,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         int: 退出码（0 通过 / 1 失败）。
     """
     del argv
-    app = create_app()
+    app = ApplicationFactory().create(None)
     settings = cast("Settings", app.state.settings)
     resources = cast("ResourceManager", app.state.resources)
     try:

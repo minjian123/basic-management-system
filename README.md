@@ -57,7 +57,7 @@ BMS 作为平台支撑独立业务产品按"平台扩展"复用（产品仓库�
 # 后端（端口 8000；默认 dev 环境，可用 BMS_ENV 切换 test / prod）
 cd backend
 uv sync
-uv run uvicorn app.main:create_app --factory --port 8000
+uv run uvicorn app.asgi:app --port 8000
 # 验证：GET http://127.0.0.1:8000/healthz 返回 {"status":"ok"}；/readyz 为就绪检查
 uv run pytest          # 全量用例（含 Kiwi TCMS 用例编号标注）
 

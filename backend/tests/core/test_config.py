@@ -295,6 +295,6 @@ def test_worker_id_wiring(monkeypatch: pytest.MonkeyPatch) -> None:
     settings = Settings()
     assert settings.app.worker_id == 7
     validate_startup(settings)
-    from app.core.id import generate_id
+    from app.core.id import id_generator
 
-    assert isinstance(generate_id(), int)
+    assert isinstance(id_generator.next_id(), int)

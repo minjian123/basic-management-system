@@ -11,7 +11,7 @@ from app.core.base import BaseObject
 from app.core.capability import BaseCapability, BaseNullObject
 from app.idempotency.base import DEFAULT_IDEMPOTENCY_TTL, IDEMPOTENCY_HEADER, IdempotencyStore, build_idempotency_key
 from app.idempotency.null import NullIdempotencyStore
-from app.main import create_app, lifespan
+from app.main import ApplicationFactory, lifespan
 
 
 @pytest.mark.kiwi_id(43)
@@ -51,7 +51,7 @@ async def test_null_store_always_first() -> None:
 @pytest.mark.kiwi_id(43)
 async def test_dependency_provider_resolves() -> None:
     """依赖解析：应用装配占位幂等存储；路由经 get_idempotency_store 取到同一实例。"""
-    app = create_app()
+    app = ApplicationFactory().create(None)
     async with lifespan(app):
         assert isinstance(app.state.idempotency_store, NullIdempotencyStore)
 

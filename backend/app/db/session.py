@@ -1,28 +1,36 @@
-"""异步会话工厂与请求级依赖：`async_sessionmaker` + `get_db`。
+"""异步会话工厂与请求级依赖：`SessionFactory` + `get_db` / `get_uow`。
 
 禁止异步会话跨请求共享；每请求独立会话，退出即释放。
+工厂链：`SessionFactory → BaseDbFactory → BaseFactory → BasePluggable`（02-54）；实现可替换
+（插件键 `session_factory`，配置经 `[session_factory].provider` 选择，缺省 `default`）。
 """
 
 from collections.abc import AsyncIterator
-from typing import Annotated
+from typing import Annotated, cast
 
 from fastapi import Depends, Request
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
+from app.core.factory import BaseDbFactory
 from app.db.registry import EngineRegistry
 from app.db.unit_of_work import DbUnitOfWork
 
 
-def build_session_factory(engine: AsyncEngine) -> async_sessionmaker[AsyncSession]:
-    """构建异步会话工厂。
+class SessionFactory(BaseDbFactory[AsyncEngine, async_sessionmaker[AsyncSession]]):
+    """异步会话工厂：由引擎产出 `async_sessionmaker`。"""
 
-    Args:
-        engine: 异步引擎。
+    key: str = "session_factory"
 
-    Returns:
-        async_sessionmaker[AsyncSession]: 会话工厂。
-    """
-    return async_sessionmaker(engine, expire_on_commit=False)
+    def create(self, options: AsyncEngine) -> async_sessionmaker[AsyncSession]:
+        """构建异步会话工厂。
+
+        Args:
+            options: 异步引擎。
+
+        Returns:
+            async_sessionmaker[AsyncSession]: 会话工厂。
+        """
+        return async_sessionmaker(options, expire_on_commit=False)
 
 
 async def get_db(request: Request) -> AsyncIterator[AsyncSession]:
@@ -36,7 +44,8 @@ async def get_db(request: Request) -> AsyncIterator[AsyncSession]:
     """
     registry: EngineRegistry = request.app.state.engine_registry
     engine = await registry.get()
-    session_factory = build_session_factory(engine)
+    factory = cast("SessionFactory | None", getattr(request.app.state, "session_factory", None)) or SessionFactory()
+    session_factory = factory.create(engine)
     async with session_factory() as session:
         yield session
 

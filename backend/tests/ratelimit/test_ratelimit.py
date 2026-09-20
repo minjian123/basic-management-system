@@ -10,7 +10,7 @@ from app.api.deps import get_rate_limiter
 from app.core.base import BaseObject
 from app.core.capability import BaseCapability, BaseNullObject
 from app.core.exceptions import RateLimitError
-from app.main import create_app, lifespan
+from app.main import ApplicationFactory, lifespan
 from app.ratelimit.base import (
     DEFAULT_RATE_WINDOW,
     RATE_LIMIT_DIMENSIONS,
@@ -91,7 +91,7 @@ async def test_require_raises_rate_limit() -> None:
 @pytest.mark.kiwi_id(43)
 async def test_dependency_provider_resolves() -> None:
     """依赖解析：应用装配占位限流器；路由经 get_rate_limiter 取到同一实例。"""
-    app = create_app()
+    app = ApplicationFactory().create(None)
     async with lifespan(app):
         assert isinstance(app.state.rate_limiter, NullRateLimiter)
 

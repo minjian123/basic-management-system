@@ -13,7 +13,7 @@ from app.core.capability import BaseCapability, BaseNullObject
 from app.core.exceptions import NotFoundError
 from app.fieldtype.base import COLUMN_TYPE_DIALECTS, NULL_COLUMN_TYPE, BaseFieldType, BaseFieldTypeRegistry
 from app.fieldtype.null import NullFieldTypeRegistry
-from app.main import create_app, lifespan
+from app.main import ApplicationFactory, lifespan
 
 
 class _FakeFieldType(BaseFieldType):
@@ -102,7 +102,7 @@ def test_null_registry_fixed() -> None:
 @pytest.mark.kiwi_id(59)
 async def test_dependency_provider_resolves() -> None:
     """依赖解析：应用装配占位注册表；路由经 get_field_type_registry 取到同一实例。"""
-    app = create_app()
+    app = ApplicationFactory().create(None)
     async with lifespan(app):
         assert isinstance(app.state.field_type_registry, NullFieldTypeRegistry)
 

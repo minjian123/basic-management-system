@@ -12,7 +12,7 @@ from sqlalchemy.orm.exc import StaleDataError
 
 from app.core.base import BaseObject
 from app.core.context import current_user_id
-from app.core.id import SnowflakeGenerator, configure_id_generator, generate_id
+from app.core.id import SnowflakeGenerator, id_generator
 from app.models.base import Base, BaseModel
 from app.models.demo import Demo
 
@@ -175,8 +175,8 @@ def test_snowflake_clock_rollback(monkeypatch: pytest.MonkeyPatch) -> None:
 @pytest.mark.kiwi_id(30)
 def test_configure_and_invalid_worker() -> None:
     """配置生成器生效；边界 WorkerId 合法、越界报错。"""
-    configure_id_generator(2)
-    assert generate_id() > 0
+    id_generator.reconfigure(2)
+    assert id_generator.next_id() > 0
     assert SnowflakeGenerator(worker_id=1023).next_id() > 0
     with pytest.raises(ValueError):
         SnowflakeGenerator(worker_id=9999)

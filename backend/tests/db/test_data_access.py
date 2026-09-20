@@ -16,7 +16,7 @@ from app.core.context import is_read_only, reset_read_only, set_read_only
 from app.core.exceptions import ConcurrentConflictError
 from app.db.engine import EngineFactory
 from app.db.registry import EngineRegistry
-from app.db.session import build_session_factory, get_db, get_uow
+from app.db.session import SessionFactory, get_db, get_uow
 from app.db.unit_of_work import DbUnitOfWork
 from app.repositories.base_memory_repository import BaseMemoryRepository
 from app.schemas.pagination import BaseCursorQuery, BasePageQuery
@@ -78,7 +78,7 @@ async def test_session_factory_and_get_db_dependency() -> None:
     """会话工厂产出会话；get_db 依赖可用。"""
     factory = EngineFactory(_memory_settings())
     engine = factory.create("platform")
-    session_factory = build_session_factory(engine)
+    session_factory = SessionFactory().create(engine)
     async with session_factory() as session:
         assert isinstance(session, AsyncSession)
         assert (await session.execute(text("SELECT 1"))).scalar() == 1

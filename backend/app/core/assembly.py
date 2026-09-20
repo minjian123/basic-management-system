@@ -6,7 +6,7 @@
   登记 `ResourceManager` → 落 `app.state` → 启动日志（不含 options）；失败 `PluginError` 拒启。
 """
 
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable
 from dataclasses import dataclass
 from importlib import import_module
 from typing import cast
@@ -23,6 +23,7 @@ from app.core.base import BaseObject
 from app.core.capability import BaseAsyncResource
 from app.core.config import PluginSelection, Settings
 from app.core.exceptions import PluginError
+from app.core.factory import BasePluginFactory
 from app.core.logging import get_logger
 from app.core.plugin import (
     NULL_PLUGIN_NAME,
@@ -202,68 +203,79 @@ def register_platform_plugins(settings: Settings, app: FastAPI, resources: Resou
         return
     for module in _NULL_MODULES:
         import_module(module)
-    register_plugin("masking", NULL_PLUGIN_NAME, _null_masker_factory(settings))
-    register_plugin(
-        "health_check_registry",
-        "local",
-        _health_check_registry_factory(settings, app, resources),
-    )
-    register_plugin("object_storage", "local", _local_storage_factory(settings))
-    register_plugin("object_storage", "minio", _minio_storage_factory(settings))
+    register_plugin("masking", NULL_PLUGIN_NAME, DefaultMaskerFactory(settings))
+    register_plugin("health_check_registry", "local", HealthCheckRegistryFactory(settings, app, resources))
+    register_plugin("object_storage", "local", LocalObjectStorageFactory(settings))
+    register_plugin("object_storage", "minio", MinioObjectStorageFactory(settings))
     _PREPARED_REGISTRIES.append(registry)
 
 
-def _local_storage_factory(settings: Settings) -> Callable[[], BaseObjectStorage]:
-    """构造本地文件系统存储工厂（根目录取 `[storage].options.root`，缺省 `var/storage`）。
+class LocalObjectStorageFactory(BasePluginFactory[BaseObjectStorage]):
+    """本地文件系统存储工厂（根目录取 `[storage].options.root`，缺省 `var/storage`）。"""
 
-    Args:
-        settings: 应用配置。
+    plugin_key: str = "object_storage"
+    plugin_name: str = "local"
 
-    Returns:
-        Callable[[], BaseObjectStorage]: 零参工厂。
-    """
+    def __init__(self, settings: Settings) -> None:
+        """初始化。
 
-    def build() -> BaseObjectStorage:
+        Args:
+            settings: 应用配置。
+        """
+        self._settings = settings
+
+    def create(self, options: None = None) -> BaseObjectStorage:
         """构造本地存储实例（延迟导入实现模块）。
+
+        Args:
+            options: 未使用（零参口径）。
 
         Returns:
             BaseObjectStorage: 本地文件系统实现。
         """
         from app.storage.local import DEFAULT_ROOT, LocalObjectStorage
 
-        root = settings.storage.options.get("root") or DEFAULT_ROOT
+        root = self._settings.storage.options.get("root") or DEFAULT_ROOT
         return LocalObjectStorage(root=cast("str", root))
 
-    return build
 
+class MinioObjectStorageFactory(BasePluginFactory[BaseObjectStorage]):
+    """MinIO 存储工厂（校验 SDK 依赖与端点 / 凭据齐备；不建连）。"""
 
-def _minio_storage_factory(settings: Settings) -> Callable[[], BaseObjectStorage]:
-    """构造 MinIO 存储工厂（校验 SDK 依赖与端点 / 凭据齐备；不建连）。
+    plugin_key: str = "object_storage"
+    plugin_name: str = "minio"
 
-    Args:
-        settings: 应用配置。
+    def __init__(self, settings: Settings) -> None:
+        """初始化。
 
-    Returns:
-        Callable[[], BaseObjectStorage]: 零参工厂；依赖缺失 / 配置不全时抛 `PluginError`。
-    """
+        Args:
+            settings: 应用配置。
+        """
+        self._settings = settings
 
-    def build() -> BaseObjectStorage:
+    def create(self, options: None = None) -> BaseObjectStorage:
         """构造 MinIO 存储实例（依赖 / 配置校验在实例化前完成）。
+
+        Args:
+            options: 未使用（零参口径）。
 
         Returns:
             BaseObjectStorage: MinIO 实现。
+
+        Raises:
+            PluginError: 依赖缺失 / 配置不全。
         """
         try:
             import_module("minio")
         except ModuleNotFoundError as exc:
             raise PluginError("minio 实现依赖未安装：uv sync --extra storage-minio") from exc
-        minio_settings = settings.minio
+        minio_settings = self._settings.minio
         if not (minio_settings.endpoint and minio_settings.access_key and minio_settings.secret_key):
             raise PluginError("minio 实现缺少端点 / 凭据配置（经 BMS_MINIO__* 环境变量注入）")
         from app.storage.base import STORAGE_BUCKET
         from app.storage.minio import MinioObjectStorage
 
-        bucket = settings.storage.options.get("bucket") or STORAGE_BUCKET
+        bucket = self._settings.storage.options.get("bucket") or STORAGE_BUCKET
         return MinioObjectStorage(
             endpoint=minio_settings.endpoint,
             access_key=minio_settings.access_key,
@@ -272,54 +284,64 @@ def _minio_storage_factory(settings: Settings) -> Callable[[], BaseObjectStorage
             secure=minio_settings.secure,
         )
 
-    return build
 
+class HealthCheckRegistryFactory(BasePluginFactory[HealthCheckRegistry]):
+    """真实健康检查注册表工厂（注入超时配置与 `redis` / `database` 检查项）。"""
 
-def _health_check_registry_factory(
-    settings: Settings, app: FastAPI, resources: ResourceManager
-) -> Callable[[], HealthCheckRegistry]:
-    """构造真实健康检查注册表工厂（注入超时配置与 `redis` / `database` 检查项）。
+    plugin_key: str = "health_check_registry"
+    plugin_name: str = "local"
 
-    Args:
-        settings: 应用配置。
-        app: 应用实例。
-        resources: 资源登记表（`redis` 检查项随生命周期释放）。
+    def __init__(self, settings: Settings, app: FastAPI, resources: ResourceManager) -> None:
+        """初始化。
 
-    Returns:
-        Callable[[], HealthCheckRegistry]: 零参工厂。
-    """
+        Args:
+            settings: 应用配置。
+            app: 应用实例。
+            resources: 资源登记表（`redis` 检查项随生命周期释放）。
+        """
+        self._settings = settings
+        self._app = app
+        self._resources = resources
 
-    def build() -> HealthCheckRegistry:
+    def create(self, options: None = None) -> HealthCheckRegistry:
         """构造真实注册表并登记检查项。
+
+        Args:
+            options: 未使用（零参口径）。
 
         Returns:
             HealthCheckRegistry: 注册表实例。
         """
         registry = HealthCheckRegistry(
-            check_timeout_ms=settings.health.check_timeout_ms,
-            total_timeout_ms=settings.health.total_timeout_ms,
+            check_timeout_ms=self._settings.health.check_timeout_ms,
+            total_timeout_ms=self._settings.health.total_timeout_ms,
         )
-        redis_check = RedisHealthCheck(settings.redis.url)
+        redis_check = RedisHealthCheck(self._settings.redis.url)
         registry.register(redis_check)
-        registry.register(DatabaseHealthCheck(cast("EngineRegistry", app.state.engine_registry)))
-        resources.register(redis_check)
+        registry.register(DatabaseHealthCheck(cast("EngineRegistry", self._app.state.engine_registry)))
+        self._resources.register(redis_check)
         return registry
 
-    return build
 
+class DefaultMaskerFactory(BasePluginFactory[BaseMasker]):
+    """缺省掩码器工厂（注入权限检查器；`NullMasker` 构造需参数，不自动登记）。"""
 
-def _null_masker_factory(settings: Settings) -> Callable[[], BaseMasker]:
-    """构造缺省掩码器工厂（注入权限检查器；`NullMasker` 构造需参数，不自动登记）。
+    plugin_key: str = "masking"
+    plugin_name: str = NULL_PLUGIN_NAME
 
-    Args:
-        settings: 应用配置。
+    def __init__(self, settings: Settings) -> None:
+        """初始化。
 
-    Returns:
-        Callable[[], BaseMasker]: 零参工厂。
-    """
+        Args:
+            settings: 应用配置。
+        """
+        self._settings = settings
 
-    def build() -> BaseMasker:
+    def create(self, options: None = None) -> BaseMasker:
         """构造缺省掩码器（解析权限检查器实例）。
+
+        Args:
+            options: 未使用（零参口径）。
 
         Returns:
             BaseMasker: 掩码器实例。
@@ -328,13 +350,11 @@ def _null_masker_factory(settings: Settings) -> Callable[[], BaseMasker]:
             "BasePermissionChecker",
             resolve_plugin(
                 "permission",
-                settings.permission.provider,
+                self._settings.permission.provider,
                 expected_version=BasePermissionChecker.contract_version,
             ),
         )
         return NullMasker(checker=checker)
-
-    return build
 
 
 async def assemble_plugins(app: FastAPI, settings: Settings, resources: ResourceManager) -> dict[str, str]:

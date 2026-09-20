@@ -10,7 +10,7 @@ from app.api.deps import get_metrics
 from app.core.base import BaseObject
 from app.core.capability import BaseCapability, BaseNullObject
 from app.fallback.base import DEPENDENCIES as FALLBACK_DEPENDENCIES
-from app.main import create_app, lifespan
+from app.main import ApplicationFactory, lifespan
 from app.metrics.base import DEPENDENCIES, METRIC_KINDS, METRIC_NAMES, BaseMetrics
 from app.metrics.null import NullMetrics
 
@@ -73,7 +73,7 @@ async def test_null_metrics_is_noop() -> None:
 @pytest.mark.kiwi_id(44)
 async def test_dependency_provider_resolves() -> None:
     """依赖解析：应用装配占位指标器；路由经 get_metrics 取到同一实例。"""
-    app = create_app()
+    app = ApplicationFactory().create(None)
     async with lifespan(app):
         assert isinstance(app.state.metrics, NullMetrics)
 

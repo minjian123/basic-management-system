@@ -10,7 +10,7 @@ from httpx import ASGITransport, AsyncClient
 from app.api.deps import get_password_policy
 from app.core.base import BaseObject
 from app.core.capability import BaseCapability, BaseNullObject
-from app.main import create_app, lifespan
+from app.main import ApplicationFactory, lifespan
 from app.password.base import PASSWORD_VIOLATIONS, BasePasswordPolicy
 from app.password.null import NullPasswordPolicy
 
@@ -63,7 +63,7 @@ async def test_null_policy_always_allows() -> None:
 @pytest.mark.kiwi_id(41)
 async def test_dependency_provider_resolves() -> None:
     """依赖解析：应用装配占位密码策略；路由经 get_password_policy 取到实例。"""
-    app = create_app()
+    app = ApplicationFactory().create(None)
     async with lifespan(app):
         assert isinstance(app.state.password_policy, NullPasswordPolicy)
 

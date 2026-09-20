@@ -10,7 +10,7 @@ from httpx import ASGITransport, AsyncClient
 from app.api.deps import get_realtime_publisher
 from app.core.base import BaseObject
 from app.core.capability import BaseCapability, BaseNullObject
-from app.main import create_app, lifespan
+from app.main import ApplicationFactory, lifespan
 from app.ws.base import REALTIME_EVENTS, BaseRealtimePublisher, RealtimeEvent
 from app.ws.null import NullRealtimePublisher
 
@@ -61,7 +61,7 @@ async def test_null_publisher_noop() -> None:
 @pytest.mark.kiwi_id(51)
 async def test_dependency_provider_resolves() -> None:
     """依赖解析：应用装配占位推送器；路由经 get_realtime_publisher 取到同一实例。"""
-    app = create_app()
+    app = ApplicationFactory().create(None)
     async with lifespan(app):
         assert isinstance(app.state.realtime_publisher, NullRealtimePublisher)
 

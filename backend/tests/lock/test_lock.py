@@ -12,7 +12,7 @@ from app.core.capability import BaseCapability, BaseNullObject
 from app.core.exceptions import ConcurrentConflictError
 from app.lock.base import DEFAULT_LOCK_TTL, DEFAULT_WAIT, BaseDistributedLock, build_lock_key
 from app.lock.null import NullDistributedLock
-from app.main import create_app, lifespan
+from app.main import ApplicationFactory, lifespan
 
 
 class RecordingLock(BaseDistributedLock):
@@ -143,7 +143,7 @@ async def test_hold_raises_conflict_when_not_acquired() -> None:
 @pytest.mark.kiwi_id(40)
 async def test_dependency_provider_resolves() -> None:
     """依赖解析：应用装配占位锁；路由经 get_distributed_lock 取到实例。"""
-    app = create_app()
+    app = ApplicationFactory().create(None)
     async with lifespan(app):
         assert isinstance(app.state.distributed_lock, NullDistributedLock)
 
