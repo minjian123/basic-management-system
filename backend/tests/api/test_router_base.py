@@ -93,6 +93,7 @@ async def test_unified_mount_and_prefix() -> None:
         "query_scheme",
         "notification",
         "chat",
+        "search",
     )
 
     router = BaseRouter(key="probe", prefix="/probe")
