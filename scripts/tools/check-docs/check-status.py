@@ -368,7 +368,11 @@ def check_stage(stage_dir: Path, report: Report) -> None:
             report.fail("硬", "H6", f"任务文档未登记进计划：{plan_id}")
 
     # H7：工时对齐（任务信息表 == 计划表；任务侧单元格可带「（重估：…）」说明，取前导数字）
+    # 部分完成（重开后追加嵌套子任务）的父任务：任务信息表记重估总工时（含未实施子任务），计划已完成表记
+    # 已完成部分，二者口径不同、不直接比较；其剩余子任务在计划剩余表按各自工时逐条核对。
     for plan_id, doc in tasks.items():
+        if doc.status == "部分完成":
+            continue
         row = done.get(plan_id) or todo.get(plan_id)
         if not row:
             continue
