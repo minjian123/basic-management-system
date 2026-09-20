@@ -25,6 +25,7 @@ export * from './query-scheme'
 export * from './status'
 export * from './metric'
 export * from './notification'
+export * from './ai-assistant'
 
 /** 契约用例套件定义体。 */
 export type ContractDefine = () => void

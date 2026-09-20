@@ -36,6 +36,10 @@ export default defineConfig({
           if (id.includes('node_modules/@vue-flow')) {
             return 'vendor-vue-flow'
           }
+          // Markdown 渲染库独立分包（仅 AI 面板动态 import 时成为异步块，不进首屏）
+          if (id.includes('node_modules/marked')) {
+            return 'vendor-marked'
+          }
           if (id.includes('/packages/')) {
             return 'bms-base'
           }
