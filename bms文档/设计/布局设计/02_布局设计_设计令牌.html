@@ -93,6 +93,17 @@
         <li>实现落点：宿主 <code>apps/desktop/src/styles/tokens.scss</code>（亮 / 暗两套，只增不改）；代码侧令牌前缀沿用 <code>--bms-</code>（与 <code>--bms-color-*</code> 一致）。</li>
       </ul>
 
+      <h2 id="notice-color">2.2 通知令牌（2026-09-20 登记，前端组件库 07_04）</h2>
+      <table>
+        <tr><th>令牌</th><th>用途</th><th>默认值</th></tr>
+        <tr><td><code>--bms-notice-unread-bg</code></td><td>消息项未读高亮底 / 通知列表未读行底</td><td>亮 <code>#ecf5ff</code> / 暗 <code>#1d3049</code></td></tr>
+        <tr><td><code>--bms-notice-item-hover-bg</code></td><td>消息项悬停底</td><td>亮 <code>#f5f7fa</code> / 暗 <code>#262727</code></td></tr>
+        <tr><td><code>--bms-notice-badge-bg</code></td><td>未读角标底色</td><td><code>--bms-color-danger</code></td></tr>
+      </table>
+      <ul>
+        <li>通知未读 / 角标配色统一来自以上令牌；<strong>禁止在通知件中硬编码色值</strong>；未读角标上限 99（超过显示 <code>99+</code>），角标与未读数一致性口径见《组件设计 · 通知与消息》§9。</li>
+      </ul>
+
       <h2 id="font">3. 字体令牌</h2>
       <table>
         <tr><th>令牌</th><th>值</th></tr>
