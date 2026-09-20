@@ -45,6 +45,7 @@ from app.search.base import get_search_index
 from app.session.base import get_session_store
 from app.storage.base import get_multipart_upload, get_object_storage
 from app.tasks.base import get_task
+from app.tenant.base import get_tenant_self_service
 from app.tracing.base import get_tracer
 from app.transfer.exporter import get_exporter
 from app.transfer.importer import get_importer
@@ -104,6 +105,7 @@ __all__ = [
     "get_session_store",
     "get_task",
     "get_tenant",
+    "get_tenant_self_service",
     "get_tracer",
     "get_translator",
     "get_uow",
