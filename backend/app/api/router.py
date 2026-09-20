@@ -1,13 +1,14 @@
-"""api 聚合路由：业务路由挂 /api/v1，探针路由挂根路径。"""
+"""api 聚合路由：业务模块路由登记 → 统一挂载到 `/api/v1`；探针路由豁免前缀，单独挂根路径。"""
 
 from fastapi import APIRouter
 
 from app.api import demo, health, modules, plugins
+from app.api.base import build_api_router, register_router
 
-api_router = APIRouter()
-api_router.include_router(demo.router)
-api_router.include_router(modules.router)
-api_router.include_router(plugins.router)
+for _module in (demo, modules, plugins):
+    register_router(_module.router)
+
+api_router = build_api_router()
 
 health_router = APIRouter()
 health_router.include_router(health.router)

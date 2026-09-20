@@ -6,13 +6,15 @@ HTTP 状态码保留传输层语义（就绪 200 / 未就绪或启动未完成 5
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import Depends, Request
 from fastapi.responses import JSONResponse
 
+from app.api.base import BaseRouter
 from app.api.deps import get_health_check_registry
 from app.health.base import BaseHealthCheckRegistry
 
-router = APIRouter()
+router = BaseRouter(key="health", default_responses=False)
+"""探针路由基座：豁免统一前缀与统一响应（`/healthz` `/readyz`，见《API接口规范》「探针豁免」）。"""
 
 HealthCheckRegistryDep = Annotated[BaseHealthCheckRegistry, Depends(get_health_check_registry)]
 

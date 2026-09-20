@@ -2,13 +2,14 @@
 
 from typing import Annotated, cast
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import Depends, Request
 
+from app.api.base import BaseRouter
 from app.schemas.common import ApiResponse
 from app.schemas.demo import DemoCreateRequest, DemoResponse, DemoUpdateRequest
 from app.services.demo_service import DemoService
 
-router = APIRouter(prefix="/demos", tags=["demo"])
+router = BaseRouter(key="demo", prefix="/demos", tags=["demo"])
 
 
 def get_demo_service(request: Request) -> DemoService:
