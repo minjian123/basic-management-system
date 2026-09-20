@@ -18,6 +18,7 @@ from app.db.tenant import get_tenant
 from app.events.base import get_event_publisher
 from app.fallback.base import get_fallback_policy
 from app.fieldtype.base import get_field_type_registry
+from app.globalsearch.base import get_audit_search, get_file_content_search, get_global_search
 from app.health.base import get_health_check_registry
 from app.i18n.base import get_translator
 from app.idempotency.base import get_idempotency_store
@@ -53,6 +54,7 @@ __all__ = [
     "get_archive_policy",
     "get_archive_query_router",
     "get_audit_capturer",
+    "get_audit_search",
     "get_cache_region",
     "get_captcha",
     "get_chat_action_gate",
@@ -66,6 +68,8 @@ __all__ = [
     "get_exporter",
     "get_fallback_policy",
     "get_field_type_registry",
+    "get_file_content_search",
+    "get_global_search",
     "get_hash_chain",
     "get_health_check_registry",
     "get_http_client",

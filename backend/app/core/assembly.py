@@ -40,6 +40,7 @@ from app.db.registry import EngineRegistry
 from app.events.base import BaseEventConsumer, EventPublisher
 from app.fallback.base import BaseFallbackPolicy
 from app.fieldtype.base import BaseFieldTypeRegistry
+from app.globalsearch.base import BaseAuditSearch, BaseFileContentSearch, BaseGlobalSearch
 from app.health.base import BaseHealthCheckRegistry
 from app.health.checks import DatabaseHealthCheck, RedisHealthCheck
 from app.health.registry import HealthCheckRegistry
@@ -99,6 +100,7 @@ _NULL_MODULES: tuple[str, ...] = (
     "app.events.null",
     "app.fallback.null",
     "app.fieldtype.null",
+    "app.globalsearch.null",
     "app.health.null",
     "app.i18n.null",
     "app.idempotency.null",
@@ -172,6 +174,9 @@ PLUGIN_WIRINGS: tuple[PluginWiring, ...] = (
     PluginWiring("object_storage", BaseObjectStorage, "storage", "object_storage"),
     PluginWiring("llm_provider", BaseLlmProvider, "llm_provider", "llm_provider"),
     PluginWiring("search_index", BaseSearchIndex, "search_index", "search_index"),
+    PluginWiring("global_search", BaseGlobalSearch, "global_search", "global_search"),
+    PluginWiring("audit_search", BaseAuditSearch, "audit_search", "audit_search"),
+    PluginWiring("file_content_search", BaseFileContentSearch, "file_content_search", "file_content_search"),
     PluginWiring("notifier", BaseNotifier, "notifier", "notifier"),
     PluginWiring("notification_center", BaseNotificationCenter, "notification_center", "notification_center"),
     PluginWiring("realtime_publisher", BaseRealtimePublisher, "realtime_publisher", "realtime_publisher"),
