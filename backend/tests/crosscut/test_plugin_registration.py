@@ -55,6 +55,7 @@ _EXPECTED_PLUGIN_KEYS = frozenset(
         "permission",
         "preference",
         "query_provider_registry",
+        "query_scheme_store",
         "rate_limiter",
         "realtime_publisher",
         "replay_guard",

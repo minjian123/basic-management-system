@@ -21,6 +21,7 @@ from app.health.base import get_health_check_registry
 from app.i18n.base import get_translator
 from app.idempotency.base import get_idempotency_store
 from app.idp.base import get_identity_provider
+from app.listing.base import get_query_scheme_store
 from app.llm.base import get_llm_provider
 from app.lock.base import get_distributed_lock
 from app.masking.base import get_masker
@@ -76,6 +77,7 @@ __all__ = [
     "get_permission_checker",
     "get_preference_store",
     "get_query_provider_registry",
+    "get_query_scheme_store",
     "get_rate_limiter",
     "get_realtime_publisher",
     "get_replay_guard",

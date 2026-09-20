@@ -45,6 +45,7 @@ from app.health.registry import HealthCheckRegistry
 from app.i18n.base import BaseTranslator
 from app.idempotency.base import IdempotencyStore
 from app.idp.base import BaseIdentityProvider
+from app.listing.base import BaseQuerySchemeStore
 from app.llm.base import BaseLlmProvider
 from app.lock.base import BaseDistributedLock
 from app.masking.base import BaseMasker
@@ -99,6 +100,7 @@ _NULL_MODULES: tuple[str, ...] = (
     "app.i18n.null",
     "app.idempotency.null",
     "app.idp.null",
+    "app.listing.null",
     "app.llm.null",
     "app.lock.null",
     "app.masking.null",
@@ -173,6 +175,7 @@ PLUGIN_WIRINGS: tuple[PluginWiring, ...] = (
     PluginWiring(
         "query_provider_registry", BaseQueryProviderRegistry, "query_provider_registry", "query_provider_registry"
     ),
+    PluginWiring("query_scheme_store", BaseQuerySchemeStore, "query_scheme_store", "query_scheme_store"),
     PluginWiring("importer", BaseImporter, "importer", "importer"),
     PluginWiring("exporter", BaseExporter, "exporter", "exporter"),
     PluginWiring("hash_chain", BaseHashChain, "hash_chain", "hash_chain"),
