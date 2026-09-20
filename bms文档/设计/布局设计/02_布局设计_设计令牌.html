@@ -104,6 +104,21 @@
         <li>通知未读 / 角标配色统一来自以上令牌；<strong>禁止在通知件中硬编码色值</strong>；未读角标上限 99（超过显示 <code>99+</code>），角标与未读数一致性口径见《组件设计 · 通知与消息》§9。</li>
       </ul>
 
+      <h2 id="ai-color">2.3 AI 助手令牌（2026-09-20 登记，前端组件库 08_10）</h2>
+      <table>
+        <tr><th>令牌</th><th>用途</th><th>默认值</th></tr>
+        <tr><td><code>--bms-ai-bubble-assistant-bg</code></td><td>助手气泡底</td><td>亮 <code>#f5f7fa</code> / 暗 <code>#262727</code></td></tr>
+        <tr><td><code>--bms-ai-bubble-user-bg</code></td><td>用户气泡底</td><td><code>--bms-color-primary</code></td></tr>
+        <tr><td><code>--bms-ai-stream-cursor</code></td><td>流式输出光标色</td><td><code>--bms-color-primary</code></td></tr>
+        <tr><td><code>--bms-ai-risk-bg</code></td><td>风险提示底</td><td>亮 <code>#fdf6ec</code> / 暗 <code>#3a2f1c</code></td></tr>
+        <tr><td><code>--bms-ai-risk-border</code></td><td>风险提示边</td><td><code>--bms-color-warning</code></td></tr>
+        <tr><td><code>--bms-ai-citation-bg</code></td><td>引用来源底</td><td>亮 <code>#ecf5ff</code> / 暗 <code>#1d3049</code></td></tr>
+        <tr><td><code>--bms-ai-audit-color</code></td><td>审计标识文字色</td><td><code>--bms-color-text-secondary</code></td></tr>
+      </table>
+      <ul>
+        <li>AI 气泡 / 流式光标 / 风险 / 引用 / 审计配色统一来自以上令牌；<strong>禁止在 AI 助手件中硬编码色值</strong>；消息状态与结果 / 引用 / 风险 / 审计口径见《组件设计 · AI 助手》§4 ~ §10。</li>
+      </ul>
+
       <h2 id="font">3. 字体令牌</h2>
       <table>
         <tr><th>令牌</th><th>值</th></tr>
