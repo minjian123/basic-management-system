@@ -3,9 +3,10 @@
 from fastapi import APIRouter
 
 from app.api import chat, demo, health, modules, notification, org, plugins, preference, query_scheme, search
+from app.api import dict as dict_api
 from app.api.base import build_api_router, register_router
 
-for _module in (demo, modules, plugins, preference, query_scheme, notification, chat, search, org):
+for _module in (demo, modules, plugins, preference, query_scheme, notification, chat, search, org, dict_api):
     register_router(_module.router)
 
 api_router = build_api_router()

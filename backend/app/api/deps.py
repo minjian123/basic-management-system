@@ -15,6 +15,7 @@ from app.circuit.base import get_circuit_breaker
 from app.dashboard.base import get_dashboard_card_registry
 from app.db.session import SessionFactory, get_db, get_uow
 from app.db.tenant import get_tenant
+from app.dict.base import get_dict_cache_region, get_dict_source, get_dict_translator
 from app.events.base import get_event_publisher
 from app.fallback.base import get_fallback_policy
 from app.fieldtype.base import get_field_type_registry
@@ -64,6 +65,9 @@ __all__ = [
     "get_circuit_breaker",
     "get_dashboard_card_registry",
     "get_db",
+    "get_dict_cache_region",
+    "get_dict_source",
+    "get_dict_translator",
     "get_distributed_lock",
     "get_event_publisher",
     "get_exporter",
