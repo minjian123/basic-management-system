@@ -142,7 +142,10 @@ describe('宿主编装载（清单驱动 · 按 mode 分派入口）', () => {
   })
 
   it('远端不可达拒绝加载且其余项照常（错误原样上抛、记错误状态）', async () => {
-    stubManifest([{ name: 'broken', entry: 'http://localhost:5002/missing/remoteEntry.js', version: '1.0.0', mode: 'remote' }, REMOTE_ENTRY])
+    stubManifest([
+      { name: 'broken', entry: 'http://localhost:5002/missing/remoteEntry.js', version: '1.0.0', mode: 'remote' },
+      REMOTE_ENTRY,
+    ])
     loadRemote.mockImplementation(async (id: string) => {
       if (id.startsWith('broken/')) {
         throw new Error('远端入口加载失败：HTTP 404')
