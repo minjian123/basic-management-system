@@ -28,7 +28,7 @@ describe('loadModuleManifest（Kiwi 977）', () => {
     ])
     const result = await loadModuleManifest()
 
-    expect(result.entries).toEqual([{ name: 'demo', entry: 'demo', version: '0.1.0', mode: 'local' }])
+    expect(result.entries).toEqual([{ name: 'demo', entry: 'demo', version: '0.1.0', mode: 'local', enabled: true }])
     expect(result.rejected).toEqual([{ name: 'bad', reason: '版本缺失' }])
     expect(result.reason).toBeUndefined()
   })
@@ -41,7 +41,7 @@ describe('loadModuleManifest（Kiwi 977）', () => {
     const result = await loadModuleManifest()
 
     expect(result.entries).toEqual([
-      { name: 'demo', entry: 'http://localhost:5002/remoteEntry.js', version: '0.1.0', mode: 'remote' },
+      { name: 'demo', entry: 'http://localhost:5002/remoteEntry.js', version: '0.1.0', mode: 'remote', enabled: true },
     ])
     expect(result.rejected).toEqual([
       { name: 'relative', reason: '远端入口须为绝对 URL：/modules/demo/remoteEntry.js' },
@@ -81,7 +81,7 @@ describe('loadModuleManifest（Kiwi 977）', () => {
     stubResponse([], false, 500)
     const summary = await installModules({})
 
-    expect(summary).toEqual({ mounted: [], failures: [] })
+    expect(summary).toEqual({ mounted: [], disabled: [], failures: [] })
     expect(useModuleError().value).toMatchObject({ module: 'modules.json' })
   })
 })

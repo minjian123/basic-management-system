@@ -573,6 +573,7 @@ export {
   type ModuleThemeTokenDeclaration,
 } from './module/types'
 export { MODULE_NAME_PATTERN, defineModule } from './module/define'
+export { MODULE_CONTRACT_VERSION } from './module/contract'
 export {
   DEFAULT_LOAD_MODE,
   LOAD_MODES,

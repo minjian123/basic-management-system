@@ -314,11 +314,16 @@ module-check:
       exists:
         - frontend/modules/demo/package.json
   script:
-    - rm -rf frontend/modules/demo/node_modules && cp -a /opt/ci/frontend/modules/demo/node_modules frontend/modules/demo/node_modules
     # 模块工程以 `file:` 依赖链接平台基座包（@bms/core / @bms/ui-ep 源码直出），
     # 其第三方依赖（echarts / bpmn-js / tiptap 等）由 workspace 根依赖集补齐
     - cp -a /opt/ci/workspace/node_modules .
-    - cd frontend/modules/demo && npm run lint && npm run typecheck && npm run test
+    # 遍历全部模块工程（frontend/modules/*；新增模块自动纳入 lint / 类型 / 测试与契约用例）
+    - |
+      for dir in frontend/modules/*/; do
+        name=$(basename "$dir")
+        rm -rf "$dir/node_modules" && cp -a "/opt/ci/frontend/modules/$name/node_modules" "$dir/node_modules"
+        (cd "$dir" && npm run lint && npm run typecheck && npm run test)
+      done
 
 # ---- 模块独立构建 + 模块产物单独计量 + 产物单独归档 ----
 module-build:
@@ -341,12 +346,19 @@ module-build:
       exists:
         - frontend/modules/demo/package.json
   script:
-    - rm -rf frontend/modules/demo/node_modules && cp -a /opt/ci/frontend/modules/demo/node_modules frontend/modules/demo/node_modules
     - cp -a /opt/ci/workspace/node_modules .
-    - cd frontend/modules/demo && npm run build && npm run budget && npm run guard:isolation
+    # 遍历全部模块工程（独立构建 + 单独计量 + 产物面隔离扫描）
+    - |
+      for dir in frontend/modules/*/; do
+        name=$(basename "$dir")
+        rm -rf "$dir/node_modules" && cp -a "/opt/ci/frontend/modules/$name/node_modules" "$dir/node_modules"
+        (cd "$dir" && npm run build && npm run budget && npm run guard:isolation)
+      done
+    # 清单 / 版本发现 / 契约用例齐备护栏（清单唯一来源 + 全部注册实现同一套断言）
+    - node frontend/scripts/check-module-manifest.mjs
   artifacts:
     when: always
-    paths: [frontend/modules/demo/dist/]
+    paths: [frontend/modules/*/dist/]
     expire_in: 30 days
 
 # ---- 共享依赖产物级断言（构建期；《前端开发规范》「依赖共享与版本偏斜」节，阶段五 02_02 接入）----

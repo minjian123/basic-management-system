@@ -40,6 +40,8 @@ import { registerModuleRoutes, unregisterModuleRoutes } from '@/router/dynamic'
 export interface ModuleInstallSummary {
   /** 已挂载模块名。 */
   mounted: string[]
+  /** 停用模块名（清单 `enabled: false`；不加载、不记错误状态）。 */
+  disabled: string[]
   /** 失败模块（名 / 版本 / 原因）。 */
   failures: { name: string; version: string; reason: string }[]
 }
@@ -92,8 +94,15 @@ export async function installModules(context: ModuleHostContext = {}): Promise<M
     remote: createFederationEntryResolver(),
   }
   loader = new ManifestModuleLoader(manifest.entries, (entry) => resolvers[entry.mode](entry))
-  const summary: ModuleInstallSummary = { mounted: [], failures: [] }
+  const summary: ModuleInstallSummary = {
+    mounted: [],
+    disabled: manifest.entries.filter((entry) => !entry.enabled).map((entry) => entry.name),
+    failures: [],
+  }
   for (const entry of manifest.entries) {
+    if (!entry.enabled) {
+      continue
+    }
     try {
       await mountModule(entry.name, context)
       summary.mounted.push(entry.name)

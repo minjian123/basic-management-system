@@ -6,6 +6,8 @@
  *
  * 加载形态由清单 `mode` **显式区分**（缺省 `local`＝构建期合并；`remote`＝运行时远端加载），
  * `entry` 的语义随 `mode` 而定，不由字符串形态推断。
+ *
+ * 可见性由 `enabled` 承载（缺省 `true`；`false`＝停用：不加载、不挂载、不进菜单，保留入口与版本）。
  */
 
 import { BaseError } from '../mechanisms/error'
@@ -35,6 +37,8 @@ export interface ModuleManifestEntry {
   version: string
   /** 加载形态（缺省 `local`；**解析后恒有值**）。 */
   mode: ModuleLoadMode
+  /** 可见性（缺省 `true`；`false`＝停用：不加载、不挂载、不进菜单；**解析后恒有值**）。 */
+  enabled: boolean
 }
 
 /** 清单项被拒原因。 */
@@ -79,6 +83,7 @@ export function parseModuleManifest(raw: unknown): ModuleManifestParseResult {
     const entry = readText(record.entry)
     const version = readText(record.version)
     const modeText = readText(record.mode)
+    const enabledRaw = record.enabled
 
     if (name === '' || !MODULE_NAME_PATTERN.test(name)) {
       rejected.push({ name, reason: `模块名缺失或非法：${name}` })
@@ -96,6 +101,10 @@ export function parseModuleManifest(raw: unknown): ModuleManifestParseResult {
       rejected.push({ name, reason: `加载形态非法：${modeText}` })
       continue
     }
+    if (enabledRaw !== undefined && typeof enabledRaw !== 'boolean') {
+      rejected.push({ name, reason: `可见性取值非法：${String(enabledRaw)}` })
+      continue
+    }
     const mode = (modeText === '' ? DEFAULT_LOAD_MODE : modeText) as ModuleLoadMode
     if (mode === 'remote' && !REMOTE_ENTRY_PATTERN.test(entry)) {
       rejected.push({ name, reason: `远端入口须为绝对 URL：${entry}` })
@@ -106,7 +115,7 @@ export function parseModuleManifest(raw: unknown): ModuleManifestParseResult {
       continue
     }
     seen.add(name)
-    entries.push({ name, entry, version, mode })
+    entries.push({ name, entry, version, mode, enabled: enabledRaw ?? true })
   }
   return { entries, rejected }
 }

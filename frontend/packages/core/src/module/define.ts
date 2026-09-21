@@ -13,15 +13,18 @@ export const MODULE_NAME_PATTERN = /^[a-z][a-z0-9-]*$/
  *
  * @param definition 模块定义。
  * @returns 冻结后的模块定义。
- * @throws BaseError 模块名或版本非法（`CAPABILITY_VIOLATION`）。
+ * @throws BaseError 模块名 / 版本 / 契约版本非法（`CAPABILITY_VIOLATION`）。
  */
 export function defineModule(definition: ModuleDefinition): ModuleDefinition {
-  const { name, version } = definition.manifest
+  const { name, version, contractVersion } = definition.manifest
   if (!MODULE_NAME_PATTERN.test(name)) {
     throw new BaseError(ErrorCodes.CAPABILITY_VIOLATION, `模块名非法：${name}`)
   }
   if (version.trim() === '') {
     throw new BaseError(ErrorCodes.CAPABILITY_VIOLATION, `模块版本缺失：${name}`)
+  }
+  if (!Number.isInteger(contractVersion) || contractVersion < 1) {
+    throw new BaseError(ErrorCodes.CAPABILITY_VIOLATION, `模块契约版本非法：${name} ${String(contractVersion)}`)
   }
   return Object.freeze({ manifest: Object.freeze({ ...definition.manifest }), setup: definition.setup })
 }

@@ -88,7 +88,7 @@ describe('宿主编装载（清单驱动 · 按 mode 分派入口）', () => {
 
     // 远端容器按清单名 / 入口 URL / 入口类型（ESM）经运行时登记，并按暴露键加载
     expect(registerRemotes).toHaveBeenCalledWith(
-      [{ name: 'demo', entry: 'http://localhost:5002/remoteEntry.js', type: MODULE_REMOTE_ENTRY_TYPE }],
+      [{ name: 'demo', entry: REMOTE_ENTRY.entry, type: MODULE_REMOTE_ENTRY_TYPE }],
       { force: true },
     )
     expect(loadRemote).toHaveBeenCalledWith('demo/module')
@@ -127,9 +127,33 @@ describe('宿主编装载（清单驱动 · 按 mode 分派入口）', () => {
     expect(router.hasRoute('DemoHome')).toBe(true)
   })
 
+  it('停用项（enabled: false）不加载：计入 disabled、不挂载、菜单无该项、不记错误状态', async () => {
+    stubManifest([{ ...REMOTE_ENTRY, enabled: false }])
+    const summary = await installModules({ router })
+
+    expect(summary.mounted).toEqual([])
+    expect(summary.disabled).toEqual(['demo'])
+    expect(summary.failures).toEqual([])
+    expect(getModuleLoader()?.isMounted('demo')).toBe(false)
+    expect(router.hasRoute('DemoHome')).toBe(false)
+    expect(moduleMenuNodes()).toEqual([])
+    expect(useModuleError().value).toBeNull()
+  })
+
+  it('契约版本不匹配拒绝加载：不挂载、记错误状态（契约升级须模块适配）', async () => {
+    loadRemote.mockResolvedValue({
+      default: { manifest: { name: 'demo', version: '0.1.0', contractVersion: 999 }, setup: () => ({}) },
+    })
+    const summary = await installModules({ router })
+
+    expect(summary.mounted).toEqual([])
+    expect(summary.failures[0]?.reason).toContain('模块契约版本不匹配')
+    expect(router.hasRoute('DemoHome')).toBe(false)
+  })
+
   it('版本不匹配拒绝加载：不挂载、菜单无该项、记错误状态', async () => {
     loadRemote.mockResolvedValue({
-      default: { manifest: { name: 'demo', version: '9.9.9' }, setup: () => ({}) },
+      default: { manifest: { name: 'demo', version: '9.9.9', contractVersion: 1 }, setup: () => ({}) },
     })
     const summary = await installModules({ router })
 

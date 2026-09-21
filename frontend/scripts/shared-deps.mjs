@@ -21,9 +21,15 @@ const SOURCE_FILE = 'shared-dependencies.json'
  * 优先按本文件位置解析（构建配置场景）；测试运行器转换后 `import.meta.url` 可能不是 `file:` URL，
  * 此时自当前工作目录**向上查找**（构建配置与测试的运行目录都在 `frontend/` 之下）。
  *
+ * @param root 指定 `frontend/` 目录（演练 / 测试在临时工作区跑全流程时用；缺省按本文件位置推断）。
  * @returns 单一来源文件绝对路径。
  */
-export function resolveSourcePath() {
+export function resolveSourcePath(root) {
+  if (root !== undefined) {
+    const candidate = join(root, SOURCE_FILE)
+    if (!existsSync(candidate)) throw new Error(`未找到共享声明单一来源：${candidate}`)
+    return candidate
+  }
   try {
     const here = fileURLToPath(new URL(`../${SOURCE_FILE}`, import.meta.url))
     if (existsSync(here)) return here
@@ -44,21 +50,22 @@ export function resolveSourcePath() {
 /**
  * 读取共享声明单一来源（原始结构）。
  *
+ * @param options 选项：`root` 指定 `frontend/` 目录（缺省按本文件位置推断）。
  * @returns 单一来源内容（共享面 / 消费方覆写 / 非共享项）。
  */
-export function readSharedSource() {
-  return JSON.parse(readFileSync(resolveSourcePath(), 'utf8'))
+export function readSharedSource(options = {}) {
+  return JSON.parse(readFileSync(resolveSourcePath(options.root), 'utf8'))
 }
 
 /**
  * 生成构建配置用的 `shared` 声明。
  *
- * @param options 选项（`role` 取 `host` / `remote`，缺省 `host`；`root` 预留，暂未使用）。
+ * @param options 选项（`role` 取 `host` / `remote`，缺省 `host`；`root` 指定 `frontend/` 目录，缺省按本文件位置推断）。
  * @returns `{ shareScope, shared }`——`shared` 可直接交给 Module Federation 插件的 `shared` 选项。
  */
 export function loadSharedDependencies(options = {}) {
   const { role = 'host' } = options
-  const source = readSharedSource()
+  const source = readSharedSource({ root: options.root })
   const shared = Object.fromEntries(
     Object.entries(source.shared).map(([name, entry]) => {
       if (role === 'host') return [name, { ...entry }]

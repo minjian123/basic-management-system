@@ -5,14 +5,15 @@
  * `@module-federation/runtime` 替身注入（见各 spec 的 `vi.mock`）。
  */
 
-import type { ModuleDefinition, ModuleManifestEntry } from '@bms/core'
+import { MODULE_CONTRACT_VERSION, type ModuleDefinition, type ModuleManifestEntry } from '@bms/core'
 
 /** 远端演示模块清单条目（绝对入口 URL + `mode: remote`）。 */
 export const REMOTE_ENTRY: ModuleManifestEntry = {
   name: 'demo',
-  entry: 'http://localhost:5002/remoteEntry.js',
+  entry: 'http://localhost:5002/demo/0.1.0/remoteEntry.js',
   version: '0.1.0',
   mode: 'remote',
+  enabled: true,
 }
 
 /** 未迁移模块清单条目（本地形态：入口为模块源码标识，宿主本地入口表当前为空）。 */
@@ -21,12 +22,13 @@ export const LOCAL_ENTRY: ModuleManifestEntry = {
   entry: 'legacy',
   version: '1.0.0',
   mode: 'local',
+  enabled: true,
 }
 
 /** 远端演示模块定义（每次调用返回新实例，避免用例间共享注册声明）。 */
 export function demoDefinition(): ModuleDefinition {
   return {
-    manifest: { name: 'demo', version: '0.1.0' },
+    manifest: { name: 'demo', version: '0.1.0', contractVersion: MODULE_CONTRACT_VERSION },
     setup: () => ({
       routes: [
         {

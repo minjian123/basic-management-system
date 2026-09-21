@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest'
 import {
   BaseError,
   ErrorCodes,
+  MODULE_CONTRACT_VERSION,
   createModuleEntryTableResolver,
   defineModule,
   type ModuleEntryTable,
@@ -12,19 +13,32 @@ import {
 } from '../src'
 
 const demo = defineModule({
-  manifest: { name: 'demo', version: '0.1.0' },
+  manifest: { name: 'demo', version: '0.1.0', contractVersion: MODULE_CONTRACT_VERSION },
   setup: () => ({ routes: [{ path: '/demo', name: 'DemoHome', component: async () => ({}) }] }),
 })
 
-const entry: ModuleManifestEntry = { name: 'demo', entry: 'demo', version: '0.1.0', mode: 'local' }
+const entry: ModuleManifestEntry = { name: 'demo', entry: 'demo', version: '0.1.0', mode: 'local', enabled: true }
 
 describe('defineModule', () => {
-  it('校验模块名与版本并冻结', () => {
+  it('校验模块名 / 版本 / 契约版本并冻结', () => {
     expect(demo.manifest.name).toBe('demo')
+    expect(demo.manifest.contractVersion).toBe(MODULE_CONTRACT_VERSION)
     expect(Object.isFrozen(demo)).toBe(true)
 
-    expect(() => defineModule({ manifest: { name: 'Demo_1', version: '1' }, setup: () => ({}) })).toThrow(BaseError)
-    expect(() => defineModule({ manifest: { name: 'demo', version: ' ' }, setup: () => ({}) })).toThrow(BaseError)
+    expect(() =>
+      defineModule({ manifest: { name: 'Demo_1', version: '1', contractVersion: MODULE_CONTRACT_VERSION }, setup: () => ({}) }),
+    ).toThrow(BaseError)
+    expect(() =>
+      defineModule({ manifest: { name: 'demo', version: ' ', contractVersion: MODULE_CONTRACT_VERSION }, setup: () => ({}) }),
+    ).toThrow(BaseError)
+  })
+
+  it('契约版本须为正整数（缺失 / 非法即拒绝定义）', () => {
+    for (const contractVersion of [0, -1, 1.5, Number.NaN]) {
+      expect(() => defineModule({ manifest: { name: 'demo', version: '1', contractVersion }, setup: () => ({}) })).toThrow(
+        /模块契约版本非法/,
+      )
+    }
   })
 })
 
