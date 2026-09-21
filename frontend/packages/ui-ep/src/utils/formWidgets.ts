@@ -20,6 +20,7 @@ import DateTimeField from '../components/field/DateTimeField.vue'
 import DictSelectField from '../components/field/DictSelectField.vue'
 import EnumField from '../components/field/EnumField.vue'
 import FileUploadField from '../components/field/FileUploadField.vue'
+import ImageUploadField from '../components/field/ImageUploadField.vue'
 import NumberField from '../components/field/NumberField.vue'
 import OrgSelectField from '../components/field/OrgSelectField.vue'
 import RichTextField from '../components/field/RichTextField.vue'
@@ -47,6 +48,8 @@ const BUILTIN_WIDGETS: Readonly<Record<string, Component>> = {
   switch: SwitchField,
   file: FileUploadField,
   image: FileUploadField,
+  'file-upload': FileUploadField,
+  'image-upload': ImageUploadField,
   richtext: RichTextField,
   'tree-select': TreeSelectField,
   'org-select': OrgSelectField,
@@ -124,4 +127,6 @@ export const MULTIPLE_WIDGETS: readonly FormWidget[] = [
   'tags',
   'org-select',
   'dict-multi',
+  'file-upload',
+  'image-upload',
 ]

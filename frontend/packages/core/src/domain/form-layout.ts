@@ -248,6 +248,14 @@ export interface FieldRenderAttrs {
   options?: readonly ExtFieldOption[]
   /** 字典类型（选项集引用字典；与 `select` / `multi_select` 或 `dict` / `dict_multi` 字段类型协作）。 */
   dictType?: string
+  /** 上传接受类型（扩展名 / MIME，逗号分隔；`file-upload` / `image-upload` 字段类型协作）。 */
+  uploadAccept?: string
+  /** 上传单文件大小上限（字节）。 */
+  uploadMaxSize?: number
+  /** 上传数量上限（0 / 缺省表示不限）。 */
+  uploadLimit?: number
+  /** 上传是否多选（缺省多选）。 */
+  uploadMultiple?: boolean
   /** 只读（编辑态亦只读）。 */
   readonly?: boolean
   /** 隐藏（布局引用但默认不渲染）。 */

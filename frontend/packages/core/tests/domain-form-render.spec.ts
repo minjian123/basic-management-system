@@ -111,6 +111,25 @@ describe('字段类型 → 控件语义键', () => {
     expect(resolveFieldWidget('captcha')).toBe('captcha')
     expect(resolveFieldWidget('dict')).toBe('dict-select')
     expect(resolveFieldWidget('dict_multi')).toBe('dict-multi')
+    expect(resolveFieldWidget('file')).toBe('file-upload')
+    expect(resolveFieldWidget('image')).toBe('image-upload')
+  })
+
+  it('上传引用属性透传（upload*）', () => {
+    const field = normalizeField({
+      key: 'attachment',
+      type: 'file',
+      uploadAccept: '.pdf,.png',
+      uploadMaxSize: 2 * 1024 * 1024,
+      uploadLimit: 3,
+      uploadMultiple: true,
+    })
+    expect(field.uploadAccept).toBe('.pdf,.png')
+    expect(field.uploadMaxSize).toBe(2 * 1024 * 1024)
+    expect(field.uploadLimit).toBe(3)
+    expect(field.uploadMultiple).toBe(true)
+    const image = normalizeField({ key: 'avatar', type: 'image', uploadMultiple: false })
+    expect(image.uploadMultiple).toBe(false)
   })
 
   it('字典引用属性透传（dictType）', () => {

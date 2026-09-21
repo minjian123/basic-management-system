@@ -75,6 +75,18 @@
   --bms-dict-panel-bg: var(--bms-color-bg);
   --bms-dict-border: var(--bms-color-border);
   --bms-dict-result-active-bg: #eef4ff;
+  // 文件上传（拖拽区 / 文件项 / 进度 / 失效标记 / 裁剪遮罩 / 分隔线；禁止硬编码色值）
+  --bms-file-drop-bg: #fafafa;
+  --bms-file-drop-border: #dcdfe6;
+  --bms-file-drop-active-border: var(--bms-color-primary);
+  --bms-file-item-bg: #f5f7fa;
+  --bms-file-progress-bg: #ebeef5;
+  --bms-file-progress-bar: var(--bms-color-primary);
+  --bms-file-marker-invalid-color: #f56c6c;
+  --bms-file-icon-color: #909399;
+  --bms-file-crop-mask-bg: rgba(0, 0, 0, 0.45);
+  --bms-file-panel-bg: var(--bms-color-bg);
+  --bms-file-border: var(--bms-color-border);
   // 字
   --bms-font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
   --bms-font-size: 14px;
@@ -169,6 +181,13 @@
   --bms-dict-option-disabled-color: #7d8085;
   --bms-dict-tag-bg: #262727;
   --bms-dict-marker-disabled-color: #e6a23c;
+  // 文件上传底随深色调整对比度；标记色保持语义一致
+  --bms-file-drop-bg: #1d1e1f;
+  --bms-file-drop-border: #414243;
+  --bms-file-item-bg: #262727;
+  --bms-file-progress-bg: #414243;
+  --bms-file-marker-invalid-color: #f89898;
+  --bms-file-icon-color: #a3a6ad;
 }
 
 // 打印样式令牌（打印与屏幕样式解耦；件层消费 var(--bms-print-*, fallback)，黑白色值不与屏幕主题联动）

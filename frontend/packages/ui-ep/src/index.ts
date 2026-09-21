@@ -232,6 +232,9 @@ export {
 export { default as DateTimeField, type DateTimeKind, type DateTimeValue } from './components/field/DateTimeField.vue'
 export { default as DictSelectField, type DictFieldValue } from './components/field/DictSelectField.vue'
 export { default as FileUploadField, type UploadFieldItem } from './components/field/FileUploadField.vue'
+export { default as ImageUploadField } from './components/field/ImageUploadField.vue'
+export { default as FileListField } from './components/field/FileListField.vue'
+export { default as ImageCropDialog } from './components/field/ImageCropDialog.vue'
 export { default as OrgSelectField, type OrgFieldValue } from './components/field/OrgSelectField.vue'
 export { default as UserSelectField, type UserFieldValue } from './components/field/UserSelectField.vue'
 export { default as PostSelectField, type PostFieldValue } from './components/field/PostSelectField.vue'
@@ -388,6 +391,25 @@ export {
 export { createHttpDictSource, dictSourceRegistry, registerDictSource } from './utils/dictSource'
 export { localStorageDictChannel } from './utils/dictStorage'
 export { createDictTranslator } from './utils/dictTranslator'
+export {
+  useBaseFileUpload,
+  type FileUploadValue,
+  type UseBaseFileUploadOptions,
+  type UseBaseFileUploadResult,
+} from './composables/useBaseFileUpload'
+export { createHttpUploadTransport, registerUploadTransport, uploadTransportRegistry } from './utils/uploadTransport'
+export { hashFile, type FileHashWorkerRequest, type FileHashWorkerResponse } from './utils/fileHash'
+export {
+  compressImage,
+  createObjectUrl,
+  planImageCompress,
+  readImageDimension,
+  revokeObjectUrl,
+  type ImageCompressRequest,
+  type ImageProcessWorkerRequest,
+  type ImageProcessWorkerResponse,
+} from './utils/imageProcess'
+export { mountImageCropper, type ImageCropOptions, type ImageCropperHandle } from './utils/imageCrop'
 export { escapeSearchText, highlightHit, highlightKeyword, sanitizeHighlight } from './utils/searchHighlight'
 export {
   createHttpSearchEngine,

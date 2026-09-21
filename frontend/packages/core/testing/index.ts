@@ -29,6 +29,7 @@ export * from './ai-assistant'
 export * from './search'
 export * from './org-select'
 export * from './dict'
+export * from './file-upload'
 
 /** 契约用例套件定义体。 */
 export type ContractDefine = () => void
