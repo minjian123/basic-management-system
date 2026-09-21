@@ -8,6 +8,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { FormRenderer, getFieldWidget, resolveFieldComponent, useBaseFormRenderer, MULTIPLE_WIDGETS } from '../src'
 import FormRendererBody from '../src/components/form-render/FormRendererBody.vue'
+import DictSelectField from '../src/components/field/DictSelectField.vue'
 import OrgSelectField from '../src/components/field/OrgSelectField.vue'
 
 /** 字段清单样例。 */
@@ -199,6 +200,42 @@ describe('utils/formWidgets 分发映射', () => {
     expect(deptField.exists()).toBe(true)
     expect(deptField.props('kind')).toBe('dept')
     expect(deptField.props('multiple')).toBe(true)
+  })
+
+  it('字典字段协同（06_06）：dict / dict_multi 映射字典件、dictType 透传、select + dictType 优先分发、多选语义单一来源', () => {
+    expect(MULTIPLE_WIDGETS).toContain('dict-multi')
+    const dictMeta: LayoutEffective = {
+      ...meta,
+      fields: [
+        { key: 'status', label: '状态', type: 'dict', group: 'platform', status: 'active', dictType: 'user_status' },
+        { key: 'biz', label: '业务', type: 'dict_multi', group: 'platform', status: 'active', dictType: 'biz_type' },
+        { key: 'referenced', label: '引用字典', type: 'select', group: 'platform', status: 'active', dictType: 'user_status' },
+      ],
+      layout: {
+        main: {
+          labelPosition: 'top',
+          sections: [
+            {
+              key: 's-dict',
+              title: '字典',
+              columns: 2,
+              fields: [{ key: 'status' }, { key: 'biz' }, { key: 'referenced' }],
+            },
+          ],
+        },
+      },
+    }
+    const plan = buildRenderPlan({ ...dictMeta, permissions: {} }, { mode: 'edit' })
+    const wrapper = mount(FormRendererBody, {
+      props: { mode: 'edit', plan, modelValue: {}, details: {}, permissions: {} },
+      global: { stubs: { DataTable: true, DictSelectField: true } },
+    })
+    const fields = wrapper.findAllComponents(DictSelectField)
+    expect(fields).toHaveLength(3)
+    expect(fields[0]?.props('dictType')).toBe('user_status')
+    expect(fields[1]?.props('dictType')).toBe('biz_type')
+    expect(fields[1]?.props('multiple')).toBe(true)
+    expect(fields[2]?.props('dictType')).toBe('user_status')
   })
 })
 

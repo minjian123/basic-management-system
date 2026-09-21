@@ -62,6 +62,8 @@ export type FormWidget =
   | 'richtext'
   | 'tree-select'
   | 'org-select'
+  | 'dict-select'
+  | 'dict-multi'
   | 'transfer'
   | 'cascader'
   | 'tags'
@@ -84,6 +86,8 @@ export const FIELD_WIDGETS: readonly FormWidget[] = [
   'richtext',
   'tree-select',
   'org-select',
+  'dict-select',
+  'dict-multi',
   'transfer',
   'cascader',
   'tags',
@@ -114,6 +118,8 @@ export const FIELD_WIDGET_MAP: Readonly<Record<string, FormWidget>> = {
   user: 'org-select',
   post: 'org-select',
   org: 'org-select',
+  dict: 'dict-select',
+  dict_multi: 'dict-multi',
   transfer: 'transfer',
   cascader: 'cascader',
   tags: 'tags',
@@ -457,6 +463,9 @@ export function normalizeField(input: FormFieldInput | undefined, index = 0): Fo
   if (options.length > 0) {
     field.options = options
   }
+  if (typeof source.dictType === 'string' && source.dictType !== '') {
+    field.dictType = source.dictType
+  }
   if (source.readonly === true) {
     field.readonly = true
   }
@@ -594,6 +603,7 @@ function mergeAttrs(field: FormField, override: FieldRenderOverride | undefined)
     defaultValue: override.defaultValue ?? field.defaultValue,
     rules: override.rules ?? field.rules,
     options: override.options ?? field.options,
+    dictType: override.dictType ?? field.dictType,
     readonly: override.readonly ?? field.readonly,
     hidden: override.hidden ?? field.hidden,
   }
