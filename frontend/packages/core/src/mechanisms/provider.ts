@@ -8,4 +8,7 @@
 import { BaseCapability } from './capability'
 
 /** 注册项基类（抽象）。 */
-export abstract class BaseProvider extends BaseCapability {}
+export abstract class BaseProvider extends BaseCapability {
+  /** 注册来源（`platform` 或模块名；由统一装配器登记时打标，供排查与归因）。 */
+  registrationSource: string | undefined
+}

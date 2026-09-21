@@ -9,6 +9,12 @@ import { BaseProvider } from '../mechanisms/provider'
 /** 注册项键模式（`<命名空间>:<键>`，命名空间为模块名或平台域）。 */
 export const REGISTRY_KEY_PATTERN = /^[a-z][a-z0-9-]*:[a-z][a-z0-9-]*$/
 
+/** 页面区域标识模式（点分 `<域>.<区域>`，如 `layout.header` / `form.toolbar`）。 */
+export const PAGE_AREA_ID_PATTERN = /^[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*)+$/
+
+/** 语言标识模式（小写 BCP-47，如 `zh-cn` / `en`）。 */
+export const LOCALE_TAG_PATTERN = /^[a-z]{2,3}(-[a-z0-9]{2,8})*$/
+
 /** 路由·菜单注册项（键为路由名）。 */
 export class RouteMenuProvider extends BaseProvider {
   /** 路由名。 */
@@ -142,5 +148,80 @@ export class WorkbenchCardProvider extends BaseProvider {
     this.key = key
     this.component = component
     this.title = title
+  }
+}
+
+/** 页面区域注册项。 */
+export class PageAreaProvider extends BaseProvider {
+  /** 命名空间键（`<来源>:<区域项>`）。 */
+  readonly key: string
+  /** 区域标识（点分，如 `layout.header`）。 */
+  readonly area: string
+  /** 挂接组件（异步加载器或组件对象）。 */
+  readonly component: unknown
+  /** 同区域排序提示（缺省 0；保序仍以登记顺序为准）。 */
+  readonly order: number
+
+  /**
+   * 构造页面区域注册项。
+   *
+   * @param key 命名空间键。
+   * @param area 区域标识。
+   * @param component 挂接组件。
+   * @param order 排序提示。
+   */
+  constructor(key: string, area: string, component: unknown, order = 0) {
+    super()
+    this.key = key
+    this.area = area
+    this.component = component
+    this.order = order
+  }
+}
+
+/** 主题令牌注册项。 */
+export class ThemeTokenProvider extends BaseProvider {
+  /** 命名空间键（`<命名空间>:<主题标识>`）。 */
+  readonly key: string
+  /** 令牌映射（`--bms-*` 变量名 → 值）。 */
+  readonly tokens: Record<string, string>
+  /** 模式标注（`light` / `dark` / 品牌标识等，仅作检索维度）。 */
+  readonly mode: string | undefined
+
+  /**
+   * 构造主题令牌注册项。
+   *
+   * @param key 命名空间键。
+   * @param tokens 令牌映射。
+   * @param mode 模式标注。
+   */
+  constructor(key: string, tokens: Record<string, string>, mode?: string) {
+    super()
+    this.key = key
+    this.tokens = { ...tokens }
+    this.mode = mode
+  }
+}
+
+/** i18n 文案包注册项。 */
+export class I18nPackProvider extends BaseProvider {
+  /** 命名空间键（`<来源>:<语言标识小写>`）。 */
+  readonly key: string
+  /** 语言标识（小写归一，取自键的语言标识段）。 */
+  readonly locale: string
+  /** 文案映射（`msg_key` → 文案）。 */
+  readonly messages: Record<string, string>
+
+  /**
+   * 构造 i18n 文案包注册项。
+   *
+   * @param key 命名空间键。
+   * @param messages 文案映射。
+   */
+  constructor(key: string, messages: Record<string, string>) {
+    super()
+    this.key = key
+    this.locale = key.slice(key.indexOf(':') + 1).toLowerCase()
+    this.messages = { ...messages }
   }
 }
