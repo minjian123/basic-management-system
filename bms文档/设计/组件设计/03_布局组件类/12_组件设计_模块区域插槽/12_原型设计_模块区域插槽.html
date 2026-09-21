@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 模块区域插槽</title>
+<link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; margin-top:12px; }
+  .area { border:1px dashed #b4d3ff; background:#ecf5ff; border-radius:8px; padding:8px 10px; }
+  .area + .area { margin-top:14px; }
+  .area .cap { font-size:12px; color:#57606a; margin-bottom:6px; font-family:Consolas,monospace; }
+  .slot { display:flex; align-items:center; gap:8px; flex-wrap:wrap; min-height:36px; background:#fff; border:1px solid #eaeef2; border-radius:6px; padding:6px 8px; }
+  .slot.is-empty { justify-content:center; color:#b1b8bf; font-size:12px; border-style:dashed; }
+  .item { display:flex; align-items:center; gap:6px; border:1px solid #eaeef2; border-radius:6px; padding:4px 8px; font-size:12px; }
+  .item .k { font-family:Consolas,"Cascadia Mono",monospace; color:#57606a; }
+  .item .o { color:#b1b8bf; }
+  .item.dim { opacity:.45; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="12_组件设计_模块区域插槽.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 模块区域插槽 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="12_组件设计_模块区域插槽.md">《组件设计 · 模块区域插槽》</a>：演示按区域标识渲染已登记区域项、保序（登记序 / 顺序提示）、模拟模块项挂载与卸载、空区域、懒加载件与只读消费口径。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-bar">
+        <span>区域标识</span>
+        <el-select v-model="area" size="small" style="width:170px">
+          <el-option v-for="a in areaIds" :key="a" :label="a" :value="a"></el-option>
+        </el-select>
+        <span>排序</span>
+        <el-radio-group v-model="sortMode" size="small">
+          <el-radio-button label="reg">登记序</el-radio-button>
+          <el-radio-button label="order">顺序提示</el-radio-button>
+        </el-radio-group>
+        <el-checkbox v-model="lazyPending" size="small">模拟懒加载件加载中</el-checkbox>
+      </div>
+
+      <div class="dp-bar">
+        <span>模拟模块项挂载：</span>
+        <el-checkbox v-for="it in allItems" :key="it.key" v-model="it.mounted" size="small">
+          {{ it.key }}（{{ it.area }}）
+        </el-checkbox>
+      </div>
+
+      <div class="area">
+        <div class="cap">宿主布局区域位：{{ area }}</div>
+        <div class="slot" :class="{ 'is-empty': visibleItems.length === 0 }">
+          <template v-if="visibleItems.length === 0">（区域无已登记项，渲染为空——不渲染占位，不降级到其它区域）</template>
+          <span v-for="it in visibleItems" v-else :key="it.key" class="item">
+            <span class="k">{{ it.key }}</span>
+            <span>{{ it.label }}</span>
+            <span class="o">order={{ it.order }}</span>
+            <el-tag v-if="it.lazy && lazyPending" size="small" type="info">加载中</el-tag>
+          </span>
+        </div>
+      </div>
+
+      <div class="dp-state">当前区域={{ area }}　排序={{ sortMode === 'reg' ? '登记序' : '顺序提示' }}　已登记项={{ visibleItems.length }} / 全部项={{ allItems.length }}
+渲染范围：仅已登记项（未登记者不参与渲染，不注册即不可用）；挂载即出现、卸载即消失；
+空区域与未知区域均为空（不替调用方兜底）；挂接内容可为组件或懒加载件，加载中不阻塞其余项；
+插槽只读区域登记，不修改登记、不做业务兜底。</div>
+    </div>
+  </div>
+</div>
+
+<script src="../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref, computed } = Vue;
+  var app = createApp({ setup: function () {
+    var areaIds = ['layout.header', 'page.top', 'form.toolbar'];
+    var area = ref('layout.header');
+    var sortMode = ref('reg');
+    var lazyPending = ref(true);
+    var allItems = ref([
+      { key: 'demo:hero', area: 'layout.header', label: '快捷入口', order: 10, mounted: true, lazy: false },
+      { key: 'demo:status', area: 'layout.header', label: '状态提示', order: 5, mounted: true, lazy: false },
+      { key: 'biz:notice', area: 'page.top', label: '提示条', order: 0, mounted: true, lazy: false },
+      { key: 'biz:ext-action', area: 'form.toolbar', label: '扩展动作', order: 20, mounted: true, lazy: true }
+    ]);
+    var visibleItems = computed(function () {
+      var list = allItems.value.filter(function (it) { return it.area === area.value && it.mounted; });
+      if (sortMode.value === 'order') {
+        return list.slice().sort(function (a, b) { return a.order - b.order; });
+      }
+      return list;
+    });
+    return {
+      areaIds: areaIds, area: area, sortMode: sortMode, lazyPending: lazyPending,
+      allItems: allItems, visibleItems: visibleItems
+    };
+  }});
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>
