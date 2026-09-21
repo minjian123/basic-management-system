@@ -7,6 +7,7 @@ import { MASK_TEXT, displayFieldText, orgKindOfFieldType, resolveFieldRenderStat
 import { computed, ref, watch } from 'vue'
 
 import DataTable from '../data/DataTable.vue'
+import DictSelectField from '../field/DictSelectField.vue'
 import { MULTIPLE_WIDGETS, resolveFieldComponent } from '../../utils/formWidgets'
 import { useBaseDataState } from '../../composables/useBaseDataState'
 
@@ -163,11 +164,28 @@ function textOf(field: RenderFieldPlan): string {
  * @param field 字段渲染项。
  */
 function componentOf(field: RenderFieldPlan): unknown {
+  // 字典引用字段（`select` / `multi-select` + `dictType`）优先分发字典件
+  if (isDictReferenced(field)) {
+    return DictSelectField
+  }
   return resolveFieldComponent({
     widget: field.widget,
     fieldType: field.base.type,
     registry: props.registry,
   })
+}
+
+/**
+ * 是否字典引用字段（`dict` / `dict_multi` 字段类型，或 `select` / `multi-select` 且带 `dictType`）。
+ *
+ * @param field 字段渲染项。
+ */
+function isDictReferenced(field: RenderFieldPlan): boolean {
+  if (field.widget === 'dict-select' || field.widget === 'dict-multi') {
+    return true
+  }
+  const dictType = field.base.dictType ?? ''
+  return dictType !== '' && (field.widget === 'select' || field.widget === 'multi-select')
 }
 
 /**
@@ -189,15 +207,18 @@ function isMultiple(field: RenderFieldPlan): boolean {
 }
 
 /**
- * 控件附加属性（组织选择件透传 `kind`；其余为空）。
+ * 控件附加属性（组织选择件透传 `kind`；字典件透传 `dictType`；其余为空）。
  *
  * @param field 字段渲染项。
  */
 function extraProps(field: RenderFieldPlan): Record<string, unknown> {
-  if (field.widget !== 'org-select') {
-    return {}
+  if (field.widget === 'org-select') {
+    return { kind: orgKindOfFieldType(field.base.type) ?? 'user' }
   }
-  return { kind: orgKindOfFieldType(field.base.type) ?? 'user' }
+  if (isDictReferenced(field)) {
+    return { dictType: field.base.dictType ?? '' }
+  }
+  return {}
 }
 
 /**

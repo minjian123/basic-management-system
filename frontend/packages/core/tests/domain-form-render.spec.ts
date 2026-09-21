@@ -109,6 +109,15 @@ describe('字段类型 → 控件语义键', () => {
     expect(resolveFieldWidget('cascader')).toBe('cascader')
     expect(resolveFieldWidget('tags')).toBe('tags')
     expect(resolveFieldWidget('captcha')).toBe('captcha')
+    expect(resolveFieldWidget('dict')).toBe('dict-select')
+    expect(resolveFieldWidget('dict_multi')).toBe('dict-multi')
+  })
+
+  it('字典引用属性透传（dictType）', () => {
+    const field = normalizeField({ key: 'status', type: 'select', dictType: 'user_status' })
+    expect(field.dictType).toBe('user_status')
+    const multi = normalizeField({ key: 'tags', type: 'dict_multi', dictType: 'biz_type' })
+    expect(multi.dictType).toBe('biz_type')
   })
 
   it('表外类型回退纯文本且判为未知', () => {

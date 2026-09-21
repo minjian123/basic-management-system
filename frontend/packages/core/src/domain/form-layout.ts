@@ -246,6 +246,8 @@ export interface FieldRenderAttrs {
   rules?: readonly FieldRule[]
   /** 选项集（下拉 / 单选 / 复选 / 穿梭等）。 */
   options?: readonly ExtFieldOption[]
+  /** 字典类型（选项集引用字典；与 `select` / `multi_select` 或 `dict` / `dict_multi` 字段类型协作）。 */
+  dictType?: string
   /** 只读（编辑态亦只读）。 */
   readonly?: boolean
   /** 隐藏（布局引用但默认不渲染）。 */

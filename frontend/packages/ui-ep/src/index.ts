@@ -240,6 +240,10 @@ export {
   default as OrgCompositePicker,
   type OrgCompositeValue,
 } from './components/field/OrgCompositePicker.vue'
+export { default as DictCascaderField, type DictCascadeValue } from './components/field/DictCascaderField.vue'
+export { default as DictLabel } from './components/field/DictLabel.vue'
+export { default as DictAdvancedQuery } from './components/field/DictAdvancedQuery.vue'
+export { default as ConditionGroupBuilder } from './components/field/ConditionGroupBuilder.vue'
 export { default as CheckboxInput, type CheckboxForm, type CheckboxValue } from './components/input/CheckboxInput.vue'
 export { default as NumberInput } from './components/input/NumberInput.vue'
 export { default as RadioInput, type RadioForm, type RadioValue } from './components/input/RadioInput.vue'
@@ -370,6 +374,20 @@ export {
 } from './composables/useBaseOrgSelect'
 export { debounce, type DebouncedFunction } from './utils/debounce'
 export { createHttpOrgSource, orgSourceRegistry, registerOrgSource } from './utils/orgSource'
+export {
+  useBaseDictSelect,
+  type DictSelectValue,
+  type UseBaseDictSelectOptions,
+  type UseBaseDictSelectResult,
+} from './composables/useBaseDictSelect'
+export {
+  useBaseDictQuery,
+  type UseBaseDictQueryOptions,
+  type UseBaseDictQueryResult,
+} from './composables/useBaseDictQuery'
+export { createHttpDictSource, dictSourceRegistry, registerDictSource } from './utils/dictSource'
+export { localStorageDictChannel } from './utils/dictStorage'
+export { createDictTranslator } from './utils/dictTranslator'
 export { escapeSearchText, highlightHit, highlightKeyword, sanitizeHighlight } from './utils/searchHighlight'
 export {
   createHttpSearchEngine,

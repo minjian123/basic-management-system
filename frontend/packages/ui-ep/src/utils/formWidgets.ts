@@ -17,6 +17,7 @@ import AmountField from '../components/field/AmountField.vue'
 import CaptchaField from '../components/field/CaptchaField.vue'
 import CascadeField from '../components/field/CascadeField.vue'
 import DateTimeField from '../components/field/DateTimeField.vue'
+import DictSelectField from '../components/field/DictSelectField.vue'
 import EnumField from '../components/field/EnumField.vue'
 import FileUploadField from '../components/field/FileUploadField.vue'
 import NumberField from '../components/field/NumberField.vue'
@@ -49,13 +50,15 @@ const BUILTIN_WIDGETS: Readonly<Record<string, Component>> = {
   richtext: RichTextField,
   'tree-select': TreeSelectField,
   'org-select': OrgSelectField,
+  'dict-select': DictSelectField,
+  'dict-multi': DictSelectField,
   transfer: TransferField,
   cascader: CascadeField,
   tags: TagInputField,
   captcha: CaptchaField,
 }
 
-/** 字段类型专用件（同语义键下按类型细分：金额 / 枚举 / 字典）。 */
+/** 字段类型专用件（同语义键下按类型细分：金额 / 枚举；字典类型经内建映射分发 `DictSelectField`）。 */
 const TYPE_OVERRIDES: Readonly<Record<string, Component>> = {
   amount: AmountField,
   percent: AmountField,
@@ -120,4 +123,5 @@ export const MULTIPLE_WIDGETS: readonly FormWidget[] = [
   'transfer',
   'tags',
   'org-select',
+  'dict-multi',
 ]
