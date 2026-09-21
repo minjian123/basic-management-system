@@ -109,7 +109,7 @@ export const FIELD_WIDGET_MAP: Readonly<Record<string, FormWidget>> = {
   file: 'file',
   image: 'image',
   richtext: 'richtext',
-  dept: 'tree-select',
+  dept: 'org-select',
   tree: 'tree-select',
   user: 'org-select',
   post: 'org-select',

@@ -219,6 +219,17 @@ export {
 } from './capabilities/process-modeler'
 export { BaseEditorKernel, type EditorMode } from './capabilities/editor-kernel'
 export { BaseOptionSource, type OptionItem } from './capabilities/option-source'
+export {
+  BaseOrgSource,
+  OrgSourceProvider,
+  OrgSourceRegistry,
+  type OrgDeptTreeQuery,
+  type OrgPostQuery,
+  type OrgResolveQuery,
+  type OrgSourceAdapter,
+  type OrgSourceOptions,
+  type OrgUserQuery,
+} from './capabilities/org-source'
 export { BasePresignedUrl, type PresignedResult } from './capabilities/presigned-url'
 export { BasePlaceholderState } from './capabilities/placeholder-state'
 export {
@@ -278,6 +289,7 @@ export {
 } from './capabilities/ai-assistant'
 export { BaseGlobalSearch } from './capabilities/global-search'
 export { BaseSearch } from './capabilities/search'
+export { BaseOrgSelect } from './capabilities/org-select'
 export { BaseColumnConfig, type ColumnSeed, type ColumnState } from './capabilities/column-config'
 export { BaseQueryScheme, type QueryCondition, type QueryScheme } from './capabilities/query-scheme'
 export { BaseFieldShell } from './capabilities/field-shell'
@@ -1174,6 +1186,67 @@ export {
   type NotificationRealtimePayload,
   type NotificationSnapshot,
 } from './domain/notification'
+export {
+  ORG_CACHE_MAX,
+  ORG_DEFAULT_PAGE_SIZE,
+  ORG_DELETED_MARK,
+  ORG_DISABLED_MARK,
+  ORG_EMPTY_TEXT,
+  ORG_EMPTY_VALUE,
+  ORG_ERROR_TEXTS,
+  ORG_JOIN,
+  ORG_KEYWORD_MAX,
+  ORG_LIMIT_DEFAULT,
+  ORG_LOAD_ERROR_TEXT,
+  ORG_PAGE_SIZE_MAX,
+  ORG_PLACEHOLDER_TEXT,
+  ORG_SEARCH_DEBOUNCE,
+  ORG_STATUSES,
+  ORG_TAG_COLLAPSE_DEFAULT,
+  ORG_TARGETS,
+  applyOrgSelection,
+  buildOrgResolveQuery,
+  buildOrgSearchQuery,
+  clampOrgPage,
+  clampOrgPageSize,
+  findOrgDeptPath,
+  findOrgItem,
+  isBlankOrgKeyword,
+  isOrgErrorCode,
+  mergeOrgItems,
+  normalizeOrgDeptTree,
+  normalizeOrgIds,
+  normalizeOrgItem,
+  normalizeOrgItems,
+  normalizeOrgKeyword,
+  normalizeOrgKind,
+  normalizeOrgNameRefs,
+  normalizeOrgSearchQuery,
+  normalizeOrgStatus,
+  orgCacheKey,
+  orgItemLabel,
+  orgKindLabel,
+  orgKindOfFieldType,
+  orgLimitText,
+  orgSelectionText,
+  orgTagSummary,
+  parseOrgDeptTree,
+  parseOrgPage,
+  removeOrgId,
+  resolveOrgErrorText,
+  toOrgTreeNodes,
+  type OrgDeptNode,
+  type OrgKind,
+  type OrgOptionItem,
+  type OrgPageResult,
+  type OrgSearchInput,
+  type OrgSearchQuery,
+  type OrgSelectionOptions,
+  type OrgSelectionResult,
+  type OrgStatus,
+  type OrgTagSummary,
+  type OrgTreeNode,
+} from './domain/org'
 export {
   SEARCH_DEGRADE_FALLBACK_TEXT,
   SEARCH_DEGRADE_REASONS,

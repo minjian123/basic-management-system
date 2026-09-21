@@ -3,11 +3,11 @@
 // 由 FormRenderer 异步懒加载的独立分包入口（分包标记 `data-subpackage="renderer"`）。
 // 字段仅做分发与组合（控件本体归字段类与基础控件类）；重控件经 utils/formWidgets 二次懒加载。
 import type { FieldPermission, FieldRendererRegistry, RenderDetailColumn, RenderFieldPlan, RenderPlan } from '@bms/core'
-import { MASK_TEXT, displayFieldText, resolveFieldRenderState } from '@bms/core'
+import { MASK_TEXT, displayFieldText, orgKindOfFieldType, resolveFieldRenderState } from '@bms/core'
 import { computed, ref, watch } from 'vue'
 
 import DataTable from '../data/DataTable.vue'
-import { resolveFieldComponent } from '../../utils/formWidgets'
+import { MULTIPLE_WIDGETS, resolveFieldComponent } from '../../utils/formWidgets'
 import { useBaseDataState } from '../../composables/useBaseDataState'
 
 /** 渲染三态。 */
@@ -180,17 +180,24 @@ function placeholderOf(field: RenderFieldPlan): string {
 }
 
 /**
- * 是否为多选语义。
+ * 是否为多选语义（唯一来源 `MULTIPLE_WIDGETS`，防两处清单漂移）。
  *
  * @param field 字段渲染项。
  */
 function isMultiple(field: RenderFieldPlan): boolean {
-  return (
-    field.widget === 'multi-select' ||
-    field.widget === 'tags' ||
-    field.widget === 'transfer' ||
-    field.widget === 'checkbox'
-  )
+  return MULTIPLE_WIDGETS.includes(field.widget)
+}
+
+/**
+ * 控件附加属性（组织选择件透传 `kind`；其余为空）。
+ *
+ * @param field 字段渲染项。
+ */
+function extraProps(field: RenderFieldPlan): Record<string, unknown> {
+  if (field.widget !== 'org-select') {
+    return {}
+  }
+  return { kind: orgKindOfFieldType(field.base.type) ?? 'user' }
 }
 
 /**
@@ -314,6 +321,7 @@ function isDisplayOnly(field: RenderFieldPlan): boolean {
                 :disabled="field.disabled"
                 :placeholder="placeholderOf(field)"
                 :options="field.options"
+                v-bind="extraProps(field)"
                 @update:model-value="onFieldInput(field, $event)"
               />
               <p v-else :data-test="`renderer-field-plain-${field.key}`">{{ textOf(field) }}</p>
@@ -357,6 +365,7 @@ function isDisplayOnly(field: RenderFieldPlan): boolean {
                     :disabled="field.disabled"
                     :placeholder="placeholderOf(field)"
                     :options="field.options"
+                    v-bind="extraProps(field)"
                     @update:model-value="onFieldInput(field, $event)"
                   />
                   <p v-else :data-test="`renderer-field-plain-${field.key}`">{{ textOf(field) }}</p>

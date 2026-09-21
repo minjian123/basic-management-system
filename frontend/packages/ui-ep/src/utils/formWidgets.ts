@@ -113,5 +113,11 @@ export function resolveFieldComponentByType(
   return resolveFieldComponent({ widget: resolveFieldWidget(fieldType), fieldType, registry })
 }
 
-/** 多选语义键集合（件层据此传 `multiple`）。 */
-export const MULTIPLE_WIDGETS: readonly FormWidget[] = ['multi-select', 'checkbox', 'transfer', 'tags']
+/** 多选语义键集合（件层据此传 `multiple`；表单渲染器复用为唯一来源）。 */
+export const MULTIPLE_WIDGETS: readonly FormWidget[] = [
+  'multi-select',
+  'checkbox',
+  'transfer',
+  'tags',
+  'org-select',
+]

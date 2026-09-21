@@ -1,8 +1,11 @@
 /**
  * 选项源能力基类：加载 / 缓存与版本比对 / 搜索 / 回显（加载器由宿主注入，占位不请求）。
+ *
+ * 父基类 `BaseField`（经值链 `BaseValue → BaseField` 取得受控值与字段语义），
+ * 供字典 / 组织 / 枚举 / 树 / 级联等字段族派生；`BaseOrgSelect` 即其下位组件基类。
  */
 
-import { BaseComponent } from '../base/BaseComponent'
+import { BaseField } from './field'
 
 /** 选项项。 */
 export interface OptionItem<T = unknown> {
@@ -13,9 +16,11 @@ export interface OptionItem<T = unknown> {
 }
 
 /** 选项源能力基类（抽象）。 */
-export abstract class BaseOptionSource<T = unknown> extends BaseComponent {
+export abstract class BaseOptionSource<T = unknown> extends BaseField<T> {
   /** 能力键。 */
   readonly identifier: string = 'option-source'
+  /** 依赖登记。 */
+  override readonly depends = ['field']
   /** 已加载选项。 */
   options: OptionItem<T>[] = []
   /** 数据版本（加载后递增，用于版本比对；命名避开根字段 `version`）。 */
