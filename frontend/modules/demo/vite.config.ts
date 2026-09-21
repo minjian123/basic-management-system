@@ -1,6 +1,10 @@
+import { fileURLToPath, URL } from 'node:url'
+
 import { federation } from '@module-federation/vite'
 import vue from '@vitejs/plugin-vue'
 import { defineConfig } from 'vite'
+
+import { loadSharedDependencies } from '../../scripts/shared-deps.mjs'
 
 /** 模块名（= 模块清单 `name` = MF 容器名；见任务 02_01 详细设计 §3.3 远端命名约定）。 */
 const MODULE_NAME = 'demo'
@@ -15,46 +19,56 @@ const EXPOSE_KEY = './module'
 const PORT = 5002
 
 /**
- * Module Federation 共享依赖（**单例**）：与宿主 `frontend/apps/desktop/vite.config.ts`
- * 声明须保持一致（版本来源单一化与版本偏斜检查归 `02_02`）。
+ * Module Federation 共享依赖（**单例 + 版本要求**）：与宿主同源——共享面与 `requiredVersion`
+ * 取自单一来源 `frontend/shared-dependencies.json`（不得各写一份）。
  *
- * 本任务只落**框架三件**（框架本体 / 路由 / 状态）——实测宿主若共享 `element-plus`，
- * 插件会把整库以 share provider 块由宿主入口静态引入（+334.5 KB gzip，首屏超预算）；
- * UI 组件库与平台基座包（`@bms/core` / `@bms/ui-ep`，源码直出、宿主以 alias 消费、
- * MF 探测不到）的共享方案归 `02_02`（见详细设计 §3.3 / §7）。
+ * 模块为**消费方**（`role: 'remote'`）：每项带 `import: false`（**不打包本地回退副本**）
+ * 与 `strictVersion: true`（版本不满足即拒绝加载）——宁可加载失败，不要静默出现第二份实例
+ * （见任务 02_02 详细设计 §3.3）。
  */
-const SHARED_DEPENDENCIES: Record<string, { singleton: boolean }> = {
-  vue: { singleton: true },
-  'vue-router': { singleton: true },
-  pinia: { singleton: true },
-}
+const { shared: SHARED_DEPENDENCIES } = loadSharedDependencies({ role: 'remote' })
 
 // 演示模块工程（MF remote）：独立构建、产物独立（dist/ 不并入主应用产物）；
 // 宿主经模块清单在运行期注册并加载本容器暴露的模块定义。
-export default defineConfig({
-  plugins: [
-    vue(),
-    federation({
-      name: MODULE_NAME,
-      filename: REMOTE_ENTRY_FILE,
-      exposes: { [EXPOSE_KEY]: './src/index.ts' },
-      shared: SHARED_DEPENDENCIES,
-    }),
-  ],
-  build: {
-    // MF 依赖顶层 await 与动态导入；无历史浏览器包袱，取 esnext
-    target: 'esnext',
-  },
-  server: {
-    port: PORT,
-    strictPort: true,
-    // 跨端口加载：放开 CORS 并声明自身 origin（remoteEntry 内部资源 URL 依据）
-    cors: true,
-    origin: `http://localhost:${String(PORT)}`,
-  },
-  preview: {
-    port: PORT,
-    strictPort: true,
-    cors: true,
-  },
+//
+// **两个构建目标**（`--mode standalone` 切换；见任务 02_02 详细设计 §3.3）：
+//   - 缺省（`remote`）→ `dist/`：**远端产物**，只含 MF 容器与暴露的模块定义及其异步分包，
+//     入口显式声明为 `src/index.ts`、**不带 HTML 壳**——独立预览壳自带一份框架本地副本，
+//     若并入同一构建图，会被宿主在加载暴露模块时按依赖提示一并预下载（白下载上百 KB）；
+//   - `standalone` → `dist-standalone/`：**独立预览产物**，带 HTML 壳与本地框架副本，
+//     供模块脱离宿主独立开发与预览（本目标下框架依赖本地提供，不走共享域）。
+export default defineConfig(({ mode }) => {
+  const isStandaloneBuild = mode === 'standalone'
+  return {
+    plugins: [
+      vue(),
+      federation({
+        name: MODULE_NAME,
+        filename: REMOTE_ENTRY_FILE,
+        exposes: { [EXPOSE_KEY]: './src/index.ts' },
+        shared: SHARED_DEPENDENCIES,
+      }),
+    ],
+    build: {
+      // MF 依赖顶层 await 与动态导入；无历史浏览器包袱，取 esnext
+      target: 'esnext',
+      outDir: isStandaloneBuild ? 'dist-standalone' : 'dist',
+      // 远端产物显式声明入口（不带 HTML 壳）；独立预览目标沿用 HTML 入口
+      rollupOptions: isStandaloneBuild
+        ? {}
+        : { input: { module: fileURLToPath(new URL('./src/index.ts', import.meta.url)) } },
+    },
+    server: {
+      port: PORT,
+      strictPort: true,
+      // 跨端口加载：放开 CORS 并声明自身 origin（remoteEntry 内部资源 URL 依据）
+      cors: true,
+      origin: `http://localhost:${String(PORT)}`,
+    },
+    preview: {
+      port: PORT,
+      strictPort: true,
+      cors: true,
+    },
+  }
 })

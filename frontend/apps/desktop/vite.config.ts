@@ -6,20 +6,17 @@ import Components from 'unplugin-vue-components/vite'
 import { ElementPlusResolver } from 'unplugin-vue-components/resolvers'
 import { defineConfig } from 'vite'
 
+import { loadSharedDependencies } from '../../scripts/shared-deps.mjs'
+
 /**
- * Module Federation 共享依赖（**单例**）：宿主与模块工程两侧声明须保持一致
- * （`frontend/modules/` 下各模块工程的 `vite.config.ts` 同款；版本来源单一化与版本偏斜检查归 `02_02`）。
+ * Module Federation 共享依赖（**单例 + 版本要求**）：共享面与 `requiredVersion` 取自
+ * **单一来源** `frontend/shared-dependencies.json`（宿主与模块两侧同源，不得各写一份）；
+ * 宿主为**提供方**——不设 `import: false`（须打包并提供实例），不设 `strictVersion`（拒绝权在消费方）。
  *
- * 本任务只落**框架三件**（框架本体 / 路由 / 状态）——实测共享 `element-plus` 会让插件生成
- * 「整库 share provider 块」并由宿主入口静态引入（+334.5 KB gzip，首屏 660.7 KB 超预算）；
- * UI 组件库与平台基座包（`@bms/core` / `@bms/ui-ep`：源码直出、宿主以 alias 消费、MF 探测不到）
- * 的共享方案归 `02_02`（见详细设计 §3.3 / §7）。
+ * 共享面之外的 `element-plus` 与平台基座包（`@bms/core` / `@bms/ui-ep`）登记在单一来源的
+ * `notShared`（含理由与实测数据），由白名单护栏与体积阈值守住（见任务 02_02 详细设计 §3.1 / §3.7）。
  */
-const SHARED_DEPENDENCIES: Record<string, { singleton: boolean }> = {
-  vue: { singleton: true },
-  'vue-router': { singleton: true },
-  pinia: { singleton: true },
-}
+const { shared: SHARED_DEPENDENCIES } = loadSharedDependencies({ role: 'host' })
 
 // BMS PC 管理端：固定开发端口 5173；/api 与 /healthz 代理 backend，/info 重写至 backend 根（连通验证）
 // Module Federation：仅作**纯 host**（`name` + `shared`）——远端地址来自模块清单，运行期经

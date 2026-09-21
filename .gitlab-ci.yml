@@ -349,6 +349,37 @@ module-build:
     paths: [frontend/modules/demo/dist/]
     expire_in: 30 days
 
+# ---- 共享依赖产物级断言（构建期；《前端开发规范》「依赖共享与版本偏斜」节，阶段五 02_02 接入）----
+# 判据取自两侧产物中 MF 生成的共享声明块（权威）+ 白名单与体积护栏；运行期实例数断言随 desktop-check 的 Vitest。
+shared-deps-check:
+  stage: build
+  image: $REGISTRY_IMAGE_PREFIX/ci-frontend:node22
+  needs:
+    - job: desktop-build
+      artifacts: true
+      optional: true
+    - job: module-build
+      artifacts: true
+      optional: true
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      exists:
+        - frontend/shared-dependencies.json
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes:
+        paths:
+          - frontend/**/*
+          - package.json
+          - package-lock.json
+          - .npmrc
+          - deploy/**/*
+          - .gitlab-ci.yml
+      exists:
+        - frontend/shared-dependencies.json
+  script:
+    - node frontend/scripts/check-shared-deps.mjs
+    - node frontend/scripts/check-shared-whitelist.mjs
+
 # ---- 移动端：ESLint + Vitest（含覆盖率门禁，与 desktop-check 对称；S4c 起路径 frontend/apps/mobile）----
 mobile-check:
   stage: test
@@ -414,6 +445,10 @@ desktop-build:
     - test -d frontend/packages/vue && ln -sfn ../../frontend/packages/vue node_modules/@bms/vue || true
     - test -d frontend/packages/ui-ep && ln -sfn ../../frontend/packages/ui-ep node_modules/@bms/ui-ep || true
     - cd frontend/apps/desktop && npm run build && npm run budget
+  artifacts:
+    when: always
+    paths: [frontend/apps/desktop/dist/]
+    expire_in: 30 days
 
 mobile-build:
   stage: build
