@@ -141,7 +141,7 @@ export class ManifestModuleLoader implements ModuleLoader {
 | 项 | 口径 |
 | --- | --- |
 | 宿主容器名 | `bms-desktop`（宿主标识，与模块名不同名空间） |
-| `shared` 集合 | `vue` / `vue-router` / `pinia` / `element-plus` / `@bms/core` / `@bms/ui-ep`，均 `singleton: true`；**本任务不写 `requiredVersion`**（版本偏斜治理归 `02_02`） |
+| `shared` 集合 | **框架三件** `vue` / `vue-router` / `pinia`，均 `singleton: true`；**本任务不写 `requiredVersion`**（版本偏斜治理归 `02_02`）。**2026-09-21 实测修订**（详见 §7）：宿主共享 `element-plus` 时插件会生成「整库 share provider 块」并由宿主入口**静态引入**（首屏 660.7 KB、单块 334.5 KB，超预算 2.5 倍；显式 `eager: false` 实测无效），故本任务收窄为框架三件；`@bms/core` / `@bms/ui-ep` 因宿主以 `resolve.alias` 源码直出消费、MF **探测不到而进不了共享面**（无对应 provider 块），按 §7 回退为双侧各自打包 |
 | 静态 `remotes` | **不声明**——远端地址来自清单，改清单不必重构建 |
 | 测试环境 | 插件在 Vitest 环境**自动空转**（插件内 `isTestEnv()` 直接返回空插件数组），测试下 MF 运行时不参与，宿主用例须以**替身远端解析器**覆盖远端分支 |
 
@@ -232,10 +232,10 @@ frontend/modules/demo/
 
 | 项 | 口径 |
 | --- | --- |
-| 入口块 | `dist/remoteEntry*.js` + `dist/__federation_expose_module*.js`（容器入口 + 暴露模块块）——远端加载时**必下**的块 |
-| 阈值 | `budget.json`：`entryGzipKb`（入口块 gzip 合计上限，取值「实测基线 + 20%」，落地时填实测值）与 `largestGzipKb`（单块上限） |
-| 页面分包断言 | `dist` 中「容器 / 暴露块」之外的 js 块（异步块）数量 **≥ 模块声明路由数**——页面确实独立分包、未被并入容器入口 |
-| 观察输出 | 打印入口块与异步块清单（gzip），供 `03_03` 按模块体积归因复用 |
+| 入口块闭包 | 从 `dist/remoteEntry.js` 出发解析**引用闭包**：种子块追「静态引用（`from`）+ 动态引用（`import()`，即暴露键指向的暴露块）」，其余块只追静态引用——页面 / 工具块经动态 `import()` 引用，**不进闭包**（实测闭包 6 块 / 8.8 KB gzip；暴露模块块仅 0.8 KB，证明共享与分包生效） |
+| 阈值 | `budget.json`：`entryGzipKb`（入口闭包 gzip 合计上限，取「实测基线 + 20%」）、`largestGzipKb`（单块上限）、`maxEntryFiles`（入口块数上限，防「分包退化、页面并入入口」） |
+| 页面分包断言 | ① 入口闭包**文件名**不得命中 `pageChunkHints`（模块页面块命名特征，如 `DemoHome` / `DemoToolbox`）；② 入口外异步块数 ≥ `minAsyncChunks`（= 模块声明路由数）——页面确实独立分包、未被并入容器入口 |
+| 观察输出 | 打印入口闭包与入口外块清单（gzip），供 `03_03` 按模块体积归因复用 |
 | 归档 | CI 以 artifact 归档模块产物目录 `frontend/modules/demo/dist/`（模块产物单独归档，不随宿主产物） |
 
 ### 3.6 两形态共存口径 <a id="coexist"></a>
@@ -308,7 +308,9 @@ frontend/modules/demo/
 ## 7. 边界与开放项 <a id="open"></a>
 
 - **`shared` 版本偏斜治理**：`requiredVersion`、版本唯一来源、生产构建无重复实例验证、CI 依赖实例数断言、框架大版本升级契约——全部归 `02_02`（本任务只落「能跑起来的最小 singleton 声明」）；
-- **平台基座包共享**：`@bms/core` / `@bms/ui-ep` 为**源码直出、版本 `0.0.0` 的内部包**，其 MF 共享以宿主 `resolve.alias` 消费为前提；实现期实测该前提成立与否——若共享注册不可用，本任务内**回退为双侧各自打包**（模块工程以 `file:` 依赖自带副本；装配器按键重建注册项、不做 `instanceof` 判定，跨副本类实例安全），并回写本节与 §3.3 / §3.4；基座包**发布版本化 / 共享 scope 化**随基座包发布治理评估；
+- **UI 组件库与平台基座包的共享（实测修订）**：本任务 `shared` 收窄为**框架三件**（`vue` / `vue-router` / `pinia`），实测依据与归口如下——
+  - **`element-plus` 不能由宿主共享**：实测宿主共享它时，插件为「宿主未静态引入的共享库」生成整库 share provider 块并由**宿主入口静态引入**（首屏 660.7 KB / 单块 334.5 KB gzip，超预算 2.5 倍；显式 `eager: false` 与 `hostInitInjectLocation: 'entry'` 均不改变下载量——后者只是把块从 HTML 移到入口，属指标失真）；归 `02_02` 评估（`treeShaking.runtime-infer`、provider 懒加载、`@module-federation/runtime` 手工 init 等，前提是解决插件启动期静态拉取）；
+  - **平台基座包共享不成立**：`@bms/core` / `@bms/ui-ep` 为**源码直出、版本 `0.0.0` 的内部包**，宿主以 `resolve.alias` 消费 → MF 探测不到模块请求、无 provider 块，本任务按此**回退为双侧各自打包**（模块工程以 `file:` 依赖自带副本；装配器按键重建注册项、不做 `instanceof` 判定，跨副本类实例安全）；基座包**发布版本化 / 共享 scope 化**随基座包发布治理评估；
 - **清单治理**：清单唯一来源、版本发现、灰度 / 回滚、**生产远端入口地址替换**归 `03_02`（本任务清单地址为本地演示值）；
 - **可观测**：远端入口缓存 / 版本化 URL、sourcemap 口径、按模块错误与性能归因归 `03_03`；
 - **隔离**：模块样式前缀、Shadow DOM / 沙箱评估归 `03_01`；
@@ -326,8 +328,8 @@ frontend/modules/demo/
 | 6 | 模块工程形态 | `frontend/modules/<模块名>/` **独立安装**（自有 `package.json` / 锁文件 / `vite.config.ts` / `tsconfig`），依赖隔离、独立构建与独立发布 |
 | 7 | 加载器结构 | **入口解析器注入**（`ModuleEntryResolver`）；本地表解析器落 core、远端 MF 解析器落宿主；**删除 `LocalModuleLoader`**，加载实现收敛为一套（修订 `01_02` 决策 12） |
 | 8 | 演示 remote 运行方式 | 模块 `build` 后用 **`vite preview`**（端口 5002、放开 CORS）提供产物，宿主 dev server 经清单 URL 加载——验证对象即独立构建产物 |
-| 9 | 体积计量 | 模块工程**自带** `budget.json` + 校验脚本（容器 / 暴露块阈值 + 页面分包断言），模块产物单独计量、不牵连宿主阈值 |
-| 10 | `shared` 深度 | **最小 singleton 声明**（`vue` / `vue-router` / `pinia` / `element-plus` / `@bms/core` / `@bms/ui-ep`），不写 `requiredVersion`；完整治理归 `02_02` |
+| 9 | 体积计量 | 模块工程**自带** `budget.json` + 校验脚本（入口块**引用闭包**阈值 + 入口文件数上限 + 页面分包断言），模块产物单独计量、不牵连宿主阈值 |
+| 10 | `shared` 深度 | **最小 singleton 声明**，不写 `requiredVersion`；完整治理归 `02_02`。**2026-09-21 实测修订**：集合由六件收窄为**框架三件**（`vue` / `vue-router` / `pinia`）——`element-plus` 由宿主共享会把整库拉入首屏（+334.5 KB gzip）、`@bms/core` / `@bms/ui-ep` 经 alias 消费时 MF 探测不到；两者共享方案归 `02_02`（见 §7） |
 | 11 | CI 接线 | **本次接线**：镜像预装模块工程依赖 + 新增 `module-check` / `module-build`（含产物归档）；宿主 job 免改（路径规则已覆盖） |
 | 12 | 演示入口 URL | 清单 `entry` 用**绝对 URL** `http://localhost:5002/remoteEntry.js`（不涉内网 IP，符合公开文档红线）；生产清单归 `03_02` |
 | 13 | 宿主插件角色 | **纯 host**（仅 `name` + `shared`；无 `remotes` / `exposes`） |
