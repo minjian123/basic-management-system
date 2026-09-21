@@ -215,6 +215,9 @@ export {
 export { default as CronEditor } from './components/interaction/CronEditor.vue'
 export { default as CodeViewer, type ViewerLanguage } from './components/interaction/CodeViewer.vue'
 export { default as CaptchaField, type CaptchaKind } from './components/field/CaptchaField.vue'
+export { default as ImageCaptcha } from './components/field/ImageCaptcha.vue'
+export { default as SliderCaptcha } from './components/field/SliderCaptcha.vue'
+export { default as SmsCaptcha } from './components/field/SmsCaptcha.vue'
 export { default as AmountField } from './components/field/AmountField.vue'
 export { default as CascadeField, type CascadeOption, type CascadeValue } from './components/field/CascadeField.vue'
 export { default as EnumField, type EnumFieldForm, type EnumFieldValue } from './components/field/EnumField.vue'
@@ -377,6 +380,12 @@ export {
 } from './composables/useBaseOrgSelect'
 export { debounce, type DebouncedFunction } from './utils/debounce'
 export { createHttpOrgSource, orgSourceRegistry, registerOrgSource } from './utils/orgSource'
+export {
+  useBaseCaptcha,
+  type UseBaseCaptchaOptions,
+  type UseBaseCaptchaResult,
+} from './composables/useBaseCaptcha'
+export { createHttpCaptchaSource, captchaSourceRegistry, registerCaptchaSource } from './utils/captchaSource'
 export {
   useBaseDictSelect,
   type DictSelectValue,
