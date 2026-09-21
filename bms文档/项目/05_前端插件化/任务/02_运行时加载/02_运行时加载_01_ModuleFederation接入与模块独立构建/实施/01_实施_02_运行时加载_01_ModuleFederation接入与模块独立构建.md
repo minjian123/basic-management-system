@@ -87,8 +87,8 @@ flowchart LR
   6. **`prettier` 格式对齐另起提交**（`style(02_01)`）。
 
 - **遗留**：
-  1. **UI 组件库（`element-plus`）共享**：宿主共享会把整库以 share provider 块拉入首屏（+334.5 KB gzip），归 `02_02` 评估（`treeShaking.runtime-infer`、provider 懒加载、运行时手工 `init` 等，前提是解决插件启动期静态拉取）；
-  2. **平台基座包共享**：`@bms/core` / `@bms/ui-ep` 经宿主 `resolve.alias` 消费时 MF 探测不到，本任务回退为双侧各自打包；**发布版本化 / 共享 scope 化**随基座包发布治理评估；
+  1. **UI 组件库（`element-plus`）共享**：宿主共享会把整库以 share provider 块拉入首屏（+334.5 KB gzip），归 `02_02` 评估（`treeShaking.runtime-infer`、provider 懒加载、运行时手工 `init` 等，前提是解决插件启动期静态拉取）——**`02_02` 已闭环**：受控实测（`eager:false` + `treeShaking runtime-infer` 首屏门禁降至 131.5 KB，但启动期仍异步拉取 provider 284.9 KB + tree-shaking 148.3 KB ≈ 433 KB，属指标失真）判定不可行，**登记为受控非共享项**（含版本要求与模块产物体积阈值），复评条件见 `02_02` 实施记录 §6；
+  2. **平台基座包共享**：`@bms/core` / `@bms/ui-ep` 经宿主 `resolve.alias` 消费时 MF 探测不到，本任务回退为双侧各自打包；**发布版本化 / 共享 scope 化**随基座包发布治理评估——**`02_02` 已闭环**：机制判定为「无从共享」（源码直出 + 别名消费，无 provider 块），按其登记为受控非共享项，共享前提（发布版本化 / 共享域化）作为开放项；
   3. **模块工程依赖解析依赖仓库根 workspace 依赖集**（`file:` 依赖不安装被链接包的第三方依赖）——已按宿主同机制在 CI 复制根依赖集，长期宜改为模块工程显式声明或基座包发布化；
   4. **`bpmn-moddle` 补声明三方重复**（`packages/ui-ep/src/env.d.ts` / 宿主 / 模块工程）——宜随基座包发布治理收敛为包内类型或共享声明；
   5. **清单治理**：清单唯一来源、版本发现、灰度 / 回滚、生产远端入口地址替换归 `03_02`（本任务为本地演示地址）；
