@@ -233,6 +233,16 @@ export {
   RealtimeChannelRegistry,
 } from './capabilities/realtime-channel'
 export { BaseAiStream, AiStreamProvider, AiStreamRegistry, type AiStreamInput } from './capabilities/ai-stream'
+export {
+  BaseSearchEngine,
+  SearchEngineProvider,
+  SearchEngineRegistry,
+  type SearchEngineAdapter,
+  type SearchEngineOptions,
+  type SearchFileRequest,
+  type SearchGlobalRequest,
+  type SearchLogRequest,
+} from './capabilities/search-engine'
 export { BaseWatermark } from './capabilities/watermark'
 export { BaseUserDisplay, type UserDisplayInfo, type UserStatus } from './capabilities/user-display'
 export { BaseDynamicRoutes, type RouteNode } from './capabilities/dynamic-routes'
@@ -266,6 +276,8 @@ export {
   type AiStreamDonePayload,
   type AiStreamHandlers,
 } from './capabilities/ai-assistant'
+export { BaseGlobalSearch } from './capabilities/global-search'
+export { BaseSearch } from './capabilities/search'
 export { BaseColumnConfig, type ColumnSeed, type ColumnState } from './capabilities/column-config'
 export { BaseQueryScheme, type QueryCondition, type QueryScheme } from './capabilities/query-scheme'
 export { BaseFieldShell } from './capabilities/field-shell'
@@ -1162,6 +1174,69 @@ export {
   type NotificationRealtimePayload,
   type NotificationSnapshot,
 } from './domain/notification'
+export {
+  SEARCH_DEGRADE_FALLBACK_TEXT,
+  SEARCH_DEGRADE_REASONS,
+  SEARCH_DEGRADE_TEXT,
+  SEARCH_DOC_TYPES,
+  SEARCH_EMPTY_TEXT,
+  SEARCH_FILE_PERM,
+  SEARCH_FILE_UNSEARCHABLE_TEXT,
+  SEARCH_KEYWORD_MAX,
+  SEARCH_LOG_PERM,
+  SEARCH_LOG_RANGE_EXCEED_TEXT,
+  SEARCH_LOG_RANGE_MAX_DAYS,
+  SEARCH_LOG_RANGE_REQUIRED_TEXT,
+  SEARCH_PAGE_DEPTH_MAX,
+  SEARCH_PAGE_SIZE_DEFAULT,
+  SEARCH_PAGE_SIZE_MAX,
+  SEARCH_PLACEHOLDER_TEXT,
+  SEARCH_RATE_LIMIT_TEXT,
+  SEARCH_RECENT_MAX,
+  SEARCH_SUGGEST_DEBOUNCE,
+  SEARCH_SUGGEST_LIMIT,
+  SEARCH_SUGGEST_PER_DOMAIN,
+  addRecentKeyword,
+  buildFileParams,
+  buildGlobalParams,
+  buildLogParams,
+  clampSearchPage,
+  clampSearchPageSize,
+  diffDays,
+  domainLabelOf,
+  filterAccessibleDomains,
+  groupHits,
+  hitKey,
+  hitRouteTarget,
+  isBlankKeyword,
+  isSearchErrorCode,
+  normalizeKeyword,
+  normalizeRecentKeywords,
+  normalizeSearchDomain,
+  normalizeSearchDomains,
+  normalizeSearchGroup,
+  normalizeSearchHit,
+  normalizeSearchHits,
+  normalizeSearchResult,
+  parseDegradeReason,
+  parseDegraded,
+  removeRecentKeyword,
+  resolveSearchErrorText,
+  topHits,
+  validateLogRange,
+  type SearchDegradeReason,
+  type SearchDocType,
+  type SearchDomain,
+  type SearchFileQuery,
+  type SearchGlobalQuery,
+  type SearchGroup,
+  type SearchHit,
+  type SearchLogQuery,
+  type SearchPhase,
+  type SearchRange,
+  type SearchResult,
+  type SearchValidation,
+} from './domain/search'
 export {
   AI_ACTION_STATES,
   AI_AUTO_EXECUTE_DISABLED_TEXT,

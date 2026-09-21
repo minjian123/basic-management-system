@@ -50,6 +50,14 @@
   --bms-ai-risk-border: var(--bms-color-warning);
   --bms-ai-citation-bg: #ecf5ff;
   --bms-ai-audit-color: var(--bms-color-text-secondary);
+  // 全局搜索（高亮 / 命中悬停 / 激活项 / 降级条；禁止硬编码色值）
+  --bms-search-highlight-bg: #fff8c5;
+  --bms-search-highlight-color: #9a6700;
+  --bms-search-hit-hover-bg: #f5f7fa;
+  --bms-search-active-bg: #eef4ff;
+  --bms-search-panel-bg: var(--bms-color-bg);
+  --bms-search-degrade-bg: #fff8c5;
+  --bms-search-degrade-border: #d4a72c;
   // 字
   --bms-font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
   --bms-font-size: 14px;
@@ -126,6 +134,13 @@
   --bms-ai-bubble-assistant-bg: #262727;
   --bms-ai-risk-bg: #3a2f1c;
   --bms-ai-citation-bg: #1d3049;
+  // 全局搜索底随深色调整对比度；高亮仍用警示底
+  --bms-search-highlight-bg: #4a3a12;
+  --bms-search-highlight-color: #f0c674;
+  --bms-search-hit-hover-bg: #262727;
+  --bms-search-active-bg: #1d3049;
+  --bms-search-degrade-bg: #3a2f1c;
+  --bms-search-degrade-border: #d4a72c;
 }
 
 // 打印样式令牌（打印与屏幕样式解耦；件层消费 var(--bms-print-*, fallback)，黑白色值不与屏幕主题联动）

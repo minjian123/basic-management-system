@@ -47,12 +47,14 @@ export {
   type PreviewFile,
   type PreviewKind,
 } from './components/display/FilePreview.vue'
-export {
-  default as GlobalSearch,
-  type SearchDomain,
-  type SearchGroup,
-  type SearchHit,
-} from './components/display/GlobalSearch.vue'
+export { default as GlobalSearch } from './components/search/GlobalSearch.vue'
+// 搜索对外类型经核心领域模块统一导出（保持既有公开名）。
+export { type SearchDomain, type SearchGroup, type SearchHit } from '@bms/core'
+export { default as SearchEntry } from './components/search/SearchEntry.vue'
+export { default as SearchPalette } from './components/search/SearchPalette.vue'
+export { default as SearchHitItem } from './components/search/SearchHitItem.vue'
+export { default as SearchLogTab } from './components/search/SearchLogTab.vue'
+export { default as SearchFileTab } from './components/search/SearchFileTab.vue'
 export { default as NoticeList, type NoticeItem, type NoticeType } from './components/notice/NoticeList.vue'
 export { default as NoticeMessageItem } from './components/notice/NoticeMessageItem.vue'
 export { default as NoticeBell } from './components/notice/NoticeBell.vue'
@@ -352,6 +354,13 @@ export {
   type UseBaseAiAssistantOptions,
   type UseBaseAiAssistantResult,
 } from './composables/useBaseAiAssistant'
+export { useBaseSearch, type UseBaseSearchOptions, type UseBaseSearchResult } from './composables/useBaseSearch'
+export { escapeSearchText, highlightHit, highlightKeyword, sanitizeHighlight } from './utils/searchHighlight'
+export {
+  createHttpSearchEngine,
+  registerSearchEngine,
+  searchEngineRegistry,
+} from './utils/searchEngine'
 export { createSseStreamAdapter, type SseStreamAdapterOptions } from './utils/aiStream'
 export { chartEngineRegistry, registerChartEngine } from './utils/chartEngine'
 export { loadMarked, renderAiMarkdown, resetMarkedCache, splitAiContent } from './utils/aiMarkdown'
