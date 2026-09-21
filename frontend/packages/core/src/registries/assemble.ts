@@ -10,6 +10,7 @@ import type { ModuleRegistration } from '../module/types'
 import { assertIconKey, assertLocaleTag, assertNamespacedKey, assertPageAreaId, type FrontendRegistries } from './index'
 import {
   ComponentProvider,
+  FieldRendererProvider,
   I18nPackProvider,
   IconProvider,
   PageAreaProvider,
@@ -34,6 +35,7 @@ export type RegistrationKey = string
 /** 待倒入项（分组 + 键 + 已构造注册项）。 */
 type PlanEntry =
   | { group: 'component'; key: string; provider: ComponentProvider }
+  | { group: 'fieldRenderer'; key: string; provider: FieldRendererProvider }
   | { group: 'icon'; key: string; provider: IconProvider }
   | { group: 'card'; key: string; provider: WorkbenchCardProvider }
   | { group: 'region'; key: string; provider: PageAreaProvider }
@@ -61,6 +63,14 @@ function buildPlan(source: RegistrationSource, registration: RegistryRegistratio
   for (const [key, component] of Object.entries(registration.components ?? {})) {
     checkKey(key, '通用组件')
     plan.push({ group: 'component', key, provider: new ComponentProvider(key, component) })
+  }
+  for (const declaration of registration.fieldRenderers ?? []) {
+    checkKey(declaration.key, '字段渲染器')
+    plan.push({
+      group: 'fieldRenderer',
+      key: declaration.key,
+      provider: new FieldRendererProvider(declaration.key, declaration.component, declaration.fieldType),
+    })
   }
   for (const [key, iconSource] of Object.entries(registration.icons ?? {})) {
     checkKey(key, '图标')
@@ -102,10 +112,11 @@ function buildPlan(source: RegistrationSource, registration: RegistryRegistratio
       throw schemaError('路由·菜单', `路由路径须以 / 开头：${route.path}`)
     }
     const name = route.name ?? route.path
+    const icon = typeof route.meta.icon === 'string' && route.meta.icon !== '' ? route.meta.icon : undefined
     plan.push({
       group: 'route',
       key: name,
-      provider: new RouteMenuProvider(name, route.path, String(route.meta.title)),
+      provider: new RouteMenuProvider(name, route.path, String(route.meta.title), icon),
     })
   }
   return plan
@@ -123,6 +134,9 @@ function registerEntry(registries: FrontendRegistries, entry: PlanEntry, source:
   switch (entry.group) {
     case 'component':
       registries.component.register(entry.provider)
+      break
+    case 'fieldRenderer':
+      registries.fieldRenderer.register(entry.provider)
       break
     case 'icon':
       registries.icon.register(entry.provider)
@@ -187,6 +201,9 @@ export function releaseRegistrations(registries: FrontendRegistries, keys: reado
     switch (group) {
       case 'component':
         registries.component.unregister(key)
+        break
+      case 'fieldRenderer':
+        registries.fieldRenderer.unregister(key)
         break
       case 'icon':
         registries.icon.unregister(key)

@@ -1,44 +1,34 @@
 /**
  * 上下文能力基类：宿主注入 router / store / i18n / 用户 / 租户（只读约束）。
+ *
+ * 消费**单一上下文契约**（模块契约的 `ModuleHostContext`）——模块与宿主同一形状，避免两处定义漂移。
  */
 
 import { BaseComponent } from '../base/BaseComponent'
 
-/** 宿主注入上下文。 */
-export interface ModuleContext {
-  /** 路由。 */
-  router?: unknown
-  /** 状态管理。 */
-  store?: unknown
-  /** 国际化。 */
-  i18n?: unknown
-  /** 当前用户。 */
-  user?: unknown
-  /** 当前租户。 */
-  tenant?: unknown
-}
+import type { ModuleHostContext } from '../module/types'
 
 /** 上下文键。 */
-export type ModuleContextKey = keyof ModuleContext
+export type ModuleContextKey = keyof ModuleHostContext
 
 /** 上下文能力基类（抽象）。 */
 export abstract class BaseModuleContext extends BaseComponent {
   /** 能力键。 */
   readonly identifier: string = 'module-context'
   /** 只读上下文快照。 */
-  #context: Readonly<ModuleContext> = Object.freeze({})
+  #context: Readonly<ModuleHostContext> = Object.freeze({})
 
   /** 上下文快照（只读）。 */
-  get snapshot(): Readonly<ModuleContext> {
+  get snapshot(): Readonly<ModuleHostContext> {
     return this.#context
   }
 
   /**
-   * 注入上下文（冻结为只读）。
+   * 注入上下文（冻结为只读快照；缺省空）。
    *
    * @param context 宿主上下文。
    */
-  inject(context: ModuleContext): void {
+  inject(context: ModuleHostContext = {}): void {
     this.#context = Object.freeze({ ...context })
     if (!this.isDisposed) {
       this.notifyLifecycle('update')

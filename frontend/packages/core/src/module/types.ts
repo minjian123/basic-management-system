@@ -56,12 +56,24 @@ export interface ModuleI18nPackDeclaration {
   messages: Record<string, string>
 }
 
+/** 模块字段渲染器声明。 */
+export interface ModuleFieldRendererDeclaration {
+  /** 命名空间键（`<模块名>:<键>`）。 */
+  key: string
+  /** 渲染组件（组件对象或异步加载器）。 */
+  component: unknown
+  /** 字段类型（供按类型解析）。 */
+  fieldType?: string
+}
+
 /** 模块注册声明。 */
 export interface ModuleRegistration {
   /** 路由声明。 */
   routes?: ModuleRouteDeclaration[]
   /** 通用组件声明（组件名 → 组件）。 */
   components?: Record<string, unknown>
+  /** 字段渲染器声明。 */
+  fieldRenderers?: ModuleFieldRendererDeclaration[]
   /** 图标声明（图标名 → 资源）。 */
   icons?: Record<string, unknown>
   /** 工作台卡片声明。 */
@@ -106,8 +118,8 @@ export interface LoadedModule {
 
 /** 模块加载器接口（阶段五远端加载按同一接口实现）。 */
 export interface ModuleLoader {
-  /** 按模块名加载（返回清单与注册声明，不挂载）。 */
-  load(name: string): Promise<LoadedModule>
+  /** 按模块名加载（返回清单与注册声明，不挂载；上下文由宿主注入且冻结）。 */
+  load(name: string, context?: ModuleHostContext): Promise<LoadedModule>
   /** 挂载（登记已挂载状态）。 */
   mount(loaded: LoadedModule): void
   /** 卸载（幂等）。 */

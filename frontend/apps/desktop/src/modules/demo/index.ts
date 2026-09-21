@@ -2,7 +2,7 @@
 
 import { WorkbenchCardProvider, defineModule } from '@bms/core'
 
-/** 演示模块。 */
+/** 演示模块（**默认导出**为模块入口约定：清单驱动加载器取入口默认导出）。 */
 export const demoModule = defineModule({
   manifest: { name: 'demo', version: '0.1.0' },
   setup: () => ({
@@ -43,3 +43,5 @@ export const demoModule = defineModule({
     ],
   }),
 })
+
+export default demoModule

@@ -1,24 +1,55 @@
-/** 模块宿主装配：本地模块加载器 + 宿主上下文注入 + 路由注册 / 卸载 + 统一装配。 */
+/**
+ * 模块宿主装配：清单驱动加载 + 上下文注入 + 路由注册 / 卸载 + 统一装配 + 渲染消费接线。
+ *
+ * 加载器由「本地定义表」换为「清单驱动」（同 `ModuleLoader` 接口，装配不变）；模块声明的
+ * 区域 / 令牌 / 文案在挂载后生效、卸载后还原。
+ */
 
 import {
-  LocalModuleLoader,
+  BaseError,
+  ErrorCodes,
+  ManifestModuleLoader,
   PLATFORM_SOURCE,
+  applyThemeTokens,
   assembleRegistrations,
+  collectThemeTokens,
   releaseRegistrations,
+  releaseThemeTokens,
   type LoadedModule,
   type MenuNode,
   type ModuleHostContext,
   type RegistrationKey,
 } from '@bms/core'
 
-import { demoModule } from '@/modules/demo'
+import { MODULE_ENTRIES } from './entries'
+import { moduleI18n } from './i18n'
+import { loadModuleManifest } from './manifest'
+import { bumpRegistriesRevision, PLATFORM_REGISTRATION, registries } from './registries'
+import { setModuleError } from './boundary'
+import { documentThemeTarget } from './themeTokens'
+
 import { router } from '@/router'
 import { registerModuleRoutes, unregisterModuleRoutes } from '@/router/dynamic'
-import { PLATFORM_REGISTRATION, registries } from './registries'
 
-const loader = new LocalModuleLoader([demoModule])
+/** 清单装载结果汇总。 */
+export interface ModuleInstallSummary {
+  /** 已挂载模块名。 */
+  mounted: string[]
+  /** 失败模块（名 / 版本 / 原因）。 */
+  failures: { name: string; version: string; reason: string }[]
+}
+
+/** 当前加载器（清单装载后可用）。 */
+let loader: ManifestModuleLoader | undefined
+
+/** 模块路由名（模块名 → 路由名清单）。 */
 const mountedRoutes = new Map<string, string[]>()
+/** 模块登记键（模块名 → 登记键清单）。 */
 const registrationKeys = new Map<string, RegistrationKey[]>()
+/** 模块令牌名（模块名 → 已写入令牌名）。 */
+const themeTokenNames = new Map<string, string[]>()
+/** 模块文案包键（模块名 → 已并入键）。 */
+const i18nKeys = new Map<string, string[]>()
 
 /**
  * 平台自身注册（启动期；与模块注册共用同一通道）。
@@ -29,53 +60,103 @@ export function installPlatformRegistrations(): RegistrationKey[] {
   return assembleRegistrations(registries, PLATFORM_SOURCE, PLATFORM_REGISTRATION)
 }
 
-/** 模块加载器实例（阶段五换远端实现，装配不变）。 */
-export function getModuleLoader(): LocalModuleLoader {
+/** 当前模块加载器（清单装载后可用）。 */
+export function getModuleLoader(): ManifestModuleLoader | undefined {
   return loader
 }
 
 /**
- * 加载并挂载模块（按模块名注册其路由与扩展点）。
+ * 装载模块清单并逐条挂载（启动期调用一次）。
+ *
+ * 清单获取失败按空清单继续（记错误状态，不阻塞启动）；单条失败记错误状态并归集，其余照常。
+ *
+ * @param context 宿主上下文（各模块共用）。
+ * @returns 装载结果汇总。
+ */
+export async function installModules(context: ModuleHostContext = {}): Promise<ModuleInstallSummary> {
+  const manifest = await loadModuleManifest()
+  if (manifest.reason !== undefined) {
+    setModuleError({ module: 'modules.json', version: '', reason: manifest.reason })
+  }
+  for (const rejection of manifest.rejected) {
+    setModuleError({ module: rejection.name, version: '', reason: rejection.reason })
+  }
+
+  loader = new ManifestModuleLoader(manifest.entries, MODULE_ENTRIES)
+  const summary: ModuleInstallSummary = { mounted: [], failures: [] }
+  for (const entry of manifest.entries) {
+    try {
+      await mountModule(entry.name, context)
+      summary.mounted.push(entry.name)
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error)
+      setModuleError({ module: entry.name, version: entry.version, reason })
+      summary.failures.push({ name: entry.name, version: entry.version, reason })
+    }
+  }
+  return summary
+}
+
+/**
+ * 加载并挂载模块（按模块名注册路由、扩展点与渲染消费接线；失败回滚本次已产生的接线）。
  *
  * @param name 模块名。
  * @param context 宿主上下文。
  * @returns 已加载模块。
+ * @throws BaseError 清单未装载（`PROVIDER_NOT_REGISTERED`）或加载 / 装配失败。
  */
 export async function mountModule(name: string, context: ModuleHostContext = {}): Promise<LoadedModule> {
-  const loaded = await loader.load(name, context)
-  loader.mount(loaded)
-  mountedRoutes.set(name, registerModuleRoutes(router, loaded.registration.routes ?? []))
-  registrationKeys.set(name, assembleRegistrations(registries, name, loaded.registration))
-  return loaded
+  const active = loader
+  if (active === undefined) {
+    throw new BaseError(ErrorCodes.PROVIDER_NOT_REGISTERED, '模块清单未装载')
+  }
+  const loaded = await active.load(name, context)
+  active.mount(loaded)
+  try {
+    mountedRoutes.set(name, registerModuleRoutes(router, loaded.registration.routes ?? []))
+    registrationKeys.set(name, assembleRegistrations(registries, name, loaded.registration))
+    themeTokenNames.set(name, applyThemeTokens(documentThemeTarget(), collectThemeTokens(registries.themeToken)))
+    i18nKeys.set(name, moduleI18n.merge(loaded.registration.i18nPacks ?? []))
+    bumpRegistriesRevision()
+    return loaded
+  } catch (error) {
+    unmountModule(name)
+    throw error
+  }
 }
 
 /**
- * 卸载模块（移除其路由与扩展点登记，幂等）。
+ * 卸载模块（逆序：路由 → 文案 → 令牌 → 注册表 → 加载器；幂等）。
  *
  * @param name 模块名。
  */
 export function unmountModule(name: string): void {
   unregisterModuleRoutes(router, mountedRoutes.get(name) ?? [])
   mountedRoutes.delete(name)
+
+  moduleI18n.restore(i18nKeys.get(name) ?? [])
+  i18nKeys.delete(name)
+
+  releaseThemeTokens(documentThemeTarget(), themeTokenNames.get(name) ?? [])
+  themeTokenNames.delete(name)
+
   releaseRegistrations(registries, registrationKeys.get(name) ?? [])
   registrationKeys.delete(name)
-  loader.unmount(name)
+
+  loader?.unmount(name)
+  bumpRegistriesRevision()
 }
 
 /**
- * 派生模块菜单节点（取自注册声明的路由元信息）。
+ * 菜单节点（取自**路由·菜单注册表快照**，登记序）。
  *
- * @param name 模块名。
- * @returns 菜单节点（无 `meta.title` 的路由不参与）。
+ * @returns 菜单节点。
  */
-export function moduleMenuNodes(name: string): MenuNode[] {
-  const loaded = loader.getMounted(name)
-  return (loaded?.registration.routes ?? [])
-    .filter((route) => route.meta?.title !== undefined)
-    .map((route) => ({
-      path: route.path,
-      title: String(route.meta?.title ?? route.path),
-      name: route.name,
-      icon: 'sparkles',
-    }))
+export function moduleMenuNodes(): MenuNode[] {
+  return registries.routeMenu.values().map((provider) => ({
+    path: provider.path,
+    title: provider.title,
+    name: provider.key,
+    icon: provider.icon ?? 'sparkles',
+  }))
 }

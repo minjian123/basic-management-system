@@ -273,6 +273,7 @@ export { default as ContentTabs, type ContentTabItem } from './components/layout
 export { default as GridItem } from './components/layout/GridItem.vue'
 export { default as GridLayout, type GridAlign, type GridJustify } from './components/layout/GridLayout.vue'
 export { default as LayoutCard, type CardPadding } from './components/layout/LayoutCard.vue'
+export { default as ModuleAreaOutlet } from './components/layout/ModuleAreaOutlet.vue'
 export { default as SpacingDivider, type SpacingSize } from './components/layout/SpacingDivider.vue'
 export { default as SplitPane, type SplitDirection } from './components/layout/SplitPane.vue'
 export { default as TreeMasterDetail, type MasterTreeNode } from './components/layout/TreeMasterDetail.vue'
@@ -287,6 +288,12 @@ export {
   type UseBaseContainerResult,
 } from './composables/useBaseContainer'
 export { useBaseLayout, type UseBaseLayoutOptions, type UseBaseLayoutResult } from './composables/useBaseLayout'
+export {
+  useModuleArea,
+  type ModuleAreaItem,
+  type UseModuleAreaOptions,
+  type UseModuleAreaResult,
+} from './composables/useModuleArea'
 export { useBaseDisplay, type UseBaseDisplayResult } from './composables/useBaseDisplay'
 export { useBaseTable, type UseBaseTableOptions, type UseBaseTableResult } from './composables/useBaseTable'
 export {
