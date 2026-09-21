@@ -26,6 +26,8 @@ export const CAPABILITY_MANIFEST: Readonly<Record<string, readonly string[]>> = 
   'notification-center': ['notice'],
   notification: ['notification-center'],
   'ai-assistant': ['placeholder-state', 'access', 'notice', 'data-state', 'option-source', 'async-task'],
+  'global-search': ['placeholder-state', 'access', 'persisted-state'],
+  search: ['global-search'],
   labeled: [],
   validatable: ['labeled'],
   'form-container': ['validatable'],
