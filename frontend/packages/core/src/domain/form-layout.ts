@@ -8,6 +8,7 @@
 
 import type { FieldPermission } from '../capabilities/field-perm'
 
+import type { CaptchaKind, CaptchaScene } from './captcha'
 import { stableStringify } from './serialize'
 
 /** 自建字段类型白名单（对齐《概要设计 · 表单定制》「组件类型与自建字段边界」节；富文本不放开）。 */
@@ -256,6 +257,10 @@ export interface FieldRenderAttrs {
   uploadLimit?: number
   /** 上传是否多选（缺省多选）。 */
   uploadMultiple?: boolean
+  /** 验证码形态（`captcha` 字段类型协作；缺省图形）。 */
+  captchaKind?: CaptchaKind
+  /** 验证码使用场景（`captcha` 字段类型协作；缺省登录）。 */
+  captchaScene?: CaptchaScene
   /** 只读（编辑态亦只读）。 */
   readonly?: boolean
   /** 隐藏（布局引用但默认不渲染）。 */

@@ -7,6 +7,7 @@
  * 框架无关、不触 DOM、不请求，同输入同输出。
  */
 
+import { normalizeCaptchaKind, normalizeCaptchaScene } from './captcha'
 import { DEFAULT_LAYOUT_COLUMNS, SECTION_KEY_PREFIX, normalizeLayout } from './form-layout'
 import { codePattern, lengthRange, numberRange, required as requiredRule } from './validators'
 
@@ -481,6 +482,14 @@ export function normalizeField(input: FormFieldInput | undefined, index = 0): Fo
   }
   if (source.uploadMultiple === true || source.uploadMultiple === false) {
     field.uploadMultiple = source.uploadMultiple
+  }
+  const captchaKind = normalizeCaptchaKind(source.captchaKind)
+  if (captchaKind !== undefined) {
+    field.captchaKind = captchaKind
+  }
+  const captchaScene = normalizeCaptchaScene(source.captchaScene)
+  if (captchaScene !== undefined) {
+    field.captchaScene = captchaScene
   }
   if (source.readonly === true) {
     field.readonly = true

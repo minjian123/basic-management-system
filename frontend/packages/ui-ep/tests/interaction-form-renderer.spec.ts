@@ -8,6 +8,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { FormRenderer, getFieldWidget, resolveFieldComponent, useBaseFormRenderer, MULTIPLE_WIDGETS } from '../src'
 import FormRendererBody from '../src/components/form-render/FormRendererBody.vue'
+import CaptchaField from '../src/components/field/CaptchaField.vue'
 import DictSelectField from '../src/components/field/DictSelectField.vue'
 import FileUploadField from '../src/components/field/FileUploadField.vue'
 import ImageUploadField from '../src/components/field/ImageUploadField.vue'
@@ -284,6 +285,44 @@ describe('utils/formWidgets 分发映射', () => {
     const imageField = wrapper.findComponent(ImageUploadField)
     expect(imageField.exists()).toBe(true)
     expect(imageField.props('multiple')).toBe(false)
+  })
+
+  it('验证码字段协同（06_04）：captcha 分发、captchaKind / captchaScene 透传', () => {
+    expect(getFieldWidget('captcha')).toBeDefined()
+    const captchaMeta: LayoutEffective = {
+      ...meta,
+      fields: [
+        {
+          key: 'code',
+          label: '短信验证码',
+          type: 'captcha',
+          group: 'platform',
+          status: 'active',
+          captchaKind: 'sms',
+          captchaScene: 'bind',
+        },
+        { key: 'imageCode', label: '图形验证码', type: 'captcha', group: 'platform', status: 'active' },
+      ],
+      layout: {
+        main: {
+          labelPosition: 'top',
+          sections: [
+            { key: 's-captcha', title: '验证码', columns: 2, fields: [{ key: 'code' }, { key: 'imageCode' }] },
+          ],
+        },
+      },
+    }
+    const plan = buildRenderPlan({ ...captchaMeta, permissions: {} }, { mode: 'edit' })
+    const wrapper = mount(FormRendererBody, {
+      props: { mode: 'edit', plan, modelValue: {}, details: {}, permissions: {} },
+      global: { stubs: { DataTable: true, CaptchaField: true } },
+    })
+    const fields = wrapper.findAllComponents(CaptchaField)
+    expect(fields).toHaveLength(2)
+    expect(fields[0]?.props('kind')).toBe('sms')
+    expect(fields[0]?.props('scene')).toBe('bind')
+    expect(fields[1]?.props('kind')).toBe('image')
+    expect(fields[1]?.props('scene')).toBe('login')
   })
 })
 

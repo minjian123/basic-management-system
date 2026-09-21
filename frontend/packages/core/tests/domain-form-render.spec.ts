@@ -139,6 +139,20 @@ describe('字段类型 → 控件语义键', () => {
     expect(multi.dictType).toBe('biz_type')
   })
 
+  it('验证码属性透传（captchaKind / captchaScene，非法剔除）', () => {
+    const field = normalizeField({ key: 'code', type: 'captcha', captchaKind: 'sms', captchaScene: 'bind' })
+    expect(field.captchaKind).toBe('sms')
+    expect(field.captchaScene).toBe('bind')
+    const fallback = normalizeField({
+      key: 'code2',
+      type: 'captcha',
+      captchaKind: 'unknown' as never,
+      captchaScene: 'bogus' as never,
+    })
+    expect(fallback.captchaKind).toBeUndefined()
+    expect(fallback.captchaScene).toBeUndefined()
+  })
+
   it('表外类型回退纯文本且判为未知', () => {
     expect(resolveFieldWidget('wild_type')).toBe('plain')
     expect(isKnownFieldType('wild_type')).toBe(false)
