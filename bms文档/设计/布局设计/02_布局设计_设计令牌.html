@@ -165,6 +165,25 @@
         <li>候选悬停 / 标签底 / 标记色统一来自以上令牌；<strong>禁止在组织选择件中硬编码色值</strong>；数据范围与脱敏由组织主数据出口实现侧强制、前端不二次过滤，口径见《组件设计 · 组织选择字段》§3 / §12。</li>
       </ul>
 
+      <h2 id="file-color">2.6 文件上传令牌（2026-09-21 登记，前端组件库 06_07）</h2>
+      <table>
+        <tr><th>令牌</th><th>用途</th><th>默认值</th></tr>
+        <tr><td><code>--bms-file-drop-bg</code></td><td>拖拽区底</td><td>亮 <code>#fafafa</code> / 暗 <code>#1d1e1f</code></td></tr>
+        <tr><td><code>--bms-file-drop-border</code></td><td>拖拽区边</td><td>亮 <code>#dcdfe6</code> / 暗 <code>#414243</code></td></tr>
+        <tr><td><code>--bms-file-drop-active-border</code></td><td>拖拽悬停边</td><td><code>--bms-color-primary</code></td></tr>
+        <tr><td><code>--bms-file-item-bg</code></td><td>文件项 / 缩略图底</td><td>亮 <code>#f5f7fa</code> / 暗 <code>#262727</code></td></tr>
+        <tr><td><code>--bms-file-progress-bg</code></td><td>进度槽底</td><td>亮 <code>#ebeef5</code> / 暗 <code>#414243</code></td></tr>
+        <tr><td><code>--bms-file-progress-bar</code></td><td>进度条</td><td><code>--bms-color-primary</code></td></tr>
+        <tr><td><code>--bms-file-marker-invalid-color</code></td><td>「文件已失效」标记字 / 失效项字</td><td>亮 <code>#f56c6c</code> / 暗 <code>#f89898</code></td></tr>
+        <tr><td><code>--bms-file-icon-color</code></td><td>文件图标 / 空态字色</td><td>亮 <code>#909399</code> / 暗 <code>#a3a6ad</code></td></tr>
+        <tr><td><code>--bms-file-crop-mask-bg</code></td><td>裁剪弹窗遮罩底</td><td><code>rgba(0, 0, 0, 0.45)</code></td></tr>
+        <tr><td><code>--bms-file-panel-bg</code></td><td>裁剪弹窗面板底</td><td><code>--bms-color-bg</code></td></tr>
+        <tr><td><code>--bms-file-border</code></td><td>文件项 / 列表分隔线</td><td><code>--bms-color-border</code></td></tr>
+      </table>
+      <ul>
+        <li>拖拽区 / 文件项 / 进度 / 失效标记 / 裁剪遮罩配色统一来自以上令牌；<strong>禁止在文件件中硬编码色值</strong>；分片与秒传、断点续传、压缩与裁剪、失效占位口径见《组件设计 · 文件上传字段》第 3 / 7 / 8 节。</li>
+      </ul>
+
       <h2 id="font">3. 字体令牌</h2>
       <table>
         <tr><th>令牌</th><th>值</th></tr>
