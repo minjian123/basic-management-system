@@ -343,7 +343,7 @@ module-build:
   script:
     - rm -rf frontend/modules/demo/node_modules && cp -a /opt/ci/frontend/modules/demo/node_modules frontend/modules/demo/node_modules
     - cp -a /opt/ci/workspace/node_modules .
-    - cd frontend/modules/demo && npm run build && npm run budget
+    - cd frontend/modules/demo && npm run build && npm run budget && npm run guard:isolation
   artifacts:
     when: always
     paths: [frontend/modules/demo/dist/]
