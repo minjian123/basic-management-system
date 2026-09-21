@@ -1,1 +1,8 @@
-[{ "name": "demo", "entry": "http://localhost:5002/remoteEntry.js", "version": "0.1.0", "mode": "remote" }]
+[
+  {
+    "name": "demo",
+    "entry": "http://localhost:5002/demo/0.1.0/remoteEntry.js",
+    "version": "0.1.0",
+    "mode": "remote"
+  }
+]

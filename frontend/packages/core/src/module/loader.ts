@@ -9,6 +9,7 @@
 import { BaseError } from '../mechanisms/error'
 import { ErrorCodes } from '../mechanisms/error-codes'
 
+import { MODULE_CONTRACT_VERSION } from './contract'
 import type { ModuleManifestEntry } from './manifest'
 import type { LoadedModule, ModuleDefinition, ModuleHostContext, ModuleLoader } from './types'
 
@@ -52,7 +53,7 @@ export function remoteEntryUrl(origin: string, filename: string = MODULE_REMOTE_
 }
 
 /**
- * 判断是否为模块定义（形状校验：`manifest.name` / `manifest.version` 为字符串且 `setup` 为函数）。
+ * 判断是否为模块定义（形状校验：`manifest.name` / `version` 为字符串、`contractVersion` 为数字且 `setup` 为函数）。
  *
  * @param value 候选值。
  */
@@ -65,15 +66,21 @@ function isModuleDefinition(value: unknown): value is ModuleDefinition {
   if (typeof manifest !== 'object' || manifest === null) {
     return false
   }
-  const shape = manifest as { name?: unknown; version?: unknown }
-  return typeof candidate.setup === 'function' && typeof shape.name === 'string' && typeof shape.version === 'string'
+  const shape = manifest as { name?: unknown; version?: unknown; contractVersion?: unknown }
+  return (
+    typeof candidate.setup === 'function' &&
+    typeof shape.name === 'string' &&
+    typeof shape.version === 'string' &&
+    typeof shape.contractVersion === 'number'
+  )
 }
 
 /**
- * 清单驱动模块加载器：清单（名称 / 入口 / 版本 / 形态）为唯一来源，入口来源由解析器注入。
+ * 清单驱动模块加载器：清单（名称 / 入口 / 版本 / 形态 / 可见性）为唯一来源，入口来源由解析器注入。
  *
- * 加载校验（任一不过即**拒绝加载**）：清单条目存在 → 解析入口（本地未登记拒绝 / 远端异常上抛）→
- * 入口默认导出模块定义 → 模块自报名称与版本与清单**严格一致**；上下文冻结为只读快照后交模块 `setup`。
+ * 加载校验（任一不过即**拒绝加载**）：清单条目存在且可见 → 解析入口（本地未登记拒绝 / 远端异常上抛）→
+ * 入口默认导出模块定义 → 模块自报名称与版本与清单**严格一致** → 模块契约版本与平台常量一致；
+ * 上下文冻结为只读快照后交模块 `setup`。
  */
 export class ManifestModuleLoader implements ModuleLoader {
   /** 清单项（保清单序）。 */
@@ -82,6 +89,8 @@ export class ManifestModuleLoader implements ModuleLoader {
   private readonly resolveEntry: ModuleEntryResolver
   /** 清单条目索引（名 → 条目；同名保留首个）。 */
   private readonly byName = new Map<string, ModuleManifestEntry>()
+  /** 停用项（清单 `enabled: false`；不参与加载）。 */
+  private readonly disabled = new Set<string>()
   /** 已挂载模块（名 → 已加载模块）。 */
   private readonly mounted = new Map<string, LoadedModule>()
 
@@ -98,12 +107,15 @@ export class ManifestModuleLoader implements ModuleLoader {
       if (!this.byName.has(entry.name)) {
         this.byName.set(entry.name, entry)
       }
+      if (entry.enabled === false) {
+        this.disabled.add(entry.name)
+      }
     }
   }
 
-  /** 清单模块名（清单序）。 */
+  /** 可见模块名（清单序；停用项不列入）。 */
   names(): string[] {
-    return this.entries.map((entry) => entry.name)
+    return this.entries.filter((entry) => entry.enabled).map((entry) => entry.name)
   }
 
   /**
@@ -121,12 +133,15 @@ export class ManifestModuleLoader implements ModuleLoader {
    * @param name 模块名。
    * @param context 宿主上下文（注入前冻结为只读快照）。
    * @returns 已加载模块。
-   * @throws BaseError 清单未登记 / 入口未登记（`PROVIDER_NOT_REGISTERED`），入口非模块定义 / 名称或版本不一致（`CAPABILITY_VIOLATION`）。
+   * @throws BaseError 清单未登记 / 停用 / 入口未登记（`PROVIDER_NOT_REGISTERED`），入口非模块定义 / 名称或版本不一致 / 契约版本不匹配（`CAPABILITY_VIOLATION`）。
    */
   async load(name: string, context: ModuleHostContext = {}): Promise<LoadedModule> {
     const entry = this.byName.get(name)
     if (entry === undefined) {
       throw new BaseError(ErrorCodes.PROVIDER_NOT_REGISTERED, `模块未登记：${name}`)
+    }
+    if (this.disabled.has(name)) {
+      throw new BaseError(ErrorCodes.PROVIDER_NOT_REGISTERED, `模块不可见（清单 enabled=false）：${name}`)
     }
     const loaded = (await this.resolveEntry(entry)) as ModuleEntryModule | undefined
     const definition = loaded?.default
@@ -145,9 +160,20 @@ export class ManifestModuleLoader implements ModuleLoader {
         `模块版本与清单不一致：${entry.name} ${definition.manifest.version} ≠ ${entry.version}`,
       )
     }
+    if (definition.manifest.contractVersion !== MODULE_CONTRACT_VERSION) {
+      throw new BaseError(
+        ErrorCodes.CAPABILITY_VIOLATION,
+        `模块契约版本不匹配：${entry.name} 声明 ${definition.manifest.contractVersion} ≠ 平台 ${MODULE_CONTRACT_VERSION}`,
+      )
+    }
     const registration = await definition.setup(Object.freeze({ ...context }))
     return {
-      manifest: Object.freeze({ name: entry.name, version: entry.version, entry: entry.entry }),
+      manifest: Object.freeze({
+        name: entry.name,
+        version: entry.version,
+        entry: entry.entry,
+        contractVersion: definition.manifest.contractVersion,
+      }),
       registration,
     }
   }

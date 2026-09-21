@@ -6,11 +6,11 @@
  * 仅开发态进菜单（不进入生产菜单）。
  */
 
-import { WorkbenchCardProvider, defineModule } from '@bms/core'
+import { MODULE_CONTRACT_VERSION, WorkbenchCardProvider, defineModule } from '@bms/core'
 
-/** 演示模块（清单 `name` / `version` 须与宿主 `public/modules.json` 条目严格一致）。 */
+/** 演示模块（清单 `name` / `version` 须与宿主 `public/modules.json` 条目严格一致；版本构建期注入）。 */
 export const demoModule = defineModule({
-  manifest: { name: 'demo', version: '0.1.0' },
+  manifest: { name: 'demo', version: __BMS_MODULE_VERSION__, contractVersion: MODULE_CONTRACT_VERSION },
   setup: (context) => {
     // 只经注入上下文访问宿主能力（只读快照）：宿主当前以权限码承载 user，缺失项自行降级；
     // 模块不直连宿主 store / router、不持久化（见任务 03_01 详细设计 §3.5）。

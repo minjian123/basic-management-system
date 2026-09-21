@@ -12,6 +12,8 @@ export interface ModuleManifest {
   version: string
   /** 入口（远端模块预留；阶段四本地模块可缺省）。 */
   entry?: string
+  /** 模块契约版本（自报构建时平台契约版本；须与平台常量一致才可加载）。 */
+  contractVersion: number
 }
 
 /** 模块路由声明。 */

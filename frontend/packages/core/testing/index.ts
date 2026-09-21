@@ -31,6 +31,7 @@ export * from './org-select'
 export * from './dict'
 export * from './file-upload'
 export * from './captcha'
+export * from './module'
 
 /** 契约用例套件定义体。 */
 export type ContractDefine = () => void

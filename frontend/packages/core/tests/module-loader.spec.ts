@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest'
 import {
   BaseError,
   ManifestModuleLoader,
+  MODULE_CONTRACT_VERSION,
   MODULE_EXPOSE_KEY,
   MODULE_REMOTE_ENTRY_FILE,
   createModuleEntryTableResolver,
@@ -17,11 +18,13 @@ import {
 } from '../src'
 
 const demo = defineModule({
-  manifest: { name: 'demo', version: '0.1.0' },
+  manifest: { name: 'demo', version: '0.1.0', contractVersion: MODULE_CONTRACT_VERSION },
   setup: () => ({ routes: [{ path: '/demo', name: 'DemoHome', component: async () => ({}) }] }),
 })
 
-const entries: ModuleManifestEntry[] = [{ name: 'demo', entry: 'demo', version: '0.1.0', mode: 'local' }]
+const entries: ModuleManifestEntry[] = [
+  { name: 'demo', entry: 'demo', version: '0.1.0', mode: 'local', enabled: true },
+]
 
 const table: ModuleEntryTable = {
   demo: async () => ({ default: demo }),
@@ -34,7 +37,12 @@ describe('ManifestModuleLoader（Kiwi 977 / 978）', () => {
     const loader = new ManifestModuleLoader(entries, local)
     const loaded = await loader.load('demo')
 
-    expect(loaded.manifest).toEqual({ name: 'demo', version: '0.1.0', entry: 'demo' })
+    expect(loaded.manifest).toEqual({
+      name: 'demo',
+      version: '0.1.0',
+      entry: 'demo',
+      contractVersion: MODULE_CONTRACT_VERSION,
+    })
     expect(loaded.registration.routes?.map((route) => route.path)).toEqual(['/demo'])
     expect(loader.names()).toEqual(['demo'])
     expect(loader.entryOf('demo')?.entry).toBe('demo')
@@ -44,7 +52,7 @@ describe('ManifestModuleLoader（Kiwi 977 / 978）', () => {
     let frozen: boolean | undefined
     const loader = new ManifestModuleLoader(entries, async () => ({
       default: defineModule({
-        manifest: { name: 'demo', version: '0.1.0' },
+        manifest: { name: 'demo', version: '0.1.0', contractVersion: MODULE_CONTRACT_VERSION },
         setup: (context) => {
           frozen = Object.isFrozen(context)
           return { components: { 'demo:user': context.user, 'demo:tenant': context.tenant } }
@@ -73,7 +81,7 @@ describe('ManifestModuleLoader（Kiwi 977 / 978）', () => {
       throw new Error('远端入口加载失败：HTTP 404')
     }
     const loader = new ManifestModuleLoader(
-      [{ name: 'demo', entry: 'http://localhost:5002/remoteEntry.js', version: '0.1.0', mode: 'remote' }],
+      [{ name: 'demo', entry: 'http://localhost:5002/remoteEntry.js', version: '0.1.0', mode: 'remote', enabled: true }],
       failing,
     )
 
@@ -88,8 +96,14 @@ describe('ManifestModuleLoader（Kiwi 977 / 978）', () => {
   })
 
   it('模块自报名称 / 版本与清单不一致 拒绝加载（发布错位）', async () => {
-    const otherName = defineModule({ manifest: { name: 'other', version: '0.1.0' }, setup: () => ({}) })
-    const otherVersion = defineModule({ manifest: { name: 'demo', version: '9.9.9' }, setup: () => ({}) })
+    const otherName = defineModule({
+      manifest: { name: 'other', version: '0.1.0', contractVersion: MODULE_CONTRACT_VERSION },
+      setup: () => ({}),
+    })
+    const otherVersion = defineModule({
+      manifest: { name: 'demo', version: '9.9.9', contractVersion: MODULE_CONTRACT_VERSION },
+      setup: () => ({}),
+    })
 
     await expect(new ManifestModuleLoader(entries, async () => ({ default: otherName })).load('demo')).rejects.toThrow(
       /模块名与清单不一致/,
@@ -97,6 +111,34 @@ describe('ManifestModuleLoader（Kiwi 977 / 978）', () => {
     await expect(
       new ManifestModuleLoader(entries, async () => ({ default: otherVersion })).load('demo'),
     ).rejects.toThrow(/模块版本与清单不一致/)
+  })
+
+  it('停用项（enabled: false）不进可见集且拒绝加载（清单内停用保留入口与版本）', async () => {
+    const disabledEntries: ModuleManifestEntry[] = [
+      { name: 'demo', entry: 'demo', version: '0.1.0', mode: 'local', enabled: false },
+    ]
+    const loader = new ManifestModuleLoader(disabledEntries, local)
+
+    expect(loader.names()).toEqual([])
+    await expect(loader.load('demo')).rejects.toThrow(/模块不可见（清单 enabled=false）/)
+  })
+
+  it('契约版本不匹配 拒绝加载（契约升级须模块适配后重新构建）', async () => {
+    const stale = defineModule({
+      manifest: { name: 'demo', version: '0.1.0', contractVersion: MODULE_CONTRACT_VERSION + 1 },
+      setup: () => ({}),
+    })
+    const loader = new ManifestModuleLoader(entries, async () => ({ default: stale }))
+
+    await expect(loader.load('demo')).rejects.toThrow(/模块契约版本不匹配/)
+  })
+
+  it('入口契约版本缺失 / 非数字 视同非模块定义（形状校验拒绝）', async () => {
+    const loader = new ManifestModuleLoader(entries, async () => ({
+      default: { manifest: { name: 'demo', version: '0.1.0' }, setup: () => ({}) },
+    }))
+
+    await expect(loader.load('demo')).rejects.toThrow(/未默认导出模块定义/)
   })
 
   it('挂载 / 卸载幂等、重复挂载拒重、已挂载可读', async () => {

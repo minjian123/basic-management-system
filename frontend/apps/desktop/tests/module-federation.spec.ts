@@ -66,6 +66,7 @@ describe('createFederationEntryResolver（Kiwi 978）', () => {
     expect(MODULE_EXPOSE_KEY).toBe('module')
     expect(MODULE_REMOTE_ORIGIN).toBe('http://localhost:5002')
     expect(remoteEntryUrl(MODULE_REMOTE_ORIGIN)).toBe('http://localhost:5002/remoteEntry.js')
-    expect(REMOTE_ENTRY.entry).toBe(remoteEntryUrl(MODULE_REMOTE_ORIGIN))
+    // 发布后清单指向版本目录（03_02）：入口 = 基址 / 模块名 / 版本 / remoteEntry.js
+    expect(REMOTE_ENTRY.entry).toBe(`${MODULE_REMOTE_ORIGIN}/demo/${REMOTE_ENTRY.version}/${MODULE_REMOTE_ENTRY_FILE}`)
   })
 })

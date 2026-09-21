@@ -18,8 +18,8 @@ RUN cd /opt/ci/workspace && npm ci
 COPY frontend/apps/desktop/ /opt/ci/frontend/apps/desktop/
 RUN cd /opt/ci/frontend/apps/desktop && npm ci
 
-# 模块工程（frontend/modules/*：独立构建 / 独立发布的运行时模块）
+# 模块工程（frontend/modules/*：独立构建 / 独立发布的运行时模块；遍历全部模块预装依赖）
 # 依赖以 `file:../../packages/<包>` 链接平台基座包，故 packages 需同置于 /opt/ci/frontend/ 下
 COPY frontend/packages/ /opt/ci/frontend/packages/
 COPY frontend/modules/ /opt/ci/frontend/modules/
-RUN cd /opt/ci/frontend/modules/demo && npm ci
+RUN for dir in /opt/ci/frontend/modules/*/; do (cd "$dir" && npm ci); done

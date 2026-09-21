@@ -246,6 +246,11 @@ node_modules/
 # 模块工程独立预览产物（`build:standalone`；与远端产物 dist/ 分离）
 dist-standalone/
 
+# 模块发布存储（版本目录为构建产物，不入库；发布记录为治理留痕，随仓库提交）
+frontend/releases/*
+!frontend/releases/release-log.json
+!frontend/releases/release-log.md
+
 # 本地覆盖文件（如 .env.local、*.local）
 *.local
 

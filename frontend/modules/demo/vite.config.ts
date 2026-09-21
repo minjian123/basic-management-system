@@ -4,6 +4,12 @@ import { federation } from '@module-federation/vite'
 import vue from '@vitejs/plugin-vue'
 import { defineConfig } from 'vite'
 
+import {
+  createModuleMetaPlugin,
+  loadModuleContractVersion,
+  loadModulePackage,
+  moduleVersionDefine,
+} from '../../scripts/module-meta.mjs'
 import { loadSharedDependencies } from '../../scripts/shared-deps.mjs'
 
 /** 模块名（= 模块清单 `name` = MF 容器名；见任务 02_01 详细设计 §3.3 远端命名约定）。 */
@@ -15,8 +21,17 @@ const REMOTE_ENTRY_FILE = 'remoteEntry.js'
 /** 暴露键（契约常量 `MODULE_EXPOSE_KEY` 同值；模块定义默认导出）。 */
 const EXPOSE_KEY = './module'
 
-/** 固定预览端口（演示清单指向 `http://localhost:5002/remoteEntry.js`）。 */
+/** 固定预览端口（发布存储服务默认端口，演示清单指向版本目录）。 */
 const PORT = 5002
+
+/** 模块工程目录（版本单一来源：`package.json`）。 */
+const MODULE_DIR = fileURLToPath(new URL('.', import.meta.url))
+
+/** 模块版本（构建期注入模块定义，定义不再手写版本）。 */
+const MODULE_VERSION = loadModulePackage(MODULE_DIR).version
+
+/** 平台模块契约版本（单一来源 `frontend/module-contract.json`）。 */
+const CONTRACT_VERSION = loadModuleContractVersion()
 
 /**
  * Module Federation 共享依赖（**单例 + 版本要求**）：与宿主同源——共享面与 `requiredVersion`
@@ -40,8 +55,12 @@ const { shared: SHARED_DEPENDENCIES } = loadSharedDependencies({ role: 'remote' 
 export default defineConfig(({ mode }) => {
   const isStandaloneBuild = mode === 'standalone'
   return {
+    // 版本单一来源注入（模块定义经 `__BMS_MODULE_VERSION__` 取得 `package.json` 版本）
+    define: moduleVersionDefine(MODULE_VERSION),
     plugins: [
       vue(),
+      // 产物元数据（版本发现：发布与护栏据此校验「清单 = 产物 = 源码」）
+      createModuleMetaPlugin({ name: MODULE_NAME, version: MODULE_VERSION, contractVersion: CONTRACT_VERSION }),
       federation({
         name: MODULE_NAME,
         filename: REMOTE_ENTRY_FILE,

@@ -34,7 +34,7 @@ export interface SharedSource {
 export type SharedRole = 'host' | 'remote'
 
 /** 读取共享声明单一来源（原始结构）。 */
-export function readSharedSource(): SharedSource
+export function readSharedSource(options?: { root?: string }): SharedSource
 
 /** 生成构建配置用的 `shared` 声明（按角色追加形态差异）。 */
 export function loadSharedDependencies(options?: { role?: SharedRole; root?: string }): {
@@ -48,8 +48,8 @@ export function sharedNames(): string[]
 /** 受控非共享项（包名）。 */
 export function notSharedNames(): string[]
 
-/** 解析单一来源文件绝对路径。 */
-export function resolveSourcePath(): string
+/** 解析单一来源文件绝对路径（`root` 指定 `frontend/` 目录）。 */
+export function resolveSourcePath(root?: string): string
 
 /** 支持的角色取值。 */
 export const SUPPORTED_ROLES: string[]

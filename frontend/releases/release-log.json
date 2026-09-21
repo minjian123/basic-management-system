@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "records": [
+    {
+      "at": "2026-09-21T23:49:17.715Z",
+      "by": "minjian",
+      "action": "publish",
+      "module": "demo",
+      "version": "0.1.0",
+      "previousVersion": null,
+      "entry": "http://localhost:5002/demo/0.1.0/remoteEntry.js",
+      "contractVersion": 1
+    }
+  ]
+}
