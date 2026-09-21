@@ -5,7 +5,10 @@ import tseslint from 'typescript-eslint'
 
 export default tseslint.config(
   { name: 'module/files-to-lint', files: ['**/*.{ts,mts,tsx,vue}'] },
-  { name: 'module/files-to-ignore', ignores: ['**/dist/**', '**/coverage/**', '**/node_modules/**'] },
+  {
+    name: 'module/files-to-ignore',
+    ignores: ['**/dist/**', '**/dist-standalone/**', '**/coverage/**', '**/node_modules/**', '**/.mf/**'],
+  },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   ...pluginVue.configs['flat/recommended'],
@@ -22,7 +25,7 @@ export default tseslint.config(
   {
     name: 'module/node-scripts',
     files: ['scripts/**/*.mjs'],
-    languageOptions: { globals: { console: 'readonly', URL: 'readonly' } },
+    languageOptions: { globals: { console: 'readonly', URL: 'readonly', process: 'readonly' } },
   },
   skipFormatting,
 )

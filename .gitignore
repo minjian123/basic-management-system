@@ -243,6 +243,9 @@ node_modules/
 # Module Federation 构建诊断产物（模块工程 / 宿主构建时生成）
 .mf/
 
+# 模块工程独立预览产物（`build:standalone`；与远端产物 dist/ 分离）
+dist-standalone/
+
 # 本地覆盖文件（如 .env.local、*.local）
 *.local
 

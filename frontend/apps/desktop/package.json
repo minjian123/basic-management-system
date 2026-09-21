@@ -7,6 +7,8 @@
     "dev": "vite",
     "build": "vue-tsc -b && vite build",
     "budget": "node scripts/check-bundle-budget.mjs",
+    "budget:shared": "node ../../scripts/check-shared-deps.mjs",
+    "guard:shared": "node ../../scripts/check-shared-whitelist.mjs",
     "preview": "vite preview",
     "lint": "eslint . --max-warnings 0",
     "lint:fix": "eslint . --fix",
