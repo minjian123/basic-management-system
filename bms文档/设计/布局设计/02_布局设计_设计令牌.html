@@ -119,6 +119,21 @@
         <li>AI 气泡 / 流式光标 / 风险 / 引用 / 审计配色统一来自以上令牌；<strong>禁止在 AI 助手件中硬编码色值</strong>；消息状态与结果 / 引用 / 风险 / 审计口径见《组件设计 · AI 助手》§4 ~ §10。</li>
       </ul>
 
+      <h2 id="search-color">2.4 全局搜索令牌（2026-09-21 登记，前端组件库 07_07）</h2>
+      <table>
+        <tr><th>令牌</th><th>用途</th><th>默认值</th></tr>
+        <tr><td><code>--bms-search-highlight-bg</code></td><td>关键词高亮底</td><td>亮 <code>#fff8c5</code> / 暗 <code>#4a3a12</code></td></tr>
+        <tr><td><code>--bms-search-highlight-color</code></td><td>关键词高亮字</td><td>亮 <code>#9a6700</code> / 暗 <code>#f0c674</code></td></tr>
+        <tr><td><code>--bms-search-hit-hover-bg</code></td><td>命中项悬停底</td><td>亮 <code>#f5f7fa</code> / 暗 <code>#262727</code></td></tr>
+        <tr><td><code>--bms-search-active-bg</code></td><td>命令面板激活项底</td><td>亮 <code>#eef4ff</code> / 暗 <code>#1d3049</code></td></tr>
+        <tr><td><code>--bms-search-panel-bg</code></td><td>命令面板底</td><td><code>--bms-color-bg</code></td></tr>
+        <tr><td><code>--bms-search-degrade-bg</code></td><td>降级提示条底</td><td>亮 <code>#fff8c5</code> / 暗 <code>#3a2f1c</code></td></tr>
+        <tr><td><code>--bms-search-degrade-border</code></td><td>降级提示条边</td><td><code>#d4a72c</code></td></tr>
+      </table>
+      <ul>
+        <li>高亮 / 命中悬停 / 激活项 / 降级条配色统一来自以上令牌；<strong>禁止在搜索件中硬编码色值</strong>；高亮片段须白名单清洗后渲染、降级提示条与替代入口口径见《组件设计 · 全局搜索》§6。</li>
+      </ul>
+
       <h2 id="font">3. 字体令牌</h2>
       <table>
         <tr><th>令牌</th><th>值</th></tr>
