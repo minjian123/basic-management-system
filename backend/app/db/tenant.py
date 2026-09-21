@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from fastapi import Request
 
 from app.core.base import BaseObject
+from app.core.context import current_tenant
 from app.core.exceptions import TenantNotFoundError
 
 TENANT_EXEMPT_PATHS: tuple[str, ...] = ("/", "/docs", "/openapi.json", "/healthz", "/readyz")
@@ -115,3 +116,21 @@ async def get_tenant(request: Request) -> TenantContext | None:
         host=request.headers.get("host"),
         header=request.headers.get("X-Tenant-ID"),
     )
+
+
+def current_tenant_context() -> TenantContext:
+    """取当前请求上下文租户（服务 / 仓储在请求外调用时的统一入口）。
+
+    - 上下文未设置（后台任务 / 测试直调）回落演示租户；
+    - 上下文租户未知（异常来源）同样回落演示租户（避免读路径因租户解析失败整体报错）。
+
+    Returns:
+        TenantContext: 租户上下文。
+    """
+    code = current_tenant.get()
+    if not code:
+        return DEMO_TENANT
+    try:
+        return _lookup(code)
+    except TenantNotFoundError:
+        return DEMO_TENANT

@@ -11,3 +11,24 @@ slow_request_ms = 500
 
 [cors]
 allow_origins = ["http://localhost:5173", "http://127.0.0.1:5173"]
+
+# 字典真实取数与缓存（02-4-27）：dev 使用 SQLite 租户库（bms_tenant_demo.db，先迁移 + 种子）+ 进程内缓存；
+# Redis 可用时把 dict_cache_region 改为 "redis"（连接串取 [redis].url）。
+[dict_source]
+provider = "sql"
+
+[dict_translator]
+provider = "sql"
+
+[dict_cache_region]
+provider = "memory"
+
+# 查询方案落库（sys_query_scheme）与字段类型 / 查询提供者真实注册表
+[query_scheme_store]
+provider = "sql"
+
+[field_type_registry]
+provider = "local"
+
+[query_provider_registry]
+provider = "local"

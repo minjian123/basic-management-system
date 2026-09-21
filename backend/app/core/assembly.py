@@ -17,6 +17,8 @@ from app.archive.base import BaseArchivePolicy, BaseArchiveQueryRouter
 from app.audit.base import AuditCapturer
 from app.audit.hashchain import BaseHashChain
 from app.cache.base import CacheRegion
+from app.cache.memory import MemoryCacheRegion
+from app.cache.redis import RedisCacheRegion
 from app.captcha.base import BaseCaptcha
 from app.chat.base import BaseChatActionGate, BaseChatSessionStore, BaseChatStream
 from app.circuit.base import BaseCircuitBreaker
@@ -39,9 +41,13 @@ from app.core.resources import ResourceManager
 from app.dashboard.base import BaseDashboardCardRegistry
 from app.db.registry import EngineRegistry
 from app.dict.base import BaseDictSource, BaseDictTranslator, DictCacheRegion
+from app.dict.cache import MemoryDictCacheRegion, RedisDictCacheRegion
+from app.dict.providers import BuiltinDictQueryProvider
+from app.dict.sql import SqlDictSource, SqlDictTranslator
 from app.events.base import BaseEventConsumer, EventPublisher
 from app.fallback.base import BaseFallbackPolicy
 from app.fieldtype.base import BaseFieldTypeRegistry
+from app.fieldtype.local import LocalFieldTypeRegistry
 from app.globalsearch.base import BaseAuditSearch, BaseFileContentSearch, BaseGlobalSearch
 from app.health.base import BaseHealthCheckRegistry
 from app.health.checks import DatabaseHealthCheck, RedisHealthCheck
@@ -51,6 +57,7 @@ from app.icon.base import BaseIconRegistry
 from app.idempotency.base import IdempotencyStore
 from app.idp.base import BaseIdentityProvider
 from app.listing.base import BaseQuerySchemeStore
+from app.listing.store import SqlQuerySchemeStore
 from app.llm.base import BaseLlmProvider
 from app.lock.base import BaseDistributedLock
 from app.masking.base import BaseMasker
@@ -67,6 +74,7 @@ from app.permission.base import BasePermissionChecker
 from app.preference.base import BasePreferenceStore
 from app.print.base import BasePrintExporter, BasePrintTemplateProvider
 from app.query.base import BaseQueryProviderRegistry
+from app.query.local import LocalQueryProviderRegistry
 from app.ratelimit.base import BaseRateLimiter
 from app.replay.base import BaseReplayGuard
 from app.scope.base import DataScope
@@ -185,9 +193,9 @@ PLUGIN_WIRINGS: tuple[PluginWiring, ...] = (
     PluginWiring("scope_checker", BaseScopeChecker, "scope_checker", "scope_checker"),
     PluginWiring("org_data_source", BaseOrgDataSource, "org_data_source", "org_data_source"),
     PluginWiring("org_name_resolver", BaseOrgNameResolver, "org_name_resolver", "org_name_resolver"),
+    PluginWiring("dict_cache_region", DictCacheRegion, "dict_cache_region", "dict_cache_region"),
     PluginWiring("dict_source", BaseDictSource, "dict_source", "dict_source"),
     PluginWiring("dict_translator", BaseDictTranslator, "dict_translator", "dict_translator"),
-    PluginWiring("dict_cache_region", DictCacheRegion, "dict_cache_region", "dict_cache_region"),
     PluginWiring("object_storage", BaseObjectStorage, "storage", "object_storage"),
     PluginWiring("multipart_upload", BaseMultipartUpload, "multipart_upload", "multipart_upload"),
     PluginWiring("llm_provider", BaseLlmProvider, "llm_provider", "llm_provider"),
@@ -249,6 +257,15 @@ def register_platform_plugins(settings: Settings, app: FastAPI, resources: Resou
     register_plugin("health_check_registry", "local", HealthCheckRegistryFactory(settings, app, resources))
     register_plugin("object_storage", "local", LocalObjectStorageFactory(settings))
     register_plugin("object_storage", "minio", MinioObjectStorageFactory(settings))
+    register_plugin("cache", "memory", MemoryCacheRegionFactory())
+    register_plugin("cache", "redis", RedisCacheRegionFactory(settings))
+    register_plugin("dict_cache_region", "memory", MemoryDictCacheRegionFactory())
+    register_plugin("dict_cache_region", "redis", RedisDictCacheRegionFactory(settings))
+    register_plugin("dict_source", "sql", SqlDictSourceFactory(app))
+    register_plugin("dict_translator", "sql", SqlDictTranslatorFactory(app))
+    register_plugin("query_scheme_store", "sql", SqlQuerySchemeStoreFactory(app))
+    register_plugin("field_type_registry", "local", LocalFieldTypeRegistryFactory())
+    register_plugin("query_provider_registry", "local", LocalQueryProviderRegistryFactory(app))
     _PREPARED_REGISTRIES.append(registry)
 
 
@@ -472,3 +489,221 @@ async def _setup_or_reject(wiring: PluginWiring, provider: str, instance: object
         name = provider or NULL_PLUGIN_NAME
         _LOGGER.critical("插件 setup 失败", plugin_key=wiring.plugin_key, provider=name, error=repr(exc))
         raise PluginError(f"插件 setup 失败：{wiring.plugin_key} → {name}（{exc!r}）") from exc
+
+
+class MemoryCacheRegionFactory(BasePluginFactory[MemoryCacheRegion]):
+    """通用内存缓存 Region 工厂（无 Redis 环境 / 测试用）。"""
+
+    plugin_key: str = "cache"
+    # 不声明 plugin_name：零参工厂避免被插件注册表自动收集（经 register_plugin 显式登记）
+
+    def create(self, options: None = None) -> MemoryCacheRegion:
+        """构造内存 Region。
+
+        Args:
+            options: 未使用（零参口径）。
+
+        Returns:
+            MemoryCacheRegion: 内存 Region 实例。
+        """
+        return MemoryCacheRegion(domain="generic")
+
+
+class RedisCacheRegionFactory(BasePluginFactory[RedisCacheRegion]):
+    """Redis 缓存 Region 工厂（连接串取 `settings.redis.url`，不建连）。"""
+
+    plugin_key: str = "cache"
+    plugin_name: str = "redis"
+
+    def __init__(self, settings: Settings) -> None:
+        """初始化。
+
+        Args:
+            settings: 应用配置。
+        """
+        self._settings = settings
+
+    def create(self, options: None = None) -> RedisCacheRegion:
+        """构造 Redis Region。
+
+        Args:
+            options: 未使用（零参口径）。
+
+        Returns:
+            RedisCacheRegion: Redis Region 实例。
+        """
+        return RedisCacheRegion(domain="generic", url=self._settings.redis.url)
+
+
+class MemoryDictCacheRegionFactory(BasePluginFactory[MemoryDictCacheRegion]):
+    """字典域内存缓存工厂（L1 双分区 + 进程内版本）。"""
+
+    plugin_key: str = "dict_cache_region"
+    # 不声明 plugin_name：零参工厂避免被插件注册表自动收集（经 register_plugin 显式登记）
+
+    def create(self, options: None = None) -> MemoryDictCacheRegion:
+        """构造字典域内存缓存。
+
+        Args:
+            options: 未使用（零参口径）。
+
+        Returns:
+            MemoryDictCacheRegion: 字典域内存缓存实例。
+        """
+        return MemoryDictCacheRegion()
+
+
+class RedisDictCacheRegionFactory(BasePluginFactory[RedisDictCacheRegion]):
+    """字典域 Redis 缓存工厂（Redis 共享层 + 进程内 L1）。"""
+
+    plugin_key: str = "dict_cache_region"
+    plugin_name: str = "redis"
+
+    def __init__(self, settings: Settings) -> None:
+        """初始化。
+
+        Args:
+            settings: 应用配置。
+        """
+        self._settings = settings
+
+    def create(self, options: None = None) -> RedisDictCacheRegion:
+        """构造字典域 Redis 缓存。
+
+        Args:
+            options: 未使用（零参口径）。
+
+        Returns:
+            RedisDictCacheRegion: 字典域 Redis 缓存实例。
+        """
+        return RedisDictCacheRegion(url=self._settings.redis.url)
+
+
+class SqlDictSourceFactory(BasePluginFactory[SqlDictSource]):
+    """字典真实取数工厂（注入引擎注册表与已装配的字典缓存域）。"""
+
+    plugin_key: str = "dict_source"
+    plugin_name: str = "sql"
+
+    def __init__(self, app: FastAPI) -> None:
+        """初始化。
+
+        Args:
+            app: 应用实例（取 `engine_registry` 与已装配 `dict_cache_region`）。
+        """
+        self._app = app
+
+    def create(self, options: None = None) -> SqlDictSource:
+        """构造真实取数实例。
+
+        Args:
+            options: 未使用（零参口径）。
+
+        Returns:
+            SqlDictSource: 取数实例。
+        """
+        engines = cast("EngineRegistry", self._app.state.engine_registry)
+        cache = cast("DictCacheRegion | None", getattr(self._app.state, "dict_cache_region", None))
+        return SqlDictSource(engines=engines, cache=cache)
+
+
+class SqlDictTranslatorFactory(BasePluginFactory[SqlDictTranslator]):
+    """字典真实翻译工厂（与取数共用同一份字典缓存域）。"""
+
+    plugin_key: str = "dict_translator"
+    plugin_name: str = "sql"
+
+    def __init__(self, app: FastAPI) -> None:
+        """初始化。
+
+        Args:
+            app: 应用实例（取 `engine_registry` 与已装配 `dict_cache_region`）。
+        """
+        self._app = app
+
+    def create(self, options: None = None) -> SqlDictTranslator:
+        """构造真实翻译实例。
+
+        Args:
+            options: 未使用（零参口径）。
+
+        Returns:
+            SqlDictTranslator: 翻译实例。
+        """
+        engines = cast("EngineRegistry", self._app.state.engine_registry)
+        cache = cast("DictCacheRegion | None", getattr(self._app.state, "dict_cache_region", None))
+        return SqlDictTranslator(engines=engines, cache=cache)
+
+
+class SqlQuerySchemeStoreFactory(BasePluginFactory[SqlQuerySchemeStore]):
+    """查询方案真实存储工厂（租户库落库）。"""
+
+    plugin_key: str = "query_scheme_store"
+    plugin_name: str = "sql"
+
+    def __init__(self, app: FastAPI) -> None:
+        """初始化。
+
+        Args:
+            app: 应用实例（取 `engine_registry`）。
+        """
+        self._app = app
+
+    def create(self, options: None = None) -> SqlQuerySchemeStore:
+        """构造查询方案存储。
+
+        Args:
+            options: 未使用（零参口径）。
+
+        Returns:
+            SqlQuerySchemeStore: 存储实例。
+        """
+        engines = cast("EngineRegistry", self._app.state.engine_registry)
+        return SqlQuerySchemeStore(engines=engines)
+
+
+class LocalFieldTypeRegistryFactory(BasePluginFactory[LocalFieldTypeRegistry]):
+    """字段类型真实注册表工厂（内建类型随构造注册）。"""
+
+    plugin_key: str = "field_type_registry"
+    # 不声明 plugin_name：零参工厂避免被插件注册表自动收集（经 register_plugin 显式登记）
+
+    def create(self, options: None = None) -> LocalFieldTypeRegistry:
+        """构造字段类型注册表。
+
+        Args:
+            options: 未使用（零参口径）。
+
+        Returns:
+            LocalFieldTypeRegistry: 注册表实例。
+        """
+        return LocalFieldTypeRegistry()
+
+
+class LocalQueryProviderRegistryFactory(BasePluginFactory[LocalQueryProviderRegistry]):
+    """查询提供者真实注册表工厂（注册字典域内建示例提供者）。"""
+
+    plugin_key: str = "query_provider_registry"
+    plugin_name: str = "local"
+
+    def __init__(self, app: FastAPI) -> None:
+        """初始化。
+
+        Args:
+            app: 应用实例（取 `engine_registry`）。
+        """
+        self._app = app
+
+    def create(self, options: None = None) -> LocalQueryProviderRegistry:
+        """构造查询提供者注册表并注册内建提供者。
+
+        Args:
+            options: 未使用（零参口径）。
+
+        Returns:
+            LocalQueryProviderRegistry: 注册表实例。
+        """
+        engines = cast("EngineRegistry", self._app.state.engine_registry)
+        registry = LocalQueryProviderRegistry()
+        registry.register(BuiltinDictQueryProvider(engines=engines))
+        return registry

@@ -5,6 +5,10 @@
 工作台等各能力域基座提供者统一从本模块导出，业务路由按需导入，避免分散引用。
 """
 
+from typing import cast
+
+from fastapi import Request
+
 from app.archive.base import get_archive_policy, get_archive_query_router
 from app.audit.base import get_audit_capturer
 from app.audit.hashchain import get_hash_chain
@@ -14,9 +18,12 @@ from app.chat.base import get_chat_action_gate, get_chat_session_store, get_chat
 from app.circuit.base import get_circuit_breaker
 from app.codecheck.base import get_code_validator
 from app.dashboard.base import get_dashboard_card_registry
+from app.db.registry import EngineRegistry
 from app.db.session import SessionFactory, get_db, get_uow
 from app.db.tenant import get_tenant
 from app.dict.base import get_dict_cache_region, get_dict_source, get_dict_translator
+from app.dict.query import DictQueryService
+from app.dict.service import DictService
 from app.events.base import get_event_publisher
 from app.fallback.base import get_fallback_policy
 from app.fieldtype.base import get_field_type_registry
@@ -71,6 +78,8 @@ __all__ = [
     "get_dashboard_card_registry",
     "get_db",
     "get_dict_cache_region",
+    "get_dict_query_service",
+    "get_dict_service",
     "get_dict_source",
     "get_dict_translator",
     "get_distributed_lock",
@@ -119,3 +128,29 @@ __all__ = [
     "get_webhook_sender",
     "get_workflow_engine",
 ]
+
+
+def get_dict_service(request: Request) -> DictService:
+    """取字典写路径服务（请求级组装：引擎注册表 + 字典缓存域）。
+
+    Args:
+        request: 请求对象。
+
+    Returns:
+        DictService: 字典写路径服务实例。
+    """
+    engines = cast("EngineRegistry", request.app.state.engine_registry)
+    return DictService(engines=engines, cache=get_dict_cache_region(request))
+
+
+def get_dict_query_service(request: Request) -> DictQueryService:
+    """取字典高级查询服务（请求级组装：引擎注册表）。
+
+    Args:
+        request: 请求对象。
+
+    Returns:
+        DictQueryService: 高级查询服务实例。
+    """
+    engines = cast("EngineRegistry", request.app.state.engine_registry)
+    return DictQueryService(engines=engines)
