@@ -1,3 +1,4 @@
+// kiwi_id: 967
 /** 选择类控件用例（05_01_02）。 */
 
 import { mount } from '@vue/test-utils'

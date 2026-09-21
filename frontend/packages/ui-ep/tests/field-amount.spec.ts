@@ -1,3 +1,4 @@
+// kiwi_id: 969
 /** 数值与金额字段用例（06_02_02）。 */
 
 import { mount } from '@vue/test-utils'

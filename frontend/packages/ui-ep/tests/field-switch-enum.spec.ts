@@ -1,3 +1,4 @@
+// kiwi_id: 969
 /** 开关与枚举字段用例（06_02_03）。 */
 
 import { mount } from '@vue/test-utils'

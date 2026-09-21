@@ -1,4 +1,4 @@
-// kiwi_id: 776
+// kiwi_id: 975
 /** 流程建模器用例（08_8_2）：契约套件驱动 + 投影薄适配 + 三件组件（调板 / 属性面板 / 画布）与容器装配 + bpmn-moddle 强比对。 */
 
 import { BaseAccess, MODELER_SUBSET, propertiesFor, type ModelerJobs } from '@bms/core'

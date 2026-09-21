@@ -1,3 +1,4 @@
+// kiwi_id: 973
 /** 文件预览与审计差异查看用例（07_03）：类型分发 / 预签名重取 / 差异渲染与链校验。 */
 
 import { flushPromises, mount } from '@vue/test-utils'

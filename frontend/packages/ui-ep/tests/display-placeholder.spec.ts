@@ -1,3 +1,4 @@
+// kiwi_id: 971
 /** 占位版展示件用例（07_01）：契约套件 + 六件降级 / 就绪行为。 */
 
 import { describePlaceholderDisplayContract, type PlaceholderDisplayContractTarget } from '@bms/core/testing'

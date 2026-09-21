@@ -1,3 +1,4 @@
+// kiwi_id: 968
 /** 占位版字段用例（06_01）：契约套件 + 组件降级行为。 */
 
 import { describePlaceholderFieldContract, type PlaceholderFieldContractTarget } from '@bms/core/testing'
