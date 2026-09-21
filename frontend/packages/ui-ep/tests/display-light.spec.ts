@@ -1,3 +1,4 @@
+// kiwi_id: 972
 /** 轻量展示件用例（07_02）：快捷入口 / 头像与用户信息 / 二维码 / 水印。 */
 
 import { flushPromises, mount } from '@vue/test-utils'

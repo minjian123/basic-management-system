@@ -1,3 +1,4 @@
+// kiwi_id: 970
 /** 富文本字段用例（06_03_01）。 */
 
 import { mount } from '@vue/test-utils'

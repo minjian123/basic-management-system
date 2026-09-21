@@ -1,3 +1,4 @@
+// kiwi_id: 970
 /** 标签输入用例（06_03_03）。 */
 
 import { mount } from '@vue/test-utils'

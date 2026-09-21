@@ -1,3 +1,4 @@
+// kiwi_id: 969
 /** 日期时间字段用例（06_02_01）。 */
 
 import { mount } from '@vue/test-utils'

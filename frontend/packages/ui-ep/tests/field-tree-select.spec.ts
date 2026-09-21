@@ -1,3 +1,4 @@
+// kiwi_id: 969
 /** 树选择字段用例（06_02_04）。 */
 
 import { mount } from '@vue/test-utils'

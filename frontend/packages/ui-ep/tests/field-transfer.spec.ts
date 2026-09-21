@@ -1,3 +1,4 @@
+// kiwi_id: 970
 /** 穿梭框用例（06_03_02）。 */
 
 import { mount } from '@vue/test-utils'

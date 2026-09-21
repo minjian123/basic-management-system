@@ -1,3 +1,4 @@
+// kiwi_id: 969
 /** 级联选择用例（06_02_05）。 */
 
 import { mount } from '@vue/test-utils'
