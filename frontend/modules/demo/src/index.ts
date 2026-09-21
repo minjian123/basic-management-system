@@ -11,44 +11,58 @@ import { WorkbenchCardProvider, defineModule } from '@bms/core'
 /** 演示模块（清单 `name` / `version` 须与宿主 `public/modules.json` 条目严格一致）。 */
 export const demoModule = defineModule({
   manifest: { name: 'demo', version: '0.1.0' },
-  setup: () => ({
-    routes: [
-      {
-        path: '/demo',
-        name: 'DemoHome',
-        component: () => import('./views/DemoHome.vue'),
-        meta: { title: '演示模块', keepAlive: true },
-      },
-      {
-        path: '/demo/toolbox',
-        name: 'DemoToolbox',
-        component: () => import('./views/DemoToolbox.vue'),
-        meta: { title: '组件契约演示' },
-      },
-    ],
-    components: { 'demo:toolbox': () => import('./views/DemoToolbox.vue') },
-    fieldRenderers: [{ key: 'demo:amount', component: () => import('./views/DemoHome.vue'), fieldType: 'amount' }],
-    icons: { 'demo:sparkles': 'sparkles' },
-    cards: [new WorkbenchCardProvider('demo:summary', () => import('./views/DemoHome.vue'), '模块概览')],
-    regions: [
-      { key: 'demo:hero', area: 'layout.header', component: () => import('./views/DemoToolbox.vue'), order: 10 },
-    ],
-    themeTokens: [{ key: 'demo:brand', tokens: { '--bms-color-primary': '#3a7bd5' }, mode: 'brand' }],
-    i18nPacks: [
-      {
-        key: 'demo:zh-cn',
-        messages: { 'demo.title': '演示模块', 'demo.toolbox': '组件契约演示', 'demo.summary': '模块概览' },
-      },
-      {
-        key: 'demo:en',
-        messages: {
-          'demo.title': 'Demo module',
-          'demo.toolbox': 'Component contract demo',
-          'demo.summary': 'Module overview',
+  setup: (context) => {
+    // 只经注入上下文访问宿主能力（只读快照）：宿主当前以权限码承载 user，缺失项自行降级；
+    // 模块不直连宿主 store / router、不持久化（见任务 03_01 详细设计 §3.5）。
+    const permissionCodes = Array.isArray(context.user) ? context.user : []
+    const greeting = permissionCodes.length > 0 ? `你好，已接入 ${permissionCodes.length} 项权限` : '你好，演示模块'
+    const greetingEn =
+      permissionCodes.length > 0 ? `Hello, ${permissionCodes.length} permissions` : 'Hello, demo module'
+    return {
+      routes: [
+        {
+          path: '/demo',
+          name: 'DemoHome',
+          component: () => import('./views/DemoHome.vue'),
+          meta: { title: '演示模块', keepAlive: true },
         },
-      },
-    ],
-  }),
+        {
+          path: '/demo/toolbox',
+          name: 'DemoToolbox',
+          component: () => import('./views/DemoToolbox.vue'),
+          meta: { title: '组件契约演示' },
+        },
+      ],
+      components: { 'demo:toolbox': () => import('./views/DemoToolbox.vue') },
+      fieldRenderers: [{ key: 'demo:amount', component: () => import('./views/DemoHome.vue'), fieldType: 'amount' }],
+      icons: { 'demo:sparkles': 'sparkles' },
+      cards: [new WorkbenchCardProvider('demo:summary', () => import('./views/DemoHome.vue'), '模块概览')],
+      regions: [
+        { key: 'demo:hero', area: 'layout.header', component: () => import('./views/DemoToolbox.vue'), order: 10 },
+      ],
+      themeTokens: [{ key: 'demo:brand', tokens: { '--bms-color-primary': '#3a7bd5' }, mode: 'brand' }],
+      i18nPacks: [
+        {
+          key: 'demo:zh-cn',
+          messages: {
+            'demo.title': '演示模块',
+            'demo.toolbox': '组件契约演示',
+            'demo.summary': '模块概览',
+            'demo.hello': greeting,
+          },
+        },
+        {
+          key: 'demo:en',
+          messages: {
+            'demo.title': 'Demo module',
+            'demo.toolbox': 'Component contract demo',
+            'demo.summary': 'Module overview',
+            'demo.hello': greetingEn,
+          },
+        },
+      ],
+    }
+  },
 })
 
 export default demoModule
