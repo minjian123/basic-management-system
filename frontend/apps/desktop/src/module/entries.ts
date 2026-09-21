@@ -7,7 +7,12 @@
  * 当前无存量本地模块，故目录为空、表为空（能力保留、由用例覆盖）。
  */
 
-import { createModuleEntryTableResolver, type ModuleEntryModule, type ModuleEntryResolver, type ModuleEntryTable } from '@bms/core'
+import {
+  createModuleEntryTableResolver,
+  type ModuleEntryModule,
+  type ModuleEntryResolver,
+  type ModuleEntryTable,
+} from '@bms/core'
 
 /** 模块入口模块集合（构建期枚举，运行期按需加载）。 */
 const entries = import.meta.glob<ModuleEntryModule>('../modules/*/index.ts')

@@ -95,10 +95,12 @@ function collectEntryClosure() {
 
 const entryNames = collectEntryClosure()
 const entry = [...entryNames].map((name) => ({ path: name, gzip: gzipSync(readFileSync(byName.get(name))).length }))
-const rest = files.filter((path) => !entryNames.has(rel(path))).map((path) => ({
-  path: rel(path),
-  gzip: gzipSync(readFileSync(path)).length,
-}))
+const rest = files
+  .filter((path) => !entryNames.has(rel(path)))
+  .map((path) => ({
+    path: rel(path),
+    gzip: gzipSync(readFileSync(path)).length,
+  }))
 
 const total = entry.reduce((sum, item) => sum + item.gzip, 0)
 const largest = entry.reduce((max, item) => Math.max(max, item.gzip), 0)

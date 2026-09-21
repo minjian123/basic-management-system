@@ -13,7 +13,10 @@ function toggle(): void {
 </script>
 
 <template>
-  <page-container title="演示模块" description="运行时远端模块 · 经 Module Federation 独立构建并由宿主加载（不进入生产菜单）">
+  <page-container
+    title="演示模块"
+    description="运行时远端模块 · 经 Module Federation 独立构建并由宿主加载（不进入生产菜单）"
+  >
     <section-container title="模块契约复用">
       <p class="demo__text">本页由演示模块提供，复用平台页面容器 / 分区容器与设计令牌。</p>
       <button data-test="demo-toggle" @click="toggle">切换加载态</button>
