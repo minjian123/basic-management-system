@@ -3,6 +3,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import { useBaseWatermark } from '../../composables/useBaseWatermark'
+import { observeChildList } from '../../utils/observe'
 
 interface Props {
   /** 水印文案（一行或多行）；缺省由水印能力组装（用户 / 租户 / 时间）。 */
@@ -128,7 +129,7 @@ const layerStyle = computed<Record<string, string>>(() => {
 
 const containerEl = ref<HTMLElement>()
 const layerEl = ref<HTMLElement>()
-let observer: MutationObserver | undefined
+let stopObserve: (() => void) | undefined
 let timeTimer: ReturnType<typeof setInterval> | undefined
 
 function restoreLayer(): void {
@@ -138,9 +139,8 @@ function restoreLayer(): void {
 }
 
 onMounted(() => {
-  if (typeof MutationObserver !== 'undefined' && containerEl.value) {
-    observer = new MutationObserver(() => restoreLayer())
-    observer.observe(containerEl.value, { childList: true, subtree: true })
+  if (containerEl.value) {
+    stopObserve = observeChildList(containerEl.value, restoreLayer)
   }
   if (props.showTime) {
     timeText.value = formatNow()
@@ -153,7 +153,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
-  observer?.disconnect()
+  stopObserve?.()
   if (timeTimer !== undefined) {
     clearInterval(timeTimer)
   }

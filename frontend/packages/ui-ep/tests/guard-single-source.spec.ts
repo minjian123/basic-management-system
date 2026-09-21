@@ -16,7 +16,7 @@ const FORBIDDEN_USAGE = [
   /sessionStorage\s*\./,
   /document\.createElement\s*\(\s*['"]a['"]/,
   /getComputedStyle\s*\(/,
-  /new\s+(Intersection|Resize)Observer\s*\(/,
+  /new\s+(Intersection|Resize|Mutation)Observer\s*\(/,
   /\bmatchMedia\s*\(/,
   /document\.(exitFullscreen|fullscreenElement|addEventListener|removeEventListener)\b/,
 ]

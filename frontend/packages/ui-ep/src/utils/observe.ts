@@ -1,4 +1,4 @@
-/** 元素与窗口观察（IntersectionObserver / ResizeObserver / window resize）单一落点。 */
+/** 元素与窗口观察（IntersectionObserver / ResizeObserver / MutationObserver / window resize）单一落点。 */
 
 /** 环境是否支持 IntersectionObserver。 */
 export function supportsIntersection(): boolean {
@@ -76,4 +76,20 @@ export function onWindowResize(handler: () => void): () => void {
  */
 export function viewportWidth(): number {
   return typeof window !== 'undefined' ? window.innerWidth : 0
+}
+
+/**
+ * 观察子树增删（MutationObserver；能力缺失时返回空取消函数，不抛错）。
+ *
+ * @param target 目标元素。
+ * @param handler 变化回调。
+ * @returns 取消函数。
+ */
+export function observeChildList(target: Element, handler: () => void): () => void {
+  if (typeof MutationObserver === 'undefined') {
+    return () => {}
+  }
+  const observer = new MutationObserver(() => handler())
+  observer.observe(target, { childList: true, subtree: true })
+  return () => observer.disconnect()
 }
