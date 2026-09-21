@@ -29,7 +29,9 @@ def test_new_capabilities_wired_and_null() -> None:
     """4 能力接线：装配快照含 4 键（null 条目），Null 语义齐备（不连外部服务）。"""
     snapshot = build_snapshot()
     for plugin_key in ("audit", "cache", "event", "task"):
-        assert set(snapshot[plugin_key]) == {"null"}
+        assert "null" in snapshot[plugin_key]
+    # 02-4-27：cache 域新增真实实现（memory / redis），null 缺省保持
+    assert {"memory", "redis"} <= set(snapshot["cache"])
 
     cache = NullCacheRegion()
     assert cache.domain == "null"

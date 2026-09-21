@@ -23,10 +23,15 @@ async def test_list_contract(client: AsyncClient) -> None:
     assert len(keys) == len(set(keys)), "plugin_key 重复"
     assert keys == sorted(keys)
     by_key = {str(group["plugin_key"]): group for group in groups}
-    for plugin_key in ("audit", "cache", "event", "task"):
+    for plugin_key in ("audit", "event", "task"):
         group = by_key[plugin_key]
         assert group["provider"] == "null"
         assert group["implementations"] == [{"plugin_name": "null", "contract_version": "0.1.0", "status": "active"}]
+    cache = by_key["cache"]
+    assert cache["provider"] == "null"
+    # 02-4-27：cache 域新增真实实现（memory / redis），null 保持缺省 provider
+    cache_items = cast("list[dict[str, str]]", cache["implementations"])
+    assert [item["plugin_name"] for item in cache_items] == ["memory", "null", "redis"]
     storage = by_key["object_storage"]
     assert storage["provider"] == "local"
     assert storage["implementations"] == [

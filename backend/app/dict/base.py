@@ -23,7 +23,7 @@
 """
 
 from abc import ABC, abstractmethod
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import cast
 
 from fastapi import Request
@@ -223,6 +223,19 @@ class DictCacheRegion(CacheRegion, ABC):
         """
         return self.build_key("version", tenant=tenant)
 
+    def value_key(self, tenant: str | None, locale: str, dict_type: str) -> str:
+        """拼字典按值子集缓存键（`bms:{tenant}:dict:{locale}:{type}:v`，整体映射 JSON）。
+
+        Args:
+            tenant: 租户标识；None 为全局。
+            locale: 语言。
+            dict_type: 字典类型码。
+
+        Returns:
+            str: 子集缓存 key。
+        """
+        return self.build_key(f"{locale}:{dict_type}:v", tenant=tenant)
+
     def is_version_current(self, version: int, *, tenant: str | None) -> bool:
         """版本一致性判定（派生）。
 
@@ -234,6 +247,164 @@ class DictCacheRegion(CacheRegion, ABC):
             bool: 一致为 True。
         """
         return not self.is_stale(self.version_key(tenant), version)
+
+    async def aget_type(self, tenant: str | None, locale: str, dict_type: str) -> object | None:
+        """读类型缓存（异步；缺省回退同步实现，Redis 子类覆写为真异步）。
+
+        Args:
+            tenant: 租户标识；None 为全局。
+            locale: 语言。
+            dict_type: 字典类型码。
+
+        Returns:
+            object | None: 缓存值 `{version, items, has_more, total}`；未命中返回 None。
+        """
+        return self.get(self.dict_key(tenant, locale, dict_type))
+
+    async def aset_type(
+        self,
+        tenant: str | None,
+        locale: str,
+        dict_type: str,
+        value: object,
+        ttl: int | None = None,
+    ) -> None:
+        """写类型缓存（异步；缺省回退同步实现）。
+
+        Args:
+            tenant: 租户标识；None 为全局。
+            locale: 语言。
+            dict_type: 字典类型码。
+            value: 缓存值。
+            ttl: 有效期（秒）。
+        """
+        self.set(self.dict_key(tenant, locale, dict_type), value, ttl)
+
+    async def adrop_type(self, tenant: str | None, locale: str, dict_type: str) -> None:
+        """删类型缓存（异步；缺省回退同步实现）。
+
+        Args:
+            tenant: 租户标识；None 为全局。
+            locale: 语言。
+            dict_type: 字典类型码。
+        """
+        self.delete(self.dict_key(tenant, locale, dict_type))
+
+    async def avalue_subset(
+        self,
+        tenant: str | None,
+        locale: str,
+        dict_type: str,
+        values: Sequence[str],
+    ) -> Mapping[str, str]:
+        """读按值子集缓存（异步；缺省回退同步实现）。
+
+        Args:
+            tenant: 租户标识；None 为全局。
+            locale: 语言。
+            dict_type: 字典类型码。
+            values: 待查 value 序列。
+
+        Returns:
+            Mapping[str, str]: value → label（仅命中项）。
+        """
+        cached = self.get(self.value_key(tenant, locale, dict_type))
+        if not isinstance(cached, Mapping):
+            return {}
+        payload = cast("Mapping[str, object]", cached)
+        result: dict[str, str] = {}
+        for value in values:
+            if value in payload:
+                result[value] = str(payload[value])
+        return result
+
+    async def aset_value_subset(
+        self,
+        tenant: str | None,
+        locale: str,
+        dict_type: str,
+        mapping: Mapping[str, str],
+    ) -> None:
+        """回填按值子集缓存（异步；与既有映射合并后整体写入）。
+
+        Args:
+            tenant: 租户标识；None 为全局。
+            locale: 语言。
+            dict_type: 字典类型码。
+            mapping: 待回填的 value → label 映射。
+        """
+        key = self.value_key(tenant, locale, dict_type)
+        current = self.get(key)
+        merged: dict[str, str] = {}
+        if isinstance(current, Mapping):
+            payload = cast("Mapping[str, object]", current)
+            merged.update({str(item): str(label) for item, label in payload.items()})
+        merged.update({str(item): str(label) for item, label in mapping.items()})
+        self.set(key, merged)
+
+    async def aversion(self, tenant: str | None) -> int:
+        """读全局版本号（异步；缺省回退同步实现）。
+
+        Args:
+            tenant: 租户标识；None 为全局。
+
+        Returns:
+            int: 当前版本号。
+        """
+        return self.get_global_version()
+
+    async def aincrease_version(self, tenant: str | None) -> int:
+        """递增全局版本号（异步；缺省回退为当前版本 + 1）。
+
+        Args:
+            tenant: 租户标识；None 为全局。
+
+        Returns:
+            int: 递增后的版本号。
+        """
+        return self.get_global_version() + 1
+
+    async def alock(
+        self,
+        tenant: str | None,
+        locale: str,
+        dict_type: str,
+        token: str,
+        ttl: int = 5,
+    ) -> bool:
+        """类型取数互斥锁（异步；防击穿；缺省恒获锁）。
+
+        Args:
+            tenant: 租户标识；None 为全局。
+            locale: 语言。
+            dict_type: 字典类型码。
+            token: 持有者令牌。
+            ttl: 锁有效期（秒）。
+
+        Returns:
+            bool: 获锁为 True。
+        """
+        return True
+
+    async def arelease_lock(
+        self,
+        tenant: str | None,
+        locale: str,
+        dict_type: str,
+        token: str,
+    ) -> bool:
+        """释放类型取数互斥锁（异步；缺省空操作，Redis / 内存子类覆写比对令牌）。
+
+        Args:
+            tenant: 租户标识；None 为全局。
+            locale: 语言。
+            dict_type: 字典类型码。
+            token: 持有者令牌。
+
+        Returns:
+            bool: 释放到为 True。
+        """
+        return True
 
 
 def get_dict_source(request: Request) -> BaseDictSource:
