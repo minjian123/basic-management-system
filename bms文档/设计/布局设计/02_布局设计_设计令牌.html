@@ -184,6 +184,24 @@
         <li>拖拽区 / 文件项 / 进度 / 失效标记 / 裁剪遮罩配色统一来自以上令牌；<strong>禁止在文件件中硬编码色值</strong>；分片与秒传、断点续传、压缩与裁剪、失效占位口径见《组件设计 · 文件上传字段》第 3 / 7 / 8 节。</li>
       </ul>
 
+      <h2 id="captcha-color">2.7 验证码令牌（2026-09-21 登记，前端组件库 06_04）</h2>
+      <table>
+        <tr><th>令牌</th><th>用途</th><th>默认值</th></tr>
+        <tr><td><code>--bms-captcha-image-bg</code></td><td>图形图底 / 空图占位底</td><td>亮 <code>#f6f8fa</code> / 暗 <code>#1d1e1f</code></td></tr>
+        <tr><td><code>--bms-captcha-image-border</code></td><td>图形图框 / 输入边</td><td>亮 <code>#dcdfe6</code> / 暗 <code>#414243</code></td></tr>
+        <tr><td><code>--bms-captcha-slider-track-bg</code></td><td>滑块轨道底</td><td>亮 <code>#ebeef5</code> / 暗 <code>#414243</code></td></tr>
+        <tr><td><code>--bms-captcha-slider-bar</code></td><td>滑块已拖填充</td><td><code>--bms-color-primary</code></td></tr>
+        <tr><td><code>--bms-captcha-slider-handle-bg</code></td><td>滑块手柄底</td><td>亮 <code>#ffffff</code> / 暗 <code>#262727</code></td></tr>
+        <tr><td><code>--bms-captcha-slider-handle-border</code></td><td>滑块手柄边</td><td>亮 <code>#dcdfe6</code> / 暗 <code>#414243</code></td></tr>
+        <tr><td><code>--bms-captcha-slider-gap-bg</code></td><td>缺口标记底</td><td><code>rgba(0, 0, 0, 0.35)</code></td></tr>
+        <tr><td><code>--bms-captcha-pass-color</code></td><td>通过态字色</td><td>亮 <code>#1a7f37</code> / 暗 <code>#6fcf97</code></td></tr>
+        <tr><td><code>--bms-captcha-countdown-color</code></td><td>冷却 / 提示字色</td><td>亮 <code>#909399</code> / 暗 <code>#a3a6ad</code></td></tr>
+        <tr><td><code>--bms-captcha-border</code></td><td>输入 / 轨道分隔线</td><td><code>--bms-color-border</code></td></tr>
+      </table>
+      <ul>
+        <li>图形图框 / 滑块轨道与手柄 / 缺口 / 通过态 / 冷却提示配色统一来自以上令牌；<strong>禁止在验证码件中硬编码色值</strong>；刷新与一次性失效、滑块轨迹、短信冷却与限流、失败阈值联动口径见《组件设计 · 验证码》第 4 / 5 / 6 / 7 节。</li>
+      </ul>
+
       <h2 id="font">3. 字体令牌</h2>
       <table>
         <tr><th>令牌</th><th>值</th></tr>
