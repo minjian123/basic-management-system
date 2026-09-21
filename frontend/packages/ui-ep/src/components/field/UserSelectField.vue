@@ -1,6 +1,5 @@
 <script setup lang="ts">
-// 组织选择字段（06_05 真实实现）：用户 / 岗位 / 部门三类远程搜索、多选与上限、只读回显、已删除 / 停用占位；
-// 数据通路经注入式组织数据源（未注入即占位零请求），保留 06_01 冻结对外契约（仅向后兼容新增）。
+// 人员选择字段（06_05）：远程搜索、多选与上限、部门过滤（含下级）、头像展示、只读回显、已删除 / 停用占位。
 import { ElOption, ElSelect } from 'element-plus'
 import {
   ORG_EMPTY_TEXT,
@@ -8,9 +7,7 @@ import {
   ORG_SEARCH_DEBOUNCE,
   normalizeOrgIds,
   orgTagSummary,
-  normalizeOrgKind,
   type BaseUserDisplay,
-  type OrgKind,
   type OrgSourceAdapter,
   type OrgStatus,
 } from '@bms/core'
@@ -19,104 +16,84 @@ import { computed, onScopeDispose, watch } from 'vue'
 import { useBaseOrgSelect } from '../../composables/useBaseOrgSelect'
 import { debounce } from '../../utils/debounce'
 import EmptyState from '../feedback/EmptyState.vue'
-import SelectInput from '../input/SelectInput.vue'
-import type { InputOptions } from '../input/types'
-import DeptTreeSelectField from './DeptTreeSelectField.vue'
 
-/** 字段值类型（单值 / 多选数组）。 */
-export type OrgFieldValue = string | number | (string | number)[]
+/** 字段值类型。 */
+export type UserFieldValue = string | number | (string | number)[]
 
 interface Props {
   /** 值（受控）。 */
-  modelValue?: OrgFieldValue
+  modelValue?: UserFieldValue
   /** 数据通路是否就绪。 */
   ready?: boolean
-  /** 静态选项（未注入数据源时的兼容通路，沿用 `06_01` 就绪语义）。 */
-  options?: InputOptions
-  /** 多选（组织字段缺省多选）。 */
-  multiple?: boolean
-  /** 禁用。 */
-  disabled?: boolean
-  /** 占位提示。 */
-  placeholder?: string
-  /** 降级文案。 */
-  degradeText?: string
-  /** 对象类型（`org` / `dept` 视为部门）。 */
-  kind?: OrgKind
-  /** 可搜索（远程搜索）。 */
-  searchable?: boolean
   /** 组织数据源（未注入即占位零请求）。 */
   source?: OrgSourceAdapter
   /** 用户展示能力（缺省由投影内建花名册）。 */
   userDisplay?: BaseUserDisplay
+  /** 多选（缺省多选）。 */
+  multiple?: boolean
   /** 多选上限（0 不限）。 */
   limit?: number
-  /** 状态过滤（空串不限定）。 */
-  status?: OrgStatus | ''
   /** 部门过滤标识。 */
   deptId?: string
   /** 部门过滤是否含下级。 */
   includeChildren?: boolean
-  /** 部门树是否展示「含下级」勾选（查询区用法）。 */
-  showIncludeChildren?: boolean
+  /** 状态过滤（空串不限定）。 */
+  status?: OrgStatus | ''
+  /** 下拉是否展示头像。 */
+  showAvatar?: boolean
+  /** 可搜索（远程搜索）。 */
+  searchable?: boolean
+  /** 可清空。 */
+  clearable?: boolean
+  /** 禁用。 */
+  disabled?: boolean
   /** 只读回显。 */
   readonly?: boolean
   /** 必填。 */
   required?: boolean
-  /** 外部错误文案（优先）。 */
-  errorMessage?: string
+  /** 占位提示。 */
+  placeholder?: string
+  /** 降级文案。 */
+  degradeText?: string
   /** 空态文案。 */
   emptyText?: string
-  /** 可清空。 */
-  clearable?: boolean
-  /** 标签折叠阈值（超过折叠为「首项 +N」；≤ 0 不折叠）。 */
-  collapseAfter?: number
-  /** 下拉是否展示头像（用户类型）。 */
-  showAvatar?: boolean
-  /** 下拉是否展示编码（岗位类型）。 */
-  showCode?: boolean
+  /** 外部错误文案（优先）。 */
+  errorMessage?: string
 }
 
 const props = withDefaults(defineProps<Props>(), {
   modelValue: undefined,
   ready: false,
-  options: () => [],
-  multiple: true,
-  disabled: false,
-  placeholder: '请选择组织',
-  degradeText: ORG_PLACEHOLDER_TEXT,
-  kind: 'user',
-  searchable: true,
   source: undefined,
   userDisplay: undefined,
+  multiple: true,
   limit: 0,
-  status: '',
   deptId: '',
   includeChildren: false,
-  showIncludeChildren: false,
+  status: '',
+  showAvatar: true,
+  searchable: true,
+  clearable: true,
+  disabled: false,
   readonly: false,
   required: false,
-  errorMessage: '',
+  placeholder: '请选择人员',
+  degradeText: ORG_PLACEHOLDER_TEXT,
   emptyText: ORG_EMPTY_TEXT,
-  clearable: true,
-  collapseAfter: 1,
-  showAvatar: false,
-  showCode: false,
+  errorMessage: '',
 })
 
 const emit = defineEmits<{
-  'update:modelValue': [value: OrgFieldValue | undefined]
-  change: [value: OrgFieldValue | undefined]
+  'update:modelValue': [value: UserFieldValue | undefined]
+  change: [value: UserFieldValue | undefined]
   retry: []
   invalid: [message: string]
   'limit-exceed': [limit: number]
-  'update:deptId': [value: string]
-  'update:includeChildren': [value: boolean]
 }>()
 
 const api = useBaseOrgSelect({
   ready: props.ready,
-  kind: props.kind,
+  kind: 'user',
   multiple: props.multiple,
   limit: props.limit,
   source: props.source,
@@ -129,8 +106,12 @@ watch(
   (next) => api.setReady(next),
 )
 watch(
-  () => props.kind,
-  (next) => api.setKind(normalizeOrgKind(next) ?? 'user'),
+  () => props.source,
+  (next) => api.setSource(next),
+)
+watch(
+  () => props.userDisplay,
+  (next) => api.setUserDisplay(next),
 )
 watch(
   () => props.multiple,
@@ -139,14 +120,6 @@ watch(
 watch(
   () => props.limit,
   (next) => api.setLimit(next),
-)
-watch(
-  () => props.source,
-  (next) => api.setSource(next),
-)
-watch(
-  () => props.userDisplay,
-  (next) => api.setUserDisplay(next),
 )
 watch(
   () => props.status,
@@ -175,17 +148,7 @@ const loadDebounced = debounce(() => {
 }, ORG_SEARCH_DEBOUNCE)
 onScopeDispose(() => loadDebounced.cancel())
 
-const isDept = computed(() => api.kind.value === 'dept')
-const useStaticOptions = computed(() => props.source === undefined && props.options.length > 0)
-const selectModelValue = computed(() => api.value.value)
-const deptValue = computed<string | string[] | undefined>(() => {
-  const current = props.modelValue
-  if (Array.isArray(current)) {
-    return current.map((item) => String(item))
-  }
-  return current === undefined ? undefined : String(current)
-})
-const tag = computed(() => orgTagSummary(api.selectedItems.value, props.collapseAfter))
+const tag = computed(() => orgTagSummary(api.selectedItems.value, 1))
 
 const internalError = computed(() => {
   if (props.errorMessage !== '') {
@@ -228,7 +191,7 @@ function onVisibleChange(visible: boolean): void {
 }
 
 /**
- * 受控控件选择变更（截断超限并回写）。
+ * 控件选择变更（截断超限并回写）。
  *
  * @param next 控件值。
  */
@@ -250,12 +213,8 @@ function onSelectUpdate(next: unknown): void {
 
 /** 重试加载（失效缓存后重取）。 */
 function onRetry(): void {
-  api.invalidate(isDept.value ? 'dept' : undefined)
-  if (isDept.value) {
-    void api.loadDeptTree()
-  } else {
-    void api.load()
-  }
+  api.invalidate()
+  void api.load()
   emit('retry')
 }
 
@@ -264,7 +223,7 @@ function onRetry(): void {
  *
  * @param value 核心值。
  */
-function toFieldValue(value: string | string[] | undefined): OrgFieldValue | undefined {
+function toFieldValue(value: string | string[] | undefined): UserFieldValue | undefined {
   if (Array.isArray(value)) {
     return value.length === 0 ? undefined : value
   }
@@ -274,59 +233,26 @@ function toFieldValue(value: string | string[] | undefined): OrgFieldValue | und
 
 <template>
   <div
-    class="bms-org-select-field"
+    class="bms-user-select-field"
+    data-test="user-select-field"
     :data-ready="api.ready.value"
     :data-degraded="api.degraded.value"
-    :data-kind="api.kind.value"
   >
     <slot v-if="api.degraded.value" name="degrade">
       <div class="bms-field-placeholder" data-test="placeholder">{{ degradeText }}</div>
     </slot>
 
-    <dept-tree-select-field
-      v-else-if="isDept"
-      :model-value="deptValue"
-      :ready="true"
-      :source="source"
-      :multiple="multiple"
-      :disabled="disabled"
-      :readonly="readonly"
-      :status="status"
-      :include-children="includeChildren"
-      :show-include-children="showIncludeChildren"
-      :placeholder="placeholder"
-      :degrade-text="degradeText"
-      :empty-text="emptyText"
-      :error-message="errorMessage"
-      @update:model-value="emit('update:modelValue', $event)"
-      @change="emit('change', $event)"
-      @update:include-children="emit('update:includeChildren', $event)"
-      @retry="emit('retry')"
-      @invalid="emit('invalid', $event)"
-    />
-
-    <select-input
-      v-else-if="useStaticOptions"
-      :model-value="modelValue"
-      :options="options"
-      :multiple="multiple"
-      :searchable="searchable"
-      :disabled="api.disabled.value"
-      :placeholder="placeholder"
-      @update:model-value="emit('update:modelValue', $event)"
-      @change="emit('change', $event)"
-    />
-
-    <div v-else-if="readonly" class="bms-org-select-field__readonly" data-test="org-readonly">
-      <span v-for="item in tag.visible" :key="item.id" class="bms-org-select-field__label">{{ api.labelOf(item.id) }}</span>
-      <span v-if="tag.overflow > 0" class="bms-org-select-field__overflow" data-test="org-tag-overflow">+{{ tag.overflow }}</span>
+    <div v-else-if="readonly" class="bms-user-select-field__readonly" data-test="user-readonly">
+      <span v-for="item in tag.visible" :key="item.id" class="bms-user-select-field__label">{{ api.labelOf(item.id) }}</span>
+      <span v-if="tag.overflow > 0" class="bms-user-select-field__overflow" data-test="user-tag-overflow">+{{ tag.overflow }}</span>
       <span v-if="api.selectedItems.value.length === 0">—</span>
     </div>
 
     <template v-else>
       <el-select
-        class="bms-org-select-field__control"
-        :model-value="selectModelValue"
+        class="bms-user-select-field__control"
+        data-test="user-select"
+        :model-value="api.value.value"
         :multiple="multiple"
         :filterable="searchable"
         :remote="searchable"
@@ -334,10 +260,9 @@ function toFieldValue(value: string | string[] | undefined): OrgFieldValue | und
         :loading="api.loading.value"
         :disabled="api.disabled.value"
         :clearable="clearable"
-        :collapse-tags="collapseAfter > 0"
-        :max-collapse-tags="collapseAfter > 0 ? collapseAfter : undefined"
+        :collapse-tags="true"
+        :max-collapse-tags="1"
         :placeholder="placeholder"
-        :data-test="'org-select'"
         @visible-change="onVisibleChange"
         @update:model-value="onSelectUpdate"
       >
@@ -347,20 +272,18 @@ function toFieldValue(value: string | string[] | undefined): OrgFieldValue | und
           :label="api.labelOf(item.id)"
           :value="item.id"
           :disabled="item.deleted || item.status === 'disabled'"
-          :data-test="`org-option-${item.id}`"
+          :data-test="`user-option-${item.id}`"
         >
           <slot name="option" :item="item">
-            <span class="bms-org-select-field__option">
+            <span class="bms-user-select-field__option">
               <img
                 v-if="showAvatar && item.avatar"
-                class="bms-org-select-field__avatar"
+                class="bms-user-select-field__avatar"
                 :src="item.avatar"
                 alt=""
+                data-test="user-avatar"
               />
-              <span>{{ item.name === '' ? item.id : item.name }}</span>
-              <span v-if="item.deleted" class="bms-org-select-field__marker" data-test="org-marker-deleted">已删除</span>
-              <span v-else-if="item.status === 'disabled'" class="bms-org-select-field__marker" data-test="org-marker-disabled">停用</span>
-              <span v-if="showCode && item.code" class="bms-org-select-field__code">{{ item.code }}</span>
+              <span>{{ api.labelOf(item.id) }}</span>
             </span>
           </slot>
         </el-option>
@@ -372,12 +295,12 @@ function toFieldValue(value: string | string[] | undefined): OrgFieldValue | und
       </el-select>
     </template>
 
-    <p v-if="internalError !== ''" class="bms-field-error" data-test="org-error">{{ internalError }}</p>
+    <p v-if="internalError !== ''" class="bms-field-error" data-test="user-error">{{ internalError }}</p>
     <button
       v-if="api.error.value"
       type="button"
-      class="bms-org-select-field__retry"
-      data-test="org-retry"
+      class="bms-user-select-field__retry"
+      data-test="user-retry"
       @click="onRetry"
     >
       重试
@@ -386,46 +309,37 @@ function toFieldValue(value: string | string[] | undefined): OrgFieldValue | und
 </template>
 
 <style scoped>
-.bms-org-select-field {
+.bms-user-select-field {
   display: flex;
   flex-direction: column;
   gap: var(--bms-spacing-sm);
 }
-.bms-org-select-field__control {
+.bms-user-select-field__control {
   width: 100%;
 }
-.bms-org-select-field__option {
+.bms-user-select-field__option {
   display: inline-flex;
   align-items: center;
   gap: var(--bms-spacing-sm);
 }
-.bms-org-select-field__avatar {
+.bms-user-select-field__avatar {
   width: 20px;
   height: 20px;
   border-radius: 50%;
 }
-.bms-org-select-field__marker {
-  color: var(--bms-org-marker-deleted-color);
-  font-size: 12px;
-}
-.bms-org-select-field__code {
-  color: var(--bms-color-text-secondary);
-  font-size: 12px;
-}
-.bms-org-select-field__readonly {
+.bms-user-select-field__readonly {
   display: inline-flex;
   flex-wrap: wrap;
   gap: var(--bms-spacing-sm);
-  color: var(--bms-color-text);
 }
-.bms-org-select-field__label,
-.bms-org-select-field__overflow {
+.bms-user-select-field__label,
+.bms-user-select-field__overflow {
   padding: 0 var(--bms-spacing-sm);
   background: var(--bms-org-tag-bg);
   border: 1px solid var(--bms-org-border);
   border-radius: var(--bms-radius-sm);
 }
-.bms-org-select-field__retry {
+.bms-user-select-field__retry {
   align-self: flex-start;
   color: var(--bms-color-primary);
   background: transparent;

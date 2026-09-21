@@ -58,6 +58,14 @@
   --bms-search-panel-bg: var(--bms-color-bg);
   --bms-search-degrade-bg: #fff8c5;
   --bms-search-degrade-border: #d4a72c;
+  // 组织选择（候选悬停 / 已选底 / 标签底 / 标记色 / 面板；禁止硬编码色值）
+  --bms-org-option-hover-bg: #f5f7fa;
+  --bms-org-option-selected-bg: #ecf5ff;
+  --bms-org-tag-bg: #f5f7fa;
+  --bms-org-marker-deleted-color: #909399;
+  --bms-org-marker-disabled-color: #e6a23c;
+  --bms-org-panel-bg: var(--bms-color-bg);
+  --bms-org-border: var(--bms-color-border);
   // 字
   --bms-font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
   --bms-font-size: 14px;
@@ -141,6 +149,11 @@
   --bms-search-active-bg: #1d3049;
   --bms-search-degrade-bg: #3a2f1c;
   --bms-search-degrade-border: #d4a72c;
+  // 组织选择底随深色调整对比度；标记色保持语义一致
+  --bms-org-option-hover-bg: #262727;
+  --bms-org-option-selected-bg: #1d3049;
+  --bms-org-tag-bg: #262727;
+  --bms-org-marker-deleted-color: #a3a6ad;
 }
 
 // 打印样式令牌（打印与屏幕样式解耦；件层消费 var(--bms-print-*, fallback)，黑白色值不与屏幕主题联动）

@@ -6,8 +6,9 @@ import { buildRenderPlan } from '@bms/core'
 import { flushPromises, mount } from '@vue/test-utils'
 import { describe, expect, it, vi } from 'vitest'
 
-import { FormRenderer, getFieldWidget, resolveFieldComponent, useBaseFormRenderer } from '../src'
+import { FormRenderer, getFieldWidget, resolveFieldComponent, useBaseFormRenderer, MULTIPLE_WIDGETS } from '../src'
 import FormRendererBody from '../src/components/form-render/FormRendererBody.vue'
+import OrgSelectField from '../src/components/field/OrgSelectField.vue'
 
 /** 字段清单样例。 */
 const fields: FormField[] = [
@@ -172,6 +173,32 @@ describe('utils/formWidgets 分发映射', () => {
     expect(getFieldWidget('cascader')).toBeDefined()
     // 同键稳定返回同一组件对象（映射表为常量）。
     expect(getFieldWidget('richtext')).toBe(getFieldWidget('richtext'))
+  })
+
+  it('组织字段协同（06_05）：dept 映射组织件、kind 透传、多选语义单一来源', () => {
+    expect(MULTIPLE_WIDGETS).toContain('org-select')
+    const orgMeta: LayoutEffective = {
+      ...meta,
+      fields: [
+        { key: 'dept', label: '部门', type: 'dept', group: 'platform', status: 'active' },
+        { key: 'user', label: '人员', type: 'user', group: 'platform', status: 'active' },
+      ],
+      layout: {
+        main: {
+          labelPosition: 'top',
+          sections: [{ key: 's-org', title: '组织', columns: 2, fields: [{ key: 'dept' }, { key: 'user' }] }],
+        },
+      },
+    }
+    const plan = buildRenderPlan({ ...orgMeta, permissions: {} }, { mode: 'edit' })
+    const wrapper = mount(FormRendererBody, {
+      props: { mode: 'edit', plan, modelValue: {}, details: {}, permissions: {} },
+      global: { stubs: { DataTable: true } },
+    })
+    const deptField = wrapper.findComponent(OrgSelectField)
+    expect(deptField.exists()).toBe(true)
+    expect(deptField.props('kind')).toBe('dept')
+    expect(deptField.props('multiple')).toBe(true)
   })
 })
 

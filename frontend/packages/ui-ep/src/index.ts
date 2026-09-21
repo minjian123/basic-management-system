@@ -233,6 +233,13 @@ export { default as DateTimeField, type DateTimeKind, type DateTimeValue } from 
 export { default as DictSelectField, type DictFieldValue } from './components/field/DictSelectField.vue'
 export { default as FileUploadField, type UploadFieldItem } from './components/field/FileUploadField.vue'
 export { default as OrgSelectField, type OrgFieldValue } from './components/field/OrgSelectField.vue'
+export { default as UserSelectField, type UserFieldValue } from './components/field/UserSelectField.vue'
+export { default as PostSelectField, type PostFieldValue } from './components/field/PostSelectField.vue'
+export { default as DeptTreeSelectField, type DeptFieldValue } from './components/field/DeptTreeSelectField.vue'
+export {
+  default as OrgCompositePicker,
+  type OrgCompositeValue,
+} from './components/field/OrgCompositePicker.vue'
 export { default as CheckboxInput, type CheckboxForm, type CheckboxValue } from './components/input/CheckboxInput.vue'
 export { default as NumberInput } from './components/input/NumberInput.vue'
 export { default as RadioInput, type RadioForm, type RadioValue } from './components/input/RadioInput.vue'
@@ -355,6 +362,14 @@ export {
   type UseBaseAiAssistantResult,
 } from './composables/useBaseAiAssistant'
 export { useBaseSearch, type UseBaseSearchOptions, type UseBaseSearchResult } from './composables/useBaseSearch'
+export {
+  useBaseOrgSelect,
+  type OrgSelectValue,
+  type UseBaseOrgSelectOptions,
+  type UseBaseOrgSelectResult,
+} from './composables/useBaseOrgSelect'
+export { debounce, type DebouncedFunction } from './utils/debounce'
+export { createHttpOrgSource, orgSourceRegistry, registerOrgSource } from './utils/orgSource'
 export { escapeSearchText, highlightHit, highlightKeyword, sanitizeHighlight } from './utils/searchHighlight'
 export {
   createHttpSearchEngine,
