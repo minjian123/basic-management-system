@@ -40,6 +40,10 @@ export default defineConfig({
           if (id.includes('node_modules/marked')) {
             return 'vendor-marked'
           }
+          // 图片裁剪库独立分包（仅裁剪弹窗动态 import 时成为异步块，不进首屏）
+          if (id.includes('node_modules/cropperjs')) {
+            return 'vendor-cropperjs'
+          }
           if (id.includes('/packages/')) {
             return 'bms-base'
           }

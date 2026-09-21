@@ -123,7 +123,7 @@ describe('BaseAsyncTask 异步任务能力', () => {
 describe('BaseUploadEngine 上传引擎能力', () => {
   it('占位（无上传器）返回 undefined；注入后返回键', async () => {
     const upload = new DemoUpload()
-    expect(upload.depends).toEqual(['presigned-url'])
+    expect(upload.depends).toEqual(['placeholder-state', 'presigned-url'])
     expect(await upload.upload('f')).toBeUndefined()
 
     upload.uploader = async () => 'key-1'

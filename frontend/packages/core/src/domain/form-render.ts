@@ -59,6 +59,8 @@ export type FormWidget =
   | 'switch'
   | 'file'
   | 'image'
+  | 'file-upload'
+  | 'image-upload'
   | 'richtext'
   | 'tree-select'
   | 'org-select'
@@ -83,6 +85,8 @@ export const FIELD_WIDGETS: readonly FormWidget[] = [
   'switch',
   'file',
   'image',
+  'file-upload',
+  'image-upload',
   'richtext',
   'tree-select',
   'org-select',
@@ -110,8 +114,8 @@ export const FIELD_WIDGET_MAP: Readonly<Record<string, FormWidget>> = {
   radio: 'radio',
   checkbox: 'checkbox',
   switch: 'switch',
-  file: 'file',
-  image: 'image',
+  file: 'file-upload',
+  image: 'image-upload',
   richtext: 'richtext',
   dept: 'org-select',
   tree: 'tree-select',
@@ -466,6 +470,18 @@ export function normalizeField(input: FormFieldInput | undefined, index = 0): Fo
   if (typeof source.dictType === 'string' && source.dictType !== '') {
     field.dictType = source.dictType
   }
+  if (typeof source.uploadAccept === 'string' && source.uploadAccept !== '') {
+    field.uploadAccept = source.uploadAccept
+  }
+  if (typeof source.uploadMaxSize === 'number' && Number.isFinite(source.uploadMaxSize) && source.uploadMaxSize > 0) {
+    field.uploadMaxSize = source.uploadMaxSize
+  }
+  if (typeof source.uploadLimit === 'number' && Number.isFinite(source.uploadLimit) && source.uploadLimit > 0) {
+    field.uploadLimit = source.uploadLimit
+  }
+  if (source.uploadMultiple === true || source.uploadMultiple === false) {
+    field.uploadMultiple = source.uploadMultiple
+  }
   if (source.readonly === true) {
     field.readonly = true
   }
@@ -604,6 +620,10 @@ function mergeAttrs(field: FormField, override: FieldRenderOverride | undefined)
     rules: override.rules ?? field.rules,
     options: override.options ?? field.options,
     dictType: override.dictType ?? field.dictType,
+    uploadAccept: override.uploadAccept ?? field.uploadAccept,
+    uploadMaxSize: override.uploadMaxSize ?? field.uploadMaxSize,
+    uploadLimit: override.uploadLimit ?? field.uploadLimit,
+    uploadMultiple: override.uploadMultiple ?? field.uploadMultiple,
     readonly: override.readonly ?? field.readonly,
     hidden: override.hidden ?? field.hidden,
   }

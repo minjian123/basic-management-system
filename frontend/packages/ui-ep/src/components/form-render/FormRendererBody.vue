@@ -207,7 +207,7 @@ function isMultiple(field: RenderFieldPlan): boolean {
 }
 
 /**
- * 控件附加属性（组织选择件透传 `kind`；字典件透传 `dictType`；其余为空）。
+ * 控件附加属性（组织选择件透传 `kind`；字典件透传 `dictType`；上传件透传 `upload*`；其余为空）。
  *
  * @param field 字段渲染项。
  */
@@ -217,6 +217,14 @@ function extraProps(field: RenderFieldPlan): Record<string, unknown> {
   }
   if (isDictReferenced(field)) {
     return { dictType: field.base.dictType ?? '' }
+  }
+  if (field.widget === 'file-upload' || field.widget === 'image-upload') {
+    return {
+      multiple: field.base.uploadMultiple ?? true,
+      ...(field.base.uploadAccept === undefined ? {} : { accept: field.base.uploadAccept }),
+      ...(field.base.uploadMaxSize === undefined ? {} : { maxSize: field.base.uploadMaxSize }),
+      ...(field.base.uploadLimit === undefined ? {} : { limit: field.base.uploadLimit }),
+    }
   }
   return {}
 }

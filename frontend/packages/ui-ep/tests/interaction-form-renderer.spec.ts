@@ -9,6 +9,8 @@ import { describe, expect, it, vi } from 'vitest'
 import { FormRenderer, getFieldWidget, resolveFieldComponent, useBaseFormRenderer, MULTIPLE_WIDGETS } from '../src'
 import FormRendererBody from '../src/components/form-render/FormRendererBody.vue'
 import DictSelectField from '../src/components/field/DictSelectField.vue'
+import FileUploadField from '../src/components/field/FileUploadField.vue'
+import ImageUploadField from '../src/components/field/ImageUploadField.vue'
 import OrgSelectField from '../src/components/field/OrgSelectField.vue'
 
 /** 字段清单样例。 */
@@ -236,6 +238,52 @@ describe('utils/formWidgets 分发映射', () => {
     expect(fields[1]?.props('dictType')).toBe('biz_type')
     expect(fields[1]?.props('multiple')).toBe(true)
     expect(fields[2]?.props('dictType')).toBe('user_status')
+  })
+
+  it('文件 / 图片字段协同（06_07）：语义键分发、上传属性透传、多选语义单一来源', () => {
+    expect(getFieldWidget('file-upload')).toBeDefined()
+    expect(getFieldWidget('image-upload')).toBeDefined()
+    expect(MULTIPLE_WIDGETS).toContain('file-upload')
+    expect(MULTIPLE_WIDGETS).toContain('image-upload')
+    const uploadMeta: LayoutEffective = {
+      ...meta,
+      fields: [
+        {
+          key: 'attachment',
+          label: '附件',
+          type: 'file',
+          group: 'platform',
+          status: 'active',
+          uploadAccept: '.pdf,.png',
+          uploadMaxSize: 2 * 1024 * 1024,
+          uploadLimit: 3,
+          uploadMultiple: true,
+        },
+        { key: 'avatar', label: '头像', type: 'image', group: 'platform', status: 'active', uploadMultiple: false },
+      ],
+      layout: {
+        main: {
+          labelPosition: 'top',
+          sections: [
+            { key: 's-file', title: '上传', columns: 2, fields: [{ key: 'attachment' }, { key: 'avatar' }] },
+          ],
+        },
+      },
+    }
+    const plan = buildRenderPlan({ ...uploadMeta, permissions: {} }, { mode: 'edit' })
+    const wrapper = mount(FormRendererBody, {
+      props: { mode: 'edit', plan, modelValue: {}, details: {}, permissions: {} },
+      global: { stubs: { DataTable: true, FileUploadField: true, ImageUploadField: true } },
+    })
+    const fileField = wrapper.findComponent(FileUploadField)
+    expect(fileField.exists()).toBe(true)
+    expect(fileField.props('accept')).toBe('.pdf,.png')
+    expect(fileField.props('maxSize')).toBe(2 * 1024 * 1024)
+    expect(fileField.props('limit')).toBe(3)
+    expect(fileField.props('multiple')).toBe(true)
+    const imageField = wrapper.findComponent(ImageUploadField)
+    expect(imageField.exists()).toBe(true)
+    expect(imageField.props('multiple')).toBe(false)
   })
 })
 
