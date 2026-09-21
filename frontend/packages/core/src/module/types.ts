@@ -26,6 +26,36 @@ export interface ModuleRouteDeclaration {
   meta?: Record<string, unknown>
 }
 
+/** 模块页面区域声明。 */
+export interface ModuleRegionDeclaration {
+  /** 命名空间键（`<模块名>:<区域项>`）。 */
+  key: string
+  /** 区域标识（点分，如 `layout.header`）。 */
+  area: string
+  /** 挂接组件。 */
+  component: unknown
+  /** 同区域排序提示（缺省 0）。 */
+  order?: number
+}
+
+/** 模块主题令牌声明。 */
+export interface ModuleThemeTokenDeclaration {
+  /** 命名空间键（`<模块名>:<主题标识>`）。 */
+  key: string
+  /** 令牌映射（`--bms-*` 变量 → 值）。 */
+  tokens: Record<string, string>
+  /** 模式标注（`light` / `dark` / 品牌标识等）。 */
+  mode?: string
+}
+
+/** 模块 i18n 文案包声明。 */
+export interface ModuleI18nPackDeclaration {
+  /** 命名空间键（`<模块名>:<语言标识小写>`）。 */
+  key: string
+  /** 文案映射（`msg_key` → 文案）。 */
+  messages: Record<string, string>
+}
+
 /** 模块注册声明。 */
 export interface ModuleRegistration {
   /** 路由声明。 */
@@ -36,6 +66,12 @@ export interface ModuleRegistration {
   icons?: Record<string, unknown>
   /** 工作台卡片声明。 */
   cards?: unknown[]
+  /** 页面区域声明。 */
+  regions?: ModuleRegionDeclaration[]
+  /** 主题令牌声明。 */
+  themeTokens?: ModuleThemeTokenDeclaration[]
+  /** i18n 文案包声明。 */
+  i18nPacks?: ModuleI18nPackDeclaration[]
 }
 
 /** 宿主注入上下文（**`token` 不入清单**，模块不得持久化凭据）。 */

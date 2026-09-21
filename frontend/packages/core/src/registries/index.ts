@@ -14,9 +14,14 @@ import { ErrorCodes } from '../mechanisms/error-codes'
 import {
   ComponentProvider,
   FieldRendererProvider,
+  I18nPackProvider,
   IconProvider,
+  LOCALE_TAG_PATTERN,
+  PAGE_AREA_ID_PATTERN,
+  PageAreaProvider,
   REGISTRY_KEY_PATTERN,
   RouteMenuProvider,
+  ThemeTokenProvider,
   WorkbenchCardProvider,
 } from './providers'
 
@@ -42,6 +47,31 @@ export const ICON_KEY_PATTERN = /^[a-z][a-z0-9-]*:[A-Za-z0-9][A-Za-z0-9._-]*$/
 export function assertIconKey(key: string): void {
   if (!ICON_KEY_PATTERN.test(key)) {
     throw new BaseError(ErrorCodes.CAPABILITY_VIOLATION, `图标键非法：${key}`)
+  }
+}
+
+/**
+ * 校验页面区域标识（点分 `<域>.<区域>`）。
+ *
+ * @param area 区域标识。
+ * @throws BaseError 标识非法（`CAPABILITY_VIOLATION`）。
+ */
+export function assertPageAreaId(area: string): void {
+  if (!PAGE_AREA_ID_PATTERN.test(area)) {
+    throw new BaseError(ErrorCodes.CAPABILITY_VIOLATION, `区域标识非法：${area}`)
+  }
+}
+
+/**
+ * 校验语言标识段（小写 BCP-47 形态）。
+ *
+ * @param tag 语言标识段。
+ * @param scope 校验范围。
+ * @throws BaseError 标识非法（`CAPABILITY_VIOLATION`）。
+ */
+export function assertLocaleTag(tag: string, scope: string): void {
+  if (!LOCALE_TAG_PATTERN.test(tag)) {
+    throw new BaseError(ErrorCodes.CAPABILITY_VIOLATION, `${scope} 语言标识非法：${tag}`)
   }
 }
 
@@ -233,10 +263,149 @@ export class WorkbenchCardRegistry extends BaseProviderRegistry<WorkbenchCardPro
   }
 }
 
-/** 前端注册表集合。 */
+/** 页面区域注册表。 */
+export class PageAreaRegistry extends BaseProviderRegistry<PageAreaProvider> {
+  /** 插件键。 */
+  readonly pluginKey = 'page-area-registry'
+  /** 实现名。 */
+  readonly pluginName = 'core'
+
+  /**
+   * 注册项键。
+   *
+   * @param provider 注册项。
+   */
+  protected providerKey(provider: PageAreaProvider): string {
+    return provider.key
+  }
+
+  /**
+   * 登记页面区域项（键须为命名空间键，区域标识须为点分标识）。
+   *
+   * @param provider 注册项。
+   */
+  override register(provider: PageAreaProvider): void {
+    assertNamespacedKey(provider.key, '页面区域')
+    assertPageAreaId(provider.area)
+    super.register(provider)
+  }
+
+  /**
+   * 按区域标识解析（保序；未命中返回空数组，不替调用方兜底）。
+   *
+   * @param area 区域标识。
+   */
+  resolveByArea(area: string): PageAreaProvider[] {
+    return this.values().filter((provider) => provider.area === area)
+  }
+
+  /** 已登记区域标识（登记序、去重）。 */
+  areas(): string[] {
+    return [...new Set(this.values().map((provider) => provider.area))]
+  }
+}
+
+/** 主题令牌注册表。 */
+export class ThemeTokenRegistry extends BaseProviderRegistry<ThemeTokenProvider> {
+  /** 插件键。 */
+  readonly pluginKey = 'theme-token-registry'
+  /** 实现名。 */
+  readonly pluginName = 'core'
+
+  /**
+   * 注册项键。
+   *
+   * @param provider 注册项。
+   */
+  protected providerKey(provider: ThemeTokenProvider): string {
+    return provider.key
+  }
+
+  /**
+   * 登记主题令牌（键须为命名空间键）。
+   *
+   * @param provider 注册项。
+   */
+  override register(provider: ThemeTokenProvider): void {
+    assertNamespacedKey(provider.key, '主题令牌')
+    super.register(provider)
+  }
+
+  /**
+   * 解析令牌映射（未命中返回 `undefined`）。
+   *
+   * @param key 主题键。
+   */
+  resolve(key: string): Record<string, string> | undefined {
+    return this.get(key)?.tokens
+  }
+
+  /**
+   * 按模式筛选（保序；空串返回全部）。
+   *
+   * @param mode 模式标注。
+   */
+  byMode(mode: string): ThemeTokenProvider[] {
+    if (mode === '') {
+      return this.values()
+    }
+    return this.values().filter((provider) => provider.mode === mode)
+  }
+}
+
+/** i18n 文案包注册表。 */
+export class I18nPackRegistry extends BaseProviderRegistry<I18nPackProvider> {
+  /** 插件键。 */
+  readonly pluginKey = 'i18n-pack-registry'
+  /** 实现名。 */
+  readonly pluginName = 'core'
+
+  /**
+   * 注册项键。
+   *
+   * @param provider 注册项。
+   */
+  protected providerKey(provider: I18nPackProvider): string {
+    return provider.key
+  }
+
+  /**
+   * 登记 i18n 文案包（键须为命名空间键，语言标识段须小写归一且合法）。
+   *
+   * @param provider 注册项。
+   */
+  override register(provider: I18nPackProvider): void {
+    assertNamespacedKey(provider.key, 'i18n 文案包')
+    assertLocaleTag(provider.locale, 'i18n 文案包')
+    super.register(provider)
+  }
+
+  /**
+   * 解析单个文案包（未命中返回 `undefined`；**不跨来源合并**）。
+   *
+   * @param key 语言包键。
+   */
+  resolve(key: string): Record<string, string> | undefined {
+    return this.get(key)?.messages
+  }
+
+  /**
+   * 按语言解析文案包（入参小写归一后比对；未命中返回空数组）。
+   *
+   * @param locale 语言标识。
+   */
+  byLocale(locale: string): I18nPackProvider[] {
+    const normalized = locale.toLowerCase()
+    return this.values().filter((provider) => provider.locale === normalized)
+  }
+}
+
+/** 前端注册表集合（八类扩展点）。 */
 export interface FrontendRegistries {
   /** 路由·菜单。 */
   routeMenu: RouteMenuRegistry
+  /** 页面区域。 */
+  pageArea: PageAreaRegistry
   /** 通用组件。 */
   component: ComponentRegistry
   /** 字段渲染器。 */
@@ -245,6 +414,10 @@ export interface FrontendRegistries {
   icon: IconRegistry
   /** 工作台卡片。 */
   workbenchCard: WorkbenchCardRegistry
+  /** 主题令牌。 */
+  themeToken: ThemeTokenRegistry
+  /** i18n 文案包。 */
+  i18nPack: I18nPackRegistry
 }
 
 /**
@@ -255,9 +428,12 @@ export interface FrontendRegistries {
 export function createRegistries(): FrontendRegistries {
   return {
     routeMenu: new RouteMenuRegistry(),
+    pageArea: new PageAreaRegistry(),
     component: new ComponentRegistry(),
     fieldRenderer: new FieldRendererRegistry(),
     icon: new IconRegistry(),
     workbenchCard: new WorkbenchCardRegistry(),
+    themeToken: new ThemeTokenRegistry(),
+    i18nPack: new I18nPackRegistry(),
   }
 }

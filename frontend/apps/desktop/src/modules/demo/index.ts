@@ -23,5 +23,23 @@ export const demoModule = defineModule({
     components: { 'demo:toolbox': () => import('./views/DemoToolbox.vue') },
     icons: { 'demo:sparkles': 'sparkles' },
     cards: [new WorkbenchCardProvider('demo:summary', () => import('./views/DemoHome.vue'), '模块概览')],
+    regions: [
+      { key: 'demo:hero', area: 'layout.header', component: () => import('./views/DemoToolbox.vue'), order: 10 },
+    ],
+    themeTokens: [{ key: 'demo:brand', tokens: { '--bms-color-primary': '#3a7bd5' }, mode: 'brand' }],
+    i18nPacks: [
+      {
+        key: 'demo:zh-cn',
+        messages: { 'demo.title': '演示模块', 'demo.toolbox': '组件契约演示', 'demo.summary': '模块概览' },
+      },
+      {
+        key: 'demo:en',
+        messages: {
+          'demo.title': 'Demo module',
+          'demo.toolbox': 'Component contract demo',
+          'demo.summary': 'Module overview',
+        },
+      },
+    ],
   }),
 })

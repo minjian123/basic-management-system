@@ -31,7 +31,7 @@ export { ErrorCodes, FRONTEND_RESERVED_SEGMENT, isFrontendReservedCode, type Err
 export { BaseCapability } from './mechanisms/capability'
 export { BasePluggable, DEFAULT_CONTRACT_VERSION } from './mechanisms/pluggable'
 export { BaseError, type BaseErrorOptions } from './mechanisms/error'
-export { BaseProviderRegistry, CapabilityRegistry } from './mechanisms/registry'
+export { BaseProviderRegistry, CapabilityRegistry, type DuplicatePolicy } from './mechanisms/registry'
 export { BaseProvider } from './mechanisms/provider'
 export { BaseFactory } from './mechanisms/factory'
 export { BaseAsyncResource, type Disposable } from './mechanisms/resource'
@@ -563,10 +563,13 @@ export {
   type LoadedModule,
   type ModuleDefinition,
   type ModuleHostContext,
+  type ModuleI18nPackDeclaration,
   type ModuleLoader,
   type ModuleManifest,
+  type ModuleRegionDeclaration,
   type ModuleRegistration,
   type ModuleRouteDeclaration,
+  type ModuleThemeTokenDeclaration,
 } from './module/types'
 export { MODULE_NAME_PATTERN, defineModule } from './module/define'
 
@@ -575,21 +578,39 @@ export {
   ComponentRegistry,
   FieldRendererProvider,
   FieldRendererRegistry,
+  I18nPackProvider,
+  I18nPackRegistry,
   IconProvider,
   IconRegistry,
   ICON_KEY_PATTERN,
+  LOCALE_TAG_PATTERN,
+  PAGE_AREA_ID_PATTERN,
+  PageAreaProvider,
+  PageAreaRegistry,
   REGISTRY_KEY_PATTERN,
   RouteMenuProvider,
   RouteMenuRegistry,
+  ThemeTokenProvider,
+  ThemeTokenRegistry,
   WorkbenchCardProvider,
   WorkbenchCardRegistry,
   assertIconKey,
+  assertLocaleTag,
   assertNamespacedKey,
+  assertPageAreaId,
   createRegistries,
   schemaError,
   type FrontendRegistries,
   type IconProviderOptions,
 } from './registries'
+export {
+  PLATFORM_SOURCE,
+  assembleRegistrations,
+  releaseRegistrations,
+  type RegistrationKey,
+  type RegistrationSource,
+  type RegistryRegistration,
+} from './registries/assemble'
 export { LocalModuleLoader } from './module/loader'
 
 export { BaseApi, type HttpMethod } from './contracts/api'

@@ -10,6 +10,9 @@ import { BaseError } from './error'
 import { ErrorCodes } from './error-codes'
 import { BasePluggable } from './pluggable'
 
+/** 同键冲突处置档位：`strict` 抛错 / `lenient` 告警保留首个。 */
+export type DuplicatePolicy = 'strict' | 'lenient'
+
 /** 提供者注册表基座（抽象）。 */
 export abstract class BaseProviderRegistry<T> extends BasePluggable {
   /** 已登记提供者（保持登记顺序）。 */
@@ -18,15 +21,24 @@ export abstract class BaseProviderRegistry<T> extends BasePluggable {
   /** 注册项键（各域注册表覆写）。 */
   protected abstract providerKey(provider: T): string
 
+  /** 同键冲突处置档位（缺省 `strict`；子类可覆写为 `lenient`）。 */
+  get duplicatePolicy(): DuplicatePolicy {
+    return 'strict'
+  }
+
   /**
-   * 登记提供者（同键拒重，不静默覆盖）。
+   * 登记提供者（同键拒重，不静默覆盖；宽和档告警保留首个）。
    *
    * @param provider 注册项。
-   * @throws BaseError 键已登记（`REGISTRY_CONFLICT`）。
+   * @throws BaseError 键已登记且为严格档（`REGISTRY_CONFLICT`）。
    */
   register(provider: T): void {
     const key = this.providerKey(provider)
     if (this.providers.has(key)) {
+      if (this.duplicatePolicy === 'lenient') {
+        this.log('warn', `${this.pluginKey} 重复登记（宽和档保留首个）：${key}`)
+        return
+      }
       throw new BaseError(ErrorCodes.REGISTRY_CONFLICT, `${this.pluginKey} 重复登记：${key}`)
     }
     this.providers.set(key, provider)

@@ -6,7 +6,7 @@ import { createApp } from 'vue'
 
 import App from './App.vue'
 import { setModuleError } from './module/boundary'
-import { mountModule } from './module/host'
+import { installPlatformRegistrations, mountModule } from './module/host'
 import { router } from './router'
 import { installMenuRoutes } from './router/dynamic'
 import { useSessionStore } from './stores/session'
@@ -17,6 +17,9 @@ import './styles/tokens.scss'
 applyInitialTheme()
 
 installMenuRoutes(router, PLACEHOLDER_MENU)
+
+// 装配时序：平台自身注册（启动期）→ 模块注册（挂载期）→ 应用挂载。
+installPlatformRegistrations()
 
 const app = createApp(App)
 const pinia = createPinia()
