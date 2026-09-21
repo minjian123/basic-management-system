@@ -1,19 +1,24 @@
 // kiwi_id: 976
-/** 统一装配通道与演示模块契约使用用例（10_02 装配 + 01_01 统一装配器收敛；挂载通路改用清单驱动，见 Kiwi 977）。 */
+/** 统一装配通道与模块契约使用用例（10_02 装配 + 01_01 统一装配器收敛；挂载通路为清单驱动远端，见 Kiwi 977 / 978）。 */
 
 import { PLATFORM_SOURCE, assembleRegistrations, releaseRegistrations } from '@bms/core'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { getModuleLoader, installModules, installPlatformRegistrations, unmountModule } from '@/module/host'
 import { registries } from '@/module/registries'
-import { demoModule } from '@/modules/demo'
 
-const MANIFEST = [{ name: 'demo', entry: 'demo', version: '0.1.0' }]
+import { demoDefinition, REMOTE_ENTRY } from './support/module-fixture'
+
+/** Module Federation 运行时替身（远端模块定义经此注入）。 */
+const { loadRemote } = vi.hoisted(() => ({ loadRemote: vi.fn() }))
+vi.mock('@module-federation/runtime', () => ({ registerRemotes: vi.fn(), loadRemote }))
 
 beforeEach(() => {
+  loadRemote.mockReset()
+  loadRemote.mockResolvedValue({ default: demoDefinition() })
   vi.stubGlobal(
     'fetch',
-    vi.fn(async () => ({ ok: true, status: 200, json: async () => MANIFEST })),
+    vi.fn(async () => ({ ok: true, status: 200, json: async () => [REMOTE_ENTRY] })),
   )
 })
 
@@ -30,7 +35,7 @@ describe('统一装配通道（Kiwi 976）', () => {
     expect(PLATFORM_SOURCE).toBe('platform')
   })
 
-  it('装配前不可解析、装配后可用、卸载后回到不可解析', async () => {
+  it('装配前不可解析、装配后可用、卸载后回到不可解析（八类声明全通道）', async () => {
     expect(registries.component.get('demo:toolbox')).toBeUndefined()
     expect(registries.pageArea.resolveByArea('layout.header')).toEqual([])
 
@@ -38,6 +43,7 @@ describe('统一装配通道（Kiwi 976）', () => {
 
     expect(registries.component.get('demo:toolbox')).toBeDefined()
     expect(registries.component.get('demo:toolbox')?.registrationSource).toBe('demo')
+    expect(registries.fieldRenderer.get('demo:amount')?.fieldType).toBe('amount')
     expect(registries.icon.get('demo:sparkles')).toBeDefined()
     expect(registries.workbenchCard.get('demo:summary')?.title).toBe('模块概览')
     expect(registries.routeMenu.get('DemoHome')?.title).toBe('演示模块')
@@ -49,6 +55,7 @@ describe('统一装配通道（Kiwi 976）', () => {
     unmountModule('demo')
 
     expect(registries.component.get('demo:toolbox')).toBeUndefined()
+    expect(registries.fieldRenderer.get('demo:amount')).toBeUndefined()
     expect(registries.icon.get('demo:sparkles')).toBeUndefined()
     expect(registries.workbenchCard.get('demo:summary')).toBeUndefined()
     expect(registries.routeMenu.get('DemoHome')).toBeUndefined()
@@ -89,16 +96,5 @@ describe('统一装配通道（Kiwi 976）', () => {
     expect(registries.routeMenu.get('DemoHome')?.path).toBe('/demo')
     expect(registries.routeMenu.get('DemoRaw')).toBeUndefined()
     releaseRegistrations(registries, keys)
-  })
-})
-
-describe('演示模块契约使用', () => {
-  it('模块定义校验通过并声明版本与三类新扩展点', () => {
-    expect(demoModule.manifest).toMatchObject({ name: 'demo', version: '0.1.0' })
-
-    const registration = demoModule.setup({})
-    expect(registration.regions?.map((item) => item.key)).toEqual(['demo:hero'])
-    expect(registration.themeTokens?.map((item) => item.key)).toEqual(['demo:brand'])
-    expect(registration.i18nPacks?.map((item) => item.key)).toEqual(['demo:zh-cn', 'demo:en'])
   })
 })

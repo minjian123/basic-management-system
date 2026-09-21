@@ -1,0 +1,9 @@
+{
+  "distDir": "dist",
+  "entryGzipKb": 12,
+  "largestGzipKb": 8,
+  "maxEntryFiles": 8,
+  "minAsyncChunks": 2,
+  "pageChunkHints": ["DemoHome", "DemoToolbox"],
+  "note": "模块产物单独计量（不并入宿主阈值）：入口块＝从 remoteEntry.js 出发的引用闭包（种子追静态+动态引用，其余只追静态引用）；页面块经动态 import() 引用，不进闭包；pageChunkHints 为模块页面块命名特征（页面 chunk 由 src/views/ 派生命名，改名须同步本表）。阈值口径同宿主：实测基线 + 20%。"
+}

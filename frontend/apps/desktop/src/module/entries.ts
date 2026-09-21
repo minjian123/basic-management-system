@@ -1,11 +1,13 @@
 /**
- * 模块入口懒加载表：以模块目录名索引应用内模块入口（Vite 依动态导入自动分包）。
+ * 本地模块入口解析器（宿主，构建期合并形态）：以模块目录名索引应用内模块入口
+ * （Vite 依动态导入自动分包）。
  *
- * 清单 `entry` 即本表键——清单驱动加载、不硬编码模块地址；远端形态（Module Federation）
- * 由 `02_01` 接入后以远端入口替换本表解析。
+ * 清单 `entry` 即本表键——本地形态的模块（未迁移模块）随宿主构建发布；运行时远端形态
+ * 由 `./federation.ts` 的远端解析器承接（两者经 `host.ts` 按清单 `mode` 分派）。
+ * 当前无存量本地模块，故目录为空、表为空（能力保留、由用例覆盖）。
  */
 
-import type { ModuleEntryModule, ModuleEntryTable } from '@bms/core'
+import { createModuleEntryTableResolver, type ModuleEntryModule, type ModuleEntryResolver, type ModuleEntryTable } from '@bms/core'
 
 /** 模块入口模块集合（构建期枚举，运行期按需加载）。 */
 const entries = import.meta.glob<ModuleEntryModule>('../modules/*/index.ts')
@@ -27,3 +29,6 @@ function moduleNameOf(path: string): string {
 export const MODULE_ENTRIES: ModuleEntryTable = Object.fromEntries(
   Object.entries(entries).map(([path, load]) => [moduleNameOf(path), load]),
 )
+
+/** 本地形态入口解析器（入口标识未登记即拒绝加载）。 */
+export const resolveLocalModuleEntry: ModuleEntryResolver = createModuleEntryTableResolver(MODULE_ENTRIES)

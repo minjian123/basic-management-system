@@ -574,7 +574,11 @@ export {
 } from './module/types'
 export { MODULE_NAME_PATTERN, defineModule } from './module/define'
 export {
+  DEFAULT_LOAD_MODE,
+  LOAD_MODES,
+  REMOTE_ENTRY_PATTERN,
   parseModuleManifest,
+  type ModuleLoadMode,
   type ModuleManifestEntry,
   type ModuleManifestParseResult,
   type ModuleManifestRejection,
@@ -629,9 +633,13 @@ export {
   type RegistryRegistration,
 } from './registries/assemble'
 export {
-  LocalModuleLoader,
+  MODULE_EXPOSE_KEY,
+  MODULE_REMOTE_ENTRY_FILE,
   ManifestModuleLoader,
+  createModuleEntryTableResolver,
+  remoteEntryUrl,
   type ModuleEntryModule,
+  type ModuleEntryResolver,
   type ModuleEntryTable,
 } from './module/loader'
 

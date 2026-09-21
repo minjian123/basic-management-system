@@ -1,8 +1,14 @@
-/** 演示模块定义（本地模块；阶段五远端模块按同一契约接入）。 */
+/**
+ * 演示模块定义（Module Federation remote 入口：**默认导出**模块定义）。
+ *
+ * 独立工程、独立构建、独立产物（`dist/remoteEntry.js` + 页面异步分包）；宿主按模块清单
+ * 运行期加载本容器暴露的 `./module`（模块定义），经统一装配器倒入八类扩展点注册表。
+ * 仅开发态进菜单（不进入生产菜单）。
+ */
 
 import { WorkbenchCardProvider, defineModule } from '@bms/core'
 
-/** 演示模块（**默认导出**为模块入口约定：清单驱动加载器取入口默认导出）。 */
+/** 演示模块（清单 `name` / `version` 须与宿主 `public/modules.json` 条目严格一致）。 */
 export const demoModule = defineModule({
   manifest: { name: 'demo', version: '0.1.0' },
   setup: () => ({
@@ -21,6 +27,7 @@ export const demoModule = defineModule({
       },
     ],
     components: { 'demo:toolbox': () => import('./views/DemoToolbox.vue') },
+    fieldRenderers: [{ key: 'demo:amount', component: () => import('./views/DemoHome.vue'), fieldType: 'amount' }],
     icons: { 'demo:sparkles': 'sparkles' },
     cards: [new WorkbenchCardProvider('demo:summary', () => import('./views/DemoHome.vue'), '模块概览')],
     regions: [

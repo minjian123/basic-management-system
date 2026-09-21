@@ -240,6 +240,9 @@ temp/
 # Node 依赖（根目录不装依赖；前端依赖在各前端项目自己的目录内）
 node_modules/
 
+# Module Federation 构建诊断产物（模块工程 / 宿主构建时生成）
+.mf/
+
 # 本地覆盖文件（如 .env.local、*.local）
 *.local
 

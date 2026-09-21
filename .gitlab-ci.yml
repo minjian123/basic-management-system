@@ -70,6 +70,7 @@ ci-base-build:
           - backend/uv.lock
           - frontend/apps/desktop/package-lock.json
           - frontend/apps/mobile/package-lock.json
+          - frontend/modules/*/package-lock.json
           - package-lock.json
           - deploy/ci/Dockerfile.backend
           - deploy/ci/Dockerfile.frontend
@@ -291,6 +292,62 @@ core-check:
     - mkdir -p node_modules/@bms
     - for p in core vue ui-ep ui-vant; do test -d frontend/packages/$p && ln -sfn ../../frontend/packages/$p node_modules/@bms/$p || true; done
     - npm run check
+
+# ---- 模块工程：ESLint + 类型 + Vitest（frontend/modules/*：独立构建 / 独立发布的运行时模块，阶段五 02_01 接入）----
+module-check:
+  stage: test
+  image: $REGISTRY_IMAGE_PREFIX/ci-frontend:node22
+  needs: [{job: ci-base-build, optional: true}]
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      exists:
+        - frontend/modules/demo/package.json
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes:
+        paths:
+          - frontend/**/*
+          - package.json
+          - package-lock.json
+          - .npmrc
+          - deploy/**/*
+          - .gitlab-ci.yml
+      exists:
+        - frontend/modules/demo/package.json
+  script:
+    - rm -rf frontend/modules/demo/node_modules && cp -a /opt/ci/frontend/modules/demo/node_modules frontend/modules/demo/node_modules
+    # 模块工程以 `file:` 依赖链接平台基座包（@bms/core / @bms/ui-ep 源码直出），
+    # 其第三方依赖（echarts / bpmn-js / tiptap 等）由 workspace 根依赖集补齐
+    - cp -a /opt/ci/workspace/node_modules .
+    - cd frontend/modules/demo && npm run lint && npm run typecheck && npm run test
+
+# ---- 模块独立构建 + 模块产物单独计量 + 产物单独归档 ----
+module-build:
+  stage: build
+  image: $REGISTRY_IMAGE_PREFIX/ci-frontend:node22
+  needs: [{job: module-check, optional: true}]
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      exists:
+        - frontend/modules/demo/package.json
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes:
+        paths:
+          - frontend/**/*
+          - package.json
+          - package-lock.json
+          - .npmrc
+          - deploy/**/*
+          - .gitlab-ci.yml
+      exists:
+        - frontend/modules/demo/package.json
+  script:
+    - rm -rf frontend/modules/demo/node_modules && cp -a /opt/ci/frontend/modules/demo/node_modules frontend/modules/demo/node_modules
+    - cp -a /opt/ci/workspace/node_modules .
+    - cd frontend/modules/demo && npm run build && npm run budget
+  artifacts:
+    when: always
+    paths: [frontend/modules/demo/dist/]
+    expire_in: 30 days
 
 # ---- 移动端：ESLint + Vitest（含覆盖率门禁，与 desktop-check 对称；S4c 起路径 frontend/apps/mobile）----
 mobile-check:

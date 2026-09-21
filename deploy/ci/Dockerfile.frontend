@@ -1,6 +1,7 @@
 # BMS 前端 CI 基础镜像：预装 workspace 根依赖（frontend/packages/*：core / vue / ui-ep）
-# 与 frontend/apps/desktop node_modules（镜像内路径 /opt/ci/frontend/apps/desktop；按锁文件哈希打标签）
-# 消费方：core-check（workspace 根依赖）/ desktop-check / desktop-build
+# 与 frontend/apps/desktop、frontend/modules/* node_modules
+# （镜像内路径 /opt/ci/workspace、/opt/ci/frontend/apps/desktop、/opt/ci/frontend/modules/<模块>）
+# 消费方：core-check（workspace 根依赖）/ desktop-check / desktop-build / module-check / module-build
 FROM node:22-slim
 
 ENV npm_config_registry=https://registry.npmmirror.com \
@@ -16,3 +17,9 @@ RUN cd /opt/ci/workspace && npm ci
 # PC 宿主 app（独立依赖集与锁文件）
 COPY frontend/apps/desktop/ /opt/ci/frontend/apps/desktop/
 RUN cd /opt/ci/frontend/apps/desktop && npm ci
+
+# 模块工程（frontend/modules/*：独立构建 / 独立发布的运行时模块）
+# 依赖以 `file:../../packages/<包>` 链接平台基座包，故 packages 需同置于 /opt/ci/frontend/ 下
+COPY frontend/packages/ /opt/ci/frontend/packages/
+COPY frontend/modules/ /opt/ci/frontend/modules/
+RUN cd /opt/ci/frontend/modules/demo && npm ci
