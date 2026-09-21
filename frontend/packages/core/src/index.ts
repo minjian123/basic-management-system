@@ -131,7 +131,7 @@ export { BaseDragDrop, type DragListener, type DragPayload, type DragPhase } fro
 export { BaseTabs, type TabItem } from './capabilities/tabs'
 export { BaseLocale, type LocaleFormatContext } from './capabilities/locale'
 export { BaseAccess } from './capabilities/access'
-export { BaseModuleContext, type ModuleContext, type ModuleContextKey } from './capabilities/module-context'
+export { BaseModuleContext, type ModuleContextKey } from './capabilities/module-context'
 
 export {
   BaseAsyncTask,
@@ -562,6 +562,7 @@ export {
 export {
   type LoadedModule,
   type ModuleDefinition,
+  type ModuleFieldRendererDeclaration,
   type ModuleHostContext,
   type ModuleI18nPackDeclaration,
   type ModuleLoader,
@@ -572,6 +573,22 @@ export {
   type ModuleThemeTokenDeclaration,
 } from './module/types'
 export { MODULE_NAME_PATTERN, defineModule } from './module/define'
+export {
+  parseModuleManifest,
+  type ModuleManifestEntry,
+  type ModuleManifestParseResult,
+  type ModuleManifestRejection,
+} from './module/manifest'
+export {
+  applyThemeTokens,
+  collectThemeTokens,
+  releaseThemeTokens,
+  type ThemeTokenCollectOptions,
+  type ThemeTokenRecord,
+  type ThemeTokenSource,
+  type ThemeTokenTarget,
+} from './module/theme-tokens'
+export { ModuleMessageStore, type ModuleMessagePack } from './module/i18n-packs'
 
 export {
   ComponentProvider,
@@ -611,7 +628,12 @@ export {
   type RegistrationSource,
   type RegistryRegistration,
 } from './registries/assemble'
-export { LocalModuleLoader } from './module/loader'
+export {
+  LocalModuleLoader,
+  ManifestModuleLoader,
+  type ModuleEntryModule,
+  type ModuleEntryTable,
+} from './module/loader'
 
 export { BaseApi, type HttpMethod } from './contracts/api'
 export {

@@ -115,6 +115,49 @@ describe('assembleRegistrations（Kiwi 976）', () => {
   })
 })
 
+// kiwi_id: 977
+describe('字段渲染器声明通道与路由图标（Kiwi 977）', () => {
+  it('字段渲染器声明：键前缀校验并登记（越权拒绝、零登记）', () => {
+    const registries = createRegistries()
+    const keys = assembleRegistrations(registries, 'demo', {
+      fieldRenderers: [
+        { key: 'demo:money', component: {}, fieldType: 'money' },
+        { key: 'demo:tags', component: {} },
+      ],
+    })
+
+    expect(keys).toEqual(['fieldRenderer:demo:money', 'fieldRenderer:demo:tags'])
+    expect(registries.fieldRenderer.get('demo:money')?.registrationSource).toBe('demo')
+    expect(registries.fieldRenderer.resolveByType('money')?.key).toBe('demo:money')
+
+    expect(() => assembleRegistrations(registries, 'demo', { fieldRenderers: [{ key: 'other:bad', component: {} }] })).toThrow(
+      BaseError,
+    )
+    expect(registries.fieldRenderer.get('other:bad')).toBeUndefined()
+  })
+
+  it('字段渲染器登记键可逆序清理', () => {
+    const registries = createRegistries()
+    const keys = assembleRegistrations(registries, 'demo', { fieldRenderers: [{ key: 'demo:money', component: {} }] })
+
+    releaseRegistrations(registries, keys)
+    expect(registries.fieldRenderer.get('demo:money')).toBeUndefined()
+  })
+
+  it('路由菜单图标随声明下发（缺省 undefined）', () => {
+    const registries = createRegistries()
+    assembleRegistrations(registries, 'demo', {
+      routes: [
+        { path: '/demo', name: 'DemoHome', component: async () => ({}), meta: { title: '演示模块', icon: 'demo:sparkles' } },
+        { path: '/demo/raw', name: 'DemoRaw', component: async () => ({}), meta: { title: '无图标' } },
+      ],
+    })
+
+    expect(registries.routeMenu.get('DemoHome')?.icon).toBe('demo:sparkles')
+    expect(registries.routeMenu.get('DemoRaw')?.icon).toBeUndefined()
+  })
+})
+
 describe('releaseRegistrations', () => {
   it('按登记键清理（幂等）', () => {
     const registries = createRegistries()

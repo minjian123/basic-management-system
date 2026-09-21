@@ -1,17 +1,27 @@
 // kiwi_id: 976
-/** 统一装配通道与演示模块契约使用用例（10_02 装配 + 01_01 统一装配器收敛）。 */
+/** 统一装配通道与演示模块契约使用用例（10_02 装配 + 01_01 统一装配器收敛；挂载通路改用清单驱动，见 Kiwi 977）。 */
 
 import { PLATFORM_SOURCE, assembleRegistrations, releaseRegistrations } from '@bms/core'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { getModuleLoader, installPlatformRegistrations, mountModule, unmountModule } from '@/module/host'
+import { getModuleLoader, installModules, installPlatformRegistrations, unmountModule } from '@/module/host'
 import { registries } from '@/module/registries'
 import { demoModule } from '@/modules/demo'
 
+const MANIFEST = [{ name: 'demo', entry: 'demo', version: '0.1.0' }]
+
+beforeEach(() => {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async () => ({ ok: true, status: 200, json: async () => MANIFEST })),
+  )
+})
+
 afterEach(() => {
-  if (getModuleLoader().isMounted('demo')) {
+  if (getModuleLoader()?.isMounted('demo') === true) {
     unmountModule('demo')
   }
+  vi.unstubAllGlobals()
 })
 
 describe('统一装配通道（Kiwi 976）', () => {
@@ -24,7 +34,7 @@ describe('统一装配通道（Kiwi 976）', () => {
     expect(registries.component.get('demo:toolbox')).toBeUndefined()
     expect(registries.pageArea.resolveByArea('layout.header')).toEqual([])
 
-    await mountModule('demo', {})
+    await installModules({})
 
     expect(registries.component.get('demo:toolbox')).toBeDefined()
     expect(registries.component.get('demo:toolbox')?.registrationSource).toBe('demo')
@@ -62,7 +72,7 @@ describe('统一装配通道（Kiwi 976）', () => {
     expect(() =>
       assembleRegistrations(registries, 'demo', {
         components: { 'demo:ok': {} },
-        regions: [{ key: 'demo:hero', area: 'layout', component: {} }],
+        regions: [{ key: 'demo:hero-bad', area: 'layout', component: {} }],
       }),
     ).toThrow()
     expect(registries.component.get('demo:ok')).toBeUndefined()
