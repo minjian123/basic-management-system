@@ -4,11 +4,12 @@
 #   （Dockerfile 变更——如系统依赖调整——同样触发重建，2026-09-14 补）
 # - 幂等：本地已存在同哈希镜像则跳过（构建与消费共用宿主 docker daemon，本流水线即用新镜像）
 # - 产物：$REGISTRY_IMAGE_PREFIX/ci-backend:<tag>、ci-frontend:<tag>
-#   ci-frontend 含两套预装依赖：workspace 根（frontend/packages/*：core / vue）/ frontend/apps/desktop（镜像内路径 /opt/ci/workspace、/opt/ci/frontend/apps/desktop）
+#   ci-frontend 含三套预装依赖（workspace 根 / apps/desktop / modules/*）：workspace 根（frontend/packages/*：core / vue）/ frontend/apps/desktop（镜像内路径 /opt/ci/workspace、/opt/ci/frontend/apps/desktop）
 set -eu
 
 REGISTRY_IMAGE_PREFIX="${REGISTRY_IMAGE_PREFIX:?REGISTRY_IMAGE_PREFIX 未设置}"
-TAG=$(cat backend/uv.lock frontend/apps/desktop/package-lock.json package-lock.json \
+MODULE_LOCKS=$(find frontend/modules -maxdepth 2 -name package-lock.json 2>/dev/null | sort)
+TAG=$(cat backend/uv.lock frontend/apps/desktop/package-lock.json package-lock.json $MODULE_LOCKS \
   deploy/ci/Dockerfile.backend deploy/ci/Dockerfile.frontend | sha256sum | cut -c1-12)
 echo "[ci-base] 构建输入哈希标签（锁文件 + Dockerfile）: $TAG"
 
@@ -28,6 +29,12 @@ cp package.json package-lock.json tsconfig.base.json "$frontend_ctx/"
 for manifest in frontend/packages/*/package.json; do
   mkdir -p "$frontend_ctx/$(dirname "$manifest")"
   cp "$manifest" "$frontend_ctx/$manifest"
+done
+# 模块工程依赖集：各模块清单 + 锁文件（其 `file:` 依赖指向 frontend/packages/<包>，故 packages 清单须同置于 /opt/ci/frontend/ 下）
+for manifest in frontend/modules/*/package.json; do
+  mkdir -p "$frontend_ctx/$(dirname "$manifest")"
+  cp "$manifest" "$frontend_ctx/$manifest"
+  cp "${manifest%package.json}package-lock.json" "$frontend_ctx/$(dirname "$manifest")/"
 done
 cp deploy/ci/Dockerfile.frontend "$frontend_ctx/Dockerfile"
 

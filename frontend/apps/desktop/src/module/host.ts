@@ -1,8 +1,10 @@
 /**
  * 模块宿主装配：清单驱动加载 + 上下文注入 + 路由注册 / 卸载 + 统一装配 + 渲染消费接线。
  *
- * 加载器由「本地定义表」换为「清单驱动」（同 `ModuleLoader` 接口，装配不变）；模块声明的
- * 区域 / 令牌 / 文案在挂载后生效、卸载后还原。
+ * 加载器由「本地定义表」换为「清单驱动」（同 `ModuleLoader` 接口，装配不变）；清单 `mode`
+ * 决定**入口从哪来**——`local` 走宿主本地入口表（构建期合并），`remote` 走 Module Federation
+ * 运行时（运行时远端加载），两者共用同一加载器、同一校验链与同一装配 / 卸载路径；
+ * 模块声明的区域 / 令牌 / 文案在挂载后生效、卸载后还原。
  */
 
 import {
@@ -17,11 +19,14 @@ import {
   releaseThemeTokens,
   type LoadedModule,
   type MenuNode,
+  type ModuleEntryResolver,
   type ModuleHostContext,
+  type ModuleLoadMode,
   type RegistrationKey,
 } from '@bms/core'
 
-import { MODULE_ENTRIES } from './entries'
+import { resolveLocalModuleEntry } from './entries'
+import { createFederationEntryResolver } from './federation'
 import { moduleI18n } from './i18n'
 import { loadModuleManifest } from './manifest'
 import { bumpRegistriesRevision, PLATFORM_REGISTRATION, registries } from './registries'
@@ -82,7 +87,11 @@ export async function installModules(context: ModuleHostContext = {}): Promise<M
     setModuleError({ module: rejection.name, version: '', reason: rejection.reason })
   }
 
-  loader = new ManifestModuleLoader(manifest.entries, MODULE_ENTRIES)
+  const resolvers: Record<ModuleLoadMode, ModuleEntryResolver> = {
+    local: resolveLocalModuleEntry,
+    remote: createFederationEntryResolver(),
+  }
+  loader = new ManifestModuleLoader(manifest.entries, (entry) => resolvers[entry.mode](entry))
   const summary: ModuleInstallSummary = { mounted: [], failures: [] }
   for (const entry of manifest.entries) {
     try {

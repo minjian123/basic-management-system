@@ -21,16 +21,31 @@ afterEach(() => {
 })
 
 describe('loadModuleManifest（Kiwi 977）', () => {
-  it('成功获取：可用项与拒收项分离', async () => {
+  it('成功获取：可用项与拒收项分离（形态缺省归一为 local）', async () => {
     stubResponse([
       { name: 'demo', entry: 'demo', version: '0.1.0' },
       { name: 'bad', entry: 'bad' },
     ])
     const result = await loadModuleManifest()
 
-    expect(result.entries).toEqual([{ name: 'demo', entry: 'demo', version: '0.1.0' }])
+    expect(result.entries).toEqual([{ name: 'demo', entry: 'demo', version: '0.1.0', mode: 'local' }])
     expect(result.rejected).toEqual([{ name: 'bad', reason: '版本缺失' }])
     expect(result.reason).toBeUndefined()
+  })
+
+  it('远端形态条目按绝对入口 URL 通过、相对路径被拒', async () => {
+    stubResponse([
+      { name: 'demo', entry: 'http://localhost:5002/remoteEntry.js', version: '0.1.0', mode: 'remote' },
+      { name: 'relative', entry: '/modules/demo/remoteEntry.js', version: '1.0.0', mode: 'remote' },
+    ])
+    const result = await loadModuleManifest()
+
+    expect(result.entries).toEqual([
+      { name: 'demo', entry: 'http://localhost:5002/remoteEntry.js', version: '0.1.0', mode: 'remote' },
+    ])
+    expect(result.rejected).toEqual([
+      { name: 'relative', reason: '远端入口须为绝对 URL：/modules/demo/remoteEntry.js' },
+    ])
   })
 
   it('HTTP 失败 / 网络异常 / 非数组 均按空清单与原因返回', async () => {

@@ -19,16 +19,22 @@ applyInitialTheme()
 
 installMenuRoutes(router, PLACEHOLDER_MENU)
 
-// 装配时序：平台自身注册（启动期）→ 模块装载（清单驱动，挂载期）→ 应用挂载。
+// 装配时序：平台自身注册（启动期）→ 模块装载（清单驱动，挂载期）→ 路由安装（触发初始导航）→ 应用挂载。
 installPlatformRegistrations()
 
 const app = createApp(App)
 const pinia = createPinia()
-app.use(pinia).use(router)
+app.use(pinia)
 
 const session = useSessionStore(pinia)
 
-/** 启动：模块装载先于应用挂载——路由注册完成后首屏导航才能命中模块路由。 */
+/**
+ * 启动：模块装载先于**路由安装**与应用挂载。
+ *
+ * Vue Router 在 `app.use(router)` 安装时即发起初始导航——若路由先安装，直连模块路由
+ * （如 `/demo`）会在模块注册前被兜底 404 命中且不会自动重导；故此处把路由安装后移到
+ * 模块装载完成之后，保证「首屏即可命中模块路由」。
+ */
 async function bootstrap(): Promise<void> {
   await installModules({ router, store: pinia, i18n: moduleI18n, user: session.codes, tenant: undefined }).catch(
     (error: unknown) => {
@@ -39,6 +45,7 @@ async function bootstrap(): Promise<void> {
       })
     },
   )
+  app.use(router)
   app.mount('#app')
 }
 
