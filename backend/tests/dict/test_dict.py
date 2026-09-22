@@ -1,6 +1,6 @@
 """字典取数与缓存契约基座测试（Kiwi 844）：三契约 / 常量与数据契约 / 空实现 / 缓存 / 错误码 / 依赖解析 / 占位路由。"""
 
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping
 from types import SimpleNamespace
 from typing import cast
 
@@ -11,6 +11,7 @@ from httpx import ASGITransport, AsyncClient
 from app.api.deps import get_dict_cache_region, get_dict_source, get_dict_translator
 from app.cache.base import CacheRegion
 from app.core.capability import BaseCapability, BaseNullObject
+from app.core.config import get_settings
 from app.core.error_codes import ErrorCode
 from app.core.plugin import BasePluggable, resolve_plugin
 from app.dict.base import (
@@ -32,6 +33,20 @@ from app.dict.null import NullDictCacheRegion, NullDictSource, NullDictTranslato
 from app.main import ApplicationFactory, lifespan
 
 API = "/api/v1/dicts"
+
+
+@pytest.fixture(autouse=True)
+def force_null_providers(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    """占位用例固定 null 实现（避免 dev 环境覆盖为 sql / memory 影响占位断言）。"""
+    for key in (
+        "BMS_DICT_SOURCE__PROVIDER",
+        "BMS_DICT_TRANSLATOR__PROVIDER",
+        "BMS_DICT_CACHE_REGION__PROVIDER",
+    ):
+        monkeypatch.setenv(key, "null")
+    get_settings.cache_clear()
+    yield
+    get_settings.cache_clear()
 
 
 class _InMemoryDictSource(BaseDictSource):

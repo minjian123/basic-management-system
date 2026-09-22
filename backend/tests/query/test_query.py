@@ -1,6 +1,6 @@
 """数据查询提供者基座契约测试（Kiwi 55）：契约 / 标识 / 结果契约 / 占位空结果 / 注册表模板 / 依赖解析。"""
 
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping
 from dataclasses import FrozenInstanceError
 from typing import Annotated
 
@@ -11,10 +11,20 @@ from httpx import ASGITransport, AsyncClient
 from app.api.deps import get_query_provider_registry
 from app.core.base import BaseObject
 from app.core.capability import BaseCapability, BaseNullObject
+from app.core.config import get_settings
 from app.core.exceptions import NotFoundError
 from app.main import ApplicationFactory, lifespan
 from app.query.base import BaseQueryProvider, BaseQueryProviderRegistry, QueryResult
 from app.query.null import NullQueryProvider, NullQueryProviderRegistry
+
+
+@pytest.fixture(autouse=True)
+def force_null_providers(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    """占位用例固定 null 实现（避免 dev 环境覆盖为 local 影响占位断言）。"""
+    monkeypatch.setenv("BMS_QUERY_PROVIDER_REGISTRY__PROVIDER", "null")
+    get_settings.cache_clear()
+    yield
+    get_settings.cache_clear()
 
 
 class _FakeProvider(BaseQueryProvider):

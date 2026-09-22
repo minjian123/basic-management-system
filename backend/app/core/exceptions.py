@@ -146,6 +146,13 @@ class RateLimitError(GeneralError):
         super().__init__(ErrorCode.RATE_LIMIT, message, http_status=429, data=data)
 
 
+class DatabaseUnavailableError(GeneralError):
+    """数据库不可用（主库故障只读降级时写被拒 / 无可用副本；`10006` / 503）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        super().__init__(ErrorCode.DATABASE_UNAVAILABLE, message, http_status=503, data=data)
+
+
 class UserOrgError(BizError):
     """用户与组织段（`3xxxx`）异常基类。"""
 

@@ -11,6 +11,8 @@ env = "dev"
 debug = false
 # 雪花 ID WorkerId（0~1023，同环境多副本须全局唯一）
 worker_id = 0
+# 服务标识（微服务名；用于按服务的连接池覆盖，缺省单服务 platform）
+service = "platform"
 
 [server]
 # 监听地址
@@ -39,32 +41,41 @@ total_timeout_ms = 5000
 url = "sqlite+aiosqlite:///./bms_platform.db"
 # 只读副本连接串（可选，空表示不分离）
 replicas = []
+# 该库最大连接数（0 = 不校验连接预算；超限仅启动告警不阻断）
+max_connections = 0
 [database.platform.pool]
 # 连接池参数（SQLite 不生效）
 pool_size = 5
 max_overflow = 10
 pool_timeout = 30.0
 pool_recycle = 1800
+# 建连超时（秒；非 SQLite 经 connect_args 传入）
+connect_timeout = 10.0
+# [database.platform.services.<服务标识>.pool]  # 按服务覆盖池参数（可选，键取 [app].service）
 
 [database.tenants]
 # 租户库连接串模板（每租户库经 EngineRegistry 解析，MVP 占位为单文件）
 url = "sqlite+aiosqlite:///./bms_tenant_demo.db"
 replicas = []
+max_connections = 0
 [database.tenants.pool]
 pool_size = 5
 max_overflow = 10
 pool_timeout = 30.0
 pool_recycle = 1800
+connect_timeout = 10.0
 
 [database.archive]
 # 归档库连接串（只读）
 url = "sqlite+aiosqlite:///./bms_archive.db"
 replicas = []
+max_connections = 0
 [database.archive.pool]
 pool_size = 5
 max_overflow = 10
 pool_timeout = 30.0
 pool_recycle = 1800
+connect_timeout = 10.0
 
 [redis]
 # Redis 连接串（密钥经 BMS_REDIS__URL 注入）

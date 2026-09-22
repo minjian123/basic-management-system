@@ -9,6 +9,7 @@ from app.core import config
 from app.core.config import (
     AppSettings,
     BaseSettings,
+    DbPoolSettings,
     Settings,
     get_settings,
     load_settings,
@@ -298,3 +299,19 @@ def test_worker_id_wiring(monkeypatch: pytest.MonkeyPatch) -> None:
     from app.core.id import id_generator
 
     assert isinstance(id_generator.next_id(), int)
+
+
+@pytest.mark.kiwi_id(984)
+def test_data_access_keys_and_effective_pool() -> None:
+    """数据访问新键默认值：service / max_connections / connect_timeout / services 覆盖解析。"""
+    settings = Settings()
+    assert settings.app.service == "platform"
+    assert settings.database.platform.max_connections == 0
+    assert settings.database.platform.pool.connect_timeout == 10.0
+    assert settings.database.platform.services == {}
+    assert settings.database.platform.effective_pool("platform") is settings.database.platform.pool
+
+    override = DbPoolSettings(pool_size=7, max_overflow=2)
+    settings.database.platform.services = {"svc": override}
+    assert settings.database.platform.effective_pool("svc") is override
+    assert settings.database.platform.effective_pool("other") is settings.database.platform.pool

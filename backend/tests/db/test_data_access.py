@@ -112,7 +112,7 @@ def test_read_only_context_marker() -> None:
     assert repo.binding_default() == "default"
     token = set_read_only()
     assert is_read_only() is True
-    assert repo.binding_default() == "default"
+    assert repo.binding_default() == "replica"
     reset_read_only(token)
     assert is_read_only() is False
 
