@@ -25,7 +25,7 @@
 | `VARCHAR(n)` | VARCHAR(n) | 实测 |
 | `TEXT` | TEXT | 实测 |
 | `BOOLEAN` | BOOLEAN（原生布尔） | 实测 |
-| `JSON`（多值字段） | JSON（**非** JSONB） | 实测（真库建表通过；JSON 值读写 **待验**） |
+| `JSON`（多值字段） | JSON（**非** JSONB） | 实测（真库建表通过；JSON 值写入读回一致） |
 | `DECIMAL(20,4)`（金额） | NUMERIC(20,4) | 实测（DDL 编译） |
 
 - 禁用方言专用类型：`SERIAL` / `BIGSERIAL`（主键为应用侧雪花 ID 的 BIGINT）、`TIMESTAMPTZ`、`BYTEA` 直写。
@@ -36,6 +36,7 @@
 | 事项 | PostgreSQL 16 行为 | 对平台的影响 |
 | --- | --- | --- |
 | 库与模式层级 | 库内可有多个 schema（默认 `public`）；`CREATE DATABASE` **不能在事务内**执行 | 建删库经 `ops/db_admin.py`（独立连接、非事务路径，实测）；平台不使用多 schema |
+| 建库属主与 `public` 权限（15+） | `public` 模式**不再默认**授予非属主 `CREATE`；库由管理员建出时属主为管理员 → 应用账号迁移建表报 `permission denied for schema public`（**实测**） | 建库后 `ALTER DATABASE … OWNER TO <应用账号>`（测试库流程 `ops/test_db.py` 已落地；应用账号自建库时属主即自身，无需转属主） |
 | 表 / 列注释 | 独立语句 `COMMENT ON TABLE/COLUMN` | SQLAlchemy 迁移自动生成注释语句 |
 | 幂等建表 | 支持 `CREATE TABLE IF NOT EXISTS` | 与其余库形态一致 |
 | DDL 事务性 | **事务性**（DDL 可回滚） | 迁移失败可整体回滚（与 MySQL 的隐式提交不同），迁移仍需幂等 |
@@ -86,6 +87,9 @@
 | 2026-09-22 | 平台链迁移（临时库 `bms_migrcheck`） | 建库 → 迁移 → 校验（`0001_sys_tenant_module`，表 4/4）→ 清理，通过 | 01_04 测试记录「三库真库迁移演练」 |
 | 2026-09-22 | 租户链迁移（临时库 `bms_migrcheck_tenant`） | 建库 → 迁移 → 校验（`0001_dict_query_scheme`，表 8/8）→ 清理，通过 | 同上 |
 | 2026-09-22 | 类型映射与 DDL 编译 | 四方言 DDL 编译断言通过（含原生 `BOOLEAN` 与 `JSON` 列） | `tests/models/test_type_mapping.py` |
-| 待验 | 部分唯一索引优化、`CREATE INDEX CONCURRENTLY` 在线加索引、JSON 值读写与检索、主从只读路由 | — | — |
+| 2026-09-22 | 三库真库集成（库 `bms_test_pg` / `bms_test_pg_t1`） | 建库（含属主转应用账号）→ 分链迁移（`0001_sys_tenant_module` / `0001_dict_query_scheme`）→ 集成用例 9 条通过（多数据源 / 隔离 / 副本路由 / 分片键 / 类型往返 / NULL 位次 / 复合唯一多 NULL 共存） | 01_05 测试记录「三库真库集成用例」 |
+| 2026-09-22 | 建库属主与 `public` 权限 | 管理员建库后应用账号迁移报 `permission denied for schema public`，转属主后通过 | 01_05 实施记录「问题与处置」 |
+| 2026-09-22 | JSON 值读写 | 写入读回一致（真库集成用例「类型落库往返」） | 01_05 集成用例 |
+| 待验 | 部分唯一索引优化、`CREATE INDEX CONCURRENTLY` 在线加索引、JSON 检索、主从只读路由 | — | — |
 
 > 数据库设计 · 与《[数据库开发规范](../../../规范/数据库开发规范.md)》「表与字段口径」至「数据库设计文档体系」各节配套
