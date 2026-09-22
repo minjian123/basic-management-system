@@ -37,8 +37,7 @@
 | 名称 | 类型 | 列 | 说明 |
 | --- | --- | --- | --- |
 | `uq_dict_type_i18n` | 唯一 | `(dict_type_id, locale)` | 类型 + 语言唯一 |
-| `ix_sys_dict_type_i18n_dict_type_id` | 普通 | `(dict_type_id)` | 主表关联 |
-| `ix_sys_dict_type_i18n_deleted_at` | 普通 | `(deleted_at)` | 软删除过滤 |
+| `idx_sys_dict_type_i18n_dict_type_id` | 普通 | `(dict_type_id)` | 主表关联 |
 
 - 无物理外键；`type_id` / `dict_item_id` / `dict_type_id` / `dict_attr_id` 为逻辑引用（同租户库），`parent_id` 逻辑引用条目 `value`（级联父值）。 多语言回退口径见《数据库设计总览》「通用数据规范」多语言约定。
 
@@ -54,5 +53,6 @@
 | --- | --- | --- | --- |
 | 2026-09-21 | v1 | 新建表结构（随 02-4-27 首个迁移 `0001_dict_and_query_scheme`） | minjian |
 | 2026-09-22 | v2 | 迁移脚本迁入租户链目录（`alembic/versions/tenant/0001_dict_and_query_scheme.py`），索引名统一 `idx_*` | minjian |
+| 2026-09-22 | v3 | 索引名对齐命名约定（`ix_*` → `idx_*`）；公共软删除索引不再逐表列出 | minjian |
 
-> 数据表设计 · 与《数据库开发规范》「数据表设计文档组织」节配套
+> 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套

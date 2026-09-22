@@ -45,8 +45,7 @@
 | --- | --- | --- | --- |
 | `uq_dict_attr_key_deleted_at` | 唯一 | `(type_id, attr_key, deleted_at)` | 属性键类型内唯一（软删除后可复用） |
 | `idx_dict_attr_sort` | 普通 | `(type_id, status, sort)` | 属性 schema 读取 |
-| `ix_sys_dict_attr_type_id` | 普通 | `(type_id)` | 类型过滤 |
-| `ix_sys_dict_attr_deleted_at` | 普通 | `(deleted_at)` | 软删除过滤 |
+| `idx_sys_dict_attr_type_id` | 普通 | `(type_id)` | 类型过滤 |
 
 - 无物理外键；`type_id` / `dict_item_id` / `dict_type_id` / `dict_attr_id` 为逻辑引用（同租户库），`parent_id` 逻辑引用条目 `value`（级联父值）。 属性 schema 供高级查询条件构建；条件执行走字段 / 操作符白名单 + 参数绑定（见 02-4-27 详细设计 §7）。
 
@@ -62,5 +61,6 @@
 | --- | --- | --- | --- |
 | 2026-09-21 | v1 | 新建表结构（随 02-4-27 首个迁移 `0001_dict_and_query_scheme`） | minjian |
 | 2026-09-22 | v2 | 迁移脚本迁入租户链目录（`alembic/versions/tenant/0001_dict_and_query_scheme.py`），索引名统一 `idx_*` | minjian |
+| 2026-09-22 | v3 | 索引名对齐命名约定（`ix_sys_dict_attr_*` → `idx_sys_dict_attr_*`）；公共软删除索引不再逐表列出（见数据规范） | minjian |
 
-> 数据表设计 · 与《数据库开发规范》「数据表设计文档组织」节配套
+> 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套
