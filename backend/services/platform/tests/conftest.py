@@ -19,6 +19,7 @@ from bms_core.core.context import (
     current_user_id,
 )
 from bms_platform.main import ApplicationFactory
+from ops.seed_module import seed_modules
 from ops.seed_tenant import seed_tenants
 
 
@@ -43,13 +44,16 @@ def isolate_settings(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
 
 @pytest.fixture(scope="session")
 def platform_db_url(tmp_path_factory: pytest.TempPathFactory) -> str:
-    """会话级平台库：临时 `sys_tenant` 种子库（建库 / 播种整个测试会话只做一次）。
+    """会话级平台库：临时库播种服务目录与租户（建库 / 播种整个测试会话只做一次）。
+
+    服务目录播种使启动接库校验走「非空对账」路径、只读接口可查全量 16 行（贴近生产形态）。
 
     Returns:
         str: 会话级平台库连接串。
     """
     platform_url = f"sqlite+aiosqlite:///{tmp_path_factory.mktemp('platform') / 'app.db'}"
     asyncio.run(seed_tenants(platform_url))
+    asyncio.run(seed_modules(platform_url))
     return platform_url
 
 

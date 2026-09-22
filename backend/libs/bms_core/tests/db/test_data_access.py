@@ -151,13 +151,15 @@ async def test_pagination_page_and_cursor() -> None:
 
 @pytest.mark.kiwi_id(36)
 def test_api_deps_reexports() -> None:
-    """公共依赖汇总：get_db / get_uow / get_tenant 可从 api.deps 导入。"""
+    """公共依赖汇总：get_db / get_uow / get_tenant / get_platform_read_db 可从 api.deps 导入。"""
     from bms_core.api.deps import get_db as dep_get_db
+    from bms_core.api.deps import get_platform_read_db as dep_get_platform_read_db
     from bms_core.api.deps import get_tenant as dep_get_tenant
     from bms_core.api.deps import get_uow as dep_get_uow
-    from bms_core.db.session import get_db, get_uow
+    from bms_core.db.session import get_db, get_platform_read_db, get_uow
     from bms_core.db.tenant import get_tenant
 
     assert dep_get_db is get_db
     assert dep_get_uow is get_uow
     assert dep_get_tenant is get_tenant
+    assert dep_get_platform_read_db is get_platform_read_db

@@ -2,6 +2,7 @@
 
 - `get_db`：按请求上下文只读标记选引擎（只读走副本、写走主库）。
 - `get_read_db` / `get_write_db`：显式强制只读 / 主库（只读数据集与写路径用）。
+- `get_platform_read_db`：显式强制**平台库**只读（平台库表只读接口用；带租户上下文时仍读平台库）。
 - `get_uow`：工作单元绑定**主库会话**（写与事务强制走主库，写后同会话内读主库）。
 - 租户路由：请求态租户上下文存在时取该租户库键（`tenant_{code}`）引擎；否则回落平台库
   （豁免路径 / 平台侧接口 / 未经租户中间件的调用）。
@@ -34,6 +35,7 @@ __all__ = [
     "DbSession",
     "SessionFactory",
     "get_db",
+    "get_platform_read_db",
     "get_read_db",
     "get_uow",
     "get_write_db",
@@ -90,13 +92,20 @@ async def _guard_degraded(request: Request, db_key: str, *, read_only: bool) -> 
         raise DatabaseUnavailableError("主数据库不可用，系统处于只读降级模式，写操作被拒绝")
 
 
-async def _resolve_engine(request: Request, registry: EngineRegistry, *, read_only: bool) -> AsyncEngine:
-    """按租户与读写角色取异步引擎（写路径在降级态先探测主库）。
+async def _resolve_engine(
+    request: Request,
+    registry: EngineRegistry,
+    *,
+    read_only: bool,
+    db_key: str | None = None,
+) -> AsyncEngine:
+    """按库键与读写角色取异步引擎（写路径在降级态先探测主库）。
 
     Args:
         request: 当前请求。
         registry: 引擎注册表。
         read_only: 是否只读。
+        db_key: 显式数据源键；None 按请求租户上下文解析（既有行为）。
 
     Returns:
         AsyncEngine: 异步引擎。
@@ -104,30 +113,36 @@ async def _resolve_engine(request: Request, registry: EngineRegistry, *, read_on
     Raises:
         DatabaseUnavailableError: 主库降级且探测失败（写被拒）。
     """
-    db_key = _resolve_db_key(request)
-    await _guard_degraded(request, db_key, read_only=read_only)
-    return await registry.get(db_key, read_only=read_only)
+    resolved = db_key or _resolve_db_key(request)
+    await _guard_degraded(request, resolved, read_only=read_only)
+    return await registry.get(resolved, read_only=read_only)
 
 
-async def _open_session(request: Request, *, read_only: bool) -> AsyncIterator[DbSession]:
+async def _open_session(
+    request: Request,
+    *,
+    read_only: bool,
+    db_key: str | None = None,
+) -> AsyncIterator[DbSession]:
     """打开请求级会话（按方言分流：同步方言走同步门面；选引擎 → 建会话 → 退出释放）。
 
     Args:
         request: 当前请求。
         read_only: 是否只读。
+        db_key: 显式数据源键；None 按请求租户上下文解析（既有行为）。
 
     Yields:
         DbSession: 请求级会话（异步会话或同步门面）。
     """
     registry = cast(EngineRegistry, request.app.state.engine_registry)
-    db_key = _resolve_db_key(request)
-    if registry.is_sync_only(db_key):
-        await _guard_degraded(request, db_key, read_only=read_only)
-        engine = await registry.get_sync(db_key, read_only=read_only)
+    resolved = db_key or _resolve_db_key(request)
+    if registry.is_sync_only(resolved):
+        await _guard_degraded(request, resolved, read_only=read_only)
+        engine = await registry.get_sync(resolved, read_only=read_only)
         async with sync_session_scope(engine) as sync_session:
             yield sync_session
         return
-    engine = await _resolve_engine(request, registry, read_only=read_only)
+    engine = await _resolve_engine(request, registry, read_only=read_only, db_key=resolved)
     factory = cast("SessionFactory | None", getattr(request.app.state, "session_factory", None)) or SessionFactory()
     async with factory.create(engine)() as session:
         yield session
@@ -169,6 +184,22 @@ async def get_write_db(request: Request) -> AsyncIterator[DbSession]:
         DbSession: 主库会话。
     """
     async for session in _open_session(request, read_only=False):
+        yield session
+
+
+async def get_platform_read_db(request: Request) -> AsyncIterator[DbSession]:
+    """平台库只读会话依赖（强制 `PLATFORM_DB_KEY` + 只读语义）。
+
+    平台库表（`sys_module` 等平台元数据）的只读接口专用——`get_read_db` 按请求租户库键选引擎，
+    带租户上下文的请求会误连租户库；本依赖固定平台库并走只读副本（无副本回落主库）。
+
+    Args:
+        request: 当前请求。
+
+    Yields:
+        DbSession: 平台库只读会话（异步会话或同步方言下的同步门面）。
+    """
+    async for session in _open_session(request, read_only=True, db_key=PLATFORM_DB_KEY):
         yield session
 
 
