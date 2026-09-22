@@ -1,7 +1,7 @@
 # alembic — 迁移脚本目录（按数据源分链）
 
 迁移脚本按**数据源分链**维护，链名即 Alembic 配置段名（`alembic.ini`）：同一套脚本在
-SQLite / MySQL / PostgreSQL / 达梦 DM8 四库执行（**禁写方言 SQL**，见《数据库开发规范》「迁移规范」）。
+SQLite / MySQL / PostgreSQL / 达梦 DM8 四库执行（**禁写方言 SQL**，见《数据库开发规范》「迁移与建表口径」节）。
 
 | 链 | 配置段 | 版本目录 | 库 | 表集（唯一来源：`app/db/migration.py`） |
 | --- | --- | --- | --- | --- |

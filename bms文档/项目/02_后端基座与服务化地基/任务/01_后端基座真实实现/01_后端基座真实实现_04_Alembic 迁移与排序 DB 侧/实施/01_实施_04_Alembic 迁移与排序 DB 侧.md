@@ -76,7 +76,7 @@ flowchart LR
 | --- | --- |
 | 《后端基类清单》 | §5 `BaseRepository`（`effective_sort` / `build_cursor`）+ `BaseMemoryRepository` / `BaseDbRepository`（NULL 末位 / keyset / 限深）；§8 新增迁移链注册 `MigrationChain`、库级建删 `DatabaseTarget`、开发库自动建表、排序与游标公共实现、游标契约 `CursorPayload`、分页契约限深；§10 登记三个 frozen dataclass 继承链 |
 | 《后端开发规范》 | 「SQL 与数据访问规范」补排序（白名单 + NULL 恒末位 + 主键兜底 + 禁 `NULLS FIRST/LAST` + 排序字段须建索引）、分页（限深 100 + keyset 游标）、结构变更与建表（迁移分链 / 自动建表 / 建库删库经基座能力） |
-| 《数据库开发规范》 | 「迁移规范（Alembic）」补按数据源分链、命令口径（`-n alembic:<链名>` / `-x schema=`）、零漂移、建删库与批量迁移 / 新租户初始化入口、SQLite 开发库自动建表 |
+| 《数据库开发规范》 | 「迁移与建表口径」补按数据源分链、命令口径（`-n alembic:<链名>` / `-x schema=`）、零漂移、建删库与批量迁移 / 新租户初始化入口、SQLite 开发库自动建表 |
 | 《架构设计 · 数据架构》 | 「迁移策略」口径对齐：按数据源分链 + **一套方言无关脚本在三库执行**；SQLite 开发库按链表集自动建表 |
 | 《架构设计 · 数据访问与分片》 | 「查询规范」补排序字段索引配合与四库 NULL 位次口径、分页限深可配置与 keyset 游标 |
 | 《数据库设计 · 数据表设计》 | `sys_tenant` / `sys_module` / `sys_module_i18n` 状态 → 已落库（平台链 `0001`）；字典六表 + 查询方案表状态与迁移脚本位置（租户链）注记 |
