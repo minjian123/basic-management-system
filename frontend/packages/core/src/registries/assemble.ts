@@ -105,7 +105,7 @@ function buildPlan(source: RegistrationSource, registration: RegistryRegistratio
     plan.push({ group: 'i18nPack', key: declaration.key, provider })
   }
   for (const route of registration.routes ?? []) {
-    if (route.meta?.title === undefined) {
+    if (route.meta?.title === undefined || route.meta.menu === false) {
       continue
     }
     if (!route.path.startsWith('/')) {
@@ -116,7 +116,7 @@ function buildPlan(source: RegistrationSource, registration: RegistryRegistratio
     plan.push({
       group: 'route',
       key: name,
-      provider: new RouteMenuProvider(name, route.path, String(route.meta.title), icon),
+      provider: new RouteMenuProvider(name, route.path, String(route.meta.title), icon, route.meta),
     })
   }
   return plan

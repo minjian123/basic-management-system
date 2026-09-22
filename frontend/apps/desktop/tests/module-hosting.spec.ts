@@ -6,7 +6,7 @@ import type { Router } from 'vue-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { clearModuleError, useModuleError } from '@/module/boundary'
-import { getModuleLoader, installModules, moduleMenuNodes, mountModule, retryModule, unmountModule } from '@/module/host'
+import { getModuleLoader, installModules, moduleMenuGroups, moduleMenuNodes, mountModule, retryModule, unmountModule } from '@/module/host'
 import { MODULE_REMOTE_ENTRY_TYPE } from '@/module/federation'
 import { moduleI18n } from '@/module/i18n'
 import { registries } from '@/module/registries'
@@ -101,6 +101,19 @@ describe('宿主编装载（清单驱动 · 按 mode 分派入口）', () => {
     expect(getModuleLoader()?.isMounted('demo')).toBe(false)
     expect(moduleMenuNodes()).toEqual([])
     expect(registries.pageArea.resolveByArea('layout.header')).toEqual([])
+  })
+
+  // kiwi_id: 983（04_01 首个模块样例：宿主菜单装配泛化）
+  it('菜单装配泛化：按 meta.group 归组、meta.devOnly 生产隐藏（卸载后消失）', async () => {
+    await installModules({ router })
+
+    const devMenu = moduleMenuGroups(true)
+    expect(devMenu.map((node) => node.title)).toEqual(['演示模块'])
+    expect(devMenu[0]?.children?.map((node) => node.path)).toEqual(['/demo', '/demo/toolbox'])
+    expect(moduleMenuGroups(false)).toEqual([])
+
+    unmountModule('demo')
+    expect(moduleMenuGroups(true)).toEqual([])
   })
 
   it('渲染消费接线成对：令牌注入与文案并入在挂载后生效、卸载后还原', async () => {

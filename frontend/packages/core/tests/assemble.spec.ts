@@ -113,6 +113,25 @@ describe('assembleRegistrations（Kiwi 976）', () => {
       }),
     ).toThrow(BaseError)
   })
+
+  // kiwi_id: 983（04_01 首个模块样例：路由菜单 meta 约定）
+  it('路由：meta.menu === false 不登记菜单项（详情 / 表单页）；meta 随注册项透传', () => {
+    const registries = createRegistries()
+    assembleRegistrations(registries, 'sample', {
+      routes: [
+        {
+          path: '/sample',
+          name: 'SampleList',
+          component: async () => ({}),
+          meta: { title: '示例数据管理', group: '示例模块' },
+        },
+        { path: '/sample/detail/:id', name: 'SampleDetail', component: async () => ({}), meta: { title: '详情', menu: false } },
+      ],
+    })
+
+    expect(registries.routeMenu.get('SampleList')?.meta.group).toBe('示例模块')
+    expect(registries.routeMenu.get('SampleDetail')).toBeUndefined()
+  })
 })
 
 // kiwi_id: 977

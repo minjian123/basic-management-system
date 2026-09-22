@@ -250,3 +250,61 @@ export function moduleMenuNodes(): MenuNode[] {
     icon: provider.icon ?? 'sparkles',
   }))
 }
+
+/** 模块菜单条目（单节点或分组）。 */
+type ModuleMenuEntry =
+  | { kind: 'node'; node: MenuNode }
+  | { kind: 'group'; title: string; icon: string | undefined; nodes: MenuNode[] }
+
+/**
+ * 模块菜单分组（宿主菜单装配泛化：按路由 `meta.group` 归组、`meta.devOnly` 生产隐藏）。
+ *
+ * 模块只声明路由 `meta`（`title` / `icon` / `group` / `groupIcon` / `devOnly`），宿主据此从
+ * 注册表快照装配菜单——不再硬编码单一模块分组，产品模块接入后自动进生产菜单。
+ *
+ * @param dev 是否开发态（`import.meta.env.DEV`）。
+ * @returns 菜单节点（分组节点为 `{ path: 组内首项路径, title: 组名, icon, children }`；未声明 `group` 者为顶级项）。
+ */
+export function moduleMenuGroups(dev: boolean): MenuNode[] {
+  const entries: ModuleMenuEntry[] = []
+  const groupIndex = new Map<string, number>()
+  for (const provider of registries.routeMenu.values()) {
+    const meta = provider.meta
+    if (meta.devOnly === true && !dev) {
+      continue
+    }
+    const node: MenuNode = {
+      path: provider.path,
+      title: provider.title,
+      name: provider.key,
+      icon: provider.icon ?? 'sparkles',
+    }
+    const group = typeof meta.group === 'string' && meta.group !== '' ? meta.group : undefined
+    if (group === undefined) {
+      entries.push({ kind: 'node', node })
+      continue
+    }
+    let index = groupIndex.get(group)
+    if (index === undefined) {
+      index = entries.length
+      groupIndex.set(group, index)
+      const groupIcon = typeof meta.groupIcon === 'string' && meta.groupIcon !== '' ? meta.groupIcon : undefined
+      entries.push({ kind: 'group', title: group, icon: groupIcon, nodes: [] })
+    }
+    const entry = entries[index]
+    if (entry.kind === 'group') {
+      entry.nodes.push(node)
+    }
+  }
+  return entries.map((entry) => {
+    if (entry.kind === 'node') {
+      return entry.node
+    }
+    return {
+      path: entry.nodes[0]?.path ?? '',
+      title: entry.title,
+      icon: entry.icon ?? entry.nodes[0]?.icon,
+      children: entry.nodes,
+    }
+  })
+}
