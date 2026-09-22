@@ -131,7 +131,6 @@ backend-lint:
         paths:
           - backend/**/*
           - deploy/**/*
-          - .gitlab-ci.yml
       exists:
         - backend/pyproject.toml
   script:
@@ -150,7 +149,6 @@ backend-typecheck:
         paths:
           - backend/**/*
           - deploy/**/*
-          - .gitlab-ci.yml
       exists:
         - backend/pyproject.toml
   script:
@@ -169,7 +167,6 @@ backend-plugins:
         paths:
           - backend/**/*
           - deploy/**/*
-          - .gitlab-ci.yml
       exists:
         - backend/pyproject.toml
   script:
@@ -190,7 +187,6 @@ backend-modules:
         paths:
           - backend/**/*
           - deploy/**/*
-          - .gitlab-ci.yml
       exists:
         - backend/pyproject.toml
   script:
@@ -212,7 +208,6 @@ backend-test:
         paths:
           - backend/**/*
           - deploy/**/*
-          - .gitlab-ci.yml
       exists:
         - backend/pyproject.toml
   script:
@@ -235,7 +230,6 @@ integration-plan:
         paths:
           - backend/**/*
           - deploy/**/*
-          - .gitlab-ci.yml
       exists:
         - backend/ops/test_db.py
   script:
@@ -262,8 +256,6 @@ desktop-check:
           - package-lock.json
           - tsconfig.base.json
           - .npmrc
-          - deploy/**/*
-          - .gitlab-ci.yml
       exists:
         - frontend/apps/desktop/package.json
   script:
@@ -297,8 +289,6 @@ core-check:
           - package-lock.json
           - tsconfig.base.json
           - .npmrc
-          - deploy/**/*
-          - .gitlab-ci.yml
       exists:
         - frontend/packages/core/package.json
   script:
@@ -325,8 +315,6 @@ module-check:
           - package.json
           - package-lock.json
           - .npmrc
-          - deploy/**/*
-          - .gitlab-ci.yml
       exists:
         - frontend/modules/demo/package.json
   script:
@@ -357,8 +345,6 @@ module-build:
           - package.json
           - package-lock.json
           - .npmrc
-          - deploy/**/*
-          - .gitlab-ci.yml
       exists:
         - frontend/modules/demo/package.json
   script:
@@ -400,8 +386,6 @@ shared-deps-check:
           - package.json
           - package-lock.json
           - .npmrc
-          - deploy/**/*
-          - .gitlab-ci.yml
       exists:
         - frontend/shared-dependencies.json
   script:
@@ -425,8 +409,6 @@ mobile-check:
           - package-lock.json
           - tsconfig.base.json
           - .npmrc
-          - deploy/**/*
-          - .gitlab-ci.yml
       exists:
         - frontend/apps/mobile/package.json
   script:
@@ -458,8 +440,6 @@ desktop-build:
           - package-lock.json
           - tsconfig.base.json
           - .npmrc
-          - deploy/**/*
-          - .gitlab-ci.yml
       exists:
         - frontend/apps/desktop/package.json
   script:
@@ -494,8 +474,6 @@ mobile-build:
           - package-lock.json
           - tsconfig.base.json
           - .npmrc
-          - deploy/**/*
-          - .gitlab-ci.yml
       exists:
         - frontend/apps/mobile/package.json
   script:
