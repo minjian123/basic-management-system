@@ -11,7 +11,8 @@
   （插件键 `session_factory`，配置经 `[session_factory].provider` 选择，缺省 `default`）。
 """
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator, AsyncIterator
+from contextlib import asynccontextmanager
 from typing import Annotated, cast
 
 from fastapi import Depends, Request
@@ -22,6 +23,7 @@ from app.core.exceptions import DatabaseUnavailableError
 from app.core.factory import BaseDbFactory
 from app.db.health import PrimaryHealth
 from app.db.registry import PLATFORM_DB_KEY, EngineRegistry
+from app.db.tenant import current_tenant_context
 from app.db.unit_of_work import DbUnitOfWork
 
 
@@ -145,3 +147,33 @@ async def get_uow(session: Annotated[AsyncSession, Depends(get_write_db)]) -> Db
         DbUnitOfWork: 数据库工作单元。
     """
     return DbUnitOfWork(session)
+
+
+@asynccontextmanager
+async def session_scope(
+    registry: EngineRegistry,
+    *,
+    db_key: str | None = None,
+    read_only: bool = False,
+    factory: SessionFactory | None = None,
+) -> AsyncGenerator[AsyncSession]:
+    """统一会话入口：按库键 / 当前租户上下文取引擎并开会话。
+
+    - 库键：显式 `db_key` 优先；为空取当前租户上下文库键（无上下文回落演示租户）；
+    - 读写角色：缺省主库（写后读同库，避免副本旧值）；只读从库经 `read_only=True`；
+    - 事务：只负责建会话与释放，`commit` / `rollback` 与事务边界归调用方（服务层工作单元）。
+
+    Args:
+        registry: 引擎注册表。
+        db_key: 数据源键；None 取当前租户库键。
+        read_only: 是否只读。
+        factory: 会话工厂；None 新建缺省工厂。
+
+    Yields:
+        AsyncSession: 异步会话。
+    """
+    resolved = db_key if db_key is not None else current_tenant_context().db_key
+    engine = await registry.get(resolved, read_only=read_only)
+    session_factory = factory if factory is not None else SessionFactory()
+    async with session_factory.create(engine)() as session:
+        yield session

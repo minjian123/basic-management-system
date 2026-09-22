@@ -100,14 +100,17 @@ class BaseScopedRepository[ModelT](BaseRepository[ModelT], ABC):
     tenant_scoped: bool = False
     """模型含 `tenant_id` 列时置 True（同库多租户 / 平台侧租户维度表），强制注入租户条件。"""
 
-    def _scope_conditions(self) -> list[ScopeCondition]:
+    def _scope_conditions(self, *, include_soft_delete: bool = True) -> list[ScopeCondition]:
         """作用域条件（软删除 → 数据范围 → 租户）。
+
+        Args:
+            include_soft_delete: 是否包含软删除过滤（物理删除出口需穿透已软删行时为 False）。
 
         Returns:
             list[ScopeCondition]: 过滤条件列表。
         """
         conditions: list[ScopeCondition] = []
-        if self.soft_delete_enabled:
+        if self.soft_delete_enabled and include_soft_delete:
             conditions.append(ScopeCondition("deleted_at", "is_null", None))
         if self._data_scope is not None:
             predicate = self._data_scope.read_predicate()
@@ -133,6 +136,31 @@ class BaseScopedRepository[ModelT](BaseRepository[ModelT], ABC):
         if tenant_id is None:
             return None
         return ScopeCondition("tenant_id", "eq", tenant_id)
+
+    async def soft_delete(self, item_id: int) -> bool:
+        """软删除记录（派生默认：委托 `delete`）。
+
+        数据库实现覆写为置 `deleted_at`；内存基线为测试替身、实体无软删除字段，
+        保持 `delete` 的硬删语义（差异在实现侧注明）。
+
+        Args:
+            item_id: 记录 ID。
+
+        Returns:
+            bool: 删除成功 True；不存在（或不在作用域）False。
+        """
+        return await self.delete(item_id)
+
+    async def hard_delete(self, item_id: int) -> bool:
+        """物理删除记录（派生默认：委托 `delete`；数据库实现覆写为真实删除）。
+
+        Args:
+            item_id: 记录 ID。
+
+        Returns:
+            bool: 删除成功 True；不存在（或不在作用域）False。
+        """
+        return await self.delete(item_id)
 
     def _matches_scope(self, item: ModelT) -> bool:
         """实体是否满足全部作用域条件。
