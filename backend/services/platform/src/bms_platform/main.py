@@ -22,6 +22,7 @@ from bms_core.core.id import IdGeneratorFactory
 from bms_core.core.logging import configure_logging, get_logger
 from bms_core.core.plugin import build_plugin_registry, resolve_plugin
 from bms_core.core.resources import ResourceManager
+from bms_core.core.service import attach_service
 from bms_core.db.bootstrap import ensure_development_schema
 from bms_core.db.engine import EngineFactory
 from bms_core.db.health import PrimaryHealth
@@ -31,7 +32,7 @@ from bms_core.db.tenant_source import TenantSource
 from bms_core.lock.base import BaseDistributedLock
 from bms_core.schemas.common import ApiResponse
 from bms_core.services.module_registry import ModuleRegistry
-from bms_platform import __version__
+from bms_platform import SERVICE_NAME, SERVICE_TITLE, __version__
 from bms_platform.api.router import api_router, health_router
 from bms_platform.repositories.demo_repository import DemoRepository
 from bms_platform.services.demo_service import DemoService
@@ -94,12 +95,21 @@ class ApplicationFactory(BaseApplicationFactory):
         Returns:
             FastAPI: 已注册基线配置与端点的应用实例。
         """
-        app = FastAPI(title="BMS 基础管理系统", version=__version__, lifespan=lifespan)
+        app = FastAPI(title=SERVICE_TITLE, version=__version__, lifespan=lifespan)
 
         # TODO(02-05): demo 服务改由依赖注入提供（get_db 等）
 
         settings = get_settings()
         configure_logging(settings)
+
+        # 服务运行时：解析服务身份（包声明 + 配置覆盖）→ 绑定日志上下文 → 落 app.state（含停机摘流）
+        attach_service(
+            app,
+            declared_name=SERVICE_NAME,
+            version=__version__,
+            title=SERVICE_TITLE,
+            settings=settings,
+        )
 
         # 中间件先于路由注册（后注册者在外层）：只读标记 → 请求日志 → 链路 id → 租户解析（全局，最内层）；
         # 租户解析位于链路 id 之内，未知 / 停用租户的拒绝响应仍带请求 id 与链路 id。
@@ -170,7 +180,7 @@ class ApplicationFactory(BaseApplicationFactory):
             Returns:
                 ApiResponse: {code, message, data:{name, version}}。
             """
-            return ApiResponse.ok({"name": "BMS 基础管理系统", "version": __version__})
+            return ApiResponse.ok({"name": SERVICE_TITLE, "version": __version__})
 
         app.include_router(api_router)
         app.include_router(health_router)

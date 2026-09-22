@@ -10,12 +10,16 @@ from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
 import bms_core as app_pkg
+from bms_core.api import health
 from bms_core.core import plugin as plugin_module
 from bms_core.core.config import PluginSelection, Settings
 from bms_core.core.plugin import BasePluggable, PluginRegistry
 from bms_core.health.base import BaseHealthCheck, HealthCheckResult
 from bms_core.health.registry import HealthCheckRegistry
+from bms_platform import SERVICE_NAME, __version__
 from bms_platform.main import ApplicationFactory
+
+_Identity = {"service": SERVICE_NAME, "version": __version__}
 
 
 class _PassingCheck(BaseHealthCheck):
@@ -112,15 +116,26 @@ async def _lifespan_client(app: FastAPI) -> AsyncGenerator[AsyncClient]:
 
 @pytest.mark.kiwi_id(2)
 async def test_healthz_returns_ok(client: AsyncClient) -> None:
-    """GET /healthz 返回 {"status":"ok"}（不依赖启动完成态）。"""
+    """GET /healthz 返回 {"status":"ok"} 与服务身份（不依赖启动完成态）。"""
     resp = await client.get("/healthz")
+    assert resp.status_code == 200
+    assert resp.json() == {"status": "ok", **_Identity}
+
+
+@pytest.mark.kiwi_id(2)
+async def test_healthz_without_identity_omits_fields() -> None:
+    """未接入服务运行时的最小应用：`/healthz` 不附加服务身份字段。"""
+    app = FastAPI()
+    app.include_router(health.router)
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        resp = await client.get("/healthz")
     assert resp.status_code == 200
     assert resp.json() == {"status": "ok"}
 
 
 @pytest.mark.kiwi_id(64)
 async def test_readyz_all_ok(monkeypatch: pytest.MonkeyPatch) -> None:
-    """全部检查项就绪：200 + status ok + checks 动态键结构（注册顺序）。"""
+    """全部检查项就绪：200 + status ok + 服务身份 + checks 动态键结构（注册顺序）。"""
     _use_fake_registry(monkeypatch, _registry(_PassingCheck("redis"), _PassingCheck("database")))
     app = ApplicationFactory().create(None)
 
@@ -132,6 +147,7 @@ async def test_readyz_all_ok(monkeypatch: pytest.MonkeyPatch) -> None:
     assert body == {
         "status": "ok",
         "checks": {"redis": {"ok": True, "error": None}, "database": {"ok": True, "error": None}},
+        **_Identity,
     }
     assert list(body["checks"]) == ["redis", "database"]
 
@@ -150,6 +166,7 @@ async def test_readyz_failure_returns_503_without_leak(monkeypatch: pytest.Monke
     assert body["status"] == "down"
     assert body["checks"]["redis"] == {"ok": False, "error": "ConnectionError"}
     assert body["checks"]["database"] == {"ok": True, "error": None}
+    assert body["service"] == SERVICE_NAME
     assert "secret" not in resp.text
     assert "redis://" not in resp.text
     assert "127.0.0.1" not in resp.text
@@ -180,7 +197,7 @@ async def test_readyz_startup_incomplete_returns_503(monkeypatch: pytest.MonkeyP
         resp = await client.get("/readyz")
 
     assert resp.status_code == 503
-    assert resp.json() == {"status": "down", "checks": {}}
+    assert resp.json() == {"status": "down", "checks": {}, **_Identity}
 
 
 @pytest.mark.kiwi_id(65)

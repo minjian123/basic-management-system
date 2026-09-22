@@ -218,8 +218,13 @@ class StdoutLogger(BaseLogger):
 
 
 def _build_processors() -> list[Processor]:
-    """组装处理器链（业务日志与第三方 stdlib 日志共用）。"""
+    """组装处理器链（业务日志与第三方 stdlib 日志共用）。
+
+    首部 `merge_contextvars` 汇聚 `structlog.contextvars` 的全局绑定（如服务身份
+    `service` / `service_version`），使业务日志与第三方 stdlib 日志一并携带。
+    """
     return [
+        structlog.contextvars.merge_contextvars,
         _add_context_fields,
         structlog.stdlib.add_log_level,
         structlog.stdlib.add_logger_name,
