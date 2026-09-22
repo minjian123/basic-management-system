@@ -3,7 +3,7 @@
 迁移脚本按**数据源分链**维护，链名即 Alembic 配置段名（`alembic.ini`）：同一套脚本在
 SQLite / MySQL / PostgreSQL / 达梦 DM8 四库执行（**禁写方言 SQL**，见《数据库开发规范》「迁移与建表口径」节）。
 
-| 链 | 配置段 | 版本目录 | 库 | 表集（唯一来源：`app/db/migration.py`） |
+| 链 | 配置段 | 版本目录 | 库 | 表集（唯一来源：`bms_core/db/migration.py`） |
 | --- | --- | --- | --- | --- |
 | `tenant`（缺省） | `[alembic]` / `[alembic:tenant]` | `versions/tenant/` | 租户库 `bms_tenant_{code}` | 字典六表 + `sys_query_scheme` |
 | `platform` | `[alembic:platform]` | `versions/platform/` | 平台库 `bms_platform` | `sys_tenant` / `sys_module` / `sys_module_i18n` |
@@ -37,4 +37,4 @@ uv run alembic -n alembic:archive upgrade head
 - **公共字段块**：对齐 `BaseModel`（雪花 ID / 审计 / 软删除 / 乐观锁），与租户链 `0001` 同源写法；
 - **种子与结构分离**：迁移只建表不写种子，种子走 `ops/seed_*.py` 幂等脚本；
 - **零漂移**：迁移脚本须与模型元数据一致（`tests/alembic/test_alembic_drift.py` 逐链校验）；
-- **建库 / 删库**：不在迁移脚本内，走 `ops/db_admin.py`（`app/db/admin.py` 能力）。
+- **建库 / 删库**：不在迁移脚本内，走 `ops/db_admin.py`（`bms_core/db/admin.py` 能力）。
