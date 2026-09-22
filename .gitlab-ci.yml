@@ -6,6 +6,10 @@
 # 目录与清单文件出现后自动启用。
 
 workflow:
+  # 新推送自动取消同分支上一条未完成流水线（仅取消可中断 job）：
+  # 避免连续 push 时多条流水线抢占有限的 runner 并发槽（2026-09-22 提速）。
+  auto_cancel:
+    on_new_commit: interruptible
   rules:
     # 指令驱动 + main 直推自动验证（2026-08-22）：
     # push/MR 事件不再无条件建流水线；main 直推仅当代码/CI 配置路径有变更时才跑
@@ -56,6 +60,8 @@ variables:
 
 default:
   tags: [bms]
+  # 默认允许被同分支新推送取消（配合 workflow.auto_cancel；镜像构建 / 测试 / 文档校验均可安全取消重跑）
+  interruptible: true
 
 # ---- CI 基础镜像：按锁文件哈希自动重建（prepare 阶段先于业务 job；同宿主 daemon 本流水线即用）----
 ci-base-build:
