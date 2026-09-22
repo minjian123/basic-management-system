@@ -52,8 +52,9 @@ class _Source:
 
 
 def _settings(tmp_path: Path) -> Settings:
-    """构造临时平台库 + 租户库模板的配置。"""
+    """构造临时平台库 + 租户库模板的配置（服务标识取启动期回写后的平台服务名）。"""
     settings = Settings()
+    settings.app.service = "platform"
     settings.database.platform.url = f"sqlite+aiosqlite:///{tmp_path / 'platform.db'}"
     settings.database.tenants.url_template = f"sqlite+aiosqlite:///{tmp_path}/bms_tenant_{{tenant}}.db"
     return settings

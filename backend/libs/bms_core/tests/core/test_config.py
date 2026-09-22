@@ -306,7 +306,7 @@ def test_worker_id_wiring(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_data_access_keys_and_effective_pool() -> None:
     """数据访问新键默认值：service / max_connections / connect_timeout / services 覆盖解析。"""
     settings = Settings()
-    assert settings.app.service == "platform"
+    assert settings.app.service == ""
     assert settings.database.platform.max_connections == 0
     assert settings.database.platform.pool.connect_timeout == 10.0
     assert settings.database.platform.services == {}

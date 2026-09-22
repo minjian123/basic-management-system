@@ -11,8 +11,9 @@ env = "dev"
 debug = false
 # 雪花 ID WorkerId（0~1023，同环境多副本须全局唯一）
 worker_id = 0
-# 服务标识（微服务名；用于按服务的连接池覆盖，缺省单服务 platform）
-service = "platform"
+# 服务标识（微服务名；空则取服务包声明，启动期回写解析结果）
+# 用于按服务的连接池覆盖与租户库连接串模板的 {service} 占位
+service = ""
 
 [server]
 # 监听地址

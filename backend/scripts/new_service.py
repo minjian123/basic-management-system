@@ -7,8 +7,9 @@
     python scripts/new_service.py <服务名> [--title "服务中文名"]
 
 生成内容（与平台服务同构）：独立 `pyproject.toml`（依赖 `bms-core`，src 布局）、`src/bms_<名>/`
-（入口 `main.py` / `asgi.py` + api / services / repositories / models / schemas 五层 + 最小路由聚合）、
-`tests/`（启动冒烟用例）。生成后 `uv sync` 即可 `uv run pytest` / `uv run uvicorn bms_<名>.asgi:app`。
+（入口 `main.py` / `asgi.py` / `__main__.py` + api / services / repositories / models / schemas 五层 +
+最小路由聚合 + 统一服务运行时接入）、`tests/`（启动冒烟用例）。生成后 `uv sync` 即可
+`uv run pytest` / `uv run python -m bms_<名>`（读 `[server]` 配置）或 `uv run uvicorn bms_<名>.asgi:app`。
 """
 
 import argparse
@@ -46,6 +47,12 @@ bms-core = {{ workspace = true }}
 _INIT = '''"""{title}服务包。"""
 
 __version__ = "0.1.0"
+
+SERVICE_NAME = "{name}"
+"""服务名（`[app].service` 为空时取本声明；用于日志 `service`、探针响应与按服务配置）。"""
+
+SERVICE_TITLE = "BMS {title}服务"
+"""服务中文名（用于应用 title）。"""
 '''
 
 _MAIN = '''"""{title}服务入口：应用工厂 `ApplicationFactory`（脚手架生成，按需扩展）。"""
@@ -61,13 +68,15 @@ from bms_core.core.config import get_settings
 from bms_core.core.factory import BaseApplicationFactory
 from bms_core.core.logging import configure_logging
 from bms_core.core.resources import ResourceManager
-from bms_{name} import __version__
+from bms_core.core.service import attach_service
+from bms_core.health import null as _null_health  # noqa: F401  # 导入即登记 null 健康注册表（最小服务就绪回退）
+from bms_{name} import SERVICE_NAME, SERVICE_TITLE, __version__
 from bms_{name}.api.router import api_router
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
-    """应用生命周期：登记与释放异步资源（按需补装配）。
+    """应用生命周期：标记启动完成；关闭时取消就绪并释放异步资源。
 
     Args:
         app: 应用实例。
@@ -75,7 +84,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     Yields:
         None: 应用运行期。
     """
-    app.state.resources = ResourceManager()
     app.state.startup_complete = True
     try:
         yield
@@ -99,13 +107,33 @@ class ApplicationFactory(BaseApplicationFactory):
             FastAPI: 已注册基线配置与端点的应用实例。
         """
         settings = get_settings()
+        # 最小服务暂无依赖检查：就绪探针回退 null 注册表（空检查项、恒定通过）；
+        # 接入依赖后按配置切换实现（[health_check_registry].provider）并登记检查项
+        settings.health_check_registry.provider = ""
         configure_logging(settings)
-        app = FastAPI(title="BMS {title}服务", version=__version__, lifespan=lifespan)
+        app = FastAPI(title=SERVICE_TITLE, version=__version__, lifespan=lifespan)
+        app.state.resources = ResourceManager()
+        attach_service(
+            app,
+            declared_name=SERVICE_NAME,
+            version=__version__,
+            title=SERVICE_TITLE,
+            settings=settings,
+        )
         register_exception_handlers(app)
         app.state.settings = settings
         app.include_router(api_router)
         app.include_router(health_router)
         return app
+'''
+
+_MAIN_ENTRY = '''"""服务启动入口：`python -m bms_{name}`（读 `[server]` 配置，SIGTERM 先摘流再优雅收尾）。"""
+
+from bms_core.core.run import run_service
+from bms_{name}.main import ApplicationFactory
+
+if __name__ == "__main__":
+    run_service(ApplicationFactory)
 '''
 
 _ASGI = '''"""ASGI 入口：模块级应用实例（`uvicorn bms_{name}.asgi:app`）。"""
@@ -154,13 +182,27 @@ _LAYER_INIT = {
 
 _TEST = '''"""{title}服务启动冒烟（脚手架生成）。"""
 
+from httpx import ASGITransport, AsyncClient
+
+from bms_{name} import SERVICE_NAME
 from bms_{name}.main import ApplicationFactory
 
 
-def test_service_boots() -> None:
-    """应用可构造且标题 / 版本就位。"""
+async def test_service_boots_and_exposes_probes() -> None:
+    """应用可构造；`/healthz` 返回存活状态与服务身份；`/readyz` 就绪（最小服务无依赖检查）。"""
     app = ApplicationFactory().create(None)
     assert "BMS" in app.title
+    assert "{title}" in app.title
+    async with (
+        app.router.lifespan_context(app),
+        AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client,
+    ):
+        healthz = await client.get("/healthz")
+        readyz = await client.get("/readyz")
+    assert healthz.status_code == 200
+    assert healthz.json()["service"] == SERVICE_NAME
+    assert readyz.status_code == 200
+    assert readyz.json()["checks"] == {{}}
 '''
 
 
@@ -193,8 +235,9 @@ def generate(name: str, title: str, *, base: Path = _SERVICES) -> Path:
     tests.mkdir()
 
     (project / "pyproject.toml").write_text(_PYPROJECT.format(name=name, title=title), encoding="utf-8")
-    (package / "__init__.py").write_text(_INIT.format(title=title), encoding="utf-8")
+    (package / "__init__.py").write_text(_INIT.format(title=title, name=name), encoding="utf-8")
     (package / "main.py").write_text(_MAIN.format(name=name, title=title), encoding="utf-8")
+    (package / "__main__.py").write_text(_MAIN_ENTRY.format(name=name), encoding="utf-8")
     (package / "asgi.py").write_text(_ASGI.format(name=name), encoding="utf-8")
     (package / "api" / "__init__.py").write_text(_API_INIT.format(title=title), encoding="utf-8")
     (package / "api" / "router.py").write_text(_API_ROUTER.format(title=title), encoding="utf-8")

@@ -68,8 +68,11 @@ class AppSettings(BaseSettings):
     env: Literal["dev", "test", "prod"] = "dev"
     debug: bool = False
     worker_id: int = Field(default=0, ge=0, le=1023)
-    service: str = "platform"
-    """服务标识（微服务名；用于选取按服务的连接池覆盖，缺省单服务 platform）。"""
+    service: str = ""
+    """服务标识（微服务名；空则取服务包声明，启动期 `attach_service` 回写解析结果）。
+
+    用于选取按服务的连接池覆盖与租户库 `url_template` 的 `{service}` 占位（见 `core/service.py`）。
+    """
 
 
 class ServerSettings(BaseSettings):
