@@ -212,8 +212,27 @@ backend-test:
   script:
     - cd backend
     - uv sync --frozen
-    - uv run pytest --cov=bms_core --cov=bms_platform --cov=bms_identity --cov=bms_tenant --cov=bms_org --cov=bms_file --cov=bms_notification --cov=bms_search --cov=bms_ai --cov=bms_report --cov-branch --cov-report=term --cov-fail-under=70
+    # 全量测试只跑这一次：覆盖率门禁 + Allure 结果；report 档存在且 Kiwi 凭据齐备时同跑导入（不另起重复全量 job）
+    - |
+      if [ -f ../deploy/ci/verify/report ] && [ -n "$TCMS_API_URL" ] && [ -n "$TCMS_USERNAME" ] && [ -n "$TCMS_PASSWORD" ]; then
+        printf '[tcms]\nurl = %s\nusername = %s\npassword = %s\n' "$TCMS_API_URL" "$TCMS_USERNAME" "$TCMS_PASSWORD" > "$HOME/.tcms.conf"
+        chmod 600 "$HOME/.tcms.conf"
+        export TCMS_PRODUCT_VERSION="${CI_COMMIT_SHORT_SHA:-local}"
+        export TCMS_BUILD="${CI_PIPELINE_ID:-0}"
+        echo "Kiwi 凭据已配置：执行结果导入 Kiwi TCMS（产品 BMS 自动化用例（CI））"
+        KIWI_FLAG=--kiwicms
+      else
+        echo "报告档未启用或 Kiwi 凭据未配置：仅归档 Allure 结果，跳过导入"
+        KIWI_FLAG=
+      fi
+      uv run pytest $KIWI_FLAG --alluredir=allure-results \
+        --cov=bms_core --cov=bms_platform --cov=bms_identity --cov=bms_tenant --cov=bms_org --cov=bms_file \
+        --cov=bms_notification --cov=bms_search --cov=bms_ai --cov=bms_report --cov-branch --cov-report=term --cov-fail-under=70
   coverage: '/^TOTAL.*?\s+\d+\s+\d+\s+(\d+(?:\.\d+)?%)$/'
+  artifacts:
+    when: always
+    paths: [backend/allure-results/]
+    expire_in: 30 days
   # 核心模块（认证/RBAC/工作流/审计/收付款）≥ 80% 子阈值随对应模块落地（认证 / RBAC 阶段）接入（见 04_01 详细设计 §6.1）
 
 # ---- 三库测试库流程计划校验（无需真库；脚本占位期的 CI 实证，见 04_02 详细设计 §5.1）----
@@ -700,50 +719,11 @@ swagger-snapshot:
     paths: [backend/swagger.json]
     expire_in: 30 days
 
-# ---- Allure 结果归档 + Kiwi TCMS 导入（分档开关 deploy/ci/verify/report，P2 档，2026-09-15 开启）----
-# 口径（04-4 后重验证层就绪评估结论）：
-#   - 结果产出：全量 pytest 带 --alluredir（HTML 报告需 Allure CLI（Java 工具，非 pip 包），由需方按需生成；CI 归档原始结果）
-#   - Kiwi 导入：配置 masked 变量 TCMS_API_URL / TCMS_USERNAME / TCMS_PASSWORD 后自动启用
-#     （kiwitcms-pytest-plugin 为 pytest11 插件，执行时 `--kiwitcms` 直写平台，非解析 Allure 报告）；
-#     **配置载体为 ~/.tcms.conf**（插件走 tcms-api 的文件配置，环境变量对 url/凭据无效）
-#   - 用例口径：插件按用例 summary 匹配、缺失即新建，故自动用例集中在新产品「BMS 自动化用例（CI）」（summary 为 pytest nodeid），
-#     与策展用例库（产品「BMS 基础管理系统」，编号 1~69）隔离，策展库不受影响
-allure-report:
-  stage: verify
-  image: python:3.14-slim
-  needs: [{job: backend-test, optional: true}, {job: e2e-playwright, optional: true}]
-  rules:
-    # 重验证层分档开关：deploy/ci/verify/report（P2）
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-      changes:
-        paths:
-          - backend/**/*
-          - deploy/**/*
-          - .gitlab-ci.yml
-      exists:
-        - deploy/ci/verify/report
-  allow_failure: true
-  variables:
-    TCMS_PRODUCT: "BMS 自动化用例（CI）"
-    TCMS_PREFIX: "BMS CI"
-  script:
-    - pip install uv && cd backend && uv sync --frozen
-    - |
-      if [ -n "$TCMS_API_URL" ] && [ -n "$TCMS_USERNAME" ] && [ -n "$TCMS_PASSWORD" ]; then
-        printf '[tcms]\nurl = %s\nusername = %s\npassword = %s\n' "$TCMS_API_URL" "$TCMS_USERNAME" "$TCMS_PASSWORD" > "$HOME/.tcms.conf"
-        chmod 600 "$HOME/.tcms.conf"
-        export TCMS_PRODUCT_VERSION="${CI_COMMIT_SHORT_SHA:-local}"
-        export TCMS_BUILD="${CI_PIPELINE_ID:-0}"
-        echo "Kiwi 凭据已配置：执行结果导入 Kiwi TCMS（产品 $TCMS_PRODUCT / 版本 $TCMS_PRODUCT_VERSION / 构建 $TCMS_BUILD）"
-        uv run pytest -q --alluredir=allure-results --kiwitcms
-      else
-        echo "Kiwi 凭据未配置（TCMS_API_URL / TCMS_USERNAME / TCMS_PASSWORD）：仅归档 Allure 结果，跳过导入"
-        uv run pytest -q --alluredir=allure-results
-      fi
-  artifacts:
-    paths: [backend/allure-results/]
-    when: always
-    expire_in: 30 days
+# ---- Allure 归档 + Kiwi TCMS 导入：已并入 backend-test（全量测试只跑一次）----
+# 分档开关 deploy/ci/verify/report（P2）仍有效：backend-test 在该档存在且 Kiwi 凭据齐备时带 `--kiwicms` 直接导入；
+# 结果产出：backend-test 恒带 `--alluredir=allure-results` 并归档原生产物（HTML 由需方按需以 Allure CLI 生成）。
+# 口径：Kiwi 配置载体为 ~/.tcms.conf（tcms-api 文件配置，环境变量对 url/凭据无效）；自动用例集中在新产品
+# 「BMS 自动化用例（CI）」（summary 为 pytest nodeid），与策展用例库（产品「BMS 基础管理系统」）隔离。
 
 # ---- 02-5 缺陷自动上报接线：任一前置 job 失败时产出 REPRO 包并自动建 GitLab Issue ----
 # 归档落宿主 /mnt/data/backup/defects/（runner config.toml 已加该卷映射）；

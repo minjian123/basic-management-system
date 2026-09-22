@@ -7,11 +7,10 @@ import pytest
 from alembic.autogenerate import compare_metadata
 from alembic.config import Config
 from alembic.migration import MigrationContext
-from sqlalchemy import create_engine
+from sqlalchemy import Column, Integer, MetaData, Table, create_engine
 
 from alembic import command
 from bms_core.db.migration import BACKEND_ROOT, chain_metadata, config_section, has_revisions, resolve_chain
-from bms_core.models.base import Base
 
 
 def _config(chain_name: str) -> Config:
@@ -69,9 +68,11 @@ def test_chain_migration_matches_metadata(chain_name: str, tmp_path: Path) -> No
 
 @pytest.mark.kiwi_id(1078)
 def test_unmigrated_tables_report_diff(tmp_path: Path) -> None:
-    """反例：用全量模型元数据对比租户链迁移库 → 差异非空（骨架表未建，证明比对有效）。"""
+    """反例：用含未迁移表的元数据对比租户链迁移库 → 差异非空（证明比对有效）。"""
     path = tmp_path / "tenant.db"
     _upgrade("tenant", f"sqlite+aiosqlite:///{path}")
-    diff = _diff(f"sqlite:///{path}", Base.metadata)
-    assert diff, "未迁移的全量模型表应产生差异"
-    assert any("sys_task" in str(item) for item in diff)
+    probe = MetaData()
+    Table("drift_probe", probe, Column("id", Integer, primary_key=True))
+    diff = _diff(f"sqlite:///{path}", probe)
+    assert diff, "未迁移的表应产生差异"
+    assert any("drift_probe" in str(item) for item in diff)

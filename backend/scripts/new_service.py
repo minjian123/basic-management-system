@@ -42,6 +42,17 @@ packages = ["src/bms_{name}"]
 
 [tool.uv.sources]
 bms-core = {{ workspace = true }}
+
+[tool.pytest.ini_options]
+# 工程级测试范围：从本工程目录 `uv run pytest` 只跑本工程 tests（不落工作区根全量）
+asyncio_mode = "auto"
+addopts = "--import-mode=importlib"
+testpaths = ["tests"]
+pythonpath = ["../.."]
+markers = [
+    "kiwi_id: Kiwi TCMS 用例编号（如 @pytest.mark.kiwi_id(1)）",
+    "integration: 需要真实外部服务的集成用例（未配置环境时跳过）",
+]
 """
 
 _INIT = '''"""{title}服务包。"""

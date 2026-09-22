@@ -15,6 +15,7 @@ from alembic import command
 from bms_core.core.config import get_settings
 from bms_core.core.context import current_user_id
 from bms_core.db.engine import EngineFactory
+from bms_core.db.migration import BACKEND_ROOT
 from bms_core.db.registry import EngineRegistry
 from bms_core.listing.base import QueryScheme, QuerySchemeScope, QuerySchemeTarget
 from bms_core.listing.store import SqlQuerySchemeStore
@@ -26,8 +27,7 @@ def _run_migrations(url: str) -> None:
     Args:
         url: 数据库 URL。
     """
-    cfg = Config("alembic.ini")
-    cfg.set_main_option("script_location", "alembic")
+    cfg = Config(str(BACKEND_ROOT / "alembic.ini"))  # 绝对定位，与运行目录无关
     cfg.cmd_opts = SimpleNamespace(x=[f"url={url}"])  # pyright: ignore[reportAttributeAccessIssue]
     command.upgrade(cfg, "head")
 
