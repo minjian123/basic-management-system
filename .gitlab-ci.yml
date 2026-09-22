@@ -197,6 +197,8 @@ backend-test:
   image: $REGISTRY_IMAGE_PREFIX/ci-backend:py314
   variables:
     BMS_ENV: test
+    TCMS_PRODUCT: "BMS 自动化用例（CI）"
+    TCMS_PREFIX: "BMS CI"
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       exists:
@@ -220,7 +222,7 @@ backend-test:
         export TCMS_PRODUCT_VERSION="${CI_COMMIT_SHORT_SHA:-local}"
         export TCMS_BUILD="${CI_PIPELINE_ID:-0}"
         echo "Kiwi 凭据已配置：执行结果导入 Kiwi TCMS（产品 BMS 自动化用例（CI））"
-        KIWI_FLAG=--kiwicms
+        KIWI_FLAG=--kiwitcms
       else
         echo "报告档未启用或 Kiwi 凭据未配置：仅归档 Allure 结果，跳过导入"
         KIWI_FLAG=
@@ -720,7 +722,7 @@ swagger-snapshot:
     expire_in: 30 days
 
 # ---- Allure 归档 + Kiwi TCMS 导入：已并入 backend-test（全量测试只跑一次）----
-# 分档开关 deploy/ci/verify/report（P2）仍有效：backend-test 在该档存在且 Kiwi 凭据齐备时带 `--kiwicms` 直接导入；
+# 分档开关 deploy/ci/verify/report（P2）仍有效：backend-test 在该档存在且 Kiwi 凭据齐备时带 `--kiwitcms` 直接导入；
 # 结果产出：backend-test 恒带 `--alluredir=allure-results` 并归档原生产物（HTML 由需方按需以 Allure CLI 生成）。
 # 口径：Kiwi 配置载体为 ~/.tcms.conf（tcms-api 文件配置，环境变量对 url/凭据无效）；自动用例集中在新产品
 # 「BMS 自动化用例（CI）」（summary 为 pytest nodeid），与策展用例库（产品「BMS 基础管理系统」）隔离。
