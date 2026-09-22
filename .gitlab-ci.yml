@@ -512,7 +512,7 @@ mobile-build:
 # 开关采用**分档文件**（2026-09-15，04-4 后的重验证层就绪评估结论；激活路线见《项目骨架计划》§3.1）：
 #   deploy/ci/verify/contract  契约快照（swagger）        —— P1 已开
 #   deploy/ci/verify/defect    缺陷自动上报（on_failure）  —— P1 已开
-#   deploy/ci/verify/report    Allure 归档 + Kiwi 导入     —— P2 已开
+#   deploy/ci/verify/report    Allure 归档 + Kiwi 导入     —— P2 已于 2026-09-22 关闭（无消费方：不生成 Allure HTML、Kiwi CI 产品仅人工浏览；重复全量 ~158s）
 #   deploy/ci/verify/image     镜像构建推送 + Trivy 扫描   —— P3 待开（前置：backend/Dockerfile、frontend/apps/desktop/Dockerfile）
 #   deploy/ci/verify/e2e       Playwright E2E             —— P4 待开（前置：tests/e2e 用例、--e2e-headless、Playwright 依赖与浏览器、job 内服务编排）
 #   deploy/ci/verify/db        三库真库集成                —— P4 已开（2026-09-22：test_db 实现 + alembic 在线分支 + 方言用例 + masked 变量齐备）
@@ -711,7 +711,7 @@ swagger-snapshot:
     paths: [backend/swagger.json]
     expire_in: 30 days
 
-# ---- Allure 结果归档 + Kiwi TCMS 导入（分档开关 deploy/ci/verify/report，P2 档，2026-09-15 开启）----
+# ---- Allure 结果归档 + Kiwi TCMS 导入（分档开关 deploy/ci/verify/report，P2 档；2026-09-22 关闭，无消费方）----
 # 口径（04-4 后重验证层就绪评估结论）：
 #   - 结果产出：全量 pytest 带 --alluredir（HTML 报告需 Allure CLI（Java 工具，非 pip 包），由需方按需生成；CI 归档原始结果）
 #   - Kiwi 导入：配置 masked 变量 TCMS_API_URL / TCMS_USERNAME / TCMS_PASSWORD 后自动启用
