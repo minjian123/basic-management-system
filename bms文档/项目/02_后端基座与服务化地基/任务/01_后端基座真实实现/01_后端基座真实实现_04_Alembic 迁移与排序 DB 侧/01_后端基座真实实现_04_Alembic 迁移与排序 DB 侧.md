@@ -29,3 +29,5 @@
 ## 4. 参考文档 <a id="ref"></a>
 
 - 《架构设计 · 数据架构》「迁移策略」节；《架构设计 · 数据访问与分片》「查询规范」节
+
+> **前置契约（已交付）**：01_02 多租户数据拓扑（2026-09-22）已交付 `ops/seed_tenant.py`（幂等建 `sys_tenant` 表 + demo/acme 种子；**Alembic 迁移就位后退化为纯种子脚本，建表分支兼容保留**）、租户库键助手（`build_tenant_db_key` / `parse_tenant_db_key`）与租户库 `url_template` 解析。本任务落 Alembic 迁移 / SQLite 全量自动建表 / `ops` 批量迁移时**直接复用**键助手与配置口径（平台库迁移纳入 `sys_tenant`；租户库目标地址按库键派生）。
