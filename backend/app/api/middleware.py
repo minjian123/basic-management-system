@@ -27,14 +27,17 @@ from app.core.context import (
     reset_current_client_ip,
     reset_current_request_id,
     reset_current_trace_id,
+    reset_read_only,
     set_current_client_ip,
     set_current_request_id,
     set_current_trace_id,
+    set_read_only,
 )
 from app.core.logging import get_logger
+from app.db.routing import is_read_method
 from app.tracing.base import TRACE_ID_HEADER, new_trace_id
 
-__all__ = ["RequestLoggingMiddleware", "TraceIdMiddleware"]
+__all__ = ["ReadOnlyMiddleware", "RequestLoggingMiddleware", "TraceIdMiddleware"]
 
 _EXCLUDED_PATHS = frozenset({"/healthz", "/readyz", "/docs", "/redoc", "/openapi.json"})
 
@@ -75,6 +78,40 @@ class TraceIdMiddleware(BaseObject):
             await self.app(scope, receive, _send_with_trace_id)
         finally:
             reset_current_trace_id(token)
+
+
+class ReadOnlyMiddleware(BaseObject):
+    """只读标记中间件（纯 ASGI）：按 HTTP 方法设置 `read_only` 上下文（GET/HEAD/OPTIONS 只读）。
+
+    路由显式覆盖：只读数据集 / 强制从库接口声明 `Depends(get_read_db)`，写 / 事务声明
+    `Depends(get_write_db)` 或 `Depends(get_uow)`。
+    """
+
+    def __init__(self, app: ASGIApp) -> None:
+        """初始化中间件。
+
+        Args:
+            app: 下游 ASGI 应用。
+        """
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        """处理请求（非 HTTP 作用域直通）。
+
+        Args:
+            scope: ASGI 作用域。
+            receive: 接收通道。
+            send: 发送通道。
+        """
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        token = set_read_only(is_read_method(scope.get("method")))
+        try:
+            await self.app(scope, receive, send)
+        finally:
+            reset_read_only(token)
 
 
 class RequestLoggingMiddleware(BaseObject):

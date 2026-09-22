@@ -18,8 +18,9 @@ from app.chat.base import get_chat_action_gate, get_chat_session_store, get_chat
 from app.circuit.base import get_circuit_breaker
 from app.codecheck.base import get_code_validator
 from app.dashboard.base import get_dashboard_card_registry
+from app.db.health import PrimaryHealth
 from app.db.registry import EngineRegistry
-from app.db.session import SessionFactory, get_db, get_uow
+from app.db.session import SessionFactory, get_db, get_read_db, get_uow, get_write_db
 from app.db.tenant import get_tenant
 from app.dict.base import get_dict_cache_region, get_dict_source, get_dict_translator
 from app.dict.query import DictQueryService
@@ -109,11 +110,13 @@ __all__ = [
     "get_password_policy",
     "get_permission_checker",
     "get_preference_store",
+    "get_primary_health",
     "get_print_exporter",
     "get_print_template_provider",
     "get_query_provider_registry",
     "get_query_scheme_store",
     "get_rate_limiter",
+    "get_read_db",
     "get_realtime_publisher",
     "get_replay_guard",
     "get_scope_checker",
@@ -127,6 +130,7 @@ __all__ = [
     "get_uow",
     "get_webhook_sender",
     "get_workflow_engine",
+    "get_write_db",
 ]
 
 
@@ -150,7 +154,19 @@ def get_dict_query_service(request: Request) -> DictQueryService:
         request: 请求对象。
 
     Returns:
-        DictQueryService: 高级查询服务实例。
+        DictQueryService: 字典高级查询服务实例。
     """
     engines = cast("EngineRegistry", request.app.state.engine_registry)
     return DictQueryService(engines=engines)
+
+
+def get_primary_health(request: Request) -> PrimaryHealth:
+    """取主库可用性状态（只读降级标记与探测）。
+
+    Args:
+        request: 请求对象。
+
+    Returns:
+        PrimaryHealth: 主库可用性实例。
+    """
+    return cast("PrimaryHealth", request.app.state.primary_health)

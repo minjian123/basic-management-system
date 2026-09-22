@@ -1,6 +1,6 @@
 """表单字段类型注册表基座契约测试（Kiwi 59）：契约 / 标识 / 常量 / 注册表模板 / 占位恒定通过 / 依赖解析。"""
 
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping
 from typing import Annotated
 
 import pytest
@@ -10,10 +10,20 @@ from httpx import ASGITransport, AsyncClient
 from app.api.deps import get_field_type_registry
 from app.core.base import BaseObject
 from app.core.capability import BaseCapability, BaseNullObject
+from app.core.config import get_settings
 from app.core.exceptions import NotFoundError
 from app.fieldtype.base import COLUMN_TYPE_DIALECTS, NULL_COLUMN_TYPE, BaseFieldType, BaseFieldTypeRegistry
 from app.fieldtype.null import NullFieldTypeRegistry
 from app.main import ApplicationFactory, lifespan
+
+
+@pytest.fixture(autouse=True)
+def force_null_providers(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    """占位用例固定 null 实现（避免 dev 环境覆盖为 local 影响占位断言）。"""
+    monkeypatch.setenv("BMS_FIELD_TYPE_REGISTRY__PROVIDER", "null")
+    get_settings.cache_clear()
+    yield
+    get_settings.cache_clear()
 
 
 class _FakeFieldType(BaseFieldType):

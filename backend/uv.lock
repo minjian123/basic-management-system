@@ -166,6 +166,7 @@ dependencies = [
     { name = "aiosqlite" },
     { name = "alembic" },
     { name = "dmpython" },
+    { name = "dmsqlalchemy" },
     { name = "fastapi" },
     { name = "httpx" },
     { name = "psycopg", extra = ["binary"] },
@@ -205,6 +206,7 @@ requires-dist = [
     { name = "aiosqlite", specifier = ">=0.20" },
     { name = "alembic", specifier = ">=1.13" },
     { name = "dmpython" },
+    { name = "dmsqlalchemy", specifier = ">=2.0" },
     { name = "fastapi", specifier = ">=0.115" },
     { name = "httpx", specifier = ">=0.27" },
     { name = "minio", marker = "extra == 'storage-minio'", specifier = ">=7.2" },
@@ -492,6 +494,18 @@ wheels = [
     { url = "https://pypi.tuna.tsinghua.edu.cn/packages/37/e2/ffa95af48285e46b29ab9d008265cb17d278b0a50437945a229d27ae18e7/dmpython-2.5.38-cp314-cp314-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:712dcf683694acf0d4001aef0f3fcc6f18cd4c6420c1a25a9e3778d20f60cd02", size = 11288353, upload-time = "2026-07-17T08:04:28.487Z" },
     { url = "https://pypi.tuna.tsinghua.edu.cn/packages/ae/82/8edfe81d9b1035dded504edff2e48bbbe51675f88bc4775b53a11ca0cdc8/dmpython-2.5.38-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:2d33fecc3c84e3dbc7e2b50661d225c67a3f461824e30aaab21f97d1bbd2d897", size = 10987027, upload-time = "2026-07-17T06:17:51.609Z" },
     { url = "https://pypi.tuna.tsinghua.edu.cn/packages/47/38/17b498e927c5f099fbb5d2d594ad0728e57ece8a59aa65fe98b5d1887674/dmpython-2.5.38-cp314-cp314-win_amd64.whl", hash = "sha256:049a0c87c686eae4b8173204229bcf825bf29aa3ba58d35c1b0971e16b2171ce", size = 8768142, upload-time = "2026-07-17T06:20:04.375Z" },
+]
+
+[[package]]
+name = "dmsqlalchemy"
+version = "2.0.17"
+source = { registry = "https://pypi.tuna.tsinghua.edu.cn/simple" }
+dependencies = [
+    { name = "dmpython" },
+    { name = "sqlalchemy" },
+]
+wheels = [
+    { url = "https://pypi.tuna.tsinghua.edu.cn/packages/f8/bb/5b5b7fa9bebc25c25fc06f655046812e73d8c9cc7888594f3e64794390ae/dmsqlalchemy-2.0.17-py3-none-any.whl", hash = "sha256:7ca2a194fb5b8885d822a7ac4fa65981d9d1f9d7973e40fb3e6dfb313f526e85", size = 70181, upload-time = "2026-07-16T08:17:40.179Z" },
 ]
 
 [[package]]

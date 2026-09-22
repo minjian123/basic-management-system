@@ -101,7 +101,7 @@ def test_routing_hooks_default_to_single_source() -> None:
     """路由钩子占位：单源同源、不路由（原表名）。"""
     repo = _repo()
     assert repo.binding(read_only=False) == "default"
-    assert repo.binding(read_only=True) == "default"
+    assert repo.binding(read_only=True) == "replica"
     assert repo.shard("sys_demo") == "sys_demo"
 
 

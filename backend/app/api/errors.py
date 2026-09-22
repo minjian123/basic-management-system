@@ -7,10 +7,13 @@ from fastapi import FastAPI, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from sqlalchemy.exc import InterfaceError, OperationalError
 
 from app.core.context import get_current_request_id
-from app.core.exceptions import BizError, InternalError, ParamError
+from app.core.exceptions import BizError, DatabaseUnavailableError, InternalError, ParamError
 from app.core.logging import get_logger
+from app.db.health import PrimaryHealth
+from app.db.registry import PLATFORM_DB_KEY
 from app.schemas.common import ApiResponse
 from app.tracing.base import TRACE_ID_HEADER
 
@@ -68,6 +71,24 @@ def register_exception_handlers(app: FastAPI) -> None:
         error = ParamError(data=exc.errors())
         body = ApiResponse(code=error.code, message=error.message or f"error.{error.code}", data=error.data)
         return _respond(error.http_status, body, request)
+
+    async def _db_unavailable_handler(request: Request, exc: Exception) -> JSONResponse:  # pyright: ignore[reportUnusedFunction]
+        """数据库连接类失败 → 标记主库降级并转明确错误（10006 / 503）。"""
+        health = getattr(request.app.state, "primary_health", None)
+        if isinstance(health, PrimaryHealth):
+            health.mark_degraded(PLATFORM_DB_KEY)
+        logger.warning(
+            "database_unavailable",
+            path=request.url.path,
+            method=request.method,
+            error=type(exc).__name__,
+        )
+        error = DatabaseUnavailableError("数据库暂不可用，系统已降级为只读模式，写操作被拒绝")
+        body = ApiResponse(code=error.code, message=error.message or f"error.{error.code}", data=None)
+        return _respond(error.http_status, body, request)
+
+    app.add_exception_handler(OperationalError, _db_unavailable_handler)
+    app.add_exception_handler(InterfaceError, _db_unavailable_handler)
 
     @app.exception_handler(Exception)
     async def _uncaught_error_handler(request: Request, exc: Exception) -> JSONResponse:  # pyright: ignore[reportUnusedFunction]

@@ -1,10 +1,13 @@
 """列表偏好协议与查询方案契约测试（Kiwi 781）：协议 / 枚举 / 占位实现 / 依赖解析 / 占位路由。"""
 
+from collections.abc import Iterator
+
 import pytest
 from httpx import ASGITransport, AsyncClient
 
 from app.api.deps import get_query_scheme_store
 from app.core.capability import BaseCapability, BaseNullObject
+from app.core.config import get_settings
 from app.core.plugin import BasePluggable, resolve_plugin
 from app.listing.base import (
     LIST_DENSITIES,
@@ -20,6 +23,15 @@ from app.listing.null import NullQuerySchemeStore
 from app.main import ApplicationFactory, lifespan
 
 API = "/api/v1/query-schemes"
+
+
+@pytest.fixture(autouse=True)
+def force_null_providers(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    """占位用例固定 null 实现（避免 dev 环境覆盖为 sql 影响占位断言）。"""
+    monkeypatch.setenv("BMS_QUERY_SCHEME_STORE__PROVIDER", "null")
+    get_settings.cache_clear()
+    yield
+    get_settings.cache_clear()
 
 
 class _InMemorySchemeStore(BaseQuerySchemeStore):

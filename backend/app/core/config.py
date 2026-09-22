@@ -51,6 +51,8 @@ class AppSettings(BaseSettings):
     env: Literal["dev", "test", "prod"] = "dev"
     debug: bool = False
     worker_id: int = Field(default=0, ge=0, le=1023)
+    service: str = "platform"
+    """服务标识（微服务名；用于选取按服务的连接池覆盖，缺省单服务 platform）。"""
 
 
 class ServerSettings(BaseSettings):
@@ -102,6 +104,8 @@ class DbPoolSettings(BaseSettings):
     max_overflow: int = 10
     pool_timeout: float = 30.0
     pool_recycle: int = 1800
+    connect_timeout: float = 10.0
+    """建连超时（秒）；非 SQLite 经驱动 `connect_args` 传入（达梦口径随阶段二 01-05 实测）。"""
 
 
 class DatabaseTargetSettings(BaseSettings):
@@ -110,7 +114,11 @@ class DatabaseTargetSettings(BaseSettings):
     url: str
     replicas: list[str] = Field(default_factory=list)
     password: str = ""
+    max_connections: int = Field(default=0, ge=0)
+    """该库最大连接数；`0` 表示不校验连接预算。"""
     pool: DbPoolSettings = Field(default_factory=DbPoolSettings)
+    services: dict[str, DbPoolSettings] = Field(default_factory=dict[str, DbPoolSettings])
+    """按服务的连接池覆盖：`{服务标识 → 池参数}`（服务标识取 `[app].service`）。"""
 
     def resolved_url(self) -> str:
         """取最终连接串（分字段密码优先合成，供建引擎使用）。
@@ -121,6 +129,17 @@ class DatabaseTargetSettings(BaseSettings):
         if not self.password:
             return self.url
         return make_url(self.url).set(password=self.password).render_as_string(hide_password=False)
+
+    def effective_pool(self, service: str) -> DbPoolSettings:
+        """取该服务生效的连接池参数（服务覆盖优先，缺省回落到目标默认池）。
+
+        Args:
+            service: 服务标识（`[app].service`）。
+
+        Returns:
+            DbPoolSettings: 生效的池参数。
+        """
+        return self.services.get(service, self.pool)
 
 
 class DatabaseSettings(BaseSettings):
