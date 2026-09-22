@@ -5,8 +5,9 @@ import { createPinia } from 'pinia'
 import { createApp } from 'vue'
 
 import App from './App.vue'
+import { installObservability, installModuleRouteScope } from './observability'
 import { setModuleError } from './module/boundary'
-import { installModules, installPlatformRegistrations } from './module/host'
+import { installModules, installPlatformRegistrations, resolveRouteModule } from './module/host'
 import { moduleI18n } from './module/i18n'
 import { router } from './router'
 import { installMenuRoutes } from './router/dynamic'
@@ -19,8 +20,10 @@ applyInitialTheme()
 
 installMenuRoutes(router, PLACEHOLDER_MENU)
 
-// 装配时序：平台自身注册（启动期）→ 模块装载（清单驱动，挂载期）→ 路由安装（触发初始导航）→ 应用挂载。
+// 装配时序：平台自身注册（启动期）→ 观测装配（注入上报 sink）→ 模块装载（清单驱动，挂载期）
+// → 模块路由作用域 → 路由安装（触发初始导航）→ 应用挂载。
 installPlatformRegistrations()
+installObservability()
 
 const app = createApp(App)
 const pinia = createPinia()
@@ -45,6 +48,7 @@ async function bootstrap(): Promise<void> {
       })
     },
   )
+  installModuleRouteScope(router, resolveRouteModule)
   app.use(router)
   app.mount('#app')
 }

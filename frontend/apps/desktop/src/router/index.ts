@@ -9,5 +9,15 @@ const routes: RouteRecordRaw[] = [
   { path: '/:pathMatch(.*)*', name: 'NotFound', component: () => import('@/views/NotFoundView.vue'), meta: { title: '页面不存在' } },
 ]
 
+// 开发态模块观测面板（dev-only：生产构建条件恒假，路由与视图均不进产物）。
+if (import.meta.env.DEV) {
+  routes.push({
+    path: '/dev/module-observability',
+    name: 'ModuleObservability',
+    component: () => import('@/views/ModuleObservabilityView.vue'),
+    meta: { title: '模块观测' },
+  })
+}
+
 /** 应用路由。 */
 export const router = createRouter({ history: createWebHistory(), routes })

@@ -28,6 +28,7 @@ import { exit } from 'node:process'
 
 import { scanModuleProducts, scanModuleSources } from './check-module-isolation.mjs'
 import { checkSharedWhitelist } from './check-shared-whitelist.mjs'
+import { measureModuleDist } from './module-metrics.mjs'
 import { MODULE_META_FILE, loadModuleContractVersion, loadModulePackage } from './module-meta.mjs'
 
 /**
@@ -54,6 +55,9 @@ export const RELEASE_LOG_MARKDOWN_FILE = 'release-log.md'
 
 /** 远端容器入口文件名（契约常量 `MODULE_REMOTE_ENTRY_FILE` 同值，发布脚本侧不可导入 TS）。 */
 export const REMOTE_ENTRY_FILE = 'remoteEntry.js'
+
+/** 产物 sourcemap 后缀（sourcemap 关：发布要求 map 存在；见任务 03_03 详细设计 §3.7）。 */
+export const SOURCEMAP_SUFFIX = '.map'
 
 /** 缺省发布基址（本地演示；生产清单由部署阶段替换为 nginx / CDN 基址）。 */
 export const DEFAULT_ORIGIN = 'http://localhost:5002'
@@ -212,12 +216,12 @@ export function renderReleaseLogMarkdown(log) {
     '',
     '> 由 `frontend/scripts/release-module.mjs` 从 `release-log.json` 生成；请勿手工编辑。',
     '',
-    '| 时间（UTC） | 操作者 | 动作 | 模块 | 版本 | 前版本 | 入口 |',
-    '| --- | --- | --- | --- | --- | --- | --- |',
+    '| 时间（UTC） | 操作者 | 动作 | 模块 | 版本 | 前版本 | 入口 gzip（KB） | 入口 |',
+    '| --- | --- | --- | --- | --- | --- | --- | --- |',
   ]
   for (const record of [...log.records].reverse()) {
     lines.push(
-      `| ${record.at} | ${record.by} | ${record.action} | ${record.module} | ${record.version} | ${record.previousVersion ?? '—'} | ${record.entry} |`,
+      `| ${record.at} | ${record.by} | ${record.action} | ${record.module} | ${record.version} | ${record.previousVersion ?? '—'} | ${record.size?.entryGzipKb ?? '—'} | ${record.entry} |`,
     )
   }
   lines.push('')
@@ -283,7 +287,7 @@ export function defaultOperator(root) {
 }
 
 /**
- * 发布前强校验三关（版本 / 隔离 / 共享）。
+ * 发布前强校验四关（版本 / 隔离 / 共享 / sourcemap）。
  *
  * @param options `{ root, name }`。
  * @returns `{ violations, meta, pkg, moduleDir, distDir }`。
@@ -314,6 +318,12 @@ export function checkReleaseGuards({ root, name }) {
     if (meta.contractVersion !== contractVersion) {
       violations.push(`产物契约版本与平台不一致：${String(meta.contractVersion)} ≠ ${contractVersion}（契约升级须重新构建发布）`)
     }
+  }
+  // sourcemap 关（线上异常可定位：发布要求产物 sourcemap 存在；构建须开 sourcemap）
+  if (!existsSync(join(distDir, `${REMOTE_ENTRY_FILE}${SOURCEMAP_SUFFIX}`))) {
+    violations.push(
+      `产物 sourcemap 不存在：${join(distDir, `${REMOTE_ENTRY_FILE}${SOURCEMAP_SUFFIX}`)}（模块构建须开 sourcemap，见《部署发布规范》「模块发布与回滚」）`,
+    )
   }
 
   // ② 隔离关（源码面 + 产物面）
@@ -384,9 +394,11 @@ export function publishModule(options) {
   const action = archived ? 'republish' : 'publish'
   // 前版本 = 版本发生变化时的清单版本（首次发布 / 同版本重发为 null）
   const previousVersion = existing !== undefined && existing.version !== version ? existing.version : null
+  // 产物体积按模块计量（入口闭包口径；随发布记录留痕）
+  const size = measureModuleDist(join(root, 'modules', name))
 
   if (dryRun) {
-    return { action, version, entry: entryUrl, archiveDir, previousVersion, dryRun: true }
+    return { action, version, entry: entryUrl, archiveDir, previousVersion, size, dryRun: true }
   }
 
   // 归档（版本不可变：force 才允许覆盖；非 force 时已归档即拒绝）
@@ -403,7 +415,7 @@ export function publishModule(options) {
   }
   writeManifest(root, nextRaw)
 
-  // 发布记录
+  // 发布记录（含产物体积与 sourcemap 标记；体积随版本可查）
   appendReleaseLog(root, {
     at: new Date().toISOString(),
     by,
@@ -413,8 +425,10 @@ export function publishModule(options) {
     previousVersion,
     entry: entryUrl,
     contractVersion: meta.contractVersion,
+    size,
+    sourcemap: true,
   })
-  return { action, version, entry: entryUrl, archiveDir, previousVersion, pkgVersion: pkg.version }
+  return { action, version, entry: entryUrl, archiveDir, previousVersion, pkgVersion: pkg.version, size }
 }
 
 /**
@@ -592,8 +606,10 @@ function main(argv) {
     const common = { root: options.root, by: options.by, name: options.module }
     if (command === 'publish') {
       const result = publishModule({ ...common, origin: options.origin, force: options.force, dryRun: options.dryRun })
+      const sizeText =
+        result.size === undefined ? '' : `（入口 gzip ${result.size.entryGzipKb} KB / ${result.size.entryFiles} 块）`
       console.log(
-        `[release-module] ${result.dryRun ? '（dry-run）' : ''}${result.action}：${options.module}@${result.version} → ${result.entry}`,
+        `[release-module] ${result.dryRun ? '（dry-run）' : ''}${result.action}：${options.module}@${result.version} → ${result.entry}${sizeText}`,
       )
       return
     }

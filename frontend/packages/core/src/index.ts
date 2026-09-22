@@ -594,6 +594,28 @@ export {
   type ThemeTokenTarget,
 } from './module/theme-tokens'
 export { ModuleMessageStore, type ModuleMessagePack } from './module/i18n-packs'
+export {
+  MODULE_LOAD_TIMEOUT_MS,
+  PLATFORM_MODULE_NAME,
+  type ModuleErrorRecord,
+  type ModuleLoadObserver,
+  type ModuleLoadPhase,
+  type ModuleLoadTimingRecord,
+  type ModuleTelemetryModuleGroup,
+  type ModuleTelemetryPhase,
+  type ModuleTelemetryPlatformGroup,
+  type ModuleTelemetryRecord,
+  type ModuleTelemetrySnapshot,
+  type ModuleVitalRecord,
+} from './module/telemetry'
+export { BaseModuleTelemetry, ModuleTelemetry } from './capabilities/module-telemetry'
+export {
+  BaseModuleReporter,
+  InMemoryModuleReporter,
+  ModuleReporterProvider,
+  ModuleReporterRegistry,
+  type ModuleReporterFactory,
+} from './capabilities/module-reporter'
 
 export {
   ComponentProvider,
@@ -639,6 +661,7 @@ export {
   ManifestModuleLoader,
   createModuleEntryTableResolver,
   remoteEntryUrl,
+  type ManifestModuleLoaderOptions,
   type ModuleEntryModule,
   type ModuleEntryResolver,
   type ModuleEntryTable,

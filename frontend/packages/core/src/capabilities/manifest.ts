@@ -11,6 +11,7 @@ import { ErrorCodes } from '../mechanisms/error-codes'
 
 /** 能力依赖登记表（key → depends）。按批随能力基类落地追加。 */
 export const CAPABILITY_MANIFEST: Readonly<Record<string, readonly string[]>> = {
+  'module-telemetry': [],
   value: ['placeholder-state'],
   display: ['value'],
   field: ['value'],

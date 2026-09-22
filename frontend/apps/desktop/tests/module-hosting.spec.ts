@@ -6,7 +6,7 @@ import type { Router } from 'vue-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { clearModuleError, useModuleError } from '@/module/boundary'
-import { getModuleLoader, installModules, moduleMenuNodes, mountModule, unmountModule } from '@/module/host'
+import { getModuleLoader, installModules, moduleMenuNodes, mountModule, retryModule, unmountModule } from '@/module/host'
 import { MODULE_REMOTE_ENTRY_TYPE } from '@/module/federation'
 import { moduleI18n } from '@/module/i18n'
 import { registries } from '@/module/registries'
@@ -191,6 +191,21 @@ describe('宿主编装载（清单驱动 · 按 mode 分派入口）', () => {
 
     expect(summary.mounted).toEqual(['demo'])
     expect(useModuleError().value?.module).toBeTruthy()
+  })
+
+  it('单模块重试：失败后仅重挂该模块（不整页刷新），路由与错误态恢复（Kiwi 982）', async () => {
+    loadRemote.mockRejectedValueOnce(new Error('远端入口加载失败：HTTP 503'))
+    const first = await installModules({ router })
+
+    expect(first.failures.map((item) => item.name)).toEqual(['demo'])
+    expect(router.hasRoute('DemoHome')).toBe(false)
+    expect(useModuleError().value?.module).toBe('demo')
+
+    await retryModule('demo')
+
+    expect(getModuleLoader()?.isMounted('demo')).toBe(true)
+    expect(router.hasRoute('DemoHome')).toBe(true)
+    expect(useModuleError().value).toBeNull()
   })
 
   it('装配冲突回滚本次接线（路由与登记均无残留）', async () => {
