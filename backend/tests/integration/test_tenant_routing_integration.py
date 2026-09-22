@@ -123,11 +123,12 @@ async def test_env_guarded_engine_routing(require_test_db_url: str) -> None:
 
 
 def test_test_db_plan_lists_fixed_databases(capsys: pytest.CaptureFixture[str]) -> None:
-    """三库测试库流程计划：固定库清单与步骤（纯清单断言，无需真库，恒常绿）。"""
-    for engine, database in TEST_DATABASES.items():
+    """三库测试库流程计划：平台 / 租户两对象与步骤（纯清单断言，无需真库，恒常绿）。"""
+    for engine, objects in TEST_DATABASES.items():
         capsys.readouterr()
         assert main(["plan", "--engine", engine]) == 0
         out = capsys.readouterr().out
-        assert database in out
+        for database in objects.values():
+            assert database in out
         for step in FLOW_STEPS:
             assert step in out

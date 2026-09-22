@@ -17,7 +17,7 @@ from app.cache.base import CacheRegion, build_cache_key
 from app.core.base import BaseObject
 from app.core.exceptions import TenantNotFoundError, TenantSuspendedError
 from app.db.registry import PLATFORM_DB_KEY, EngineRegistry
-from app.db.session import SessionFactory
+from app.db.session import SessionFactory, session_scope
 from app.db.tenant import TenantContext, build_tenant_db_key
 from app.models.platform import SysTenant
 
@@ -124,11 +124,13 @@ class TenantSource(BaseObject):
         return context
 
     async def _load(self, kind: str, value: str) -> dict[str, Any] | None:
-        """平台库查询（软删除过滤；未命中返回 None）。"""
-        engine = await self._registry.get(PLATFORM_DB_KEY)
+        """平台库查询（软删除过滤；未命中返回 None）。
+
+        经统一会话入口取平台库会话：异步方言走异步会话，达梦等同步方言走同步门面。
+        """
         column = SysTenant.code if kind == "code" else SysTenant.domain
         statement = select(SysTenant).where(column == value, SysTenant.deleted_at.is_(None)).limit(1)
-        async with self._session_factory.create(engine)() as session:
+        async with session_scope(self._registry, db_key=PLATFORM_DB_KEY, factory=self._session_factory) as session:
             row = (await session.execute(statement)).scalar_one_or_none()
         return None if row is None else _snapshot(row)
 

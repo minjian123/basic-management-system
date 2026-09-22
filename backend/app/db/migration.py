@@ -13,13 +13,17 @@ import asyncio
 import importlib
 from dataclasses import dataclass
 from pathlib import Path
+from types import SimpleNamespace
 
+from alembic.config import Config
+from alembic.script import ScriptDirectory
 from sqlalchemy import Connection, MetaData, create_engine
 from sqlalchemy.engine import make_url
 from sqlalchemy.exc import DatabaseError, OperationalError, ProgrammingError
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.pool import NullPool
 
+from alembic import command
 from app.core.base import BaseObject
 from app.core.config import Settings, get_settings
 from app.core.exceptions import ConfigError
@@ -243,6 +247,50 @@ def has_revisions(chain: MigrationChain) -> bool:
     if not location.is_dir():
         return False
     return any(path.suffix == ".py" for path in location.iterdir())
+
+
+def alembic_config(chain: MigrationChain) -> Config:
+    """取该链的 Alembic 配置（**配置段名 = 链名**，版本目录由配置段 `version_locations` 声明）。
+
+    Alembic 在 `env.py` 执行**之前**读取 `version_locations`，故选链只能经配置段
+    （`alembic -n alembic:<链名>`）；本函数是 ops 侧程序化调用的唯一入口。
+
+    Args:
+        chain: 链定义。
+
+    Returns:
+        Config: 该链的 Alembic 配置。
+    """
+    return Config(str(BACKEND_ROOT / "alembic.ini"), ini_section=config_section(chain))
+
+
+def head_revision(chain: MigrationChain) -> str | None:
+    """取该链 head 版本号（空链返回 None；供「已是最新」幂等判定）。
+
+    Args:
+        chain: 链定义。
+
+    Returns:
+        str | None: head 版本号。
+    """
+    return ScriptDirectory.from_config(alembic_config(chain)).get_current_head()
+
+
+def upgrade_chain(chain: MigrationChain, url: str, *, schema: str = "") -> None:
+    """**阻塞**把该链迁移到 head（调用方用 `asyncio.to_thread` 包装）。
+
+    连接串经 `-x url=` 显式传入（优先于配置与环境变量）；达梦模式经 `-x schema=` 切换
+    （其他方言忽略该参数）。
+
+    Args:
+        chain: 链定义。
+        url: 目标连接串（含密码；禁止写入日志）。
+        schema: 达梦目标模式名（空串表示不切换）。
+    """
+    config = alembic_config(chain)
+    x_args = [f"url={url}"] + ([f"schema={schema}"] if schema else [])
+    config.cmd_opts = SimpleNamespace(x=x_args)  # pyright: ignore[reportAttributeAccessIssue]
+    command.upgrade(config, "head")
 
 
 def apply_session_schema(connection: Connection, schema: str) -> None:

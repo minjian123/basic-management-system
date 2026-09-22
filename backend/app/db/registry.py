@@ -6,6 +6,8 @@
 - 并发保护：创建窗口「进程内 `asyncio.Lock` + 跨实例分布式锁」双重互斥（锁经分布式锁
   能力域，缺省 null 实现不连 Redis）；创建失败快速失败。
 - 连接预算：`check_connection_budget`（单库口径）+ `tenant_pool_budget_warnings`（按活跃引擎数）。
+- 同步方言（达梦）：`get_sync` 提供同步引擎取用，与异步路径同一套清扫 / 记账 / 逐出口径，
+  引擎本体由工厂按 `(db_key, 读写角色)` 缓存（详见《后端基类清单》）。
 """
 
 import asyncio
@@ -13,11 +15,13 @@ import time
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
+from sqlalchemy import Engine
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from app.core.capability import BaseAsyncResource
 from app.core.config import Settings
 from app.db.engine import PLATFORM_DB_KEY, EngineFactory
+from app.db.sync import is_sync_only_url
 from app.lock.base import DEFAULT_LOCK_TTL, BaseDistributedLock, build_lock_key
 
 _MAX_ACTIVE_DEFAULT = 32
@@ -49,6 +53,7 @@ class EngineRegistry(BaseAsyncResource):
         self._idle_timeout = idle_timeout
         self._lock = lock
         self._engines: dict[str, AsyncEngine] = {}
+        self._sync_keys: set[str] = set()
         self._last_used: dict[str, float] = {}
         self._locks: dict[str, asyncio.Lock] = {}
 
@@ -82,6 +87,37 @@ class EngineRegistry(BaseAsyncResource):
             return self._factory.create(db_key, read_only=True)
         return engine
 
+    def is_sync_only(self, db_key: str = PLATFORM_DB_KEY) -> bool:
+        """该数据源是否仅同步方言（不建连，按连接串判定）。
+
+        Args:
+            db_key: 数据源键。
+
+        Returns:
+            bool: 仅同步方言（达梦）True。
+        """
+        return is_sync_only_url(self._factory.resolve_url(db_key))
+
+    async def get_sync(self, db_key: str = PLATFORM_DB_KEY, *, read_only: bool = False) -> Engine:
+        """取 / 建同步引擎（达梦运行期路径）。
+
+        与 `get` 同一套记账口径：访问先清扫闲置租户引擎、租户键按活跃上限 LRU 逐出；
+        同步引擎本体由工厂缓存（键含读写角色），释放统一经 `factory.drop(db_key)`。
+
+        Args:
+            db_key: 数据源键。
+            read_only: 是否只读（True 时经工厂副本路由）。
+
+        Returns:
+            Engine: 同步引擎（不建连）。
+        """
+        await self._sweep_idle()
+        self._touch(db_key)
+        if db_key != PLATFORM_DB_KEY:
+            self._sync_keys.add(db_key)
+        await self._evict()
+        return self._factory.create_sync(db_key, read_only=read_only)
+
     async def release(self, db_key: str) -> None:
         """强制回收指定引擎（如租户停用）。
 
@@ -93,12 +129,12 @@ class EngineRegistry(BaseAsyncResource):
         await self._dispose(db_key)
 
     def active_keys(self) -> list[str]:
-        """当前活跃 `db_key` 列表（含平台）。
+        """当前活跃 `db_key` 列表（含平台；异步与同步路径合并视图）。
 
         Returns:
             list[str]: 数据源键列表。
         """
-        return list(self._engines)
+        return list(dict.fromkeys([*self._engines, *sorted(self._sync_keys)]))
 
     def redis_lock_key(self, db_key: str) -> str:
         """跨实例创建锁键（经锁基座 key 规范：`bms:global:lock:engine:{db_key}`）。
@@ -136,6 +172,7 @@ class EngineRegistry(BaseAsyncResource):
         """释放全部引擎（幂等）。"""
         await self._factory.aclose()
         self._engines.clear()
+        self._sync_keys.clear()
         self._last_used.clear()
         self._locks.clear()
 
@@ -167,25 +204,30 @@ class EngineRegistry(BaseAsyncResource):
     async def _sweep_idle(self) -> None:
         """访问清扫：超闲置阈值的租户引擎 dispose 回收（平台引擎不回收）。"""
         now = time.monotonic()
-        for db_key in list(self._engines):
-            if db_key == PLATFORM_DB_KEY:
-                continue
+        for db_key in self._tenant_keys():
             if now - self._last_used.get(db_key, now) > self._idle_timeout:
                 await self._dispose(db_key)
 
     async def _evict(self) -> None:
         """按活跃上限逐出最久未用租户引擎（创建窗口内调用）。"""
-        tenants = [key for key in self._engines if key != PLATFORM_DB_KEY]
+        tenants = self._tenant_keys()
         while len(tenants) >= self._max_active:
             oldest = min(tenants, key=lambda key: self._last_used.get(key, 0.0))
             await self._dispose(oldest)
             tenants.remove(oldest)
 
+    def _tenant_keys(self) -> list[str]:
+        """当前活跃租户键（异步与同步路径合并，已排序快照）。"""
+        keys = {key for key in self._engines if key != PLATFORM_DB_KEY}
+        keys |= self._sync_keys
+        return sorted(keys)
+
     async def _dispose(self, db_key: str) -> None:
-        """释放并移除单个引擎。"""
+        """释放并移除单个引擎（异步 + 同步）。"""
         self._last_used.pop(db_key, None)
         await self._factory.drop(db_key)
         self._engines.pop(db_key, None)
+        self._sync_keys.discard(db_key)
 
 
 def pool_budget_warnings(settings: Settings) -> list[str]:

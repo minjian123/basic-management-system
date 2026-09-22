@@ -26,27 +26,23 @@ import argparse
 import asyncio
 from collections.abc import Sequence
 from dataclasses import dataclass
-from types import SimpleNamespace
 
-from alembic.config import Config
-from alembic.script import ScriptDirectory
 from sqlalchemy import create_engine, select
 from sqlalchemy.engine import Engine, make_url
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.pool import NullPool
 
-from alembic import command
 from app.core.base import BaseObject
 from app.core.config import get_settings
 from app.core.exceptions import ConfigError
 from app.db.engine import PLATFORM_DB_KEY, EngineFactory
 from app.db.migration import (
-    BACKEND_ROOT,
     MigrationChain,
     chain_url,
-    config_section,
     current_revision,
+    head_revision,
     resolve_chain,
+    upgrade_chain,
 )
 from app.db.tenant import build_tenant_db_key
 from app.models.platform import SysTenant
@@ -90,31 +86,6 @@ def _masked(url: str) -> str:
         str: 脱敏连接串。
     """
     return make_url(url).render_as_string(hide_password=True)
-
-
-def _alembic_config(chain: MigrationChain) -> Config:
-    """构造该链的 Alembic 配置（配置段 = 链名）。
-
-    Args:
-        chain: 链定义。
-
-    Returns:
-        Config: Alembic 配置。
-    """
-    return Config(str(BACKEND_ROOT / "alembic.ini"), ini_section=config_section(chain))
-
-
-def _head_revision(chain: MigrationChain) -> str | None:
-    """取该链 head 版本号（空链返回 None）。
-
-    Args:
-        chain: 链定义。
-
-    Returns:
-        str | None: head 版本号。
-    """
-    script = ScriptDirectory.from_config(_alembic_config(chain))
-    return script.get_current_head()
 
 
 def _query_sync(url: str) -> list[tuple[str, str]]:
@@ -219,18 +190,6 @@ async def build_tasks(args: argparse.Namespace) -> list[MigrationTask]:
     return tasks
 
 
-def _upgrade(task: MigrationTask) -> None:
-    """对单库执行该链迁移（Alembic 程序化调用）。
-
-    Args:
-        task: 迁移任务。
-    """
-    config = _alembic_config(task.chain)
-    x_args = [f"url={task.url}"] + ([f"schema={task.schema}"] if task.schema else [])
-    config.cmd_opts = SimpleNamespace(x=x_args)  # pyright: ignore[reportAttributeAccessIssue]
-    command.upgrade(config, "head")
-
-
 async def run(args: argparse.Namespace) -> int:
     """执行批量迁移。
 
@@ -254,13 +213,13 @@ async def run(args: argparse.Namespace) -> int:
     failed: list[str] = []
     for task in tasks:
         try:
-            head = _head_revision(task.chain)
+            head = head_revision(task.chain)
             current = await current_revision(task.url, schema=task.schema)
             if head is not None and current == head:
                 skipped.append(task.label)
                 print(f"[migrate_tenants] {task.chain.name} {task.label} → 已是最新（跳过）")
                 continue
-            await asyncio.to_thread(_upgrade, task)
+            await asyncio.to_thread(upgrade_chain, task.chain, task.url, schema=task.schema)
         except Exception as exc:  # 单库失败不中断整批
             failed.append(task.label)
             print(f"[migrate_tenants] {task.chain.name} {task.label} → 失败：{type(exc).__name__}: {exc}")

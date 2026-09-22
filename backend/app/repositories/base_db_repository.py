@@ -15,10 +15,10 @@ from typing import Any, ClassVar, cast
 
 from sqlalchemy import ColumnElement, Select, false, func, inspect, select
 from sqlalchemy import exists as sa_exists
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import InstrumentedAttribute
 
 from app.core.exceptions import ConfigError
+from app.db.session import DbSession
 from app.db.tenant import current_tenant_context
 from app.models.base import BaseModel
 from app.repositories.base_scoped_repository import BaseScopedRepository
@@ -120,7 +120,7 @@ class BaseDbRepository[ModelT: BaseModel](BaseScopedRepository[ModelT], ABC):
     model: ClassVar[type[BaseModel]]
     """所操作的 ORM 模型（子类声明；泛型参数 `ModelT` 为同一模型的具体类型）。"""
 
-    def __init__(self, session: AsyncSession) -> None:
+    def __init__(self, session: DbSession) -> None:
         """初始化。
 
         Args:

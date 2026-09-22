@@ -1,15 +1,14 @@
 """db 层工作单元：统一异步事务公共方法。
 
 - 事务边界、提交与回滚收敛到工作单元，服务写操作统一经其 `begin()` 进入事务。
-  `DbUnitOfWork` 基于 `AsyncSession`（真实数据库场景）。
+  `DbUnitOfWork` 基于会话公共契约 `DbSession`（异步会话，或达梦等同步方言下的同步门面）。
 """
 
 from abc import ABC, abstractmethod
 from contextlib import AbstractAsyncContextManager
 
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from app.core.base import BaseObject
+from app.db.sync import DbSession
 
 
 class UnitOfWork(BaseObject, ABC):
@@ -28,25 +27,25 @@ class UnitOfWork(BaseObject, ABC):
         """回滚当前事务。"""
 
     @property
-    def session(self) -> AsyncSession | None:
-        """请求级会话（占位 None；`DbUnitOfWork` 提供 `AsyncSession`）。"""
+    def session(self) -> DbSession | None:
+        """请求级会话（占位 None；`DbUnitOfWork` 提供 `DbSession`）。"""
         return None
 
 
 class DbUnitOfWork(UnitOfWork):
-    """数据库工作单元：基于 `AsyncSession` 的事务边界。"""
+    """数据库工作单元：基于会话公共契约 `DbSession` 的事务边界。"""
 
-    def __init__(self, session: AsyncSession) -> None:
+    def __init__(self, session: DbSession) -> None:
         """初始化。
 
         Args:
-            session: 请求级异步会话。
+            session: 请求级会话（异步会话或同步方言下的同步门面）。
         """
         self._session = session
 
     @property
-    def session(self) -> AsyncSession:
-        """请求级异步会话。"""
+    def session(self) -> DbSession:
+        """请求级会话。"""
         return self._session
 
     def begin(self) -> AbstractAsyncContextManager[object]:

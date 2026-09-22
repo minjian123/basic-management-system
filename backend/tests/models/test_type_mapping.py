@@ -1,4 +1,12 @@
-"""四库类型映射、软删除复合唯一索引与索引命名测试（Kiwi 1050）：离线 DDL 编译 + SQLite 真库。"""
+"""四库类型映射、软删除复合唯一索引与索引命名测试（Kiwi 1050）：离线 DDL 编译 + SQLite 真库。
+
+真库确认（01_05，2026-09-22）：本登记表的四方言落点已在 mjbk 常驻三库真库复核一致
+（`BIGINT` / `DATETIME` / `VARCHAR2(n CHAR)` / `SMALLINT` 布尔 / `JSON`，见
+`tests/integration/test_dm8_dialect_measure.py` 与 `test_three_db_integration.py`）；
+**已知方言差异**：达梦 `JSON` 列经 dmPython 读出为字符串（应用层需 `json.loads`）、
+复合唯一 `(唯一字段, deleted_at)` 在达梦视 NULL 相等（未删行不能共存）——
+差异与兜底归口见 01_05 测试记录与《数据库设计 · 方言特性 · 达梦 DM8》。
+"""
 
 from pathlib import Path
 from typing import cast
@@ -88,7 +96,11 @@ _EXPECTED_TYPES: dict[str, dict[str, str]] = {
         "tags": "JSON",
     },
 }
-"""四库类型映射实测登记表（与 `BaseModel` docstring 一致）。"""
+"""四库类型映射实测登记表（与 `BaseModel` docstring 一致）。
+
+离线 DDL 编译断言为**对照基线**；真库落库复核结论见本模块 docstring
+（2026-09-22 三库真库集成实测，达梦 `JSON` 读出为字符串为已知差异）。
+"""
 
 
 def _dialect(name: str) -> Dialect:
