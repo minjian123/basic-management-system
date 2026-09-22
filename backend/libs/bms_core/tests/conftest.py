@@ -4,9 +4,9 @@
 需要构造应用 / 打接口的用例归 `services/platform/tests`。
 """
 
+import asyncio
 import os
-from collections.abc import AsyncIterator, Iterator
-from pathlib import Path
+from collections.abc import Iterator
 
 import pytest
 
@@ -41,20 +41,26 @@ def isolate_settings(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     get_settings.cache_clear()
 
 
-@pytest.fixture(autouse=True)
-async def platform_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> AsyncIterator[None]:
-    """平台库隔离：临时 `sys_tenant` 种子库（供租户解析相关用例）。
+@pytest.fixture(scope="session")
+def platform_db_url(tmp_path_factory: pytest.TempPathFactory) -> str:
+    """会话级平台库：临时 `sys_tenant` 种子库（建库 / 播种整个测试会话只做一次）。
 
-    Args:
-        tmp_path: pytest 临时目录。
-        monkeypatch: pytest monkeypatch 夹具。
+    Returns:
+        str: 会话级平台库连接串。
+    """
+    platform_url = f"sqlite+aiosqlite:///{tmp_path_factory.mktemp('platform') / 'app.db'}"
+    asyncio.run(seed_tenants(platform_url))
+    return platform_url
+
+
+@pytest.fixture(autouse=True)
+def platform_db(platform_db_url: str, monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    """平台库隔离：把平台库 URL 指向会话级种子库（用例间不重复建库，仅重置配置单例）。
 
     Yields:
         None: 用例运行期。
     """
-    platform_url = f"sqlite+aiosqlite:///{tmp_path / 'app.db'}"
-    await seed_tenants(platform_url)
-    monkeypatch.setenv("BMS_DATABASE__PLATFORM__URL", platform_url)
+    monkeypatch.setenv("BMS_DATABASE__PLATFORM__URL", platform_db_url)
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()

@@ -1,8 +1,8 @@
 """pytest 公共夹具：ASGI 内存客户端（免启服务器）+ 配置环境隔离 + 平台库租户种子。"""
 
+import asyncio
 import os
 from collections.abc import AsyncIterator, Iterator
-from pathlib import Path
 
 import pytest
 from fastapi import FastAPI
@@ -41,19 +41,26 @@ def isolate_settings(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     get_settings.cache_clear()
 
 
-@pytest.fixture(autouse=True)
-async def platform_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> AsyncIterator[None]:
-    """平台库隔离：临时 `sys_tenant` 种子库（全局租户中间件在任意应用实例下可解析）。
+@pytest.fixture(scope="session")
+def platform_db_url(tmp_path_factory: pytest.TempPathFactory) -> str:
+    """会话级平台库：临时 `sys_tenant` 种子库（建库 / 播种整个测试会话只做一次）。
 
-    平台库 URL 经 `BMS_DATABASE__PLATFORM__URL` 指向用例级临时文件（建表 + demo/acme 种子），
-    使直接构造应用（不经 `client` 夹具）的用例同样具备真实租户解析；用例结束清空租户缓存。
+    Returns:
+        str: 会话级平台库连接串。
+    """
+    platform_url = f"sqlite+aiosqlite:///{tmp_path_factory.mktemp('platform') / 'app.db'}"
+    asyncio.run(seed_tenants(platform_url))
+    return platform_url
+
+
+@pytest.fixture(autouse=True)
+def platform_db(platform_db_url: str, monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    """平台库隔离：把平台库 URL 指向会话级种子库（用例间不重复建库，仅重置配置单例）。
 
     Yields:
         None: 用例运行期。
     """
-    platform_url = f"sqlite+aiosqlite:///{tmp_path / 'app.db'}"
-    await seed_tenants(platform_url)
-    monkeypatch.setenv("BMS_DATABASE__PLATFORM__URL", platform_url)
+    monkeypatch.setenv("BMS_DATABASE__PLATFORM__URL", platform_db_url)
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()
