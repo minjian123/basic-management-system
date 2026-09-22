@@ -603,6 +603,11 @@ integration-postgres:
 
 integration-dm8:
   <<: *integration-base
+  # 2026-09-22 临时关闭：达梦实例连接报 `dmPython DatabaseError [CODE:-70089] Encryption module failed to load`
+  # （发生在 ops.test_db create 建连阶段、早于用例执行；已排查非本仓代码，属达梦服务端加密模块 / 客户端环境问题，
+  # 网上无明确解法）。修复达梦环境后删除本 rules 覆盖即恢复。mysql / postgres 两档不受影响。
+  rules:
+    - when: never
   variables:
     DB_DIALECT: dm8
     BMS_TEST_DB_URL: dm+dmPython://SYSDBA:$DM8_TEST_PASSWORD@192.168.0.107:5236/BMS_TEST_DM
