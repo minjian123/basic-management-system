@@ -152,10 +152,11 @@ def test_four_dialect_type_mapping(name: str) -> None:
 @pytest.mark.kiwi_id(1050)
 @pytest.mark.parametrize("name", ["sqlite", "mysql", "postgresql", "dm"])
 def test_soft_delete_composite_unique_in_ddl(name: str) -> None:
-    """软删除复合唯一索引：四库 DDL 均含 `(唯一字段, deleted_at)` 复合唯一。"""
+    """软删除复合唯一索引：四库 DDL 均含非空列 `(唯一字段, deleted_at)` 复合唯一（段位不建唯一）。"""
     ddl = str(CreateTable(_SYS_MODULE_TABLE).compile(dialect=_dialect(name)))
-    for column in ("module_key", "table_prefix", "errcode_segment", "event_domain"):
+    for column in ("module_key", "table_prefix", "event_domain"):
         assert f"UNIQUE ({column}, deleted_at)" in ddl, (name, column)
+    assert "UNIQUE (errcode_segment, deleted_at)" not in ddl
 
 
 @pytest.mark.kiwi_id(1050)

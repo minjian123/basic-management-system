@@ -1,4 +1,4 @@
-"""模块注册种子脚本（幂等）：平台库建 `sys_module` 表并写入平台域注册清单（需求 01-3）。
+"""服务目录种子脚本（幂等）：平台库 `sys_module` 幂等 upsert 全量服务目录（需求 03-1）。
 
 用法：
 
@@ -10,9 +10,9 @@ uv run python -m ops.seed_module --dry-run
 ```
 
 - URL 解析复用 `ops.seed_tenant.resolve_url`（`--url` > `BMS_MIGRATION_URL` > 配置 `database.platform.url`）；
-- 种子单一来源取 `PLATFORM_MODULES`（与启动 / CI 校验清单同源，避免漂移）；
-- 幂等：`SysModule` 表 `create(checkfirst=True)`，按 `module_key` + 未软删除判存跳过；
-- 迁移与 SQLite 全量自动建表归 01_04（Alembic 落地后本脚本退化为纯种子脚本，建表分支兼容保留）。
+- 单一来源取 `SERVICE_CATALOG`（与启动 / CI 校验清单同源，避免漂移）；
+- 幂等：按 `module_key` + 未软删除判存——不存在插入、存在则更新本清单字段（服务维度 / 分组 / 批次 / 版本等）；
+- 建表分支兼容保留（Alembic 落库后由 `alembic -n alembic:platform upgrade head` 建表；SQLite 开发库由启动期自动建表）。
 """
 
 import argparse
@@ -24,7 +24,7 @@ from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from bms_core.models.platform import SysModule
-from bms_core.services.module_registry import PLATFORM_MODULES
+from bms_core.services.module_registry import SERVICE_CATALOG, ModuleRecord
 from ops.seed_tenant import resolve_url
 
 
@@ -34,49 +34,76 @@ def build_parser() -> argparse.ArgumentParser:
     Returns:
         argparse.ArgumentParser: 解析器。
     """
-    parser = argparse.ArgumentParser(description="模块注册种子（平台库 sys_module，幂等）")
+    parser = argparse.ArgumentParser(description="服务目录种子（平台库 sys_module，幂等 upsert）")
     parser.add_argument("--url", default="", help="平台库连接串（缺省读 BMS_MIGRATION_URL / 配置）")
     parser.add_argument("--dry-run", action="store_true", help="仅输出目标库与种子清单")
     return parser
 
 
-async def seed_modules(url: str) -> int:
-    """建表并写入平台域模块种子（幂等）。
+def _fields(seed: ModuleRecord) -> dict[str, object]:
+    """取种子的可写字段（与 `sys_module` 列对齐）。
+
+    Args:
+        seed: 目录记录。
+
+    Returns:
+        dict[str, object]: 字段值。
+    """
+    return {
+        "module_key": seed.module_key,
+        "service_key": seed.service_key,
+        "name": seed.name,
+        "table_prefix": seed.table_prefix,
+        "business_code": seed.business_code,
+        "errcode_segment": seed.errcode_segment,
+        "event_domain": seed.event_domain,
+        "service_group": seed.service_group,
+        "build_batch": seed.build_batch,
+        "service_version": seed.service_version,
+        "contract_version": seed.contract_version,
+        "product_key": seed.product_key,
+        "status": seed.status,
+    }
+
+
+async def seed_modules(url: str) -> tuple[int, int]:
+    """建表并按 `module_key` 幂等 upsert 服务目录。
 
     Args:
         url: 平台库连接串。
 
     Returns:
-        int: 新增行数（重复执行为 0）。
+        tuple[int, int]: (新增行数, 更新行数)；重复执行为 (0, 0)。
     """
     engine = create_async_engine(url)
     factory: async_sessionmaker[AsyncSession] = async_sessionmaker(engine, expire_on_commit=False)
     created = 0
+    updated = 0
     try:
         async with engine.begin() as connection:
             await connection.run_sync(SysModule.__table__.create, checkfirst=True)
         async with factory() as session:
-            for seed in PLATFORM_MODULES:
+            for seed in SERVICE_CATALOG:
                 statement = select(SysModule).where(
                     SysModule.module_key == seed.module_key, SysModule.deleted_at.is_(None)
                 )
-                if (await session.execute(statement)).scalar_one_or_none() is not None:
+                payload = _fields(seed)
+                existing = (await session.execute(statement)).scalar_one_or_none()
+                if existing is None:
+                    session.add(SysModule(**payload))
+                    created += 1
                     continue
-                session.add(
-                    SysModule(
-                        module_key=seed.module_key,
-                        name=seed.name,
-                        table_prefix=seed.table_prefix,
-                        errcode_segment=seed.errcode_segment,
-                        event_domain=seed.event_domain,
-                        status=seed.status,
-                    )
-                )
-                created += 1
+                changed = False
+                for field, value in payload.items():
+                    if getattr(existing, field) != value:
+                        setattr(existing, field, value)
+                        changed = True
+                if changed:
+                    updated += 1
             await session.commit()
     finally:
         await engine.dispose()
-    return created
+    return created, updated
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -93,11 +120,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.dry_run:
         target = make_url(url).render_as_string(hide_password=True)
         print(f"[seed_module] 目标库：{target}")
-        for seed in PLATFORM_MODULES:
-            print(f"[seed_module] 种子模块：{seed.module_key}（{seed.name} / {seed.table_prefix}）（dry-run）")
+        for seed in SERVICE_CATALOG:
+            print(f"[seed_module] 种子：{seed.module_key}（{seed.name} / {seed.table_prefix}）（dry-run）")
         return 0
-    created = asyncio.run(seed_modules(url))
-    print(f"[seed_module] 新增 {created} 行（幂等；重复执行输出 0）")
+    created, updated = asyncio.run(seed_modules(url))
+    print(f"[seed_module] 新增 {created} 行 / 更新 {updated} 行（幂等；重复执行输出 0 / 0）")
     return 0
 
 

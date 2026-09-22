@@ -116,5 +116,5 @@ def test_chain_revisions_integrity() -> None:
     assert len(revisions) == len(set(revisions)), "revision 跨链重名"
 
     platform_head = ScriptDirectory.from_config(_config("platform")).get_current_head()
-    assert platform_head == "0001_sys_tenant_module"
+    assert platform_head == "0002_sys_module_catalog"
     assert ScriptDirectory.from_config(_config("tenant")).get_current_head() == "0001_dict_query_scheme"
