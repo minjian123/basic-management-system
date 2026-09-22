@@ -8,5 +8,23 @@ export const MODULE_CONTRACT_SPEC: string
 /** 契约用例工厂标识（发现性护栏判据）。 */
 export const MODULE_CONTRACT_FACTORY: string
 
-/** 清单 / 版本发现 / 契约用例齐备护栏（纯函数）。 */
+/** 清单 / 版本发现 / sourcemap / 契约用例齐备护栏（纯函数）。 */
 export function checkModuleManifest(options?: { frontendDir?: string }): string[]
+
+/** 模块产物体积（入口闭包口径）。 */
+export interface ModuleSizeSummaryEntry {
+  /** 模块名。 */
+  name: string
+  /** 体积（缺产物入口为 `undefined`）。 */
+  size:
+    | {
+        entryFiles: number
+        entryGzipKb: number
+        largestGzipKb: number
+        asyncChunkCount: number
+      }
+    | undefined
+}
+
+/** 按模块产物体积汇总。 */
+export function moduleSizeSummary(options?: { frontendDir?: string }): ModuleSizeSummaryEntry[]

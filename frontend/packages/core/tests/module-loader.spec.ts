@@ -8,12 +8,14 @@ import {
   ManifestModuleLoader,
   MODULE_CONTRACT_VERSION,
   MODULE_EXPOSE_KEY,
+  MODULE_LOAD_TIMEOUT_MS,
   MODULE_REMOTE_ENTRY_FILE,
   createModuleEntryTableResolver,
   defineModule,
   remoteEntryUrl,
   type ModuleEntryResolver,
   type ModuleEntryTable,
+  type ModuleLoadObserver,
   type ModuleManifestEntry,
 } from '../src'
 
@@ -177,7 +179,51 @@ describe('ManifestModuleLoader（Kiwi 977 / 978）', () => {
   it('远端入口约定常量与 URL 拼接成文', () => {
     expect(MODULE_REMOTE_ENTRY_FILE).toBe('remoteEntry.js')
     expect(MODULE_EXPOSE_KEY).toBe('module')
+    expect(MODULE_LOAD_TIMEOUT_MS).toBe(10_000)
     expect(remoteEntryUrl('http://localhost:5002/')).toBe('http://localhost:5002/remoteEntry.js')
     expect(remoteEntryUrl('https://cdn.example.com/demo')).toBe('https://cdn.example.com/demo/remoteEntry.js')
+  })
+
+  it('观测钩子：resolve / setup 阶段各自计时与成败标注（Kiwi 982）', async () => {
+    const phases: { phase: string; ok: boolean; durationMs: number }[] = []
+    const observer: ModuleLoadObserver = {
+      onPhase(_name, _version, phase, durationMs, ok) {
+        phases.push({ phase, ok, durationMs })
+      },
+    }
+    const loader = new ManifestModuleLoader(entries, local, { observer })
+
+    await loader.load('demo')
+
+    expect(phases.map((item) => `${item.phase}:${String(item.ok)}`)).toEqual(['resolve:true', 'setup:true'])
+    expect(phases.every((item) => item.durationMs >= 0)).toBe(true)
+  })
+
+  it('加载超时：整个 load() 计时，超时拒绝且原因明示（原 Promise 结果被吞）（Kiwi 982）', async () => {
+    const loader = new ManifestModuleLoader(entries, () => new Promise(() => {}), { timeoutMs: 5 })
+
+    await expect(loader.load('demo')).rejects.toThrow(/模块加载超时（>5ms）/)
+  })
+
+  it('setup 抛错：观测钩子记 setup 失败并原样上抛（Kiwi 982）', async () => {
+    const phases: { phase: string; ok: boolean }[] = []
+    const observer: ModuleLoadObserver = {
+      onPhase(_name, _version, phase, _durationMs, ok) {
+        phases.push({ phase, ok })
+      },
+    }
+    const failing = defineModule({
+      manifest: { name: 'demo', version: '0.1.0', contractVersion: MODULE_CONTRACT_VERSION },
+      setup: () => {
+        throw new Error('初始化失败')
+      },
+    })
+    const loader = new ManifestModuleLoader(entries, async () => ({ default: failing }), { observer })
+
+    await expect(loader.load('demo')).rejects.toThrow(/初始化失败/)
+    expect(phases).toEqual([
+      { phase: 'resolve', ok: true },
+      { phase: 'setup', ok: false },
+    ])
   })
 })

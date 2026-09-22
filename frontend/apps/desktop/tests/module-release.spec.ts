@@ -53,6 +53,7 @@ function createFixture(target: string): void {
   writeText(join(moduleDir, 'vite.config.ts'), "loadSharedDependencies({ role: 'remote' })\n")
   writeJson(join(moduleDir, 'budget.json'), { pageChunkHints: ['DemoHome'] })
   writeText(join(moduleDir, 'dist/remoteEntry.js'), 'export {}\n')
+  writeText(join(moduleDir, 'dist/remoteEntry.js.map'), '{}\n')
   writeJson(join(moduleDir, 'dist/module.meta.json'), { name: 'demo', version: '0.1.0', contractVersion: 1 })
   writeText(join(moduleDir, 'tests/module-contract.spec.ts'), "describeModuleContract('demo', target)\n")
 
@@ -212,6 +213,31 @@ describe('发布（Kiwi 981）', () => {
   })
 })
 
+describe('sourcemap 与体积归因（Kiwi 982）', () => {
+  it('发布前 sourcemap 关：产物缺 map 拒绝发布（线上可定位前提）', () => {
+    rmSync(join(root, 'modules/demo/dist/remoteEntry.js.map'))
+
+    expect(() => publishModule({ root, name: 'demo' })).toThrow(/sourcemap/)
+    expect(existsSync(join(root, 'releases/demo/0.1.0'))).toBe(false)
+  })
+
+  it('发布记录含产物体积字段与 sourcemap 标记（随版本留痕）', () => {
+    const result = publishModule({ root, name: 'demo', by: 'tester' })
+
+    expect(result.size?.entryFiles).toBeGreaterThan(0)
+    const record = readReleaseLog(root).records[0]
+    expect(record?.size?.entryFiles).toBe(result.size?.entryFiles)
+    expect(record?.sourcemap).toBe(true)
+  })
+
+  it('清单护栏：产物元数据存在但缺 sourcemap 时拦截', () => {
+    publishModule({ root, name: 'demo' })
+    rmSync(join(root, 'modules/demo/dist/remoteEntry.js.map'))
+
+    expect(checkModuleManifest({ frontendDir: root }).join('；')).toContain('sourcemap 缺失')
+  })
+})
+
 describe('回滚与停用（Kiwi 981）', () => {
   it('版本升级后回滚到上一版本：清单指向回退、旧产物保留、记录含前后版本', () => {
     publishModule({ root, name: 'demo', by: 'tester' })
@@ -339,8 +365,8 @@ describe('清单 / 版本发现 / 契约用例齐备护栏（Kiwi 981）', () =>
       ],
     })
 
-    expect(markdown).toContain('| 时间（UTC） | 操作者 | 动作 | 模块 | 版本 | 前版本 | 入口 |')
-    expect(markdown).toContain('| 2026-09-22T00:00:00.000Z | a | publish | demo | 0.1.0 | — |')
+    expect(markdown).toContain('| 时间（UTC） | 操作者 | 动作 | 模块 | 版本 | 前版本 | 入口 gzip（KB） | 入口 |')
+    expect(markdown).toContain('| 2026-09-22T00:00:00.000Z | a | publish | demo | 0.1.0 | — | — |')
   })
 })
 

@@ -22,8 +22,17 @@ import { fileURLToPath } from 'node:url'
 import { exit } from 'node:process'
 
 import { listModuleDirs } from './check-module-isolation.mjs'
+import { measureModuleDist } from './module-metrics.mjs'
 import { MODULE_META_FILE, loadModuleContractVersion, loadModulePackage } from './module-meta.mjs'
-import { MANIFEST_PATH, RELEASE_LOG_FILE, RELEASES_DIR, REMOTE_ENTRY_FILE, readReleaseLog, readManifest } from './release-module.mjs'
+import {
+  MANIFEST_PATH,
+  RELEASE_LOG_FILE,
+  RELEASES_DIR,
+  REMOTE_ENTRY_FILE,
+  SOURCEMAP_SUFFIX,
+  readReleaseLog,
+  readManifest,
+} from './release-module.mjs'
 
 /**
  * `frontend/` 目录（本文件位于 `frontend/scripts/`）。
@@ -101,6 +110,12 @@ export function checkModuleManifest(options = {}) {
         if (meta.contractVersion !== contractVersion) {
           problems.push(`产物契约版本与平台不一致：${entry.name} ${String(meta.contractVersion)} ≠ ${contractVersion}`)
         }
+        // 4b sourcemap（线上可定位：产物须含容器入口 sourcemap）
+        if (!existsSync(join(moduleDir, 'dist', `${REMOTE_ENTRY_FILE}${SOURCEMAP_SUFFIX}`))) {
+          problems.push(
+            `产物 sourcemap 缺失：${entry.name} → dist/${REMOTE_ENTRY_FILE}${SOURCEMAP_SUFFIX}（模块构建须开 sourcemap）`,
+          )
+        }
       }
     }
 
@@ -128,6 +143,20 @@ export function checkModuleManifest(options = {}) {
 }
 
 /**
+ * 按模块产物体积汇总（入口闭包口径；供 CLI 打印，体积随模块可见）。
+ *
+ * @param options 选项：`frontendDir`（`frontend/` 目录）。
+ * @returns 模块名 → 体积（缺产物入口为 `undefined`）。
+ */
+export function moduleSizeSummary(options = {}) {
+  const frontendDir = resolve(options.frontendDir ?? FRONTEND_DIR)
+  return listModuleDirs(frontendDir).map((moduleDir) => ({
+    name: moduleDir.split(/[\\/]/).pop(),
+    size: measureModuleDist(moduleDir),
+  }))
+}
+
+/**
  * CLI 入口。
  *
  * @param argv 进程参数。
@@ -143,8 +172,14 @@ function main(argv) {
       exit(1)
     }
     console.log(
-      `[module-manifest] 通过：清单可解析、远端条目版本化、版本发现一致、契约用例齐备（清单 ${MANIFEST_PATH}、发布记录 ${RELEASES_DIR}/${RELEASE_LOG_FILE}）`,
+      `[module-manifest] 通过：清单可解析、远端条目版本化、版本发现一致、sourcemap 就位、契约用例齐备（清单 ${MANIFEST_PATH}、发布记录 ${RELEASES_DIR}/${RELEASE_LOG_FILE}）`,
     )
+    for (const { name, size } of moduleSizeSummary({ frontendDir })) {
+      if (size === undefined) continue
+      console.log(
+        `[module-manifest] 体积 ${name}：入口 gzip ${size.entryGzipKb} KB（最大块 ${size.largestGzipKb} KB，${size.entryFiles} 块，异步块 ${size.asyncChunkCount}）`,
+      )
+    }
   } catch (error) {
     console.error(`[module-manifest] 不通过：${error instanceof Error ? error.message : String(error)}`)
     exit(1)

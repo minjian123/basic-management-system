@@ -22,6 +22,7 @@ import {
   type ModuleEntryResolver,
   type ModuleHostContext,
   type ModuleLoadMode,
+  type ModuleLoadObserver,
   type RegistrationKey,
 } from '@bms/core'
 
@@ -30,9 +31,11 @@ import { createFederationEntryResolver } from './federation'
 import { moduleI18n } from './i18n'
 import { loadModuleManifest } from './manifest'
 import { bumpRegistriesRevision, PLATFORM_REGISTRATION, registries } from './registries'
-import { setModuleError } from './boundary'
+import { clearModuleError, setModuleError } from './boundary'
 import { documentThemeTarget } from './themeTokens'
 
+import { moduleTelemetry, reportModuleError } from '@/observability'
+import { withModuleScope } from '@/observability/scope'
 import { router } from '@/router'
 import { registerModuleRoutes, unregisterModuleRoutes } from '@/router/dynamic'
 
@@ -48,6 +51,10 @@ export interface ModuleInstallSummary {
 
 /** 当前加载器（清单装载后可用）。 */
 let loader: ManifestModuleLoader | undefined
+/** 宿主上下文（装载时记录，供单模块重试复用）。 */
+let hostContext: ModuleHostContext = {}
+/** 路由名 → 模块标识（模块路由解析；供观测面板与上报按路由解析模块）。 */
+const routeModules = new Map<string, { name: string; version: string }>()
 
 /** 模块路由名（模块名 → 路由名清单）。 */
 const mountedRoutes = new Map<string, string[]>()
@@ -89,11 +96,17 @@ export async function installModules(context: ModuleHostContext = {}): Promise<M
     setModuleError({ module: rejection.name, version: '', reason: rejection.reason })
   }
 
+  hostContext = context
   const resolvers: Record<ModuleLoadMode, ModuleEntryResolver> = {
     local: resolveLocalModuleEntry,
     remote: createFederationEntryResolver(),
   }
-  loader = new ManifestModuleLoader(manifest.entries, (entry) => resolvers[entry.mode](entry))
+  const observer: ModuleLoadObserver = {
+    onPhase(name, version, phase, durationMs, ok) {
+      moduleTelemetry.record({ kind: 'load', name, version, phase, durationMs, ok, at: new Date().toISOString() })
+    },
+  }
+  loader = new ManifestModuleLoader(manifest.entries, (entry) => resolvers[entry.mode](entry), { observer })
   const summary: ModuleInstallSummary = {
     mounted: [],
     disabled: manifest.entries.filter((entry) => !entry.enabled).map((entry) => entry.name),
@@ -104,10 +117,11 @@ export async function installModules(context: ModuleHostContext = {}): Promise<M
       continue
     }
     try {
-      await mountModule(entry.name, context)
+      await withModuleScope(entry.name, entry.version, () => mountModule(entry.name, context))
       summary.mounted.push(entry.name)
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error)
+      reportModuleError(entry.name, entry.version, 'load', error)
       setModuleError({ module: entry.name, version: entry.version, reason })
       summary.failures.push({ name: entry.name, version: entry.version, reason })
     }
@@ -130,17 +144,71 @@ export async function mountModule(name: string, context: ModuleHostContext = {})
   }
   const loaded = await active.load(name, context)
   active.mount(loaded)
+  const mountStart = Date.now()
   try {
-    mountedRoutes.set(name, registerModuleRoutes(router, loaded.registration.routes ?? []))
+    const routeNames = registerModuleRoutes(router, loaded.registration.routes ?? [])
+    mountedRoutes.set(name, routeNames)
+    for (const routeName of routeNames) {
+      routeModules.set(routeName, { name, version: loaded.manifest.version })
+    }
     registrationKeys.set(name, assembleRegistrations(registries, name, loaded.registration))
     themeTokenNames.set(name, applyThemeTokens(documentThemeTarget(), collectThemeTokens(registries.themeToken)))
     i18nKeys.set(name, moduleI18n.merge(loaded.registration.i18nPacks ?? []))
     bumpRegistriesRevision()
+    moduleTelemetry.record({
+      kind: 'load',
+      name,
+      version: loaded.manifest.version,
+      phase: 'mount',
+      durationMs: Date.now() - mountStart,
+      ok: true,
+      at: new Date().toISOString(),
+    })
     return loaded
   } catch (error) {
+    moduleTelemetry.record({
+      kind: 'load',
+      name,
+      version: loaded.manifest.version,
+      phase: 'mount',
+      durationMs: Date.now() - mountStart,
+      ok: false,
+      at: new Date().toISOString(),
+    })
     unmountModule(name)
     throw error
   }
+}
+
+/**
+ * 单模块重试（装载失败 / 超时 / 渲染失败后重挂该模块；不清整页、不自动重试）。
+ *
+ * @param name 模块名。
+ * @throws BaseError 清单未装载 / 清单未登记该模块。
+ */
+export async function retryModule(name: string): Promise<void> {
+  const active = loader
+  if (active === undefined) {
+    throw new BaseError(ErrorCodes.PROVIDER_NOT_REGISTERED, '模块清单未装载')
+  }
+  const entry = active.entryOf(name)
+  if (entry === undefined) {
+    throw new BaseError(ErrorCodes.PROVIDER_NOT_REGISTERED, `模块未登记：${name}`)
+  }
+  if (active.isMounted(name)) {
+    unmountModule(name)
+  }
+  clearModuleError()
+  await withModuleScope(name, entry.version, () => mountModule(name, hostContext))
+}
+
+/**
+ * 路由名 → 模块标识（模块路由解析；非模块路由返回 `undefined`）。
+ *
+ * @param routeName 路由名。
+ */
+export function resolveRouteModule(routeName: unknown): { name: string; version: string } | undefined {
+  return typeof routeName === 'string' ? routeModules.get(routeName) : undefined
 }
 
 /**
@@ -149,7 +217,11 @@ export async function mountModule(name: string, context: ModuleHostContext = {})
  * @param name 模块名。
  */
 export function unmountModule(name: string): void {
-  unregisterModuleRoutes(router, mountedRoutes.get(name) ?? [])
+  const routeNames = mountedRoutes.get(name) ?? []
+  unregisterModuleRoutes(router, routeNames)
+  for (const routeName of routeNames) {
+    routeModules.delete(routeName)
+  }
   mountedRoutes.delete(name)
 
   moduleI18n.restore(i18nKeys.get(name) ?? [])

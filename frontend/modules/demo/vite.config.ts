@@ -72,6 +72,8 @@ export default defineConfig(({ mode }) => {
       // MF 依赖顶层 await 与动态导入；无历史浏览器包袱，取 esnext
       target: 'esnext',
       outDir: isStandaloneBuild ? 'dist-standalone' : 'dist',
+      // sourcemap：外部 `.map`（不内联源码），随发布按版本归档；线上异常可映射到源码位置
+      sourcemap: true,
       // 远端产物显式声明入口（不带 HTML 壳）；独立预览目标沿用 HTML 入口
       rollupOptions: isStandaloneBuild
         ? {}

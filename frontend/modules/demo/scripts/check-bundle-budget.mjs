@@ -2,10 +2,8 @@
 /**
  * 模块产物体积预算校验（模块产物**单独计量**，不并入宿主阈值；零依赖，CI 与本地同口径）。
  *
- * 「容器入口块」= 远端加载时**必下**的块闭包，从 `dist/remoteEntry.js` 出发解析引用得到：
- *   1. 从 `remoteEntry.js` 追「静态引用（`from`）」与「动态引用（`import()`）」
- *      ——后者即暴露键（`./module`）指向的暴露块；
- *   2. 其余块只追静态引用——页面 / 工具块经动态 `import()` 引用（不进入口闭包）。
+ * 「容器入口块」= 远端加载时**必下**的块闭包，口径与单一实现 `frontend/scripts/module-metrics.mjs` 同源
+ * （自 `dist/remoteEntry.js` 出发解析引用；种子块追静态 + 动态引用，其余只追静态引用）。
  *
  * 校验项：
  *   1. `dist/remoteEntry.js` 存在（远端容器入口契约，清单 `entry` 指向它）；
@@ -23,9 +21,13 @@ import { fileURLToPath } from 'node:url'
 import { gzipSync } from 'node:zlib'
 import { exit } from 'node:process'
 
+import { REMOTE_ENTRY_FILE, collectEntryClosure } from '../../../scripts/module-metrics.mjs'
+
 const root = fileURLToPath(new URL('..', import.meta.url))
 const budget = JSON.parse(readFileSync(join(root, 'budget.json'), 'utf8'))
 const distDir = join(root, budget.distDir ?? 'dist')
+
+const rel = (path) => relative(distDir, path).split('\\').join('/')
 
 function walk(dir) {
   const files = []
@@ -45,62 +47,16 @@ try {
   exit(1)
 }
 
-const rel = (path) => relative(distDir, path).split('\\').join('/')
-/** 产物内引用名归一（`./assets/x.js` → `assets/x.js`）。 */
-const normalize = (ref) => ref.replace(/^\.?\//, '').split('?')[0]
-
-const byName = new Map(files.map((path) => [rel(path), path]))
-const textOf = (name) => readFileSync(byName.get(name), 'utf8')
-
-/** 静态引用（`from './assets/x.js'`）。 */
-function staticRefs(text) {
-  const refs = new Set()
-  for (const match of text.matchAll(/\bfrom\s*["']([^"'\s]+\.(?:js|css))["']/g)) {
-    refs.add(normalize(match[1]))
-  }
-  return refs
-}
-
-/** 动态引用（`import('./assets/x.js')`）。 */
-function dynamicRefs(text) {
-  const refs = new Set()
-  for (const match of text.matchAll(/\bimport\s*\(\s*["'`]([^"'`\s]+\.(?:js|css))["'`]\s*\)/g)) {
-    refs.add(normalize(match[1]))
-  }
-  return refs
-}
-
-const remoteEntry = 'remoteEntry.js'
-if (!existsSync(join(distDir, remoteEntry))) {
-  console.error(`[budget] 不通过：缺少远端容器入口 ${remoteEntry}（远端形态产物契约）`)
+if (!existsSync(join(distDir, REMOTE_ENTRY_FILE))) {
+  console.error(`[budget] 不通过：缺少远端容器入口 ${REMOTE_ENTRY_FILE}（远端形态产物契约）`)
   exit(1)
 }
 
-/** 容器入口闭包（从 remoteEntry 出发；种子块追动态引用，其余只追静态引用）。 */
-function collectEntryClosure() {
-  const closure = new Set()
-  const queue = [remoteEntry]
-  while (queue.length > 0) {
-    const name = queue.shift()
-    if (closure.has(name) || !byName.has(name)) continue
-    closure.add(name)
-    const text = textOf(name)
-    const refs = name === remoteEntry ? [...staticRefs(text), ...dynamicRefs(text)] : [...staticRefs(text)]
-    for (const ref of refs) {
-      if (!closure.has(ref) && byName.has(ref)) queue.push(ref)
-    }
-  }
-  return closure
-}
-
-const entryNames = collectEntryClosure()
-const entry = [...entryNames].map((name) => ({ path: name, gzip: gzipSync(readFileSync(byName.get(name))).length }))
+const entryNames = collectEntryClosure(distDir)
+const entry = [...entryNames].map((name) => ({ path: name, gzip: gzipSync(readFileSync(join(distDir, name))).length }))
 const rest = files
   .filter((path) => !entryNames.has(rel(path)))
-  .map((path) => ({
-    path: rel(path),
-    gzip: gzipSync(readFileSync(path)).length,
-  }))
+  .map((path) => ({ path: rel(path), gzip: gzipSync(readFileSync(path)).length }))
 
 const total = entry.reduce((sum, item) => sum + item.gzip, 0)
 const largest = entry.reduce((max, item) => Math.max(max, item.gzip), 0)
