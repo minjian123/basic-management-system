@@ -1,4 +1,5 @@
-"""DB 仓储真实实现测试（Kiwi 1050）：SQLite 真库验证 CRUD / 作用域 / 软删 / 租户 / 乐观锁 / 分页排序。"""
+"""DB 仓储真实实现测试（Kiwi 1050）：SQLite 真库验证 CRUD / 作用域 / 软删 / 租户 / 乐观锁 / 分页排序；
+keyset 游标见 Kiwi 1078。"""
 
 from collections.abc import AsyncIterator
 from pathlib import Path
@@ -6,14 +7,16 @@ from typing import cast
 
 import pytest
 from sqlalchemy import BigInteger, Integer, String, Table, UniqueConstraint, select
+from sqlalchemy.dialects import sqlite
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.context import current_user_id, reset_tenant_context, set_tenant_context
-from app.core.exceptions import ConcurrentConflictError, ConfigError
+from app.core.exceptions import ConcurrentConflictError, ConfigError, ParamError
 from app.db.tenant import TenantContext
 from app.models.base import BaseModel
 from app.repositories.base_db_repository import BaseDbRepository
+from app.schemas.cursor import encode_cursor
 from app.schemas.pagination import BaseCursorQuery, BasePageQuery
 from app.schemas.sorting import SortDirection, SortSpec
 from app.scope.base import DataScope, ScopeCondition
@@ -339,7 +342,7 @@ async def test_optimistic_lock_conflict(session_factory: async_sessionmaker[Asyn
 
 @pytest.mark.kiwi_id(1050)
 async def test_pagination_and_sort(session: AsyncSession) -> None:
-    """分页 LIMIT/OFFSET（页码 / 偏移游标）+ 白名单排序 + 默认 id 升序 + 未知排序字段忽略。"""
+    """分页 `LIMIT/OFFSET` + 白名单排序 + 默认 id 升序 + 未知排序字段忽略。"""
     repo = DbItemRepository(session)
     await repo.create(name="a", rank=2)
     await repo.create(name="b", rank=1)
@@ -351,10 +354,55 @@ async def test_pagination_and_sort(session: AsyncSession) -> None:
     page2 = await repo.list_page(BasePageQuery(page=2, size=2, order_by="rank", order=["desc"]))
     assert [row.name for row in page2] == ["b"]
 
-    cursor = await repo.list_cursor(BaseCursorQuery(cursor="1", limit=2))
-    assert [row.name for row in cursor] == ["b", "c"]
-    first_batch = await repo.list_cursor(BaseCursorQuery(limit=1))
-    assert [row.name for row in first_batch] == ["a"]
-
     ignored = await repo.list(sort=[SortSpec(field="ghost"), SortSpec(field="name", direction=SortDirection.DESC)])
     assert [row.name for row in ignored] == ["c", "b", "a"]
+
+
+@pytest.mark.kiwi_id(1078)
+async def test_cursor_keyset_pagination_with_nulls(session: AsyncSession) -> None:
+    """DB 侧 keyset 游标：NULL 恒末位、多键与升 / 降序下逐页取完与全量排序一致（不漏不重）。"""
+    repo = DbItemRepository(session)
+    for name, rank in (("a", 2), ("b", 1), ("c", None), ("d", 1), ("e", 3)):
+        await repo.create(name=name, rank=rank)
+
+    for order in ("asc", "desc"):
+        sort = [SortSpec(field="rank", direction=SortDirection.ASC if order == "asc" else SortDirection.DESC)]
+        expected = [row.name for row in await repo.list(sort=sort)]
+        assert expected[-1] == "c", "NULL 恒排末位"
+
+        collected: list[str] = []
+        cursor: str | None = None
+        for _ in range(10):
+            query = BaseCursorQuery(limit=2, order_by="rank", order=[order], cursor=cursor)
+            batch = await repo.list_cursor(query)
+            collected.extend(row.name for row in batch)
+            cursor = repo.build_cursor(query, batch)
+            if cursor is None:
+                break
+        assert collected == expected
+
+
+@pytest.mark.kiwi_id(1078)
+async def test_cursor_rejects_invalid_and_mismatched(session: AsyncSession) -> None:
+    """DB 侧游标校验：非法令牌 / 规格不一致 → `ParamError`（不静默回落首页）。"""
+    repo = DbItemRepository(session)
+    await repo.create(name="a", rank=1)
+
+    with pytest.raises(ParamError):
+        await repo.list_cursor(BaseCursorQuery(limit=1, cursor="not-a-cursor"))
+
+    token = encode_cursor([SortSpec(field="rank", direction=SortDirection.ASC)], [1], 1)
+    with pytest.raises(ParamError):
+        await repo.list_cursor(BaseCursorQuery(limit=1, order_by="name", order=["asc"], cursor=token))
+
+
+@pytest.mark.kiwi_id(1078)
+async def test_db_sort_orders_nulls_last_in_compiled_sql(session: AsyncSession) -> None:
+    """ORDER BY 编译：NULL 位次用 `rank IS NULL` 排序键显式表达（不出现 `NULLS FIRST/LAST` 字面量）。"""
+    repo = DbItemRepository(session)
+    sort = [SortSpec(field="rank", direction=SortDirection.DESC)]
+    statement = repo._apply_sort(repo._select(), sort)  # pyright: ignore[reportPrivateUsage]
+    sql = str(statement.compile(dialect=sqlite.dialect()))
+    assert "rank IS NULL" in sql
+    assert "id ASC" in sql
+    assert "NULLS LAST" not in sql.upper() and "NULLS FIRST" not in sql.upper()

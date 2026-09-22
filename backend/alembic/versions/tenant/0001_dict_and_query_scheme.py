@@ -1,12 +1,14 @@
-"""字典与查询方案表（首个迁移，02-4-27）：字典六表 + 查询方案表。
+"""字典与查询方案表（租户链首个迁移，02-4-27）：字典六表 + 查询方案表。
 
 Revision ID: 0001_dict_query_scheme
 Revises:
 Create Date: 2026-09-21
 
+- 归属链：`tenant`（租户库）；脚本按数据源分目录，`branch_labels` 取链名；
 - 字段 / 索引口径与 ORM 模型（`app/dict/models.py` / `app/listing/models.py`）逐项一致；
 - 公共字段对齐 `BaseModel`（雪花 ID / 审计 / 软删除 / 乐观锁）；
 - 四库兼容：不使用方言专用类型（`sa.JSON()` 由 SQLAlchemy 按方言映射；达梦差异随阶段二实测）；
+- 索引命名对齐 `Base.metadata` 约定（`idx_{表}_{列}`，2026-09-22 随 01_04 修订，原 `ix_*` 作废）；
 - 只建表不写种子（种子走 `ops/seed_dict.py` 幂等脚本）。
 """
 
@@ -18,7 +20,7 @@ from alembic import op
 
 revision: str = "0001_dict_query_scheme"
 down_revision: str | None = None
-branch_labels: Sequence[str] | None = None
+branch_labels: Sequence[str] | None = ("tenant",)
 depends_on: Sequence[str] | None = None
 
 
@@ -52,7 +54,7 @@ def upgrade() -> None:
         ),
         sa.UniqueConstraint("type", "deleted_at", name="uq_dict_type_code_deleted_at"),
     )
-    op.create_index("ix_sys_dict_type_deleted_at", "sys_dict_type", ["deleted_at"])
+    op.create_index("idx_sys_dict_type_deleted_at", "sys_dict_type", ["deleted_at"])
     op.create_index("idx_dict_type_status_sort", "sys_dict_type", ["status", "sort"])
 
     op.create_table(
@@ -73,8 +75,8 @@ def upgrade() -> None:
         ),
         sa.UniqueConstraint("type_id", "code", "deleted_at", name="uq_dict_item_code_deleted_at"),
     )
-    op.create_index("ix_sys_dict_item_deleted_at", "sys_dict_item", ["deleted_at"])
-    op.create_index("ix_sys_dict_item_type_id", "sys_dict_item", ["type_id"])
+    op.create_index("idx_sys_dict_item_deleted_at", "sys_dict_item", ["deleted_at"])
+    op.create_index("idx_sys_dict_item_type_id", "sys_dict_item", ["type_id"])
     op.create_index("idx_dict_item_value", "sys_dict_item", ["type_id", "value"])
     op.create_index("idx_dict_item_parent_sort", "sys_dict_item", ["type_id", "parent_id", "sort"])
     op.create_index("idx_dict_item_label", "sys_dict_item", ["type_id", "label"])
@@ -87,8 +89,8 @@ def upgrade() -> None:
         sa.Column("label", sa.String(length=64), nullable=False, comment="类型名翻译"),
         sa.UniqueConstraint("dict_type_id", "locale", name="uq_dict_type_i18n"),
     )
-    op.create_index("ix_sys_dict_type_i18n_deleted_at", "sys_dict_type_i18n", ["deleted_at"])
-    op.create_index("ix_sys_dict_type_i18n_dict_type_id", "sys_dict_type_i18n", ["dict_type_id"])
+    op.create_index("idx_sys_dict_type_i18n_deleted_at", "sys_dict_type_i18n", ["deleted_at"])
+    op.create_index("idx_sys_dict_type_i18n_dict_type_id", "sys_dict_type_i18n", ["dict_type_id"])
 
     op.create_table(
         "sys_dict_item_i18n",
@@ -98,8 +100,8 @@ def upgrade() -> None:
         sa.Column("label", sa.String(length=128), nullable=False, comment="条目标签翻译"),
         sa.UniqueConstraint("dict_item_id", "locale", name="uq_dict_item_i18n"),
     )
-    op.create_index("ix_sys_dict_item_i18n_deleted_at", "sys_dict_item_i18n", ["deleted_at"])
-    op.create_index("ix_sys_dict_item_i18n_dict_item_id", "sys_dict_item_i18n", ["dict_item_id"])
+    op.create_index("idx_sys_dict_item_i18n_deleted_at", "sys_dict_item_i18n", ["deleted_at"])
+    op.create_index("idx_sys_dict_item_i18n_dict_item_id", "sys_dict_item_i18n", ["dict_item_id"])
 
     op.create_table(
         "sys_dict_attr",
@@ -124,8 +126,8 @@ def upgrade() -> None:
         ),
         sa.UniqueConstraint("type_id", "attr_key", "deleted_at", name="uq_dict_attr_key_deleted_at"),
     )
-    op.create_index("ix_sys_dict_attr_deleted_at", "sys_dict_attr", ["deleted_at"])
-    op.create_index("ix_sys_dict_attr_type_id", "sys_dict_attr", ["type_id"])
+    op.create_index("idx_sys_dict_attr_deleted_at", "sys_dict_attr", ["deleted_at"])
+    op.create_index("idx_sys_dict_attr_type_id", "sys_dict_attr", ["type_id"])
     op.create_index("idx_dict_attr_sort", "sys_dict_attr", ["type_id", "status", "sort"])
 
     op.create_table(
@@ -136,8 +138,8 @@ def upgrade() -> None:
         sa.Column("name", sa.String(length=64), nullable=False, comment="属性名翻译"),
         sa.UniqueConstraint("dict_attr_id", "locale", name="uq_dict_attr_i18n"),
     )
-    op.create_index("ix_sys_dict_attr_i18n_deleted_at", "sys_dict_attr_i18n", ["deleted_at"])
-    op.create_index("ix_sys_dict_attr_i18n_dict_attr_id", "sys_dict_attr_i18n", ["dict_attr_id"])
+    op.create_index("idx_sys_dict_attr_i18n_deleted_at", "sys_dict_attr_i18n", ["deleted_at"])
+    op.create_index("idx_sys_dict_attr_i18n_dict_attr_id", "sys_dict_attr_i18n", ["dict_attr_id"])
 
     op.create_table(
         "sys_query_scheme",
@@ -168,7 +170,7 @@ def upgrade() -> None:
             name="uq_scheme_scope_name_deleted_at",
         ),
     )
-    op.create_index("ix_sys_query_scheme_deleted_at", "sys_query_scheme", ["deleted_at"])
+    op.create_index("idx_sys_query_scheme_deleted_at", "sys_query_scheme", ["deleted_at"])
     op.create_index("idx_scheme_lookup", "sys_query_scheme", ["target", "field_key", "status", "scope"])
 
 

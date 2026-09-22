@@ -1,11 +1,12 @@
-"""BaseService 通用行为与不存在语义测试（Kiwi 12，异步）。"""
+"""BaseService 通用行为与不存在语义测试（Kiwi 12，异步）；keyset 游标分页见 Kiwi 1078。"""
 
 from dataclasses import dataclass
 
 import pytest
 
-from app.core.exceptions import NotFoundError
+from app.core.exceptions import NotFoundError, ParamError
 from app.repositories.base_memory_repository import BaseMemoryRepository
+from app.schemas.pagination import BaseCursorQuery
 from app.services.base_service import BaseService
 
 
@@ -71,6 +72,30 @@ async def test_delete_success_and_missing_raises_not_found() -> None:
     assert await service.count() == 0
     with pytest.raises(NotFoundError):
         await service.delete(999)
+
+
+@pytest.mark.kiwi_id(1078)
+async def test_cursor_page_keyset_next_cursor() -> None:
+    """cursor_page：keyset 逐批取完（`next_cursor` / `has_more`），末页游标为 None；非法游标拒绝。"""
+    service = _service()
+    for index in range(5):
+        await service.create(name=f"n{index}")
+
+    first = await service.cursor_page(BaseCursorQuery(limit=2))
+    assert [item.name for item in first.list] == ["n0", "n1"]
+    assert first.has_more is True
+    assert first.next_cursor is not None
+
+    second = await service.cursor_page(BaseCursorQuery(limit=2, cursor=first.next_cursor))
+    assert [item.name for item in second.list] == ["n2", "n3"]
+
+    third = await service.cursor_page(BaseCursorQuery(limit=2, cursor=second.next_cursor))
+    assert [item.name for item in third.list] == ["n4"]
+    assert third.next_cursor is None
+    assert third.has_more is False
+
+    with pytest.raises(ParamError):
+        await service.cursor_page(BaseCursorQuery(limit=2, cursor="broken"))
 
 
 @pytest.mark.kiwi_id(12)

@@ -22,6 +22,10 @@ from app.core.factory import BaseDbFactory
 from app.db.tenant import TENANT_DB_KEY_PREFIX, parse_tenant_db_key
 
 _SQLITE = "sqlite"
+PLATFORM_DB_KEY = "platform"
+"""平台库数据源键（唯一来源；`app/db/registry.py` 复用）。"""
+ARCHIVE_DB_KEY = "archive"
+"""归档库数据源键（只读）。"""
 _SYNC_ONLY_DIALECTS = frozenset({"dm"})
 """无异步方言、仅同步驱动的方言（达梦）。"""
 _CONNECT_TIMEOUT_DIALECTS = frozenset({"mysql", "postgresql"})
@@ -84,7 +88,7 @@ class EngineFactory(BaseDbFactory[str | None, AsyncEngine]):
         Raises:
             ConfigError: 该方言为同步驱动（达梦），异步路径不可用。
         """
-        db_key = options or "platform"
+        db_key = options or PLATFORM_DB_KEY
         target = self._target(db_key)
         url, role = self._resolve_url_role(target, db_key, read_only=read_only)
         engine = self._engines.get((db_key, role))
@@ -106,7 +110,7 @@ class EngineFactory(BaseDbFactory[str | None, AsyncEngine]):
         Returns:
             Engine: 同步引擎（不建连）。
         """
-        db_key = options or "platform"
+        db_key = options or PLATFORM_DB_KEY
         engine = self._sync_engines.get(db_key)
         if engine is not None:
             return engine
@@ -126,12 +130,37 @@ class EngineFactory(BaseDbFactory[str | None, AsyncEngine]):
         """
         return list(self._target(db_key).replicas)
 
+    def resolve_url(self, db_key: str = PLATFORM_DB_KEY) -> str:
+        """取数据源连接串（不含分字段密码；迁移脚本与 `ops` 复用）。
+
+        租户库键经 `url_template` 模板解析；平台 / 归档库取目标 `url`。
+
+        Args:
+            db_key: 数据源键（缺省平台库）。
+
+        Returns:
+            str: 连接串（不含分字段密码）。
+        """
+        return self._target_url(self._target(db_key), db_key)
+
+    def resolved_url(self, db_key: str = PLATFORM_DB_KEY) -> str:
+        """取数据源连接串（含分字段密码；供迁移 / 建删库等运维路径使用）。
+
+        Args:
+            db_key: 数据源键（缺省平台库）。
+
+        Returns:
+            str: 连接串（**禁止写入日志**）。
+        """
+        target = self._target(db_key)
+        return _with_password(self._target_url(target, db_key), target)
+
     def _target(self, db_key: str) -> DatabaseTargetSettings:
         """按数据源键取数据库目标配置。"""
         database = self._settings.database
-        if db_key == "platform":
+        if db_key == PLATFORM_DB_KEY:
             return database.platform
-        if db_key == "archive":
+        if db_key == ARCHIVE_DB_KEY:
             return database.archive
         return database.tenants
 

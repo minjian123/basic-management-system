@@ -24,6 +24,7 @@ from app.core.id import IdGeneratorFactory
 from app.core.logging import configure_logging, get_logger
 from app.core.plugin import build_plugin_registry, resolve_plugin
 from app.core.resources import ResourceManager
+from app.db.bootstrap import ensure_development_schema
 from app.db.engine import EngineFactory
 from app.db.health import PrimaryHealth
 from app.db.registry import EngineRegistry, pool_budget_warnings, tenant_pool_budget_warnings
@@ -61,6 +62,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
         get_logger("bms").critical("模块注册校验失败", errors=errors)
         raise RuntimeError("模块注册校验失败：" + "；".join(errors))
     await assemble_plugins(app, settings, app.state.resources)
+    # SQLite 开发库自动建表（按迁移链表集、幂等；非 SQLite 环境自然跳过）
+    created = await ensure_development_schema(
+        cast("EngineRegistry", app.state.engine_registry),
+        settings,
+        factory=cast("EngineFactory", app.state.engine_factory),
+    )
+    if created:
+        get_logger("app.main").info("sqlite_auto_create_done", targets=",".join(created))
     app.state.startup_complete = True
     try:
         yield

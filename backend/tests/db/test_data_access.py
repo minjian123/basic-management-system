@@ -127,7 +127,7 @@ async def test_version_guard_translates_conflict() -> None:
 
 @pytest.mark.kiwi_id(36)
 async def test_pagination_page_and_cursor() -> None:
-    """分页：页码切片与游标推进。"""
+    """分页：页码切片与 keyset 游标推进（游标由响应回传，末页为 None）。"""
     service = BaseService(ItemRepository())
     for name in ["甲", "乙", "丙", "丁", "戊"]:
         await service.create(name=name)
@@ -139,12 +139,14 @@ async def test_pagination_page_and_cursor() -> None:
     first = await service.cursor_page(BaseCursorQuery(limit=2))
     assert [item.name for item in first.list] == ["甲", "乙"]
     assert first.has_more is True
-    assert first.next_cursor == "2"
+    assert first.next_cursor
 
-    last = await service.cursor_page(BaseCursorQuery(cursor="4", limit=2))
-    assert [item.name for item in last.list] == ["戊"]
-    assert last.has_more is False
-    assert last.next_cursor is None
+    last = await service.cursor_page(BaseCursorQuery(limit=2, cursor=first.next_cursor))
+    assert [item.name for item in last.list] == ["丙", "丁"]
+    tail = await service.cursor_page(BaseCursorQuery(limit=2, cursor=last.next_cursor))
+    assert [item.name for item in tail.list] == ["戊"]
+    assert tail.has_more is False
+    assert tail.next_cursor is None
 
 
 @pytest.mark.kiwi_id(36)

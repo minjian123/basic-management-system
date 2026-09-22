@@ -1,4 +1,5 @@
-"""仓储基类测试（Kiwi 11）：契约 / 内存基线（异步）；排序契约见 Kiwi 29；DB 实现见 Kiwi 1050。"""
+"""仓储基类测试（Kiwi 11）：契约 / 内存基线（异步）；排序契约见 Kiwi 29；DB 实现见 Kiwi 1050；
+keyset 游标见 Kiwi 1078。"""
 
 from dataclasses import dataclass
 from typing import cast
@@ -7,9 +8,11 @@ import pytest
 
 from app.core.base import BaseObject
 from app.core.capability import BaseStub
+from app.core.exceptions import ParamError
 from app.repositories.base_db_repository import BaseDbRepository
 from app.repositories.base_memory_repository import BaseMemoryRepository
 from app.repositories.base_repository import BaseRepository
+from app.schemas.cursor import encode_cursor
 from app.schemas.pagination import BaseCursorQuery, BasePageQuery
 from app.schemas.sorting import SortDirection, SortSpec
 
@@ -207,14 +210,55 @@ async def test_memory_list_sorts_multi_key_and_keeps_default_order() -> None:
 
 @pytest.mark.kiwi_id(29)
 async def test_memory_list_handles_none_values_by_direction() -> None:
-    """空值参与比较：升序末尾 / 降序首位。"""
+    """空值口径：**NULL 恒排末位**（升序与降序一致；与 DB 侧 `列 IS NULL` 排序键同口径）。"""
     repo = SortableRepository()
     await repo.create(name="甲", rank=2)
     await repo.create(name="乙")
     asc = await repo.list(sort=[SortSpec(field="rank", direction=SortDirection.ASC)])
     desc = await repo.list(sort=[SortSpec(field="rank", direction=SortDirection.DESC)])
     assert [item.name for item in asc] == ["甲", "乙"]
-    assert [item.name for item in desc] == ["乙", "甲"]
+    assert [item.name for item in desc] == ["甲", "乙"]
+
+
+@pytest.mark.kiwi_id(1078)
+async def test_memory_cursor_keyset_pagination() -> None:
+    """内存基线 keyset 游标：逐页取完与全量排序一致（含空值与多键，不漏不重）。"""
+    repo = SortableRepository()
+    await repo.create(name="a", rank=2)
+    await repo.create(name="b", rank=1)
+    await repo.create(name="c")
+    await repo.create(name="d", rank=1)
+    await repo.create(name="e", rank=3)
+
+    sort = [SortSpec(field="rank", direction=SortDirection.ASC)]
+    expected = [item.name for item in await repo.list(sort=sort)]
+    assert expected == ["b", "d", "a", "e", "c"]
+
+    collected: list[str] = []
+    cursor: str | None = None
+    for _ in range(10):
+        query = BaseCursorQuery(limit=2, order_by="rank", order=["asc"], cursor=cursor)
+        batch = await repo.list_cursor(query)
+        collected.extend(item.name for item in batch)
+        cursor = repo.build_cursor(query, batch)
+        if cursor is None:
+            break
+    assert collected == expected
+
+
+@pytest.mark.kiwi_id(1078)
+async def test_memory_cursor_rejects_invalid_and_mismatched() -> None:
+    """内存基线游标校验：非法令牌与规格不一致一律 `ParamError`（不静默回落首页）。"""
+    repo = SortableRepository()
+    await repo.create(name="甲", rank=1)
+
+    with pytest.raises(ParamError):
+        await repo.list_cursor(BaseCursorQuery(limit=1, cursor="not-a-cursor"))
+
+    token = encode_cursor([SortSpec(field="rank", direction=SortDirection.ASC)], [1], 1)
+    mismatched = BaseCursorQuery(limit=1, order_by="name", order=["asc"], cursor=token)
+    with pytest.raises(ParamError):
+        await repo.list_cursor(mismatched)
 
 
 @pytest.mark.kiwi_id(29)
@@ -252,3 +296,12 @@ async def test_pagination_queries_carry_sort() -> None:
     cursor = await repo.list_cursor(BaseCursorQuery(limit=1, order_by="rank", order=["desc"]))
     assert [item.name for item in page] == ["乙", "甲"]
     assert [item.name for item in cursor] == ["甲"]
+
+
+@pytest.mark.kiwi_id(1078)
+def test_contract_defaults_effective_sort_and_apply_sort() -> None:
+    """契约默认：不传排序请求返回空规格；非 SQL 实现的排序钩子原样返回语句。"""
+    repo = _repo()
+    assert repo.effective_sort() == []
+    assert repo.effective_sort(None) == []
+    assert repo._apply_sort("statement", [SortSpec(field="name")]) == "statement"  # pyright: ignore[reportPrivateUsage]

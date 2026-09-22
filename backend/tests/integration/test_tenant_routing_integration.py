@@ -16,7 +16,6 @@ from app.core.config import Settings
 from app.db.engine import EngineFactory
 from app.db.registry import PLATFORM_DB_KEY, EngineRegistry
 from app.db.tenant_source import TenantSource
-from ops.migrate_tenants import resolve_databases
 from ops.seed_tenant import seed_tenants
 from ops.test_db import FLOW_STEPS, TEST_DATABASES, main
 
@@ -123,9 +122,8 @@ async def test_env_guarded_engine_routing(require_test_db_url: str) -> None:
         await registry.aclose()
 
 
-def test_batch_migration_and_test_db_list(capsys: pytest.CaptureFixture[str]) -> None:
-    """批量迁移固定库清单与测试库流程计划（纯清单断言，无需真库，恒常绿）。"""
-    assert resolve_databases("all") == ["bms_platform", "bms_tenant_demo", "bms_archive"]
+def test_test_db_plan_lists_fixed_databases(capsys: pytest.CaptureFixture[str]) -> None:
+    """三库测试库流程计划：固定库清单与步骤（纯清单断言，无需真库，恒常绿）。"""
     for engine, database in TEST_DATABASES.items():
         capsys.readouterr()
         assert main(["plan", "--engine", engine]) == 0
