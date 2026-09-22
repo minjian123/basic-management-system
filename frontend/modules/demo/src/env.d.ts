@@ -45,3 +45,10 @@ declare module 'bpmn-moddle' {
     fromXML(xml: string): Promise<BpmnModdleParseResult>
   }
 }
+
+/** `.vue` 单文件组件模块声明（Module Federation 类型声明生成以 plain `tsc` 编译，需显式 shim）。 */
+declare module '*.vue' {
+  import type { DefineComponent } from 'vue'
+  const component: DefineComponent<Record<string, unknown>, Record<string, unknown>, unknown>
+  export default component
+}
