@@ -25,7 +25,7 @@
 | `VARCHAR(n)` | VARCHAR(n)（长度以字符计） | 实测 |
 | `TEXT` | TEXT | 实测 |
 | `BOOLEAN` | BOOL（TINYINT(1)） | 实测（DDL 编译） |
-| `JSON`（多值字段） | JSON | 实测（`sys_dict_item.attr_json` / `sys_query_scheme.*` 真库建表通过；JSON 值读写 **待验**） |
+| `JSON`（多值字段） | JSON | 实测（`sys_dict_item.attr_json` / `sys_query_scheme.*` 真库建表通过；JSON 值写入读回一致） |
 | `DECIMAL(20,4)`（金额） | DECIMAL(20,4) | 实测（DDL 编译） |
 
 - 禁用方言专用类型：`ENUM`、`SET`、`TINYINT` 直写（布尔经 `BOOLEAN` 逻辑类型表达）、`UNSIGNED`。
@@ -74,7 +74,8 @@
 | DDL 与事务 | DDL 隐式提交 | 迁移失败后按「已执行到哪一步」人工核对（幂等靠 `alembic_version`） |
 | 连接池 | `pool_size` / `max_overflow` / `pool_timeout` / `pool_recycle` / `connect_timeout` 取配置 `[database.*.pool]` | 实测（配置项生效） |
 | 慢查询日志 | 开启（开发联调） | 实测（已配置） |
-| 主从（只读副本） | 支持；读写绑定见《[架构设计 · 数据访问与分片](../../架构设计/13_架构设计_子系统_数据访问与分片.md)》「读写分离」节 | 未启用（**待验**） |
+| 主从（只读副本） | 支持；读写绑定见《[架构设计 · 数据访问与分片](../../架构设计/13_架构设计_子系统_数据访问与分片.md)》「读写分离」节 | 未启用（**待验**；真库仅验证「配置副本后只读请求命中副本引擎」的路由决策） |
+| 认证插件与驱动依赖 | MySQL 8.4 默认 `caching_sha2_password`；`aiomysql` 在非 TLS 连接下**冷缓存首连**需 `cryptography` 完成 RSA 公钥取回，缺它报 `cryptography package is required for sha256_password or caching_sha2_password auth methods`（**实测**） | 后端依赖固定含 `cryptography`；CI 基础镜像随锁文件哈希重建（缺失即真库首连失败） |
 
 - 应用侧经引擎注册表与会话入口取连接（不自行 `create_engine`）；事务边界由服务层上下文管理器声明。
 
@@ -85,6 +86,9 @@
 | 2026-09-22 | 平台链迁移（临时库 `bms_migrcheck`） | 建库 → 迁移 → 校验（`0001_sys_tenant_module`，表 4/4）→ 清理，通过 | 01_04 测试记录「三库真库迁移演练」 |
 | 2026-09-22 | 租户链迁移（临时库 `bms_migrcheck_tenant`） | 建库 → 迁移 → 校验（`0001_dict_query_scheme`，表 8/8）→ 清理，通过 | 同上 |
 | 2026-09-22 | 类型映射与 DDL 编译 | 四方言 DDL 编译断言通过（含布尔与 `JSON` 列） | `tests/models/test_type_mapping.py` |
-| 待验 | 字符集与 emoji 写入、`lower_case_table_names` 变更影响、前缀索引选择性、主从只读路由、JSON 值读写与检索 | — | — |
+| 2026-09-22 | 三库真库集成（库 `bms_test_mysql` / `bms_test_mysql_t1`） | 建库 → 分链迁移（`0001_sys_tenant_module` / `0001_dict_query_scheme`）→ 集成用例 9 条通过（多数据源 / 隔离 / 副本路由 / 分片键 / 类型往返 / NULL 位次 / 复合唯一多 NULL 共存） | 01_05 测试记录「三库真库集成用例」 |
+| 2026-09-22 | 认证插件与驱动依赖 | 测试账号（`bms_test`，`caching_sha2_password`）冷缓存首连报 `cryptography package is required…`，补齐 `cryptography` 后连通 | 01_05 实施记录「问题与处置」 |
+| 2026-09-22 | JSON 值读写 | 写入读回一致（真库集成用例「类型落库往返」） | 01_05 集成用例 |
+| 待验 | 字符集与 emoji 写入、`lower_case_table_names` 变更影响、前缀索引选择性、主从只读路由、JSON 检索 | — | — |
 
 > 数据库设计 · 与《[数据库开发规范](../../../规范/数据库开发规范.md)》「表与字段口径」至「数据库设计文档体系」各节配套
