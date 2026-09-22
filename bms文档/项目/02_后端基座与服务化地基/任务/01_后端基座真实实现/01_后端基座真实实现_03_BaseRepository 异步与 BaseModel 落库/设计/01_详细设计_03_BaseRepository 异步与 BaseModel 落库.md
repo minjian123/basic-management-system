@@ -120,7 +120,7 @@ bms文档/
 | `update(item_id, **values)` | 白名单校验 → 作用域内取行（缺失返回 `None`）→ `setattr` → `flush()` 并在 `_guard_version` 内转译 `StaleDataError → ConcurrentConflictError`（409） |
 | `delete(item_id)` | `soft_delete_enabled=True` 走软删除，否则走硬删除（决策 5：默认软删 + 显式出口） |
 | `soft_delete(item_id)` | 作用域内取行 → `model.soft_delete()`（置 `deleted_at`）→ `flush()`；返回是否存在 |
-| `hard_delete(item_id)` | 作用域内取行 → `session.delete` → `flush()`（回收站物理清理 / 运维出口） | 
+| `hard_delete(item_id)` | 取行**穿透软删过滤**（保留租户与数据范围条件，供回收站物理清理已软删残留）→ `session.delete` → `flush()` | 
 
 **写入字段严格白名单**（决策 3）：
 
@@ -134,6 +134,8 @@ bms文档/
 - 上下文租户无主键（内置兜底路径）不注入，与读侧 `_tenant_condition` 口径一致。
 
 **乐观锁触发**（决策 6）：`update` / `soft_delete` / `hard_delete` 均在 `flush()` 处经 `version_id_col` 比对；冲突由 `_guard_version` 统一转 `ConcurrentConflictError`（HTTP 409），服务层无需各自处理 `StaleDataError`。
+
+**物理删除穿透软删过滤**：`hard_delete` 取行时去掉软删除条件（`_scope_conditions(include_soft_delete=False)`），保留数据范围与租户条件，保证回收站物理清理能命中已软删行。
 
 **内存基线差异**（决策 18）：`BaseMemoryRepository` 保持硬删，作为测试替身不实现软删除；`soft_delete` / `hard_delete` 在 `BaseScopedRepository` 提供默认别名（默认委托 `delete`），DB 实现覆写——差异在基类 docstring 注明。
 
