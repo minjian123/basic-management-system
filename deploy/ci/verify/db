@@ -1,0 +1,20 @@
+三库真库集成档（重验证层）——开启于 2026-09-22（阶段二 01_05 三库真库集成与达梦实测）
+管控 job：integration-mysql / integration-postgres / integration-dm8（stage verify，连 mjbk 常驻三库）
+
+每 job 流程：plan → create --execute（建库 / 建模式 + 幂等建测试账号）
+            → migrate --execute（平台对象 platform 链、租户对象 tenant 链）
+            → pytest tests/integration -k "$DB_DIALECT" -v
+            → 失败：defect_capture.py 先导 dump（建 / 复用缺陷单）再 drop --execute（|| true）
+            → 成功：drop --execute（|| true）
+
+前置变量（GitLab 项目 CI/CD Variables，均为 masked，值不入库）：
+- MYSQL_TEST_PASSWORD / POSTGRES_TEST_PASSWORD / DM8_TEST_PASSWORD：测试账号密码（建库与用例连接）
+- MYSQL_ROOT_PASSWORD：MySQL 缺陷现场 dump 用
+- GITLAB_API_TOKEN：缺陷单创建用
+
+测试对象（清单唯一事实源＝backend/ops/test_db.py 的 TEST_DATABASES）：
+- MySQL：bms_test_mysql（平台）/ bms_test_mysql_t1（租户）
+- PostgreSQL：bms_test_pg（平台）/ bms_test_pg_t1（租户）
+- 达梦 DM8：模式 BMS_TEST_DM（平台）/ BMS_TEST_DM_T1（租户）
+
+删除本文件即关闭该档；分档语义与激活路线见 .gitlab-ci.yml 文件头注释与《项目骨架计划》§3.1。
