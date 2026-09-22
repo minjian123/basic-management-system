@@ -19,6 +19,12 @@ fi
 
 backend_ctx=$(mktemp -d)
 cp backend/pyproject.toml backend/uv.lock "$backend_ctx/"
+# 工作区成员清单：共享库 + 各服务（Dockerfile 从工作区根 COPY 各成员 pyproject；上下文按 libs/* 与 services/* 落位）
+for manifest in backend/libs/*/pyproject.toml backend/services/*/pyproject.toml; do
+  rel=${manifest#backend/}
+  mkdir -p "$backend_ctx/$(dirname "$rel")"
+  cp "$manifest" "$backend_ctx/$rel"
+done
 cp deploy/ci/Dockerfile.backend "$backend_ctx/Dockerfile"
 
 frontend_ctx=$(mktemp -d)
