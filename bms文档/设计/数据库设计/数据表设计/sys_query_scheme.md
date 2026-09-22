@@ -56,7 +56,7 @@
 
 - **分片**：不分片（字典为小型热配置数据）。
 - **归档**：不归档（在用配置数据；审计留痕走操作日志与字段级审计）。
-- **迁移**：随租户库 Alembic 迁移落地（**迁移脚本已就位**：`alembic/versions/0001_dict_and_query_scheme.py`，SQLite 实测执行通过；三库真库执行随**阶段二 后端基座**窗口）。
+- **迁移**：随租户库 Alembic 迁移落地（**迁移脚本已就位**：`alembic/versions/0001_dict_and_query_scheme.py`，SQLite 实测执行通过；三库真库执行随**阶段二 后端基座与服务化地基**窗口）。
 
 ## 5. 变更记录 <a id="revlog"></a>
 
