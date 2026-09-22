@@ -9,17 +9,42 @@ from bms_platform.main import ApplicationFactory
 
 @pytest.mark.kiwi_id(28)
 async def test_list_modules_contract() -> None:
-    """GET /api/v1/modules 返回平台域 4 行；?status 筛选；POST 404。"""
+    """GET /api/v1/modules 返回服务目录 16 行；?status 筛选；POST/PUT/DELETE 405。"""
     app = ApplicationFactory().create(None)
     async with lifespan(app), AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         resp = await client.get("/api/v1/modules")
         assert resp.status_code == 200
         body = resp.json()
         assert body["code"] == 0
-        assert [item["module_key"] for item in body["data"]] == ["sys", "wf", "rpt", "ai"]
+        assert [item["module_key"] for item in body["data"]] == [
+            "sys",
+            "identity",
+            "tenant",
+            "org",
+            "file",
+            "notification",
+            "search",
+            "ai",
+            "rpt",
+            "wf",
+            "pur",
+            "pay",
+            "sale",
+            "wh",
+            "sup",
+            "cw",
+        ]
 
         filtered = await client.get("/api/v1/modules", params={"status": "planned"})
-        assert filtered.json()["data"] == []
+        assert [item["module_key"] for item in filtered.json()["data"]] == [
+            "wf",
+            "pur",
+            "pay",
+            "sale",
+            "wh",
+            "sup",
+            "cw",
+        ]
 
         created = await client.post("/api/v1/modules", json={"module_key": "pur"})
         assert created.status_code == 405
