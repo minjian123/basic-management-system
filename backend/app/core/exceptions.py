@@ -236,7 +236,14 @@ class OpenTenantError(BizError):
 
 
 class TenantNotFoundError(OpenTenantError):
-    """租户不存在（未知租户）。"""
+    """租户不存在（未知租户；`80001` / 404）。"""
 
     def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
         super().__init__(ErrorCode.TENANT_NOT_FOUND, message, http_status=404, data=data)
+
+
+class TenantSuspendedError(OpenTenantError):
+    """租户已停用（`80002` / 403；引擎强制回收后拒绝访问）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        super().__init__(ErrorCode.TENANT_SUSPENDED, message, http_status=403, data=data)

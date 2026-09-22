@@ -18,8 +18,9 @@ from app.db.session import SessionFactory, get_write_db
 _BAD_SQLITE = "sqlite+aiosqlite:////nonexistent_dir_xyz/bms.db"
 
 
-async def _probe_false() -> bool:
-    """模拟探测失败。"""
+async def _probe_false(db_key: str = "platform") -> bool:
+    """模拟探测失败（库键参数随会话租户路由）。"""
+    del db_key
     return False
 
 

@@ -12,6 +12,10 @@ slow_request_ms = 500
 [cors]
 allow_origins = ["http://localhost:5173", "http://127.0.0.1:5173"]
 
+# 租户解析缓存（dev 启用进程内缓存；租户管理阶段可切 redis 共享失效）
+[cache]
+provider = "memory"
+
 # 字典真实取数与缓存（02-4-27）：dev 使用 SQLite 租户库（bms_tenant_demo.db，先迁移 + 种子）+ 进程内缓存；
 # Redis 可用时把 dict_cache_region 改为 "redis"（连接串取 [redis].url）。
 [dict_source]

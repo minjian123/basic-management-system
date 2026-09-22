@@ -22,6 +22,7 @@ from app.db.health import PrimaryHealth
 from app.db.registry import EngineRegistry
 from app.db.session import SessionFactory, get_db, get_read_db, get_uow, get_write_db
 from app.db.tenant import get_tenant
+from app.db.tenant_source import TenantSource
 from app.dict.base import get_dict_cache_region, get_dict_source, get_dict_translator
 from app.dict.query import DictQueryService
 from app.dict.service import DictService
@@ -125,6 +126,7 @@ __all__ = [
     "get_task",
     "get_tenant",
     "get_tenant_self_service",
+    "get_tenant_source",
     "get_tracer",
     "get_translator",
     "get_uow",
@@ -170,3 +172,15 @@ def get_primary_health(request: Request) -> PrimaryHealth:
         PrimaryHealth: 主库可用性实例。
     """
     return cast("PrimaryHealth", request.app.state.primary_health)
+
+
+def get_tenant_source(request: Request) -> TenantSource:
+    """取租户源（平台库注册记录取数 / 缓存失效；租户管理阶段写路径取用）。
+
+    Args:
+        request: 请求对象。
+
+    Returns:
+        TenantSource: 应用装配的租户源实例。
+    """
+    return cast("TenantSource", request.app.state.tenant_source)

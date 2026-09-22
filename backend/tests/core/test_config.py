@@ -93,7 +93,7 @@ def test_defaults_and_sections() -> None:
     assert settings.redis.url.startswith("redis://")
     assert settings.security.algorithm == "HS256"
     assert settings.cors.allow_credentials is True
-    assert settings.cache.provider == ""
+    assert settings.cache.provider == "memory"  # dev 覆盖启用进程内缓存（租户解析缓存）
     assert settings.audit.provider == ""
     assert settings.task.provider == ""
     assert settings.event.provider == ""
@@ -245,7 +245,8 @@ def test_invalid_bms_env_fails(monkeypatch: pytest.MonkeyPatch) -> None:
 
 @pytest.mark.kiwi_id(62)
 def test_missing_required_key_fails(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    """缺必填键启动失败并指出键路径。"""
+    """缺必填键启动失败并指出键路径（清除平台库环境覆盖以构造缺键现场）。"""
+    monkeypatch.delenv("BMS_DATABASE__PLATFORM__URL", raising=False)
     _use_config_dir(monkeypatch, tmp_path, _MISSING_URL_BASE)
     with pytest.raises(ConfigError) as excinfo:
         load_settings()
@@ -315,3 +316,22 @@ def test_data_access_keys_and_effective_pool() -> None:
     settings.database.platform.services = {"svc": override}
     assert settings.database.platform.effective_pool("svc") is override
     assert settings.database.platform.effective_pool("other") is settings.database.platform.pool
+
+
+@pytest.mark.kiwi_id(1019)
+def test_tenant_keys_and_url_template() -> None:
+    """多租户配置键：`[tenant]` 默认值 / 覆盖与租户库模板键。"""
+    settings = Settings()
+    assert settings.tenant.resolve_cache_ttl == 60
+    assert settings.tenant.engine_max_active == 32
+    assert settings.tenant.engine_idle_timeout == 1800.0
+    assert settings.tenant.allow_demo_fallback is True
+    assert "/healthz" in settings.tenant.exempt_paths
+    assert settings.database.tenants.url_template == ""
+
+    settings.tenant.allow_demo_fallback = False
+    settings.tenant.exempt_paths = ["/healthz"]
+    settings.database.tenants.url_template = "sqlite+aiosqlite:///./bms_tenant_{tenant}.db"
+    assert settings.tenant.allow_demo_fallback is False
+    assert settings.tenant.exempt_paths == ["/healthz"]
+    assert "{tenant}" in settings.database.tenants.url_template

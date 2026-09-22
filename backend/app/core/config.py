@@ -97,6 +97,23 @@ class HealthSettings(BaseSettings):
     total_timeout_ms: int = Field(default=5000, ge=1)
 
 
+class TenantSettings(BaseSettings):
+    """多租户解析与引擎生命周期（租户注册表缓存 / 引擎上限与阈值 / 豁免路径 / 回落策略）。"""
+
+    resolve_cache_ttl: int = Field(default=60, ge=1)
+    """租户解析缓存 TTL（秒；经缓存基座写入，命中即用）。"""
+    engine_max_active: int = Field(default=32, ge=1)
+    """租户引擎活跃上限（超出按 LRU 逐出最久未用租户引擎）。"""
+    engine_idle_timeout: float = Field(default=1800.0, ge=0)
+    """租户引擎闲置回收阈值（秒；每次访问先清扫）。"""
+    allow_demo_fallback: bool = True
+    """无任何来源时是否回落演示租户（开发兜底；生产应置 false 直接拒绝）。"""
+    exempt_paths: list[str] = Field(
+        default_factory=lambda: ["/", "/docs", "/redoc", "/openapi.json", "/healthz", "/readyz"]
+    )
+    """租户解析豁免路径（精确匹配；这些路径不解析租户、不设置租户上下文）。"""
+
+
 class DbPoolSettings(BaseSettings):
     """数据库连接池参数。"""
 
@@ -113,6 +130,8 @@ class DatabaseTargetSettings(BaseSettings):
 
     url: str
     replicas: list[str] = Field(default_factory=list)
+    url_template: str = ""
+    """租户库连接串模板（占位 `{service}` / `{tenant}` / `{database}`；空串回落 `url` 单库）。"""
     password: str = ""
     max_connections: int = Field(default=0, ge=0)
     """该库最大连接数；`0` 表示不校验连接预算。"""
@@ -295,6 +314,7 @@ class Settings(PydanticBaseSettings, BaseSettings):  # pyright: ignore[reportInc
     server: ServerSettings
     log: LogSettings
     health: HealthSettings = Field(default_factory=HealthSettings)
+    tenant: TenantSettings = Field(default_factory=TenantSettings)
     database: DatabaseSettings
     redis: RedisSettings = Field(default_factory=RedisSettings)
     minio: MinioSettings = Field(default_factory=MinioSettings)

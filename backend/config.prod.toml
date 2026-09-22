@@ -8,3 +8,7 @@ slow_request_ms = 2000
 
 [cors]
 allow_origins = []
+
+# 生产环境不回落演示租户：无来源（子域名 / X-Tenant-ID / 令牌）一律拒绝
+[tenant]
+allow_demo_fallback = false

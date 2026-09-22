@@ -1,24 +1,26 @@
-"""多租户拓扑路由集成骨架（标记 integration；需 `BMS_TEST_DB_URL`，随首个落库阶段执行）。
+"""多租户拓扑路由集成（Kiwi 1019）：真实引擎路由与双租户物理隔离。
 
-骨架口径（见《项目骨架 · 04_02 详细设计》§6.1）：
-- 未配置 `BMS_TEST_DB_URL` 时跳过（形态对齐既有 Redis 集成用例），不阻塞冒烟层；
-- 占位期对**占位实现**断言（引擎同一性 / 库键分离 / 固定库清单）；
-- 真库阶段替换为真实连接与跨租户数据隔离断言，并按方言命名或加方言标记，
-  保证 `.gitlab-ci.yml` 的 `pytest -k "$DB_DIALECT"` 有匹配用例（激活前置第 4 项）。
+- 未配置 `BMS_TEST_DB_URL` 时，三库维度用例跳过（真库连通与隔离实测归 01_05，本文件仅保留守卫）；
+- SQLite 真库用例（平台库种子 → 租户库模板 → 引擎路由 → 跨租户隔离）恒常执行；
+- 批量迁移固定库清单为纯清单断言（不连库）。
 """
 
 import os
+from pathlib import Path
 
 import pytest
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from app.core.config import get_settings
+from app.core.config import Settings
 from app.db.engine import EngineFactory
 from app.db.registry import PLATFORM_DB_KEY, EngineRegistry
-from app.db.tenant import DEMO_TENANT, resolve_tenant
+from app.db.tenant_source import TenantSource
 from ops.migrate_tenants import resolve_databases
+from ops.seed_tenant import seed_tenants
 from ops.test_db import FLOW_STEPS, TEST_DATABASES, main
 
-pytestmark = pytest.mark.integration
+pytestmark = [pytest.mark.integration, pytest.mark.kiwi_id(1019)]
 
 
 @pytest.fixture
@@ -30,10 +32,17 @@ def require_test_db_url() -> str:
     return url
 
 
-async def test_platform_engine_is_singleton(require_test_db_url: str) -> None:
+def _settings(tmp_path: Path) -> Settings:
+    """临时平台库 + 租户库模板配置。"""
+    settings = Settings()
+    settings.database.platform.url = f"sqlite+aiosqlite:///{tmp_path / 'platform.db'}"
+    settings.database.tenants.url_template = f"sqlite+aiosqlite:///{tmp_path}/bms_tenant_{{tenant}}.db"
+    return settings
+
+
+async def test_platform_engine_is_singleton(tmp_path: Path) -> None:
     """平台引擎常驻：同一 `db_key` 两次取用同一实例。"""
-    assert require_test_db_url
-    registry = EngineRegistry(EngineFactory(get_settings()))
+    registry = EngineRegistry(EngineFactory(_settings(tmp_path)))
     try:
         first = await registry.get(PLATFORM_DB_KEY)
         second = await registry.get(PLATFORM_DB_KEY)
@@ -43,40 +52,46 @@ async def test_platform_engine_is_singleton(require_test_db_url: str) -> None:
         await registry.aclose()
 
 
-async def test_tenant_engine_resolved_by_context(require_test_db_url: str) -> None:
-    """租户解析 → 库键 → 引擎：demo 上下文取 `tenant_demo` 引擎。"""
-    assert require_test_db_url
-    tenant = resolve_tenant(header="demo")
-    assert tenant == DEMO_TENANT
-    registry = EngineRegistry(EngineFactory(get_settings()))
+async def test_tenant_engine_resolved_by_context(tmp_path: Path) -> None:
+    """租户解析 → 库键 → 引擎：demo 上下文取独立租户库引擎（模板解析）。"""
+    settings = _settings(tmp_path)
+    await seed_tenants(settings.database.platform.url)
+    registry = EngineRegistry(EngineFactory(settings))
     try:
+        source = TenantSource(registry)
+        tenant = await source.by_code("demo")
+        assert tenant.db_key == "tenant_demo"
         tenant_engine = await registry.get(tenant.db_key)
         platform_engine = await registry.get(PLATFORM_DB_KEY)
         assert tenant_engine is not platform_engine
+        assert str(tenant_engine.url).endswith("bms_tenant_demo.db")
         assert {PLATFORM_DB_KEY, tenant.db_key} <= set(registry.active_keys())
     finally:
         await registry.aclose()
 
 
-async def test_cross_tenant_isolation_by_db_key(require_test_db_url: str) -> None:
-    """跨租户隔离（占位口径）：不同库键取到不同引擎实例，互不共享。
-
-    真库阶段替换为「写入租户 A 表 → 租户 B 查不到」的数据级隔离断言。
-    """
-    assert require_test_db_url
-    registry = EngineRegistry(EngineFactory(get_settings()))
+async def test_cross_tenant_isolation_by_db_key(tmp_path: Path) -> None:
+    """跨租户物理隔离：写入租户 A 库的数据在租户 B 库不可见。"""
+    registry = EngineRegistry(EngineFactory(_settings(tmp_path)))
     try:
         engine_a = await registry.get("tenant_demo")
-        engine_b = await registry.get("tenant_other")
+        engine_b = await registry.get("tenant_acme")
         assert engine_a is not engine_b
+        for engine in (engine_a, engine_b):
+            async with engine.begin() as connection:
+                await connection.execute(text("CREATE TABLE demo_note (id INTEGER PRIMARY KEY, note TEXT)"))
+        async with async_sessionmaker(engine_a, expire_on_commit=False)() as session:
+            await session.execute(text("INSERT INTO demo_note (id, note) VALUES (1, 'demo')"))
+            await session.commit()
+        async with async_sessionmaker(engine_b, expire_on_commit=False)() as session:
+            assert (await session.execute(text("SELECT note FROM demo_note WHERE id = 1"))).all() == []
     finally:
         await registry.aclose()
 
 
-async def test_release_and_connection_budget(require_test_db_url: str) -> None:
+async def test_release_and_connection_budget(tmp_path: Path) -> None:
     """租户引擎回收（平台键不回收）与连接预算边界。"""
-    assert require_test_db_url
-    registry = EngineRegistry(EngineFactory(get_settings()))
+    registry = EngineRegistry(EngineFactory(_settings(tmp_path)))
     try:
         await registry.get("tenant_demo")
         await registry.release("tenant_demo")
@@ -91,6 +106,21 @@ async def test_release_and_connection_budget(require_test_db_url: str) -> None:
     assert (
         EngineRegistry.check_connection_budget(workers=8, pool_size=20, max_overflow=10, max_connections=100) is False
     )
+
+
+async def test_env_guarded_engine_routing(require_test_db_url: str) -> None:
+    """env 守卫：三库环境按真实 URL 建平台 / 租户引擎（不建连）；真库连通归 01_05。"""
+    settings = Settings()
+    settings.database.platform.url = require_test_db_url
+    settings.database.tenants.url_template = ""
+    registry = EngineRegistry(EngineFactory(settings))
+    try:
+        platform = await registry.get(PLATFORM_DB_KEY)
+        tenant = await registry.get("tenant_demo")
+        assert str(platform.url) == require_test_db_url
+        assert str(tenant.url) == settings.database.tenants.url
+    finally:
+        await registry.aclose()
 
 
 def test_batch_migration_and_test_db_list(capsys: pytest.CaptureFixture[str]) -> None:

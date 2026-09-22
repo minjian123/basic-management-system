@@ -12,10 +12,13 @@ from contextvars import ContextVar, Token
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from app.db.tenant import TenantContext
     from app.masking.base import BaseMasker
 
 current_user_id: ContextVar[int | None] = ContextVar("current_user_id", default=None)
 current_tenant: ContextVar[str | None] = ContextVar("current_tenant", default=None)
+current_tenant_context_var: ContextVar[TenantContext | None] = ContextVar("current_tenant_context", default=None)
+"""当前租户完整上下文（编码 / 库键 / 主键 / 状态；租户全局中间件设置）。"""
 read_only: ContextVar[bool] = ContextVar("read_only", default=False)
 current_masker: ContextVar[BaseMasker | None] = ContextVar("current_masker", default=None)
 current_trace_id: ContextVar[str | None] = ContextVar("current_trace_id", default=None)
@@ -52,6 +55,36 @@ def get_current_tenant() -> str | None:
         str | None: 租户编码；无则 None。
     """
     return current_tenant.get()
+
+
+def set_tenant_context(context: TenantContext | None) -> Token[TenantContext | None]:
+    """设置当前租户完整上下文。
+
+    Args:
+        context: 租户上下文；None 表示清除。
+
+    Returns:
+        Token: 复位令牌。
+    """
+    return current_tenant_context_var.set(context)
+
+
+def reset_tenant_context(token: Token[TenantContext | None]) -> None:
+    """复位当前租户完整上下文。
+
+    Args:
+        token: `set_tenant_context` 返回的令牌。
+    """
+    current_tenant_context_var.reset(token)
+
+
+def get_tenant_context() -> TenantContext | None:
+    """当前租户完整上下文。
+
+    Returns:
+        TenantContext | None: 租户上下文；无则 None。
+    """
+    return current_tenant_context_var.get()
 
 
 def set_read_only(value: bool = True) -> Token[bool]:
