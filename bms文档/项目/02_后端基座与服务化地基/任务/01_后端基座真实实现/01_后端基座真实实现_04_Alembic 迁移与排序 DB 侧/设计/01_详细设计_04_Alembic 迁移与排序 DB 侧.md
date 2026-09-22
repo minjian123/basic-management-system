@@ -10,7 +10,7 @@
 - **依据**：《架构设计 · 数据架构》「迁移策略」节；《架构设计 · 数据访问与分片》「多数据源管理」「查询规范」节；《数据库设计 · 总览》「数据分布总览」「通用数据规范」节；《后端基类清单》「模块基类（数据访问 / 服务 / 契约 / 模型）」「数据访问与多租户基座」节；《后端开发规范》「SQL 与数据访问规范」「异步与并发」节；《数据库开发规范》「迁移规范（Alembic）」节；《部署发布规范》「发布流程」节；需求 [01-4](../../../../需求/01_需求_后端基座真实实现.md#r01-4)。
 - **范围（本任务）**：
   1. **迁移链注册与目录布局**：`app/db/migration.py` 登记「数据源 → 版本目录 + 表集 + 分支标签 + URL 取法」，版本脚本按 `alembic/versions/{platform,tenant,archive}/` 分链组织。
-  2. **Alembic 环境重构**：`alembic/env.py` 按 `-x target=` 选链（缺省 `tenant` 向后兼容），按链取元数据子集与版本目录；URL 解析 `-x url=` > `BMS_MIGRATION_URL` > 配置（租户链支持 `-x db_key=` 经 `url_template` 解析）；在线分支对达梦走同步引擎、支持 `-x schema=` 模式切换。
+  2. **Alembic 环境重构**：链名 = 配置段名（`alembic -n alembic:<链名>`；`[alembic]` 段为缺省租户链、向后兼容），版本目录由配置段 `version_locations` 声明、元数据子集由链注册表取；URL 解析 `-x url=` > `BMS_MIGRATION_URL` > 配置（租户链支持 `-x db_key=` 经 `url_template` 解析）；在线分支对达梦走同步引擎、支持 `-x schema=` 模式切换。
   3. **迁移脚本**：平台链首个迁移 `sys_tenant` / `sys_module` / `sys_module_i18n`；租户链既有 `0001` 迁入 `tenant/` 目录、补 `branch_labels` 并把 12 个 `ix_*` 索引名修订为 `idx_*`（消除与模型命名约定的漂移）；归档链建空目录占位。
   4. **SQLite 开发库自动建表**：启动期（lifespan）按开关与方言执行「链表建表」（`Base.metadata` 子集，幂等），不依赖迁移脚本。
   5. **`ops` 批量迁移与新租户初始化**：`ops/migrate_tenants.py`（枚举平台库 + 各租户库 + 归档库 → 逐库迁移、失败不中断 + 汇总、幂等）；`ops/init_tenant.py`（建库 → 迁移 → 幂等种子）；库级建删能力落 `app/db/admin.py` + 薄 CLI `ops/db_admin.py`（供演练与 01_05 复用）。
@@ -24,7 +24,7 @@
 | 关注点 | 现状（阶段一 / 01_01~01_03 交付） | 差距（本任务目标） |
 | --- | --- | --- |
 | 迁移脚本组织 | 单目录 `alembic/versions/*.py` 单链（仅租户链 `0001_dict_and_query_scheme`，10 处 `ix_*` 索引名） | 按数据源分三链（`platform` / `tenant` / `archive`）+ 分支标签；索引名与模型命名约定对齐 |
-| `alembic/env.py` | 在线 / 离线分支可用（异步引擎 + `run_sync`）；URL 解析 `-x url=` > `BMS_MIGRATION_URL` > `database.tenants.url`；元数据取全量 `Base.metadata` | 按 `-x target=` 选链（版本目录 + 元数据子集）；租户链支持 `-x db_key=` 模板解析；达梦同步引擎分支与 `-x schema=` 模式切换；空链提示 |
+| `alembic/env.py` | 在线 / 离线分支可用（异步引擎 + `run_sync`）；URL 解析 `-x url=` > `BMS_MIGRATION_URL` > `database.tenants.url`；元数据取全量 `Base.metadata`；仅单链 | 按配置段派生链（版本目录 + 元数据子集）；租户链支持 `-x db_key=` 模板解析；达梦同步引擎分支与 `-x schema=` 模式切换；空链提示 |
 | 平台库迁移 | 无迁移脚本；`sys_tenant` / `sys_module` 表由 `ops/seed_tenant.py` / `ops/seed_module.py` 的 `create(checkfirst=True)` 建 | 平台链迁移建三表（`sys_tenant` / `sys_module` / `sys_module_i18n`），种子脚本退化为纯种子 |
 | SQLite 开发库建表 | 各家脚本自行 `create` / 迁移；无统一自动建表 | 启动期按开关 + 方言自动建表（链表子集、幂等） |
 | `ops` 批量迁移 | `ops/migrate_tenants.py` 占位（固定三库名 + dry-run 打印） | 真实实现：枚举平台库 + `sys_tenant` 各租户 + 归档库 → 逐库 Alembic 迁移，失败不中断 + 汇总，幂等 |
@@ -140,14 +140,14 @@ bms文档/
 
 ```mermaid
 flowchart LR
-    A["-x target=platform|tenant|archive<br/>（缺省 tenant）"] --> B["resolve_chain → 链定义"]
-    B --> C["config.set_main_option<br/>version_locations"]
+    A["alembic -n alembic:&lt;链名&gt;<br/>（缺省 [alembic] 段 = 租户链）"] --> B["配置段 → 链定义<br/>（resolve_chain_from_section）"]
+    B --> C["版本目录：配置段 version_locations<br/>（CLI 读配置早于 env.py）"]
     B --> D["target_metadata = chain_metadata"]
     B --> E["URL：-x url= &gt; BMS_MIGRATION_URL<br/>&gt; 配置（租户链支持 -x db_key=）"]
     E --> F{"方言为 dm?"}
     F -- 是 --> G["同步引擎 create_engine + run_sync"]
     F -- 否 --> H["异步引擎 create_async_engine + run_sync"]
-    G --> I["{可选} -x schema= → SET SCHEMA"]
+    G --> I["{可选} -x schema= → apply_session_schema"]
     H --> J["run_migrations（在线）"]
     I --> J
     D --> J
@@ -156,8 +156,8 @@ flowchart LR
 
 | 项 | 约定 |
 | --- | --- |
-| 链选择 | `-x target=<链名>`；缺省 `tenant`（决策 18）；未知链名由 `resolve_chain` 抛 `ConfigError`（快速失败，不误跑库） |
-| 版本目录 | `config.set_main_option("version_locations", str(chain_version_location(chain)))`；`script_location` 仍为 `alembic` |
+| 链选择 | **链名 = 配置段名**：`alembic -n alembic:<链名>`；缺省 `[alembic]` 段即租户链（向后兼容裸命令，决策 18/19）；未知配置段由 `resolve_chain_from_section` 抛 `ConfigError`（快速失败，不误跑库） |
+| 版本目录 | 由配置段 `version_locations`（`%(here)s/alembic/versions/<链名>`）声明——**CLI 在 env.py 之前读取**，故不能由 env.py 动态设置（决策 19）；`script_location = %(here)s/alembic` 保证跨工作目录可用 |
 | 目标元数据 | `chain_metadata(chain)`（子集）；`compare_type=True` 保持 Alembic 默认 + `compare_server_default` 不开启（与既有脚本口径一致，服务端默认值差异不在漂移校验范围） |
 | URL 解析 | `-x url=`（显式）> `BMS_MIGRATION_URL`（环境变量）> `chain_url(...)`（配置；租户链可用 `-x db_key=tenant_{code}` 走 `url_template`） |
 | 达梦分支 | 方言 `dm` 为同步驱动（无异步方言）→ 用 `create_engine(url, poolclass=NullPool)` 同步在线迁移；其余方言走 `create_async_engine`（决策 15 / Q8） |
@@ -328,8 +328,8 @@ flowchart LR
 
 | 场景 | 处理 |
 | --- | --- |
-| `-x target=` 未知链名 | `ConfigError`（启动即失败，不误跑库） |
-| 未传 `-x target=` | 缺省 `tenant`（决策 18）；命令文档一律写显式写法 |
+| Alembic 配置段未登记（如 `-n alembic:legacy`） | `ConfigError`（启动即失败，不误跑库） |
+| 未传 `-n` | 取 `[alembic]` 段 = 缺省租户链（决策 18）；命令文档一律写 `-n alembic:<链名>` 显式写法 |
 | 链无 revision（归档链） | 打印「暂无迁移脚本（跳过）」并正常退出（退出码 0） |
 | 达梦进异步分支 | 不发散：按方言判定走同步引擎；异步路径对 `dm+…` 不再尝试（避免 `asyncio extension requires an async driver`） |
 | `-x schema=` 未传且库为达梦 | 迁移落在连接默认模式（SYSDBA）；演练必须显式传 `-x schema=`，否则视为配置错误（实施记录登记） |
@@ -358,7 +358,7 @@ flowchart LR
 | Kiwi | 用例 | 类型 | 断言要点 |
 | --- | --- | --- | --- |
 | TBD | 迁移链注册 | 单元 | 三条链注册（目录 / 表集 / 分支标签）；未知链 `ConfigError`；元数据子集只含链表；URL 解析优先序（`-x url=` > 环境变量 > 配置；租户链 `db_key` 经模板） |
-| TBD | `env.py` 链切换与达梦分支 | 单元 | `-x target=platform/tenant` 取对应版本目录与元数据；缺省 `tenant`；达梦走同步分支（引擎类型断言）；`-x schema=` 仅达梦生效 |
+| TBD | 迁移链与配置段 | 单元 | 配置段 → 链派生（`[alembic]` = 缺省链、`[alembic:<链名>]` = 对应链、未知段 `ConfigError`）；每链版本目录单 head + 链首 `branch_labels`；达梦走同步分支、`-x schema=` 经 `apply_session_schema` 仅达梦生效 |
 | TBD | 迁移链完整性 | 单元 | 每链单 head、无断链、revision 全局唯一；`branch_labels` 与目录名一致；归档链为空链 |
 | TBD | 迁移与模型零漂移 | 单元 | 每条链迁移后与元数据子集差异为空；未迁移表差异非空（反例） |
 | TBD | SQLite 自动建表 | 单元 | 开关开 + SQLite → 建链表（幂等、第二次为 0 张新表）；开关关 / 非 SQLite → 跳过 |
@@ -442,9 +442,9 @@ cd backend
 uv run ruff check . && uv run ruff format --check . && uv run pyright
 uv run pytest -q --cov=app --cov-branch
 # 开发库（SQLite）重建与种子
-BMS_MIGRATION_URL="sqlite+aiosqlite:///./bms_tenant_demo.db" uv run alembic -x target=tenant upgrade head
+BMS_MIGRATION_URL="sqlite+aiosqlite:///./bms_tenant_demo.db" uv run alembic upgrade head   # 缺省链 = 租户链
 BMS_MIGRATION_URL="sqlite+aiosqlite:///./bms_tenant_demo.db" uv run python -m ops.seed_dict
-BMS_MIGRATION_URL="sqlite+aiosqlite:///./bms_platform.db" uv run alembic -x target=platform upgrade head
+BMS_MIGRATION_URL="sqlite+aiosqlite:///./bms_platform.db" uv run alembic -n alembic:platform upgrade head
 uv run python -m ops.seed_tenant && uv run python -m ops.seed_module
 # ops 批量迁移 / 建删库
 uv run python -m ops.migrate_tenants --target all --dry-run
@@ -476,10 +476,12 @@ python3 scripts/tools/base-check/check-links.py
 | 15 | 达梦建库方式 | 用模式（`CREATE SCHEMA` → 迁移 → `DROP SCHEMA ... CASCADE`），不新建实例 |
 | 16 | 漂移校验 | 每条链 autogenerate 对比断言无差异（SQLite；含反例验证） |
 | 17 | 建删库入口 | 能力落 `app/db/admin.py` + 薄 CLI `ops/db_admin.py`（create / drop / exists），供演练与 01_05 复用 |
-| 18 | `-x target=` 缺省 | 缺省 `tenant`（向后兼容既有命令与用例）；ops / 文档一律显式传 |
-| 19 | 演练对象数 | 每方言两个对象：平台链与租户链分库（贴近真实平台库 / 租户库拓扑），共 6 次迁移执行 |
-| 20 | 索引断言触发方式 | 工具显式调用（不在 `__init_subclass__` 自动触发），避免既有测试替身模型被误拦 |
-| 21 | 零漂移比对范围 | 只比对链表子集与服务端默认值之外的结构差异（`compare_server_default` 不开启，与既有脚本口径一致） |
+| 18 | 链缺省 | 缺省 `[alembic]` 段 = 租户链（向后兼容既有裸命令与用例）；ops / 文档一律显式传 `-n alembic:<链名>` |
+| 19 | CLI 选链形态 | **链名 = 配置段名**（`alembic -n alembic:<链名>`，`alembic.ini` 增 `[alembic:platform]` / `[alembic:tenant]` / `[alembic:archive]` 三段）：Alembic 在 env.py 之前读取 `version_locations`，`-x target=` 无法动态换版本目录；且多链 = 多 head，裸 `upgrade head` 必报错。该形态单入参、零破坏（缺省段即租户链）、新增链 = 加一段 + 链注册 |
+| 20 | 演练对象数 | 每方言两个对象：平台链与租户链分库（贴近真实平台库 / 租户库拓扑），共 6 次迁移执行 |
+| 21 | 索引断言触发方式 | 工具显式调用（不在 `__init_subclass__` 自动触发），避免既有测试替身模型被误拦 |
+| 22 | 零漂移比对范围 | 只比对链表子集与服务端默认值之外的结构差异（`compare_server_default` 不开启，与既有脚本口径一致） |
+| 23 | 达梦模式切换落点 | 抽公共助手 `app/db/migration.py::apply_session_schema`（`SET SCHEMA` → 回落 `ALTER SESSION SET CURRENT_SCHEMA`，非达梦 / 未指定模式时空操作），由 `alembic/env.py` 与版本读取共用 |
 
 ## 11. 参考文档 <a id="ref"></a>
 
