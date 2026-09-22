@@ -1,10 +1,11 @@
 """引擎主 / 副本多绑定与请求上下文选引擎测试（Kiwi 984）。"""
 
+from collections.abc import Awaitable, Callable
 from types import SimpleNamespace
 from typing import Annotated, cast
 
 import pytest
-from fastapi import Depends, FastAPI, Request
+from fastapi import Depends, FastAPI, Request, Response
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import Engine
 from sqlalchemy.engine import make_url
@@ -18,7 +19,7 @@ from bms_core.core.exceptions import ConfigError
 from bms_core.db.engine import EngineFactory
 from bms_core.db.health import PrimaryHealth
 from bms_core.db.registry import EngineRegistry
-from bms_core.db.session import SessionFactory, get_db, get_read_db, get_write_db
+from bms_core.db.session import SessionFactory, get_db, get_platform_read_db, get_read_db, get_write_db
 
 _MEMORY = "sqlite+aiosqlite:///:memory:"
 
@@ -115,6 +116,19 @@ async def _build_app(factory: EngineFactory, *, read_middleware: bool = False) -
     async def _write(session: Annotated[AsyncSession, Depends(get_write_db)]) -> dict[str, int]:  # pyright: ignore[reportUnusedFunction]
         return {"bind": id(session.bind)}
 
+    @app.get("/platform")
+    async def _platform(session: Annotated[AsyncSession, Depends(get_platform_read_db)]) -> dict[str, int]:  # pyright: ignore[reportUnusedFunction]
+        return {"bind": id(session.bind)}
+
+    @app.middleware("http")
+    async def _inject_tenant(  # pyright: ignore[reportUnusedFunction]
+        request: Request, call_next: Callable[[Request], Awaitable[Response]]
+    ) -> Response:
+        """测试中间件：带 `X-Test-Tenant` 头时注入租户库上下文（对照平台库强制行为）。"""
+        if request.headers.get("X-Test-Tenant"):
+            request.scope.setdefault("state", {})["tenant"] = SimpleNamespace(db_key="tenant_demo")
+        return await call_next(request)
+
     return app
 
 
@@ -134,4 +148,21 @@ async def test_request_context_selects_engine() -> None:
 
     request = cast("Request", SimpleNamespace(app=app))
     assert get_primary_health(request) is app.state.primary_health
+    await app.state.engine_registry.aclose()
+
+
+@pytest.mark.kiwi_id(2164)
+async def test_platform_read_db_forces_platform_engine() -> None:
+    """get_platform_read_db 带租户上下文时仍取平台库只读引擎；get_read_db 则命中租户库键（对照）。"""
+    factory = EngineFactory(_settings())
+    app = await _build_app(factory)
+    platform_read_id = id(factory.create("platform", read_only=True))
+    tenant_read_id = id(factory.create("tenant_demo", read_only=True))
+    assert tenant_read_id != platform_read_id
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        assert (await client.get("/platform")).json() == {"bind": platform_read_id}
+        assert (await client.get("/platform", headers={"X-Test-Tenant": "1"})).json() == {"bind": platform_read_id}
+        assert (await client.get("/read", headers={"X-Test-Tenant": "1"})).json() == {"bind": tenant_read_id}
+
     await app.state.engine_registry.aclose()

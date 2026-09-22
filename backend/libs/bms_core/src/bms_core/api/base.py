@@ -12,13 +12,14 @@
   认证 / RBAC 阶段（权限码校验沿用 `require_permission`）。
 """
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Query, params
+from pydantic import ValidationError
 
 from bms_core.core.base import BaseObject
-from bms_core.core.exceptions import ConflictError
+from bms_core.core.exceptions import ConflictError, ParamError
 from bms_core.schemas.common import ApiResponse
 from bms_core.schemas.pagination import BaseCursorQuery, BasePageQuery
 from bms_core.schemas.sorting import BaseSortQuery
@@ -231,6 +232,28 @@ def mount_service_routers(routers: Sequence[BaseRouter], *, prefix: str = API_PR
     return parent
 
 
+def _build_query[QueryT](build: Callable[[], QueryT]) -> QueryT:
+    """构造查询契约：契约级校验失败统一转参数错误（与请求级校验同一口径）。
+
+    FastAPI 只把请求参数级校验失败转 `RequestValidationError`；依赖工厂内构造契约
+    （如页码限深 / 游标 `limit`）抛出的 `ValidationError` 会漏到 500，故在此归一化。
+    明细剔除 `ctx`（`value_error` 的 ctx 含异常对象、不可 JSON 序列化；具体约束信息已在 `msg`）。
+
+    Args:
+        build: 契约构造器。
+
+    Returns:
+        QueryT: 查询契约。
+
+    Raises:
+        ParamError: 契约校验失败（10001）。
+    """
+    try:
+        return build()
+    except ValidationError as exc:
+        raise ParamError(data=exc.errors(include_context=False)) from exc
+
+
 def page_query(
     page: Annotated[int, Query(ge=1, description="页码（从 1 起）")] = 1,
     size: Annotated[int, Query(ge=1, le=200, description="每页条数（默认 20，上限 200）")] = 20,
@@ -247,8 +270,11 @@ def page_query(
 
     Returns:
         BasePageQuery: 分页请求契约。
+
+    Raises:
+        ParamError: 页码限深等契约校验失败（10001）。
     """
-    return BasePageQuery(page=page, size=size, order_by=order_by, order=order)
+    return _build_query(lambda: BasePageQuery(page=page, size=size, order_by=order_by, order=order))
 
 
 def sort_query(
@@ -263,8 +289,11 @@ def sort_query(
 
     Returns:
         BaseSortQuery: 排序请求契约。
+
+    Raises:
+        ParamError: 契约校验失败（10001）。
     """
-    return BaseSortQuery(order_by=order_by, order=order)
+    return _build_query(lambda: BaseSortQuery(order_by=order_by, order=order))
 
 
 def cursor_query(
@@ -283,8 +312,11 @@ def cursor_query(
 
     Returns:
         BaseCursorQuery: 游标分页请求契约。
+
+    Raises:
+        ParamError: `limit` 上限等契约校验失败（10001）。
     """
-    return BaseCursorQuery(cursor=cursor, limit=limit, order_by=order_by, order=order)
+    return _build_query(lambda: BaseCursorQuery(cursor=cursor, limit=limit, order_by=order_by, order=order))
 
 
 def require_auth() -> None:

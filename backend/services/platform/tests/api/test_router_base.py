@@ -17,7 +17,7 @@ from bms_core.api.base import (
     sort_query,
 )
 from bms_core.core.base import BaseObject
-from bms_core.core.exceptions import ConflictError
+from bms_core.core.exceptions import ConflictError, ParamError
 from bms_core.schemas.pagination import BaseCursorQuery, BasePageQuery
 from bms_core.schemas.sorting import BaseSortQuery
 from bms_platform.main import ApplicationFactory
@@ -138,6 +138,18 @@ async def test_parameter_binding_factories() -> None:
         cursor = (await client.get("/bind/cursor", params={"cursor": "c1", "limit": 3})).json()
         assert cursor["cursor"] == "c1"
         assert cursor["limit"] == 3
+
+
+@pytest.mark.kiwi_id(2164)
+def test_query_factories_normalize_contract_errors() -> None:
+    """依赖工厂契约校验失败统一转参数错误（10001）：页码限深 / 游标 limit 越界（不落 500）。"""
+    with pytest.raises(ParamError) as page_exc:
+        page_query(page=101)
+    assert page_exc.value.code == 10001
+
+    with pytest.raises(ParamError) as cursor_exc:
+        cursor_query(limit=201)
+    assert cursor_exc.value.code == 10001
 
 
 @pytest.mark.kiwi_id(779)

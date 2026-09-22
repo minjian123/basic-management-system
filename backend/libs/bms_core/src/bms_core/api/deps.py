@@ -20,7 +20,7 @@ from bms_core.codecheck.base import get_code_validator
 from bms_core.dashboard.base import get_dashboard_card_registry
 from bms_core.db.health import PrimaryHealth
 from bms_core.db.registry import EngineRegistry
-from bms_core.db.session import SessionFactory, get_db, get_read_db, get_uow, get_write_db
+from bms_core.db.session import SessionFactory, get_db, get_platform_read_db, get_read_db, get_uow, get_write_db
 from bms_core.db.tenant import TenantContext, get_tenant
 from bms_core.db.tenant_source import TenantSource
 from bms_core.dict.base import get_dict_cache_region, get_dict_source, get_dict_translator
@@ -111,6 +111,7 @@ __all__ = [
     "get_org_name_resolver",
     "get_password_policy",
     "get_permission_checker",
+    "get_platform_read_db",
     "get_preference_store",
     "get_primary_health",
     "get_print_exporter",
