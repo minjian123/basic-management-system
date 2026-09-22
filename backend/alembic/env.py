@@ -26,9 +26,9 @@ from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from alembic import context
-from app.core.config import get_settings
-from app.core.exceptions import ConfigError
-from app.db.migration import (
+from bms_core.core.config import get_settings
+from bms_core.core.exceptions import ConfigError
+from bms_core.db.migration import (
     MigrationChain,
     apply_session_schema,
     chain_metadata,

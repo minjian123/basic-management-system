@@ -19,5 +19,8 @@ RUN sed -i 's|deb.debian.org|mirrors.tuna.tsinghua.edu.cn|g' /etc/apt/sources.li
 RUN pip install --no-cache-dir uv
 
 WORKDIR /opt/bms
+# 工作区形态：预装第三方依赖（不装工作区成员——成员源码不入镜像，运行时由 job `uv sync` 装入）
 COPY pyproject.toml uv.lock ./
-RUN uv sync --frozen --no-install-project && rm -rf /root/.cache
+COPY libs/bms_core/pyproject.toml libs/bms_core/pyproject.toml
+COPY services/platform/pyproject.toml services/platform/pyproject.toml
+RUN uv sync --frozen --no-install-workspace && rm -rf /root/.cache

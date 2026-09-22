@@ -12,7 +12,7 @@ uv run python ops/check_modules.py
 import sys
 from collections.abc import Sequence
 
-from app.services.module_registry import PLATFORM_MODULES, ModuleRegistry
+from bms_core.services.module_registry import PLATFORM_MODULES, ModuleRegistry
 
 
 def main(argv: Sequence[str] | None = None) -> int:

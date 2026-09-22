@@ -5,7 +5,7 @@
 ```bash
 cd backend
 uv run python -m ops.seed_tenant
-uv run python -m ops.seed_tenant --url sqlite+aiosqlite:///./bms_platform.db
+uv run python -m ops.seed_tenant --url sqlite+aiosqlite:///./app.db
 uv run python -m ops.seed_tenant --dry-run
 ```
 
@@ -24,9 +24,9 @@ from sqlalchemy import select
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from app.core.config import get_settings
-from app.db.tenant import build_tenant_db_key
-from app.models.platform import SysTenant
+from bms_core.core.config import get_settings
+from bms_core.db.tenant import build_tenant_db_key
+from bms_core.models.platform import SysTenant
 
 
 @dataclass(frozen=True)

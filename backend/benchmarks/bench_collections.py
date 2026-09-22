@@ -9,8 +9,8 @@ import threading
 import time
 from collections.abc import Callable
 
-from app.core.collections import SortedDict
-from app.core.concurrent import ConcurrentSortedDict, LockStrategy
+from bms_core.core.collections import SortedDict
+from bms_core.core.concurrent import ConcurrentSortedDict, LockStrategy
 
 OPERATIONS = 20_000
 READ_RATIO = 0.9

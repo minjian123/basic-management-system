@@ -26,8 +26,8 @@ from collections.abc import Sequence
 
 from sqlalchemy.engine import make_url
 
-from app.core.exceptions import ConfigError
-from app.db.admin import (
+from bms_core.core.exceptions import ConfigError
+from bms_core.db.admin import (
     DatabaseTarget,
     create_database,
     database_exists,
