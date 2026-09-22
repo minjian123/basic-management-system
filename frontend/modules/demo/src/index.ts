@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/triple-slash-reference -- Module Federation 类型声明生成以 plain tsc 编译，需引用 env.d.ts 载入环境声明（版本常量与 .vue shim） */
+/// <reference path="./env.d.ts" />
 /**
  * 演示模块定义（Module Federation remote 入口：**默认导出**模块定义）。
  *

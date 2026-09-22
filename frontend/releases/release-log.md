@@ -4,6 +4,8 @@
 
 | 时间（UTC） | 操作者 | 动作 | 模块 | 版本 | 前版本 | 入口 gzip（KB） | 入口 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
+| 2026-09-22T01:30:57.304Z | minjian | republish | sample | 0.1.0 | — | 13.2 | http://localhost:5002/sample/0.1.0/remoteEntry.js |
+| 2026-09-22T01:30:57.212Z | minjian | republish | demo | 0.1.0 | — | 11.6 | http://localhost:5002/demo/0.1.0/remoteEntry.js |
 | 2026-09-22T00:56:26.252Z | minjian | rollback | sample | 0.1.0 | 0.2.0 | — | http://localhost:5002/sample/0.1.0/remoteEntry.js |
 | 2026-09-22T00:56:21.475Z | minjian | publish | sample | 0.2.0 | 0.1.0 | 13.2 | http://localhost:5002/sample/0.2.0/remoteEntry.js |
 | 2026-09-22T00:56:03.910Z | minjian | publish | sample | 0.1.0 | — | 13.2 | http://localhost:5002/sample/0.1.0/remoteEntry.js |
