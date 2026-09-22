@@ -24,7 +24,7 @@
 | `id` | BIGINT | 否 | 主键，雪花 ID | 主键 |
 | `code` | VARCHAR(64) | 否 | 与 `deleted_at` 复合唯一 | 租户编码（全小写） |
 | `name` | VARCHAR(128) | 否 | — | 租户名称 |
-| `domain` | VARCHAR(255) | 是 | `idx_domain` | 子域名（`{domain}`） |
+| `domain` | VARCHAR(255) | 是 | `idx_sys_tenant_domain` | 子域名（`{domain}`） |
 | `db_key` | VARCHAR(64) | 否 | — | 数据源键（`tenant_{code}`） |
 | `status` | VARCHAR(16) | 否 | — | 状态（`active` / `suspended`） |
 | `expire_at` | DATETIME | 是 | — | 到期时间（UTC） |
@@ -40,7 +40,7 @@
 | 名称 | 类型 | 列 | 说明 |
 | --- | --- | --- | --- |
 | `uq_sys_tenant_code_deleted_at` | 唯一 | `(code, deleted_at)` | 租户编码唯一（软删除后可复用） |
-| `idx_domain` | 普通 | `(domain)` | 子域名解析查询 |
+| `idx_sys_tenant_domain` | 普通 | `(domain)` | 子域名解析查询 |
 
 - 无物理外键；`db_key` 指向数据源配置，租户库由命名约定 `bms_tenant_{code}` 派生。
 
@@ -56,5 +56,6 @@
 | --- | --- | --- | --- |
 | 2026-09-13 | v1 | 新建表结构（平台库；随落库阶段迁移） | minjian |
 | 2026-09-22 | v2 | 迁移落地：随平台链 `0001_sys_tenant_module` 建表（原 `ix_*` 索引名统一为 `idx_*`） | minjian |
+| 2026-09-22 | v3 | 索引名对齐实际库与模型元数据（`idx_domain` → `idx_sys_tenant_domain`） | minjian |
 
-> 数据表设计 · 与《数据库开发规范》「数据表文档规范」节配套
+> 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套

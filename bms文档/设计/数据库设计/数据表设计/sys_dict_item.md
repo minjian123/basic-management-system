@@ -46,8 +46,7 @@
 | `idx_dict_item_value` | 普通 | `(type_id, value)` | 按值子集回填（批量翻译）与单值翻译 |
 | `idx_dict_item_parent_sort` | 普通 | `(type_id, parent_id, sort)` | 级联父值过滤 + 排序 |
 | `idx_dict_item_label` | 普通 | `(type_id, label)` | 远程搜索前缀匹配 |
-| `ix_sys_dict_item_type_id` | 普通 | `(type_id)` | 类型过滤 |
-| `ix_sys_dict_item_deleted_at` | 普通 | `(deleted_at)` | 软删除过滤 |
+| `idx_sys_dict_item_type_id` | 普通 | `(type_id)` | 类型过滤 |
 
 - 无物理外键；`type_id` / `dict_item_id` / `dict_type_id` / `dict_attr_id` 为逻辑引用（同租户库），`parent_id` 逻辑引用条目 `value`（级联父值）。 扩展属性 `attr_json` 不进普通缓存链路（对齐《数据架构》「字典与系统参数管理」节）；i18n 附表见 [sys_dict_item_i18n.md](sys_dict_item_i18n.md)。
 
@@ -63,5 +62,6 @@
 | --- | --- | --- | --- |
 | 2026-09-21 | v1 | 新建表结构（随 02-4-27 首个迁移 `0001_dict_and_query_scheme`） | minjian |
 | 2026-09-22 | v2 | 迁移脚本迁入租户链目录（`alembic/versions/tenant/0001_dict_and_query_scheme.py`），索引名统一 `idx_*` | minjian |
+| 2026-09-22 | v3 | 索引名对齐命名约定（`ix_sys_dict_item_type_id` → `idx_sys_dict_item_type_id`）；公共软删除索引不再逐表列出 | minjian |
 
-> 数据表设计 · 与《数据库开发规范》「数据表设计文档组织」节配套
+> 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套

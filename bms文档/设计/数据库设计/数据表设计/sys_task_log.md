@@ -22,7 +22,7 @@
 | 字段 | 类型 | 可空 | 约束 / 默认 | 说明 |
 | --- | --- | --- | --- | --- |
 | `id` | BIGINT | 否 | 主键，雪花 ID | 主键 |
-| `task_id` | BIGINT | 否 | `idx_task_id` | 任务定义 ID（逻辑外键 → `sys_task.id`） |
+| `task_id` | BIGINT | 否 | `idx_sys_task_log_task_id` | 任务定义 ID（逻辑外键 → `sys_task.id`） |
 | `status` | VARCHAR(16) | 否 | — | 执行状态（`running` / `success` / `failed`） |
 | `started_at` | DATETIME | 是 | — | 开始时间（UTC） |
 | `finished_at` | DATETIME | 是 | — | 结束时间（UTC） |
@@ -38,7 +38,7 @@
 
 | 名称 | 类型 | 列 | 说明 |
 | --- | --- | --- | --- |
-| `idx_task_id` | 普通 | `(task_id)` | 按任务查执行记录 |
+| `idx_sys_task_log_task_id` | 普通 | `(task_id)` | 按任务查执行记录 |
 
 - 无物理外键；`task_id` 为逻辑外键（`sys_task.id`），同库。
 
@@ -53,5 +53,6 @@
 | 日期 | 版本 | 变更 | 作者 |
 | --- | --- | --- | --- |
 | 2026-09-13 | v1 | 新建表结构（租户库；随回补阶段迁移） | minjian |
+| 2026-09-22 | v2 | 索引名对齐实际库与模型元数据（`idx_task_id` → `idx_sys_task_log_task_id`） | minjian |
 
-> 数据表设计 · 与《数据库开发规范》「数据表文档规范」节配套
+> 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套

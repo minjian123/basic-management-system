@@ -48,7 +48,6 @@
 | --- | --- | --- | --- |
 | `uq_scheme_scope_name_deleted_at` | 唯一 | `(scope, owner_id, target, dict_type, field_key, name, deleted_at)` | 同作用域下方案名唯一（软删除后可复用） |
 | `idx_scheme_lookup` | 普通 | `(target, field_key, status, scope)` | 方案清单与默认解析 |
-| `ix_sys_query_scheme_deleted_at` | 普通 | `(deleted_at)` | 软删除过滤 |
 
 - 无物理外键；`type_id` / `dict_item_id` / `dict_type_id` / `dict_attr_id` 为逻辑引用（同租户库），`parent_id` 逻辑引用条目 `value`（级联父值）。 三级优先级（个人 > 租户 > 平台）解析由存储实现承载（`SqlQuerySchemeStore`）；契约见 02-4-20。
 
@@ -64,5 +63,6 @@
 | --- | --- | --- | --- |
 | 2026-09-21 | v1 | 新建表结构（随 02-4-27 首个迁移 `0001_dict_and_query_scheme`） | minjian |
 | 2026-09-22 | v2 | 迁移脚本迁入租户链目录（`alembic/versions/tenant/0001_dict_and_query_scheme.py`），索引名统一 `idx_*` | minjian |
+| 2026-09-22 | v3 | 公共软删除索引不再逐表列出（见数据规范） | minjian |
 
-> 数据表设计 · 与《数据库开发规范》「数据表设计文档组织」节配套
+> 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套

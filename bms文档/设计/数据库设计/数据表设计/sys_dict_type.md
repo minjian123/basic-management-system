@@ -39,7 +39,6 @@
 | --- | --- | --- | --- |
 | `uq_dict_type_code_deleted_at` | 唯一 | `(type, deleted_at)` | 类型编码唯一（软删除后可复用） |
 | `idx_dict_type_status_sort` | 普通 | `(status, sort)` | 运行时按状态 + 排序取类型 |
-| `ix_sys_dict_type_deleted_at` | 普通 | `(deleted_at)` | 软删除过滤 |
 
 - 无物理外键；`type_id` / `dict_item_id` / `dict_type_id` / `dict_attr_id` 为逻辑引用（同租户库），`parent_id` 逻辑引用条目 `value`（级联父值）。 类型停用后运行时取数不可见；i18n 附表见 [sys_dict_type_i18n.md](sys_dict_type_i18n.md)。
 
@@ -55,5 +54,6 @@
 | --- | --- | --- | --- |
 | 2026-09-21 | v1 | 新建表结构（随 02-4-27 首个迁移 `0001_dict_and_query_scheme`） | minjian |
 | 2026-09-22 | v2 | 迁移脚本迁入租户链目录（`alembic/versions/tenant/0001_dict_and_query_scheme.py`），索引名统一 `idx_*` | minjian |
+| 2026-09-22 | v3 | 公共软删除索引不再逐表列出（见数据规范） | minjian |
 
-> 数据表设计 · 与《数据库开发规范》「数据表设计文档组织」节配套
+> 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套
