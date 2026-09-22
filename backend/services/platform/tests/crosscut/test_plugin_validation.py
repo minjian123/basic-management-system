@@ -11,12 +11,13 @@ from pathlib import Path
 import pytest
 
 import bms_core as app_pkg
+from bms_core.application import service_lifespan as lifespan
 from bms_core.core import plugin as plugin_module
 from bms_core.core.base import BaseObject
 from bms_core.core.config import PluginSelection, Settings
 from bms_core.core.exceptions import PluginError
 from bms_core.core.plugin import BasePluggable, PluginRegistry
-from bms_platform.main import ApplicationFactory, lifespan
+from bms_platform.main import ApplicationFactory
 
 _BACKEND = Path(__file__).resolve().parents[4]
 
@@ -46,13 +47,13 @@ def _isolated_registry(monkeypatch: pytest.MonkeyPatch) -> PluginRegistry:
 
 
 def _prepare_app(monkeypatch: pytest.MonkeyPatch, settings: Settings) -> None:
-    """以自定义配置装配应用（替换 `bms_platform.main.get_settings`）。
+    """以自定义配置装配应用（替换 `bms_core.application.get_settings`）。
 
     Args:
         monkeypatch: pytest 补丁夹具。
         settings: 自定义配置。
     """
-    monkeypatch.setattr("bms_platform.main.get_settings", lambda: settings)
+    monkeypatch.setattr("bms_core.application.get_settings", lambda: settings)
 
 
 @pytest.mark.kiwi_id(534)

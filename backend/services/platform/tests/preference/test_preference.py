@@ -3,6 +3,7 @@
 import pytest
 from httpx import AsyncClient
 
+from bms_core.application import service_lifespan as lifespan
 from bms_core.core.capability import BaseCapability, BaseNullObject
 from bms_core.core.plugin import BasePluggable, resolve_plugin
 from bms_core.preference.base import (
@@ -15,7 +16,7 @@ from bms_core.preference.base import (
     is_valid_pref_key,
 )
 from bms_core.preference.null import NullPreferenceStore
-from bms_platform.main import ApplicationFactory, lifespan
+from bms_platform.main import ApplicationFactory
 
 API = "/api/v1/preferences"
 

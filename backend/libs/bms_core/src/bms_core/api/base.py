@@ -30,6 +30,7 @@ __all__ = [
     "RouterRegistry",
     "build_api_router",
     "cursor_query",
+    "mount_service_routers",
     "page_query",
     "register_router",
     "require_auth",
@@ -202,6 +203,31 @@ def build_api_router(*, prefix: str = API_PREFIX) -> APIRouter:
     """
     parent = APIRouter()
     _DEFAULT_REGISTRY.mount(parent, prefix=prefix)
+    return parent
+
+
+def mount_service_routers(routers: Sequence[BaseRouter], *, prefix: str = API_PREFIX) -> APIRouter:
+    """构建**服务级**接口聚合路由（服务内独立登记表，避免多服务同名登记表跨服务串扰）。
+
+    与 `register_router` / `build_api_router` 同口径（登记唯一性 + 统一前缀挂载），但使用服务内
+    新建的 `RouterRegistry`。多服务同进程（如 monorepo 测试）下各服务登记互不影响；每服务进程
+    仍是一份登记表。
+
+    Args:
+        routers: 本服务模块路由（继承 `BaseRouter`）。
+        prefix: 统一挂载前缀（默认 `API_PREFIX`）。
+
+    Returns:
+        APIRouter: 本服务聚合路由。
+
+    Raises:
+        ConflictError: 模块路由 `key` 在本服务内重复（10003）。
+    """
+    registry = RouterRegistry()
+    for router in routers:
+        registry.register(router)
+    parent = APIRouter()
+    registry.mount(parent, prefix=prefix)
     return parent
 
 

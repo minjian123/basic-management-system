@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
 """服务边界机器护栏（bms 权威源侧，CI base-integrity 与本地运行）。
 
-工作区形态（`backend/libs/<共享库>` + `backend/services/<服务>`）下校验四项
+工作区形态（`backend/libs/<共享库>` + `backend/services/<服务>`）下校验五项
 （《后端开发规范》§3.1「依赖方向」、§3.2「模块边界与数据所有权」；《微服务演进规划》S1）：
 
 1. **共享库不得依赖服务**：`libs/*` 包不得 import 任一 `services/*` 包；
 2. **服务不得互相依赖**：任一服务包不得 import 另一服务包；
 3. **分层依赖单向**：共享库 `core → {api, services}`、`repositories → services` 禁止；
    服务内 `api → services → repositories → models/schemas` 单向，`models/schemas` 不得反向；
-4. **跨包不得引用私有实现**：跨包 import 目标模块含下划线前缀（模块内部实现）即失败。
+4. **跨包不得引用私有实现**：跨包 import 目标模块含下划线前缀（模块内部实现）即失败；
+5. **表 / 表前缀跨服务唯一**（数据所有权最小子集）：各服务 `models` 声明的表名不得跨服务重复；
+   表前缀（首个 `_` 前段 + `_`）不得被两个服务声明（**`sys_` 平台域共享前缀例外**，其服务内归属
+   随服务目录（03_01）定案）；运行时跨库访问与读侧出口校验归 05_02。
 
 用法::
 
@@ -36,6 +39,8 @@ _SERVICE_LAYER_RULES: dict[str, frozenset[str]] = {
 }
 
 problems: list[str] = []
+service_tables: dict[str, list[str]] = {}
+"""各服务声明的表名清单（规则 5 扫描产出；供服务目录（03_01）登记参考）。"""
 
 
 def _discover_packages() -> dict[str, tuple[Path, bool]]:
@@ -81,6 +86,41 @@ def _iter_imports(path: Path) -> list[tuple[int, str]]:
     return found
 
 
+def _iter_tablenames(root: Path) -> list[str]:
+    """解析包内源文件，产出全部 `__tablename__ = "..."` 表名。
+
+    Args:
+        root: 包根目录。
+
+    Returns:
+        list[str]: 表名列表（按文件与行号顺序）。
+    """
+    found: list[str] = []
+    for path in sorted(root.rglob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Assign):
+                continue
+            if not any(isinstance(t, ast.Name) and t.id == "__tablename__" for t in node.targets):
+                continue
+            value = node.value
+            if isinstance(value, ast.Constant) and isinstance(value.value, str):
+                found.append(value.value)
+    return found
+
+
+def _table_prefix(table: str) -> str:
+    """取表名前缀（首个 `_` 前段 + `_`；无 `_` 返回原表名）。
+
+    Args:
+        table: 表名。
+
+    Returns:
+        str: 表前缀。
+    """
+    return table.split("_", 1)[0] + "_" if "_" in table else table
+
+
 def _subpackage(package: str, root: Path, path: Path) -> str:
     """取源文件子包名（包根下文件返回包名）。
 
@@ -98,7 +138,7 @@ def _subpackage(package: str, root: Path, path: Path) -> str:
 
 
 def check() -> int:
-    """执行四项护栏检查。
+    """执行五项护栏检查。
 
     Returns:
         int: 违规项数。
@@ -126,6 +166,26 @@ def check() -> int:
                     problems.append(f"[分层反向依赖] {detail}")
                 if top != package and any(part.startswith("_") for part in parts[1:]):
                     problems.append(f"[跨包私有引用] {detail}")
+
+    # 规则 5：表 / 表前缀跨服务唯一（数据所有权最小子集；`sys_` 平台域共享前缀例外）
+    tables: dict[str, str] = {}
+    prefixes: dict[str, set[str]] = {}
+    for package, (root, shared) in packages.items():
+        if shared:
+            continue
+        declared = _iter_tablenames(root)
+        service_tables[package] = declared
+        for table in declared:
+            owner = tables.get(table)
+            if owner is not None and owner != package:
+                problems.append(f"[表名跨服务重复] {table}：{owner} / {package}")
+            else:
+                tables[table] = package
+            prefixes.setdefault(_table_prefix(table), set()).add(package)
+    for prefix, owners in sorted(prefixes.items()):
+        if prefix != "sys_" and len(owners) > 1:
+            problems.append(f"[表前缀跨服务重复] {prefix}：{'、'.join(sorted(owners))}")
+
     return len(problems)
 
 
@@ -163,6 +223,32 @@ def _self_test() -> int:
         (core / "core/probe.py").write_text("import bms_core\n", encoding="utf-8")
         (svc / "api/router.py").write_text("from bms_core.repositories import base_repository\n", encoding="utf-8")
         run(False, "合规导入放行")
+
+        # 规则 5：表 / 表前缀跨服务唯一
+        org = tmp_path / "backend/services/org/src/bms_org"
+        (svc / "models").mkdir()
+        (org / "models").mkdir(parents=True)
+        (org / "__init__.py").write_text("", encoding="utf-8")
+        (org / "models/__init__.py").write_text("", encoding="utf-8")
+
+        def declare(target: Path, table: str) -> None:
+            (target / "m.py").write_text(f'__tablename__ = "{table}"\n', encoding="utf-8")
+
+        declare(svc / "models", "sys_icon")
+        declare(org / "models", "sys_notification")
+        run(False, "sys_ 共享前缀放行")
+
+        declare(svc / "models", "pur_order")
+        declare(org / "models", "pur_item")
+        run(True, "表前缀跨服务重复拦截")
+
+        declare(svc / "models", "pur_order")
+        declare(org / "models", "ord_item")
+        run(False, "表 / 表前缀各归其主放行")
+
+        declare(svc / "models", "ord_item")
+        declare(org / "models", "ord_item")
+        run(True, "表名跨服务重复拦截")
     return 0 if ok else 1
 
 
@@ -180,7 +266,10 @@ def main() -> int:
         for problem in problems:
             print("  " + problem)
         return 1
-    print("[check-service-boundaries] 通过：共享库 / 服务边界与分层依赖单向。")
+    print("[check-service-boundaries] 通过：共享库 / 服务边界、分层依赖单向、表 / 表前缀跨服务唯一。")
+    for package, tables in sorted(service_tables.items()):
+        listing = "、".join(f"{table}（{_table_prefix(table)}）" for table in tables) or "无表声明"
+        print(f"  - {package}：{listing}")
     return 0
 
 

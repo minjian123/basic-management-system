@@ -34,20 +34,62 @@ ignore = ["RUF001", "RUF002", "RUF003"]
 
 [tool.ruff.lint.isort]
 # 工作区自有包与脚本区视为第一方（与第三方依赖分组稳定，避免归类漂移）
-known-first-party = ["bms_core", "bms_platform", "ops", "scripts"]
+known-first-party = [
+    "bms_core",
+    "bms_platform",
+    "bms_identity",
+    "bms_tenant",
+    "bms_org",
+    "bms_file",
+    "bms_notification",
+    "bms_search",
+    "bms_ai",
+    "bms_report",
+    "ops",
+    "scripts",
+]
 
 [tool.pyright]
 typeCheckingMode = "strict"
 pythonVersion = "3.14"
 include = ["libs", "services"]
-# src 布局：把两工程源码根加入解析路径，供跨工程导入与严格类型检查
-extraPaths = ["libs/bms_core/src", "services/platform/src"]
+# src 布局：把各工程源码根加入解析路径，供跨工程导入与严格类型检查
+extraPaths = [
+    "libs/bms_core/src",
+    "services/platform/src",
+    "services/identity/src",
+    "services/tenant/src",
+    "services/org/src",
+    "services/file/src",
+    "services/notification/src",
+    "services/search/src",
+    "services/ai/src",
+    "services/report/src",
+]
 stubPath = "typings"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
-testpaths = ["libs/bms_core/tests", "services/platform/tests"]
-pythonpath = ["."]
+# importlib 模式：多个同名 `tests` 目录（每服务一套）互不冲突，测试模块按路径唯一命名
+addopts = "--import-mode=importlib"
+testpaths = [
+    "libs/bms_core/tests",
+    "services/platform/tests",
+    "services/identity/tests",
+    "services/tenant/tests",
+    "services/org/tests",
+    "services/file/tests",
+    "services/notification/tests",
+    "services/search/tests",
+    "services/ai/tests",
+    "services/report/tests",
+]
+pythonpath = [
+    ".",
+    "libs/bms_core/tests",
+    "services/file/tests",
+    "services/platform",
+]
 markers = [
     "kiwi_id: Kiwi TCMS 用例编号（如 @pytest.mark.kiwi_id(1)）",
     "integration: 需要真实外部服务的集成用例（随 04_02 执行，未配置环境时跳过）",

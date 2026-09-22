@@ -14,7 +14,7 @@ from typing import Annotated
 from fastapi import Depends, Header, Path, Query
 
 from bms_core.api.base import BaseRouter, require_auth
-from bms_core.api.deps import get_icon_registry, get_idempotency_store, get_tenant
+from bms_core.api.deps import current_code_of, get_icon_registry, get_idempotency_store, get_tenant
 from bms_core.core.exceptions import ParamError
 from bms_core.db.tenant import TenantContext
 from bms_core.icon.base import (
@@ -34,7 +34,6 @@ from bms_core.schemas.icon import (
     IconResponse,
     IconUpdateRequest,
 )
-from bms_platform.api.tenant import current_code_of
 
 router = BaseRouter(
     key="icon",

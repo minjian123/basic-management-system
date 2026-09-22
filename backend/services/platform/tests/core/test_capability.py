@@ -112,7 +112,8 @@ async def test_resource_manager_closes_in_reverse() -> None:
 @pytest.mark.kiwi_id(37)
 async def test_app_lifespan_closes_resources() -> None:
     """应用生命周期：关闭时统一释放异步资源。"""
-    from bms_platform.main import ApplicationFactory, lifespan
+    from bms_core.application import service_lifespan as lifespan
+    from bms_platform.main import ApplicationFactory
 
     app = ApplicationFactory().create(None)
     async with lifespan(app):

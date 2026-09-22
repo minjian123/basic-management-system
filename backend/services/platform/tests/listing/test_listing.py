@@ -6,6 +6,7 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from bms_core.api.deps import get_query_scheme_store
+from bms_core.application import service_lifespan as lifespan
 from bms_core.core.capability import BaseCapability, BaseNullObject
 from bms_core.core.config import get_settings
 from bms_core.core.plugin import BasePluggable, resolve_plugin
@@ -20,7 +21,7 @@ from bms_core.listing.base import (
     build_list_pref_key,
 )
 from bms_core.listing.null import NullQuerySchemeStore
-from bms_platform.main import ApplicationFactory, lifespan
+from bms_platform.main import ApplicationFactory
 
 API = "/api/v1/query-schemes"
 

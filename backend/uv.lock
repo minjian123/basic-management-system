@@ -4,8 +4,16 @@ requires-python = ">=3.14"
 
 [manifest]
 members = [
+    "bms-ai",
     "bms-core",
+    "bms-file",
+    "bms-identity",
+    "bms-notification",
+    "bms-org",
     "bms-platform",
+    "bms-report",
+    "bms-search",
+    "bms-tenant",
 ]
 
 [manifest.dependency-groups]
@@ -178,6 +186,23 @@ wheels = [
 ]
 
 [[package]]
+name = "bms-ai"
+version = "0.1.0"
+source = { editable = "services/ai" }
+dependencies = [
+    { name = "bms-core" },
+    { name = "fastapi" },
+    { name = "uvicorn", extra = ["standard"] },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "bms-core", editable = "libs/bms_core" },
+    { name = "fastapi", specifier = ">=0.115" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.30" },
+]
+
+[[package]]
 name = "bms-core"
 version = "0.1.0"
 source = { editable = "libs/bms_core" }
@@ -230,9 +255,128 @@ requires-dist = [
 provides-extras = ["storage-minio"]
 
 [[package]]
+name = "bms-file"
+version = "0.1.0"
+source = { editable = "services/file" }
+dependencies = [
+    { name = "bms-core" },
+    { name = "fastapi" },
+    { name = "uvicorn", extra = ["standard"] },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "bms-core", editable = "libs/bms_core" },
+    { name = "fastapi", specifier = ">=0.115" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.30" },
+]
+
+[[package]]
+name = "bms-identity"
+version = "0.1.0"
+source = { editable = "services/identity" }
+dependencies = [
+    { name = "bms-core" },
+    { name = "fastapi" },
+    { name = "uvicorn", extra = ["standard"] },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "bms-core", editable = "libs/bms_core" },
+    { name = "fastapi", specifier = ">=0.115" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.30" },
+]
+
+[[package]]
+name = "bms-notification"
+version = "0.1.0"
+source = { editable = "services/notification" }
+dependencies = [
+    { name = "bms-core" },
+    { name = "fastapi" },
+    { name = "uvicorn", extra = ["standard"] },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "bms-core", editable = "libs/bms_core" },
+    { name = "fastapi", specifier = ">=0.115" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.30" },
+]
+
+[[package]]
+name = "bms-org"
+version = "0.1.0"
+source = { editable = "services/org" }
+dependencies = [
+    { name = "bms-core" },
+    { name = "fastapi" },
+    { name = "uvicorn", extra = ["standard"] },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "bms-core", editable = "libs/bms_core" },
+    { name = "fastapi", specifier = ">=0.115" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.30" },
+]
+
+[[package]]
 name = "bms-platform"
 version = "0.1.0"
 source = { editable = "services/platform" }
+dependencies = [
+    { name = "bms-core" },
+    { name = "fastapi" },
+    { name = "uvicorn", extra = ["standard"] },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "bms-core", editable = "libs/bms_core" },
+    { name = "fastapi", specifier = ">=0.115" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.30" },
+]
+
+[[package]]
+name = "bms-report"
+version = "0.1.0"
+source = { editable = "services/report" }
+dependencies = [
+    { name = "bms-core" },
+    { name = "fastapi" },
+    { name = "uvicorn", extra = ["standard"] },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "bms-core", editable = "libs/bms_core" },
+    { name = "fastapi", specifier = ">=0.115" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.30" },
+]
+
+[[package]]
+name = "bms-search"
+version = "0.1.0"
+source = { editable = "services/search" }
+dependencies = [
+    { name = "bms-core" },
+    { name = "fastapi" },
+    { name = "uvicorn", extra = ["standard"] },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "bms-core", editable = "libs/bms_core" },
+    { name = "fastapi", specifier = ">=0.115" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.30" },
+]
+
+[[package]]
+name = "bms-tenant"
+version = "0.1.0"
+source = { editable = "services/tenant" }
 dependencies = [
     { name = "bms-core" },
     { name = "fastapi" },

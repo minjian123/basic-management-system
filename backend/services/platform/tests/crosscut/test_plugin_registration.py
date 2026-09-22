@@ -267,7 +267,8 @@ def test_event_worker_location_and_abstraction() -> None:
 @pytest.mark.kiwi_id(531)
 async def test_app_starts() -> None:
     """应用可启动：`ApplicationFactory` + lifespan 进出正常（装配接线前行为不变）。"""
-    from bms_platform.main import ApplicationFactory, lifespan
+    from bms_core.application import service_lifespan as lifespan
+    from bms_platform.main import ApplicationFactory
 
     application = ApplicationFactory().create(None)
     async with lifespan(application):

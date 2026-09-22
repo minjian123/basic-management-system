@@ -26,6 +26,7 @@ from bms_core.api.deps import (
     get_dict_translator,
     get_query_provider_registry,
 )
+from bms_core.application import service_lifespan as lifespan
 from bms_core.core.config import get_settings
 from bms_core.core.exceptions import BizError, ParamError
 from bms_core.db.engine import EngineFactory
@@ -39,7 +40,7 @@ from bms_core.dict.seed import seed_dicts
 from bms_core.dict.service import DictAttrPayload, DictItemPayload, DictService, DictTypePayload
 from bms_core.dict.sql import SqlDictSource, SqlDictTranslator, current_dict_locale
 from bms_core.query.local import LocalQueryProviderRegistry
-from bms_platform.main import ApplicationFactory, lifespan
+from bms_platform.main import ApplicationFactory
 
 EXPECTED_TABLES = {
     "sys_dict_type",

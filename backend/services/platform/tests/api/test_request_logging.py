@@ -8,11 +8,12 @@ from httpx import ASGITransport, AsyncClient
 from starlette.types import Message, Receive, Scope, Send
 
 from bms_core.api.middleware import RequestLoggingMiddleware, TraceIdMiddleware
+from bms_core.application import service_lifespan as lifespan
 from bms_core.core.config import LogSettings, Settings
 from bms_core.core.context import get_current_request_id, get_current_trace_id
 from bms_core.core.logging import configure_logging
 from bms_core.tracing.base import TRACE_ID_HEADER
-from bms_platform.main import ApplicationFactory, lifespan
+from bms_platform.main import ApplicationFactory
 
 
 def _json_settings(*, slow_ms: int = 1000) -> Settings:

@@ -12,6 +12,7 @@ from fastapi import Depends
 from httpx import ASGITransport, AsyncClient
 
 import bms_core as app_pkg
+from bms_core.application import service_lifespan as lifespan
 from bms_core.core import plugin as plugin_module
 from bms_core.core.base import BaseObject
 from bms_core.core.config import PluginSelection, Settings
@@ -22,7 +23,7 @@ from bms_core.health.base import BaseHealthCheck, BaseHealthCheckRegistry, Healt
 from bms_core.health.registry import HealthCheckRegistry
 from bms_core.storage.base import BaseObjectStorage, get_object_storage
 from bms_core.storage.null import NullObjectStorage
-from bms_platform.main import ApplicationFactory, lifespan
+from bms_platform.main import ApplicationFactory
 
 _BACKEND = Path(__file__).resolve().parents[4]
 _CORE = _BACKEND / "libs" / "bms_core" / "src" / "bms_core"
@@ -73,7 +74,7 @@ class _NamedCheck(BaseHealthCheck):
 async def test_provider_resolves_from_registry(monkeypatch: pytest.MonkeyPatch) -> None:
     """提供者经注册表解析：路由依赖与 `resolve_plugin` / `app.state` 取到同一实例。"""
     _isolated_registry(monkeypatch)
-    monkeypatch.setattr("bms_platform.main.get_settings", lambda: Settings(storage=PluginSelection(provider="")))
+    monkeypatch.setattr("bms_core.application.get_settings", lambda: Settings(storage=PluginSelection(provider="")))
     app = ApplicationFactory().create(None)
 
     @app.get("/storage-probe")
@@ -101,7 +102,9 @@ async def test_config_switch_with_no_consumer_change(monkeypatch: pytest.MonkeyP
 
     registry = _isolated_registry(monkeypatch)
     registry.register("object_storage", "custom", lambda: CustomStorage())
-    monkeypatch.setattr("bms_platform.main.get_settings", lambda: Settings(storage=PluginSelection(provider="custom")))
+    monkeypatch.setattr(
+        "bms_core.application.get_settings", lambda: Settings(storage=PluginSelection(provider="custom"))
+    )
     app = ApplicationFactory().create(None)
 
     @app.get("/storage-probe")

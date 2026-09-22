@@ -92,7 +92,7 @@ def _use_fake_registry(monkeypatch: pytest.MonkeyPatch, fake: HealthCheckRegistr
     registry.register("health_check_registry", "test", lambda: fake)
     monkeypatch.setattr(plugin_module, "_DEFAULT_REGISTRY", registry)
     monkeypatch.setattr(
-        "bms_platform.main.get_settings",
+        "bms_core.application.get_settings",
         lambda: Settings(health_check_registry=PluginSelection(provider="test")),
     )
 
