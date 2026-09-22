@@ -28,8 +28,8 @@ async def test_list_contract(client: AsyncClient) -> None:
         assert group["provider"] == "null"
         assert group["implementations"] == [{"plugin_name": "null", "contract_version": "0.1.0", "status": "active"}]
     cache = by_key["cache"]
-    assert cache["provider"] == "null"
-    # 02-4-27：cache 域新增真实实现（memory / redis），null 保持缺省 provider
+    assert cache["provider"] == "memory"  # dev 覆盖启用进程内缓存（租户解析缓存，01_02）
+    # 02-4-27：cache 域新增真实实现（memory / redis）
     cache_items = cast("list[dict[str, str]]", cache["implementations"])
     assert [item["plugin_name"] for item in cache_items] == ["memory", "null", "redis"]
     storage = by_key["object_storage"]

@@ -1,7 +1,9 @@
-"""repositories 层作用域过滤中间层：软删除 + 数据范围条件统一。
+"""repositories 层作用域过滤中间层：软删除 + 数据范围 + 租户条件统一。
 
 - 继承契约层 `BaseRepository`，为内存基线与数据库实现提供统一作用域过滤。
 - 内存基线按 `ScopeCondition` 过滤；DB 实现回补时把条件拼入 WHERE。
+- 租户条件（第二层隔离）：模型含 `tenant_id` 列时由具体仓储置 `tenant_scoped=True`，
+  上下文租户有主键时强制注入，物理库隔离（第一层）之外的兜底口径。
 """
 
 import operator
@@ -9,6 +11,7 @@ from abc import ABC
 from collections.abc import Callable, Iterable, Sequence
 from typing import Any, cast
 
+from app.db.tenant import current_tenant_context
 from app.repositories.base_repository import BaseRepository
 from app.scope.base import ScopeCondition
 
@@ -91,12 +94,14 @@ def _match(item: object, condition: ScopeCondition) -> bool:
 
 
 class BaseScopedRepository[ModelT](BaseRepository[ModelT], ABC):
-    """作用域过滤中间层：软删除 + 数据范围条件。"""
+    """作用域过滤中间层：软删除 + 数据范围 + 租户条件。"""
 
     soft_delete_enabled: bool = True
+    tenant_scoped: bool = False
+    """模型含 `tenant_id` 列时置 True（同库多租户 / 平台侧租户维度表），强制注入租户条件。"""
 
     def _scope_conditions(self) -> list[ScopeCondition]:
-        """作用域条件（软删除 + 数据范围）。
+        """作用域条件（软删除 → 数据范围 → 租户）。
 
         Returns:
             list[ScopeCondition]: 过滤条件列表。
@@ -111,7 +116,23 @@ class BaseScopedRepository[ModelT](BaseRepository[ModelT], ABC):
             elif isinstance(predicate, list):
                 members = cast("list[object]", predicate)
                 conditions.extend(item for item in members if isinstance(item, ScopeCondition))
+        tenant = self._tenant_condition()
+        if tenant is not None:
+            conditions.append(tenant)
         return conditions
+
+    def _tenant_condition(self) -> ScopeCondition | None:
+        """租户强制过滤条件（未启用租户隔离 / 上下文无主键时返回 None）。
+
+        Returns:
+            ScopeCondition | None: `tenant_id = <当前租户主键>` 条件。
+        """
+        if not self.tenant_scoped:
+            return None
+        tenant_id = current_tenant_context().tenant_id
+        if tenant_id is None:
+            return None
+        return ScopeCondition("tenant_id", "eq", tenant_id)
 
     def _matches_scope(self, item: ModelT) -> bool:
         """实体是否满足全部作用域条件。

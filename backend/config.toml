@@ -36,6 +36,18 @@ check_timeout_ms = 2000
 # 就绪探针整体总超时（毫秒；建议 ≥ check_timeout_ms）
 total_timeout_ms = 5000
 
+[tenant]
+# 租户解析缓存 TTL（秒；经缓存基座写入，命中即用）
+resolve_cache_ttl = 60
+# 租户引擎活跃上限（超出按 LRU 逐出最久未用租户引擎）
+engine_max_active = 32
+# 租户引擎闲置回收阈值（秒；每次访问先清扫）
+engine_idle_timeout = 1800.0
+# 无任何来源时是否回落演示租户（开发兜底；prod 覆盖为 false）
+allow_demo_fallback = true
+# 租户解析豁免路径（精确匹配）
+exempt_paths = ["/", "/docs", "/redoc", "/openapi.json", "/healthz", "/readyz"]
+
 [database.platform]
 # 平台库连接串（不含密码；密码经 BMS_DATABASE__PLATFORM__PASSWORD 或完整 URL 注入）
 url = "sqlite+aiosqlite:///./bms_platform.db"
@@ -54,8 +66,12 @@ connect_timeout = 10.0
 # [database.platform.services.<服务标识>.pool]  # 按服务覆盖池参数（可选，键取 [app].service）
 
 [database.tenants]
-# 租户库连接串模板（每租户库经 EngineRegistry 解析，MVP 占位为单文件）
+# 租户库连接串（url_template 为空时的回落单库；每租户库经 EngineRegistry 按键解析）
 url = "sqlite+aiosqlite:///./bms_tenant_demo.db"
+# 租户库连接串模板（占位 {service} / {tenant} / {database}；{database} = bms_{service}_{tenant}）
+# 示例：sqlite+aiosqlite:///./bms_tenant_{tenant}.db / mysql+aiomysql://bms_dev@<host>:3306/{database}
+# 空串表示回落 url 单库（开发 SQLite 兼容）
+url_template = ""
 replicas = []
 max_connections = 0
 [database.tenants.pool]

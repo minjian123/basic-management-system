@@ -3,6 +3,8 @@
 - 方言：SQLite `sqlite+aiosqlite`（开发 / 测试）、MySQL `mysql+aiomysql`、
   PostgreSQL `postgresql+psycopg`、达梦 `dm+dmPython`（**同步驱动**，见下）。
 - 主 / 副本多绑定：写走主引擎；只读有副本时按进程内轮询选副本，无副本回落主引擎。
+- 租户库键（`tenant_{code}`）经目标 `url_template` 模板解析（`{service}` / `{tenant}` / `{database}`），
+  空模板回落 `url` 单库（开发 SQLite 兼容）；平台 / 归档库恒取 `url`。
 - 建引擎**不建连**；URL 经配置基座读取；连接池参数按服务（`[app].service`）取覆盖。
 - 达梦为同步驱动、无异步方言：`create` 对其抛 `ConfigError`（异步适配器随阶段二 01-05），
   连通性验证走 `create_sync`（同步引擎）。
@@ -17,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 from app.core.config import DatabaseTargetSettings, DbPoolSettings, Settings, get_settings
 from app.core.exceptions import ConfigError
 from app.core.factory import BaseDbFactory
+from app.db.tenant import TENANT_DB_KEY_PREFIX, parse_tenant_db_key
 
 _SQLITE = "sqlite"
 _SYNC_ONLY_DIALECTS = frozenset({"dm"})
@@ -108,7 +111,7 @@ class EngineFactory(BaseDbFactory[str | None, AsyncEngine]):
         if engine is not None:
             return engine
         target = self._target(db_key)
-        engine = create_engine(_with_password(target.url, target), pool_pre_ping=True)
+        engine = create_engine(_with_password(self._target_url(target, db_key), target), pool_pre_ping=True)
         self._sync_engines[db_key] = engine
         return engine
 
@@ -132,6 +135,33 @@ class EngineFactory(BaseDbFactory[str | None, AsyncEngine]):
             return database.archive
         return database.tenants
 
+    def _target_url(self, target: DatabaseTargetSettings, db_key: str) -> str:
+        """解析数据源键到连接串（租户键经 `url_template` 模板；空模板回落 `url`）。
+
+        模板占位：`{service}`（`[app].service`）、`{tenant}`（库键反解编码）、
+        `{database}`（`bms_{service}_{tenant}`）。
+
+        Args:
+            target: 数据库目标配置。
+            db_key: 数据源键。
+
+        Returns:
+            str: 连接串（不含分字段密码）。
+
+        Raises:
+            ConfigError: 租户键非法或模板占位非法。
+        """
+        if not db_key.startswith(TENANT_DB_KEY_PREFIX):
+            return target.url
+        tenant = parse_tenant_db_key(db_key)
+        if not target.url_template:
+            return target.url
+        service = self._settings.app.service
+        try:
+            return target.url_template.format(service=service, tenant=tenant, database=f"bms_{service}_{tenant}")
+        except (KeyError, IndexError, ValueError) as exc:
+            raise ConfigError(f"租户库连接串模板占位非法：{target.url_template}（{exc}）") from exc
+
     def _resolve_url_role(self, target: DatabaseTargetSettings, db_key: str, *, read_only: bool) -> tuple[str, str]:
         """解析连接串与角色键（写主库；只读有副本则轮询，无副本回落主库）。
 
@@ -144,7 +174,7 @@ class EngineFactory(BaseDbFactory[str | None, AsyncEngine]):
             tuple[str, str]: （连接串, 角色键）。
         """
         if not read_only or not target.replicas:
-            return _with_password(target.url, target), "write"
+            return _with_password(self._target_url(target, db_key), target), "write"
         index = self._round_robin.get(db_key, 0)
         self._round_robin[db_key] = (index + 1) % len(target.replicas)
         return _with_password(target.replicas[index], target), f"read:{index}"

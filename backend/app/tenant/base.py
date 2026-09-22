@@ -25,6 +25,7 @@ from pydantic import Field
 
 from app.core.config import Settings
 from app.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
+from app.db.tenant import build_tenant_db_key
 from app.schemas.base import BaseSchema
 
 __all__ = [
@@ -52,18 +53,6 @@ TENANT_SWITCH_MODES: tuple[str, ...] = ("token", "session")
 
 DEFAULT_BRAND_PRIMARY_COLOR = "#1677ff"
 """平台默认品牌主色（未配置品牌时回退；与前端未配置时的回退主色一致）。"""
-
-
-def build_tenant_db_key(code: str) -> str:
-    """由租户编码派生数据源键。
-
-    Args:
-        code: 租户编码（全小写）。
-
-    Returns:
-        str: 数据源键（`tenant_{code}`，与租户注册表数据源键口径一致）。
-    """
-    return f"tenant_{code}"
 
 
 class TenantSummary(BaseSchema):

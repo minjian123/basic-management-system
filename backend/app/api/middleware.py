@@ -1,7 +1,9 @@
-"""api 层中间件：入站链路 id（`X-Trace-Id`）与请求日志（访问 / 慢请求 / 探针排除）。
+"""api 层中间件：入站链路 id（`X-Trace-Id`）、租户解析与请求日志（访问 / 慢请求 / 探针排除）。
 
 - `TraceIdMiddleware`：纯 ASGI 中间件——读入站 `X-Trace-Id`（缺失回退当前 request_id，再缺失生成 32 位 hex）、
   写入 `core/context.py` 的 `current_trace_id`（日志体系与审计统一取值），并回写响应头；请求结束复位。
+- `TenantMiddleware`：纯 ASGI 中间件——全局租户解析（子域名 → `X-Tenant-ID` → token 租户位），
+  写请求态 `tenant` 与租户上下文变量；豁免路径放行；未知 / 停用租户就地转统一错误响应（不进入下游）。
 - `RequestLoggingMiddleware`：纯 ASGI 中间件——每请求生成 `request_id`（uuid4 hex）并解析 `client_ip` 写入上下文；
   请求结束输出单行访问日志（普通 INFO `request`，超 `slow_request_ms` 整行 WARNING `slow_request`）；
   探针（`/healthz`、`/readyz`）与文档路径（`/docs`、`/redoc`、`/openapi.json`）排除，任何级别不记。
@@ -17,27 +19,35 @@ import time
 import uuid
 from collections.abc import Mapping
 from contextvars import Token
+from typing import cast
 
 from starlette.datastructures import Headers, MutableHeaders
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
+from app.api.errors import build_error_response
 from app.core.base import BaseObject
 from app.core.context import (
     get_current_request_id,
     reset_current_client_ip,
     reset_current_request_id,
+    reset_current_tenant,
     reset_current_trace_id,
     reset_read_only,
+    reset_tenant_context,
     set_current_client_ip,
     set_current_request_id,
+    set_current_tenant,
     set_current_trace_id,
     set_read_only,
+    set_tenant_context,
 )
+from app.core.exceptions import BizError
 from app.core.logging import get_logger
 from app.db.routing import is_read_method
+from app.db.tenant import DEFAULT_EXEMPT_PATHS, resolve_request_tenant
 from app.tracing.base import TRACE_ID_HEADER, new_trace_id
 
-__all__ = ["ReadOnlyMiddleware", "RequestLoggingMiddleware", "TraceIdMiddleware"]
+__all__ = ["ReadOnlyMiddleware", "RequestLoggingMiddleware", "TenantMiddleware", "TraceIdMiddleware"]
 
 _EXCLUDED_PATHS = frozenset({"/healthz", "/readyz", "/docs", "/redoc", "/openapi.json"})
 
@@ -78,6 +88,66 @@ class TraceIdMiddleware(BaseObject):
             await self.app(scope, receive, _send_with_trace_id)
         finally:
             reset_current_trace_id(token)
+
+
+class TenantMiddleware(BaseObject):
+    """租户解析全局中间件（纯 ASGI）：解析链 → 请求态与租户上下文；未知 / 停用租户就地拒绝。
+
+    - 来源次序（首个命中即止）：子域名（按注册表 `domain` 查）→ `X-Tenant-ID`（按 `code` 查）
+      → token 租户位（请求态，认证阶段写入）；
+    - 豁免路径（`[tenant].exempt_paths`，精确匹配）不解析、不设置上下文；
+    - 无来源按 `[tenant].allow_demo_fallback` 回落演示租户（dev/test）或拒绝（prod）；
+    - 解析失败（`BizError`）就地返回统一错误响应，不进入下游。
+    """
+
+    def __init__(self, app: ASGIApp) -> None:
+        """初始化中间件。
+
+        Args:
+            app: 下游 ASGI 应用。
+        """
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        """处理请求（非 HTTP 作用域直通）。
+
+        Args:
+            scope: ASGI 作用域。
+            receive: 接收通道。
+            send: 发送通道。
+        """
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        state: dict[str, object] = scope.setdefault("state", {})
+        app = scope.get("app")
+        app_state = getattr(app, "state", None)
+        settings = getattr(app_state, "settings", None)
+        source = getattr(app_state, "tenant_source", None)
+        headers = Headers(scope=scope)
+        try:
+            tenant = await resolve_request_tenant(
+                path=str(scope.get("path", "")),
+                host=headers.get("host"),
+                header=headers.get("X-Tenant-ID"),
+                token_tenant=cast("str | None", state.get("tenant_id")),
+                source=source,
+                exempt_paths=settings.tenant.exempt_paths if settings is not None else DEFAULT_EXEMPT_PATHS,
+                allow_demo_fallback=settings.tenant.allow_demo_fallback if settings is not None else True,
+            )
+        except BizError as exc:
+            await build_error_response(scope, exc)(scope, receive, send)
+            return
+
+        state["tenant"] = tenant
+        tenant_token = set_tenant_context(tenant)
+        code_token = set_current_tenant(tenant.tenant_code if tenant else None)
+        try:
+            await self.app(scope, receive, send)
+        finally:
+            reset_current_tenant(code_token)
+            reset_tenant_context(tenant_token)
 
 
 class ReadOnlyMiddleware(BaseObject):

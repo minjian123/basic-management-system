@@ -14,19 +14,22 @@ from fastapi import FastAPI
 
 from app import __version__
 from app.api.errors import register_exception_handlers
-from app.api.middleware import ReadOnlyMiddleware, RequestLoggingMiddleware, TraceIdMiddleware
+from app.api.middleware import ReadOnlyMiddleware, RequestLoggingMiddleware, TenantMiddleware, TraceIdMiddleware
 from app.api.router import api_router, health_router
+from app.cache.base import CacheRegion
 from app.core.assembly import assemble_plugins, register_platform_plugins
 from app.core.config import get_settings, validate_startup
 from app.core.factory import BaseApplicationFactory, register_factory, resolve_factory
 from app.core.id import IdGeneratorFactory
 from app.core.logging import configure_logging, get_logger
-from app.core.plugin import build_plugin_registry
+from app.core.plugin import build_plugin_registry, resolve_plugin
 from app.core.resources import ResourceManager
 from app.db.engine import EngineFactory
 from app.db.health import PrimaryHealth
-from app.db.registry import EngineRegistry, pool_budget_warnings
+from app.db.registry import EngineRegistry, pool_budget_warnings, tenant_pool_budget_warnings
 from app.db.session import SessionFactory
+from app.db.tenant_source import TenantSource
+from app.lock.base import BaseDistributedLock
 from app.repositories.demo_repository import DemoRepository
 from app.schemas.common import ApiResponse
 from app.services.demo_service import DemoService
@@ -51,6 +54,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     validate_startup(settings)
     for message in pool_budget_warnings(settings):
         get_logger("app.db").warning("pool_budget_exceeded", detail=message)
+    for message in tenant_pool_budget_warnings(settings, settings.tenant.engine_max_active):
+        get_logger("app.db").warning("tenant_pool_budget_exceeded", detail=message)
     errors = app.state.module_registry.validate()
     if errors:
         get_logger("bms").critical("模块注册校验失败", errors=errors)
@@ -87,7 +92,9 @@ class ApplicationFactory(BaseApplicationFactory):
         settings = get_settings()
         configure_logging(settings)
 
-        # 中间件先于路由注册：只读标记外层（按方法设 read_only）→ 请求日志 → 入站链路 id 贯穿
+        # 中间件先于路由注册（后注册者在外层）：只读标记 → 请求日志 → 链路 id → 租户解析（全局，最内层）；
+        # 租户解析位于链路 id 之内，未知 / 停用租户的拒绝响应仍带请求 id 与链路 id。
+        app.add_middleware(TenantMiddleware)
         app.add_middleware(TraceIdMiddleware)
         app.add_middleware(RequestLoggingMiddleware, slow_request_ms=settings.log.slow_request_ms)
         app.add_middleware(ReadOnlyMiddleware)
@@ -109,16 +116,39 @@ class ApplicationFactory(BaseApplicationFactory):
             "EngineFactory",
             resolve_factory("engine_factory", settings.engine_factory.provider),
         )
-        engine_registry = EngineRegistry(engine_factory)
+        cross_instance_lock = cast(
+            "BaseDistributedLock",
+            resolve_plugin(
+                "distributed_lock",
+                settings.distributed_lock.provider,
+                expected_version=BaseDistributedLock.contract_version,
+            ),
+        )
+        engine_registry = EngineRegistry(
+            engine_factory,
+            max_active=settings.tenant.engine_max_active,
+            idle_timeout=settings.tenant.engine_idle_timeout,
+            lock=cross_instance_lock,
+        )
         session_factory = cast(
             "SessionFactory",
             resolve_factory("session_factory", settings.session_factory.provider),
         )
         primary_health = PrimaryHealth(engine_factory)
+        tenant_source = TenantSource(
+            engine_registry,
+            cache=cast(
+                "CacheRegion",
+                resolve_plugin("cache", settings.cache.provider, expected_version=CacheRegion.contract_version),
+            ),
+            session_factory=session_factory,
+            cache_ttl=settings.tenant.resolve_cache_ttl,
+        )
         app.state.engine_factory = engine_factory
         app.state.engine_registry = engine_registry
         app.state.session_factory = session_factory
         app.state.primary_health = primary_health
+        app.state.tenant_source = tenant_source
         app.state.resources.register(engine_registry)
         app.state.resources.register(primary_health)
 
