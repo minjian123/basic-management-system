@@ -10,7 +10,7 @@
     "build:standalone": "vue-tsc -b && vite build --mode standalone",
     "preview": "vite preview",
     "budget": "node scripts/check-bundle-budget.mjs",
-    "guard:isolation": "node ../../scripts/check-module-isolation.mjs --product",
+    "guard:isolation": "node ../../scripts/check-module-isolation.mjs --product --module .",
     "lint": "eslint . --max-warnings 0",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write src tests",
