@@ -12,13 +12,12 @@ from contextlib import asynccontextmanager
 
 from pydantic import Field
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.exc import StaleDataError
 
 from app.core.base import BaseObject
 from app.core.exceptions import ConcurrentConflictError, ConflictError, NotFoundError
 from app.db.registry import EngineRegistry
-from app.db.session import session_scope
+from app.db.session import DbSession, session_scope
 from app.db.tenant import current_tenant_context
 from app.dict.base import DictCacheRegion
 from app.dict.cache import MemoryDictCacheRegion
@@ -322,7 +321,7 @@ class DictService(BaseObject):
             self._cache.delete(self._cache.value_key(tenant, locale, dict_type))
         await self._cache.aincrease_version(tenant)
 
-    async def _commit(self, session: AsyncSession) -> None:
+    async def _commit(self, session: DbSession) -> None:
         """提交（乐观锁冲突转 409 语义）。
 
         Args:
@@ -337,17 +336,17 @@ class DictService(BaseObject):
             raise ConcurrentConflictError("字典数据已被修改，请刷新后重试") from exc
 
     @asynccontextmanager
-    async def _session(self) -> AsyncGenerator[AsyncSession]:
+    async def _session(self) -> AsyncGenerator[DbSession]:
         """租户库会话（统一会话入口：按当前租户上下文取引擎）。
 
         Yields:
-            AsyncSession: 租户库异步会话。
+            DbSession: 租户库会话（异步会话，或同步方言下的同步门面）。
         """
         async with session_scope(self._engines) as session:
             yield session
 
 
-async def _get_type(session: AsyncSession, type_id: int) -> SysDictType | None:
+async def _get_type(session: DbSession, type_id: int) -> SysDictType | None:
     """按 ID 取未删除类型。
 
     Args:
@@ -363,7 +362,7 @@ async def _get_type(session: AsyncSession, type_id: int) -> SysDictType | None:
     return row
 
 
-async def _find_type_by_code(session: AsyncSession, dict_type: str) -> SysDictType | None:
+async def _find_type_by_code(session: DbSession, dict_type: str) -> SysDictType | None:
     """按类型码取未删除类型。
 
     Args:
@@ -377,7 +376,7 @@ async def _find_type_by_code(session: AsyncSession, dict_type: str) -> SysDictTy
     return (await session.execute(stmt)).scalar_one_or_none()
 
 
-async def _find_item_by_code(session: AsyncSession, type_id: int, code: str) -> SysDictItem | None:
+async def _find_item_by_code(session: DbSession, type_id: int, code: str) -> SysDictItem | None:
     """按类型 + 编码取未删除条目。
 
     Args:

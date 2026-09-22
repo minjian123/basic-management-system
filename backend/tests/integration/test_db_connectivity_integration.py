@@ -43,6 +43,7 @@ def _factory(url: str) -> EngineFactory:
 
 
 @pytest.mark.kiwi_id(984)
+@pytest.mark.dialect_mysql
 async def test_mysql_connectivity() -> None:
     """MySQL 连通性（`SELECT 1`）。"""
     factory = _factory(_require("mysql"))
@@ -52,6 +53,7 @@ async def test_mysql_connectivity() -> None:
 
 
 @pytest.mark.kiwi_id(984)
+@pytest.mark.dialect_postgres
 async def test_postgres_connectivity() -> None:
     """PostgreSQL 连通性（`SELECT 1`）。"""
     factory = _factory(_require("postgresql"))
@@ -61,6 +63,7 @@ async def test_postgres_connectivity() -> None:
 
 
 @pytest.mark.kiwi_id(984)
+@pytest.mark.dialect_dm8
 async def test_dm8_connectivity() -> None:
     """达梦 DM8 连通性（同步引擎，`SELECT 1`）。"""
     factory = _factory(_require("dm"))

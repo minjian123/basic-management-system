@@ -146,6 +146,32 @@ def resolve_target(url: str, *, name: str | None = None, admin_url: str = "") ->
     )
 
 
+async def run_statements(admin_url: str, statements: str) -> None:
+    """执行单条管理语句（公开入口；自动提交，达梦走同步线程）。
+
+    供 `ops/test_db.py` 建测试账号与授权等管理操作复用（与建删库共用同一执行路径）。
+
+    Args:
+        admin_url: 管理连接串（含密码；禁止写入日志）。
+        statements: 管理语句。
+    """
+    await _execute(admin_url, statements)
+
+
+async def fetch_rows(admin_url: str, statement: str, *, name: str) -> Sequence[object]:
+    """执行带 `:name` 绑定的管理查询（公开入口；自动提交，达梦走同步线程）。
+
+    Args:
+        admin_url: 管理连接串（含密码；禁止写入日志）。
+        statement: 查询语句（含 `:name` 绑定）。
+        name: 绑定值（如角色名 / 库名）。
+
+    Returns:
+        Sequence[object]: 结果行列表。
+    """
+    return await _fetch(admin_url, statement, name=name)
+
+
 def _normalize_sqlite_path(name: str) -> str:
     """SQLite 目标路径归一（相对路径按当前工作目录解析）。
 

@@ -11,13 +11,12 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
 from sqlalchemy import or_, select
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.exc import StaleDataError
 
 from app.core.context import current_user_id
 from app.core.exceptions import ConcurrentConflictError, NotFoundError
 from app.db.registry import EngineRegistry
-from app.db.session import session_scope
+from app.db.session import DbSession, session_scope
 from app.listing.base import BaseQuerySchemeStore, QueryScheme, QuerySchemeScope, QuerySchemeTarget
 from app.listing.models import SysQueryScheme
 
@@ -192,11 +191,11 @@ class SqlQuerySchemeStore(BaseQuerySchemeStore):
         return None
 
     @asynccontextmanager
-    async def _session(self) -> AsyncGenerator[AsyncSession]:
+    async def _session(self) -> AsyncGenerator[DbSession]:
         """租户库会话（统一会话入口：按当前租户上下文取引擎）。
 
         Yields:
-            AsyncSession: 租户库异步会话。
+            DbSession: 租户库会话（异步会话，或同步方言下的同步门面）。
         """
         async with session_scope(self._engines) as session:
             yield session

@@ -16,12 +16,11 @@ from typing import Any, cast
 from pydantic import Field
 from sqlalchemy import ColumnElement, Integer, Numeric, and_, func, not_, or_, select, true
 from sqlalchemy import cast as sa_cast
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.base import BaseObject
 from app.core.exceptions import ParamError
 from app.db.registry import EngineRegistry
-from app.db.session import session_scope
+from app.db.session import DbSession, session_scope
 from app.dict.models import SysDictAttr, SysDictAttrI18n, SysDictItem, SysDictItemI18n, SysDictType
 from app.dict.sql import current_dict_locale
 from app.i18n.base import DEFAULT_LOCALE
@@ -288,17 +287,17 @@ class DictQueryService(BaseObject):
         return DictAdvQueryResult(items=items, total=total, page=page, size=size)
 
     @asynccontextmanager
-    async def _session(self) -> AsyncGenerator[AsyncSession]:
+    async def _session(self) -> AsyncGenerator[DbSession]:
         """租户库会话（统一会话入口：按当前租户上下文取引擎）。
 
         Yields:
-            AsyncSession: 租户库异步会话。
+            DbSession: 租户库会话（异步会话，或同步方言下的同步门面）。
         """
         async with session_scope(self._engines) as session:
             yield session
 
 
-async def _load_type(session: AsyncSession, dict_type: str) -> SysDictType | None:
+async def _load_type(session: DbSession, dict_type: str) -> SysDictType | None:
     """按类型码取启用类型。
 
     Args:
@@ -316,7 +315,7 @@ async def _load_type(session: AsyncSession, dict_type: str) -> SysDictType | Non
     return (await session.execute(stmt)).scalar_one_or_none()
 
 
-def _dialect_name(session: AsyncSession) -> str:
+def _dialect_name(session: DbSession) -> str:
     """取会话方言名（`sqlite` / `mysql` / `postgresql` / `dm`）。
 
     Args:

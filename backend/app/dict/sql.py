@@ -16,13 +16,12 @@ from typing import cast
 from uuid import uuid4
 
 from sqlalchemy import ColumnElement, and_, func, or_, select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.error_codes import ErrorCode
 from app.core.exceptions import BizError
 from app.core.logging import get_logger
 from app.db.registry import EngineRegistry
-from app.db.session import session_scope
+from app.db.session import DbSession, session_scope
 from app.db.tenant import current_tenant_context
 from app.dict.base import (
     DICT_PROBE_LIMIT,
@@ -217,11 +216,11 @@ class SqlDictSource(BaseDictSource):
             raise BizError(ErrorCode.DICT_SOURCE_UNAVAILABLE, "字典数据源不可用", http_status=503) from exc
 
     @asynccontextmanager
-    async def _session(self) -> AsyncGenerator[AsyncSession]:
+    async def _session(self) -> AsyncGenerator[DbSession]:
         """租户库会话（统一会话入口：按当前租户上下文取引擎）。
 
         Yields:
-            AsyncSession: 租户库异步会话。
+            DbSession: 租户库会话（异步会话，或同步方言下的同步门面）。
         """
         async with session_scope(self._engines) as session:
             yield session
@@ -298,17 +297,17 @@ class SqlDictTranslator(BaseDictTranslator):
             raise BizError(ErrorCode.DICT_SOURCE_UNAVAILABLE, "字典数据源不可用", http_status=503) from exc
 
     @asynccontextmanager
-    async def _session(self) -> AsyncGenerator[AsyncSession]:
+    async def _session(self) -> AsyncGenerator[DbSession]:
         """租户库会话（统一会话入口：按当前租户上下文取引擎）。
 
         Yields:
-            AsyncSession: 租户库异步会话。
+            DbSession: 租户库会话（异步会话，或同步方言下的同步门面）。
         """
         async with session_scope(self._engines) as session:
             yield session
 
 
-async def _load_type(session: AsyncSession, dict_type: str) -> SysDictType | None:
+async def _load_type(session: DbSession, dict_type: str) -> SysDictType | None:
     """按类型码取启用类型。
 
     Args:
@@ -327,7 +326,7 @@ async def _load_type(session: AsyncSession, dict_type: str) -> SysDictType | Non
 
 
 async def _query_page(
-    session: AsyncSession,
+    session: DbSession,
     type_id: int,
     locale: str,
     query: DictQuery,
@@ -367,7 +366,7 @@ async def _query_page(
 
 
 async def _query_batch(
-    session: AsyncSession,
+    session: DbSession,
     types: Sequence[str],
     locale: str,
 ) -> dict[str, tuple[list[DictItem], int]]:
@@ -418,7 +417,7 @@ async def _query_batch(
 
 
 async def _query_labels(
-    session: AsyncSession,
+    session: DbSession,
     type_id: int,
     locale: str,
     values: Sequence[str],

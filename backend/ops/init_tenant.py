@@ -25,20 +25,16 @@ import argparse
 import asyncio
 from collections.abc import Sequence
 from dataclasses import dataclass
-from types import SimpleNamespace
 
-from alembic.config import Config
-from alembic.script import ScriptDirectory
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
-from alembic import command
 from app.core.base import BaseObject
 from app.core.config import get_settings
 from app.db.admin import DatabaseTarget, create_database, resolve_target
 from app.db.engine import EngineFactory
-from app.db.migration import BACKEND_ROOT, config_section, current_revision, resolve_chain
+from app.db.migration import current_revision, head_revision, resolve_chain, upgrade_chain
 from app.db.tenant import build_tenant_db_key
 from app.dict.seed import seed_dicts
 
@@ -101,28 +97,6 @@ def _resolve_url(code: str, override: str) -> str:
     return EngineFactory(settings).resolved_url(build_tenant_db_key(code))
 
 
-def _alembic_config() -> Config:
-    """租户链 Alembic 配置。
-
-    Returns:
-        Config: Alembic 配置（配置段 = 租户链）。
-    """
-    return Config(str(BACKEND_ROOT / "alembic.ini"), ini_section=config_section(resolve_chain("tenant")))
-
-
-def _upgrade(url: str, schema: str) -> None:
-    """执行租户链迁移（Alembic 程序化调用）。
-
-    Args:
-        url: 租户库连接串。
-        schema: 达梦目标模式（空串表示不切换）。
-    """
-    config = _alembic_config()
-    x_args = [f"url={url}"] + ([f"schema={schema}"] if schema else [])
-    config.cmd_opts = SimpleNamespace(x=x_args)  # pyright: ignore[reportAttributeAccessIssue]
-    command.upgrade(config, "head")
-
-
 async def _seed(url: str) -> int:
     """执行字典种子（幂等）。
 
@@ -162,12 +136,12 @@ async def run(args: argparse.Namespace) -> InitResult:
         created = await create_database(target)
         print(f"[init_tenant] 建库 → {'新建' if created else '已存在（跳过）'}")
 
-    head = ScriptDirectory.from_config(_alembic_config()).get_current_head()
+    head = head_revision(tenant_chain)
     current = await current_revision(url, schema=args.schema)
     if head is not None and current == head:
         print(f"[init_tenant] 迁移 {tenant_chain.name} 链 → 已是最新（{current}）")
     else:
-        await asyncio.to_thread(_upgrade, url, args.schema)
+        await asyncio.to_thread(upgrade_chain, tenant_chain, url, schema=args.schema)
         revision = await current_revision(url, schema=args.schema)
         print(f"[init_tenant] 迁移 {tenant_chain.name} 链 → 完成（{current or '未迁移'} → {revision}）")
         current = revision

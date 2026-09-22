@@ -10,11 +10,10 @@ from collections.abc import AsyncGenerator, Mapping
 from contextlib import asynccontextmanager
 
 from sqlalchemy import and_, func, or_, select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import ParamError
 from app.db.registry import EngineRegistry
-from app.db.session import session_scope
+from app.db.session import DbSession, session_scope
 from app.dict.models import SysDictItem, SysDictItemI18n, SysDictType
 from app.dict.query import DictQueryProviderInfo
 from app.i18n.base import DEFAULT_LOCALE
@@ -152,11 +151,11 @@ class BuiltinDictQueryProvider(BaseQueryProvider):
         return QueryResult(rows=tuple(result_rows), total=total)
 
     @asynccontextmanager
-    async def _session(self) -> AsyncGenerator[AsyncSession]:
+    async def _session(self) -> AsyncGenerator[DbSession]:
         """租户库会话（统一会话入口：按当前租户上下文取引擎）。
 
         Yields:
-            AsyncSession: 租户库异步会话。
+            DbSession: 租户库会话（异步会话，或同步方言下的同步门面）。
         """
         async with session_scope(self._engines) as session:
             yield session
