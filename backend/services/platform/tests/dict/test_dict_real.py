@@ -30,6 +30,7 @@ from bms_core.application import service_lifespan as lifespan
 from bms_core.core.config import get_settings
 from bms_core.core.exceptions import BizError, ParamError
 from bms_core.db.engine import EngineFactory
+from bms_core.db.migration import BACKEND_ROOT
 from bms_core.db.registry import EngineRegistry
 from bms_core.dict.base import DictBatchQuery, DictQuery, DictTranslateQuery
 from bms_core.dict.cache import MemoryDictCacheRegion, RedisDictCacheRegion
@@ -71,8 +72,7 @@ def _run_migrations(url: str) -> None:
     Args:
         url: 数据库 URL。
     """
-    cfg = Config("alembic.ini")
-    cfg.set_main_option("script_location", "alembic")
+    cfg = Config(str(BACKEND_ROOT / "alembic.ini"))  # 绝对定位，与运行目录无关
     cfg.cmd_opts = SimpleNamespace(x=[f"url={url}"])  # pyright: ignore[reportAttributeAccessIssue]
     command.upgrade(cfg, "head")
 

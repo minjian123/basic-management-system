@@ -18,7 +18,8 @@ uv run python -m bms_platform          # 各服务启动入口（读 config 的 
 # 本地并行多服务时用 BMS_SERVER__PORT 覆盖端口（每服务独立配置归 06_需求）
 # 或：uv run uvicorn bms_platform.asgi:app --port 8000
 # 验证：/healthz 返回 {"status":"ok","service":"platform","version":"..."}；/readyz 就绪（依赖不可达为 503）；/docs Swagger
-uv run pytest   # 全量用例（含 Kiwi TCMS 用例 ID 标注）
+uv run pytest   # 全量用例（工作区根；含 Kiwi TCMS 用例 ID 标注）
+# 工程级范围：进入某工程目录 `uv run pytest` 只跑该工程（如 cd services/org / cd libs/bms_core），不落根全量
 
 # 本地门禁（与 CI 同口径）
 uv run ruff check . && uv run ruff format --check . && uv run pyright
