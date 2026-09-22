@@ -1,12 +1,12 @@
-"""仓储基类测试（Kiwi 11）：契约 / 内存基线 / DB 骨架（异步）；排序契约见 Kiwi 29。"""
+"""仓储基类测试（Kiwi 11）：契约 / 内存基线（异步）；排序契约见 Kiwi 29；DB 实现见 Kiwi 1050。"""
 
-from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import cast
 
 import pytest
 
 from app.core.base import BaseObject
+from app.core.capability import BaseStub
 from app.repositories.base_db_repository import BaseDbRepository
 from app.repositories.base_memory_repository import BaseMemoryRepository
 from app.repositories.base_repository import BaseRepository
@@ -96,6 +96,19 @@ async def test_delete_success_and_missing_returns_false() -> None:
     assert await repo.delete(999) is False
 
 
+@pytest.mark.kiwi_id(1050)
+async def test_soft_and_hard_delete_aliases_delegate_to_delete() -> None:
+    """内存基线（测试替身）soft_delete / hard_delete 默认委托 delete（硬删，差异口径）。"""
+    repo = _repo()
+    await repo.create(name="甲")
+    assert await repo.soft_delete(1) is True
+    assert await repo.count() == 0
+    await repo.create(name="乙")
+    assert await repo.hard_delete(2) is True
+    assert await repo.count() == 0
+    assert await repo.soft_delete(999) is False
+
+
 @pytest.mark.kiwi_id(11)
 def test_routing_hooks_default_to_single_source() -> None:
     """路由钩子占位：单源同源、不路由（原表名）。"""
@@ -107,35 +120,16 @@ def test_routing_hooks_default_to_single_source() -> None:
 
 @pytest.mark.kiwi_id(11)
 def test_inheritance_chain() -> None:
-    """继承链：内存基线 / DB 骨架 → 契约 → BaseObject。"""
+    """继承链：内存基线 / DB 实现 → 契约 → BaseObject；DB 实现退出未实现桩。"""
     assert issubclass(BaseRepository, BaseObject)
     assert issubclass(BaseMemoryRepository, BaseRepository)
     assert issubclass(BaseDbRepository, BaseRepository)
+    assert not issubclass(BaseDbRepository, BaseStub)
     assert issubclass(ItemRepository, BaseMemoryRepository)
 
     from app.repositories.demo_repository import DemoRepository
 
     assert issubclass(DemoRepository, BaseMemoryRepository)
-
-
-@pytest.mark.kiwi_id(11)
-async def test_db_repository_is_placeholder() -> None:
-    """数据库实现骨架：CRUD 占位抛错、不连库；exists 经派生链。"""
-    skeleton = BaseDbRepository[Item]()
-    with pytest.raises(NotImplementedError):
-        await skeleton.list()
-    with pytest.raises(NotImplementedError):
-        await skeleton.get(1)
-    with pytest.raises(NotImplementedError):
-        await skeleton.count()
-    with pytest.raises(NotImplementedError):
-        await skeleton.create(name="甲")
-    with pytest.raises(NotImplementedError):
-        await skeleton.update(1, name="乙")
-    with pytest.raises(NotImplementedError):
-        await skeleton.delete(1)
-    with pytest.raises(NotImplementedError):
-        await skeleton.exists(1)
 
 
 @dataclass
@@ -162,14 +156,6 @@ class SortableRepository(BaseMemoryRepository[SortableItem]):
     def resolve_sort(self, query: BasePageQuery) -> list[SortSpec]:
         """暴露排序解析钩子（测试用）。"""
         return self._resolve_sort(query)
-
-
-class SortableDbRepository(BaseDbRepository[SortableItem]):
-    """测试用 DB 骨架：暴露排序语句钩子。"""
-
-    def apply_sort[StatementT](self, statement: StatementT, sort: Sequence[SortSpec]) -> StatementT:
-        """暴露 `_apply_sort` 钩子（测试用）。"""
-        return self._apply_sort(statement, sort)
 
 
 @dataclass
@@ -266,13 +252,3 @@ async def test_pagination_queries_carry_sort() -> None:
     cursor = await repo.list_cursor(BaseCursorQuery(limit=1, order_by="rank", order=["desc"]))
     assert [item.name for item in page] == ["乙", "甲"]
     assert [item.name for item in cursor] == ["甲"]
-
-
-@pytest.mark.kiwi_id(29)
-async def test_db_repository_sort_placeholder() -> None:
-    """DB 侧：list(sort=...) 占位抛错；`_apply_sort` 占位原样返回语句（不连库）。"""
-    skeleton = SortableDbRepository()
-    with pytest.raises(NotImplementedError):
-        await skeleton.list(sort=[SortSpec(field="rank")])
-    statement = object()
-    assert skeleton.apply_sort(statement, [SortSpec(field="rank")]) is statement

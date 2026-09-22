@@ -16,12 +16,13 @@ from typing import cast
 from uuid import uuid4
 
 from sqlalchemy import ColumnElement, and_, func, or_, select
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.error_codes import ErrorCode
 from app.core.exceptions import BizError
 from app.core.logging import get_logger
 from app.db.registry import EngineRegistry
+from app.db.session import session_scope
 from app.db.tenant import current_tenant_context
 from app.dict.base import (
     DICT_PROBE_LIMIT,
@@ -217,15 +218,12 @@ class SqlDictSource(BaseDictSource):
 
     @asynccontextmanager
     async def _session(self) -> AsyncGenerator[AsyncSession]:
-        """租户库会话（按当前租户上下文取引擎）。
+        """租户库会话（统一会话入口：按当前租户上下文取引擎）。
 
         Yields:
             AsyncSession: 租户库异步会话。
         """
-        tenant = current_tenant_context()
-        engine = await self._engines.get(tenant.db_key)
-        factory: async_sessionmaker[AsyncSession] = async_sessionmaker(engine, expire_on_commit=False)
-        async with factory() as session:
+        async with session_scope(self._engines) as session:
             yield session
 
 
@@ -301,15 +299,12 @@ class SqlDictTranslator(BaseDictTranslator):
 
     @asynccontextmanager
     async def _session(self) -> AsyncGenerator[AsyncSession]:
-        """租户库会话（按当前租户上下文取引擎）。
+        """租户库会话（统一会话入口：按当前租户上下文取引擎）。
 
         Yields:
             AsyncSession: 租户库异步会话。
         """
-        tenant = current_tenant_context()
-        engine = await self._engines.get(tenant.db_key)
-        factory: async_sessionmaker[AsyncSession] = async_sessionmaker(engine, expire_on_commit=False)
-        async with factory() as session:
+        async with session_scope(self._engines) as session:
             yield session
 
 

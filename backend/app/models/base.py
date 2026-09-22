@@ -3,24 +3,32 @@
 - `Base`：SQLAlchemy 2.0 声明式基类（元数据 / 注册表）。
 - `BaseModel`：L0 模型基类（雪花 ID / 审计 / 软删除 / 乐观锁），模块模型继承之。
 
-四库类型映射（跨方言，禁用方言专用类型）：
+四库类型映射（跨方言，禁用方言专用类型；实测值，编译四方言 DDL 断言见 `tests/models/test_type_mapping.py`）：
 
 | 字段 | SQLite | MySQL | PostgreSQL | 达梦 DM8 |
 | --- | --- | --- | --- | --- |
-| id | INTEGER | BIGINT | BIGINT | BIGINT |
-| *_at | DATETIME | DATETIME | TIMESTAMP | TIMESTAMP |
-| version | INTEGER | INT | INTEGER | INT |
-| 布尔（通用约定） | INTEGER 0/1 | TINYINT(1) | SMALLINT | SMALLINT |
+| id / 外键 BIGINT | BIGINT | BIGINT | BIGINT | BIGINT |
+| *_at DateTime | DATETIME | DATETIME | TIMESTAMP WITHOUT TIME ZONE | DATETIME |
+| version / Integer | INTEGER | INTEGER | INTEGER | INTEGER |
+| SmallInteger | SMALLINT | SMALLINT | SMALLINT | SMALLINT |
+| String(n) | VARCHAR(n) | VARCHAR(n) | VARCHAR(n) | VARCHAR2(n CHAR) |
+| Text | TEXT | TEXT | TEXT | TEXT |
+| 布尔（`Boolean`） | BOOLEAN | BOOL（TINYINT(1)） | BOOLEAN | SMALLINT |
+| 多值（`JSON`） | JSON | JSON | JSON | JSON |
+
+布尔字段统用 `Boolean`（四库落为各自布尔 / 小整数等价形式）；多值字段用 `JSON` 存数组，
+接口仍按数组传输，标签类简单集合可逗号分隔字符串（见《架构设计 · 数据架构》「数据规范」节）。
 
 表级规范：表名单数 snake_case；平台域前缀 `sys_`/`wf_`/`rpt_`/`ai_`、业务模块 `{简称}_`；
-索引命名 `idx_字段` / `uq_字段`（每表 ≤ 5）；时间 UTC、金额 NUMERIC(20,4)、字符串 VARCHAR（长度显式）；
+索引命名 `idx_字段` / `uq_字段`（每表 ≤ 5；`index=True` 由元数据命名约定生成 `idx_{表}_{列}`）；
+时间 UTC、金额 NUMERIC(20,4)、字符串 VARCHAR（长度显式）；
 每表与字段 COMMENT 必填；逻辑外键（`目标表_id`），不建物理外键。
 """
 
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import BigInteger, Connection, DateTime, Integer, event
+from sqlalchemy import BigInteger, Connection, DateTime, Integer, MetaData, event
 from sqlalchemy.orm import DeclarativeBase, Mapped, Mapper, mapped_column
 
 from app.core.base import BaseObject
@@ -38,7 +46,13 @@ def _utc_now() -> datetime:
 
 
 class Base(DeclarativeBase):
-    """SQLAlchemy 2.0 声明式基类（元数据 / 注册表）。"""
+    """SQLAlchemy 2.0 声明式基类（元数据 / 注册表）。
+
+    索引命名约定：`index=True` 生成的索引名统一为 `idx_{表}_{列}`（对齐《命名规范》
+    「普通 `idx_字段`」；带表名前缀避免 PostgreSQL / 达梦下同名列索引跨表重名）。
+    """
+
+    metadata = MetaData(naming_convention={"ix": "idx_%(table_name)s_%(column_0_name)s"})
 
 
 class BaseModel(Base, BaseObject):
