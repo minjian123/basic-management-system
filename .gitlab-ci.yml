@@ -81,7 +81,6 @@ ci-base-build:
           - deploy/ci/Dockerfile.backend
           - deploy/ci/Dockerfile.frontend
           - deploy/ci/build-base.sh
-          - .gitlab-ci.yml
   script:
     - sh deploy/ci/build-base.sh
 
@@ -512,7 +511,6 @@ e2e-playwright:
           - tsconfig.base.json
           - .npmrc
           - deploy/**/*
-          - .gitlab-ci.yml
       exists:
         - deploy/ci/verify/e2e
   script:
@@ -540,7 +538,6 @@ e2e-playwright:
         paths:
           - backend/**/*
           - deploy/**/*
-          - .gitlab-ci.yml
       exists:
         - deploy/ci/verify/db
   script:
@@ -620,7 +617,6 @@ backend-image:
         paths:
           - backend/**/*
           - deploy/**/*
-          - .gitlab-ci.yml
       exists:
         - deploy/ci/verify/image
   script:
@@ -641,7 +637,6 @@ frontend-image:
           - tsconfig.base.json
           - .npmrc
           - deploy/**/*
-          - .gitlab-ci.yml
       exists:
         - deploy/ci/verify/image
   script:
@@ -660,7 +655,6 @@ container-scanning:
         paths:
           - backend/**/*
           - deploy/**/*
-          - .gitlab-ci.yml
       exists:
         - deploy/ci/verify/image
   script:
@@ -678,7 +672,6 @@ swagger-snapshot:
         paths:
           - backend/**/*
           - deploy/**/*
-          - .gitlab-ci.yml
       exists:
         - deploy/ci/verify/contract
   script:
@@ -708,7 +701,6 @@ allure-report:
         paths:
           - backend/**/*
           - deploy/**/*
-          - .gitlab-ci.yml
       exists:
         - deploy/ci/verify/report
   allow_failure: true
