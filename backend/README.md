@@ -13,8 +13,9 @@ BMS 平台后端服务：Python 3.14 + FastAPI + uvicorn + Pydantic v2 + SQLAlch
 ```bash
 cd backend
 uv sync
-uv run uvicorn bms_platform.asgi:app --port 8000
-# 验证：/healthz 返回 {"status":"ok"}；/readyz 就绪（依赖不可达为 503）；/docs Swagger
+uv run python -m bms_platform          # 服务启动入口（读 config 的 [server] host/port；SIGTERM 先摘流再优雅收尾）
+# 或：uv run uvicorn bms_platform.asgi:app --port 8000
+# 验证：/healthz 返回 {"status":"ok","service":"platform","version":"..."}；/readyz 就绪（依赖不可达为 503）；/docs Swagger
 uv run pytest   # 全量用例（含 Kiwi TCMS 用例 ID 标注）
 
 # 本地门禁（与 CI 同口径）
