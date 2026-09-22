@@ -5,7 +5,7 @@ from collections.abc import Sequence
 from fastapi import APIRouter
 
 from bms_core.application import BaseServiceApplicationFactory
-from bms_file import SERVICE_NAME, SERVICE_TITLE, __version__
+from bms_file import CONTRACT_VERSION, SERVICE_NAME, SERVICE_TITLE, __version__
 from bms_file.api.router import api_router
 
 
@@ -16,6 +16,7 @@ class ApplicationFactory(BaseServiceApplicationFactory):
     service_name: str = SERVICE_NAME
     service_title: str = SERVICE_TITLE
     version: str = __version__
+    contract_version: str = CONTRACT_VERSION
 
     def service_routers(self) -> Sequence[APIRouter]:
         """业务路由（探针路由由基座统一挂载）。

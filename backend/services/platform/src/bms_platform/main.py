@@ -11,7 +11,7 @@ from fastapi import APIRouter, FastAPI
 
 from bms_core.application import BaseServiceApplicationFactory
 from bms_core.core.config import Settings
-from bms_platform import SERVICE_NAME, SERVICE_TITLE, __version__
+from bms_platform import CONTRACT_VERSION, SERVICE_NAME, SERVICE_TITLE, __version__
 from bms_platform.api.router import api_router
 from bms_platform.repositories.demo_repository import DemoRepository
 from bms_platform.services.demo_service import DemoService
@@ -24,6 +24,7 @@ class ApplicationFactory(BaseServiceApplicationFactory):
     service_name: str = SERVICE_NAME
     service_title: str = SERVICE_TITLE
     version: str = __version__
+    contract_version: str = CONTRACT_VERSION
 
     def service_routers(self) -> Sequence[APIRouter]:
         """平台业务路由。

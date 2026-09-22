@@ -1,4 +1,4 @@
-"""服务目录清单与校验测试（Kiwi 28 / 2162）：清单结构 / 分组 / 唯一性与格式校验 / 模型落库。"""
+"""服务目录清单与校验测试（Kiwi 28 / 2162 / 2163）：清单结构 / 分组 / 唯一性与格式校验 / 模型落库 / 接库校验。"""
 
 from dataclasses import replace
 from pathlib import Path
@@ -16,6 +16,7 @@ from bms_core.services.module_registry import (
     ModuleRegistry,
     ModuleStatus,
     ServiceGroup,
+    validate_catalog,
 )
 
 _BASE_RECORD = ModuleRecord(
@@ -191,3 +192,75 @@ def test_models_declared_and_persistable(tmp_path: Path) -> None:
         assert module.errcode_segment is None
         assert i18n.id > 0
     engine.dispose()
+
+
+@pytest.mark.kiwi_id(2163)
+def test_module_record_from_row_matches_catalog() -> None:
+    """ORM 行转换：按目录字段取值，与清单 identity 行完全一致（接库对账的转换口径）。"""
+    row = SysModule(
+        module_key="identity",
+        service_key="identity",
+        name="认证与身份服务",
+        table_prefix="identity_",
+        event_domain="identity",
+        service_group="foundation",
+        build_batch=0,
+        service_version="0.1.0",
+        contract_version="0.1.0",
+        status="enabled",
+    )
+    assert ModuleRecord.from_row(row) == SERVICE_CATALOG[1]
+
+
+@pytest.mark.kiwi_id(2163)
+def test_validate_catalog_roundtrip_and_conflicts() -> None:
+    """接库校验：清单自身与主版本兼容通过；缺行 / 清单外 / 字段 / 主版本 / 运行服务逐项检出。"""
+    catalog = SERVICE_CATALOG
+    assert validate_catalog(catalog, list(catalog)) == []
+    assert validate_catalog(catalog, list(catalog), service_key="platform", contract_version="0.1.0") == []
+
+    records = list(catalog)
+    records[1] = replace(records[1], contract_version="0.2.0")
+    assert validate_catalog(catalog, records) == []
+
+    records[1] = replace(records[1], contract_version="1.0.0")
+    assert any("契约版本主版本不兼容" in error for error in validate_catalog(catalog, records))
+
+    records = list(catalog)
+    del records[1]
+    assert any("库中缺登记行：identity" in error for error in validate_catalog(catalog, records))
+
+    records = list(catalog)
+    records.append(
+        ModuleRecord(
+            module_key="ghost",
+            name="幽灵模块",
+            table_prefix="ghost_",
+            event_domain="ghost",
+            service_group=ServiceGroup.CAPABILITY,
+        )
+    )
+    assert any("库中登记行不在清单：ghost" in error for error in validate_catalog(catalog, records))
+
+    records = list(catalog)
+    records[1] = replace(records[1], name="改过的名字")
+    assert any("name 与清单不一致" in error for error in validate_catalog(catalog, records))
+
+
+@pytest.mark.kiwi_id(2163)
+def test_validate_catalog_running_service_rules() -> None:
+    """运行服务项：主版本兼容通过；未登记 / 自报非法 / 登记非法逐项检出。"""
+    catalog = SERVICE_CATALOG
+
+    records = list(catalog)
+    records[1] = replace(records[1], service_key=None)
+    errors = validate_catalog(catalog, records, service_key="identity", contract_version="0.1.0")
+    assert any("运行服务未登记：identity" in error for error in errors)
+
+    errors = validate_catalog(catalog, list(catalog), service_key="platform", contract_version="0.1")
+    assert any("运行服务契约版本非法" in error for error in errors)
+
+    records = list(catalog)
+    records[0] = replace(records[0], contract_version="bad")
+    errors = validate_catalog(catalog, records, service_key="platform", contract_version="0.1.0")
+    assert any("登记契约版本非法" in error for error in errors)

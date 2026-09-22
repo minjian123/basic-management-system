@@ -1,9 +1,11 @@
-"""模块注册只读接口测试（Kiwi 28）：清单 / 筛选 / 无写接口 / 启动校验。"""
+"""模块注册只读接口测试（Kiwi 28 / 2163）：清单 / 筛选 / 无写接口 / 启动校验 / 路由只读护栏。"""
 
 import pytest
 from httpx import ASGITransport, AsyncClient
 
 from bms_core.application import service_lifespan as lifespan
+from bms_core.core.exceptions import CatalogError
+from bms_platform import CONTRACT_VERSION
 from bms_platform.main import ApplicationFactory
 
 
@@ -56,17 +58,29 @@ async def test_list_modules_contract() -> None:
 
 @pytest.mark.kiwi_id(28)
 async def test_startup_validation_aborts_on_conflict(monkeypatch: pytest.MonkeyPatch) -> None:
-    """启动校验：冲突时中止启动。"""
+    """启动校验：冲突时中止启动（统一异常 `CatalogError`）。"""
     app = ApplicationFactory().create(None)
     monkeypatch.setattr(app.state.module_registry, "validate", lambda: ["table_prefix 重复：pur_"])
-    with pytest.raises(RuntimeError, match="模块注册校验失败"):
+    with pytest.raises(CatalogError, match="服务目录校验失败"):
         async with lifespan(app):
             pass
 
 
-@pytest.mark.kiwi_id(28)
+@pytest.mark.kiwi_id(2163)
 async def test_startup_validation_passes_for_platform_seed() -> None:
-    """启动校验：平台域占位清单恒通过。"""
+    """启动校验：服务目录清单 + 接库校验通过；身份携带服务自报契约版本。"""
     app = ApplicationFactory().create(None)
+    assert app.state.service_identity.contract_version == CONTRACT_VERSION
     async with lifespan(app):
         assert app.state.module_registry.validate() == []
+
+
+@pytest.mark.kiwi_id(2163)
+async def test_modules_routes_get_only() -> None:
+    """只读边界：服务目录路由（含后续 03_03 明细路由）仅 GET（以 OpenAPI 契约为准）。"""
+    app = ApplicationFactory().create(None)
+    operations: set[str] = set()
+    for path, item in app.openapi()["paths"].items():
+        if path.startswith("/api/v1/modules"):
+            operations |= set(item)
+    assert operations == {"get"}
