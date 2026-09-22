@@ -6,7 +6,7 @@ import { computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import ModuleBoundary from '@/components/ModuleBoundary.vue'
-import { moduleMenuNodes } from '@/module/host'
+import { moduleMenuGroups } from '@/module/host'
 import { registries, registriesRevision } from '@/module/registries'
 
 const router = useRouter()
@@ -16,13 +16,12 @@ const route = useRoute()
 const sideMenu = useSideMenu({ menu: PLACEHOLDER_MENU, canAccess: () => true })
 const tabNav = useTabNav({ storageKey: 'bms:desktop:tabs' })
 
-// 演示模块分组仅开发态可见（需求：不进生产菜单）；菜单节点取自路由·菜单注册表快照。
-const demoNodes = import.meta.env.DEV ? moduleMenuNodes() : []
-const menu = computed(() =>
-  demoNodes.length === 0
-    ? sideMenu.menu.value
-    : [...sideMenu.menu.value, { path: '/demo', title: '演示模块', icon: 'sparkles', children: demoNodes }],
-)
+// 模块菜单装配泛化：模块经路由 meta 声明菜单（title / icon / group / groupIcon / devOnly），
+// 宿主从注册表快照按来源分组装配（不再硬编码 demo 分组）；`devOnly` 项生产态隐藏。
+const menu = computed(() => {
+  void registriesRevision.value
+  return [...sideMenu.menu.value, ...moduleMenuGroups(import.meta.env.DEV)]
+})
 
 watch(
   () => route.fullPath,

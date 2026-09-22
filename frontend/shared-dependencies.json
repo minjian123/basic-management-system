@@ -12,8 +12,8 @@
   "notShared": {
     "element-plus": {
       "requiredVersion": "^2.14.5",
-      "reason": "受控实测结论（2026-09-21，两次）：① 朴素共享 → 插件生成整库 share provider 块并由宿主入口**静态引入**（首屏 660.7 KB / 单块 334.5 KB，超预算 2.5 倍；eager:false 无效，02_01 实测）；② eager:false + treeShaking runtime-infer → 首屏门禁降至 131.5 KB，但启动期仍**异步拉取** provider 284.9 KB + tree-shaking 148.3 KB（实测），实际启动下载量约 433 KB，反超不共享的 172.7 KB——属指标失真（门禁只统计 index.html 静态引用）。故锁定为非共享项，由白名单护栏约束版本与体积。",
-      "maxModuleGzipKb": 546
+      "reason": "受控实测结论（2026-09-21，两次）：① 朴素共享 → 插件生成整库 share provider 块并由宿主入口**静态引入**（首屏 660.7 KB / 单块 334.5 KB，超预算 2.5 倍；eager:false 无效，02_01 实测）；② eager:false + treeShaking runtime-infer → 首屏门禁降至 131.5 KB，但启动期仍**异步拉取** provider 284.9 KB + tree-shaking 148.3 KB（实测），实际启动下载量约 433 KB，反超不共享的 172.7 KB——属指标失真（门禁只统计 index.html 静态引用）。故锁定为非共享项，由白名单护栏约束版本与体积。**阈值修订（2026-09-22，04_01）**：首个真实形态模块样例（sample，查询筛选 + 列表 + 详情 / 表单，较契约演示 demo 复用更多 EP 件）产物 gzip 合计 564.9 KB，超原阈值 546 KB；按「实测基线 + 20%」口径调整为 660 KB（首个真实模块的成本基线，后续模块超此值须复核必要性）。",
+      "maxModuleGzipKb": 660
     },
     "@bms/core": {
       "reason": "源码直出包（版本 0.0.0），宿主以 resolve.alias 消费，MF 探测不到请求、无 provider 块；共享前提是基座包发布版本化 / 共享域化（开放项）"

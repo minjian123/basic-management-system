@@ -1,0 +1,48 @@
+{
+  "name": "@bms/module-sample",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "BMS 首个模块样例（Module Federation remote：真实形态页面 · 独立构建 / 独立发布 / 宿主运行时加载）",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc -b && vite build",
+    "build:standalone": "vue-tsc -b && vite build --mode standalone",
+    "preview": "vite preview",
+    "budget": "node scripts/check-bundle-budget.mjs",
+    "guard:isolation": "node ../../scripts/check-module-isolation.mjs --product",
+    "lint": "eslint . --max-warnings 0",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write src tests",
+    "test": "vitest run",
+    "typecheck": "vue-tsc -b"
+  },
+  "dependencies": {
+    "@bms/core": "file:../../packages/core",
+    "@bms/ui-ep": "file:../../packages/ui-ep",
+    "element-plus": "^2.14.5",
+    "pinia": "^3.0.4",
+    "vue": "^3.5.41",
+    "vue-router": "^4.6.4"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@module-federation/vite": "1.22.1",
+    "@types/node": "^24.13.3",
+    "@vitejs/plugin-vue": "^6.0.8",
+    "@vue/eslint-config-prettier": "^10.2.0",
+    "@vue/test-utils": "^2.5.0",
+    "@vue/tsconfig": "^0.9.1",
+    "eslint": "^10.10.0",
+    "eslint-plugin-vue": "^10.11.0",
+    "jsdom": "^30.0.1",
+    "prettier": "^3.9.6",
+    "sass": "^1.104.0",
+    "typescript": "~6.0.2",
+    "typescript-eslint": "^8.70.0",
+    "vite": "^8.2.2",
+    "vitest": "^5.0.0",
+    "vue-eslint-parser": "^10.4.1",
+    "vue-tsc": "^3.3.11"
+  }
+}

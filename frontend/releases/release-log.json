@@ -27,6 +27,50 @@
         "asyncChunkCount": 22
       },
       "sourcemap": true
+    },
+    {
+      "at": "2026-09-22T00:56:03.910Z",
+      "by": "minjian",
+      "action": "publish",
+      "module": "sample",
+      "version": "0.1.0",
+      "previousVersion": null,
+      "entry": "http://localhost:5002/sample/0.1.0/remoteEntry.js",
+      "contractVersion": 1,
+      "size": {
+        "entryFiles": 6,
+        "entryGzipKb": 13.2,
+        "largestGzipKb": 6.2,
+        "asyncChunkCount": 33
+      },
+      "sourcemap": true
+    },
+    {
+      "at": "2026-09-22T00:56:21.475Z",
+      "by": "minjian",
+      "action": "publish",
+      "module": "sample",
+      "version": "0.2.0",
+      "previousVersion": "0.1.0",
+      "entry": "http://localhost:5002/sample/0.2.0/remoteEntry.js",
+      "contractVersion": 1,
+      "size": {
+        "entryFiles": 6,
+        "entryGzipKb": 13.2,
+        "largestGzipKb": 6.2,
+        "asyncChunkCount": 33
+      },
+      "sourcemap": true
+    },
+    {
+      "at": "2026-09-22T00:56:26.252Z",
+      "by": "minjian",
+      "action": "rollback",
+      "module": "sample",
+      "version": "0.1.0",
+      "previousVersion": "0.2.0",
+      "entry": "http://localhost:5002/sample/0.1.0/remoteEntry.js",
+      "contractVersion": 1
     }
   ]
 }

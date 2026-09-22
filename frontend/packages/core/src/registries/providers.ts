@@ -25,6 +25,8 @@ export class RouteMenuProvider extends BaseProvider {
   readonly title: string
   /** 图标名。 */
   readonly icon: string | undefined
+  /** 路由元信息（登记前透传 `route.meta`；供宿主读取 `group` / `groupIcon` / `devOnly` 等菜单语义）。 */
+  readonly meta: Readonly<Record<string, unknown>>
 
   /**
    * 构造路由·菜单注册项。
@@ -33,13 +35,15 @@ export class RouteMenuProvider extends BaseProvider {
    * @param path 路由路径。
    * @param title 菜单标题。
    * @param icon 图标名。
+   * @param meta 路由元信息（可选，缺省空对象）。
    */
-  constructor(key: string, path: string, title: string, icon?: string) {
+  constructor(key: string, path: string, title: string, icon?: string, meta?: Record<string, unknown>) {
     super()
     this.key = key
     this.path = path
     this.title = title
     this.icon = icon
+    this.meta = { ...(meta ?? {}) }
   }
 }
 
