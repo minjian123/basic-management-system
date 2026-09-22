@@ -5,6 +5,7 @@ from collections.abc import AsyncIterator, Iterator
 from pathlib import Path
 
 import pytest
+from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
 from bms_core.cache.memory import MemoryCacheRegion
@@ -17,7 +18,7 @@ from bms_core.core.context import (
     current_trace_id,
     current_user_id,
 )
-from bms_platform.main import ApplicationFactory, lifespan
+from bms_platform.main import ApplicationFactory
 from ops.seed_tenant import seed_tenants
 
 
@@ -88,15 +89,26 @@ def clear_tenant_cache(app: object) -> None:
 
 
 @pytest.fixture
-async def client() -> AsyncIterator[AsyncClient]:
-    """ASGITransport 异步客户端夹具（独立应用实例，经 lifespan 装配）。
+async def service_app() -> AsyncIterator[FastAPI]:
+    """平台服务应用实例夹具（经 lifespan 装配；供探针 / 应用级断言与 `client` 共用）。
 
-    平台库与租户种子由 autouse 的 `platform_db` 夹具提供；租户缓存用例前后清空。
+    Yields:
+        object: FastAPI 应用实例。
     """
     app = ApplicationFactory().create(None)
     clear_tenant_cache(app)
     try:
-        async with lifespan(app), AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
-            yield c
+        async with app.router.lifespan_context(app):
+            yield app
     finally:
         clear_tenant_cache(app)
+
+
+@pytest.fixture
+async def client(service_app: FastAPI) -> AsyncIterator[AsyncClient]:
+    """ASGITransport 异步客户端夹具（复用 `service_app`）。
+
+    平台库与租户种子由 autouse 的 `platform_db` 夹具提供；租户缓存用例前后清空。
+    """
+    async with AsyncClient(transport=ASGITransport(app=service_app), base_url="http://test") as c:
+        yield c

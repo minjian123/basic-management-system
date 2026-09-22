@@ -13,7 +13,7 @@ from typing import Annotated
 from fastapi import Depends, Request
 
 from bms_core.api.base import BaseRouter, require_auth
-from bms_core.api.deps import get_code_validator, get_rate_limiter, get_tenant
+from bms_core.api.deps import current_code_of, get_code_validator, get_rate_limiter, get_tenant
 from bms_core.codecheck.base import (
     SQL_VALIDATE_RATE_LIMIT,
     BaseCodeValidator,
@@ -34,7 +34,6 @@ from bms_core.schemas.codecheck import (
     ValidationIssueResponse,
 )
 from bms_core.schemas.common import ApiResponse
-from bms_platform.api.tenant import current_code_of
 
 router = BaseRouter(
     key="codecheck",

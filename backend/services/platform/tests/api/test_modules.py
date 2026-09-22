@@ -3,7 +3,8 @@
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from bms_platform.main import ApplicationFactory, lifespan
+from bms_core.application import service_lifespan as lifespan
+from bms_platform.main import ApplicationFactory
 
 
 @pytest.mark.kiwi_id(28)

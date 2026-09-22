@@ -8,6 +8,7 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy import Table, UniqueConstraint
 
 from bms_core.api.deps import get_idempotency_store
+from bms_core.application import service_lifespan as lifespan
 from bms_core.core.capability import BaseCapability, BaseNullObject
 from bms_core.core.error_codes import ErrorCode
 from bms_core.core.exceptions import NotFoundError
@@ -31,7 +32,7 @@ from bms_core.icon.base import (
 )
 from bms_core.icon.null import NullIconRegistry
 from bms_platform.api.icon import router as icon_router
-from bms_platform.main import ApplicationFactory, lifespan
+from bms_platform.main import ApplicationFactory
 from bms_platform.models.system import SysIcon, SysIconI18n
 
 API = "/api/v1/icons"

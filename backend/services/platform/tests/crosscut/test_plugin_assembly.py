@@ -7,6 +7,7 @@ from typing import cast
 import pytest
 
 import bms_core as app_pkg
+from bms_core.application import service_lifespan as lifespan
 from bms_core.core import plugin as plugin_module
 from bms_core.core.base import BaseObject
 from bms_core.core.config import LogSettings, PluginSelection, Settings
@@ -17,7 +18,7 @@ from bms_core.masking.null import NullMasker
 from bms_core.permission.base import BasePermissionChecker
 from bms_core.permission.null import NullPermissionChecker
 from bms_core.storage.local import LocalObjectStorage
-from bms_platform.main import ApplicationFactory, lifespan
+from bms_platform.main import ApplicationFactory
 
 
 def _isolated_registry(monkeypatch: pytest.MonkeyPatch) -> PluginRegistry:
@@ -68,7 +69,7 @@ async def test_config_switch_takes_effect(monkeypatch: pytest.MonkeyPatch) -> No
     registry = _isolated_registry(monkeypatch)
     registry.register("object_storage", "custom", lambda: CustomStorage())
     settings = Settings(storage=PluginSelection(provider="custom"))
-    monkeypatch.setattr("bms_platform.main.get_settings", lambda: settings)
+    monkeypatch.setattr("bms_core.application.get_settings", lambda: settings)
     app = ApplicationFactory().create(None)
     async with lifespan(app):
         assert isinstance(app.state.object_storage, CustomStorage)
@@ -97,7 +98,7 @@ async def test_masker_factory_injects_permission_checker(monkeypatch: pytest.Mon
     registry = _isolated_registry(monkeypatch)
     registry.register("permission", "deny", lambda: DenyChecker())
     settings = Settings(permission=PluginSelection(provider="deny"))
-    monkeypatch.setattr("bms_platform.main.get_settings", lambda: settings)
+    monkeypatch.setattr("bms_core.application.get_settings", lambda: settings)
     app = ApplicationFactory().create(None)
     async with lifespan(app):
         masker = cast("NullMasker", app.state.masker)
@@ -123,7 +124,7 @@ async def test_setup_and_aclose_lifecycle(monkeypatch: pytest.MonkeyPatch) -> No
     registry = _isolated_registry(monkeypatch)
     registry.register("object_storage", "probe", Probe)
     settings = Settings(storage=PluginSelection(provider="probe"))
-    monkeypatch.setattr("bms_platform.main.get_settings", lambda: settings)
+    monkeypatch.setattr("bms_core.application.get_settings", lambda: settings)
     app = ApplicationFactory().create(None)
     async with lifespan(app):
         assert calls["setup"] == 1
@@ -139,7 +140,7 @@ async def test_startup_log_excludes_options(
     settings = Settings(
         storage=PluginSelection(provider="", options={"secret_key": "top-secret"}),
     )
-    monkeypatch.setattr("bms_platform.main.get_settings", lambda: settings)
+    monkeypatch.setattr("bms_core.application.get_settings", lambda: settings)
     app = ApplicationFactory().create(None)
     configure_logging(Settings(log=LogSettings(level="INFO", format="json")))
     async with lifespan(app):

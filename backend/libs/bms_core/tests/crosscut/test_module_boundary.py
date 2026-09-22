@@ -3,6 +3,7 @@
 依据《后端开发规范》§3.1「依赖方向」与 §3.2「模块边界与数据所有权」：
 
 - 共享基座库 `bms_core` 不得反向依赖任何服务（横切基座不感知服务）；
+- 各服务不得互相依赖（服务之间只经公开契约或事件）；
 - 服务内分层单向：`api → services → repositories → models / schemas`，`models / schemas` 不得反向；
 - `bms_core` 的 `core/` 不得反向依赖 `api/` / `services/`，`repositories/` 不得依赖 `services/`；
 - 跨包不得 import 他包私有模块（下划线前缀）——模块内部类与实现不得外泄。
@@ -21,23 +22,43 @@ import pytest
 _ROOT = Path(__file__).resolve().parents[4]
 """后端工程根（`backend/`）。"""
 
-_PACKAGE_ROOTS: dict[str, Path] = {
-    "bms_core": _ROOT / "libs/bms_core/src/bms_core",
-    "bms_platform": _ROOT / "services/platform/src/bms_platform",
-}
 
-# 分层反向依赖黑名单：包 → {源包 → 禁止依赖的目标包}
-_LAYER_RULES: dict[str, dict[str, frozenset[str]]] = {
-    "bms_core": {
-        "core": frozenset({"api", "services"}),
-        "repositories": frozenset({"services"}),
-    },
-    "bms_platform": {
-        "services": frozenset({"api"}),
-        "repositories": frozenset({"api", "services"}),
-        "models": frozenset({"api", "services", "repositories"}),
-        "schemas": frozenset({"api", "services", "repositories"}),
-    },
+def _discover() -> dict[str, Path]:
+    """发现工作区包（`libs/*` 共享库 + `services/*` 服务）。
+
+    Returns:
+        dict[str, Path]: 包名 → 包根目录。
+    """
+    packages: dict[str, Path] = {}
+    for kind in ("libs", "services"):
+        base = _ROOT / kind
+        if not base.is_dir():
+            continue
+        for project in sorted(base.iterdir()):
+            src = project / "src"
+            if not src.is_dir():
+                continue
+            for package in sorted(src.iterdir()):
+                if package.is_dir() and (package / "__init__.py").is_file():
+                    packages[package.name] = package
+    return packages
+
+
+_PACKAGE_ROOTS: dict[str, Path] = _discover()
+"""工作区包：`{包名: 包根}`（含共享库与全部服务）。"""
+
+_SHARED = "bms_core"
+"""共享基座库包名（其余为服务包）。"""
+
+_SHARED_LAYER_RULES: dict[str, frozenset[str]] = {
+    "core": frozenset({"api", "services"}),
+    "repositories": frozenset({"services"}),
+}
+_SERVICE_LAYER_RULES: dict[str, frozenset[str]] = {
+    "services": frozenset({"api"}),
+    "repositories": frozenset({"api", "services"}),
+    "models": frozenset({"api", "services", "repositories"}),
+    "schemas": frozenset({"api", "services", "repositories"}),
 }
 
 _MIN_SOURCE_FILES = 100
@@ -47,7 +68,7 @@ def _package_of(package: str, path: Path) -> str:
     """返回源文件所属子包（`<包>/<子包>/...` 的第二段）。
 
     Args:
-        package: 顶层包名（`bms_core` / `bms_platform`）。
+        package: 顶层包名。
         path: 源文件路径。
 
     Returns:
@@ -59,7 +80,7 @@ def _package_of(package: str, path: Path) -> str:
 
 
 def _iter_imports(path: Path) -> Iterator[tuple[int, str]]:
-    """解析文件并产出全部受管包导入（`bms_core.*` / `bms_platform.*`）。
+    """解析文件并产出全部受管包导入（工作区包）。
 
     Args:
         path: Python 源文件路径。
@@ -76,13 +97,13 @@ def _iter_imports(path: Path) -> Iterator[tuple[int, str]]:
         else:
             modules = [node.module] if node.module else []
         for module in modules:
-            if module in _PACKAGE_ROOTS or module.split(".")[0] in _PACKAGE_ROOTS:
+            if module.split(".")[0] in _PACKAGE_ROOTS:
                 yield node.lineno, module
 
 
 @lru_cache(maxsize=1)
 def _scan() -> tuple[tuple[str, ...], tuple[str, ...], tuple[str, ...], int]:
-    """扫描两包全部源文件，收集越界导入。
+    """扫描全部工作区包源文件，收集越界导入。
 
     Returns:
         tuple: （跨包反向依赖、分层反向依赖、跨包私有引用、已扫描文件数）。
@@ -92,6 +113,8 @@ def _scan() -> tuple[tuple[str, ...], tuple[str, ...], tuple[str, ...], int]:
     private: list[str] = []
     scanned = 0
     for package, root in _PACKAGE_ROOTS.items():
+        shared = package == _SHARED
+        layer_rules = _SHARED_LAYER_RULES if shared else _SERVICE_LAYER_RULES
         for path in sorted(root.rglob("*.py")):
             scanned += 1
             rel = path.relative_to(_ROOT).as_posix()
@@ -100,10 +123,13 @@ def _scan() -> tuple[tuple[str, ...], tuple[str, ...], tuple[str, ...], int]:
                 top = module.split(".")[0]
                 parts = module.split(".")
                 detail = f"{rel}:{lineno} import {module}"
-                if package == "bms_core" and top in _PACKAGE_ROOTS and top != package:
+                target_shared = top == _SHARED
+                if shared and not target_shared:
                     cross.append(f"[{package}→{top}] {detail}")
+                if not shared and top != package and not target_shared:
+                    cross.append(f"[服务互相依赖 {package}→{top}] {detail}")
                 target = parts[1] if len(parts) > 1 else package
-                if top == package and target in _LAYER_RULES[package].get(source, frozenset()):
+                if top == package and target in layer_rules.get(source, frozenset()):
                     reverse.append(f"[{source}→{target}] {detail}")
                 if top != package and any(part.startswith("_") for part in parts[1:]):
                     private.append(f"[{package}→{top}] {detail}")
@@ -121,9 +147,9 @@ def test_scan_covers_sources() -> None:
 
 @pytest.mark.kiwi_id(688)
 def test_shared_library_has_no_service_dependency() -> None:
-    """共享基座库不得依赖任何服务（`bms_core` 不感知 `bms_platform`）。"""
+    """共享基座库不得依赖任何服务（`bms_core` 不感知服务包）。"""
     cross, _, _, _ = _scan()
-    assert not cross, "禁止共享库反向依赖服务（《微服务演进规划》S1）；违规：\n" + "\n".join(cross)
+    assert not cross, "禁止共享库反向依赖服务 / 服务互相依赖（《微服务演进规划》S1）；违规：\n" + "\n".join(cross)
 
 
 @pytest.mark.kiwi_id(688)

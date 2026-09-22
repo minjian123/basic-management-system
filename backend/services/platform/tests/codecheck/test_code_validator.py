@@ -5,6 +5,7 @@ from fastapi.routing import APIRoute
 from httpx import ASGITransport, AsyncClient
 
 from bms_core.api.deps import get_code_validator, get_rate_limiter
+from bms_core.application import service_lifespan as lifespan
 from bms_core.codecheck.base import (
     DEFAULT_EXPRESSION_SCOPE,
     DEFAULT_SQL_TIMEOUT_MS,
@@ -26,7 +27,7 @@ from bms_core.core.error_codes import ErrorCode
 from bms_core.core.plugin import BasePluggable, resolve_plugin
 from bms_core.ratelimit.base import RateLimitRule
 from bms_platform.api.codecheck import router as codecheck_router
-from bms_platform.main import ApplicationFactory, lifespan
+from bms_platform.main import ApplicationFactory
 
 API = "/api/v1/code"
 

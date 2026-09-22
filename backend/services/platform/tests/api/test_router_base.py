@@ -14,7 +14,6 @@ from bms_core.api.base import (
     cursor_query,
     page_query,
     require_auth,
-    router_registry,
     sort_query,
 )
 from bms_core.core.base import BaseObject
@@ -85,24 +84,9 @@ async def test_unified_mount_and_prefix() -> None:
     assert API_PREFIX + "/demos" in paths
     assert API_PREFIX + "/modules" in paths
     assert API_PREFIX + "/plugins" in paths
-    assert router_registry().keys() == (
-        "demo",
-        "modules",
-        "plugins",
-        "preference",
-        "query_scheme",
-        "notification",
-        "chat",
-        "search",
-        "org",
-        "dict",
-        "file",
-        "captcha",
-        "tenant",
-        "print",
-        "icon",
-        "codecheck",
-    )
+    # 服务级登记：平台应用只挂本服务路由，其他服务路由不串入
+    assert API_PREFIX + "/org" not in paths
+    assert API_PREFIX + "/notifications" not in paths
 
     router = BaseRouter(key="probe", prefix="/probe")
 

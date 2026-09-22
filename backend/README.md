@@ -13,17 +13,19 @@ BMS 平台后端服务：Python 3.14 + FastAPI + uvicorn + Pydantic v2 + SQLAlch
 ```bash
 cd backend
 uv sync
-uv run python -m bms_platform          # 服务启动入口（读 config 的 [server] host/port；SIGTERM 先摘流再优雅收尾）
+uv run python -m bms_platform          # 各服务启动入口（读 config 的 [server] host/port；SIGTERM 先摘流再优雅收尾）
+# 其他服务：python -m bms_identity / bms_tenant / bms_org / bms_file / bms_notification / bms_search / bms_ai / bms_report
+# 本地并行多服务时用 BMS_SERVER__PORT 覆盖端口（每服务独立配置归 06_需求）
 # 或：uv run uvicorn bms_platform.asgi:app --port 8000
 # 验证：/healthz 返回 {"status":"ok","service":"platform","version":"..."}；/readyz 就绪（依赖不可达为 503）；/docs Swagger
 uv run pytest   # 全量用例（含 Kiwi TCMS 用例 ID 标注）
 
 # 本地门禁（与 CI 同口径）
 uv run ruff check . && uv run ruff format --check . && uv run pyright
-uv run pytest -q --cov=bms_core --cov=bms_platform --cov-branch --cov-fail-under=70   # 覆盖率门禁 ≥ 70%
+uv run pytest -q --cov=bms_core --cov=bms_platform --cov=bms_identity --cov=bms_tenant --cov=bms_org --cov=bms_file --cov=bms_notification --cov=bms_search --cov=bms_ai --cov=bms_report --cov-branch --cov-fail-under=70   # 覆盖率门禁 ≥ 70%
 uv run python -m ops.check_modules                            # 模块注册清单校验
 cd .. && python3 scripts/tools/base-check/check-base.py        # 基座自检（须在仓库根）
-python3 scripts/tools/base-check/check-service-boundaries.py  # 服务边界护栏（共享库 / 服务分层）
+python3 scripts/tools/base-check/check-service-boundaries.py  # 服务边界护栏（共享库 / 服务依赖、分层单向、表 / 表前缀跨服务唯一）
 python3 scripts/tools/check-docs/check-status.py              # 需求 / 任务 / 计划状态一致性
 ```
 
@@ -80,6 +82,7 @@ backend/
 ├── libs/bms_core/    # 共享基座库（各服务复用；包 bms_core，src 布局）
 │   ├── pyproject.toml
 │   ├── src/bms_core/
+│   │   ├── application.py  # 服务应用装配基座（service_lifespan + BaseServiceApplicationFactory）
 │   │   ├── core/     # L0 根基类 · 集合体系（有序 / 并发 / Redis）· 中间层基类 · core 横切（配置 / 异常 / 安全 / 日志 / 序列化 / 锁 / 雪花 ID / 上下文 / 资源）
 │   │   ├── api/      # 接口层基座（路由基类 / 依赖 / 中间件 / 异常处理器 / 探针）
 │   │   ├── db/       # 数据访问底座（引擎 / 会话 / 读写路由 / 租户 / 引擎注册表 / 工作单元 / 迁移链）
@@ -88,14 +91,18 @@ backend/
 │   │   ├── schemas/  # 契约基类 BaseSchema + 分页 / 排序 / 游标 / 统一响应
 │   │   ├── models/   # ORM 基类 BaseModel + 平台基础模型（sys_tenant / sys_module）
 │   │   └── <能力域>/ # 横切能力域（cache / lock / health / storage / tracing / … 契约与实现）
-│   └── tests/        # 基座库测试（不依赖服务应用）
-└── services/platform/  # 平台地基服务（首个服务；一服务一工程）
-    ├── pyproject.toml
-    ├── src/bms_platform/
-    │   ├── main.py / asgi.py   # 应用工厂与 ASGI 入口
-    │   ├── api/                # 业务路由聚合与模块路由（demo / dict / org / notification / …）
-    │   ├── services/ repositories/ models/ schemas/   # 平台业务各层（demo 为五层示例）
-    └── tests/              # 服务测试（应用 / 接口 / 契约 / 插件装配）
+│   └── tests/        # 基座库测试（不依赖具体服务应用）
+└── services/         # 9 个服务工程（一服务一工程一库；02_03 拆分）
+    ├── platform/       # 平台地基 / 配置服务（服务目录 / 插件 / 字典 / 图标 / 偏好 / 查询方案 / 代码校验 + demo 样板）
+    ├── identity/       # 认证与身份服务（验证码）
+    ├── tenant/         # 租户与配置服务
+    ├── org/            # 组织主数据服务
+    ├── file/           # 文件服务
+    ├── notification/   # 通知服务
+    ├── search/         # 检索服务
+    ├── ai/             # AI 服务
+    └── report/         # 报表打印服务
+        └── <各服务>/   # pyproject.toml + src/bms_<服务>/（main / asgi + api / services / repositories / models / schemas）+ tests/
 ```
 
 > 新增服务用 `python scripts/new_service.py <服务名>` 生成同构骨架；分层职责、依赖方向（服务只依赖共享库与自身、共享库不依赖服务、服务之间不互相 import）与目录登记见《[后端开发规范](../bms文档/规范/后端开发规范.md)》。

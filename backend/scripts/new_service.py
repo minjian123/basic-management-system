@@ -55,76 +55,41 @@ SERVICE_TITLE = "BMS {title}服务"
 """服务中文名（用于应用 title）。"""
 '''
 
-_MAIN = '''"""{title}服务入口：应用工厂 `ApplicationFactory`（脚手架生成，按需扩展）。"""
+_MAIN = '''"""{title}服务入口：应用工厂 `ApplicationFactory`（共享基座 + 服务身份 / 路由）。"""
 
-from collections.abc import AsyncGenerator
-from contextlib import asynccontextmanager
+from collections.abc import Sequence
 
-from fastapi import FastAPI
+from fastapi import APIRouter
 
-from bms_core.api.errors import register_exception_handlers
-from bms_core.api.health import router as health_router
-from bms_core.core.config import get_settings
-from bms_core.core.factory import BaseApplicationFactory
-from bms_core.core.logging import configure_logging
-from bms_core.core.resources import ResourceManager
-from bms_core.core.service import attach_service
-from bms_core.health import null as _null_health  # noqa: F401  # 导入即登记 null 健康注册表（最小服务就绪回退）
+from bms_core.application import BaseServiceApplicationFactory
+from bms_core.core.config import Settings
 from bms_{name} import SERVICE_NAME, SERVICE_TITLE, __version__
 from bms_{name}.api.router import api_router
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
-    """应用生命周期：标记启动完成；关闭时取消就绪并释放异步资源。
-
-    Args:
-        app: 应用实例。
-
-    Yields:
-        None: 应用运行期。
-    """
-    app.state.startup_complete = True
-    try:
-        yield
-    finally:
-        app.state.startup_complete = False
-        await app.state.resources.aclose()
-
-
-class ApplicationFactory(BaseApplicationFactory):
-    """应用工厂：构造 {title}服务 FastAPI 应用。"""
+class ApplicationFactory(BaseServiceApplicationFactory):
+    """应用工厂：{title}服务（通用装配由共享基座承载）。"""
 
     key: str = "application_factory"
+    service_name: str = SERVICE_NAME
+    service_title: str = SERVICE_TITLE
+    version: str = __version__
 
-    def create(self, options: None = None) -> FastAPI:
-        """创建 FastAPI 应用。
+    def prepare_settings(self, settings: Settings) -> None:
+        """最小服务暂无依赖检查：就绪探针回退 null 注册表（空检查项、恒定通过）。
 
         Args:
-            options: 未使用（零参口径）。
+            settings: 应用配置（可变）。
+        """
+        settings.health_check_registry.provider = ""
+
+    def service_routers(self) -> Sequence[APIRouter]:
+        """业务路由（探针路由由基座统一挂载）。
 
         Returns:
-            FastAPI: 已注册基线配置与端点的应用实例。
+            Sequence[APIRouter]: 业务聚合路由。
         """
-        settings = get_settings()
-        # 最小服务暂无依赖检查：就绪探针回退 null 注册表（空检查项、恒定通过）；
-        # 接入依赖后按配置切换实现（[health_check_registry].provider）并登记检查项
-        settings.health_check_registry.provider = ""
-        configure_logging(settings)
-        app = FastAPI(title=SERVICE_TITLE, version=__version__, lifespan=lifespan)
-        app.state.resources = ResourceManager()
-        attach_service(
-            app,
-            declared_name=SERVICE_NAME,
-            version=__version__,
-            title=SERVICE_TITLE,
-            settings=settings,
-        )
-        register_exception_handlers(app)
-        app.state.settings = settings
-        app.include_router(api_router)
-        app.include_router(health_router)
-        return app
+        return (api_router,)
 '''
 
 _MAIN_ENTRY = '''"""服务启动入口：`python -m bms_{name}`（读 `[server]` 配置，SIGTERM 先摘流再优雅收尾）。"""
@@ -150,11 +115,15 @@ _API_INIT = '''"""{title}服务 api 层：业务路由与参数校验，只做�
 """
 '''
 
-_API_ROUTER = '''"""{title}服务路由聚合：模块路由登记后统一挂载到 `/api/v1`。"""
+_API_ROUTER = '''"""{title}服务路由聚合：模块路由经服务级登记表统一挂到 `/api/v1`。
 
-from bms_core.api.base import build_api_router
+新增路由：建 `api/<模块>.py`（继承 `bms_core.api.base.BaseRouter`）后并入 `mount_service_routers`。
+探针路由由共享应用基座统一挂载，不在此处登记。
+"""
 
-api_router = build_api_router()
+from bms_core.api.base import mount_service_routers
+
+api_router = mount_service_routers(())
 '''
 
 _LAYER_INIT = {

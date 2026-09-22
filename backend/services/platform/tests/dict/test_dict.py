@@ -9,6 +9,7 @@ from fastapi import Request
 from httpx import ASGITransport, AsyncClient
 
 from bms_core.api.deps import get_dict_cache_region, get_dict_source, get_dict_translator
+from bms_core.application import service_lifespan as lifespan
 from bms_core.cache.base import CacheRegion
 from bms_core.core.capability import BaseCapability, BaseNullObject
 from bms_core.core.config import get_settings
@@ -30,7 +31,7 @@ from bms_core.dict.base import (
     DictTypeResult,
 )
 from bms_core.dict.null import NullDictCacheRegion, NullDictSource, NullDictTranslator
-from bms_platform.main import ApplicationFactory, lifespan
+from bms_platform.main import ApplicationFactory
 
 API = "/api/v1/dicts"
 

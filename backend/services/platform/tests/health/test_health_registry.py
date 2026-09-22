@@ -10,6 +10,7 @@ from fastapi import Depends
 from httpx import ASGITransport, AsyncClient
 
 from bms_core.api.deps import get_health_check_registry
+from bms_core.application import service_lifespan as lifespan
 from bms_core.core.base import BaseObject
 from bms_core.core.capability import BaseCapability, BaseNullObject
 from bms_core.fallback.base import DEPENDENCIES as FALLBACK_DEPENDENCIES
@@ -22,7 +23,7 @@ from bms_core.health.base import (
 )
 from bms_core.health.null import NullHealthCheckRegistry
 from bms_core.health.registry import HealthCheckRegistry
-from bms_platform.main import ApplicationFactory, lifespan
+from bms_platform.main import ApplicationFactory
 
 
 class _PassingCheck(BaseHealthCheck):

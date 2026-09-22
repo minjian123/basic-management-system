@@ -1,49 +1,21 @@
-"""api 聚合路由：业务模块路由登记 → 统一挂载到 `/api/v1`；探针路由豁免前缀，单独挂根路径。"""
+"""api 聚合路由：平台地基 / 配置路由经服务级登记表统一挂到 `/api/v1`。
 
-from fastapi import APIRouter
+探针路由（`/healthz` `/readyz`）由共享应用基座统一挂载，不在此处登记。
+"""
 
-from bms_core.api import health
-from bms_core.api.base import build_api_router, register_router
-from bms_platform.api import (
-    captcha,
-    chat,
-    codecheck,
-    demo,
-    file,
-    icon,
-    modules,
-    notification,
-    org,
-    plugins,
-    preference,
-    query_scheme,
-    search,
-    tenant,
-)
+from bms_core.api.base import mount_service_routers
+from bms_platform.api import codecheck, demo, icon, modules, plugins, preference, query_scheme
 from bms_platform.api import dict as dict_api
-from bms_platform.api import print as print_api
 
-for _module in (
-    demo,
-    modules,
-    plugins,
-    preference,
-    query_scheme,
-    notification,
-    chat,
-    search,
-    org,
-    dict_api,
-    file,
-    captcha,
-    tenant,
-    print_api,
-    icon,
-    codecheck,
-):
-    register_router(_module.router)
-
-api_router = build_api_router()
-
-health_router = APIRouter()
-health_router.include_router(health.router)
+api_router = mount_service_routers(
+    (
+        demo.router,
+        modules.router,
+        plugins.router,
+        preference.router,
+        query_scheme.router,
+        dict_api.router,
+        icon.router,
+        codecheck.router,
+    )
+)

@@ -21,7 +21,7 @@ from bms_core.dashboard.base import get_dashboard_card_registry
 from bms_core.db.health import PrimaryHealth
 from bms_core.db.registry import EngineRegistry
 from bms_core.db.session import SessionFactory, get_db, get_read_db, get_uow, get_write_db
-from bms_core.db.tenant import get_tenant
+from bms_core.db.tenant import TenantContext, get_tenant
 from bms_core.db.tenant_source import TenantSource
 from bms_core.dict.base import get_dict_cache_region, get_dict_source, get_dict_translator
 from bms_core.dict.query import DictQueryService
@@ -66,6 +66,7 @@ from bms_core.ws.base import get_realtime_publisher
 
 __all__ = [
     "SessionFactory",
+    "current_code_of",
     "get_archive_policy",
     "get_archive_query_router",
     "get_audit_capturer",
@@ -184,3 +185,15 @@ def get_tenant_source(request: Request) -> TenantSource:
         TenantSource: 应用装配的租户源实例。
     """
     return cast("TenantSource", request.app.state.tenant_source)
+
+
+def current_code_of(tenant: TenantContext | None) -> str | None:
+    """取解析链当前租户编码（供幂等 / 限流键的租户作用域位与租户自助接口复用）。
+
+    Args:
+        tenant: 请求级租户上下文（豁免路径为 None）。
+
+    Returns:
+        str | None: 当前租户编码；无上下文为空。
+    """
+    return tenant.tenant_code if tenant is not None else None
