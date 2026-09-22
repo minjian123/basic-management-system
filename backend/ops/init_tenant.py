@@ -30,13 +30,13 @@ from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
-from app.core.base import BaseObject
-from app.core.config import get_settings
-from app.db.admin import DatabaseTarget, create_database, resolve_target
-from app.db.engine import EngineFactory
-from app.db.migration import current_revision, head_revision, resolve_chain, upgrade_chain
-from app.db.tenant import build_tenant_db_key
-from app.dict.seed import seed_dicts
+from bms_core.core.base import BaseObject
+from bms_core.core.config import get_settings
+from bms_core.db.admin import DatabaseTarget, create_database, resolve_target
+from bms_core.db.engine import EngineFactory
+from bms_core.db.migration import current_revision, head_revision, resolve_chain, upgrade_chain
+from bms_core.db.tenant import build_tenant_db_key
+from bms_core.dict.seed import seed_dicts
 
 
 @dataclass(frozen=True)

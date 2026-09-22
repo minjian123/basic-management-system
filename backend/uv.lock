@@ -2,6 +2,26 @@ version = 1
 revision = 3
 requires-python = ">=3.14"
 
+[manifest]
+members = [
+    "bms-core",
+    "bms-platform",
+]
+
+[manifest.dependency-groups]
+dev = [
+    { name = "allure-pytest", specifier = ">=2.16.0" },
+    { name = "fakeredis", extras = ["lua"], specifier = ">=2.38.0" },
+    { name = "httpx", specifier = ">=0.27" },
+    { name = "kiwitcms-pytest-plugin", specifier = ">=15.4" },
+    { name = "minio", specifier = ">=7.2" },
+    { name = "pyright", specifier = ">=1.1.380" },
+    { name = "pytest", specifier = ">=8.0" },
+    { name = "pytest-asyncio", specifier = ">=0.24" },
+    { name = "pytest-cov", specifier = ">=5.0" },
+    { name = "ruff", specifier = ">=0.6" },
+]
+
 [[package]]
 name = "aiomysql"
 version = "0.3.2"
@@ -158,9 +178,9 @@ wheels = [
 ]
 
 [[package]]
-name = "bms-backend"
+name = "bms-core"
 version = "0.1.0"
-source = { virtual = "." }
+source = { editable = "libs/bms_core" }
 dependencies = [
     { name = "aiomysql" },
     { name = "aiosqlite" },
@@ -179,26 +199,11 @@ dependencies = [
     { name = "sortedcontainers" },
     { name = "sqlalchemy" },
     { name = "structlog" },
-    { name = "uvicorn", extra = ["standard"] },
 ]
 
 [package.optional-dependencies]
 storage-minio = [
     { name = "minio" },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "allure-pytest" },
-    { name = "fakeredis", extra = ["lua"] },
-    { name = "httpx" },
-    { name = "kiwitcms-pytest-plugin" },
-    { name = "minio" },
-    { name = "pyright" },
-    { name = "pytest" },
-    { name = "pytest-asyncio" },
-    { name = "pytest-cov" },
-    { name = "ruff" },
 ]
 
 [package.metadata]
@@ -221,22 +226,24 @@ requires-dist = [
     { name = "sortedcontainers" },
     { name = "sqlalchemy", specifier = ">=2.0" },
     { name = "structlog", specifier = ">=24.1" },
-    { name = "uvicorn", extras = ["standard"], specifier = ">=0.30" },
 ]
 provides-extras = ["storage-minio"]
 
-[package.metadata.requires-dev]
-dev = [
-    { name = "allure-pytest", specifier = ">=2.16.0" },
-    { name = "fakeredis", extras = ["lua"], specifier = ">=2.38.0" },
-    { name = "httpx", specifier = ">=0.27" },
-    { name = "kiwitcms-pytest-plugin", specifier = ">=15.4" },
-    { name = "minio", specifier = ">=7.2" },
-    { name = "pyright", specifier = ">=1.1.380" },
-    { name = "pytest", specifier = ">=8.0" },
-    { name = "pytest-asyncio", specifier = ">=0.24" },
-    { name = "pytest-cov", specifier = ">=5.0" },
-    { name = "ruff", specifier = ">=0.6" },
+[[package]]
+name = "bms-platform"
+version = "0.1.0"
+source = { editable = "services/platform" }
+dependencies = [
+    { name = "bms-core" },
+    { name = "fastapi" },
+    { name = "uvicorn", extra = ["standard"] },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "bms-core", editable = "libs/bms_core" },
+    { name = "fastapi", specifier = ">=0.115" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.30" },
 ]
 
 [[package]]

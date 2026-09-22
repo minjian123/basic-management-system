@@ -32,11 +32,11 @@ from sqlalchemy.engine import Engine, make_url
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.pool import NullPool
 
-from app.core.base import BaseObject
-from app.core.config import get_settings
-from app.core.exceptions import ConfigError
-from app.db.engine import PLATFORM_DB_KEY, EngineFactory
-from app.db.migration import (
+from bms_core.core.base import BaseObject
+from bms_core.core.config import get_settings
+from bms_core.core.exceptions import ConfigError
+from bms_core.db.engine import PLATFORM_DB_KEY, EngineFactory
+from bms_core.db.migration import (
     MigrationChain,
     chain_url,
     current_revision,
@@ -44,8 +44,8 @@ from app.db.migration import (
     resolve_chain,
     upgrade_chain,
 )
-from app.db.tenant import build_tenant_db_key
-from app.models.platform import SysTenant
+from bms_core.db.tenant import build_tenant_db_key
+from bms_core.models.platform import SysTenant
 
 _DM = "dm"
 _TARGETS = ("all", "platform", "tenants", "tenant", "archive")

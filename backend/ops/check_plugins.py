@@ -15,12 +15,12 @@ import sys
 from collections.abc import Sequence
 from typing import cast
 
-from app.core.assembly import PLUGIN_WIRINGS, register_platform_plugins
-from app.core.config import PluginSelection, Settings
-from app.core.exceptions import PluginError
-from app.core.plugin import NULL_PLUGIN_NAME, build_plugin_registry
-from app.core.resources import ResourceManager
-from app.main import ApplicationFactory
+from bms_core.core.assembly import PLUGIN_WIRINGS, register_platform_plugins
+from bms_core.core.config import PluginSelection, Settings
+from bms_core.core.exceptions import PluginError
+from bms_core.core.plugin import NULL_PLUGIN_NAME, build_plugin_registry
+from bms_core.core.resources import ResourceManager
+from bms_platform.main import ApplicationFactory
 
 
 def main(argv: Sequence[str] | None = None) -> int:

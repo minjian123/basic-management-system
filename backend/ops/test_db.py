@@ -25,7 +25,7 @@ uv run python -m ops.test_db drop    --engine mysql --execute
 - **凭据**：一律不写入日志（仅以脱敏连接串展示）；测试密码经 `--password` 或
   `MYSQL_TEST_PASSWORD` / `POSTGRES_TEST_PASSWORD` / `DM8_TEST_PASSWORD` 注入。
 - 调用一律用**模块方式**（`uv run python -m ops.test_db`）：直接 `python ops/test_db.py` 时
-  `sys.path[0]` 为脚本目录，脚本内引用 `app.*` 会 `ModuleNotFoundError`
+  `sys.path[0]` 为脚本目录，脚本内引用 `bms_core.*` / `bms_platform.*` 会 `ModuleNotFoundError`
   （与 `ops/check_modules.py` 同一坑，04_01 已实测）。
 """
 
@@ -36,8 +36,8 @@ from collections.abc import Sequence
 
 from sqlalchemy.engine import make_url
 
-from app.core.exceptions import ConfigError
-from app.db.admin import (
+from bms_core.core.exceptions import ConfigError
+from bms_core.db.admin import (
     DatabaseTarget,
     create_database,
     drop_database,
@@ -45,7 +45,7 @@ from app.db.admin import (
     resolve_target,
     run_statements,
 )
-from app.db.migration import current_revision, head_revision, resolve_chain, upgrade_chain
+from bms_core.db.migration import current_revision, head_revision, resolve_chain, upgrade_chain
 
 TEST_DATABASES: dict[str, dict[str, str]] = {
     "mysql": {"platform": "bms_test_mysql", "tenant": "bms_test_mysql_t1"},

@@ -164,7 +164,9 @@ backend-plugins:
       exists:
         - backend/pyproject.toml
   script:
-    - cd backend && uv run python -m ops.check_plugins
+    - cd backend
+    - uv sync --frozen
+    - uv run python -m ops.check_plugins
 
 # ---- 后端：模块注册清单校验（复用 ModuleRegistry.validate；须以 -m 方式运行，直接跑脚本会 ModuleNotFoundError）----
 backend-modules:
@@ -183,7 +185,9 @@ backend-modules:
       exists:
         - backend/pyproject.toml
   script:
-    - cd backend && uv run python -m ops.check_modules
+    - cd backend
+    - uv sync --frozen
+    - uv run python -m ops.check_modules
 
 backend-test:
   stage: test
@@ -203,7 +207,9 @@ backend-test:
       exists:
         - backend/pyproject.toml
   script:
-    - cd backend && uv run pytest --cov=app --cov-branch --cov-report=term --cov-fail-under=70
+    - cd backend
+    - uv sync --frozen
+    - uv run pytest --cov=bms_core --cov=bms_platform --cov-branch --cov-report=term --cov-fail-under=70
   coverage: '/^TOTAL.*?\s+\d+\s+\d+\s+(\d+(?:\.\d+)?%)$/'
   # 核心模块（认证/RBAC/工作流/审计/收付款）≥ 80% 子阈值随对应模块落地（认证 / RBAC 阶段）接入（见 04_01 详细设计 §6.1）
 
@@ -225,6 +231,7 @@ integration-plan:
         - backend/ops/test_db.py
   script:
     - cd backend
+    - uv sync --frozen
     - uv run python -m ops.test_db plan --engine mysql
     - uv run python -m ops.test_db plan --engine postgres
     - uv run python -m ops.test_db plan --engine dm8
@@ -524,7 +531,7 @@ e2e-playwright:
   script:
     - pip install uv && cd backend && uv sync --frozen
     - cd frontend/apps/desktop && npm ci && npm run build
-    - cd ../backend && uv run pytest tests/e2e --e2e-headless
+    - cd ../backend && uv run pytest services/platform/tests/e2e --e2e-headless
 
 # ---- 三库方言集成测试：连 mjbk 常驻库，bms_test 前缀建库 → Alembic 迁移 → 集成用例 → 删库清理 ----
 # 分档开关 deploy/ci/verify/db（**2026-09-22 已开**；前置见 04_02 详细设计 §7.3）：
@@ -552,11 +559,12 @@ e2e-playwright:
   script:
     # 真库阶段：建库 / 建模式（幂等）→ 分链迁移（platform / tenant）→ 集成用例 → 失败先导 dump 再清理
     - cd backend
+    - uv sync --frozen
     - uv run python -m ops.test_db plan --engine "$DB_DIALECT"
     - uv run python -m ops.test_db create --engine "$DB_DIALECT" --execute
     - uv run python -m ops.test_db migrate --engine "$DB_DIALECT" --execute
     - |
-      if uv run pytest tests/integration -k "$DB_DIALECT" -v; then
+      if uv run pytest libs/bms_core/tests/integration -k "$DB_DIALECT" -v; then
         uv run python -m ops.test_db drop --engine "$DB_DIALECT" --execute || true
         exit 0
       fi
@@ -684,7 +692,7 @@ swagger-snapshot:
   script:
     - pip install uv && cd backend && uv sync --frozen
     # 应用工厂形态：经 ApplicationFactory 构造（02-54 工厂类化后移除模块级 create_app / app）
-    - uv run python -c "from app.main import ApplicationFactory; import json; print(json.dumps(ApplicationFactory().create(None).openapi(), ensure_ascii=False))" > swagger.json
+    - uv run python -c "from bms_platform.main import ApplicationFactory; import json; print(json.dumps(ApplicationFactory().create(None).openapi(), ensure_ascii=False))" > swagger.json
   artifacts:
     paths: [backend/swagger.json]
     expire_in: 30 days

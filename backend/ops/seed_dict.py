@@ -19,8 +19,8 @@ import os
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from app.core.config import get_settings
-from app.dict.seed import seed_dicts
+from bms_core.core.config import get_settings
+from bms_core.dict.seed import seed_dicts
 
 
 def _database_url() -> str:

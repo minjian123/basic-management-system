@@ -1,35 +1,9 @@
-[project]
-name = "bms-backend"
-version = "0.1.0"
-description = "BMS 后端服务（阶段一项目骨架）"
-requires-python = ">=3.14"
-dependencies = [
-    "fastapi>=0.115",
-    "uvicorn[standard]>=0.30",
-    "pydantic>=2.9",
-    "pydantic-settings>=2.5",
-    "python-dotenv>=1.0",
-    "sqlalchemy>=2.0",
-    "alembic>=1.13",
-    "aiosqlite>=0.20",
-    "aiomysql>=0.2",
-    # MySQL 8.4 默认 caching_sha2_password：aiomysql 在非 TLS 连接下需 cryptography
-    # 完成 RSA 公钥取回（冷缓存首连；缺它报「cryptography package is required」）
-    "cryptography>=44.0",
-    "psycopg[binary]>=3.2",
-    "dmPython",
-    "dmSQLAlchemy>=2.0",
-    "structlog>=24.1",
-    "redis>=5.0",
-    "python-multipart>=0.0.9",
-    "httpx>=0.27",
-    "sortedcontainers",
-]
+# BMS 后端工作区根（monorepo）：虚拟工程，只承载工作区成员与共享工具配置。
+# 成员：libs/bms_core（共享基座库）+ services/*（各服务工程，独立 pyproject / 独立构建）。
+# 依赖与安装：`uv sync` 将全部成员以可编辑方式装入工作区 .venv；`uv run` 直接可用。
 
-[project.optional-dependencies]
-storage-minio = [
-    "minio>=7.2",
-]
+[tool.uv.workspace]
+members = ["libs/*", "services/*"]
 
 [dependency-groups]
 dev = [
@@ -58,15 +32,21 @@ select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF"]
 # 中文标点为文档与注释的有意用法，关闭歧义字符检查
 ignore = ["RUF001", "RUF002", "RUF003"]
 
+[tool.ruff.lint.isort]
+# 工作区自有包与脚本区视为第一方（与第三方依赖分组稳定，避免归类漂移）
+known-first-party = ["bms_core", "bms_platform", "ops", "scripts"]
+
 [tool.pyright]
 typeCheckingMode = "strict"
 pythonVersion = "3.14"
-include = ["app", "tests"]
+include = ["libs", "services"]
+# src 布局：把两工程源码根加入解析路径，供跨工程导入与严格类型检查
+extraPaths = ["libs/bms_core/src", "services/platform/src"]
 stubPath = "typings"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
-testpaths = ["tests"]
+testpaths = ["libs/bms_core/tests", "services/platform/tests"]
 pythonpath = ["."]
 markers = [
     "kiwi_id: Kiwi TCMS 用例编号（如 @pytest.mark.kiwi_id(1)）",

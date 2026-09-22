@@ -5,7 +5,7 @@
 ```bash
 cd backend
 uv run python -m ops.seed_module
-uv run python -m ops.seed_module --url sqlite+aiosqlite:///./bms_platform.db
+uv run python -m ops.seed_module --url sqlite+aiosqlite:///./app.db
 uv run python -m ops.seed_module --dry-run
 ```
 
@@ -23,8 +23,8 @@ from sqlalchemy import select
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from app.models.platform import SysModule
-from app.services.module_registry import PLATFORM_MODULES
+from bms_core.models.platform import SysModule
+from bms_core.services.module_registry import PLATFORM_MODULES
 from ops.seed_tenant import resolve_url
 
 

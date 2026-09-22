@@ -1,0 +1,38 @@
+[project]
+name = "bms-core"
+version = "0.1.0"
+description = "BMS 共享基座库（core 横切 / 数据访问底座 / 模块基类 / 横切能力域 / 服务化语义基座）"
+requires-python = ">=3.14"
+dependencies = [
+    "fastapi>=0.115",
+    "pydantic>=2.9",
+    "pydantic-settings>=2.5",
+    "python-dotenv>=1.0",
+    "sqlalchemy>=2.0",
+    "alembic>=1.13",
+    "aiosqlite>=0.20",
+    "aiomysql>=0.2",
+    # MySQL 8.4 默认 caching_sha2_password：aiomysql 在非 TLS 连接下需 cryptography
+    # 完成 RSA 公钥取回（冷缓存首连；缺它报「cryptography package is required」）
+    "cryptography>=44.0",
+    "psycopg[binary]>=3.2",
+    "dmPython",
+    "dmSQLAlchemy>=2.0",
+    "structlog>=24.1",
+    "redis>=5.0",
+    "python-multipart>=0.0.9",
+    "httpx>=0.27",
+    "sortedcontainers",
+]
+
+[project.optional-dependencies]
+storage-minio = [
+    "minio>=7.2",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/bms_core"]

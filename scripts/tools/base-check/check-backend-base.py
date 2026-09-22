@@ -4,8 +4,8 @@
 校验三项（《后端审计规范》B1 / B5 / B6 / B9 的机器化）：
 
 1. **继承链对账**：《后端基类清单》§10「继承链与代码位置」的 `A → B → …` 链条
-   ↔ 代码 `backend/app/**` 的 `class A(B)` 相邻关系；
-2. **错误码段位**：`app/core/error_codes.py` 的平台码为 5 位且万位落在平台段（1~9）、
+   ↔ 代码 `backend/libs/**` 与 `backend/services/**` 的 `class A(B)` 相邻关系；
+2. **错误码段位**：`bms_core/core/error_codes.py` 的平台码为 5 位且万位落在平台段（1~9）、
    无产品段（10xxxx 起）混入；
 3. **迁移链完整**：`backend/alembic/versions/<链名>/` 按数据源分链——每链恰好一个 head、
    无断链、revision 跨链唯一、链首声明 `branch_labels=("<链名>",)`，且该链在 `alembic.ini`
@@ -22,8 +22,11 @@ import sys
 
 ROOT = os.path.abspath(sys.argv[1] if len(sys.argv) > 1 else ".")
 MANIFEST = os.path.join(ROOT, "bms文档/后端基类清单.md")
-APP_DIR = os.path.join(ROOT, "backend/app")
-ERROR_CODES = os.path.join(ROOT, "backend/app/core/error_codes.py")
+SOURCE_DIRS = (
+    os.path.join(ROOT, "backend/libs"),
+    os.path.join(ROOT, "backend/services"),
+)
+ERROR_CODES = os.path.join(ROOT, "backend/libs/bms_core/src/bms_core/core/error_codes.py")
 VERSIONS_DIR = os.path.join(ROOT, "backend/alembic/versions")
 
 problems: list[str] = []
@@ -70,19 +73,22 @@ def parse_chains(raw_line: str) -> list[tuple[str, ...]]:
 
 
 def index_classes() -> dict[str, list[list[str]]]:
-    """类名 → 父类名列表（重复定义保留全部）。"""
+    """类名 → 父类名列表（重复定义保留全部；覆盖工作区共享库与服务全部源码）。"""
     index: dict[str, list[list[str]]] = {}
-    for dp, _, files in os.walk(APP_DIR):
-        for name in files:
-            if not name.endswith(".py"):
+    for source_dir in SOURCE_DIRS:
+        for dp, _, files in os.walk(source_dir):
+            if "__pycache__" in dp or "tests" in dp.split(os.sep):
                 continue
-            path = os.path.join(dp, name)
-            text = open(path, encoding="utf-8", errors="ignore").read()
-            for cls, bases in CLASS_RE.findall(text):
-                parents = [
-                    re.sub(r"\[.*\]", "", b.strip().split(".")[-1]) for b in bases.split(",") if b.strip()
-                ]
-                index.setdefault(cls, []).append(parents)
+            for name in files:
+                if not name.endswith(".py"):
+                    continue
+                path = os.path.join(dp, name)
+                text = open(path, encoding="utf-8", errors="ignore").read()
+                for cls, bases in CLASS_RE.findall(text):
+                    parents = [
+                        re.sub(r"\[.*\]", "", b.strip().split(".")[-1]) for b in bases.split(",") if b.strip()
+                    ]
+                    index.setdefault(cls, []).append(parents)
     return index
 
 
@@ -216,15 +222,15 @@ def self_test() -> int:
     ok = True
     with tempfile.TemporaryDirectory() as tmp:
         os.makedirs(os.path.join(tmp, "bms文档"), exist_ok=True)
-        os.makedirs(os.path.join(tmp, "backend/app/core"), exist_ok=True)
+        os.makedirs(os.path.join(tmp, "backend/libs/bms_core/src/bms_core/core"), exist_ok=True)
         os.makedirs(os.path.join(tmp, "backend/alembic/versions/tenant"), exist_ok=True)
         open(os.path.join(tmp, "bms文档/后端基类清单.md"), "w", encoding="utf-8").write(
             "# 清单\n\n## 10. 继承链与代码位置\n\n- `BadChild → BaseObject`。\n\n## 11. 扩展\n"
         )
-        open(os.path.join(tmp, "backend/app/core/probe.py"), "w", encoding="utf-8").write(
+        open(os.path.join(tmp, "backend/libs/bms_core/src/bms_core/core/probe.py"), "w", encoding="utf-8").write(
             "class BaseObject:\n    pass\n\n\nclass BadChild(BaseObject):  # 多父类违规样例：清单要求直接 BaseObject 时会漏检——反向样例\n    pass\n\n\nclass Orphan:\n    pass\n"
         )
-        open(os.path.join(tmp, "backend/app/core/error_codes.py"), "w", encoding="utf-8").write(
+        open(os.path.join(tmp, "backend/libs/bms_core/src/bms_core/core/error_codes.py"), "w", encoding="utf-8").write(
             'class ErrorCode:\n    OK = 10001\n'
         )
         open(os.path.join(tmp, "backend/alembic.ini"), "w", encoding="utf-8").write(
@@ -260,7 +266,7 @@ def self_test() -> int:
         open(os.path.join(tmp, "bms文档/后端基类清单.md"), "w", encoding="utf-8").write(
             "# 清单\n\n## 10. 继承链与代码位置\n\n## 11. 扩展\n"
         )
-        open(os.path.join(tmp, "backend/app/core/error_codes.py"), "w", encoding="utf-8").write(
+        open(os.path.join(tmp, "backend/libs/bms_core/src/bms_core/core/error_codes.py"), "w", encoding="utf-8").write(
             'class ErrorCode:\n    OK = 10001\n    BAD = 100001\n'
         )
         run_case("错误码越段", expect_fail=True)
@@ -268,7 +274,7 @@ def self_test() -> int:
         open(os.path.join(tmp, "bms文档/后端基类清单.md"), "w", encoding="utf-8").write(
             "# 清单\n\n## 10. 继承链与代码位置\n\n- `BadChild → BaseObject`。\n\n## 11. 扩展\n"
         )
-        open(os.path.join(tmp, "backend/app/core/error_codes.py"), "w", encoding="utf-8").write(
+        open(os.path.join(tmp, "backend/libs/bms_core/src/bms_core/core/error_codes.py"), "w", encoding="utf-8").write(
             'class ErrorCode:\n    OK = 10001\n'
         )
         run_case("迁移链分链合规", expect_fail=False)
