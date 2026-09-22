@@ -13,15 +13,16 @@ BMS 平台后端服务：Python 3.14 + FastAPI + uvicorn + Pydantic v2 + SQLAlch
 ```bash
 cd backend
 uv sync
-uv run uvicorn app.asgi:app --port 8000
+uv run uvicorn bms_platform.asgi:app --port 8000
 # 验证：/healthz 返回 {"status":"ok"}；/readyz 就绪（依赖不可达为 503）；/docs Swagger
 uv run pytest   # 全量用例（含 Kiwi TCMS 用例 ID 标注）
 
 # 本地门禁（与 CI 同口径）
 uv run ruff check . && uv run ruff format --check . && uv run pyright
-uv run pytest -q --cov=app --cov-branch --cov-fail-under=70   # 覆盖率门禁 ≥ 70%
+uv run pytest -q --cov=bms_core --cov=bms_platform --cov-branch --cov-fail-under=70   # 覆盖率门禁 ≥ 70%
 uv run python -m ops.check_modules                            # 模块注册清单校验
 cd .. && python3 scripts/tools/base-check/check-base.py        # 基座自检（须在仓库根）
+python3 scripts/tools/base-check/check-service-boundaries.py  # 服务边界护栏（共享库 / 服务分层）
 python3 scripts/tools/check-docs/check-status.py              # 需求 / 任务 / 计划状态一致性
 ```
 
@@ -61,44 +62,42 @@ python3 scripts/tools/check-docs/check-status.py              # 需求 / 任务 
 ```text
 backend/
 ├── .python-version   # 固定 Python 3.14
-├── pyproject.toml    # 元数据 + 依赖 + ruff / pyright / pytest 配置
+├── pyproject.toml    # 工作区根（[tool.uv.workspace] 成员 + dev 依赖 + ruff / pyright / pytest 配置）
 ├── uv.lock           # 依赖锁定（必须提交）
 ├── config.toml       # 配置基线（分区与关键键，逐项注释；不含密钥）
 ├── config.dev.toml   # dev 环境覆盖（日志 console/DEBUG、CORS 放行本地前端）
 ├── config.test.toml  # test 环境覆盖（日志 json/INFO、CORS 空）
 ├── config.prod.toml  # prod 环境覆盖（日志 json/WARNING、CORS 空）
 ├── .env.example      # 全部 BMS_ 应用键模板（复制为 .env 使用，密钥留空）
-├── alembic.ini       # 迁移配置占位（落库阶段（认证 / RBAC）填充）
-├── alembic/          # 迁移目录占位（落库阶段（认证 / RBAC）填充）
+├── alembic.ini       # 迁移配置（三链，分链版本目录）
+├── alembic/          # 迁移脚本（按数据源分链：platform / tenant / archive）
+├── scripts/          # 开发期脚本（new_service.py 服务脚手架）
 ├── README.md         # 本文件
 ├── typings/          # 局部类型存根（sortedcontainers / fakeredis，pyright stubPath）
 ├── benchmarks/       # 微基准（bench_collections.py，手动执行、CI 不跑）
-├── ops/              # 运维脚本：check_modules（模块注册清单）/ migrate_tenants / init_tenant / test_db（测试库流程，占位）
-├── app/
-│   ├── __init__.py   # 暴露 __version__
-│   ├── main.py       # 应用工厂 create_app：中间件 / 异常处理器 / 路由 / 能力域装配（无模块级 app）
-│   ├── core/         # L0 根基类 · 集合体系（有序 / 并发 / Redis）· 中间层基类 · core 横切（配置 / 异常 / 安全 / 日志 / 序列化 / 锁 / 雪花 ID / 上下文 / 资源）
-│   ├── api/          # 聚合路由（demo / modules / health）+ 依赖 / 中间件 / 异常处理器
-│   ├── models/       # ORM 模型：BaseModel + platform / system / demo（落库阶段填充）
-│   ├── schemas/      # 契约基类 BaseSchema + 分页 / 排序 / 统一响应
-│   ├── services/     # 服务基类（含事务扩展）+ 模块注册表 + demo 服务
-│   ├── repositories/ # 仓储基类（契约 / 内存 / 作用域 / DB 骨架）+ demo 仓储
-│   ├── db/           # 数据访问底座（引擎 / 会话 / 读写路由 / 租户 / 引擎注册表 / 工作单元，接口占位）
-│   ├── health/       # 健康检查项注册表 + 真实探针（redis / database）
-│   ├── cache/ scope/ sharding/ events/ tasks/ audit/
-│   │                 # 六类跨阶段基座（缓存 Region / 数据范围 / 分片路由 / 事件 / 任务 / 审计），接口占位
-│   ├── archive/ captcha/ circuit/ dashboard/ fallback/ fieldtype/ i18n/ idempotency/ idp/ llm/ lock/ masking/
-│   ├── metrics/ notify/ oauth/ outbound/ password/ permission/ query/ ratelimit/ replay/ search/ session/
-│   ├── storage/ tracing/ transfer/ workflow/ ws/
-│   │                 # 补充扩展基座（需求 02-17 ~ 02-41），接口占位（Null 实现），真实实现随对应阶段回补
-│   └── …             # 分层、基类与占位状态以《后端基类清单》为准
-└── tests/
-    ├── conftest.py   # ASGITransport 客户端夹具
-    ├── api/ core/ repositories/ services/ schemas/   # 与 app/ 同构的单元与接口用例
-    ├── db/ ops/      # 机制底座与运维脚本用例（占位断言、库清单一致性）
-    ├── crosscut/     # 横切能力（限流 / 幂等 / 可观测性 / 权限等）用例
-    └── integration/  # 真实外部服务集成用例（标 integration，未配环境变量即跳过）
+├── ops/              # 运维脚本：check_modules / check_plugins / migrate_tenants / init_tenant / test_db / db_admin / seed_*
+├── libs/bms_core/    # 共享基座库（各服务复用；包 bms_core，src 布局）
+│   ├── pyproject.toml
+│   ├── src/bms_core/
+│   │   ├── core/     # L0 根基类 · 集合体系（有序 / 并发 / Redis）· 中间层基类 · core 横切（配置 / 异常 / 安全 / 日志 / 序列化 / 锁 / 雪花 ID / 上下文 / 资源）
+│   │   ├── api/      # 接口层基座（路由基类 / 依赖 / 中间件 / 异常处理器 / 探针）
+│   │   ├── db/       # 数据访问底座（引擎 / 会话 / 读写路由 / 租户 / 引擎注册表 / 工作单元 / 迁移链）
+│   │   ├── repositories/  # 仓储基类（契约 / 内存 / 作用域 / DB 实现）
+│   │   ├── services/ # 服务基类（含事务扩展）+ 模块注册表
+│   │   ├── schemas/  # 契约基类 BaseSchema + 分页 / 排序 / 游标 / 统一响应
+│   │   ├── models/   # ORM 基类 BaseModel + 平台基础模型（sys_tenant / sys_module）
+│   │   └── <能力域>/ # 横切能力域（cache / lock / health / storage / tracing / … 契约与实现）
+│   └── tests/        # 基座库测试（不依赖服务应用）
+└── services/platform/  # 平台地基服务（首个服务；一服务一工程）
+    ├── pyproject.toml
+    ├── src/bms_platform/
+    │   ├── main.py / asgi.py   # 应用工厂与 ASGI 入口
+    │   ├── api/                # 业务路由聚合与模块路由（demo / dict / org / notification / …）
+    │   ├── services/ repositories/ models/ schemas/   # 平台业务各层（demo 为五层示例）
+    └── tests/              # 服务测试（应用 / 接口 / 契约 / 插件装配）
 ```
+
+> 新增服务用 `python scripts/new_service.py <服务名>` 生成同构骨架；分层职责、依赖方向（服务只依赖共享库与自身、共享库不依赖服务、服务之间不互相 import）与目录登记见《[后端开发规范](../bms文档/规范/后端开发规范.md)》。
 
 ## 文档导航
 

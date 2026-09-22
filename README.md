@@ -61,7 +61,7 @@ BMS 作为平台支撑独立业务产品按"平台扩展"复用（产品仓库�
 # 后端（端口 8000；默认 dev 环境，可用 BMS_ENV 切换 test / prod）
 cd backend
 uv sync
-uv run uvicorn app.asgi:app --port 8000
+uv run uvicorn bms_platform.asgi:app --port 8000
 # 验证：GET http://127.0.0.1:8000/healthz 返回 {"status":"ok"}；/readyz 为就绪检查
 uv run pytest          # 全量用例（含 Kiwi TCMS 用例编号标注）
 
@@ -79,7 +79,7 @@ npm run test           # Vitest 冒烟
 
 ```bash
 uv run ruff check . && uv run ruff format --check . && uv run pyright
-uv run pytest -q --cov=app --cov-branch --cov-fail-under=70    # 覆盖率门禁 ≥ 70%
+uv run pytest -q --cov=bms_core --cov=bms_platform --cov-branch --cov-fail-under=70    # 覆盖率门禁 ≥ 70%
 uv run python -m ops.check_modules                             # 模块注册清单校验
 cd ../frontend/apps/desktop && npm run lint && npm run test:cov && npm run build && npm run budget   # 移动端：cd ../frontend/apps/mobile（覆盖率 ≥ 70%、体积预算门禁）
 cd .. && python3 scripts/tools/base-check/check-base.py        # 基座自检（须在仓库根）
@@ -100,66 +100,26 @@ bms/
 ├── .gitlab-ci.yml            # CI 流水线定义（GitLab CE）
 ├── renovate.json             # Renovate 依赖升级配置
 ├── .vscode/                  # 编辑器共享配置（Python 解释器 / 推荐扩展）
-├── backend/                  # FastAPI 后端（阶段一：工程骨架与后端基座已交付，基础能力收尾）
+├── backend/                  # FastAPI 后端工作区（uv workspace：共享基座库 + 各服务工程）
 │   ├── .python-version       # 固定 Python 版本（3.14）
 │   ├── .env.example          # BMS_ 应用键模板（复制为 .env 填值，密钥留空）
-│   ├── pyproject.toml        # 元数据 + 依赖 + ruff / pyright / pytest 配置
+│   ├── pyproject.toml        # 工作区根（成员 + dev 依赖 + ruff / pyright / pytest 配置）
 │   ├── uv.lock               # 依赖锁定（必须提交）
 │   ├── config.toml           # 配置基线（分区与关键键，不含密钥）
 │   ├── config.dev.toml       # dev 环境覆盖（日志 console / CORS 放行）
 │   ├── config.test.toml      # test 环境覆盖（日志 json / CORS 空）
 │   ├── config.prod.toml      # prod 环境覆盖（日志 json / CORS 空）
-│   ├── alembic.ini           # 迁移配置（env.py，表结构随落库阶段填充）
-│   ├── alembic/              # 迁移目录（versions 置空）
+│   ├── alembic.ini           # 迁移配置（三链）
+│   ├── alembic/              # 迁移目录（按数据源分链）
+│   ├── scripts/              # 开发期脚本（new_service.py 服务脚手架）
 │   ├── README.md             # 工程说明
 │   ├── typings/              # 局部类型存根（sortedcontainers / fakeredis）
 │   ├── benchmarks/           # 微基准（手动执行、CI 不跑）
-│   ├── ops/                  # 运维脚本（模块检查 / 租户库初始化 / 批量迁移）
-│   ├── app/                  # 应用代码（分层与基类体系见《后端基类清单》）
-│   │   ├── main.py           # 应用工厂 create_app：中间件 / 异常处理 / 路由 / 能力域装配
-│   │   ├── core/             # L0 根基类 · 集合体系（有序 / 并发 / Redis）· 中间层基类 · core 横切（配置 / 异常 / 安全 / 日志 / 序列化 / 锁 / 雪花 ID / 上下文 / 资源）
-│   │   ├── api/              # 聚合路由（demo / modules / health）+ 依赖 / 中间件 / 异常处理器
-│   │   ├── models/           # ORM 模型：BaseModel + platform / system / demo
-│   │   ├── repositories/     # 仓储基类（契约 / 内存 / 作用域 / DB 骨架）+ demo 仓储
-│   │   ├── schemas/          # 契约基类 BaseSchema + 分页 / 排序 / 统一响应
-│   │   ├── services/         # 服务基类（含事务扩展）/ 模块注册表 / demo 服务
-│   │   ├── db/               # 数据访问底座（引擎 / 会话 / 读写路由 / 租户 / 引擎注册表 / 工作单元）
-│   │   ├── cache/            # 缓存 Region 分域（跨阶段基座）
-│   │   ├── scope/            # 数据范围注入（跨阶段基座）
-│   │   ├── sharding/         # 分片路由（跨阶段基座）
-│   │   ├── events/           # 事件发布 / 消费（跨阶段基座）
-│   │   ├── tasks/            # Celery 任务基类（跨阶段基座）
-│   │   ├── audit/            # 审计捕获 + 哈希链
-│   │   ├── archive/          # 归档策略 / 查询路由
-│   │   ├── captcha/          # 图形验证码
-│   │   ├── circuit/          # 熔断器
-│   │   ├── dashboard/        # 工作台卡片注册表
-│   │   ├── fallback/         # 降级策略
-│   │   ├── fieldtype/        # 字段类型注册表（动态表单）
-│   │   ├── health/           # 健康检查项注册表（/readyz 聚合）
-│   │   ├── i18n/             # 多语言翻译
-│   │   ├── idempotency/      # 幂等去重
-│   │   ├── idp/              # 外部身份源（OIDC / CAS）
-│   │   ├── llm/              # LLM 适配（对话 / 向量 / OCR）
-│   │   ├── lock/             # 分布式锁
-│   │   ├── masking/          # 数据脱敏
-│   │   ├── metrics/          # 指标采集
-│   │   ├── notify/           # 通知渠道（站内信 / 邮件 / 短信）
-│   │   ├── oauth/            # 开放接口服务端 / scope 校验
-│   │   ├── outbound/         # 出站 HTTP / Webhook
-│   │   ├── password/         # 密码策略
-│   │   ├── permission/       # 权限校验
-│   │   ├── query/            # 数据查询提供者注册表
-│   │   ├── ratelimit/        # 限流
-│   │   ├── replay/           # 防重放
-│   │   ├── search/           # 全文检索索引
-│   │   ├── session/          # 会话存储
-│   │   ├── storage/          # 对象存储
-│   │   ├── tracing/          # 链路追踪
-│   │   ├── transfer/         # 导入导出
-│   │   ├── workflow/         # 工作流引擎适配
-│   │   └── ws/               # 实时推送
-│   └── tests/                # 测试（与 app 同构 + crosscut / ops / integration）
+│   ├── ops/                  # 运维脚本（模块 / 插件检查 · 租户库初始化 · 批量迁移 · 测试库流程）
+│   ├── libs/bms_core/        # 共享基座库（各服务复用；包 bms_core）
+│   │   └── src/bms_core/     # core / api / db / repositories / services / schemas / models + 各横切能力域
+│   └── services/platform/    # 平台地基服务（首个服务；包 bms_platform）
+│       └── src/bms_platform/ # api / services / repositories / models / schemas + main / asgi
 ├── frontend/                     # 前端单仓多包（与 backend/ 对称：apps 宿主 + packages 基座）
 │   ├── apps/desktop/                 # Vue 3 + Vite PC 管理端（Element Plus + Router + Pinia + i18n；消费 @bms/* 新体系）
 │   │   ├── .npmrc                # npmmirror 源 + legacy-peer-deps
