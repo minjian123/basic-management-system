@@ -1,54 +1,15 @@
 """repositories 层内存基线：BaseMemoryRepository（测试替身 / 骨架期实现）。
 
-排序按契约层 `SortSpec` 规格在内存中完成（多键稳定排序），DB 侧由 `_apply_sort` 占位。
+排序与游标按契约层 `SortSpec` 在内存中完成（`app/repositories/ordering.py`，
+与 DB 侧 ORDER BY / 键集谓词同口径：NULL 恒末位、主键兜底、keyset 续查）。
 """
 
 from abc import abstractmethod
 from collections.abc import Sequence
 
 from app.repositories.base_scoped_repository import BaseScopedRepository
-from app.schemas.sorting import SortDirection, SortSpec
-
-
-def _sort_key(value: object) -> tuple[int, object]:
-    """排序键：空值最大（升序末尾 / 降序首位）；数值与字符串分桶，类型混合按字符串兜底。
-
-    Args:
-        value: 实体字段值。
-
-    Returns:
-        tuple[int, object]: 可比较的排序键。
-    """
-    if value is None:
-        return (2, "")
-    if isinstance(value, bool):
-        return (0, int(value))
-    if isinstance(value, (int, float)):
-        return (0, value)
-    if isinstance(value, str):
-        return (1, value)
-    return (1, str(value))
-
-
-def _sort_items[ItemT](items: list[ItemT], sort: Sequence[SortSpec] | None) -> list[ItemT]:
-    """按排序规格排序（按规格逆序逐次稳定排序，保证主次键语义）。
-
-    Args:
-        items: 记录列表（已按默认顺序排列）。
-        sort: 排序规格；空表示不排序。
-
-    Returns:
-        list[ItemT]: 排序后的记录列表。
-    """
-    if not sort:
-        return items
-    result = list(items)
-    for spec in reversed(sort):
-        result.sort(
-            key=lambda item: _sort_key(getattr(item, spec.field, None)),
-            reverse=spec.direction is SortDirection.DESC,
-        )
-    return result
+from app.repositories.ordering import sort_items
+from app.schemas.sorting import SortSpec
 
 
 class BaseMemoryRepository[ModelT](BaseScopedRepository[ModelT]):
@@ -93,7 +54,7 @@ class BaseMemoryRepository[ModelT](BaseScopedRepository[ModelT]):
             list[ModelT]: 记录列表。
         """
         items = [self._items[key] for key in sorted(self._items) if self._matches_scope(self._items[key])]
-        return _sort_items(items, sort)
+        return sort_items(items, sort or [], id_of=self._item_id)
 
     async def get(self, item_id: int) -> ModelT | None:
         """按 ID 查询记录。

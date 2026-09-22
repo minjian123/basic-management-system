@@ -36,6 +36,10 @@ check_timeout_ms = 2000
 # 就绪探针整体总超时（毫秒；建议 ≥ check_timeout_ms）
 total_timeout_ms = 5000
 
+[pagination]
+# 页码分页最大深度（超限按参数非法 10001；大数据量列表走 keyset 游标分页）
+max_page = 100
+
 [tenant]
 # 租户解析缓存 TTL（秒；经缓存基座写入，命中即用）
 resolve_cache_ttl = 60
@@ -47,6 +51,11 @@ engine_idle_timeout = 1800.0
 allow_demo_fallback = true
 # 租户解析豁免路径（精确匹配）
 exempt_paths = ["/", "/docs", "/redoc", "/openapi.json", "/healthz", "/readyz"]
+
+[database]
+# SQLite 开发库自动建表（按迁移链表集、幂等；仅当方言为 SQLite 时生效）
+# prod 覆盖为 false：三库结构统一走 Alembic 迁移
+auto_create = true
 
 [database.platform]
 # 平台库连接串（不含密码；密码经 BMS_DATABASE__PLATFORM__PASSWORD 或完整 URL 注入）

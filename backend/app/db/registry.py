@@ -17,10 +17,9 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 
 from app.core.capability import BaseAsyncResource
 from app.core.config import Settings
-from app.db.engine import EngineFactory
+from app.db.engine import PLATFORM_DB_KEY, EngineFactory
 from app.lock.base import DEFAULT_LOCK_TTL, BaseDistributedLock, build_lock_key
 
-PLATFORM_DB_KEY = "platform"
 _MAX_ACTIVE_DEFAULT = 32
 _IDLE_TIMEOUT_DEFAULT = 1800.0
 _CONNECTION_BUDGET_RATIO = 0.7

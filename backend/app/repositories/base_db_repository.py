@@ -4,8 +4,9 @@
   不 `commit`，事务边界归服务层工作单元。
 - 作用域条件（软删除 → 数据范围 → 租户）统一翻译为 SQL WHERE；写入字段严格白名单，
   租户 `create` 注入 / `update` 禁改；乐观锁冲突经 `_guard_version` 统一转 409。
-- 排序为基础实现（白名单字段 → ORDER BY，默认 `id` 升序）；四库 NULLS 口径、排序字段
-  索引配合与分页限深归 01_04；查询一律不拼用户原始输入。
+- 排序：白名单字段 → ORDER BY，**NULL 恒末位**（`列 IS NULL` 排序键，跨四库一致）+
+  主键兜底 `id ASC`；游标分页为 **keyset**（排序键 + 主键元组比较，`LIMIT` 无 OFFSET）；
+  查询一律不拼用户原始输入。
 """
 
 from abc import ABC
@@ -21,8 +22,10 @@ from app.core.exceptions import ConfigError
 from app.db.tenant import current_tenant_context
 from app.models.base import BaseModel
 from app.repositories.base_scoped_repository import BaseScopedRepository
+from app.repositories.ordering import keyset_condition, order_criteria
+from app.schemas.cursor import decode_cursor_for
 from app.schemas.pagination import BaseCursorQuery, BasePageQuery
-from app.schemas.sorting import SortDirection, SortSpec
+from app.schemas.sorting import SortSpec
 from app.scope.base import ScopeCondition
 
 _WRITE_BLOCKED_FIELDS: frozenset[str] = frozenset(
@@ -277,22 +280,39 @@ class BaseDbRepository[ModelT: BaseModel](BaseScopedRepository[ModelT], ABC):
         return list(result.scalars().all())
 
     async def list_cursor(self, query: BaseCursorQuery) -> list[ModelT]:
-        """游标分页查询（偏移口径：`OFFSET cursor LIMIT limit`；keyset 游标键归 01_04）。
+        """游标分页查询（keyset：排序键 + 主键元组比较，`LIMIT` 无 `OFFSET`）。
 
         Args:
-            query: 游标分页请求（含排序参数）。
+            query: 游标分页请求（含排序参数与游标令牌）。
 
         Returns:
             list[ModelT]: 当前批记录。
+
+        Raises:
+            ParamError: 游标非法或与当前排序不一致。
         """
-        statement = self._apply_sort(self._select(), self._resolve_sort(query))
-        offset = int(query.cursor) if query.cursor else 0
-        statement = statement.limit(query.limit).offset(offset)
-        result = await self._session.execute(statement)
+        sort = self._resolve_sort(query)
+        statement = self._apply_sort(self._select(), sort)
+        if query.cursor:
+            payload = decode_cursor_for(query.cursor, sort)
+            statement = statement.where(
+                keyset_condition(
+                    sort,
+                    payload.specs,
+                    payload.values,
+                    payload.item_id,
+                    resolve=self._sort_column,
+                    id_column=self._column("id"),
+                )
+            )
+        result = await self._session.execute(statement.limit(query.limit))
         return list(result.scalars().all())
 
     def _apply_sort[StatementT](self, statement: StatementT, sort: Sequence[SortSpec]) -> StatementT:
-        """排序语句钩子：白名单字段 → 模型列 ORDER BY（未知字段忽略，全忽略回落 `id` 升序）。
+        """排序语句钩子：白名单字段 → ORDER BY（NULL 恒末位 + 主键兜底）。
+
+        字段经白名单过滤后解析为模型列（`_sort_column`），未知字段忽略、全忽略回落
+        `id ASC`；NULL 位次用 `列 IS NULL` 排序键显式表达（四库一致）。
 
         Args:
             statement: 查询语句。
@@ -302,14 +322,7 @@ class BaseDbRepository[ModelT: BaseModel](BaseScopedRepository[ModelT], ABC):
             StatementT: 附加排序后的语句。
         """
         select_statement = cast("Select[Any]", statement)
-        criteria: list[ColumnElement[Any]] = []
-        for spec in sort:
-            column = self._sort_column(spec.field)
-            if column is None:
-                continue
-            criteria.append(column.asc() if spec.direction is SortDirection.ASC else column.desc())
-        if not criteria:
-            criteria.append(self._column("id").asc())
+        criteria = order_criteria(sort, resolve=self._sort_column, id_column=self._column("id"))
         return cast("StatementT", select_statement.order_by(*criteria))
 
     def _select(self, *, include_soft_delete: bool = True) -> Select[tuple[ModelT]]:

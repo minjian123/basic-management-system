@@ -12,3 +12,7 @@ allow_origins = []
 # 生产环境不回落演示租户：无来源（子域名 / X-Tenant-ID / 令牌）一律拒绝
 [tenant]
 allow_demo_fallback = false
+
+# 生产环境不做开发库自动建表：结构变更一律走 Alembic 迁移（迁移先行，见《部署发布规范》）
+[database]
+auto_create = false

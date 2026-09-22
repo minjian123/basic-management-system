@@ -97,6 +97,13 @@ class HealthSettings(BaseSettings):
     total_timeout_ms: int = Field(default=5000, ge=1)
 
 
+class PaginationSettings(BaseSettings):
+    """分页契约限制（页码限深；游标分页不受限）。"""
+
+    max_page: int = Field(default=100, ge=1)
+    """页码分页最大深度（`BasePageQuery.page` 上限；超限按参数非法 10001）。"""
+
+
 class TenantSettings(BaseSettings):
     """多租户解析与引擎生命周期（租户注册表缓存 / 引擎上限与阈值 / 豁免路径 / 回落策略）。"""
 
@@ -164,6 +171,8 @@ class DatabaseTargetSettings(BaseSettings):
 class DatabaseSettings(BaseSettings):
     """三库目标（平台 / 租户 / 归档；dev 默认多 SQLite 文件）。"""
 
+    auto_create: bool = True
+    """SQLite 开发库自动建表开关（仅当方言为 SQLite 时生效；prod 置 false，建表统一走 Alembic）。"""
     platform: DatabaseTargetSettings
     tenants: DatabaseTargetSettings = Field(
         default_factory=lambda: DatabaseTargetSettings(url="sqlite+aiosqlite:///./bms_tenant_demo.db")
@@ -314,6 +323,7 @@ class Settings(PydanticBaseSettings, BaseSettings):  # pyright: ignore[reportInc
     server: ServerSettings
     log: LogSettings
     health: HealthSettings = Field(default_factory=HealthSettings)
+    pagination: PaginationSettings = Field(default_factory=PaginationSettings)
     tenant: TenantSettings = Field(default_factory=TenantSettings)
     database: DatabaseSettings
     redis: RedisSettings = Field(default_factory=RedisSettings)

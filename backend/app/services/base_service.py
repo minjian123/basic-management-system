@@ -125,16 +125,17 @@ class BaseService[ModelT](BaseObject):
         return BasePageResponse[ModelT](list=items, total=total, page=query.page, size=query.size)
 
     async def cursor_page(self, query: BaseCursorQuery) -> BaseCursorResponse[ModelT]:
-        """游标分页查询。
+        """游标分页查询（keyset：下一批游标由仓储按本批末行生成）。
 
         Args:
             query: 游标分页请求。
 
         Returns:
             BaseCursorResponse[ModelT]: 游标分页响应（当前批 + 下批游标）。
+
+        Raises:
+            ParamError: 游标非法或与当前排序不一致（由仓储解码校验）。
         """
         items = await self._repository.list_cursor(query)
-        has_more = len(items) == query.limit
-        offset = int(query.cursor) if query.cursor else 0
-        next_cursor = str(offset + query.limit) if has_more else None
-        return BaseCursorResponse[ModelT](list=items, next_cursor=next_cursor, has_more=has_more)
+        next_cursor = self._repository.build_cursor(query, items)
+        return BaseCursorResponse[ModelT](list=items, next_cursor=next_cursor, has_more=next_cursor is not None)

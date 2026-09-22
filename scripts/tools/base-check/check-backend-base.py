@@ -7,8 +7,9 @@
    ↔ 代码 `backend/app/**` 的 `class A(B)` 相邻关系；
 2. **错误码段位**：`app/core/error_codes.py` 的平台码为 5 位且万位落在平台段（1~9）、
    无产品段（10xxxx 起）混入；
-3. **迁移链完整**：`backend/alembic/versions/*.py` 的 `revision` / `down_revision`
-   构成单链（唯一 head、无断链）。
+3. **迁移链完整**：`backend/alembic/versions/<链名>/` 按数据源分链——每链恰好一个 head、
+   无断链、revision 跨链唯一、链首声明 `branch_labels=("<链名>",)`，且该链在 `alembic.ini`
+   登记配置段 `[alembic:<链名>]`（空链允许，脚本不得存放于版本根目录）。
 
 用法::
 
@@ -134,32 +135,75 @@ def check_error_segments() -> int:
     return count
 
 
+def _revision_fields(text: str) -> tuple[str | None, str | None, tuple[str, ...]]:
+    """解析迁移脚本的 revision / down_revision / branch_labels。
+
+    Args:
+        text: 脚本内容。
+
+    Returns:
+        tuple: （revision, down_revision, branch_labels 元组）。
+    """
+    rev = re.search(r"^revision(?::\s*str)?\s*=\s*[\"']([^\"']+)", text, re.M)
+    down = re.search(r"^down_revision[^=]*=\s*(None|[\"']([^\"']+)[\"'])", text, re.M)
+    branch_line = re.search(r"^branch_labels[^=]*=\s*(None|\([^)]*\))", text, re.M)
+    labels: tuple[str, ...] = ()
+    if branch_line and branch_line.group(1) != "None":
+        labels = tuple(re.findall(r"[\"']([^\"']+)[\"']", branch_line.group(1)))
+    parent = None if (not down or down.group(1) == "None") else down.group(2)
+    return (rev.group(1) if rev else None), parent, labels
+
+
 def check_alembic_chain() -> int:
+    """校验按数据源分链的迁移脚本（每链单 head / 无断链 / 分支标签与配置段一致）。"""
     if not os.path.isdir(VERSIONS_DIR):
         problems.append("[迁移链] 未找到 backend/alembic/versions/")
         return 0
-    revisions: dict[str, str | None] = {}
-    for name in os.listdir(VERSIONS_DIR):
-        if not name.endswith(".py"):
+    ini_path = os.path.join(ROOT, "backend/alembic.ini")
+    ini_text = open(ini_path, encoding="utf-8", errors="ignore").read() if os.path.isfile(ini_path) else ""
+    total = 0
+    seen: dict[str, str] = {}
+    for entry in sorted(os.listdir(VERSIONS_DIR)):
+        path = os.path.join(VERSIONS_DIR, entry)
+        if os.path.isfile(path) and entry.endswith(".py"):
+            problems.append(f"[迁移链] {entry} 位于版本根目录（迁移脚本须按数据源分链存放：versions/<链名>/）")
             continue
-        text = open(os.path.join(VERSIONS_DIR, name), encoding="utf-8", errors="ignore").read()
-        rev = re.search(r"^revision(?::\s*str)?\s*=\s*[\"']([^\"']+)", text, re.M)
-        down = re.search(r"^down_revision[^=]*=\s*(None|[\"']([^\"']+)[\"'])", text, re.M)
-        if not rev:
-            problems.append(f"[迁移链] {name} 缺少 revision 定义")
+        if not os.path.isdir(path):
             continue
-        parent = None if (not down or down.group(1) == "None") else down.group(2)
-        revisions[rev.group(1)] = parent
-    if not revisions:
+        chain = entry
+        revisions: dict[str, str | None] = {}
+        labels: dict[str, tuple[str, ...]] = {}
+        for name in sorted(os.listdir(path)):
+            if not name.endswith(".py"):
+                continue
+            text = open(os.path.join(path, name), encoding="utf-8", errors="ignore").read()
+            rev, parent, branch_labels = _revision_fields(text)
+            if not rev:
+                problems.append(f"[迁移链] {chain}/{name} 缺少 revision 定义")
+                continue
+            if rev in seen:
+                problems.append(f"[迁移链] revision「{rev}」跨链重复（{seen[rev]} 与 {chain}）")
+            seen[rev] = chain
+            revisions[rev] = parent
+            labels[rev] = branch_labels
+        if not revisions:
+            continue
+        heads = [rev for rev in revisions if rev not in {p for p in revisions.values() if p}]
+        if len(heads) != 1:
+            problems.append(f"[迁移链] 链 {chain} 的 head 应为 1 个，实际 {len(heads)} 个：{', '.join(sorted(heads))}")
+        for rev, parent in revisions.items():
+            if parent and parent not in revisions:
+                problems.append(f"[迁移链] {chain}/{rev} 的 down_revision「{parent}」不在本链（断链）")
+            if parent is None and chain not in labels[rev]:
+                problems.append(f"[迁移链] 链 {chain} 的链首 {rev} 须声明 branch_labels=(\"{chain}\",)")
+            if parent is not None and labels[rev]:
+                problems.append(f"[迁移链] {chain}/{rev} 非链首不应声明 branch_labels")
+        if ini_text and f"[alembic:{chain}]" not in ini_text:
+            problems.append(f"[迁移链] 链 {chain} 未在 alembic.ini 登记配置段 [alembic:{chain}]")
+        total += len(revisions)
+    if total == 0:
         print("  （迁移版本目录为空——迁移随后续阶段建立，跳过链检查）")
-        return 0
-    heads = [r for r in revisions if r not in {p for p in revisions.values() if p}]
-    if len(heads) != 1:
-        problems.append(f"[迁移链] head 应为 1 个，实际 {len(heads)} 个：{', '.join(sorted(heads))}")
-    for rev, parent in revisions.items():
-        if parent and parent not in revisions:
-            problems.append(f"[迁移链] {rev} 的 down_revision「{parent}」不存在（断链）")
-    return len(revisions)
+    return total
 
 
 def self_test() -> int:
@@ -173,7 +217,7 @@ def self_test() -> int:
     with tempfile.TemporaryDirectory() as tmp:
         os.makedirs(os.path.join(tmp, "bms文档"), exist_ok=True)
         os.makedirs(os.path.join(tmp, "backend/app/core"), exist_ok=True)
-        os.makedirs(os.path.join(tmp, "backend/alembic/versions"), exist_ok=True)
+        os.makedirs(os.path.join(tmp, "backend/alembic/versions/tenant"), exist_ok=True)
         open(os.path.join(tmp, "bms文档/后端基类清单.md"), "w", encoding="utf-8").write(
             "# 清单\n\n## 10. 继承链与代码位置\n\n- `BadChild → BaseObject`。\n\n## 11. 扩展\n"
         )
@@ -182,6 +226,13 @@ def self_test() -> int:
         )
         open(os.path.join(tmp, "backend/app/core/error_codes.py"), "w", encoding="utf-8").write(
             'class ErrorCode:\n    OK = 10001\n'
+        )
+        open(os.path.join(tmp, "backend/alembic.ini"), "w", encoding="utf-8").write(
+            "[alembic]\nscript_location = x\n\n[alembic:tenant]\nversion_locations = y\n"
+        )
+        open(os.path.join(tmp, "backend/alembic/versions/tenant/0001_demo.py"), "w", encoding="utf-8").write(
+            'revision: str = "0001_demo"\ndown_revision: str | None = None\n'
+            'branch_labels: tuple[str, ...] | None = ("tenant",)\n'
         )
 
         def run_case(name: str, expect_fail: bool) -> None:
@@ -213,6 +264,19 @@ def self_test() -> int:
             'class ErrorCode:\n    OK = 10001\n    BAD = 100001\n'
         )
         run_case("错误码越段", expect_fail=True)
+        # 4) 迁移链分链合规（单 head + 链首分支标签 + 配置段）→ 放行
+        open(os.path.join(tmp, "bms文档/后端基类清单.md"), "w", encoding="utf-8").write(
+            "# 清单\n\n## 10. 继承链与代码位置\n\n- `BadChild → BaseObject`。\n\n## 11. 扩展\n"
+        )
+        open(os.path.join(tmp, "backend/app/core/error_codes.py"), "w", encoding="utf-8").write(
+            'class ErrorCode:\n    OK = 10001\n'
+        )
+        run_case("迁移链分链合规", expect_fail=False)
+        # 5) 同链双 head → 拦截
+        open(os.path.join(tmp, "backend/alembic/versions/tenant/0002_demo.py"), "w", encoding="utf-8").write(
+            'revision: str = "0002_demo"\ndown_revision: str | None = None\nbranch_labels: tuple[str, ...] | None = ("tenant",)\n'
+        )
+        run_case("同链双 head", expect_fail=True)
     return 0 if ok else 1
 
 
