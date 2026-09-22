@@ -15,7 +15,6 @@
 """
 
 import inspect
-import re
 from collections.abc import Callable, Mapping
 from types import MappingProxyType
 from typing import Any
@@ -29,6 +28,7 @@ from bms_core.core.capability import (
 )
 from bms_core.core.exceptions import PluginError
 from bms_core.core.logging import get_logger
+from bms_core.core.version import CONTRACT_VERSION_RE, contract_major
 
 __all__ = [
     "DEFAULT_CONTRACT_VERSION",
@@ -49,27 +49,11 @@ NULL_PLUGIN_NAME = "null"
 DEFAULT_CONTRACT_VERSION = "0.1.0"
 """契约版本默认值（自 `0.1.0` 起）。"""
 
-_CONTRACT_VERSION_RE = re.compile(r"\d+\.\d+\.\d+")
-
 _LOGGER = get_logger("bms")
 """插件机制日志（契约版本不兼容等告警）。"""
 
 type PluginImpl = type[BasePluggable] | Callable[[], object]
 """注册项：实现类（继承轨同款）或零参工厂（组合路径 / 延迟导入）。"""
-
-
-def _contract_major(version: str) -> int | None:
-    """取契约版本主版本号。
-
-    Args:
-        version: 契约版本字符串。
-
-    Returns:
-        int | None: 主版本号；非 `X.Y.Z` 返回 None。
-    """
-    if not _CONTRACT_VERSION_RE.fullmatch(version):
-        return None
-    return int(version.split(".", 1)[0])
 
 
 def _ensure_contract_compatible(
@@ -89,13 +73,13 @@ def _ensure_contract_compatible(
     Raises:
         PluginError: 期望 / 实现版本格式非法、实现缺失版本属性或主版本不匹配。
     """
-    expected_major = _contract_major(expected_version)
+    expected_major = contract_major(expected_version)
     if expected_major is None:
         raise PluginError(f"期望契约版本格式非法：{plugin_key}:{name} → {expected_version!r}（应为 X.Y.Z）")
     actual = getattr(instance, "contract_version", None)
     if not isinstance(actual, str):
         raise PluginError(f"实现缺少 contract_version，无法校验契约版本：{plugin_key}:{name}")
-    actual_major = _contract_major(actual)
+    actual_major = contract_major(actual)
     if actual_major is None:
         raise PluginError(f"实现契约版本格式非法：{plugin_key}:{name} → {actual!r}（应为 X.Y.Z）")
     if actual_major != expected_major:
@@ -301,7 +285,7 @@ class PluginRegistry(BaseObject):
             if not key:
                 errors.append(f"候选缺少 plugin_key：{_impl_label(impl_cls)}")
                 continue
-            if not _CONTRACT_VERSION_RE.fullmatch(impl_cls.contract_version):
+            if not CONTRACT_VERSION_RE.fullmatch(impl_cls.contract_version):
                 errors.append(
                     f"契约版本格式非法：{_impl_label(impl_cls)} → {impl_cls.contract_version!r}（应为 X.Y.Z）"
                 )

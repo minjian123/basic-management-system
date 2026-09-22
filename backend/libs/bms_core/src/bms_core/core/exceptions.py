@@ -184,6 +184,22 @@ class PluginError(ConfigError):
         BizError.__init__(self, ErrorCode.PLUGIN, message, http_status=500, data=data)
 
 
+class CatalogError(ConfigError):
+    """服务目录与契约登记校验失败（启动期致命；错误码 `40003`）。
+
+    用于启动接库校验与离线清单校验的冲突 / 非法拒绝（见需求 03-2）。
+    """
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化服务目录异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.CATALOG, message, http_status=500, data=data)
+
+
 class FileError(BizError):
     """文件段（`5xxxx`）异常基类：上传 / 下载 / 分片 / 导入导出与打印导出。"""
 

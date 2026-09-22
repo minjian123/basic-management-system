@@ -173,7 +173,7 @@ backend-plugins:
     - uv sync --frozen
     - uv run python -m ops.check_plugins
 
-# ---- 后端：模块注册清单校验（复用 ModuleRegistry.validate；须以 -m 方式运行，直接跑脚本会 ModuleNotFoundError）----
+# ---- 后端：服务目录校验（离线清单 + 服务包契约声明；SQLite 临时库跑「迁移 → 种子 → 接库查重与对账」；须以 -m 方式运行，直接跑脚本会 ModuleNotFoundError）----
 backend-modules:
   stage: lint
   image: $REGISTRY_IMAGE_PREFIX/ci-backend:py314
@@ -192,6 +192,10 @@ backend-modules:
     - cd backend
     - uv sync --frozen
     - uv run python -m ops.check_modules
+    # 迁移后查重：SQLite 临时库（命中 .gitignore 的 backend/bms_*.db）→ 平台链迁移 → 种子 → 接库校验（只读）
+    - uv run alembic -n alembic:platform -x url="sqlite+aiosqlite:///./bms_ci_catalog.db" upgrade head
+    - uv run python -m ops.seed_module --url "sqlite+aiosqlite:///./bms_ci_catalog.db"
+    - uv run python -m ops.check_modules --url "sqlite+aiosqlite:///./bms_ci_catalog.db"
 
 backend-test:
   stage: test

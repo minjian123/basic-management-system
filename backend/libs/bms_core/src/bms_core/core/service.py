@@ -33,7 +33,7 @@ __all__ = [
 
 @dataclass(frozen=True)
 class ServiceIdentity(BaseObject):
-    """服务身份：名称（微服务名）、版本、中文名。"""
+    """服务身份：名称（微服务名）、版本、中文名、契约版本。"""
 
     name: str
     """服务名（用于日志 `service`、探针响应与按服务配置，如 `platform`）。"""
@@ -43,6 +43,9 @@ class ServiceIdentity(BaseObject):
 
     title: str = ""
     """服务中文名（用于应用 title；可空）。"""
+
+    contract_version: str = "0.1.0"
+    """公开契约（OpenAPI）版本（服务包自报 `CONTRACT_VERSION`；启动与 CI 校验主版本兼容）。"""
 
 
 def bind_service_identity(identity: ServiceIdentity) -> None:
@@ -107,6 +110,7 @@ def attach_service(
     declared_name: str,
     version: str,
     title: str = "",
+    contract_version: str = "0.1.0",
     settings: Settings | None = None,
 ) -> ServiceRuntime:
     """接入服务运行时：解析身份 → 绑定日志 → 构造运行时并落 `app.state`。
@@ -116,6 +120,7 @@ def attach_service(
         declared_name: 服务包声明的默认服务名。
         version: 服务版本（服务包 `__version__`）。
         title: 服务中文名（可空）。
+        contract_version: 公开契约版本（服务包 `CONTRACT_VERSION`；启动校验主版本兼容）。
         settings: 应用配置（缺省取单例）。
 
     Returns:
@@ -127,6 +132,6 @@ def attach_service(
     if not configured:
         # 配置为空：以服务包声明为准并回写，供连接池按服务覆盖与租户库模板取到正确服务名
         resolved_settings.app.service = name
-    identity = ServiceIdentity(name=name, version=version, title=title)
+    identity = ServiceIdentity(name=name, version=version, title=title, contract_version=contract_version)
     bind_service_identity(identity)
     return ServiceRuntime(app, identity)

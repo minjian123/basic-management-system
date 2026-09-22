@@ -1,5 +1,6 @@
-"""服务目录仓储测试（Kiwi 2162）：按分组 / 状态 / 服务维度只读查询与软删过滤。"""
+"""服务目录仓储测试（Kiwi 2162 / 2163）：只读查询、软删过滤与只读护栏。"""
 
+import ast
 from collections.abc import AsyncIterator
 from pathlib import Path
 from typing import cast
@@ -9,7 +10,14 @@ from sqlalchemy import Table
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
 from bms_core.models.platform import SysModule
+from bms_core.repositories import module_repository
 from bms_core.repositories.module_repository import ModuleRepository
+
+_WRITE_VERBS = frozenset({"create", "update", "delete", "save", "flush", "commit", "upsert", "insert"})
+"""仓储自有方法名中的写动词（只读护栏：命中即失败）。"""
+
+_SESSION_WRITES = frozenset({"add", "add_all", "flush", "commit", "delete"})
+"""会话写调用（只读护栏：`self._session` 上出现即失败；读取经 `execute` 属只读语义）。"""
 
 
 @pytest.fixture
@@ -89,3 +97,23 @@ async def test_get_by_key_and_soft_delete(session: AsyncSession) -> None:
     await session.commit()
     assert await repository.get_by_key("sys") is None
     assert {module.module_key for module in await repository.list_catalog()} == {"identity", "pur"}
+
+
+@pytest.mark.kiwi_id(2163)
+def test_repository_read_only_surface() -> None:
+    """只读护栏：仓储自有方法无写动词、无会话写调用，且只提供读方法（注册运行时只读边界）。"""
+    source = Path(module_repository.__file__).read_text(encoding="utf-8")
+    tree = ast.parse(source)
+    methods = {node.name for node in ast.walk(tree) if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef)}
+    assert {"list_catalog", "get_by_key"} <= methods
+    assert not {name for name in methods if name.lstrip("_") in _WRITE_VERBS}
+    session_writes = [
+        node.func.attr
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and isinstance(node.func.value, ast.Attribute)
+        and node.func.value.attr == "_session"
+        and node.func.attr in _SESSION_WRITES
+    ]
+    assert session_writes == []
