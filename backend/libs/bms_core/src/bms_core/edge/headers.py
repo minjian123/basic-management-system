@@ -21,6 +21,7 @@ __all__ = [
     "TENANT_ID_HEADER",
     "USER_ID_HEADER",
     "USER_SCOPES_HEADER",
+    "USER_SUBJECT_HEADER",
 ]
 
 GATEWAY_IDENTITY_HEADER = "X-Gateway-Identity"
@@ -30,7 +31,10 @@ GATEWAY_IDENTITY_VALUE = "bms-edge"
 """网关专属标记头期望值（非密钥，仅结构占位；真实防旁路靠服务 JWT / 网络隔离）。"""
 
 USER_ID_HEADER = "X-User-Id"
-"""网关注入的用户标识头（网关验证过的用户）。"""
+"""网关注入的内部用户标识头（数字 id；外部身份映射后填充，07_03 起暂不注入）。"""
+
+USER_SUBJECT_HEADER = "X-User-Subject"
+"""网关注入的外部用户主体头（IdP `sub`，字符串；阶段六映射前唯一用户标识，07_03 新增）。"""
 
 TENANT_ID_HEADER = "X-Tenant-Id"
 """网关注入的租户编码头（与租户解析链既有 `X-Tenant-ID` 同头，大小写不敏感）。"""
@@ -43,6 +47,7 @@ SERVICE_IDENTITY_HEADER = "X-Service-Identity"
 
 IDENTITY_HEADERS: tuple[str, ...] = (
     USER_ID_HEADER,
+    USER_SUBJECT_HEADER,
     TENANT_ID_HEADER,
     USER_SCOPES_HEADER,
     SERVICE_IDENTITY_HEADER,

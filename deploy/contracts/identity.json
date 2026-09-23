@@ -210,6 +210,132 @@
         ]
       }
     },
+    "/api/v1/auth/introspect": {
+      "get": {
+        "description": "网关认证子请求：公开路径放行；受保护路径校验用户 JWT 并换发网关服务 JWT。\n\nArgs:\n    request: 请求对象（取应用配置）。\n    verifier: 统一校验器（按 `aud=api` 校验用户 JWT）。\n    issuer: 服务 JWT 签发者（换发网关服务 JWT）。\n    authorization: 客户端 `Authorization` 头（网关经 `request_headers` 转发）。\n    forwarded_uri: 原始请求 URI（网关 `forward-auth` 添加的 `X-Forwarded-Uri`）。\n\nReturns:\n    Response: 200（公开路径 / 校验通过，含身份头与网关服务 JWT）或 401 / 503。",
+        "operationId": "introspect_api_v1_auth_introspect_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Forwarded-Uri",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Forwarded-Uri"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Introspect",
+        "tags": [
+          "auth"
+        ]
+      },
+      "post": {
+        "description": "网关认证子请求：公开路径放行；受保护路径校验用户 JWT 并换发网关服务 JWT。\n\nArgs:\n    request: 请求对象（取应用配置）。\n    verifier: 统一校验器（按 `aud=api` 校验用户 JWT）。\n    issuer: 服务 JWT 签发者（换发网关服务 JWT）。\n    authorization: 客户端 `Authorization` 头（网关经 `request_headers` 转发）。\n    forwarded_uri: 原始请求 URI（网关 `forward-auth` 添加的 `X-Forwarded-Uri`）。\n\nReturns:\n    Response: 200（公开路径 / 校验通过，含身份头与网关服务 JWT）或 401 / 503。",
+        "operationId": "introspect_api_v1_auth_introspect_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Forwarded-Uri",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Forwarded-Uri"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Introspect",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
     "/api/v1/captcha/challenges": {
       "post": {
         "description": "生成验证码挑战（图形 / 滑块）。\n\nArgs:\n    captcha: 验证码基座。\n    req: 出题请求。\n\nReturns:\n    ApiResponse: 统一响应，data 为挑战（`CaptchaChallengeResponse`）。",

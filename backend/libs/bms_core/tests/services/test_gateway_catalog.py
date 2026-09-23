@@ -158,12 +158,12 @@ def test_route_prefix_and_upstream_node() -> None:
 
 @pytest.mark.kiwi_id(2167)
 def test_rate_limit_plugin_shared_redis() -> None:
-    """限流插件：Redis 共享计数 + 真实客户端 IP + 环境变量替换 + 降级放行。"""
+    """限流插件：Redis 共享计数 + 用户 / 租户身份维度（var_combination）+ 环境变量替换 + 降级放行。"""
     plugin = gc.rate_limit_plugin(count=gc.DEFAULT_RATE_LIMIT_COUNT, window=gc.DEFAULT_RATE_LIMIT_WINDOW)
     assert plugin["count"] == 300
     assert plugin["time_window"] == 60
-    assert plugin["key_type"] == "var"
-    assert plugin["key"] == "remote_addr"
+    assert plugin["key_type"] == gc.RATE_LIMIT_KEY_TYPE == "var_combination"
+    assert plugin["key"] == gc.RATE_LIMIT_KEY == "$remote_addr $http_x_tenant_id $http_x_user_subject"
     assert plugin["policy"] == "redis"
     assert plugin["redis_host"] == "${{GATEWAY_REDIS_HOST:=redis}}"
     assert plugin["redis_port"] == 6379
@@ -172,10 +172,39 @@ def test_rate_limit_plugin_shared_redis() -> None:
     assert plugin["rejected_code"] == 429
     assert plugin["allow_degradation"] is True
     assert plugin["show_limit_quota_header"] is True
-    # 维度可扩展（07_03 注入身份后改 var_combination）
-    assert gc.rate_limit_plugin(count=1, window=1, key="$remote_addr $http_x_tenant_id")["key"] == (
-        "$remote_addr $http_x_tenant_id"
+    # 维度可覆盖（如按纯 IP）
+    assert gc.rate_limit_plugin(count=1, window=1, key="$remote_addr")["key"] == "$remote_addr"
+
+
+@pytest.mark.kiwi_id(2181)
+def test_forward_auth_plugin_config() -> None:
+    """forward-auth 接线：转调认证服务内部校验端点、转发 / 注入头与 fail-closed。"""
+    plugin = gc.forward_auth_plugin()
+    assert plugin["uri"] == (
+        f"http://${{{{GATEWAY_AUTH_HOST:={gc.DEFAULT_GATEWAY_AUTH_HOST}}}}}:{gc.SERVICE_PORT}{gc.AUTH_INTROSPECT_PATH}"
     )
+    assert plugin["request_method"] == "GET"
+    assert plugin["request_headers"] == ["Authorization"]
+    assert plugin["upstream_headers"] == [
+        "Authorization",
+        "X-User-Subject",
+        "X-User-Id",
+        "X-Tenant-Id",
+        "X-User-Scopes",
+    ]
+    assert plugin["client_headers"] == ["WWW-Authenticate"]
+    assert plugin["timeout"] == gc.AUTH_TIMEOUT_MS == 3000
+    assert plugin["status_on_error"] == gc.AUTH_STATUS_ON_ERROR == 503
+
+
+@pytest.mark.kiwi_id(2181)
+def test_all_routes_include_forward_auth() -> None:
+    """每条服务路由与登录路由均挂 forward-auth，且 proxy-rewrite 仍置网关标记。"""
+    for route in [*gc.render_routes(), *gc.render_login_routes()]:
+        plugins = cast("dict[str, Any]", route["plugins"])
+        assert plugins[gc.FORWARD_AUTH_PLUGIN] == gc.forward_auth_plugin()
+        rewrite = cast("dict[str, Any]", plugins["proxy-rewrite"])
+        assert rewrite["headers"] == {"set": {gc.GATEWAY_IDENTITY_HEADER: gc.GATEWAY_IDENTITY_VALUE}}
 
 
 @pytest.mark.kiwi_id(2167)

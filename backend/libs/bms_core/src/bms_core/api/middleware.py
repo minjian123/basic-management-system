@@ -59,6 +59,7 @@ from bms_core.edge.headers import (
     TENANT_ID_HEADER,
     USER_ID_HEADER,
     USER_SCOPES_HEADER,
+    USER_SUBJECT_HEADER,
 )
 from bms_core.edge.null import NullEdgeTrust
 from bms_core.tracing.base import TRACE_ID_HEADER, new_trace_id
@@ -334,6 +335,7 @@ class EdgeGuardMiddleware(BaseObject):
         drops = {
             GATEWAY_IDENTITY_HEADER.lower(),
             USER_ID_HEADER.lower(),
+            USER_SUBJECT_HEADER.lower(),
             USER_SCOPES_HEADER.lower(),
             SERVICE_IDENTITY_HEADER.lower(),
         }
@@ -362,6 +364,8 @@ def _identity_headers(identity: EdgeIdentity | None) -> dict[str, str]:
     headers: dict[str, str] = {}
     if identity.user_id is not None:
         headers[USER_ID_HEADER] = str(identity.user_id)
+    if identity.subject:
+        headers[USER_SUBJECT_HEADER] = identity.subject
     if identity.tenant_code:
         headers[TENANT_ID_HEADER] = identity.tenant_code
     if identity.scopes:
