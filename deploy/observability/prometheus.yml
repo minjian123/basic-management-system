@@ -1,15 +1,24 @@
-# Prometheus 抓取配置（08 可观测性栈）。
+# Prometheus 抓取与告警配置（08 可观测性栈；告警规则 / 探针见 08_02）。
 # 保留期经启动参数 --storage.tsdb.retention.time=15d 指定（见 deploy/compose/observability.yml）。
 #
 # 抓取目标：
 # - bms-services：各服务 /metrics（当前服务未容器化，经 host.docker.internal:8000 抓宿主运行的服务；
 #   服务容器化后（09_需求）改为 {service_key}:8000 的 Compose DNS，并按启用的服务逐项登记）。
+# - bms-probe：blackbox 探针（/healthz /readyz；仅 200 成功），目标与 bms-services 同口径。
 # - apisix：边缘网关指标端点（04_03 交付出口，指标前缀 apisix_）。
-# - otel-collector：collector 自指标。
-# - prometheus：自身。
+# - otel-collector / alertmanager / pushgateway / prometheus：组件自身指标。
 global:
   scrape_interval: 15s
   evaluation_interval: 15s
+
+# 告警：规则目录（08_02 基座 SLO）；触发后送 Alertmanager 路由与通道。
+rule_files:
+  - /etc/prometheus/rules/*.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["alertmanager:9093"]
 
 scrape_configs:
   - job_name: prometheus
@@ -19,6 +28,16 @@ scrape_configs:
   - job_name: otel-collector
     static_configs:
       - targets: ["otel-collector:8889"]
+
+  - job_name: alertmanager
+    static_configs:
+      - targets: ["alertmanager:9093"]
+
+  - job_name: pushgateway
+    # 阶段度量（发布成功率 / 契约破坏数）由 CI 推送，保留推送侧标签
+    honor_labels: true
+    static_configs:
+      - targets: ["pushgateway:9091"]
 
   - job_name: apisix
     metrics_path: /apisix/prometheus/metrics
@@ -31,3 +50,24 @@ scrape_configs:
       - targets: ["host.docker.internal:8000"]
       # 服务容器化后按 Compose DNS 逐服务登记（示例：identity / org / …）
       # - targets: ["identity:8000"]
+
+  - job_name: bms-probe
+    # blackbox 主动探测每服务探针（/healthz /readyz；仅 200 成功）；目标按启用服务登记
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets:
+          - http://host.docker.internal:8000/healthz
+          - http://host.docker.internal:8000/readyz
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - source_labels: [__param_target]
+        regex: ".*/(healthz|readyz)$"
+        target_label: probe
+        replacement: "$1"
+      - target_label: __address__
+        replacement: blackbox-exporter:9115

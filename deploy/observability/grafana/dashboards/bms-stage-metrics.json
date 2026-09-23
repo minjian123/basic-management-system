@@ -1,0 +1,105 @@
+{
+  "annotations": {"list": []},
+  "editable": true,
+  "graphTooltip": 1,
+  "title": "BMS 阶段度量",
+  "uid": "bms-stage-metrics",
+  "tags": ["bms", "observability", "stage-metrics"],
+  "timezone": "browser",
+  "time": {"from": "now-7d", "to": "now"},
+  "refresh": "1m",
+  "schemaVersion": 39,
+  "templating": {
+    "list": [
+      {
+        "name": "service",
+        "label": "服务",
+        "type": "query",
+        "datasource": {"type": "prometheus", "uid": "prometheus"},
+        "query": {"query": "label_values(bms_request_total, service)", "refId": "BMS-Var-Service"},
+        "refresh": 1,
+        "sort": 1,
+        "includeAll": true,
+        "multi": true,
+        "current": {"selected": true, "text": ["All"], "value": ["$__all"]}
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "发布成功率（近 7 天）",
+      "description": "bms_release_total 由 CI 推送 Pushgateway（09 接入）；无数据表示尚未接入。",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 8, "w": 6, "x": 0, "y": 0},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}},
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "expr": "sum(rate(bms_release_total{result=\"success\"}[7d])) / clamp_min(sum(rate(bms_release_total[7d])), 1e-9)",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "发布次数（按服务 / 结果）",
+      "description": "bms_release_total（CI 推送；result = success / failure）。",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 8, "w": 9, "x": 6, "y": 0},
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "expr": "sum by (service, result) (increase(bms_release_total{service=~\"$service\"}[$__range]))",
+          "legendFormat": "{{service}}/{{result}}"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "契约破坏数（按服务）",
+      "description": "bms_contract_breaking_total（oasdiff 破坏性变更数；CI 推送，09_03 接入）。",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 8, "w": 9, "x": 15, "y": 0},
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "expr": "bms_contract_breaking_total{service=~\"$service\"}",
+          "legendFormat": "{{service}}"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "边界越界数（运行期，按服务 / 操作）",
+      "description": "bms_boundary_cross_access_total（05_02 交付；窗口内增量）。静态越界数由 check-service-boundaries 门禁（非零即 CI 失败），不重复推送。",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "expr": "sum by (service, operation) (increase(bms_boundary_cross_access_total{service=~\"$service\"}[$__range]))",
+          "legendFormat": "{{service}}/{{operation}}"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "text",
+      "title": "口径说明",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+      "options": {
+        "mode": "markdown",
+        "content": "**阶段度量（S7）口径**\n\n- 服务独立发布成功率：`bms_release_total{service,result}`（CI 推送 Pushgateway；09_01 / 09_02 接入）\n- 契约破坏数：`bms_contract_breaking_total{service}`（oasdiff 破坏性变更数；09_03 接入）\n- 边界越界数：运行期 `bms_boundary_cross_access_total`（05_02 交付）+ 静态门禁 `check-service-boundaries`（非零即 CI 失败）\n- 推送命令模板与排障见《可观测性栈部署使用说明》「告警与阶段度量」节"
+      }
+    }
+  ]
+}

@@ -1,11 +1,14 @@
 #
-# BMS 可观测性栈编排（08 可观测性栈）：otel-collector / Tempo / Prometheus / Grafana / Loki / Alloy。
+# BMS 可观测性栈编排（08 可观测性栈；告警 / 探针 / 阶段度量见 08_02）：
+# otel-collector / Tempo / Prometheus / Grafana / Loki / Alloy / Alertmanager / blackbox-exporter / Pushgateway。
 #
 # 组合拉起（在 deploy/ 目录，.env 提供变量）：
 #   docker compose -f compose/bms.yml --env-file .env up -d          # 一键（含 base + gateway + 可观测）
 #   docker compose -f compose/observability.yml --env-file .env up -d  # 仅可观测栈
 #
-# 配置来源：deploy/observability/（collector / prometheus / tempo / loki / alloy / grafana）。
+# 配置来源：deploy/observability/（collector / prometheus / tempo / loki / alloy / grafana /
+# rules / blackbox / alertmanager 模板）；**Alertmanager 配置为渲染产物**（先跑
+# `python3 scripts/tools/observability/render_alertmanager.py --env-file deploy/.env`，凭据经 .env 外部化）。
 # 保留期：Prometheus 15d / Loki 30d（配置内） / Tempo 72h（tempo.yaml block_retention）。
 # 应用侧：BMS_TRACER__OTLP_ENDPOINT（宿主 localhost:4318 / 容器 otel-collector:4318）。
 
@@ -44,12 +47,50 @@ services:
       - --web.enable-remote-write-receiver
     volumes:
       - ../observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ../observability/rules:/etc/prometheus/rules:ro
       - prometheus-data:/prometheus
     ports:
       - "${PROMETHEUS_PORT:-9090}:9090"
     # 抓取宿主运行的服务 /metrics（服务容器化后改 Compose DNS）
     extra_hosts:
       - "host.docker.internal:host-gateway"
+
+  alertmanager:
+    image: prom/alertmanager:v0.33.1
+    container_name: bms-alertmanager
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+    volumes:
+      # 渲染产物（先跑 scripts/tools/observability/render_alertmanager.py；凭据经 .env 外部化、不入库）
+      - ../observability/rendered/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager-data:/alertmanager
+    ports:
+      - "${ALERTMANAGER_PORT:-9093}:9093"
+
+  blackbox-exporter:
+    image: prom/blackbox-exporter:v0.28.0
+    container_name: bms-blackbox
+    restart: unless-stopped
+    command: ["--config.file=/etc/blackbox_exporter/config.yml"]
+    volumes:
+      - ../observability/blackbox.yml:/etc/blackbox_exporter/config.yml:ro
+    ports:
+      - "${BLACKBOX_PORT:-9115}:9115"
+    # 探测宿主运行的服务探针（/healthz /readyz；与 Prometheus 同口径）
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  pushgateway:
+    image: prom/pushgateway:v1.11.3
+    container_name: bms-pushgateway
+    restart: unless-stopped
+    volumes:
+      - pushgateway-data:/pushgateway
+    ports:
+      # 宿主映射 9092（容器 9091；9091 已被网关指标端点占用）
+      - "${PUSHGATEWAY_PORT:-9092}:9091"
 
   loki:
     image: grafana/loki:3.3.2
@@ -112,3 +153,5 @@ volumes:
   loki-data:
   alloy-data:
   grafana-data:
+  alertmanager-data:
+  pushgateway-data:

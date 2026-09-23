@@ -1,0 +1,9 @@
+# blackbox_exporter 探测模块（08_02 探针可用性观测）。
+# 口径：http_2xx 仅 200 视为成功——/readyz 未就绪即 503，探测失败即告警信号（不把 503 当成功）。
+modules:
+  http_2xx:
+    prober: http
+    timeout: 5s
+    http:
+      preferred_ip_protocol: ip4
+      valid_status_codes: [200]

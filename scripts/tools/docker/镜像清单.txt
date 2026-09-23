@@ -9,6 +9,11 @@ grafana/alloy:v1.5.1
 prom/prometheus:v3.1.0
 grafana/grafana:11.4.0
 
+# ===== 告警 / 探针 / 阶段度量（08_02 告警阈值锚点）=====
+prom/alertmanager:v0.33.1
+prom/blackbox-exporter:v0.28.0
+prom/pushgateway:v1.11.3
+
 # ===== 基础设施 / 网关（按需启用；固定 tag）=====
 # redis:8
 # mysql:8.4
