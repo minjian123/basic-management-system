@@ -29,3 +29,6 @@
 ## 4. 参考文档 <a id="ref"></a>
 
 - 《架构设计 · 事件总线》「生产一致性」「幂等与重试」节
+
+> **前置契约（已交付 · 05_02，2026-09-23）**：数据所有权边界基座已就位——构建期硬校验 `check-service-boundaries.py` 规则 6/7（按服务目录表前缀归属拦「跨服务表声明 / 引用」，读侧例外白名单 `deploy/boundaries/data_ownership_exceptions.json`）；运行时守卫能力域 `bms_core/boundary/`（`BaseDataOwnershipGuard` / `TableOwnershipGuard`，插件键 `data_ownership_guard`，模式 `off`/`warn`/`enforce`，越界抛 `DataOwnershipError` 10008）；`sys_` 平台域共享前缀内建放行。本任务的 `sys_outbox` 表归属与消费幂等落库须符合该归属口径（`sys_` 共享前缀），越界由上述硬校验拦截。
+
