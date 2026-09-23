@@ -1,4 +1,4 @@
-"""租户注册种子脚本（幂等）：平台库建 `sys_tenant` 表并写入演示租户（需求 01-2）。
+"""租户注册种子脚本（幂等）：**租户服务平台库**建 `sys_tenant` 表并写入演示租户（需求 01-2）。
 
 用法：
 
@@ -9,8 +9,10 @@ uv run python -m ops.seed_tenant --url sqlite+aiosqlite:///./app.db
 uv run python -m ops.seed_tenant --dry-run
 ```
 
-- URL 解析：`--url` 参数 > `BMS_MIGRATION_URL` 环境变量 > 配置 `database.platform.url`；
+- URL 解析：`--url` 参数 > `BMS_MIGRATION_URL` 环境变量 > 按库键 `platform_tenant` 解析
+  （`sys_tenant` 归属租户服务，06_03 / 06_01；`url_template` 为空时回落 `database.platform.url`）；
 - 幂等：`SysTenant` 表 `create(checkfirst=True)`，按 `code` + 未软删除判存跳过；
+- `db_key` 列**已废弃不再写入**（06_01）：租户库键一律由 `tenant_{service}_{code}` 派生；
 - 迁移与 SQLite 全量自动建表归 01_04（Alembic 落地后本脚本退化为纯种子脚本，建表分支兼容保留）。
 """
 
@@ -25,7 +27,9 @@ from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from bms_core.core.config import get_settings
-from bms_core.db.tenant import build_tenant_db_key
+from bms_core.db.engine import EngineFactory
+from bms_core.db.keys import build_platform_db_key
+from bms_core.db.tenant_source import TENANT_SERVICE_KEY
 from bms_tenant.models.tenant import SysTenant
 
 
@@ -57,21 +61,24 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def resolve_url(url: str = "") -> str:
-    """解析目标平台库 URL（参数 > 环境变量 > 配置）。
+def resolve_url(url: str = "", *, service: str = TENANT_SERVICE_KEY) -> str:
+    """解析目标**平台服务库** URL（参数 > 环境变量 > 按库键 `platform_{service}` 解析）。
 
     Args:
         url: 命令行传入的 URL（空串表示未指定）。
+        service: 目标服务标识（缺省租户服务：`sys_tenant` 归属方）。
 
     Returns:
-        str: 平台库连接串。
+        str: 平台服务库连接串。
     """
     if url:
         return url
     env_url = os.environ.get("BMS_MIGRATION_URL", "")
     if env_url:
         return env_url
-    return get_settings().database.platform.url
+    settings = get_settings()
+    # 运维通道：允许跨服务库键（种子脚本按归属服务写库，不以运行服务为限）
+    return EngineFactory(settings, allow_cross_service=True).resolved_url(build_platform_db_key(service))
 
 
 async def seed_tenants(url: str) -> int:
@@ -99,7 +106,6 @@ async def seed_tenants(url: str) -> int:
                         code=seed.code,
                         name=seed.name,
                         domain=seed.domain,
-                        db_key=build_tenant_db_key(seed.code),
                         status=seed.status,
                     )
                 )

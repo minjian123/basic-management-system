@@ -1,6 +1,6 @@
 """多租户引擎注册表：`{db_key → AsyncEngine}` 生命周期管理。
 
-- 平台引擎常驻；租户引擎懒加载、LRU 闲置回收（默认 30 分钟；每次访问先清扫）。
+- 平台引擎常驻；**服务租户库引擎**懒加载、LRU 闲置回收（默认 30 分钟；每次访问先清扫）。
 - 读写角色：写路径返回主引擎；`read_only=True` 经工厂取副本（轮询 / 回退主），
   注册表仍按 `db_key` 跟踪使用时间与逐出（一次释放该库主 + 副本引擎）。
 - 并发保护：创建窗口「进程内 `asyncio.Lock` + 跨实例分布式锁」双重互斥（锁经分布式锁
@@ -20,13 +20,29 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 
 from bms_core.core.capability import BaseAsyncResource
 from bms_core.core.config import Settings
-from bms_core.db.engine import PLATFORM_DB_KEY, EngineFactory
+from bms_core.db.engine import EngineFactory
+from bms_core.db.keys import DB_KIND_TENANT, PLATFORM_DB_KEY, parse_db_key
 from bms_core.db.sync import is_sync_only_url
 from bms_core.lock.base import DEFAULT_LOCK_TTL, BaseDistributedLock, build_lock_key
 
 _MAX_ACTIVE_DEFAULT = 32
 _IDLE_TIMEOUT_DEFAULT = 1800.0
 _CONNECTION_BUDGET_RATIO = 0.7
+
+
+def _db_kind(db_key: str) -> str | None:
+    """取数据源键的库类别（非法键回落 None，不抛错）。
+
+    Args:
+        db_key: 数据源键。
+
+    Returns:
+        str | None: 库类别（`platform` / `tenant` / `archive`）；非法键 None。
+    """
+    try:
+        return parse_db_key(db_key).kind
+    except Exception:  # 记账路径不因历史键形态失败
+        return None
 
 
 class EngineRegistry(BaseAsyncResource):
@@ -72,7 +88,10 @@ class EngineRegistry(BaseAsyncResource):
 
         Raises:
             ConcurrentConflictError: 跨实例锁未取到（10004 / 409；null 实现不触发）。
+            DataOwnershipError: 全限定键越界且未开启运维豁免（10008）。
+            ConfigError: 键形态非法或全限定键服务标识未登记。
         """
+        self._factory.validate_key(db_key)
         await self._sweep_idle()
         engine = self._engines.get(db_key)
         if engine is None:
@@ -95,7 +114,12 @@ class EngineRegistry(BaseAsyncResource):
 
         Returns:
             bool: 仅同步方言（达梦）True。
+
+        Raises:
+            DataOwnershipError: 全限定键越界且未开启运维豁免（10008）。
+            ConfigError: 键形态非法或全限定键服务标识未登记。
         """
+        self._factory.validate_key(db_key)
         return is_sync_only_url(self._factory.resolve_url(db_key))
 
     async def get_sync(self, db_key: str = PLATFORM_DB_KEY, *, read_only: bool = False) -> Engine:
@@ -110,10 +134,15 @@ class EngineRegistry(BaseAsyncResource):
 
         Returns:
             Engine: 同步引擎（不建连）。
+
+        Raises:
+            DataOwnershipError: 全限定键越界且未开启运维豁免（10008）。
+            ConfigError: 键形态非法或全限定键服务标识未登记。
         """
+        self._factory.validate_key(db_key)
         await self._sweep_idle()
         self._touch(db_key)
-        if db_key != PLATFORM_DB_KEY:
+        if _db_kind(db_key) == DB_KIND_TENANT:
             self._sync_keys.add(db_key)
         await self._evict()
         return self._factory.create_sync(db_key, read_only=read_only)
@@ -122,9 +151,9 @@ class EngineRegistry(BaseAsyncResource):
         """强制回收指定引擎（如租户停用）。
 
         Args:
-            db_key: 数据源键。
+            db_key: 数据源键（平台类键不参与强制回收）。
         """
-        if db_key == PLATFORM_DB_KEY:
+        if _db_kind(db_key) != DB_KIND_TENANT:
             return
         await self._dispose(db_key)
 
@@ -217,9 +246,13 @@ class EngineRegistry(BaseAsyncResource):
             tenants.remove(oldest)
 
     def _tenant_keys(self) -> list[str]:
-        """当前活跃租户键（异步与同步路径合并，已排序快照）。"""
-        keys = {key for key in self._engines if key != PLATFORM_DB_KEY}
-        keys |= self._sync_keys
+        """当前活跃服务租户库键（异步与同步路径合并，已排序快照）。
+
+        只统计**库类别为租户**的键：平台类键（含运维跨服务取到的 `platform_{service}`）常驻，
+        不参与 LRU 逐出与闲置回收。
+        """
+        keys = {key for key in self._engines if _db_kind(key) == DB_KIND_TENANT}
+        keys |= {key for key in self._sync_keys if _db_kind(key) == DB_KIND_TENANT}
         return sorted(keys)
 
     async def _dispose(self, db_key: str) -> None:

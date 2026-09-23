@@ -141,6 +141,9 @@ class TenantSettings(BaseSettings):
         default_factory=lambda: ["/", "/docs", "/redoc", "/openapi.json", "/healthz", "/readyz"]
     )
     """租户解析豁免路径（精确匹配；这些路径不解析租户、不设置租户上下文）。"""
+    dev_tenants: list[str] = Field(default_factory=lambda: ["demo"])
+    """开发库自动建表覆盖的租户编码（仅 `[database].auto_create` 且方言为 SQLite 时生效）；
+    每服务按 `tenant_{code}` 相对键建表，实际库名由 `url_template` 解析。"""
 
 
 class DbPoolSettings(BaseSettings):
@@ -160,7 +163,9 @@ class DatabaseTargetSettings(BaseSettings):
     url: str
     replicas: list[str] = Field(default_factory=list)
     url_template: str = ""
-    """租户库连接串模板（占位 `{service}` / `{tenant}` / `{database}`；空串回落 `url` 单库）。"""
+    """连接串模板（空串回落 `url` 单库）。**平台目标**占位 `{service}` / `{database}`（= `bms_{service}`）；
+    **租户目标**占位 `{service}` / `{tenant}` / `{database}`（= `bms_{service}_{tenant}`）。
+    服务化后平台目标亦按模板拆分（各服务连自身平台服务库）；基础默认不启用。"""
     password: str = ""
     max_connections: int = Field(default=0, ge=0)
     """该库最大连接数；`0` 表示不校验连接预算。"""

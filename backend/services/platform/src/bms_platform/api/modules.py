@@ -3,6 +3,8 @@
 - 数据源为平台库 `sys_module`（服务目录单一权威），经 `get_platform_read_db` 平台库只读会话取数
   （带租户上下文的请求仍读平台库）。
 - 清单：`GET /api/v1/modules`——分页 + `status` / `group` 筛选，响应 `ModuleResponse` 分页结构。
+- 快照：`GET /api/v1/modules/snapshot`——**全量清单（不分页）**，供各服务**启动接库校验**对账
+  （06_01 起非目录权威服务经 `service_client` 调本接口，见 `bms_core/catalog/loader.py`）。
 - 明细：`GET /api/v1/modules/{service_key}`——`service_key` 优先、未命中回退 `module_key`；
   未登记统一 `NotFoundError`（10002 / 404 + 统一响应体）。
 - 鉴权挂 `require_auth` 登录态占位（真实登录态与平台管理权限码随认证 / RBAC 阶段回补）。
@@ -62,6 +64,23 @@ async def list_modules(
         size=query.size,
     )
     return ApiResponse.ok(page)
+
+
+@router.get("/snapshot")
+async def catalog_snapshot(session: PlatformDbDep) -> ApiResponse:
+    """服务目录快照（只读，全量清单不分页）。
+
+    供各服务启动接库校验对账（`validate_catalog`）：字段与 `sys_module` 登记一致，
+    响应 `data` 为清单数组（**注意**：路径须先于 `/modules/{service_key}` 注册，避免被明细路由吞掉）。
+
+    Args:
+        session: 平台库只读会话。
+
+    Returns:
+        ApiResponse: 统一响应，data 为服务目录记录数组（`ModuleResponse`）。
+    """
+    rows = await ModuleRepository(session).list_catalog()
+    return ApiResponse.ok([ModuleResponse.model_validate(row) for row in rows])
 
 
 @router.get("/{service_key}")

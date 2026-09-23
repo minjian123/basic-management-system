@@ -12,8 +12,9 @@ uv run python -m ops.migrate_tenants --target tenant \
     --url "dm+dmPython://SYSDBA:pass@host:5236" --schema BMS_MIGRCHECK   # 单库（演练 / 迁移演练）
 ```
 
-- **清单**：`platform` / `archive` 各一库；`tenants` / `all` 从平台库读 `sys_tenant`（未软删）取各库键，
-  经 `url_template` 解析租户库连接串；
+- **清单**：`platform` / `archive` 各一库；`tenants` / `all` 从**租户注册库**读 `sys_tenant`（未软删）
+  取各租户编码，按 `tenant_{service}_{code}` 派生服务租户库键并经 `url_template` 解析连接串；
+  服务标识取 `--service`（缺省 `[app].service`）——**服务 × 租户的批量编排归 06_02**，本脚本按单服务执行；
 - **执行**：逐库经 Alembic 程序化接口 `command.upgrade(cfg, "head")`（配置段 = 链名，
   版本目录 / 元数据子集取自 `app/db/migration.py` 链注册）；
 - **幂等**：目标 `alembic_version` 已为链 head → 输出「已是最新（跳过）」；
@@ -35,7 +36,8 @@ from sqlalchemy.pool import NullPool
 from bms_core.core.base import BaseObject
 from bms_core.core.config import get_settings
 from bms_core.core.exceptions import ConfigError
-from bms_core.db.engine import PLATFORM_DB_KEY, EngineFactory
+from bms_core.db.engine import EngineFactory
+from bms_core.db.keys import build_platform_db_key, build_tenant_db_key
 from bms_core.db.migration import (
     MigrationChain,
     chain_url,
@@ -44,7 +46,7 @@ from bms_core.db.migration import (
     resolve_chain,
     upgrade_chain,
 )
-from bms_core.db.tenant import build_tenant_db_key
+from bms_core.db.tenant_source import TENANT_SERVICE_KEY
 from bms_tenant.models.tenant import SysTenant
 
 _DM = "dm"
@@ -69,7 +71,8 @@ def build_parser() -> argparse.ArgumentParser:
     """
     parser = argparse.ArgumentParser(description="批量迁移（平台库 + 各租户库 + 归档库；幂等）")
     parser.add_argument("--target", default="all", choices=_TARGETS, help="迁移目标（缺省 all）")
-    parser.add_argument("--db-key", default="", help="指定单个租户库键（tenant_{code}）")
+    parser.add_argument("--db-key", default="", help="指定单个库键（platform_{service} / tenant_{service}_{code}）")
+    parser.add_argument("--service", default="", help="服务标识（缺省取 [app].service；用于派生服务库键）")
     parser.add_argument("--url", default="", help="显式连接串（单库模式；含密码，禁止写入日志）")
     parser.add_argument("--schema", default="", help="达梦目标模式（仅达梦生效）")
     parser.add_argument("--dry-run", action="store_true", help="仅打印清单（不建连）")
@@ -88,44 +91,45 @@ def _masked(url: str) -> str:
     return make_url(url).render_as_string(hide_password=True)
 
 
-def _query_sync(url: str) -> list[tuple[str, str]]:
-    """同步枚举租户（达梦等无异步方言驱动的平台库）。
+def _query_sync(url: str) -> list[str]:
+    """同步枚举租户编码（达梦等无异步方言驱动的租户注册库）。
 
     Args:
-        url: 平台库连接串。
+        url: 租户注册库连接串。
 
     Returns:
-        list[tuple[str, str]]: （编码, 库键）列表。
+        list[str]: 租户编码列表。
     """
     engine: Engine = create_engine(url, poolclass=NullPool)
     try:
         with engine.connect() as connection:
-            return list(
-                connection.execute(select(SysTenant.code, SysTenant.db_key).where(SysTenant.deleted_at.is_(None))).all()
-            )
+            return [
+                str(code)
+                for (code,) in connection.execute(select(SysTenant.code).where(SysTenant.deleted_at.is_(None))).all()
+            ]
     finally:
         engine.dispose()
 
 
-async def _tenant_records(platform_url: str) -> list[tuple[str, str]]:
-    """枚举租户注册记录（平台库查询；达梦走同步驱动线程）。
+async def _tenant_records(registry_url: str) -> list[str]:
+    """枚举租户编码（租户注册库查询；达梦走同步驱动线程）。
+
+    `sys_tenant.db_key` 已废弃（06_01）：库键一律由 `tenant_{service}_{code}` 派生，
+    故此处只取编码。
 
     Args:
-        platform_url: 平台库连接串。
+        registry_url: 租户注册库连接串。
 
     Returns:
-        list[tuple[str, str]]: （编码, 库键）列表。
+        list[str]: 租户编码列表。
     """
-    if make_url(platform_url).get_backend_name() == _DM:
-        rows = await asyncio.to_thread(_query_sync, platform_url)
-        return [(str(code), str(db_key)) for code, db_key in rows]
-    engine = create_async_engine(platform_url, poolclass=NullPool)
+    if make_url(registry_url).get_backend_name() == _DM:
+        return await asyncio.to_thread(_query_sync, registry_url)
+    engine = create_async_engine(registry_url, poolclass=NullPool)
     try:
         async with engine.connect() as connection:
-            result = await connection.execute(
-                select(SysTenant.code, SysTenant.db_key).where(SysTenant.deleted_at.is_(None))
-            )
-            return [(str(code), str(db_key)) for code, db_key in result.all()]
+            result = await connection.execute(select(SysTenant.code).where(SysTenant.deleted_at.is_(None)))
+            return [str(code) for (code,) in result.all()]
     finally:
         await engine.dispose()
 
@@ -143,10 +147,13 @@ async def build_tasks(args: argparse.Namespace) -> list[MigrationTask]:
         ConfigError: 目标与参数组合非法 / 平台库枚举失败。
     """
     settings = get_settings()
-    factory = EngineFactory(settings)
+    # 运维通道：允许跨服务库键（批量迁移按各服务库执行，不以运行服务为限）
+    factory = EngineFactory(settings, allow_cross_service=True)
+    service = args.service or settings.app.service
     platform_chain = resolve_chain("platform")
     archive_chain = resolve_chain("archive")
     tenant_chain = resolve_chain("tenant")
+    platform_key = build_platform_db_key(service)
 
     tasks: list[MigrationTask] = []
 
@@ -155,11 +162,11 @@ async def build_tasks(args: argparse.Namespace) -> list[MigrationTask]:
         tasks.append(MigrationTask(chain=tenant_chain, label=label, url=url, schema=schema))
 
     if args.target in ("all", "platform"):
-        platform_url = args.url if args.url and args.target == "platform" else chain_url(platform_chain, settings)
+        platform_url = args.url if args.url and args.target == "platform" else factory.resolved_url(platform_key)
         tasks.append(
             MigrationTask(
                 chain=platform_chain,
-                label=PLATFORM_DB_KEY,
+                label=platform_key,
                 url=platform_url,
                 schema=args.schema if args.target == "platform" else "",
             )
@@ -172,12 +179,12 @@ async def build_tasks(args: argparse.Namespace) -> list[MigrationTask]:
         if args.db_key:
             add_tenant(args.db_key, args.url or factory.resolved_url(args.db_key), args.schema)
         else:
-            platform_url = chain_url(platform_chain, settings)
-            records = await _tenant_records(platform_url)
-            if not records:
-                print("[migrate_tenants] 平台库未注册租户（sys_tenant 为空）")
-            for code, db_key in records:
-                key = db_key or build_tenant_db_key(code)
+            registry_url = factory.resolved_url(build_platform_db_key(TENANT_SERVICE_KEY))
+            codes = await _tenant_records(registry_url)
+            if not codes:
+                print("[migrate_tenants] 租户注册库未注册租户（sys_tenant 为空）")
+            for code in codes:
+                key = build_tenant_db_key(code, service=service or None)
                 add_tenant(key, factory.resolved_url(key), args.schema)
     if args.target in ("all", "archive"):
         tasks.append(

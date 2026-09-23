@@ -2,11 +2,14 @@
 
 - `RedisHealthCheck`：`redis` 检查项——懒建 `redis.asyncio` 客户端并 `PING`；实现 `BaseAsyncResource`，
   经 `ResourceManager` 随应用生命周期统一释放（连接跨探测复用，不做每次新建）。
-- `DatabaseHealthCheck`：`database` 检查项——经 `EngineRegistry` 取平台引擎（`PLATFORM_DB_KEY`）执行 `SELECT 1`。
+- `DatabaseHealthCheck`：`database` 检查项——经 `EngineRegistry` 取平台引擎（本服务平台库）执行 `SELECT 1`。
+- `CatalogHealthCheck`：`catalog` 检查项——服务目录快照可达性（`platform` 本地权威 / 其余服务经契约）；
+  **非必需项**（`required=False`）：失败只标记降级可见，不产生 503（06_01）。
 - 检查项**不自行捕获异常**：IO 异常 / 超时统一由 `BaseHealthCheckRegistry.aggregate` 兜底为异常类名，
   避免各检查项重复 try/except 与错误泄漏口径漂移；检查项 `name` 取 `DEPENDENCIES`（与降级 / 熔断 / 指标同源）。
 """
 
+from fastapi import FastAPI
 from redis.asyncio import Redis
 from sqlalchemy import text
 
@@ -14,7 +17,7 @@ from bms_core.core.capability import BaseAsyncResource
 from bms_core.db.registry import PLATFORM_DB_KEY, EngineRegistry
 from bms_core.health.base import BaseHealthCheck, HealthCheckResult
 
-__all__ = ["DatabaseHealthCheck", "RedisHealthCheck"]
+__all__ = ["CatalogHealthCheck", "DatabaseHealthCheck", "RedisHealthCheck"]
 
 
 class RedisHealthCheck(BaseHealthCheck, BaseAsyncResource):
@@ -95,4 +98,46 @@ class DatabaseHealthCheck(BaseHealthCheck):
         engine = await self._registry.get(PLATFORM_DB_KEY)
         async with engine.connect() as connection:
             await connection.execute(text("SELECT 1"))
+        return HealthCheckResult(name=self.key, ok=True)
+
+
+class CatalogHealthCheck(BaseHealthCheck):
+    """`catalog` 检查项：服务目录快照可达性（**非必需**：失败只标记降级可见）。
+
+    取数路径与启动接库校验同源（`platform` 本地权威直读 / 其余服务经 `service_client` 契约），
+    故该项可反映「启动降级」是否仍存在；失败不参与整体就绪判定（不产生 503）。
+    """
+
+    required = False
+
+    def __init__(self, app: FastAPI) -> None:
+        """初始化。
+
+        Args:
+            app: 应用实例（取服务身份 / 配置 / 引擎注册表 / 会话工厂）。
+        """
+        self._app = app
+
+    @property
+    def key(self) -> str:
+        """检查项键（`catalog`）。"""
+        return "catalog"
+
+    def describe(self) -> str:
+        """元信息描述。
+
+        Returns:
+            str: 检查项说明。
+        """
+        return f"服务目录快照健康检查（{self.key}；非必需项）"
+
+    async def check(self) -> HealthCheckResult:
+        """探测服务目录快照可达性（懒导入避免能力域导入期耦合）。
+
+        Returns:
+            HealthCheckResult: 就绪结果；异常由聚合层兜底为异常类名。
+        """
+        from bms_core.catalog.loader import load_catalog_snapshot
+
+        await load_catalog_snapshot(self._app)
         return HealthCheckResult(name=self.key, ok=True)

@@ -3537,6 +3537,78 @@
         ]
       }
     },
+    "/api/v1/modules/snapshot": {
+      "get": {
+        "description": "服务目录快照（只读，全量清单不分页）。\n\n供各服务启动接库校验对账（`validate_catalog`）：字段与 `sys_module` 登记一致，\n响应 `data` 为清单数组（**注意**：路径须先于 `/modules/{service_key}` 注册，避免被明细路由吞掉）。\n\nArgs:\n    session: 平台库只读会话。\n\nReturns:\n    ApiResponse: 统一响应，data 为服务目录记录数组（`ModuleResponse`）。",
+        "operationId": "catalog_snapshot_api_v1_modules_snapshot_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Catalog Snapshot",
+        "tags": [
+          "module"
+        ]
+      }
+    },
     "/api/v1/modules/{service_key}": {
       "get": {
         "description": "单条服务目录明细（只读；未登记 404）。\n\nArgs:\n    session: 平台库只读会话。\n    service_key: 服务标识（service_key 优先，未命中回退 module_key）。\n\nReturns:\n    ApiResponse: 统一响应，data 为服务目录记录（`ModuleResponse`）。\n\nRaises:\n    NotFoundError: 未登记（10002 / 404，全局处理器统一转响应）。",

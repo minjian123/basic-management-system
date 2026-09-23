@@ -2,8 +2,10 @@
 
 - 上下文：`TenantContext`（编码 / 库键 / 名称 / 主键 / 状态 / 域名）；`current_tenant` 上下文变量由
   租户全局中间件设置，供服务层与数据访问层取值。
-- 数据源键：`tenant_{code}`（`build_tenant_db_key` / `parse_tenant_db_key` 往返，非法键快速失败）；
-  **禁止全局单例持有租户引擎**，引擎一律经 `EngineRegistry` 按库键取用。
+- 数据源键：`build_tenant_db_key` / `parse_tenant_db_key` 自 `bms_core/db/keys.py` **re-export**
+  （键形态与库名单一来源归 `db/keys.py`，06_01）：上下文携带**相对键** `tenant_{code}`，
+  随运行服务解析为 `bms_{service}_{code}`；**禁止全局单例持有租户引擎**，引擎一律经
+  `EngineRegistry` 按库键取用。
 - 解析链：子域名（按注册表 `domain` 查）→ `X-Tenant-ID`（按 `code` 查）→ token 租户位（请求态，
   认证阶段写入即自然生效）；真实取数 / 缓存 / 停用回收见 `app/db/tenant_source.py` 的 `TenantSource`。
 - 无来源回落策略由调用方传入（`allow_demo_fallback`）：dev/test 兜底演示租户、prod 拒绝。
@@ -19,9 +21,26 @@ from fastapi import Request
 from bms_core.core.base import BaseObject
 from bms_core.core.context import current_tenant, get_tenant_context
 from bms_core.core.exceptions import ConfigError, TenantNotFoundError
+from bms_core.db.keys import (
+    TENANT_DB_KEY_PREFIX,
+    build_tenant_db_key,
+    parse_db_key,
+)
 
-TENANT_DB_KEY_PREFIX = "tenant_"
-"""数据源键前缀（库键 `tenant_{code}`）。"""
+__all__ = [
+    "DEFAULT_EXEMPT_PATHS",
+    "DEMO_TENANT",
+    "TENANT_DB_KEY_PREFIX",
+    "TenantContext",
+    "TenantLookup",
+    "build_tenant_db_key",
+    "current_tenant_context",
+    "get_tenant",
+    "is_exempt_path",
+    "parse_tenant_db_key",
+    "resolve_request_tenant",
+    "tenant_hostname",
+]
 
 DEFAULT_EXEMPT_PATHS: tuple[str, ...] = ("/", "/docs", "/redoc", "/openapi.json", "/healthz", "/readyz")
 """租户解析豁免路径缺省集（正式取值见 `[tenant].exempt_paths`）。"""
@@ -69,20 +88,11 @@ class TenantLookup(Protocol):
         ...
 
 
-def build_tenant_db_key(code: str) -> str:
-    """由租户编码派生数据源键。
-
-    Args:
-        code: 租户编码（全小写）。
-
-    Returns:
-        str: 数据源键（`tenant_{code}`）。
-    """
-    return f"{TENANT_DB_KEY_PREFIX}{code}"
-
-
 def parse_tenant_db_key(db_key: str) -> str:
-    """由数据源键反解租户编码。
+    """由数据源键反解租户编码（键形态见 `bms_core/db/keys.py`）。
+
+    兼容两种形态：相对键 `tenant_{code}` 与全限定键 `tenant_{service}_{code}`
+    （后者剥离服务段，服务段判定见 `db/keys.py::parse_db_key`）。
 
     Args:
         db_key: 数据源键。
@@ -93,12 +103,10 @@ def parse_tenant_db_key(db_key: str) -> str:
     Raises:
         ConfigError: 非租户库键或编码为空。
     """
-    if not db_key.startswith(TENANT_DB_KEY_PREFIX):
-        raise ConfigError(f"非租户数据源键：{db_key}（应为 tenant_{{code}}）")
-    code = db_key[len(TENANT_DB_KEY_PREFIX) :]
-    if not code:
-        raise ConfigError(f"租户数据源键缺少编码：{db_key}")
-    return code
+    key = parse_db_key(db_key)
+    if key.kind != "tenant" or not key.tenant_code:
+        raise ConfigError(f"非租户数据源键：{db_key}（应为 tenant_{{code}} 或 tenant_{{service}}_{{code}}）")
+    return key.tenant_code
 
 
 def tenant_hostname(host: str | None) -> str | None:

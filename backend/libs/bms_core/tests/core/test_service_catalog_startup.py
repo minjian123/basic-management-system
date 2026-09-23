@@ -1,8 +1,10 @@
-"""启动接库服务目录校验测试（Kiwi 2163）：清单 / 契约 / 拒启 / 空库容错 / 只读快照。
+"""启动接库服务目录校验测试（Kiwi 2163）：清单 / 契约 / 拒启 / 空库容错 / 只读快照 / 降级。
 
 - 覆盖 `service_lifespan` 的接库校验链路（`_validate_service_catalog` + `validate_catalog`）：
   正常种子库启动通过、空目录告警放行、冲突逐项拒启（`CatalogError` 码 40003）、
-  库不可读拒启、启动前后目录行快照一致（运行时只读边界）。
+  库不可读拒启、启动前后目录行快照一致（运行时只读边界）；
+- **06_01 取数路径**：`platform` 本地读本服务平台库（权威，读失败拒启）；
+  其余服务经契约取快照 → 用例以桩替换快照源；**契约不可达时降级放行**（`catalog_degraded`）。
 """
 
 import logging
@@ -20,7 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from bms_core.application import BaseServiceApplicationFactory, service_lifespan
 from bms_core.core.config import get_settings
 from bms_core.core.error_codes import ErrorCode
-from bms_core.core.exceptions import CatalogError
+from bms_core.core.exceptions import CatalogError, ServiceUnavailableError
 from bms_core.models.platform import SysModule
 from bms_core.services.module_registry import SERVICE_CATALOG, ModuleRecord, ServiceGroup
 
@@ -237,17 +239,55 @@ async def test_lifespan_rejects_catalog_conflicts(
     assert any("service_catalog_invalid" in message for message in logs.messages)
 
 
+def _stub_snapshot(monkeypatch: pytest.MonkeyPatch, records: Sequence[ModuleRecord]) -> None:
+    """以桩替换快照取数（模拟非目录权威服务经契约取到的清单）。
+
+    Args:
+        monkeypatch: pytest monkeypatch 夹具。
+        records: 桩返回的服务目录记录。
+    """
+
+    async def _load(app: object) -> list[ModuleRecord]:  # pragma: no cover - 桩内联
+        return list(records)
+
+    monkeypatch.setattr("bms_core.application.load_catalog_snapshot", _load)
+
+
 @pytest.mark.kiwi_id(2163)
-async def test_lifespan_rejects_unregistered_running_service(catalog_db_url: str) -> None:
-    """运行服务未登记：清单中 workflow 行服务位缺失时以 workflow 身份启动被拒。"""
+async def test_lifespan_rejects_unregistered_running_service(
+    catalog_db_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """运行服务未登记：清单中 workflow 行服务位缺失时以 workflow 身份启动被拒。
+
+    非目录权威服务经契约取快照（06_01），故用例注入桩快照（内容取自播种库）保留原断言语义。
+    """
     records = [
         replace(record, service_key=None) if record.service_key == "workflow" else record for record in SERVICE_CATALOG
     ]
     await _write_records(catalog_db_url, records)
+    _stub_snapshot(monkeypatch, records)
     app = _create_app(service="workflow")
     with pytest.raises(CatalogError, match="运行服务未登记：workflow"):
         async with service_lifespan(app):
             pass
+
+
+@pytest.mark.kiwi_id(2163)
+async def test_lifespan_degrades_when_snapshot_unavailable(
+    catalog_db_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """非目录权威服务：快照契约不可达 → 告警放行 + `catalog_degraded`（不拒启）。"""
+
+    async def _unreachable(app: object) -> list[ModuleRecord]:  # pragma: no cover - 桩内联
+        raise ServiceUnavailableError("服务目录快照契约调用失败（503）")
+
+    monkeypatch.setattr("bms_core.application.load_catalog_snapshot", _unreachable)
+    app = _create_app(service="org")
+    with _capture_bms_logs() as logs:
+        async with service_lifespan(app):
+            assert app.state.startup_complete is True
+            assert app.state.catalog_degraded is True
+    assert any("service_catalog_snapshot_unavailable" in message for message in logs.messages)
 
 
 @pytest.mark.kiwi_id(2163)
