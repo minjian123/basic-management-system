@@ -1,4 +1,4 @@
-"""服务目录升格（`platform:platform` 链 0002）：sys_module 增服务维度与契约版本字段，段位改可空并去唯一。
+"""服务目录升格（`platform:platform` 链 0002）：sys_module 增服务维度与契约版本字段，移除段位唯一约束。
 
 Revision ID: 0002_sys_module_catalog
 Revises: 0001_sys_module
@@ -7,7 +7,9 @@ Create Date: 2026-09-22
 - 归属链：`platform:platform`（`platform` 服务的平台服务库 `bms_platform`）；四库通用，SQLite 经
   `batch_alter_table` 兼容（重建表）；
 - 新列口径与 ORM 模型（`bms_platform/models/catalog.py::SysModule`）逐项一致；
-- `errcode_segment` 改可空并删除 `uq_sys_module_segment_deleted_at`；
+- 删除 `uq_sys_module_segment_deleted_at`（唯一性交启动 / CI 校验）；`errcode_segment` 的可空由链首
+  `0001_sys_module` 直接建为可空（本 `alter_column` 已冗余——且达梦不支持 `ALTER COLUMN ... DROP NOT NULL`，
+  冗余改写会在 DM8 真库报 `-2007` 语法错误，故移除）；
 - `service_key` / `errcode_segment` 不建 DB 唯一（达梦多 NULL 差异规避；唯一性交启动 / CI 校验）；
 - 只改结构不写种子（种子走 `ops/seed_module.py` 幂等 upsert）。
 """
@@ -68,14 +70,12 @@ def upgrade() -> None:
         batch.add_column(
             sa.Column("product_key", sa.String(length=32), nullable=True, comment="产品标识（biz/cw；空=平台）")
         )
-        batch.alter_column("errcode_segment", existing_type=sa.String(length=8), nullable=True)
         batch.drop_constraint("uq_sys_module_segment_deleted_at", type_="unique")
 
 
 def downgrade() -> None:
     """回退：恢复段位非空与唯一约束，删除服务维度 / 契约版本列。"""
     with op.batch_alter_table("sys_module") as batch:
-        batch.alter_column("errcode_segment", existing_type=sa.String(length=8), nullable=False)
         batch.create_unique_constraint("uq_sys_module_segment_deleted_at", ["errcode_segment", "deleted_at"])
         for column in (
             "service_key",

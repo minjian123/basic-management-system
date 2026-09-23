@@ -20,12 +20,18 @@ uv run python -m ops.seed_tables --dry-run
 import argparse
 import asyncio
 from collections.abc import Sequence
+from typing import cast
 
-from sqlalchemy import select
+from sqlalchemy import Table, select
+from sqlalchemy import create_engine as create_sync_engine
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.orm import Session
+from sqlalchemy.pool import NullPool
 
 from bms_core.db.keys import PLATFORM_SERVICE_KEY
+from bms_core.db.migration import apply_session_schema
+from bms_core.db.sync import is_sync_only_url
 from bms_core.models.ownership import SysTableOwnership
 from bms_core.services.table_registry import TABLE_OWNERSHIP, TableRecord
 from ops.seed_tenant import resolve_url
@@ -39,6 +45,7 @@ def build_parser() -> argparse.ArgumentParser:
     """
     parser = argparse.ArgumentParser(description="表归属登记种子（平台服务库 sys_table_ownership，幂等 upsert）")
     parser.add_argument("--url", default="", help="平台服务库连接串（缺省读 BMS_MIGRATION_URL / 配置）")
+    parser.add_argument("--schema", default="", help="目标模式名（达梦等同步方言必填，如 BMS_DEV）")
     parser.add_argument("--dry-run", action="store_true", help="仅输出目标库与种子清单")
     return parser
 
@@ -61,22 +68,68 @@ def _fields(seed: TableRecord) -> dict[str, object]:
     }
 
 
-async def seed_tables(url: str) -> tuple[int, int]:
+def _seed_tables_sync(url: str, schema: str) -> tuple[int, int]:
+    """同步方言（达梦）建表 + upsert 归属登记（阻塞驱动走线程池）。
+
+    Args:
+        url: 平台服务库连接串。
+        schema: 目标模式名（达梦）。
+
+    Returns:
+        tuple[int, int]: (新增行数, 更新行数)。
+    """
+    engine = create_sync_engine(url, poolclass=NullPool, isolation_level="AUTOCOMMIT")
+    created = 0
+    updated = 0
+    try:
+        with engine.connect() as connection:
+            apply_session_schema(connection, schema)
+            cast("Table", SysTableOwnership.__table__).create(connection, checkfirst=True)
+        with Session(engine) as session:
+            for seed in TABLE_OWNERSHIP:
+                statement = select(SysTableOwnership).where(
+                    SysTableOwnership.table_name == seed.table_name,
+                    SysTableOwnership.deleted_at.is_(None),
+                )
+                payload = _fields(seed)
+                existing = session.execute(statement).scalar_one_or_none()
+                if existing is None:
+                    session.add(SysTableOwnership(**payload))
+                    created += 1
+                    continue
+                changed = False
+                for field, value in payload.items():
+                    if getattr(existing, field) != value:
+                        setattr(existing, field, value)
+                        changed = True
+                if changed:
+                    updated += 1
+            session.commit()
+    finally:
+        engine.dispose()
+    return created, updated
+
+
+async def seed_tables(url: str, *, schema: str = "") -> tuple[int, int]:
     """建表并按 `table_name` 幂等 upsert 归属登记。
 
     Args:
         url: 平台服务库连接串。
+        schema: 目标模式名（达梦；同步方言必填）。
 
     Returns:
         tuple[int, int]: (新增行数, 更新行数)；重复执行为 (0, 0)。
     """
+    if is_sync_only_url(url):
+        return await asyncio.to_thread(_seed_tables_sync, url, schema)
     engine = create_async_engine(url)
     factory: async_sessionmaker[AsyncSession] = async_sessionmaker(engine, expire_on_commit=False)
     created = 0
     updated = 0
     try:
         async with engine.begin() as connection:
-            await connection.run_sync(SysTableOwnership.__table__.create, checkfirst=True)
+            table = cast("Table", SysTableOwnership.__table__)
+            await connection.run_sync(table.create, checkfirst=True)
         async with factory() as session:
             for seed in TABLE_OWNERSHIP:
                 statement = select(SysTableOwnership).where(
@@ -119,7 +172,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         for seed in TABLE_OWNERSHIP:
             print(f"[seed_tables] 种子：{seed.table_name} → {seed.owner} / {seed.datasource}（dry-run）")
         return 0
-    created, updated = asyncio.run(seed_tables(url))
+    created, updated = asyncio.run(seed_tables(url, schema=args.schema))
     print(f"[seed_tables] 新增 {created} 行 / 更新 {updated} 行（幂等；重复执行输出 0 / 0）")
     return 0
 
