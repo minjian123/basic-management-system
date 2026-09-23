@@ -67,7 +67,30 @@ docker ps                                            # 全部容器恢复正常
 sudo usermod -aG docker <SSH账号>
 ```
 
+### 2.6 大镜像拉取与断点续传（2026-09-23 实测补记） <a id="install-resume"></a>
+
+> **关键结论**：本机 Docker 用 **containerd 镜像存储**（`docker info` 的 `Storage Driver: overlayfs` + `driver-type: io.containerd.snapshotter.v1`），
+> **blob 层按 HTTP Range 断点续传、已完成层落 content store 缓存**。因此 `docker pull` 被限速 / 中断后**重复执行即可续传**，
+> **不会重下已完成层**——几百 MB 的大镜像（如可观测组件）在加速器限速下多次中断，累积重试即可拉完。
+
+实测（2026-09-23，可观测性栈镜像）：`otel/opentelemetry-collector-contrib` / `tempo` / `loki` / `alloy` / `prometheus` / `grafana`
+（约 0.2~0.6 GB/个）在加速器限速下常中途断开；**继续常规 `docker pull <镜像>`（可多次）** 逐个累积完成，无需切换源。
+已完成的镜像用 `docker images` 核对，不必再拉。
+
+```bash
+# 逐个拉、失败重整即可（可循环重试；已完成会跳过）
+for img in <镜像1> <镜像2>; do docker pull "$img" && echo OK "$img" || echo RETRY "$img"; done
+docker images --format '{{.Repository}}:{{.Tag}} {{.Size}}'   # 核对已就位
+```
+
+> **注意**：
+> - **不要并发**多个 `docker pull` 拉同一镜像（内容锁争用会互相卡住、表现为“假死”）；上一个未结束前不要另起。
+> - 不要用 `docker system prune -a` 清掉已完成的层（会丢失续传缓存，需从头再拉）。
+> - 加速器（daocloud / 1ms）在拉取中途限速 / 断连是常态，**“能续传、可重试”是解法**，而不是换源或拼接第三方镜像前缀。
+
 ## 3. 验证 <a id="verify"></a>
+
+
 
 ```bash
 docker info | grep -E "Server Version|Storage Driver|Cgroup|Registry Mirrors" -A1
