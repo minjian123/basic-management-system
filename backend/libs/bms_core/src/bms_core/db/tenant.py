@@ -42,7 +42,15 @@ __all__ = [
     "tenant_hostname",
 ]
 
-DEFAULT_EXEMPT_PATHS: tuple[str, ...] = ("/", "/docs", "/redoc", "/openapi.json", "/healthz", "/readyz")
+DEFAULT_EXEMPT_PATHS: tuple[str, ...] = (
+    "/",
+    "/docs",
+    "/redoc",
+    "/openapi.json",
+    "/healthz",
+    "/readyz",
+    "/.well-known/jwks.json",
+)
 """租户解析豁免路径缺省集（正式取值见 `[tenant].exempt_paths`）。"""
 
 

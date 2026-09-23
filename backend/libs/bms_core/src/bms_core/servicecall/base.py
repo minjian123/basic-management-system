@@ -68,6 +68,9 @@ DEFAULT_BASE_URL_TEMPLATE = "http://{service}:8000"
 SERVICE_CLIENT_OPTION_BASE_URL = "base_url_template"
 """基址模板配置键（`[service_client].options.base_url_template`）。"""
 
+SERVICE_CLIENT_OPTION_ATTACH_TOKEN = "attach_service_token"
+"""出站附加服务 JWT 开关配置键（`[service_client].options.attach_service_token`；默认 False）。"""
+
 SERVICE_CALL_DEPENDENCY_PREFIX = "service:"
 """熔断 / 降级依赖标识前缀（`service:<服务标识>`，供 `BaseCircuitBreaker` / `BaseFallbackPolicy`）。"""
 
@@ -109,6 +112,9 @@ class ServiceCallPolicy(BaseObject):
     rate_limit_key: str | None = None
     """限流 key（None 时按维度 `service` + 目标服务生成）。"""
 
+    scopes: tuple[str, ...] = ()
+    """出站服务 JWT 所需 scope（开启 `attach_service_token` 时作为签发 scope 来源）。"""
+
 
 @dataclass(frozen=True)
 class ServiceRequest(BaseObject):
@@ -127,7 +133,7 @@ class ServiceRequest(BaseObject):
     """查询参数（可选）。"""
 
     headers: Mapping[str, str] | None = None
-    """请求头（可选；服务身份 JWT 注入随 07_03）。"""
+    """请求头（可选；出站一律剥离入站 `Authorization`，服务 JWT 由客户端按开关签发附上）。"""
 
     json_body: dict[str, object] | None = None
     """JSON 请求体（可选；与 `content` 二选一）。"""

@@ -28,6 +28,19 @@
       ],
       "webOrigins": [
         "+"
+      ],
+      "protocolMappers": [
+        {
+          "name": "aud-api",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.custom.audience": "api",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        }
       ]
     }
   ]

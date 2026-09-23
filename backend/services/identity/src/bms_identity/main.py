@@ -7,6 +7,7 @@ from fastapi import APIRouter
 from bms_core.application import BaseServiceApplicationFactory
 from bms_identity import CONTRACT_VERSION, SERVICE_NAME, SERVICE_TITLE, __version__
 from bms_identity.api.router import api_router
+from bms_identity.api.wellknown import router as wellknown_router
 
 
 class ApplicationFactory(BaseServiceApplicationFactory):
@@ -22,6 +23,6 @@ class ApplicationFactory(BaseServiceApplicationFactory):
         """业务路由（探针路由由基座统一挂载）。
 
         Returns:
-            Sequence[APIRouter]: 业务聚合路由。
+            Sequence[APIRouter]: 业务聚合路由 + JWKS 公开端点（`/.well-known/jwks.json`）。
         """
-        return (api_router,)
+        return (api_router, wellknown_router)

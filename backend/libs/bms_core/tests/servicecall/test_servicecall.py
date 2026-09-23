@@ -18,6 +18,9 @@ from bms_core.core.capability import BaseCapability, BaseNullObject
 from bms_core.core.exceptions import ParamError, RateLimitError, ServiceUnavailableError
 from bms_core.fallback.base import BaseFallbackPolicy, FallbackAction
 from bms_core.fallback.null import NullFallbackPolicy
+from bms_core.idp.base import IdentityClaims
+from bms_core.oauth.base import OAuthToken
+from bms_core.oauth.token import BaseServiceTokenIssuer, ServiceTokenSpec
 from bms_core.ratelimit.base import BaseRateLimiter, RateLimitDecision, RateLimitRule
 from bms_core.ratelimit.null import NullRateLimiter
 from bms_core.servicecall.base import (
@@ -93,6 +96,8 @@ def _client(
     circuit: BaseCircuitBreaker | None = None,
     fallback: BaseFallbackPolicy | None = None,
     rate_limiter: BaseRateLimiter | None = None,
+    token_issuer: BaseServiceTokenIssuer | None = None,
+    attach_service_token: bool = False,
 ) -> HttpServiceClient:
     """构造带 MockTransport 的 HttpServiceClient（缺省占位韧性）。"""
     return HttpServiceClient(
@@ -100,6 +105,8 @@ def _client(
         fallback_policy=fallback or NullFallbackPolicy(),
         rate_limiter=rate_limiter or NullRateLimiter(),
         base_url_template=_BASE_TEMPLATE,
+        token_issuer=token_issuer,
+        attach_service_token=attach_service_token,
         transport=httpx.MockTransport(handler),
     )
 
@@ -400,3 +407,103 @@ async def test_fallback_resolution_error_degrades_to_raise() -> None:
     await client.aclose()
     data = excinfo.value.data
     assert isinstance(data, dict) and data["fallback"] == "raise"
+
+
+class StubTokenIssuer(BaseServiceTokenIssuer):
+    """记录签发请求并固定返回占位服务 JWT 的替身。"""
+
+    plugin_name = "stub"
+
+    def __init__(self) -> None:
+        self.specs: list[ServiceTokenSpec] = []
+
+    async def issue(self, spec: ServiceTokenSpec) -> OAuthToken:
+        self.specs.append(spec)
+        return OAuthToken(access_token="service-jwt")
+
+    def jwks(self) -> dict[str, object]:
+        return {"keys": []}
+
+    def verify(self, token: str) -> IdentityClaims:
+        return IdentityClaims(subject="stub")
+
+
+@pytest.mark.kiwi_id(2180)
+async def test_outbound_strips_inbound_authorization() -> None:
+    """出站无条件剥离入站 `Authorization`（外部 token 不透传），其余头保留。"""
+    captured: dict[str, object] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["headers"] = dict(request.headers)
+        return httpx.Response(200)
+
+    client = _client(handler, token_issuer=StubTokenIssuer(), attach_service_token=False)
+    response = await client.call(_request(headers={"Authorization": "Bearer user-token", "X-Test": "1"}))
+    await client.aclose()
+    assert response.status_code == 200
+    headers = cast("dict[str, str]", captured["headers"])
+    assert "authorization" not in headers
+    assert headers.get("x-test") == "1"
+
+
+@pytest.mark.kiwi_id(2180)
+async def test_outbound_attaches_service_token_when_enabled() -> None:
+    """开启出站换券：剥离入站 `Authorization` 并按目标服务附自签服务 JWT。"""
+    captured: dict[str, object] = {}
+    issuer = StubTokenIssuer()
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["headers"] = dict(request.headers)
+        return httpx.Response(200)
+
+    client = _client(handler, token_issuer=issuer, attach_service_token=True)
+    response = await client.call(
+        _request(headers={"authorization": "Bearer user-token"}, policy=ServiceCallPolicy(scopes=("user:read",)))
+    )
+    await client.aclose()
+    assert response.status_code == 200
+    headers = cast("dict[str, str]", captured["headers"])
+    assert headers.get("authorization") == "Bearer service-jwt"
+    assert issuer.specs == [ServiceTokenSpec(service="platform", scopes=("user:read",))]
+
+
+@pytest.mark.kiwi_id(2180)
+async def test_outbound_without_issuer_still_strips() -> None:
+    """开关开启但签发者未就绪：仅剥除不透传，不带服务身份（不整体失败）。"""
+    captured: dict[str, object] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["headers"] = dict(request.headers)
+        return httpx.Response(200)
+
+    client = _client(handler, token_issuer=None, attach_service_token=True)
+    response = await client.call(_request(headers={"Authorization": "Bearer user-token"}))
+    await client.aclose()
+    assert response.status_code == 200
+    headers = cast("dict[str, str]", captured["headers"])
+    assert "authorization" not in headers
+
+
+class BlankTokenIssuer(StubTokenIssuer):
+    """返回空令牌的替身（覆盖空 token 不附头的分支）。"""
+
+    async def issue(self, spec: ServiceTokenSpec) -> OAuthToken:
+        self.specs.append(spec)
+        return OAuthToken(access_token="")
+
+
+@pytest.mark.kiwi_id(2180)
+async def test_outbound_blank_token_not_attached() -> None:
+    """签发者返回空令牌时不附加 `Authorization`（仍剥离入站授权头）。"""
+    captured: dict[str, object] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["headers"] = dict(request.headers)
+        return httpx.Response(200)
+
+    client = _client(handler, token_issuer=BlankTokenIssuer(), attach_service_token=True)
+    response = await client.call(_request(headers={"Authorization": "Bearer user-token"}))
+    await client.aclose()
+    assert response.status_code == 200
+    headers = cast("dict[str, str]", captured["headers"])
+    assert "authorization" not in headers

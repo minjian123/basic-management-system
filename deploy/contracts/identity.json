@@ -186,6 +186,30 @@
         "summary": "Root"
       }
     },
+    "/.well-known/jwks.json": {
+      "get": {
+        "description": "取服务 JWT 公开 JWKS 文档。\n\nArgs:\n    request: 请求对象（取应用装配的服务 JWT 签发者）。\n\nReturns:\n    dict[str, object]: 标准 JWKS 文档（只含公钥）。",
+        "operationId": "get_jwks__well_known_jwks_json_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Jwks  Well Known Jwks Json Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Jwks",
+        "tags": [
+          "wellknown"
+        ]
+      }
+    },
     "/api/v1/captcha/challenges": {
       "post": {
         "description": "生成验证码挑战（图形 / 滑块）。\n\nArgs:\n    captcha: 验证码基座。\n    req: 出题请求。\n\nReturns:\n    ApiResponse: 统一响应，data 为挑战（`CaptchaChallengeResponse`）。",

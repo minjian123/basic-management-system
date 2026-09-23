@@ -80,6 +80,9 @@ from bms_core.metrics.base import BaseMetrics
 from bms_core.notification.base import BaseNotificationCenter
 from bms_core.notify.base import BaseNotifier
 from bms_core.oauth.base import BaseOAuthServer, BaseScopeChecker
+from bms_core.oauth.jwt import JwtServiceTokenIssuerFactory
+from bms_core.oauth.token import BaseServiceTokenIssuer
+from bms_core.oauth.verify import BaseTokenVerifier, UnifiedTokenVerifierFactory
 from bms_core.org.base import BaseOrgDataSource, BaseOrgNameResolver
 from bms_core.outbound.http import BaseHttpClient
 from bms_core.outbound.webhook import BaseWebhookSender
@@ -100,6 +103,7 @@ from bms_core.scope.base import DataScope
 from bms_core.search.base import BaseSearchIndex
 from bms_core.servicecall.base import (
     DEFAULT_BASE_URL_TEMPLATE,
+    SERVICE_CLIENT_OPTION_ATTACH_TOKEN,
     SERVICE_CLIENT_OPTION_BASE_URL,
     BaseServiceClient,
 )
@@ -223,6 +227,8 @@ PLUGIN_WIRINGS: tuple[PluginWiring, ...] = (
     PluginWiring("health_check_registry", BaseHealthCheckRegistry, "health_check_registry", "health_check_registry"),
     PluginWiring("oauth_server", BaseOAuthServer, "oauth_server", "oauth_server"),
     PluginWiring("scope_checker", BaseScopeChecker, "scope_checker", "scope_checker"),
+    PluginWiring("service_token", BaseServiceTokenIssuer, "service_token", "service_token"),
+    PluginWiring("token_verifier", BaseTokenVerifier, "token_verifier", "token_verifier"),
     PluginWiring("org_data_source", BaseOrgDataSource, "org_data_source", "org_data_source"),
     PluginWiring("org_name_resolver", BaseOrgNameResolver, "org_name_resolver", "org_name_resolver"),
     PluginWiring("dict_cache_region", DictCacheRegion, "dict_cache_region", "dict_cache_region"),
@@ -308,6 +314,8 @@ def register_platform_plugins(settings: Settings, app: FastAPI, resources: Resou
     register_plugin("query_provider_registry", "local", LocalQueryProviderRegistryFactory(app))
     register_plugin("edge", "marker", MarkerEdgeTrustFactory(settings))
     register_plugin("identity_provider", "oidc", OidcIdentityProviderFactory(settings))
+    register_plugin("service_token", "jwt", JwtServiceTokenIssuerFactory(settings))
+    register_plugin("token_verifier", "unified", UnifiedTokenVerifierFactory(settings))
     register_plugin("data_ownership_guard", "table", TableOwnershipGuardFactory(settings))
     register_plugin("service_client", "http", HttpServiceClientFactory(settings))
     register_plugin("outbox_store", "sql", SqlOutboxStoreFactory(settings))
@@ -516,11 +524,24 @@ class HttpServiceClientFactory(BasePluginFactory[HttpServiceClient]):
                 expected_version=BaseRateLimiter.contract_version,
             ),
         )
+        service_token = cast(
+            "BaseServiceTokenIssuer",
+            resolve_plugin(
+                "service_token",
+                self._settings.service_token.provider,
+                expected_version=BaseServiceTokenIssuer.contract_version,
+            ),
+        )
+        attach_service_token = bool(
+            self._settings.service_client.options.get(SERVICE_CLIENT_OPTION_ATTACH_TOKEN) or False
+        )
         return HttpServiceClient(
             circuit_breaker=circuit,
             fallback_policy=fallback,
             rate_limiter=rate_limiter,
             base_url_template=cast("str", template),
+            token_issuer=service_token,
+            attach_service_token=attach_service_token,
         )
 
 

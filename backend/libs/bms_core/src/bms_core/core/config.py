@@ -151,7 +151,15 @@ class TenantSettings(BaseSettings):
     allow_demo_fallback: bool = True
     """无任何来源时是否回落演示租户（开发兜底；生产应置 false 直接拒绝）。"""
     exempt_paths: list[str] = Field(
-        default_factory=lambda: ["/", "/docs", "/redoc", "/openapi.json", "/healthz", "/readyz"]
+        default_factory=lambda: [
+            "/",
+            "/docs",
+            "/redoc",
+            "/openapi.json",
+            "/healthz",
+            "/readyz",
+            "/.well-known/jwks.json",
+        ]
     )
     """租户解析豁免路径（精确匹配；这些路径不解析租户、不设置租户上下文）。"""
     dev_tenants: list[str] = Field(default_factory=lambda: ["demo"])
@@ -310,6 +318,35 @@ class IdentityProviderSettings(PluginSelection):
 
     jwks_cache_ttl: float = 300.0
     """JWKS 缓存 TTL（秒）。"""
+
+
+class TokenKeySettings(BaseSettings):
+    """服务 JWT 单把密钥（kid 为映射键；公钥可入配置，私钥只经环境变量 / Secret 注入）。"""
+
+    algorithm: str = "RS256"
+    """签名算法（白名单 RS256 / ES256）。"""
+
+    public_key: str = ""
+    """公钥 PEM（非敏感，可入配置）。"""
+
+    private_key: str = ""
+    """私钥 PEM（空串；经 `BMS_SERVICE_TOKEN__KEYS` 等环境变量注入）。"""
+
+
+class ServiceTokenSettings(PluginSelection):
+    """服务 JWT 自签配置（`[service_token]`；私钥只走环境变量 / Secret，不写入配置文件）。"""
+
+    issuer: str = "bms"
+    """自签签发方（服务 JWT `iss`；生产建议配置稳定 URI）。"""
+
+    ttl_seconds: int = Field(default=300, ge=1)
+    """服务 JWT 默认有效期（秒；短时令牌）。"""
+
+    active_kid: str = ""
+    """当前签名密钥 kid（多把签名私钥时必填）。"""
+
+    keys: dict[str, TokenKeySettings] = Field(default_factory=dict[str, TokenKeySettings])
+    """密钥集（kid → 密钥材料）；空集允许（仅校验方时只需公钥，签发时无可用私钥才拒）。"""
 
 
 class DataOwnershipSettings(PluginSelection):
@@ -517,11 +554,13 @@ class Settings(PydanticBaseSettings, BaseSettings):  # pyright: ignore[reportInc
     scope_checker: PluginSelection = Field(default_factory=PluginSelection)
     search_index: PluginSelection = Field(default_factory=PluginSelection)
     service_client: PluginSelection = Field(default_factory=PluginSelection)
+    service_token: ServiceTokenSettings = Field(default_factory=ServiceTokenSettings)
     session_store: PluginSelection = Field(default_factory=PluginSelection)
     sharding: PluginSelection = Field(default_factory=PluginSelection)
     storage: PluginSelection = Field(default_factory=PluginSelection)
     task: PluginSelection = Field(default_factory=PluginSelection)
     tenant_self_service: PluginSelection = Field(default_factory=PluginSelection)
+    token_verifier: PluginSelection = Field(default_factory=PluginSelection)
     tracer: PluginSelection = Field(default_factory=PluginSelection)
     translator: PluginSelection = Field(default_factory=PluginSelection)
     webhook_sender: PluginSelection = Field(default_factory=PluginSelection)
