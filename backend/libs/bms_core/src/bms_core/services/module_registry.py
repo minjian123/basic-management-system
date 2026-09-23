@@ -293,6 +293,20 @@ def known_event_domains() -> frozenset[str]:
     return frozenset(record.event_domain for record in SERVICE_CATALOG)
 
 
+def enabled_service_keys() -> tuple[str, ...]:
+    """已启用服务标识集合（`service_key` 非空且 `status = enabled`，保持目录顺序）。
+
+    用于「按服务×租户建库」的服务维度（06_01）：只对已建设服务建库，`planned` 服务与
+    无 `service_key` 的产品模块不建库（产品模块随产品仓库接入）。
+
+    Returns:
+        tuple[str, ...]: 服务标识元组。
+    """
+    return tuple(
+        record.service_key for record in SERVICE_CATALOG if record.service_key and record.status == ModuleStatus.ENABLED
+    )
+
+
 def _duplicates(values: list[str]) -> list[str]:
     """取重复值（保持首次出现顺序）。
 

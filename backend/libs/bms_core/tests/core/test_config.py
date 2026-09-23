@@ -78,6 +78,19 @@ def _use_config_dir(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, body: str) 
     monkeypatch.setattr(config, "_config_dir", lambda: tmp_path)
 
 
+def _clear_db_template_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """清除连接串模板环境变量（测试夹具注入的会话级隔离值）。
+
+    测试夹具固定置空 `BMS_DATABASE__{PLATFORM,TENANTS}__URL_TEMPLATE` 以隔离 dev 模板；
+    最小 config.toml（无 `[database.tenants]`）用例下该环境变量会注入不完整的库目标，故此处清除。
+
+    Args:
+        monkeypatch: monkeypatch 夹具。
+    """
+    for key in ("BMS_DATABASE__PLATFORM__URL_TEMPLATE", "BMS_DATABASE__TENANTS__URL_TEMPLATE"):
+        monkeypatch.delenv(key, raising=False)
+
+
 # ===== Kiwi 32：结构占位回归 =====
 
 
@@ -185,6 +198,7 @@ def test_prod_env_overlay(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_env_selector_fallback_to_app_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """BMS_ENV 未设置时取 [app].env 并回写。"""
     _use_config_dir(monkeypatch, tmp_path, _VALID_BASE.format(env="test"))
+    _clear_db_template_env(monkeypatch)
     settings = Settings()
     assert settings.app.env == "test"
     assert settings.log.level == "INFO"
@@ -196,6 +210,7 @@ def test_env_selector_from_dotenv(monkeypatch: pytest.MonkeyPatch, tmp_path: Pat
     (tmp_path / "config.toml").write_text(_VALID_BASE.format(env="dev"), encoding="utf-8")
     (tmp_path / ".env").write_text("BMS_ENV=test\n", encoding="utf-8")
     monkeypatch.setattr(config, "_config_dir", lambda: tmp_path)
+    _clear_db_template_env(monkeypatch)
     assert Settings().app.env == "test"
 
 

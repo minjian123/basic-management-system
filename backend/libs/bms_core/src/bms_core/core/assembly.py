@@ -61,7 +61,7 @@ from bms_core.fieldtype.base import BaseFieldTypeRegistry
 from bms_core.fieldtype.local import LocalFieldTypeRegistry
 from bms_core.globalsearch.base import BaseAuditSearch, BaseFileContentSearch, BaseGlobalSearch
 from bms_core.health.base import BaseHealthCheckRegistry
-from bms_core.health.checks import DatabaseHealthCheck, RedisHealthCheck
+from bms_core.health.checks import CatalogHealthCheck, DatabaseHealthCheck, RedisHealthCheck
 from bms_core.health.registry import HealthCheckRegistry
 from bms_core.i18n.base import BaseTranslator
 from bms_core.icon.base import BaseIconRegistry
@@ -420,6 +420,8 @@ class HealthCheckRegistryFactory(BasePluginFactory[HealthCheckRegistry]):
         redis_check = RedisHealthCheck(self._settings.redis.url)
         registry.register(redis_check)
         registry.register(DatabaseHealthCheck(cast("EngineRegistry", self._app.state.engine_registry)))
+        # 非必需项：服务目录快照可达性（06_01；失败只标记降级可见，不产生 503）
+        registry.register(CatalogHealthCheck(self._app))
         self._resources.register(redis_check)
         return registry
 

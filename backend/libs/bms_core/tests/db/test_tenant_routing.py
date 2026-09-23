@@ -18,7 +18,7 @@ from bms_core.core.context import (
     set_current_tenant,
     set_tenant_context,
 )
-from bms_core.core.exceptions import ConfigError
+from bms_core.core.exceptions import ConfigError, DataOwnershipError
 from bms_core.db.engine import EngineFactory
 from bms_core.db.registry import EngineRegistry
 from bms_core.db.session import SessionFactory, get_db, get_read_db, get_uow, get_write_db
@@ -138,6 +138,44 @@ async def test_session_routes_by_tenant_db_key(tmp_path: Path) -> None:
         assert unknown.status_code == 404
 
     await registry.aclose()
+
+
+@pytest.mark.kiwi_id(2177)
+async def test_platform_service_db_split_and_boundary(tmp_path: Path) -> None:
+    """平台服务库按服务拆分（06_01）：各服务连自身 `bms_{service}`；跨服务取键越界被拒。"""
+    settings = Settings()
+    settings.app.service = "org"
+    settings.database.platform.url_template = f"sqlite+aiosqlite:///{tmp_path}/bms_{{service}}.db"
+    settings.database.tenants.url_template = f"sqlite+aiosqlite:///{tmp_path}/bms_{{service}}_{{tenant}}.db"
+    factory = EngineFactory(settings)
+    assert factory.resolve_url("platform").endswith("/bms_org.db")
+    assert factory.resolve_url("tenant_demo").endswith("/bms_org_demo.db")
+
+    platform_key = "platform_platform"
+    registry = EngineRegistry(factory)
+    try:
+        with pytest.raises(DataOwnershipError):
+            await registry.get(platform_key)
+        with pytest.raises(DataOwnershipError):
+            await registry.get_sync("tenant_platform_demo")
+
+        # 本服务平台库常驻：release 不回收平台类键；租户键仍可强制回收
+        await registry.get("platform")
+        await registry.get("tenant_demo")
+        await registry.release("platform")
+        assert "platform" in registry.active_keys()
+        await registry.release("tenant_demo")
+        assert "tenant_demo" not in registry.active_keys()
+    finally:
+        await registry.aclose()
+
+    # 运维通道：跨服务键按目标服务库解析
+    ops_registry = EngineRegistry(EngineFactory(settings, allow_cross_service=True))
+    try:
+        engine = await ops_registry.get("platform_tenant")
+        assert str(engine.url).endswith("/bms_tenant.db")
+    finally:
+        await ops_registry.aclose()
 
 
 @pytest.mark.kiwi_id(1019)

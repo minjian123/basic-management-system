@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from bms_core.core.config import get_settings
-from bms_core.db.bootstrap import db_key_for, ensure_development_schema
+from bms_core.db.bootstrap import db_keys_for, ensure_development_schema
 from bms_core.db.engine import EngineFactory
 from bms_core.db.migration import resolve_chain
 from bms_core.db.registry import EngineRegistry
@@ -48,10 +48,12 @@ def _point_to(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Path, Pa
 
 @pytest.mark.kiwi_id(1078)
 def test_db_key_mapping() -> None:
-    """数据源键映射：平台 → platform；租户 → 缺省租户库键；归档 → archive。"""
-    assert db_key_for(resolve_chain("platform")) == "platform"
-    assert db_key_for(resolve_chain("tenant")) == "tenants"
-    assert db_key_for(resolve_chain("archive")) == "archive"
+    """数据源键映射（06_01 服务化）：平台链本服务平台库；租户链逐开发租户；归档单键。"""
+    settings = get_settings()
+    assert db_keys_for(resolve_chain("platform"), settings) == ["platform"]
+    assert db_keys_for(resolve_chain("tenant"), settings) == [f"tenant_{code}" for code in settings.tenant.dev_tenants]
+    assert db_keys_for(resolve_chain("tenant"), settings)[0] == "tenant_demo"
+    assert db_keys_for(resolve_chain("archive"), settings) == ["archive"]
 
 
 @pytest.mark.kiwi_id(1078)
@@ -64,7 +66,7 @@ async def test_sqlite_auto_create_tables_and_idempotent(tmp_path: Path, monkeypa
     registry = EngineRegistry(EngineFactory(settings))
     try:
         handled = await ensure_development_schema(registry, settings)
-        assert handled == ["platform", "tenants"]
+        assert handled == ["platform", "tenant_demo"]
         assert {"sys_tenant", "sys_module", "sys_module_i18n"} <= _tables(platform)
         assert "sys_dict_type" in _tables(tenant)
         assert "sys_task" not in _tables(tenant), "骨架表不入自动建表"
@@ -72,6 +74,29 @@ async def test_sqlite_auto_create_tables_and_idempotent(tmp_path: Path, monkeypa
         before = (_tables(platform), _tables(tenant))
         assert await ensure_development_schema(registry, settings) == handled
         assert (_tables(platform), _tables(tenant)) == before, "重复执行不新建表"
+    finally:
+        await registry.aclose()
+
+
+@pytest.mark.kiwi_id(2177)
+async def test_auto_create_service_ized_targets(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """服务化模板下自动建表（06_01）：平台链建本服务平台库；租户链按 `dev_tenants` 逐租户建服务租户库。"""
+    monkeypatch.setenv("BMS_DATABASE__PLATFORM__URL_TEMPLATE", f"sqlite+aiosqlite:///{tmp_path}/bms_{{service}}.db")
+    monkeypatch.setenv(
+        "BMS_DATABASE__TENANTS__URL_TEMPLATE", f"sqlite+aiosqlite:///{tmp_path}/bms_{{service}}_{{tenant}}.db"
+    )
+    monkeypatch.setenv("BMS_TENANT__DEV_TENANTS", '["demo", "acme"]')
+    get_settings.cache_clear()
+    settings = get_settings()
+    settings.app.service = "org"  # 启动期由服务包声明回写
+
+    registry = EngineRegistry(EngineFactory(settings))
+    try:
+        handled = await ensure_development_schema(registry, settings)
+        assert handled == ["platform", "tenant_demo", "tenant_acme"]
+        assert "sys_module" in _tables(tmp_path / "bms_org.db")
+        assert "sys_dict_type" in _tables(tmp_path / "bms_org_demo.db")
+        assert "sys_dict_type" in _tables(tmp_path / "bms_org_acme.db")
     finally:
         await registry.aclose()
 

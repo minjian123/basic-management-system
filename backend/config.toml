@@ -52,6 +52,8 @@ engine_idle_timeout = 1800.0
 allow_demo_fallback = true
 # 租户解析豁免路径（精确匹配）
 exempt_paths = ["/", "/docs", "/redoc", "/openapi.json", "/healthz", "/readyz"]
+# 开发库自动建表覆盖的租户编码（仅 SQLite auto_create 生效；每服务按 tenant_{code} 相对键建表）
+dev_tenants = ["demo"]
 
 [database]
 # SQLite 开发库自动建表（按迁移链表集、幂等；仅当方言为 SQLite 时生效）
@@ -60,7 +62,13 @@ auto_create = true
 
 [database.platform]
 # 平台库连接串（不含密码；密码经 BMS_DATABASE__PLATFORM__PASSWORD 或完整 URL 注入）
+# 注意：平台目标 url_template 为空时全部服务连本连接串单库（基础默认）；
+# 置模板即启用平台服务库按服务拆分为 bms_{service}（见 config.dev.toml）
 url = "sqlite+aiosqlite:///./bms_platform.db"
+# 平台服务库连接串模板（占位 {service} / {database}；{database} = bms_{service}）
+# 示例：sqlite+aiosqlite:///./bms_{service}.db / mysql+aiomysql://bms_dev@<host>:3306/{database}
+# 空串表示回落 url 单库
+url_template = ""
 # 只读副本连接串（可选，空表示不分离）
 replicas = []
 # 该库最大连接数（0 = 不校验连接预算；超限仅启动告警不阻断）
@@ -78,7 +86,7 @@ connect_timeout = 10.0
 [database.tenants]
 # 租户库连接串（url_template 为空时的回落单库；每租户库经 EngineRegistry 按键解析）
 url = "sqlite+aiosqlite:///./bms_tenant_demo.db"
-# 租户库连接串模板（占位 {service} / {tenant} / {database}；{database} = bms_{service}_{tenant}）
+# 服务租户库连接串模板（占位 {service} / {tenant} / {database}；{database} = bms_{service}_{tenant}）
 # 示例：sqlite+aiosqlite:///./bms_tenant_{tenant}.db / mysql+aiomysql://bms_dev@<host>:3306/{database}
 # 空串表示回落 url 单库（开发 SQLite 兼容）
 url_template = ""

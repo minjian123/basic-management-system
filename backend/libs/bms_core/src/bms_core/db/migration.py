@@ -241,30 +241,37 @@ def chain_metadata(chain: MigrationChain) -> MetaData:
     return metadata
 
 
-def chain_url(chain: MigrationChain, settings: Settings | None = None, *, db_key: str | None = None) -> str:
+def chain_url(
+    chain: MigrationChain,
+    settings: Settings | None = None,
+    *,
+    db_key: str | None = None,
+    allow_cross_service: bool = False,
+) -> str:
     """取该链的连接串（含分字段密码；禁止写入日志）。
 
-    租户链传入 `db_key` 时经 `url_template` 模板解析（复用引擎工厂口径）；未传时取
-    配置缺省租户库连接串。
+    传入 `db_key` 时无论链别一律经库键与 `url_template` 解析（复用引擎工厂口径，服务化后
+    平台链亦可按 `platform_{service}` 指定服务库）；未传时取链对应的配置缺省连接串。
 
     Args:
         chain: 链定义。
         settings: 应用配置；None 取全局配置单例。
-        db_key: 租户库键（`tenant_{code}`；仅租户链有意义）。
+        db_key: 库键（`platform` / `platform_{service}` / `tenant_{code}` / `tenant_{service}_{code}`）。
+        allow_cross_service: 是否允许跨服务库键（**仅 `ops` / 迁移运维通道**）。
 
     Returns:
         str: 连接串（含密码）。
     """
     resolved = settings if settings is not None else get_settings()
+    if db_key:
+        from bms_core.db.engine import EngineFactory
+
+        return EngineFactory(resolved, allow_cross_service=allow_cross_service).resolved_url(db_key)
     database = resolved.database
     if chain.name == "platform":
         return database.platform.resolved_url()
     if chain.name == "archive":
         return database.archive.resolved_url()
-    if db_key:
-        from bms_core.db.engine import EngineFactory
-
-        return EngineFactory(resolved).resolved_url(db_key)
     return database.tenants.resolved_url()
 
 

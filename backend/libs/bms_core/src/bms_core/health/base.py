@@ -75,7 +75,14 @@ class HealthCheckReport(BaseObject):
 
 
 class BaseHealthCheck(BaseProvider, ABC):
-    """检查项契约：键 + 异步检查（`name` 为 `key` 的兼容别名，`/readyz` 与聚合报告口径不变）。"""
+    """检查项契约：键 + 异步检查（`name` 为 `key` 的兼容别名，`/readyz` 与聚合报告口径不变）。
+
+    `required=False` 表示**降级可观测项**：结果照常出现在 `checks` 中，但不参与整体就绪判定
+    （失败不产生 503），用于「依赖降级可接受、但需可见」的场景（如服务目录快照）。
+    """
+
+    required: bool = True
+    """是否参与整体就绪判定（`False` = 非必需项，失败只标记降级可见）。"""
 
     @property
     @abstractmethod
@@ -135,6 +142,9 @@ class BaseHealthCheckRegistry(BaseProviderRegistry[BaseHealthCheck], ABC):
     async def aggregate(self) -> HealthCheckReport:
         """聚合全部检查项为就绪报告（模板方法：并发执行 + 两级超时 + 单项异常不中断聚合）。
 
+        整体 `ok` 只统计**必需项**（`required=True`）；非必需项结果照常出现在 `checks` 中，
+        便于降级可见（如 `catalog` 目录快照不可达）。
+
         Returns:
             HealthCheckReport: 聚合报告；空注册表视为就绪（`ok=True`）。
         """
@@ -159,7 +169,8 @@ class BaseHealthCheckRegistry(BaseProviderRegistry[BaseHealthCheck], ABC):
             results.get(index) or HealthCheckResult(name=check.name, ok=False, error="TimeoutError")
             for index, check in enumerate(checks)
         )
-        return HealthCheckReport(ok=all(result.ok for result in ordered), checks=ordered)
+        ok = all(result.ok for check, result in zip(checks, ordered, strict=True) if check.required)
+        return HealthCheckReport(ok=ok, checks=ordered)
 
 
 def get_health_check_registry(request: Request) -> BaseHealthCheckRegistry:

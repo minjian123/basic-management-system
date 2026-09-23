@@ -207,6 +207,6 @@ def test_registered_items_auto_enumerated() -> None:
 
 
 def test_health_local_registration_enumerated() -> None:
-    """健康本地注册表：平台装配登记项枚举（redis / database）。"""
+    """健康本地注册表：平台装配登记项枚举（redis / database / catalog）。"""
     registry = cast("HealthCheckRegistry", resolve_plugin("health_check_registry", "local"))
-    assert registry.keys() == ("redis", "database")
+    assert registry.keys() == ("redis", "database", "catalog")

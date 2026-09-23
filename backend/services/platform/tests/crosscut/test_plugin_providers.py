@@ -127,7 +127,7 @@ async def test_health_registry_pluginized() -> None:
     async with lifespan(app):
         registry = app.state.health_check_registry
         assert isinstance(registry, HealthCheckRegistry)
-        assert registry.keys() == ("redis", "database")
+        assert registry.keys() == ("redis", "database", "catalog")
         assert (
             resolve_plugin(
                 "health_check_registry",
@@ -140,7 +140,7 @@ async def test_health_registry_pluginized() -> None:
         assert set(snapshot["health_check_registry"]) == {"local", "null"}
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.get("/readyz")
-        assert set(resp.json()["checks"]) == {"redis", "database"}
+        assert set(resp.json()["checks"]) == {"redis", "database", "catalog"}
 
 
 @pytest.mark.kiwi_id(565)

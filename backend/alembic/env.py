@@ -95,7 +95,9 @@ def _database_url(chain: MigrationChain) -> str:
     env_url = os.environ.get("BMS_MIGRATION_URL", "")
     if env_url:
         return env_url
-    return chain_url(chain, get_settings(), db_key=x_args.get("db_key") or None)
+    db_key = x_args.get("db_key") or None
+    # 命令行显式指定库键 = 运维通道（允许跨服务键，如 platform_tenant / tenant_org_acme）
+    return chain_url(chain, get_settings(), db_key=db_key, allow_cross_service=bool(db_key))
 
 
 def _schema_name() -> str:

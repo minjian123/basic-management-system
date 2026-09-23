@@ -35,6 +35,10 @@ def isolate_settings(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     for key in list(os.environ):
         if key.startswith("BMS_") and not key.startswith("BMS_TEST_"):
             monkeypatch.delenv(key, raising=False)
+    # 测试会话固定关闭库连接串模板：dev 默认启用「每服务每租户」模板（06_01），
+    # 会让用例显式指定的 `BMS_DATABASE__*__URL` 失效；模板行为由专门用例显式开启覆盖。
+    monkeypatch.setenv("BMS_DATABASE__PLATFORM__URL_TEMPLATE", "")
+    monkeypatch.setenv("BMS_DATABASE__TENANTS__URL_TEMPLATE", "")
     monkeypatch.setitem(Settings.model_config, "env_file", None)
     get_settings.cache_clear()
     yield

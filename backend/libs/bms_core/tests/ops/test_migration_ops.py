@@ -80,7 +80,7 @@ def test_migrate_tenants_idempotent_and_single_targets(
 
     platform_url = f"sqlite+aiosqlite:///{tmp_path / 'platform.db'}"
     assert migrate_tenants.main(["--target", "platform", "--url", platform_url]) == 0
-    assert _revisions(tmp_path / "platform.db") == ["0004_sys_outbox_event_version"]
+    assert _revisions(tmp_path / "platform.db") == ["0005_sys_tenant_db_key_nullable"]
     assert "汇总：成功 1、跳过 0、失败 0" in capsys.readouterr().out
 
     assert migrate_tenants.main(["--target", "archive"]) == 0

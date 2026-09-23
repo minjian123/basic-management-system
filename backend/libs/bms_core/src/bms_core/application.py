@@ -26,6 +26,7 @@ from bms_core.api.middleware import (
     TraceIdMiddleware,
 )
 from bms_core.cache.base import CacheRegion
+from bms_core.catalog.loader import load_catalog_snapshot
 from bms_core.core.assembly import assemble_plugins, register_platform_plugins
 from bms_core.core.config import Settings, get_settings, validate_startup
 from bms_core.core.exceptions import CatalogError, EventContractError
@@ -36,19 +37,17 @@ from bms_core.core.plugin import build_plugin_registry, resolve_plugin
 from bms_core.core.resources import ResourceManager
 from bms_core.core.service import ServiceIdentity, attach_service
 from bms_core.db.bootstrap import ensure_development_schema
-from bms_core.db.engine import PLATFORM_DB_KEY, EngineFactory
+from bms_core.db.engine import EngineFactory
 from bms_core.db.health import PrimaryHealth
 from bms_core.db.registry import EngineRegistry, pool_budget_warnings, tenant_pool_budget_warnings
-from bms_core.db.session import SessionFactory, session_scope
+from bms_core.db.session import SessionFactory
 from bms_core.db.tenant_remote import register_remote_tenant_source
 from bms_core.db.tenant_source import build_tenant_lookup
 from bms_core.events.contracts import default_event_contract_registry, validate_event_registry
 from bms_core.lock.base import BaseDistributedLock
-from bms_core.repositories.module_repository import ModuleRepository
 from bms_core.schemas.common import ApiResponse
 from bms_core.services.module_registry import (
     SERVICE_CATALOG,
-    ModuleRecord,
     ModuleRegistry,
     known_event_domains,
     validate_catalog,
@@ -60,31 +59,36 @@ _LOGGER = "bms_core.application"
 
 
 async def _validate_service_catalog(app: FastAPI) -> None:
-    """接库服务目录校验：读平台库 `sys_module` 校验并拒启（空目录仅告警放行）。
+    """接库服务目录校验：取目录快照校验并拒启（空目录仅告警放行；06_01 起改经契约）。
+
+    取数路径（见 `bms_core/catalog/loader.py`）：
+
+    - `platform`（目录单一权威）：本地读**本服务平台库** `sys_module`，读失败即拒启（`CatalogError`）；
+    - 其余服务：经 `service_client` 调 `GET /api/v1/modules/snapshot`；**不可达 / 响应非法时告警放行**
+      并置 `app.state.catalog_degraded = True`（`/readyz` 的 `catalog` 非必需项可见降级，不产生 503）。
 
     Args:
         app: 应用实例（取引擎注册表 / 会话工厂 / 服务身份）。
 
     Raises:
-        CatalogError: 服务目录不可读（表缺失 / 连接失败）或校验冲突（唯一 / 对账 / 契约版本）。
+        CatalogError: 权威服务目录不可读（表缺失 / 连接失败）或校验冲突（唯一 / 对账 / 契约版本）。
     """
     logger = get_logger("bms")
-    try:
-        async with session_scope(
-            cast("EngineRegistry", app.state.engine_registry),
-            db_key=PLATFORM_DB_KEY,
-            factory=cast("SessionFactory", app.state.session_factory),
-        ) as session:
-            rows = await ModuleRepository(session).list_catalog()
-    except Exception as exc:
-        raise CatalogError(f"服务目录不可读（请先执行平台库迁移）：{exc}") from exc
-    if not rows:
-        logger.warning("service_catalog_empty", hint="平台库 sys_module 无登记行，跳过接库校验")
-        return
     identity = cast("ServiceIdentity", app.state.service_identity)
+    try:
+        records = await load_catalog_snapshot(app)
+    except CatalogError:
+        raise
+    except Exception as exc:  # 契约不可达 / 未装配 / 响应非法：降级放行（CI 离线校验为硬门禁）
+        logger.warning("service_catalog_snapshot_unavailable", detail=f"{type(exc).__name__}: {exc}")
+        app.state.catalog_degraded = True
+        return
+    if not records:
+        logger.warning("service_catalog_empty", hint="服务目录无登记行，跳过接库校验")
+        return
     errors = validate_catalog(
         SERVICE_CATALOG,
-        [ModuleRecord.from_row(row) for row in rows],
+        records,
         service_key=identity.name,
         contract_version=identity.contract_version,
     )
@@ -229,6 +233,7 @@ class BaseServiceApplicationFactory(BaseApplicationFactory):
         app.state.module_registry = ModuleRegistry()
         app.state.settings = settings
         app.state.startup_complete = False
+        app.state.catalog_degraded = False
 
         # 工厂 / 插件装配前置：平台实现登记 → 注册表构建 → 关键工厂解析（可替换，配置选择）
         register_platform_plugins(settings, app, app.state.resources)

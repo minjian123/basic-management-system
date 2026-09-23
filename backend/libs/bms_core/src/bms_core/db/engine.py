@@ -3,8 +3,12 @@
 - 方言：SQLite `sqlite+aiosqlite`（开发 / 测试）、MySQL `mysql+aiomysql`、
   PostgreSQL `postgresql+psycopg`、达梦 `dm+dmPython`（**同步驱动**，见下）。
 - 主 / 副本多绑定：写走主引擎；只读有副本时按进程内轮询选副本，无副本回落主引擎。
-- 租户库键（`tenant_{code}`）经目标 `url_template` 模板解析（`{service}` / `{tenant}` / `{database}`），
-  空模板回落 `url` 单库（开发 SQLite 兼容）；平台 / 归档库恒取 `url`。
+- 库键与库名经 `bms_core/db/keys.py` 单一来源派生：**相对键**（`platform` / `tenant_{code}`）按当前
+  服务解析为 `bms_{service}` / `bms_{service}_{code}`；**全限定键**（`platform_{service}` /
+  `tenant_{service}_{code}`）显式指向某服务。平台目标占位 `{service}` / `{database}`，租户目标占位
+  `{service}` / `{tenant}` / `{database}`；空模板回落 `url` 单库（开发 SQLite 兼容）；归档库恒取 `url`。
+- **越界拒绝**：取键入口先经 `validate_key` 校验服务归属，全限定键越界抛 `DataOwnershipError`（10008）；
+  运维侧（`ops`）经 `allow_cross_service=True` 显式豁免（仅运维通道）。
 - 建引擎**不建连**；URL 经配置基座读取；连接池参数按服务（`[app].service`）取覆盖。
 - 达梦为同步驱动、无异步方言：`create` 对其抛 `ConfigError`（运行期经 `app/db/sync.py` 的
   同步门面 `SyncSession` 接入，见《后端基类清单》）；`create_sync` 提供同步引擎
@@ -20,14 +24,17 @@ from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 from bms_core.core.config import DatabaseTargetSettings, DbPoolSettings, Settings, get_settings
 from bms_core.core.exceptions import ConfigError
 from bms_core.core.factory import BaseDbFactory
+from bms_core.db.keys import (
+    DB_KIND_ARCHIVE,
+    DB_KIND_PLATFORM,
+    PLATFORM_DB_KEY,
+    DbKey,
+    database_name,
+    resolve_db_key,
+)
 from bms_core.db.sync import SYNC_ONLY_DIALECTS
-from bms_core.db.tenant import TENANT_DB_KEY_PREFIX, parse_tenant_db_key
 
 _SQLITE = "sqlite"
-PLATFORM_DB_KEY = "platform"
-"""平台库数据源键（唯一来源；`app/db/registry.py` 复用）。"""
-ARCHIVE_DB_KEY = "archive"
-"""归档库数据源键（只读）。"""
 _CONNECT_TIMEOUT_DIALECTS = frozenset({"mysql", "postgresql"})
 """支持 `connect_args={"connect_timeout": ...}` 的异步方言。"""
 
@@ -64,16 +71,38 @@ class EngineFactory(BaseDbFactory[str | None, AsyncEngine]):
 
     key: str = "engine_factory"
 
-    def __init__(self, settings: Settings | None = None) -> None:
+    def __init__(self, settings: Settings | None = None, *, allow_cross_service: bool = False) -> None:
         """初始化。
 
         Args:
             settings: 应用配置（数据库 URL 与连接池参数）；缺省取全局配置单例。
+            allow_cross_service: 是否允许跨服务数据源键（**仅 `ops` 运维通道**使用；
+                `False` 时全限定键的服务段必须为当前服务，否则 `DataOwnershipError` 10008）。
         """
         self._settings = settings or get_settings()
+        self._allow_cross_service = allow_cross_service
         self._engines: dict[tuple[str, str], AsyncEngine] = {}
         self._sync_engines: dict[tuple[str, str], Engine] = {}
         self._round_robin: dict[str, int] = {}
+
+    def validate_key(self, db_key: str | None = None) -> DbKey:
+        """解析并校验数据源键归属（取键入口统一前置；注册表复用同一判定）。
+
+        Args:
+            db_key: 数据源键；None / 空串取 `platform`（本服务平台库）。
+
+        Returns:
+            DbKey: 库键解析结果。
+
+        Raises:
+            ConfigError: 键形态非法或全限定键服务标识未登记。
+            DataOwnershipError: 全限定键越界且未开启运维豁免（10008）。
+        """
+        return resolve_db_key(
+            db_key or PLATFORM_DB_KEY,
+            service=self._settings.app.service,
+            allow_cross_service=self._allow_cross_service,
+        )
 
     def create(self, options: str | None = None, *, read_only: bool = False) -> AsyncEngine:
         """创建 / 复用异步引擎（不建连）。
@@ -88,19 +117,18 @@ class EngineFactory(BaseDbFactory[str | None, AsyncEngine]):
         Raises:
             ConfigError: 该方言为同步驱动（达梦），异步路径不可用。
         """
-        db_key = options or PLATFORM_DB_KEY
-        target = self._target(db_key)
-        url, role = self._resolve_url_role(target, db_key, read_only=read_only)
-        engine = self._engines.get((db_key, role))
+        key, target = self._resolve(options)
+        url, role = self._resolve_url_role(key, target, read_only=read_only)
+        engine = self._engines.get((key.raw, role))
         if engine is not None:
             return engine
         dialect = _dialect_name(url)
         if dialect in SYNC_ONLY_DIALECTS:
             raise ConfigError(
-                f"数据库方言 {dialect} 为同步驱动、无异步实现（运行期请走同步门面 SyncSession）：{db_key}"
+                f"数据库方言 {dialect} 为同步驱动、无异步实现（运行期请走同步门面 SyncSession）：{key.raw}"
             )
         engine = create_async_engine(url, **self._engine_kwargs(target, dialect))
-        self._engines[(db_key, role)] = engine
+        self._engines[(key.raw, role)] = engine
         return engine
 
     def create_sync(self, options: str | None = None, *, read_only: bool = False) -> Engine:
@@ -115,14 +143,13 @@ class EngineFactory(BaseDbFactory[str | None, AsyncEngine]):
         Returns:
             Engine: 同步引擎（不建连）。
         """
-        db_key = options or PLATFORM_DB_KEY
-        target = self._target(db_key)
-        url, role = self._resolve_url_role(target, db_key, read_only=read_only)
-        engine = self._sync_engines.get((db_key, role))
+        key, target = self._resolve(options)
+        url, role = self._resolve_url_role(key, target, read_only=read_only)
+        engine = self._sync_engines.get((key.raw, role))
         if engine is not None:
             return engine
         engine = create_engine(url, pool_pre_ping=True)
-        self._sync_engines[(db_key, role)] = engine
+        self._sync_engines[(key.raw, role)] = engine
         return engine
 
     def replicas(self, db_key: str) -> list[str]:
@@ -134,12 +161,12 @@ class EngineFactory(BaseDbFactory[str | None, AsyncEngine]):
         Returns:
             list[str]: 副本连接串列表（可能为空）。
         """
-        return list(self._target(db_key).replicas)
+        return list(self._resolve(db_key)[1].replicas)
 
     def resolve_url(self, db_key: str = PLATFORM_DB_KEY) -> str:
         """取数据源连接串（不含分字段密码；迁移脚本与 `ops` 复用）。
 
-        租户库键经 `url_template` 模板解析；平台 / 归档库取目标 `url`。
+        平台 / 租户键经各自 `url_template` 模板解析；空模板与归档库取目标 `url`。
 
         Args:
             db_key: 数据源键（缺省平台库）。
@@ -147,7 +174,8 @@ class EngineFactory(BaseDbFactory[str | None, AsyncEngine]):
         Returns:
             str: 连接串（不含分字段密码）。
         """
-        return self._target_url(self._target(db_key), db_key)
+        key, target = self._resolve(db_key)
+        return self._target_url(key, target)
 
     def resolved_url(self, db_key: str = PLATFORM_DB_KEY) -> str:
         """取数据源连接串（含分字段密码；供迁移 / 建删库等运维路径使用）。
@@ -158,60 +186,76 @@ class EngineFactory(BaseDbFactory[str | None, AsyncEngine]):
         Returns:
             str: 连接串（**禁止写入日志**）。
         """
-        target = self._target(db_key)
-        return _with_password(self._target_url(target, db_key), target)
+        key, target = self._resolve(db_key)
+        return _with_password(self._target_url(key, target), target)
 
-    def _target(self, db_key: str) -> DatabaseTargetSettings:
-        """按数据源键取数据库目标配置。"""
-        database = self._settings.database
-        if db_key == PLATFORM_DB_KEY:
-            return database.platform
-        if db_key == ARCHIVE_DB_KEY:
-            return database.archive
-        return database.tenants
-
-    def _target_url(self, target: DatabaseTargetSettings, db_key: str) -> str:
-        """解析数据源键到连接串（租户键经 `url_template` 模板；空模板回落 `url`）。
-
-        模板占位：`{service}`（`[app].service`）、`{tenant}`（库键反解编码）、
-        `{database}`（`bms_{service}_{tenant}`）。
+    def _resolve(self, db_key: str | None) -> tuple[DbKey, DatabaseTargetSettings]:
+        """解析库键并取数据库目标配置（先校验归属，再按库类别取目标）。
 
         Args:
+            db_key: 数据源键；None / 空串取 `platform`。
+
+        Returns:
+            tuple[DbKey, DatabaseTargetSettings]: （库键解析结果, 目标配置）。
+        """
+        key = self.validate_key(db_key)
+        database = self._settings.database
+        if key.kind == DB_KIND_ARCHIVE:
+            return key, database.archive
+        if key.kind == DB_KIND_PLATFORM:
+            return key, database.platform
+        return key, database.tenants
+
+    def _target_url(self, key: DbKey, target: DatabaseTargetSettings) -> str:
+        """解析库键到连接串（平台 / 租户键经 `url_template` 模板；空模板回落 `url`）。
+
+        模板占位：`{service}`（生效服务标识：全限定键的服务段，相对键取 `[app].service`）、
+        `{tenant}`（租户编码；平台键为空串）、`{database}`（库名单一来源派生：
+        `bms_{service}` / `bms_{service}_{tenant}`）。
+
+        Args:
+            key: 库键解析结果。
             target: 数据库目标配置。
-            db_key: 数据源键。
 
         Returns:
             str: 连接串（不含分字段密码）。
 
         Raises:
-            ConfigError: 租户键非法或模板占位非法。
+            ConfigError: 模板占位非法或需服务标识而未提供。
         """
-        if not db_key.startswith(TENANT_DB_KEY_PREFIX):
+        if key.kind == DB_KIND_ARCHIVE:
             return target.url
-        tenant = parse_tenant_db_key(db_key)
-        if not target.url_template:
+        template = target.url_template
+        if not template:
             return target.url
-        service = self._settings.app.service
+        effective = key.service or self._settings.app.service
+        needs_service = "{service}" in template or "{database}" in template
+        if needs_service and not effective:
+            raise ConfigError(
+                f"数据源键 {key.raw} 的连接串模板需要服务标识（{{service}} / {{database}}）："
+                "请配置 [app].service 或改用全限定键 platform_{service} / tenant_{service}_{code}"
+            )
+        database = database_name(key, service=effective) if needs_service else ""
         try:
-            return target.url_template.format(service=service, tenant=tenant, database=f"bms_{service}_{tenant}")
+            return template.format(service=effective, tenant=key.tenant_code or "", database=database)
         except (KeyError, IndexError, ValueError) as exc:
-            raise ConfigError(f"租户库连接串模板占位非法：{target.url_template}（{exc}）") from exc
+            raise ConfigError(f"数据库连接串模板占位非法：{template}（{exc}）") from exc
 
-    def _resolve_url_role(self, target: DatabaseTargetSettings, db_key: str, *, read_only: bool) -> tuple[str, str]:
+    def _resolve_url_role(self, key: DbKey, target: DatabaseTargetSettings, *, read_only: bool) -> tuple[str, str]:
         """解析连接串与角色键（写主库；只读有副本则轮询，无副本回落主库）。
 
         Args:
+            key: 库键解析结果。
             target: 数据库目标配置。
-            db_key: 数据源键。
             read_only: 是否只读。
 
         Returns:
             tuple[str, str]: （连接串, 角色键）。
         """
         if not read_only or not target.replicas:
-            return _with_password(self._target_url(target, db_key), target), "write"
-        index = self._round_robin.get(db_key, 0)
-        self._round_robin[db_key] = (index + 1) % len(target.replicas)
+            return _with_password(self._target_url(key, target), target), "write"
+        index = self._round_robin.get(key.raw, 0)
+        self._round_robin[key.raw] = (index + 1) % len(target.replicas)
         return _with_password(target.replicas[index], target), f"read:{index}"
 
     def _engine_kwargs(self, target: DatabaseTargetSettings, dialect: str) -> dict[str, object]:
