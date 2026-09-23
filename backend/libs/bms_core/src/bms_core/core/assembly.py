@@ -9,6 +9,7 @@
 from collections.abc import Awaitable
 from dataclasses import dataclass
 from importlib import import_module
+from pathlib import Path
 from typing import cast
 
 from fastapi import FastAPI
@@ -16,6 +17,10 @@ from fastapi import FastAPI
 from bms_core.archive.base import BaseArchivePolicy, BaseArchiveQueryRouter
 from bms_core.audit.base import AuditCapturer
 from bms_core.audit.hashchain import BaseHashChain
+from bms_core.boundary.base import BaseDataOwnershipGuard
+from bms_core.boundary.directory import SHARED_TABLE_PREFIXES, known_prefixes, known_services
+from bms_core.boundary.exceptions import load_exceptions, validate_exceptions
+from bms_core.boundary.table import TableOwnershipGuard
 from bms_core.cache.base import CacheRegion
 from bms_core.cache.memory import MemoryCacheRegion
 from bms_core.cache.redis import RedisCacheRegion
@@ -39,6 +44,7 @@ from bms_core.core.plugin import (
 )
 from bms_core.core.resources import ResourceManager
 from bms_core.dashboard.base import BaseDashboardCardRegistry
+from bms_core.db.migration import BACKEND_ROOT
 from bms_core.db.registry import EngineRegistry
 from bms_core.dict.base import BaseDictSource, BaseDictTranslator, DictCacheRegion
 from bms_core.dict.cache import MemoryDictCacheRegion, RedisDictCacheRegion
@@ -114,6 +120,7 @@ _PREPARED_REGISTRIES: list[PluginRegistry] = []
 _NULL_MODULES: tuple[str, ...] = (
     "bms_core.archive.null",
     "bms_core.audit.null",
+    "bms_core.boundary.null",
     "bms_core.cache.null",
     "bms_core.captcha.null",
     "bms_core.chat.null",
@@ -188,6 +195,7 @@ PLUGIN_WIRINGS: tuple[PluginWiring, ...] = (
     PluginWiring("masking", BaseMasker, "masking", "masker"),
     PluginWiring("distributed_lock", BaseDistributedLock, "distributed_lock", "distributed_lock"),
     PluginWiring("edge", BaseEdgeTrust, "edge", "edge"),
+    PluginWiring("data_ownership_guard", BaseDataOwnershipGuard, "data_ownership", "data_ownership_guard"),
     PluginWiring("captcha", BaseCaptcha, "captcha", "captcha"),
     PluginWiring("chat_stream", BaseChatStream, "chat_stream", "chat_stream"),
     PluginWiring("chat_session_store", BaseChatSessionStore, "chat_session_store", "chat_session_store"),
@@ -280,6 +288,7 @@ def register_platform_plugins(settings: Settings, app: FastAPI, resources: Resou
     register_plugin("field_type_registry", "local", LocalFieldTypeRegistryFactory())
     register_plugin("query_provider_registry", "local", LocalQueryProviderRegistryFactory(app))
     register_plugin("edge", "marker", MarkerEdgeTrustFactory(settings))
+    register_plugin("data_ownership_guard", "table", TableOwnershipGuardFactory(settings))
     register_plugin("service_client", "http", HttpServiceClientFactory(settings))
     _PREPARED_REGISTRIES.append(registry)
 
@@ -514,6 +523,57 @@ class MarkerEdgeTrustFactory(BasePluginFactory[MarkerEdgeTrust]):
         """
         expected = self._settings.edge.options.get("gateway_identity") or GATEWAY_IDENTITY_VALUE
         return MarkerEdgeTrust(expected=cast("str", expected))
+
+
+class TableOwnershipGuardFactory(BasePluginFactory[TableOwnershipGuard]):
+    """数据所有权守卫工厂（`table` 真实实现）：载入例外白名单并注入服务身份 / 模式 / 指标器。"""
+
+    plugin_key: str = "data_ownership_guard"
+    plugin_name: str = "table"
+
+    def __init__(self, settings: Settings) -> None:
+        """初始化。
+
+        Args:
+            settings: 应用配置（服务身份、`[data_ownership]` 与各能力选择）。
+        """
+        self._settings = settings
+
+    def create(self, options: None = None) -> TableOwnershipGuard:
+        """构造表前缀归属守卫。
+
+        Args:
+            options: 未使用（零参口径）。
+
+        Returns:
+            TableOwnershipGuard: 数据所有权守卫实例。
+
+        Raises:
+            PluginError: 例外白名单结构非法。
+        """
+        settings = self._settings
+        path = Path(settings.data_ownership.exceptions_file)
+        if not path.is_absolute():
+            path = BACKEND_ROOT.parent / path
+        entries = load_exceptions(path)
+        errors = validate_exceptions(
+            entries,
+            known_prefixes=known_prefixes(),
+            known_services=known_services(),
+            shared_prefixes=frozenset(SHARED_TABLE_PREFIXES),
+        )
+        if errors:
+            raise PluginError("数据所有权例外白名单非法：" + "；".join(errors))
+        metrics = cast(
+            "BaseMetrics",
+            resolve_plugin("metrics", settings.metrics.provider, expected_version=BaseMetrics.contract_version),
+        )
+        return TableOwnershipGuard(
+            settings.app.service,
+            mode=settings.data_ownership.mode,
+            exceptions=entries,
+            metrics=metrics,
+        )
 
 
 async def assemble_plugins(app: FastAPI, settings: Settings, resources: ResourceManager) -> dict[str, str]:

@@ -254,6 +254,16 @@ class EdgeSettings(PluginSelection):
     """旁路拒绝 / 租户净化豁免路径（精确匹配；空取基座缺省集）。"""
 
 
+class DataOwnershipSettings(PluginSelection):
+    """数据所有权守卫配置（`[data_ownership]`；在能力选择之外追加运行模式与例外白名单文件）。"""
+
+    mode: Literal["off", "warn", "enforce"] = "warn"
+    """运行模式：`off` 不检测 / `warn` 记录 + 计数 + 告警 / `enforce` 越界阻断（500 / 10008）。"""
+
+    exceptions_file: str = "deploy/boundaries/data_ownership_exceptions.json"
+    """读侧出口例外白名单文件（相对仓库根；缺文件视为空集）。"""
+
+
 def _config_dir() -> Path:
     """配置目录（默认 backend/ 根；测试可 monkeypatch）。
 
@@ -374,6 +384,7 @@ class Settings(PydanticBaseSettings, BaseSettings):  # pyright: ignore[reportInc
     circuit_breaker: PluginSelection = Field(default_factory=PluginSelection)
     code_validator: PluginSelection = Field(default_factory=PluginSelection)
     dashboard_card_registry: PluginSelection = Field(default_factory=PluginSelection)
+    data_ownership: DataOwnershipSettings = Field(default_factory=DataOwnershipSettings)
     data_scope: PluginSelection = Field(default_factory=PluginSelection)
     dict_cache_region: PluginSelection = Field(default_factory=PluginSelection)
     dict_source: PluginSelection = Field(default_factory=PluginSelection)

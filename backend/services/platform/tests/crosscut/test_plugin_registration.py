@@ -37,6 +37,7 @@ _EXPECTED_PLUGIN_KEYS = frozenset(
         "circuit_breaker",
         "code_validator",
         "dashboard_card_registry",
+        "data_ownership_guard",
         "data_scope",
         "dict_cache_region",
         "dict_source",

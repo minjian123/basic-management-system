@@ -178,3 +178,11 @@ options = {}
 provider = ""
 # 非敏感选项（base_url_template = 目标基址模板，占位 {service}；缺省 Compose DNS http://{service}:8000）
 options = {}
+
+[data_ownership]
+# 数据所有权守卫实现选择（插件化配置；table = SQLAlchemy 执行前表前缀归属检测、空串 = null 占位不检测）
+provider = "table"
+# 运行模式：off 不检测 / warn 记录 + 计数 + 告警 / enforce 越界阻断（500 / 10008）
+mode = "warn"
+# 非敏感选项（exceptions_file = 读侧出口例外白名单，相对仓库根；空选项取缺省路径）
+options = {}

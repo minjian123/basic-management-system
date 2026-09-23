@@ -31,7 +31,7 @@ def test_inheritance_and_key() -> None:
 
 @pytest.mark.kiwi_id(44)
 def test_metric_kinds_and_names() -> None:
-    """指标类型清单（计数器 / 瞬时值 / 直方图）与候选指标名六类无重复。"""
+    """指标类型清单（计数器 / 瞬时值 / 直方图）与候选指标名（六类 + 边界跨库访问计数）无重复。"""
     assert METRIC_KINDS == ("counter", "gauge", "histogram")
     assert METRIC_NAMES == (
         "bms_request_total",
@@ -40,6 +40,7 @@ def test_metric_kinds_and_names() -> None:
         "bms_ws_connections",
         "bms_mq_backlog",
         "bms_ai_cost",
+        "bms_boundary_cross_access_total",
     )
     assert len(set(METRIC_NAMES)) == len(METRIC_NAMES)
     assert all(name.startswith("bms_") for name in METRIC_NAMES)
