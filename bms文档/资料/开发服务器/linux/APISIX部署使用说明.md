@@ -72,8 +72,9 @@ nginx_config:
 | 校验 | `uv run python -m ops.gateway_config check`（零漂移；CI `base-integrity` 与本地预检同跑） |
 | 参与服务 | 仅启用且带服务标识的服务（当前 9 个：platform / identity / tenant / org / file / notification / search / ai / report） |
 | 外部路径 | `/api/{service_key}/v1/...`，网关 `proxy-rewrite` 剥离为服务内 `/api/v1/...` |
-| 认证 / 限流钩子 | 插件经 `gateway_catalog.py::ROUTE_PLUGINS` 按服务合并；默认不启用（随 04_03 / 07_03 接入） |
-| 请求净化 / 身份头 | `global_rules`（`edge-sanitize`）统一剥除客户端伪造身份头（`X-User-Id` / `X-Tenant-Id` / `X-User-Scopes` / `X-Service-Identity` / `X-Gateway-Identity`）；路由级 `proxy-rewrite.headers.set` 置网关专属标记 `X-Gateway-Identity: bms-edge`，并预留身份注入钩子 `ROUTE_HEADERS_SET`（04_02 交付；真实 JWT 注入随 07_03） |
+| 认证 / 限流钩子 | 限流（`limit-count`）由生成器直接产出；**认证（`forward-auth`）07_03 接入**（见下） |
+| 网关认证接线（07_03） | 每条服务路由与登录路由挂 `forward-auth`，转调认证服务内部端点 `http://${{GATEWAY_AUTH_HOST:=identity}}:8000/api/v1/auth/introspect`：认证服务按 `aud=api` 全校验用户 JWT、判公开路径（登录 / 刷新 / 验证码），通过后返回契约身份头（`X-User-Subject` / `X-Tenant-Id` / `X-User-Scopes`）并**换发短时网关服务 JWT**（`aud=service`）；网关 `upstream_headers` 注入身份头并覆盖上游 `Authorization`（外部 access token 不透传），`status_on_error: 503` fail-closed。`GATEWAY_AUTH_HOST` 经 `deploy/.env` 注入（Compose DNS 默认 `identity`）。插件执行次序：`edge-sanitize`（剥伪造头）→ `proxy-rewrite`（置标记）→ `forward-auth`（priority 2002，注入身份 / 覆盖 Authorization）→ `limit-count`（priority 1002，按身份维度计数） |
+| 请求净化 / 身份头 | `global_rules`（`edge-sanitize`）统一剥除客户端伪造身份头（`X-User-Id` / `X-User-Subject` / `X-Tenant-Id` / `X-User-Scopes` / `X-Service-Identity` / `X-Gateway-Identity`）；路由级 `proxy-rewrite.headers.set` 置网关专属标记 `X-Gateway-Identity: bms-edge`；**身份头由 `forward-auth.upstream_headers` 注入**（07_03，认证服务产出；`ROUTE_HEADERS_SET` 保留为空钩子） |
 | 边缘限流（04_03） | 每条路由挂 `limit-count`（`policy: redis` 共享计数、默认按真实客户端 IP、通用 300/60s）；认证敏感路径（`/api/identity/v1/auth/login` / `auth/refresh`）走独立路由 `route-identity-auth-login`（`priority=10`、更严 10/60s）；Redis 主机 / 密码经 `${{GATEWAY_REDIS_HOST:=redis}}` / `${{GATEWAY_REDIS_PASSWORD:=}}` 环境变量替换（端口 / 库整数字面量），`allow_degradation: true` Redis 故障放行；`global_rules` 增 `edge-real-ip`（`source: http_x_real_ip` + 可信网段） |
 | 边缘观测（04_03） | 路由挂 `prometheus: {}`；`config.yaml` 的 `plugin_attr.prometheus` 暴露指标端点（`:9091/apisix/prometheus/metrics`）、`nginx_config.http` 配访问日志（stdout）；真实采集 / 展示归 08 可观测性栈 |
 | 灰度预留（04_03） | 路由级 `traffic-split` 钩子（`GRAY_TRAFFIC`，默认空）：按版本 / 权重灰度，声明式入 Git、迁 K8s 平移 HTTPRoute 权重 |
@@ -133,6 +134,19 @@ curl -s http://127.0.0.1:9091/apisix/prometheus/metrics | grep -c '^apisix_'
 ```
 
 实测：登录第 11 次 429、实例 B 立即 429（**多副本共享计数一致**）；通用路由 200 且带 `X-RateLimit-Limit: 300` / `X-RateLimit-Remaining`；real-ip 还原后限流 key 末尾为 `203.0.113.9`；指标端点两实例均可达（`apisix_*` 指标）。验证后清理临时容器与限流 key（无残留）。
+
+**网关认证接线验证（07_03，2026-09-23）**：APISIX 与 Keycloak 在 mjbk、identity 认证服务经开发机承载（mjbk `~/deploy/.env` 设 `GATEWAY_AUTH_HOST=<开发机IP>`，临时放行 mjbk→开发机 8000，验后还原并删除规则）；以临时上游 `whoami` 别名 `platform` / `identity`：
+
+```bash
+# 受保护路径无凭证 → 401；公开路径无凭证 → 200
+curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:9080/api/platform/v1/ping        # 401
+curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:9080/api/identity/v1/auth/login # 200
+# 带 Keycloak 用户令牌 + 伪造身份头 → 上游身份头由认证服务注入、Authorization 被覆盖为网关服务 JWT
+curl -s http://127.0.0.1:9080/api/platform/v1/ping -H "Authorization: Bearer <用户令牌>" \
+  -H 'X-User-Id: 999' -H 'X-User-Subject: forged' -H 'X-Gateway-Identity: forged'
+```
+
+实测：上游收到 `Authorization: Bearer <网关服务 JWT>`（用户 token **被覆盖、不透传**，`iss=bms` / `sub=gateway` / `aud=service`，经 identity JWKS 验签通过）、`X-User-Subject` 为真实 `sub`、`X-User-Scopes=profile,email`、`X-Gateway-Identity=bms-edge`；客户端伪造的 `X-User-Id` / `X-User-Subject` / `X-Gateway-Identity` 被剥除；限流键含 `X-User-Subject`（用户维度生效）。验证后删除临时 whoami 容器、还原 `GATEWAY_AUTH_HOST=identity`、清空限流键。
 
 > 当前后端服务尚未容器化，除临时验证外，各服务路由在上游不可达时返回 **502**，属预期（服务容器化与按服务发布归后续任务）。
 

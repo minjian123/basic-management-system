@@ -100,6 +100,7 @@ echo "$TOKEN" | cut -d. -f2 | base64 -d 2>/dev/null | jq '{iss, sub, exp}'
 
 - **JWKS 验签通过（本任务验收）**：以 `OidcIdentityProvider.verify_token(token)` 经 JWKS 验签并校验 `exp` / `iss`；集成用例见 `backend/services/identity/tests/idp/test_oidc.py`（`IDP_TEST_*` 环境变量开启，未配置跳过）。
 - **用户 JWT 受众 `aud=api`（07_02）**：客户端 `bms-backend` 声明式含 `aud-api` audience mapper（`included.custom.audience = "api"`），用户 / 服务账号令牌 `aud` 含 `api`；`client_credentials` 取令牌可自证：解码 `access_token` 载荷应见 `"aud": ["api", "account"]`。
+- **用户 JWT 经网关校验（07_03）**：网关 `forward-auth` 转调认证服务端点（`/api/v1/auth/introspect`），认证服务复用 `UnifiedTokenVerifier` 按 `aud=api` 校验用户 JWT（签名 / `exp` / `iss` / `aud`）；`client_credentials` 令牌实测经该端点返回 `X-User-Subject`（真实 `sub`）与 `X-User-Scopes`（`profile,email`），并换发网关服务 JWT（`aud=service`）。冒烟细则与结论见《[APISIX 部署使用说明](APISIX部署使用说明.md)》「验证」节。
 
 ## 7. 使用说明 <a id="use"></a>
 
