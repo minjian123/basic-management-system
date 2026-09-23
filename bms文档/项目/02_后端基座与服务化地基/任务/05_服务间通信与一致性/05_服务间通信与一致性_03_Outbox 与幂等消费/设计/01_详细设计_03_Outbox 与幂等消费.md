@@ -33,7 +33,7 @@
 
 ```text
 backend/
-├── config.toml                                              # 改：新增 [outbox] 分区
+├── config.toml                                              # 改：新增 [outbox_store] / [outbox] 分区
 ├── libs/bms_core/src/bms_core/
 │   ├── core/error_codes.py                                  # 改：OUTBOX_DELIVERY = 10009
 │   ├── core/exceptions.py                                   # 改：OutboxDeliveryError（10009 / 500）
@@ -210,8 +210,11 @@ consumed.py
 ```
 
 - 消费者在**自身业务事务**内先 `mark`：首次返回 `True` 后继续执行业务副作用（同事务提交）——「已处理事件」记录与副作用原子落库；
-- 去重经 `SAVEPOINT`（`session.begin_nested()`）插入 `sys_event_consumed`，命中唯一键回滚该保存点并返回 `False`（不污染外层事务）；
+- 去重：在事务内先查 `sys_event_consumed`（`(consumer, event_id)`），命中即返回 `False`；未命中则登记（`flush` 不提交）；回滚时幂等登记随副作用一并撤销；
+- **唯一约束兜底**：并发穿透（同事务内未查得、提交冲突）由 `(consumer, event_id)` 唯一约束拦截；
 - 契约：与业务副作用同一 `DbSession` 调用、同一事务提交；消费者不得另开会话。
+
+> 取舍说明：去重不采用 `SAVEPOINT`（`begin_nested`）——SQLite（开发库）下 `RELEASE SAVEPOINT` 会提前结束隐式事务，导致外层回滚无法撤销幂等登记；改「事务内查 + 唯一约束兜底」既满足「命中唯一键即跳过」，又保持与副作用同事务、跨四库一致。
 
 ### 4.6 重放 CLI 与死信看板 <a id="replay"></a>
 
@@ -248,7 +251,7 @@ bms_core/idempotency/redis.py
 
 ### 4.8 配置、装配与指标 <a id="assembly"></a>
 
-- **配置**：`Settings` 增 `outbox: OutboxSettings`（派生 `PluginSelection`）：
+- **配置**：`Settings` 增 `outbox_store: PluginSelection`（存储，`[outbox_store]`）与 `outbox: OutboxSettings`（投递器，`[outbox]`，派生 `PluginSelection`）：
 
   | 字段 | 默认 | 说明 |
   | --- | --- | --- |
@@ -260,7 +263,7 @@ bms_core/idempotency/redis.py
   | `retry_backoff_seconds` | `1.0` | 指数退避基数（秒） |
   | `db_keys` | `[]` | 轮询库键；空 = 平台库 + `EngineRegistry.active_keys()` |
 
-  `config.toml` 增 `[outbox]`（`provider = "poll"`、`enabled = false`、其余取默认）。
+  `config.toml` 增 `[outbox_store]`（`provider = "sql"`）与 `[outbox]`（`provider = "poll"`、`enabled = false`、其余取默认）。
 
 - **装配**：`PLUGIN_WIRINGS` 增 `outbox_store`（`BaseOutboxStore` / `[outbox]` / `app.state.outbox_store`）与 `outbox_dispatcher`（`BaseOutboxDispatcher` / `[outbox]` / `app.state.outbox_dispatcher`）；`_NULL_MODULES` 增 `bms_core.outbox.null`；`register_platform_plugins` 注册 `SqlOutboxStoreFactory`（`sql`）与 `PollOutboxDispatcherFactory`（`poll`，注入存储 / 发布器 / 引擎注册表 / 会话工厂 / 指标 / 配置）。
 - **指标**：`METRIC_NAMES` 增 `bms_outbox_delivery_total`（counter，label `status`）与 `bms_outbox_backlog`（gauge：待投递积压）；`metrics` 缺省 null 时空操作、投递语义不受影响。
@@ -297,7 +300,7 @@ bms_core/idempotency/redis.py
 | 同聚合队首未到期 / 失败 | 同聚合后续本轮跳过（保序）；其余聚合不受影响 |
 | `aggregate_key` 为空 | 视为独立事件，不参与聚合阻塞 |
 | 消费重复事件 | `ProcessedEventStore.mark` 命中唯一键返回 `False`，跳过副作用 |
-| 消费 `mark` 与外层事务 | 经 `SAVEPOINT` 隔离，重复不污染外层事务 |
+| 消费 `mark` 与外层事务 | 事务内查 + 唯一约束兜底，重复返回 `False` 不破坏外层事务 |
 | 重放已投递 / 死信事件 | 重置为待投递；消费端 `event_id` 幂等，重放安全 |
 | 死信重投 / 忽略状态非法 | `ConflictError`（10003） |
 | 死信记录不存在 | `NotFoundError`（10002 / 404） |
@@ -316,7 +319,7 @@ bms_core/idempotency/redis.py
 | --- | --- | --- |
 | `libs/bms_core/tests/outbox/test_outbox_store.py` | 单元 | `enqueue`（缺省补齐 event_id / occurred_at、`flush` 不提交）；事务回滚不发事件；`claim_pending` 按 `(aggregate_key, id)` 且同聚合仅队首；`mark_delivered`；`mark_failed` 退避与超限转死信（插死信行）；`replay` 按类型 / 聚合 / 时间重置；死信列表 / 详情 / 状态流转；`backlog` |
 | `libs/bms_core/tests/outbox/test_outbox_dispatcher.py` | 单元 | 注入假发布器：投递转发并标记 `delivered`；发布异常 → 重试 / 死信；同聚合顺序；`dispatch_due` 遍历库键与单库异常隔离；`enabled` 启停后台任务（`setup` / `aclose`）；`NullOutboxDispatcher` / `NullOutboxStore` 恒定无副作用；`OutboxDeliveryError`（注入异常存储） |
-| `libs/bms_core/tests/outbox/test_consumed.py` | 单元 | 首次 `mark` True、重复 False；与副作用同事务提交 / 回滚；SAVEPOINT 不污染外层事务 |
+| `libs/bms_core/tests/outbox/test_consumed.py` | 单元 | 首次 `mark` True、重复 False；与副作用同事务提交；回滚时幂等登记一并撤销 |
 | `libs/bms_core/tests/idempotency/test_idempotency_redis.py` | 单元 | `begin` 首次 True / 重复 False；`save` + `load` 首结果复用；TTL 生效（fakeredis）；提供者解析 |
 | `libs/bms_core/tests/ops/test_outbox_cli.py` | 集成 | `dispatch` 手动投递；`replay` 条件重置并打印计数；临时 SQLite 库 |
 | `services/platform/tests/api/test_outbox.py` | 集成 | 死信列表分页 / 筛选、详情 404、重投 / 忽略状态流转、非法状态 10003 |
@@ -418,7 +421,7 @@ python3 scripts/tools/preflight/check-preflight.py --fast
 | 5 | 顺序口径 | 发件箱增 `aggregate_key`，按 `(aggregate_key, id)` 同聚合串行投递，同聚合仅取队首 |
 | 6 | 重放机制 | `ops/outbox.py replay` 按 类型 / 时间 / 聚合 重置为待投递（消费端 `event_id` 幂等） |
 | 7 | 业务幂等键 | 新增 `RedisIdempotencyStore`（`SETNX` 前置 + 首次结果复用），唯一约束兜底由业务表唯一索引承担 |
-| 8 | 消费幂等契约 | `sys_event_consumed` 表 + `ProcessedEventStore.mark(session, consumer, event_id) -> bool`（与副作用同事务、SAVEPOINT 去重） |
+| 8 | 消费幂等契约 | `sys_event_consumed` 表 + `ProcessedEventStore.mark(session, consumer, event_id) -> bool`（与副作用同事务；事务内查 + 唯一约束兜底，不用 SAVEPOINT） |
 | 9 | 死信看板出口 | 落表 + 只读接口（列表 / 详情 / 重投 / 忽略）；UI 前端随通用能力 / 监控阶段 |
 | 10 | 事件信封 | 扩展 `EventEnvelope`：增 `event_id` / `occurred_at` / `aggregate_key`（契约变更，消费方现为零） |
 | 11 | 错误码 | 新增 `10009` `OUTBOX_DELIVERY`（`10008` 已被数据所有权占用） |
