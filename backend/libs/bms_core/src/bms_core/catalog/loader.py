@@ -18,8 +18,6 @@ from fastapi import FastAPI
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bms_core.catalog.base import CATALOG_SERVICE_KEY, fetch_catalog_snapshot
-
-from bms_core.catalog.base import CATALOG_SERVICE_KEY, fetch_catalog_snapshot
 from bms_core.core.config import Settings
 from bms_core.core.exceptions import CatalogError
 from bms_core.core.plugin import resolve_plugin

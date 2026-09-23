@@ -81,6 +81,19 @@ class ServerSettings(BaseSettings):
     host: str
     port: int
     workers: int = 1
+    workers_by_service: dict[str, int] = Field(default_factory=dict[str, int])
+    """按服务的 worker 数覆盖：`{服务标识 → worker 数}`；缺省回落 `workers`（连接预算按服务核算用）。"""
+
+    def workers_for(self, service: str) -> int:
+        """取该服务生效的 worker 数（服务覆盖优先，缺省回落全局 `workers`）。
+
+        Args:
+            service: 服务标识（`[app].service`）。
+
+        Returns:
+            int: 生效 worker 数。
+        """
+        return self.workers_by_service.get(service, self.workers)
 
 
 class LogSettings(BaseSettings):
@@ -169,9 +182,22 @@ class DatabaseTargetSettings(BaseSettings):
     password: str = ""
     max_connections: int = Field(default=0, ge=0)
     """该库最大连接数；`0` 表示不校验连接预算。"""
+    max_connections_by_service: dict[str, int] = Field(default_factory=dict[str, int])
+    """按服务的最大连接数覆盖：`{服务标识 → max_connections}`；缺省回落目标级（每服务独立库口径）。"""
     pool: DbPoolSettings = Field(default_factory=DbPoolSettings)
     services: dict[str, DbPoolSettings] = Field(default_factory=dict[str, DbPoolSettings])
     """按服务的连接池覆盖：`{服务标识 → 池参数}`（服务标识取 `[app].service`）。"""
+
+    def max_connections_for(self, service: str) -> int:
+        """取该服务生效的最大连接数（服务覆盖优先，缺省回落目标级）。
+
+        Args:
+            service: 服务标识（`[app].service`）。
+
+        Returns:
+            int: 生效最大连接数（`0` = 不校验）。
+        """
+        return self.max_connections_by_service.get(service, self.max_connections)
 
     def resolved_url(self) -> str:
         """取最终连接串（分字段密码优先合成，供建引擎使用）。

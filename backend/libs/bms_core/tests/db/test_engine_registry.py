@@ -7,6 +7,7 @@ from bms_core.core.config import Settings
 from bms_core.db.engine import EngineFactory
 from bms_core.db.registry import PLATFORM_DB_KEY, EngineRegistry, tenant_pool_budget_warnings
 from bms_core.lock.base import DEFAULT_LOCK_TTL, DEFAULT_WAIT, BaseDistributedLock
+from bms_core.services.module_registry import enabled_service_keys
 
 
 def _factory() -> EngineFactory:
@@ -114,9 +115,9 @@ def test_tenant_pool_budget_warnings() -> None:
     settings.database.tenants.max_connections = 100
 
     assert tenant_pool_budget_warnings(settings, max_active=2) == []  # 2×2×15 = 60 ≤ 70
-    warnings = tenant_pool_budget_warnings(settings, max_active=3)  # 3×2×15 = 90 > 70
-    assert len(warnings) == 1
-    assert "活跃引擎上限 3" in warnings[0]
+    warnings = tenant_pool_budget_warnings(settings, max_active=3)  # 3×2×15 = 90 > 70（每服务一行）
+    assert len(warnings) == len(enabled_service_keys())
+    assert all("3 活跃租户" in message and ".tenants" in message for message in warnings)
 
     settings.database.tenants.max_connections = 0
     assert tenant_pool_budget_warnings(settings, max_active=100) == []
