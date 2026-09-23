@@ -1,0 +1,34 @@
+{
+  "realm": "bms",
+  "enabled": true,
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "accessTokenLifespan": 1800,
+  "ssoSessionIdleTimeout": 1800,
+  "ssoSessionMaxLifespan": 36000,
+  "clients": [
+    {
+      "clientId": "bms-backend",
+      "name": "BMS 后端（OIDC 客户端）",
+      "description": "BMS 作为 OIDC 客户端接入：授权码流程 + 服务账号（双类 JWT 随 07_02 补 audience）",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "bearerOnly": false,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "secret": "${KEYCLOAK_CLIENT_SECRET}",
+      "redirectUris": [
+        "http://localhost:8000/api/v1/auth/callback",
+        "http://localhost:8088/api/identity/v1/auth/callback"
+      ],
+      "webOrigins": [
+        "+"
+      ]
+    }
+  ]
+}

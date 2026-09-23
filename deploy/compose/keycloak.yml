@@ -1,0 +1,57 @@
+#
+# BMS 自托管 OIDC IdP（Keycloak）编排。
+#
+# 组合拉起（在 deploy/ 目录，.env 提供变量）：
+#   docker compose -f compose/base.yml -f compose/keycloak.yml --env-file .env up -d
+# 仅 Keycloak（冒烟自测；需已有 bms-postgres 与 keycloak 库）：
+#   docker compose -f compose/keycloak.yml up -d
+#
+# 配置来源：deploy/keycloak/bms-realm.json（声明式 realm / 客户端，启动 --import-realm 导入）。
+# 凭据（admin / db / client secret）一律经 .env 注入，不入 Git、不入镜像。
+# 部署与排障见《Keycloak 部署使用说明》。
+
+services:
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.7.4
+    container_name: bms-keycloak
+    restart: unless-stopped
+    command:
+      - start
+      - --import-realm
+      - --http-enabled=true
+      - --health-enabled=true
+    environment:
+      TZ: Asia/Shanghai
+      # 元数据库：复用 bms-postgres 容器内的独立库 keycloak（新卷由 initdb 自动建，存量实例按说明手动执行一次）
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+      KC_DB_USERNAME: ${KEYCLOAK_DB_USERNAME:-keycloak}
+      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD}
+      # 引导管理员（仅首次启动创建）
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USERNAME:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+      # 监听与对外基址（issuer = <基址>/realms/bms；须与访问入口一致）
+      KC_HTTP_PORT: 8080
+      KC_HOSTNAME: ${KEYCLOAK_PUBLIC_URL:-http://localhost:8090}
+      # 允许以其它主机名（内网 IP / localhost）访问控制台；issuer 仍按 KC_HOSTNAME 固定
+      KC_HOSTNAME_STRICT: "false"
+      # realm 导入占位解析：bms-realm.json 中 ${KEYCLOAK_CLIENT_SECRET}
+      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET}
+    ports:
+      - "${KEYCLOAK_PORT:-8090}:8080"
+    volumes:
+      # 声明式 realm 导入目录（容器内固定路径 /opt/keycloak/data/import）
+      - ../keycloak:/opt/keycloak/data/import:ro
+    healthcheck:
+      # 健康端点在管理端口 9000（Keycloak 26；/health/ready）
+      test:
+        [
+          "CMD",
+          "bash",
+          "-c",
+          "{ printf 'GET /health/ready HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3; cat <&3 | grep -q 'UP'; } 3<>/dev/tcp/127.0.0.1/9000",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 60s

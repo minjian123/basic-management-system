@@ -72,6 +72,7 @@ ufw allow 9000,9001/tcp
 ufw allow 9876,10911,10909/tcp
 ufw allow 9200,9300/tcp
 ufw allow 5050/tcp
+ufw allow 8090/tcp
 ufw --force enable
 
 echo "=== 完成 ==="

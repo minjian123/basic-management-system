@@ -69,6 +69,7 @@ from bms_core.icon.base import BaseIconRegistry
 from bms_core.idempotency.base import IdempotencyStore
 from bms_core.idempotency.redis import RedisIdempotencyStore
 from bms_core.idp.base import BaseIdentityProvider
+from bms_core.idp.oidc import OidcIdentityProviderFactory
 from bms_core.listing.base import BaseQuerySchemeStore
 from bms_core.listing.store import SqlQuerySchemeStore
 from bms_core.llm.base import BaseLlmProvider
@@ -306,6 +307,7 @@ def register_platform_plugins(settings: Settings, app: FastAPI, resources: Resou
     register_plugin("field_type_registry", "local", LocalFieldTypeRegistryFactory())
     register_plugin("query_provider_registry", "local", LocalQueryProviderRegistryFactory(app))
     register_plugin("edge", "marker", MarkerEdgeTrustFactory(settings))
+    register_plugin("identity_provider", "oidc", OidcIdentityProviderFactory(settings))
     register_plugin("data_ownership_guard", "table", TableOwnershipGuardFactory(settings))
     register_plugin("service_client", "http", HttpServiceClientFactory(settings))
     register_plugin("outbox_store", "sql", SqlOutboxStoreFactory(settings))
