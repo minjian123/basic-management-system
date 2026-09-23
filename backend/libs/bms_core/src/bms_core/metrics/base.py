@@ -44,9 +44,11 @@ METRIC_NAMES: tuple[str, ...] = (
     "bms_boundary_cross_access_total",
     "bms_outbox_delivery_total",
     "bms_outbox_backlog",
+    "bms_db_count",
 )
-"""候选指标名清单（架构「指标采集」节六类 + 服务边界跨库访问计数 + 发件箱投递）：
-请求量 / 延迟 / 依赖状态 / 实时连接数 / 消息积压 / AI 成本 / 跨库访问数 / 发件箱投递与积压。"""
+"""候选指标名清单（架构「指标采集」节六类 + 服务边界跨库访问计数 + 发件箱投递 + 库数量）：
+请求量 / 延迟 / 依赖状态 / 实时连接数 / 消息积压 / AI 成本 / 跨库访问数 / 发件箱投递与积压 /
+库数量（`kind` ∈ platform / tenant / archive，标签含 `service`；06_02）。"""
 
 MetricLabels = Mapping[str, str]
 """指标标签集（维度键值，如 `{"route": "/api/v1/users", "method": "GET"}`）。"""

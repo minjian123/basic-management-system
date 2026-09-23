@@ -22,6 +22,8 @@ host = "0.0.0.0"
 port = 8000
 # 工作进程数
 workers = 1
+# 按服务的 worker 数覆盖（连接预算按服务核算用；键取服务标识，缺省回落 workers）
+# workers_by_service = { platform = 4, org = 4 }
 
 [log]
 # 日志级别（DEBUG/INFO/WARNING/ERROR/CRITICAL；真实渲染见 03-2）
@@ -73,6 +75,8 @@ url_template = ""
 replicas = []
 # 该库最大连接数（0 = 不校验连接预算；超限仅启动告警不阻断）
 max_connections = 0
+# 按服务的最大连接数覆盖（每服务独立库口径，键取服务标识，缺省回落 max_connections）
+# max_connections_by_service = { platform = 200, org = 100 }
 [database.platform.pool]
 # 连接池参数（SQLite 不生效）
 pool_size = 5
@@ -92,6 +96,8 @@ url = "sqlite+aiosqlite:///./bms_tenant_demo.db"
 url_template = ""
 replicas = []
 max_connections = 0
+# 按服务的最大连接数覆盖（服务租户库按服务库分别核算，缺省回落 max_connections）
+# max_connections_by_service = { platform = 200, org = 100 }
 [database.tenants.pool]
 pool_size = 5
 max_overflow = 10

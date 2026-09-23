@@ -15,6 +15,7 @@ from contextlib import asynccontextmanager
 from typing import cast
 
 from fastapi import APIRouter, FastAPI
+from sqlalchemy import select
 
 from bms_core.api import health
 from bms_core.api.errors import register_exception_handlers
@@ -39,18 +40,28 @@ from bms_core.core.service import ServiceIdentity, attach_service
 from bms_core.db.bootstrap import ensure_development_schema
 from bms_core.db.engine import EngineFactory
 from bms_core.db.health import PrimaryHealth
+from bms_core.db.keys import PLATFORM_DB_KEY, PLATFORM_SERVICE_KEY
 from bms_core.db.registry import EngineRegistry, pool_budget_warnings, tenant_pool_budget_warnings
-from bms_core.db.session import SessionFactory
+from bms_core.db.session import SessionFactory, session_scope
 from bms_core.db.tenant_remote import register_remote_tenant_source
 from bms_core.db.tenant_source import build_tenant_lookup
 from bms_core.events.contracts import default_event_contract_registry, validate_event_registry
 from bms_core.lock.base import BaseDistributedLock
+from bms_core.metrics.base import BaseMetrics
+from bms_core.models.ownership import SysTableOwnership
 from bms_core.schemas.common import ApiResponse
 from bms_core.services.module_registry import (
     SERVICE_CATALOG,
     ModuleRegistry,
+    enabled_service_keys,
     known_event_domains,
     validate_catalog,
+)
+from bms_core.services.table_registry import (
+    TABLE_OWNERSHIP,
+    TableOwnershipRegistry,
+    TableRecord,
+    validate_table_ownership,
 )
 
 __all__ = ["BaseServiceApplicationFactory", "service_lifespan"]
@@ -95,6 +106,72 @@ async def _validate_service_catalog(app: FastAPI) -> None:
     if errors:
         logger.critical("service_catalog_invalid", scope="database", errors=errors)
         raise CatalogError("服务目录校验失败：" + "；".join(errors))
+
+
+async def _validate_table_ownership(app: FastAPI) -> None:
+    """表归属登记校验（离线清单 + `platform` 服务接库对账；06_02 承接 06_03 遗留 1）。
+
+    - **离线清单自校验**（零依赖，所有服务执行）：`TABLE_OWNERSHIP` 唯一性 / 格式 / 归属合法，
+    违规即拒启（配置级错误，不应放行）；
+    - **接库对账**（仅 `platform` 服务——`sys_table_ownership` 归其平台服务库，非其归属库不跨服务直读）：
+    读本服务平台服务库与清单双向对账，不一致即拒启（`CatalogError`，登记类冲突复用既有错误码）；
+    库不可读（未迁移）→ WARNING 放行 + `app.state.ownership_degraded = True`（与 `catalog` 降级同口径）。
+
+    Args:
+        app: 应用实例（取服务身份 / 引擎注册表 / 会话工厂）。
+
+    Raises:
+        CatalogError: 离线清单非法或接库对账不一致。
+    """
+    logger = get_logger("bms")
+    errors = TableOwnershipRegistry().validate()
+    if errors:
+        logger.critical("table_ownership_invalid", scope="offline", errors=errors)
+        raise CatalogError("表归属登记校验失败（清单）：" + "；".join(errors))
+    identity = cast("ServiceIdentity", app.state.service_identity)
+    if identity.name != PLATFORM_SERVICE_KEY:
+        return
+    try:
+        async with session_scope(
+            cast("EngineRegistry", app.state.engine_registry),
+            db_key=PLATFORM_DB_KEY,
+            factory=cast("SessionFactory", app.state.session_factory),
+        ) as session:
+            statement = select(SysTableOwnership).where(SysTableOwnership.deleted_at.is_(None))
+            records = [TableRecord.from_row(row) for row in (await session.execute(statement)).scalars().all()]
+    except Exception as exc:  # 库不可读（未迁移）：降级放行（CI 接库对账为硬门禁）
+        logger.warning("table_ownership_unavailable", detail=f"{type(exc).__name__}: {exc}")
+        app.state.ownership_degraded = True
+        return
+    if not records:
+        logger.warning("table_ownership_empty", hint="表归属登记无登记行，跳过接库对账（先执行 ops.seed_tables）")
+        return
+    errors = validate_table_ownership(TABLE_OWNERSHIP, records)
+    if errors:
+        logger.critical("table_ownership_invalid", scope="database", errors=errors)
+        raise CatalogError("表归属登记校验失败（接库）：" + "；".join(errors))
+
+
+async def _record_db_inventory(app: FastAPI, settings: Settings) -> None:
+    """记录库数量指标（`bms_db_count`）：启动期记预期平台服务库数与归档库数，并刷新活跃库数。
+
+    口径见 `bms_core/db/inventory.py`：`kind = platform`（预期平台服务库数 = 启用服务数）、
+    `kind = archive`（恒 1）、`kind = tenant`（**活跃**租户库数，由引擎注册表随新建 / 回收刷新）；
+    Prometheus 暴露端点与看板归阶段八（08_01）。
+
+    Args:
+        app: 应用实例（取指标器 / 引擎注册表）。
+        settings: 应用配置。
+    """
+    metrics = cast("BaseMetrics | None", getattr(app.state, "metrics", None))
+    if metrics is None:
+        return
+    service = settings.app.service
+    await metrics.gauge(
+        "bms_db_count", value=float(len(enabled_service_keys())), labels={"kind": "platform", "service": service}
+    )
+    await metrics.gauge("bms_db_count", value=1.0, labels={"kind": "archive", "service": service})
+    await cast("EngineRegistry", app.state.engine_registry).record_db_counts()
 
 
 def _validate_event_contracts() -> None:
@@ -144,7 +221,9 @@ async def service_lifespan(app: FastAPI) -> AsyncGenerator[None]:
         if created:
             get_logger(_LOGGER).info("sqlite_auto_create_done", targets=",".join(created))
         await _validate_service_catalog(app)
+        await _validate_table_ownership(app)
         await assemble_plugins(app, settings, cast("ResourceManager", app.state.resources))
+        await _record_db_inventory(app, settings)
     except Exception:
         # 启动失败前释放已装配资源（含引擎连接池），避免失败路径残留资源
         await cast("ResourceManager", app.state.resources).aclose()
@@ -234,6 +313,7 @@ class BaseServiceApplicationFactory(BaseApplicationFactory):
         app.state.settings = settings
         app.state.startup_complete = False
         app.state.catalog_degraded = False
+        app.state.ownership_degraded = False
 
         # 工厂 / 插件装配前置：平台实现登记 → 注册表构建 → 关键工厂解析（可替换，配置选择）
         register_platform_plugins(settings, app, app.state.resources)
@@ -253,11 +333,17 @@ class BaseServiceApplicationFactory(BaseApplicationFactory):
                 expected_version=BaseDistributedLock.contract_version,
             ),
         )
+        metrics = cast(
+            "BaseMetrics",
+            resolve_plugin("metrics", settings.metrics.provider, expected_version=BaseMetrics.contract_version),
+        )
         engine_registry = EngineRegistry(
             engine_factory,
             max_active=settings.tenant.engine_max_active,
             idle_timeout=settings.tenant.engine_idle_timeout,
             lock=cross_instance_lock,
+            metrics=metrics,
+            metrics_service=settings.app.service,
         )
         session_factory = cast(
             "SessionFactory",
@@ -280,6 +366,7 @@ class BaseServiceApplicationFactory(BaseApplicationFactory):
         app.state.session_factory = session_factory
         app.state.primary_health = primary_health
         app.state.tenant_source = tenant_source
+        app.state.metrics = metrics
         app.state.resources.register(engine_registry)
         app.state.resources.register(primary_health)
 

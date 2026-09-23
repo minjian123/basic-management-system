@@ -5,25 +5,32 @@
   注册表仍按 `db_key` 跟踪使用时间与逐出（一次释放该库主 + 副本引擎）。
 - 并发保护：创建窗口「进程内 `asyncio.Lock` + 跨实例分布式锁」双重互斥（锁经分布式锁
   能力域，缺省 null 实现不连 Redis）；创建失败快速失败。
-- 连接预算：`check_connection_budget`（单库口径）+ `tenant_pool_budget_warnings`（按活跃引擎数）。
+- 连接预算：`pool_budget_rows`（**按服务 × 库类别**核算内核）+ `pool_budget_warnings` /
+  `tenant_pool_budget_warnings`（启动期告警；离线核对见 `ops/check_budget.py`）。
 - 同步方言（达梦）：`get_sync` 提供同步引擎取用，与异步路径同一套清扫 / 记账 / 逐出口径，
   引擎本体由工厂按 `(db_key, 读写角色)` 缓存（详见《后端基类清单》）。
 """
 
 import asyncio
 import time
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Sequence
 from contextlib import asynccontextmanager
+from dataclasses import dataclass
+from typing import cast
 
 from sqlalchemy import Engine
 from sqlalchemy.ext.asyncio import AsyncEngine
 
+from bms_core.core.base import BaseObject
 from bms_core.core.capability import BaseAsyncResource
 from bms_core.core.config import Settings
 from bms_core.db.engine import EngineFactory
+from bms_core.db.inventory import db_counts_by_kind
 from bms_core.db.keys import DB_KIND_TENANT, PLATFORM_DB_KEY, parse_db_key
 from bms_core.db.sync import is_sync_only_url
 from bms_core.lock.base import DEFAULT_LOCK_TTL, BaseDistributedLock, build_lock_key
+from bms_core.metrics.base import BaseMetrics
+from bms_core.services.module_registry import enabled_service_keys
 
 _MAX_ACTIVE_DEFAULT = 32
 _IDLE_TIMEOUT_DEFAULT = 1800.0
@@ -55,6 +62,8 @@ class EngineRegistry(BaseAsyncResource):
         max_active: int = _MAX_ACTIVE_DEFAULT,
         idle_timeout: float = _IDLE_TIMEOUT_DEFAULT,
         lock: BaseDistributedLock | None = None,
+        metrics: BaseMetrics | None = None,
+        metrics_service: str = "",
     ) -> None:
         """初始化。
 
@@ -63,15 +72,40 @@ class EngineRegistry(BaseAsyncResource):
             max_active: 租户引擎活跃上限。
             idle_timeout: 闲置回收阈值（秒）。
             lock: 跨实例分布式锁（None 表示仅进程内锁）。
+            metrics: 指标记录器（None 表示不记录库数量指标；见 `db/inventory.py`）。
+            metrics_service: 指标 `service` 标签取值。
         """
         self._factory = factory
         self._max_active = max_active
         self._idle_timeout = idle_timeout
         self._lock = lock
+        self._metrics = metrics
+        self._metrics_service = metrics_service
         self._engines: dict[str, AsyncEngine] = {}
         self._sync_keys: set[str] = set()
         self._last_used: dict[str, float] = {}
         self._locks: dict[str, asyncio.Lock] = {}
+
+    def db_counts(self) -> dict[str, int]:
+        """按库类别统计活跃引擎数（运行期库数量水位）。
+
+        Returns:
+            dict[str, int]: 库类别 → 活跃数。
+        """
+        return db_counts_by_kind(self.active_keys())
+
+    async def record_db_counts(self) -> None:
+        """记录 `bms_db_count` 指标（按库类别；未装配指标器时为空操作）。
+
+        Returns:
+            None: 无返回值。
+        """
+        if self._metrics is None:
+            return
+        for kind, count in self.db_counts().items():
+            await self._metrics.gauge(
+                "bms_db_count", value=float(count), labels={"kind": kind, "service": self._metrics_service}
+            )
 
     async def get(self, db_key: str = PLATFORM_DB_KEY, *, read_only: bool = False) -> AsyncEngine:
         """取 / 建引擎（平台常驻、租户懒加载）并刷新使用时间。
@@ -102,6 +136,7 @@ class EngineRegistry(BaseAsyncResource):
                     engine = self._factory.create(db_key)
                     self._engines[db_key] = engine
         self._touch(db_key)
+        await self.record_db_counts()
         if read_only:
             return self._factory.create(db_key, read_only=True)
         return engine
@@ -156,6 +191,7 @@ class EngineRegistry(BaseAsyncResource):
         if _db_kind(db_key) != DB_KIND_TENANT:
             return
         await self._dispose(db_key)
+        await self.record_db_counts()
 
     def active_keys(self) -> list[str]:
         """当前活跃 `db_key` 列表（含平台；异步与同步路径合并视图）。
@@ -263,8 +299,149 @@ class EngineRegistry(BaseAsyncResource):
         self._sync_keys.discard(db_key)
 
 
+@dataclass(frozen=True)
+class PoolBudgetRow(BaseObject):
+    """连接预算核算行（服务 × 库类别；启动告警与离线核对的统一载体）。"""
+
+    name: str
+    """展示名（`{service}.{datasource}`；归档库为 `archive`）。"""
+
+    service: str
+    """归属服务标识（归档库为空串——归档库不服务化）。"""
+
+    datasource: str
+    """库类别（`platform` / `tenants` / `archive`）。"""
+
+    workers: int
+    """该服务生效 worker 数（`[server].workers_by_service` 覆盖，缺省回落 `workers`）。"""
+
+    active_tenants: int
+    """按活跃租户数核算时的租户数（`0` = 不按活跃数核算）。"""
+
+    pool_size: int
+    """该服务生效连接池大小。"""
+
+    max_overflow: int
+    """该服务生效溢出连接数。"""
+
+    max_connections: int
+    """该服务库最大连接数（`0` = 不校验）。"""
+
+    total: int
+    """预计占用连接数（平台 / 归档 = `workers × (pool + overflow)`；租户 = 再乘活跃租户数）。"""
+
+    @property
+    def limit(self) -> float:
+        """预算上限（`max_connections × 70%`；`max_connections == 0` 时为 0 = 不校验）。
+
+        Returns:
+            float: 预算上限。
+        """
+        return self.max_connections * _CONNECTION_BUDGET_RATIO
+
+    @property
+    def ok(self) -> bool:
+        """是否在预算内（`max_connections == 0` 视为不校验）。
+
+        Returns:
+            bool: 在预算内 True。
+        """
+        return self.max_connections == 0 or float(self.total) <= self.limit
+
+    def describe(self) -> str:
+        """超限告警文案（含服务、库类别与算式）。
+
+        Returns:
+            str: 告警文案。
+        """
+        units = f"{self.active_tenants} 活跃租户 × " if self.active_tenants else ""
+        return (
+            f"{self.name}: {units}workers={self.workers} × "
+            f"(pool_size={self.pool_size} + max_overflow={self.max_overflow}) = {self.total} "
+            f"超出 max_connections={self.max_connections} 的 70% 连接预算"
+        )
+
+
+def _budget_row(
+    settings: Settings,
+    *,
+    service: str,
+    datasource: str,
+    target: object,
+    active_tenants: int = 0,
+) -> PoolBudgetRow:
+    """构造单行连接预算核算（服务覆盖优先，缺省回落目标级 / 全局）。
+
+    Args:
+        settings: 应用配置。
+        service: 服务标识（归档库传空串）。
+        datasource: 库类别。
+        target: 数据库目标配置（`DatabaseTargetSettings`）。
+        active_tenants: 活跃租户数（仅租户库传；`0` 表示不按活跃数核算）。
+
+    Returns:
+        PoolBudgetRow: 核算行。
+    """
+    from bms_core.core.config import DatabaseTargetSettings  # 局部导入避免配置层与数据层循环
+
+    resolved_target = cast("DatabaseTargetSettings", target)
+    effective_service = service or settings.app.service
+    pool = resolved_target.effective_pool(effective_service)
+    workers = settings.server.workers_for(effective_service)
+    units = active_tenants if active_tenants else 1
+    total = units * workers * (pool.pool_size + pool.max_overflow)
+    return PoolBudgetRow(
+        name=f"{service}.{datasource}" if service else datasource,
+        service=service,
+        datasource=datasource,
+        workers=workers,
+        active_tenants=active_tenants,
+        pool_size=pool.pool_size,
+        max_overflow=pool.max_overflow,
+        max_connections=resolved_target.max_connections_for(effective_service),
+        total=total,
+    )
+
+
+def pool_budget_rows(
+    settings: Settings,
+    *,
+    services: Sequence[str] | None = None,
+    active_tenants: int = 0,
+) -> list[PoolBudgetRow]:
+    """按「服务 × 库类别」核算连接预算（启动告警与离线核对共用同一内核）。
+
+    口径：`workers_for(service) × (pool_size + max_overflow) ≤ max_connections_for(service) × 70%`；
+    租户库另按活跃租户数核算（`active_tenants × workers × (pool + overflow)`）。
+
+    Args:
+        settings: 应用配置。
+        services: 服务标识集合；None 取服务目录**已启用服务**。
+        active_tenants: 活跃租户数（`0` = 不按活跃数核算；租户库行专用）。
+
+    Returns:
+        list[PoolBudgetRow]: 核算行（保序：平台服务库 → 服务租户库 → 归档库）。
+    """
+    resolved = tuple(services) if services is not None else enabled_service_keys()
+    rows: list[PoolBudgetRow] = []
+    for service in resolved:
+        rows.append(_budget_row(settings, service=service, datasource="platform", target=settings.database.platform))
+    for service in resolved:
+        rows.append(
+            _budget_row(
+                settings,
+                service=service,
+                datasource="tenants",
+                target=settings.database.tenants,
+                active_tenants=active_tenants,
+            )
+        )
+    rows.append(_budget_row(settings, service="", datasource="archive", target=settings.database.archive))
+    return rows
+
+
 def pool_budget_warnings(settings: Settings) -> list[str]:
-    """计算各库连接预算告警（`workers × (pool_size + max_overflow) ≤ max_connections × 70%`）。
+    """计算各「服务 × 库类别」连接预算告警（启动期调用；超限不阻断启动）。
 
     Args:
         settings: 应用配置（worker 数、库目标与按服务的池参数）。
@@ -272,34 +449,13 @@ def pool_budget_warnings(settings: Settings) -> list[str]:
     Returns:
         list[str]: 超限告警文案（空列表表示均在预算内；`max_connections == 0` 跳过）。
     """
-    workers = settings.server.workers
-    targets = {
-        "platform": settings.database.platform,
-        "tenants": settings.database.tenants,
-        "archive": settings.database.archive,
-    }
-    warnings: list[str] = []
-    for name, target in targets.items():
-        if target.max_connections <= 0:
-            continue
-        pool = target.effective_pool(settings.app.service)
-        if not EngineRegistry.check_connection_budget(
-            workers=workers,
-            pool_size=pool.pool_size,
-            max_overflow=pool.max_overflow,
-            max_connections=target.max_connections,
-        ):
-            warnings.append(
-                f"{name}: workers={workers} × (pool_size={pool.pool_size} + max_overflow={pool.max_overflow}) "
-                f"超出 max_connections={target.max_connections} 的 70% 连接预算"
-            )
-    return warnings
+    return [row.describe() for row in pool_budget_rows(settings) if not row.ok]
 
 
 def tenant_pool_budget_warnings(settings: Settings, max_active: int) -> list[str]:
-    """按活跃引擎数核算租户库连接预算（共享租户库口径，启动期告警）。
+    """按活跃引擎数核算各服务租户库连接预算（启动期告警）。
 
-    口径：`max_active × workers × (pool_size + max_overflow) ≤ tenants.max_connections × 70%`；
+    口径：`max_active × workers_for(service) × (pool_size + max_overflow) ≤ max_connections_for(service) × 70%`；
     `max_connections == 0` 跳过（不校验）。超限返回 WARNING 文案，不阻断启动。
 
     Args:
@@ -309,16 +465,5 @@ def tenant_pool_budget_warnings(settings: Settings, max_active: int) -> list[str
     Returns:
         list[str]: 超限告警文案（空列表表示在预算内）。
     """
-    target = settings.database.tenants
-    if target.max_connections <= 0:
-        return []
-    pool = target.effective_pool(settings.app.service)
-    workers = settings.server.workers
-    total = max_active * workers * (pool.pool_size + pool.max_overflow)
-    if total <= target.max_connections * _CONNECTION_BUDGET_RATIO:
-        return []
-    return [
-        f"tenants: 活跃引擎上限 {max_active} × workers={workers} × "
-        f"(pool_size={pool.pool_size} + max_overflow={pool.max_overflow}) = {total} "
-        f"超出 max_connections={target.max_connections} 的 70% 连接预算"
-    ]
+    rows = pool_budget_rows(settings, active_tenants=max_active)
+    return [row.describe() for row in rows if row.datasource == "tenants" and not row.ok]
