@@ -1,10 +1,8 @@
 """本地租户源：租户与配置服务直读自身平台服务库 `sys_tenant`（06_03 由共享基座库迁入实现）。
 
 - 数据所有权：本服务是 `sys_tenant` 的**唯一写方**；其他服务经租户注册只读契约取数（`RemoteTenantSource`）。
-- 缓存：域 `tenant`（平台数据），载荷带全局版本戳 `bms:global:tenant:version`；写路径 `bump_version()`
-  使各消费方惰性重载（与字典版本键同模式）。
-- 口径：`CacheRegion` 契约无原子自增，`bump_version` 以「读当前版本 + 1 后写回」实现（写方唯一、
-  写路径串行；Redis 原生 INCR 待缓存基座扩展，见实施记录偏差）。
+- 缓存：域 `tenant`（平台数据），载荷带全局版本戳；写路径 `bump_version()` 递增版本号
+  （内存域进程内计数、Redis 域版本键），读方按版本惰性比对重载（与字典版本键同模式）。
 """
 
 from collections.abc import Mapping
@@ -102,11 +100,20 @@ class LocalTenantSource(BaseObject):
             self._cache_delete(snapshot_cache_key("domain", domain))
 
     def bump_version(self) -> None:
-        """递增全局版本键（写路径变更后调用；各消费方惰性重载）。"""
+        """递增全局版本号（写路径变更后调用；各消费方惰性重载）。
+
+        口径与缓存基座一致：内存域经 `MemoryCacheRegion.bump_version()`（进程内计数）；
+        Redis 域版本号存于域内版本键（`get_global_version` 读该键），故写回「当前值 + 1」
+        （原子 `INCR` 待缓存基座扩展，见实施记录「偏差」）。
+        """
         cache = self.cache
         if cache is None:
             return
-        cache.set(TENANT_VERSION_KEY, cache.get_global_version() + 1)
+        bump = getattr(cache, "bump_version", None)
+        if callable(bump):
+            bump()
+            return
+        cache.set(cache.build_key("version"), cache.get_global_version() + 1)
 
     async def _resolve(self, kind: str, value: str) -> TenantContext:
         """取数编排：缓存（版本比对）→ 库查询 → 回填 → 状态判定。
@@ -223,4 +230,3 @@ def _snapshot(row: SysTenant) -> TenantSnapshot:
         expire_at=row.expire_at.isoformat() if row.expire_at else None,
         tenant_id=int(row.id),
     )
-

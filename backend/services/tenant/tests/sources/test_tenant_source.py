@@ -14,6 +14,7 @@ from bms_core.core.config import Settings
 from bms_core.core.exceptions import TenantNotFoundError, TenantSuspendedError
 from bms_core.db.engine import EngineFactory
 from bms_core.db.registry import EngineRegistry
+from bms_core.db.tenant_registry import snapshot_cache_key
 from bms_core.models.base import Base
 from bms_tenant.models.tenant import SysTenant
 from bms_tenant.sources.tenant_source import LocalTenantSource
@@ -152,6 +153,24 @@ async def test_no_cache_direct_query(platform_url: str) -> None:
 
 
 @pytest.mark.kiwi_id(1019)
+@pytest.mark.kiwi_id(2176)
+async def test_bump_version_invalidates_cache(platform_url: str) -> None:
+    """写路径递增版本号：缓存陈旧重载（内存域经 `bump_version`，Redis 域经域内版本键）。"""
+    cache = MemoryCacheRegion(domain="tenant")
+    source, registry = _source(platform_url, cache=cache)
+    try:
+        await source.by_code("demo")
+        assert cache.get(snapshot_cache_key("code", "demo")) is not None
+        version_before = cache.get_global_version()
+
+        source.bump_version()
+        assert cache.get_global_version() == version_before + 1
+        await source.by_code("demo")
+    finally:
+        await registry.aclose()
+
+
+@pytest.mark.kiwi_id(2176)
 async def test_invalidate_by_domain(platform_url: str) -> None:
     """按域名单键失效覆盖 `if domain` 分支（缓存实现缺省 null 时空操作）。"""
     source, registry = _source(platform_url)
