@@ -31,7 +31,10 @@ dev_tenants = ["demo", "acme"]
 [cache]
 provider = "memory"
 
-# 字典真实取数与缓存（02-4-27）：dev 使用 SQLite 服务租户库（bms_{service}_{tenant}.db，先建库 + 迁移 + 种子）+ 进程内缓存；
+# 字典取数与缓存（02-4-27；06_02 补跨服务读出口）：
+# - provider = "sql"：读**本服务租户库**字典表（platform 服务态；dev 为 SQLite bms_{service}_{tenant}.db，先建库 + 迁移 + 种子）；
+# - provider = "http"：经 service_client 读 **platform 服务**字典接口（其余服务态，权威侧仍是 platform；不可达降级为空结果 / 原值）；
+# - provider = ""：占位（null 实现）。
 # Redis 可用时把 dict_cache_region 改为 "redis"（连接串取 [redis].url）。
 [dict_source]
 provider = "sql"
