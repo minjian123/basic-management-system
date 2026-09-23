@@ -47,6 +47,7 @@ from bms_core.oauth.base import get_oauth_server, get_scope_checker
 from bms_core.org.base import get_org_data_source, get_org_name_resolver
 from bms_core.outbound.http import get_http_client
 from bms_core.outbound.webhook import get_webhook_sender
+from bms_core.outbox.base import get_outbox_dispatcher, get_outbox_store
 from bms_core.password.base import get_password_policy
 from bms_core.permission.base import get_permission_checker
 from bms_core.preference.base import get_preference_store
@@ -112,6 +113,8 @@ __all__ = [
     "get_object_storage",
     "get_org_data_source",
     "get_org_name_resolver",
+    "get_outbox_dispatcher",
+    "get_outbox_store",
     "get_password_policy",
     "get_permission_checker",
     "get_platform_read_db",

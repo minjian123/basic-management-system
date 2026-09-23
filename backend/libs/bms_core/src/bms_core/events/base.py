@@ -2,6 +2,7 @@
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import cast
 
 from fastapi import Request
@@ -18,12 +19,20 @@ from bms_core.core.plugin import (
 
 @dataclass
 class EventEnvelope(BaseObject):
-    """事件信封：统一事件载体（类型 + 负载 + 租户 + 链路标识）。"""
+    """事件信封：统一事件载体（幂等键 + 类型 + 负载 + 租户 + 链路标识 + 聚合键）。
+
+    - `event_id`：幂等键（消费端去重）；缺省由事务性发件箱写入时生成。
+    - `occurred_at`：事件发生时间（UTC）；缺省由发件箱写入时取当前时刻。
+    - `aggregate_key`：聚合 / 分区键（同聚合按序投递）；空 = 独立事件。
+    """
 
     event_type: str
     payload: dict[str, object] = field(default_factory=dict[str, object])
     tenant_id: str | None = None
     trace_id: str | None = None
+    event_id: str | None = None
+    occurred_at: datetime | None = None
+    aggregate_key: str | None = None
 
 
 class BaseEventWorker(BasePluggable, ABC):

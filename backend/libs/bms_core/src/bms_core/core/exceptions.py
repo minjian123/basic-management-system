@@ -175,6 +175,17 @@ class DataOwnershipError(GeneralError):
         super().__init__(ErrorCode.DATA_OWNERSHIP, message, http_status=500, data=data)
 
 
+class OutboxDeliveryError(GeneralError):
+    """发件箱投递异常（`10009` / 500）。
+
+    投递器取待投递 / 编排发生非预期异常时抛出；**单条事件发布失败不抛错**，
+    走指数退避重试 / 转死信（看板人工处理）。
+    """
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        super().__init__(ErrorCode.OUTBOX_DELIVERY, message, http_status=500, data=data)
+
+
 class UserOrgError(BizError):
     """用户与组织段（`3xxxx`）异常基类。"""
 
