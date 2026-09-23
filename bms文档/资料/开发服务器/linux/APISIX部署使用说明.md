@@ -72,7 +72,8 @@ nginx_config:
 | 校验 | `uv run python -m ops.gateway_config check`（零漂移；CI `base-integrity` 与本地预检同跑） |
 | 参与服务 | 仅启用且带服务标识的服务（当前 9 个：platform / identity / tenant / org / file / notification / search / ai / report） |
 | 外部路径 | `/api/{service_key}/v1/...`，网关 `proxy-rewrite` 剥离为服务内 `/api/v1/...` |
-| 认证 / 限流钩子 | 插件经 `gateway_catalog.py::ROUTE_PLUGINS` 按服务合并；默认不启用（随 04_02 / 04_03 接入） |
+| 认证 / 限流钩子 | 插件经 `gateway_catalog.py::ROUTE_PLUGINS` 按服务合并；默认不启用（随 04_03 / 07_03 接入） |
+| 请求净化 / 身份头 | `global_rules`（`edge-sanitize`）统一剥除客户端伪造身份头（`X-User-Id` / `X-Tenant-Id` / `X-User-Scopes` / `X-Service-Identity` / `X-Gateway-Identity`）；路由级 `proxy-rewrite.headers.set` 置网关专属标记 `X-Gateway-Identity: bms-edge`，并预留身份注入钩子 `ROUTE_HEADERS_SET`（04_02 交付；真实 JWT 注入随 07_03） |
 
 **改配置的唯一正确路径**：改服务目录或生成脚本 → `render` 重新生成 → 提交 →（热加载或重建）→ 禁止在控制台手工增删。
 
@@ -102,6 +103,16 @@ curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:9080/api/nope/v1/x    
 ```
 
 本次部署结果（2026-09-23）：容器 `bms-apisix` Up，`Server: APISIX/3.18.0`；以 `traefik/whoami` 作临时上游（命名 `platform`、端口 8000，验后移除）实测 `GET /api/platform/v1/ping` 命中上游且被重写为 `GET /api/v1/ping`；未登记服务返回 404；从 mjpc TCP 连通 9080 为 OPEN。
+
+**请求净化验证（04_02，2026-09-23）**：同法起临时上游 `platform`，发起带伪造身份头的请求：
+
+```bash
+curl -s http://127.0.0.1:9080/api/platform/v1/ping \
+  -H 'X-Custom-Probe: yes' -H 'X-User-Id: evil' -H 'X-Service-Identity: evil' \
+  -H 'X-Tenant-Id: evil' -H 'X-User-Scopes: admin' -H 'X-Gateway-Identity: forged'
+```
+
+上游响应头（whoami 回显）**不含** `X-User-Id` / `X-Service-Identity` / `X-Tenant-Id` / `X-User-Scopes`（已被 `global_rules` 统一剥除），**含** `X-Gateway-Identity: bms-edge`（路由级 `proxy-rewrite.headers.set` 置入），自定义头 `X-Custom-Probe` 正常透传（非身份头不受影响）。
 
 > 当前后端服务尚未容器化，除临时验证外，各服务路由在上游不可达时返回 **502**，属预期（服务容器化与按服务发布归后续任务）。
 
@@ -135,6 +146,7 @@ curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:9080/api/nope/v1/x    
 | 问题 | 现象 | 处理 |
 | --- | --- | --- |
 | 改配置不生效 | 宿主替换 `apisix.yaml` 后网关行为不变、日志无 `reloaded` | 单文件 bind mount 仍指向旧 inode；改目录挂载 + 启动软链（见第 3 节），替换即时生效 |
+| 全局规置标记不生效 | `global_rules` 的 `proxy-rewrite.headers.set` 未出现在上游，而同一规则的 `headers.remove` 生效 | APISIX 同一插件在 global 与 route 两处的 `headers.set` **不叠加**（路由级 `proxy-rewrite` 执行后 global 的 set 被丢弃）；**标记 / 身份注入落路由级** `headers.set`、伪造头剥除留 global 规则（04_02 实测，2026-09-23） |
 | 镜像标签不存在 | `apache/apisix:3.18.0` 拉取失败 | 官方 Docker 标签为 `apache/apisix:3.18.0-debian` |
 | 各服务路由 502 | 访问 `/api/{service}/v1/...` 报 502 | 后端服务尚未容器化 / 未启动（预期）；服务容器化后随编排接入 |
 | 提示 orphan containers | `up -d` 时报 `Found orphan containers (…)` | 仅提示既有基础设施容器不在本文件内，正常；勿用 `--remove-orphans`（会误删基础设施） |
