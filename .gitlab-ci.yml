@@ -666,7 +666,7 @@ container-scanning:
   script:
     - trivy image --exit-code 1 --severity CRITICAL,HIGH --ignore-unfixed $REGISTRY_IMAGE_PREFIX/bms-backend:$CI_COMMIT_SHORT_SHA
 
-# ---- swagger.json 契约快照归档 ----
+# ---- 公开契约快照（各启用服务 OpenAPI）----
 swagger-snapshot:
   stage: verify
   image: python:3.14-slim
@@ -682,10 +682,12 @@ swagger-snapshot:
         - deploy/ci/verify/contract
   script:
     - pip install uv && cd backend && uv sync --frozen
-    # 应用工厂形态：经 ApplicationFactory 构造（02-54 工厂类化后移除模块级 create_app / app）
-    - uv run python -c "from bms_platform.main import ApplicationFactory; import json; print(json.dumps(ApplicationFactory().create(None).openapi(), ensure_ascii=False))" > swagger.json
+    # 05_01：内存构建各启用服务 ApplicationFactory().create(None).openapi() → 全服务契约快照
+    # 零漂移门禁（check）+ 重新导出归档（export，供 09_03 oasdiff 破坏性变更门禁消费）
+    - uv run python -m ops.contract_snapshot check
+    - uv run python -m ops.contract_snapshot export
   artifacts:
-    paths: [backend/swagger.json]
+    paths: [deploy/contracts/*.json]
     expire_in: 30 days
 
 # ---- Allure 结果归档 + Kiwi TCMS 导入（分档开关 deploy/ci/verify/report，P2 档；2026-09-22 关闭，无消费方）----

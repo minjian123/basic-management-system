@@ -415,6 +415,7 @@ class Settings(PydanticBaseSettings, BaseSettings):  # pyright: ignore[reportInc
     replay_guard: PluginSelection = Field(default_factory=PluginSelection)
     scope_checker: PluginSelection = Field(default_factory=PluginSelection)
     search_index: PluginSelection = Field(default_factory=PluginSelection)
+    service_client: PluginSelection = Field(default_factory=PluginSelection)
     session_store: PluginSelection = Field(default_factory=PluginSelection)
     sharding: PluginSelection = Field(default_factory=PluginSelection)
     storage: PluginSelection = Field(default_factory=PluginSelection)

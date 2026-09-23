@@ -153,6 +153,17 @@ class DatabaseUnavailableError(GeneralError):
         super().__init__(ErrorCode.DATABASE_UNAVAILABLE, message, http_status=503, data=data)
 
 
+class ServiceUnavailableError(GeneralError):
+    """下游服务不可用（超时 / 不可达 / 重试耗尽 / 熔断断开；`10007` / 503）。
+
+    服务间调用失败时 `data` 携降级动作与依赖名（`BaseFallbackPolicy` 产物），
+    供调用方按动作实现降级路径（基座只给动作、不接管调用链）。
+    """
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        super().__init__(ErrorCode.SERVICE_UNAVAILABLE, message, http_status=503, data=data)
+
+
 class UserOrgError(BizError):
     """用户与组织段（`3xxxx`）异常基类。"""
 

@@ -82,6 +82,12 @@ from bms_core.ratelimit.base import BaseRateLimiter
 from bms_core.replay.base import BaseReplayGuard
 from bms_core.scope.base import DataScope
 from bms_core.search.base import BaseSearchIndex
+from bms_core.servicecall.base import (
+    DEFAULT_BASE_URL_TEMPLATE,
+    SERVICE_CLIENT_OPTION_BASE_URL,
+    BaseServiceClient,
+)
+from bms_core.servicecall.http import HttpServiceClient
 from bms_core.session.base import BaseSessionStore
 from bms_core.sharding.base import ShardingRouter
 from bms_core.storage.base import BaseMultipartUpload, BaseObjectStorage
@@ -145,6 +151,7 @@ _NULL_MODULES: tuple[str, ...] = (
     "bms_core.replay.null",
     "bms_core.scope.null",
     "bms_core.search.null",
+    "bms_core.servicecall.null",
     "bms_core.session.null",
     "bms_core.sharding.null",
     "bms_core.storage.null",
@@ -213,6 +220,7 @@ PLUGIN_WIRINGS: tuple[PluginWiring, ...] = (
     PluginWiring("realtime_publisher", BaseRealtimePublisher, "realtime_publisher", "realtime_publisher"),
     PluginWiring("http_client", BaseHttpClient, "http_client", "http_client"),
     PluginWiring("webhook_sender", BaseWebhookSender, "webhook_sender", "webhook_sender"),
+    PluginWiring("service_client", BaseServiceClient, "service_client", "service_client"),
     PluginWiring("workflow_engine", BaseWorkflowEngine, "workflow_engine", "workflow_engine"),
     PluginWiring("identity_provider", BaseIdentityProvider, "identity_provider", "identity_provider"),
     PluginWiring("session_store", BaseSessionStore, "session_store", "session_store"),
@@ -272,6 +280,7 @@ def register_platform_plugins(settings: Settings, app: FastAPI, resources: Resou
     register_plugin("field_type_registry", "local", LocalFieldTypeRegistryFactory())
     register_plugin("query_provider_registry", "local", LocalQueryProviderRegistryFactory(app))
     register_plugin("edge", "marker", MarkerEdgeTrustFactory(settings))
+    register_plugin("service_client", "http", HttpServiceClientFactory(settings))
     _PREPARED_REGISTRIES.append(registry)
 
 
@@ -420,6 +429,64 @@ class DefaultMaskerFactory(BasePluginFactory[BaseMasker]):
             ),
         )
         return NullMasker(checker=checker)
+
+
+class HttpServiceClientFactory(BasePluginFactory[HttpServiceClient]):
+    """服务间调用真实实现工厂（注入熔断 / 降级 / 限流实例与基址模板）。"""
+
+    plugin_key: str = "service_client"
+    plugin_name: str = "http"
+
+    def __init__(self, settings: Settings) -> None:
+        """初始化。
+
+        Args:
+            settings: 应用配置（含 `[service_client]` 与各韧性能力选择）。
+        """
+        self._settings = settings
+
+    def create(self, options: None = None) -> HttpServiceClient:
+        """构造服务间调用实现（解析韧性三件套与基址模板）。
+
+        Args:
+            options: 未使用（零参口径）。
+
+        Returns:
+            HttpServiceClient: 服务间调用实现。
+        """
+        template = (
+            self._settings.service_client.options.get(SERVICE_CLIENT_OPTION_BASE_URL) or DEFAULT_BASE_URL_TEMPLATE
+        )
+        circuit = cast(
+            "BaseCircuitBreaker",
+            resolve_plugin(
+                "circuit_breaker",
+                self._settings.circuit_breaker.provider,
+                expected_version=BaseCircuitBreaker.contract_version,
+            ),
+        )
+        fallback = cast(
+            "BaseFallbackPolicy",
+            resolve_plugin(
+                "fallback",
+                self._settings.fallback.provider,
+                expected_version=BaseFallbackPolicy.contract_version,
+            ),
+        )
+        rate_limiter = cast(
+            "BaseRateLimiter",
+            resolve_plugin(
+                "rate_limiter",
+                self._settings.rate_limiter.provider,
+                expected_version=BaseRateLimiter.contract_version,
+            ),
+        )
+        return HttpServiceClient(
+            circuit_breaker=circuit,
+            fallback_policy=fallback,
+            rate_limiter=rate_limiter,
+            base_url_template=cast("str", template),
+        )
 
 
 class MarkerEdgeTrustFactory(BasePluginFactory[MarkerEdgeTrust]):

@@ -55,6 +55,7 @@ from bms_core.query.base import get_query_provider_registry
 from bms_core.ratelimit.base import get_rate_limiter
 from bms_core.replay.base import get_replay_guard
 from bms_core.search.base import get_search_index
+from bms_core.servicecall.base import get_service_client
 from bms_core.session.base import get_session_store
 from bms_core.storage.base import get_multipart_upload, get_object_storage
 from bms_core.tasks.base import get_task
@@ -126,6 +127,7 @@ __all__ = [
     "get_replay_guard",
     "get_scope_checker",
     "get_search_index",
+    "get_service_client",
     "get_session_store",
     "get_task",
     "get_tenant",

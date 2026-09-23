@@ -33,6 +33,7 @@ class _Factory(BaseServiceApplicationFactory):
     service_name: str = "appbase_test"
     service_title: str = "BMS 装配基座测试服务"
     version: str = "9.9.9"
+    contract_version: str = "9.9.9"
 
     def prepare_settings(self, settings: Settings) -> None:
         """记录创建前配置钩子（不调整配置）。
