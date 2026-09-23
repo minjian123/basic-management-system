@@ -1,0 +1,133 @@
+# 本文件由 backend/ops/gateway_config.py render 生成，请勿手工修改。
+# 来源：服务目录 SERVICE_CATALOG（bms_core/services/module_registry.py）。
+# 重新生成：uv run python -m ops.gateway_config render
+# 零漂移校验：uv run python -m ops.gateway_config check
+upstreams:
+  - id: platform
+    type: roundrobin
+    nodes:
+      'platform:8000': 1
+  - id: identity
+    type: roundrobin
+    nodes:
+      'identity:8000': 1
+  - id: tenant
+    type: roundrobin
+    nodes:
+      'tenant:8000': 1
+  - id: org
+    type: roundrobin
+    nodes:
+      'org:8000': 1
+  - id: file
+    type: roundrobin
+    nodes:
+      'file:8000': 1
+  - id: notification
+    type: roundrobin
+    nodes:
+      'notification:8000': 1
+  - id: search
+    type: roundrobin
+    nodes:
+      'search:8000': 1
+  - id: ai
+    type: roundrobin
+    nodes:
+      'ai:8000': 1
+  - id: report
+    type: roundrobin
+    nodes:
+      'report:8000': 1
+routes:
+  - id: route-platform
+    uris:
+      - '/api/platform/v1'
+      - '/api/platform/v1/*'
+    upstream_id: platform
+    plugins:
+      proxy-rewrite:
+        regex_uri:
+          - '^/api/platform/v1(.*)$'
+          - '/api/v1$1'
+  - id: route-identity
+    uris:
+      - '/api/identity/v1'
+      - '/api/identity/v1/*'
+    upstream_id: identity
+    plugins:
+      proxy-rewrite:
+        regex_uri:
+          - '^/api/identity/v1(.*)$'
+          - '/api/v1$1'
+  - id: route-tenant
+    uris:
+      - '/api/tenant/v1'
+      - '/api/tenant/v1/*'
+    upstream_id: tenant
+    plugins:
+      proxy-rewrite:
+        regex_uri:
+          - '^/api/tenant/v1(.*)$'
+          - '/api/v1$1'
+  - id: route-org
+    uris:
+      - '/api/org/v1'
+      - '/api/org/v1/*'
+    upstream_id: org
+    plugins:
+      proxy-rewrite:
+        regex_uri:
+          - '^/api/org/v1(.*)$'
+          - '/api/v1$1'
+  - id: route-file
+    uris:
+      - '/api/file/v1'
+      - '/api/file/v1/*'
+    upstream_id: file
+    plugins:
+      proxy-rewrite:
+        regex_uri:
+          - '^/api/file/v1(.*)$'
+          - '/api/v1$1'
+  - id: route-notification
+    uris:
+      - '/api/notification/v1'
+      - '/api/notification/v1/*'
+    upstream_id: notification
+    plugins:
+      proxy-rewrite:
+        regex_uri:
+          - '^/api/notification/v1(.*)$'
+          - '/api/v1$1'
+  - id: route-search
+    uris:
+      - '/api/search/v1'
+      - '/api/search/v1/*'
+    upstream_id: search
+    plugins:
+      proxy-rewrite:
+        regex_uri:
+          - '^/api/search/v1(.*)$'
+          - '/api/v1$1'
+  - id: route-ai
+    uris:
+      - '/api/ai/v1'
+      - '/api/ai/v1/*'
+    upstream_id: ai
+    plugins:
+      proxy-rewrite:
+        regex_uri:
+          - '^/api/ai/v1(.*)$'
+          - '/api/v1$1'
+  - id: route-report
+    uris:
+      - '/api/report/v1'
+      - '/api/report/v1/*'
+    upstream_id: report
+    plugins:
+      proxy-rewrite:
+        regex_uri:
+          - '^/api/report/v1(.*)$'
+          - '/api/v1$1'
+#END

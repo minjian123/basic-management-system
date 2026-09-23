@@ -17,6 +17,8 @@ dev = [
     "allure-pytest>=2.16.0",
     "kiwitcms-pytest-plugin>=15.4",
     "minio>=7.2",
+    # 网关声明式配置（apisix.yaml）结构校验：生成器为免依赖手写 YAML，用例需解析验证
+    "pyyaml>=6.0",
 ]
 
 [tool.ruff]

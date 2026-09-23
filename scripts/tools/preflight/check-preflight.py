@@ -9,7 +9,7 @@
 3. **后端测试**：聚合全量（含覆盖率门禁）+ **工程级范围**（`bms_core` 与各服务目录各跑一次，验证
    「每工程只跑本工程」不落根全量）。
 4. **基座与边界**：`check-base` / `check-backend-base(+--self-test)` /
-   `check-service-boundaries(+--self-test)` / `check-status`。
+   `check-service-boundaries(+--self-test)` / `check-status` / 网关 `gateway_config check`。
 
 用法::
 
@@ -214,6 +214,12 @@ def main() -> int:
     _run(
         "文档：check-status",
         [sys.executable, "scripts/tools/check-docs/check-status.py", "--root", str(root)],
+        root,
+        failures,
+    )
+    _run(
+        "网关：gateway_config check（服务目录零漂移）",
+        [sys.executable, "backend/ops/gateway_config.py", "check", "--root", str(root)],
         root,
         failures,
     )
