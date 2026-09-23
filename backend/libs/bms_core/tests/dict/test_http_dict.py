@@ -66,7 +66,7 @@ def _item_payload(value: str, label: str) -> dict[str, object]:
     return {"value": value, "label": label, "code": value, "parent_id": None, "sort": 1, "status": "enabled"}
 
 
-@pytest.mark.kiwi_id(1078)
+@pytest.mark.kiwi_id(2178)
 async def test_by_type_maps_query_and_parses_response() -> None:
     """单类型取数：路径 / 查询参数 / 语言与租户头透传，响应解析为 `DictTypeResult`。"""
     client = _FakeClient([{"version": 7, "items": [_item_payload("enabled", "启用")], "has_more": False, "total": 1}])
@@ -92,7 +92,7 @@ async def test_by_type_maps_query_and_parses_response() -> None:
     assert result.items is not None and result.items[0].label == "启用"
 
 
-@pytest.mark.kiwi_id(1078)
+@pytest.mark.kiwi_id(2178)
 async def test_by_type_version_current_and_values_subset() -> None:
     """版本一致（平台侧返回 `items=null`）→ `items=None`；按值子集经逗号拼接传参。"""
     client = _FakeClient([{"version": 7, "items": None, "has_more": False, "total": 0}])
@@ -102,7 +102,7 @@ async def test_by_type_version_current_and_values_subset() -> None:
     assert client.requests[0].query == {"values": "a,b"}
 
 
-@pytest.mark.kiwi_id(1078)
+@pytest.mark.kiwi_id(2178)
 async def test_batch_posts_body_and_parses_items() -> None:
     """批量取数：POST 契约路径 + JSON 体（types / version / locale），逐类型解析（版本一致为 None）。"""
     client = _FakeClient(
@@ -129,7 +129,7 @@ async def test_batch_posts_body_and_parses_items() -> None:
     assert result.items["level"] is None
 
 
-@pytest.mark.kiwi_id(1078)
+@pytest.mark.kiwi_id(2178)
 async def test_translate_maps_hits_and_keeps_misses() -> None:
     """翻译：命中取 label、未命中回退原值；单批内一次调用。"""
     client = _FakeClient([{"version": 3, "items": [_item_payload("a", "甲")], "total": 1}])
@@ -139,7 +139,7 @@ async def test_translate_maps_hits_and_keeps_misses() -> None:
     assert client.requests[0].query == {"values": "a,b"}
 
 
-@pytest.mark.kiwi_id(1078)
+@pytest.mark.kiwi_id(2178)
 async def test_translate_chunks_large_value_sets() -> None:
     """翻译：value 子集超单批上限时按批拆分调用（避免一次请求过大）。"""
     size = TRANSLATE_VALUES_CHUNK
@@ -152,7 +152,7 @@ async def test_translate_chunks_large_value_sets() -> None:
     assert mapping[values[0]] == "首"
 
 
-@pytest.mark.kiwi_id(1078)
+@pytest.mark.kiwi_id(2178)
 async def test_degrade_when_platform_unavailable() -> None:
     """降级：平台侧不可达 → 取数返回空结果、批量逐类型空结果、翻译回退原值（不抛业务错）。"""
     source = HttpDictSource(client=_FakeClient(unavailable=True))
@@ -166,7 +166,7 @@ async def test_degrade_when_platform_unavailable() -> None:
     assert await translator.translate(DictTranslateQuery(dict_type="status", values=("x",))) == {"x": "x"}
 
 
-@pytest.mark.kiwi_id(1078)
+@pytest.mark.kiwi_id(2178)
 async def test_degrade_on_non_2xx_and_malformed_payload() -> None:
     """降级：非 2xx 与响应体非法（缺 data）同样返回空结果。"""
 

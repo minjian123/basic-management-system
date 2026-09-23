@@ -29,7 +29,7 @@ class _Recorder:
         self.calls.append((name, value, dict(labels or {})))
 
 
-@pytest.mark.kiwi_id(1078)
+@pytest.mark.kiwi_id(2178)
 def test_db_count_expected_and_active() -> None:
     """预期口径：平台服务库 = 服务数、服务租户库 = 服务数 × 租户数、归档 1；活跃口径按库键统计。"""
     count = db_count_rows(("platform", "tenant", "org"), ("demo", "acme"))
@@ -46,7 +46,7 @@ def test_db_count_expected_and_active() -> None:
     assert (active_count.platform, active_count.tenant, active_count.archive) == (1, 1, 1)
 
 
-@pytest.mark.kiwi_id(1078)
+@pytest.mark.kiwi_id(2178)
 async def test_registry_records_db_count() -> None:
     """引擎注册表：新建 / 回收租户引擎后记录 `bms_db_count`（标签含 `kind` 与 `service`）。"""
     settings = get_settings()
@@ -73,7 +73,7 @@ async def test_registry_records_db_count() -> None:
         await registry.aclose()
 
 
-@pytest.mark.kiwi_id(1078)
+@pytest.mark.kiwi_id(2178)
 async def test_registry_without_metrics_is_noop() -> None:
     """未装配指标器时记录为空操作（不报错、不副作用）。"""
     settings = get_settings()

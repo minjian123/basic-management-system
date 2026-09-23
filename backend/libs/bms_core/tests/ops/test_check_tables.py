@@ -22,13 +22,13 @@ def _url(tmp_path: Path) -> str:
     return f"sqlite+aiosqlite:///{tmp_path / 'bms_platform.db'}"
 
 
-@pytest.mark.kiwi_id(1078)
+@pytest.mark.kiwi_id(2178)
 def test_check_offline_passes_on_repo() -> None:
     """离线断言在真实仓库状态通过（清单自校验 + 模型表已登记 + enabled 表入链 + 脚本表集不越界）。"""
     assert check_offline() == []
 
 
-@pytest.mark.kiwi_id(1078)
+@pytest.mark.kiwi_id(2178)
 def test_check_offline_rejects_script_table_outside_chain(tmp_path: Path) -> None:
     """脚本建了派生表集之外的表 → 拦截（防越界建表）。"""
     location = tmp_path / "platform" / "platform"
@@ -41,7 +41,7 @@ def test_check_offline_rejects_script_table_outside_chain(tmp_path: Path) -> Non
     assert any("zzz_ghost" in error and "不在该链派生表集内" in error for error in errors)
 
 
-@pytest.mark.kiwi_id(1078)
+@pytest.mark.kiwi_id(2178)
 def test_check_table_db_roundtrip_and_conflicts(tmp_path: Path) -> None:
     """接库对账：库不可读 / 空库 / 种子后往返通过 / 字段不符逐项检出（同步入口，内部自建事件循环）。"""
     url = _url(tmp_path)
@@ -68,7 +68,7 @@ def test_check_table_db_roundtrip_and_conflicts(tmp_path: Path) -> None:
     assert any("owner 与清单不一致" in error for error in check_table_db(url))
 
 
-@pytest.mark.kiwi_id(1078)
+@pytest.mark.kiwi_id(2178)
 def test_check_tables_cli(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     """CLI：离线通过（未给 `--url`）退出码 0 且输出校验范围。"""
     assert main([]) == 0
