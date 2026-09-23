@@ -55,6 +55,7 @@ from bms_core.edge.base import BaseEdgeTrust
 from bms_core.edge.headers import GATEWAY_IDENTITY_VALUE
 from bms_core.edge.marker import MarkerEdgeTrust
 from bms_core.events.base import BaseEventConsumer, EventPublisher
+from bms_core.events.platform_events import register_platform_event_contracts
 from bms_core.fallback.base import BaseFallbackPolicy
 from bms_core.fieldtype.base import BaseFieldTypeRegistry
 from bms_core.fieldtype.local import LocalFieldTypeRegistry
@@ -91,6 +92,8 @@ from bms_core.query.base import BaseQueryProviderRegistry
 from bms_core.query.local import LocalQueryProviderRegistry
 from bms_core.ratelimit.base import BaseRateLimiter
 from bms_core.replay.base import BaseReplayGuard
+from bms_core.saga.base import BaseSagaExecutor
+from bms_core.saga.choreography import ChoreographySagaExecutor
 from bms_core.scope.base import DataScope
 from bms_core.search.base import BaseSearchIndex
 from bms_core.servicecall.base import (
@@ -155,6 +158,7 @@ _NULL_MODULES: tuple[str, ...] = (
     "bms_core.org.null",
     "bms_core.outbound.null",
     "bms_core.outbox.null",
+    "bms_core.saga.null",
     "bms_core.password.null",
     "bms_core.permission.null",
     "bms_core.preference.null",
@@ -236,6 +240,7 @@ PLUGIN_WIRINGS: tuple[PluginWiring, ...] = (
     PluginWiring("webhook_sender", BaseWebhookSender, "webhook_sender", "webhook_sender"),
     PluginWiring("outbox_store", BaseOutboxStore, "outbox_store", "outbox_store"),
     PluginWiring("outbox_dispatcher", BaseOutboxDispatcher, "outbox", "outbox_dispatcher"),
+    PluginWiring("saga_executor", BaseSagaExecutor, "saga", "saga_executor"),
     PluginWiring("service_client", BaseServiceClient, "service_client", "service_client"),
     PluginWiring("workflow_engine", BaseWorkflowEngine, "workflow_engine", "workflow_engine"),
     PluginWiring("identity_provider", BaseIdentityProvider, "identity_provider", "identity_provider"),
@@ -282,6 +287,7 @@ def register_platform_plugins(settings: Settings, app: FastAPI, resources: Resou
         return
     for module in _NULL_MODULES:
         import_module(module)
+    register_platform_event_contracts()
     register_plugin("masking", NULL_PLUGIN_NAME, DefaultMaskerFactory(settings))
     register_plugin("health_check_registry", "local", HealthCheckRegistryFactory(settings, app, resources))
     register_plugin("object_storage", "local", LocalObjectStorageFactory(settings))
@@ -298,8 +304,9 @@ def register_platform_plugins(settings: Settings, app: FastAPI, resources: Resou
     register_plugin("edge", "marker", MarkerEdgeTrustFactory(settings))
     register_plugin("data_ownership_guard", "table", TableOwnershipGuardFactory(settings))
     register_plugin("service_client", "http", HttpServiceClientFactory(settings))
-    register_plugin("outbox_store", "sql", SqlOutboxStoreFactory())
+    register_plugin("outbox_store", "sql", SqlOutboxStoreFactory(settings))
     register_plugin("outbox_dispatcher", "poll", PollOutboxDispatcherFactory(settings, app))
+    register_plugin("saga_executor", "choreography", ChoreographySagaExecutorFactory(settings))
     register_plugin("idempotency", "redis", RedisIdempotencyStoreFactory(settings))
     _PREPARED_REGISTRIES.append(registry)
 
@@ -588,12 +595,20 @@ class TableOwnershipGuardFactory(BasePluginFactory[TableOwnershipGuard]):
 
 
 class SqlOutboxStoreFactory(BasePluginFactory[SqlOutboxStore]):
-    """发件箱存储真实实现工厂（`sql`：SQLAlchemy 会话绑定，无构造依赖）。
+    """发件箱存储真实实现工厂（`sql`：SQLAlchemy 会话绑定 + 签发契约校验模式）。
 
     零参工厂**不声明 `plugin_name`**（避免被插件注册表自动收集）；经 `register_plugin` 显式登记。
     """
 
     plugin_key: str = "outbox_store"
+
+    def __init__(self, settings: Settings) -> None:
+        """初始化。
+
+        Args:
+            settings: 应用配置（`[event].contract_mode` 签发契约校验模式）。
+        """
+        self._settings = settings
 
     def create(self, options: None = None) -> SqlOutboxStore:
         """构造发件箱存储。
@@ -604,7 +619,7 @@ class SqlOutboxStoreFactory(BasePluginFactory[SqlOutboxStore]):
         Returns:
             SqlOutboxStore: 发件箱存储实例。
         """
-        return SqlOutboxStore()
+        return SqlOutboxStore(contract_mode=self._settings.event.contract_mode)
 
 
 class PollOutboxDispatcherFactory(BasePluginFactory[PollOutboxDispatcher]):
@@ -666,6 +681,40 @@ class PollOutboxDispatcherFactory(BasePluginFactory[PollOutboxDispatcher]):
             session_factory=session_factory,
             metrics=metrics,
         )
+
+
+class ChoreographySagaExecutorFactory(BasePluginFactory[ChoreographySagaExecutor]):
+    """Saga 协同式执行器工厂（`choreography`：注入事务性发件箱存储）。"""
+
+    plugin_key: str = "saga_executor"
+    plugin_name: str = "choreography"
+
+    def __init__(self, settings: Settings) -> None:
+        """初始化。
+
+        Args:
+            settings: 应用配置（`[outbox_store]` 能力选择）。
+        """
+        self._settings = settings
+
+    def create(self, options: None = None) -> ChoreographySagaExecutor:
+        """构造协同式 Saga 执行器。
+
+        Args:
+            options: 未使用（零参口径）。
+
+        Returns:
+            ChoreographySagaExecutor: 执行器实例。
+        """
+        store = cast(
+            "BaseOutboxStore",
+            resolve_plugin(
+                "outbox_store",
+                self._settings.outbox_store.provider,
+                expected_version=BaseOutboxStore.contract_version,
+            ),
+        )
+        return ChoreographySagaExecutor(store)
 
 
 class RedisIdempotencyStoreFactory(BasePluginFactory[RedisIdempotencyStore]):

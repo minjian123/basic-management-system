@@ -1,13 +1,18 @@
 契约快照档（重验证层）——开启于 2026-09-15（04-4 后重验证层就绪评估结论，P1）；2026-09-23 由单服务
-swagger.json 升级为**全服务公开契约快照**（阶段二 05_01 服务契约与同步调用）。
+swagger.json 升级为**全服务公开契约快照**（阶段二 05_01 服务契约与同步调用）；同日增**事件契约快照**
+（阶段二 05_04 事件契约与 Saga 基座）。
 管控 job：swagger-snapshot（`uv run python -m ops.contract_snapshot check` 零漂移门禁 +
-export 全服务 OpenAPI 快照到 deploy/contracts/*.json 并归档 30 天）。
+export 全服务 OpenAPI 快照到 deploy/contracts/*.json 并归档 30 天；`uv run python -m ops.event_contracts
+check` 事件契约注册表 / 兼容 / 零漂移门禁 + export deploy/events/contracts.json 一并归档）。
 
 口径：
 - 快照来源＝各启用服务（服务目录 SERVICE_CATALOG 中 service_key 非空且 status=enabled）的
   OpenAPI，经内存构建 ApplicationFactory().create(None).openapi()（不启 lifespan、不连库）。
 - OpenAPI info.version＝服务自报契约版本（CONTRACT_VERSION），与 sys_module.contract_version 同源。
 - check 断言：已提交快照与实时 OpenAPI 逐字节零漂移 + 契约版本一致 + 无缺件 / 无多余件。
+- 事件契约：平台默认事件契约（bms_core/events/platform_events.py）+ 订阅声明经
+  bms_core/events/contracts.py 校验（命名 / 事件域 / 版本 / 字段 / 订阅覆盖）与快照零漂移；
+  兼容规则为「字段只增不删、新增必须可选、破坏性变更升主版本」。
 - 破坏性变更（oasdiff「只加不删」、升主版本）门禁归 09_03（消费本 job 归档的快照）。
 
 删除本文件即关闭该档；分档语义与激活路线见 .gitlab-ci.yml 文件头注释与《项目骨架计划》§3.1。

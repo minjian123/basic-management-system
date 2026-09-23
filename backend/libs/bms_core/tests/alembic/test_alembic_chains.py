@@ -116,5 +116,5 @@ def test_chain_revisions_integrity() -> None:
     assert len(revisions) == len(set(revisions)), "revision 跨链重名"
 
     platform_head = ScriptDirectory.from_config(_config("platform")).get_current_head()
-    assert platform_head == "0003_sys_outbox"
-    assert ScriptDirectory.from_config(_config("tenant")).get_current_head() == "0002_sys_outbox"
+    assert platform_head == "0004_sys_outbox_event_version"
+    assert ScriptDirectory.from_config(_config("tenant")).get_current_head() == "0003_sys_outbox_event_version"

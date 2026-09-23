@@ -4,6 +4,7 @@
 - 离线校验：`ModuleRegistry.validate()`（清单四要素唯一与格式、分组 / 批次 / 版本 / 产品维度）。
 - 接库校验：`validate_catalog()`（启动 / CI 共用）——库内查重与格式 + 与清单双向对账 +
   运行服务登记行与契约版本主版本兼容（需求 03-2）。
+- `known_event_domains()`：已登记事件域集合（事件契约命名校验的域来源，需求 05-4）。
 """
 
 import re
@@ -279,6 +280,17 @@ PLATFORM_MODULES: tuple[ModuleRecord, ...] = tuple(
     module for key in _PLATFORM_DOMAIN_KEYS for module in SERVICE_CATALOG if module.module_key == key
 )
 """平台域模块视图（`sys` / `wf` / `rpt` / `ai`，保持既有引用兼容）。"""
+
+
+def known_event_domains() -> frozenset[str]:
+    """取服务目录已登记事件域集合（事件契约命名校验的域来源）。
+
+    事件名首段必须是本集合中的事件域（《命名规范》「事件总线/Webhook 事件」行口径）。
+
+    Returns:
+        frozenset[str]: 去重后的事件域集合。
+    """
+    return frozenset(record.event_domain for record in SERVICE_CATALOG)
 
 
 def _duplicates(values: list[str]) -> list[str]:

@@ -28,7 +28,7 @@ from bms_core.api.middleware import (
 from bms_core.cache.base import CacheRegion
 from bms_core.core.assembly import assemble_plugins, register_platform_plugins
 from bms_core.core.config import Settings, get_settings, validate_startup
-from bms_core.core.exceptions import CatalogError
+from bms_core.core.exceptions import CatalogError, EventContractError
 from bms_core.core.factory import BaseApplicationFactory, register_factory, resolve_factory
 from bms_core.core.id import IdGeneratorFactory
 from bms_core.core.logging import configure_logging, get_logger
@@ -41,10 +41,17 @@ from bms_core.db.health import PrimaryHealth
 from bms_core.db.registry import EngineRegistry, pool_budget_warnings, tenant_pool_budget_warnings
 from bms_core.db.session import SessionFactory, session_scope
 from bms_core.db.tenant_source import TenantSource
+from bms_core.events.contracts import default_event_contract_registry, validate_event_registry
 from bms_core.lock.base import BaseDistributedLock
 from bms_core.repositories.module_repository import ModuleRepository
 from bms_core.schemas.common import ApiResponse
-from bms_core.services.module_registry import SERVICE_CATALOG, ModuleRecord, ModuleRegistry, validate_catalog
+from bms_core.services.module_registry import (
+    SERVICE_CATALOG,
+    ModuleRecord,
+    ModuleRegistry,
+    known_event_domains,
+    validate_catalog,
+)
 
 __all__ = ["BaseServiceApplicationFactory", "service_lifespan"]
 
@@ -85,6 +92,18 @@ async def _validate_service_catalog(app: FastAPI) -> None:
         raise CatalogError("服务目录校验失败：" + "；".join(errors))
 
 
+def _validate_event_contracts() -> None:
+    """离线事件契约校验：登记契约与订阅（命名 / 事件域 / 版本 / 字段）违规即拒启。
+
+    Raises:
+        EventContractError: 契约或订阅校验失败（含事件域未登记、订阅未覆盖当前主版本）。
+    """
+    errors = validate_event_registry(default_event_contract_registry(), domains=known_event_domains())
+    if errors:
+        get_logger("bms").critical("event_contract_invalid", errors=errors)
+        raise EventContractError("事件契约校验失败：" + "；".join(errors))
+
+
 @asynccontextmanager
 async def service_lifespan(app: FastAPI) -> AsyncGenerator[None]:
     """服务生命周期：启动校验（离线 + 接库）+ 工厂 / 插件装配（完成后标记就绪），关闭时统一释放异步资源。
@@ -97,6 +116,7 @@ async def service_lifespan(app: FastAPI) -> AsyncGenerator[None]:
 
     Raises:
         CatalogError: 服务目录校验失败（离线清单冲突 / 接库冲突 / 库不可读）。
+        EventContractError: 事件契约或订阅校验失败。
         PluginError: 工厂 / 插件装配失败（非法 provider / 重名 / 契约版本不符 / 依赖不可用）。
     """
     settings = get_settings()
@@ -110,6 +130,7 @@ async def service_lifespan(app: FastAPI) -> AsyncGenerator[None]:
         if errors:
             get_logger("bms").critical("service_catalog_invalid", scope="offline", errors=errors)
             raise CatalogError("服务目录校验失败（清单）：" + "；".join(errors))
+        _validate_event_contracts()
         created = await ensure_development_schema(
             cast("EngineRegistry", app.state.engine_registry),
             settings,

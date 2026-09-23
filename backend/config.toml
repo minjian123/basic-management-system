@@ -134,6 +134,13 @@ options = {}
 [event]
 # 事件发布实现选择（插件化配置；空串解析到 null 占位实现；消费轨随阶段十 M10 集成消息可用）
 provider = ""
+# 签发契约校验模式：off 不校验 / warn 记录告警放行 / enforce 未登记即拒发（10010 / EventContractError）
+contract_mode = "enforce"
+options = {}
+
+[saga]
+# Saga 执行器实现选择（插件化配置；choreography = 协同式真实实现、空串解析到 null 占位，调用即抛 40001）
+provider = "choreography"
 options = {}
 
 [event_consumer]

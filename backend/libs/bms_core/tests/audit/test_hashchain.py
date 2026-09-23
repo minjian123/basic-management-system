@@ -10,7 +10,15 @@ from httpx import ASGITransport, AsyncClient
 from support_app import ApplicationFactory, lifespan
 
 from bms_core.api.deps import get_hash_chain
-from bms_core.audit.hashchain import GENESIS_HASH, HASH_ALGORITHM, BaseHashChain, ChainVerifyResult, HashChainEntry
+from bms_core.audit.hashchain import (
+    GENESIS_HASH,
+    GLOBAL_CHAIN_TENANT,
+    HASH_ALGORITHM,
+    BaseHashChain,
+    ChainVerifyResult,
+    HashChainEntry,
+    build_chain_key,
+)
 from bms_core.audit.null import NullHashChain
 from bms_core.core.base import BaseObject
 from bms_core.core.capability import BaseCapability, BaseNullObject
@@ -36,6 +44,16 @@ def test_constants() -> None:
     assert GENESIS_HASH == "0" * 64
     assert re.fullmatch(r"0{64}", GENESIS_HASH) is not None
     assert HASH_ALGORITHM == "sha256"
+
+
+@pytest.mark.kiwi_id(2175)
+def test_build_chain_key_partitions_by_service_and_tenant() -> None:
+    """链分条键：按 (service, tenant) 分条；无租户为平台级共享链。"""
+    assert GLOBAL_CHAIN_TENANT == "global"
+    assert build_chain_key(service="platform", tenant="demo") == "platform:demo"
+    assert build_chain_key(service="platform", tenant=None) == "platform:global"
+    assert build_chain_key(service="platform", tenant="demo") != build_chain_key(service="platform", tenant="acme")
+    assert build_chain_key(service="platform", tenant="demo") != build_chain_key(service="org", tenant="demo")
 
 
 @pytest.mark.kiwi_id(57)

@@ -236,6 +236,12 @@ def main() -> int:
         backend,
         failures,
     )
+    _run(
+        "契约：event_contracts check（事件契约零漂移 + 兼容）",
+        ["uv", "run", "python", "-m", "ops.event_contracts", "check", "--root", str(root)],
+        backend,
+        failures,
+    )
 
     print("\n================ preflight 结论 ================")
     if failures:
