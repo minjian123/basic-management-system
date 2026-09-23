@@ -1,13 +1,14 @@
 """读侧出口例外登记：白名单契约 + 加载 / 校验 / 匹配（仅标准库；静态校验与运行时守卫同源）。
 
-- `OwnershipException`：一条例外登记（消费方服务 / 目标表前缀 / 访问类型 / 出口 / 消费方 /
+- `OwnershipException`：一条例外登记（消费方服务 / 目标表名或前缀 / 访问类型 / 出口 / 消费方 /
   理由 / 替代方案评估 / 失效条件 / 登记日期）。
 - `load_exceptions`：载入白名单文件（缺文件返回空；结构非法抛 `ValueError`）。
-- `validate_exceptions`：语义校验（服务与前缀须在服务目录、`access` 只能为 `read`、出口枚举、
-  日期格式；`sys_` 为内建共享前缀不得重复登记）。
-- `exception_allows`：命中判定（仅 `access=read` 且操作 `read`）。
+- `validate_exceptions`：语义校验（服务须在服务目录、目标须为已登记表名或已知前缀、
+  `access` 只能为 `read`、出口枚举、日期格式）。
+- `exception_allows`：命中判定（目标按**表名或表前缀**匹配；仅 `access=read` 且操作 `read`）。
 
 口径：**写侧硬禁无例外**——`access` 只允许 `read`，越界写一律违规；例外须写清替代方案与失效条件。
+字段名 `target_prefix` 保留（06_03 起语义扩为「表名或表前缀」），避免白名单格式破坏。
 """
 
 import json
@@ -155,17 +156,17 @@ def load_exceptions(path: Path) -> tuple[OwnershipException, ...]:
 def validate_exceptions(
     entries: Iterable[OwnershipException],
     *,
+    known_tables: frozenset[str],
     known_prefixes: frozenset[str],
     known_services: frozenset[str],
-    shared_prefixes: frozenset[str],
 ) -> list[str]:
-    """语义校验例外登记（服务 / 前缀 / 出口 / 日期）。
+    """语义校验例外登记（服务 / 目标 / 出口 / 日期）。
 
     Args:
         entries: 例外条目。
-        known_prefixes: 服务目录登记前缀。
+        known_tables: 归属登记的表名集合（`target_prefix` 允许写具体表名）。
+        known_prefixes: 可作为目标的表前缀集合（服务目录前缀 ∪ 归属登记表前缀）。
         known_services: 服务目录登记标识。
-        shared_prefixes: 平台域共享前缀（不得重复登记）。
 
     Returns:
         list[str]: 违规明细（空列表表示通过）。
@@ -174,10 +175,8 @@ def validate_exceptions(
     for entry in entries:
         if entry.service not in known_services:
             problems.append(f"[例外登记] service 未在服务目录：{entry.service}")
-        if entry.target_prefix in shared_prefixes:
-            problems.append(f"[例外登记] target_prefix 为平台共享前缀、无需登记：{entry.target_prefix}")
-        elif entry.target_prefix not in known_prefixes:
-            problems.append(f"[例外登记] target_prefix 未在服务目录：{entry.target_prefix}")
+        if entry.target_prefix not in known_tables and entry.target_prefix not in known_prefixes:
+            problems.append(f"[例外登记] 目标既非已登记表名也非已知前缀：{entry.target_prefix}")
         if entry.exit not in EXCEPTION_EXITS:
             problems.append(f"[例外登记] exit 非法：{entry.exit}（允许 {'、'.join(EXCEPTION_EXITS)}）")
         if not _DATE_RE.fullmatch(entry.registered_at):
@@ -189,15 +188,15 @@ def exception_allows(
     entries: Iterable[OwnershipException],
     *,
     service: str,
-    prefix: str,
+    table: str,
     operation: str,
 ) -> bool:
-    """命中判定：服务 + 前缀匹配且访问类型与操作均为只读。
+    """命中判定：服务匹配且目标（表名或表前缀）匹配，访问类型与操作均为只读。
 
     Args:
         entries: 例外条目。
         service: 消费方服务标识。
-        prefix: 目标表前缀。
+        table: 被访问表名。
         operation: 操作归类（只读 `read` 可命中）。
 
     Returns:
@@ -205,7 +204,8 @@ def exception_allows(
     """
     if operation != EXCEPTION_ACCESS:
         return False
+    prefix = table.split("_", 1)[0] + "_" if "_" in table else table
     return any(
-        entry.service == service and entry.target_prefix == prefix and entry.access == EXCEPTION_ACCESS
+        entry.service == service and entry.access == EXCEPTION_ACCESS and entry.target_prefix in (table, prefix)
         for entry in entries
     )

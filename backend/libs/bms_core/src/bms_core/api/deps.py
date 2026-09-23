@@ -21,8 +21,7 @@ from bms_core.dashboard.base import get_dashboard_card_registry
 from bms_core.db.health import PrimaryHealth
 from bms_core.db.registry import EngineRegistry
 from bms_core.db.session import SessionFactory, get_db, get_platform_read_db, get_read_db, get_uow, get_write_db
-from bms_core.db.tenant import TenantContext, get_tenant
-from bms_core.db.tenant_source import TenantSource
+from bms_core.db.tenant import TenantContext, TenantLookup, get_tenant
 from bms_core.dict.base import get_dict_cache_region, get_dict_source, get_dict_translator
 from bms_core.dict.query import DictQueryService
 from bms_core.dict.service import DictService
@@ -186,16 +185,16 @@ def get_primary_health(request: Request) -> PrimaryHealth:
     return cast("PrimaryHealth", request.app.state.primary_health)
 
 
-def get_tenant_source(request: Request) -> TenantSource:
+def get_tenant_source(request: Request) -> TenantLookup:
     """取租户源（平台库注册记录取数 / 缓存失效；租户管理阶段写路径取用）。
 
     Args:
         request: 请求对象。
 
     Returns:
-        TenantSource: 应用装配的租户源实例。
+        TenantLookup: 应用装配的租户源实例（契约类型；实现按服务归属注册）。
     """
-    return cast("TenantSource", request.app.state.tenant_source)
+    return cast("TenantLookup", request.app.state.tenant_source)
 
 
 def current_code_of(tenant: TenantContext | None) -> str | None:

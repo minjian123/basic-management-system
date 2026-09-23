@@ -30,7 +30,7 @@ async def test_seed_tenant_idempotent(tmp_path: Path) -> None:
     try:
         from sqlalchemy import func, select
 
-        from bms_core.models.platform import SysTenant
+        from ops.seed_tenant import SysTenant  # 归属迁至租户服务：经运维脚本复用声明
 
         async with factory() as session:
             total = (await session.execute(select(func.count()).select_from(SysTenant))).scalar_one()

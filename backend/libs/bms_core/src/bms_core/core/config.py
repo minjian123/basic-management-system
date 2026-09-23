@@ -129,6 +129,8 @@ class TenantSettings(BaseSettings):
 
     resolve_cache_ttl: int = Field(default=60, ge=1)
     """租户解析缓存 TTL（秒；经缓存基座写入，命中即用）。"""
+    source: str = ""
+    """租户源实现（`local` / `remote`；空串 = 自动：租户服务用 `local`、其余服务用 `remote`）。"""
     engine_max_active: int = Field(default=32, ge=1)
     """租户引擎活跃上限（超出按 LRU 逐出最久未用租户引擎）。"""
     engine_idle_timeout: float = Field(default=1800.0, ge=0)

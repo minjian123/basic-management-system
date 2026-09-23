@@ -34,11 +34,10 @@ from sqlalchemy.engine import Dialect
 from sqlalchemy.orm import Session
 from sqlalchemy.schema import CreateTable
 
-from bms_core.models.platform import SysModule, SysTenant
+from bms_core.models.platform import SysModule
 from bms_platform.models.system import SysTask
 
 _SYS_MODULE_TABLE = cast("Table", SysModule.__table__)
-_SYS_TENANT_TABLE = cast("Table", SysTenant.__table__)
 
 _PROBE = Table(
     "type_probe",
@@ -162,10 +161,6 @@ def test_soft_delete_composite_unique_in_ddl(name: str) -> None:
 @pytest.mark.kiwi_id(1050)
 def test_index_naming_convention() -> None:
     """`index=True` 生成 `idx_{表}_{列}`；显式 `uq_*` 命名不变。"""
-    assert {index.name for index in _SYS_TENANT_TABLE.indexes} == {
-        "idx_sys_tenant_domain",
-        "idx_sys_tenant_deleted_at",
-    }
     assert {index.name for index in _SYS_MODULE_TABLE.indexes} == {"idx_sys_module_deleted_at"}
     constraints = {constraint.name for constraint in _SYS_MODULE_TABLE.constraints}
     assert "uq_sys_module_key_deleted_at" in constraints

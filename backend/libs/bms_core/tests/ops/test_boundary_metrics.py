@@ -37,7 +37,7 @@ def test_violation_counts_and_fail_flag(tmp_path: Path) -> None:
     service = tmp_path / "backend" / "services" / "org" / "src" / "bms_org"
     service.mkdir(parents=True)
     (service / "__init__.py").write_text("", encoding="utf-8")
-    (service / "repository.py").write_text('SQL = "select * from pur_order"\n', encoding="utf-8")
+    (service / "repository.py").write_text('SQL = "select * from sys_dict_type"\n', encoding="utf-8")
 
     result = boundary_metrics.run_static(tmp_path)
     assert result["counts"]["cross_service_access_violation"] >= 1

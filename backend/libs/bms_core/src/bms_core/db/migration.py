@@ -89,9 +89,11 @@ _DM = "dm"
 
 _MODEL_MODULES: tuple[str, ...] = (
     "bms_core.models.platform",
+    "bms_core.models.ownership",
     "bms_core.models.outbox",
     "bms_core.dict.models",
     "bms_core.listing.models",
+    "bms_tenant.models.tenant",
 )
 """模型模块清单（导入以注册元数据）。
 
