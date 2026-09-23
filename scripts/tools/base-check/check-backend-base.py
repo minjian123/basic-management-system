@@ -160,23 +160,76 @@ def _revision_fields(text: str) -> tuple[str | None, str | None, tuple[str, ...]
     return (rev.group(1) if rev else None), parent, labels
 
 
+DATASOURCES = ("platform", "tenant", "archive")
+"""合法数据源段（链名 `{service}:{datasource}` 的第二段）。"""
+
+DEFAULT_CHAIN_NAME = "platform:tenant"
+"""缺省链（配置段 `[alembic]` 指向它）。"""
+
+
+def _iter_chain_dirs() -> list[tuple[str, str, str]]:
+    """遍历版本目录 `versions/{service}/{datasource}/`（两级），返回（服务, 数据源, 目录）。
+
+    Returns:
+        list[tuple[str, str, str]]: 链目录清单（保序）。
+    """
+    found: list[tuple[str, str, str]] = []
+    for service in sorted(os.listdir(VERSIONS_DIR)):
+        if service.startswith(".") or service == "__pycache__":
+            continue
+        service_path = os.path.join(VERSIONS_DIR, service)
+        if os.path.isfile(service_path):
+            if service.endswith(".py"):
+                problems.append(
+                    f"[迁移链] {service} 位于版本根目录（迁移脚本须按 versions/<服务>/<数据源>/ 两级存放）"
+                )
+            continue
+        if not os.path.isdir(service_path):
+            continue
+        if service not in _known_services():
+            problems.append(f"[迁移链] 服务目录 {service} 不在服务目录登记内（服务标识须已登记）")
+        for datasource in sorted(os.listdir(service_path)):
+            if datasource.startswith(".") or datasource == "__pycache__":
+                continue
+            ds_path = os.path.join(service_path, datasource)
+            if os.path.isfile(ds_path):
+                if datasource.endswith(".py"):
+                    problems.append(f"[迁移链] {service}/{datasource} 位于服务目录（版本目录须为 {service}/<数据源>/）")
+                continue
+            if not os.path.isdir(ds_path):
+                continue
+            if datasource not in DATASOURCES:
+                problems.append(f"[迁移链] {service}/{datasource} 数据源段非法（允许 {' / '.join(DATASOURCES)}）")
+            found.append((service, datasource, ds_path))
+    return found
+
+
+def _known_services() -> set[str]:
+    """从服务目录常量静态提取已登记服务标识（不导入服务包）。
+
+    Returns:
+        set[str]: 服务标识集合（`service_key` ∪ 模块标识）。
+    """
+    path = os.path.join(ROOT, "backend/libs/bms_core/src/bms_core/services/module_registry.py")
+    if not os.path.isfile(path):
+        return set()
+    text = open(path, encoding="utf-8", errors="ignore").read()
+    keys = set(re.findall(r'service_key="([a-z0-9_-]+)"', text))
+    keys |= set(re.findall(r'module_key="([a-z0-9_-]+)"', text))
+    keys.add("permission")  # 预留服务标识（表归属登记）
+    return keys
+
+
 def check_alembic_chain() -> int:
-    """校验按数据源分链的迁移脚本（每链单 head / 无断链 / 分支标签与配置段一致）。"""
+    """校验按「服务 × 数据源」分链的迁移脚本（每链单 head / 无断链 / 分支标签与配置段一致）。"""
     if not os.path.isdir(VERSIONS_DIR):
         problems.append("[迁移链] 未找到 backend/alembic/versions/")
         return 0
     ini_path = os.path.join(ROOT, "backend/alembic.ini")
     ini_text = open(ini_path, encoding="utf-8", errors="ignore").read() if os.path.isfile(ini_path) else ""
     total = 0
-    seen: dict[str, str] = {}
-    for entry in sorted(os.listdir(VERSIONS_DIR)):
-        path = os.path.join(VERSIONS_DIR, entry)
-        if os.path.isfile(path) and entry.endswith(".py"):
-            problems.append(f"[迁移链] {entry} 位于版本根目录（迁移脚本须按数据源分链存放：versions/<链名>/）")
-            continue
-        if not os.path.isdir(path):
-            continue
-        chain = entry
+    for service, datasource, path in _iter_chain_dirs():
+        chain = f"{service}:{datasource}"
         revisions: dict[str, str | None] = {}
         labels: dict[str, tuple[str, ...]] = {}
         for name in sorted(os.listdir(path)):
@@ -187,9 +240,8 @@ def check_alembic_chain() -> int:
             if not rev:
                 problems.append(f"[迁移链] {chain}/{name} 缺少 revision 定义")
                 continue
-            if rev in seen:
-                problems.append(f"[迁移链] revision「{rev}」跨链重复（{seen[rev]} 与 {chain}）")
-            seen[rev] = chain
+            if rev in revisions:
+                problems.append(f"[迁移链] 链 {chain} 内 revision「{rev}」重复")
             revisions[rev] = parent
             labels[rev] = branch_labels
         if not revisions:
@@ -204,8 +256,9 @@ def check_alembic_chain() -> int:
                 problems.append(f"[迁移链] 链 {chain} 的链首 {rev} 须声明 branch_labels=(\"{chain}\",)")
             if parent is not None and labels[rev]:
                 problems.append(f"[迁移链] {chain}/{rev} 非链首不应声明 branch_labels")
-        if ini_text and f"[alembic:{chain}]" not in ini_text:
-            problems.append(f"[迁移链] 链 {chain} 未在 alembic.ini 登记配置段 [alembic:{chain}]")
+        section = "[alembic]" if chain == DEFAULT_CHAIN_NAME else f"[alembic:{chain}]"
+        if ini_text and section not in ini_text:
+            problems.append(f"[迁移链] 链 {chain} 未在 alembic.ini 登记配置段 {section}")
         total += len(revisions)
     if total == 0:
         print("  （迁移版本目录为空——迁移随后续阶段建立，跳过链检查）")
@@ -223,7 +276,13 @@ def self_test() -> int:
     with tempfile.TemporaryDirectory() as tmp:
         os.makedirs(os.path.join(tmp, "bms文档"), exist_ok=True)
         os.makedirs(os.path.join(tmp, "backend/libs/bms_core/src/bms_core/core"), exist_ok=True)
-        os.makedirs(os.path.join(tmp, "backend/alembic/versions/tenant"), exist_ok=True)
+        os.makedirs(os.path.join(tmp, "backend/libs/bms_core/src/bms_core/services"), exist_ok=True)
+        os.makedirs(os.path.join(tmp, "backend/alembic/versions/tenant/tenant"), exist_ok=True)
+        open(
+            os.path.join(tmp, "backend/libs/bms_core/src/bms_core/services/module_registry.py"),
+            "w",
+            encoding="utf-8",
+        ).write('SERVICE_CATALOG = (\n    dict(module_key="tenant", service_key="tenant"),\n)\n')
         open(os.path.join(tmp, "bms文档/后端基类清单.md"), "w", encoding="utf-8").write(
             "# 清单\n\n## 10. 继承链与代码位置\n\n- `BadChild → BaseObject`。\n\n## 11. 扩展\n"
         )
@@ -234,11 +293,13 @@ def self_test() -> int:
             'class ErrorCode:\n    OK = 10001\n'
         )
         open(os.path.join(tmp, "backend/alembic.ini"), "w", encoding="utf-8").write(
-            "[alembic]\nscript_location = x\n\n[alembic:tenant]\nversion_locations = y\n"
+            "[alembic]\nscript_location = x\n\n[alembic:tenant:tenant]\nversion_locations = y\n"
         )
-        open(os.path.join(tmp, "backend/alembic/versions/tenant/0001_demo.py"), "w", encoding="utf-8").write(
+        open(
+            os.path.join(tmp, "backend/alembic/versions/tenant/tenant/0001_demo.py"), "w", encoding="utf-8"
+        ).write(
             'revision: str = "0001_demo"\ndown_revision: str | None = None\n'
-            'branch_labels: tuple[str, ...] | None = ("tenant",)\n'
+            'branch_labels: tuple[str, ...] | None = ("tenant:tenant",)\n'
         )
 
         def run_case(name: str, expect_fail: bool) -> None:
@@ -279,8 +340,11 @@ def self_test() -> int:
         )
         run_case("迁移链分链合规", expect_fail=False)
         # 5) 同链双 head → 拦截
-        open(os.path.join(tmp, "backend/alembic/versions/tenant/0002_demo.py"), "w", encoding="utf-8").write(
-            'revision: str = "0002_demo"\ndown_revision: str | None = None\nbranch_labels: tuple[str, ...] | None = ("tenant",)\n'
+        open(
+            os.path.join(tmp, "backend/alembic/versions/tenant/tenant/0002_demo.py"), "w", encoding="utf-8"
+        ).write(
+            'revision: str = "0002_demo"\ndown_revision: str | None = None\n'
+            'branch_labels: tuple[str, ...] | None = ("tenant:tenant",)\n'
         )
         run_case("同链双 head", expect_fail=True)
     return 0 if ok else 1

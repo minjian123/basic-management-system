@@ -10,11 +10,13 @@ from collections.abc import Sequence
 from fastapi import APIRouter, FastAPI
 
 from bms_core.application import BaseServiceApplicationFactory
+from bms_core.catalog.loader import register_catalog_reader
 from bms_core.core.config import Settings
 from bms_platform import CONTRACT_VERSION, SERVICE_NAME, SERVICE_TITLE, __version__
 from bms_platform.api.router import api_router
 from bms_platform.repositories.demo_repository import DemoRepository
 from bms_platform.services.demo_service import DemoService
+from bms_platform.sources.catalog_source import read_catalog
 
 
 class ApplicationFactory(BaseServiceApplicationFactory):
@@ -35,7 +37,7 @@ class ApplicationFactory(BaseServiceApplicationFactory):
         return (api_router,)
 
     def configure_service(self, app: FastAPI, settings: Settings) -> None:
-        """注入平台专属 state（demo 服务）。
+        """注入平台专属 state（demo 服务）并登记本地权威读取器（服务目录）。
 
         Args:
             app: 应用实例。
@@ -43,3 +45,5 @@ class ApplicationFactory(BaseServiceApplicationFactory):
         """
         del settings
         app.state.demo_service = DemoService(DemoRepository())
+        # 服务目录权威本地读取器（本服务即 `sys_module` 所有者；共享基座库不静态依赖服务包）
+        register_catalog_reader(SERVICE_NAME, read_catalog)

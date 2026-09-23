@@ -13,7 +13,8 @@ uv run python -m ops.seed_module --dry-run
   按库键 `platform_platform` 解析：`sys_module` 归属平台服务，06_01 起平台服务库按服务拆分）；
 - 单一来源取 `SERVICE_CATALOG`（与启动 / CI 校验清单同源，避免漂移）；
 - 幂等：按 `module_key` + 未软删除判存——不存在插入、存在则更新本清单字段（服务维度 / 分组 / 批次 / 版本等）；
-- 建表分支兼容保留（Alembic 落库后由 `alembic -n alembic:platform upgrade head` 建表；SQLite 开发库由启动期自动建表）。
+- 建表分支兼容保留（Alembic 落库后由 `alembic -n alembic:platform:platform upgrade head` 建表；
+  SQLite 开发库由启动期自动建表）。
 """
 
 import argparse
@@ -25,8 +26,8 @@ from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from bms_core.db.keys import PLATFORM_SERVICE_KEY
-from bms_core.models.platform import SysModule
 from bms_core.services.module_registry import SERVICE_CATALOG, ModuleRecord
+from bms_platform.models.catalog import SysModule
 from ops.seed_tenant import resolve_url
 
 

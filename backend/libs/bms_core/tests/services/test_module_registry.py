@@ -8,7 +8,6 @@ from sqlalchemy import Engine, UniqueConstraint, create_engine
 from sqlalchemy.orm import Session
 
 from bms_core.models.base import Base
-from bms_core.models.platform import SysModule, SysModuleI18n
 from bms_core.services.module_registry import (
     PLATFORM_MODULES,
     SERVICE_CATALOG,
@@ -18,6 +17,7 @@ from bms_core.services.module_registry import (
     ServiceGroup,
     validate_catalog,
 )
+from bms_platform.models.catalog import SysModule, SysModuleI18n
 
 _BASE_RECORD = ModuleRecord(
     module_key="pur",

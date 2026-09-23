@@ -1,13 +1,14 @@
-"""事务性发件箱三表（平台链 0003，05_03）：sys_outbox + sys_event_consumed + sys_event_dead_letter。
+"""事务性发件箱三表（`tenant:tenant` 链首建，06_02 分链）。
 
-Revision ID: 0003_sys_outbox
-Revises: 0002_sys_module_catalog
+Revision ID: 0001_sys_outbox
+Revises:
 Create Date: 2026-09-23
 
-- 归属链：`platform`（平台库）；脚本四库通用，SQLite 经 `batch_alter_table` 兼容（本迁移只建表）；
-- 字段 / 索引口径与 ORM 模型（`bms_core/models/outbox.py`）逐项一致；
-- 三表为基础设施账本：唯一约束**不并入 `deleted_at`**（发件箱 / 幂等要求跨方言严格唯一）；
-- 租户链同构脚本见 `alembic/versions/tenant/0002_sys_outbox.py`；表集登记见 `db/migration.py`。
+- 归属链：`tenant:tenant`（`tenant` 服务 × 各租户的租户库 `bms_tenant_{tenant}`）；
+- 基础设施表（发件箱三表）**每服务自有**，各服务每条链各含三表；本脚本与
+  `platform:platform/0003_sys_outbox.py`、`tenant:platform/0002_sys_outbox.py` 内容同构，
+  仅 revision / 分支标签不同；
+- 字段 / 索引口径与 ORM 模型（`bms_core/models/outbox.py`）逐项一致。
 """
 
 from collections.abc import Sequence
@@ -16,9 +17,9 @@ import sqlalchemy as sa
 
 from alembic import op
 
-revision: str = "0003_sys_outbox"
-down_revision: str | None = "0002_sys_module_catalog"
-branch_labels: Sequence[str] | None = None
+revision: str = "0001_sys_outbox"
+down_revision: str | None = None
+branch_labels: Sequence[str] | None = ("tenant:tenant",)
 depends_on: Sequence[str] | None = None
 
 

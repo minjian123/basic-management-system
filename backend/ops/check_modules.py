@@ -26,13 +26,13 @@ from pathlib import Path
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from bms_core.core.version import contract_major
-from bms_core.repositories.module_repository import ModuleRepository
 from bms_core.services.module_registry import (
     SERVICE_CATALOG,
     ModuleRecord,
     ModuleRegistry,
     validate_catalog,
 )
+from bms_platform.repositories.module_repository import ModuleRepository
 
 _SERVICES_DIR = Path(__file__).resolve().parents[1] / "services"
 """服务工程根（`backend/services`）。"""

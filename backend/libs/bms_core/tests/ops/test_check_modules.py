@@ -12,8 +12,8 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 import ops.check_modules as check_modules
 import ops.seed_module as seed_module
-from bms_core.models.platform import SysModule
 from bms_core.services.module_registry import SERVICE_CATALOG, ModuleRecord
+from bms_platform.models.catalog import SysModule
 
 
 @pytest.mark.kiwi_id(28)

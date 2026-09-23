@@ -57,11 +57,11 @@ def _diff(url: str, metadata: object) -> list[object]:
 
 
 @pytest.mark.kiwi_id(1078)
-@pytest.mark.parametrize("chain_name", ["platform", "tenant"])
+@pytest.mark.parametrize("chain_name", ["platform:platform", "platform:tenant"])
 def test_chain_migration_matches_metadata(chain_name: str, tmp_path: Path) -> None:
     """每条链迁移后的库结构与链元数据子集零漂移（表 / 列 / 索引 / 唯一约束）。"""
     assert has_revisions(resolve_chain(chain_name)) is True
-    path = tmp_path / f"{chain_name}.db"
+    path = tmp_path / f"{chain_name.replace(':', '_')}.db"
     _upgrade(chain_name, f"sqlite+aiosqlite:///{path}")
     assert _diff(f"sqlite:///{path}", chain_metadata(resolve_chain(chain_name))) == []
 
@@ -70,7 +70,7 @@ def test_chain_migration_matches_metadata(chain_name: str, tmp_path: Path) -> No
 def test_unmigrated_tables_report_diff(tmp_path: Path) -> None:
     """反例：用含未迁移表的元数据对比租户链迁移库 → 差异非空（证明比对有效）。"""
     path = tmp_path / "tenant.db"
-    _upgrade("tenant", f"sqlite+aiosqlite:///{path}")
+    _upgrade("platform:tenant", f"sqlite+aiosqlite:///{path}")
     probe = MetaData()
     Table("drift_probe", probe, Column("id", Integer, primary_key=True))
     diff = _diff(f"sqlite:///{path}", probe)

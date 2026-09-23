@@ -17,7 +17,8 @@ uv run python -m ops.init_tenant --code acme \
   经 `url_template` 解析（配置 `database.tenants.*`）；
 - **单服务单租户**：只建/迁本任务指定的一个服务租户库；按「服务 × 租户」批量建库见 `ops/provision_tenant.py`；
 - **建库**：`app/db/admin.py`（MySQL / PG 建库、SQLite 建文件、达梦建模式；**幂等**，已存在跳过）；
-- **迁移**：Alembic 租户链 `upgrade head`（与 `ops/migrate_tenants.py` 同源；`alembic_version` 已最新则跳过）；
+- **迁移**：本服务的租户链 `{service}:tenant` `upgrade head`（与 `ops/migrate_tenants.py` 同源；
+  `alembic_version` 已最新则跳过）；
 - **种子**：字典种子（`app/dict/seed.py` 幂等；输出新增行数）；
 - `--dry-run` 仅打印计划（连接串脱敏），不建连、不建库；
 - 平台侧租户注册（`sys_tenant` 行）由 `ops/seed_tenant.py` 或租户管理阶段开通流程负责（本脚本只管库侧三步）。
@@ -34,9 +35,17 @@ from sqlalchemy.pool import NullPool
 
 from bms_core.core.base import BaseObject
 from bms_core.core.config import get_settings
+from bms_core.core.exceptions import ConfigError
 from bms_core.db.admin import DatabaseTarget, create_database, resolve_target
 from bms_core.db.engine import EngineFactory
-from bms_core.db.migration import current_revision, head_revision, resolve_chain, upgrade_chain
+from bms_core.db.migration import (
+    DATASOURCE_TENANT,
+    build_chain_name,
+    current_revision,
+    head_revision,
+    resolve_chain,
+    upgrade_chain,
+)
 from bms_core.db.tenant import build_tenant_db_key
 from bms_core.dict.seed import seed_dicts
 
@@ -131,7 +140,10 @@ async def run(args: argparse.Namespace) -> InitResult:
     Returns:
         InitResult: 初始化结果。
     """
-    tenant_chain = resolve_chain("tenant")
+    service = args.service or get_settings().app.service
+    if not service:
+        raise ConfigError("需 `--service` 或 `[app].service` 指定服务（分链需服务段：{service}:tenant）")
+    tenant_chain = resolve_chain(build_chain_name(service, DATASOURCE_TENANT))
     url = _resolve_url(args.code, args.url, args.service)
     target: DatabaseTarget = resolve_target(url, admin_url=args.admin_url)
     print(f"[init_tenant] 租户 {args.code} | 目标 {target.describe()} | {_masked(url)}")
@@ -168,15 +180,22 @@ def main(argv: Sequence[str] | None = None) -> int:
         int: 退出码。
     """
     args = build_parser().parse_args(argv)
-    if args.dry_run:
-        url = _resolve_url(args.code, args.url, args.service)
-        target = resolve_target(url, admin_url=args.admin_url)
-        service = args.service or get_settings().app.service
-        key = build_tenant_db_key(args.code, service=service or None)
-        print(f"[init_tenant] 租户 {args.code} | 库键 {key} | 目标 {_masked(url)}")
-        print(f"[init_tenant] 计划：建库（{target.describe()}）→ 迁移（tenant 链）→ 幂等种子（dry-run）")
-        return 0
-    asyncio.run(run(args))
+    try:
+        if args.dry_run:
+            service = args.service or get_settings().app.service
+            if not service:
+                raise ConfigError("需 `--service` 或 `[app].service` 指定服务（分链需服务段：{service}:tenant）")
+            url = _resolve_url(args.code, args.url, args.service)
+            target = resolve_target(url, admin_url=args.admin_url)
+            key = build_tenant_db_key(args.code, service=service)
+            print(f"[init_tenant] 租户 {args.code} | 库键 {key} | 目标 {_masked(url)}")
+            chain_name = build_chain_name(service, DATASOURCE_TENANT)
+            print(f"[init_tenant] 计划：建库（{target.describe()}）→ 迁移（{chain_name} 链）→ 幂等种子（dry-run）")
+            return 0
+        asyncio.run(run(args))
+    except ConfigError as exc:
+        print(f"[init_tenant] 失败：{exc}")
+        return 1
     return 0
 
 

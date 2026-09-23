@@ -1,10 +1,11 @@
-"""字典与查询方案表（租户链首个迁移，02-4-27）：字典六表 + 查询方案表。
+"""字典与查询方案表（`platform:tenant` 链首个迁移，02-4-27）：字典六表 + 查询方案表。
 
 Revision ID: 0001_dict_query_scheme
 Revises:
 Create Date: 2026-09-21
 
-- 归属链：`tenant`（租户库）；脚本按数据源分目录，`branch_labels` 取链名；
+- 归属链：`platform:tenant`（`platform` 服务 × 各租户的租户库 `bms_platform_{tenant}`）；脚本按
+  `{服务}/{数据源}` 分目录，`branch_labels` 取链名；
 - 字段 / 索引口径与 ORM 模型（`app/dict/models.py` / `app/listing/models.py`）逐项一致；
 - 公共字段对齐 `BaseModel`（雪花 ID / 审计 / 软删除 / 乐观锁）；
 - 四库兼容：不使用方言专用类型（`sa.JSON()` 由 SQLAlchemy 按方言映射；达梦差异随阶段二实测）；
@@ -20,7 +21,7 @@ from alembic import op
 
 revision: str = "0001_dict_query_scheme"
 down_revision: str | None = None
-branch_labels: Sequence[str] | None = ("tenant",)
+branch_labels: Sequence[str] | None = ("platform:tenant",)
 depends_on: Sequence[str] | None = None
 
 

@@ -182,8 +182,8 @@ async def test_sqlite_objects_full_flow(tmp_path: Path) -> None:
     assert await migrate("mysql", "platform", url=platform_url) is False
     assert await migrate("mysql", "tenant", url=tenant_url) is True
 
-    assert _revisions(tmp_path / "platform.db") == [head_revision(resolve_chain("platform"))]
-    assert _revisions(tmp_path / "tenant.db") == [head_revision(resolve_chain("tenant"))]
+    assert _revisions(tmp_path / "platform.db") == [head_revision(resolve_chain("platform:platform"))]
+    assert _revisions(tmp_path / "tenant.db") == [head_revision(resolve_chain("platform:tenant"))]
 
     assert await drop("mysql", "platform", url=platform_url) is True
     assert await drop("mysql", "platform", url=platform_url) is False

@@ -87,8 +87,8 @@ ADMIN_USER: dict[str, str] = {"mysql": "root", "postgres": "postgres", "dm8": "S
 ADMIN_DATABASE: dict[str, str | None] = {"mysql": None, "postgres": "postgres", "dm8": None}
 """管理连接默认库（MySQL 不带库名、PostgreSQL 用 `postgres` 库、达梦回落目标连接串）。"""
 
-CHAIN_BY_SCOPE: dict[str, str] = {"platform": "platform", "tenant": "tenant"}
-"""对象 → 迁移链（平台对象跑平台链、租户对象跑租户链，单库单链）。"""
+CHAIN_BY_SCOPE: dict[str, str] = {"platform": "platform:platform", "tenant": "platform:tenant"}
+"""对象 → 迁移链（06_02 分链：平台对象跑 `platform` 服务的平台服务库链、租户对象跑其租户库链）。"""
 
 FLOW_STEPS: tuple[str, ...] = ("建库", "迁移", "集成用例", "删库清理")
 """流程步骤（建库 → 迁移 → 集成用例 → 删库清理；job 内独立、互不污染）。"""

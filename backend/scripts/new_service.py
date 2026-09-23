@@ -151,7 +151,11 @@ _LAYER_INIT = {
     "models": '''"""{title}服务 models 层：SQLAlchemy ORM 模型。
 
 继承约定：ORM 模型必须继承 `bms_core.models.BaseModel`。
+迁移链按服务解析模型：本服务模型模块须列入本清单（见 `bms_core/db/migration.py` 的 `MODEL_MODULES`）。
 """
+
+MODEL_MODULES: tuple[str, ...] = ()
+"""本服务模型模块清单（迁移链按服务解析模型用；无模型时为空元组）。"""
 ''',
     "schemas": '''"""{title}服务 schemas 层：Pydantic 请求 / 响应模型。
 
