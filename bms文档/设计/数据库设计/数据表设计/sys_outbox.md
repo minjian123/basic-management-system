@@ -12,7 +12,7 @@
 | 覆盖模块 | 05-服务间通信与一致性（事务性 Outbox / 事件账本） |
 | 上游依据 | 《架构设计 · 事件总线》「生产一致性」节、《架构设计 · 服务间通信与分布式一致性》「事务性 Outbox」节、《架构设计 · 核心交互时序》「跨服务调用与 Outbox 发布」节、[需求 05-3](../../../项目/02_后端基座与服务化地基/需求/05_需求_服务间通信与一致性.md#r05-3) |
 | ORM 模型 | `bms_core/models/outbox.py::SysOutbox`（继承 `BaseModel`） |
-| 状态 | 已落库（平台链 `0003_sys_outbox` / 租户链 `0002_sys_outbox`，2026-09-23） |
+| 状态 | 已落库（平台链 `0003_sys_outbox` / `0004_sys_outbox_event_version`、租户链 `0002_sys_outbox` / `0003_sys_outbox_event_version`，2026-09-23） |
 | 相关节点 | [数据库设计总览](../01_数据库设计_总览.md)「已设计数据表登记」、[架构 16-事件总线](../../架构设计/16_架构设计_子系统_事件总线.md)、[架构 37-服务间通信与分布式一致性](../../架构设计/37_架构设计_子系统_服务间通信与一致性.md)、[sys_event_consumed](sys_event_consumed.md)、[sys_event_dead_letter](sys_event_dead_letter.md) |
 
 ## 2. 字段 <a id="fields"></a>
@@ -23,7 +23,8 @@
 | --- | --- | --- | --- | --- |
 | `id` | BIGINT | 否 | 主键，雪花 ID | 主键 |
 | `event_id` | VARCHAR(64) | 否 | 唯一（`uq_sys_outbox_event_id`） | 事件 ID（幂等键；应用侧生成雪花 ID 字符串） |
-| `event_type` | VARCHAR(128) | 否 | — | 事件类型（`{域}.{对象}.{动作}`） |
+| `event_type` | VARCHAR(128) | 否 | — | 事件类型（`{域}.{对象}.{动作}`，首段为已登记事件域） |
+| `event_version` | VARCHAR(16) | 否 | 默认 `1.0.0` | 事件契约版本（`X.Y.Z`；签发缺省按登记契约补齐、投递保真） |
 | `aggregate_key` | VARCHAR(128) | 是 | `idx_sys_outbox_aggregate` | 聚合 / 分区键（同聚合按序投递；空 = 独立事件） |
 | `tenant_id` | VARCHAR(64) | 是 | — | 租户标识 |
 | `payload` | JSON | 否 | — | 事件负载（事件信封 payload） |
@@ -51,12 +52,13 @@
 
 - **分片**：不分片（一库一表；每服务 / 每租户库各自持有）。
 - **归档**：暂不归档（保留期内作事件账本可重放）；过期 `delivered` 记录清理随任务调度阶段（登记开放项）。
-- **迁移**：随**平台链** `alembic/versions/platform/0003_sys_outbox.py` 与**租户链** `alembic/versions/tenant/0002_sys_outbox.py` 落地（2026-09-23；一套方言无关脚本、四库通用）；命令 `alembic -n alembic:platform upgrade head` / `alembic -n alembic:tenant upgrade head`；SQLite 开发库由启动期自动建表覆盖。表集登记见 `bms_core/db/migration.py`（`PLATFORM_TABLES` / `TENANT_TABLES`）。
+- **迁移**：随**平台链** `alembic/versions/platform/0003_sys_outbox.py` 与**租户链** `alembic/versions/tenant/0002_sys_outbox.py` 落地（2026-09-23；一套方言无关脚本、四库通用）；`event_version` 列随**平台链** `0004_sys_outbox_event_version.py` 与**租户链** `0003_sys_outbox_event_version.py` 补列（05_04，2026-09-23；存量行补默认 `1.0.0`，降级经 `batch_alter_table` 兼容 SQLite）；命令 `alembic -n alembic:platform upgrade head` / `alembic -n alembic:tenant upgrade head`；SQLite 开发库由启动期自动建表覆盖。表集登记见 `bms_core/db/migration.py`（`PLATFORM_TABLES` / `TENANT_TABLES`）。
 
 ## 5. 变更记录 <a id="revlog"></a>
 
 | 日期 | 版本 | 变更 | 作者 |
 | --- | --- | --- | --- |
 | 2026-09-23 | v1 | 新建表结构（平台链 + 租户链双落；事务性发件箱，随 05_03 迁移落地） | minjian |
+| 2026-09-23 | v2 | 增 `event_version` 列（事件契约版本；平台链 0004 / 租户链 0003 补列，随 05_04 落地） | minjian |
 
 > 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套
