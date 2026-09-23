@@ -1,0 +1,21 @@
+#
+# BMS 边缘网关（Apache APISIX）standalone 启动配置。
+#
+# 模式：文件驱动 standalone —— `deployment.role=data_plane` + `config_provider=yaml`；
+#   路由 / 上游落 conf/apisix.yaml（由服务目录生成，见 deploy/gateway/apisix.yaml），
+#   APISIX 每 1 秒轮询文件变化并热更新内存（不重启进程、不引入 etcd / Admin API）。
+#
+# 迁移：K8s 阶段同语义换由 Ingress Controller / Gateway API CRD 承载（见 04_01 详细设计 4.6）。
+#
+apisix:
+  # 容器内 HTTP 监听端口（宿主映射端口见 deploy/compose/gateway.yml 的 GATEWAY_APISIX_PORT）
+  node_listen: 9080
+
+deployment:
+  role: data_plane
+  role_data_plane:
+    config_provider: yaml
+
+nginx_config:
+  # 错误日志级别（信息足够且不刷屏）
+  error_log_level: warn

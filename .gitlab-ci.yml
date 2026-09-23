@@ -116,6 +116,8 @@ base-integrity:
     - python scripts/tools/base-check/check-service-boundaries.py --self-test
     # 项目文档状态一致性（需求 / 任务 / 计划三处；规则见《任务文档规范》§7 与 04-3 详细设计 §5）
     - python scripts/tools/check-docs/check-status.py
+    # 网关声明式配置零漂移（服务目录 SERVICE_CATALOG → deploy/gateway/apisix.yaml；《04-1 详细设计》§4.7）
+    - python backend/ops/gateway_config.py check
 
 # ---- 后端：ruff + pytest（SQLite）----
 backend-lint:
