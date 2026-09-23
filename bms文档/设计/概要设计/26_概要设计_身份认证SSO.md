@@ -13,7 +13,7 @@
 身份认证（SSO）模块提供外部身份集成：租户外部 IdP 配置（OIDC/CAS/企业微信/钉钉）、SSO 首次登录 JIT 自动建号、BMS 兼作 IdP（OIDC Provider）、本地账号密码登录并存（超管应急通道）。认证基座为 authlib。
 
 - **职责边界**：只负责外部身份集成与映射；token 签发、[会话管理](14_概要设计_会话管理.md)、密码策略由认证与会话子系统统一承载（本模块复用其结果）
-- **与相邻模块协作**：[租户管理](25_概要设计_租户管理.md)（IdP 配置存租户库、开通种子默认占位）、[用户管理](03_概要设计_用户管理.md)（SSO 身份绑定查看、JIT 建号落 sys_user）、多租户路由（sys_user_identity 定位租户）、事件总线（sso.user.jit_created）
+- **与相邻模块协作**：[租户管理](25_概要设计_租户管理.md)（IdP 配置存租户库、开通种子默认占位）、[用户管理](03_概要设计_用户管理.md)（SSO 身份绑定查看、JIT 建号落 sys_user）、多租户路由（sys_user_identity 定位租户）、事件总线（identity.user.jit_created）
 
 ## 2. 功能分解与业务流程 <a id="functions"></a>
 
@@ -39,7 +39,7 @@
 
 ### 2.3 业务流程
 
-1. SSO 登录：登录页选择 IdP 入口 → 跳转外部 IdP → 认证回跳（授权码）→ 校验 → sys_user_identity 定位租户与用户 → 无则 JIT 建号 → 签发 BMS 双 token → 落 sso.user.jit_created 事件（首登）
+1. SSO 登录：登录页选择 IdP 入口 → 跳转外部 IdP → 认证回跳（授权码）→ 校验 → sys_user_identity 定位租户与用户 → 无则 JIT 建号 → 签发 BMS 双 token → 落 identity.user.jit_created 事件（首登）
 2. 第三方接入 BMS：第三方系统注册客户端（sys_client）→ 授权码流程 → BMS 签发自身 token → 第三方以 BMS 用户体系登录
 3. **异常分支**：IdP 故障/超时 → 明确错误提示并引导本地登录（应急通道）；回跳 state 不匹配/校验失败 → 拒绝并记录登录失败日志；JIT 建号并发冲突 → 唯一约束拦截，重试后命中既有映射
 
@@ -64,12 +64,12 @@ sequenceDiagram
     Note over BMS: 外部 IdP 认证通过后：无映射则 JIT 建号 → 签发双 token（access 30 分钟 + refresh 14 天）
     BMS-->>登录页: 登录成功
     登录页-->>用户: 登录成功
-    BMS->>MQ: sso.user.jit_created 事件（Webhook 可订阅）
+    BMS->>MQ: identity.user.jit_created 事件（Webhook 可订阅）
 ```
 
 - **与多租户路由协作**：sys_user_identity 为【平台库】全局映射（idp_key + external_id → tenant_id + user_id），登录时定位租户后路由到对应租户库
 - **与会话管理协作**：SSO 登录同样签发 BMS 双 token（access 30 分钟 + refresh 14 天滚动轮换），会话记录与 Redis 标记照常
-- **与事件总线协作**：sso.user.jit_created 事件（Webhook 可订阅）
+- **与事件总线协作**：identity.user.jit_created 事件（Webhook 可订阅）
 
 ## 4. 数据模型与表设计 <a id="data"></a>
 
@@ -112,7 +112,7 @@ sequenceDiagram
 
 | 事件 | 触发时机 | 载荷 | Webhook 订阅 |
 | --- | --- | --- | --- |
-| sso.user.jit_created | SSO 首登自动建号 | user_id、idp_key | 是 |
+| identity.user.jit_created | SSO 首登自动建号 | user_id、idp_key | 是 |
 
 ## 6. 权限与配置 <a id="permission"></a>
 
@@ -175,6 +175,6 @@ idp / sso 业务与 manage / bind 动作码由【平台库】sys_business/sys_ac
 - 本地登录应急通道验证：IdP 故障场景下本地账号可登录
 - 企业微信/钉钉免登复用同一外部身份框架（移动端免登 E2E）
 - 租户开通默认 IdP 占位配置存在（对应「初始化数据」）
-- sso.user.jit_created 事件经 Webhook 推送成功；登录失败日志完整
+- identity.user.jit_created 事件经 Webhook 推送成功；登录失败日志完整
 
 > 概要设计节点 · 与《项目规划说明》《架构设计》《文档生成规范》《命名规范》配套
