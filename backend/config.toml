@@ -172,3 +172,9 @@ require_gateway_identity = false
 exempt_paths = ["/", "/docs", "/redoc", "/openapi.json", "/healthz", "/readyz"]
 # 非敏感选项（gateway_identity = 网关专属标记头期望值，缺省取基座常量 bms-edge；密钥一律经环境变量注入）
 options = {}
+
+[service_client]
+# 服务间同步调用实现选择（插件化配置；http = httpx 真实实现、空串 = null 占位不外呼）
+provider = ""
+# 非敏感选项（base_url_template = 目标基址模板，占位 {service}；缺省 Compose DNS http://{service}:8000）
+options = {}

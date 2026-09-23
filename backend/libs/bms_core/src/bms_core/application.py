@@ -180,7 +180,7 @@ class BaseServiceApplicationFactory(BaseApplicationFactory):
         self.prepare_settings(settings)
         configure_logging(settings)
 
-        app = FastAPI(title=self.service_title, version=self.version, lifespan=service_lifespan)
+        app = FastAPI(title=self.service_title, version=self.contract_version, lifespan=service_lifespan)
 
         # 服务运行时：解析服务身份（包声明 + 配置覆盖）→ 绑定日志上下文 → 落 app.state（含停机摘流）
         attach_service(

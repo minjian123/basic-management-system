@@ -1,0 +1,697 @@
+{
+  "components": {
+    "schemas": {
+      "ApiResponse": {},
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "PrintBatchRequest": {
+        "description": "批量打印请求：`{template_key, keys, mode?, options?}`。",
+        "properties": {
+          "keys": {
+            "description": "单据键集合（至少一条）",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Keys",
+            "type": "array"
+          },
+          "mode": {
+            "default": "separate",
+            "description": "批量模式（separate 逐份 / merged 合并）",
+            "title": "Mode",
+            "type": "string"
+          },
+          "options": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PrintOptionsPayload"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "渲染选项（缺省取平台缺省）"
+          },
+          "template_key": {
+            "description": "打印模板键",
+            "minLength": 1,
+            "title": "Template Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "template_key",
+          "keys"
+        ],
+        "title": "PrintBatchRequest",
+        "type": "object"
+      },
+      "PrintDocumentPayload": {
+        "description": "单据数据（单据键 + 主表字段 + 明细行）。",
+        "properties": {
+          "biz_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "单据键（产物 key / 文件名派生用）",
+            "title": "Biz Key"
+          },
+          "fields": {
+            "additionalProperties": true,
+            "description": "主表字段",
+            "title": "Fields",
+            "type": "object"
+          },
+          "rows": {
+            "description": "明细行",
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Rows",
+            "type": "array"
+          }
+        },
+        "title": "PrintDocumentPayload",
+        "type": "object"
+      },
+      "PrintExportRequest": {
+        "description": "单条导出 PDF 请求：`{template_key, document, options?}`。",
+        "properties": {
+          "document": {
+            "$ref": "#/components/schemas/PrintDocumentPayload",
+            "description": "单据数据"
+          },
+          "options": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PrintOptionsPayload"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "渲染选项（缺省取平台缺省）"
+          },
+          "template_key": {
+            "description": "打印模板键",
+            "minLength": 1,
+            "title": "Template Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "template_key",
+          "document"
+        ],
+        "title": "PrintExportRequest",
+        "type": "object"
+      },
+      "PrintOptionsPayload": {
+        "description": "渲染选项（纸张 / 方向 / 色调 / 水印 / 打印人）。",
+        "properties": {
+          "orientation": {
+            "default": "portrait",
+            "description": "纸张方向（portrait 纵向 / landscape 横向）",
+            "title": "Orientation",
+            "type": "string"
+          },
+          "paper": {
+            "default": "A4",
+            "description": "纸张（A4 / A5 / custom）",
+            "title": "Paper",
+            "type": "string"
+          },
+          "printed_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "打印人",
+            "title": "Printed By"
+          },
+          "tone": {
+            "default": "color",
+            "description": "打印色调（color 彩色 / mono 黑白）",
+            "title": "Tone",
+            "type": "string"
+          },
+          "watermark": {
+            "default": "",
+            "description": "水印文案",
+            "title": "Watermark",
+            "type": "string"
+          }
+        },
+        "title": "PrintOptionsPayload",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "title": "BMS 报表打印服务",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/": {
+      "get": {
+        "description": "应用信息。\n\nReturns:\n    ApiResponse: {code, message, data:{name, version}}。",
+        "operationId": "root__get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Root"
+      }
+    },
+    "/api/v1/prints/batch": {
+      "post": {
+        "description": "批量打印多单据（可按幂等键复用首次结果）。\n\nArgs:\n    exporter: 打印导出基座。\n    idempotency: 幂等基座（首次结果复用）。\n    tenant: 解析链租户上下文（幂等键作用域位）。\n    req: 批量请求（模板键 / 单据键集合 / 批量模式 / 渲染选项）。\n    idempotency_key: 幂等键请求头（可选）。\n\nReturns:\n    ApiResponse: 统一响应，data 为批量结果（`PrintBatchResponse`）。",
+        "operationId": "batch_print_api_v1_prints_batch_post",
+        "parameters": [
+          {
+            "description": "幂等键（可选；重复导出 / 批量复用首次结果）",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "幂等键（可选；重复导出 / 批量复用首次结果）",
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrintBatchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Batch Print",
+        "tags": [
+          "print"
+        ]
+      }
+    },
+    "/api/v1/prints/exports": {
+      "post": {
+        "description": "导出单条单据 PDF（可按幂等键复用首次结果）。\n\nArgs:\n    exporter: 打印导出基座。\n    idempotency: 幂等基座（首次结果复用）。\n    tenant: 解析链租户上下文（幂等键作用域位）。\n    req: 导出请求（模板键 / 单据数据 / 渲染选项）。\n    idempotency_key: 幂等键请求头（可选）。\n\nReturns:\n    ApiResponse: 统一响应，data 为导出产物（`PrintExportResponse`）。",
+        "operationId": "export_pdf_api_v1_prints_exports_post",
+        "parameters": [
+          {
+            "description": "幂等键（可选；重复导出 / 批量复用首次结果）",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "幂等键（可选；重复导出 / 批量复用首次结果）",
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrintExportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Export Pdf",
+        "tags": [
+          "print"
+        ]
+      }
+    },
+    "/api/v1/prints/templates": {
+      "get": {
+        "description": "取打印模板清单（可按单据类型过滤）。\n\nArgs:\n    provider: 打印模板来源基座。\n    biz_type: 单据类型查询参数（可选）。\n\nReturns:\n    ApiResponse: 统一响应，data 为模板清单（`PrintTemplateListResponse`）。",
+        "operationId": "list_templates_api_v1_prints_templates_get",
+        "parameters": [
+          {
+            "description": "单据类型（缺省全部）",
+            "in": "query",
+            "name": "biz_type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "单据类型（缺省全部）",
+              "title": "Biz Type"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "List Templates",
+        "tags": [
+          "print"
+        ]
+      }
+    },
+    "/api/v1/prints/templates/{template_key}": {
+      "get": {
+        "description": "取单模板定义（变量清单）。\n\nArgs:\n    provider: 打印模板来源基座。\n    template_key: 打印模板键。\n\nReturns:\n    ApiResponse: 统一响应，data 为模板定义（`PrintTemplateInfoResponse`）。",
+        "operationId": "get_template_api_v1_prints_templates__template_key__get",
+        "parameters": [
+          {
+            "description": "打印模板键",
+            "in": "path",
+            "name": "template_key",
+            "required": true,
+            "schema": {
+              "description": "打印模板键",
+              "title": "Template Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Get Template",
+        "tags": [
+          "print"
+        ]
+      }
+    },
+    "/healthz": {
+      "get": {
+        "description": "存活检查端点。\n\nArgs:\n    request: 当前请求（取服务身份）。\n\nReturns:\n    dict: 服务状态与身份，固定返回 {\"status\": \"ok\", \"service\": 名, \"version\": 版}。",
+        "operationId": "healthz_healthz_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Healthz Healthz Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Healthz"
+      }
+    },
+    "/readyz": {
+      "get": {
+        "description": "就绪检查端点（启动完成态 + 停机摘流 + 注册表聚合）。\n\nArgs:\n    request: 当前请求（取应用启动完成态 / 停机摘流标记 / 服务身份）。\n    registry: 健康检查项注册表（依赖注入）。\n\nReturns:\n    JSONResponse: 全部就绪 200；未就绪、启动未完成或停机中 503。",
+        "operationId": "readyz_readyz_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Readyz"
+      }
+    }
+  }
+}

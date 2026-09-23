@@ -79,6 +79,7 @@ _EXPECTED_PLUGIN_KEYS = frozenset(
         "replay_guard",
         "scope_checker",
         "search_index",
+        "service_client",
         "session_store",
         "sharding",
         "task",
