@@ -1,8 +1,8 @@
 """公共依赖汇总：数据访问、租户解析与各能力域基座提供者。
 
-掩码 / 权限 / 锁 / 认证 / 故障应对 / 可观测 / 探针 / 开放接口 / 存储 / 分片上传 / LLM / 检索 / 通知 /
-推送 / 出站 / 工作流 / 归档 / 身份源 / 会话 / 查询 / 导入导出 / 打印导出 / 审计链 / 字段类型 / 国际化 /
-工作台等各能力域基座提供者统一从本模块导出，业务路由按需导入，避免分散引用。
+掩码 / 权限 / 锁 / 认证 / 边缘信任 / 故障应对 / 可观测 / 探针 / 开放接口 / 存储 / 分片上传 / LLM / 检索 /
+通知 / 推送 / 出站 / 工作流 / 归档 / 身份源 / 会话 / 查询 / 导入导出 / 打印导出 / 审计链 / 字段类型 /
+国际化 / 工作台等各能力域基座提供者统一从本模块导出，业务路由按需导入，避免分散引用。
 """
 
 from typing import cast
@@ -26,6 +26,7 @@ from bms_core.db.tenant_source import TenantSource
 from bms_core.dict.base import get_dict_cache_region, get_dict_source, get_dict_translator
 from bms_core.dict.query import DictQueryService
 from bms_core.dict.service import DictService
+from bms_core.edge.base import get_edge_trust, require_edge_identity
 from bms_core.events.base import get_event_publisher
 from bms_core.fallback.base import get_fallback_policy
 from bms_core.fieldtype.base import get_field_type_registry
@@ -86,6 +87,7 @@ __all__ = [
     "get_dict_source",
     "get_dict_translator",
     "get_distributed_lock",
+    "get_edge_trust",
     "get_event_publisher",
     "get_exporter",
     "get_fallback_policy",
@@ -135,6 +137,7 @@ __all__ = [
     "get_webhook_sender",
     "get_workflow_engine",
     "get_write_db",
+    "require_edge_identity",
 ]
 
 

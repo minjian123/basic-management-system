@@ -85,14 +85,44 @@ def test_route_plugins_hook_merges(monkeypatch: pytest.MonkeyPatch) -> None:
 
 @pytest.mark.kiwi_id(2165)
 def test_render_apisix_yaml_is_valid_and_ends_with_marker() -> None:
-    """生成件以 #END 结尾、可被 YAML 解析、结构含 upstreams / routes。"""
+    """生成件以 #END 结尾、可被 YAML 解析、结构含 upstreams / routes / global_rules。"""
     text = gc.render_apisix_yaml()
     assert text.endswith("#END\n")
     data = yaml.safe_load(text)
-    assert set(data) == {"upstreams", "routes"}
+    assert set(data) == {"upstreams", "routes", "global_rules"}
     assert len(data["upstreams"]) == len(_EXPECTED_SERVICES)
     assert len(data["routes"]) == len(_EXPECTED_SERVICES)
     assert data["routes"][0]["upstream_id"] == "platform"
+
+
+@pytest.mark.kiwi_id(2166)
+def test_render_global_rules_strips_identity_headers() -> None:
+    """全局净化规则：剥除客户端伪造身份头（含网关标记头）；标记置入归路由级。"""
+    rules = gc.render_global_rules()
+    assert len(rules) == 1
+    rule = rules[0]
+    assert rule["id"] == "edge-sanitize"
+    plugin = cast("dict[str, Any]", cast("dict[str, Any]", rule["plugins"])["proxy-rewrite"])
+    headers = cast("dict[str, Any]", plugin["headers"])
+    assert "set" not in headers
+    removed = cast("list[str]", headers["remove"])
+    for name in ("X-User-Id", "X-Tenant-Id", "X-User-Scopes", "X-Service-Identity", "X-Gateway-Identity"):
+        assert name in removed
+
+
+@pytest.mark.kiwi_id(2166)
+def test_route_headers_inject_marker_and_reserved_hook(monkeypatch: pytest.MonkeyPatch) -> None:
+    """路由级注入：默认置网关专属标记；`ROUTE_HEADERS_SET` 登记后按服务合并身份头。"""
+    default_rewrite = cast("dict[str, Any]", cast("dict[str, Any]", gc.render_routes()[0]["plugins"])["proxy-rewrite"])
+    assert default_rewrite["headers"] == {"set": {gc.GATEWAY_IDENTITY_HEADER: gc.GATEWAY_IDENTITY_VALUE}}
+    monkeypatch.setitem(gc.ROUTE_HEADERS_SET, "platform", {"X-User-Id": "$jwt_claim_sub"})
+    by_id = {route["id"]: route for route in gc.render_routes()}
+    rewrite = cast("dict[str, Any]", cast("dict[str, Any]", by_id["route-platform"]["plugins"])["proxy-rewrite"])
+    assert rewrite["headers"] == {
+        "set": {gc.GATEWAY_IDENTITY_HEADER: gc.GATEWAY_IDENTITY_VALUE, "X-User-Id": "$jwt_claim_sub"}
+    }
+    other = cast("dict[str, Any]", cast("dict[str, Any]", by_id["route-identity"]["plugins"])["proxy-rewrite"])
+    assert other["headers"] == {"set": {gc.GATEWAY_IDENTITY_HEADER: gc.GATEWAY_IDENTITY_VALUE}}
 
 
 @pytest.mark.kiwi_id(2165)

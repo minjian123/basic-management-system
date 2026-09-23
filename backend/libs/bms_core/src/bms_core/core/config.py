@@ -244,6 +244,16 @@ class PluginSelection(BaseSettings):
     """非敏感选项（键位由各实现解读；密钥不入配置 / 不入日志）。"""
 
 
+class EdgeSettings(PluginSelection):
+    """边缘信任与请求净化配置（`[edge]`；在能力选择之外追加旁路开关与豁免路径）。"""
+
+    require_gateway_identity: bool = False
+    """旁路防护开关：true 时非豁免路径缺网关注入身份即拒（dev/test 关，prod 开）。"""
+
+    exempt_paths: list[str] = Field(default_factory=list)
+    """旁路拒绝 / 租户净化豁免路径（精确匹配；空取基座缺省集）。"""
+
+
 def _config_dir() -> Path:
     """配置目录（默认 backend/ 根；测试可 monkeypatch）。
 
@@ -369,6 +379,7 @@ class Settings(PydanticBaseSettings, BaseSettings):  # pyright: ignore[reportInc
     dict_source: PluginSelection = Field(default_factory=PluginSelection)
     dict_translator: PluginSelection = Field(default_factory=PluginSelection)
     distributed_lock: PluginSelection = Field(default_factory=PluginSelection)
+    edge: EdgeSettings = Field(default_factory=EdgeSettings)
     event: PluginSelection = Field(default_factory=PluginSelection)
     event_consumer: PluginSelection = Field(default_factory=PluginSelection)
     exporter: PluginSelection = Field(default_factory=PluginSelection)

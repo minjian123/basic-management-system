@@ -50,6 +50,9 @@ routes:
         regex_uri:
           - '^/api/platform/v1(.*)$'
           - '/api/v1$1'
+        headers:
+          set:
+            X-Gateway-Identity: bms-edge
   - id: route-identity
     uris:
       - '/api/identity/v1'
@@ -60,6 +63,9 @@ routes:
         regex_uri:
           - '^/api/identity/v1(.*)$'
           - '/api/v1$1'
+        headers:
+          set:
+            X-Gateway-Identity: bms-edge
   - id: route-tenant
     uris:
       - '/api/tenant/v1'
@@ -70,6 +76,9 @@ routes:
         regex_uri:
           - '^/api/tenant/v1(.*)$'
           - '/api/v1$1'
+        headers:
+          set:
+            X-Gateway-Identity: bms-edge
   - id: route-org
     uris:
       - '/api/org/v1'
@@ -80,6 +89,9 @@ routes:
         regex_uri:
           - '^/api/org/v1(.*)$'
           - '/api/v1$1'
+        headers:
+          set:
+            X-Gateway-Identity: bms-edge
   - id: route-file
     uris:
       - '/api/file/v1'
@@ -90,6 +102,9 @@ routes:
         regex_uri:
           - '^/api/file/v1(.*)$'
           - '/api/v1$1'
+        headers:
+          set:
+            X-Gateway-Identity: bms-edge
   - id: route-notification
     uris:
       - '/api/notification/v1'
@@ -100,6 +115,9 @@ routes:
         regex_uri:
           - '^/api/notification/v1(.*)$'
           - '/api/v1$1'
+        headers:
+          set:
+            X-Gateway-Identity: bms-edge
   - id: route-search
     uris:
       - '/api/search/v1'
@@ -110,6 +128,9 @@ routes:
         regex_uri:
           - '^/api/search/v1(.*)$'
           - '/api/v1$1'
+        headers:
+          set:
+            X-Gateway-Identity: bms-edge
   - id: route-ai
     uris:
       - '/api/ai/v1'
@@ -120,6 +141,9 @@ routes:
         regex_uri:
           - '^/api/ai/v1(.*)$'
           - '/api/v1$1'
+        headers:
+          set:
+            X-Gateway-Identity: bms-edge
   - id: route-report
     uris:
       - '/api/report/v1'
@@ -130,4 +154,18 @@ routes:
         regex_uri:
           - '^/api/report/v1(.*)$'
           - '/api/v1$1'
+        headers:
+          set:
+            X-Gateway-Identity: bms-edge
+global_rules:
+  - id: edge-sanitize
+    plugins:
+      proxy-rewrite:
+        headers:
+          remove:
+            - X-Gateway-Identity
+            - X-User-Id
+            - X-Tenant-Id
+            - X-User-Scopes
+            - X-Service-Identity
 #END
