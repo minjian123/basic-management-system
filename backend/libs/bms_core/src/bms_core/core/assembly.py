@@ -49,6 +49,7 @@ from bms_core.db.registry import EngineRegistry
 from bms_core.db.session import SessionFactory
 from bms_core.dict.base import BaseDictSource, BaseDictTranslator, DictCacheRegion
 from bms_core.dict.cache import MemoryDictCacheRegion, RedisDictCacheRegion
+from bms_core.dict.http import HttpDictSource, HttpDictTranslator
 from bms_core.dict.providers import BuiltinDictQueryProvider
 from bms_core.dict.sql import SqlDictSource, SqlDictTranslator
 from bms_core.edge.base import BaseEdgeTrust
@@ -298,6 +299,9 @@ def register_platform_plugins(settings: Settings, app: FastAPI, resources: Resou
     register_plugin("dict_cache_region", "redis", RedisDictCacheRegionFactory(settings))
     register_plugin("dict_source", "sql", SqlDictSourceFactory(app))
     register_plugin("dict_translator", "sql", SqlDictTranslatorFactory(app))
+    # 跨服务读出口（06_02）：非 platform 服务经公开契约读平台服务字典接口（权威侧仍为 platform）
+    register_plugin("dict_source", "http", HttpDictSourceFactory(app))
+    register_plugin("dict_translator", "http", HttpDictTranslatorFactory(app))
     register_plugin("query_scheme_store", "sql", SqlQuerySchemeStoreFactory(app))
     register_plugin("field_type_registry", "local", LocalFieldTypeRegistryFactory())
     register_plugin("query_provider_registry", "local", LocalQueryProviderRegistryFactory(app))
@@ -934,6 +938,79 @@ class SqlDictSourceFactory(BasePluginFactory[SqlDictSource]):
         engines = cast("EngineRegistry", self._app.state.engine_registry)
         cache = cast("DictCacheRegion | None", getattr(self._app.state, "dict_cache_region", None))
         return SqlDictSource(engines=engines, cache=cache)
+
+
+class HttpDictSourceFactory(BasePluginFactory[HttpDictSource]):
+    """字典跨服务取数工厂（06_02）：注入服务间调用客户端（读平台服务字典接口）。"""
+
+    plugin_key: str = "dict_source"
+    plugin_name: str = "http"
+
+    def __init__(self, app: FastAPI) -> None:
+        """初始化。
+
+        Args:
+            app: 应用实例（取配置以解析服务间调用客户端）。
+        """
+        self._app = app
+
+    def create(self, options: None = None) -> HttpDictSource:
+        """构造跨服务取数实例。
+
+        Args:
+            options: 未使用（零参口径）。
+
+        Returns:
+            HttpDictSource: 取数实例。
+        """
+        return HttpDictSource(client=_resolve_service_client(self._app))
+
+
+class HttpDictTranslatorFactory(BasePluginFactory[HttpDictTranslator]):
+    """字典跨服务翻译工厂（06_02）：注入服务间调用客户端与已装配字典缓存域。"""
+
+    plugin_key: str = "dict_translator"
+    plugin_name: str = "http"
+
+    def __init__(self, app: FastAPI) -> None:
+        """初始化。
+
+        Args:
+            app: 应用实例（取服务间调用客户端与 `dict_cache_region`）。
+        """
+        self._app = app
+
+    def create(self, options: None = None) -> HttpDictTranslator:
+        """构造跨服务翻译实例。
+
+        Args:
+            options: 未使用（零参口径）。
+
+        Returns:
+            HttpDictTranslator: 翻译实例。
+        """
+        cache = cast("DictCacheRegion | None", getattr(self._app.state, "dict_cache_region", None))
+        return HttpDictTranslator(client=_resolve_service_client(self._app), cache=cache)
+
+
+def _resolve_service_client(app: FastAPI) -> BaseServiceClient:
+    """解析已装配的服务间调用客户端（跨服务读出口依赖）。
+
+    Args:
+        app: 应用实例（取装配配置）。
+
+    Returns:
+        BaseServiceClient: 服务间调用客户端。
+    """
+    settings = cast("Settings", app.state.settings)
+    return cast(
+        "BaseServiceClient",
+        resolve_plugin(
+            "service_client",
+            settings.service_client.provider,
+            expected_version=BaseServiceClient.contract_version,
+        ),
+    )
 
 
 class SqlDictTranslatorFactory(BasePluginFactory[SqlDictTranslator]):
