@@ -30,7 +30,7 @@
 
 ### 2.2 业务规则 <a id="functions-rules"></a>
 
-- 订阅匹配：事件命名 {域}.{动作}（如 user.updated、wf.task.completed、purchase.order.created、notice.published），Webhook 订阅按**事件名精确匹配**；一个订阅可注册多个事件。
+- 订阅匹配：事件命名 {域}.{动作}（如 sys.user.updated、wf.task.completed、pur.apply.submitted、sys.notice.published），Webhook 订阅按**事件名精确匹配**；一个订阅可注册多个事件。
 - 推送时序：业务模块发布事件（事务消息保证原子一致）→ 事件总线按订阅匹配 → Webhook 推送组并行推送，推送不阻塞业务主链路。
 - 签名校验：推送请求体以 secret 计算 HMAC-SHA256 摘要，放入签名头（sha256(secret, body)），外部系统据此验签确认来源可信。
 - 重试策略：推送失败按**指数退避**自动重试（有限次），记录 retry_count 与 next_retry_at；重试耗尽标记失败，页面可手动重试；连续失败达阈值（fail_count）可自动停用订阅并告警。
@@ -115,7 +115,7 @@ sequenceDiagram
 
 ### 5.3 发布事件 <a id="api-events"></a>
 
-本模块消费事件而非生产事件。可订阅事件清单见《项目规划说明》事件模型表，Webhook 订阅=「是」的默认清单包括：user.created/user.updated/user.deleted、user.password_reset、wf.process.deployed、wf.instance.started、wf.task.completed、wf.instance.rejected、wf.instance.finished、purchase.apply.submitted、purchase.order.created、payment.receipt.confirmed、payment.payment.approved、payment.payment.executed、payment.refund.completed、notice.published、tenant.created/tenant.suspended/tenant.activated、sso.user.jit_created；开发期可按需扩展。
+本模块消费事件而非生产事件。可订阅事件清单见《项目规划说明》事件模型表，Webhook 订阅=「是」的默认清单包括：sys.user.created/sys.user.updated/sys.user.deleted、sys.user.password_reset、wf.process.deployed、wf.instance.started、wf.task.completed、wf.instance.rejected、wf.instance.finished、purchase.apply.submitted、purchase.order.created、payment.receipt.confirmed、payment.payment.approved、payment.payment.executed、payment.refund.completed、sys.notice.published、tenant.created/tenant.suspended/tenant.activated、identity.user.jit_created；开发期可按需扩展。
 
 ## 6. 权限与配置 <a id="permission"></a>
 
