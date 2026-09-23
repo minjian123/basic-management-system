@@ -41,6 +41,7 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from bms_core.core.config import Settings
 from bms_core.db.engine import PLATFORM_DB_KEY, EngineFactory
+from bms_core.db.migration import resolve_chain
 from bms_core.db.registry import EngineRegistry
 from bms_core.db.session import session_scope
 
@@ -112,11 +113,13 @@ async def test_dm8_schema_prefix_and_identifier_case(registry: EngineRegistry) -
         names = await asyncio.to_thread(_table_names, engine)
         # 连接落在模式段指定的模式内（URL 的 database 段 → dmPython `schema` 连接参数），
         # 故反射结果即该模式的对象，且迁移未写「模式名.表名」前缀
-        assert {"sys_tenant", "sys_module", "sys_module_i18n", "alembic_version"} <= names, sorted(names)
+        # 表集按 06_02 分链口径取自平台链（`platform:platform`：sys_module / 发件箱 / 归属登记）
+        expected = set(resolve_chain("platform:platform").tables) | {"alembic_version"}
+        assert expected <= names, sorted(names)
 
         async with session_scope(registry, db_key=PLATFORM_DB_KEY) as session:
             # 小写书写经数据库折叠（未加引号标识符）可用
-            assert (await session.execute(text("SELECT COUNT(*) FROM sys_tenant"))).scalar_one() >= 0
+            assert (await session.execute(text("SELECT COUNT(*) FROM sys_module"))).scalar_one() >= 0
             schema_rows = (
                 await session.execute(
                     text("SELECT NAME FROM SYS.SYSOBJECTS WHERE TYPE$ = 'SCH' AND NAME = :name"),
@@ -135,7 +138,7 @@ async def test_dm8_schema_prefix_and_identifier_case(registry: EngineRegistry) -
             )
         assert [str(row[0]) for row in schema_rows] == [_SCHEMA]
         catalog_names = {str(name) for name in catalog_rows}
-        assert "SYS_TENANT" in catalog_names
+        assert "SYS_MODULE" in catalog_names
         assert all(name == name.upper() for name in catalog_names)
     finally:
         engine.dispose()

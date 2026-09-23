@@ -28,18 +28,24 @@ import asyncio
 import re
 from collections.abc import Sequence
 from pathlib import Path
+from typing import cast
 
-from sqlalchemy import select
+from sqlalchemy import Table, select
+from sqlalchemy import create_engine as create_sync_engine
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.orm import Session
+from sqlalchemy.pool import NullPool
 
 from bms_core.db.migration import (
     COMMON_MODEL_MODULES,
     DATASOURCES,
     VERSIONS_ROOT,
+    apply_session_schema,
     import_models,
     resolve_chain,
     service_model_modules,
 )
+from bms_core.db.sync import is_sync_only_url
 from bms_core.models.base import Base
 from bms_core.models.ownership import SysTableOwnership
 from bms_core.services.module_registry import enabled_service_keys
@@ -66,6 +72,7 @@ def build_parser() -> argparse.ArgumentParser:
     """
     parser = argparse.ArgumentParser(description="表归属登记校验（离线断言 + 可选接库对账）")
     parser.add_argument("--url", default="", help="平台服务库连接串（给定后追加接库对账；迁移 + 种子后执行）")
+    parser.add_argument("--schema", default="", help="目标模式名（达梦等同步方言必填，如 BMS_TEST_DM）")
     return parser
 
 
@@ -86,8 +93,12 @@ def imported_model_tables() -> set[str]:
     tables: set[str] = set()
     for mapper in Base.registry.mappers:
         module = str(getattr(mapper.class_, "__module__", ""))
-        if module in declared and mapper.local_table is not None:
-            tables.add(str(mapper.local_table.name))
+        if module not in declared:
+            continue
+        local = cast("Table | None", mapper.local_table)
+        if local is None:
+            continue
+        tables.add(str(local.name))
     return tables
 
 
@@ -151,15 +162,43 @@ def _check_script_tables(versions_root: Path) -> list[str]:
     return errors
 
 
-async def _read_ownership(url: str) -> list[TableRecord]:
-    """只读读取平台服务库表归属登记（未软删行）。
+def _read_ownership_sync(url: str, schema: str) -> list[TableRecord]:
+    """同步方言（达梦）只读读取归属登记（阻塞驱动走线程池）。
 
     Args:
         url: 平台服务库连接串。
+        schema: 目标模式名（达梦）。
 
     Returns:
         list[TableRecord]: 归属登记记录列表。
     """
+    engine = create_sync_engine(url, poolclass=NullPool, isolation_level="AUTOCOMMIT")
+    try:
+        with engine.connect() as connection:
+            apply_session_schema(connection, schema)
+            session = Session(bind=connection)
+            try:
+                statement = select(SysTableOwnership).where(SysTableOwnership.deleted_at.is_(None))
+                rows = session.execute(statement).scalars().all()
+                return [TableRecord.from_row(row) for row in rows]
+            finally:
+                session.close()
+    finally:
+        engine.dispose()
+
+
+async def _read_ownership(url: str, schema: str = "") -> list[TableRecord]:
+    """只读读取平台服务库表归属登记（未软删行）。
+
+    Args:
+        url: 平台服务库连接串。
+        schema: 目标模式名（达梦；同步方言必填）。
+
+    Returns:
+        list[TableRecord]: 归属登记记录列表。
+    """
+    if is_sync_only_url(url):
+        return await asyncio.to_thread(_read_ownership_sync, url, schema)
     engine = create_async_engine(url)
     factory: async_sessionmaker[AsyncSession] = async_sessionmaker(engine, expire_on_commit=False)
     try:
@@ -171,17 +210,18 @@ async def _read_ownership(url: str) -> list[TableRecord]:
         await engine.dispose()
 
 
-def check_table_db(url: str) -> list[str]:
+def check_table_db(url: str, *, schema: str = "") -> list[str]:
     """接库校验：读库查重与格式 + 与清单双向对账（空库判失败）。
 
     Args:
         url: 平台服务库连接串（迁移 + 种子后）。
+        schema: 目标模式名（达梦；同步方言必填）。
 
     Returns:
         list[str]: 冲突 / 非法明细（含库不可读）。
     """
     try:
-        records = asyncio.run(_read_ownership(url))
+        records = asyncio.run(_read_ownership(url, schema))
     except Exception as exc:
         return [f"表归属登记库不可读（请先执行平台服务链迁移）：{exc}"]
     if not records:
@@ -201,7 +241,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     errors = check_offline()
     if args.url:
-        errors.extend(check_table_db(args.url))
+        errors.extend(check_table_db(args.url, schema=args.schema))
     if errors:
         for error in errors:
             print(f"[表归属] {error}")

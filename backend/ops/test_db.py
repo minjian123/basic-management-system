@@ -23,7 +23,10 @@ uv run python -m ops.test_db drop    --engine mysql --execute
 - **幂等**：建库 / 建模式命中已存在即跳过；迁移 `alembic_version` 已为链 head 即「已是最新」；
   删库 / 删模式目标不存在即跳过。
 - **凭据**：一律不写入日志（仅以脱敏连接串展示）；测试密码经 `--password` 或
-  `MYSQL_TEST_PASSWORD` / `POSTGRES_TEST_PASSWORD` / `DM8_TEST_PASSWORD` 注入。
+  `MYSQL_TEST_PASSWORD` / `POSTGRES_TEST_PASSWORD` / `DM8_TEST_PASSWORD` 注入；**达梦无独立测试账号**
+  （连接用户即 `SYSDBA`），故其 URL / `--password` 须用实例 SYSDBA 密码（`DM8_SYSDBA_PASSWORD`，
+  06_02 真库演练实测：用 `DM8_TEST_PASSWORD` 会报 `-2501 用户名或密码错误`），且 `--schema` 或
+  URL 的 `database` 段即目标模式。
 - 调用一律用**模块方式**（`uv run python -m ops.test_db`）：直接 `python ops/test_db.py` 时
   `sys.path[0]` 为脚本目录，脚本内引用 `bms_core.*` / `bms_platform.*` 会 `ModuleNotFoundError`
   （与 `ops/check_modules.py` 同一坑，04_01 已实测）。

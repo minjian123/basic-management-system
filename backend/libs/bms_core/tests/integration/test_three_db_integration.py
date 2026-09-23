@@ -200,21 +200,26 @@ async def test_multi_datasource_routing(dialect: str, urls: tuple[str, str], reg
 
 
 async def test_migration_head_and_tables(dialect: str, urls: tuple[str, str], registry: EngineRegistry) -> None:
-    """迁移结果：平台 / 租户对象分别处于各自链 head，且各自链表可查询（表集取自链注册）。"""
+    """迁移结果：平台 / 租户对象分别处于「platform 服务」两条链 head，且各自链表可查询（表集取自链注册）。
+
+    对象与链的对应（06_02 分链口径）：平台对象 = `platform:platform`、租户对象 = `platform:tenant`
+    （链名 `{service}:{datasource}`；`platform` 服务的租户库承载字典 / 查询方案等租户数据）。
+    """
     platform_url, tenant_url = urls
-    assert await current_revision(platform_url) == head_revision(resolve_chain("platform"))
-    assert await current_revision(tenant_url) == head_revision(resolve_chain("tenant"))
-    for table in sorted(resolve_chain("platform").tables):
+    assert await current_revision(platform_url) == head_revision(resolve_chain("platform:platform"))
+    assert await current_revision(tenant_url) == head_revision(resolve_chain("platform:tenant"))
+    for table in sorted(resolve_chain("platform:platform").tables):
         assert await _can_select(registry, PLATFORM_DB_KEY, table) is True, table
-    for table in sorted(resolve_chain("tenant").tables):
+    for table in sorted(resolve_chain("platform:tenant").tables):
         assert await _can_select(registry, _TENANT_DB_KEY, table) is True, table
 
 
 async def test_tenant_isolation(dialect: str, urls: tuple[str, str], registry: EngineRegistry) -> None:
-    """租户隔离：平台对象与租户对象为不同物理对象——各自链表互不可见。"""
-    assert await _can_select(registry, PLATFORM_DB_KEY, "sys_tenant") is True
+    """租户隔离：平台对象与租户对象为不同物理对象——各自链表互不可见（表归属按 06_02 分链口径）。"""
+    assert await _can_select(registry, PLATFORM_DB_KEY, "sys_module") is True
     assert await _can_select(registry, _TENANT_DB_KEY, "sys_dict_type") is True
     assert await _can_select(registry, PLATFORM_DB_KEY, "sys_dict_type") is False
+    assert await _can_select(registry, _TENANT_DB_KEY, "sys_module") is False
     assert await _can_select(registry, _TENANT_DB_KEY, "sys_tenant") is False
 
 

@@ -50,7 +50,12 @@ def upgrade() -> None:
         sa.Column("module_key", sa.String(length=32), nullable=False, comment="模块简称（如 pur、sys）"),
         sa.Column("name", sa.String(length=128), nullable=False, comment="模块名（默认文案）"),
         sa.Column("table_prefix", sa.String(length=32), nullable=False, comment="表前缀（形如 pur_）"),
-        sa.Column("errcode_segment", sa.String(length=8), nullable=False, comment="错误码段号（平台保留 01~09）"),
+        sa.Column(
+            "errcode_segment",
+            sa.String(length=8),
+            nullable=True,
+            comment="错误码段号（产品 10 起；平台域 01~04；可空——唯一性由启动 / CI 校验，规避达梦多 NULL 差异）",
+        ),
         sa.Column("event_domain", sa.String(length=64), nullable=False, comment="事件域（全小写）"),
         sa.Column("status", sa.String(length=16), nullable=False, comment="状态（enabled/disabled/planned）"),
         sa.UniqueConstraint("module_key", "deleted_at", name="uq_sys_module_key_deleted_at"),
