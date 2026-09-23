@@ -264,6 +264,28 @@ class DataOwnershipSettings(PluginSelection):
     """读侧出口例外白名单文件（相对仓库根；缺文件视为空集）。"""
 
 
+class OutboxSettings(PluginSelection):
+    """发件箱投递器配置（`[outbox]`；在能力选择之外追加轮询与重试参数）。"""
+
+    enabled: bool = False
+    """后台轮询开关（真实投递器仍可经依赖注入 / CLI 手动调用）。"""
+
+    poll_interval_seconds: float = Field(default=5.0, gt=0)
+    """后台轮询间隔（秒）。"""
+
+    batch_size: int = Field(default=100, ge=1)
+    """单轮单库取待投递上限。"""
+
+    max_retries: int = Field(default=5, ge=1)
+    """转死信前的最大重试次数。"""
+
+    retry_backoff_seconds: float = Field(default=1.0, ge=0)
+    """指数退避基数（秒）：`backoff × 2^(retry_count-1)`。"""
+
+    db_keys: list[str] = Field(default_factory=list)
+    """后台轮询库键；空 = 平台库 + 引擎注册表活跃租户库键。"""
+
+
 def _config_dir() -> Path:
     """配置目录（默认 backend/ 根；测试可 monkeypatch）。
 
@@ -414,6 +436,8 @@ class Settings(PydanticBaseSettings, BaseSettings):  # pyright: ignore[reportInc
     oauth_server: PluginSelection = Field(default_factory=PluginSelection)
     org_data_source: PluginSelection = Field(default_factory=PluginSelection)
     org_name_resolver: PluginSelection = Field(default_factory=PluginSelection)
+    outbox: OutboxSettings = Field(default_factory=OutboxSettings)
+    outbox_store: PluginSelection = Field(default_factory=PluginSelection)
     password_policy: PluginSelection = Field(default_factory=PluginSelection)
     permission: PluginSelection = Field(default_factory=PluginSelection)
     preference: PluginSelection = Field(default_factory=PluginSelection)

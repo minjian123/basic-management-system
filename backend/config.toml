@@ -186,3 +186,24 @@ provider = "table"
 mode = "warn"
 # 非敏感选项（exceptions_file = 读侧出口例外白名单，相对仓库根；空选项取缺省路径）
 options = {}
+
+[outbox_store]
+# 发件箱存储实现选择（插件化配置；sql = SQLAlchemy 真实存储、空串 = null 占位不落库）
+provider = "sql"
+options = {}
+
+[outbox]
+# 投递器实现选择（插件化配置；poll = 轮询投递、空串 = null 占位不投递）
+provider = "poll"
+# 后台轮询开关（生产按需开启；真实投递器仍可经 CLI / 依赖注入手动调用）
+enabled = false
+# 后台轮询间隔（秒）
+poll_interval_seconds = 5.0
+# 单轮单库取待投递上限
+batch_size = 100
+# 转死信前的最大重试次数
+max_retries = 5
+# 指数退避基数（秒）
+retry_backoff_seconds = 1.0
+# 后台轮询库键（空 = 平台库 + 引擎注册表活跃租户库键）
+db_keys = []

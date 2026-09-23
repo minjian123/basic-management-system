@@ -3632,6 +3632,477 @@
         ]
       }
     },
+    "/api/v1/outbox/dead-letters": {
+      "get": {
+        "description": "死信列表（只读，分页 + 筛选，按主键倒序）。\n\nArgs:\n    session: 请求数据库会话。\n    store: 发件箱存储。\n    query: 分页请求（page / size）。\n    status: 处置状态筛选；缺省全部。\n    source: 来源筛选；缺省全部。\n\nReturns:\n    ApiResponse: 统一响应，data 为分页结构 `{list, total, page, size}`。",
+        "operationId": "list_dead_letters_api_v1_outbox_dead_letters_get",
+        "parameters": [
+          {
+            "description": "处置状态筛选（pending / replayed / ignored）；缺省全部",
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "处置状态筛选（pending / replayed / ignored）；缺省全部",
+              "title": "Status"
+            }
+          },
+          {
+            "description": "来源筛选（outbox / consumer）；缺省全部",
+            "in": "query",
+            "name": "source",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "来源筛选（outbox / consumer）；缺省全部",
+              "title": "Source"
+            }
+          },
+          {
+            "description": "页码（从 1 起）",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "页码（从 1 起）",
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "每页条数（默认 20，上限 200）",
+            "in": "query",
+            "name": "size",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "description": "每页条数（默认 20，上限 200）",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Size",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "排序字段，逗号分隔多值（如 status,created_at）",
+            "in": "query",
+            "name": "order_by",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序字段，逗号分隔多值（如 status,created_at）",
+              "title": "Order By"
+            }
+          },
+          {
+            "description": "排序方向数组，与 order_by 位置一一对应",
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序方向数组，与 order_by 位置一一对应",
+              "title": "Order"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "List Dead Letters",
+        "tags": [
+          "outbox"
+        ]
+      }
+    },
+    "/api/v1/outbox/dead-letters/{dead_letter_id}": {
+      "get": {
+        "description": "死信详情（只读；未命中 404）。\n\nArgs:\n    session: 请求数据库会话。\n    store: 发件箱存储。\n    dead_letter_id: 死信记录主键。\n\nReturns:\n    ApiResponse: 统一响应，data 为死信记录（`DeadLetterResponse`）。\n\nRaises:\n    NotFoundError: 死信记录不存在。",
+        "operationId": "get_dead_letter_api_v1_outbox_dead_letters__dead_letter_id__get",
+        "parameters": [
+          {
+            "description": "死信记录主键",
+            "in": "path",
+            "name": "dead_letter_id",
+            "required": true,
+            "schema": {
+              "description": "死信记录主键",
+              "title": "Dead Letter Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Get Dead Letter",
+        "tags": [
+          "outbox"
+        ]
+      }
+    },
+    "/api/v1/outbox/dead-letters/{dead_letter_id}/ignore": {
+      "post": {
+        "description": "死信忽略：状态置 `ignored`。\n\nArgs:\n    session: 请求数据库会话。\n    store: 发件箱存储。\n    dead_letter_id: 死信记录主键。\n\nReturns:\n    ApiResponse: 统一响应，data 为更新后的死信记录。\n\nRaises:\n    NotFoundError: 死信记录不存在。\n    ConflictError: 死信状态非 `pending`。",
+        "operationId": "ignore_dead_letter_api_v1_outbox_dead_letters__dead_letter_id__ignore_post",
+        "parameters": [
+          {
+            "description": "死信记录主键",
+            "in": "path",
+            "name": "dead_letter_id",
+            "required": true,
+            "schema": {
+              "description": "死信记录主键",
+              "title": "Dead Letter Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Ignore Dead Letter",
+        "tags": [
+          "outbox"
+        ]
+      }
+    },
+    "/api/v1/outbox/dead-letters/{dead_letter_id}/replay": {
+      "post": {
+        "description": "死信重投：状态置 `replayed`，并把对应发件箱记录重置为待投递。\n\nArgs:\n    session: 请求数据库会话。\n    store: 发件箱存储。\n    dead_letter_id: 死信记录主键。\n\nReturns:\n    ApiResponse: 统一响应，data 为更新后的死信记录。\n\nRaises:\n    NotFoundError: 死信记录不存在。\n    ConflictError: 死信状态非 `pending`。",
+        "operationId": "replay_dead_letter_api_v1_outbox_dead_letters__dead_letter_id__replay_post",
+        "parameters": [
+          {
+            "description": "死信记录主键",
+            "in": "path",
+            "name": "dead_letter_id",
+            "required": true,
+            "schema": {
+              "description": "死信记录主键",
+              "title": "Dead Letter Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Replay Dead Letter",
+        "tags": [
+          "outbox"
+        ]
+      }
+    },
     "/api/v1/plugins": {
       "get": {
         "description": "插件清单（按能力分组，只读）。\n\nArgs:\n    request: 请求对象。\n\nReturns:\n    ApiResponse: 统一响应，data 为能力分组数组（`plugin_key` 升序）。",

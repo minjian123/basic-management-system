@@ -53,8 +53,17 @@ BACKEND_ROOT = _find_backend_root()
 VERSIONS_ROOT = BACKEND_ROOT / "alembic" / "versions"
 """迁移脚本根目录（按链分子目录）。"""
 
-PLATFORM_TABLES: frozenset[str] = frozenset({"sys_tenant", "sys_module", "sys_module_i18n"})
-"""平台链表集（《数据库设计 · 总览》「平台库表」）。"""
+PLATFORM_TABLES: frozenset[str] = frozenset(
+    {
+        "sys_tenant",
+        "sys_module",
+        "sys_module_i18n",
+        "sys_outbox",
+        "sys_event_consumed",
+        "sys_event_dead_letter",
+    }
+)
+"""平台链表集（《数据库设计 · 总览》「平台库表」；发件箱三表随 05_03 双链落地）。"""
 
 TENANT_TABLES: frozenset[str] = frozenset(
     {
@@ -65,9 +74,12 @@ TENANT_TABLES: frozenset[str] = frozenset(
         "sys_dict_attr",
         "sys_dict_attr_i18n",
         "sys_query_scheme",
+        "sys_outbox",
+        "sys_event_consumed",
+        "sys_event_dead_letter",
     }
 )
-"""租户链表集（当前为字典六表 + 查询方案表）。"""
+"""租户链表集（字典六表 + 查询方案表 + 发件箱三表）。"""
 
 ARCHIVE_TABLES: frozenset[str] = frozenset()
 """归档链表集（空：归档表随归档阶段落地）。"""
@@ -77,6 +89,7 @@ _DM = "dm"
 
 _MODEL_MODULES: tuple[str, ...] = (
     "bms_core.models.platform",
+    "bms_core.models.outbox",
     "bms_core.dict.models",
     "bms_core.listing.models",
 )

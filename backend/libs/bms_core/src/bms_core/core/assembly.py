@@ -46,6 +46,7 @@ from bms_core.core.resources import ResourceManager
 from bms_core.dashboard.base import BaseDashboardCardRegistry
 from bms_core.db.migration import BACKEND_ROOT
 from bms_core.db.registry import EngineRegistry
+from bms_core.db.session import SessionFactory
 from bms_core.dict.base import BaseDictSource, BaseDictTranslator, DictCacheRegion
 from bms_core.dict.cache import MemoryDictCacheRegion, RedisDictCacheRegion
 from bms_core.dict.providers import BuiltinDictQueryProvider
@@ -64,6 +65,7 @@ from bms_core.health.registry import HealthCheckRegistry
 from bms_core.i18n.base import BaseTranslator
 from bms_core.icon.base import BaseIconRegistry
 from bms_core.idempotency.base import IdempotencyStore
+from bms_core.idempotency.redis import RedisIdempotencyStore
 from bms_core.idp.base import BaseIdentityProvider
 from bms_core.listing.base import BaseQuerySchemeStore
 from bms_core.listing.store import SqlQuerySchemeStore
@@ -78,6 +80,9 @@ from bms_core.oauth.base import BaseOAuthServer, BaseScopeChecker
 from bms_core.org.base import BaseOrgDataSource, BaseOrgNameResolver
 from bms_core.outbound.http import BaseHttpClient
 from bms_core.outbound.webhook import BaseWebhookSender
+from bms_core.outbox.base import BaseOutboxDispatcher, BaseOutboxStore
+from bms_core.outbox.dispatcher import PollOutboxDispatcher
+from bms_core.outbox.store import SqlOutboxStore
 from bms_core.password.base import BasePasswordPolicy
 from bms_core.permission.base import BasePermissionChecker
 from bms_core.preference.base import BasePreferenceStore
@@ -149,6 +154,7 @@ _NULL_MODULES: tuple[str, ...] = (
     "bms_core.oauth.null",
     "bms_core.org.null",
     "bms_core.outbound.null",
+    "bms_core.outbox.null",
     "bms_core.password.null",
     "bms_core.permission.null",
     "bms_core.preference.null",
@@ -228,6 +234,8 @@ PLUGIN_WIRINGS: tuple[PluginWiring, ...] = (
     PluginWiring("realtime_publisher", BaseRealtimePublisher, "realtime_publisher", "realtime_publisher"),
     PluginWiring("http_client", BaseHttpClient, "http_client", "http_client"),
     PluginWiring("webhook_sender", BaseWebhookSender, "webhook_sender", "webhook_sender"),
+    PluginWiring("outbox_store", BaseOutboxStore, "outbox_store", "outbox_store"),
+    PluginWiring("outbox_dispatcher", BaseOutboxDispatcher, "outbox", "outbox_dispatcher"),
     PluginWiring("service_client", BaseServiceClient, "service_client", "service_client"),
     PluginWiring("workflow_engine", BaseWorkflowEngine, "workflow_engine", "workflow_engine"),
     PluginWiring("identity_provider", BaseIdentityProvider, "identity_provider", "identity_provider"),
@@ -290,6 +298,9 @@ def register_platform_plugins(settings: Settings, app: FastAPI, resources: Resou
     register_plugin("edge", "marker", MarkerEdgeTrustFactory(settings))
     register_plugin("data_ownership_guard", "table", TableOwnershipGuardFactory(settings))
     register_plugin("service_client", "http", HttpServiceClientFactory(settings))
+    register_plugin("outbox_store", "sql", SqlOutboxStoreFactory())
+    register_plugin("outbox_dispatcher", "poll", PollOutboxDispatcherFactory(settings, app))
+    register_plugin("idempotency", "redis", RedisIdempotencyStoreFactory(settings))
     _PREPARED_REGISTRIES.append(registry)
 
 
@@ -574,6 +585,113 @@ class TableOwnershipGuardFactory(BasePluginFactory[TableOwnershipGuard]):
             exceptions=entries,
             metrics=metrics,
         )
+
+
+class SqlOutboxStoreFactory(BasePluginFactory[SqlOutboxStore]):
+    """发件箱存储真实实现工厂（`sql`：SQLAlchemy 会话绑定，无构造依赖）。
+
+    零参工厂**不声明 `plugin_name`**（避免被插件注册表自动收集）；经 `register_plugin` 显式登记。
+    """
+
+    plugin_key: str = "outbox_store"
+
+    def create(self, options: None = None) -> SqlOutboxStore:
+        """构造发件箱存储。
+
+        Args:
+            options: 未使用（零参口径）。
+
+        Returns:
+            SqlOutboxStore: 发件箱存储实例。
+        """
+        return SqlOutboxStore()
+
+
+class PollOutboxDispatcherFactory(BasePluginFactory[PollOutboxDispatcher]):
+    """投递器真实实现工厂（`poll`：注入存储 / 发布器 / 引擎注册表 / 指标 / 配置）。"""
+
+    plugin_key: str = "outbox_dispatcher"
+    plugin_name: str = "poll"
+
+    def __init__(self, settings: Settings, app: FastAPI) -> None:
+        """初始化。
+
+        Args:
+            settings: 应用配置（`[outbox]` 与各能力选择）。
+            app: 应用实例（取引擎注册表与会话工厂）。
+        """
+        self._settings = settings
+        self._app = app
+
+    def create(self, options: None = None) -> PollOutboxDispatcher:
+        """构造轮询投递器。
+
+        Args:
+            options: 未使用（零参口径）。
+
+        Returns:
+            PollOutboxDispatcher: 投递器实例。
+        """
+        store = cast(
+            "BaseOutboxStore",
+            resolve_plugin(
+                "outbox_store",
+                self._settings.outbox_store.provider,
+                expected_version=BaseOutboxStore.contract_version,
+            ),
+        )
+        publisher = cast(
+            "EventPublisher",
+            resolve_plugin(
+                "event",
+                self._settings.event.provider,
+                expected_version=EventPublisher.contract_version,
+            ),
+        )
+        metrics = cast(
+            "BaseMetrics",
+            resolve_plugin(
+                "metrics",
+                self._settings.metrics.provider,
+                expected_version=BaseMetrics.contract_version,
+            ),
+        )
+        registry = cast("EngineRegistry", self._app.state.engine_registry)
+        session_factory = cast("SessionFactory | None", getattr(self._app.state, "session_factory", None))
+        return PollOutboxDispatcher.from_settings(
+            self._settings,
+            store=store,
+            publisher=publisher,
+            engine_registry=registry,
+            session_factory=session_factory,
+            metrics=metrics,
+        )
+
+
+class RedisIdempotencyStoreFactory(BasePluginFactory[RedisIdempotencyStore]):
+    """Redis 幂等存储工厂（`redis`：读取 Redis 连接串，惰性建连）。"""
+
+    plugin_key: str = "idempotency"
+    plugin_name: str = "redis"
+
+    def __init__(self, settings: Settings) -> None:
+        """初始化。
+
+        Args:
+            settings: 应用配置（Redis 连接串）。
+        """
+        self._settings = settings
+
+    def create(self, options: None = None) -> RedisIdempotencyStore:
+        """构造 Redis 幂等存储。
+
+        Args:
+            options: 未使用（零参口径）。
+
+        Returns:
+            RedisIdempotencyStore: 幂等存储实例。
+        """
+        return RedisIdempotencyStore(self._settings.redis.url)
 
 
 async def assemble_plugins(app: FastAPI, settings: Settings, resources: ResourceManager) -> dict[str, str]:

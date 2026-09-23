@@ -207,6 +207,9 @@ async def test_event_base() -> None:
         "payload": {"id": "1"},
         "tenant_id": None,
         "trace_id": "t1",
+        "event_id": None,
+        "occurred_at": None,
+        "aggregate_key": None,
     }
     publisher = StubPublisher()
     await publisher.publish(event)

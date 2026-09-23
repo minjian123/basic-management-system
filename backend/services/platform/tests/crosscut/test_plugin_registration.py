@@ -68,6 +68,8 @@ _EXPECTED_PLUGIN_KEYS = frozenset(
         "object_storage",
         "org_data_source",
         "org_name_resolver",
+        "outbox_dispatcher",
+        "outbox_store",
         "password_policy",
         "permission",
         "preference",
