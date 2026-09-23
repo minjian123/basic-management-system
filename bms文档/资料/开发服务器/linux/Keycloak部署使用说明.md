@@ -99,6 +99,7 @@ echo "$TOKEN" | cut -d. -f2 | base64 -d 2>/dev/null | jq '{iss, sub, exp}'
 ```
 
 - **JWKS 验签通过（本任务验收）**：以 `OidcIdentityProvider.verify_token(token)` 经 JWKS 验签并校验 `exp` / `iss`；集成用例见 `backend/services/identity/tests/idp/test_oidc.py`（`IDP_TEST_*` 环境变量开启，未配置跳过）。
+- **用户 JWT 受众 `aud=api`（07_02）**：客户端 `bms-backend` 声明式含 `aud-api` audience mapper（`included.custom.audience = "api"`），用户 / 服务账号令牌 `aud` 含 `api`；`client_credentials` 取令牌可自证：解码 `access_token` 载荷应见 `"aud": ["api", "account"]`。
 
 ## 7. 使用说明 <a id="use"></a>
 
@@ -121,6 +122,7 @@ docker inspect --format '{{.State.Health.Status}}' bms-keycloak
 ```
 
 - **realm 变更**：`--import-realm` 对已存在 realm **跳过导入**（不覆盖），避免重启丢状态；变更经控制台修改后须回写 `bms-realm.json` 并显式 `import --override`（或重建库）以对齐仓库。声明式配置为**唯一来源**，禁止只改控制台不回写。
+- **audience mapper 重导入（07_02 实测）**：为存量 realm 补 `aud-api` mapper 时，`--import-realm` 不会生效；可经 Admin REST API 补挂（`POST /admin/realms/bms/clients/{id}/protocol-mappers/models`，body 为 `oidc-audience-mapper` + `included.custom.audience=api`），或 `kc.sh import --override`（破坏性）。补挂后 `client_credentials` 令牌 `aud` 即含 `api`（实测：追加 mapper 后由 `["account"]` 变为 `["api","account"]`）。
 - **升级**：改 `keycloak.yml` 镜像 tag → 重新拉起；升级前备份 `keycloak` 库。
 
 ## 9. 排障记录 <a id="trouble"></a>
