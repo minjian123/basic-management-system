@@ -82,7 +82,7 @@ docker exec bms-mysql mysql -uroot -p"$密码" -e "SHOW VARIABLES LIKE 'characte
 ## 8. 关联文档 <a id="related"></a>
 
 - 《[开发服务器部署使用说明总览](开发服务器部署使用说明总览.md)》：服务部署总览
-- 《[DockerEngine部署使用说明](DockerEngine部署使用说明.md)》：容器引擎
+- 《[Docker部署使用说明](Docker部署使用说明.md)》：容器引擎
 - 《[PostgreSQL部署使用说明](PostgreSQL部署使用说明.md)》：备选数据库
 - 平台《开发部署规划》：4.4 常驻数据库方案
 - 《[命名规范](../../../规范/命名规范.md)》：库名约定（bms_dev / bms_test 前缀）

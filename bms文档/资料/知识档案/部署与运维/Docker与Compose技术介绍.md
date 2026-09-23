@@ -41,7 +41,7 @@
 - **开发生产一致**：本地与 mjbk 共用同一套 Compose 编排文件；开发期依赖（Redis / RocketMQ / ES / MinIO）本地不装原生服务，统一容器提供（平台《项目规划说明》「部署与运维」节）。
 - **gitlab-runner 容器化**：runner 以容器方式运行，挂载 docker.sock、executor=docker，开发环境并发上限 2（见《[GitLab 技术介绍](GitLab技术介绍.md)》）。
 - **阶段十七 AI**：Milvus（含 etcd，MinIO 复用）随 AI 阶段一并加入 Compose（见《[Milvus 技术介绍](../后端核心/Milvus技术介绍.md)》《[etcd 技术介绍](etcd技术介绍.md)》）。
-- **安装方式**：mjbk 为 Ubuntu 24.04.4，apt 清华 docker-ce 源直装 Docker Engine，systemd 开机自启（见《[DockerEngine 部署使用说明](?../../开发服务器/linux/DockerEngine部署使用说明.md》）。
+- **安装方式**：mjbk 为 Ubuntu 24.04.4，apt 清华 docker-ce 源直装 Docker Engine，systemd 开机自启（见《[Docker 部署使用说明](?../../开发服务器/linux/Docker部署使用说明.md》）。
 - **数据落盘**：IO 敏感数据（数据库 / ES / MinIO / 镜像）走 NVMe SSD 命名卷，备份与读多写少数据走 HDD（平台《开发部署规划》「磁盘规划」节）。
 
 ## 4. 选型对比 <a id="compare"></a>
@@ -83,7 +83,7 @@
 | 平台《项目规划说明》「部署与运维」节 | 选型说明：开发生产一致、一键编排 |
 | 平台《项目规划说明》「基础设施编排」节 | 基础设施编排：初版 Compose 服务清单 |
 | 平台《开发部署规划》「基础环境准备」节 | mjbk 基础环境：清华 docker-ce 源安装实录 |
-| 《[DockerEngine 部署使用说明](?../../开发服务器/linux/DockerEngine部署使用说明.md》 | mjbk Docker 安装与配置内部文档 |
+| 《[Docker 部署使用说明](?../../开发服务器/linux/Docker部署使用说明.md》 | mjbk Docker 安装与配置内部文档 |
 | 《[GitLab 技术介绍](GitLab技术介绍.md)》 | gitlab-runner 以容器方式运行（docker.sock、executor=docker） |
 | 《[nginx 技术介绍](nginx技术介绍.md)》 | apps/desktop 容器：静态托管与反向代理 |
 | 《[MinIO 技术介绍](../后端核心/MinIO技术介绍.md)》 | 被编排的对象存储服务 |

@@ -2,7 +2,7 @@
 
 > mjbk 缓存服务部署实录 · 2026-08-10
 
-[文档首页](../../../文档首页.md) › [资料](../../工具/Ubuntu安装部署使用说明.md) › [开发服务器部署使用说明总览](开发服务器部署使用说明总览.md) › Redis 部署使用说明　|　[← 上一个：Docker Engine](DockerEngine部署使用说明.md)　|　[下一个：MySQL →](MySQL部署使用说明.md)
+[文档首页](../../../文档首页.md) › [资料](../../工具/Ubuntu安装部署使用说明.md) › [开发服务器部署使用说明总览](开发服务器部署使用说明总览.md) › Redis 部署使用说明　|　[← 上一个：Docker Engine](Docker部署使用说明.md)　|　[下一个：MySQL →](MySQL部署使用说明.md)
 
 ## 1. 目的与适用范围 <a id="purpose"></a>
 
@@ -70,7 +70,7 @@ docker exec bms-redis redis-cli INFO persistence  # aof_enabled:1
 ## 7. 关联文档 <a id="related"></a>
 
 - 《[开发服务器部署使用说明总览](开发服务器部署使用说明总览.md)》：服务部署总览
-- 《[DockerEngine部署使用说明](DockerEngine部署使用说明.md)》：容器引擎
+- 《[Docker部署使用说明](Docker部署使用说明.md)》：容器引擎
 - 平台《开发部署规划》：4.3 服务清单与磁盘规划
 - 《[命名规范](../../../规范/命名规范.md)》：Redis key 约定
 

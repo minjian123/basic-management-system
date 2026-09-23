@@ -164,7 +164,7 @@ docker ps --filter name=bms-gitlab-runner
 ## 9. 关联文档 <a id="related"></a>
 
 - 《[开发服务器部署使用说明总览](开发服务器部署使用说明总览.md)》：服务部署总览
-- 《[DockerEngine部署使用说明](DockerEngine部署使用说明.md)》：容器引擎与镜像加速
+- 《[Docker部署使用说明](Docker部署使用说明.md)》：容器引擎与镜像加速
 - 平台《开发部署规划》：4.5 GitLab 与 CI 基础设施
 - 《[命名规范](../../../规范/命名规范.md)》：镜像名 `bms-组件`、Registry 规划
 - 《[Renovate部署使用说明](Renovate部署使用说明.md)》：依赖升级机器人（同文件编排，每日 cron 运行）
