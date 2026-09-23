@@ -6,9 +6,12 @@
   （服务内前缀 `API_PREFIX` 不变；网关只做前缀剥离）。
 - 上游按服务标识经 Compose DNS 寻址（`{service_key}:{SERVICE_PORT}`），迁 K8s 平移为 Service 名。
 - 认证 / 限流插件经 `ROUTE_PLUGINS` 钩子按服务附加（04_02 / 04_03 填充；默认不启用）。
+- 边缘请求净化：`global_rules` 统一剥除客户端伪造身份头；网关专属标记 + 身份注入落
+  路由级 `proxy-rewrite.headers.set`（`ROUTE_HEADERS_SET` 钩子预留，07_03 填充）——真机实测
+  global 规则 `headers.set` 会被路由级 `proxy-rewrite` 丢弃，故标记与身份统一落路由级（04_02）。
 - 输出确定性（同目录 → 同文本），供 Git 比对与 CI 零漂移校验。
 
-生成入口见 `backend/ops/gateway_config.py`；配置语义与 K8s 平移口径见任务 04_01 详细设计。
+生成入口见 `backend/ops/gateway_config.py`；配置语义与 K8s 平移口径见任务 04_01 / 04_02 详细设计。
 """
 
 from __future__ import annotations
@@ -16,17 +19,20 @@ from __future__ import annotations
 import re
 from typing import cast
 
+from bms_core.edge.headers import GATEWAY_IDENTITY_HEADER, GATEWAY_IDENTITY_VALUE, STRIPPED_HEADERS
 from bms_core.services.module_registry import SERVICE_CATALOG, ModuleRecord, ModuleStatus
 
 __all__ = [
     "API_PREFIX",
     "GATEWAY_PATH_PREFIX",
+    "ROUTE_HEADERS_SET",
     "ROUTE_PLUGINS",
     "SERVICE_PORT",
     "dump_yaml",
     "gateway_services",
     "render_apisix_config",
     "render_apisix_yaml",
+    "render_global_rules",
     "render_routes",
     "render_upstreams",
     "route_prefix",
@@ -45,9 +51,19 @@ SERVICE_PORT = 8000
 ROUTE_PLUGINS: dict[str, dict[str, object]] = {}
 """路由级插件钩子（按 `service_key` 合并）。
 
-04_02（边缘认证：`openid-connect`）与 04_03（限流：`limit-count`）在此登记，
+04_03（限流：`limit-count`）与 07_03（认证：`openid-connect`）在此登记，
 无需改动生成结构；默认空 = 不启用任何附加插件。
 """
+
+ROUTE_HEADERS_SET: dict[str, dict[str, str]] = {}
+"""路由级请求头注入钩子（按 `service_key` 合并到路由 `proxy-rewrite.headers.set`）。
+
+07_03 填入网关验证过的身份头（如 `{"X-User-Id": "$jwt_claim_sub"}`）即完成「注入身份」，
+无需改动生成结构；默认空 = 不注入（本任务只交付结构，不启用认证）。
+"""
+
+_GLOBAL_RULE_ID = "edge-sanitize"
+"""全局请求净化规则 id（剥除客户端伪造身份头 + 置网关专属标记）。"""
 
 _ROUTE_ID_PREFIX = "route-"
 _REWRITE_SUFFIX = "$1"
@@ -135,9 +151,13 @@ def render_routes() -> list[dict[str, object]]:
     """
     routes: list[dict[str, object]] = []
     for service_key in _enabled_service_keys():
-        plugins: dict[str, object] = {
-            "proxy-rewrite": {"regex_uri": [_rewrite_regex(service_key), f"{API_PREFIX}{_REWRITE_SUFFIX}"]},
+        headers_set: dict[str, str] = {GATEWAY_IDENTITY_HEADER: GATEWAY_IDENTITY_VALUE}
+        headers_set.update(ROUTE_HEADERS_SET.get(service_key) or {})
+        rewrite: dict[str, object] = {
+            "regex_uri": [_rewrite_regex(service_key), f"{API_PREFIX}{_REWRITE_SUFFIX}"],
+            "headers": {"set": headers_set},
         }
+        plugins: dict[str, object] = {"proxy-rewrite": rewrite}
         plugins.update(ROUTE_PLUGINS.get(service_key) or {})
         prefix = route_prefix(service_key)
         routes.append(
@@ -151,13 +171,35 @@ def render_routes() -> list[dict[str, object]]:
     return routes
 
 
+def render_global_rules() -> list[dict[str, object]]:
+    """全局请求净化规则：剥除客户端伪造身份头（04_02）。
+
+    网关专属标记的置入**归路由级** `proxy-rewrite.headers.set`（见 `render_routes`）：
+    真机实测（mjbk，2026-09-23）global 规则的 `headers.remove` 生效、`headers.set` 在路由级
+    `proxy-rewrite` 执行后被丢弃，故标记与身份注入统一落路由级；剥头保留在 global 规则（集中、一次生效）。
+
+    Returns:
+        list[dict[str, object]]: APISIX `global_rules` 列表。
+    """
+    return [
+        {
+            "id": _GLOBAL_RULE_ID,
+            "plugins": {"proxy-rewrite": {"headers": {"remove": list(STRIPPED_HEADERS)}}},
+        }
+    ]
+
+
 def render_apisix_config() -> dict[str, object]:
-    """完整配置映射（可扩展 `consumers` / `plugin_metadata` / `global_rules`）。
+    """完整配置映射（可扩展 `consumers` / `plugin_metadata`）。
 
     Returns:
         dict[str, object]: APISIX 配置映射。
     """
-    return {"upstreams": render_upstreams(), "routes": render_routes()}
+    return {
+        "upstreams": render_upstreams(),
+        "routes": render_routes(),
+        "global_rules": render_global_rules(),
+    }
 
 
 def render_apisix_yaml() -> str:

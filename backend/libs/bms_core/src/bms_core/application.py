@@ -18,7 +18,13 @@ from fastapi import APIRouter, FastAPI
 
 from bms_core.api import health
 from bms_core.api.errors import register_exception_handlers
-from bms_core.api.middleware import ReadOnlyMiddleware, RequestLoggingMiddleware, TenantMiddleware, TraceIdMiddleware
+from bms_core.api.middleware import (
+    EdgeGuardMiddleware,
+    ReadOnlyMiddleware,
+    RequestLoggingMiddleware,
+    TenantMiddleware,
+    TraceIdMiddleware,
+)
 from bms_core.cache.base import CacheRegion
 from bms_core.core.assembly import assemble_plugins, register_platform_plugins
 from bms_core.core.config import Settings, get_settings, validate_startup
@@ -186,9 +192,11 @@ class BaseServiceApplicationFactory(BaseApplicationFactory):
             settings=settings,
         )
 
-        # 中间件先于路由注册（后注册者在外层）：只读标记 → 请求日志 → 链路 id → 租户解析（全局，最内层）；
-        # 租户解析位于链路 id 之内，未知 / 停用租户的拒绝响应仍带请求 id 与链路 id。
+        # 中间件先于路由注册（后注册者在外层）：只读标记 → 请求日志 → 链路 id → 边缘净化 → 租户解析（全局，最内层）；
+        # 租户解析位于链路 id 之内，未知 / 停用租户的拒绝响应仍带请求 id 与链路 id；
+        # 边缘净化先于租户解析，使信任模式下租户身份只采信网关注入值（见 bms_core/edge/）。
         app.add_middleware(TenantMiddleware)
+        app.add_middleware(EdgeGuardMiddleware)
         app.add_middleware(TraceIdMiddleware)
         app.add_middleware(RequestLoggingMiddleware, slow_request_ms=settings.log.slow_request_ms)
         app.add_middleware(ReadOnlyMiddleware)

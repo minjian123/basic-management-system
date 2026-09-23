@@ -162,3 +162,13 @@ allow_origins = []
 allow_methods = ["*"]
 allow_headers = ["*"]
 allow_credentials = true
+
+[edge]
+# 边缘信任实现选择（插件化配置；空串 = null 占位不信任；marker = 网关专属标记头判定，随 07_03 换真实实现）
+provider = ""
+# 旁路防护开关：true 时非豁免路径缺网关注入身份即拒（dev/test 关，prod 开）
+require_gateway_identity = false
+# 旁路拒绝 / 租户净化豁免路径（精确匹配；空取基座缺省集）
+exempt_paths = ["/", "/docs", "/redoc", "/openapi.json", "/healthz", "/readyz"]
+# 非敏感选项（gateway_identity = 网关专属标记头期望值，缺省取基座常量 bms-edge；密钥一律经环境变量注入）
+options = {}

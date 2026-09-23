@@ -44,6 +44,9 @@ from bms_core.dict.base import BaseDictSource, BaseDictTranslator, DictCacheRegi
 from bms_core.dict.cache import MemoryDictCacheRegion, RedisDictCacheRegion
 from bms_core.dict.providers import BuiltinDictQueryProvider
 from bms_core.dict.sql import SqlDictSource, SqlDictTranslator
+from bms_core.edge.base import BaseEdgeTrust
+from bms_core.edge.headers import GATEWAY_IDENTITY_VALUE
+from bms_core.edge.marker import MarkerEdgeTrust
 from bms_core.events.base import BaseEventConsumer, EventPublisher
 from bms_core.fallback.base import BaseFallbackPolicy
 from bms_core.fieldtype.base import BaseFieldTypeRegistry
@@ -113,6 +116,7 @@ _NULL_MODULES: tuple[str, ...] = (
     "bms_core.dashboard.null",
     "bms_core.db.null",
     "bms_core.dict.null",
+    "bms_core.edge.null",
     "bms_core.events.null",
     "bms_core.fallback.null",
     "bms_core.fieldtype.null",
@@ -176,6 +180,7 @@ PLUGIN_WIRINGS: tuple[PluginWiring, ...] = (
     PluginWiring("preference", BasePreferenceStore, "preference", "preference_store"),
     PluginWiring("masking", BaseMasker, "masking", "masker"),
     PluginWiring("distributed_lock", BaseDistributedLock, "distributed_lock", "distributed_lock"),
+    PluginWiring("edge", BaseEdgeTrust, "edge", "edge"),
     PluginWiring("captcha", BaseCaptcha, "captcha", "captcha"),
     PluginWiring("chat_stream", BaseChatStream, "chat_stream", "chat_stream"),
     PluginWiring("chat_session_store", BaseChatSessionStore, "chat_session_store", "chat_session_store"),
@@ -266,6 +271,7 @@ def register_platform_plugins(settings: Settings, app: FastAPI, resources: Resou
     register_plugin("query_scheme_store", "sql", SqlQuerySchemeStoreFactory(app))
     register_plugin("field_type_registry", "local", LocalFieldTypeRegistryFactory())
     register_plugin("query_provider_registry", "local", LocalQueryProviderRegistryFactory(app))
+    register_plugin("edge", "marker", MarkerEdgeTrustFactory(settings))
     _PREPARED_REGISTRIES.append(registry)
 
 
@@ -414,6 +420,33 @@ class DefaultMaskerFactory(BasePluginFactory[BaseMasker]):
             ),
         )
         return NullMasker(checker=checker)
+
+
+class MarkerEdgeTrustFactory(BasePluginFactory[MarkerEdgeTrust]):
+    """边缘信任标记实现工厂（期望值取 `[edge].options.gateway_identity`，缺省基座常量）。"""
+
+    plugin_key: str = "edge"
+    plugin_name: str = "marker"
+
+    def __init__(self, settings: Settings) -> None:
+        """初始化。
+
+        Args:
+            settings: 应用配置。
+        """
+        self._settings = settings
+
+    def create(self, options: None = None) -> MarkerEdgeTrust:
+        """构造网关标记头信任实现。
+
+        Args:
+            options: 未使用（零参口径）。
+
+        Returns:
+            MarkerEdgeTrust: 标记头信任实现。
+        """
+        expected = self._settings.edge.options.get("gateway_identity") or GATEWAY_IDENTITY_VALUE
+        return MarkerEdgeTrust(expected=cast("str", expected))
 
 
 async def assemble_plugins(app: FastAPI, settings: Settings, resources: ResourceManager) -> dict[str, str]:

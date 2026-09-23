@@ -27,6 +27,36 @@ current_request_id: ContextVar[str | None] = ContextVar("current_request_id", de
 current_client_ip: ContextVar[str | None] = ContextVar("current_client_ip", default=None)
 
 
+def set_current_user_id(user_id: int | None) -> Token[int | None]:
+    """设置当前用户上下文。
+
+    Args:
+        user_id: 用户标识（可信边缘身份解析所得）。
+
+    Returns:
+        Token[int | None]: 复位令牌。
+    """
+    return current_user_id.set(user_id)
+
+
+def reset_current_user_id(token: Token[int | None]) -> None:
+    """复位当前用户上下文。
+
+    Args:
+        token: `set_current_user_id` 返回的令牌。
+    """
+    current_user_id.reset(token)
+
+
+def get_current_user_id() -> int | None:
+    """当前用户标识。
+
+    Returns:
+        int | None: 用户标识；无则 None。
+    """
+    return current_user_id.get()
+
+
 def set_current_tenant(tenant_code: str | None) -> Token[str | None]:
     """设置当前租户上下文。
 
