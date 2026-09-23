@@ -24,6 +24,7 @@ from bms_core.edge.headers import (
     TENANT_ID_HEADER,
     USER_ID_HEADER,
     USER_SCOPES_HEADER,
+    USER_SUBJECT_HEADER,
 )
 from bms_core.edge.marker import MarkerEdgeTrust
 from bms_core.edge.null import NullEdgeTrust
@@ -139,6 +140,7 @@ def _build_edge_app(
     async def whoami(request: Request) -> dict[str, object]:  # pyright: ignore[reportUnusedFunction]
         return {
             "user_id": get_current_user_id(),
+            "subject": request.headers.get(USER_SUBJECT_HEADER),
             "tenant": request.headers.get(TENANT_ID_HEADER),
             "service": request.headers.get(SERVICE_IDENTITY_HEADER),
             "scopes": request.headers.get(USER_SCOPES_HEADER),
@@ -159,6 +161,7 @@ async def test_strips_forged_identity_headers() -> None:
     app = _build_edge_app()
     forged = {
         USER_ID_HEADER: "999",
+        USER_SUBJECT_HEADER: "forged-subject",
         SERVICE_IDENTITY_HEADER: "forged",
         USER_SCOPES_HEADER: "admin",
         GATEWAY_IDENTITY_HEADER: "forged-marker",
@@ -168,6 +171,7 @@ async def test_strips_forged_identity_headers() -> None:
 
     body = resp.json()
     assert body["user_id"] is None
+    assert body["subject"] is None
     assert body["service"] is None
     assert body["scopes"] is None
     assert body["identity_user"] is None
@@ -181,6 +185,7 @@ async def test_injects_trusted_identity_headers_and_context() -> None:
     headers = {
         GATEWAY_IDENTITY_HEADER: GATEWAY_IDENTITY_VALUE,
         USER_ID_HEADER: "42",
+        USER_SUBJECT_HEADER: "u-42",
         TENANT_ID_HEADER: "acme",
         USER_SCOPES_HEADER: "user:read,user:write",
         SERVICE_IDENTITY_HEADER: "svc-a",
@@ -190,6 +195,7 @@ async def test_injects_trusted_identity_headers_and_context() -> None:
 
     body = resp.json()
     assert body["user_id"] == 42
+    assert body["subject"] == "u-42"
     assert body["identity_user"] == 42
     assert body["tenant"] == "acme"
     assert body["service"] == "svc-a"

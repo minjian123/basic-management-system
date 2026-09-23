@@ -159,6 +159,7 @@ class TenantSettings(BaseSettings):
             "/healthz",
             "/readyz",
             "/.well-known/jwks.json",
+            "/api/v1/auth/introspect",
         ]
     )
     """租户解析豁免路径（精确匹配；这些路径不解析租户、不设置租户上下文）。"""
@@ -293,6 +294,29 @@ class EdgeSettings(PluginSelection):
 
     exempt_paths: list[str] = Field(default_factory=list)
     """旁路拒绝 / 租户净化豁免路径（精确匹配；空取基座缺省集）。"""
+
+
+class GatewaySettings(PluginSelection):
+    """网关认证接线配置（`[gateway]`；公开路径 / 网关服务标识 / 服务 JWT 时长）。
+
+    认证接线经网关 `forward-auth` 转认证服务内部校验端点完成（07_03）；IdP 凭据归
+    `[identity_provider]`、服务 JWT 私钥归 `[service_token]`，本分区只放非敏感接线参数。
+    """
+
+    service_identity: str = "gateway"
+    """网关换发服务 JWT 的 `service` 标识（服务 JWT `sub`；代表「来自网关」的服务身份）。"""
+
+    token_ttl_seconds: int = Field(default=60, ge=1)
+    """网关服务 JWT 有效期（秒；短时令牌）。"""
+
+    public_paths: list[str] = Field(
+        default_factory=lambda: [
+            "/api/identity/v1/auth/login",
+            "/api/identity/v1/auth/refresh",
+            "/api/identity/v1/captcha",
+        ]
+    )
+    """公开路径（免认证，网关外部路径形态、前缀匹配；认证端点据此放行前置端点）。"""
 
 
 class IdentityProviderSettings(PluginSelection):
@@ -521,6 +545,7 @@ class Settings(PydanticBaseSettings, BaseSettings):  # pyright: ignore[reportInc
     fallback: PluginSelection = Field(default_factory=PluginSelection)
     field_type_registry: PluginSelection = Field(default_factory=PluginSelection)
     file_content_search: PluginSelection = Field(default_factory=PluginSelection)
+    gateway: GatewaySettings = Field(default_factory=GatewaySettings)
     global_search: PluginSelection = Field(default_factory=PluginSelection)
     hash_chain: PluginSelection = Field(default_factory=PluginSelection)
     health_check_registry: PluginSelection = Field(default_factory=PluginSelection)

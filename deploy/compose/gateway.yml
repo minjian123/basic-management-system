@@ -24,6 +24,9 @@ services:
       GATEWAY_REDIS_PASSWORD: ${GATEWAY_REDIS_PASSWORD:-}
       # real-ip 可信代理网段（04_03；默认 Docker 私网段）
       GATEWAY_TRUSTED_CIDR: ${GATEWAY_TRUSTED_CIDR:-172.16.0.0/12}
+      # 认证接线（07_03）：forward-auth 转调的认证服务主机（默认 Compose DNS identity；
+      # 非 Compose 环境填可达主机/IP，apisix.yaml 经 ${{GATEWAY_AUTH_HOST:=identity}} 占位替换）
+      GATEWAY_AUTH_HOST: ${GATEWAY_AUTH_HOST:-identity}
     # 目录挂载 + 软链（而非单文件 bind mount）：单文件 bind 在宿主文件被替换（git pull / 重建）
     # 后容器内仍指向旧 inode，APISIX 的 1s 文件轮询读不到新内容、无法热加载；挂载配置目录并
     # 软链进 conf/ 可让宿主替换即时可见，实现「声明式配置改动 → 热加载生效」。

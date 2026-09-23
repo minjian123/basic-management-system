@@ -8,18 +8,19 @@
 - `RouterRegistry` / `register_router` / `build_api_router`：路由登记（`key` 唯一拒重）与统一挂载。
 - `page_query` / `sort_query` / `cursor_query`：分页 / 排序 / 游标参数统一 `Depends` 绑定工厂
   （复用 `BasePageQuery` / `BaseSortQuery` / `BaseCursorQuery`）。
-- `require_auth`：登录态依赖占位（恒定放行，**不解析 token**）；真实登录态与权限校验随
-  认证 / RBAC 阶段（权限码校验沿用 `require_permission`）。
+- `require_auth`：登录态依赖（按 `[edge].require_gateway_identity` 门控可信边缘身份；开关关时恒定放行）；
+  细粒度权限校验沿用 `require_permission`（阶段七）。
 """
 
 from collections.abc import Callable, Mapping, Sequence
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Query, params
+from fastapi import APIRouter, Query, Request, params
 from pydantic import ValidationError
 
 from bms_core.core.base import BaseObject
 from bms_core.core.exceptions import ConflictError, ParamError
+from bms_core.edge.base import require_edge_identity
 from bms_core.schemas.common import ApiResponse
 from bms_core.schemas.pagination import BaseCursorQuery, BasePageQuery
 from bms_core.schemas.sorting import BaseSortQuery
@@ -319,10 +320,22 @@ def cursor_query(
     return _build_query(lambda: BaseCursorQuery(cursor=cursor, limit=limit, order_by=order_by, order=order))
 
 
-def require_auth() -> None:
-    """登录态依赖占位：恒定放行（**不解析 Bearer / 不校验 token**）。
+def require_auth(request: Request) -> None:
+    """登录态依赖：按 `[edge].require_gateway_identity` 门控可信边缘身份。
 
-    真实登录态解析（Bearer → 用户上下文）与未认证 401 随认证阶段回补；权限码校验沿用
-    `bms_core.permission.base.require_permission`。路由可经 `dependencies=[Depends(require_auth)]`
-    统一挂接，替换真实实现时调用面零改动。
+    开关关（dev / test）→ 恒定放行（保留占位语义，调用面 `Depends(require_auth)` 零改动）；
+    开关开 → 取请求态可信身份（`require_edge_identity`），缺失（未认证 / 网关旁路）抛
+    `AuthError`（20001 / 401）。细粒度权限码校验沿用 `bms_core.permission.base.require_permission`
+    （阶段七）。
+
+    Args:
+        request: 请求对象（取应用配置与请求态可信身份）。
+
+    Raises:
+        AuthError: 旁路开关开启且无可信边缘身份（20001 / 401）。
     """
+    settings = getattr(request.app.state, "settings", None)
+    edge_settings = getattr(settings, "edge", None)
+    if not bool(getattr(edge_settings, "require_gateway_identity", False)):
+        return
+    require_edge_identity(request)

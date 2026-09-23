@@ -55,6 +55,7 @@ from bms_core.dict.sql import SqlDictSource, SqlDictTranslator
 from bms_core.edge.base import BaseEdgeTrust
 from bms_core.edge.headers import GATEWAY_IDENTITY_VALUE
 from bms_core.edge.marker import MarkerEdgeTrust
+from bms_core.edge.service_jwt import ServiceJwtEdgeTrustFactory
 from bms_core.events.base import BaseEventConsumer, EventPublisher
 from bms_core.events.platform_events import register_platform_event_contracts
 from bms_core.fallback.base import BaseFallbackPolicy
@@ -313,6 +314,7 @@ def register_platform_plugins(settings: Settings, app: FastAPI, resources: Resou
     register_plugin("field_type_registry", "local", LocalFieldTypeRegistryFactory())
     register_plugin("query_provider_registry", "local", LocalQueryProviderRegistryFactory(app))
     register_plugin("edge", "marker", MarkerEdgeTrustFactory(settings))
+    register_plugin("edge", "service_jwt", ServiceJwtEdgeTrustFactory(settings))
     register_plugin("identity_provider", "oidc", OidcIdentityProviderFactory(settings))
     register_plugin("service_token", "jwt", JwtServiceTokenIssuerFactory(settings))
     register_plugin("token_verifier", "unified", UnifiedTokenVerifierFactory(settings))

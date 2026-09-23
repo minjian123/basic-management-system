@@ -5,10 +5,14 @@
 - 外部路径 `/api/{service_key}/v1/...` 经 `proxy-rewrite` 还原为服务内 `/api/v1/...`
   （服务内前缀 `API_PREFIX` 不变；网关只做前缀剥离）。
 - 上游按服务标识经 Compose DNS 寻址（`{service_key}:{SERVICE_PORT}`），迁 K8s 平移为 Service 名。
-- 认证插件经 `ROUTE_PLUGINS` 钩子按服务附加（07_03 填充；默认不启用）。
+- 认证插件按服务附加（07_03）：每条服务路由与认证敏感登录路由挂 `forward-auth`，转调认证服务
+  内部校验端点（`{GATEWAY_AUTH_HOST}:8000/api/v1/auth/introspect`）——用户 JWT 由认证服务按 `aud=api`
+  全校验，公开路径由认证端点判定；校验通过后网关按 `upstream_headers` 注入契约身份头并覆盖
+  `Authorization` 为网关服务 JWT（`aud=service`），后端只信任有效服务 JWT。
 - 边缘请求净化：`global_rules` 统一剥除客户端伪造身份头；网关专属标记 + 身份注入落
-  路由级 `proxy-rewrite.headers.set`（`ROUTE_HEADERS_SET` 钩子预留，07_03 填充）——真机实测
-  global 规则 `headers.set` 会被路由级 `proxy-rewrite` 丢弃，故标记与身份统一落路由级（04_02）。
+  路由级 `proxy-rewrite.headers.set`（`ROUTE_HEADERS_SET` 钩子保留；认证身份头改由 `forward-auth`
+  的 `upstream_headers` 注入，见 `forward_auth_plugin`）——真机实测
+  global 规则 `headers.set` 会被路由级 `proxy-rewrite` 丢弃，故标记统一落路由级（04_02）。
 - 边缘限流（04_03）：每条路由注入 `limit-count`（`policy: redis` 共享多副本计数，默认按真实
   客户端 IP、通用档 300/60s）；认证敏感路径生成独立路由（更严 10/60s、显式优先级）；Redis 主机 /
   密码经 `${{GATEWAY_REDIS_HOST:=redis}}` / `${{GATEWAY_REDIS_PASSWORD:=}}` 环境变量替换
@@ -28,13 +32,30 @@ import re
 from collections.abc import Mapping
 from typing import cast
 
-from bms_core.edge.headers import GATEWAY_IDENTITY_HEADER, GATEWAY_IDENTITY_VALUE, STRIPPED_HEADERS
+from bms_core.edge.headers import (
+    GATEWAY_IDENTITY_HEADER,
+    GATEWAY_IDENTITY_VALUE,
+    STRIPPED_HEADERS,
+    TENANT_ID_HEADER,
+    USER_ID_HEADER,
+    USER_SCOPES_HEADER,
+    USER_SUBJECT_HEADER,
+)
 from bms_core.services.module_registry import SERVICE_CATALOG, ModuleRecord, ModuleStatus
 
 __all__ = [
     "API_PREFIX",
+    "AUTH_CLIENT_HEADERS",
+    "AUTH_INTROSPECT_PATH",
+    "AUTH_REQUEST_HEADERS",
+    "AUTH_STATUS_ON_ERROR",
+    "AUTH_TIMEOUT_MS",
+    "AUTH_UPSTREAM_HEADERS",
+    "DEFAULT_GATEWAY_AUTH_HOST",
     "DEFAULT_RATE_LIMIT_COUNT",
     "DEFAULT_RATE_LIMIT_WINDOW",
+    "FORWARD_AUTH_PLUGIN",
+    "GATEWAY_AUTH_HOST_VAR",
     "GATEWAY_PATH_PREFIX",
     "GRAY_TRAFFIC",
     "LOGIN_PATHS",
@@ -42,11 +63,13 @@ __all__ = [
     "LOGIN_RATE_LIMIT_WINDOW",
     "LOGIN_ROUTE_ID",
     "LOGIN_ROUTE_PRIORITY",
+    "RATE_LIMIT_KEY_TYPE",
     "ROUTE_HEADERS_SET",
     "ROUTE_PLUGINS",
     "SERVICE_PORT",
     "dump_yaml",
     "env_var",
+    "forward_auth_plugin",
     "gateway_services",
     "rate_limit_plugin",
     "render_apisix_config",
@@ -73,15 +96,15 @@ SERVICE_PORT = 8000
 ROUTE_PLUGINS: dict[str, dict[str, object]] = {}
 """路由级插件钩子（按 `service_key` 合并）。
 
-07_03（认证：`openid-connect`）在此登记，无需改动生成结构；默认空 = 不启用。
-限流（`limit-count`）/ 观测（`prometheus`）/ 灰度（`traffic-split`）由本模块直接产出。
+认证（`forward-auth`）/ 限流（`limit-count`）/ 观测（`prometheus`）/ 灰度（`traffic-split`）
+由本模块直接产出；本钩子暂空（保留声明式扩展点）。
 """
 
 ROUTE_HEADERS_SET: dict[str, dict[str, str]] = {}
 """路由级请求头注入钩子（按 `service_key` 合并到路由 `proxy-rewrite.headers.set`）。
 
-07_03 填入网关验证过的身份头（如 `{"X-User-Id": "$jwt_claim_sub"}`）即完成「注入身份」，
-无需改动生成结构；默认空 = 不注入（本任务只交付结构，不启用认证）。
+07_03 起「网关验证过的身份头」改由 `forward-auth.upstream_headers` 注入（认证服务产出、网关覆盖
+`Authorization`），本钩子保留为空；`proxy-rewrite.headers.set` 仍置网关专属标记 `X-Gateway-Identity`。
 """
 
 GRAY_TRAFFIC: dict[str, dict[str, object]] = {}
@@ -107,8 +130,15 @@ LOGIN_RATE_LIMIT_WINDOW = 60
 RATE_LIMIT_REJECTED_CODE = 429
 """超限响应码（与《API接口规范》「429 限流」一致）。"""
 
-RATE_LIMIT_KEY = "remote_addr"
-"""限流维度（默认真实客户端 IP）；07_03 注入身份后改 `var_combination` 扩用户 / 租户维度。"""
+RATE_LIMIT_KEY = "$remote_addr $http_x_tenant_id $http_x_user_subject"
+"""限流维度（`var_combination`：真实客户端 IP + 网关注入的租户 / 用户主体；07_03 由纯 IP 扩展）。
+
+用户维度取**当前可用的入站用户标识** `X-User-Subject`（网关注入的外部主体）；阶段六外部身份映射
+填充 `X-User-Id`（内部数字 id）后可再纳入，不改结构。
+"""
+
+RATE_LIMIT_KEY_TYPE = "var_combination"
+"""限流键类型（多变量组合；未注入身份时该段为空、仍按客户端 IP 计数）。"""
 
 GATEWAY_REDIS_HOST_VAR = "GATEWAY_REDIS_HOST"
 """限流共享 Redis 主机环境变量名（默认 Compose DNS `redis`）。"""
@@ -128,6 +158,39 @@ RATE_LIMIT_REDIS_PORT = 6379
 
 RATE_LIMIT_REDIS_DATABASE = 0
 """限流共享 Redis 库（字面量整数，同上）。"""
+
+GATEWAY_AUTH_HOST_VAR = "GATEWAY_AUTH_HOST"
+"""认证服务主机环境变量名（forward-auth 转调；默认 Compose DNS `identity`）。"""
+
+DEFAULT_GATEWAY_AUTH_HOST = "identity"
+"""认证服务默认主机（Compose DNS 服务名；非 Compose 环境经环境变量覆盖）。"""
+
+AUTH_INTROSPECT_PATH = "/api/v1/auth/introspect"
+"""认证服务内部校验端点路径（与 `bms_identity/api/auth.py` 同源约定）。"""
+
+FORWARD_AUTH_PLUGIN = "forward-auth"
+"""认证接线插件名（网关转调认证服务校验用户 JWT 并注入身份头）。"""
+
+AUTH_REQUEST_HEADERS: tuple[str, ...] = ("Authorization",)
+"""转发给认证服务的客户端头（用户 JWT）。"""
+
+AUTH_UPSTREAM_HEADERS: tuple[str, ...] = (
+    "Authorization",
+    USER_SUBJECT_HEADER,
+    USER_ID_HEADER,
+    TENANT_ID_HEADER,
+    USER_SCOPES_HEADER,
+)
+"""认证服务响应头中注入上游的头（覆盖 Authorization 为网关服务 JWT + 契约身份头）。"""
+
+AUTH_CLIENT_HEADERS: tuple[str, ...] = ("WWW-Authenticate",)
+"""认证失败时回传客户端的头。"""
+
+AUTH_TIMEOUT_MS = 3000
+"""认证子请求超时（毫秒）。"""
+
+AUTH_STATUS_ON_ERROR = 503
+"""认证服务不可达时的响应码（fail-closed；不降级放行）。"""
 
 LOGIN_SERVICE_KEY = "identity"
 """认证敏感路径所属服务标识（登录限流独立路由的上游）。"""
@@ -184,7 +247,7 @@ def rate_limit_plugin(*, count: int, window: int, key: str = RATE_LIMIT_KEY) -> 
     Args:
         count: 窗口内允许的最大请求次数。
         window: 窗口秒数。
-        key: 限流维度（默认 `remote_addr` = 真实客户端 IP）。
+        key: 限流维度（默认 `var_combination`：真实客户端 IP + 租户 / 用户）。
 
     Returns:
         dict[str, object]: APISIX `limit-count` 插件配置。
@@ -192,7 +255,7 @@ def rate_limit_plugin(*, count: int, window: int, key: str = RATE_LIMIT_KEY) -> 
     return {
         "count": count,
         "time_window": window,
-        "key_type": "var",
+        "key_type": RATE_LIMIT_KEY_TYPE,
         "key": key,
         "policy": "redis",
         "redis_host": env_var(GATEWAY_REDIS_HOST_VAR, DEFAULT_GATEWAY_REDIS_HOST),
@@ -202,6 +265,24 @@ def rate_limit_plugin(*, count: int, window: int, key: str = RATE_LIMIT_KEY) -> 
         "rejected_code": RATE_LIMIT_REJECTED_CODE,
         "allow_degradation": True,
         "show_limit_quota_header": True,
+    }
+
+
+def forward_auth_plugin() -> dict[str, object]:
+    """构造 `forward-auth` 插件配置（转调认证服务校验用户 JWT 并注入身份头）。
+
+    Returns:
+        dict[str, object]: APISIX `forward-auth` 插件配置（认证服务主机经环境变量替换）。
+    """
+    host = env_var(GATEWAY_AUTH_HOST_VAR, DEFAULT_GATEWAY_AUTH_HOST)
+    return {
+        "uri": f"http://{host}:{SERVICE_PORT}{AUTH_INTROSPECT_PATH}",
+        "request_method": "GET",
+        "request_headers": list(AUTH_REQUEST_HEADERS),
+        "upstream_headers": list(AUTH_UPSTREAM_HEADERS),
+        "client_headers": list(AUTH_CLIENT_HEADERS),
+        "timeout": AUTH_TIMEOUT_MS,
+        "status_on_error": AUTH_STATUS_ON_ERROR,
     }
 
 
@@ -344,6 +425,7 @@ def render_routes() -> list[dict[str, object]]:
         }
         plugins: dict[str, object] = {
             "proxy-rewrite": rewrite,
+            FORWARD_AUTH_PLUGIN: forward_auth_plugin(),
             _LIMIT_COUNT_PLUGIN: rate_limit_plugin(
                 count=DEFAULT_RATE_LIMIT_COUNT,
                 window=DEFAULT_RATE_LIMIT_WINDOW,
@@ -383,6 +465,7 @@ def render_login_routes() -> list[dict[str, object]]:
     }
     plugins: dict[str, object] = {
         "proxy-rewrite": rewrite,
+        FORWARD_AUTH_PLUGIN: forward_auth_plugin(),
         _LIMIT_COUNT_PLUGIN: rate_limit_plugin(
             count=LOGIN_RATE_LIMIT_COUNT,
             window=LOGIN_RATE_LIMIT_WINDOW,

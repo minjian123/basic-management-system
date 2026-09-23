@@ -53,7 +53,7 @@ engine_idle_timeout = 1800.0
 # 无任何来源时是否回落演示租户（开发兜底；prod 覆盖为 false）
 allow_demo_fallback = true
 # 租户解析豁免路径（精确匹配）
-exempt_paths = ["/", "/docs", "/redoc", "/openapi.json", "/healthz", "/readyz", "/.well-known/jwks.json"]
+exempt_paths = ["/", "/docs", "/redoc", "/openapi.json", "/healthz", "/readyz", "/.well-known/jwks.json", "/api/v1/auth/introspect"]
 # 开发库自动建表覆盖的租户编码（仅 SQLite auto_create 生效；每服务按 tenant_{code} 相对键建表）
 dev_tenants = ["demo"]
 
@@ -185,14 +185,23 @@ allow_headers = ["*"]
 allow_credentials = true
 
 [edge]
-# 边缘信任实现选择（插件化配置；空串 = null 占位不信任；marker = 网关专属标记头判定，随 07_03 换真实实现）
-provider = ""
+# 边缘信任实现选择（插件化配置；空串 = null 占位不信任；marker = 网关专属标记头判定；service_jwt = 入站服务 JWT 校验真实实现）
+provider = "service_jwt"
 # 旁路防护开关：true 时非豁免路径缺网关注入身份即拒（dev/test 关，prod 开）
 require_gateway_identity = false
 # 旁路拒绝 / 租户净化豁免路径（精确匹配；空取基座缺省集）
-exempt_paths = ["/", "/docs", "/redoc", "/openapi.json", "/healthz", "/readyz", "/.well-known/jwks.json"]
+exempt_paths = ["/", "/docs", "/redoc", "/openapi.json", "/healthz", "/readyz", "/.well-known/jwks.json", "/api/v1/auth/introspect"]
 # 非敏感选项（gateway_identity = 网关专属标记头期望值，缺省取基座常量 bms-edge；密钥一律经环境变量注入）
 options = {}
+
+[gateway]
+# 网关认证接线（forward-auth 转认证服务内部校验端点；07_03）
+# 网关换发服务 JWT 的 service 标识（服务 JWT 的 sub；代表「来自网关」的服务身份）
+service_identity = "gateway"
+# 网关服务 JWT 有效期（秒；短时）
+token_ttl_seconds = 60
+# 公开路径（免认证，网关外部路径形态、前缀匹配）——认证端点据此放行前置端点
+public_paths = ["/api/identity/v1/auth/login", "/api/identity/v1/auth/refresh", "/api/identity/v1/captcha"]
 
 [service_client]
 # 服务间同步调用实现选择（插件化配置；http = httpx 真实实现、空串 = null 占位不外呼）

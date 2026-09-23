@@ -5,6 +5,6 @@
 """
 
 from bms_core.api.base import mount_service_routers
-from bms_identity.api import captcha
+from bms_identity.api import auth, captcha
 
-api_router = mount_service_routers((captcha.router,))
+api_router = mount_service_routers((auth.router, captcha.router))

@@ -53,11 +53,26 @@ routes:
         headers:
           set:
             X-Gateway-Identity: bms-edge
+      forward-auth:
+        uri: 'http://${{GATEWAY_AUTH_HOST:=identity}}:8000/api/v1/auth/introspect'
+        request_method: GET
+        request_headers:
+          - Authorization
+        upstream_headers:
+          - Authorization
+          - X-User-Subject
+          - X-User-Id
+          - X-Tenant-Id
+          - X-User-Scopes
+        client_headers:
+          - WWW-Authenticate
+        timeout: 3000
+        status_on_error: 503
       limit-count:
         count: 300
         time_window: 60
-        key_type: var
-        key: remote_addr
+        key_type: var_combination
+        key: '$remote_addr $http_x_tenant_id $http_x_user_subject'
         policy: redis
         redis_host: '${{GATEWAY_REDIS_HOST:=redis}}'
         redis_port: 6379
@@ -80,11 +95,26 @@ routes:
         headers:
           set:
             X-Gateway-Identity: bms-edge
+      forward-auth:
+        uri: 'http://${{GATEWAY_AUTH_HOST:=identity}}:8000/api/v1/auth/introspect'
+        request_method: GET
+        request_headers:
+          - Authorization
+        upstream_headers:
+          - Authorization
+          - X-User-Subject
+          - X-User-Id
+          - X-Tenant-Id
+          - X-User-Scopes
+        client_headers:
+          - WWW-Authenticate
+        timeout: 3000
+        status_on_error: 503
       limit-count:
         count: 300
         time_window: 60
-        key_type: var
-        key: remote_addr
+        key_type: var_combination
+        key: '$remote_addr $http_x_tenant_id $http_x_user_subject'
         policy: redis
         redis_host: '${{GATEWAY_REDIS_HOST:=redis}}'
         redis_port: 6379
@@ -107,11 +137,26 @@ routes:
         headers:
           set:
             X-Gateway-Identity: bms-edge
+      forward-auth:
+        uri: 'http://${{GATEWAY_AUTH_HOST:=identity}}:8000/api/v1/auth/introspect'
+        request_method: GET
+        request_headers:
+          - Authorization
+        upstream_headers:
+          - Authorization
+          - X-User-Subject
+          - X-User-Id
+          - X-Tenant-Id
+          - X-User-Scopes
+        client_headers:
+          - WWW-Authenticate
+        timeout: 3000
+        status_on_error: 503
       limit-count:
         count: 300
         time_window: 60
-        key_type: var
-        key: remote_addr
+        key_type: var_combination
+        key: '$remote_addr $http_x_tenant_id $http_x_user_subject'
         policy: redis
         redis_host: '${{GATEWAY_REDIS_HOST:=redis}}'
         redis_port: 6379
@@ -134,11 +179,26 @@ routes:
         headers:
           set:
             X-Gateway-Identity: bms-edge
+      forward-auth:
+        uri: 'http://${{GATEWAY_AUTH_HOST:=identity}}:8000/api/v1/auth/introspect'
+        request_method: GET
+        request_headers:
+          - Authorization
+        upstream_headers:
+          - Authorization
+          - X-User-Subject
+          - X-User-Id
+          - X-Tenant-Id
+          - X-User-Scopes
+        client_headers:
+          - WWW-Authenticate
+        timeout: 3000
+        status_on_error: 503
       limit-count:
         count: 300
         time_window: 60
-        key_type: var
-        key: remote_addr
+        key_type: var_combination
+        key: '$remote_addr $http_x_tenant_id $http_x_user_subject'
         policy: redis
         redis_host: '${{GATEWAY_REDIS_HOST:=redis}}'
         redis_port: 6379
@@ -161,11 +221,26 @@ routes:
         headers:
           set:
             X-Gateway-Identity: bms-edge
+      forward-auth:
+        uri: 'http://${{GATEWAY_AUTH_HOST:=identity}}:8000/api/v1/auth/introspect'
+        request_method: GET
+        request_headers:
+          - Authorization
+        upstream_headers:
+          - Authorization
+          - X-User-Subject
+          - X-User-Id
+          - X-Tenant-Id
+          - X-User-Scopes
+        client_headers:
+          - WWW-Authenticate
+        timeout: 3000
+        status_on_error: 503
       limit-count:
         count: 300
         time_window: 60
-        key_type: var
-        key: remote_addr
+        key_type: var_combination
+        key: '$remote_addr $http_x_tenant_id $http_x_user_subject'
         policy: redis
         redis_host: '${{GATEWAY_REDIS_HOST:=redis}}'
         redis_port: 6379
@@ -188,11 +263,26 @@ routes:
         headers:
           set:
             X-Gateway-Identity: bms-edge
+      forward-auth:
+        uri: 'http://${{GATEWAY_AUTH_HOST:=identity}}:8000/api/v1/auth/introspect'
+        request_method: GET
+        request_headers:
+          - Authorization
+        upstream_headers:
+          - Authorization
+          - X-User-Subject
+          - X-User-Id
+          - X-Tenant-Id
+          - X-User-Scopes
+        client_headers:
+          - WWW-Authenticate
+        timeout: 3000
+        status_on_error: 503
       limit-count:
         count: 300
         time_window: 60
-        key_type: var
-        key: remote_addr
+        key_type: var_combination
+        key: '$remote_addr $http_x_tenant_id $http_x_user_subject'
         policy: redis
         redis_host: '${{GATEWAY_REDIS_HOST:=redis}}'
         redis_port: 6379
@@ -215,11 +305,26 @@ routes:
         headers:
           set:
             X-Gateway-Identity: bms-edge
+      forward-auth:
+        uri: 'http://${{GATEWAY_AUTH_HOST:=identity}}:8000/api/v1/auth/introspect'
+        request_method: GET
+        request_headers:
+          - Authorization
+        upstream_headers:
+          - Authorization
+          - X-User-Subject
+          - X-User-Id
+          - X-Tenant-Id
+          - X-User-Scopes
+        client_headers:
+          - WWW-Authenticate
+        timeout: 3000
+        status_on_error: 503
       limit-count:
         count: 300
         time_window: 60
-        key_type: var
-        key: remote_addr
+        key_type: var_combination
+        key: '$remote_addr $http_x_tenant_id $http_x_user_subject'
         policy: redis
         redis_host: '${{GATEWAY_REDIS_HOST:=redis}}'
         redis_port: 6379
@@ -242,11 +347,26 @@ routes:
         headers:
           set:
             X-Gateway-Identity: bms-edge
+      forward-auth:
+        uri: 'http://${{GATEWAY_AUTH_HOST:=identity}}:8000/api/v1/auth/introspect'
+        request_method: GET
+        request_headers:
+          - Authorization
+        upstream_headers:
+          - Authorization
+          - X-User-Subject
+          - X-User-Id
+          - X-Tenant-Id
+          - X-User-Scopes
+        client_headers:
+          - WWW-Authenticate
+        timeout: 3000
+        status_on_error: 503
       limit-count:
         count: 300
         time_window: 60
-        key_type: var
-        key: remote_addr
+        key_type: var_combination
+        key: '$remote_addr $http_x_tenant_id $http_x_user_subject'
         policy: redis
         redis_host: '${{GATEWAY_REDIS_HOST:=redis}}'
         redis_port: 6379
@@ -269,11 +389,26 @@ routes:
         headers:
           set:
             X-Gateway-Identity: bms-edge
+      forward-auth:
+        uri: 'http://${{GATEWAY_AUTH_HOST:=identity}}:8000/api/v1/auth/introspect'
+        request_method: GET
+        request_headers:
+          - Authorization
+        upstream_headers:
+          - Authorization
+          - X-User-Subject
+          - X-User-Id
+          - X-Tenant-Id
+          - X-User-Scopes
+        client_headers:
+          - WWW-Authenticate
+        timeout: 3000
+        status_on_error: 503
       limit-count:
         count: 300
         time_window: 60
-        key_type: var
-        key: remote_addr
+        key_type: var_combination
+        key: '$remote_addr $http_x_tenant_id $http_x_user_subject'
         policy: redis
         redis_host: '${{GATEWAY_REDIS_HOST:=redis}}'
         redis_port: 6379
@@ -297,11 +432,26 @@ routes:
         headers:
           set:
             X-Gateway-Identity: bms-edge
+      forward-auth:
+        uri: 'http://${{GATEWAY_AUTH_HOST:=identity}}:8000/api/v1/auth/introspect'
+        request_method: GET
+        request_headers:
+          - Authorization
+        upstream_headers:
+          - Authorization
+          - X-User-Subject
+          - X-User-Id
+          - X-Tenant-Id
+          - X-User-Scopes
+        client_headers:
+          - WWW-Authenticate
+        timeout: 3000
+        status_on_error: 503
       limit-count:
         count: 10
         time_window: 60
-        key_type: var
-        key: remote_addr
+        key_type: var_combination
+        key: '$remote_addr $http_x_tenant_id $http_x_user_subject'
         policy: redis
         redis_host: '${{GATEWAY_REDIS_HOST:=redis}}'
         redis_port: 6379
@@ -319,6 +469,7 @@ global_rules:
           remove:
             - X-Gateway-Identity
             - X-User-Id
+            - X-User-Subject
             - X-Tenant-Id
             - X-User-Scopes
             - X-Service-Identity

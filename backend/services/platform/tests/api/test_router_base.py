@@ -165,9 +165,12 @@ async def test_unified_response_and_error(client: AsyncClient) -> None:
 
 
 @pytest.mark.kiwi_id(779)
-async def test_auth_placeholder_dependency() -> None:
-    """鉴权占位：require_auth 恒定放行、可作路由级依赖。"""
-    assert require_auth() is None
+async def test_auth_dependency_passes_when_gate_off() -> None:
+    """鉴权依赖：旁路开关关（未配置 settings）时恒定放行、可作路由级依赖。"""
+    from starlette.requests import Request as StarletteRequest
+
+    request = StarletteRequest({"type": "http", "method": "GET", "path": "/", "headers": [], "app": FastAPI()})
+    assert require_auth(request) is None
 
     app = FastAPI()
     router = BaseRouter(key="guarded", prefix="/guarded", dependencies=[Depends(require_auth)])
@@ -181,3 +184,21 @@ async def test_auth_placeholder_dependency() -> None:
         resp = await client.get("/guarded/ping")
         assert resp.status_code == 200
         assert resp.json() == {"status": "ok"}
+
+
+@pytest.mark.kiwi_id(2181)
+def test_auth_dependency_enforces_when_gate_on() -> None:
+    """鉴权依赖：旁路开关开且无可信身份 → AuthError（20001 / 401）。"""
+    from types import SimpleNamespace
+
+    from starlette.requests import Request as StarletteRequest
+
+    from bms_core.core.exceptions import AuthError
+
+    app = FastAPI()
+    app.state.settings = SimpleNamespace(edge=SimpleNamespace(require_gateway_identity=True))
+    request = StarletteRequest({"type": "http", "method": "GET", "path": "/", "headers": [], "app": app})
+    with pytest.raises(AuthError) as excinfo:
+        require_auth(request)
+    assert excinfo.value.code == 20001
+    assert excinfo.value.http_status == 401

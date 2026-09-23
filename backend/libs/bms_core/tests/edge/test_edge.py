@@ -22,9 +22,11 @@ from bms_core.edge.headers import (
     TENANT_ID_HEADER,
     USER_ID_HEADER,
     USER_SCOPES_HEADER,
+    USER_SUBJECT_HEADER,
 )
 from bms_core.edge.marker import MarkerEdgeTrust
 from bms_core.edge.null import NullEdgeTrust
+from bms_core.edge.service_jwt import ServiceJwtEdgeTrust
 
 pytestmark = pytest.mark.kiwi_id(2166)
 
@@ -70,12 +72,21 @@ def test_edge_identity_parses_headers_case_insensitively() -> None:
     identity = EdgeIdentity.from_headers(
         {
             USER_ID_HEADER.lower(): "not-a-number",
+            USER_SUBJECT_HEADER.upper(): "u-123",
             TENANT_ID_HEADER.upper(): "acme",
         }
     )
     assert identity.user_id is None
+    assert identity.subject == "u-123"
     assert identity.tenant_code == "acme"
     assert identity.scopes == ()
+
+
+def test_edge_identity_subject_defaults_none_when_missing() -> None:
+    """缺失主体头时 `subject` 为 None（加法扩展不破坏既有解析）。"""
+    identity = EdgeIdentity.from_headers({USER_ID_HEADER: "7"})
+    assert identity.user_id == 7
+    assert identity.subject is None
 
 
 def test_marker_factory_uses_option_and_default_value() -> None:
@@ -100,12 +111,12 @@ def test_require_edge_identity_reads_state_and_raises_without() -> None:
     assert require_edge_identity(Request(scope)).user_id == 7
 
 
-async def test_default_provider_resolves_null_and_dependency() -> None:
-    """应用装配：缺省 provider 解析到 NullEdgeTrust；路由经 get_edge_trust 取到占位实例。"""
+async def test_default_provider_resolves_service_jwt_and_dependency() -> None:
+    """应用装配：默认 provider 解析到 ServiceJwtEdgeTrust；路由经 get_edge_trust 取到实例。"""
     app = ApplicationFactory().create(None)
     async with lifespan(app):
-        assert isinstance(app.state.edge, NullEdgeTrust)
-        assert app.state.plugin_providers["edge"] == "null"
+        assert isinstance(app.state.edge, ServiceJwtEdgeTrust)
+        assert app.state.plugin_providers["edge"] == "service_jwt"
 
         @app.get("/edge-probe")
         async def edge_probe(  # pyright: ignore[reportUnusedFunction]
@@ -117,4 +128,4 @@ async def test_default_provider_resolves_null_and_dependency() -> None:
             resp = await client.get("/edge-probe")
 
         assert resp.status_code == 200
-        assert resp.json() == {"key": "edge", "type": "NullEdgeTrust"}
+        assert resp.json() == {"key": "edge", "type": "ServiceJwtEdgeTrust"}
