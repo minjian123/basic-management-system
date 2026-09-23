@@ -6,7 +6,7 @@ from bms_core.core.config import DbPoolSettings, get_settings
 from ops.check_budget import main
 
 
-@pytest.mark.kiwi_id(1078)
+@pytest.mark.kiwi_id(2178)
 def test_check_budget_pass_and_service_filter(capsys: pytest.CaptureFixture[str]) -> None:
     """默认口径通过；`--service` 只核算指定服务（行数 = 服务 × 库类别 + 归档）。"""
     settings = get_settings()
@@ -20,7 +20,7 @@ def test_check_budget_pass_and_service_filter(capsys: pytest.CaptureFixture[str]
     assert "校验通过" in out
 
 
-@pytest.mark.kiwi_id(1078)
+@pytest.mark.kiwi_id(2178)
 def test_check_budget_exceeded(capsys: pytest.CaptureFixture[str]) -> None:
     """超限行 → 退出码 1 并输出超限明细（含算式与服务名）。"""
     settings = get_settings()
@@ -36,7 +36,7 @@ def test_check_budget_exceeded(capsys: pytest.CaptureFixture[str]) -> None:
     settings.server.workers = 1
 
 
-@pytest.mark.kiwi_id(1078)
+@pytest.mark.kiwi_id(2178)
 def test_check_budget_active_tenants(capsys: pytest.CaptureFixture[str]) -> None:
     """`--active-tenants`：租户库按活跃租户数核算（超限即失败）。"""
     settings = get_settings()
