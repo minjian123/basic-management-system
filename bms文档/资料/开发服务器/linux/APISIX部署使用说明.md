@@ -6,7 +6,7 @@
 
 ## 1. 目的与适用范围 <a id="purpose"></a>
 
-mjbk 上的 Apache APISIX（容器 `bms-apisix`）是本项目**边缘统一入口**：外部流量经它按服务目录路由到各后端服务，承担路由、边缘认证、限流、灰度与边缘观测（认证 / 限流能力随 04_02 / 04_03 接入）。
+mjbk 上的 Apache APISIX（容器 `bms-apisix`）是本项目**边缘统一入口**：外部流量经它按服务目录路由到各后端服务，承担路由、边缘认证、限流、灰度与边缘观测（认证随 04_02、限流 / 观测出口 / 灰度预留随 04_03 已接入）。
 本说明记录其**standalone（文件驱动）**部署形态、声明式配置来源、部署与运维步骤、排障经验。
 `<mjbk-IP>` / `<SSH账号>` 取值见《[本地资源](../../../用户文档/本地资源.md)》与 mjbk 本机 `deploy/.env`。
 
@@ -74,6 +74,9 @@ nginx_config:
 | 外部路径 | `/api/{service_key}/v1/...`，网关 `proxy-rewrite` 剥离为服务内 `/api/v1/...` |
 | 认证 / 限流钩子 | 插件经 `gateway_catalog.py::ROUTE_PLUGINS` 按服务合并；默认不启用（随 04_03 / 07_03 接入） |
 | 请求净化 / 身份头 | `global_rules`（`edge-sanitize`）统一剥除客户端伪造身份头（`X-User-Id` / `X-Tenant-Id` / `X-User-Scopes` / `X-Service-Identity` / `X-Gateway-Identity`）；路由级 `proxy-rewrite.headers.set` 置网关专属标记 `X-Gateway-Identity: bms-edge`，并预留身份注入钩子 `ROUTE_HEADERS_SET`（04_02 交付；真实 JWT 注入随 07_03） |
+| 边缘限流（04_03） | 每条路由挂 `limit-count`（`policy: redis` 共享计数、默认按真实客户端 IP、通用 300/60s）；认证敏感路径（`/api/identity/v1/auth/login` / `auth/refresh`）走独立路由 `route-identity-auth-login`（`priority=10`、更严 10/60s）；Redis 主机 / 密码经 `${{GATEWAY_REDIS_HOST:=redis}}` / `${{GATEWAY_REDIS_PASSWORD:=}}` 环境变量替换（端口 / 库整数字面量），`allow_degradation: true` Redis 故障放行；`global_rules` 增 `edge-real-ip`（`source: http_x_real_ip` + 可信网段） |
+| 边缘观测（04_03） | 路由挂 `prometheus: {}`；`config.yaml` 的 `plugin_attr.prometheus` 暴露指标端点（`:9091/apisix/prometheus/metrics`）、`nginx_config.http` 配访问日志（stdout）；真实采集 / 展示归 08 可观测性栈 |
+| 灰度预留（04_03） | 路由级 `traffic-split` 钩子（`GRAY_TRAFFIC`，默认空）：按版本 / 权重灰度，声明式入 Git、迁 K8s 平移 HTTPRoute 权重 |
 
 **改配置的唯一正确路径**：改服务目录或生成脚本 → `render` 重新生成 → 提交 →（热加载或重建）→ 禁止在控制台手工增删。
 
@@ -114,6 +117,23 @@ curl -s http://127.0.0.1:9080/api/platform/v1/ping \
 
 上游响应头（whoami 回显）**不含** `X-User-Id` / `X-Service-Identity` / `X-Tenant-Id` / `X-User-Scopes`（已被 `global_rules` 统一剥除），**含** `X-Gateway-Identity: bms-edge`（路由级 `proxy-rewrite.headers.set` 置入），自定义头 `X-Custom-Probe` 正常透传（非身份头不受影响）。
 
+**限流与观测验证（04_03，2026-09-23）**：起临时第二实例（`bms-apisix-2`，宿主 9081）与上游 whoami（别名 `platform` / `identity`），两实例共享 `compose_default` 网络与 `bms-redis`：
+
+```bash
+# 登录限流：实例 A 连打 10 次 200（remaining 9→0），第 11 次 429；实例 B 第 1 次立即 429（跨实例共享配额）
+for i in $(seq 1 10); do curl -s -o /dev/null -w "A#$i=%{http_code} " http://127.0.0.1:9080/api/identity/v1/auth/login; done; echo
+curl -s -o /dev/null -w "A#11=%{http_code}\n" http://127.0.0.1:9080/api/identity/v1/auth/login   # 429
+curl -s -o /dev/null -w "B#1=%{http_code}\n"  http://127.0.0.1:9081/api/identity/v1/auth/login   # 429（共享 Redis）
+# 计数落 Redis（key 含路由与客户端 IP）
+docker exec bms-redis redis-cli --scan --pattern '*limit*'
+# real-ip：可信来源带 X-Real-IP，限流按真实 IP 计数（key 末尾即真实 IP）
+curl -s -o /dev/null -H 'X-Real-IP: 203.0.113.9' http://127.0.0.1:9080/api/platform/v1/ping
+# 指标端点（两实例）
+curl -s http://127.0.0.1:9091/apisix/prometheus/metrics | grep -c '^apisix_'
+```
+
+实测：登录第 11 次 429、实例 B 立即 429（**多副本共享计数一致**）；通用路由 200 且带 `X-RateLimit-Limit: 300` / `X-RateLimit-Remaining`；real-ip 还原后限流 key 末尾为 `203.0.113.9`；指标端点两实例均可达（`apisix_*` 指标）。验证后清理临时容器与限流 key（无残留）。
+
 > 当前后端服务尚未容器化，除临时验证外，各服务路由在上游不可达时返回 **502**，属预期（服务容器化与按服务发布归后续任务）。
 
 ## 7. 使用说明 <a id="use"></a>
@@ -123,6 +143,8 @@ curl -s http://127.0.0.1:9080/api/platform/v1/ping \
 | 入口地址（直连网关） | `http://<mjbk-IP>:9080`（仅内网） |
 | 外部路径约定 | `/api/{service_key}/v1/...`（如 `/api/identity/v1/captcha/...`）→ 服务内 `/api/v1/...` |
 | 上游寻址 | Compose DNS 服务名 + 8000（`{service_key}:8000`），禁硬编码 IP |
+| 边缘限流 | 通用 300/60s、认证敏感路径（登录）10/60s，按真实客户端 IP、共享 `bms-redis` 多副本一致；Redis 故障放行（`allow_degradation`） |
+| 指标端点 | `http://<mjbk-IP>:9091/apisix/prometheus/metrics`（宿主端口经 `GATEWAY_METRICS_PORT` 配置；08 抓取） |
 | 容器名 | `bms-apisix` |
 | 配置目录 | mjbk `~/deploy/gateway/`（仓库 `deploy/gateway/`） |
 | 防火墙 | 端口经 Docker 发布（走 FORWARD 链），已对 `<内网网段>` 可达（见《[防火墙部署使用说明](防火墙部署使用说明.md)》6.1） |
@@ -147,6 +169,7 @@ curl -s http://127.0.0.1:9080/api/platform/v1/ping \
 | --- | --- | --- |
 | 改配置不生效 | 宿主替换 `apisix.yaml` 后网关行为不变、日志无 `reloaded` | 单文件 bind mount 仍指向旧 inode；改目录挂载 + 启动软链（见第 3 节），替换即时生效 |
 | 全局规置标记不生效 | `global_rules` 的 `proxy-rewrite.headers.set` 未出现在上游，而同一规则的 `headers.remove` 生效 | APISIX 同一插件在 global 与 route 两处的 `headers.set` **不叠加**（路由级 `proxy-rewrite` 执行后 global 的 set 被丢弃）；**标记 / 身份注入落路由级** `headers.set`、伪造头剥除留 global 规则（04_02 实测，2026-09-23） |
+| 限流配置致整份配置未加载 | 日志 `failed to check the configuration of plugin limit-count err: then clause did not match`，全路由 404 | `limit-count` 的 `redis_port` / `redis_database` schema 要求**整数**；若用 `${{…}}` 环境变量替换会得到字符串而校验失败——端口 / 库用整数字面量，仅 `redis_host` / `redis_password`（字符串）用替换（04_03 实测，2026-09-23） |
 | 镜像标签不存在 | `apache/apisix:3.18.0` 拉取失败 | 官方 Docker 标签为 `apache/apisix:3.18.0-debian` |
 | 各服务路由 502 | 访问 `/api/{service}/v1/...` 报 502 | 后端服务尚未容器化 / 未启动（预期）；服务容器化后随编排接入 |
 | 提示 orphan containers | `up -d` 时报 `Found orphan containers (…)` | 仅提示既有基础设施容器不在本文件内，正常；勿用 `--remove-orphans`（会误删基础设施） |
