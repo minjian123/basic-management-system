@@ -73,35 +73,33 @@ def test_render_is_deterministic() -> None:
 
 @pytest.mark.kiwi_id(2165)
 def test_route_plugins_hook_merges(monkeypatch: pytest.MonkeyPatch) -> None:
-    """ROUTE_PLUGINS 钩子按 service_key 合并附加插件（认证 / 限流预留）。"""
-    monkeypatch.setitem(gc.ROUTE_PLUGINS, "platform", {"limit-count": {"count": 10}})
+    """ROUTE_PLUGINS 钩子按 service_key 合并附加插件（认证 07_03 预留）。"""
+    monkeypatch.setitem(gc.ROUTE_PLUGINS, "platform", {"openid-connect": {"client_id": "bms"}})
     by_id = {route["id"]: route for route in gc.render_routes()}
     plugins = cast("dict[str, Any]", by_id["route-platform"]["plugins"])
     assert "proxy-rewrite" in plugins
-    assert plugins["limit-count"] == {"count": 10}
+    assert plugins["openid-connect"] == {"client_id": "bms"}
     other = cast("dict[str, Any]", by_id["route-identity"]["plugins"])
-    assert "limit-count" not in other
+    assert "openid-connect" not in other
 
 
 @pytest.mark.kiwi_id(2165)
 def test_render_apisix_yaml_is_valid_and_ends_with_marker() -> None:
-    """生成件以 #END 结尾、可被 YAML 解析、结构含 upstreams / routes / global_rules。"""
+    """生成件以 #END 结尾、可被 YAML 解析、结构含 upstreams / routes / global_rules / plugin_metadata。"""
     text = gc.render_apisix_yaml()
     assert text.endswith("#END\n")
     data = yaml.safe_load(text)
-    assert set(data) == {"upstreams", "routes", "global_rules"}
+    assert set(data) == {"upstreams", "routes", "global_rules", "plugin_metadata"}
     assert len(data["upstreams"]) == len(_EXPECTED_SERVICES)
-    assert len(data["routes"]) == len(_EXPECTED_SERVICES)
+    assert len(data["routes"]) == len(_EXPECTED_SERVICES) + 1  # 服务路由 + 登录限流路由
     assert data["routes"][0]["upstream_id"] == "platform"
 
 
 @pytest.mark.kiwi_id(2166)
 def test_render_global_rules_strips_identity_headers() -> None:
     """全局净化规则：剥除客户端伪造身份头（含网关标记头）；标记置入归路由级。"""
-    rules = gc.render_global_rules()
-    assert len(rules) == 1
-    rule = rules[0]
-    assert rule["id"] == "edge-sanitize"
+    rules = {rule["id"]: rule for rule in gc.render_global_rules()}
+    rule = rules["edge-sanitize"]
     plugin = cast("dict[str, Any]", cast("dict[str, Any]", rule["plugins"])["proxy-rewrite"])
     headers = cast("dict[str, Any]", plugin["headers"])
     assert "set" not in headers
@@ -156,3 +154,133 @@ def test_route_prefix_and_upstream_node() -> None:
     """外部前缀与上游节点约定。"""
     assert gc.route_prefix("identity") == "/api/identity/v1"
     assert gc.upstream_node("identity") == "identity:8000"
+
+
+@pytest.mark.kiwi_id(2167)
+def test_rate_limit_plugin_shared_redis() -> None:
+    """限流插件：Redis 共享计数 + 真实客户端 IP + 环境变量替换 + 降级放行。"""
+    plugin = gc.rate_limit_plugin(count=gc.DEFAULT_RATE_LIMIT_COUNT, window=gc.DEFAULT_RATE_LIMIT_WINDOW)
+    assert plugin["count"] == 300
+    assert plugin["time_window"] == 60
+    assert plugin["key_type"] == "var"
+    assert plugin["key"] == "remote_addr"
+    assert plugin["policy"] == "redis"
+    assert plugin["redis_host"] == "${{GATEWAY_REDIS_HOST:=redis}}"
+    assert plugin["redis_port"] == 6379
+    assert plugin["redis_database"] == 0
+    assert plugin["redis_password"] == "${{GATEWAY_REDIS_PASSWORD:=}}"
+    assert plugin["rejected_code"] == 429
+    assert plugin["allow_degradation"] is True
+    assert plugin["show_limit_quota_header"] is True
+    # 维度可扩展（07_03 注入身份后改 var_combination）
+    assert gc.rate_limit_plugin(count=1, window=1, key="$remote_addr $http_x_tenant_id")["key"] == (
+        "$remote_addr $http_x_tenant_id"
+    )
+
+
+@pytest.mark.kiwi_id(2167)
+def test_service_routes_include_rate_limit_and_prometheus() -> None:
+    """每条服务路由注入限流（通用档）与观测出口（prometheus）。"""
+    for route in gc.render_routes():
+        plugins = cast("dict[str, Any]", route["plugins"])
+        assert plugins["limit-count"]["count"] == gc.DEFAULT_RATE_LIMIT_COUNT
+        assert plugins["limit-count"]["policy"] == "redis"
+        assert plugins["prometheus"] == {}
+
+
+@pytest.mark.kiwi_id(2167)
+def test_login_route_stricter_and_prioritized() -> None:
+    """登录限流路由：精确认证敏感路径 + 显式更高优先级 + 更严档位 + 同上游重写。"""
+    routes = gc.render_login_routes()
+    assert len(routes) == 1
+    route = routes[0]
+    assert route["id"] == gc.LOGIN_ROUTE_ID
+    assert route["uris"] == list(gc.LOGIN_PATHS)
+    assert "/api/identity/v1/auth/login" in gc.LOGIN_PATHS
+    assert route["priority"] == gc.LOGIN_ROUTE_PRIORITY > 0
+    assert route["upstream_id"] == gc.LOGIN_SERVICE_KEY
+    plugins = cast("dict[str, Any]", route["plugins"])
+    assert plugins["limit-count"]["count"] == gc.LOGIN_RATE_LIMIT_COUNT == 10
+    assert plugins["limit-count"]["time_window"] == gc.LOGIN_RATE_LIMIT_WINDOW == 60
+    assert plugins["prometheus"] == {}
+    rewrite = cast("dict[str, Any]", plugins["proxy-rewrite"])
+    assert rewrite["regex_uri"] == ["^/api/identity/v1(.*)$", "/api/v1$1"]
+    # 登录路由并入完整配置的路由段
+    ids = [item["id"] for item in cast("list[Any]", gc.render_apisix_config()["routes"])]
+    assert gc.LOGIN_ROUTE_ID in ids
+
+
+@pytest.mark.kiwi_id(2167)
+def test_real_ip_global_rule() -> None:
+    """全局 real-ip 规则：取 nginx 覆写的 X-Real-IP、限定可信网段（环境变量替换）。"""
+    rules = {rule["id"]: rule for rule in gc.render_global_rules()}
+    plugin = cast("dict[str, Any]", cast("dict[str, Any]", rules["edge-real-ip"]["plugins"])["real-ip"])
+    assert plugin["source"] == "http_x_real_ip"
+    assert plugin["trusted_addresses"] == ["${{GATEWAY_TRUSTED_CIDR:=172.16.0.0/12}}"]
+
+
+@pytest.mark.kiwi_id(2167)
+def test_gray_traffic_hook_merges(monkeypatch: pytest.MonkeyPatch) -> None:
+    """灰度钩子：默认不注入；登记后按 service_key 合并 traffic-split 加权配置。"""
+    by_id = {route["id"]: route for route in gc.render_routes()}
+    assert "traffic-split" not in cast("dict[str, Any]", by_id["route-tenant"]["plugins"])
+    monkeypatch.setitem(
+        gc.GRAY_TRAFFIC,
+        "tenant",
+        {"rules": [{"weighted_upstreams": [{"upstream_id": "tenant-v2", "weight": 1}]}]},
+    )
+    routes = {route["id"]: route for route in gc.render_routes()}
+    plugins = cast("dict[str, Any]", routes["route-tenant"]["plugins"])
+    assert plugins["traffic-split"] == {"rules": [{"weighted_upstreams": [{"upstream_id": "tenant-v2", "weight": 1}]}]}
+    other = cast("dict[str, Any]", routes["route-identity"]["plugins"])
+    assert "traffic-split" not in other
+
+
+@pytest.mark.kiwi_id(2167)
+def test_plugin_metadata_declared() -> None:
+    """限流响应头名以 plugin_metadata 声明（声明式扩展点）。"""
+    metadata = gc.render_plugin_metadata()
+    assert metadata == [
+        {
+            "id": "limit-count",
+            "limit_header": "X-RateLimit-Limit",
+            "remaining_header": "X-RateLimit-Remaining",
+            "reset_header": "X-RateLimit-Reset",
+        }
+    ]
+
+
+@pytest.mark.kiwi_id(2167)
+def test_validate_service_discovery_flags_hardcoded_ip() -> None:
+    """服务发现护栏：正常生成件通过；上游节点 / 限流 redis_host 为 IP 时报违规。"""
+    assert gc.validate_service_discovery(gc.render_apisix_config()) == []
+    bad_upstream = {
+        "upstreams": [{"id": "platform", "type": "roundrobin", "nodes": {"10.0.0.5:8000": 1}}],
+        "routes": [],
+    }
+    assert gc.validate_service_discovery(bad_upstream) == ["上游 platform 节点为硬编码 IP：10.0.0.5:8000"]
+    bad_redis = {
+        "upstreams": [],
+        "routes": [
+            {"id": "route-a", "plugins": {"limit-count": {"redis_host": "192.168.1.1"}}},
+        ],
+    }
+    assert gc.validate_service_discovery(bad_redis) == ["路由 route-a 限流 redis_host 为硬编码 IP：192.168.1.1"]
+
+
+@pytest.mark.kiwi_id(2167)
+def test_validate_service_discovery_tolerates_malformed_config() -> None:
+    """护栏对畸形结构（非 dict 项 / 非 dict nodes 或 plugins / 无 redis_host）容错放行。"""
+    malformed: dict[str, object] = {
+        "upstreams": ["not-a-dict", {"id": "x", "nodes": "not-a-dict"}],
+        "routes": ["not-a-dict", {"id": "r", "plugins": "not-a-dict"}, {"id": "r2", "plugins": {"limit-count": "x"}}],
+    }
+    assert gc.validate_service_discovery(malformed) == []
+    assert gc.validate_service_discovery({}) == []
+
+
+@pytest.mark.kiwi_id(2167)
+def test_login_route_absent_when_service_disabled(monkeypatch: pytest.MonkeyPatch) -> None:
+    """认证服务未启用时不生成登录限流路由（避免悬空上游）。"""
+    monkeypatch.setattr(gc, "LOGIN_SERVICE_KEY", "wf")
+    assert gc.render_login_routes() == []

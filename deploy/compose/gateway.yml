@@ -18,6 +18,12 @@ services:
       TZ: Asia/Shanghai
       # 官方镜像 standalone 开关：跳过 etcd 初始化，走 conf/apisix.yaml 文件驱动
       APISIX_STAND_ALONE: "true"
+      # 限流共享 Redis 连接（04_03；apisix.yaml 经 ${{GATEWAY_REDIS_HOST:=redis}} / 密码占位替换，
+      # 默认 Compose DNS；端口 / 库用整数字面量，接口 schema 要求整数）
+      GATEWAY_REDIS_HOST: ${GATEWAY_REDIS_HOST:-redis}
+      GATEWAY_REDIS_PASSWORD: ${GATEWAY_REDIS_PASSWORD:-}
+      # real-ip 可信代理网段（04_03；默认 Docker 私网段）
+      GATEWAY_TRUSTED_CIDR: ${GATEWAY_TRUSTED_CIDR:-172.16.0.0/12}
     # 目录挂载 + 软链（而非单文件 bind mount）：单文件 bind 在宿主文件被替换（git pull / 重建）
     # 后容器内仍指向旧 inode，APISIX 的 1s 文件轮询读不到新内容、无法热加载；挂载配置目录并
     # 软链进 conf/ 可让宿主替换即时可见，实现「声明式配置改动 → 热加载生效」。
@@ -32,6 +38,8 @@ services:
       - ../gateway:/etc/bms-gateway:ro
     ports:
       - "${GATEWAY_APISIX_PORT:-9080}:9080"
+      # 边缘观测：prometheus 指标端点（08 可观测性栈抓取；见 deploy/gateway/config.yaml）
+      - "${GATEWAY_METRICS_PORT:-9091}:9091"
 
   gateway-nginx:
     image: nginx:1.27
