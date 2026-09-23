@@ -17,7 +17,10 @@ from bms_core.core.capability import BaseAsyncResource
 from bms_core.db.registry import PLATFORM_DB_KEY, EngineRegistry
 from bms_core.health.base import BaseHealthCheck, HealthCheckResult
 
-__all__ = ["CatalogHealthCheck", "DatabaseHealthCheck", "RedisHealthCheck"]
+__all__ = ["CATALOG_CHECK_KEY", "CatalogHealthCheck", "DatabaseHealthCheck", "RedisHealthCheck"]
+
+CATALOG_CHECK_KEY = "catalog"
+"""服务目录检查项键（`/readyz` 消费方按此键联动 `bms_catalog_degraded` 指标；08_02）。"""
 
 
 class RedisHealthCheck(BaseHealthCheck, BaseAsyncResource):
@@ -121,7 +124,7 @@ class CatalogHealthCheck(BaseHealthCheck):
     @property
     def key(self) -> str:
         """检查项键（`catalog`）。"""
-        return "catalog"
+        return CATALOG_CHECK_KEY
 
     def describe(self) -> str:
         """元信息描述。

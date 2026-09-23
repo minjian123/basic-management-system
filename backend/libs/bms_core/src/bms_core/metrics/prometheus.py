@@ -45,10 +45,13 @@ METRIC_DOCS: Mapping[str, str] = {
     "bms_request_total": "HTTP 请求总数（按服务 / 方法 / 路由 / 状态码）。",
     "bms_request_duration_seconds": "HTTP 请求耗时（秒；按服务 / 方法 / 路由）。",
     "bms_dependency_up": "依赖就绪状态（1 就绪 / 0 未就绪；按服务 / 依赖）。",
+    "bms_catalog_degraded": "服务目录降级状态（1 快照不可达 / 0 可达；按服务）。",
     "bms_db_count": "库数量（按服务与库类别 platform / tenant / archive）。",
-    "bms_boundary_cross_access_total": "跨服务边界访问次数（按服务 / 表 / 动作 / 判定）。",
+    "bms_boundary_cross_access_total": "跨服务边界访问次数（按服务 / 表前缀 / 归属 / 操作）。",
     "bms_outbox_delivery_total": "发件箱投递次数（按服务 / 结果）。",
     "bms_outbox_backlog": "发件箱积压（按服务 / 库键）。",
+    "bms_release_total": "服务发布次数（按服务 / 结果；CI 推送 Pushgateway）。",
+    "bms_contract_breaking_total": "契约破坏性变更数（按服务；CI 推送 Pushgateway）。",
 }
 """候选指标名 → HELP 文档（未登记名回退通用文案）。"""
 

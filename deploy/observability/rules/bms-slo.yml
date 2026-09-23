@@ -1,0 +1,100 @@
+# BMS 基座 SLO 告警规则（08_02 告警阈值锚点；架构 31「可用性目标与 SLO」）。
+# 加载：prometheus.yml 的 rule_files（/etc/prometheus/rules/*.yml）；校验：promtool check rules。
+# 分级：warning（工作时间处理）/ critical（立即处理）；路由与通道见 alertmanager.yml.tmpl。
+groups:
+  - name: bms-probes
+    rules:
+      - alert: BmsServiceMetricsDown
+        expr: up{job="bms-services"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: probe
+        annotations:
+          summary: "服务指标端点不可达（{{ $labels.instance }}）"
+          description: "服务进程未运行或 /metrics 不可达，指标采集中断。"
+          runbook: "见《可观测性栈部署使用说明》排障节"
+      - alert: BmsProbeFailing
+        expr: probe_success{job="bms-probe"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          component: probe
+        annotations:
+          summary: "服务探针失败（{{ $labels.instance }} /{{ $labels.probe }}）"
+          description: "blackbox 探测 /healthz 或 /readyz 非 200（进程存活失败或未就绪 / 摘流中）。"
+          runbook: "见《可观测性栈部署使用说明》排障节"
+
+  - name: bms-dependencies
+    rules:
+      - alert: BmsDependencyNotReady
+        expr: bms_dependency_up == 0
+        for: 2m
+        labels:
+          severity: critical
+          component: dependency
+        annotations:
+          summary: "依赖未就绪（{{ $labels.service }} / {{ $labels.dependency }}）"
+          description: "就绪探针聚合到依赖不可用（数据库 / Redis / 服务目录等），编排将摘流该实例。"
+      - alert: BmsCatalogDegraded
+        expr: bms_catalog_degraded == 1
+        for: 5m
+        labels:
+          severity: warning
+          component: catalog
+        annotations:
+          summary: "服务目录快照降级（{{ $labels.service }}）"
+          description: "服务目录快照不可达（非必需健康项，不摘流）；启动校验降级放行中，检查目录权威服务与快照契约。"
+
+  - name: bms-http-slo
+    rules:
+      - alert: BmsHighErrorRate
+        expr: |
+          sum by (service) (rate(bms_request_total{status=~"5.."}[5m]))
+            / sum by (service) (rate(bms_request_total[5m])) > 0.001
+        for: 5m
+        labels:
+          severity: warning
+          component: http
+        annotations:
+          summary: "服务 5xx 错误率超 0.1%（{{ $labels.service }}）"
+          description: "错误预算逼近（SLO 成功率 99.9%），检查最近变更与依赖状态。"
+      - alert: BmsCriticalErrorRate
+        expr: |
+          sum by (service) (rate(bms_request_total{status=~"5.."}[5m]))
+            / sum by (service) (rate(bms_request_total[5m])) > 0.05
+        for: 2m
+        labels:
+          severity: critical
+          component: http
+        annotations:
+          summary: "服务 5xx 错误率超 5%（{{ $labels.service }}）"
+          description: "错误率突增（架构 31「严重」级），立即处置。"
+      - alert: BmsSlowRequestsP99
+        expr: histogram_quantile(0.99, sum by (le, service) (rate(bms_request_duration_seconds_bucket[5m]))) > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          component: http
+        annotations:
+          summary: "服务 P99 延迟超 800ms（{{ $labels.service }}）"
+          description: "SLO 逼近阈值（架构 31 举例：P99 连续 5 分钟超 800ms）；列表查询分档目标随阶段十四压测复核。"
+
+  - name: bms-outbox
+    rules:
+      - alert: BmsOutboxBacklog
+        expr: bms_outbox_backlog > 100
+        for: 10m
+        labels:
+          severity: warning
+          component: outbox
+        annotations:
+          summary: "发件箱积压超 100（{{ $labels.service }}）"
+          description: "投递器落后或下游不可达；M10 真实投递接入前为锚点口径，随量复核。"
+
+# 业务链路 SLO 锚点（留位登记，规则实体待业务端点实现后落地；架构 31「可用性目标与 SLO」）：
+# - 登录成功率 ≥ 99.9%（阶段六 认证与会话）
+# - 审批提交成功率 ≥ 99.95%（工作流阶段）
+# - Socket.IO 待办推送延迟 P95 ≤ 2s（实时推送阶段）
+# - 备份任务每日成功（运维阶段）
+# 落地时按对应服务请求指标（route 模板）补规则，阈值随阶段十四压测复核。

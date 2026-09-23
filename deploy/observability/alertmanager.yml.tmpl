@@ -1,0 +1,31 @@
+# Alertmanager 配置模板（渲染产物供 compose 挂载；勿手改产物，改模板后重跑渲染）。
+# 渲染：python3 scripts/tools/observability/render_alertmanager.py --env-file deploy/.env
+# 口径：凭据经 deploy/.env 注入、缺失即禁用（no-op receiver）；规则与阈值锚点见 rules/bms-slo.yml。
+global:
+  resolve_timeout: 5m
+$global_smtp_block
+
+# 路由：默认（警告级）走 default；严重级走 critical（邮件 + webhook）；同组按告警名与服务聚合。
+route:
+  receiver: default
+  group_by: ["alertname", "service"]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 12h
+  routes:
+    - matchers:
+        - severity="critical"
+      receiver: critical
+      repeat_interval: 1h
+
+receivers:
+  - name: default
+$default_receiver_block
+  - name: critical
+$critical_receiver_block
+
+# 抑制：严重级在途时抑制同告警名与服务的警告级（防同一故障双通道噪声）。
+inhibit_rules:
+  - source_matchers: ['severity="critical"']
+    target_matchers: ['severity="warning"']
+    equal: ["alertname", "service"]

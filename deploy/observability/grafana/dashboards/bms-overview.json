@@ -9,6 +9,33 @@
   "time": {"from": "now-1h", "to": "now"},
   "refresh": "30s",
   "schemaVersion": 39,
+  "templating": {
+    "list": [
+      {
+        "name": "service",
+        "label": "服务",
+        "type": "query",
+        "datasource": {"type": "prometheus", "uid": "prometheus"},
+        "query": {"query": "label_values(bms_request_total, service)", "refId": "BMS-Var-Service"},
+        "refresh": 1,
+        "sort": 1,
+        "includeAll": true,
+        "multi": true,
+        "current": {"selected": true, "text": ["All"], "value": ["$__all"]}
+      },
+      {
+        "name": "version",
+        "label": "服务版本（Tempo）",
+        "type": "query",
+        "datasource": {"type": "tempo", "uid": "tempo"},
+        "query": {"query": "label_values(service.version)", "refId": "BMS-Var-Version"},
+        "refresh": 1,
+        "includeAll": true,
+        "multi": true,
+        "current": {"selected": true, "text": ["All"], "value": ["$__all"]}
+      }
+    ]
+  },
   "panels": [
     {
       "id": 1,
@@ -20,7 +47,7 @@
         {
           "refId": "A",
           "datasource": {"type": "prometheus", "uid": "prometheus"},
-          "expr": "sum by (route) (rate(bms_request_total[5m]))",
+          "expr": "sum by (route) (rate(bms_request_total{service=~\"$service\"}[5m]))",
           "legendFormat": "{{route}}"
         }
       ]
@@ -35,7 +62,7 @@
         {
           "refId": "A",
           "datasource": {"type": "prometheus", "uid": "prometheus"},
-          "expr": "histogram_quantile(0.95, sum by (le, route) (rate(bms_request_duration_seconds_bucket[5m])))",
+          "expr": "histogram_quantile(0.95, sum by (le, route) (rate(bms_request_duration_seconds_bucket{service=~\"$service\"}[5m])))",
           "legendFormat": "{{route}} p95"
         }
       ]
@@ -50,7 +77,7 @@
         {
           "refId": "A",
           "datasource": {"type": "prometheus", "uid": "prometheus"},
-          "expr": "sum by (service) (rate(bms_request_total{status=~\"5..\"}[5m]))",
+          "expr": "sum by (service) (rate(bms_request_total{status=~\"5..\",service=~\"$service\"}[5m]))",
           "legendFormat": "{{service}}"
         }
       ]
@@ -65,7 +92,7 @@
         {
           "refId": "A",
           "datasource": {"type": "prometheus", "uid": "prometheus"},
-          "expr": "bms_dependency_up",
+          "expr": "bms_dependency_up{service=~\"$service\"}",
           "legendFormat": "{{service}}/{{dependency}}"
         }
       ]
@@ -80,7 +107,7 @@
         {
           "refId": "A",
           "datasource": {"type": "prometheus", "uid": "prometheus"},
-          "expr": "bms_db_count",
+          "expr": "bms_db_count{service=~\"$service\"}",
           "legendFormat": "{{service}}/{{kind}}"
         }
       ]
@@ -96,14 +123,14 @@
         {
           "refId": "A",
           "datasource": {"type": "loki", "uid": "loki"},
-          "expr": "{service=~\".+\"}"
+          "expr": "{service=~\"$service\"}"
         }
       ]
     },
     {
       "id": 7,
       "type": "traces",
-      "title": "链路（Tempo）",
+      "title": "链路（Tempo；服务版本变量见上方选择器）",
       "datasource": {"type": "tempo", "uid": "tempo"},
       "gridPos": {"h": 10, "w": 24, "x": 0, "y": 34},
       "targets": [

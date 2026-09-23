@@ -1,0 +1,153 @@
+{
+  "annotations": {"list": []},
+  "editable": true,
+  "graphTooltip": 1,
+  "title": "BMS SLO 与告警",
+  "uid": "bms-slo",
+  "tags": ["bms", "observability", "slo"],
+  "timezone": "browser",
+  "time": {"from": "now-6h", "to": "now"},
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "templating": {
+    "list": [
+      {
+        "name": "service",
+        "label": "服务",
+        "type": "query",
+        "datasource": {"type": "prometheus", "uid": "prometheus"},
+        "query": {"query": "label_values(bms_request_total, service)", "refId": "BMS-Var-Service"},
+        "refresh": 1,
+        "sort": 1,
+        "includeAll": true,
+        "multi": true,
+        "current": {"selected": true, "text": ["All"], "value": ["$__all"]}
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "告警（firing，按级别）",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 8, "w": 6, "x": 0, "y": 0},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}},
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "expr": "sum by (severity) (ALERTS{alertstate=\"firing\"})",
+          "legendFormat": "{{severity}}",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "5xx 错误率（按服务；阈值 0.1% / 5%）",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 8, "w": 9, "x": 6, "y": 0},
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "expr": "sum by (service) (rate(bms_request_total{status=~\"5..\",service=~\"$service\"}[5m])) / clamp_min(sum by (service) (rate(bms_request_total{service=~\"$service\"}[5m])), 1e-9)",
+          "legendFormat": "{{service}}"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "P99 延迟（按服务；阈值 0.8s）",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 8, "w": 9, "x": 15, "y": 0},
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "expr": "histogram_quantile(0.99, sum by (le, service) (rate(bms_request_duration_seconds_bucket{service=~\"$service\"}[5m])))",
+          "legendFormat": "{{service}} p99"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "依赖就绪（bms_dependency_up）",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 8, "w": 8, "x": 0, "y": 8},
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "expr": "bms_dependency_up{service=~\"$service\"}",
+          "legendFormat": "{{service}}/{{dependency}}"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "探针成功率（blackbox probe_success）",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 8, "w": 8, "x": 8, "y": 8},
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "expr": "probe_success",
+          "legendFormat": "{{instance}} /{{probe}}"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "服务目录降级（bms_catalog_degraded）",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 8, "w": 8, "x": 16, "y": 8},
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "expr": "bms_catalog_degraded{service=~\"$service\"}",
+          "legendFormat": "{{service}}"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "发件箱积压（阈值 100）",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "expr": "bms_outbox_backlog{service=~\"$service\"}",
+          "legendFormat": "{{service}}"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "table",
+      "title": "告警明细（ALERTS）",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "expr": "ALERTS",
+          "format": "table",
+          "instant": true
+        }
+      ]
+    }
+  ]
+}

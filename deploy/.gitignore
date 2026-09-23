@@ -1,0 +1,2 @@
+# Alertmanager 渲染产物（含 SMTP / webhook 凭据，不入库；由 scripts/tools/observability/render_alertmanager.py 生成）
+observability/rendered/alertmanager.yml

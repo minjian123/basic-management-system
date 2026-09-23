@@ -18,6 +18,7 @@
 | `tools/preflight/` | 本地预检（`check-preflight.py`）：推送前在本地跑 CI 关键门禁（CI 配置 / pytest 选项校验、ruff / pyright、聚合全量 + 工程级范围测试、基座与边界、文档状态），避免「改一点、等整条流水线」的慢循环 |
 | `tools/check-docs/` | 项目文档状态一致性核对（`check-status.py`：需求 / 任务 / 计划三处，同挂 `base-integrity`） |
 | `tools/governance/` | 治理脚本（`collect_metrics.py` 阶段度量 + 用例统计、`review_stage.py` 阶段末复盘清单；《项目规划说明》§25.3） |
+| `tools/observability/` | 可观测部署辅助（`render_alertmanager.py` 从 `deploy/.env` 渲染 Alertmanager 配置；产物不入库） |
 | `tools/winrm/` | mjw（Windows）远程控制（WinRM 会话与电源） |
 | `tools/vision/` | mjw 识图 MCP（opencode MCP 服务） |
 | `tools/dsh/` | DeepSeek Harness（dsh）维护脚本 |
