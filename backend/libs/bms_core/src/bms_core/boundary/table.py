@@ -1,4 +1,4 @@
-"""数据所有权守卫真实实现：SQLAlchemy 执行前按表前缀归属检测跨服务库访问。
+"""数据所有权守卫真实实现：SQLAlchemy 执行前按**表级归属**检测跨服务库访问（06_03 口径）。
 
 - 挂载点：SQLAlchemy `Engine` 类级 `before_cursor_execute` 事件——异步引擎底层同步引擎同属
   `Engine`，一处覆盖异步 / 同步方言 / 达梦同步门面。
@@ -22,7 +22,6 @@ from bms_core.boundary.base import (
     BaseDataOwnershipGuard,
     OwnershipStats,
 )
-from bms_core.boundary.directory import SHARED_TABLE_PREFIXES
 from bms_core.boundary.exceptions import OwnershipException
 from bms_core.core.exceptions import ConfigError, DataOwnershipError
 from bms_core.core.logging import get_logger
@@ -34,7 +33,7 @@ _LOGGER = get_logger("bms")
 
 
 class TableOwnershipGuard(BaseDataOwnershipGuard):
-    """表前缀归属守卫（真实实现，插件名 `table`）。"""
+    """表级归属守卫（真实实现，插件名 `table`）。"""
 
     plugin_name: str = "table"
 
@@ -45,7 +44,6 @@ class TableOwnershipGuard(BaseDataOwnershipGuard):
         mode: str = DEFAULT_OWNERSHIP_MODE,
         exceptions: tuple[OwnershipException, ...] = (),
         metrics: BaseMetrics | None = None,
-        shared_prefixes: frozenset[str] = frozenset(SHARED_TABLE_PREFIXES),
     ) -> None:
         """初始化。
 
@@ -54,7 +52,6 @@ class TableOwnershipGuard(BaseDataOwnershipGuard):
             mode: 运行模式（`OWNERSHIP_MODES` 之一）。
             exceptions: 只读例外登记条目。
             metrics: 指标器（None 表示不上报）。
-            shared_prefixes: 平台域共享前缀。
 
         Raises:
             ConfigError: 运行模式非法。
@@ -65,7 +62,6 @@ class TableOwnershipGuard(BaseDataOwnershipGuard):
         self._mode = mode
         self._exceptions = exceptions
         self._metrics = metrics
-        self._shared_prefixes = shared_prefixes
         self._lock = threading.Lock()
         self._pending_tasks: set[asyncio.Task[None]] = set()
         self._statements = 0
@@ -82,12 +78,7 @@ class TableOwnershipGuard(BaseDataOwnershipGuard):
         Returns:
             tuple[OwnershipViolation, ...]: 越界项（无越界返回空元组）。
         """
-        return assess_statement(
-            statement,
-            service=service,
-            exceptions=self._exceptions,
-            shared_prefixes=self._shared_prefixes,
-        )
+        return assess_statement(statement, service=service, exceptions=self._exceptions)
 
     def snapshot(self) -> OwnershipStats:
         """取计数快照。

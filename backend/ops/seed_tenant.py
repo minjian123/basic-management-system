@@ -26,7 +26,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from bms_core.core.config import get_settings
 from bms_core.db.tenant import build_tenant_db_key
-from bms_core.models.platform import SysTenant
+from bms_tenant.models.tenant import SysTenant
 
 
 @dataclass(frozen=True)

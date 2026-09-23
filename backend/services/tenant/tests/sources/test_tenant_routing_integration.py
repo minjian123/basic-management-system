@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 from bms_core.core.config import Settings
 from bms_core.db.engine import EngineFactory
 from bms_core.db.registry import PLATFORM_DB_KEY, EngineRegistry
-from bms_core.db.tenant_source import TenantSource
+from bms_tenant.sources.tenant_source import LocalTenantSource
 from ops.seed_tenant import seed_tenants
 from ops.test_db import FLOW_STEPS, TEST_DATABASES, main
 
@@ -57,7 +57,7 @@ async def test_tenant_engine_resolved_by_context(tmp_path: Path) -> None:
     await seed_tenants(settings.database.platform.url)
     registry = EngineRegistry(EngineFactory(settings))
     try:
-        source = TenantSource(registry)
+        source = LocalTenantSource(registry)
         tenant = await source.by_code("demo")
         assert tenant.db_key == "tenant_demo"
         tenant_engine = await registry.get(tenant.db_key)

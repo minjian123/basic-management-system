@@ -40,7 +40,8 @@ from bms_core.db.engine import PLATFORM_DB_KEY, EngineFactory
 from bms_core.db.health import PrimaryHealth
 from bms_core.db.registry import EngineRegistry, pool_budget_warnings, tenant_pool_budget_warnings
 from bms_core.db.session import SessionFactory, session_scope
-from bms_core.db.tenant_source import TenantSource
+from bms_core.db.tenant_remote import register_remote_tenant_source
+from bms_core.db.tenant_source import build_tenant_lookup
 from bms_core.events.contracts import default_event_contract_registry, validate_event_registry
 from bms_core.lock.base import BaseDistributedLock
 from bms_core.repositories.module_repository import ModuleRepository
@@ -258,14 +259,16 @@ class BaseServiceApplicationFactory(BaseApplicationFactory):
             resolve_factory("session_factory", settings.session_factory.provider),
         )
         primary_health = PrimaryHealth(engine_factory)
-        tenant_source = TenantSource(
-            engine_registry,
+        register_remote_tenant_source()  # 登记 `remote` 租户源实现（配置可切 `local`）
+        tenant_source = build_tenant_lookup(
+            settings.tenant.source,
+            settings=settings,
+            registry=engine_registry,
             cache=cast(
                 "CacheRegion",
                 resolve_plugin("cache", settings.cache.provider, expected_version=CacheRegion.contract_version),
             ),
             session_factory=session_factory,
-            cache_ttl=settings.tenant.resolve_cache_ttl,
         )
         app.state.engine_factory = engine_factory
         app.state.engine_registry = engine_registry

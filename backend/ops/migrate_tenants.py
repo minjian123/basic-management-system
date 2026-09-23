@@ -45,7 +45,7 @@ from bms_core.db.migration import (
     upgrade_chain,
 )
 from bms_core.db.tenant import build_tenant_db_key
-from bms_core.models.platform import SysTenant
+from bms_tenant.models.tenant import SysTenant
 
 _DM = "dm"
 _TARGETS = ("all", "platform", "tenants", "tenant", "archive")

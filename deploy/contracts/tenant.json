@@ -98,6 +98,126 @@
         "summary": "Root"
       }
     },
+    "/api/v1/tenant-registry": {
+      "get": {
+        "description": "取租户注册快照（按编码或域名二选一）。\n\nArgs:\n    session: 平台服务库只读会话。\n    code: 租户编码。\n    domain: 子域名。\n\nReturns:\n    ApiResponse: 统一响应（data 为注册快照）。\n\nRaises:\n    ParamError: 未提供 code / domain（10001）。\n    TenantNotFoundError: 未知租户（404 / 80001）。\n    TenantSuspendedError: 租户已停用（403 / 80002）。",
+        "operationId": "get_tenant_registry_api_v1_tenant_registry_get",
+        "parameters": [
+          {
+            "description": "租户编码（与 domain 二选一）",
+            "in": "query",
+            "name": "code",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "租户编码（与 domain 二选一）",
+              "title": "Code"
+            }
+          },
+          {
+            "description": "子域名（与 code 二选一）",
+            "in": "query",
+            "name": "domain",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "子域名（与 code 二选一）",
+              "title": "Domain"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Get Tenant Registry",
+        "tags": [
+          "tenant"
+        ]
+      }
+    },
     "/api/v1/tenants/brand": {
       "get": {
         "description": "取品牌信息（登录前可用；缺省当前租户）。\n\nArgs:\n    service: 租户自助基座。\n    code: 租户编码（可选）。\n\nReturns:\n    ApiResponse: 统一响应，data 为品牌信息（`TenantBrandResponse`）。",

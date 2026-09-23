@@ -8,7 +8,7 @@ from sqlalchemy.dialects import mysql, postgresql, sqlite
 from sqlalchemy.engine import Dialect
 
 from bms_core.core.exceptions import ConfigError
-from bms_core.models.platform import SysTenant
+from bms_core.models.platform import SysModule
 from bms_core.repositories.ordering import (
     assert_sortable_fields_indexed,
     is_after_cursor,
@@ -182,9 +182,9 @@ def test_is_after_cursor_mirrors_sql_predicate() -> None:
 @pytest.mark.kiwi_id(1078)
 def test_assert_sortable_fields_indexed() -> None:
     """索引配合断言：主键 / 索引列通过；无索引字段抛 `ConfigError`；非 ORM 模型拒绝。"""
-    assert_sortable_fields_indexed(SysTenant, {"id", "domain", "deleted_at"})
+    assert_sortable_fields_indexed(SysModule, {"id", "deleted_at"})
     with pytest.raises(ConfigError):
-        assert_sortable_fields_indexed(SysTenant, {"name"})
+        assert_sortable_fields_indexed(SysModule, {"name"})
     with pytest.raises(ConfigError):
         assert_sortable_fields_indexed(Row, {"rank"})
 

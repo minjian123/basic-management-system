@@ -13,11 +13,9 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from bms_core.boundary.assess import assess_statement, assess_table
 from bms_core.boundary.base import get_data_ownership_guard
 from bms_core.boundary.directory import (
-    is_shared_prefix,
     known_prefixes,
     known_services,
-    owned_prefixes_for,
-    prefix_owner,
+    table_owner,
     table_prefix_of,
 )
 from bms_core.boundary.exceptions import (
@@ -58,15 +56,14 @@ def _write_exceptions(path: Path, entries: list[dict[str, str]]) -> None:
 
 @pytest.mark.kiwi_id(2170)
 def test_directory_ownership() -> None:
-    """表前缀归属与共享前缀口径。"""
+    """表级归属查询口径（06_03：不再有共享前缀，`sys_` 表按表级归属判定）。"""
     assert table_prefix_of("org_item") == "org_"
     assert table_prefix_of("demo") == "demo"
-    assert prefix_owner("org_") == "org"
-    assert prefix_owner("sys_") == "platform"
-    assert prefix_owner("zzz_") is None
-    assert is_shared_prefix("sys_")
-    assert "sys_" in owned_prefixes_for("platform")
-    assert "org_" in known_prefixes()
+    assert table_owner("sys_tenant") == "tenant"
+    assert table_owner("sys_module") == "platform"
+    assert table_owner("sys_outbox") == "*"
+    assert table_owner("zzz_unknown") is None
+    assert "sys_" in known_prefixes()
     assert "report" in known_services()
 
 
@@ -85,22 +82,22 @@ def test_sql_operation_and_tables() -> None:
 
 @pytest.mark.kiwi_id(2170)
 def test_assess_table_ownership() -> None:
-    """越界判定：自身 / 共享 / 未登记放行，他服务前缀越界。"""
-    assert assess_table("sys_tenant", service="org", operation="read") is None
-    assert assess_table("org_item", service="org", operation="read") is None
-    assert assess_table("demo", service="org", operation="read") is None
-    violation = assess_table("org_item", service="report", operation="read")
+    """越界判定：基础设施表 / 自身归属 / 未登记表名放行，他服务归属越界。"""
+    assert assess_table("sys_outbox", service="org", operation="read") is None
+    assert assess_table("demo", service="platform", operation="read") is None
+    assert assess_table("zzz_unknown", service="org", operation="read") is None
+    violation = assess_table("sys_tenant", service="org", operation="read")
     assert violation is not None
-    assert violation.owner == "org" and violation.prefix == "org_"
+    assert violation.owner == "tenant" and violation.prefix == "sys_"
 
 
 @pytest.mark.kiwi_id(2170)
 def test_assess_statement_and_exception() -> None:
     """SQL 越界判定 + 只读例外只放行 read 操作。"""
-    exceptions = (_exception(),)
-    assert assess_statement("select * from org_item", service="report", exceptions=exceptions) == ()
-    assert assess_statement("select * from org_item", service="report") != ()
-    assert assess_statement("update org_item set x=1", service="report", exceptions=exceptions) != ()
+    exceptions = (_exception(target_prefix="sys_dict_type"),)
+    assert assess_statement("select * from sys_dict_type", service="report", exceptions=exceptions) == ()
+    assert assess_statement("select * from sys_dict_type", service="report") != ()
+    assert assess_statement("update sys_dict_type set x=1", service="report", exceptions=exceptions) != ()
 
 
 @pytest.mark.kiwi_id(2170)
@@ -111,8 +108,8 @@ def test_exceptions_load_and_validate(tmp_path: Path) -> None:
     _write_exceptions(valid, [_exception().__dict__])
     entries = load_exceptions(valid)
     assert len(entries) == 1
-    assert exception_allows(entries, service="report", prefix="org_", operation="read")
-    assert not exception_allows(entries, service="report", prefix="org_", operation="write")
+    assert exception_allows(entries, service="report", table="org_item", operation="read")
+    assert not exception_allows(entries, service="report", table="org_item", operation="write")
 
     invalid = tmp_path / "invalid.json"
     _write_exceptions(invalid, [_exception(access="write").__dict__])
@@ -120,13 +117,13 @@ def test_exceptions_load_and_validate(tmp_path: Path) -> None:
         load_exceptions(invalid)
 
     problems = validate_exceptions(
-        (_exception(service="unknown_svc"), _exception(target_prefix="sys_"), _exception(exit="bad")),
+        (_exception(service="unknown_svc"), _exception(target_prefix="zzz_"), _exception(exit="bad")),
+        known_tables=frozenset({"org_item"}),
         known_prefixes=frozenset({"org_"}),
         known_services=frozenset({"report"}),
-        shared_prefixes=frozenset({"sys_"}),
     )
     assert any("service" in item for item in problems)
-    assert any("共享前缀" in item for item in problems)
+    assert any("目标" in item for item in problems)
     assert any("exit" in item for item in problems)
 
 
@@ -134,7 +131,7 @@ def test_exceptions_load_and_validate(tmp_path: Path) -> None:
 def test_null_guard() -> None:
     """缺省守卫恒定无越界、不安装监听。"""
     guard = NullDataOwnershipGuard()
-    assert guard.assess("select * from org_item", service="report") == ()
+    assert guard.assess("select * from sys_tenant", service="report") == ()
     assert guard.snapshot().violations == 0
 
 
@@ -142,7 +139,7 @@ def test_null_guard() -> None:
 def test_guard_modes_and_counters() -> None:
     """守卫三模式：off 不检测 / warn 计数不抛 / enforce 阻断。"""
     off = TableOwnershipGuard("report", mode="off")
-    assert off.assess("select * from org_item", service="report") != ()
+    assert off.assess("select * from sys_tenant", service="report") != ()
 
     warn = TableOwnershipGuard("report", mode="warn")
     enforce = TableOwnershipGuard("report", mode="enforce")
@@ -154,7 +151,7 @@ def test_guard_modes_and_counters() -> None:
         try:
             async with engine.connect() as conn:
                 with pytest.raises(DataOwnershipError):
-                    await conn.execute(text("select * from org_item"))
+                    await conn.execute(text("select * from sys_tenant"))
                 await conn.execute(text("select 1"))
         finally:
             warn.uninstall()
@@ -197,11 +194,11 @@ def test_validate_exceptions_prefix_and_date() -> None:
     """前缀未登记与登记日期格式非法。"""
     problems = validate_exceptions(
         (_exception(target_prefix="zzz_"), _exception(registered_at="2026/09/23")),
+        known_tables=frozenset({"org_item"}),
         known_prefixes=frozenset({"org_"}),
         known_services=frozenset({"report"}),
-        shared_prefixes=frozenset({"sys_"}),
     )
-    assert any("未在服务目录" in item for item in problems)
+    assert any("目标" in item for item in problems)
     assert any("registered_at" in item for item in problems)
 
 
@@ -233,7 +230,7 @@ async def test_guard_skips_off_and_empty_service() -> None:
     try:
         async with engine.connect() as conn:
             with pytest.raises(OperationalError):
-                await conn.execute(text("select * from org_item"))
+                await conn.execute(text("select * from sys_tenant"))
     finally:
         off.uninstall()
         empty.uninstall()
@@ -251,7 +248,7 @@ async def test_guard_reports_metric_with_loop() -> None:
     try:
         async with engine.connect() as conn:
             with pytest.raises(OperationalError):
-                await conn.execute(text("select * from org_item"))
+                await conn.execute(text("select * from sys_tenant"))
         await asyncio.sleep(0)
     finally:
         guard.uninstall()
@@ -267,7 +264,7 @@ def test_guard_metric_without_loop_degrades() -> None:
     guard.install()
     try:
         with engine.connect() as conn, pytest.raises(OperationalError):
-            conn.execute(text("select * from org_item"))
+            conn.execute(text("select * from sys_tenant"))
     finally:
         guard.uninstall()
         engine.dispose()
@@ -287,7 +284,7 @@ def test_guard_assess_failure_degrades(monkeypatch: pytest.MonkeyPatch) -> None:
     guard.install()
     try:
         with engine.connect() as conn, pytest.raises(OperationalError):
-            conn.execute(text("select * from org_item"))
+            conn.execute(text("select * from sys_tenant"))
     finally:
         guard.uninstall()
         engine.dispose()

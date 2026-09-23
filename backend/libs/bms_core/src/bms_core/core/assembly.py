@@ -18,7 +18,7 @@ from bms_core.archive.base import BaseArchivePolicy, BaseArchiveQueryRouter
 from bms_core.audit.base import AuditCapturer
 from bms_core.audit.hashchain import BaseHashChain
 from bms_core.boundary.base import BaseDataOwnershipGuard
-from bms_core.boundary.directory import SHARED_TABLE_PREFIXES, known_prefixes, known_services
+from bms_core.boundary.directory import known_prefixes, known_services, known_tables
 from bms_core.boundary.exceptions import load_exceptions, validate_exceptions
 from bms_core.boundary.table import TableOwnershipGuard
 from bms_core.cache.base import CacheRegion
@@ -576,9 +576,9 @@ class TableOwnershipGuardFactory(BasePluginFactory[TableOwnershipGuard]):
         entries = load_exceptions(path)
         errors = validate_exceptions(
             entries,
+            known_tables=known_tables(),
             known_prefixes=known_prefixes(),
             known_services=known_services(),
-            shared_prefixes=frozenset(SHARED_TABLE_PREFIXES),
         )
         if errors:
             raise PluginError("数据所有权例外白名单非法：" + "；".join(errors))

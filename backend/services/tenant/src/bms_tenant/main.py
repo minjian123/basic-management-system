@@ -6,6 +6,9 @@ from fastapi import APIRouter
 
 from bms_core.application import BaseServiceApplicationFactory
 from bms_tenant import CONTRACT_VERSION, SERVICE_NAME, SERVICE_TITLE, __version__
+from bms_tenant.sources import register_local_tenant_source
+
+register_local_tenant_source()  # 向共享基座登记 `local` 租户源实现（本服务直读自身平台服务库）
 from bms_tenant.api.router import api_router
 
 
