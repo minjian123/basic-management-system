@@ -23,8 +23,8 @@ from bms_core.application import BaseServiceApplicationFactory, service_lifespan
 from bms_core.core.config import get_settings
 from bms_core.core.error_codes import ErrorCode
 from bms_core.core.exceptions import CatalogError, ServiceUnavailableError
-from bms_core.models.platform import SysModule
 from bms_core.services.module_registry import SERVICE_CATALOG, ModuleRecord, ServiceGroup
+from bms_platform.models.catalog import SysModule
 
 _FIELDS = (
     "module_key",

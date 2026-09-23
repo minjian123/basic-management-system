@@ -7,8 +7,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 import ops.seed_module as seed_module
-from bms_core.models.platform import SysModule
 from bms_core.services.module_registry import SERVICE_CATALOG
+from bms_platform.models.catalog import SysModule
 
 
 @pytest.mark.kiwi_id(1050)

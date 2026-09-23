@@ -73,15 +73,22 @@ def test_owned_tables_and_chain_derivation() -> None:
     assert {"sys_module", "sys_module_i18n", "sys_table_ownership"} <= platform_chain
     assert "sys_tenant" not in platform_chain
     assert infrastructure_tables() <= platform_chain
+    assert {table for table in platform_chain if table not in infrastructure_tables()} == {
+        "sys_module",
+        "sys_module_i18n",
+        "sys_table_ownership",
+    }
 
     tenant_chain = chain_tables("platform", Datasource.TENANT)
-    assert {"sys_dict_type", "sys_dict_item", "sys_query_scheme", "demo"} <= tenant_chain
+    assert {"sys_dict_type", "sys_dict_item", "sys_query_scheme"} <= tenant_chain
     assert infrastructure_tables() <= tenant_chain
+    # 未定稿表（骨架表 / 演示表）不进链（06_02 状态收口）
+    assert {"sys_task", "sys_task_log", "sys_icon", "demo"}.isdisjoint(tenant_chain)
 
-    assert chain_tables("tenant", Datasource.PLATFORM) == frozenset(
-        {"sys_tenant", "sys_tenant_quota", "sys_tenant_module", *infrastructure_tables()}
-    )
+    assert chain_tables("tenant", Datasource.PLATFORM) == frozenset({"sys_tenant", *infrastructure_tables()})
     assert chain_tables("org", Datasource.TENANT) == infrastructure_tables()
+    # 归档链不含基础设施表（每服务自有仅限平台 / 租户链）
+    assert chain_tables("platform", Datasource.ARCHIVE) == frozenset()
 
 
 @pytest.mark.kiwi_id(2176)

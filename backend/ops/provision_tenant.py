@@ -7,6 +7,7 @@ cd backend
 uv run python -m ops.provision_tenant --code demo --dry-run            # 计划预演（不建连）
 uv run python -m ops.provision_tenant --code demo --code acme          # 全部启用服务 × 两租户
 uv run python -m ops.provision_tenant --all-tenants                    # 租户取注册库 active 全集
+uv run python -m ops.provision_tenant --code demo --migrate            # 建库后按分链批量迁移（06_02）
 uv run python -m ops.provision_tenant --service platform --code demo   # 仅指定服务
 uv run python -m ops.provision_tenant --code demo --skip-platform      # 只建服务租户库
 uv run python -m ops.provision_tenant --code demo \
@@ -24,8 +25,10 @@ uv run python -m ops.provision_tenant --code demo \
 - **租户维度**：`--code`（可重复）显式指定，或 `--all-tenants` 从**租户注册库**
   （键 `platform_tenant`）读未软删租户编码（要求该库已建库 + 迁移 + 种子）；
 - **幂等**：`create_database` 命中已存在即跳过（不重建、不清空）；重复执行全为「已存在（跳过）」；
-- **不做迁移**：库结构由 Alembic 迁移或（SQLite 开发库）启动期自动建表负责；
-  遍历「服务 × 租户」的批量迁移编排归 06_02；
+- **`--migrate`（06_02，缺省关）**：建库成功后按同一编排内核迁移本次涉及的服务 × 数据源
+  （`ops/migrate_tenants.py::service_tasks`，幂等可重跑）——一条命令完成「开通（建库 + 迁移）」；
+  缺省不迁移，避免建库权限 / 网络问题连带失败；
+- **不做迁移（缺省）**：库结构由 Alembic 迁移或（SQLite 开发库）启动期自动建表负责；
 - 达梦无 `CREATE DATABASE`：以**模式**为库级隔离单位（`--schema` 指定模式名）。
 """
 
@@ -56,6 +59,7 @@ from bms_core.db.tenant_source import TENANT_SERVICE_KEY
 from bms_core.services.module_registry import enabled_service_keys
 from bms_core.services.table_registry import known_service_keys
 from bms_tenant.models.tenant import SysTenant
+from ops.migrate_tenants import report, run_tasks, service_tasks
 
 _DM = "dm"
 
@@ -94,6 +98,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--schema", default="", help="达梦目标模式（仅达梦生效；缺省取库名）")
     parser.add_argument("--skip-platform", action="store_true", help="跳过平台服务库（只建服务租户库）")
     parser.add_argument("--skip-tenants", action="store_true", help="跳过服务租户库（只建平台服务库）")
+    parser.add_argument("--migrate", action="store_true", help="建库后按分链批量迁移（缺省关；幂等）")
     parser.add_argument("--dry-run", action="store_true", help="仅打印计划（不建连、不建库）")
     return parser
 
@@ -172,6 +177,36 @@ def _resolve_services(requested: Sequence[str]) -> tuple[str, ...]:
     return services
 
 
+async def _resolve_codes(args: argparse.Namespace, factory: EngineFactory) -> list[str]:
+    """解析租户维度（`--code` 显式，或 `--all-tenants` 读租户注册库）。
+
+    Args:
+        args: 命令行参数。
+        factory: 引擎工厂（运维通道，用于解析租户注册库连接串）。
+
+    Returns:
+        list[str]: 租户编码列表（保序去重）。
+
+    Raises:
+        ConfigError: 租户维度缺失或租户注册库不可读。
+    """
+    codes = list(dict.fromkeys(args.code))
+    if not codes and args.all_tenants:
+        registry_key = build_platform_db_key(TENANT_SERVICE_KEY)
+        registry_url = factory.resolved_url(registry_key)
+        try:
+            codes = await _tenant_codes(registry_url)
+        except Exception as exc:
+            raise ConfigError(
+                f"租户注册库不可读（{registry_key}）：请先建库并迁移 + 种子（ops.seed_tenant），或改用 --code"
+            ) from exc
+        if not codes:
+            print("[provision_tenant] 租户注册库未注册租户（sys_tenant 为空）")
+    if not codes:
+        raise ConfigError("需 --code（可重复）或 --all-tenants 指定租户；仅建平台服务库请用 --skip-tenants")
+    return codes
+
+
 async def build_tasks(args: argparse.Namespace) -> list[ProvisionTask]:
     """构建建库任务清单（平台服务库 → 各服务租户库）。
 
@@ -200,20 +235,7 @@ async def build_tasks(args: argparse.Namespace) -> list[ProvisionTask]:
     if args.skip_tenants:
         return tasks
 
-    codes = list(dict.fromkeys(args.code))
-    if not codes and args.all_tenants:
-        registry_key = build_platform_db_key(TENANT_SERVICE_KEY)
-        registry_url = factory.resolved_url(registry_key)
-        try:
-            codes = await _tenant_codes(registry_url)
-        except Exception as exc:
-            raise ConfigError(
-                f"租户注册库不可读（{registry_key}）：请先建库并迁移 + 种子（ops.seed_tenant），或改用 --code"
-            ) from exc
-        if not codes:
-            print("[provision_tenant] 租户注册库未注册租户（sys_tenant 为空）")
-    if not codes:
-        raise ConfigError("需 --code（可重复）或 --all-tenants 指定租户；仅建平台服务库请用 --skip-tenants")
+    codes = await _resolve_codes(args, factory)
 
     for service in services:
         for code in codes:
@@ -246,6 +268,8 @@ async def run(args: argparse.Namespace) -> int:
         name = database_name(key, service=task.service)
         print(f"[provision_tenant] {task.kind:<8} {task.service:<12} {task.db_key:<28} {name:<28} {_masked(task.url)}")
     if args.dry_run:
+        if args.migrate:
+            print("[provision_tenant] --migrate：建库后将按分链批量迁移")
         print("[provision_tenant] dry-run：不建连、不建库")
         return 0
 
@@ -268,7 +292,24 @@ async def run(args: argparse.Namespace) -> int:
         f"[provision_tenant] 汇总：新建 {created}、已存在 {existed}、失败 {len(failed)}"
         + (f"（失败：{', '.join(failed)}）" if failed else "")
     )
-    return 1 if failed else 0
+    if not args.migrate:
+        return 1 if failed else 0
+
+    # 开通即迁移（06_02）：建库完成后按同一编排内核迁移本次涉及的服务 × 数据源（幂等）
+    settings = get_settings()
+    factory = EngineFactory(settings, allow_cross_service=True)
+    services = _resolve_services(args.service)
+    codes = [] if args.skip_tenants else await _resolve_codes(args, factory)
+    migration_tasks = service_tasks(
+        services,
+        codes,
+        settings=settings,
+        include_platform=not args.skip_platform,
+        include_tenants=not args.skip_tenants and bool(codes),
+    )
+    print(f"[provision_tenant] 迁移 → {len(migration_tasks)} 个目标（--migrate）")
+    migrate_code = report(await run_tasks(migration_tasks), migration_tasks)
+    return 1 if failed or migrate_code else 0
 
 
 def main(argv: Sequence[str] | None = None) -> int:

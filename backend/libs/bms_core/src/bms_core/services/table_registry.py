@@ -47,8 +47,10 @@ class TableStatus(StrEnum):
     """归属登记状态（`sys_table_ownership.status`）。"""
 
     ENABLED = "enabled"
+    """已定案且进入迁移链（`chain_tables` 取之）。"""
+
     PLANNED = "planned"
-    """预留归属：库位「寄放」在当前平台服务库，随该服务建设动迁。"""
+    """归属已定但未定稿 / 未落库（含预留归属与骨架表）：库位「寄放」，**不进链**，随所属阶段转 `enabled`。"""
 
 
 @dataclass(frozen=True)
@@ -239,20 +241,70 @@ TABLE_OWNERSHIP: tuple[TableRecord, ...] = (
     TableRecord(table_name="sys_dict_attr", owner="platform", datasource=Datasource.TENANT, note="字典扩展属性"),
     TableRecord(table_name="sys_dict_attr_i18n", owner="platform", datasource=Datasource.TENANT, note="字典属性多语言"),
     TableRecord(table_name="sys_query_scheme", owner="platform", datasource=Datasource.TENANT, note="查询方案"),
-    TableRecord(table_name="sys_task", owner="platform", datasource=Datasource.TENANT, note="定时任务定义"),
-    TableRecord(table_name="sys_task_log", owner="platform", datasource=Datasource.TENANT, note="定时任务执行记录"),
-    TableRecord(table_name="sys_user_preference", owner="platform", datasource=Datasource.TENANT, note="用户偏好"),
-    TableRecord(table_name="sys_icon", owner="platform", datasource=Datasource.TENANT, note="租户自定义图标"),
-    TableRecord(table_name="sys_icon_i18n", owner="platform", datasource=Datasource.TENANT, note="图标多语言"),
     TableRecord(
-        table_name="sys_notification", owner="notification", datasource=Datasource.TENANT, note="站内信 / 待办"
+        table_name="sys_task",
+        owner="platform",
+        datasource=Datasource.TENANT,
+        status=TableStatus.PLANNED,
+        note="定时任务定义（未定稿，不进链）",
     ),
-    TableRecord(table_name="ai_chat_log", owner="ai", datasource=Datasource.TENANT, note="AI 交互审计"),
     TableRecord(
-        table_name="demo", owner="platform", datasource=Datasource.TENANT, note="平台服务五层示例表（无表前缀）"
+        table_name="sys_task_log",
+        owner="platform",
+        datasource=Datasource.TENANT,
+        status=TableStatus.PLANNED,
+        note="定时任务执行记录（未定稿，不进链）",
+    ),
+    TableRecord(
+        table_name="sys_user_preference",
+        owner="platform",
+        datasource=Datasource.TENANT,
+        status=TableStatus.PLANNED,
+        note="用户偏好（未定稿，不进链）",
+    ),
+    TableRecord(
+        table_name="sys_icon",
+        owner="platform",
+        datasource=Datasource.TENANT,
+        status=TableStatus.PLANNED,
+        note="租户自定义图标（未定稿，不进链）",
+    ),
+    TableRecord(
+        table_name="sys_icon_i18n",
+        owner="platform",
+        datasource=Datasource.TENANT,
+        status=TableStatus.PLANNED,
+        note="图标多语言（未定稿，不进链）",
+    ),
+    TableRecord(
+        table_name="sys_notification",
+        owner="notification",
+        datasource=Datasource.TENANT,
+        status=TableStatus.PLANNED,
+        note="站内信 / 待办（未定稿，不进链）",
+    ),
+    TableRecord(
+        table_name="ai_chat_log",
+        owner="ai",
+        datasource=Datasource.TENANT,
+        status=TableStatus.PLANNED,
+        note="AI 交互审计（未定稿，不进链）",
+    ),
+    TableRecord(
+        table_name="demo",
+        owner="platform",
+        datasource=Datasource.TENANT,
+        status=TableStatus.PLANNED,
+        note="平台服务五层示例表（无表前缀；未定稿，不进链）",
     ),
 )
-"""表归属登记（单一来源）。库位「寄放」语义见 `TableStatus.PLANNED`；`sys_` 表按表级归属判定。"""
+"""表归属登记（单一来源）。
+
+- `TableStatus.ENABLED`：归属已定案且进入迁移链（`chain_tables`）；
+- `TableStatus.PLANNED`：归属已定但**未定稿 / 未落库**（骨架表与演示表），不进链，
+  随所属阶段补表文件与模型并转 `enabled` 时自动进链（见《数据库开发规范》「迁移与建表口径」）；
+- `sys_` 为平台共享前缀，按**表级归属**判定（不再整前缀放行）。
+"""
 
 
 def _owner_label(record: ModuleRecord) -> str:
@@ -349,7 +401,13 @@ def infrastructure_tables() -> frozenset[str]:
 
 
 def chain_tables(service: str, datasource: str) -> frozenset[str]:
-    """取迁移链 / 自动建表的表集（归属登记派生：该服务表 + 基础设施表）。
+    """取迁移链 / 自动建表的**目标表集**（归属登记派生：该服务表 + 基础设施表）。
+
+    口径（06_02 收口）：
+    - 只取 `status = enabled` 的归属表——`planned`（未定稿 / 未落库）不参与，随所属阶段转
+      `enabled` 时**自动进链**；
+    - 基础设施表（发件箱三表）只进入 `platform` / `tenant` 链，**归档链不含**；
+    - 目标表集与「已有模型」取交集后才是实际建表集（见 `db/migration.py::chain_metadata`）。
 
     Args:
         service: 服务标识（归属标签）。
@@ -359,12 +417,18 @@ def chain_tables(service: str, datasource: str) -> frozenset[str]:
         frozenset[str]: 表名集合（保序无关）。
     """
     owned = {
-        record.table_name for record in TABLE_OWNERSHIP if record.owner == service and record.datasource == datasource
+        record.table_name
+        for record in TABLE_OWNERSHIP
+        if record.owner == service and record.datasource == datasource and record.status == TableStatus.ENABLED
     }
+    if datasource == Datasource.ARCHIVE:
+        return frozenset(owned)
     infra = {
         record.table_name
         for record in TABLE_OWNERSHIP
-        if record.owner == OWNER_EVERY_SERVICE and record.datasource in (datasource, Datasource.BOTH)
+        if record.owner == OWNER_EVERY_SERVICE
+        and record.datasource in (datasource, Datasource.BOTH)
+        and record.status == TableStatus.ENABLED
     }
     return frozenset(owned | infra)
 

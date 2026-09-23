@@ -1,15 +1,15 @@
-"""模块仓储：服务目录只读查询（按分组 / 状态 / 服务维度，分页与单条）。
+"""模块仓储（平台服务自有，06_02 迁入）：服务目录只读查询（按分组 / 状态 / 服务维度，分页与单条）。
 
-- 会话经构造注入（`get_db` / `get_write_db` / `get_uow` 同一请求同会话）；只读、不提交。
+- 归属：读 `sys_module`（`platform` 服务 × 平台服务库 `bms_platform`）；仓储随模型一并迁入平台服务；
+- 会话经构造注入（`get_db` / `get_write_db` / `get_uow` 同一请求同会话）；只读、不提交；
 - 仅提供读方法，**不提供写接口**（注册运行时只读边界）；写路径仅开发期种子脚本。
-- 平台库表：平台库只读接口经 `get_platform_read_db` 取会话（带租户上下文时仍读平台库）。
 """
 
 from sqlalchemy import ColumnElement, func, select
 
-from bms_core.models.platform import SysModule
 from bms_core.repositories.base_db_repository import BaseDbRepository
 from bms_core.schemas.pagination import BasePageQuery
+from bms_platform.models.catalog import SysModule
 
 
 class ModuleRepository(BaseDbRepository[SysModule]):

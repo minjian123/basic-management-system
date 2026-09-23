@@ -1,12 +1,12 @@
-"""发件箱事件契约版本列（租户链 0003，05_04）：sys_outbox 增 event_version。
+"""发件箱事件契约版本列（`tenant:tenant` 链，06_02 分链）。
 
-Revision ID: 0003_sys_outbox_event_version
-Revises: 0002_sys_outbox
+Revision ID: 0002_sys_outbox_event_version
+Revises: 0001_sys_outbox
 Create Date: 2026-09-23
 
-- 归属链：`tenant`（租户库）；脚本四库通用（与平台链同构，保证事件版本随租户业务同库同事务）；
-- 列口径与 ORM 模型（`bms_core/models/outbox.py::SysOutbox`）逐项一致；
-- 存量行补默认 `1.0.0`（未登记契约时的事件缺省版本，登记契约由应用侧按契约版本补齐）。
+- 归属链：`tenant:tenant`（`tenant` 服务 × 各租户的租户库）；
+- 与 `platform:platform/0004_sys_outbox_event_version.py`、`tenant:platform/0003_...` 内容同构；
+- 列口径与 ORM 模型（`bms_core/models/outbox.py::SysOutbox`）逐项一致。
 """
 
 from collections.abc import Sequence
@@ -15,8 +15,8 @@ import sqlalchemy as sa
 
 from alembic import op
 
-revision: str = "0003_sys_outbox_event_version"
-down_revision: str | None = "0002_sys_outbox"
+revision: str = "0002_sys_outbox_event_version"
+down_revision: str | None = "0001_sys_outbox"
 branch_labels: Sequence[str] | None = None
 depends_on: Sequence[str] | None = None
 

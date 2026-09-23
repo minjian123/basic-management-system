@@ -19,10 +19,10 @@ from bms_core.api.base import BaseRouter, page_query, require_auth
 from bms_core.api.deps import get_platform_read_db
 from bms_core.core.exceptions import NotFoundError
 from bms_core.db.session import DbSession
-from bms_core.repositories.module_repository import ModuleRepository
 from bms_core.schemas.common import ApiResponse
 from bms_core.schemas.module import ModuleResponse
 from bms_core.schemas.pagination import BasePageQuery, BasePageResponse
+from bms_platform.repositories.module_repository import ModuleRepository
 
 router = BaseRouter(
     key="modules",

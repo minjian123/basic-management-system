@@ -197,7 +197,7 @@ backend-modules:
     - uv sync --frozen
     - uv run python -m ops.check_modules
     # 迁移后查重：SQLite 临时库（命中 .gitignore 的 backend/bms_*.db）→ 平台链迁移 → 种子 → 接库校验（只读）
-    - uv run alembic -n alembic:platform -x url="sqlite+aiosqlite:///./bms_ci_catalog.db" upgrade head
+    - uv run alembic -n alembic:platform:platform -x url="sqlite+aiosqlite:///./bms_ci_catalog.db" upgrade head
     - uv run python -m ops.seed_module --url "sqlite+aiosqlite:///./bms_ci_catalog.db"
     - uv run python -m ops.check_modules --url "sqlite+aiosqlite:///./bms_ci_catalog.db"
 

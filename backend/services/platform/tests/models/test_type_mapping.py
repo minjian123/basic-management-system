@@ -34,7 +34,7 @@ from sqlalchemy.engine import Dialect
 from sqlalchemy.orm import Session
 from sqlalchemy.schema import CreateTable
 
-from bms_core.models.platform import SysModule
+from bms_platform.models.catalog import SysModule
 from bms_platform.models.system import SysTask
 
 _SYS_MODULE_TABLE = cast("Table", SysModule.__table__)

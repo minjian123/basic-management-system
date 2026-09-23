@@ -9,10 +9,10 @@ import pytest
 from sqlalchemy import Table
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
-from bms_core.models.platform import SysModule
-from bms_core.repositories import module_repository
-from bms_core.repositories.module_repository import ModuleRepository
 from bms_core.schemas.pagination import BasePageQuery
+from bms_platform.models.catalog import SysModule
+from bms_platform.repositories import module_repository
+from bms_platform.repositories.module_repository import ModuleRepository
 
 _WRITE_VERBS = frozenset({"create", "update", "delete", "save", "flush", "commit", "upsert", "insert"})
 """仓储自有方法名中的写动词（只读护栏：命中即失败）。"""

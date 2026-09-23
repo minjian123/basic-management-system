@@ -1,11 +1,10 @@
-"""平台库模型：服务目录与契约登记（平台统一维护、租户可见不可增删）。
+"""服务目录模型（`sys_module` / `sys_module_i18n`）：平台服务自有（06_02 迁入）。
 
-- `SysModule`：服务目录与契约登记表（表前缀 / 错误码段 / 事件域等服务与模块注册要素）。
-- `SysModuleI18n`：多语言模块名附表（继承 `BaseModel`，`(module_id, locale, deleted_at)` 唯一）。
-- 表结构以《数据库设计》数据表文件为唯一事实源。
-- **归属**（06_03 表归属登记）：两表归 `platform`（服务目录单一权威）；实施位于共享基座库
-  `bms_core`，与服务目录常量 `SERVICE_CATALOG` 同源；模型迁出至平台服务工程随迁移链按服务分链
-  一并落地（见任务 06_03 实施记录「偏差与遗留」）。
+- 归属：两表归 `platform` 服务、库类别 `platform`（链 `platform:platform`，库 `bms_platform`）——
+  由 `bms_core/services/table_registry.py::TABLE_OWNERSHIP` 单一来源登记；
+- 本模块由平台服务在 `models/__init__.py::MODEL_MODULES` 声明，迁移链按服务解析模型时导入
+  （见 `bms_core/db/migration.py`）；
+- 表结构以《数据库设计》数据表文件为唯一事实源（`sys_module.md` / `sys_module_i18n.md`）。
 """
 
 from sqlalchemy import BigInteger, Integer, String, UniqueConstraint

@@ -1,14 +1,16 @@
-"""平台库表（平台链首个迁移，01_04）：租户注册表 + 模块注册表 + 模块名附表。
+"""模块注册表 + 模块名附表（`platform:platform` 链首建，06_02 分链）。
 
-Revision ID: 0001_sys_tenant_module
+Revision ID: 0001_sys_module
 Revises:
-Create Date: 2026-09-22
+Create Date: 2026-09-23
 
-- 归属链：`platform`（平台库）；脚本按数据源分目录，`branch_labels` 取链名；
-- 字段 / 索引口径与 ORM 模型（`app/models/platform.py`）逐项一致；
+- 归属链：`platform:platform`（`platform` 服务的平台服务库 `bms_platform`）；
+- **由原 `versions/platform/0001_sys_tenant_module.py` 按表归属拆分**：`sys_tenant` 归 `tenant` 服务
+  （链 `tenant:platform`），`sys_module` / `sys_module_i18n` 归 `platform` 服务（本脚本）；
+- 字段 / 索引口径与 ORM 模型（`bms_platform/models/catalog.py::SysModule` / `SysModuleI18n`）逐项一致；
 - 公共字段对齐 `BaseModel`（雪花 ID / 审计 / 软删除 / 乐观锁）；
 - 四库兼容：不使用方言专用类型（达梦差异随 01_05 实测）；
-- 只建表不写种子（种子走 `ops/seed_tenant.py` / `ops/seed_module.py` 幂等脚本）。
+- 只建表不写种子（种子走 `ops/seed_module.py` 幂等脚本）。
 """
 
 from collections.abc import Sequence
@@ -17,9 +19,9 @@ import sqlalchemy as sa
 
 from alembic import op
 
-revision: str = "0001_sys_tenant_module"
+revision: str = "0001_sys_module"
 down_revision: str | None = None
-branch_labels: Sequence[str] | None = ("platform",)
+branch_labels: Sequence[str] | None = ("platform:platform",)
 depends_on: Sequence[str] | None = None
 
 
@@ -41,21 +43,7 @@ def _base_columns() -> list[sa.Column]:
 
 
 def upgrade() -> None:
-    """建平台库三表（含唯一约束与索引）。"""
-    op.create_table(
-        "sys_tenant",
-        *_base_columns(),
-        sa.Column("code", sa.String(length=64), nullable=False, comment="租户编码（全小写）"),
-        sa.Column("name", sa.String(length=128), nullable=False, comment="租户名称"),
-        sa.Column("domain", sa.String(length=255), nullable=True, comment="子域名"),
-        sa.Column("db_key", sa.String(length=64), nullable=False, comment="数据源键（tenant_{code}）"),
-        sa.Column("status", sa.String(length=16), nullable=False, comment="状态（active/suspended）"),
-        sa.Column("expire_at", sa.DateTime(), nullable=True, comment="到期时间（UTC）"),
-        sa.UniqueConstraint("code", "deleted_at", name="uq_sys_tenant_code_deleted_at"),
-    )
-    op.create_index("idx_sys_tenant_deleted_at", "sys_tenant", ["deleted_at"])
-    op.create_index("idx_sys_tenant_domain", "sys_tenant", ["domain"])
-
+    """建服务目录两表（含唯一约束与索引）。"""
     op.create_table(
         "sys_module",
         *_base_columns(),
@@ -89,7 +77,6 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    """逆序删除平台库三表。"""
+    """逆序删除服务目录两表。"""
     op.drop_table("sys_module_i18n")
     op.drop_table("sys_module")
-    op.drop_table("sys_tenant")

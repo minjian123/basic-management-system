@@ -1,13 +1,15 @@
-"""事务性发件箱三表（租户链 0002，05_03）：sys_outbox + sys_event_consumed + sys_event_dead_letter。
+"""事务性发件箱三表（`tenant:platform` 链，06_02 分链）。
 
 Revision ID: 0002_sys_outbox
-Revises: 0001_dict_query_scheme
+Revises: 0001_sys_tenant
 Create Date: 2026-09-23
 
-- 归属链：`tenant`（租户库）；脚本四库通用（与平台链同构，保证事件与租户业务同库同事务）；
+- 归属链：`tenant:platform`（`tenant` 服务的平台服务库 `bms_tenant`）；
+- 基础设施表（发件箱三表）**每服务自有**，各服务每条链各含三表（见《数据库设计 · 总览》表归属登记）：
+  本脚本与 `platform:platform/0003_sys_outbox.py`、`tenant:tenant/0001_sys_outbox.py` 内容同构，
+  仅 revision / 分支标签不同；
 - 字段 / 索引口径与 ORM 模型（`bms_core/models/outbox.py`）逐项一致；
-- 三表为基础设施账本：唯一约束**不并入 `deleted_at`**（发件箱 / 幂等要求跨方言严格唯一）；
-- 表集登记见 `db/migration.py`。
+- 三表为基础设施账本：唯一约束**不并入 `deleted_at`**（发件箱 / 幂等要求跨方言严格唯一）。
 """
 
 from collections.abc import Sequence
@@ -17,7 +19,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "0002_sys_outbox"
-down_revision: str | None = "0001_dict_query_scheme"
+down_revision: str | None = "0001_sys_tenant"
 branch_labels: Sequence[str] | None = None
 depends_on: Sequence[str] | None = None
 
