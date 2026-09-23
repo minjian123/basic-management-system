@@ -134,13 +134,13 @@ docker inspect --format '{{.State.Health.Status}}' bms-keycloak
 | 令牌 `iss` 校验失败 | `KEYCLOAK_PUBLIC_URL` / 后端 `issuer` 与访问基址不一致：统一为实际访问地址 |
 | 控制台可访问但 Discovery issuer 为 localhost | `KC_HOSTNAME` 未设为实际访问地址：改 `KEYCLOAK_PUBLIC_URL` 后重启 |
 | 内部 HTTPS 要求（`sslRequired=external`） | 私有网段（`10.x` / `172.16-31.x` / `192.168.x` / 回环）视为内部、允许 HTTP；生产配 TLS 与域名 |
-| 镜像拉取缓慢 | 经 Docker 镜像加速器拉取（见《[DockerEngine部署使用说明](DockerEngine部署使用说明.md)》） |
+| 镜像拉取缓慢 | 经 Docker 镜像加速器拉取（见《[Docker部署使用说明](Docker部署使用说明.md)》） |
 
 ## 10. 关联文档 <a id="related"></a>
 
 - 《[开发服务器部署使用说明总览](开发服务器部署使用说明总览.md)》：端口规划与服务清单
 - 《[PostgreSQL部署使用说明](PostgreSQL部署使用说明.md)》：元数据库
-- 《[DockerEngine部署使用说明](DockerEngine部署使用说明.md)》：容器引擎与镜像加速
+- 《[Docker部署使用说明](Docker部署使用说明.md)》：容器引擎与镜像加速
 - 《[部署发布规范](../../../规范/部署发布规范.md)》「身份源（IdP）编排与凭据外部化」节
 - Keycloak 官方文档：[Importing and exporting realms](https://www.keycloak.org/server/importExport) · [Configuring the database](https://www.keycloak.org/server/db)
 
