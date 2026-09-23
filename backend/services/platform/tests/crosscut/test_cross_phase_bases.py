@@ -210,6 +210,7 @@ async def test_event_base() -> None:
         "event_id": None,
         "occurred_at": None,
         "aggregate_key": None,
+        "event_version": None,
     }
     publisher = StubPublisher()
     await publisher.publish(event)

@@ -688,8 +688,11 @@ swagger-snapshot:
     # 零漂移门禁（check）+ 重新导出归档（export，供 09_03 oasdiff 破坏性变更门禁消费）
     - uv run python -m ops.contract_snapshot check
     - uv run python -m ops.contract_snapshot export
+    # 05_04：事件契约（注册表 + 兼容校验 + 快照零漂移）；export 重导出归档
+    - uv run python -m ops.event_contracts check
+    - uv run python -m ops.event_contracts export
   artifacts:
-    paths: [deploy/contracts/*.json]
+    paths: [deploy/contracts/*.json, deploy/events/*.json]
     expire_in: 30 days
 
 # ---- Allure 结果归档 + Kiwi TCMS 导入（分档开关 deploy/ci/verify/report，P2 档；2026-09-22 关闭，无消费方）----

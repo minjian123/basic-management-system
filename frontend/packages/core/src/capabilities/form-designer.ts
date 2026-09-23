@@ -107,7 +107,7 @@ export interface DesignerJobs {
     roleId?: string
     layout: FormLayout
   }) => Promise<DesignerSaveResult | undefined>
-  /** 发布（触发 `form.updated`）。 */
+  /** 发布（触发 `sys.form.updated`）。 */
   publish?: (input: { formCode: string; level: DesignerLevel; roleId?: string }) => Promise<void>
   /** 恢复默认（删除当前层级配置）。 */
   restore?: (input: { formCode: string; level: DesignerLevel; roleId?: string }) => Promise<void>
@@ -683,7 +683,7 @@ export abstract class BaseFormDesigner extends BasePlaceholderState {
   }
 
   /**
-   * 发布（触发 `form.updated`；未注入不动作）。
+   * 发布（触发 `sys.form.updated`；未注入不动作）。
    */
   async publish(): Promise<boolean> {
     if (this.readonly || this.busy || this.jobs.publish === undefined) {

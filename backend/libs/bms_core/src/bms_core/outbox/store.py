@@ -1,19 +1,32 @@
 """发件箱存储真实实现 `SqlOutboxStore`：会话绑定（仓储口径，flush 不提交）。
 
-- `enqueue` 在业务事务内写发件箱；投递器经 `claim_pending` / `mark_delivered` / `mark_failed`
-  在同一事务内完成读取与标记；死信看板经列表 / 详情 / 状态读写。
+- `enqueue` 在业务事务内写发件箱（缺省补齐 `event_id` / `occurred_at` / `event_version`；
+  按 `[event].contract_mode` 校验事件契约登记：`off` 不校验 / `warn` 记日志放行 / `enforce` 拒发）；
+  投递器经 `claim_pending` / `mark_delivered` / `mark_failed` 在同一事务内完成读取与标记；
+  死信看板经列表 / 详情 / 状态读写。
 - 事务边界归调用方（工作单元 / 投递器），本类只 `flush` 不 `commit`。
 """
 
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 
 from sqlalchemy import ColumnElement, func, select, update
 from sqlalchemy.engine import CursorResult
 
+from bms_core.core.exceptions import ConfigError, EventContractError
 from bms_core.core.id import id_generator
+from bms_core.core.logging import get_logger
+from bms_core.core.version import contract_major
 from bms_core.db.sync import DbSession
-from bms_core.events.base import EventEnvelope
+from bms_core.events.base import DEFAULT_EVENT_VERSION, EventEnvelope
+from bms_core.events.contracts import (
+    EVENT_CONTRACT_MODE_ENFORCE,
+    EVENT_CONTRACT_MODE_OFF,
+    EVENT_CONTRACT_MODES,
+    EventContract,
+    resolve_event_contract,
+)
 from bms_core.models.outbox import SysEventDeadLetter, SysOutbox
 from bms_core.outbox.base import (
     DEAD_LETTER_SOURCE_OUTBOX,
@@ -54,6 +67,7 @@ def _to_record(row: SysOutbox) -> OutboxRecord:
     return OutboxRecord(
         event_id=row.event_id,
         event_type=row.event_type,
+        event_version=row.event_version,
         aggregate_key=row.aggregate_key,
         tenant_id=row.tenant_id,
         payload=dict(row.payload),
@@ -91,8 +105,63 @@ class SqlOutboxStore(BaseOutboxStore):
     以 `sql` 显式登记（同 `LocalFieldTypeRegistry` 口径）。
     """
 
+    def __init__(
+        self,
+        *,
+        contract_mode: str = EVENT_CONTRACT_MODE_OFF,
+        contract_resolver: Callable[[str], EventContract | None] | None = None,
+    ) -> None:
+        """初始化。
+
+        Args:
+            contract_mode: 签发契约校验模式（`off` / `warn` / `enforce`；缺省不校验，
+                装配工厂按 `[event].contract_mode` 注入）。
+            contract_resolver: 契约解析函数（缺省默认注册表解析；测试可注入隔离实现）。
+
+        Raises:
+            ConfigError: 校验模式非法。
+        """
+        if contract_mode not in EVENT_CONTRACT_MODES:
+            raise ConfigError(f"事件契约校验模式非法：{contract_mode}（应为 {'/'.join(EVENT_CONTRACT_MODES)}）")
+        self._contract_mode = contract_mode
+        self._contract_resolver = contract_resolver or resolve_event_contract
+
+    def _resolve_event_version(self, event: EventEnvelope) -> str:
+        """解析事件版本：登记契约取契约版本、显式版本保真；按模式校验契约与版本。
+
+        Args:
+            event: 事件信封。
+
+        Returns:
+            str: 事件契约版本。
+
+        Raises:
+            EventContractError: `enforce` 模式下事件未登记契约或显式版本格式非法。
+        """
+        contract = self._contract_resolver(event.event_type)
+        if contract is None and self._contract_mode != EVENT_CONTRACT_MODE_OFF:
+            self._violation(f"事件未登记契约：{event.event_type}")
+        if event.event_version is None:
+            return contract.version if contract is not None else DEFAULT_EVENT_VERSION
+        if contract_major(event.event_version) is None and self._contract_mode != EVENT_CONTRACT_MODE_OFF:
+            self._violation(f"事件版本非法（应为 X.Y.Z）：{event.event_type}@{event.event_version}")
+        return event.event_version
+
+    def _violation(self, message: str) -> None:
+        """契约违规处置：`enforce` 抛错、`warn` 记日志放行。
+
+        Args:
+            message: 违规明细。
+
+        Raises:
+            EventContractError: `enforce` 模式。
+        """
+        if self._contract_mode == EVENT_CONTRACT_MODE_ENFORCE:
+            raise EventContractError(message)
+        get_logger("bms_core.events").warning("event_contract_violation", detail=message)
+
     async def enqueue(self, session: DbSession, event: EventEnvelope) -> str:
-        """写发件箱（同库同事务；缺省补齐 event_id / occurred_at）。
+        """写发件箱（同库同事务；缺省补齐 event_id / occurred_at / event_version）。
 
         Args:
             session: 业务事务会话。
@@ -103,10 +172,12 @@ class SqlOutboxStore(BaseOutboxStore):
         """
         event_id = event.event_id or str(id_generator.next_id())
         occurred_at = event.occurred_at or _utc_now()
+        event_version = self._resolve_event_version(event)
         session.add(
             SysOutbox(
                 event_id=event_id,
                 event_type=event.event_type,
+                event_version=event_version,
                 aggregate_key=event.aggregate_key,
                 tenant_id=event.tenant_id,
                 payload=dict(event.payload),

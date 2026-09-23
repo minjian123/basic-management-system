@@ -1,4 +1,5 @@
-"""事务性发件箱存储用例（Kiwi 2172）：同库同事务写入 / 取待投递顺序 / 标记 / 退避死信 / 重放 / 看板。
+"""事务性发件箱存储用例（Kiwi 2172 / 2174）：同库同事务写入 / 取待投递顺序 / 标记 / 退避死信 / 重放 / 看板
+/ 事件契约版本与签发校验模式（2174）。
 
 测试库：临时 SQLite（建发件箱三表）。每次数据库交互均显式事务（会话自动开事务，勿混用）。
 """
@@ -10,7 +11,13 @@ import pytest
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from bms_core.events.base import EventEnvelope
+from bms_core.core.exceptions import ConfigError, EventContractError
+from bms_core.events.base import DEFAULT_EVENT_VERSION, EventEnvelope
+from bms_core.events.contracts import (
+    EVENT_CONTRACT_MODE_ENFORCE,
+    EVENT_CONTRACT_MODE_WARN,
+    EventContract,
+)
 from bms_core.models.outbox import SysEventDeadLetter, SysOutbox
 from bms_core.outbox.base import (
     DEAD_LETTER_STATUS_IGNORED,
@@ -208,3 +215,60 @@ async def test_claim_limit_and_replay_edges(session: AsyncSession) -> None:
         assert await store.replay(session, event_id="ghost") == 0
         assert await store.replay(session, aggregate_key="A") == 1
         assert await store.replay(session, limit=1) == 1
+
+
+@pytest.mark.kiwi_id(2174)
+async def test_event_version_defaults_and_persistence(session: AsyncSession) -> None:
+    """版本缺省补齐（未登记回落 1.0.0）、显式版本落库与投递重建保真。"""
+    store = SqlOutboxStore()
+    async with session.begin():
+        first = await store.enqueue(session, EventEnvelope(event_type="e.a", payload={"n": 1}))
+        second = await store.enqueue(session, EventEnvelope(event_type="e.a", event_version="2.3.4", payload={"n": 2}))
+    async with session.begin():
+        versions = {
+            row.event_id: row.event_version for row in (await session.execute(select(SysOutbox))).scalars().all()
+        }
+    assert versions[first] == DEFAULT_EVENT_VERSION
+    assert versions[second] == "2.3.4"
+
+    async with session.begin():
+        claimed = await store.claim_pending(session, now=_now(), limit=10)
+    by_id = {record.event_id: record for record in claimed}
+    assert by_id[second].to_envelope().event_version == "2.3.4"
+
+
+@pytest.mark.kiwi_id(2174)
+async def test_contract_mode_enforce_and_warn(session: AsyncSession) -> None:
+    """签发契约校验三态：enforce 拒发未登记 / 非法版本且事务回滚；warn 放行；登记契约补齐契约版本。"""
+    contract = EventContract(event_type="e.a", version="1.2.0", fields={})
+
+    def _resolver(event_type: str) -> EventContract | None:
+        return contract if event_type == "e.a" else None
+
+    enforce = SqlOutboxStore(contract_mode=EVENT_CONTRACT_MODE_ENFORCE, contract_resolver=_resolver)
+    async with session.begin():
+        event_id = await enforce.enqueue(session, EventEnvelope(event_type="e.a"))
+    async with session.begin():
+        row = (await session.execute(select(SysOutbox).where(SysOutbox.event_id == event_id))).scalars().one()
+    assert row.event_version == "1.2.0"
+
+    with pytest.raises(EventContractError):
+        async with session.begin():
+            await enforce.enqueue(session, EventEnvelope(event_type="e.unknown"))
+    with pytest.raises(EventContractError):
+        async with session.begin():
+            await enforce.enqueue(session, EventEnvelope(event_type="e.a", event_version="bad"))
+    assert await _count(session, SysOutbox) == 1
+
+    warn = SqlOutboxStore(contract_mode=EVENT_CONTRACT_MODE_WARN, contract_resolver=_resolver)
+    async with session.begin():
+        await warn.enqueue(session, EventEnvelope(event_type="e.unknown"))
+        await warn.enqueue(session, EventEnvelope(event_type="e.a", event_version="bad"))
+    assert await _count(session, SysOutbox) == 3
+
+
+@pytest.mark.kiwi_id(2174)
+def test_contract_mode_invalid_rejected() -> None:
+    """签发契约校验模式非法即拒（配置错误）。"""
+    with pytest.raises(ConfigError):
+        SqlOutboxStore(contract_mode="loud")

@@ -104,7 +104,7 @@ async def test_dead_letter_board_flow(client: AsyncClient) -> None:
     conflict = await client.post(f"/api/v1/outbox/dead-letters/{dead_id}/replay")
     assert conflict.json()["code"] == 10003
 
-    other = await _seed_dead_letter(event_type="user.updated")
+    other = await _seed_dead_letter(event_type="sys.user.updated")
     assert other != event_id
     ignored = await client.post(f"/api/v1/outbox/dead-letters/{dead_id}/ignore")
     assert ignored.json()["code"] == 10003  # 已 replayed，不可忽略

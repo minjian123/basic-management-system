@@ -22,7 +22,7 @@ async def test_mark_idempotent(session: DbSession) -> None:
     """首次 True、重复 False；重复不影响外层事务，可与副作用同事务提交。"""
     store = ProcessedEventStore(session)
     async with session.begin():
-        assert await store.mark(consumer="indexer", event_id="evt-1", event_type="user.updated") is True
+        assert await store.mark(consumer="indexer", event_id="evt-1", event_type="sys.user.updated") is True
         # 重复：命中唯一键返回 False，且不破坏外层事务
         assert await store.mark(consumer="indexer", event_id="evt-1") is False
         assert await store.mark(consumer="indexer", event_id="evt-2") is True

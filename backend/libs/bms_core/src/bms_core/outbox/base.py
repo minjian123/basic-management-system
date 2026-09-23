@@ -87,6 +87,8 @@ class OutboxRecord(BaseObject):
     """事件 ID（幂等键）。"""
     event_type: str
     """事件类型（`{域}.{对象}.{动作}`）。"""
+    event_version: str
+    """事件契约版本（`X.Y.Z`）。"""
     aggregate_key: str | None
     """聚合 / 分区键（同聚合按序投递；空 = 独立事件）。"""
     tenant_id: str | None
@@ -107,7 +109,7 @@ class OutboxRecord(BaseObject):
     """最近一次失败原因。"""
 
     def to_envelope(self) -> EventEnvelope:
-        """重建事件信封（保真 `event_id` / `occurred_at` / `aggregate_key`）。
+        """重建事件信封（保真 `event_id` / `occurred_at` / `aggregate_key` / `event_version`）。
 
         Returns:
             EventEnvelope: 事件信封。
@@ -119,6 +121,7 @@ class OutboxRecord(BaseObject):
             event_id=self.event_id,
             occurred_at=self.occurred_at,
             aggregate_key=self.aggregate_key,
+            event_version=self.event_version,
         )
 
 

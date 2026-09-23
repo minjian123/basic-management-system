@@ -80,6 +80,7 @@ _EXPECTED_PLUGIN_KEYS = frozenset(
         "rate_limiter",
         "realtime_publisher",
         "replay_guard",
+        "saga_executor",
         "scope_checker",
         "search_index",
         "service_client",

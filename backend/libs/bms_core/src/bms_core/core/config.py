@@ -286,6 +286,13 @@ class OutboxSettings(PluginSelection):
     """后台轮询库键；空 = 平台库 + 引擎注册表活跃租户库键。"""
 
 
+class EventSettings(PluginSelection):
+    """事件配置（`[event]`；在能力选择之外追加签发契约校验模式）。"""
+
+    contract_mode: Literal["off", "warn", "enforce"] = "enforce"
+    """签发契约校验模式：`off` 不校验 / `warn` 记录告警放行 / `enforce` 未登记即拒发（10010）。"""
+
+
 def _config_dir() -> Path:
     """配置目录（默认 backend/ 根；测试可 monkeypatch）。
 
@@ -413,7 +420,7 @@ class Settings(PydanticBaseSettings, BaseSettings):  # pyright: ignore[reportInc
     dict_translator: PluginSelection = Field(default_factory=PluginSelection)
     distributed_lock: PluginSelection = Field(default_factory=PluginSelection)
     edge: EdgeSettings = Field(default_factory=EdgeSettings)
-    event: PluginSelection = Field(default_factory=PluginSelection)
+    event: EventSettings = Field(default_factory=EventSettings)
     event_consumer: PluginSelection = Field(default_factory=PluginSelection)
     exporter: PluginSelection = Field(default_factory=PluginSelection)
     fallback: PluginSelection = Field(default_factory=PluginSelection)
@@ -448,6 +455,7 @@ class Settings(PydanticBaseSettings, BaseSettings):  # pyright: ignore[reportInc
     rate_limiter: PluginSelection = Field(default_factory=PluginSelection)
     realtime_publisher: PluginSelection = Field(default_factory=PluginSelection)
     replay_guard: PluginSelection = Field(default_factory=PluginSelection)
+    saga: PluginSelection = Field(default_factory=PluginSelection)
     scope_checker: PluginSelection = Field(default_factory=PluginSelection)
     search_index: PluginSelection = Field(default_factory=PluginSelection)
     service_client: PluginSelection = Field(default_factory=PluginSelection)

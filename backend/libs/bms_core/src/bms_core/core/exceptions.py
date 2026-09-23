@@ -186,6 +186,17 @@ class OutboxDeliveryError(GeneralError):
         super().__init__(ErrorCode.OUTBOX_DELIVERY, message, http_status=500, data=data)
 
 
+class EventContractError(GeneralError):
+    """事件契约违规（`10010` / 500）。
+
+    事件名 / 版本非法、未登记契约签发（`enforce` 模式）、契约不兼容、
+    消费方不支持事件主版本时抛出；调用方事务回滚，消费侧转重试 / 死信。
+    """
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        super().__init__(ErrorCode.EVENT_CONTRACT, message, http_status=500, data=data)
+
+
 class UserOrgError(BizError):
     """用户与组织段（`3xxxx`）异常基类。"""
 

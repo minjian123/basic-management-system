@@ -12,6 +12,7 @@ from datetime import datetime
 from sqlalchemy import JSON, DateTime, Index, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
+from bms_core.events.base import DEFAULT_EVENT_VERSION
 from bms_core.models.base import BaseModel
 
 __all__ = ["SysEventConsumed", "SysEventDeadLetter", "SysOutbox"]
@@ -29,6 +30,9 @@ class SysOutbox(BaseModel):
 
     event_id: Mapped[str] = mapped_column(String(64), comment="事件 ID（幂等键）")
     event_type: Mapped[str] = mapped_column(String(128), comment="事件类型（域.对象.动作）")
+    event_version: Mapped[str] = mapped_column(
+        String(16), default=DEFAULT_EVENT_VERSION, comment="事件契约版本（X.Y.Z）"
+    )
     aggregate_key: Mapped[str | None] = mapped_column(
         String(128), nullable=True, comment="聚合 / 分区键（同聚合按序投递；空 = 独立事件）"
     )

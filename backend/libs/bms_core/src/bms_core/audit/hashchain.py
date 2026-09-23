@@ -1,6 +1,8 @@
 """审计哈希链能力域：链计算与校验契约（真实 SHA256 链计算随审计哈希链阶段回补）。
 
 - `GENESIS_HASH`：首月链头约定初始值（64 位零 hex）；`HASH_ALGORITHM`：哈希算法（`sha256`）。
+- `build_chain_key`：链分条键——审计链按 `(service, tenant)` 分条、服务内本地强一致
+  （链不跨服务与租户；口径见《后端开发规范》「强一致场景口径」节）。
 - `HashChainEntry` / `ChainVerifyResult`：链上记录与校验结果数据契约（frozen）。
 - `BaseHashChain`：能力域中间层契约（`key = "hash_chain"`）——同步 `compute`（prev + 记录 → 哈希）/ `verify`（链校验）。
 - `get_hash_chain`：依赖注入提供者（应用级单例；公共依赖经 `app/api/deps.py` 统一导出）。
@@ -22,10 +24,12 @@ from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, Bas
 
 __all__ = [
     "GENESIS_HASH",
+    "GLOBAL_CHAIN_TENANT",
     "HASH_ALGORITHM",
     "BaseHashChain",
     "ChainVerifyResult",
     "HashChainEntry",
+    "build_chain_key",
     "get_hash_chain",
 ]
 
@@ -34,6 +38,25 @@ GENESIS_HASH = "0" * 64
 
 HASH_ALGORITHM = "sha256"
 """哈希算法。"""
+
+GLOBAL_CHAIN_TENANT = "global"
+"""无租户（平台级共享）链分条标识。"""
+
+
+def build_chain_key(*, service: str, tenant: str | None = None) -> str:
+    """构建审计链分条键（`{service}:{tenant|global}`）。
+
+    审计哈希链按 `(service, tenant)` 分条、服务内本地强一致——链不跨服务与租户；
+    业务变更 + 链追加 + 发件箱同库同事务，跨服务由审计服务幂等消费汇总（只校验不重算）。
+
+    Args:
+        service: 服务标识（链归属服务）。
+        tenant: 租户标识；None 为平台级共享链。
+
+    Returns:
+        str: 链分条键。
+    """
+    return f"{service}:{tenant or GLOBAL_CHAIN_TENANT}"
 
 
 @dataclass(frozen=True)

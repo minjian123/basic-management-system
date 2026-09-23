@@ -16,14 +16,19 @@ from bms_core.core.plugin import (
     resolve_plugin,
 )
 
+DEFAULT_EVENT_VERSION = "1.0.0"
+"""事件契约缺省版本（未登记契约时回落；登记契约取契约版本，见 `events/contracts.py`）。"""
+
 
 @dataclass
 class EventEnvelope(BaseObject):
-    """事件信封：统一事件载体（幂等键 + 类型 + 负载 + 租户 + 链路标识 + 聚合键）。
+    """事件信封：统一事件载体（幂等键 + 类型 + 负载 + 租户 + 链路标识 + 聚合键 + 契约版本）。
 
     - `event_id`：幂等键（消费端去重）；缺省由事务性发件箱写入时生成。
     - `occurred_at`：事件发生时间（UTC）；缺省由发件箱写入时取当前时刻。
     - `aggregate_key`：聚合 / 分区键（同聚合按序投递）；空 = 独立事件。
+    - `event_version`：事件契约版本（`X.Y.Z`）；缺省由发件箱按登记契约补齐（未登记回落
+      `DEFAULT_EVENT_VERSION`），投递时经发件箱账本保真（消费方按主版本兼容）。
     """
 
     event_type: str
@@ -33,6 +38,7 @@ class EventEnvelope(BaseObject):
     event_id: str | None = None
     occurred_at: datetime | None = None
     aggregate_key: str | None = None
+    event_version: str | None = None
 
 
 class BaseEventWorker(BasePluggable, ABC):

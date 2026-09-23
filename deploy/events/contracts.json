@@ -1,0 +1,457 @@
+{
+  "contracts": [
+    {
+      "deprecated": false,
+      "description": "文件上传完成",
+      "event_type": "file.uploaded",
+      "fields": {
+        "file_id": {
+          "required": true,
+          "type": "string"
+        },
+        "sha256": {
+          "required": true,
+          "type": "string"
+        },
+        "size": {
+          "required": true,
+          "type": "integer"
+        }
+      },
+      "version": "1.0.0"
+    },
+    {
+      "deprecated": false,
+      "description": "SSO 首登自动建号",
+      "event_type": "identity.user.jit_created",
+      "fields": {
+        "idp_key": {
+          "required": true,
+          "type": "string"
+        },
+        "user_id": {
+          "required": true,
+          "type": "string"
+        }
+      },
+      "version": "1.0.0"
+    },
+    {
+      "deprecated": false,
+      "description": "通知 / 邮件 / 短信发送",
+      "event_type": "notification.sent",
+      "fields": {
+        "biz_type": {
+          "required": false,
+          "type": "string"
+        },
+        "type": {
+          "required": true,
+          "type": "string"
+        },
+        "user_id": {
+          "required": true,
+          "type": "string"
+        }
+      },
+      "version": "1.0.0"
+    },
+    {
+      "deprecated": false,
+      "description": "归档批次完成",
+      "event_type": "sys.archive.completed",
+      "fields": {
+        "archived_count": {
+          "required": true,
+          "type": "integer"
+        },
+        "policy_id": {
+          "required": true,
+          "type": "string"
+        },
+        "target": {
+          "required": true,
+          "type": "string"
+        }
+      },
+      "version": "1.0.0"
+    },
+    {
+      "deprecated": false,
+      "description": "部门增删改 / 移动",
+      "event_type": "sys.dept.changed",
+      "fields": {
+        "dept_id": {
+          "required": true,
+          "type": "string"
+        },
+        "parent_id": {
+          "required": false,
+          "type": "string"
+        }
+      },
+      "version": "1.0.0"
+    },
+    {
+      "deprecated": false,
+      "description": "菜单 / 表单 / 字段 / 按钮变更（平台统一维护）",
+      "event_type": "sys.form.updated",
+      "fields": {
+        "business_id": {
+          "required": false,
+          "type": "string"
+        },
+        "changed_type": {
+          "required": true,
+          "type": "string"
+        },
+        "form_id": {
+          "required": true,
+          "type": "string"
+        },
+        "menu_id": {
+          "required": false,
+          "type": "string"
+        }
+      },
+      "version": "1.0.0"
+    },
+    {
+      "deprecated": false,
+      "description": "帮助文章删除",
+      "event_type": "sys.help.article.deleted",
+      "fields": {
+        "article_id": {
+          "required": true,
+          "type": "string"
+        },
+        "category_id": {
+          "required": false,
+          "type": "string"
+        },
+        "target_key": {
+          "required": false,
+          "type": "string"
+        }
+      },
+      "version": "1.0.0"
+    },
+    {
+      "deprecated": false,
+      "description": "帮助文章发布",
+      "event_type": "sys.help.article.published",
+      "fields": {
+        "article_id": {
+          "required": true,
+          "type": "string"
+        },
+        "category_id": {
+          "required": false,
+          "type": "string"
+        },
+        "target_key": {
+          "required": false,
+          "type": "string"
+        }
+      },
+      "version": "1.0.0"
+    },
+    {
+      "deprecated": false,
+      "description": "帮助文章更新",
+      "event_type": "sys.help.article.updated",
+      "fields": {
+        "article_id": {
+          "required": true,
+          "type": "string"
+        },
+        "category_id": {
+          "required": false,
+          "type": "string"
+        },
+        "target_key": {
+          "required": false,
+          "type": "string"
+        }
+      },
+      "version": "1.0.0"
+    },
+    {
+      "deprecated": false,
+      "description": "公告发布 / 更新 / 下线",
+      "event_type": "sys.notice.published",
+      "fields": {
+        "is_top": {
+          "required": true,
+          "type": "boolean"
+        },
+        "notice_id": {
+          "required": true,
+          "type": "string"
+        },
+        "title": {
+          "required": true,
+          "type": "string"
+        }
+      },
+      "version": "1.0.0"
+    },
+    {
+      "deprecated": false,
+      "description": "定时任务执行完成",
+      "event_type": "sys.task.completed",
+      "fields": {
+        "status": {
+          "required": true,
+          "type": "string"
+        },
+        "task_id": {
+          "required": true,
+          "type": "string"
+        }
+      },
+      "version": "1.0.0"
+    },
+    {
+      "deprecated": false,
+      "description": "用户创建后",
+      "event_type": "sys.user.created",
+      "fields": {
+        "dept_id": {
+          "required": false,
+          "type": "string"
+        },
+        "status": {
+          "required": true,
+          "type": "string"
+        },
+        "user_id": {
+          "required": true,
+          "type": "string"
+        },
+        "username": {
+          "required": true,
+          "type": "string"
+        }
+      },
+      "version": "1.0.0"
+    },
+    {
+      "deprecated": false,
+      "description": "用户删除后",
+      "event_type": "sys.user.deleted",
+      "fields": {
+        "dept_id": {
+          "required": false,
+          "type": "string"
+        },
+        "status": {
+          "required": true,
+          "type": "string"
+        },
+        "user_id": {
+          "required": true,
+          "type": "string"
+        },
+        "username": {
+          "required": true,
+          "type": "string"
+        }
+      },
+      "version": "1.0.0"
+    },
+    {
+      "deprecated": false,
+      "description": "管理员重置密码或自助找回后",
+      "event_type": "sys.user.password_reset",
+      "fields": {
+        "user_id": {
+          "required": true,
+          "type": "string"
+        }
+      },
+      "version": "1.0.0"
+    },
+    {
+      "deprecated": false,
+      "description": "用户修改后",
+      "event_type": "sys.user.updated",
+      "fields": {
+        "dept_id": {
+          "required": false,
+          "type": "string"
+        },
+        "status": {
+          "required": true,
+          "type": "string"
+        },
+        "user_id": {
+          "required": true,
+          "type": "string"
+        },
+        "username": {
+          "required": true,
+          "type": "string"
+        }
+      },
+      "version": "1.0.0"
+    },
+    {
+      "deprecated": false,
+      "description": "租户启用",
+      "event_type": "tenant.activated",
+      "fields": {
+        "db_key": {
+          "required": true,
+          "type": "string"
+        },
+        "status": {
+          "required": true,
+          "type": "string"
+        },
+        "tenant_code": {
+          "required": true,
+          "type": "string"
+        }
+      },
+      "version": "1.0.0"
+    },
+    {
+      "deprecated": false,
+      "description": "租户开通",
+      "event_type": "tenant.created",
+      "fields": {
+        "db_key": {
+          "required": true,
+          "type": "string"
+        },
+        "status": {
+          "required": true,
+          "type": "string"
+        },
+        "tenant_code": {
+          "required": true,
+          "type": "string"
+        }
+      },
+      "version": "1.0.0"
+    },
+    {
+      "deprecated": false,
+      "description": "租户停用",
+      "event_type": "tenant.suspended",
+      "fields": {
+        "db_key": {
+          "required": true,
+          "type": "string"
+        },
+        "status": {
+          "required": true,
+          "type": "string"
+        },
+        "tenant_code": {
+          "required": true,
+          "type": "string"
+        }
+      },
+      "version": "1.0.0"
+    },
+    {
+      "deprecated": false,
+      "description": "流程实例结束",
+      "event_type": "wf.instance.finished",
+      "fields": {
+        "instance_id": {
+          "required": true,
+          "type": "string"
+        },
+        "result": {
+          "required": true,
+          "type": "string"
+        }
+      },
+      "version": "1.0.0"
+    },
+    {
+      "deprecated": false,
+      "description": "流程被驳回",
+      "event_type": "wf.instance.rejected",
+      "fields": {
+        "comment": {
+          "required": false,
+          "type": "string"
+        },
+        "instance_id": {
+          "required": true,
+          "type": "string"
+        },
+        "node_id": {
+          "required": true,
+          "type": "string"
+        }
+      },
+      "version": "1.0.0"
+    },
+    {
+      "deprecated": false,
+      "description": "流程实例启动",
+      "event_type": "wf.instance.started",
+      "fields": {
+        "business_id": {
+          "required": true,
+          "type": "string"
+        },
+        "business_type": {
+          "required": true,
+          "type": "string"
+        },
+        "instance_id": {
+          "required": true,
+          "type": "string"
+        }
+      },
+      "version": "1.0.0"
+    },
+    {
+      "deprecated": false,
+      "description": "流程定义发布新版本",
+      "event_type": "wf.process.deployed",
+      "fields": {
+        "definition_key": {
+          "required": true,
+          "type": "string"
+        },
+        "version": {
+          "required": true,
+          "type": "string"
+        }
+      },
+      "version": "1.0.0"
+    },
+    {
+      "deprecated": false,
+      "description": "审批节点通过",
+      "event_type": "wf.task.completed",
+      "fields": {
+        "action": {
+          "required": true,
+          "type": "string"
+        },
+        "approver": {
+          "required": true,
+          "type": "string"
+        },
+        "instance_id": {
+          "required": true,
+          "type": "string"
+        },
+        "task_id": {
+          "required": true,
+          "type": "string"
+        }
+      },
+      "version": "1.0.0"
+    }
+  ],
+  "subscriptions": []
+}
