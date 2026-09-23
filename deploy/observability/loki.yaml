@@ -1,0 +1,39 @@
+# Loki 配置：TSDB + 文件系统存储 + 30d 保留 + 结构化元数据（trace_id / request_id）。
+auth_enabled: false
+
+server:
+  http_listen_port: 3100
+  log_level: warn
+
+common:
+  path_prefix: /loki
+  storage:
+    filesystem:
+      chunks_directory: /loki/chunks
+      rules_directory: /loki/rules
+  replication_factor: 1
+  ring:
+    kvstore:
+      store: inmemory
+
+schema_config:
+  configs:
+    - from: 2020-10-24
+      store: tsdb
+      object_store: filesystem
+      schema: v13
+      index:
+        prefix: index_
+        period: 24h
+
+limits_config:
+  # 日志热保留 30 天（架构「可观测性栈保留期」MVP 口径）
+  retention_period: 30d
+  # 结构化元数据（trace_id / request_id 作 metadata，避免高基数标签）
+  allow_structured_metadata: true
+  volume_enabled: true
+
+compactor:
+  working_directory: /loki/compactor
+  retention_enabled: true
+  delete_request_store: filesystem

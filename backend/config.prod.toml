@@ -16,3 +16,7 @@ allow_demo_fallback = false
 # 生产环境不做开发库自动建表：结构变更一律走 Alembic 迁移（迁移先行，见《部署发布规范》）
 [database]
 auto_create = false
+
+# 生产链路采样下调（全采存储 / 开销压力大；需全量排查时经 BMS_TRACER__SAMPLER_RATIO 临时调回）
+[tracer]
+sampler_ratio = 0.1

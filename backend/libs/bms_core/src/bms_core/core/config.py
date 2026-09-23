@@ -158,6 +158,7 @@ class TenantSettings(BaseSettings):
             "/openapi.json",
             "/healthz",
             "/readyz",
+            "/metrics",
             "/.well-known/jwks.json",
             "/api/v1/auth/introspect",
         ]
@@ -284,6 +285,35 @@ class PluginSelection(BaseSettings):
 
     options: dict[str, object] = Field(default_factory=dict[str, object])
     """非敏感选项（键位由各实现解读；密钥不入配置 / 不入日志）。"""
+
+
+class TracerSettings(PluginSelection):
+    """链路配置（`[tracer]`；在能力选择之外追加 OTLP 端点 / 采样 / 导出参数）。
+
+    真实实现（`provider = "otel"`）经 `bms_core.tracing.setup` 配置全局 TracerProvider 与自动埋点；
+    端点 / 采样率属非敏感配置，密钥一律经环境变量注入、不入日志。
+    """
+
+    otlp_endpoint: str = "http://localhost:4318"
+    """OTLP/HTTP 端点（collector；容器化后经 `BMS_TRACER__OTLP_ENDPOINT` 覆盖为 `http://otel-collector:4318`）。"""
+
+    sampler: Literal[
+        "always_on",
+        "always_off",
+        "traceidratio",
+        "parentbased_always_on",
+        "parentbased_traceidratio",
+    ] = "parentbased_traceidratio"
+    """采样器（父级比例采样为缺省，兼顾排查与开销）。"""
+
+    sampler_ratio: float = Field(default=1.0, ge=0.0, le=1.0)
+    """比例采样率（0~1；dev 全采，prod 可下调）。"""
+
+    export_timeout_ms: int = Field(default=10000, ge=1)
+    """OTLP 导出超时（毫秒）。"""
+
+    insecure: bool = True
+    """OTLP/HTTP 明文（内网；生产经 TLS 时可关）。"""
 
 
 class EdgeSettings(PluginSelection):
@@ -586,7 +616,7 @@ class Settings(PydanticBaseSettings, BaseSettings):  # pyright: ignore[reportInc
     task: PluginSelection = Field(default_factory=PluginSelection)
     tenant_self_service: PluginSelection = Field(default_factory=PluginSelection)
     token_verifier: PluginSelection = Field(default_factory=PluginSelection)
-    tracer: PluginSelection = Field(default_factory=PluginSelection)
+    tracer: TracerSettings = Field(default_factory=TracerSettings)
     translator: PluginSelection = Field(default_factory=PluginSelection)
     webhook_sender: PluginSelection = Field(default_factory=PluginSelection)
     workflow_engine: PluginSelection = Field(default_factory=PluginSelection)

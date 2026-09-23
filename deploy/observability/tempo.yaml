@@ -1,0 +1,26 @@
+# Tempo 配置：OTLP 接收 + 本地存储 + 72h 保留（block_retention）。
+server:
+  http_listen_port: 3200
+  log_level: warn
+
+distributor:
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+          endpoint: 0.0.0.0:4317
+        http:
+          endpoint: 0.0.0.0:4318
+
+storage:
+  trace:
+    backend: local
+    local:
+      path: /var/tempo/traces
+    wal:
+      path: /var/tempo/wal
+
+compactor:
+  compaction:
+    # 保留期（架构未定，MVP 取 72h；经容量复核可调）
+    block_retention: 72h

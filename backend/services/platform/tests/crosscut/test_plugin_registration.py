@@ -187,7 +187,11 @@ def test_ports_declared_and_abstract() -> None:
 
 @pytest.mark.kiwi_id(531)
 def test_null_defaults_registered() -> None:
-    """Null 缺省登记：有缺省实现的端口 `(plugin_key, null)` 登记为对应 `NullXxx`；无实现 / 需工厂的端口不登记。"""
+    """Null 缺省登记：有缺省实现的端口 `(plugin_key, null)` 登记为对应 `NullXxx`；无实现 / 需工厂的端口不登记。
+
+    真实实现（如 metrics `prometheus` / tracer `otel`，08_01 回补）可与缺省并存，故只断言
+    缺省项存在且为 `NullObject`（不限制实现集合仅含 null）。
+    """
     snapshot = _snapshot_of_app_classes()
     excluded = _PORTS_WITHOUT_NULL | _PLATFORM_FACTORY_KEYS
     assert set(snapshot) == _EXPECTED_PLUGIN_KEYS - excluded
@@ -195,7 +199,7 @@ def test_null_defaults_registered() -> None:
         if port.plugin_key in excluded:
             assert port.plugin_key not in snapshot
             continue
-        assert set(snapshot[port.plugin_key]) == {NULL_PLUGIN_NAME}
+        assert NULL_PLUGIN_NAME in snapshot[port.plugin_key]
         impl = snapshot[port.plugin_key][NULL_PLUGIN_NAME]
         assert isinstance(impl, type)
         assert issubclass(impl, port)

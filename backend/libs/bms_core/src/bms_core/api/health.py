@@ -14,7 +14,8 @@ from fastapi.responses import JSONResponse
 from bms_core.api.base import BaseRouter
 from bms_core.api.deps import get_health_check_registry
 from bms_core.core.service import ServiceIdentity
-from bms_core.health.base import BaseHealthCheckRegistry
+from bms_core.health.base import BaseHealthCheckRegistry, HealthCheckReport
+from bms_core.metrics.base import BaseMetrics
 
 router = BaseRouter(key="health", default_responses=False)
 """探针路由基座：豁免统一前缀与统一响应（`/healthz` `/readyz`，见《API接口规范》「探针豁免」）。"""
@@ -66,8 +67,28 @@ async def readyz(request: Request, registry: HealthCheckRegistryDep) -> JSONResp
         return JSONResponse(status_code=503, content={"status": "down", "checks": {}, **fields})
 
     report = await registry.aggregate()
+    await _record_dependency_metrics(request, report)
     checks = {item.name: {"ok": item.ok, "error": item.error} for item in report.checks}
     return JSONResponse(
         status_code=200 if report.ok else 503,
         content={"status": "ok" if report.ok else "down", "checks": checks, **fields},
     )
+
+
+async def _record_dependency_metrics(request: Request, report: HealthCheckReport) -> None:
+    """记录依赖就绪指标 `bms_dependency_up`（1 就绪 / 0 未就绪；按服务 / 依赖）。
+
+    指标写入失败不影响就绪判定（静默忽略）。
+
+    Args:
+        request: 当前请求（取应用装配的指标器）。
+        report: 健康检查聚合报告。
+    """
+    metrics = getattr(request.app.state, "metrics", None)
+    if not isinstance(metrics, BaseMetrics):
+        return
+    for item in report.checks:
+        try:
+            await metrics.gauge("bms_dependency_up", value=1.0 if item.ok else 0.0, labels={"dependency": item.name})
+        except Exception:  # 指标写入绝不干扰探针
+            continue

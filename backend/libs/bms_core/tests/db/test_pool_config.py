@@ -1,8 +1,8 @@
 """连接池按服务与 worker、连接超时与连接预算告警测试（Kiwi 984）。"""
 
 import pytest
+import sqlalchemy.ext.asyncio as sa_async
 
-import bms_core.db.engine as engine_module
 from bms_core.core.config import DbPoolSettings, Settings
 from bms_core.db.engine import EngineFactory
 from bms_core.db.registry import pool_budget_rows, pool_budget_warnings
@@ -23,7 +23,7 @@ def _capture(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, dict[str, objec
         captured.append((url, kwargs))
         return _FakeEngine()
 
-    monkeypatch.setattr(engine_module, "create_async_engine", _fake_create)
+    monkeypatch.setattr(sa_async, "create_async_engine", _fake_create)
     return captured
 
 

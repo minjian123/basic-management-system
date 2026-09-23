@@ -1,0 +1,73 @@
+// Grafana Alloy：容器日志（docker socket）+ 宿主服务日志文件 → JSON 解析 → Loki
+// - 容器：discovery.docker 发现 bms-* 容器，loki.source.docker 采集 stdout（如 APISIX 访问日志）；
+// - 宿主服务：local.file_match 采集 /var/log/bms/*.log（dev 服务直跑、非容器时使用）；
+// - 解析：JSON 提取 service / level 作**标签**（低基数），trace_id / request_id 作**结构化元数据**
+//   （Loki 3.x，避免高基数撑爆索引）。
+
+discovery.docker "bms" {
+  host = "unix:///var/run/docker.sock"
+
+  filter {
+    name   = "name"
+    values = ["bms-.*"]
+  }
+}
+
+discovery.relabel "bms" {
+  targets = discovery.docker.bms.targets
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/?(.*)"
+    target_label  = "container"
+  }
+}
+
+loki.source.docker "bms" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.relabel.bms.output
+  labels     = { job = "docker" }
+  forward_to = [loki.process.bms.receiver]
+}
+
+local.file_match "bms_host" {
+  path_targets = [{ __path__ = "/var/log/bms/*.log", job = "bms-file" }]
+}
+
+loki.source.file "bms_host" {
+  targets    = local.file_match.bms_host.targets
+  forward_to = [loki.process.bms.receiver]
+}
+
+loki.process "bms" {
+  forward_to = [loki.write.default.receiver]
+
+  stage.json {
+    expressions = {
+      service    = "service",
+      level      = "level",
+      trace_id   = "trace_id",
+      request_id = "request_id",
+    }
+  }
+
+  stage.labels {
+    values = {
+      service = "service",
+      level   = "level",
+    }
+  }
+
+  stage.structured_metadata {
+    values = {
+      trace_id   = "trace_id",
+      request_id = "request_id",
+    }
+  }
+}
+
+loki.write "default" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}

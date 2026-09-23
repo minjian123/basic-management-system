@@ -22,6 +22,7 @@
 import time
 import uuid
 from collections.abc import Mapping
+from contextlib import suppress
 from contextvars import Token
 from typing import cast
 
@@ -62,7 +63,8 @@ from bms_core.edge.headers import (
     USER_SUBJECT_HEADER,
 )
 from bms_core.edge.null import NullEdgeTrust
-from bms_core.tracing.base import TRACE_ID_HEADER, new_trace_id
+from bms_core.metrics.base import BaseMetrics
+from bms_core.tracing.base import TRACE_ID_HEADER, new_trace_id, otel_trace_id
 
 __all__ = [
     "EdgeGuardMiddleware",
@@ -72,7 +74,7 @@ __all__ = [
     "TraceIdMiddleware",
 ]
 
-_EXCLUDED_PATHS = frozenset({"/healthz", "/readyz", "/docs", "/redoc", "/openapi.json"})
+_EXCLUDED_PATHS = frozenset({"/healthz", "/readyz", "/metrics", "/docs", "/redoc", "/openapi.json"})
 
 
 class TraceIdMiddleware(BaseObject):
@@ -98,7 +100,8 @@ class TraceIdMiddleware(BaseObject):
             await self.app(scope, receive, send)
             return
 
-        trace_id = Headers(scope=scope).get(TRACE_ID_HEADER) or get_current_request_id() or new_trace_id()
+        inbound = Headers(scope=scope).get(TRACE_ID_HEADER)
+        trace_id = otel_trace_id() or inbound or get_current_request_id() or new_trace_id()
         scope.setdefault("state", {})["trace_id"] = trace_id
         token = set_current_trace_id(trace_id)
 
@@ -253,8 +256,27 @@ class RequestLoggingMiddleware(BaseObject):
         finally:
             duration_ms = round((time.perf_counter() - start) * 1000, 2)
             self._log_request(scope, status_code, duration_ms)
+            with suppress(Exception):  # 指标写入绝不干扰请求收尾
+                await self._record_metrics(scope, status_code, duration_ms / 1000)
             reset_current_client_ip(client_token)
             reset_current_request_id(request_token)
+
+    async def _record_metrics(self, scope: Scope, status_code: int, duration_s: float) -> None:
+        """记录请求指标：`bms_request_total`（counter）+ `bms_request_duration_seconds`（histogram）。
+
+        `route` 取匹配路由的模板路径（避免 id 类高基数），未匹配回退原始 path；排除清单内不记。
+        """
+        metrics = getattr(getattr(scope.get("app"), "state", None), "metrics", None)
+        if not isinstance(metrics, BaseMetrics):
+            return
+        route = scope.get("route")
+        path = str(getattr(route, "path", "") or scope.get("path", ""))
+        if path in _EXCLUDED_PATHS:
+            return
+        method = str(scope.get("method", ""))
+        base = {"method": method, "route": path}
+        await metrics.counter("bms_request_total", labels={**base, "status": str(status_code)})
+        await metrics.histogram("bms_request_duration_seconds", value=duration_s, labels=base)
 
     def _log_request(self, scope: Scope, status_code: int, duration_ms: float) -> None:
         """输出单行访问日志（排除清单内不记；超阈值升 WARNING）。

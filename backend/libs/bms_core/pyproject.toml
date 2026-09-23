@@ -25,6 +25,14 @@ dependencies = [
     "sortedcontainers",
     # OIDC 客户端与 JWKS 票据校验（idp 能力域真实实现；JOSE 经内置 joserfc）
     "authlib>=1.8",
+    "prometheus-client>=0.26.0",
+    "opentelemetry-sdk>=1.44.0",
+    "opentelemetry-exporter-otlp-proto-http>=1.44.0",
+    "opentelemetry-instrumentation-fastapi==0.65b0",
+    "opentelemetry-instrumentation-sqlalchemy==0.65b0",
+    "opentelemetry-instrumentation-redis==0.65b0",
+    "opentelemetry-instrumentation-httpx==0.65b0",
+    "opentelemetry-instrumentation-celery==0.65b0",
 ]
 
 [project.optional-dependencies]

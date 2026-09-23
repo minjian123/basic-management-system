@@ -19,6 +19,7 @@ from sqlalchemy import select
 
 from bms_core.api import health
 from bms_core.api.errors import register_exception_handlers
+from bms_core.api.metrics import router as metrics_router
 from bms_core.api.middleware import (
     EdgeGuardMiddleware,
     ReadOnlyMiddleware,
@@ -63,6 +64,7 @@ from bms_core.services.table_registry import (
     TableRecord,
     validate_table_ownership,
 )
+from bms_core.tracing.setup import setup_observability
 
 __all__ = ["BaseServiceApplicationFactory", "service_lifespan"]
 
@@ -382,7 +384,12 @@ class BaseServiceApplicationFactory(BaseApplicationFactory):
             return ApiResponse.ok({"name": self.service_title, "version": self.version})
 
         app.include_router(health.router)
+        app.include_router(metrics_router)
         for router in self.service_routers():
             app.include_router(router)
+
+        # 可观测接入（指标 / 链路真实实现）：最后装配——OTel ASGI 中间件位于最外层，
+        # 使我方中间件进入时服务端 span 已激活（`resolve_trace_id` 取到真实 trace id）。
+        setup_observability(app, settings)
 
         return app

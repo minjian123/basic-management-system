@@ -5,9 +5,11 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Protocol, cast
 
+import pytest
+
 from bms_core.core.assembly import register_platform_plugins
 from bms_core.core.base import BaseObject
-from bms_core.core.config import Settings
+from bms_core.core.config import Settings, get_settings
 from bms_core.core.plugin import PluginImpl, build_plugin_registry
 from bms_core.dashboard.base import BaseDashboardCardProvider, BaseDashboardCardRegistry
 from bms_core.dashboard.null import NullDashboardCardRegistry
@@ -65,10 +67,16 @@ def build_snapshot() -> Mapping[str, Mapping[str, PluginImpl]]:
     Returns:
         Mapping[str, Mapping[str, PluginImpl]]: 两级映射快照。
     """
-    app = ApplicationFactory().create(None)
-    settings = cast("Settings", app.state.settings)
-    register_platform_plugins(settings, app, app.state.resources)
-    return build_plugin_registry()
+    # 会话级 / 单文件运行可能先于用例函数级配置隔离：此处显式关闭可观测真实 provider，
+    # 避免装配引入全局 TracerProvider / 后台导出线程（08_01）。
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setenv("BMS_TRACER__PROVIDER", "")
+        patch.setenv("BMS_METRICS__PROVIDER", "")
+        get_settings.cache_clear()
+        app = ApplicationFactory().create(None)
+        settings = cast("Settings", app.state.settings)
+        register_platform_plugins(settings, app, app.state.resources)
+        return build_plugin_registry()
 
 
 class TextFieldType(BaseFieldType):
