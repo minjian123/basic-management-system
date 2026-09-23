@@ -9,7 +9,9 @@
   判定授权面 scope（与内部权限码 `BasePermissionChecker` 分工，开放接口**先 scope 后权限码**）。
 - `get_oauth_server` / `get_scope_checker`：依赖注入提供者（应用级单例；公共依赖经 `app/api/deps.py` 统一导出）。
 
-口径：本域只覆盖**开放接口 client 侧**（Client Credentials）；用户 access / refresh 双 token 归认证阶段（架构 13 §2）；
+口径：本域覆盖**开放接口 client 侧**（Client Credentials）与**服务身份自签**（双类 JWT 之一的服务 JWT，
+见同域 `token.py` / `jwt.py` / `verify.py` / `keys.py`）；用户 access / refresh 双 token 与用户 JWT 由外部
+IdP（Keycloak）签发、后端只校验，完整登录链路归认证阶段（架构 13 §2）；
 `app/scope/` 的 `DataScope` 是**数据范围注入**（行级过滤），与本域 OAuth scope（授权面收敛）语义不同，两者不混用。
 """
 

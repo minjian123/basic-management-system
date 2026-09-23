@@ -43,6 +43,8 @@ from bms_core.metrics.base import get_metrics
 from bms_core.notification.base import get_notification_center
 from bms_core.notify.base import get_notifier
 from bms_core.oauth.base import get_oauth_server, get_scope_checker
+from bms_core.oauth.token import get_service_token_issuer
+from bms_core.oauth.verify import get_token_verifier
 from bms_core.org.base import get_org_data_source, get_org_name_resolver
 from bms_core.outbound.http import get_http_client
 from bms_core.outbound.webhook import get_webhook_sender
@@ -132,11 +134,13 @@ __all__ = [
     "get_scope_checker",
     "get_search_index",
     "get_service_client",
+    "get_service_token_issuer",
     "get_session_store",
     "get_task",
     "get_tenant",
     "get_tenant_self_service",
     "get_tenant_source",
+    "get_token_verifier",
     "get_tracer",
     "get_translator",
     "get_uow",

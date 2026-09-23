@@ -53,7 +53,7 @@ engine_idle_timeout = 1800.0
 # 无任何来源时是否回落演示租户（开发兜底；prod 覆盖为 false）
 allow_demo_fallback = true
 # 租户解析豁免路径（精确匹配）
-exempt_paths = ["/", "/docs", "/redoc", "/openapi.json", "/healthz", "/readyz"]
+exempt_paths = ["/", "/docs", "/redoc", "/openapi.json", "/healthz", "/readyz", "/.well-known/jwks.json"]
 # 开发库自动建表覆盖的租户编码（仅 SQLite auto_create 生效；每服务按 tenant_{code} 相对键建表）
 dev_tenants = ["demo"]
 
@@ -190,7 +190,7 @@ provider = ""
 # 旁路防护开关：true 时非豁免路径缺网关注入身份即拒（dev/test 关，prod 开）
 require_gateway_identity = false
 # 旁路拒绝 / 租户净化豁免路径（精确匹配；空取基座缺省集）
-exempt_paths = ["/", "/docs", "/redoc", "/openapi.json", "/healthz", "/readyz"]
+exempt_paths = ["/", "/docs", "/redoc", "/openapi.json", "/healthz", "/readyz", "/.well-known/jwks.json"]
 # 非敏感选项（gateway_identity = 网关专属标记头期望值，缺省取基座常量 bms-edge；密钥一律经环境变量注入）
 options = {}
 
@@ -198,6 +198,7 @@ options = {}
 # 服务间同步调用实现选择（插件化配置；http = httpx 真实实现、空串 = null 占位不外呼）
 provider = ""
 # 非敏感选项（base_url_template = 目标基址模板，占位 {service}；缺省 Compose DNS http://{service}:8000）
+# attach_service_token = 出站是否剥离入站 Authorization 并附自签服务 JWT（缺省 false，dev 关、prod 开）
 options = {}
 
 [identity_provider]
@@ -217,6 +218,26 @@ scopes = ["openid", "profile", "email"]
 discovery_cache_ttl = 3600
 # JWKS 缓存 TTL（秒）
 jwks_cache_ttl = 300
+
+[service_token]
+# 服务 JWT 自签实现选择（插件化配置；空串 = null 占位不签真 JWT；jwt = joserfc 真实自签）
+provider = "jwt"
+# 自签签发方（服务 JWT 的 iss；生产建议配置稳定 URI）
+issuer = "bms"
+# 服务 JWT 默认有效期（秒）
+ttl_seconds = 300
+# 当前签名密钥 kid（多把签名私钥时必填）
+active_kid = ""
+# 密钥集（kid → 密钥材料；keys.<kid>.algorithm / public_key / private_key）
+# 公钥 PEM 可随配置下发；私钥 PEM 一律经环境变量注入（不入 Git / 不入镜像），如：
+#   BMS_SERVICE_TOKEN__KEYS='{"k1":{"algorithm":"RS256","public_key":"...","private_key":"..."}}'
+#   或按键位 BMS_SERVICE_TOKEN__KEYS__k1__PRIVATE_KEY
+# 空集允许（仅校验方只需公钥；签发时无可用私钥才报错）。
+[service_token.keys]
+
+[token_verifier]
+# 统一校验实现选择（插件化配置；空串 = null 占位不验签；unified = 按 aud 分流统一校验）
+provider = "unified"
 
 [data_ownership]
 # 数据所有权守卫实现选择（插件化配置；table = SQLAlchemy 执行前表前缀归属检测、空串 = null 占位不检测）
