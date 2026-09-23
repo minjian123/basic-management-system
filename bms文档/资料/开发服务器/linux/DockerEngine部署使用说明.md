@@ -77,16 +77,25 @@ sudo usermod -aG docker <SSH账号>
 （约 0.2~0.6 GB/个）在加速器限速下常中途断开；**继续常规 `docker pull <镜像>`（可多次）** 逐个累积完成，无需切换源。
 已完成的镜像用 `docker images` 核对，不必再拉。
 
+**批量拉取工具（推荐）**：`scripts/tools/docker/拉取镜像.sh`（bms 仓根）——把「逐个拉 + 已就位跳过 + 中断重试（含单次超时防“挂住”）」固化为一条命令；
+镜像清单默认读同目录 `镜像清单.txt`（每行一个、`#` 注释），可 `--host` 指定远程 Docker 主机（缺省读 `MJBK_SSH_USER@MJBK_IP`）。
+
 ```bash
-# 逐个拉、失败重整即可（可循环重试；已完成会跳过）
+# 仓库根执行；缺省读 脚本同目录/镜像清单.txt
+scripts/tools/docker/拉取镜像.sh --host <SSH账号>@<mjbk-IP>          # 远程拉（断点续传 + 自动重试）
+scripts/tools/docker/拉取镜像.sh nginx:1.27 redis:8                  # 本机拉指定镜像
+scripts/tools/docker/拉取镜像.sh --file 我的清单.txt --retries 20    # 限定重试上限
+
+# 等价的手工循环（无脚本时）
 for img in <镜像1> <镜像2>; do docker pull "$img" && echo OK "$img" || echo RETRY "$img"; done
 docker images --format '{{.Repository}}:{{.Tag}} {{.Size}}'   # 核对已就位
 ```
 
 > **注意**：
-> - **不要并发**多个 `docker pull` 拉同一镜像（内容锁争用会互相卡住、表现为“假死”）；上一个未结束前不要另起。
+> - **不要并发**多个 `docker pull` 拉同一镜像（内容锁争用会互相卡住、表现为“假死”）；上一个未结束前不要另起（脚本内部已按序逐个拉）。
 > - 不要用 `docker system prune -a` 清掉已完成的层（会丢失续传缓存，需从头再拉）。
 > - 加速器（daocloud / 1ms）在拉取中途限速 / 断连是常态，**“能续传、可重试”是解法**，而不是换源或拼接第三方镜像前缀。
+> - **镜像副本可能损坏**：实测 `otel/opentelemetry-collector-contrib:0.116.0` 经加速器拉到的是坏副本（容器 `exec ... no such file or directory`，根 fs 缺 `/lib64` 加载器），换 tag（`0.115.1`）即正常；遇此类“能拉下但起不来”优先怀疑镜像副本，核实后换 tag 并回写清单。
 
 ## 3. 验证 <a id="verify"></a>
 
@@ -123,6 +132,7 @@ docker run --rm hello-world
 
 - 《[开发服务器部署使用说明总览](开发服务器部署使用说明总览.md)》：服务部署总览与顺序
 - 平台《开发部署规划》：4.1 容器引擎方案
+- `scripts/tools/docker/拉取镜像.sh` + `镜像清单.txt`（bms 仓根）：大镜像批量拉取（断点续传 + 自动重试），见 §2.6
 - 《[Ubuntu安装部署使用说明](../../工具/Ubuntu安装部署使用说明.md)》：系统基础配置（apt 清华源、HDD 挂载、Timeshift）
 - 《[文档生成规范](../../../规范/文档生成规范.md)》：本文档遵循的格式规范
 
