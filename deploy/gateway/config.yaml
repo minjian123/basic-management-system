@@ -16,6 +16,23 @@ deployment:
   role_data_plane:
     config_provider: yaml
 
+# 边缘观测出口（04_03；真实采集 / 展示 / 告警归 08 可观测性栈）：
+# prometheus 指标导出端点 http://<host>:<GATEWAY_METRICS_PORT>/apisix/prometheus/metrics
+# 路由级指标需在路由挂 `prometheus: {}`（见 deploy/gateway/apisix.yaml，由生成器产出）。
+plugin_attr:
+  prometheus:
+    export_addr:
+      # 容器内监听 0.0.0.0:9091，宿主经 compose 端口映射暴露
+      ip: 0.0.0.0
+      port: 9091
+
 nginx_config:
   # 错误日志级别（信息足够且不刷屏）
   error_log_level: warn
+  http:
+    # 访问日志出口（输出到 stdout，随 docker logs 可见，供 08 日志栈采集）；
+    # 结构化 JSON 格式随 08 可观测性栈按 Loki 口径细化（本任务只交付出口）。
+    enable_access_log: true
+    access_log: /dev/stdout
+    access_log_format: |-
+      $remote_addr - $remote_user [$time_local] "$request" $status $body_bytes_sent "$http_referer" "$http_user_agent" $request_time upstream=$upstream_addr "$http_x_forwarded_for"

@@ -23,7 +23,11 @@ _BACKEND_ROOT = Path(__file__).resolve().parents[1]
 _SRC_ROOT = _BACKEND_ROOT / "libs" / "bms_core" / "src"
 sys.path.insert(0, str(_SRC_ROOT))
 
-from bms_core.services.gateway_catalog import render_apisix_yaml  # noqa: E402
+from bms_core.services.gateway_catalog import (  # noqa: E402
+    render_apisix_config,
+    render_apisix_yaml,
+    validate_service_discovery,
+)
 
 REPO_ROOT = _BACKEND_ROOT.parent
 """仓库根（`backend/` 的父目录）。"""
@@ -66,13 +70,13 @@ def render(root: Path, *, to_stdout: bool = False) -> int:
 
 
 def check(root: Path) -> int:
-    """校验仓库内生成件与服务目录零漂移。
+    """校验仓库内生成件与服务目录零漂移、且服务发现无硬编码 IP。
 
     Args:
         root: 仓库根。
 
     Returns:
-        int: 退出码（0 一致；1 缺失 / 漂移）。
+        int: 退出码（0 一致；1 缺失 / 漂移 / 硬编码 IP）。
     """
     target = config_path(root)
     if not target.is_file():
@@ -86,7 +90,16 @@ def check(root: Path) -> int:
             file=sys.stderr,
         )
         return 1
-    print(f"[gateway_config] 通过：{target} 与服务目录一致")
+    violations = validate_service_discovery(render_apisix_config())
+    if violations:
+        print(
+            f"[gateway_config] 服务发现校验失败（禁硬编码 IP）：{target}",
+            file=sys.stderr,
+        )
+        for violation in violations:
+            print(f"  - {violation}", file=sys.stderr)
+        return 1
+    print(f"[gateway_config] 通过：{target} 与服务目录一致、服务发现无硬编码 IP")
     return 0
 
 

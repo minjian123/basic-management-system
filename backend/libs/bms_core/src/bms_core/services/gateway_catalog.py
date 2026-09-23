@@ -5,10 +5,18 @@
 - 外部路径 `/api/{service_key}/v1/...` 经 `proxy-rewrite` 还原为服务内 `/api/v1/...`
   （服务内前缀 `API_PREFIX` 不变；网关只做前缀剥离）。
 - 上游按服务标识经 Compose DNS 寻址（`{service_key}:{SERVICE_PORT}`），迁 K8s 平移为 Service 名。
-- 认证 / 限流插件经 `ROUTE_PLUGINS` 钩子按服务附加（04_02 / 04_03 填充；默认不启用）。
+- 认证插件经 `ROUTE_PLUGINS` 钩子按服务附加（07_03 填充；默认不启用）。
 - 边缘请求净化：`global_rules` 统一剥除客户端伪造身份头；网关专属标记 + 身份注入落
   路由级 `proxy-rewrite.headers.set`（`ROUTE_HEADERS_SET` 钩子预留，07_03 填充）——真机实测
   global 规则 `headers.set` 会被路由级 `proxy-rewrite` 丢弃，故标记与身份统一落路由级（04_02）。
+- 边缘限流（04_03）：每条路由注入 `limit-count`（`policy: redis` 共享多副本计数，默认按真实
+  客户端 IP、通用档 300/60s）；认证敏感路径生成独立路由（更严 10/60s、显式优先级）；Redis 主机 /
+  密码经 `${{GATEWAY_REDIS_HOST:=redis}}` / `${{GATEWAY_REDIS_PASSWORD:=}}` 环境变量替换
+  （端口 / 库用整数字面量——真机实测 `limit-count` schema 要求整数，环境变量替换产出字符串会校验失败）。
+- 服务发现护栏（04_03）：`validate_service_discovery` 断言上游节点为服务名、不得为 IP 字面量。
+- 边缘观测出口（04_03）：路由挂 `prometheus`，指标端点与访问日志配置见 `deploy/gateway/config.yaml`
+  （真实采集 / 展示归 08 可观测性栈）。
+- 灰度预留（04_03）：`GRAY_TRAFFIC` 钩子按服务合并 `traffic-split` 加权配置（默认空）。
 - 输出确定性（同目录 → 同文本），供 Git 比对与 CI 零漂移校验。
 
 生成入口见 `backend/ops/gateway_config.py`；配置语义与 K8s 平移口径见任务 04_01 / 04_02 详细设计。
@@ -17,6 +25,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping
 from typing import cast
 
 from bms_core.edge.headers import GATEWAY_IDENTITY_HEADER, GATEWAY_IDENTITY_VALUE, STRIPPED_HEADERS
@@ -24,19 +33,32 @@ from bms_core.services.module_registry import SERVICE_CATALOG, ModuleRecord, Mod
 
 __all__ = [
     "API_PREFIX",
+    "DEFAULT_RATE_LIMIT_COUNT",
+    "DEFAULT_RATE_LIMIT_WINDOW",
     "GATEWAY_PATH_PREFIX",
+    "GRAY_TRAFFIC",
+    "LOGIN_PATHS",
+    "LOGIN_RATE_LIMIT_COUNT",
+    "LOGIN_RATE_LIMIT_WINDOW",
+    "LOGIN_ROUTE_ID",
+    "LOGIN_ROUTE_PRIORITY",
     "ROUTE_HEADERS_SET",
     "ROUTE_PLUGINS",
     "SERVICE_PORT",
     "dump_yaml",
+    "env_var",
     "gateway_services",
+    "rate_limit_plugin",
     "render_apisix_config",
     "render_apisix_yaml",
     "render_global_rules",
+    "render_login_routes",
+    "render_plugin_metadata",
     "render_routes",
     "render_upstreams",
     "route_prefix",
     "upstream_node",
+    "validate_service_discovery",
 ]
 
 API_PREFIX = "/api/v1"
@@ -51,8 +73,8 @@ SERVICE_PORT = 8000
 ROUTE_PLUGINS: dict[str, dict[str, object]] = {}
 """路由级插件钩子（按 `service_key` 合并）。
 
-04_03（限流：`limit-count`）与 07_03（认证：`openid-connect`）在此登记，
-无需改动生成结构；默认空 = 不启用任何附加插件。
+07_03（认证：`openid-connect`）在此登记，无需改动生成结构；默认空 = 不启用。
+限流（`limit-count`）/ 观测（`prometheus`）/ 灰度（`traffic-split`）由本模块直接产出。
 """
 
 ROUTE_HEADERS_SET: dict[str, dict[str, str]] = {}
@@ -62,13 +84,176 @@ ROUTE_HEADERS_SET: dict[str, dict[str, str]] = {}
 无需改动生成结构；默认空 = 不注入（本任务只交付结构，不启用认证）。
 """
 
+GRAY_TRAFFIC: dict[str, dict[str, object]] = {}
+"""灰度路由钩子（按 `service_key` 合并为路由级 `traffic-split` 插件配置，04_03 预留）。
+
+默认空 = 不启用灰度、流量不变；配置形如
+`{"weighted_upstreams": [{"upstream_id": "tenant-v2", "weight": 1}, {"upstream_id": "tenant", "weight": 9}]}`
+（按版本 / 权重灰度，规则声明式入 Git、迁 K8s 平移 HTTPRoute `backendRefs` 权重）。
+"""
+
+DEFAULT_RATE_LIMIT_COUNT = 300
+"""边缘限流通用档：窗口内允许次数（按真实客户端 IP）。"""
+
+DEFAULT_RATE_LIMIT_WINDOW = 60
+"""边缘限流通用档：窗口秒数。"""
+
+LOGIN_RATE_LIMIT_COUNT = 10
+"""登录限流档：认证敏感路径窗口内允许次数（更严，防爆破）。"""
+
+LOGIN_RATE_LIMIT_WINDOW = 60
+"""登录限流档：窗口秒数。"""
+
+RATE_LIMIT_REJECTED_CODE = 429
+"""超限响应码（与《API接口规范》「429 限流」一致）。"""
+
+RATE_LIMIT_KEY = "remote_addr"
+"""限流维度（默认真实客户端 IP）；07_03 注入身份后改 `var_combination` 扩用户 / 租户维度。"""
+
+GATEWAY_REDIS_HOST_VAR = "GATEWAY_REDIS_HOST"
+"""限流共享 Redis 主机环境变量名（默认 Compose DNS `redis`）。"""
+
+GATEWAY_REDIS_PASSWORD_VAR = "GATEWAY_REDIS_PASSWORD"
+"""限流共享 Redis 密码环境变量名（默认空 = 无鉴权；凭据经 `.env` 注入，不入库）。"""
+
+GATEWAY_TRUSTED_CIDR_VAR = "GATEWAY_TRUSTED_CIDR"
+"""可信代理网段环境变量名（`real-ip` 用，默认 Docker 私网 `172.16.0.0/12`）。"""
+
+DEFAULT_GATEWAY_REDIS_HOST = "redis"
+DEFAULT_GATEWAY_REDIS_PASSWORD = ""
+DEFAULT_GATEWAY_TRUSTED_CIDR = "172.16.0.0/12"
+
+RATE_LIMIT_REDIS_PORT = 6379
+"""限流共享 Redis 端口（字面量整数：真机实测 `limit-count` schema 要求整数，环境变量替换产出字符串会校验失败）。"""
+
+RATE_LIMIT_REDIS_DATABASE = 0
+"""限流共享 Redis 库（字面量整数，同上）。"""
+
+LOGIN_SERVICE_KEY = "identity"
+"""认证敏感路径所属服务标识（登录限流独立路由的上游）。"""
+
+LOGIN_PATHS: tuple[str, ...] = (
+    f"{GATEWAY_PATH_PREFIX}/{LOGIN_SERVICE_KEY}/v1/auth/login",
+    f"{GATEWAY_PATH_PREFIX}/{LOGIN_SERVICE_KEY}/v1/auth/refresh",
+)
+"""认证敏感路径（登录 / 刷新；限流更严，可随认证阶段扩展）。"""
+
+LOGIN_ROUTE_ID = f"route-{LOGIN_SERVICE_KEY}-auth-login"
+"""登录限流独立路由 id。"""
+
+LOGIN_ROUTE_PRIORITY = 10
+"""登录路由优先级（高于服务路由默认 0，保证精确路由优先命中）。"""
+
 _GLOBAL_RULE_ID = "edge-sanitize"
-"""全局请求净化规则 id（剥除客户端伪造身份头 + 置网关专属标记）。"""
+"""全局请求净化规则 id（剥除客户端伪造身份头）。"""
+
+_REAL_IP_RULE_ID = "edge-real-ip"
+"""全局真实客户端 IP 规则 id（`real-ip`，供经 nginx 入口的限流按真实 IP 计数）。"""
+
+_PROMETHEUS_PLUGIN = "prometheus"
+"""边缘观测插件（路由挂载后按路由采集指标，导出端点见 `config.yaml` `plugin_attr.prometheus`）。"""
+
+_LIMIT_COUNT_PLUGIN = "limit-count"
+"""边缘限流插件（共享 Redis 多副本一致计数）。"""
 
 _ROUTE_ID_PREFIX = "route-"
 _REWRITE_SUFFIX = "$1"
+_IPV4_RE = re.compile(r"^\d{1,3}(?:\.\d{1,3}){3}$")
 _KEY_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_-]*$")
 _PLAIN_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_.-]*$")
+
+
+def env_var(name: str, default: str) -> str:
+    """APISIX 环境变量替换占位（`${{name:=default}}`）。
+
+    APISIX 在 config.yaml 与 standalone apisix.yaml 均支持；缺省值保证生成件可独立跑通。
+
+    Args:
+        name: 环境变量名。
+        default: 未设置时的回退值。
+
+    Returns:
+        str: 形如 `${{GATEWAY_REDIS_HOST:=redis}}` 的占位串。
+    """
+    return "${{" + name + ":=" + default + "}}"
+
+
+def rate_limit_plugin(*, count: int, window: int, key: str = RATE_LIMIT_KEY) -> dict[str, object]:
+    """构造 `limit-count` 插件配置（共享 Redis，多副本一致计数）。
+
+    Args:
+        count: 窗口内允许的最大请求次数。
+        window: 窗口秒数。
+        key: 限流维度（默认 `remote_addr` = 真实客户端 IP）。
+
+    Returns:
+        dict[str, object]: APISIX `limit-count` 插件配置。
+    """
+    return {
+        "count": count,
+        "time_window": window,
+        "key_type": "var",
+        "key": key,
+        "policy": "redis",
+        "redis_host": env_var(GATEWAY_REDIS_HOST_VAR, DEFAULT_GATEWAY_REDIS_HOST),
+        "redis_port": RATE_LIMIT_REDIS_PORT,
+        "redis_database": RATE_LIMIT_REDIS_DATABASE,
+        "redis_password": env_var(GATEWAY_REDIS_PASSWORD_VAR, DEFAULT_GATEWAY_REDIS_PASSWORD),
+        "rejected_code": RATE_LIMIT_REJECTED_CODE,
+        "allow_degradation": True,
+        "show_limit_quota_header": True,
+    }
+
+
+def _gray_plugins(service_key: str) -> dict[str, object]:
+    """按服务合并灰度插件（`traffic-split`）；未配置返回空。"""
+    gray = GRAY_TRAFFIC.get(service_key)
+    if not gray:
+        return {}
+    return {"traffic-split": gray}
+
+
+def validate_service_discovery(config: Mapping[str, object]) -> list[str]:
+    """校验「服务发现按名寻址、禁硬编码 IP」。
+
+    上游节点主机必须为服务名，`redis_host` 不得为 IP 字面量；违规以字符串清单返回。
+
+    Args:
+        config: 生成配置映射（`render_apisix_config()` 产物）。
+
+    Returns:
+        list[str]: 违规描述清单（空表示通过）。
+    """
+    violations: list[str] = []
+    upstreams = config.get("upstreams")
+    if isinstance(upstreams, list):
+        for upstream in cast("list[object]", upstreams):
+            if not isinstance(upstream, dict):
+                continue
+            record = cast("dict[str, object]", upstream)
+            nodes = record.get("nodes")
+            if not isinstance(nodes, dict):
+                continue
+            for node in cast("dict[str, object]", nodes):
+                host = str(node).rsplit(":", 1)[0]
+                if _IPV4_RE.match(host) is not None:
+                    violations.append(f"上游 {record.get('id')} 节点为硬编码 IP：{node}")
+    routes = config.get("routes")
+    if isinstance(routes, list):
+        for route in cast("list[object]", routes):
+            if not isinstance(route, dict):
+                continue
+            record = cast("dict[str, object]", route)
+            plugins = record.get("plugins")
+            if not isinstance(plugins, dict):
+                continue
+            limit_count = cast("dict[str, object]", plugins).get(_LIMIT_COUNT_PLUGIN)
+            if isinstance(limit_count, dict):
+                host = str(cast("dict[str, object]", limit_count).get("redis_host", ""))
+                if _IPV4_RE.match(host) is not None:
+                    violations.append(f"路由 {record.get('id')} 限流 redis_host 为硬编码 IP：{host}")
+    return violations
+
 
 _HEADER = (
     "# 本文件由 backend/ops/gateway_config.py render 生成，请勿手工修改。",
@@ -144,7 +329,7 @@ def render_upstreams() -> list[dict[str, object]]:
 
 
 def render_routes() -> list[dict[str, object]]:
-    """路由段（每启用服务一条，含前缀重写与插件钩子合并）。
+    """路由段（每启用服务一条，含前缀重写、限流、观测与插件钩子合并）。
 
     Returns:
         list[dict[str, object]]: APISIX `routes` 列表。
@@ -157,7 +342,15 @@ def render_routes() -> list[dict[str, object]]:
             "regex_uri": [_rewrite_regex(service_key), f"{API_PREFIX}{_REWRITE_SUFFIX}"],
             "headers": {"set": headers_set},
         }
-        plugins: dict[str, object] = {"proxy-rewrite": rewrite}
+        plugins: dict[str, object] = {
+            "proxy-rewrite": rewrite,
+            _LIMIT_COUNT_PLUGIN: rate_limit_plugin(
+                count=DEFAULT_RATE_LIMIT_COUNT,
+                window=DEFAULT_RATE_LIMIT_WINDOW,
+            ),
+            _PROMETHEUS_PLUGIN: {},
+        }
+        plugins.update(_gray_plugins(service_key))
         plugins.update(ROUTE_PLUGINS.get(service_key) or {})
         prefix = route_prefix(service_key)
         routes.append(
@@ -171,8 +364,46 @@ def render_routes() -> list[dict[str, object]]:
     return routes
 
 
+def render_login_routes() -> list[dict[str, object]]:
+    """认证敏感路径的独立限流路由（登录限流优先，04_03）。
+
+    仅当认证服务（`identity`）启用时生成；显式更高 `priority` 保证精确路由优先命中，
+    挂更严档位并复用服务上游与路径重写。
+
+    Returns:
+        list[dict[str, object]]: APISIX `routes` 列表（0 或 1 条）。
+    """
+    if LOGIN_SERVICE_KEY not in _enabled_service_keys():
+        return []
+    headers_set: dict[str, str] = {GATEWAY_IDENTITY_HEADER: GATEWAY_IDENTITY_VALUE}
+    headers_set.update(ROUTE_HEADERS_SET.get(LOGIN_SERVICE_KEY) or {})
+    rewrite: dict[str, object] = {
+        "regex_uri": [_rewrite_regex(LOGIN_SERVICE_KEY), f"{API_PREFIX}{_REWRITE_SUFFIX}"],
+        "headers": {"set": headers_set},
+    }
+    plugins: dict[str, object] = {
+        "proxy-rewrite": rewrite,
+        _LIMIT_COUNT_PLUGIN: rate_limit_plugin(
+            count=LOGIN_RATE_LIMIT_COUNT,
+            window=LOGIN_RATE_LIMIT_WINDOW,
+        ),
+        _PROMETHEUS_PLUGIN: {},
+    }
+    plugins.update(_gray_plugins(LOGIN_SERVICE_KEY))
+    plugins.update(ROUTE_PLUGINS.get(LOGIN_SERVICE_KEY) or {})
+    return [
+        {
+            "id": LOGIN_ROUTE_ID,
+            "uris": list(LOGIN_PATHS),
+            "priority": LOGIN_ROUTE_PRIORITY,
+            "upstream_id": LOGIN_SERVICE_KEY,
+            "plugins": plugins,
+        }
+    ]
+
+
 def render_global_rules() -> list[dict[str, object]]:
-    """全局请求净化规则：剥除客户端伪造身份头（04_02）。
+    """全局规则：伪造身份头剥除（04_02）+ 真实客户端 IP 还原（04_03）。
 
     网关专属标记的置入**归路由级** `proxy-rewrite.headers.set`（见 `render_routes`）：
     真机实测（mjbk，2026-09-23）global 规则的 `headers.remove` 生效、`headers.set` 在路由级
@@ -185,6 +416,31 @@ def render_global_rules() -> list[dict[str, object]]:
         {
             "id": _GLOBAL_RULE_ID,
             "plugins": {"proxy-rewrite": {"headers": {"remove": list(STRIPPED_HEADERS)}}},
+        },
+        {
+            "id": _REAL_IP_RULE_ID,
+            "plugins": {
+                "real-ip": {
+                    "source": "http_x_real_ip",
+                    "trusted_addresses": [env_var(GATEWAY_TRUSTED_CIDR_VAR, DEFAULT_GATEWAY_TRUSTED_CIDR)],
+                }
+            },
+        },
+    ]
+
+
+def render_plugin_metadata() -> list[dict[str, object]]:
+    """插件元数据段（限流响应头名，声明式扩展点）。
+
+    Returns:
+        list[dict[str, object]]: APISIX `plugin_metadata` 列表。
+    """
+    return [
+        {
+            "id": _LIMIT_COUNT_PLUGIN,
+            "limit_header": "X-RateLimit-Limit",
+            "remaining_header": "X-RateLimit-Remaining",
+            "reset_header": "X-RateLimit-Reset",
         }
     ]
 
@@ -197,8 +453,9 @@ def render_apisix_config() -> dict[str, object]:
     """
     return {
         "upstreams": render_upstreams(),
-        "routes": render_routes(),
+        "routes": [*render_routes(), *render_login_routes()],
         "global_rules": render_global_rules(),
+        "plugin_metadata": render_plugin_metadata(),
     }
 
 

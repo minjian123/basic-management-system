@@ -2,6 +2,7 @@
 
 import runpy
 import sys
+from collections.abc import Mapping
 from pathlib import Path
 
 import pytest
@@ -45,6 +46,18 @@ def test_check_drift_fails(tmp_path: Path) -> None:
 def test_committed_config_in_sync() -> None:
     """仓库内 deploy/gateway/apisix.yaml 与服务目录零漂移。"""
     assert gateway_config.check(gateway_config.REPO_ROOT) == 0
+
+
+@pytest.mark.kiwi_id(2167)
+def test_check_blocks_hardcoded_ip(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """check 在服务发现校验失败（硬编码 IP）时退出码非 0。"""
+    assert gateway_config.main(["render", "--root", str(tmp_path)]) == 0
+
+    def _fake(config: Mapping[str, object]) -> list[str]:
+        return ["上游 platform 节点为硬编码 IP：10.0.0.5:8000"]
+
+    monkeypatch.setattr(gateway_config, "validate_service_discovery", _fake)
+    assert gateway_config.main(["check", "--root", str(tmp_path)]) == 1
 
 
 @pytest.mark.kiwi_id(2165)
