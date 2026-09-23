@@ -9,8 +9,8 @@
 3. **后端测试**：聚合全量（含覆盖率门禁）+ **工程级范围**（`bms_core` 与各服务目录各跑一次，验证
    「每工程只跑本工程」不落根全量）。
 4. **基座与边界**：`check-base` / `check-backend-base(+--self-test)` /
-   `check-service-boundaries(+--self-test)` / `check-status` / 网关 `gateway_config check` /
-   公开契约 `contract_snapshot check`。
+   `check-service-boundaries(+--self-test)` / `boundary_metrics`（越界 / 跨库 / 例外计数） /
+   `check-status` / 网关 `gateway_config check` / 公开契约 `contract_snapshot check`。
 
 用法::
 
@@ -209,6 +209,12 @@ def main() -> int:
     _run(
         "边界：check-service-boundaries --self-test",
         [sys.executable, "scripts/tools/base-check/check-service-boundaries.py", "--self-test"],
+        root,
+        failures,
+    )
+    _run(
+        "边界：boundary_metrics（越界 / 跨库 / 例外计数）",
+        [sys.executable, "scripts/tools/governance/boundary_metrics.py", "--root", str(root)],
         root,
         failures,
     )

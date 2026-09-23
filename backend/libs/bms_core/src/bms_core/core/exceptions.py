@@ -164,6 +164,17 @@ class ServiceUnavailableError(GeneralError):
         super().__init__(ErrorCode.SERVICE_UNAVAILABLE, message, http_status=503, data=data)
 
 
+class DataOwnershipError(GeneralError):
+    """数据所有权违规（`enforce` 模式下跨服务库访问被拒；`10008` / 500）。
+
+    运行时守卫（`boundary/table.py`）命中跨服务表访问且模式为 `enforce` 时抛出，
+    调用方事务回滚；`warn` 模式只记录与计数、不抛错。
+    """
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        super().__init__(ErrorCode.DATA_OWNERSHIP, message, http_status=500, data=data)
+
+
 class UserOrgError(BizError):
     """用户与组织段（`3xxxx`）异常基类。"""
 
