@@ -11,7 +11,14 @@ from bms_core.api.deps import get_identity_provider, get_session_store
 from bms_core.application import service_lifespan as lifespan
 from bms_core.core.base import BaseObject
 from bms_core.core.capability import BaseCapability, BaseNullObject
-from bms_core.idp.base import IDP_PROTOCOLS, BaseIdentityProvider, IdentityToken, IdentityUser
+from bms_core.core.exceptions import ConfigError
+from bms_core.idp.base import (
+    IDP_PROTOCOLS,
+    BaseIdentityProvider,
+    IdentityClaims,
+    IdentityToken,
+    IdentityUser,
+)
 from bms_core.idp.null import NullIdentityProvider
 from bms_core.session.base import DEFAULT_SESSION_TTL, BaseSessionStore
 from bms_core.session.null import NullSessionStore
@@ -114,3 +121,44 @@ async def test_dependency_providers_resolve() -> None:
             "session_key": "session_store",
             "session": {"session_id": "sess-1"},
         }
+
+
+@pytest.mark.kiwi_id(2179)
+def test_contract_extensions() -> None:
+    """契约扩展：`id_token` / `refresh_token` / `idp_key` 默认与赋值；`IdentityClaims` 不可变。"""
+    token = IdentityToken(access_token="t", id_token="id-token", refresh_token="refresh")
+    assert token.id_token == "id-token"
+    assert token.refresh_token == "refresh"
+    assert IdentityToken(access_token="t").id_token is None
+    assert IdentityToken(access_token="t").refresh_token is None
+
+    assert IdentityUser(subject="s", username="u").idp_key == ""
+
+    claims = IdentityClaims(subject="s", idp_key="issuer", issuer="issuer", audience=("api",), expires_at=1)
+    assert claims.audience == ("api",)
+    assert claims.payload == {}
+    field = "subject"
+    with pytest.raises(FrozenInstanceError):
+        setattr(claims, field, "other")
+
+
+@pytest.mark.kiwi_id(2179)
+async def test_verify_token_default_and_null() -> None:
+    """`BaseIdentityProvider.verify_token` 默认不支持该协议抛配置错误；占位实现返回占位声明。"""
+
+    class _PlainProvider(BaseIdentityProvider):
+        async def authorize(self, state: str) -> str:
+            return "u"
+
+        async def exchange_token(self, code: str) -> IdentityToken:
+            return IdentityToken(access_token="a")
+
+        async def userinfo(self, access_token: str) -> IdentityUser:
+            return IdentityUser(subject="s", username="u")
+
+    with pytest.raises(ConfigError):
+        await _PlainProvider().verify_token("t")
+
+    placeholder = await NullIdentityProvider().verify_token("t")
+    assert placeholder.subject == "null-idp-subject"
+    assert placeholder.idp_key == "null"

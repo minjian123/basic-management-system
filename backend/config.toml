@@ -200,6 +200,24 @@ provider = ""
 # 非敏感选项（base_url_template = 目标基址模板，占位 {service}；缺省 Compose DNS http://{service}:8000）
 options = {}
 
+[identity_provider]
+# 身份源实现选择（插件化配置；空串 = null 占位不连外部 IdP；oidc = 真实 OIDC 客户端）
+provider = ""
+# OIDC issuer（发现基点；如 http://<idp-host>:8090/realms/bms）
+issuer = ""
+# OIDC 客户端标识
+client_id = "bms-backend"
+# OIDC 客户端密钥（空串；经 BMS_IDENTITY_PROVIDER__CLIENT_SECRET 环境变量注入，不写入本文件）
+client_secret = ""
+# 授权回调地址（须注册于 IdP redirectUris）
+redirect_uri = "http://localhost:8000/api/v1/auth/callback"
+# 请求 scope
+scopes = ["openid", "profile", "email"]
+# Discovery 元数据缓存 TTL（秒）
+discovery_cache_ttl = 3600
+# JWKS 缓存 TTL（秒）
+jwks_cache_ttl = 300
+
 [data_ownership]
 # 数据所有权守卫实现选择（插件化配置；table = SQLAlchemy 执行前表前缀归属检测、空串 = null 占位不检测）
 provider = "table"

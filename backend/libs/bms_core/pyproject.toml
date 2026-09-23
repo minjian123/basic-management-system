@@ -23,6 +23,8 @@ dependencies = [
     "python-multipart>=0.0.9",
     "httpx>=0.27",
     "sortedcontainers",
+    # OIDC 客户端与 JWKS 票据校验（idp 能力域真实实现；JOSE 经内置 joserfc）
+    "authlib>=1.8",
 ]
 
 [project.optional-dependencies]

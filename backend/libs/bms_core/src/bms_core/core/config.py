@@ -287,6 +287,31 @@ class EdgeSettings(PluginSelection):
     """旁路拒绝 / 租户净化豁免路径（精确匹配；空取基座缺省集）。"""
 
 
+class IdentityProviderSettings(PluginSelection):
+    """身份源配置（`[identity_provider]`；客户端密钥只走环境变量 / Secret，不写入配置文件）。"""
+
+    issuer: str = ""
+    """OIDC issuer（发现基点；如 `http://idp:8090/realms/bms`）。"""
+
+    client_id: str = "bms-backend"
+    """OIDC 客户端标识。"""
+
+    client_secret: str = ""
+    """OIDC 客户端密钥（空串；经 `BMS_IDENTITY_PROVIDER__CLIENT_SECRET` 注入）。"""
+
+    redirect_uri: str = "http://localhost:8000/api/v1/auth/callback"
+    """授权回调地址（须注册于 IdP redirectUris）。"""
+
+    scopes: list[str] = Field(default_factory=lambda: ["openid", "profile", "email"])
+    """请求 scope。"""
+
+    discovery_cache_ttl: float = 3600.0
+    """Discovery 元数据缓存 TTL（秒）。"""
+
+    jwks_cache_ttl: float = 300.0
+    """JWKS 缓存 TTL（秒）。"""
+
+
 class DataOwnershipSettings(PluginSelection):
     """数据所有权守卫配置（`[data_ownership]`；在能力选择之外追加运行模式与例外白名单文件）。"""
 
@@ -465,7 +490,7 @@ class Settings(PydanticBaseSettings, BaseSettings):  # pyright: ignore[reportInc
     http_client: PluginSelection = Field(default_factory=PluginSelection)
     icon_registry: PluginSelection = Field(default_factory=PluginSelection)
     idempotency: PluginSelection = Field(default_factory=PluginSelection)
-    identity_provider: PluginSelection = Field(default_factory=PluginSelection)
+    identity_provider: IdentityProviderSettings = Field(default_factory=IdentityProviderSettings)
     importer: PluginSelection = Field(default_factory=PluginSelection)
     llm_provider: PluginSelection = Field(default_factory=PluginSelection)
     masking: PluginSelection = Field(default_factory=PluginSelection)

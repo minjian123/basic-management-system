@@ -28,11 +28,15 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      # Keycloak 元数据库角色密码（initdb 脚本 01-keycloak.sh 读取；新卷首次启动建库）
+      KEYCLOAK_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:-keycloak}
       TZ: Asia/Shanghai
     ports:
       - "5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
+      # 初始化脚本（仅新卷首次启动执行；存量实例按《Keycloak 部署使用说明》手动执行一次）
+      - ../postgres/init:/docker-entrypoint-initdb.d:ro
 
   # dameng 已改为原生安装（/opt/dmdbms，systemd DmServiceDMSERVER），不再使用容器；
   # 见《达梦DM8部署使用说明》。保留注释以避免误启与 5236 端口冲突。
