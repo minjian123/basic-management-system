@@ -1,0 +1,23 @@
+# BMS 镜像清单（拉取镜像.sh 缺省读取；每行一个，# 注释、空行忽略）
+# 用法：scripts/tools/docker/拉取镜像.sh --host <user@mjbk>   （读本文件逐个拉，断点续传 + 自动重试）
+
+# ===== 可观测性栈（08 可观测性栈）=====
+otel/opentelemetry-collector-contrib:0.115.1
+grafana/tempo:2.6.1
+grafana/loki:3.3.2
+grafana/alloy:v1.5.1
+prom/prometheus:v3.1.0
+grafana/grafana:11.4.0
+
+# ===== 基础设施 / 网关（按需启用；固定 tag）=====
+# redis:8
+# mysql:8.4
+# postgres:16
+# minio/minio:RELEASE.2025-xx-xx
+# apache/rocketmq:5.3.2
+# apache/apisix:3.18.0-debian
+# nginx:1.27
+
+# ===== 测试平台 / 身份源（mjbk 常驻，按需）=====
+# nameko/kiwitcms:latest
+# quay.io/keycloak/keycloak:26.x

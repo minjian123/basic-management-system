@@ -41,6 +41,10 @@ def isolate_settings(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     monkeypatch.setenv("BMS_DATABASE__PLATFORM__URL_TEMPLATE", "")
     monkeypatch.setenv("BMS_DATABASE__TENANTS__URL_TEMPLATE", "")
     monkeypatch.setitem(Settings.model_config, "env_file", None)
+    # 可观测真实 provider 关闭（08_01）：避免单元用例引入全局 TracerProvider / 后台导出线程与网络噪声；
+    # 真实实现用例显式开启（monkeypatch 覆盖 provider / 端点或注入 in-memory exporter）。
+    monkeypatch.setenv("BMS_METRICS__PROVIDER", "")
+    monkeypatch.setenv("BMS_TRACER__PROVIDER", "")
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()

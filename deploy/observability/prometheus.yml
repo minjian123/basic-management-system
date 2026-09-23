@@ -1,0 +1,33 @@
+# Prometheus 抓取配置（08 可观测性栈）。
+# 保留期经启动参数 --storage.tsdb.retention.time=15d 指定（见 deploy/compose/observability.yml）。
+#
+# 抓取目标：
+# - bms-services：各服务 /metrics（当前服务未容器化，经 host.docker.internal:8000 抓宿主运行的服务；
+#   服务容器化后（09_需求）改为 {service_key}:8000 的 Compose DNS，并按启用的服务逐项登记）。
+# - apisix：边缘网关指标端点（04_03 交付出口，指标前缀 apisix_）。
+# - otel-collector：collector 自指标。
+# - prometheus：自身。
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  - job_name: otel-collector
+    static_configs:
+      - targets: ["otel-collector:8889"]
+
+  - job_name: apisix
+    metrics_path: /apisix/prometheus/metrics
+    static_configs:
+      - targets: ["apisix:9091"]
+
+  - job_name: bms-services
+    static_configs:
+      # 宿主运行的平台服务（/metrics 采集端点；指标自带 `service` 标签归因，勿再设静态 service 标签致冲突）
+      - targets: ["host.docker.internal:8000"]
+      # 服务容器化后按 Compose DNS 逐服务登记（示例：identity / org / …）
+      # - targets: ["identity:8000"]

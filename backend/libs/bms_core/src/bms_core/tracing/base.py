@@ -21,13 +21,14 @@ from collections.abc import AsyncGenerator, Mapping
 from contextlib import asynccontextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
-from typing import cast
+from typing import Any, cast
 
 from fastapi import Request
 
 from bms_core.core.base import BaseObject
 from bms_core.core.config import Settings
 from bms_core.core.context import (
+    get_current_span_id,
     get_current_trace_id,
     reset_current_span_id,
     reset_current_trace_id,
@@ -47,6 +48,9 @@ __all__ = [
     "get_tracer",
     "new_span_id",
     "new_trace_id",
+    "otel_trace_id",
+    "resolve_span_id",
+    "resolve_trace_id",
 ]
 
 TRACE_ID_HEADER = "X-Trace-Id"
@@ -179,6 +183,58 @@ def current_trace_id() -> str | None:
         str | None: 链路 id；不在链路内为 None。
     """
     return get_current_trace_id()
+
+
+def _otel_span_context() -> Any | None:
+    """取 OTel 当前有效 span 上下文（无 OTel / 无活动 span 返回 None）。
+
+    Returns:
+        Any | None: OTel `SpanContext`（有效时）；否则 None。
+    """
+    try:
+        from opentelemetry import trace
+    except Exception:  # pragma: no cover - 依赖缺失时降级到上下文变量
+        return None
+    span_context = trace.get_current_span().get_span_context()
+    if not span_context.is_valid:
+        return None
+    return span_context
+
+
+def resolve_trace_id() -> str | None:
+    """解析当前链路 id（**OTel 为事实源**）：优先 OTel 当前 span，回退上下文变量。
+
+    日志体系与入站中间件统一经此取值，保证日志 `trace_id` 与 Tempo 的 trace id 一致。
+
+    Returns:
+        str | None: 32 位 hex 链路 id；无则 None。
+    """
+    return otel_trace_id() or get_current_trace_id()
+
+
+def otel_trace_id() -> str | None:
+    """OTel 当前 span 的链路 id（无有效 span 返回 None；不经上下文变量回退）。
+
+    入站中间件专用：进入中间件时服务端 span 已激活（OTel 中间件在最外层），
+    取真实 trace id；未开启 OTel 时返回 None，交由调用方回退入站头 / request_id / 新生成。
+
+    Returns:
+        str | None: 32 位 hex 链路 id；无有效 OTel span 时 None。
+    """
+    span_context = _otel_span_context()
+    return format(span_context.trace_id, "032x") if span_context is not None else None
+
+
+def resolve_span_id() -> str | None:
+    """解析当前 span id（OTel 优先，回退上下文变量）。
+
+    Returns:
+        str | None: 16 位 hex span id；无则 None。
+    """
+    span_context = _otel_span_context()
+    if span_context is not None:
+        return format(span_context.span_id, "016x")
+    return get_current_span_id()
 
 
 def get_tracer(request: Request) -> BaseTracer:

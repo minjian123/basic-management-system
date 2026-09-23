@@ -1,0 +1,114 @@
+#
+# BMS 可观测性栈编排（08 可观测性栈）：otel-collector / Tempo / Prometheus / Grafana / Loki / Alloy。
+#
+# 组合拉起（在 deploy/ 目录，.env 提供变量）：
+#   docker compose -f compose/bms.yml --env-file .env up -d          # 一键（含 base + gateway + 可观测）
+#   docker compose -f compose/observability.yml --env-file .env up -d  # 仅可观测栈
+#
+# 配置来源：deploy/observability/（collector / prometheus / tempo / loki / alloy / grafana）。
+# 保留期：Prometheus 15d / Loki 30d（配置内） / Tempo 72h（tempo.yaml block_retention）。
+# 应用侧：BMS_TRACER__OTLP_ENDPOINT（宿主 localhost:4318 / 容器 otel-collector:4318）。
+
+services:
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.115.1
+    container_name: bms-otel-collector
+    restart: unless-stopped
+    command: ["--config=/etc/otelcol/config.yaml"]
+    volumes:
+      - ../observability/otel-collector.yaml:/etc/otelcol/config.yaml:ro
+    ports:
+      - "${OTEL_OTLP_GRPC_PORT:-4317}:4317"
+      - "${OTEL_OTLP_HTTP_PORT:-4318}:4318"
+
+  tempo:
+    image: grafana/tempo:2.6.1
+    container_name: bms-tempo
+    restart: unless-stopped
+    command: ["-config.file=/etc/tempo.yaml"]
+    volumes:
+      - ../observability/tempo.yaml:/etc/tempo.yaml:ro
+      - tempo-data:/var/tempo
+    ports:
+      - "${TEMPO_PORT:-3200}:3200"
+
+  prometheus:
+    image: prom/prometheus:v3.1.0
+    container_name: bms-prometheus
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      # 指标保留 15 天（架构「可观测性栈保留期」MVP 口径）
+      - --storage.tsdb.retention.time=15d
+      - --web.enable-remote-write-receiver
+    volumes:
+      - ../observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+    # 抓取宿主运行的服务 /metrics（服务容器化后改 Compose DNS）
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  loki:
+    image: grafana/loki:3.3.2
+    container_name: bms-loki
+    restart: unless-stopped
+    command: ["-config.file=/etc/loki/loki.yaml"]
+    volumes:
+      - ../observability/loki.yaml:/etc/loki/loki.yaml:ro
+      - loki-data:/loki
+    ports:
+      - "${LOKI_PORT:-3100}:3100"
+
+  alloy:
+    image: grafana/alloy:v1.5.1
+    container_name: bms-alloy
+    restart: unless-stopped
+    command:
+      - run
+      - /etc/alloy/config.alloy
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --storage.path=/var/lib/alloy/data
+    volumes:
+      - ../observability/alloy.alloy:/etc/alloy/config.alloy:ro
+      # 容器日志发现（APISIX 访问日志等）
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # 宿主直跑服务的日志文件（dev 非容器形态）
+      - ../observability/logs:/var/log/bms:ro
+      - alloy-data:/var/lib/alloy/data
+    ports:
+      - "${ALLOY_PORT:-12345}:12345"
+    depends_on:
+      - loki
+
+  grafana:
+    image: grafana/grafana:11.4.0
+    container_name: bms-grafana
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+      - loki
+      - tempo
+    environment:
+      TZ: Asia/Shanghai
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      # BMS 页面内嵌 Grafana（X-Frame-Options SAMEORIGIN 兼容）
+      GF_SECURITY_ALLOW_EMBEDDING: "true"
+    volumes:
+      - ../observability/grafana/grafana.ini:/etc/grafana/grafana.ini:ro
+      - ../observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ../observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "${GRAFANA_PORT:-3000}:3000"
+
+volumes:
+  tempo-data:
+  prometheus-data:
+  loki-data:
+  alloy-data:
+  grafana-data:

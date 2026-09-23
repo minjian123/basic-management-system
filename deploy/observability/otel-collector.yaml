@@ -1,0 +1,51 @@
+# otel-collector 配置：OTLP 接收 → Tempo；collector 自指标经 prometheus exporter 暴露。
+# 应用侧 OTLP/HTTP 端点：http://<collector>:4318/v1/traces。
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  # 内存护栏：触顶丢弃并记录，避免 collector OOM
+  memory_limiter:
+    check_interval: 1s
+    limit_percentage: 75
+    spike_limit_percentage: 15
+  batch:
+    timeout: 5s
+    send_batch_size: 1024
+
+exporters:
+  # trace → Tempo（容器内 DNS，明文）
+  otlp/tempo:
+    endpoint: tempo:4317
+    tls:
+      insecure: true
+  # collector 自指标暴露（Prometheus 抓取 http://otel-collector:8889/metrics）
+  prometheus:
+    endpoint: 0.0.0.0:8889
+    resource_to_telemetry_conversion:
+      enabled: true
+
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+
+service:
+  extensions: [health_check]
+  telemetry:
+    metrics:
+      level: detailed
+      address: 0.0.0.0:8888
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [otlp/tempo]
+    metrics:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [prometheus]

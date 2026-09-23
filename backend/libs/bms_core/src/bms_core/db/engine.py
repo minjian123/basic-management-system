@@ -17,9 +17,11 @@
   （插件键 `engine_factory`，配置经 `[engine_factory].provider` 选择，缺省 `default`）。
 """
 
-from sqlalchemy import Engine, create_engine
+import sqlalchemy
+import sqlalchemy.ext.asyncio
+from sqlalchemy import Engine
 from sqlalchemy.engine import make_url
-from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncEngine
 
 from bms_core.core.config import DatabaseTargetSettings, DbPoolSettings, Settings, get_settings
 from bms_core.core.exceptions import ConfigError
@@ -127,7 +129,7 @@ class EngineFactory(BaseDbFactory[str | None, AsyncEngine]):
             raise ConfigError(
                 f"数据库方言 {dialect} 为同步驱动、无异步实现（运行期请走同步门面 SyncSession）：{key.raw}"
             )
-        engine = create_async_engine(url, **self._engine_kwargs(target, dialect))
+        engine = sqlalchemy.ext.asyncio.create_async_engine(url, **self._engine_kwargs(target, dialect))
         self._engines[(key.raw, role)] = engine
         return engine
 
@@ -148,7 +150,7 @@ class EngineFactory(BaseDbFactory[str | None, AsyncEngine]):
         engine = self._sync_engines.get((key.raw, role))
         if engine is not None:
             return engine
-        engine = create_engine(url, pool_pre_ping=True)
+        engine = sqlalchemy.create_engine(url, pool_pre_ping=True)
         self._sync_engines[(key.raw, role)] = engine
         return engine
 

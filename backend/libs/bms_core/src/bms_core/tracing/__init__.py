@@ -1,1 +1,1 @@
-"""链路能力域（调用链 span 上下文契约与占位实现，真实 OpenTelemetry 接入随分布式与监控阶段回补）。"""
+"""链路能力域：调用链 span 上下文契约与真实实现（OpenTelemetry + otel-collector → Tempo）。"""

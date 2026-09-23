@@ -78,6 +78,7 @@ from bms_core.lock.base import BaseDistributedLock
 from bms_core.masking.base import BaseMasker
 from bms_core.masking.null import NullMasker
 from bms_core.metrics.base import BaseMetrics
+from bms_core.metrics.prometheus import PrometheusMetrics
 from bms_core.notification.base import BaseNotificationCenter
 from bms_core.notify.base import BaseNotifier
 from bms_core.oauth.base import BaseOAuthServer, BaseScopeChecker
@@ -296,6 +297,8 @@ def register_platform_plugins(settings: Settings, app: FastAPI, resources: Resou
         return
     for module in _NULL_MODULES:
         import_module(module)
+    # 链路真实实现（`otel`，零参可实例化）：导入即经继承自动登记
+    import_module("bms_core.tracing.otel")
     register_platform_event_contracts()
     register_plugin("masking", NULL_PLUGIN_NAME, DefaultMaskerFactory(settings))
     register_plugin("health_check_registry", "local", HealthCheckRegistryFactory(settings, app, resources))
@@ -324,7 +327,34 @@ def register_platform_plugins(settings: Settings, app: FastAPI, resources: Resou
     register_plugin("outbox_dispatcher", "poll", PollOutboxDispatcherFactory(settings, app))
     register_plugin("saga_executor", "choreography", ChoreographySagaExecutorFactory(settings))
     register_plugin("idempotency", "redis", RedisIdempotencyStoreFactory(settings))
+    register_plugin("metrics", "prometheus", PrometheusMetricsFactory(settings))
     _PREPARED_REGISTRIES.append(registry)
+
+
+class PrometheusMetricsFactory(BasePluginFactory[PrometheusMetrics]):
+    """Prometheus 指标真实实现工厂（注入服务身份，指标统一按服务归因）。"""
+
+    plugin_key: str = "metrics"
+    plugin_name: str = "prometheus"
+
+    def __init__(self, settings: Settings) -> None:
+        """初始化。
+
+        Args:
+            settings: 应用配置（取 `[app].service` 作 `service` 标签）。
+        """
+        self._settings = settings
+
+    def create(self, options: None = None) -> PrometheusMetrics:
+        """构造 Prometheus 指标实现。
+
+        Args:
+            options: 未使用（零参口径）。
+
+        Returns:
+            PrometheusMetrics: 指标实现实例。
+        """
+        return PrometheusMetrics(self._settings.app.service)
 
 
 class LocalObjectStorageFactory(BasePluginFactory[BaseObjectStorage]):

@@ -92,6 +92,14 @@ class BaseMetrics(BasePluggable, ABC):
             labels: 标签集（可选）。
         """
 
+    def render(self) -> tuple[bytes, str] | None:
+        """渲染指标暴露内容（供 `/metrics` 采集端点；真实实现回补）。
+
+        Returns:
+            tuple[bytes, str] | None: `(响应体, 内容类型)`；占位实现返回 `None`（端点按不支持处理，返回 404）。
+        """
+        return None
+
 
 def get_metrics(request: Request) -> BaseMetrics:
     """取应用级指标器（依赖注入提供者）。

@@ -49,6 +49,7 @@ DEFAULT_EXEMPT_PATHS: tuple[str, ...] = (
     "/openapi.json",
     "/healthz",
     "/readyz",
+    "/metrics",
     "/.well-known/jwks.json",
 )
 """租户解析豁免路径缺省集（正式取值见 `[tenant].exempt_paths`）。"""

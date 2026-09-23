@@ -53,7 +53,7 @@ engine_idle_timeout = 1800.0
 # 无任何来源时是否回落演示租户（开发兜底；prod 覆盖为 false）
 allow_demo_fallback = true
 # 租户解析豁免路径（精确匹配）
-exempt_paths = ["/", "/docs", "/redoc", "/openapi.json", "/healthz", "/readyz", "/.well-known/jwks.json", "/api/v1/auth/introspect"]
+exempt_paths = ["/", "/docs", "/redoc", "/openapi.json", "/healthz", "/readyz", "/metrics", "/.well-known/jwks.json", "/api/v1/auth/introspect"]
 # 开发库自动建表覆盖的租户编码（仅 SQLite auto_create 生效；每服务按 tenant_{code} 相对键建表）
 dev_tenants = ["demo"]
 
@@ -171,6 +171,26 @@ options = {}
 # 健康检查注册表实现选择（local = 真实探针：redis / database，保障 /readyz；空串 = null 占位）
 provider = "local"
 
+[metrics]
+# 指标真实实现选择（插件化配置；prometheus = prometheus-client 真实实现 + /metrics 采集端点；空串 = null 占位）
+provider = "prometheus"
+options = {}
+
+[tracer]
+# 链路真实实现选择（插件化配置；otel = OpenTelemetry 真实实现 + otel-collector 上报 Tempo；空串 = null 占位）
+provider = "otel"
+# OTLP/HTTP 端点（collector；容器化后经 BMS_TRACER__OTLP_ENDPOINT 覆盖为 http://otel-collector:4318）
+otlp_endpoint = "http://localhost:4318"
+# 采样器（always_on / always_off / traceidratio / parentbased_always_on / parentbased_traceidratio）
+sampler = "parentbased_traceidratio"
+# 比例采样率（0~1；dev 全采，prod 可下调）
+sampler_ratio = 1.0
+# OTLP 导出超时（毫秒）
+export_timeout_ms = 10000
+# OTLP/HTTP 明文（内网）
+insecure = true
+options = {}
+
 [security]
 # 安全（占位；真实实现随认证阶段）；secret_key 仅经环境变量注入
 secret_key = ""
@@ -190,7 +210,7 @@ provider = "service_jwt"
 # 旁路防护开关：true 时非豁免路径缺网关注入身份即拒（dev/test 关，prod 开）
 require_gateway_identity = false
 # 旁路拒绝 / 租户净化豁免路径（精确匹配；空取基座缺省集）
-exempt_paths = ["/", "/docs", "/redoc", "/openapi.json", "/healthz", "/readyz", "/.well-known/jwks.json", "/api/v1/auth/introspect"]
+exempt_paths = ["/", "/docs", "/redoc", "/openapi.json", "/healthz", "/readyz", "/metrics", "/.well-known/jwks.json", "/api/v1/auth/introspect"]
 # 非敏感选项（gateway_identity = 网关专属标记头期望值，缺省取基座常量 bms-edge；密钥一律经环境变量注入）
 options = {}
 

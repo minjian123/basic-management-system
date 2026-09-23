@@ -57,5 +57,13 @@ IDENTITY_HEADERS: tuple[str, ...] = (
 STRIPPED_HEADERS: tuple[str, ...] = (GATEWAY_IDENTITY_HEADER, *IDENTITY_HEADERS)
 """客户端伪造头剥除清单（含网关标记头：只能由网关注入，客户端传入即丢弃）。"""
 
-DEFAULT_EDGE_EXEMPT_PATHS: tuple[str, ...] = ("/", "/docs", "/redoc", "/openapi.json", "/healthz", "/readyz")
-"""边缘旁路拒绝 / 租户净化豁免路径缺省集（编排探针与文档可达）。"""
+DEFAULT_EDGE_EXEMPT_PATHS: tuple[str, ...] = (
+    "/",
+    "/docs",
+    "/redoc",
+    "/openapi.json",
+    "/healthz",
+    "/readyz",
+    "/metrics",
+)
+"""边缘旁路拒绝 / 租户净化豁免路径缺省集（编排探针、指标端点与文档可达）。"""
