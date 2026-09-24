@@ -6,8 +6,9 @@
     可重现）docker run -d -e BMS_ENV=dev 起容器，就绪（镜像 HEALTHCHECK /healthz）后 Schemathesis 容器
     --network container:<服务容器> 打真实服务（零 Broker；只读 GET/HEAD + 每操作 1 例；排除探针端点
     /healthz /readyz /metrics）。**按服务、仅本次变更的服务运行**（rules:changes: backend/services/<服务>/**/*）；
-    **非阻断**（allow_failure: true）——dev 环境依赖缺口会产生 5xx 噪声；阻断门禁为 contract-gate 的
-    oasdiff 破坏性变更拦截。
+    **阻断**（2026-09-24 06_04 起，原 allow_failure: true 已移除）——dev 环境请求侧 5xx 根因
+    （租户解析把 IP 字面量主机名当子域名、兜底把请求值当租户编码 → 派生非法库名）已修复，
+    platform 零 5xx 由真实流水线实证；与 contract-gate 的 oasdiff 破坏性变更拦截同为阻断门禁。
 
 口径（任务 09_03 详细设计）：
 - 独立基线 deploy/contracts/baseline/<service>.json（入 Git，仅经评审更新；无自动覆盖路径）；

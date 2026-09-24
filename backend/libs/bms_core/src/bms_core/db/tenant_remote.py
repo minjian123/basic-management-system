@@ -4,7 +4,8 @@
 - 缓存：域 `tenant`（平台数据），载荷带**全局版本戳** `bms:global:tenant:version`；版本不符即重载
   （租户开通 / 停用 / 改名后由租户服务 INCR 版本键，即时生效）。
 - 失败分支：未知租户 → `TenantNotFoundError`；停用 → 先**强制回收**该租户引擎（回调）再抛
-  `TenantSuspendedError`；契约不可达 → `ServiceUnavailableError`（降级口径见详细设计 §5）。
+  `TenantSuspendedError`；契约不可达 → `ServiceUnavailableError`（降级口径见详细设计 §5）；
+  契约不可达且来源值不可作租户编码（如子域名）→ `TenantNotFoundError`（4xx，不冒泡 5xx，06_04）。
 - 三段解析：网关注入的租户编码（可信边缘）由中间件写入请求态，本实现只负责「按编码 / 域名取注册快照」。
 """
 
@@ -19,7 +20,7 @@ from bms_core.core.logging import get_logger
 from bms_core.core.plugin import resolve_plugin
 from bms_core.db.registry import EngineRegistry
 from bms_core.db.session import SessionFactory
-from bms_core.db.tenant import TenantContext
+from bms_core.db.tenant import TenantContext, is_tenant_code
 from bms_core.db.tenant_registry import (
     ACTIVE_STATUS,
     TENANT_VERSION_KEY,
@@ -145,6 +146,10 @@ class RemoteTenantSource(BaseObject):
             except ServiceUnavailableError as exc:
                 if not self._allow_fallback:
                     raise
+                # 兜底只在来源值可作租户编码时构造上下文：域名等不可作编码的取值会派生出非法库名
+                # （如 `bms_platform_demo.example.com`），必须按未命中返回 4xx 而非冒泡 5xx（06_04）。
+                if kind != "code" or not is_tenant_code(value):
+                    raise TenantNotFoundError(f"租户注册契约不可达且来源值不可用作租户编码（{kind}）：{value}") from exc
                 _LOGGER.warning("tenant_registry_contract_unavailable", kind=kind, value=value, error=repr(exc))
                 snapshot = TenantSnapshot(code=value, name=value)
             else:
