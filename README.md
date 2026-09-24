@@ -35,7 +35,7 @@ BMS 作为平台支撑独立业务产品按"平台扩展"复用（产品仓库�
 | 后端 | Python 3.14+ · FastAPI · uvicorn · Pydantic v2 · SQLAlchemy 2.0+（异步）· Alembic · structlog · Celery · SpiffWorkflow |
 | 数据库 / 中间件 | SQLite（开发/测试）· MySQL 8.4 · PostgreSQL 16 · 达梦 DM8（信创选配）· Redis 8 · RocketMQ 5.x · ElasticSearch 8.x · MinIO |
 | 前端 | Vue 3.5+ · Vite 8 · TypeScript 6 · Vue Router 4 · Pinia · vue-i18n · Element Plus（PC）/ Vant 4（移动端 H5）· Axios |
-| 工程与质量 | uv（Python 依赖）· npm（前端依赖）· ESLint / Prettier · openapi-typescript（契约生成）· GitLab CI · Renovate · pytest / Vitest / Playwright |
+| 工程与质量 | uv（Python 依赖）· pnpm（前端依赖）· ESLint / Prettier · openapi-typescript（契约生成）· GitLab CI · pytest / Vitest / Playwright |
 | 部署与运维 | Docker 27+ · Docker Compose 2.33+ · nginx · GitLab CE 18+ · Prometheus / Loki / Grafana / Alertmanager（监控）· OpenTelemetry / Jaeger（链路追踪） |
 
 ## 项目状态
@@ -97,7 +97,7 @@ bms/
 ├── .gitignore                # Python / Node / 环境与凭据 / 编辑器 / 图谱产物
 ├── .editorconfig             # 编辑器统一配置（UTF-8 / LF / 缩进）
 ├── .gitlab-ci.yml            # CI 流水线定义（GitLab CE）
-├── renovate.json             # Renovate 依赖升级配置
+├── renovate.json             # Renovate 配置（已置 enabled:false，停用自动升级）
 ├── .vscode/                  # 编辑器共享配置（Python 解释器 / 推荐扩展）
 ├── backend/                  # FastAPI 后端工作区（uv workspace：共享基座库 + 各服务工程）
 │   ├── .python-version       # 固定 Python 版本（3.14）

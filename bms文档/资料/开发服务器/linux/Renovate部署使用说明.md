@@ -1,12 +1,14 @@
 # Renovate 部署使用说明
 
 > mjbk 依赖升级机器人部署实录 · 2026-08-23
+>
+> ⚠️ **本项目已停用（2026-09 用户拍板）**：`renovate.json` 置 `enabled:false`、`gitlab.yml` 移除 renovate 服务、容器 `bms-renovate` 已停止。本文档保留为部署实录与工具参考，下文为停用前口径，勿据此重新启用；依赖升级改人工按需受控，依赖安全由 CI Dependency Scanning 告警兜底。
 
 [文档首页](../../../文档首页.md) › [资料](../../工具/Ubuntu安装部署使用说明.md) › [开发服务器部署使用说明总览](开发服务器部署使用说明总览.md) › Renovate 部署使用说明　|　[← 上一个：GitLab](GitLab部署使用说明.md)
 
 ## 1. 目的与适用范围 <a id="purpose"></a>
 
-mjbk 上的 Renovate（容器 `bms-renovate`，随《[GitLab部署使用说明](GitLab部署使用说明.md)》的 `gitlab.yml` 编排）是依赖升级机器人：每日定时扫描本项目仓库的依赖声明，发现新版本或安全更新时自动建分支并提 MR（本项目《06 Renovate 与 GitHub 归档》）。
+> 停用后本文档仅供回溯。mjbk 曾以容器 `bms-renovate`（随《[GitLab部署使用说明](GitLab部署使用说明.md)》的 `gitlab.yml` 编排）运行 Renovate：每日定时扫描本项目仓库的依赖声明，发现新版本或安全更新时自动建分支并提 MR（本项目《06 Renovate 与 GitHub 归档》）。
 
 **管理范围（2026-08-23 定稿口径）**：
 

@@ -1,9 +1,5 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "packageRules": [
-    {
-      "matchManagers": ["gitlabci"],
-      "enabled": false
-    }
-  ]
+  "description": "本项目已停用自动依赖升级（2026-09 用户拍板）：第三方组件不承担我们的数据语义与使用方式，依赖升级须人工受控（按需、分批、验证、可回滚）；依赖安全由 CI Dependency Scanning 告警兜底，而非 bot 直接改锁。本配置仅显式关闭，保留以备查。",
+  "enabled": false
 }

@@ -30,7 +30,7 @@
 | 缺陷修复 | `fix/描述` | 缺陷修复：`fix/login-500` |
 | 文档 | `docs/描述` | 文档与规范变更：`docs/deploy-guide` |
 | 重构 | `refactor/描述` | 结构调整：`refactor/permission-engine` |
-| 维护 | `chore/描述` | 构建、依赖、杂项：`chore/renovate-deps` |
+| 维护 | `chore/描述` | 构建、依赖、杂项：`chore/deps-upgrade` |
 | 发布 | `release/版本` | 发布前准备（可选）：`release/v1.2.0` |
 
 - 分支名小写、kebab-case、以「类型/」前缀，描述用英文或语义缩写，不夹带版本号以外的数字编号。
@@ -61,7 +61,7 @@ chore(deps): 升级 fastapi 至 0.115
 | test | 测试 | `test(api): 补充越权用例` |
 | perf | 性能优化 | `perf(query): 列表查询减少 N+1` |
 | style | 格式（不影响逻辑） | `style: 统一引号风格` |
-| chore | 构建/依赖/杂项 | `chore(deps): renovate 批量升级` |
+| chore | 构建/依赖/杂项 | `chore(deps): 人工批量升级依赖` |
 
 - scope 为模块名（user、wf、rbac、dept、open、docs、deps 等），无明确模块可省略。
 - 一个提交只做一件事；禁止「顺便改」混入无关改动。

@@ -84,7 +84,7 @@ http.interceptors.response.use(
 - **请求取消防竞态**：列表搜索、页面切换时用 AbortController 取消在途请求，避免旧响应覆盖新数据。
 - **表单与 JSON 别混**：文件上传用 `multipart/form-data`（别手动设 Content-Type，交给浏览器带 boundary）。
 - **拦截器顺序**：请求拦截器按注册逆序执行、响应拦截器按正序执行，多个拦截器时注意先后。
-- **升级注意破坏性变更**：1.x 内个别默认行为调整（如跨域 XSRF 头），升级走 [Renovate](../部署与运维/Renovate技术介绍.md) 提 MR + 全量回归。
+- **升级注意破坏性变更**：1.x 内个别默认行为调整（如跨域 XSRF 头），升级升级走人工评审 + 全量回归。
 
 ## 6. 学习与参考资料 <a id="learn"></a>
 

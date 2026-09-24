@@ -30,7 +30,7 @@ gitlab:
     - /mnt/ssd2t/gitlab/data:/var/opt/gitlab   # ⚠️ 必须是 ssd2t！写错为 /mnt/data 会初始化空实例（见事故记录）
   shm_size: "256m"
 
-# renovate（依赖升级机器人）亦定义于本文件，配置与运维详见《[Renovate部署使用说明](Renovate部署使用说明.md)》
+# renovate（依赖升级机器人，2026-09 已停用）曾定义于本文件，配置与运维详见《[Renovate部署使用说明](Renovate部署使用说明.md)》
 
 gitlab-runner:
   image: gitlab/gitlab-runner:latest
@@ -171,7 +171,7 @@ docker ps --filter name=bms-gitlab-runner
 - 《[Docker部署使用说明](Docker部署使用说明.md)》：容器引擎与镜像加速
 - 平台《开发部署规划》：4.5 GitLab 与 CI 基础设施
 - 《[命名规范](../../../规范/命名规范.md)》：镜像名 `bms-组件`、Registry 规划
-- 《[Renovate部署使用说明](Renovate部署使用说明.md)》：依赖升级机器人（同文件编排，每日 cron 运行）
+- 《[Renovate部署使用说明](Renovate部署使用说明.md)》：依赖升级机器人（2026-09 已停用；曾同文件编排、每日 cron 运行）
 
 > ⚠️ **事故记录（2026-08-22）**：`gitlab.yml` 变量化改造时挂载路径误写回迁移前的
 > `/mnt/data/gitlab`，容器重建后 GitLab 在旧 HDD 路径初始化了**全新空实例**（项目数 0、

@@ -87,7 +87,7 @@ uv run pytest --cov=app --cov-branch -q
 
 ## 6. 偏差与遗留 <a id="deviations"></a>
 
-- 矩阵为 2026-09-10 快照，后续以 `uv.lock` 为准；升级走 Renovate MR。
+- 矩阵为 2026-09-10 快照，后续以 `uv.lock` 为准；升级走 Renovate MR（2026-09 已停用）。
 - Celery / SpiffWorkflow 仅安装冒烟，功能验证随后续。
 - 达梦为连接级实测；SQLAlchemy 方言接入与同步驱动封装随 02-5（先修订架构 09/后端规范 §8）。
 - free-threading 构建未启用，启用后复跑并发微基准。

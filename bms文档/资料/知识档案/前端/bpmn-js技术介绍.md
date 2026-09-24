@@ -74,7 +74,7 @@ const { xml } = await modeler.saveXML()
 - **大流程性能**：节点很多时渲染/交互变慢，合理分页或用 Viewer 只读展示。
 - **样式冲突**：bpmn-js 自带 CSS 可能影响全局，注意作用域隔离（scoped 或独立容器）。
 - **属性面板按需引入**：Properties Panel 是独立包，只读场景别引入，减小体积。
-- **升级注意 diagram-js 联动**：bpmn-js 依赖 diagram-js 版本，升级看 Changelog，走 [Renovate](../部署与运维/Renovate技术介绍.md) 提 MR + 回归。
+- **升级注意 diagram-js 联动**：bpmn-js 依赖 diagram-js 版本，升级看 Changelog，升级走人工评审 + 回归。
 
 ## 6. 学习与参考资料 <a id="learn"></a>
 

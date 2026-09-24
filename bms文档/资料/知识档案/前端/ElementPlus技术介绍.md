@@ -73,7 +73,7 @@ Vue 3 生态中使用最广泛的中后台组件库之一，中文社区资料�
 - **表单重置**：el-form 的 resetFields 只重置到初始值，动态表单中字段变化后需配合 clearValidate 使用。
 - **校验规则动态化**：rules 随布局（必填/隐藏）动态变化时，要重新给 form 绑定或在 form-item 上动态传 rules。
 - **表格大数据**：几千行以上表格卡顿，用虚拟滚动或后端分页，别指望前端硬扛（本项目默认后端分页）。
-- **升级注意破坏性变更**：大版本升级前必读 CHANGELOG 的 Breaking Changes（如部分组件 v-model 绑定方式调整），升级走 [Renovate](../部署与运维/Renovate技术介绍.md) 提 MR + 全量回归。
+- **升级注意破坏性变更**：大版本升级前必读 CHANGELOG 的 Breaking Changes（如部分组件 v-model 绑定方式调整），升级升级走人工评审 + 全量回归。
 - **弹窗层级**：嵌套弹窗（弹窗内再开弹窗）注意 z-index 与 append-to-body，避免遮罩错乱。
 - **样式覆盖用 :deep()**：在 scoped 样式中改组件内部样式需 :deep() 选择器（见《[SCSS 技术介绍](SCSS技术介绍.md)》）。
 

@@ -40,7 +40,7 @@ Node 24/26 自带；Node 22 自带 10.x）是 Node 生态默认包管理器。
 - **CI 可复现安装**：流水线用 `npm ci` 锁定安装，保证每次构建依赖完全一致（见《[GitLab 技术介绍](../部署与运维/GitLab技术介绍.md)》CI 流水线）。
 - **构建命令入口**：`npm run dev/build/test/lint` 驱动 Vite、ESLint、Vitest 等工具（见《[Vite 技术介绍](Vite技术介绍.md)》）。
 - **Node 版本管理**：`.nvmrc` 固定 Node 版本（22 LTS），配合 nvm/volta/fnm 切换，npm 随 Node 自带（见平台《项目规划说明》部署约定）。
-- **依赖升级**：Renovate 自动提 MR 升级依赖，npm lock 文件随之更新（见《[Renovate 技术介绍](../部署与运维/Renovate技术介绍.md)》）。
+- **依赖升级**：改为人工按需升级（不再依赖自动 bot），npm lock 文件随之更新（见《[Renovate 技术介绍](../部署与运维/Renovate技术介绍.md)》）。
 
 最小示例（日常命令）：
 
@@ -76,7 +76,7 @@ npm run test
 - **双工程别共享配置**：frontend/apps/desktop 与 frontend/apps/mobile 各自 package.json/lock/ESLint/TS 配置，互不引用（见平台《项目规划说明》「前端」节）。
 - **Node 版本一致**：`.nvmrc` 固定版本，本地与 CI 用同一 Node，避免 npm 大版本差异。
 - **国内镜像**：访问 npmjs.com 慢时配 npmmirror 镜像（`.npmrc` 或 `--registry`），别长时间等待。
-- **依赖范围注意**：`^` 允许次版本升级，安全/破坏性变更要 Renovate 提 MR 评审，别盲目自动合入。
+- **依赖范围注意**：`^` 允许次版本升级，安全/破坏性变更要人工评审后升级，别盲目自动合入。
 - **node_modules 不入库**：体积大且平台相关，.gitignore 排除，靠 lock 文件复现。
 
 ## 6. 学习与参考资料 <a id="learn"></a>

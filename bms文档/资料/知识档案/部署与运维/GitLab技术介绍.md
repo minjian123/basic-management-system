@@ -35,7 +35,7 @@ Git 仓库、Merge Request、Issue、CI/CD 流水线、容器 Registry、Wiki
 | Registry | 内置容器镜像仓库（本项目端口 5050），main 流水线构建镜像推送于此 |
 | push mirror | 单向镜像同步：本项目用它把 main 只读同步到 GitHub 归档 |
 | CI 变量 | 流水线级密钥与参数，masked（脱敏）+ protected（仅保护分支）双重保护 |
-| Dependency Scanning | 内置依赖漏洞扫描模板，与 Renovate 安全更新互补 |
+| Dependency Scanning | 内置依赖漏洞扫描模板，作为依赖安全告警（自动升级已停用） |
 
 ## 3. 在本项目中的用途 <a id="usage"></a>
 
@@ -45,7 +45,7 @@ Git 仓库、Merge Request、Issue、CI/CD 流水线、容器 Registry、Wiki
 - **测试归档**：Allure 报告作 CI 产物归档，执行结果经官方插件导入 Kiwi TCMS（平台《项目规划说明》「测试报告」节）。
 - **缺陷自动上报**：任一自动化测试失败即由 `scripts/tools/defect/defect_capture.py` 归档 REPRO 复现包并自动创建 / 复用 GitLab Issue（fingerprint 去重）（平台《项目规划说明》「缺陷管理」节）。
 - **GitHub 只读归档**：GitLab 配置 push mirror 单向同步 main 至 GitHub 归档仓库，GitHub 侧改动不回传、不承载协作（平台《项目规划说明》「部署与运维」节）。
-- **依赖升级**：Renovate 原生支持自托管 GitLab，自动提 MR 升级依赖（见《[Renovate 技术介绍](Renovate技术介绍.md)》）。
+- **依赖升级**：原由 Renovate 自动提 MR，2026-09 已停用——改为人工按需受控升级（见《[Renovate 技术介绍](Renovate技术介绍.md)》）。
 
 ## 4. 选型对比 <a id="compare"></a>
 
@@ -85,11 +85,11 @@ Git 仓库、Merge Request、Issue、CI/CD 流水线、容器 Registry、Wiki
 | 平台《架构设计 · 总体架构》「技术栈全景 · 部署与运维」节 | 部署与运维技术栈（CI/CD 条目） |
 | 平台《项目规划说明》「部署与运维」节 | 选型说明：一体托管 + 流水线定义 + GitHub 归档 |
 | 平台《项目规划说明》「测试策略与测试流程」节 | 测试策略：CI 执行、缺陷上报、结果归档 |
-| 平台《开发部署规划》「GitLab 与 CI 基础设施」节 | mjbk GitLab + runner + Renovate 部署实录 |
+| 平台《开发部署规划》「GitLab 与 CI 基础设施」节 | mjbk GitLab + runner 部署实录（Renovate 已停用） |
 | 平台《开发部署规划》「开发工作流与 CI」节 | 开发工作流与 CI：分支模型、流水线、依赖升级 |
 | 《[GitLab 部署使用说明](?../../开发服务器/linux/GitLab部署使用说明.md》 | mjbk GitLab 安装配置内部文档 |
 | 《[GitLab 迁移使用说明](?../../工具/GitLab迁移使用说明.md》 | 仓库迁移到 GitLab 的操作说明 |
-| 《[Renovate 技术介绍](Renovate技术介绍.md)》 | 基于 GitLab 的依赖自动升级 |
+| 《[Renovate 技术介绍](Renovate技术介绍.md)》 | 基于 GitLab 的依赖升级（自动升级已停用） |
 | 《[Docker 与 Compose 技术介绍](Docker与Compose技术介绍.md)》 | runner 容器化运行的底座 |
 | 《[pytest 技术介绍](../工程化与质量/pytest技术介绍.md)》 | MR 流水线后端测试 job |
 | 《[Allure 技术介绍](../工程化与质量/Allure技术介绍.md)》 | CI 产物：测试报告归档 |

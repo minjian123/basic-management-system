@@ -92,7 +92,7 @@ export default [
 - **别在 ESLint 里写格式规则**：缩进、引号、换行全交给 Prettier，ESLint 只管错误类规则。
 - **门禁不绕过**：CI 里 lint 有 error 即失败，别用 `--no-verify` 或临时关规则糊弄过去。
 - **版本锁定**：ESLint/Prettier/插件版本锁在 pnpm-lock.yaml，本地与 CI 一致，避免「本地过、CI 挂」。
-- **大版本升级走评审**：ESLint 大版本涉及配置迁移，走 [Renovate](../部署与运维/Renovate技术介绍.md) 提 MR + 回归。
+- **大版本升级走评审**：ESLint 大版本涉及配置迁移，升级走人工评审 + 回归。
 - **忽略清单**：`dist`、`node_modules` 等产物在配置里显式忽略，别全量扫。
 
 ## 6. 学习与参考资料 <a id="learn"></a>

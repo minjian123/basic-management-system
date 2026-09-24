@@ -77,7 +77,7 @@ flowchart LR
 
 ## 6. 偏差与遗留 <a id="deviation"></a>
 
-- 矩阵版本为 2026-09-10 快照，日常以 `uv.lock` 为准；依赖升级由 Renovate 走 MR。
+- 矩阵版本为 2026-09-10 快照，日常以 `uv.lock` 为准；依赖升级由 Renovate 走 MR（2026-09 已停用，改人工按需）。
 - Celery / SpiffWorkflow 仅安装冒烟，**不代表阶段六功能验收**。
 - 达梦实测为连接级 `SELECT 1`；SQLAlchemy 方言与同步驱动封装口径在 02-5 落地（先修订架构 09/后端规范第 8 节）。
 - 未启用 Python 3.14 free-threading 构建，启用后复跑并发微基准（01-3-2 边界）。
