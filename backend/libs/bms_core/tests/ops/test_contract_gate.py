@@ -45,7 +45,7 @@ def _rules(job: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def _change_paths(job: dict[str, Any]) -> list[str]:
-    """收集 job 规则中的 `changes.paths`。"""
+    """收集 job 规则中的 `changes.paths`（兼容 dict 与 `[{paths: [...]}]` 两种写法）。"""
     paths: list[str] = []
     for rule in _rules(job):
         changes = rule.get("changes")
@@ -53,6 +53,12 @@ def _change_paths(job: dict[str, Any]) -> list[str]:
             raw = cast("dict[str, Any]", changes).get("paths")
             if isinstance(raw, list):
                 paths.extend(str(item) for item in cast("list[object]", raw))
+        elif isinstance(changes, list):
+            for entry in cast("list[object]", changes):
+                if isinstance(entry, dict):
+                    raw = cast("dict[str, Any]", entry).get("paths")
+                    if isinstance(raw, list):
+                        paths.extend(str(item) for item in cast("list[object]", raw))
     return paths
 
 
@@ -182,25 +188,39 @@ def test_push_metrics_swallows_url_error(tmp_path: Path, monkeypatch: pytest.Mon
 
 @pytest.mark.kiwi_id(2186)
 def test_ci_contract_jobs_and_switch() -> None:
-    """CI 契约门禁两 job（verify / ci-backend / 档位 / 破坏数推送）与开关、基础镜像就位。"""
+    """CI 契约门禁：contract-gate 阻断 job + 按服务 9 个非阻断冒烟 job（仅变更服务）。"""
     ci = cast("dict[str, Any]", yaml.safe_load(_CI.read_text(encoding="utf-8")))
     assert _SWITCH.is_file()
-    for name in ("contract-gate", "contract-smoke"):
-        job = cast("dict[str, Any]", ci[name])
-        assert job["stage"] == "verify"
-        assert "ci-backend" in str(job["image"])
-        exists_rules = [cast("list[str]", rule["exists"]) for rule in _rules(job) if "exists" in rule]
-        assert ["deploy/ci/verify/contract-gate"] in exists_rules
-        assert {"backend/**/*", "deploy/**/*"} <= set(_change_paths(job))
+
     gate = cast("dict[str, Any]", ci["contract-gate"])
+    assert gate["stage"] == "verify"
+    assert "ci-backend" in str(gate["image"])
+    assert ["deploy/ci/verify/contract-gate"] in [
+        cast("list[str]", rule["exists"]) for rule in _rules(gate) if "exists" in rule
+    ]
+    assert {"backend/**/*", "deploy/**/*"} <= set(_change_paths(gate))
     gate_after = "\n".join(str(line) for line in cast("list[object]", gate["after_script"]))
     assert "push-metrics" in gate_after
     assert "PUSHGATEWAY_URL" in cast("dict[str, object]", gate["variables"])
-    smoke = cast("dict[str, Any]", ci["contract-smoke"])
-    smoke_script = "\n".join(str(line) for line in cast("list[object]", smoke["script"]))
-    assert "contract_smoke run" in smoke_script
-    assert smoke["allow_failure"] is True
     assert "allow_failure" not in gate
+
+    # 按服务冒烟：job 集合 == 启用服务；仅本服务路径变更时运行；用已构建镜像；非阻断
+    smoke_jobs = {name: cast("dict[str, Any]", ci[name]) for name in ci if name.startswith("contract-smoke-")}
+    services = {name.removeprefix("contract-smoke-") for name in smoke_jobs}
+    assert services == set(enabled_service_keys())
+    for name, job in smoke_jobs.items():
+        service = name.removeprefix("contract-smoke-")
+        assert job["stage"] == "verify"
+        assert "ci-backend" in str(job["image"])
+        assert job["allow_failure"] is True
+        assert job["needs"] == [{"job": f"trigger-{service}", "optional": True}]
+        assert cast("dict[str, object]", job["variables"])["SERVICE"] == service
+        assert f"backend/services/{service}/**/*" in _change_paths(job)
+        assert ["deploy/ci/verify/contract-gate"] in [
+            cast("list[str]", rule["exists"]) for rule in _rules(job) if "exists" in rule
+        ]
+        script = "\n".join(str(line) for line in cast("list[object]", job["script"]))
+        assert "contract_smoke run" in script and "bms-$SERVICE:$CI_COMMIT_SHORT_SHA" in script
 
 
 @pytest.mark.kiwi_id(2186)

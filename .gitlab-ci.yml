@@ -893,27 +893,148 @@ contract-gate:
         echo "无破坏数指标文件：跳过推送"
       fi
 
-contract-smoke:
+# ---- Schemathesis 契约冒烟（按服务、仅变更服务；用已构建镜像起容器；重验证层，09_03）----
+# 口径：每个服务一个 job，仅当本服务路径（backend/services/<服务>/**）变更时运行（未变更不跑）；
+#       以子流水线已构建的镜像 `bms-{service}:$CI_COMMIT_SHORT_SHA`（固定 tag ⇒ 可固定重现）
+#       `docker run -d -e BMS_ENV=dev` 起容器，就绪（镜像 HEALTHCHECK /healthz）后 Schemathesis 容器
+#       以 `--network container:<服务容器>` 打真实服务（只读 GET/HEAD + 每操作 1 例 + 无 5xx；排除探针端点）。
+#       非阻断（allow_failure: true）；阻断门禁为 contract-gate 的 oasdiff 破坏性变更拦截。
+.contract-smoke-service: &contract-smoke-service
   stage: verify
   image: $REGISTRY_IMAGE_PREFIX/ci-backend:py314
-  needs: [{job: contract-gate, optional: true}]
-  # 非阻断冒烟：机制可运行并按需报告；dev 环境依赖缺口（如无 Redis 的探针、未迁移表）会产生
-  # 5xx 噪声，故不阻断流水线（阻断门禁为 contract-gate 的 oasdiff 破坏性变更拦截）。
   allow_failure: true
+  variables:
+    SERVICE: ""
+  script:
+    - cd backend && uv sync --frozen
+    - uv run python -m ops.contract_smoke run --service "$SERVICE" --image "$REGISTRY_IMAGE_PREFIX/bms-$SERVICE:$CI_COMMIT_SHORT_SHA"
+
+contract-smoke-platform:
+  <<: *contract-smoke-service
+  needs: [{job: trigger-platform, optional: true}]
+  variables: {SERVICE: platform}
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        paths: [backend/services/platform/**/*]
       exists: [deploy/ci/verify/contract-gate]
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
-        paths:
-          - backend/**/*
-          - deploy/**/*
-      exists:
-        - deploy/ci/verify/contract-gate
-  script:
-    - cd backend && uv sync --frozen
-    # 源码直跑真实服务 + Schemathesis 容器打真实服务（只读 GET/HEAD + 每操作 1 例冒烟；零 Broker）
-    - uv run python -m ops.contract_smoke run --max-examples 1
+        paths: [backend/services/platform/**/*]
+      exists: [deploy/ci/verify/contract-gate]
+
+contract-smoke-identity:
+  <<: *contract-smoke-service
+  needs: [{job: trigger-identity, optional: true}]
+  variables: {SERVICE: identity}
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        paths: [backend/services/identity/**/*]
+      exists: [deploy/ci/verify/contract-gate]
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes:
+        paths: [backend/services/identity/**/*]
+      exists: [deploy/ci/verify/contract-gate]
+
+contract-smoke-tenant:
+  <<: *contract-smoke-service
+  needs: [{job: trigger-tenant, optional: true}]
+  variables: {SERVICE: tenant}
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        paths: [backend/services/tenant/**/*]
+      exists: [deploy/ci/verify/contract-gate]
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes:
+        paths: [backend/services/tenant/**/*]
+      exists: [deploy/ci/verify/contract-gate]
+
+contract-smoke-org:
+  <<: *contract-smoke-service
+  needs: [{job: trigger-org, optional: true}]
+  variables: {SERVICE: org}
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        paths: [backend/services/org/**/*]
+      exists: [deploy/ci/verify/contract-gate]
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes:
+        paths: [backend/services/org/**/*]
+      exists: [deploy/ci/verify/contract-gate]
+
+contract-smoke-file:
+  <<: *contract-smoke-service
+  needs: [{job: trigger-file, optional: true}]
+  variables: {SERVICE: file}
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        paths: [backend/services/file/**/*]
+      exists: [deploy/ci/verify/contract-gate]
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes:
+        paths: [backend/services/file/**/*]
+      exists: [deploy/ci/verify/contract-gate]
+
+contract-smoke-notification:
+  <<: *contract-smoke-service
+  needs: [{job: trigger-notification, optional: true}]
+  variables: {SERVICE: notification}
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        paths: [backend/services/notification/**/*]
+      exists: [deploy/ci/verify/contract-gate]
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes:
+        paths: [backend/services/notification/**/*]
+      exists: [deploy/ci/verify/contract-gate]
+
+contract-smoke-search:
+  <<: *contract-smoke-service
+  needs: [{job: trigger-search, optional: true}]
+  variables: {SERVICE: search}
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        paths: [backend/services/search/**/*]
+      exists: [deploy/ci/verify/contract-gate]
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes:
+        paths: [backend/services/search/**/*]
+      exists: [deploy/ci/verify/contract-gate]
+
+contract-smoke-ai:
+  <<: *contract-smoke-service
+  needs: [{job: trigger-ai, optional: true}]
+  variables: {SERVICE: ai}
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        paths: [backend/services/ai/**/*]
+      exists: [deploy/ci/verify/contract-gate]
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes:
+        paths: [backend/services/ai/**/*]
+      exists: [deploy/ci/verify/contract-gate]
+
+contract-smoke-report:
+  <<: *contract-smoke-service
+  needs: [{job: trigger-report, optional: true}]
+  variables: {SERVICE: report}
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        paths: [backend/services/report/**/*]
+      exists: [deploy/ci/verify/contract-gate]
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes:
+        paths: [backend/services/report/**/*]
+      exists: [deploy/ci/verify/contract-gate]
+
 
 # ---- Allure 结果归档 + Kiwi TCMS 导入（分档开关 deploy/ci/verify/report，P2 档；2026-09-22 关闭，无消费方）----
 # 口径（04-4 后重验证层就绪评估结论）：
