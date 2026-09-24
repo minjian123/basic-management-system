@@ -58,7 +58,6 @@ from bms_core.db.keys import (
 from bms_core.db.tenant_source import TENANT_SERVICE_KEY
 from bms_core.services.module_registry import enabled_service_keys
 from bms_core.services.table_registry import known_service_keys
-from bms_tenant.models.tenant import SysTenant
 from ops.migrate_tenants import report, run_tasks, service_tasks
 
 _DM = "dm"
@@ -124,6 +123,8 @@ def _query_tenant_codes_sync(url: str) -> list[str]:
     Returns:
         list[str]: 租户编码列表。
     """
+    from bms_tenant.models.tenant import SysTenant  # 惰性：仅读租户注册库时需要，避免单一服务镜像强依赖
+
     engine: Engine = create_engine(url, poolclass=NullPool)
     try:
         with engine.connect() as connection:
@@ -144,6 +145,8 @@ async def _tenant_codes(registry_url: str) -> list[str]:
     """
     if make_url(registry_url).get_backend_name() == _DM:
         return await asyncio.to_thread(_query_tenant_codes_sync, registry_url)
+    from bms_tenant.models.tenant import SysTenant  # 惰性：仅读租户注册库时需要
+
     engine = create_async_engine(registry_url, poolclass=NullPool)
     try:
         async with engine.connect() as connection:
