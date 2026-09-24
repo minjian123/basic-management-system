@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -55,6 +56,9 @@ _ERROR_LEVELS = frozenset({"3", "err", "error"})
 
 Runner = Callable[[Sequence[str]], "subprocess.CompletedProcess[str]"]
 """子进程执行器类型（默认 docker；单测注入桩，不真联）。"""
+
+DiffRunner = Callable[[Path, Path, str], tuple[int, str, str]]
+"""单次 oasdiff 比对执行器类型：`(基线, 当前, 镜像) -> (返回码, stdout, stderr)`。"""
 
 
 def _run_command(command: Sequence[str]) -> subprocess.CompletedProcess[str]:
@@ -147,34 +151,51 @@ def count_breaking(raw: str) -> int:
     return 1
 
 
-def build_oasdiff_command(image: str, baseline: Path, current: Path) -> list[str]:
-    """构造 oasdiff breaking 命令行（基线目录与当前目录分别只读挂载）。
-
-    Args:
-        image: oasdiff 镜像（含 tag）。
-        baseline: 基线文件路径。
-        current: 当前契约文件路径。
+def oasdiff_args() -> list[str]:
+    """oasdiff `breaking` 子命令参数（容器内路径 `/base.json` / `/cur.json`）。
 
     Returns:
-        list[str]: 完整命令行（docker run … breaking --fail-on ERR --format json …）。
+        list[str]: `["breaking", "--fail-on", "ERR", "--format", "json", "/base.json", "/cur.json"]`。
     """
-    return [
-        OASDIFF_COMMAND,
-        "run",
-        "--rm",
-        "-v",
-        f"{baseline.parent}:/base:ro",
-        "-v",
-        f"{current.parent}:/cur:ro",
-        image,
-        "breaking",
-        "--fail-on",
-        "ERR",
-        "--format",
-        "json",
-        f"/base/{baseline.name}",
-        f"/cur/{current.name}",
-    ]
+    return ["breaking", "--fail-on", "ERR", "--format", "json", "/base.json", "/cur.json"]
+
+
+def docker_diff(
+    baseline: Path,
+    current: Path,
+    image: str,
+    *,
+    run: Runner = _run_command,
+) -> tuple[int, str, str]:
+    """用 oasdiff 容器比对两份契约，返回 `(返回码, stdout, stderr)`。
+
+    **不使用 bind mount**：契约门禁 job 运行在容器内，其路径（`$CI_PROJECT_DIR` / `/tmp`）在
+    宿主 daemon 上不可见，`docker run -v <job 路径>` 会挂到空目录（实测 oasdiff 报 102）。
+    故改用 `docker create` + `docker cp`（文件经 daemon 流式复制）+ `docker start -a`（回传退出码）。
+
+    Args:
+        baseline: 基线契约文件（job 容器内路径）。
+        current: 当前契约文件（job 容器内路径）。
+        image: oasdiff 镜像（含 tag）。
+        run: 子进程执行器（单测注入桩）。
+
+    Returns:
+        tuple[int, str, str]: oasdiff 返回码 / 标准输出 / 标准错误。
+    """
+    name = f"bms-contract-gate-{os.getpid()}-{baseline.stem}"
+    run([OASDIFF_COMMAND, "rm", "-f", name])
+    created = run([OASDIFF_COMMAND, "create", "--name", name, image, *oasdiff_args()])
+    if created.returncode != 0:
+        return created.returncode, created.stdout or "", created.stderr or ""
+    try:
+        for source, target in ((baseline, "/base.json"), (current, "/cur.json")):
+            copied = run([OASDIFF_COMMAND, "cp", str(source), f"{name}:{target}"])
+            if copied.returncode != 0:
+                return copied.returncode, copied.stdout or "", copied.stderr or ""
+        started = run([OASDIFF_COMMAND, "start", "-a", name])
+        return started.returncode, started.stdout or "", started.stderr or ""
+    finally:
+        run([OASDIFF_COMMAND, "rm", "-f", name])
 
 
 def compare_service(
@@ -182,7 +203,7 @@ def compare_service(
     service_key: str,
     *,
     image: str = OASDIFF_IMAGE,
-    runner: Runner = _run_command,
+    diff: DiffRunner = docker_diff,
 ) -> BreakingResult:
     """比对单服务基线 ↔ 实时公开契约。
 
@@ -190,7 +211,7 @@ def compare_service(
         root: 仓库根。
         service_key: 服务标识。
         image: oasdiff 镜像。
-        runner: 子进程执行器（单测注入桩）。
+        diff: 比对执行器（缺省 `docker_diff`；单测注入桩）。
 
     Returns:
         BreakingResult: 比对结果（`ok=False` 表示工具 / 构建失败，非破坏性变更）。
@@ -206,7 +227,7 @@ def compare_service(
         current = Path(tmp) / contract_file_name(service_key)
         current.write_text(render_contract_json(openapi), encoding="utf-8")
         try:
-            completed = runner(build_oasdiff_command(image, baseline, current))
+            returncode, stdout, stderr = diff(baseline, current, image)
         except OSError as exc:
             return BreakingResult(
                 service_key,
@@ -215,16 +236,16 @@ def compare_service(
                 False,
                 error=f"oasdiff 调用失败：{exc}（确认已预拉 {image}）",
             )
-    raw = (completed.stdout or "") + (completed.stderr or "")
-    if completed.returncode not in (0, 1):
+    raw = (stdout or "") + (stderr or "")
+    if returncode not in (0, 1):
         return BreakingResult(
             service_key,
             0,
             raw.strip(),
             False,
-            error=f"oasdiff 返回码 {completed.returncode}（确认已预拉 {image}）",
+            error=f"oasdiff 返回码 {returncode}（确认已预拉 {image}）：{raw.strip()}",
         )
-    return BreakingResult(service_key, count_breaking(completed.stdout or ""), raw.strip(), True)
+    return BreakingResult(service_key, count_breaking(stdout or ""), raw.strip(), True)
 
 
 def _metrics_line(service_key: str, count: int) -> str:
@@ -245,7 +266,7 @@ def check(
     *,
     services: Sequence[str] | None = None,
     image: str = OASDIFF_IMAGE,
-    runner: Runner = _run_command,
+    diff: DiffRunner = docker_diff,
     metrics_out: Path | None = None,
 ) -> int:
     """逐服务比对基线 ↔ 实时公开契约，破坏性变更即失败。
@@ -254,7 +275,7 @@ def check(
         root: 仓库根。
         services: 目标服务（缺省取全部启用服务）。
         image: oasdiff 镜像。
-        runner: 子进程执行器（单测注入桩）。
+        diff: 比对执行器（缺省 `docker_diff`；单测注入桩）。
         metrics_out: 破坏数指标文本输出路径（存在即写出；供 after_script 推送）。
 
     Returns:
@@ -264,7 +285,7 @@ def check(
     metrics: list[str] = []
     problems: list[BreakingResult] = []
     for service_key in targets:
-        result = compare_service(root, service_key, image=image, runner=runner)
+        result = compare_service(root, service_key, image=image, diff=diff)
         if not result.ok:
             print(f"[contract_gate] 服务 {service_key}：{result.error}", file=sys.stderr)
             problems.append(result)

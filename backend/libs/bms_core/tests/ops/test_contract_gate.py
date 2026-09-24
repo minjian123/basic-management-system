@@ -71,7 +71,7 @@ def test_check_passes_without_breaking(tmp_path: Path) -> None:
     """无破坏性变更时 check 退出码 0，指标文本含 0 且末尾换行。"""
     metrics = tmp_path / "m.txt"
     rc = contract_gate.check(
-        _REPO, services=[_first_service()], runner=lambda c: _completed(c, 0, "[]"), metrics_out=metrics
+        _REPO, services=[_first_service()], diff=lambda b, c, i: (0, "[]", ""), metrics_out=metrics
     )
     assert rc == 0
     text = metrics.read_text(encoding="utf-8")
@@ -84,9 +84,7 @@ def test_check_fails_on_breaking(tmp_path: Path, capsys: pytest.CaptureFixture[s
     service = _first_service()
     breaking = json.dumps([{"level": "error", "text": "removed field"}, {"level": "error", "text": "removed path"}])
     metrics = tmp_path / "m.txt"
-    rc = contract_gate.check(
-        _REPO, services=[service], runner=lambda c: _completed(c, 1, breaking), metrics_out=metrics
-    )
+    rc = contract_gate.check(_REPO, services=[service], diff=lambda b, c, i: (1, breaking, ""), metrics_out=metrics)
     assert rc == 1
     assert "破坏性变更" in capsys.readouterr().err
     assert f'bms_contract_breaking_total{{service="{service}"}} 2\n' in metrics.read_text(encoding="utf-8")
@@ -103,7 +101,7 @@ def test_check_reports_tool_failure(tmp_path: Path) -> None:
     """oasdiff 返回码异常（非 0/1）时该服务记为失败、非零退出。"""
     (tmp_path / BASELINE_DIR).mkdir(parents=True)
     (tmp_path / BASELINE_DIR / "platform.json").write_text("{}\n", encoding="utf-8")
-    result = contract_gate.compare_service(tmp_path, "platform", runner=lambda c: _completed(c, 2, "", "boom"))
+    result = contract_gate.compare_service(tmp_path, "platform", diff=lambda b, c, i: (2, "", "boom"))
     assert result.ok is False
     assert "返回码 2" in result.error
 
@@ -130,15 +128,33 @@ def test_count_breaking_variants() -> None:
 
 
 @pytest.mark.kiwi_id(2186)
-def test_build_oasdiff_command_mounts_paths() -> None:
-    """oasdiff 命令含固定镜像、breaking 子命令、只读挂载与 ERR 级门禁。"""
-    command = contract_gate.build_oasdiff_command(
-        contract_gate.OASDIFF_IMAGE, Path("/base/x.json"), Path("/cur/x.json")
+def test_oasdiff_args_and_docker_diff_sequence() -> None:
+    """oasdiff 参数含 breaking / ERR / json 与容器内路径；docker_diff 走 create → cp → start → rm 并回传退出码。"""
+    assert contract_gate.oasdiff_args() == [
+        "breaking",
+        "--fail-on",
+        "ERR",
+        "--format",
+        "json",
+        "/base.json",
+        "/cur.json",
+    ]
+    calls: list[list[str]] = []
+
+    def fake_run(command: Any) -> subprocess.CompletedProcess[str]:
+        calls.append(list(command))
+        if "start" in command:
+            return _completed(command, 1, '[{"level": 3}]', "")
+        return _completed(command, 0)
+
+    code, out, _err = contract_gate.docker_diff(
+        Path("/base/x.json"), Path("/cur/x.json"), contract_gate.OASDIFF_IMAGE, run=fake_run
     )
-    assert contract_gate.OASDIFF_IMAGE in command
-    assert "breaking" in command
-    assert "--fail-on" in command and "ERR" in command
-    assert "/base/x.json" in command and "/cur/x.json" in command
+    assert code == 1 and "level" in out
+    verbs = [call[1] for call in calls if len(call) > 1]
+    assert verbs[0] == "rm" and "create" in verbs and verbs.count("cp") == 2 and "start" in verbs and verbs[-1] == "rm"
+    create = next(call for call in calls if "create" in call)
+    assert contract_gate.OASDIFF_IMAGE in create and "/base.json" in create and "/cur.json" in create
 
 
 @pytest.mark.kiwi_id(2186)
