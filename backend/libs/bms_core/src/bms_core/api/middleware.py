@@ -121,6 +121,8 @@ class TenantMiddleware(BaseObject):
 
     - 来源次序（首个命中即止）：子域名（按注册表 `domain` 查）→ `X-Tenant-ID`（按 `code` 查）
       → token 租户位（请求态，认证阶段写入）；
+    - 来源形态先于取数（06_04）：IP 字面量（IPv4 / IPv6）与 `localhost` 主机名、形态非法的域名 /
+      编码一律视为未命中，不送入租户源（避免脏值派生非法库名或冒泡 5xx）；
     - 豁免路径（`[tenant].exempt_paths`，精确匹配）不解析、不设置上下文；
     - 无来源按 `[tenant].allow_demo_fallback` 回落演示租户（dev/test）或拒绝（prod）；
     - 解析失败（`BizError`）就地返回统一错误响应，不进入下游。

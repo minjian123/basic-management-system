@@ -898,11 +898,11 @@ contract-gate:
 #       以子流水线已构建的镜像 `bms-{service}:$CI_COMMIT_SHORT_SHA`（固定 tag ⇒ 可固定重现）
 #       `docker run -d -e BMS_ENV=dev` 起容器，就绪（镜像 HEALTHCHECK /healthz）后 Schemathesis 容器
 #       以 `--network container:<服务容器>` 打真实服务（只读 GET/HEAD + 每操作 1 例 + 无 5xx；排除探针端点）。
-#       非阻断（allow_failure: true）；阻断门禁为 contract-gate 的 oasdiff 破坏性变更拦截。
+#       **阻断**（06_04 起）：dev 环境请求侧 5xx 已修复（租户解析不再因 IP 主机名派生非法库名），
+#       platform 零 5xx 由真实流水线实证；与 contract-gate 的 oasdiff 破坏性变更拦截同为阻断门禁。
 .contract-smoke-service: &contract-smoke-service
   stage: verify
   image: $REGISTRY_IMAGE_PREFIX/ci-backend:py314
-  allow_failure: true
   variables:
     SERVICE: ""
   script:

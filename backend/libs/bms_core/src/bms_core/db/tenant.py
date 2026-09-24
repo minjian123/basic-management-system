@@ -9,9 +9,13 @@
 - 解析链：子域名（按注册表 `domain` 查）→ `X-Tenant-ID`（按 `code` 查）→ token 租户位（请求态，
   认证阶段写入即自然生效）；真实取数 / 缓存 / 停用回收见 `app/db/tenant_source.py` 的 `TenantSource`。
 - 无来源回落策略由调用方传入（`allow_demo_fallback`）：dev/test 兜底演示租户、prod 拒绝。
+- **来源形态校验（06_04）**：子域名来源排除 IP 字面量（IPv4 / IPv6）与本机名，且须为 ≥ 三段合法域名；
+  请求头 / token 来源须为合法租户编码形态；形态非法一律视为未命中（不回退成 5xx）。
 - `get_tenant`：请求级依赖，优先读请求态（全局中间件已解析），键缺失时就地按同一编排解析。
 """
 
+import ipaddress
+import re
 from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Protocol
@@ -37,6 +41,9 @@ __all__ = [
     "current_tenant_context",
     "get_tenant",
     "is_exempt_path",
+    "is_local_hostname",
+    "is_tenant_code",
+    "is_tenant_domain",
     "parse_tenant_db_key",
     "resolve_request_tenant",
     "tenant_hostname",
@@ -53,6 +60,17 @@ DEFAULT_EXEMPT_PATHS: tuple[str, ...] = (
     "/.well-known/jwks.json",
 )
 """租户解析豁免路径缺省集（正式取值见 `[tenant].exempt_paths`）。"""
+
+_TENANT_CODE_PATTERN = re.compile(r"[A-Za-z][A-Za-z0-9_]{0,63}")
+"""租户编码形态（与 `sys_tenant.code` 字段口径一致：字母开头、字母数字下划线、长度 ≤ 64）。"""
+
+_TENANT_DOMAIN_PATTERN = re.compile(
+    r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+"
+)
+"""租户域名形态（≥ 两段 DNS 标签：字母数字与连字符、不以连字符起止、单段 ≤ 63）。"""
+
+_LOCAL_HOSTNAMES = frozenset({"localhost", "localhost.localdomain"})
+"""本机主机名（一律不参与租户子域名解析）。"""
 
 
 @dataclass(frozen=True)
@@ -118,21 +136,74 @@ def parse_tenant_db_key(db_key: str) -> str:
     return key.tenant_code
 
 
-def tenant_hostname(host: str | None) -> str | None:
-    """从 Host 头提取带租户前缀的主机名（去端口；仅三段及以上域名视为带子域名）。
-
-    子域名来源按**完整主机名**匹配注册表 `domain`（如 `demo.bms.example.com`），
-    无匹配再回落请求头 / token 来源。
+def is_tenant_code(value: str) -> bool:
+    """是否为形态合法的租户编码。
 
     Args:
-        host: Host 头（可含端口）。
+        value: 待校验值（`X-Tenant-ID` / token 租户位 / 兜底来源值）。
 
     Returns:
-        str | None: 主机名；无子域名前缀则 None。
+        bool: 合法 True。
+    """
+    return bool(value) and _TENANT_CODE_PATTERN.fullmatch(value) is not None
+
+
+def is_tenant_domain(value: str) -> bool:
+    """是否为形态合法的域名（≥ 两段 DNS 标签，总长 ≤ 253）。
+
+    Args:
+        value: 待校验值（Host 提取结果）。
+
+    Returns:
+        bool: 合法 True。
+    """
+    return bool(value) and len(value) <= 253 and _TENANT_DOMAIN_PATTERN.fullmatch(value) is not None
+
+
+def is_local_hostname(hostname: str) -> bool:
+    """是否为本机 / IP 字面量主机名（IPv4、IPv6、`localhost`）。
+
+    这类主机名**不是租户域名**：本地开发、CI（`Host: 127.0.0.1:8000`）、Compose 内直连与探活
+    都会用到 IP 直连；若按子域名解析会取到「IP 当作租户编码」的脏值，进而派生出非法库名
+    （如 `bms_platform_127.0.0.1`）并冒泡 5xx。
+
+    Args:
+        hostname: 已去端口 / 去方括号的主机名。
+
+    Returns:
+        bool: 本机名或 IP 字面量 True。
+    """
+    if not hostname:
+        return True
+    if hostname.lower() in _LOCAL_HOSTNAMES:
+        return True
+    try:
+        ipaddress.ip_address(hostname)
+    except ValueError:
+        return False
+    return True
+
+
+def tenant_hostname(host: str | None) -> str | None:
+    """从 Host 头提取带租户前缀的主机名（去端口；仅三段及以上**合法域名**视为带子域名）。
+
+    子域名来源按**完整主机名**匹配注册表 `domain`（如 `demo.bms.example.com`），
+    无匹配再回落请求头 / token 来源。**IP 字面量（IPv4 / IPv6）与 `localhost` 一律返回 None**
+    ——IP 直连不是租户域名；域名形态非法的取值同样返回 None（等同未提供来源，由
+    `resolve_request_tenant` 按 `allow_demo_fallback` 决定回落演示租户或拒绝），
+    避免请求侧脏值派生出非法库名而冒泡 5xx。
+
+    Args:
+        host: Host 头（可含端口；IPv6 可含方括号）。
+
+    Returns:
+        str | None: 主机名；非租户域名 / 形态非法则 None。
     """
     if not host:
         return None
-    hostname = host.split(":", 1)[0]
+    hostname = host.split(":", 1)[0].strip().strip("[]")
+    if is_local_hostname(hostname) or not is_tenant_domain(hostname):
+        return None
     return hostname if len(hostname.split(".")) >= 3 else None
 
 
@@ -168,6 +239,18 @@ def current_tenant_context() -> TenantContext:
     return TenantContext(tenant_code=code, db_key=build_tenant_db_key(code), name=code)
 
 
+def _usable_code(value: str | None) -> str | None:
+    """来源值可用作租户编码时原样返回，否则 None（形态非法等同未提供来源）。
+
+    Args:
+        value: 来源值（`X-Tenant-ID` / token 租户位）。
+
+    Returns:
+        str | None: 可用值；缺失或形态非法 None。
+    """
+    return value if value and is_tenant_code(value) else None
+
+
 async def resolve_request_tenant(
     *,
     path: str,
@@ -179,6 +262,10 @@ async def resolve_request_tenant(
     allow_demo_fallback: bool = True,
 ) -> TenantContext | None:
     """按解析链解析请求租户（子域名 → 请求头 → token 租户位）。
+
+    **形态先于取数**：子域名来源经 `tenant_hostname`（IP 字面量 / `localhost` / 非法域名一律 None），
+    请求头与 token 来源经 `is_tenant_code` 校验——形态非法的来源值**等同未提供**（不送入租户源），
+    从而不会派生出非法库名、也不会由请求侧脏值触发 5xx。
 
     Args:
         path: 请求路径（豁免判定）。
@@ -199,7 +286,11 @@ async def resolve_request_tenant(
     if is_exempt_path(path, exempt_paths):
         return None
     hostname = tenant_hostname(host)
-    for kind, value in (("domain", hostname), ("code", header), ("code", token_tenant)):
+    for kind, value in (
+        ("domain", hostname),
+        ("code", _usable_code(header)),
+        ("code", _usable_code(token_tenant)),
+    ):
         if not value:
             continue
         if source is None:
