@@ -1,0 +1,749 @@
+{
+  "components": {
+    "schemas": {
+      "ApiResponse": {},
+      "CaptchaChallengeRequest": {
+        "description": "验证码出题请求。",
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/CaptchaKind",
+            "default": "image",
+            "description": "挑战类型（image / slider）"
+          },
+          "scene": {
+            "default": "login",
+            "description": "使用场景（取值见 CAPTCHA_SCENES）",
+            "title": "Scene",
+            "type": "string"
+          }
+        },
+        "title": "CaptchaChallengeRequest",
+        "type": "object"
+      },
+      "CaptchaKind": {
+        "description": "挑战类型（与前端验证码字段形态取值同源）。",
+        "enum": [
+          "image",
+          "slider",
+          "sms"
+        ],
+        "title": "CaptchaKind",
+        "type": "string"
+      },
+      "CaptchaSmsRequest": {
+        "description": "短信验证码发送请求。",
+        "properties": {
+          "phone": {
+            "description": "目标手机号（格式校验随真实实现）",
+            "minLength": 1,
+            "title": "Phone",
+            "type": "string"
+          },
+          "scene": {
+            "default": "login",
+            "description": "使用场景（取值见 CAPTCHA_SCENES）",
+            "title": "Scene",
+            "type": "string"
+          }
+        },
+        "required": [
+          "phone"
+        ],
+        "title": "CaptchaSmsRequest",
+        "type": "object"
+      },
+      "CaptchaVerifyRequest": {
+        "description": "验证码凭证校验请求。",
+        "properties": {
+          "captcha_id": {
+            "description": "挑战编号",
+            "minLength": 1,
+            "title": "Captcha Id",
+            "type": "string"
+          },
+          "code": {
+            "default": "",
+            "description": "用户输入的校验码（图形 / 短信）",
+            "title": "Code",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/CaptchaKind",
+            "default": "image",
+            "description": "挑战类型（决定取校验码还是轨迹）"
+          },
+          "scene": {
+            "default": "login",
+            "description": "使用场景（取值见 CAPTCHA_SCENES）",
+            "title": "Scene",
+            "type": "string"
+          },
+          "trace": {
+            "description": "滑块轨迹点序列（每点为 x / y / 相对起点毫秒）",
+            "items": {
+              "maxItems": 3,
+              "minItems": 3,
+              "prefixItems": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "integer"
+                }
+              ],
+              "type": "array"
+            },
+            "title": "Trace",
+            "type": "array"
+          }
+        },
+        "required": [
+          "captcha_id"
+        ],
+        "title": "CaptchaVerifyRequest",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "title": "BMS 认证与身份服务",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/": {
+      "get": {
+        "description": "应用信息。\n\nReturns:\n    ApiResponse: {code, message, data:{name, version}}。",
+        "operationId": "root__get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Root"
+      }
+    },
+    "/.well-known/jwks.json": {
+      "get": {
+        "description": "取服务 JWT 公开 JWKS 文档。\n\nArgs:\n    request: 请求对象（取应用装配的服务 JWT 签发者）。\n\nReturns:\n    dict[str, object]: 标准 JWKS 文档（只含公钥）。",
+        "operationId": "get_jwks__well_known_jwks_json_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Jwks  Well Known Jwks Json Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Jwks",
+        "tags": [
+          "wellknown"
+        ]
+      }
+    },
+    "/api/v1/auth/introspect": {
+      "get": {
+        "description": "网关认证子请求：公开路径放行；受保护路径校验用户 JWT 并换发网关服务 JWT。\n\nArgs:\n    request: 请求对象（取应用配置）。\n    verifier: 统一校验器（按 `aud=api` 校验用户 JWT）。\n    issuer: 服务 JWT 签发者（换发网关服务 JWT）。\n    authorization: 客户端 `Authorization` 头（网关经 `request_headers` 转发）。\n    forwarded_uri: 原始请求 URI（网关 `forward-auth` 添加的 `X-Forwarded-Uri`）。\n\nReturns:\n    Response: 200（公开路径 / 校验通过，含身份头与网关服务 JWT）或 401 / 503。",
+        "operationId": "introspect_api_v1_auth_introspect_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Forwarded-Uri",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Forwarded-Uri"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Introspect",
+        "tags": [
+          "auth"
+        ]
+      },
+      "post": {
+        "description": "网关认证子请求：公开路径放行；受保护路径校验用户 JWT 并换发网关服务 JWT。\n\nArgs:\n    request: 请求对象（取应用配置）。\n    verifier: 统一校验器（按 `aud=api` 校验用户 JWT）。\n    issuer: 服务 JWT 签发者（换发网关服务 JWT）。\n    authorization: 客户端 `Authorization` 头（网关经 `request_headers` 转发）。\n    forwarded_uri: 原始请求 URI（网关 `forward-auth` 添加的 `X-Forwarded-Uri`）。\n\nReturns:\n    Response: 200（公开路径 / 校验通过，含身份头与网关服务 JWT）或 401 / 503。",
+        "operationId": "introspect_api_v1_auth_introspect_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Forwarded-Uri",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Forwarded-Uri"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Introspect",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/captcha/challenges": {
+      "post": {
+        "description": "生成验证码挑战（图形 / 滑块）。\n\nArgs:\n    captcha: 验证码基座。\n    req: 出题请求。\n\nReturns:\n    ApiResponse: 统一响应，data 为挑战（`CaptchaChallengeResponse`）。",
+        "operationId": "create_challenge_api_v1_captcha_challenges_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CaptchaChallengeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Create Challenge",
+        "tags": [
+          "captcha"
+        ]
+      }
+    },
+    "/api/v1/captcha/scenes/{scene}/policy": {
+      "get": {
+        "description": "取场景策略（是否强制 / 连续失败阈值 / 有效期 / 重发冷却）。\n\nArgs:\n    captcha: 验证码基座。\n    scene: 使用场景。\n\nReturns:\n    ApiResponse: 统一响应，data 为场景策略（`CaptchaPolicyResponse`）。",
+        "operationId": "get_scene_policy_api_v1_captcha_scenes__scene__policy_get",
+        "parameters": [
+          {
+            "description": "使用场景（取值见 CAPTCHA_SCENES）",
+            "in": "path",
+            "name": "scene",
+            "required": true,
+            "schema": {
+              "description": "使用场景（取值见 CAPTCHA_SCENES）",
+              "title": "Scene",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Get Scene Policy",
+        "tags": [
+          "captcha"
+        ]
+      }
+    },
+    "/api/v1/captcha/sms": {
+      "post": {
+        "description": "发送短信验证码（占位不真发；目标手机号脱敏后回显）。\n\nArgs:\n    captcha: 验证码基座。\n    req: 短信发送请求。\n\nReturns:\n    ApiResponse: 统一响应，data 为挑战（`CaptchaChallengeResponse`，`target` 为脱敏手机号）。",
+        "operationId": "send_sms_code_api_v1_captcha_sms_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CaptchaSmsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Send Sms Code",
+        "tags": [
+          "captcha"
+        ]
+      }
+    },
+    "/api/v1/captcha/verify": {
+      "post": {
+        "description": "校验验证码凭证（失败以业务错误码 20101 表达）。\n\nArgs:\n    captcha: 验证码基座。\n    req: 凭证校验请求。\n\nReturns:\n    ApiResponse: 统一响应，data 为校验结果（`CaptchaVerifyResponse`）。",
+        "operationId": "verify_captcha_api_v1_captcha_verify_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CaptchaVerifyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Verify Captcha",
+        "tags": [
+          "captcha"
+        ]
+      }
+    },
+    "/healthz": {
+      "get": {
+        "description": "存活检查端点。\n\nArgs:\n    request: 当前请求（取服务身份）。\n\nReturns:\n    dict: 服务状态与身份，固定返回 {\"status\": \"ok\", \"service\": 名, \"version\": 版}。",
+        "operationId": "healthz_healthz_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Healthz Healthz Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Healthz"
+      }
+    },
+    "/readyz": {
+      "get": {
+        "description": "就绪检查端点（启动完成态 + 停机摘流 + 注册表聚合）。\n\nArgs:\n    request: 当前请求（取应用启动完成态 / 停机摘流标记 / 服务身份）。\n    registry: 健康检查项注册表（依赖注入）。\n\nReturns:\n    JSONResponse: 全部就绪 200；未就绪、启动未完成或停机中 503。",
+        "operationId": "readyz_readyz_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Readyz"
+      }
+    }
+  }
+}

@@ -1,0 +1,17 @@
+契约门禁档（重验证层）——开启于 2026-09-24（阶段二 09_03 契约门禁）。
+管控 job（父流水线 verify 阶段）：
+  - contract-gate：oasdiff breaking 比对「独立基线 ↔ 实时公开契约」（只加不删），破坏性变更即失败并
+    输出中文清单；破坏数 bms_contract_breaking_total{service} 经 after_script 推送 Pushgateway（08_02 通道）。
+  - contract-smoke：Schemathesis 源码起真实服务（uv run python -m bms_{service}，dev/SQLite）+
+    固定 tag 容器经 --network container:$HOSTNAME 打真实服务（零 Broker；只读 GET/HEAD + 有限样例）。
+
+口径（任务 09_03 详细设计）：
+- 独立基线 deploy/contracts/baseline/<service>.json（入 Git，仅经评审更新；无自动覆盖路径）；
+  当前值取实时公开契约（contract_snapshot.build_openapi 内存构建），不依赖已提交快照。
+- 工具镜像固定 tag：tufin/oasdiff:v1.32.1、schemathesis/schemathesis:4.28.0；
+  需在 mjbk 预拉（scripts/tools/docker/镜像清单.txt），ci-backend 基础镜像已加装 docker CLI。
+- 破坏性变更升级大版本（/api/v2 并行）后更新基线，不得原地破坏。
+- 基线刷新：uv run python -m ops.contract_gate baseline-update --service <服务>（人工，走评审合入）。
+
+删除本文件即关闭该档（contract-gate / contract-smoke 两 job 均不出现）；
+分档语义与激活路线见 .gitlab-ci.yml 文件头注释与《项目骨架计划》§3.1。

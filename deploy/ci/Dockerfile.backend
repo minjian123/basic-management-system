@@ -11,12 +11,24 @@ ENV PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple \
 # 实测仅 ~76 KB/s，会长时间卡在 trixie/main Packages 索引上——见流水线 165）
 # libatomic1：pyright 自带预编译 node 的运行依赖；slim 镜像缺失时报
 # 「libatomic.so.1: cannot open shared object file」（2026-09-14 实测，backend-typecheck job）
+# curl：下载 docker CLI 静态二进制（见下）
 RUN sed -i 's|deb.debian.org|mirrors.tuna.tsinghua.edu.cn|g' /etc/apt/sources.list.d/debian.sources \
  && apt-get update \
- && apt-get install -y --no-install-recommends libatomic1 \
+ && apt-get install -y --no-install-recommends libatomic1 curl \
  && rm -rf /var/lib/apt/lists/*
 
 RUN pip install --no-cache-dir uv
+
+# docker CLI（静态二进制，仅客户端）：契约门禁 job（09_03）需在同一环境内以 uv 源码起真实服务、
+# 又以 docker run 调 oasdiff / Schemathesis 的固定 tag 镜像；只装 docker 客户端，不经 daemon。
+# 固定版本与 mjbk 宿主 daemon（29.x）对齐；国内镜像下载（阿里云 docker-ce static）。
+ARG DOCKER_CLI_VERSION=29.7.2
+RUN curl -fsSL "https://mirrors.aliyun.com/docker-ce/linux/static/stable/x86_64/docker-${DOCKER_CLI_VERSION}.tgz" -o /tmp/docker.tgz \
+ && tar -xzf /tmp/docker.tgz -C /tmp \
+ && mv /tmp/docker/docker /usr/local/bin/docker \
+ && chmod +x /usr/local/bin/docker \
+ && rm -rf /tmp/docker /tmp/docker.tgz \
+ && docker --version
 
 WORKDIR /opt/bms
 # 工作区形态：预装第三方依赖（不装工作区成员——成员源码不入镜像，运行时由 job `uv sync` 装入）

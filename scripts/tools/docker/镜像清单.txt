@@ -17,6 +17,10 @@ prom/pushgateway:v1.11.3
 # ===== 镜像安全扫描（09_01 服务子流水线 release；固定 tag）=====
 aquasec/trivy:0.74.0
 
+# ===== 契约门禁（09_03 契约破坏性变更门禁 / Schemathesis 打真实服务；固定 tag）=====
+tufin/oasdiff:v1.32.1
+schemathesis/schemathesis:4.28.0
+
 # ===== 基础设施 / 网关（按需启用；固定 tag）=====
 # redis:8
 # mysql:8.4
