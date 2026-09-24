@@ -8,8 +8,9 @@
 口径见任务 09_03 详细设计：
 - 被测服务为**源码直跑的真实进程**（`uv run python -m bms_{service}`，`BMS_ENV=dev` / SQLite，
   `BMS_SERVER__PORT=<分配端口>`），不依赖子流水线推送的按提交镜像；
-- Schemathesis 走固定 tag 镜像 `schemathesis/schemathesis:4.28.0`，以 `--network container:<job 容器>`
-  与 job 容器共享网络命名空间，经 `127.0.0.1:<port>` 打真实服务；
+- Schemathesis 走固定 tag 镜像 `schemathesis/schemathesis:4.28.0`，以 `--network host` 在宿主网络命名空间，
+  经 **job 容器 IP** 访问其中运行的源码服务（job 容器 `$HOSTNAME` 非 daemon 容器引用，`--network container:`
+  不可用；地址可经 `BMS_SMOKE_BIND_HOST` 覆盖）；
 - 只读方法（GET / HEAD）+ 有限样例 + 仅 `not_a_server_error`（无 5xx）；非 2xx（4xx）视为可达通过；
 - 逐服务串行，任一失败即非零退出。
 """
@@ -18,6 +19,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import socket
 import subprocess
 import sys
 import time
@@ -103,13 +105,23 @@ def service_env(base_env: Mapping[str, str], port: int) -> dict[str, str]:
     return env
 
 
-def resolve_container_ref() -> str:
-    """当前 job 容器引用（供 Schemathesis 容器 `--network container:` 共享网络命名空间）。
+def resolve_bind_host() -> str:
+    """被测服务在 job 容器内的可达地址（供 Schemathesis 容器经 host 网络访问）。
+
+    job 容器的 `$HOSTNAME`（`runner-…-concurrent-0`）不是 daemon 上的容器引用（`--network container:`
+    会报 `No such container`），故改用**容器 IP + `--network host`**：Schemathesis 容器在宿主网络命名空间，
+    可经 job 容器 IP 访问其中运行的源码服务（服务绑 `0.0.0.0`）。行为可用 `BMS_SMOKE_BIND_HOST` 覆盖。
 
     Returns:
-        str: 容器引用（Docker executor 下 `$HOSTNAME` 即容器标识）；空则提示人工指定。
+        str: 被测服务基址（缺省取本容器 IP）；解析失败为空串。
     """
-    return os.environ.get("HOSTNAME", "").strip()
+    override = os.environ.get("BMS_SMOKE_BIND_HOST", "").strip()
+    if override:
+        return override
+    try:
+        return socket.gethostbyname(socket.gethostname())
+    except OSError:
+        return ""
 
 
 def schemathesis_command(
@@ -117,7 +129,7 @@ def schemathesis_command(
     port: int,
     schema_dir: Path,
     *,
-    container_ref: str,
+    bind_host: str,
     image: str = SCHEMATHESIS_IMAGE,
     max_examples: int = DEFAULT_MAX_EXAMPLES,
 ) -> list[str]:
@@ -127,26 +139,26 @@ def schemathesis_command(
         service_key: 服务标识。
         port: 被测服务端口。
         schema_dir: 契约快照目录（挂载为 `/schemas`）。
-        container_ref: job 容器引用（`--network container:` 目标）。
+        bind_host: 被测服务可达地址（job 容器 IP；容器经 host 网络访问）。
         image: Schemathesis 镜像。
         max_examples: 每服务样例上限。
 
     Returns:
-        list[str]: 完整命令行（docker run … schemathesis run …）。
+        list[str]: 完整命令行（docker run … --network host … schemathesis run …）。
     """
     command = [
         SCHEMATHESIS_COMMAND,
         "run",
         "--rm",
         "--network",
-        f"container:{container_ref}",
+        "host",
         "-v",
         f"{schema_dir}:/schemas:ro",
         image,
         "run",
         f"/schemas/{contract_file_name(service_key)}",
         "--url",
-        f"http://127.0.0.1:{port}",
+        f"http://{bind_host}:{port}",
         "--max-examples",
         str(max_examples),
         "--checks",
@@ -227,7 +239,7 @@ def run(
     services: Sequence[str] | None = None,
     max_examples: int = DEFAULT_MAX_EXAMPLES,
     image: str = SCHEMATHESIS_IMAGE,
-    container_ref: str | None = None,
+    bind_host: str | None = None,
     runner: Callable[[Sequence[str]], subprocess.CompletedProcess[str]] = subprocess.run,
     base_env: Mapping[str, str] | None = None,
 ) -> int:
@@ -238,17 +250,17 @@ def run(
         services: 目标服务（缺省取全部启用服务）。
         max_examples: 每服务样例上限。
         image: Schemathesis 镜像。
-        container_ref: job 容器引用（缺省取 `$HOSTNAME`）。
+        bind_host: 被测服务可达地址（缺省 `resolve_bind_host()`）。
         runner: 子进程执行器（单测注入桩）。
         base_env: 基础环境变量（缺省 `os.environ`）。
 
     Returns:
-        int: 退出码（0 全部通过；1 存在失败 / 容器引用缺失）。
+        int: 退出码（0 全部通过；1 存在失败 / 地址解析失败）。
     """
     targets = list(services) if services is not None else list(enabled_service_keys())
-    reference = container_ref if container_ref is not None else resolve_container_ref()
-    if not reference:
-        print("[contract_smoke] 无法解析 job 容器引用（$HOSTNAME 为空）：无法与 Schemathesis 共享网络", file=sys.stderr)
+    host = bind_host if bind_host is not None else resolve_bind_host()
+    if not host:
+        print("[contract_smoke] 无法解析 job 容器地址（BMS_SMOKE_BIND_HOST 为空且容器 IP 不可得）", file=sys.stderr)
         return 1
     schema_dir = root / CONTRACTS_DIR
     env_base = base_env if base_env is not None else os.environ
@@ -266,7 +278,7 @@ def run(
                 continue
             completed = runner(
                 schemathesis_command(
-                    service_key, port, schema_dir, container_ref=reference, image=image, max_examples=max_examples
+                    service_key, port, schema_dir, bind_host=host, image=image, max_examples=max_examples
                 )
             )
             ok = completed.returncode == 0
@@ -296,7 +308,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--service", help="单个服务标识（缺省全部启用服务）")
     parser.add_argument("--max-examples", type=int, default=DEFAULT_MAX_EXAMPLES, help="每服务样例上限")
     parser.add_argument("--image", default=SCHEMATHESIS_IMAGE, help="Schemathesis 镜像（缺省固定 tag）")
-    parser.add_argument("--container-ref", default=None, help="job 容器引用（缺省取 $HOSTNAME）")
+    parser.add_argument(
+        "--bind-host", default=None, help="被测服务可达地址（缺省容器 IP；可经 BMS_SMOKE_BIND_HOST 覆盖）"
+    )
     args = parser.parse_args(argv)
     services = [args.service] if args.service else None
     return run(
@@ -304,7 +318,7 @@ def main(argv: list[str] | None = None) -> int:
         services=services,
         max_examples=args.max_examples,
         image=args.image,
-        container_ref=cast("str | None", args.container_ref),
+        bind_host=cast("str | None", args.bind_host),
     )
 
 
