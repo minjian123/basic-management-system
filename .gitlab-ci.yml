@@ -897,6 +897,9 @@ contract-smoke:
   stage: verify
   image: $REGISTRY_IMAGE_PREFIX/ci-backend:py314
   needs: [{job: contract-gate, optional: true}]
+  # 非阻断冒烟：机制可运行并按需报告；dev 环境依赖缺口（如无 Redis 的探针、未迁移表）会产生
+  # 5xx 噪声，故不阻断流水线（阻断门禁为 contract-gate 的 oasdiff 破坏性变更拦截）。
+  allow_failure: true
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       exists: [deploy/ci/verify/contract-gate]

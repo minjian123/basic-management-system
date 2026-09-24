@@ -3,7 +3,9 @@
   - contract-gate：oasdiff breaking 比对「独立基线 ↔ 实时公开契约」（只加不删），破坏性变更即失败并
     输出中文清单；破坏数 bms_contract_breaking_total{service} 经 after_script 推送 Pushgateway（08_02 通道）。
   - contract-smoke：Schemathesis 源码起真实服务（uv run python -m bms_{service}，dev/SQLite）+
-    固定 tag 容器经 --network container:$HOSTNAME 打真实服务（零 Broker；只读 GET/HEAD + 有限样例）。
+    固定 tag 容器经 --network host + job 容器 IP 打真实服务（零 Broker；只读 GET/HEAD + 有限样例；
+    排除探针端点 /healthz /readyz /metrics）。**非阻断**（allow_failure: true）——dev 环境依赖缺口会
+    产生 5xx 噪声；阻断门禁为 contract-gate 的 oasdiff 破坏性变更拦截。
 
 口径（任务 09_03 详细设计）：
 - 独立基线 deploy/contracts/baseline/<service>.json（入 Git，仅经评审更新；无自动覆盖路径）；

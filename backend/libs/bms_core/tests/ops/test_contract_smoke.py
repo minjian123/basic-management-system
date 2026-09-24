@@ -49,6 +49,8 @@ def test_schemathesis_args_readonly() -> None:
     assert "--checks" in command and "not_a_server_error" in command
     assert "--suppress-health-check" in command
     assert command.count("--include-method") == len(contract_smoke.READ_METHODS)
+    assert command.count("--exclude-path") == len(contract_smoke.EXCLUDED_PATHS)
+    assert "/readyz" in command and "/healthz" in command
     assert "GET" in command and "HEAD" in command
 
 
