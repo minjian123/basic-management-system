@@ -36,7 +36,7 @@ Node 24/26 自带；Node 22 自带 10.x）是 Node 生态默认包管理器。
 
 ## 3. 在本项目中的用途 <a id="usage"></a>
 
-- **依赖管理（2026-09 迁移）**：前端已由「双工程各自 package-lock.json」迁移为**pnpm 单一 workspace**（根 pnpm-lock.yaml，收敛 frontend/packages|apps|modules）；本文档其余内容为 npm 工具科普，命令示例保留（见《[pnpm 部署使用说明](../开发机/pnpm部署使用说明.md)》）。
+- **依赖管理（2026-09 迁移）**：前端已由「双工程各自 package-lock.json」迁移为**pnpm 单一 workspace**（根 pnpm-lock.yaml，收敛 frontend/packages|apps|modules）；本文档其余内容为 npm 工具科普，命令示例保留（见《[pnpm 部署使用说明](../../开发机/pnpm部署使用说明.md)》）。
 - **CI 可复现安装**：流水线用 `npm ci` 锁定安装，保证每次构建依赖完全一致（见《[GitLab 技术介绍](../部署与运维/GitLab技术介绍.md)》CI 流水线）。
 - **构建命令入口**：`npm run dev/build/test/lint` 驱动 Vite、ESLint、Vitest 等工具（见《[Vite 技术介绍](Vite技术介绍.md)》）。
 - **Node 版本管理**：`.nvmrc` 固定 Node 版本（22 LTS），配合 nvm/volta/fnm 切换，npm 随 Node 自带（见平台《项目规划说明》部署约定）。
