@@ -21,6 +21,7 @@ import asyncio
 import os
 from collections.abc import Sequence
 from dataclasses import dataclass
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.engine import make_url
@@ -30,7 +31,19 @@ from bms_core.core.config import get_settings
 from bms_core.db.engine import EngineFactory
 from bms_core.db.keys import build_platform_db_key
 from bms_core.db.tenant_source import TENANT_SERVICE_KEY
-from bms_tenant.models.tenant import SysTenant
+
+
+def __getattr__(name: str) -> Any:
+    """惰性暴露 `SysTenant`（外部 `from ops.seed_tenant import SysTenant` 兼容）。
+
+    模块级不 eager 导入 `bms_tenant`：`seed_module` 复用本模块 `resolve_url` 而运行于 platform 镜像
+    （不含 `bms_tenant`），eager 导入会连带失败。仅按需（读注册库 / 归属服务运行）解析。
+    """
+    if name == "SysTenant":
+        from bms_tenant.models.tenant import SysTenant
+
+        return SysTenant
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 @dataclass(frozen=True)
@@ -90,6 +103,8 @@ async def seed_tenants(url: str) -> int:
     Returns:
         int: 新增行数（重复执行为 0）。
     """
+    from bms_tenant.models.tenant import SysTenant  # 惰性：仅本服务（tenant）镜像运行；resolve_url 供其他种子脚本复用
+
     engine = create_async_engine(url)
     factory: async_sessionmaker[AsyncSession] = async_sessionmaker(engine, expire_on_commit=False)
     created = 0

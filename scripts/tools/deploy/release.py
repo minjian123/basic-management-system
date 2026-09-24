@@ -320,11 +320,17 @@ def _compose_run(
     *,
     extra_env: dict[str, str] | None = None,
 ) -> None:
-    """以 `compose run --rm --no-deps` 在服务镜像内执行一次性命令（迁移 / 种子）。"""
+    """以 `compose run --rm --no-deps` 在服务镜像内执行一次性命令（迁移 / 种子）。
+
+    `extra_env` 经 `-e KEY=VAL` 注入**容器内**（compose 仅自动传入服务 `environment` 声明的变量，
+    子进程环境只用于 compose 插值）。
+    """
     run_env = dict(env)
-    if extra_env:
-        run_env.update(extra_env)
-    _compose(deploy_dir, run_env, ["run", "--rm", "--no-deps", service, *command])
+    args = ["run", "--rm", "--no-deps"]
+    for key, value in (extra_env or {}).items():
+        args += ["-e", f"{key}={value}"]
+    args += [service, *command]
+    _compose(deploy_dir, run_env, args)
 
 
 def _ledger_path(deploy_dir: Path, service: str) -> Path:
@@ -609,23 +615,22 @@ def cmd_bootstrap(deploy_dir: Path, env: dict[str, str], *, services: list[str],
     for service in services:
         _migrate(deploy_dir, env, service, _bootstrap_tag(env, service), tenants)
     print("[bootstrap] 4/4 种子")
-    # 种子按「服务包归属」选运行镜像：seed_module 需 bms_platform；seed_tenant 需 bms_tenant；
-    # seed_tables / seed_dict 仅需 bms_core（平台 / 各服务镜像均可）
+    # 种子按「服务包 / 表归属」选运行镜像：seed_module 需 bms_platform；seed_tenant 需 bms_tenant；
+    # 字典表归属 platform（seed_dict 写平台租户库）；seed_tables 仅需 bms_core
     if "platform" in services:
         _compose_run(deploy_dir, env, "platform", ["python", "-m", "ops.seed_module"])
         _compose_run(deploy_dir, env, "platform", ["python", "-m", "ops.seed_tables"])
-    if "tenant" in services:
-        _compose_run(deploy_dir, env, "tenant", ["python", "-m", "ops.seed_tenant"])
-    for service in services:
+        # 字典表归属平台服务（其余服务经 http 读 platform）；仅平台租户库种子字典
         for tenant in tenants:
-            url = _tenant_url(env, service, tenant)
             _compose_run(
                 deploy_dir,
                 env,
-                service,
+                "platform",
                 ["python", "-m", "ops.seed_dict"],
-                extra_env={"BMS_MIGRATION_URL": url},
+                extra_env={"BMS_MIGRATION_URL": _tenant_url(env, "platform", tenant)},
             )
+    if "tenant" in services:
+        _compose_run(deploy_dir, env, "tenant", ["python", "-m", "ops.seed_tenant"])
     print("[bootstrap] 完成（幂等，可重跑）")
     return 0
 
