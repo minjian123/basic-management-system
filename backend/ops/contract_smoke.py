@@ -49,6 +49,9 @@ BASE_PORT = 18000
 READ_METHODS = ("GET", "HEAD")
 """冒烟只读方法（不写数据、不依赖登录链路）。"""
 
+EXCLUDED_PATHS = ("/healthz", "/readyz", "/metrics")
+"""排除的基础设施端点（探针 / 指标；非业务契约，且无依赖时 503 属预期，不计入冒烟失败）。"""
+
 HEALTH_PATH = "/healthz"
 """健康检查路径（就绪判定）。"""
 
@@ -174,6 +177,8 @@ def schemathesis_args(
     ]
     for method in READ_METHODS:
         command += ["--include-method", method]
+    for path in EXCLUDED_PATHS:
+        command += ["--exclude-path", path]
     return command
 
 
@@ -274,6 +279,20 @@ def wait_for_health(
     return False
 
 
+def _tail(text: str, limit: int = 30) -> str:
+    """截取输出尾部（非空行），供失败时打印便于定位。
+
+    Args:
+        text: 原始输出。
+        limit: 保留行数上限。
+
+    Returns:
+        str: 尾部文本。
+    """
+    lines = [line for line in text.splitlines() if line.strip()]
+    return "\n".join(lines[-limit:])
+
+
 def summarize(results: Sequence[SmokeResult]) -> int:
     """汇总冒烟结果。
 
@@ -338,11 +357,13 @@ def run(
                 results.append(SmokeResult(service_key, False, "启动 / 就绪超时"))
                 continue
             schema_path = schema_dir / contract_file_name(service_key)
-            returncode, _stdout, _stderr = smoke(
+            returncode, stdout, stderr = smoke(
                 service_key, port, schema_path, bind_host=host, image=image, max_examples=max_examples
             )
             ok = returncode == 0
             results.append(SmokeResult(service_key, ok, "" if ok else f"Schemathesis 返回码 {returncode}"))
+            if not ok:
+                print(f"[contract_smoke] 服务 {service_key} 输出尾部：\n{_tail((stdout or '') + (stderr or ''))}")
         finally:
             process.terminate()
             try:

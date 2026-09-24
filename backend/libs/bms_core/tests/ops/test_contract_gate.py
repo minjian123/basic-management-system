@@ -199,6 +199,8 @@ def test_ci_contract_jobs_and_switch() -> None:
     smoke = cast("dict[str, Any]", ci["contract-smoke"])
     smoke_script = "\n".join(str(line) for line in cast("list[object]", smoke["script"]))
     assert "contract_smoke run" in smoke_script
+    assert smoke["allow_failure"] is True
+    assert "allow_failure" not in gate
 
 
 @pytest.mark.kiwi_id(2186)
