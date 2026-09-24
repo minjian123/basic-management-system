@@ -140,6 +140,18 @@ async def test_remote_source_fallback_only_when_allowed() -> None:
 
 
 @pytest.mark.kiwi_id(2176)
+async def test_remote_source_fallback_rejects_non_code_values() -> None:
+    """兜底收口（06_04）：契约不可达且来源值不可作租户编码（域名 / 非法编码）按未命中 4xx，不构造非法库名。"""
+    client = _client(ServiceUnavailableError("kill"), ServiceUnavailableError("kill"))
+    source = RemoteTenantSource(client=client, allow_fallback=True)
+
+    with pytest.raises(TenantNotFoundError):
+        await source.by_domain("demo.bms.example.com")
+    with pytest.raises(TenantNotFoundError):
+        await source.by_code("127.0.0.1")
+
+
+@pytest.mark.kiwi_id(2176)
 async def test_remote_source_by_domain_and_registration_idempotent() -> None:
     """按域名取上下文（query 为 domain）；`register_remote_tenant_source` 幂等可重复调用。"""
     register_remote_tenant_source()
