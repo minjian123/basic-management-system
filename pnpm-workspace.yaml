@@ -1,0 +1,7 @@
+packages:
+  - 'frontend/packages/*'
+  - 'frontend/apps/*'
+  - 'frontend/modules/*'
+allowBuilds:
+  '@parcel/watcher': true
+  vue-demi: true

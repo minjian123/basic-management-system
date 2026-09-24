@@ -62,9 +62,11 @@ local_settings.py
 db.sqlite3
 db.sqlite3-journal
 
-# BMS 本地运行产物（起服务 / 本地调试生成的 SQLite 库，不入库；04-3 核对时补）
+# BMS 本地运行产物（起服务 / 本地调试生成的 SQLite 库；覆盖 backend 根及 libs/services 子目录，不入库）
 backend/bms_*.db
 backend/bms_*.db-journal
+backend/**/bms_*.db
+backend/**/bms_*.db-journal
 
 # Flask stuff:
 instance/
@@ -238,7 +240,7 @@ bms文档/用户文档/本地资源.md
 temp/
 
 # Node 依赖（根目录不装依赖；前端依赖在各前端项目自己的目录内）
-node_modules/
+node_modules
 
 # Module Federation 构建诊断产物（模块工程 / 宿主构建时生成）
 .mf/

@@ -13,7 +13,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@bms/core": "0.0.0",
+    "@bms/core": "workspace:*",
     "@codemirror/lang-javascript": "^6.2.5",
     "@codemirror/lang-json": "^6.0.2",
     "@codemirror/lang-sql": "^6.10.0",
@@ -27,6 +27,7 @@
     "@vue-flow/controls": "^1.1.3",
     "@vue-flow/core": "^1.48.2",
     "bpmn-js": "18.28.0",
+    "bpmn-moddle": "10.3.1",
     "codemirror": "^6.0.2",
     "cropperjs": "^2.2.0",
     "dompurify": "^3.4.15",
@@ -45,6 +46,7 @@
     "element-plus": "^2.14.5",
     "jsdom": "^30.0.1",
     "vue": "^3.5.41",
+    "vitest": "^5.0.0",
     "vue-tsc": "^3.3.11"
   }
 }

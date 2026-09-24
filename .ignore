@@ -1,0 +1,18 @@
+# 检索屏蔽：依赖与构建产物（仅 ripgrep 类检索工具读取，不影响 git 跟踪）
+# 与 .gitignore 双保险——依赖已物理外置（见 bms/scripts/tools/deps/）后此处兜底，
+# 确保任何工具（不遵循 gitignore 的 glob 类检索）都不再扫依赖与产物。
+node_modules/
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+dist/
+coverage/
+.mf/
+.pnpm-store/
+*.db
+*.db-journal
+
+# 模块发布版本目录为构建产物（release-log 治理留痕须可检索）
+frontend/releases/*
+!frontend/releases/release-log.*
