@@ -187,18 +187,19 @@ refs:
 
 | 项 | 位置 / 行为 |
 | --- | --- |
-| 桌面项 `更新 dsh与插件` | `~/.local/share/applications/更新 dsh与插件.desktop`，`Terminal=true` 直跑 `bms/scripts/tools/dsh/dsh-update.sh`（2026-09-09 新增） |
+| 桌面项 `更新 dsh与插件` | `~/.local/share/applications/更新 dsh与插件.desktop`，`Terminal=true` 直跑 `bash ~/.local/bin/dsh-update.sh`（dsh 专属脚本，独立于 bms 仓库；2026-09-24 从 `bms/scripts/tools/dsh/` 迁出） |
 | `~/.local/bin/dsh-web-start.sh` | 启动 dsh web：加载 nvm(Node24+pnpm) → **启动前自动检查并更新**（调 `dsh-update.sh --boot`，无人值守，失败不阻断；`DSH_START_SKIP_UPDATE=1` 可临时跳过）→ cd 仓库 → exec `node apps/cli/lib/bin.js web`（**构建产物方式**；前台，终端内跑便于看日志；缺产物时提示先构建。**不得用 `pnpm dsh web`**，原因见 7.2 FAQ） |
 | `~/.local/bin/dsh-web-stop.sh` | 停止 dsh web：按端口 3080 定位 PID → kill → 等端口释放(≤5s) → 兜底 kill -9 → notify-send |
 
 ```text
 ~/.local/bin/
+└── dsh-update.sh       # 更新 dsh 源码与 web 插件（独立于 bms 仓库）
 └── dsh-web-start.sh    # 启动 dsh web（前台）
 └── dsh-web-stop.sh     # 停止 dsh web（按端口，含兜底强杀与通知）
-（更新脚本位于 bms 仓库 scripts/tools/dsh/dsh-update.sh，桌面项 Exec 直接指向仓库路径）
+（桌面项 Exec 直接指向 ~/.local/bin/dsh-update.sh）
 ```
 
-`dsh-update.sh` **幂等更新流程**：先比对版本——dsh 主体比对本地 HEAD 与 origin/master，插件（dsh-free-vision、dsh-undo-savepoint、dshmarket、dsh-mnemon）比对已装版本与 npm 最新（查询在 profile 目录内执行，**走国内镜像 npmmirror**）；**全部一致且 web 在跑 → 提示退出（不动 web）；web 未跑 → 直接启动**；任一落后才停 web → 只更新落后项（`git pull --ff-only` / `pnpm install` / `pnpm run build`、插件 `up --latest` + `rebuild` 重跑插件构建脚本（编译）并核对更新后版本）→ 以构建产物重启（`node apps/cli/lib/bin.js web`）。网络查询失败（离线/慢）时跳过对应项、**不误停 web**；更新命令均带超时（pull 5min / install 10min / build 15min / up 5min / rebuild 5min），任何失败路径由 EXIT 兜底把 web 拉起，不会出现"停了起不来"。支持 `--force`（跳过版本检查强制全量更新，插件同样走更新+重编译）、`--no-restart`（只更新不重启）、`--boot`（启动前模式，见下）。更新前的 profile 配置/插件树已被 dsh-undo-savepoint 自动快照，出错可 undo 回滚（见 8.2）。
+`dsh-update.sh` **幂等更新流程**：先比对版本——dsh 主体比对本地 HEAD 与 origin/master，插件（dsh-free-vision、dsh-undo-savepoint、dshmarket、dsh-mnemon）比对已装版本与 npm 最新（查询在 profile 目录内执行，**走国内镜像 npmmirror**）；**全部一致且 web 在跑 → 提示退出（不动 web）；web 未跑 → 直接启动**；任一落后才停 web → 只更新落后项（`git pull --ff-only` / `pnpm install` / `pnpm run clean` / `pnpm run build`、插件 `up --latest` + `rebuild` 重跑插件构建脚本（编译）并核对更新后版本）→ 以构建产物重启（`node apps/cli/lib/bin.js web`）。网络查询失败（离线/慢）时跳过对应项、**不误停 web**；更新命令均带超时（pull 5min / install 10min / clean 5min / build 15min / up 5min / rebuild 5min），任何失败路径由 EXIT 兜底把 web 拉起，不会出现"停了起不来"。支持 `--force`（跳过版本检查强制全量更新，插件同样走更新+重编译）、`--no-restart`（只更新不重启）、`--boot`（启动前模式，见下）。更新前的 profile 配置/插件树已被 dsh-undo-savepoint 自动快照，出错可 undo 回滚（见 8.2）。
 
 **每次启动先自动更新**（2026-09-18 新增）：`dsh-web-start.sh` 在 exec 启动前调用 `dsh-update.sh --boot`——启动前模式**只检查/更新，绝不启停 web**；web 已在运行则直接跳过；检出有未提交改动时降级为「跳过源码更新、只更新插件」而不中止；更新失败仅打印告警，仍用当前版本继续启动。即「启动 dsh web」与「更新 dsh与插件」共用同一套版本比对与更新逻辑，不必先点更新再点启动。临时跳过本次检查：`DSH_START_SKIP_UPDATE=1 bash ~/.local/bin/dsh-web-start.sh`。
 
@@ -211,7 +212,7 @@ cd /home/minjian/develop/deepseek-harness
 pnpm run typecheck    # 类型检查
 pnpm run lint         # oxlint
 pnpm test             # vitest
-bash /home/minjian/develop/bizs/bms/scripts/tools/dsh/dsh-update.sh   # 一键更新（桌面「更新 dsh与插件」同款，桌面走 ~/.local/bin/bms-tools.sh dsh-update）：源码 git pull + 依赖 + 构建 + 插件最新（含重编译） + 重启 web
+bash /home/minjian/.local/bin/dsh-update.sh   # 一键更新（桌面「更新 dsh与插件」同款，Exec 直接指向本脚本）：源码 git pull + 依赖 + clean（清删包残留） + 构建 + 插件最新（含重编译） + 重启 web
 DSH_START_SKIP_UPDATE=1 bash ~/.local/bin/dsh-web-start.sh            # 启动 dsh web，但跳过「启动前自动更新检查」
 ```
 
