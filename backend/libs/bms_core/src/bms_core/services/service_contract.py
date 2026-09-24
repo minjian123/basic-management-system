@@ -15,6 +15,7 @@ from typing import cast
 from bms_core.services.module_registry import SERVICE_CATALOG, ModuleRecord, ModuleStatus
 
 __all__ = [
+    "BASELINE_DIR",
     "CONTRACTS_DIR",
     "contract_file_name",
     "enabled_service_records",
@@ -25,6 +26,9 @@ __all__ = [
 
 CONTRACTS_DIR = "deploy/contracts"
 """公开契约快照目录（相对仓库根；每启用服务一份 `<service_key>.json`）。"""
+
+BASELINE_DIR = "deploy/contracts/baseline"
+"""公开契约基线目录（相对仓库根；每启用服务一份 `<service_key>.json`，入 Git、仅经评审更新）。"""
 
 
 def contract_file_name(service_key: str) -> str:

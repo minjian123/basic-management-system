@@ -852,6 +852,66 @@ swagger-snapshot:
     paths: [deploy/contracts/*.json, deploy/events/*.json]
     expire_in: 30 days
 
+# ---- 契约门禁：oasdiff 破坏性变更拦截 + Schemathesis 契约冒烟（重验证层，09_03）----
+# 口径（《部署发布规范》「契约门禁」节、任务 09_03 详细设计）：
+#   - 独立基线 deploy/contracts/baseline/<service>.json（入 Git，仅经评审更新；无自动覆盖路径）；
+#   - oasdiff breaking 比对基线 ↔ 实时公开契约，「只加不删」，破坏性变更即失败并输出中文清单；
+#   - 破坏数 bms_contract_breaking_total{service} 经 after_script 推送 Pushgateway（08_02 通道）；
+#   - Schemathesis 源码起真实服务（uv run python -m bms_{service}，dev/SQLite）+ 容器经
+#     --network container:$HOSTNAME 打真实服务（零 Broker，只读 GET/HEAD + 有限样例）。
+# 工具镜像固定 tag（tufin/oasdiff / schemathesis/schemathesis），需在 mjbk 预拉
+# （scripts/tools/docker/镜像清单.txt）；ci-backend 基础镜像已加装 docker CLI。
+contract-gate:
+  stage: verify
+  image: $REGISTRY_IMAGE_PREFIX/ci-backend:py314
+  needs: [{job: swagger-snapshot, optional: true}]
+  variables:
+    # 阶段度量地址（可被项目 CI/CD 变量覆盖，未配置则跳过推送）
+    PUSHGATEWAY_URL: "http://192.168.0.107:9092"
+  rules:
+    # MR 流水线：全量门禁（恢复 MR 流程后生效；当前 workflow 未放行 MR 事件）
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      exists: [deploy/ci/verify/contract-gate]
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes:
+        paths:
+          - backend/**/*
+          - deploy/**/*
+      exists:
+        - deploy/ci/verify/contract-gate
+  script:
+    - cd backend && uv sync --frozen
+    # 破坏数指标文本始终写出（含 0），供 after_script 推送；破坏性变更时 check 非零退出
+    - uv run python -m ops.contract_gate check --metrics-out /tmp/contract-metrics.txt
+  after_script:
+    - |
+      if [ -f /tmp/contract-metrics.txt ]; then
+        cd backend && uv run python -m ops.contract_gate push-metrics \
+          --file /tmp/contract-metrics.txt --gateway "$PUSHGATEWAY_URL" \
+          || echo "契约破坏数推送失败（不阻断门禁结论）"
+      else
+        echo "无破坏数指标文件：跳过推送"
+      fi
+
+contract-smoke:
+  stage: verify
+  image: $REGISTRY_IMAGE_PREFIX/ci-backend:py314
+  needs: [{job: contract-gate, optional: true}]
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      exists: [deploy/ci/verify/contract-gate]
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes:
+        paths:
+          - backend/**/*
+          - deploy/**/*
+      exists:
+        - deploy/ci/verify/contract-gate
+  script:
+    - cd backend && uv sync --frozen
+    # 源码直跑真实服务 + Schemathesis 容器打真实服务（只读 GET/HEAD + 有限样例；零 Broker）
+    - uv run python -m ops.contract_smoke run --max-examples 50
+
 # ---- Allure 结果归档 + Kiwi TCMS 导入（分档开关 deploy/ci/verify/report，P2 档；2026-09-22 关闭，无消费方）----
 # 口径（04-4 后重验证层就绪评估结论）：
 #   - 结果产出：全量 pytest 带 --alluredir（HTML 报告需 Allure CLI（Java 工具，非 pip 包），由需方按需生成；CI 归档原始结果）

@@ -88,6 +88,20 @@ def _yaml_parse(root: Path, failures: list[str]) -> None:
     else:
         print("  失败：scripts/tools/deploy/release.py 缺失")
         failures.append("部署 CLI 缺失")
+    # 契约门禁结构层存在性（09_03；行为由 Kiwi 2186 护栏用例覆盖）
+    gate_assets = [
+        root / "deploy" / "ci" / "verify" / "contract-gate",
+        root / "deploy" / "contracts" / "baseline",
+        root / "backend" / "ops" / "contract_gate.py",
+        root / "backend" / "ops" / "contract_smoke.py",
+    ]
+    for asset in gate_assets:
+        rel = asset.relative_to(root)
+        if asset.exists():
+            print(f"  通过（{rel} 就位）")
+        else:
+            print(f"  失败：{rel} 缺失")
+            failures.append(f"契约门禁资产缺失（{rel}）")
 
 
 def _pytest_flags_from_ci(root: Path, backend: Path, failures: list[str]) -> None:

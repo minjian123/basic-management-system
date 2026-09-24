@@ -13,6 +13,8 @@ check` 事件契约注册表 / 兼容 / 零漂移门禁 + export deploy/events/c
 - 事件契约：平台默认事件契约（bms_core/events/platform_events.py）+ 订阅声明经
   bms_core/events/contracts.py 校验（命名 / 事件域 / 版本 / 字段 / 订阅覆盖）与快照零漂移；
   兼容规则为「字段只增不删、新增必须可选、破坏性变更升主版本」。
-- 破坏性变更（oasdiff「只加不删」、升主版本）门禁归 09_03（消费本 job 归档的快照）。
+- 破坏性变更（oasdiff「只加不删」、升主版本）门禁已由 09_03 **contract-gate** job 落地（独立基线
+  deploy/contracts/baseline/ + Schemathesis 冒烟，见档位 deploy/ci/verify/contract-gate）；本档仍只做
+  快照零漂移与归档（contract-gate 消费其同源契约，不复用归档产物）。
 
 删除本文件即关闭该档；分档语义与激活路线见 .gitlab-ci.yml 文件头注释与《项目骨架计划》§3.1。
