@@ -4,6 +4,15 @@
 # 核心模块（认证/RBAC/工作流/审计/收付款）≥ 80% 子阈值随对应模块落地（认证 / RBAC 阶段）接入。
 # backend/ frontend/apps/desktop/ 尚未落地（阶段一骨架），对应 job 以 exists 守卫，
 # 目录与清单文件出现后自动启用。
+#
+# 父-子流水线（阶段二 09_01，《架构设计 · 测试与质量》「CI 流水线」节）：
+#   - 后端 9 个启用服务（服务目录 enabled_service_keys）各一个 trigger job（stage trigger），
+#     按变更路径拉起服务子流水线（公共模板 deploy/ci/templates/backend-service.yml，只测 / 构建 /
+#     发布该服务；镜像与版本按服务独立）；
+#   - backend/services/** 变更只拉起对应服务；共享 / 工作区路径（backend/libs、backend/ops、
+#     backend/alembic、config*.toml、pyproject.toml、uv.lock、deploy/**、.gitlab-ci.yml）变更由
+#     backend-test 全量测试兜底；MR 流水线全量（恢复 MR 流程后生效）；其他分支以 compare_to 兜底；
+#   - 前端 job 群（desktop / mobile / modules）保持父流水线现状，不套「服务」概念。
 
 workflow:
   # 新推送自动取消同分支上一条未完成流水线（仅取消可中断 job）：
@@ -45,6 +54,8 @@ stages:
   - prepare
   - lint
   - test
+  # 父流水线调度层：trigger 拉起服务子流水线（strategy: depend 等待终态）
+  - trigger
   - build
   - verify
 
@@ -207,14 +218,37 @@ backend-test:
   variables:
     BMS_ENV: test
   rules:
+    # MR 流水线：全量门禁（恢复 MR 流程后生效；当前 workflow 未放行 MR 事件）
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       exists:
         - backend/pyproject.toml
+    # main 直推：仅共享 / 工作区路径变更跑全量（服务变更由服务子流水线工程级测试覆盖）
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
         paths:
-          - backend/**/*
+          - backend/libs/**/*
+          - backend/ops/**/*
+          - backend/alembic/**/*
+          - backend/config*.toml
+          - backend/pyproject.toml
+          - backend/uv.lock
           - deploy/**/*
+          - .gitlab-ci.yml
+      exists:
+        - backend/pyproject.toml
+    # 其他分支（web / api 手动触发）：以 main 为 diff 基准兜底
+    - if: $CI_COMMIT_BRANCH
+      changes:
+        compare_to: 'refs/heads/main'
+        paths:
+          - backend/libs/**/*
+          - backend/ops/**/*
+          - backend/alembic/**/*
+          - backend/config*.toml
+          - backend/pyproject.toml
+          - backend/uv.lock
+          - deploy/**/*
+          - .gitlab-ci.yml
       exists:
         - backend/pyproject.toml
   script:
@@ -223,6 +257,145 @@ backend-test:
     - uv run pytest --cov=bms_core --cov=bms_platform --cov=bms_identity --cov=bms_tenant --cov=bms_org --cov=bms_file --cov=bms_notification --cov=bms_search --cov=bms_ai --cov=bms_report --cov-branch --cov-report=term --cov-fail-under=70
   coverage: '/^TOTAL.*?\s+\d+\s+\d+\s+(\d+(?:\.\d+)?%)$/'
   # 核心模块（认证/RBAC/工作流/审计/收付款）≥ 80% 子阈值随对应模块落地（认证 / RBAC 阶段）接入（见 04_01 详细设计 §6.1）
+
+# ---- 服务子流水线调度（父-子流水线，09_01）----
+# 口径：main 直推按变更路径只拉起受影响服务；MR 流水线全量（恢复 MR 流程后生效）；
+#       其他分支（web / api 手动触发）以 main 为 diff 基准兜底（compare_to）。
+# 服务子流水线：公共模板 deploy/ci/templates/backend-service.yml（只测 / 构建 / 发布该服务），
+#       strategy: depend 使父流水线反映子流水线终态（失败即父流水线失败，缺陷上报链路照常）。
+# 服务清单与 .gitlab-ci.yml 的一致性由 CI 配置护栏用例断言（tests/ops/test_ci_pipeline.py）。
+.trigger-service: &trigger-service
+  stage: trigger
+  trigger:
+    include:
+      - local: deploy/ci/templates/backend-service.yml
+    strategy: depend
+
+trigger-platform:
+  <<: *trigger-service
+  variables:
+    SERVICE: platform
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes:
+        paths: [backend/services/platform/**/*]
+    - if: $CI_COMMIT_BRANCH
+      changes:
+        compare_to: 'refs/heads/main'
+        paths: [backend/services/platform/**/*]
+
+trigger-identity:
+  <<: *trigger-service
+  variables:
+    SERVICE: identity
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes:
+        paths: [backend/services/identity/**/*]
+    - if: $CI_COMMIT_BRANCH
+      changes:
+        compare_to: 'refs/heads/main'
+        paths: [backend/services/identity/**/*]
+
+trigger-tenant:
+  <<: *trigger-service
+  variables:
+    SERVICE: tenant
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes:
+        paths: [backend/services/tenant/**/*]
+    - if: $CI_COMMIT_BRANCH
+      changes:
+        compare_to: 'refs/heads/main'
+        paths: [backend/services/tenant/**/*]
+
+trigger-org:
+  <<: *trigger-service
+  variables:
+    SERVICE: org
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes:
+        paths: [backend/services/org/**/*]
+    - if: $CI_COMMIT_BRANCH
+      changes:
+        compare_to: 'refs/heads/main'
+        paths: [backend/services/org/**/*]
+
+trigger-file:
+  <<: *trigger-service
+  variables:
+    SERVICE: file
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes:
+        paths: [backend/services/file/**/*]
+    - if: $CI_COMMIT_BRANCH
+      changes:
+        compare_to: 'refs/heads/main'
+        paths: [backend/services/file/**/*]
+
+trigger-notification:
+  <<: *trigger-service
+  variables:
+    SERVICE: notification
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes:
+        paths: [backend/services/notification/**/*]
+    - if: $CI_COMMIT_BRANCH
+      changes:
+        compare_to: 'refs/heads/main'
+        paths: [backend/services/notification/**/*]
+
+trigger-search:
+  <<: *trigger-service
+  variables:
+    SERVICE: search
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes:
+        paths: [backend/services/search/**/*]
+    - if: $CI_COMMIT_BRANCH
+      changes:
+        compare_to: 'refs/heads/main'
+        paths: [backend/services/search/**/*]
+
+trigger-ai:
+  <<: *trigger-service
+  variables:
+    SERVICE: ai
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes:
+        paths: [backend/services/ai/**/*]
+    - if: $CI_COMMIT_BRANCH
+      changes:
+        compare_to: 'refs/heads/main'
+        paths: [backend/services/ai/**/*]
+
+trigger-report:
+  <<: *trigger-service
+  variables:
+    SERVICE: report
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes:
+        paths: [backend/services/report/**/*]
+    - if: $CI_COMMIT_BRANCH
+      changes:
+        compare_to: 'refs/heads/main'
+        paths: [backend/services/report/**/*]
 
 # ---- 三库测试库流程计划校验（无需真库；脚本占位期的 CI 实证，见 04_02 详细设计 §5.1）----
 integration-plan:
@@ -498,7 +671,8 @@ mobile-build:
 #   deploy/ci/verify/contract  契约快照（swagger）        —— P1 已开
 #   deploy/ci/verify/defect    缺陷自动上报（on_failure）  —— P1 已开
 #   deploy/ci/verify/report    Allure 归档 + Kiwi 导入     —— P2 已于 2026-09-22 关闭（无消费方：不生成 Allure HTML、Kiwi CI 产品仅人工浏览；重复全量 ~158s）
-#   deploy/ci/verify/image     镜像构建推送 + Trivy 扫描   —— P3 待开（前置：backend/Dockerfile、frontend/apps/desktop/Dockerfile）
+#   deploy/ci/verify/image     按服务镜像构建 / 发布 / 扫描 —— P3 已开（2026-09-24，09_01：backend/Dockerfile 参数化就绪；
+#                              后端由服务子流水线 service-build / service-release 承载，前端镜像 frontend-image 仍待 desktop/Dockerfile）
 #   deploy/ci/verify/e2e       Playwright E2E             —— P4 待开（前置：tests/e2e 用例、--e2e-headless、Playwright 依赖与浏览器、job 内服务编排）
 #   deploy/ci/verify/db        三库真库集成                —— P4 已开（2026-09-22：test_db 实现 + alembic 在线分支 + 方言用例 + masked 变量齐备）
 # 各 job 只守自己的档；删除对应文件即关闭该档（不再使用旧单开关 deploy/ci/verify-enabled）。
@@ -609,27 +783,13 @@ integration-dm8:
 
 # ---- 镜像构建推 Registry（5050，insecure 已配置于 mjbk daemon.json）----
 # runner 挂载宿主 docker.sock，job 直接用宿主 daemon 构建，无需 dind。
+# 后端按服务镜像（bms-{service}）构建 / 发布 / 扫描已迁入服务子流水线
+# （deploy/ci/templates/backend-service.yml，09_01）；本锚点现仅前端镜像使用。
 .build-push-base: &build-push-base
   stage: verify
   image: docker:27-cli
   before_script:
     - echo "$GITLAB_API_TOKEN" | docker login 192.168.0.107:5050 -u root --password-stdin
-
-backend-image:
-  <<: *build-push-base
-  needs: [{job: backend-test, optional: true}]
-  rules:
-    # 重验证层分档开关：deploy/ci/verify/image（P3；开启前提＝backend/Dockerfile 已就绪）
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-      changes:
-        paths:
-          - backend/**/*
-          - deploy/**/*
-      exists:
-        - deploy/ci/verify/image
-  script:
-    - docker build -t $REGISTRY_IMAGE_PREFIX/bms-backend:$CI_COMMIT_SHORT_SHA -f backend/Dockerfile backend/
-    - docker push $REGISTRY_IMAGE_PREFIX/bms-backend:$CI_COMMIT_SHORT_SHA
 
 frontend-image:
   <<: *build-push-base
@@ -650,23 +810,6 @@ frontend-image:
   script:
     - docker build -t $REGISTRY_IMAGE_PREFIX/bms-frontend:$CI_COMMIT_SHORT_SHA -f frontend/apps/desktop/Dockerfile frontend/apps/desktop/
     - docker push $REGISTRY_IMAGE_PREFIX/bms-frontend:$CI_COMMIT_SHORT_SHA
-
-# ---- 容器镜像安全扫描：Trivy 高危阻断发版 ----
-container-scanning:
-  stage: verify
-  image: aquasec/trivy:latest
-  needs: [{job: backend-image, optional: true}]
-  rules:
-    # 重验证层分档开关：deploy/ci/verify/image（P3；与镜像构建同档，Trivy 需 mjbk 可达 ghcr.io 拉 DB——2026-09-15 实测可达）
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-      changes:
-        paths:
-          - backend/**/*
-          - deploy/**/*
-      exists:
-        - deploy/ci/verify/image
-  script:
-    - trivy image --exit-code 1 --severity CRITICAL,HIGH --ignore-unfixed $REGISTRY_IMAGE_PREFIX/bms-backend:$CI_COMMIT_SHORT_SHA
 
 # ---- 公开契约快照（各启用服务 OpenAPI）----
 swagger-snapshot:

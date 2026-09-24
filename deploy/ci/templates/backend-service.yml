@@ -1,0 +1,95 @@
+# 服务子流水线公共模板（父-子流水线，阶段二 09_01）
+#
+# 职责：只测试 / 构建 / 发布**该服务**——工程级测试（本服务包覆盖率 ≥70%）→ 按服务镜像
+#       bms-{service}:$CI_COMMIT_SHORT_SHA → 推送 Registry + Trivy 扫描 + 发布度量推送。
+# 拉起：父流水线 .trigger-service 锚点（include: local 引用本文件 + variables.SERVICE），
+#       见 .gitlab-ci.yml「服务子流水线调度」节。
+# 跨项目复用（产品仓库等）：以 trigger.include.project 作为**子流水线配置**引用并固定完整 SHA：
+#       trigger.include: [{project: bms/bms, ref: <完整 40 位 SHA>, file: <本文件>}]
+#       （禁止分支 / 短 SHA 引用；口径见《部署发布规范》「镜像与版本」节）。
+# 开关：build / release 以 deploy/ci/verify/image 档守卫（删档即关，仅保留 test）。
+workflow:
+  auto_cancel:
+    on_new_commit: interruptible
+  rules:
+    # 本模板只作子流水线配置使用（source = parent_pipeline）
+    - if: $CI_PIPELINE_SOURCE == "parent_pipeline"
+
+default:
+  tags: [bms]
+  interruptible: true
+
+variables:
+  # 与父流水线 .gitlab-ci.yml 的 REGISTRY_IMAGE_PREFIX 同值（CI 配置护栏用例断言，防漂移）
+  REGISTRY_HOST: 192.168.0.107:5050
+  REGISTRY_IMAGE_PREFIX: 192.168.0.107:5050/bms/bms
+  # 阶段度量通道（08_02；可被项目 CI/CD 变量覆盖，未配置则跳过推送）
+  PUSHGATEWAY_URL: "http://192.168.0.107:9092"
+
+stages:
+  - test
+  - build
+  - release
+
+# ---- 测试：本服务工程级范围（services/{service}/tests）+ 本服务包覆盖率 ≥70% ----
+service-test:
+  stage: test
+  image: $REGISTRY_IMAGE_PREFIX/ci-backend:py314
+  variables:
+    BMS_ENV: test
+  script:
+    - test -n "$SERVICE" || { echo "缺少 SERVICE 变量（须由父流水线 trigger 传入）"; exit 1; }
+    - test -d "backend/services/$SERVICE" || { echo "服务目录不存在：backend/services/$SERVICE"; exit 1; }
+    - cd backend
+    - uv sync --frozen
+    - cd "services/$SERVICE"
+    - uv run pytest -q --cov="bms_$SERVICE" --cov-branch --cov-report=term --cov-fail-under=70
+  coverage: '/^TOTAL.*?\s+\d+\s+\d+\s+(\d+(?:\.\d+)?%)$/'
+
+# ---- 构建：按服务镜像（main + 镜像档；标签 commit short SHA，不可变口径归 09_02）----
+service-build:
+  stage: build
+  image: docker:27-cli
+  needs: [service-test]
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      exists:
+        - deploy/ci/verify/image
+  script:
+    - IMAGE="$REGISTRY_IMAGE_PREFIX/bms-$SERVICE:$CI_COMMIT_SHORT_SHA"
+    # --provenance=false：BuildKit 默认 attestation（provenance）清单推送会被 GitLab Registry 拒绝
+    # （报 blob unknown；2026-09-24 mjbk 实测），关闭后推送正常
+    - docker build --provenance=false --build-arg SERVICE="$SERVICE" -t "$IMAGE" -f backend/Dockerfile backend/
+
+# ---- 发布：推送 Registry + 镜像安全扫描 + 发布度量（main + 镜像档；同服务串行、不可中断）----
+service-release:
+  stage: release
+  image: docker:27-cli
+  needs: [service-build]
+  resource_group: bms-release-$SERVICE
+  interruptible: false
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      exists:
+        - deploy/ci/verify/image
+  before_script:
+    - echo "$GITLAB_API_TOKEN" | docker login "$REGISTRY_HOST" -u root --password-stdin
+  script:
+    - IMAGE="$REGISTRY_IMAGE_PREFIX/bms-$SERVICE:$CI_COMMIT_SHORT_SHA"
+    - docker push "$IMAGE"
+    # 镜像安全扫描（架构「main 分支镜像构建 + 扫描」口径；CRITICAL / HIGH 阻断发布）
+    # - trivy 固定 tag；-v trivy-cache 持久化漏洞库（免每次重下）；DB 走国内镜像
+    #   （默认 mirror.gcr.io 在 mjbk 不可达，实测 ghcr.nju.edu.cn 可用）
+    - docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v trivy-cache:/root/.cache/trivy -e TRIVY_DB_REPOSITORY=ghcr.nju.edu.cn/aquasecurity/trivy-db:2 aquasec/trivy:0.74.0 image --exit-code 1 --severity CRITICAL,HIGH --ignore-unfixed "$IMAGE"
+  after_script:
+    # 发布度量推送（08_02 通道；按 job 终态记 success / failure；不可达不改变发布结论；数据末尾须换行）
+    - |
+      RESULT=failure
+      [ "$CI_JOB_STATUS" = "success" ] && RESULT=success
+      if [ -n "$PUSHGATEWAY_URL" ]; then
+        printf 'bms_release_total{service="%s",result="%s"} 1\n' "$SERVICE" "$RESULT" > /tmp/metrics.txt
+        wget -q -O- --post-file=/tmp/metrics.txt "$PUSHGATEWAY_URL/metrics/job/bms-ci" \
+          || echo "阶段度量推送失败（不阻断发布结论）"
+      else
+        echo "PUSHGATEWAY_URL 未配置：跳过阶段度量推送"
+      fi

@@ -1,0 +1,5 @@
+# 服务运行镜像构建上下文（backend/）：排除开发库、缓存与基准脚本
+**/__pycache__
+**/.pytest_cache
+*.db
+benchmarks/

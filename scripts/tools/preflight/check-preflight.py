@@ -3,8 +3,9 @@
 
 覆盖（按序执行，失败汇总、末尾给结论）：
 
-1. **CI 配置自检**：`.gitlab-ci.yml` YAML 解析；`backend-test` 里 `uv run pytest` 的长选项逐项用本地
-   `pytest --help` 校验（防 `--kiwicms` 之类拼错）；可选 GitLab CI Lint（有 token 时）。
+1. **CI 配置自检**：`.gitlab-ci.yml` 与 `deploy/ci/templates/*.yml`（服务子流水线模板）YAML 解析；
+   `backend-test` 里 `uv run pytest` 的长选项逐项用本地 `pytest --help` 校验（防 `--kiwicms` 之类拼错）；
+   可选 GitLab CI Lint（有 token 时）。
 2. **后端静态**：`ruff check` / `ruff format --check` / `pyright`。
 3. **后端测试**：聚合全量（含覆盖率门禁）+ **工程级范围**（`bms_core` 与各服务目录各跑一次，验证
    「每工程只跑本工程」不落根全量）。
@@ -55,7 +56,7 @@ def _run(label: str, cmd: list[str], cwd: Path, failures: list[str]) -> bool:
 
 
 def _yaml_parse(root: Path, failures: list[str]) -> None:
-    """解析 `.gitlab-ci.yml`（结构自检）。
+    """解析 CI 配置（`.gitlab-ci.yml` + `deploy/ci/templates/*.yml`；结构自检）。
 
     Args:
         root: bms 仓库根。
@@ -66,13 +67,16 @@ def _yaml_parse(root: Path, failures: list[str]) -> None:
     except ModuleNotFoundError:
         print("\n[preflight] CI 配置自检：跳过（本机无 pyyaml）")
         return
-    print("\n[preflight] CI 配置自检：.gitlab-ci.yml 解析")
-    try:
-        yaml.safe_load((root / ".gitlab-ci.yml").read_text(encoding="utf-8"))
-        print("  通过")
-    except Exception as exc:  # noqa: BLE001
-        print(f"  失败：{exc}")
-        failures.append("CI YAML 解析")
+    targets = [root / ".gitlab-ci.yml", *sorted((root / "deploy" / "ci" / "templates").glob("*.yml"))]
+    print("\n[preflight] CI 配置自检：CI YAML 解析")
+    for path in targets:
+        rel = path.relative_to(root)
+        try:
+            yaml.safe_load(path.read_text(encoding="utf-8"))
+            print(f"  通过（{rel}）")
+        except Exception as exc:  # noqa: BLE001
+            print(f"  失败（{rel}）：{exc}")
+            failures.append(f"CI YAML 解析（{rel}）")
 
 
 def _pytest_flags_from_ci(root: Path, backend: Path, failures: list[str]) -> None:

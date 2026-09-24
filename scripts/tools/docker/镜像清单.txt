@@ -14,6 +14,9 @@ prom/alertmanager:v0.33.1
 prom/blackbox-exporter:v0.28.0
 prom/pushgateway:v1.11.3
 
+# ===== 镜像安全扫描（09_01 服务子流水线 release；固定 tag）=====
+aquasec/trivy:0.74.0
+
 # ===== 基础设施 / 网关（按需启用；固定 tag）=====
 # redis:8
 # mysql:8.4

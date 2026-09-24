@@ -20,11 +20,18 @@ from sqlalchemy import Table, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from bms_core.application import BaseServiceApplicationFactory, service_lifespan
+from bms_core.catalog.loader import register_catalog_reader
 from bms_core.core.config import get_settings
 from bms_core.core.error_codes import ErrorCode
 from bms_core.core.exceptions import CatalogError, ServiceUnavailableError
 from bms_core.services.module_registry import SERVICE_CATALOG, ModuleRecord, ServiceGroup
 from bms_platform.models.catalog import SysModule
+from bms_platform.sources.catalog_source import read_catalog
+
+# 工程级 / 子集运行自足（09_01）：platform 权威读取器由服务包装配期登记（bms_platform.main::configure_service）；
+# 子集运行（cd libs/bms_core && pytest / pytest libs/bms_core/tests）不经过该装配路径，
+# 这里显式登记同一读取器（幂等，后登记者为准），保证用例独立可跑、不依赖全量运行的导入顺序。
+register_catalog_reader("platform", read_catalog)
 
 _FIELDS = (
     "module_key",
