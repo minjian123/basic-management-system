@@ -72,5 +72,35 @@ while IFS= read -r d; do
 done < "$tmp_list"
 rm -f "$tmp_list"
 echo "[外置] 完成：共 $count 个依赖目录。"
+
+# ---- 修复 workspace 包软链 ----
+# pnpm 的 workspace 包（如 @bms/core）在 node_modules 内是**指向项目源码目录的相对软链**
+# （例：node_modules/@bms/core -> ../../../core）。依赖目录整体搬到依赖仓后，该相对路径改以
+# 依赖仓为基准解析，指向依赖仓内并不存在的源码目录而断裂，依赖它的包（如 @bms/vue）随之
+# 报「Cannot find module '@bms/core'」，本地类型检查 / 测试失败（CI 现装态不受影响）。
+# 此处把这类断链重写为指向项目源码的绝对路径：外置收益（依赖不占项目树、检索不跟随软链）
+# 不变，本地门禁与 CI 口径一致。
+# 幂等：已指向项目内的软链解析后不以依赖仓开头，天然跳过。
+fix_workspace_links() {
+    find "$DEPS_DIR" -type l 2>/dev/null | while IFS= read -r link; do
+        target=$(readlink -f "$link" 2>/dev/null || true)
+        [ -n "$target" ] || continue
+        case "$target" in
+            "$DEPS_DIR"/*) ;;
+            *) continue ;;
+        esac
+        # 完整包目录（含 package.json）或存在的文件类链接 → 正常，跳过；
+        # 其余（目录缺 package.json、断链）→ 视为 workspace 链接候选
+        if [ -f "$target/package.json" ]; then continue; fi
+        if [ ! -d "$target" ] && [ -e "$target" ]; then continue; fi
+        rel="${target#"$DEPS_DIR"/}"
+        src="$ROOT/$rel"
+        [ -e "$src" ] || continue
+        echo "[修复] 工作区软链 ${link#"$DEPS_DIR"/} -> $src"
+        run ln -snf "$src" "$link"
+    done
+}
+fix_workspace_links
+
 echo "[外置] 查看本地依赖仓体积： du -sh \"$DEPS_DIR\""
 echo "[外置] 确认项目内为符号链接： ls -la <包>/node_modules"

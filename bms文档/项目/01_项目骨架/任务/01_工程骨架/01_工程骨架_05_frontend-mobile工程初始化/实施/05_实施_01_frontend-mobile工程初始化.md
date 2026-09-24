@@ -13,7 +13,7 @@
 | 详细设计 | [05_详细设计_01_frontend-mobile工程初始化](../设计/05_详细设计_01_frontend-mobile工程初始化.md) |
 | 实施日期 | 2026-09-10 |
 | 实施人 | minjian |
-| 实施环境 | 开发机（Ubuntu）；Node 22.23.2（nvm）、npm 10.9.8；npm 源 npmmirror |
+| 实施环境 | 开发机（Ubuntu）；Node 22.23.2（nvm）、pnpm 11.x；npm 源 npmmirror |
 | 提交 | —（随本批提交，见仓库 git log） |
 | 结论 | 占位工程升级为完整初始化（Vant + 视口适配 + 同款契约基线）；代理连通实测通过；lint/test/build 全绿 |
 
@@ -30,7 +30,7 @@ flowchart LR
 
 ## 3. 实施过程 <a id="process"></a>
 
-### 3.1 依赖与 npm 源
+### 3.1 依赖与 pnpm 源
 
 - `.npmrc` 同 04（npmmirror + legacy-peer-deps）；
 - 运行依赖：vue-router 4.6、pinia 3.0、axios 1.20、vant 4.10、vue-i18n 11.4；
@@ -59,7 +59,7 @@ flowchart LR
 
 ### 3.5 验证与提交
 
-`npm ci` → `lint` → `test` → `build`；起 backend + dev 实测代理连通；随后形成本批提交（等用户指令）。
+`pnpm install --frozen-lockfile` → `lint` → `test` → `build`；起 backend + dev 实测代理连通；随后形成本批提交（等用户指令）。
 
 ## 4. 问题与处置 <a id="issues"></a>
 
@@ -72,10 +72,10 @@ flowchart LR
 
 | 验证点（完成标准） | 方法 | 结果 |
 | --- | --- | --- |
-| `npm ci` 可复现 | 命令 | 通过 |
-| 代理与统一响应解析 | 起 backend + `npm run dev` 后 curl | 通过（`/info` 与标题见下） |
-| `npm run lint` / `test` / `build` | 命令 | 通过（2 passed，Kiwi 20） |
-| 覆盖率 | `npm run test:cov` | 100%（已导入文件） |
+| `pnpm install --frozen-lockfile` 可复现 | 命令 | 通过 |
+| 代理与统一响应解析 | 起 backend + `pnpm run dev` 后 curl | 通过（`/info` 与标题见下） |
+| `pnpm run lint` / `test` / `build` | 命令 | 通过（2 passed，Kiwi 20） |
+| 覆盖率 | `pnpm run test:cov` | 100%（已导入文件） |
 | Node 版本 | `node -v` | v22.23.2 |
 
 联调实测：页面标题 `BMS 基础管理系统`；`GET /info` → `{"code":0,…,"data":{"name":"BMS 基础管理系统","version":"0.1.0"}}`。

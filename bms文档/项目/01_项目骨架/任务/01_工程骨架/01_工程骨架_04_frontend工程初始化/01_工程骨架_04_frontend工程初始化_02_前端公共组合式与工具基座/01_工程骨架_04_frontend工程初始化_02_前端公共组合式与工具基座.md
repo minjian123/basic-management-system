@@ -29,7 +29,7 @@
 
 ## 3. 完成标准 <a id="accept"></a>
 
-双端五类基座落地（useRequest / useListPage / validators / useTabs / EntityStatus）且 Vitest 全绿、覆盖率 100%；`npm run lint`、`vue-tsc -b`、`npm run build` 通过；测试统一走 `mountWithPlugins`；Kiwi Case 23/24 登记并关联；记录回写。
+双端五类基座落地（useRequest / useListPage / validators / useTabs / EntityStatus）且 Vitest 全绿、覆盖率 100%；`pnpm run lint`、`vue-tsc -b`、`pnpm run build` 通过；测试统一走 `mountWithPlugins`；Kiwi Case 23/24 登记并关联；记录回写。
 
 ## 4. 参考文档 <a id="ref"></a>
 

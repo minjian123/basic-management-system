@@ -308,10 +308,10 @@ export function checkReleaseGuards({ root, name }) {
   const meta = readModuleMeta(moduleDir)
   const contractVersion = loadModuleContractVersion(frontendDir)
   if (!existsSync(join(distDir, REMOTE_ENTRY_FILE))) {
-    violations.push(`产物入口不存在：${join(distDir, REMOTE_ENTRY_FILE)}（请先 npm run build）`)
+    violations.push(`产物入口不存在：${join(distDir, REMOTE_ENTRY_FILE)}（请先 pnpm run build）`)
   }
   if (meta === undefined) {
-    violations.push(`产物元数据不存在或非法：${join(distDir, MODULE_META_FILE)}（请先 npm run build）`)
+    violations.push(`产物元数据不存在或非法：${join(distDir, MODULE_META_FILE)}（请先 pnpm run build）`)
   } else {
     if (meta.name !== name) violations.push(`产物元数据模块名不一致：${String(meta.name)} ≠ ${name}`)
     if (meta.version !== pkg.version) violations.push(`产物元数据版本与 package.json 不一致：${meta.version} ≠ ${pkg.version}`)

@@ -312,7 +312,7 @@ async def test_healthz_returns_ok(client: AsyncClient) -> None:
 | pyright strict 首次启用告警量 | 严格模式对最小代码面（app/tests）可能暴露注解缺失 | 本任务先保证 `app`/`tests` 零错误；规则集后续任务不得放宽 |
 | ruff 规则集范围 | `select` 基线 E/F/W/I/B/UP/SIM/RUF | 后续收紧在设计修订中统一，不在 02 反复调整 |
 | pytest-asyncio 与 pytest 版本协同 | 异步夹具依赖两者兼容 | 以 `uv.lock` 锁定，`asyncio_mode = "auto"` |
-| uv / npm 下载慢 | 国内网络 | uv 走阿里云 PyPI 镜像，命令注明 |
+| uv / pnpm 下载慢 | 国内网络 | uv 走阿里云 PyPI 镜像，命令注明 |
 
 ## 12. 对齐记录 <a id="align"></a>
 

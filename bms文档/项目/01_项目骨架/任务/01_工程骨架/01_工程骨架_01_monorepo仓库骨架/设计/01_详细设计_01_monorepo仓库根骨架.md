@@ -65,7 +65,7 @@ bms/
 ├── apps/desktop/                 # Vue 3 + Vite（01 最小占位，04 细化）
 │   ├── .nvmrc                # 固定 Node 版本（22）
 │   ├── package.json
-│   ├── package-lock.json     # 依赖锁定（必须提交）
+│   ├── pnpm-lock.yaml     # 依赖锁定（必须提交）
 │   ├── vite.config.ts        # 固定开发端口 5173
 │   ├── tsconfig.json
 │   ├── index.html
@@ -134,7 +134,7 @@ bms/
 | 后端 | Python 3.14+ · FastAPI · uvicorn · Pydantic v2 · SQLAlchemy 2.0+（异步）· Alembic · Celery · SpiffWorkflow |
 | 数据库 / 中间件 | SQLite（开发/测试）· MySQL 8.x · PostgreSQL 16+ · 达梦 DM8（信创选配）· Redis · RocketMQ 5.x · ElasticSearch 8.x · MinIO |
 | 前端 | Vue 3.5+ · Vite 7 · TypeScript · Element Plus（PC）/ Vant 4（移动端 H5）· Pinia |
-| 工程与质量 | uv（Python 依赖）· npm（前端依赖）· GitLab CI · Renovate · pytest / Vitest / Playwright |
+| 工程与质量 | uv（Python 依赖）· pnpm（前端依赖）· GitLab CI · Renovate · pytest / Vitest / Playwright |
 | 部署与运维 | Docker 27+ · Docker Compose 2.33+ · nginx · GitLab CE 18+ · Prometheus / Loki / Grafana / Alertmanager（监控）· Jaeger（链路追踪） |
 
 **快速启动**（三工程命令，均可复制执行）：
@@ -150,14 +150,14 @@ uv run uvicorn app.main:create_app --factory --port 8000
 
 # PC 前端（端口 5173）
 cd apps/desktop
-npm ci
-npm run dev
+pnpm install --frozen-lockfile
+pnpm run dev
 # 验证：访问 http://127.0.0.1:5173 看到占位页
 
 # 移动端（端口 5174）
 cd frontend-mobile
-npm ci
-npm run dev
+pnpm install --frozen-lockfile
+pnpm run dev
 # 验证：访问 http://127.0.0.1:5174 看到占位页
 ```
 
@@ -191,7 +191,7 @@ node_modules/
 
 **图谱产物口径**（工作区模型）：知识图谱在工作区根生成与忽略，bms 仓不跟踪图谱产物；bms 根 `.gitignore` 保留 `graphify-out/` 忽略行，仅为防本地产物误入库。
 
-**锁定文件口径**：`uv.lock`、`package-lock.json` 在 .gitignore 中**不出现**（现有 `# uv.lock` 保持注释态即可），即两者必须提交。
+**锁定文件口径**：`uv.lock`、`pnpm-lock.yaml` 在 .gitignore 中**不出现**（现有 `# uv.lock` 保持注释态即可），即两者必须提交。
 
 落地后 `git check-ignore -v` 抽查（预期结果）：
 
@@ -206,7 +206,7 @@ node_modules/
 | `.vscode/xxx.code-workspace` | 被忽略 |
 | `backend/.env.local` | 被忽略（`*.local`） |
 | `backend/uv.lock` | **不**被忽略 |
-| `apps/desktop/package-lock.json` | **不**被忽略 |
+| `apps/desktop/pnpm-lock.yaml` | **不**被忽略 |
 | `bms文档/用户文档/本地资源.md` | 被忽略 |
 
 ## 6. .editorconfig <a id="editorconfig"></a>
@@ -300,7 +300,7 @@ def create_app() -> FastAPI:
 
 ### 7.2 apps/desktop <a id="apps/desktop"></a>
 
-以 `npm create vite@latest apps/desktop -- --template vue-ts` 生成的 Vite + Vue + TS 工程为基，做以下调整（版本号以模板为准，记录在 `package-lock.json`，不在此硬编码）：
+以 `pnpm create vite@latest apps/desktop -- --template vue-ts` 生成的 Vite + Vue + TS 工程为基，做以下调整（版本号以模板为准，记录在 `pnpm-lock.yaml`，不在此硬编码）：
 
 - `package.json`：`name` 字段改为 `bms-frontend`，`version` 为 `0.1.0`，保留 `dev` / `build` / `preview` 脚本与 `vue` 依赖、`vite` / `@vitejs/plugin-vue` / `typescript` / `vue-tsc` 开发依赖
 - `vite.config.ts`：
@@ -343,9 +343,9 @@ createApp(App).mount('#app')
 
 - `src/vite-env.d.ts`、`tsconfig.json`：沿用模板
 - `.nvmrc`：`22`
-- `package-lock.json`：`npm install` 生成并提交
+- `pnpm-lock.yaml`：`pnpm install` 生成并提交
 - `README.md`：四章节简化版（见 7.5）
-- 启动验证：`npm ci` → `npm run dev` → 访问 `http://127.0.0.1:5173` 看到占位页
+- 启动验证：`pnpm install --frozen-lockfile` → `pnpm run dev` → 访问 `http://127.0.0.1:5173` 看到占位页
 
 ### 7.3 frontend-mobile <a id="mobile"></a>
 
@@ -407,7 +407,7 @@ createApp(App).mount('#app')
 按序执行，每步附验证点（依赖：无）：
 
 1. **backend 占位**：建 `backend/`，写 `.python-version`、`pyproject.toml`、`app/__init__.py`、`app/main.py`、`README.md` → `uv lock`（网络慢切国内 PyPI 镜像）→ `uv sync` → `uv run uvicorn app.main:create_app --factory --port 8000`。验证：`GET http://127.0.0.1:8000/healthz` 返回 `{"status":"ok"}`。
-2. **apps/desktop 占位**：`npm create vite@latest apps/desktop -- --template vue-ts`，按 7.2 调整（name、端口 5173、`.nvmrc`=22、`App.vue` 文案、`README.md`）→ `npm install` 生成 lock。验证：`npm run dev` 访问 `http://127.0.0.1:5173` 看到占位页。
+2. **apps/desktop 占位**：`pnpm create vite@latest apps/desktop -- --template vue-ts`，按 7.2 调整（name、端口 5173、`.nvmrc`=22、`App.vue` 文案、`README.md`）→ `pnpm install` 生成 lock。验证：`pnpm run dev` 访问 `http://127.0.0.1:5173` 看到占位页。
 3. **frontend-mobile 占位**：同步骤 2，端口 5174、name `bms-frontend-mobile`、文案改移动端。验证：访问 `http://127.0.0.1:5174`。
 4. **其余说明文件**：核对 `scripts/README.md`、`ops/README.md`（已存在，删 multimodal 词条、补 `base-check`）；图谱产物归工作区根，不新建 `graphify-out/README.md`。
 5. **根 .gitignore**：按 §5 追加 / 替换规则；保留现有 Python 模板主体。
@@ -437,7 +437,7 @@ createApp(App).mount('#app')
 | --- | --- | --- |
 | Python 3.14 兼容性未知（dmPython / Celery / SpiffWorkflow 等） | 01 占位仅用 fastapi / uvicorn，风险低 | 06 逐依赖验证，不兼容整体回退 3.13（`.python-version`、`pyproject.toml` 的 `requires-python` 与 README 徽标同步改，并重新 `uv lock`） |
 | `uv` / `npm` 下载慢 | 国内网络 | 切换国内镜像（PyPI 用阿里云 / 清华源，npm 用淘宝 npmmirror 源），命令注明 |
-| Vite / 依赖版本漂移 | 占位版本随模板 | 以 `package-lock.json` / `uv.lock` 锁定，提交后复现 |
+| Vite / 依赖版本漂移 | 占位版本随模板 | 以 `pnpm-lock.yaml` / `uv.lock` 锁定，提交后复现 |
 | 根 `node_modules` 陈旧索引告警 | 已随工作区模型消除（`.opencode` / `node_modules` 移至工作区根，bms 仓不再有该目录） | §10 步骤 8 以 `git status` 验证即可，无需额外处理 |
 | 三库口径跨文档旧表述 | 已全库订正并复核 | 订正《后端开发规范》§2、§10，《项目规划说明》§3.4，知识档案 3 处；复核 grep 仅剩概要设计07「双库引用」（平台库/租户库概念，非方言口径，不改） |
 

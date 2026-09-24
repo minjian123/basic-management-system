@@ -18,7 +18,7 @@
 | `src/` 仅 `App.vue` + `main.ts`（默认页） | 缺 api / router / stores / views / layouts / components / i18n / utils 分层 |
 | 无代理与环境变量 | 缺 `/api` → `http://localhost:8000`、`/docs` 不代理、`.env.development`（`VITE_API_BASE=/api`） |
 | 无 lint / 测试 / 契约类型 | 缺 ESLint + Prettier、Vitest + @vue/test-utils、openapi-typescript、`ApiResponse<T>`/`PageResponse<T>` 手写基类 |
-| 无 npm 源与锁文件约定 | 缺 `.npmrc`（npmmirror）与 `package-lock.json` 提交约定（锁文件已存在） |
+| 无 npm 源与锁文件约定 | 缺 `.npmrc`（npmmirror）与 `pnpm-lock.yaml` 提交约定（锁文件已存在） |
 
 ## 3. 目标目录与交付物清单 <a id="tree"></a>
 
@@ -28,7 +28,7 @@ apps/desktop/
 ├── .nvmrc                      # 已有：22
 ├── .env.development            # 新增：VITE_API_BASE=/api
 ├── package.json                # 修改：依赖 + scripts（lint/format/test）
-├── package-lock.json           # 提交（npm ci 可复现）
+├── pnpm-lock.yaml           # 提交（pnpm install --frozen-lockfile 可复现）
 ├── vite.config.ts              # 修改：@ 别名 + 代理 + 端口 5173
 ├── eslint.config.js            # 新增：flat config（vue + ts + prettier）
 ├── .prettierrc.json            # 新增：Prettier 配置
@@ -56,7 +56,7 @@ apps/desktop/
 
 ## 4. package.json 设计 <a id="package"></a>
 
-**运行依赖**（版本用主版本范围，实际版本由 `package-lock.json` 锁定）：
+**运行依赖**（版本用主版本范围，实际版本由 `pnpm-lock.yaml` 锁定）：
 
 | 依赖 | 范围 | 用途 |
 | --- | --- | --- |
@@ -153,7 +153,7 @@ export interface PageResponse<T> {
 - 响应拦截器：HTTP 2xx 且 `code === 0` → 返回 `data`；`code !== 0` → 统一错误提示（文案按 `error.${code}` i18n 映射，缺失回退 message）并 reject；HTTP 401 → TODO（阶段六接刷新/登出）；网络错误 → 统一提示。
 - 请求拦截器：预留 `Authorization: Bearer <token>` 注入位（token 仅存内存 Pinia，阶段六接入）。
 - `fetchAppInfo()`：`GET /info` → `ApiResponse<{ name: string; version: string }>`（代理见 §5）。
-- 生成类型：`openapi-typescript` 以 backend `/openapi.json` 生成 `types.gen.ts`（脚本 `npm run gen:api` 预留，随 04 域契约接入启用）。
+- 生成类型：`openapi-typescript` 以 backend `/openapi.json` 生成 `types.gen.ts`（脚本 `pnpm run gen:api` 预留，随 04 域契约接入启用）。
 
 ## 8. 测试设计（Kiwi 先行） <a id="tests"></a>
 
@@ -162,27 +162,27 @@ export interface PageResponse<T> {
 | 19 | apps/desktop 默认页与代理链路冒烟（标题「BMS 基础管理系统」、展示 backend name/version） | `tests/home.spec.ts`（Vitest + @vue/test-utils，mock `fetchAppInfo`） |
 
 - 冒烟范围：HomeView 渲染标题与 mock 的应用名/版本；不依赖真实 backend（代理链路由手工/CI 冒烟复核）。
-- 质量门禁：`npm run lint`、`vue-tsc -b`、`npm run test`、`npm run build` 全通过；apps/desktop/ 落地后 main 冒烟层前端 job（04-1 exists 激活）全绿。
+- 质量门禁：`pnpm run lint`、`vue-tsc -b`、`pnpm run test`、`pnpm run build` 全通过；apps/desktop/ 落地后 main 冒烟层前端 job（04-1 exists 激活）全绿。
 
 ## 9. 实施步骤 <a id="steps"></a>
 
 1. Kiwi Case 19 登记（已登记）。
-2. `.npmrc` + `package.json` 依赖/scripts（npmmirror 安装，提交 `package-lock.json`）。
+2. `.npmrc` + `package.json` 依赖/scripts（npmmirror 安装，提交 `pnpm-lock.yaml`）。
 3. 工程配置：vite 代理/别名、`.env.development`、tsconfig paths、ESLint/Prettier、Vitest。
 4. src 骨架：types/http/router/store/layout/view/i18n/utils 与 `main.ts`/`App.vue` 接线。
 5. 默认页与 `/info` 连通验证（人工起 backend 复核 name/version）。
 6. 冒烟用例与门禁命令跑通。
-7. 验证：`npm ci` / `npm run dev` 连通 / `build` / `vue-tsc` / `lint` / `test`。
+7. 验证：`pnpm install --frozen-lockfile` / `pnpm run dev` 连通 / `build` / `vue-tsc` / `lint` / `test`。
 8. 回写实施/测试记录、任务与计划状态、README。
 
 ## 10. 验收映射 <a id="accept-map"></a>
 
 | 完成标准 | 验证方式 |
 | --- | --- |
-| 代理与响应解析链路通 | 起 backend + `npm run dev`，默认页显示 name/version；curl `/info` 代理返回 |
+| 代理与响应解析链路通 | 起 backend + `pnpm run dev`，默认页显示 name/version；curl `/info` 代理返回 |
 | 依赖与工程结构齐备 | 目录树对照需求 01-4 第 2/3/4 条 |
 | 契约类型就位 | `ApiResponse`/`PageResponse` 类型与拦截器行为核对 + 冒烟用例 |
-| 质量门禁 | `npm ci`、`build`、`vue-tsc`、`lint`、`test` 全通过 |
+| 质量门禁 | `pnpm install --frozen-lockfile`、`build`、`vue-tsc`、`lint`、`test` 全通过 |
 | Kiwi 用例登记并标注 | 平台 Case 19 + 用例关联 |
 
 ## 11. 边界与开放项 <a id="boundary"></a>
@@ -197,7 +197,7 @@ export interface PageResponse<T> {
 
 | # | 事项 | 结论 |
 | --- | --- | --- |
-| 1 | 版本口径 | 主版本范围 + `package-lock.json` 锁定实际版本 |
+| 1 | 版本口径 | 主版本范围 + `pnpm-lock.yaml` 锁定实际版本 |
 | 2 | 连通探针 | `/info` 代理重写至 backend `/`（避免与前端根路由冲突） |
 | 3 | Kiwi | Case 19 一条冒烟；Vitest + @vue/test-utils |
 | 4 | npm 源 | `.npmrc` 配 npmmirror；锁文件提交 |

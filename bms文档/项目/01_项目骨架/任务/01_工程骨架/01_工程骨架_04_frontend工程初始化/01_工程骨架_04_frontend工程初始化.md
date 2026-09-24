@@ -28,7 +28,7 @@
 
 ## 3. 任务内容 <a id="content"></a>
 
-1. 技术基线：Vue 3 + Vite + TypeScript（strict）、Element Plus、SCSS、npm 管理；`.npmrc` 配 npmmirror 国内源，`package-lock.json` 提交仓库
+1. 技术基线：Vue 3 + Vite + TypeScript（strict）、Element Plus、SCSS、pnpm 管理；`.npmrc` 配 npmmirror 国内源，`pnpm-lock.yaml` 提交仓库
 2. `package.json` 依赖清单：vue、vue-router@4、pinia、axios、element-plus、vue-i18n、socket.io-client；dev：vite、typescript、vue-tsc、eslint + eslint-plugin-vue、prettier、vitest、@vue/test-utils、openapi-typescript；`.nvmrc` 固定 22
 3. `src/` 目录：api（http.ts Axios 实例 + types.ts 占位 + 模块.ts）、router（动态路由骨架）、stores（useUserStore 等占位）、views（默认首页）、layouts（基础壳）、components、i18n（index + zh-CN/en-US，预留错误码映射段 `error.{code}`，与后端统一响应 message 口径一致）、utils
 4. 工程配置：vite.config.ts（@ 别名、代理 `/api` → `http://localhost:8000`、`/docs` 不代理）；`.env.development`（`VITE_API_BASE=/api`）；ESLint + Prettier；`ApiResponse<T>`/`PageResponse<T>` 手写基类（openapi-typescript 生成类型随 04 域契约接入替换）
@@ -36,7 +36,7 @@
 
 ## 4. 完成标准 <a id="accept"></a>
 
-`npm ci` 通过；`npm run dev` 默认页（标题「BMS 基础管理系统」）显示 backend `/` 返回的 name/version（代理与响应解析链路通）；`npm run build`、`vue-tsc`、ESLint、`vitest run`（1 条冒烟用例）全通过；`node -v` ≥ 22；apps/desktop/ 落地后 main 冒烟层前端 job（exists 激活，见 04-1）全绿。
+`pnpm install --frozen-lockfile` 通过；`pnpm run dev` 默认页（标题「BMS 基础管理系统」）显示 backend `/` 返回的 name/version（代理与响应解析链路通）；`pnpm run build`、`vue-tsc`、ESLint、`vitest run`（1 条冒烟用例）全通过；`node -v` ≥ 22；apps/desktop/ 落地后 main 冒烟层前端 job（exists 激活，见 04-1）全绿。
 
 ## 5. 参考文档 <a id="ref"></a>
 

@@ -65,14 +65,13 @@ uv run uvicorn bms_platform.asgi:app --port 8000
 # 验证：GET http://127.0.0.1:8000/healthz 返回 {"status":"ok"}；/readyz 为就绪检查
 uv run pytest          # 全量用例（含 Kiwi TCMS 用例编号标注）
 
-# PC 前端（端口 5173）
+# PC 前端（端口 5173；依赖在仓库根安装：pnpm install --frozen-lockfile）
 cd frontend/apps/desktop
-npm ci
-npm run dev
-npm run test           # Vitest 冒烟
+pnpm run dev
+pnpm run test           # Vitest 冒烟
 
 # 移动端 H5（端口 5174）—— 随阶段十七交付，当前工程未建（命令预留）
-# cd frontend/apps/mobile && npm ci && npm run dev && npm run test
+# cd frontend/apps/mobile && pnpm run dev && pnpm run test
 ```
 
 本地门禁（与 CI 同口径；先 `cd backend`）：
@@ -81,7 +80,7 @@ npm run test           # Vitest 冒烟
 uv run ruff check . && uv run ruff format --check . && uv run pyright
 uv run pytest -q --cov=bms_core --cov=bms_platform --cov-branch --cov-fail-under=70    # 覆盖率门禁 ≥ 70%
 uv run python -m ops.check_modules                             # 模块注册清单校验
-cd ../frontend/apps/desktop && npm run lint && npm run test:cov && npm run build && npm run budget   # 移动端：cd ../frontend/apps/mobile（覆盖率 ≥ 70%、体积预算门禁）
+cd ../frontend/apps/desktop && pnpm run lint && pnpm run test:cov && pnpm run build && pnpm run budget   # 移动端：cd ../frontend/apps/mobile（覆盖率 ≥ 70%、体积预算门禁）
 cd .. && python3 scripts/tools/base-check/check-base.py        # 基座自检（须在仓库根）
 python3 scripts/tools/base-check/check-links.py                # 链接自洽校验（本地手工跑，不挂 CI）
 python3 scripts/tools/check-docs/check-status.py              # 需求 / 任务 / 计划状态一致性
@@ -121,15 +120,15 @@ bms/
 │   └── services/platform/    # 平台地基服务（首个服务；包 bms_platform）
 │       └── src/bms_platform/ # api / services / repositories / models / schemas + main / asgi
 ├── frontend/                     # 前端单仓多包（与 backend/ 对称：apps 宿主 + packages 基座）
+│   ├── pnpm-lock.yaml            # 单一锁文件（必须提交；packages / apps / modules 全收敛于根 workspace）
 │   ├── apps/desktop/                 # Vue 3 + Vite PC 管理端（Element Plus + Router + Pinia + i18n；消费 @bms/* 新体系）
-│   │   ├── .npmrc                # npmmirror 源 + legacy-peer-deps
+│   │   ├── .npmrc                # npmmirror 源（pnpm 读取）
 │   │   ├── .nvmrc                # 固定 Node 版本（22）
 │   │   ├── .env.development      # VITE_API_BASE=/api
 │   │   ├── eslint.config.js      # ESLint flat config
 │   │   ├── .prettierrc.json
 │   │   ├── vitest.config.ts
 │   │   ├── package.json
-│   │   ├── package-lock.json     # 依赖锁定（必须提交）
 │   │   ├── vite.config.ts        # 固定开发端口 5173 + @ / @bms/* 别名 + 分包 + 代理
 │   │   ├── tsconfig.json         # 及 tsconfig.app.json / tsconfig.node.json（@bms/* paths）
 │   │   ├── index.html

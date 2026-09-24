@@ -14,7 +14,7 @@
 | 实施记录 | [01 实施记录](../实施/05_实施_01_frontend-mobile工程初始化.md) |
 | 测试日期 | 2026-09-10 |
 | 测试人 | minjian |
-| 测试环境 | 开发机（Ubuntu）；Node 22.23.2、npm 10.9.8；backend 本地 8000；Vitest 5（jsdom） |
+| 测试环境 | 开发机（Ubuntu）；Node 22.23.2、pnpm 11.x；backend 本地 8000；Vitest 5（jsdom） |
 | Kiwi 用例 | 本任务新增 Case 20（默认页与连通冒烟）；双端同款基线后续补充 Case 22（基础类）、24（公共基座）、26（Axios 基线），见 01_04 嵌套子任务记录 |
 | 结论 | 2/2 用例通过；lint/build/vue-tsc 通过；覆盖率 100%（已导入文件）；代理连通实测通过 |
 
@@ -28,17 +28,17 @@
 | 22 | frontend-mobile 基础类（契约类型/BaseApi/createCrudStore/stableStringify） | 单元 | `tests/base.spec.ts`（3 条，见 01-4-1 记录） | 通过 |
 | 24 | frontend-mobile 公共组合式与工具基座 | 单元 | `tests/utils.spec.ts`（6 条，见 01-4-2 记录） | 通过 |
 | 26 | frontend-mobile Axios 基线单元（解包/错误/拦截器） | 单元 | `tests/http.spec.ts`（6 条，见 01_04 测试记录补充） | 通过 |
-| — | 工程门禁：ESLint / vue-tsc / 构建 | 静态·构建 | `npm run lint` / `build` | 通过 |
+| — | 工程门禁：ESLint / vue-tsc / 构建 | 静态·构建 | `pnpm run lint` / `build` | 通过 |
 | — | 开发代理连通（/info） | 联调 | `curl`（起 backend + dev） | 通过 |
 
 ## 3. 执行记录与结果 <a id="run"></a>
 
 ```bash
 cd frontend-mobile
-npm ci
-npm run lint     # 通过（--max-warnings 0）
-npm run test     # 后续双端基线批次后：18 passed（含 Case 22/24/26）
-npm run build    # vue-tsc -b && vite build 通过
+pnpm install --frozen-lockfile
+pnpm run lint     # 通过（--max-warnings 0）
+pnpm run test     # 后续双端基线批次后：18 passed（含 Case 22/24/26）
+pnpm run build    # vue-tsc -b && vite build 通过
 ```
 
 联调实测（backend 8000 + dev 5174）：
@@ -60,7 +60,7 @@ npm run build    # vue-tsc -b && vite build 通过
 | --- | --- | --- | --- | --- |
 | 已导入文件（i18n、views 等） | 100% | 100% | 100% | 100% |
 
-口径：`npm run test:cov`（v8）；前端覆盖率门禁随 04-1 接入（全量 `src/**` 采集与阈值届时定案）。
+口径：`pnpm run test:cov`（v8）；前端覆盖率门禁随 04-1 接入（全量 `src/**` 采集与阈值届时定案）。
 
 ## 6. 偏差与遗留 <a id="deviations"></a>
 

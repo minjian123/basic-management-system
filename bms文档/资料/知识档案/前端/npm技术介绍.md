@@ -30,13 +30,13 @@ Node 24/26 自带；Node 22 自带 10.x）是 Node 生态默认包管理器。
 | 依赖树（扁平化） | npm 尽量把依赖平铺到顶层 node_modules，版本冲突时嵌套子目录 |
 | Registry | 包注册表，默认 npmjs.com；国内可换 npmmirror 镜像加速 |
 | Scripts | package.json 的 scripts 字段定义 `npm run dev/build/test` 等命令 |
-| Workspaces | npm 原生 monorepo 支持，本项目双工程未用（保持独立） |
+| Workspaces | npm 原生 monorepo 支持；本项目已改用 pnpm workspace（见下「本项目约定」） |
 | Semver | 语义化版本（主.次.修订），依赖范围（^/~）决定自动升级边界 |
 | .npmrc | 配置镜像、认证等，团队可共享，本项目用于指向国内镜像 |
 
 ## 3. 在本项目中的用途 <a id="usage"></a>
 
-- **双工程依赖管理**：frontend/apps/desktop 与 frontend/apps/mobile 各自独立 package.json 与 package-lock.json，ESLint/Prettier/TS 配置互不共享（见平台《项目规划说明》「前端」节）。
+- **依赖管理（2026-09 迁移）**：前端已由「双工程各自 package-lock.json」迁移为**pnpm 单一 workspace**（根 pnpm-lock.yaml，收敛 frontend/packages|apps|modules）；本文档其余内容为 npm 工具科普，命令示例保留（见《[pnpm 部署使用说明](../开发机/pnpm部署使用说明.md)》）。
 - **CI 可复现安装**：流水线用 `npm ci` 锁定安装，保证每次构建依赖完全一致（见《[GitLab 技术介绍](../部署与运维/GitLab技术介绍.md)》CI 流水线）。
 - **构建命令入口**：`npm run dev/build/test/lint` 驱动 Vite、ESLint、Vitest 等工具（见《[Vite 技术介绍](Vite技术介绍.md)》）。
 - **Node 版本管理**：`.nvmrc` 固定 Node 版本（22 LTS），配合 nvm/volta/fnm 切换，npm 随 Node 自带（见平台《项目规划说明》部署约定）。

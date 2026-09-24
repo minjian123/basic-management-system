@@ -253,7 +253,7 @@ export function scanSourceFiles(files) {
 export function collectProductTargets(moduleDir) {
   const distDir = join(moduleDir, 'dist')
   if (!existsSync(distDir)) {
-    throw new Error(`模块产物目录不存在：${distDir}（请先构建：npm run build）`)
+    throw new Error(`模块产物目录不存在：${distDir}（请先构建：pnpm run build）`)
   }
   const files = walkFiles(distDir, ['.js', '.css'])
   const display = (path) => relative(moduleDir, path).split('\\').join('/')
@@ -369,7 +369,7 @@ function runProductScan(moduleDir) {
   const moduleDirs = moduleDir !== undefined ? [moduleDir] : listModuleDirs(FRONTEND_DIR)
   const missing = moduleDirs.filter((dir) => !existsSync(join(dir, 'dist')))
   if (missing.length > 0) {
-    throw new Error(`模块产物目录不存在：${missing.join('、')}（请先构建：npm run build）`)
+    throw new Error(`模块产物目录不存在：${missing.join('、')}（请先构建：pnpm run build）`)
   }
   const problems = []
   let cssCount = 0
