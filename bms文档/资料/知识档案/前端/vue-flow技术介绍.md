@@ -83,7 +83,7 @@ const nodes = ref([
 - **插件版本对齐**：`@vue-flow/minimap`、`@vue-flow/controls` 等插件包要和 `@vue-flow/core` 大版本一致。
 - **大画布性能**：节点很多时关闭动画、播放态用只读模式，避免交互开销。
 - **样式引入**：必须引入 `@vue-flow/core/dist/style.css` 与 `theme-default.css`，否则节点/连线样式缺失。
-- **升级走评审**：大版本变更走 [Renovate](../部署与运维/Renovate技术介绍.md) 提 MR + 回归，重点验证布局 JSON 兼容。
+- **升级走评审**：大版本变更升级走人工评审 + 回归，重点验证布局 JSON 兼容。
 
 ## 6. 学习与参考资料 <a id="learn"></a>
 

@@ -20,7 +20,7 @@
 ## 2. 任务内容 <a id="content"></a>
 
 1. 运行时依赖清单落位：fastapi、uvicorn[standard]、pydantic v2 + pydantic-settings、sqlalchemy>=2.0、alembic、aiosqlite、aiomysql、psycopg[binary]、dmPython、structlog、redis、python-multipart、httpx、**sortedcontainers**（有序集合基座）；开发依赖：pytest / pytest-asyncio / pytest-cov / ruff / pyright、**fakeredis[lua]**（Redis 封装测试）；Celery/SpiffWorkflow/authlib/slowapi 等仅登记占位不安装
-2. `uv.lock` 提交仓库，`uv sync` 全量可复现；依赖升级走 Renovate（pep621 口径）；锁文件变更触发 CI 基础镜像自动重建（见 04-1）
+2. `uv.lock` 提交仓库，`uv sync` 全量可复现；依赖升级走 Renovate（pep621 口径；2026-09 已停用，改人工按需）；锁文件变更触发 CI 基础镜像自动重建（见 04-1）
 3. Python 3.14 验证矩阵（逐依赖安装 + import 冒烟，结论登记表格）：运行/开发依赖全量（含 sortedcontainers、fakeredis/lupa）；Celery / SpiffWorkflow 以 `uv run --with` 临时环境安装冒烟（不写入锁定依赖）；dmPython 连 mjbk 达梦 5236 实测 `SELECT 1`；任一核心依赖不兼容 → 整体回退 3.13（.python-version、requires-python、重新 uv lock）
 4. 结论落 `backend/README.md`「依赖与版本」节；回退时同步更新《项目规划说明》「技术栈」「环境与配置」节 与《开发部署规划》「分阶段落地计划」节
 

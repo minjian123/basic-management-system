@@ -1,6 +1,8 @@
 # Renovate 技术介绍
 
 > 依赖自动升级 · 自动提 MR 的更新机器人
+>
+> ⚠️ **本项目已停用自动依赖升级（2026-09 用户拍板）**：依赖升级改为人工按需受控（按需、分批、验证、可回滚），第三方组件不承担我们的数据语义与使用方式；依赖安全由 CI Dependency Scanning 告警兜底。本文档保留为 Renovate 工具科普，第 3 节「在本项目中的用途」为停用前口径，仅供备查。
 
 [文档首页](../../../文档首页.md) › [知识档案](../技术栈知识档案总览.md) › [部署与运维](../技术栈知识档案总览.md#ops) › Renovate 技术介绍　|　[← 返回总览](../技术栈知识档案总览.md)
 
@@ -36,10 +38,12 @@
 
 ## 3. 在本项目中的用途 <a id="usage"></a>
 
-- **依赖自动升级**：Python（pyproject / uv.lock）、前端（package.json / lockfile）、容器镜像标签统一由 Renovate 提 MR，CI 验证后人工合入（平台《项目规划说明》「部署与运维」节）。
-- **安全补丁通道**：与 GitLab Dependency Scanning 互补——扫描发现漏洞、Renovate 提安全更新 MR（平台《项目规划说明》「测试策略与测试流程」节安全专项）。
-- **运行方式**：阶段二起以容器方式随 gitlab.yml 编排，常驻 mjbk；需 mjbk 可访问外网（拉取版本发布信息），不可达时镜像同步与依赖升级暂缓（平台《开发部署规划》「GitLab 与 CI 基础设施」节、11 节）。
-- **边界**：Renovate 只提 MR 不改代码，合入与否由 CI 门禁 + 人工评审决定，与 main 保护分支策略一致。
+> **停用说明（2026-09）**：本项目已停用 Renovate 自动升级（`renovate.json` 置 `enabled:false`、`gitlab.yml` 移除服务、容器 `bms-renovate` 停止）。以下为停用前的用途口径，仅作历史与工具参考：
+>
+> - **依赖升级（停用前）**：Python（pyproject / uv.lock）、前端（package.json / pnpm-lock.yaml）、容器镜像标签曾由 Renovate 统一提 MR，CI 验证后人工合入。
+> - **安全告警（停用后承担方）**：改由 CI Dependency Scanning 扫描告警，人工评估后按需升级；不再由 bot 直接改锁文件。
+> - **运行方式（停用前）**：阶段二起以容器随 gitlab.yml 编排、常驻 mjbk 每日运行；现已移除。
+> - **边界**：Renovate 只提 MR 不改代码——即便启用也须 CI 门禁 + 人工评审，与 main 保护分支策略一致。
 
 ## 4. 选型对比 <a id="compare"></a>
 

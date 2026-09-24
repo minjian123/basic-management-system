@@ -100,7 +100,7 @@ export default defineConfig({
 - **减少 flaky**：优先自动等待与稳定定位器（`getByRole`/`getByTestId`），禁止硬编码 `waitForTimeout` 凑时间。
 - **Trace 调试**：配 `trace: 'on-first-retry'`，失败用例用 Trace Viewer 回放，别只盯着截图猜。
 - **移动端用例**：用设备模拟（iPhone 等）跑 H5 链路，真机兼容基线另做人工验证（见平台《总体项目规划》「阶段内容与完成标准」节）。
-- **浏览器版本绑定**：浏览器由 Playwright 版本锁定，别手动装系统浏览器混用，升级走 [Renovate](../部署与运维/Renovate技术介绍.md) 提 MR + 回归。
+- **浏览器版本绑定**：浏览器由 Playwright 版本锁定，别手动装系统浏览器混用，升级升级走人工评审 + 回归。
 - **用例与 Kiwi TCMS 关联**：测试代码以用例 ID 标注，执行结果导入平台归档，别只留 CI 日志。
 
 ## 6. 学习与参考资料 <a id="learn"></a>

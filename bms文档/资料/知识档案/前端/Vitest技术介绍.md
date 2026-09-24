@@ -90,7 +90,7 @@ describe('TodoBadge', () => {
 - **vi.mock 提升**：模块级 mock 会被提升到文件顶部，mock 工厂里引用外部变量会报错，注意写法。
 - **阈值配置**：coverage 门槛写进 `vitest.config.ts`（对齐 80%/70% 口径），低于门槛流水线失败，别只出报告不设门槛。
 - **双工程独立配置**：frontend/apps/desktop 与 frontend/apps/mobile 各自 vitest 配置，别跨工程共享。
-- **版本跟踪**：4.x 为当前稳定线，5.0 RC 阶段，升级前看迁移说明，走 [Renovate](../部署与运维/Renovate技术介绍.md) 提 MR + 回归。
+- **版本跟踪**：4.x 为当前稳定线，5.0 RC 阶段，升级前看迁移说明，升级走人工评审 + 回归。
 - **测试文件命名**：统一 `*.spec.ts`（或 `*.test.ts`）放源码旁，避免散落难找。
 
 ## 6. 学习与参考资料 <a id="learn"></a>

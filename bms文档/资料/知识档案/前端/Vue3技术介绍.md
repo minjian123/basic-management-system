@@ -75,7 +75,7 @@ function add() { count.value++ }
 - **Vue 2 → Vue 3 不兼容**：Vue 2 的过滤器、事件总线等语法在 Vue 3 已移除；本项目为新工程直接上 Vue 3，无迁移负担，但参考旧代码时需注意。
 - **内存泄漏**：onMounted 中挂的全局监听器、定时器必须在 onUnmounted 中清理。
 - **长列表性能**：v-for 必须带稳定的 key；大数据表格用虚拟滚动（Element Plus 虚拟化或后端分页）。
-- **版本锁定**：Vue 与配套生态（Element Plus、Vue Router、Pinia）版本需匹配，依赖升级交给 [Renovate](../部署与运维/Renovate技术介绍.md) 自动提 MR。
+- **版本锁定**：Vue 与配套生态（Element Plus、Vue Router、Pinia）版本需匹配，依赖升级由人工按需评审时随版本一并升级。
 
 ## 6. 学习与参考资料
 

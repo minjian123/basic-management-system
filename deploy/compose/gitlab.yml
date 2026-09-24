@@ -41,18 +41,21 @@ services:
       - RUNNER_EXECUTOR=docker
       - RUNNER_DOCKER_IMAGE=python:3.14-slim
 
-  renovate:
-    image: renovate/renovate:latest
-    container_name: bms-renovate
-    depends_on:
-      - gitlab
-    environment:
-      RENOVATE_PLATFORM: gitlab
-      RENOVATE_ENDPOINT: http://gitlab:8080/api/v4
-      RENOVATE_TOKEN: ${GITLAB_PAT}
-      RENOVATE_REPOSITORIES: bms/bms
-      GITHUB_COM_TOKEN: ${GITHUB_PAT}
-      LOG_LEVEL: info
+  # renovate 服务已于 2026-09 停用（用户拍板）：依赖升级须人工受控（按需、分批、验证、可回滚），
+  # 第三方组件不承担我们的数据语义与使用方式。依赖安全改由 CI Dependency Scanning 告警兜底。
+  # 如需人工临时跑，用一次性 `docker run --rm`，不要恢复为常驻服务。
+  # renovate:
+  #   image: renovate/renovate:latest
+  #   container_name: bms-renovate
+  #   depends_on:
+  #     - gitlab
+  #   environment:
+  #     RENOVATE_PLATFORM: gitlab
+  #     RENOVATE_ENDPOINT: http://gitlab:8080/api/v4
+  #     RENOVATE_TOKEN: ${GITLAB_PAT}
+  #     RENOVATE_REPOSITORIES: bms/bms
+  #     GITHUB_COM_TOKEN: ${GITHUB_PAT}
+  #     LOG_LEVEL: info
 
 volumes:
   runner-config:

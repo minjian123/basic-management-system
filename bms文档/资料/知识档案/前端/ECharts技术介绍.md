@@ -79,7 +79,7 @@ window.addEventListener('resize', () => chart.resize())
 - **主题同步**：深色模式切换要同步 ECharts 主题与系列色，否则图表与界面配色割裂。
 - **配置深拷贝**：`setOption` 默认合并，切换数据集时注意 `notMerge: true` 或先清空，避免残留系列。
 - **Vue 集成生命周期**：init 要在 DOM 挂载后（onMounted），dispose 在 onBeforeUnmount，别在 setup 顶层直接 init。
-- **版本 6 破坏性变更**：5→6 有 API 调整，升级走 [Renovate](../部署与运维/Renovate技术介绍.md) 提 MR + 全量回归。
+- **版本 6 破坏性变更**：5→6 有 API 调整，升级升级走人工评审 + 全量回归。
 
 ## 6. 学习与参考资料 <a id="learn"></a>
 
