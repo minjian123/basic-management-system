@@ -11,7 +11,7 @@
  * 在 PR 中同步调整 budget.json 并说明原因。
  *
  * 用法：
- *     npm run build && npm run budget
+ *     pnpm run build && pnpm run budget
  */
 import { readFileSync, readdirSync } from 'node:fs'
 import { join, relative } from 'node:path'
@@ -37,7 +37,7 @@ let files
 try {
   files = walk(distDir)
 } catch {
-  console.error(`[budget] 未找到构建产物目录：${distDir}（请先执行 npm run build）`)
+  console.error(`[budget] 未找到构建产物目录：${distDir}（请先执行 pnpm run build）`)
   exit(1)
 }
 

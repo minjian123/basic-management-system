@@ -14,7 +14,7 @@
 | 实施记录 | [01 实施记录](../实施/04_实施_01_frontend工程初始化.md) |
 | 测试日期 | 2026-09-10 |
 | 测试人 | minjian |
-| 测试环境 | 开发机（Ubuntu）；Node 22.23.2（nvm）、npm 10.9.8；backend 本地 8000；Vitest 5（jsdom） |
+| 测试环境 | 开发机（Ubuntu）；Node 22.23.2（nvm）、pnpm 11.x；backend 本地 8000；Vitest 5（jsdom） |
 | Kiwi 用例 | 本任务新增 Case 19（apps/desktop 默认页与代理链路冒烟）；补充 Case 25/26（Axios 基线单元） |
 | 结论 | 2/2 用例通过；lint/build/vue-tsc 通过；覆盖率 100%（已导入文件）；代理链路实测通过 |
 
@@ -27,17 +27,17 @@
 | 19 | apps/desktop 默认页与代理链路冒烟（标题 + 应用名/版本；后端未连通降级） | 单元·冒烟 | `tests/home.spec.ts`（2 条） | 通过 |
 | 25 | apps/desktop Axios 基线单元（request 解包/code≠0 拒绝/fetchAppInfo/拦截器 401 与普通错误） | 单元 | `apps/desktop/tests/http.spec.ts`（6 条） | 通过 |
 | 26 | frontend-mobile Axios 基线单元（同款） | 单元 | `frontend-mobile/tests/http.spec.ts`（6 条） | 通过 |
-| — | 工程门禁：ESLint / vue-tsc / 构建 | 静态·构建 | `npm run lint` / `build` | 通过 |
+| — | 工程门禁：ESLint / vue-tsc / 构建 | 静态·构建 | `pnpm run lint` / `build` | 通过 |
 | — | 开发代理链路（/info、/api、/healthz） | 联调 | `curl`（起 backend + dev） | 通过 |
 
 ## 3. 执行记录与结果 <a id="run"></a>
 
 ```bash
 cd apps/desktop
-npm ci
-npm run lint     # 通过（--max-warnings 0）
-npm run test     # 2 passed
-npm run build    # vue-tsc -b && vite build 通过
+pnpm install --frozen-lockfile
+pnpm run lint     # 通过（--max-warnings 0）
+pnpm run test     # 2 passed
+pnpm run build    # vue-tsc -b && vite build 通过
 ```
 
 联调实测（backend 8000 + dev 5173）：
@@ -62,7 +62,7 @@ npm run build    # vue-tsc -b && vite build 通过
 | --- | --- | --- | --- | --- |
 | 已导入文件（i18n、views 等） | 100% | 100% | 100% | 100% |
 
-口径：`npm run test:cov`（v8）；骨架期仅覆盖被导入文件；前端覆盖率门禁随 04-1 接入（阈值与采集范围届时定案，含 `src/**` 全量采集）。
+口径：`pnpm run test:cov`（v8）；骨架期仅覆盖被导入文件；前端覆盖率门禁随 04-1 接入（阈值与采集范围届时定案，含 `src/**` 全量采集）。
 
 ## 6. 偏差与遗留 <a id="deviations"></a>
 

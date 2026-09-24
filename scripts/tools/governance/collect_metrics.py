@@ -224,7 +224,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--stage", default="01_项目骨架", help="阶段目录名（默认 01_项目骨架）")
     parser.add_argument("--root", default=".", help="仓库根目录（默认当前目录）")
     parser.add_argument("--skip-tests", action="store_true", help="跳过测试执行（只取已有覆盖率产物）")
-    parser.add_argument("--with-frontend", action="store_true", help="重跑前端覆盖率（npm run test:cov）")
+    parser.add_argument("--with-frontend", action="store_true", help="重跑前端覆盖率（pnpm run test:cov）")
     parser.add_argument("--out", default=None, help="把结果写为 JSON（默认只打印）")
     args = parser.parse_args(argv)
 

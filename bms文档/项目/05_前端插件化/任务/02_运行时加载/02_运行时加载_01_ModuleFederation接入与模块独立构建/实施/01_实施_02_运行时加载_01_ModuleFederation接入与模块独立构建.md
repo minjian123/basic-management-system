@@ -13,7 +13,7 @@
 | 详细设计 | [01 详细设计](../设计/01_详细设计_02_运行时加载_01_ModuleFederation接入与模块独立构建.md) |
 | 实施日期 | 2026-09-21 |
 | 实施人 | minjian |
-| 实施环境 | 本地开发机（Node v24.20.0 / npm 11.19.0，npmmirror）；宿主 Vite 8.2.2（Rolldown）；`@module-federation/vite` 1.22.1 + `@module-federation/runtime` 2.9.0（均精确锁定） |
+| 实施环境 | 本地开发机（Node v24.20.0 / pnpm 11.x，npmmirror）；宿主 Vite 8.2.2（Rolldown）；`@module-federation/vite` 1.22.1 + `@module-federation/runtime` 2.9.0（均精确锁定） |
 | 提交 | 设计 `055a64df`；实施 `77255227`；格式对齐 `c20e15cf`；登记与记录随本次文档提交 |
 | 结论 | 完成 |
 
@@ -39,7 +39,7 @@ flowchart LR
 3. **宿主接入 MF**（`apps/desktop/vite.config.ts`、`package.json`）：新增 `federation({ name: 'bms-desktop', shared })`——**纯 host**（不声明静态 `remotes` / `exposes`）；共享依赖初始为六件（框架三件 + UI 组件库 + 两个平台基座包），后按实测**收窄为框架三件**（见 §4 问题 1 / 2）；依赖精确锁定插件 1.22.1 与运行时 2.9.0。
 4. **远端入口解析器**（`apps/desktop/src/module/federation.ts`，新增）：`registerRemotes([{ name, entry, type: 'module' }], { force: true })` 按清单名与入口 URL 登记容器（`force` 保证重入幂等），`loadRemote('<模块名>/module')` 按固定暴露键加载模块定义；**只登记与加载**，形状与版本校验交由加载器统一执行；导出本地演示远端 origin 常量。
 5. **宿主按形态分派**（`apps/desktop/src/module/host.ts`、`entries.ts`、`public/modules.json`）：`entries.ts` 由「入口表」改为导出**本地入口解析器**（`import.meta.glob` 懒加载表，当前无存量模块）；`host.ts` 在 `installModules` 内构造「按 `mode` 分派」的解析器表（`local` → 本地表解析器、`remote` → 远端解析器）；演示清单改为远端条目（`mode: remote` + 绝对入口 URL）；删除宿主内演示模块 `src/modules/demo/**`。
-6. **模块独立工程**（`frontend/modules/demo/`，新增）：与 `apps/desktop` 同构的独立工程——`package.json`（`@bms/module-demo`，`@bms/core` / `@bms/ui-ep` 以 `file:` 依赖链接源码直出包）、`package-lock.json`、`vite.config.ts`（MF remote：`name: demo` / `filename: remoteEntry.js` / `exposes: { './module': './src/index.ts' }` / 与宿主一致的 `shared`；预览端口 5002 且放开 CORS）、`vitest.config.ts`、`tsconfig*.json`、`eslint.config.js`、`.prettierrc.json`、`.npmrc`、`index.html`（独立预览壳 + 最小令牌兜底）、`src/{index.ts,standalone.ts,env.d.ts,views/}`、`tests/module-definition.spec.ts`；模块定义由宿主迁入并补齐**字段渲染器**声明（八类声明通道齐全）。
+6. **模块独立工程**（`frontend/modules/demo/`，新增）：与 `apps/desktop` 同构的独立工程——`package.json`（`@bms/module-demo`，`@bms/core` / `@bms/ui-ep` 以 `file:` 依赖链接源码直出包）、`pnpm-lock.yaml`、`vite.config.ts`（MF remote：`name: demo` / `filename: remoteEntry.js` / `exposes: { './module': './src/index.ts' }` / 与宿主一致的 `shared`；预览端口 5002 且放开 CORS）、`vitest.config.ts`、`tsconfig*.json`、`eslint.config.js`、`.prettierrc.json`、`.npmrc`、`index.html`（独立预览壳 + 最小令牌兜底）、`src/{index.ts,standalone.ts,env.d.ts,views/}`、`tests/module-definition.spec.ts`；模块定义由宿主迁入并补齐**字段渲染器**声明（八类声明通道齐全）。
 7. **模块产物单独计量**（`frontend/modules/demo/budget.json`、`scripts/check-bundle-budget.mjs`，新增）：入口块口径为**引用闭包**（自 `remoteEntry.js` 出发，种子追静态与动态引用、其余只追静态引用），校验「入口闭包 gzip 合计 / 单块上限 / 入口块数上限 / 入口闭包不得命中页面块命名特征 / 入口外异步块数下界」，并打印入口外块观察值；阈值取实测基线 + 20%。
 8. **装配时序修正**（`apps/desktop/src/main.ts`）：路由安装（`app.use(router)`，Vue Router 在安装时即发起初始导航）后移至**模块装载完成之后**，保证首屏直连模块路由不被兜底 404 命中（见 §4 问题 4）。
 9. **CI 接线**（`.gitlab-ci.yml`、`deploy/ci/Dockerfile.frontend`、`deploy/ci/build-base.sh`）：`ci-frontend` 镜像增装模块工程依赖（`/opt/ci/frontend/modules/<模块>`，并同置 `frontend/packages` 供 `file:` 依赖解析）；`ci-base-build` 哈希输入与触发路径纳入模块锁文件；新增 `module-check`（lint + typecheck + test）与 `module-build`（build + budget + 产物 `dist/` 归档）；宿主 job 路径规则已覆盖 `frontend/**/*`，无需改动。
@@ -65,7 +65,7 @@ flowchart LR
 
 | 验证点 | 方法 | 结果 |
 | --- | --- | --- |
-| 类型 / Lint / 单测（核心三包） | 根 `npm run check` | 通过（core 93 文件 / 1158 用例；vue 2 / 5；ui-ep 61 文件 / 901 用例） |
+| 类型 / Lint / 单测（核心三包） | 根 `pnpm run check` | 通过（core 93 文件 / 1158 用例；vue 2 / 5；ui-ep 61 文件 / 901 用例） |
 | 宿主类型 / Lint | `vue-tsc -b` / `lint` | 通过 |
 | 宿主单测与覆盖率 | `test:cov` | 13 文件 / 53 用例全通过；语句 88.47%（`src/module/` 100%，其中 `federation.ts` 100%） |
 | 宿主构建 / 首屏体积 | `build` / `budget` | 通过；首屏合计 **172.7 KB**（预算 260 KB）、首屏最大单文件 **76.6 KB**（预算 150 KB）；宿主产物内**不含**模块页面代码 |

@@ -29,7 +29,7 @@
 
 ## 3. 完成标准 <a id="accept"></a>
 
-双工程四类基础件落地（契约类型 / BaseApi / createCrudStore / stableStringify），Vitest 用例全绿；`npm run lint`、`vue-tsc -b`、`npm run build` 通过；《前端开发规范》含继承约定；ID 字符串口径登记进 02-3 / 03-2；Kiwi Case 21 / 22 登记并关联；实施 / 测试记录回写。
+双工程四类基础件落地（契约类型 / BaseApi / createCrudStore / stableStringify），Vitest 用例全绿；`pnpm run lint`、`vue-tsc -b`、`pnpm run build` 通过；《前端开发规范》含继承约定；ID 字符串口径登记进 02-3 / 03-2；Kiwi Case 21 / 22 登记并关联；实施 / 测试记录回写。
 
 ## 4. 参考文档 <a id="ref"></a>
 

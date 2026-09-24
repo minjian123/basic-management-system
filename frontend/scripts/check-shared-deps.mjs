@@ -13,8 +13,8 @@
  *   5. **依赖实例数 = 1**：按上述口径统计每个共享依赖的**提供方份数**（宿主 1 + 模块 0），恒等于 1。
  *
  * 用法（需先构建两侧产物）：
- *     cd frontend/apps/desktop && npm run build
- *     cd frontend/modules/demo && npm run build
+ *     cd frontend/apps/desktop && pnpm run build
+ *     cd frontend/modules/demo && pnpm run build
  *     node frontend/scripts/check-shared-deps.mjs
  */
 import { existsSync, readFileSync, readdirSync } from 'node:fs'

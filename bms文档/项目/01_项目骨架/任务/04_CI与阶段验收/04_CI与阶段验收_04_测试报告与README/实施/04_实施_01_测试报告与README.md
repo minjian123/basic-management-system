@@ -57,7 +57,7 @@ flowchart LR
 | 1 | 前端用例统计解析为 `None` | Vitest 摘要带 ANSI 颜色转义（`Tests \x1b[22m \x1b[32m18 passed`） | 解析前 `strip_ansi()`；采集复跑得 `4 文件 / 18 用例`（设计 §5.2 口径不变） |
 | 2 | 后端覆盖率只取到取整 `99%` | `pytest -q --cov` 不带 `--cov-fail-under` 时不打印精确汇总行 | 采集命令补 `--cov-fail-under=70`，取 `Total coverage: 99.75%`（同时顺带校验门禁） |
 | 3 | `review_stage.py` 门禁表只数到 7 行 | 结论列含括注（`达标（占位口径）`、`进行中（…）`）未落入取值集合 | 解析改为取 `（` 前的前导结论词；设计 §6.2 措辞同步为「结论允许带括注」 |
-| 4 | 复盘清单误报 `backend/README.md 缺 ['npm run']` | 校验期望串写错（后端工程无 npm） | 期望串改为 `uv run uvicorn` / `文档导航` / `check-status.py` |
+| 4 | 复盘清单误报 `backend/README.md 缺 ['pnpm run']` | 校验期望串写错（后端工程无 pnpm） | 期望串改为 `uv run uvicorn` / `文档导航` / `check-status.py` |
 | 5 | 需求总览链接到测试报告断链（base-check 报） | `需求/00` 位于 `需求/` 下，指向阶段根的测试报告应为 `../01_测试报告_项目骨架.md` | 已修正；`check-base.py` 断链归零 |
 | 6 | `backend/README.md` 未含门禁新命令 | 首次同步漏项 | 补 `check-docs/check-status.py` 一行（复盘清单第 6 项据此可校） |
 | 7 | 指向阶段测试报告的链接断链（需求总览 2 处、本任务实施 / 测试记录各 1 处） | 相对链接层级：`需求/` 下应为 `../01_测试报告_项目骨架.md`，任务记录目录下应为 `../../../../01_测试报告_项目骨架.md` | 均已修正；`check-base.py` 断链归零（同一类问题本阶段第 3 次出现，已写入报告 §5 改进项） |

@@ -89,7 +89,7 @@ Required test coverage of 70% reached. Total coverage: 99.75%
 | # | 问题 / 现象 | 原因 | 处置与落点 |
 | --- | --- | --- | --- |
 | 1 | 采集脚本首次运行报 `ValueError: too many values to unpack` | 前端分支误写为 `strip_ansi(run(...)[1])` | 改为先取 `(code, raw)` 再 `strip_ansi(raw)`；复跑通过 |
-| 2 | 复盘清单初次 6/8 | 门禁表结论带括注未识别、README 期望串写错（后端不应含 `npm run`） | 解析取前导结论词、期望串改正；复跑 8/8（实施记录 §4 第 3 / 4 项） |
+| 2 | 复盘清单初次 6/8 | 门禁表结论带括注未识别、README 期望串写错（后端不应含 `pnpm run`） | 解析取前导结论词、期望串改正；复跑 8/8（实施记录 §4 第 3 / 4 项） |
 | 3 | 报告数字一度只能取到取整 `99%` | `pytest -q --cov` 无 `--cov-fail-under` 时不打印精确汇总 | 采集命令补 `--cov-fail-under=70` 取 99.75%，并顺带校验门禁 |
 
 ## 5. 覆盖率 <a id="coverage"></a>

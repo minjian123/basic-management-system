@@ -34,11 +34,11 @@
 | Prettier Parser | 按文件扩展名自动选解析器（JS/TS/Vue/JSON/MD），无需逐个配置 |
 | Prettier 选项 | `printWidth`、`singleQuote`、`semi` 等，统一写在 `.prettierrc`，全团队一份口径 |
 | 编辑器集成 | VSCode 装 ESLint + Prettier 扩展，保存即检查/格式化，本地与 CI 同一套配置 |
-| CI 门禁 | `npm run lint` 有 error 即流水线失败，规范不靠自觉靠门禁（见平台《项目规划说明》「部署与运维」节） |
+| CI 门禁 | `pnpm run lint` 有 error 即流水线失败，规范不靠自觉靠门禁（见平台《项目规划说明》「部署与运维」节） |
 
 ## 3. 在本项目中的用途 <a id="usage"></a>
 
-- **代码规范**：frontend/apps/desktop 与 frontend/apps/mobile 双工程各自独立配置（各自 package-lock.json、ESLint/Prettier/TS 配置，互不共享），规范统一、工程独立（见平台《项目规划说明》「前端」节）。
+- **代码规范**：frontend/packages/*、frontend/apps/*、frontend/modules/* 收敛于根 pnpm workspace，依赖与锁文件唯一（根 pnpm-lock.yaml）；各包 ESLint/Prettier/TS 配置仍各自独立，规范统一（见平台《项目规划说明》「前端」节）。
 - **MR 流水线门禁**：前端 ESLint + Vitest（含 coverage 门禁）+ 双端构建，lint 不过 MR 不能合入（见平台《项目规划说明》「部署与运维」节 GitLab CI）。
 - **Vue 官方插件链**：eslint-plugin-vue 覆盖 SFC/模板规则，typescript-eslint 覆盖 TS 规则，与 Prettier 经 eslint-config-prettier 解冲突（见平台《项目规划说明》「前端」节）。
 - **编辑器体验**：开发机 VSCode 扩展含 ESLint、Prettier（见平台《开发部署规划》「工具链」节），保存即规范，提交前无惊喜。
@@ -91,7 +91,7 @@ export default [
 - **双工程独立配置**：frontend/apps/desktop 与 frontend/apps/mobile 各自一份配置，别跨工程共享文件（规划既定决策）。
 - **别在 ESLint 里写格式规则**：缩进、引号、换行全交给 Prettier，ESLint 只管错误类规则。
 - **门禁不绕过**：CI 里 lint 有 error 即失败，别用 `--no-verify` 或临时关规则糊弄过去。
-- **版本锁定**：ESLint/Prettier/插件版本锁在 package-lock.json，本地与 CI 一致，避免「本地过、CI 挂」。
+- **版本锁定**：ESLint/Prettier/插件版本锁在 pnpm-lock.yaml，本地与 CI 一致，避免「本地过、CI 挂」。
 - **大版本升级走评审**：ESLint 大版本涉及配置迁移，走 [Renovate](../部署与运维/Renovate技术介绍.md) 提 MR + 回归。
 - **忽略清单**：`dist`、`node_modules` 等产物在配置里显式忽略，别全量扫。
 

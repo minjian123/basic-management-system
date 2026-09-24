@@ -29,7 +29,7 @@ frontend-mobile/
 ├── .nvmrc                          # 已有：22
 ├── .env.development                # 新增：VITE_API_BASE=/api
 ├── package.json                    # 修改：依赖 + scripts（lint/format/test）
-├── package-lock.json               # 提交（npm ci 可复现）
+├── pnpm-lock.yaml               # 提交（pnpm install --frozen-lockfile 可复现）
 ├── vite.config.ts                  # 修改：@ 别名 + 代理 + Vant 按需 + 端口 5174
 ├── postcss.config.js               # 新增：px→vw 适配（设计稿 375，保留 1px）
 ├── eslint.config.js                # 新增：flat config（vue + ts + prettier）
@@ -58,7 +58,7 @@ frontend-mobile/
 
 ## 4. package.json 设计 <a id="package"></a>
 
-**运行依赖**（主版本范围 + `package-lock.json` 锁定）：`vue`（已有 `^3.5.41`）、`vue-router ^4`、`pinia ^3`、`axios ^1`、`vant ^4`、`vue-i18n ^11`。
+**运行依赖**（主版本范围 + `pnpm-lock.yaml` 锁定）：`vue`（已有 `^3.5.41`）、`vue-router ^4`、`pinia ^3`、`axios ^1`、`vant ^4`、`vue-i18n ^11`。
 
 **开发依赖**：`vite`/`typescript`/`vue-tsc`/`@vitejs/plugin-vue`（已有）、`sass`、`unplugin-vue-components` + `@vant/auto-import-resolver`（Vant 按需引入）、`postcss-px-to-viewport-8-plugin`、`eslint` + `eslint-plugin-vue` + `typescript-eslint` + `@vue/eslint-config-typescript` + `@vue/eslint-config-prettier`、`prettier`、`vitest` + `@vue/test-utils` + `jsdom`、`openapi-typescript`（契约生成占位）。
 
@@ -115,28 +115,28 @@ export default defineConfig({
 | --- | --- | --- |
 | 20 | frontend-mobile 默认页与连通冒烟（标题、backend 连通状态成功/降级两种渲染） | `tests/home.spec.ts`（Vitest + @vue/test-utils，mock `fetchAppInfo`） |
 
-- 质量门禁：`npm run lint`、`vue-tsc -b`、`npm run test`、`npm run build` 全通过；frontend-mobile/ 落地后 main 冒烟层前端 job（04-1 exists 激活，双构建含 mobile）全绿。
+- 质量门禁：`pnpm run lint`、`vue-tsc -b`、`pnpm run test`、`pnpm run build` 全通过；frontend-mobile/ 落地后 main 冒烟层前端 job（04-1 exists 激活，双构建含 mobile）全绿。
 - 视口（375×667）布局正常为手工/阶段验收核对项（自动化视口断言随 Playwright E2E，04-1 重验证层）。
 
 ## 8. 实施步骤 <a id="steps"></a>
 
 1. Kiwi Case 20 登记（已登记）。
-2. `.npmrc` + `package.json` 依赖/scripts（npmmirror 安装，提交 `package-lock.json`）。
+2. `.npmrc` + `package.json` 依赖/scripts（npmmirror 安装，提交 `pnpm-lock.yaml`）。
 3. 工程配置：vite（代理/别名/Vant 按需）、postcss 适配、`.env.development`、tsconfig paths、ESLint/Prettier、Vitest。
 4. src 骨架：types/http/router/store/view/i18n/safe-area/utils 与 `main.ts`/`App.vue` 接线。
 5. 默认页与 `/info` 连通验证（人工起 backend 复核；失败降级渲染）。
 6. 冒烟用例与门禁命令跑通。
-7. 验证：`npm ci` / `npm run dev`（375×667 视口）/ `build` / `vue-tsc` / `lint` / `test`。
+7. 验证：`pnpm install --frozen-lockfile` / `pnpm run dev`（375×667 视口）/ `build` / `vue-tsc` / `lint` / `test`。
 8. 回写实施/测试记录、任务与计划状态、README。
 
 ## 9. 验收映射 <a id="accept-map"></a>
 
 | 完成标准 | 验证方式 |
 | --- | --- |
-| 代理与响应解析链路通 | 起 backend + `npm run dev`，默认页展示 backend 连通状态；`curl /info` 代理返回 |
+| 代理与响应解析链路通 | 起 backend + `pnpm run dev`，默认页展示 backend 连通状态；`curl /info` 代理返回 |
 | 依赖与工程结构齐备 | 目录树对照需求 01-5 第 1/2/3 条 |
 | 视口适配与安全区基线 | 375×667 视口默认页布局正常；`env(safe-area-inset-*)` 变量生效（模拟器） |
-| 质量门禁 | `npm ci`、`build`、`vue-tsc`、`lint`、`test` 全通过 |
+| 质量门禁 | `pnpm install --frozen-lockfile`、`build`、`vue-tsc`、`lint`、`test` 全通过 |
 | Kiwi 用例登记并标注 | 平台 Case 20 + 用例关联 |
 
 ## 10. 边界与开放项 <a id="boundary"></a>
@@ -150,7 +150,7 @@ export default defineConfig({
 
 | # | 事项 | 结论 |
 | --- | --- | --- |
-| 1 | 版本口径 | 主版本范围 + `package-lock.json` 锁定实际版本 |
+| 1 | 版本口径 | 主版本范围 + `pnpm-lock.yaml` 锁定实际版本 |
 | 2 | 连通探针 | `/info` 代理重写至 backend `/`（与 04 同口径） |
 | 3 | Kiwi | Case 20 一条冒烟（含连通成功/降级两种状态） |
 | 4 | 视口方案 | postcss px→vw（设计稿 375、保留 1px）+ 安全区 CSS 变量；rem 方案可切换 |

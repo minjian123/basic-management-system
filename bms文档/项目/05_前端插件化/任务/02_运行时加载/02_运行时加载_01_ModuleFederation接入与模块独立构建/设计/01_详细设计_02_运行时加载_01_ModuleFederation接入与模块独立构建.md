@@ -50,7 +50,7 @@ frontend/
 | 5 | 远端入口解析器（`registerRemotes` + `loadRemote`） | `apps/desktop/src/module/federation.ts`（新增） |
 | 6 | 本地入口表改本地解析器；宿主按清单 `mode` 分派解析器 | `apps/desktop/src/module/entries.ts`、`host.ts` |
 | 7 | 演示清单改远端条目（绝对 URL + `mode: remote`） | `apps/desktop/public/modules.json` |
-| 8 | **模块独立工程**（remote）：构建 / 预览 / 预算 / 类型 / Lint / 单测配置与源码 | `frontend/modules/demo/`（`package.json`、`package-lock.json`、`vite.config.ts`、`vitest.config.ts`、`tsconfig*.json`、`eslint.config.js`、`budget.json`、`scripts/check-bundle-budget.mjs`、`index.html`、`src/`） |
+| 8 | **模块独立工程**（remote）：构建 / 预览 / 预算 / 类型 / Lint / 单测配置与源码 | `frontend/modules/demo/`（`package.json`、`pnpm-lock.yaml`、`vite.config.ts`、`vitest.config.ts`、`tsconfig*.json`、`eslint.config.js`、`budget.json`、`scripts/check-bundle-budget.mjs`、`index.html`、`src/`） |
 | 9 | 演示模块源码迁移（模块定义 + 页面 + 独立预览壳） | `frontend/modules/demo/src/{index.ts,standalone.ts,views/}` |
 | 10 | 宿主侧清理：删除 `src/modules/demo/**`，菜单仍取注册表快照 | `apps/desktop/src/modules/`、`App.vue` |
 | 11 | 核心用例（清单 `mode` / 解析器注入 / 校验链） | `core/tests/module-manifest.spec.ts`、`module-loader.spec.ts` |
@@ -200,7 +200,7 @@ loader = new ManifestModuleLoader(manifest.entries, resolveEntry)
 ```text
 frontend/modules/demo/
 ├── package.json                  # @bms/module-demo（私有；scripts: dev / build / preview / budget / test / typecheck / lint）
-├── package-lock.json
+├── pnpm-lock.yaml
 ├── vite.config.ts                # federation({ name:'demo', filename:'remoteEntry.js', exposes:{ './module':'./src/index.ts' }, shared })
 ├── vitest.config.ts
 ├── tsconfig.json / tsconfig.app.json / tsconfig.node.json
@@ -218,9 +218,9 @@ frontend/modules/demo/
 | --- | --- |
 | MF 角色 | **remote**：`name: 'demo'`（= 清单 `name`）、`filename: 'remoteEntry.js'`、`exposes: { './module': './src/index.ts' }` |
 | `shared` | 与宿主**同一集合**（`vue` / `vue-router` / `pinia` / `element-plus` / `@bms/core` / `@bms/ui-ep`，单例、不写 `requiredVersion`） |
-| `@bms/*` 解析 | 以 **`file:` 依赖**声明（`file:../../packages/core`、`file:../../packages/ui-ep`）——`npm install` 生成 `node_modules` 软链，**保留裸标识符**（不走 vite alias），便于 MF 共享面直接生效 |
+| `@bms/*` 解析 | 以 **`file:` 依赖**声明（`file:../../packages/core`、`file:../../packages/ui-ep`）——`pnpm install` 生成 `node_modules` 软链，**保留裸标识符**（不走 vite alias），便于 MF 共享面直接生效 |
 | 其余依赖 | `vue` / `vue-router` / `pinia` / `element-plus` 为常规依赖；构建链路 `vite` / `vue-tsc` / `vitest` / `eslint` / `sass` 自带（与宿主同版本区间） |
-| 构建 | `npm run build` → `vite build`，产物 `dist/`（`remoteEntry.js` + 模块页面异步分包），**不并入主应用产物** |
+| 构建 | `pnpm run build` → `vite build`，产物 `dist/`（`remoteEntry.js` + 模块页面异步分包），**不并入主应用产物** |
 | 服务 | `preview` 固定端口 **5002**、放开 CORS（`server.origin` / `preview.cors`），供宿主跨端口加载 |
 | 独立预览 | `index.html` + `src/standalone.ts`：模块可脱离宿主独立开发与预览（模块自身页面路由与样式自洽） |
 | 页面分包 | 模块路由的 `component` **一律为 `() => import(...)`**（懒加载），构建后被拆为独立异步块 |
@@ -253,9 +253,9 @@ frontend/modules/demo/
 
 | 项 | 口径 |
 | --- | --- |
-| CI 基础镜像 | `deploy/ci/Dockerfile.frontend` 增 `COPY frontend/modules/ /opt/ci/frontend/modules/` 并 `npm ci`；`deploy/ci/build-base.sh` 的哈希输入追加模块锁文件、构建上下文补模块清单与锁文件 |
+| CI 基础镜像 | `deploy/ci/Dockerfile.frontend` 增 `COPY frontend/modules/ /opt/ci/frontend/modules/` 并 `pnpm install --frozen-lockfile`；`deploy/ci/build-base.sh` 的哈希输入追加模块锁文件、构建上下文补模块清单与锁文件 |
 | 模块 job | 新增 `module-check`（`lint` + `typecheck` + `test`）与 `module-build`（`build` + `budget`，artifacts 归档 `frontend/modules/demo/dist/`），触发路径与前后端 job 同口径（`frontend/**/*` 等） |
-| 宿主 job | `desktop-check` / `desktop-build` 路径规则已覆盖 `frontend/**/*`，无需改；宿主新增 MF 依赖后**镜像按锁文件哈希自动重建**（`ci-base-build` 已守 `frontend/apps/desktop/package-lock.json`） |
+| 宿主 job | `desktop-check` / `desktop-build` 路径规则已覆盖 `frontend/**/*`，无需改；宿主新增 MF 依赖后**镜像按锁文件哈希自动重建**（`ci-base-build` 已守 `frontend/apps/desktop/pnpm-lock.yaml`） |
 | 远端可达性 | 宿主构建不依赖远端（远端仅运行期加载）；宿主 Vitest 中插件空转 + 远端解析器以替身覆盖，故 CI **无需启动远端服务** |
 
 ## 4. 失败分支与边界 <a id="edge"></a>
@@ -271,7 +271,7 @@ frontend/modules/demo/
 | 同一远端重复登记（重入 `installModules`） | `registerRemotes(..., { force: true })`：同名以清单为准覆盖，幂等 | — |
 | 本地形态入口标识未登记 | 拒绝加载 | `PROVIDER_NOT_REGISTERED` |
 | 清单整体不可用（获取失败 / 非数组） | 空清单继续，平台页面照常渲染（沿用 `01_02`） | `CAPABILITY_VIOLATION`（清单层） |
-| 模块产物超体积阈值 | 模块构建门禁阻断（`npm run budget` 退出码 1，CI 红） | — |
+| 模块产物超体积阈值 | 模块构建门禁阻断（`pnpm run budget` 退出码 1，CI 红） | — |
 | 宿主首屏 | 远端代码不进宿主产物（仅运行期 URL 引用），首屏预算口径不变 | — |
 | 卸载 | 沿用 `01_02` 逆序清理（路由 → 文案 → 令牌 → 注册表 → 加载器），远端容器加载结果不驻留注册表 | — |
 
@@ -285,7 +285,7 @@ frontend/modules/demo/
 | 4 MF 配置与清单字段成文、`01_02` 加载器同接口复用 | `apps/desktop/tests/module-federation.spec.ts`（远端解析器：`registerRemotes` 入参名 / 入口、`loadRemote` 调用形为 `<name>/module`、加载错误上抛；以 `vi.mock('@module-federation/runtime')` 覆盖）；核心用例断言 `LocalModuleLoader` 已移除、`ModuleLoader` 接口断言（`load` / `mount` / `unmount` / `isMounted` / `mountedNames`） |
 | 模块页面不进首屏、独立分包 | 模块 `budget`（异步块数 ≥ 路由数）+ 模块契约用例（路由 `component` 均为函数）+ 宿主 `budget`（宿主首屏预算不变） |
 | 模块 contract（模块定义形状与声明键） | `frontend/modules/demo/tests/module-definition.spec.ts`（默认导出、清单名称与版本、路由懒加载与路径前缀、八类声明键前缀与区域标识） |
-| 5 `vue-tsc`、ESLint、Vitest、构建与体积预算全通过 | 根 `npm run check`；宿主 `npx vue-tsc -b` + `lint` + `test:cov` + `build` + `budget`；模块工程 `typecheck` + `lint` + `test` + `build` + `budget`；核心护栏 `guard-core-framework-agnostic`（新增 core 件不触 DOM / 不依赖框架与 MF 运行时） |
+| 5 `vue-tsc`、ESLint、Vitest、构建与体积预算全通过 | 根 `pnpm run check`；宿主 `pnpm exec vue-tsc -b` + `lint` + `test:cov` + `build` + `budget`；模块工程 `typecheck` + `lint` + `test` + `build` + `budget`；核心护栏 `guard-core-framework-agnostic`（新增 core 件不触 DOM / 不依赖框架与 MF 运行时） |
 | 两形态共存 | `apps/desktop/tests/module-hosting.spec.ts` 增「`local` 与 `remote` 条目同批装载各走各的通路」用例 |
 | Kiwi 用例关联 | 一任务一条，**先登记取号（以平台回读编号为准）**再回填代码标注 |
 

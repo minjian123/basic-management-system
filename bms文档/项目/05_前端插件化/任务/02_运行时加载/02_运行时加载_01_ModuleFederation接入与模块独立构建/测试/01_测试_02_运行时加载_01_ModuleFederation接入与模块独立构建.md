@@ -37,17 +37,17 @@
 
 ```bash
 # 根（core + vue + ui-ep：typecheck / lint / test）
-cd bms && npm run check
+cd bms && pnpm run check
 
 # 宿主（PC）
-cd frontend/apps/desktop && npx vue-tsc -b && npm run lint && npm run test:cov && npm run build && npm run budget
+cd frontend/apps/desktop && pnpm exec vue-tsc -b && pnpm run lint && pnpm run test:cov && pnpm run build && pnpm run budget
 
 # 模块工程（独立构建 / 独立计量）
-cd frontend/modules/demo && npm run typecheck && npm run lint && npm run test && npm run build && npm run budget
+cd frontend/modules/demo && pnpm run typecheck && pnpm run lint && pnpm run test && pnpm run build && pnpm run budget
 
 # 端到端（构建产物）：模块 preview 5002 提供独立产物，宿主 preview 4173 经清单运行期加载
-cd frontend/modules/demo && npm run preview          # 5002
-cd frontend/apps/desktop && npm run preview          # 4173
+cd frontend/modules/demo && pnpm run preview          # 5002
+cd frontend/apps/desktop && pnpm run preview          # 4173
 # 浏览器渲染 http://localhost:4173/demo（无头 Chromium dump-dom 取证）
 
 # 文档与基座校验 / CI 配置
