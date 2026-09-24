@@ -55,6 +55,12 @@ HEALTH_PATH = "/healthz"
 Probe = Callable[[str], object]
 """健康探测函数类型（默认 urlopen；单测注入桩）。"""
 
+SmokeRunner = Callable[..., tuple[int, str, str]]
+"""Schemathesis 单次执行器类型：返回 `(返回码, stdout, stderr)`（单测注入桩）。"""
+
+Runner = Callable[[Sequence[str]], "subprocess.CompletedProcess[str]"]
+"""子进程执行器类型（默认 docker；单测注入桩，不真联）。"""
+
 
 @dataclass(frozen=True)
 class SmokeResult:
@@ -124,39 +130,39 @@ def resolve_bind_host() -> str:
         return ""
 
 
-def schemathesis_command(
+def _run_command(command: Sequence[str]) -> subprocess.CompletedProcess[str]:
+    """默认子进程执行器（docker）。
+
+    Args:
+        command: 完整命令行。
+
+    Returns:
+        subprocess.CompletedProcess[str]: 执行结果（不抛异常，由调用方判返回码）。
+    """
+    return subprocess.run(list(command), capture_output=True, text=True, check=False)
+
+
+def schemathesis_args(
     service_key: str,
     port: int,
-    schema_dir: Path,
     *,
     bind_host: str,
-    image: str = SCHEMATHESIS_IMAGE,
     max_examples: int = DEFAULT_MAX_EXAMPLES,
 ) -> list[str]:
-    """构造 Schemathesis 打真实服务的命令行。
+    """Schemathesis 子命令参数（容器内 schema 路径 `/tmp/<服务>.json`）。
 
     Args:
         service_key: 服务标识。
         port: 被测服务端口。
-        schema_dir: 契约快照目录（挂载为 `/schemas`）。
-        bind_host: 被测服务可达地址（job 容器 IP；容器经 host 网络访问）。
-        image: Schemathesis 镜像。
+        bind_host: 被测服务可达地址（job 容器 IP）。
         max_examples: 每服务样例上限。
 
     Returns:
-        list[str]: 完整命令行（docker run … --network host … schemathesis run …）。
+        list[str]: `run … --url http://<bind_host>:<port> …`。
     """
     command = [
-        SCHEMATHESIS_COMMAND,
         "run",
-        "--rm",
-        "--network",
-        "host",
-        "-v",
-        f"{schema_dir}:/schemas:ro",
-        image,
-        "run",
-        f"/schemas/{contract_file_name(service_key)}",
+        f"/tmp/{contract_file_name(service_key)}",
         "--url",
         f"http://{bind_host}:{port}",
         "--max-examples",
@@ -169,6 +175,61 @@ def schemathesis_command(
     for method in READ_METHODS:
         command += ["--include-method", method]
     return command
+
+
+def docker_schemathesis(
+    service_key: str,
+    port: int,
+    schema_path: Path,
+    *,
+    bind_host: str,
+    image: str = SCHEMATHESIS_IMAGE,
+    max_examples: int = DEFAULT_MAX_EXAMPLES,
+    run: Runner = _run_command,
+) -> tuple[int, str, str]:
+    """用 Schemathesis 容器打真实服务，返回 `(返回码, stdout, stderr)`。
+
+    **不使用 bind mount**：schema 位于 job 容器路径（`$CI_PROJECT_DIR`），在宿主 daemon 上不可见，
+    `-v <job 路径>` 会挂到空目录（实测 Schemathesis 报 `The specified file does not exist`）。
+    故改用 `docker create` + `docker cp`（schema 经 daemon 流式复制到容器 `/tmp`）+ `docker start -a`
+    （回传退出码）+ `docker rm -f`；容器以 `--network host` 经 job 容器 IP 访问被测服务。
+
+    Args:
+        service_key: 服务标识。
+        port: 被测服务端口。
+        schema_path: schema 文件（job 容器内路径）。
+        bind_host: 被测服务可达地址（job 容器 IP）。
+        image: Schemathesis 镜像（含 tag）。
+        max_examples: 每服务样例上限。
+        run: 子进程执行器（单测注入桩）。
+
+    Returns:
+        tuple[int, str, str]: Schemathesis 返回码 / 标准输出 / 标准错误。
+    """
+    name = f"bms-contract-smoke-{os.getpid()}-{service_key}"
+    run([SCHEMATHESIS_COMMAND, "rm", "-f", name])
+    created = run(
+        [
+            SCHEMATHESIS_COMMAND,
+            "create",
+            "--name",
+            name,
+            "--network",
+            "host",
+            image,
+            *schemathesis_args(service_key, port, bind_host=bind_host, max_examples=max_examples),
+        ]
+    )
+    if created.returncode != 0:
+        return created.returncode, created.stdout or "", created.stderr or ""
+    try:
+        copied = run([SCHEMATHESIS_COMMAND, "cp", str(schema_path), f"{name}:/tmp/{contract_file_name(service_key)}"])
+        if copied.returncode != 0:
+            return copied.returncode, copied.stdout or "", copied.stderr or ""
+        started = run([SCHEMATHESIS_COMMAND, "start", "-a", name])
+        return started.returncode, started.stdout or "", started.stderr or ""
+    finally:
+        run([SCHEMATHESIS_COMMAND, "rm", "-f", name])
 
 
 def _default_probe(url: str) -> object:
@@ -240,7 +301,7 @@ def run(
     max_examples: int = DEFAULT_MAX_EXAMPLES,
     image: str = SCHEMATHESIS_IMAGE,
     bind_host: str | None = None,
-    runner: Callable[[Sequence[str]], subprocess.CompletedProcess[str]] = subprocess.run,
+    smoke: SmokeRunner = docker_schemathesis,
     base_env: Mapping[str, str] | None = None,
 ) -> int:
     """逐服务起真实进程 → Schemathesis 打 → 停进程，汇总结果。
@@ -251,7 +312,7 @@ def run(
         max_examples: 每服务样例上限。
         image: Schemathesis 镜像。
         bind_host: 被测服务可达地址（缺省 `resolve_bind_host()`）。
-        runner: 子进程执行器（单测注入桩）。
+        smoke: Schemathesis 执行器（缺省 `docker_schemathesis`；单测注入桩）。
         base_env: 基础环境变量（缺省 `os.environ`）。
 
     Returns:
@@ -276,13 +337,12 @@ def run(
             if not wait_for_health(port):
                 results.append(SmokeResult(service_key, False, "启动 / 就绪超时"))
                 continue
-            completed = runner(
-                schemathesis_command(
-                    service_key, port, schema_dir, bind_host=host, image=image, max_examples=max_examples
-                )
+            schema_path = schema_dir / contract_file_name(service_key)
+            returncode, _stdout, _stderr = smoke(
+                service_key, port, schema_path, bind_host=host, image=image, max_examples=max_examples
             )
-            ok = completed.returncode == 0
-            results.append(SmokeResult(service_key, ok, "" if ok else f"Schemathesis 返回码 {completed.returncode}"))
+            ok = returncode == 0
+            results.append(SmokeResult(service_key, ok, "" if ok else f"Schemathesis 返回码 {returncode}"))
         finally:
             process.terminate()
             try:
