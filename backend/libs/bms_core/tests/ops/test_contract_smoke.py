@@ -6,13 +6,20 @@
 
 from __future__ import annotations
 
+import subprocess
 import urllib.error
 from pathlib import Path
+from typing import Any
 
 import pytest
 
 from bms_core.services.module_registry import enabled_service_keys
 from ops import contract_smoke
+
+
+def _completed(command: Any, returncode: int, stdout: str = "", stderr: str = "") -> subprocess.CompletedProcess[str]:
+    """构造子进程结果桩。"""
+    return subprocess.CompletedProcess(list(command), returncode, stdout, stderr)
 
 
 @pytest.mark.kiwi_id(2186)
@@ -33,20 +40,44 @@ def test_service_env_injects_dev_and_port() -> None:
 
 
 @pytest.mark.kiwi_id(2186)
-def test_schemathesis_command_readonly_and_network() -> None:
-    """Schemathesis 命令：固定镜像、host 网络 + 容器 IP、只读方法、有限样例、仅无 5xx 检查。"""
-    command = contract_smoke.schemathesis_command(
-        "platform", 18000, Path("/repo/deploy/contracts"), bind_host="172.18.0.24", max_examples=7
-    )
-    assert contract_smoke.SCHEMATHESIS_IMAGE in command
-    assert "--network" in command and "host" in command
-    assert "/schemas/platform.json" in command
+def test_schemathesis_args_readonly() -> None:
+    """Schemathesis 参数：容器内 schema 路径、容器 IP:端口、只读方法、有限样例、仅无 5xx 检查。"""
+    command = contract_smoke.schemathesis_args("platform", 18000, bind_host="172.18.0.24", max_examples=7)
+    assert "/tmp/platform.json" in command
     assert "http://172.18.0.24:18000" in command
     assert "--max-examples" in command and "7" in command
     assert "--checks" in command and "not_a_server_error" in command
     assert "--suppress-health-check" in command
     assert command.count("--include-method") == len(contract_smoke.READ_METHODS)
     assert "GET" in command and "HEAD" in command
+
+
+@pytest.mark.kiwi_id(2186)
+def test_docker_schemathesis_create_cp_start() -> None:
+    """docker_schemathesis 走 create → cp → start → rm，且 create 含固定镜像与 host 网络。"""
+    calls: list[list[str]] = []
+
+    def fake_run(command: Any) -> subprocess.CompletedProcess[str]:
+        calls.append(list(command))
+        if "start" in command:
+            return _completed(command, 0, "ok", "")
+        return _completed(command, 0)
+
+    code, out, _err = contract_smoke.docker_schemathesis(
+        "platform",
+        18000,
+        Path("/repo/deploy/contracts/platform.json"),
+        bind_host="172.18.0.24",
+        run=fake_run,
+    )
+    assert code == 0 and out == "ok"
+    verbs = [call[1] for call in calls if len(call) > 1]
+    assert verbs[0] == "rm" and "create" in verbs and verbs.count("cp") == 1 and "start" in verbs and verbs[-1] == "rm"
+    create = next(call for call in calls if "create" in call)
+    assert contract_smoke.SCHEMATHESIS_IMAGE in create
+    assert create[create.index("--network") + 1] == "host"
+    cp = next(call for call in calls if call[1] == "cp")
+    assert cp[-1].endswith(":/tmp/platform.json")
 
 
 @pytest.mark.kiwi_id(2186)
