@@ -188,7 +188,7 @@ def test_push_metrics_swallows_url_error(tmp_path: Path, monkeypatch: pytest.Mon
 
 @pytest.mark.kiwi_id(2186)
 def test_ci_contract_jobs_and_switch() -> None:
-    """CI 契约门禁：contract-gate 阻断 job + 按服务 9 个非阻断冒烟 job（仅变更服务）。"""
+    """CI 契约门禁：contract-gate 与按服务 9 个冒烟 job 均为阻断 job（仅变更服务）。"""
     ci = cast("dict[str, Any]", yaml.safe_load(_CI.read_text(encoding="utf-8")))
     assert _SWITCH.is_file()
 
@@ -204,7 +204,7 @@ def test_ci_contract_jobs_and_switch() -> None:
     assert "PUSHGATEWAY_URL" in cast("dict[str, object]", gate["variables"])
     assert "allow_failure" not in gate
 
-    # 按服务冒烟：job 集合 == 启用服务；仅本服务路径变更时运行；用已构建镜像；非阻断
+    # 按服务冒烟：job 集合 == 启用服务；仅本服务路径变更时运行；用已构建镜像；阻断（06_04 起）
     smoke_jobs = {name: cast("dict[str, Any]", ci[name]) for name in ci if name.startswith("contract-smoke-")}
     services = {name.removeprefix("contract-smoke-") for name in smoke_jobs}
     assert services == set(enabled_service_keys())
@@ -212,7 +212,7 @@ def test_ci_contract_jobs_and_switch() -> None:
         service = name.removeprefix("contract-smoke-")
         assert job["stage"] == "verify"
         assert "ci-backend" in str(job["image"])
-        assert job["allow_failure"] is True
+        assert "allow_failure" not in job
         assert job["needs"] == [{"job": f"trigger-{service}", "optional": True}]
         assert cast("dict[str, object]", job["variables"])["SERVICE"] == service
         assert f"backend/services/{service}/**/*" in _change_paths(job)
