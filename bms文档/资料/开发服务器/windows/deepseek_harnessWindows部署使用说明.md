@@ -118,6 +118,7 @@ web profile 为全新默认（未装 mjpc 上的 dsh-free-vision、dsh-undo-save
 cd C:\Users\minjian\develop\deepseek-harness
 git pull --ff-only                 # 走 ghfast 远端
 pnpm install
+pnpm run clean                     # 清掉被删包的构建残留，否则 build 可能失败
 pnpm run build
 # 桌面「启动 dsh web.cmd」重新拉起
 ```
@@ -129,7 +130,7 @@ pnpm run build
 | 项 | mjpc（Linux） | mjw（Windows） |
 | --- | --- | --- |
 | 源码运行 | `~/develop/deepseek-harness` | `C:\Users\minjian\develop\deepseek-harness` |
-| 一键更新 | `scripts/tools/dsh/dsh-update.sh`（桌面项） | 无，按第 5 节手动 |
+| 一键更新 | `~/.local/bin/dsh-update.sh`（桌面项） | 无，按第 5 节手动 |
 | 启停 | `dsh-web-start.sh` / `dsh-web-stop.sh` | 桌面「启动/停止 dsh web.cmd」 |
 | web 绑定 | 127.0.0.1（同） | 127.0.0.1（同，官方禁 0.0.0.0） |
 | 插件 bundle | free-vision / undo-savepoint 等 | 默认全新（按需 `dsh plugin add`） |
