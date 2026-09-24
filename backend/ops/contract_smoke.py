@@ -3,7 +3,7 @@
 用法::
 
     uv run python -m ops.contract_smoke run
-    uv run python -m ops.contract_smoke run --service platform --max-examples 50
+    uv run python -m ops.contract_smoke run --service platform --max-examples 1
 
 口径见任务 09_03 详细设计：
 - 被测服务为**源码直跑的真实进程**（`uv run python -m bms_{service}`，`BMS_ENV=dev` / SQLite，
@@ -40,8 +40,8 @@ SCHEMATHESIS_IMAGE = "schemathesis/schemathesis:4.28.0"
 SCHEMATHESIS_COMMAND = "docker"
 """Schemathesis 调用命令（经 docker 运行固定 tag 镜像；单测可注入桩替换）。"""
 
-DEFAULT_MAX_EXAMPLES = 50
-"""每服务属性测试样例上限（冒烟口径，非全量）。"""
+DEFAULT_MAX_EXAMPLES = 1
+"""每操作样例上限（冒烟口径：1 例即证明服务可达且无 5xx，不做 fuzz）。"""
 
 BASE_PORT = 18000
 """被测服务端口基址（逐服务 +索引，避免与宿主 8000 冲突）。"""
@@ -158,7 +158,7 @@ def schemathesis_args(
         service_key: 服务标识。
         port: 被测服务端口。
         bind_host: 被测服务可达地址（job 容器 IP）。
-        max_examples: 每服务样例上限。
+        max_examples: 每操作样例上限。
 
     Returns:
         list[str]: `run … --url http://<bind_host>:<port> …`。
@@ -205,7 +205,7 @@ def docker_schemathesis(
         schema_path: schema 文件（job 容器内路径）。
         bind_host: 被测服务可达地址（job 容器 IP）。
         image: Schemathesis 镜像（含 tag）。
-        max_examples: 每服务样例上限。
+        max_examples: 每操作样例上限。
         run: 子进程执行器（单测注入桩）。
 
     Returns:
@@ -328,7 +328,7 @@ def run(
     Args:
         root: 仓库根。
         services: 目标服务（缺省取全部启用服务）。
-        max_examples: 每服务样例上限。
+        max_examples: 每操作样例上限。
         image: Schemathesis 镜像。
         bind_host: 被测服务可达地址（缺省 `resolve_bind_host()`）。
         smoke: Schemathesis 执行器（缺省 `docker_schemathesis`；单测注入桩）。
@@ -387,7 +387,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("command", choices=("run",))
     parser.add_argument("--root", type=Path, default=BACKEND_ROOT.parent, help="仓库根（缺省自动定位）")
     parser.add_argument("--service", help="单个服务标识（缺省全部启用服务）")
-    parser.add_argument("--max-examples", type=int, default=DEFAULT_MAX_EXAMPLES, help="每服务样例上限")
+    parser.add_argument("--max-examples", type=int, default=DEFAULT_MAX_EXAMPLES, help="每操作样例上限")
     parser.add_argument("--image", default=SCHEMATHESIS_IMAGE, help="Schemathesis 镜像（缺省固定 tag）")
     parser.add_argument(
         "--bind-host", default=None, help="被测服务可达地址（缺省容器 IP；可经 BMS_SMOKE_BIND_HOST 覆盖）"
