@@ -1,0 +1,20 @@
+按服务镜像构建 / 发布 / 扫描档（重验证层）——开启于 2026-09-24（阶段二 09_01 父-子流水线）
+管控 job：服务子流水线 service-build / service-release（deploy/ci/templates/backend-service.yml，父流水线 trigger 拉起）
+          + 前端镜像 frontend-image（本档同守；前置＝frontend/apps/desktop/Dockerfile）
+
+后端（按服务，9 个启用服务）：
+- 构建：docker build --provenance=false --build-arg SERVICE=<服务> -f backend/Dockerfile backend/
+  → bms-{service}:$CI_COMMIT_SHORT_SHA（--provenance=false：BuildKit attestation 清单推送被 Registry 拒绝，报 blob unknown）
+- 发布：推送 GitLab Registry（5050）+ Trivy 镜像安全扫描（CRITICAL / HIGH 阻断）+ 阶段度量推送
+  （bms_release_total{service,result} → Pushgateway，口径见《可观测性栈部署使用说明》「告警与阶段度量」节）
+- 并发：resource_group: bms-release-$SERVICE（同服务发布串行）；release interruptible: false（防半发布）
+- 触发：仅 main 分支（子流水线 test 阶段不受本档影响，始终运行）
+
+前置变量（GitLab 项目 CI/CD Variables，masked）：GITLAB_API_TOKEN（Registry 登录）；
+阶段度量地址经模板变量 PUSHGATEWAY_URL（默认宿主 9092，可被项目变量覆盖，未配置则跳过推送）。
+trivy 镜像固定 tag `aquasec/trivy:0.74.0`，需在 mjbk 预拉缓存（runner pull_policy = if-not-present；
+拉取见 scripts/tools/docker/镜像清单.txt）；漏洞库走 `TRIVY_DB_REPOSITORY=ghcr.nju.edu.cn/aquasecurity/trivy-db:2`
+（默认 mirror.gcr.io 在 mjbk 不可达）+ `trivy-cache` 卷持久化（免每次重下）。
+
+删除本文件即关闭本档（子流水线只保留 test，前端镜像 job 亦不出现）；
+分档语义与激活路线见 .gitlab-ci.yml 文件头注释与《项目骨架计划》§3.1。
