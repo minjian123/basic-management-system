@@ -1,4 +1,8 @@
-"""BMS 平台地基服务包：应用入口 / 接口层 / 平台业务模块。"""
+"""BMS 平台地基服务包：应用入口 / 接口层 / 平台业务模块。
+
+服务镜像与流水线落点：运行镜像 `backend/Dockerfile`（构建 `--build-arg SERVICE=platform`），
+按服务构建 / 发布 / 扫描见服务子流水线模板 `deploy/ci/templates/backend-service.yml`（09_01）。
+"""
 
 __version__ = "0.1.0"
 
