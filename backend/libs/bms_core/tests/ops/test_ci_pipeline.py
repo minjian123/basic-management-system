@@ -171,3 +171,23 @@ def test_template_constants_and_image_assets() -> None:
     assert "COPY services/${SERVICE}/src services/${SERVICE}/src" in dockerfile
     assert "python -m bms_${SERVICE}" in dockerfile
     assert "uv sync --frozen" in dockerfile
+
+
+@pytest.mark.kiwi_id(2185)
+def test_tag_pipeline_builds_semver_images_and_manifest() -> None:
+    """09_02：tag 流水线（v*）全服务构建；release 追加 semver 并产出发布清单 artifact。"""
+    ci = _load(_CI_PATH)
+    assert any(str(rule.get("if", "")).startswith("$CI_COMMIT_TAG") for rule in ci["workflow"]["rules"])
+    for job in _trigger_jobs(ci).values():
+        assert any("$CI_COMMIT_TAG" in str(rule.get("if", "")) for rule in job["rules"])
+
+    template = _load(_TEMPLATE_PATH)
+    for job_name in ("service-build", "service-release"):
+        assert any("$CI_COMMIT_TAG" in str(rule.get("if", "")) for rule in template[job_name]["rules"])
+
+    release = template["service-release"]
+    release_script = "\n".join(str(line) for line in release["script"])
+    assert "CI_COMMIT_TAG" in release_script
+    assert "bms-$SERVICE:$CI_COMMIT_TAG" in release_script
+    assert "release-manifest.json" in release_script
+    assert release["artifacts"]["paths"] == ["release-manifest.json"]

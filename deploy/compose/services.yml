@@ -1,0 +1,90 @@
+# BMS 服务编排（9 个已启用后端服务；阶段二 09_02 不可变镜像与回滚）
+#
+# 组合拉起（在 deploy/ 目录，.env 提供变量）：
+#   docker compose -f compose/bms.yml --env-file .env up -d
+#
+# 口径：
+# - 服务名（Compose DNS）取服务标识 {service_key}，与网关声明式上游（platform:8000 … report:8000、
+#   deploy/gateway/apisix.yaml 由服务目录生成）同口径，服务无需改网关即可被路由；
+# - 仅内部网络（expose 8000，不映射宿主端口），经网关统一入口访问，调试走 docker compose exec；
+# - 镜像标签**必填**（BMS_TAG_<SERVICE>，`:?` 语法无 latest 兜底）——由 scripts/tools/deploy/release.py
+#   按版本台账注入（当前 / 上一版本）；直接 up 而不给标签会报错（刻意，防误用 latest）；
+# - 服务运行库：MySQL 每服务库（bms_{service} / bms_{service}_{tenant}），应用账号 bms_app；
+#   建库 / 迁移 / 种子（一次性 bootstrap）由 release.py 编排（迁移先行）；
+# - 仓库根相对资产（边界例外白名单）挂载到容器 /opt/deploy/boundaries，经环境变量显式指向。
+
+x-service-base: &service-base
+  restart: unless-stopped
+  depends_on:
+    - redis
+    - mysql
+  expose:
+    - "8000"
+  volumes:
+    # 边界例外白名单（仓库根相对资产；容器内 BACKEND_ROOT.parent = /opt）
+    - ../boundaries:/opt/deploy/boundaries:ro
+  environment:
+    BMS_ENV: ${BMS_ENV:-dev}
+    # 运行库（MySQL 每服务库；URL 模板占位 {service} / {tenant}，密码经环境变量注入）
+    BMS_DATABASE__PLATFORM__URL_TEMPLATE: ${BMS_DATABASE__PLATFORM__URL_TEMPLATE:?}
+    BMS_DATABASE__PLATFORM__PASSWORD: ${BMS_DATABASE__PLATFORM__PASSWORD:?}
+    BMS_DATABASE__TENANTS__URL_TEMPLATE: ${BMS_DATABASE__TENANTS__URL_TEMPLATE:?}
+    BMS_DATABASE__TENANTS__PASSWORD: ${BMS_DATABASE__TENANTS__PASSWORD:?}
+    BMS_DATABASE__ARCHIVE__URL: ${BMS_DATABASE__ARCHIVE__URL:-mysql+aiomysql://bms_app@mysql:3306/bms_archive}
+    BMS_DATABASE__ARCHIVE__PASSWORD: ${BMS_DATABASE__ARCHIVE__PASSWORD:-}
+    # 外部依赖（Compose DNS，禁硬编码 IP）
+    BMS_REDIS__URL: redis://redis:6379/0
+    BMS_TRACER__OTLP_ENDPOINT: http://otel-collector:4318
+    # 服务间同步调用（http + Compose DNS 基址模板）
+    BMS_SERVICE_CLIENT__PROVIDER: http
+    BMS_SERVICE_CLIENT__OPTIONS: '{"base_url_template":"http://{service}:8000"}'
+    # 边缘信任（dev 关旁路强制；生产开 true）
+    BMS_EDGE__REQUIRE_GATEWAY_IDENTITY: "false"
+    # 边界例外白名单（仓库根相对资产，容器内绝对路径）
+    BMS_DATA_OWNERSHIP__EXCEPTIONS_FILE: /opt/deploy/boundaries/data_ownership_exceptions.json
+
+services:
+  platform:
+    <<: *service-base
+    image: ${REGISTRY_IMAGE_PREFIX:?REGISTRY_IMAGE_PREFIX required}/bms-platform:${BMS_TAG_PLATFORM:?BMS_TAG_PLATFORM required}
+    container_name: bms-platform
+
+  identity:
+    <<: *service-base
+    image: ${REGISTRY_IMAGE_PREFIX:?REGISTRY_IMAGE_PREFIX required}/bms-identity:${BMS_TAG_IDENTITY:?BMS_TAG_IDENTITY required}
+    container_name: bms-identity
+
+  tenant:
+    <<: *service-base
+    image: ${REGISTRY_IMAGE_PREFIX:?REGISTRY_IMAGE_PREFIX required}/bms-tenant:${BMS_TAG_TENANT:?BMS_TAG_TENANT required}
+    container_name: bms-tenant
+
+  org:
+    <<: *service-base
+    image: ${REGISTRY_IMAGE_PREFIX:?REGISTRY_IMAGE_PREFIX required}/bms-org:${BMS_TAG_ORG:?BMS_TAG_ORG required}
+    container_name: bms-org
+
+  file:
+    <<: *service-base
+    image: ${REGISTRY_IMAGE_PREFIX:?REGISTRY_IMAGE_PREFIX required}/bms-file:${BMS_TAG_FILE:?BMS_TAG_FILE required}
+    container_name: bms-file
+
+  notification:
+    <<: *service-base
+    image: ${REGISTRY_IMAGE_PREFIX:?REGISTRY_IMAGE_PREFIX required}/bms-notification:${BMS_TAG_NOTIFICATION:?BMS_TAG_NOTIFICATION required}
+    container_name: bms-notification
+
+  search:
+    <<: *service-base
+    image: ${REGISTRY_IMAGE_PREFIX:?REGISTRY_IMAGE_PREFIX required}/bms-search:${BMS_TAG_SEARCH:?BMS_TAG_SEARCH required}
+    container_name: bms-search
+
+  ai:
+    <<: *service-base
+    image: ${REGISTRY_IMAGE_PREFIX:?REGISTRY_IMAGE_PREFIX required}/bms-ai:${BMS_TAG_AI:?BMS_TAG_AI required}
+    container_name: bms-ai
+
+  report:
+    <<: *service-base
+    image: ${REGISTRY_IMAGE_PREFIX:?REGISTRY_IMAGE_PREFIX required}/bms-report:${BMS_TAG_REPORT:?BMS_TAG_REPORT required}
+    container_name: bms-report

@@ -47,6 +47,11 @@ COPY libs/bms_core/src libs/bms_core/src
 COPY services/${SERVICE}/src services/${SERVICE}/src
 RUN uv sync --frozen --no-dev --package "bms-${SERVICE}" && rm -rf /root/.cache
 
+# 迁移能力：alembic 分链迁移脚本 + 运维脚本（部署流程内一次性迁移容器复用本镜像，版本与发布一致；
+# 见 09_02 详细设计 4.3）。均为纯 Python / SQL，不引入新依赖。
+COPY alembic ./alembic
+COPY ops ./ops
+
 # 运行时移除 pip（base 镜像自带；其 vendored msgpack / setuptools 会被镜像扫描按包计洞，
 # 运行时不需要 pip——venv 自包含、uv 二进制不受影响）
 RUN python -m pip uninstall -y pip

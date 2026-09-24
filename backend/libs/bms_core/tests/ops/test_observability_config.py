@@ -84,7 +84,7 @@ def test_compose_components_and_one_command_aggregate() -> None:
         "pushgateway",
     }
     aggregate = _load(_DEPLOY / "compose" / "bms.yml")
-    assert aggregate["include"] == ["base.yml", "gateway.yml", "observability.yml"]
+    assert aggregate["include"] == ["base.yml", "gateway.yml", "services.yml", "observability.yml"]
 
 
 @pytest.mark.kiwi_id(2182)

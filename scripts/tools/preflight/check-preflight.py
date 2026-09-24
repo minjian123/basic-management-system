@@ -56,7 +56,7 @@ def _run(label: str, cmd: list[str], cwd: Path, failures: list[str]) -> bool:
 
 
 def _yaml_parse(root: Path, failures: list[str]) -> None:
-    """解析 CI 配置（`.gitlab-ci.yml` + `deploy/ci/templates/*.yml`；结构自检）。
+    """解析 CI / 编排配置（`.gitlab-ci.yml` + `deploy/ci/templates/*.yml` + `deploy/compose/*.yml`）。
 
     Args:
         root: bms 仓库根。
@@ -67,8 +67,12 @@ def _yaml_parse(root: Path, failures: list[str]) -> None:
     except ModuleNotFoundError:
         print("\n[preflight] CI 配置自检：跳过（本机无 pyyaml）")
         return
-    targets = [root / ".gitlab-ci.yml", *sorted((root / "deploy" / "ci" / "templates").glob("*.yml"))]
-    print("\n[preflight] CI 配置自检：CI YAML 解析")
+    targets = [
+        root / ".gitlab-ci.yml",
+        *sorted((root / "deploy" / "ci" / "templates").glob("*.yml")),
+        *sorted((root / "deploy" / "compose").glob("*.yml")),
+    ]
+    print("\n[preflight] CI 配置自检：CI / 编排 YAML 解析")
     for path in targets:
         rel = path.relative_to(root)
         try:
@@ -77,6 +81,13 @@ def _yaml_parse(root: Path, failures: list[str]) -> None:
         except Exception as exc:  # noqa: BLE001
             print(f"  失败（{rel}）：{exc}")
             failures.append(f"CI YAML 解析（{rel}）")
+    # 部署 / 回滚 / 门禁 CLI 结构层存在性（09_02；行为由 Kiwi 2185 护栏用例覆盖）
+    cli = root / "scripts" / "tools" / "deploy" / "release.py"
+    if cli.is_file():
+        print("  通过（scripts/tools/deploy/release.py 就位）")
+    else:
+        print("  失败：scripts/tools/deploy/release.py 缺失")
+        failures.append("部署 CLI 缺失")
 
 
 def _pytest_flags_from_ci(root: Path, backend: Path, failures: list[str]) -> None:

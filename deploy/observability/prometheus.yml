@@ -2,8 +2,8 @@
 # 保留期经启动参数 --storage.tsdb.retention.time=15d 指定（见 deploy/compose/observability.yml）。
 #
 # 抓取目标：
-# - bms-services：各服务 /metrics（当前服务未容器化，经 host.docker.internal:8000 抓宿主运行的服务；
-#   服务容器化后（09_需求）改为 {service_key}:8000 的 Compose DNS，并按启用的服务逐项登记）。
+# - bms-services：各服务 /metrics（服务已容器化（09_02），经 Compose DNS {service_key}:8000 抓取，
+#   按启用服务逐项登记；需经 compose/bms.yml 全栈拉起，同项目网络 DNS 方可解析）。
 # - bms-probe：blackbox 探针（/healthz /readyz；仅 200 成功），目标与 bms-services 同口径。
 # - apisix：边缘网关指标端点（04_03 交付出口，指标前缀 apisix_）。
 # - otel-collector / alertmanager / pushgateway / prometheus：组件自身指标。
@@ -46,20 +46,45 @@ scrape_configs:
 
   - job_name: bms-services
     static_configs:
-      # 宿主运行的平台服务（/metrics 采集端点；指标自带 `service` 标签归因，勿再设静态 service 标签致冲突）
-      - targets: ["host.docker.internal:8000"]
-      # 服务容器化后按 Compose DNS 逐服务登记（示例：identity / org / …）
-      # - targets: ["identity:8000"]
+      # 容器化服务（09_02）：按启用服务逐项登记 Compose DNS（{service_key}:8000，与网关上游同口径）；
+      # 指标自带 `service` 标签归因，勿再设静态 service 标签致冲突。
+      # 前提：经 compose/bms.yml 全栈拉起（services 与 observability 同项目网络，DNS 可解析）。
+      - targets:
+          - platform:8000
+          - identity:8000
+          - tenant:8000
+          - org:8000
+          - file:8000
+          - notification:8000
+          - search:8000
+          - ai:8000
+          - report:8000
 
   - job_name: bms-probe
-    # blackbox 主动探测每服务探针（/healthz /readyz；仅 200 成功）；目标按启用服务登记
+    # blackbox 主动探测每服务探针（/healthz /readyz；仅 200 成功）；目标与 bms-services 同口径
     metrics_path: /probe
     params:
       module: [http_2xx]
     static_configs:
       - targets:
-          - http://host.docker.internal:8000/healthz
-          - http://host.docker.internal:8000/readyz
+          - http://platform:8000/healthz
+          - http://platform:8000/readyz
+          - http://identity:8000/healthz
+          - http://identity:8000/readyz
+          - http://tenant:8000/healthz
+          - http://tenant:8000/readyz
+          - http://org:8000/healthz
+          - http://org:8000/readyz
+          - http://file:8000/healthz
+          - http://file:8000/readyz
+          - http://notification:8000/healthz
+          - http://notification:8000/readyz
+          - http://search:8000/healthz
+          - http://search:8000/readyz
+          - http://ai:8000/healthz
+          - http://ai:8000/readyz
+          - http://report:8000/healthz
+          - http://report:8000/readyz
     relabel_configs:
       - source_labels: [__address__]
         target_label: __param_target

@@ -30,6 +30,8 @@ workflow:
     #   - MR 流水线维持全量门禁（不做 job 级 changes 放行，避免“含代码 MR 只跑占位 job”类漏判——2026-08-22 教训）。
     - if: $CI_PIPELINE_SOURCE == "web"
     - if: $CI_PIPELINE_SOURCE == "api"
+    # 版本标签流水线（09_02）：推 vX.Y.Z tag 时建流水线，拉起服务子流水线构建语义化镜像
+    - if: $CI_COMMIT_TAG =~ /^v/
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE == "push"
       changes:
         paths:
@@ -276,6 +278,7 @@ trigger-platform:
   variables:
     SERVICE: platform
   rules:
+    - if: $CI_COMMIT_TAG =~ /^v/
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
@@ -290,6 +293,7 @@ trigger-identity:
   variables:
     SERVICE: identity
   rules:
+    - if: $CI_COMMIT_TAG =~ /^v/
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
@@ -304,6 +308,7 @@ trigger-tenant:
   variables:
     SERVICE: tenant
   rules:
+    - if: $CI_COMMIT_TAG =~ /^v/
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
@@ -318,6 +323,7 @@ trigger-org:
   variables:
     SERVICE: org
   rules:
+    - if: $CI_COMMIT_TAG =~ /^v/
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
@@ -332,6 +338,7 @@ trigger-file:
   variables:
     SERVICE: file
   rules:
+    - if: $CI_COMMIT_TAG =~ /^v/
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
@@ -346,6 +353,7 @@ trigger-notification:
   variables:
     SERVICE: notification
   rules:
+    - if: $CI_COMMIT_TAG =~ /^v/
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
@@ -360,6 +368,7 @@ trigger-search:
   variables:
     SERVICE: search
   rules:
+    - if: $CI_COMMIT_TAG =~ /^v/
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
@@ -374,6 +383,7 @@ trigger-ai:
   variables:
     SERVICE: ai
   rules:
+    - if: $CI_COMMIT_TAG =~ /^v/
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
@@ -388,6 +398,7 @@ trigger-report:
   variables:
     SERVICE: report
   rules:
+    - if: $CI_COMMIT_TAG =~ /^v/
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:

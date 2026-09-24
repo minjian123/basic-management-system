@@ -1,7 +1,9 @@
 # 服务子流水线公共模板（父-子流水线，阶段二 09_01）
 #
 # 职责：只测试 / 构建 / 发布**该服务**——工程级测试（本服务包覆盖率 ≥70%）→ 按服务镜像
-#       bms-{service}:$CI_COMMIT_SHORT_SHA → 推送 Registry + Trivy 扫描 + 发布度量推送。
+#       bms-{service}:$CI_COMMIT_SHORT_SHA → 推送 Registry + Trivy 扫描 + 发布度量推送；
+#       tag 流水线（$CI_COMMIT_TAG =~ /^v/）扫描通过后追加语义化标签 vX.Y.Z 并产出发布清单
+#       （release-manifest.json；09_02）。
 # 拉起：父流水线 .trigger-service 锚点（include: local 引用本文件 + variables.SERVICE），
 #       见 .gitlab-ci.yml「服务子流水线调度」节。
 # 跨项目复用（产品仓库等）：以 trigger.include.project 作为**子流水线配置**引用并固定完整 SHA：
@@ -46,12 +48,16 @@ service-test:
     - uv run pytest -q --cov="bms_$SERVICE" --cov-branch --cov-report=term --cov-fail-under=70
   coverage: '/^TOTAL.*?\s+\d+\s+\d+\s+(\d+(?:\.\d+)?%)$/'
 
-# ---- 构建：按服务镜像（main + 镜像档；标签 commit short SHA，不可变口径归 09_02）----
+# ---- 构建：按服务镜像（main + tag + 镜像档；标签 commit short SHA，不可变口径见 09_02）----
 service-build:
   stage: build
   image: docker:27-cli
   needs: [service-test]
   rules:
+    # 版本标签流水线（09_02）：推 vX.Y.Z tag 时全服务构建，release 追加语义化标签
+    - if: $CI_COMMIT_TAG =~ /^v/
+      exists:
+        - deploy/ci/verify/image
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       exists:
         - deploy/ci/verify/image
@@ -61,7 +67,7 @@ service-build:
     # （报 blob unknown；2026-09-24 mjbk 实测），关闭后推送正常
     - docker build --provenance=false --build-arg SERVICE="$SERVICE" -t "$IMAGE" -f backend/Dockerfile backend/
 
-# ---- 发布：推送 Registry + 镜像安全扫描 + 发布度量（main + 镜像档；同服务串行、不可中断）----
+# ---- 发布：推送 Registry + 镜像安全扫描 + 语义化标签 + 发布清单 + 发布度量（main / tag + 镜像档；同服务串行、不可中断）----
 service-release:
   stage: release
   image: docker:27-cli
@@ -69,6 +75,9 @@ service-release:
   resource_group: bms-release-$SERVICE
   interruptible: false
   rules:
+    - if: $CI_COMMIT_TAG =~ /^v/
+      exists:
+        - deploy/ci/verify/image
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       exists:
         - deploy/ci/verify/image
@@ -81,6 +90,22 @@ service-release:
     # - trivy 固定 tag；-v trivy-cache 持久化漏洞库（免每次重下）；DB 走国内镜像
     #   （默认 mirror.gcr.io 在 mjbk 不可达，实测 ghcr.nju.edu.cn 可用）
     - docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v trivy-cache:/root/.cache/trivy -e TRIVY_DB_REPOSITORY=ghcr.nju.edu.cn/aquasecurity/trivy-db:2 aquasec/trivy:0.74.0 image --exit-code 1 --severity CRITICAL,HIGH --ignore-unfixed "$IMAGE"
+    # 语义化标签（tag 流水线）：扫描通过后对同一镜像追加持久 vX.Y.Z 标签（不可变；禁 latest）
+    - |
+      if [ -n "$CI_COMMIT_TAG" ]; then
+        SEMVER_IMAGE="${REGISTRY_IMAGE_PREFIX}/bms-$SERVICE:$CI_COMMIT_TAG"
+        docker tag "$IMAGE" "$SEMVER_IMAGE"
+        docker push "$SEMVER_IMAGE"
+      fi
+    # 发布清单（09_02）：可采集项自动填充；不可采集检查项由消费方按「人工确认」占位核对
+    - |
+      DIGEST="$(docker inspect --format '{{index .RepoDigests 0}}' "$IMAGE" 2>/dev/null || true)"
+      printf '{"service":"%s","commit":"%s","short_sha":"%s","tag":"%s","image":"%s","digest":"%s","scan":"pass","pipeline_url":"%s","built_at":"%s","checklist":{"ci":"pass","image_scan":"pass","contract_snapshot":"人工确认（父流水线 swagger-snapshot 归档）","migration_drill":"人工确认（三库迁移演练）","backup_restorable":"人工确认（当日备份可恢复）","release_notes":"人工确认（发布说明）"}}\n' \
+        "$SERVICE" "$CI_COMMIT_SHA" "$CI_COMMIT_SHORT_SHA" "${CI_COMMIT_TAG:-}" "$IMAGE" "$DIGEST" "$CI_PIPELINE_URL" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > release-manifest.json
+      cat release-manifest.json
+  artifacts:
+    paths: [release-manifest.json]
+    expire_in: 90 days
   after_script:
     # 发布度量推送（08_02 通道；按 job 终态记 success / failure；不可达不改变发布结论；数据末尾须换行）
     - |
