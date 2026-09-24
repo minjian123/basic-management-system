@@ -248,6 +248,22 @@ def _base_env(env_file: Path) -> dict[str, str]:
     return merged
 
 
+def _fill_service_tags(deploy_dir: Path, env: dict[str, str]) -> dict[str, str]:
+    """补齐所有服务的 `BMS_TAG_<SERVICE>`（compose 需全部变量方可插值；台账当前版本兜底）。
+
+    取值优先：进程 / `.env` 已有 > 服务台账 `current.tag` > `BMS_IMAGE_TAG`。
+    """
+    result = dict(env)
+    for service in SERVICES:
+        key = f"BMS_TAG_{service.upper()}"
+        if result.get(key):
+            continue
+        ledger = _load_ledger(deploy_dir, service)
+        current = ledger.get("current") if isinstance(ledger.get("current"), dict) else None
+        result[key] = str((current or {}).get("tag") or env.get("BMS_IMAGE_TAG", ""))
+    return result
+
+
 def _ensure_registry_login(env: dict[str, str], *, stdout=print) -> None:
     """best-effort 登录 GitLab Registry（有 token 时；失败不中止，交由 compose 拉取时报错）。"""
     prefix = env.get("REGISTRY_IMAGE_PREFIX", "")
@@ -408,7 +424,8 @@ def _check_gateway(env: dict[str, str], service: str, timeout: float) -> bool:
             status = resp.status
     except urllib.error.HTTPError as exc:
         status = exc.code
-    except urllib.error.URLError, OSError:
+    except OSError:
+        # 含 urllib.error.URLError（其子类）与底层连接错误
         status = 0
     return status in GATEWAY_SMOKE_PASS
 
@@ -576,8 +593,8 @@ def _tenant_url(env: dict[str, str], service: str, tenant: str) -> str:
     return urllib.parse.urlunsplit((parsed.scheme, netloc, parsed.path, "", ""))
 
 
-def cmd_bootstrap(deploy_dir: Path, env: dict[str, str], *, actor: str) -> int:
-    """首次数据引导：建库授权 → 分链迁移 → 种子（幂等）。"""
+def cmd_bootstrap(deploy_dir: Path, env: dict[str, str], *, services: list[str], actor: str) -> int:
+    """首次数据引导：建库授权 → 分链迁移 → 种子（幂等；`services` 可限定子集）。"""
     tenants = [t for t in (env.get("BMS_DEPLOY_TENANTS", "demo,acme") or "").split(",") if t]
     print("[bootstrap] 1/4 应用账号与授权")
     _ensure_registry_login(env)
@@ -589,13 +606,17 @@ def cmd_bootstrap(deploy_dir: Path, env: dict[str, str], *, actor: str) -> int:
         provision += ["--code", tenant]
     _compose_run(deploy_dir, env, "platform", provision)
     print("[bootstrap] 3/4 分链迁移（按服务）")
-    for service in SERVICES:
+    for service in services:
         _migrate(deploy_dir, env, service, _bootstrap_tag(env, service), tenants)
     print("[bootstrap] 4/4 种子")
-    _compose_run(deploy_dir, env, "platform", ["python", "-m", "ops.seed_tenant"])
-    _compose_run(deploy_dir, env, "platform", ["python", "-m", "ops.seed_module"])
-    _compose_run(deploy_dir, env, "platform", ["python", "-m", "ops.seed_tables"])
-    for service in SERVICES:
+    # 种子按「服务包归属」选运行镜像：seed_module 需 bms_platform；seed_tenant 需 bms_tenant；
+    # seed_tables / seed_dict 仅需 bms_core（平台 / 各服务镜像均可）
+    if "platform" in services:
+        _compose_run(deploy_dir, env, "platform", ["python", "-m", "ops.seed_module"])
+        _compose_run(deploy_dir, env, "platform", ["python", "-m", "ops.seed_tables"])
+    if "tenant" in services:
+        _compose_run(deploy_dir, env, "tenant", ["python", "-m", "ops.seed_tenant"])
+    for service in services:
         for tenant in tenants:
             url = _tenant_url(env, service, tenant)
             _compose_run(
@@ -715,7 +736,10 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser.add_argument("--actor", default=os.environ.get("USER", "unknown"), help="操作者（记入台账 / 日志）")
     sub = parser.add_subparsers(dest="command", required=True)
 
-    sub.add_parser("bootstrap", help="一次性数据引导（建库 + 迁移 + 种子）")
+    bootstrap = sub.add_parser("bootstrap", help="一次性数据引导（建库 + 迁移 + 种子）")
+    bootstrap.add_argument(
+        "--service", action="append", choices=SERVICES, default=[], help="限定服务（可重复；缺省全部启用服务）"
+    )
 
     deploy = sub.add_parser("deploy", help="部署（迁移 → 起容器 → 门禁 → 台账）")
     deploy.add_argument("--service", choices=SERVICES, help="目标服务")
@@ -745,13 +769,13 @@ def main(argv: list[str] | None = None) -> int:
     args = _parse_args(argv)
     deploy_dir = Path(args.deploy_dir).resolve()
     env_file = Path(args.env_file) if args.env_file else deploy_dir / ".env"
-    env = _base_env(env_file)
+    env = _fill_service_tags(deploy_dir, _base_env(env_file))
     if not deploy_dir.is_dir():
         print(f"错误：deploy 目录不存在：{deploy_dir}", file=sys.stderr)
         return 2
     try:
         if args.command == "bootstrap":
-            return cmd_bootstrap(deploy_dir, env, actor=args.actor)
+            return cmd_bootstrap(deploy_dir, env, services=(args.service or list(SERVICES)), actor=args.actor)
         if args.command == "deploy":
             services = list(SERVICES) if args.all else ([args.service] if args.service else [])
             if not services:
