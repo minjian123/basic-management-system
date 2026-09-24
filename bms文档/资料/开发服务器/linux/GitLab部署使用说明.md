@@ -83,7 +83,7 @@ docker exec bms-gitlab gitlab-ctl status      # 全部 run 状态
 
 ## 6. gitlab-runner 注册 <a id="runner"></a>
 
-runner 容器已启动并注册（2026-08-10，runner `bacf4fd652a2`，concurrent=2）。注册步骤记录如下：
+runner 容器已启动并注册（2026-08-10，runner `bacf4fd652a2`，concurrent=4——2026-09-24 实测校正，曾记 2）。注册步骤记录如下：
 
 1. GitLab 界面获取认证 token：**管理区域 → CI/CD → Runners → 新建实例 runner**（勾选「允许未标记的作业」），得到 `glrt-...` token。
 2. 注册（注意：新版 gitlab-runner 用认证 token 注册时**不能带 --tag-list / --run-untagged / --locked 等参数**，这些需在 GitLab 界面配置）：
@@ -116,7 +116,7 @@ runner 容器的定义在 `deploy/compose/gitlab.yml`（值取自 `~/deploy/.env
 | 容器 | `bms-gitlab-runner`（`depends_on: gitlab`） | 与 GitLab 本体同 compose 编排 |
 | 挂载 | `/var/run/docker.sock`、`runner-config:/etc/gitlab-runner` | 通过宿主 docker.sock 起 job 容器；配置持久化在命名卷 |
 | 环境变量 | `RUNNER_EXECUTOR=docker`、`RUNNER_DOCKER_IMAGE=python:3.14-slim` | job 未声明 `image:` 时的默认镜像 |
-| `concurrent` | 2 | mjbk 6 核 12 线程下的并发上限（流水线 job 排队上限以此为界） |
+| `concurrent` | 4 | mjbk 6 核 12 线程下的并发上限（流水线 job 排队上限以此为界；2026-09-24 实测校正，曾记 2） |
 | `executor` | docker | 每个 job 起独立容器，互不污染 |
 | `pull_policy` | `["if-not-present"]` | **本地已有同名标签就不再拉取**——CI 基础镜像在本机构建后可直接复用 |
 | `tls_verify` / `privileged` | `false` / `false` | GitLab Registry 走 HTTP（8080/5050），关闭 TLS 校验；job 容器不提权 |
@@ -160,6 +160,8 @@ docker ps --filter name=bms-gitlab-runner
 | 外部访问容器端口全部不通 | Docker 发布端口对外不可达 | ufw 启用后需 `sudo ufw default allow routed`（FORWARD 链）并放行目标端口；本机访问用 `docker restart` 重建容器网络后验证 |
 | CI job 一直 pending | job 排队不运行，API 查 runner 在线 | `.gitlab-ci.yml` 的 tags 与 runner 实际注册 tag 必须一致——本 runner 实际 tag 为 `bms`（界面配置，非 `bms,docker`）且未勾选「运行未标记的作业」；用 `GET /api/v4/runners/:id` 核对 `tag_list` |
 | CI job 卡在 Pulling helper image | trace 停在 `Pulling docker image registry.gitlab.com/.../gitlab-runner-helper:...` 数十分钟 | registry.gitlab.com 国内访问慢，且 runner 19.x 对 helper 镜像默认 `pull_policy=[always]`（本地有镜像也强制联网校验）；处理：① 预拉缓存三镜像（python:3.14-slim、node:22-slim、gitlab-runner-helper 对应版本）；② config.toml `[runners.docker]` 加 `pull_policy = ["if-not-present"]` 后重启 runner |
+| `docker push` 到 Registry 报 `blob unknown` | 分层推送后最后报 `error from registry: blob unknown to registry - sha256:...`（本机镜像可用但 Registry 无完整清单） | 根因：BuildKit 默认生成 **attestation（provenance）清单**，GitLab Registry 不接受该 OCI 清单（2026-09-24 mjbk 实测：同镜像加 `--provenance=false` 重建后推送成功）；处理：构建命令固定加 `--provenance=false`（服务子流水线模板已内置） |
+| 子流水线未创建 / trigger job 失败 | 父流水线 `trigger-*` job 失败或子流水线为空 | 检查：① 子模板 `workflow.rules` 须放行 `$CI_PIPELINE_SOURCE == "parent_pipeline"`；② trigger job 的 `variables.SERVICE` 是否传入；③ `trigger.include.local` 路径与仓库内实际文件一致；用 CI Lint API 分别校验父配置与子模板 |
 
 ## 9. 关联文档 <a id="related"></a>
 

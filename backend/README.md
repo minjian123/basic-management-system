@@ -21,6 +21,11 @@ uv run python -m bms_platform          # 各服务启动入口（读 config 的 
 uv run pytest   # 全量用例（工作区根；含 Kiwi TCMS 用例 ID 标注）
 # 工程级范围：进入某工程目录 `uv run pytest` 只跑该工程（如 cd services/org / cd libs/bms_core），不落根全量
 
+# 服务运行镜像（按服务参数化；构建上下文 backend/，锁文件一致、非目标服务源码不入镜像）
+# CI 由服务子流水线 service-build / service-release 构建推送（deploy/ci/templates/backend-service.yml）
+docker build --provenance=false --build-arg SERVICE=platform -f backend/Dockerfile backend/ -t bms-platform:dev
+docker run --rm -p 8000:8000 bms-platform:dev        # 平台库需先迁移；容器编排 / 回滚归 09_02
+
 # 本地门禁（与 CI 同口径）
 uv run ruff check . && uv run ruff format --check . && uv run pyright
 uv run pytest -q --cov=bms_core --cov=bms_platform --cov=bms_identity --cov=bms_tenant --cov=bms_org --cov=bms_file --cov=bms_notification --cov=bms_search --cov=bms_ai --cov=bms_report --cov-branch --cov-fail-under=70   # 覆盖率门禁 ≥ 70%
