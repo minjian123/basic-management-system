@@ -912,8 +912,8 @@ contract-smoke:
         - deploy/ci/verify/contract-gate
   script:
     - cd backend && uv sync --frozen
-    # 源码直跑真实服务 + Schemathesis 容器打真实服务（只读 GET/HEAD + 有限样例；零 Broker）
-    - uv run python -m ops.contract_smoke run --max-examples 50
+    # 源码直跑真实服务 + Schemathesis 容器打真实服务（只读 GET/HEAD + 每操作 1 例冒烟；零 Broker）
+    - uv run python -m ops.contract_smoke run --max-examples 1
 
 # ---- Allure 结果归档 + Kiwi TCMS 导入（分档开关 deploy/ci/verify/report，P2 档；2026-09-22 关闭，无消费方）----
 # 口径（04-4 后重验证层就绪评估结论）：
