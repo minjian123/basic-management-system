@@ -1,13 +1,16 @@
 #
-# BMS 一键编排：基础设施（base）+ 边缘网关（gateway）+ 可观测性栈（observability）。
+# BMS 一键编排：基础设施（base）+ 边缘网关（gateway）+ 后端服务（services）+ 可观测性栈（observability）。
 #
 # 一键拉起（在 deploy/ 目录，.env 提供变量）：
 #   docker compose -f compose/bms.yml --env-file .env up -d
 #
 # 说明：`include` 为 Compose 规格能力（v2.20+）；各子编排亦可单独 -f 拉起。
 # 身份源（keycloak）与测试平台（kiwi）按需另行叠加 -f compose/keycloak.yml。
+# 后端服务（09_02）的镜像标签由 scripts/tools/deploy/release.py 按版本台账注入（BMS_TAG_<SERVICE>）；
+# 直接 up 而不给标签会报错（刻意，防误用 latest）。
 
 include:
   - base.yml
   - gateway.yml
+  - services.yml
   - observability.yml

@@ -1,2 +1,5 @@
 # Alertmanager 渲染产物（含 SMTP / webhook 凭据，不入库；由 scripts/tools/observability/render_alertmanager.py 生成）
 observability/rendered/alertmanager.yml
+
+# 版本台账（当前 / 上一版本 + 发布日志；服务器侧运行时状态，不入库；09_02）
+releases/
