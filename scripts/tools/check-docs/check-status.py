@@ -46,7 +46,10 @@ ROW_RE = re.compile(r"^\|(?P<cells>.*)\|\s*$")
 GANTT_NODE_RE = re.compile(r"^\s*(?P<id>\d{2}_\d{2})\s")
 STATS_HEAD_RE = re.compile(r"已完成\s*(?P<done>\d+)\s*项，剩余\s*(?P<todo>\d+)\s*项")
 EFFORT_RE = re.compile(
-    r"已完成\s*(?P<done>\d+)h；剩余\s*(?P<todo>\d+)h.*?阶段合计\s*\*\*(?P<total>\d+)\*\*h"
+    # 兼容三种既有写法：`**316h**`（星号含 h）/ `316h`（无星号）/ `**316**h`（星号仅包数字）；
+    # 2026-09-24 修正：原正则只认末一种，导致 S1 工时子校验在所有阶段计划上从未触发（10_01 实施发现）。
+    r"已完成\s*\*{0,2}(?P<done>\d+)h\*{0,2}；剩余\s*\*{0,2}(?P<todo>\d+)h\*{0,2}"
+    r".*?阶段合计\s*\*{0,2}(?P<total>\d+)h\*{0,2}"
 )
 HOURS_RE = re.compile(r"^(\d+)h$")
 
