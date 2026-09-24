@@ -70,7 +70,7 @@ def test_tenant_hostname_and_exempt() -> None:
 
     # IP 字面量 / 本机名不是租户域名（06_04：dev / CI / Compose 直连一律为 IP 或 localhost）
     assert tenant_hostname("127.0.0.1:8000") is None
-    assert tenant_hostname("192.168.0.107") is None
+    assert tenant_hostname("10.0.0.5") is None
     assert tenant_hostname("[::1]:8000") is None
     assert tenant_hostname("localhost:8000") is None
     assert tenant_hostname("localhost.localdomain") is None
