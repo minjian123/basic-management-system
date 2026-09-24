@@ -28,6 +28,9 @@ workflow:
     #   - job 级：main 直推的 job 以 changes 按域放行（后端组 / 前端组 / 镜像档各守各自路径），
     #     纯基座文档推送只跑 gate-smoke + base-integrity（秒级），不再全量；
     #   - MR 流水线维持全量门禁（不做 job 级 changes 放行，避免“含代码 MR 只跑占位 job”类漏判——2026-08-22 教训）。
+    # MR 流水线：新建 / 更新 MR 时建流水线（各 job 以 merge_request_event 规则放行；不做 job 级 changes）
+    # （2026-09-24 修复：此前 workflow 漏配本条，导致 MR 不生成流水线，与项目「Pipelines must succeed」冲突、MR 无法合并）
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_PIPELINE_SOURCE == "web"
     - if: $CI_PIPELINE_SOURCE == "api"
     # 版本标签流水线（09_02）：推 vX.Y.Z tag 时建流水线，拉起服务子流水线构建语义化镜像
