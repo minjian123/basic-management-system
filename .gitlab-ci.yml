@@ -14,6 +14,13 @@
 #     backend-test 全量测试兜底；MR 流水线全量（恢复 MR 流程后生效）；其他分支以 compare_to 兜底；
 #   - 前端 job 群（desktop / mobile / modules）保持父流水线现状，不套「服务」概念。
 
+# 依赖漏洞扫描（供应链安全）：官方 Dependency Scanning 模板（gemnasium 分析器，覆盖 pnpm-lock.yaml 等）。
+# 依赖升级已停用自动 bot（见 renovate.json），依赖安全靠本扫描告警 + 人工评估按需升级。
+# 注：Python 的 uv.lock 暂不在官方 gemnasium-python 支持范围（仅 requirements / Pipfile / poetry），
+#     该缺口由人工定期审查或后续独立工具补（见《安全开发规范》依赖安全节）。
+include:
+  - template: Security/Dependency-Scanning.gitlab-ci.yml
+
 workflow:
   # 新推送自动取消同分支上一条未完成流水线（仅取消可中断 job）：
   # 避免连续 push 时多条流水线抢占有限的 runner 并发槽（2026-09-22 提速）。
