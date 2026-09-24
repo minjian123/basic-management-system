@@ -34,14 +34,14 @@ def test_service_env_injects_dev_and_port() -> None:
 
 @pytest.mark.kiwi_id(2186)
 def test_schemathesis_command_readonly_and_network() -> None:
-    """Schemathesis 命令：固定镜像、共享 job 网络、只读方法、有限样例、仅无 5xx 检查。"""
+    """Schemathesis 命令：固定镜像、host 网络 + 容器 IP、只读方法、有限样例、仅无 5xx 检查。"""
     command = contract_smoke.schemathesis_command(
-        "platform", 18000, Path("/repo/deploy/contracts"), container_ref="cid123", max_examples=7
+        "platform", 18000, Path("/repo/deploy/contracts"), bind_host="172.18.0.24", max_examples=7
     )
     assert contract_smoke.SCHEMATHESIS_IMAGE in command
-    assert "--network" in command and "container:cid123" in command
+    assert "--network" in command and "host" in command
     assert "/schemas/platform.json" in command
-    assert "http://127.0.0.1:18000" in command
+    assert "http://172.18.0.24:18000" in command
     assert "--max-examples" in command and "7" in command
     assert "--checks" in command and "not_a_server_error" in command
     assert "--suppress-health-check" in command
@@ -50,12 +50,12 @@ def test_schemathesis_command_readonly_and_network() -> None:
 
 
 @pytest.mark.kiwi_id(2186)
-def test_resolve_container_ref(monkeypatch: pytest.MonkeyPatch) -> None:
-    """容器引用取 $HOSTNAME（空则空串，由 run 判失败）。"""
-    monkeypatch.setenv("HOSTNAME", "abc123")
-    assert contract_smoke.resolve_container_ref() == "abc123"
-    monkeypatch.delenv("HOSTNAME", raising=False)
-    assert contract_smoke.resolve_container_ref() == ""
+def test_resolve_bind_host(monkeypatch: pytest.MonkeyPatch) -> None:
+    """被测地址：BMS_SMOKE_BIND_HOST 优先；否则取本容器 IP（非空）。"""
+    monkeypatch.setenv("BMS_SMOKE_BIND_HOST", "10.0.0.9")
+    assert contract_smoke.resolve_bind_host() == "10.0.0.9"
+    monkeypatch.delenv("BMS_SMOKE_BIND_HOST", raising=False)
+    assert contract_smoke.resolve_bind_host() != ""
 
 
 @pytest.mark.kiwi_id(2186)
@@ -94,9 +94,9 @@ def test_summarize_exit_codes(capsys: pytest.CaptureFixture[str]) -> None:
 
 
 @pytest.mark.kiwi_id(2186)
-def test_run_requires_container_ref() -> None:
-    """无法解析 job 容器引用时 run 直接失败（不静默跳过）。"""
-    assert contract_smoke.run(Path("/repo"), services=["platform"], container_ref="") == 1
+def test_run_requires_bind_host() -> None:
+    """无法解析被测地址时 run 直接失败（不静默跳过）。"""
+    assert contract_smoke.run(Path("/repo"), services=["platform"], bind_host="") == 1
 
 
 @pytest.mark.kiwi_id(2186)
