@@ -8,11 +8,11 @@ export DEBIAN_FRONTEND=noninteractive
 LOG=/root/bms-install.log
 exec > >(tee -a $LOG) 2>&1
 
-echo "=== [1/6] apt 清华源 ==="
+echo "=== [1/7] apt 清华源 ==="
 sed -i 's|http://archive.ubuntu.com|https://mirrors.tuna.tsinghua.edu.cn|g; s|http://security.ubuntu.com|https://mirrors.tuna.tsinghua.edu.cn|g' /etc/apt/sources.list
 apt-get update -qq
 
-echo "=== [2/6] 基础工具与 Docker ==="
+echo "=== [2/7] 基础工具与 Docker ==="
 apt-get install -y -qq curl ca-certificates gnupg lsb-release git net-tools jq
 install -m 0755 -d /etc/apt/keyrings
 curl -fsSL https://mirrors.tuna.tsinghua.edu.cn/docker-ce/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
@@ -31,12 +31,19 @@ EOF
 systemctl enable docker
 systemctl start docker
 
-echo "=== [3/6] 部署目录与 .env ==="
+echo "=== [3/7] RocketMQ 数据目录（bind mount，属主 3000:3000）==="
+# apache/rocketmq 镜像以 uid 3000(rocketmq) 运行且不含 /home/rocketmq/{logs,store}；
+# 若用命名卷会被 Docker 建成 root:root，broker 写不了日志会启动即退出并无限重启，
+# 故预建宿主机目录并授权给 3000（与 deploy/compose/base.yml 的 bind mount 对应）。
+mkdir -p /mnt/ssd2t/rocketmq/broker/store /mnt/ssd2t/rocketmq/broker/logs /mnt/ssd2t/rocketmq/nameserver/logs
+chown -R 3000:3000 /mnt/ssd2t/rocketmq
+
+echo "=== [4/7] 部署目录与 .env ==="
 mkdir -p /opt/bms/deploy/compose
 cp -r compose/*.yml /opt/bms/deploy/compose/ 2>/dev/null || true
 # .env 由管理员手动创建（含密码）
 
-echo "=== [4/6] GitLab CE（清华 deb 直装） ==="
+echo "=== [5/7] GitLab CE（清华 deb 直装） ==="
 if [ ! -f /root/gitlab-ce.deb ]; then
   curl -sL -o /root/gitlab-ce.deb "https://mirrors.tuna.tsinghua.edu.cn/gitlab-ce/ubuntu/jammy/pool/main/g/gitlab-ce/gitlab-ce_19.2.1-ce.0_amd64.deb"
 fi
@@ -57,11 +64,11 @@ node_exporter['enable'] = false
 EOF
 gitlab-ctl reconfigure
 
-echo "=== [5/6] 时区与主机名 ==="
+echo "=== [6/7] 时区与主机名 ==="
 timedatectl set-timezone Asia/Shanghai
 hostnamectl set-hostname mjbk
 
-echo "=== [6/6] 防火墙 ==="
+echo "=== [7/7] 防火墙 ==="
 ufw allow OpenSSH
 ufw allow 8080/tcp
 ufw allow 2222/tcp
