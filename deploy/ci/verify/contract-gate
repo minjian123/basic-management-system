@@ -2,10 +2,12 @@
 管控 job（父流水线 verify 阶段）：
   - contract-gate：oasdiff breaking 比对「独立基线 ↔ 实时公开契约」（只加不删），破坏性变更即失败并
     输出中文清单；破坏数 bms_contract_breaking_total{service} 经 after_script 推送 Pushgateway（08_02 通道）。
-  - contract-smoke：Schemathesis 源码起真实服务（uv run python -m bms_{service}，dev/SQLite）+
-    固定 tag 容器经 --network host + job 容器 IP 打真实服务（零 Broker；只读 GET/HEAD + 有限样例；
-    排除探针端点 /healthz /readyz /metrics）。**非阻断**（allow_failure: true）——dev 环境依赖缺口会
-    产生 5xx 噪声；阻断门禁为 contract-gate 的 oasdiff 破坏性变更拦截。
+  - contract-smoke-<服务>（9 个）：Schemathesis **用已构建服务镜像**（bms-<服务>:$CI_COMMIT_SHORT_SHA，固定 tag
+    可重现）docker run -d -e BMS_ENV=dev 起容器，就绪（镜像 HEALTHCHECK /healthz）后 Schemathesis 容器
+    --network container:<服务容器> 打真实服务（零 Broker；只读 GET/HEAD + 每操作 1 例；排除探针端点
+    /healthz /readyz /metrics）。**按服务、仅本次变更的服务运行**（rules:changes: backend/services/<服务>/**/*）；
+    **非阻断**（allow_failure: true）——dev 环境依赖缺口会产生 5xx 噪声；阻断门禁为 contract-gate 的
+    oasdiff 破坏性变更拦截。
 
 口径（任务 09_03 详细设计）：
 - 独立基线 deploy/contracts/baseline/<service>.json（入 Git，仅经评审更新；无自动覆盖路径）；

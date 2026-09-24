@@ -1,19 +1,18 @@
-"""Schemathesis 契约冒烟编排纯函数测试（Kiwi 2186）：服务枚举 / 命令构造 / 就绪轮询 / 结果汇总。
+"""Schemathesis 契约冒烟编排纯函数测试（Kiwi 2186）：已构建镜像起容器 / 命令构造 / 就绪轮询 / 执行序列。
 
-口径（09_03 详细设计 §4.2 / §4.6）：源码直跑真实服务 + 固定 tag 容器打真实服务（零 Broker）；
-只读方法（GET / HEAD）+ 有限样例 + 仅 `not_a_server_error`。测试以桩替换子进程 / 探测，不真起服务或容器。
+口径（09_03 详细设计 §4.2 / §4.6）：用**已构建服务镜像**起真实容器 + Schemathesis 容器
+`--network container:<服务容器>` 打；只读 GET/HEAD + 每操作 1 例 + 仅 `not_a_server_error`；
+排除基础设施端点。测试以桩替换子进程，不真起容器。
 """
 
 from __future__ import annotations
 
 import subprocess
-import urllib.error
 from pathlib import Path
 from typing import Any
 
 import pytest
 
-from bms_core.services.module_registry import enabled_service_keys
 from ops import contract_smoke
 
 
@@ -23,40 +22,65 @@ def _completed(command: Any, returncode: int, stdout: str = "", stderr: str = ""
 
 
 @pytest.mark.kiwi_id(2186)
-def test_service_port_and_start_command() -> None:
-    """端口按序号分配；启动命令为 `uv run python -m bms_<service>`。"""
-    assert contract_smoke.service_port(0) == contract_smoke.BASE_PORT
-    assert contract_smoke.service_port(3) == contract_smoke.BASE_PORT + 3
-    assert contract_smoke.start_service_command("platform") == ["uv", "run", "python", "-m", "bms_platform"]
-
-
-@pytest.mark.kiwi_id(2186)
-def test_service_env_injects_dev_and_port() -> None:
-    """服务进程环境注入 dev 与指定端口。"""
-    env = contract_smoke.service_env({"PATH": "/bin"}, 18005)
-    assert env["BMS_ENV"] == "dev"
-    assert env["BMS_SERVER__PORT"] == "18005"
-    assert env["PATH"] == "/bin"
-
-
-@pytest.mark.kiwi_id(2186)
-def test_schemathesis_args_readonly() -> None:
-    """Schemathesis 参数：容器内 schema 路径、容器 IP:端口、只读方法、有限样例、仅无 5xx 检查。"""
-    command = contract_smoke.schemathesis_args("platform", 18000, bind_host="172.18.0.24", max_examples=7)
+def test_container_name_and_schemathesis_args() -> None:
+    """容器名固定；参数含容器内 schema 路径、127.0.0.1:8000、只读方法、排除探针。"""
+    assert contract_smoke.service_container_name("platform") == "bms-smoke-platform"
+    command = contract_smoke.schemathesis_args("platform", max_examples=1)
     assert "/tmp/platform.json" in command
-    assert "http://172.18.0.24:18000" in command
-    assert "--max-examples" in command and "7" in command
+    assert f"http://127.0.0.1:{contract_smoke.SERVICE_PORT}" in command
+    assert "--max-examples" in command and "1" in command
     assert "--checks" in command and "not_a_server_error" in command
     assert "--suppress-health-check" in command
     assert command.count("--include-method") == len(contract_smoke.READ_METHODS)
     assert command.count("--exclude-path") == len(contract_smoke.EXCLUDED_PATHS)
-    assert "/readyz" in command and "/healthz" in command
-    assert "GET" in command and "HEAD" in command
+    assert "GET" in command and "HEAD" in command and "/readyz" in command
 
 
 @pytest.mark.kiwi_id(2186)
-def test_docker_schemathesis_create_cp_start() -> None:
-    """docker_schemathesis 走 create → cp → start → rm，且 create 含固定镜像与 host 网络。"""
+def test_service_up_healthy() -> None:
+    """起容器 → 轮询 healthy 即就绪；镜像标签随命令传入。"""
+    calls: list[list[str]] = []
+    inspect_n = {"n": 0}
+
+    def fake_run(command: Any) -> subprocess.CompletedProcess[str]:
+        calls.append(list(command))
+        if "inspect" in command:
+            inspect_n["n"] += 1
+            return _completed(command, 0, "starting" if inspect_n["n"] == 1 else "healthy")
+        return _completed(command, 0)
+
+    assert contract_smoke.service_up("platform", "reg/bms-platform:abc", run=fake_run, sleep=lambda _s: None) is True
+    run_cmd = next(call for call in calls if call[1] == "run")
+    assert "BMS_ENV=dev" in run_cmd and "reg/bms-platform:abc" in run_cmd
+    assert inspect_n["n"] == 2
+
+
+@pytest.mark.kiwi_id(2186)
+def test_service_up_start_failure_and_timeout() -> None:
+    """起容器失败即 False；就绪超时 False。"""
+
+    def fail_run(command: Any) -> subprocess.CompletedProcess[str]:
+        return _completed(command, 1, "", "boom") if command[1] == "run" else _completed(command, 0)
+
+    assert contract_smoke.service_up("platform", "img", run=fail_run, sleep=lambda _s: None) is False
+
+    def never_healthy(command: Any) -> subprocess.CompletedProcess[str]:
+        return _completed(command, 0, "starting" if "inspect" in command else "")
+
+    assert contract_smoke.service_up("platform", "img", run=never_healthy, sleep=lambda _s: None, attempts=2) is False
+
+
+@pytest.mark.kiwi_id(2186)
+def test_service_down_runs_rm() -> None:
+    """停止服务容器执行 `docker rm -f <容器>`。"""
+    calls: list[list[str]] = []
+    contract_smoke.service_down("platform", run=lambda c: (calls.append(list(c)), _completed(c, 0))[1])
+    assert calls[0][1:4] == ["rm", "-f", "bms-smoke-platform"]
+
+
+@pytest.mark.kiwi_id(2186)
+def test_docker_schemathesis_sequence() -> None:
+    """Schemathesis：create（--network container:服务容器 + 固定镜像）→ cp → start → rm。"""
     calls: list[list[str]] = []
 
     def fake_run(command: Any) -> subprocess.CompletedProcess[str]:
@@ -67,9 +91,8 @@ def test_docker_schemathesis_create_cp_start() -> None:
 
     code, out, _err = contract_smoke.docker_schemathesis(
         "platform",
-        18000,
         Path("/repo/deploy/contracts/platform.json"),
-        bind_host="172.18.0.24",
+        service_container="bms-smoke-platform",
         run=fake_run,
     )
     assert code == 0 and out == "ok"
@@ -77,62 +100,44 @@ def test_docker_schemathesis_create_cp_start() -> None:
     assert verbs[0] == "rm" and "create" in verbs and verbs.count("cp") == 1 and "start" in verbs and verbs[-1] == "rm"
     create = next(call for call in calls if "create" in call)
     assert contract_smoke.SCHEMATHESIS_IMAGE in create
-    assert create[create.index("--network") + 1] == "host"
+    assert create[create.index("--network") + 1] == "container:bms-smoke-platform"
     cp = next(call for call in calls if call[1] == "cp")
     assert cp[-1].endswith(":/tmp/platform.json")
 
 
 @pytest.mark.kiwi_id(2186)
-def test_resolve_bind_host(monkeypatch: pytest.MonkeyPatch) -> None:
-    """被测地址：BMS_SMOKE_BIND_HOST 优先；否则取本容器 IP（非空）。"""
-    monkeypatch.setenv("BMS_SMOKE_BIND_HOST", "10.0.0.9")
-    assert contract_smoke.resolve_bind_host() == "10.0.0.9"
-    monkeypatch.delenv("BMS_SMOKE_BIND_HOST", raising=False)
-    assert contract_smoke.resolve_bind_host() != ""
+def test_run_reports_service_not_ready() -> None:
+    """服务容器未就绪时 run 失败并清理。"""
+    calls: list[list[str]] = []
+
+    def fake_run(command: Any) -> subprocess.CompletedProcess[str]:
+        calls.append(list(command))
+        if command[1] == "run":
+            return _completed(command, 1, "", "cannot start")
+        return _completed(command, 0)
+
+    assert (
+        contract_smoke.run(Path("/repo"), service="platform", image="img", run_cmd=fake_run, sleep=lambda _s: None) == 1
+    )
+    assert any(call[1:3] == ["rm", "-f"] for call in calls)
 
 
 @pytest.mark.kiwi_id(2186)
-def test_wait_for_health_retries_then_ready() -> None:
-    """健康轮询：前两次失败、第三次成功即就绪。"""
-    calls: list[str] = []
+def test_run_success_and_failure() -> None:
+    """就绪后 Schemathesis 返回 0 → run 通过；返回码非 0 → run 失败。"""
+    exit_holder = {"code": 0}
 
-    def probe(url: str) -> object:
-        calls.append(url)
-        if len(calls) < 3:
-            raise urllib.error.URLError("not ready")
-        return object()
+    def fake_run(command: Any) -> subprocess.CompletedProcess[str]:
+        if "inspect" in command:
+            return _completed(command, 0, "healthy")
+        if "start" in command:
+            return _completed(command, exit_holder["code"], "out", "")
+        return _completed(command, 0)
 
-    assert contract_smoke.wait_for_health(18000, probe=probe, sleep=lambda _s: None) is True
-    assert len(calls) == 3
-
-
-@pytest.mark.kiwi_id(2186)
-def test_wait_for_health_timeout() -> None:
-    """健康轮询超时返回 False。"""
-
-    def probe(url: str) -> object:
-        raise urllib.error.URLError("down")
-
-    assert contract_smoke.wait_for_health(18000, attempts=2, probe=probe, sleep=lambda _s: None) is False
-
-
-@pytest.mark.kiwi_id(2186)
-def test_summarize_exit_codes(capsys: pytest.CaptureFixture[str]) -> None:
-    """结果汇总：全通过 0；任一失败 1。"""
-    ok = contract_smoke.SmokeResult("platform", True)
-    assert contract_smoke.summarize([ok]) == 0
-    bad = contract_smoke.SmokeResult("identity", False, "返回码 1")
-    assert contract_smoke.summarize([ok, bad]) == 1
-    assert "identity" in capsys.readouterr().out
-
-
-@pytest.mark.kiwi_id(2186)
-def test_run_requires_bind_host() -> None:
-    """无法解析被测地址时 run 直接失败（不静默跳过）。"""
-    assert contract_smoke.run(Path("/repo"), services=["platform"], bind_host="") == 1
-
-
-@pytest.mark.kiwi_id(2186)
-def test_enabled_services_iterable() -> None:
-    """服务枚举来源为服务目录启用服务（非空）。"""
-    assert list(enabled_service_keys())
+    assert (
+        contract_smoke.run(Path("/repo"), service="platform", image="img", run_cmd=fake_run, sleep=lambda _s: None) == 0
+    )
+    exit_holder["code"] = 1
+    assert (
+        contract_smoke.run(Path("/repo"), service="platform", image="img", run_cmd=fake_run, sleep=lambda _s: None) == 1
+    )
