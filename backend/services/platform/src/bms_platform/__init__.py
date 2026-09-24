@@ -14,3 +14,5 @@ SERVICE_NAME = "platform"
 
 SERVICE_TITLE = "BMS 基础管理系统"
 """服务中文名（用于应用 title）。"""
+
+# 09_03 契约冒烟链路验证（临时改动，验证后回退）
