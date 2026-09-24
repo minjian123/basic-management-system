@@ -1,25 +1,13 @@
-# BMS 前端 CI 基础镜像：预装 workspace 根依赖（frontend/packages/*：core / vue / ui-ep）
-# 与 frontend/apps/desktop、frontend/modules/* node_modules
-# （镜像内路径 /opt/ci/workspace、/opt/ci/frontend/apps/desktop、/opt/ci/frontend/modules/<模块>）
-# 消费方：core-check（workspace 根依赖）/ desktop-check / desktop-build / module-check / module-build
+# BMS 前端 CI 基础镜像：node22 工具链 + 固定 pnpm（依赖不再镜像预装）
+# 依赖由各前端 job 内 `pnpm install --frozen-lockfile` 现装：
+#   - 经 runner /cache/pnpm 缓存卷 + npmmirror 现装（内容寻址 store，命中即秒级 link）
+#   - 消费方：core-check / desktop-check / desktop-build / module-check / module-build / e2e-playwright
+# （本地开发依赖外置到本地依赖仓 / 维护脚本，见 scripts/tools/deps/；CI 不再预置 -> 两环境口径一致：依赖不进仓库树）
 FROM node:22-slim
 
 ENV npm_config_registry=https://registry.npmmirror.com \
-    npm_config_legacy_peer_deps=true \
     npm_config_audit=false \
     npm_config_fund=false
 
-# workspace 根：frontend/packages/*（core / vue）依赖集（测试与源码级消费）
-COPY package.json package-lock.json tsconfig.base.json /opt/ci/workspace/
-COPY frontend/packages/ /opt/ci/workspace/frontend/packages/
-RUN cd /opt/ci/workspace && npm ci
-
-# PC 宿主 app（独立依赖集与锁文件）
-COPY frontend/apps/desktop/ /opt/ci/frontend/apps/desktop/
-RUN cd /opt/ci/frontend/apps/desktop && npm ci
-
-# 模块工程（frontend/modules/*：独立构建 / 独立发布的运行时模块；遍历全部模块预装依赖）
-# 依赖以 `file:../../packages/<包>` 链接平台基座包，故 packages 需同置于 /opt/ci/frontend/ 下
-COPY frontend/packages/ /opt/ci/frontend/packages/
-COPY frontend/modules/ /opt/ci/frontend/modules/
-RUN for dir in /opt/ci/frontend/modules/*/; do (cd "$dir" && npm ci); done
+# pnpm 版本固定（与本地一致；pnpm-lock.yaml 的锁语义由该版本解析）
+RUN npm install -g pnpm@11.7.0
