@@ -1,6 +1,6 @@
 按服务镜像构建 / 发布 / 扫描档（重验证层）——开启于 2026-09-24（阶段二 09_01 父-子流水线）
 管控 job：服务子流水线 service-build / service-release（deploy/ci/templates/backend-service.yml，父流水线 trigger 拉起）
-          + 前端镜像 frontend-image（本档同守；前置＝frontend/apps/desktop/Dockerfile）
+          + 前端镜像 frontend-image（本档同守 + 自身前置守卫 frontend/apps/desktop/Dockerfile）
 
 后端（按服务，9 个启用服务）：
 - 构建：docker build --provenance=false --build-arg SERVICE=<服务> -f backend/Dockerfile backend/

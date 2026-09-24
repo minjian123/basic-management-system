@@ -107,6 +107,9 @@ def test_parent_backend_test_rules_are_shared_paths_only() -> None:
     assert "backend-image" not in ci
     assert "container-scanning" not in ci
     assert ci["stages"] == ["prepare", "lint", "test", "trigger", "build", "verify"]
+    # 前端镜像：镜像档 + 自身 Dockerfile 前置守卫（档已为后端开启，前端 Dockerfile 落地前不出现）
+    frontend_exists = ci["frontend-image"]["rules"][0]["exists"]
+    assert {"deploy/ci/verify/image", "frontend/apps/desktop/Dockerfile"} == set(frontend_exists)
 
 
 @pytest.mark.kiwi_id(2184)
