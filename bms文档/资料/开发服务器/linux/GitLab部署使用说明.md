@@ -162,6 +162,8 @@ docker ps --filter name=bms-gitlab-runner
 | CI job 卡在 Pulling helper image | trace 停在 `Pulling docker image registry.gitlab.com/.../gitlab-runner-helper:...` 数十分钟 | registry.gitlab.com 国内访问慢，且 runner 19.x 对 helper 镜像默认 `pull_policy=[always]`（本地有镜像也强制联网校验）；处理：① 预拉缓存三镜像（python:3.14-slim、node:22-slim、gitlab-runner-helper 对应版本）；② config.toml `[runners.docker]` 加 `pull_policy = ["if-not-present"]` 后重启 runner |
 | `docker push` 到 Registry 报 `blob unknown` | 分层推送后最后报 `error from registry: blob unknown to registry - sha256:...`（本机镜像可用但 Registry 无完整清单） | 根因：BuildKit 默认生成 **attestation（provenance）清单**，GitLab Registry 不接受该 OCI 清单（2026-09-24 mjbk 实测：同镜像加 `--provenance=false` 重建后推送成功）；处理：构建命令固定加 `--provenance=false`（服务子流水线模板已内置） |
 | 子流水线未创建 / trigger job 失败 | 父流水线 `trigger-*` job 失败或子流水线为空 | 检查：① 子模板 `workflow.rules` 须放行 `$CI_PIPELINE_SOURCE == "parent_pipeline"`；② trigger job 的 `variables.SERVICE` 是否传入；③ `trigger.include.local` 路径与仓库内实际文件一致；用 CI Lint API 分别校验父配置与子模板 |
+| 版本标签流水线（09_02） | 推 `vX.Y.Z` tag 触发 | `workflow.rules` 放行 `$CI_COMMIT_TAG =~ /^v/`；9 个 `trigger-*` 与子模板 build / release 均含 tag 规则；release 扫描通过后对**同一镜像追加** `vX.Y.Z` 标签并产出 `release-manifest.json` artifact（不可重复推送同版本——标签不可变） |
+| Registry 标签清理（09_02） | `release.py prune` 删除超窗 SHA 标签 | 需 `GITLAB_API_URL` / `GITLAB_API_TOKEN` / `CI_PROJECT_ID`（读 `deploy/.env`）；semver 永久保留、SHA 保留最近 N；删除后磁盘回收另经 `gitlab-ctl registry-garbage-collect` |
 
 ## 9. 关联文档 <a id="related"></a>
 
