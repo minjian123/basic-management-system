@@ -795,8 +795,7 @@ frontend-image:
   <<: *build-push-base
   needs: [{job: desktop-build, optional: true}]
   rules:
-    # 重验证层分档开关：deploy/ci/verify/image（P3）+ 自身前置：frontend/apps/desktop/Dockerfile 就绪
-    # （09_01 起本档已为后端服务子流水线开启，前端镜像在 Dockerfile 落地前以 exists 守卫不出现）
+    # 重验证层分档开关：deploy/ci/verify/image（P3；09_01 起本档已为后端服务子流水线开启）
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
         paths:
@@ -808,8 +807,10 @@ frontend-image:
           - deploy/**/*
       exists:
         - deploy/ci/verify/image
-        - frontend/apps/desktop/Dockerfile
   script:
+    # 前端 Dockerfile 未就绪时跳过（rules:exists 多模式为「任一命中」，不能与档位文件做 AND；
+    # 前置在脚本内判定，避免空跑失败）
+    - test -f frontend/apps/desktop/Dockerfile || { echo "frontend/apps/desktop/Dockerfile 未就绪：跳过前端镜像构建"; exit 0; }
     - docker build -t $REGISTRY_IMAGE_PREFIX/bms-frontend:$CI_COMMIT_SHORT_SHA -f frontend/apps/desktop/Dockerfile frontend/apps/desktop/
     - docker push $REGISTRY_IMAGE_PREFIX/bms-frontend:$CI_COMMIT_SHORT_SHA
 
