@@ -4,7 +4,8 @@
 import { buildSparkline, formatMetricValue, resolveMetricTrend } from '@bms/core'
 import { describeMetricContract, type MetricContractTarget } from '@bms/core/testing'
 import { mount } from '@vue/test-utils'
-import { describe, expect, it } from 'vitest'
+import { nextTick } from 'vue'
+import { describe, expect, it, vi } from 'vitest'
 
 import { MetricCard } from '../src'
 
@@ -16,23 +17,6 @@ const metricTarget: MetricContractTarget = {
 }
 
 describeMetricContract('指标契约（ui-ep 适配）', () => metricTarget)
-
-/**
- * 轮询等待条件成立（动画帧驱动的断言用）。
- *
- * @param check 判定函数。
- * @param timeoutMs 超时毫秒。
- */
-async function waitUntil(check: () => boolean, timeoutMs = 3000): Promise<boolean> {
-  const deadline = Date.now() + timeoutMs
-  while (Date.now() < deadline) {
-    if (check()) {
-      return true
-    }
-    await new Promise((resolve) => setTimeout(resolve, 50))
-  }
-  return check()
-}
 
 describe('MetricCard 占位与数值', () => {
   it('未就绪时降级且不发请求', () => {
@@ -152,11 +136,27 @@ describe('MetricCard 交互', () => {
   })
 
   it('数字滚动：开启动画时先归零、关闭时直达终值', async () => {
-    const animated = mount(MetricCard, { props: { ready: true, title: '收款', value: 100 } })
-    expect(animated.find('[data-test="metric-value"]').text()).toBe('0')
+    // 以可控 rAF 帧推进动画：避免依赖真实 requestAnimationFrame 时序（CI 高负载下易偶发超时）
+    const frames: FrameRequestCallback[] = []
+    const raf = vi.spyOn(globalThis, 'requestAnimationFrame').mockImplementation((cb) => {
+      frames.push(cb)
+      return frames.length
+    })
+    const caf = vi.spyOn(globalThis, 'cancelAnimationFrame').mockImplementation(() => {})
+    try {
+      const animated = mount(MetricCard, { props: { ready: true, title: '收款', value: 100 } })
+      expect(animated.find('[data-test="metric-value"]').text()).toBe('0')
 
-    const done = await waitUntil(() => animated.find('[data-test="metric-value"]').text() === '100')
-    expect(done).toBe(true)
+      // 以超出动画时长的帧时间戳推进一步，动画直达终值（不依赖真实时钟）
+      while (frames.length > 0) {
+        frames.shift()?.(performance.now() + 1000)
+      }
+      await nextTick()
+      expect(animated.find('[data-test="metric-value"]').text()).toBe('100')
+    } finally {
+      raf.mockRestore()
+      caf.mockRestore()
+    }
 
     const still = mount(MetricCard, { props: { ready: true, title: '收款', value: 100, animate: false } })
     expect(still.find('[data-test="metric-value"]').text()).toBe('100')
