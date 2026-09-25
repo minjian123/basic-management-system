@@ -21,7 +21,6 @@
 | `tools/observability/` | 可观测部署辅助（`render_alertmanager.py` 从 `deploy/.env` 渲染 Alertmanager 配置；产物不入库） |
 | `tools/winrm/` | mjw（Windows）远程控制（WinRM 会话与电源） |
 | `tools/vision/` | mjw 识图 MCP（opencode MCP 服务） |
-| `tools/dsh/` | DeepSeek Harness（dsh）维护脚本 |
 
 ## 职责边界
 
