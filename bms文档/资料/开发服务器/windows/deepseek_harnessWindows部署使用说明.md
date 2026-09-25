@@ -1,7 +1,7 @@
 # deepseek_harness Windows 部署使用说明
 
 > mjw（Windows 11 开发服务器）上 DeepSeek Harness（DSH）的部署、启停、访问与排障实录
-> 对应 Linux/mjpc 版部署说明（安装主体、插件扩展、撤销快照等通用内容）见《[deepseek_harness部署使用说明](../../AI/deepseek_harness部署使用说明.md)》
+> 对应 Linux/mjpc 版部署说明（安装主体、插件扩展等通用内容）见《[deepseek_harness部署使用说明](../../AI/deepseek_harness部署使用说明.md)》
 
 [文档首页](../../../文档首页.md) › 资料 › 开发服务器 › [windows](开发服务器Windows部署使用说明总览.md) › deepseek_harness Windows 部署使用说明　|　[总览 →](开发服务器Windows部署使用说明总览.md)
 
@@ -107,7 +107,7 @@ Start-ScheduledTask -TaskName DSH_TASK
 ### 4.3 首次启动 <a id="run-first"></a>
 
 首次 `dsh web` 自动初始化 `C:\Users\minjian\.dsh`（profiles / storages / 凭据文件），
-web profile 为全新默认（未装 mjpc 上的 dsh-free-vision、dsh-undo-savepoint 等 bundle；
+web profile 为全新默认（未装 mjpc 上的 dsh-free-vision、dshmarket、dsh-mnemon 等 bundle；
 如需安装见 Linux 版部署说明第 8 节，mjw 上执行 `pnpm dsh plugin --profile web add <pkg>`）。
 
 ## 5. 更新 <a id="update"></a>
@@ -132,9 +132,9 @@ pnpm run build
 | 源码运行 | `~/develop/deepseek-harness` | `C:\Users\minjian\develop\deepseek-harness` |
 | 一键更新 | `~/.local/bin/dsh-update.sh`（桌面项） | 无，按第 5 节手动 |
 | 启停 | `dsh-web-start.sh` / `dsh-web-stop.sh` | 桌面「启动/停止 dsh web.cmd」 |
-| web 绑定 | 127.0.0.1（同） | 127.0.0.1（同，官方禁 0.0.0.0） |
-| 插件 bundle | free-vision / undo-savepoint 等 | 默认全新（按需 `dsh plugin add`） |
-| 通用内容 | 插件/撤销/救援工具见 Linux 版第 8 节 | 同左（mjw 未装时先看再装） |
+| web 绑定 | 127.0.0.1（CLI 层；远程访问插件受管绑定块可开 0.0.0.0，见 Linux 版 8.6） | 127.0.0.1（同，官方禁 0.0.0.0） |
+| 插件 bundle | free-vision / dshmarket / remote-web-ui 等 | 默认全新（按需 `dsh plugin add`） |
+| 通用内容 | 插件扩展见 Linux 版第 8 节 | 同左（mjw 未装时先看再装） |
 
 ## 7. 排障（Windows 特有） <a id="faq"></a>
 
@@ -150,7 +150,7 @@ pnpm run build
 
 ## 8. 关联文档 <a id="related"></a>
 
-- 《[deepseek_harness部署使用说明](../../AI/deepseek_harness部署使用说明.md)》：Linux/mjpc 版（主体部署、插件扩展、undo 快照等通用内容）
+- 《[deepseek_harness部署使用说明](../../AI/deepseek_harness部署使用说明.md)》：Linux/mjpc 版（主体部署、插件扩展等通用内容）
 - 《[开发服务器Windows部署使用说明总览](开发服务器Windows部署使用说明总览.md)》：mjw 总览
 - 《[远程控制部署使用说明](远程控制部署使用说明.md)》：WinRM/RDP 通道与计划任务交互法
 - 《[开发服务器Windows电源控制使用说明](开发服务器Windows电源控制使用说明.md)》：mjw 唤醒/睡眠/关机工具链
