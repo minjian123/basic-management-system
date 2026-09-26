@@ -100,6 +100,8 @@ from bms_core.print.base import BasePrintExporter, BasePrintTemplateProvider
 from bms_core.query.base import BaseQueryProviderRegistry
 from bms_core.query.local import LocalQueryProviderRegistry
 from bms_core.ratelimit.base import BaseRateLimiter
+from bms_core.ratelimit.memory import MemoryRateLimiter
+from bms_core.ratelimit.redis import RedisRateLimiter
 from bms_core.replay.base import BaseReplayGuard
 from bms_core.saga.base import BaseSagaExecutor
 from bms_core.saga.choreography import ChoreographySagaExecutor
@@ -117,6 +119,8 @@ from bms_core.servicecall.base import (
 )
 from bms_core.servicecall.http import HttpServiceClient
 from bms_core.session.base import BaseSessionStore
+from bms_core.session.memory import MemorySessionStore
+from bms_core.session.redis import RedisSessionStore
 from bms_core.sharding.base import ShardingRouter
 from bms_core.storage.base import BaseMultipartUpload, BaseObjectStorage
 from bms_core.tasks.base import BaseTask
@@ -317,6 +321,10 @@ def register_platform_plugins(settings: Settings, app: FastAPI, resources: Resou
     register_plugin("object_storage", "minio", MinioObjectStorageFactory(settings))
     register_plugin("cache", "memory", MemoryCacheRegionFactory())
     register_plugin("cache", "redis", RedisCacheRegionFactory(settings))
+    register_plugin("rate_limiter", "memory", MemoryRateLimiterFactory())
+    register_plugin("rate_limiter", "redis", RedisRateLimiterFactory(settings))
+    register_plugin("session_store", "memory", MemorySessionStoreFactory())
+    register_plugin("session_store", "redis", RedisSessionStoreFactory(settings))
     register_plugin("dict_cache_region", "memory", MemoryDictCacheRegionFactory())
     register_plugin("dict_cache_region", "redis", RedisDictCacheRegionFactory(settings))
     register_plugin("dict_source", "sql", SqlDictSourceFactory(app))
@@ -936,6 +944,94 @@ class RedisCacheRegionFactory(BasePluginFactory[RedisCacheRegion]):
             RedisCacheRegion: Redis Region 实例。
         """
         return RedisCacheRegion(domain="generic", url=self._settings.redis.url)
+
+
+class MemoryRateLimiterFactory(BasePluginFactory[MemoryRateLimiter]):
+    """进程内限流工厂（无 Redis 环境 / 测试用）。"""
+
+    plugin_key: str = "rate_limiter"
+    # 不声明 plugin_name：零参工厂避免被插件注册表自动收集（经 register_plugin 显式登记）
+
+    def create(self, options: None = None) -> MemoryRateLimiter:
+        """构造进程内限流器。
+
+        Args:
+            options: 未使用（零参口径）。
+
+        Returns:
+            MemoryRateLimiter: 限流器实例。
+        """
+        return MemoryRateLimiter()
+
+
+class RedisRateLimiterFactory(BasePluginFactory[RedisRateLimiter]):
+    """Redis 限流工厂（连接串取 `settings.redis.url`，不建连）。"""
+
+    plugin_key: str = "rate_limiter"
+    plugin_name: str = "redis"
+
+    def __init__(self, settings: Settings) -> None:
+        """初始化。
+
+        Args:
+            settings: 应用配置。
+        """
+        self._settings = settings
+
+    def create(self, options: None = None) -> RedisRateLimiter:
+        """构造 Redis 限流器（异常内置降级 memory）。
+
+        Args:
+            options: 未使用（零参口径）。
+
+        Returns:
+            RedisRateLimiter: 限流器实例。
+        """
+        return RedisRateLimiter(url=self._settings.redis.url)
+
+
+class MemorySessionStoreFactory(BasePluginFactory[MemorySessionStore]):
+    """进程内会话存储工厂（测试 / 无 Redis 降级用）。"""
+
+    plugin_key: str = "session_store"
+    # 不声明 plugin_name：零参工厂避免被插件注册表自动收集（经 register_plugin 显式登记）
+
+    def create(self, options: None = None) -> MemorySessionStore:
+        """构造进程内会话存储。
+
+        Args:
+            options: 未使用（零参口径）。
+
+        Returns:
+            MemorySessionStore: 会话存储实例。
+        """
+        return MemorySessionStore()
+
+
+class RedisSessionStoreFactory(BasePluginFactory[RedisSessionStore]):
+    """Redis 会话标记工厂（连接串取 `settings.redis.url`，不建连）。"""
+
+    plugin_key: str = "session_store"
+    plugin_name: str = "redis"
+
+    def __init__(self, settings: Settings) -> None:
+        """初始化。
+
+        Args:
+            settings: 应用配置。
+        """
+        self._settings = settings
+
+    def create(self, options: None = None) -> RedisSessionStore:
+        """构造 Redis 会话存储。
+
+        Args:
+            options: 未使用（零参口径）。
+
+        Returns:
+            RedisSessionStore: 会话存储实例。
+        """
+        return RedisSessionStore(url=self._settings.redis.url)
 
 
 class MemoryDictCacheRegionFactory(BasePluginFactory[MemoryDictCacheRegion]):

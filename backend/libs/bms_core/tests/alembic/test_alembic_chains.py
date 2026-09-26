@@ -111,11 +111,18 @@ def test_chain_metadata_is_subset() -> None:
     assert "sys_task" not in tenant.tables
     assert "sys_notification" not in tenant.tables
     assert chain_metadata(resolve_chain("platform:archive")).tables == {}
-    # 无自有模型的服务链：仅含共享基础设施表（发件箱三表）——脚本待补，见计划「后续阶段待办」
+    # 服务链：共享基础设施表（发件箱三表）+ 本服务自有模型表
     assert set(chain_metadata(resolve_chain("org:tenant")).tables) == {
         "sys_outbox",
         "sys_event_consumed",
         "sys_event_dead_letter",
+        "sys_user",
+    }
+    assert set(chain_metadata(resolve_chain("identity:tenant")).tables) == {
+        "sys_outbox",
+        "sys_event_consumed",
+        "sys_event_dead_letter",
+        "sys_session",
     }
 
 
@@ -145,7 +152,7 @@ def test_alembic_config_requires_registered_section() -> None:
     """配置段缺 `version_locations` 快速失败（新增服务首次迁移须补段）。"""
     assert alembic_config(resolve_chain("platform:platform")).get_main_option("version_locations")
     with pytest.raises(ConfigError):
-        alembic_config(resolve_chain("org:tenant"))
+        alembic_config(resolve_chain("file:tenant"))
 
 
 @pytest.mark.kiwi_id(1078)
@@ -173,7 +180,14 @@ def test_chain_revisions_integrity() -> None:
     tenant_service_head = ScriptDirectory.from_config(_config(default_chain())).get_current_head()
     assert tenant_service_head == "0003_sys_outbox_event_version"
 
-    for name in ("platform:platform", "platform:tenant", "tenant:platform", "tenant:tenant"):
+    for name in (
+        "platform:platform",
+        "platform:tenant",
+        "tenant:platform",
+        "tenant:tenant",
+        "identity:tenant",
+        "org:tenant",
+    ):
         heads = ScriptDirectory.from_config(_config(resolve_chain(name))).get_heads()
         assert len(heads) == 1, f"{name} 应恰好一个 head，实际 {heads}"
         head = ScriptDirectory.from_config(_config(resolve_chain(name))).get_revision(heads[0])

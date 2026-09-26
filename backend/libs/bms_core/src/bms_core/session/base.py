@@ -20,12 +20,30 @@ from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, Bas
 
 __all__ = [
     "DEFAULT_SESSION_TTL",
+    "SESSION_KEY_PREFIX",
     "BaseSessionStore",
+    "build_session_key",
     "get_session_store",
 ]
 
 DEFAULT_SESSION_TTL = 1209600
 """默认会话 TTL（秒，14 天，与 refresh token 有效期对齐）。"""
+
+SESSION_KEY_PREFIX = "bms"
+"""会话标记键前缀（`bms:{租户}:sess:{会话 id}`，与缓存 / 锁 / 限流键同前缀）。"""
+
+
+def build_session_key(session_id: str, *, tenant: str | None = None) -> str:
+    """构建会话标记 Redis 键（规范 `bms:{租户}:sess:{会话 id}`）。
+
+    Args:
+        session_id: 会话 id（JWT `jti`，与 `sys_session.session_id` 同值）。
+        tenant: 租户编码；None 表示无租户维度（global 域）。
+
+    Returns:
+        str: 会话标记键。
+    """
+    return f"{SESSION_KEY_PREFIX}:{tenant or 'global'}:sess:{session_id}"
 
 
 class BaseSessionStore(BasePluggable, ABC):
@@ -42,6 +60,7 @@ class BaseSessionStore(BasePluggable, ABC):
         session_id: str,
         payload: Mapping[str, object],
         *,
+        tenant: str | None = None,
         ttl: int = DEFAULT_SESSION_TTL,
     ) -> None:
         """写入 / 覆盖会话（真实实现落 `sys_session` + Redis 标记）。
@@ -49,26 +68,49 @@ class BaseSessionStore(BasePluggable, ABC):
         Args:
             session_id: 会话 id。
             payload: 会话数据。
+            tenant: 租户编码（定位 `bms:{租户}:sess:{id}` 键；None 为 global 域）。
             ttl: 有效期（秒，默认 `DEFAULT_SESSION_TTL`）。
         """
 
     @abstractmethod
-    async def load(self, session_id: str) -> Mapping[str, object] | None:
+    async def load(self, session_id: str, *, tenant: str | None = None) -> Mapping[str, object] | None:
         """读取会话（不存在返回 None）。
 
         Args:
             session_id: 会话 id。
+            tenant: 租户编码（定位键；None 为 global 域）。
 
         Returns:
             Mapping[str, object] | None: 会话数据；不存在返回 None。
         """
 
     @abstractmethod
-    async def delete(self, session_id: str) -> None:
+    async def delete(self, session_id: str, *, tenant: str | None = None) -> None:
         """删除会话（幂等，不存在不报错）。
 
         Args:
             session_id: 会话 id。
+            tenant: 租户编码（定位键；None 为 global 域）。
+        """
+
+    @abstractmethod
+    async def blacklist(self, key: str, *, ttl: int) -> None:
+        """写入令牌黑名单标记（登出 / 强踢；键由会话安全域派生）。
+
+        Args:
+            key: 黑名单键（`BaseSessionSecurity.blacklist_key(jti)`）。
+            ttl: 有效期（秒；短 TTL，覆盖 refresh 剩余生命周期）。
+        """
+
+    @abstractmethod
+    async def is_blacklisted(self, key: str) -> bool:
+        """判定令牌是否已入黑名单。
+
+        Args:
+            key: 黑名单键（`BaseSessionSecurity.blacklist_key(jti)`）。
+
+        Returns:
+            bool: 已入黑名单为 True。
         """
 
 

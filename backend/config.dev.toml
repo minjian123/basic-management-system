@@ -12,6 +12,10 @@ slow_request_ms = 500
 [cors]
 allow_origins = ["http://localhost:5173", "http://127.0.0.1:5173"]
 
+[login]
+# 本地 http 联调：refresh cookie 不带 Secure（生产保持 true）
+cookie_secure = false
+
 # 每服务每租户建库与路由（06_01）：dev 启用服务化模板
 # 平台服务库 bms_{service}（各服务连自身平台库）；服务租户库 bms_{service}_{tenant}
 # 首次使用：uv run python -m ops.provision_tenant --code demo --code acme（建库）

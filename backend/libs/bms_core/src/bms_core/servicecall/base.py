@@ -141,6 +141,10 @@ class ServiceRequest(BaseObject):
     content: bytes | None = None
     """原始请求体（可选；与 `json_body` 二选一）。"""
 
+    tenant: str | None = None
+    """调用方租户编码（可选；开启 `attach_service_token` 时随服务 JWT 的 `tenant` claim 传递，
+    供目标服务经边缘信任回写租户头、解析租户库）。"""
+
     policy: ServiceCallPolicy = field(default_factory=ServiceCallPolicy)
     """调用韧性策略。"""
 

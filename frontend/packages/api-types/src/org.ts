@@ -56,6 +56,90 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/org/internal/credentials/login-state": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Apply Login State
+         * @description 写回登录态（成功清零并记录登录时间；失败累计并锁定）。
+         *
+         *     Args:
+         *         req: 登录态写回请求。
+         *         uow: 请求级工作单元。
+         *         hasher: 口令哈希实现（未使用，保持服务构造一致）。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为登录态结果（`LoginStateResult`）。
+         */
+        post: operations["apply_login_state_api_v1_org_internal_credentials_login_state_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/org/internal/credentials/update-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Update Password
+         * @description 更新账号密码（新哈希 + 变更时间 + 历史密码保留）。
+         *
+         *     Args:
+         *         req: 密码更新请求。
+         *         uow: 请求级工作单元。
+         *         hasher: 口令哈希实现。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为更新结果（`UpdatePasswordResult`）。
+         */
+        post: operations["update_password_api_v1_org_internal_credentials_update_password_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/org/internal/credentials/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Verify Credential
+         * @description 校验账号口令（命中且参数过期时同请求内重哈希回写）。
+         *
+         *     Args:
+         *         req: 凭据校验请求（账号 + 口令）。
+         *         uow: 请求级工作单元。
+         *         hasher: 口令哈希实现。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为校验结果（`CredentialVerifyResult`）。
+         */
+        post: operations["verify_credential_api_v1_org_internal_credentials_verify_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/org/posts": {
         parameters: {
             query?: never;
@@ -206,11 +290,82 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         ApiResponse: unknown;
+        ApiResponse_CredentialVerifyResult_: unknown;
+        ApiResponse_LoginStateResult_: unknown;
+        ApiResponse_UpdatePasswordResult_: unknown;
+        CredentialUserSummary: unknown;
+        /**
+         * CredentialVerifyRequest
+         * @description 凭据校验请求（账号 + 密码明文；租户经服务 JWT `tenant` claim 解析）。
+         */
+        CredentialVerifyRequest: {
+            /**
+             * Account
+             * @description 登录账号
+             */
+            account: string;
+            /**
+             * Password
+             * @description 口令明文
+             */
+            password: string;
+        };
+        CredentialVerifyResult: unknown;
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /**
+         * LoginStateRequest
+         * @description 登录态写回请求（成功清零 / 失败计数与锁定）。
+         */
+        LoginStateRequest: {
+            /**
+             * Account
+             * @description 登录账号
+             */
+            account: string;
+            /**
+             * Failed Count
+             * @description 失败计数（失败时由登录侧传入）
+             */
+            failed_count?: number | null;
+            /**
+             * Lock Seconds
+             * @description 锁定时长（秒；>0 且失败时写 locked_until）
+             */
+            lock_seconds?: number | null;
+            /**
+             * Success
+             * @description 本次登录是否成功
+             */
+            success: boolean;
+        };
+        LoginStateResult: unknown;
+        /**
+         * UpdatePasswordRequest
+         * @description 密码更新请求（改密 / 找回密码 / 重哈希回写）。
+         */
+        UpdatePasswordRequest: {
+            /**
+             * Account
+             * @description 登录账号
+             */
+            account: string;
+            /**
+             * Keep History
+             * @description 保留历史密码条数
+             * @default 5
+             */
+            keep_history: number;
+            /**
+             * New Password
+             * @description 新口令明文
+             */
+            new_password: string;
+        };
+        UpdatePasswordResult: unknown;
         /** ValidationError */
         ValidationError: {
             /** Context */
@@ -272,6 +427,246 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    apply_login_state_api_v1_org_internal_credentials_login_state_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoginStateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_LoginStateResult_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    update_password_api_v1_org_internal_credentials_update_password_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdatePasswordRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_UpdatePasswordResult_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    verify_credential_api_v1_org_internal_credentials_verify_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CredentialVerifyRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_CredentialVerifyResult_"];
                 };
             };
             /** @description 未认证 */

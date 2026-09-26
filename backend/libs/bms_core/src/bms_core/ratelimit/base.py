@@ -117,6 +117,13 @@ class BaseRateLimiter(BasePluggable, ABC):
             raise RateLimitError(f"超出限流配额：{key}")
         return decision
 
+    async def reset(self, key: str) -> None:
+        """重置配额计数（成功路径清零失败计数；缺省空实现）。
+
+        Args:
+            key: 限流 key。
+        """
+
 
 def get_rate_limiter(request: Request) -> BaseRateLimiter:
     """取应用级限流器（依赖注入提供者）。

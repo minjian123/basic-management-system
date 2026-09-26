@@ -2,6 +2,36 @@
   "components": {
     "schemas": {
       "ApiResponse": {},
+      "ApiResponse_CredentialVerifyResult_": {},
+      "ApiResponse_LoginStateResult_": {},
+      "ApiResponse_UpdatePasswordResult_": {},
+      "CredentialUserSummary": {},
+      "CredentialVerifyRequest": {
+        "description": "凭据校验请求（账号 + 密码明文；租户经服务 JWT `tenant` claim 解析）。",
+        "properties": {
+          "account": {
+            "description": "登录账号",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Account",
+            "type": "string"
+          },
+          "password": {
+            "description": "口令明文",
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Password",
+            "type": "string"
+          }
+        },
+        "required": [
+          "account",
+          "password"
+        ],
+        "title": "CredentialVerifyRequest",
+        "type": "object"
+      },
+      "CredentialVerifyResult": {},
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -15,6 +45,90 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
+      "LoginStateRequest": {
+        "description": "登录态写回请求（成功清零 / 失败计数与锁定）。",
+        "properties": {
+          "account": {
+            "description": "登录账号",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Account",
+            "type": "string"
+          },
+          "failed_count": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "失败计数（失败时由登录侧传入）",
+            "title": "Failed Count"
+          },
+          "lock_seconds": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "锁定时长（秒；>0 且失败时写 locked_until）",
+            "title": "Lock Seconds"
+          },
+          "success": {
+            "description": "本次登录是否成功",
+            "title": "Success",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "account",
+          "success"
+        ],
+        "title": "LoginStateRequest",
+        "type": "object"
+      },
+      "LoginStateResult": {},
+      "UpdatePasswordRequest": {
+        "description": "密码更新请求（改密 / 找回密码 / 重哈希回写）。",
+        "properties": {
+          "account": {
+            "description": "登录账号",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Account",
+            "type": "string"
+          },
+          "keep_history": {
+            "default": 5,
+            "description": "保留历史密码条数",
+            "maximum": 50.0,
+            "minimum": 0.0,
+            "title": "Keep History",
+            "type": "integer"
+          },
+          "new_password": {
+            "description": "新口令明文",
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "New Password",
+            "type": "string"
+          }
+        },
+        "required": [
+          "account",
+          "new_password"
+        ],
+        "title": "UpdatePasswordRequest",
+        "type": "object"
+      },
+      "UpdatePasswordResult": {},
       "ValidationError": {
         "properties": {
           "ctx": {
@@ -181,6 +295,336 @@
         "summary": "Get Org Dept Tree",
         "tags": [
           "org"
+        ]
+      }
+    },
+    "/api/v1/org/internal/credentials/login-state": {
+      "post": {
+        "description": "写回登录态（成功清零并记录登录时间；失败累计并锁定）。\n\nArgs:\n    req: 登录态写回请求。\n    uow: 请求级工作单元。\n    hasher: 口令哈希实现（未使用，保持服务构造一致）。\n\nReturns:\n    ApiResponse: 统一响应，data 为登录态结果（`LoginStateResult`）。",
+        "operationId": "apply_login_state_api_v1_org_internal_credentials_login_state_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginStateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_LoginStateResult_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Apply Login State",
+        "tags": [
+          "org-internal"
+        ]
+      }
+    },
+    "/api/v1/org/internal/credentials/update-password": {
+      "post": {
+        "description": "更新账号密码（新哈希 + 变更时间 + 历史密码保留）。\n\nArgs:\n    req: 密码更新请求。\n    uow: 请求级工作单元。\n    hasher: 口令哈希实现。\n\nReturns:\n    ApiResponse: 统一响应，data 为更新结果（`UpdatePasswordResult`）。",
+        "operationId": "update_password_api_v1_org_internal_credentials_update_password_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePasswordRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_UpdatePasswordResult_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Update Password",
+        "tags": [
+          "org-internal"
+        ]
+      }
+    },
+    "/api/v1/org/internal/credentials/verify": {
+      "post": {
+        "description": "校验账号口令（命中且参数过期时同请求内重哈希回写）。\n\nArgs:\n    req: 凭据校验请求（账号 + 口令）。\n    uow: 请求级工作单元。\n    hasher: 口令哈希实现。\n\nReturns:\n    ApiResponse: 统一响应，data 为校验结果（`CredentialVerifyResult`）。",
+        "operationId": "verify_credential_api_v1_org_internal_credentials_verify_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CredentialVerifyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_CredentialVerifyResult_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Verify Credential",
+        "tags": [
+          "org-internal"
         ]
       }
     },
