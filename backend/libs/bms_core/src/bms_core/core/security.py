@@ -1,96 +1,23 @@
-"""core 层安全基座：统一安全原语落点。
+"""core 层安全原语：请求签名（HMAC-SHA256，**真实实现**）。
 
-- `BaseSecurity`：安全原语**中间层基类**（统一安全约定与 `_not_implemented`）。
-- 原语类：`PasswordHasher` / `TokenCodec` / `SessionSecurity`——方法为接口签名，
-  占位实现抛 `NotImplementedError`，真实实现随认证阶段。
-- `SignatureCodec`：请求签名原语（HMAC-SHA256）——**真实实现**（纯计算、无密钥托管与外部依赖），
-  供防重放域与出站集成（Webhook）复用；串料口径见类文档。
+- `SignatureCodec`：请求签名原语（HMAC-SHA256）——供防重放域与出站集成（Webhook）复用；
+  串料口径见类文档。
+- **安全原语（口令哈希 / 令牌编解码 / 会话安全）已迁入 `bms_core/security/` 能力域**（阶段六 01_01）：
+  契约见 `security/base.py`、真实实现见 `security/{pbkdf2,jwt,session}.py`、缺省实现见 `security/null.py`
+  （fail-closed）、装配见 `core/assembly.py` 与 `[password_hasher]` / `[token_codec]` / `[session_security]`。
 - 密钥只走环境变量，不入库、不入镜像、不写日志。
 """
 
 import hashlib
 import hmac
-from abc import ABC
 
-from bms_core.core.capability import BaseStub
+from bms_core.security.base import BaseSecurity
 
 SIGNATURE_HEADER = "X-Signature"
 """请求签名头（入站验签与调用方计算签名的头部口径）。"""
 
 SIGNATURE_ALGORITHM = "sha256"
 """签名算法（HMAC-SHA256，摘要以 hex 小写输出）。"""
-
-
-class BaseSecurity(BaseStub, ABC):
-    """安全原语中间层基类：统一安全约定与入口。"""
-
-
-class PasswordHasher(BaseSecurity):
-    """密码哈希 / 校验（bcrypt / argon2；占位）。"""
-
-    def hash(self, password: str) -> str:
-        """生成密码哈希。
-
-        Raises:
-            NotImplementedError: 占位（随认证阶段实现）。
-        """
-        raise self._not_implemented("密码哈希")
-
-    def verify(self, password: str, hashed: str) -> bool:
-        """校验密码。
-
-        Raises:
-            NotImplementedError: 占位（随认证阶段实现）。
-        """
-        raise self._not_implemented("密码校验")
-
-
-class TokenCodec(BaseSecurity):
-    """令牌签名 / 校验（双 token；占位）。"""
-
-    def encode(self, claims: dict[str, object], *, expires_in: int | None = None) -> str:
-        """签发令牌。
-
-        Raises:
-            NotImplementedError: 占位（随认证阶段实现）。
-        """
-        raise self._not_implemented("令牌签发")
-
-    def decode(self, token: str) -> dict[str, object]:
-        """校验并解析令牌。
-
-        Raises:
-            NotImplementedError: 占位（随认证阶段实现）。
-        """
-        raise self._not_implemented("令牌解析")
-
-
-class SessionSecurity(BaseSecurity):
-    """会话安全原语（占位）。"""
-
-    def new_session_id(self) -> str:
-        """生成会话 id。
-
-        Raises:
-            NotImplementedError: 占位（随认证阶段实现）。
-        """
-        raise self._not_implemented("会话 id 生成")
-
-    def fingerprint(self, *, ip: str | None, user_agent: str | None) -> str:
-        """生成会话指纹。
-
-        Raises:
-            NotImplementedError: 占位（随认证阶段实现）。
-        """
-        raise self._not_implemented("会话指纹")
-
-    def blacklist_key(self, session_id: str) -> str:
-        """会话黑名单 Redis 键（登出 / 强踢）。
-
-        Raises:
-            NotImplementedError: 占位（随认证阶段实现）。
-        """
-        raise self._not_implemented("会话黑名单键")
 
 
 class SignatureCodec(BaseSecurity):

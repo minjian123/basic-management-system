@@ -1,59 +1,35 @@
-"""安全基座测试（Kiwi 33）：结构占位口径 + 签名原语真实实现（Kiwi 43）。"""
+"""安全原语 · 请求签名测试（Kiwi 43）+ 原语迁移核对（Kiwi 2192）。"""
 
 import hashlib
 import hmac
 
 import pytest
 
-from bms_core.core.base import BaseObject
 from bms_core.core.security import (
     SIGNATURE_ALGORITHM,
     SIGNATURE_HEADER,
-    BaseSecurity,
-    PasswordHasher,
-    SessionSecurity,
     SignatureCodec,
-    TokenCodec,
 )
+from bms_core.security.base import BaseSecurity
+from bms_core.security.jwt import JwtTokenCodec
+from bms_core.security.null import NullPasswordHasher, NullSessionSecurity, NullTokenCodec
+from bms_core.security.pbkdf2 import Pbkdf2PasswordHasher
+from bms_core.security.session import DefaultSessionSecurity
 
 
-@pytest.mark.kiwi_id(33)
-def test_inheritance() -> None:
-    """安全原语纳入 L0：原语类 → BaseSecurity → BaseObject。"""
-    assert issubclass(BaseSecurity, BaseObject)
-    for cls in (PasswordHasher, TokenCodec, SessionSecurity, SignatureCodec):
+@pytest.mark.kiwi_id(2192)
+def test_primitives_moved_into_security_package() -> None:
+    """安全原语迁入 `bms_core/security/` 能力域：插件基类与实现均纳入 `BaseSecurity` 中间层。"""
+    for cls in (
+        Pbkdf2PasswordHasher,
+        JwtTokenCodec,
+        DefaultSessionSecurity,
+        NullPasswordHasher,
+        NullTokenCodec,
+        NullSessionSecurity,
+    ):
         assert issubclass(cls, BaseSecurity)
-
-
-@pytest.mark.kiwi_id(33)
-def test_constructible() -> None:
-    """原语类可实例化（构造可解析、应用可启动）。"""
-    for cls in (PasswordHasher, TokenCodec, SessionSecurity, SignatureCodec):
-        assert isinstance(cls(), BaseSecurity)
-
-
-@pytest.mark.kiwi_id(33)
-def test_placeholder_raises() -> None:
-    """占位实现一律抛 NotImplementedError（防误用）。"""
-    hasher = PasswordHasher()
-    with pytest.raises(NotImplementedError):
-        hasher.hash("secret")
-    with pytest.raises(NotImplementedError):
-        hasher.verify("secret", "hashed")
-
-    codec = TokenCodec()
-    with pytest.raises(NotImplementedError):
-        codec.encode({"sub": "1"})
-    with pytest.raises(NotImplementedError):
-        codec.decode("token")
-
-    session = SessionSecurity()
-    with pytest.raises(NotImplementedError):
-        session.new_session_id()
-    with pytest.raises(NotImplementedError):
-        session.fingerprint(ip=None, user_agent=None)
-    with pytest.raises(NotImplementedError):
-        session.blacklist_key("sid")
+    assert issubclass(SignatureCodec, BaseSecurity)
 
 
 @pytest.mark.kiwi_id(43)

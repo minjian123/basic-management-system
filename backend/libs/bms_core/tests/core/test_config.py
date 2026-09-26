@@ -104,7 +104,11 @@ def test_defaults_and_sections() -> None:
     assert settings.log.level == "DEBUG"
     assert settings.database.platform.url.endswith("app.db")
     assert settings.redis.url.startswith("redis://")
-    assert settings.security.algorithm == "HS256"
+    assert settings.security.secret_key == ""
+    assert settings.security.access_token_expire_minutes == 30
+    assert settings.security.refresh_token_expire_days == 14
+    assert settings.security.active_kid == ""
+    assert settings.security.keys == {}
     assert settings.cors.allow_credentials is True
     assert settings.cache.provider == "memory"  # dev 覆盖启用进程内缓存（租户解析缓存）
     assert settings.audit.provider == ""
