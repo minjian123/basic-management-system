@@ -17,6 +17,8 @@
 | 状态 | 未开始 |
 | 完成日期 | — |
 
+> **前置契约（已交付，2026-09-26）**：01_02 已交付用户令牌密钥体系与签发契约——`BaseUserTokenIssuer`（`get_user_token_issuer`：`issue_pair` / `jwks()` / `verify(token, *, expected_type)`）、`JwtUserTokenIssuer`（kid 强制 `usr-` 前缀、`[user_token].issuer` + `[security]` 密钥）、`merge_jwks`（JWKS 同端点发布）；本任务 ID Token 在其上复用密钥体系（`kid` 代次与 `aud` 另立口径，与用户令牌 `aud=api` 区分）。
+
 ## 2. 任务内容 <a id="content"></a>
 
 1. **Provider 内核**：OIDC Discovery（`/.well-known/openid-configuration`）、JWKS、授权码流程（`/authorize` / `/token` / `/userinfo`）、ID Token 签发（复用用户令牌密钥体系，`kid` 与 `aud` 口径区分）、支持 PKCE。

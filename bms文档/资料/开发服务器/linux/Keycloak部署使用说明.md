@@ -6,7 +6,9 @@
 
 ## 1. 目的与适用范围 <a id="purpose"></a>
 
-mjbk 上的 Keycloak（容器 `bms-keycloak`）是平台的**自托管 OIDC 身份源（IdP）**：为网关与后端服务提供统一的用户 / 服务身份签发与 **JWKS 公钥分发**（BMS 作为 OIDC 客户端经 Discovery 发现并验签）。本文档记录其**部署形态、声明式配置来源、部署步骤、验证与运维**；认证业务（登录链路 / RBAC / JIT 建号）见认证阶段设计，不在本文。
+mjbk 上的 Keycloak（容器 `bms-keycloak`）是平台的**自托管 OIDC 身份源（IdP）**：作为**外部 IdP 之一**承担 SSO 授权码流程演示 / 测试与身份信息（claims）来源（BMS 作为 OIDC 客户端经 Discovery 发现并换取用户信息）。
+**角色口径（2026-09-26 起，阶段六 01_02）**：本地用户令牌（access / refresh，`aud=api`）由 **BMS identity 服务自签**，网关与后端校验源为 identity 的 `/.well-known/jwks.json`——Keycloak **不再承担本地用户令牌签发**，其令牌不作为网关校验凭据（SSO 登录链路收敛为 BMS 自有令牌，见平台《架构设计 · 认证与会话》「SSO 集成」节）。
+本文档记录其**部署形态、声明式配置来源、部署步骤、验证与运维**；认证业务（登录链路 / RBAC / JIT 建号）见认证阶段设计，不在本文。
 
 **取值说明**：`<mjbk-IP>` / `<SSH账号>` 等占位符取值见《[本地资源](../../../用户文档/本地资源.md)》与 mjbk `deploy/.env`；真实凭据只写 `deploy/.env`（`.env.example` 入仓库），不入本文档。
 
@@ -99,8 +101,8 @@ echo "$TOKEN" | cut -d. -f2 | base64 -d 2>/dev/null | jq '{iss, sub, exp}'
 ```
 
 - **JWKS 验签通过（本任务验收）**：以 `OidcIdentityProvider.verify_token(token)` 经 JWKS 验签并校验 `exp` / `iss`；集成用例见 `backend/services/identity/tests/idp/test_oidc.py`（`IDP_TEST_*` 环境变量开启，未配置跳过）。
-- **用户 JWT 受众 `aud=api`（07_02）**：客户端 `bms-backend` 声明式含 `aud-api` audience mapper（`included.custom.audience = "api"`），用户 / 服务账号令牌 `aud` 含 `api`；`client_credentials` 取令牌可自证：解码 `access_token` 载荷应见 `"aud": ["api", "account"]`。
-- **用户 JWT 经网关校验（07_03）**：网关 `forward-auth` 转调认证服务端点（`/api/v1/auth/introspect`），认证服务复用 `UnifiedTokenVerifier` 按 `aud=api` 校验用户 JWT（签名 / `exp` / `iss` / `aud`）；`client_credentials` 令牌实测经该端点返回 `X-User-Subject`（真实 `sub`）与 `X-User-Scopes`（`profile,email`），并换发网关服务 JWT（`aud=service`）。冒烟细则与结论见《[APISIX 部署使用说明](APISIX部署使用说明.md)》「验证」节。
+- **用户 JWT 受众 `aud=api`（07_02）**：客户端 `bms-backend` 声明式含 `aud-api` audience mapper（`included.custom.audience = "api"`），用户 / 服务账号令牌 `aud` 含 `api`；`client_credentials` 取令牌可自证：解码 `access_token` 载荷应见 `"aud": ["api", "account"]`。**口径更新（01_02，2026-09-26）**：该令牌为阶段二「外部 IdP 签发」期的校验对象；本地用户令牌改由 BMS 自签后，Keycloak 令牌不再作为网关校验凭据（SSO 演示 / 测试仍可取票、仍可用于 IdP 侧 claims 联通验证）。
+- **用户 JWT 经网关校验（07_03）**：网关 `forward-auth` 转调认证服务端点（`/api/v1/auth/introspect`），认证服务复用 `UnifiedTokenVerifier` 按 `aud=api` 校验用户 JWT（签名 / `exp` / `iss` / `aud`）；`client_credentials` 令牌实测经该端点返回 `X-User-Subject`（真实 `sub`）与 `X-User-Scopes`（`profile,email`），并换发网关服务 JWT（`aud=service`）。冒烟细则与结论见《[APISIX 部署使用说明](APISIX部署使用说明.md)》“验证”节。**口径更新（01_02，2026-09-26）**：校验源已由 Keycloak JWKS 切至 identity 自签 JWKS（本地用户令牌 `usr-` 公钥），上条 Keycloak 令牌路径不再有效；切换后真机冒烟结论见同文档。
 
 ## 7. 使用说明 <a id="use"></a>
 
