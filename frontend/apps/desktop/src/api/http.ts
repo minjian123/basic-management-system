@@ -21,7 +21,7 @@ export interface HttpHooks {
  * @param hooks 宿主钩子。
  */
 export function createAxiosAdapter(hooks: HttpHooks = {}): RequestAdapter {
-  const client = axios.create({ baseURL: '/', timeout: 15_000 })
+  const client = axios.create({ baseURL: import.meta.env.VITE_API_BASE ?? '/', timeout: 15_000 })
   client.interceptors.request.use((config) => {
     const token = getAccessToken()
     if (token !== null) {

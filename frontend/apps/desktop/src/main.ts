@@ -5,6 +5,7 @@ import { createPinia } from 'pinia'
 import { createApp } from 'vue'
 
 import App from './App.vue'
+import { installHttpAdapter } from './api/http'
 import { installObservability, installModuleRouteScope } from './observability'
 import { setModuleError } from './module/boundary'
 import { installModules, installPlatformRegistrations, resolveRouteModule } from './module/host'
@@ -30,6 +31,14 @@ const pinia = createPinia()
 app.use(pinia)
 
 const session = useSessionStore(pinia)
+
+// 请求适配器装配：401 → 清会话 + 跳登录（刷新处理器随阶段六注入；未注入时按会话失效占位）。
+installHttpAdapter({
+  onUnauthorized: () => {
+    session.signOut()
+    void router.push('/login')
+  },
+})
 
 /**
  * 启动：模块装载先于**路由安装**与应用挂载。

@@ -1,0 +1,21 @@
+{
+  "name": "@bms/api-types",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "BMS 前端服务契约生成类型（openapi-typescript 从 deploy/contracts 快照生成，勿手改 src）",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "gen": "node scripts/generate.mjs",
+    "gen:check": "node scripts/generate.mjs --check",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "eslint . --max-warnings 0",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@bms/core": "workspace:*",
+    "openapi-typescript": "^7.13.0"
+  }
+}

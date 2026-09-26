@@ -39,7 +39,7 @@ describe('useListPage', () => {
         return { list: [config.params?.page], total: 2, page: 1, size: 20 } as T
       },
     })
-    const page = useListPage<number>({ url: '/api/v1/list', query: () => ({ keyword: 'k' }) })
+    const page = useListPage<number>({ url: '/api/platform/v1/list', query: () => ({ keyword: 'k' }) })
     await page.load()
     expect(page.list.value).toEqual([1])
     expect(page.total.value).toBe(2)
@@ -59,7 +59,7 @@ describe('useListPage', () => {
         throw new Error('boom')
       },
     })
-    const page = useListPage({ url: '/api/v1/list' })
+    const page = useListPage({ url: '/api/platform/v1/list' })
     await page.load()
     expect(page.error.value).toBeInstanceOf(Error)
   })
