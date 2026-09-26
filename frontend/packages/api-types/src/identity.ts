@@ -38,13 +38,16 @@ export interface paths {
         };
         /**
          * Get Jwks
-         * @description 取服务 JWT 公开 JWKS 文档。
+         * @description 取公开 JWKS 文档（服务令牌 + 用户令牌公钥合并）。
          *
          *     Args:
-         *         request: 请求对象（取应用装配的服务 JWT 签发者）。
+         *         request: 请求对象（取应用装配的服务 / 用户令牌签发者）。
          *
          *     Returns:
          *         dict[str, object]: 标准 JWKS 文档（只含公钥）。
+         *
+         *     Raises:
+         *         HTTPException: 两域 kid 冲突 / 文档非法（503，fail-closed）。
          */
         get: operations["get_jwks__well_known_jwks_json_get"];
         put?: never;

@@ -1,13 +1,13 @@
 """oauth 能力域：双类 JWT 受众 / 类型常量与服务 JWT 自签契约。
 
-- 受众常量：用户 JWT `aud=api`（Keycloak 签发）、服务 JWT `aud=service`（BMS 自签）。
+- 受众常量：用户 JWT `aud=api`（BMS 自签，见同域 `user_token.py`）、服务 JWT `aud=service`（BMS 自签）。
 - `ServiceTokenSpec`：服务 JWT 签发请求（服务标识 / scope / 租户 / TTL）。
 - `BaseServiceTokenIssuer`：能力域中间层契约（`key = plugin_key = "service_token"`）——异步 `issue`（自签）/
   `jwks`（公开 JWKS 文档）/ `verify`（本地验签）。
 - `get_service_token_issuer`：依赖注入提供者（应用级单例；公共依赖经 `app/api/deps.py` 统一导出）。
 
-口径：服务 JWT 由 BMS 自持非对称密钥自签（短时 + scope + 服务标识），供服务间东西向直连调用；
-用户 JWT 由外部 IdP（Keycloak）签发，后端只校验（见 `oauth/verify.py` 统一校验内核）。
+口径：双类 JWT 均由 BMS 自持非对称密钥自签——服务 JWT（短时 + scope + 服务标识）供服务间东西向直连调用；
+用户 JWT（access / refresh 双 token，见 `user_token.py`）供用户经网关访问业务 API，`aud` 隔离防串用。
 自签密钥私钥只经环境变量 / Secret 注入；公钥经 `/.well-known/jwks.json` 分发。
 """
 

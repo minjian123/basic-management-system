@@ -1,7 +1,8 @@
-"""oauth 能力域服务 JWT 密钥工具：`TokenKey`（kid → 密钥材料）+ JWKS 文档 / JWK Set 构建。
+"""oauth 能力域 JWT 密钥工具：`TokenKey`（kid → 密钥材料）+ JWKS 文档 / JWK Set 构建 / 合并。
 
 - `TokenKey`：kid / 算法（白名单 RS256 / ES256）/ 公钥 PEM / 私钥 PEM（**私钥只经环境变量 / Secret 注入**）。
 - `build_jwks`：标准 JWKS 文档（只含公钥、按 kid 排序，确定性输出）。
+- `merge_jwks`：多份 JWKS 文档合并（服务令牌 + 用户令牌公钥同端点发布；kid 冲突即拒，fail-closed）。
 - `to_key_set`：构造 joserfc `KeySet`（供本地验签，含全部公钥）。
 
 口径：签验引擎统一取 **joserfc**（authlib 官方 JOSE 拆分包）；仅接受非对称算法白名单，禁对称算法防签名绕过。
@@ -24,6 +25,7 @@ __all__ = [
     "JWK_USE_SIGNATURE",
     "TokenKey",
     "build_jwks",
+    "merge_jwks",
     "to_key_set",
 ]
 
@@ -139,6 +141,36 @@ def build_jwks(keys: Iterable[TokenKey]) -> dict[str, object]:
         dict[str, object]: `{"keys": [公钥 JWK, ...]}`（确定性输出）。
     """
     return {"keys": [dict(key.public_jwk()) for key in sorted(keys, key=lambda item: item.kid)]}
+
+
+def merge_jwks(*documents: Mapping[str, object]) -> dict[str, object]:
+    """合并多份 JWKS 文档（服务令牌 / 用户令牌公钥同端点发布）。
+
+    Args:
+        *documents: JWKS 文档（`{"keys": [公钥 JWK, ...]}`）。
+
+    Returns:
+        dict[str, object]: 合并后的标准 JWKS 文档（按 kid 排序，确定性输出）。
+
+    Raises:
+        ConfigError: 文档结构非法或两域 kid 冲突（40001；不得发布有歧义的键集）。
+    """
+    merged: dict[str, dict[str, object]] = {}
+    for document in documents:
+        entries = document.get("keys")
+        if not isinstance(entries, list):
+            raise ConfigError("JWKS 文档缺少 keys 数组")
+        for raw in cast("list[object]", entries):
+            if not isinstance(raw, Mapping):
+                raise ConfigError("JWKS 条目非法")
+            entry = cast("Mapping[str, object]", raw)
+            kid = entry.get("kid")
+            if not isinstance(kid, str) or not kid:
+                raise ConfigError("JWKS 条目缺少 kid")
+            if kid in merged:
+                raise ConfigError(f"JWKS kid 冲突（服务令牌与用户令牌密钥不可同名）：{kid}")
+            merged[kid] = dict(entry)
+    return {"keys": [merged[kid] for kid in sorted(merged)]}
 
 
 def to_key_set(keys: Iterable[TokenKey]) -> KeySet:

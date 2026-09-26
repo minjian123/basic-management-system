@@ -292,7 +292,7 @@ class SecuritySettings(BaseSettings):
     """当前签名密钥 kid（用户令牌多把签名私钥时必填）。"""
 
     keys: dict[str, TokenKeySettings] = Field(default_factory=dict[str, TokenKeySettings])
-    """用户令牌密钥集（kid → 密钥材料；空集时令牌编解码装配即拒）。"""
+    """用户令牌密钥集（kid → 密钥材料；kid 须带 `usr-` 前缀；空集允许装配，使用时 fail-closed）。"""
 
 
 class CorsSettings(BaseSettings):
@@ -415,6 +415,13 @@ class ServiceTokenSettings(PluginSelection):
 
     keys: dict[str, TokenKeySettings] = Field(default_factory=dict[str, TokenKeySettings])
     """密钥集（kid → 密钥材料）；空集允许（仅校验方时只需公钥，签发时无可用私钥才拒）。"""
+
+
+class UserTokenSettings(PluginSelection):
+    """用户令牌自签配置（`[user_token]`；密钥与 TTL 归 `[security]`，本分区只放选择与签发方）。"""
+
+    issuer: str = "bms"
+    """自签签发方（用户令牌 `iss`；与服务令牌同源标识，生产建议配置稳定 URI）。"""
 
 
 class DataOwnershipSettings(PluginSelection):
@@ -635,6 +642,7 @@ class Settings(PydanticBaseSettings, BaseSettings):  # pyright: ignore[reportInc
     token_verifier: PluginSelection = Field(default_factory=PluginSelection)
     tracer: TracerSettings = Field(default_factory=TracerSettings)
     translator: PluginSelection = Field(default_factory=PluginSelection)
+    user_token: UserTokenSettings = Field(default_factory=UserTokenSettings)
     webhook_sender: PluginSelection = Field(default_factory=PluginSelection)
     workflow_engine: PluginSelection = Field(default_factory=PluginSelection)
     engine_factory: PluginSelection = Field(default_factory=PluginSelection)

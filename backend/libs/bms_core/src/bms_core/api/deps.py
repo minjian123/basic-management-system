@@ -44,6 +44,7 @@ from bms_core.notification.base import get_notification_center
 from bms_core.notify.base import get_notifier
 from bms_core.oauth.base import get_oauth_server, get_scope_checker
 from bms_core.oauth.token import get_service_token_issuer
+from bms_core.oauth.user_token import get_user_token_issuer
 from bms_core.oauth.verify import get_token_verifier
 from bms_core.org.base import get_org_data_source, get_org_name_resolver
 from bms_core.outbound.http import get_http_client
@@ -144,6 +145,7 @@ __all__ = [
     "get_tracer",
     "get_translator",
     "get_uow",
+    "get_user_token_issuer",
     "get_webhook_sender",
     "get_workflow_engine",
     "get_write_db",

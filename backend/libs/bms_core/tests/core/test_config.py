@@ -109,6 +109,9 @@ def test_defaults_and_sections() -> None:
     assert settings.security.refresh_token_expire_days == 14
     assert settings.security.active_kid == ""
     assert settings.security.keys == {}
+    assert settings.user_token.provider == "jwt"  # 01_02：用户令牌自签真实实现
+    assert settings.user_token.issuer == "bms"
+    assert settings.token_verifier.provider == "unified"
     assert settings.cors.allow_credentials is True
     assert settings.cache.provider == "memory"  # dev 覆盖启用进程内缓存（租户解析缓存）
     assert settings.audit.provider == ""

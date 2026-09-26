@@ -2,13 +2,14 @@
 
 - `VerifiedToken`：校验通过后的令牌身份声明（含扩展 claims：类型 / 服务标识 / 租户 / scope / jti）。
 - `BaseTokenVerifier`：能力域中间层契约（`key = plugin_key = "token_verifier"`）——异步 `verify(token, *, audience)`。
-- `UnifiedTokenVerifier`（`plugin_name = "unified"`）：按期望受众分流——`service` → 本地 JWKS（`service_token`）；
-  `api` → IdP JWKS（`identity_provider`，复用 07_01 `verify_token`）；`aud` / `iss` / `exp` 不符即拒。
+- `UnifiedTokenVerifier`（`plugin_name = "unified"`）：按期望受众分流——`service` → 本地服务 JWKS（`service_token`）；
+  `api` → 本地用户令牌 JWKS（`user_token`，BMS 自签、强校验 `type=access`）；`aud` / `iss` / `exp` 不符即拒。
 - `get_token_verifier`：依赖注入提供者。
 
 口径：**受众是「期望输入」而非从票据自读**——校验方声明期望受众，内核据此选定 JWKS 与 issuer，天然实现
-`aud` 隔离（用户 token `aud=api` 以 `service` 期望校验时因 `iss` / 键不匹配被拒）。失败转
-`AuthError`（20001 / 401）、IdP 不可达转 `ServiceUnavailableError`（10007 / 503）、受众非法转 `ParamError`（10001）。
+`aud` 隔离（用户 token `aud=api` 以 `service` 期望校验时因 `iss` / 键不匹配被拒）。用户票据来源为 BMS 自签
+（identity 服务），不依赖外部 IdP（SSO 授权码链路另经 `identity_provider` 客户端，不经本内核）。失败转
+`AuthError`（20001 / 401）、受众非法转 `ParamError`（10001）。
 """
 
 from __future__ import annotations
@@ -25,11 +26,15 @@ from bms_core.core.config import Settings
 from bms_core.core.exceptions import ParamError
 from bms_core.core.factory import BasePluginFactory
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
-from bms_core.idp.base import BaseIdentityProvider, IdentityClaims
+from bms_core.idp.base import IdentityClaims
 from bms_core.oauth.token import (
     TOKEN_AUDIENCE_API,
     TOKEN_AUDIENCE_SERVICE,
     BaseServiceTokenIssuer,
+)
+from bms_core.oauth.user_token import (
+    USER_TOKEN_TYPE_ACCESS,
+    BaseUserTokenIssuer,
 )
 
 __all__ = [
@@ -101,12 +106,11 @@ class BaseTokenVerifier(BasePluggable, ABC):
         Raises:
             ParamError: 期望受众未登记（10001）。
             AuthError: 验签 / 过期 / `iss` / `aud` 不符（20001 / 401）。
-            ServiceUnavailableError: IdP JWKS 不可达（10007 / 503）。
         """
 
 
 class UnifiedTokenVerifier(BaseTokenVerifier):
-    """统一校验实现：按期望受众分流到本地 JWKS 或 IdP JWKS。"""
+    """统一校验实现：按期望受众分流到本地服务 JWKS 或本地用户令牌 JWKS。"""
 
     plugin_name: str = "unified"
 
@@ -114,16 +118,16 @@ class UnifiedTokenVerifier(BaseTokenVerifier):
         self,
         *,
         service_issuer: BaseServiceTokenIssuer,
-        identity_provider: BaseIdentityProvider,
+        user_token_issuer: BaseUserTokenIssuer,
     ) -> None:
         """初始化。
 
         Args:
-            service_issuer: 本地服务 JWT 签发者（提供本地 JWKS 验签）。
-            identity_provider: 外部 IdP 客户端（提供用户 JWT 验签）。
+            service_issuer: 本地服务 JWT 签发者（提供本地服务 JWKS 验签）。
+            user_token_issuer: 本地用户令牌签发者（提供用户 JWKS 验签与类型校验）。
         """
         self._service_issuer = service_issuer
-        self._identity_provider = identity_provider
+        self._user_token_issuer = user_token_issuer
 
     async def verify(self, token: str, *, audience: str) -> VerifiedToken:
         """按期望受众校验令牌。
@@ -137,20 +141,19 @@ class UnifiedTokenVerifier(BaseTokenVerifier):
 
         Raises:
             ParamError: 期望受众未登记（10001）。
-            AuthError: 验签 / 过期 / `iss` / `aud` 不符（20001 / 401）。
-            ServiceUnavailableError: IdP JWKS 不可达（10007 / 503）。
+            AuthError: 验签 / 过期 / `iss` / `aud` / 类型不符（20001 / 401）。
         """
         if audience == TOKEN_AUDIENCE_SERVICE:
             claims = self._service_issuer.verify(token)
         elif audience == TOKEN_AUDIENCE_API:
-            claims = await self._identity_provider.verify_token(token, audience=TOKEN_AUDIENCE_API)
+            claims = self._user_token_issuer.verify(token, expected_type=USER_TOKEN_TYPE_ACCESS)
         else:
             raise ParamError(f"未登记的令牌受众：{audience}")
         return _from_claims(claims)
 
 
 class UnifiedTokenVerifierFactory(BasePluginFactory[UnifiedTokenVerifier]):
-    """统一校验工厂（解析本地服务 JWT 签发者与外部 IdP 客户端）。"""
+    """统一校验工厂（解析本地服务 JWT 签发者与用户令牌签发者）。"""
 
     plugin_key: str = "token_verifier"
     plugin_name: str = "unified"
@@ -159,7 +162,7 @@ class UnifiedTokenVerifierFactory(BasePluginFactory[UnifiedTokenVerifier]):
         """初始化。
 
         Args:
-            settings: 应用配置（`[service_token]` / `[identity_provider]` 选择）。
+            settings: 应用配置（`[service_token]` / `[user_token]` 选择）。
         """
         self._settings = settings
 
@@ -180,15 +183,15 @@ class UnifiedTokenVerifierFactory(BasePluginFactory[UnifiedTokenVerifier]):
                 expected_version=BaseServiceTokenIssuer.contract_version,
             ),
         )
-        identity_provider = cast(
-            "BaseIdentityProvider",
+        user_token_issuer = cast(
+            "BaseUserTokenIssuer",
             resolve_plugin(
-                "identity_provider",
-                self._settings.identity_provider.provider,
-                expected_version=BaseIdentityProvider.contract_version,
+                "user_token",
+                self._settings.user_token.provider,
+                expected_version=BaseUserTokenIssuer.contract_version,
             ),
         )
-        return UnifiedTokenVerifier(service_issuer=service_issuer, identity_provider=identity_provider)
+        return UnifiedTokenVerifier(service_issuer=service_issuer, user_token_issuer=user_token_issuer)
 
 
 def _from_claims(claims: IdentityClaims) -> VerifiedToken:
@@ -203,10 +206,10 @@ def _from_claims(claims: IdentityClaims) -> VerifiedToken:
     payload = dict(claims.payload)
     raw_scope = payload.get("scope")
     scopes = tuple(item for item in str(raw_scope).split() if item) if isinstance(raw_scope, str) else ()
-    tenant = payload.get("tenant")
+    tenant = payload.get("tenant_id") or payload.get("tenant")
     return VerifiedToken(
         subject=claims.subject,
-        token_type=str(payload.get("typ") or ""),
+        token_type=str(payload.get("type") or payload.get("typ") or ""),
         audience=claims.audience,
         issuer=claims.issuer,
         scopes=scopes,
