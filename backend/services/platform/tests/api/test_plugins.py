@@ -1,8 +1,12 @@
-"""插件清单接口测试（Kiwi 566）：分组清单 / 明细 / 404 / 不含密钥 / 只读。"""
+"""插件清单接口测试（Kiwi 566）：分组清单 / 明细 / 404 / 不含密钥 / 只读。
+
+跨服务插件聚合视图占位护栏（Kiwi 2190）：固定空聚合 / OpenAPI 路径 / 不含密钥 / 只读。
+"""
 
 from typing import cast
 
 import pytest
+from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
 from bms_core.application import service_lifespan as lifespan
@@ -88,4 +92,42 @@ async def test_readonly_no_write_methods(client: AsyncClient) -> None:
     """只读接口：写方法一律 405 Method Not Allowed。"""
     for method in ("post", "put", "delete"):
         resp = await getattr(client, method)("/api/v1/plugins")
+        assert resp.status_code == 405, method
+
+
+@pytest.mark.kiwi_id(2190)
+async def test_aggregate_placeholder_contract(client: AsyncClient) -> None:
+    """跨服务聚合占位契约：固定空聚合 + 占位标记，且未被 `/{plugin_key}` 明细路由吞掉。"""
+    resp = await client.get("/api/v1/plugins/aggregate")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["code"] == 0
+    assert body["data"] == {"placeholder": True, "services": []}
+
+
+@pytest.mark.kiwi_id(2190)
+async def test_aggregate_path_in_openapi(service_app: FastAPI) -> None:
+    """公开契约含聚合端点（应用可启动、路由已挂载）。"""
+    paths = service_app.openapi()["paths"]
+    assert "/api/v1/plugins/aggregate" in paths
+
+
+@pytest.mark.kiwi_id(2190)
+async def test_aggregate_excludes_options_secrets(monkeypatch: pytest.MonkeyPatch) -> None:
+    """聚合占位响应不含 `options` 密钥。"""
+    settings = Settings(storage=PluginSelection(provider="", options={"secret_key": "top-secret"}))
+    monkeypatch.setattr("bms_core.application.get_settings", lambda: settings)
+    app = ApplicationFactory().create(None)
+    async with lifespan(app), AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        resp = await client.get("/api/v1/plugins/aggregate")
+    assert resp.status_code == 200
+    assert "top-secret" not in resp.text
+    assert "secret_key" not in resp.text
+
+
+@pytest.mark.kiwi_id(2190)
+async def test_aggregate_readonly_no_write_methods(client: AsyncClient) -> None:
+    """聚合端点只读：写方法一律 405 Method Not Allowed。"""
+    for method in ("post", "put", "delete"):
+        resp = await getattr(client, method)("/api/v1/plugins/aggregate")
         assert resp.status_code == 405, method
