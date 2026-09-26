@@ -206,6 +206,6 @@ def _parse(hashed: str) -> tuple[str, int, bytes, bytes] | None:
         iterations = int(iterations_raw)
         salt = base64.b64decode(salt_raw.encode("ascii"), validate=True)
         digest = base64.b64decode(digest_raw.encode("ascii"), validate=True)
-    except (ValueError, binascii.Error):
+    except ValueError, binascii.Error:
         return None
     return prefix, iterations, salt, digest

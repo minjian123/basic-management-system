@@ -95,6 +95,7 @@ _EXPECTED_PLUGIN_KEYS = frozenset(
         "token_verifier",
         "tracer",
         "translator",
+        "user_token",
         "webhook_sender",
         "workflow_engine",
     }

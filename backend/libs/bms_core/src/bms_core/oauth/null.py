@@ -2,14 +2,17 @@
 
 - `NullOAuthServer` / `NullScopeChecker`：开放接口服务端与 scope 校验占位。
 - `NullServiceTokenIssuer` / `NullTokenVerifier`：服务 JWT 自签与统一校验占位（07_02；不签真 JWT、不验签）。
+- `NullUserTokenIssuer`：用户双 token 自签占位（01_02；**fail-closed**，不签真 JWT、验签恒拒）。
 """
 
 from collections.abc import Iterable, Mapping
 
 from bms_core.core.capability import BaseNullObject
+from bms_core.core.exceptions import AuthError, ConfigError
 from bms_core.idp.base import IdentityClaims
 from bms_core.oauth.base import NULL_ACCESS_TOKEN, BaseOAuthServer, BaseScopeChecker, ClientCredentials, OAuthToken
 from bms_core.oauth.token import BaseServiceTokenIssuer, ServiceTokenSpec
+from bms_core.oauth.user_token import BaseUserTokenIssuer, UserTokenPair, UserTokenSpec
 from bms_core.oauth.verify import BaseTokenVerifier, VerifiedToken
 
 __all__ = [
@@ -17,6 +20,7 @@ __all__ = [
     "NullScopeChecker",
     "NullServiceTokenIssuer",
     "NullTokenVerifier",
+    "NullUserTokenIssuer",
 ]
 
 
@@ -106,3 +110,38 @@ class NullTokenVerifier(BaseTokenVerifier, BaseNullObject):
             VerifiedToken: 占位声明。
         """
         return VerifiedToken(subject="null-subject", audience=(audience,))
+
+
+class NullUserTokenIssuer(BaseUserTokenIssuer, BaseNullObject):
+    """占位用户令牌签发者：**fail-closed**（不签真 JWT、验签恒拒、空 JWKS）。"""
+
+    async def issue_pair(self, spec: UserTokenSpec) -> UserTokenPair:
+        """拒绝签发用户令牌。
+
+        Args:
+            spec: 签发请求（未使用）。
+
+        Raises:
+            ConfigError: 未配置真实实现（40001）。
+        """
+        raise ConfigError("用户令牌实现未配置（user_token 未选定真实实现）")
+
+    def jwks(self) -> Mapping[str, object]:
+        """返回空 JWKS 文档（占位无公钥）。
+
+        Returns:
+            Mapping[str, object]: `{"keys": []}`。
+        """
+        return {"keys": []}
+
+    def verify(self, token: str, *, expected_type: str) -> IdentityClaims:
+        """拒绝校验（一律视为非法令牌）。
+
+        Args:
+            token: JWT 紧凑串（未使用）。
+            expected_type: 期望类型（未使用）。
+
+        Raises:
+            AuthError: 恒定失败（20001 / 401）。
+        """
+        raise AuthError("令牌校验失败")

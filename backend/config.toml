@@ -200,11 +200,11 @@ access_token_expire_minutes = 30
 refresh_token_expire_days = 14
 # 当前签名密钥 kid（用户令牌多把签名私钥时必填）
 active_kid = ""
-# 用户令牌密钥集（kid → 密钥材料；公钥 PEM 可随配置下发）
+# 用户令牌密钥集（kid → 密钥材料；kid 必须带 usr- 前缀，与服务令牌公钥同端点发布、kid 冲突即拒）
 # 私钥 PEM 一律经环境变量注入（不入 Git / 不入镜像），如：
-#   BMS_SECURITY__KEYS='{"k1":{"algorithm":"RS256","public_key":"...","private_key":"..."}}'
-#   或按键位 BMS_SECURITY__KEYS__k1__PRIVATE_KEY
-# 空集时令牌编解码装配即拒（fail-closed）。
+#   BMS_SECURITY__KEYS='{"usr-k1":{"algorithm":"RS256","public_key":"...","private_key":"..."}}'
+#   或按键位 BMS_SECURITY__KEYS__usr-k1__PRIVATE_KEY
+# 空集允许装配（仅校验方只需公钥；签发时无可用私钥才报错）。
 [security.keys]
 
 [password_hasher]
@@ -291,8 +291,15 @@ active_kid = ""
 [service_token.keys]
 
 [token_verifier]
-# 统一校验实现选择（插件化配置；空串 = null 占位不验签；unified = 按 aud 分流统一校验）
+# 统一校验实现选择（插件化配置；空串 = null 占位不验签；unified = 按 aud 分流统一校验：service 本地服务 JWKS、api 本地用户 JWKS）
 provider = "unified"
+
+[user_token]
+# 用户双 token 自签实现选择（插件化配置；空串 = null 占位 fail-closed；jwt = joserfc 真实自签）
+provider = "jwt"
+# 自签签发方（用户 JWT 的 iss；与服务令牌同源标识，生产建议配置稳定 URI）
+issuer = "bms"
+# 密钥与 TTL 归 [security]（keys / active_kid / access 30 分钟 / refresh 14 天）；用户令牌密钥 kid 须带 usr- 前缀
 
 [data_ownership]
 # 数据所有权守卫实现选择（插件化配置；table = SQLAlchemy 执行前表前缀归属检测、空串 = null 占位不检测）

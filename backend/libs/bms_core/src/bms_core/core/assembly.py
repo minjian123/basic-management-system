@@ -84,6 +84,8 @@ from bms_core.notify.base import BaseNotifier
 from bms_core.oauth.base import BaseOAuthServer, BaseScopeChecker
 from bms_core.oauth.jwt import JwtServiceTokenIssuerFactory
 from bms_core.oauth.token import BaseServiceTokenIssuer
+from bms_core.oauth.user_jwt import JwtUserTokenIssuerFactory
+from bms_core.oauth.user_token import BaseUserTokenIssuer
 from bms_core.oauth.verify import BaseTokenVerifier, UnifiedTokenVerifierFactory
 from bms_core.org.base import BaseOrgDataSource, BaseOrgNameResolver
 from bms_core.outbound.http import BaseHttpClient
@@ -235,6 +237,7 @@ PLUGIN_WIRINGS: tuple[PluginWiring, ...] = (
     PluginWiring("oauth_server", BaseOAuthServer, "oauth_server", "oauth_server"),
     PluginWiring("scope_checker", BaseScopeChecker, "scope_checker", "scope_checker"),
     PluginWiring("service_token", BaseServiceTokenIssuer, "service_token", "service_token"),
+    PluginWiring("user_token", BaseUserTokenIssuer, "user_token", "user_token"),
     PluginWiring("token_verifier", BaseTokenVerifier, "token_verifier", "token_verifier"),
     PluginWiring("password_hasher", BasePasswordHasher, "password_hasher", "password_hasher"),
     PluginWiring("token_codec", BaseTokenCodec, "token_codec", "token_codec"),
@@ -328,6 +331,7 @@ def register_platform_plugins(settings: Settings, app: FastAPI, resources: Resou
     register_plugin("edge", "service_jwt", ServiceJwtEdgeTrustFactory(settings))
     register_plugin("identity_provider", "oidc", OidcIdentityProviderFactory(settings))
     register_plugin("service_token", "jwt", JwtServiceTokenIssuerFactory(settings))
+    register_plugin("user_token", "jwt", JwtUserTokenIssuerFactory(settings))
     register_plugin("password_hasher", "pbkdf2", Pbkdf2PasswordHasherFactory(settings))
     register_plugin("token_codec", "jwt", JwtTokenCodecFactory(settings))
     register_plugin("session_security", "default", DefaultSessionSecurityFactory(settings))
