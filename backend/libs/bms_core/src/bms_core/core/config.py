@@ -260,12 +260,39 @@ class MinioSettings(BaseSettings):
     secure: bool = False
 
 
+class TokenKeySettings(BaseSettings):
+    """JWT 单把密钥（kid 为映射键；公钥可入配置，私钥只经环境变量 / Secret 注入）。
+
+    服务 JWT（`[service_token].keys`）与用户令牌（`[security].keys`）共用本结构。
+    """
+
+    algorithm: str = "RS256"
+    """签名算法（白名单 RS256 / ES256）。"""
+
+    public_key: str = ""
+    """公钥 PEM（非敏感，可入配置）。"""
+
+    private_key: str = ""
+    """私钥 PEM（空串；经 `BMS_SERVICE_TOKEN__KEYS` / `BMS_SECURITY__KEYS` 等环境变量注入）。"""
+
+
 class SecuritySettings(BaseSettings):
-    """安全（占位；真实实现随认证阶段）。"""
+    """安全配置（`[security]`；认证原语口径，密钥只走环境变量 / Secret）。"""
 
     secret_key: str = ""
-    algorithm: str = "HS256"
-    access_token_expire_minutes: int = 60
+    """通用密钥（会话指纹 HMAC 与生产启动校验）；生产必填（`BMS_SECURITY__SECRET_KEY`）。"""
+
+    access_token_expire_minutes: int = Field(default=30, ge=1)
+    """access token 有效期（分钟；架构 14 定为 30 分钟）。"""
+
+    refresh_token_expire_days: int = Field(default=14, ge=1)
+    """refresh token 有效期（天；架构 14 定为 14 天滚动轮换）。"""
+
+    active_kid: str = ""
+    """当前签名密钥 kid（用户令牌多把签名私钥时必填）。"""
+
+    keys: dict[str, TokenKeySettings] = Field(default_factory=dict[str, TokenKeySettings])
+    """用户令牌密钥集（kid → 密钥材料；空集时令牌编解码装配即拒）。"""
 
 
 class CorsSettings(BaseSettings):
@@ -372,19 +399,6 @@ class IdentityProviderSettings(PluginSelection):
 
     jwks_cache_ttl: float = 300.0
     """JWKS 缓存 TTL（秒）。"""
-
-
-class TokenKeySettings(BaseSettings):
-    """服务 JWT 单把密钥（kid 为映射键；公钥可入配置，私钥只经环境变量 / Secret 注入）。"""
-
-    algorithm: str = "RS256"
-    """签名算法（白名单 RS256 / ES256）。"""
-
-    public_key: str = ""
-    """公钥 PEM（非敏感，可入配置）。"""
-
-    private_key: str = ""
-    """私钥 PEM（空串；经 `BMS_SERVICE_TOKEN__KEYS` 等环境变量注入）。"""
 
 
 class ServiceTokenSettings(PluginSelection):
@@ -596,6 +610,7 @@ class Settings(PydanticBaseSettings, BaseSettings):  # pyright: ignore[reportInc
     outbox: OutboxSettings = Field(default_factory=OutboxSettings)
     outbox_store: PluginSelection = Field(default_factory=PluginSelection)
     password_policy: PluginSelection = Field(default_factory=PluginSelection)
+    password_hasher: PluginSelection = Field(default_factory=PluginSelection)
     permission: PluginSelection = Field(default_factory=PluginSelection)
     preference: PluginSelection = Field(default_factory=PluginSelection)
     print_exporter: PluginSelection = Field(default_factory=PluginSelection)
@@ -610,11 +625,13 @@ class Settings(PydanticBaseSettings, BaseSettings):  # pyright: ignore[reportInc
     search_index: PluginSelection = Field(default_factory=PluginSelection)
     service_client: PluginSelection = Field(default_factory=PluginSelection)
     service_token: ServiceTokenSettings = Field(default_factory=ServiceTokenSettings)
+    session_security: PluginSelection = Field(default_factory=PluginSelection)
     session_store: PluginSelection = Field(default_factory=PluginSelection)
     sharding: PluginSelection = Field(default_factory=PluginSelection)
     storage: PluginSelection = Field(default_factory=PluginSelection)
     task: PluginSelection = Field(default_factory=PluginSelection)
     tenant_self_service: PluginSelection = Field(default_factory=PluginSelection)
+    token_codec: PluginSelection = Field(default_factory=PluginSelection)
     token_verifier: PluginSelection = Field(default_factory=PluginSelection)
     tracer: TracerSettings = Field(default_factory=TracerSettings)
     translator: PluginSelection = Field(default_factory=PluginSelection)

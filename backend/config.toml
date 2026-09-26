@@ -192,10 +192,36 @@ insecure = true
 options = {}
 
 [security]
-# 安全（占位；真实实现随认证阶段）；secret_key 仅经环境变量注入
+# 认证原语配置（阶段六 01_01 定稿）；secret_key 与私钥仅经环境变量注入
 secret_key = ""
-algorithm = "HS256"
-access_token_expire_minutes = 60
+# access token 有效期（分钟；架构 14 定为 30 分钟）
+access_token_expire_minutes = 30
+# refresh token 有效期（天；14 天滚动轮换）
+refresh_token_expire_days = 14
+# 当前签名密钥 kid（用户令牌多把签名私钥时必填）
+active_kid = ""
+# 用户令牌密钥集（kid → 密钥材料；公钥 PEM 可随配置下发）
+# 私钥 PEM 一律经环境变量注入（不入 Git / 不入镜像），如：
+#   BMS_SECURITY__KEYS='{"k1":{"algorithm":"RS256","public_key":"...","private_key":"..."}}'
+#   或按键位 BMS_SECURITY__KEYS__k1__PRIVATE_KEY
+# 空集时令牌编解码装配即拒（fail-closed）。
+[security.keys]
+
+[password_hasher]
+# 口令哈希实现选择（插件化配置；pbkdf2 = PBKDF2-HMAC-SHA256 真实实现、空串 = null 占位 fail-closed）
+provider = "pbkdf2"
+# 非敏感选项（iterations = 迭代次数，缺省 600000，下限 100000）
+options = {}
+
+[token_codec]
+# 令牌编解码实现选择（插件化配置；jwt = joserfc 真实实现、空串 = null 占位 fail-closed）
+provider = "jwt"
+options = {}
+
+[session_security]
+# 会话安全实现选择（插件化配置；default = 雪花会话 id + HMAC 指纹 + global 黑名单键、空串 = null 占位 fail-closed）
+provider = "default"
+options = {}
 
 [cors]
 # 允许来源（dev 覆盖放行前端开发服务器；test/prod 空，生产由 nginx 同源反代）

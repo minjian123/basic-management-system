@@ -103,6 +103,10 @@ from bms_core.saga.base import BaseSagaExecutor
 from bms_core.saga.choreography import ChoreographySagaExecutor
 from bms_core.scope.base import DataScope
 from bms_core.search.base import BaseSearchIndex
+from bms_core.security.base import BasePasswordHasher, BaseSessionSecurity, BaseTokenCodec
+from bms_core.security.jwt import JwtTokenCodecFactory
+from bms_core.security.pbkdf2 import Pbkdf2PasswordHasherFactory
+from bms_core.security.session import DefaultSessionSecurityFactory
 from bms_core.servicecall.base import (
     DEFAULT_BASE_URL_TEMPLATE,
     SERVICE_CLIENT_OPTION_ATTACH_TOKEN,
@@ -176,6 +180,7 @@ _NULL_MODULES: tuple[str, ...] = (
     "bms_core.replay.null",
     "bms_core.scope.null",
     "bms_core.search.null",
+    "bms_core.security.null",
     "bms_core.servicecall.null",
     "bms_core.session.null",
     "bms_core.sharding.null",
@@ -231,6 +236,9 @@ PLUGIN_WIRINGS: tuple[PluginWiring, ...] = (
     PluginWiring("scope_checker", BaseScopeChecker, "scope_checker", "scope_checker"),
     PluginWiring("service_token", BaseServiceTokenIssuer, "service_token", "service_token"),
     PluginWiring("token_verifier", BaseTokenVerifier, "token_verifier", "token_verifier"),
+    PluginWiring("password_hasher", BasePasswordHasher, "password_hasher", "password_hasher"),
+    PluginWiring("token_codec", BaseTokenCodec, "token_codec", "token_codec"),
+    PluginWiring("session_security", BaseSessionSecurity, "session_security", "session_security"),
     PluginWiring("org_data_source", BaseOrgDataSource, "org_data_source", "org_data_source"),
     PluginWiring("org_name_resolver", BaseOrgNameResolver, "org_name_resolver", "org_name_resolver"),
     PluginWiring("dict_cache_region", DictCacheRegion, "dict_cache_region", "dict_cache_region"),
@@ -320,6 +328,9 @@ def register_platform_plugins(settings: Settings, app: FastAPI, resources: Resou
     register_plugin("edge", "service_jwt", ServiceJwtEdgeTrustFactory(settings))
     register_plugin("identity_provider", "oidc", OidcIdentityProviderFactory(settings))
     register_plugin("service_token", "jwt", JwtServiceTokenIssuerFactory(settings))
+    register_plugin("password_hasher", "pbkdf2", Pbkdf2PasswordHasherFactory(settings))
+    register_plugin("token_codec", "jwt", JwtTokenCodecFactory(settings))
+    register_plugin("session_security", "default", DefaultSessionSecurityFactory(settings))
     register_plugin("token_verifier", "unified", UnifiedTokenVerifierFactory(settings))
     register_plugin("data_ownership_guard", "table", TableOwnershipGuardFactory(settings))
     register_plugin("service_client", "http", HttpServiceClientFactory(settings))

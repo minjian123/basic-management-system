@@ -4,7 +4,7 @@
   原因码元组）/ `expired`（是否超有效期）/ `reused`（是否命中历史密码）。
 - `get_password_policy`：依赖注入提供者（应用级单例；公共依赖经 `app/api/deps.py` 统一导出）。
 
-与安全原语（`app/core/security.py`）分工：密码**哈希**走 `PasswordHasher`（PBKDF2，随认证阶段填实现）；
+与安全原语（`bms_core/security/`）分工：密码**哈希**走 `BasePasswordHasher`（PBKDF2，01_01 真实实现）；
 本基座只做**策略判定**（复杂度 / 有效期 / 历史重复），不重复哈希、不直连库（历史由调用方传入）。
 """
 
