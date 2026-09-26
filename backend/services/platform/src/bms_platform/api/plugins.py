@@ -9,7 +9,7 @@ from bms_core.core.assembly import PLUGIN_WIRINGS
 from bms_core.core.exceptions import NotFoundError
 from bms_core.core.plugin import NULL_PLUGIN_NAME, PluginImpl, plugin_registry_snapshot
 from bms_core.schemas.common import ApiResponse
-from bms_core.schemas.plugin import PluginGroupResponse, PluginImplementationResponse
+from bms_core.schemas.plugin import PluginAggregateResponse, PluginGroupResponse, PluginImplementationResponse
 
 router = BaseRouter(key="plugins", prefix="/plugins", tags=["plugin"])
 
@@ -61,6 +61,21 @@ async def list_plugins(request: Request) -> ApiResponse:
         if plugin_key in snapshot
     ]
     return ApiResponse.ok(groups)
+
+
+@router.get("/aggregate")
+async def aggregate_plugins() -> ApiResponse:
+    """跨服务插件聚合视图（触发式接口占位，只读）。
+
+    汇总各服务插件清单供平台超管统一查看（需求 01-4）。**当前为触发前占位**：
+    恒定返回空聚合与占位标记，不读注册表、不发起任何服务调用；真实实现（经服务间
+    公开契约 `service_client` 调用各服务 `GET /api/v1/plugins`）归触发时。**注意**：
+    本路由须先于 `/plugins/{plugin_key}` 注册，避免被明细动态路由吞掉。
+
+    Returns:
+        ApiResponse: 统一响应，data 为 `{"placeholder": true, "services": []}`。
+    """
+    return ApiResponse.ok(PluginAggregateResponse(placeholder=True, services=[]))
 
 
 @router.get("/{plugin_key}")

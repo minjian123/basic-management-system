@@ -4247,6 +4247,78 @@
         ]
       }
     },
+    "/api/v1/plugins/aggregate": {
+      "get": {
+        "description": "跨服务插件聚合视图（触发式接口占位，只读）。\n\n汇总各服务插件清单供平台超管统一查看（需求 01-4）。**当前为触发前占位**：\n恒定返回空聚合与占位标记，不读注册表、不发起任何服务调用；真实实现（经服务间\n公开契约 `service_client` 调用各服务 `GET /api/v1/plugins`）归触发时。**注意**：\n本路由须先于 `/plugins/{plugin_key}` 注册，避免被明细动态路由吞掉。\n\nReturns:\n    ApiResponse: 统一响应，data 为 `{\"placeholder\": true, \"services\": []}`。",
+        "operationId": "aggregate_plugins_api_v1_plugins_aggregate_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Aggregate Plugins",
+        "tags": [
+          "plugin"
+        ]
+      }
+    },
     "/api/v1/plugins/{plugin_key}": {
       "get": {
         "description": "单能力插件明细（只读）。\n\nArgs:\n    request: 请求对象。\n    plugin_key: 能力域键。\n\nReturns:\n    ApiResponse: 统一响应，data 为单能力分组。\n\nRaises:\n    NotFoundError: 未登记能力（10002 / 404，全局处理器统一转响应）。",
