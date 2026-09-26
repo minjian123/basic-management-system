@@ -199,11 +199,16 @@ TABLE_OWNERSHIP: tuple[TableRecord, ...] = (
         note="SSO 全局身份映射（预留）",
     ),
     TableRecord(
+        table_name="sys_user",
+        owner="org",
+        datasource=Datasource.TENANT,
+        note="用户最小模型（本地登录凭据 / 状态 / 锁定字段）",
+    ),
+    TableRecord(
         table_name="sys_session",
         owner="identity",
         datasource=Datasource.TENANT,
-        status=TableStatus.PLANNED,
-        note="会话记录（预留）",
+        note="会话记录（登录 / 刷新 / 登出载体）",
     ),
     TableRecord(
         table_name="sys_account_lock",

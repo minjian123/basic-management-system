@@ -59,6 +59,7 @@ from bms_core.ratelimit.base import get_rate_limiter
 from bms_core.replay.base import get_replay_guard
 from bms_core.saga.base import get_saga_executor
 from bms_core.search.base import get_search_index
+from bms_core.security.base import get_password_hasher, get_session_security
 from bms_core.servicecall.base import get_service_client
 from bms_core.session.base import get_session_store
 from bms_core.storage.base import get_multipart_upload, get_object_storage
@@ -118,6 +119,7 @@ __all__ = [
     "get_org_name_resolver",
     "get_outbox_dispatcher",
     "get_outbox_store",
+    "get_password_hasher",
     "get_password_policy",
     "get_permission_checker",
     "get_platform_read_db",
@@ -136,6 +138,7 @@ __all__ = [
     "get_search_index",
     "get_service_client",
     "get_service_token_issuer",
+    "get_session_security",
     "get_session_store",
     "get_task",
     "get_tenant",

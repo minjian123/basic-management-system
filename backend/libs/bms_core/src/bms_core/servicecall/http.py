@@ -142,7 +142,7 @@ class HttpServiceClient(BaseServiceClient):
         }
         if self._attach_service_token and self._token_issuer is not None:
             token = await self._token_issuer.issue(
-                ServiceTokenSpec(service=request.service, scopes=request.policy.scopes)
+                ServiceTokenSpec(service=request.service, scopes=request.policy.scopes, tenant=request.tenant)
             )
             if token.access_token:
                 headers["Authorization"] = f"Bearer {token.access_token}"

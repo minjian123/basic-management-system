@@ -112,7 +112,7 @@ async def test_auto_create_service_ized_targets(tmp_path: Path, monkeypatch: pyt
 @pytest.mark.kiwi_id(1078)
 async def test_auto_create_skips_chains_without_revisions(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """无迁移脚本的服务链不建表（与真库迁移口径一致，避免开发库与真库漂移）。"""
-    _point_to(tmp_path, monkeypatch, service="org")
+    _point_to(tmp_path, monkeypatch, service="file")
     settings = get_settings()
 
     registry = EngineRegistry(EngineFactory(settings))

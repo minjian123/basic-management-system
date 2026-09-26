@@ -2,6 +2,9 @@
   "components": {
     "schemas": {
       "ApiResponse": {},
+      "ApiResponse_LoginResult_": {},
+      "ApiResponse_NoneType_": {},
+      "ApiResponse_RefreshResult_": {},
       "CaptchaChallengeRequest": {
         "description": "验证码出题请求。",
         "properties": {
@@ -18,6 +21,52 @@
           }
         },
         "title": "CaptchaChallengeRequest",
+        "type": "object"
+      },
+      "CaptchaInput": {
+        "description": "登录验证码凭证（图形 / 滑块 / 短信；与验证码基座 `CaptchaCredential` 字段对应）。",
+        "properties": {
+          "captcha_id": {
+            "default": "",
+            "description": "挑战编号",
+            "title": "Captcha Id",
+            "type": "string"
+          },
+          "code": {
+            "default": "",
+            "description": "校验码（图形 / 短信）",
+            "title": "Code",
+            "type": "string"
+          },
+          "kind": {
+            "default": "image",
+            "description": "验证码形态（image / slider / sms）",
+            "title": "Kind",
+            "type": "string"
+          },
+          "trace": {
+            "description": "滑块轨迹点（x / y / 相对起点毫秒）",
+            "items": {
+              "maxItems": 3,
+              "minItems": 3,
+              "prefixItems": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "integer"
+                }
+              ],
+              "type": "array"
+            },
+            "title": "Trace",
+            "type": "array"
+          }
+        },
+        "title": "CaptchaInput",
         "type": "object"
       },
       "CaptchaKind": {
@@ -119,6 +168,58 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
+      "LoginRequest": {
+        "description": "本地登录请求。",
+        "properties": {
+          "account": {
+            "description": "登录账号",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Account",
+            "type": "string"
+          },
+          "captcha": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CaptchaInput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "验证码凭证（策略强制或已出题时携带）"
+          },
+          "password": {
+            "description": "口令明文",
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Password",
+            "type": "string"
+          },
+          "tenant": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "租户编码（可选；携带则以之为准）",
+            "title": "Tenant"
+          }
+        },
+        "required": [
+          "account",
+          "password"
+        ],
+        "title": "LoginRequest",
+        "type": "object"
+      },
+      "LoginResult": {},
+      "RefreshResult": {},
+      "UserSummary": {},
       "ValidationError": {
         "properties": {
           "ctx": {
@@ -331,6 +432,92 @@
           }
         },
         "summary": "Introspect",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/login": {
+      "post": {
+        "description": "本地账号密码登录：验证码 / 限流 / org 凭据校验 → 签发双 token 并建会话。\n\nArgs:\n    request: 请求对象。\n    req: 登录请求。\n    response: 响应对象（下发 refresh cookie）。\n    issuer: 用户双 token 签发者。\n    security: 会话安全原语。\n    store: 会话标记存储。\n    captcha: 验证码基座。\n    limiter: 限流基座。\n    client: 服务间调用客户端。\n    tenant_ctx: 请求上下文租户。\n    tenant_source: 租户源。\n\nReturns:\n    ApiResponse: 统一响应，data 为登录结果（`LoginResult`）。",
+        "operationId": "login_api_v1_auth_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_LoginResult_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Login",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "description": "登出（幂等）：refresh 入黑名单 + 会话撤销 + 删标记；清 cookie。\n\nArgs:\n    request: 请求对象（读 refresh cookie）。\n    response: 响应对象（清 refresh cookie）。\n    issuer: 用户双 token 签发者。\n    security: 会话安全原语。\n    store: 会话标记存储。\n    captcha: 验证码基座（未使用，保持服务构造一致）。\n    limiter: 限流基座（未使用）。\n    client: 服务间调用客户端（未使用）。\n    tenant_ctx: 请求上下文租户。\n\nReturns:\n    ApiResponse: 统一响应（data 为 null）。",
+        "operationId": "logout_api_v1_auth_logout_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Logout",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/refresh": {
+      "post": {
+        "description": "静默刷新：校验 refresh 并轮换签发新双 token（同会话 id）。\n\nArgs:\n    request: 请求对象（读 refresh cookie）。\n    response: 响应对象（重设 refresh cookie）。\n    issuer: 用户双 token 签发者。\n    security: 会话安全原语。\n    store: 会话标记存储。\n    captcha: 验证码基座（未使用，保持服务构造一致）。\n    limiter: 限流基座（未使用）。\n    client: 服务间调用客户端（未使用）。\n    tenant_ctx: 请求上下文租户。\n\nReturns:\n    ApiResponse: 统一响应，data 为刷新结果（`RefreshResult`）。\n\nRaises:\n    AuthError: 缺少 refresh cookie / 租户上下文（20001/401）。",
+        "operationId": "refresh_api_v1_auth_refresh_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_RefreshResult_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Refresh",
         "tags": [
           "auth"
         ]

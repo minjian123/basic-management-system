@@ -96,6 +96,45 @@ class AuthError(BizError):
         super().__init__(ErrorCode.AUTH, message, http_status=401, data=data)
 
 
+class LoginFailedError(AuthError):
+    """登录失败：账号不存在或密码错误（`20002`；同码不区分，防账号枚举）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化登录失败异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.LOGIN_FAILED, message, http_status=401, data=data)
+
+
+class AccountLockedError(AuthError):
+    """账号已锁定（`20003` / 401）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化账号锁定异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.ACCOUNT_LOCKED, message, http_status=401, data=data)
+
+
+class AccountDisabledError(AuthError):
+    """账号已停用（`20004` / 401）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化账号停用异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.ACCOUNT_DISABLED, message, http_status=401, data=data)
+
+
 class CaptchaError(AuthError):
     """验证码段（认证段内 `201xx` 子段）异常基类；子类在构造时预置码位与 HTTP 状态。"""
 

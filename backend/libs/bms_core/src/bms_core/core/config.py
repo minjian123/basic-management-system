@@ -417,6 +417,32 @@ class ServiceTokenSettings(PluginSelection):
     """密钥集（kid → 密钥材料）；空集允许（仅校验方时只需公钥，签发时无可用私钥才拒）。"""
 
 
+class LoginSettings(BaseSettings):
+    """本地登录防爆破与验证码强制配置（`[login]`；阈值 / 窗口，敏感项无）。
+
+    口径与《架构设计 · 认证与会话》「密码与账号策略」节一致（5 次失败锁 15 分钟、连续失败 3 次强制
+    验证码）；后续按租户 `sys_config` 覆盖归账号治理阶段（03_04 / 03_07）。
+    """
+
+    max_failures: int = Field(default=5, ge=1)
+    """连续失败锁定阈值（达到即锁定账号）。"""
+
+    lock_seconds: int = Field(default=900, ge=1)
+    """账号锁定时长（秒，默认 15 分钟）。"""
+
+    ip_rate_limit: int = Field(default=60, ge=1)
+    """每 IP 每分钟登录请求上限（限流基座）。"""
+
+    account_rate_limit: int = Field(default=20, ge=1)
+    """每账号每分钟登录请求上限（限流基座）。"""
+
+    captcha_lock_threshold: int = Field(default=3, ge=1)
+    """连续失败强制验证码阈值（预留 03_04；本期不驱动强制分支）。"""
+
+    cookie_secure: bool = True
+    """refresh cookie 是否带 `Secure`（生产 true；dev 经 `config.dev.toml` 关以支持 http 本地联调）。"""
+
+
 class UserTokenSettings(PluginSelection):
     """用户令牌自签配置（`[user_token]`；密钥与 TTL 归 `[security]`，本分区只放选择与签发方）。"""
 
@@ -606,6 +632,7 @@ class Settings(PydanticBaseSettings, BaseSettings):  # pyright: ignore[reportInc
     identity_provider: IdentityProviderSettings = Field(default_factory=IdentityProviderSettings)
     importer: PluginSelection = Field(default_factory=PluginSelection)
     llm_provider: PluginSelection = Field(default_factory=PluginSelection)
+    login: LoginSettings = Field(default_factory=LoginSettings)
     masking: PluginSelection = Field(default_factory=PluginSelection)
     metrics: PluginSelection = Field(default_factory=PluginSelection)
     multipart_upload: PluginSelection = Field(default_factory=PluginSelection)

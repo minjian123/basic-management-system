@@ -102,6 +102,113 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Login
+         * @description 本地账号密码登录：验证码 / 限流 / org 凭据校验 → 签发双 token 并建会话。
+         *
+         *     Args:
+         *         request: 请求对象。
+         *         req: 登录请求。
+         *         response: 响应对象（下发 refresh cookie）。
+         *         issuer: 用户双 token 签发者。
+         *         security: 会话安全原语。
+         *         store: 会话标记存储。
+         *         captcha: 验证码基座。
+         *         limiter: 限流基座。
+         *         client: 服务间调用客户端。
+         *         tenant_ctx: 请求上下文租户。
+         *         tenant_source: 租户源。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为登录结果（`LoginResult`）。
+         */
+        post: operations["login_api_v1_auth_login_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Logout
+         * @description 登出（幂等）：refresh 入黑名单 + 会话撤销 + 删标记；清 cookie。
+         *
+         *     Args:
+         *         request: 请求对象（读 refresh cookie）。
+         *         response: 响应对象（清 refresh cookie）。
+         *         issuer: 用户双 token 签发者。
+         *         security: 会话安全原语。
+         *         store: 会话标记存储。
+         *         captcha: 验证码基座（未使用，保持服务构造一致）。
+         *         limiter: 限流基座（未使用）。
+         *         client: 服务间调用客户端（未使用）。
+         *         tenant_ctx: 请求上下文租户。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应（data 为 null）。
+         */
+        post: operations["logout_api_v1_auth_logout_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Refresh
+         * @description 静默刷新：校验 refresh 并轮换签发新双 token（同会话 id）。
+         *
+         *     Args:
+         *         request: 请求对象（读 refresh cookie）。
+         *         response: 响应对象（重设 refresh cookie）。
+         *         issuer: 用户双 token 签发者。
+         *         security: 会话安全原语。
+         *         store: 会话标记存储。
+         *         captcha: 验证码基座（未使用，保持服务构造一致）。
+         *         limiter: 限流基座（未使用）。
+         *         client: 服务间调用客户端（未使用）。
+         *         tenant_ctx: 请求上下文租户。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为刷新结果（`RefreshResult`）。
+         *
+         *     Raises:
+         *         AuthError: 缺少 refresh cookie / 租户上下文（20001/401）。
+         */
+        post: operations["refresh_api_v1_auth_refresh_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/captcha/challenges": {
         parameters: {
             query?: never;
@@ -268,6 +375,9 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         ApiResponse: unknown;
+        ApiResponse_LoginResult_: unknown;
+        ApiResponse_NoneType_: unknown;
+        ApiResponse_RefreshResult_: unknown;
         /**
          * CaptchaChallengeRequest
          * @description 验证码出题请求。
@@ -284,6 +394,39 @@ export interface components {
              * @default login
              */
             scene: string;
+        };
+        /**
+         * CaptchaInput
+         * @description 登录验证码凭证（图形 / 滑块 / 短信；与验证码基座 `CaptchaCredential` 字段对应）。
+         */
+        CaptchaInput: {
+            /**
+             * Captcha Id
+             * @description 挑战编号
+             * @default
+             */
+            captcha_id: string;
+            /**
+             * Code
+             * @description 校验码（图形 / 短信）
+             * @default
+             */
+            code: string;
+            /**
+             * Kind
+             * @description 验证码形态（image / slider / sms）
+             * @default image
+             */
+            kind: string;
+            /**
+             * Trace
+             * @description 滑块轨迹点（x / y / 相对起点毫秒）
+             */
+            trace?: [
+                number,
+                number,
+                number
+            ][];
         };
         /**
          * CaptchaKind
@@ -350,6 +493,32 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /**
+         * LoginRequest
+         * @description 本地登录请求。
+         */
+        LoginRequest: {
+            /**
+             * Account
+             * @description 登录账号
+             */
+            account: string;
+            /** @description 验证码凭证（策略强制或已出题时携带） */
+            captcha?: components["schemas"]["CaptchaInput"] | null;
+            /**
+             * Password
+             * @description 口令明文
+             */
+            password: string;
+            /**
+             * Tenant
+             * @description 租户编码（可选；携带则以之为准）
+             */
+            tenant?: string | null;
+        };
+        LoginResult: unknown;
+        RefreshResult: unknown;
+        UserSummary: unknown;
         /** ValidationError */
         ValidationError: {
             /** Context */
@@ -474,6 +643,79 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    login_api_v1_auth_login_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoginRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_LoginResult_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    logout_api_v1_auth_logout_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_NoneType_"];
+                };
+            };
+        };
+    };
+    refresh_api_v1_auth_refresh_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_RefreshResult_"];
                 };
             };
         };

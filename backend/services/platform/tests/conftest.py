@@ -45,6 +45,10 @@ def isolate_settings(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     # 真实实现用例显式开启（monkeypatch 覆盖 provider / 端点或注入 in-memory exporter）。
     monkeypatch.setenv("BMS_METRICS__PROVIDER", "")
     monkeypatch.setenv("BMS_TRACER__PROVIDER", "")
+    # 跨服务调用 / 会话存储 / 限流真实实现关闭（01_03）：单测不真实外呼、不连 Redis
+    monkeypatch.setenv("BMS_SERVICE_CLIENT__PROVIDER", "")
+    monkeypatch.setenv("BMS_SESSION_STORE__PROVIDER", "")
+    monkeypatch.setenv("BMS_RATE_LIMITER__PROVIDER", "")
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()

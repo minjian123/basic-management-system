@@ -251,10 +251,11 @@ public_paths = ["/api/identity/v1/auth/login", "/api/identity/v1/auth/refresh", 
 
 [service_client]
 # 服务间同步调用实现选择（插件化配置；http = httpx 真实实现、空串 = null 占位不外呼）
-provider = ""
+provider = "http"
 # 非敏感选项（base_url_template = 目标基址模板，占位 {service}；缺省 Compose DNS http://{service}:8000）
-# attach_service_token = 出站是否剥离入站 Authorization 并附自签服务 JWT（缺省 false，dev 关、prod 开）
-options = {}
+# attach_service_token = 出站是否剥离入站 Authorization 并附自签服务 JWT（缺省 false；认证链路要求 true，
+#   由服务 JWT 承载服务身份与 tenant claim，目标服务经边缘信任解析）
+options = { attach_service_token = true }
 
 [identity_provider]
 # 身份源实现选择（插件化配置；空串 = null 占位不连外部 IdP；oidc = 真实 OIDC 客户端）
@@ -300,6 +301,22 @@ provider = "jwt"
 # 自签签发方（用户 JWT 的 iss；与服务令牌同源标识，生产建议配置稳定 URI）
 issuer = "bms"
 # 密钥与 TTL 归 [security]（keys / active_kid / access 30 分钟 / refresh 14 天）；用户令牌密钥 kid 须带 usr- 前缀
+
+[session_store]
+# 会话存储实现选择（插件化配置；redis = Redis 会话标记真实实现、memory = 进程内（单副本）、空串 = null 占位）
+provider = "redis"
+
+[rate_limiter]
+# 限流实现选择（插件化配置；redis = Redis 固定窗口（异常降级 memory）、memory = 进程内、空串 = null 占位恒定放行）
+provider = "redis"
+
+[login]
+# 本地登录防爆破与验证码强制（5 次失败锁 15 分钟；连续失败 3 次强制验证码预留 03_04）
+max_failures = 5
+lock_seconds = 900
+ip_rate_limit = 60
+account_rate_limit = 20
+captcha_lock_threshold = 3
 
 [data_ownership]
 # 数据所有权守卫实现选择（插件化配置；table = SQLAlchemy 执行前表前缀归属检测、空串 = null 占位不检测）

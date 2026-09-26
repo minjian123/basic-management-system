@@ -12,15 +12,17 @@
   细粒度权限校验沿用 `require_permission`（阶段七）。
 """
 
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Query, Request, params
+from fastapi import APIRouter, Depends, Header, Query, Request, params
 from pydantic import ValidationError
 
 from bms_core.core.base import BaseObject
-from bms_core.core.exceptions import ConflictError, ParamError
+from bms_core.core.exceptions import AuthError, ConflictError, ParamError
 from bms_core.edge.base import require_edge_identity
+from bms_core.oauth.token import TOKEN_AUDIENCE_SERVICE
+from bms_core.oauth.verify import BaseTokenVerifier, VerifiedToken, get_token_verifier
 from bms_core.schemas.common import ApiResponse
 from bms_core.schemas.pagination import BaseCursorQuery, BasePageQuery
 from bms_core.schemas.sorting import BaseSortQuery
@@ -36,6 +38,7 @@ __all__ = [
     "page_query",
     "register_router",
     "require_auth",
+    "require_service",
     "router_registry",
     "sort_query",
 ]
@@ -339,3 +342,58 @@ def require_auth(request: Request) -> None:
     if not bool(getattr(edge_settings, "require_gateway_identity", False)):
         return
     require_edge_identity(request)
+
+
+def require_service(*allowed_services: str) -> Callable[..., Awaitable[VerifiedToken]]:
+    """服务身份依赖工厂：仅接受有效服务 JWT（`aud=service`），可限定调用方服务标识。
+
+    用于**内部端点**（服务间东西向直连、不经网关）：从 `Authorization: Bearer` 取令牌，经统一
+    校验器按 `aud=service` 全校验（签名 / `exp` / `iss` / `aud`），再校验签发方服务标识在允许清单内。
+    网关为用户请求换发的是 `sub=gateway` 的服务 JWT，若非白名单即拒——避免内部端点经网关被误信。
+
+    Args:
+        *allowed_services: 允许的调用方服务标识（`VerifiedToken.service`）；空 = 不限定。
+
+    Returns:
+        Callable[..., Awaitable[VerifiedToken]]: FastAPI 依赖（返回校验后的身份声明）。
+    """
+
+    async def dependency(
+        verifier: Annotated[BaseTokenVerifier, Depends(get_token_verifier)],
+        authorization: Annotated[str | None, Header(alias="Authorization")] = None,
+    ) -> VerifiedToken:
+        """校验入站服务 JWT（缺失 / 无效 / 非服务受众 / 非白名单一律拒）。
+
+        Args:
+            verifier: 统一令牌校验器。
+            authorization: `Authorization` 头。
+
+        Returns:
+            VerifiedToken: 校验通过的服务身份声明。
+
+        Raises:
+            AuthError: 缺失 / 无效令牌或签发方不在允许清单（20001 / 401）。
+        """
+        token = _bearer_token(authorization)
+        if token is None:
+            raise AuthError("缺少服务身份凭证")
+        verified = await verifier.verify(token, audience=TOKEN_AUDIENCE_SERVICE)
+        if allowed_services and (verified.service or "") not in allowed_services:
+            raise AuthError("服务身份不在允许清单")
+        return verified
+
+    return dependency
+
+
+def _bearer_token(authorization: str | None) -> str | None:
+    """取 Bearer 令牌（大小写不敏感）。
+
+    Args:
+        authorization: `Authorization` 头原始值。
+
+    Returns:
+        str | None: 令牌紧凑串；缺失 / 非 Bearer 为 None。
+    """
+    if not authorization or not authorization.lower().startswith("bearer "):
+        return None
+    return authorization[7:].strip() or None
