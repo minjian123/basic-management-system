@@ -10,6 +10,7 @@ from fastapi import FastAPI
 from bms_core.api.deps import (
     get_captcha,
     get_rate_limiter,
+    get_realtime_publisher,
     get_service_client,
     get_session_store,
     get_user_token_issuer,
@@ -22,6 +23,7 @@ from bms_core.oauth.user_token import BaseUserTokenIssuer, UserTokenPair, UserTo
 from bms_core.ratelimit.memory import MemoryRateLimiter
 from bms_core.servicecall.base import BaseServiceClient, ServiceRequest, ServiceResponse
 from bms_core.session.memory import MemorySessionStore
+from bms_core.ws.base import BaseRealtimePublisher, RealtimeEvent
 
 _ACCESS = "access"
 _REFRESH = "refresh"
@@ -276,6 +278,40 @@ class FakeCaptcha(BaseCaptcha):
         return CaptchaScenePolicy(scene=scene, required=self._required)
 
 
+class RecordingRealtimePublisher(BaseRealtimePublisher):
+    """测试替身：记录广播事件的推送器。"""
+
+    plugin_name = "recording"
+
+    def __init__(self) -> None:
+        """初始化空事件列表。"""
+        self.events: list[RealtimeEvent] = []
+
+    async def emit(self, event: RealtimeEvent) -> None:
+        """记录事件（不真实推送）。
+
+        Args:
+            event: 推送事件。
+        """
+        self.events.append(event)
+
+    async def join(self, session_id: str, room: str) -> None:
+        """空操作（占位）。
+
+        Args:
+            session_id: 会话 id。
+            room: 房间名。
+        """
+
+    async def leave(self, session_id: str, room: str) -> None:
+        """空操作（占位）。
+
+        Args:
+            session_id: 会话 id。
+            room: 房间名。
+        """
+
+
 class FakeTenantSource:
     """测试替身：固定演示租户的租户源（仅演示租户可用）。"""
 
@@ -339,3 +375,13 @@ def wire_auth(
         app.dependency_overrides[get_captcha] = lambda: captcha
     else:
         app.dependency_overrides.pop(get_captcha, None)
+
+
+def wire_publisher(app: FastAPI, publisher: BaseRealtimePublisher) -> None:
+    """覆盖实时推送器依赖（会话撤销广播占位断言用）。
+
+    Args:
+        app: 应用实例。
+        publisher: 推送器替身。
+    """
+    app.dependency_overrides[get_realtime_publisher] = lambda: publisher

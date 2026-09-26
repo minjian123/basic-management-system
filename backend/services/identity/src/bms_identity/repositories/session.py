@@ -4,12 +4,15 @@ from __future__ import annotations
 
 from datetime import datetime
 
+from sqlalchemy import ColumnElement, func, select
+
 from bms_core.repositories.base_db_repository import BaseDbRepository
+from bms_core.schemas.pagination import BasePageQuery
 from bms_identity.models.session import SysSession
 
 
 class SessionRepository(BaseDbRepository[SysSession]):
-    """会话仓储（`sys_session`）：创建 / 按会话 id 取数 / 轮换哈希 / 撤销。"""
+    """会话仓储（`sys_session`）：创建 / 按会话 id 取数 / 轮换哈希 / 撤销 / 在线查询。"""
 
     model = SysSession
     sortable_fields = frozenset({"id", "login_at", "expires_at"})
@@ -96,3 +99,125 @@ class SessionRepository(BaseDbRepository[SysSession]):
         if item.revoked_at is None:
             await self.update(item.id, revoked_at=revoked_at)
         return True
+
+    async def list_active(
+        self,
+        query: BasePageQuery,
+        *,
+        now: datetime,
+        user_id: int | None = None,
+        device: str | None = None,
+        ip: str | None = None,
+        login_from: datetime | None = None,
+        login_to: datetime | None = None,
+    ) -> list[SysSession]:
+        """在线会话分页查询（未撤销且未过期；筛选 + 统一排序）。
+
+        Args:
+            query: 页码分页请求（含排序参数）。
+            now: 当前 UTC 时间（过期判定基准）。
+            user_id: 用户 ID（精确，可选）。
+            device: 设备标识（模糊，可选）。
+            ip: 登录 IP（模糊，可选）。
+            login_from: 登录时间下界（闭区间，可选）。
+            login_to: 登录时间上界（闭区间，可选）。
+
+        Returns:
+            list[SysSession]: 当前页会话。
+        """
+        statement = self._apply_sort(
+            self._select().where(*self._active_conditions(now, user_id, device, ip, login_from, login_to)),
+            self._resolve_sort(query),
+        )
+        statement = statement.limit(query.size).offset((query.page - 1) * query.size)
+        result = await self._session.execute(statement)
+        return list(result.scalars().all())
+
+    async def count_active(
+        self,
+        *,
+        now: datetime,
+        user_id: int | None = None,
+        device: str | None = None,
+        ip: str | None = None,
+        login_from: datetime | None = None,
+        login_to: datetime | None = None,
+    ) -> int:
+        """在线会话总数（与 `list_active` 同筛选口径）。
+
+        Args:
+            now: 当前 UTC 时间（过期判定基准）。
+            user_id: 用户 ID（精确，可选）。
+            device: 设备标识（模糊，可选）。
+            ip: 登录 IP（模糊，可选）。
+            login_from: 登录时间下界（闭区间，可选）。
+            login_to: 登录时间上界（闭区间，可选）。
+
+        Returns:
+            int: 命中的在线会话条数。
+        """
+        statement = (
+            select(func.count())
+            .select_from(SysSession)
+            .where(
+                *self._scope_where(),
+                *self._active_conditions(now, user_id, device, ip, login_from, login_to),
+            )
+        )
+        return int((await self._session.execute(statement)).scalar_one())
+
+    async def list_active_by_user(self, user_id: int, *, now: datetime) -> list[SysSession]:
+        """取指定用户的在线会话（按登录时间升序、主键兜底；多端上限作废最旧用）。
+
+        Args:
+            user_id: 用户 ID。
+            now: 当前 UTC 时间（过期判定基准）。
+
+        Returns:
+            list[SysSession]: 该用户在线会话（最旧在前）。
+        """
+        statement = (
+            self._select()
+            .where(self._column("user_id") == user_id, *self._active_conditions(now))
+            .order_by(self._column("login_at").asc(), self._column("id").asc())
+        )
+        result = await self._session.execute(statement)
+        return list(result.scalars().all())
+
+    def _active_conditions(
+        self,
+        now: datetime,
+        user_id: int | None = None,
+        device: str | None = None,
+        ip: str | None = None,
+        login_from: datetime | None = None,
+        login_to: datetime | None = None,
+    ) -> list[ColumnElement[bool]]:
+        """在线会话筛选条件（未撤销 + 未过期 + 可选筛选）。
+
+        Args:
+            now: 当前 UTC 时间。
+            user_id: 用户 ID（精确，可选）。
+            device: 设备标识（模糊，可选）。
+            ip: 登录 IP（模糊，可选）。
+            login_from: 登录时间下界（可选）。
+            login_to: 登录时间上界（可选）。
+
+        Returns:
+            list[ColumnElement[bool]]: 条件表达式列表。
+        """
+        conditions: list[ColumnElement[bool]] = [
+            self._column("revoked_at").is_(None),
+            self._column("expires_at") > now,
+        ]
+        if user_id is not None:
+            conditions.append(self._column("user_id") == user_id)
+        if device:
+            conditions.append(self._column("device").contains(device, autoescape=True))
+        if ip:
+            conditions.append(self._column("ip").contains(ip, autoescape=True))
+        if login_from is not None:
+            conditions.append(self._column("login_at") >= login_from)
+        if login_to is not None:
+            conditions.append(self._column("login_at") <= login_to)
+        return conditions

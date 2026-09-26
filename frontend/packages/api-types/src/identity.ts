@@ -317,6 +317,104 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Sessions
+         * @description 在线会话列表（仅未撤销未过期；筛选 + 分页）。
+         *
+         *     Args:
+         *         request: 请求对象（取引擎注册表与会话工厂）。
+         *         query: 分页与排序参数。
+         *         security: 会话安全原语。
+         *         store: 会话标记存储。
+         *         publisher: 实时推送器。
+         *         tenant_ctx: 请求上下文租户。
+         *         user_id: 用户 ID（精确）。
+         *         device: 设备标识（模糊）。
+         *         ip: 登录 IP（模糊）。
+         *         login_from: 登录时间下界（UTC）。
+         *         login_to: 登录时间上界（UTC）。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为分页会话列表。
+         */
+        get: operations["list_sessions_api_v1_sessions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sessions/{session_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Session
+         * @description 会话详情（含已撤销会话，供 revoked 状态查询）。
+         *
+         *     Args:
+         *         request: 请求对象。
+         *         session_id: 会话 id。
+         *         security: 会话安全原语。
+         *         store: 会话标记存储。
+         *         publisher: 实时推送器。
+         *         tenant_ctx: 请求上下文租户。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为会话行。
+         */
+        get: operations["get_session_api_v1_sessions__session_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sessions/{session_id}/kick": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Kick Session
+         * @description 强制踢出会话（即时生效：删标记 + 吊销 refresh + `revoked_at` 落库 + 广播占位）。
+         *
+         *     Args:
+         *         request: 请求对象。
+         *         session_id: 会话 id。
+         *         security: 会话安全原语。
+         *         store: 会话标记存储。
+         *         publisher: 实时推送器。
+         *         tenant_ctx: 请求上下文租户。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为踢出结果（会话 id / 撤销时间 / 原因）。
+         */
+        post: operations["kick_session_api_v1_sessions__session_id__kick_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/healthz": {
         parameters: {
             query?: never;
@@ -375,9 +473,13 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         ApiResponse: unknown;
+        ApiResponse_BasePageResponse_SessionItem__: unknown;
+        ApiResponse_KickResult_: unknown;
         ApiResponse_LoginResult_: unknown;
         ApiResponse_NoneType_: unknown;
         ApiResponse_RefreshResult_: unknown;
+        ApiResponse_SessionItem_: unknown;
+        BasePageResponse_SessionItem_: unknown;
         /**
          * CaptchaChallengeRequest
          * @description 验证码出题请求。
@@ -493,6 +595,7 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        KickResult: unknown;
         /**
          * LoginRequest
          * @description 本地登录请求。
@@ -518,6 +621,7 @@ export interface components {
         };
         LoginResult: unknown;
         RefreshResult: unknown;
+        SessionItem: unknown;
         UserSummary: unknown;
         /** ValidationError */
         ValidationError: {
@@ -973,6 +1077,251 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    list_sessions_api_v1_sessions_get: {
+        parameters: {
+            query?: {
+                /** @description 用户 ID（精确） */
+                user_id?: number | null;
+                /** @description 设备标识（模糊） */
+                device?: string | null;
+                /** @description 登录 IP（模糊） */
+                ip?: string | null;
+                /** @description 登录时间下界（UTC，闭区间） */
+                login_from?: string | null;
+                /** @description 登录时间上界（UTC，闭区间） */
+                login_to?: string | null;
+                /** @description 页码（从 1 起） */
+                page?: number;
+                /** @description 每页条数（默认 20，上限 200） */
+                size?: number;
+                /** @description 排序字段，逗号分隔多值（如 status,created_at） */
+                order_by?: string | null;
+                /** @description 排序方向数组，与 order_by 位置一一对应 */
+                order?: string[] | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_BasePageResponse_SessionItem__"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    get_session_api_v1_sessions__session_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_SessionItem_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    kick_session_api_v1_sessions__session_id__kick_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_KickResult_"];
                 };
             };
             /** @description 未认证 */

@@ -2,9 +2,13 @@
   "components": {
     "schemas": {
       "ApiResponse": {},
+      "ApiResponse_BasePageResponse_SessionItem__": {},
+      "ApiResponse_KickResult_": {},
       "ApiResponse_LoginResult_": {},
       "ApiResponse_NoneType_": {},
       "ApiResponse_RefreshResult_": {},
+      "ApiResponse_SessionItem_": {},
+      "BasePageResponse_SessionItem_": {},
       "CaptchaChallengeRequest": {
         "description": "验证码出题请求。",
         "properties": {
@@ -168,6 +172,7 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
+      "KickResult": {},
       "LoginRequest": {
         "description": "本地登录请求。",
         "properties": {
@@ -219,6 +224,7 @@
       },
       "LoginResult": {},
       "RefreshResult": {},
+      "SessionItem": {},
       "UserSummary": {},
       "ValidationError": {
         "properties": {
@@ -891,6 +897,434 @@
         "summary": "Verify Captcha",
         "tags": [
           "captcha"
+        ]
+      }
+    },
+    "/api/v1/sessions": {
+      "get": {
+        "description": "在线会话列表（仅未撤销未过期；筛选 + 分页）。\n\nArgs:\n    request: 请求对象（取引擎注册表与会话工厂）。\n    query: 分页与排序参数。\n    security: 会话安全原语。\n    store: 会话标记存储。\n    publisher: 实时推送器。\n    tenant_ctx: 请求上下文租户。\n    user_id: 用户 ID（精确）。\n    device: 设备标识（模糊）。\n    ip: 登录 IP（模糊）。\n    login_from: 登录时间下界（UTC）。\n    login_to: 登录时间上界（UTC）。\n\nReturns:\n    ApiResponse: 统一响应，data 为分页会话列表。",
+        "operationId": "list_sessions_api_v1_sessions_get",
+        "parameters": [
+          {
+            "description": "用户 ID（精确）",
+            "in": "query",
+            "name": "user_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "用户 ID（精确）",
+              "title": "User Id"
+            }
+          },
+          {
+            "description": "设备标识（模糊）",
+            "in": "query",
+            "name": "device",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "设备标识（模糊）",
+              "title": "Device"
+            }
+          },
+          {
+            "description": "登录 IP（模糊）",
+            "in": "query",
+            "name": "ip",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "登录 IP（模糊）",
+              "title": "Ip"
+            }
+          },
+          {
+            "description": "登录时间下界（UTC，闭区间）",
+            "in": "query",
+            "name": "login_from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "登录时间下界（UTC，闭区间）",
+              "title": "Login From"
+            }
+          },
+          {
+            "description": "登录时间上界（UTC，闭区间）",
+            "in": "query",
+            "name": "login_to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "登录时间上界（UTC，闭区间）",
+              "title": "Login To"
+            }
+          },
+          {
+            "description": "页码（从 1 起）",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "页码（从 1 起）",
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "每页条数（默认 20，上限 200）",
+            "in": "query",
+            "name": "size",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "description": "每页条数（默认 20，上限 200）",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Size",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "排序字段，逗号分隔多值（如 status,created_at）",
+            "in": "query",
+            "name": "order_by",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序字段，逗号分隔多值（如 status,created_at）",
+              "title": "Order By"
+            }
+          },
+          {
+            "description": "排序方向数组，与 order_by 位置一一对应",
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序方向数组，与 order_by 位置一一对应",
+              "title": "Order"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_BasePageResponse_SessionItem__"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "List Sessions",
+        "tags": [
+          "session"
+        ]
+      }
+    },
+    "/api/v1/sessions/{session_id}": {
+      "get": {
+        "description": "会话详情（含已撤销会话，供 revoked 状态查询）。\n\nArgs:\n    request: 请求对象。\n    session_id: 会话 id。\n    security: 会话安全原语。\n    store: 会话标记存储。\n    publisher: 实时推送器。\n    tenant_ctx: 请求上下文租户。\n\nReturns:\n    ApiResponse: 统一响应，data 为会话行。",
+        "operationId": "get_session_api_v1_sessions__session_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_SessionItem_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Get Session",
+        "tags": [
+          "session"
+        ]
+      }
+    },
+    "/api/v1/sessions/{session_id}/kick": {
+      "post": {
+        "description": "强制踢出会话（即时生效：删标记 + 吊销 refresh + `revoked_at` 落库 + 广播占位）。\n\nArgs:\n    request: 请求对象。\n    session_id: 会话 id。\n    security: 会话安全原语。\n    store: 会话标记存储。\n    publisher: 实时推送器。\n    tenant_ctx: 请求上下文租户。\n\nReturns:\n    ApiResponse: 统一响应，data 为踢出结果（会话 id / 撤销时间 / 原因）。",
+        "operationId": "kick_session_api_v1_sessions__session_id__kick_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_KickResult_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Kick Session",
+        "tags": [
+          "session"
         ]
       }
     },
