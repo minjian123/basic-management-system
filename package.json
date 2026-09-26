@@ -19,8 +19,14 @@
     "ui-vant:test": "pnpm --filter @bms/ui-vant run test",
     "ui-vant:lint": "pnpm --filter @bms/ui-vant run lint",
     "ui-vant:check": "pnpm run ui-vant:typecheck && pnpm run ui-vant:lint && pnpm run ui-vant:test",
-    "lint": "pnpm run core:lint && pnpm run vue:lint && pnpm run ui-ep:lint",
-    "check": "pnpm run core:check && pnpm run vue:check && pnpm run ui-ep:check"
+    "api-types:typecheck": "pnpm --filter @bms/api-types run typecheck",
+    "api-types:test": "pnpm --filter @bms/api-types run test",
+    "api-types:lint": "pnpm --filter @bms/api-types run lint",
+    "api-types:check": "pnpm run api-types:typecheck && pnpm run api-types:lint && pnpm run api-types:test",
+    "api-types:gen": "pnpm --filter @bms/api-types run gen",
+    "api-types:gen:check": "pnpm --filter @bms/api-types run gen:check",
+    "lint": "pnpm run core:lint && pnpm run api-types:lint && pnpm run vue:lint && pnpm run ui-ep:lint",
+    "check": "pnpm run core:check && pnpm run api-types:check && pnpm run vue:check && pnpm run ui-ep:check"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

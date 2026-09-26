@@ -497,6 +497,30 @@ core-check:
     - pnpm install --frozen-lockfile
     - pnpm run check
 
+# ---- 前端契约类型：@bms/api-types 零漂移（04-1-1；契约快照 / 生成包变更单独拉起）----
+api-types-check:
+  stage: test
+  image: $REGISTRY_IMAGE_PREFIX/ci-frontend:node22
+  needs: [{job: ci-base-build, optional: true}]
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      exists:
+        - frontend/packages/api-types/package.json
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes:
+        paths:
+          - deploy/contracts/**/*
+          - frontend/packages/api-types/**/*
+          - package.json
+          - pnpm-lock.yaml
+          - pnpm-workspace.yaml
+      exists:
+        - frontend/packages/api-types/package.json
+  script:
+    # 重新生成 9 份服务契约类型并与仓库产物比对（零漂移则由 gen:check 退出码保证）
+    - pnpm install --frozen-lockfile
+    - pnpm run api-types:gen:check
+
 # ---- 模块工程：ESLint + 类型 + Vitest（frontend/modules/*：独立构建 / 独立发布的运行时模块，阶段五 02_01 接入）----
 module-check:
   stage: test

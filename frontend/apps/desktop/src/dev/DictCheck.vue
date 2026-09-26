@@ -18,6 +18,8 @@ import {
 } from '@bms/ui-ep'
 import { computed, ref } from 'vue'
 
+import { dictSourceOptions } from '@/api/endpoints'
+
 /** 桩数据源（`?source=http` 时改用后端真实数据源）。 */
 const useHttp = new URLSearchParams(globalThis.location.search).get('source') === 'http'
 
@@ -109,7 +111,7 @@ const stubSource: DictSourceAdapter = {
 }
 
 /** 生效数据源（`?source=http` 用后端真实出口）。 */
-const source: DictSourceAdapter = useHttp ? createHttpDictSource() : stubSource
+const source: DictSourceAdapter = useHttp ? createHttpDictSource(dictSourceOptions()) : stubSource
 
 /** 主实例（用户状态多选 limit=2）。 */
 const api = useBaseDictSelect({

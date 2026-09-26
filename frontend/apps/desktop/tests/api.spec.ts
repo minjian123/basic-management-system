@@ -4,7 +4,7 @@ import { configureRequestAdapter, type RequestConfig } from '@bms/core'
 import { afterEach, describe, expect, it } from 'vitest'
 
 import { ApiError, SessionExpiredError } from '@/api/error'
-import { del, get, newKey, post, put } from '@/api/request'
+import { apiUrl, del, get, newKey, post, put } from '@/api/request'
 import { unwrap, unwrapPage } from '@/api/response'
 import { getAccessToken, setAccessToken } from '@/api/token'
 
@@ -44,7 +44,7 @@ describe('令牌内存存储', () => {
 })
 
 describe('请求入口', () => {
-  it('拼前缀、方法、写方法带幂等键', async () => {
+  it('按服务段组装地址、方法、写方法带幂等键', async () => {
     const calls: RequestConfig[] = []
     configureRequestAdapter({
       request: async <T,>(config: RequestConfig): Promise<T> => {
@@ -52,16 +52,20 @@ describe('请求入口', () => {
         return undefined as T
       },
     })
-    await get('/a', { q: 1 })
-    await post('/b', { x: 1 })
-    await put('/c')
-    await del('/d', { id: 1 })
+    await get('platform', '/a', { q: 1 })
+    await post('org', '/b', { x: 1 })
+    await put('file', '/c')
+    await del('search', '/d', { id: 1 })
 
-    expect(calls[0]).toMatchObject({ method: 'GET', url: '/api/v1/a', params: { q: 1 } })
-    expect(calls[1]?.method).toBe('POST')
+    expect(calls[0]).toMatchObject({ method: 'GET', url: '/api/platform/v1/a', params: { q: 1 } })
+    expect(calls[1]).toMatchObject({ method: 'POST', url: '/api/org/v1/b' })
     expect(calls[1]?.idempotencyKey).toBeTruthy()
-    expect(calls[2]?.method).toBe('PUT')
-    expect(calls[3]).toMatchObject({ method: 'DELETE', url: '/api/v1/d' })
+    expect(calls[2]).toMatchObject({ method: 'PUT', url: '/api/file/v1/c' })
+    expect(calls[3]).toMatchObject({ method: 'DELETE', url: '/api/search/v1/d' })
+  })
+
+  it('apiUrl 组装服务段地址', () => {
+    expect(apiUrl('identity', '/captcha/challenges')).toBe('/api/identity/v1/captcha/challenges')
   })
 
   it('幂等键含前缀且唯一', () => {

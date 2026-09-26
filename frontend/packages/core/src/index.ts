@@ -669,6 +669,20 @@ export {
 
 export { BaseApi, type HttpMethod } from './contracts/api'
 export {
+  API_VERSION_SEGMENT,
+  SERVICE_KEYS,
+  isServiceKey,
+  servicePrefix,
+  serviceUrl,
+  type ServiceKey,
+} from './contracts/service-endpoint'
+export {
+  DEFAULT_LOGIN_PATH,
+  DEFAULT_PUBLIC_PATHS,
+  resolveAuthRedirect,
+  type AuthGuardInput,
+} from './domain/route-guard'
+export {
   configureRequestAdapter,
   getRequestAdapter,
   request,

@@ -18,6 +18,8 @@ import {
 } from '@bms/ui-ep'
 import { effectScope, ref } from 'vue'
 
+import { captchaSourceOptions } from '@/api/endpoints'
+
 /** 是否启用 HTTP 内建数据源直连后端（`?source=http`）。 */
 const useHttp = new URLSearchParams(globalThis.location.search).get('source') === 'http'
 
@@ -91,7 +93,7 @@ class CheckCaptchaSource extends BaseCaptchaSource {
 registerCaptchaSource('check-captcha', () => new CheckCaptchaSource())
 
 /** HTTP 数据源（`?source=http` 时生效）。 */
-const httpSource: CaptchaSourceAdapter | undefined = useHttp ? createHttpCaptchaSource() : undefined
+const httpSource: CaptchaSourceAdapter | undefined = useHttp ? createHttpCaptchaSource(captchaSourceOptions()) : undefined
 
 /** 页面受控值。 */
 const imageValue = ref('')

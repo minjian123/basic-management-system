@@ -24,6 +24,7 @@
 
 import os
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -183,6 +184,24 @@ def _gitlab_ci_lint(root: Path, failures: list[str]) -> None:
         print(f"  跳过（不可达：{exc}）")
 
 
+def _frontend_api_types(root: Path, failures: list[str]) -> None:
+    """前端契约类型零漂移（04-1-1）：node 直接跑生成器 `--check`，与仓库产物比对。
+
+    不走 pnpm（避免触发依赖重装）；node 或依赖未就位时跳过并提示。
+
+    Args:
+        root: bms 仓库根。
+        failures: 失败收集列表。
+    """
+    pkg_dir = root / "frontend" / "packages" / "api-types"
+    script = pkg_dir / "scripts" / "generate.mjs"
+    node = shutil.which("node")
+    if not script.is_file() or node is None or not (pkg_dir / "node_modules").exists():
+        print("\n[preflight] 前端契约类型：跳过（@bms/api-types / node 依赖未就位）")
+        return
+    _run("前端：api-types 契约类型零漂移", [node, "scripts/generate.mjs", "--check"], pkg_dir, failures)
+
+
 def main() -> int:
     """入口：执行本地预检。
 
@@ -271,6 +290,7 @@ def main() -> int:
         backend,
         failures,
     )
+    _frontend_api_types(root, failures)
 
     print("\n================ preflight 结论 ================")
     if failures:
