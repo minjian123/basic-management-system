@@ -318,6 +318,10 @@ ip_rate_limit = 60
 account_rate_limit = 20
 captcha_lock_threshold = 3
 
+[session]
+# 同一账号活跃会话上限（默认 5；登录成功后超限自动作废最旧会话；租户 sys_config 覆盖归后续阶段）
+max_active = 5
+
 [data_ownership]
 # 数据所有权守卫实现选择（插件化配置；table = SQLAlchemy 执行前表前缀归属检测、空串 = null 占位不检测）
 provider = "table"

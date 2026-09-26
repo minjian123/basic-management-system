@@ -135,6 +135,49 @@ class AccountDisabledError(AuthError):
         BizError.__init__(self, ErrorCode.ACCOUNT_DISABLED, message, http_status=401, data=data)
 
 
+class SessionError(AuthError):
+    """会话段（认证段内会话治理子段）异常基类；子类在构造时预置码位与 HTTP 状态。"""
+
+
+class SessionNotFoundError(SessionError):
+    """会话不存在（`20011` / 404）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化会话不存在异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.SESSION_NOT_FOUND, message, http_status=404, data=data)
+
+
+class SessionExpiredError(SessionError):
+    """会话已失效（已过期 / 已登出；`20012`，业务失败 HTTP 200）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化会话失效异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.SESSION_EXPIRED, message, data=data)
+
+
+class SessionRevokedError(SessionError):
+    """会话已撤销（重复踢出已撤销会话；`20013`，业务失败 HTTP 200）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化会话已撤销异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.SESSION_REVOKED, message, data=data)
+
+
 class CaptchaError(AuthError):
     """验证码段（认证段内 `201xx` 子段）异常基类；子类在构造时预置码位与 HTTP 状态。"""
 

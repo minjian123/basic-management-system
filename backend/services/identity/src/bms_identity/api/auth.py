@@ -13,6 +13,7 @@ from bms_core.api.base import BaseRouter
 from bms_core.api.deps import (
     get_captcha,
     get_rate_limiter,
+    get_realtime_publisher,
     get_service_client,
     get_service_token_issuer,
     get_session_security,
@@ -38,6 +39,7 @@ from bms_core.schemas.common import ApiResponse
 from bms_core.security.base import BaseSessionSecurity
 from bms_core.servicecall.base import BaseServiceClient
 from bms_core.session.base import BaseSessionStore
+from bms_core.ws.base import BaseRealtimePublisher
 from bms_identity.schemas.auth import (
     REFRESH_COOKIE_NAME,
     REFRESH_COOKIE_PATH,
@@ -143,6 +145,7 @@ StoreDep = Annotated[BaseSessionStore, Depends(get_session_store)]
 CaptchaDep = Annotated[BaseCaptcha, Depends(get_captcha)]
 LimiterDep = Annotated[BaseRateLimiter, Depends(get_rate_limiter)]
 ClientDep = Annotated[BaseServiceClient, Depends(get_service_client)]
+PublisherDep = Annotated[BaseRealtimePublisher, Depends(get_realtime_publisher)]
 TenantDep = Annotated[TenantContext | None, Depends(get_tenant)]
 TenantSourceDep = Annotated[TenantLookup, Depends(get_tenant_source)]
 
@@ -182,6 +185,7 @@ def _build_service(
     captcha: BaseCaptcha,
     limiter: BaseRateLimiter,
     client: BaseServiceClient,
+    publisher: BaseRealtimePublisher,
 ) -> LoginService:
     """构造登录服务（请求级会话 + 各能力域 + 配置）。
 
@@ -194,6 +198,7 @@ def _build_service(
         captcha: 验证码基座。
         limiter: 限流基座。
         client: 服务间调用客户端。
+        publisher: 实时推送器（`session.revoked` 广播占位）。
 
     Returns:
         LoginService: 登录服务实例。
@@ -208,6 +213,8 @@ def _build_service(
         rate_limiter=limiter,
         org_client=OrgCredentialClient(client),
         login_settings=request.app.state.settings.login,
+        session_settings=request.app.state.settings.session,
+        realtime_publisher=publisher,
     )
 
 
@@ -242,6 +249,7 @@ async def login(
     captcha: CaptchaDep,
     limiter: LimiterDep,
     client: ClientDep,
+    publisher: PublisherDep,
     tenant_ctx: TenantDep,
     tenant_source: TenantSourceDep,
 ) -> ApiResponse[LoginResult]:
@@ -276,6 +284,7 @@ async def login(
             captcha=captcha,
             limiter=limiter,
             client=client,
+            publisher=publisher,
         )
         outcome = await service.login(
             req,
@@ -297,6 +306,7 @@ async def refresh(
     captcha: CaptchaDep,
     limiter: LimiterDep,
     client: ClientDep,
+    publisher: PublisherDep,
     tenant_ctx: TenantDep,
 ) -> ApiResponse[RefreshResult]:
     """静默刷新：校验 refresh 并轮换签发新双 token（同会话 id）。
@@ -335,6 +345,7 @@ async def refresh(
             captcha=captcha,
             limiter=limiter,
             client=client,
+            publisher=publisher,
         )
         outcome = await service.refresh(
             token,
@@ -356,6 +367,7 @@ async def logout(
     captcha: CaptchaDep,
     limiter: LimiterDep,
     client: ClientDep,
+    publisher: PublisherDep,
     tenant_ctx: TenantDep,
 ) -> ApiResponse[None]:
     """登出（幂等）：refresh 入黑名单 + 会话撤销 + 删标记；清 cookie。
@@ -388,6 +400,7 @@ async def logout(
                 captcha=captcha,
                 limiter=limiter,
                 client=client,
+                publisher=publisher,
             )
             await service.logout(token, tenant=tenant_ctx.tenant_code)
     response.delete_cookie(REFRESH_COOKIE_NAME, path=REFRESH_COOKIE_PATH)

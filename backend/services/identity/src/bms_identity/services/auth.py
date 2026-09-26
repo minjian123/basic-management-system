@@ -15,7 +15,7 @@ from datetime import UTC, datetime, timedelta
 
 from bms_core.captcha.base import BaseCaptcha, CaptchaCredential, CaptchaKind
 from bms_core.core.base import BaseObject
-from bms_core.core.config import LoginSettings
+from bms_core.core.config import LoginSettings, SessionSettings
 from bms_core.core.exceptions import (
     AccountDisabledError,
     AccountLockedError,
@@ -36,6 +36,7 @@ from bms_core.oauth.user_token import (
 from bms_core.ratelimit.base import BaseRateLimiter, RateLimitRule, build_rate_limit_key
 from bms_core.security.base import BaseSessionSecurity
 from bms_core.session.base import BaseSessionStore
+from bms_core.ws.base import BaseRealtimePublisher
 from bms_identity.repositories.session import SessionRepository
 from bms_identity.schemas.auth import (
     CaptchaInput,
@@ -45,6 +46,7 @@ from bms_identity.schemas.auth import (
     UserSummary,
 )
 from bms_identity.services.org_client import OrgCredentialClient
+from bms_identity.services.session import REASON_LOGOUT, SessionService
 
 _ACCOUNT_DIMENSION = "account"
 _IP_DIMENSION = "ip"
@@ -108,6 +110,8 @@ class LoginService(BaseObject):
         rate_limiter: BaseRateLimiter,
         org_client: OrgCredentialClient,
         login_settings: LoginSettings,
+        session_settings: SessionSettings,
+        realtime_publisher: BaseRealtimePublisher,
     ) -> None:
         """初始化。
 
@@ -121,6 +125,8 @@ class LoginService(BaseObject):
             rate_limiter: 限流基座（失败计数）。
             org_client: org 凭据接口客户端。
             login_settings: 登录防爆破配置。
+            session_settings: 会话治理配置（多端上限）。
+            realtime_publisher: 实时推送器（`session.revoked` 广播占位）。
         """
         self._session = session
         self._uow = uow
@@ -132,6 +138,14 @@ class LoginService(BaseObject):
         self._limiter = rate_limiter
         self._org = org_client
         self._login = login_settings
+        self._session_settings = session_settings
+        self._session_service = SessionService(
+            session=session,
+            uow=uow,
+            security=session_security,
+            store=session_store,
+            publisher=realtime_publisher,
+        )
 
     async def login(
         self,
@@ -177,6 +191,9 @@ class LoginService(BaseObject):
         session_id = self._security.new_session_id()
         pair = await self._issuer.issue_pair(
             UserTokenSpec(subject=str(user.id), session_id=session_id, tenant_id=tenant)
+        )
+        await self._session_service.enforce_max_active(
+            user.id, tenant=tenant, max_active=self._session_settings.max_active
         )
         await self._persist_session(
             session_id=session_id,
@@ -287,14 +304,8 @@ class LoginService(BaseObject):
             return
         if token_tenant and tenant and token_tenant != tenant:
             return
-        now = _utc_now()
         try:
-            async with self._uow.begin():
-                record = await self._sessions.get_by_session_id(session_id)
-                ttl = self._remaining_ttl(record.expires_at if record else None, now)
-                await self._sessions.revoke(session_id, revoked_at=now)
-            await self._store.blacklist(self._security.blacklist_key(session_id), ttl=ttl)
-            await self._store.delete(session_id, tenant=tenant)
+            await self._session_service.revoke(session_id, tenant=tenant, reason=REASON_LOGOUT, broadcast=False)
         except Exception as exc:  # pragma: no cover - 登出尽力而为（幂等）
             _LOGGER.warning("登出清理未全部完成", session_id=session_id, error=str(exc))
 
@@ -416,21 +427,6 @@ class LoginService(BaseObject):
             str: 限流键。
         """
         return build_rate_limit_key(dimension=_FAIL_DIMENSION, target=account, tenant=tenant)
-
-    @staticmethod
-    def _remaining_ttl(expires_at: datetime | None, now: datetime) -> int:
-        """黑名单 TTL（覆盖 refresh 剩余生命周期；缺记录取短兜底）。
-
-        Args:
-            expires_at: 会话 refresh 过期时间（可选）。
-            now: 当前 UTC 时间。
-
-        Returns:
-            int: TTL（秒，最小 1）。
-        """
-        if expires_at is None:
-            return 300
-        return max(1, int((expires_at - now).total_seconds()))
 
 
 def _truncate(value: str | None, limit: int) -> str | None:

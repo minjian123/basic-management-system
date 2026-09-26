@@ -443,6 +443,17 @@ class LoginSettings(BaseSettings):
     """refresh cookie 是否带 `Secure`（生产 true；dev 经 `config.dev.toml` 关以支持 http 本地联调）。"""
 
 
+class SessionSettings(BaseSettings):
+    """会话治理配置（`[session]`；多端并发上限）。
+
+    口径与《架构设计 · 认证与会话》「会话管理」节一致（活跃会话上限默认 5，超限自动作废最旧会话）；
+    租户级 `sys_config` 覆盖归后续阶段，本期取平台默认。
+    """
+
+    max_active: int = Field(default=5, ge=1)
+    """同一账号活跃会话上限（登录成功后超限自动作废最旧会话）。"""
+
+
 class UserTokenSettings(PluginSelection):
     """用户令牌自签配置（`[user_token]`；密钥与 TTL 归 `[security]`，本分区只放选择与签发方）。"""
 
@@ -659,6 +670,7 @@ class Settings(PydanticBaseSettings, BaseSettings):  # pyright: ignore[reportInc
     search_index: PluginSelection = Field(default_factory=PluginSelection)
     service_client: PluginSelection = Field(default_factory=PluginSelection)
     service_token: ServiceTokenSettings = Field(default_factory=ServiceTokenSettings)
+    session: SessionSettings = Field(default_factory=SessionSettings)
     session_security: PluginSelection = Field(default_factory=PluginSelection)
     session_store: PluginSelection = Field(default_factory=PluginSelection)
     sharding: PluginSelection = Field(default_factory=PluginSelection)
