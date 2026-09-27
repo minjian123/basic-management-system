@@ -44,7 +44,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--url", default="", help="identity 租户库连接串（缺省读 BMS_MIGRATION_URL / 配置）")
     parser.add_argument("--client-id", default=DEFAULT_CLIENT_ID, help="客户端标识（缺省 bms-demo-client）")
     parser.add_argument("--name", default="BMS Demo Client", help="应用名称")
-    parser.add_argument("--redirect-uri", default=DEFAULT_REDIRECT_URI, help="回调地址（可多次传入）", action="append")
+    parser.add_argument(
+        "--redirect-uri", default=None, help="回调地址（可多次传入；缺省单条默认回调）", action="append"
+    )
     parser.add_argument("--scope", default="openid", help="scope（空格分隔；缺省 openid）")
     parser.add_argument("--dry-run", action="store_true", help="仅输出目标库与种子清单")
     return parser
@@ -138,7 +140,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     """
     args = build_parser().parse_args(argv)
     url = _tenant_url(args.url)
-    redirect_uris = list(args.redirect_uri)
+    redirect_uris = list(args.redirect_uri) if args.redirect_uri else [DEFAULT_REDIRECT_URI]
     scopes = [item for item in args.scope.split() if item]
     secret = os.environ.get("OIDC_DEMO_CLIENT_SECRET", DEFAULT_SECRET)
     if args.dry_run:
