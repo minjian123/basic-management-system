@@ -23,7 +23,7 @@
 | --- | --- | --- | --- | --- |
 | `id` | BIGINT | 否 | 主键，雪花 ID | 主键 |
 | `config_key` | VARCHAR(128) | 否 | 与 `deleted_at` 复合唯一 | 参数键（点分小写，如 `captcha.scene.login.required`；`key` 为 MySQL 保留字故用 `config_key`） |
-| `value` | TEXT | 否 | 默认空串 | 参数值（标量 / 布尔 / JSON 字符串统一按文本承载，由消费方按类型解析；仅应用侧读写、无库内 JSON 检索需求，取 `TEXT` 最大跨方言安全） |
+| `value` | TEXT | 否 | —（应用侧缺省空串；DB 不设默认值） | 参数值（标量 / 布尔 / JSON 字符串统一按文本承载，由消费方按类型解析；仅应用侧读写、无库内 JSON 检索需求，取 `TEXT` 最大跨方言安全；**TEXT 在 MySQL 不允许默认值**，空值由应用侧承载） |
 | `remark` | VARCHAR(255) | 是 | — | 备注（参数用途说明） |
 | `created_at` | DATETIME | 否 | 审计 | 创建时间（UTC） |
 | `created_by` | BIGINT | 是 | 审计 | 创建人 |
