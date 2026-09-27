@@ -77,3 +77,4 @@ class CaptchaPolicyResponse(BaseSchema):
     fail_threshold: int = Field(description="连续失败阈值")
     ttl: int = Field(description="挑战有效期（秒）")
     cooldown: int = Field(description="重发冷却（秒）")
+    channels: list[CaptchaKind] = Field(description="该场景可用渠道（按降级顺序；末位恒为图形码 `image` 兜底）")

@@ -34,6 +34,10 @@ from bms_core.captcha.default import (
 from bms_core.chat.base import BaseChatActionGate, BaseChatSessionStore, BaseChatStream
 from bms_core.circuit.base import BaseCircuitBreaker
 from bms_core.codecheck.base import BaseCodeValidator
+from bms_core.config.base import BaseConfigSource, ConfigCacheRegion
+from bms_core.config.cache import MemoryConfigCacheRegion, RedisConfigCacheRegion
+from bms_core.config.http import HttpConfigSource
+from bms_core.config.sql import SqlConfigSource
 from bms_core.core.base import BaseObject
 from bms_core.core.capability import BaseAsyncResource
 from bms_core.core.config import PluginSelection, Settings
@@ -168,6 +172,7 @@ _NULL_MODULES: tuple[str, ...] = (
     "bms_core.chat.null",
     "bms_core.circuit.null",
     "bms_core.codecheck.null",
+    "bms_core.config.null",
     "bms_core.dashboard.null",
     "bms_core.db.null",
     "bms_core.dict.null",
@@ -313,6 +318,8 @@ PLUGIN_WIRINGS: tuple[PluginWiring, ...] = (
     PluginWiring("print_exporter", BasePrintExporter, "print_exporter", "print_exporter"),
     PluginWiring("icon_registry", BaseIconRegistry, "icon_registry", "icon_registry"),
     PluginWiring("code_validator", BaseCodeValidator, "code_validator", "code_validator"),
+    PluginWiring("config_cache_region", ConfigCacheRegion, "config_cache_region", "config_cache_region"),
+    PluginWiring("config_source", BaseConfigSource, "config_source", "config_source"),
     PluginWiring("event", EventPublisher, "event", "event_publisher"),
     PluginWiring("event_consumer", BaseEventConsumer, "event_consumer", None),  # 消费轨：仅预热，无 app.state 落点
 )
@@ -353,6 +360,10 @@ def register_platform_plugins(settings: Settings, app: FastAPI, resources: Resou
     # 跨服务读出口（06_02）：非 platform 服务经公开契约读平台服务字典接口（权威侧仍为 platform）
     register_plugin("dict_source", "http", HttpDictSourceFactory(app))
     register_plugin("dict_translator", "http", HttpDictTranslatorFactory(app))
+    register_plugin("config_cache_region", "memory", MemoryConfigCacheRegionFactory())
+    register_plugin("config_cache_region", "redis", RedisConfigCacheRegionFactory(settings))
+    register_plugin("config_source", "sql", SqlConfigSourceFactory(app))
+    register_plugin("config_source", "http", HttpConfigSourceFactory(app))
     register_plugin("query_scheme_store", "sql", SqlQuerySchemeStoreFactory(app))
     register_plugin("field_type_registry", "local", LocalFieldTypeRegistryFactory())
     register_plugin("query_provider_registry", "local", LocalQueryProviderRegistryFactory(app))
@@ -594,6 +605,12 @@ class DefaultCaptchaFactory(BasePluginFactory[DefaultCaptcha]):
                 "rate_limiter", settings.rate_limiter.provider, expected_version=BaseRateLimiter.contract_version
             ),
         )
+        config = cast(
+            "BaseConfigSource",
+            resolve_plugin(
+                "config_source", settings.config_source.provider, expected_version=BaseConfigSource.contract_version
+            ),
+        )
         return DefaultCaptcha(
             url=settings.redis.url,
             image=CaptchaImageOptions.from_options(settings.captcha.options),
@@ -601,7 +618,106 @@ class DefaultCaptchaFactory(BasePluginFactory[DefaultCaptcha]):
             sms=CaptchaSmsOptions.from_options(settings.captcha.options),
             notifier=notifier,
             rate_limiter=rate_limiter,
+            config=config,
         )
+
+
+class MemoryConfigCacheRegionFactory(BasePluginFactory[MemoryConfigCacheRegion]):
+    """系统参数内存缓存域工厂（零参）。"""
+
+    plugin_key: str = "config_cache_region"
+    # 不声明 plugin_name：零参工厂避免被插件注册表自动收集（经 register_plugin 显式登记）
+
+    def create(self, options: None = None) -> MemoryConfigCacheRegion:
+        """构造内存缓存域。
+
+        Args:
+            options: 未使用（零参口径）。
+
+        Returns:
+            MemoryConfigCacheRegion: 内存缓存域实例。
+        """
+        return MemoryConfigCacheRegion()
+
+
+class RedisConfigCacheRegionFactory(BasePluginFactory[RedisConfigCacheRegion]):
+    """系统参数 Redis 缓存域工厂（注入 Redis 连接串）。"""
+
+    plugin_key: str = "config_cache_region"
+    plugin_name: str = "redis"
+
+    def __init__(self, settings: Settings) -> None:
+        """初始化。
+
+        Args:
+            settings: 应用配置（取 `[redis].url`）。
+        """
+        self._settings = settings
+
+    def create(self, options: None = None) -> RedisConfigCacheRegion:
+        """构造 Redis 缓存域。
+
+        Args:
+            options: 未使用（零参口径）。
+
+        Returns:
+            RedisConfigCacheRegion: Redis 缓存域实例。
+        """
+        return RedisConfigCacheRegion(url=self._settings.redis.url)
+
+
+class SqlConfigSourceFactory(BasePluginFactory[SqlConfigSource]):
+    """系统参数 SQL 取数工厂（注入引擎注册表与已装配缓存域）。"""
+
+    plugin_key: str = "config_source"
+    plugin_name: str = "sql"
+
+    def __init__(self, app: FastAPI) -> None:
+        """初始化。
+
+        Args:
+            app: 应用实例（取 `engine_registry` 与已装配 `config_cache_region`）。
+        """
+        self._app = app
+
+    def create(self, options: None = None) -> SqlConfigSource:
+        """构造 SQL 取数实例。
+
+        Args:
+            options: 未使用（零参口径）。
+
+        Returns:
+            SqlConfigSource: 取数实例。
+        """
+        engines = cast("EngineRegistry", self._app.state.engine_registry)
+        cache = cast("ConfigCacheRegion | None", getattr(self._app.state, "config_cache_region", None))
+        return SqlConfigSource(engines=engines, cache=cache)
+
+
+class HttpConfigSourceFactory(BasePluginFactory[HttpConfigSource]):
+    """系统参数跨服务取数工厂（注入服务间调用客户端）。"""
+
+    plugin_key: str = "config_source"
+    plugin_name: str = "http"
+
+    def __init__(self, app: FastAPI) -> None:
+        """初始化。
+
+        Args:
+            app: 应用实例（取服务间调用客户端）。
+        """
+        self._app = app
+
+    def create(self, options: None = None) -> HttpConfigSource:
+        """构造跨服务取数实例。
+
+        Args:
+            options: 未使用（零参口径）。
+
+        Returns:
+            HttpConfigSource: 取数实例。
+        """
+        return HttpConfigSource(client=_resolve_service_client(self._app))
 
 
 class HttpServiceClientFactory(BasePluginFactory[HttpServiceClient]):

@@ -244,6 +244,12 @@ TABLE_OWNERSHIP: tuple[TableRecord, ...] = (
     TableRecord(table_name="sys_dict_attr_i18n", owner="platform", datasource=Datasource.TENANT, note="字典属性多语言"),
     TableRecord(table_name="sys_query_scheme", owner="platform", datasource=Datasource.TENANT, note="查询方案"),
     TableRecord(
+        table_name="sys_config",
+        owner="platform",
+        datasource=Datasource.TENANT,
+        note="系统参数（平台默认、租户覆盖）",
+    ),
+    TableRecord(
         table_name="sys_task",
         owner="platform",
         datasource=Datasource.TENANT,

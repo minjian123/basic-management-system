@@ -147,7 +147,7 @@ def test_scene_policy_table_and_fallback() -> None:
         assert policy.ttl == CAPTCHA_TTL
         assert policy.cooldown == SMS_COOLDOWN
 
-    assert default_scene_policy("login") is CAPTCHA_SCENE_POLICIES[0]
+    assert default_scene_policy("login") == CAPTCHA_SCENE_POLICIES[0]
 
     fallback = default_scene_policy("ghost")
     assert fallback.scene == "ghost"
@@ -294,6 +294,7 @@ async def test_placeholder_routes(client: AsyncClient) -> None:
         "fail_threshold": CAPTCHA_FAIL_THRESHOLD,
         "ttl": CAPTCHA_TTL,
         "cooldown": SMS_COOLDOWN,
+        "channels": ["sms", "slider", "image"],
     }
 
     optional = await client.get(f"{API_PREFIX}/captcha/scenes/login/policy")

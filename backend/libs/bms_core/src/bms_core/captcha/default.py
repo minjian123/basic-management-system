@@ -35,6 +35,8 @@ from PIL import Image, ImageDraw, ImageFont
 from redis.asyncio import Redis as AsyncRedis
 
 from bms_core.captcha.base import (
+    CAPTCHA_DEFAULT_CHANNELS,
+    CAPTCHA_SCENE_CHANNELS,
     CAPTCHA_TTL,
     NULL_CAPTCHA_PAYLOAD,
     SLIDER_TOLERANCE,
@@ -48,6 +50,8 @@ from bms_core.captcha.base import (
     default_scene_policy,
     mask_phone,
 )
+from bms_core.config.base import BaseConfigSource
+from bms_core.config.null import NullConfigSource
 from bms_core.core.base import BaseObject
 from bms_core.core.context import get_current_client_ip
 from bms_core.core.exceptions import (
@@ -169,6 +173,79 @@ def _int_option(options: Mapping[str, object], key: str, default: int, minimum: 
     if not minimum <= value <= maximum:
         raise PluginError(f"验证码出图选项越界：{key}={value}（允许 {minimum} ~ {maximum}）")
     return value
+
+
+def _parse_bool(raw: object, default: bool) -> bool:
+    """宽松解析布尔配置值（`true/false/1/0/yes/no/on/off`；非法回落默认）。
+
+    Args:
+        raw: 原始值。
+        default: 默认值。
+
+    Returns:
+        bool: 解析结果。
+    """
+    if isinstance(raw, bool):
+        return raw
+    if raw is None:
+        return default
+    text = str(raw).strip().lower()
+    if text in {"true", "1", "yes", "on"}:
+        return True
+    if text in {"false", "0", "no", "off"}:
+        return False
+    return default
+
+
+def _parse_int(raw: object, default: int, *, minimum: int = 0) -> int:
+    """宽松解析整数配置值（非法 / 小于下限回落默认）。
+
+    Args:
+        raw: 原始值。
+        default: 默认值。
+        minimum: 允许下限。
+
+    Returns:
+        int: 解析结果。
+    """
+    if raw is None or isinstance(raw, bool):
+        return default
+    try:
+        value = int(str(raw).strip())
+    except TypeError, ValueError:
+        return default
+    return value if value >= minimum else default
+
+
+def _channel_enabled(kind: CaptchaKind, values: Mapping[str, object]) -> bool:
+    """判定渠道是否可用（缺省：图形 / 滑块可用、短信不可用）。
+
+    Args:
+        kind: 渠道形态。
+        values: 配置键值映射。
+
+    Returns:
+        bool: 可用为 True。
+    """
+    default = kind is not CaptchaKind.SMS
+    return _parse_bool(values.get(f"captcha.channel.{kind.value}"), default)
+
+
+def _resolve_channels(scene: str, values: Mapping[str, object]) -> tuple[CaptchaKind, ...]:
+    """按场景默认降级顺序与渠道可用性计算可用渠道（图形码恒兜底）。
+
+    Args:
+        scene: 使用场景。
+        values: 配置键值映射。
+
+    Returns:
+        tuple[CaptchaKind, ...]: 可用渠道（按降级顺序，末位恒为 `image`）。
+    """
+    order = CAPTCHA_SCENE_CHANNELS.get(scene, CAPTCHA_DEFAULT_CHANNELS)
+    channels = [kind for kind in order if kind is CaptchaKind.IMAGE or _channel_enabled(kind, values)]
+    if CaptchaKind.IMAGE not in channels:
+        channels.append(CaptchaKind.IMAGE)
+    return tuple(channels)
 
 
 @dataclass(frozen=True)
@@ -325,6 +402,7 @@ class DefaultCaptcha(BaseCaptcha):
         sms: CaptchaSmsOptions | None = None,
         notifier: BaseNotifier | None = None,
         rate_limiter: BaseRateLimiter | None = None,
+        config: BaseConfigSource | None = None,
     ) -> None:
         """初始化（懒建连；`url` 无缺省值以防被插件注册表自动收集）。
 
@@ -336,6 +414,7 @@ class DefaultCaptcha(BaseCaptcha):
             sms: 短信选项（缺省平台默认）。
             notifier: 通知器（缺省 `NullNotifier`；由装配工厂注入真实 / 占位实现）。
             rate_limiter: 限流器（缺省 `NullRateLimiter` 恒定放行；由装配工厂注入）。
+            config: 系统参数取数（缺省 `NullConfigSource` 恒空，场景策略回落平台默认表）。
         """
         self._url = url
         self._client = client
@@ -344,6 +423,7 @@ class DefaultCaptcha(BaseCaptcha):
         self._sms = sms or CaptchaSmsOptions()
         self._notifier = notifier or NullNotifier()
         self._rate_limiter = rate_limiter or NullRateLimiter()
+        self._config = config or NullConfigSource()
 
     @property
     def client(self) -> AsyncRedis:
@@ -525,15 +605,34 @@ class DefaultCaptcha(BaseCaptcha):
             raise CaptchaVerifyError("验证码校验不通过")
 
     async def policy(self, scene: str) -> CaptchaScenePolicy:
-        """取场景策略（本阶段返回平台默认；按租户读取归 03_04）。
+        """取场景策略（按租户读 `sys_config`，缺省回落平台默认表；含可用渠道）。
 
         Args:
             scene: 使用场景。
 
         Returns:
-            CaptchaScenePolicy: 平台默认场景策略（未登记场景回落通用默认）。
+            CaptchaScenePolicy: 场景策略（`channels` 按渠道可用性过滤，图形码恒兜底）。
         """
-        return default_scene_policy(scene)
+        defaults = default_scene_policy(scene)
+        values = await self._config.get_many(
+            (
+                f"captcha.scene.{scene}.required",
+                f"captcha.scene.{scene}.fail_threshold",
+                f"captcha.scene.{scene}.ttl",
+                f"captcha.scene.{scene}.cooldown",
+                "captcha.channel.image",
+                "captcha.channel.slider",
+                "captcha.channel.sms",
+            )
+        )
+        return CaptchaScenePolicy(
+            scene=scene,
+            required=_parse_bool(values.get(f"captcha.scene.{scene}.required"), defaults.required),
+            fail_threshold=_parse_int(values.get(f"captcha.scene.{scene}.fail_threshold"), defaults.fail_threshold),
+            ttl=_parse_int(values.get(f"captcha.scene.{scene}.ttl"), defaults.ttl, minimum=1),
+            cooldown=_parse_int(values.get(f"captcha.scene.{scene}.cooldown"), defaults.cooldown, minimum=1),
+            channels=_resolve_channels(scene, values),
+        )
 
     async def aclose(self) -> None:
         """释放 Redis 客户端（幂等）。"""

@@ -96,6 +96,25 @@ class RedisRateLimiter(BaseRateLimiter, BaseAsyncResource):
             _LOGGER.warning("限流计数重置降级", key=key, error=str(exc))
             await self._fallback.reset(key)
 
+    async def peek(self, key: str) -> int:
+        """读当前窗口计数（不自增；异常降级 memory）。
+
+        Args:
+            key: 限流 key。
+
+        Returns:
+            int: 当前窗口计数；无计数 / 非数值返回 0。
+        """
+        try:
+            raw = await self.client.get(key)  # pyright: ignore[reportUnknownMemberType]
+        except Exception as exc:
+            _LOGGER.warning("限流计数读取降级", key=key, error=str(exc))
+            return await self._fallback.peek(key)
+        try:
+            return int(raw)  # pyright: ignore[reportArgumentType]
+        except TypeError, ValueError:
+            return 0
+
     async def aclose(self) -> None:
         """释放客户端（幂等）。"""
         client, self._client = self._client, None

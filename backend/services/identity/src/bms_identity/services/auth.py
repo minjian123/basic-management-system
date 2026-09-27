@@ -171,7 +171,7 @@ class LoginService(BaseObject):
             ServiceUnavailableError: org 凭据接口不可用（10007/503）。
         """
         await self._enforce_rate_limit(tenant, req.account, ip)
-        await self._enforce_captcha(req.captcha)
+        await self._enforce_captcha(req.captcha, tenant=tenant, account=req.account)
 
         verified = await self._org.verify(tenant, req.account, req.password)
         if verified.locked:
@@ -309,18 +309,22 @@ class LoginService(BaseObject):
             RateLimitRule(limit=self._login.account_rate_limit),
         )
 
-    async def _enforce_captcha(self, captcha: CaptchaInput | None) -> None:
-        """验证码：按场景策略强制或请求携带时校验。
+    async def _enforce_captcha(self, captcha: CaptchaInput | None, *, tenant: str, account: str) -> None:
+        """验证码：按场景策略强制，或连续失败达阈值强制，或请求携带时校验。
 
         Args:
             captcha: 请求携带的验证码凭证（可选）。
+            tenant: 租户编码（失败计数键作用域）。
+            account: 登录账号（失败计数键目标）。
 
         Raises:
-            CaptchaVerifyError: 策略强制但未携带（20101）。
+            CaptchaVerifyError: 策略 / 阈值强制但未携带（20101）。
         """
         policy = await self._captcha.policy(_LOGIN_SCENE)
+        fails = await self._limiter.peek(self._fail_key(tenant, account))
+        required = policy.required or (policy.fail_threshold > 0 and fails >= policy.fail_threshold)
         if captcha is None:
-            if policy.required:
+            if required:
                 raise CaptchaVerifyError("需要验证码")
             return
         try:

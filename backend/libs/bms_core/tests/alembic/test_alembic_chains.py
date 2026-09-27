@@ -186,7 +186,7 @@ def test_chain_revisions_integrity() -> None:
     platform_head = ScriptDirectory.from_config(_config(resolve_chain("platform:platform"))).get_current_head()
     assert platform_head == "0005_sys_table_ownership"
     tenant_service_head = ScriptDirectory.from_config(_config(default_chain())).get_current_head()
-    assert tenant_service_head == "0003_sys_outbox_event_version"
+    assert tenant_service_head == "0004_sys_config"
 
     for name in (
         "platform:platform",

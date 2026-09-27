@@ -2,6 +2,23 @@
   "components": {
     "schemas": {
       "ApiResponse": {},
+      "ApiResponse_ConfigResolveResponse_": {},
+      "ConfigResolveRequest": {
+        "description": "批量取参数请求。",
+        "properties": {
+          "keys": {
+            "description": "参数键序列",
+            "items": {
+              "type": "string"
+            },
+            "title": "Keys",
+            "type": "array"
+          }
+        },
+        "title": "ConfigResolveRequest",
+        "type": "object"
+      },
+      "ConfigResolveResponse": {},
       "DemoCreateRequest": {
         "description": "创建 demo 请求。",
         "properties": {
@@ -4172,6 +4189,116 @@
         "summary": "Replay Dead Letter",
         "tags": [
           "outbox"
+        ]
+      }
+    },
+    "/api/v1/platform/internal/configs/resolve": {
+      "post": {
+        "description": "批量取系统参数值（仅返回存在的键；缺失由调用方回落默认）。\n\nArgs:\n    config: 系统参数取数实现。\n    req: 批量取参数请求。\n\nReturns:\n    ApiResponse[ConfigResolveResponse]: 统一响应，data 为 `{values}`。",
+        "operationId": "resolve_configs_api_v1_platform_internal_configs_resolve_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfigResolveRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ConfigResolveResponse_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Resolve Configs",
+        "tags": [
+          "config-internal"
         ]
       }
     },

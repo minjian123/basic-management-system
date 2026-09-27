@@ -18,6 +18,7 @@
 """
 
 from abc import ABC, abstractmethod
+from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from enum import StrEnum
 from typing import cast
@@ -171,6 +172,22 @@ class CaptchaScenePolicy(BaseObject):
     cooldown: int = SMS_COOLDOWN
     """重发冷却（秒）。"""
 
+    channels: tuple[CaptchaKind, ...] = (CaptchaKind.SLIDER, CaptchaKind.IMAGE)
+    """该场景可用渠道（按降级顺序；实现按渠道可用性过滤，末位恒为图形码兜底）。"""
+
+
+CAPTCHA_DEFAULT_CHANNELS: tuple[CaptchaKind, ...] = (CaptchaKind.SLIDER, CaptchaKind.IMAGE)
+"""默认可用渠道（未登记场景回落；图形码恒兜底）。"""
+
+CAPTCHA_SCENE_CHANNELS: Mapping[str, tuple[CaptchaKind, ...]] = {
+    "login": (CaptchaKind.SLIDER, CaptchaKind.IMAGE),
+    "reset_password": (CaptchaKind.SMS, CaptchaKind.SLIDER, CaptchaKind.IMAGE),
+    "bind": (CaptchaKind.SMS, CaptchaKind.SLIDER, CaptchaKind.IMAGE),
+    "unbind": (CaptchaKind.SMS, CaptchaKind.SLIDER, CaptchaKind.IMAGE),
+    "register": (CaptchaKind.SMS, CaptchaKind.SLIDER, CaptchaKind.IMAGE),
+}
+"""场景渠道降级顺序（平台默认；按 `captcha.channel.{kind}` 可用性过滤，图形码恒兜底）。"""
+
 
 CAPTCHA_SCENE_POLICIES: tuple[CaptchaScenePolicy, ...] = (
     CaptchaScenePolicy(scene="login", required=False),
@@ -192,12 +209,13 @@ def default_scene_policy(scene: str) -> CaptchaScenePolicy:
         scene: 使用场景。
 
     Returns:
-        CaptchaScenePolicy: 场景策略（`scene` 回显为入参）。
+        CaptchaScenePolicy: 场景策略（`scene` 回显为入参；`channels` 取场景默认降级顺序）。
     """
+    channels = CAPTCHA_SCENE_CHANNELS.get(scene, CAPTCHA_DEFAULT_CHANNELS)
     for policy in CAPTCHA_SCENE_POLICIES:
         if policy.scene == scene:
-            return policy
-    return replace(DEFAULT_CAPTCHA_SCENE_POLICY, scene=scene)
+            return replace(policy, channels=channels)
+    return replace(DEFAULT_CAPTCHA_SCENE_POLICY, scene=scene, channels=channels)
 
 
 class BaseCaptcha(BasePluggable, ABC):

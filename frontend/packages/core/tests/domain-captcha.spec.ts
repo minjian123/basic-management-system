@@ -167,8 +167,9 @@ describe('滑块参数与轨迹', () => {
     expect(parseCaptchaSliderParams('')).toEqual({})
     expect(parseCaptchaSliderParams('not-json')).toEqual({})
     expect(parseCaptchaSliderParams('[1,2]')).toEqual({})
-    expect(parseCaptchaSliderParams('{"bg":"AAAA","gap_x":12.5,"gap_y":30,"w":320,"h":160}')).toEqual({
+    expect(parseCaptchaSliderParams('{"bg":"AAAA","slider":"BBBB","gap_x":12.5,"gap_y":30,"w":320,"h":160}')).toEqual({
       background: 'data:image/png;base64,AAAA',
+      slider: 'data:image/png;base64,BBBB',
       gapX: 13,
       gapY: 30,
       width: 320,
@@ -232,20 +233,32 @@ describe('错误码与策略', () => {
       failThreshold: 3,
       ttl: 300,
       cooldown: 60,
+      channels: ['slider', 'image'],
     })
     expect(defaultCaptchaPolicy('bind').required).toBe(true)
     expect(defaultCaptchaPolicy('unknown').required).toBe(true)
   })
 
-  it('策略归一：兼容 fail_threshold 与缺省回落', () => {
-    expect(normalizeCaptchaPolicy({ scene: 'login', required: true, fail_threshold: 5, ttl: 120, cooldown: 30 })).toEqual({
+  it('策略归一：兼容 fail_threshold 与渠道序列、缺省回落', () => {
+    expect(
+      normalizeCaptchaPolicy({
+        scene: 'login',
+        required: true,
+        fail_threshold: 5,
+        ttl: 120,
+        cooldown: 30,
+        channels: ['sms', 'image', 'bad'],
+      }),
+    ).toEqual({
       scene: 'login',
       required: true,
       failThreshold: 5,
       ttl: 120,
       cooldown: 30,
+      channels: ['sms', 'image'],
     })
     expect(normalizeCaptchaPolicy(undefined, 'reset_password')).toEqual(defaultCaptchaPolicy('reset_password'))
+    expect(normalizeCaptchaPolicy({ channels: [] })).toEqual(defaultCaptchaPolicy('login'))
   })
 
   it('形态文案', () => {

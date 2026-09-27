@@ -359,7 +359,10 @@ def test_sms_options_parse_and_validate() -> None:
 def test_sms_factory_injects_dependencies(monkeypatch: pytest.MonkeyPatch) -> None:
     """装配工厂：注入通知器 / 限流器 / 短信选项；默认配置解析 DefaultCaptcha；provider 空回落 NullCaptcha。"""
     factory = DefaultCaptchaFactory(
-        Settings(captcha=PluginSelection(provider="default", options={"sms_code_length": "7"}))
+        Settings(
+            captcha=PluginSelection(provider="default", options={"sms_code_length": "7"}),
+            config_source=PluginSelection(provider=""),
+        )
     )
     captcha = factory.create()
     assert isinstance(captcha, DefaultCaptcha)

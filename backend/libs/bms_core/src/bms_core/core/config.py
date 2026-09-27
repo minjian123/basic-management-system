@@ -495,9 +495,6 @@ class LoginSettings(BaseSettings):
     account_rate_limit: int = Field(default=20, ge=1)
     """每账号每分钟登录请求上限（限流基座）。"""
 
-    captcha_lock_threshold: int = Field(default=3, ge=1)
-    """连续失败强制验证码阈值（预留 03_04；本期不驱动强制分支）。"""
-
     cookie_secure: bool = True
     """refresh cookie 是否带 `Secure`（生产 true；dev 经 `config.dev.toml` 关以支持 http 本地联调）。"""
 
@@ -759,6 +756,8 @@ class Settings(PydanticBaseSettings, BaseSettings):  # pyright: ignore[reportInc
     chat_stream: PluginSelection = Field(default_factory=PluginSelection)
     circuit_breaker: PluginSelection = Field(default_factory=PluginSelection)
     code_validator: PluginSelection = Field(default_factory=PluginSelection)
+    config_cache_region: PluginSelection = Field(default_factory=PluginSelection)
+    config_source: PluginSelection = Field(default_factory=PluginSelection)
     dashboard_card_registry: PluginSelection = Field(default_factory=PluginSelection)
     data_ownership: DataOwnershipSettings = Field(default_factory=DataOwnershipSettings)
     data_scope: PluginSelection = Field(default_factory=PluginSelection)

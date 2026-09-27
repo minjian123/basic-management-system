@@ -56,3 +56,17 @@ class MemoryRateLimiter(BaseRateLimiter):
             key: 限流 key。
         """
         self._windows.pop(key, None)
+
+    async def peek(self, key: str) -> int:
+        """读当前窗口计数（不自增；窗口已过期返回 0）。
+
+        Args:
+            key: 限流 key。
+
+        Returns:
+            int: 当前窗口计数。
+        """
+        count, expires_at = self._windows.get(key, (0, 0.0))
+        if expires_at <= time.monotonic():
+            return 0
+        return count

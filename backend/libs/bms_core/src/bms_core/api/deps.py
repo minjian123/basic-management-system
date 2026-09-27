@@ -17,6 +17,8 @@ from bms_core.captcha.base import get_captcha
 from bms_core.chat.base import get_chat_action_gate, get_chat_session_store, get_chat_stream
 from bms_core.circuit.base import get_circuit_breaker
 from bms_core.codecheck.base import get_code_validator
+from bms_core.config.base import get_config_cache_region, get_config_source
+from bms_core.config.service import ConfigService
 from bms_core.dashboard.base import get_dashboard_card_registry
 from bms_core.db.health import PrimaryHealth
 from bms_core.db.registry import EngineRegistry
@@ -87,6 +89,9 @@ __all__ = [
     "get_chat_stream",
     "get_circuit_breaker",
     "get_code_validator",
+    "get_config_cache_region",
+    "get_config_service",
+    "get_config_source",
     "get_dashboard_card_registry",
     "get_db",
     "get_dict_cache_region",
@@ -184,6 +189,19 @@ def get_dict_query_service(request: Request) -> DictQueryService:
     """
     engines = cast("EngineRegistry", request.app.state.engine_registry)
     return DictQueryService(engines=engines)
+
+
+def get_config_service(request: Request) -> ConfigService:
+    """取系统参数写 / 失效服务（请求级组装：引擎注册表 + 缓存域）。
+
+    Args:
+        request: 请求对象。
+
+    Returns:
+        ConfigService: 系统参数写路径服务实例。
+    """
+    engines = cast("EngineRegistry", request.app.state.engine_registry)
+    return ConfigService(engines=engines, cache=get_config_cache_region(request))
 
 
 def get_primary_health(request: Request) -> PrimaryHealth:
