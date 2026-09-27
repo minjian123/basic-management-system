@@ -39,6 +39,8 @@
 
 > **CAS 适配（02_03 落地）**：CAS 无令牌交换——以服务票据经 `serviceValidate`（默认 CAS 3.0，含属性）换回主体与属性，复用同一 SSO 链路与 JIT / 映射（身份经同一契约回填），不另建链路；登录跳转与校验使用同一 `service`（含 `state`）；失败语义复用认证错误码段（票据无效 / 服务未注册 → 回调校验失败、IdP 不可达 → IdP 不可用、未匹配 → 身份未匹配）；CAS 单点登出 / proxy 代理票 / SAML 留后续（契约细节见任务 02_03 详细设计）。
 
+> **企业微信 / 钉钉免登（02_04 落地）**：企业微信（新版扫码登录，`mode=oauth` 兼容内嵌 H5 网页授权）与钉钉（新版 OAuth2）各按 `BaseIdentityProvider` 契约适配，复用同一 SSO 链路与 JIT / 映射，不另建链路；扫码登录由前端渲染二维码 / 轮询，后端经授权 URL 端点（`GET /api/v1/auth/sso/{idp_key}/authorize-url`）返回授权 URL / `state` / 有效期，确认后回跳同一 `callback` 签发 BMS 双 token；身份主键企业微信取 `userid`（非成员回落 `openid`）、钉钉取 `unionId`（回落 `openId`）；失败语义新增企微 / 钉钉专用码 `20057`~`20062`；真实企业凭据联调与移动端内嵌 H5 免登归阶段十七（契约细节见任务 02_04 详细设计）。
+
 ### 2.3 业务流程
 
 1. SSO 登录：登录页选择 IdP 入口 → 跳转外部 IdP → 认证回跳（授权码）→ 校验 → sys_user_identity 定位租户与用户 → 无则 JIT 建号 → 签发 BMS 双 token → 落 identity.user.jit_created 事件（首登）
@@ -102,6 +104,7 @@ sequenceDiagram
 | GET | /api/v1/idp/providers/{id}/test | 连通性测试（外部 IdP 握手验证） | idp:manage |
 | GET | /api/v1/auth/sso/providers | 登录页 IdP 入口列表（公开，仅 enabled；02_01 落地） | — |
 | GET | /api/v1/auth/sso/{idp_key}/authorize | 授权跳转（state / nonce / PKCE 落流程状态，302 外部 IdP；02_01 落地） | — |
+| GET | /api/v1/auth/sso/{idp_key}/authorize-url | 授权 URL（JSON：授权 URL / state / 有效期，供登录页渲染二维码 / 初始化平台组件；02_04 落地） | — |
 | GET | /api/v1/auth/sso/{idp_key}/callback | 授权码回跳（state 一次性消费，换码 + ID Token 校验后签发 BMS 双 token；02_01 落地） | — |
 | GET | /api/v1/users/{id}/identities | SSO 身份绑定查看（用户管理内） | sso:bind |
 
@@ -155,8 +158,10 @@ idp / sso 业务与 manage / bind 动作码由【平台库】sys_business/sys_ac
 | 20054 | 外部身份未匹配租户用户且 JIT 建号被拒绝 |
 | 20055 | 身份映射冲突（并发建号唯一约束拦截） |
 | 20056 | 本地登录锁定/限流（应急通道保护） |
+| 20057~20059 | 企业微信免登（配置缺失或非法 / 授权失败 / 接口不可达） |
+| 20060~20062 | 钉钉免登（配置缺失或非法 / 授权失败 / 接口不可达） |
 
-> 上列 `20051`~`20056` 随 02_01 登记落地（`SsoError` 异常子段）；回调类错误的 HTTP 映射（404 / 400 / 503 / 403 / 409 / 429）与跳转形态见任务 02_01 详细设计。
+> 上列 `20051`~`20056` 随 02_01 登记落地（`SsoError` 异常子段）；`20057`~`20062` 随 02_04 登记落地（`EnterpriseIdpError` 子段，企微 / 钉钉各三码）。回调类错误的 HTTP 映射（404 / 400 / 503 / 403 / 409 / 429）与跳转形态见任务 02_01 详细设计，企微 / 钉钉专用码的分支见任务 02_04 详细设计。
 
 ### 7.2 异常处理要求
 
