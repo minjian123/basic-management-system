@@ -39,4 +39,6 @@
 
 > **前置契约（已交付 · 02_02，2026-09-27）**：JIT 已交付并在 IdP 行 `config` 消费两个新增键——`jit_enabled`（bool，行优先回落全局 `[sso].jit_enabled`）与 `allowed_email_domains`（string 数组，邮箱域名白名单）；02_06 管理面需支持这两键的写入校验（类型 / 取值）与连通性测试覆盖，凭据字段掩码与 SSRF 校验口径不变。
 
+> **前置契约（已交付 · 02_03，2026-09-27）**：CAS 行配置新增平铺键 `cas_server_url`（必填）/ `cas_login_path`（缺省 `/login`）/ `cas_service_validate_path`（缺省 `/p3/serviceValidate`）/ `attribute_map`（对象，属性映射覆盖）；`IdentityProviderRegistry.build` 已支持 `type="cas"` 分派。02_06 管理面需支持这几键的写入校验（`cas_server_url` 必填、`attribute_map` 对象类型）与连通性测试（复用 `serviceValidate`）；CAS 以服务注册校验身份，**不需要客户端密钥**。
+
 > 交付物：详细设计、实施记录、测试记录（随任务开工建立，落本目录 `设计/`、`实施/`、`测试/`）。

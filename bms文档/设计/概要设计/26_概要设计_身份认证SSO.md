@@ -37,6 +37,8 @@
 - 本地账号密码登录并存：超管应急通道，防 IdP 故障锁死（登录失败限流 + 图形验证码策略照常生效）
 - BMS 兼作 IdP：OIDC Provider 授权码流程，客户端注册复用 sys_client（redirect_uris/grant_types 扩展字段）
 
+> **CAS 适配（02_03 落地）**：CAS 无令牌交换——以服务票据经 `serviceValidate`（默认 CAS 3.0，含属性）换回主体与属性，复用同一 SSO 链路与 JIT / 映射（身份经同一契约回填），不另建链路；登录跳转与校验使用同一 `service`（含 `state`）；失败语义复用认证错误码段（票据无效 / 服务未注册 → 回调校验失败、IdP 不可达 → IdP 不可用、未匹配 → 身份未匹配）；CAS 单点登出 / proxy 代理票 / SAML 留后续（契约细节见任务 02_03 详细设计）。
+
 ### 2.3 业务流程
 
 1. SSO 登录：登录页选择 IdP 入口 → 跳转外部 IdP → 认证回跳（授权码）→ 校验 → sys_user_identity 定位租户与用户 → 无则 JIT 建号 → 签发 BMS 双 token → 落 identity.user.jit_created 事件（首登）
