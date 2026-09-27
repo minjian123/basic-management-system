@@ -111,7 +111,7 @@ test/scripts/kiwi/cases|exports/…                             # 新：本任�
 | `sys_client` | identity 服务租户库 `bms_identity_{code}` | 27-身份认证SSO（阶段十开放接口复用） | `bms_identity/models/client.py::SysClient` | `identity:tenant`（0003） | 落表 + 注册 / 管理最小接口 + IdP 客户端读取 |
 
 - 关键字段：`client_id`（服务端生成，租户内唯一 `uq_sys_client_client_id_deleted_at`）、`client_secret_hash`（PBKDF2 自描述串；**公共客户端可空**）、`name`、`redirect_uris`（`TEXT` 存 JSON 数组）、`grant_types`（`TEXT` JSON 数组，取值 `GRANT_TYPES`：`client_credentials` / `authorization_code`）、`scopes`（`TEXT` JSON 数组）、`ip_whitelist`（`TEXT` JSON 数组，阶段十消费）、`status`（`enabled` / `disabled`，默认 `enabled`）；公共字段继承 `BaseModel`。
-- 多值字段统一用 `TEXT` 存 JSON 数组，规避 MySQL / PostgreSQL / 达梦 DM8 的 JSON 类型差异（与 `sys_identity_provider.config` 同口径）。
+- 多值字段统一用 `TEXT` 存 JSON 数组，规避 MySQL / PostgreSQL / 达梦 DM8 的 JSON 类型差异（与 `sys_identity_provider.config` 同口径）；**`TEXT` 列不设 DB 级默认值**（MySQL 不支持列级 `DEFAULT`），默认值由应用侧写入（实施回写见 §9）。
 - 归属登记（`bms_core/services/table_registry.py::TABLE_OWNERSHIP`）：`sys_client` 由 `PLANNED` 转 `ENABLED`（删 `status` 行；owner `identity`、`TENANT` 不变）。
 - 变更顺序（《[数据库开发规范](../../../../../../规范/数据库开发规范.md)》强制）：**先表文件（含变更记录）→ 总览登记 → ORM 模型 → Alembic 迁移 → 回写状态两处**。
 - `client_credentials` 的签发 / 校验与 IP 白名单 / 调用审计归阶段十；本期只建字段与 `authorization_code` 流程读取，不实现 Client Credentials。
@@ -367,5 +367,6 @@ login_url = ""                                 # /authorize 未登录跳转的�
 | 6 | 契约与生成件 | `deploy/contracts/identity.json` 与 `frontend/packages/api-types/src/identity.ts` 按实施重生成，`check` / `gen:check` 零漂移；网关 `apisix.yaml` 无变更（路由按服务目录生成，`gateway_config check` 零漂移） |
 | 7 | 基座清单补登 | 《后端基类清单》增 `oidc_provider` 能力域条目与认证链路 02_05 模块行（含服务 / 结果契约），`idp_state_store` 条目补 `namespace` |
 | 8 | 测试落点与 Kiwi | 新增 `libs/bms_core/tests/oauth/`、`services/identity/tests/oidc/`（含 `conftest.py` / `helpers.py`）；Kiwi 策展用例 **2202**（先登记后编码）；新增 / 变更模块覆盖率 100% |
+| 9 | 方言实测修正（真机暴露） | `sys_client.ip_whitelist` 原设 `TEXT NOT NULL DEFAULT '[]'`，MySQL 8 报 `1101`（TEXT 列不支持列级 DEFAULT）；移除 DB 默认值（迁移 / 模型 / 表文件同步），默认值改由应用侧写入；结论回写《数据库设计 · 方言特性（MySQL）》「DDL 与对象差异」节（标实测） |
 
 > 详细设计定稿后按《[AI开发规范](../../../../../../规范/AI开发规范.md)》「单任务交付一条龙」自动续行：实施 → 测试（Kiwi 先登记）→ 验证 → 登记回写 → 记录 → 提交。
