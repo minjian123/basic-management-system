@@ -98,15 +98,16 @@ sequenceDiagram
 | PUT | /api/v1/idp/providers/{id} | 修改 IdP 配置 | idp:manage |
 | DELETE | /api/v1/idp/providers/{id} | 删除 IdP 配置 | idp:manage |
 | GET | /api/v1/idp/providers/{id}/test | 连通性测试（外部 IdP 握手验证） | idp:manage |
-| GET | /api/v1/auth/sso/providers | 登录页 IdP 入口列表（公开） | — |
-| GET/POST | /api/v1/auth/sso/{type}/callback | SSO 授权码回跳（登录链路） | — |
+| GET | /api/v1/auth/sso/providers | 登录页 IdP 入口列表（公开，仅 enabled；02_01 落地） | — |
+| GET | /api/v1/auth/sso/{idp_key}/authorize | 授权跳转（state / nonce / PKCE 落流程状态，302 外部 IdP；02_01 落地） | — |
+| GET | /api/v1/auth/sso/{idp_key}/callback | 授权码回跳（state 一次性消费，换码 + ID Token 校验后签发 BMS 双 token；02_01 落地） | — |
 | GET | /api/v1/users/{id}/identities | SSO 身份绑定查看（用户管理内） | sso:bind |
 
 ### 5.2 分页 / 幂等 / 限流
 
 - 分页：IdP 配置与身份绑定列表标准分页（page + size）
 - 幂等：JIT 建号为天然幂等设计（唯一约束兜底，重复回跳命中既有映射）；回调不重复建号
-- 限流：SSO 回调与登录接口叠加 slowapi 限流（IP/用户维度，Redis 后端），防回跳风暴与爆破
+- 限流：SSO 授权跳转与回调经限流基座 `BaseRateLimiter`（IP + 提供方双维度，Redis 后端，`[sso].ip_rate_limit` / `provider_rate_limit`），防回跳风暴与爆破（02_01 落地）
 
 ### 5.3 发布的事件
 
@@ -150,6 +151,8 @@ idp / sso 业务与 manage / bind 动作码由【平台库】sys_business/sys_ac
 | 20054 | 外部身份未匹配租户用户且 JIT 建号被拒绝 |
 | 20055 | 身份映射冲突（并发建号唯一约束拦截） |
 | 20056 | 本地登录锁定/限流（应急通道保护） |
+
+> 上列 `20051`~`20056` 随 02_01 登记落地（`SsoError` 异常子段）；回调类错误的 HTTP 映射（404 / 400 / 503 / 403 / 409 / 429）与跳转形态见任务 02_01 详细设计。
 
 ### 7.2 异常处理要求
 

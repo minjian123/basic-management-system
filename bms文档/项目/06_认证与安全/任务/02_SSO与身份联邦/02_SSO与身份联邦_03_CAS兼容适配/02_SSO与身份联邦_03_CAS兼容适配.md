@@ -17,6 +17,8 @@
 | 状态 | 未开始 |
 | 完成日期 | — |
 
+> **前置契约（已交付 · 02_01，2026-09-27）**：SSO 登录完整链路已交付——三端点（`providers` / `authorize` / `callback`）、流程状态能力域 `idp_state_store`（一次性消费）、`ProviderRegistry`（桥接基座 `IdentityProviderRegistry.build` 按 `type` 分派，`oidc` 之外类型当前抛 `ConfigError`）与会话签发作构件 `SessionIssuer` 均按「协议差异经同一链路承载」落地；本任务按 `BaseIdentityProvider` 契约实现 CAS 客户端并在 `IdentityProviderRegistry.build` 注册 `type="cas"` 分派，复用 authorize / callback 与 JIT（02_02），不另建链路。
+
 ## 2. 任务内容 <a id="content"></a>
 
 1. **CAS 适配实现**：按 `BaseIdentityProvider` 契约实现 CAS 客户端（授权跳转 / `serviceValidate` 票据校验 / 用户属性解析），复用同一 SSO 登录链路与 JIT 建号，不另建链路。

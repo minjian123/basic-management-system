@@ -17,6 +17,8 @@
 | 状态 | 未开始 |
 | 完成日期 | — |
 
+> **前置契约（已交付 · 02_01，2026-09-27）**：SSO 登录完整链路已交付——`sys_user_identity` 表 + ORM + `identity:platform` 迁移 + `UserIdentityRepository.get_by_key_external` 只读查询（映射键 `{tenant}:{provider_key}`），本任务在其上补 JIT 写路径与 `(idp_key, external_id)` 唯一约束并发处置；`SsoService.callback` 映射未命中返回 `20054`（`SsoIdentityUnmatchedError`）、`SysIdentityProvider.config.jit_enabled` 字段已预留（本期不读），JIT 分支在此接入；`SsoError` 段位错误码 `20051`~`20056` 已登记（含冲突 `20055`）；org 内部概要接口 `POST /api/v1/org/internal/users/profile`（`require_service("identity")`）已交付，JIT 建号所经 org 内部接口参照其服务鉴权与公开契约口径扩展。
+
 ## 2. 任务内容 <a id="content"></a>
 
 1. **身份映射表**：`sys_user_identity` 表文件先设计后落库（`idp_key` / `external_id` / `tenant_id` / `user_id`），`(idp_key, external_id)` 唯一约束防并发重复建号（平台库，表归属登记）。
