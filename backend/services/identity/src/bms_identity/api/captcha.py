@@ -140,5 +140,6 @@ async def get_scene_policy(captcha: CaptchaDep, scene: ScenePath) -> ApiResponse
             fail_threshold=policy.fail_threshold,
             ttl=policy.ttl,
             cooldown=policy.cooldown,
+            channels=list(policy.channels),
         )
     )

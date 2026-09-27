@@ -19,7 +19,7 @@ uv run python -m ops.init_tenant --code acme \
 - **建库**：`app/db/admin.py`（MySQL / PG 建库、SQLite 建文件、达梦建模式；**幂等**，已存在跳过）；
 - **迁移**：本服务的租户链 `{service}:tenant` `upgrade head`（与 `ops/migrate_tenants.py` 同源；
   `alembic_version` 已最新则跳过）；
-- **种子**：字典种子（`app/dict/seed.py` 幂等；输出新增行数）；
+- **种子**：字典种子（`app/dict/seed.py`）与系统参数种子（`bms_core/config/seed.py`）幂等；输出新增行数；
 - `--dry-run` 仅打印计划（连接串脱敏），不建连、不建库；
 - 平台侧租户注册（`sys_tenant` 行）由 `ops/seed_tenant.py` 或租户管理阶段开通流程负责（本脚本只管库侧三步）。
 """
@@ -33,6 +33,7 @@ from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
+from bms_core.config.seed import seed_configs
 from bms_core.core.base import BaseObject
 from bms_core.core.config import get_settings
 from bms_core.core.exceptions import ConfigError
@@ -61,7 +62,7 @@ class InitResult(BaseObject):
     """迁移后 `alembic_version` 版本号（无则 None）。"""
 
     seeded: int
-    """字典种子新增行数（重复执行为 0）。"""
+    """种子新增行数（字典 + 系统参数；重复执行为 0）。"""
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -114,19 +115,19 @@ def _resolve_url(code: str, override: str, service: str = "") -> str:
 
 
 async def _seed(url: str) -> int:
-    """执行字典种子（幂等）。
+    """执行字典与系统参数种子（幂等）。
 
     Args:
         url: 租户库连接串。
 
     Returns:
-        int: 新增行数。
+        int: 新增行数（字典 + 系统参数合计）。
     """
     engine = create_async_engine(url, poolclass=NullPool)
     factory: async_sessionmaker[AsyncSession] = async_sessionmaker(engine, expire_on_commit=False)
     try:
         async with factory() as session:
-            return await seed_dicts(session)
+            return await seed_dicts(session) + await seed_configs(session)
     finally:
         await engine.dispose()
 

@@ -225,9 +225,10 @@ class FakeCaptcha(BaseCaptcha):
 
     plugin_name = "fake"
 
-    def __init__(self, *, required: bool = False, verified: bool = True) -> None:
+    def __init__(self, *, required: bool = False, verified: bool = True, fail_threshold: int = 3) -> None:
         self._required = required
         self._verified = verified
+        self._fail_threshold = fail_threshold
         self.seen: list[CaptchaCredential] = []
 
     async def generate(self, scene: str = "login", *, kind: CaptchaKind = CaptchaKind.IMAGE) -> CaptchaChallenge:
@@ -275,7 +276,7 @@ class FakeCaptcha(BaseCaptcha):
         Returns:
             CaptchaScenePolicy: 策略。
         """
-        return CaptchaScenePolicy(scene=scene, required=self._required)
+        return CaptchaScenePolicy(scene=scene, required=self._required, fail_threshold=self._fail_threshold)
 
 
 class RecordingRealtimePublisher(BaseRealtimePublisher):

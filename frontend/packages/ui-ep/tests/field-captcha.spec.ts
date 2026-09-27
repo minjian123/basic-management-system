@@ -312,7 +312,30 @@ describe('SmsCaptcha（短信件）', () => {
   })
 })
 
-describe('SliderCaptcha（自绘滑块件）', () => {
+describe('SliderCaptcha（服务端合成滑块件）', () => {
+  it('按新 payload 渲染块图（不再自绘缺口）', async () => {
+    const payload = JSON.stringify({ background: 'AAAA', slider: 'BBBB', width: 300, height: 150 })
+    const source = createCaptchaSourceStub({
+      challenge: async (query) => ({
+        captcha_id: 'c1',
+        kind: query.kind,
+        image: '',
+        expires_in: 300,
+        scene: query.scene,
+        payload,
+        target: '',
+        cooldown: 0,
+      }),
+    })
+    const wrapper = mount(SliderCaptcha, { props: { ready: true, source: source.source } })
+    await flushPromises()
+    const piece = wrapper.find('[data-test="captcha-slider-piece"]')
+    expect(piece.exists()).toBe(true)
+    expect(piece.attributes('src')).toBe('data:image/png;base64,BBBB')
+    expect(wrapper.find('[data-test="captcha-slider-gap"]').exists()).toBe(false)
+    wrapper.unmount()
+  })
+
   it('指针拖动采样轨迹并提交通过', async () => {
     const source = createCaptchaSourceStub()
     const wrapper = mount(SliderCaptcha, { props: { ready: true, source: source.source } })

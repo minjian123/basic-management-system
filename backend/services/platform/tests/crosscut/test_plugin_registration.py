@@ -36,6 +36,8 @@ _EXPECTED_PLUGIN_KEYS = frozenset(
         "chat_stream",
         "circuit_breaker",
         "code_validator",
+        "config_cache_region",
+        "config_source",
         "dashboard_card_registry",
         "data_ownership_guard",
         "data_scope",

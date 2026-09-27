@@ -4,7 +4,7 @@
 """
 
 from bms_core.api.base import mount_service_routers
-from bms_platform.api import codecheck, demo, icon, modules, outbox, plugins, preference, query_scheme
+from bms_platform.api import codecheck, demo, icon, internal_config, modules, outbox, plugins, preference, query_scheme
 from bms_platform.api import dict as dict_api
 
 api_router = mount_service_routers(
@@ -18,5 +18,6 @@ api_router = mount_service_routers(
         icon.router,
         codecheck.router,
         outbox.router,
+        internal_config.router,
     )
 )

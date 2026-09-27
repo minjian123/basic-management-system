@@ -26,6 +26,8 @@ export const CAPTCHA_TRACE_MIN_POINTS = 2
 export const CAPTCHA_TRACE_MAX_POINTS = 240
 /** 形态枚举（与后端 `CaptchaKind` 同源）。 */
 export const CAPTCHA_KINDS: readonly CaptchaKind[] = ['image', 'slider', 'sms']
+/** 默认可用渠道（按降级顺序；图形码恒为兜底渠道，与后端平台默认同源）。 */
+export const CAPTCHA_DEFAULT_CHANNELS: readonly CaptchaKind[] = ['slider', 'image']
 /** 场景枚举（与后端 `CAPTCHA_SCENES` 同源）。 */
 export const CAPTCHA_SCENES: readonly CaptchaScene[] = ['login', 'reset_password', 'bind', 'unbind', 'register']
 /** 空值占位（统一占位符）。 */
@@ -101,9 +103,11 @@ export interface CaptchaChallenge {
 export interface CaptchaSliderParams {
   /** 背景图（data URL；缺省纯轨道降级）。 */
   background?: string
-  /** 缺口横向位置（像素）。 */
+  /** 滑块块图（data URL；服务端合成，随拖动位移定位）。 */
+  slider?: string
+  /** 缺口横向位置（像素；已废弃，后端不下发坐标，仅兼容旧数据）。 */
   gapX?: number
-  /** 缺口纵向位置（像素）。 */
+  /** 缺口纵向位置（像素；已废弃，后端不下发坐标，仅兼容旧数据）。 */
   gapY?: number
   /** 画布宽度（像素）。 */
   width?: number
@@ -122,6 +126,8 @@ export interface CaptchaPolicy {
   ttl: number
   /** 重发冷却（秒）。 */
   cooldown: number
+  /** 该场景可用渠道（按降级顺序；末位恒为图形码 `image` 兜底）。 */
+  channels: CaptchaKind[]
 }
 /** 滑块轨迹点（`t` 为相对起点毫秒；提交后端口径为 `[x, y, t]`）。 */
 export interface CaptchaTracePoint {
@@ -202,6 +208,7 @@ export function defaultCaptchaPolicy(scene: string = 'login'): CaptchaPolicy {
     failThreshold: CAPTCHA_FAIL_THRESHOLD,
     ttl: CAPTCHA_TTL,
     cooldown: CAPTCHA_SMS_COOLDOWN,
+    channels: [...CAPTCHA_DEFAULT_CHANNELS],
   }
 }
 
@@ -225,7 +232,32 @@ export function normalizeCaptchaPolicy(raw: unknown, scene: CaptchaScene = 'logi
     failThreshold: clampCaptchaSeconds(record.fail_threshold ?? record.failThreshold, fallback.failThreshold),
     ttl: clampCaptchaSeconds(record.ttl, fallback.ttl),
     cooldown: clampCaptchaSeconds(record.cooldown, fallback.cooldown),
+    channels: normalizeCaptchaChannels(record.channels, fallback.channels),
   }
+}
+
+/**
+ * 归一可用渠道序列（过滤非法项 / 去重；空或非数组回落默认）。
+ *
+ * @param raw 原始渠道序列。
+ * @param fallback 回落渠道。
+ * @returns 归一渠道序列。
+ */
+export function normalizeCaptchaChannels(
+  raw: unknown,
+  fallback: readonly CaptchaKind[] = CAPTCHA_DEFAULT_CHANNELS,
+): CaptchaKind[] {
+  if (!Array.isArray(raw)) {
+    return [...fallback]
+  }
+  const channels: CaptchaKind[] = []
+  for (const item of raw) {
+    const kind = normalizeCaptchaKind(item)
+    if (kind !== undefined && !channels.includes(kind)) {
+      channels.push(kind)
+    }
+  }
+  return channels.length > 0 ? channels : [...fallback]
 }
 
 /**
@@ -252,6 +284,10 @@ export function parseCaptchaSliderParams(payload: unknown): CaptchaSliderParams 
   const background = readText(record.background) || readText(record.bg) || readText(record.image)
   if (background !== '') {
     params.background = captchaImageUrl(background)
+  }
+  const slider = readText(record.slider) || readText(record.piece)
+  if (slider !== '') {
+    params.slider = captchaImageUrl(slider)
   }
   const gapX = readNonNegative(record.gap_x ?? record.gapX)
   if (gapX !== undefined) {

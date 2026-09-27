@@ -138,13 +138,18 @@ const backgroundUrl = computed(() => {
   return api.imageUrl.value
 })
 
-/** 缺口位置百分比（缺省居中偏右，仅展示用）。 */
-const gapPercent = computed(() => {
+/** 滑块块图（服务端合成；缺省空则不渲染）。 */
+const sliderUrl = computed(() => {
   const params = sliderParams.value
-  if (params.gapX !== undefined && params.width !== undefined && params.width > 0) {
-    return Math.min(90, Math.max(10, Math.round((params.gapX / params.width) * 100)))
-  }
-  return 80
+  return params.slider !== undefined ? params.slider : ''
+})
+
+/** 舞台宽高比（背景图默认 300×150；无参数回退 2:1）。 */
+const stageAspect = computed(() => {
+  const params = sliderParams.value
+  const width = params.width !== undefined && params.width > 0 ? params.width : 300
+  const height = params.height !== undefined && params.height > 0 ? params.height : 150
+  return `${width} / ${height}`
 })
 
 /** 是否通过。 */
@@ -165,6 +170,12 @@ function trackWidth(): number {
   return width > 0 ? width : 200
 }
 
+/** 背景图像素宽度（提交轨迹 x 的坐标空间；无参数回退轨道宽度）。 */
+function imageWidth(): number {
+  const params = sliderParams.value
+  return params.width !== undefined && params.width > 0 ? params.width : trackWidth()
+}
+
 /**
  * 开始拖动（记录起点 + 采样首点）。
  *
@@ -179,7 +190,7 @@ function onPointerDown(event: PointerEvent): void {
   startPercent = percent.value
   startTime = Date.now()
   api.clearTrace()
-  api.pushTrace({ x: Math.round((percent.value / 100) * trackWidth()), y: 0, t: 0 })
+  api.pushTrace({ x: Math.round((percent.value / 100) * imageWidth()), y: 0, t: 0 })
   cancelDrag = startPointerDrag(onPointerMove, onPointerUp)
 }
 
@@ -196,7 +207,7 @@ function onPointerMove(event: PointerEvent): void {
   const delta = ((event.clientX - startX) / width) * 100
   percent.value = Math.min(100, Math.max(0, startPercent + delta))
   api.pushTrace({
-    x: Math.round((percent.value / 100) * width),
+    x: Math.round((percent.value / 100) * imageWidth()),
     y: 0,
     t: Date.now() - startTime,
   })
@@ -243,7 +254,7 @@ function onKeydown(event: KeyboardEvent): void {
   if (event.key === 'ArrowRight') {
     event.preventDefault()
     percent.value = Math.min(100, percent.value + 5)
-    api.pushTrace({ x: Math.round((percent.value / 100) * trackWidth()), y: 0, t: api.trace.value.length * 20 })
+    api.pushTrace({ x: Math.round((percent.value / 100) * imageWidth()), y: 0, t: api.trace.value.length * 20 })
     return
   }
   if (event.key === 'ArrowLeft') {
@@ -284,12 +295,15 @@ async function onRefresh(): Promise<void> {
     </slot>
 
     <template v-else>
-      <div class="bms-slider-captcha__stage">
+      <div class="bms-slider-captcha__stage" :style="{ aspectRatio: stageAspect }">
         <img v-if="backgroundUrl !== ''" class="bms-slider-captcha__bg" :src="backgroundUrl" alt="" />
-        <span
-          class="bms-slider-captcha__gap"
-          :style="{ left: `${gapPercent}%` }"
-          data-test="captcha-slider-gap"
+        <img
+          v-if="sliderUrl !== ''"
+          class="bms-slider-captcha__piece"
+          :src="sliderUrl"
+          :style="{ left: `${percent}%` }"
+          alt=""
+          data-test="captcha-slider-piece"
         />
       </div>
 
@@ -341,24 +355,24 @@ async function onRefresh(): Promise<void> {
 }
 .bms-slider-captcha__stage {
   position: relative;
-  height: 40px;
+  width: 100%;
   overflow: hidden;
   background: var(--bms-captcha-slider-track-bg);
   border: 1px solid var(--bms-captcha-border);
   border-radius: var(--bms-radius-md);
 }
 .bms-slider-captcha__bg {
+  display: block;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
 }
-.bms-slider-captcha__gap {
+.bms-slider-captcha__piece {
   position: absolute;
-  top: 4px;
-  width: 28px;
-  height: 32px;
-  background: var(--bms-captcha-slider-gap-bg);
-  border-radius: var(--bms-radius-sm);
+  top: 0;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
 }
 .bms-slider-captcha__track {
   position: relative;

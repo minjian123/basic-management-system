@@ -34,6 +34,8 @@ const verifyFails = ref(false)
 const queries: Record<string, unknown>[] = []
 /** 挑战编号计数（刷新一次性失效自检用）。 */
 let challengeCount = 0
+/** 桩图片（1×1 PNG base64；背景与滑块块图占位）。 */
+const STUB_PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
 /** 桩数据源（记录调用轨迹；限流与校验失败可切换）。 */
 const stub: { source: CaptchaSourceAdapter } = {
   source: {
@@ -47,7 +49,10 @@ const stub: { source: CaptchaSourceAdapter } = {
         image: 'iVBORw0KGgo=',
         expires_in: 300,
         scene: query.scene,
-        payload: '{}',
+        payload:
+          query.kind === 'slider'
+            ? JSON.stringify({ background: STUB_PNG, slider: STUB_PNG, width: 300, height: 150 })
+            : '{}',
         target: '',
         cooldown: 0,
       }
@@ -130,7 +135,7 @@ async function probeHttp(): Promise<boolean> {
   }
   try {
     const policy = (await httpSource.policy?.({ scene: 'login' })) as
-      | { fail_threshold?: number; cooldown?: number }
+      | { fail_threshold?: number; cooldown?: number; channels?: string[] }
       | undefined
     const challenge = (await httpSource.challenge?.({ scene: 'login', kind: 'image' })) as
       | { captcha_id?: string }
@@ -146,6 +151,8 @@ async function probeHttp(): Promise<boolean> {
       | undefined
     return (
       policy?.fail_threshold === CAPTCHA_FAIL_THRESHOLD &&
+      Array.isArray(policy?.channels) &&
+      policy.channels.includes('image') &&
       typeof challenge?.captcha_id === 'string' &&
       challenge.captcha_id !== '' &&
       verified?.verified === true &&
@@ -312,7 +319,7 @@ async function runChecks(): Promise<void> {
   // 13. 认证阶段契约缺口核对与数据源可替换
   const httpOk = await probeHttp()
   const httpLabel = useHttp ? 'HTTP 占位端点联通' : '桩模式（未启用 HTTP）'
-  gapNote.value = `真实出题（Pillow）/ 短信下发（02-20 通知渠道）/ 冷却频次（02-25 限流）/ 场景策略（sys_config）与联调归阶段六「认证与安全」窗口（当前：${httpLabel}）`
+  gapNote.value = `真实出题（图形 / 滑块）/ 短信下发（通知渠道）/ 冷却频次（限流）/ 场景策略（sys_config 按租户 + 渠道降级 channels）与连续失败强制（03_04）；四端点端到端联调（当前：${httpLabel}）`
   add(
     '契约缺口核对与数据源可替换（默认键 http + 自定义）',
     httpOk && captchaSourceRegistry.get('http') !== undefined && captchaSourceRegistry.get('check-captcha') !== undefined,

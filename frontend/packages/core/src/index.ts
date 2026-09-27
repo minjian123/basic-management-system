@@ -1567,6 +1567,7 @@ export {
 export {
   CAPTCHA_EMPTY_VALUE,
   CAPTCHA_ERROR_TEXTS,
+  CAPTCHA_DEFAULT_CHANNELS,
   CAPTCHA_FAIL_THRESHOLD,
   CAPTCHA_IMAGE_EMPTY_TEXT,
   CAPTCHA_IMAGE_MAX_LENGTH,
@@ -1607,6 +1608,7 @@ export {
   maskCaptchaPhone,
   nextCountdown,
   normalizeCaptchaChallenge,
+  normalizeCaptchaChannels,
   normalizeCaptchaKind,
   normalizeCaptchaPhone,
   normalizeCaptchaPolicy,

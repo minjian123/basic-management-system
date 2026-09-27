@@ -124,6 +124,19 @@ class BaseRateLimiter(BasePluggable, ABC):
             key: 限流 key。
         """
 
+    async def peek(self, key: str) -> int:
+        """读当前窗口计数（**不自增、不改窗口**；缺省 0）。
+
+        供上层前置判断（如登录连续失败达阈值强制验证码）读取既有计数，避免误触发计数自增。
+
+        Args:
+            key: 限流 key。
+
+        Returns:
+            int: 当前窗口计数；无计数 / 不支持返回 0。
+        """
+        return 0
+
 
 def get_rate_limiter(request: Request) -> BaseRateLimiter:
     """取应用级限流器（依赖注入提供者）。

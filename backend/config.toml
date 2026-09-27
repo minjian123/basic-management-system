@@ -371,12 +371,11 @@ provider = "redis"
 provider = "redis"
 
 [login]
-# 本地登录防爆破与验证码强制（5 次失败锁 15 分钟；连续失败 3 次强制验证码预留 03_04）
+# 本地登录防爆破（5 次失败锁 15 分钟；连续失败强制验证码阈值取场景策略 captcha.scene.login.fail_threshold）
 max_failures = 5
 lock_seconds = 900
 ip_rate_limit = 60
 account_rate_limit = 20
-captcha_lock_threshold = 3
 
 [session]
 # 同一账号活跃会话上限（默认 5；登录成功后超限自动作废最旧会话；租户 sys_config 覆盖归后续阶段）

@@ -49,6 +49,17 @@ provider = "sql"
 [dict_cache_region]
 provider = "memory"
 
+# 系统参数读取与缓存（03_08）：
+# - provider = "sql"：读**本服务租户库** sys_config（platform 服务态；dev 各服务库自动建表 + 种子）；
+# - provider = "http"：经 service_client 读 **platform 服务**内部端点（其余服务态；不可达降级为空、回落默认）；
+# - provider = ""：占位（null 实现）。
+# Redis 可用时把 config_cache_region 改为 "redis"（连接串取 [redis].url）。
+[config_source]
+provider = "sql"
+
+[config_cache_region]
+provider = "memory"
+
 # 查询方案落库（sys_query_scheme）与字段类型 / 查询提供者真实注册表
 [query_scheme_store]
 provider = "sql"

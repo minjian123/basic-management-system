@@ -91,7 +91,8 @@ async def test_login_failure_lock_threshold(client: AsyncClient, service_app: Fa
     """连续失败达阈值后返回 20003（失败计数经限流基座累计）。"""
     issuer, org, store, limiter = FakeUserTokenIssuer(), FakeOrgClient(), MemorySessionStore(), MemoryRateLimiter()
     org.set_user("admin", password="secret")
-    wire_auth(service_app, issuer=issuer, org=org, store=store, limiter=limiter)
+    # 本用例隔离密码锁定分支：验证码阈值设高，避免连续失败达阈值后转强制验证码（03_04）
+    wire_auth(service_app, issuer=issuer, org=org, store=store, limiter=limiter, captcha=FakeCaptcha(fail_threshold=99))
 
     for _ in range(4):
         resp = await _login(client, "admin", "bad")
@@ -175,3 +176,46 @@ async def test_resolve_login_tenant_branches() -> None:
     assert ctx.tenant_code == "demo"
     with pytest.raises(TenantNotFoundError):
         await _resolve_login_tenant(None, None, FakeTenantSource())  # pyright: ignore[reportPrivateUsage]
+
+
+@pytest.mark.kiwi_id(2208)
+async def test_login_continuous_failure_forces_captcha(client: AsyncClient, service_app: FastAPI) -> None:
+    """连续失败达阈值后强制验证码；成功登录清零（窗口与清零，03_04）。"""
+    issuer, org, store, limiter = FakeUserTokenIssuer(), FakeOrgClient(), MemorySessionStore(), MemoryRateLimiter()
+    org.set_user("admin", password="secret")
+    captcha = FakeCaptcha(required=False, verified=True, fail_threshold=3)
+    wire_auth(service_app, issuer=issuer, org=org, store=store, limiter=limiter, captcha=captcha)
+
+    for _ in range(3):
+        resp = await _login(client, "admin", "bad")
+        assert resp.json()["code"] == 20002
+
+    # 达阈值：未携带验证码被强制拒绝（20101）
+    forced = await _login(client, "admin", "secret")
+    assert forced.json()["code"] == 20101
+
+    # 携带有效验证码放行（成功登录清零失败计数）
+    ok = await _login(client, "admin", "secret", captcha={"captcha_id": "c", "kind": "image", "code": "x"})
+    assert ok.status_code == 200
+
+    # 清零生效：再次密码失败回到普通失败（非 20101）
+    again = await _login(client, "admin", "bad")
+    assert again.json()["code"] == 20002
+
+
+@pytest.mark.kiwi_id(2208)
+async def test_login_captcha_failure_not_counted(client: AsyncClient, service_app: FastAPI) -> None:
+    """验证码校验失败不计入登录失败计数（避免双重惩罚）。"""
+    issuer, org, store, limiter = FakeUserTokenIssuer(), FakeOrgClient(), MemorySessionStore(), MemoryRateLimiter()
+    org.set_user("admin", password="secret")
+    captcha = FakeCaptcha(required=False, verified=False, fail_threshold=3)
+    wire_auth(service_app, issuer=issuer, org=org, store=store, limiter=limiter, captcha=captcha)
+
+    # 携带（校验不通过）触发 20101，但不应自增登录失败计数
+    failed = await _login(client, "admin", "secret", captcha={"captcha_id": "c", "kind": "image", "code": "x"})
+    assert failed.json()["code"] == 20101
+
+    # 三次密码失败仍为 20002（若验证码失败被计入，则计数已达阈值会转 20101）
+    for _ in range(3):
+        resp = await _login(client, "admin", "bad")
+        assert resp.json()["code"] == 20002

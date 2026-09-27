@@ -334,7 +334,10 @@ async def test_generate_sms_rejected(redis_client: fakeredis.aioredis.FakeRedis)
 def test_slider_factory_injects_options(monkeypatch: pytest.MonkeyPatch) -> None:
     """装配工厂：默认配置解析 DefaultCaptcha 并注入滑块选项；provider 空回落 NullCaptcha。"""
     factory = DefaultCaptchaFactory(
-        Settings(captcha=PluginSelection(provider="default", options={"slider_width": "200"}))
+        Settings(
+            captcha=PluginSelection(provider="default", options={"slider_width": "200"}),
+            config_source=PluginSelection(provider=""),
+        )
     )
     assert isinstance(factory.create(), DefaultCaptcha)
 

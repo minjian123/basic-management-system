@@ -10,6 +10,7 @@
 import { BaseInput } from './input'
 import type { CaptchaSourceAdapter } from './captcha-source'
 import {
+  CAPTCHA_DEFAULT_CHANNELS,
   CAPTCHA_FAIL_THRESHOLD,
   CAPTCHA_IMAGE_MAX_LENGTH,
   CAPTCHA_LOAD_ERROR_TEXT,
@@ -122,6 +123,10 @@ export abstract class BaseCaptcha extends BaseInput<string> {
   errorMessage = ''
   /** 场景策略（`loadPolicy` 归一结果）。 */
   policyData: CaptchaPolicy | undefined
+  /** 场景可用渠道（按降级顺序；策略归一结果，缺省平台默认）。 */
+  get channels(): CaptchaKind[] {
+    return this.policyData?.channels ?? [...CAPTCHA_DEFAULT_CHANNELS]
+  }
   /** 滑块轨迹点（采样）。 */
   readonly trace: CaptchaTracePoint[] = []
   /** 验证码数据源（注入式；未注入即占位零请求）。 */

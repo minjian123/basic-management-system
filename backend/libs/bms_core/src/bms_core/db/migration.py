@@ -70,6 +70,7 @@ ARCHIVE_CHAIN_SERVICE = PLATFORM_SERVICE_KEY
 COMMON_MODEL_MODULES: tuple[str, ...] = (
     "bms_core.models.ownership",
     "bms_core.models.outbox",
+    "bms_core.config.models",
     "bms_core.dict.models",
     "bms_core.listing.models",
 )
