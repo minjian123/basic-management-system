@@ -24,6 +24,7 @@ from bms_core.tenant.base import (
 from bms_core.tenant.null import NullTenantSelfService
 from bms_tenant.api.tenant import router as tenant_router
 from bms_tenant.main import ApplicationFactory
+from tests_support.auth import auth_headers
 
 API = "/api/v1/tenants"
 
@@ -247,6 +248,7 @@ async def test_switch_idempotency_reuses_first_result() -> None:
     double = _RecordingIdempotency()
     app.dependency_overrides[get_idempotency_store] = lambda: double
     async with lifespan(app), AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        client.headers.update(auth_headers())
         first = await client.post(f"{API}/switch", json={"code": "acme"}, headers={"Idempotency-Key": "k-1"})
         second = await client.post(f"{API}/switch", json={"code": "other"}, headers={"Idempotency-Key": "k-1"})
 

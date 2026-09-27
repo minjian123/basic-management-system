@@ -19,6 +19,7 @@ from bms_core.edge.headers import (
     GATEWAY_IDENTITY_HEADER,
     GATEWAY_IDENTITY_VALUE,
     SERVICE_IDENTITY_HEADER,
+    SESSION_ID_HEADER,
     TENANT_ID_HEADER,
     USER_ID_HEADER,
     USER_SCOPES_HEADER,
@@ -52,11 +53,16 @@ def test_marker_edge_trust_trusts_matching_marker() -> None:
         TENANT_ID_HEADER: "acme",
         USER_SCOPES_HEADER: "user:read, user:write,, ",
         SERVICE_IDENTITY_HEADER: "svc-a",
+        SESSION_ID_HEADER: "sess-1",
     }
     decision = MarkerEdgeTrust(expected=GATEWAY_IDENTITY_VALUE).evaluate(headers)
     assert decision.trusted is True
     assert decision.identity == EdgeIdentity(
-        user_id=42, tenant_code="acme", scopes=("user:read", "user:write"), service_identity="svc-a"
+        user_id=42,
+        tenant_code="acme",
+        scopes=("user:read", "user:write"),
+        service_identity="svc-a",
+        session_id="sess-1",
     )
 
 
@@ -87,6 +93,13 @@ def test_edge_identity_subject_defaults_none_when_missing() -> None:
     identity = EdgeIdentity.from_headers({USER_ID_HEADER: "7"})
     assert identity.user_id == 7
     assert identity.subject is None
+    assert identity.session_id is None
+
+
+def test_edge_identity_parses_session_id_header() -> None:
+    """会话 id 头解析（01_05 每请求会话标记校验依据；缺失为 None）。"""
+    assert EdgeIdentity.from_headers({SESSION_ID_HEADER: "sess-9"}).session_id == "sess-9"
+    assert EdgeIdentity.from_headers({}).session_id is None
 
 
 def test_marker_factory_uses_option_and_default_value() -> None:

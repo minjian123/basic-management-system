@@ -31,6 +31,7 @@ from bms_core.globalsearch.base import (
 )
 from bms_core.globalsearch.null import NullAuditSearch, NullFileContentSearch, NullGlobalSearch
 from bms_search.main import ApplicationFactory
+from tests_support.auth import auth_headers
 
 API = "/api/v1/search"
 
@@ -251,6 +252,7 @@ async def test_routes_with_in_memory_implementations() -> None:
         app.dependency_overrides[get_audit_search] = lambda: _InMemoryAuditSearch()
         app.dependency_overrides[get_file_content_search] = lambda: _InMemoryFileContentSearch()
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            client.headers.update(auth_headers())
             grouped = await client.get(f"{API}/global", params={"q": "张"})
             groups = grouped.json()["data"]["groups"]
             assert {group["doc_type"] for group in groups} == {"user", "dept"}

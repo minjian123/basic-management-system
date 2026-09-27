@@ -110,7 +110,7 @@ def test_algorithm_whitelist_and_factory() -> None:
     with pytest.raises(ConfigError):
         TokenKey(kid="h1", algorithm="HS256", public_key="x", private_key="y")
 
-    empty = JwtTokenCodecFactory(Settings()).create()
+    empty = JwtTokenCodecFactory(Settings(security=SecuritySettings(keys={}, active_kid=""))).create()
     with pytest.raises(ConfigError):
         empty.encode({"sub": "1"})
     with pytest.raises(AuthError):

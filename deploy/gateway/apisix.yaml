@@ -64,6 +64,7 @@ routes:
           - X-User-Id
           - X-Tenant-Id
           - X-User-Scopes
+          - X-Session-Id
         client_headers:
           - WWW-Authenticate
         timeout: 3000
@@ -106,6 +107,7 @@ routes:
           - X-User-Id
           - X-Tenant-Id
           - X-User-Scopes
+          - X-Session-Id
         client_headers:
           - WWW-Authenticate
         timeout: 3000
@@ -148,6 +150,7 @@ routes:
           - X-User-Id
           - X-Tenant-Id
           - X-User-Scopes
+          - X-Session-Id
         client_headers:
           - WWW-Authenticate
         timeout: 3000
@@ -190,6 +193,7 @@ routes:
           - X-User-Id
           - X-Tenant-Id
           - X-User-Scopes
+          - X-Session-Id
         client_headers:
           - WWW-Authenticate
         timeout: 3000
@@ -232,6 +236,7 @@ routes:
           - X-User-Id
           - X-Tenant-Id
           - X-User-Scopes
+          - X-Session-Id
         client_headers:
           - WWW-Authenticate
         timeout: 3000
@@ -274,6 +279,7 @@ routes:
           - X-User-Id
           - X-Tenant-Id
           - X-User-Scopes
+          - X-Session-Id
         client_headers:
           - WWW-Authenticate
         timeout: 3000
@@ -316,6 +322,7 @@ routes:
           - X-User-Id
           - X-Tenant-Id
           - X-User-Scopes
+          - X-Session-Id
         client_headers:
           - WWW-Authenticate
         timeout: 3000
@@ -358,6 +365,7 @@ routes:
           - X-User-Id
           - X-Tenant-Id
           - X-User-Scopes
+          - X-Session-Id
         client_headers:
           - WWW-Authenticate
         timeout: 3000
@@ -400,6 +408,7 @@ routes:
           - X-User-Id
           - X-Tenant-Id
           - X-User-Scopes
+          - X-Session-Id
         client_headers:
           - WWW-Authenticate
         timeout: 3000
@@ -443,6 +452,7 @@ routes:
           - X-User-Id
           - X-Tenant-Id
           - X-User-Scopes
+          - X-Session-Id
         client_headers:
           - WWW-Authenticate
         timeout: 3000
@@ -473,6 +483,7 @@ global_rules:
             - X-Tenant-Id
             - X-User-Scopes
             - X-Service-Identity
+            - X-Session-Id
   - id: edge-real-ip
     plugins:
       real-ip:

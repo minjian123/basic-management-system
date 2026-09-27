@@ -42,6 +42,7 @@ from bms_core.dict.service import DictAttrPayload, DictItemPayload, DictService,
 from bms_core.dict.sql import SqlDictSource, SqlDictTranslator, current_dict_locale
 from bms_core.query.local import LocalQueryProviderRegistry
 from bms_platform.main import ApplicationFactory
+from tests_support.auth import auth_headers
 
 EXPECTED_TABLES = {
     "sys_dict_type",
@@ -132,6 +133,7 @@ async def dict_client(dict_db_url: str) -> AsyncIterator[AsyncClient]:
     app.dependency_overrides[get_dict_query_service] = lambda: query_service
     app.dependency_overrides[get_query_provider_registry] = lambda: registry
     async with lifespan(app), AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        client.headers.update(auth_headers())
         yield client
 
 

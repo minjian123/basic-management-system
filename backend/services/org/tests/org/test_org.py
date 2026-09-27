@@ -24,6 +24,7 @@ from bms_core.org.base import (
 from bms_core.org.null import NullOrgDataSource, NullOrgNameResolver
 from bms_core.schemas.pagination import BasePageResponse
 from bms_org.main import ApplicationFactory
+from tests_support.auth import auth_headers
 
 API = "/api/v1/org"
 
@@ -222,6 +223,7 @@ async def test_routes_with_in_memory_implementations() -> None:
         app.dependency_overrides[get_org_data_source] = lambda: source
         app.dependency_overrides[get_org_name_resolver] = lambda: _InMemoryOrgNameResolver()
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            client.headers.update(auth_headers())
             resp = await client.get(
                 f"{API}/users",
                 params={

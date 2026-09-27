@@ -453,6 +453,9 @@ class SessionSettings(BaseSettings):
     max_active: int = Field(default=5, ge=1)
     """同一账号活跃会话上限（登录成功后超限自动作废最旧会话）。"""
 
+    device_check: bool = False
+    """每请求是否校验设备 / IP 一致性（可选强度；开启时比对会话标记内 `ip` / `ua` 与当前请求）。"""
+
 
 class UserTokenSettings(PluginSelection):
     """用户令牌自签配置（`[user_token]`；密钥与 TTL 归 `[security]`，本分区只放选择与签发方）。"""

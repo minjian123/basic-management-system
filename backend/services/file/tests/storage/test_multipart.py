@@ -35,6 +35,7 @@ from bms_core.storage.base import (
 )
 from bms_core.storage.null import NullMultipartUpload
 from bms_file.main import ApplicationFactory
+from tests_support.auth import auth_headers
 
 API = "/api/v1/files"
 """占位路由前缀（`BaseRouter` 前缀 + 统一 API 前缀）。"""
@@ -301,6 +302,7 @@ async def test_placeholder_route_idempotency() -> None:
     app.dependency_overrides[get_idempotency_store] = lambda: store
     body = {"key": "files/a.bin", "size": 1024, "sha256": "a" * 64}
     async with lifespan(app), AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        client.headers.update(auth_headers())
         plain = await client.post(f"{API}/uploads", json=body)
         assert plain.status_code == 200
         assert store.begun == []
@@ -316,6 +318,7 @@ async def test_placeholder_route_idempotency() -> None:
     app = ApplicationFactory().create(None)
     app.dependency_overrides[get_idempotency_store] = lambda: replay
     async with lifespan(app), AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        client.headers.update(auth_headers())
         repeated = await client.post(f"{API}/uploads", json=body, headers={IDEMPOTENCY_HEADER: "case-845"})
 
     assert repeated.status_code == 200
@@ -401,6 +404,7 @@ async def test_dedup_route_maps_hit() -> None:
     app = ApplicationFactory().create(None)
     app.dependency_overrides[get_multipart_upload] = lambda: _HitMultipartUpload()
     async with lifespan(app), AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        client.headers.update(auth_headers())
         resp = await client.get(f"{API}/dedup", params={"sha256": "c" * 64, "size": 2048})
 
     assert resp.status_code == 200

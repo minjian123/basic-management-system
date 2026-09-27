@@ -24,7 +24,7 @@ def _blacklist_key(session_id: str) -> str:
 @pytest.mark.kiwi_id(2195)
 async def test_max_active_revokes_oldest(client: AsyncClient, service_app: FastAPI) -> None:
     """上限 2：第 3 次登录作废最旧会话（标记删除 + 黑名单）。"""
-    issuer, store, _recorder = wire_login(service_app, max_active=2)
+    issuer, store, _recorder = await wire_login(service_app, max_active=2)
     for _ in range(3):
         assert (await login(client)).status_code == 200
     oldest, second, newest = issuer.specs[-3].session_id, issuer.specs[-2].session_id, issuer.specs[-1].session_id
@@ -41,7 +41,7 @@ async def test_max_active_revokes_oldest(client: AsyncClient, service_app: FastA
 @pytest.mark.kiwi_id(2195)
 async def test_max_active_default_five(client: AsyncClient, service_app: FastAPI) -> None:
     """默认上限 5：第 6 次登录作废最旧，在线数保持 5。"""
-    issuer, store, _recorder = wire_login(service_app)
+    issuer, store, _recorder = await wire_login(service_app)
     for _ in range(6):
         assert (await login(client)).status_code == 200
 
@@ -54,7 +54,7 @@ async def test_max_active_default_five(client: AsyncClient, service_app: FastAPI
 @pytest.mark.kiwi_id(2195)
 async def test_below_max_active_keeps_all(client: AsyncClient, service_app: FastAPI) -> None:
     """未达上限不作废：上限 3、登录 2 次两会话均保留。"""
-    issuer, store, _recorder = wire_login(service_app, max_active=3)
+    issuer, store, _recorder = await wire_login(service_app, max_active=3)
     for _ in range(2):
         assert (await login(client)).status_code == 200
 

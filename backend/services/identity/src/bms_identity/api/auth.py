@@ -30,7 +30,7 @@ from bms_core.db.registry import EngineRegistry
 from bms_core.db.session import DbSession, session_scope
 from bms_core.db.tenant import TenantContext, TenantLookup, TenantNotFoundError
 from bms_core.db.unit_of_work import DbUnitOfWork
-from bms_core.edge.headers import TENANT_ID_HEADER, USER_SCOPES_HEADER, USER_SUBJECT_HEADER
+from bms_core.edge.headers import SESSION_ID_HEADER, TENANT_ID_HEADER, USER_SCOPES_HEADER, USER_SUBJECT_HEADER
 from bms_core.oauth.token import TOKEN_AUDIENCE_API, BaseServiceTokenIssuer, ServiceTokenSpec
 from bms_core.oauth.user_token import BaseUserTokenIssuer
 from bms_core.oauth.verify import BaseTokenVerifier
@@ -109,6 +109,8 @@ async def introspect(
         headers[TENANT_ID_HEADER] = verified.tenant
     if verified.scopes:
         headers[USER_SCOPES_HEADER] = ",".join(verified.scopes)
+    if verified.token_id:
+        headers[SESSION_ID_HEADER] = verified.token_id
     return Response(status_code=200, headers=headers)
 
 

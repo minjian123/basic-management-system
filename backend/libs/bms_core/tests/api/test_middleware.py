@@ -21,6 +21,7 @@ from bms_core.edge.headers import (
     GATEWAY_IDENTITY_HEADER,
     GATEWAY_IDENTITY_VALUE,
     SERVICE_IDENTITY_HEADER,
+    SESSION_ID_HEADER,
     TENANT_ID_HEADER,
     USER_ID_HEADER,
     USER_SCOPES_HEADER,
@@ -144,6 +145,7 @@ def _build_edge_app(
             "tenant": request.headers.get(TENANT_ID_HEADER),
             "service": request.headers.get(SERVICE_IDENTITY_HEADER),
             "scopes": request.headers.get(USER_SCOPES_HEADER),
+            "session": request.headers.get(SESSION_ID_HEADER),
             "trusted": getattr(request.state, "edge_trusted", None),
             "identity_user": getattr(getattr(request.state, "edge_identity", None), "user_id", None),
         }
@@ -164,6 +166,7 @@ async def test_strips_forged_identity_headers() -> None:
         USER_SUBJECT_HEADER: "forged-subject",
         SERVICE_IDENTITY_HEADER: "forged",
         USER_SCOPES_HEADER: "admin",
+        SESSION_ID_HEADER: "forged-session",
         GATEWAY_IDENTITY_HEADER: "forged-marker",
     }
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
@@ -174,6 +177,7 @@ async def test_strips_forged_identity_headers() -> None:
     assert body["subject"] is None
     assert body["service"] is None
     assert body["scopes"] is None
+    assert body["session"] is None
     assert body["identity_user"] is None
     assert body["trusted"] is False
 
@@ -189,6 +193,7 @@ async def test_injects_trusted_identity_headers_and_context() -> None:
         TENANT_ID_HEADER: "acme",
         USER_SCOPES_HEADER: "user:read,user:write",
         SERVICE_IDENTITY_HEADER: "svc-a",
+        SESSION_ID_HEADER: "sess-1",
     }
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         resp = await client.get("/whoami", headers=headers)
@@ -200,6 +205,7 @@ async def test_injects_trusted_identity_headers_and_context() -> None:
     assert body["tenant"] == "acme"
     assert body["service"] == "svc-a"
     assert body["scopes"] == "user:read,user:write"
+    assert body["session"] == "sess-1"
     assert body["trusted"] is True
 
 

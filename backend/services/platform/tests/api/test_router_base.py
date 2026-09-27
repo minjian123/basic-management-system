@@ -165,40 +165,30 @@ async def test_unified_response_and_error(client: AsyncClient) -> None:
 
 
 @pytest.mark.kiwi_id(779)
-async def test_auth_dependency_passes_when_gate_off() -> None:
-    """鉴权依赖：旁路开关关（未配置 settings）时恒定放行、可作路由级依赖。"""
-    from starlette.requests import Request as StarletteRequest
-
-    request = StarletteRequest({"type": "http", "method": "GET", "path": "/", "headers": [], "app": FastAPI()})
-    assert require_auth(request) is None
-
-    app = FastAPI()
+async def test_auth_dependency_requires_login(client: AsyncClient, service_app: FastAPI) -> None:
+    """鉴权依赖：受保护路由无有效凭证 → AuthError（20001 / 401）。"""
     router = BaseRouter(key="guarded", prefix="/guarded", dependencies=[Depends(require_auth)])
 
     @router.get("/ping")
-    async def _ping() -> dict[str, str]:  # pyright: ignore[reportUnusedFunction]
+    async def _guarded_ping() -> dict[str, str]:  # pyright: ignore[reportUnusedFunction]
         return {"status": "ok"}
 
-    app.include_router(router)
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        resp = await client.get("/guarded/ping")
-        assert resp.status_code == 200
-        assert resp.json() == {"status": "ok"}
+    service_app.include_router(router)
+    resp = await client.get("/guarded/ping", headers={"Authorization": "Bearer not-a-token"})
+    assert resp.status_code == 401
+    assert resp.json()["code"] == 20001
 
 
 @pytest.mark.kiwi_id(2181)
-def test_auth_dependency_enforces_when_gate_on() -> None:
-    """鉴权依赖：旁路开关开且无可信身份 → AuthError（20001 / 401）。"""
-    from types import SimpleNamespace
+async def test_auth_dependency_passes_with_login(client: AsyncClient, service_app: FastAPI) -> None:
+    """鉴权依赖：默认测试登录令牌可作路由级依赖放行。"""
+    router = BaseRouter(key="guarded-ok", prefix="/guarded-ok", dependencies=[Depends(require_auth)])
 
-    from starlette.requests import Request as StarletteRequest
+    @router.get("/ping")
+    async def _guarded_ok_ping() -> dict[str, str]:  # pyright: ignore[reportUnusedFunction]
+        return {"status": "ok"}
 
-    from bms_core.core.exceptions import AuthError
-
-    app = FastAPI()
-    app.state.settings = SimpleNamespace(edge=SimpleNamespace(require_gateway_identity=True))
-    request = StarletteRequest({"type": "http", "method": "GET", "path": "/", "headers": [], "app": app})
-    with pytest.raises(AuthError) as excinfo:
-        require_auth(request)
-    assert excinfo.value.code == 20001
-    assert excinfo.value.http_status == 401
+    service_app.include_router(router)
+    resp = await client.get("/guarded-ok/ping")
+    assert resp.status_code == 200
+    assert resp.json() == {"status": "ok"}

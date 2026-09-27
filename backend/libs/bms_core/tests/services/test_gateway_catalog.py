@@ -104,7 +104,14 @@ def test_render_global_rules_strips_identity_headers() -> None:
     headers = cast("dict[str, Any]", plugin["headers"])
     assert "set" not in headers
     removed = cast("list[str]", headers["remove"])
-    for name in ("X-User-Id", "X-Tenant-Id", "X-User-Scopes", "X-Service-Identity", "X-Gateway-Identity"):
+    for name in (
+        "X-User-Id",
+        "X-Tenant-Id",
+        "X-User-Scopes",
+        "X-Service-Identity",
+        "X-Session-Id",
+        "X-Gateway-Identity",
+    ):
         assert name in removed
 
 
@@ -191,6 +198,7 @@ def test_forward_auth_plugin_config() -> None:
         "X-User-Id",
         "X-Tenant-Id",
         "X-User-Scopes",
+        "X-Session-Id",
     ]
     assert plugin["client_headers"] == ["WWW-Authenticate"]
     assert plugin["timeout"] == gc.AUTH_TIMEOUT_MS == 3000

@@ -19,6 +19,7 @@ from bms_core.notification.null import NullNotificationCenter
 from bms_core.schemas.filters import BaseFilterQuery
 from bms_core.schemas.pagination import BasePageQuery, BasePageResponse
 from bms_notification.main import ApplicationFactory
+from tests_support.auth import auth_headers
 
 API = "/api/v1/notifications"
 
@@ -192,6 +193,7 @@ async def test_routes_with_in_memory_center() -> None:
         center.add("系统公告")
         app.dependency_overrides[get_notification_center] = lambda: center
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            client.headers.update(auth_headers())
             assert (await client.get(f"{API}/unread-count")).json()["data"] == {"count": 2}
 
             listed = await client.get(API, params={"page": 1, "size": 10})

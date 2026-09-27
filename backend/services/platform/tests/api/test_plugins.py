@@ -12,6 +12,7 @@ from httpx import ASGITransport, AsyncClient
 from bms_core.application import service_lifespan as lifespan
 from bms_core.core.config import PluginSelection, Settings
 from bms_platform.main import ApplicationFactory
+from tests_support.auth import auth_headers
 
 
 @pytest.mark.kiwi_id(566)
@@ -81,6 +82,7 @@ async def test_response_excludes_options_secrets(monkeypatch: pytest.MonkeyPatch
     monkeypatch.setattr("bms_core.application.get_settings", lambda: settings)
     app = ApplicationFactory().create(None)
     async with lifespan(app), AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        client.headers.update(auth_headers())
         resp = await client.get("/api/v1/plugins")
     assert resp.status_code == 200
     assert "top-secret" not in resp.text
@@ -119,6 +121,7 @@ async def test_aggregate_excludes_options_secrets(monkeypatch: pytest.MonkeyPatc
     monkeypatch.setattr("bms_core.application.get_settings", lambda: settings)
     app = ApplicationFactory().create(None)
     async with lifespan(app), AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        client.headers.update(auth_headers())
         resp = await client.get("/api/v1/plugins/aggregate")
     assert resp.status_code == 200
     assert "top-secret" not in resp.text

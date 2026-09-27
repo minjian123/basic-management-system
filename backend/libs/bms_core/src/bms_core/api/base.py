@@ -8,28 +8,36 @@
 - `RouterRegistry` / `register_router` / `build_api_router`：路由登记（`key` 唯一拒重）与统一挂载。
 - `page_query` / `sort_query` / `cursor_query`：分页 / 排序 / 游标参数统一 `Depends` 绑定工厂
   （复用 `BasePageQuery` / `BaseSortQuery` / `BaseCursorQuery`）。
-- `require_auth`：登录态依赖（按 `[edge].require_gateway_identity` 门控可信边缘身份；开关关时恒定放行）；
-  细粒度权限校验沿用 `require_permission`（阶段七）。
+- `AuthContext`：登录态依赖的归一身份契约（subject / user_id / tenant / session_id / scopes /
+  service_identity / source）。
+- `require_auth`：登录态依赖（**恒定强制**）——消费可信边缘身份（网关路径）或本地校验 Bearer 用户令牌
+  （`aud=api`），校验每请求会话标记存在性，写请求上下文并返回 `AuthContext`；失败抛 `AuthError`
+  （20001 / 401）或 `SessionAuthError`（20012 / 401）。细粒度权限校验沿用 `require_permission`（阶段七）。
 """
 
 from collections.abc import Awaitable, Callable, Mapping, Sequence
-from typing import Annotated, Any
+from dataclasses import dataclass, replace
+from typing import Annotated, Any, cast
 
 from fastapi import APIRouter, Depends, Header, Query, Request, params
 from pydantic import ValidationError
 
 from bms_core.core.base import BaseObject
-from bms_core.core.exceptions import AuthError, ConflictError, ParamError
-from bms_core.edge.base import require_edge_identity
-from bms_core.oauth.token import TOKEN_AUDIENCE_SERVICE
+from bms_core.core.context import get_current_client_ip, set_current_tenant, set_current_user_id, set_tenant_context
+from bms_core.core.exceptions import AuthError, ConflictError, ParamError, SessionAuthError
+from bms_core.db.tenant import TenantContext, build_tenant_db_key, tenant_hostname
+from bms_core.edge.base import EdgeIdentity
+from bms_core.oauth.token import TOKEN_AUDIENCE_API, TOKEN_AUDIENCE_SERVICE
 from bms_core.oauth.verify import BaseTokenVerifier, VerifiedToken, get_token_verifier
 from bms_core.schemas.common import ApiResponse
 from bms_core.schemas.pagination import BaseCursorQuery, BasePageQuery
 from bms_core.schemas.sorting import BaseSortQuery
+from bms_core.session.base import BaseSessionStore, get_session_store
 
 __all__ = [
     "API_PREFIX",
     "DEFAULT_RESPONSES",
+    "AuthContext",
     "BaseRouter",
     "RouterRegistry",
     "build_api_router",
@@ -323,25 +331,239 @@ def cursor_query(
     return _build_query(lambda: BaseCursorQuery(cursor=cursor, limit=limit, order_by=order_by, order=order))
 
 
-def require_auth(request: Request) -> None:
-    """登录态依赖：按 `[edge].require_gateway_identity` 门控可信边缘身份。
+@dataclass(frozen=True)
+class AuthContext(BaseObject):
+    """登录态归一身份契约（受保护路由的统一登录态入口）。"""
 
-    开关关（dev / test）→ 恒定放行（保留占位语义，调用面 `Depends(require_auth)` 零改动）；
-    开关开 → 取请求态可信身份（`require_edge_identity`），缺失（未认证 / 网关旁路）抛
-    `AuthError`（20001 / 401）。细粒度权限码校验沿用 `bms_core.permission.base.require_permission`
-    （阶段七）。
+    subject: str
+    """登录主体（本地登录 = 用户 id 字符串；SSO = 映射后主体）。"""
+
+    user_id: int | None = None
+    """内部用户数字标识（subject 可解析为整数时取之；否则 None）。"""
+
+    tenant: str | None = None
+    """生效租户编码。"""
+
+    session_id: str | None = None
+    """会话 id（= access `jti`；会话标记键依据）。"""
+
+    scopes: tuple[str, ...] = ()
+    """授权范围（网关身份头 / 本地令牌 `scope`）。"""
+
+    service_identity: str | None = None
+    """网关 / 服务身份（网关路径为 `gateway`；本地路径为空）。"""
+
+    source: str = "token"
+    """身份来源（`gateway` / `token`；诊断与审计用）。"""
+
+
+def _as_user_id(subject: str | None) -> int | None:
+    """把主体字符串解析为内部用户数字标识（不可解析返回 None）。
 
     Args:
-        request: 请求对象（取应用配置与请求态可信身份）。
+        subject: 登录主体（可能为非数字的外部 IdP `sub`）。
+
+    Returns:
+        int | None: 数字标识；非数字 / 空为 None。
+    """
+    if not subject:
+        return None
+    text = subject.strip()
+    if not text.lstrip("-").isdigit():
+        return None
+    try:
+        return int(text)
+    except ValueError:  # pragma: no cover - 形态已由 isdigit 保证
+        return None
+
+
+def _explicit_tenant(request: Request) -> bool:
+    """请求是否携带**显式**租户来源（子域名 / `X-Tenant-ID`）。
+
+    Args:
+        request: 请求对象。
+
+    Returns:
+        bool: 显式来源存在为 True（用于与令牌租户不一致时的跨租户判定）。
+    """
+    if request.headers.get("X-Tenant-ID"):
+        return True
+    return tenant_hostname(request.headers.get("host")) is not None
+
+
+def _tenant_context(code: str) -> TenantContext:
+    """按编码构造租户上下文（兜底口径，与 `current_tenant_context` 一致）。
+
+    Args:
+        code: 租户编码。
+
+    Returns:
+        TenantContext: 租户上下文（含派生库键）。
+    """
+    return TenantContext(tenant_code=code, db_key=build_tenant_db_key(code), name=code)
+
+
+def _context_from_identity(identity: EdgeIdentity) -> AuthContext:
+    """由可信边缘身份组装登录态（网关路径）。
+
+    Args:
+        identity: 请求态可信边缘身份。
+
+    Returns:
+        AuthContext: 登录态身份契约。
 
     Raises:
-        AuthError: 旁路开关开启且无可信边缘身份（20001 / 401）。
+        AuthError: 可信身份不含用户主体（纯服务身份，非用户登录；20001 / 401）。
     """
+    subject = identity.subject
+    user_id = identity.user_id
+    if not subject and user_id is None:
+        raise AuthError("缺少可信用户身份")
+    if not subject:
+        subject = str(user_id)
+    return AuthContext(
+        subject=subject,
+        user_id=user_id if user_id is not None else _as_user_id(subject),
+        tenant=identity.tenant_code,
+        session_id=identity.session_id,
+        scopes=identity.scopes,
+        service_identity=identity.service_identity,
+        source="gateway",
+    )
+
+
+async def _context_from_token(request: Request, verifier: BaseTokenVerifier) -> AuthContext:
+    """由本地 Bearer 用户令牌组装登录态（直连路径）。
+
+    Args:
+        request: 请求对象。
+        verifier: 统一令牌校验器（按 `aud=api` 校验用户令牌）。
+
+    Returns:
+        AuthContext: 登录态身份契约。
+
+    Raises:
+        AuthError: 缺少 / 无效用户令牌（20001 / 401）。
+    """
+    token = _bearer_token(request.headers.get("Authorization"))
+    if token is None:
+        raise AuthError("缺少登录凭证")
+    verified = await verifier.verify(token, audience=TOKEN_AUDIENCE_API)
+    return AuthContext(
+        subject=verified.subject,
+        user_id=_as_user_id(verified.subject),
+        tenant=verified.tenant,
+        session_id=verified.token_id or None,
+        scopes=verified.scopes,
+        source="token",
+    )
+
+
+async def require_auth(
+    request: Request,
+    verifier: Annotated[BaseTokenVerifier, Depends(get_token_verifier)],
+    store: Annotated[BaseSessionStore, Depends(get_session_store)],
+) -> AuthContext:
+    """登录态依赖（恒定强制）：组装身份 → 租户接线 → 会话标记校验 → 写上下文。
+
+    - **来源二选一**：请求态可信边缘身份（网关路径）→ 本地 Bearer 用户令牌（`aud=api`）；
+    - **租户接线**：网关路径取网关注入租户（中间件已解析）；本地路径以令牌租户兜底写请求态与上下文，
+      显式来源与令牌租户不一致即拒（跨租户）；
+    - **会话标记**：`BaseSessionStore.load(session_id, tenant)` 未命中 ⇒ `SessionAuthError`（20012 / 401）；
+    - 细粒度权限码校验沿用 `require_permission`（阶段七）。
+
+    Args:
+        request: 请求对象。
+        verifier: 统一令牌校验器。
+        store: 会话标记存储（每请求一次读）。
+
+    Returns:
+        AuthContext: 归一登录态身份。
+
+    Raises:
+        AuthError: 缺少 / 无效登录凭证、纯服务身份、或缺会话标识（20001 / 401）。
+        SessionAuthError: 会话标记不存在或设备 / IP 不一致（20012 / 401）。
+    """
+    state: dict[str, object] = request.scope.setdefault("state", {})
+    identity = cast("EdgeIdentity | None", state.get("edge_identity"))
+    context = _context_from_identity(identity) if identity is not None else await _context_from_token(request, verifier)
+    context = _wire_tenant(request, context)
+    await _verify_session(request, store, context)
+    set_current_user_id(context.user_id)
+    if context.tenant:
+        set_current_tenant(context.tenant)
+    return context
+
+
+def _wire_tenant(request: Request, context: AuthContext) -> AuthContext:
+    """租户解析接线：以令牌租户兜底写请求态与上下文；显式来源不一致即拒。
+
+    Args:
+        request: 请求对象。
+        context: 已组装登录态（含令牌租户）。
+
+    Returns:
+        AuthContext: 补齐租户后的登录态。
+
+    Raises:
+        AuthError: 显式租户来源与令牌租户不一致（跨租户；20001 / 401）。
+    """
+    state: dict[str, object] = request.scope.setdefault("state", {})
+    resolved = cast("TenantContext | None", state.get("tenant"))
+    token_tenant = context.tenant
+    if token_tenant and (resolved is None or (resolved.tenant_code != token_tenant and not _explicit_tenant(request))):
+        adopted = _tenant_context(token_tenant)
+        state["tenant"] = adopted
+        set_tenant_context(adopted)
+        return context
+    if resolved is not None:
+        if token_tenant and _explicit_tenant(request) and resolved.tenant_code != token_tenant:
+            raise AuthError("跨租户访问被拒")
+        if not context.tenant:
+            return replace(context, tenant=resolved.tenant_code)
+    return context
+
+
+async def _verify_session(request: Request, store: BaseSessionStore, context: AuthContext) -> None:
+    """每请求会话标记存在性校验（可选设备 / IP 一致性）。
+
+    Args:
+        request: 请求对象。
+        store: 会话标记存储。
+        context: 归一登录态身份。
+
+    Raises:
+        AuthError: 缺少会话标识（20001 / 401）。
+        SessionAuthError: 会话标记不存在或设备 / IP 不一致（20012 / 401）。
+    """
+    if not context.session_id:
+        raise AuthError("登录凭证缺少会话标识")
+    payload = await store.load(context.session_id, tenant=context.tenant)
+    if payload is None:
+        raise SessionAuthError("登录会话已失效")
     settings = getattr(request.app.state, "settings", None)
-    edge_settings = getattr(settings, "edge", None)
-    if not bool(getattr(edge_settings, "require_gateway_identity", False)):
-        return
-    require_edge_identity(request)
+    session_settings = getattr(settings, "session", None)
+    if bool(getattr(session_settings, "device_check", False)) and not _device_matches(request, payload):
+        raise SessionAuthError("登录设备或地址不一致")
+
+
+def _device_matches(request: Request, payload: Mapping[str, object]) -> bool:
+    """设备 / IP 一致性判定（两侧均非空才比对，任一侧缺失不判）。
+
+    Args:
+        request: 请求对象。
+        payload: 会话标记载荷（登录 / 刷新写入的 `ip` / `ua`）。
+
+    Returns:
+        bool: 一致为 True。
+    """
+    stored_ip = payload.get("ip")
+    current_ip = get_current_client_ip()
+    if isinstance(stored_ip, str) and stored_ip and current_ip and stored_ip != current_ip:
+        return False
+    stored_ua = payload.get("ua")
+    current_ua = request.headers.get("user-agent")
+    return not (isinstance(stored_ua, str) and stored_ua and current_ua and stored_ua != current_ua)
 
 
 def require_service(*allowed_services: str) -> Callable[..., Awaitable[VerifiedToken]]:
