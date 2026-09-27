@@ -98,8 +98,9 @@ def _client(
     rate_limiter: BaseRateLimiter | None = None,
     token_issuer: BaseServiceTokenIssuer | None = None,
     attach_service_token: bool = False,
+    caller: str = "identity",
 ) -> HttpServiceClient:
-    """构造带 MockTransport 的 HttpServiceClient（缺省占位韧性）。"""
+    """构造带 MockTransport 的 HttpServiceClient（缺省占位韧性；调用方身份 identity）。"""
     return HttpServiceClient(
         circuit_breaker=circuit or NullCircuitBreaker(),
         fallback_policy=fallback or NullFallbackPolicy(),
@@ -107,6 +108,7 @@ def _client(
         base_url_template=_BASE_TEMPLATE,
         token_issuer=token_issuer,
         attach_service_token=attach_service_token,
+        caller=caller,
         transport=httpx.MockTransport(handler),
     )
 
@@ -448,7 +450,7 @@ async def test_outbound_strips_inbound_authorization() -> None:
 
 @pytest.mark.kiwi_id(2180)
 async def test_outbound_attaches_service_token_when_enabled() -> None:
-    """开启出站换券：剥离入站 `Authorization` 并按目标服务附自签服务 JWT。"""
+    """开启出站换券：剥离入站 `Authorization` 并按**调用方**服务标识附自签服务 JWT。"""
     captured: dict[str, object] = {}
     issuer = StubTokenIssuer()
 
@@ -464,7 +466,7 @@ async def test_outbound_attaches_service_token_when_enabled() -> None:
     assert response.status_code == 200
     headers = cast("dict[str, str]", captured["headers"])
     assert headers.get("authorization") == "Bearer service-jwt"
-    assert issuer.specs == [ServiceTokenSpec(service="platform", scopes=("user:read",))]
+    assert issuer.specs == [ServiceTokenSpec(service="identity", scopes=("user:read",))]
 
 
 @pytest.mark.kiwi_id(2194)
@@ -478,7 +480,26 @@ async def test_outbound_service_token_carries_tenant() -> None:
     client = _client(handler, token_issuer=issuer, attach_service_token=True)
     await client.call(_request(method="POST", tenant="demo"))
     await client.aclose()
-    assert issuer.specs == [ServiceTokenSpec(service="platform", scopes=(), tenant="demo")]
+    assert issuer.specs == [ServiceTokenSpec(service="identity", scopes=(), tenant="demo")]
+
+
+@pytest.mark.kiwi_id(2180)
+async def test_outbound_missing_caller_not_attached() -> None:
+    """开关开启但调用方标识未注入：不附令牌（不冒充目标服务）。"""
+    captured: dict[str, object] = {}
+    issuer = StubTokenIssuer()
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["headers"] = dict(request.headers)
+        return httpx.Response(200)
+
+    client = _client(handler, token_issuer=issuer, attach_service_token=True, caller="")
+    response = await client.call(_request(headers={"Authorization": "Bearer user-token"}))
+    await client.aclose()
+    assert response.status_code == 200
+    headers = cast("dict[str, str]", captured["headers"])
+    assert "authorization" not in headers
+    assert issuer.specs == []
 
 
 @pytest.mark.kiwi_id(2180)

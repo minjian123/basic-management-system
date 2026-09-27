@@ -604,6 +604,7 @@ class HttpServiceClientFactory(BasePluginFactory[HttpServiceClient]):
             base_url_template=cast("str", template),
             token_issuer=service_token,
             attach_service_token=attach_service_token,
+            caller=self._settings.app.service or "",
         )
 
 

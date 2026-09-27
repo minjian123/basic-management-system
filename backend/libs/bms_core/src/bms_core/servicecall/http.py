@@ -54,6 +54,7 @@ class HttpServiceClient(BaseServiceClient):
         base_url_template: str,
         token_issuer: BaseServiceTokenIssuer | None = None,
         attach_service_token: bool = False,
+        caller: str = "",
         transport: httpx.AsyncBaseTransport | None = None,
     ) -> None:
         """初始化。
@@ -63,8 +64,10 @@ class HttpServiceClient(BaseServiceClient):
             fallback_policy: 降级策略（复用 `BaseFallbackPolicy`）。
             rate_limiter: 限流器（复用 `BaseRateLimiter`）。
             base_url_template: 基址模板（占位 `{service}`）。
-            token_issuer: 服务 JWT 签发者（开启出站换券时按目标服务签发；缺省不附）。
+            token_issuer: 服务 JWT 签发者（开启出站换券时按**调用方**服务标识签发；缺省不附）。
             attach_service_token: 出站附服务 JWT 开关（默认关；生产开启）。
+            caller: 调用方服务标识（服务 JWT 的 `sub` / `service`；东西向身份取调用方，
+                空串时不附令牌——装配方须注入本服务标识）。
             transport: httpx 传输（缺省真实网络；测试注入替身）。
         """
         self._circuit = circuit_breaker
@@ -73,6 +76,7 @@ class HttpServiceClient(BaseServiceClient):
         self._base_url_template = base_url_template
         self._token_issuer = token_issuer
         self._attach_service_token = attach_service_token
+        self._caller = caller
         self._transport = transport
         self._client: httpx.AsyncClient | None = None
 
@@ -131,6 +135,9 @@ class HttpServiceClient(BaseServiceClient):
     async def _outbound_headers(self, request: ServiceRequest) -> dict[str, str]:
         """构造出站请求头：剥离入站 `Authorization`，按开关附自签服务 JWT。
 
+        东西向服务身份取**调用方**服务标识（`self._caller`）——目标服务的入站校验按
+        `require_service("<调用方>")` 白名单判定；`caller` 未注入时不附令牌（不冒充目标服务）。
+
         Args:
             request: 调用请求。
 
@@ -140,9 +147,9 @@ class HttpServiceClient(BaseServiceClient):
         headers = {
             name: value for name, value in (request.headers or {}).items() if name.lower() != AUTHORIZATION_HEADER
         }
-        if self._attach_service_token and self._token_issuer is not None:
+        if self._attach_service_token and self._token_issuer is not None and self._caller:
             token = await self._token_issuer.issue(
-                ServiceTokenSpec(service=request.service, scopes=request.policy.scopes, tenant=request.tenant)
+                ServiceTokenSpec(service=self._caller, scopes=request.policy.scopes, tenant=request.tenant)
             )
             if token.access_token:
                 headers["Authorization"] = f"Bearer {token.access_token}"
