@@ -34,6 +34,7 @@ from bms_core.icon.null import NullIconRegistry
 from bms_platform.api.icon import router as icon_router
 from bms_platform.main import ApplicationFactory
 from bms_platform.models.system import SysIcon, SysIconI18n
+from tests_support.auth import auth_headers
 
 API = "/api/v1/icons"
 
@@ -358,6 +359,7 @@ async def test_icon_create_idempotency_first_call_and_reuse() -> None:
     double = _RecordingIdempotency()
     app.dependency_overrides[get_idempotency_store] = lambda: double
     async with lifespan(app), AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        client.headers.update(auth_headers())
         first = await client.post(API, json=_ICON_BODY, headers={"Idempotency-Key": "k-1"})
         second = await client.post(API, json={**_ICON_BODY, "name": "其他"}, headers={"Idempotency-Key": "k-1"})
 
@@ -373,6 +375,7 @@ async def test_icon_update_idempotency_without_cached_result_executes() -> None:
     stale = _StaleIdempotency()
     app.dependency_overrides[get_idempotency_store] = lambda: stale
     async with lifespan(app), AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        client.headers.update(auth_headers())
         resp = await client.put(f"{API}/purchase-order", json={"name": "新名称"}, headers={"Idempotency-Key": "k-2"})
 
     assert resp.json()["data"]["name"] == "新名称"
@@ -386,6 +389,7 @@ async def test_icon_update_and_delete_idempotency_reuse() -> None:
     double = _RecordingIdempotency()
     app.dependency_overrides[get_idempotency_store] = lambda: double
     async with lifespan(app), AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        client.headers.update(auth_headers())
         updated = await client.put(f"{API}/purchase-order", json={"name": "甲"}, headers={"Idempotency-Key": "k-3"})
         updated_again = await client.put(
             f"{API}/purchase-order", json={"name": "乙"}, headers={"Idempotency-Key": "k-3"}

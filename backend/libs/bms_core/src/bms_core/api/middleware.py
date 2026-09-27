@@ -57,6 +57,7 @@ from bms_core.edge.headers import (
     DEFAULT_EDGE_EXEMPT_PATHS,
     GATEWAY_IDENTITY_HEADER,
     SERVICE_IDENTITY_HEADER,
+    SESSION_ID_HEADER,
     TENANT_ID_HEADER,
     USER_ID_HEADER,
     USER_SCOPES_HEADER,
@@ -362,6 +363,7 @@ class EdgeGuardMiddleware(BaseObject):
             USER_SUBJECT_HEADER.lower(),
             USER_SCOPES_HEADER.lower(),
             SERVICE_IDENTITY_HEADER.lower(),
+            SESSION_ID_HEADER.lower(),
         }
         if enforced or trusted:
             drops.add(TENANT_ID_HEADER.lower())
@@ -396,6 +398,8 @@ def _identity_headers(identity: EdgeIdentity | None) -> dict[str, str]:
         headers[USER_SCOPES_HEADER] = ",".join(identity.scopes)
     if identity.service_identity:
         headers[SERVICE_IDENTITY_HEADER] = identity.service_identity
+    if identity.session_id:
+        headers[SESSION_ID_HEADER] = identity.session_id
     return headers
 
 

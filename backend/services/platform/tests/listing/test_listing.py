@@ -22,6 +22,7 @@ from bms_core.listing.base import (
 )
 from bms_core.listing.null import NullQuerySchemeStore
 from bms_platform.main import ApplicationFactory
+from tests_support.auth import auth_headers
 
 API = "/api/v1/query-schemes"
 
@@ -165,6 +166,7 @@ async def test_routes_with_in_memory_store() -> None:
         store = _InMemorySchemeStore()
         app.dependency_overrides[get_query_scheme_store] = lambda: store
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            client.headers.update(auth_headers())
             created = await client.post(API, json={"name": "我的方案", "target": "business", "is_default": True})
             scheme_id = created.json()["data"]["id"]
             assert scheme_id is not None

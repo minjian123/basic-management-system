@@ -146,7 +146,7 @@ def test_protected_path_without_forwarded_uri_uses_request_path() -> None:
 
 
 def test_protected_path_with_minimal_claims_omits_optional_headers() -> None:
-    """无租户 / scope 声明时不返回对应身份头（可选头分支）。"""
+    """无租户 / scope / 会话声明时不返回对应身份头（可选头分支）。"""
     status, headers = asyncio.run(
         _request(
             verifier=_StubVerifier(result=VerifiedToken(subject="u-1")),
@@ -158,12 +158,15 @@ def test_protected_path_with_minimal_claims_omits_optional_headers() -> None:
     assert headers["x-user-subject"] == "u-1"
     assert "x-tenant-id" not in headers
     assert "x-user-scopes" not in headers
+    assert "x-session-id" not in headers
 
 
 def test_protected_path_with_valid_token_issues_gateway_token() -> None:
-    """受保护路径：校验通过后返回契约身份头 + 网关服务 JWT（可验签）。"""
+    """受保护路径：校验通过后返回契约身份头（含会话 id）+ 网关服务 JWT（可验签）。"""
     issuer = _issuer()
-    verifier = _StubVerifier(result=VerifiedToken(subject="u-1", tenant="acme", scopes=("user:read", "user:write")))
+    verifier = _StubVerifier(
+        result=VerifiedToken(subject="u-1", tenant="acme", scopes=("user:read", "user:write"), token_id="sess-1")
+    )
     status, headers = asyncio.run(
         _request(
             verifier=verifier,
@@ -176,6 +179,7 @@ def test_protected_path_with_valid_token_issues_gateway_token() -> None:
     assert headers["x-user-subject"] == "u-1"
     assert headers["x-tenant-id"] == "acme"
     assert headers["x-user-scopes"] == "user:read,user:write"
+    assert headers["x-session-id"] == "sess-1"
     claims = issuer.verify(headers["authorization"].removeprefix("Bearer "))
     assert claims.subject == "gateway"
     assert claims.payload["tenant"] == "acme"

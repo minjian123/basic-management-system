@@ -21,6 +21,7 @@ from bms_core.core.context import (
 from bms_platform.main import ApplicationFactory
 from ops.seed_module import seed_modules
 from ops.seed_tenant import seed_tenants
+from tests_support.auth import auth_headers, configure_token_env
 
 
 @pytest.fixture(autouse=True)
@@ -49,6 +50,8 @@ def isolate_settings(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     monkeypatch.setenv("BMS_SERVICE_CLIENT__PROVIDER", "")
     monkeypatch.setenv("BMS_SESSION_STORE__PROVIDER", "")
     monkeypatch.setenv("BMS_RATE_LIMITER__PROVIDER", "")
+    # 登录态依赖真实化（01_05）：注入测试用户令牌密钥，使受保护路由在真实鉴权下可验签
+    configure_token_env(monkeypatch)
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()
@@ -134,4 +137,5 @@ async def client(service_app: FastAPI) -> AsyncIterator[AsyncClient]:
     平台库与租户种子由 autouse 的 `platform_db` 夹具提供；租户缓存用例前后清空。
     """
     async with AsyncClient(transport=ASGITransport(app=service_app), base_url="http://test") as c:
+        c.headers.update(auth_headers())
         yield c

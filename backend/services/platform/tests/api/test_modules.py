@@ -11,6 +11,7 @@ from bms_core.core.exceptions import CatalogError
 from bms_core.schemas.module import ModuleResponse
 from bms_platform import CONTRACT_VERSION
 from bms_platform.main import ApplicationFactory
+from tests_support.auth import auth_headers
 
 _EXPECTED_KEYS = [
     "sys",
@@ -37,6 +38,7 @@ async def test_list_modules_contract() -> None:
     """GET /api/v1/modules 分页结构（16 行）；status / group 筛选；POST/PUT/DELETE 405。"""
     app = ApplicationFactory().create(None)
     async with lifespan(app), AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        client.headers.update(auth_headers())
         resp = await client.get("/api/v1/modules")
         assert resp.status_code == 200
         body = resp.json()
@@ -135,6 +137,7 @@ async def test_list_modules_empty_catalog(tmp_path: Path, monkeypatch: pytest.Mo
     get_settings.cache_clear()
     app = ApplicationFactory().create(None)
     async with lifespan(app), AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        client.headers.update(auth_headers())
         listed = await client.get("/api/v1/modules")
         assert listed.json()["data"] == {"list": [], "total": 0, "page": 1, "size": 20}
 

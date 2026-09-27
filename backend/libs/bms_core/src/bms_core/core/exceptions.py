@@ -178,6 +178,23 @@ class SessionRevokedError(SessionError):
         BizError.__init__(self, ErrorCode.SESSION_REVOKED, message, data=data)
 
 
+class SessionAuthError(SessionError):
+    """登录态会话失效（请求鉴权链；`20012` / 401）。
+
+    与 `SessionExpiredError`（同码、业务失败 HTTP 200）分场景：本异常用于**每请求登录态校验**
+    （会话标记缺失 = 已踢出 / 登出 / 超限作废，或设备 / IP 不一致），一律 401 促前端重新登录。
+    """
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化登录态会话失效异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.SESSION_EXPIRED, message, http_status=401, data=data)
+
+
 class CaptchaError(AuthError):
     """验证码段（认证段内 `201xx` 子段）异常基类；子类在构造时预置码位与 HTTP 状态。"""
 

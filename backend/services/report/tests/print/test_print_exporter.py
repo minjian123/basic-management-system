@@ -43,6 +43,7 @@ from bms_core.print.null import NullPrintExporter, NullPrintTemplateProvider
 from bms_core.storage.base import DEFAULT_PRESIGN_TTL
 from bms_report.api.print import router as print_router
 from bms_report.main import ApplicationFactory
+from tests_support.auth import auth_headers
 
 API = "/api/v1/prints"
 
@@ -440,6 +441,7 @@ async def test_export_idempotency_reuses_first_result() -> None:
     double = _RecordingIdempotency()
     app.dependency_overrides[get_idempotency_store] = lambda: double
     async with lifespan(app), AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        client.headers.update(auth_headers())
         first = await client.post(
             f"{API}/exports",
             json={"template_key": "order", "document": {"biz_key": "SO-1"}},
@@ -463,6 +465,7 @@ async def test_batch_idempotency_without_cached_result_executes() -> None:
     stale = _StaleIdempotency()
     app.dependency_overrides[get_idempotency_store] = lambda: stale
     async with lifespan(app), AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        client.headers.update(auth_headers())
         resp = await client.post(
             f"{API}/batch",
             json={"template_key": "order", "keys": ["SO-1"]},
@@ -480,6 +483,7 @@ async def test_batch_idempotency_reuses_first_result() -> None:
     double = _RecordingIdempotency()
     app.dependency_overrides[get_idempotency_store] = lambda: double
     async with lifespan(app), AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        client.headers.update(auth_headers())
         first = await client.post(
             f"{API}/batch",
             json={"template_key": "order", "keys": ["SO-1"]},
@@ -517,6 +521,7 @@ async def test_route_templates_mapping_with_stub_provider() -> None:
     app = ApplicationFactory().create(None)
     app.dependency_overrides[get_print_template_provider] = _StubTemplateProvider
     async with lifespan(app), AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        client.headers.update(auth_headers())
         listed = await client.get(f"{API}/templates")
         detail = await client.get(f"{API}/templates/order")
 

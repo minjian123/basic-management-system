@@ -13,6 +13,7 @@ from bms_core.db.tenant import DEMO_TENANT
 from bms_core.ratelimit.memory import MemoryRateLimiter
 from bms_core.session.memory import MemorySessionStore
 from bms_identity.models.session import SysSession
+from tests_support.auth import TEST_SESSION_ID, TEST_TENANT
 
 from .helpers import (
     FakeOrgClient,
@@ -36,7 +37,7 @@ def utc_now() -> datetime:
     return datetime.now(UTC).replace(tzinfo=None)
 
 
-def wire_login(
+async def wire_login(
     app: FastAPI,
     *,
     user_id: int = 1001,
@@ -44,6 +45,9 @@ def wire_login(
     publisher: RecordingRealtimePublisher | None = None,
 ) -> tuple[FakeUserTokenIssuer, MemorySessionStore, RecordingRealtimePublisher]:
     """装配登录链路替身（签发者 / 会话存储 / 限流 / 广播记录）。
+
+    会话存储为进程内替身；预置一枚「默认测试令牌」的会话标记，使受保护路由在 01_05 真实登录态
+    依赖下仍可由测试客户端默认令牌通过（不干扰登录产生的真实会话与计数）。
 
     Args:
         app: 应用实例。
@@ -56,6 +60,11 @@ def wire_login(
     """
     issuer, org, store, limiter = FakeUserTokenIssuer(), FakeOrgClient(), MemorySessionStore(), MemoryRateLimiter()
     org.set_user("admin", password="secret", user_id=user_id, name="管理员")
+    await store.save(
+        TEST_SESSION_ID,
+        {"user_id": user_id, "tenant": TEST_TENANT},
+        tenant=TEST_TENANT,
+    )
     wire_auth(app, issuer=issuer, org=org, store=store, limiter=limiter)
     recorder = publisher or RecordingRealtimePublisher()
     wire_publisher(app, recorder)

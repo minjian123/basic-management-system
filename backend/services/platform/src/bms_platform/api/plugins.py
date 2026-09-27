@@ -2,16 +2,16 @@
 
 from typing import Annotated, cast
 
-from fastapi import Path, Request
+from fastapi import Depends, Path, Request
 
-from bms_core.api.base import BaseRouter
+from bms_core.api.base import BaseRouter, require_auth
 from bms_core.core.assembly import PLUGIN_WIRINGS
 from bms_core.core.exceptions import NotFoundError
 from bms_core.core.plugin import NULL_PLUGIN_NAME, PluginImpl, plugin_registry_snapshot
 from bms_core.schemas.common import ApiResponse
 from bms_core.schemas.plugin import PluginAggregateResponse, PluginGroupResponse, PluginImplementationResponse
 
-router = BaseRouter(key="plugins", prefix="/plugins", tags=["plugin"])
+router = BaseRouter(key="plugins", prefix="/plugins", tags=["plugin"], dependencies=[Depends(require_auth)])
 
 _PORT_VERSIONS: dict[str, str] = {wiring.plugin_key: wiring.port.contract_version for wiring in PLUGIN_WIRINGS}
 """登记能力 → 端口契约版本（工厂实现报端口版本）。"""

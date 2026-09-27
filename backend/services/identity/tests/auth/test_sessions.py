@@ -14,7 +14,7 @@ from .session_helpers import API_SESSIONS, TENANT_HEADERS, login, seed_session, 
 @pytest.mark.kiwi_id(2195)
 async def test_list_active_sessions_and_pagination(client: AsyncClient, service_app: FastAPI) -> None:
     """列表仅未撤销未过期会话；分页 total / page / size 正确。"""
-    issuer, _store, _recorder = wire_login(service_app)
+    issuer, _store, _recorder = await wire_login(service_app)
     assert (await login(client)).status_code == 200
     assert (await login(client, headers={"user-agent": "UA-2"})).status_code == 200
     assert (await login(client)).status_code == 200
@@ -36,7 +36,7 @@ async def test_list_active_sessions_and_pagination(client: AsyncClient, service_
 @pytest.mark.kiwi_id(2195)
 async def test_list_excludes_revoked_and_expired(client: AsyncClient, service_app: FastAPI) -> None:
     """列表排除已撤销（revoked_at 非空）与已过期（expires_at 过去）会话。"""
-    _issuer, _store, _recorder = wire_login(service_app)
+    _issuer, _store, _recorder = await wire_login(service_app)
     now = utc_now()
     await seed_session(service_app, session_id="9001", revoked_at=now)
     await seed_session(service_app, session_id="9002", expires_at=now - timedelta(minutes=1))
@@ -51,7 +51,7 @@ async def test_list_excludes_revoked_and_expired(client: AsyncClient, service_ap
 @pytest.mark.kiwi_id(2195)
 async def test_list_filter_user_device_and_time(client: AsyncClient, service_app: FastAPI) -> None:
     """列表筛选：user_id 精确、device 模糊、登录时间闭区间。"""
-    _issuer, _store, _recorder = wire_login(service_app)
+    _issuer, _store, _recorder = await wire_login(service_app)
     assert (await login(client, headers={"user-agent": "UA-Alpha"})).status_code == 200
     await seed_session(service_app, session_id="9101", user_id=2002, device="UA-Beta")
 
@@ -82,7 +82,7 @@ async def test_list_filter_user_device_and_time(client: AsyncClient, service_app
 @pytest.mark.kiwi_id(2195)
 async def test_detail_returns_any_record_including_revoked(client: AsyncClient, service_app: FastAPI) -> None:
     """详情返回任意记录（含已撤销），展示 revoked_at。"""
-    _issuer, _store, _recorder = wire_login(service_app)
+    _issuer, _store, _recorder = await wire_login(service_app)
     now = utc_now()
     await seed_session(service_app, session_id="9201", revoked_at=now, device="UA-X", ip="10.0.0.9")
 
@@ -96,7 +96,7 @@ async def test_detail_returns_any_record_including_revoked(client: AsyncClient, 
 @pytest.mark.kiwi_id(2195)
 async def test_detail_not_found(client: AsyncClient, service_app: FastAPI) -> None:
     """详情会话不存在 → 20011 / 404。"""
-    wire_login(service_app)
+    await wire_login(service_app)
     resp = await client.get(f"{API_SESSIONS}/not-exist", headers=TENANT_HEADERS)
     assert resp.status_code == 404 and resp.json()["code"] == 20011
 
@@ -104,7 +104,7 @@ async def test_detail_not_found(client: AsyncClient, service_app: FastAPI) -> No
 @pytest.mark.kiwi_id(2195)
 async def test_list_requires_tenant_context(client: AsyncClient, service_app: FastAPI) -> None:
     """无租户上下文 → 认证错误（20001 / 401）。"""
-    wire_login(service_app)
+    await wire_login(service_app)
     service_app.dependency_overrides[get_tenant] = lambda: None
     resp = await client.get(API_SESSIONS)
     assert resp.status_code == 401 and resp.json()["code"] == 20001

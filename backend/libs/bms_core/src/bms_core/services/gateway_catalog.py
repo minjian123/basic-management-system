@@ -35,6 +35,7 @@ from typing import cast
 from bms_core.edge.headers import (
     GATEWAY_IDENTITY_HEADER,
     GATEWAY_IDENTITY_VALUE,
+    SESSION_ID_HEADER,
     STRIPPED_HEADERS,
     TENANT_ID_HEADER,
     USER_ID_HEADER,
@@ -180,6 +181,7 @@ AUTH_UPSTREAM_HEADERS: tuple[str, ...] = (
     USER_ID_HEADER,
     TENANT_ID_HEADER,
     USER_SCOPES_HEADER,
+    SESSION_ID_HEADER,
 )
 """认证服务响应头中注入上游的头（覆盖 Authorization 为网关服务 JWT + 契约身份头）。"""
 

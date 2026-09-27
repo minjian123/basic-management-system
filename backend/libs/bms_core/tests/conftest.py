@@ -20,6 +20,7 @@ from bms_core.core.context import (
     current_user_id,
 )
 from ops.seed_tenant import seed_tenants
+from tests_support.auth import configure_token_env
 
 
 @pytest.fixture(autouse=True)
@@ -48,6 +49,9 @@ def isolate_settings(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     monkeypatch.setenv("BMS_SERVICE_CLIENT__PROVIDER", "")
     monkeypatch.setenv("BMS_SESSION_STORE__PROVIDER", "")
     monkeypatch.setenv("BMS_RATE_LIMITER__PROVIDER", "")
+    # 登录态依赖真实化（01_05）：本套件首个装配服务应用者，注入测试用户令牌密钥固定进程内工厂密钥；
+    # 断言「无密钥」默认值的用例自行清除该环境（见 test_config / test_jwt）。
+    configure_token_env(monkeypatch)
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()

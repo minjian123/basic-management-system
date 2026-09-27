@@ -20,6 +20,7 @@ from bms_core.health.registry import HealthCheckRegistry
 from bms_core.query.base import BaseQueryProvider, BaseQueryProviderRegistry, QueryResult
 from bms_core.query.null import NullQueryProviderRegistry
 from bms_platform.main import ApplicationFactory
+from tests_support.auth import configure_token_env
 
 
 @dataclass(frozen=True)
@@ -72,6 +73,9 @@ def build_snapshot() -> Mapping[str, Mapping[str, PluginImpl]]:
     with pytest.MonkeyPatch.context() as patch:
         patch.setenv("BMS_TRACER__PROVIDER", "")
         patch.setenv("BMS_METRICS__PROVIDER", "")
+        # 登录态依赖真实化（01_05）：装配快照构建先于用例级配置隔离，此处注入测试用户令牌密钥，
+        # 使进程内首次登记的 `token_verifier` 工厂携带密钥（后续用例复用的唯一工厂）。
+        configure_token_env(patch)
         get_settings.cache_clear()
         app = ApplicationFactory().create(None)
         settings = cast("Settings", app.state.settings)

@@ -17,6 +17,7 @@ __all__ = [
     "GATEWAY_IDENTITY_VALUE",
     "IDENTITY_HEADERS",
     "SERVICE_IDENTITY_HEADER",
+    "SESSION_ID_HEADER",
     "STRIPPED_HEADERS",
     "TENANT_ID_HEADER",
     "USER_ID_HEADER",
@@ -45,12 +46,16 @@ USER_SCOPES_HEADER = "X-User-Scopes"
 SERVICE_IDENTITY_HEADER = "X-Service-Identity"
 """网关注入的服务身份头（服务间调用，07_03）。"""
 
+SESSION_ID_HEADER = "X-Session-Id"
+"""网关注入的会话 id 头（用户 access `jti`；01_05 每请求会话标记校验依据）。"""
+
 IDENTITY_HEADERS: tuple[str, ...] = (
     USER_ID_HEADER,
     USER_SUBJECT_HEADER,
     TENANT_ID_HEADER,
     USER_SCOPES_HEADER,
     SERVICE_IDENTITY_HEADER,
+    SESSION_ID_HEADER,
 )
 """网关注入 / 后端信任的身份头（客户端伪造一律剥除）。"""
 

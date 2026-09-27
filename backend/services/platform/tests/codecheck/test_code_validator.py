@@ -28,6 +28,7 @@ from bms_core.core.plugin import BasePluggable, resolve_plugin
 from bms_core.ratelimit.base import RateLimitRule
 from bms_platform.api.codecheck import router as codecheck_router
 from bms_platform.main import ApplicationFactory
+from tests_support.auth import auth_headers
 
 API = "/api/v1/code"
 
@@ -237,6 +238,7 @@ async def test_route_mapping_with_stub_validator() -> None:
     app = ApplicationFactory().create(None)
     app.dependency_overrides[get_code_validator] = _StubValidator
     async with lifespan(app), AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        client.headers.update(auth_headers())
         sql = await client.post(f"{API}/validate-sql", json={"sql": "select 1"})
         expr = await client.post(f"{API}/validate-expression", json={"expr": "x = 1"})
 
@@ -261,6 +263,7 @@ async def test_validate_sql_rate_limit_key() -> None:
     limiter = _RecordingLimiter()
     app.dependency_overrides[get_rate_limiter] = lambda: limiter
     async with lifespan(app), AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        client.headers.update(auth_headers())
         resp = await client.post(f"{API}/validate-sql", json={"sql": "select 1"})
 
     assert resp.json()["data"]["valid"] is True

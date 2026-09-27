@@ -32,6 +32,7 @@ from bms_core.dict.base import (
 )
 from bms_core.dict.null import NullDictCacheRegion, NullDictSource, NullDictTranslator
 from bms_platform.main import ApplicationFactory
+from tests_support.auth import auth_headers
 
 API = "/api/v1/dicts"
 
@@ -265,6 +266,7 @@ async def test_routes_with_in_memory_implementations() -> None:
         app.dependency_overrides[get_dict_source] = lambda: source
         app.dependency_overrides[get_dict_translator] = lambda: _InMemoryDictTranslator()
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            client.headers.update(auth_headers())
             resp = await client.get(
                 f"{API}/material",
                 params={"version": 9, "keyword": "钢", "parent_id": "m-1", "values": "m-1,m-2", "limit": 10},

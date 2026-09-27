@@ -49,6 +49,7 @@ known-first-party = [
     "bms_report",
     "ops",
     "scripts",
+    "tests_support",
 ]
 
 [tool.pyright]

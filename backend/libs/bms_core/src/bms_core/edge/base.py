@@ -27,6 +27,7 @@ from bms_core.core.exceptions import AuthError
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 from bms_core.edge.headers import (
     SERVICE_IDENTITY_HEADER,
+    SESSION_ID_HEADER,
     TENANT_ID_HEADER,
     USER_ID_HEADER,
     USER_SCOPES_HEADER,
@@ -61,6 +62,9 @@ class EdgeIdentity(BaseObject):
     service_identity: str | None = None
     """服务身份（服务间调用）；无为空。"""
 
+    session_id: str | None = None
+    """网关验证过的会话 id（用户 access `jti`）；无为空（每请求会话标记校验依据）。"""
+
     @classmethod
     def from_headers(cls, headers: Mapping[str, str]) -> EdgeIdentity:
         """按身份头解析可信身份（规范化头名大小写）。
@@ -82,12 +86,14 @@ class EdgeIdentity(BaseObject):
         scopes = tuple(scope.strip() for scope in raw_scopes.split(",") if scope.strip())
         tenant_code = normalized.get(TENANT_ID_HEADER.lower()) or None
         service_identity = normalized.get(SERVICE_IDENTITY_HEADER.lower()) or None
+        session_id = normalized.get(SESSION_ID_HEADER.lower()) or None
         return cls(
             user_id=user_id,
             subject=subject,
             tenant_code=tenant_code,
             scopes=scopes,
             service_identity=service_identity,
+            session_id=session_id,
         )
 
 

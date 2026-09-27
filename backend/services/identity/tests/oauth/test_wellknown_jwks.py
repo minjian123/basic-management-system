@@ -112,11 +112,16 @@ def test_jwks_route_conflict_is_unavailable() -> None:
 
 @pytest.mark.kiwi_id(2180)
 def test_jwks_route_empty_without_keys() -> None:
-    """无密钥时返回空公钥集（不失败）。"""
+    """无密钥时返回空公钥集（不失败）。
+
+    注：测试套默认注入用户令牌测试密钥（01_05 真实登录态），此用例显式覆盖为空密钥签发者还原「无密钥」分支。
+    """
 
     async def _run() -> None:
         app = ApplicationFactory().create(None)
         async with service_lifespan(app):
+            app.state.service_token = JwtServiceTokenIssuer(issuer="bms", keys=[])
+            app.state.user_token = JwtUserTokenIssuer(issuer="bms", keys=[], access_ttl=1800, refresh_ttl=1209600)
             async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
                 response = await client.get("/.well-known/jwks.json")
             assert response.status_code == 200

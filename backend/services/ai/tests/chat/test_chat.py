@@ -32,6 +32,7 @@ from bms_core.chat.null import NullChatActionGate, NullChatSessionStore, NullCha
 from bms_core.core.capability import BaseCapability, BaseNullObject
 from bms_core.core.plugin import BasePluggable, resolve_plugin
 from bms_core.llm.base import NULL_CHAT_REPLY, ChatMessage
+from tests_support.auth import auth_headers
 
 API = "/api/v1/chat"
 
@@ -298,6 +299,7 @@ async def test_routes_with_in_memory_implementations() -> None:
         app.dependency_overrides[get_chat_session_store] = lambda: store
         app.dependency_overrides[get_chat_action_gate] = lambda: gate
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            client.headers.update(auth_headers())
             sessions = await client.get(f"{API}/sessions", params={"module": "report"})
             assert len(sessions.json()["data"]) == 1
             assert (await client.get(f"{API}/sessions/sess-1")).json()["data"]["title"] == "问数"
