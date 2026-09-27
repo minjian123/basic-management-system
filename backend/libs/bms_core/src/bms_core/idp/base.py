@@ -11,6 +11,8 @@
 JIT 建号与完整登录链路归阶段六，本域只提供可信身份声明（不做建号副作用）。
 """
 
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
 from dataclasses import dataclass, field
@@ -55,6 +57,14 @@ class IdentityToken(BaseObject):
     refresh_token: str | None = None
     """刷新令牌（可选）。"""
 
+    identity: IdentityUser | None = None
+    """直接回填的外部身份（可选）。
+
+    OIDC 经 `id_token` 验签或 `userinfo` 取身份，本字段为 None；
+    CAS 等「无令牌、无独立 userinfo 时序」的协议在 `exchange_token`（票据校验）中一次取回身份，
+    由 SSO 回调优先消费本字段（协议差异仍经同一链路承载）。
+    """
+
 
 @dataclass(frozen=True)
 class IdentityUser(BaseObject):
@@ -65,6 +75,9 @@ class IdentityUser(BaseObject):
 
     username: str
     """用户名。"""
+
+    name: str | None = None
+    """显示名（可选；CAS attributes 映射，OIDC userinfo 亦可补）。"""
 
     email: str | None = None
     """邮箱（可选）。"""
@@ -118,6 +131,7 @@ class BaseIdentityProvider(BasePluggable, ABC):
         nonce: str | None = None,
         code_challenge: str | None = None,
         code_challenge_method: str | None = None,
+        service: str | None = None,
     ) -> str:
         """构造授权入口 URL。
 
@@ -126,21 +140,29 @@ class BaseIdentityProvider(BasePluggable, ABC):
             nonce: OIDC nonce（可选；OIDC 协议用于 ID Token 重放防护）。
             code_challenge: PKCE challenge（可选；`S256` 为 `BASE64URL(SHA256(verifier))`）。
             code_challenge_method: PKCE 方法（可选；与 `code_challenge` 成对出现）。
+            service: 服务地址（可选；CAS 用作 `service`，须与票据校验一致；OIDC 等忽略）。
 
         Returns:
             str: 授权入口 URL。
         """
 
     @abstractmethod
-    async def exchange_token(self, code: str, *, code_verifier: str | None = None) -> IdentityToken:
+    async def exchange_token(
+        self,
+        code: str,
+        *,
+        code_verifier: str | None = None,
+        service: str | None = None,
+    ) -> IdentityToken:
         """用授权码换取令牌（真实实现经 `BaseHttpClient` 调 token 端点）。
 
         Args:
-            code: 授权码。
+            code: 授权码（CAS 为服务票据 `ticket`）。
             code_verifier: PKCE code_verifier（可选；授权时提交了 `code_challenge` 则必传）。
+            service: 服务地址（可选；CAS 用于 `serviceValidate` 的 `service`；OIDC 等忽略）。
 
         Returns:
-            IdentityToken: 身份源令牌。
+            IdentityToken: 身份源令牌（CAS 无令牌，直接回填 `identity`）。
         """
 
     @abstractmethod

@@ -3,6 +3,7 @@
 import pytest
 
 from bms_core.core.exceptions import ConfigError
+from bms_core.idp.cas import CasIdentityProvider
 from bms_core.idp.oidc import OidcIdentityProvider
 from bms_core.idp.registry import (
     IdentityProviderRegistry,
@@ -100,3 +101,47 @@ def test_custom_secret_resolver_injected() -> None:
     instance = registry.build(_spec())
     assert isinstance(instance, OidcIdentityProvider)
     assert instance._client_secret == "resolved:env:IDP_TEST_SECRET"  # pyright: ignore[reportPrivateUsage]
+
+
+def _cas_spec(config: dict[str, object] | None = None) -> IdentityProviderSpec:
+    """构造 CAS 行配置视图（默认必填齐备）。
+
+    Args:
+        config: 覆盖字段。
+
+    Returns:
+        IdentityProviderSpec: 行配置视图。
+    """
+    merged: dict[str, object] = {
+        "cas_server_url": "https://cas.test/cas",
+        "redirect_uri": "http://app.test/api/v1/auth/sso/cas/callback",
+    }
+    if config is not None:
+        merged.update(config)
+    return IdentityProviderSpec(id=3, idp_key="demo:cas", type="cas", config=merged, updated_at="t")
+
+
+@pytest.mark.kiwi_id(2199)
+def test_build_cas_from_spec() -> None:
+    """按行配置构造 CAS 实例（路径可配、attribute_map 覆盖；CAS 不要求密钥）。"""
+    registry = IdentityProviderRegistry()
+    instance = registry.build(
+        _cas_spec({"cas_login_path": "/cas/login", "cas_service_validate_path": "/serviceValidate",
+                   "attribute_map": {"name": ["displayName"]}})
+    )
+    assert isinstance(instance, CasIdentityProvider)
+    assert instance._server_url == "https://cas.test/cas"  # pyright: ignore[reportPrivateUsage]
+    assert instance._login_path == "/cas/login"  # pyright: ignore[reportPrivateUsage]
+    assert instance._service_validate_path == "/serviceValidate"  # pyright: ignore[reportPrivateUsage]
+
+
+@pytest.mark.kiwi_id(2199)
+def test_build_cas_rejects_missing_and_invalid_config() -> None:
+    """CAS 必填缺失（cas_server_url / redirect_uri）与 attribute_map 非法类型均抛配置错误。"""
+    registry = IdentityProviderRegistry()
+    with pytest.raises(ConfigError):
+        registry.build(_cas_spec({"cas_server_url": ""}))
+    with pytest.raises(ConfigError):
+        registry.build(_cas_spec({"redirect_uri": ""}))
+    with pytest.raises(ConfigError):
+        registry.build(_cas_spec({"attribute_map": ["uid"]}))

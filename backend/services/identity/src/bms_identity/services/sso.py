@@ -21,6 +21,7 @@ import secrets
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from typing import cast
+from urllib.parse import quote
 
 from bms_core.core.base import BaseObject
 from bms_core.core.config import SsoSettings
@@ -185,6 +186,7 @@ class SsoService(BaseObject):
                 nonce=nonce,
                 code_challenge=_code_challenge(verifier) if verifier else None,
                 code_challenge_method=_PKCE_METHOD if verifier else None,
+                service=_build_service_url(flow.redirect_uri, state),
             )
         except ServiceUnavailableError as exc:
             await self._state.delete(state)
@@ -240,6 +242,7 @@ class SsoService(BaseObject):
         session: DbSession,
         platform_session: DbSession,
         session_issuer: SessionIssuer,
+        state: str = "",
     ) -> SsoLoginResult:
         """回调闭环：换码 / 验签 / 映射 / 概要 → 签发会话。
 
@@ -248,21 +251,22 @@ class SsoService(BaseObject):
         Args:
             flow: 已消费的流程记录。
             idp_key: 回调路径中的 IdP 标识。
-            code: 授权码（IdP 回传）。
+            code: 授权码（IdP 回传；CAS 为服务票据 `ticket`）。
             error: IdP 回传错误（如 `access_denied`）。
             ip: 客户端 IP（可选）。
             user_agent: 客户端 User-Agent（可选）。
             session: 认证服务租户库会话（按流程租户开启）。
-            platform_session: 平台库会话（身份映射只读）。
+            platform_session: 平台库会话（身份映射只读 / JIT 可写）。
             session_issuer: 会话签发作构件。
+            state: 回调回传的流程状态（CAS 重建 `service` 用；与登录时一致）。
 
         Returns:
             SsoLoginResult: 登录结果（租户 + 会话）。
 
         Raises:
-            SsoCallbackError: IdP 拒绝 / 缺授权码 / 令牌校验失败（20052/400）。
+            SsoCallbackError: IdP 拒绝 / 缺授权码 / 令牌（票据）校验失败（20052/400）。
             SsoProviderNotFoundError: IdP 不存在或已停用（20051/404）。
-            SsoProviderUnavailableError: IdP 换码 / 验签 / 用户信息不可达（20053/503）。
+            SsoProviderUnavailableError: IdP 换码 / 校验 / 用户信息不可达（20053/503）。
             SsoIdentityUnmatchedError: 映射未命中或本地用户不存在（20054/403）。
             SsoIdentityConflictError: 身份映射冲突（20055/409）。
             AccountDisabledError: 本地账号停用（20004/401）。
@@ -284,7 +288,13 @@ class SsoService(BaseObject):
         provider_config = row.config
         await session.rollback()
 
-        token = await self._exchange(instance, code, flow, idp_key)
+        token = await self._exchange(
+            instance,
+            code,
+            flow,
+            idp_key,
+            service=_build_service_url(flow.redirect_uri, state),
+        )
         identity = await self._resolve_identity(instance, token, flow, idp_key)
         user_id = await self._resolve_user_id(
             flow=flow,
@@ -362,26 +372,37 @@ class SsoService(BaseObject):
         code: str,
         flow: IdpFlowState,
         idp_key: str,
+        *,
+        service: str,
     ) -> IdentityToken:
-        """换码（带 PKCE 校验码），出站失败翻译为 `20053`。
+        """换码（OIDC 带 PKCE）或票据校验（CAS），出站失败翻译为 `20053`、票据校验失败 `20052`。
 
         Args:
             instance: IdP 实例。
-            code: 授权码。
+            code: 授权码（CAS 为服务票据）。
             flow: 流程记录（PKCE 校验码）。
             idp_key: IdP 标识（日志）。
+            service: 服务地址（CAS 校验；OIDC 忽略）。
 
         Returns:
-            IdentityToken: 令牌响应（含 `id_token`）。
+            IdentityToken: 令牌响应（OIDC 含 `id_token`；CAS 含 `identity`）。
 
         Raises:
-            SsoProviderUnavailableError: IdP 换码失败（20053/503）。
+            SsoProviderUnavailableError: IdP 换码 / 校验不可达或配置不可用（20053/503）。
+            SsoCallbackError: 票据校验失败（CAS `authenticationFailure`；20052/400）。
         """
         try:
-            return await instance.exchange_token(code, code_verifier=flow.code_verifier or None)
+            return await instance.exchange_token(
+                code,
+                code_verifier=flow.code_verifier or None,
+                service=service or None,
+            )
         except ServiceUnavailableError as exc:
             _LOGGER.warning("SSO 换码失败", idp_key=idp_key, tenant=flow.tenant, error=str(exc))
             raise SsoProviderUnavailableError("IdP 换码失败") from exc
+        except AuthError as exc:
+            _LOGGER.warning("SSO 票据校验失败", idp_key=idp_key, tenant=flow.tenant, error=str(exc))
+            raise SsoCallbackError("票据校验失败") from exc
         except ConfigError as exc:
             raise SsoProviderUnavailableError("IdP 配置不可用") from exc
 
@@ -392,7 +413,7 @@ class SsoService(BaseObject):
         flow: IdpFlowState,
         idp_key: str,
     ) -> ExternalIdentity:
-        """解析外部身份声明：优先 ID Token 验签（含 `nonce`），否则回退 userinfo。
+        """解析外部身份声明：CAS 直接回填 → 优先 ID Token 验签（含 `nonce`）→ 回退 userinfo。
 
         Args:
             instance: IdP 实例。
@@ -407,6 +428,14 @@ class SsoService(BaseObject):
             SsoCallbackError: ID Token 签名 / `nonce` / 过期等校验失败（20052/400）。
             SsoProviderUnavailableError: JWKS / userinfo 不可达（20053/503）。
         """
+        if token.identity is not None:
+            identity = token.identity
+            return ExternalIdentity(
+                subject=identity.subject,
+                username=identity.username,
+                name=identity.name or identity.username,
+                email=identity.email,
+            )
         if token.id_token:
             try:
                 claims = await instance.verify_token(token.id_token, nonce=flow.nonce or None)
@@ -479,6 +508,22 @@ def _as_str(value: object) -> str:
         str: 字符串值；非字符串返回空串。
     """
     return value if isinstance(value, str) else ""
+
+
+def _build_service_url(redirect_uri: str, state: str) -> str:
+    """构造 CAS `service`（登录跳转与票据校验两处使用，保证完全一致）。
+
+    Args:
+        redirect_uri: 回调地址（行配置或按基址派生）。
+        state: 流程状态。
+
+    Returns:
+        str: `{redirect_uri}?state={state}`（`redirect_uri` 已含查询串时以 `&` 追加）；无回调地址返回空串。
+    """
+    if not redirect_uri:
+        return ""
+    separator = "&" if "?" in redirect_uri else "?"
+    return f"{redirect_uri}{separator}state={quote(state, safe='')}"
 
 
 def _code_challenge(verifier: str) -> str:

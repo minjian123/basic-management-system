@@ -70,6 +70,7 @@ from bms_core.icon.base import BaseIconRegistry
 from bms_core.idempotency.base import IdempotencyStore
 from bms_core.idempotency.redis import RedisIdempotencyStore
 from bms_core.idp.base import BaseIdentityProvider
+from bms_core.idp.cas import CasIdentityProviderFactory
 from bms_core.idp.oidc import OidcIdentityProviderFactory
 from bms_core.idp.state.base import BaseIdpStateStore
 from bms_core.idp.state.memory import MemoryIdpStateStore
@@ -347,6 +348,7 @@ def register_platform_plugins(settings: Settings, app: FastAPI, resources: Resou
     register_plugin("edge", "marker", MarkerEdgeTrustFactory(settings))
     register_plugin("edge", "service_jwt", ServiceJwtEdgeTrustFactory(settings))
     register_plugin("identity_provider", "oidc", OidcIdentityProviderFactory(settings))
+    register_plugin("identity_provider", "cas", CasIdentityProviderFactory(settings))
     register_plugin("idp_state_store", "memory", MemoryIdpStateStoreFactory())
     register_plugin("idp_state_store", "redis", RedisIdpStateStoreFactory(settings))
     register_plugin("service_token", "jwt", JwtServiceTokenIssuerFactory(settings))

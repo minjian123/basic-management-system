@@ -41,12 +41,15 @@ from bms_identity.models.user_identity import SysUserIdentity
 from bms_identity.services.provider_registry import ProviderRegistry
 
 from .helpers import (
+    CAS_IDP_KEY,
+    CAS_SERVER,
     CLIENT_ID,
     CLIENT_SECRET,
     IDP_KEY,
     ISSUER,
     TENANT,
     TENANT_HEADERS,
+    CasMock,
     FakeSsoOrgClient,
     FakeUserTokenIssuer,
     IdpMock,
@@ -56,6 +59,7 @@ from .helpers import (
 SECRET_ENV = "SSO_TEST_IDP_SECRET"
 USER_ID = 1001
 REDIRECT_URI = f"http://test/api/v1/auth/sso/{IDP_KEY}/callback"
+CAS_REDIRECT_URI = f"http://test/api/v1/auth/sso/{CAS_IDP_KEY}/callback"
 
 
 @dataclass
@@ -71,6 +75,7 @@ class SsoHarness:
     lock: MemoryDistributedLock
     outbox: RecordingOutboxStore
     idp: IdpMock
+    cas: CasMock
 
     def tenant_scope(self) -> AbstractAsyncContextManager[DbSession]:
         """演示租户库会话上下文。
@@ -109,7 +114,7 @@ class SsoHarness:
         return entry[0]
 
     def provider_config(self, **overrides: object) -> dict[str, object]:
-        """构造 IdP 行配置（缺省指向 Mock IdP）。
+        """构造 OIDC IdP 行配置（缺省指向 Mock IdP）。
 
         Args:
             **overrides: 覆盖字段。
@@ -127,10 +132,27 @@ class SsoHarness:
         config.update(overrides)
         return config
 
+    def cas_provider_config(self, **overrides: object) -> dict[str, object]:
+        """构造 CAS IdP 行配置（缺省指向 Mock CAS）。
+
+        Args:
+            **overrides: 覆盖字段。
+
+        Returns:
+            dict[str, object]: 配置对象。
+        """
+        config: dict[str, object] = {
+            "cas_server_url": CAS_SERVER,
+            "redirect_uri": CAS_REDIRECT_URI,
+        }
+        config.update(overrides)
+        return config
+
     async def seed_provider(
         self,
         *,
         idp_key: str = IDP_KEY,
+        type: str = "oidc",
         status: str = "enabled",
         sort: int = 0,
         config: dict[str, object] | None = None,
@@ -140,18 +162,24 @@ class SsoHarness:
 
         Args:
             idp_key: 身份源标识。
+            type: 协议类型（oidc / cas）。
             status: 状态（enabled/disabled）。
             sort: 排序值。
-            config: 行配置（None 用缺省 Mock 配置）。
+            config: 行配置（None 按类型取缺省 Mock 配置）。
             name: 展示名。
         """
-        payload = config if config is not None else self.provider_config()
+        if config is not None:
+            payload = config
+        elif type == "cas":
+            payload = self.cas_provider_config()
+        else:
+            payload = self.provider_config()
         async with self.tenant_scope() as session:
             session.add(
                 SysIdentityProvider(
                     name=name,
                     idp_key=idp_key,
-                    type="oidc",
+                    type=type,
                     icon="",
                     config=json.dumps(payload),
                     status=status,
@@ -325,6 +353,7 @@ def sso(service_app: FastAPI, monkeypatch: pytest.MonkeyPatch, idp: IdpMock) -> 
         MemoryIdpStateStore(),
     )
     lock, outbox = MemoryDistributedLock(), RecordingOutboxStore()
+    cas = CasMock()
     service_app.dependency_overrides[get_user_token_issuer] = lambda: issuer
     service_app.dependency_overrides[get_service_client] = lambda: org
     service_app.dependency_overrides[get_session_store] = lambda: store
@@ -334,10 +363,24 @@ def sso(service_app: FastAPI, monkeypatch: pytest.MonkeyPatch, idp: IdpMock) -> 
     service_app.dependency_overrides[get_outbox_store] = lambda: outbox
     service_app.dependency_overrides[get_realtime_publisher] = lambda: NullRealtimePublisher()
     monkeypatch.setenv(SECRET_ENV, CLIENT_SECRET)
+
+    def _dispatch(request: httpx.Request) -> httpx.Response:
+        """按路径分派 Mock IdP（OIDC）与 Mock CAS。
+
+        Args:
+            request: 出站请求。
+
+        Returns:
+            httpx.Response: 模拟响应。
+        """
+        if request.url.path.endswith("/p3/serviceValidate"):
+            return cas.handle(request)
+        return idp.handle(request)
+
     monkeypatch.setattr(
         sso_api,
         "ProviderRegistry",
-        functools.partial(ProviderRegistry, transport=httpx.MockTransport(idp.handle)),
+        functools.partial(ProviderRegistry, transport=httpx.MockTransport(_dispatch)),
     )
     return SsoHarness(
         app=service_app,
@@ -349,4 +392,5 @@ def sso(service_app: FastAPI, monkeypatch: pytest.MonkeyPatch, idp: IdpMock) -> 
         lock=lock,
         outbox=outbox,
         idp=idp,
+        cas=cas,
     )

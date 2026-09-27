@@ -400,6 +400,18 @@ class IdentityProviderSettings(PluginSelection):
     jwks_cache_ttl: float = 300.0
     """JWKS 缓存 TTL（秒）。"""
 
+    cas_server_url: str = ""
+    """CAS 服务基址（如 `https://<cas-host>/cas`；`provider="cas"` 时必填）。"""
+
+    cas_login_path: str = "/login"
+    """CAS 登录端点路径。"""
+
+    cas_service_validate_path: str = "/p3/serviceValidate"
+    """CAS 校验端点路径（3.0 `p3/serviceValidate` 含属性；2.0 用 `/serviceValidate`）。"""
+
+    attribute_map: dict[str, list[str]] = Field(default_factory=dict[str, list[str]])
+    """CAS 属性映射覆盖（`{username|name|email: [候选属性名…]}`；空集用内置默认映射）。"""
+
 
 class ServiceTokenSettings(PluginSelection):
     """服务 JWT 自签配置（`[service_token]`；私钥只走环境变量 / Secret，不写入配置文件）。"""

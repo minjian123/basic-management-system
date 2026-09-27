@@ -292,7 +292,7 @@ export interface paths {
         };
         /**
          * Callback
-         * @description 回调闭环：`state` 一次性消费 → 换码 / 验签 → 映射（未命中 JIT 建号）→ 签发会话 → `302` 前端。
+         * @description 回调闭环：`state` 一次性消费 → 换码 / 票据校验 → 映射（未命中 JIT 建号）→ 签发会话 → `302` 前端。
          *
          *     Args:
          *         request: 请求对象。
@@ -309,7 +309,8 @@ export interface paths {
          *         store: 会话标记存储。
          *         publisher: 实时推送器。
          *         state: IdP 回传流程状态。
-         *         code: IdP 回传授权码。
+         *         code: IdP 回传授权码（OIDC）。
+         *         ticket: IdP 回传服务票据（CAS；与 `code` 归一）。
          *         error: IdP 回传错误。
          *
          *     Returns:
@@ -1044,8 +1045,10 @@ export interface operations {
             query?: {
                 /** @description IdP 回传流程状态 */
                 state?: string | null;
-                /** @description IdP 回传授权码 */
+                /** @description IdP 回传授权码（OIDC） */
                 code?: string | null;
+                /** @description IdP 回传服务票据（CAS） */
+                ticket?: string | null;
                 /** @description IdP 回传错误（如 access_denied） */
                 error?: string | null;
             };

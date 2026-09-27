@@ -3,7 +3,7 @@
 - `IdentityProviderSpec`：行配置视图（id / idp_key / type / config / updated_at），与 ORM 解耦。
 - `resolve_secret_ref`：密钥引用解析——`env:变量名` 取环境变量（缺失抛 `ConfigError`）；`secret:标识`
   预留（`02_06` 加密存取，当前抛 `ConfigError`）；未知前缀抛 `ConfigError`（零明文入代码 / 入仓）。
-- `IdentityProviderRegistry`：按 `type` 分派构造（本期仅 `oidc`，其余协议随对应任务注册），按
+- `IdentityProviderRegistry`：按 `type` 分派构造（`oidc` / `cas`；企微 / 钉钉随对应任务注册），按
   `(id, updated_at, type)` 进程内缓存（行配置变更自动失效，同时保留实例内 Discovery / JWKS 缓存）。
 
 口径：registry 为服务内构件（不做 IO、不进插件注册表）；`transport` 供测试注入（MockTransport）。
@@ -21,6 +21,7 @@ import httpx
 from bms_core.core.base import BaseObject
 from bms_core.core.exceptions import ConfigError
 from bms_core.idp.base import BaseIdentityProvider
+from bms_core.idp.cas import CasIdentityProvider, normalize_attribute_map
 from bms_core.idp.oidc import OidcIdentityProvider
 
 __all__ = [
@@ -108,6 +109,8 @@ class IdentityProviderRegistry(BaseObject):
         """
         if spec.type == "oidc":
             return self._build_oidc(spec)
+        if spec.type == "cas":
+            return self._build_cas(spec)
         raise ConfigError(f"未支持的 IdP 协议类型：{spec.type}（{spec.idp_key}）")
 
     def get(self, spec: IdentityProviderSpec) -> BaseIdentityProvider:
@@ -160,6 +163,33 @@ class IdentityProviderRegistry(BaseObject):
             scopes=scopes or ("openid", "profile", "email"),
             discovery_cache_ttl=discovery_ttl,
             jwks_cache_ttl=jwks_ttl,
+            transport=self._transport,
+        )
+
+    def _build_cas(self, spec: IdentityProviderSpec) -> CasIdentityProvider:
+        """构造 CAS 实例（读取行配置；CAS 不要求客户端密钥）。
+
+        Args:
+            spec: 行配置视图。
+
+        Returns:
+            CasIdentityProvider: CAS 客户端实例。
+
+        Raises:
+            ConfigError: 必填配置缺失（`cas_server_url` / `redirect_uri`）/ `attribute_map` 非法（40001）。
+        """
+        config = spec.config
+        server_url = _require_config_str(config, "cas_server_url", spec)
+        redirect_uri = _require_config_str(config, "redirect_uri", spec)
+        login_path = _optional_config_str(config, "cas_login_path") or "/login"
+        service_validate_path = _optional_config_str(config, "cas_service_validate_path") or "/p3/serviceValidate"
+        attribute_map = normalize_attribute_map(config.get("attribute_map"))
+        return CasIdentityProvider(
+            server_url=server_url,
+            redirect_uri=redirect_uri,
+            login_path=login_path,
+            service_validate_path=service_validate_path,
+            attribute_map=attribute_map or None,
             transport=self._transport,
         )
 

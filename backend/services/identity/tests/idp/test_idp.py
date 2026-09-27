@@ -154,13 +154,19 @@ async def test_verify_token_default_and_null() -> None:
             nonce: str | None = None,
             code_challenge: str | None = None,
             code_challenge_method: str | None = None,
+            service: str | None = None,
         ) -> str:
+            del state, nonce, code_challenge, code_challenge_method, service
             return "u"
 
-        async def exchange_token(self, code: str, *, code_verifier: str | None = None) -> IdentityToken:
+        async def exchange_token(
+            self, code: str, *, code_verifier: str | None = None, service: str | None = None
+        ) -> IdentityToken:
+            del code, code_verifier, service
             return IdentityToken(access_token="a")
 
         async def userinfo(self, access_token: str) -> IdentityUser:
+            del access_token
             return IdentityUser(subject="s", username="u")
 
     with pytest.raises(ConfigError):
