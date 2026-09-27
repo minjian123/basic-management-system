@@ -115,6 +115,8 @@ sequenceDiagram
 | --- | --- | --- | --- |
 | identity.user.jit_created | SSO 首登自动建号 | user_id、idp_key | 是 |
 
+> `identity.user.jit_created` 的**签发路径**随 02_02 落地：首登建号在平台库与身份映射写入**同事务**经 Outbox 入队（仅首登发，`idp_key` 取映射键 `{tenant}:{provider_key}`）；内建订阅方随消费方落地，Webhook 推送归事件总线 / 开放接口阶段（见任务 02_02 详细设计）。
+
 ## 6. 权限与配置 <a id="permission"></a>
 
 ### 6.1 权限码分配
