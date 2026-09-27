@@ -29,6 +29,7 @@ from bms_core.core.exceptions import (
     AccountDisabledError,
     AuthError,
     ConfigError,
+    EnterpriseIdpError,
     ServiceUnavailableError,
     SsoCallbackError,
     SsoIdentityUnmatchedError,
@@ -68,6 +69,20 @@ class SsoLoginResult(BaseObject):
 
     issued: IssuedSession
     """已签发的会话（双 token + 会话 id）。"""
+
+
+@dataclass(frozen=True)
+class SsoAuthorizeResult(BaseObject):
+    """授权跳转结果（授权 URL + 流程状态，供 302 跳转或 JSON 返回）。"""
+
+    authorize_url: str
+    """外部授权入口 URL。"""
+
+    state: str
+    """流程状态（一次性；前端渲染二维码 / 初始化平台组件后可回传回调）。"""
+
+    expires_in: int
+    """流程状态有效期（秒；与流程状态存储 TTL 一致）。"""
 
 
 class SsoService(BaseObject):
@@ -137,7 +152,7 @@ class SsoService(BaseObject):
         ip: str | None,
         session: DbSession,
     ) -> str:
-        """生成流程状态并返回外部授权 URL。
+        """生成流程状态并返回外部授权 URL（302 跳转形态）。
 
         Args:
             idp_key: 租户内 IdP 标识。
@@ -151,6 +166,35 @@ class SsoService(BaseObject):
         Raises:
             SsoProviderNotFoundError: IdP 不存在或已停用（20051/404）。
             SsoProviderUnavailableError: 配置缺失 / IdP 发现失败（20053/503）。
+            EnterpriseIdpError: 企微 / 钉钉专用失败（20057~20062）。
+            RateLimitError: 限流命中（10005/429）。
+        """
+        result = await self.authorize_info(idp_key, tenant=tenant, ip=ip, session=session)
+        return result.authorize_url
+
+    async def authorize_info(
+        self,
+        idp_key: str,
+        *,
+        tenant: str,
+        ip: str | None,
+        session: DbSession,
+    ) -> SsoAuthorizeResult:
+        """生成流程状态并返回授权 URL / 状态 / 有效期（供 JSON 形态消费）。
+
+        Args:
+            idp_key: 租户内 IdP 标识。
+            tenant: 生效租户编码。
+            ip: 客户端 IP（可选；限流维度）。
+            session: 认证服务租户库会话。
+
+        Returns:
+            SsoAuthorizeResult: 授权 URL、流程状态与有效期。
+
+        Raises:
+            SsoProviderNotFoundError: IdP 不存在或已停用（20051/404）。
+            SsoProviderUnavailableError: 配置缺失 / IdP 发现失败（20053/503）。
+            EnterpriseIdpError: 企微 / 钉钉专用失败（20057~20062）。
             RateLimitError: 限流命中（10005/429）。
         """
         await self._enforce_authorize_rate_limit(tenant, idp_key, ip)
@@ -181,7 +225,7 @@ class SsoService(BaseObject):
             ttl=self._sso.state_ttl_seconds,
         )
         try:
-            return await instance.authorize(
+            authorize_url = await instance.authorize(
                 state,
                 nonce=nonce,
                 code_challenge=_code_challenge(verifier) if verifier else None,
@@ -192,6 +236,11 @@ class SsoService(BaseObject):
             await self._state.delete(state)
             _LOGGER.warning("SSO 授权跳转失败", idp_key=idp_key, tenant=tenant, error=str(exc))
             raise SsoProviderUnavailableError("IdP 暂不可用") from exc
+        return SsoAuthorizeResult(
+            authorize_url=authorize_url,
+            state=state,
+            expires_in=self._sso.state_ttl_seconds,
+        )
 
     async def consume_flow(
         self,
@@ -397,6 +446,8 @@ class SsoService(BaseObject):
                 code_verifier=flow.code_verifier or None,
                 service=service or None,
             )
+        except EnterpriseIdpError:
+            raise
         except ServiceUnavailableError as exc:
             _LOGGER.warning("SSO 换码失败", idp_key=idp_key, tenant=flow.tenant, error=str(exc))
             raise SsoProviderUnavailableError("IdP 换码失败") from exc

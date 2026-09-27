@@ -283,6 +283,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/sso/{idp_key}/authorize-url": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Authorize Url
+         * @description 取外部授权 URL（JSON 形态；供前端渲染二维码 / 初始化平台内嵌登录组件）。
+         *
+         *     Args:
+         *         request: 请求对象。
+         *         idp_key: 租户内 IdP 标识（路由参数）。
+         *         tenant_ctx: 请求上下文租户。
+         *         tenant_source: 租户源。
+         *         state_store: 流程状态存储。
+         *         limiter: 限流基座。
+         *         lock: 分布式锁（保持服务构造一致）。
+         *         outbox_store: 事务性发件箱（保持服务构造一致）。
+         *         client: 服务间调用客户端。
+         *         tenant: 租户编码（可选）。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为 `SsoAuthorizeInfo`（授权 URL / 流程状态 / 有效期）。
+         *
+         *     Raises:
+         *         SsoProviderNotFoundError: IdP 不存在或已停用（20051/404）。
+         *         SsoProviderUnavailableError: IdP 配置缺失 / 发现失败（20053/503）。
+         *         EnterpriseIdpError: 企微 / 钉钉专用失败（20057~20062）。
+         *         RateLimitError: 限流命中（10005/429）。
+         */
+        get: operations["authorize_url_api_v1_auth_sso__idp_key__authorize_url_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/sso/{idp_key}/callback": {
         parameters: {
             query?: never;
@@ -623,6 +664,7 @@ export interface components {
         ApiResponse_NoneType_: unknown;
         ApiResponse_RefreshResult_: unknown;
         ApiResponse_SessionItem_: unknown;
+        ApiResponse_SsoAuthorizeInfo_: unknown;
         ApiResponse_SsoIdentityList_: unknown;
         ApiResponse_SsoProviderList_: unknown;
         BasePageResponse_SessionItem_: unknown;
@@ -768,6 +810,7 @@ export interface components {
         LoginResult: unknown;
         RefreshResult: unknown;
         SessionItem: unknown;
+        SsoAuthorizeInfo: unknown;
         SsoIdentityItem: unknown;
         SsoIdentityList: unknown;
         SsoProviderItem: unknown;
@@ -1027,6 +1070,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    authorize_url_api_v1_auth_sso__idp_key__authorize_url_get: {
+        parameters: {
+            query?: {
+                /** @description 租户编码（上下文缺省时的回落） */
+                tenant?: string | null;
+            };
+            header?: never;
+            path: {
+                idp_key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_SsoAuthorizeInfo_"];
                 };
             };
             /** @description Validation Error */

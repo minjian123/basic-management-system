@@ -8,6 +8,7 @@
       "ApiResponse_NoneType_": {},
       "ApiResponse_RefreshResult_": {},
       "ApiResponse_SessionItem_": {},
+      "ApiResponse_SsoAuthorizeInfo_": {},
       "ApiResponse_SsoIdentityList_": {},
       "ApiResponse_SsoProviderList_": {},
       "BasePageResponse_SessionItem_": {},
@@ -227,6 +228,7 @@
       "LoginResult": {},
       "RefreshResult": {},
       "SessionItem": {},
+      "SsoAuthorizeInfo": {},
       "SsoIdentityItem": {},
       "SsoIdentityList": {},
       "SsoProviderItem": {},
@@ -641,6 +643,67 @@
           }
         },
         "summary": "Authorize",
+        "tags": [
+          "sso"
+        ]
+      }
+    },
+    "/api/v1/auth/sso/{idp_key}/authorize-url": {
+      "get": {
+        "description": "取外部授权 URL（JSON 形态；供前端渲染二维码 / 初始化平台内嵌登录组件）。\n\nArgs:\n    request: 请求对象。\n    idp_key: 租户内 IdP 标识（路由参数）。\n    tenant_ctx: 请求上下文租户。\n    tenant_source: 租户源。\n    state_store: 流程状态存储。\n    limiter: 限流基座。\n    lock: 分布式锁（保持服务构造一致）。\n    outbox_store: 事务性发件箱（保持服务构造一致）。\n    client: 服务间调用客户端。\n    tenant: 租户编码（可选）。\n\nReturns:\n    ApiResponse: 统一响应，data 为 `SsoAuthorizeInfo`（授权 URL / 流程状态 / 有效期）。\n\nRaises:\n    SsoProviderNotFoundError: IdP 不存在或已停用（20051/404）。\n    SsoProviderUnavailableError: IdP 配置缺失 / 发现失败（20053/503）。\n    EnterpriseIdpError: 企微 / 钉钉专用失败（20057~20062）。\n    RateLimitError: 限流命中（10005/429）。",
+        "operationId": "authorize_url_api_v1_auth_sso__idp_key__authorize_url_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "idp_key",
+            "required": true,
+            "schema": {
+              "title": "Idp Key",
+              "type": "string"
+            }
+          },
+          {
+            "description": "租户编码（上下文缺省时的回落）",
+            "in": "query",
+            "name": "tenant",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "租户编码（上下文缺省时的回落）",
+              "title": "Tenant"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_SsoAuthorizeInfo_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Authorize Url",
         "tags": [
           "sso"
         ]

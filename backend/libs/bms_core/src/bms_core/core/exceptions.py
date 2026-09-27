@@ -277,6 +277,93 @@ class LocalLoginGuardError(SsoError):
         BizError.__init__(self, ErrorCode.LOCAL_LOGIN_GUARD, message, http_status=429, data=data)
 
 
+class EnterpriseIdpError(SsoError):
+    """企微 / 钉钉免登适配错误基类（认证段内 `2005x` 子段）；子类预置码位与 HTTP 状态。
+
+    与 `SsoProviderUnavailableError`（20053）等既有 SSO 码区分：本子段承载两平台
+    「配置 / 授权 / 不可达」三类专用语义，供前端按平台给出更精确的提示；SSO 链路对其
+    优先放行、不再折回 20052 / 20053。
+    """
+
+
+class WecomConfigError(EnterpriseIdpError):
+    """企业微信配置缺失 / 非法（`20057` / 503）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化企业微信配置异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.WECOM_CONFIG, message, http_status=503, data=data)
+
+
+class WecomAuthError(EnterpriseIdpError):
+    """企业微信授权失败（`code` 无效 / 用户未授权 / 不在可见范围；`20058` / 400）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化企业微信授权异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.WECOM_AUTH, message, http_status=400, data=data)
+
+
+class WecomUnavailableError(EnterpriseIdpError):
+    """企业微信接口不可达 / 超时 / 响应非法（`20059` / 503）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化企业微信不可达异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.WECOM_UNAVAILABLE, message, http_status=503, data=data)
+
+
+class DingtalkConfigError(EnterpriseIdpError):
+    """钉钉配置缺失 / 非法（`20060` / 503）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化钉钉配置异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.DINGTALK_CONFIG, message, http_status=503, data=data)
+
+
+class DingtalkAuthError(EnterpriseIdpError):
+    """钉钉授权失败（`code` 无效 / 用户未授权；`20061` / 400）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化钉钉授权异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.DINGTALK_AUTH, message, http_status=400, data=data)
+
+
+class DingtalkUnavailableError(EnterpriseIdpError):
+    """钉钉接口不可达 / 超时 / 响应非法（`20062` / 503）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化钉钉不可达异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.DINGTALK_UNAVAILABLE, message, http_status=503, data=data)
+
+
 class CaptchaError(AuthError):
     """验证码段（认证段内 `201xx` 子段）异常基类；子类在构造时预置码位与 HTTP 状态。"""
 

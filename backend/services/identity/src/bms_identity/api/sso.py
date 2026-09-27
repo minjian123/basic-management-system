@@ -47,7 +47,7 @@ from bms_core.servicecall.base import BaseServiceClient
 from bms_core.session.base import BaseSessionStore
 from bms_core.ws.base import BaseRealtimePublisher
 from bms_identity.api.cookies import set_refresh_cookie
-from bms_identity.schemas.sso import SsoCallbackResult, SsoProviderList
+from bms_identity.schemas.sso import SsoAuthorizeInfo, SsoCallbackResult, SsoProviderList
 from bms_identity.services.org_client import OrgCredentialClient
 from bms_identity.services.provider_registry import ProviderRegistry
 from bms_identity.services.session_issuer import build_session_issuer
@@ -228,6 +228,69 @@ async def authorize(
             session=session,
         )
     return RedirectResponse(url, status_code=302)
+
+
+@router.get("/{idp_key}/authorize-url")
+async def authorize_url(
+    request: Request,
+    idp_key: str,
+    tenant_ctx: TenantDep,
+    tenant_source: TenantSourceDep,
+    state_store: StateStoreDep,
+    limiter: LimiterDep,
+    lock: LockDep,
+    outbox_store: OutboxDep,
+    client: ClientDep,
+    tenant: Annotated[str | None, Query(description="租户编码（上下文缺省时的回落）")] = None,
+) -> ApiResponse[SsoAuthorizeInfo]:
+    """取外部授权 URL（JSON 形态；供前端渲染二维码 / 初始化平台内嵌登录组件）。
+
+    Args:
+        request: 请求对象。
+        idp_key: 租户内 IdP 标识（路由参数）。
+        tenant_ctx: 请求上下文租户。
+        tenant_source: 租户源。
+        state_store: 流程状态存储。
+        limiter: 限流基座。
+        lock: 分布式锁（保持服务构造一致）。
+        outbox_store: 事务性发件箱（保持服务构造一致）。
+        client: 服务间调用客户端。
+        tenant: 租户编码（可选）。
+
+    Returns:
+        ApiResponse: 统一响应，data 为 `SsoAuthorizeInfo`（授权 URL / 流程状态 / 有效期）。
+
+    Raises:
+        SsoProviderNotFoundError: IdP 不存在或已停用（20051/404）。
+        SsoProviderUnavailableError: IdP 配置缺失 / 发现失败（20053/503）。
+        EnterpriseIdpError: 企微 / 钉钉专用失败（20057~20062）。
+        RateLimitError: 限流命中（10005/429）。
+    """
+    context = await _resolve_sso_tenant(tenant, tenant_ctx, tenant_source)
+    registry: EngineRegistry = request.app.state.engine_registry
+    factory = request.app.state.session_factory
+    async with session_scope(registry, db_key=context.db_key, factory=factory) as session:
+        service = _build_service(
+            request=request,
+            state_store=state_store,
+            limiter=limiter,
+            client=client,
+            lock=lock,
+            outbox_store=outbox_store,
+        )
+        result = await service.authorize_info(
+            idp_key,
+            tenant=context.tenant_code,
+            ip=current_client_ip.get(),
+            session=session,
+        )
+    return ApiResponse.ok(
+        SsoAuthorizeInfo(
+            authorize_url=result.authorize_url,
+            state=result.state,
+            expires_in=result.expires_in,
+        )
+    )
 
 
 @router.get("/{idp_key}/callback")
