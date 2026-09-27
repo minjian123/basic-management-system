@@ -27,5 +27,5 @@ class SysClient(BaseModel):
         Text, comment="授权类型 JSON 数组（client_credentials/authorization_code）"
     )
     scopes: Mapped[str] = mapped_column(Text, comment="允许申请 scope 集合 JSON 数组")
-    ip_whitelist: Mapped[str] = mapped_column(Text, default="[]", comment="来源 IP / CIDR 白名单 JSON 数组")
+    ip_whitelist: Mapped[str] = mapped_column(Text, comment="来源 IP / CIDR 白名单 JSON 数组（应用侧写 []）")
     status: Mapped[str] = mapped_column(String(16), default="enabled", comment="状态（enabled/disabled）")
