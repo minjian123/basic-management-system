@@ -107,12 +107,23 @@ sequenceDiagram
 | GET | /api/v1/auth/sso/{idp_key}/authorize-url | 授权 URL（JSON：授权 URL / state / 有效期，供登录页渲染二维码 / 初始化平台组件；02_04 落地） | — |
 | GET | /api/v1/auth/sso/{idp_key}/callback | 授权码回跳（state 一次性消费，换码 + ID Token 校验后签发 BMS 双 token；02_01 落地） | — |
 | GET | /api/v1/users/{id}/identities | SSO 身份绑定查看（用户管理内） | sso:bind |
+| GET | {issuer}/.well-known/openid-configuration | OIDC Provider Discovery（`issuer` 按租户派生；02_05 落地） | — |
+| GET | {issuer}/jwks | OIDC Provider 公开 JWKS（复用用户令牌公钥；02_05 落地） | — |
+| GET | {issuer}/authorize | OIDC Provider 授权端点（登录态校验 + 授权码签发 + 302；02_05 落地） | —（登录态） |
+| POST | {issuer}/token | OIDC Provider 令牌端点（客户端认证 + 授权码换 ID Token / access token；02_05 落地） | 客户端凭证 |
+| GET/POST | {issuer}/userinfo | OIDC Provider 用户信息端点（Bearer access token；02_05 落地） | Bearer |
+| POST | /api/v1/open/clients | 客户端注册（返回 `client_id` 与明文 secret 一次；02_05 最小接口，页面归阶段十） | open:manage |
+| GET | /api/v1/open/clients | 客户端列表（分页；永不返回 secret） | open:manage |
+| GET | /api/v1/open/clients/{id} | 客户端详情 | open:manage |
+| POST | /api/v1/open/clients/{id}/status | 客户端启停 | open:manage |
+| POST | /api/v1/open/clients/{id}/reset-secret | 重置客户端密钥（新明文仅本次返回） | open:manage |
 
 ### 5.2 分页 / 幂等 / 限流
 
 - 分页：IdP 配置与身份绑定列表标准分页（page + size）
 - 幂等：JIT 建号为天然幂等设计（唯一约束兜底，重复回跳命中既有映射）；回调不重复建号
 - 限流：SSO 授权跳转与回调经限流基座 `BaseRateLimiter`（IP + 提供方双维度，Redis 后端，`[sso].ip_rate_limit` / `provider_rate_limit`），防回跳风暴与爆破（02_01 落地）
+- 幂等（OIDC Provider，02_05）：授权码经 `idp_state_store` `oidccode` 命名空间一次性原子消费（短 TTL），重放 / 过期即拒；`/token` 本期只签发 ID Token 与短时 access token，**不发 refresh token**；客户端密钥只存 PBKDF2 哈希、明文仅创建 / 重置响应回显一次
 
 ### 5.3 发布的事件
 
