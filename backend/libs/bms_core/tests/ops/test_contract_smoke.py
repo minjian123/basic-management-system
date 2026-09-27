@@ -29,11 +29,11 @@ def test_container_name_and_schemathesis_args() -> None:
     assert "/tmp/platform.json" in command
     assert f"http://127.0.0.1:{contract_smoke.SERVICE_PORT}" in command
     assert "--max-examples" in command and "1" in command
-    # 冒烟阶段限定 + 并行 worker（2026-09-27 提速：不跑 coverage / stateful，操作级并行）
+    # 冒烟阶段限定（2026-09-27 提速：不跑 coverage / stateful）；不启用 --workers（容器多 worker 会撞线程上限）
     phases = command[command.index("--phases") + 1]
     assert "--phases" in command and phases == contract_smoke.SMOKE_PHASES
     assert "examples" in phases and "coverage" not in phases
-    assert "--workers" in command and command[command.index("--workers") + 1] == contract_smoke.SMOKE_WORKERS
+    assert "--workers" not in command
     assert "--checks" in command and "not_a_server_error" in command
     assert "--suppress-health-check" in command
     assert command.count("--include-method") == len(contract_smoke.READ_METHODS)
