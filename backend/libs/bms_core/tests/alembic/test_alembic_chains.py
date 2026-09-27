@@ -117,6 +117,7 @@ def test_chain_metadata_is_subset() -> None:
         "sys_event_consumed",
         "sys_event_dead_letter",
         "sys_user",
+        "sys_account_lock",
     }
     assert set(chain_metadata(resolve_chain("identity:tenant")).tables) == {
         "sys_outbox",

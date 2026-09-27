@@ -12,6 +12,7 @@ from bms_core.application import service_lifespan as lifespan
 from bms_core.core.base import BaseObject
 from bms_core.core.capability import BaseCapability, BaseNullObject
 from bms_core.password.base import PASSWORD_VIOLATIONS, BasePasswordPolicy
+from bms_core.password.default import DefaultPasswordPolicy
 from bms_core.password.null import NullPasswordPolicy
 from bms_identity.main import ApplicationFactory
 
@@ -63,10 +64,10 @@ async def test_null_policy_always_allows() -> None:
 
 @pytest.mark.kiwi_id(41)
 async def test_dependency_provider_resolves() -> None:
-    """依赖解析：应用装配占位密码策略；路由经 get_password_policy 取到实例。"""
+    """依赖解析：应用装配默认（真实）密码策略；路由经 get_password_policy 取到实例。"""
     app = ApplicationFactory().create(None)
     async with lifespan(app):
-        assert isinstance(app.state.password_policy, NullPasswordPolicy)
+        assert isinstance(app.state.password_policy, DefaultPasswordPolicy)
 
         @app.get("/policy")
         async def policy_info(policy: Annotated[BasePasswordPolicy, Depends(get_password_policy)]) -> dict[str, str]:  # pyright: ignore[reportUnusedFunction]
@@ -76,4 +77,4 @@ async def test_dependency_provider_resolves() -> None:
             resp = await client.get("/policy")
 
         assert resp.status_code == 200
-        assert resp.json() == {"key": "password_policy", "type": "NullPasswordPolicy"}
+        assert resp.json() == {"key": "password_policy", "type": "DefaultPasswordPolicy"}

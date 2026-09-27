@@ -1,4 +1,6 @@
-"""org 内部凭据接口测试（Kiwi 2194）：服务层校验 / 改密 / 登录态 + 端点服务 JWT 鉴权。"""
+"""org 内部凭据接口测试（Kiwi 2194 / 2209）：服务层校验 / 改密 / 登录态 + 密码策略闸门 + 端点服务 JWT 鉴权。"""
+
+from datetime import datetime
 
 import pytest
 from fastapi import FastAPI
@@ -6,9 +8,11 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
 from bms_core.api.deps import get_uow
+from bms_core.config.null import NullConfigSource
 from bms_core.core.exceptions import AuthError
 from bms_core.db.unit_of_work import DbUnitOfWork
 from bms_core.oauth.verify import VerifiedToken, get_token_verifier
+from bms_core.password.default import DefaultPasswordPolicy
 from bms_core.security.pbkdf2 import Pbkdf2PasswordHasher
 from bms_org.models.user import SysUser
 from bms_org.repositories.user import UserRepository
@@ -24,6 +28,18 @@ def _hasher() -> Pbkdf2PasswordHasher:
         Pbkdf2PasswordHasher: 哈希实现。
     """
     return Pbkdf2PasswordHasher(iterations=100_000)
+
+
+def _policy(hasher: Pbkdf2PasswordHasher) -> DefaultPasswordPolicy:
+    """构造默认规则的密码策略（Null 取数 → 代码默认：8+ 大小写数字符号、禁止含用户名）。
+
+    Args:
+        hasher: 口令哈希实现。
+
+    Returns:
+        DefaultPasswordPolicy: 密码策略实例。
+    """
+    return DefaultPasswordPolicy(config=NullConfigSource(), hasher=hasher)
 
 
 async def _session() -> tuple[AsyncSession, AsyncEngine]:
@@ -87,6 +103,59 @@ async def test_service_update_password_and_history() -> None:
     assert updated is not None and hasher.verify("new", updated.password_hash)
     assert parse_password_history(updated.pwd_history) == [old]
     await session.rollback()
+    await engine.dispose()
+
+
+@pytest.mark.kiwi_id(2209)
+async def test_service_update_password_enforces_policy() -> None:
+    """服务层：改密强制过策略（弱口令 30005 语义；合规写库并清 `pwd_reset_required`）。"""
+    session, engine = await _session()
+    hasher = _hasher()
+    repo = UserRepository(session)
+    old_hash = hasher.hash("OldPass1!")
+    await repo.create(username="u3", password_hash=old_hash, name="U3", pwd_reset_required=True)
+    await session.commit()
+    service = CredentialService(repo, hasher, DbUnitOfWork(session), _policy(hasher))
+
+    weak = await service.update_password("u3", "weak")
+    assert weak.updated is False and weak.reason == "policy_violation"
+    assert "too_short" in weak.violations
+
+    reused = await service.update_password("u3", "OldPass1!")
+    assert reused.updated is False and reused.reason == "history_reused"
+
+    ok = await service.update_password("u3", "Str0ng!Pass")
+    assert ok.updated is True and ok.reason == ""
+    stored = await repo.get_by_username("u3")
+    assert stored is not None and hasher.verify("Str0ng!Pass", stored.password_hash)
+    assert stored.pwd_reset_required is False
+    assert parse_password_history(stored.pwd_history) == [old_hash]
+    await session.rollback()
+
+    missing = await service.update_password("nobody", "Str0ng!Pass")
+    assert missing.updated is False and missing.reason == "not_found"
+    await engine.dispose()
+
+
+@pytest.mark.kiwi_id(2209)
+async def test_service_verify_sets_pwd_reset_required_when_expired() -> None:
+    """服务层：口令命中且超有效期时置 `pwd_reset_required` 并随结果返回。"""
+    session, engine = await _session()
+    hasher = _hasher()
+    repo = UserRepository(session)
+    expired_at = datetime(2020, 1, 1, 0, 0, 0)
+    await repo.create(username="u4", password_hash=hasher.hash("Str0ng!Pass"), name="U4", pwd_changed_at=expired_at)
+    await session.commit()
+    service = CredentialService(repo, hasher, DbUnitOfWork(session), _policy(hasher))
+
+    result = await service.verify("u4", "Str0ng!Pass")
+    assert result.valid and result.pwd_reset_required is True
+    stored = await repo.get_by_username("u4")
+    assert stored is not None and stored.pwd_reset_required is True
+    await session.rollback()
+
+    fresh = await CredentialService(repo, hasher, DbUnitOfWork(session), _policy(hasher)).verify("u4", "bad")
+    assert fresh.pwd_reset_required is True  # 未成功不改写，保持既有标志
     await engine.dispose()
 
 
@@ -184,10 +253,18 @@ async def test_internal_endpoint_requires_identity_service(client: AsyncClient, 
 
     updated = await client.post(
         f"{API}/update-password",
-        json={"account": "admin", "new_password": "new"},
+        json={"account": "admin", "new_password": "NewSecret1!"},
         headers={"Authorization": "Bearer identity"},
     )
     assert updated.status_code == 200 and updated.json()["data"]["updated"] is True
+
+    weak = await client.post(
+        f"{API}/update-password",
+        json={"account": "admin", "new_password": "weak"},
+        headers={"Authorization": "Bearer identity"},
+    )
+    assert weak.status_code == 200
+    assert weak.json()["data"]["updated"] is False and weak.json()["data"]["reason"] == "policy_violation"
 
     state = await client.post(
         f"{API}/login-state",

@@ -221,6 +221,11 @@ provider = "pbkdf2"
 # 非敏感选项（iterations = 迭代次数，缺省 600000，下限 100000）
 options = {}
 
+[password_policy]
+# 密码策略实现选择（插件化配置；default = 读 sys_config 的复杂度 / 有效期 / 历史策略、空串 = null 占位恒定通过）
+provider = "default"
+options = {}
+
 [token_codec]
 # 令牌编解码实现选择（插件化配置；jwt = joserfc 真实实现、空串 = null 占位 fail-closed）
 provider = "jwt"

@@ -536,6 +536,40 @@ class PermissionError(UserOrgError):
         super().__init__(ErrorCode.PERMISSION, message, http_status=403, data=data)
 
 
+class PasswordPolicyViolationError(UserOrgError):
+    """密码不符合复杂度策略（`30005` / 400；`data.violations` 为违规原因码清单）。"""
+
+    def __init__(
+        self,
+        message: str | None = None,
+        *,
+        data: object | None = None,
+        violations: tuple[str, ...] | None = None,
+    ) -> None:
+        """初始化密码策略违规异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（未提供时由 `violations` 组装）。
+            violations: 违规原因码清单（`PASSWORD_VIOLATIONS` 子集）。
+        """
+        payload = data if data is not None else {"violations": list(violations or ())}
+        super().__init__(ErrorCode.PASSWORD_POLICY_VIOLATION, message, http_status=400, data=payload)
+
+
+class PasswordReusedError(UserOrgError):
+    """新密码与近 N 次历史密码重复（`30006` / 400）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化历史密码重复异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        super().__init__(ErrorCode.PASSWORD_REUSED, message, http_status=400, data=data)
+
+
 class ConfigError(BizError):
     """系统配置段（`4xxxx`）异常基类：配置加载 / 校验失败（启动期致命，走启动失败路径）。"""
 

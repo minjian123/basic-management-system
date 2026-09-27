@@ -129,6 +129,7 @@ class FakeOrgClient(BaseServiceClient):
         name: str = "用户",
         status: str = "enabled",
         locked: bool = False,
+        pwd_reset_required: bool = False,
         locale: str | None = None,
         timezone: str | None = None,
     ) -> None:
@@ -141,6 +142,7 @@ class FakeOrgClient(BaseServiceClient):
             name: 昵称。
             status: 状态。
             locked: 是否锁定。
+            pwd_reset_required: 是否需强制改密。
             locale: 语言偏好。
             timezone: 时区偏好。
         """
@@ -150,6 +152,7 @@ class FakeOrgClient(BaseServiceClient):
             "name": name,
             "status": status,
             "locked": locked,
+            "pwd_reset_required": pwd_reset_required,
             "locale": locale,
             "timezone": timezone,
         }
@@ -190,6 +193,7 @@ class FakeOrgClient(BaseServiceClient):
                 "locked": bool(user["locked"]),
                 "status": user["status"],
                 "rehashed": False,
+                "pwd_reset_required": bool(user["pwd_reset_required"]),
                 "user": {
                     "id": user["id"],
                     "username": account,
@@ -201,9 +205,9 @@ class FakeOrgClient(BaseServiceClient):
             }
         if action == "update-password":
             if user is None:
-                return {"updated": False}
+                return {"updated": False, "reason": "not_found", "violations": []}
             user["password"] = body.get("new_password")
-            return {"updated": True}
+            return {"updated": True, "reason": "", "violations": []}
         if action == "login-state":
             if user is None:
                 return {"failed_count": 0, "locked_until": None, "last_login_at": None}

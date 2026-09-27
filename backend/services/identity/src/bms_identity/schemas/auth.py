@@ -80,7 +80,16 @@ class OrgVerifyResult(ServiceDto):
     locked: bool = Field(default=False, description="是否处于锁定期")
     status: str = Field(default="", description="账号状态（enabled/disabled）")
     rehashed: bool = Field(default=False, description="是否本次重哈希")
+    pwd_reset_required: bool = Field(default=False, description="是否需强制改密（密码超有效期）")
     user: OrgUserSummary | None = Field(default=None, description="用户概要")
+
+
+class OrgUpdatePasswordResult(ServiceDto):
+    """org 内部改密契约 DTO（策略闸门结果；调用侧映射 30005 / 30006）。"""
+
+    updated: bool = Field(default=False, description="是否更新成功")
+    reason: str = Field(default="", description="未更新原因（空=成功；not_found / policy_violation / history_reused）")
+    violations: list[str] = Field(default_factory=list, description="复杂度违规原因码清单")
 
 
 class OrgLoginState(ServiceDto):

@@ -12,6 +12,8 @@ from datetime import UTC, datetime, timedelta
 from typing import cast
 
 from bms_core.db.unit_of_work import UnitOfWork
+from bms_core.password.base import BasePasswordPolicy
+from bms_core.password.null import NullPasswordPolicy
 from bms_core.security.base import BasePasswordHasher
 from bms_core.services.base_service import BaseService
 from bms_org.models.user import SysUser
@@ -36,27 +38,36 @@ def _utc_now() -> datetime:
 class CredentialService(BaseService[SysUser]):
     """内部凭据服务：口令校验、参数升级重哈希、密码更新与登录态写回。"""
 
-    def __init__(self, repository: UserRepository, hasher: BasePasswordHasher, uow: UnitOfWork) -> None:
+    def __init__(
+        self,
+        repository: UserRepository,
+        hasher: BasePasswordHasher,
+        uow: UnitOfWork,
+        policy: BasePasswordPolicy | None = None,
+    ) -> None:
         """初始化。
 
         Args:
             repository: 用户仓储。
             hasher: 口令哈希实现（PBKDF2）。
             uow: 工作单元（写事务边界）。
+            policy: 密码策略（复杂度 / 有效期 / 历史；缺省 `NullPasswordPolicy` 恒定通过，向后兼容）。
         """
         super().__init__(repository)
         self._uow = uow
         self._hasher = hasher
+        self._policy = policy or NullPasswordPolicy()
 
     async def verify(self, account: str, password: str) -> CredentialVerifyResult:
-        """校验账号口令（命中且参数过期时同事务内重算回写）。
+        """校验账号口令（命中且参数过期时同事务内重算回写；超有效期置强制改密标志）。
 
         Args:
             account: 登录账号。
             password: 口令明文。
 
         Returns:
-            CredentialVerifyResult: 校验结果（`found` / `valid` / `locked` / `status` / `rehashed` / `user`）。
+            CredentialVerifyResult: 校验结果（`found` / `valid` / `locked` / `status` / `rehashed` /
+            `pwd_reset_required` / `user`）。
         """
         async with self._uow.begin():
             user = await self._repo().get_by_username(account)
@@ -68,12 +79,22 @@ class CredentialService(BaseService[SysUser]):
             if valid and self._hasher.needs_rehash(user.password_hash):
                 await self._repo().update(user.id, password_hash=self._hasher.hash(password))
                 rehashed = True
+            pwd_reset_required = user.pwd_reset_required
+            if (
+                valid
+                and not pwd_reset_required
+                and user.pwd_changed_at is not None
+                and await self._policy.expired(user.pwd_changed_at)
+            ):
+                await self._repo().update(user.id, pwd_reset_required=True)
+                pwd_reset_required = True
             return CredentialVerifyResult(
                 found=True,
                 valid=valid,
                 locked=locked,
                 status=user.status,
                 rehashed=rehashed,
+                pwd_reset_required=pwd_reset_required,
                 user=CredentialUserSummary(
                     id=user.id,
                     username=user.username,
@@ -84,29 +105,38 @@ class CredentialService(BaseService[SysUser]):
                 ),
             )
 
-    async def update_password(self, account: str, new_password: str, *, keep_history: int = 5) -> UpdatePasswordResult:
-        """更新账号密码（新哈希 + 变更时间 + 历史密码保留近 N 条）。
+    async def update_password(
+        self, account: str, new_password: str, *, keep_history: int | None = None
+    ) -> UpdatePasswordResult:
+        """更新账号密码（先过密码策略：复杂度 + 历史重复；写新哈希 + 变更时间 + 历史 + 清强制改密标志）。
 
         Args:
             account: 登录账号。
             new_password: 新口令明文。
-            keep_history: 保留历史密码条数。
+            keep_history: 保留历史密码条数；None 取策略 `history_count`。
 
         Returns:
-            UpdatePasswordResult: 更新结果（账号不存在为 False）。
+            UpdatePasswordResult: 更新结果（`updated` / `reason` / `violations`）。
         """
         async with self._uow.begin():
             user = await self._repo().get_by_username(account)
             if user is None:
-                return UpdatePasswordResult(updated=False)
+                return UpdatePasswordResult(updated=False, reason="not_found")
+            violations = await self._policy.validate(new_password, username=user.username)
+            if violations:
+                return UpdatePasswordResult(updated=False, reason="policy_violation", violations=list(violations))
             history = parse_password_history(user.pwd_history)
+            if await self._policy.reused(new_password, history=[user.password_hash, *history]):
+                return UpdatePasswordResult(updated=False, reason="history_reused")
+            keep = keep_history if keep_history is not None else await self._policy.history_count()
             history.append(user.password_hash)
-            history = history[-keep_history:] if keep_history > 0 else []
+            history = history[-keep:] if keep > 0 else []
             await self._repo().update(
                 user.id,
                 password_hash=self._hasher.hash(new_password),
                 pwd_changed_at=_utc_now(),
                 pwd_history=json.dumps(history, ensure_ascii=False),
+                pwd_reset_required=False,
             )
             return UpdatePasswordResult(updated=True)
 

@@ -4,7 +4,11 @@ import json
 
 import pytest
 
-from bms_core.core.exceptions import ServiceUnavailableError
+from bms_core.core.exceptions import (
+    PasswordPolicyViolationError,
+    PasswordReusedError,
+    ServiceUnavailableError,
+)
 from bms_core.servicecall.base import BaseServiceClient, ServiceRequest, ServiceResponse
 from bms_identity.services.org_client import OrgCredentialClient
 
@@ -91,3 +95,23 @@ async def test_org_client_failure_branches() -> None:
 
     with pytest.raises(ServiceUnavailableError):
         await OrgCredentialClient(_Scripted(_resp(200, {"code": 0, "data": "nope"}))).verify("demo", "a", "b")
+
+
+@pytest.mark.kiwi_id(2209)
+async def test_org_client_update_password_policy_mapping() -> None:
+    """改密策略闸门映射：复杂度违规 30005（带 violations）/ 历史重复 30006 / 账号不存在 False。"""
+
+    def _client(data: dict[str, object]) -> OrgCredentialClient:
+        return OrgCredentialClient(_Scripted(_resp(200, {"code": 0, "data": data})))
+
+    with pytest.raises(PasswordPolicyViolationError) as weak:
+        await _client({"updated": False, "reason": "policy_violation", "violations": ["too_short"]}).update_password(
+            "demo", "admin", "weak"
+        )
+    assert weak.value.data == {"violations": ["too_short"]}
+
+    with pytest.raises(PasswordReusedError):
+        await _client({"updated": False, "reason": "history_reused"}).update_password("demo", "admin", "OldPass1!")
+
+    assert await _client({"updated": False, "reason": "not_found"}).update_password("demo", "nobody", "x") is False
+    assert await _client({"updated": True, "reason": ""}).update_password("demo", "admin", "NewSecret1!") is True

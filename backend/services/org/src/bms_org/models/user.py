@@ -9,7 +9,7 @@
 
 from datetime import datetime
 
-from sqlalchemy import DateTime, Integer, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, DateTime, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from bms_core.models.base import BaseModel
@@ -32,6 +32,9 @@ class SysUser(BaseModel):
     pwd_changed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, comment="密码最近变更时间（UTC）")
     pwd_history: Mapped[str | None] = mapped_column(
         Text, nullable=True, comment="历史密码哈希（JSON 数组，仅应用侧读写；不参与库内检索）"
+    )
+    pwd_reset_required: Mapped[bool] = mapped_column(
+        Boolean, default=False, comment="是否需强制改密（登录超期置真，改密成功清假）"
     )
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, comment="最近登录时间（UTC）")
     locale: Mapped[str | None] = mapped_column(String(16), nullable=True, comment="语言偏好（如 zh-cn）")

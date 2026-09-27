@@ -86,7 +86,9 @@ def test_owned_tables_and_chain_derivation() -> None:
     assert {"sys_task", "sys_task_log", "sys_icon", "demo"}.isdisjoint(tenant_chain)
 
     assert chain_tables("tenant", Datasource.PLATFORM) == frozenset({"sys_tenant", *infrastructure_tables()})
-    assert chain_tables("org", Datasource.TENANT) == frozenset({"sys_user", *infrastructure_tables()})
+    assert chain_tables("org", Datasource.TENANT) == frozenset(
+        {"sys_user", "sys_account_lock", *infrastructure_tables()}
+    )
     assert chain_tables("identity", Datasource.TENANT) == frozenset(
         {"sys_session", "sys_identity_provider", "sys_client", *infrastructure_tables()}
     )
