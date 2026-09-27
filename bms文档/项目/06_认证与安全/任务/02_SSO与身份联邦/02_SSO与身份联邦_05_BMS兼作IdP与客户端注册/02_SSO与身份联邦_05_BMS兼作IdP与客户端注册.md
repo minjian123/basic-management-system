@@ -14,8 +14,8 @@
 | 工时（重估） | 24h |
 | 依赖 | 01_02（用户令牌密钥体系）、01_03（会话与登录）；阶段二 `07_02`（服务 JWT 与 JWKS） |
 | 负责人 | minjian |
-| 状态 | 未开始 |
-| 完成日期 | — |
+| 状态 | 已完成 |
+| 完成日期 | 2026-09-27 |
 
 > **前置契约（已交付，2026-09-26）**：01_02 已交付用户令牌密钥体系与签发契约——`BaseUserTokenIssuer`（`get_user_token_issuer`：`issue_pair` / `jwks()` / `verify(token, *, expected_type)`）、`JwtUserTokenIssuer`（kid 强制 `usr-` 前缀、`[user_token].issuer` + `[security]` 密钥）、`merge_jwks`（JWKS 同端点发布）；本任务 ID Token 在其上复用密钥体系（`kid` 代次与 `aud` 另立口径，与用户令牌 `aud=api` 区分）。
 
@@ -41,3 +41,5 @@ Discovery / JWKS 可访问且字段合规；测试客户端授权码流程 E2E �
 - 《[后端基类清单](../../../../../后端基类清单.md)》「开放接口服务端」条目
 
 > 交付物：详细设计、实施记录、测试记录（随任务开工建立，落本目录 `设计/`、`实施/`、`测试/`）。
+
+> **消费方前置契约（已交付，2026-09-27）**：OIDC Provider 五端点（`{issuer}/.well-known/openid-configuration`、`/jwks`、`/authorize`、`/token`、`/userinfo`）与客户端最小接口 `/api/v1/open/clients`（创建 / 列表 / 详情 / 启停 / 重置密钥）已冻结；`sys_client` 表（租户库，含 `ip_whitelist` 等阶段十字段）与 OIDC 错误码 `80101`~`80106` / `80111`~`80113` 已登记。**阶段十**在其上续建管理页面、Client Credentials、IP 白名单生效与 `sys_open_log` 调用审计（路径 / 权限码 `open:manage` 沿用）；**域五**接登录页 `return_to` 与浏览器会话联动；**用户管理阶段**补 `sys_user.email` 后 ID Token / userinfo 增 `email` 声明。

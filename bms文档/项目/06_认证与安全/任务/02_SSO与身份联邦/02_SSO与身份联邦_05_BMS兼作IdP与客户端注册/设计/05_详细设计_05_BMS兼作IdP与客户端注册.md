@@ -355,4 +355,17 @@ login_url = ""                                 # /authorize 未登录跳转的�
 | 17 | refresh token | **本期不签发**（仅 `authorization_code` 换 `id_token` + 短时 access） |
 | 18 | 网关 / 租户 | **网关公开 + 保留租户解析**（`public_paths` 增 `/api/identity/v1/oidc`） |
 
+## 9. 实施回写（2026-09-27） <a id="impl-backfill"></a>
+
+| # | 事项 | 回写结论 |
+| --- | --- | --- |
+| 1 | 服务层 helper 命名 | `clean_scope` / `code_from_payload` / `verify_pkce` / `load_list` / `redirect_error` / `with_query` 去前导下划线（适配测试引用与严格类型检查）；语义不变 |
+| 2 | `OidcProviderService.jwks()` | 未落地为服务方法——`/jwks` 端点直接取 Provider 能力域 `provider.jwks()`，避免无谓透传（§3.4 端点契约不变） |
+| 3 | 内存流程状态键形 | `MemoryIdpStateStore` 键形对齐 Redis（`build_idp_state_key(state, tenant, namespace)`）；SSO 测试 `peek` / `flow_payload` 同步按键取数（§3.3 语义不变） |
+| 4 | 客户端写操作审计 | `ClientService.audit` 由可选改必填（应用恒注入 `AuditCapturer` 占位），删除不可达的空分支（§3.5 审计占位口径不变） |
+| 5 | 端点错误转换 | `/authorize` 端点边界捕获 `OidcError` 转标准 OAuth2 错误 JSON（`/token` 同）；客户端管理接口走全局处理器转平台统一响应（§3.7 不变） |
+| 6 | 契约与生成件 | `deploy/contracts/identity.json` 与 `frontend/packages/api-types/src/identity.ts` 按实施重生成，`check` / `gen:check` 零漂移；网关 `apisix.yaml` 无变更（路由按服务目录生成，`gateway_config check` 零漂移） |
+| 7 | 基座清单补登 | 《后端基类清单》增 `oidc_provider` 能力域条目与认证链路 02_05 模块行（含服务 / 结果契约），`idp_state_store` 条目补 `namespace` |
+| 8 | 测试落点与 Kiwi | 新增 `libs/bms_core/tests/oauth/`、`services/identity/tests/oidc/`（含 `conftest.py` / `helpers.py`）；Kiwi 策展用例 **2202**（先登记后编码）；新增 / 变更模块覆盖率 100% |
+
 > 详细设计定稿后按《[AI开发规范](../../../../../../规范/AI开发规范.md)》「单任务交付一条龙」自动续行：实施 → 测试（Kiwi 先登记）→ 验证 → 登记回写 → 记录 → 提交。
