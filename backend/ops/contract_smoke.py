@@ -6,8 +6,10 @@
 
 口径见任务 09_03 详细设计：
 - 被测服务为**已构建的服务镜像**（子流水线 `service-build` 产物 `bms-{service}:$CI_COMMIT_SHORT_SHA`，
-  固定 tag ⇒ 可固定重现），以 `docker run -d -e BMS_ENV=dev` 起容器，按其镜像 `HEALTHCHECK`
-  （`/healthz`）就绪后开打；**不由本 CLI 源码起进程 / 不重复构建**；
+  固定 tag ⇒ 可固定重现），以 `docker run -d -e BMS_ENV=dev` 起容器（另注入编排侧进程内生成的一次性
+  测试服务令牌密钥 `BMS_SERVICE_TOKEN__KEYS` / `ACTIVE_KID`，仅容器生命周期，使租户解析等出站依赖
+  在无部署密钥的冒烟环境可优雅降级），按其镜像 `HEALTHCHECK`（`/healthz`）就绪后开打；
+  **不由本 CLI 源码起进程 / 不重复构建**；
 - 每次只针对**本次变更的服务**（父流水线按服务 `rules:changes` 调度，未变更服务不跑）；
 - Schemathesis 走固定 tag 镜像 `schemathesis/schemathesis:4.28.0`，以 `--network container:<服务容器>`
   与服务容器共享网络命名空间，经 `127.0.0.1:8000` 打真实服务；
@@ -18,6 +20,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import subprocess
 import sys
@@ -106,6 +109,33 @@ def schemathesis_args(service_key: str, *, max_examples: int = DEFAULT_MAX_EXAMP
     return command
 
 
+def smoke_service_token_keys() -> tuple[str, str]:
+    """生成一次性测试服务令牌密钥（RS256；仅服务容器生命周期内有效）。
+
+    服务容器以 `docker run -e BMS_ENV=dev` 起、不含部署侧密钥；公开端点经租户解析
+    调用远程租户源时需签发服务 JWT，缺密钥会返回 500（40001）。本函数在编排侧进程内
+    生成一对临时密钥并经环境变量注入容器：密钥不落盘 / 不入仓 / 不入镜像；注入后
+    「租户源不可达优雅降级」的既有路径生效，冒烟只验证可达与无 5xx。
+
+    Returns:
+        tuple[str, str]: (`BMS_SERVICE_TOKEN__KEYS` JSON, `active_kid`)。
+    """
+    from joserfc.jwk import RSAKey
+
+    key = RSAKey.generate_key(2048, private=True)
+    kid = "svc-smoke"
+    keys_json = json.dumps(
+        {
+            kid: {
+                "algorithm": "RS256",
+                "public_key": key.as_pem(private=False).decode(),
+                "private_key": key.as_pem(private=True).decode(),
+            }
+        }
+    )
+    return keys_json, kid
+
+
 def service_up(
     service_key: str,
     image: str,
@@ -128,7 +158,23 @@ def service_up(
     """
     name = service_container_name(service_key)
     run([CONTAINER_COMMAND, "rm", "-f", name])
-    started = run([CONTAINER_COMMAND, "run", "-d", "--name", name, "-e", "BMS_ENV=dev", image])
+    token_keys, active_kid = smoke_service_token_keys()
+    started = run(
+        [
+            CONTAINER_COMMAND,
+            "run",
+            "-d",
+            "--name",
+            name,
+            "-e",
+            "BMS_ENV=dev",
+            "-e",
+            f"BMS_SERVICE_TOKEN__KEYS={token_keys}",
+            "-e",
+            f"BMS_SERVICE_TOKEN__ACTIVE_KID={active_kid}",
+            image,
+        ]
+    )
     if started.returncode != 0:
         return False
     for _ in range(attempts):
@@ -201,8 +247,8 @@ def docker_schemathesis(
         run([CONTAINER_COMMAND, "rm", "-f", name])
 
 
-def _tail(text: str, limit: int = 30) -> str:
-    """截取输出尾部（非空行），供失败时打印便于定位。
+def _tail(text: str, limit: int = 120) -> str:
+    """截取输出尾部（非空行），供失败时打印便于定位（失败详情常在摘要之前，留足行数）。
 
     Args:
         text: 原始输出。
