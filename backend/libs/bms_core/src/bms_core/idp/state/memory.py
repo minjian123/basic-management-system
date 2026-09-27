@@ -10,7 +10,12 @@ from __future__ import annotations
 import time
 from collections.abc import Mapping
 
-from bms_core.idp.state.base import DEFAULT_IDP_STATE_TTL, BaseIdpStateStore
+from bms_core.idp.state.base import (
+    DEFAULT_IDP_STATE_TTL,
+    IDP_STATE_DEFAULT_NAMESPACE,
+    BaseIdpStateStore,
+    build_idp_state_key,
+)
 
 __all__ = ["MemoryIdpStateStore"]
 
@@ -29,28 +34,40 @@ class MemoryIdpStateStore(BaseIdpStateStore):
         *,
         tenant: str | None = None,
         ttl: int = DEFAULT_IDP_STATE_TTL,
+        namespace: str = IDP_STATE_DEFAULT_NAMESPACE,
     ) -> None:
         """写入 / 覆盖流程状态（TTL 到期时间）。
 
         Args:
             state: 流程状态（state）。
             payload: 状态数据。
-            tenant: 租户编码（进程内实现以 state 为键，忽略租户）。
+            tenant: 租户编码（并入键，与 Redis 实现同键形）。
             ttl: 有效期（秒）。
+            namespace: 命名空间（默认 `idpstate`）。
         """
-        self._items[state] = (dict(payload), time.monotonic() + ttl)
+        self._items[build_idp_state_key(state, tenant=tenant, namespace=namespace)] = (
+            dict(payload),
+            time.monotonic() + ttl,
+        )
 
-    async def consume(self, state: str, *, tenant: str | None = None) -> Mapping[str, object] | None:
+    async def consume(
+        self,
+        state: str,
+        *,
+        tenant: str | None = None,
+        namespace: str = IDP_STATE_DEFAULT_NAMESPACE,
+    ) -> Mapping[str, object] | None:
         """一次性消费流程状态（取出即删除；不存在 / 已过期返回 None）。
 
         Args:
             state: 流程状态（state）。
-            tenant: 租户编码（忽略）。
+            tenant: 租户编码（并入键）。
+            namespace: 命名空间（默认 `idpstate`）。
 
         Returns:
             Mapping[str, object] | None: 状态数据；不存在 / 已过期返回 None。
         """
-        item = self._items.pop(state, None)
+        item = self._items.pop(build_idp_state_key(state, tenant=tenant, namespace=namespace), None)
         if item is None:
             return None
         payload, expires_at = item
@@ -58,14 +75,21 @@ class MemoryIdpStateStore(BaseIdpStateStore):
             return None
         return dict(payload)
 
-    async def delete(self, state: str, *, tenant: str | None = None) -> None:
+    async def delete(
+        self,
+        state: str,
+        *,
+        tenant: str | None = None,
+        namespace: str = IDP_STATE_DEFAULT_NAMESPACE,
+    ) -> None:
         """删除流程状态（幂等）。
 
         Args:
             state: 流程状态（state）。
-            tenant: 租户编码（忽略）。
+            tenant: 租户编码（并入键）。
+            namespace: 命名空间（默认 `idpstate`）。
         """
-        self._items.pop(state, None)
+        self._items.pop(build_idp_state_key(state, tenant=tenant, namespace=namespace), None)
 
     def clear(self) -> None:
         """清空全部流程状态（测试 / 调试用）。"""

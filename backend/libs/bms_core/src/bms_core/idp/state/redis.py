@@ -16,7 +16,12 @@ from redis.asyncio import Redis as AsyncRedis
 
 from bms_core.core.capability import BaseAsyncResource
 from bms_core.core.logging import get_logger
-from bms_core.idp.state.base import DEFAULT_IDP_STATE_TTL, BaseIdpStateStore, build_idp_state_key
+from bms_core.idp.state.base import (
+    DEFAULT_IDP_STATE_TTL,
+    IDP_STATE_DEFAULT_NAMESPACE,
+    BaseIdpStateStore,
+    build_idp_state_key,
+)
 
 __all__ = ["RedisIdpStateStore"]
 
@@ -90,6 +95,7 @@ class RedisIdpStateStore(BaseIdpStateStore, BaseAsyncResource):
         *,
         tenant: str | None = None,
         ttl: int = DEFAULT_IDP_STATE_TTL,
+        namespace: str = IDP_STATE_DEFAULT_NAMESPACE,
     ) -> None:
         """写入流程状态（`SET key value EX ttl`）。
 
@@ -98,38 +104,54 @@ class RedisIdpStateStore(BaseIdpStateStore, BaseAsyncResource):
             payload: 状态数据（JSON）。
             tenant: 租户编码（定位键）。
             ttl: 有效期（秒）。
+            namespace: 命名空间（默认 `idpstate`）。
         """
-        key = build_idp_state_key(state, tenant=tenant)
+        key = build_idp_state_key(state, tenant=tenant, namespace=namespace)
         if ttl > 0:
             await self.client.set(key, _dump(payload), ex=ttl)  # pyright: ignore[reportUnknownMemberType]
         else:
             await self.client.set(key, _dump(payload))  # pyright: ignore[reportUnknownMemberType]
 
-    async def consume(self, state: str, *, tenant: str | None = None) -> Mapping[str, object] | None:
+    async def consume(
+        self,
+        state: str,
+        *,
+        tenant: str | None = None,
+        namespace: str = IDP_STATE_DEFAULT_NAMESPACE,
+    ) -> Mapping[str, object] | None:
         """一次性原子消费流程状态（`GETDEL`；Redis 异常按未命中并记日志）。
 
         Args:
             state: 流程状态（state）。
             tenant: 租户编码。
+            namespace: 命名空间（默认 `idpstate`）。
 
         Returns:
             Mapping[str, object] | None: 状态数据；不存在 / 已消费 / 过期返回 None。
         """
+        key = build_idp_state_key(state, tenant=tenant, namespace=namespace)
         try:
-            raw = await self.client.getdel(build_idp_state_key(state, tenant=tenant))  # pyright: ignore[reportUnknownMemberType]
+            raw = await self.client.getdel(key)  # pyright: ignore[reportUnknownMemberType]
         except Exception as exc:
             _LOGGER.warning("流程状态读取降级", state=state[:8], error=str(exc))
             return None
         return _load(raw)
 
-    async def delete(self, state: str, *, tenant: str | None = None) -> None:
+    async def delete(
+        self,
+        state: str,
+        *,
+        tenant: str | None = None,
+        namespace: str = IDP_STATE_DEFAULT_NAMESPACE,
+    ) -> None:
         """删除流程状态（幂等）。
 
         Args:
             state: 流程状态（state）。
             tenant: 租户编码。
+            namespace: 命名空间（默认 `idpstate`）。
         """
-        await self.client.delete(build_idp_state_key(state, tenant=tenant))  # pyright: ignore[reportUnknownMemberType]
+        await self.client.delete(build_idp_state_key(state, tenant=tenant, namespace=namespace))  # pyright: ignore[reportUnknownMemberType]
 
     async def aclose(self) -> None:
         """释放客户端（幂等）。"""

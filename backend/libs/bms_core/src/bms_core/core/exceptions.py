@@ -575,3 +575,94 @@ class TenantSuspendedError(OpenTenantError):
 
     def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
         super().__init__(ErrorCode.TENANT_SUSPENDED, message, http_status=403, data=data)
+
+
+class OidcError(OpenTenantError):
+    """OIDC Provider 子段（开放 / 租户 / SSO 段内 `8010x`）异常基类。
+
+    携标准 OAuth2 错误串（`error`）与描述；端点边界据此转标准错误 JSON（不进平台统一响应体）。
+    """
+
+    error: str
+    """标准 OAuth2 错误串（如 `invalid_request`）。"""
+
+    def __init__(
+        self,
+        code: int,
+        error: str,
+        message: str | None = None,
+        *,
+        http_status: int = 400,
+        data: object | None = None,
+    ) -> None:
+        super().__init__(code, message, http_status=http_status, data=data)
+        self.error = error
+
+
+class OidcInvalidRequestError(OidcError):
+    """OIDC 请求非法（缺参 / `response_type` 不支持 / 未知客户端；`80101` / 400）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        super().__init__(ErrorCode.OIDC_INVALID_REQUEST, "invalid_request", message, http_status=400, data=data)
+
+
+class OidcInvalidClientError(OidcError):
+    """客户端认证失败（未知客户端或密钥错误；`80102` / 401）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        super().__init__(ErrorCode.OIDC_INVALID_CLIENT, "invalid_client", message, http_status=401, data=data)
+
+
+class OidcInvalidGrantError(OidcError):
+    """授权码无效 / 已消费 / 过期 / PKCE 不符（`80103` / 400）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        super().__init__(ErrorCode.OIDC_INVALID_GRANT, "invalid_grant", message, http_status=400, data=data)
+
+
+class OidcInvalidScopeError(OidcError):
+    """scope 未注册或缺少 `openid`（`80104` / 400）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        super().__init__(ErrorCode.OIDC_INVALID_SCOPE, "invalid_scope", message, http_status=400, data=data)
+
+
+class OidcUnsupportedGrantError(OidcError):
+    """`grant_type` 不支持（`80105` / 400）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        super().__init__(
+            ErrorCode.OIDC_UNSUPPORTED_GRANT, "unsupported_grant_type", message, http_status=400, data=data
+        )
+
+
+class OidcAccessDeniedError(OidcError):
+    """未登录且未配登录页（`80106` / 401）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        super().__init__(ErrorCode.OIDC_ACCESS_DENIED, "access_denied", message, http_status=401, data=data)
+
+
+class ClientError(OpenTenantError):
+    """客户端注册子段（开放 / 租户 / SSO 段内 `8011x`）异常基类；走平台统一响应体。"""
+
+
+class ClientNotFoundError(ClientError):
+    """客户端不存在（`80111` / 404）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        super().__init__(ErrorCode.CLIENT_NOT_FOUND, message, http_status=404, data=data)
+
+
+class ClientInvalidError(ClientError):
+    """客户端字段非法（`80112` / 400）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        super().__init__(ErrorCode.CLIENT_INVALID, message, http_status=400, data=data)
+
+
+class ClientConflictError(ClientError):
+    """客户端标识冲突（`80113` / 409）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        super().__init__(ErrorCode.CLIENT_CONFLICT, message, http_status=409, data=data)

@@ -475,6 +475,338 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/oidc/.well-known/openid-configuration": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Openid Configuration
+         * @description OIDC Discovery 文档（标准 JSON，无统一响应包体）。
+         *
+         *     Args:
+         *         request: 请求对象。
+         *         provider: OIDC Provider。
+         *         state_store: 流程状态存储（保持服务构造一致）。
+         *         client: 服务间调用客户端（保持服务构造一致）。
+         *         hasher: 口令哈希（保持服务构造一致）。
+         *         tenant_ctx: 请求上下文租户。
+         *         tenant_source: 租户源。
+         *         tenant: 租户编码（可选）。
+         *
+         *     Returns:
+         *         JSONResponse: Discovery 文档。
+         */
+        get: operations["openid_configuration_api_v1_oidc__well_known_openid_configuration_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/oidc/authorize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Authorize
+         * @description 授权端点：校验客户端并签发一次性授权码，`302` 回跳 `redirect_uri`。
+         *
+         *     Args:
+         *         request: 请求对象。
+         *         provider: OIDC Provider。
+         *         state_store: 流程状态存储（授权码一次性）。
+         *         client: 服务间调用客户端（保持服务构造一致）。
+         *         hasher: 口令哈希（保持服务构造一致）。
+         *         auth: 可选登录态。
+         *         tenant_ctx: 请求上下文租户。
+         *         tenant_source: 租户源。
+         *         response_type: 响应类型（须为 `code`）。
+         *         client_id: 客户端标识。
+         *         redirect_uri: 回跳地址。
+         *         scope: 申请 scope。
+         *         state: 透传状态。
+         *         nonce: 透传 nonce。
+         *         code_challenge: PKCE 挑战。
+         *         code_challenge_method: PKCE 方法。
+         *         tenant: 租户编码（可选）。
+         *
+         *     Returns:
+         *         Response: `302` 回跳地址。
+         *
+         *     Raises:
+         *         OidcAccessDeniedError: 未登录且未配登录页（80106/401）。
+         *         OidcInvalidRequestError: 客户端未知 / `redirect_uri` 不可信（80101/400）。
+         */
+        get: operations["authorize_api_v1_oidc_authorize_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/oidc/jwks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Jwks
+         * @description IdP 公开 JWKS（标准 JSON，无统一响应包体）。
+         *
+         *     Args:
+         *         request: 请求对象。
+         *         provider: OIDC Provider。
+         *         state_store: 流程状态存储（保持服务构造一致）。
+         *         client: 服务间调用客户端（保持服务构造一致）。
+         *         hasher: 口令哈希（保持服务构造一致）。
+         *         tenant_ctx: 请求上下文租户。
+         *         tenant_source: 租户源。
+         *         tenant: 租户编码（可选）。
+         *
+         *     Returns:
+         *         JSONResponse: JWKS 文档。
+         */
+        get: operations["jwks_api_v1_oidc_jwks_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/oidc/token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Token
+         * @description 令牌端点：客户端认证 + 授权码换 ID Token / access token（标准 OAuth2 JSON）。
+         *
+         *     Args:
+         *         request: 请求对象。
+         *         provider: OIDC Provider。
+         *         state_store: 流程状态存储（授权码一次性消费）。
+         *         client: 服务间调用客户端（org 用户概要）。
+         *         hasher: 口令哈希（客户端密钥比对）。
+         *         tenant_ctx: 请求上下文租户。
+         *         tenant_source: 租户源。
+         *         tenant: 租户编码（可选）。
+         *
+         *     Returns:
+         *         Response: 标准令牌 JSON 或标准错误 JSON。
+         */
+        post: operations["token_api_v1_oidc_token_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/oidc/userinfo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Userinfo
+         * @description 用户信息端点：Bearer access token → 标准 userinfo JSON。
+         *
+         *     Args:
+         *         request: 请求对象。
+         *         provider: OIDC Provider。
+         *         state_store: 流程状态存储（保持服务构造一致）。
+         *         client: 服务间调用客户端（org 用户概要）。
+         *         hasher: 口令哈希（保持服务构造一致）。
+         *         tenant_ctx: 请求上下文租户。
+         *         tenant_source: 租户源。
+         *         tenant: 租户编码（可选）。
+         *
+         *     Returns:
+         *         Response: 标准 userinfo JSON 或 401。
+         */
+        get: operations["userinfo_api_v1_oidc_userinfo_get"];
+        put?: never;
+        /**
+         * Userinfo
+         * @description 用户信息端点：Bearer access token → 标准 userinfo JSON。
+         *
+         *     Args:
+         *         request: 请求对象。
+         *         provider: OIDC Provider。
+         *         state_store: 流程状态存储（保持服务构造一致）。
+         *         client: 服务间调用客户端（org 用户概要）。
+         *         hasher: 口令哈希（保持服务构造一致）。
+         *         tenant_ctx: 请求上下文租户。
+         *         tenant_source: 租户源。
+         *         tenant: 租户编码（可选）。
+         *
+         *     Returns:
+         *         Response: 标准 userinfo JSON 或 401。
+         */
+        post: operations["userinfo_api_v1_oidc_userinfo_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/open/clients": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Clients
+         * @description 客户端分页列表（可选 status / name 筛选）。
+         *
+         *     Args:
+         *         request: 请求对象。
+         *         tenant_ctx: 请求上下文租户。
+         *         hasher: 口令哈希实现。
+         *         audit: 审计捕获占位。
+         *         query: 分页请求。
+         *         status: 状态过滤（可选）。
+         *         name: 名称模糊过滤（可选）。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为分页客户端。
+         */
+        get: operations["list_clients_api_v1_open_clients_get"];
+        put?: never;
+        /**
+         * Create Client
+         * @description 注册客户端（返回 `client_id` 与明文 secret 一次）。
+         *
+         *     Args:
+         *         request: 请求对象。
+         *         req: 注册请求。
+         *         tenant_ctx: 请求上下文租户。
+         *         hasher: 口令哈希实现。
+         *         audit: 审计捕获占位。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为凭据（`ClientCreated`）。
+         */
+        post: operations["create_client_api_v1_open_clients_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/open/clients/{client_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Client
+         * @description 客户端详情。
+         *
+         *     Args:
+         *         request: 请求对象。
+         *         client_id: 客户端主键。
+         *         tenant_ctx: 请求上下文租户。
+         *         hasher: 口令哈希实现。
+         *         audit: 审计捕获占位。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为客户端项。
+         */
+        get: operations["get_client_api_v1_open_clients__client_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/open/clients/{client_id}/reset-secret": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reset Client Secret
+         * @description 重置客户端密钥（新明文仅本次返回）。
+         *
+         *     Args:
+         *         request: 请求对象。
+         *         client_id: 客户端主键。
+         *         tenant_ctx: 请求上下文租户。
+         *         hasher: 口令哈希实现。
+         *         audit: 审计捕获占位。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为新凭据（`ClientSecretReset`）。
+         */
+        post: operations["reset_client_secret_api_v1_open_clients__client_id__reset_secret_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/open/clients/{client_id}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set Client Status
+         * @description 启停客户端。
+         *
+         *     Args:
+         *         request: 请求对象。
+         *         req: 启停请求。
+         *         client_id: 客户端主键。
+         *         tenant_ctx: 请求上下文租户。
+         *         hasher: 口令哈希实现。
+         *         audit: 审计捕获占位。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为更新后的客户端项。
+         */
+        post: operations["set_client_status_api_v1_open_clients__client_id__status_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sessions": {
         parameters: {
             query?: never;
@@ -658,7 +990,11 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         ApiResponse: unknown;
+        ApiResponse_BasePageResponse_ClientItem__: unknown;
         ApiResponse_BasePageResponse_SessionItem__: unknown;
+        ApiResponse_ClientCreated_: unknown;
+        ApiResponse_ClientItem_: unknown;
+        ApiResponse_ClientSecretReset_: unknown;
         ApiResponse_KickResult_: unknown;
         ApiResponse_LoginResult_: unknown;
         ApiResponse_NoneType_: unknown;
@@ -667,6 +1003,7 @@ export interface components {
         ApiResponse_SsoAuthorizeInfo_: unknown;
         ApiResponse_SsoIdentityList_: unknown;
         ApiResponse_SsoProviderList_: unknown;
+        BasePageResponse_ClientItem_: unknown;
         BasePageResponse_SessionItem_: unknown;
         /**
          * CaptchaChallengeRequest
@@ -777,6 +1114,57 @@ export interface components {
                 number,
                 number
             ][];
+        };
+        /**
+         * ClientCreateRequest
+         * @description 客户端注册请求。
+         */
+        ClientCreateRequest: {
+            /**
+             * Grant Types
+             * @description 授权类型（client_credentials/authorization_code）
+             */
+            grant_types?: string[];
+            /**
+             * Ip Whitelist
+             * @description 来源 IP / CIDR 白名单（开放接口阶段十用）
+             */
+            ip_whitelist?: string[];
+            /**
+             * Name
+             * @description 应用名称
+             */
+            name: string;
+            /**
+             * Public
+             * @description 是否公共客户端（不生成 secret；授权码流程强制 PKCE）
+             * @default false
+             */
+            public: boolean;
+            /**
+             * Redirect Uris
+             * @description 回调地址白名单（精确匹配）
+             */
+            redirect_uris?: string[];
+            /**
+             * Scopes
+             * @description 允许申请的 scope 集合
+             */
+            scopes?: string[];
+        };
+        ClientCreated: unknown;
+        ClientItem: unknown;
+        ClientSecretReset: unknown;
+        /**
+         * ClientStatusRequest
+         * @description 客户端启停请求。
+         */
+        ClientStatusRequest: {
+            /**
+             * Status
+             * @description 目标状态（enabled/disabled）
+             */
+            status: string;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -1410,6 +1798,604 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    openid_configuration_api_v1_oidc__well_known_openid_configuration_get: {
+        parameters: {
+            query?: {
+                /** @description 租户编码（上下文缺省时的回落） */
+                tenant?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    authorize_api_v1_oidc_authorize_get: {
+        parameters: {
+            query?: {
+                response_type?: string | null;
+                client_id?: string | null;
+                redirect_uri?: string | null;
+                scope?: string | null;
+                state?: string | null;
+                nonce?: string | null;
+                code_challenge?: string | null;
+                code_challenge_method?: string | null;
+                /** @description 租户编码（上下文缺省时的回落） */
+                tenant?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    jwks_api_v1_oidc_jwks_get: {
+        parameters: {
+            query?: {
+                /** @description 租户编码（上下文缺省时的回落） */
+                tenant?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    token_api_v1_oidc_token_post: {
+        parameters: {
+            query?: {
+                /** @description 租户编码（上下文缺省时的回落） */
+                tenant?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    userinfo_api_v1_oidc_userinfo_get: {
+        parameters: {
+            query?: {
+                /** @description 租户编码（上下文缺省时的回落） */
+                tenant?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    userinfo_api_v1_oidc_userinfo_post: {
+        parameters: {
+            query?: {
+                /** @description 租户编码（上下文缺省时的回落） */
+                tenant?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_clients_api_v1_open_clients_get: {
+        parameters: {
+            query?: {
+                status?: string | null;
+                name?: string | null;
+                /** @description 页码（从 1 起） */
+                page?: number;
+                /** @description 每页条数（默认 20，上限 200） */
+                size?: number;
+                /** @description 排序字段，逗号分隔多值（如 status,created_at） */
+                order_by?: string | null;
+                /** @description 排序方向数组，与 order_by 位置一一对应 */
+                order?: string[] | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_BasePageResponse_ClientItem__"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    create_client_api_v1_open_clients_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClientCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_ClientCreated_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    get_client_api_v1_open_clients__client_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 客户端主键 */
+                client_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_ClientItem_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    reset_client_secret_api_v1_open_clients__client_id__reset_secret_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 客户端主键 */
+                client_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_ClientSecretReset_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    set_client_status_api_v1_open_clients__client_id__status_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 客户端主键 */
+                client_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClientStatusRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_ClientItem_"];
                 };
             };
             /** @description 未认证 */
