@@ -19,10 +19,12 @@ from typing import cast
 import httpx
 
 from bms_core.core.base import BaseObject
-from bms_core.core.exceptions import ConfigError
+from bms_core.core.exceptions import ConfigError, DingtalkConfigError, WecomConfigError
 from bms_core.idp.base import BaseIdentityProvider
 from bms_core.idp.cas import CasIdentityProvider, normalize_attribute_map
+from bms_core.idp.dingtalk import DingtalkIdentityProvider
 from bms_core.idp.oidc import OidcIdentityProvider
+from bms_core.idp.wecom import WecomIdentityProvider
 
 __all__ = [
     "IdentityProviderRegistry",
@@ -111,6 +113,10 @@ class IdentityProviderRegistry(BaseObject):
             return self._build_oidc(spec)
         if spec.type == "cas":
             return self._build_cas(spec)
+        if spec.type == "wecom":
+            return self._build_wecom(spec)
+        if spec.type == "dingtalk":
+            return self._build_dingtalk(spec)
         raise ConfigError(f"未支持的 IdP 协议类型：{spec.type}（{spec.idp_key}）")
 
     def get(self, spec: IdentityProviderSpec) -> BaseIdentityProvider:
@@ -190,6 +196,75 @@ class IdentityProviderRegistry(BaseObject):
             login_path=login_path,
             service_validate_path=service_validate_path,
             attribute_map=attribute_map or None,
+            transport=self._transport,
+        )
+
+    def _build_wecom(self, spec: IdentityProviderSpec) -> WecomIdentityProvider:
+        """构造企业微信实例（读取行配置，密钥引用经解析器转明文）。
+
+        Args:
+            spec: 行配置视图。
+
+        Returns:
+            WecomIdentityProvider: 企业微信客户端实例。
+
+        Raises:
+            WecomConfigError: 必填配置缺失（`corp_id` / `agent_id` / `redirect_uri` / `secret_ref`）、
+                密钥引用解析失败、`mode` 非法（20057）。
+        """
+        config = spec.config
+        try:
+            corp_id = _require_config_str(config, "corp_id", spec)
+            agent_id = _require_config_str(config, "agent_id", spec)
+            redirect_uri = _require_config_str(config, "redirect_uri", spec)
+            secret = self._secret_resolver(_require_config_str(config, "secret_ref", spec))
+        except ConfigError as exc:
+            raise WecomConfigError(str(exc)) from exc
+        mode = _optional_config_str(config, "mode") or "qr"
+        if mode not in ("qr", "oauth"):
+            raise WecomConfigError(f"企业微信行配置 mode 非法：{spec.idp_key}（应为 qr / oauth）")
+        return WecomIdentityProvider(
+            corp_id=corp_id,
+            agent_id=agent_id,
+            secret=secret,
+            redirect_uri=redirect_uri,
+            mode=mode,
+            login_url=_optional_config_str(config, "login_url"),
+            oauth_url=_optional_config_str(config, "oauth_url"),
+            api_base_url=_optional_config_str(config, "api_base_url"),
+            scope=_optional_config_str(config, "scope"),
+            login_type=_optional_config_str(config, "login_type"),
+            transport=self._transport,
+        )
+
+    def _build_dingtalk(self, spec: IdentityProviderSpec) -> DingtalkIdentityProvider:
+        """构造钉钉实例（读取行配置，密钥引用经解析器转明文）。
+
+        Args:
+            spec: 行配置视图。
+
+        Returns:
+            DingtalkIdentityProvider: 钉钉客户端实例。
+
+        Raises:
+            DingtalkConfigError: 必填配置缺失（`client_id` / `redirect_uri` / `client_secret_ref`）、
+                密钥引用解析失败（20060）。
+        """
+        config = spec.config
+        try:
+            client_id = _require_config_str(config, "client_id", spec)
+            redirect_uri = _require_config_str(config, "redirect_uri", spec)
+            client_secret = self._secret_resolver(_require_config_str(config, "client_secret_ref", spec))
+        except ConfigError as exc:
+            raise DingtalkConfigError(str(exc)) from exc
+        return DingtalkIdentityProvider(
+            client_id=client_id,
+            client_secret=client_secret,
+            redirect_uri=redirect_uri,
+            login_url=_optional_config_str(config, "login_url"),
+            api_base_url=_optional_config_str(config, "api_base_url"),
+            scope=_optional_config_str(config, "scope"),
+            prompt=_optional_config_str(config, "prompt"),
             transport=self._transport,
         )
 

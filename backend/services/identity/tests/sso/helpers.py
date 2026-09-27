@@ -30,6 +30,11 @@ TENANT = "demo"
 IDP_KEY = "keycloak"
 CAS_IDP_KEY = "cas"
 CAS_SERVER = "https://cas.test/cas"
+WECOM_IDP_KEY = "wecom"
+WECOM_CORP_ID = "corp-1"
+WECOM_AGENT_ID = "agent-1"
+DINGTALK_IDP_KEY = "dingtalk"
+DINGTALK_CLIENT_ID = "client-1"
 TENANT_HEADERS = {"X-Tenant-ID": TENANT}
 
 _ACCESS = "access"
@@ -479,3 +484,77 @@ def _cas_failure_xml(code: str) -> bytes:
         f'<cas:authenticationFailure code="{code}">bad</cas:authenticationFailure>'
         "</cas:serviceResponse>"
     ).encode()
+
+
+class WecomMock:
+    """可控企业微信服务：`gettoken` / `getuserinfo` 两接口（授权跳转不发出站请求）。"""
+
+    def __init__(self) -> None:
+        """初始化（默认成功响应）。"""
+        self.token_errcode = 0
+        self.access_token = "wecom-token"
+        self.expires_in = 7200
+        self.token_status = 200
+        self.user_errcode = 0
+        self.userid: str | None = "wecom-alice"
+        self.openid: str | None = None
+        self.user_status = 200
+
+    def handle(self, request: httpx.Request) -> httpx.Response:
+        """MockTransport 处理函数（按路径分派）。
+
+        Args:
+            request: 出站请求。
+
+        Returns:
+            httpx.Response: 模拟响应。
+        """
+        path = request.url.path
+        if path.endswith("/cgi-bin/gettoken"):
+            if self.token_status != 200:
+                return httpx.Response(self.token_status, json={})
+            return httpx.Response(
+                200,
+                json={"errcode": self.token_errcode, "access_token": self.access_token, "expires_in": self.expires_in},
+            )
+        if path.endswith("/cgi-bin/auth/getuserinfo"):
+            if self.user_status != 200:
+                return httpx.Response(self.user_status, json={})
+            payload: dict[str, object] = {"errcode": self.user_errcode, "errmsg": "ok"}
+            if self.userid is not None:
+                payload["userid"] = self.userid
+            if self.openid is not None:
+                payload["openid"] = self.openid
+            return httpx.Response(200, json=payload)
+        return httpx.Response(404, json={"error": "not_found"})
+
+
+class DingtalkMock:
+    """可控钉钉服务：`userAccessToken` / `contact/users/me` 两接口（授权跳转不发出站请求）。"""
+
+    def __init__(self) -> None:
+        """初始化（默认成功响应）。"""
+        self.token_status = 200
+        self.token_body: dict[str, object] = {"accessToken": "dingtalk-token", "expireIn": 7200, "refreshToken": "rt"}
+        self.user_status = 200
+        self.user_body: dict[str, object] = {"unionId": "dingtalk-union", "openId": "dingtalk-open", "nick": "丁丁"}
+
+    def handle(self, request: httpx.Request) -> httpx.Response:
+        """MockTransport 处理函数（按路径分派）。
+
+        Args:
+            request: 出站请求。
+
+        Returns:
+            httpx.Response: 模拟响应。
+        """
+        path = request.url.path
+        if path.endswith("/v1.0/oauth2/userAccessToken"):
+            if self.token_status != 200:
+                return httpx.Response(self.token_status, json={})
+            return httpx.Response(200, json=self.token_body)
+        if path.endswith("/v1.0/contact/users/me"):
+            if self.user_status != 200:
+                return httpx.Response(self.user_status, json={})
+            return httpx.Response(200, json=self.user_body)
+        return httpx.Response(404, json={"error": "not_found"})

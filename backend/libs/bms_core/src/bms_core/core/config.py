@@ -412,6 +412,51 @@ class IdentityProviderSettings(PluginSelection):
     attribute_map: dict[str, list[str]] = Field(default_factory=dict[str, list[str]])
     """CAS 属性映射覆盖（`{username|name|email: [候选属性名…]}`；空集用内置默认映射）。"""
 
+    wecom_corp_id: str = ""
+    """企业微信 CorpID（授权 `appid`；`provider="wecom"` 时必填）。"""
+
+    wecom_agent_id: str = ""
+    """企业微信应用 AgentID（扫码与 H5 授权携带）。"""
+
+    wecom_secret: str = ""
+    """企业微信应用密钥（空串；经 `BMS_IDENTITY_PROVIDER__WECOM_SECRET` 注入）。"""
+
+    wecom_mode: str = "qr"
+    """企业微信授权形态（`qr` PC 扫码 / `oauth` 内嵌 H5 网页授权）。"""
+
+    wecom_login_url: str = "https://login.work.weixin.qq.com/wwlogin/sso/login"
+    """企业微信扫码登录入口。"""
+
+    wecom_oauth_url: str = "https://open.weixin.qq.com/connect/oauth2/authorize"
+    """企业微信内嵌 H5 网页授权入口。"""
+
+    wecom_api_base_url: str = "https://qyapi.weixin.qq.com"
+    """企业微信服务端接口基址。"""
+
+    wecom_scope: str = "snsapi_base"
+    """企业微信网页授权 scope（`mode=oauth`）。"""
+
+    wecom_login_type: str = "CorpApp"
+    """企业微信扫码登录类型（`mode=qr`；`CorpApp` / `ServiceApp`）。"""
+
+    dingtalk_client_id: str = ""
+    """钉钉 Client ID / AppKey（`provider="dingtalk"` 时必填）。"""
+
+    dingtalk_client_secret: str = ""
+    """钉钉 Client Secret / AppSecret（空串；经 `BMS_IDENTITY_PROVIDER__DINGTALK_CLIENT_SECRET` 注入）。"""
+
+    dingtalk_login_url: str = "https://login.dingtalk.com/oauth2/auth"
+    """钉钉新版 OAuth2 授权入口。"""
+
+    dingtalk_api_base_url: str = "https://api.dingtalk.com"
+    """钉钉新版服务端接口基址。"""
+
+    dingtalk_scope: str = "openid"
+    """钉钉授权 scope（`openid` / `openid corpid`）。"""
+
+    dingtalk_prompt: str = "consent"
+    """钉钉授权确认方式。"""
+
 
 class ServiceTokenSettings(PluginSelection):
     """服务 JWT 自签配置（`[service_token]`；私钥只走环境变量 / Secret，不写入配置文件）。"""

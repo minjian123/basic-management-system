@@ -45,21 +45,32 @@ from .helpers import (
     CAS_SERVER,
     CLIENT_ID,
     CLIENT_SECRET,
+    DINGTALK_CLIENT_ID,
+    DINGTALK_IDP_KEY,
     IDP_KEY,
     ISSUER,
     TENANT,
     TENANT_HEADERS,
+    WECOM_AGENT_ID,
+    WECOM_CORP_ID,
+    WECOM_IDP_KEY,
     CasMock,
+    DingtalkMock,
     FakeSsoOrgClient,
     FakeUserTokenIssuer,
     IdpMock,
     RecordingOutboxStore,
+    WecomMock,
 )
 
 SECRET_ENV = "SSO_TEST_IDP_SECRET"
+WECOM_SECRET_ENV = "SSO_TEST_WECOM_SECRET"
+DINGTALK_SECRET_ENV = "SSO_TEST_DINGTALK_SECRET"
 USER_ID = 1001
 REDIRECT_URI = f"http://test/api/v1/auth/sso/{IDP_KEY}/callback"
 CAS_REDIRECT_URI = f"http://test/api/v1/auth/sso/{CAS_IDP_KEY}/callback"
+WECOM_REDIRECT_URI = f"http://test/api/v1/auth/sso/{WECOM_IDP_KEY}/callback"
+DINGTALK_REDIRECT_URI = f"http://test/api/v1/auth/sso/{DINGTALK_IDP_KEY}/callback"
 
 
 @dataclass
@@ -76,6 +87,8 @@ class SsoHarness:
     outbox: RecordingOutboxStore
     idp: IdpMock
     cas: CasMock
+    wecom: WecomMock
+    dingtalk: DingtalkMock
 
     def tenant_scope(self) -> AbstractAsyncContextManager[DbSession]:
         """演示租户库会话上下文。
@@ -148,6 +161,41 @@ class SsoHarness:
         config.update(overrides)
         return config
 
+    def wecom_provider_config(self, **overrides: object) -> dict[str, object]:
+        """构造企业微信 IdP 行配置（缺省指向 Mock 企微）。
+
+        Args:
+            **overrides: 覆盖字段。
+
+        Returns:
+            dict[str, object]: 配置对象。
+        """
+        config: dict[str, object] = {
+            "corp_id": WECOM_CORP_ID,
+            "agent_id": WECOM_AGENT_ID,
+            "secret_ref": f"env:{WECOM_SECRET_ENV}",
+            "redirect_uri": WECOM_REDIRECT_URI,
+        }
+        config.update(overrides)
+        return config
+
+    def dingtalk_provider_config(self, **overrides: object) -> dict[str, object]:
+        """构造钉钉 IdP 行配置（缺省指向 Mock 钉钉）。
+
+        Args:
+            **overrides: 覆盖字段。
+
+        Returns:
+            dict[str, object]: 配置对象。
+        """
+        config: dict[str, object] = {
+            "client_id": DINGTALK_CLIENT_ID,
+            "client_secret_ref": f"env:{DINGTALK_SECRET_ENV}",
+            "redirect_uri": DINGTALK_REDIRECT_URI,
+        }
+        config.update(overrides)
+        return config
+
     async def seed_provider(
         self,
         *,
@@ -162,7 +210,7 @@ class SsoHarness:
 
         Args:
             idp_key: 身份源标识。
-            type: 协议类型（oidc / cas）。
+            type: 协议类型（oidc / cas / wecom / dingtalk）。
             status: 状态（enabled/disabled）。
             sort: 排序值。
             config: 行配置（None 按类型取缺省 Mock 配置）。
@@ -172,6 +220,10 @@ class SsoHarness:
             payload = config
         elif type == "cas":
             payload = self.cas_provider_config()
+        elif type == "wecom":
+            payload = self.wecom_provider_config()
+        elif type == "dingtalk":
+            payload = self.dingtalk_provider_config()
         else:
             payload = self.provider_config()
         async with self.tenant_scope() as session:
@@ -354,6 +406,8 @@ def sso(service_app: FastAPI, monkeypatch: pytest.MonkeyPatch, idp: IdpMock) -> 
     )
     lock, outbox = MemoryDistributedLock(), RecordingOutboxStore()
     cas = CasMock()
+    wecom = WecomMock()
+    dingtalk = DingtalkMock()
     service_app.dependency_overrides[get_user_token_issuer] = lambda: issuer
     service_app.dependency_overrides[get_service_client] = lambda: org
     service_app.dependency_overrides[get_session_store] = lambda: store
@@ -363,9 +417,11 @@ def sso(service_app: FastAPI, monkeypatch: pytest.MonkeyPatch, idp: IdpMock) -> 
     service_app.dependency_overrides[get_outbox_store] = lambda: outbox
     service_app.dependency_overrides[get_realtime_publisher] = lambda: NullRealtimePublisher()
     monkeypatch.setenv(SECRET_ENV, CLIENT_SECRET)
+    monkeypatch.setenv(WECOM_SECRET_ENV, "wecom-secret")
+    monkeypatch.setenv(DINGTALK_SECRET_ENV, "dingtalk-secret")
 
     def _dispatch(request: httpx.Request) -> httpx.Response:
-        """按路径分派 Mock IdP（OIDC）与 Mock CAS。
+        """按路径分派 Mock IdP（OIDC）、Mock CAS、Mock 企微与 Mock 钉钉。
 
         Args:
             request: 出站请求。
@@ -373,8 +429,13 @@ def sso(service_app: FastAPI, monkeypatch: pytest.MonkeyPatch, idp: IdpMock) -> 
         Returns:
             httpx.Response: 模拟响应。
         """
-        if request.url.path.endswith("/p3/serviceValidate"):
+        path = request.url.path
+        if path.endswith("/p3/serviceValidate"):
             return cas.handle(request)
+        if path.endswith("/cgi-bin/gettoken") or path.endswith("/cgi-bin/auth/getuserinfo"):
+            return wecom.handle(request)
+        if path.endswith("/v1.0/oauth2/userAccessToken") or path.endswith("/v1.0/contact/users/me"):
+            return dingtalk.handle(request)
         return idp.handle(request)
 
     monkeypatch.setattr(
@@ -393,4 +454,6 @@ def sso(service_app: FastAPI, monkeypatch: pytest.MonkeyPatch, idp: IdpMock) -> 
         outbox=outbox,
         idp=idp,
         cas=cas,
+        wecom=wecom,
+        dingtalk=dingtalk,
     )

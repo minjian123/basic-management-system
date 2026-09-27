@@ -22,6 +22,14 @@ class SsoProviderList(BaseSchema):
     items: list[SsoProviderItem] = Field(default_factory=list[SsoProviderItem], description="可用 IdP 清单")
 
 
+class SsoAuthorizeInfo(BaseSchema):
+    """SSO 授权 URL 响应体（前端渲染二维码 / 初始化平台内嵌登录组件用）。"""
+
+    authorize_url: str = Field(description="外部授权入口 URL")
+    state: str = Field(description="流程状态（一次性；回调校验）")
+    expires_in: int = Field(description="流程状态有效期（秒）")
+
+
 class SsoCallbackResult(BaseSchema):
     """SSO 回调成功回退响应体（未配置 `success_redirect` 时的 JSON 形态）。"""
 
