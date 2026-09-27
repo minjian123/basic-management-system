@@ -97,11 +97,14 @@ sequenceDiagram
 
 | 方法 | 路径 | 说明 | 权限码 |
 | --- | --- | --- | --- |
-| GET | /api/v1/idp/providers | IdP 配置列表（租户库） | idp:manage |
-| POST | /api/v1/idp/providers | 新建 IdP 配置（type/config 校验） | idp:manage |
-| PUT | /api/v1/idp/providers/{id} | 修改 IdP 配置 | idp:manage |
-| DELETE | /api/v1/idp/providers/{id} | 删除 IdP 配置 | idp:manage |
-| GET | /api/v1/idp/providers/{id}/test | 连通性测试（外部 IdP 握手验证） | idp:manage |
+| GET | /api/v1/idp/providers | IdP 配置列表（分页 + status/type/name 筛选；config 敏感键脱敏；02_06 落地） | idp:manage |
+| POST | /api/v1/idp/providers | 新建 IdP 配置（声明式 type/config 校验 + SSRF；02_06 落地） | idp:manage |
+| GET | /api/v1/idp/providers/{id} | IdP 配置详情（config 脱敏；02_06 落地） | idp:manage |
+| PUT | /api/v1/idp/providers/{id} | 修改 IdP 配置（type / idp_key 不可改；02_06 落地） | idp:manage |
+| POST | /api/v1/idp/providers/{id}/status | 独立启停（02_06 落地） | idp:manage |
+| DELETE | /api/v1/idp/providers/{id} | 软删除 IdP 配置（标识软删后可复用；02_06 落地） | idp:manage |
+| POST | /api/v1/idp/providers/test | 草稿连通性测试（请求体带 type/config，不落库；02_06 落地） | idp:manage |
+| GET | /api/v1/idp/providers/{id}/test | 已保存行连通性测试（分协议探测；02_06 落地） | idp:manage |
 | GET | /api/v1/auth/sso/providers | 登录页 IdP 入口列表（公开，仅 enabled；02_01 落地） | — |
 | GET | /api/v1/auth/sso/{idp_key}/authorize | 授权跳转（state / nonce / PKCE 落流程状态，302 外部 IdP；02_01 落地） | — |
 | GET | /api/v1/auth/sso/{idp_key}/authorize-url | 授权 URL（JSON：授权 URL / state / 有效期，供登录页渲染二维码 / 初始化平台组件；02_04 落地） | — |
@@ -124,6 +127,7 @@ sequenceDiagram
 - 幂等：JIT 建号为天然幂等设计（唯一约束兜底，重复回跳命中既有映射）；回调不重复建号
 - 限流：SSO 授权跳转与回调经限流基座 `BaseRateLimiter`（IP + 提供方双维度，Redis 后端，`[sso].ip_rate_limit` / `provider_rate_limit`），防回跳风暴与爆破（02_01 落地）
 - 幂等（OIDC Provider，02_05）：授权码经 `idp_state_store` `oidccode` 命名空间一次性原子消费（短 TTL），重放 / 过期即拒；`/token` 本期只签发 ID Token 与短时 access token，**不发 refresh token**；客户端密钥只存 PBKDF2 哈希、明文仅创建 / 重置响应回显一次
+- 安全（IdP 配置管理，02_06）：配置写入按协议声明式校验（必填 / 类型 / 枚举 + 未知键拒绝）；密钥只接受 `env:` 引用、响应永久脱敏（`env:***`）；出站 URL 经 SSRF 校验（协议 + 主机静态校验，内网经 `[idp_manage].allow_private_hosts` 显式放行）；连通性测试经限流基座（`[idp_manage].test_rate_limit`，租户 + 操作者维度）
 
 ### 5.3 发布的事件
 
@@ -171,8 +175,9 @@ idp / sso 业务与 manage / bind 动作码由【平台库】sys_business/sys_ac
 | 20056 | 本地登录锁定/限流（应急通道保护） |
 | 20057~20059 | 企业微信免登（配置缺失或非法 / 授权失败 / 接口不可达） |
 | 20060~20062 | 钉钉免登（配置缺失或非法 / 授权失败 / 接口不可达） |
+| 20063~20066 | 外部 IdP 配置管理（配置不存在 / 写入校验失败 / 标识冲突 / 连通性测试失败） |
 
-> 上列 `20051`~`20056` 随 02_01 登记落地（`SsoError` 异常子段）；`20057`~`20062` 随 02_04 登记落地（`EnterpriseIdpError` 子段，企微 / 钉钉各三码）。回调类错误的 HTTP 映射（404 / 400 / 503 / 403 / 409 / 429）与跳转形态见任务 02_01 详细设计，企微 / 钉钉专用码的分支见任务 02_04 详细设计。
+> 上列 `20051`~`20056` 随 02_01 登记落地（`SsoError` 异常子段）；`20057`~`20062` 随 02_04 登记落地（`EnterpriseIdpError` 子段，企微 / 钉钉各三码）；`20063`~`20066` 随 02_06 登记落地（`IdpManageError` 子段，管理面 CRUD / 启停 / 连通性）。回调类错误的 HTTP 映射（404 / 400 / 503 / 403 / 409 / 429 / 502）与跳转形态见任务 02_01 详细设计，企微 / 钉钉专用码的分支见任务 02_04 详细设计，管理面码的分支见任务 02_06 详细设计。
 
 ### 7.2 异常处理要求
 

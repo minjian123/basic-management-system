@@ -14,8 +14,8 @@
 | 工时（重估） | 12h |
 | 依赖 | 02_01（SSO 链路）；阶段二 `02-3-11`（配置基座）、限流基座 |
 | 负责人 | minjian |
-| 状态 | 未开始 |
-| 完成日期 | — |
+| 状态 | 已完成 |
+| 完成日期 | 2026-09-27 |
 
 > **前置契约（已交付 · 02_01，2026-09-27）**：`sys_identity_provider` 表 + ORM（`SysIdentityProvider`）+ `identity:tenant` 迁移（0002）+ 读路径（`IdentityProviderRepository.list_enabled` / `get_by_key`）已交付，本任务在其上补 CRUD / 启停 / 排序管理接口；`ProviderRegistry` / `IdentityProviderSpec` / `resolve_secret_ref`（`env:` 已实现、`secret:` 预留抛 `ConfigError`）已交付，连通性测试复用 `ProviderRegistry` 实例化；登录页入口清单 `GET /auth/sso/providers` 已按 `enabled` + `sort` 取数且永不返回 `config`。
 
@@ -43,4 +43,4 @@
 
 > **前置契约（已交付 · 02_04，2026-09-27）**：企微 / 钉钉行配置新增平铺键——企业微信 `corp_id`（必填）/ `agent_id`（必填）/ `secret_ref`（必填，`env:` 引用）/ `mode`（`qr`/`oauth`，缺省 `qr`）/ `login_url` / `oauth_url` / `api_base_url` / `scope` / `login_type`；钉钉 `client_id`（必填）/ `client_secret_ref`（必填）/ `login_url` / `api_base_url` / `scope` / `prompt`；`IdentityProviderRegistry.build` 已支持 `type="wecom"` / `"dingtalk"` 分派，必填缺失 / `mode` 非法抛 `WecomConfigError`（20057）/ `DingtalkConfigError`（20060）。02_06 管理面需支持这几键的写入校验（必填、`mode` 枚举）与连通性测试（企微 `gettoken`、钉钉 `userAccessToken` 探活；密钥字段掩码口径同 OIDC / CAS）。
 
-> 交付物：详细设计、实施记录、测试记录（随任务开工建立，落本目录 `设计/`、`实施/`、`测试/`）。
+> 交付物：[详细设计](设计/06_详细设计_06_外部IdP配置管理.md)、[实施记录](实施/06_实施_06_外部IdP配置管理.md)、[测试记录](测试/06_测试_06_外部IdP配置管理.md)。
