@@ -14,6 +14,8 @@
 - Schemathesis 走固定 tag 镜像 `schemathesis/schemathesis:4.28.0`，以 `--network container:<服务容器>`
   与服务容器共享网络命名空间，经 `127.0.0.1:8000` 打真实服务；
 - 只读方法（GET / HEAD）+ 每操作 1 例（冒烟）+ 仅 `not_a_server_error`（无 5xx）；
+  阶段限定 `examples,fuzzing`（**不跑 coverage / stateful**——冒烟口径只需 1 例，跑全阶段会把单服务冒烟
+  拖到 200s+）；`--workers auto` 并行操作级用例（2026-09-27 提速）；
   排除基础设施端点（`/healthz` `/readyz` `/metrics`）；非 2xx（4xx）视为可达通过。
 """
 
@@ -39,6 +41,12 @@ CONTAINER_COMMAND = "docker"
 
 DEFAULT_MAX_EXAMPLES = 1
 """每操作样例上限（冒烟口径：1 例即证明服务可达且无 5xx，不做 fuzz）。"""
+
+SMOKE_PHASES = "examples,fuzzing"
+"""冒烟阶段（仅 examples + fuzzing；不跑 coverage / stateful，避免把单服务冒烟拖到 200s+）。"""
+
+SMOKE_WORKERS = "auto"
+"""用例并行 worker 数（`auto` 按可用核数；操作级并行缩短冒烟耗时）。"""
 
 READ_METHODS = ("GET", "HEAD")
 """冒烟只读方法（不写数据、不依赖登录链路）。"""
@@ -97,6 +105,10 @@ def schemathesis_args(service_key: str, *, max_examples: int = DEFAULT_MAX_EXAMP
         f"http://127.0.0.1:{SERVICE_PORT}",
         "--max-examples",
         str(max_examples),
+        "--phases",
+        SMOKE_PHASES,
+        "--workers",
+        SMOKE_WORKERS,
         "--checks",
         "not_a_server_error",
         "--suppress-health-check",
