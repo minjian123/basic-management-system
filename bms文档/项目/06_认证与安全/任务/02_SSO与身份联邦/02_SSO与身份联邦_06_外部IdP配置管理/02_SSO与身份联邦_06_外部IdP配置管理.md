@@ -41,4 +41,6 @@
 
 > **前置契约（已交付 · 02_03，2026-09-27）**：CAS 行配置新增平铺键 `cas_server_url`（必填）/ `cas_login_path`（缺省 `/login`）/ `cas_service_validate_path`（缺省 `/p3/serviceValidate`）/ `attribute_map`（对象，属性映射覆盖）；`IdentityProviderRegistry.build` 已支持 `type="cas"` 分派。02_06 管理面需支持这几键的写入校验（`cas_server_url` 必填、`attribute_map` 对象类型）与连通性测试（复用 `serviceValidate`）；CAS 以服务注册校验身份，**不需要客户端密钥**。
 
+> **前置契约（已交付 · 02_04，2026-09-27）**：企微 / 钉钉行配置新增平铺键——企业微信 `corp_id`（必填）/ `agent_id`（必填）/ `secret_ref`（必填，`env:` 引用）/ `mode`（`qr`/`oauth`，缺省 `qr`）/ `login_url` / `oauth_url` / `api_base_url` / `scope` / `login_type`；钉钉 `client_id`（必填）/ `client_secret_ref`（必填）/ `login_url` / `api_base_url` / `scope` / `prompt`；`IdentityProviderRegistry.build` 已支持 `type="wecom"` / `"dingtalk"` 分派，必填缺失 / `mode` 非法抛 `WecomConfigError`（20057）/ `DingtalkConfigError`（20060）。02_06 管理面需支持这几键的写入校验（必填、`mode` 枚举）与连通性测试（企微 `gettoken`、钉钉 `userAccessToken` 探活；密钥字段掩码口径同 OIDC / CAS）。
+
 > 交付物：详细设计、实施记录、测试记录（随任务开工建立，落本目录 `设计/`、`实施/`、`测试/`）。
