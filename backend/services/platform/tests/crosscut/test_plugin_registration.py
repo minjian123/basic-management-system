@@ -57,6 +57,7 @@ _EXPECTED_PLUGIN_KEYS = frozenset(
         "icon_registry",
         "idempotency",
         "identity_provider",
+        "idp_state_store",
         "importer",
         "llm_provider",
         "masking",

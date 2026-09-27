@@ -8,6 +8,7 @@
       "ApiResponse_NoneType_": {},
       "ApiResponse_RefreshResult_": {},
       "ApiResponse_SessionItem_": {},
+      "ApiResponse_SsoProviderList_": {},
       "BasePageResponse_SessionItem_": {},
       "CaptchaChallengeRequest": {
         "description": "验证码出题请求。",
@@ -225,6 +226,8 @@
       "LoginResult": {},
       "RefreshResult": {},
       "SessionItem": {},
+      "SsoProviderItem": {},
+      "SsoProviderList": {},
       "UserSummary": {},
       "ValidationError": {
         "properties": {
@@ -526,6 +529,212 @@
         "summary": "Refresh",
         "tags": [
           "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/sso/providers": {
+      "get": {
+        "description": "可用 IdP 入口清单（仅 `enabled`；无启用 IdP 返回空列表）。\n\nArgs:\n    request: 请求对象。\n    tenant_ctx: 请求上下文租户。\n    tenant_source: 租户源。\n    state_store: 流程状态存储（保持服务构造一致）。\n    limiter: 限流基座（保持服务构造一致）。\n    client: 服务间调用客户端（保持服务构造一致）。\n    tenant: 租户编码（可选）。\n\nReturns:\n    ApiResponse: 统一响应，data 为 `SsoProviderList`。",
+        "operationId": "providers_api_v1_auth_sso_providers_get",
+        "parameters": [
+          {
+            "description": "租户编码（上下文缺省时的回落）",
+            "in": "query",
+            "name": "tenant",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "租户编码（上下文缺省时的回落）",
+              "title": "Tenant"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_SsoProviderList_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Providers",
+        "tags": [
+          "sso"
+        ]
+      }
+    },
+    "/api/v1/auth/sso/{idp_key}/authorize": {
+      "get": {
+        "description": "生成流程状态并 `302` 到外部授权端点。\n\nArgs:\n    request: 请求对象。\n    idp_key: 租户内 IdP 标识（路由参数）。\n    tenant_ctx: 请求上下文租户。\n    tenant_source: 租户源。\n    state_store: 流程状态存储。\n    limiter: 限流基座。\n    client: 服务间调用客户端。\n    tenant: 租户编码（可选）。\n\nReturns:\n    Response: `302` 跳转外部授权端点。\n\nRaises:\n    SsoProviderNotFoundError: IdP 不存在或已停用（20051/404）。\n    SsoProviderUnavailableError: IdP 配置缺失 / 发现失败（20053/503）。\n    RateLimitError: 限流命中（10005/429）。",
+        "operationId": "authorize_api_v1_auth_sso__idp_key__authorize_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "idp_key",
+            "required": true,
+            "schema": {
+              "title": "Idp Key",
+              "type": "string"
+            }
+          },
+          {
+            "description": "租户编码（上下文缺省时的回落）",
+            "in": "query",
+            "name": "tenant",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "租户编码（上下文缺省时的回落）",
+              "title": "Tenant"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Authorize",
+        "tags": [
+          "sso"
+        ]
+      }
+    },
+    "/api/v1/auth/sso/{idp_key}/callback": {
+      "get": {
+        "description": "回调闭环：`state` 一次性消费 → 换码 / 验签 → 映射 → 签发会话 → `302` 前端。\n\nArgs:\n    request: 请求对象。\n    idp_key: 回调路径中的 IdP 标识。\n    tenant_ctx: 请求上下文租户（有则与 `state` 记录交叉校验）。\n    tenant_source: 租户源（按 `state` 记录租户定位库键）。\n    state_store: 流程状态存储。\n    limiter: 限流基座。\n    client: 服务间调用客户端。\n    issuer: 用户双 token 签发者。\n    security: 会话安全原语。\n    store: 会话标记存储。\n    publisher: 实时推送器。\n    state: IdP 回传流程状态。\n    code: IdP 回传授权码。\n    error: IdP 回传错误。\n\nReturns:\n    Response: 成功 `302 {success_redirect}?tenant=…` + refresh cookie（未配置回退 200 JSON）；\n    失败 `302 {failure_redirect}?error=&message=`（未配置抛 `BizError`）。",
+        "operationId": "callback_api_v1_auth_sso__idp_key__callback_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "idp_key",
+            "required": true,
+            "schema": {
+              "title": "Idp Key",
+              "type": "string"
+            }
+          },
+          {
+            "description": "IdP 回传流程状态",
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "IdP 回传流程状态",
+              "title": "State"
+            }
+          },
+          {
+            "description": "IdP 回传授权码",
+            "in": "query",
+            "name": "code",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "IdP 回传授权码",
+              "title": "Code"
+            }
+          },
+          {
+            "description": "IdP 回传错误（如 access_denied）",
+            "in": "query",
+            "name": "error",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "IdP 回传错误（如 access_denied）",
+              "title": "Error"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Callback",
+        "tags": [
+          "sso"
         ]
       }
     },

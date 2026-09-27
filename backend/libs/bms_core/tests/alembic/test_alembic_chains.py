@@ -123,6 +123,13 @@ def test_chain_metadata_is_subset() -> None:
         "sys_event_consumed",
         "sys_event_dead_letter",
         "sys_session",
+        "sys_identity_provider",
+    }
+    assert set(chain_metadata(resolve_chain("identity:platform")).tables) == {
+        "sys_outbox",
+        "sys_event_consumed",
+        "sys_event_dead_letter",
+        "sys_user_identity",
     }
 
 
@@ -186,6 +193,7 @@ def test_chain_revisions_integrity() -> None:
         "tenant:platform",
         "tenant:tenant",
         "identity:tenant",
+        "identity:platform",
         "org:tenant",
     ):
         heads = ScriptDirectory.from_config(_config(resolve_chain(name))).get_heads()

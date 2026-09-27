@@ -1,7 +1,8 @@
-"""认证与身份服务 services 层：org 内部凭据接口客户端（服务间契约调用）。
+"""认证与身份服务 services 层：org 内部接口客户端（服务间契约调用）。
 
-- 经 `service_client` 基座走公开契约面（`/api/v1/org/internal/credentials/*`），出站附自签服务 JWT
-  （`sub=identity`）+ `tenant` claim，供 org 解析租户库；不经网关。
+- 经 `service_client` 基座走公开契约面（`/api/v1/org/internal/credentials/*` 与
+  `/api/v1/org/internal/users/profile`），出站附自签服务 JWT（`sub=identity`）+ `tenant` claim，
+  供 org 解析租户库；不经网关。
 - 失败语义：下游不可达 / 非 2xx / 响应契约非法 → `ServiceUnavailableError`（10007/503，fail-closed，
   不降级为「密码错误」）。
 """
@@ -14,12 +15,19 @@ from bms_core.core.base import BaseObject
 from bms_core.core.exceptions import ServiceUnavailableError
 from bms_core.servicecall.base import BaseServiceClient, ServiceCallPolicy, ServiceRequest, ServiceResponse
 from bms_identity.schemas.auth import OrgLoginState, OrgVerifyResult
+from bms_identity.schemas.sso import OrgProfileResult
 
 ORG_SERVICE = "org"
 """凭据主数据归属服务标识。"""
 
 _SCOPES: tuple[str, ...] = ("credential",)
 """内部凭据调用所需服务 JWT scope。"""
+
+_PROFILE_SCOPES: tuple[str, ...] = ("user_profile",)
+"""用户概要接口所需服务 JWT scope。"""
+
+_CREDENTIAL_INTERFACE = "org 凭据接口"
+_PROFILE_INTERFACE = "org 用户接口"
 
 
 class OrgCredentialClient(BaseObject):
@@ -99,6 +107,28 @@ class OrgCredentialClient(BaseObject):
         data = await self._post("login-state", tenant, body)
         return OrgLoginState.model_validate(data)
 
+    async def user_profile(self, tenant: str | None, user_id: int) -> OrgProfileResult:
+        """调 org 取用户概要（SSO 回调定位用户后）。
+
+        Args:
+            tenant: 租户编码（随服务 JWT claim 传递）。
+            user_id: 本地用户主键。
+
+        Returns:
+            OrgProfileResult: 概要结果（`found=False` 表示用户不存在）。
+
+        Raises:
+            ServiceUnavailableError: 下游不可达 / 响应非法（10007/503）。
+        """
+        data = await self._post_path(
+            "/api/v1/org/internal/users/profile",
+            _PROFILE_SCOPES,
+            tenant,
+            {"user_id": user_id},
+            interface=_PROFILE_INTERFACE,
+        )
+        return OrgProfileResult.model_validate(data)
+
     async def _post(self, action: str, tenant: str | None, body: dict[str, object]) -> dict[str, object]:
         """发起内部凭据 POST（公开契约面 + 服务 JWT），解析统一响应体 `data`。
 
@@ -113,28 +143,61 @@ class OrgCredentialClient(BaseObject):
         Raises:
             ServiceUnavailableError: 下游不可达 / 非 2xx / 响应契约非法（10007/503）。
         """
+        return await self._post_path(
+            f"/api/v1/org/internal/credentials/{action}",
+            _SCOPES,
+            tenant,
+            body,
+            interface=_CREDENTIAL_INTERFACE,
+        )
+
+    async def _post_path(
+        self,
+        path: str,
+        scopes: tuple[str, ...],
+        tenant: str | None,
+        body: dict[str, object],
+        *,
+        interface: str,
+    ) -> dict[str, object]:
+        """发起内部 POST（公开契约面 + 服务 JWT），解析统一响应体 `data`。
+
+        Args:
+            path: 公开契约路径。
+            scopes: 服务 JWT scope。
+            tenant: 租户编码（随服务 JWT claim）。
+            body: JSON 请求体。
+            interface: 错误提示用接口名称。
+
+        Returns:
+            dict[str, object]: 统一响应 `data`。
+
+        Raises:
+            ServiceUnavailableError: 下游不可达 / 非 2xx / 响应契约非法（10007/503）。
+        """
         response = await self._client.call(
             ServiceRequest(
                 service=ORG_SERVICE,
                 method="POST",
-                path=f"/api/v1/org/internal/credentials/{action}",
+                path=path,
                 tenant=tenant,
                 json_body=body,
-                policy=ServiceCallPolicy(scopes=_SCOPES),
+                policy=ServiceCallPolicy(scopes=scopes),
             )
         )
-        payload = _payload(response)
+        payload = _payload(response, interface)
         data = payload.get("data")
         if not isinstance(data, dict):
-            raise ServiceUnavailableError(f"org 凭据接口返回契约非法：{action}")
+            raise ServiceUnavailableError(f"{interface}返回契约非法")
         return cast("dict[str, object]", data)
 
 
-def _payload(response: ServiceResponse) -> dict[str, object]:
+def _payload(response: ServiceResponse, interface: str) -> dict[str, object]:
     """解析服务响应为统一响应体（非 2xx / 非对象 / code≠0 即服务不可用）。
 
     Args:
         response: 服务间调用响应。
+        interface: 错误提示用接口名称。
 
     Returns:
         dict[str, object]: 统一响应体。
@@ -143,11 +206,11 @@ def _payload(response: ServiceResponse) -> dict[str, object]:
         ServiceUnavailableError: 非 2xx / 非对象 / 业务码非 0（10007/503）。
     """
     if response.status_code != 200:
-        raise ServiceUnavailableError(f"org 凭据接口不可用（HTTP {response.status_code}）")
+        raise ServiceUnavailableError(f"{interface}不可用（HTTP {response.status_code}）")
     payload = response.payload()
     if not isinstance(payload, dict):
-        raise ServiceUnavailableError("org 凭据接口返回非法响应")
+        raise ServiceUnavailableError(f"{interface}返回非法响应")
     body = cast("dict[str, object]", payload)
     if body.get("code") != 0:
-        raise ServiceUnavailableError("org 凭据接口返回非法响应")
+        raise ServiceUnavailableError(f"{interface}返回非法响应")
     return body

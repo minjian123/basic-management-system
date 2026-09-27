@@ -5,6 +5,7 @@
       "ApiResponse_CredentialVerifyResult_": {},
       "ApiResponse_LoginStateResult_": {},
       "ApiResponse_UpdatePasswordResult_": {},
+      "ApiResponse_UserProfileResult_": {},
       "CredentialUserSummary": {},
       "CredentialVerifyRequest": {
         "description": "凭据校验请求（账号 + 密码明文；租户经服务 JWT `tenant` claim 解析）。",
@@ -129,6 +130,23 @@
         "type": "object"
       },
       "UpdatePasswordResult": {},
+      "UserProfileRequest": {
+        "description": "用户概要查询请求（按主键；租户经服务 JWT `tenant` claim 解析）。",
+        "properties": {
+          "user_id": {
+            "description": "用户主键",
+            "title": "User Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "user_id"
+        ],
+        "title": "UserProfileRequest",
+        "type": "object"
+      },
+      "UserProfileResult": {},
+      "UserProfileUser": {},
       "ValidationError": {
         "properties": {
           "ctx": {
@@ -623,6 +641,116 @@
           }
         },
         "summary": "Verify Credential",
+        "tags": [
+          "org-internal"
+        ]
+      }
+    },
+    "/api/v1/org/internal/users/profile": {
+      "post": {
+        "description": "按主键取用户概要（不存在 `found=false`，由调用侧判定错误语义）。\n\nArgs:\n    req: 概要查询请求（用户主键）。\n    uow: 请求级工作单元。\n\nReturns:\n    ApiResponse: 统一响应，data 为概要结果（`UserProfileResult`）。",
+        "operationId": "user_profile_api_v1_org_internal_users_profile_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserProfileRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_UserProfileResult_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "User Profile",
         "tags": [
           "org-internal"
         ]

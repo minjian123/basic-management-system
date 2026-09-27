@@ -147,10 +147,17 @@ async def test_verify_token_default_and_null() -> None:
     """`BaseIdentityProvider.verify_token` 默认不支持该协议抛配置错误；占位实现返回占位声明。"""
 
     class _PlainProvider(BaseIdentityProvider):
-        async def authorize(self, state: str) -> str:
+        async def authorize(
+            self,
+            state: str,
+            *,
+            nonce: str | None = None,
+            code_challenge: str | None = None,
+            code_challenge_method: str | None = None,
+        ) -> str:
             return "u"
 
-        async def exchange_token(self, code: str) -> IdentityToken:
+        async def exchange_token(self, code: str, *, code_verifier: str | None = None) -> IdentityToken:
             return IdentityToken(access_token="a")
 
         async def userinfo(self, access_token: str) -> IdentityUser:

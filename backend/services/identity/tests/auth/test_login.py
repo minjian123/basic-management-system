@@ -9,7 +9,7 @@ from bms_core.db.tenant import TenantNotFoundError
 from bms_core.ratelimit.memory import MemoryRateLimiter
 from bms_core.session.memory import MemorySessionStore
 from bms_identity.api.auth import _resolve_login_tenant  # pyright: ignore[reportPrivateUsage]
-from bms_identity.services.auth import _truncate  # pyright: ignore[reportPrivateUsage]
+from bms_identity.services.session_issuer import truncate_field  # pyright: ignore[reportPrivateUsage]
 
 from .helpers import FakeCaptcha, FakeOrgClient, FakeTenantSource, FakeUserTokenIssuer, wire_auth
 
@@ -164,8 +164,8 @@ async def test_login_body_tenant_override(client: AsyncClient, service_app: Fast
 @pytest.mark.kiwi_id(2194)
 def test_truncate_none_and_limit() -> None:
     """会话设备 / IP 截断：None 原样、超长截断。"""
-    assert _truncate(None, 5) is None  # pyright: ignore[reportPrivateUsage]
-    assert _truncate("abcdef", 3) == "abc"  # pyright: ignore[reportPrivateUsage]
+    assert truncate_field(None, 5) is None  # pyright: ignore[reportPrivateUsage]
+    assert truncate_field("abcdef", 3) == "abc"  # pyright: ignore[reportPrivateUsage]
 
 
 @pytest.mark.kiwi_id(2194)

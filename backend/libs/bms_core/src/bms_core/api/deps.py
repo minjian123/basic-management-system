@@ -35,6 +35,7 @@ from bms_core.i18n.base import get_translator
 from bms_core.icon.base import get_icon_registry
 from bms_core.idempotency.base import get_idempotency_store
 from bms_core.idp.base import get_identity_provider
+from bms_core.idp.state.base import get_idp_state_store
 from bms_core.listing.base import get_query_scheme_store
 from bms_core.llm.base import get_llm_provider
 from bms_core.lock.base import get_distributed_lock
@@ -106,6 +107,7 @@ __all__ = [
     "get_icon_registry",
     "get_idempotency_store",
     "get_identity_provider",
+    "get_idp_state_store",
     "get_importer",
     "get_llm_provider",
     "get_masker",

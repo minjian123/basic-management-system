@@ -79,6 +79,7 @@ def _token(
     aud: object = CLIENT_ID,
     exp_delta: int = 300,
     subject: str = "user-1",
+    nonce: str | None = None,
 ) -> str:
     """签发测试 JWT。
 
@@ -90,22 +91,26 @@ def _token(
         aud: 受众。
         exp_delta: 过期时间偏移（秒；负数为已过期）。
         subject: 主体标识。
+        nonce: ID Token nonce 声明（可选）。
 
     Returns:
         str: JWT 紧凑串。
     """
     now = int(time.time())
+    claims: dict[str, object] = {
+        "iss": iss,
+        "sub": subject,
+        "aud": aud,
+        "exp": now + exp_delta,
+        "iat": now,
+        "preferred_username": "alice",
+        "email": "alice@example.com",
+    }
+    if nonce is not None:
+        claims["nonce"] = nonce
     return jwt.encode(
         {"alg": alg, "kid": kid},
-        {
-            "iss": iss,
-            "sub": subject,
-            "aud": aud,
-            "exp": now + exp_delta,
-            "iat": now,
-            "preferred_username": "alice",
-            "email": "alice@example.com",
-        },
+        claims,
         key,
     )
 
@@ -476,3 +481,68 @@ async def test_real_keycloak_jwks_verification() -> None:
     assert claims.issuer == issuer
     assert claims.idp_key == issuer
     assert claims.subject
+
+
+@pytest.mark.kiwi_id(2179)
+async def test_authorize_with_nonce_and_pkce() -> None:
+    """授权 URL 并入 nonce / PKCE challenge 与方法；challenge 为 `BASE64URL(SHA256(verifier))`。"""
+    _, public = _key_pair()
+    provider = _provider(_handler(public=public))
+    verifier = "v" * 64
+    challenge = base64.urlsafe_b64encode(__import__("hashlib").sha256(verifier.encode()).digest()).rstrip(b"=").decode()
+
+    url = await provider.authorize("state-2", nonce="nonce-2", code_challenge=challenge, code_challenge_method="S256")
+    query = parse_qs(urlparse(url).query)
+    assert query["state"] == ["state-2"]
+    assert query["nonce"] == ["nonce-2"]
+    assert query["code_challenge"] == [challenge]
+    assert query["code_challenge_method"] == ["S256"]
+
+    url_default = await provider.authorize("state-3", code_challenge=challenge)
+    assert parse_qs(urlparse(url_default).query)["code_challenge_method"] == ["S256"]
+
+
+@pytest.mark.kiwi_id(2179)
+async def test_authorize_without_new_params_keeps_old_shape() -> None:
+    """未传新参数时 URL 与既有行为一致（无 nonce / PKCE 键）。"""
+    _, public = _key_pair()
+    provider = _provider(_handler(public=public))
+    query = parse_qs(urlparse(await provider.authorize("state-4")).query)
+    assert "nonce" not in query
+    assert "code_challenge" not in query
+    assert "code_challenge_method" not in query
+
+
+@pytest.mark.kiwi_id(2179)
+async def test_exchange_token_sends_code_verifier() -> None:
+    """换码请求：传 `code_verifier` 时并入表单；未传时不出现该字段。"""
+    seen: list[dict[str, str]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/.well-known/openid-configuration"):
+            return httpx.Response(200, json=_metadata())
+        seen.append(dict(pair.split("=", 1) for pair in request.content.decode().split("&") if pair))
+        return httpx.Response(200, json={"access_token": "at", "token_type": "Bearer", "expires_in": 300})
+
+    provider = _provider(handler)
+    await provider.exchange_token("code-2", code_verifier="verifier-2")
+    assert seen[-1]["code_verifier"] == "verifier-2"
+    assert seen[-1]["grant_type"] == "authorization_code"
+
+    await provider.exchange_token("code-3")
+    assert "code_verifier" not in seen[-1]
+
+
+@pytest.mark.kiwi_id(2179)
+async def test_verify_token_nonce_matching() -> None:
+    """`verify_token(nonce=…)`：声明一致通过；不一致 / 缺失均抛认证错误。"""
+    key, public = _key_pair()
+    provider = _provider(_handler(public=public))
+
+    claims = await provider.verify_token(_token(key, nonce="nonce-ok"), audience=CLIENT_ID, nonce="nonce-ok")
+    assert claims.payload["nonce"] == "nonce-ok"
+
+    with pytest.raises(AuthError):
+        await provider.verify_token(_token(key, nonce="other"), nonce="nonce-ok")
+    with pytest.raises(AuthError):
+        await provider.verify_token(_token(key), nonce="nonce-ok")

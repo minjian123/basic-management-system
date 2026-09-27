@@ -5,6 +5,6 @@
 """
 
 from bms_core.api.base import mount_service_routers
-from bms_org.api import internal, org
+from bms_org.api import internal, internal_users, org
 
-api_router = mount_service_routers((org.router, internal.router))
+api_router = mount_service_routers((org.router, internal.router, internal_users.router))
