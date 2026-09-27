@@ -198,10 +198,8 @@ async def test_redis_unavailable_fail_closed() -> None:
 
 @pytest.mark.kiwi_id(2204)
 async def test_unsupported_kinds_fail_closed(redis_client: fakeredis.aioredis.FakeRedis) -> None:
-    """滑块 / 短信本阶段未启用，明确失败不放行。"""
+    """短信本阶段未启用，明确失败不放行（滑块已随 03_02 启用）。"""
     captcha = _captcha(redis_client)
-    with pytest.raises(ServiceUnavailableError):
-        await captcha.generate("login", kind=CaptchaKind.SLIDER)
     with pytest.raises(ServiceUnavailableError):
         await captcha.generate("login", kind=CaptchaKind.SMS)
     with pytest.raises(ServiceUnavailableError):

@@ -25,7 +25,7 @@ from bms_core.cache.base import CacheRegion
 from bms_core.cache.memory import MemoryCacheRegion
 from bms_core.cache.redis import RedisCacheRegion
 from bms_core.captcha.base import BaseCaptcha
-from bms_core.captcha.default import CaptchaImageOptions, DefaultCaptcha
+from bms_core.captcha.default import CaptchaImageOptions, CaptchaSliderOptions, DefaultCaptcha
 from bms_core.chat.base import BaseChatActionGate, BaseChatSessionStore, BaseChatStream
 from bms_core.circuit.base import BaseCircuitBreaker
 from bms_core.codecheck.base import BaseCodeValidator
@@ -553,7 +553,7 @@ class DefaultMaskerFactory(BasePluginFactory[BaseMasker]):
 
 
 class DefaultCaptchaFactory(BasePluginFactory[DefaultCaptcha]):
-    """验证码图形码真实实现工厂（注入 Redis 连接串与出图选项）。"""
+    """验证码图形码 / 滑块真实实现工厂（注入 Redis 连接串与出图 / 判定选项）。"""
 
     plugin_key: str = "captcha"
     plugin_name: str = "default"
@@ -567,20 +567,21 @@ class DefaultCaptchaFactory(BasePluginFactory[DefaultCaptcha]):
         self._settings = settings
 
     def create(self, options: None = None) -> DefaultCaptcha:
-        """构造图形码验证码实现（出图选项校验在构造期完成）。
+        """构造验证码实现（出图 / 判定选项校验在构造期完成）。
 
         Args:
             options: 未使用（零参口径）。
 
         Returns:
-            DefaultCaptcha: 图形码验证码实例。
+            DefaultCaptcha: 验证码实例。
 
         Raises:
-            PluginError: 出图选项非法。
+            PluginError: 出图 / 判定选项非法。
         """
         return DefaultCaptcha(
             url=self._settings.redis.url,
             image=CaptchaImageOptions.from_options(self._settings.captcha.options),
+            slider=CaptchaSliderOptions.from_options(self._settings.captcha.options),
         )
 
 

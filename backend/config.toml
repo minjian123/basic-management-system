@@ -149,6 +149,7 @@ options = {}
 # 验证码实现选择（插件化配置；default = Pillow 出图 + Redis 一次性校验、空串解析到 null 占位）
 provider = "default"
 # 图形码出图选项（非敏感；缺省 width=160 / height=60 / length=4 / font_size=36 / noise_lines=4 / noise_dots=60 / rotate_degrees=25）
+# 滑块选项（非敏感；slider_ 前缀，缺省 slider_width=300 / slider_height=150 / slider_piece_size=48 / slider_tolerance=10 / slider_min_duration_ms=300 / slider_min_points=2）
 options = {}
 
 [event]
