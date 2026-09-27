@@ -3,6 +3,7 @@
 - `NullOAuthServer` / `NullScopeChecker`：开放接口服务端与 scope 校验占位。
 - `NullServiceTokenIssuer` / `NullTokenVerifier`：服务 JWT 自签与统一校验占位（07_02；不签真 JWT、不验签）。
 - `NullUserTokenIssuer`：用户双 token 自签占位（01_02；**fail-closed**，不签真 JWT、验签恒拒）。
+- `NullOidcProvider`：OIDC Provider 服务端占位（02_05；**fail-closed**，不签真 JWT、校验恒拒）。
 """
 
 from collections.abc import Iterable, Mapping
@@ -11,12 +12,14 @@ from bms_core.core.capability import BaseNullObject
 from bms_core.core.exceptions import AuthError, ConfigError
 from bms_core.idp.base import IdentityClaims
 from bms_core.oauth.base import NULL_ACCESS_TOKEN, BaseOAuthServer, BaseScopeChecker, ClientCredentials, OAuthToken
+from bms_core.oauth.oidc_provider import AccessTokenSpec, BaseOidcProvider, IdTokenSpec, OidcAccessClaims
 from bms_core.oauth.token import BaseServiceTokenIssuer, ServiceTokenSpec
 from bms_core.oauth.user_token import BaseUserTokenIssuer, UserTokenPair, UserTokenSpec
 from bms_core.oauth.verify import BaseTokenVerifier, VerifiedToken
 
 __all__ = [
     "NullOAuthServer",
+    "NullOidcProvider",
     "NullScopeChecker",
     "NullServiceTokenIssuer",
     "NullTokenVerifier",
@@ -145,3 +148,49 @@ class NullUserTokenIssuer(BaseUserTokenIssuer, BaseNullObject):
             AuthError: 恒定失败（20001 / 401）。
         """
         raise AuthError("令牌校验失败")
+
+
+class NullOidcProvider(BaseOidcProvider, BaseNullObject):
+    """占位 OIDC Provider：**fail-closed**（不签真 JWT、校验恒拒、空 JWKS）。"""
+
+    async def issue_id_token(self, spec: IdTokenSpec) -> str:
+        """拒绝签发 ID Token。
+
+        Args:
+            spec: 签发请求（未使用）。
+
+        Raises:
+            ConfigError: 未配置真实实现（40001）。
+        """
+        raise ConfigError("OIDC Provider 实现未配置（oidc_provider 未选定真实实现）")
+
+    async def issue_access_token(self, spec: AccessTokenSpec) -> str:
+        """拒绝签发 access token。
+
+        Args:
+            spec: 签发请求（未使用）。
+
+        Raises:
+            ConfigError: 未配置真实实现（40001）。
+        """
+        raise ConfigError("OIDC Provider 实现未配置（oidc_provider 未选定真实实现）")
+
+    def verify_access_token(self, token: str, *, issuer: str) -> OidcAccessClaims:
+        """拒绝校验 access token。
+
+        Args:
+            token: JWT 紧凑串（未使用）。
+            issuer: 期望签发方（未使用）。
+
+        Raises:
+            AuthError: 恒定失败（20001 / 401）。
+        """
+        raise AuthError("令牌校验失败")
+
+    def jwks(self) -> Mapping[str, object]:
+        """返回空 JWKS 文档（占位无公钥）。
+
+        Returns:
+            Mapping[str, object]: `{"keys": []}`。
+        """
+        return {"keys": []}

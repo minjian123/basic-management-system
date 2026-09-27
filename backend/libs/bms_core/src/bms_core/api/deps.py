@@ -44,6 +44,7 @@ from bms_core.metrics.base import get_metrics
 from bms_core.notification.base import get_notification_center
 from bms_core.notify.base import get_notifier
 from bms_core.oauth.base import get_oauth_server, get_scope_checker
+from bms_core.oauth.oidc_provider import get_oidc_provider
 from bms_core.oauth.token import get_service_token_issuer
 from bms_core.oauth.user_token import get_user_token_issuer
 from bms_core.oauth.verify import get_token_verifier
@@ -117,6 +118,7 @@ __all__ = [
     "get_notifier",
     "get_oauth_server",
     "get_object_storage",
+    "get_oidc_provider",
     "get_org_data_source",
     "get_org_name_resolver",
     "get_outbox_dispatcher",

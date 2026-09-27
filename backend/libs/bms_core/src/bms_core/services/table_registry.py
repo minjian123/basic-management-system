@@ -226,8 +226,7 @@ TABLE_OWNERSHIP: tuple[TableRecord, ...] = (
         table_name="sys_client",
         owner="identity",
         datasource=Datasource.TENANT,
-        status=TableStatus.PLANNED,
-        note="第三方应用客户端（预留）",
+        note="第三方应用客户端（BMS 兼作 IdP / 开放接口）",
     ),
     TableRecord(
         table_name="sys_ai_provider",

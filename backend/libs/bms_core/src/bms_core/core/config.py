@@ -371,6 +371,8 @@ class GatewaySettings(PluginSelection):
             "/api/identity/v1/auth/login",
             "/api/identity/v1/auth/refresh",
             "/api/identity/v1/captcha",
+            "/api/identity/v1/auth/sso",
+            "/api/identity/v1/oidc",
         ]
     )
     """公开路径（免认证，网关外部路径形态、前缀匹配；认证端点据此放行前置端点）。"""
@@ -560,6 +562,29 @@ class UserTokenSettings(PluginSelection):
 
     issuer: str = "bms"
     """自签签发方（用户令牌 `iss`；与服务令牌同源标识，生产建议配置稳定 URI）。"""
+
+
+class OidcProviderSettings(PluginSelection):
+    """OIDC Provider 配置（`[oidc_provider]`；BMS 兼作 IdP 的 issuer / TTL / 未登录跳转）。
+
+    密钥与算法沿用 `[security].keys`（`usr-` 前缀）；`issuer` 为 ID Token / access token 的 `iss`
+    与四端点派生基点，可含 `{tenant}` 占位（生产按租户子域派生，dev 无占位则全租户同名）。
+    """
+
+    issuer: str = "http://localhost:8000/api/v1/oidc"
+    """签发方（可含 `{tenant}` 占位；Discovery / 令牌 `iss` 与四端点据此派生）。"""
+
+    authorization_code_ttl_seconds: int = Field(default=60, ge=1)
+    """授权码一次性 TTL（秒）。"""
+
+    id_token_ttl_seconds: int = Field(default=300, ge=1)
+    """ID Token 有效期（秒）。"""
+
+    access_token_ttl_seconds: int = Field(default=300, ge=1)
+    """IdP access token 有效期（秒）。"""
+
+    login_url: str = ""
+    """`/authorize` 未登录跳转的前端登录页（空 = 直接 401；只取配置，防开放重定向）。"""
 
 
 class DataOwnershipSettings(PluginSelection):
@@ -752,6 +777,7 @@ class Settings(PydanticBaseSettings, BaseSettings):  # pyright: ignore[reportInc
     notifier: PluginSelection = Field(default_factory=PluginSelection)
     notification_center: PluginSelection = Field(default_factory=PluginSelection)
     oauth_server: PluginSelection = Field(default_factory=PluginSelection)
+    oidc_provider: OidcProviderSettings = Field(default_factory=OidcProviderSettings)
     org_data_source: PluginSelection = Field(default_factory=PluginSelection)
     org_name_resolver: PluginSelection = Field(default_factory=PluginSelection)
     outbox: OutboxSettings = Field(default_factory=OutboxSettings)

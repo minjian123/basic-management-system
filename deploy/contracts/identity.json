@@ -2,7 +2,11 @@
   "components": {
     "schemas": {
       "ApiResponse": {},
+      "ApiResponse_BasePageResponse_ClientItem__": {},
       "ApiResponse_BasePageResponse_SessionItem__": {},
+      "ApiResponse_ClientCreated_": {},
+      "ApiResponse_ClientItem_": {},
+      "ApiResponse_ClientSecretReset_": {},
       "ApiResponse_KickResult_": {},
       "ApiResponse_LoginResult_": {},
       "ApiResponse_NoneType_": {},
@@ -11,6 +15,7 @@
       "ApiResponse_SsoAuthorizeInfo_": {},
       "ApiResponse_SsoIdentityList_": {},
       "ApiResponse_SsoProviderList_": {},
+      "BasePageResponse_ClientItem_": {},
       "BasePageResponse_SessionItem_": {},
       "CaptchaChallengeRequest": {
         "description": "验证码出题请求。",
@@ -160,6 +165,79 @@
           "captcha_id"
         ],
         "title": "CaptchaVerifyRequest",
+        "type": "object"
+      },
+      "ClientCreateRequest": {
+        "description": "客户端注册请求。",
+        "properties": {
+          "grant_types": {
+            "description": "授权类型（client_credentials/authorization_code）",
+            "items": {
+              "type": "string"
+            },
+            "title": "Grant Types",
+            "type": "array"
+          },
+          "ip_whitelist": {
+            "description": "来源 IP / CIDR 白名单（开放接口阶段十用）",
+            "items": {
+              "type": "string"
+            },
+            "title": "Ip Whitelist",
+            "type": "array"
+          },
+          "name": {
+            "description": "应用名称",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "public": {
+            "default": false,
+            "description": "是否公共客户端（不生成 secret；授权码流程强制 PKCE）",
+            "title": "Public",
+            "type": "boolean"
+          },
+          "redirect_uris": {
+            "description": "回调地址白名单（精确匹配）",
+            "items": {
+              "type": "string"
+            },
+            "title": "Redirect Uris",
+            "type": "array"
+          },
+          "scopes": {
+            "description": "允许申请的 scope 集合",
+            "items": {
+              "type": "string"
+            },
+            "title": "Scopes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "ClientCreateRequest",
+        "type": "object"
+      },
+      "ClientCreated": {},
+      "ClientItem": {},
+      "ClientSecretReset": {},
+      "ClientStatusRequest": {
+        "description": "客户端启停请求。",
+        "properties": {
+          "status": {
+            "description": "目标状态（enabled/disabled）",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "ClientStatusRequest",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -1190,6 +1268,999 @@
         "summary": "Verify Captcha",
         "tags": [
           "captcha"
+        ]
+      }
+    },
+    "/api/v1/oidc/.well-known/openid-configuration": {
+      "get": {
+        "description": "OIDC Discovery 文档（标准 JSON，无统一响应包体）。\n\nArgs:\n    request: 请求对象。\n    provider: OIDC Provider。\n    state_store: 流程状态存储（保持服务构造一致）。\n    client: 服务间调用客户端（保持服务构造一致）。\n    hasher: 口令哈希（保持服务构造一致）。\n    tenant_ctx: 请求上下文租户。\n    tenant_source: 租户源。\n    tenant: 租户编码（可选）。\n\nReturns:\n    JSONResponse: Discovery 文档。",
+        "operationId": "openid_configuration_api_v1_oidc__well_known_openid_configuration_get",
+        "parameters": [
+          {
+            "description": "租户编码（上下文缺省时的回落）",
+            "in": "query",
+            "name": "tenant",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "租户编码（上下文缺省时的回落）",
+              "title": "Tenant"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Openid Configuration",
+        "tags": [
+          "oidc"
+        ]
+      }
+    },
+    "/api/v1/oidc/authorize": {
+      "get": {
+        "description": "授权端点：校验客户端并签发一次性授权码，`302` 回跳 `redirect_uri`。\n\nArgs:\n    request: 请求对象。\n    provider: OIDC Provider。\n    state_store: 流程状态存储（授权码一次性）。\n    client: 服务间调用客户端（保持服务构造一致）。\n    hasher: 口令哈希（保持服务构造一致）。\n    auth: 可选登录态。\n    tenant_ctx: 请求上下文租户。\n    tenant_source: 租户源。\n    response_type: 响应类型（须为 `code`）。\n    client_id: 客户端标识。\n    redirect_uri: 回跳地址。\n    scope: 申请 scope。\n    state: 透传状态。\n    nonce: 透传 nonce。\n    code_challenge: PKCE 挑战。\n    code_challenge_method: PKCE 方法。\n    tenant: 租户编码（可选）。\n\nReturns:\n    Response: `302` 回跳地址。\n\nRaises:\n    OidcAccessDeniedError: 未登录且未配登录页（80106/401）。\n    OidcInvalidRequestError: 客户端未知 / `redirect_uri` 不可信（80101/400）。",
+        "operationId": "authorize_api_v1_oidc_authorize_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "response_type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Response Type"
+            }
+          },
+          {
+            "in": "query",
+            "name": "client_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Client Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "redirect_uri",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Redirect Uri"
+            }
+          },
+          {
+            "in": "query",
+            "name": "scope",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Scope"
+            }
+          },
+          {
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "State"
+            }
+          },
+          {
+            "in": "query",
+            "name": "nonce",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Nonce"
+            }
+          },
+          {
+            "in": "query",
+            "name": "code_challenge",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Code Challenge"
+            }
+          },
+          {
+            "in": "query",
+            "name": "code_challenge_method",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Code Challenge Method"
+            }
+          },
+          {
+            "description": "租户编码（上下文缺省时的回落）",
+            "in": "query",
+            "name": "tenant",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "租户编码（上下文缺省时的回落）",
+              "title": "Tenant"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Authorize",
+        "tags": [
+          "oidc"
+        ]
+      }
+    },
+    "/api/v1/oidc/jwks": {
+      "get": {
+        "description": "IdP 公开 JWKS（标准 JSON，无统一响应包体）。\n\nArgs:\n    request: 请求对象。\n    provider: OIDC Provider。\n    state_store: 流程状态存储（保持服务构造一致）。\n    client: 服务间调用客户端（保持服务构造一致）。\n    hasher: 口令哈希（保持服务构造一致）。\n    tenant_ctx: 请求上下文租户。\n    tenant_source: 租户源。\n    tenant: 租户编码（可选）。\n\nReturns:\n    JSONResponse: JWKS 文档。",
+        "operationId": "jwks_api_v1_oidc_jwks_get",
+        "parameters": [
+          {
+            "description": "租户编码（上下文缺省时的回落）",
+            "in": "query",
+            "name": "tenant",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "租户编码（上下文缺省时的回落）",
+              "title": "Tenant"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Jwks",
+        "tags": [
+          "oidc"
+        ]
+      }
+    },
+    "/api/v1/oidc/token": {
+      "post": {
+        "description": "令牌端点：客户端认证 + 授权码换 ID Token / access token（标准 OAuth2 JSON）。\n\nArgs:\n    request: 请求对象。\n    provider: OIDC Provider。\n    state_store: 流程状态存储（授权码一次性消费）。\n    client: 服务间调用客户端（org 用户概要）。\n    hasher: 口令哈希（客户端密钥比对）。\n    tenant_ctx: 请求上下文租户。\n    tenant_source: 租户源。\n    tenant: 租户编码（可选）。\n\nReturns:\n    Response: 标准令牌 JSON 或标准错误 JSON。",
+        "operationId": "token_api_v1_oidc_token_post",
+        "parameters": [
+          {
+            "description": "租户编码（上下文缺省时的回落）",
+            "in": "query",
+            "name": "tenant",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "租户编码（上下文缺省时的回落）",
+              "title": "Tenant"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Token",
+        "tags": [
+          "oidc"
+        ]
+      }
+    },
+    "/api/v1/oidc/userinfo": {
+      "get": {
+        "description": "用户信息端点：Bearer access token → 标准 userinfo JSON。\n\nArgs:\n    request: 请求对象。\n    provider: OIDC Provider。\n    state_store: 流程状态存储（保持服务构造一致）。\n    client: 服务间调用客户端（org 用户概要）。\n    hasher: 口令哈希（保持服务构造一致）。\n    tenant_ctx: 请求上下文租户。\n    tenant_source: 租户源。\n    tenant: 租户编码（可选）。\n\nReturns:\n    Response: 标准 userinfo JSON 或 401。",
+        "operationId": "userinfo_api_v1_oidc_userinfo_get",
+        "parameters": [
+          {
+            "description": "租户编码（上下文缺省时的回落）",
+            "in": "query",
+            "name": "tenant",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "租户编码（上下文缺省时的回落）",
+              "title": "Tenant"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Userinfo",
+        "tags": [
+          "oidc"
+        ]
+      },
+      "post": {
+        "description": "用户信息端点：Bearer access token → 标准 userinfo JSON。\n\nArgs:\n    request: 请求对象。\n    provider: OIDC Provider。\n    state_store: 流程状态存储（保持服务构造一致）。\n    client: 服务间调用客户端（org 用户概要）。\n    hasher: 口令哈希（保持服务构造一致）。\n    tenant_ctx: 请求上下文租户。\n    tenant_source: 租户源。\n    tenant: 租户编码（可选）。\n\nReturns:\n    Response: 标准 userinfo JSON 或 401。",
+        "operationId": "userinfo_api_v1_oidc_userinfo_post",
+        "parameters": [
+          {
+            "description": "租户编码（上下文缺省时的回落）",
+            "in": "query",
+            "name": "tenant",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "租户编码（上下文缺省时的回落）",
+              "title": "Tenant"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Userinfo",
+        "tags": [
+          "oidc"
+        ]
+      }
+    },
+    "/api/v1/open/clients": {
+      "get": {
+        "description": "客户端分页列表（可选 status / name 筛选）。\n\nArgs:\n    request: 请求对象。\n    tenant_ctx: 请求上下文租户。\n    hasher: 口令哈希实现。\n    audit: 审计捕获占位。\n    query: 分页请求。\n    status: 状态过滤（可选）。\n    name: 名称模糊过滤（可选）。\n\nReturns:\n    ApiResponse: 统一响应，data 为分页客户端。",
+        "operationId": "list_clients_api_v1_open_clients_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "name",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Name"
+            }
+          },
+          {
+            "description": "页码（从 1 起）",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "页码（从 1 起）",
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "每页条数（默认 20，上限 200）",
+            "in": "query",
+            "name": "size",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "description": "每页条数（默认 20，上限 200）",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Size",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "排序字段，逗号分隔多值（如 status,created_at）",
+            "in": "query",
+            "name": "order_by",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序字段，逗号分隔多值（如 status,created_at）",
+              "title": "Order By"
+            }
+          },
+          {
+            "description": "排序方向数组，与 order_by 位置一一对应",
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序方向数组，与 order_by 位置一一对应",
+              "title": "Order"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_BasePageResponse_ClientItem__"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "List Clients",
+        "tags": [
+          "open-clients"
+        ]
+      },
+      "post": {
+        "description": "注册客户端（返回 `client_id` 与明文 secret 一次）。\n\nArgs:\n    request: 请求对象。\n    req: 注册请求。\n    tenant_ctx: 请求上下文租户。\n    hasher: 口令哈希实现。\n    audit: 审计捕获占位。\n\nReturns:\n    ApiResponse: 统一响应，data 为凭据（`ClientCreated`）。",
+        "operationId": "create_client_api_v1_open_clients_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClientCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ClientCreated_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Create Client",
+        "tags": [
+          "open-clients"
+        ]
+      }
+    },
+    "/api/v1/open/clients/{client_id}": {
+      "get": {
+        "description": "客户端详情。\n\nArgs:\n    request: 请求对象。\n    client_id: 客户端主键。\n    tenant_ctx: 请求上下文租户。\n    hasher: 口令哈希实现。\n    audit: 审计捕获占位。\n\nReturns:\n    ApiResponse: 统一响应，data 为客户端项。",
+        "operationId": "get_client_api_v1_open_clients__client_id__get",
+        "parameters": [
+          {
+            "description": "客户端主键",
+            "in": "path",
+            "name": "client_id",
+            "required": true,
+            "schema": {
+              "description": "客户端主键",
+              "title": "Client Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ClientItem_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Get Client",
+        "tags": [
+          "open-clients"
+        ]
+      }
+    },
+    "/api/v1/open/clients/{client_id}/reset-secret": {
+      "post": {
+        "description": "重置客户端密钥（新明文仅本次返回）。\n\nArgs:\n    request: 请求对象。\n    client_id: 客户端主键。\n    tenant_ctx: 请求上下文租户。\n    hasher: 口令哈希实现。\n    audit: 审计捕获占位。\n\nReturns:\n    ApiResponse: 统一响应，data 为新凭据（`ClientSecretReset`）。",
+        "operationId": "reset_client_secret_api_v1_open_clients__client_id__reset_secret_post",
+        "parameters": [
+          {
+            "description": "客户端主键",
+            "in": "path",
+            "name": "client_id",
+            "required": true,
+            "schema": {
+              "description": "客户端主键",
+              "title": "Client Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ClientSecretReset_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Reset Client Secret",
+        "tags": [
+          "open-clients"
+        ]
+      }
+    },
+    "/api/v1/open/clients/{client_id}/status": {
+      "post": {
+        "description": "启停客户端。\n\nArgs:\n    request: 请求对象。\n    req: 启停请求。\n    client_id: 客户端主键。\n    tenant_ctx: 请求上下文租户。\n    hasher: 口令哈希实现。\n    audit: 审计捕获占位。\n\nReturns:\n    ApiResponse: 统一响应，data 为更新后的客户端项。",
+        "operationId": "set_client_status_api_v1_open_clients__client_id__status_post",
+        "parameters": [
+          {
+            "description": "客户端主键",
+            "in": "path",
+            "name": "client_id",
+            "required": true,
+            "schema": {
+              "description": "客户端主键",
+              "title": "Client Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClientStatusRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ClientItem_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Set Client Status",
+        "tags": [
+          "open-clients"
         ]
       }
     },

@@ -124,6 +124,7 @@ def test_chain_metadata_is_subset() -> None:
         "sys_event_dead_letter",
         "sys_session",
         "sys_identity_provider",
+        "sys_client",
     }
     assert set(chain_metadata(resolve_chain("identity:platform")).tables) == {
         "sys_outbox",

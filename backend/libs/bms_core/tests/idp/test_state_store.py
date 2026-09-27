@@ -23,6 +23,36 @@ def test_build_idp_state_key() -> None:
     assert DEFAULT_IDP_STATE_TTL == 300
 
 
+@pytest.mark.kiwi_id(2202)
+def test_build_idp_state_key_namespace() -> None:
+    """命名空间：键形 `bms:{租户}:{命名空间}:{state}`；缺省 `idpstate` 行为不变。"""
+    assert build_idp_state_key("abc", tenant="demo", namespace="oidccode") == "bms:demo:oidccode:abc"
+    assert build_idp_state_key("abc", namespace="oidccode") == "bms:global:oidccode:abc"
+    assert build_idp_state_key("abc", tenant="demo") == "bms:demo:idpstate:abc"
+
+
+@pytest.mark.kiwi_id(2202)
+async def test_memory_store_namespace_isolation() -> None:
+    """内存实现：同 state 不同命名空间互不影响。"""
+    store = MemoryIdpStateStore()
+    await store.save("same", {"v": "code"}, tenant="demo", namespace="oidccode", ttl=60)
+    await store.save("same", {"v": "state"}, tenant="demo", namespace="idpstate", ttl=60)
+    assert await store.consume("same", tenant="demo", namespace="oidccode") == {"v": "code"}
+    assert await store.consume("same", tenant="demo", namespace="idpstate") == {"v": "state"}
+
+
+@pytest.mark.kiwi_id(2202)
+async def test_redis_store_namespace_key() -> None:
+    """Redis 实现：命名空间进入键形（`bms:{租户}:{命名空间}:{state}`）。"""
+    client = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    store = RedisIdpStateStore(client=client)
+    await store.save("c1", {"v": 1}, tenant="demo", namespace="oidccode", ttl=60)
+    assert await client.get("bms:demo:oidccode:c1") is not None
+    assert await store.consume("c1", tenant="demo", namespace="oidccode") == {"v": 1}
+    assert await store.consume("c1", tenant="demo", namespace="idpstate") is None
+    await store.aclose()
+
+
 @pytest.mark.kiwi_id(2197)
 async def test_memory_store_one_time_and_expiry() -> None:
     """内存实现：一次性消费、TTL 到期视作未命中、删除幂等与清空。"""

@@ -4,6 +4,7 @@
 """
 
 MODEL_MODULES: tuple[str, ...] = (
+    "bms_identity.models.client",
     "bms_identity.models.identity_provider",
     "bms_identity.models.session",
     "bms_identity.models.user_identity",

@@ -29,6 +29,7 @@ from bms_core.api.deps import (
 from bms_core.db.registry import PLATFORM_DB_KEY
 from bms_core.db.session import DbSession, session_scope
 from bms_core.db.tenant import DEMO_TENANT
+from bms_core.idp.state.base import build_idp_state_key
 from bms_core.idp.state.memory import MemoryIdpStateStore
 from bms_core.lock.memory import MemoryDistributedLock
 from bms_core.ratelimit.memory import MemoryRateLimiter
@@ -123,7 +124,7 @@ class SsoHarness:
         Returns:
             dict[str, object]: 流程载荷。
         """
-        entry = self.states._items[state]  # pyright: ignore[reportPrivateUsage]
+        entry = self.states._items[build_idp_state_key(state)]  # pyright: ignore[reportPrivateUsage]
         return entry[0]
 
     def provider_config(self, **overrides: object) -> dict[str, object]:
@@ -322,7 +323,7 @@ class SsoHarness:
         Returns:
             dict[str, object]: 流程载荷。
         """
-        entry = self.states._items.get(state)  # pyright: ignore[reportPrivateUsage]
+        entry = self.states._items.get(build_idp_state_key(state))  # pyright: ignore[reportPrivateUsage]
         return entry[0] if entry is not None else {}
 
 

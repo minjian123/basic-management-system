@@ -3,7 +3,7 @@
 from collections.abc import Mapping
 
 from bms_core.core.capability import BaseNullObject
-from bms_core.idp.state.base import DEFAULT_IDP_STATE_TTL, BaseIdpStateStore
+from bms_core.idp.state.base import DEFAULT_IDP_STATE_TTL, IDP_STATE_DEFAULT_NAMESPACE, BaseIdpStateStore
 
 __all__ = [
     "NullIdpStateStore",
@@ -24,6 +24,7 @@ class NullIdpStateStore(BaseIdpStateStore, BaseNullObject):
         *,
         tenant: str | None = None,
         ttl: int = DEFAULT_IDP_STATE_TTL,
+        namespace: str = IDP_STATE_DEFAULT_NAMESPACE,
     ) -> None:
         """空操作（占位不写入）。
 
@@ -32,24 +33,39 @@ class NullIdpStateStore(BaseIdpStateStore, BaseNullObject):
             payload: 状态数据（占位忽略）。
             tenant: 租户编码（占位忽略）。
             ttl: 有效期（占位忽略）。
+            namespace: 命名空间（占位忽略）。
         """
 
-    async def consume(self, state: str, *, tenant: str | None = None) -> Mapping[str, object] | None:
+    async def consume(
+        self,
+        state: str,
+        *,
+        tenant: str | None = None,
+        namespace: str = IDP_STATE_DEFAULT_NAMESPACE,
+    ) -> Mapping[str, object] | None:
         """消费流程状态（占位恒定未命中）。
 
         Args:
             state: 流程状态（占位忽略）。
             tenant: 租户编码（占位忽略）。
+            namespace: 命名空间（占位忽略）。
 
         Returns:
             Mapping[str, object] | None: 恒定 None。
         """
         return None
 
-    async def delete(self, state: str, *, tenant: str | None = None) -> None:
+    async def delete(
+        self,
+        state: str,
+        *,
+        tenant: str | None = None,
+        namespace: str = IDP_STATE_DEFAULT_NAMESPACE,
+    ) -> None:
         """空操作（占位不删除）。
 
         Args:
             state: 流程状态（占位忽略）。
             tenant: 租户编码（占位忽略）。
+            namespace: 命名空间（占位忽略）。
         """

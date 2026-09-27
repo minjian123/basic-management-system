@@ -91,6 +91,8 @@ from bms_core.notification.base import BaseNotificationCenter
 from bms_core.notify.base import BaseNotifier
 from bms_core.oauth.base import BaseOAuthServer, BaseScopeChecker
 from bms_core.oauth.jwt import JwtServiceTokenIssuerFactory
+from bms_core.oauth.oidc_jwt import JwtOidcProviderFactory
+from bms_core.oauth.oidc_provider import BaseOidcProvider
 from bms_core.oauth.token import BaseServiceTokenIssuer
 from bms_core.oauth.user_jwt import JwtUserTokenIssuerFactory
 from bms_core.oauth.user_token import BaseUserTokenIssuer
@@ -248,6 +250,7 @@ PLUGIN_WIRINGS: tuple[PluginWiring, ...] = (
     PluginWiring("tracer", BaseTracer, "tracer", "tracer"),
     PluginWiring("health_check_registry", BaseHealthCheckRegistry, "health_check_registry", "health_check_registry"),
     PluginWiring("oauth_server", BaseOAuthServer, "oauth_server", "oauth_server"),
+    PluginWiring("oidc_provider", BaseOidcProvider, "oidc_provider", "oidc_provider"),
     PluginWiring("scope_checker", BaseScopeChecker, "scope_checker", "scope_checker"),
     PluginWiring("service_token", BaseServiceTokenIssuer, "service_token", "service_token"),
     PluginWiring("user_token", BaseUserTokenIssuer, "user_token", "user_token"),
@@ -357,6 +360,7 @@ def register_platform_plugins(settings: Settings, app: FastAPI, resources: Resou
     register_plugin("idp_state_store", "redis", RedisIdpStateStoreFactory(settings))
     register_plugin("service_token", "jwt", JwtServiceTokenIssuerFactory(settings))
     register_plugin("user_token", "jwt", JwtUserTokenIssuerFactory(settings))
+    register_plugin("oidc_provider", "jwt", JwtOidcProviderFactory(settings))
     register_plugin("password_hasher", "pbkdf2", Pbkdf2PasswordHasherFactory(settings))
     register_plugin("token_codec", "jwt", JwtTokenCodecFactory(settings))
     register_plugin("session_security", "default", DefaultSessionSecurityFactory(settings))
