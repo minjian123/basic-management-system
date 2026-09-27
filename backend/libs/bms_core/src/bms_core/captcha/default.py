@@ -1,19 +1,24 @@
-"""验证码能力域：图形码真实实现（Pillow 出图 + Redis 一次性校验；滑块 / 短信随 03_02 / 03_03 回补）。
+"""验证码能力域：图形码与滑块真实实现（Pillow 出图 + Redis 一次性校验；短信随 03_03 回补）。
 
 - `CaptchaImageOptions`：图形码出图参数（从 `[captcha].options` 解析、带范围校验，非敏感）。
-- `DefaultCaptcha`（插件名 `default`）：图形码真实出题（Pillow 经线程池出图，不阻塞事件循环）与
-  一次性校验——挑战存 `bms:global:captcha:{uuid}`（JSON，TTL 300 秒），校验用 `GETDEL` 原子取出
-  （成功即失效、单次有效），失败回写并累计 `fails`（失败可重试）。
+- `CaptchaSliderOptions`：滑块出图 / 判定参数（同从 `[captcha].options` 解析，`slider_` 前缀键）。
+- `DefaultCaptcha`（插件名 `default`）：按形态分派出题——
+  - 图形码：Pillow 出图（干扰线 / 噪点 / 字符变形，经线程池不阻塞事件循环）与校验码一次性校验。
+  - 滑块：**服务端合成出图**（带缺口背景 + 滑块块图，坐标不下发、只存 Redis）+ **轨迹判定**（落点容差 +
+    轨迹合理性双因子）。
+  挑战统一存 `bms:global:captcha:{uuid}`（JSON，TTL 300 秒），校验用 `GETDEL` 原子取出（成功即失效、
+  单次有效），失败回写并累计 `fails`（失败可重试）。
 - 降级口径（fail-closed）：Redis 不可用时出题 / 短信抛 `ServiceUnavailableError`（10007 / 503，明确报错）；
   校验判定入口 `verify_credential` 返回 False（不放行、不抛错，保持契约），强制入口 `require_credential`
   转 `CaptchaVerifyError`（20101）；挑战不存在 / 过期走 `CaptchaExpiredError`（20102）。
-- 滑块 / 短信本阶段未启用：出题（`kind=slider` / `sms`）与 `send_sms` 抛 `ServiceUnavailableError`
-  （明确失败不放行），真实能力由 03_02 / 03_03 在同一实现类内补齐。
+- 短信本阶段未启用：`send_sms` 与 `generate(kind=sms)` 抛 `ServiceUnavailableError`（明确失败不放行），
+  真实能力由 03_03 在同一实现类内补齐。
 """
 
 from __future__ import annotations
 
 import asyncio
+import base64
 import hmac
 import io
 import json
@@ -29,6 +34,7 @@ from redis.asyncio import Redis as AsyncRedis
 from bms_core.captcha.base import (
     CAPTCHA_TTL,
     NULL_CAPTCHA_PAYLOAD,
+    SLIDER_TOLERANCE,
     BaseCaptcha,
     CaptchaChallenge,
     CaptchaCredential,
@@ -49,6 +55,7 @@ from bms_core.core.logging import get_logger
 __all__ = [
     "CAPTCHA_CHARS",
     "CaptchaImageOptions",
+    "CaptchaSliderOptions",
     "DefaultCaptcha",
 ]
 
@@ -68,6 +75,20 @@ def _dump(record: Mapping[str, object]) -> str:
         str: JSON 字符串。
     """
     return json.dumps(dict(record), ensure_ascii=False, default=str)
+
+
+def _png(image: Image.Image) -> bytes:
+    """序列化图片为 PNG 字节。
+
+    Args:
+        image: Pillow 图片对象。
+
+    Returns:
+        bytes: PNG 字节。
+    """
+    buffer = io.BytesIO()
+    image.save(buffer, format="PNG")
+    return buffer.getvalue()
 
 
 def _load(raw: object) -> dict[str, object] | None:
@@ -171,8 +192,57 @@ class CaptchaImageOptions(BaseObject):
         )
 
 
+@dataclass(frozen=True)
+class CaptchaSliderOptions(BaseObject):
+    """滑块出图 / 判定参数（非敏感；`from_options` 从 `[captcha].options` 的 `slider_` 前缀键解析并校验）。"""
+
+    width: int = 300
+    """背景画布宽（像素）。"""
+
+    height: int = 150
+    """背景画布高（像素）。"""
+
+    piece_size: int = 48
+    """块图边长（像素）。"""
+
+    tolerance: int = SLIDER_TOLERANCE
+    """落点容差（像素；末点 `x` 与缺口 `gap_x` 的最大允许偏差）。"""
+
+    min_duration_ms: int = 300
+    """轨迹总时长下限（毫秒；0 表示不校验）。"""
+
+    min_points: int = 2
+    """轨迹最少点数。"""
+
+    @classmethod
+    def from_options(cls, options: Mapping[str, object] | None = None) -> CaptchaSliderOptions:
+        """从 `[captcha].options` 解析滑块参数（缺失取缺省，非法拒启）。
+
+        Args:
+            options: 选项映射（缺省空映射）。
+
+        Returns:
+            CaptchaSliderOptions: 滑块参数。
+
+        Raises:
+            PluginError: 任一选项类型非法 / 越界。
+        """
+        values = options or {}
+        width = _int_option(values, "slider_width", 300, 160, 600)
+        height = _int_option(values, "slider_height", 150, 80, 300)
+        max_piece = (min(width, height) - 1) // 2
+        return cls(
+            width=width,
+            height=height,
+            piece_size=_int_option(values, "slider_piece_size", min(48, max_piece), 16, max_piece),
+            tolerance=_int_option(values, "slider_tolerance", SLIDER_TOLERANCE, 0, 50),
+            min_duration_ms=_int_option(values, "slider_min_duration_ms", 300, 0, 10000),
+            min_points=_int_option(values, "slider_min_points", 2, 1, 100),
+        )
+
+
 class DefaultCaptcha(BaseCaptcha):
-    """图形码真实实现（Pillow 出图 + Redis 一次性校验；滑块 / 短信未启用时 fail-closed）。"""
+    """图形码与滑块真实实现（Pillow 出图 + Redis 一次性校验；短信未启用时 fail-closed）。"""
 
     plugin_name: str = "default"
     """实现名（配置 `[captcha].provider = "default"` 命中）。"""
@@ -183,17 +253,20 @@ class DefaultCaptcha(BaseCaptcha):
         url: str | None,
         client: AsyncRedis | None = None,
         image: CaptchaImageOptions | None = None,
+        slider: CaptchaSliderOptions | None = None,
     ) -> None:
         """初始化（懒建连；`url` 无缺省值以防被插件注册表自动收集）。
 
         Args:
             url: Redis 连接串（缺省由装配工厂取 `settings.redis.url` 注入）。
             client: 异步客户端（测试注入 `fakeredis.aioredis.FakeRedis`；缺省按 `url` 懒建）。
-            image: 出图参数（缺省平台默认）。
+            image: 图形码出图参数（缺省平台默认）。
+            slider: 滑块出图 / 判定参数（缺省平台默认）。
         """
         self._url = url
         self._client = client
         self._image = image or CaptchaImageOptions()
+        self._slider = slider or CaptchaSliderOptions()
 
     @property
     def client(self) -> AsyncRedis:
@@ -207,18 +280,20 @@ class DefaultCaptcha(BaseCaptcha):
         return self._client
 
     async def generate(self, scene: str = "login", *, kind: CaptchaKind = CaptchaKind.IMAGE) -> CaptchaChallenge:
-        """生成图形码挑战（Pillow 出图经线程池；写入 Redis 记录）。
+        """生成验证码挑战（图形码 Pillow 出图 / 滑块的合成出图经线程池；写入 Redis 记录）。
 
         Args:
             scene: 使用场景。
-            kind: 挑战类型（本期只支持图形；滑块 / 短信抛明确错误）。
+            kind: 挑战类型（图形 / 滑块；短信未启用抛明确错误）。
 
         Returns:
-            CaptchaChallenge: 挑战值对象（编号 / PNG 字节 / 有效期 / 场景）。
+            CaptchaChallenge: 挑战值对象（编号 / 图片字节 / 有效期 / 场景 / 形态参数）。
 
         Raises:
-            ServiceUnavailableError: 形态未启用（滑块 / 短信）或 Redis 不可用（10007 / 503）。
+            ServiceUnavailableError: 短信形态未启用或 Redis 不可用（10007 / 503）。
         """
+        if kind is CaptchaKind.SLIDER:
+            return await self._generate_slider(scene)
         if kind is not CaptchaKind.IMAGE:
             raise ServiceUnavailableError(f"验证码形态尚未启用：{kind}")
         code = self._random_code()
@@ -237,6 +312,49 @@ class DefaultCaptcha(BaseCaptcha):
             scene=scene,
             kind=CaptchaKind.IMAGE,
             payload=NULL_CAPTCHA_PAYLOAD,
+        )
+
+    async def _generate_slider(self, scene: str) -> CaptchaChallenge:
+        """生成滑块挑战（合成带缺口背景 + 滑块块图；缺口坐标只存 Redis 不下发）。
+
+        Args:
+            scene: 使用场景。
+
+        Returns:
+            CaptchaChallenge: 挑战值对象（`image` 为空字节，出图数据经 `payload` 承载）。
+
+        Raises:
+            ServiceUnavailableError: Redis 不可用（10007 / 503）。
+        """
+        background, slider, gap_x, gap_y = await asyncio.to_thread(self._render_slider)
+        captcha_id = uuid4().hex
+        record: dict[str, object] = {
+            "kind": CaptchaKind.SLIDER.value,
+            "scene": scene,
+            "gap_x": gap_x,
+            "gap_y": gap_y,
+            "fails": 0,
+        }
+        payload = _dump(
+            {
+                "background": base64.b64encode(background).decode(),
+                "slider": base64.b64encode(slider).decode(),
+                "width": self._slider.width,
+                "height": self._slider.height,
+            }
+        )
+        try:
+            await self.client.set(build_captcha_key(captcha_id), _dump(record), ex=CAPTCHA_TTL)  # pyright: ignore[reportUnknownMemberType]
+        except Exception as exc:
+            _LOGGER.warning("验证码写入降级", captcha_id=captcha_id[:8], error=str(exc))
+            raise ServiceUnavailableError("验证码服务暂不可用，请稍后重试") from exc
+        return CaptchaChallenge(
+            captcha_id=captcha_id,
+            image=b"",
+            expires_in=CAPTCHA_TTL,
+            scene=scene,
+            kind=CaptchaKind.SLIDER,
+            payload=payload,
         )
 
     async def send_sms(self, phone: str, scene: str = "login") -> CaptchaChallenge:
@@ -259,7 +377,7 @@ class DefaultCaptcha(BaseCaptcha):
         """校验验证码凭证（判定入口，不抛错；成功后挑战即失效）。
 
         Args:
-            credential: 验证码凭证（图形 / 短信用 `code`；滑块 `trace` 归 03_02）。
+            credential: 验证码凭证（图形 / 短信用 `code`；滑块用 `trace`）。
 
         Returns:
             bool: 校验通过为 True；不存在 / 过期 / 不匹配 / Redis 不可用均为 False（fail-closed）。
@@ -367,9 +485,48 @@ class DefaultCaptcha(BaseCaptcha):
         for _ in range(opts.noise_dots):
             point = (random.randint(0, opts.width), random.randint(0, opts.height))
             draw.point(point, fill=(random.randint(60, 180), random.randint(60, 180), random.randint(60, 180)))
-        buffer = io.BytesIO()
-        image.save(buffer, format="PNG")
-        return buffer.getvalue()
+        return _png(image)
+
+    def _render_slider(self) -> tuple[bytes, bytes, int, int]:
+        """Pillow 合成滑块出图（同步阻塞，调用方经 `asyncio.to_thread` 执行）。
+
+        生成带缺口的背景图与缺口区域的独立块图；缺口位置在随机坐标处，**只随返回值入 Redis，不下发**。
+
+        Returns:
+            tuple[bytes, bytes, int, int]: 背景 PNG 字节、块图 PNG 字节、缺口横向坐标、缺口纵向坐标。
+        """
+        opts = self._slider
+        piece = opts.piece_size
+        background = self._slider_background(opts.width, opts.height)
+        gap_x = random.randint(piece, opts.width - piece - 1)
+        gap_y = random.randint(piece, opts.height - piece - 1)
+        region = (gap_x, gap_y, gap_x + piece, gap_y + piece)
+        slider = background.crop(region)
+        image_draw = ImageDraw.Draw(background)
+        image_draw.rectangle(region, fill=(0, 0, 0), outline=(255, 255, 255), width=2)
+        return _png(background), _png(slider), gap_x, gap_y
+
+    @staticmethod
+    def _slider_background(width: int, height: int) -> Image.Image:
+        """生成滑块背景图（对角渐变底 + 随机噪点，抗简单识别）。
+
+        Args:
+            width: 画布宽（像素）。
+            height: 画布高（像素）。
+
+        Returns:
+            Image.Image: RGB 背景图。
+        """
+        top = (random.randint(40, 200), random.randint(40, 200), random.randint(40, 200))
+        bottom = (random.randint(40, 200), random.randint(40, 200), random.randint(40, 200))
+        gradient = Image.new("RGB", (width, height))
+        gradient_draw = ImageDraw.Draw(gradient)
+        for y in range(height):
+            ratio = y / max(1, height - 1)
+            color = tuple(int(top[index] + (bottom[index] - top[index]) * ratio) for index in range(3))
+            gradient_draw.line([(0, y), (width, y)], fill=color)
+        noise = Image.effect_noise((width, height), 32).convert("RGB")
+        return Image.blend(gradient, noise, 0.15)
 
     async def _take(self, captcha_id: str) -> tuple[dict[str, object] | None, int]:
         """一次性原子取出挑战记录（先取剩余 TTL 再 `GETDEL`；成功后记录即删除）。
@@ -393,6 +550,20 @@ class DefaultCaptcha(BaseCaptcha):
         return _load(raw), ttl_ms
 
     def _matches(self, record: Mapping[str, object], credential: CaptchaCredential) -> bool:
+        """按记录形态分派比对（滑块走轨迹判定，其余走校验码比对）。
+
+        Args:
+            record: 挑战记录。
+            credential: 用户凭证。
+
+        Returns:
+            bool: 校验通过为 True。
+        """
+        if record.get("kind") == CaptchaKind.SLIDER:
+            return self._matches_slider(record, credential)
+        return self._matches_code(record, credential)
+
+    def _matches_code(self, record: Mapping[str, object], credential: CaptchaCredential) -> bool:
         """比对校验码（大小写不敏感、常量时间）。
 
         Args:
@@ -406,6 +577,32 @@ class DefaultCaptcha(BaseCaptcha):
         if not expected:
             return False
         return hmac.compare_digest(expected.upper(), credential.code.strip().upper())
+
+    def _matches_slider(self, record: Mapping[str, object], credential: CaptchaCredential) -> bool:
+        """判定滑块轨迹（落点容差 + 轨迹合理性双因子；`y` 轴不校验）。
+
+        Args:
+            record: 挑战记录（须含合法整数 `gap_x`）。
+            credential: 用户凭证（轨迹点序列 `(x, y, 相对起点毫秒)`）。
+
+        Returns:
+            bool: 轨迹通过为 True；缺口缺失 / 非法、点数不足、时间回退、时长过短或落点超差均为 False。
+        """
+        gap_x = record.get("gap_x")
+        if isinstance(gap_x, bool) or not isinstance(gap_x, int):
+            return False
+        trace = credential.trace
+        opts = self._slider
+        if len(trace) < opts.min_points:
+            return False
+        previous_t = -1
+        for _x, _y, point_t in trace:
+            if point_t < 0 or point_t < previous_t:
+                return False
+            previous_t = point_t
+        if opts.min_duration_ms > 0 and trace[-1][2] - trace[0][2] < opts.min_duration_ms:
+            return False
+        return abs(trace[-1][0] - gap_x) <= opts.tolerance
 
     async def _register_failure(self, captcha_id: str, record: Mapping[str, object], ttl_ms: int) -> None:
         """回写失败挑战（保留剩余 TTL）并累计失败次数（失败可重试）。

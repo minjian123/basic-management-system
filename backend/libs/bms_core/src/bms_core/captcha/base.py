@@ -51,7 +51,7 @@ SLIDER_TOLERANCE = 10
 """滑块轨迹终点容差（像素下限）；真实实现只收紧不重定。"""
 
 NULL_CAPTCHA_PAYLOAD = "{}"
-"""占位形态参数（JSON 空对象串；真实实现按形态填背景与缺口参数）。"""
+"""占位形态参数（JSON 空对象串；真实实现按形态填背景与块图参数）。"""
 
 CAPTCHA_SCENES: tuple[str, ...] = ("login", "reset_password", "bind", "unbind", "register")
 """验证码场景取值（登录 / 找回密码 / 绑定手机 / 解绑手机 / 注册）。"""
@@ -93,7 +93,7 @@ class CaptchaKind(StrEnum):
     """图形验证码（出图字节经 `CaptchaChallenge.image` 返回）。"""
 
     SLIDER = "slider"
-    """滑块挑战（背景与缺口参数经 `payload` 返回，轨迹凭证经 `CaptchaCredential.trace` 校验）。"""
+    """滑块挑战（背景与滑块块图经 `payload` 返回、缺口坐标不下发，轨迹凭证经 `CaptchaCredential.trace` 校验）。"""
 
     SMS = "sms"
     """短信验证码（经 `send_sms` 发送，校验码经 `CaptchaCredential.code` 校验）。"""
@@ -119,7 +119,8 @@ class CaptchaChallenge(BaseObject):
     """挑战类型（图形 / 滑块 / 短信）。"""
 
     payload: str = ""
-    """形态相关参数（JSON 字符串；滑块为背景与缺口参数，图形 / 短信为空串）。"""
+    """形态相关参数（JSON 字符串；滑块为背景与滑块块图 `background` / `slider` / `width` / `height`，
+    不含缺口坐标；图形 / 短信为空串）。"""
 
     target: str = ""
     """脱敏目标（仅短信渠道使用，恒为脱敏手机号）。"""
