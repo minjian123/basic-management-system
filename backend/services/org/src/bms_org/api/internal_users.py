@@ -21,8 +21,10 @@ from bms_org.schemas.users import (
     UserCreateResult,
     UserProfileRequest,
     UserProfileResult,
+    UserResetTargetRequest,
+    UserResetTargetResult,
 )
-from bms_org.services.users import UserCreateService, UserProfileService
+from bms_org.services.users import UserCreateService, UserProfileService, UserResetTargetService
 
 router = BaseRouter(
     key="org_internal_users",
@@ -47,6 +49,21 @@ async def user_profile(req: UserProfileRequest, uow: UowDep) -> ApiResponse[User
     """
     service = UserProfileService(UserRepository(cast("DbSession", uow.session)))
     return ApiResponse.ok(await service.profile(req.user_id))
+
+
+@router.post("/reset-target")
+async def reset_target(req: UserResetTargetRequest, uow: UowDep) -> ApiResponse[UserResetTargetResult]:
+    """按标识（账号 / 手机 / 邮箱）解析找回密码投递目标（不存在 / 不可送达由调用侧统一防枚举处理）。
+
+    Args:
+        req: 重置目标查询请求（标识）。
+        uow: 请求级工作单元。
+
+    Returns:
+        ApiResponse: 统一响应，data 为解析结果（`UserResetTargetResult`）。
+    """
+    service = UserResetTargetService(UserRepository(cast("DbSession", uow.session)))
+    return ApiResponse.ok(await service.resolve(req.identifier))
 
 
 @router.post("/create")

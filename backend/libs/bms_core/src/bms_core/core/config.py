@@ -513,6 +513,32 @@ class SessionSettings(BaseSettings):
     """每请求是否校验设备 / IP 一致性（可选强度；开启时比对会话标记内 `ip` / `ua` 与当前请求）。"""
 
 
+class PasswordResetSettings(BaseSettings):
+    """找回密码配置（`[password_reset]`；token TTL 与限流阈值）。
+
+    口径与《架构设计 · 认证与会话》「密码与账号策略」节一致（token TTL 15 分钟、单次有效；
+    每账号 1 次 / 5 分钟、每 IP 5 次 / 小时）；按租户 `sys_config` 覆盖归后续阶段，本期取平台默认。
+    """
+
+    token_ttl_seconds: int = Field(default=900, ge=60)
+    """重置 token 有效期（秒，默认 15 分钟）。"""
+
+    account_rate_limit: int = Field(default=1, ge=1)
+    """每账号（标识 / 用户维度）窗口内找回请求上限。"""
+
+    account_rate_window: int = Field(default=300, ge=1)
+    """账号维度限流窗口（秒，默认 5 分钟）。"""
+
+    ip_rate_limit: int = Field(default=5, ge=1)
+    """每 IP 窗口内找回请求上限。"""
+
+    ip_rate_window: int = Field(default=3600, ge=1)
+    """IP 维度限流窗口（秒，默认 1 小时）。"""
+
+    reset_url: str = ""
+    """重置页基址（`{reset_url}?token=…&tenant=…`；空串 = 通知内容回退纯令牌文案）。"""
+
+
 class SsoSettings(BaseSettings):
     """SSO 登录链路配置（`[sso]`；流程状态 TTL / 跳转地址 / 限流 / PKCE / 回调基址）。
 
@@ -798,6 +824,7 @@ class Settings(PydanticBaseSettings, BaseSettings):  # pyright: ignore[reportInc
     outbox_store: PluginSelection = Field(default_factory=PluginSelection)
     password_policy: PluginSelection = Field(default_factory=PluginSelection)
     password_hasher: PluginSelection = Field(default_factory=PluginSelection)
+    password_reset: PasswordResetSettings = Field(default_factory=PasswordResetSettings)
     permission: PluginSelection = Field(default_factory=PluginSelection)
     preference: PluginSelection = Field(default_factory=PluginSelection)
     print_exporter: PluginSelection = Field(default_factory=PluginSelection)

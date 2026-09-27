@@ -19,6 +19,7 @@ from bms_core.core.exceptions import (
 )
 from bms_core.servicecall.base import BaseServiceClient, ServiceCallPolicy, ServiceRequest, ServiceResponse
 from bms_identity.schemas.auth import OrgLoginState, OrgUpdatePasswordResult, OrgVerifyResult
+from bms_identity.schemas.password_reset import OrgResetTargetResult
 from bms_identity.schemas.sso import OrgProfileResult, OrgUserCreateResult
 
 ORG_SERVICE = "org"
@@ -141,6 +142,28 @@ class OrgCredentialClient(BaseObject):
             interface=_PROFILE_INTERFACE,
         )
         return OrgProfileResult.model_validate(data)
+
+    async def reset_target(self, tenant: str | None, identifier: str) -> OrgResetTargetResult:
+        """调 org 解析找回密码重置目标（账号 / 手机 / 邮箱 → 通道与投递目标）。
+
+        Args:
+            tenant: 租户编码（随服务 JWT claim 传递）。
+            identifier: 账号 / 手机号 / 邮箱。
+
+        Returns:
+            OrgResetTargetResult: 解析结果。
+
+        Raises:
+            ServiceUnavailableError: 下游不可达 / 响应非法（10007/503）。
+        """
+        data = await self._post_path(
+            "/api/v1/org/internal/users/reset-target",
+            _PROFILE_SCOPES,
+            tenant,
+            {"identifier": identifier},
+            interface=_PROFILE_INTERFACE,
+        )
+        return OrgResetTargetResult.model_validate(data)
 
     async def create_user(
         self,

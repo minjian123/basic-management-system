@@ -8,6 +8,7 @@
       "ApiResponse_UpdatePasswordResult_": {},
       "ApiResponse_UserCreateResult_": {},
       "ApiResponse_UserProfileResult_": {},
+      "ApiResponse_UserResetTargetResult_": {},
       "CredentialUserSummary": {},
       "CredentialVerifyRequest": {
         "description": "凭据校验请求（账号 + 密码明文；租户经服务 JWT `tenant` claim 解析）。",
@@ -214,6 +215,24 @@
       },
       "UserProfileResult": {},
       "UserProfileUser": {},
+      "UserResetTargetRequest": {
+        "description": "找回密码重置目标查询请求（账号 / 手机 / 邮箱；租户经服务 JWT `tenant` claim 解析）。",
+        "properties": {
+          "identifier": {
+            "description": "账号 / 手机号 / 邮箱",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Identifier",
+            "type": "string"
+          }
+        },
+        "required": [
+          "identifier"
+        ],
+        "title": "UserResetTargetRequest",
+        "type": "object"
+      },
+      "UserResetTargetResult": {},
       "ValidationError": {
         "properties": {
           "ctx": {
@@ -1038,6 +1057,116 @@
           }
         },
         "summary": "User Profile",
+        "tags": [
+          "org-internal"
+        ]
+      }
+    },
+    "/api/v1/org/internal/users/reset-target": {
+      "post": {
+        "description": "按标识（账号 / 手机 / 邮箱）解析找回密码投递目标（不存在 / 不可送达由调用侧统一防枚举处理）。\n\nArgs:\n    req: 重置目标查询请求（标识）。\n    uow: 请求级工作单元。\n\nReturns:\n    ApiResponse: 统一响应，data 为解析结果（`UserResetTargetResult`）。",
+        "operationId": "reset_target_api_v1_org_internal_users_reset_target_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserResetTargetRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_UserResetTargetResult_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Reset Target",
         "tags": [
           "org-internal"
         ]

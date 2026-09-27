@@ -135,6 +135,36 @@ class AccountDisabledError(AuthError):
         BizError.__init__(self, ErrorCode.ACCOUNT_DISABLED, message, http_status=401, data=data)
 
 
+class PasswordResetError(AuthError):
+    """找回密码段（认证段内自助找回子段）异常基类；子类在构造时预置码位与 HTTP 状态。"""
+
+
+class PasswordResetTokenError(PasswordResetError):
+    """重置令牌无效 / 过期 / 已使用（`20005` / 400；三态合一防枚举）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化重置令牌异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.PASSWORD_RESET_TOKEN_INVALID, message, http_status=400, data=data)
+
+
+class PasswordResetTooFrequentError(PasswordResetError):
+    """找回密码请求过于频繁（`20006` / 429；账号 / IP / 用户维度限流命中）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化找回限流异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.PASSWORD_RESET_TOO_FREQUENT, message, http_status=429, data=data)
+
+
 class SessionError(AuthError):
     """会话段（认证段内会话治理子段）异常基类；子类在构造时预置码位与 HTTP 状态。"""
 

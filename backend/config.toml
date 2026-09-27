@@ -260,7 +260,7 @@ service_identity = "gateway"
 # 网关服务 JWT 有效期（秒；短时）
 token_ttl_seconds = 60
 # 公开路径（免认证，网关外部路径形态、前缀匹配）——认证端点据此放行前置端点
-public_paths = ["/api/identity/v1/auth/login", "/api/identity/v1/auth/refresh", "/api/identity/v1/captcha", "/api/identity/v1/auth/sso", "/api/identity/v1/oidc"]
+public_paths = ["/api/identity/v1/auth/login", "/api/identity/v1/auth/refresh", "/api/identity/v1/auth/forgot-password", "/api/identity/v1/auth/reset-password", "/api/identity/v1/captcha", "/api/identity/v1/auth/sso", "/api/identity/v1/oidc"]
 
 [service_client]
 # 服务间同步调用实现选择（插件化配置；http = httpx 真实实现、空串 = null 占位不外呼）
@@ -387,6 +387,15 @@ account_rate_limit = 20
 max_active = 5
 # 每请求是否校验设备 / IP 一致性（可选强度；开启时比对会话标记内 ip / ua 与当前请求，不一致 401）
 device_check = false
+
+[password_reset]
+# 找回密码（token TTL 与限流阈值；重置链接基址空串 = 通知内容回退纯令牌文案）
+token_ttl_seconds = 900
+account_rate_limit = 1
+account_rate_window = 300
+ip_rate_limit = 5
+ip_rate_window = 3600
+reset_url = ""
 
 [sso]
 # SSO 流程状态 TTL（秒；state / nonce / PKCE 一次性消费，过期即回调校验失败）

@@ -44,3 +44,20 @@ class UserCreateResult(BaseSchema):
     created: bool = Field(description="是否建号成功")
     reason: str | None = Field(default=None, description="未建号原因（username_conflict）")
     user: UserProfileUser | None = Field(default=None, description="新建用户概要（created=true 时返回）")
+
+
+class UserResetTargetRequest(BaseSchema):
+    """找回密码重置目标查询请求（账号 / 手机 / 邮箱；租户经服务 JWT `tenant` claim 解析）。"""
+
+    identifier: str = Field(min_length=1, max_length=255, description="账号 / 手机号 / 邮箱")
+
+
+class UserResetTargetResult(BaseSchema):
+    """重置目标解析结果（通道与目标供 identity 侧通知投递；不可送达以 `deliverable=false` 表达）。"""
+
+    found: bool = Field(default=False, description="账号是否存在（未软删）")
+    user_id: int | None = Field(default=None, description="用户主键（found=true 时返回）")
+    account: str = Field(default="", description="登录账号（found=true 时返回）")
+    deliverable: bool = Field(default=False, description="是否可送达（启用且有可用通道）")
+    channel: str = Field(default="", description="投递通道（email / sms；无可用通道为空串）")
+    target: str = Field(default="", description="投递目标（原始邮箱 / 手机号；内部契约，不对外回显）")

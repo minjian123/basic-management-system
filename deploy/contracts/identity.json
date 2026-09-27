@@ -13,6 +13,8 @@
       "ApiResponse_KickResult_": {},
       "ApiResponse_LoginResult_": {},
       "ApiResponse_NoneType_": {},
+      "ApiResponse_PasswordForgotResult_": {},
+      "ApiResponse_PasswordResetResult_": {},
       "ApiResponse_RefreshResult_": {},
       "ApiResponse_SessionItem_": {},
       "ApiResponse_SsoAuthorizeInfo_": {},
@@ -467,6 +469,87 @@
         "type": "object"
       },
       "LoginResult": {},
+      "PasswordForgotRequest": {
+        "description": "发起找回请求（账号 / 手机 / 邮箱取通道；验证码按场景策略必带）。",
+        "properties": {
+          "captcha": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CaptchaInput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "验证码凭证（场景 reset_password；策略强制时必带）"
+          },
+          "identifier": {
+            "description": "账号 / 手机号 / 邮箱",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Identifier",
+            "type": "string"
+          },
+          "tenant": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "租户编码（可选；携带则以之为准）",
+            "title": "Tenant"
+          }
+        },
+        "required": [
+          "identifier"
+        ],
+        "title": "PasswordForgotRequest",
+        "type": "object"
+      },
+      "PasswordForgotResult": {},
+      "PasswordResetRequest": {
+        "description": "提交重置请求（重置令牌 + 新口令；策略判定在 org 侧）。",
+        "properties": {
+          "new_password": {
+            "description": "新口令明文",
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "New Password",
+            "type": "string"
+          },
+          "tenant": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "租户编码（可选；携带则以之为准）",
+            "title": "Tenant"
+          },
+          "token": {
+            "description": "重置令牌（通知下发；单次有效）",
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "token",
+          "new_password"
+        ],
+        "title": "PasswordResetRequest",
+        "type": "object"
+      },
+      "PasswordResetResult": {},
       "RefreshResult": {},
       "SessionItem": {},
       "SsoAuthorizeInfo": {},
@@ -563,6 +646,98 @@
         "summary": "Get Jwks",
         "tags": [
           "wellknown"
+        ]
+      }
+    },
+    "/api/v1/auth/forgot-password": {
+      "post": {
+        "description": "发起找回：验证码 / 限流 / 重置目标解析 → 生成令牌并占位发送（恒 `{sent: true}`）。\n\nArgs:\n    request: 请求对象（取应用配置与引擎注册表）。\n    req: 发起找回请求（标识 / 验证码 / 租户）。\n    captcha: 验证码基座。\n    limiter: 限流基座。\n    client: 服务间调用客户端。\n    state_store: 流程状态存储。\n    notifier: 通知基座。\n    security: 会话安全原语。\n    store: 会话标记存储。\n    publisher: 实时推送器。\n    tenant_ctx: 请求上下文租户。\n    tenant_source: 租户源。\n\nReturns:\n    ApiResponse: 统一响应，data 为发起结果（`PasswordForgotResult`）。",
+        "operationId": "forgot_password_api_v1_auth_forgot_password_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordForgotRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_PasswordForgotResult_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Forgot Password",
+        "tags": [
+          "auth"
         ]
       }
     },
@@ -773,6 +948,98 @@
           }
         },
         "summary": "Refresh",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/reset-password": {
+      "post": {
+        "description": "提交重置：一次性消费令牌 → 改密（强制过策略）→ 该账号全部会话失效。\n\nArgs:\n    request: 请求对象（取应用配置与引擎注册表）。\n    req: 提交重置请求（令牌 / 新口令 / 租户）。\n    captcha: 验证码基座（未使用，保持服务构造一致）。\n    limiter: 限流基座（未使用）。\n    client: 服务间调用客户端。\n    state_store: 流程状态存储（一次性消费令牌）。\n    notifier: 通知基座（未使用）。\n    security: 会话安全原语。\n    store: 会话标记存储。\n    publisher: 实时推送器。\n    tenant_ctx: 请求上下文租户。\n    tenant_source: 租户源。\n\nReturns:\n    ApiResponse: 统一响应，data 为重置结果（`PasswordResetResult`）。",
+        "operationId": "reset_password_api_v1_auth_reset_password_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordResetRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_PasswordResetResult_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Reset Password",
         "tags": [
           "auth"
         ]

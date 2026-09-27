@@ -431,6 +431,8 @@ routes:
     uris:
       - '/api/identity/v1/auth/login'
       - '/api/identity/v1/auth/refresh'
+      - '/api/identity/v1/auth/forgot-password'
+      - '/api/identity/v1/auth/reset-password'
     priority: 10
     upstream_id: identity
     plugins:

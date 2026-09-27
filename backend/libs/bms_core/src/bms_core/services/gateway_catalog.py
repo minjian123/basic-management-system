@@ -200,8 +200,10 @@ LOGIN_SERVICE_KEY = "identity"
 LOGIN_PATHS: tuple[str, ...] = (
     f"{GATEWAY_PATH_PREFIX}/{LOGIN_SERVICE_KEY}/v1/auth/login",
     f"{GATEWAY_PATH_PREFIX}/{LOGIN_SERVICE_KEY}/v1/auth/refresh",
+    f"{GATEWAY_PATH_PREFIX}/{LOGIN_SERVICE_KEY}/v1/auth/forgot-password",
+    f"{GATEWAY_PATH_PREFIX}/{LOGIN_SERVICE_KEY}/v1/auth/reset-password",
 )
-"""认证敏感路径（登录 / 刷新；限流更严，可随认证阶段扩展）。"""
+"""认证敏感路径（登录 / 刷新 / 找回 / 重置；限流更严，可随认证阶段扩展）。"""
 
 LOGIN_ROUTE_ID = f"route-{LOGIN_SERVICE_KEY}-auth-login"
 """登录限流独立路由 id。"""
