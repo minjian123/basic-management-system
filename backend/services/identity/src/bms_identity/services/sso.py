@@ -38,10 +38,13 @@ from bms_core.core.logging import get_logger
 from bms_core.db.session import DbSession
 from bms_core.idp.base import BaseIdentityProvider, IdentityToken
 from bms_core.idp.state.base import BaseIdpStateStore, IdpFlowState
+from bms_core.lock.base import BaseDistributedLock
+from bms_core.outbox.base import BaseOutboxStore
 from bms_core.ratelimit.base import BaseRateLimiter, RateLimitRule, build_rate_limit_key
 from bms_identity.repositories.identity_provider import IdentityProviderRepository
 from bms_identity.repositories.user_identity import UserIdentityRepository
 from bms_identity.schemas.sso import SsoProviderItem
+from bms_identity.services.jit import ExternalIdentity, JitService
 from bms_identity.services.org_client import OrgCredentialClient
 from bms_identity.services.provider_registry import ProviderRegistry
 from bms_identity.services.session_issuer import IssuedSession, SessionIssuer
@@ -77,21 +80,31 @@ class SsoService(BaseObject):
         org_client: OrgCredentialClient,
         provider_registry: ProviderRegistry,
         sso_settings: SsoSettings,
+        lock: BaseDistributedLock,
+        outbox_store: BaseOutboxStore,
     ) -> None:
         """初始化。
 
         Args:
             state_store: 流程状态存储（state / nonce / PKCE 一次性）。
             rate_limiter: 限流基座（authorize / callback）。
-            org_client: org 内部接口客户端（用户概要 / 登录态写回）。
+            org_client: org 内部接口客户端（用户概要 / 登录态写回 / 建号）。
             provider_registry: IdP 行实例化桥接。
-            sso_settings: SSO 配置（TTL / 限流阈值 / PKCE 开关）。
+            sso_settings: SSO 配置（TTL / 限流阈值 / PKCE 开关 / JIT）。
+            lock: 分布式锁（JIT 临界区串行化）。
+            outbox_store: 事务性发件箱（JIT 首登建号事件）。
         """
         self._state = state_store
         self._limiter = rate_limiter
         self._org = org_client
         self._providers = provider_registry
         self._sso = sso_settings
+        self._jit = JitService(
+            lock=lock,
+            org_client=org_client,
+            outbox_store=outbox_store,
+            sso_settings=sso_settings,
+        )
 
     async def list_providers(self, tenant: str, session: DbSession) -> list[SsoProviderItem]:
         """可用 IdP 清单（仅 `enabled`，按 `sort` / `id` 升序）。
@@ -268,33 +281,80 @@ class SsoService(BaseObject):
             instance = self._providers.instance_for(row)
         except ConfigError as exc:
             raise SsoProviderUnavailableError("IdP 配置不可用") from exc
+        provider_config = row.config
         await session.rollback()
 
         token = await self._exchange(instance, code, flow, idp_key)
-        subject = await self._resolve_subject(instance, token, flow, idp_key)
-
-        mapping = await UserIdentityRepository(platform_session).get_by_key_external(
-            f"{flow.tenant}:{idp_key}", subject
+        identity = await self._resolve_identity(instance, token, flow, idp_key)
+        user_id = await self._resolve_user_id(
+            flow=flow,
+            idp_key=idp_key,
+            provider_config=provider_config,
+            identity=identity,
+            platform_session=platform_session,
         )
-        if mapping is None or mapping.tenant_id != flow.tenant:
-            _LOGGER.warning("SSO 身份未匹配", idp_key=idp_key, tenant=flow.tenant)
-            raise SsoIdentityUnmatchedError()
-        profile = await self._org.user_profile(flow.tenant, mapping.user_id)
+        profile = await self._org.user_profile(flow.tenant, user_id)
         if not profile.found or profile.user is None:
-            _LOGGER.warning("SSO 本地用户不存在", idp_key=idp_key, tenant=flow.tenant, user_id=mapping.user_id)
+            _LOGGER.warning("SSO 本地用户不存在", idp_key=idp_key, tenant=flow.tenant, user_id=user_id)
             raise SsoIdentityUnmatchedError()
         if profile.user.status != "enabled":
             raise AccountDisabledError()
 
         issued = await session_issuer.issue(
-            user_id=mapping.user_id,
+            user_id=user_id,
             tenant=flow.tenant,
             ip=ip,
             user_agent=user_agent,
         )
         await self._org.login_state(flow.tenant, profile.user.username, success=True)
-        _LOGGER.info("SSO 登录成功", idp_key=idp_key, tenant=flow.tenant, user_id=mapping.user_id)
+        _LOGGER.info("SSO 登录成功", idp_key=idp_key, tenant=flow.tenant, user_id=user_id)
         return SsoLoginResult(tenant=flow.tenant, issued=issued)
+
+    async def _resolve_user_id(
+        self,
+        *,
+        flow: IdpFlowState,
+        idp_key: str,
+        provider_config: str,
+        identity: ExternalIdentity,
+        platform_session: DbSession,
+    ) -> int:
+        """定位本地用户：命中映射直接复用，未命中且 JIT 启用则自动建号。
+
+        Args:
+            flow: 流程记录。
+            idp_key: IdP 标识。
+            provider_config: IdP 行配置 JSON 原文（JIT 开关来源；行会话已释放，传值）。
+            identity: 外部身份声明。
+            platform_session: 平台库会话（可写，JIT 需要）。
+
+        Returns:
+            int: 本地用户主键。
+
+        Raises:
+            SsoIdentityUnmatchedError: 未匹配且 JIT 未启用 / 被拒（20054/403）。
+            SsoIdentityConflictError: JIT 锁或映射冲突（20055/409）。
+            SsoProviderUnavailableError: org 建号接口不可达（20053/503）。
+        """
+        mapping = await UserIdentityRepository(platform_session).get_by_key_external(
+            f"{flow.tenant}:{idp_key}", identity.subject
+        )
+        if mapping is not None:
+            if mapping.tenant_id == flow.tenant:
+                return mapping.user_id
+            _LOGGER.warning("SSO 身份映射租户不一致", idp_key=idp_key, tenant=flow.tenant)
+            raise SsoIdentityUnmatchedError()
+        if not self._jit.enabled(provider_config):
+            _LOGGER.warning("SSO 身份未匹配", idp_key=idp_key, tenant=flow.tenant)
+            raise SsoIdentityUnmatchedError()
+        result = await self._jit.provision(
+            tenant=flow.tenant,
+            idp_key=idp_key,
+            config=provider_config,
+            identity=identity,
+            platform_session=platform_session,
+        )
+        return result.user_id
 
     async def _exchange(
         self,
@@ -325,14 +385,14 @@ class SsoService(BaseObject):
         except ConfigError as exc:
             raise SsoProviderUnavailableError("IdP 配置不可用") from exc
 
-    async def _resolve_subject(
+    async def _resolve_identity(
         self,
         instance: BaseIdentityProvider,
         token: IdentityToken,
         flow: IdpFlowState,
         idp_key: str,
-    ) -> str:
-        """解析外部身份主体：优先 ID Token 验签（含 `nonce`），否则回退 userinfo。
+    ) -> ExternalIdentity:
+        """解析外部身份声明：优先 ID Token 验签（含 `nonce`），否则回退 userinfo。
 
         Args:
             instance: IdP 实例。
@@ -341,7 +401,7 @@ class SsoService(BaseObject):
             idp_key: IdP 标识（日志）。
 
         Returns:
-            str: 外部身份主体（OIDC 为 `sub`）。
+            ExternalIdentity: 归一化外部身份（主体 / 用户名 / 显示名 / 邮箱 / 语言时区）。
 
         Raises:
             SsoCallbackError: ID Token 签名 / `nonce` / 过期等校验失败（20052/400）。
@@ -357,13 +417,26 @@ class SsoService(BaseObject):
                 raise SsoProviderUnavailableError("IdP 验签不可用") from exc
             except ConfigError as exc:
                 raise SsoProviderUnavailableError("IdP 配置不可用") from exc
-            return claims.subject
+            payload = claims.payload
+            return ExternalIdentity(
+                subject=claims.subject,
+                username=_as_str(payload.get("preferred_username")),
+                name=_as_str(payload.get("name")),
+                email=_as_str(payload.get("email")) or None,
+                locale=_as_str(payload.get("locale")) or None,
+                timezone=_as_str(payload.get("zoneinfo")) or None,
+            )
 
         try:
             user = await instance.userinfo(token.access_token)
         except ServiceUnavailableError as exc:
             raise SsoProviderUnavailableError("IdP 用户信息不可用") from exc
-        return user.subject
+        return ExternalIdentity(
+            subject=user.subject,
+            username=user.username,
+            name=user.username,
+            email=user.email,
+        )
 
     async def _enforce_authorize_rate_limit(self, tenant: str, idp_key: str, ip: str | None) -> None:
         """authorize 限流：IP 维度 + client 维度（target=`idp_key`）。
@@ -394,6 +467,18 @@ class SsoService(BaseObject):
                 build_rate_limit_key(dimension=_IP_DIMENSION, target=ip),
                 RateLimitRule(limit=self._sso.ip_rate_limit),
             )
+
+
+def _as_str(value: object) -> str:
+    """取声明中的字符串值（非字符串 / 缺失返回空串）。
+
+    Args:
+        value: claim 值。
+
+    Returns:
+        str: 字符串值；非字符串返回空串。
+    """
+    return value if isinstance(value, str) else ""
 
 
 def _code_challenge(verifier: str) -> str:

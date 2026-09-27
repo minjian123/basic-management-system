@@ -16,8 +16,13 @@ from bms_core.db.session import DbSession
 from bms_core.db.unit_of_work import UnitOfWork
 from bms_core.schemas.common import ApiResponse
 from bms_org.repositories.user import UserRepository
-from bms_org.schemas.users import UserProfileRequest, UserProfileResult
-from bms_org.services.users import UserProfileService
+from bms_org.schemas.users import (
+    UserCreateRequest,
+    UserCreateResult,
+    UserProfileRequest,
+    UserProfileResult,
+)
+from bms_org.services.users import UserCreateService, UserProfileService
 
 router = BaseRouter(
     key="org_internal_users",
@@ -42,3 +47,25 @@ async def user_profile(req: UserProfileRequest, uow: UowDep) -> ApiResponse[User
     """
     service = UserProfileService(UserRepository(cast("DbSession", uow.session)))
     return ApiResponse.ok(await service.profile(req.user_id))
+
+
+@router.post("/create")
+async def create_user(req: UserCreateRequest, uow: UowDep) -> ApiResponse[UserCreateResult]:
+    """JIT 建号（用户名空闲即建；撞名 `created=false`，由调用侧换后缀重试）。
+
+    Args:
+        req: 建号请求（账号 / 昵称 / 语言时区）。
+        uow: 请求级工作单元。
+
+    Returns:
+        ApiResponse: 统一响应，data 为建号结果（`UserCreateResult`）。
+    """
+    service = UserCreateService(UserRepository(cast("DbSession", uow.session)), uow)
+    return ApiResponse.ok(
+        await service.create_user(
+            username=req.username,
+            name=req.name,
+            locale=req.locale,
+            timezone=req.timezone,
+        )
+    )

@@ -78,6 +78,8 @@ from bms_core.listing.base import BaseQuerySchemeStore
 from bms_core.listing.store import SqlQuerySchemeStore
 from bms_core.llm.base import BaseLlmProvider
 from bms_core.lock.base import BaseDistributedLock
+from bms_core.lock.memory import MemoryDistributedLock
+from bms_core.lock.redis import RedisDistributedLock
 from bms_core.masking.base import BaseMasker
 from bms_core.masking.null import NullMasker
 from bms_core.metrics.base import BaseMetrics
@@ -328,6 +330,8 @@ def register_platform_plugins(settings: Settings, app: FastAPI, resources: Resou
     register_plugin("cache", "redis", RedisCacheRegionFactory(settings))
     register_plugin("rate_limiter", "memory", MemoryRateLimiterFactory())
     register_plugin("rate_limiter", "redis", RedisRateLimiterFactory(settings))
+    register_plugin("distributed_lock", "memory", MemoryDistributedLockFactory())
+    register_plugin("distributed_lock", "redis", RedisDistributedLockFactory(settings))
     register_plugin("session_store", "memory", MemorySessionStoreFactory())
     register_plugin("session_store", "redis", RedisSessionStoreFactory(settings))
     register_plugin("dict_cache_region", "memory", MemoryDictCacheRegionFactory())
@@ -952,6 +956,50 @@ class RedisCacheRegionFactory(BasePluginFactory[RedisCacheRegion]):
             RedisCacheRegion: Redis Region 实例。
         """
         return RedisCacheRegion(domain="generic", url=self._settings.redis.url)
+
+
+class MemoryDistributedLockFactory(BasePluginFactory[MemoryDistributedLock]):
+    """进程内分布式锁工厂（测试 / 单副本 / Redis 降级用）。"""
+
+    plugin_key: str = "distributed_lock"
+    # 不声明 plugin_name：零参工厂避免被插件注册表自动收集（经 register_plugin 显式登记）
+
+    def create(self, options: None = None) -> MemoryDistributedLock:
+        """构造进程内分布式锁。
+
+        Args:
+            options: 未使用（零参口径）。
+
+        Returns:
+            MemoryDistributedLock: 锁实例。
+        """
+        return MemoryDistributedLock()
+
+
+class RedisDistributedLockFactory(BasePluginFactory[RedisDistributedLock]):
+    """Redis 分布式锁工厂（连接串取 `settings.redis.url`，不建连）。"""
+
+    plugin_key: str = "distributed_lock"
+    plugin_name: str = "redis"
+
+    def __init__(self, settings: Settings) -> None:
+        """初始化。
+
+        Args:
+            settings: 应用配置。
+        """
+        self._settings = settings
+
+    def create(self, options: None = None) -> RedisDistributedLock:
+        """构造 Redis 分布式锁（异常内置降级 memory）。
+
+        Args:
+            options: 未使用（零参口径）。
+
+        Returns:
+            RedisDistributedLock: 锁实例。
+        """
+        return RedisDistributedLock(url=self._settings.redis.url)
 
 
 class MemoryRateLimiterFactory(BasePluginFactory[MemoryRateLimiter]):

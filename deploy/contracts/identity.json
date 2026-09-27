@@ -8,6 +8,7 @@
       "ApiResponse_NoneType_": {},
       "ApiResponse_RefreshResult_": {},
       "ApiResponse_SessionItem_": {},
+      "ApiResponse_SsoIdentityList_": {},
       "ApiResponse_SsoProviderList_": {},
       "BasePageResponse_SessionItem_": {},
       "CaptchaChallengeRequest": {
@@ -226,6 +227,8 @@
       "LoginResult": {},
       "RefreshResult": {},
       "SessionItem": {},
+      "SsoIdentityItem": {},
+      "SsoIdentityList": {},
       "SsoProviderItem": {},
       "SsoProviderList": {},
       "UserSummary": {},
@@ -534,7 +537,7 @@
     },
     "/api/v1/auth/sso/providers": {
       "get": {
-        "description": "可用 IdP 入口清单（仅 `enabled`；无启用 IdP 返回空列表）。\n\nArgs:\n    request: 请求对象。\n    tenant_ctx: 请求上下文租户。\n    tenant_source: 租户源。\n    state_store: 流程状态存储（保持服务构造一致）。\n    limiter: 限流基座（保持服务构造一致）。\n    client: 服务间调用客户端（保持服务构造一致）。\n    tenant: 租户编码（可选）。\n\nReturns:\n    ApiResponse: 统一响应，data 为 `SsoProviderList`。",
+        "description": "可用 IdP 入口清单（仅 `enabled`；无启用 IdP 返回空列表）。\n\nArgs:\n    request: 请求对象。\n    tenant_ctx: 请求上下文租户。\n    tenant_source: 租户源。\n    state_store: 流程状态存储（保持服务构造一致）。\n    limiter: 限流基座（保持服务构造一致）。\n    lock: 分布式锁（保持服务构造一致）。\n    outbox_store: 事务性发件箱（保持服务构造一致）。\n    client: 服务间调用客户端（保持服务构造一致）。\n    tenant: 租户编码（可选）。\n\nReturns:\n    ApiResponse: 统一响应，data 为 `SsoProviderList`。",
         "operationId": "providers_api_v1_auth_sso_providers_get",
         "parameters": [
           {
@@ -586,7 +589,7 @@
     },
     "/api/v1/auth/sso/{idp_key}/authorize": {
       "get": {
-        "description": "生成流程状态并 `302` 到外部授权端点。\n\nArgs:\n    request: 请求对象。\n    idp_key: 租户内 IdP 标识（路由参数）。\n    tenant_ctx: 请求上下文租户。\n    tenant_source: 租户源。\n    state_store: 流程状态存储。\n    limiter: 限流基座。\n    client: 服务间调用客户端。\n    tenant: 租户编码（可选）。\n\nReturns:\n    Response: `302` 跳转外部授权端点。\n\nRaises:\n    SsoProviderNotFoundError: IdP 不存在或已停用（20051/404）。\n    SsoProviderUnavailableError: IdP 配置缺失 / 发现失败（20053/503）。\n    RateLimitError: 限流命中（10005/429）。",
+        "description": "生成流程状态并 `302` 到外部授权端点。\n\nArgs:\n    request: 请求对象。\n    idp_key: 租户内 IdP 标识（路由参数）。\n    tenant_ctx: 请求上下文租户。\n    tenant_source: 租户源。\n    state_store: 流程状态存储。\n    limiter: 限流基座。\n    lock: 分布式锁（保持服务构造一致）。\n    outbox_store: 事务性发件箱（保持服务构造一致）。\n    client: 服务间调用客户端。\n    tenant: 租户编码（可选）。\n\nReturns:\n    Response: `302` 跳转外部授权端点。\n\nRaises:\n    SsoProviderNotFoundError: IdP 不存在或已停用（20051/404）。\n    SsoProviderUnavailableError: IdP 配置缺失 / 发现失败（20053/503）。\n    RateLimitError: 限流命中（10005/429）。",
         "operationId": "authorize_api_v1_auth_sso__idp_key__authorize_get",
         "parameters": [
           {
@@ -645,7 +648,7 @@
     },
     "/api/v1/auth/sso/{idp_key}/callback": {
       "get": {
-        "description": "回调闭环：`state` 一次性消费 → 换码 / 验签 → 映射 → 签发会话 → `302` 前端。\n\nArgs:\n    request: 请求对象。\n    idp_key: 回调路径中的 IdP 标识。\n    tenant_ctx: 请求上下文租户（有则与 `state` 记录交叉校验）。\n    tenant_source: 租户源（按 `state` 记录租户定位库键）。\n    state_store: 流程状态存储。\n    limiter: 限流基座。\n    client: 服务间调用客户端。\n    issuer: 用户双 token 签发者。\n    security: 会话安全原语。\n    store: 会话标记存储。\n    publisher: 实时推送器。\n    state: IdP 回传流程状态。\n    code: IdP 回传授权码。\n    error: IdP 回传错误。\n\nReturns:\n    Response: 成功 `302 {success_redirect}?tenant=…` + refresh cookie（未配置回退 200 JSON）；\n    失败 `302 {failure_redirect}?error=&message=`（未配置抛 `BizError`）。",
+        "description": "回调闭环：`state` 一次性消费 → 换码 / 验签 → 映射（未命中 JIT 建号）→ 签发会话 → `302` 前端。\n\nArgs:\n    request: 请求对象。\n    idp_key: 回调路径中的 IdP 标识。\n    tenant_ctx: 请求上下文租户（有则与 `state` 记录交叉校验）。\n    tenant_source: 租户源（按 `state` 记录租户定位库键）。\n    state_store: 流程状态存储。\n    limiter: 限流基座。\n    lock: 分布式锁（JIT 临界区）。\n    outbox_store: 事务性发件箱（JIT 事件）。\n    client: 服务间调用客户端。\n    issuer: 用户双 token 签发者。\n    security: 会话安全原语。\n    store: 会话标记存储。\n    publisher: 实时推送器。\n    state: IdP 回传流程状态。\n    code: IdP 回传授权码。\n    error: IdP 回传错误。\n\nReturns:\n    Response: 成功 `302 {success_redirect}?tenant=…` + refresh cookie（未配置回退 200 JSON）；\n    失败 `302 {failure_redirect}?error=&message=`（未配置抛 `BizError`）。",
         "operationId": "callback_api_v1_auth_sso__idp_key__callback_get",
         "parameters": [
           {
@@ -1534,6 +1537,101 @@
         "summary": "Kick Session",
         "tags": [
           "session"
+        ]
+      }
+    },
+    "/api/v1/users/{user_id}/identities": {
+      "get": {
+        "description": "按本地用户反查 SSO 身份绑定（平台库只读；无绑定返回空列表）。\n\nArgs:\n    request: 请求对象（取引擎注册表与会话工厂）。\n    user_id: 本地用户 ID（路由参数）。\n\nReturns:\n    ApiResponse: 统一响应，data 为绑定清单（`SsoIdentityList`）。",
+        "operationId": "list_identities_api_v1_users__user_id__identities_get",
+        "parameters": [
+          {
+            "description": "本地用户 ID",
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "description": "本地用户 ID",
+              "title": "User Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_SsoIdentityList_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "List Identities",
+        "tags": [
+          "identity-users"
         ]
       }
     },

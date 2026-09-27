@@ -17,7 +17,9 @@ from httpx import AsyncClient
 from sqlalchemy import Table, delete, select
 
 from bms_core.api.deps import (
+    get_distributed_lock,
     get_idp_state_store,
+    get_outbox_store,
     get_rate_limiter,
     get_realtime_publisher,
     get_service_client,
@@ -28,6 +30,7 @@ from bms_core.db.registry import PLATFORM_DB_KEY
 from bms_core.db.session import DbSession, session_scope
 from bms_core.db.tenant import DEMO_TENANT
 from bms_core.idp.state.memory import MemoryIdpStateStore
+from bms_core.lock.memory import MemoryDistributedLock
 from bms_core.ratelimit.memory import MemoryRateLimiter
 from bms_core.session.memory import MemorySessionStore
 from bms_core.ws.null import NullRealtimePublisher
@@ -47,6 +50,7 @@ from .helpers import (
     FakeSsoOrgClient,
     FakeUserTokenIssuer,
     IdpMock,
+    RecordingOutboxStore,
 )
 
 SECRET_ENV = "SSO_TEST_IDP_SECRET"
@@ -64,6 +68,8 @@ class SsoHarness:
     store: MemorySessionStore
     limiter: MemoryRateLimiter
     states: MemoryIdpStateStore
+    lock: MemoryDistributedLock
+    outbox: RecordingOutboxStore
     idp: IdpMock
 
     def tenant_scope(self) -> AbstractAsyncContextManager[DbSession]:
@@ -318,11 +324,14 @@ def sso(service_app: FastAPI, monkeypatch: pytest.MonkeyPatch, idp: IdpMock) -> 
         MemoryRateLimiter(),
         MemoryIdpStateStore(),
     )
+    lock, outbox = MemoryDistributedLock(), RecordingOutboxStore()
     service_app.dependency_overrides[get_user_token_issuer] = lambda: issuer
     service_app.dependency_overrides[get_service_client] = lambda: org
     service_app.dependency_overrides[get_session_store] = lambda: store
     service_app.dependency_overrides[get_rate_limiter] = lambda: limiter
     service_app.dependency_overrides[get_idp_state_store] = lambda: states
+    service_app.dependency_overrides[get_distributed_lock] = lambda: lock
+    service_app.dependency_overrides[get_outbox_store] = lambda: outbox
     service_app.dependency_overrides[get_realtime_publisher] = lambda: NullRealtimePublisher()
     monkeypatch.setenv(SECRET_ENV, CLIENT_SECRET)
     monkeypatch.setattr(
@@ -330,4 +339,14 @@ def sso(service_app: FastAPI, monkeypatch: pytest.MonkeyPatch, idp: IdpMock) -> 
         "ProviderRegistry",
         functools.partial(ProviderRegistry, transport=httpx.MockTransport(idp.handle)),
     )
-    return SsoHarness(app=service_app, issuer=issuer, org=org, store=store, limiter=limiter, states=states, idp=idp)
+    return SsoHarness(
+        app=service_app,
+        issuer=issuer,
+        org=org,
+        store=store,
+        limiter=limiter,
+        states=states,
+        lock=lock,
+        outbox=outbox,
+        idp=idp,
+    )

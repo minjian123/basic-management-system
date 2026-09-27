@@ -339,6 +339,18 @@ provider_rate_limit = 60
 pkce = true
 # 回调地址基址（派生 redirect_uri；网关形态经 IdP 行 config.redirect_uri 覆盖）
 callback_base_url = "http://localhost:8000"
+# JIT 自动建号全局开关（IdP 行 config.jit_enabled 缺配时回落；缺省关闭，需显式开启）
+jit_enabled = false
+# JIT 租户白名单（空数组 = 不限制）
+jit_allowed_tenants = []
+# JIT 临界区分布式锁 TTL（秒）
+jit_lock_ttl_seconds = 30
+# JIT 临界区取锁等待时长（秒；0 = 不等待）
+jit_lock_wait_seconds = 5.0
+
+[distributed_lock]
+# 分布式锁实现选择（插件化配置；redis = Redis SET NX EX（Lua 校验释放 / 续租，异常降级 memory）、memory = 进程内（单副本）、空串 = null 占位恒定成功）
+provider = "redis"
 
 [idp_state_store]
 # 流程状态存储实现选择（插件化配置；redis = Redis GETDEL 一次性原子消费、memory = 进程内（单副本）、空串 = null 占位）

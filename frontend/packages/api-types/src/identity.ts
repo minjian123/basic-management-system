@@ -226,6 +226,8 @@ export interface paths {
          *         tenant_source: 租户源。
          *         state_store: 流程状态存储（保持服务构造一致）。
          *         limiter: 限流基座（保持服务构造一致）。
+         *         lock: 分布式锁（保持服务构造一致）。
+         *         outbox_store: 事务性发件箱（保持服务构造一致）。
          *         client: 服务间调用客户端（保持服务构造一致）。
          *         tenant: 租户编码（可选）。
          *
@@ -259,6 +261,8 @@ export interface paths {
          *         tenant_source: 租户源。
          *         state_store: 流程状态存储。
          *         limiter: 限流基座。
+         *         lock: 分布式锁（保持服务构造一致）。
+         *         outbox_store: 事务性发件箱（保持服务构造一致）。
          *         client: 服务间调用客户端。
          *         tenant: 租户编码（可选）。
          *
@@ -288,7 +292,7 @@ export interface paths {
         };
         /**
          * Callback
-         * @description 回调闭环：`state` 一次性消费 → 换码 / 验签 → 映射 → 签发会话 → `302` 前端。
+         * @description 回调闭环：`state` 一次性消费 → 换码 / 验签 → 映射（未命中 JIT 建号）→ 签发会话 → `302` 前端。
          *
          *     Args:
          *         request: 请求对象。
@@ -297,6 +301,8 @@ export interface paths {
          *         tenant_source: 租户源（按 `state` 记录租户定位库键）。
          *         state_store: 流程状态存储。
          *         limiter: 限流基座。
+         *         lock: 分布式锁（JIT 临界区）。
+         *         outbox_store: 事务性发件箱（JIT 事件）。
          *         client: 服务间调用客户端。
          *         issuer: 用户双 token 签发者。
          *         security: 会话安全原语。
@@ -525,6 +531,33 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/users/{user_id}/identities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Identities
+         * @description 按本地用户反查 SSO 身份绑定（平台库只读；无绑定返回空列表）。
+         *
+         *     Args:
+         *         request: 请求对象（取引擎注册表与会话工厂）。
+         *         user_id: 本地用户 ID（路由参数）。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为绑定清单（`SsoIdentityList`）。
+         */
+        get: operations["list_identities_api_v1_users__user_id__identities_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/healthz": {
         parameters: {
             query?: never;
@@ -589,6 +622,7 @@ export interface components {
         ApiResponse_NoneType_: unknown;
         ApiResponse_RefreshResult_: unknown;
         ApiResponse_SessionItem_: unknown;
+        ApiResponse_SsoIdentityList_: unknown;
         ApiResponse_SsoProviderList_: unknown;
         BasePageResponse_SessionItem_: unknown;
         /**
@@ -733,6 +767,8 @@ export interface components {
         LoginResult: unknown;
         RefreshResult: unknown;
         SessionItem: unknown;
+        SsoIdentityItem: unknown;
+        SsoIdentityList: unknown;
         SsoProviderItem: unknown;
         SsoProviderList: unknown;
         UserSummary: unknown;
@@ -1539,6 +1575,83 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponse_KickResult_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    list_identities_api_v1_users__user_id__identities_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 本地用户 ID */
+                user_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_SsoIdentityList_"];
                 };
             };
             /** @description 未认证 */

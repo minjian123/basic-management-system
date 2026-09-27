@@ -140,6 +140,33 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/org/internal/users/create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create User
+         * @description JIT 建号（用户名空闲即建；撞名 `created=false`，由调用侧换后缀重试）。
+         *
+         *     Args:
+         *         req: 建号请求（账号 / 昵称 / 语言时区）。
+         *         uow: 请求级工作单元。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为建号结果（`UserCreateResult`）。
+         */
+        post: operations["create_user_api_v1_org_internal_users_create_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/org/internal/users/profile": {
         parameters: {
             query?: never;
@@ -320,6 +347,7 @@ export interface components {
         ApiResponse_CredentialVerifyResult_: unknown;
         ApiResponse_LoginStateResult_: unknown;
         ApiResponse_UpdatePasswordResult_: unknown;
+        ApiResponse_UserCreateResult_: unknown;
         ApiResponse_UserProfileResult_: unknown;
         CredentialUserSummary: unknown;
         /**
@@ -394,6 +422,33 @@ export interface components {
             new_password: string;
         };
         UpdatePasswordResult: unknown;
+        /**
+         * UserCreateRequest
+         * @description JIT 建号请求（账号 / 昵称 / 语言时区；租户经服务 JWT `tenant` claim 解析）。
+         */
+        UserCreateRequest: {
+            /**
+             * Locale
+             * @description 语言偏好（可空）
+             */
+            locale?: string | null;
+            /**
+             * Name
+             * @description 昵称 / 显示名
+             */
+            name: string;
+            /**
+             * Timezone
+             * @description 时区偏好（可空）
+             */
+            timezone?: string | null;
+            /**
+             * Username
+             * @description 登录账号（调用侧已清洗）
+             */
+            username: string;
+        };
+        UserCreateResult: unknown;
         /**
          * UserProfileRequest
          * @description 用户概要查询请求（按主键；租户经服务 JWT `tenant` claim 解析）。
@@ -708,6 +763,86 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponse_CredentialVerifyResult_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    create_user_api_v1_org_internal_users_create_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_UserCreateResult_"];
                 };
             };
             /** @description 未认证 */
