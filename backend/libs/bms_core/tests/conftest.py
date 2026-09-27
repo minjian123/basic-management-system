@@ -49,6 +49,8 @@ def isolate_settings(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     monkeypatch.setenv("BMS_SERVICE_CLIENT__PROVIDER", "")
     monkeypatch.setenv("BMS_SESSION_STORE__PROVIDER", "")
     monkeypatch.setenv("BMS_RATE_LIMITER__PROVIDER", "")
+    # 验证码真实实现关闭（03_01）：单测不连 Redis，回落 Null
+    monkeypatch.setenv("BMS_CAPTCHA__PROVIDER", "")
     # 分布式锁真实实现关闭（02_02）：单测不连 Redis，回落 Null（真实实现用例显式构造）
     monkeypatch.setenv("BMS_DISTRIBUTED_LOCK__PROVIDER", "")
     # 登录态依赖真实化（01_05）：本套件首个装配服务应用者，注入测试用户令牌密钥固定进程内工厂密钥；

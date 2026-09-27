@@ -25,6 +25,7 @@ from bms_core.cache.base import CacheRegion
 from bms_core.cache.memory import MemoryCacheRegion
 from bms_core.cache.redis import RedisCacheRegion
 from bms_core.captcha.base import BaseCaptcha
+from bms_core.captcha.default import CaptchaImageOptions, DefaultCaptcha
 from bms_core.chat.base import BaseChatActionGate, BaseChatSessionStore, BaseChatStream
 from bms_core.circuit.base import BaseCircuitBreaker
 from bms_core.codecheck.base import BaseCodeValidator
@@ -364,6 +365,7 @@ def register_platform_plugins(settings: Settings, app: FastAPI, resources: Resou
     register_plugin("password_hasher", "pbkdf2", Pbkdf2PasswordHasherFactory(settings))
     register_plugin("token_codec", "jwt", JwtTokenCodecFactory(settings))
     register_plugin("session_security", "default", DefaultSessionSecurityFactory(settings))
+    register_plugin("captcha", "default", DefaultCaptchaFactory(settings))
     register_plugin("token_verifier", "unified", UnifiedTokenVerifierFactory(settings))
     register_plugin("data_ownership_guard", "table", TableOwnershipGuardFactory(settings))
     register_plugin("service_client", "http", HttpServiceClientFactory(settings))
@@ -548,6 +550,38 @@ class DefaultMaskerFactory(BasePluginFactory[BaseMasker]):
             ),
         )
         return NullMasker(checker=checker)
+
+
+class DefaultCaptchaFactory(BasePluginFactory[DefaultCaptcha]):
+    """验证码图形码真实实现工厂（注入 Redis 连接串与出图选项）。"""
+
+    plugin_key: str = "captcha"
+    plugin_name: str = "default"
+
+    def __init__(self, settings: Settings) -> None:
+        """初始化。
+
+        Args:
+            settings: 应用配置（取 `[redis].url` 与 `[captcha].options`）。
+        """
+        self._settings = settings
+
+    def create(self, options: None = None) -> DefaultCaptcha:
+        """构造图形码验证码实现（出图选项校验在构造期完成）。
+
+        Args:
+            options: 未使用（零参口径）。
+
+        Returns:
+            DefaultCaptcha: 图形码验证码实例。
+
+        Raises:
+            PluginError: 出图选项非法。
+        """
+        return DefaultCaptcha(
+            url=self._settings.redis.url,
+            image=CaptchaImageOptions.from_options(self._settings.captcha.options),
+        )
 
 
 class HttpServiceClientFactory(BasePluginFactory[HttpServiceClient]):

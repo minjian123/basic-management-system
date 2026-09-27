@@ -33,6 +33,7 @@ dependencies = [
     "opentelemetry-instrumentation-redis==0.65b0",
     "opentelemetry-instrumentation-httpx==0.65b0",
     "opentelemetry-instrumentation-celery==0.65b0",
+    "pillow>=11",
 ]
 
 [project.optional-dependencies]

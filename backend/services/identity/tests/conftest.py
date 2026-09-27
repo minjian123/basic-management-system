@@ -49,6 +49,8 @@ def isolate_settings(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     monkeypatch.setenv("BMS_SERVICE_CLIENT__PROVIDER", "")
     monkeypatch.setenv("BMS_SESSION_STORE__PROVIDER", "")
     monkeypatch.setenv("BMS_RATE_LIMITER__PROVIDER", "")
+    # 验证码真实实现关闭（03_01）：单测不连 Redis，回落 Null
+    monkeypatch.setenv("BMS_CAPTCHA__PROVIDER", "")
     # SSO 流程状态存储（02_01）：单测不连 Redis，回落 Null
     monkeypatch.setenv("BMS_IDP_STATE_STORE__PROVIDER", "")
     # 分布式锁（02_02）：单测不连 Redis，回落 Null（JIT 用例显式注入 MemoryDistributedLock）
