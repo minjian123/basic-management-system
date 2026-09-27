@@ -475,6 +475,220 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/idp/providers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Providers
+         * @description IdP 配置分页列表（可筛选 status / type / name）。
+         *
+         *     Args:
+         *         request: 请求对象。
+         *         tenant_ctx: 请求上下文租户。
+         *         audit: 审计捕获占位。
+         *         limiter: 限流基座。
+         *         query: 分页请求。
+         *         status: 状态过滤（可选）。
+         *         type: 协议类型过滤（可选）。
+         *         name: 名称模糊过滤（可选）。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为分页 IdP 项。
+         */
+        get: operations["list_providers_api_v1_idp_providers_get"];
+        put?: never;
+        /**
+         * Create Provider
+         * @description 新建 IdP 配置。
+         *
+         *     Args:
+         *         request: 请求对象。
+         *         req: 新建请求。
+         *         tenant_ctx: 请求上下文租户。
+         *         auth: 登录态身份（操作者）。
+         *         audit: 审计捕获占位。
+         *         limiter: 限流基座（保持服务构造一致）。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为新建项（config 脱敏）。
+         */
+        post: operations["create_provider_api_v1_idp_providers_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/idp/providers/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test Draft Provider
+         * @description 草稿连通性测试（不落库）。
+         *
+         *     Args:
+         *         request: 请求对象。
+         *         req: 草稿测试请求。
+         *         tenant_ctx: 请求上下文租户。
+         *         auth: 登录态身份（操作者）。
+         *         audit: 审计捕获占位（保持服务构造一致）。
+         *         limiter: 限流基座。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为测试结果（可达）。
+         *
+         *     Raises:
+         *         IdpConfigInvalidError: 配置非法（20064/400）。
+         *         IdpTestFailedError: 不可达 / 不可探测（20066/502）。
+         *         RateLimitError: 限流命中（10005/429）。
+         */
+        post: operations["test_draft_provider_api_v1_idp_providers_test_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/idp/providers/{provider_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Provider
+         * @description IdP 配置详情。
+         *
+         *     Args:
+         *         request: 请求对象。
+         *         provider_id: 主键。
+         *         tenant_ctx: 请求上下文租户。
+         *         audit: 审计捕获占位。
+         *         limiter: 限流基座。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为详情项（config 脱敏）。
+         */
+        get: operations["get_provider_api_v1_idp_providers__provider_id__get"];
+        /**
+         * Update Provider
+         * @description 修改 IdP 配置（`type` / `idp_key` 不可改）。
+         *
+         *     Args:
+         *         request: 请求对象。
+         *         req: 修改请求。
+         *         provider_id: 主键。
+         *         tenant_ctx: 请求上下文租户。
+         *         auth: 登录态身份（操作者）。
+         *         audit: 审计捕获占位。
+         *         limiter: 限流基座。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为更新后项（config 脱敏）。
+         */
+        put: operations["update_provider_api_v1_idp_providers__provider_id__put"];
+        post?: never;
+        /**
+         * Delete Provider
+         * @description 软删除 IdP 配置。
+         *
+         *     Args:
+         *         request: 请求对象。
+         *         provider_id: 主键。
+         *         tenant_ctx: 请求上下文租户。
+         *         auth: 登录态身份（操作者）。
+         *         audit: 审计捕获占位。
+         *         limiter: 限流基座。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为空对象。
+         */
+        delete: operations["delete_provider_api_v1_idp_providers__provider_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/idp/providers/{provider_id}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set Provider Status
+         * @description 启停 IdP 配置。
+         *
+         *     Args:
+         *         request: 请求对象。
+         *         req: 启停请求。
+         *         provider_id: 主键。
+         *         tenant_ctx: 请求上下文租户。
+         *         auth: 登录态身份（操作者）。
+         *         audit: 审计捕获占位。
+         *         limiter: 限流基座。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为更新后项。
+         */
+        post: operations["set_provider_status_api_v1_idp_providers__provider_id__status_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/idp/providers/{provider_id}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Test Saved Provider
+         * @description 已保存行连通性测试。
+         *
+         *     Args:
+         *         request: 请求对象。
+         *         provider_id: 主键。
+         *         tenant_ctx: 请求上下文租户。
+         *         auth: 登录态身份（操作者）。
+         *         audit: 审计捕获占位。
+         *         limiter: 限流基座。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为测试结果（可达）。
+         *
+         *     Raises:
+         *         IdpNotFoundError: 不存在（20063/404）。
+         *         IdpConfigInvalidError: 存量配置非法（20064/400）。
+         *         IdpTestFailedError: 不可达 / 不可探测（20066/502）。
+         *         RateLimitError: 限流命中（10005/429）。
+         */
+        get: operations["test_saved_provider_api_v1_idp_providers__provider_id__test_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/oidc/.well-known/openid-configuration": {
         parameters: {
             query?: never;
@@ -991,10 +1205,13 @@ export interface components {
     schemas: {
         ApiResponse: unknown;
         ApiResponse_BasePageResponse_ClientItem__: unknown;
+        ApiResponse_BasePageResponse_IdpProviderItem__: unknown;
         ApiResponse_BasePageResponse_SessionItem__: unknown;
         ApiResponse_ClientCreated_: unknown;
         ApiResponse_ClientItem_: unknown;
         ApiResponse_ClientSecretReset_: unknown;
+        ApiResponse_IdpProviderItem_: unknown;
+        ApiResponse_IdpProviderTestResult_: unknown;
         ApiResponse_KickResult_: unknown;
         ApiResponse_LoginResult_: unknown;
         ApiResponse_NoneType_: unknown;
@@ -1003,7 +1220,9 @@ export interface components {
         ApiResponse_SsoAuthorizeInfo_: unknown;
         ApiResponse_SsoIdentityList_: unknown;
         ApiResponse_SsoProviderList_: unknown;
+        ApiResponse_dict_str__object__: unknown;
         BasePageResponse_ClientItem_: unknown;
+        BasePageResponse_IdpProviderItem_: unknown;
         BasePageResponse_SessionItem_: unknown;
         /**
          * CaptchaChallengeRequest
@@ -1170,6 +1389,117 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /**
+         * IdpProviderCreateRequest
+         * @description 新建 IdP 配置请求。
+         */
+        IdpProviderCreateRequest: {
+            /**
+             * Config
+             * @description 协议配置对象
+             */
+            config?: {
+                [key: string]: unknown;
+            };
+            /**
+             * Icon
+             * @description 图标（可空）
+             * @default
+             */
+            icon: string;
+            /**
+             * Idp Key
+             * @description 租户内标识 slug
+             */
+            idp_key: string;
+            /**
+             * Name
+             * @description 显示名
+             */
+            name: string;
+            /**
+             * Sort
+             * @description 登录页排序
+             * @default 0
+             */
+            sort: number;
+            /**
+             * Status
+             * @description 状态（enabled/disabled，缺省 enabled）
+             * @default enabled
+             */
+            status: string;
+            /**
+             * Type
+             * @description 协议类型（oidc / cas / wecom / dingtalk）
+             */
+            type: string;
+        };
+        IdpProviderItem: unknown;
+        /**
+         * IdpProviderStatusRequest
+         * @description 启停请求。
+         */
+        IdpProviderStatusRequest: {
+            /**
+             * Status
+             * @description 目标状态（enabled/disabled）
+             */
+            status: string;
+        };
+        /**
+         * IdpProviderTestRequest
+         * @description 草稿连通性测试请求（不落库）。
+         */
+        IdpProviderTestRequest: {
+            /**
+             * Config
+             * @description 协议配置对象
+             */
+            config?: {
+                [key: string]: unknown;
+            };
+            /**
+             * Idp Key
+             * @description 租户内标识（派生回调地址用；可占位）
+             * @default draft
+             */
+            idp_key: string;
+            /**
+             * Type
+             * @description 协议类型
+             */
+            type: string;
+        };
+        IdpProviderTestResult: unknown;
+        /**
+         * IdpProviderUpdateRequest
+         * @description 修改 IdP 配置请求（局部更新；`type` / `idp_key` 不可改）。
+         */
+        IdpProviderUpdateRequest: {
+            /**
+             * Config
+             * @description 协议配置对象（全量替换）
+             */
+            config?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Icon
+             * @description 图标
+             */
+            icon?: string | null;
+            /**
+             * Name
+             * @description 显示名
+             */
+            name?: string | null;
+            /**
+             * Sort
+             * @description 登录页排序
+             */
+            sort?: number | null;
         };
         KickResult: unknown;
         /**
@@ -1798,6 +2128,641 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    list_providers_api_v1_idp_providers_get: {
+        parameters: {
+            query?: {
+                status?: string | null;
+                type?: string | null;
+                name?: string | null;
+                /** @description 页码（从 1 起） */
+                page?: number;
+                /** @description 每页条数（默认 20，上限 200） */
+                size?: number;
+                /** @description 排序字段，逗号分隔多值（如 status,created_at） */
+                order_by?: string | null;
+                /** @description 排序方向数组，与 order_by 位置一一对应 */
+                order?: string[] | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_BasePageResponse_IdpProviderItem__"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    create_provider_api_v1_idp_providers_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IdpProviderCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_IdpProviderItem_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    test_draft_provider_api_v1_idp_providers_test_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IdpProviderTestRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_IdpProviderTestResult_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    get_provider_api_v1_idp_providers__provider_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description IdP 配置主键 */
+                provider_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_IdpProviderItem_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    update_provider_api_v1_idp_providers__provider_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description IdP 配置主键 */
+                provider_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IdpProviderUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_IdpProviderItem_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    delete_provider_api_v1_idp_providers__provider_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description IdP 配置主键 */
+                provider_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_dict_str__object__"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    set_provider_status_api_v1_idp_providers__provider_id__status_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description IdP 配置主键 */
+                provider_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IdpProviderStatusRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_IdpProviderItem_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    test_saved_provider_api_v1_idp_providers__provider_id__test_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description IdP 配置主键 */
+                provider_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_IdpProviderTestResult_"];
                 };
             };
             /** @description 未认证 */

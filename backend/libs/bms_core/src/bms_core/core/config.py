@@ -557,6 +557,20 @@ class SsoSettings(BaseSettings):
     """JIT 临界区取锁等待时长（秒；0 = 不等待）。"""
 
 
+class IdpManageSettings(BaseSettings):
+    """外部 IdP 配置管理面配置（`[idp_manage]`；连通性测试限流与出站 URL 内网放行）。
+
+    `allow_private_hosts` 为 `false` 时出站 URL（OIDC `issuer` / CAS `cas_server_url` / 企微与钉钉
+    `api_base_url`）拒绝内网 / 回环 / 链路本地 / 元数据地址（SSRF）；企业自建内网 IdP 场景显式开启。
+    """
+
+    test_rate_limit: int = Field(default=10, ge=1)
+    """连通性测试限流：每租户 + 操作者每分钟上限（防滥用）。"""
+
+    allow_private_hosts: bool = False
+    """出站 URL 是否允许私网 / 回环主机（企业内网 IdP 开启；生产默认关闭）。"""
+
+
 class UserTokenSettings(PluginSelection):
     """用户令牌自签配置（`[user_token]`；密钥与 TTL 归 `[security]`，本分区只放选择与签发方）。"""
 
@@ -767,6 +781,7 @@ class Settings(PydanticBaseSettings, BaseSettings):  # pyright: ignore[reportInc
     icon_registry: PluginSelection = Field(default_factory=PluginSelection)
     idempotency: PluginSelection = Field(default_factory=PluginSelection)
     identity_provider: IdentityProviderSettings = Field(default_factory=IdentityProviderSettings)
+    idp_manage: IdpManageSettings = Field(default_factory=IdpManageSettings)
     idp_state_store: PluginSelection = Field(default_factory=PluginSelection)
     importer: PluginSelection = Field(default_factory=PluginSelection)
     llm_provider: PluginSelection = Field(default_factory=PluginSelection)

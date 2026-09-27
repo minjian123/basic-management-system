@@ -1,7 +1,7 @@
 """idp 能力域缺省实现（Null Object）：占位返回、无副作用（02-3 自 bms_core.idp.base.py 迁入）。"""
 
 from bms_core.core.capability import BaseNullObject
-from bms_core.idp.base import BaseIdentityProvider, IdentityClaims, IdentityToken, IdentityUser
+from bms_core.idp.base import BaseIdentityProvider, IdentityClaims, IdentityToken, IdentityUser, IdpProbeResult
 
 __all__ = [
     "NullIdentityProvider",
@@ -82,3 +82,11 @@ class NullIdentityProvider(BaseIdentityProvider, BaseNullObject):
             IdentityClaims: 占位声明。
         """
         return IdentityClaims(subject="null-idp-subject", idp_key="null")
+
+    async def probe(self) -> IdpProbeResult:
+        """占位身份源无可探测端点（fail-closed）。
+
+        Returns:
+            IdpProbeResult: 恒不可达。
+        """
+        return IdpProbeResult(reachable=False, protocol="null", detail="占位身份源不可探测")

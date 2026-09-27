@@ -364,6 +364,66 @@ class DingtalkUnavailableError(EnterpriseIdpError):
         BizError.__init__(self, ErrorCode.DINGTALK_UNAVAILABLE, message, http_status=503, data=data)
 
 
+class IdpManageError(SsoError):
+    """外部 IdP 配置管理面错误基类（认证段内 `2006x` 子段）；子类预置码位与 HTTP 状态。
+
+    覆盖租户级 IdP 配置 CRUD / 启停 / 连通性测试（02_06）；与登录链路 SSO 码（`20051`~`20062`）区分，
+    走平台统一响应体（非 OIDC 端点标准错误 JSON）。
+    """
+
+
+class IdpNotFoundError(IdpManageError):
+    """IdP 配置不存在（`20063` / 404）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化 IdP 配置不存在异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.IDP_NOT_FOUND, message, http_status=404, data=data)
+
+
+class IdpConfigInvalidError(IdpManageError):
+    """IdP 配置写入校验失败（必填 / 类型 / 枚举 / 未知键 / 密钥引用 / SSRF；`20064` / 400）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化 IdP 配置非法异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.IDP_CONFIG_INVALID, message, http_status=400, data=data)
+
+
+class IdpKeyConflictError(IdpManageError):
+    """IdP 标识冲突（同租户内未软删重复；`20065` / 409）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化 IdP 标识冲突异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.IDP_KEY_CONFLICT, message, http_status=409, data=data)
+
+
+class IdpTestFailedError(IdpManageError):
+    """IdP 连通性测试不可达 / 不可探测（`20066` / 502；`data` 携测试结果）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化连通性测试失败异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.IDP_TEST_FAILED, message, http_status=502, data=data)
+
+
 class CaptchaError(AuthError):
     """验证码段（认证段内 `201xx` 子段）异常基类；子类在构造时预置码位与 HTTP 状态。"""
 

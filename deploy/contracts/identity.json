@@ -3,10 +3,13 @@
     "schemas": {
       "ApiResponse": {},
       "ApiResponse_BasePageResponse_ClientItem__": {},
+      "ApiResponse_BasePageResponse_IdpProviderItem__": {},
       "ApiResponse_BasePageResponse_SessionItem__": {},
       "ApiResponse_ClientCreated_": {},
       "ApiResponse_ClientItem_": {},
       "ApiResponse_ClientSecretReset_": {},
+      "ApiResponse_IdpProviderItem_": {},
+      "ApiResponse_IdpProviderTestResult_": {},
       "ApiResponse_KickResult_": {},
       "ApiResponse_LoginResult_": {},
       "ApiResponse_NoneType_": {},
@@ -15,7 +18,9 @@
       "ApiResponse_SsoAuthorizeInfo_": {},
       "ApiResponse_SsoIdentityList_": {},
       "ApiResponse_SsoProviderList_": {},
+      "ApiResponse_dict_str__object__": {},
       "BasePageResponse_ClientItem_": {},
+      "BasePageResponse_IdpProviderItem_": {},
       "BasePageResponse_SessionItem_": {},
       "CaptchaChallengeRequest": {
         "description": "验证码出题请求。",
@@ -251,6 +256,164 @@
           }
         },
         "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "IdpProviderCreateRequest": {
+        "description": "新建 IdP 配置请求。",
+        "properties": {
+          "config": {
+            "additionalProperties": true,
+            "description": "协议配置对象",
+            "title": "Config",
+            "type": "object"
+          },
+          "icon": {
+            "default": "",
+            "description": "图标（可空）",
+            "maxLength": 255,
+            "title": "Icon",
+            "type": "string"
+          },
+          "idp_key": {
+            "description": "租户内标识 slug",
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
+            "title": "Idp Key",
+            "type": "string"
+          },
+          "name": {
+            "description": "显示名",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "sort": {
+            "default": 0,
+            "description": "登录页排序",
+            "title": "Sort",
+            "type": "integer"
+          },
+          "status": {
+            "default": "enabled",
+            "description": "状态（enabled/disabled，缺省 enabled）",
+            "title": "Status",
+            "type": "string"
+          },
+          "type": {
+            "description": "协议类型（oidc / cas / wecom / dingtalk）",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "idp_key",
+          "type"
+        ],
+        "title": "IdpProviderCreateRequest",
+        "type": "object"
+      },
+      "IdpProviderItem": {},
+      "IdpProviderStatusRequest": {
+        "description": "启停请求。",
+        "properties": {
+          "status": {
+            "description": "目标状态（enabled/disabled）",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "IdpProviderStatusRequest",
+        "type": "object"
+      },
+      "IdpProviderTestRequest": {
+        "description": "草稿连通性测试请求（不落库）。",
+        "properties": {
+          "config": {
+            "additionalProperties": true,
+            "description": "协议配置对象",
+            "title": "Config",
+            "type": "object"
+          },
+          "idp_key": {
+            "default": "draft",
+            "description": "租户内标识（派生回调地址用；可占位）",
+            "title": "Idp Key",
+            "type": "string"
+          },
+          "type": {
+            "description": "协议类型",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type"
+        ],
+        "title": "IdpProviderTestRequest",
+        "type": "object"
+      },
+      "IdpProviderTestResult": {},
+      "IdpProviderUpdateRequest": {
+        "description": "修改 IdP 配置请求（局部更新；`type` / `idp_key` 不可改）。",
+        "properties": {
+          "config": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "协议配置对象（全量替换）",
+            "title": "Config"
+          },
+          "icon": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "图标",
+            "title": "Icon"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "显示名",
+            "title": "Name"
+          },
+          "sort": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "登录页排序",
+            "title": "Sort"
+          }
+        },
+        "title": "IdpProviderUpdateRequest",
         "type": "object"
       },
       "KickResult": {},
@@ -1268,6 +1431,877 @@
         "summary": "Verify Captcha",
         "tags": [
           "captcha"
+        ]
+      }
+    },
+    "/api/v1/idp/providers": {
+      "get": {
+        "description": "IdP 配置分页列表（可筛选 status / type / name）。\n\nArgs:\n    request: 请求对象。\n    tenant_ctx: 请求上下文租户。\n    audit: 审计捕获占位。\n    limiter: 限流基座。\n    query: 分页请求。\n    status: 状态过滤（可选）。\n    type: 协议类型过滤（可选）。\n    name: 名称模糊过滤（可选）。\n\nReturns:\n    ApiResponse: 统一响应，data 为分页 IdP 项。",
+        "operationId": "list_providers_api_v1_idp_providers_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Type"
+            }
+          },
+          {
+            "in": "query",
+            "name": "name",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Name"
+            }
+          },
+          {
+            "description": "页码（从 1 起）",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "页码（从 1 起）",
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "每页条数（默认 20，上限 200）",
+            "in": "query",
+            "name": "size",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "description": "每页条数（默认 20，上限 200）",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Size",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "排序字段，逗号分隔多值（如 status,created_at）",
+            "in": "query",
+            "name": "order_by",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序字段，逗号分隔多值（如 status,created_at）",
+              "title": "Order By"
+            }
+          },
+          {
+            "description": "排序方向数组，与 order_by 位置一一对应",
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序方向数组，与 order_by 位置一一对应",
+              "title": "Order"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_BasePageResponse_IdpProviderItem__"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "List Providers",
+        "tags": [
+          "idp-providers"
+        ]
+      },
+      "post": {
+        "description": "新建 IdP 配置。\n\nArgs:\n    request: 请求对象。\n    req: 新建请求。\n    tenant_ctx: 请求上下文租户。\n    auth: 登录态身份（操作者）。\n    audit: 审计捕获占位。\n    limiter: 限流基座（保持服务构造一致）。\n\nReturns:\n    ApiResponse: 统一响应，data 为新建项（config 脱敏）。",
+        "operationId": "create_provider_api_v1_idp_providers_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IdpProviderCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_IdpProviderItem_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Create Provider",
+        "tags": [
+          "idp-providers"
+        ]
+      }
+    },
+    "/api/v1/idp/providers/test": {
+      "post": {
+        "description": "草稿连通性测试（不落库）。\n\nArgs:\n    request: 请求对象。\n    req: 草稿测试请求。\n    tenant_ctx: 请求上下文租户。\n    auth: 登录态身份（操作者）。\n    audit: 审计捕获占位（保持服务构造一致）。\n    limiter: 限流基座。\n\nReturns:\n    ApiResponse: 统一响应，data 为测试结果（可达）。\n\nRaises:\n    IdpConfigInvalidError: 配置非法（20064/400）。\n    IdpTestFailedError: 不可达 / 不可探测（20066/502）。\n    RateLimitError: 限流命中（10005/429）。",
+        "operationId": "test_draft_provider_api_v1_idp_providers_test_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IdpProviderTestRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_IdpProviderTestResult_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Test Draft Provider",
+        "tags": [
+          "idp-providers"
+        ]
+      }
+    },
+    "/api/v1/idp/providers/{provider_id}": {
+      "delete": {
+        "description": "软删除 IdP 配置。\n\nArgs:\n    request: 请求对象。\n    provider_id: 主键。\n    tenant_ctx: 请求上下文租户。\n    auth: 登录态身份（操作者）。\n    audit: 审计捕获占位。\n    limiter: 限流基座。\n\nReturns:\n    ApiResponse: 统一响应，data 为空对象。",
+        "operationId": "delete_provider_api_v1_idp_providers__provider_id__delete",
+        "parameters": [
+          {
+            "description": "IdP 配置主键",
+            "in": "path",
+            "name": "provider_id",
+            "required": true,
+            "schema": {
+              "description": "IdP 配置主键",
+              "title": "Provider Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_dict_str__object__"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Delete Provider",
+        "tags": [
+          "idp-providers"
+        ]
+      },
+      "get": {
+        "description": "IdP 配置详情。\n\nArgs:\n    request: 请求对象。\n    provider_id: 主键。\n    tenant_ctx: 请求上下文租户。\n    audit: 审计捕获占位。\n    limiter: 限流基座。\n\nReturns:\n    ApiResponse: 统一响应，data 为详情项（config 脱敏）。",
+        "operationId": "get_provider_api_v1_idp_providers__provider_id__get",
+        "parameters": [
+          {
+            "description": "IdP 配置主键",
+            "in": "path",
+            "name": "provider_id",
+            "required": true,
+            "schema": {
+              "description": "IdP 配置主键",
+              "title": "Provider Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_IdpProviderItem_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Get Provider",
+        "tags": [
+          "idp-providers"
+        ]
+      },
+      "put": {
+        "description": "修改 IdP 配置（`type` / `idp_key` 不可改）。\n\nArgs:\n    request: 请求对象。\n    req: 修改请求。\n    provider_id: 主键。\n    tenant_ctx: 请求上下文租户。\n    auth: 登录态身份（操作者）。\n    audit: 审计捕获占位。\n    limiter: 限流基座。\n\nReturns:\n    ApiResponse: 统一响应，data 为更新后项（config 脱敏）。",
+        "operationId": "update_provider_api_v1_idp_providers__provider_id__put",
+        "parameters": [
+          {
+            "description": "IdP 配置主键",
+            "in": "path",
+            "name": "provider_id",
+            "required": true,
+            "schema": {
+              "description": "IdP 配置主键",
+              "title": "Provider Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IdpProviderUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_IdpProviderItem_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Update Provider",
+        "tags": [
+          "idp-providers"
+        ]
+      }
+    },
+    "/api/v1/idp/providers/{provider_id}/status": {
+      "post": {
+        "description": "启停 IdP 配置。\n\nArgs:\n    request: 请求对象。\n    req: 启停请求。\n    provider_id: 主键。\n    tenant_ctx: 请求上下文租户。\n    auth: 登录态身份（操作者）。\n    audit: 审计捕获占位。\n    limiter: 限流基座。\n\nReturns:\n    ApiResponse: 统一响应，data 为更新后项。",
+        "operationId": "set_provider_status_api_v1_idp_providers__provider_id__status_post",
+        "parameters": [
+          {
+            "description": "IdP 配置主键",
+            "in": "path",
+            "name": "provider_id",
+            "required": true,
+            "schema": {
+              "description": "IdP 配置主键",
+              "title": "Provider Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IdpProviderStatusRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_IdpProviderItem_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Set Provider Status",
+        "tags": [
+          "idp-providers"
+        ]
+      }
+    },
+    "/api/v1/idp/providers/{provider_id}/test": {
+      "get": {
+        "description": "已保存行连通性测试。\n\nArgs:\n    request: 请求对象。\n    provider_id: 主键。\n    tenant_ctx: 请求上下文租户。\n    auth: 登录态身份（操作者）。\n    audit: 审计捕获占位。\n    limiter: 限流基座。\n\nReturns:\n    ApiResponse: 统一响应，data 为测试结果（可达）。\n\nRaises:\n    IdpNotFoundError: 不存在（20063/404）。\n    IdpConfigInvalidError: 存量配置非法（20064/400）。\n    IdpTestFailedError: 不可达 / 不可探测（20066/502）。\n    RateLimitError: 限流命中（10005/429）。",
+        "operationId": "test_saved_provider_api_v1_idp_providers__provider_id__test_get",
+        "parameters": [
+          {
+            "description": "IdP 配置主键",
+            "in": "path",
+            "name": "provider_id",
+            "required": true,
+            "schema": {
+              "description": "IdP 配置主键",
+              "title": "Provider Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_IdpProviderTestResult_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Test Saved Provider",
+        "tags": [
+          "idp-providers"
         ]
       }
     },

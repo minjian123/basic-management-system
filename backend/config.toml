@@ -400,6 +400,13 @@ jit_lock_ttl_seconds = 30
 # JIT 临界区取锁等待时长（秒；0 = 不等待）
 jit_lock_wait_seconds = 5.0
 
+[idp_manage]
+# 外部 IdP 配置管理面（02_06）
+# 连通性测试限流：每租户 + 操作者每分钟上限（防滥用）
+test_rate_limit = 10
+# 出站 URL 是否允许私网 / 回环主机（企业自建内网 IdP 场景开启；生产默认关闭，防 SSRF）
+allow_private_hosts = false
+
 [distributed_lock]
 # 分布式锁实现选择（插件化配置；redis = Redis SET NX EX（Lua 校验释放 / 续租，异常降级 memory）、memory = 进程内（单副本）、空串 = null 占位恒定成功）
 provider = "redis"

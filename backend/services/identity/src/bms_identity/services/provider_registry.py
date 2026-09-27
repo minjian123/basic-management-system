@@ -2,7 +2,8 @@
 
 - `spec_for`：`SysIdentityProvider` 行 → `IdentityProviderSpec`（`config` TEXT 解析为 JSON 对象，
   非法即 `ConfigError`；`updated_at` 规范化为 ISO 字符串供实例缓存失效）。
-- `instance_for`：经基座 `IdentityProviderRegistry` 按 `(id, updated_at, type)` 取实例。
+- `instance_for` / `instance_for_spec`：经基座 `IdentityProviderRegistry` 按 `(id, updated_at, type)` 取实例。
+- `spec_for_config`：草稿配置 → 实例规格（连通性测试；不落库、不缓存）。
 - `redirect_uri_for` / `spec_for`：`config.redirect_uri` 优先；缺省按 `[sso].callback_base_url`
   派生 `{base}/api/v1/auth/sso/{idp_key}/callback`（网关形态经行配置覆盖）。
 - `transport` 供测试注入 `httpx.MockTransport`（走真实网络的部署不传）。
@@ -81,6 +82,42 @@ class ProviderRegistry(BaseObject):
             updated_at=_normalize_updated_at(row.updated_at),
         )
 
+    def spec_for_config(
+        self,
+        *,
+        idp_key: str,
+        type: str,
+        config: dict[str, object],
+    ) -> IdentityProviderSpec:
+        """草稿配置 → 实例规格（连通性测试用；不落库、不缓存）。
+
+        与 `spec_for` 同口径补齐 `redirect_uri`（行配置优先，缺省按回调基址派生）。
+
+        Args:
+            idp_key: 租户内标识（派生回调路径用；草稿可传占位值）。
+            type: 协议类型。
+            config: 行配置对象。
+
+        Returns:
+            IdentityProviderSpec: 实例规格（`id=0` / `updated_at=""`）。
+        """
+        redirect_uri = _resolve_redirect_uri(config, idp_key, self._callback_base_url)
+        merged = dict(config)
+        if redirect_uri and not merged.get("redirect_uri"):
+            merged["redirect_uri"] = redirect_uri
+        return IdentityProviderSpec(id=0, idp_key=idp_key, type=type, config=merged, updated_at="")
+
+    def instance_for_spec(self, spec: IdentityProviderSpec) -> BaseIdentityProvider:
+        """按实例规格取 IdP 实例（按规格缓存；行配置变更自动失效）。
+
+        Args:
+            spec: 实例规格。
+
+        Returns:
+            BaseIdentityProvider: IdP 实例。
+        """
+        return self._registry.get(spec)
+
     def instance_for(self, row: SysIdentityProvider) -> BaseIdentityProvider:
         """取 IdP 实例（按规格缓存；行配置变更自动失效）。
 
@@ -90,7 +127,7 @@ class ProviderRegistry(BaseObject):
         Returns:
             BaseIdentityProvider: IdP 实例。
         """
-        return self._registry.get(self.spec_for(row))
+        return self.instance_for_spec(self.spec_for(row))
 
     def clear(self) -> None:
         """清空实例缓存（测试 / 调试用）。"""
