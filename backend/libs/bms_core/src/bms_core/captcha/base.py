@@ -44,6 +44,9 @@ SMS_CAPTCHA_TTL = 300
 SMS_COOLDOWN = 60
 """短信重发冷却（秒）；同时作为前端倒计时口径。"""
 
+SMS_CAPTCHA_LENGTH = 6
+"""短信验证码位数（纯数字；与前端 06_04 短信件「6 位纯数字」契约一致）。"""
+
 CAPTCHA_FAIL_THRESHOLD = 3
 """连续失败阈值（平台默认，供场景策略默认表基准）。"""
 
@@ -221,6 +224,10 @@ class BaseCaptcha(BasePluggable, ABC):
     async def send_sms(self, phone: str, scene: str = "login") -> CaptchaChallenge:
         """发送短信验证码（真实实现经 02-20 通知渠道下发、02-25 限流基座限次）。
 
+        真实实现（03_03）：生成 6 位纯数字码存 Redis（TTL 300s），经 `BaseNotifier` 下发（占位不真发），
+        目标手机号**脱敏回显**、`cooldown` 为场景重发冷却；冷却期内 / 账号或 IP 超频抛 `CaptchaTooFrequentError`，
+        Redis 或通知渠道不可用抛 `ServiceUnavailableError`（明确失败不放行）。
+
         Args:
             phone: 目标手机号（回显值一律经 `mask_phone` 脱敏）。
             scene: 使用场景（取值见 `CAPTCHA_SCENES`）。
@@ -230,6 +237,7 @@ class BaseCaptcha(BasePluggable, ABC):
 
         Raises:
             CaptchaTooFrequentError: 冷却未到或频次超限（`20103` / 429；真实实现抛，占位不抛）。
+            ServiceUnavailableError: Redis 或通知渠道不可用（10007 / 503）。
         """
 
     @abstractmethod

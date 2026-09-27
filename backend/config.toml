@@ -150,6 +150,7 @@ options = {}
 provider = "default"
 # 图形码出图选项（非敏感；缺省 width=160 / height=60 / length=4 / font_size=36 / noise_lines=4 / noise_dots=60 / rotate_degrees=25）
 # 滑块选项（非敏感；slider_ 前缀，缺省 slider_width=300 / slider_height=150 / slider_piece_size=48 / slider_tolerance=10 / slider_min_duration_ms=300 / slider_min_points=2）
+# 短信选项（非敏感；sms_ 前缀，缺省 sms_code_length=6 / sms_account_limit=5 / sms_ip_limit=20 / sms_window=3600；冷却与有效期取场景策略）
 options = {}
 
 [event]
