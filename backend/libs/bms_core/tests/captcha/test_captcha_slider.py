@@ -28,6 +28,7 @@ from bms_core.core.config import PluginSelection, Settings
 from bms_core.core.exceptions import (
     CaptchaExpiredError,
     CaptchaVerifyError,
+    ParamError,
     PluginError,
     ServiceUnavailableError,
 )
@@ -320,13 +321,12 @@ async def test_slider_empty_duration_and_single_point(redis_client: fakeredis.ai
 
 
 @pytest.mark.kiwi_id(2205)
-async def test_sms_still_unsupported(redis_client: fakeredis.aioredis.FakeRedis) -> None:
-    """短信本阶段未启用，明确失败不放行。"""
+async def test_generate_sms_rejected(redis_client: fakeredis.aioredis.FakeRedis) -> None:
+    """短信形态改走 `/captcha/sms`（`send_sms`），出题端点传 `kind=sms` 判参数错误（10001）。"""
     captcha = _captcha(redis_client)
-    with pytest.raises(ServiceUnavailableError):
+    with pytest.raises(ParamError) as raised:
         await captcha.generate("login", kind=CaptchaKind.SMS)
-    with pytest.raises(ServiceUnavailableError):
-        await captcha.send_sms("13812345678", "bind")
+    assert raised.value.code == 10001
     await captcha.aclose()
 
 

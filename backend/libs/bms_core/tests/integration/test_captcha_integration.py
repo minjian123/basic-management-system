@@ -10,6 +10,9 @@ from redis.asyncio import Redis
 
 from bms_core.captcha.base import CaptchaCredential, CaptchaKind, build_captcha_key
 from bms_core.captcha.default import DefaultCaptcha
+from bms_core.core.exceptions import CaptchaTooFrequentError
+from bms_core.ratelimit.base import build_rate_limit_key
+from bms_core.ratelimit.redis import RedisRateLimiter
 
 pytestmark = pytest.mark.integration
 
@@ -85,6 +88,36 @@ async def test_slider_roundtrip_against_real_redis(captcha: DefaultCaptcha) -> N
     assert (await _record_of(captcha.client, second.captcha_id))["fails"] == 1
 
     await captcha.client.delete(build_captcha_key(second.captcha_id))  # pyright: ignore[reportUnknownMemberType]
+
+
+@pytest.mark.kiwi_id(2206)
+async def test_sms_roundtrip_against_real_redis() -> None:
+    """真 Redis：短信发送 → 正确码通过 → 单次失效被拒；真限流下二次发送冷却命中 20103。"""
+    url = os.environ.get("BMS_TEST_REDIS_URL")
+    if not url:
+        pytest.skip("未配置 BMS_TEST_REDIS_URL，跳过真实 Redis 集成用例")
+    phone = "13899990000"
+    cooldown_key = build_rate_limit_key(dimension="sms-cooldown", target=f"{phone}:login")
+    account_key = build_rate_limit_key(dimension="sms-account", target=phone)
+    captcha = DefaultCaptcha(url=url, rate_limiter=RedisRateLimiter(url=url))
+    try:
+        await captcha.client.delete(cooldown_key, account_key)  # pyright: ignore[reportUnknownMemberType]
+        challenge = await captcha.send_sms(phone, "login")
+        assert challenge.kind is CaptchaKind.SMS
+        assert challenge.target == "138****0000"
+        assert challenge.cooldown == 60
+
+        code = await _code_of(captcha.client, challenge.captcha_id)
+        credential = CaptchaCredential(captcha_id=challenge.captcha_id, kind=CaptchaKind.SMS, code=code)
+        assert await captcha.verify_credential(credential)
+        assert not await captcha.verify_credential(credential)
+
+        with pytest.raises(CaptchaTooFrequentError) as raised:
+            await captcha.send_sms(phone, "login")
+        assert raised.value.code == 20103
+    finally:
+        await captcha.client.delete(cooldown_key, account_key)  # pyright: ignore[reportUnknownMemberType]
+        await captcha.aclose()
 
 
 async def _record_of(client: Redis, captcha_id: str) -> dict[str, object]:

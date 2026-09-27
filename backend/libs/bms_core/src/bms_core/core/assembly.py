@@ -25,7 +25,12 @@ from bms_core.cache.base import CacheRegion
 from bms_core.cache.memory import MemoryCacheRegion
 from bms_core.cache.redis import RedisCacheRegion
 from bms_core.captcha.base import BaseCaptcha
-from bms_core.captcha.default import CaptchaImageOptions, CaptchaSliderOptions, DefaultCaptcha
+from bms_core.captcha.default import (
+    CaptchaImageOptions,
+    CaptchaSliderOptions,
+    CaptchaSmsOptions,
+    DefaultCaptcha,
+)
 from bms_core.chat.base import BaseChatActionGate, BaseChatSessionStore, BaseChatStream
 from bms_core.circuit.base import BaseCircuitBreaker
 from bms_core.codecheck.base import BaseCodeValidator
@@ -553,7 +558,7 @@ class DefaultMaskerFactory(BasePluginFactory[BaseMasker]):
 
 
 class DefaultCaptchaFactory(BasePluginFactory[DefaultCaptcha]):
-    """验证码图形码 / 滑块真实实现工厂（注入 Redis 连接串与出图 / 判定选项）。"""
+    """验证码三形态真实实现工厂（注入 Redis 连接串、出图 / 判定 / 短信选项与通知器 / 限流器）。"""
 
     plugin_key: str = "captcha"
     plugin_name: str = "default"
@@ -562,12 +567,12 @@ class DefaultCaptchaFactory(BasePluginFactory[DefaultCaptcha]):
         """初始化。
 
         Args:
-            settings: 应用配置（取 `[redis].url` 与 `[captcha].options`）。
+            settings: 应用配置（取 `[redis].url`、`[captcha].options` 与通知 / 限流能力选择）。
         """
         self._settings = settings
 
     def create(self, options: None = None) -> DefaultCaptcha:
-        """构造验证码实现（出图 / 判定选项校验在构造期完成）。
+        """构造验证码实现（出图 / 判定 / 短信选项校验在构造期完成；通知器 / 限流器经能力解析注入）。
 
         Args:
             options: 未使用（零参口径）。
@@ -576,12 +581,26 @@ class DefaultCaptchaFactory(BasePluginFactory[DefaultCaptcha]):
             DefaultCaptcha: 验证码实例。
 
         Raises:
-            PluginError: 出图 / 判定选项非法。
+            PluginError: 出图 / 判定 / 短信选项非法或通知 / 限流能力无法解析。
         """
+        settings = self._settings
+        notifier = cast(
+            "BaseNotifier",
+            resolve_plugin("notifier", settings.notifier.provider, expected_version=BaseNotifier.contract_version),
+        )
+        rate_limiter = cast(
+            "BaseRateLimiter",
+            resolve_plugin(
+                "rate_limiter", settings.rate_limiter.provider, expected_version=BaseRateLimiter.contract_version
+            ),
+        )
         return DefaultCaptcha(
-            url=self._settings.redis.url,
-            image=CaptchaImageOptions.from_options(self._settings.captcha.options),
-            slider=CaptchaSliderOptions.from_options(self._settings.captcha.options),
+            url=settings.redis.url,
+            image=CaptchaImageOptions.from_options(settings.captcha.options),
+            slider=CaptchaSliderOptions.from_options(settings.captcha.options),
+            sms=CaptchaSmsOptions.from_options(settings.captcha.options),
+            notifier=notifier,
+            rate_limiter=rate_limiter,
         )
 
 
