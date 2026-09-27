@@ -44,6 +44,7 @@ flowchart LR
 9. **测试（Kiwi 2202 先登记后编码）**：新增 `libs/bms_core/tests/oauth/test_oidc_provider.py`（Discovery / 双令牌签验 / 四向隔离 / 密钥分支 / Null）；扩展 `libs/bms_core/tests/idp/test_state_store.py`（namespace 键形与隔离）；新增 `services/identity/tests/oidc/`（`conftest.py` 替身与播种、`helpers.py` org 替身与 PKCE、`test_discovery` / `test_authorize` / `test_token` / `test_userinfo` / `test_clients` / `test_e2e` 全套）。
 10. **验证**：全量 `pytest`（见 §5）；新增 / 变更模块覆盖率 **100%**；`ruff check` / `ruff format --check` / `pyright` 全绿；契约 / 网关 / 事件 / api-types 零漂移；`check-backend-base` / `check-base` / `check-links` / `check-service-boundaries` / `check-status` / `preflight --fast` 全绿。
 11. **登记回写**：《后端基类清单》（`oidc_provider` 能力域条目 + 认证链路模块行 + `idp_state_store` namespace）；架构 09「错误码分段」补 `801xx`；架构 14 §4 BMS 兼作 IdP 口径；概要 26 §5.1 / §5.2；概要 20 §5.1 前置契约注记；数据库总览 §7.3；任务 / 父任务 / 计划状态；Kiwi cases / exports。
+12. **真机冒烟（mjbk，2026-09-27）**：CI 构建 `bms-identity:baa0e0de` 后 `release.py deploy --service identity --tag 19a620b9`（迁移先行 + 起容器 + 健康门禁通过）；经网关验证 Discovery / JWKS `200`；`ops.seed_oidc_client` 在容器内播种 `bms-demo-client` 客户端；在 identity 容器内以真实密钥签发用户 access token + Redis 会话标记，完成授权 → 换码 → userinfo 全链路（302 带 code/state → `200 {access_token, id_token, expires_in, scope}` → `200 {sub, preferred_username, name}`）。
 
 ## 4. 问题与处置 <a id="issues"></a>
 
@@ -57,6 +58,8 @@ flowchart LR
 | 6 | `ClientService._record` 的 `audit is None` 分支不可达 | 应用装配恒注入审计占位 | `audit` 改为必填参数、删除空分支；写操作审计占位恒经 `AuditCapturer.capture` |
 | 7 | pyright 报测试直接 import 私有 helper / `as_pem` 返回 bytes | 严格模式私有用法与类型 | 服务层 helper 提升为公开（`clean_scope` 等）；测试 PEM 补 `.decode()`；`_key_pems` 用量加 `pyright: ignore[reportPrivateUsage]` |
 | 8 | 契约与前端类型生成件需重生成 | 新增公开端点 / 类型 | 重生成 `identity.json` 与 api-types；check 零漂移 |
+| 9 | 真机建表报 MySQL `1101`：`TEXT … can't have a default value` | `sys_client.ip_whitelist` 原设 `TEXT NOT NULL DEFAULT '[]'`，MySQL 不支持 TEXT 列级默认值 | 移除 DB 默认值（迁移 / 模型 / 表文件同步），默认值改由应用侧写入；方言结论回写《数据库设计 · 方言特性（MySQL）》「DDL 与对象差异」节（标实测） |
+| 10 | `ops.seed_oidc_client --redirect-uri` 报 argparse `'str' object has no attribute 'append'` | `action="append"` 与字符串默认值冲突 | `--redirect-uri` 默认改 `None`，缺省回落单条默认回调；真机重跑播种成功 |
 
 ## 5. 验证结果 <a id="verify"></a>
 
@@ -70,6 +73,7 @@ flowchart LR
 | 契约与生成件 | `ops.contract_snapshot check` / `ops.gateway_config check` / `ops.event_contracts check` / api-types `gen:check` | 全绿零漂移 |
 | 基座与边界 | `check-backend-base.py` / `check-base.py` / `check-links.py` / `check-service-boundaries.py` / `check-status.py` | 全绿 |
 | 预检 | `preflight --fast` | **全部通过** |
+| 真机冒烟（mjbk） | `release.py deploy --service identity` + 容器内 httpx 全链路 | 迁移先行 + 门禁通过；Discovery / JWKS 经网关 `200`；授权码流程 E2E `302 → 200 → 200`（见 §3 第 12 条） |
 
 ## 6. 偏差与遗留 <a id="deviations"></a>
 
@@ -83,6 +87,7 @@ flowchart LR
   2. 浏览器 SSO 会话 cookie 联动与 `return_to` 登录页落点——**归口：域五（登录前端）**。
   3. ID Token / userinfo 的 `email` 声明（`sys_user` 暂无该字段）——**归口：用户管理阶段**。
   4. 生产 issuer 域与租户子域规划、密钥轮换演练、第三方 OIDC 一致性测试——**归口：运维 / 阶段验收（M6）**。
-  5. 真机冒烟（mjbk + 网关）随本任务收尾窗口执行并留痕（seed 客户端 → 授权 → 换码 → userinfo）——**归口：本任务收尾**。
+  5. ~~真机冒烟~~ **已闭环（2026-09-27）**：mjbk 部署 `bms-identity:19a620b9` + 迁移 + 门禁通过；容器内完成授权码流程 E2E（Discovery / JWKS 经网关可达）。
+  6. 浏览器场景下 `/authorize` 经网关的会话 cookie 联动（本次冒烟以容器内 Bearer + Redis 会话标记验证；网关公开路径对浏览器导航不携带 Bearer，登录页与 cookie 联动归域五）——**归口：域五**。
 
 > 本文档依《[文档生成规范](../../../../../../规范/文档生成规范.md)》编写
