@@ -506,14 +506,13 @@ api-types-check:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       exists:
         - frontend/packages/api-types/package.json
+    # 去重（2026-09-27 提速）：前端变更由 core-check（`pnpm run check` 已含 api-types:check）覆盖，
+    # 本 job 只在「契约快照变更」时单独兜底（deploy/contracts/** 不触发 core-check）
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
         paths:
           - deploy/contracts/**/*
-          - frontend/packages/api-types/**/*
-          - package.json
-          - pnpm-lock.yaml
-          - pnpm-workspace.yaml
+          - frontend/packages/api-types/src/**
       exists:
         - frontend/packages/api-types/package.json
   script:
