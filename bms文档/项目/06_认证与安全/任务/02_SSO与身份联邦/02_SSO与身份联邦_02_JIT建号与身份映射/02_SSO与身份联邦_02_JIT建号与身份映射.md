@@ -14,8 +14,8 @@
 | 工时（重估） | 12h |
 | 依赖 | 02_01（SSO 链路）；01_03（org 内部接口）；阶段二 `05_03`（Outbox） |
 | 负责人 | minjian |
-| 状态 | 未开始 |
-| 完成日期 | — |
+| 状态 | 已完成 |
+| 完成日期 | 2026-09-27 |
 
 > **前置契约（已交付 · 02_01，2026-09-27）**：SSO 登录完整链路已交付——`sys_user_identity` 表 + ORM + `identity:platform` 迁移 + `UserIdentityRepository.get_by_key_external` 只读查询（映射键 `{tenant}:{provider_key}`），本任务在其上补 JIT 写路径与 `(idp_key, external_id)` 唯一约束并发处置；`SsoService.callback` 映射未命中返回 `20054`（`SsoIdentityUnmatchedError`）、`SysIdentityProvider.config.jit_enabled` 字段已预留（本期不读），JIT 分支在此接入；`SsoError` 段位错误码 `20051`~`20056` 已登记（含冲突 `20055`）；org 内部概要接口 `POST /api/v1/org/internal/users/profile`（`require_service("identity")`）已交付，JIT 建号所经 org 内部接口参照其服务鉴权与公开契约口径扩展。
 
@@ -41,3 +41,6 @@
 - 阶段二 `05_03` Outbox 与幂等消费（**事件机制已交付**）
 
 > 交付物：详细设计、实施记录、测试记录（随任务开工建立，落本目录 `设计/`、`实施/`、`测试/`）。
+
+> **已交付（2026-09-27）**：详细设计 [02_详细设计](设计/02_详细设计_02_JIT建号与身份映射.md)（12 项决策确认）→ 实施 [02_实施](实施/02_实施_02_JIT建号与身份映射.md) → 测试 [02_测试](测试/02_测试_02_JIT建号与身份映射.md)（Kiwi 2198）。新增分布式锁能力域（memory / redis 真实实现）、org 建号内部接口、`JitService` 编排、`sso:bind` 只读端点与 `identity.user.jit_created` 签发路径。
+> **消费方契约（已交付）**：`02_06`（IdP 行新增 `config.jit_enabled` / `config.allowed_email_domains` 的管理面校验与连通性）、`02_03` / `02_04`（协议适配复用同一 JIT 与映射写路径）、域五（`GET /api/v1/users/{id}/identities` 绑定查看）、阶段七（`sso:bind` 真实权限与本人 / 超管判定）。

@@ -23,7 +23,7 @@
 | --- | --- | --- | --- | --- |
 | `id` | BIGINT | 否 | 主键，雪花 ID | 主键 |
 | `username` | VARCHAR(64) | 否 | 与 `deleted_at` 复合唯一 | 登录账号（唯一；软删除后可复用） |
-| `password_hash` | VARCHAR(255) | 否 | — | 口令哈希（PBKDF2 自描述串） |
+| `password_hash` | VARCHAR(255) | 否 | — | 口令哈希（PBKDF2 自描述串；**SSO JIT 建号存不可登录占位** `!sso`，非 PBKDF2 串，本地登录校验恒失败，「是否 SSO 账号」以 `sys_user_identity` 绑定为事实源） |
 | `name` | VARCHAR(128) | 否 | — | 用户昵称 / 显示名 |
 | `status` | VARCHAR(16) | 否 | 默认 `enabled` | 状态（`enabled` / `disabled`） |
 | `failed_count` | INT | 否 | 默认 0 | 连续登录失败次数 |
@@ -60,5 +60,6 @@
 | 日期 | 版本 | 变更 | 作者 |
 | --- | --- | --- | --- |
 | 2026-09-26 | v1 | 新建表结构（org 服务租户库；随 01_03 落库迁移 `0001_sys_user`） | minjian |
+| 2026-09-27 | v1 | 补充 `password_hash` 的 SSO 占位语义（02_02，无结构变更） | minjian |
 
 > 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套
