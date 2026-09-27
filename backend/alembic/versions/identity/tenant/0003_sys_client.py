@@ -41,7 +41,9 @@ def upgrade() -> None:
         sa.Column("redirect_uris", sa.Text(), nullable=False, comment="回调地址白名单 JSON 数组"),
         sa.Column("grant_types", sa.Text(), nullable=False, comment="授权类型 JSON 数组"),
         sa.Column("scopes", sa.Text(), nullable=False, comment="scope 集合 JSON 数组"),
-        sa.Column("ip_whitelist", sa.Text(), nullable=False, server_default="[]", comment="IP / CIDR 白名单 JSON 数组"),
+        sa.Column(
+            "ip_whitelist", sa.Text(), nullable=False, comment="IP / CIDR 白名单 JSON 数组（默认值由应用侧写 []）"
+        ),
         sa.Column("status", sa.String(length=16), nullable=False, server_default="enabled", comment="状态"),
         sa.UniqueConstraint("client_id", "deleted_at", name="uq_sys_client_client_id_deleted_at"),
     )
