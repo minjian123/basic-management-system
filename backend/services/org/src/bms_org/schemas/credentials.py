@@ -33,6 +33,7 @@ class CredentialVerifyResult(BaseSchema):
     locked: bool = Field(description="账号是否处于锁定期")
     status: str = Field(description="账号状态（enabled/disabled）")
     rehashed: bool = Field(default=False, description="是否本次按当前参数重算了哈希")
+    pwd_reset_required: bool = Field(default=False, description="是否需强制改密（密码超有效期）")
     user: CredentialUserSummary | None = Field(default=None, description="用户概要（命中时）")
 
 
@@ -41,13 +42,19 @@ class UpdatePasswordRequest(BaseSchema):
 
     account: str = Field(min_length=1, max_length=64, description="登录账号")
     new_password: str = Field(min_length=1, max_length=512, description="新口令明文")
-    keep_history: int = Field(default=5, ge=0, le=50, description="保留历史密码条数")
+    keep_history: int | None = Field(
+        default=None, ge=0, le=50, description="保留历史密码条数（缺省取策略 history_count）"
+    )
 
 
 class UpdatePasswordResult(BaseSchema):
-    """密码更新结果。"""
+    """密码更新结果（策略闸门：复杂度 30005 / 历史重复 30006 由调用侧映射）。"""
 
-    updated: bool = Field(description="是否更新成功（账号不存在为 False）")
+    updated: bool = Field(description="是否更新成功")
+    reason: str = Field(default="", description="未更新原因（空=成功；not_found / policy_violation / history_reused）")
+    violations: list[str] = Field(
+        default_factory=list, description="复杂度违规原因码清单（reason=policy_violation 时）"
+    )
 
 
 class LoginStateRequest(BaseSchema):

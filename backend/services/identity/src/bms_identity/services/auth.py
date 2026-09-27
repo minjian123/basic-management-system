@@ -199,6 +199,7 @@ class LoginService(BaseObject):
                     tenant=tenant,
                     locale=user.locale,
                     timezone=user.timezone,
+                    must_change_password=verified.pwd_reset_required,
                 ),
             ),
             refresh_token=issued.refresh_token,

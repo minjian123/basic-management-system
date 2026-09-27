@@ -12,9 +12,13 @@ from __future__ import annotations
 from typing import cast
 
 from bms_core.core.base import BaseObject
-from bms_core.core.exceptions import ServiceUnavailableError
+from bms_core.core.exceptions import (
+    PasswordPolicyViolationError,
+    PasswordReusedError,
+    ServiceUnavailableError,
+)
 from bms_core.servicecall.base import BaseServiceClient, ServiceCallPolicy, ServiceRequest, ServiceResponse
-from bms_identity.schemas.auth import OrgLoginState, OrgVerifyResult
+from bms_identity.schemas.auth import OrgLoginState, OrgUpdatePasswordResult, OrgVerifyResult
 from bms_identity.schemas.sso import OrgProfileResult, OrgUserCreateResult
 
 ORG_SERVICE = "org"
@@ -59,7 +63,7 @@ class OrgCredentialClient(BaseObject):
         return OrgVerifyResult.model_validate(data)
 
     async def update_password(self, tenant: str | None, account: str, new_password: str) -> bool:
-        """调 org 更新账号密码。
+        """调 org 更新账号密码（策略闸门：复杂度 / 历史重复）。
 
         Args:
             tenant: 租户编码。
@@ -67,13 +71,22 @@ class OrgCredentialClient(BaseObject):
             new_password: 新口令明文。
 
         Returns:
-            bool: 是否更新成功。
+            bool: 是否更新成功；账号不存在返回 False。
 
         Raises:
+            PasswordPolicyViolationError: 不符合复杂度策略（30005；data 带 violations）。
+            PasswordReusedError: 命中近 N 次历史密码（30006）。
             ServiceUnavailableError: 下游不可达 / 响应非法（10007/503）。
         """
         data = await self._post("update-password", tenant, {"account": account, "new_password": new_password})
-        return bool(data.get("updated"))
+        outcome = OrgUpdatePasswordResult.model_validate(data)
+        if outcome.updated:
+            return True
+        if outcome.reason == "policy_violation":
+            raise PasswordPolicyViolationError(violations=tuple(outcome.violations))
+        if outcome.reason == "history_reused":
+            raise PasswordReusedError()
+        return False
 
     async def login_state(
         self,

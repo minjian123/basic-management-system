@@ -3,5 +3,5 @@
 继承约定：ORM 模型必须继承 `bms_core.models.BaseModel`。
 """
 
-MODEL_MODULES: tuple[str, ...] = ("bms_org.models.user",)
+MODEL_MODULES: tuple[str, ...] = ("bms_org.models.user", "bms_org.models.account_lock")
 """本服务模型模块清单（迁移链按服务解析模型用）。"""

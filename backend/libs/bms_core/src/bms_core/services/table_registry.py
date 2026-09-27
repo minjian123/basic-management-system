@@ -211,10 +211,9 @@ TABLE_OWNERSHIP: tuple[TableRecord, ...] = (
     ),
     TableRecord(
         table_name="sys_account_lock",
-        owner="identity",
+        owner="org",
         datasource=Datasource.TENANT,
-        status=TableStatus.PLANNED,
-        note="账号锁定（预留）",
+        note="账号锁定记录（与 sys_user 同库；三型锁定 / 解锁归 03_07，inactive 扫描归 03_05）",
     ),
     TableRecord(
         table_name="sys_identity_provider",

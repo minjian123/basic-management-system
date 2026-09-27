@@ -59,8 +59,18 @@ PLATFORM_CONFIG_DEFAULTS: tuple[SeedConfig, ...] = (
     SeedConfig("captcha.channel.image", "true", "图形验证码渠道可用（兜底渠道，恒可用）"),
     SeedConfig("captcha.channel.slider", "true", "滑块验证码渠道可用"),
     SeedConfig("captcha.channel.sms", "false", "短信验证码渠道可用（未配通道默认关闭）"),
+    SeedConfig("password.min_length", "8", "密码最小长度"),
+    SeedConfig("password.max_length", "128", "密码最大长度"),
+    SeedConfig("password.require_upper", "true", "密码须含大写字母"),
+    SeedConfig("password.require_lower", "true", "密码须含小写字母"),
+    SeedConfig("password.require_digit", "true", "密码须含数字"),
+    SeedConfig("password.require_symbol", "true", "密码须含符号"),
+    SeedConfig("password.forbid_username", "true", "密码不得包含用户名"),
+    SeedConfig("password.max_age_days", "90", "密码有效期（天），pwd_changed_at 驱动强制改密"),
+    SeedConfig("password.history_count", "5", "历史密码不可重复比对条数"),
+    SeedConfig("account.inactive_lock_days", "180", "未登录自动锁定阈值（天）"),
 )
-"""平台默认参数项（本轮投放验证码场景策略与渠道开关；后续模块键顺延追加）。"""
+"""平台默认参数项（验证码场景策略与渠道开关 + 密码 / 账号策略；后续模块键顺延追加）。"""
 
 
 async def seed_configs(session: AsyncSession) -> int:

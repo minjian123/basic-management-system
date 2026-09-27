@@ -114,6 +114,7 @@ from bms_core.outbox.base import BaseOutboxDispatcher, BaseOutboxStore
 from bms_core.outbox.dispatcher import PollOutboxDispatcher
 from bms_core.outbox.store import SqlOutboxStore
 from bms_core.password.base import BasePasswordPolicy
+from bms_core.password.default import DefaultPasswordPolicy
 from bms_core.permission.base import BasePermissionChecker
 from bms_core.preference.base import BasePreferenceStore
 from bms_core.print.base import BasePrintExporter, BasePrintTemplateProvider
@@ -382,6 +383,7 @@ def register_platform_plugins(settings: Settings, app: FastAPI, resources: Resou
     register_plugin("token_codec", "jwt", JwtTokenCodecFactory(settings))
     register_plugin("session_security", "default", DefaultSessionSecurityFactory(settings))
     register_plugin("captcha", "default", DefaultCaptchaFactory(settings))
+    register_plugin("password_policy", "default", DefaultPasswordPolicyFactory(settings))
     register_plugin("token_verifier", "unified", UnifiedTokenVerifierFactory(settings))
     register_plugin("data_ownership_guard", "table", TableOwnershipGuardFactory(settings))
     register_plugin("service_client", "http", HttpServiceClientFactory(settings))
@@ -620,6 +622,50 @@ class DefaultCaptchaFactory(BasePluginFactory[DefaultCaptcha]):
             rate_limiter=rate_limiter,
             config=config,
         )
+
+
+class DefaultPasswordPolicyFactory(BasePluginFactory[DefaultPasswordPolicy]):
+    """密码策略真实实现工厂（注入系统参数取数与口令哈希实现）。"""
+
+    plugin_key: str = "password_policy"
+    plugin_name: str = "default"
+
+    def __init__(self, settings: Settings) -> None:
+        """初始化。
+
+        Args:
+            settings: 应用配置（取 `[config_source]` / `[password_hasher]` 能力选择）。
+        """
+        self._settings = settings
+
+    def create(self, options: None = None) -> DefaultPasswordPolicy:
+        """构造密码策略实现（策略读取经 `config_source`、历史比对经 `password_hasher`）。
+
+        Args:
+            options: 未使用（零参口径）。
+
+        Returns:
+            DefaultPasswordPolicy: 密码策略实例。
+
+        Raises:
+            PluginError: 取数 / 哈希能力无法解析。
+        """
+        settings = self._settings
+        config = cast(
+            "BaseConfigSource",
+            resolve_plugin(
+                "config_source", settings.config_source.provider, expected_version=BaseConfigSource.contract_version
+            ),
+        )
+        hasher = cast(
+            "BasePasswordHasher",
+            resolve_plugin(
+                "password_hasher",
+                settings.password_hasher.provider,
+                expected_version=BasePasswordHasher.contract_version,
+            ),
+        )
+        return DefaultPasswordPolicy(config=config, hasher=hasher)
 
 
 class MemoryConfigCacheRegionFactory(BasePluginFactory[MemoryConfigCacheRegion]):

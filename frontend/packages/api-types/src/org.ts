@@ -56,6 +56,34 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/org/internal/account-locks/scan-inactive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Scan Inactive
+         * @description 扫描并锁定长期未登录账号（幂等；含从未登录账号）。
+         *
+         *     Args:
+         *         req: 扫描请求（空体）。
+         *         uow: 请求级工作单元。
+         *         config: 系统参数取数（读 `account.inactive_lock_days`）。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为扫描概要（`InactiveScanResult`）。
+         */
+        post: operations["scan_inactive_api_v1_org_internal_account_locks_scan_inactive_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/org/internal/credentials/login-state": {
         parameters: {
             query?: never;
@@ -73,6 +101,7 @@ export interface paths {
          *         req: 登录态写回请求。
          *         uow: 请求级工作单元。
          *         hasher: 口令哈希实现（未使用，保持服务构造一致）。
+         *         policy: 密码策略（未使用，保持服务构造一致）。
          *
          *     Returns:
          *         ApiResponse: 统一响应，data 为登录态结果（`LoginStateResult`）。
@@ -95,12 +124,13 @@ export interface paths {
         put?: never;
         /**
          * Update Password
-         * @description 更新账号密码（新哈希 + 变更时间 + 历史密码保留）。
+         * @description 更新账号密码（策略闸门：复杂度 + 历史重复；写新哈希 + 变更时间 + 历史）。
          *
          *     Args:
          *         req: 密码更新请求。
          *         uow: 请求级工作单元。
          *         hasher: 口令哈希实现。
+         *         policy: 密码策略（复杂度 / 历史）。
          *
          *     Returns:
          *         ApiResponse: 统一响应，data 为更新结果（`UpdatePasswordResult`）。
@@ -129,6 +159,7 @@ export interface paths {
          *         req: 凭据校验请求（账号 + 口令）。
          *         uow: 请求级工作单元。
          *         hasher: 口令哈希实现。
+         *         policy: 密码策略（判定是否超有效期置强制改密）。
          *
          *     Returns:
          *         ApiResponse: 统一响应，data 为校验结果（`CredentialVerifyResult`）。
@@ -345,6 +376,7 @@ export interface components {
     schemas: {
         ApiResponse: unknown;
         ApiResponse_CredentialVerifyResult_: unknown;
+        ApiResponse_InactiveScanResult_: unknown;
         ApiResponse_LoginStateResult_: unknown;
         ApiResponse_UpdatePasswordResult_: unknown;
         ApiResponse_UserCreateResult_: unknown;
@@ -372,6 +404,12 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /**
+         * InactiveScanRequest
+         * @description 不活跃账号扫描请求（空体；租户经服务 JWT `tenant` claim 解析）。
+         */
+        InactiveScanRequest: Record<string, never>;
+        InactiveScanResult: unknown;
         /**
          * LoginStateRequest
          * @description 登录态写回请求（成功清零 / 失败计数与锁定）。
@@ -411,10 +449,9 @@ export interface components {
             account: string;
             /**
              * Keep History
-             * @description 保留历史密码条数
-             * @default 5
+             * @description 保留历史密码条数（缺省取策略 history_count）
              */
-            keep_history: number;
+            keep_history?: number | null;
             /**
              * New Password
              * @description 新口令明文
@@ -523,6 +560,86 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    scan_inactive_api_v1_org_internal_account_locks_scan_inactive_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InactiveScanRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_InactiveScanResult_"];
                 };
             };
             /** @description 未认证 */

@@ -59,6 +59,18 @@ async def test_login_success_creates_session(client: AsyncClient, service_app: F
     assert org.last_state.get("failed_count") == 0
 
 
+@pytest.mark.kiwi_id(2209)
+async def test_login_must_change_password_mapping(client: AsyncClient, service_app: FastAPI) -> None:
+    """登录成功但密码超期：`must_change_password=true`（映射自 org `pwd_reset_required`）。"""
+    issuer, org, store, limiter = FakeUserTokenIssuer(), FakeOrgClient(), MemorySessionStore(), MemoryRateLimiter()
+    org.set_user("admin", password="secret", pwd_reset_required=True)
+    wire_auth(service_app, issuer=issuer, org=org, store=store, limiter=limiter)
+
+    resp = await _login(client, "admin", "secret")
+    assert resp.status_code == 200
+    assert resp.json()["data"]["user"]["must_change_password"] is True
+
+
 @pytest.mark.kiwi_id(2194)
 async def test_login_wrong_or_unknown_account(client: AsyncClient, service_app: FastAPI) -> None:
     """账号不存在与密码错误同码 20002（防枚举）。"""
