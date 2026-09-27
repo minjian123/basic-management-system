@@ -12,7 +12,7 @@
 | 覆盖模块 | 11-系统参数 |
 | 上游依据 | [需求 03-8](../../../项目/06_认证与安全/需求/03_需求_验证码与账号治理.md#r03-8)、《[概要设计 · 系统参数](../../概要设计/10_概要设计_系统参数.md)》「核心表」节、《[架构设计 · 数据架构](../../架构设计/07_架构设计_数据架构.md)》§4.1 |
 | ORM 模型 | `bms_core/config/models.py::SysConfig`（继承 `BaseModel`；登记于 `db/migration.py::COMMON_MODEL_MODULES`） |
-| 状态 | 已设计（随 `03_08` 落 `platform:tenant` 链迁移 `0002_sys_config`） |
+| 状态 | 已落库（`platform:tenant` 链迁移 `0004_sys_config`，2026-09-27） |
 | 相关节点 | [数据库设计总览](../01_数据库设计_总览.md)「核心表清单总表 · 租户库」、[概要 10-系统参数](../../概要设计/10_概要设计_系统参数.md) |
 
 ## 2. 字段 <a id="fields"></a>
@@ -45,11 +45,11 @@
 
 - **分片**：不分片（参数为小型热配置数据）。
 - **归档**：不归档（在用配置数据）。
-- **迁移**：随 **`platform:tenant` 链** Alembic 迁移落地（`alembic/versions/platform/tenant/0002_sys_config.py`）；命令 `alembic -n alembic:platform:tenant upgrade head`；SQLite 开发库由启动期自动建表覆盖。
+- **迁移**：随 **`platform:tenant` 链** Alembic 迁移落地（`alembic/versions/platform/tenant/0004_sys_config.py`）；命令 `alembic -n alembic:platform:tenant upgrade head`；SQLite 开发库由启动期自动建表覆盖。
 - **缓存**：`bms:{tenant}:config:{config_key}`（短 TTL + 随机偏移；版本键 `bms:{tenant}:config:version`），变更后删 key 并递增版本号（先写库后删缓存）。
 
 ## 5. 变更记录 <a id="revlog"></a>
 
 | 日期 | 版本 | 变更 | 作者 |
 | --- | --- | --- | --- |
-| 2026-09-27 | v1 | 新建表结构（platform 服务租户库；随 `03_08` 落 `platform:tenant` 链迁移 `0002_sys_config`） | minjian |
+| 2026-09-27 | v1 | 新建表结构（platform 服务租户库；随 `03_08` 落 `platform:tenant` 链迁移 `0004_sys_config`） | minjian |
