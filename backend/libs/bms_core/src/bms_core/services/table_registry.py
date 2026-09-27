@@ -195,8 +195,7 @@ TABLE_OWNERSHIP: tuple[TableRecord, ...] = (
         table_name="sys_user_identity",
         owner="identity",
         datasource=Datasource.PLATFORM,
-        status=TableStatus.PLANNED,
-        note="SSO 全局身份映射（预留）",
+        note="SSO 全局身份映射（外部身份 → 租户 / 用户）",
     ),
     TableRecord(
         table_name="sys_user",
@@ -221,8 +220,7 @@ TABLE_OWNERSHIP: tuple[TableRecord, ...] = (
         table_name="sys_identity_provider",
         owner="identity",
         datasource=Datasource.TENANT,
-        status=TableStatus.PLANNED,
-        note="租户外部 IdP 配置（预留）",
+        note="租户外部 IdP 配置（OIDC/CAS/企微/钉钉）",
     ),
     TableRecord(
         table_name="sys_client",

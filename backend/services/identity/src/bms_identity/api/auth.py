@@ -40,9 +40,9 @@ from bms_core.security.base import BaseSessionSecurity
 from bms_core.servicecall.base import BaseServiceClient
 from bms_core.session.base import BaseSessionStore
 from bms_core.ws.base import BaseRealtimePublisher
+from bms_identity.api.cookies import clear_refresh_cookie, set_refresh_cookie
 from bms_identity.schemas.auth import (
     REFRESH_COOKIE_NAME,
-    REFRESH_COOKIE_PATH,
     LoginRequest,
     LoginResult,
     RefreshResult,
@@ -221,7 +221,7 @@ def _build_service(
 
 
 def _set_refresh_cookie(response: Response, request: Request, token: str, max_age: int) -> None:
-    """下发 refresh cookie（HttpOnly + Secure（配置）+ SameSite=Lax + 认证路径）。
+    """下发 refresh cookie（转发至 `api.cookies`，保留调用点兼容）。
 
     Args:
         response: 响应对象。
@@ -229,15 +229,7 @@ def _set_refresh_cookie(response: Response, request: Request, token: str, max_ag
         token: refresh token 紧凑串。
         max_age: 有效期（秒）。
     """
-    response.set_cookie(
-        key=REFRESH_COOKIE_NAME,
-        value=token,
-        max_age=max_age,
-        path=REFRESH_COOKIE_PATH,
-        httponly=True,
-        secure=bool(request.app.state.settings.login.cookie_secure),
-        samesite="lax",
-    )
+    set_refresh_cookie(response, request, token, max_age)
 
 
 @router.post("/login")
@@ -405,5 +397,5 @@ async def logout(
                 publisher=publisher,
             )
             await service.logout(token, tenant=tenant_ctx.tenant_code)
-    response.delete_cookie(REFRESH_COOKIE_NAME, path=REFRESH_COOKIE_PATH)
+    clear_refresh_cookie(response)
     return ApiResponse.ok(None)

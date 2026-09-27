@@ -209,6 +209,116 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/sso/providers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Providers
+         * @description 可用 IdP 入口清单（仅 `enabled`；无启用 IdP 返回空列表）。
+         *
+         *     Args:
+         *         request: 请求对象。
+         *         tenant_ctx: 请求上下文租户。
+         *         tenant_source: 租户源。
+         *         state_store: 流程状态存储（保持服务构造一致）。
+         *         limiter: 限流基座（保持服务构造一致）。
+         *         client: 服务间调用客户端（保持服务构造一致）。
+         *         tenant: 租户编码（可选）。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为 `SsoProviderList`。
+         */
+        get: operations["providers_api_v1_auth_sso_providers_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/sso/{idp_key}/authorize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Authorize
+         * @description 生成流程状态并 `302` 到外部授权端点。
+         *
+         *     Args:
+         *         request: 请求对象。
+         *         idp_key: 租户内 IdP 标识（路由参数）。
+         *         tenant_ctx: 请求上下文租户。
+         *         tenant_source: 租户源。
+         *         state_store: 流程状态存储。
+         *         limiter: 限流基座。
+         *         client: 服务间调用客户端。
+         *         tenant: 租户编码（可选）。
+         *
+         *     Returns:
+         *         Response: `302` 跳转外部授权端点。
+         *
+         *     Raises:
+         *         SsoProviderNotFoundError: IdP 不存在或已停用（20051/404）。
+         *         SsoProviderUnavailableError: IdP 配置缺失 / 发现失败（20053/503）。
+         *         RateLimitError: 限流命中（10005/429）。
+         */
+        get: operations["authorize_api_v1_auth_sso__idp_key__authorize_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/sso/{idp_key}/callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Callback
+         * @description 回调闭环：`state` 一次性消费 → 换码 / 验签 → 映射 → 签发会话 → `302` 前端。
+         *
+         *     Args:
+         *         request: 请求对象。
+         *         idp_key: 回调路径中的 IdP 标识。
+         *         tenant_ctx: 请求上下文租户（有则与 `state` 记录交叉校验）。
+         *         tenant_source: 租户源（按 `state` 记录租户定位库键）。
+         *         state_store: 流程状态存储。
+         *         limiter: 限流基座。
+         *         client: 服务间调用客户端。
+         *         issuer: 用户双 token 签发者。
+         *         security: 会话安全原语。
+         *         store: 会话标记存储。
+         *         publisher: 实时推送器。
+         *         state: IdP 回传流程状态。
+         *         code: IdP 回传授权码。
+         *         error: IdP 回传错误。
+         *
+         *     Returns:
+         *         Response: 成功 `302 {success_redirect}?tenant=…` + refresh cookie（未配置回退 200 JSON）；
+         *         失败 `302 {failure_redirect}?error=&message=`（未配置抛 `BizError`）。
+         */
+        get: operations["callback_api_v1_auth_sso__idp_key__callback_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/captcha/challenges": {
         parameters: {
             query?: never;
@@ -479,6 +589,7 @@ export interface components {
         ApiResponse_NoneType_: unknown;
         ApiResponse_RefreshResult_: unknown;
         ApiResponse_SessionItem_: unknown;
+        ApiResponse_SsoProviderList_: unknown;
         BasePageResponse_SessionItem_: unknown;
         /**
          * CaptchaChallengeRequest
@@ -622,6 +733,8 @@ export interface components {
         LoginResult: unknown;
         RefreshResult: unknown;
         SessionItem: unknown;
+        SsoProviderItem: unknown;
+        SsoProviderList: unknown;
         UserSummary: unknown;
         /** ValidationError */
         ValidationError: {
@@ -820,6 +933,110 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponse_RefreshResult_"];
+                };
+            };
+        };
+    };
+    providers_api_v1_auth_sso_providers_get: {
+        parameters: {
+            query?: {
+                /** @description 租户编码（上下文缺省时的回落） */
+                tenant?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_SsoProviderList_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    authorize_api_v1_auth_sso__idp_key__authorize_get: {
+        parameters: {
+            query?: {
+                /** @description 租户编码（上下文缺省时的回落） */
+                tenant?: string | null;
+            };
+            header?: never;
+            path: {
+                idp_key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    callback_api_v1_auth_sso__idp_key__callback_get: {
+        parameters: {
+            query?: {
+                /** @description IdP 回传流程状态 */
+                state?: string | null;
+                /** @description IdP 回传授权码 */
+                code?: string | null;
+                /** @description IdP 回传错误（如 access_denied） */
+                error?: string | null;
+            };
+            header?: never;
+            path: {
+                idp_key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

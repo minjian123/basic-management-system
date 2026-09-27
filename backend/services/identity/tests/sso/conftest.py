@@ -1,0 +1,333 @@
+"""SSO 端点测试夹具（Kiwi 2197）：替身装配 + 租户库 / 平台库播种 + 表结构兜底。"""
+
+from __future__ import annotations
+
+import functools
+import json
+from collections.abc import AsyncIterator
+from contextlib import AbstractAsyncContextManager
+from dataclasses import dataclass
+from typing import cast
+from urllib.parse import parse_qs, urlparse
+
+import httpx
+import pytest
+from fastapi import FastAPI
+from httpx import AsyncClient
+from sqlalchemy import Table, delete, select
+
+from bms_core.api.deps import (
+    get_idp_state_store,
+    get_rate_limiter,
+    get_realtime_publisher,
+    get_service_client,
+    get_session_store,
+    get_user_token_issuer,
+)
+from bms_core.db.registry import PLATFORM_DB_KEY
+from bms_core.db.session import DbSession, session_scope
+from bms_core.db.tenant import DEMO_TENANT
+from bms_core.idp.state.memory import MemoryIdpStateStore
+from bms_core.ratelimit.memory import MemoryRateLimiter
+from bms_core.session.memory import MemorySessionStore
+from bms_core.ws.null import NullRealtimePublisher
+from bms_identity.api import sso as sso_api
+from bms_identity.models.identity_provider import SysIdentityProvider
+from bms_identity.models.session import SysSession
+from bms_identity.models.user_identity import SysUserIdentity
+from bms_identity.services.provider_registry import ProviderRegistry
+
+from .helpers import (
+    CLIENT_ID,
+    CLIENT_SECRET,
+    IDP_KEY,
+    ISSUER,
+    TENANT,
+    TENANT_HEADERS,
+    FakeSsoOrgClient,
+    FakeUserTokenIssuer,
+    IdpMock,
+)
+
+SECRET_ENV = "SSO_TEST_IDP_SECRET"
+USER_ID = 1001
+REDIRECT_URI = f"http://test/api/v1/auth/sso/{IDP_KEY}/callback"
+
+
+@dataclass
+class SsoHarness:
+    """SSO 用例装配套件：替身、流程状态存储与播种工具。"""
+
+    app: FastAPI
+    issuer: FakeUserTokenIssuer
+    org: FakeSsoOrgClient
+    store: MemorySessionStore
+    limiter: MemoryRateLimiter
+    states: MemoryIdpStateStore
+    idp: IdpMock
+
+    def tenant_scope(self) -> AbstractAsyncContextManager[DbSession]:
+        """演示租户库会话上下文。
+
+        Returns:
+            AbstractAsyncContextManager[DbSession]: 会话上下文。
+        """
+        return session_scope(
+            self.app.state.engine_registry,
+            db_key=DEMO_TENANT.db_key,
+            factory=self.app.state.session_factory,
+        )
+
+    def platform_scope(self) -> AbstractAsyncContextManager[DbSession]:
+        """平台库会话上下文。
+
+        Returns:
+            AbstractAsyncContextManager[DbSession]: 会话上下文。
+        """
+        return session_scope(
+            self.app.state.engine_registry,
+            db_key=PLATFORM_DB_KEY,
+            factory=self.app.state.session_factory,
+        )
+
+    def peek(self, state: str) -> dict[str, object]:
+        """读取流程状态载荷（私有字典直读）。
+
+        Args:
+            state: 流程状态串。
+
+        Returns:
+            dict[str, object]: 流程载荷。
+        """
+        entry = self.states._items[state]  # pyright: ignore[reportPrivateUsage]
+        return entry[0]
+
+    def provider_config(self, **overrides: object) -> dict[str, object]:
+        """构造 IdP 行配置（缺省指向 Mock IdP）。
+
+        Args:
+            **overrides: 覆盖字段。
+
+        Returns:
+            dict[str, object]: 配置对象。
+        """
+        config: dict[str, object] = {
+            "issuer": ISSUER,
+            "client_id": CLIENT_ID,
+            "client_secret_ref": f"env:{SECRET_ENV}",
+            "redirect_uri": REDIRECT_URI,
+            "scopes": ["openid", "profile", "email"],
+        }
+        config.update(overrides)
+        return config
+
+    async def seed_provider(
+        self,
+        *,
+        idp_key: str = IDP_KEY,
+        status: str = "enabled",
+        sort: int = 0,
+        config: dict[str, object] | None = None,
+        name: str = "Keycloak",
+    ) -> None:
+        """播种一条 IdP 提供方行。
+
+        Args:
+            idp_key: 身份源标识。
+            status: 状态（enabled/disabled）。
+            sort: 排序值。
+            config: 行配置（None 用缺省 Mock 配置）。
+            name: 展示名。
+        """
+        payload = config if config is not None else self.provider_config()
+        async with self.tenant_scope() as session:
+            session.add(
+                SysIdentityProvider(
+                    name=name,
+                    idp_key=idp_key,
+                    type="oidc",
+                    icon="",
+                    config=json.dumps(payload),
+                    status=status,
+                    sort=sort,
+                )
+            )
+            await session.commit()
+
+    async def set_provider_status(self, status: str, *, idp_key: str = IDP_KEY) -> None:
+        """变更提供方状态（覆盖回调期停用分支）。
+
+        Args:
+            status: 新状态。
+            idp_key: 身份源标识。
+        """
+        async with self.tenant_scope() as session:
+            row = (
+                await session.execute(select(SysIdentityProvider).where(SysIdentityProvider.idp_key == idp_key))
+            ).scalar_one()
+            row.status = status
+            await session.commit()
+
+    async def seed_mapping(
+        self,
+        *,
+        idp_key: str = IDP_KEY,
+        external_id: str = "sub-1",
+        tenant_id: str = TENANT,
+        user_id: int = USER_ID,
+        duplicate: bool = False,
+    ) -> None:
+        """播种平台库身份映射行（duplicate=True 造冲突双行）。
+
+        Args:
+            idp_key: 身份源标识。
+            external_id: 外部主体标识。
+            tenant_id: 关联租户编码。
+            user_id: 本地用户主键。
+            duplicate: 是否追加相同映射（触发冲突分支）。
+        """
+        row = SysUserIdentity(
+            idp_key=f"{tenant_id}:{idp_key}",
+            external_id=external_id,
+            tenant_id=tenant_id,
+            user_id=user_id,
+        )
+        async with self.platform_scope() as session:
+            session.add(row)
+            if duplicate:
+                session.add(
+                    SysUserIdentity(
+                        idp_key=f"{tenant_id}:{idp_key}",
+                        external_id=external_id,
+                        tenant_id=tenant_id,
+                        user_id=user_id,
+                    )
+                )
+            await session.commit()
+
+    async def start_flow(
+        self, client: AsyncClient, *, idp_key: str = IDP_KEY, tenant_header: bool = True
+    ) -> tuple[str, str, dict[str, object]]:
+        """发起授权跳转并返回 (state, Location, 流程载荷)。
+
+        Args:
+            client: 测试客户端。
+            idp_key: 身份源标识。
+            tenant_header: 是否带租户请求头。
+
+        Returns:
+            tuple[str, str, dict[str, object]]: (state, 跳转 URL, 流程载荷)。
+        """
+        response = await client.get(
+            f"/api/v1/auth/sso/{idp_key}/authorize",
+            headers=TENANT_HEADERS if tenant_header else {},
+        )
+        assert response.status_code == 302
+        location = response.headers["location"]
+        state = parse_qs(urlparse(location).query)["state"][0]
+        return state, location, self.peek(state)
+
+    async def flow_payload(self, state: str) -> dict[str, object]:
+        """读流程载荷（state 不存在返回空）。
+
+        Args:
+            state: 流程状态串。
+
+        Returns:
+            dict[str, object]: 流程载荷。
+        """
+        entry = self.states._items.get(state)  # pyright: ignore[reportPrivateUsage]
+        return entry[0] if entry is not None else {}
+
+
+@pytest.fixture
+def idp() -> IdpMock:
+    """Mock IdP 夹具（每用例独立密钥与响应状态）。
+
+    Returns:
+        IdpMock: Mock IdP。
+    """
+    return IdpMock()
+
+
+async def _ensure_schema(app: FastAPI) -> None:
+    """兜底建表（平台库 sys_user_identity / 租户库 sys_identity_provider）。
+
+    Args:
+        app: 应用实例。
+    """
+    tenant_engine = await app.state.engine_registry.get(DEMO_TENANT.db_key)
+    async with tenant_engine.begin() as conn:
+        await conn.run_sync(cast("Table", SysIdentityProvider.__table__).create, checkfirst=True)
+    platform_engine = await app.state.engine_registry.get(PLATFORM_DB_KEY)
+    async with platform_engine.begin() as conn:
+        await conn.run_sync(cast("Table", SysUserIdentity.__table__).create, checkfirst=True)
+
+
+async def _clean_rows(app: FastAPI) -> None:
+    """清空用例涉及的数据行（会话 / 提供方 / 身份映射）。
+
+    Args:
+        app: 应用实例。
+    """
+    async with session_scope(
+        app.state.engine_registry, db_key=DEMO_TENANT.db_key, factory=app.state.session_factory
+    ) as session:
+        await session.execute(delete(SysSession))
+        await session.execute(delete(SysIdentityProvider))
+        await session.commit()
+    async with session_scope(
+        app.state.engine_registry, db_key=PLATFORM_DB_KEY, factory=app.state.session_factory
+    ) as session:
+        await session.execute(delete(SysUserIdentity))
+        await session.commit()
+
+
+@pytest.fixture(autouse=True)
+async def clean_sso(service_app: FastAPI) -> AsyncIterator[None]:
+    """用例前后清空 SSO 相关表并兜底建表。
+
+    Args:
+        service_app: 应用实例。
+
+    Yields:
+        None: 用例运行期。
+    """
+    await _ensure_schema(service_app)
+    await _clean_rows(service_app)
+    yield
+    await _clean_rows(service_app)
+
+
+@pytest.fixture
+def sso(service_app: FastAPI, monkeypatch: pytest.MonkeyPatch, idp: IdpMock) -> SsoHarness:
+    """装配 SSO 测试替身（依赖覆盖 + ProviderRegistry 传输注入）。
+
+    Args:
+        service_app: 应用实例。
+        monkeypatch: pytest monkeypatch 夹具。
+        idp: Mock IdP。
+
+    Returns:
+        SsoHarness: 装配套件。
+    """
+    issuer, org, store, limiter, states = (
+        FakeUserTokenIssuer(),
+        FakeSsoOrgClient(),
+        MemorySessionStore(),
+        MemoryRateLimiter(),
+        MemoryIdpStateStore(),
+    )
+    service_app.dependency_overrides[get_user_token_issuer] = lambda: issuer
+    service_app.dependency_overrides[get_service_client] = lambda: org
+    service_app.dependency_overrides[get_session_store] = lambda: store
+    service_app.dependency_overrides[get_rate_limiter] = lambda: limiter
+    service_app.dependency_overrides[get_idp_state_store] = lambda: states
+    service_app.dependency_overrides[get_realtime_publisher] = lambda: NullRealtimePublisher()
+    monkeypatch.setenv(SECRET_ENV, CLIENT_SECRET)
+    monkeypatch.setattr(
+        sso_api,
+        "ProviderRegistry",
+        functools.partial(ProviderRegistry, transport=httpx.MockTransport(idp.handle)),
+    )
+    return SsoHarness(app=service_app, issuer=issuer, org=org, store=store, limiter=limiter, states=states, idp=idp)

@@ -140,6 +140,33 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/org/internal/users/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * User Profile
+         * @description 按主键取用户概要（不存在 `found=false`，由调用侧判定错误语义）。
+         *
+         *     Args:
+         *         req: 概要查询请求（用户主键）。
+         *         uow: 请求级工作单元。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为概要结果（`UserProfileResult`）。
+         */
+        post: operations["user_profile_api_v1_org_internal_users_profile_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/org/posts": {
         parameters: {
             query?: never;
@@ -293,6 +320,7 @@ export interface components {
         ApiResponse_CredentialVerifyResult_: unknown;
         ApiResponse_LoginStateResult_: unknown;
         ApiResponse_UpdatePasswordResult_: unknown;
+        ApiResponse_UserProfileResult_: unknown;
         CredentialUserSummary: unknown;
         /**
          * CredentialVerifyRequest
@@ -366,6 +394,19 @@ export interface components {
             new_password: string;
         };
         UpdatePasswordResult: unknown;
+        /**
+         * UserProfileRequest
+         * @description 用户概要查询请求（按主键；租户经服务 JWT `tenant` claim 解析）。
+         */
+        UserProfileRequest: {
+            /**
+             * User Id
+             * @description 用户主键
+             */
+            user_id: number;
+        };
+        UserProfileResult: unknown;
+        UserProfileUser: unknown;
         /** ValidationError */
         ValidationError: {
             /** Context */
@@ -667,6 +708,86 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponse_CredentialVerifyResult_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    user_profile_api_v1_org_internal_users_profile_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserProfileRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_UserProfileResult_"];
                 };
             };
             /** @description 未认证 */

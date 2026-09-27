@@ -78,11 +78,21 @@ class OidcIdentityProvider(BaseIdentityProvider):
         self._metadata_cache: tuple[float, Mapping[str, object]] | None = None
         self._jwks = JwksCache(ttl=jwks_cache_ttl, timeout=timeout, transport=transport)
 
-    async def authorize(self, state: str) -> str:
-        """构造授权入口 URL（授权码流程；state 由调用方生成并持有、回调校验）。
+    async def authorize(
+        self,
+        state: str,
+        *,
+        nonce: str | None = None,
+        code_challenge: str | None = None,
+        code_challenge_method: str | None = None,
+    ) -> str:
+        """构造授权入口 URL（授权码流程；state / nonce 由调用方生成并持有、回调校验）。
 
         Args:
             state: 防 CSRF 的 state。
+            nonce: OIDC nonce（可选；写入授权请求，回调校验 ID Token `nonce` 声明）。
+            code_challenge: PKCE challenge（可选；`S256` 为 `BASE64URL(SHA256(verifier))`）。
+            code_challenge_method: PKCE 方法（可选；缺省 `S256`）。
 
         Returns:
             str: 授权入口 URL。
@@ -92,23 +102,27 @@ class OidcIdentityProvider(BaseIdentityProvider):
         """
         metadata = await self._metadata()
         endpoint = _require_str(metadata, "authorization_endpoint", self._issuer)
-        query = urlencode(
-            {
-                "response_type": "code",
-                "client_id": self._client_id,
-                "redirect_uri": self._redirect_uri,
-                "scope": " ".join(self._scopes),
-                "state": state,
-            }
-        )
+        query: dict[str, str] = {
+            "response_type": "code",
+            "client_id": self._client_id,
+            "redirect_uri": self._redirect_uri,
+            "scope": " ".join(self._scopes),
+            "state": state,
+        }
+        if nonce:
+            query["nonce"] = nonce
+        if code_challenge:
+            query["code_challenge"] = code_challenge
+            query["code_challenge_method"] = code_challenge_method or "S256"
         separator = "&" if "?" in endpoint else "?"
-        return f"{endpoint}{separator}{query}"
+        return f"{endpoint}{separator}{urlencode(query)}"
 
-    async def exchange_token(self, code: str) -> IdentityToken:
+    async def exchange_token(self, code: str, *, code_verifier: str | None = None) -> IdentityToken:
         """用授权码换取令牌（含 ID Token / 刷新令牌）。
 
         Args:
             code: 授权码。
+            code_verifier: PKCE code_verifier（可选；授权时提交了 `code_challenge` 则必传）。
 
         Returns:
             IdentityToken: 令牌响应。
@@ -119,17 +133,16 @@ class OidcIdentityProvider(BaseIdentityProvider):
         """
         metadata = await self._metadata()
         endpoint = _require_str(metadata, "token_endpoint", self._issuer)
-        payload = await self._request_json(
-            endpoint,
-            method="POST",
-            data={
-                "grant_type": "authorization_code",
-                "code": code,
-                "redirect_uri": self._redirect_uri,
-                "client_id": self._client_id,
-                "client_secret": self._client_secret,
-            },
-        )
+        data = {
+            "grant_type": "authorization_code",
+            "code": code,
+            "redirect_uri": self._redirect_uri,
+            "client_id": self._client_id,
+            "client_secret": self._client_secret,
+        }
+        if code_verifier:
+            data["code_verifier"] = code_verifier
+        payload = await self._request_json(endpoint, method="POST", data=data)
         return IdentityToken(
             access_token=str(payload.get("access_token", "")),
             token_type=str(payload.get("token_type", "Bearer")),
@@ -165,14 +178,21 @@ class OidcIdentityProvider(BaseIdentityProvider):
             idp_key=self._issuer,
         )
 
-    async def verify_token(self, token: str, *, audience: str | None = None) -> IdentityClaims:
-        """经 JWKS 验签票据并校验声明（`exp` / `iss` / 可选 `aud`）。
+    async def verify_token(
+        self,
+        token: str,
+        *,
+        audience: str | None = None,
+        nonce: str | None = None,
+    ) -> IdentityClaims:
+        """经 JWKS 验签票据并校验声明（`exp` / `iss` / 可选 `aud` / 可选 `nonce`）。
 
         `kid` 未命中 / 验签失败时强制刷新一次 JWKS 再试（容忍密钥轮换）。
 
         Args:
             token: JWT 紧凑串。
             audience: 期望受众（可选；给定则要求命中 `aud`）。
+            nonce: 期望 nonce（可选；给定则要求 ID Token `nonce` 声明一致）。
 
         Returns:
             IdentityClaims: 验签后的身份声明（`idp_key` 取 issuer）。
@@ -188,6 +208,8 @@ class OidcIdentityProvider(BaseIdentityProvider):
         except AuthError:
             key_set = await self._jwks.get(jwks_uri, force=True)
             claims = verify_jwt(token, key_set, issuer=self._issuer, audience=audience)
+        if nonce is not None and str(claims.payload.get("nonce") or "") != nonce:
+            raise AuthError("OIDC ID Token nonce 校验失败")
         return replace(claims, idp_key=self._issuer)
 
     async def _metadata(self) -> Mapping[str, object]:

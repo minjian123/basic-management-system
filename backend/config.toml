@@ -247,7 +247,7 @@ service_identity = "gateway"
 # 网关服务 JWT 有效期（秒；短时）
 token_ttl_seconds = 60
 # 公开路径（免认证，网关外部路径形态、前缀匹配）——认证端点据此放行前置端点
-public_paths = ["/api/identity/v1/auth/login", "/api/identity/v1/auth/refresh", "/api/identity/v1/captcha"]
+public_paths = ["/api/identity/v1/auth/login", "/api/identity/v1/auth/refresh", "/api/identity/v1/captcha", "/api/identity/v1/auth/sso"]
 
 [service_client]
 # 服务间同步调用实现选择（插件化配置；http = httpx 真实实现、空串 = null 占位不外呼）
@@ -323,6 +323,26 @@ captcha_lock_threshold = 3
 max_active = 5
 # 每请求是否校验设备 / IP 一致性（可选强度；开启时比对会话标记内 ip / ua 与当前请求，不一致 401）
 device_check = false
+
+[sso]
+# SSO 流程状态 TTL（秒；state / nonce / PKCE 一次性消费，过期即回调校验失败）
+state_ttl_seconds = 300
+# 回调成功前端地址（空串 = 回退 JSON 响应，联调便利；只取配置来源，禁止请求参数）
+success_redirect = ""
+# 回调失败前端地址（空串 = 回退统一 JSON 错误体）
+failure_redirect = ""
+# 每 IP 每分钟 authorize / callback 请求上限（限流基座固定窗口）
+ip_rate_limit = 60
+# 每 IdP 每分钟 authorize 请求上限
+provider_rate_limit = 60
+# 是否强制 PKCE（S256；不支持的 IdP 以协议适配层处理，不做全局关闭）
+pkce = true
+# 回调地址基址（派生 redirect_uri；网关形态经 IdP 行 config.redirect_uri 覆盖）
+callback_base_url = "http://localhost:8000"
+
+[idp_state_store]
+# 流程状态存储实现选择（插件化配置；redis = Redis GETDEL 一次性原子消费、memory = 进程内（单副本）、空串 = null 占位）
+provider = "redis"
 
 [data_ownership]
 # 数据所有权守卫实现选择（插件化配置；table = SQLAlchemy 执行前表前缀归属检测、空串 = null 占位不检测）

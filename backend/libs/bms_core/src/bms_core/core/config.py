@@ -457,6 +457,35 @@ class SessionSettings(BaseSettings):
     """每请求是否校验设备 / IP 一致性（可选强度；开启时比对会话标记内 `ip` / `ua` 与当前请求）。"""
 
 
+class SsoSettings(BaseSettings):
+    """SSO 登录链路配置（`[sso]`；流程状态 TTL / 跳转地址 / 限流 / PKCE / 回调基址）。
+
+    口径与《详细设计 · SSO 登录完整链路》「配置契约」节一致：跳转地址**只取配置**（防开放重定向），
+    `pkce` 默认强制 S256；阈值后续按租户 `sys_config` 覆盖留待。
+    """
+
+    state_ttl_seconds: int = Field(default=300, ge=1)
+    """state / nonce / PKCE 流程状态 TTL（秒；一次性消费，过期即回调失败）。"""
+
+    success_redirect: str = ""
+    """回调成功前端地址（空 = 回退 JSON 响应，联调便利）。"""
+
+    failure_redirect: str = ""
+    """回调失败前端地址（空 = 回退统一 JSON 错误体）。"""
+
+    ip_rate_limit: int = Field(default=60, ge=1)
+    """每 IP 每分钟 authorize / callback 请求上限（限流基座）。"""
+
+    provider_rate_limit: int = Field(default=60, ge=1)
+    """每 IdP 每分钟 authorize 请求上限（限流基座）。"""
+
+    pkce: bool = True
+    """是否强制 PKCE（S256；不支持的 IdP 以协议适配层处理，不做全局关闭）。"""
+
+    callback_base_url: str = "http://localhost:8000"
+    """回调地址基址（派生 `redirect_uri`；网关形态经行 `config.redirect_uri` 覆盖）。"""
+
+
 class UserTokenSettings(PluginSelection):
     """用户令牌自签配置（`[user_token]`；密钥与 TTL 归 `[security]`，本分区只放选择与签发方）。"""
 
@@ -644,6 +673,7 @@ class Settings(PydanticBaseSettings, BaseSettings):  # pyright: ignore[reportInc
     icon_registry: PluginSelection = Field(default_factory=PluginSelection)
     idempotency: PluginSelection = Field(default_factory=PluginSelection)
     identity_provider: IdentityProviderSettings = Field(default_factory=IdentityProviderSettings)
+    idp_state_store: PluginSelection = Field(default_factory=PluginSelection)
     importer: PluginSelection = Field(default_factory=PluginSelection)
     llm_provider: PluginSelection = Field(default_factory=PluginSelection)
     login: LoginSettings = Field(default_factory=LoginSettings)
@@ -677,6 +707,7 @@ class Settings(PydanticBaseSettings, BaseSettings):  # pyright: ignore[reportInc
     session_security: PluginSelection = Field(default_factory=PluginSelection)
     session_store: PluginSelection = Field(default_factory=PluginSelection)
     sharding: PluginSelection = Field(default_factory=PluginSelection)
+    sso: SsoSettings = Field(default_factory=SsoSettings)
     storage: PluginSelection = Field(default_factory=PluginSelection)
     task: PluginSelection = Field(default_factory=PluginSelection)
     tenant_self_service: PluginSelection = Field(default_factory=PluginSelection)

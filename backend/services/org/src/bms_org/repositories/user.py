@@ -5,10 +5,21 @@ from bms_org.models.user import SysUser
 
 
 class UserRepository(BaseDbRepository[SysUser]):
-    """用户仓储（`sys_user`）：按账号取数 + 基类 CRUD（作用域含软删除）。"""
+    """用户仓储（`sys_user`）：按账号 / 主键取数 + 基类 CRUD（作用域含软删除）。"""
 
     model = SysUser
     sortable_fields = frozenset({"id", "username"})
+
+    async def get_by_id(self, user_id: int) -> SysUser | None:
+        """按主键查询单条记录（作用域过滤；不存在返回 None）。
+
+        Args:
+            user_id: 用户主键。
+
+        Returns:
+            SysUser | None: 用户记录；不存在返回 None。
+        """
+        return await self.get(user_id)
 
     async def get_by_username(self, username: str) -> SysUser | None:
         """按登录账号查询单条记录（作用域过滤；不存在返回 None）。

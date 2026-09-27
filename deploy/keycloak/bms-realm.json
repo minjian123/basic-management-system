@@ -24,7 +24,9 @@
       "secret": "${KEYCLOAK_CLIENT_SECRET}",
       "redirectUris": [
         "http://localhost:8000/api/v1/auth/callback",
-        "http://localhost:8088/api/identity/v1/auth/callback"
+        "http://localhost:8088/api/identity/v1/auth/callback",
+        "http://localhost:8000/api/v1/auth/sso/keycloak/callback",
+        "http://localhost:8088/api/identity/v1/auth/sso/keycloak/callback"
       ],
       "webOrigins": [
         "+"

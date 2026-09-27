@@ -1,0 +1,449 @@
+"""认证与身份服务 services 层：SSO 登录编排（入口清单 / 授权跳转 / 回调闭环）。
+
+- 入口清单：租户内 `enabled` IdP 行 → 前端渲染登录方式。
+- 授权跳转：生成 `state / nonce / code_verifier`（PKCE S256）落流程状态存储（短 TTL、一次性），
+  构造外部授权 URL；IdP 发现失败翻译为 `20053`。
+- 回调闭环：`state` 一次性消费（记录租户为权威）→ 换码 → ID Token 验签 / `nonce` 校验
+  （无 `id_token` 回退 userinfo）→ `sys_user_identity` 映射 → org 用户概要 → `SessionIssuer`
+  签发同构会话 → org `login-state(success=True)`。
+- 错误翻译：`bms_core` 出站失败（`ServiceUnavailableError`）在服务边界翻译为
+  `SsoProviderUnavailableError`（`20053`）；`state` / `nonce` / PKCE / 令牌校验失败为 `20052`；
+  映射未命中为 `20054`；账号停用复用 `20004`。
+- 日志：结构化 `warning`（`idp_key` / `tenant` / `code` / `error`），`state` 只记前 8 位脱敏，
+  不落 token / code / secret。
+"""
+
+from __future__ import annotations
+
+import base64
+import hashlib
+import secrets
+from dataclasses import asdict, dataclass
+from datetime import UTC, datetime
+from typing import cast
+
+from bms_core.core.base import BaseObject
+from bms_core.core.config import SsoSettings
+from bms_core.core.exceptions import (
+    AccountDisabledError,
+    AuthError,
+    ConfigError,
+    ServiceUnavailableError,
+    SsoCallbackError,
+    SsoIdentityUnmatchedError,
+    SsoProviderNotFoundError,
+    SsoProviderUnavailableError,
+)
+from bms_core.core.logging import get_logger
+from bms_core.db.session import DbSession
+from bms_core.idp.base import BaseIdentityProvider, IdentityToken
+from bms_core.idp.state.base import BaseIdpStateStore, IdpFlowState
+from bms_core.ratelimit.base import BaseRateLimiter, RateLimitRule, build_rate_limit_key
+from bms_identity.repositories.identity_provider import IdentityProviderRepository
+from bms_identity.repositories.user_identity import UserIdentityRepository
+from bms_identity.schemas.sso import SsoProviderItem
+from bms_identity.services.org_client import OrgCredentialClient
+from bms_identity.services.provider_registry import ProviderRegistry
+from bms_identity.services.session_issuer import IssuedSession, SessionIssuer
+
+__all__ = ["SsoLoginResult", "SsoService"]
+
+_IP_DIMENSION = "ip"
+_CLIENT_DIMENSION = "client"
+_PKCE_METHOD = "S256"
+
+_LOGGER = get_logger("bms")
+
+
+@dataclass(frozen=True)
+class SsoLoginResult(BaseObject):
+    """SSO 回调成功结果（租户 + 已签发会话）。"""
+
+    tenant: str
+    """登录生效租户编码（以流程状态记录为权威）。"""
+
+    issued: IssuedSession
+    """已签发的会话（双 token + 会话 id）。"""
+
+
+class SsoService(BaseObject):
+    """SSO 编排服务（流程状态 / 限流 / IdP 实例 / org 概要）。"""
+
+    def __init__(
+        self,
+        *,
+        state_store: BaseIdpStateStore,
+        rate_limiter: BaseRateLimiter,
+        org_client: OrgCredentialClient,
+        provider_registry: ProviderRegistry,
+        sso_settings: SsoSettings,
+    ) -> None:
+        """初始化。
+
+        Args:
+            state_store: 流程状态存储（state / nonce / PKCE 一次性）。
+            rate_limiter: 限流基座（authorize / callback）。
+            org_client: org 内部接口客户端（用户概要 / 登录态写回）。
+            provider_registry: IdP 行实例化桥接。
+            sso_settings: SSO 配置（TTL / 限流阈值 / PKCE 开关）。
+        """
+        self._state = state_store
+        self._limiter = rate_limiter
+        self._org = org_client
+        self._providers = provider_registry
+        self._sso = sso_settings
+
+    async def list_providers(self, tenant: str, session: DbSession) -> list[SsoProviderItem]:
+        """可用 IdP 清单（仅 `enabled`，按 `sort` / `id` 升序）。
+
+        Args:
+            tenant: 租户编码（保留参数，仓储已按当前租户库取数）。
+            session: 认证服务租户库会话。
+
+        Returns:
+            list[SsoProviderItem]: 入口清单项（租户无启用 IdP 时为空列表）。
+        """
+        rows = await IdentityProviderRepository(session).list_enabled()
+        return [
+            SsoProviderItem(
+                idp_key=row.idp_key,
+                name=row.name,
+                icon=row.icon or "",
+                type=row.type,
+                sort=row.sort,
+            )
+            for row in rows
+        ]
+
+    async def authorize(
+        self,
+        idp_key: str,
+        *,
+        tenant: str,
+        ip: str | None,
+        session: DbSession,
+    ) -> str:
+        """生成流程状态并返回外部授权 URL。
+
+        Args:
+            idp_key: 租户内 IdP 标识。
+            tenant: 生效租户编码。
+            ip: 客户端 IP（可选；限流维度）。
+            session: 认证服务租户库会话。
+
+        Returns:
+            str: 外部授权端点 URL（302 Location）。
+
+        Raises:
+            SsoProviderNotFoundError: IdP 不存在或已停用（20051/404）。
+            SsoProviderUnavailableError: 配置缺失 / IdP 发现失败（20053/503）。
+            RateLimitError: 限流命中（10005/429）。
+        """
+        await self._enforce_authorize_rate_limit(tenant, idp_key, ip)
+        row = await IdentityProviderRepository(session).get_by_key(idp_key)
+        if row is None or row.status != "enabled":
+            raise SsoProviderNotFoundError()
+
+        try:
+            instance = self._providers.instance_for(row)
+        except ConfigError as exc:
+            _LOGGER.warning("SSO 授权配置不可用", idp_key=idp_key, tenant=tenant, error=str(exc))
+            raise SsoProviderUnavailableError("IdP 配置不可用") from exc
+
+        state = secrets.token_urlsafe(32)
+        nonce = secrets.token_urlsafe(16)
+        verifier = secrets.token_urlsafe(64) if self._sso.pkce else ""
+        flow = IdpFlowState(
+            tenant=tenant,
+            idp_key=idp_key,
+            nonce=nonce,
+            code_verifier=verifier,
+            redirect_uri=self._providers.redirect_uri_for(row),
+            created_at=datetime.now(UTC).isoformat(),
+        )
+        await self._state.save(
+            state,
+            _flow_payload(flow),
+            ttl=self._sso.state_ttl_seconds,
+        )
+        try:
+            return await instance.authorize(
+                state,
+                nonce=nonce,
+                code_challenge=_code_challenge(verifier) if verifier else None,
+                code_challenge_method=_PKCE_METHOD if verifier else None,
+            )
+        except ServiceUnavailableError as exc:
+            await self._state.delete(state)
+            _LOGGER.warning("SSO 授权跳转失败", idp_key=idp_key, tenant=tenant, error=str(exc))
+            raise SsoProviderUnavailableError("IdP 暂不可用") from exc
+
+    async def consume_flow(
+        self,
+        state: str,
+        *,
+        idp_key: str,
+        tenant_code: str | None,
+        ip: str | None,
+    ) -> IdpFlowState:
+        """一次性消费流程状态并校验（回调租户以记录为权威）。
+
+        Args:
+            state: IdP 回传的流程状态。
+            idp_key: 回调路径中的 IdP 标识（须与记录一致）。
+            tenant_code: 请求上下文租户编码（有则须与记录一致）。
+            ip: 客户端 IP（可选；限流维度）。
+
+        Returns:
+            IdpFlowState: 流程记录（租户 / `nonce` / PKCE 校验码）。
+
+        Raises:
+            SsoCallbackError: `state` 缺失 / 过期 / 重放 / 与路径或上下文租户不符（20052/400）。
+            RateLimitError: 限流命中（10005/429）。
+        """
+        await self._enforce_callback_rate_limit(ip)
+        payload = await self._state.consume(state)
+        if payload is None:
+            _LOGGER.warning("SSO 流程状态无效", state=state[:8], idp_key=idp_key)
+            raise SsoCallbackError("流程状态无效或已过期")
+        flow = _flow_from_payload(payload)
+        if flow.idp_key != idp_key:
+            _LOGGER.warning("SSO 流程状态与身份源不匹配", state=state[:8], idp_key=idp_key)
+            raise SsoCallbackError("流程状态与身份源不匹配")
+        if tenant_code and tenant_code != flow.tenant:
+            _LOGGER.warning("SSO 流程租户不一致", state=state[:8], tenant=flow.tenant, idp_key=idp_key)
+            raise SsoCallbackError("租户与流程状态不一致")
+        return flow
+
+    async def callback(
+        self,
+        flow: IdpFlowState,
+        *,
+        idp_key: str,
+        code: str | None,
+        error: str | None,
+        ip: str | None,
+        user_agent: str | None,
+        session: DbSession,
+        platform_session: DbSession,
+        session_issuer: SessionIssuer,
+    ) -> SsoLoginResult:
+        """回调闭环：换码 / 验签 / 映射 / 概要 → 签发会话。
+
+        读取身份源行后释放只读事务，确保会话签发从干净事务边界开始（与本地登录同口径）。
+
+        Args:
+            flow: 已消费的流程记录。
+            idp_key: 回调路径中的 IdP 标识。
+            code: 授权码（IdP 回传）。
+            error: IdP 回传错误（如 `access_denied`）。
+            ip: 客户端 IP（可选）。
+            user_agent: 客户端 User-Agent（可选）。
+            session: 认证服务租户库会话（按流程租户开启）。
+            platform_session: 平台库会话（身份映射只读）。
+            session_issuer: 会话签发作构件。
+
+        Returns:
+            SsoLoginResult: 登录结果（租户 + 会话）。
+
+        Raises:
+            SsoCallbackError: IdP 拒绝 / 缺授权码 / 令牌校验失败（20052/400）。
+            SsoProviderNotFoundError: IdP 不存在或已停用（20051/404）。
+            SsoProviderUnavailableError: IdP 换码 / 验签 / 用户信息不可达（20053/503）。
+            SsoIdentityUnmatchedError: 映射未命中或本地用户不存在（20054/403）。
+            SsoIdentityConflictError: 身份映射冲突（20055/409）。
+            AccountDisabledError: 本地账号停用（20004/401）。
+            ServiceUnavailableError: org 概要 / 登录态接口不可用（10007/503）。
+        """
+        if error:
+            _LOGGER.warning("SSO 回调被 IdP 拒绝", idp_key=idp_key, tenant=flow.tenant, error=error)
+            raise SsoCallbackError(f"IdP 返回错误：{error}")
+        if not code:
+            raise SsoCallbackError("缺少授权码")
+
+        row = await IdentityProviderRepository(session).get_by_key(idp_key)
+        if row is None or row.status != "enabled":
+            raise SsoProviderNotFoundError()
+        try:
+            instance = self._providers.instance_for(row)
+        except ConfigError as exc:
+            raise SsoProviderUnavailableError("IdP 配置不可用") from exc
+        await session.rollback()
+
+        token = await self._exchange(instance, code, flow, idp_key)
+        subject = await self._resolve_subject(instance, token, flow, idp_key)
+
+        mapping = await UserIdentityRepository(platform_session).get_by_key_external(
+            f"{flow.tenant}:{idp_key}", subject
+        )
+        if mapping is None or mapping.tenant_id != flow.tenant:
+            _LOGGER.warning("SSO 身份未匹配", idp_key=idp_key, tenant=flow.tenant)
+            raise SsoIdentityUnmatchedError()
+        profile = await self._org.user_profile(flow.tenant, mapping.user_id)
+        if not profile.found or profile.user is None:
+            _LOGGER.warning("SSO 本地用户不存在", idp_key=idp_key, tenant=flow.tenant, user_id=mapping.user_id)
+            raise SsoIdentityUnmatchedError()
+        if profile.user.status != "enabled":
+            raise AccountDisabledError()
+
+        issued = await session_issuer.issue(
+            user_id=mapping.user_id,
+            tenant=flow.tenant,
+            ip=ip,
+            user_agent=user_agent,
+        )
+        await self._org.login_state(flow.tenant, profile.user.username, success=True)
+        _LOGGER.info("SSO 登录成功", idp_key=idp_key, tenant=flow.tenant, user_id=mapping.user_id)
+        return SsoLoginResult(tenant=flow.tenant, issued=issued)
+
+    async def _exchange(
+        self,
+        instance: BaseIdentityProvider,
+        code: str,
+        flow: IdpFlowState,
+        idp_key: str,
+    ) -> IdentityToken:
+        """换码（带 PKCE 校验码），出站失败翻译为 `20053`。
+
+        Args:
+            instance: IdP 实例。
+            code: 授权码。
+            flow: 流程记录（PKCE 校验码）。
+            idp_key: IdP 标识（日志）。
+
+        Returns:
+            IdentityToken: 令牌响应（含 `id_token`）。
+
+        Raises:
+            SsoProviderUnavailableError: IdP 换码失败（20053/503）。
+        """
+        try:
+            return await instance.exchange_token(code, code_verifier=flow.code_verifier or None)
+        except ServiceUnavailableError as exc:
+            _LOGGER.warning("SSO 换码失败", idp_key=idp_key, tenant=flow.tenant, error=str(exc))
+            raise SsoProviderUnavailableError("IdP 换码失败") from exc
+        except ConfigError as exc:
+            raise SsoProviderUnavailableError("IdP 配置不可用") from exc
+
+    async def _resolve_subject(
+        self,
+        instance: BaseIdentityProvider,
+        token: IdentityToken,
+        flow: IdpFlowState,
+        idp_key: str,
+    ) -> str:
+        """解析外部身份主体：优先 ID Token 验签（含 `nonce`），否则回退 userinfo。
+
+        Args:
+            instance: IdP 实例。
+            token: 令牌响应。
+            flow: 流程记录（`nonce`）。
+            idp_key: IdP 标识（日志）。
+
+        Returns:
+            str: 外部身份主体（OIDC 为 `sub`）。
+
+        Raises:
+            SsoCallbackError: ID Token 签名 / `nonce` / 过期等校验失败（20052/400）。
+            SsoProviderUnavailableError: JWKS / userinfo 不可达（20053/503）。
+        """
+        if token.id_token:
+            try:
+                claims = await instance.verify_token(token.id_token, nonce=flow.nonce or None)
+            except AuthError as exc:
+                _LOGGER.warning("SSO ID Token 校验失败", idp_key=idp_key, tenant=flow.tenant, error=str(exc))
+                raise SsoCallbackError("ID Token 校验失败") from exc
+            except ServiceUnavailableError as exc:
+                raise SsoProviderUnavailableError("IdP 验签不可用") from exc
+            except ConfigError as exc:
+                raise SsoProviderUnavailableError("IdP 配置不可用") from exc
+            return claims.subject
+
+        try:
+            user = await instance.userinfo(token.access_token)
+        except ServiceUnavailableError as exc:
+            raise SsoProviderUnavailableError("IdP 用户信息不可用") from exc
+        return user.subject
+
+    async def _enforce_authorize_rate_limit(self, tenant: str, idp_key: str, ip: str | None) -> None:
+        """authorize 限流：IP 维度 + client 维度（target=`idp_key`）。
+
+        Args:
+            tenant: 租户编码。
+            idp_key: IdP 标识。
+            ip: 客户端 IP（可选）。
+        """
+        if ip:
+            await self._limiter.require(
+                build_rate_limit_key(dimension=_IP_DIMENSION, target=ip, tenant=tenant),
+                RateLimitRule(limit=self._sso.ip_rate_limit),
+            )
+        await self._limiter.require(
+            build_rate_limit_key(dimension=_CLIENT_DIMENSION, target=idp_key, tenant=tenant),
+            RateLimitRule(limit=self._sso.provider_rate_limit),
+        )
+
+    async def _enforce_callback_rate_limit(self, ip: str | None) -> None:
+        """callback 限流：IP 维度（租户未知，键为全局）。
+
+        Args:
+            ip: 客户端 IP（可选）。
+        """
+        if ip:
+            await self._limiter.require(
+                build_rate_limit_key(dimension=_IP_DIMENSION, target=ip),
+                RateLimitRule(limit=self._sso.ip_rate_limit),
+            )
+
+
+def _code_challenge(verifier: str) -> str:
+    """PKCE S256 挑战值：`BASE64URL(SHA256(verifier))`（去填充）。
+
+    Args:
+        verifier: code_verifier 原文。
+
+    Returns:
+        str: code_challenge。
+    """
+    digest = hashlib.sha256(verifier.encode("ascii")).digest()
+    return base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
+
+
+def _flow_payload(flow: IdpFlowState) -> dict[str, object]:
+    """流程记录 → 存储 payload（JSON 序列化口径）。
+
+    Args:
+        flow: 流程记录。
+
+    Returns:
+        dict[str, object]: payload。
+    """
+    return cast("dict[str, object]", asdict(flow))
+
+
+def _flow_from_payload(payload: object) -> IdpFlowState:
+    """存储 payload → 流程记录（非法结构按流程失效处理）。
+
+    Args:
+        payload: 存储返回值。
+
+    Returns:
+        IdpFlowState: 流程记录。
+
+    Raises:
+        SsoCallbackError: payload 结构非法（20052/400）。
+    """
+    if not isinstance(payload, dict):
+        raise SsoCallbackError("流程状态无效或已过期")
+    values = cast("dict[str, object]", payload)
+    try:
+        return IdpFlowState(
+            tenant=str(values["tenant"]),
+            idp_key=str(values["idp_key"]),
+            nonce=str(values["nonce"]),
+            code_verifier=str(values["code_verifier"]),
+            redirect_uri=str(values["redirect_uri"]),
+            created_at=str(values["created_at"]),
+        )
+    except KeyError as exc:
+        raise SsoCallbackError("流程状态无效或已过期") from exc

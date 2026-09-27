@@ -195,6 +195,88 @@ class SessionAuthError(SessionError):
         BizError.__init__(self, ErrorCode.SESSION_EXPIRED, message, http_status=401, data=data)
 
 
+class SsoError(AuthError):
+    """SSO 段（认证段内 `2005x` 子段）异常基类；子类在构造时预置码位与 HTTP 状态。"""
+
+
+class SsoProviderNotFoundError(SsoError):
+    """IdP 配置不存在或已停用（`20051` / 404）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化 IdP 配置不存在异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.SSO_PROVIDER_NOT_FOUND, message, http_status=404, data=data)
+
+
+class SsoCallbackError(SsoError):
+    """回调校验失败（`state` / `nonce` / PKCE / ID Token / IdP 回传错误；`20052` / 400）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化回调校验失败异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.SSO_CALLBACK_FAILED, message, http_status=400, data=data)
+
+
+class SsoProviderUnavailableError(SsoError):
+    """外部 IdP 不可达或超时（发现 / 换码 / 用户信息 / JWKS；`20053` / 503）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化外部 IdP 不可达异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.SSO_PROVIDER_UNAVAILABLE, message, http_status=503, data=data)
+
+
+class SsoIdentityUnmatchedError(SsoError):
+    """未匹配本地用户且 JIT 未启用 / 被拒（`20054` / 403）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化身份未匹配异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.SSO_IDENTITY_UNMATCHED, message, http_status=403, data=data)
+
+
+class SsoIdentityConflictError(SsoError):
+    """身份映射冲突（多行 / 唯一约束冲突；`20055` / 409）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化身份映射冲突异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.SSO_IDENTITY_CONFLICT, message, http_status=409, data=data)
+
+
+class LocalLoginGuardError(SsoError):
+    """本地登录保护（预留，本期不触发；`20056` / 429）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化本地登录保护异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.LOCAL_LOGIN_GUARD, message, http_status=429, data=data)
+
+
 class CaptchaError(AuthError):
     """验证码段（认证段内 `201xx` 子段）异常基类；子类在构造时预置码位与 HTTP 状态。"""
 

@@ -71,6 +71,9 @@ from bms_core.idempotency.base import IdempotencyStore
 from bms_core.idempotency.redis import RedisIdempotencyStore
 from bms_core.idp.base import BaseIdentityProvider
 from bms_core.idp.oidc import OidcIdentityProviderFactory
+from bms_core.idp.state.base import BaseIdpStateStore
+from bms_core.idp.state.memory import MemoryIdpStateStore
+from bms_core.idp.state.redis import RedisIdpStateStore
 from bms_core.listing.base import BaseQuerySchemeStore
 from bms_core.listing.store import SqlQuerySchemeStore
 from bms_core.llm.base import BaseLlmProvider
@@ -165,6 +168,7 @@ _NULL_MODULES: tuple[str, ...] = (
     "bms_core.icon.null",
     "bms_core.idempotency.null",
     "bms_core.idp.null",
+    "bms_core.idp.state.null",
     "bms_core.listing.null",
     "bms_core.llm.null",
     "bms_core.lock.null",
@@ -269,6 +273,7 @@ PLUGIN_WIRINGS: tuple[PluginWiring, ...] = (
     PluginWiring("service_client", BaseServiceClient, "service_client", "service_client"),
     PluginWiring("workflow_engine", BaseWorkflowEngine, "workflow_engine", "workflow_engine"),
     PluginWiring("identity_provider", BaseIdentityProvider, "identity_provider", "identity_provider"),
+    PluginWiring("idp_state_store", BaseIdpStateStore, "idp_state_store", "idp_state_store"),
     PluginWiring("session_store", BaseSessionStore, "session_store", "session_store"),
     PluginWiring(
         "query_provider_registry", BaseQueryProviderRegistry, "query_provider_registry", "query_provider_registry"
@@ -338,6 +343,8 @@ def register_platform_plugins(settings: Settings, app: FastAPI, resources: Resou
     register_plugin("edge", "marker", MarkerEdgeTrustFactory(settings))
     register_plugin("edge", "service_jwt", ServiceJwtEdgeTrustFactory(settings))
     register_plugin("identity_provider", "oidc", OidcIdentityProviderFactory(settings))
+    register_plugin("idp_state_store", "memory", MemoryIdpStateStoreFactory())
+    register_plugin("idp_state_store", "redis", RedisIdpStateStoreFactory(settings))
     register_plugin("service_token", "jwt", JwtServiceTokenIssuerFactory(settings))
     register_plugin("user_token", "jwt", JwtUserTokenIssuerFactory(settings))
     register_plugin("password_hasher", "pbkdf2", Pbkdf2PasswordHasherFactory(settings))
@@ -1032,6 +1039,50 @@ class RedisSessionStoreFactory(BasePluginFactory[RedisSessionStore]):
             RedisSessionStore: 会话存储实例。
         """
         return RedisSessionStore(url=self._settings.redis.url)
+
+
+class MemoryIdpStateStoreFactory(BasePluginFactory[MemoryIdpStateStore]):
+    """进程内流程状态存储工厂（测试 / 无 Redis 降级用）。"""
+
+    plugin_key: str = "idp_state_store"
+    # 不声明 plugin_name：零参工厂避免被插件注册表自动收集（经 register_plugin 显式登记）
+
+    def create(self, options: None = None) -> MemoryIdpStateStore:
+        """构造进程内流程状态存储。
+
+        Args:
+            options: 未使用（零参口径）。
+
+        Returns:
+            MemoryIdpStateStore: 流程状态存储实例。
+        """
+        return MemoryIdpStateStore()
+
+
+class RedisIdpStateStoreFactory(BasePluginFactory[RedisIdpStateStore]):
+    """Redis 流程状态存储工厂（连接串取 `settings.redis.url`，不建连）。"""
+
+    plugin_key: str = "idp_state_store"
+    plugin_name: str = "redis"
+
+    def __init__(self, settings: Settings) -> None:
+        """初始化。
+
+        Args:
+            settings: 应用配置。
+        """
+        self._settings = settings
+
+    def create(self, options: None = None) -> RedisIdpStateStore:
+        """构造 Redis 流程状态存储。
+
+        Args:
+            options: 未使用（零参口径）。
+
+        Returns:
+            RedisIdpStateStore: 流程状态存储实例。
+        """
+        return RedisIdpStateStore(url=self._settings.redis.url)
 
 
 class MemoryDictCacheRegionFactory(BasePluginFactory[MemoryDictCacheRegion]):

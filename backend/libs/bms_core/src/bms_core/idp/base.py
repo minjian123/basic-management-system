@@ -111,22 +111,33 @@ class BaseIdentityProvider(BasePluggable, ABC):
     contract_version: str = DEFAULT_CONTRACT_VERSION
 
     @abstractmethod
-    async def authorize(self, state: str) -> str:
+    async def authorize(
+        self,
+        state: str,
+        *,
+        nonce: str | None = None,
+        code_challenge: str | None = None,
+        code_challenge_method: str | None = None,
+    ) -> str:
         """构造授权入口 URL。
 
         Args:
             state: 防 CSRF 的 state（由调用方生成并持有，回调校验）。
+            nonce: OIDC nonce（可选；OIDC 协议用于 ID Token 重放防护）。
+            code_challenge: PKCE challenge（可选；`S256` 为 `BASE64URL(SHA256(verifier))`）。
+            code_challenge_method: PKCE 方法（可选；与 `code_challenge` 成对出现）。
 
         Returns:
             str: 授权入口 URL。
         """
 
     @abstractmethod
-    async def exchange_token(self, code: str) -> IdentityToken:
+    async def exchange_token(self, code: str, *, code_verifier: str | None = None) -> IdentityToken:
         """用授权码换取令牌（真实实现经 `BaseHttpClient` 调 token 端点）。
 
         Args:
             code: 授权码。
+            code_verifier: PKCE code_verifier（可选；授权时提交了 `code_challenge` 则必传）。
 
         Returns:
             IdentityToken: 身份源令牌。
@@ -143,15 +154,22 @@ class BaseIdentityProvider(BasePluggable, ABC):
             IdentityUser: 身份源用户。
         """
 
-    async def verify_token(self, token: str, *, audience: str | None = None) -> IdentityClaims:
+    async def verify_token(
+        self,
+        token: str,
+        *,
+        audience: str | None = None,
+        nonce: str | None = None,
+    ) -> IdentityClaims:
         """校验票据（JWT 经 JWKS 验签）并返回身份声明。
 
         默认实现表示「本协议不支持 JWT 票据校验」（如 CAS / 企业微信 / 钉钉等非 JWT 协议），
-        OIDC 等 JWT 型身份源覆盖本方法（校验签名、`exp` / `iss` / `aud`）。
+        OIDC 等 JWT 型身份源覆盖本方法（校验签名、`exp` / `iss` / `aud` / 可选 `nonce`）。
 
         Args:
             token: 待校验票据（JWT 紧凑串）。
             audience: 期望受众（可选；给定则要求命中 `aud`）。
+            nonce: 期望 nonce（可选；给定则要求 ID Token `nonce` 声明一致）。
 
         Returns:
             IdentityClaims: 验签后的身份声明。

@@ -9,9 +9,8 @@
 
 from __future__ import annotations
 
-import hashlib
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 
 from bms_core.captcha.base import BaseCaptcha, CaptchaCredential, CaptchaKind
 from bms_core.core.base import BaseObject
@@ -30,7 +29,6 @@ from bms_core.db.unit_of_work import UnitOfWork
 from bms_core.oauth.user_token import (
     USER_TOKEN_TYPE_REFRESH,
     BaseUserTokenIssuer,
-    UserTokenPair,
     UserTokenSpec,
 )
 from bms_core.ratelimit.base import BaseRateLimiter, RateLimitRule, build_rate_limit_key
@@ -47,6 +45,7 @@ from bms_identity.schemas.auth import (
 )
 from bms_identity.services.org_client import OrgCredentialClient
 from bms_identity.services.session import REASON_LOGOUT, SessionService
+from bms_identity.services.session_issuer import SessionIssuer, hash_refresh_token
 
 _ACCOUNT_DIMENSION = "account"
 _IP_DIMENSION = "ip"
@@ -63,18 +62,6 @@ def _utc_now() -> datetime:
         datetime: UTC 时间。
     """
     return datetime.now(UTC).replace(tzinfo=None)
-
-
-def _hash_token(token: str) -> str:
-    """refresh token 哈希（SHA-256 hex；不落原始值）。
-
-    Args:
-        token: refresh token 紧凑串。
-
-    Returns:
-        str: 哈希（小写十六进制）。
-    """
-    return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
 @dataclass(frozen=True)
@@ -146,6 +133,15 @@ class LoginService(BaseObject):
             store=session_store,
             publisher=realtime_publisher,
         )
+        self._session_issuer = SessionIssuer(
+            session=session,
+            uow=uow,
+            user_token_issuer=user_token_issuer,
+            session_security=session_security,
+            session_store=session_store,
+            session_settings=session_settings,
+            session_service=self._session_service,
+        )
 
     async def login(
         self,
@@ -188,28 +184,14 @@ class LoginService(BaseObject):
         if user is None:  # pragma: no cover - found=True 必带用户概要
             raise AuthError("凭据校验结果缺少用户概要")
 
-        session_id = self._security.new_session_id()
-        pair = await self._issuer.issue_pair(
-            UserTokenSpec(subject=str(user.id), session_id=session_id, tenant_id=tenant)
-        )
-        await self._session_service.enforce_max_active(
-            user.id, tenant=tenant, max_active=self._session_settings.max_active
-        )
-        await self._persist_session(
-            session_id=session_id,
-            user_id=user.id,
-            pair=pair,
-            tenant=tenant,
-            ip=ip,
-            user_agent=user_agent,
-        )
+        issued = await self._session_issuer.issue(user_id=user.id, tenant=tenant, ip=ip, user_agent=user_agent)
         await self._limiter.reset(self._fail_key(tenant, req.account))
         await self._org.login_state(tenant, req.account, success=True)
         return LoginOutcome(
             result=LoginResult(
-                access_token=pair.access_token,
-                token_type=pair.token_type,
-                expires_in=pair.expires_in,
+                access_token=issued.access_token,
+                token_type=issued.token_type,
+                expires_in=issued.access_expires_in,
                 user=UserSummary(
                     id=user.id,
                     username=user.username,
@@ -219,8 +201,8 @@ class LoginService(BaseObject):
                     timezone=user.timezone,
                 ),
             ),
-            refresh_token=pair.refresh_token,
-            refresh_expires_in=pair.refresh_expires_in,
+            refresh_token=issued.refresh_token,
+            refresh_expires_in=issued.refresh_expires_in,
         )
 
     async def refresh(
@@ -262,12 +244,12 @@ class LoginService(BaseObject):
             record = await self._sessions.get_by_session_id(session_id)
             if record is None or record.revoked_at is not None or record.expires_at <= _utc_now():
                 raise AuthError("会话已失效")
-            if record.refresh_token_hash != _hash_token(refresh_token):
+            if record.refresh_token_hash != hash_refresh_token(refresh_token):
                 raise AuthError("刷新令牌已失效")
             pair = await self._issuer.issue_pair(
                 UserTokenSpec(subject=str(record.user_id), session_id=session_id, tenant_id=tenant)
             )
-            await self._sessions.update_refresh_hash(session_id, _hash_token(pair.refresh_token))
+            await self._sessions.update_refresh_hash(session_id, hash_refresh_token(pair.refresh_token))
         await self._store.save(
             session_id,
             {"user_id": record.user_id, "tenant": tenant, "ip": ip, "ua": user_agent},
@@ -378,44 +360,6 @@ class LoginService(BaseObject):
         await self._org.login_state(tenant, account, success=False, failed_count=count)
         raise LoginFailedError()
 
-    async def _persist_session(
-        self,
-        *,
-        session_id: str,
-        user_id: int,
-        pair: UserTokenPair,
-        tenant: str,
-        ip: str | None,
-        user_agent: str | None,
-    ) -> None:
-        """写入会话记录与 Redis 标记（同会话 id）。
-
-        Args:
-            session_id: 会话 id。
-            user_id: 用户 ID。
-            pair: 双 token 签发结果。
-            tenant: 租户编码。
-            ip: 客户端 IP（可选）。
-            user_agent: 客户端 User-Agent（可选）。
-        """
-        now = _utc_now()
-        async with self._uow.begin():
-            await self._sessions.create_session(
-                session_id=session_id,
-                user_id=user_id,
-                refresh_token_hash=_hash_token(pair.refresh_token),
-                login_at=now,
-                expires_at=now + timedelta(seconds=pair.refresh_expires_in),
-                device=_truncate(user_agent, 255),
-                ip=_truncate(ip, 64),
-            )
-        await self._store.save(
-            session_id,
-            {"user_id": user_id, "tenant": tenant, "ip": ip, "ua": user_agent},
-            tenant=tenant,
-            ttl=pair.refresh_expires_in,
-        )
-
     def _fail_key(self, tenant: str, account: str) -> str:
         """登录失败计数键。
 
@@ -427,18 +371,3 @@ class LoginService(BaseObject):
             str: 限流键。
         """
         return build_rate_limit_key(dimension=_FAIL_DIMENSION, target=account, tenant=tenant)
-
-
-def _truncate(value: str | None, limit: int) -> str | None:
-    """截断字符串到上限长度（None 原样）。
-
-    Args:
-        value: 原始值。
-        limit: 最大长度。
-
-    Returns:
-        str | None: 截断后的值。
-    """
-    if value is None:
-        return None
-    return value[:limit]
