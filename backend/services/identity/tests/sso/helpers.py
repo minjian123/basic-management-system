@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import time
 from typing import cast
+from urllib.parse import parse_qs
 
 import httpx
 from joserfc import jwt
@@ -27,6 +28,8 @@ CLIENT_ID = "bms-backend"
 CLIENT_SECRET = "client-secret"
 TENANT = "demo"
 IDP_KEY = "keycloak"
+CAS_IDP_KEY = "cas"
+CAS_SERVER = "https://cas.test/cas"
 TENANT_HEADERS = {"X-Tenant-ID": TENANT}
 
 _ACCESS = "access"
@@ -402,3 +405,77 @@ def _token(
     if nonce is not None:
         claims["nonce"] = nonce
     return jwt.encode({"alg": alg, "kid": kid}, claims, key)
+
+
+class CasMock:
+    """可控 CAS 服务：`serviceValidate` 成功 / 失败 / 异常响应（授权跳转不发出站请求）。"""
+
+    def __init__(self) -> None:
+        """初始化（默认成功响应）。"""
+        self.principal = "cas-alice"
+        self.attributes: dict[str, str] = {"displayName": "Alice", "email": "alice@example.com"}
+        self.failure_code: str | None = None
+        self.status = 200
+        self.raw: bytes | None = None
+        self.allowed_services: set[str] | None = None
+        self.services: list[str] = []
+        self.tickets: list[str] = []
+
+    def handle(self, request: httpx.Request) -> httpx.Response:
+        """MockTransport 处理函数（按 `serviceValidate` 路径分派）。
+
+        Args:
+            request: 出站请求。
+
+        Returns:
+            httpx.Response: 模拟响应。
+        """
+        if not request.url.path.endswith("/p3/serviceValidate"):
+            return httpx.Response(404, json={"error": "not_found"})
+        query = parse_qs(request.url.query.decode())
+        service = query.get("service", [""])[0]
+        self.services.append(service)
+        self.tickets.append(query.get("ticket", [""])[0])
+        if self.status != 200:
+            return httpx.Response(self.status, content=b"")
+        if self.raw is not None:
+            return httpx.Response(200, content=self.raw)
+        if self.failure_code is not None:
+            return httpx.Response(200, content=_cas_failure_xml(self.failure_code))
+        if self.allowed_services is not None and service not in self.allowed_services:
+            return httpx.Response(200, content=_cas_failure_xml("INVALID_SERVICE"))
+        return httpx.Response(200, content=_cas_success_xml(self.principal, self.attributes))
+
+
+def _cas_success_xml(principal: str, attributes: dict[str, str]) -> bytes:
+    """构造 CAS 校验成功响应 XML。
+
+    Args:
+        principal: `cas:user` 主体。
+        attributes: 属性映射。
+
+    Returns:
+        bytes: XML 响应体。
+    """
+    body = "".join(f"<cas:{name}>{value}</cas:{name}>" for name, value in attributes.items())
+    return (
+        '<cas:serviceResponse xmlns:cas="http://www.yale.edu/tp/cas">'
+        f"<cas:authenticationSuccess><cas:user>{principal}</cas:user>"
+        f"<cas:attributes>{body}</cas:attributes></cas:authenticationSuccess></cas:serviceResponse>"
+    ).encode()
+
+
+def _cas_failure_xml(code: str) -> bytes:
+    """构造 CAS 校验失败响应 XML。
+
+    Args:
+        code: `authenticationFailure` 的 code。
+
+    Returns:
+        bytes: XML 响应体。
+    """
+    return (
+        '<cas:serviceResponse xmlns:cas="http://www.yale.edu/tp/cas">'
+        f'<cas:authenticationFailure code="{code}">bad</cas:authenticationFailure>'
+        "</cas:serviceResponse>"
+    ).encode()

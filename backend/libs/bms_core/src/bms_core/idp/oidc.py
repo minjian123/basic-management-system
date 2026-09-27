@@ -85,6 +85,7 @@ class OidcIdentityProvider(BaseIdentityProvider):
         nonce: str | None = None,
         code_challenge: str | None = None,
         code_challenge_method: str | None = None,
+        service: str | None = None,
     ) -> str:
         """构造授权入口 URL（授权码流程；state / nonce 由调用方生成并持有、回调校验）。
 
@@ -93,6 +94,7 @@ class OidcIdentityProvider(BaseIdentityProvider):
             nonce: OIDC nonce（可选；写入授权请求，回调校验 ID Token `nonce` 声明）。
             code_challenge: PKCE challenge（可选；`S256` 为 `BASE64URL(SHA256(verifier))`）。
             code_challenge_method: PKCE 方法（可选；缺省 `S256`）。
+            service: 服务地址（OIDC 忽略；仅 CAS 等协议使用）。
 
         Returns:
             str: 授权入口 URL。
@@ -100,6 +102,7 @@ class OidcIdentityProvider(BaseIdentityProvider):
         Raises:
             ConfigError: Discovery 文档缺 `authorization_endpoint`（40001）。
         """
+        del service
         metadata = await self._metadata()
         endpoint = _require_str(metadata, "authorization_endpoint", self._issuer)
         query: dict[str, str] = {
@@ -117,12 +120,19 @@ class OidcIdentityProvider(BaseIdentityProvider):
         separator = "&" if "?" in endpoint else "?"
         return f"{endpoint}{separator}{urlencode(query)}"
 
-    async def exchange_token(self, code: str, *, code_verifier: str | None = None) -> IdentityToken:
+    async def exchange_token(
+        self,
+        code: str,
+        *,
+        code_verifier: str | None = None,
+        service: str | None = None,
+    ) -> IdentityToken:
         """用授权码换取令牌（含 ID Token / 刷新令牌）。
 
         Args:
             code: 授权码。
             code_verifier: PKCE code_verifier（可选；授权时提交了 `code_challenge` 则必传）。
+            service: 服务地址（OIDC 忽略；仅 CAS 等协议使用）。
 
         Returns:
             IdentityToken: 令牌响应。
@@ -133,6 +143,7 @@ class OidcIdentityProvider(BaseIdentityProvider):
         """
         metadata = await self._metadata()
         endpoint = _require_str(metadata, "token_endpoint", self._issuer)
+        del service
         data = {
             "grant_type": "authorization_code",
             "code": code,

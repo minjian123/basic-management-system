@@ -22,7 +22,19 @@ from bms_identity.services.provider_registry import (
     _parse_config,  # pyright: ignore[reportPrivateUsage]
     _resolve_redirect_uri,  # pyright: ignore[reportPrivateUsage]
 )
-from bms_identity.services.sso import SsoService, _flow_from_payload  # pyright: ignore[reportPrivateUsage]
+from bms_identity.services.sso import (  # pyright: ignore[reportPrivateUsage]
+    SsoService,
+    _build_service_url,  # pyright: ignore[reportPrivateUsage]
+    _flow_from_payload,  # pyright: ignore[reportPrivateUsage]
+)
+
+
+@pytest.mark.kiwi_id(2199)
+def test_build_service_url_edge() -> None:
+    """CAS service 构造边界：空回调地址回退空串；含查询串以 `&` 追加；state 转义。"""
+    assert _build_service_url("", "s") == ""
+    assert _build_service_url("http://cb.test/cb?x=1", "s") == "http://cb.test/cb?x=1&state=s"
+    assert _build_service_url("http://cb.test/cb", "a b") == "http://cb.test/cb?state=a%20b"
 
 
 @pytest.mark.kiwi_id(2197)

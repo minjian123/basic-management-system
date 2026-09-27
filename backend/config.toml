@@ -258,7 +258,7 @@ provider = "http"
 options = { attach_service_token = true }
 
 [identity_provider]
-# 身份源实现选择（插件化配置；空串 = null 占位不连外部 IdP；oidc = 真实 OIDC 客户端）
+# 身份源实现选择（插件化配置；空串 = null 占位不连外部 IdP；oidc = 真实 OIDC 客户端；cas = 真实 CAS 客户端）
 provider = ""
 # OIDC issuer（发现基点；如 http://<idp-host>:8090/realms/bms）
 issuer = ""
@@ -266,7 +266,7 @@ issuer = ""
 client_id = "bms-backend"
 # OIDC 客户端密钥（空串；经 BMS_IDENTITY_PROVIDER__CLIENT_SECRET 环境变量注入，不写入本文件）
 client_secret = ""
-# 授权回调地址（须注册于 IdP redirectUris）
+# 授权回调地址（OIDC 须注册于 IdP redirectUris；CAS 作 service 基址）
 redirect_uri = "http://localhost:8000/api/v1/auth/callback"
 # 请求 scope
 scopes = ["openid", "profile", "email"]
@@ -274,6 +274,14 @@ scopes = ["openid", "profile", "email"]
 discovery_cache_ttl = 3600
 # JWKS 缓存 TTL（秒）
 jwks_cache_ttl = 300
+# CAS 服务基址（provider = "cas" 时必填；如 https://<cas-host>/cas）
+cas_server_url = ""
+# CAS 登录端点路径
+cas_login_path = "/login"
+# CAS 校验端点路径（CAS 3.0 p3/serviceValidate 含属性；2.0 用 /serviceValidate）
+cas_service_validate_path = "/p3/serviceValidate"
+# CAS 属性映射覆盖（{username|name|email: [候选属性名…]}；空对象用内置默认映射）
+attribute_map = {}
 
 [service_token]
 # 服务 JWT 自签实现选择（插件化配置；空串 = null 占位不签真 JWT；jwt = joserfc 真实自签）

@@ -246,10 +246,11 @@ async def callback(
     store: StoreDep,
     publisher: PublisherDep,
     state: Annotated[str | None, Query(description="IdP 回传流程状态")] = None,
-    code: Annotated[str | None, Query(description="IdP 回传授权码")] = None,
+    code: Annotated[str | None, Query(description="IdP 回传授权码（OIDC）")] = None,
+    ticket: Annotated[str | None, Query(description="IdP 回传服务票据（CAS）")] = None,
     error: Annotated[str | None, Query(description="IdP 回传错误（如 access_denied）")] = None,
 ) -> Response:
-    """回调闭环：`state` 一次性消费 → 换码 / 验签 → 映射（未命中 JIT 建号）→ 签发会话 → `302` 前端。
+    """回调闭环：`state` 一次性消费 → 换码 / 票据校验 → 映射（未命中 JIT 建号）→ 签发会话 → `302` 前端。
 
     Args:
         request: 请求对象。
@@ -266,7 +267,8 @@ async def callback(
         store: 会话标记存储。
         publisher: 实时推送器。
         state: IdP 回传流程状态。
-        code: IdP 回传授权码。
+        code: IdP 回传授权码（OIDC）。
+        ticket: IdP 回传服务票据（CAS；与 `code` 归一）。
         error: IdP 回传错误。
 
     Returns:
@@ -310,13 +312,14 @@ async def callback(
             result = await service.callback(
                 flow,
                 idp_key=idp_key,
-                code=code,
+                code=code or ticket,
                 error=error,
                 ip=ip,
                 user_agent=user_agent,
                 session=session,
                 platform_session=platform_session,
                 session_issuer=session_issuer,
+                state=state or "",
             )
     except BizError as exc:
         return _failure_response(settings.sso.failure_redirect, exc)

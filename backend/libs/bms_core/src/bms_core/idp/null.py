@@ -18,6 +18,7 @@ class NullIdentityProvider(BaseIdentityProvider, BaseNullObject):
         nonce: str | None = None,
         code_challenge: str | None = None,
         code_challenge_method: str | None = None,
+        service: str | None = None,
     ) -> str:
         """返回占位授权 URL。
 
@@ -26,18 +27,26 @@ class NullIdentityProvider(BaseIdentityProvider, BaseNullObject):
             nonce: OIDC nonce（占位忽略）。
             code_challenge: PKCE challenge（占位忽略）。
             code_challenge_method: PKCE 方法（占位忽略）。
+            service: 服务地址（占位忽略）。
 
         Returns:
             str: 占位授权 URL。
         """
         return "https://null-idp/authorize"
 
-    async def exchange_token(self, code: str, *, code_verifier: str | None = None) -> IdentityToken:
+    async def exchange_token(
+        self,
+        code: str,
+        *,
+        code_verifier: str | None = None,
+        service: str | None = None,
+    ) -> IdentityToken:
         """返回占位令牌。
 
         Args:
             code: 授权码（占位忽略）。
             code_verifier: PKCE code_verifier（占位忽略）。
+            service: 服务地址（占位忽略）。
 
         Returns:
             IdentityToken: 占位令牌。
