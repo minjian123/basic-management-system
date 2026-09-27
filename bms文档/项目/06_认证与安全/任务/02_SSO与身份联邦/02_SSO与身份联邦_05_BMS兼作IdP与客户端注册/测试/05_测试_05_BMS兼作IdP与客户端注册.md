@@ -45,6 +45,7 @@
 | 静态 / 类型 | `uv run ruff check .`、`ruff format --check .`、`uv run pyright` | 全绿（0 errors） |
 | 契约与生成件 | `ops.contract_snapshot check` / `ops.gateway_config check` / `ops.event_contracts check`（23 条契约）/ api-types `gen:check` | 零漂移 |
 | 基座 / 预检 | `check-backend-base.py` / `check-base.py` / `check-links.py` / `check-service-boundaries.py` / `check-status.py` / `preflight --fast` | 全绿 |
+| 真机冒烟（mjbk） | `release.py deploy --service identity --tag 19a620b9` + 容器内 httpx 全链路 | 迁移 / 门禁通过；Discovery / JWKS 经网关 `200`；授权 → 换码 → userinfo 全通过 |
 
 ## 4. 覆盖率 <a id="coverage"></a>
 
@@ -68,6 +69,7 @@
 - **Discovery / JWKS 合规**：`test_discovery.py` 断言标准字段与 `issuer` / 端点前缀一致；`jwks` 公钥 `kid` 带 `usr-` 前缀（与用户令牌密钥同源）。
 - **M6「BMS 作 IdP 通过」证据**：上述 E2E + 授权码一次性（`test_token_code_replay` 重放 `invalid_grant`）+ scope 校验（`test_authorize_invalid_scope_redirects_error`）+ PKCE 校验（`test_token_pkce_mismatch`）。
 - **客户端管理闭环**：`test_clients.py::test_create_and_use_client`（注册产物直接换码）、`test_reset_secret_invalidates_old`（旧密钥失效、新密钥可用）、`test_status_disable_blocks_authorize`（停用即拒）。
+- **真机冒烟（mjbk，2026-09-27）**：`bms-identity:19a620b9` 部署（迁移 `identity:tenant` 0003 落 `sys_client`）+ 健康门禁通过；经网关（nginx 8088）`GET /api/identity/v1/oidc/.well-known/openid-configuration` 与 `/jwks` 均 `200`；容器内以真实密钥签发用户 access token（`usr-dev`）+ Redis 会话标记（`bms:demo:sess:smoke-oidc`），对测试客户端 `bms-demo-client` 完成 `authorize`（`302` 带 `code`/`state`）→ `token`（`200 {access_token, token_type, expires_in, id_token, scope}`）→ `userinfo`（`200 {sub:798949792347586560, preferred_username:sso-e2e, name:SSO E2E}`）；即 M6「BMS 作 IdP 通过」现场证据。
 
 ## 6. 偏差与遗留 <a id="deviations"></a>
 
@@ -79,6 +81,7 @@
   2. 浏览器 SSO 会话 cookie 联动与 `return_to` 登录页落点（**归口：域五**）。
   3. ID Token / userinfo 的 `email` 声明（**归口：用户管理阶段**）。
   4. 生产 issuer 域与租户子域规划、密钥轮换演练、第三方 OIDC 一致性测试（**归口：运维 / 阶段验收 M6**）。
-  5. 真机冒烟（mjbk + 网关）随任务收尾窗口执行并留痕（**归口：本任务收尾**）。
+  5. ~~真机冒烟~~ **已闭环（2026-09-27）**：mjbk 部署 + 迁移 + 门禁通过，详见 §5 真机冒烟；同批暴露并修正 MySQL `TEXT` 列默认值（`1101`）与 seed 脚本 argparse 两处真机问题（见实施记录 §4）。
+  6. 浏览器场景 `/authorize` 经网关的会话 cookie 联动（本次以容器内 Bearer + Redis 会话标记验证；浏览器导航不携带 Bearer，登录页 / cookie 联动归域五）——**归口：域五**。
 
 > 本文档依《[文档生成规范](../../../../../../规范/文档生成规范.md)》编写

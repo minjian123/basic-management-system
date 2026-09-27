@@ -368,5 +368,6 @@ login_url = ""                                 # /authorize 未登录跳转的�
 | 7 | 基座清单补登 | 《后端基类清单》增 `oidc_provider` 能力域条目与认证链路 02_05 模块行（含服务 / 结果契约），`idp_state_store` 条目补 `namespace` |
 | 8 | 测试落点与 Kiwi | 新增 `libs/bms_core/tests/oauth/`、`services/identity/tests/oidc/`（含 `conftest.py` / `helpers.py`）；Kiwi 策展用例 **2202**（先登记后编码）；新增 / 变更模块覆盖率 100% |
 | 9 | 方言实测修正（真机暴露） | `sys_client.ip_whitelist` 原设 `TEXT NOT NULL DEFAULT '[]'`，MySQL 8 报 `1101`（TEXT 列不支持列级 DEFAULT）；移除 DB 默认值（迁移 / 模型 / 表文件同步），默认值改由应用侧写入；结论回写《数据库设计 · 方言特性（MySQL）》「DDL 与对象差异」节（标实测） |
+| 10 | 真机冒烟（mjbk） | `bms-identity:19a620b9` 部署 + `identity:tenant` 0003 迁移 + 健康门禁通过；Discovery / JWKS 经网关 `200`；容器内以真实密钥签发用户令牌 + Redis 会话标记完成授权 → 换码 → userinfo 全链路（`302` / `200` / `200`）；`ops.seed_oidc_client` 播种测试客户端（seed 脚本 argparse 问题修正见《[05 实施](../实施/05_实施_05_BMS兼作IdP与客户端注册.md)》「问题与处置」节） |
 
 > 详细设计定稿后按《[AI开发规范](../../../../../../规范/AI开发规范.md)》「单任务交付一条龙」自动续行：实施 → 测试（Kiwi 先登记）→ 验证 → 登记回写 → 记录 → 提交。

@@ -41,7 +41,7 @@
 | DDL 事务性 | **隐式提交**（DDL 不可回滚） | 迁移中途失败需人工核对后重跑（与 PostgreSQL 不同，见 [PostgreSQL](02_PostgreSQL.md)） |
 | 索引重命名 | `ALTER TABLE … RENAME INDEX old TO new` | 迁移脚本改名索引用的形态（其余库见各自文档） |
 | 表引擎 | InnoDB（默认） | 事务与外键能力来源 |
-| `TEXT` / `BLOB` 列默认值 | **不支持列级 `DEFAULT`**（报 `1101 BLOB, TEXT, GEOMETRY or JSON column … can't have a default value`） | 多值 JSON 列（`TEXT` 存 JSON 数组）**不设 DB 默认值**，默认值由应用侧写入（实测：2026-09-27 真库建 `sys_client` 暴露并修正） |
+| `TEXT` / `BLOB` 列默认值 | **不支持字面量列级 `DEFAULT`**（报 `1101 BLOB, TEXT, GEOMETRY or JSON column … can't have a default value`；8.0.13+ 仅支持表达式默认 `DEFAULT (…)`） | 多值 JSON 列（`TEXT` 存 JSON 数组）**统一不设 DB 默认值**，默认值由应用侧写入（实测：2026-09-27 真库建 `sys_client` 暴露并修正） |
 
 - 迁移、建删库与批量迁移命令口径见《[数据库开发规范](../../../规范/数据库开发规范.md)》「迁移与建表口径」节。
 
