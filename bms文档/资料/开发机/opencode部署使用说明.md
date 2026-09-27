@@ -1,6 +1,6 @@
 # opencode 部署使用说明
 
-> mjpc 开发机 opencode（桌面端 desktop + 命令行 CLI）部署与验证实录 · 2026-08-29（现状复核 2026-09-18）
+> mjpc 开发机 opencode（桌面端 desktop + 命令行 CLI）部署与验证实录 · 2026-08-29（现状复核 2026-09-18；插件增补 2026-09-27）
 
 [文档首页](../../文档首页.md) › 资料 › 开发机 › opencode 部署使用说明　|　[同级参照：中文输入法部署使用说明 →](中文输入法部署使用说明.md)　[Steamcommunity_302部署使用说明 →](Steamcommunity_302部署使用说明.md)　[防火墙部署使用说明 →](防火墙部署使用说明.md)
 
@@ -10,9 +10,11 @@
 
 - **opencode desktop**（桌面图形端）：**当前为 snap 版 1.18.27**。历史上曾弃用 snap、改用官方 **.deb 版**以规避本机 NVIDIA/Wayland 下的 GPU 崩溃（`--disable-gpu`），后已**回退 snap**——现 snap 1.18.27 在原生 Wayland 下稳定运行，GPU 进程正常，无需 `--disable-gpu`。deb 安装与定制作为**历史备查**保留（见[第 4 节](#deploy)）。
 - **opencode CLI**（命令行版）：官方二进制，装在 `~/.opencode/bin/opencode`，当前 **1.18.30**（见[第 5 节](#cli)）。
-- **opencode 插件**：**当前未登记任何插件**——记忆插件 `opencode-mem` 曾于 2026-09-18 登记，因导致桌面端无法会话当日卸载（现象、证据与残留清理见[第 7.3 节](#plugins)）。
+- **opencode 插件**：工作区 **bizs** 已登记上下文压缩插件 **`billion-context`**（项目级登记，2026-09-27 增补，见[第 7.3.1 节](#plugins-billion)）；全局配置未登记插件。历史：记忆插件 `opencode-mem` 曾于 2026-09-18 在全局登记，因导致桌面端无法会话当日卸载（见[第 7.3.2 节](#plugins-mem)）。
 
 > **现状复核（2026-09-18）**：桌面端 = snap 1.18.27（`/snap/opencode/current/`，**不存在** `/opt/OpenCode`、**无**用户级 `--disable-gpu` 覆盖）；CLI = `~/.opencode/bin/opencode` 1.18.30。本文第 3 节环境表与第 6 节产物表已按此更新，第 4 节的 .deb 步骤仅作历史备查（见 4.0）。
+>
+> **插件增补（2026-09-27）**：工作区 bizs 在 `.opencode/opencode.json` 增补 npm 插件 `billion-context`（上下文压缩）并同时关闭 opencode 原生自动压缩（`compaction.auto=false`）；全局配置仍未登记插件。详见[第 7.3.1 节](#plugins-billion)。
 
 历史方案（2026-08-29）：desktop 曾弃用 snap、改用官方 .deb 版；针对本机 NVIDIA/Wayland 下的 GPU 崩溃，桌面端曾默认以 `--disable-gpu` 启动；CLI 用官方二进制装到 `~/.opencode/bin`。**该决定已于后续回退**：桌面端回到 snap，以 snap 1.18.27 稳定运行。
 
@@ -86,10 +88,10 @@ CLI 需用官方二进制**单独装回**（见[第 5 节](#cli)），与 deskto
 | 配置数据目录（desktop） | `~/.config/ai.opencode.desktop/` |
 | 数据（会话/项目）目录 | `~/.local/share/opencode/` |
 | opencode 全局配置 | `~/.config/opencode/opencode.jsonc`（provider/model；`plugin` 插件登记可选，当前未登记） |
-| npm 插件缓存 | `~/.cache/opencode/packages/`（`<spec>@<version>`；当前无插件） |
-| opencode 配置（项目级） | `<项目>/.opencode/opencode.json`（provider/model、插件登记，覆盖全局） |
+| npm 插件缓存 | `~/.cache/opencode/packages/`（`<spec>@<version>/node_modules/<pkg>`；当前 `billion-context@latest`） |
+| opencode 配置（项目级） | `<项目>/.opencode/opencode.json`（provider/model、插件登记，覆盖全局；工作区 bizs 已登记 `billion-context` 并设 `compaction.auto=false`） |
 
-版本说明（2026-09-18 复核）：desktop = snap **1.18.27**、CLI = **1.18.30**；两者升级通道独立，版本号可不一致。CLI 的 `.opencode/package.json` 里插件依赖 `@opencode-ai/plugin`（1.18.x 系，向后兼容）。
+版本说明（2026-09-18 复核）：desktop = snap **1.18.27**、CLI = **1.18.30**；两者升级通道独立，版本号可不一致。CLI 的 `.opencode/package.json` 里插件依赖 `@opencode-ai/plugin`（1.18.x 系，向后兼容）；npm 插件本体不由该文件承载，而是 opencode 按需装到缓存目录（见上表）。
 
 ### 3.1 依赖（按实际包名） <a id="deps"></a>
 
@@ -292,9 +294,9 @@ CLI 读项目级配置 `<项目>/.opencode/opencode.json`（provider/model/插�
 | `~/.config/ai.opencode.desktop/` | 桌面端配置数据（窗口状态、会话、日志子目录 logs/、Crashpad/ 等） |
 | `~/.local/share/opencode/` | opencode 应用数据（会话、快照、git 等） |
 | `~/.config/opencode/opencode.jsonc` | **全局配置**：provider/model；`plugin` 插件登记可选（当前未登记） |
-| `~/.cache/opencode/packages/` | npm 插件缓存（`<spec>@<version>`；更新插件即清此处；当前无插件） |
+| `~/.cache/opencode/packages/` | opencode 自身 npm 插件缓存（`<spec>@<version>/node_modules/<pkg>`；更新插件可清此处；当前 `billion-context@latest`） |
 | `~/.opencode/bin/opencode` | **CLI 二进制**（1.18.30，`opencode` 命令） |
-| `<项目>/.opencode/opencode.json` | 项目级 CLI/桌面端共享配置：provider/model/插件登记 |
+| `<项目>/.opencode/opencode.json` | 项目级 CLI/桌面端共享配置：provider/model/插件登记（工作区 bizs 登记 `billion-context` + `compaction.auto=false`） |
 | `<项目>/.opencode/package.json` | 插件 API 依赖（`@opencode-ai/plugin`） |
 | `~/.bashrc`（追加段） | `~/.opencode/bin` 加入 PATH（CLI 可用）；`HF_ENDPOINT` 国内镜像（模型下载；原为插件嵌入模型所加，现保留） |
 
@@ -309,7 +311,7 @@ CLI 读项目级配置 `<项目>/.opencode/opencode.json`（provider/model/插�
 - **启动**：桌面/应用菜单点 **OpenCode**（走 snap 桌面项，直接启动）；或命令行 `/snap/bin/opencode.desktop`。
 - **正常姿态**：主进程 + 渲染进程 + 网络/Node/音频服务齐全，后台服务 `127.0.0.1:<port>` 返回就绪。日志目录 `~/.config/ai.opencode.desktop/logs/<时间戳>/` 出现且 `main.log` 含 `server ready` 即正常。
 - **升级（本体）**：snap 版由 snap 通道升级（`sudo snap refresh opencode`），桌面项内自更新另见 `main.log` 的 "Checking for update"。CLI 本体升级见[第 5 节](#cli)重下二进制。
-- **插件**：当前未登记（历史与排障见 [7.3](#plugins)）。重新登记插件须完全重启 opencode，并先验证会话正常再沿用。
+- **插件**：工作区 bizs 已登记 `billion-context`（见 [7.3.1](#plugins-billion)），全局未登记（`opencode-mem` 历史见 [7.3.2](#plugins-mem)）。改动插件登记须**完全退出并重启** opencode，并先验证会话正常再沿用。
 
 ### 7.2 命令行（CLI） <a id="usage-cli"></a>
 
@@ -327,11 +329,55 @@ opencode --help               # 全部子命令
 - CLI 在项目目录运行时读 `<项目>/.opencode/opencode.json`（含 `model` 默认值、`provider`、插件登记）。
 - 本机默认 model 走 `llamacpp` provider（连 `127.0.0.1:8080` 的 llama-server），可用 `opencode run --model <id> "..."` 临时指定。
 
-### 7.3 opencode 插件（当前未登记） <a id="plugins"></a>
+### 7.3 opencode 插件 <a id="plugins"></a>
 
-#### 7.3.1 opencode-mem（记忆插件）：已卸载 <a id="plugins-mem"></a>
+本机插件分两条独立登记线：**项目级**（工作区 bizs，已登记 `billion-context`，见 [7.3.1](#plugins-billion)）与**全局**（`~/.config/opencode/opencode.jsonc`，当前未登记；`opencode-mem` 历史见 [7.3.2](#plugins-mem)）。两者互不影响。
 
-本机曾于 2026-09-18 在全局配置登记 npm 插件 `opencode-mem`（跨会话长期记忆，桌面端与 CLI 共用）。**登记并重启后桌面端无法会话，当日卸载**；当前**未登记任何插件**。
+#### 7.3.1 billion-context（上下文压缩）：已登记 <a id="plugins-billion"></a>
+
+工作区 **bizs** 于 2026-09-27 登记 npm 插件 **`billion-context`**（上下文压缩：小窗口、省 token、支持超长会话），属**项目级登记**，只对 bizs 工作区的 opencode 会话生效，全局与其他项目不受影响。
+
+**登记内容**（`/home/minjian/develop/bizs/.opencode/opencode.json`）：
+
+- 新增 `"plugin": ["billion-context"]`；
+- 新增 `"compaction": { "auto": false }`——**必须**：该插件接管上下文压缩，若不关闭 opencode 原生自动压缩会双重压缩。
+
+改动前原文件已备份为同目录 `opencode.json.bak_20260927_090938`（`.opencode/.gitignore` 已加 `*.bak_*` 忽略该备份）。
+
+**加载与安装落点**：
+
+| 项 | 取值 |
+| --- | --- |
+| 裸名解析 | `billion-context` → `billion-context@latest` |
+| 安装方式 | opencode 自身 npm 机制（`@npmcli/arborist`）按需安装 |
+| 实际落点 | `~/.cache/opencode/packages/billion-context@latest/node_modules/billion-context/`（缓存存在时不再查新版） |
+| 加载入口 | 包 `exports["./server"]` → `dist/agent/opencode-native.js` |
+| 已装版本 | 0.1.158（2026-09-27 登记） |
+
+> 项目 `.opencode/package.json` 只声明插件 API 依赖 `@opencode-ai/plugin`，**不承载 npm 插件本体**；插件由 opencode 装到上述缓存目录。首次安装若嫌 npm 官方源慢，可在 `~/.npmrc` 配 `registry=https://registry.npmmirror.com` 后重启（opencode 的 npm 安装会读取该配置）。
+
+**工作方式**：
+
+- 插件在 opencode 进程内自启一个本地**代理**（proxy），把模型的 provider 请求改写为经代理的 `/bili/<上游地址>`；
+- 代理注入上下文管理工具（`compress` / `decompress` / `search_context` / `acp_status` 等），模型在上下文增长时按需压缩历史，实现小窗口下的超长会话；
+- 运行日志：`~/.local/state/billion-context/bili.log`（默认落盘，10MB 轮转）。
+
+**自更新（默认开启）**：
+
+- 代理启动时 + 每 3 分钟查一次 npm registry，发现新版即**原地覆盖**插件安装目录，**重启 opencode 后生效**（默认不自动重启进程）。
+- 关闭：环境变量 `ACP_AUTO_UPDATE=0`，或配置文件 `~/.config/billion-context/billion-context.json` 写 `{ "autoUpdate": false }`。
+- 换源：默认直连 `registry.npmjs.org`，可设 `BILI_UPDATE_REGISTRY=https://registry.npmmirror.com`；检查间隔可设 `BILI_UPDATE_CHECK_INTERVAL_MS`。
+- 该插件会改写全部模型流量，自动拉新属供应链风险；要完全可控可关闭自更新、改手动（见 [7.3.3](#plugins-update)）。
+
+**注意点**：
+
+- 插件**只在启动时加载**：改登记或关闭自更新后须**完全退出并重启** opencode。
+- 与独立压缩插件（`opencode-acp` 等）**互斥**，同装会双重压缩（本机未装）。
+- 卸载：从 `.opencode/opencode.json` 移除 `"plugin"` 一项即可（缓存 `~/.cache/opencode/packages/billion-context@latest/` 可选清理），重启后生效。
+
+#### 7.3.2 opencode-mem（记忆插件）：已卸载 <a id="plugins-mem"></a>
+
+本机曾于 2026-09-18 在**全局配置**登记 npm 插件 `opencode-mem`（跨会话长期记忆，桌面端与 CLI 共用）。**登记并重启后桌面端无法会话，当日卸载**；全局配置当前未登记插件（项目级另有 `billion-context`，见 [7.3.1](#plugins-billion)）。
 
 **故障现象**：登记插件、重启桌面端后，会话无法使用（无法正常发起/继续会话）。
 
@@ -367,9 +413,13 @@ opencode --help               # 全部子命令
 - opencode **不会自动升级** npm 插件：裸名解析为 `<pkg>@latest`，但缓存目录存在时不再查新版；升级 = 清缓存 + 重启。
 - 依赖模型下载的插件走国内镜像（`HF_ENDPOINT=https://hf-mirror.com`，已在本机 `~/.bashrc`）。
 
-#### 7.3.2 插件升级（脚本） <a id="plugins-update"></a>
+#### 7.3.3 插件升级 <a id="plugins-update"></a>
 
-原「清缓存 + 重启」升级脚本与配套桌面快捷方式已随插件卸载一并删除，**当前无插件、无需升级**。若将来重新登记插件，可比照下述做法自建脚本：比对 `~/.cache/opencode/packages/<pkg>@*` 已装版本与 npm 最新版（查询走 `registry.npmmirror.com` 国内镜像），仅在有新版时删除对应缓存目录并重启 opencode；**查询失败不要清缓存**，避免把可用插件删坏。
+opencode 对 npm 插件**不做自动升级**：裸名解析为 `<pkg>@latest`，但缓存目录存在时不再查新版；通用升级 = 清 `~/.cache/opencode/packages/<pkg>@<版本>/` 后重启，让 opencode 重新从 npm 拉取。
+
+对本机已登记的 `billion-context`，另有**插件代理自带的自更新**（默认开启，启动时 + 每 3 分钟查新版并原地覆盖，见 [7.3.1](#plugins-billion)），重启 opencode 后生效；若已按 7.3.1 关闭自更新，则回到上面的通用手动方式。
+
+历史：原「清缓存 + 重启」升级脚本与配套桌面快捷方式已随 `opencode-mem` 卸载一并删除。若将来需要，可比照自建脚本：比对 `~/.cache/opencode/packages/<pkg>@*/` 已装版本与 npm 最新版（查询走 `registry.npmmirror.com` 国内镜像），仅在有新版时删除对应缓存目录并重启 opencode；**查询失败不要清缓存**，避免把可用插件删坏。
 
 ## 8. 常见问题与故障排查 <a id="troubleshoot"></a>
 
@@ -435,7 +485,7 @@ grep -n 'opencode/bin' ~/.bashrc
 
 ### 8.6 插件相关问题（含历史：opencode-mem） <a id="mem-faq"></a>
 
-> 记忆插件 `opencode-mem` 已于 2026-09-18 卸载（原因与证据见 [7.3](#plugins)）。下表保留排查思路，供将来重新登记插件时参考。
+> 全局记忆插件 `opencode-mem` 已于 2026-09-18 卸载（原因与证据见 [7.3.2](#plugins-mem)）；工作区 bizs 的 `billion-context` 见 [7.3.1](#plugins-billion)。下表为通用排查思路。
 
 | 现象 | 排查 |
 | --- | --- |
@@ -443,6 +493,8 @@ grep -n 'opencode/bin' ~/.bashrc
 | 插件未生效 / 无对应工具 | 确认 `plugin` 已登记且**已重启**；检查缓存 `~/.cache/opencode/packages/<spec>@<version>/` 是否生成 |
 | 首次启动慢 / 卡在下载 | 首次启动从 npm 拉插件；依赖模型下载的插件注意走国内镜像（`HF_ENDPOINT=https://hf-mirror.com`） |
 | 插件自带 Web UI 打不开 | 确认插件配置里 Web UI 开关为真，且端口未被占用：`ss -lptn 'sport = :<端口>'` |
+| `billion-context` 未生效 / 无 `compress` 等工具 | 确认 bizs 工作区 `.opencode/opencode.json` 已登记 `"plugin": ["billion-context"]` 且 `compaction.auto=false`，并**完全重启**；查缓存 `~/.cache/opencode/packages/billion-context@latest/` 是否生成 |
+| `billion-context` 代理异常 / 想关自更新 | 日志 `~/.local/state/billion-context/bili.log`；自更新默认开，关闭用 `ACP_AUTO_UPDATE=0` 或 `~/.config/billion-context/billion-context.json` 的 `autoUpdate:false`（见 [7.3.1](#plugins-billion)） |
 
 > 查看插件加载情况：桌面端日志 `~/.config/ai.opencode.desktop/logs/<时间戳>/`（`main.log` 看 `server ready` / sidecar 状态，`utility.log` 看 sidecar 退出）；CLI 在项目目录启动时观察终端输出。
 
