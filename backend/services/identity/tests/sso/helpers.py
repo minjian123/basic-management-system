@@ -15,8 +15,11 @@ from joserfc import jwt
 from joserfc.jwk import RSAKey
 
 from bms_core.core.exceptions import AuthError, ServiceUnavailableError
+from bms_core.db.session import DbSession
+from bms_core.events.base import EventEnvelope
 from bms_core.idp.base import IdentityClaims
 from bms_core.oauth.user_token import BaseUserTokenIssuer, UserTokenPair, UserTokenSpec
+from bms_core.outbox.null import NullOutboxStore
 from bms_core.servicecall.base import BaseServiceClient, ServiceRequest, ServiceResponse
 
 ISSUER = "http://idp.test/realms/bms"
@@ -98,8 +101,10 @@ class FakeSsoOrgClient(BaseServiceClient):
     def __init__(self) -> None:
         self.users: dict[int, dict[str, object]] = {}
         self.fail_profile = False
+        self.fail_create = False
         self.calls: list[str] = []
         self.login_states: list[dict[str, object]] = []
+        self._next_id = 5000
 
     def set_user(
         self,
@@ -145,10 +150,48 @@ class FakeSsoOrgClient(BaseServiceClient):
             if self.fail_profile:
                 raise ServiceUnavailableError("org 用户接口不可用")
             return _ok(self._profile(body))
+        if action == "create":
+            if self.fail_create:
+                raise ServiceUnavailableError("org 建号接口不可用")
+            return _ok(self._create(body))
         if action == "login-state":
             self.login_states.append(body)
             return _ok({"failed_count": 0, "locked_until": None, "last_login_at": "now"})
         return _ok({})
+
+    def _create(self, body: dict[str, object]) -> dict[str, object]:
+        """按账号建号（撞名返回 conflict；否则分配新主键）。
+
+        Args:
+            body: 建号请求体。
+
+        Returns:
+            dict[str, object]: 建号 data。
+        """
+        username = str(body.get("username", ""))
+        if any(user["username"] == username for user in self.users.values()):
+            return {"created": False, "reason": "username_conflict", "user": None}
+        self._next_id += 1
+        user_id = self._next_id
+        self.users[user_id] = {
+            "username": username,
+            "name": str(body.get("name") or username),
+            "status": "enabled",
+            "locale": body.get("locale"),
+            "timezone": body.get("timezone"),
+        }
+        return {
+            "created": True,
+            "reason": None,
+            "user": {
+                "id": user_id,
+                "username": username,
+                "name": self.users[user_id]["name"],
+                "status": "enabled",
+                "locale": self.users[user_id]["locale"],
+                "timezone": self.users[user_id]["timezone"],
+            },
+        }
 
     def _profile(self, body: dict[str, object]) -> dict[str, object]:
         """按 user_id 返回概要（未登记 → found=False）。
@@ -174,6 +217,29 @@ class FakeSsoOrgClient(BaseServiceClient):
                 "timezone": user["timezone"],
             },
         }
+
+
+class RecordingOutboxStore(NullOutboxStore):
+    """测试替身：记录入队事件（不落库，验证 JIT 事件载荷与时机）。"""
+
+    plugin_name: str = "sso_recording"
+
+    def __init__(self) -> None:
+        """初始化（空事件列表）。"""
+        self.events: list[EventEnvelope] = []
+
+    async def enqueue(self, session: DbSession, event: EventEnvelope) -> str:
+        """记录事件并回显 ID。
+
+        Args:
+            session: 业务会话（替身忽略）。
+            event: 事件信封。
+
+        Returns:
+            str: 事件 ID。
+        """
+        self.events.append(event)
+        return event.event_id or "recording"
 
 
 def _ok(data: dict[str, object]) -> ServiceResponse:

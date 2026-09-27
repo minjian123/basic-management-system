@@ -44,3 +44,25 @@ class OrgProfileResult(ServiceDto):
 
     found: bool = Field(default=False, description="用户是否存在")
     user: OrgProfileUser | None = Field(default=None, description="用户概要（found=true 时返回）")
+
+
+class OrgUserCreateResult(ServiceDto):
+    """org 内部 JIT 建号结果契约 DTO（撞名 `created=false`）。"""
+
+    created: bool = Field(default=False, description="是否建号成功")
+    reason: str | None = Field(default=None, description="未建号原因（username_conflict）")
+    user: OrgProfileUser | None = Field(default=None, description="新建用户概要（created=true 时返回）")
+
+
+class SsoIdentityItem(BaseSchema):
+    """SSO 身份绑定项（`sso:bind` 只读端点）。"""
+
+    idp_key: str = Field(description="映射键（{tenant_code}:{provider_key}）")
+    external_id: str = Field(description="外部身份主体（OIDC 取 sub）")
+    tenant_id: str = Field(description="租户编码")
+
+
+class SsoIdentityList(BaseSchema):
+    """SSO 身份绑定清单响应体。"""
+
+    items: list[SsoIdentityItem] = Field(default_factory=list[SsoIdentityItem], description="绑定清单")

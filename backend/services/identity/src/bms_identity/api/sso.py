@@ -18,7 +18,9 @@ from fastapi.responses import JSONResponse, RedirectResponse, Response
 
 from bms_core.api.base import BaseRouter
 from bms_core.api.deps import (
+    get_distributed_lock,
     get_idp_state_store,
+    get_outbox_store,
     get_rate_limiter,
     get_realtime_publisher,
     get_service_client,
@@ -35,7 +37,9 @@ from bms_core.db.session import session_scope
 from bms_core.db.tenant import TenantContext, TenantLookup, TenantNotFoundError
 from bms_core.db.unit_of_work import DbUnitOfWork
 from bms_core.idp.state.base import BaseIdpStateStore
+from bms_core.lock.base import BaseDistributedLock
 from bms_core.oauth.user_token import BaseUserTokenIssuer
+from bms_core.outbox.base import BaseOutboxStore
 from bms_core.ratelimit.base import BaseRateLimiter
 from bms_core.schemas.common import ApiResponse
 from bms_core.security.base import BaseSessionSecurity
@@ -53,6 +57,8 @@ router = BaseRouter(key="sso", prefix="/auth/sso", tags=["sso"], default_respons
 
 StateStoreDep = Annotated[BaseIdpStateStore, Depends(get_idp_state_store)]
 LimiterDep = Annotated[BaseRateLimiter, Depends(get_rate_limiter)]
+LockDep = Annotated[BaseDistributedLock, Depends(get_distributed_lock)]
+OutboxDep = Annotated[BaseOutboxStore, Depends(get_outbox_store)]
 ClientDep = Annotated[BaseServiceClient, Depends(get_service_client)]
 TenantDep = Annotated[TenantContext | None, Depends(get_tenant)]
 TenantSourceDep = Annotated[TenantLookup, Depends(get_tenant_source)]
@@ -96,6 +102,8 @@ def _build_service(
     state_store: BaseIdpStateStore,
     limiter: BaseRateLimiter,
     client: BaseServiceClient,
+    lock: BaseDistributedLock,
+    outbox_store: BaseOutboxStore,
 ) -> SsoService:
     """构造 SSO 服务（请求级能力域 + 配置）。
 
@@ -104,6 +112,8 @@ def _build_service(
         state_store: 流程状态存储。
         limiter: 限流基座。
         client: 服务间调用客户端。
+        lock: 分布式锁（JIT 临界区）。
+        outbox_store: 事务性发件箱（JIT 事件）。
 
     Returns:
         SsoService: SSO 编排服务。
@@ -115,6 +125,8 @@ def _build_service(
         org_client=OrgCredentialClient(client),
         provider_registry=ProviderRegistry(callback_base_url=settings.sso.callback_base_url),
         sso_settings=settings.sso,
+        lock=lock,
+        outbox_store=outbox_store,
     )
 
 
@@ -125,6 +137,8 @@ async def providers(
     tenant_source: TenantSourceDep,
     state_store: StateStoreDep,
     limiter: LimiterDep,
+    lock: LockDep,
+    outbox_store: OutboxDep,
     client: ClientDep,
     tenant: Annotated[str | None, Query(description="租户编码（上下文缺省时的回落）")] = None,
 ) -> ApiResponse[SsoProviderList]:
@@ -136,6 +150,8 @@ async def providers(
         tenant_source: 租户源。
         state_store: 流程状态存储（保持服务构造一致）。
         limiter: 限流基座（保持服务构造一致）。
+        lock: 分布式锁（保持服务构造一致）。
+        outbox_store: 事务性发件箱（保持服务构造一致）。
         client: 服务间调用客户端（保持服务构造一致）。
         tenant: 租户编码（可选）。
 
@@ -146,7 +162,14 @@ async def providers(
     registry: EngineRegistry = request.app.state.engine_registry
     factory = request.app.state.session_factory
     async with session_scope(registry, db_key=context.db_key, factory=factory) as session:
-        service = _build_service(request=request, state_store=state_store, limiter=limiter, client=client)
+        service = _build_service(
+            request=request,
+            state_store=state_store,
+            limiter=limiter,
+            client=client,
+            lock=lock,
+            outbox_store=outbox_store,
+        )
         items = await service.list_providers(context.tenant_code, session)
     return ApiResponse.ok(SsoProviderList(items=items))
 
@@ -159,6 +182,8 @@ async def authorize(
     tenant_source: TenantSourceDep,
     state_store: StateStoreDep,
     limiter: LimiterDep,
+    lock: LockDep,
+    outbox_store: OutboxDep,
     client: ClientDep,
     tenant: Annotated[str | None, Query(description="租户编码（上下文缺省时的回落）")] = None,
 ) -> Response:
@@ -171,6 +196,8 @@ async def authorize(
         tenant_source: 租户源。
         state_store: 流程状态存储。
         limiter: 限流基座。
+        lock: 分布式锁（保持服务构造一致）。
+        outbox_store: 事务性发件箱（保持服务构造一致）。
         client: 服务间调用客户端。
         tenant: 租户编码（可选）。
 
@@ -186,7 +213,14 @@ async def authorize(
     registry: EngineRegistry = request.app.state.engine_registry
     factory = request.app.state.session_factory
     async with session_scope(registry, db_key=context.db_key, factory=factory) as session:
-        service = _build_service(request=request, state_store=state_store, limiter=limiter, client=client)
+        service = _build_service(
+            request=request,
+            state_store=state_store,
+            limiter=limiter,
+            client=client,
+            lock=lock,
+            outbox_store=outbox_store,
+        )
         url = await service.authorize(
             idp_key,
             tenant=context.tenant_code,
@@ -204,6 +238,8 @@ async def callback(
     tenant_source: TenantSourceDep,
     state_store: StateStoreDep,
     limiter: LimiterDep,
+    lock: LockDep,
+    outbox_store: OutboxDep,
     client: ClientDep,
     issuer: IssuerDep,
     security: SecurityDep,
@@ -213,7 +249,7 @@ async def callback(
     code: Annotated[str | None, Query(description="IdP 回传授权码")] = None,
     error: Annotated[str | None, Query(description="IdP 回传错误（如 access_denied）")] = None,
 ) -> Response:
-    """回调闭环：`state` 一次性消费 → 换码 / 验签 → 映射 → 签发会话 → `302` 前端。
+    """回调闭环：`state` 一次性消费 → 换码 / 验签 → 映射（未命中 JIT 建号）→ 签发会话 → `302` 前端。
 
     Args:
         request: 请求对象。
@@ -222,6 +258,8 @@ async def callback(
         tenant_source: 租户源（按 `state` 记录租户定位库键）。
         state_store: 流程状态存储。
         limiter: 限流基座。
+        lock: 分布式锁（JIT 临界区）。
+        outbox_store: 事务性发件箱（JIT 事件）。
         client: 服务间调用客户端。
         issuer: 用户双 token 签发者。
         security: 会话安全原语。
@@ -238,7 +276,14 @@ async def callback(
     settings = request.app.state.settings
     ip = current_client_ip.get()
     user_agent = request.headers.get("user-agent")
-    service = _build_service(request=request, state_store=state_store, limiter=limiter, client=client)
+    service = _build_service(
+        request=request,
+        state_store=state_store,
+        limiter=limiter,
+        client=client,
+        lock=lock,
+        outbox_store=outbox_store,
+    )
     try:
         flow = await service.consume_flow(
             state or "",
@@ -251,7 +296,7 @@ async def callback(
         factory = request.app.state.session_factory
         async with (
             session_scope(registry, db_key=tenant.db_key, factory=factory) as session,
-            session_scope(registry, db_key=PLATFORM_DB_KEY, read_only=True, factory=factory) as platform_session,
+            session_scope(registry, db_key=PLATFORM_DB_KEY, factory=factory) as platform_session,
         ):
             session_issuer = build_session_issuer(
                 session=session,

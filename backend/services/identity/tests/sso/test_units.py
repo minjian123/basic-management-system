@@ -11,6 +11,8 @@ from bms_core.core.config import Settings
 from bms_core.core.exceptions import ConfigError, SsoCallbackError, TenantNotFoundError
 from bms_core.db.tenant import TenantLookup
 from bms_core.idp.state.memory import MemoryIdpStateStore
+from bms_core.lock.null import NullDistributedLock
+from bms_core.outbox.null import NullOutboxStore
 from bms_core.ratelimit.memory import MemoryRateLimiter
 from bms_identity.api.sso import _resolve_sso_tenant  # pyright: ignore[reportPrivateUsage]
 from bms_identity.services.org_client import OrgCredentialClient
@@ -49,6 +51,8 @@ async def test_sso_service_rate_limit_skip_without_ip() -> None:
         org_client=cast("OrgCredentialClient", object()),
         provider_registry=ProviderRegistry(),
         sso_settings=Settings().sso,
+        lock=NullDistributedLock(),
+        outbox_store=NullOutboxStore(),
     )
     await service._enforce_authorize_rate_limit("demo", "keycloak", None)  # pyright: ignore[reportPrivateUsage]
     await service._enforce_callback_rate_limit(None)  # pyright: ignore[reportPrivateUsage]

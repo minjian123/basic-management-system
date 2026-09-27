@@ -485,6 +485,18 @@ class SsoSettings(BaseSettings):
     callback_base_url: str = "http://localhost:8000"
     """回调地址基址（派生 `redirect_uri`；网关形态经行 `config.redirect_uri` 覆盖）。"""
 
+    jit_enabled: bool = False
+    """JIT 自动建号全局开关（IdP 行 `config.jit_enabled` 缺配时回落；缺省关闭，需显式开启）。"""
+
+    jit_allowed_tenants: list[str] = Field(default_factory=list[str])
+    """JIT 租户白名单（空 = 不限制；非空时仅列内租户可自动建号）。"""
+
+    jit_lock_ttl_seconds: int = Field(default=30, ge=1)
+    """JIT 临界区分布式锁 TTL（秒）。"""
+
+    jit_lock_wait_seconds: float = Field(default=5.0, ge=0)
+    """JIT 临界区取锁等待时长（秒；0 = 不等待）。"""
+
 
 class UserTokenSettings(PluginSelection):
     """用户令牌自签配置（`[user_token]`；密钥与 TTL 归 `[security]`，本分区只放选择与签发方）。"""

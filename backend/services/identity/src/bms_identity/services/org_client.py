@@ -15,7 +15,7 @@ from bms_core.core.base import BaseObject
 from bms_core.core.exceptions import ServiceUnavailableError
 from bms_core.servicecall.base import BaseServiceClient, ServiceCallPolicy, ServiceRequest, ServiceResponse
 from bms_identity.schemas.auth import OrgLoginState, OrgVerifyResult
-from bms_identity.schemas.sso import OrgProfileResult
+from bms_identity.schemas.sso import OrgProfileResult, OrgUserCreateResult
 
 ORG_SERVICE = "org"
 """凭据主数据归属服务标识。"""
@@ -128,6 +128,39 @@ class OrgCredentialClient(BaseObject):
             interface=_PROFILE_INTERFACE,
         )
         return OrgProfileResult.model_validate(data)
+
+    async def create_user(
+        self,
+        tenant: str | None,
+        *,
+        username: str,
+        name: str,
+        locale: str | None = None,
+        timezone: str | None = None,
+    ) -> OrgUserCreateResult:
+        """调 org 建号（JIT 首登；单次「用户名空闲即建」，撞名由调用侧换后缀重试）。
+
+        Args:
+            tenant: 租户编码（随服务 JWT claim 传递）。
+            username: 登录账号（调用侧已清洗）。
+            name: 昵称 / 显示名。
+            locale: 语言偏好（可空）。
+            timezone: 时区偏好（可空）。
+
+        Returns:
+            OrgUserCreateResult: 建号结果（`created=False` + `reason` 表示撞名）。
+
+        Raises:
+            ServiceUnavailableError: 下游不可达 / 响应非法（10007/503）。
+        """
+        data = await self._post_path(
+            "/api/v1/org/internal/users/create",
+            _PROFILE_SCOPES,
+            tenant,
+            {"username": username, "name": name, "locale": locale, "timezone": timezone},
+            interface=_PROFILE_INTERFACE,
+        )
+        return OrgUserCreateResult.model_validate(data)
 
     async def _post(self, action: str, tenant: str | None, body: dict[str, object]) -> dict[str, object]:
         """发起内部凭据 POST（公开契约面 + 服务 JWT），解析统一响应体 `data`。

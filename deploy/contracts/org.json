@@ -5,6 +5,7 @@
       "ApiResponse_CredentialVerifyResult_": {},
       "ApiResponse_LoginStateResult_": {},
       "ApiResponse_UpdatePasswordResult_": {},
+      "ApiResponse_UserCreateResult_": {},
       "ApiResponse_UserProfileResult_": {},
       "CredentialUserSummary": {},
       "CredentialVerifyRequest": {
@@ -130,6 +131,58 @@
         "type": "object"
       },
       "UpdatePasswordResult": {},
+      "UserCreateRequest": {
+        "description": "JIT 建号请求（账号 / 昵称 / 语言时区；租户经服务 JWT `tenant` claim 解析）。",
+        "properties": {
+          "locale": {
+            "anyOf": [
+              {
+                "maxLength": 16,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "语言偏好（可空）",
+            "title": "Locale"
+          },
+          "name": {
+            "description": "昵称 / 显示名",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "timezone": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "时区偏好（可空）",
+            "title": "Timezone"
+          },
+          "username": {
+            "description": "登录账号（调用侧已清洗）",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "username",
+          "name"
+        ],
+        "title": "UserCreateRequest",
+        "type": "object"
+      },
+      "UserCreateResult": {},
       "UserProfileRequest": {
         "description": "用户概要查询请求（按主键；租户经服务 JWT `tenant` claim 解析）。",
         "properties": {
@@ -641,6 +694,116 @@
           }
         },
         "summary": "Verify Credential",
+        "tags": [
+          "org-internal"
+        ]
+      }
+    },
+    "/api/v1/org/internal/users/create": {
+      "post": {
+        "description": "JIT 建号（用户名空闲即建；撞名 `created=false`，由调用侧换后缀重试）。\n\nArgs:\n    req: 建号请求（账号 / 昵称 / 语言时区）。\n    uow: 请求级工作单元。\n\nReturns:\n    ApiResponse: 统一响应，data 为建号结果（`UserCreateResult`）。",
+        "operationId": "create_user_api_v1_org_internal_users_create_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_UserCreateResult_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Create User",
         "tags": [
           "org-internal"
         ]

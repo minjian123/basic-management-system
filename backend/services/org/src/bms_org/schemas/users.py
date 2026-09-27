@@ -27,3 +27,20 @@ class UserProfileResult(BaseSchema):
 
     found: bool = Field(description="用户是否存在")
     user: UserProfileUser | None = Field(default=None, description="用户概要（found=true 时返回）")
+
+
+class UserCreateRequest(BaseSchema):
+    """JIT 建号请求（账号 / 昵称 / 语言时区；租户经服务 JWT `tenant` claim 解析）。"""
+
+    username: str = Field(min_length=1, max_length=64, description="登录账号（调用侧已清洗）")
+    name: str = Field(min_length=1, max_length=128, description="昵称 / 显示名")
+    locale: str | None = Field(default=None, max_length=16, description="语言偏好（可空）")
+    timezone: str | None = Field(default=None, max_length=64, description="时区偏好（可空）")
+
+
+class UserCreateResult(BaseSchema):
+    """JIT 建号结果（撞名 `created=false` + `reason=username_conflict`，由调用侧换后缀重试）。"""
+
+    created: bool = Field(description="是否建号成功")
+    reason: str | None = Field(default=None, description="未建号原因（username_conflict）")
+    user: UserProfileUser | None = Field(default=None, description="新建用户概要（created=true 时返回）")
