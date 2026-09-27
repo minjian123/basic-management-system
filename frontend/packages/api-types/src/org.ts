@@ -225,6 +225,33 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/org/internal/users/reset-target": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reset Target
+         * @description 按标识（账号 / 手机 / 邮箱）解析找回密码投递目标（不存在 / 不可送达由调用侧统一防枚举处理）。
+         *
+         *     Args:
+         *         req: 重置目标查询请求（标识）。
+         *         uow: 请求级工作单元。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为解析结果（`UserResetTargetResult`）。
+         */
+        post: operations["reset_target_api_v1_org_internal_users_reset_target_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/org/posts": {
         parameters: {
             query?: never;
@@ -381,6 +408,7 @@ export interface components {
         ApiResponse_UpdatePasswordResult_: unknown;
         ApiResponse_UserCreateResult_: unknown;
         ApiResponse_UserProfileResult_: unknown;
+        ApiResponse_UserResetTargetResult_: unknown;
         CredentialUserSummary: unknown;
         /**
          * CredentialVerifyRequest
@@ -499,6 +527,18 @@ export interface components {
         };
         UserProfileResult: unknown;
         UserProfileUser: unknown;
+        /**
+         * UserResetTargetRequest
+         * @description 找回密码重置目标查询请求（账号 / 手机 / 邮箱；租户经服务 JWT `tenant` claim 解析）。
+         */
+        UserResetTargetRequest: {
+            /**
+             * Identifier
+             * @description 账号 / 手机号 / 邮箱
+             */
+            identifier: string;
+        };
+        UserResetTargetResult: unknown;
         /** ValidationError */
         ValidationError: {
             /** Context */
@@ -1040,6 +1080,86 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponse_UserProfileResult_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    reset_target_api_v1_org_internal_users_reset_target_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserResetTargetRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_UserResetTargetResult_"];
                 };
             };
             /** @description 未认证 */

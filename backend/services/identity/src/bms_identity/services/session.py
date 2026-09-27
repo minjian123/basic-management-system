@@ -34,6 +34,9 @@ REASON_MAX_ACTIVE = "max_active"
 REASON_LOGOUT = "logout"
 """撤销原因：用户登出。"""
 
+REASON_PASSWORD_RESET = "password_reset"
+"""撤销原因：自助找回 / 重置密码后全部会话失效。"""
+
 _LOGGER = get_logger("bms")
 
 
@@ -229,6 +232,34 @@ class SessionService(BaseObject):
                 await self._repo.revoke(record.session_id, revoked_at=now)
         for record in targets:
             await self._after_revoke(record, tenant=tenant, reason=REASON_MAX_ACTIVE, broadcast=True, now=now)
+        return [record.session_id for record in targets]
+
+    async def revoke_user_sessions(self, user_id: int, *, tenant: str | None, reason: str) -> list[str]:
+        """按用户批量撤销全部在线会话（重置密码后即时失效；复用统一撤销原语）。
+
+        - 单事务内取该用户全部在线会话并逐个 `revoked_at` 落库；提交后逐会话运行时清理
+          （refresh 黑名单 + 删 Redis 标记 + `session.revoked` 广播）。
+        - 单会话运行时清理异常记 warning 并继续（DB 已撤销，标记 TTL 自然失效兜底），不阻断其余会话。
+
+        Args:
+            user_id: 用户 ID。
+            tenant: 租户编码（定位 Redis 标记键）。
+            reason: 撤销原因（`REASON_PASSWORD_RESET`）。
+
+        Returns:
+            list[str]: 被撤销的会话 id 清单（无在线会话为空）。
+        """
+        now = _utc_now()
+        targets: list[SysSession] = []
+        async with self._uow.begin():
+            targets = await self._repo.list_active_by_user(user_id, now=now)
+            for record in targets:
+                await self._repo.revoke(record.session_id, revoked_at=now)
+        for record in targets:
+            try:
+                await self._after_revoke(record, tenant=tenant, reason=reason, broadcast=True, now=now)
+            except Exception as exc:  # 运行时清理尽力而为，DB 撤销已提交
+                _LOGGER.warning("会话撤销运行时清理未完成", session_id=record.session_id, error=str(exc))
         return [record.session_id for record in targets]
 
     async def _after_revoke(

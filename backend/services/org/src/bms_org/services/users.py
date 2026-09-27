@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 from sqlalchemy.exc import IntegrityError
 
 from bms_core.core.base import BaseObject
@@ -9,13 +11,27 @@ from bms_core.db.unit_of_work import UnitOfWork
 from bms_core.services.base_service import BaseService
 from bms_org.models.user import SysUser
 from bms_org.repositories.user import UserRepository
-from bms_org.schemas.users import UserCreateResult, UserProfileResult, UserProfileUser
+from bms_org.schemas.users import (
+    UserCreateResult,
+    UserProfileResult,
+    UserProfileUser,
+    UserResetTargetResult,
+)
 
 SSO_PASSWORD_PLACEHOLDER = "!sso"
 """SSO JIT 建号的口令占位（非 PBKDF2 自描述串 → 本地登录校验恒 False，禁止本地口令登录）。"""
 
 _USERNAME_CONFLICT = "username_conflict"
 """用户名撞名原因码（调用侧据此换后缀重试）。"""
+
+CHANNEL_EMAIL = "email"
+"""找回密码投递通道：邮件。"""
+
+CHANNEL_SMS = "sms"
+"""找回密码投递通道：短信。"""
+
+_PHONE_RE = re.compile(r"^\+?\d{6,20}$")
+"""手机号形态（可选国际前缀 + 6~20 位数字；仅用于标识分类，非格式校验）。"""
 
 
 class UserProfileService(BaseObject):
@@ -42,6 +58,61 @@ class UserProfileService(BaseObject):
         if row is None:
             return UserProfileResult(found=False)
         return UserProfileResult(found=True, user=_summary(row))
+
+
+class UserResetTargetService(BaseObject):
+    """找回密码重置目标解析：标识分类（邮箱 / 手机 / 账号）→ 用户 → 通道与投递目标。
+
+    - 邮箱按小写不敏感匹配（跨库确定性）；手机 / 账号精确匹配；多命中取最早一条。
+    - 通道优先邮箱（`email`），无邮箱回落手机（`sms`），皆无为空通道。
+    - 可送达 = 账号存在且启用且有可用通道；停用 / 软删 / 无联系方式按不可送达处理（调用侧统一防枚举响应）。
+    - 锁定状态不影响解析（锁定中账号允许找回，锁状态不变；解锁归 03_07）。
+    """
+
+    def __init__(self, users: UserRepository) -> None:
+        """初始化。
+
+        Args:
+            users: 用户仓储（租户库 `sys_user`）。
+        """
+        self._users = users
+
+    async def resolve(self, identifier: str) -> UserResetTargetResult:
+        """按标识解析重置目标。
+
+        Args:
+            identifier: 账号 / 手机号 / 邮箱。
+
+        Returns:
+            UserResetTargetResult: 解析结果（不存在 `found=false`）。
+        """
+        user = await self._lookup(identifier)
+        if user is None:
+            return UserResetTargetResult(found=False)
+        channel, target = _pick_channel(user)
+        return UserResetTargetResult(
+            found=True,
+            user_id=user.id,
+            account=user.username,
+            deliverable=user.status == "enabled" and channel != "",
+            channel=channel,
+            target=target,
+        )
+
+    async def _lookup(self, identifier: str) -> SysUser | None:
+        """按标识形态取用户（邮箱 / 手机 / 账号）。
+
+        Args:
+            identifier: 账号 / 手机号 / 邮箱。
+
+        Returns:
+            SysUser | None: 用户记录；不存在返回 None。
+        """
+        if "@" in identifier:
+            return await self._users.get_by_email(identifier)
+        if _PHONE_RE.match(identifier) is not None:
+            return await self._users.get_by_phone(identifier)
+        return await self._users.get_by_username(identifier)
 
 
 class UserCreateService(BaseService[SysUser]):
@@ -102,6 +173,22 @@ class UserCreateService(BaseService[SysUser]):
         repository = self._repository
         assert isinstance(repository, UserRepository)
         return repository
+
+
+def _pick_channel(row: SysUser) -> tuple[str, str]:
+    """按登记联系方式取投递通道与目标（邮箱优先、手机兜底）。
+
+    Args:
+        row: 用户行。
+
+    Returns:
+        tuple[str, str]: (通道 `email` / `sms` / 空串, 投递目标)。
+    """
+    if row.email:
+        return CHANNEL_EMAIL, row.email
+    if row.phone:
+        return CHANNEL_SMS, row.phone
+    return "", ""
 
 
 def _summary(row: SysUser) -> UserProfileUser:

@@ -9,6 +9,8 @@ from fastapi import FastAPI
 
 from bms_core.api.deps import (
     get_captcha,
+    get_idp_state_store,
+    get_notifier,
     get_rate_limiter,
     get_realtime_publisher,
     get_service_client,
@@ -19,6 +21,8 @@ from bms_core.captcha.base import BaseCaptcha, CaptchaChallenge, CaptchaCredenti
 from bms_core.core.exceptions import AuthError
 from bms_core.db.tenant import DEMO_TENANT, TenantContext, TenantNotFoundError
 from bms_core.idp.base import IdentityClaims
+from bms_core.idp.state.base import BaseIdpStateStore
+from bms_core.notify.base import BaseNotifier, NotificationMessage, SendResult
 from bms_core.oauth.user_token import BaseUserTokenIssuer, UserTokenPair, UserTokenSpec
 from bms_core.ratelimit.memory import MemoryRateLimiter
 from bms_core.servicecall.base import BaseServiceClient, ServiceRequest, ServiceResponse
@@ -132,6 +136,8 @@ class FakeOrgClient(BaseServiceClient):
         pwd_reset_required: bool = False,
         locale: str | None = None,
         timezone: str | None = None,
+        email: str | None = None,
+        phone: str | None = None,
     ) -> None:
         """登记测试用户。
 
@@ -145,6 +151,8 @@ class FakeOrgClient(BaseServiceClient):
             pwd_reset_required: 是否需强制改密。
             locale: 语言偏好。
             timezone: 时区偏好。
+            email: 邮箱（找回密码通道）。
+            phone: 手机号（找回密码通道）。
         """
         self.users[account] = {
             "password": password,
@@ -155,6 +163,8 @@ class FakeOrgClient(BaseServiceClient):
             "pwd_reset_required": pwd_reset_required,
             "locale": locale,
             "timezone": timezone,
+            "email": email,
+            "phone": phone,
         }
 
     async def call(self, request: ServiceRequest) -> ServiceResponse:
@@ -203,9 +213,15 @@ class FakeOrgClient(BaseServiceClient):
                     "pwd_changed_at": None,
                 },
             }
+        if action == "reset-target":
+            return self._reset_target(str(body.get("identifier", "")))
         if action == "update-password":
             if user is None:
                 return {"updated": False, "reason": "not_found", "violations": []}
+            if body.get("new_password") == "weak":
+                return {"updated": False, "reason": "policy_violation", "violations": ["too_short"]}
+            if body.get("new_password") == "old-pass":
+                return {"updated": False, "reason": "history_reused", "violations": []}
             user["password"] = body.get("new_password")
             return {"updated": True, "reason": "", "violations": []}
         if action == "login-state":
@@ -223,16 +239,67 @@ class FakeOrgClient(BaseServiceClient):
             return self.last_state
         return {}
 
+    def _reset_target(self, identifier: str) -> dict[str, object]:
+        """解析找回密码重置目标（邮箱小写不敏感 / 手机 / 账号）。
+
+        Args:
+            identifier: 标识。
+
+        Returns:
+            dict[str, object]: 重置目标结果 data。
+        """
+        account: str | None = None
+        user: dict[str, object] | None = None
+        for name, item in self.users.items():
+            email = item.get("email")
+            if "@" in identifier and isinstance(email, str) and email.lower() == identifier.lower():
+                account, user = name, item
+                break
+            if item.get("phone") == identifier:
+                account, user = name, item
+                break
+        if user is None:
+            account = identifier
+            user = self.users.get(identifier)
+        if user is None:
+            return {"found": False, "user_id": None, "account": "", "deliverable": False, "channel": "", "target": ""}
+        channel = "email" if user.get("email") else ("sms" if user.get("phone") else "")
+        target = str(user.get("email") or user.get("phone") or "")
+        return {
+            "found": True,
+            "user_id": user["id"],
+            "account": account,
+            "deliverable": user["status"] == "enabled" and channel != "",
+            "channel": channel,
+            "target": target,
+        }
+
 
 class FakeCaptcha(BaseCaptcha):
     """测试替身：可配置是否强制 + 是否通过。"""
 
     plugin_name = "fake"
 
-    def __init__(self, *, required: bool = False, verified: bool = True, fail_threshold: int = 3) -> None:
+    def __init__(
+        self,
+        *,
+        required: bool = False,
+        verified: bool = True,
+        fail_threshold: int = 3,
+        required_scene: str | None = None,
+    ) -> None:
+        """初始化。
+
+        Args:
+            required: 是否强制要求验证码（未限定场景时对所有场景生效）。
+            verified: 凭证校验是否通过。
+            fail_threshold: 连续失败阈值。
+            required_scene: 仅在指定场景强制（None = 所有场景按 `required`）。
+        """
         self._required = required
         self._verified = verified
         self._fail_threshold = fail_threshold
+        self._required_scene = required_scene
         self.seen: list[CaptchaCredential] = []
 
     async def generate(self, scene: str = "login", *, kind: CaptchaKind = CaptchaKind.IMAGE) -> CaptchaChallenge:
@@ -280,7 +347,42 @@ class FakeCaptcha(BaseCaptcha):
         Returns:
             CaptchaScenePolicy: 策略。
         """
-        return CaptchaScenePolicy(scene=scene, required=self._required, fail_threshold=self._fail_threshold)
+        required = self._required if self._required_scene is None else scene == self._required_scene
+        return CaptchaScenePolicy(scene=scene, required=required, fail_threshold=self._fail_threshold)
+
+
+class RecordingNotifier(BaseNotifier):
+    """测试替身：记录通知消息（可配置送达结果），供找回密码占位发送断言。"""
+
+    plugin_name = "recording"
+
+    def __init__(self, *, delivered: bool = True, raises: bool = False) -> None:
+        """初始化。
+
+        Args:
+            delivered: 是否返回已送达。
+            raises: 是否发送即抛异常（渠道故障分支）。
+        """
+        self.messages: list[NotificationMessage] = []
+        self._delivered = delivered
+        self._raises = raises
+
+    async def send(self, message: NotificationMessage) -> SendResult:
+        """记录消息并返回配置结果。
+
+        Args:
+            message: 通知消息。
+
+        Returns:
+            SendResult: 发送结果。
+
+        Raises:
+            RuntimeError: `raises=True` 时模拟渠道异常。
+        """
+        self.messages.append(message)
+        if self._raises:
+            raise RuntimeError("notify down")
+        return SendResult(delivered=self._delivered)
 
 
 class RecordingRealtimePublisher(BaseRealtimePublisher):
@@ -390,3 +492,26 @@ def wire_publisher(app: FastAPI, publisher: BaseRealtimePublisher) -> None:
         publisher: 推送器替身。
     """
     app.dependency_overrides[get_realtime_publisher] = lambda: publisher
+
+
+def wire_password_reset(
+    app: FastAPI,
+    *,
+    states: BaseIdpStateStore,
+    notifier: BaseNotifier,
+    captcha: BaseCaptcha | None = None,
+) -> None:
+    """覆盖找回密码链路依赖（流程状态存储 / 通知基座 / 验证码替身）。
+
+    Args:
+        app: 应用实例。
+        states: 流程状态存储替身（重置 token 一次性存取）。
+        notifier: 通知基座替身（占位发送记录）。
+        captcha: 验证码替身（None 用默认 Null）。
+    """
+    app.dependency_overrides[get_idp_state_store] = lambda: states
+    app.dependency_overrides[get_notifier] = lambda: notifier
+    if captcha is not None:
+        app.dependency_overrides[get_captcha] = lambda: captcha
+    else:
+        app.dependency_overrides.pop(get_captcha, None)

@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from sqlalchemy import and_, or_
+from sqlalchemy import and_, func, or_
 
 from bms_core.repositories.base_db_repository import BaseDbRepository
 from bms_org.models.user import SysUser
@@ -36,6 +36,35 @@ class UserRepository(BaseDbRepository[SysUser]):
         """
         statement = self._select().where(self._column("username") == username)
         return (await self._session.execute(statement)).scalar_one_or_none()
+
+    async def get_by_email(self, email: str) -> SysUser | None:
+        """按邮箱查询单条记录（小写不敏感；多命中取最早一条）。
+
+        Args:
+            email: 邮箱地址。
+
+        Returns:
+            SysUser | None: 用户记录；不存在返回 None。
+        """
+        statement = (
+            self._select()
+            .where(func.lower(self._column("email")) == email.lower())
+            .order_by(self._column("id").asc())
+            .limit(1)
+        )
+        return (await self._session.execute(statement)).scalars().first()
+
+    async def get_by_phone(self, phone: str) -> SysUser | None:
+        """按手机号查询单条记录（精确匹配；多命中取最早一条）。
+
+        Args:
+            phone: 手机号。
+
+        Returns:
+            SysUser | None: 用户记录；不存在返回 None。
+        """
+        statement = self._select().where(self._column("phone") == phone).order_by(self._column("id").asc()).limit(1)
+        return (await self._session.execute(statement)).scalars().first()
 
     async def list_inactive(self, threshold: datetime, *, now: datetime) -> list[SysUser]:
         """列出不活跃待锁定候选：启用、未锁定、最近登录（或建号）早于阈值。

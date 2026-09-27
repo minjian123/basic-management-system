@@ -8,7 +8,7 @@ from bms_core.api.deps import get_tenant_source
 from bms_core.db.tenant import TenantNotFoundError
 from bms_core.ratelimit.memory import MemoryRateLimiter
 from bms_core.session.memory import MemorySessionStore
-from bms_identity.api.auth import _resolve_login_tenant  # pyright: ignore[reportPrivateUsage]
+from bms_identity.api.tenancy import resolve_request_tenant
 from bms_identity.services.session_issuer import truncate_field  # pyright: ignore[reportPrivateUsage]
 
 from .helpers import FakeCaptcha, FakeOrgClient, FakeTenantSource, FakeUserTokenIssuer, wire_auth
@@ -184,10 +184,10 @@ def test_truncate_none_and_limit() -> None:
 @pytest.mark.kiwi_id(2194)
 async def test_resolve_login_tenant_branches() -> None:
     """登录租户解析：body 指定经租户源生效；无任何来源抛 404。"""
-    ctx = await _resolve_login_tenant("demo", None, FakeTenantSource())  # pyright: ignore[reportPrivateUsage]
+    ctx = await resolve_request_tenant("demo", None, FakeTenantSource())
     assert ctx.tenant_code == "demo"
     with pytest.raises(TenantNotFoundError):
-        await _resolve_login_tenant(None, None, FakeTenantSource())  # pyright: ignore[reportPrivateUsage]
+        await resolve_request_tenant(None, None, FakeTenantSource())
 
 
 @pytest.mark.kiwi_id(2208)

@@ -58,6 +58,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/forgot-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Forgot Password
+         * @description 发起找回：验证码 / 限流 / 重置目标解析 → 生成令牌并占位发送（恒 `{sent: true}`）。
+         *
+         *     Args:
+         *         request: 请求对象（取应用配置与引擎注册表）。
+         *         req: 发起找回请求（标识 / 验证码 / 租户）。
+         *         captcha: 验证码基座。
+         *         limiter: 限流基座。
+         *         client: 服务间调用客户端。
+         *         state_store: 流程状态存储。
+         *         notifier: 通知基座。
+         *         security: 会话安全原语。
+         *         store: 会话标记存储。
+         *         publisher: 实时推送器。
+         *         tenant_ctx: 请求上下文租户。
+         *         tenant_source: 租户源。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为发起结果（`PasswordForgotResult`）。
+         */
+        post: operations["forgot_password_api_v1_auth_forgot_password_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/introspect": {
         parameters: {
             query?: never;
@@ -203,6 +240,43 @@ export interface paths {
          *         AuthError: 缺少 refresh cookie / 租户上下文（20001/401）。
          */
         post: operations["refresh_api_v1_auth_refresh_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/reset-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reset Password
+         * @description 提交重置：一次性消费令牌 → 改密（强制过策略）→ 该账号全部会话失效。
+         *
+         *     Args:
+         *         request: 请求对象（取应用配置与引擎注册表）。
+         *         req: 提交重置请求（令牌 / 新口令 / 租户）。
+         *         captcha: 验证码基座（未使用，保持服务构造一致）。
+         *         limiter: 限流基座（未使用）。
+         *         client: 服务间调用客户端。
+         *         state_store: 流程状态存储（一次性消费令牌）。
+         *         notifier: 通知基座（未使用）。
+         *         security: 会话安全原语。
+         *         store: 会话标记存储。
+         *         publisher: 实时推送器。
+         *         tenant_ctx: 请求上下文租户。
+         *         tenant_source: 租户源。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为重置结果（`PasswordResetResult`）。
+         */
+        post: operations["reset_password_api_v1_auth_reset_password_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1215,6 +1289,8 @@ export interface components {
         ApiResponse_KickResult_: unknown;
         ApiResponse_LoginResult_: unknown;
         ApiResponse_NoneType_: unknown;
+        ApiResponse_PasswordForgotResult_: unknown;
+        ApiResponse_PasswordResetResult_: unknown;
         ApiResponse_RefreshResult_: unknown;
         ApiResponse_SessionItem_: unknown;
         ApiResponse_SsoAuthorizeInfo_: unknown;
@@ -1526,6 +1602,47 @@ export interface components {
             tenant?: string | null;
         };
         LoginResult: unknown;
+        /**
+         * PasswordForgotRequest
+         * @description 发起找回请求（账号 / 手机 / 邮箱取通道；验证码按场景策略必带）。
+         */
+        PasswordForgotRequest: {
+            /** @description 验证码凭证（场景 reset_password；策略强制时必带） */
+            captcha?: components["schemas"]["CaptchaInput"] | null;
+            /**
+             * Identifier
+             * @description 账号 / 手机号 / 邮箱
+             */
+            identifier: string;
+            /**
+             * Tenant
+             * @description 租户编码（可选；携带则以之为准）
+             */
+            tenant?: string | null;
+        };
+        PasswordForgotResult: unknown;
+        /**
+         * PasswordResetRequest
+         * @description 提交重置请求（重置令牌 + 新口令；策略判定在 org 侧）。
+         */
+        PasswordResetRequest: {
+            /**
+             * New Password
+             * @description 新口令明文
+             */
+            new_password: string;
+            /**
+             * Tenant
+             * @description 租户编码（可选；携带则以之为准）
+             */
+            tenant?: string | null;
+            /**
+             * Token
+             * @description 重置令牌（通知下发；单次有效）
+             */
+            token: string;
+        };
+        PasswordResetResult: unknown;
         RefreshResult: unknown;
         SessionItem: unknown;
         SsoAuthorizeInfo: unknown;
@@ -1594,6 +1711,84 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+        };
+    };
+    forgot_password_api_v1_auth_forgot_password_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasswordForgotRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_PasswordForgotResult_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
                 };
             };
         };
@@ -1731,6 +1926,84 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponse_RefreshResult_"];
+                };
+            };
+        };
+    };
+    reset_password_api_v1_auth_reset_password_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasswordResetRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_PasswordResetResult_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
                 };
             };
         };

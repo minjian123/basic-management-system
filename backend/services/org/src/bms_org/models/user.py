@@ -37,5 +37,11 @@ class SysUser(BaseModel):
         Boolean, default=False, comment="是否需强制改密（登录超期置真，改密成功清假）"
     )
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, comment="最近登录时间（UTC）")
+    email: Mapped[str | None] = mapped_column(
+        String(255), nullable=True, comment="邮箱（找回密码通道；维护入口归用户管理阶段）"
+    )
+    phone: Mapped[str | None] = mapped_column(
+        String(32), nullable=True, comment="手机号（找回密码通道；维护入口归用户管理阶段）"
+    )
     locale: Mapped[str | None] = mapped_column(String(16), nullable=True, comment="语言偏好（如 zh-cn）")
     timezone: Mapped[str | None] = mapped_column(String(64), nullable=True, comment="时区偏好（如 Asia/Shanghai）")

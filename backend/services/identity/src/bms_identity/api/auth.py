@@ -28,7 +28,7 @@ from bms_core.core.context import current_client_ip
 from bms_core.core.exceptions import AuthError, ConfigError, ServiceUnavailableError
 from bms_core.db.registry import EngineRegistry
 from bms_core.db.session import DbSession, session_scope
-from bms_core.db.tenant import TenantContext, TenantLookup, TenantNotFoundError
+from bms_core.db.tenant import TenantContext, TenantLookup
 from bms_core.db.unit_of_work import DbUnitOfWork
 from bms_core.edge.headers import SESSION_ID_HEADER, TENANT_ID_HEADER, USER_SCOPES_HEADER, USER_SUBJECT_HEADER
 from bms_core.oauth.token import TOKEN_AUDIENCE_API, BaseServiceTokenIssuer, ServiceTokenSpec
@@ -41,6 +41,7 @@ from bms_core.servicecall.base import BaseServiceClient
 from bms_core.session.base import BaseSessionStore
 from bms_core.ws.base import BaseRealtimePublisher
 from bms_identity.api.cookies import clear_refresh_cookie, set_refresh_cookie
+from bms_identity.api.tenancy import resolve_request_tenant
 from bms_identity.schemas.auth import (
     REFRESH_COOKIE_NAME,
     LoginRequest,
@@ -152,31 +153,6 @@ TenantDep = Annotated[TenantContext | None, Depends(get_tenant)]
 TenantSourceDep = Annotated[TenantLookup, Depends(get_tenant_source)]
 
 
-async def _resolve_login_tenant(
-    body_tenant: str | None,
-    context_tenant: TenantContext | None,
-    source: TenantLookup,
-) -> TenantContext:
-    """解析登录生效租户：请求上下文优先，无则 body 指定，再校验存在。
-
-    Args:
-        body_tenant: 请求体携带的租户编码（可选；不一致时以之为准）。
-        context_tenant: 请求上下文（子域名 / `X-Tenant-ID`）租户。
-        source: 租户源（按编码校验存在）。
-
-    Returns:
-        TenantContext: 生效租户上下文。
-
-    Raises:
-        TenantNotFoundError: 无任何租户来源（404）。
-    """
-    if body_tenant:
-        return await source.by_code(body_tenant)
-    if context_tenant is not None:
-        return context_tenant
-    raise TenantNotFoundError("未提供租户标识")
-
-
 def _build_service(
     *,
     request: Request,
@@ -265,7 +241,7 @@ async def login(
     Returns:
         ApiResponse: 统一响应，data 为登录结果（`LoginResult`）。
     """
-    tenant = await _resolve_login_tenant(req.tenant, tenant_ctx, tenant_source)
+    tenant = await resolve_request_tenant(req.tenant, tenant_ctx, tenant_source)
     registry: EngineRegistry = request.app.state.engine_registry
     factory = request.app.state.session_factory
     async with session_scope(registry, db_key=tenant.db_key, factory=factory) as session:
