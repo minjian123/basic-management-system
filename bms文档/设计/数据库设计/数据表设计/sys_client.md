@@ -28,7 +28,7 @@
 | `redirect_uris` | TEXT | 否 | JSON 数组 | 授权码流程回调地址白名单（精确匹配）；`authorization_code` 客户端必填 |
 | `grant_types` | TEXT | 否 | JSON 数组 | 授权类型（取 `GRANT_TYPES`：`client_credentials` / `authorization_code`） |
 | `scopes` | TEXT | 否 | JSON 数组 | 允许申请的 scope 集合（`authorization_code` 须含 `openid`） |
-| `ip_whitelist` | TEXT | 否 | JSON 数组，默认 `[]` | 来源 IP / CIDR 白名单（开放接口阶段十消费；空 = 不限制） |
+| `ip_whitelist` | TEXT | 否 | JSON 数组（默认值由应用侧写 `[]`） | 来源 IP / CIDR 白名单（开放接口阶段十消费；空 = 不限制） |
 | `status` | VARCHAR(16) | 否 | 默认 `enabled` | 状态（`enabled` / `disabled`；停用后授权 / 换码拒绝） |
 | `created_at` | DATETIME | 否 | 审计 | 创建时间（UTC） |
 | `created_by` | BIGINT | 是 | 审计 | 创建人 |
