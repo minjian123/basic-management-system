@@ -46,7 +46,8 @@ def upgrade() -> None:
         "sys_config",
         *_base_columns(),
         sa.Column("config_key", sa.String(length=128), nullable=False, comment="参数键（点分小写，唯一）"),
-        sa.Column("value", sa.Text(), nullable=False, server_default="", comment="参数值（文本承载）"),
+        # 不设 server_default：TEXT/BLOB/JSON 在 MySQL 不允许默认值（跨方言兼容）；空值由应用侧缺省承载
+        sa.Column("value", sa.Text(), nullable=False, comment="参数值（文本承载）"),
         sa.Column("remark", sa.String(length=255), nullable=True, comment="备注（参数用途说明）"),
         sa.UniqueConstraint("config_key", "deleted_at", name="uq_sys_config_config_key_deleted_at"),
     )
