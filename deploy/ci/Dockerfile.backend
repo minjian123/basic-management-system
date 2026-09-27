@@ -31,6 +31,15 @@ RUN curl -fsSL "https://mirrors.aliyun.com/docker-ce/linux/static/stable/x86_64/
  && docker --version
 
 WORKDIR /opt/bms
+# Node 预装（pyright 运行时依赖）：不预装时 pyright-python 每次经 nodeenv 从 nodejs.org
+# 现场下载（2026-09-27 实测 backend-typecheck 单次 578s），且网络抖动即失败。
+# 从清华镜像下载官方二进制（Node 22 LTS，与 ci-frontend:node22 主版本一致）解包至 /usr/local。
+ARG NODE_VERSION=22.12.0
+RUN curl -fsSL "https://mirrors.tuna.tsinghua.edu.cn/nodejs-release/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.gz" -o /tmp/node.tar.gz \
+ && tar -xzf /tmp/node.tar.gz -C /usr/local --strip-components=1 \
+ && rm -f /tmp/node.tar.gz \
+ && node --version \
+ && npm --version
 # 工作区形态：预装第三方依赖（不装工作区成员——成员源码不入镜像，运行时由 job `uv sync` 装入）
 COPY pyproject.toml uv.lock ./
 COPY libs/bms_core/pyproject.toml libs/bms_core/pyproject.toml

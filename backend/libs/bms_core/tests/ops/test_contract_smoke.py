@@ -38,7 +38,7 @@ def test_container_name_and_schemathesis_args() -> None:
 
 @pytest.mark.kiwi_id(2186)
 def test_service_up_healthy() -> None:
-    """起容器 → 轮询 healthy 即就绪；镜像标签随命令传入。"""
+    """起容器 → 轮询 healthy 即就绪；镜像标签随命令传入；注入一次性测试服务令牌密钥。"""
     calls: list[list[str]] = []
     inspect_n = {"n": 0}
 
@@ -52,7 +52,23 @@ def test_service_up_healthy() -> None:
     assert contract_smoke.service_up("platform", "reg/bms-platform:abc", run=fake_run, sleep=lambda _s: None) is True
     run_cmd = next(call for call in calls if call[1] == "run")
     assert "BMS_ENV=dev" in run_cmd and "reg/bms-platform:abc" in run_cmd
+    assert any(arg.startswith("BMS_SERVICE_TOKEN__KEYS={") for arg in run_cmd)
+    assert "BMS_SERVICE_TOKEN__ACTIVE_KID=svc-smoke" in run_cmd
     assert inspect_n["n"] == 2
+
+
+@pytest.mark.kiwi_id(2186)
+def test_smoke_service_token_keys_shape() -> None:
+    """一次性测试密钥：JSON 可解析、RS256 公私钥 PEM、kid 与 active_kid 一致。"""
+    import json
+
+    keys_json, active_kid = contract_smoke.smoke_service_token_keys()
+    assert active_kid == "svc-smoke"
+    payload = json.loads(keys_json)
+    material = payload[active_kid]
+    assert material["algorithm"] == "RS256"
+    assert material["private_key"].startswith("-----BEGIN PRIVATE KEY-----")
+    assert material["public_key"].startswith("-----BEGIN PUBLIC KEY-----")
 
 
 @pytest.mark.kiwi_id(2186)
