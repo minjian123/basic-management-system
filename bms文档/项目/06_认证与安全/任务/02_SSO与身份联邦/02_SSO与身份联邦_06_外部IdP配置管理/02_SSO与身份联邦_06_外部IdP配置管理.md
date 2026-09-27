@@ -17,6 +17,8 @@
 | 状态 | 未开始 |
 | 完成日期 | — |
 
+> **前置契约（已交付 · 02_01，2026-09-27）**：`sys_identity_provider` 表 + ORM（`SysIdentityProvider`）+ `identity:tenant` 迁移（0002）+ 读路径（`IdentityProviderRepository.list_enabled` / `get_by_key`）已交付，本任务在其上补 CRUD / 启停 / 排序管理接口；`ProviderRegistry` / `IdentityProviderSpec` / `resolve_secret_ref`（`env:` 已实现、`secret:` 预留抛 `ConfigError`）已交付，连通性测试复用 `ProviderRegistry` 实例化；登录页入口清单 `GET /auth/sso/providers` 已按 `enabled` + `sort` 取数且永不返回 `config`。
+
 ## 2. 任务内容 <a id="content"></a>
 
 1. **配置载体**：`sys_identity_provider` 表文件先设计后落库（租户库）——协议类型（OIDC / CAS / 企微 / 钉钉）、`idp_key`、端点与客户端凭据（**密钥字段只存引用 / 加密值，不明文入库**）、状态、排序。
