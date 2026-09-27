@@ -22,7 +22,7 @@ import httpx
 from bms_core.core.config import IdentityProviderSettings, Settings
 from bms_core.core.exceptions import DingtalkAuthError, DingtalkUnavailableError, PluginError
 from bms_core.core.factory import BasePluginFactory
-from bms_core.idp.base import BaseIdentityProvider, IdentityToken, IdentityUser
+from bms_core.idp.base import BaseIdentityProvider, IdentityToken, IdentityUser, IdpProbeResult
 
 __all__ = [
     "DingtalkIdentityProvider",
@@ -188,6 +188,41 @@ class DingtalkIdentityProvider(BaseIdentityProvider):
             name=nick,
             email=_as_optional_str(payload.get("email")),
             idp_key=self._client_id,
+        )
+
+    async def probe(self) -> IdpProbeResult:
+        """连通性探测：调 `userAccessToken`（占位 `code`），端点可达即为 True。
+
+        无有效 `code` 时钉钉返回 4xx（属预期），据此判定端点可达；网络不可达 / 5xx 记为不可达。
+        `detail` 只记摘要（不校验凭据真伪，真实凭据验证归真实联调）。
+
+        Returns:
+            IdpProbeResult: 端点可达为 True；网络 / 服务异常为 False。
+        """
+        url = f"{self._api_base_url}/v1.0/oauth2/userAccessToken"
+        body = {
+            "clientId": self._client_id,
+            "clientSecret": self._client_secret,
+            "code": "__connectivity_probe__",
+            "grantType": "authorization_code",
+        }
+        try:
+            async with httpx.AsyncClient(timeout=self._timeout, transport=self._transport) as client:
+                response = await client.post(url, json=body)
+        except httpx.HTTPError:
+            return IdpProbeResult(reachable=False, protocol="dingtalk", detail="钉钉接口不可达")
+        if response.status_code >= 500:
+            return IdpProbeResult(
+                reachable=False,
+                protocol="dingtalk",
+                status=response.status_code,
+                detail="钉钉接口服务异常",
+            )
+        return IdpProbeResult(
+            reachable=True,
+            protocol="dingtalk",
+            status=response.status_code,
+            detail="钉钉端点可达（未带有效 code，仅探活）",
         )
 
     async def _request_json(

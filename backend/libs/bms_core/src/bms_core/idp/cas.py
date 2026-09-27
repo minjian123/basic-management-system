@@ -22,7 +22,7 @@ import httpx
 from bms_core.core.config import IdentityProviderSettings, Settings
 from bms_core.core.exceptions import AuthError, ConfigError, PluginError, ServiceUnavailableError
 from bms_core.core.factory import BasePluginFactory
-from bms_core.idp.base import BaseIdentityProvider, IdentityToken, IdentityUser
+from bms_core.idp.base import BaseIdentityProvider, IdentityToken, IdentityUser, IdpProbeResult
 
 __all__ = [
     "CasIdentityProvider",
@@ -170,6 +170,20 @@ class CasIdentityProvider(BaseIdentityProvider):
         """
         del access_token
         raise ConfigError("CAS 协议不支持独立 userinfo（主体随票据校验一次取回）")
+
+    async def probe(self) -> IdpProbeResult:
+        """连通性探测：请求 `serviceValidate`（无票据），任意 HTTP 响应即视为端点可达。
+
+        Returns:
+            IdpProbeResult: 端点可达为 True；网络不可达为 False（`detail` 只记摘要）。
+        """
+        url = f"{self._server_url}{self._service_validate_path}"
+        try:
+            async with httpx.AsyncClient(timeout=self._timeout, transport=self._transport) as client:
+                response = await client.get(url, params={"service": self._redirect_uri})
+        except httpx.HTTPError:
+            return IdpProbeResult(reachable=False, protocol="cas", detail="CAS 端点不可达")
+        return IdpProbeResult(reachable=True, protocol="cas", status=response.status_code, detail="CAS 端点可达")
 
     def _build_identity(self, principal: str, attributes: Mapping[str, str]) -> IdentityUser:
         """按映射规则由 principal 与 attributes 构造身份。

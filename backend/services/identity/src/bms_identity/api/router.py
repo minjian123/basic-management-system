@@ -5,8 +5,17 @@
 """
 
 from bms_core.api.base import mount_service_routers
-from bms_identity.api import auth, captcha, clients, oidc, session, sso, users
+from bms_identity.api import auth, captcha, clients, identity_providers, oidc, session, sso, users
 
 api_router = mount_service_routers(
-    (auth.router, session.router, captcha.router, sso.router, users.router, oidc.router, clients.router)
+    (
+        auth.router,
+        session.router,
+        captcha.router,
+        sso.router,
+        identity_providers.router,
+        users.router,
+        oidc.router,
+        clients.router,
+    )
 )

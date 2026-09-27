@@ -58,3 +58,7 @@ provider = "local"
 
 [query_provider_registry]
 provider = "local"
+
+[idp_manage]
+# dev 联调：允许内网 / 回环 IdP（本地 Keycloak 等；生产保持 false 防 SSRF）
+allow_private_hosts = true

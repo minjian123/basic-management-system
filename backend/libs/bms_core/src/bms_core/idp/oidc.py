@@ -21,7 +21,7 @@ import httpx
 from bms_core.core.config import IdentityProviderSettings, Settings
 from bms_core.core.exceptions import AuthError, ConfigError, PluginError, ServiceUnavailableError
 from bms_core.core.factory import BasePluginFactory
-from bms_core.idp.base import BaseIdentityProvider, IdentityClaims, IdentityToken, IdentityUser
+from bms_core.idp.base import BaseIdentityProvider, IdentityClaims, IdentityToken, IdentityUser, IdpProbeResult
 from bms_core.idp.jwks import DEFAULT_JWKS_TTL, JwksCache, verify_jwt
 
 __all__ = [
@@ -222,6 +222,52 @@ class OidcIdentityProvider(BaseIdentityProvider):
         if nonce is not None and str(claims.payload.get("nonce") or "") != nonce:
             raise AuthError("OIDC ID Token nonce 校验失败")
         return replace(claims, idp_key=self._issuer)
+
+    async def probe(self) -> IdpProbeResult:
+        """连通性探测：拉取 Discovery 文档并校验关键字段。
+
+        Returns:
+            IdpProbeResult: 可达且文档合规为 True；否则 False（`detail` 只记摘要）。
+        """
+        url = f"{self._issuer}/.well-known/openid-configuration"
+        try:
+            async with httpx.AsyncClient(timeout=self._timeout, transport=self._transport) as client:
+                response = await client.get(url)
+        except httpx.HTTPError:
+            return IdpProbeResult(reachable=False, protocol="oidc", detail="Discovery 端点不可达")
+        if not response.is_success:
+            return IdpProbeResult(
+                reachable=False,
+                protocol="oidc",
+                status=response.status_code,
+                detail="Discovery 端点返回非 2xx",
+            )
+        try:
+            payload: object = response.json()
+        except ValueError:
+            return IdpProbeResult(
+                reachable=False,
+                protocol="oidc",
+                status=response.status_code,
+                detail="Discovery 响应非合法 JSON",
+            )
+        if not isinstance(payload, Mapping):
+            return IdpProbeResult(
+                reachable=False,
+                protocol="oidc",
+                status=response.status_code,
+                detail="Discovery 响应非对象",
+            )
+        metadata = cast("Mapping[str, object]", payload)
+        required = ("issuer", "authorization_endpoint", "token_endpoint")
+        if any(not isinstance(metadata.get(key), str) for key in required):
+            return IdpProbeResult(
+                reachable=False,
+                protocol="oidc",
+                status=response.status_code,
+                detail="Discovery 文档缺关键字段",
+            )
+        return IdpProbeResult(reachable=True, protocol="oidc", status=response.status_code, detail="Discovery 正常")
 
     async def _metadata(self) -> Mapping[str, object]:
         """取 Discovery 元数据（进程内缓存，TTL 内命中）。

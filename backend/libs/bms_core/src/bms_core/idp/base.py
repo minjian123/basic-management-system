@@ -31,6 +31,7 @@ __all__ = [
     "IdentityClaims",
     "IdentityToken",
     "IdentityUser",
+    "IdpProbeResult",
     "get_identity_provider",
 ]
 
@@ -113,6 +114,26 @@ class IdentityClaims(BaseObject):
 
     payload: Mapping[str, object] = field(default_factory=dict[str, object])
     """完整声明载荷（只读映射）。"""
+
+
+@dataclass(frozen=True)
+class IdpProbeResult(BaseObject):
+    """身份源连通性探测结果（管理面连通性测试消费）。
+
+    `detail` 只放**摘要诊断**（状态码 / 错误类别 / errcode 数值），不含原始报文、密钥或环境变量名。
+    """
+
+    reachable: bool
+    """目标端点是否可达 / 凭据是否有效（按各协议口径）。"""
+
+    protocol: str = ""
+    """协议类型（`oidc` / `cas` / `wecom` / `dingtalk`）。"""
+
+    status: int | None = None
+    """探测命中的 HTTP 状态码（无出站 / 未命中时为空）。"""
+
+    detail: str = ""
+    """摘要诊断（不含敏感信息）。"""
 
 
 class BaseIdentityProvider(BasePluggable, ABC):
@@ -200,6 +221,18 @@ class BaseIdentityProvider(BasePluggable, ABC):
             ConfigError: 该身份源协议不支持 JWT 票据校验（40001）。
         """
         raise ConfigError(f"身份源协议不支持 JWT 票据校验：{self.key}")
+
+    async def probe(self) -> IdpProbeResult:
+        """连通性探测（管理面连通性测试；默认表示该协议不支持探测）。
+
+        各真实实现覆盖本方法：OIDC 走 Discovery、CAS 走 `serviceValidate` 可达性、企业微信走
+        `gettoken`（凭据 + 可达性）、钉钉走 `userAccessToken` 探活。默认实现返回不可达，
+        与 `verify_token` 同范式保持既有实现与第三方后端向后兼容（非抽象方法）。
+
+        Returns:
+            IdpProbeResult: 探测结果（默认不可达）。
+        """
+        return IdpProbeResult(reachable=False, protocol=self.plugin_name, detail="该协议不支持连通性探测")
 
 
 def get_identity_provider(request: Request) -> BaseIdentityProvider:

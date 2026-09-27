@@ -29,7 +29,7 @@ from bms_core.core.exceptions import (
     WecomUnavailableError,
 )
 from bms_core.core.factory import BasePluginFactory
-from bms_core.idp.base import BaseIdentityProvider, IdentityToken, IdentityUser
+from bms_core.idp.base import BaseIdentityProvider, IdentityToken, IdentityUser, IdpProbeResult
 
 __all__ = [
     "WecomIdentityProvider",
@@ -203,6 +203,35 @@ class WecomIdentityProvider(BaseIdentityProvider):
         """
         del access_token
         raise ConfigError("企业微信协议不支持独立 userinfo（主体随 code 换取一次取回）")
+
+    async def probe(self) -> IdpProbeResult:
+        """连通性探测：调 `gettoken` 验证应用凭据与端点可达性。
+
+        凭据有效（`errcode == 0`）为可达；接口可达但凭据 / 配置异常（`errcode != 0`）记为不可达，
+        `detail` 记 errcode 数值（不透传原始报文）。
+
+        Returns:
+            IdpProbeResult: 凭据有效且可达为 True；否则 False（`detail` 只记摘要）。
+        """
+        url = f"{self._api_base_url}/cgi-bin/gettoken"
+        try:
+            async with httpx.AsyncClient(timeout=self._timeout, transport=self._transport) as client:
+                response = await client.get(url, params={"corpid": self._corp_id, "corpsecret": self._secret})
+                response.raise_for_status()
+                payload: object = response.json()
+        except httpx.HTTPError, ValueError:
+            return IdpProbeResult(reachable=False, protocol="wecom", detail="企业微信接口不可达")
+        if not isinstance(payload, Mapping):
+            return IdpProbeResult(reachable=False, protocol="wecom", detail="企业微信响应非对象")
+        errcode = _as_int(cast("Mapping[str, object]", payload).get("errcode"))
+        if errcode == 0:
+            return IdpProbeResult(reachable=True, protocol="wecom", status=200, detail="gettoken 正常（凭据有效）")
+        return IdpProbeResult(
+            reachable=False,
+            protocol="wecom",
+            status=200,
+            detail=f"接口可达但凭据 / 配置异常（errcode={errcode}）",
+        )
 
     async def _access_token(self) -> str:
         """取应用 `access_token`（进程内缓存，命中且未过期复用）。
