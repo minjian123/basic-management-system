@@ -13,9 +13,8 @@ import hashlib
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
-from bms_core.core.base import BaseObject
 from bms_core.core.config import SessionSettings
-from bms_core.core.objects import BaseRefreshableTokenContract
+from bms_core.core.objects import BaseFrameworkObject, BaseRefreshableTokenContract
 from bms_core.db.session import DbSession
 from bms_core.db.unit_of_work import UnitOfWork
 from bms_core.oauth.base import TOKEN_TYPE_BEARER
@@ -85,7 +84,7 @@ class IssuedSession(BaseRefreshableTokenContract):
     """令牌类型（响应口径）。"""
 
 
-class SessionIssuer(BaseObject):
+class SessionIssuer(BaseFrameworkObject):
     """会话签发作构件（双 token + 会话落库 + Redis 标记 + 多端上限）。"""
 
     def __init__(

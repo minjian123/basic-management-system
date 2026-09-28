@@ -12,10 +12,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
-from bms_core.core.base import BaseObject
 from bms_core.core.exceptions import SessionExpiredError, SessionNotFoundError, SessionRevokedError
 from bms_core.core.logging import get_logger
-from bms_core.core.objects import BaseValueObject
+from bms_core.core.objects import BaseFrameworkObject, BaseValueObject
 from bms_core.db.session import DbSession
 from bms_core.db.unit_of_work import UnitOfWork
 from bms_core.schemas.pagination import BasePageQuery
@@ -72,7 +71,7 @@ class SessionRevokeResult(BaseValueObject):
     already_revoked: bool
 
 
-class SessionService(BaseObject):
+class SessionService(BaseFrameworkObject):
     """会话管理服务（统一撤销原语 + 多端上限 + 列表 / 详情 / 踢出）。"""
 
     def __init__(

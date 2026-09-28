@@ -11,9 +11,9 @@ from typing import cast
 from sqlalchemy import select
 
 from bms_core.cache.base import CacheRegion
-from bms_core.core.base import BaseObject
 from bms_core.core.config import Settings
 from bms_core.core.exceptions import TenantNotFoundError, TenantSuspendedError
+from bms_core.core.objects import BaseFrameworkObject
 from bms_core.db.registry import PLATFORM_DB_KEY, EngineRegistry
 from bms_core.db.session import SessionFactory, session_scope
 from bms_core.db.tenant import TenantContext
@@ -33,7 +33,7 @@ LOCAL_TENANT_SOURCE = "local"
 """本地租户源实现名。"""
 
 
-class LocalTenantSource(BaseObject):
+class LocalTenantSource(BaseFrameworkObject):
     """本地租户源：查本服务平台库 + 缓存 + 版本键（实现 `TenantLookup` 契约）。"""
 
     def __init__(

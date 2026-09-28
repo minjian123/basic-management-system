@@ -20,7 +20,6 @@ from typing import cast
 
 from sqlalchemy.exc import IntegrityError
 
-from bms_core.core.base import BaseObject
 from bms_core.core.config import SsoSettings
 from bms_core.core.exceptions import (
     ConcurrentConflictError,
@@ -31,7 +30,7 @@ from bms_core.core.exceptions import (
     SsoProviderUnavailableError,
 )
 from bms_core.core.logging import get_logger
-from bms_core.core.objects import BaseIdentityProfileContract, BaseValueObject
+from bms_core.core.objects import BaseFrameworkObject, BaseIdentityProfileContract, BaseValueObject
 from bms_core.db.session import DbSession
 from bms_core.events.base import EventEnvelope
 from bms_core.lock.base import BaseDistributedLock, build_lock_key
@@ -96,7 +95,7 @@ class JitResult(BaseValueObject):
     """是否本次新建（False = 并发命中既有映射复用）。"""
 
 
-class JitService(BaseObject):
+class JitService(BaseFrameworkObject):
     """JIT 建号编排：开关 / 白名单 / 锁 / 建号 / 映射与事件。"""
 
     def __init__(

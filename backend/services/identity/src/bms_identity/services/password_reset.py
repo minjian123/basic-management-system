@@ -15,7 +15,6 @@ import secrets
 from collections.abc import Mapping
 
 from bms_core.captcha.base import BaseCaptcha, CaptchaCredential, CaptchaKind
-from bms_core.core.base import BaseObject
 from bms_core.core.config import PasswordResetSettings
 from bms_core.core.exceptions import (
     CaptchaVerifyError,
@@ -25,6 +24,7 @@ from bms_core.core.exceptions import (
     ServiceUnavailableError,
 )
 from bms_core.core.logging import get_logger
+from bms_core.core.objects import BaseFrameworkObject
 from bms_core.idp.state.base import BaseIdpStateStore
 from bms_core.notify.base import BaseNotifier, NotificationMessage, NotifyChannel
 from bms_core.ratelimit.base import BaseRateLimiter, RateLimitRule, build_rate_limit_key
@@ -55,7 +55,7 @@ _USER_DIMENSION = "password-reset-user"
 _LOGGER = get_logger("bms")
 
 
-class PasswordResetService(BaseObject):
+class PasswordResetService(BaseFrameworkObject):
     """自助找回密码服务：发起（验证码 / 限流 / token / 通知）与重置（改密 / 会话全失效）。"""
 
     def __init__(

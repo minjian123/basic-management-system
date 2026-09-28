@@ -14,8 +14,8 @@ import secrets
 from collections.abc import Sequence
 
 from bms_core.audit.base import AuditCapturer
-from bms_core.core.base import BaseObject
 from bms_core.core.exceptions import ClientInvalidError, ClientNotFoundError
+from bms_core.core.objects import BaseFrameworkObject
 from bms_core.db.session import DbSession
 from bms_core.db.unit_of_work import UnitOfWork
 from bms_core.oauth.base import GRANT_TYPES
@@ -32,7 +32,7 @@ _ALLOWED_STATUS = ("enabled", "disabled")
 _REDIRECT_SCHEMES = ("http://", "https://")
 
 
-class ClientSecret(BaseObject):
+class ClientSecret(BaseFrameworkObject):
     """客户端凭据（明文仅在创建 / 重置响应返回一次）。"""
 
     def __init__(self, *, client: SysClient, secret: str) -> None:
@@ -46,7 +46,7 @@ class ClientSecret(BaseObject):
         self.secret = secret
 
 
-class ClientService(BaseObject):
+class ClientService(BaseFrameworkObject):
     """客户端注册与管理服务（每请求装配：会话 / 工作单元 / 哈希器 / 审计占位）。"""
 
     def __init__(

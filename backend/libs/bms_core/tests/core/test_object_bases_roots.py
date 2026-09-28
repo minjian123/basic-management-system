@@ -84,12 +84,49 @@ OBJECT_BATCH: tuple[tuple[str, str, str], ...] = (
     ("backend/libs/bms_core/src/bms_core/transfer/null.py", "_EmptyExporterStream", "BaseFrameworkObject"),
     ("backend/libs/bms_core/src/bms_core/core/holder.py", "ValueHolder", "BaseFrameworkObject"),
     ("backend/libs/bms_core/src/bms_core/core/exceptions.py", "BizError", "BaseFrameworkObject"),
+    ("backend/services/identity/src/bms_identity/services/clients.py", "ClientSecret", "BaseFrameworkObject"),
+    ("backend/services/identity/src/bms_identity/services/clients.py", "ClientService", "BaseFrameworkObject"),
+    (
+        "backend/services/identity/src/bms_identity/services/identity_providers.py",
+        "IdentityProviderService",
+        "BaseFrameworkObject",
+    ),
+    ("backend/services/identity/src/bms_identity/services/jit.py", "JitService", "BaseFrameworkObject"),
+    ("backend/services/identity/src/bms_identity/services/auth.py", "LoginService", "BaseFrameworkObject"),
+    (
+        "backend/services/identity/src/bms_identity/services/oidc_provider.py",
+        "OidcProviderService",
+        "BaseFrameworkObject",
+    ),
+    ("backend/services/identity/src/bms_identity/services/org_client.py", "OrgCredentialClient", "BaseFrameworkObject"),
+    (
+        "backend/services/identity/src/bms_identity/services/password_reset.py",
+        "PasswordResetService",
+        "BaseFrameworkObject",
+    ),
+    (
+        "backend/services/identity/src/bms_identity/services/provider_registry.py",
+        "ProviderRegistry",
+        "BaseFrameworkObject",
+    ),
+    ("backend/services/identity/src/bms_identity/services/session.py", "SessionService", "BaseFrameworkObject"),
+    ("backend/services/identity/src/bms_identity/services/session_issuer.py", "SessionIssuer", "BaseFrameworkObject"),
+    ("backend/services/identity/src/bms_identity/services/sso.py", "SsoService", "BaseFrameworkObject"),
+    ("backend/services/org/src/bms_org/services/account_lock.py", "AccountLockService", "BaseFrameworkObject"),
+    ("backend/services/org/src/bms_org/services/users.py", "UserProfileService", "BaseFrameworkObject"),
+    ("backend/services/org/src/bms_org/services/users.py", "UserResetTargetService", "BaseFrameworkObject"),
+    (
+        "backend/services/tenant/src/bms_tenant/repositories/tenant_registry.py",
+        "TenantRegistryRepository",
+        "BaseFrameworkObject",
+    ),
+    ("backend/services/tenant/src/bms_tenant/sources/tenant_source.py", "LocalTenantSource", "BaseFrameworkObject"),
 )
-"""已归位台账（批次 ① 数据契约 3 + 批次 ②a `bms_core` 框架类 28 + 批次 ②b 2）——（源文件, 类名, 归位父基类）。"""
+"""已归位台账（批次 ① 数据契约 3 + ②a `bms_core` 框架类 28 + ②b 2 + ③ 服务侧 17）——（源文件, 类名, 归位父基类）。"""
 
-BASELINE_REMAINING = 17
-"""基线剩余条目数（每批次递减：批次 ① 后 47 → ②a 后 19 → ②b 后 17，目标 0）。
-余量 17＝服务侧 17（identity 12 / org 3 / tenant 2；批次 ③）。"""
+BASELINE_REMAINING = 0
+"""基线剩余条目数（批次 ① 后 47 → ②a 后 19 → ②b 后 17 → ③ 后 **0**）。
+0 ＝ 需求 09-1 验收目标「除体系根外零直继承」达成。"""
 
 
 def _class_bases(rel: str, name: str) -> Sequence[str]:
