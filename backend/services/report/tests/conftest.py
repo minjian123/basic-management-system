@@ -51,6 +51,8 @@ def isolate_settings(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     monkeypatch.setenv("BMS_RATE_LIMITER__PROVIDER", "")
     # 验证码真实实现关闭（03_01）：单测不连 Redis，回落 Null
     monkeypatch.setenv("BMS_CAPTCHA__PROVIDER", "")
+    # 脱敏真实实现关闭（04_01）：单测回落 null 占位（真实实现用例显式开启）
+    monkeypatch.setenv("BMS_MASKING__PROVIDER", "")
     # 登录态依赖真实化（01_05）：注入测试用户令牌密钥，使受保护路由在真实鉴权下可验签
     configure_token_env(monkeypatch)
     get_settings.cache_clear()
