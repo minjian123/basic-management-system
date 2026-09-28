@@ -26,7 +26,7 @@ from typing import cast
 from fastapi import Request
 
 from bms_core.core.config import Settings
-from bms_core.core.objects import BaseValueObject
+from bms_core.core.objects import BaseHealthResultContract
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, resolve_plugin
 from bms_core.core.provider import BaseProvider, BaseProviderRegistry
 from bms_core.fallback.base import DEPENDENCIES
@@ -50,7 +50,7 @@ DEFAULT_TOTAL_TIMEOUT_MS = 5000
 
 
 @dataclass(frozen=True)
-class HealthCheckResult(BaseValueObject):
+class HealthCheckResult(BaseHealthResultContract):
     """单项健康检查结果（与 `/readyz` 单项响应形态一致）。"""
 
     name: str
@@ -64,7 +64,7 @@ class HealthCheckResult(BaseValueObject):
 
 
 @dataclass(frozen=True)
-class HealthCheckReport(BaseValueObject):
+class HealthCheckReport(BaseHealthResultContract):
     """聚合报告：各检查项结果与总体就绪。"""
 
     ok: bool

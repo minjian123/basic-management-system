@@ -22,35 +22,48 @@ from pathlib import Path
 import pytest
 
 from bms_core.api.base import AuthContext
+from bms_core.boundary.base import OwnershipStats
+from bms_core.captcha.base import CaptchaChallenge, CaptchaCredential
 from bms_core.captcha.default import CaptchaImageOptions, CaptchaSliderOptions, CaptchaSmsOptions
 from bms_core.chat.base import ChatStreamHandle
 from bms_core.core.objects import (
     BaseAuthorizeUrlResultContract,
+    BaseCaptchaContract,
     BaseDecisionContract,
+    BaseFieldRuleContract,
     BaseFieldSpecContract,
     BaseFrameworkObject,
+    BaseHealthResultContract,
     BaseI18nSeedContract,
     BaseIdentityProfileContract,
     BaseLoginResultContract,
     BaseOidcTokenSpecContract,
+    BaseOpsReportContract,
     BaseOptionsContract,
     BaseProcessContract,
     BaseRefreshableTokenContract,
     BaseRegistryRecordContract,
     BaseRequestIdentityContract,
+    BaseSearchContract,
     BaseSecretMaterialContract,
+    BaseTallyContract,
     BaseTenantViewContract,
     BaseTokenClaimsContract,
     BaseTokenContract,
     BaseTokenSpecContract,
     BaseValueObject,
 )
+from bms_core.db.admin import DatabaseTarget
+from bms_core.db.inventory import DbCount
+from bms_core.db.registry import PoolBudgetRow
 from bms_core.db.tenant import TenantContext
 from bms_core.db.tenant_registry import TenantSnapshot
 from bms_core.dict.seed import SeedItem, SeedType
 from bms_core.edge.base import EdgeIdentity, EdgeTrustDecision
 from bms_core.events.contracts import EventFieldSpec
+from bms_core.health.base import HealthCheckReport, HealthCheckResult
 from bms_core.idp.base import IdentityClaims, IdentityToken, IdentityUser
+from bms_core.masking.base import MaskRule
 from bms_core.masking.default import MaskerOptions
 from bms_core.oauth.base import ClientCredentials, OAuthToken
 from bms_core.oauth.keys import TokenKey
@@ -58,8 +71,11 @@ from bms_core.oauth.oidc_provider import AccessTokenSpec, IdTokenSpec, OidcAcces
 from bms_core.oauth.token import ServiceTokenSpec
 from bms_core.oauth.user_token import UserTokenPair
 from bms_core.oauth.verify import VerifiedToken
+from bms_core.outbox.base import DispatchResult
 from bms_core.ratelimit.base import RateLimitDecision
 from bms_core.replay.base import ReplayDecision
+from bms_core.scope.base import ScopeCondition
+from bms_core.search.base import SearchDocument, SearchQuery
 from bms_core.services.module_registry import ModuleRecord
 from bms_core.services.table_registry import TableRecord
 from bms_core.transfer.base import ColumnSpec
@@ -87,18 +103,24 @@ VALUE_OBJECT_BASES = frozenset(
     {
         "BaseValueObject",
         "BaseAuthorizeUrlResultContract",
+        "BaseCaptchaContract",
         "BaseDecisionContract",
+        "BaseFieldRuleContract",
         "BaseFieldSpecContract",
+        "BaseHealthResultContract",
         "BaseI18nSeedContract",
         "BaseIdentityProfileContract",
         "BaseLoginResultContract",
         "BaseOidcTokenSpecContract",
         "BaseOptionsContract",
+        "BaseOpsReportContract",
         "BaseProcessContract",
         "BaseRefreshableTokenContract",
         "BaseRegistryRecordContract",
         "BaseRequestIdentityContract",
+        "BaseSearchContract",
         "BaseSecretMaterialContract",
+        "BaseTallyContract",
         "BaseTenantViewContract",
         "BaseTokenClaimsContract",
         "BaseTokenContract",
@@ -125,6 +147,12 @@ ROLE_CHAINS: tuple[tuple[type, tuple[type, ...]], ...] = (
     (BaseProcessContract, (ProcessDefinition, ProcessInstance)),
     (BaseRegistryRecordContract, (ModuleRecord, TableRecord)),
     (BaseI18nSeedContract, (SeedItem, SeedType)),
+    (BaseOpsReportContract, (DatabaseTarget, DbCount, PoolBudgetRow)),
+    (BaseHealthResultContract, (HealthCheckResult, HealthCheckReport)),
+    (BaseTallyContract, (DispatchResult, OwnershipStats)),
+    (BaseFieldRuleContract, (MaskRule, ScopeCondition)),
+    (BaseCaptchaContract, (CaptchaChallenge, CaptchaCredential)),
+    (BaseSearchContract, (SearchQuery, SearchDocument)),
 )
 """角色链台账（层 → 成员）：仅登记**基座侧**成员——服务侧成员（`TokenResult` / `IssuedSession` 等）
 由 `VALUE_OBJECT_BATCH` 的「单一父基类」断言覆盖（`bms_identity` 在基座用例环境不可导入）。"""
@@ -378,6 +406,27 @@ def test_role_chain_common_fields_hold_on_all_members() -> None:
             if missing:
                 offenders.append(f"{member.__name__} 缺 {layer.__name__} 公共段：{sorted(missing)}")
     assert not offenders, "层公共段在成员上不成立：\n" + "\n".join(offenders)
+
+
+@pytest.mark.kiwi_id(2216)
+def test_ops_report_chain_layer_contract() -> None:
+    """运维报告链层：公共段为抽象报告行入口 `describe()`，成员均实现该入口。"""
+    assert getattr(BaseOpsReportContract.describe, "__isabstractmethod__", False) is True
+    for member in (DatabaseTarget, DbCount, PoolBudgetRow):
+        assert issubclass(member, BaseOpsReportContract)
+        assert callable(member.describe)
+
+
+@pytest.mark.kiwi_id(2216)
+def test_tally_chain_counts_mapping() -> None:
+    """计数汇总链层：`COUNT_FIELDS` 声明的计数位在全部成员上是**整数计数字段**，`counts` 可统一读取。"""
+    assert any(layer is BaseTallyContract for layer, _members in ROLE_CHAINS)
+    for member in (DispatchResult, OwnershipStats):
+        declared: tuple[str, ...] = member.COUNT_FIELDS
+        assert declared, f"{member.__name__} 未声明计数位"
+        assert set(declared) <= {field.name for field in dataclasses.fields(member)}
+    assert DispatchResult().counts == {"published": 0, "failed": 0, "dead": 0, "backlog": 0}
+    assert OwnershipStats(statements=3).counts["statements"] == 3
 
 
 @pytest.mark.kiwi_id(2216)

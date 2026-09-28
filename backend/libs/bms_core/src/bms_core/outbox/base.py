@@ -15,13 +15,13 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
-from typing import cast
+from typing import ClassVar, cast
 
 from fastapi import Request
 
 from bms_core.core.capability import BaseAsyncResource
 from bms_core.core.config import Settings
-from bms_core.core.objects import BaseValueObject
+from bms_core.core.objects import BaseTallyContract, BaseValueObject
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 from bms_core.db.sync import DbSession
 from bms_core.events.base import EventEnvelope
@@ -156,8 +156,10 @@ class DeadLetterRecord(BaseValueObject):
 
 
 @dataclass(frozen=True)
-class DispatchResult(BaseValueObject):
+class DispatchResult(BaseTallyContract):
     """单次投递汇总。"""
+
+    COUNT_FIELDS: ClassVar[tuple[str, ...]] = ("published", "failed", "dead", "backlog")
 
     published: int = 0
     """投递成功条数。"""

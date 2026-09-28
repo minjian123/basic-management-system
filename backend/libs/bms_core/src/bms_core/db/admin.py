@@ -22,7 +22,7 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.pool import NullPool
 
 from bms_core.core.exceptions import ConfigError
-from bms_core.core.objects import BaseValueObject
+from bms_core.core.objects import BaseOpsReportContract
 
 _SQLITE = "sqlite"
 _DM = "dm"
@@ -37,7 +37,7 @@ _PG_ADMIN_DATABASE = "postgres"
 
 
 @dataclass(frozen=True)
-class DatabaseTarget(BaseValueObject):
+class DatabaseTarget(BaseOpsReportContract):
     """建删库目标解析结果（方言 / 目标名 / 目标连接串 / 管理连接串）。"""
 
     dialect: str
