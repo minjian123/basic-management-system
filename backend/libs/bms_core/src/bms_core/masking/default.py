@@ -16,9 +16,9 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Self, cast
 
-from bms_core.core.base import BaseObject
 from bms_core.core.capability import BasePlaceholder
 from bms_core.core.exceptions import PluginError
+from bms_core.core.objects import BaseValueObject
 from bms_core.masking.base import BaseMasker
 from bms_core.permission.base import BasePermissionChecker
 
@@ -47,7 +47,7 @@ EMAIL_MASK_STARS = 3
 
 
 @dataclass(frozen=True)
-class MaskSpec(BaseObject):
+class MaskSpec(BaseValueObject):
     """内置策略规格：保留前段位数 / 保留后段位数 / 固定掩码字符数。"""
 
     head: int
@@ -113,7 +113,7 @@ def mask_email(text: str, mask_char: str = DEFAULT_MASK_CHAR) -> str:
 
 
 @dataclass(frozen=True)
-class MaskerOptions(BaseObject):
+class MaskerOptions(BaseValueObject):
     """`[masking].options` 解析结果：掩码字符 + 启动期字段 → 策略映射。"""
 
     mask_char: str = DEFAULT_MASK_CHAR

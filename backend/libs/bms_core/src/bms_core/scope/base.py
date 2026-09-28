@@ -3,7 +3,7 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
-from bms_core.core.base import BaseObject
+from bms_core.core.objects import BaseValueObject
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
 
 SCOPE_OPERATORS: tuple[str, ...] = (
@@ -22,7 +22,7 @@ SCOPE_OPERATORS: tuple[str, ...] = (
 
 
 @dataclass(frozen=True)
-class ScopeCondition(BaseObject):
+class ScopeCondition(BaseValueObject):
     """作用域过滤条件：字段 + 操作符 + 值（跨实现统一表示）。
 
     内存基线按操作符过滤；DB 实现回补时拼 WHERE。

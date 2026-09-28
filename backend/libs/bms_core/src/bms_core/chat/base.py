@@ -30,8 +30,8 @@ from typing import cast
 from fastapi import Request
 from pydantic import Field
 
-from bms_core.core.base import BaseObject
 from bms_core.core.config import Settings
+from bms_core.core.objects import BaseValueObject
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 from bms_core.llm.base import ChatMessage
 from bms_core.schemas.base import BaseSchema
@@ -155,7 +155,7 @@ class ChatActionResult(BaseSchema):
 
 
 @dataclass(frozen=True)
-class ChatStreamHandle(BaseObject):
+class ChatStreamHandle(BaseValueObject):
     """流式对话句柄：流标识 + 增量事件序列（运行时句柄，不走 JSON 序列化）。"""
 
     stream_id: str

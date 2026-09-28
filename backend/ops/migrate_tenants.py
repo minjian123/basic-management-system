@@ -38,9 +38,9 @@ from sqlalchemy.engine import Engine, make_url
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.pool import NullPool
 
-from bms_core.core.base import BaseObject
 from bms_core.core.config import Settings, get_settings
 from bms_core.core.exceptions import ConfigError
+from bms_core.core.objects import BaseValueObject
 from bms_core.db.engine import EngineFactory
 from bms_core.db.keys import build_platform_db_key, build_tenant_db_key
 from bms_core.db.migration import (
@@ -63,7 +63,7 @@ _TARGETS = ("all", "platform", "tenants", "tenant", "archive")
 
 
 @dataclass(frozen=True)
-class MigrationTask(BaseObject):
+class MigrationTask(BaseValueObject):
     """单个迁移任务（链 / 展示名 / 连接串 / 模式）。"""
 
     chain: MigrationChain
@@ -73,7 +73,7 @@ class MigrationTask(BaseObject):
 
 
 @dataclass(frozen=True)
-class MigrationSummary(BaseObject):
+class MigrationSummary(BaseValueObject):
     """批量迁移结果汇总（成功 / 跳过 / 失败 + 库数量统计）。"""
 
     succeeded: tuple[str, ...]

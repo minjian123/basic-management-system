@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from typing import Any, cast
 
 from bms_core.cache.base import build_cache_key
-from bms_core.core.base import BaseObject
+from bms_core.core.objects import BaseValueObject
 from bms_core.db.tenant import TenantContext, build_tenant_db_key
 
 TENANT_CACHE_DOMAIN = "tenant"
@@ -25,7 +25,7 @@ ACTIVE_STATUS = "active"
 
 
 @dataclass(frozen=True)
-class TenantSnapshot(BaseObject):
+class TenantSnapshot(BaseValueObject):
     """租户注册快照（可缓存 / 可跨服务传输）。"""
 
     code: str

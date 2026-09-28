@@ -17,9 +17,9 @@ from typing import cast
 
 from fastapi import Request
 
-from bms_core.core.base import BaseObject
 from bms_core.core.config import Settings
 from bms_core.core.exceptions import NotFoundError
+from bms_core.core.objects import BaseValueObject
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, resolve_plugin
 from bms_core.core.provider import BaseProvider, BaseProviderRegistry
 
@@ -32,7 +32,7 @@ __all__ = [
 
 
 @dataclass(frozen=True)
-class QueryResult(BaseObject):
+class QueryResult(BaseValueObject):
     """查询结果。"""
 
     rows: tuple[Mapping[str, object], ...]

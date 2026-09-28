@@ -11,14 +11,14 @@ from dataclasses import dataclass, field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from bms_core.core.base import BaseObject
+from bms_core.core.objects import BaseValueObject
 from bms_core.dict.models import SysDictAttr, SysDictItem, SysDictItemI18n, SysDictType, SysDictTypeI18n
 
 __all__ = ["SEED_TYPES", "SeedAttr", "SeedItem", "SeedType", "seed_dicts"]
 
 
 @dataclass(frozen=True)
-class SeedItem(BaseObject):
+class SeedItem(BaseValueObject):
     """种子条目。"""
 
     code: str
@@ -30,7 +30,7 @@ class SeedItem(BaseObject):
 
 
 @dataclass(frozen=True)
-class SeedAttr(BaseObject):
+class SeedAttr(BaseValueObject):
     """种子扩展属性。"""
 
     attr_key: str
@@ -41,7 +41,7 @@ class SeedAttr(BaseObject):
 
 
 @dataclass(frozen=True)
-class SeedType(BaseObject):
+class SeedType(BaseValueObject):
     """种子字典类型。"""
 
     type: str

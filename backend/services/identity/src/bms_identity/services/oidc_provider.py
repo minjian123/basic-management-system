@@ -32,6 +32,7 @@ from bms_core.core.exceptions import (
     OidcInvalidRequestError,
     OidcUnsupportedGrantError,
 )
+from bms_core.core.objects import BaseValueObject
 from bms_core.db.session import DbSession
 from bms_core.idp.state.base import BaseIdpStateStore
 from bms_core.oauth.oidc_provider import (
@@ -61,7 +62,7 @@ _PKCE_METHOD = "S256"
 
 
 @dataclass(frozen=True)
-class OidcCode(BaseObject):
+class OidcCode(BaseValueObject):
     """授权码载荷（一次性；`idp_state_store` `oidccode` 命名空间）。"""
 
     client_id: str
@@ -76,7 +77,7 @@ class OidcCode(BaseObject):
 
 
 @dataclass(frozen=True)
-class AuthorizeResult(BaseObject):
+class AuthorizeResult(BaseValueObject):
     """授权端点结果（回跳 URL）。"""
 
     redirect_url: str
@@ -87,7 +88,7 @@ class AuthorizeResult(BaseObject):
 
 
 @dataclass(frozen=True)
-class TokenResult(BaseObject):
+class TokenResult(BaseValueObject):
     """令牌端点结果（标准 OAuth2）。"""
 
     access_token: str
@@ -98,7 +99,7 @@ class TokenResult(BaseObject):
 
 
 @dataclass(frozen=True)
-class UserInfoResult(BaseObject):
+class UserInfoResult(BaseValueObject):
     """userinfo 结果（标准字段；本期不含 email）。"""
 
     sub: str

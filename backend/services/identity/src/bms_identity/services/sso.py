@@ -37,6 +37,7 @@ from bms_core.core.exceptions import (
     SsoProviderUnavailableError,
 )
 from bms_core.core.logging import get_logger
+from bms_core.core.objects import BaseValueObject
 from bms_core.db.session import DbSession
 from bms_core.idp.base import BaseIdentityProvider, IdentityToken
 from bms_core.idp.state.base import BaseIdpStateStore, IdpFlowState
@@ -61,7 +62,7 @@ _LOGGER = get_logger("bms")
 
 
 @dataclass(frozen=True)
-class SsoLoginResult(BaseObject):
+class SsoLoginResult(BaseValueObject):
     """SSO 回调成功结果（租户 + 已签发会话）。"""
 
     tenant: str
@@ -72,7 +73,7 @@ class SsoLoginResult(BaseObject):
 
 
 @dataclass(frozen=True)
-class SsoAuthorizeResult(BaseObject):
+class SsoAuthorizeResult(BaseValueObject):
     """授权跳转结果（授权 URL + 流程状态，供 302 跳转或 JSON 返回）。"""
 
     authorize_url: str

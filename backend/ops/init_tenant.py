@@ -34,9 +34,9 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from sqlalchemy.pool import NullPool
 
 from bms_core.config.seed import seed_configs
-from bms_core.core.base import BaseObject
 from bms_core.core.config import get_settings
 from bms_core.core.exceptions import ConfigError
+from bms_core.core.objects import BaseValueObject
 from bms_core.db.admin import DatabaseTarget, create_database, resolve_target
 from bms_core.db.engine import EngineFactory
 from bms_core.db.migration import (
@@ -52,7 +52,7 @@ from bms_core.dict.seed import seed_dicts
 
 
 @dataclass(frozen=True)
-class InitResult(BaseObject):
+class InitResult(BaseValueObject):
     """初始化结果（建库 / 迁移 / 种子三段）。"""
 
     created: bool

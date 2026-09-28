@@ -25,9 +25,9 @@ from typing import cast
 
 from fastapi import Request
 
-from bms_core.core.base import BaseObject
 from bms_core.core.config import Settings
 from bms_core.core.exceptions import CaptchaVerifyError
+from bms_core.core.objects import BaseValueObject
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 
 CAPTCHA_KEY_PREFIX = "bms"
@@ -104,7 +104,7 @@ class CaptchaKind(StrEnum):
 
 
 @dataclass(frozen=True)
-class CaptchaChallenge(BaseObject):
+class CaptchaChallenge(BaseValueObject):
     """验证码挑战（值对象，不携带答案明文）：编号 + 图片字节 + 有效期 + 场景 + 形态相关字段。"""
 
     captcha_id: str
@@ -134,7 +134,7 @@ class CaptchaChallenge(BaseObject):
 
 
 @dataclass(frozen=True)
-class CaptchaCredential(BaseObject):
+class CaptchaCredential(BaseValueObject):
     """验证码凭证（统一承载三形态的用户提交内容）：图形 / 短信用校验码，滑块用轨迹。"""
 
     captcha_id: str
@@ -154,7 +154,7 @@ class CaptchaCredential(BaseObject):
 
 
 @dataclass(frozen=True)
-class CaptchaScenePolicy(BaseObject):
+class CaptchaScenePolicy(BaseValueObject):
     """场景策略：是否强制、连续失败阈值、有效期与重发冷却（真实实现按租户经 `sys_config` 覆盖）。"""
 
     scene: str

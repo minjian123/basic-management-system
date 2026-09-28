@@ -22,8 +22,8 @@ from typing import cast
 
 from fastapi import Request
 
-from bms_core.core.base import BaseObject
 from bms_core.core.config import Settings
+from bms_core.core.objects import BaseValueObject
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 
 __all__ = [
@@ -49,7 +49,7 @@ NULL_ACCESS_TOKEN = "null-access-token"
 
 
 @dataclass(frozen=True)
-class ClientCredentials(BaseObject):
+class ClientCredentials(BaseValueObject):
     """客户端凭证（Client Credentials 签发入参）。"""
 
     client_id: str
@@ -63,7 +63,7 @@ class ClientCredentials(BaseObject):
 
 
 @dataclass(frozen=True)
-class OAuthToken(BaseObject):
+class OAuthToken(BaseValueObject):
     """令牌响应（OAuth2 令牌语义；占位为固定值）。"""
 
     access_token: str

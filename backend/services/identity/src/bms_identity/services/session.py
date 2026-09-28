@@ -15,6 +15,7 @@ from datetime import UTC, datetime
 from bms_core.core.base import BaseObject
 from bms_core.core.exceptions import SessionExpiredError, SessionNotFoundError, SessionRevokedError
 from bms_core.core.logging import get_logger
+from bms_core.core.objects import BaseValueObject
 from bms_core.db.session import DbSession
 from bms_core.db.unit_of_work import UnitOfWork
 from bms_core.schemas.pagination import BasePageQuery
@@ -63,7 +64,7 @@ def _remaining_ttl(expires_at: datetime, now: datetime) -> int:
 
 
 @dataclass(frozen=True)
-class SessionRevokeResult(BaseObject):
+class SessionRevokeResult(BaseValueObject):
     """统一撤销原语结果（不存在 / 已撤销 / 本次撤销三态）。"""
 
     session_id: str

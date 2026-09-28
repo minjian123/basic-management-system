@@ -38,12 +38,12 @@ from bms_core.config.base import BaseConfigSource, ConfigCacheRegion
 from bms_core.config.cache import MemoryConfigCacheRegion, RedisConfigCacheRegion
 from bms_core.config.http import HttpConfigSource
 from bms_core.config.sql import SqlConfigSource
-from bms_core.core.base import BaseObject
 from bms_core.core.capability import BaseAsyncResource
 from bms_core.core.config import PluginSelection, Settings
 from bms_core.core.exceptions import PluginError
 from bms_core.core.factory import BasePluginFactory
 from bms_core.core.logging import get_logger
+from bms_core.core.objects import BaseValueObject
 from bms_core.core.plugin import (
     NULL_PLUGIN_NAME,
     BasePluggable,
@@ -226,7 +226,7 @@ _NULL_MODULES: tuple[str, ...] = (
 
 
 @dataclass(frozen=True)
-class PluginWiring(BaseObject):
+class PluginWiring(BaseValueObject):
     """单个能力的装配接线。"""
 
     plugin_key: str

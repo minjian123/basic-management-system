@@ -22,6 +22,7 @@ from fastapi import FastAPI
 from bms_core.core.base import BaseObject
 from bms_core.core.config import Settings, get_settings
 from bms_core.core.logging import get_logger
+from bms_core.core.objects import BaseValueObject
 
 __all__ = [
     "ServiceIdentity",
@@ -32,7 +33,7 @@ __all__ = [
 
 
 @dataclass(frozen=True)
-class ServiceIdentity(BaseObject):
+class ServiceIdentity(BaseValueObject):
     """服务身份：名称（微服务名）、版本、中文名、契约版本。"""
 
     name: str

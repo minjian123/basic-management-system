@@ -19,8 +19,8 @@ import re
 from dataclasses import dataclass
 from functools import lru_cache
 
-from bms_core.core.base import BaseObject
 from bms_core.core.exceptions import ConfigError, DataOwnershipError
+from bms_core.core.objects import BaseValueObject
 
 __all__ = [
     "ARCHIVE_DATABASE",
@@ -78,7 +78,7 @@ _IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,62}$")
 
 
 @dataclass(frozen=True)
-class DbKey(BaseObject):
+class DbKey(BaseValueObject):
     """数据源键解析结果（键原文 / 库类别 / 服务段 / 租户编码）。"""
 
     raw: str

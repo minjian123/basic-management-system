@@ -14,8 +14,8 @@ from typing import cast
 
 from fastapi import Request
 
-from bms_core.core.base import BaseObject
 from bms_core.core.config import Settings
+from bms_core.core.objects import BaseValueObject
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 from bms_core.transfer.base import ColumnSpec
 
@@ -28,7 +28,7 @@ __all__ = [
 
 
 @dataclass(frozen=True)
-class RowError(BaseObject):
+class RowError(BaseValueObject):
     """行错误回执。"""
 
     row: int
@@ -42,7 +42,7 @@ class RowError(BaseObject):
 
 
 @dataclass(frozen=True)
-class ImportResult(BaseObject):
+class ImportResult(BaseValueObject):
     """导入结果：有效行 + 错误回执。"""
 
     rows: tuple[Mapping[str, object], ...]

@@ -15,6 +15,7 @@ from enum import StrEnum
 from typing import Any, cast
 
 from bms_core.core.base import BaseObject
+from bms_core.core.objects import BaseValueObject
 from bms_core.core.version import CONTRACT_VERSION_RE, contract_major
 
 _PREFIX_RE = re.compile(r"^[a-z][a-z0-9]*_$")
@@ -41,7 +42,7 @@ class ServiceGroup(StrEnum):
 
 
 @dataclass(frozen=True)
-class ModuleRecord(BaseObject):
+class ModuleRecord(BaseValueObject):
     """服务 / 模块登记记录（字段与 `sys_module` 对齐）。"""
 
     module_key: str

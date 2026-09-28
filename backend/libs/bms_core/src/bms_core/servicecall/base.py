@@ -24,9 +24,9 @@ from urllib.parse import urlencode
 from fastapi import Request
 
 from bms_core.api.base import API_PREFIX
-from bms_core.core.base import BaseObject
 from bms_core.core.config import Settings
 from bms_core.core.exceptions import ParamError
+from bms_core.core.objects import BaseValueObject
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 from bms_core.ratelimit.base import RateLimitRule, build_rate_limit_key
 from bms_core.services.service_contract import service_enabled
@@ -88,7 +88,7 @@ def service_dependency(service: str) -> str:
 
 
 @dataclass(frozen=True)
-class ServiceCallPolicy(BaseObject):
+class ServiceCallPolicy(BaseValueObject):
     """调用韧性策略：超时 / 重试 / 熔断 / 限流（逐调用覆盖，缺省取本类默认值）。"""
 
     timeout: float = DEFAULT_CALL_TIMEOUT
@@ -117,7 +117,7 @@ class ServiceCallPolicy(BaseObject):
 
 
 @dataclass(frozen=True)
-class ServiceRequest(BaseObject):
+class ServiceRequest(BaseValueObject):
     """服务间同步调用请求。"""
 
     service: str
@@ -150,7 +150,7 @@ class ServiceRequest(BaseObject):
 
 
 @dataclass(frozen=True)
-class ServiceResponse(BaseObject):
+class ServiceResponse(BaseValueObject):
     """服务间同步调用响应（非 2xx 原样返回，由调用方判定）。"""
 
     status_code: int

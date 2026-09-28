@@ -52,7 +52,6 @@ from bms_core.captcha.base import (
 )
 from bms_core.config.base import BaseConfigSource
 from bms_core.config.null import NullConfigSource
-from bms_core.core.base import BaseObject
 from bms_core.core.context import get_current_client_ip
 from bms_core.core.exceptions import (
     CaptchaExpiredError,
@@ -63,6 +62,7 @@ from bms_core.core.exceptions import (
     ServiceUnavailableError,
 )
 from bms_core.core.logging import get_logger
+from bms_core.core.objects import BaseValueObject
 from bms_core.notify.base import BaseNotifier, NotificationMessage, NotifyChannel
 from bms_core.notify.null import NullNotifier
 from bms_core.ratelimit.base import BaseRateLimiter, RateLimitRule, build_rate_limit_key
@@ -249,7 +249,7 @@ def _resolve_channels(scene: str, values: Mapping[str, object]) -> tuple[Captcha
 
 
 @dataclass(frozen=True)
-class CaptchaImageOptions(BaseObject):
+class CaptchaImageOptions(BaseValueObject):
     """图形码出图参数（非敏感；`from_options` 从 `[captcha].options` 解析并校验）。"""
 
     width: int = 160
@@ -300,7 +300,7 @@ class CaptchaImageOptions(BaseObject):
 
 
 @dataclass(frozen=True)
-class CaptchaSliderOptions(BaseObject):
+class CaptchaSliderOptions(BaseValueObject):
     """滑块出图 / 判定参数（非敏感；`from_options` 从 `[captcha].options` 的 `slider_` 前缀键解析并校验）。"""
 
     width: int = 300
@@ -349,7 +349,7 @@ class CaptchaSliderOptions(BaseObject):
 
 
 @dataclass(frozen=True)
-class CaptchaSmsOptions(BaseObject):
+class CaptchaSmsOptions(BaseValueObject):
     """短信选项（非敏感；`from_options` 从 `[captcha].options` 的 `sms_` 前缀键解析并校验）。"""
 
     code_length: int = SMS_CAPTCHA_LENGTH

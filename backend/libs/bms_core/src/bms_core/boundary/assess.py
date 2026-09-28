@@ -14,13 +14,13 @@ from dataclasses import dataclass
 from bms_core.boundary.directory import OWNER_EVERY_SERVICE, table_owner, table_prefix_of
 from bms_core.boundary.exceptions import OwnershipException, exception_allows
 from bms_core.boundary.sql import analyze
-from bms_core.core.base import BaseObject
+from bms_core.core.objects import BaseValueObject
 
 __all__ = ["OwnershipViolation", "assess_statement", "assess_table"]
 
 
 @dataclass(frozen=True)
-class OwnershipViolation(BaseObject):
+class OwnershipViolation(BaseValueObject):
     """一条数据所有权越界。"""
 
     service: str
