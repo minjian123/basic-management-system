@@ -21,8 +21,10 @@ from pathlib import Path
 
 import pytest
 
+from bms_core.captcha.default import CaptchaImageOptions, CaptchaSliderOptions, CaptchaSmsOptions
 from bms_core.chat.base import ChatStreamHandle
-from bms_core.core.objects import BaseFrameworkObject, BaseValueObject
+from bms_core.core.objects import BaseFrameworkObject, BaseOptionsContract, BaseValueObject
+from bms_core.masking.default import MaskerOptions
 
 _BACKEND = Path(__file__).resolve().parents[4]
 _ROOT = _BACKEND.parent
@@ -41,6 +43,9 @@ _SYSTEM_ROOTS = frozenset(
     }
 )
 _ROOT_BASES_MARKER = "体系根清单"
+
+VALUE_OBJECT_BASES = frozenset({"BaseValueObject", "BaseOptionsContract"})
+"""值对象体系合法直系父基类（体系根 + 已落地角色链层）；每批新层落地时同步扩入。"""
 
 VALUE_OBJECT_BATCH: tuple[tuple[str, str], ...] = (
     ("backend/libs/bms_core/src/bms_core/api/base.py", "AuthContext"),
@@ -237,14 +242,33 @@ def test_value_object_batch_is_frozen_and_complete() -> None:
 
 
 @pytest.mark.kiwi_id(2216)
-def test_value_object_batch_declares_base_value_object() -> None:
-    """归位完整性：批次 109 处均声明 `BaseValueObject`，且不再直继承 `BaseObject`。"""
+def test_value_object_batch_declares_value_object_base() -> None:
+    """归位完整性：批次 109 处均声明**单一**值对象体系父基类（体系根或已落地角色链层）。"""
     offenders: list[str] = []
     for rel, name in VALUE_OBJECT_BATCH:
         bases = _class_bases(rel, name)
-        if bases != ["BaseValueObject"]:
+        if len(bases) != 1 or bases[0] not in VALUE_OBJECT_BASES:
             offenders.append(f"{rel}::{name} → {bases}")
-    assert not offenders, "批次 1 值对象须改挂 BaseValueObject；违规：\n" + "\n".join(offenders)
+    assert not offenders, "批次 1 值对象须挂值对象体系（体系根或角色链层）；违规：\n" + "\n".join(offenders)
+
+
+@pytest.mark.kiwi_id(2216)
+def test_value_object_base_names_are_real_layers() -> None:
+    """台账口径自洽：`VALUE_OBJECT_BASES` 列出的角色链层确实是值对象体系内的类。"""
+    layers = {"BaseValueObject": BaseValueObject, "BaseOptionsContract": BaseOptionsContract}
+    assert set(layers) == set(VALUE_OBJECT_BASES)
+    for layer in layers.values():
+        assert issubclass(layer, BaseValueObject)
+
+
+@pytest.mark.kiwi_id(2216)
+def test_options_chain_layer_contract() -> None:
+    """选项链层：4 成员挂 `BaseOptionsContract`，公共段 `from_options` 为抽象入口。"""
+    for member in (CaptchaImageOptions, CaptchaSliderOptions, CaptchaSmsOptions, MaskerOptions):
+        assert issubclass(member, BaseOptionsContract)
+        assert dataclasses.is_dataclass(member)
+    assert issubclass(BaseOptionsContract, BaseValueObject)
+    assert getattr(BaseOptionsContract.from_options, "__isabstractmethod__", False) is True
 
 
 @pytest.mark.kiwi_id(2216)

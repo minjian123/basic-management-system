@@ -1,16 +1,19 @@
-"""core 层体系基类：值对象 / 数据契约 / 框架对象三个体系根（《架构设计 · 后端基础类体系》）。
+"""core 层体系统根：值对象 / 数据契约 / 框架对象三个体系根（《架构设计 · 后端基础类体系》）。
 
-- `BaseValueObject`：不可变值对象体系根（`@dataclass(frozen=True)`）——frozen / 相等 / 哈希语义由
-  dataclass 生成；子类继续以 `@dataclass(frozen=True)` 声明字段。
+- `BaseValueObject`：**不可变数据类体系根**（`@dataclass(frozen=True)`）——frozen / 相等 / 哈希语义由
+  dataclass 生成；值对象与只读结果 / 快照 / 规格 / 投影的共同落点；子类继续以
+  `@dataclass(frozen=True)` 声明字段。其下按**公共段**分**角色链层**（链各自独立、长短不一、
+  不设固定层数；见包内 `options.py` 等链模块）。
 - `BaseDataContract`：可变数据契约体系根（`@dataclass`）——Pydantic 契约（`BaseSchema`）、ORM 模型
   （`BaseModel`）与普通数据类共用归口。
 - `BaseFrameworkObject`：框架对象体系根——**非数据对象**（不参与值语义与序列化输出），统一标识
   `object_kind`，并提供可选生命周期钩子位 `aclose`（默认空操作；`BaseAsyncResource` 覆写为抽象）。
 
-**严禁上帝基类**：`BaseObject` 仅为**唯一根系**；除**体系根**（本模块三类 + 集合 `BaseSorted` + 仓储
-`BaseRepository` + 服务 `BaseService` + 事务 `UnitOfWork`，见《后端基类清单》§10「体系根清单」）外，
+**严禁上帝基类**：`BaseObject` 仅为**唯一根系**；除**体系根**（本模块三类 + 集合 `BaseSorted` +
+仓储 `BaseRepository` + 服务 `BaseService` + 事务 `UnitOfWork`，见《后端基类清单》§10「体系根清单」）外，
 **禁止直接继承 `BaseObject`**——由 `scripts/tools/base-check/check-backend-base.py` 的「直继承合法性」
 检查硬校验；存量尚未归位者以 `deploy/boundaries/direct_base_object_baseline.json` 豁免并递减。
+数据类体系语义同样由该脚本第 4 项强制（值对象体系须 `@dataclass(frozen=True)`；框架对象体系不得为 dataclass）。
 """
 
 from __future__ import annotations
@@ -33,7 +36,7 @@ FRAMEWORK_OBJECT_KIND = "framework"
 
 @dataclass(frozen=True)
 class BaseValueObject(BaseObject):
-    """不可变值对象体系根。
+    """不可变数据类体系根。
 
     frozen / 相等 / 哈希语义由 dataclass 生成（`@dataclass(frozen=True)`）；子类必须以
     `@dataclass(frozen=True)` 声明字段（frozen 一致性由 dataclass 自身强制）；序列化沿用
