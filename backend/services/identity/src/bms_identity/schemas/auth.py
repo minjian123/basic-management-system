@@ -28,7 +28,7 @@ class LoginRequest(BaseSchema):
 
     account: str = Field(min_length=1, max_length=64, description="登录账号")
     password: str = Field(min_length=1, max_length=512, description="口令明文")
-    tenant: str | None = Field(default=None, max_length=64, description="租户编码（可选；携带则以之为准）")
+    tenant_code: str | None = Field(default=None, max_length=64, description="租户编码（可选；携带则以之为准）")
     captcha: CaptchaInput | None = Field(default=None, description="验证码凭证（策略强制或已出题时携带）")
 
 
@@ -38,7 +38,7 @@ class UserSummary(BaseSchema):
     id: int = Field(description="用户 ID")
     username: str = Field(description="登录账号")
     name: str = Field(description="昵称 / 显示名")
-    tenant: str | None = Field(default=None, description="租户编码")
+    tenant_code: str | None = Field(default=None, description="租户编码")
     locale: str | None = Field(default=None, description="语言偏好")
     timezone: str | None = Field(default=None, description="时区偏好")
     must_change_password: bool = Field(default=False, description="是否需强制改密（密码策略归域三）")

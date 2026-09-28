@@ -26,7 +26,7 @@ async def test_discovery_document(client: AsyncClient, oidc: OidcHarness) -> Non
 @pytest.mark.kiwi_id(2202)
 async def test_discovery_with_tenant_param(client: AsyncClient, oidc: OidcHarness) -> None:
     """Discovery：`tenant` 参数回落分支（无租户头）。"""
-    response = await client.get("/api/v1/oidc/.well-known/openid-configuration", params={"tenant": "demo"})
+    response = await client.get("/api/v1/oidc/.well-known/openid-configuration", params={"tenant_code": "demo"})
     assert response.status_code == 200
     assert response.json()["issuer"] == ISSUER
 

@@ -1,9 +1,9 @@
 """认证与身份服务端点：SSO 登录三端点（入口清单 / 授权跳转 / 回调闭环）。
 
-- `GET /api/v1/auth/sso/providers`：公开；租户 = 上下文优先 + `tenant` 参数回落。
+- `GET /api/v1/auth/sso/providers`：公开；租户 = 上下文优先 + `tenant_code` 参数回落。
 - `GET /api/v1/auth/sso/{idp_key}/authorize`：公开；生成流程状态并 `302` 外部授权端点。
 - `GET /api/v1/auth/sso/{idp_key}/callback`：公开；**租户以 `state` 记录为权威**，闭环后
-  `302 {success_redirect}?tenant=…` + refresh cookie；配置缺失时回退 JSON。
+  `302 {success_redirect}?tenant_code=…` + refresh cookie；配置缺失时回退 JSON。
 - 失败分支：配置了 `failure_redirect` → `302 {failure_redirect}?error={code}&message=…`（只取配置，
   防开放重定向）；否则抛 `BizError` 走统一 JSON 错误体（HTTP 随错误码）。
 """
@@ -69,14 +69,14 @@ PublisherDep = Annotated[BaseRealtimePublisher, Depends(get_realtime_publisher)]
 
 
 async def _resolve_sso_tenant(
-    tenant: str | None,
+    tenant_code: str | None,
     context: TenantContext | None,
     source: TenantLookup,
 ) -> TenantContext:
     """解析 SSO 端点生效租户：上下文与参数不一致即 20051。
 
     Args:
-        tenant: 查询参数租户编码（可选）。
+        tenant_code: 查询参数租户编码（可选）。
         context: 请求上下文（子域名 / `X-Tenant-ID`）租户。
         source: 租户源（按编码校验存在）。
 
@@ -87,10 +87,10 @@ async def _resolve_sso_tenant(
         SsoProviderNotFoundError: 参数与上下文租户不一致（20051/404）。
         TenantNotFoundError: 无任何租户来源（既有，与 refresh 同口径）。
     """
-    if tenant and context is not None and tenant != context.code:
+    if tenant_code and context is not None and tenant_code != context.code:
         raise SsoProviderNotFoundError()
-    if tenant:
-        return await source.by_code(tenant)
+    if tenant_code:
+        return await source.by_code(tenant_code)
     if context is not None:
         return context
     raise TenantNotFoundError("未提供租户标识")
@@ -140,7 +140,7 @@ async def providers(
     lock: LockDep,
     outbox_store: OutboxDep,
     client: ClientDep,
-    tenant: Annotated[str | None, Query(description="租户编码（上下文缺省时的回落）")] = None,
+    tenant_code: Annotated[str | None, Query(description="租户编码（上下文缺省时的回落）")] = None,
 ) -> ApiResponse[SsoProviderList]:
     """可用 IdP 入口清单（仅 `enabled`；无启用 IdP 返回空列表）。
 
@@ -153,12 +153,12 @@ async def providers(
         lock: 分布式锁（保持服务构造一致）。
         outbox_store: 事务性发件箱（保持服务构造一致）。
         client: 服务间调用客户端（保持服务构造一致）。
-        tenant: 租户编码（可选）。
+        tenant_code: 租户编码（可选）。
 
     Returns:
         ApiResponse: 统一响应，data 为 `SsoProviderList`。
     """
-    context = await _resolve_sso_tenant(tenant, tenant_ctx, tenant_source)
+    context = await _resolve_sso_tenant(tenant_code, tenant_ctx, tenant_source)
     registry: EngineRegistry = request.app.state.engine_registry
     factory = request.app.state.session_factory
     async with session_scope(registry, db_key=context.db_key, factory=factory) as session:
@@ -185,7 +185,7 @@ async def authorize(
     lock: LockDep,
     outbox_store: OutboxDep,
     client: ClientDep,
-    tenant: Annotated[str | None, Query(description="租户编码（上下文缺省时的回落）")] = None,
+    tenant_code: Annotated[str | None, Query(description="租户编码（上下文缺省时的回落）")] = None,
 ) -> Response:
     """生成流程状态并 `302` 到外部授权端点。
 
@@ -199,7 +199,7 @@ async def authorize(
         lock: 分布式锁（保持服务构造一致）。
         outbox_store: 事务性发件箱（保持服务构造一致）。
         client: 服务间调用客户端。
-        tenant: 租户编码（可选）。
+        tenant_code: 租户编码（可选）。
 
     Returns:
         Response: `302` 跳转外部授权端点。
@@ -209,7 +209,7 @@ async def authorize(
         SsoProviderUnavailableError: IdP 配置缺失 / 发现失败（20053/503）。
         RateLimitError: 限流命中（10005/429）。
     """
-    context = await _resolve_sso_tenant(tenant, tenant_ctx, tenant_source)
+    context = await _resolve_sso_tenant(tenant_code, tenant_ctx, tenant_source)
     registry: EngineRegistry = request.app.state.engine_registry
     factory = request.app.state.session_factory
     async with session_scope(registry, db_key=context.db_key, factory=factory) as session:
@@ -223,7 +223,7 @@ async def authorize(
         )
         url = await service.authorize(
             idp_key,
-            tenant=context.code,
+            tenant_code=context.code,
             ip=current_client_ip.get(),
             session=session,
         )
@@ -241,7 +241,7 @@ async def authorize_url(
     lock: LockDep,
     outbox_store: OutboxDep,
     client: ClientDep,
-    tenant: Annotated[str | None, Query(description="租户编码（上下文缺省时的回落）")] = None,
+    tenant_code: Annotated[str | None, Query(description="租户编码（上下文缺省时的回落）")] = None,
 ) -> ApiResponse[SsoAuthorizeInfo]:
     """取外部授权 URL（JSON 形态；供前端渲染二维码 / 初始化平台内嵌登录组件）。
 
@@ -255,7 +255,7 @@ async def authorize_url(
         lock: 分布式锁（保持服务构造一致）。
         outbox_store: 事务性发件箱（保持服务构造一致）。
         client: 服务间调用客户端。
-        tenant: 租户编码（可选）。
+        tenant_code: 租户编码（可选）。
 
     Returns:
         ApiResponse: 统一响应，data 为 `SsoAuthorizeInfo`（授权 URL / 流程状态 / 有效期）。
@@ -266,7 +266,7 @@ async def authorize_url(
         EnterpriseIdpError: 企微 / 钉钉专用失败（20057~20062）。
         RateLimitError: 限流命中（10005/429）。
     """
-    context = await _resolve_sso_tenant(tenant, tenant_ctx, tenant_source)
+    context = await _resolve_sso_tenant(tenant_code, tenant_ctx, tenant_source)
     registry: EngineRegistry = request.app.state.engine_registry
     factory = request.app.state.session_factory
     async with session_scope(registry, db_key=context.db_key, factory=factory) as session:
@@ -280,7 +280,7 @@ async def authorize_url(
         )
         result = await service.authorize_info(
             idp_key,
-            tenant=context.code,
+            tenant_code=context.code,
             ip=current_client_ip.get(),
             session=session,
         )
@@ -335,7 +335,7 @@ async def callback(
         error: IdP 回传错误。
 
     Returns:
-        Response: 成功 `302 {success_redirect}?tenant=…` + refresh cookie（未配置回退 200 JSON）；
+        Response: 成功 `302 {success_redirect}?tenant_code=…` + refresh cookie（未配置回退 200 JSON）；
         失败 `302 {failure_redirect}?error=&message=`（未配置抛 `BizError`）。
     """
     settings = request.app.state.settings
@@ -356,11 +356,11 @@ async def callback(
             tenant_code=tenant_ctx.code if tenant_ctx is not None else None,
             ip=ip,
         )
-        tenant = await tenant_source.by_code(flow.tenant_code)
+        tenant_code = await tenant_source.by_code(flow.tenant_code)
         registry: EngineRegistry = request.app.state.engine_registry
         factory = request.app.state.session_factory
         async with (
-            session_scope(registry, db_key=tenant.db_key, factory=factory) as session,
+            session_scope(registry, db_key=tenant_code.db_key, factory=factory) as session,
             session_scope(registry, db_key=PLATFORM_DB_KEY, factory=factory) as platform_session,
         ):
             session_issuer = build_session_issuer(
@@ -399,11 +399,11 @@ def _success_response(request: Request, result: SsoLoginResult) -> Response:
     Returns:
         Response: `302` 跳转 + cookie，或 200 JSON + cookie。
     """
-    payload = ApiResponse.ok(SsoCallbackResult(tenant=result.tenant_code))
+    payload = ApiResponse.ok(SsoCallbackResult(tenant_code=result.tenant_code))
     target = request.app.state.settings.sso.success_redirect
     if target:
         response: Response = RedirectResponse(
-            _with_query(target, urlencode({"tenant": result.tenant_code})),
+            _with_query(target, urlencode({"tenant_code": result.tenant_code})),
             status_code=302,
         )
     else:

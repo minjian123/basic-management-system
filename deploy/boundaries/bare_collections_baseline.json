@@ -2475,7 +2475,7 @@
     },
     {
       "file": "backend/services/identity/src/bms_identity/services/oidc_provider.py",
-      "line": "async def discovery(self, tenant: str) -> dict[str, object]:",
+      "line": "async def discovery(self, tenant_code: str) -> dict[str, object]:",
       "container": "dict",
       "position": "signature_return",
       "count": 1
@@ -2503,7 +2503,7 @@
     },
     {
       "file": "backend/services/identity/src/bms_identity/services/org_client.py",
-      "line": "async def _post(self, action: str, tenant: str | None, body: dict[str, object]) -> dict[str, object]:",
+      "line": "async def _post(self, action: str, tenant_code: str | None, body: dict[str, object]) -> dict[str, object]:",
       "container": "dict",
       "position": "signature_return",
       "count": 2
@@ -2552,21 +2552,21 @@
     },
     {
       "file": "backend/services/identity/src/bms_identity/services/session.py",
-      "line": "async def enforce_max_active(self, user_id: int, *, tenant: str, max_active: int) -> list[str]:",
+      "line": "async def enforce_max_active(self, user_id: int, *, tenant_code: str, max_active: int) -> list[str]:",
       "container": "list",
       "position": "signature_return",
       "count": 1
     },
     {
       "file": "backend/services/identity/src/bms_identity/services/session.py",
-      "line": "async def revoke_user_sessions(self, user_id: int, *, tenant: str | None, reason: str) -> list[str]:",
+      "line": "async def revoke_user_sessions(self, user_id: int, *, tenant_code: str | None, reason: str) -> list[str]:",
       "container": "list",
       "position": "signature_return",
       "count": 1
     },
     {
       "file": "backend/services/identity/src/bms_identity/services/sso.py",
-      "line": "async def list_providers(self, tenant: str, session: DbSession) -> list[SsoProviderItem]:",
+      "line": "async def list_providers(self, tenant_code: str, session: DbSession) -> list[SsoProviderItem]:",
       "container": "list",
       "position": "signature_return",
       "count": 1

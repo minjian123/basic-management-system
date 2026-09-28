@@ -137,7 +137,7 @@ async def test_authorize_missing_params(client: AsyncClient, oidc: OidcHarness) 
 async def test_authorize_tenant_mismatch(client: AsyncClient, oidc: OidcHarness) -> None:
     """`tenant` 参数与登录态不一致：400 标准错误。"""
     await oidc.seed_client()
-    response = await client.get(_AUTHORIZE, params={**_params(), "tenant": "other"}, headers=TENANT_HEADERS)
+    response = await client.get(_AUTHORIZE, params={**_params(), "tenant_code": "other"}, headers=TENANT_HEADERS)
     assert response.status_code == 400
     assert response.json()["error"] == "invalid_request"
 

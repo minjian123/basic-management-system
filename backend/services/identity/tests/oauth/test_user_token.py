@@ -182,7 +182,7 @@ async def test_issue_pair_claims_and_ttls() -> None:
 
     minimal = await issuer.issue_pair(UserTokenSpec(subject="1002", session_id="sess-2"))
     minimal_payload = dict(issuer.verify(minimal.access_token, expected_type=USER_TOKEN_TYPE_ACCESS).payload)
-    assert "tenant_id" not in minimal_payload
+    assert "tenant_code" not in minimal_payload
     assert "scope" not in minimal_payload
 
 

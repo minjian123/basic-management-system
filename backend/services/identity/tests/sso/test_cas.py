@@ -55,7 +55,7 @@ async def test_cas_end_to_end_jit_creates_user_and_session(client: AsyncClient, 
 
     response = await client.get(f"{CALLBACK}?state={state}&ticket=ST-ok", headers=TENANT_HEADERS)
     assert response.status_code == 200 and response.json()["code"] == 0
-    assert response.json()["data"]["tenant"] == TENANT
+    assert response.json()["data"]["tenant_code"] == TENANT
 
     # 校验 service 与登录时完全一致（同一 state）
     assert sso.cas.services == [_expected_service(state)]
@@ -83,7 +83,7 @@ async def test_cas_existing_mapping_logs_in_without_jit(client: AsyncClient, sso
     sso.cas.allowed_services = {_expected_service(state)}
     response = await client.get(f"{CALLBACK}?state={state}&ticket=ST-ok", headers=TENANT_HEADERS)
 
-    assert response.status_code == 200 and response.json()["data"]["tenant"] == TENANT
+    assert response.status_code == 200 and response.json()["data"]["tenant_code"] == TENANT
     assert sso.outbox.events == []
 
 

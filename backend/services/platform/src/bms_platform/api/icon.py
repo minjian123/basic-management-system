@@ -14,7 +14,7 @@ from typing import Annotated
 from fastapi import Depends, Header, Path, Query
 
 from bms_core.api.base import BaseRouter, require_auth
-from bms_core.api.deps import current_code_of, get_icon_registry, get_idempotency_store, get_tenant
+from bms_core.api.deps import current_tenant_code_of, get_icon_registry, get_idempotency_store, get_tenant
 from bms_core.core.exceptions import ParamError
 from bms_core.db.tenant import TenantContext
 from bms_core.icon.base import (
@@ -159,7 +159,7 @@ async def create_icon(
     draft = IconDraft(code=req.code, name=req.name, category=req.category, tags=req.tags, svg=req.svg)
     if not idempotency_key:
         return ApiResponse.ok(_to_response(await registry.create(draft)))
-    key = build_idempotency_key(key=idempotency_key, tenant=current_code_of(tenant))
+    key = build_idempotency_key(key=idempotency_key, tenant=current_tenant_code_of(tenant))
     if not await idempotency.begin(key):
         payload = await idempotency.load(key)
         if payload is not None:
@@ -204,7 +204,7 @@ async def update_icon(
     )
     if not idempotency_key:
         return ApiResponse.ok(_to_response(await registry.update(code, patch)))
-    key = build_idempotency_key(key=idempotency_key, tenant=current_code_of(tenant))
+    key = build_idempotency_key(key=idempotency_key, tenant=current_tenant_code_of(tenant))
     if not await idempotency.begin(key):
         payload = await idempotency.load(key)
         if payload is not None:
@@ -240,7 +240,7 @@ async def delete_icon(
     _require_valid_code(code)
     if not idempotency_key:
         return ApiResponse.ok(IconDeleteResponse(deleted=await registry.delete(code)))
-    key = build_idempotency_key(key=idempotency_key, tenant=current_code_of(tenant))
+    key = build_idempotency_key(key=idempotency_key, tenant=current_tenant_code_of(tenant))
     if not await idempotency.begin(key):
         payload = await idempotency.load(key)
         if payload is not None:

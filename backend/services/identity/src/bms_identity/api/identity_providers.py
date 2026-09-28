@@ -189,7 +189,7 @@ async def test_draft_provider(
             type=req.type,
             config=req.config,
             idp_key=req.idp_key,
-            tenant=tenant.code,
+            tenant_code=tenant.code,
             actor=auth.user_id,
         )
     return ApiResponse.ok(_probe_result(result))
@@ -359,7 +359,7 @@ async def test_saved_provider(
     registry: EngineRegistry = request.app.state.engine_registry
     async with session_scope(registry, db_key=tenant.db_key, factory=request.app.state.session_factory) as session:
         service = _build(request, session, audit, limiter)
-        result = await service.test_saved(provider_id, tenant=tenant.code, actor=auth.user_id)
+        result = await service.test_saved(provider_id, tenant_code=tenant.code, actor=auth.user_id)
     return ApiResponse.ok(_probe_result(result))
 
 

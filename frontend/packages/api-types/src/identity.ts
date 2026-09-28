@@ -303,7 +303,7 @@ export interface paths {
          *         lock: 分布式锁（保持服务构造一致）。
          *         outbox_store: 事务性发件箱（保持服务构造一致）。
          *         client: 服务间调用客户端（保持服务构造一致）。
-         *         tenant: 租户编码（可选）。
+         *         tenant_code: 租户编码（可选）。
          *
          *     Returns:
          *         ApiResponse: 统一响应，data 为 `SsoProviderList`。
@@ -338,7 +338,7 @@ export interface paths {
          *         lock: 分布式锁（保持服务构造一致）。
          *         outbox_store: 事务性发件箱（保持服务构造一致）。
          *         client: 服务间调用客户端。
-         *         tenant: 租户编码（可选）。
+         *         tenant_code: 租户编码（可选）。
          *
          *     Returns:
          *         Response: `302` 跳转外部授权端点。
@@ -378,7 +378,7 @@ export interface paths {
          *         lock: 分布式锁（保持服务构造一致）。
          *         outbox_store: 事务性发件箱（保持服务构造一致）。
          *         client: 服务间调用客户端。
-         *         tenant: 租户编码（可选）。
+         *         tenant_code: 租户编码（可选）。
          *
          *     Returns:
          *         ApiResponse: 统一响应，data 为 `SsoAuthorizeInfo`（授权 URL / 流程状态 / 有效期）。
@@ -429,7 +429,7 @@ export interface paths {
          *         error: IdP 回传错误。
          *
          *     Returns:
-         *         Response: 成功 `302 {success_redirect}?tenant=…` + refresh cookie（未配置回退 200 JSON）；
+         *         Response: 成功 `302 {success_redirect}?tenant_code=…` + refresh cookie（未配置回退 200 JSON）；
          *         失败 `302 {failure_redirect}?error=&message=`（未配置抛 `BizError`）。
          */
         get: operations["callback_api_v1_auth_sso__idp_key__callback_get"];
@@ -782,7 +782,7 @@ export interface paths {
          *         hasher: 口令哈希（保持服务构造一致）。
          *         tenant_ctx: 请求上下文租户。
          *         tenant_source: 租户源。
-         *         tenant: 租户编码（可选）。
+         *         tenant_code: 租户编码（可选）。
          *
          *     Returns:
          *         JSONResponse: Discovery 文档。
@@ -824,7 +824,7 @@ export interface paths {
          *         nonce: 透传 nonce。
          *         code_challenge: PKCE 挑战。
          *         code_challenge_method: PKCE 方法。
-         *         tenant: 租户编码（可选）。
+         *         tenant_code: 租户编码（可选）。
          *
          *     Returns:
          *         Response: `302` 回跳地址。
@@ -861,7 +861,7 @@ export interface paths {
          *         hasher: 口令哈希（保持服务构造一致）。
          *         tenant_ctx: 请求上下文租户。
          *         tenant_source: 租户源。
-         *         tenant: 租户编码（可选）。
+         *         tenant_code: 租户编码（可选）。
          *
          *     Returns:
          *         JSONResponse: JWKS 文档。
@@ -896,7 +896,7 @@ export interface paths {
          *         hasher: 口令哈希（客户端密钥比对）。
          *         tenant_ctx: 请求上下文租户。
          *         tenant_source: 租户源。
-         *         tenant: 租户编码（可选）。
+         *         tenant_code: 租户编码（可选）。
          *
          *     Returns:
          *         Response: 标准令牌 JSON 或标准错误 JSON。
@@ -927,7 +927,7 @@ export interface paths {
          *         hasher: 口令哈希（保持服务构造一致）。
          *         tenant_ctx: 请求上下文租户。
          *         tenant_source: 租户源。
-         *         tenant: 租户编码（可选）。
+         *         tenant_code: 租户编码（可选）。
          *
          *     Returns:
          *         Response: 标准 userinfo JSON 或 401。
@@ -946,7 +946,7 @@ export interface paths {
          *         hasher: 口令哈希（保持服务构造一致）。
          *         tenant_ctx: 请求上下文租户。
          *         tenant_source: 租户源。
-         *         tenant: 租户编码（可选）。
+         *         tenant_code: 租户编码（可选）。
          *
          *     Returns:
          *         Response: 标准 userinfo JSON 或 401。
@@ -1596,10 +1596,10 @@ export interface components {
              */
             password: string;
             /**
-             * Tenant
+             * Tenant Code
              * @description 租户编码（可选；携带则以之为准）
              */
-            tenant?: string | null;
+            tenant_code?: string | null;
         };
         LoginResult: unknown;
         /**
@@ -1615,10 +1615,10 @@ export interface components {
              */
             identifier: string;
             /**
-             * Tenant
+             * Tenant Code
              * @description 租户编码（可选；携带则以之为准）
              */
-            tenant?: string | null;
+            tenant_code?: string | null;
         };
         PasswordForgotResult: unknown;
         /**
@@ -1632,10 +1632,10 @@ export interface components {
              */
             new_password: string;
             /**
-             * Tenant
+             * Tenant Code
              * @description 租户编码（可选；携带则以之为准）
              */
-            tenant?: string | null;
+            tenant_code?: string | null;
             /**
              * Token
              * @description 重置令牌（通知下发；单次有效）
@@ -2012,7 +2012,7 @@ export interface operations {
         parameters: {
             query?: {
                 /** @description 租户编码（上下文缺省时的回落） */
-                tenant?: string | null;
+                tenant_code?: string | null;
             };
             header?: never;
             path?: never;
@@ -2044,7 +2044,7 @@ export interface operations {
         parameters: {
             query?: {
                 /** @description 租户编码（上下文缺省时的回落） */
-                tenant?: string | null;
+                tenant_code?: string | null;
             };
             header?: never;
             path: {
@@ -2078,7 +2078,7 @@ export interface operations {
         parameters: {
             query?: {
                 /** @description 租户编码（上下文缺省时的回落） */
-                tenant?: string | null;
+                tenant_code?: string | null;
             };
             header?: never;
             path: {
@@ -3098,7 +3098,7 @@ export interface operations {
         parameters: {
             query?: {
                 /** @description 租户编码（上下文缺省时的回落） */
-                tenant?: string | null;
+                tenant_code?: string | null;
             };
             header?: never;
             path?: never;
@@ -3138,7 +3138,7 @@ export interface operations {
                 code_challenge?: string | null;
                 code_challenge_method?: string | null;
                 /** @description 租户编码（上下文缺省时的回落） */
-                tenant?: string | null;
+                tenant_code?: string | null;
             };
             header?: never;
             path?: never;
@@ -3170,7 +3170,7 @@ export interface operations {
         parameters: {
             query?: {
                 /** @description 租户编码（上下文缺省时的回落） */
-                tenant?: string | null;
+                tenant_code?: string | null;
             };
             header?: never;
             path?: never;
@@ -3202,7 +3202,7 @@ export interface operations {
         parameters: {
             query?: {
                 /** @description 租户编码（上下文缺省时的回落） */
-                tenant?: string | null;
+                tenant_code?: string | null;
             };
             header?: never;
             path?: never;
@@ -3234,7 +3234,7 @@ export interface operations {
         parameters: {
             query?: {
                 /** @description 租户编码（上下文缺省时的回落） */
-                tenant?: string | null;
+                tenant_code?: string | null;
             };
             header?: never;
             path?: never;
@@ -3266,7 +3266,7 @@ export interface operations {
         parameters: {
             query?: {
                 /** @description 租户编码（上下文缺省时的回落） */
-                tenant?: string | null;
+                tenant_code?: string | null;
             };
             header?: never;
             path?: never;

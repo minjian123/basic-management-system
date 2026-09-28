@@ -60,7 +60,7 @@ async def test_callback_success_issues_session_and_cookie(client: AsyncClient, s
 
     response = await _flow_callback(client, sso)
     assert response.status_code == 200
-    assert response.json()["data"] == {"tenant": TENANT}
+    assert response.json()["data"] == {"tenant_code": TENANT}
     cookie = response.cookies["bms_refresh_token"]
     assert cookie.startswith("ref-")
     set_cookie = response.headers["set-cookie"]
@@ -106,7 +106,7 @@ async def test_callback_redirect_responses(client: AsyncClient, sso: SsoHarness)
 
     ok = await _flow_callback(client, sso)
     assert ok.status_code == 302
-    assert ok.headers["location"] == "http://app.test/sso/ok?tenant=demo"
+    assert ok.headers["location"] == "http://app.test/sso/ok?tenant_code=demo"
     assert "bms_refresh_token" in ok.cookies
 
     fail = await client.get(f"{CALLBACK}?state=missing&code=x", headers=TENANT_HEADERS)
