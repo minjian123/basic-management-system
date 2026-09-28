@@ -1,0 +1,3625 @@
+{
+  "version": 1,
+  "generated_at": "2026-09-28",
+  "entries": [
+    {
+      "file": "backend/libs/bms_core/src/bms_core/api/base.py",
+      "line": "order: Annotated[list[str] | None, Query(description=\"排序方向数组，与 order_by 位置一一对应\")] = None,",
+      "container": "list",
+      "position": "signature_param",
+      "count": 3
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/api/base.py",
+      "line": "responses: Mapping[int | str, dict[str, object]] | None = None,",
+      "container": "dict",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/api/health.py",
+      "line": "def _service_fields(request: Request) -> dict[str, str]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/api/health.py",
+      "line": "def healthz(request: Request) -> dict[str, object]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/api/middleware.py",
+      "line": "def _identity_headers(identity: EdgeIdentity | None) -> dict[str, str]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/api/middleware.py",
+      "line": "def _raw_headers(scope: Scope) -> dict[str, str]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/api/middleware.py",
+      "line": "def _rewrite_headers(scope: Scope, *, drops: set[str], sets: Mapping[str, str]) -> None:",
+      "container": "set",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/audit/base.py",
+      "line": "changes: list[FieldChange],",
+      "container": "list",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/audit/null.py",
+      "line": "changes: list[FieldChange],",
+      "container": "list",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/boundary/directory.py",
+      "line": "def known_prefixes() -> frozenset[str]:",
+      "container": "frozenset",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/boundary/directory.py",
+      "line": "def known_services() -> frozenset[str]:",
+      "container": "frozenset",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/boundary/directory.py",
+      "line": "def known_tables() -> frozenset[str]:",
+      "container": "frozenset",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/boundary/directory.py",
+      "line": "def owned_tables_for(service: str, *, datasource: str | None = None, include_planned: bool = True) -> frozenset[str]:",
+      "container": "frozenset",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/boundary/directory.py",
+      "line": "def table_owners_map() -> dict[str, str]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/boundary/exceptions.py",
+      "line": ") -> list[str]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/boundary/exceptions.py",
+      "line": "known_prefixes: frozenset[str],",
+      "container": "frozenset",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/boundary/exceptions.py",
+      "line": "known_services: frozenset[str],",
+      "container": "frozenset",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/boundary/exceptions.py",
+      "line": "known_tables: frozenset[str],",
+      "container": "frozenset",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/captcha/default.py",
+      "line": "async def _take(self, captcha_id: str) -> tuple[dict[str, object] | None, int]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/captcha/default.py",
+      "line": "def _load(raw: object) -> dict[str, object] | None:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/catalog/base.py",
+      "line": ") -> list[ModuleRecord]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/catalog/loader.py",
+      "line": "async def load_catalog_snapshot(app: FastAPI) -> list[ModuleRecord]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/chat/base.py",
+      "line": "citations: list[ChatCitation] = Field(default_factory=list[ChatCitation], description=\"引用来源\")",
+      "container": "list",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/chat/base.py",
+      "line": "risks: list[str] = Field(default_factory=list, description=\"风险提示\")",
+      "container": "list",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/chat/base.py",
+      "line": "rows: list[dict[str, object]] = Field(default_factory=list[dict[str, object]], description=\"行数据\")",
+      "container": "dict",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/chat/base.py",
+      "line": "rows: list[dict[str, object]] = Field(default_factory=list[dict[str, object]], description=\"行数据\")",
+      "container": "list",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/codecheck/base.py",
+      "line": "columns: list[ValidationColumn] = Field(default_factory=list[ValidationColumn], description=\"试算返回字段清单\")",
+      "container": "list",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/codecheck/base.py",
+      "line": "fields: list[str] = Field(default_factory=list[str], description=\"可用字段（场景侧下发）\")",
+      "container": "list",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/codecheck/base.py",
+      "line": "issues: list[ValidationIssue] = Field(default_factory=list[ValidationIssue], description=\"诊断明细\")",
+      "container": "list",
+      "position": "class_field",
+      "count": 2
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/codecheck/base.py",
+      "line": "rows: list[dict[str, object]] = Field(",
+      "container": "dict",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/codecheck/base.py",
+      "line": "rows: list[dict[str, object]] = Field(",
+      "container": "list",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/codecheck/base.py",
+      "line": "variables: list[str] = Field(default_factory=list[str], description=\"预置变量（场景侧下发，如 @current_dept）\")",
+      "container": "list",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/core/assembly.py",
+      "line": "async def assemble_plugins(app: FastAPI, settings: Settings, resources: ResourceManager) -> dict[str, str]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/core/base.py",
+      "line": "def _public_fields(self) -> dict[str, object]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/core/base.py",
+      "line": "def to_dict(self) -> dict[str, object]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/core/collections.py",
+      "line": "def chunk(self, size: int) -> Iterator[list[ItemT]]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/core/collections.py",
+      "line": "def sorted_by(self, key: Callable[[ItemT], Any], reverse: bool = False) -> list[ItemT]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/core/collections.py",
+      "line": "def to_dict(self) -> dict[KeyT, ValueT]:  # pyright: ignore[reportIncompatibleMethodOverride]",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/core/collections.py",
+      "line": "def to_dict(self) -> dict[str, object]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/core/collections.py",
+      "line": "def to_list(self) -> list[ItemT]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 3
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/core/collections.py",
+      "line": "def to_list(self) -> list[tuple[KeyT, ValueT]]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/core/concurrent.py",
+      "line": "def _view(self) -> list[ItemT]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/core/concurrent.py",
+      "line": "def _view(self) -> list[tuple[KeyT, ValueT]]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/core/concurrent.py",
+      "line": "def to_dict(self) -> dict[KeyT, ValueT]:  # pyright: ignore[reportIncompatibleMethodOverride]",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/core/concurrent.py",
+      "line": "def to_list(self) -> list[ItemT]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 2
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/core/concurrent.py",
+      "line": "def to_list(self) -> list[tuple[KeyT, ValueT]]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/core/config.py",
+      "line": "allow_headers: list[str] = Field(default_factory=lambda: [\"*\"])",
+      "container": "list",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/core/config.py",
+      "line": "allow_methods: list[str] = Field(default_factory=lambda: [\"*\"])",
+      "container": "list",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/core/config.py",
+      "line": "allow_origins: list[str] = Field(default_factory=list)",
+      "container": "list",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/core/config.py",
+      "line": "attribute_map: dict[str, list[str]] = Field(default_factory=dict[str, list[str]])",
+      "container": "dict",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/core/config.py",
+      "line": "attribute_map: dict[str, list[str]] = Field(default_factory=dict[str, list[str]])",
+      "container": "list",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/core/config.py",
+      "line": "db_keys: list[str] = Field(default_factory=list)",
+      "container": "list",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/core/config.py",
+      "line": "def __call__(self) -> dict[str, Any]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/core/config.py",
+      "line": "dev_tenants: list[str] = Field(default_factory=lambda: [\"demo\"])",
+      "container": "list",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/core/config.py",
+      "line": "exempt_paths: list[str] = Field(",
+      "container": "list",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/core/config.py",
+      "line": "exempt_paths: list[str] = Field(default_factory=list)",
+      "container": "list",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/core/config.py",
+      "line": "jit_allowed_tenants: list[str] = Field(default_factory=list[str])",
+      "container": "list",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/core/config.py",
+      "line": "keys: dict[str, TokenKeySettings] = Field(default_factory=dict[str, TokenKeySettings])",
+      "container": "dict",
+      "position": "class_field",
+      "count": 2
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/core/config.py",
+      "line": "max_connections_by_service: dict[str, int] = Field(default_factory=dict[str, int])",
+      "container": "dict",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/core/config.py",
+      "line": "options: dict[str, object] = Field(default_factory=dict[str, object])",
+      "container": "dict",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/core/config.py",
+      "line": "public_paths: list[str] = Field(",
+      "container": "list",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/core/config.py",
+      "line": "replicas: list[str] = Field(default_factory=list)",
+      "container": "list",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/core/config.py",
+      "line": "scopes: list[str] = Field(default_factory=lambda: [\"openid\", \"profile\", \"email\"])",
+      "container": "list",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/core/config.py",
+      "line": "services: dict[str, DbPoolSettings] = Field(default_factory=dict[str, DbPoolSettings])",
+      "container": "dict",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/core/config.py",
+      "line": "workers_by_service: dict[str, int] = Field(default_factory=dict[str, int])",
+      "container": "dict",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/core/logging.py",
+      "line": "def _build_processors() -> list[Processor]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/core/logging.py",
+      "line": "def _emit(self, fields: dict[str, object]) -> Any:",
+      "container": "dict",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/core/plugin.py",
+      "line": "errors: list[str],",
+      "container": "list",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/core/plugin.py",
+      "line": "registry: dict[str, dict[str, PluginImpl]],",
+      "container": "dict",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/core/redis_collections.py",
+      "line": "async def items(self) -> list[tuple[KeyT, ValueT]]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/core/redis_collections.py",
+      "line": "async def range_by_rank(self, start: int = 0, stop: int = -1) -> list[ItemT]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/core/redis_collections.py",
+      "line": "async def range_by_score(self, minimum: float, maximum: float) -> list[ItemT]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/core/redis_collections.py",
+      "line": "async def top(self, count: int) -> list[ItemT]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/db/bootstrap.py",
+      "line": ") -> list[str]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/db/bootstrap.py",
+      "line": "def db_keys_for(chain: MigrationChain, settings: Settings) -> list[str]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/db/engine.py",
+      "line": "def _engine_kwargs(self, target: DatabaseTargetSettings, dialect: str) -> dict[str, object]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/db/engine.py",
+      "line": "def replicas(self, db_key: str) -> list[str]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/db/inventory.py",
+      "line": "def db_counts_by_kind(active_keys: Sequence[str]) -> dict[str, int]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/db/keys.py",
+      "line": "def _known_service_keys() -> frozenset[str]:",
+      "container": "frozenset",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/db/migration.py",
+      "line": "def chain_names() -> list[str]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/db/migration.py",
+      "line": "def service_chains(service: str) -> list[MigrationChain]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/db/migration.py",
+      "line": "tables: frozenset[str]",
+      "container": "frozenset",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/db/registry.py",
+      "line": ") -> list[PoolBudgetRow]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/db/registry.py",
+      "line": "def _tenant_keys(self) -> list[str]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/db/registry.py",
+      "line": "def active_keys(self) -> list[str]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/db/registry.py",
+      "line": "def db_counts(self) -> dict[str, int]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/db/registry.py",
+      "line": "def pool_budget_warnings(settings: Settings) -> list[str]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/db/registry.py",
+      "line": "def tenant_pool_budget_warnings(settings: Settings, max_active: int) -> list[str]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/db/tenant_registry.py",
+      "line": "def to_payload(self, *, version: int | None = None) -> dict[str, Any]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/dict/base.py",
+      "line": "items: dict[str, DictTypeResult | None] = Field(",
+      "container": "dict",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/dict/http.py",
+      "line": "def _chunks(values: Sequence[str], size: int) -> list[tuple[str, ...]]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/dict/http.py",
+      "line": "def _headers(locale: str) -> dict[str, str]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/dict/models.py",
+      "line": "attr_json: Mapped[dict[str, object] | None] = mapped_column(",
+      "container": "dict",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/dict/models.py",
+      "line": "operators: Mapped[list[str] | None] = mapped_column(JSON, nullable=True, comment=\"可用操作符集合（JSON 数组）\")",
+      "container": "list",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/dict/models.py",
+      "line": "options: Mapped[list[dict[str, object]] | None] = mapped_column(",
+      "container": "dict",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/dict/models.py",
+      "line": "options: Mapped[list[dict[str, object]] | None] = mapped_column(",
+      "container": "list",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/dict/query.py",
+      "line": "attr: dict[str, object] | None = Field(default=None, description=\"扩展属性子集（仅本接口返回）\")",
+      "container": "dict",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/dict/query.py",
+      "line": "conditions: dict[str, object] | None = Field(default=None, description=\"条件组 JSON\")",
+      "container": "dict",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/dict/query.py",
+      "line": "def _as_list(value: object) -> list[object]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/dict/query.py",
+      "line": "options: tuple[dict[str, object], ...] = Field(default=(), description=\"enum 选项集\")",
+      "container": "dict",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/dict/query.py",
+      "line": "param_schema: dict[str, object] = Field(default_factory=dict[str, object], description=\"参数 JSON Schema 子集\")",
+      "container": "dict",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/dict/query.py",
+      "line": "params: dict[str, object] | None = Field(default=None, description=\"提供者参数\")",
+      "container": "dict",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/dict/query.py",
+      "line": "rows: tuple[dict[str, object], ...] = Field(default=(), description=\"业务记录（target=business）\")",
+      "container": "dict",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/dict/service.py",
+      "line": "attr_json: dict[str, object] | None = Field(default=None, description=\"扩展属性值（普通链路不返回）\")",
+      "container": "dict",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/dict/service.py",
+      "line": "options: tuple[dict[str, object], ...] | None = Field(default=None, description=\"enum 选项集\")",
+      "container": "dict",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/dict/sql.py",
+      "line": ") -> dict[str, str]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/dict/sql.py",
+      "line": ") -> dict[str, tuple[list[DictItem], int]]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 2
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/dict/sql.py",
+      "line": ") -> dict[str, tuple[list[DictItem], int]]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 2
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/dict/sql.py",
+      "line": ") -> tuple[list[DictItem], int, bool]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 2
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/dict/sql.py",
+      "line": "async def _load_labels(self, dict_type: str, locale: str, values: Sequence[str]) -> dict[str, str]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/dict/sql.py",
+      "line": "def _item_conditions(type_id: int, query: DictQuery) -> list[ColumnElement[bool]]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/dict/sql.py",
+      "line": "def _snapshot_payload(result: DictTypeResult) -> dict[str, object]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/events/base.py",
+      "line": "payload: dict[str, object] = field(default_factory=dict[str, object])",
+      "container": "dict",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/events/contracts.py",
+      "line": "def event_snapshot_payload(registry: EventContractRegistry) -> dict[str, object]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/events/contracts.py",
+      "line": "def to_snapshot(self) -> dict[str, object]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 3
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/events/contracts.py",
+      "line": "def validate_event_contract(contract: EventContract, *, domains: frozenset[str] | None = None) -> tuple[str, ...]:",
+      "container": "frozenset",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/events/contracts.py",
+      "line": "registry: EventContractRegistry, *, domains: frozenset[str] | None = None",
+      "container": "frozenset",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/globalsearch/base.py",
+      "line": "groups: list[GlobalSearchGroup] = Field(default_factory=list[GlobalSearchGroup], description=\"按域分组结果\")",
+      "container": "list",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/globalsearch/base.py",
+      "line": "highlight: dict[str, str] = Field(default_factory=dict[str, str], description=\"上下文高亮片段\")",
+      "container": "dict",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/globalsearch/base.py",
+      "line": "highlight: dict[str, str] = Field(default_factory=dict[str, str], description=\"高亮片段（字段 → 片段）\")",
+      "container": "dict",
+      "position": "class_field",
+      "count": 2
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/globalsearch/base.py",
+      "line": "hits: list[AuditLogHit] = Field(default_factory=list[AuditLogHit], description=\"命中项\")",
+      "container": "list",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/globalsearch/base.py",
+      "line": "hits: list[FileContentHit] = Field(default_factory=list[FileContentHit], description=\"命中项\")",
+      "container": "list",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/globalsearch/base.py",
+      "line": "hits: list[GlobalSearchHit] = Field(default_factory=list[GlobalSearchHit], description=\"本域命中\")",
+      "container": "list",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/icon/base.py",
+      "line": ") -> list[IconInfo]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/icon/base.py",
+      "line": "tags: list[str] = Field(default_factory=list[str], description=\"标签（搜索用）\")",
+      "container": "list",
+      "position": "class_field",
+      "count": 2
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/icon/base.py",
+      "line": "tags: list[str] | None = Field(default=None, description=\"标签（搜索用）\")",
+      "container": "list",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/icon/null.py",
+      "line": ") -> list[IconInfo]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/icon/null.py",
+      "line": "def _placeholder(*, code: str, name: str, category: str, tags: list[str], svg: str, status: str) -> IconInfo:",
+      "container": "list",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/idp/cas.py",
+      "line": "def _merge_attribute_map(overrides: Mapping[str, Sequence[str]] | None) -> dict[str, tuple[str, ...]]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/idp/cas.py",
+      "line": "def _parse_attributes(success: ET.Element) -> dict[str, str]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/idp/cas.py",
+      "line": "def normalize_attribute_map(raw: object) -> dict[str, tuple[str, ...]]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/idp/schema.py",
+      "line": ") -> dict[str, object]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/idp/schema.py",
+      "line": "def _require_str_list(name: str, value: object) -> list[str]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/idp/schema.py",
+      "line": "def _require_str_map(name: str, value: object) -> dict[str, list[str]]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/idp/schema.py",
+      "line": "def _require_str_map(name: str, value: object) -> dict[str, list[str]]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/idp/schema.py",
+      "line": "def mask_provider_config(protocol: str, config: Mapping[str, object]) -> dict[str, object]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/listing/base.py",
+      "line": "columns: list[ListColumnPreference] = Field(default_factory=list[ListColumnPreference], description=\"列偏好列表\")",
+      "container": "list",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/listing/base.py",
+      "line": "conditions: dict[str, object] | None = Field(default=None, description=\"条件组 JSON\")",
+      "container": "dict",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/listing/base.py",
+      "line": "layout: dict[str, object] | None = Field(default=None, description=\"展示配置 JSON\")",
+      "container": "dict",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/listing/base.py",
+      "line": "params: dict[str, object] | None = Field(default=None, description=\"额外参数 JSON\")",
+      "container": "dict",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/listing/base.py",
+      "line": "query: dict[str, object] = Field(default_factory=dict, description=\"上次筛选条件（JSON）\")",
+      "container": "dict",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/listing/models.py",
+      "line": "conditions: Mapped[dict[str, object] | None] = mapped_column(JSON, nullable=True, comment=\"条件组 JSON\")",
+      "container": "dict",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/listing/models.py",
+      "line": "layout: Mapped[dict[str, object] | None] = mapped_column(JSON, nullable=True, comment=\"展示配置 JSON\")",
+      "container": "dict",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/listing/models.py",
+      "line": "params: Mapped[dict[str, object] | None] = mapped_column(JSON, nullable=True, comment=\"额外参数 JSON\")",
+      "container": "dict",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/masking/base.py",
+      "line": "def masked_fields(self) -> frozenset[str]:",
+      "container": "frozenset",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/masking/default.py",
+      "line": "rules: dict[str, str] = field(default_factory=dict[str, str])",
+      "container": "dict",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/models/outbox.py",
+      "line": "payload: Mapped[dict[str, object]] = mapped_column(JSON, comment=\"事件负载\")",
+      "container": "dict",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/models/outbox.py",
+      "line": "payload: Mapped[dict[str, object]] = mapped_column(JSON, comment=\"事件负载（便于重投 / 排障）\")",
+      "container": "dict",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/oauth/keys.py",
+      "line": "def build_jwks(keys: Iterable[TokenKey]) -> dict[str, object]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/oauth/keys.py",
+      "line": "def merge_jwks(*documents: Mapping[str, object]) -> dict[str, object]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/oauth/oidc_provider.py",
+      "line": ") -> dict[str, object]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/oauth/user_jwt.py",
+      "line": ") -> dict[str, object]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/org/base.py",
+      "line": "children: list[OrgDept] = Field(default_factory=list[\"OrgDept\"], description=\"子部门（嵌套树）\")",
+      "container": "list",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/outbox/base.py",
+      "line": ") -> tuple[list[DeadLetterRecord], int]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/outbox/base.py",
+      "line": "async def claim_pending(self, session: DbSession, *, now: datetime, limit: int) -> list[OutboxRecord]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/outbox/base.py",
+      "line": "payload: dict[str, object]",
+      "container": "dict",
+      "position": "class_field",
+      "count": 2
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/outbox/null.py",
+      "line": ") -> tuple[list[DeadLetterRecord], int]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/outbox/null.py",
+      "line": "async def claim_pending(self, session: DbSession, *, now: datetime, limit: int) -> list[OutboxRecord]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/outbox/store.py",
+      "line": ") -> tuple[list[DeadLetterRecord], int]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/outbox/store.py",
+      "line": "async def claim_pending(self, session: DbSession, *, now: datetime, limit: int) -> list[OutboxRecord]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/print/base.py",
+      "line": "async def list(self, *, biz_type: str | None = None) -> list[PrintTemplateInfo]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/print/base.py",
+      "line": "fields: dict[str, object] = Field(default_factory=dict[str, object], description=\"主表字段（键与模板变量键对应）\")",
+      "container": "dict",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/print/base.py",
+      "line": "items: list[PrintExportResult] = Field(",
+      "container": "list",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/print/base.py",
+      "line": "keys: list[str],",
+      "container": "list",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/print/base.py",
+      "line": "rows: list[dict[str, object]] = Field(default_factory=list[dict[str, object]], description=\"明细行\")",
+      "container": "dict",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/print/base.py",
+      "line": "rows: list[dict[str, object]] = Field(default_factory=list[dict[str, object]], description=\"明细行\")",
+      "container": "list",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/print/base.py",
+      "line": "variables: list[PrintVariable] = Field(default_factory=list[PrintVariable], description=\"变量清单\")",
+      "container": "list",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/print/null.py",
+      "line": "async def list(self, *, biz_type: str | None = None) -> list[PrintTemplateInfo]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/print/null.py",
+      "line": "keys: list[str],",
+      "container": "list",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/repositories/base_db_repository.py",
+      "line": "async def list(self, *, sort: Sequence[SortSpec] | None = None) -> list[ModelT]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/repositories/base_db_repository.py",
+      "line": "async def list_cursor(self, query: BaseCursorQuery) -> list[ModelT]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/repositories/base_db_repository.py",
+      "line": "async def list_page(self, query: BasePageQuery) -> list[ModelT]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/repositories/base_db_repository.py",
+      "line": "def _apply_tenant_scope(self, payload: dict[str, object], *, creating: bool) -> dict[str, object]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 2
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/repositories/base_db_repository.py",
+      "line": "def _scope_where(self, *, include_soft_delete: bool = True) -> list[ColumnElement[bool]]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/repositories/base_db_repository.py",
+      "line": "def _write_values(self, values: dict[str, object], *, creating: bool) -> dict[str, object]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 2
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/repositories/base_memory_repository.py",
+      "line": "async def list(self, *, sort: Sequence[SortSpec] | None = None) -> list[ModelT]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/repositories/base_memory_repository.py",
+      "line": "def _apply(self, item: ModelT, values: dict[str, object]) -> ModelT:",
+      "container": "dict",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/repositories/base_memory_repository.py",
+      "line": "def _build(self, item_id: int, values: dict[str, object]) -> ModelT:",
+      "container": "dict",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/repositories/base_repository.py",
+      "line": "async def list(self, *, sort: Sequence[SortSpec] | None = None) -> list[ModelT]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/repositories/base_repository.py",
+      "line": "async def list_cursor(self, query: BaseCursorQuery) -> list[ModelT]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/repositories/base_repository.py",
+      "line": "async def list_page(self, query: BasePageQuery) -> list[ModelT]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/repositories/base_repository.py",
+      "line": "def _resolve_sort(self, query: BaseSortQuery | None) -> list[SortSpec]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/repositories/base_repository.py",
+      "line": "def effective_sort(self, query: BaseSortQuery | None = None) -> list[SortSpec]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/repositories/base_repository.py",
+      "line": "sortable_fields: ClassVar[frozenset[str]] = frozenset()",
+      "container": "frozenset",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/repositories/base_scoped_repository.py",
+      "line": "def _scope_conditions(self, *, include_soft_delete: bool = True) -> list[ScopeCondition]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/repositories/ordering.py",
+      "line": ") -> list[ItemT]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/repositories/ordering.py",
+      "line": "def order_criteria(sort: Sequence[SortSpec], *, resolve: _Resolver, id_column: _Col) -> list[ColumnElement[Any]]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/schemas/base.py",
+      "line": "def _apply_masking(masked_fields: frozenset[str], data: object) -> object:",
+      "container": "frozenset",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/schemas/base.py",
+      "line": "masked_fields: ClassVar[frozenset[str]] = frozenset()",
+      "container": "frozenset",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/schemas/captcha.py",
+      "line": "channels: list[CaptchaKind] = Field(description=\"该场景可用渠道（按降级顺序；末位恒为图形码 `image` 兜底）\")",
+      "container": "list",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/schemas/captcha.py",
+      "line": "trace: list[tuple[int, int, int]] = Field(",
+      "container": "list",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/schemas/chat.py",
+      "line": "events: list[ChatStreamEvent] = Field(default_factory=list[ChatStreamEvent], description=\"增量事件序列\")",
+      "container": "list",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/schemas/chat.py",
+      "line": "messages: list[ChatMessageInput] = Field(default_factory=list[ChatMessageInput], description=\"多轮对话消息\")",
+      "container": "list",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/schemas/codecheck.py",
+      "line": "columns: list[ValidationColumnResponse] = Field(description=\"试算返回字段清单\")",
+      "container": "list",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/schemas/codecheck.py",
+      "line": "fields: list[str] = Field(default_factory=list[str], description=\"可用字段（场景侧下发）\")",
+      "container": "list",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/schemas/codecheck.py",
+      "line": "issues: list[ValidationIssueResponse] = Field(description=\"诊断明细\")",
+      "container": "list",
+      "position": "class_field",
+      "count": 2
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/schemas/codecheck.py",
+      "line": "rows: list[dict[str, object]] = Field(description=\"结果预览行（上限 200）\")",
+      "container": "dict",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/schemas/codecheck.py",
+      "line": "rows: list[dict[str, object]] = Field(description=\"结果预览行（上限 200）\")",
+      "container": "list",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/schemas/codecheck.py",
+      "line": "variables: list[str] = Field(default_factory=list[str], description=\"预置变量（场景侧下发）\")",
+      "container": "list",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/schemas/config.py",
+      "line": "keys: list[str] = Field(default_factory=list[str], description=\"参数键序列\")",
+      "container": "list",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/schemas/config.py",
+      "line": "values: dict[str, str] = Field(default_factory=dict[str, str], description=\"参数键 → 值（仅存在的键）\")",
+      "container": "dict",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/schemas/filters.py",
+      "line": "def serialize(self) -> dict[str, object]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/schemas/filters.py",
+      "line": "def serialize_filters(filters: Sequence[FilterSpec]) -> dict[str, object]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/schemas/filters.py",
+      "line": "def to_query_params(self) -> dict[str, object]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/schemas/filters.py",
+      "line": "filters: list[FilterSpec] = Field(default_factory=list[FilterSpec], description=\"筛选条件列表\")",
+      "container": "list",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/schemas/icon.py",
+      "line": "icons: list[IconResponse] = Field(description=\"图标清单\")",
+      "container": "list",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/schemas/icon.py",
+      "line": "tags: list[str] = Field(default_factory=list[str], description=\"标签（搜索用）\")",
+      "container": "list",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/schemas/icon.py",
+      "line": "tags: list[str] = Field(description=\"标签（搜索用）\")",
+      "container": "list",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/schemas/icon.py",
+      "line": "tags: list[str] | None = Field(default=None, description=\"标签（搜索用）\")",
+      "container": "list",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/schemas/notification.py",
+      "line": "ids: list[int] = Field(default_factory=list[int], description=\"通知 ID 列表\")",
+      "container": "list",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/schemas/pagination.py",
+      "line": "list: list[ItemT]",
+      "container": "list",
+      "position": "class_field",
+      "count": 2
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/schemas/plugin.py",
+      "line": "groups: list[PluginGroupResponse]",
+      "container": "list",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/schemas/plugin.py",
+      "line": "implementations: list[PluginImplementationResponse]",
+      "container": "list",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/schemas/plugin.py",
+      "line": "services: list[PluginAggregateServiceResponse]",
+      "container": "list",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/schemas/print.py",
+      "line": "fields: dict[str, object] = Field(default_factory=dict[str, object], description=\"主表字段\")",
+      "container": "dict",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/schemas/print.py",
+      "line": "items: list[PrintExportResponse] = Field(description=\"产物明细（逐份多份 / 合并单份）\")",
+      "container": "list",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/schemas/print.py",
+      "line": "keys: list[str] = Field(min_length=1, description=\"单据键集合（至少一条）\")",
+      "container": "list",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/schemas/print.py",
+      "line": "rows: list[dict[str, object]] = Field(default_factory=list[dict[str, object]], description=\"明细行\")",
+      "container": "dict",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/schemas/print.py",
+      "line": "rows: list[dict[str, object]] = Field(default_factory=list[dict[str, object]], description=\"明细行\")",
+      "container": "list",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/schemas/print.py",
+      "line": "templates: list[PrintTemplateInfoResponse] = Field(description=\"模板清单\")",
+      "container": "list",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/schemas/print.py",
+      "line": "variables: list[PrintVariableResponse] = Field(description=\"变量清单\")",
+      "container": "list",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/schemas/sorting.py",
+      "line": "def allowed(cls, specs: Sequence[SortSpec], whitelist: Collection[str]) -> list[SortSpec]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/schemas/sorting.py",
+      "line": "def parse(cls, order_by: str | None, order: Sequence[str] | None = None) -> list[SortSpec]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/schemas/sorting.py",
+      "line": "def specs(self, whitelist: Collection[str] | None = None) -> list[SortSpec]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/schemas/sorting.py",
+      "line": "order: list[str] | None = Field(default=None, description=\"排序方向数组，与 order_by 位置一一对应，缺省 desc\")",
+      "container": "list",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/schemas/tenant.py",
+      "line": "tenants: list[TenantSummaryResponse] = Field(",
+      "container": "list",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/scope/base.py",
+      "line": "def allow_write(self, values: dict[str, object]) -> bool:",
+      "container": "dict",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/scope/null.py",
+      "line": "def allow_write(self, values: dict[str, object]) -> bool:",
+      "container": "dict",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/security/base.py",
+      "line": "def decode(self, token: str) -> dict[str, object]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/security/base.py",
+      "line": "def encode(self, claims: dict[str, object], *, expires_in: int | None = None) -> str:",
+      "container": "dict",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/security/jwt.py",
+      "line": "def decode(self, token: str) -> dict[str, object]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/security/jwt.py",
+      "line": "def encode(self, claims: dict[str, object], *, expires_in: int | None = None) -> str:",
+      "container": "dict",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/security/null.py",
+      "line": "def decode(self, token: str) -> dict[str, object]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/security/null.py",
+      "line": "def encode(self, claims: dict[str, object], *, expires_in: int | None = None) -> str:",
+      "container": "dict",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/servicecall/base.py",
+      "line": "json_body: dict[str, object] | None = None",
+      "container": "dict",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/servicecall/http.py",
+      "line": "async def _outbound_headers(self, request: ServiceRequest) -> dict[str, str]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/services/base_service.py",
+      "line": "async def list(self, *, sort: Sequence[SortSpec] | None = None) -> list[ModelT]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/services/gateway_catalog.py",
+      "line": "def _dump(value: object, indent: int) -> list[str]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/services/gateway_catalog.py",
+      "line": "def _dump_mapping(mapping: dict[object, object], indent: int) -> list[str]:",
+      "container": "dict",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/services/gateway_catalog.py",
+      "line": "def _dump_mapping(mapping: dict[object, object], indent: int) -> list[str]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/services/gateway_catalog.py",
+      "line": "def _dump_sequence(sequence: list[object], indent: int) -> list[str]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 2
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/services/gateway_catalog.py",
+      "line": "def _enabled_service_keys() -> list[str]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/services/gateway_catalog.py",
+      "line": "def _gray_plugins(service_key: str) -> dict[str, object]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/services/gateway_catalog.py",
+      "line": "def forward_auth_plugin() -> dict[str, object]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/services/gateway_catalog.py",
+      "line": "def rate_limit_plugin(*, count: int, window: int, key: str = RATE_LIMIT_KEY) -> dict[str, object]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/services/gateway_catalog.py",
+      "line": "def render_apisix_config() -> dict[str, object]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/services/gateway_catalog.py",
+      "line": "def render_global_rules() -> list[dict[str, object]]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/services/gateway_catalog.py",
+      "line": "def render_global_rules() -> list[dict[str, object]]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/services/gateway_catalog.py",
+      "line": "def render_login_routes() -> list[dict[str, object]]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/services/gateway_catalog.py",
+      "line": "def render_login_routes() -> list[dict[str, object]]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/services/gateway_catalog.py",
+      "line": "def render_plugin_metadata() -> list[dict[str, object]]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/services/gateway_catalog.py",
+      "line": "def render_plugin_metadata() -> list[dict[str, object]]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/services/gateway_catalog.py",
+      "line": "def render_routes() -> list[dict[str, object]]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/services/gateway_catalog.py",
+      "line": "def render_routes() -> list[dict[str, object]]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/services/gateway_catalog.py",
+      "line": "def render_upstreams() -> list[dict[str, object]]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/services/gateway_catalog.py",
+      "line": "def render_upstreams() -> list[dict[str, object]]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/services/gateway_catalog.py",
+      "line": "def validate_service_discovery(config: Mapping[str, object]) -> list[str]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/services/module_registry.py",
+      "line": ") -> list[str]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 2
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/services/module_registry.py",
+      "line": "def _diff_catalog(catalog: Sequence[ModuleRecord], records: Sequence[ModuleRecord]) -> list[str]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/services/module_registry.py",
+      "line": "def _duplicates(values: list[str]) -> list[str]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 2
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/services/module_registry.py",
+      "line": "def _validate_duplicates(self) -> list[str]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/services/module_registry.py",
+      "line": "def _validate_record(self, module: ModuleRecord) -> list[str]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/services/module_registry.py",
+      "line": "def known_event_domains() -> frozenset[str]:",
+      "container": "frozenset",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/services/module_registry.py",
+      "line": "def list_modules(self, *, status: str | None = None, group: str | None = None) -> list[ModuleRecord]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/services/module_registry.py",
+      "line": "def validate(self) -> list[str]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/services/service_contract.py",
+      "line": "def validate_contract(service_key: str, openapi: Mapping[str, object], record: ModuleRecord) -> list[str]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/services/table_registry.py",
+      "line": ") -> list[TableRecord]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/services/table_registry.py",
+      "line": ") -> list[str]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/services/table_registry.py",
+      "line": "def _diff_ownership(ownership: Iterable[TableRecord], records: Sequence[TableRecord]) -> list[str]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/services/table_registry.py",
+      "line": "def _duplicates(values: list[str]) -> list[str]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 2
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/services/table_registry.py",
+      "line": "def _validate_prefix(self, record: TableRecord) -> list[str]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/services/table_registry.py",
+      "line": "def _validate_record(self, record: TableRecord) -> list[str]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/services/table_registry.py",
+      "line": "def chain_tables(service: str, datasource: str) -> frozenset[str]:",
+      "container": "frozenset",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/services/table_registry.py",
+      "line": "def infrastructure_tables() -> frozenset[str]:",
+      "container": "frozenset",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/services/table_registry.py",
+      "line": "def known_service_keys() -> frozenset[str]:",
+      "container": "frozenset",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/services/table_registry.py",
+      "line": "def owned_tables_for(service: str, *, datasource: str | None = None, include_planned: bool = True) -> frozenset[str]:",
+      "container": "frozenset",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/services/table_registry.py",
+      "line": "def registered_services() -> frozenset[str]:",
+      "container": "frozenset",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/services/table_registry.py",
+      "line": "def service_table_prefixes() -> dict[str, frozenset[str]]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/services/table_registry.py",
+      "line": "def service_table_prefixes() -> dict[str, frozenset[str]]:",
+      "container": "frozenset",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/services/table_registry.py",
+      "line": "def table_names() -> frozenset[str]:",
+      "container": "frozenset",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/services/table_registry.py",
+      "line": "def validate(self) -> list[str]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/tenant/base.py",
+      "line": "tenants: list[TenantSummary] = Field(default_factory=list[TenantSummary], description=\"我加入的租户列表\")",
+      "container": "list",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/ops/check_modules.py",
+      "line": ") -> list[str]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/ops/check_modules.py",
+      "line": "async def _read_catalog(url: str) -> list[ModuleRecord]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/ops/check_modules.py",
+      "line": "def check_catalog_db(url: str) -> list[str]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/ops/check_modules.py",
+      "line": "def check_offline(services_dir: Path = _SERVICES_DIR) -> list[str]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/ops/check_modules.py",
+      "line": "def resolve_service_contracts(services_dir: Path = _SERVICES_DIR) -> dict[str, str | None]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/ops/check_tables.py",
+      "line": "async def _read_ownership(url: str, schema: str = \"\") -> list[TableRecord]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/ops/check_tables.py",
+      "line": "def _check_script_tables(versions_root: Path) -> list[str]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/ops/check_tables.py",
+      "line": "def _read_ownership_sync(url: str, schema: str) -> list[TableRecord]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/ops/check_tables.py",
+      "line": "def check_offline(*, versions_root: Path = VERSIONS_ROOT) -> list[str]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/ops/check_tables.py",
+      "line": "def check_table_db(url: str, *, schema: str = \"\") -> list[str]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/ops/check_tables.py",
+      "line": "def imported_model_tables() -> set[str]:",
+      "container": "set",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/ops/contract_gate.py",
+      "line": "def _select_services(service: str | None, all_services: bool) -> list[str]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/ops/contract_gate.py",
+      "line": "def main(argv: list[str] | None = None) -> int:",
+      "container": "list",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/ops/contract_gate.py",
+      "line": "def oasdiff_args() -> list[str]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/ops/contract_smoke.py",
+      "line": "def main(argv: list[str] | None = None) -> int:",
+      "container": "list",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/ops/contract_smoke.py",
+      "line": "def schemathesis_args(service_key: str, *, max_examples: int = DEFAULT_MAX_EXAMPLES) -> list[str]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/ops/contract_snapshot.py",
+      "line": "def _validate(record: ModuleRecord, openapi: dict[str, Any]) -> list[str]:",
+      "container": "dict",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/ops/contract_snapshot.py",
+      "line": "def _validate(record: ModuleRecord, openapi: dict[str, Any]) -> list[str]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/ops/contract_snapshot.py",
+      "line": "def build_openapi(service_key: str) -> dict[str, Any]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/ops/contract_snapshot.py",
+      "line": "def main(argv: list[str] | None = None) -> int:",
+      "container": "list",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/ops/event_contracts.py",
+      "line": "def _registry_errors(registry: EventContractRegistry) -> list[str]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/ops/migrate_tenants.py",
+      "line": ") -> list[MigrationTask]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/ops/migrate_tenants.py",
+      "line": "async def _tenant_records(registry_url: str) -> list[str]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/ops/migrate_tenants.py",
+      "line": "async def build_tasks(args: argparse.Namespace) -> list[MigrationTask]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/ops/migrate_tenants.py",
+      "line": "def _query_sync(url: str) -> list[str]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/ops/outbox.py",
+      "line": "def main(argv: list[str] | None = None) -> int:",
+      "container": "list",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/ops/provision_tenant.py",
+      "line": "async def _resolve_codes(args: argparse.Namespace, factory: EngineFactory) -> list[str]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/ops/provision_tenant.py",
+      "line": "async def _tenant_codes(registry_url: str) -> list[str]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/ops/provision_tenant.py",
+      "line": "async def build_tasks(args: argparse.Namespace) -> list[ProvisionTask]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/ops/provision_tenant.py",
+      "line": "def _query_tenant_codes_sync(url: str) -> list[str]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/ops/seed_module.py",
+      "line": "def _fields(seed: ModuleRecord) -> dict[str, object]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/ops/seed_oidc_client.py",
+      "line": "redirect_uris: list[str],",
+      "container": "list",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/ops/seed_oidc_client.py",
+      "line": "scopes: list[str],",
+      "container": "list",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/ops/seed_sso.py",
+      "line": "def _idp_config() -> dict[str, object]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/ops/seed_tables.py",
+      "line": "def _fields(seed: TableRecord) -> dict[str, object]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/api/auth.py",
+      "line": "def _is_public(path: str, public_paths: list[str]) -> bool:",
+      "container": "list",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/api/clients.py",
+      "line": "def _load_list(raw: str | None) -> list[str]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/api/identity_providers.py",
+      "line": ") -> ApiResponse[dict[str, object]]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/api/wellknown.py",
+      "line": "async def get_jwks(request: Request) -> dict[str, object]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/repositories/client.py",
+      "line": ") -> list[SysClient]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/repositories/client.py",
+      "line": "def _filter_conditions(self, *, status: str | None, name: str | None) -> list[ColumnElement[bool]]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/repositories/identity_provider.py",
+      "line": ") -> list[ColumnElement[bool]]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/repositories/identity_provider.py",
+      "line": ") -> list[SysIdentityProvider]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/repositories/identity_provider.py",
+      "line": "async def list_enabled(self) -> list[SysIdentityProvider]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/repositories/session.py",
+      "line": ") -> list[ColumnElement[bool]]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/repositories/session.py",
+      "line": ") -> list[SysSession]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/repositories/session.py",
+      "line": "async def list_active_by_user(self, user_id: int, *, now: datetime) -> list[SysSession]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/repositories/user_identity.py",
+      "line": "async def list_by_user(self, user_id: int) -> list[SysUserIdentity]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/schemas/auth.py",
+      "line": "trace: list[tuple[int, int, int]] = Field(",
+      "container": "list",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/schemas/auth.py",
+      "line": "violations: list[str] = Field(default_factory=list, description=\"复杂度违规原因码清单\")",
+      "container": "list",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/schemas/identity_provider.py",
+      "line": "config: dict[str, object] = Field(default_factory=dict[str, object], description=\"协议配置对象\")",
+      "container": "dict",
+      "position": "class_field",
+      "count": 2
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/schemas/identity_provider.py",
+      "line": "config: dict[str, object] = Field(default_factory=dict[str, object], description=\"脱敏后的协议配置对象\")",
+      "container": "dict",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/schemas/identity_provider.py",
+      "line": "config: dict[str, object] | None = Field(default=None, description=\"协议配置对象（全量替换）\")",
+      "container": "dict",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/schemas/oidc.py",
+      "line": "grant_types: list[str] = Field(",
+      "container": "list",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/schemas/oidc.py",
+      "line": "grant_types: list[str] = Field(default_factory=list[str], description=\"授权类型\")",
+      "container": "list",
+      "position": "class_field",
+      "count": 2
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/schemas/oidc.py",
+      "line": "ip_whitelist: list[str] = Field(default_factory=list[str], description=\"IP / CIDR 白名单\")",
+      "container": "list",
+      "position": "class_field",
+      "count": 2
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/schemas/oidc.py",
+      "line": "ip_whitelist: list[str] = Field(default_factory=list[str], description=\"来源 IP / CIDR 白名单（开放接口阶段十用）\")",
+      "container": "list",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/schemas/oidc.py",
+      "line": "redirect_uris: list[str] = Field(default_factory=list[str], description=\"回调地址白名单\")",
+      "container": "list",
+      "position": "class_field",
+      "count": 2
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/schemas/oidc.py",
+      "line": "redirect_uris: list[str] = Field(default_factory=list[str], description=\"回调地址白名单（精确匹配）\")",
+      "container": "list",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/schemas/oidc.py",
+      "line": "scopes: list[str] = Field(default_factory=lambda: [\"openid\"], description=\"允许申请的 scope 集合\")",
+      "container": "list",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/schemas/oidc.py",
+      "line": "scopes: list[str] = Field(default_factory=list[str], description=\"scope 集合\")",
+      "container": "list",
+      "position": "class_field",
+      "count": 2
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/schemas/sso.py",
+      "line": "items: list[SsoIdentityItem] = Field(default_factory=list[SsoIdentityItem], description=\"绑定清单\")",
+      "container": "list",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/schemas/sso.py",
+      "line": "items: list[SsoProviderItem] = Field(default_factory=list[SsoProviderItem], description=\"可用 IdP 清单\")",
+      "container": "list",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/services/clients.py",
+      "line": ") -> tuple[list[SysClient], int]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/services/clients.py",
+      "line": ") -> tuple[list[str], list[str], list[str], list[str]]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/services/clients.py",
+      "line": "def _dedupe(values: Sequence[str]) -> list[str]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/services/identity_providers.py",
+      "line": ") -> tuple[list[SysIdentityProvider], int]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/services/identity_providers.py",
+      "line": "def _row_config(row: SysIdentityProvider) -> dict[str, object]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/services/identity_providers.py",
+      "line": "def _validate(self, type: str, config: Mapping[str, object]) -> dict[str, object]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/services/jit.py",
+      "line": "def _row_config(config: str, provider_key: str) -> dict[str, object]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/services/jit.py",
+      "line": "def allowed_email_domains(config: str, provider_key: str) -> frozenset[str]:",
+      "container": "frozenset",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/services/oidc_provider.py",
+      "line": "async def discovery(self, tenant: str) -> dict[str, object]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/services/oidc_provider.py",
+      "line": "def _code_payload(code: OidcCode) -> dict[str, object]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/services/oidc_provider.py",
+      "line": "def load_list(raw: str | None) -> list[str]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/services/org_client.py",
+      "line": ") -> dict[str, object]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/services/org_client.py",
+      "line": "async def _post(self, action: str, tenant: str | None, body: dict[str, object]) -> dict[str, object]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 2
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/services/org_client.py",
+      "line": "body: dict[str, object],",
+      "container": "dict",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/services/org_client.py",
+      "line": "def _payload(response: ServiceResponse, interface: str) -> dict[str, object]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/services/provider_registry.py",
+      "line": "config: dict[str, object],",
+      "container": "dict",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/services/provider_registry.py",
+      "line": "def _parse_config(raw: str | None, idp_key: str) -> dict[str, object]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/services/provider_registry.py",
+      "line": "def _resolve_redirect_uri(config: dict[str, object], idp_key: str, callback_base_url: str) -> str:",
+      "container": "dict",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/services/session.py",
+      "line": ") -> tuple[list[SysSession], int]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/services/session.py",
+      "line": "async def enforce_max_active(self, user_id: int, *, tenant: str, max_active: int) -> list[str]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/services/session.py",
+      "line": "async def revoke_user_sessions(self, user_id: int, *, tenant: str | None, reason: str) -> list[str]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/services/sso.py",
+      "line": "async def list_providers(self, tenant: str, session: DbSession) -> list[SsoProviderItem]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/services/sso.py",
+      "line": "def _flow_payload(flow: IdpFlowState) -> dict[str, object]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/services/notification/src/bms_notification/api/notification.py",
+      "line": "def _parse_filters(raw: str | None) -> list[FilterSpec]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/services/org/src/bms_org/api/org.py",
+      "line": "def parse_id_in(raw: str) -> list[int]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/services/org/src/bms_org/repositories/account_lock.py",
+      "line": ") -> list[ColumnElement[bool]]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/services/org/src/bms_org/repositories/account_lock.py",
+      "line": ") -> list[SysAccountLock]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/services/org/src/bms_org/repositories/user.py",
+      "line": "async def list_inactive(self, threshold: datetime, *, now: datetime) -> list[SysUser]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/services/org/src/bms_org/schemas/credentials.py",
+      "line": "violations: list[str] = Field(",
+      "container": "list",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/services/org/src/bms_org/services/account_lock.py",
+      "line": ") -> tuple[list[SysAccountLock], int]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/services/org/src/bms_org/services/credentials.py",
+      "line": "def parse_password_history(raw: str | None) -> list[str]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/services/platform/src/bms_platform/api/dict.py",
+      "line": "def _attr_out(row: SysDictAttr) -> dict[str, object]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/services/platform/src/bms_platform/api/dict.py",
+      "line": "def _item_out(row: SysDictItem) -> dict[str, object]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/services/platform/src/bms_platform/api/dict.py",
+      "line": "def _provider_record(key: str, provider: BaseQueryProvider) -> dict[str, object]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/services/platform/src/bms_platform/api/dict.py",
+      "line": "def _type_out(row: SysDictType) -> dict[str, object]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/services/platform/src/bms_platform/api/plugins.py",
+      "line": "def _group(plugin_key: str, provider: str, implementations: dict[str, PluginImpl]) -> PluginGroupResponse:",
+      "container": "dict",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/services/platform/src/bms_platform/repositories/demo_repository.py",
+      "line": "def _apply(self, item: Demo, values: dict[str, object]) -> Demo:",
+      "container": "dict",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/services/platform/src/bms_platform/repositories/demo_repository.py",
+      "line": "def _build(self, item_id: int, values: dict[str, object]) -> Demo:",
+      "container": "dict",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/services/platform/src/bms_platform/repositories/module_repository.py",
+      "line": ") -> list[ColumnElement[bool]]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/services/platform/src/bms_platform/repositories/module_repository.py",
+      "line": ") -> list[SysModule]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/services/platform/src/bms_platform/repositories/module_repository.py",
+      "line": ") -> tuple[list[SysModule], int]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/services/platform/src/bms_platform/schemas/outbox.py",
+      "line": "payload: dict[str, Any]",
+      "container": "dict",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/services/platform/src/bms_platform/services/demo_service.py",
+      "line": "async def list_demos(self) -> list[Demo]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/services/platform/src/bms_platform/sources/catalog_source.py",
+      "line": "async def read_catalog(session: AsyncSession) -> list[ModuleRecord]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/services/search/src/bms_search/api/search.py",
+      "line": "types: Annotated[list[str] | None, Query(description=\"限定域（多值，缺省 = 全部可检索域）\")] = None,",
+      "container": "list",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/services/tenant/src/bms_tenant/api/tenant_registry.py",
+      "line": "def _snapshot(row: SysTenant) -> dict[str, object]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/base-check/check-backend-base.py",
+      "line": "def _iter_chain_dirs() -> list[tuple[str, str, str]]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/base-check/check-backend-base.py",
+      "line": "def _known_services() -> set[str]:",
+      "container": "set",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/base-check/check-backend-base.py",
+      "line": "def check_inheritance(index: dict[str, list[list[str]]]) -> int:",
+      "container": "dict",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/base-check/check-backend-base.py",
+      "line": "def check_inheritance(index: dict[str, list[list[str]]]) -> int:",
+      "container": "list",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/base-check/check-backend-base.py",
+      "line": "def check_manifest_coverage(index: dict[str, list[list[str]]]) -> int:",
+      "container": "dict",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/base-check/check-backend-base.py",
+      "line": "def check_manifest_coverage(index: dict[str, list[list[str]]]) -> int:",
+      "container": "list",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/base-check/check-backend-base.py",
+      "line": "def index_classes() -> dict[str, list[list[str]]]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/base-check/check-backend-base.py",
+      "line": "def index_classes() -> dict[str, list[list[str]]]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/base-check/check-backend-base.py",
+      "line": "def parse_chains(raw_line: str) -> list[tuple[str, ...]]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/base-check/check-bare-collections.py",
+      "line": "def _annotation_containers(node: ast.expr | None) -> list[str]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/base-check/check-bare-collections.py",
+      "line": "def _iter_target_files(root: Path) -> list[Path]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/base-check/check-bare-collections.py",
+      "line": "def _summarize(hits: list[Hit]) -> None:",
+      "container": "list",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/base-check/check-bare-collections.py",
+      "line": "def collect(root: Path) -> list[Hit]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/base-check/check-bare-collections.py",
+      "line": "def write_baseline(path: Path, hits: list[Hit]) -> None:",
+      "container": "list",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/base-check/check-service-boundaries.py",
+      "line": "def _bare_string_nodes(tree: ast.AST) -> set[int]:",
+      "container": "set",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/base-check/check-service-boundaries.py",
+      "line": "def _discover_packages() -> dict[str, tuple[Path, bool]]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/base-check/check-service-boundaries.py",
+      "line": "def _iter_cross_reference_tables(root: Path, known_tables: frozenset[str]) -> list[tuple[str, int, str, str]]:",
+      "container": "frozenset",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/base-check/check-service-boundaries.py",
+      "line": "def _iter_cross_reference_tables(root: Path, known_tables: frozenset[str]) -> list[tuple[str, int, str, str]]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/base-check/check-service-boundaries.py",
+      "line": "def _iter_imports(path: Path) -> list[tuple[int, str]]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/base-check/check-service-boundaries.py",
+      "line": "def _iter_tablenames(root: Path) -> list[str]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/base-check/check-service-boundaries.py",
+      "line": "def _load_exceptions() -> tuple[tuple[OwnershipException, ...], list[str]]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/check-docs/check-status.py",
+      "line": "def collect_tasks(stage_dir: Path, report: Report) -> dict[str, TaskDoc]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/check-docs/check-status.py",
+      "line": "def expand_reqs(cell: str) -> list[str]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/check-docs/check-status.py",
+      "line": "def main(argv: list[str] | None = None) -> int:",
+      "container": "list",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/check-docs/check-status.py",
+      "line": "def parse_domain_overview(path: Path) -> dict[str, tuple[str, str]]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/check-docs/check-status.py",
+      "line": "def parse_overview(path: Path) -> set[str]:",
+      "container": "set",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/check-docs/check-status.py",
+      "line": "def parse_plan(path: Path) -> dict[str, object]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/check-docs/check-status.py",
+      "line": "def parse_req_domain(path: Path) -> dict[str, tuple[str, str]]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/check-docs/check-status.py",
+      "line": "def parse_task_meta(path: Path) -> dict[str, str]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/check-docs/check-status.py",
+      "line": "def split_row(line: str) -> list[str] | None:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/check-docs/check-status.py",
+      "line": "hard: list[Finding] = None  # type: ignore[assignment]",
+      "container": "list",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/check-docs/check-status.py",
+      "line": "reqs: list[str]",
+      "container": "list",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/check-docs/check-status.py",
+      "line": "soft: list[Finding] = None  # type: ignore[assignment]",
+      "container": "list",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/defect/ai_fix.py",
+      "line": "def api(path: str, method: str = \"GET\", body: dict | None = None) -> dict | list | None:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 2
+    },
+    {
+      "file": "scripts/tools/defect/ai_fix.py",
+      "line": "def api(path: str, method: str = \"GET\", body: dict | None = None) -> dict | list | None:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/defect/ai_fix.py",
+      "line": "def chat(url: str, model: str, messages: list[dict], temperature: float = 0.2) -> str:",
+      "container": "dict",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/defect/ai_fix.py",
+      "line": "def chat(url: str, model: str, messages: list[dict], temperature: float = 0.2) -> str:",
+      "container": "list",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/defect/ai_fix.py",
+      "line": "def gather_context(issue: dict, repo: Path) -> str:",
+      "container": "dict",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/defect/ai_fix.py",
+      "line": "def parse_patch(reply: str) -> dict:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/defect/ai_fix.py",
+      "line": "def run(cmd: list[str], cwd: Path) -> bool:",
+      "container": "list",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/defect/defect_capture.py",
+      "line": "def api(path: str, method: str = \"GET\", body: dict | None = None) -> dict | list | None:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 2
+    },
+    {
+      "file": "scripts/tools/defect/defect_capture.py",
+      "line": "def api(path: str, method: str = \"GET\", body: dict | None = None) -> dict | list | None:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/defect/defect_capture.py",
+      "line": "def collect_logs(log_dir: str | None, out_dir: Path) -> list[str]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/defect/defect_capture.py",
+      "line": "def find_open_issue(project_id: str, fp: str) -> dict | None:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/defect/defect_capture.py",
+      "line": "def load_env(path: Path) -> dict:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/defect/defect_capture.py",
+      "line": "def run(cmd: list[str]) -> subprocess.CompletedProcess | None:",
+      "container": "list",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/defect/reproduce.py",
+      "line": "def load_env(path: Path) -> dict:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/defect/reproduce.py",
+      "line": "def load_repro(issue_repro: str) -> dict:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/defect/reproduce.py",
+      "line": "def run(cmd: list[str], cwd: str | None = None) -> subprocess.CompletedProcess:",
+      "container": "list",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/deploy/release.py",
+      "line": ") -> dict[str, object]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 2
+    },
+    {
+      "file": "scripts/tools/deploy/release.py",
+      "line": "command: list[str],",
+      "container": "list",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/deploy/release.py",
+      "line": "def _api_delete(url: str, headers: dict[str, str]) -> None:",
+      "container": "dict",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/deploy/release.py",
+      "line": "def _api_get(url: str, headers: dict[str, str]) -> list[dict[str, object]]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 2
+    },
+    {
+      "file": "scripts/tools/deploy/release.py",
+      "line": "def _api_get(url: str, headers: dict[str, str]) -> list[dict[str, object]]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/deploy/release.py",
+      "line": "def _append_log(deploy_dir: Path, record: dict[str, object]) -> None:",
+      "container": "dict",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/deploy/release.py",
+      "line": "def _base_env(env_file: Path) -> dict[str, str]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/deploy/release.py",
+      "line": "def _bootstrap_tag(env: dict[str, str], service: str) -> str:",
+      "container": "dict",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/deploy/release.py",
+      "line": "def _check_gateway(env: dict[str, str], service: str, timeout: float) -> bool:",
+      "container": "dict",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/deploy/release.py",
+      "line": "def _compose(deploy_dir: Path, env: dict[str, str], args: list[str], *, capture: bool = False) -> str:",
+      "container": "dict",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/deploy/release.py",
+      "line": "def _compose(deploy_dir: Path, env: dict[str, str], args: list[str], *, capture: bool = False) -> str:",
+      "container": "list",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/deploy/release.py",
+      "line": "def _deploy_one(deploy_dir: Path, env: dict[str, str], service: str, tag: str, actor: str) -> bool:",
+      "container": "dict",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/deploy/release.py",
+      "line": "def _ensure_app_user(deploy_dir: Path, env: dict[str, str]) -> None:",
+      "container": "dict",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/deploy/release.py",
+      "line": "def _ensure_registry_login(env: dict[str, str], *, stdout=print) -> None:",
+      "container": "dict",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/deploy/release.py",
+      "line": "def _fill_service_tags(deploy_dir: Path, env: dict[str, str]) -> dict[str, str]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 2
+    },
+    {
+      "file": "scripts/tools/deploy/release.py",
+      "line": "def _find_repo(repos: list[dict[str, object]], service: str) -> dict[str, object] | None:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 2
+    },
+    {
+      "file": "scripts/tools/deploy/release.py",
+      "line": "def _find_repo(repos: list[dict[str, object]], service: str) -> dict[str, object] | None:",
+      "container": "list",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/deploy/release.py",
+      "line": "def _load_ledger(deploy_dir: Path, service: str) -> dict[str, object]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/deploy/release.py",
+      "line": "def _migrate(deploy_dir: Path, env: dict[str, str], service: str, tag: str, tenants: list[str]) -> None:",
+      "container": "dict",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/deploy/release.py",
+      "line": "def _migrate(deploy_dir: Path, env: dict[str, str], service: str, tag: str, tenants: list[str]) -> None:",
+      "container": "list",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/deploy/release.py",
+      "line": "def _parse_args(argv: list[str] | None) -> argparse.Namespace:",
+      "container": "list",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/deploy/release.py",
+      "line": "def _read_env(env_file: Path) -> dict[str, str]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/deploy/release.py",
+      "line": "def _rollback_one(deploy_dir: Path, env: dict[str, str], service: str, to: str, actor: str) -> bool:",
+      "container": "dict",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/deploy/release.py",
+      "line": "def _save_ledger(deploy_dir: Path, service: str, ledger: dict[str, object]) -> None:",
+      "container": "dict",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/deploy/release.py",
+      "line": "def _tenant_url(env: dict[str, str], service: str, tenant: str) -> str:",
+      "container": "dict",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/deploy/release.py",
+      "line": "def _up(deploy_dir: Path, env: dict[str, str], service: str, tag: str) -> None:",
+      "container": "dict",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/deploy/release.py",
+      "line": "def _wait_readyz(deploy_dir: Path, env: dict[str, str], service: str, timeout: float) -> bool:",
+      "container": "dict",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/deploy/release.py",
+      "line": "def cmd_bootstrap(deploy_dir: Path, env: dict[str, str], *, services: list[str], actor: str) -> int:",
+      "container": "dict",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/deploy/release.py",
+      "line": "def cmd_bootstrap(deploy_dir: Path, env: dict[str, str], *, services: list[str], actor: str) -> int:",
+      "container": "list",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/deploy/release.py",
+      "line": "def cmd_deploy(deploy_dir: Path, env: dict[str, str], *, services: list[str], tag: str, actor: str) -> int:",
+      "container": "dict",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/deploy/release.py",
+      "line": "def cmd_deploy(deploy_dir: Path, env: dict[str, str], *, services: list[str], tag: str, actor: str) -> int:",
+      "container": "list",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/deploy/release.py",
+      "line": "def cmd_prune(deploy_dir: Path, env: dict[str, str], *, keep: int, dry_run: bool) -> int:",
+      "container": "dict",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/deploy/release.py",
+      "line": "def cmd_rollback(deploy_dir: Path, env: dict[str, str], *, service: str, to: str, actor: str) -> int:",
+      "container": "dict",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/deploy/release.py",
+      "line": "def cmd_status(deploy_dir: Path, env: dict[str, str], *, services: list[str]) -> int:",
+      "container": "dict",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/deploy/release.py",
+      "line": "def cmd_status(deploy_dir: Path, env: dict[str, str], *, services: list[str]) -> int:",
+      "container": "list",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/deploy/release.py",
+      "line": "def health_gate(deploy_dir: Path, env: dict[str, str], service: str, *, stdout=print) -> bool:",
+      "container": "dict",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/deploy/release.py",
+      "line": "def main(argv: list[str] | None = None) -> int:",
+      "container": "list",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/deploy/release.py",
+      "line": "def parse_env(text: str) -> dict[str, str]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/deploy/release.py",
+      "line": "def resolve_rollback_target(ledger: dict[str, object], to: str = \"\") -> str:",
+      "container": "dict",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/deploy/release.py",
+      "line": "def select_prunable_tags(tags: list[dict[str, str]], keep: int) -> list[str]:",
+      "container": "dict",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/deploy/release.py",
+      "line": "def select_prunable_tags(tags: list[dict[str, str]], keep: int) -> list[str]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 2
+    },
+    {
+      "file": "scripts/tools/deploy/release.py",
+      "line": "env: dict[str, str],",
+      "container": "dict",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/deploy/release.py",
+      "line": "extra_env: dict[str, str] | None = None,",
+      "container": "dict",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/deploy/release.py",
+      "line": "ledger: dict[str, object],",
+      "container": "dict",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/gitlab/watch_pipeline.py",
+      "line": "def load_env() -> dict:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/governance/boundary_metrics.py",
+      "line": "def main(argv: list[str] | None = None) -> int:",
+      "container": "list",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/governance/boundary_metrics.py",
+      "line": "def run_static(root: Path) -> dict[str, object]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/governance/boundary_metrics.py",
+      "line": "def scrape_runtime(metrics_url: str | None) -> dict[str, object]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/governance/collect_metrics.py",
+      "line": "def collect_coverage(root: Path, skip_tests: bool, with_frontend: bool) -> dict[str, object]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/governance/collect_metrics.py",
+      "line": "def collect_defects(root: Path) -> dict[str, object]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/governance/collect_metrics.py",
+      "line": "def collect_duration(stage_dir: Path) -> dict[str, object]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/governance/collect_metrics.py",
+      "line": "def main(argv: list[str] | None = None) -> int:",
+      "container": "list",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/governance/collect_metrics.py",
+      "line": "def parse_env_file(path: Path) -> dict[str, str]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/governance/collect_metrics.py",
+      "line": "def run(cmd: list[str], cwd: Path, timeout: int = 600) -> tuple[int, str]:",
+      "container": "list",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/governance/review_stage.py",
+      "line": "def main(argv: list[str] | None = None) -> int:",
+      "container": "list",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/governance/review_stage.py",
+      "line": "def split_row(line: str) -> list[str] | None:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/observability/render_alertmanager.py",
+      "line": "def _email_block(env_file: dict[str, str], *, indent: str) -> str:",
+      "container": "dict",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/observability/render_alertmanager.py",
+      "line": "def _get(key: str, env_file: dict[str, str]) -> str:",
+      "container": "dict",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/observability/render_alertmanager.py",
+      "line": "def _smtp_global_block(env_file: dict[str, str]) -> str:",
+      "container": "dict",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/observability/render_alertmanager.py",
+      "line": "def _webhook_block(env_file: dict[str, str], *, indent: str) -> str:",
+      "container": "dict",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/observability/render_alertmanager.py",
+      "line": "def main(argv: list[str] | None = None) -> int:",
+      "container": "list",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/observability/render_alertmanager.py",
+      "line": "def parse_env_file(path: Path) -> dict[str, str]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/observability/render_alertmanager.py",
+      "line": "def render(template_text: str, env_file: dict[str, str]) -> str:",
+      "container": "dict",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/preflight/check-preflight.py",
+      "line": "def _frontend_api_types(root: Path, failures: list[str]) -> None:",
+      "container": "list",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/preflight/check-preflight.py",
+      "line": "def _gitlab_ci_lint(root: Path, failures: list[str]) -> None:",
+      "container": "list",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/preflight/check-preflight.py",
+      "line": "def _pytest_flags_from_ci(root: Path, backend: Path, failures: list[str]) -> None:",
+      "container": "list",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/preflight/check-preflight.py",
+      "line": "def _run(label: str, cmd: list[str], cwd: Path, failures: list[str]) -> bool:",
+      "container": "list",
+      "position": "signature_param",
+      "count": 2
+    },
+    {
+      "file": "scripts/tools/preflight/check-preflight.py",
+      "line": "def _yaml_parse(root: Path, failures: list[str]) -> None:",
+      "container": "list",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/reorder-design/reorder-design.py",
+      "line": "def build_file_mappings(dir_cfg: dict, module_name: str, dir_path: Path) -> list:",
+      "container": "dict",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/reorder-design/reorder-design.py",
+      "line": "def build_file_mappings(dir_cfg: dict, module_name: str, dir_path: Path) -> list:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/winrm/pwsh_mjw.py",
+      "line": "def load_env(path: Path) -> dict:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/winrm/shutdown_mjw.py",
+      "line": "def load_env(path: Path) -> dict:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/winrm/sleep_mjw.py",
+      "line": "def load_env(path: Path) -> dict:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/winrm/wake_mjw.py",
+      "line": "def load_env(path: Path) -> dict:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/wol/shutdown_mjbk.py",
+      "line": "def load_env(path: Path) -> dict:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/wol/sleep_mjbk.py",
+      "line": "def load_env(path: Path) -> dict:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/wol/wake_mjbk.py",
+      "line": "def load_env(path: Path) -> dict:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    }
+  ]
+}
