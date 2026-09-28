@@ -18,7 +18,7 @@ from typing import cast
 from fastapi import Request
 
 from bms_core.core.config import Settings
-from bms_core.core.objects import BaseValueObject
+from bms_core.core.objects import BaseDeliveryResultContract, BaseValueObject
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 
 __all__ = [
@@ -71,7 +71,7 @@ class NotificationMessage(BaseValueObject):
 
 
 @dataclass(frozen=True)
-class SendResult(BaseValueObject):
+class SendResult(BaseDeliveryResultContract):
     """发送结果。"""
 
     delivered: bool

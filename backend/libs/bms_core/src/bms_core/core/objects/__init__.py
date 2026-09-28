@@ -13,10 +13,16 @@ from __future__ import annotations
 from bms_core.core.objects.auth_results import BaseAuthorizeUrlResultContract, BaseLoginResultContract
 from bms_core.core.objects.captchas import BaseCaptchaContract
 from bms_core.core.objects.decisions import BaseDecisionContract
+from bms_core.core.objects.delivery import BaseDeliveryResultContract
+from bms_core.core.objects.event_contracts import BaseSnapshotRoundTripContract
+from bms_core.core.objects.event_records import BaseEventRecordContract
 from bms_core.core.objects.field_rules import BaseFieldRuleContract
 from bms_core.core.objects.health import BaseHealthResultContract
 from bms_core.core.objects.identity import BaseIdentityProfileContract, BaseRequestIdentityContract
+from bms_core.core.objects.llm import BaseLlmResultContract
 from bms_core.core.objects.options import BaseOptionsContract
+from bms_core.core.objects.outbound import BaseHttpResponseContract
+from bms_core.core.objects.ownership import BaseOwnershipContract
 from bms_core.core.objects.processes import BaseProcessContract
 from bms_core.core.objects.registry_records import BaseRegistryRecordContract
 from bms_core.core.objects.reports import BaseOpsReportContract
@@ -46,22 +52,28 @@ __all__ = [
     "BaseCaptchaContract",
     "BaseDataContract",
     "BaseDecisionContract",
+    "BaseDeliveryResultContract",
+    "BaseEventRecordContract",
     "BaseFieldRuleContract",
     "BaseFieldSpecContract",
     "BaseFrameworkObject",
     "BaseHealthResultContract",
+    "BaseHttpResponseContract",
     "BaseI18nSeedContract",
     "BaseIdentityProfileContract",
+    "BaseLlmResultContract",
     "BaseLoginResultContract",
     "BaseOidcTokenSpecContract",
     "BaseOpsReportContract",
     "BaseOptionsContract",
+    "BaseOwnershipContract",
     "BaseProcessContract",
     "BaseRefreshableTokenContract",
     "BaseRegistryRecordContract",
     "BaseRequestIdentityContract",
     "BaseSearchContract",
     "BaseSecretMaterialContract",
+    "BaseSnapshotRoundTripContract",
     "BaseTallyContract",
     "BaseTenantViewContract",
     "BaseTokenClaimsContract",

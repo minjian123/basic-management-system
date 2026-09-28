@@ -16,9 +16,9 @@ import re
 from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import cast
+from typing import ClassVar, cast
 
-from bms_core.core.objects import BaseValueObject
+from bms_core.core.objects import BaseOwnershipContract
 
 __all__ = [
     "DEFAULT_EXCEPTIONS_RELATIVE",
@@ -55,8 +55,10 @@ _REQUIRED_FIELDS: tuple[str, ...] = (
 
 
 @dataclass(frozen=True)
-class OwnershipException(BaseValueObject):
+class OwnershipException(BaseOwnershipContract):
     """一条读侧出口例外登记。"""
+
+    PREFIX_FIELD: ClassVar[str] = "target_prefix"
 
     service: str
     """消费方服务标识（`service_key`）。"""

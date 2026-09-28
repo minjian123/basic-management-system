@@ -19,7 +19,7 @@ from typing import cast
 from fastapi import Request
 
 from bms_core.core.config import Settings
-from bms_core.core.objects import BaseValueObject
+from bms_core.core.objects import BaseLlmResultContract, BaseValueObject
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 
 __all__ = [
@@ -60,7 +60,7 @@ class ChatMessage(BaseValueObject):
 
 
 @dataclass(frozen=True)
-class ChatResult(BaseValueObject):
+class ChatResult(BaseLlmResultContract):
     """对话结果。"""
 
     content: str
@@ -74,7 +74,7 @@ class ChatResult(BaseValueObject):
 
 
 @dataclass(frozen=True)
-class EmbeddingResult(BaseValueObject):
+class EmbeddingResult(BaseLlmResultContract):
     """向量化结果。"""
 
     vectors: tuple[tuple[float, ...], ...]
@@ -88,7 +88,7 @@ class EmbeddingResult(BaseValueObject):
 
 
 @dataclass(frozen=True)
-class OcrResult(BaseValueObject):
+class OcrResult(BaseLlmResultContract):
     """识别结果。"""
 
     text: str
