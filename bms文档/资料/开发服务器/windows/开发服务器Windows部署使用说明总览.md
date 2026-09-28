@@ -26,7 +26,7 @@
 
 - 系统：Windows 11 专业版（Build 26200），静态 IP `<mjw-IP>`（路由器已按主机名绑定保留）
 - 远程通道：WinRM（HTTP 5985）+ RDP（3389），防火墙均限制为内网网段
-- 显卡：NVIDIA RTX 3070 Laptop GPU 8GB（本地模型 / 识图 / 翻译推理可用）
+- 显卡：Intel UHD Graphics（核显）+ NVIDIA RTX 3070 Laptop GPU 8GB（本地模型 / 识图 / 翻译推理可用）；BIOS 图形模式须设 **MSHybrid**，驱动与独显功耗见《[显卡驱动部署使用说明](显卡驱动部署使用说明.md)》
 - 常驻策略：合盖不休眠、禁睡眠、休眠关闭；网卡 WOL 已验证（2026-09-06：S3 睡眠后魔术包唤醒成功，见《[远程控制部署使用说明](远程控制部署使用说明.md)》「排障记录」节）
 - 管理员账号：`<账号>`（与 mjbk/mjpc 同用户名口径，密码见《本地资源》）
 - PowerShell：**7.6.6**（2026-09-10 MSI 静默安装，`C:\Program Files\PowerShell\7\pwsh.exe` 已入 PATH；系统自带 Windows PowerShell 5.1 保留并存。安装实录：ghfast 加速下载官方 MSI（112 MB）→ `msiexec /i /quiet /norestart ADD_PATH=1` 退出码 0）
@@ -67,6 +67,7 @@ mjw 的远程控制（WinRM + RDP）完整配置、客户端工具、验证方�
 
 - [远程控制部署使用说明](远程控制部署使用说明.md)：WinRM + RDP 部署、客户端使用、验证与排障记录
 - [deepseek_harnessWindows部署使用说明](deepseek_harnessWindows部署使用说明.md)：DSH（deepseek-harness）在 mjw 的部署、桌面启停、访问边界与排障（2026-09-10）
+- [显卡驱动部署使用说明](显卡驱动部署使用说明.md)：MSHybrid 模式要求、驱动远程升级（带 UA/Referer 下载、静默安装）与独显功耗判定
 
 ## 7. 关联文档 <a id="related"></a>
 
