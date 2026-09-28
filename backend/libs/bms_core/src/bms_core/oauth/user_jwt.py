@@ -115,7 +115,7 @@ class JwtUserTokenIssuer(BaseUserTokenIssuer):
                 session_id=session_id,
                 token_type=USER_TOKEN_TYPE_ACCESS,
                 ttl=self._access_ttl,
-                tenant_id=spec.tenant_id,
+                tenant_code=spec.tenant_code,
                 scopes=spec.scopes,
                 now=now,
             ),
@@ -128,7 +128,7 @@ class JwtUserTokenIssuer(BaseUserTokenIssuer):
                 session_id=session_id,
                 token_type=USER_TOKEN_TYPE_REFRESH,
                 ttl=self._refresh_ttl,
-                tenant_id=spec.tenant_id,
+                tenant_code=spec.tenant_code,
                 scopes=spec.scopes,
                 now=now,
             ),
@@ -186,7 +186,7 @@ class JwtUserTokenIssuer(BaseUserTokenIssuer):
         session_id: str,
         token_type: str,
         ttl: int,
-        tenant_id: str | None,
+        tenant_code: str | None,
         scopes: Sequence[str],
         now: int,
     ) -> dict[str, object]:
@@ -197,7 +197,7 @@ class JwtUserTokenIssuer(BaseUserTokenIssuer):
             session_id: 会话 id（`jti`）。
             token_type: 令牌类型（`access` / `refresh`）。
             ttl: 有效期（秒）。
-            tenant_id: 租户编码（可选）。
+            tenant_code: 租户编码（可选）。
             scopes: 授权范围。
             now: 当前时刻（Unix 秒）。
 
@@ -213,8 +213,8 @@ class JwtUserTokenIssuer(BaseUserTokenIssuer):
             "exp": now + ttl,
             "iat": now,
         }
-        if tenant_id:
-            claims["tenant_id"] = tenant_id
+        if tenant_code:
+            claims["tenant_code"] = tenant_code
         if scopes:
             claims["scope"] = " ".join(scopes)
         return claims

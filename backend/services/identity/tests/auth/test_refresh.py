@@ -48,7 +48,7 @@ async def test_refresh_rotates_and_rejects_replay(client: AsyncClient, service_a
     new_refresh = client.cookies.get(COOKIE)
     assert new_refresh and new_refresh != old_refresh
     assert issuer.specs[-1].session_id == session_id  # 会话 id 稳定
-    assert await store.load(session_id, tenant="demo") is not None
+    assert await store.load(session_id, tenant_code="demo") is not None
 
     client.cookies.clear()
     replay = await client.post(API_REFRESH, headers={"Cookie": f"{COOKIE}={old_refresh}"})
@@ -69,7 +69,7 @@ async def test_refresh_marker_missing(client: AsyncClient, service_app: FastAPI)
     """Redis 会话标记缺失（登出 / 踢出）：401。"""
     issuer, store = await _prepare(client, service_app)
     session_id = issuer.specs[-1].session_id
-    await store.delete(session_id, tenant="demo")
+    await store.delete(session_id, tenant_code="demo")
     resp = await client.post(API_REFRESH)
     assert resp.status_code == 401
 
@@ -120,7 +120,7 @@ async def test_refresh_record_missing(client: AsyncClient, service_app: FastAPI)
     """会话标记存在但记录缺失：401。"""
     issuer, store = await _prepare(client, service_app)
     issuer.mint("ref-ghost", jti="ghost-1", tenant_id="demo")
-    await store.save("ghost-1", {"user_id": 1, "tenant": "demo"}, tenant="demo", ttl=60)
+    await store.save("ghost-1", {"user_id": 1, "tenant": "demo"}, tenant_code="demo", ttl=60)
     client.cookies.clear()
     assert (await client.post(API_REFRESH, headers={"Cookie": f"{COOKIE}=ref-ghost"})).status_code == 401
 

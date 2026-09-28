@@ -124,7 +124,7 @@ def test_build_saga_consumer_and_event() -> None:
     event = build_saga_event(_STEP, SAGA_STEP_CANCEL, {"order_id": "o1"}, saga_id="saga-1", tenant_id="demo")
     assert event.event_type == "sys.stock.released"
     assert event.aggregate_key == "saga-1"
-    assert event.tenant_id == "demo"
+    assert event.tenant_code == "demo"
     with pytest.raises(ParamError):
         build_saga_event(_PLAIN_STEP, SAGA_STEP_CONFIRM, {}, saga_id="saga-1")
     with pytest.raises(ParamError):
@@ -303,4 +303,4 @@ def test_saga_event_envelope_defaults() -> None:
     assert isinstance(event, EventEnvelope)
     assert event.event_version is None
     assert event.payload == {}
-    assert cast("object", event.tenant_id) is None
+    assert cast("object", event.tenant_code) is None

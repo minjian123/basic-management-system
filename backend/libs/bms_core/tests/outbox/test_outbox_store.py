@@ -102,7 +102,7 @@ async def test_mark_delivered_and_failed_dead_letter(session: AsyncSession) -> N
     store = SqlOutboxStore()
     async with session.begin():
         delivered = await store.enqueue(session, EventEnvelope(event_type="e.deliver"))
-        failing = await store.enqueue(session, EventEnvelope(event_type="e.fail", tenant_id="t1"))
+        failing = await store.enqueue(session, EventEnvelope(event_type="e.fail", tenant_code="t1"))
     async with session.begin():
         await store.mark_delivered(session, delivered)
     async with session.begin():

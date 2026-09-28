@@ -41,25 +41,27 @@ IDP_STATE_DEFAULT_NAMESPACE = "idpstate"
 """默认命名空间（SSO 授权流程状态）；OIDC Provider 授权码等复用本存储时另立命名空间隔离。"""
 
 
-def build_idp_state_key(state: str, *, tenant: str | None = None, namespace: str = IDP_STATE_DEFAULT_NAMESPACE) -> str:
+def build_idp_state_key(
+    state: str, *, tenant_code: str | None = None, namespace: str = IDP_STATE_DEFAULT_NAMESPACE
+) -> str:
     """构建流程状态 Redis 键（规范 `bms:{租户}:{命名空间}:{state}`）。
 
     Args:
         state: 防 CSRF 的流程状态 / 一次性码（高熵随机串）。
-        tenant: 租户编码；None 表示无租户维度（global 域）。
+        tenant_code: 租户编码；None 表示无租户维度（global 域）。
         namespace: 命名空间（默认 `idpstate`；不同用途用独立命名空间隔离，互不覆盖）。
 
     Returns:
         str: 流程状态键。
     """
-    return f"{IDP_STATE_KEY_PREFIX}:{tenant or 'global'}:{namespace}:{state}"
+    return f"{IDP_STATE_KEY_PREFIX}:{tenant_code or 'global'}:{namespace}:{state}"
 
 
 @dataclass(frozen=True)
 class IdpFlowState(BaseValueObject):
     """SSO 流程状态载荷（授权跳转写入，回调一次性消费）。"""
 
-    tenant: str = ""
+    tenant_code: str = ""
     """租户编码（回调时校验请求上下文一致性）。"""
 
     idp_key: str = ""
@@ -92,7 +94,7 @@ class BaseIdpStateStore(BasePluggable, ABC):
         state: str,
         payload: Mapping[str, object],
         *,
-        tenant: str | None = None,
+        tenant_code: str | None = None,
         ttl: int = DEFAULT_IDP_STATE_TTL,
         namespace: str = IDP_STATE_DEFAULT_NAMESPACE,
     ) -> None:
@@ -101,7 +103,7 @@ class BaseIdpStateStore(BasePluggable, ABC):
         Args:
             state: 流程状态（state）。
             payload: 状态数据（`IdpFlowState` 字段）。
-            tenant: 租户编码（定位 `bms:{租户}:{命名空间}:{state}` 键；None 为 global 域）。
+            tenant_code: 租户编码（定位 `bms:{租户}:{命名空间}:{state}` 键；None 为 global 域）。
             ttl: 有效期（秒，默认 `DEFAULT_IDP_STATE_TTL`）。
             namespace: 命名空间（默认 `idpstate`；不同用途独立隔离）。
         """
@@ -111,14 +113,14 @@ class BaseIdpStateStore(BasePluggable, ABC):
         self,
         state: str,
         *,
-        tenant: str | None = None,
+        tenant_code: str | None = None,
         namespace: str = IDP_STATE_DEFAULT_NAMESPACE,
     ) -> Mapping[str, object] | None:
         """一次性原子消费流程状态（取出即删除；未命中返回 None）。
 
         Args:
             state: 流程状态（state）。
-            tenant: 租户编码（定位键；None 为 global 域）。
+            tenant_code: 租户编码（定位键；None 为 global 域）。
             namespace: 命名空间（默认 `idpstate`）。
 
         Returns:
@@ -130,14 +132,14 @@ class BaseIdpStateStore(BasePluggable, ABC):
         self,
         state: str,
         *,
-        tenant: str | None = None,
+        tenant_code: str | None = None,
         namespace: str = IDP_STATE_DEFAULT_NAMESPACE,
     ) -> None:
         """删除流程状态（幂等，不存在不报错）。
 
         Args:
             state: 流程状态（state）。
-            tenant: 租户编码（定位键；None 为 global 域）。
+            tenant_code: 租户编码（定位键；None 为 global 域）。
             namespace: 命名空间（默认 `idpstate`）。
         """
 

@@ -478,9 +478,9 @@ async def test_outbound_service_token_carries_tenant() -> None:
         return httpx.Response(200)
 
     client = _client(handler, token_issuer=issuer, attach_service_token=True)
-    await client.call(_request(method="POST", tenant="demo"))
+    await client.call(_request(method="POST", tenant_code="demo"))
     await client.aclose()
-    assert issuer.specs == [ServiceTokenSpec(service="identity", scopes=(), tenant="demo")]
+    assert issuer.specs == [ServiceTokenSpec(service="identity", scopes=(), tenant_code="demo")]
 
 
 @pytest.mark.kiwi_id(2180)

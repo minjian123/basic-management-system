@@ -158,12 +158,12 @@ class PasswordResetService(BaseFrameworkObject):
             PasswordReusedError: 命中历史密码（30006）。
             ServiceUnavailableError: org 不可用（10007/503）。
         """
-        payload = await self._state.consume(token, tenant=tenant, namespace=PASSWORD_RESET_NAMESPACE)
+        payload = await self._state.consume(token, tenant_code=tenant, namespace=PASSWORD_RESET_NAMESPACE)
         user_id, account = _parse_token_payload(payload)
         updated = await self._org.update_password(tenant, account, new_password)
         if not updated:
             raise PasswordResetTokenError("重置令牌无效或已过期")
-        revoked = await self._sessions.revoke_user_sessions(user_id, tenant=tenant, reason=REASON_PASSWORD_RESET)
+        revoked = await self._sessions.revoke_user_sessions(user_id, tenant_code=tenant, reason=REASON_PASSWORD_RESET)
         _LOGGER.info("密码已重置", tenant=tenant, user_id=user_id, revoked_sessions=len(revoked))
         return PasswordResetResult(reset=True)
 
@@ -253,7 +253,7 @@ class PasswordResetService(BaseFrameworkObject):
             await self._state.save(
                 token,
                 payload,
-                tenant=tenant,
+                tenant_code=tenant,
                 ttl=self._settings.token_ttl_seconds,
                 namespace=PASSWORD_RESET_NAMESPACE,
             )

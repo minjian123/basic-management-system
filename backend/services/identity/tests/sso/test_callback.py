@@ -74,7 +74,7 @@ async def test_callback_success_issues_session_and_cookie(client: AsyncClient, s
     row = rows[0]
     assert row.user_id == 1001
     assert row.refresh_token_hash == hashlib.sha256(cookie.encode()).hexdigest()
-    assert sso.issuer.specs[-1].tenant_id == TENANT
+    assert sso.issuer.specs[-1].tenant_code == TENANT
     assert sso.org.login_states[-1]["success"] is True
     assert "profile" in sso.org.calls and "login-state" in sso.org.calls
 

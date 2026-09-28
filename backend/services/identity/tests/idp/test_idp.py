@@ -61,7 +61,7 @@ def test_data_contracts_defaults_and_frozen() -> None:
 
     user = IdentityUser(subject="s", username="u")
     assert user.email is None
-    assert user.tenant is None
+    assert user.tenant_code is None
 
     field = "subject"
     with pytest.raises(FrozenInstanceError):

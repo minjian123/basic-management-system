@@ -18,7 +18,7 @@ class NullSessionStore(BaseSessionStore, BaseNullObject):
         session_id: str,
         payload: Mapping[str, object],
         *,
-        tenant: str | None = None,
+        tenant_code: str | None = None,
         ttl: int = DEFAULT_SESSION_TTL,
     ) -> None:
         """空操作（占位不写入）。
@@ -26,28 +26,28 @@ class NullSessionStore(BaseSessionStore, BaseNullObject):
         Args:
             session_id: 会话 id（占位忽略）。
             payload: 会话数据（占位忽略）。
-            tenant: 租户编码（占位忽略）。
+            tenant_code: 租户编码（占位忽略）。
             ttl: 有效期（占位忽略）。
         """
 
-    async def load(self, session_id: str, *, tenant: str | None = None) -> Mapping[str, object] | None:
+    async def load(self, session_id: str, *, tenant_code: str | None = None) -> Mapping[str, object] | None:
         """固定返回占位会话。
 
         Args:
             session_id: 会话 id（占位回显）。
-            tenant: 租户编码（占位忽略）。
+            tenant_code: 租户编码（占位忽略）。
 
         Returns:
             Mapping[str, object] | None: 占位会话（`{"session_id": session_id}`）。
         """
         return {"session_id": session_id}
 
-    async def delete(self, session_id: str, *, tenant: str | None = None) -> None:
+    async def delete(self, session_id: str, *, tenant_code: str | None = None) -> None:
         """空操作（占位不删除）。
 
         Args:
             session_id: 会话 id（占位忽略）。
-            tenant: 租户编码（占位忽略）。
+            tenant_code: 租户编码（占位忽略）。
         """
 
     async def blacklist(self, key: str, *, ttl: int) -> None:

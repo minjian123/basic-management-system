@@ -55,7 +55,7 @@ async def test_login_success_creates_session(client: AsyncClient, service_app: F
     cookie = client.cookies.get("bms_refresh_token")
     assert cookie
     session_id = issuer.specs[-1].session_id
-    assert await store.load(session_id, tenant="demo") is not None
+    assert await store.load(session_id, tenant_code="demo") is not None
     assert org.last_state.get("failed_count") == 0
 
 

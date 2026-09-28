@@ -33,17 +33,17 @@ SESSION_KEY_PREFIX = "bms"
 """会话标记键前缀（`bms:{租户}:sess:{会话 id}`，与缓存 / 锁 / 限流键同前缀）。"""
 
 
-def build_session_key(session_id: str, *, tenant: str | None = None) -> str:
+def build_session_key(session_id: str, *, tenant_code: str | None = None) -> str:
     """构建会话标记 Redis 键（规范 `bms:{租户}:sess:{会话 id}`）。
 
     Args:
         session_id: 会话 id（JWT `jti`，与 `sys_session.session_id` 同值）。
-        tenant: 租户编码；None 表示无租户维度（global 域）。
+        tenant_code: 租户编码；None 表示无租户维度（global 域）。
 
     Returns:
         str: 会话标记键。
     """
-    return f"{SESSION_KEY_PREFIX}:{tenant or 'global'}:sess:{session_id}"
+    return f"{SESSION_KEY_PREFIX}:{tenant_code or 'global'}:sess:{session_id}"
 
 
 class BaseSessionStore(BasePluggable, ABC):
@@ -60,7 +60,7 @@ class BaseSessionStore(BasePluggable, ABC):
         session_id: str,
         payload: Mapping[str, object],
         *,
-        tenant: str | None = None,
+        tenant_code: str | None = None,
         ttl: int = DEFAULT_SESSION_TTL,
     ) -> None:
         """写入 / 覆盖会话（真实实现落 `sys_session` + Redis 标记）。
@@ -68,29 +68,29 @@ class BaseSessionStore(BasePluggable, ABC):
         Args:
             session_id: 会话 id。
             payload: 会话数据。
-            tenant: 租户编码（定位 `bms:{租户}:sess:{id}` 键；None 为 global 域）。
+            tenant_code: 租户编码（定位 `bms:{租户}:sess:{id}` 键；None 为 global 域）。
             ttl: 有效期（秒，默认 `DEFAULT_SESSION_TTL`）。
         """
 
     @abstractmethod
-    async def load(self, session_id: str, *, tenant: str | None = None) -> Mapping[str, object] | None:
+    async def load(self, session_id: str, *, tenant_code: str | None = None) -> Mapping[str, object] | None:
         """读取会话（不存在返回 None）。
 
         Args:
             session_id: 会话 id。
-            tenant: 租户编码（定位键；None 为 global 域）。
+            tenant_code: 租户编码（定位键；None 为 global 域）。
 
         Returns:
             Mapping[str, object] | None: 会话数据；不存在返回 None。
         """
 
     @abstractmethod
-    async def delete(self, session_id: str, *, tenant: str | None = None) -> None:
+    async def delete(self, session_id: str, *, tenant_code: str | None = None) -> None:
         """删除会话（幂等，不存在不报错）。
 
         Args:
             session_id: 会话 id。
-            tenant: 租户编码（定位键；None 为 global 域）。
+            tenant_code: 租户编码（定位键；None 为 global 域）。
         """
 
     @abstractmethod

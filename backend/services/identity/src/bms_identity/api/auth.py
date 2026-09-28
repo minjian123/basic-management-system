@@ -97,7 +97,7 @@ async def introspect(
     spec = ServiceTokenSpec(
         service=settings.gateway.service_identity,
         scopes=("gateway",),
-        tenant=verified.tenant,
+        tenant_code=verified.tenant_code,
         ttl=settings.gateway.token_ttl_seconds,
     )
     try:
@@ -106,8 +106,8 @@ async def introspect(
         return Response(status_code=503)
 
     headers = {USER_SUBJECT_HEADER: verified.subject, "Authorization": f"Bearer {issued.access_token}"}
-    if verified.tenant:
-        headers[TENANT_ID_HEADER] = verified.tenant
+    if verified.tenant_code:
+        headers[TENANT_ID_HEADER] = verified.tenant_code
     if verified.scopes:
         headers[USER_SCOPES_HEADER] = ",".join(verified.scopes)
     if verified.token_id:

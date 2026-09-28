@@ -72,7 +72,7 @@ class OidcCode(BaseValueObject):
     client_id: str
     redirect_uri: str
     subject: str
-    tenant: str
+    tenant_code: str
     nonce: str = ""
     code_challenge: str = ""
     code_challenge_method: str = ""
@@ -228,7 +228,7 @@ class OidcProviderService(BaseFrameworkObject):
             client_id=client.client_id,
             redirect_uri=redirect_uri,
             subject=subject,
-            tenant=tenant,
+            tenant_code=tenant,
             nonce=nonce or "",
             code_challenge=code_challenge or "",
             code_challenge_method=code_challenge_method or "",
@@ -238,7 +238,7 @@ class OidcProviderService(BaseFrameworkObject):
         await self._state.save(
             code,
             _code_payload(payload),
-            tenant=tenant,
+            tenant_code=tenant,
             ttl=self._settings.authorization_code_ttl_seconds,
             namespace=OIDC_CODE_NAMESPACE,
         )
@@ -281,14 +281,14 @@ class OidcProviderService(BaseFrameworkObject):
             raise OidcInvalidGrantError("缺少 client_id / code / redirect_uri")
         client = await self._load_client(client_id, invalid_client=True)
         self._authenticate(client, client_secret)
-        raw = await self._state.consume(code, tenant=tenant, namespace=OIDC_CODE_NAMESPACE)
+        raw = await self._state.consume(code, tenant_code=tenant, namespace=OIDC_CODE_NAMESPACE)
         record = code_from_payload(raw)
         if record.client_id != client.client_id or record.redirect_uri != redirect_uri:
             raise OidcInvalidGrantError("授权码与客户端 / 回跳地址不符")
         if record.code_challenge and not verify_pkce(record.code_challenge, code_verifier):
             raise OidcInvalidGrantError("PKCE 校验失败")
         issuer = self.issuer_for(tenant)
-        profile = await self._org.user_profile(record.tenant, int(record.subject))
+        profile = await self._org.user_profile(record.tenant_code, int(record.subject))
         if not profile.found or profile.user is None or profile.user.status != "enabled":
             raise OidcInvalidGrantError("用户不存在或不可用")
         id_token = await self._provider.issue_id_token(
@@ -306,7 +306,7 @@ class OidcProviderService(BaseFrameworkObject):
         access_token = await self._provider.issue_access_token(
             AccessTokenSpec(
                 subject=record.subject,
-                tenant=record.tenant,
+                tenant_code=record.tenant_code,
                 client_id=client.client_id,
                 issuer=issuer,
                 scopes=tuple(record.scope.split()) if record.scope else (),
@@ -336,7 +336,7 @@ class OidcProviderService(BaseFrameworkObject):
         """
         issuer = self.issuer_for(tenant)
         claims = self._provider.verify_access_token(access_token, issuer=issuer)
-        if claims.tenant and claims.tenant != tenant:
+        if claims.tenant_code and claims.tenant_code != tenant:
             raise AuthError("令牌租户与请求租户不符")
         profile = await self._org.user_profile(tenant, int(claims.subject))
         if not profile.found or profile.user is None or profile.user.status != "enabled":
@@ -538,7 +538,7 @@ def _code_payload(code: OidcCode) -> dict[str, object]:
         "client_id": code.client_id,
         "redirect_uri": code.redirect_uri,
         "subject": code.subject,
-        "tenant": code.tenant,
+        "tenant_code": code.tenant_code,
         "nonce": code.nonce,
         "code_challenge": code.code_challenge,
         "code_challenge_method": code.code_challenge_method,
@@ -566,7 +566,7 @@ def code_from_payload(raw: Mapping[str, object] | None) -> OidcCode:
             client_id=str(raw["client_id"]),
             redirect_uri=str(raw["redirect_uri"]),
             subject=str(raw["subject"]),
-            tenant=str(raw["tenant"]),
+            tenant_code=str(raw["tenant_code"]),
             nonce=str(raw.get("nonce", "")),
             code_challenge=str(raw.get("code_challenge", "")),
             code_challenge_method=str(raw.get("code_challenge_method", "")),

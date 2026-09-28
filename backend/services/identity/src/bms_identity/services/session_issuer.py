@@ -121,7 +121,7 @@ class SessionIssuer(BaseFrameworkObject):
         self,
         *,
         user_id: int,
-        tenant: str,
+        tenant_code: str,
         ip: str | None,
         user_agent: str | None,
     ) -> IssuedSession:
@@ -129,7 +129,7 @@ class SessionIssuer(BaseFrameworkObject):
 
         Args:
             user_id: 用户 ID（org 库 `sys_user.id`）。
-            tenant: 租户编码。
+            tenant_code: 租户编码。
             ip: 客户端 IP（可选）。
             user_agent: 客户端 User-Agent（可选）。
 
@@ -138,15 +138,17 @@ class SessionIssuer(BaseFrameworkObject):
         """
         session_id = self._security.new_session_id()
         pair = await self._issuer.issue_pair(
-            UserTokenSpec(subject=str(user_id), session_id=session_id, tenant_id=tenant)
+            UserTokenSpec(subject=str(user_id), session_id=session_id, tenant_code=tenant_code)
         )
-        await self._session_service.enforce_max_active(user_id, tenant=tenant, max_active=self._settings.max_active)
+        await self._session_service.enforce_max_active(
+            user_id, tenant_code=tenant_code, max_active=self._settings.max_active
+        )
         await self._persist(
             session_id=session_id,
             user_id=user_id,
             refresh_token=pair.refresh_token,
             refresh_expires_in=pair.refresh_expires_in,
-            tenant=tenant,
+            tenant_code=tenant_code,
             ip=ip,
             user_agent=user_agent,
         )
@@ -166,7 +168,7 @@ class SessionIssuer(BaseFrameworkObject):
         user_id: int,
         refresh_token: str,
         refresh_expires_in: int,
-        tenant: str,
+        tenant_code: str,
         ip: str | None,
         user_agent: str | None,
     ) -> None:
@@ -177,7 +179,7 @@ class SessionIssuer(BaseFrameworkObject):
             user_id: 用户 ID。
             refresh_token: refresh 原始票据（仅哈希落库）。
             refresh_expires_in: refresh 有效期（秒）。
-            tenant: 租户编码。
+            tenant_code: 租户编码。
             ip: 客户端 IP（可选）。
             user_agent: 客户端 User-Agent（可选）。
         """
@@ -194,8 +196,8 @@ class SessionIssuer(BaseFrameworkObject):
             )
         await self._store.save(
             session_id,
-            {"user_id": user_id, "tenant": tenant, "ip": ip, "ua": user_agent},
-            tenant=tenant,
+            {"user_id": user_id, "tenant_code": tenant_code, "ip": ip, "ua": user_agent},
+            tenant_code=tenant_code,
             ttl=refresh_expires_in,
         )
 

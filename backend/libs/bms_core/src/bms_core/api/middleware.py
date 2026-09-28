@@ -35,14 +35,14 @@ from bms_core.core.context import (
     get_current_request_id,
     reset_current_client_ip,
     reset_current_request_id,
-    reset_current_tenant,
+    reset_current_tenant_code,
     reset_current_trace_id,
     reset_current_user_id,
     reset_read_only,
     reset_tenant_context,
     set_current_client_ip,
     set_current_request_id,
-    set_current_tenant,
+    set_current_tenant_code,
     set_current_trace_id,
     set_current_user_id,
     set_read_only,
@@ -180,7 +180,7 @@ class TenantMiddleware(BaseMiddleware):
                 path=str(scope.get("path", "")),
                 host=headers.get("host"),
                 header=headers.get("X-Tenant-ID"),
-                token_tenant=cast("str | None", state.get("tenant_id")),
+                token_tenant=cast("str | None", state.get("tenant_code")),
                 source=source,
                 exempt_paths=settings.tenant.exempt_paths if settings is not None else DEFAULT_EXEMPT_PATHS,
                 allow_demo_fallback=settings.tenant.allow_demo_fallback if settings is not None else True,
@@ -191,11 +191,11 @@ class TenantMiddleware(BaseMiddleware):
 
         state["tenant"] = tenant
         tenant_token = set_tenant_context(tenant)
-        code_token = set_current_tenant(tenant.code if tenant else None)
+        code_token = set_current_tenant_code(tenant.code if tenant else None)
         try:
             await self.app(scope, receive, send)
         finally:
-            reset_current_tenant(code_token)
+            reset_current_tenant_code(code_token)
             reset_tenant_context(tenant_token)
 
 

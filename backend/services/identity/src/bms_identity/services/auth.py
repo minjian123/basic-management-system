@@ -184,7 +184,7 @@ class LoginService(BaseFrameworkObject):
         if user is None:  # pragma: no cover - found=True 必带用户概要
             raise AuthError("凭据校验结果缺少用户概要")
 
-        issued = await self._session_issuer.issue(user_id=user.id, tenant=tenant, ip=ip, user_agent=user_agent)
+        issued = await self._session_issuer.issue(user_id=user.id, tenant_code=tenant, ip=ip, user_agent=user_agent)
         await self._limiter.reset(self._fail_key(tenant, req.account))
         await self._org.login_state(tenant, req.account, success=True)
         return LoginOutcome(
@@ -230,7 +230,7 @@ class LoginService(BaseFrameworkObject):
         """
         claims = self._issuer.verify(refresh_token, expected_type=USER_TOKEN_TYPE_REFRESH)
         payload = claims.payload
-        token_tenant = payload.get("tenant_id")
+        token_tenant = payload.get("tenant_code")
         if not tenant or not token_tenant or token_tenant != tenant:
             raise AuthError("刷新令牌租户与请求租户不一致")
         session_id = payload.get("jti")
@@ -238,7 +238,7 @@ class LoginService(BaseFrameworkObject):
             raise AuthError("刷新令牌缺少会话标识")
         if await self._store.is_blacklisted(self._security.blacklist_key(session_id)):
             raise AuthError("刷新令牌已失效")
-        if await self._store.load(session_id, tenant=tenant) is None:
+        if await self._store.load(session_id, tenant_code=tenant) is None:
             raise AuthError("会话已失效")
 
         async with self._uow.begin():
@@ -248,13 +248,13 @@ class LoginService(BaseFrameworkObject):
             if record.refresh_token_hash != hash_refresh_token(refresh_token):
                 raise AuthError("刷新令牌已失效")
             pair = await self._issuer.issue_pair(
-                UserTokenSpec(subject=str(record.user_id), session_id=session_id, tenant_id=tenant)
+                UserTokenSpec(subject=str(record.user_id), session_id=session_id, tenant_code=tenant)
             )
             await self._sessions.update_refresh_hash(session_id, hash_refresh_token(pair.refresh_token))
         await self._store.save(
             session_id,
-            {"user_id": record.user_id, "tenant": tenant, "ip": ip, "ua": user_agent},
-            tenant=tenant,
+            {"user_id": record.user_id, "tenant_code": tenant, "ip": ip, "ua": user_agent},
+            tenant_code=tenant,
             ttl=pair.refresh_expires_in,
         )
         return RefreshOutcome(
@@ -282,13 +282,13 @@ class LoginService(BaseFrameworkObject):
             return
         payload = claims.payload
         session_id = payload.get("jti")
-        token_tenant = payload.get("tenant_id")
+        token_tenant = payload.get("tenant_code")
         if not session_id or not isinstance(session_id, str):
             return
         if token_tenant and tenant and token_tenant != tenant:
             return
         try:
-            await self._session_service.revoke(session_id, tenant=tenant, reason=REASON_LOGOUT, broadcast=False)
+            await self._session_service.revoke(session_id, tenant_code=tenant, reason=REASON_LOGOUT, broadcast=False)
         except Exception as exc:  # pragma: no cover - 登出尽力而为（幂等）
             _LOGGER.warning("登出清理未全部完成", session_id=session_id, error=str(exc))
 

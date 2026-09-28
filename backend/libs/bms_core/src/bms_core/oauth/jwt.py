@@ -99,8 +99,8 @@ class JwtServiceTokenIssuer(BaseServiceTokenIssuer):
             "typ": SERVICE_TOKEN_TYPE,
             "service": spec.service,
         }
-        if spec.tenant:
-            claims["tenant"] = spec.tenant
+        if spec.tenant_code:
+            claims["tenant_code"] = spec.tenant_code
         token = jwt.encode({"alg": self._signing_algorithms[kid], "kid": kid}, claims, key)
         return OAuthToken(access_token=token, expires_in=ttl, scopes=spec.scopes)
 

@@ -5,7 +5,7 @@ from collections.abc import Sequence
 
 import pytest
 
-from bms_core.core.context import reset_current_tenant, set_current_tenant
+from bms_core.core.context import reset_current_tenant_code, set_current_tenant_code
 from bms_core.core.exceptions import ServiceUnavailableError
 from bms_core.dict.base import DictBatchQuery, DictQuery, DictTranslateQuery
 from bms_core.dict.http import (
@@ -71,13 +71,13 @@ async def test_by_type_maps_query_and_parses_response() -> None:
     """单类型取数：路径 / 查询参数 / 语言与租户头透传，响应解析为 `DictTypeResult`。"""
     client = _FakeClient([{"version": 7, "items": [_item_payload("enabled", "启用")], "has_more": False, "total": 1}])
     source = HttpDictSource(client=client)
-    token = set_current_tenant("demo")
+    token = set_current_tenant_code("demo")
     try:
         result = await source.by_type(
             DictQuery(dict_type="status", version=6, keyword="启", parent_id=None, values=None, limit=10)
         )
     finally:
-        reset_current_tenant(token)
+        reset_current_tenant_code(token)
 
     request = client.requests[0]
     headers = request.headers or {}

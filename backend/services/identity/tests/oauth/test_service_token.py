@@ -81,7 +81,7 @@ def test_constants_and_contract() -> None:
     assert issubclass(JwtServiceTokenIssuer, BaseServiceTokenIssuer)
     assert issubclass(NullServiceTokenIssuer, BaseServiceTokenIssuer)
     spec = ServiceTokenSpec(service="platform")
-    assert spec.scopes == () and spec.tenant is None and spec.ttl is None
+    assert spec.scopes == () and spec.tenant_code is None and spec.ttl is None
 
 
 @pytest.mark.kiwi_id(2180)
@@ -124,7 +124,9 @@ def test_build_jwks_only_public_sorted() -> None:
 async def test_issue_and_verify_claims() -> None:
     """签发服务 JWT：固定 + 扩展 claims、`aud=service`、TTL 与 scope 回填、本地验签通过。"""
     issuer = JwtServiceTokenIssuer(issuer="bms", keys=[_rsa_key()], active_kid="k1")
-    token = await issuer.issue(ServiceTokenSpec(service="platform", scopes=("user:read", "org:read"), tenant="acme"))
+    token = await issuer.issue(
+        ServiceTokenSpec(service="platform", scopes=("user:read", "org:read"), tenant_code="acme")
+    )
     assert isinstance(token, OAuthToken)
     assert token.expires_in == DEFAULT_SERVICE_TOKEN_TTL
     assert token.scopes == ("user:read", "org:read")
@@ -136,7 +138,7 @@ async def test_issue_and_verify_claims() -> None:
     payload = dict(claims.payload)
     assert payload["typ"] == SERVICE_TOKEN_TYPE
     assert payload["service"] == "platform"
-    assert payload["tenant"] == "acme"
+    assert payload["tenant_code"] == "acme"
     assert payload["scope"] == "user:read org:read"
     assert payload["jti"]
     assert claims.expires_at > claims.issued_at

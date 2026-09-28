@@ -96,11 +96,11 @@ async def test_access_token_roundtrip_and_verify() -> None:
     _, keys = _keys()
     provider = JwtOidcProvider(keys=keys, active_kid="usr-k1", access_ttl=300)
     token = await provider.issue_access_token(
-        AccessTokenSpec(subject="1001", tenant="demo", client_id=CLIENT, issuer=ISS, scopes=("openid", "profile"))
+        AccessTokenSpec(subject="1001", tenant_code="demo", client_id=CLIENT, issuer=ISS, scopes=("openid", "profile"))
     )
     claims = provider.verify_access_token(token, issuer=ISS)
     assert claims.subject == "1001"
-    assert claims.tenant == "demo"
+    assert claims.tenant_code == "demo"
     assert claims.client_id == CLIENT
     assert claims.scopes == ("openid", "profile")
     assert claims.token_id
@@ -114,7 +114,7 @@ async def test_access_token_rejects_wrong_issuer_and_type() -> None:
     """access token：issuer 不符拒；typ 非 idp_access 拒。"""
     token_key, keys = _keys()
     provider = JwtOidcProvider(keys=keys, active_kid="usr-k1")
-    token = await provider.issue_access_token(AccessTokenSpec(subject="1", tenant="demo", issuer=ISS))
+    token = await provider.issue_access_token(AccessTokenSpec(subject="1", tenant_code="demo", issuer=ISS))
     with pytest.raises(AuthError):
         provider.verify_access_token(token, issuer="http://other/oidc")
 

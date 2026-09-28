@@ -4,13 +4,13 @@ import pytest
 
 from bms_core.core.context import (
     get_current_span_id,
-    get_current_tenant,
+    get_current_tenant_code,
     get_current_trace_id,
     reset_current_span_id,
-    reset_current_tenant,
+    reset_current_tenant_code,
     reset_current_trace_id,
     set_current_span_id,
-    set_current_tenant,
+    set_current_tenant_code,
     set_current_trace_id,
 )
 
@@ -18,11 +18,11 @@ from bms_core.core.context import (
 @pytest.mark.kiwi_id(36)
 def test_current_tenant_context() -> None:
     """租户上下文：设置 / 读取 / 复位。"""
-    assert get_current_tenant() is None
-    token = set_current_tenant("demo")
-    assert get_current_tenant() == "demo"
-    reset_current_tenant(token)
-    assert get_current_tenant() is None
+    assert get_current_tenant_code() is None
+    token = set_current_tenant_code("demo")
+    assert get_current_tenant_code() == "demo"
+    reset_current_tenant_code(token)
+    assert get_current_tenant_code() is None
 
 
 @pytest.mark.kiwi_id(44)

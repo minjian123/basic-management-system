@@ -54,7 +54,7 @@ class FakeUserTokenIssuer(BaseUserTokenIssuer):
         """
         self._n += 1
         access, refresh = f"acc-{self._n}", f"ref-{self._n}"
-        base = {"sub": spec.subject, "jti": spec.session_id, "tenant_id": spec.tenant_id}
+        base = {"sub": spec.subject, "jti": spec.session_id, "tenant_code": spec.tenant_code}
         self._by_token[access] = {**base, "type": _ACCESS}
         self._by_token[refresh] = {**base, "type": _REFRESH}
         self.specs.append(spec)
