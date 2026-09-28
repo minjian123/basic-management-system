@@ -258,9 +258,9 @@ async def authorize(
     try:
         if auth is None:
             return _login_redirect(request)
-        if tenant and auth.tenant and tenant != auth.tenant:
+        if tenant and auth.tenant_code and tenant != auth.tenant_code:
             raise OidcInvalidRequestError("租户与登录态不一致")
-        context = await _resolve(auth.tenant or tenant, tenant_ctx, tenant_source)
+        context = await _resolve(auth.tenant_code or tenant, tenant_ctx, tenant_source)
         registry: EngineRegistry = request.app.state.engine_registry
         async with session_scope(registry, db_key=context.db_key, factory=request.app.state.session_factory) as session:
             service = _build_service(

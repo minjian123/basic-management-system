@@ -43,14 +43,14 @@ async def test_revoke_three_states(service_app: FastAPI) -> None:
     store, recorder = MemorySessionStore(), RecordingRealtimePublisher()
     async with tenant_scope(service_app) as session:
         service = _service(session, store, recorder)
-        missing = await service.revoke("ghost", tenant="demo", reason="logout")
+        missing = await service.revoke("ghost", tenant_code="demo", reason="logout")
         assert missing.found is False and missing.already_revoked is False
 
-        first = await service.revoke("8001", tenant="demo", reason="logout")
+        first = await service.revoke("8001", tenant_code="demo", reason="logout")
         assert first.found is True and first.already_revoked is False
-        assert await store.load("8001", tenant="demo") is None
+        assert await store.load("8001", tenant_code="demo") is None
 
-        again = await service.revoke("8001", tenant="demo", reason="logout")
+        again = await service.revoke("8001", tenant_code="demo", reason="logout")
         assert again.found is True and again.already_revoked is True
     assert recorder.events == []
 
@@ -62,7 +62,7 @@ async def test_revoke_broadcasts_when_requested(service_app: FastAPI) -> None:
     store, recorder = MemorySessionStore(), RecordingRealtimePublisher()
     async with tenant_scope(service_app) as session:
         service = _service(session, store, recorder)
-        await service.revoke("8002", tenant="demo", reason=REASON_KICK, broadcast=True)
+        await service.revoke("8002", tenant_code="demo", reason=REASON_KICK, broadcast=True)
     assert [event.event for event in recorder.events] == ["session.revoked"]
 
 
@@ -74,8 +74,8 @@ async def test_kick_expired_session(service_app: FastAPI) -> None:
     async with tenant_scope(service_app) as session:
         service = _service(session, store, recorder)
         with pytest.raises(SessionExpiredError):
-            await service.kick("8003", tenant="demo")
-    assert await store.load("8003", tenant="demo") is None
+            await service.kick("8003", tenant_code="demo")
+    assert await store.load("8003", tenant_code="demo") is None
 
 
 @pytest.mark.kiwi_id(2195)
@@ -85,5 +85,5 @@ async def test_enforce_max_active_no_overflow(service_app: FastAPI) -> None:
     store, recorder = MemorySessionStore(), RecordingRealtimePublisher()
     async with tenant_scope(service_app) as session:
         service = _service(session, store, recorder)
-        assert await service.enforce_max_active(1001, tenant="demo", max_active=5) == []
+        assert await service.enforce_max_active(1001, tenant_code="demo", max_active=5) == []
     assert recorder.events == []

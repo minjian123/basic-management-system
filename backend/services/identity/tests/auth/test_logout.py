@@ -44,7 +44,7 @@ async def test_logout_revokes_and_is_idempotent(client: AsyncClient, service_app
     resp = await client.post(API_LOGOUT)
     assert resp.status_code == 200
     assert client.cookies.get(COOKIE) is None
-    assert await store.load(session_id, tenant="demo") is None
+    assert await store.load(session_id, tenant_code="demo") is None
     key = DefaultSessionSecurity(secret_key="").blacklist_key(session_id)
     assert await store.is_blacklisted(key) is True
 

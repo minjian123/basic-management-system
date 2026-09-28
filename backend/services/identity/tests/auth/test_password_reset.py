@@ -101,7 +101,7 @@ async def test_forgot_success_sends_link(client: AsyncClient, service_app: FastA
 
     token = _token(notifier)
     assert token in message.content
-    payload = await states.consume(token, tenant="demo", namespace="pwdreset")
+    payload = await states.consume(token, tenant_code="demo", namespace="pwdreset")
     assert payload is not None and payload.get("user_id") == 1001 and payload.get("account") == "admin"
 
 
@@ -193,7 +193,7 @@ async def test_reset_revokes_all_sessions_and_next_request_401(client: AsyncClie
             .all()
         )
     assert len(rows) == 2 and all(row.revoked_at is not None for row in rows)
-    assert await store.load(session_id, tenant="demo") is None
+    assert await store.load(session_id, tenant_code="demo") is None
     revoked_ids = {event.data.get("session_id") for event in publisher.events}
     assert {session_id, "2002"} <= revoked_ids
     assert all(event.event == "session.revoked" for event in publisher.events)

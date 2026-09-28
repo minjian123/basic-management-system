@@ -220,7 +220,7 @@ class JitService(BaseFrameworkObject):
                 EventEnvelope(
                     event_type=JIT_EVENT_TYPE,
                     payload={"user_id": str(user.id), "idp_key": mapping_key},
-                    tenant_id=tenant,
+                    tenant_code=tenant,
                     aggregate_key=mapping_key,
                 ),
             )

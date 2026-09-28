@@ -70,7 +70,7 @@ def _verified(
     Returns:
         VerifiedToken: 令牌声明。
     """
-    return VerifiedToken(subject=subject, scopes=scopes, tenant=tenant, token_id=session_id)
+    return VerifiedToken(subject=subject, scopes=scopes, tenant_code=tenant, token_id=session_id)
 
 
 def _request(
@@ -113,7 +113,7 @@ async def _store_with(session_id: str, *, tenant: str = "demo") -> MemorySession
         MemorySessionStore: 会话存储。
     """
     store = MemorySessionStore()
-    await store.save(session_id, {"user_id": 1001, "tenant": tenant}, tenant=tenant)
+    await store.save(session_id, {"user_id": 1001, "tenant": tenant}, tenant_code=tenant)
     return store
 
 
@@ -126,7 +126,7 @@ async def test_gateway_identity_builds_context() -> None:
     }
     context = await require_auth(_request(state=state), verifier=_StubVerifier(), store=store)
     assert context == AuthContext(
-        subject="1001", user_id=1001, tenant="demo", session_id="s1", scopes=("a",), source="gateway"
+        subject="1001", user_id=1001, tenant_code="demo", session_id="s1", scopes=("a",), source="gateway"
     )
     assert get_current_user_id() == 1001
 
@@ -141,7 +141,7 @@ async def test_gateway_identity_without_subject_uses_user_id() -> None:
     context = await require_auth(_request(state=state), verifier=_StubVerifier(), store=store)
     assert context.subject == "7"
     assert context.user_id == 7
-    assert context.tenant == "demo"
+    assert context.tenant_code == "demo"
 
 
 async def test_gateway_identity_service_only_rejected() -> None:
@@ -160,7 +160,7 @@ async def test_local_token_builds_context_and_adopts_tenant() -> None:
     context = await require_auth(request, verifier=_StubVerifier(result=_verified(session_id="s3")), store=store)
     assert context.source == "token"
     assert context.user_id == 1001
-    assert context.tenant == "demo"
+    assert context.tenant_code == "demo"
     assert request.scope["state"]["tenant"].code == "demo"
 
 
@@ -213,7 +213,7 @@ async def test_session_id_missing_rejected() -> None:
 async def test_device_check_mismatch_rejected() -> None:
     """`device_check=true`：设备 / IP 不一致 → 20012 / 401；一致放行。"""
     store = MemorySessionStore()
-    await store.save("s5", {"user_id": 1, "ip": "10.0.0.1"}, tenant="demo")
+    await store.save("s5", {"user_id": 1, "ip": "10.0.0.1"}, tenant_code="demo")
     mismatch = _request(headers={"Authorization": f"Bearer {_TOK}"}, device_check=True)
     set_current_client_ip("10.0.0.9")
     with pytest.raises(SessionAuthError) as excinfo:
@@ -250,5 +250,5 @@ async def test_token_tenant_overrides_fallback() -> None:
     context = await require_auth(
         request, verifier=_StubVerifier(result=_verified(tenant="acme", session_id="s7")), store=store
     )
-    assert context.tenant == "acme"
+    assert context.tenant_code == "acme"
     assert request.scope["state"]["tenant"].code == "acme"

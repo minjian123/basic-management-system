@@ -89,7 +89,7 @@ class RedisSessionStore(BaseSessionStore, BaseAsyncResource):
         session_id: str,
         payload: Mapping[str, object],
         *,
-        tenant: str | None = None,
+        tenant_code: str | None = None,
         ttl: int = DEFAULT_SESSION_TTL,
     ) -> None:
         """写入 / 覆盖会话标记（`SET key value EX ttl`）。
@@ -97,40 +97,40 @@ class RedisSessionStore(BaseSessionStore, BaseAsyncResource):
         Args:
             session_id: 会话 id（`jti`）。
             payload: 会话数据（JSON）。
-            tenant: 租户编码（定位键）。
+            tenant_code: 租户编码（定位键）。
             ttl: 有效期（秒，默认 14 天）。
         """
-        key = build_session_key(session_id, tenant=tenant or _tenant_of(payload))
+        key = build_session_key(session_id, tenant_code=tenant_code or _tenant_of(payload))
         if ttl > 0:
             await self.client.set(key, _dump(payload), ex=ttl)  # pyright: ignore[reportUnknownMemberType]
         else:
             await self.client.set(key, _dump(payload))  # pyright: ignore[reportUnknownMemberType]
 
-    async def load(self, session_id: str, *, tenant: str | None = None) -> Mapping[str, object] | None:
+    async def load(self, session_id: str, *, tenant_code: str | None = None) -> Mapping[str, object] | None:
         """读取会话标记（按租户定位键）。
 
         Args:
             session_id: 会话 id。
-            tenant: 租户编码。
+            tenant_code: 租户编码。
 
         Returns:
             Mapping[str, object] | None: 会话数据；不存在返回 None。
         """
         try:
-            raw = await self.client.get(build_session_key(session_id, tenant=tenant))  # pyright: ignore[reportUnknownMemberType]
+            raw = await self.client.get(build_session_key(session_id, tenant_code=tenant_code))  # pyright: ignore[reportUnknownMemberType]
         except Exception as exc:
             _LOGGER.warning("会话标记读取降级", session_id=session_id, error=str(exc))
             return None
         return _load(raw)
 
-    async def delete(self, session_id: str, *, tenant: str | None = None) -> None:
+    async def delete(self, session_id: str, *, tenant_code: str | None = None) -> None:
         """删除会话标记（幂等）。
 
         Args:
             session_id: 会话 id。
-            tenant: 租户编码。
+            tenant_code: 租户编码。
         """
-        await self.client.delete(build_session_key(session_id, tenant=tenant))  # pyright: ignore[reportUnknownMemberType]
+        await self.client.delete(build_session_key(session_id, tenant_code=tenant_code))  # pyright: ignore[reportUnknownMemberType]
 
     async def blacklist(self, key: str, *, ttl: int) -> None:
         """写入令牌黑名单标记（`SET key 1 EX ttl`）。
@@ -175,5 +175,5 @@ def _tenant_of(payload: Mapping[str, object]) -> str | None:
     Returns:
         str | None: 租户编码。
     """
-    value = payload.get("tenant")
+    value = payload.get("tenant_code")
     return str(value) if value else None

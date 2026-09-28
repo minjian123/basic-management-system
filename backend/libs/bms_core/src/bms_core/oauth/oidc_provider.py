@@ -128,7 +128,7 @@ class AccessTokenSpec(BaseOidcTokenSpecContract):
     subject: str
     """用户主体（BMS 用户 id 字符串）。"""
 
-    tenant: str = ""
+    tenant_code: str = ""
     """租户编码（claims `tenant_id`）。"""
 
     client_id: str = ""
@@ -151,7 +151,7 @@ class OidcAccessClaims(BaseTokenClaimsContract):
     subject: str
     """用户主体（`sub`）。"""
 
-    tenant: str = ""
+    tenant_code: str = ""
     """租户编码（claims `tenant_id`）。"""
 
     client_id: str = ""

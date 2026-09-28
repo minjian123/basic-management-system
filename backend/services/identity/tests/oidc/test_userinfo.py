@@ -75,7 +75,7 @@ async def test_userinfo_cross_tenant_rejected(client: AsyncClient, oidc: OidcHar
             "sub": "1001",
             "aud": "userinfo",
             "typ": "idp_access",
-            "tenant_id": "other",
+            "tenant_code": "other",
             "jti": "j1",
             "iat": now,
             "exp": now + 300,

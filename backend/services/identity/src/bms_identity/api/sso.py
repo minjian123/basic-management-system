@@ -356,7 +356,7 @@ async def callback(
             tenant_code=tenant_ctx.code if tenant_ctx is not None else None,
             ip=ip,
         )
-        tenant = await tenant_source.by_code(flow.tenant)
+        tenant = await tenant_source.by_code(flow.tenant_code)
         registry: EngineRegistry = request.app.state.engine_registry
         factory = request.app.state.session_factory
         async with (
@@ -399,11 +399,11 @@ def _success_response(request: Request, result: SsoLoginResult) -> Response:
     Returns:
         Response: `302` 跳转 + cookie，或 200 JSON + cookie。
     """
-    payload = ApiResponse.ok(SsoCallbackResult(tenant=result.tenant))
+    payload = ApiResponse.ok(SsoCallbackResult(tenant=result.tenant_code))
     target = request.app.state.settings.sso.success_redirect
     if target:
         response: Response = RedirectResponse(
-            _with_query(target, urlencode({"tenant": result.tenant})),
+            _with_query(target, urlencode({"tenant": result.tenant_code})),
             status_code=302,
         )
     else:

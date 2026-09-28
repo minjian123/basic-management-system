@@ -91,7 +91,7 @@ class OutboxRecord(BaseEventRecordContract):
     """事件契约版本（`X.Y.Z`）。"""
     aggregate_key: str | None
     """聚合 / 分区键（同聚合按序投递；空 = 独立事件）。"""
-    tenant_id: str | None
+    tenant_code: str | None
     """租户标识。"""
     payload: dict[str, object]
     """事件负载。"""
@@ -117,7 +117,7 @@ class OutboxRecord(BaseEventRecordContract):
         return EventEnvelope(
             event_type=self.event_type,
             payload=dict(self.payload),
-            tenant_id=self.tenant_id,
+            tenant_code=self.tenant_code,
             event_id=self.event_id,
             occurred_at=self.occurred_at,
             aggregate_key=self.aggregate_key,
@@ -141,7 +141,7 @@ class DeadLetterRecord(BaseEventRecordContract):
     """消费者标识。"""
     aggregate_key: str | None
     """聚合 / 分区键。"""
-    tenant_id: str | None
+    tenant_code: str | None
     """租户标识。"""
     payload: dict[str, object]
     """事件负载。"""

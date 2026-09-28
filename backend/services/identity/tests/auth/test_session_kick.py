@@ -36,7 +36,7 @@ async def test_kick_immediate_and_broadcast(client: AsyncClient, service_app: Fa
     data = resp.json()["data"]
     assert data["session_id"] == session_id and data["reason"] == "kick" and data["revoked_at"]
 
-    assert await store.load(session_id, tenant="demo") is None
+    assert await store.load(session_id, tenant_code="demo") is None
     assert await store.is_blacklisted(_blacklist_key(session_id)) is True
     assert recorder.events and recorder.events[-1].event == "session.revoked"
     assert recorder.events[-1].session_id == session_id

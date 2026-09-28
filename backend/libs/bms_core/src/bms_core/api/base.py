@@ -22,7 +22,12 @@ from typing import Annotated, Any, cast
 from fastapi import APIRouter, Depends, Header, Query, Request, params
 from pydantic import ValidationError
 
-from bms_core.core.context import get_current_client_ip, set_current_tenant, set_current_user_id, set_tenant_context
+from bms_core.core.context import (
+    get_current_client_ip,
+    set_current_tenant_code,
+    set_current_user_id,
+    set_tenant_context,
+)
 from bms_core.core.exceptions import AuthError, ConflictError, ParamError, SessionAuthError
 from bms_core.core.objects import BaseFrameworkObject, BaseRequestIdentityContract
 from bms_core.db.tenant import TenantContext, build_tenant_db_key, tenant_hostname
@@ -341,7 +346,7 @@ class AuthContext(BaseRequestIdentityContract):
     user_id: int | None = None
     """内部用户数字标识（subject 可解析为整数时取之；否则 None）。"""
 
-    tenant: str | None = None
+    tenant_code: str | None = None
     """生效租户编码。"""
 
     session_id: str | None = None
@@ -424,7 +429,7 @@ def _context_from_identity(identity: EdgeIdentity) -> AuthContext:
     return AuthContext(
         subject=subject,
         user_id=user_id if user_id is not None else _as_user_id(subject),
-        tenant=identity.tenant_code,
+        tenant_code=identity.tenant_code,
         session_id=identity.session_id,
         scopes=identity.scopes,
         service_identity=identity.service_identity,
@@ -452,7 +457,7 @@ async def _context_from_token(request: Request, verifier: BaseTokenVerifier) -> 
     return AuthContext(
         subject=verified.subject,
         user_id=_as_user_id(verified.subject),
-        tenant=verified.tenant,
+        tenant_code=verified.tenant_code,
         session_id=verified.token_id or None,
         scopes=verified.scopes,
         source="token",
@@ -490,8 +495,8 @@ async def require_auth(
     context = _wire_tenant(request, context)
     await _verify_session(request, store, context)
     set_current_user_id(context.user_id)
-    if context.tenant:
-        set_current_tenant(context.tenant)
+    if context.tenant_code:
+        set_current_tenant_code(context.tenant_code)
     return context
 
 
@@ -510,17 +515,19 @@ def _wire_tenant(request: Request, context: AuthContext) -> AuthContext:
     """
     state: dict[str, object] = request.scope.setdefault("state", {})
     resolved = cast("TenantContext | None", state.get("tenant"))
-    token_tenant = context.tenant
-    if token_tenant and (resolved is None or (resolved.code != token_tenant and not _explicit_tenant(request))):
-        adopted = _tenant_context(token_tenant)
+    token_tenant_code = context.tenant_code
+    if token_tenant_code and (
+        resolved is None or (resolved.code != token_tenant_code and not _explicit_tenant(request))
+    ):
+        adopted = _tenant_context(token_tenant_code)
         state["tenant"] = adopted
         set_tenant_context(adopted)
         return context
     if resolved is not None:
-        if token_tenant and _explicit_tenant(request) and resolved.code != token_tenant:
+        if token_tenant_code and _explicit_tenant(request) and resolved.code != token_tenant_code:
             raise AuthError("跨租户访问被拒")
-        if not context.tenant:
-            return replace(context, tenant=resolved.code)
+        if not context.tenant_code:
+            return replace(context, tenant_code=resolved.code)
     return context
 
 
@@ -538,7 +545,7 @@ async def _verify_session(request: Request, store: BaseSessionStore, context: Au
     """
     if not context.session_id:
         raise AuthError("登录凭证缺少会话标识")
-    payload = await store.load(context.session_id, tenant=context.tenant)
+    payload = await store.load(context.session_id, tenant_code=context.tenant_code)
     if payload is None:
         raise SessionAuthError("登录会话已失效")
     settings = getattr(request.app.state, "settings", None)

@@ -20,7 +20,7 @@ from collections.abc import Mapping, Sequence
 from typing import cast
 from urllib.parse import quote
 
-from bms_core.core.context import get_current_tenant
+from bms_core.core.context import get_current_tenant_code
 from bms_core.core.exceptions import ServiceUnavailableError
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION
 from bms_core.dict.base import (
@@ -91,7 +91,7 @@ def _headers(locale: str) -> dict[str, str]:
         dict[str, str]: 请求头。
     """
     headers = {ACCEPT_LANGUAGE_HEADER: locale}
-    tenant = get_current_tenant()
+    tenant = get_current_tenant_code()
     if tenant:
         headers[TENANT_ID_HEADER] = tenant
     return headers
@@ -350,7 +350,7 @@ class HttpDictTranslator(BaseDictTranslator):
         """
         mapping: dict[str, str] = {value: value for value in query.values}
         pending: list[str] = list(query.values)
-        tenant = get_current_tenant()
+        tenant = get_current_tenant_code()
         if self._cache is not None and pending:
             cached = await self._cache.avalue_subset(tenant, query.locale, query.dict_type, pending)
             if cached:

@@ -18,7 +18,7 @@ from bms_core.idp.state.redis import RedisIdpStateStore
 @pytest.mark.kiwi_id(2197)
 def test_build_idp_state_key() -> None:
     """流程状态键形态：`bms:{租户}:idpstate:{state}`；无租户回落 global。"""
-    assert build_idp_state_key("abc", tenant="demo") == "bms:demo:idpstate:abc"
+    assert build_idp_state_key("abc", tenant_code="demo") == "bms:demo:idpstate:abc"
     assert build_idp_state_key("abc") == "bms:global:idpstate:abc"
     assert DEFAULT_IDP_STATE_TTL == 300
 
@@ -26,19 +26,19 @@ def test_build_idp_state_key() -> None:
 @pytest.mark.kiwi_id(2202)
 def test_build_idp_state_key_namespace() -> None:
     """命名空间：键形 `bms:{租户}:{命名空间}:{state}`；缺省 `idpstate` 行为不变。"""
-    assert build_idp_state_key("abc", tenant="demo", namespace="oidccode") == "bms:demo:oidccode:abc"
+    assert build_idp_state_key("abc", tenant_code="demo", namespace="oidccode") == "bms:demo:oidccode:abc"
     assert build_idp_state_key("abc", namespace="oidccode") == "bms:global:oidccode:abc"
-    assert build_idp_state_key("abc", tenant="demo") == "bms:demo:idpstate:abc"
+    assert build_idp_state_key("abc", tenant_code="demo") == "bms:demo:idpstate:abc"
 
 
 @pytest.mark.kiwi_id(2202)
 async def test_memory_store_namespace_isolation() -> None:
     """内存实现：同 state 不同命名空间互不影响。"""
     store = MemoryIdpStateStore()
-    await store.save("same", {"v": "code"}, tenant="demo", namespace="oidccode", ttl=60)
-    await store.save("same", {"v": "state"}, tenant="demo", namespace="idpstate", ttl=60)
-    assert await store.consume("same", tenant="demo", namespace="oidccode") == {"v": "code"}
-    assert await store.consume("same", tenant="demo", namespace="idpstate") == {"v": "state"}
+    await store.save("same", {"v": "code"}, tenant_code="demo", namespace="oidccode", ttl=60)
+    await store.save("same", {"v": "state"}, tenant_code="demo", namespace="idpstate", ttl=60)
+    assert await store.consume("same", tenant_code="demo", namespace="oidccode") == {"v": "code"}
+    assert await store.consume("same", tenant_code="demo", namespace="idpstate") == {"v": "state"}
 
 
 @pytest.mark.kiwi_id(2202)
@@ -46,10 +46,10 @@ async def test_redis_store_namespace_key() -> None:
     """Redis 实现：命名空间进入键形（`bms:{租户}:{命名空间}:{state}`）。"""
     client = fakeredis.aioredis.FakeRedis(decode_responses=True)
     store = RedisIdpStateStore(client=client)
-    await store.save("c1", {"v": 1}, tenant="demo", namespace="oidccode", ttl=60)
+    await store.save("c1", {"v": 1}, tenant_code="demo", namespace="oidccode", ttl=60)
     assert await client.get("bms:demo:oidccode:c1") is not None
-    assert await store.consume("c1", tenant="demo", namespace="oidccode") == {"v": 1}
-    assert await store.consume("c1", tenant="demo", namespace="idpstate") is None
+    assert await store.consume("c1", tenant_code="demo", namespace="oidccode") == {"v": 1}
+    assert await store.consume("c1", tenant_code="demo", namespace="idpstate") is None
     await store.aclose()
 
 
@@ -57,9 +57,9 @@ async def test_redis_store_namespace_key() -> None:
 async def test_memory_store_one_time_and_expiry() -> None:
     """内存实现：一次性消费、TTL 到期视作未命中、删除幂等与清空。"""
     store = MemoryIdpStateStore()
-    await store.save("s1", {"tenant": "demo", "nonce": "n1"}, tenant="demo", ttl=60)
-    assert await store.consume("s1", tenant="demo") == {"tenant": "demo", "nonce": "n1"}
-    assert await store.consume("s1", tenant="demo") is None
+    await store.save("s1", {"tenant": "demo", "nonce": "n1"}, tenant_code="demo", ttl=60)
+    assert await store.consume("s1", tenant_code="demo") == {"tenant": "demo", "nonce": "n1"}
+    assert await store.consume("s1", tenant_code="demo") is None
 
     await store.save("s2", {"tenant": "demo"}, ttl=0)
     assert await store.consume("s2") is None
@@ -79,11 +79,11 @@ async def test_redis_store_roundtrip_and_tenant_key() -> None:
     """Redis 实现（fakeredis）：存取 + 一次性 GETDEL + 租户键隔离 + 关闭。"""
     client = fakeredis.aioredis.FakeRedis(decode_responses=True)
     store = RedisIdpStateStore(client=client)
-    await store.save("r1", {"tenant": "demo", "nonce": "n"}, tenant="demo", ttl=60)
+    await store.save("r1", {"tenant": "demo", "nonce": "n"}, tenant_code="demo", ttl=60)
     assert await client.get("bms:demo:idpstate:r1") is not None
-    assert await store.consume("r1", tenant="demo") == {"tenant": "demo", "nonce": "n"}
-    assert await store.consume("r1", tenant="demo") is None
-    assert await store.consume("r1", tenant="other") is None
+    assert await store.consume("r1", tenant_code="demo") == {"tenant": "demo", "nonce": "n"}
+    assert await store.consume("r1", tenant_code="demo") is None
+    assert await store.consume("r1", tenant_code="other") is None
 
     await store.save("r2", {"x": 1}, ttl=0)
     assert await store.consume("r2") == {"x": 1}
@@ -104,7 +104,7 @@ async def test_redis_store_degrades_and_dirty_value() -> None:
             raise RuntimeError("redis down")
 
     store = RedisIdpStateStore(client=cast("object", _Broken()))  # type: ignore[arg-type]
-    assert await store.consume("x", tenant="demo") is None
+    assert await store.consume("x", tenant_code="demo") is None
 
     client = fakeredis.aioredis.FakeRedis(decode_responses=False)
     good = RedisIdpStateStore(client=client)
@@ -119,8 +119,8 @@ async def test_redis_store_degrades_and_dirty_value() -> None:
 async def test_null_store_behaviour() -> None:
     """Null 实现：写删空操作、消费恒定未命中（fail-closed）。"""
     store = NullIdpStateStore()
-    await store.save("n1", {"tenant": "demo"}, tenant="demo", ttl=60)
-    assert await store.consume("n1", tenant="demo") is None
+    await store.save("n1", {"tenant": "demo"}, tenant_code="demo", ttl=60)
+    assert await store.consume("n1", tenant_code="demo") is None
     await store.delete("n1")
     assert await store.consume("n1") is None
 

@@ -29,10 +29,10 @@ async def test_max_active_revokes_oldest(client: AsyncClient, service_app: FastA
         assert (await login(client)).status_code == 200
     oldest, second, newest = issuer.specs[-3].session_id, issuer.specs[-2].session_id, issuer.specs[-1].session_id
 
-    assert await store.load(oldest, tenant="demo") is None
+    assert await store.load(oldest, tenant_code="demo") is None
     assert await store.is_blacklisted(_blacklist_key(oldest)) is True
-    assert await store.load(second, tenant="demo") is not None
-    assert await store.load(newest, tenant="demo") is not None
+    assert await store.load(second, tenant_code="demo") is not None
+    assert await store.load(newest, tenant_code="demo") is not None
 
     listing = await client.get(API_SESSIONS, headers=TENANT_HEADERS)
     assert listing.json()["data"]["total"] == 2
@@ -45,8 +45,8 @@ async def test_max_active_default_five(client: AsyncClient, service_app: FastAPI
     for _ in range(6):
         assert (await login(client)).status_code == 200
 
-    assert await store.load(issuer.specs[-6].session_id, tenant="demo") is None
-    assert await store.load(issuer.specs[-1].session_id, tenant="demo") is not None
+    assert await store.load(issuer.specs[-6].session_id, tenant_code="demo") is None
+    assert await store.load(issuer.specs[-1].session_id, tenant_code="demo") is not None
     listing = await client.get(API_SESSIONS, headers=TENANT_HEADERS)
     assert listing.json()["data"]["total"] == 5
 
@@ -58,7 +58,7 @@ async def test_below_max_active_keeps_all(client: AsyncClient, service_app: Fast
     for _ in range(2):
         assert (await login(client)).status_code == 200
 
-    assert await store.load(issuer.specs[-2].session_id, tenant="demo") is not None
-    assert await store.load(issuer.specs[-1].session_id, tenant="demo") is not None
+    assert await store.load(issuer.specs[-2].session_id, tenant_code="demo") is not None
+    assert await store.load(issuer.specs[-1].session_id, tenant_code="demo") is not None
     listing = await client.get(API_SESSIONS, headers=TENANT_HEADERS)
     assert listing.json()["data"]["total"] == 2

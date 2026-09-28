@@ -3,7 +3,7 @@
 - `SqlDictSource`：`by_type`（版本比对三态 / 关键字 / 级联父值 / 按值子集 / 探针截断 / locale 回退）与
   `batch`（多类型合并、逐类型探针）；缓存两层（Redis 共享层 + 进程内 L1）经 `DictCacheRegion`。
 - `SqlDictTranslator`：与取数共用同一份缓存；子集命中直出、缺失一次 `IN` 回填（防 N+1）；未命中不占位。
-- 租户：实现侧从上下文解析（`current_tenant`，缺省 demo）并经 `EngineRegistry` 取租户库引擎；调用方不传租户。
+- 租户：实现侧从上下文解析（`current_tenant_code`，缺省 demo）并经 `EngineRegistry` 取租户库引擎；调用方不传租户。
 - locale：`by_type` 从 `current_dict_locale` 上下文解析（路由层按 `Accept-Language` 设置）；批量 / 翻译显式入参。
 - 降级：缓存异常由 Region 内部兜底（按未命中）；DB 异常抛字典错误码 `40101`；类型不存在 `40102`；语言不支持 `40103`。
 """

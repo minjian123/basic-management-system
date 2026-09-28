@@ -63,7 +63,7 @@ async def wire_login(
     await store.save(
         TEST_SESSION_ID,
         {"user_id": user_id, "tenant": TEST_TENANT},
-        tenant=TEST_TENANT,
+        tenant_code=TEST_TENANT,
     )
     wire_auth(app, issuer=issuer, org=org, store=store, limiter=limiter)
     recorder = publisher or RecordingRealtimePublisher()
