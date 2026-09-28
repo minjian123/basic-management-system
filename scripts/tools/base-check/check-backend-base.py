@@ -1,13 +1,17 @@
 #!/usr/bin/env python3
 """后端基座合规对账（bms 权威源侧，CI 与本地运行）。
 
-校验三项（《后端审计规范》B1 / B5 / B6 / B9 的机器化）：
+校验五项（《后端审计规范》B1 / B5 / B6 / B9 的机器化；直继承合法性见 09_01）：
 
 1. **继承链对账**：《后端基类清单》§10「继承链与代码位置」的 `A → B → …` 链条
-   ↔ 代码 `backend/libs/**` 与 `backend/services/**` 的 `class A(B)` 相邻关系；
-2. **错误码段位**：`bms_core/core/error_codes.py` 的平台码为 5 位且万位落在平台段（1~9）、
+   ↔ 代码 `backend/libs/**`、`backend/services/**` 与 `backend/ops/**` 的 `class A(B)` 相邻关系；
+2. **清单登记对账**：直接继承 `BaseObject` 的类必须出现在《后端基类清单》文本中；
+3. **直继承合法性（09_01，严禁上帝基类）**：除《后端基类清单》§10「体系根清单」登记的**体系根**
+   与 `deploy/boundaries/direct_base_object_baseline.json` **基线存量**外，**禁止直接继承 `BaseObject`**
+   （体系根必须承载本体系公共语义；存量按盘点报告分批归位并递减基线）；
+4. **错误码段位**：`bms_core/core/error_codes.py` 的平台码为 5 位且万位落在平台段（1~9）、
    无产品段（10xxxx 起）混入；
-3. **迁移链完整**：`backend/alembic/versions/<链名>/` 按数据源分链——每链恰好一个 head、
+5. **迁移链完整**：`backend/alembic/versions/<链名>/` 按数据源分链——每链恰好一个 head、
    无断链、revision 跨链唯一、链首声明 `branch_labels=("<链名>",)`，且该链在 `alembic.ini`
    登记配置段 `[alembic:<链名>]`（空链允许，脚本不得存放于版本根目录）。
 
@@ -16,18 +20,26 @@
     python3 scripts/tools/base-check/check-backend-base.py [bms 仓库根]
 """
 
+import json
 import os
 import re
 import sys
+from collections.abc import Sequence
+from datetime import date
 
 ROOT = os.path.abspath(sys.argv[1] if len(sys.argv) > 1 else ".")
 MANIFEST = os.path.join(ROOT, "bms文档/后端基类清单.md")
 SOURCE_DIRS = (
     os.path.join(ROOT, "backend/libs"),
     os.path.join(ROOT, "backend/services"),
+    os.path.join(ROOT, "backend/ops"),
 )
 ERROR_CODES = os.path.join(ROOT, "backend/libs/bms_core/src/bms_core/core/error_codes.py")
 VERSIONS_DIR = os.path.join(ROOT, "backend/alembic/versions")
+DIRECT_BASELINE = os.path.join(ROOT, "deploy/boundaries/direct_base_object_baseline.json")
+"""直继承存量基线快照（09_01；未归位的历史直继承类豁免并递减）。"""
+ROOT_BASES_MARKER = "体系根清单"
+"""《后端基类清单》§10 内「体系根清单」小节标记（白名单权威来源）。"""
 
 problems: list[str] = []
 checked_chains = 0
@@ -124,6 +136,102 @@ def check_manifest_coverage(index: dict[str, list[list[str]]]) -> int:
         if not re.search(rf"\b{name}\b", manifest_text):
             problems.append(f"[清单对账] 直接继承 BaseObject 的 `{name}` 未在《后端基类清单》登记")
     return len(classes)
+
+
+def parse_root_bases() -> Sequence[str]:
+    """解析《后端基类清单》§10「体系根清单」小节的体系根类名（白名单）。
+
+    Returns:
+        Sequence[str]: 允许直接继承 `BaseObject` 的体系根类名（稳定序；小节缺失时为空）。
+    """
+    text = open(MANIFEST, encoding="utf-8").read()
+    if "## 10." in text and "## 11." in text:
+        section = text[text.index("## 10.") : text.index("## 11.")]
+    else:
+        section = text
+    marker_index = section.find(ROOT_BASES_MARKER)
+    if marker_index < 0:
+        return set()
+    roots: set[str] = set()
+    for raw_line in section[marker_index:].splitlines()[1:]:
+        line = raw_line.strip()
+        if not line:
+            continue
+        if not line.startswith("- "):
+            break
+        match = re.match(r"-\s*`([A-Za-z_][A-Za-z0-9_]*)`", line)
+        if match:
+            roots.add(match.group(1))
+    return tuple(sorted(roots))
+
+
+def load_direct_baseline() -> Sequence[tuple[str, str]]:
+    """读取直继承存量基线快照（`(相对文件, 类名)` 条目；缺文件视为空基线）。
+
+    Returns:
+        Sequence[tuple[str, str]]: 基线条目（稳定序）。
+    """
+    if not os.path.isfile(DIRECT_BASELINE):
+        return ()
+    try:
+        payload = json.loads(open(DIRECT_BASELINE, encoding="utf-8").read())
+    except (OSError, json.JSONDecodeError) as exc:
+        problems.append(f"[直继承] 基线快照不可解析：{DIRECT_BASELINE}（{exc}）")
+        return ()
+    if not isinstance(payload, dict) or payload.get("version") != 1:
+        problems.append(f"[直继承] 基线快照版本非法（须为 1）：{DIRECT_BASELINE}")
+        return ()
+    entries = payload.get("entries")
+    if not isinstance(entries, list):
+        problems.append(f"[直继承] 基线快照 entries 非法（须为数组）：{DIRECT_BASELINE}")
+        return ()
+    baseline: set[tuple[str, str]] = set()
+    for entry in entries:
+        if not isinstance(entry, dict) or "file" not in entry or "class" not in entry:
+            problems.append(f"[直继承] 基线快照条目非法（须含 file / class）：{DIRECT_BASELINE}")
+            continue
+        baseline.add((str(entry["file"]), str(entry["class"])))
+    return tuple(sorted(baseline))
+
+
+def scan_direct_base_object() -> Sequence[tuple[str, str]]:
+    """扫描直接继承 `BaseObject` 的类（返回 `(相对文件, 类名)`，排除测试目录）。"""
+    found: list[tuple[str, str]] = []
+    for source_dir in SOURCE_DIRS:
+        for dp, _, files in os.walk(source_dir):
+            if "__pycache__" in dp or "tests" in dp.split(os.sep):
+                continue
+            for name in files:
+                if not name.endswith(".py"):
+                    continue
+                path = os.path.join(dp, name)
+                text = open(path, encoding="utf-8", errors="ignore").read()
+                for cls, bases in CLASS_RE.findall(text):
+                    parents = [
+                        re.sub(r"\[.*\]", "", b.strip().split(".")[-1]) for b in bases.split(",") if b.strip()
+                    ]
+                    if "BaseObject" in parents:
+                        found.append((os.path.relpath(path, ROOT), cls))
+    return found
+
+
+def check_direct_inheritance() -> int:
+    """直继承合法性（09_01）：除体系根（清单白名单）与基线存量外，禁止直接继承 `BaseObject`。"""
+    roots = parse_root_bases()
+    if not roots:
+        problems.append(
+            f"[直继承] 《后端基类清单》§10 未登记「{ROOT_BASES_MARKER}」小节（白名单缺失，按拒绝处理）"
+        )
+        return 0
+    baseline = load_direct_baseline()
+    found = scan_direct_base_object()
+    for rel, cls in found:
+        if cls in roots or (rel, cls) in baseline:
+            continue
+        problems.append(
+            f"[直继承] `{cls}` 直接继承 BaseObject（{rel}）：仅体系根可直继承，请归位到所属体系基类"
+        )
+    return len(found)
 
 
 def check_error_segments() -> int:
@@ -278,16 +386,16 @@ def self_test() -> int:
         os.makedirs(os.path.join(tmp, "backend/libs/bms_core/src/bms_core/core"), exist_ok=True)
         os.makedirs(os.path.join(tmp, "backend/libs/bms_core/src/bms_core/services"), exist_ok=True)
         os.makedirs(os.path.join(tmp, "backend/alembic/versions/tenant/tenant"), exist_ok=True)
+        os.makedirs(os.path.join(tmp, "deploy/boundaries"), exist_ok=True)
         open(
             os.path.join(tmp, "backend/libs/bms_core/src/bms_core/services/module_registry.py"),
             "w",
             encoding="utf-8",
         ).write('SERVICE_CATALOG = (\n    dict(module_key="tenant", service_key="tenant"),\n)\n')
-        open(os.path.join(tmp, "bms文档/后端基类清单.md"), "w", encoding="utf-8").write(
-            "# 清单\n\n## 10. 继承链与代码位置\n\n- `BadChild → BaseObject`。\n\n## 11. 扩展\n"
-        )
         open(os.path.join(tmp, "backend/libs/bms_core/src/bms_core/core/probe.py"), "w", encoding="utf-8").write(
-            "class BaseObject:\n    pass\n\n\nclass BadChild(BaseObject):  # 多父类违规样例：清单要求直接 BaseObject 时会漏检——反向样例\n    pass\n\n\nclass Orphan:\n    pass\n"
+            "class BaseObject:\n    pass\n\n\nclass BaseValueObject(BaseObject):\n    pass\n\n\n"
+            "class StrayChild(BaseObject):  # 非体系根直继承样例（应拦截或按基线豁免）\n    pass\n\n\n"
+            "class Orphan:\n    pass\n"
         )
         open(os.path.join(tmp, "backend/libs/bms_core/src/bms_core/core/error_codes.py"), "w", encoding="utf-8").write(
             'class ErrorCode:\n    OK = 10001\n'
@@ -301,6 +409,25 @@ def self_test() -> int:
             'revision: str = "0001_demo"\ndown_revision: str | None = None\n'
             'branch_labels: tuple[str, ...] | None = ("tenant:tenant",)\n'
         )
+
+        def write_manifest(*, chains: str = "", roots: tuple[str, ...] = ("BaseValueObject",)) -> None:
+            root_lines = "\n".join(f"- `{name}`：测试体系" for name in roots)
+            open(os.path.join(tmp, "bms文档/后端基类清单.md"), "w", encoding="utf-8").write(
+                "# 清单\n\n## 10. 继承链与代码位置\n\n"
+                f"**{ROOT_BASES_MARKER}（允许直接继承 `BaseObject`）**：\n\n{root_lines}\n\n{chains}\n\n## 11. 扩展\n"
+            )
+
+        def write_baseline(entries: Sequence[tuple[str, str]]) -> None:
+            payload = {
+                "version": 1,
+                "generated_at": "2026-10-08",
+                "entries": [
+                    {"file": rel, "class": cls, "target_system": "value_object", "count": 1} for rel, cls in entries
+                ],
+            }
+            open(
+                os.path.join(tmp, "deploy/boundaries/direct_base_object_baseline.json"), "w", encoding="utf-8"
+            ).write(json.dumps(payload, ensure_ascii=False))
 
         def run_case(name: str, expect_fail: bool) -> None:
             nonlocal ok
@@ -316,25 +443,31 @@ def self_test() -> int:
             ok = ok and passed
             print(f"  [self-test] {name}：{'通过' if passed else '不通过'}（期望{'拦截' if expect_fail else '放行'}，实际{'拦截' if failed else '放行'}）")
 
-        # 1) 正向：清单链与代码一致 → 放行
-        run_case("清单与代码一致", expect_fail=False)
-        # 2) 反向：清单登记未存在的类 → 拦截（继承链缺类）
-        open(os.path.join(tmp, "bms文档/后端基类清单.md"), "w", encoding="utf-8").write(
-            "# 清单\n\n## 10. 继承链与代码位置\n\n- `GhostClass → BaseObject`。\n\n## 11. 扩展\n"
-        )
-        run_case("清单登记未存在的类", expect_fail=True)
-        # 3) 错误码越段（100001 / 万位 0）→ 拦截
+        probe = "backend/libs/bms_core/src/bms_core/core/probe.py"
+        # 1) 正向：清单链一致 + 体系根放行 + 非体系根直继承入基线 → 放行
+        write_manifest(chains="- `StrayChild → BaseObject`。")
+        write_baseline([(probe, "StrayChild")])
+        run_case("清单一致 / 体系根放行 / 基线豁免", expect_fail=False)
+        # 2) 非体系根直继承且未入基线 → 拦截
+        write_baseline([])
+        run_case("非体系根直继承未入基线", expect_fail=True)
+        # 3) 体系根清单小节缺失（白名单为空）→ 拦截
         open(os.path.join(tmp, "bms文档/后端基类清单.md"), "w", encoding="utf-8").write(
             "# 清单\n\n## 10. 继承链与代码位置\n\n## 11. 扩展\n"
         )
+        run_case("体系根清单缺失", expect_fail=True)
+        # 4) 清单登记未存在的类 → 拦截（继承链缺类）
+        write_manifest(chains="- `GhostClass → BaseObject`。")
+        write_baseline([(probe, "StrayChild")])
+        run_case("清单登记未存在的类", expect_fail=True)
+        # 5) 错误码越段（100001 / 万位 0）→ 拦截
+        write_manifest()
         open(os.path.join(tmp, "backend/libs/bms_core/src/bms_core/core/error_codes.py"), "w", encoding="utf-8").write(
             'class ErrorCode:\n    OK = 10001\n    BAD = 100001\n'
         )
         run_case("错误码越段", expect_fail=True)
-        # 4) 迁移链分链合规（单 head + 链首分支标签 + 配置段）→ 放行
-        open(os.path.join(tmp, "bms文档/后端基类清单.md"), "w", encoding="utf-8").write(
-            "# 清单\n\n## 10. 继承链与代码位置\n\n- `BadChild → BaseObject`。\n\n## 11. 扩展\n"
-        )
+        # 6) 迁移链分链合规（单 head + 链首分支标签 + 配置段）→ 放行
+        write_manifest(chains="- `StrayChild → BaseObject`。")
         open(os.path.join(tmp, "backend/libs/bms_core/src/bms_core/core/error_codes.py"), "w", encoding="utf-8").write(
             'class ErrorCode:\n    OK = 10001\n'
         )
@@ -350,24 +483,71 @@ def self_test() -> int:
     return 0 if ok else 1
 
 
+def _class_kind(path: str, class_name: str) -> str:
+    """判定直继承类的拟归位体系（基线登记用）：frozen dataclass / dataclass / 普通类。"""
+    import ast
+
+    try:
+        tree = ast.parse(open(path, encoding="utf-8", errors="ignore").read())
+    except (OSError, SyntaxError):
+        return "unknown"
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.ClassDef) or node.name != class_name:
+            continue
+        for decorator in node.decorator_list:
+            if isinstance(decorator, ast.Name) and decorator.id == "dataclass":
+                return "data_contract"
+            if isinstance(decorator, ast.Call) and getattr(decorator.func, "id", "") == "dataclass":
+                frozen = any(k.arg == "frozen" and getattr(k.value, "value", False) for k in decorator.keywords)
+                return "value_object" if frozen else "data_contract"
+        return "framework_object"
+    return "unknown"
+
+
+def update_direct_baseline() -> int:
+    """按当前扫描结果重写直继承存量基线快照（体系根不入基线；已完成归位者自然递减）。"""
+    roots = parse_root_bases()
+    entries: list[dict[str, object]] = []
+    for rel, cls in sorted(set(scan_direct_base_object())):
+        if cls in roots:
+            continue
+        entries.append(
+            {
+                "file": rel,
+                "class": cls,
+                "target_system": _class_kind(os.path.join(ROOT, rel), cls),
+                "count": 1,
+            }
+        )
+    payload = {"version": 1, "generated_at": date.today().isoformat(), "entries": entries}
+    os.makedirs(os.path.dirname(DIRECT_BASELINE), exist_ok=True)
+    open(DIRECT_BASELINE, "w", encoding="utf-8").write(json.dumps(payload, ensure_ascii=False, indent=2) + "\n")
+    print(f"[check-backend-base] 直继承基线已更新：{len(entries)} 条 → {os.path.relpath(DIRECT_BASELINE, ROOT)}")
+    return 0
+
+
 def main() -> int:
     if "--self-test" in sys.argv:
         return self_test()
+    if "--update-baseline" in sys.argv:
+        return update_direct_baseline()
     index = index_classes()
     chains = check_inheritance(index)
     covered = check_manifest_coverage(index)
+    direct = check_direct_inheritance()
     codes = check_error_segments()
     revs = check_alembic_chain()
     print(f"1. 继承链对账：检查 {chains} 条相邻关系（清单 §10 ↔ 代码）")
     print(f"2. 清单对账（补充）：直接继承 BaseObject 的 {covered} 个基座类均已登记")
-    print(f"3. 错误码段位：检查 {codes} 个平台码")
-    print(f"4. 迁移链：检查 {revs} 个 revision")
+    print(f"3. 直继承合法性：检查 {direct} 个直接继承 BaseObject 的类（体系根 / 基线放行）")
+    print(f"4. 错误码段位：检查 {codes} 个平台码")
+    print(f"5. 迁移链：检查 {revs} 个 revision")
     if problems:
         print(f"\n[check-backend-base] 不通过：{len(problems)} 项")
         for problem in problems:
             print("  " + problem)
         return 1
-    print("\n[check-backend-base] 通过：继承链 / 错误码段位 / 迁移链全部对齐。")
+    print("\n[check-backend-base] 通过：继承链 / 清单登记 / 直继承合法性 / 错误码段位 / 迁移链全部对齐。")
     return 0
 
 

@@ -31,9 +31,9 @@ from typing import Any
 from sqlalchemy import BigInteger, Connection, DateTime, Integer, MetaData, event
 from sqlalchemy.orm import DeclarativeBase, Mapped, Mapper, mapped_column
 
-from bms_core.core.base import BaseObject
 from bms_core.core.context import current_user_id
 from bms_core.core.id import id_generator
+from bms_core.core.objects import BaseDataContract
 
 
 def _utc_now() -> datetime:
@@ -55,7 +55,7 @@ class Base(DeclarativeBase):
     metadata = MetaData(naming_convention={"ix": "idx_%(table_name)s_%(column_0_name)s"})
 
 
-class BaseModel(Base, BaseObject):
+class BaseModel(Base, BaseDataContract):
     """ORM 模型基类（L0）：每表必备字段与约定，模块模型继承之。
 
     - `id`：雪花 ID（BIGINT，应用侧生成，禁用数据库自增列）

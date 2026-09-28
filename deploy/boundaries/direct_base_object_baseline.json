@@ -1,0 +1,966 @@
+{
+  "version": 1,
+  "generated_at": "2026-09-28",
+  "entries": [
+    {
+      "file": "backend/libs/bms_core/src/bms_core/api/base.py",
+      "class": "AuthContext",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/api/base.py",
+      "class": "RouterRegistry",
+      "target_system": "framework_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/api/middleware.py",
+      "class": "EdgeGuardMiddleware",
+      "target_system": "framework_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/api/middleware.py",
+      "class": "ReadOnlyMiddleware",
+      "target_system": "framework_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/api/middleware.py",
+      "class": "RequestLoggingMiddleware",
+      "target_system": "framework_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/api/middleware.py",
+      "class": "TenantMiddleware",
+      "target_system": "framework_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/api/middleware.py",
+      "class": "TraceIdMiddleware",
+      "target_system": "framework_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/archive/base.py",
+      "class": "ArchiveResult",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/audit/base.py",
+      "class": "FieldChange",
+      "target_system": "data_contract",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/audit/hashchain.py",
+      "class": "ChainVerifyResult",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/audit/hashchain.py",
+      "class": "HashChainEntry",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/boundary/assess.py",
+      "class": "OwnershipViolation",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/boundary/base.py",
+      "class": "OwnershipStats",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/boundary/exceptions.py",
+      "class": "OwnershipException",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/boundary/sql.py",
+      "class": "TableRef",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/captcha/base.py",
+      "class": "CaptchaChallenge",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/captcha/base.py",
+      "class": "CaptchaCredential",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/captcha/base.py",
+      "class": "CaptchaScenePolicy",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/captcha/default.py",
+      "class": "CaptchaImageOptions",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/captcha/default.py",
+      "class": "CaptchaSliderOptions",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/captcha/default.py",
+      "class": "CaptchaSmsOptions",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/chat/base.py",
+      "class": "ChatStreamHandle",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/config/seed.py",
+      "class": "SeedConfig",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/config/service.py",
+      "class": "ConfigService",
+      "target_system": "framework_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/core/assembly.py",
+      "class": "PluginWiring",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/core/base.py",
+      "class": "ValueHolder",
+      "target_system": "framework_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/core/exceptions.py",
+      "class": "BizError",
+      "target_system": "framework_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/core/id.py",
+      "class": "SnowflakeGenerator",
+      "target_system": "framework_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/core/locking.py",
+      "class": "LockGuard",
+      "target_system": "framework_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/core/locking.py",
+      "class": "ReadWriteLock",
+      "target_system": "framework_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/core/plugin.py",
+      "class": "PluginRegistry",
+      "target_system": "framework_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/core/redis_collections.py",
+      "class": "RedisSnapshot",
+      "target_system": "framework_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/core/redis_collections.py",
+      "class": "RedisSortedDict",
+      "target_system": "framework_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/core/redis_collections.py",
+      "class": "RedisSortedSet",
+      "target_system": "framework_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/core/resources.py",
+      "class": "ResourceManager",
+      "target_system": "framework_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/core/service.py",
+      "class": "ServiceIdentity",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/core/service.py",
+      "class": "ServiceRuntime",
+      "target_system": "framework_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/db/admin.py",
+      "class": "DatabaseTarget",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/db/inventory.py",
+      "class": "DbCount",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/db/keys.py",
+      "class": "DbKey",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/db/migration.py",
+      "class": "MigrationChain",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/db/registry.py",
+      "class": "PoolBudgetRow",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/db/sync.py",
+      "class": "SyncSession",
+      "target_system": "framework_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/db/sync.py",
+      "class": "_SyncTransaction",
+      "target_system": "framework_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/db/tenant.py",
+      "class": "TenantContext",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/db/tenant_registry.py",
+      "class": "TenantSnapshot",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/db/tenant_remote.py",
+      "class": "RemoteTenantSource",
+      "target_system": "framework_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/dict/query.py",
+      "class": "DictQueryService",
+      "target_system": "framework_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/dict/seed.py",
+      "class": "SeedAttr",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/dict/seed.py",
+      "class": "SeedItem",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/dict/seed.py",
+      "class": "SeedType",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/dict/service.py",
+      "class": "DictService",
+      "target_system": "framework_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/edge/base.py",
+      "class": "EdgeIdentity",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/edge/base.py",
+      "class": "EdgeTrustDecision",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/events/base.py",
+      "class": "EventEnvelope",
+      "target_system": "data_contract",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/events/contracts.py",
+      "class": "EventContract",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/events/contracts.py",
+      "class": "EventContractRegistry",
+      "target_system": "framework_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/events/contracts.py",
+      "class": "EventFieldSpec",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/events/contracts.py",
+      "class": "EventSubscription",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/health/base.py",
+      "class": "HealthCheckReport",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/health/base.py",
+      "class": "HealthCheckResult",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/idp/base.py",
+      "class": "IdentityClaims",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/idp/base.py",
+      "class": "IdentityToken",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/idp/base.py",
+      "class": "IdentityUser",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/idp/base.py",
+      "class": "IdpProbeResult",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/idp/jwks.py",
+      "class": "JwksCache",
+      "target_system": "framework_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/idp/registry.py",
+      "class": "IdentityProviderRegistry",
+      "target_system": "framework_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/idp/registry.py",
+      "class": "IdentityProviderSpec",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/idp/schema.py",
+      "class": "_KeyRule",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/idp/state/base.py",
+      "class": "IdpFlowState",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/llm/base.py",
+      "class": "ChatMessage",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/llm/base.py",
+      "class": "ChatResult",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/llm/base.py",
+      "class": "EmbeddingResult",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/llm/base.py",
+      "class": "OcrResult",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/masking/base.py",
+      "class": "MaskRule",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/masking/default.py",
+      "class": "MaskSpec",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/masking/default.py",
+      "class": "MaskerOptions",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/notify/base.py",
+      "class": "NotificationMessage",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/notify/base.py",
+      "class": "SendResult",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/oauth/base.py",
+      "class": "ClientCredentials",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/oauth/base.py",
+      "class": "OAuthToken",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/oauth/keys.py",
+      "class": "TokenKey",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/oauth/oidc_provider.py",
+      "class": "AccessTokenSpec",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/oauth/oidc_provider.py",
+      "class": "IdTokenSpec",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/oauth/oidc_provider.py",
+      "class": "OidcAccessClaims",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/oauth/token.py",
+      "class": "ServiceTokenSpec",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/oauth/user_token.py",
+      "class": "UserTokenPair",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/oauth/user_token.py",
+      "class": "UserTokenSpec",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/oauth/verify.py",
+      "class": "VerifiedToken",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/outbound/http.py",
+      "class": "HttpResponse",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/outbound/webhook.py",
+      "class": "WebhookResult",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/outbox/base.py",
+      "class": "DeadLetterRecord",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/outbox/base.py",
+      "class": "DispatchResult",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/outbox/base.py",
+      "class": "OutboxRecord",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/outbox/consumed.py",
+      "class": "ProcessedEventStore",
+      "target_system": "framework_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/query/base.py",
+      "class": "QueryResult",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/ratelimit/base.py",
+      "class": "RateLimitDecision",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/ratelimit/base.py",
+      "class": "RateLimitRule",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/replay/base.py",
+      "class": "ReplayDecision",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/saga/base.py",
+      "class": "SagaDefinition",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/saga/base.py",
+      "class": "SagaStep",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/saga/base.py",
+      "class": "SagaStepOutcome",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/schemas/cursor.py",
+      "class": "CursorPayload",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/scope/base.py",
+      "class": "ScopeCondition",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/search/base.py",
+      "class": "SearchDocument",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/search/base.py",
+      "class": "SearchHit",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/search/base.py",
+      "class": "SearchQuery",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/search/base.py",
+      "class": "SearchResult",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/servicecall/base.py",
+      "class": "ServiceCallPolicy",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/servicecall/base.py",
+      "class": "ServiceRequest",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/servicecall/base.py",
+      "class": "ServiceResponse",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/services/module_registry.py",
+      "class": "ModuleRecord",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/services/module_registry.py",
+      "class": "ModuleRegistry",
+      "target_system": "framework_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/services/table_registry.py",
+      "class": "TableOwnershipRegistry",
+      "target_system": "framework_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/services/table_registry.py",
+      "class": "TableRecord",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/sharding/base.py",
+      "class": "ShardBinding",
+      "target_system": "data_contract",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/storage/base.py",
+      "class": "PresignedUrl",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/storage/base.py",
+      "class": "StoredObject",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/tracing/base.py",
+      "class": "SpanContext",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/transfer/base.py",
+      "class": "ColumnSpec",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/transfer/importer.py",
+      "class": "ImportResult",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/transfer/importer.py",
+      "class": "RowError",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/transfer/null.py",
+      "class": "_EmptyExporterStream",
+      "target_system": "framework_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/workflow/base.py",
+      "class": "ProcessDefinition",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/workflow/base.py",
+      "class": "ProcessInstance",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/workflow/base.py",
+      "class": "WorkflowTask",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/ws/base.py",
+      "class": "RealtimeEvent",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/ops/init_tenant.py",
+      "class": "InitResult",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/ops/migrate_tenants.py",
+      "class": "MigrationSummary",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/ops/migrate_tenants.py",
+      "class": "MigrationTask",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/ops/provision_tenant.py",
+      "class": "ProvisionTask",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/services/auth.py",
+      "class": "LoginOutcome",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/services/auth.py",
+      "class": "LoginService",
+      "target_system": "framework_object",
+      "count": 1
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/services/auth.py",
+      "class": "RefreshOutcome",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/services/clients.py",
+      "class": "ClientSecret",
+      "target_system": "framework_object",
+      "count": 1
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/services/clients.py",
+      "class": "ClientService",
+      "target_system": "framework_object",
+      "count": 1
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/services/identity_providers.py",
+      "class": "IdentityProviderService",
+      "target_system": "framework_object",
+      "count": 1
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/services/jit.py",
+      "class": "ExternalIdentity",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/services/jit.py",
+      "class": "JitResult",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/services/jit.py",
+      "class": "JitService",
+      "target_system": "framework_object",
+      "count": 1
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/services/oidc_provider.py",
+      "class": "AuthorizeResult",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/services/oidc_provider.py",
+      "class": "OidcCode",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/services/oidc_provider.py",
+      "class": "OidcProviderService",
+      "target_system": "framework_object",
+      "count": 1
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/services/oidc_provider.py",
+      "class": "TokenResult",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/services/oidc_provider.py",
+      "class": "UserInfoResult",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/services/org_client.py",
+      "class": "OrgCredentialClient",
+      "target_system": "framework_object",
+      "count": 1
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/services/password_reset.py",
+      "class": "PasswordResetService",
+      "target_system": "framework_object",
+      "count": 1
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/services/provider_registry.py",
+      "class": "ProviderRegistry",
+      "target_system": "framework_object",
+      "count": 1
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/services/session.py",
+      "class": "SessionRevokeResult",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/services/session.py",
+      "class": "SessionService",
+      "target_system": "framework_object",
+      "count": 1
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/services/session_issuer.py",
+      "class": "IssuedSession",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/services/session_issuer.py",
+      "class": "SessionIssuer",
+      "target_system": "framework_object",
+      "count": 1
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/services/sso.py",
+      "class": "SsoAuthorizeResult",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/services/sso.py",
+      "class": "SsoLoginResult",
+      "target_system": "value_object",
+      "count": 1
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/services/sso.py",
+      "class": "SsoService",
+      "target_system": "framework_object",
+      "count": 1
+    },
+    {
+      "file": "backend/services/org/src/bms_org/services/account_lock.py",
+      "class": "AccountLockService",
+      "target_system": "framework_object",
+      "count": 1
+    },
+    {
+      "file": "backend/services/org/src/bms_org/services/users.py",
+      "class": "UserProfileService",
+      "target_system": "framework_object",
+      "count": 1
+    },
+    {
+      "file": "backend/services/org/src/bms_org/services/users.py",
+      "class": "UserResetTargetService",
+      "target_system": "framework_object",
+      "count": 1
+    },
+    {
+      "file": "backend/services/tenant/src/bms_tenant/repositories/tenant_registry.py",
+      "class": "TenantRegistryRepository",
+      "target_system": "framework_object",
+      "count": 1
+    },
+    {
+      "file": "backend/services/tenant/src/bms_tenant/sources/tenant_source.py",
+      "class": "LocalTenantSource",
+      "target_system": "framework_object",
+      "count": 1
+    }
+  ]
+}

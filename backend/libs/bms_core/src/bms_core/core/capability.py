@@ -11,10 +11,10 @@ from abc import ABC, abstractmethod
 from types import TracebackType
 from typing import Self
 
-from bms_core.core.base import BaseObject
+from bms_core.core.objects import BaseFrameworkObject
 
 
-class BasePlaceholder(BaseObject):
+class BasePlaceholder(BaseFrameworkObject):
     """占位实现公共父：标记"未接真实实现"，便于启动校验与测试断言。"""
 
     placeholder: bool = True
@@ -48,13 +48,13 @@ class BaseStub(BasePlaceholder, ABC):
         return NotImplementedError(f"{type(self).__name__} 尚未实现{detail}")
 
 
-class BaseCapability(BaseObject, ABC):
+class BaseCapability(BaseFrameworkObject, ABC):
     """能力域契约中间层：统一能力域标识（供注册 / 依赖注入 / 文档对齐）。"""
 
     key: str = "capability"
 
 
-class BaseAsyncResource(BaseObject, ABC):
+class BaseAsyncResource(BaseFrameworkObject, ABC):
     """异步资源生命周期基类：统一释放与 `async with`。"""
 
     @abstractmethod

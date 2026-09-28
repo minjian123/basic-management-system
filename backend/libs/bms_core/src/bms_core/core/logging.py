@@ -20,7 +20,6 @@ from typing import Any, cast
 import structlog
 from structlog.typing import EventDict, Processor, WrappedLogger
 
-from bms_core.core.base import BaseObject
 from bms_core.core.config import Settings
 from bms_core.core.context import (
     current_user_id,
@@ -29,6 +28,7 @@ from bms_core.core.context import (
     get_current_tenant,
     get_current_trace_id,
 )
+from bms_core.core.objects import BaseFrameworkObject
 
 _HANDLER_MARKER = "_bms_structlog"
 _MASK = "***"
@@ -135,7 +135,7 @@ def _redact_sensitive(_logger: WrappedLogger, _name: str, event_dict: EventDict)
     return event_dict
 
 
-class BaseLogger(BaseObject, ABC):
+class BaseLogger(BaseFrameworkObject, ABC):
     """日志门面中间层基类：统一日志接入点与上下文绑定。"""
 
     @abstractmethod
