@@ -30,7 +30,7 @@ class _Source:
     """内存租户源替身（单演示租户）。"""
 
     def __init__(self, tenants: list[TenantContext]) -> None:
-        self.tenants = {tenant.tenant_code: tenant for tenant in tenants}
+        self.tenants = {tenant.code: tenant for tenant in tenants}
 
     async def by_code(self, code: str) -> TenantContext:
         """按编码取租户。"""
@@ -91,7 +91,7 @@ async def test_session_routes_by_tenant_db_key(tmp_path: Path) -> None:
     settings.tenant.allow_demo_fallback = False
     settings.tenant.exempt_paths = ["/platform-db"]
     registry = EngineRegistry(EngineFactory(settings))
-    source = _Source([TenantContext(tenant_code="demo", db_key="tenant_demo", name="演示租户")])
+    source = _Source([TenantContext(code="demo", db_key="tenant_demo", name="演示租户")])
 
     app = FastAPI()
     app.state.settings = settings
@@ -245,7 +245,7 @@ async def test_tenant_filter_condition_injection() -> None:
     await repo.create(tenant_id=1)
     await repo.create(tenant_id=2)
 
-    token = set_tenant_context(TenantContext(tenant_code="demo", db_key="tenant_demo", name="演示租户", tenant_id=1))
+    token = set_tenant_context(TenantContext(code="demo", db_key="tenant_demo", name="演示租户", tenant_id=1))
     try:
         assert [item.tenant_id for item in await repo.list()] == [1]
         assert await repo.count() == 1
@@ -263,7 +263,7 @@ async def test_tenant_filter_condition_injection() -> None:
     plain = _PlainRepo()
     await plain.create(tenant_id=1)
     await plain.create(tenant_id=2)
-    token = set_tenant_context(TenantContext(tenant_code="demo", db_key="tenant_demo", name="演示租户", tenant_id=1))
+    token = set_tenant_context(TenantContext(code="demo", db_key="tenant_demo", name="演示租户", tenant_id=1))
     try:
         assert await plain.count() == 2  # 未启用租户隔离：不注入
     finally:

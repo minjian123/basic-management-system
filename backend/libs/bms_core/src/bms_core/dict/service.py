@@ -315,7 +315,7 @@ class DictService(BaseFrameworkObject):
         Args:
             dict_type: 字典类型码。
         """
-        tenant = current_tenant_context().tenant_code
+        tenant = current_tenant_context().code
         for locale in SUPPORTED_LOCALES:
             await self._cache.adrop_type(tenant, locale, dict_type)
             self._cache.delete(self._cache.value_key(tenant, locale, dict_type))

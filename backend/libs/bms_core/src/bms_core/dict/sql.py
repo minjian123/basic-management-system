@@ -93,7 +93,7 @@ class SqlDictSource(BaseDictSource):
             BizError: 40102 类型不存在 / 40103 语言不支持 / 40101 数据源不可用。
         """
         locale = _current_locale()
-        tenant = current_tenant_context().tenant_code
+        tenant = current_tenant_context().code
         version = await self._cache.aversion(tenant)
         if query.version is not None and query.version == version:
             return DictTypeResult(version=version, items=None)
@@ -137,7 +137,7 @@ class SqlDictSource(BaseDictSource):
         locale = query.locale or DEFAULT_LOCALE
         _ensure_supported_locale(locale)
         types = list(dict.fromkeys(query.types))
-        tenant = current_tenant_context().tenant_code
+        tenant = current_tenant_context().code
         version = await self._cache.aversion(tenant)
         results: dict[str, DictTypeResult | None] = {}
         pending: list[str] = []
@@ -261,7 +261,7 @@ class SqlDictTranslator(BaseDictTranslator):
         values = list(dict.fromkeys(query.values))
         if not values:
             return {}
-        tenant = current_tenant_context().tenant_code
+        tenant = current_tenant_context().code
         cached = await self._cache.avalue_subset(tenant, locale, query.dict_type, values)
         missing = [value for value in values if value not in cached]
         if missing:

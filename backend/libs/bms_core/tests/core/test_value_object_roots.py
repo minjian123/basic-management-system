@@ -492,12 +492,14 @@ def test_decision_chain_allows_unified_field_name() -> None:
 
 
 @pytest.mark.kiwi_id(2216)
-def test_tenant_view_code_field_points_to_real_field() -> None:
-    """租户视图层：`CODE_FIELD` 统一映射声明指向真实 dataclass 字段（映射不落空、可读取）。"""
+def test_tenant_view_code_is_common_field() -> None:
+    """租户视图层：租户**自身**编码统一为 `code`（进公共段，`CODE_FIELD` 已退场）。"""
+    assert "code" in BaseTenantViewContract.COMMON_FIELDS
+    assert not hasattr(BaseTenantViewContract, "CODE_FIELD")
     for member in (TenantContext, TenantSnapshot):
-        assert member.CODE_FIELD in {field.name for field in dataclasses.fields(member)}
-    context = TenantContext(tenant_code="demo", db_key="tenant_demo", name="演示租户")
-    assert getattr(context, context.CODE_FIELD) == "demo"
+        assert "code" in {field.name for field in dataclasses.fields(member)}
+        assert "tenant_code" not in {field.name for field in dataclasses.fields(member)}
+    assert TenantContext(code="demo", db_key="tenant_demo", name="演示租户").code == "demo"
 
 
 @pytest.mark.kiwi_id(2216)

@@ -65,14 +65,14 @@ async def test_lookup_by_code_and_domain(platform_url: str) -> None:
     source, registry = _source(platform_url)
     try:
         demo = await source.by_code("demo")
-        assert demo.tenant_code == "demo"
+        assert demo.code == "demo"
         assert demo.db_key == "tenant_demo"
         assert demo.name == "演示租户"
         assert demo.tenant_id is not None
         assert demo.status == "active"
 
         acme = await source.by_domain("acme.bms.example.com")
-        assert acme.tenant_code == "acme"
+        assert acme.code == "acme"
         assert acme.domain == "acme.bms.example.com"
     finally:
         await registry.aclose()
@@ -145,7 +145,7 @@ async def test_no_cache_direct_query(platform_url: str) -> None:
     """无缓存实现（null / 未装配）时直查平台库，不阻断。"""
     source, registry = _source(platform_url)
     try:
-        assert (await source.by_code("acme")).tenant_code == "acme"
+        assert (await source.by_code("acme")).code == "acme"
         await source.invalidate(code="acme", domain="acme.bms.example.com")
         await source.invalidate()  # 无键失效：空操作
     finally:

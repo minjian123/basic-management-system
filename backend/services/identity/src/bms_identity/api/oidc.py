@@ -96,7 +96,7 @@ async def _resolve(tenant: str | None, context: TenantContext | None, source: Te
         TenantNotFoundError: 无任何租户来源（404）。
     """
     if tenant:
-        if context is not None and context.tenant_code == tenant:
+        if context is not None and context.code == tenant:
             return context
         return await source.by_code(tenant)
     if context is not None:
@@ -173,7 +173,7 @@ async def openid_configuration(
             client=client,
             hasher=hasher,
         )
-        document = await service.discovery(context.tenant_code)
+        document = await service.discovery(context.code)
     return JSONResponse(content=document, headers=_GOOD_HTML)
 
 
@@ -272,7 +272,7 @@ async def authorize(
                 hasher=hasher,
             )
             result = await service.authorize(
-                tenant=context.tenant_code,
+                tenant=context.code,
                 client_id=client_id,
                 redirect_uri=redirect_uri,
                 response_type=response_type,
@@ -330,7 +330,7 @@ async def token(
                 hasher=hasher,
             )
             result = await service.token(
-                tenant=context.tenant_code,
+                tenant=context.code,
                 client_id=client_id,
                 client_secret=client_secret,
                 grant_type=_form_str(form, "grant_type"),
@@ -394,7 +394,7 @@ async def userinfo(
                 client=client,
                 hasher=hasher,
             )
-            result = await service.userinfo(tenant=context.tenant_code, access_token=token_value)
+            result = await service.userinfo(tenant=context.code, access_token=token_value)
     except AuthError:
         return _unauthorized()
     return JSONResponse(

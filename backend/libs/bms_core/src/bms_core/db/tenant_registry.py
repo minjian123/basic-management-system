@@ -8,7 +8,7 @@
 
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any, ClassVar, cast
+from typing import Any, cast
 
 from bms_core.cache.base import build_cache_key
 from bms_core.core.objects import BaseTenantViewContract
@@ -27,8 +27,6 @@ ACTIVE_STATUS = "active"
 @dataclass(frozen=True)
 class TenantSnapshot(BaseTenantViewContract):
     """租户注册快照（可缓存 / 可跨服务传输）。"""
-
-    CODE_FIELD: ClassVar[str] = "code"
 
     code: str
     name: str
@@ -108,7 +106,7 @@ def to_tenant_context(snapshot: TenantSnapshot) -> TenantContext:
         TenantContext: 租户上下文。
     """
     return TenantContext(
-        tenant_code=snapshot.code,
+        code=snapshot.code,
         db_key=build_tenant_db_key(snapshot.code),
         name=snapshot.name,
         tenant_id=snapshot.tenant_id,

@@ -80,7 +80,7 @@ class ConfigService(BaseFrameworkObject):
         Args:
             config_key: 参数键。
         """
-        tenant = current_tenant_context().tenant_code
+        tenant = current_tenant_context().code
         await self._cache.adrop_value(tenant, config_key)
         await self._cache.aincrease_version(tenant)
 

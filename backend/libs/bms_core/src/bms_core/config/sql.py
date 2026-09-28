@@ -1,6 +1,6 @@
 """系统参数 SQL 取数（`sql` 实现，数据权威侧）：租户库查询 + 缓存域。
 
-- 租户：实现侧从上下文解析（`current_tenant_context().tenant_code`）并经 `EngineRegistry` 取租户库；调用方不传租户。
+- 租户：实现侧从上下文解析（`current_tenant_context().code`）并经 `EngineRegistry` 取租户库；调用方不传租户。
 - 缓存：逐 key 先查缓存域（内存 / Redis），未命中批量回源（一次 `IN`）后回填；Redis 不可用由 Region 内部兜底。
 - 降级：DB 异常返回空结果 + 日志告警（调用方回落代码默认表，不抛业务错）。
 """
@@ -59,7 +59,7 @@ class SqlConfigSource(BaseConfigSource):
         unique = list(dict.fromkeys(key for key in keys if key))
         if not unique:
             return {}
-        tenant = current_tenant_context().tenant_code
+        tenant = current_tenant_context().code
         result: dict[str, str] = {}
         missing: list[str] = []
         for key in unique:

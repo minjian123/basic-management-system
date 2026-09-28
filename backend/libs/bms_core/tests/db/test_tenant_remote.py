@@ -61,7 +61,7 @@ async def test_remote_source_fetches_and_maps_context() -> None:
     client = _client(_ok(_payload()))
     source = RemoteTenantSource(client=client)
     context = await source.by_code("demo")
-    assert context.tenant_code == "demo"
+    assert context.code == "demo"
     assert context.db_key == "tenant_demo"
     assert context.name == "demo 租户"
     assert context.tenant_id == 7
@@ -132,7 +132,7 @@ async def test_remote_source_fallback_only_when_allowed() -> None:
     source = RemoteTenantSource(client=client, cache=cache, allow_fallback=True)
 
     context = await source.by_code("acme")
-    assert context.tenant_code == "acme" and context.db_key == "tenant_acme"
+    assert context.code == "acme" and context.db_key == "tenant_acme"
     assert cache.get(snapshot_cache_key("code", "acme")) is None
 
     context = await source.by_code("acme")
@@ -161,5 +161,5 @@ async def test_remote_source_by_domain_and_registration_idempotent() -> None:
     client = _client(_ok(_payload()))
     source = RemoteTenantSource(client=client)
     context = await source.by_domain("demo.bms.example.com")
-    assert context.tenant_code == "demo"
+    assert context.code == "demo"
     assert dict(client.calls[0].query or {}) == {"domain": "demo.bms.example.com"}

@@ -116,8 +116,8 @@ def test_source_value_shape_validation() -> None:
 @pytest.mark.kiwi_id(1019)
 async def test_resolve_chain_priority_and_kinds() -> None:
     """解析链次序：子域名（按 domain）→ 请求头（按 code）→ token 位（按 code）。"""
-    demo = TenantContext(tenant_code="demo", db_key="tenant_demo", name="演示租户", domain="demo.bms.example.com")
-    acme = TenantContext(tenant_code="acme", db_key="tenant_acme", name="示例租户", domain="acme.bms.example.com")
+    demo = TenantContext(code="demo", db_key="tenant_demo", name="演示租户", domain="demo.bms.example.com")
+    acme = TenantContext(code="acme", db_key="tenant_acme", name="示例租户", domain="acme.bms.example.com")
     source = _RecordingSource({"demo": demo, "acme": acme})
 
     hit = await resolve_request_tenant(
@@ -140,7 +140,7 @@ async def test_resolve_chain_priority_and_kinds() -> None:
 @pytest.mark.kiwi_id(1019)
 async def test_resolve_fallback_and_rejection() -> None:
     """无来源：dev 经租户源取演示租户 / 源不可用回落内置；prod（关闭回落）拒绝。"""
-    demo = TenantContext(tenant_code="demo", db_key="tenant_demo", name="演示租户")
+    demo = TenantContext(code="demo", db_key="tenant_demo", name="演示租户")
     source = _RecordingSource({"demo": demo})
     hit = await resolve_request_tenant(path="/api/v1/x", source=source)
     assert hit == demo
@@ -167,7 +167,7 @@ async def test_malformed_sources_treated_as_absent() -> None:
     回归护栏（06_04）：`Host` 为 IP（dev / CI / Compose 直连形态）与非法 `X-Tenant-ID` 均不得
     触发取数与库键派生，从而不产生「库名形态非法」类 5xx。
     """
-    demo = TenantContext(tenant_code="demo", db_key="tenant_demo", name="演示租户")
+    demo = TenantContext(code="demo", db_key="tenant_demo", name="演示租户")
     source = _RecordingSource({"demo": demo})
 
     hit = await resolve_request_tenant(path="/api/v1/x", host="127.0.0.1:8000", source=source)
@@ -194,14 +194,14 @@ async def test_malformed_sources_treated_as_absent() -> None:
 @pytest.mark.kiwi_id(1019)
 def test_current_tenant_context_prefers_full_context() -> None:
     """上下文取值：完整上下文优先（含主键）；仅有编码时按编码派生库键；无上下文回落演示租户。"""
-    full = TenantContext(tenant_code="acme", db_key="tenant_acme", name="示例租户", tenant_id=7)
+    full = TenantContext(code="acme", db_key="tenant_acme", name="示例租户", tenant_id=7)
     token = set_tenant_context(full)
     assert current_tenant_context() is full
     reset_tenant_context(token)
 
     code_token = set_current_tenant("acme")
     context = current_tenant_context()
-    assert context.tenant_code == "acme"
+    assert context.code == "acme"
     assert context.db_key == "tenant_acme"
     assert context.tenant_id is None
     reset_current_tenant(code_token)

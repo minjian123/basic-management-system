@@ -30,12 +30,12 @@ class NullTenantSelfService(BaseTenantSelfService, BaseNullObject):
         return TenantSelfOverview(
             tenants=[
                 TenantSummary(
-                    id=DEMO_TENANT.tenant_code,
+                    id=DEMO_TENANT.code,
                     name=DEMO_TENANT.name,
-                    code=DEMO_TENANT.tenant_code,
+                    code=DEMO_TENANT.code,
                 )
             ],
-            current_code=DEMO_TENANT.tenant_code,
+            current_code=DEMO_TENANT.code,
             multi_tenant=False,
         )
 

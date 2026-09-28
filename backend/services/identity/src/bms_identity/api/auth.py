@@ -258,7 +258,7 @@ async def login(
         )
         outcome = await service.login(
             req,
-            tenant=tenant.tenant_code,
+            tenant=tenant.code,
             ip=current_client_ip.get(),
             user_agent=request.headers.get("user-agent"),
         )
@@ -319,7 +319,7 @@ async def refresh(
         )
         outcome = await service.refresh(
             token,
-            tenant=tenant_ctx.tenant_code,
+            tenant=tenant_ctx.code,
             ip=current_client_ip.get(),
             user_agent=request.headers.get("user-agent"),
         )
@@ -372,6 +372,6 @@ async def logout(
                 client=client,
                 publisher=publisher,
             )
-            await service.logout(token, tenant=tenant_ctx.tenant_code)
+            await service.logout(token, tenant=tenant_ctx.code)
     clear_refresh_cookie(response)
     return ApiResponse.ok(None)

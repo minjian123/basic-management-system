@@ -22,7 +22,7 @@ class _Source:
     """内存租户源替身（按编码 / 域名命中；可选抛停用异常）。"""
 
     def __init__(self, tenants: list[TenantContext], *, suspended: set[str] | None = None) -> None:
-        self.tenants = {tenant.tenant_code: tenant for tenant in tenants}
+        self.tenants = {tenant.code: tenant for tenant in tenants}
         self.suspended = suspended or set()
         self.calls: list[tuple[str, str]] = []
 
@@ -41,8 +41,8 @@ class _Source:
         self.calls.append(("domain", domain))
         for tenant in self.tenants.values():
             if tenant.domain == domain:
-                if tenant.tenant_code in self.suspended:
-                    raise TenantSuspendedError(f"租户已停用：{tenant.tenant_code}")
+                if tenant.code in self.suspended:
+                    raise TenantSuspendedError(f"租户已停用：{tenant.code}")
                 return tenant
         raise TenantNotFoundError(f"未知租户域名：{domain}")
 
@@ -62,7 +62,7 @@ def _app(source: _Source | None, *, allow_demo_fallback: bool = True) -> FastAPI
         state = request.scope.get("state", {})
         tenant = state.get("tenant")
         return {
-            "state": getattr(tenant, "tenant_code", None),
+            "state": getattr(tenant, "code", None),
             "context": get_current_tenant(),
         }
 
@@ -83,8 +83,8 @@ async def _get(app: FastAPI, path: str, headers: dict[str, str] | None = None) -
 @pytest.mark.kiwi_id(1019)
 async def test_chain_priority_and_context() -> None:
     """链优先级（子域名 → 请求头 → token 位）与请求态 / 上下文注入、请求结束复位。"""
-    demo = TenantContext(tenant_code="demo", db_key="tenant_demo", name="演示租户", domain="demo.bms.example.com")
-    acme = TenantContext(tenant_code="acme", db_key="tenant_acme", name="示例租户", domain="acme.bms.example.com")
+    demo = TenantContext(code="demo", db_key="tenant_demo", name="演示租户", domain="demo.bms.example.com")
+    acme = TenantContext(code="acme", db_key="tenant_acme", name="示例租户", domain="acme.bms.example.com")
     source = _Source([demo, acme])
     app = _app(source)
 
@@ -105,7 +105,7 @@ async def test_chain_priority_and_context() -> None:
 @pytest.mark.kiwi_id(1019)
 async def test_token_tenant_scope_state() -> None:
     """token 租户位读请求态（认证阶段写入即生效；配合外层中间件预置）。"""
-    acme = TenantContext(tenant_code="acme", db_key="tenant_acme", name="示例租户")
+    acme = TenantContext(code="acme", db_key="tenant_acme", name="示例租户")
     source = _Source([acme])
 
     class _AuthStub:
@@ -129,7 +129,7 @@ async def test_token_tenant_scope_state() -> None:
 @pytest.mark.kiwi_id(1019)
 async def test_unknown_and_suspended_rejected() -> None:
     """未知租户就地 404 / 80001；停用租户就地 403 / 80002（不进入下游）。"""
-    acme = TenantContext(tenant_code="acme", db_key="tenant_acme", name="示例租户")
+    acme = TenantContext(code="acme", db_key="tenant_acme", name="示例租户")
     source = _Source([acme], suspended={"acme"})
     app = _app(source)
 
@@ -175,12 +175,12 @@ async def test_no_fallback_and_no_source() -> None:
 @pytest.mark.kiwi_id(1019)
 async def test_tenant_dependency_reads_state() -> None:
     """`get_tenant` 依赖读请求态（中间件解析结果），豁免路径返回 None。"""
-    demo = TenantContext(tenant_code="demo", db_key="tenant_demo", name="演示租户")
+    demo = TenantContext(code="demo", db_key="tenant_demo", name="演示租户")
     app = _app(_Source([demo]))
 
     @app.get("/dep")
     async def dep(tenant: Annotated[TenantContext | None, Depends(get_tenant)]) -> dict[str, str | None]:  # pyright: ignore[reportUnusedFunction]
-        return {"code": tenant.tenant_code if tenant else None}
+        return {"code": tenant.code if tenant else None}
 
     status, body = await _get(app, "/dep")
     assert (status, body) == (200, {"code": "demo"})
@@ -189,7 +189,7 @@ async def test_tenant_dependency_reads_state() -> None:
 @pytest.mark.kiwi_id(1019)
 async def test_tenant_dependency_without_middleware() -> None:
     """未经租户中间件的装配（请求态无 tenant 键）：依赖就地解析（源装配 / 源缺失兜底）。"""
-    demo = TenantContext(tenant_code="demo", db_key="tenant_demo", name="演示租户")
+    demo = TenantContext(code="demo", db_key="tenant_demo", name="演示租户")
     app = FastAPI()
     register_exception_handlers(app)
     app.state.settings = Settings()
@@ -197,7 +197,7 @@ async def test_tenant_dependency_without_middleware() -> None:
 
     @app.get("/dep")
     async def dep(tenant: Annotated[TenantContext | None, Depends(get_tenant)]) -> dict[str, str | None]:  # pyright: ignore[reportUnusedFunction]
-        return {"code": tenant.tenant_code if tenant else None}
+        return {"code": tenant.code if tenant else None}
 
     status, body = await _get(app, "/dep")
     assert (status, body) == (200, {"code": "demo"})
@@ -207,7 +207,7 @@ async def test_tenant_dependency_without_middleware() -> None:
 
     @bare.get("/dep")
     async def bare_dep(tenant: Annotated[TenantContext | None, Depends(get_tenant)]) -> dict[str, str | None]:  # pyright: ignore[reportUnusedFunction]
-        return {"code": tenant.tenant_code if tenant else None}
+        return {"code": tenant.code if tenant else None}
 
     status, body = await _get(bare, "/dep")
     assert (status, body) == (200, {"code": "demo"})  # 无源：内置演示租户兜底
