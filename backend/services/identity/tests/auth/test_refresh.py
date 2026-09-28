@@ -100,7 +100,7 @@ async def test_refresh_bad_token_type(client: AsyncClient, service_app: FastAPI)
 async def test_refresh_tenant_mismatch(client: AsyncClient, service_app: FastAPI) -> None:
     """refresh 租户与请求租户不一致：401。"""
     issuer, _store = await _prepare(client, service_app)
-    issuer.mint("ref-mismatch", jti=issuer.specs[-1].session_id, tenant_id="other")
+    issuer.mint("ref-mismatch", jti=issuer.specs[-1].session_id, tenant_code="other")
     client.cookies.clear()
     resp = await client.post(API_REFRESH, headers={"Cookie": f"{COOKIE}=ref-mismatch"})
     assert resp.status_code == 401 and resp.json()["code"] == 20001
@@ -119,8 +119,8 @@ async def test_refresh_missing_session_claim(client: AsyncClient, service_app: F
 async def test_refresh_record_missing(client: AsyncClient, service_app: FastAPI) -> None:
     """会话标记存在但记录缺失：401。"""
     issuer, store = await _prepare(client, service_app)
-    issuer.mint("ref-ghost", jti="ghost-1", tenant_id="demo")
-    await store.save("ghost-1", {"user_id": 1, "tenant": "demo"}, tenant_code="demo", ttl=60)
+    issuer.mint("ref-ghost", jti="ghost-1", tenant_code="demo")
+    await store.save("ghost-1", {"user_id": 1, "tenant_code": "demo"}, tenant_code="demo", ttl=60)
     client.cookies.clear()
     assert (await client.post(API_REFRESH, headers={"Cookie": f"{COOKIE}=ref-ghost"})).status_code == 401
 

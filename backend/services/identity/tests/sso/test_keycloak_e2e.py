@@ -260,5 +260,5 @@ async def test_keycloak_end_to_end_login(
         headers=TENANT_HEADERS,
     )
     assert response.status_code == 200, response.text
-    assert response.json()["data"] == {"tenant": "demo"}
+    assert response.json()["data"] == {"tenant_code": "demo"}
     assert response.cookies["bms_refresh_token"].startswith("ref-")

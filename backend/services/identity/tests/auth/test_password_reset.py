@@ -77,7 +77,7 @@ def _token(notifier: RecordingNotifier) -> str:
     Returns:
         str: 重置令牌。
     """
-    match = re.search(r"token=([A-Za-z0-9_-]+)&tenant=demo", notifier.messages[-1].content)
+    match = re.search(r"token=([A-Za-z0-9_-]+)&tenant_code=demo", notifier.messages[-1].content)
     assert match is not None, notifier.messages[-1].content
     return match.group(1)
 
@@ -180,7 +180,7 @@ async def test_reset_revokes_all_sessions_and_next_request_401(client: AsyncClie
     forgot = await client.post(API_FORGOT, json={"identifier": "admin", "captcha": CAPTCHA}, headers=TENANT_HEADERS)
     assert forgot.status_code == 200
     token = _token(notifier)
-    access = issue_access_token(session_id=session_id, tenant="demo")
+    access = issue_access_token(session_id=session_id, tenant_code="demo")
 
     reset = await client.post(API_RESET, json={"token": token, "new_password": "NewSecret1!"}, headers=TENANT_HEADERS)
     assert reset.status_code == 200 and reset.json()["data"] == {"reset": True}

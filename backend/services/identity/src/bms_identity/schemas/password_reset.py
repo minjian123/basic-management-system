@@ -16,7 +16,7 @@ class PasswordForgotRequest(BaseSchema):
 
     identifier: str = Field(min_length=1, max_length=255, description="账号 / 手机号 / 邮箱")
     captcha: CaptchaInput | None = Field(default=None, description="验证码凭证（场景 reset_password；策略强制时必带）")
-    tenant: str | None = Field(default=None, max_length=64, description="租户编码（可选；携带则以之为准）")
+    tenant_code: str | None = Field(default=None, max_length=64, description="租户编码（可选；携带则以之为准）")
 
 
 class PasswordForgotResult(BaseSchema):
@@ -30,7 +30,7 @@ class PasswordResetRequest(BaseSchema):
 
     token: str = Field(min_length=1, max_length=512, description="重置令牌（通知下发；单次有效）")
     new_password: str = Field(min_length=1, max_length=512, description="新口令明文")
-    tenant: str | None = Field(default=None, max_length=64, description="租户编码（可选；携带则以之为准）")
+    tenant_code: str | None = Field(default=None, max_length=64, description="租户编码（可选；携带则以之为准）")
 
 
 class PasswordResetResult(BaseSchema):

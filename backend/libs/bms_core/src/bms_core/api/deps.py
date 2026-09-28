@@ -77,7 +77,7 @@ from bms_core.ws.base import get_realtime_publisher
 
 __all__ = [
     "SessionFactory",
-    "current_code_of",
+    "current_tenant_code_of",
     "get_archive_policy",
     "get_archive_query_router",
     "get_audit_capturer",
@@ -228,7 +228,7 @@ def get_tenant_source(request: Request) -> TenantLookup:
     return cast("TenantLookup", request.app.state.tenant_source)
 
 
-def current_code_of(tenant: TenantContext | None) -> str | None:
+def current_tenant_code_of(tenant: TenantContext | None) -> str | None:
     """取解析链当前租户编码（供幂等 / 限流键的租户作用域位与租户自助接口复用）。
 
     Args:

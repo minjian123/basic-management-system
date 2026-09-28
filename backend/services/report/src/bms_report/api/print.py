@@ -15,7 +15,7 @@ from fastapi import Depends, Header, Path, Query
 
 from bms_core.api.base import BaseRouter, require_auth
 from bms_core.api.deps import (
-    current_code_of,
+    current_tenant_code_of,
     get_idempotency_store,
     get_print_exporter,
     get_print_template_provider,
@@ -178,7 +178,7 @@ async def export_pdf(
     options = _to_options(req.options)
     if not idempotency_key:
         return ApiResponse.ok(_export_response(await exporter.export_pdf(req.template_key, document, options=options)))
-    key = build_idempotency_key(key=idempotency_key, tenant=current_code_of(tenant))
+    key = build_idempotency_key(key=idempotency_key, tenant=current_tenant_code_of(tenant))
     if not await idempotency.begin(key):
         payload = await idempotency.load(key)
         if payload is not None:
@@ -215,7 +215,7 @@ async def batch_print(
                 await exporter.batch_print(req.keys, template_key=req.template_key, mode=req.mode, options=options)
             )
         )
-    key = build_idempotency_key(key=idempotency_key, tenant=current_code_of(tenant))
+    key = build_idempotency_key(key=idempotency_key, tenant=current_tenant_code_of(tenant))
     if not await idempotency.begin(key):
         payload = await idempotency.load(key)
         if payload is not None:

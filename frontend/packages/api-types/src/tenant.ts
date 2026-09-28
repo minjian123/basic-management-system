@@ -75,7 +75,7 @@ export interface paths {
          *
          *     Args:
          *         service: 租户自助基座。
-         *         code: 租户编码（可选）。
+         *         tenant_code: 租户编码（可选）。
          *
          *     Returns:
          *         ApiResponse: 统一响应，data 为品牌信息（`TenantBrandResponse`）。
@@ -211,14 +211,14 @@ export interface components {
         };
         /**
          * TenantSwitchRequest
-         * @description 切换租户请求：`{code}`。
+         * @description 切换租户请求：`{tenant_code}`。
          */
         TenantSwitchRequest: {
             /**
-             * Code
+             * Tenant Code
              * @description 目标租户编码
              */
-            code: string;
+            tenant_code: string;
         };
         /** ValidationError */
         ValidationError: {
@@ -345,7 +345,7 @@ export interface operations {
         parameters: {
             query?: {
                 /** @description 租户编码（缺省当前租户） */
-                code?: string | null;
+                tenant_code?: string | null;
             };
             header?: never;
             path?: never;

@@ -69,7 +69,7 @@ class TenantSelfOverview(BaseSchema):
     """租户自助概览：我加入的租户列表 + 当前租户 + 是否多租户。"""
 
     tenants: list[TenantSummary] = Field(default_factory=list[TenantSummary], description="我加入的租户列表")
-    current_code: str | None = Field(default=None, description="当前租户编码（由调用方从解析链上下文传入）")
+    current_tenant_code: str | None = Field(default=None, description="当前租户编码（由调用方从解析链上下文传入）")
     multi_tenant: bool = Field(default=False, description="是否多租户（租户列表长度 > 1）")
 
 
@@ -106,33 +106,33 @@ class BaseTenantSelfService(BasePluggable, ABC):
     contract_version: str = DEFAULT_CONTRACT_VERSION
 
     @abstractmethod
-    async def my_tenants(self, *, current_code: str | None = None) -> TenantSelfOverview:
+    async def my_tenants(self, *, current_tenant_code: str | None = None) -> TenantSelfOverview:
         """取「我加入的租户」概览。
 
         Args:
-            current_code: 当前租户编码（调用方从解析链上下文传入；实现负责标注）。
+            current_tenant_code: 当前租户编码（调用方从解析链上下文传入；实现负责标注）。
 
         Returns:
             TenantSelfOverview: 租户列表 + 当前租户编码 + 是否多租户。
         """
 
     @abstractmethod
-    async def switch(self, code: str) -> TenantSwitchResult:
+    async def switch(self, tenant_code: str) -> TenantSwitchResult:
         """切换到目标租户（结果经令牌 / 会话生效，解析链优先级不变）。
 
         Args:
-            code: 目标租户编码。
+            tenant_code: 目标租户编码。
 
         Returns:
             TenantSwitchResult: 切换结果（生效方式 / 是否需重发令牌 / 令牌）。
         """
 
     @abstractmethod
-    async def brand(self, *, code: str | None = None) -> TenantBrand:
+    async def brand(self, *, tenant_code: str | None = None) -> TenantBrand:
         """取品牌信息（缺省当前租户；未命中回退平台默认品牌）。
 
         Args:
-            code: 租户编码（None 表示当前租户）。
+            tenant_code: 租户编码（None 表示当前租户）。
 
         Returns:
             TenantBrand: 品牌信息（名称 / 标识 / 主题等）。

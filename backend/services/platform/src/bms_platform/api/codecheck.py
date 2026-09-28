@@ -13,7 +13,7 @@ from typing import Annotated
 from fastapi import Depends, Request
 
 from bms_core.api.base import BaseRouter, require_auth
-from bms_core.api.deps import current_code_of, get_code_validator, get_rate_limiter, get_tenant
+from bms_core.api.deps import current_tenant_code_of, get_code_validator, get_rate_limiter, get_tenant
 from bms_core.codecheck.base import (
     SQL_VALIDATE_RATE_LIMIT,
     BaseCodeValidator,
@@ -127,7 +127,7 @@ async def _require_sql_quota(
     """
     client = request.client
     target = client.host if client is not None else GLOBAL_RATE_SCOPE
-    key = build_rate_limit_key(dimension="ip", target=target, tenant=current_code_of(tenant))
+    key = build_rate_limit_key(dimension="ip", target=target, tenant=current_tenant_code_of(tenant))
     await limiter.require(key, RateLimitRule(limit=SQL_VALIDATE_RATE_LIMIT))
 
 

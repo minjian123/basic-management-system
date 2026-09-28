@@ -51,9 +51,9 @@ async def test_list_providers_tenant_mismatch(
         return await original(code)
 
     monkeypatch.setattr(source, "by_code", fake_by_code)
-    response = await client.get(f"{API}?tenant=demo", headers={"X-Tenant-ID": "other"})
+    response = await client.get(f"{API}?tenant_code=demo", headers={"X-Tenant-ID": "other"})
     assert response.status_code == 404
     assert response.json()["code"] == 20051
 
-    ok = await client.get(f"{API}?tenant=demo")
+    ok = await client.get(f"{API}?tenant_code=demo")
     assert ok.status_code == 200

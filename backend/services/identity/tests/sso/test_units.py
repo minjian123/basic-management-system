@@ -76,7 +76,7 @@ def test_flow_payload_invalid_structure() -> None:
     with pytest.raises(SsoCallbackError):
         _flow_from_payload([1, 2])
     with pytest.raises(SsoCallbackError):
-        _flow_from_payload({"tenant": "demo"})
+        _flow_from_payload({"tenant_code": "demo"})
 
 
 @pytest.mark.kiwi_id(2197)

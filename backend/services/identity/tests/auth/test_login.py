@@ -47,7 +47,7 @@ async def test_login_success_creates_session(client: AsyncClient, service_app: F
         "id": "1001",
         "username": "admin",
         "name": "管理员",
-        "tenant": "demo",
+        "tenant_code": "demo",
         "locale": "zh-cn",
         "timezone": None,
         "must_change_password": False,
@@ -167,10 +167,10 @@ async def test_login_body_tenant_override(client: AsyncClient, service_app: Fast
     wire_auth(service_app, issuer=issuer, org=org, store=store, limiter=limiter)
     service_app.dependency_overrides[get_tenant_source] = lambda: FakeTenantSource()
 
-    ok = await _login(client, "admin", "secret", tenant="demo")
-    assert ok.status_code == 200 and ok.json()["data"]["user"]["tenant"] == "demo"
+    ok = await _login(client, "admin", "secret", tenant_code="demo")
+    assert ok.status_code == 200 and ok.json()["data"]["user"]["tenant_code"] == "demo"
 
-    unknown = await _login(client, "admin", "secret", tenant="ghost")
+    unknown = await _login(client, "admin", "secret", tenant_code="ghost")
     assert unknown.status_code == 404
 
 

@@ -62,7 +62,7 @@ async def wire_login(
     org.set_user("admin", password="secret", user_id=user_id, name="管理员")
     await store.save(
         TEST_SESSION_ID,
-        {"user_id": user_id, "tenant": TEST_TENANT},
+        {"user_id": user_id, "tenant_code": TEST_TENANT},
         tenant_code=TEST_TENANT,
     )
     wire_auth(app, issuer=issuer, org=org, store=store, limiter=limiter)

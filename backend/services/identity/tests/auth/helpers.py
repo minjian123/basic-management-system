@@ -98,7 +98,7 @@ class FakeUserTokenIssuer(BaseUserTokenIssuer):
         *,
         sub: str = "1",
         jti: object = None,
-        tenant_id: object = "demo",
+        tenant_code: object = "demo",
         token_type: str = _REFRESH,
     ) -> None:
         """手工登记任意外形票据（覆盖异常分支用例）。
@@ -107,10 +107,10 @@ class FakeUserTokenIssuer(BaseUserTokenIssuer):
             token: 令牌串。
             sub: 主体。
             jti: 会话 id（可为 None 覆盖缺失分支）。
-            tenant_id: 租户编码（可为 None / 任意串）。
+            tenant_code: 租户编码（可为 None / 任意串）。
             token_type: 令牌类型。
         """
-        self._by_token[token] = {"sub": sub, "jti": jti, "tenant_id": tenant_id, "type": token_type}
+        self._by_token[token] = {"sub": sub, "jti": jti, "tenant_code": tenant_code, "type": token_type}
 
 
 class FakeOrgClient(BaseServiceClient):
