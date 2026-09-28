@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   BaseCapability,
   BaseComponent,
+  BaseFrameworkObject,
   BaseObject,
   BasePluggable,
   configureBase,
@@ -22,10 +23,11 @@ class DemoBox extends BaseComponent {
 }
 
 describe('BaseComponent 组件根', () => {
-  it('继承链 BaseComponent → BasePluggable → BaseCapability → BaseObject', () => {
+  it('继承链 BaseComponent → BasePluggable → BaseCapability → BaseFrameworkObject → BaseObject', () => {
     const box = new DemoBox()
     expect(box).toBeInstanceOf(BasePluggable)
     expect(box).toBeInstanceOf(BaseCapability)
+    expect(box).toBeInstanceOf(BaseFrameworkObject)
     expect(box).toBeInstanceOf(BaseObject)
   })
 
