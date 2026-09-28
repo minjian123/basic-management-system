@@ -102,9 +102,12 @@ class TokenResult(BaseTokenContract):
 
 @dataclass(frozen=True)
 class UserInfoResult(BaseValueObject):
-    """userinfo 结果（标准字段；本期不含 email）。"""
+    """userinfo 结果（标准字段；本期不含 email）。
 
-    sub: str
+    主体字段统一为 `subject`（09_03 批次 ⑤ 字段名统一；协议输出键 `sub` 在 `UserInfoResponse` schema 层，不受影响）。
+    """
+
+    subject: str
     preferred_username: str = ""
     name: str = ""
 
@@ -335,7 +338,7 @@ class OidcProviderService(BaseObject):
         if not profile.found or profile.user is None or profile.user.status != "enabled":
             raise AuthError("用户不存在或不可用")
         return UserInfoResult(
-            sub=claims.subject,
+            subject=claims.subject,
             preferred_username=profile.user.username,
             name=profile.user.name,
         )

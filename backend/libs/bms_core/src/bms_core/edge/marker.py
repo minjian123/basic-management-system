@@ -40,5 +40,5 @@ class MarkerEdgeTrust(BaseEdgeTrust):
         normalized = {key.lower(): value for key, value in headers.items()}
         marker = normalized.get(GATEWAY_IDENTITY_HEADER.lower())
         if marker != self._expected:
-            return EdgeTrustDecision(trusted=False, reason="missing gateway identity marker")
-        return EdgeTrustDecision(trusted=True, identity=EdgeIdentity.from_headers(headers))
+            return EdgeTrustDecision(allowed=False, reason="missing gateway identity marker")
+        return EdgeTrustDecision(allowed=True, identity=EdgeIdentity.from_headers(headers))

@@ -23,7 +23,7 @@ from fastapi import Request
 
 from bms_core.core.config import Settings
 from bms_core.core.exceptions import AuthError
-from bms_core.core.objects import BaseValueObject
+from bms_core.core.objects import BaseDecisionContract
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 from bms_core.core.security import SIGNATURE_HEADER, SignatureCodec
 
@@ -62,7 +62,7 @@ class ReplayReason(StrEnum):
 
 
 @dataclass(frozen=True)
-class ReplayDecision(BaseValueObject):
+class ReplayDecision(BaseDecisionContract):
     """防重放判定结果。"""
 
     allowed: bool

@@ -61,18 +61,18 @@ class ServiceJwtEdgeTrust(BaseEdgeTrust):
         """
         token = _bearer_token(headers)
         if token is None:
-            return EdgeTrustDecision(trusted=False, reason="missing service token")
+            return EdgeTrustDecision(allowed=False, reason="missing service token")
         try:
             claims = self._issuer.verify(token)
         except AuthError as exc:
-            return EdgeTrustDecision(trusted=False, reason=str(exc))
+            return EdgeTrustDecision(allowed=False, reason=str(exc))
         base = EdgeIdentity.from_headers(headers)
         identity = replace(
             base,
             tenant_code=base.tenant_code or _claim_tenant(claims),
             service_identity=claims.subject or base.service_identity,
         )
-        return EdgeTrustDecision(trusted=True, identity=identity, reason="service token verified")
+        return EdgeTrustDecision(allowed=True, identity=identity, reason="service token verified")
 
 
 class ServiceJwtEdgeTrustFactory(BasePluginFactory[ServiceJwtEdgeTrust]):

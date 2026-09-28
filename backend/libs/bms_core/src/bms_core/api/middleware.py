@@ -351,7 +351,7 @@ class EdgeGuardMiddleware(BaseObject):
         exempt = is_exempt_path(str(scope.get("path", "")), exempt_paths)
 
         decision = trust.evaluate(_raw_headers(scope))
-        trusted = decision.trusted and decision.identity is not None
+        trusted = decision.allowed and decision.identity is not None
         if enforced and not exempt and not trusted:
             await build_error_response(scope, AuthError("未携带网关可信身份（网关旁路或未认证）"))(scope, receive, send)
             return

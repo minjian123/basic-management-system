@@ -18,7 +18,7 @@ class NullEdgeTrust(BaseEdgeTrust, BaseNullObject):
             headers: 请求头映射（占位忽略）。
 
         Returns:
-            EdgeTrustDecision: 恒定 `trusted=False`。
+            EdgeTrustDecision: 恒定 `allowed=False`。
         """
         del headers
-        return EdgeTrustDecision(trusted=False, reason="edge trust placeholder")
+        return EdgeTrustDecision(allowed=False, reason="edge trust placeholder")

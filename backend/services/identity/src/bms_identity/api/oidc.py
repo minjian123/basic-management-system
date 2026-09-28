@@ -399,7 +399,7 @@ async def userinfo(
         return _unauthorized()
     return JSONResponse(
         content=UserInfoResponse(
-            sub=result.sub,
+            sub=result.subject,
             preferred_username=result.preferred_username,
             name=result.name,
         ).model_dump(mode="json"),

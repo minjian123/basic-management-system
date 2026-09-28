@@ -23,7 +23,7 @@ from fastapi import Request
 
 from bms_core.core.config import Settings
 from bms_core.core.exceptions import AuthError
-from bms_core.core.objects import BaseRequestIdentityContract, BaseValueObject
+from bms_core.core.objects import BaseDecisionContract, BaseRequestIdentityContract
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 from bms_core.edge.headers import (
     SERVICE_IDENTITY_HEADER,
@@ -98,11 +98,11 @@ class EdgeIdentity(BaseRequestIdentityContract):
 
 
 @dataclass(frozen=True)
-class EdgeTrustDecision(BaseValueObject):
+class EdgeTrustDecision(BaseDecisionContract):
     """边缘信任判定结果。"""
 
-    trusted: bool
-    """是否来自可信边缘（网关注入 / 带服务身份）。"""
+    allowed: bool
+    """是否放行（来自可信边缘：网关注入 / 带服务身份）。"""
 
     identity: EdgeIdentity | None = None
     """可信身份；不信任为 None。"""
