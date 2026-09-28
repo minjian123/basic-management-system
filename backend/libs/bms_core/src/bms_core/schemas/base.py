@@ -5,8 +5,8 @@ from typing import Any, ClassVar, cast
 
 from pydantic import BaseModel, ConfigDict, SerializationInfo, model_serializer
 
-from bms_core.core.base import BaseObject
 from bms_core.core.context import get_current_masker
+from bms_core.core.objects import BaseDataContract
 from bms_core.core.serialization import stringify_ids
 
 
@@ -33,7 +33,7 @@ def _apply_masking(masked_fields: frozenset[str], data: object) -> object:
     return fields
 
 
-class BaseSchema(BaseModel, BaseObject):
+class BaseSchema(BaseModel, BaseDataContract):
     """Pydantic 模型基类：请求/响应模型统一继承。
 
     - from_attributes：允许 ORM/实体对象直接校验（响应模型使用）

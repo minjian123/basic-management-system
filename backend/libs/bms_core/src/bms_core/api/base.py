@@ -25,6 +25,7 @@ from pydantic import ValidationError
 from bms_core.core.base import BaseObject
 from bms_core.core.context import get_current_client_ip, set_current_tenant, set_current_user_id, set_tenant_context
 from bms_core.core.exceptions import AuthError, ConflictError, ParamError, SessionAuthError
+from bms_core.core.objects import BaseFrameworkObject
 from bms_core.db.tenant import TenantContext, build_tenant_db_key, tenant_hostname
 from bms_core.edge.base import EdgeIdentity
 from bms_core.oauth.token import TOKEN_AUDIENCE_API, TOKEN_AUDIENCE_SERVICE
@@ -64,7 +65,7 @@ DEFAULT_RESPONSES: Mapping[int, dict[str, object]] = {
 """统一错误响应文档（HTTP 状态码 → OpenAPI 响应描述；业务失败统一 200 + 业务码）。"""
 
 
-class BaseRouter(APIRouter, BaseObject):
+class BaseRouter(APIRouter, BaseFrameworkObject):
     """统一模块路由基类：前缀 / tags / 默认错误响应 / 元信息（模块路由一律继承它）。
 
     - `key`：路由模块唯一标识（登记表以 `key` 拒重）。
