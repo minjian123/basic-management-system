@@ -96,7 +96,7 @@ def test_inheritance_and_key() -> None:
     masker = NullMasker(checker=NullPermissionChecker())
     assert masker.placeholder is True
     assert "占位实现" in masker.describe()
-    assert MASK_STRATEGIES == ("phone", "id_card", "email", "bank_card", "name", "custom")
+    assert MASK_STRATEGIES == ("phone", "id_card", "email", "bank_card", "name", "address", "custom")
 
 
 @pytest.mark.kiwi_id(39)

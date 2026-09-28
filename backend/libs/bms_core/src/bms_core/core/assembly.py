@@ -94,6 +94,7 @@ from bms_core.lock.base import BaseDistributedLock
 from bms_core.lock.memory import MemoryDistributedLock
 from bms_core.lock.redis import RedisDistributedLock
 from bms_core.masking.base import BaseMasker
+from bms_core.masking.default import DefaultMasker, MaskerOptions
 from bms_core.masking.null import NullMasker
 from bms_core.metrics.base import BaseMetrics
 from bms_core.metrics.prometheus import PrometheusMetrics
@@ -342,7 +343,8 @@ def register_platform_plugins(settings: Settings, app: FastAPI, resources: Resou
     # 链路真实实现（`otel`，零参可实例化）：导入即经继承自动登记
     import_module("bms_core.tracing.otel")
     register_platform_event_contracts()
-    register_plugin("masking", NULL_PLUGIN_NAME, DefaultMaskerFactory(settings))
+    register_plugin("masking", NULL_PLUGIN_NAME, PlaceholderMaskerFactory(settings))
+    register_plugin("masking", "default", DefaultMaskerFactory(settings))
     register_plugin("health_check_registry", "local", HealthCheckRegistryFactory(settings, app, resources))
     register_plugin("object_storage", "local", LocalObjectStorageFactory(settings))
     register_plugin("object_storage", "minio", MinioObjectStorageFactory(settings))
@@ -536,7 +538,7 @@ class HealthCheckRegistryFactory(BasePluginFactory[HealthCheckRegistry]):
         return registry
 
 
-class DefaultMaskerFactory(BasePluginFactory[BaseMasker]):
+class PlaceholderMaskerFactory(BasePluginFactory[BaseMasker]):
     """缺省掩码器工厂（注入权限检查器；`NullMasker` 构造需参数，不自动登记）。"""
 
     plugin_key: str = "masking"
@@ -559,15 +561,60 @@ class DefaultMaskerFactory(BasePluginFactory[BaseMasker]):
         Returns:
             BaseMasker: 掩码器实例。
         """
-        checker = cast(
-            "BasePermissionChecker",
-            resolve_plugin(
-                "permission",
-                self._settings.permission.provider,
-                expected_version=BasePermissionChecker.contract_version,
-            ),
+        return NullMasker(checker=_resolve_permission_checker(self._settings))
+
+
+class DefaultMaskerFactory(BasePluginFactory[DefaultMasker]):
+    """真实掩码器工厂（04_01）：注入权限检查器与 `[masking].options` 规则与掩码字符。"""
+
+    plugin_key: str = "masking"
+    plugin_name: str = "default"
+
+    def __init__(self, settings: Settings) -> None:
+        """初始化。
+
+        Args:
+            settings: 应用配置（取 `[permission]` 与 `[masking].options`）。
+        """
+        self._settings = settings
+
+    def create(self, options: None = None) -> DefaultMasker:
+        """构造真实掩码器（选项校验在构造期完成）。
+
+        Args:
+            options: 未使用（零参口径）。
+
+        Returns:
+            DefaultMasker: 掩码器实例。
+
+        Raises:
+            PluginError: 掩码字符 / 规则表非法，或权限检查器无法解析。
+        """
+        parsed = MaskerOptions.from_options(self._settings.masking.options)
+        return DefaultMasker(
+            checker=_resolve_permission_checker(self._settings),
+            mask_char=parsed.mask_char,
+            rules=parsed.rules,
         )
-        return NullMasker(checker=checker)
+
+
+def _resolve_permission_checker(settings: Settings) -> BasePermissionChecker:
+    """解析已装配的权限检查器实例（脱敏明文判定依赖）。
+
+    Args:
+        settings: 应用配置（取 `[permission]` 能力选择）。
+
+    Returns:
+        BasePermissionChecker: 权限检查器实例。
+    """
+    return cast(
+        "BasePermissionChecker",
+        resolve_plugin(
+            "permission",
+            settings.permission.provider,
+            expected_version=BasePermissionChecker.contract_version,
+        ),
+    )
 
 
 class DefaultCaptchaFactory(BasePluginFactory[DefaultCaptcha]):
