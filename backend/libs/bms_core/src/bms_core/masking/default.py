@@ -14,11 +14,11 @@
 
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Self, cast
+from typing import Self
 
 from bms_core.core.capability import BasePlaceholder
 from bms_core.core.exceptions import PluginError
-from bms_core.core.objects import BaseValueObject
+from bms_core.core.objects import BaseOptionsContract, BaseValueObject
 from bms_core.masking.base import BaseMasker
 from bms_core.permission.base import BasePermissionChecker
 
@@ -113,7 +113,7 @@ def mask_email(text: str, mask_char: str = DEFAULT_MASK_CHAR) -> str:
 
 
 @dataclass(frozen=True)
-class MaskerOptions(BaseValueObject):
+class MaskerOptions(BaseOptionsContract):
     """`[masking].options` 解析结果：掩码字符 + 启动期字段 → 策略映射。"""
 
     mask_char: str = DEFAULT_MASK_CHAR
@@ -135,21 +135,11 @@ class MaskerOptions(BaseValueObject):
         Raises:
             PluginError: 掩码字符非单字符 / 规则表非映射 / 字段名或策略名非非空字符串（40002）。
         """
-        raw = options or {}
-        mask_char = raw.get(OPTION_MASK_CHAR) or DEFAULT_MASK_CHAR
-        if not isinstance(mask_char, str) or len(mask_char) != 1:
-            raise PluginError("脱敏掩码字符非法（须为单字符）：mask_char")
-        raw_rules: object = raw.get(OPTION_RULES) or {}
-        if not isinstance(raw_rules, Mapping):
-            raise PluginError("脱敏规则表非法（须为「字段名 → 策略」映射）：rules")
-        rules: dict[str, str] = {}
-        for field_name, strategy in cast("Mapping[object, object]", raw_rules).items():
-            if not isinstance(field_name, str) or not field_name:
-                raise PluginError("脱敏规则字段名非法（须为非空字符串）")
-            if not isinstance(strategy, str) or not strategy:
-                raise PluginError(f"脱敏规则策略非法（须为非空字符串）：{field_name}")
-            rules[field_name] = strategy
-        return cls(mask_char=mask_char, rules=rules)
+        values = options or {}
+        return cls(
+            mask_char=cls._single_char_option(values, OPTION_MASK_CHAR, DEFAULT_MASK_CHAR),
+            rules=dict(cls._mapping_option(values, OPTION_RULES)),
+        )
 
 
 class DefaultMasker(BaseMasker):

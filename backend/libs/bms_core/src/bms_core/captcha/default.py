@@ -58,11 +58,10 @@ from bms_core.core.exceptions import (
     CaptchaTooFrequentError,
     CaptchaVerifyError,
     ParamError,
-    PluginError,
     ServiceUnavailableError,
 )
 from bms_core.core.logging import get_logger
-from bms_core.core.objects import BaseValueObject
+from bms_core.core.objects import BaseOptionsContract
 from bms_core.notify.base import BaseNotifier, NotificationMessage, NotifyChannel
 from bms_core.notify.null import NullNotifier
 from bms_core.ratelimit.base import BaseRateLimiter, RateLimitRule, build_rate_limit_key
@@ -147,34 +146,6 @@ def _load(raw: object) -> dict[str, object] | None:
     return cast("dict[str, object]", parsed)
 
 
-def _int_option(options: Mapping[str, object], key: str, default: int, minimum: int, maximum: int) -> int:
-    """从选项映射取整数项并做范围校验（缺失取缺省，非法拒启）。
-
-    Args:
-        options: `[captcha].options` 映射。
-        key: 选项键。
-        default: 缺省值。
-        minimum: 允许下限。
-        maximum: 允许上限。
-
-    Returns:
-        int: 校验通过的整数选项。
-
-    Raises:
-        PluginError: 类型非法（布尔 / 非数值 / 不可转换）或超出范围。
-    """
-    raw = options.get(key, default)
-    if isinstance(raw, bool) or not isinstance(raw, (int, float, str)):
-        raise PluginError(f"验证码出图选项非法：{key}={raw!r}（应为整数）")
-    try:
-        value = int(raw)
-    except ValueError as exc:
-        raise PluginError(f"验证码出图选项非法：{key}={raw!r}（应为整数）") from exc
-    if not minimum <= value <= maximum:
-        raise PluginError(f"验证码出图选项越界：{key}={value}（允许 {minimum} ~ {maximum}）")
-    return value
-
-
 def _parse_bool(raw: object, default: bool) -> bool:
     """宽松解析布尔配置值（`true/false/1/0/yes/no/on/off`；非法回落默认）。
 
@@ -249,7 +220,7 @@ def _resolve_channels(scene: str, values: Mapping[str, object]) -> tuple[Captcha
 
 
 @dataclass(frozen=True)
-class CaptchaImageOptions(BaseValueObject):
+class CaptchaImageOptions(BaseOptionsContract):
     """图形码出图参数（非敏感；`from_options` 从 `[captcha].options` 解析并校验）。"""
 
     width: int = 160
@@ -287,20 +258,20 @@ class CaptchaImageOptions(BaseValueObject):
             PluginError: 任一选项类型非法 / 越界。
         """
         values = options or {}
-        height = _int_option(values, "height", 60, 30, 200)
+        height = cls._int_option(values, "height", 60, 30, 200)
         return cls(
-            width=_int_option(values, "width", 160, 80, 400),
+            width=cls._int_option(values, "width", 160, 80, 400),
             height=height,
-            length=_int_option(values, "length", 4, 1, 8),
-            font_size=_int_option(values, "font_size", 36, 12, height),
-            noise_lines=_int_option(values, "noise_lines", 4, 0, 10),
-            noise_dots=_int_option(values, "noise_dots", 60, 0, 500),
-            rotate_degrees=_int_option(values, "rotate_degrees", 25, 0, 45),
+            length=cls._int_option(values, "length", 4, 1, 8),
+            font_size=cls._int_option(values, "font_size", 36, 12, height),
+            noise_lines=cls._int_option(values, "noise_lines", 4, 0, 10),
+            noise_dots=cls._int_option(values, "noise_dots", 60, 0, 500),
+            rotate_degrees=cls._int_option(values, "rotate_degrees", 25, 0, 45),
         )
 
 
 @dataclass(frozen=True)
-class CaptchaSliderOptions(BaseValueObject):
+class CaptchaSliderOptions(BaseOptionsContract):
     """滑块出图 / 判定参数（非敏感；`from_options` 从 `[captcha].options` 的 `slider_` 前缀键解析并校验）。"""
 
     width: int = 300
@@ -335,21 +306,21 @@ class CaptchaSliderOptions(BaseValueObject):
             PluginError: 任一选项类型非法 / 越界。
         """
         values = options or {}
-        width = _int_option(values, "slider_width", 300, 160, 600)
-        height = _int_option(values, "slider_height", 150, 80, 300)
+        width = cls._int_option(values, "slider_width", 300, 160, 600)
+        height = cls._int_option(values, "slider_height", 150, 80, 300)
         max_piece = (min(width, height) - 1) // 2
         return cls(
             width=width,
             height=height,
-            piece_size=_int_option(values, "slider_piece_size", min(48, max_piece), 16, max_piece),
-            tolerance=_int_option(values, "slider_tolerance", SLIDER_TOLERANCE, 0, 50),
-            min_duration_ms=_int_option(values, "slider_min_duration_ms", 300, 0, 10000),
-            min_points=_int_option(values, "slider_min_points", 2, 1, 100),
+            piece_size=cls._int_option(values, "slider_piece_size", min(48, max_piece), 16, max_piece),
+            tolerance=cls._int_option(values, "slider_tolerance", SLIDER_TOLERANCE, 0, 50),
+            min_duration_ms=cls._int_option(values, "slider_min_duration_ms", 300, 0, 10000),
+            min_points=cls._int_option(values, "slider_min_points", 2, 1, 100),
         )
 
 
 @dataclass(frozen=True)
-class CaptchaSmsOptions(BaseValueObject):
+class CaptchaSmsOptions(BaseOptionsContract):
     """短信选项（非敏感；`from_options` 从 `[captcha].options` 的 `sms_` 前缀键解析并校验）。"""
 
     code_length: int = SMS_CAPTCHA_LENGTH
@@ -379,10 +350,10 @@ class CaptchaSmsOptions(BaseValueObject):
         """
         values = options or {}
         return cls(
-            code_length=_int_option(values, "sms_code_length", SMS_CAPTCHA_LENGTH, 4, 8),
-            account_limit=_int_option(values, "sms_account_limit", 5, 1, 100),
-            ip_limit=_int_option(values, "sms_ip_limit", 20, 1, 1000),
-            window=_int_option(values, "sms_window", 3600, 60, 86400),
+            code_length=cls._int_option(values, "sms_code_length", SMS_CAPTCHA_LENGTH, 4, 8),
+            account_limit=cls._int_option(values, "sms_account_limit", 5, 1, 100),
+            ip_limit=cls._int_option(values, "sms_ip_limit", 20, 1, 1000),
+            window=cls._int_option(values, "sms_window", 3600, 60, 86400),
         )
 
 
