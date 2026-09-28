@@ -3,7 +3,9 @@
 依据《后端基类清单》§10「体系根清单」与 09_01 直继承护栏
 （`scripts/tools/base-check/check-backend-base.py`）：
 
-- 批次 1 的 110 个不可变值对象一律改挂 `BaseValueObject`，不再直继承 `BaseObject`；
+- 批次 1 的 110 个不可变值对象改挂 `BaseValueObject`（不再直继承 `BaseObject`），其中
+  `ChatStreamHandle` 经复核为**运行时句柄**（含 `AsyncIterator` 字段、非数据对象）→ 迁 `BaseFrameworkObject`，
+  故本台账为 **109 处**；
 - 仍只有 7 个体系根允许直继承 `BaseObject`（白名单以《后端基类清单》§10 为准）；
 - 直继承存量基线递减至 50 条且不含 `value_object`（余量＝数据契约 3 + 框架对象 47）。
 
@@ -12,11 +14,15 @@
 """
 
 import ast
+import dataclasses
 import json
 from collections.abc import Iterator, Sequence
 from pathlib import Path
 
 import pytest
+
+from bms_core.chat.base import ChatStreamHandle
+from bms_core.core.objects import BaseFrameworkObject, BaseValueObject
 
 _BACKEND = Path(__file__).resolve().parents[4]
 _ROOT = _BACKEND.parent
@@ -51,7 +57,6 @@ VALUE_OBJECT_BATCH: tuple[tuple[str, str], ...] = (
     ("backend/libs/bms_core/src/bms_core/captcha/default.py", "CaptchaImageOptions"),
     ("backend/libs/bms_core/src/bms_core/captcha/default.py", "CaptchaSliderOptions"),
     ("backend/libs/bms_core/src/bms_core/captcha/default.py", "CaptchaSmsOptions"),
-    ("backend/libs/bms_core/src/bms_core/chat/base.py", "ChatStreamHandle"),
     ("backend/libs/bms_core/src/bms_core/config/seed.py", "SeedConfig"),
     ("backend/libs/bms_core/src/bms_core/core/assembly.py", "PluginWiring"),
     ("backend/libs/bms_core/src/bms_core/core/service.py", "ServiceIdentity"),
@@ -226,14 +231,14 @@ def _manifest_system_roots() -> Sequence[str]:
 
 @pytest.mark.kiwi_id(2216)
 def test_value_object_batch_is_frozen_and_complete() -> None:
-    """批次台账冻结：110 项且无重复（归位清单以本台账为准）。"""
-    assert len(VALUE_OBJECT_BATCH) == 110
-    assert len(set(VALUE_OBJECT_BATCH)) == 110
+    """批次台账冻结：109 项且无重复（归位清单以本台账为准；`ChatStreamHandle` 已迁出）。"""
+    assert len(VALUE_OBJECT_BATCH) == 109
+    assert len(set(VALUE_OBJECT_BATCH)) == 109
 
 
 @pytest.mark.kiwi_id(2216)
 def test_value_object_batch_declares_base_value_object() -> None:
-    """归位完整性：批次 110 处均声明 `BaseValueObject`，且不再直继承 `BaseObject`。"""
+    """归位完整性：批次 109 处均声明 `BaseValueObject`，且不再直继承 `BaseObject`。"""
     offenders: list[str] = []
     for rel, name in VALUE_OBJECT_BATCH:
         bases = _class_bases(rel, name)
@@ -265,3 +270,12 @@ def test_direct_baseline_decreased_without_value_object() -> None:
     entries = _baseline_entries()
     assert len(entries) == 50
     assert {system for _rel, _name, system in entries} == {"framework_object", "data_contract"}
+
+
+@pytest.mark.kiwi_id(2216)
+def test_chat_stream_handle_migrated_to_framework_object() -> None:
+    """复核迁出：`ChatStreamHandle`（运行时句柄）挂框架对象体系、非 dataclass、不属值对象体系。"""
+    assert issubclass(ChatStreamHandle, BaseFrameworkObject)
+    assert not issubclass(ChatStreamHandle, BaseValueObject)
+    assert not dataclasses.is_dataclass(ChatStreamHandle)
+    assert ChatStreamHandle.object_kind == "chat_stream_handle"

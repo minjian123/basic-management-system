@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """后端基座合规对账（bms 权威源侧，CI 与本地运行）。
 
-校验五项（《后端审计规范》B1 / B5 / B6 / B9 的机器化；直继承合法性见 09_01）：
+校验六项（《后端审计规范》B1 / B5 / B6 / B9 的机器化；直继承合法性见 09_01；数据类体系语义见 09_03）：
 
 1. **继承链对账**：《后端基类清单》§10「继承链与代码位置」的 `A → B → …` 链条
    ↔ 代码 `backend/libs/**`、`backend/services/**` 与 `backend/ops/**` 的 `class A(B)` 相邻关系；
@@ -13,7 +13,10 @@
    无产品段（10xxxx 起）混入；
 5. **迁移链完整**：`backend/alembic/versions/<链名>/` 按数据源分链——每链恰好一个 head、
    无断链、revision 跨链唯一、链首声明 `branch_labels=("<链名>",)`，且该链在 `alembic.ini`
-   登记配置段 `[alembic:<链名>]`（空链允许，脚本不得存放于版本根目录）。
+   登记配置段 `[alembic:<链名>]`（空链允许，脚本不得存放于版本根目录）；
+6. **数据类体系语义（09_03）**：**值对象体系**（`BaseValueObject` 及其下各角色链层）的类必须声明
+   `@dataclass(frozen=True)`（不可变数据类）；**框架对象体系**（`BaseFrameworkObject` 及其下各层）
+   的类**不得**是 dataclass（框架对象为非数据对象）。
 
 用法::
 
@@ -24,7 +27,7 @@ import json
 import os
 import re
 import sys
-from collections.abc import Sequence
+from collections.abc import Collection, Mapping, Sequence
 from datetime import date
 
 ROOT = os.path.abspath(sys.argv[1] if len(sys.argv) > 1 else ".")
@@ -40,6 +43,10 @@ DIRECT_BASELINE = os.path.join(ROOT, "deploy/boundaries/direct_base_object_basel
 """直继承存量基线快照（09_01；未归位的历史直继承类豁免并递减）。"""
 ROOT_BASES_MARKER = "体系根清单"
 """《后端基类清单》§10 内「体系根清单」小节标记（白名单权威来源）。"""
+VALUE_OBJECT_ROOT = "BaseValueObject"
+"""值对象体系根（其下各类须为不可变数据类：`@dataclass(frozen=True)`）。"""
+FRAMEWORK_OBJECT_ROOT = "BaseFrameworkObject"
+"""框架对象体系根（其下各类不得为 dataclass：框架对象为非数据对象）。"""
 
 problems: list[str] = []
 checked_chains = 0
@@ -232,6 +239,125 @@ def check_direct_inheritance() -> int:
             f"[直继承] `{cls}` 直接继承 BaseObject（{rel}）：仅体系根可直继承，请归位到所属体系基类"
         )
     return len(found)
+
+
+def _iter_class_defs(path: str) -> Sequence[object]:
+    """解析文件并返回全部类定义节点（语法 / 读取异常时返回空）。
+
+    Args:
+        path: Python 源文件路径。
+
+    Returns:
+        Sequence[object]: `ast.ClassDef` 节点序列。
+    """
+    import ast
+
+    try:
+        tree = ast.parse(open(path, encoding="utf-8", errors="ignore").read())
+    except (OSError, SyntaxError):
+        return []
+    return [node for node in ast.walk(tree) if isinstance(node, ast.ClassDef)]
+
+
+def _dataclass_shape(node: object) -> tuple[bool, bool]:
+    """判定类节点的 dataclass 形态。
+
+    Args:
+        node: `ast.ClassDef` 节点。
+
+    Returns:
+        tuple[bool, bool]: （是否 dataclass，是否 `frozen=True`）。
+    """
+    import ast
+
+    decorators = getattr(node, "decorator_list", [])
+    for decorator in decorators:
+        call = decorator if isinstance(decorator, ast.Call) else None
+        target = call.func if call is not None else decorator
+        name = target.attr if isinstance(target, ast.Attribute) else getattr(target, "id", "")
+        if name != "dataclass":
+            continue
+        frozen = False
+        if call is not None:
+            frozen = any(
+                keyword.arg == "frozen" and getattr(keyword.value, "value", False) is True for keyword in call.keywords
+            )
+        return True, frozen
+    return False, False
+
+
+def scan_class_shapes() -> Mapping[str, Sequence[tuple[bool, bool]]]:
+    """扫描源目录，返回 类名 → [（是否 dataclass, 是否 frozen）]（同名类保留全部定义）。
+
+    Returns:
+        Mapping[str, Sequence[tuple[bool, bool]]]: 类形态索引。
+    """
+    shapes: dict[str, list[tuple[bool, bool]]] = {}
+    for source_dir in SOURCE_DIRS:
+        for dp, _, files in os.walk(source_dir):
+            if "__pycache__" in dp or "tests" in dp.split(os.sep):
+                continue
+            for name in files:
+                if not name.endswith(".py"):
+                    continue
+                for node in _iter_class_defs(os.path.join(dp, name)):
+                    shapes.setdefault(node.name, []).append(_dataclass_shape(node))
+    return shapes
+
+
+def _descendants(index: Mapping[str, Sequence[Sequence[str]]], root: str) -> Collection[str]:
+    """按类名计算 `root` 的传递子类集合（不含 `root` 自身）。
+
+    Args:
+        index: 类名 → 父类名列表。
+        root: 起始类名。
+
+    Returns:
+        Collection[str]: 传递子类类名集合。
+    """
+    children: dict[str, set[str]] = {}
+    for child, definitions in index.items():
+        for parents in definitions:
+            for parent in parents:
+                children.setdefault(parent, set()).add(child)
+    found: set[str] = set()
+    pending = list(children.get(root, ()))
+    while pending:
+        current = pending.pop()
+        if current in found:
+            continue
+        found.add(current)
+        pending.extend(children.get(current, ()))
+    return found
+
+
+def check_data_class_semantics() -> int:
+    """数据类体系语义（09_03）：值对象体系须为 `@dataclass(frozen=True)`；框架对象体系不得为 dataclass。
+
+    Returns:
+        int: 受检查的类形态条目数。
+    """
+    index = index_classes()
+    shapes = scan_class_shapes()
+    value_tree = _descendants(index, VALUE_OBJECT_ROOT)
+    framework_tree = _descendants(index, FRAMEWORK_OBJECT_ROOT)
+    checked = 0
+    for name in sorted(shapes):
+        if name not in value_tree and name not in framework_tree:
+            continue
+        for is_dataclass, frozen in shapes[name]:
+            checked += 1
+            if name in value_tree and not (is_dataclass and frozen):
+                problems.append(
+                    f"[数据类语义] `{name}` 属值对象体系（{VALUE_OBJECT_ROOT}），须声明 @dataclass(frozen=True)"
+                    f"（实际 dataclass={is_dataclass} / frozen={frozen}）"
+                )
+            elif name in framework_tree and is_dataclass:
+                problems.append(
+                    f"[数据类语义] `{name}` 属框架对象体系（{FRAMEWORK_OBJECT_ROOT}），不得为 dataclass"
+                    "（框架对象为非数据对象，不参与值语义与序列化输出）"
+                )
+    return checked
 
 
 def check_error_segments() -> int:
@@ -480,6 +606,27 @@ def self_test() -> int:
             'branch_labels: tuple[str, ...] | None = ("tenant:tenant",)\n'
         )
         run_case("同链双 head", expect_fail=True)
+        # 7) 数据类体系语义：值对象体系子类未声明 frozen dataclass → 拦截
+        os.remove(os.path.join(tmp, "backend/alembic/versions/tenant/tenant/0002_demo.py"))
+        write_manifest(chains="- `StrayChild → BaseObject`。")
+        write_baseline([(probe, "StrayChild")])
+        data_probe = os.path.join(tmp, "backend/libs/bms_core/src/bms_core/core/probe_data.py")
+        with open(data_probe, "w", encoding="utf-8") as handle:
+            handle.write("class LooseValue(BaseValueObject):\n    pass\n")
+        run_case("值对象体系子类未声明 frozen dataclass", expect_fail=True)
+        # 8) 数据类体系语义：框架对象体系子类为 dataclass → 拦截
+        with open(data_probe, "w", encoding="utf-8") as handle:
+            handle.write(
+                "import dataclasses\n\n\n@dataclasses.dataclass\nclass DataFramework(BaseFrameworkObject):\n    x: int = 0\n"
+            )
+        run_case("框架对象体系子类为 dataclass", expect_fail=True)
+        # 9) 数据类体系语义：值对象 frozen dataclass + 框架对象普通类 → 放行
+        with open(data_probe, "w", encoding="utf-8") as handle:
+            handle.write(
+                "import dataclasses\n\n\n@dataclasses.dataclass(frozen=True)\nclass GoodValue(BaseValueObject):\n"
+                "    x: int = 0\n\n\nclass GoodFramework(BaseFrameworkObject):\n    pass\n"
+            )
+        run_case("数据类体系语义合规", expect_fail=False)
     return 0 if ok else 1
 
 
@@ -535,19 +682,23 @@ def main() -> int:
     chains = check_inheritance(index)
     covered = check_manifest_coverage(index)
     direct = check_direct_inheritance()
+    shapes = check_data_class_semantics()
     codes = check_error_segments()
     revs = check_alembic_chain()
     print(f"1. 继承链对账：检查 {chains} 条相邻关系（清单 §10 ↔ 代码）")
     print(f"2. 清单对账（补充）：直接继承 BaseObject 的 {covered} 个基座类均已登记")
     print(f"3. 直继承合法性：检查 {direct} 个直接继承 BaseObject 的类（体系根 / 基线放行）")
-    print(f"4. 错误码段位：检查 {codes} 个平台码")
-    print(f"5. 迁移链：检查 {revs} 个 revision")
+    print(f"4. 数据类体系语义：检查 {shapes} 个类形态（值对象须 frozen dataclass / 框架对象不得 dataclass）")
+    print(f"5. 错误码段位：检查 {codes} 个平台码")
+    print(f"6. 迁移链：检查 {revs} 个 revision")
     if problems:
         print(f"\n[check-backend-base] 不通过：{len(problems)} 项")
         for problem in problems:
             print("  " + problem)
         return 1
-    print("\n[check-backend-base] 通过：继承链 / 清单登记 / 直继承合法性 / 错误码段位 / 迁移链全部对齐。")
+    print(
+        "\n[check-backend-base] 通过：继承链 / 清单登记 / 直继承合法性 / 数据类体系语义 / 错误码段位 / 迁移链全部对齐。"
+    )
     return 0
 
 

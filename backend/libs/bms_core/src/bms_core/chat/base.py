@@ -23,15 +23,14 @@
 
 from abc import ABC, abstractmethod
 from collections.abc import AsyncIterator, Sequence
-from dataclasses import dataclass
 from datetime import datetime
-from typing import cast
+from typing import Any, ClassVar, cast
 
 from fastapi import Request
 from pydantic import Field
 
 from bms_core.core.config import Settings
-from bms_core.core.objects import BaseValueObject
+from bms_core.core.objects import BaseFrameworkObject
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 from bms_core.llm.base import ChatMessage
 from bms_core.schemas.base import BaseSchema
@@ -154,15 +153,27 @@ class ChatActionResult(BaseSchema):
     detail: str | None = Field(default=None, description="补充说明")
 
 
-@dataclass(frozen=True)
-class ChatStreamHandle(BaseValueObject):
-    """流式对话句柄：流标识 + 增量事件序列（运行时句柄，不走 JSON 序列化）。"""
+class ChatStreamHandle(BaseFrameworkObject):
+    """流式对话句柄：流标识 + 增量事件序列（**运行时句柄**——非数据对象，不参与值语义与序列化输出）。"""
 
-    stream_id: str
-    """流标识（供 `stop(stream_id)` 中断在途流）。"""
+    object_kind: ClassVar[str] = "chat_stream_handle"
+    """框架对象统一标识（运行时句柄）。"""
 
-    events: AsyncIterator[ChatStreamEvent]
-    """增量事件序列（`token` / `done` / `error`）。"""
+    def __init__(self, stream_id: str, events: AsyncIterator[ChatStreamEvent]) -> None:
+        """初始化句柄（保持与改造前一致的构造签名与字段）。
+
+        Args:
+            stream_id: 流标识（供 `stop(stream_id)` 中断在途流）。
+            events: 增量事件序列（`token` / `done` / `error`）。
+        """
+        self.stream_id = stream_id
+        self.events = events
+
+    async def aclose(self) -> None:
+        """关闭底层事件序列（生命周期钩子：事件序列支持 `aclose` 时一并关闭）。"""
+        closer: Any = getattr(self.events, "aclose", None)
+        if closer is not None:
+            await closer()
 
 
 class BaseChatStream(BasePluggable, ABC):
