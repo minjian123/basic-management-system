@@ -25,7 +25,7 @@ from typing import cast
 
 from bms_core.core.base import BaseObject
 from bms_core.core.exceptions import EventContractError
-from bms_core.core.objects import BaseFieldSpecContract, BaseValueObject
+from bms_core.core.objects import BaseFieldSpecContract, BaseSnapshotRoundTripContract
 from bms_core.core.version import contract_major
 from bms_core.events.base import DEFAULT_EVENT_VERSION, EventEnvelope
 
@@ -128,7 +128,7 @@ class EventFieldSpec(BaseFieldSpecContract):
 
 
 @dataclass(frozen=True)
-class EventContract(BaseValueObject):
+class EventContract(BaseSnapshotRoundTripContract):
     """事件契约：事件类型 + 契约版本 + 载荷字段规格 + 说明 + 弃用标记。"""
 
     event_type: str
@@ -199,7 +199,7 @@ class EventContract(BaseValueObject):
 
 
 @dataclass(frozen=True)
-class EventSubscription(BaseValueObject):
+class EventSubscription(BaseSnapshotRoundTripContract):
     """事件订阅：消费方对某事件的支持声明（消费标识 + 支持主版本集合）。"""
 
     consumer: str

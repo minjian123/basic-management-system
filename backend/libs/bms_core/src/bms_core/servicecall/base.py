@@ -26,7 +26,7 @@ from fastapi import Request
 from bms_core.api.base import API_PREFIX
 from bms_core.core.config import Settings
 from bms_core.core.exceptions import ParamError
-from bms_core.core.objects import BaseValueObject
+from bms_core.core.objects import BaseHttpResponseContract, BaseValueObject
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 from bms_core.ratelimit.base import RateLimitRule, build_rate_limit_key
 from bms_core.services.service_contract import service_enabled
@@ -150,7 +150,7 @@ class ServiceRequest(BaseValueObject):
 
 
 @dataclass(frozen=True)
-class ServiceResponse(BaseValueObject):
+class ServiceResponse(BaseHttpResponseContract):
     """服务间同步调用响应（非 2xx 原样返回，由调用方判定）。"""
 
     status_code: int

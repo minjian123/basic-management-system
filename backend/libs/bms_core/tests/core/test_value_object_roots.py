@@ -22,7 +22,9 @@ from pathlib import Path
 import pytest
 
 from bms_core.api.base import AuthContext
+from bms_core.boundary.assess import OwnershipViolation
 from bms_core.boundary.base import OwnershipStats
+from bms_core.boundary.exceptions import OwnershipException
 from bms_core.captcha.base import CaptchaChallenge, CaptchaCredential
 from bms_core.captcha.default import CaptchaImageOptions, CaptchaSliderOptions, CaptchaSmsOptions
 from bms_core.chat.base import ChatStreamHandle
@@ -30,22 +32,28 @@ from bms_core.core.objects import (
     BaseAuthorizeUrlResultContract,
     BaseCaptchaContract,
     BaseDecisionContract,
+    BaseDeliveryResultContract,
+    BaseEventRecordContract,
     BaseFieldRuleContract,
     BaseFieldSpecContract,
     BaseFrameworkObject,
     BaseHealthResultContract,
+    BaseHttpResponseContract,
     BaseI18nSeedContract,
     BaseIdentityProfileContract,
+    BaseLlmResultContract,
     BaseLoginResultContract,
     BaseOidcTokenSpecContract,
     BaseOpsReportContract,
     BaseOptionsContract,
+    BaseOwnershipContract,
     BaseProcessContract,
     BaseRefreshableTokenContract,
     BaseRegistryRecordContract,
     BaseRequestIdentityContract,
     BaseSearchContract,
     BaseSecretMaterialContract,
+    BaseSnapshotRoundTripContract,
     BaseTallyContract,
     BaseTenantViewContract,
     BaseTokenClaimsContract,
@@ -60,22 +68,27 @@ from bms_core.db.tenant import TenantContext
 from bms_core.db.tenant_registry import TenantSnapshot
 from bms_core.dict.seed import SeedItem, SeedType
 from bms_core.edge.base import EdgeIdentity, EdgeTrustDecision
-from bms_core.events.contracts import EventFieldSpec
+from bms_core.events.contracts import EventContract, EventFieldSpec, EventSubscription
 from bms_core.health.base import HealthCheckReport, HealthCheckResult
 from bms_core.idp.base import IdentityClaims, IdentityToken, IdentityUser
+from bms_core.llm.base import ChatResult, EmbeddingResult, OcrResult
 from bms_core.masking.base import MaskRule
 from bms_core.masking.default import MaskerOptions
+from bms_core.notify.base import SendResult
 from bms_core.oauth.base import ClientCredentials, OAuthToken
 from bms_core.oauth.keys import TokenKey
 from bms_core.oauth.oidc_provider import AccessTokenSpec, IdTokenSpec, OidcAccessClaims
 from bms_core.oauth.token import ServiceTokenSpec
 from bms_core.oauth.user_token import UserTokenPair
 from bms_core.oauth.verify import VerifiedToken
-from bms_core.outbox.base import DispatchResult
+from bms_core.outbound.http import HttpResponse
+from bms_core.outbound.webhook import WebhookResult
+from bms_core.outbox.base import DeadLetterRecord, DispatchResult, OutboxRecord
 from bms_core.ratelimit.base import RateLimitDecision
 from bms_core.replay.base import ReplayDecision
 from bms_core.scope.base import ScopeCondition
 from bms_core.search.base import SearchDocument, SearchQuery
+from bms_core.servicecall.base import ServiceResponse
 from bms_core.services.module_registry import ModuleRecord
 from bms_core.services.table_registry import TableRecord
 from bms_core.transfer.base import ColumnSpec
@@ -105,21 +118,27 @@ VALUE_OBJECT_BASES = frozenset(
         "BaseAuthorizeUrlResultContract",
         "BaseCaptchaContract",
         "BaseDecisionContract",
+        "BaseDeliveryResultContract",
+        "BaseEventRecordContract",
         "BaseFieldRuleContract",
         "BaseFieldSpecContract",
         "BaseHealthResultContract",
+        "BaseHttpResponseContract",
         "BaseI18nSeedContract",
         "BaseIdentityProfileContract",
+        "BaseLlmResultContract",
         "BaseLoginResultContract",
         "BaseOidcTokenSpecContract",
         "BaseOptionsContract",
         "BaseOpsReportContract",
+        "BaseOwnershipContract",
         "BaseProcessContract",
         "BaseRefreshableTokenContract",
         "BaseRegistryRecordContract",
         "BaseRequestIdentityContract",
         "BaseSearchContract",
         "BaseSecretMaterialContract",
+        "BaseSnapshotRoundTripContract",
         "BaseTallyContract",
         "BaseTenantViewContract",
         "BaseTokenClaimsContract",
@@ -153,6 +172,12 @@ ROLE_CHAINS: tuple[tuple[type, tuple[type, ...]], ...] = (
     (BaseFieldRuleContract, (MaskRule, ScopeCondition)),
     (BaseCaptchaContract, (CaptchaChallenge, CaptchaCredential)),
     (BaseSearchContract, (SearchQuery, SearchDocument)),
+    (BaseSnapshotRoundTripContract, (EventContract, EventSubscription)),
+    (BaseEventRecordContract, (OutboxRecord, DeadLetterRecord)),
+    (BaseLlmResultContract, (ChatResult, EmbeddingResult, OcrResult)),
+    (BaseHttpResponseContract, (HttpResponse, ServiceResponse)),
+    (BaseDeliveryResultContract, (SendResult, WebhookResult)),
+    (BaseOwnershipContract, (OwnershipViolation, OwnershipException)),
 )
 """角色链台账（层 → 成员）：仅登记**基座侧**成员——服务侧成员（`TokenResult` / `IssuedSession` 等）
 由 `VALUE_OBJECT_BATCH` 的「单一父基类」断言覆盖（`bms_identity` 在基座用例环境不可导入）。"""
@@ -406,6 +431,26 @@ def test_role_chain_common_fields_hold_on_all_members() -> None:
             if missing:
                 offenders.append(f"{member.__name__} 缺 {layer.__name__} 公共段：{sorted(missing)}")
     assert not offenders, "层公共段在成员上不成立：\n" + "\n".join(offenders)
+
+
+@pytest.mark.kiwi_id(2216)
+def test_snapshot_round_trip_chain_layer_contract() -> None:
+    """快照往返链层：`to_snapshot` / `from_snapshot` 为抽象成对入口，成员均实现两者。"""
+    assert getattr(BaseSnapshotRoundTripContract.to_snapshot, "__isabstractmethod__", False) is True
+    assert getattr(BaseSnapshotRoundTripContract.from_snapshot, "__isabstractmethod__", False) is True
+    for member in (EventContract, EventSubscription):
+        assert issubclass(member, BaseSnapshotRoundTripContract)
+        assert callable(member.to_snapshot)
+        assert callable(member.from_snapshot)
+
+
+@pytest.mark.kiwi_id(2216)
+def test_ownership_chain_prefix_field_points_to_real_field() -> None:
+    """所有权链层：`PREFIX_FIELD` 映射声明指向真实字段（历史不同名的前缀位可统一取用）。"""
+    for member in (OwnershipViolation, OwnershipException):
+        assert member.PREFIX_FIELD in {field.name for field in dataclasses.fields(member)}
+    assert OwnershipViolation.PREFIX_FIELD == "prefix"
+    assert OwnershipException.PREFIX_FIELD == "target_prefix"
 
 
 @pytest.mark.kiwi_id(2216)

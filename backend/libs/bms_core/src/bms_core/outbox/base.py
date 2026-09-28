@@ -21,7 +21,7 @@ from fastapi import Request
 
 from bms_core.core.capability import BaseAsyncResource
 from bms_core.core.config import Settings
-from bms_core.core.objects import BaseTallyContract, BaseValueObject
+from bms_core.core.objects import BaseEventRecordContract, BaseTallyContract
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 from bms_core.db.sync import DbSession
 from bms_core.events.base import EventEnvelope
@@ -80,7 +80,7 @@ ERROR_MSG_MAX_LENGTH = 512
 
 
 @dataclass(frozen=True)
-class OutboxRecord(BaseValueObject):
+class OutboxRecord(BaseEventRecordContract):
     """发件箱记录（投递器按此重建事件信封并投递）。"""
 
     event_id: str
@@ -126,7 +126,7 @@ class OutboxRecord(BaseValueObject):
 
 
 @dataclass(frozen=True)
-class DeadLetterRecord(BaseValueObject):
+class DeadLetterRecord(BaseEventRecordContract):
     """死信记录（看板读写）。"""
 
     id: int
