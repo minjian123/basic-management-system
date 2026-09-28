@@ -17,7 +17,6 @@ from typing import cast
 from sqlalchemy.exc import IntegrityError
 
 from bms_core.audit.base import AuditCapturer
-from bms_core.core.base import BaseObject
 from bms_core.core.config import IdpManageSettings
 from bms_core.core.exceptions import (
     ConfigError,
@@ -26,6 +25,7 @@ from bms_core.core.exceptions import (
     IdpNotFoundError,
     IdpTestFailedError,
 )
+from bms_core.core.objects import BaseFrameworkObject
 from bms_core.db.session import DbSession
 from bms_core.db.unit_of_work import UnitOfWork
 from bms_core.idp.base import IdpProbeResult
@@ -45,7 +45,7 @@ _TEST_DIMENSION = "idp_test"
 _TABLE = "sys_identity_provider"
 
 
-class IdentityProviderService(BaseObject):
+class IdentityProviderService(BaseFrameworkObject):
     """外部 IdP 配置管理服务（每请求装配：会话 / 工作单元 / 审计 / 限流 / 实例桥接）。"""
 
     def __init__(

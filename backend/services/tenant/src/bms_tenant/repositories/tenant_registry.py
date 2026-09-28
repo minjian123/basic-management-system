@@ -9,14 +9,14 @@ from datetime import datetime
 
 from sqlalchemy import select
 
-from bms_core.core.base import BaseObject
+from bms_core.core.objects import BaseFrameworkObject
 from bms_core.db.session import DbSession
 from bms_tenant.models.tenant import SysTenant
 
 __all__ = ["TenantRegistryRepository"]
 
 
-class TenantRegistryRepository(BaseObject):
+class TenantRegistryRepository(BaseFrameworkObject):
     """租户注册仓储（会话绑定；调用方负责事务边界）。"""
 
     def __init__(self, session: DbSession) -> None:

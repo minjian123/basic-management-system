@@ -17,14 +17,14 @@ from typing import cast
 
 import httpx
 
-from bms_core.core.base import BaseObject
 from bms_core.core.exceptions import ConfigError
+from bms_core.core.objects import BaseFrameworkObject
 from bms_core.idp.base import BaseIdentityProvider
 from bms_core.idp.registry import IdentityProviderRegistry, IdentityProviderSpec
 from bms_identity.models.identity_provider import SysIdentityProvider
 
 
-class ProviderRegistry(BaseObject):
+class ProviderRegistry(BaseFrameworkObject):
     """租户内 IdP 行实例化桥接（authorize / callback 逐请求取实例）。"""
 
     def __init__(

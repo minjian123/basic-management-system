@@ -6,7 +6,7 @@ import re
 
 from sqlalchemy.exc import IntegrityError
 
-from bms_core.core.base import BaseObject
+from bms_core.core.objects import BaseFrameworkObject
 from bms_core.db.unit_of_work import UnitOfWork
 from bms_core.services.base_service import BaseService
 from bms_org.models.user import SysUser
@@ -34,7 +34,7 @@ _PHONE_RE = re.compile(r"^\+?\d{6,20}$")
 """手机号形态（可选国际前缀 + 6~20 位数字；仅用于标识分类，非格式校验）。"""
 
 
-class UserProfileService(BaseObject):
+class UserProfileService(BaseFrameworkObject):
     """用户概要服务：按主键取最小概要（不存在返回 `found=false`）。"""
 
     def __init__(self, users: UserRepository) -> None:
@@ -60,7 +60,7 @@ class UserProfileService(BaseObject):
         return UserProfileResult(found=True, user=_summary(row))
 
 
-class UserResetTargetService(BaseObject):
+class UserResetTargetService(BaseFrameworkObject):
     """找回密码重置目标解析：标识分类（邮箱 / 手机 / 账号）→ 用户 → 通道与投递目标。
 
     - 邮箱按小写不敏感匹配（跨库确定性）；手机 / 账号精确匹配；多命中取最早一条。

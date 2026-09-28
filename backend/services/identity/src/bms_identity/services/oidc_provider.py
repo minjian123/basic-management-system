@@ -23,7 +23,6 @@ from dataclasses import dataclass
 from typing import ClassVar, cast
 from urllib.parse import urlencode
 
-from bms_core.core.base import BaseObject
 from bms_core.core.config import OidcProviderSettings
 from bms_core.core.exceptions import (
     AuthError,
@@ -32,7 +31,12 @@ from bms_core.core.exceptions import (
     OidcInvalidRequestError,
     OidcUnsupportedGrantError,
 )
-from bms_core.core.objects import BaseAuthorizeUrlResultContract, BaseTokenContract, BaseValueObject
+from bms_core.core.objects import (
+    BaseAuthorizeUrlResultContract,
+    BaseFrameworkObject,
+    BaseTokenContract,
+    BaseValueObject,
+)
 from bms_core.db.session import DbSession
 from bms_core.idp.state.base import BaseIdpStateStore
 from bms_core.oauth.oidc_provider import (
@@ -112,7 +116,7 @@ class UserInfoResult(BaseValueObject):
     name: str = ""
 
 
-class OidcProviderService(BaseObject):
+class OidcProviderService(BaseFrameworkObject):
     """OIDC Provider 编排服务（每请求装配：会话 / 状态存储 / Provider / org 客户端 / 哈希器）。"""
 
     def __init__(

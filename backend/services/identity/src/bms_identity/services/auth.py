@@ -13,7 +13,6 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 
 from bms_core.captcha.base import BaseCaptcha, CaptchaCredential, CaptchaKind
-from bms_core.core.base import BaseObject
 from bms_core.core.config import LoginSettings, SessionSettings
 from bms_core.core.exceptions import (
     AccountDisabledError,
@@ -24,7 +23,7 @@ from bms_core.core.exceptions import (
     ParamError,
 )
 from bms_core.core.logging import get_logger
-from bms_core.core.objects import BaseLoginResultContract
+from bms_core.core.objects import BaseFrameworkObject, BaseLoginResultContract
 from bms_core.db.session import DbSession
 from bms_core.db.unit_of_work import UnitOfWork
 from bms_core.oauth.user_token import (
@@ -83,7 +82,7 @@ class RefreshOutcome(BaseLoginResultContract):
     refresh_expires_in: int
 
 
-class LoginService(BaseObject):
+class LoginService(BaseFrameworkObject):
     """本地登录 / 刷新 / 登出服务（请求级会话 + 各能力域）。"""
 
     def __init__(

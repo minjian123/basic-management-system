@@ -11,12 +11,12 @@ from __future__ import annotations
 
 from typing import cast
 
-from bms_core.core.base import BaseObject
 from bms_core.core.exceptions import (
     PasswordPolicyViolationError,
     PasswordReusedError,
     ServiceUnavailableError,
 )
+from bms_core.core.objects import BaseFrameworkObject
 from bms_core.servicecall.base import BaseServiceClient, ServiceCallPolicy, ServiceRequest, ServiceResponse
 from bms_identity.schemas.auth import OrgLoginState, OrgUpdatePasswordResult, OrgVerifyResult
 from bms_identity.schemas.password_reset import OrgResetTargetResult
@@ -35,7 +35,7 @@ _CREDENTIAL_INTERFACE = "org 凭据接口"
 _PROFILE_INTERFACE = "org 用户接口"
 
 
-class OrgCredentialClient(BaseObject):
+class OrgCredentialClient(BaseFrameworkObject):
     """org 凭据接口客户端（verify / update-password / login-state）。"""
 
     def __init__(self, client: BaseServiceClient) -> None:

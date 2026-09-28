@@ -23,7 +23,6 @@ from datetime import UTC, datetime
 from typing import ClassVar, cast
 from urllib.parse import quote
 
-from bms_core.core.base import BaseObject
 from bms_core.core.config import SsoSettings
 from bms_core.core.exceptions import (
     AccountDisabledError,
@@ -37,7 +36,7 @@ from bms_core.core.exceptions import (
     SsoProviderUnavailableError,
 )
 from bms_core.core.logging import get_logger
-from bms_core.core.objects import BaseAuthorizeUrlResultContract, BaseValueObject
+from bms_core.core.objects import BaseAuthorizeUrlResultContract, BaseFrameworkObject, BaseValueObject
 from bms_core.db.session import DbSession
 from bms_core.idp.base import BaseIdentityProvider, IdentityToken
 from bms_core.idp.state.base import BaseIdpStateStore, IdpFlowState
@@ -88,7 +87,7 @@ class SsoAuthorizeResult(BaseAuthorizeUrlResultContract):
     """流程状态有效期（秒；与流程状态存储 TTL 一致）。"""
 
 
-class SsoService(BaseObject):
+class SsoService(BaseFrameworkObject):
     """SSO 编排服务（流程状态 / 限流 / IdP 实例 / org 概要）。"""
 
     def __init__(

@@ -13,9 +13,9 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 
 from bms_core.config.base import BaseConfigSource
-from bms_core.core.base import BaseObject
 from bms_core.core.exceptions import AccountLockNotFoundError, NotFoundError
 from bms_core.core.logging import get_logger
+from bms_core.core.objects import BaseFrameworkObject
 from bms_core.db.unit_of_work import UnitOfWork
 from bms_core.password.default import resolve_inactive_lock_days
 from bms_core.schemas.pagination import BasePageQuery
@@ -53,7 +53,7 @@ def _utc_now() -> datetime:
     return datetime.now(UTC).replace(tzinfo=None)
 
 
-class AccountLockService(BaseObject):
+class AccountLockService(BaseFrameworkObject):
     """账号锁定服务：三型锁定写入、手动解锁与锁定记录查询。"""
 
     def __init__(
