@@ -261,6 +261,18 @@ def main() -> int:
         failures,
     )
     _run(
+        "基座：check-bare-collections（裸无序集合护栏）",
+        [sys.executable, "scripts/tools/base-check/check-bare-collections.py", str(root)],
+        root,
+        failures,
+    )
+    _run(
+        "基座：check-bare-collections --self-test",
+        [sys.executable, "scripts/tools/base-check/check-bare-collections.py", "--self-test"],
+        root,
+        failures,
+    )
+    _run(
         "边界：boundary_metrics（越界 / 跨库 / 例外计数）",
         [sys.executable, "scripts/tools/governance/boundary_metrics.py", "--root", str(root)],
         root,

@@ -137,6 +137,9 @@ base-integrity:
     # 服务边界护栏：共享库 / 服务依赖、分层单向、表 / 表前缀跨服务唯一、跨服务库访问硬校验（《后端开发规范》§3.1/§3.2）
     - python scripts/tools/base-check/check-service-boundaries.py
     - python scripts/tools/base-check/check-service-boundaries.py --self-test
+    # 裸无序集合护栏：类字段与函数签名不得使用裸 dict / list / set / frozenset（存量以基线快照豁免并递减；《后端开发规范》§3.1「集合与排序」）
+    - python scripts/tools/base-check/check-bare-collections.py
+    - python scripts/tools/base-check/check-bare-collections.py --self-test
     # 服务边界与跨库访问度量（S7；静态越界 / 跨库访问 / 例外数，报告步）
     - python scripts/tools/governance/boundary_metrics.py
     # 项目文档状态一致性（需求 / 任务 / 计划三处；规则见《任务文档规范》§7 与 04-3 详细设计 §5）
