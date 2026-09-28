@@ -13,10 +13,10 @@ from collections.abc import Awaitable, Callable, Mapping
 from typing import cast
 
 from bms_core.cache.base import CacheRegion
-from bms_core.core.base import BaseObject
 from bms_core.core.config import Settings
 from bms_core.core.exceptions import ServiceUnavailableError, TenantNotFoundError, TenantSuspendedError
 from bms_core.core.logging import get_logger
+from bms_core.core.objects import BaseFrameworkObject
 from bms_core.core.plugin import resolve_plugin
 from bms_core.db.registry import EngineRegistry
 from bms_core.db.session import SessionFactory
@@ -48,7 +48,7 @@ REMOTE_TENANT_SOURCE = "remote"
 """远程租户源实现名（登记到共享基座装配点）。"""
 
 
-class RemoteTenantSource(BaseObject):
+class RemoteTenantSource(BaseFrameworkObject):
     """远程租户源：契约取数 + 缓存 + 版本键（实现 `TenantLookup` 契约）。"""
 
     def __init__(

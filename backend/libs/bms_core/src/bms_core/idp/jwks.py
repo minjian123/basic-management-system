@@ -21,8 +21,8 @@ from joserfc.errors import JoseError
 from joserfc.jwk import KeySet, KeySetSerialization
 from joserfc.jwt import JWTClaimsRegistry
 
-from bms_core.core.base import BaseObject
 from bms_core.core.exceptions import AuthError, ServiceUnavailableError
+from bms_core.core.objects import BaseFrameworkObject
 from bms_core.idp.base import IdentityClaims
 
 __all__ = [
@@ -46,7 +46,7 @@ _HTTP_TIMEOUT = 10.0
 """JWKS 拉取超时（秒）。"""
 
 
-class JwksCache(BaseObject):
+class JwksCache(BaseFrameworkObject):
     """JWK Set 拉取与缓存（按 `jwks_uri` 缓存，TTL 内命中）。"""
 
     def __init__(

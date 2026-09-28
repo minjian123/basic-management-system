@@ -21,7 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 from sqlalchemy.sql.base import Executable
 
-from bms_core.core.base import BaseObject
+from bms_core.core.objects import BaseFrameworkObject
 
 SYNC_ONLY_DIALECTS: frozenset[str] = frozenset({"dm"})
 """无异步方言、仅同步驱动的方言（达梦）。"""
@@ -39,7 +39,7 @@ def is_sync_only_url(url: str) -> bool:
     return make_url(url).get_backend_name() in SYNC_ONLY_DIALECTS
 
 
-class _SyncTransaction(BaseObject):
+class _SyncTransaction(BaseFrameworkObject):
     """同步会话的事务边界（`DbUnitOfWork.begin()` 的异步上下文管理器形态）。"""
 
     def __init__(self, session: Session) -> None:
@@ -67,7 +67,7 @@ class _SyncTransaction(BaseObject):
             await asyncio.to_thread(self._session.rollback)
 
 
-class SyncSession(BaseObject):
+class SyncSession(BaseFrameworkObject):
     """阻塞会话的异步门面（达梦等无异步方言）：阻塞调用统一在线程池执行。"""
 
     def __init__(self, engine: Engine) -> None:

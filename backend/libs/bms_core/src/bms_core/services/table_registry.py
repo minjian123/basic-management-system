@@ -16,8 +16,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any, cast
 
-from bms_core.core.base import BaseObject
-from bms_core.core.objects import BaseRegistryRecordContract
+from bms_core.core.objects import BaseFrameworkObject, BaseRegistryRecordContract
 from bms_core.services.module_registry import SERVICE_CATALOG, ModuleRecord
 
 TABLE_OWNERSHIP_NAME = "sys_table_ownership"
@@ -478,7 +477,7 @@ def _duplicates(values: list[str]) -> list[str]:
     return result
 
 
-class TableOwnershipRegistry(BaseObject):
+class TableOwnershipRegistry(BaseFrameworkObject):
     """表归属校验 / 清单查询（离线，与服务目录校验同源模式）。"""
 
     def __init__(self, tables: Sequence[TableRecord] = TABLE_OWNERSHIP) -> None:

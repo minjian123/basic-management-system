@@ -11,8 +11,8 @@
 import threading
 import time
 
-from bms_core.core.base import BaseObject
 from bms_core.core.factory import BaseIdFactory
+from bms_core.core.objects import BaseFrameworkObject
 
 _EPOCH_MS = 1_600_000_000_000  # 自定义基点（约 2020-09-13 UTC），固定不变
 _WORKER_BITS = 10
@@ -37,7 +37,7 @@ def _validate_worker_id(worker_id: int) -> None:
         raise ValueError(f"worker_id 必须在 0 ~ {_MAX_WORKER_ID} 之间")
 
 
-class SnowflakeGenerator(BaseObject):
+class SnowflakeGenerator(BaseFrameworkObject):
     """标准雪花生成器（单实例线程安全）。"""
 
     def __init__(self, worker_id: int = 0) -> None:

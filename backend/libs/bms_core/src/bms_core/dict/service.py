@@ -14,8 +14,8 @@ from pydantic import Field
 from sqlalchemy import select
 from sqlalchemy.orm.exc import StaleDataError
 
-from bms_core.core.base import BaseObject
 from bms_core.core.exceptions import ConcurrentConflictError, ConflictError, NotFoundError
+from bms_core.core.objects import BaseFrameworkObject
 from bms_core.db.registry import EngineRegistry
 from bms_core.db.session import DbSession, session_scope
 from bms_core.db.tenant import current_tenant_context
@@ -69,7 +69,7 @@ class DictAttrPayload(BaseSchema):
     scope: str = Field(default="platform", description="属性来源（platform/tenant）")
 
 
-class DictService(BaseObject):
+class DictService(BaseFrameworkObject):
     """字典写路径服务（CRUD + 失效）。"""
 
     def __init__(self, *, engines: EngineRegistry, cache: DictCacheRegion | None = None) -> None:

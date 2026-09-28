@@ -3,8 +3,8 @@
 
 from collections.abc import AsyncIterator, Mapping, Sequence
 
-from bms_core.core.base import BaseObject
 from bms_core.core.capability import BaseNullObject
+from bms_core.core.objects import BaseFrameworkObject
 from bms_core.transfer.base import ColumnSpec
 from bms_core.transfer.exporter import BaseExporter
 from bms_core.transfer.importer import BaseImporter, ImportResult
@@ -15,7 +15,7 @@ __all__ = [
 ]
 
 
-class _EmptyExporterStream(BaseObject):
+class _EmptyExporterStream(BaseFrameworkObject):
     """占位导出流：不产出任何分块。"""
 
     def __aiter__(self) -> _EmptyExporterStream:

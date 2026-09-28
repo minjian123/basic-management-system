@@ -19,10 +19,9 @@ from dataclasses import dataclass
 import structlog
 from fastapi import FastAPI
 
-from bms_core.core.base import BaseObject
 from bms_core.core.config import Settings, get_settings
 from bms_core.core.logging import get_logger
-from bms_core.core.objects import BaseValueObject
+from bms_core.core.objects import BaseFrameworkObject, BaseValueObject
 
 __all__ = [
     "ServiceIdentity",
@@ -58,7 +57,7 @@ def bind_service_identity(identity: ServiceIdentity) -> None:
     structlog.contextvars.bind_contextvars(service=identity.name, service_version=identity.version)
 
 
-class ServiceRuntime(BaseObject):
+class ServiceRuntime(BaseFrameworkObject):
     """服务运行时：持身份、暴露停机摘流标记（应用级，单例落 `app.state.service_runtime`）。"""
 
     def __init__(self, app: FastAPI, identity: ServiceIdentity) -> None:

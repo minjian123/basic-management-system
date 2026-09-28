@@ -1,10 +1,10 @@
 """core 层异步资源统一登记与回收：应用生命周期统一释放。"""
 
-from bms_core.core.base import BaseObject
 from bms_core.core.capability import BaseAsyncResource
+from bms_core.core.objects import BaseFrameworkObject
 
 
-class ResourceManager(BaseObject):
+class ResourceManager(BaseFrameworkObject):
     """异步资源登记表：登记后由应用生命周期逆序统一释放。"""
 
     def __init__(self) -> None:
