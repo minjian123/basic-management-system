@@ -3,9 +3,9 @@
 import pytest
 
 from bms_core.core.context import (
-    reset_current_tenant_code,
+    reset_current_tenant,
     reset_tenant_context,
-    set_current_tenant_code,
+    set_current_tenant,
     set_tenant_context,
 )
 from bms_core.core.exceptions import ConfigError, TenantNotFoundError
@@ -199,11 +199,11 @@ def test_current_tenant_context_prefers_full_context() -> None:
     assert current_tenant_context() is full
     reset_tenant_context(token)
 
-    code_token = set_current_tenant_code("acme")
+    code_token = set_current_tenant("acme")
     context = current_tenant_context()
     assert context.code == "acme"
     assert context.db_key == "tenant_acme"
     assert context.tenant_id is None
-    reset_current_tenant_code(code_token)
+    reset_current_tenant(code_token)
 
     assert current_tenant_context() == DEMO_TENANT

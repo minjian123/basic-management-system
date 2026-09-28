@@ -22,7 +22,7 @@ class NullIdpStateStore(BaseIdpStateStore, BaseNullObject):
         state: str,
         payload: Mapping[str, object],
         *,
-        tenant_code: str | None = None,
+        tenant: str | None = None,
         ttl: int = DEFAULT_IDP_STATE_TTL,
         namespace: str = IDP_STATE_DEFAULT_NAMESPACE,
     ) -> None:
@@ -31,7 +31,7 @@ class NullIdpStateStore(BaseIdpStateStore, BaseNullObject):
         Args:
             state: 流程状态（占位忽略）。
             payload: 状态数据（占位忽略）。
-            tenant_code: 租户编码（占位忽略）。
+            tenant: 租户编码（占位忽略）。
             ttl: 有效期（占位忽略）。
             namespace: 命名空间（占位忽略）。
         """
@@ -40,14 +40,14 @@ class NullIdpStateStore(BaseIdpStateStore, BaseNullObject):
         self,
         state: str,
         *,
-        tenant_code: str | None = None,
+        tenant: str | None = None,
         namespace: str = IDP_STATE_DEFAULT_NAMESPACE,
     ) -> Mapping[str, object] | None:
         """消费流程状态（占位恒定未命中）。
 
         Args:
             state: 流程状态（占位忽略）。
-            tenant_code: 租户编码（占位忽略）。
+            tenant: 租户编码（占位忽略）。
             namespace: 命名空间（占位忽略）。
 
         Returns:
@@ -59,13 +59,13 @@ class NullIdpStateStore(BaseIdpStateStore, BaseNullObject):
         self,
         state: str,
         *,
-        tenant_code: str | None = None,
+        tenant: str | None = None,
         namespace: str = IDP_STATE_DEFAULT_NAMESPACE,
     ) -> None:
         """空操作（占位不删除）。
 
         Args:
             state: 流程状态（占位忽略）。
-            tenant_code: 租户编码（占位忽略）。
+            tenant: 租户编码（占位忽略）。
             namespace: 命名空间（占位忽略）。
         """

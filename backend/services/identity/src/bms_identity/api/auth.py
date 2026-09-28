@@ -97,7 +97,7 @@ async def introspect(
     spec = ServiceTokenSpec(
         service=settings.gateway.service_identity,
         scopes=("gateway",),
-        tenant_code=verified.tenant_code,
+        tenant=verified.tenant,
         ttl=settings.gateway.token_ttl_seconds,
     )
     try:
@@ -106,8 +106,8 @@ async def introspect(
         return Response(status_code=503)
 
     headers = {USER_SUBJECT_HEADER: verified.subject, "Authorization": f"Bearer {issued.access_token}"}
-    if verified.tenant_code:
-        headers[TENANT_ID_HEADER] = verified.tenant_code
+    if verified.tenant:
+        headers[TENANT_ID_HEADER] = verified.tenant
     if verified.scopes:
         headers[USER_SCOPES_HEADER] = ",".join(verified.scopes)
     if verified.token_id:
@@ -241,7 +241,7 @@ async def login(
     Returns:
         ApiResponse: 统一响应，data 为登录结果（`LoginResult`）。
     """
-    tenant = await resolve_request_tenant(req.tenant_code, tenant_ctx, tenant_source)
+    tenant = await resolve_request_tenant(req.tenant, tenant_ctx, tenant_source)
     registry: EngineRegistry = request.app.state.engine_registry
     factory = request.app.state.session_factory
     async with session_scope(registry, db_key=tenant.db_key, factory=factory) as session:
@@ -258,7 +258,7 @@ async def login(
         )
         outcome = await service.login(
             req,
-            tenant_code=tenant.code,
+            tenant=tenant.code,
             ip=current_client_ip.get(),
             user_agent=request.headers.get("user-agent"),
         )
@@ -319,7 +319,7 @@ async def refresh(
         )
         outcome = await service.refresh(
             token,
-            tenant_code=tenant_ctx.code,
+            tenant=tenant_ctx.code,
             ip=current_client_ip.get(),
             user_agent=request.headers.get("user-agent"),
         )
@@ -372,6 +372,6 @@ async def logout(
                 client=client,
                 publisher=publisher,
             )
-            await service.logout(token, tenant_code=tenant_ctx.code)
+            await service.logout(token, tenant=tenant_ctx.code)
     clear_refresh_cookie(response)
     return ApiResponse.ok(None)

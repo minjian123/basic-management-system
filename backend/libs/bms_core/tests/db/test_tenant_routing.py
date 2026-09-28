@@ -13,9 +13,9 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 from bms_core.api.middleware import TenantMiddleware
 from bms_core.core.config import Settings
 from bms_core.core.context import (
-    reset_current_tenant_code,
+    reset_current_tenant,
     reset_tenant_context,
-    set_current_tenant_code,
+    set_current_tenant,
     set_tenant_context,
 )
 from bms_core.core.exceptions import ConfigError, DataOwnershipError
@@ -254,11 +254,11 @@ async def test_tenant_filter_condition_injection() -> None:
 
     assert await repo.count() == 2  # 无租户上下文：不注入（物理库隔离为第一层）
 
-    code_token = set_current_tenant_code("demo")
+    code_token = set_current_tenant("demo")
     try:
         assert await repo.count() == 2  # 上下文无主键：不注入
     finally:
-        reset_current_tenant_code(code_token)
+        reset_current_tenant(code_token)
 
     plain = _PlainRepo()
     await plain.create(tenant_id=1)

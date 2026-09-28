@@ -25,7 +25,7 @@ from bms_core.core.context import (
     current_user_id,
     get_current_client_ip,
     get_current_request_id,
-    get_current_tenant_code,
+    get_current_tenant,
     get_current_trace_id,
 )
 from bms_core.core.objects import BaseFrameworkObject
@@ -71,7 +71,7 @@ def _add_context_fields(_logger: WrappedLogger, _name: str, event_dict: EventDic
     context_fields: tuple[tuple[str, object], ...] = (
         ("trace_id", get_current_trace_id()),
         ("request_id", get_current_request_id()),
-        ("tenant", get_current_tenant_code()),
+        ("tenant", get_current_tenant()),
         ("user_id", current_user_id.get()),
         ("client_ip", get_current_client_ip()),
     )

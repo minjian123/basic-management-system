@@ -10,7 +10,7 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 from bms_core.api.errors import register_exception_handlers
 from bms_core.api.middleware import TenantMiddleware
 from bms_core.core.config import Settings
-from bms_core.core.context import get_current_tenant_code
+from bms_core.core.context import get_current_tenant
 from bms_core.core.exceptions import TenantNotFoundError, TenantSuspendedError
 from bms_core.db.tenant import TenantContext, get_tenant
 
@@ -63,12 +63,12 @@ def _app(source: _Source | None, *, allow_demo_fallback: bool = True) -> FastAPI
         tenant = state.get("tenant")
         return {
             "state": getattr(tenant, "code", None),
-            "context": get_current_tenant_code(),
+            "context": get_current_tenant(),
         }
 
     @app.get(EXEMPT_PATH)
     async def health() -> dict[str, str | None]:  # pyright: ignore[reportUnusedFunction]
-        return {"context": get_current_tenant_code()}
+        return {"context": get_current_tenant()}
 
     return app
 
@@ -99,7 +99,7 @@ async def test_chain_priority_and_context() -> None:
     assert (status, body) == (200, {"state": "demo", "context": "demo"})
     assert source.calls[-1] == ("domain", "demo.bms.example.com")
 
-    assert get_current_tenant_code() is None  # 请求结束已复位
+    assert get_current_tenant() is None  # 请求结束已复位
 
 
 @pytest.mark.kiwi_id(1019)
@@ -116,7 +116,7 @@ async def test_token_tenant_scope_state() -> None:
 
         async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
             if scope["type"] == "http":
-                scope.setdefault("state", {})["tenant_code"] = "acme"
+                scope.setdefault("state", {})["tenant_id"] = "acme"
             await self.app(scope, receive, send)
 
     app = _app(source)
@@ -140,7 +140,7 @@ async def test_unknown_and_suspended_rejected() -> None:
     status, body = await _get(app, API_PATH, {"X-Tenant-ID": "acme"})
     assert status == 403
     assert body["code"] == 80002
-    assert get_current_tenant_code() is None
+    assert get_current_tenant() is None
 
 
 @pytest.mark.kiwi_id(1019)

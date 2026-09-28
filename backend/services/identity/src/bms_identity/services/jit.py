@@ -3,7 +3,7 @@
 - **开关**：IdP 行 `config.jit_enabled` 优先，行缺配回落全局 `[sso].jit_enabled`（皆缺省 false）。
 - **白名单**：域名经行 `config.allowed_email_domains`（非空即要求邮箱域名命中）；租户经全局
   `[sso].jit_allowed_tenants`（非空即要求租户命中）；空 = 不限制。
-- **并发**：`distributed_lock` 按映射键（`{tenant_code}:{provider_key}:{subject}`）串行化；锁内二次查映射命中即复用；
+- **并发**：`distributed_lock` 按映射键（`{tenant}:{provider_key}:{subject}`）串行化；锁内二次查映射命中即复用；
   映射 `(idp_key, external_id)` 唯一约束作跨进程兜底（冲突回读复用）。
 - **建号**：用户名来源 `preferred_username → email 本地部分 → sub` 并清洗；撞名加后缀 `_2.._5`（超出拒绝）；
   经 org 内部接口建号（占位口令，不可本地登录）。
@@ -133,7 +133,7 @@ class JitService(BaseFrameworkObject):
     async def provision(
         self,
         *,
-        tenant_code: str,
+        tenant: str,
         idp_key: str,
         config: str,
         identity: ExternalIdentity,
@@ -142,7 +142,7 @@ class JitService(BaseFrameworkObject):
         """首登建号 + 映射写入（锁内二次查；唯一约束兜底）。
 
         Args:
-            tenant_code: 生效租户编码。
+            tenant: 生效租户编码。
             idp_key: 租户内 IdP 标识（协议行 `idp_key`）。
             config: IdP 行配置 JSON 原文（开关 / 白名单来源）。
             identity: 外部身份声明。
@@ -158,9 +158,9 @@ class JitService(BaseFrameworkObject):
         """
         if not self.enabled(config):
             raise SsoIdentityUnmatchedError()
-        self._enforce_whitelist(tenant_code, config, idp_key, identity)
+        self._enforce_whitelist(tenant, config, idp_key, identity)
 
-        lock_key = build_lock_key(tenant=tenant_code, resource=f"jit:{idp_key}:{identity.subject}")
+        lock_key = build_lock_key(tenant=tenant, resource=f"jit:{idp_key}:{identity.subject}")
         try:
             async with self._lock.hold(
                 lock_key,
@@ -168,19 +168,19 @@ class JitService(BaseFrameworkObject):
                 wait=self._sso.jit_lock_wait_seconds,
             ):
                 return await self._provision_locked(
-                    tenant_code=tenant_code,
+                    tenant=tenant,
                     idp_key=idp_key,
                     identity=identity,
                     platform_session=platform_session,
                 )
         except ConcurrentConflictError as exc:
-            _LOGGER.warning("JIT 并发冲突（未取到锁）", tenant_code=tenant_code, idp_key=idp_key)
+            _LOGGER.warning("JIT 并发冲突（未取到锁）", tenant=tenant, idp_key=idp_key)
             raise SsoIdentityConflictError() from exc
 
     async def _provision_locked(
         self,
         *,
-        tenant_code: str,
+        tenant: str,
         idp_key: str,
         identity: ExternalIdentity,
         platform_session: DbSession,
@@ -188,7 +188,7 @@ class JitService(BaseFrameworkObject):
         """锁内建号：二次查映射 → org 建号 → 映射 + 事件同事务。
 
         Args:
-            tenant_code: 租户编码。
+            tenant: 租户编码。
             idp_key: IdP 标识。
             identity: 外部身份声明。
             platform_session: 平台库可写会话。
@@ -201,18 +201,18 @@ class JitService(BaseFrameworkObject):
             SsoIdentityConflictError: 映射冲突回读未命中（20055/409）。
             SsoProviderUnavailableError: org 建号接口不可达（20053/503）。
         """
-        mapping_key = f"{tenant_code}:{idp_key}"
+        mapping_key = f"{tenant}:{idp_key}"
         repo = UserIdentityRepository(platform_session)
         existing = await repo.get_by_key_external(mapping_key, identity.subject)
         if existing is not None:
             return JitResult(user_id=existing.user_id, created=False)
 
-        user = await self._create_org_user(tenant_code, identity)
+        user = await self._create_org_user(tenant, identity)
         try:
             await repo.create(
                 idp_key=mapping_key,
                 external_id=identity.subject,
-                tenant_id=tenant_code,
+                tenant_id=tenant,
                 user_id=user.id,
             )
             await self._outbox.enqueue(
@@ -220,7 +220,7 @@ class JitService(BaseFrameworkObject):
                 EventEnvelope(
                     event_type=JIT_EVENT_TYPE,
                     payload={"user_id": str(user.id), "idp_key": mapping_key},
-                    tenant_code=tenant_code,
+                    tenant_id=tenant,
                     aggregate_key=mapping_key,
                 ),
             )
@@ -230,16 +230,16 @@ class JitService(BaseFrameworkObject):
             existing = await repo.get_by_key_external(mapping_key, identity.subject)
             if existing is None:
                 raise SsoIdentityConflictError() from None
-            _LOGGER.warning("JIT 映射并发冲突，复用既有映射", tenant_code=tenant_code, idp_key=idp_key)
+            _LOGGER.warning("JIT 映射并发冲突，复用既有映射", tenant=tenant, idp_key=idp_key)
             return JitResult(user_id=existing.user_id, created=False)
-        _LOGGER.info("JIT 建号成功", tenant_code=tenant_code, idp_key=idp_key, user_id=user.id)
+        _LOGGER.info("JIT 建号成功", tenant=tenant, idp_key=idp_key, user_id=user.id)
         return JitResult(user_id=user.id, created=True)
 
-    async def _create_org_user(self, tenant_code: str, identity: ExternalIdentity) -> OrgProfileUser:
+    async def _create_org_user(self, tenant: str, identity: ExternalIdentity) -> OrgProfileUser:
         """经 org 建号（用户名撞名换后缀，最多 `USERNAME_MAX_ATTEMPTS` 次）。
 
         Args:
-            tenant_code: 租户编码。
+            tenant: 租户编码。
             identity: 外部身份声明。
 
         Returns:
@@ -255,25 +255,25 @@ class JitService(BaseFrameworkObject):
             candidate = base if attempt == 0 else f"{base}_{attempt + 1}"
             try:
                 result = await self._org.create_user(
-                    tenant_code,
+                    tenant,
                     username=candidate,
                     name=name,
                     locale=identity.locale,
                     timezone=identity.timezone,
                 )
             except ServiceUnavailableError as exc:
-                _LOGGER.warning("JIT 建号接口不可用", tenant_code=tenant_code, error=str(exc))
+                _LOGGER.warning("JIT 建号接口不可用", tenant=tenant, error=str(exc))
                 raise SsoProviderUnavailableError("org 建号接口不可用") from exc
             if result.created and result.user is not None:
                 return result.user
-        _LOGGER.warning("JIT 用尽用户名后缀", tenant_code=tenant_code, base=base)
+        _LOGGER.warning("JIT 用尽用户名后缀", tenant=tenant, base=base)
         raise SsoIdentityUnmatchedError()
 
-    def _enforce_whitelist(self, tenant_code: str, config: str, provider_key: str, identity: ExternalIdentity) -> None:
+    def _enforce_whitelist(self, tenant: str, config: str, provider_key: str, identity: ExternalIdentity) -> None:
         """白名单校验：租户全局 + 域名行配置（空 = 不限制）。
 
         Args:
-            tenant_code: 租户编码。
+            tenant: 租户编码。
             config: IdP 行配置 JSON 原文（域名白名单来源）。
             provider_key: 租户内 IdP 标识（日志）。
             identity: 外部身份声明。
@@ -282,15 +282,15 @@ class JitService(BaseFrameworkObject):
             SsoIdentityUnmatchedError: 白名单外（20054/403）。
         """
         allowed_tenants = self._sso.jit_allowed_tenants
-        if allowed_tenants and tenant_code not in allowed_tenants:
-            _LOGGER.warning("JIT 租户不在白名单", tenant_code=tenant_code)
+        if allowed_tenants and tenant not in allowed_tenants:
+            _LOGGER.warning("JIT 租户不在白名单", tenant=tenant)
             raise SsoIdentityUnmatchedError()
         domains = allowed_email_domains(config, provider_key)
         if not domains:
             return
         email = (identity.email or "").strip().lower()
         if "@" not in email or email.rsplit("@", 1)[1] not in domains:
-            _LOGGER.warning("JIT 域名不在白名单", tenant_code=tenant_code, idp_key=provider_key)
+            _LOGGER.warning("JIT 域名不在白名单", tenant=tenant, idp_key=provider_key)
             raise SsoIdentityUnmatchedError()
 
 

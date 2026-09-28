@@ -33,7 +33,7 @@ class SsoAuthorizeInfo(BaseSchema):
 class SsoCallbackResult(BaseSchema):
     """SSO 回调成功回退响应体（未配置 `success_redirect` 时的 JSON 形态）。"""
 
-    tenant_code: str = Field(description="登录生效租户编码")
+    tenant: str = Field(description="登录生效租户编码")
 
 
 class OrgProfileUser(ServiceDto):
@@ -67,7 +67,7 @@ class SsoIdentityItem(BaseSchema):
 
     idp_key: str = Field(description="映射键（{tenant_code}:{provider_key}）")
     external_id: str = Field(description="外部身份主体（OIDC 取 sub）")
-    tenant_code: str = Field(description="租户编码")
+    tenant_id: str = Field(description="租户编码")
 
 
 class SsoIdentityList(BaseSchema):

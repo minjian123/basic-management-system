@@ -205,7 +205,7 @@ async def test_event_base() -> None:
     assert event.to_dict() == {
         "event_type": "user_created",
         "payload": {"id": "1"},
-        "tenant_code": None,
+        "tenant_id": None,
         "trace_id": "t1",
         "event_id": None,
         "occurred_at": None,

@@ -9,7 +9,7 @@ from collections.abc import Mapping, Sequence
 from typing import cast
 
 from bms_core.config.base import BaseConfigSource
-from bms_core.core.context import get_current_tenant_code
+from bms_core.core.context import get_current_tenant
 from bms_core.core.exceptions import ServiceUnavailableError
 from bms_core.core.logging import get_logger
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION
@@ -54,7 +54,7 @@ class HttpConfigSource(BaseConfigSource):
         if not unique:
             return {}
         headers: dict[str, str] = {}
-        tenant = get_current_tenant_code()
+        tenant = get_current_tenant()
         if tenant:
             headers[TENANT_ID_HEADER] = tenant
         request = ServiceRequest(

@@ -260,7 +260,7 @@ class SsoHarness:
         *,
         idp_key: str = IDP_KEY,
         external_id: str = "sub-1",
-        tenant_code: str = TENANT,
+        tenant_id: str = TENANT,
         user_id: int = USER_ID,
         duplicate: bool = False,
     ) -> None:
@@ -269,14 +269,14 @@ class SsoHarness:
         Args:
             idp_key: 身份源标识。
             external_id: 外部主体标识。
-            tenant_code: 关联租户编码。
+            tenant_id: 关联租户编码。
             user_id: 本地用户主键。
             duplicate: 是否追加相同映射（触发冲突分支）。
         """
         row = SysUserIdentity(
-            idp_key=f"{tenant_code}:{idp_key}",
+            idp_key=f"{tenant_id}:{idp_key}",
             external_id=external_id,
-            tenant_id=tenant_code,
+            tenant_id=tenant_id,
             user_id=user_id,
         )
         async with self.platform_scope() as session:
@@ -284,9 +284,9 @@ class SsoHarness:
             if duplicate:
                 session.add(
                     SysUserIdentity(
-                        idp_key=f"{tenant_code}:{idp_key}",
+                        idp_key=f"{tenant_id}:{idp_key}",
                         external_id=external_id,
-                        tenant_id=tenant_code,
+                        tenant_id=tenant_id,
                         user_id=user_id,
                     )
                 )

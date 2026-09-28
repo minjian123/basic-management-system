@@ -25,7 +25,7 @@ from bms_core.config.seed import PLATFORM_CONFIG_DEFAULTS, seed_configs
 from bms_core.config.service import ConfigService
 from bms_core.config.sql import SqlConfigSource
 from bms_core.core.config import get_settings
-from bms_core.core.context import current_tenant_code
+from bms_core.core.context import current_tenant
 from bms_core.core.exceptions import ConcurrentConflictError
 from bms_core.servicecall.base import BaseServiceClient, ServiceRequest, ServiceResponse
 
@@ -243,11 +243,11 @@ async def test_redis_aversion_parsing() -> None:
 async def test_http_source_with_tenant() -> None:
     """跨服务取数：携带租户上下文时透传 `X-Tenant-Id`。"""
     client = _RawClient(200, json.dumps({"data": {"values": {"a": "1"}}}).encode())
-    token = current_tenant_code.set("demo")
+    token = current_tenant.set("demo")
     try:
         assert dict(await HttpConfigSource(client=client).get_many(("a",))) == {"a": "1"}
     finally:
-        current_tenant_code.reset(token)
+        current_tenant.reset(token)
 
 
 class _StaleSession:

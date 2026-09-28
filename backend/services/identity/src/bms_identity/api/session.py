@@ -225,4 +225,4 @@ async def kick_session(
     factory = request.app.state.session_factory
     async with session_scope(registry, db_key=tenant.db_key, factory=factory) as session:
         service = _build_service(session=session, security=security, store=store, publisher=publisher)
-        return ApiResponse.ok(await service.kick(session_id, tenant_code=tenant.code, actor=current_user_id.get()))
+        return ApiResponse.ok(await service.kick(session_id, tenant=tenant.code, actor=current_user_id.get()))

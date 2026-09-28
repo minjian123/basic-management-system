@@ -13,7 +13,7 @@ from bms_core.core.config import Settings, get_settings
 from bms_core.core.context import (
     current_client_ip,
     current_request_id,
-    current_tenant_code,
+    current_tenant,
     current_tenant_context_var,
     current_trace_id,
     current_user_id,
@@ -100,7 +100,7 @@ def reset_request_context() -> Iterator[None]:
     current_trace_id.set(None)
     current_request_id.set(None)
     current_client_ip.set(None)
-    current_tenant_code.set(None)
+    current_tenant.set(None)
     current_tenant_context_var.set(None)
     current_user_id.set(None)
 

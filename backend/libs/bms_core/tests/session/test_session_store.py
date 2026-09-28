@@ -12,7 +12,7 @@ from bms_core.session.redis import RedisSessionStore
 @pytest.mark.kiwi_id(2194)
 def test_build_session_key() -> None:
     """会话键形态：`bms:{租户}:sess:{会话 id}`；无租户回落 global。"""
-    assert build_session_key("123", tenant_code="demo") == "bms:demo:sess:123"
+    assert build_session_key("123", tenant="demo") == "bms:demo:sess:123"
     assert build_session_key("123") == "bms:global:sess:123"
 
 
@@ -20,10 +20,10 @@ def test_build_session_key() -> None:
 async def test_memory_store_roundtrip_and_expiry() -> None:
     """内存实现：存取删 + TTL 到期视作未命中 + 黑名单。"""
     store = MemorySessionStore()
-    await store.save("s1", {"user_id": 1}, tenant_code="demo", ttl=60)
-    assert await store.load("s1", tenant_code="demo") == {"user_id": 1}
-    await store.delete("s1", tenant_code="demo")
-    assert await store.load("s1", tenant_code="demo") is None
+    await store.save("s1", {"user_id": 1}, tenant="demo", ttl=60)
+    assert await store.load("s1", tenant="demo") == {"user_id": 1}
+    await store.delete("s1", tenant="demo")
+    assert await store.load("s1", tenant="demo") is None
 
     await store.save("s2", {"user_id": 2}, ttl=0)
     assert await store.load("s2") is None
@@ -42,11 +42,11 @@ async def test_redis_store_roundtrip_and_blacklist() -> None:
     """Redis 实现（fakeredis）：存取删 + 租户键 + 黑名单 + 关闭。"""
     client = fakeredis.aioredis.FakeRedis(decode_responses=True)
     store = RedisSessionStore(client=client)
-    await store.save("r1", {"user_id": 1, "tenant": "demo"}, tenant_code="demo", ttl=60)
-    assert await store.load("r1", tenant_code="demo") == {"user_id": 1, "tenant": "demo"}
-    assert await store.load("r1", tenant_code="other") is None
-    await store.delete("r1", tenant_code="demo")
-    assert await store.load("r1", tenant_code="demo") is None
+    await store.save("r1", {"user_id": 1, "tenant": "demo"}, tenant="demo", ttl=60)
+    assert await store.load("r1", tenant="demo") == {"user_id": 1, "tenant": "demo"}
+    assert await store.load("r1", tenant="other") is None
+    await store.delete("r1", tenant="demo")
+    assert await store.load("r1", tenant="demo") is None
 
     await store.blacklist("bkr", ttl=60)
     assert await store.is_blacklisted("bkr") is True
@@ -65,7 +65,7 @@ async def test_redis_store_degrades_on_failure() -> None:
             raise RuntimeError("redis down")
 
     store = RedisSessionStore(client=_Broken())  # type: ignore[arg-type]
-    assert await store.load("x", tenant_code="demo") is None
+    assert await store.load("x", tenant="demo") is None
     assert await store.is_blacklisted("bk") is False
 
 
@@ -109,9 +109,9 @@ async def test_redis_store_load_variants() -> None:
     assert await RedisSessionStore(client=_Stub("[1, 2]")).load("x") is None  # type: ignore[arg-type]
 
     stub = _Stub(None)
-    await RedisSessionStore(client=stub).save("x", {"a": 1}, tenant_code="demo", ttl=0)  # type: ignore[arg-type]
+    await RedisSessionStore(client=stub).save("x", {"a": 1}, tenant="demo", ttl=0)  # type: ignore[arg-type]
     assert stub.store == {"bms:demo:sess:x": ('{"a": 1}', None)}
 
-    # 未显式传 tenant_code：从负载取租户拼键
-    await RedisSessionStore(client=stub).save("y", {"tenant_code": "acme"}, ttl=0)  # type: ignore[arg-type]
+    # 未显式传 tenant：从负载取租户拼键
+    await RedisSessionStore(client=stub).save("y", {"tenant": "acme"}, ttl=0)  # type: ignore[arg-type]
     assert "bms:acme:sess:y" in stub.store

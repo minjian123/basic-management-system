@@ -32,7 +32,7 @@ class MemoryIdpStateStore(BaseIdpStateStore):
         state: str,
         payload: Mapping[str, object],
         *,
-        tenant_code: str | None = None,
+        tenant: str | None = None,
         ttl: int = DEFAULT_IDP_STATE_TTL,
         namespace: str = IDP_STATE_DEFAULT_NAMESPACE,
     ) -> None:
@@ -41,11 +41,11 @@ class MemoryIdpStateStore(BaseIdpStateStore):
         Args:
             state: 流程状态（state）。
             payload: 状态数据。
-            tenant_code: 租户编码（并入键，与 Redis 实现同键形）。
+            tenant: 租户编码（并入键，与 Redis 实现同键形）。
             ttl: 有效期（秒）。
             namespace: 命名空间（默认 `idpstate`）。
         """
-        self._items[build_idp_state_key(state, tenant_code=tenant_code, namespace=namespace)] = (
+        self._items[build_idp_state_key(state, tenant=tenant, namespace=namespace)] = (
             dict(payload),
             time.monotonic() + ttl,
         )
@@ -54,20 +54,20 @@ class MemoryIdpStateStore(BaseIdpStateStore):
         self,
         state: str,
         *,
-        tenant_code: str | None = None,
+        tenant: str | None = None,
         namespace: str = IDP_STATE_DEFAULT_NAMESPACE,
     ) -> Mapping[str, object] | None:
         """一次性消费流程状态（取出即删除；不存在 / 已过期返回 None）。
 
         Args:
             state: 流程状态（state）。
-            tenant_code: 租户编码（并入键）。
+            tenant: 租户编码（并入键）。
             namespace: 命名空间（默认 `idpstate`）。
 
         Returns:
             Mapping[str, object] | None: 状态数据；不存在 / 已过期返回 None。
         """
-        item = self._items.pop(build_idp_state_key(state, tenant_code=tenant_code, namespace=namespace), None)
+        item = self._items.pop(build_idp_state_key(state, tenant=tenant, namespace=namespace), None)
         if item is None:
             return None
         payload, expires_at = item
@@ -79,17 +79,17 @@ class MemoryIdpStateStore(BaseIdpStateStore):
         self,
         state: str,
         *,
-        tenant_code: str | None = None,
+        tenant: str | None = None,
         namespace: str = IDP_STATE_DEFAULT_NAMESPACE,
     ) -> None:
         """删除流程状态（幂等）。
 
         Args:
             state: 流程状态（state）。
-            tenant_code: 租户编码（并入键）。
+            tenant: 租户编码（并入键）。
             namespace: 命名空间（默认 `idpstate`）。
         """
-        self._items.pop(build_idp_state_key(state, tenant_code=tenant_code, namespace=namespace), None)
+        self._items.pop(build_idp_state_key(state, tenant=tenant, namespace=namespace), None)
 
     def clear(self) -> None:
         """清空全部流程状态（测试 / 调试用）。"""

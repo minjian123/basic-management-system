@@ -20,7 +20,7 @@ from bms_core.events.contracts import (
 __all__ = [
     "PLATFORM_EVENT_CONTRACTS",
     "PLATFORM_EVENT_SUBSCRIPTIONS",
-    "TENANT_EVENT_CODE_KEY",
+    "TENANT_CODE_PAYLOAD_KEY",
     "register_platform_event_contracts",
 ]
 
@@ -29,12 +29,11 @@ _STRING_OPTIONAL = EventFieldSpec(type="string")
 _INTEGER_REQUIRED = EventFieldSpec(type="integer", required=True)
 _BOOLEAN_REQUIRED = EventFieldSpec(type="boolean", required=True)
 
-TENANT_EVENT_CODE_KEY = "code"
-"""租户事件负载中「租户自身编码」的键名（**跨服务契约键**）。
+TENANT_CODE_PAYLOAD_KEY = "tenant_code"
+"""平台事件负载中「租户编码」的键名（**跨服务契约键，保持不变**）。
 
-对象侧字段为 `TenantContext.code`（租户视图对象的**自身编码**）——按「编码命名规则」两者同名；
-与**事件信封**的租户字段 `EventEnvelope.tenant_code`（引用租户编码）区分：信封键为保留键，
-负载不得占用，故租户事件负载用实体自身编码名 `code`。
+对象侧字段为 `TenantContext.code`（租户视图对象的**自身编码**）；事件负载键与对象字段名**解耦**，
+以本常量为事件侧单一来源——二者是显式映射，属性改名不影响负载契约。
 """
 
 _USER_PAYLOAD: dict[str, EventFieldSpec] = {
@@ -51,7 +50,7 @@ _HELP_ARTICLE_PAYLOAD: dict[str, EventFieldSpec] = {
 }
 
 _TENANT_PAYLOAD: dict[str, EventFieldSpec] = {
-    TENANT_EVENT_CODE_KEY: _STRING_REQUIRED,
+    TENANT_CODE_PAYLOAD_KEY: _STRING_REQUIRED,
     "db_key": _STRING_REQUIRED,
     "status": _STRING_REQUIRED,
 }
@@ -149,9 +148,9 @@ PLATFORM_EVENT_CONTRACTS: tuple[EventContract, ...] = (
         description="定时任务执行完成",
         fields={"task_id": _STRING_REQUIRED, "status": _STRING_REQUIRED},
     ),
-    EventContract(event_type="tenant.created", version="2.0.0", description="租户开通", fields=dict(_TENANT_PAYLOAD)),
-    EventContract(event_type="tenant.suspended", version="2.0.0", description="租户停用", fields=dict(_TENANT_PAYLOAD)),
-    EventContract(event_type="tenant.activated", version="2.0.0", description="租户启用", fields=dict(_TENANT_PAYLOAD)),
+    EventContract(event_type="tenant.created", description="租户开通", fields=dict(_TENANT_PAYLOAD)),
+    EventContract(event_type="tenant.suspended", description="租户停用", fields=dict(_TENANT_PAYLOAD)),
+    EventContract(event_type="tenant.activated", description="租户启用", fields=dict(_TENANT_PAYLOAD)),
     EventContract(
         event_type="identity.user.jit_created",
         description="SSO 首登自动建号",

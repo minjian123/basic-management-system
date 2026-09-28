@@ -33,7 +33,7 @@ class EventEnvelope(BaseDataContract):
 
     event_type: str
     payload: dict[str, object] = field(default_factory=dict[str, object])
-    tenant_code: str | None = None
+    tenant_id: str | None = None
     trace_id: str | None = None
     event_id: str | None = None
     occurred_at: datetime | None = None

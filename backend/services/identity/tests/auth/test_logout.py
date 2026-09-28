@@ -44,7 +44,7 @@ async def test_logout_revokes_and_is_idempotent(client: AsyncClient, service_app
     resp = await client.post(API_LOGOUT)
     assert resp.status_code == 200
     assert client.cookies.get(COOKIE) is None
-    assert await store.load(session_id, tenant_code="demo") is None
+    assert await store.load(session_id, tenant="demo") is None
     key = DefaultSessionSecurity(secret_key="").blacklist_key(session_id)
     assert await store.is_blacklisted(key) is True
 
@@ -81,7 +81,7 @@ async def test_logout_missing_jti_and_tenant(client: AsyncClient, service_app: F
     client.cookies.clear()
     assert (await client.post(API_LOGOUT, headers={"Cookie": f"{COOKIE}=ref-nojti"})).status_code == 200
 
-    issuer.mint("ref-mismatch", jti="sid-1", tenant_code="other")
+    issuer.mint("ref-mismatch", jti="sid-1", tenant_id="other")
     client.cookies.clear()
     assert (await client.post(API_LOGOUT, headers={"Cookie": f"{COOKIE}=ref-mismatch"})).status_code == 200
 
@@ -90,6 +90,6 @@ async def test_logout_missing_jti_and_tenant(client: AsyncClient, service_app: F
 async def test_logout_ghost_session(client: AsyncClient, service_app: FastAPI) -> None:
     """refresh 指向不存在的会话记录：登出仍 200（revoke 未命中 / TTL 兜底）。"""
     issuer, _store = await _prepare(client, service_app)
-    issuer.mint("ref-ghost", jti="ghost-2", tenant_code="demo")
+    issuer.mint("ref-ghost", jti="ghost-2", tenant_id="demo")
     client.cookies.clear()
     assert (await client.post(API_LOGOUT, headers={"Cookie": f"{COOKIE}=ref-ghost"})).status_code == 200

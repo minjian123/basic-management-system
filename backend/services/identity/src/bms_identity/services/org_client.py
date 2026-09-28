@@ -1,7 +1,7 @@
 """认证与身份服务 services 层：org 内部接口客户端（服务间契约调用）。
 
 - 经 `service_client` 基座走公开契约面（`/api/v1/org/internal/credentials/*` 与
-  `/api/v1/org/internal/users/profile`），出站附自签服务 JWT（`sub=identity`）+ `tenant_code` claim，
+  `/api/v1/org/internal/users/profile`），出站附自签服务 JWT（`sub=identity`）+ `tenant` claim，
   供 org 解析租户库；不经网关。
 - 失败语义：下游不可达 / 非 2xx / 响应契约非法 → `ServiceUnavailableError`（10007/503，fail-closed，
   不降级为「密码错误」）。
@@ -46,11 +46,11 @@ class OrgCredentialClient(BaseFrameworkObject):
         """
         self._client = client
 
-    async def verify(self, tenant_code: str | None, account: str, password: str) -> OrgVerifyResult:
+    async def verify(self, tenant: str | None, account: str, password: str) -> OrgVerifyResult:
         """调 org 校验账号口令。
 
         Args:
-            tenant_code: 租户编码（随服务 JWT claim 传递）。
+            tenant: 租户编码（随服务 JWT claim 传递）。
             account: 登录账号。
             password: 口令明文。
 
@@ -60,14 +60,14 @@ class OrgCredentialClient(BaseFrameworkObject):
         Raises:
             ServiceUnavailableError: 下游不可达 / 响应非法（10007/503）。
         """
-        data = await self._post("verify", tenant_code, {"account": account, "password": password})
+        data = await self._post("verify", tenant, {"account": account, "password": password})
         return OrgVerifyResult.model_validate(data)
 
-    async def update_password(self, tenant_code: str | None, account: str, new_password: str) -> bool:
+    async def update_password(self, tenant: str | None, account: str, new_password: str) -> bool:
         """调 org 更新账号密码（策略闸门：复杂度 / 历史重复）。
 
         Args:
-            tenant_code: 租户编码。
+            tenant: 租户编码。
             account: 登录账号。
             new_password: 新口令明文。
 
@@ -79,7 +79,7 @@ class OrgCredentialClient(BaseFrameworkObject):
             PasswordReusedError: 命中近 N 次历史密码（30006）。
             ServiceUnavailableError: 下游不可达 / 响应非法（10007/503）。
         """
-        data = await self._post("update-password", tenant_code, {"account": account, "new_password": new_password})
+        data = await self._post("update-password", tenant, {"account": account, "new_password": new_password})
         outcome = OrgUpdatePasswordResult.model_validate(data)
         if outcome.updated:
             return True
@@ -91,7 +91,7 @@ class OrgCredentialClient(BaseFrameworkObject):
 
     async def login_state(
         self,
-        tenant_code: str | None,
+        tenant: str | None,
         account: str,
         *,
         success: bool,
@@ -101,7 +101,7 @@ class OrgCredentialClient(BaseFrameworkObject):
         """调 org 写回登录态（成功清零 / 失败计数与锁定）。
 
         Args:
-            tenant_code: 租户编码。
+            tenant: 租户编码。
             account: 登录账号。
             success: 本次登录是否成功。
             failed_count: 失败计数（失败时传）。
@@ -118,14 +118,14 @@ class OrgCredentialClient(BaseFrameworkObject):
             body["failed_count"] = failed_count
         if lock_seconds is not None:
             body["lock_seconds"] = lock_seconds
-        data = await self._post("login-state", tenant_code, body)
+        data = await self._post("login-state", tenant, body)
         return OrgLoginState.model_validate(data)
 
-    async def user_profile(self, tenant_code: str | None, user_id: int) -> OrgProfileResult:
+    async def user_profile(self, tenant: str | None, user_id: int) -> OrgProfileResult:
         """调 org 取用户概要（SSO 回调定位用户后）。
 
         Args:
-            tenant_code: 租户编码（随服务 JWT claim 传递）。
+            tenant: 租户编码（随服务 JWT claim 传递）。
             user_id: 本地用户主键。
 
         Returns:
@@ -137,17 +137,17 @@ class OrgCredentialClient(BaseFrameworkObject):
         data = await self._post_path(
             "/api/v1/org/internal/users/profile",
             _PROFILE_SCOPES,
-            tenant_code,
+            tenant,
             {"user_id": user_id},
             interface=_PROFILE_INTERFACE,
         )
         return OrgProfileResult.model_validate(data)
 
-    async def reset_target(self, tenant_code: str | None, identifier: str) -> OrgResetTargetResult:
+    async def reset_target(self, tenant: str | None, identifier: str) -> OrgResetTargetResult:
         """调 org 解析找回密码重置目标（账号 / 手机 / 邮箱 → 通道与投递目标）。
 
         Args:
-            tenant_code: 租户编码（随服务 JWT claim 传递）。
+            tenant: 租户编码（随服务 JWT claim 传递）。
             identifier: 账号 / 手机号 / 邮箱。
 
         Returns:
@@ -159,7 +159,7 @@ class OrgCredentialClient(BaseFrameworkObject):
         data = await self._post_path(
             "/api/v1/org/internal/users/reset-target",
             _PROFILE_SCOPES,
-            tenant_code,
+            tenant,
             {"identifier": identifier},
             interface=_PROFILE_INTERFACE,
         )
@@ -167,7 +167,7 @@ class OrgCredentialClient(BaseFrameworkObject):
 
     async def create_user(
         self,
-        tenant_code: str | None,
+        tenant: str | None,
         *,
         username: str,
         name: str,
@@ -177,7 +177,7 @@ class OrgCredentialClient(BaseFrameworkObject):
         """调 org 建号（JIT 首登；单次「用户名空闲即建」，撞名由调用侧换后缀重试）。
 
         Args:
-            tenant_code: 租户编码（随服务 JWT claim 传递）。
+            tenant: 租户编码（随服务 JWT claim 传递）。
             username: 登录账号（调用侧已清洗）。
             name: 昵称 / 显示名。
             locale: 语言偏好（可空）。
@@ -192,18 +192,18 @@ class OrgCredentialClient(BaseFrameworkObject):
         data = await self._post_path(
             "/api/v1/org/internal/users/create",
             _PROFILE_SCOPES,
-            tenant_code,
+            tenant,
             {"username": username, "name": name, "locale": locale, "timezone": timezone},
             interface=_PROFILE_INTERFACE,
         )
         return OrgUserCreateResult.model_validate(data)
 
-    async def _post(self, action: str, tenant_code: str | None, body: dict[str, object]) -> dict[str, object]:
+    async def _post(self, action: str, tenant: str | None, body: dict[str, object]) -> dict[str, object]:
         """发起内部凭据 POST（公开契约面 + 服务 JWT），解析统一响应体 `data`。
 
         Args:
             action: 动作路径段（verify / update-password / login-state）。
-            tenant_code: 租户编码（随服务 JWT claim）。
+            tenant: 租户编码（随服务 JWT claim）。
             body: JSON 请求体。
 
         Returns:
@@ -215,7 +215,7 @@ class OrgCredentialClient(BaseFrameworkObject):
         return await self._post_path(
             f"/api/v1/org/internal/credentials/{action}",
             _SCOPES,
-            tenant_code,
+            tenant,
             body,
             interface=_CREDENTIAL_INTERFACE,
         )
@@ -224,7 +224,7 @@ class OrgCredentialClient(BaseFrameworkObject):
         self,
         path: str,
         scopes: tuple[str, ...],
-        tenant_code: str | None,
+        tenant: str | None,
         body: dict[str, object],
         *,
         interface: str,
@@ -234,7 +234,7 @@ class OrgCredentialClient(BaseFrameworkObject):
         Args:
             path: 公开契约路径。
             scopes: 服务 JWT scope。
-            tenant_code: 租户编码（随服务 JWT claim）。
+            tenant: 租户编码（随服务 JWT claim）。
             body: JSON 请求体。
             interface: 错误提示用接口名称。
 
@@ -249,7 +249,7 @@ class OrgCredentialClient(BaseFrameworkObject):
                 service=ORG_SERVICE,
                 method="POST",
                 path=path,
-                tenant_code=tenant_code,
+                tenant=tenant,
                 json_body=body,
                 policy=ServiceCallPolicy(scopes=scopes),
             )

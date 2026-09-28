@@ -68,7 +68,7 @@ class VerifiedToken(BaseTokenClaimsContract):
     service: str = ""
     """服务标识（服务 JWT 扩展 claim；用户 JWT 为空）。"""
 
-    tenant_code: str | None = None
+    tenant: str | None = None
     """租户编码（扩展 claim，可选）。"""
 
     expires_at: int = 0
@@ -206,7 +206,7 @@ def _from_claims(claims: IdentityClaims) -> VerifiedToken:
     payload = dict(claims.payload)
     raw_scope = payload.get("scope")
     scopes = tuple(item for item in str(raw_scope).split() if item) if isinstance(raw_scope, str) else ()
-    tenant_code = payload.get("tenant_code")
+    tenant = payload.get("tenant_id") or payload.get("tenant")
     return VerifiedToken(
         subject=claims.subject,
         token_type=str(payload.get("type") or payload.get("typ") or ""),
@@ -214,7 +214,7 @@ def _from_claims(claims: IdentityClaims) -> VerifiedToken:
         issuer=claims.issuer,
         scopes=scopes,
         service=str(payload.get("service") or ""),
-        tenant_code=tenant_code if isinstance(tenant_code, str) and tenant_code else None,
+        tenant=tenant if isinstance(tenant, str) and tenant else None,
         expires_at=claims.expires_at,
         issued_at=claims.issued_at,
         token_id=str(payload.get("jti") or ""),

@@ -54,7 +54,7 @@ def _issue(issuer: JwtServiceTokenIssuer, *, tenant: str | None = "acme") -> str
     Returns:
         str: 紧凑 JWT。
     """
-    spec = ServiceTokenSpec(service="gateway", scopes=("gateway",), tenant_code=tenant)
+    spec = ServiceTokenSpec(service="gateway", scopes=("gateway",), tenant=tenant)
     return asyncio.run(issuer.issue(spec)).access_token
 
 

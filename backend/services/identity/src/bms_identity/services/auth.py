@@ -147,7 +147,7 @@ class LoginService(BaseFrameworkObject):
         self,
         req: LoginRequest,
         *,
-        tenant_code: str,
+        tenant: str,
         ip: str | None,
         user_agent: str | None,
     ) -> LoginOutcome:
@@ -155,7 +155,7 @@ class LoginService(BaseFrameworkObject):
 
         Args:
             req: 登录请求。
-            tenant_code: 生效租户编码。
+            tenant: 生效租户编码。
             ip: 客户端 IP（可选）。
             user_agent: 客户端 User-Agent（可选）。
 
@@ -170,25 +170,23 @@ class LoginService(BaseFrameworkObject):
             LoginFailedError: 账号或密码错误（20002/401）。
             ServiceUnavailableError: org 凭据接口不可用（10007/503）。
         """
-        await self._enforce_rate_limit(tenant_code, req.account, ip)
-        await self._enforce_captcha(req.captcha, tenant_code=tenant_code, account=req.account)
+        await self._enforce_rate_limit(tenant, req.account, ip)
+        await self._enforce_captcha(req.captcha, tenant=tenant, account=req.account)
 
-        verified = await self._org.verify(tenant_code, req.account, req.password)
+        verified = await self._org.verify(tenant, req.account, req.password)
         if verified.locked:
             raise AccountLockedError()
         if not verified.found or not verified.valid:
-            await self._record_failure(tenant_code, req.account)
+            await self._record_failure(tenant, req.account)
         if verified.status != "enabled":
             raise AccountDisabledError()
         user = verified.user
         if user is None:  # pragma: no cover - found=True 必带用户概要
             raise AuthError("凭据校验结果缺少用户概要")
 
-        issued = await self._session_issuer.issue(
-            user_id=user.id, tenant_code=tenant_code, ip=ip, user_agent=user_agent
-        )
-        await self._limiter.reset(self._fail_key(tenant_code, req.account))
-        await self._org.login_state(tenant_code, req.account, success=True)
+        issued = await self._session_issuer.issue(user_id=user.id, tenant=tenant, ip=ip, user_agent=user_agent)
+        await self._limiter.reset(self._fail_key(tenant, req.account))
+        await self._org.login_state(tenant, req.account, success=True)
         return LoginOutcome(
             result=LoginResult(
                 access_token=issued.access_token,
@@ -198,7 +196,7 @@ class LoginService(BaseFrameworkObject):
                     id=user.id,
                     username=user.username,
                     name=user.name,
-                    tenant_code=tenant_code,
+                    tenant=tenant,
                     locale=user.locale,
                     timezone=user.timezone,
                     must_change_password=verified.pwd_reset_required,
@@ -212,7 +210,7 @@ class LoginService(BaseFrameworkObject):
         self,
         refresh_token: str,
         *,
-        tenant_code: str | None,
+        tenant: str | None,
         ip: str | None,
         user_agent: str | None,
     ) -> RefreshOutcome:
@@ -220,7 +218,7 @@ class LoginService(BaseFrameworkObject):
 
         Args:
             refresh_token: cookie 中的 refresh token。
-            tenant_code: 请求租户编码（来自子域名 / `X-Tenant-ID`）。
+            tenant: 请求租户编码（来自子域名 / `X-Tenant-ID`）。
             ip: 客户端 IP（可选）。
             user_agent: 客户端 User-Agent（可选）。
 
@@ -232,15 +230,15 @@ class LoginService(BaseFrameworkObject):
         """
         claims = self._issuer.verify(refresh_token, expected_type=USER_TOKEN_TYPE_REFRESH)
         payload = claims.payload
-        token_tenant = payload.get("tenant_code")
-        if not tenant_code or not token_tenant or token_tenant != tenant_code:
+        token_tenant = payload.get("tenant_id")
+        if not tenant or not token_tenant or token_tenant != tenant:
             raise AuthError("刷新令牌租户与请求租户不一致")
         session_id = payload.get("jti")
         if not session_id or not isinstance(session_id, str):
             raise AuthError("刷新令牌缺少会话标识")
         if await self._store.is_blacklisted(self._security.blacklist_key(session_id)):
             raise AuthError("刷新令牌已失效")
-        if await self._store.load(session_id, tenant_code=tenant_code) is None:
+        if await self._store.load(session_id, tenant=tenant) is None:
             raise AuthError("会话已失效")
 
         async with self._uow.begin():
@@ -250,13 +248,13 @@ class LoginService(BaseFrameworkObject):
             if record.refresh_token_hash != hash_refresh_token(refresh_token):
                 raise AuthError("刷新令牌已失效")
             pair = await self._issuer.issue_pair(
-                UserTokenSpec(subject=str(record.user_id), session_id=session_id, tenant_code=tenant_code)
+                UserTokenSpec(subject=str(record.user_id), session_id=session_id, tenant_id=tenant)
             )
             await self._sessions.update_refresh_hash(session_id, hash_refresh_token(pair.refresh_token))
         await self._store.save(
             session_id,
-            {"user_id": record.user_id, "tenant_code": tenant_code, "ip": ip, "ua": user_agent},
-            tenant_code=tenant_code,
+            {"user_id": record.user_id, "tenant": tenant, "ip": ip, "ua": user_agent},
+            tenant=tenant,
             ttl=pair.refresh_expires_in,
         )
         return RefreshOutcome(
@@ -269,12 +267,12 @@ class LoginService(BaseFrameworkObject):
             refresh_expires_in=pair.refresh_expires_in,
         )
 
-    async def logout(self, refresh_token: str | None, *, tenant_code: str | None) -> None:
+    async def logout(self, refresh_token: str | None, *, tenant: str | None) -> None:
         """登出（幂等）：refresh 入黑名单 + 会话置撤销 + 删标记。
 
         Args:
             refresh_token: cookie 中的 refresh token；缺失即视为已登出。
-            tenant_code: 请求租户编码。
+            tenant: 请求租户编码。
         """
         if not refresh_token:  # pragma: no cover - 防御：路由侧已保证非空才调用
             return
@@ -284,49 +282,47 @@ class LoginService(BaseFrameworkObject):
             return
         payload = claims.payload
         session_id = payload.get("jti")
-        token_tenant = payload.get("tenant_code")
+        token_tenant = payload.get("tenant_id")
         if not session_id or not isinstance(session_id, str):
             return
-        if token_tenant and tenant_code and token_tenant != tenant_code:
+        if token_tenant and tenant and token_tenant != tenant:
             return
         try:
-            await self._session_service.revoke(
-                session_id, tenant_code=tenant_code, reason=REASON_LOGOUT, broadcast=False
-            )
+            await self._session_service.revoke(session_id, tenant=tenant, reason=REASON_LOGOUT, broadcast=False)
         except Exception as exc:  # pragma: no cover - 登出尽力而为（幂等）
             _LOGGER.warning("登出清理未全部完成", session_id=session_id, error=str(exc))
 
-    async def _enforce_rate_limit(self, tenant_code: str, account: str, ip: str | None) -> None:
+    async def _enforce_rate_limit(self, tenant: str, account: str, ip: str | None) -> None:
         """请求限流：按 IP 与账号维度各校验一次。
 
         Args:
-            tenant_code: 租户编码。
+            tenant: 租户编码。
             account: 登录账号。
             ip: 客户端 IP（可选）。
         """
         if ip:
             await self._limiter.require(
-                build_rate_limit_key(dimension=_IP_DIMENSION, target=ip, tenant=tenant_code),
+                build_rate_limit_key(dimension=_IP_DIMENSION, target=ip, tenant=tenant),
                 RateLimitRule(limit=self._login.ip_rate_limit),
             )
         await self._limiter.require(
-            build_rate_limit_key(dimension=_ACCOUNT_DIMENSION, target=account, tenant=tenant_code),
+            build_rate_limit_key(dimension=_ACCOUNT_DIMENSION, target=account, tenant=tenant),
             RateLimitRule(limit=self._login.account_rate_limit),
         )
 
-    async def _enforce_captcha(self, captcha: CaptchaInput | None, *, tenant_code: str, account: str) -> None:
+    async def _enforce_captcha(self, captcha: CaptchaInput | None, *, tenant: str, account: str) -> None:
         """验证码：按场景策略强制，或连续失败达阈值强制，或请求携带时校验。
 
         Args:
             captcha: 请求携带的验证码凭证（可选）。
-            tenant_code: 租户编码（失败计数键作用域）。
+            tenant: 租户编码（失败计数键作用域）。
             account: 登录账号（失败计数键目标）。
 
         Raises:
             CaptchaVerifyError: 策略 / 阈值强制但未携带（20101）。
         """
         policy = await self._captcha.policy(_LOGIN_SCENE)
-        fails = await self._limiter.peek(self._fail_key(tenant_code, account))
+        fails = await self._limiter.peek(self._fail_key(tenant, account))
         required = policy.required or (policy.fail_threshold > 0 and fails >= policy.fail_threshold)
         if captcha is None:
             if required:
@@ -345,11 +341,11 @@ class LoginService(BaseFrameworkObject):
         )
         await self._captcha.require_credential(credential)
 
-    async def _record_failure(self, tenant_code: str, account: str) -> None:
+    async def _record_failure(self, tenant: str, account: str) -> None:
         """记录登录失败：Redis 计数递增，达阈值联动锁定并抛 20003。
 
         Args:
-            tenant_code: 租户编码。
+            tenant: 租户编码。
             account: 登录账号。
 
         Raises:
@@ -357,26 +353,26 @@ class LoginService(BaseFrameworkObject):
             LoginFailedError: 未达阈值（20002/401）。
         """
         decision = await self._limiter.check(
-            self._fail_key(tenant_code, account),
+            self._fail_key(tenant, account),
             RateLimitRule(limit=self._login.max_failures, window=self._login.lock_seconds),
         )
         count = max(0, self._login.max_failures - decision.remaining)
         if decision.remaining == 0:
             await self._org.login_state(
-                tenant_code, account, success=False, failed_count=count, lock_seconds=self._login.lock_seconds
+                tenant, account, success=False, failed_count=count, lock_seconds=self._login.lock_seconds
             )
             raise AccountLockedError()
-        await self._org.login_state(tenant_code, account, success=False, failed_count=count)
+        await self._org.login_state(tenant, account, success=False, failed_count=count)
         raise LoginFailedError()
 
-    def _fail_key(self, tenant_code: str, account: str) -> str:
+    def _fail_key(self, tenant: str, account: str) -> str:
         """登录失败计数键。
 
         Args:
-            tenant_code: 租户编码。
+            tenant: 租户编码。
             account: 登录账号。
 
         Returns:
             str: 限流键。
         """
-        return build_rate_limit_key(dimension=_FAIL_DIMENSION, target=account, tenant=tenant_code)
+        return build_rate_limit_key(dimension=_FAIL_DIMENSION, target=account, tenant=tenant)

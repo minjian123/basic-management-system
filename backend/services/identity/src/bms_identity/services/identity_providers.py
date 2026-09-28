@@ -257,7 +257,7 @@ class IdentityProviderService(BaseFrameworkObject):
         type: str,
         config: Mapping[str, object],
         idp_key: str,
-        tenant_code: str,
+        tenant: str,
         actor: int | None,
     ) -> IdpProbeResult:
         """草稿连通性测试（不落库）。
@@ -266,7 +266,7 @@ class IdentityProviderService(BaseFrameworkObject):
             type: 协议类型。
             config: 协议配置对象。
             idp_key: 租户内标识（派生回调地址用）。
-            tenant_code: 生效租户编码（限流维度）。
+            tenant: 生效租户编码（限流维度）。
             actor: 操作者用户 ID（限流维度；可选）。
 
         Returns:
@@ -278,16 +278,16 @@ class IdentityProviderService(BaseFrameworkObject):
             RateLimitError: 限流命中（10005/429）。
         """
         normalized = self._validate(type, config)
-        await self._enforce_test_rate_limit(tenant_code, actor)
+        await self._enforce_test_rate_limit(tenant, actor)
         spec = self._registry.spec_for_config(idp_key=idp_key, type=type, config=normalized)
         return await self._probe(spec)
 
-    async def test_saved(self, provider_id: int, *, tenant_code: str, actor: int | None) -> IdpProbeResult:
+    async def test_saved(self, provider_id: int, *, tenant: str, actor: int | None) -> IdpProbeResult:
         """已保存行连通性测试。
 
         Args:
             provider_id: 主键。
-            tenant_code: 生效租户编码（限流维度）。
+            tenant: 生效租户编码（限流维度）。
             actor: 操作者用户 ID（限流维度；可选）。
 
         Returns:
@@ -301,7 +301,7 @@ class IdentityProviderService(BaseFrameworkObject):
         """
         row = await self.get(provider_id)
         self._validate(row.type, _row_config(row))
-        await self._enforce_test_rate_limit(tenant_code, actor)
+        await self._enforce_test_rate_limit(tenant, actor)
         return await self._probe(self._registry.spec_for(row))
 
     def item(self, row: SysIdentityProvider) -> IdpProviderItem:
@@ -370,16 +370,16 @@ class IdentityProviderService(BaseFrameworkObject):
             raise IdpTestFailedError(result.detail or "IdP 连通性测试失败", data=result)
         return result
 
-    async def _enforce_test_rate_limit(self, tenant_code: str, actor: int | None) -> None:
+    async def _enforce_test_rate_limit(self, tenant: str, actor: int | None) -> None:
         """连通性测试限流（每租户 + 操作者每分钟上限）。
 
         Args:
-            tenant_code: 租户编码。
+            tenant: 租户编码。
             actor: 操作者用户 ID（可选）。
         """
-        target = f"{tenant_code}:{actor if actor is not None else 'anonymous'}"
+        target = f"{tenant}:{actor if actor is not None else 'anonymous'}"
         await self._limiter.require(
-            build_rate_limit_key(dimension=_TEST_DIMENSION, target=target, tenant=tenant_code),
+            build_rate_limit_key(dimension=_TEST_DIMENSION, target=target, tenant=tenant),
             RateLimitRule(limit=self._manage.test_rate_limit),
         )
 
