@@ -79,11 +79,16 @@ class BaseObject:
 
         Returns:
             dict[str, object]: 字段映射。
+
+        Note:
+            dataclass 分支要求**本类自身**由 `@dataclass` 声明（`__dataclass_fields__` 在自己的
+            `__dict__` 中）：ORM 模型（`BaseModel`）继承 `@dataclass` 体系根（`BaseDataContract`）后
+            会被 `dataclasses.is_dataclass` 判真，但其字段在实例字典而非 dataclass 字段 → 须走兜底分支。
         """
         model_dump = getattr(self, "model_dump", None)
         if callable(model_dump) and getattr(type(self), "model_fields", None) is not None:
             return cast("dict[str, object]", model_dump())
-        if dataclasses.is_dataclass(self) and not isinstance(self, type):
+        if dataclasses.is_dataclass(self) and not isinstance(self, type) and "__dataclass_fields__" in vars(type(self)):
             try:
                 return {
                     field.name: getattr(self, field.name)
