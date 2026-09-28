@@ -2,13 +2,13 @@
 
 from dataclasses import dataclass
 
-from bms_core.core.objects import BaseValueObject
+from bms_core.core.objects import BaseFieldSpecContract
 
 __all__ = ["ColumnSpec"]
 
 
 @dataclass(frozen=True)
-class ColumnSpec(BaseValueObject):
+class ColumnSpec(BaseFieldSpecContract):
     """列定义（导入期望列 / 导出输出列共用）。"""
 
     key: str

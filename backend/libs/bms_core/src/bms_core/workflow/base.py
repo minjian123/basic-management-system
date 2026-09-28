@@ -20,7 +20,7 @@ from typing import cast
 from fastapi import Request
 
 from bms_core.core.config import Settings
-from bms_core.core.objects import BaseValueObject
+from bms_core.core.objects import BaseProcessContract, BaseValueObject
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 
 __all__ = [
@@ -59,7 +59,7 @@ class WorkflowAction(StrEnum):
 
 
 @dataclass(frozen=True)
-class ProcessDefinition(BaseValueObject):
+class ProcessDefinition(BaseProcessContract):
     """流程定义（BPMN 2.0）。"""
 
     definition_key: str
@@ -73,7 +73,7 @@ class ProcessDefinition(BaseValueObject):
 
 
 @dataclass(frozen=True)
-class ProcessInstance(BaseValueObject):
+class ProcessInstance(BaseProcessContract):
     """流程实例。"""
 
     process_id: str

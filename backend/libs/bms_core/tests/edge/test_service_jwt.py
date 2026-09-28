@@ -71,7 +71,7 @@ def test_service_jwt_trusts_valid_token_and_parses_identity() -> None:
             TENANT_ID_HEADER: "acme",
         }
     )
-    assert decision.trusted is True
+    assert decision.allowed is True
     identity = decision.identity
     assert identity is not None
     assert identity.user_id == 42
@@ -86,7 +86,7 @@ def test_service_jwt_falls_back_to_token_tenant_claim() -> None:
     issuer, _ = _issuer()
     guard = ServiceJwtEdgeTrust(issuer=issuer)
     decision = guard.evaluate({"Authorization": f"Bearer {_issue(issuer, tenant='beta')}"})
-    assert decision.trusted is True
+    assert decision.allowed is True
     assert decision.identity is not None
     assert decision.identity.tenant_code == "beta"
     assert decision.identity.service_identity == "gateway"
@@ -105,7 +105,7 @@ def test_service_jwt_rejects_missing_or_invalid(headers: dict[str, str]) -> None
     """缺失 / 非 Bearer / 非法令牌 → 不信任、无身份（不抛错）。"""
     issuer, _ = _issuer()
     decision = ServiceJwtEdgeTrust(issuer=issuer).evaluate(headers)
-    assert decision.trusted is False
+    assert decision.allowed is False
     assert decision.identity is None
 
 
@@ -118,7 +118,7 @@ def test_service_jwt_rejects_user_audience_token() -> None:
         key,
     )
     decision = ServiceJwtEdgeTrust(issuer=issuer).evaluate({"Authorization": f"Bearer {user_token}"})
-    assert decision.trusted is False
+    assert decision.allowed is False
     assert decision.identity is None
 
 

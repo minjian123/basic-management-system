@@ -11,14 +11,19 @@
 from __future__ import annotations
 
 from bms_core.core.objects.auth_results import BaseAuthorizeUrlResultContract, BaseLoginResultContract
+from bms_core.core.objects.decisions import BaseDecisionContract
 from bms_core.core.objects.identity import BaseIdentityProfileContract, BaseRequestIdentityContract
 from bms_core.core.objects.options import BaseOptionsContract
+from bms_core.core.objects.processes import BaseProcessContract
+from bms_core.core.objects.registry_records import BaseRegistryRecordContract
 from bms_core.core.objects.roots import (
     FRAMEWORK_OBJECT_KIND,
     BaseDataContract,
     BaseFrameworkObject,
     BaseValueObject,
 )
+from bms_core.core.objects.seeds import BaseI18nSeedContract
+from bms_core.core.objects.specs import BaseFieldSpecContract
 from bms_core.core.objects.tenant import BaseTenantViewContract
 from bms_core.core.objects.tokens import (
     BaseOidcTokenSpecContract,
@@ -33,12 +38,17 @@ __all__ = [
     "FRAMEWORK_OBJECT_KIND",
     "BaseAuthorizeUrlResultContract",
     "BaseDataContract",
+    "BaseDecisionContract",
+    "BaseFieldSpecContract",
     "BaseFrameworkObject",
+    "BaseI18nSeedContract",
     "BaseIdentityProfileContract",
     "BaseLoginResultContract",
     "BaseOidcTokenSpecContract",
     "BaseOptionsContract",
+    "BaseProcessContract",
     "BaseRefreshableTokenContract",
+    "BaseRegistryRecordContract",
     "BaseRequestIdentityContract",
     "BaseSecretMaterialContract",
     "BaseTenantViewContract",

@@ -26,12 +26,17 @@ from bms_core.captcha.default import CaptchaImageOptions, CaptchaSliderOptions, 
 from bms_core.chat.base import ChatStreamHandle
 from bms_core.core.objects import (
     BaseAuthorizeUrlResultContract,
+    BaseDecisionContract,
+    BaseFieldSpecContract,
     BaseFrameworkObject,
+    BaseI18nSeedContract,
     BaseIdentityProfileContract,
     BaseLoginResultContract,
     BaseOidcTokenSpecContract,
     BaseOptionsContract,
+    BaseProcessContract,
     BaseRefreshableTokenContract,
+    BaseRegistryRecordContract,
     BaseRequestIdentityContract,
     BaseSecretMaterialContract,
     BaseTenantViewContract,
@@ -42,7 +47,9 @@ from bms_core.core.objects import (
 )
 from bms_core.db.tenant import TenantContext
 from bms_core.db.tenant_registry import TenantSnapshot
-from bms_core.edge.base import EdgeIdentity
+from bms_core.dict.seed import SeedItem, SeedType
+from bms_core.edge.base import EdgeIdentity, EdgeTrustDecision
+from bms_core.events.contracts import EventFieldSpec
 from bms_core.idp.base import IdentityClaims, IdentityToken, IdentityUser
 from bms_core.masking.default import MaskerOptions
 from bms_core.oauth.base import ClientCredentials, OAuthToken
@@ -51,6 +58,12 @@ from bms_core.oauth.oidc_provider import AccessTokenSpec, IdTokenSpec, OidcAcces
 from bms_core.oauth.token import ServiceTokenSpec
 from bms_core.oauth.user_token import UserTokenPair
 from bms_core.oauth.verify import VerifiedToken
+from bms_core.ratelimit.base import RateLimitDecision
+from bms_core.replay.base import ReplayDecision
+from bms_core.services.module_registry import ModuleRecord
+from bms_core.services.table_registry import TableRecord
+from bms_core.transfer.base import ColumnSpec
+from bms_core.workflow.base import ProcessDefinition, ProcessInstance
 
 _BACKEND = Path(__file__).resolve().parents[4]
 _ROOT = _BACKEND.parent
@@ -74,11 +87,16 @@ VALUE_OBJECT_BASES = frozenset(
     {
         "BaseValueObject",
         "BaseAuthorizeUrlResultContract",
+        "BaseDecisionContract",
+        "BaseFieldSpecContract",
+        "BaseI18nSeedContract",
         "BaseIdentityProfileContract",
         "BaseLoginResultContract",
         "BaseOidcTokenSpecContract",
         "BaseOptionsContract",
+        "BaseProcessContract",
         "BaseRefreshableTokenContract",
+        "BaseRegistryRecordContract",
         "BaseRequestIdentityContract",
         "BaseSecretMaterialContract",
         "BaseTenantViewContract",
@@ -102,6 +120,11 @@ ROLE_CHAINS: tuple[tuple[type, tuple[type, ...]], ...] = (
     (BaseTenantViewContract, (TenantContext, TenantSnapshot)),
     (BaseLoginResultContract, ()),
     (BaseAuthorizeUrlResultContract, ()),
+    (BaseDecisionContract, (RateLimitDecision, ReplayDecision, EdgeTrustDecision)),
+    (BaseFieldSpecContract, (ColumnSpec, EventFieldSpec)),
+    (BaseProcessContract, (ProcessDefinition, ProcessInstance)),
+    (BaseRegistryRecordContract, (ModuleRecord, TableRecord)),
+    (BaseI18nSeedContract, (SeedItem, SeedType)),
 )
 """角色链台账（层 → 成员）：仅登记**基座侧**成员——服务侧成员（`TokenResult` / `IssuedSession` 等）
 由 `VALUE_OBJECT_BATCH` 的「单一父基类」断言覆盖（`bms_identity` 在基座用例环境不可导入）。"""
@@ -355,6 +378,23 @@ def test_role_chain_common_fields_hold_on_all_members() -> None:
             if missing:
                 offenders.append(f"{member.__name__} 缺 {layer.__name__} 公共段：{sorted(missing)}")
     assert not offenders, "层公共段在成员上不成立：\n" + "\n".join(offenders)
+
+
+@pytest.mark.kiwi_id(2216)
+def test_registry_record_chain_layer_contract() -> None:
+    """登记记录链层：公共段为成对构造钩子 `from_row`（抽象入口），成员均实现该钩子。"""
+    assert getattr(BaseRegistryRecordContract.from_row, "__isabstractmethod__", False) is True
+    for member in (ModuleRecord, TableRecord):
+        assert issubclass(member, BaseRegistryRecordContract)
+        assert getattr(member.from_row, "__func__", None) is not None
+
+
+@pytest.mark.kiwi_id(2216)
+def test_decision_chain_allows_unified_field_name() -> None:
+    """判定链层：三处判定均以 `allowed` 表达结论（`EdgeTrustDecision.trusted` 已统一命名）。"""
+    for member in (RateLimitDecision, ReplayDecision, EdgeTrustDecision):
+        assert "allowed" in {field.name for field in dataclasses.fields(member)}
+    assert EdgeTrustDecision(allowed=False, reason="x").allowed is False
 
 
 @pytest.mark.kiwi_id(2216)

@@ -25,7 +25,7 @@ from typing import cast
 
 from bms_core.core.base import BaseObject
 from bms_core.core.exceptions import EventContractError
-from bms_core.core.objects import BaseValueObject
+from bms_core.core.objects import BaseFieldSpecContract, BaseValueObject
 from bms_core.core.version import contract_major
 from bms_core.events.base import DEFAULT_EVENT_VERSION, EventEnvelope
 
@@ -97,7 +97,7 @@ EVENT_SNAPSHOT_PATH = "deploy/events/contracts.json"
 
 
 @dataclass(frozen=True)
-class EventFieldSpec(BaseValueObject):
+class EventFieldSpec(BaseFieldSpecContract):
     """事件载荷字段规格（对外字段的契约声明）。"""
 
     type: str = "string"

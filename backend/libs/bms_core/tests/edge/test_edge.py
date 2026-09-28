@@ -41,7 +41,7 @@ def _factory(options: dict[str, object] | None = None) -> MarkerEdgeTrustFactory
 def test_null_edge_trust_is_always_untrusted() -> None:
     """占位实现恒定不信任、不引入假身份。"""
     decision = NullEdgeTrust().evaluate({USER_ID_HEADER: "42"})
-    assert decision.trusted is False
+    assert decision.allowed is False
     assert decision.identity is None
 
 
@@ -56,7 +56,7 @@ def test_marker_edge_trust_trusts_matching_marker() -> None:
         SESSION_ID_HEADER: "sess-1",
     }
     decision = MarkerEdgeTrust(expected=GATEWAY_IDENTITY_VALUE).evaluate(headers)
-    assert decision.trusted is True
+    assert decision.allowed is True
     assert decision.identity == EdgeIdentity(
         user_id=42,
         tenant_code="acme",
@@ -69,8 +69,8 @@ def test_marker_edge_trust_trusts_matching_marker() -> None:
 def test_marker_edge_trust_rejects_missing_or_wrong_marker() -> None:
     """标记缺失 / 不符即不信任。"""
     guard = MarkerEdgeTrust(expected="bms-edge")
-    assert guard.evaluate({}).trusted is False
-    assert guard.evaluate({GATEWAY_IDENTITY_HEADER: "other"}).trusted is False
+    assert guard.evaluate({}).allowed is False
+    assert guard.evaluate({GATEWAY_IDENTITY_HEADER: "other"}).allowed is False
 
 
 def test_edge_identity_parses_headers_case_insensitively() -> None:
@@ -105,11 +105,11 @@ def test_edge_identity_parses_session_id_header() -> None:
 def test_marker_factory_uses_option_and_default_value() -> None:
     """工厂期望值：`[edge].options.gateway_identity` 优先，缺省取基座常量。"""
     default_guard = _factory().create()
-    assert default_guard.evaluate({GATEWAY_IDENTITY_HEADER: GATEWAY_IDENTITY_VALUE}).trusted is True
+    assert default_guard.evaluate({GATEWAY_IDENTITY_HEADER: GATEWAY_IDENTITY_VALUE}).allowed is True
 
     custom_guard = _factory({"gateway_identity": "custom-edge"}).create()
-    assert custom_guard.evaluate({GATEWAY_IDENTITY_HEADER: "custom-edge"}).trusted is True
-    assert custom_guard.evaluate({GATEWAY_IDENTITY_HEADER: GATEWAY_IDENTITY_VALUE}).trusted is False
+    assert custom_guard.evaluate({GATEWAY_IDENTITY_HEADER: "custom-edge"}).allowed is True
+    assert custom_guard.evaluate({GATEWAY_IDENTITY_HEADER: GATEWAY_IDENTITY_VALUE}).allowed is False
 
 
 def test_require_edge_identity_reads_state_and_raises_without() -> None:

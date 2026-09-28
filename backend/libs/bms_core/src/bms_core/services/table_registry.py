@@ -17,7 +17,7 @@ from enum import StrEnum
 from typing import Any, cast
 
 from bms_core.core.base import BaseObject
-from bms_core.core.objects import BaseValueObject
+from bms_core.core.objects import BaseRegistryRecordContract
 from bms_core.services.module_registry import SERVICE_CATALOG, ModuleRecord
 
 TABLE_OWNERSHIP_NAME = "sys_table_ownership"
@@ -55,7 +55,7 @@ class TableStatus(StrEnum):
 
 
 @dataclass(frozen=True)
-class TableRecord(BaseValueObject):
+class TableRecord(BaseRegistryRecordContract):
     """表归属登记记录（字段与 `sys_table_ownership` 对齐）。"""
 
     table_name: str
