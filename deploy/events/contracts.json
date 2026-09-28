@@ -301,10 +301,6 @@
       "description": "租户启用",
       "event_type": "tenant.activated",
       "fields": {
-        "code": {
-          "required": true,
-          "type": "string"
-        },
         "db_key": {
           "required": true,
           "type": "string"
@@ -312,19 +308,19 @@
         "status": {
           "required": true,
           "type": "string"
+        },
+        "tenant_code": {
+          "required": true,
+          "type": "string"
         }
       },
-      "version": "2.0.0"
+      "version": "1.0.0"
     },
     {
       "deprecated": false,
       "description": "租户开通",
       "event_type": "tenant.created",
       "fields": {
-        "code": {
-          "required": true,
-          "type": "string"
-        },
         "db_key": {
           "required": true,
           "type": "string"
@@ -332,19 +328,19 @@
         "status": {
           "required": true,
           "type": "string"
+        },
+        "tenant_code": {
+          "required": true,
+          "type": "string"
         }
       },
-      "version": "2.0.0"
+      "version": "1.0.0"
     },
     {
       "deprecated": false,
       "description": "租户停用",
       "event_type": "tenant.suspended",
       "fields": {
-        "code": {
-          "required": true,
-          "type": "string"
-        },
         "db_key": {
           "required": true,
           "type": "string"
@@ -352,9 +348,13 @@
         "status": {
           "required": true,
           "type": "string"
+        },
+        "tenant_code": {
+          "required": true,
+          "type": "string"
         }
       },
-      "version": "2.0.0"
+      "version": "1.0.0"
     },
     {
       "deprecated": false,

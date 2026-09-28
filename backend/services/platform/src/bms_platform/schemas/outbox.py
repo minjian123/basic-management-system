@@ -15,7 +15,7 @@ class DeadLetterResponse(BaseSchema):
     event_type: str
     consumer: str | None
     aggregate_key: str | None
-    tenant_code: str | None
+    tenant_id: str | None
     payload: dict[str, Any]
     error_msg: str
     retry_count: int

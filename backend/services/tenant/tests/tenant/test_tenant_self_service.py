@@ -4,7 +4,7 @@ import pytest
 from fastapi.routing import APIRoute
 from httpx import ASGITransport, AsyncClient
 
-from bms_core.api.deps import current_tenant_code_of, get_idempotency_store
+from bms_core.api.deps import current_code_of, get_idempotency_store
 from bms_core.application import service_lifespan as lifespan
 from bms_core.core.capability import BaseCapability, BaseNullObject
 from bms_core.core.plugin import BasePluggable, resolve_plugin
@@ -115,7 +115,7 @@ def test_data_contract_defaults() -> None:
 
     overview = TenantSelfOverview()
     assert overview.tenants == []
-    assert overview.current_tenant_code is None
+    assert overview.current_code is None
     assert overview.multi_tenant is False
 
     result = TenantSwitchResult(tenant_code="acme", db_key="tenant_acme")
@@ -142,14 +142,14 @@ async def test_null_my_tenants_fixed_single_tenant() -> None:
 
     overview = await service.my_tenants()
     assert overview.multi_tenant is False
-    assert overview.current_tenant_code == DEMO_CODE
+    assert overview.current_code == DEMO_CODE
     assert len(overview.tenants) == 1
     assert overview.tenants[0].id == DEMO_CODE
     assert overview.tenants[0].code == DEMO_CODE
     assert overview.tenants[0].name == DEMO_NAME
 
-    other = await service.my_tenants(current_tenant_code="acme")
-    assert other.current_tenant_code == DEMO_CODE
+    other = await service.my_tenants(current_code="acme")
+    assert other.current_code == DEMO_CODE
 
 
 @pytest.mark.kiwi_id(891)
@@ -183,7 +183,7 @@ async def test_null_brand_platform_default() -> None:
     assert brand.allow_user_accent is True
     assert brand.disable_dark is False
 
-    assert await service.brand(tenant_code="acme") == brand
+    assert await service.brand(code="acme") == brand
 
 
 @pytest.mark.kiwi_id(891)
@@ -198,10 +198,10 @@ async def test_dependency_provider_resolves() -> None:
 
 
 @pytest.mark.kiwi_id(891)
-def test_current_tenant_code_of_helper() -> None:
+def test_current_code_of_helper() -> None:
     """当前租户编码助手：有上下文取编码、解析链豁免路径（无上下文）为空。"""
-    assert current_tenant_code_of(None) is None
-    assert current_tenant_code_of(DEMO_TENANT) == DEMO_CODE
+    assert current_code_of(None) is None
+    assert current_code_of(DEMO_TENANT) == DEMO_CODE
 
 
 @pytest.mark.kiwi_id(891)
@@ -219,7 +219,7 @@ async def test_placeholder_route_my_tenants(client: AsyncClient) -> None:
     assert resp.status_code == 200
     data = resp.json()["data"]
     assert data["multi_tenant"] is False
-    assert data["current_tenant_code"] == DEMO_CODE
+    assert data["current_code"] == DEMO_CODE
     assert [item["id"] for item in data["tenants"]] == [DEMO_CODE]
     assert data["tenants"][0]["name"] == DEMO_NAME
 
@@ -227,7 +227,7 @@ async def test_placeholder_route_my_tenants(client: AsyncClient) -> None:
 @pytest.mark.kiwi_id(891)
 async def test_placeholder_route_switch(client: AsyncClient) -> None:
     """占位路由：切换结果回显、空编码 10001、无幂等键亦可用。"""
-    resp = await client.post(f"{API}/switch", json={"tenant_code": "acme"})
+    resp = await client.post(f"{API}/switch", json={"code": "acme"})
     assert resp.status_code == 200
     data = resp.json()["data"]
     assert data["tenant_code"] == "acme"
@@ -237,7 +237,7 @@ async def test_placeholder_route_switch(client: AsyncClient) -> None:
     assert data["reissue_token"] is False
     assert data["token"] is None
 
-    invalid = await client.post(f"{API}/switch", json={"tenant_code": "   "})
+    invalid = await client.post(f"{API}/switch", json={"code": "   "})
     assert invalid.json()["code"] == 10001
 
 
@@ -249,8 +249,8 @@ async def test_switch_idempotency_reuses_first_result() -> None:
     app.dependency_overrides[get_idempotency_store] = lambda: double
     async with lifespan(app), AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         client.headers.update(auth_headers())
-        first = await client.post(f"{API}/switch", json={"tenant_code": "acme"}, headers={"Idempotency-Key": "k-1"})
-        second = await client.post(f"{API}/switch", json={"tenant_code": "other"}, headers={"Idempotency-Key": "k-1"})
+        first = await client.post(f"{API}/switch", json={"code": "acme"}, headers={"Idempotency-Key": "k-1"})
+        second = await client.post(f"{API}/switch", json={"code": "other"}, headers={"Idempotency-Key": "k-1"})
 
     assert first.json()["data"]["tenant_code"] == "acme"
     assert second.json()["data"] == first.json()["data"]
@@ -269,5 +269,5 @@ async def test_placeholder_route_brand_without_auth(client: AsyncClient) -> None
     assert data["allow_user_accent"] is True
     assert data["disable_dark"] is False
 
-    with_code = await client.get(f"{API}/brand", params={"tenant_code": "acme"})
+    with_code = await client.get(f"{API}/brand", params={"code": "acme"})
     assert with_code.json()["data"] == data

@@ -27,7 +27,7 @@ class MemorySessionStore(BaseSessionStore):
         session_id: str,
         payload: Mapping[str, object],
         *,
-        tenant_code: str | None = None,
+        tenant: str | None = None,
         ttl: int = DEFAULT_SESSION_TTL,
     ) -> None:
         """写入 / 覆盖会话（TTL 到期时间）。
@@ -35,17 +35,17 @@ class MemorySessionStore(BaseSessionStore):
         Args:
             session_id: 会话 id。
             payload: 会话数据。
-            tenant_code: 租户编码（进程内实现以 `会话 id` 为键，忽略租户）。
+            tenant: 租户编码（进程内实现以 `会话 id` 为键，忽略租户）。
             ttl: 有效期（秒，默认 14 天）。
         """
         self._items[session_id] = (dict(payload), time.monotonic() + ttl)
 
-    async def load(self, session_id: str, *, tenant_code: str | None = None) -> Mapping[str, object] | None:
+    async def load(self, session_id: str, *, tenant: str | None = None) -> Mapping[str, object] | None:
         """读取会话（不存在 / 已过期返回 None）。
 
         Args:
             session_id: 会话 id。
-            tenant_code: 租户编码（忽略）。
+            tenant: 租户编码（忽略）。
 
         Returns:
             Mapping[str, object] | None: 会话数据；不存在 / 已过期返回 None。
@@ -59,12 +59,12 @@ class MemorySessionStore(BaseSessionStore):
             return None
         return dict(payload)
 
-    async def delete(self, session_id: str, *, tenant_code: str | None = None) -> None:
+    async def delete(self, session_id: str, *, tenant: str | None = None) -> None:
         """删除会话（幂等）。
 
         Args:
             session_id: 会话 id。
-            tenant_code: 租户编码（忽略）。
+            tenant: 租户编码（忽略）。
         """
         self._items.pop(session_id, None)
 

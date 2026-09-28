@@ -165,7 +165,7 @@ def test_protected_path_with_valid_token_issues_gateway_token() -> None:
     """受保护路径：校验通过后返回契约身份头（含会话 id）+ 网关服务 JWT（可验签）。"""
     issuer = _issuer()
     verifier = _StubVerifier(
-        result=VerifiedToken(subject="u-1", tenant_code="acme", scopes=("user:read", "user:write"), token_id="sess-1")
+        result=VerifiedToken(subject="u-1", tenant="acme", scopes=("user:read", "user:write"), token_id="sess-1")
     )
     status, headers = asyncio.run(
         _request(
@@ -182,7 +182,7 @@ def test_protected_path_with_valid_token_issues_gateway_token() -> None:
     assert headers["x-session-id"] == "sess-1"
     claims = issuer.verify(headers["authorization"].removeprefix("Bearer "))
     assert claims.subject == "gateway"
-    assert claims.payload["tenant_code"] == "acme"
+    assert claims.payload["tenant"] == "acme"
 
 
 def test_protected_path_without_token_is_unauthorized() -> None:

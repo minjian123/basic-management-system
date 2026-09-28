@@ -66,7 +66,7 @@ def configure_token_env(monkeypatch: MonkeyPatch) -> None:
 def issue_access_token(
     subject: str = TEST_SUBJECT,
     session_id: str = TEST_SESSION_ID,
-    tenant_code: str | None = TEST_TENANT,
+    tenant: str | None = TEST_TENANT,
     scopes: tuple[str, ...] = (),
 ) -> str:
     """签发一枚测试用户 access 令牌（同步，可直接在夹具内调用）。
@@ -74,7 +74,7 @@ def issue_access_token(
     Args:
         subject: 用户主体。
         session_id: 会话 id（`jti`）。
-        tenant_code: 租户编码（None 不写租户声明）。
+        tenant: 租户编码（None 不写租户声明）。
         scopes: 授权范围（非空时写 `scope`）。
 
     Returns:
@@ -91,8 +91,8 @@ def issue_access_token(
         "exp": now + _ACCESS_TTL,
         "iat": now,
     }
-    if tenant_code:
-        claims["tenant_id"] = tenant_code
+    if tenant:
+        claims["tenant_id"] = tenant
     if scopes:
         claims["scope"] = " ".join(scopes)
     return jwt.encode({"alg": "RS256", "kid": TEST_KID}, claims, RSAKey.import_key(private_key))
@@ -101,7 +101,7 @@ def issue_access_token(
 def auth_headers(
     subject: str = TEST_SUBJECT,
     session_id: str = TEST_SESSION_ID,
-    tenant_code: str | None = TEST_TENANT,
+    tenant: str | None = TEST_TENANT,
     scopes: tuple[str, ...] = (),
 ) -> dict[str, str]:
     """默认鉴权头（`Authorization: Bearer <测试 access>`）。
@@ -109,10 +109,10 @@ def auth_headers(
     Args:
         subject: 用户主体。
         session_id: 会话 id。
-        tenant_code: 租户编码。
+        tenant: 租户编码。
         scopes: 授权范围。
 
     Returns:
         dict[str, str]: 请求头映射。
     """
-    return {"Authorization": f"Bearer {issue_access_token(subject, session_id, tenant_code, scopes)}"}
+    return {"Authorization": f"Bearer {issue_access_token(subject, session_id, tenant, scopes)}"}

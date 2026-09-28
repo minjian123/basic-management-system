@@ -197,7 +197,7 @@ async def test_dispatch_marks_delivered_and_metrics(session: DbSession, registry
     store = SqlOutboxStore()
     async with session.begin():
         await store.enqueue(session, EventEnvelope(event_type="order.created", payload={"id": 1}))
-        await store.enqueue(session, EventEnvelope(event_type="order.paid", tenant_code="t1"))
+        await store.enqueue(session, EventEnvelope(event_type="order.paid", tenant_id="t1"))
     publisher = RecordingPublisher()
     metrics = RecordingMetrics()
     dispatcher = _build_dispatcher(registry, publisher, metrics=metrics)
@@ -233,7 +233,7 @@ async def test_dispatch_failure_to_dead_letter(session: DbSession, registry: Eng
     """发布失败：退避重试、超上限转死信并插死信行。"""
     store = SqlOutboxStore()
     async with session.begin():
-        await store.enqueue(session, EventEnvelope(event_type="e.fail", tenant_code="t1"))
+        await store.enqueue(session, EventEnvelope(event_type="e.fail", tenant_id="t1"))
     publisher = RecordingPublisher(fail_types=frozenset({"e.fail"}))
     dispatcher = _build_dispatcher(registry, publisher, max_retries=1)
 

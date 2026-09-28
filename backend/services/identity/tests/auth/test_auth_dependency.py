@@ -34,7 +34,7 @@ async def test_kicked_session_rejected_on_next_request(client: AsyncClient, serv
     kicked = await client.post(f"{API_SESSIONS}/{session_id}/kick", headers=TENANT_HEADERS)
     assert kicked.status_code == 200
 
-    token = issue_access_token(session_id=session_id, tenant_code="demo")
+    token = issue_access_token(session_id=session_id, tenant="demo")
     after = await client.get(API_SESSIONS, headers={**TENANT_HEADERS, "Authorization": f"Bearer {token}"})
     assert after.status_code == 401
     assert after.json()["code"] == 20012

@@ -38,14 +38,14 @@ class TenantSelfOverviewResponse(BaseSchema):
     tenants: list[TenantSummaryResponse] = Field(
         default_factory=list[TenantSummaryResponse], description="我加入的租户列表"
     )
-    current_tenant_code: str | None = Field(default=None, description="当前租户编码")
+    current_code: str | None = Field(default=None, description="当前租户编码")
     multi_tenant: bool = Field(default=False, description="是否多租户（租户列表长度 > 1）")
 
 
 class TenantSwitchRequest(BaseSchema):
-    """切换租户请求：`{tenant_code}`。"""
+    """切换租户请求：`{code}`。"""
 
-    tenant_code: str = Field(min_length=1, description="目标租户编码")
+    code: str = Field(min_length=1, description="目标租户编码")
 
 
 class TenantSwitchResponse(BaseSchema):

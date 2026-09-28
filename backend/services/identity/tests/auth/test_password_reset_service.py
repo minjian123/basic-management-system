@@ -147,7 +147,7 @@ async def test_request_reset_optional_captcha_without_ip_uses_token_text() -> No
     states = MemoryIdpStateStore()
     service = _service(session, org=org, states=states, notifier=notifier)
 
-    result = await service.request_reset("admin", None, tenant_code="demo", ip=None)
+    result = await service.request_reset("admin", None, tenant="demo", ip=None)
     assert result.sent is True
     assert len(notifier.messages) == 1
     message = notifier.messages[0]
@@ -155,7 +155,7 @@ async def test_request_reset_optional_captcha_without_ip_uses_token_text() -> No
     assert "使用以下重置令牌完成重置（单次有效）：" in message.content
 
     token = message.content.rsplit("：", 1)[-1].removesuffix("。")
-    payload = await states.consume(token, tenant_code="demo", namespace=PASSWORD_RESET_NAMESPACE)
+    payload = await states.consume(token, tenant="demo", namespace=PASSWORD_RESET_NAMESPACE)
     assert payload is not None and payload.get("user_id") == 1001 and payload.get("account") == "admin"
     await session.close()
     await engine.dispose()
@@ -169,19 +169,17 @@ async def test_request_reset_fail_closed_on_store_and_notify() -> None:
     org.set_user("admin", password="secret", user_id=1001, email="admin@example.com")
 
     with pytest.raises(ServiceUnavailableError) as save_failed:
-        await _service(session, org=org, states=_FailingStore()).request_reset(
-            "admin", None, tenant_code="demo", ip=None
-        )
+        await _service(session, org=org, states=_FailingStore()).request_reset("admin", None, tenant="demo", ip=None)
     assert save_failed.value.code == 10007
 
     with pytest.raises(ServiceUnavailableError):
         await _service(session, org=org, notifier=RecordingNotifier(raises=True)).request_reset(
-            "admin", None, tenant_code="demo", ip=None
+            "admin", None, tenant="demo", ip=None
         )
 
     with pytest.raises(ServiceUnavailableError):
         await _service(session, org=org, notifier=RecordingNotifier(delivered=False)).request_reset(
-            "admin", None, tenant_code="demo", ip=None
+            "admin", None, tenant="demo", ip=None
         )
     await session.close()
     await engine.dispose()
@@ -197,21 +195,21 @@ async def test_reset_password_token_payload_and_not_found() -> None:
     service = _service(session, org=org, states=states)
 
     with pytest.raises(PasswordResetTokenError) as missing:
-        await service.reset_password("ghost-token", "NewSecret1!", tenant_code="demo")
+        await service.reset_password("ghost-token", "NewSecret1!", tenant="demo")
     assert missing.value.code == 20005 and missing.value.http_status == 400
 
-    await states.save("dirty", {"user_id": "x", "account": 1}, tenant_code="demo", namespace=PASSWORD_RESET_NAMESPACE)
+    await states.save("dirty", {"user_id": "x", "account": 1}, tenant="demo", namespace=PASSWORD_RESET_NAMESPACE)
     with pytest.raises(PasswordResetTokenError):
-        await service.reset_password("dirty", "NewSecret1!", tenant_code="demo")
+        await service.reset_password("dirty", "NewSecret1!", tenant="demo")
 
     await states.save(
         "ghost",
-        {"user_id": 999, "account": "nobody", "tenant_code": "demo"},
-        tenant_code="demo",
+        {"user_id": 999, "account": "nobody", "tenant": "demo"},
+        tenant="demo",
         namespace=PASSWORD_RESET_NAMESPACE,
     )
     with pytest.raises(PasswordResetTokenError):
-        await service.reset_password("ghost", "NewSecret1!", tenant_code="demo")
+        await service.reset_password("ghost", "NewSecret1!", tenant="demo")
     await session.close()
     await engine.dispose()
 
@@ -226,17 +224,17 @@ async def test_reset_password_policy_and_history_mapping() -> None:
     service = _service(session, org=org, states=states)
 
     await states.save(
-        "weak-token", {"user_id": 1001, "account": "admin"}, tenant_code="demo", namespace=PASSWORD_RESET_NAMESPACE
+        "weak-token", {"user_id": 1001, "account": "admin"}, tenant="demo", namespace=PASSWORD_RESET_NAMESPACE
     )
     with pytest.raises(PasswordPolicyViolationError) as weak:
-        await service.reset_password("weak-token", "weak", tenant_code="demo")
+        await service.reset_password("weak-token", "weak", tenant="demo")
     assert weak.value.code == 30005 and weak.value.data == {"violations": ["too_short"]}
 
     await states.save(
-        "old-token", {"user_id": 1001, "account": "admin"}, tenant_code="demo", namespace=PASSWORD_RESET_NAMESPACE
+        "old-token", {"user_id": 1001, "account": "admin"}, tenant="demo", namespace=PASSWORD_RESET_NAMESPACE
     )
     with pytest.raises(PasswordReusedError) as reused:
-        await service.reset_password("old-token", "old-pass", tenant_code="demo")
+        await service.reset_password("old-token", "old-pass", tenant="demo")
     assert reused.value.code == 30006
     await session.close()
     await engine.dispose()
@@ -263,11 +261,9 @@ async def test_revoke_user_sessions_continues_on_cleanup_failure() -> None:
     org.set_user("admin", password="secret", user_id=1001, email="admin@example.com")
     states = MemoryIdpStateStore()
     service = _service(session, org=org, states=states, store=_ExplodingStore())
-    await states.save(
-        "boom", {"user_id": 1001, "account": "admin"}, tenant_code="demo", namespace=PASSWORD_RESET_NAMESPACE
-    )
+    await states.save("boom", {"user_id": 1001, "account": "admin"}, tenant="demo", namespace=PASSWORD_RESET_NAMESPACE)
 
-    result = await service.reset_password("boom", "NewSecret1!", tenant_code="demo")
+    result = await service.reset_password("boom", "NewSecret1!", tenant="demo")
     assert result.reset is True
     row = (await session.execute(select(SysSession).where(SysSession.session_id == "7001"))).scalar_one()
     assert row.revoked_at is not None

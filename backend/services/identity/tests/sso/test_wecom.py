@@ -56,7 +56,7 @@ async def test_wecom_authorize_url_and_302_and_end_to_end(client: AsyncClient, s
     assert "login.work.weixin.qq.com" in redirect.headers["location"]
 
     callback = await client.get(f"{CALLBACK}?state={state}&code=code-1", headers=TENANT_HEADERS)
-    assert callback.status_code == 200 and callback.json()["data"]["tenant_code"] == TENANT
+    assert callback.status_code == 200 and callback.json()["data"]["tenant"] == TENANT
 
     async with sso.platform_scope() as session:
         rows = (await session.execute(select(SysUserIdentity))).scalars().all()

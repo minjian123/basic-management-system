@@ -42,7 +42,7 @@ async def test_authorize_redirects_with_state_nonce_pkce(client: AsyncClient, ss
     assert query["nonce"] == [payload["nonce"]]
     verifier = str(payload["code_verifier"])
     assert len(verifier) > 0 and query["code_challenge"] == [_challenge(verifier)]
-    assert payload["tenant_code"] == "demo"
+    assert payload["tenant"] == "demo"
     assert payload["idp_key"] == IDP_KEY
     assert payload["redirect_uri"] == REDIRECT_URI
 

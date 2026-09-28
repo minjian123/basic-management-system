@@ -88,7 +88,7 @@ class IdentityUser(BaseIdentityProfileContract):
     email: str | None = None
     """邮箱（可选）。"""
 
-    tenant_code: str | None = None
+    tenant: str | None = None
     """租户（可选）。"""
 
     idp_key: str = ""

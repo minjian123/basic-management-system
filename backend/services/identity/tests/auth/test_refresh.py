@@ -48,7 +48,7 @@ async def test_refresh_rotates_and_rejects_replay(client: AsyncClient, service_a
     new_refresh = client.cookies.get(COOKIE)
     assert new_refresh and new_refresh != old_refresh
     assert issuer.specs[-1].session_id == session_id  # 会话 id 稳定
-    assert await store.load(session_id, tenant_code="demo") is not None
+    assert await store.load(session_id, tenant="demo") is not None
 
     client.cookies.clear()
     replay = await client.post(API_REFRESH, headers={"Cookie": f"{COOKIE}={old_refresh}"})
@@ -69,7 +69,7 @@ async def test_refresh_marker_missing(client: AsyncClient, service_app: FastAPI)
     """Redis 会话标记缺失（登出 / 踢出）：401。"""
     issuer, store = await _prepare(client, service_app)
     session_id = issuer.specs[-1].session_id
-    await store.delete(session_id, tenant_code="demo")
+    await store.delete(session_id, tenant="demo")
     resp = await client.post(API_REFRESH)
     assert resp.status_code == 401
 
@@ -100,7 +100,7 @@ async def test_refresh_bad_token_type(client: AsyncClient, service_app: FastAPI)
 async def test_refresh_tenant_mismatch(client: AsyncClient, service_app: FastAPI) -> None:
     """refresh 租户与请求租户不一致：401。"""
     issuer, _store = await _prepare(client, service_app)
-    issuer.mint("ref-mismatch", jti=issuer.specs[-1].session_id, tenant_code="other")
+    issuer.mint("ref-mismatch", jti=issuer.specs[-1].session_id, tenant_id="other")
     client.cookies.clear()
     resp = await client.post(API_REFRESH, headers={"Cookie": f"{COOKIE}=ref-mismatch"})
     assert resp.status_code == 401 and resp.json()["code"] == 20001
@@ -119,8 +119,8 @@ async def test_refresh_missing_session_claim(client: AsyncClient, service_app: F
 async def test_refresh_record_missing(client: AsyncClient, service_app: FastAPI) -> None:
     """会话标记存在但记录缺失：401。"""
     issuer, store = await _prepare(client, service_app)
-    issuer.mint("ref-ghost", jti="ghost-1", tenant_code="demo")
-    await store.save("ghost-1", {"user_id": 1, "tenant_code": "demo"}, tenant_code="demo", ttl=60)
+    issuer.mint("ref-ghost", jti="ghost-1", tenant_id="demo")
+    await store.save("ghost-1", {"user_id": 1, "tenant": "demo"}, tenant="demo", ttl=60)
     client.cookies.clear()
     assert (await client.post(API_REFRESH, headers={"Cookie": f"{COOKIE}=ref-ghost"})).status_code == 401
 

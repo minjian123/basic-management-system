@@ -1,6 +1,6 @@
 """多租户上下文与解析链编排：租户上下文、数据源键助手与请求级依赖。
 
-- 上下文：`TenantContext`（编码 / 库键 / 名称 / 主键 / 状态 / 域名）；`current_tenant_code` 上下文变量由
+- 上下文：`TenantContext`（编码 / 库键 / 名称 / 主键 / 状态 / 域名）；`current_tenant` 上下文变量由
   租户全局中间件设置，供服务层与数据访问层取值。
 - 数据源键：`build_tenant_db_key` / `parse_tenant_db_key` 自 `bms_core/db/keys.py` **re-export**
   （键形态与库名单一来源归 `db/keys.py`，06_01）：上下文携带**相对键** `tenant_{code}`，
@@ -22,7 +22,7 @@ from typing import Protocol
 
 from fastapi import Request
 
-from bms_core.core.context import current_tenant_code, get_tenant_context
+from bms_core.core.context import current_tenant, get_tenant_context
 from bms_core.core.exceptions import ConfigError, TenantNotFoundError
 from bms_core.core.objects import BaseTenantViewContract
 from bms_core.db.keys import (
@@ -233,7 +233,7 @@ def current_tenant_context() -> TenantContext:
     context = get_tenant_context()
     if context is not None:
         return context
-    code = current_tenant_code.get()
+    code = current_tenant.get()
     if not code:
         return DEMO_TENANT
     return TenantContext(code=code, db_key=build_tenant_db_key(code), name=code)
@@ -345,7 +345,7 @@ async def get_tenant(request: Request) -> TenantContext | None:
         path=request.url.path,
         host=request.headers.get("host"),
         header=request.headers.get("X-Tenant-ID"),
-        token_tenant=state.get("tenant_code"),  # type: ignore[arg-type]
+        token_tenant=state.get("tenant_id"),  # type: ignore[arg-type]
         source=source,
         exempt_paths=settings.tenant.exempt_paths if settings is not None else DEFAULT_EXEMPT_PATHS,
         allow_demo_fallback=settings.tenant.allow_demo_fallback if settings is not None else True,

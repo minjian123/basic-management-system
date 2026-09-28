@@ -41,7 +41,7 @@ async def test_list_identities_returns_bindings(client: AsyncClient, service_app
     response = await client.get(API, headers=TENANT_HEADERS)
     assert response.status_code == 200
     items = response.json()["data"]["items"]
-    assert items == [{"idp_key": f"{TENANT}:{IDP_KEY}", "external_id": "sub-1", "tenant_code": TENANT}]
+    assert items == [{"idp_key": f"{TENANT}:{IDP_KEY}", "external_id": "sub-1", "tenant_id": TENANT}]
 
 
 @pytest.mark.kiwi_id(2198)

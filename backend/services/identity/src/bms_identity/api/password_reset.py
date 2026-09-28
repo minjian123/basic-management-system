@@ -143,7 +143,7 @@ async def forgot_password(
     Returns:
         ApiResponse: 统一响应，data 为发起结果（`PasswordForgotResult`）。
     """
-    tenant = await resolve_request_tenant(req.tenant_code, tenant_ctx, tenant_source)
+    tenant = await resolve_request_tenant(req.tenant, tenant_ctx, tenant_source)
     registry: EngineRegistry = request.app.state.engine_registry
     factory = request.app.state.session_factory
     async with session_scope(registry, db_key=tenant.db_key, factory=factory) as session:
@@ -162,7 +162,7 @@ async def forgot_password(
         result = await service.request_reset(
             req.identifier,
             req.captcha,
-            tenant_code=tenant.code,
+            tenant=tenant.code,
             ip=current_client_ip.get(),
         )
     return ApiResponse.ok(result)
@@ -202,7 +202,7 @@ async def reset_password(
     Returns:
         ApiResponse: 统一响应，data 为重置结果（`PasswordResetResult`）。
     """
-    tenant = await resolve_request_tenant(req.tenant_code, tenant_ctx, tenant_source)
+    tenant = await resolve_request_tenant(req.tenant, tenant_ctx, tenant_source)
     registry: EngineRegistry = request.app.state.engine_registry
     factory = request.app.state.session_factory
     async with session_scope(registry, db_key=tenant.db_key, factory=factory) as session:
@@ -218,5 +218,5 @@ async def reset_password(
             store=store,
             publisher=publisher,
         )
-        result = await service.reset_password(req.token, req.new_password, tenant_code=tenant.code)
+        result = await service.reset_password(req.token, req.new_password, tenant=tenant.code)
     return ApiResponse.ok(result)

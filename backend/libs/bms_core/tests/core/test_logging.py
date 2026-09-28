@@ -12,7 +12,7 @@ from bms_core.core.context import (
     current_user_id,
     set_current_client_ip,
     set_current_request_id,
-    set_current_tenant_code,
+    set_current_tenant,
     set_current_trace_id,
 )
 from bms_core.core.logging import BaseLogger, StdoutLogger, configure_logging, get_logger
@@ -130,7 +130,7 @@ def test_context_fields_injected(capsys: pytest.CaptureFixture[str]) -> None:
     configure_logging(_settings("json"))
     set_current_trace_id("t" * 32)
     set_current_request_id("r" * 32)
-    set_current_tenant_code("demo")
+    set_current_tenant("demo")
     current_user_id.set(42)
     set_current_client_ip("10.0.0.1")
     get_logger("app.test").info("ctx_event")

@@ -147,12 +147,12 @@ class SessionService(BaseFrameworkObject):
             raise SessionNotFoundError("会话不存在")
         return record
 
-    async def kick(self, session_id: str, *, tenant_code: str, actor: int | None = None) -> KickResult:
+    async def kick(self, session_id: str, *, tenant: str, actor: int | None = None) -> KickResult:
         """强制踢出：统一撤销原语 + 结构化日志留痕。
 
         Args:
             session_id: 会话 id。
-            tenant_code: 租户编码（定位 Redis 标记键）。
+            tenant: 租户编码（定位 Redis 标记键）。
             actor: 操作者用户 ID（缺失记 system）。
 
         Returns:
@@ -175,16 +175,14 @@ class SessionService(BaseFrameworkObject):
             if not expired:
                 await self._repo.revoke(record.session_id, revoked_at=now)
         if expired:
-            await self._cleanup(record, tenant_code=tenant_code, now=now)
+            await self._cleanup(record, tenant=tenant, now=now)
             raise SessionExpiredError("会话已失效")
-        await self._after_revoke(record, tenant_code=tenant_code, reason=REASON_KICK, broadcast=True, now=now)
-        _LOGGER.info(
-            "会话强制踢出", session_id=session_id, tenant_code=tenant_code, actor=actor or "system", result="revoked"
-        )
+        await self._after_revoke(record, tenant=tenant, reason=REASON_KICK, broadcast=True, now=now)
+        _LOGGER.info("会话强制踢出", session_id=session_id, tenant=tenant, actor=actor or "system", result="revoked")
         return KickResult(session_id=session_id, revoked_at=now, reason=REASON_KICK)
 
     async def revoke(
-        self, session_id: str, *, tenant_code: str | None, reason: str, broadcast: bool = False
+        self, session_id: str, *, tenant: str | None, reason: str, broadcast: bool = False
     ) -> SessionRevokeResult:
         """统一撤销原语（不抛）：黑名单 + 落库 + 删标记 +（可选）广播。
 
@@ -192,7 +190,7 @@ class SessionService(BaseFrameworkObject):
 
         Args:
             session_id: 会话 id。
-            tenant_code: 租户编码（定位 Redis 标记键）。
+            tenant: 租户编码（定位 Redis 标记键）。
             reason: 撤销原因（`REASON_LOGOUT` / `REASON_KICK` / `REASON_MAX_ACTIVE`）。
             broadcast: 是否广播 `session.revoked`（踢出 / 超限 True，登出 False）。
 
@@ -208,15 +206,15 @@ class SessionService(BaseFrameworkObject):
             if record.revoked_at is not None:
                 return SessionRevokeResult(session_id=session_id, found=True, already_revoked=True)
             await self._repo.revoke(record.session_id, revoked_at=now)
-        await self._after_revoke(record, tenant_code=tenant_code, reason=reason, broadcast=broadcast, now=now)
+        await self._after_revoke(record, tenant=tenant, reason=reason, broadcast=broadcast, now=now)
         return SessionRevokeResult(session_id=session_id, found=True, already_revoked=False)
 
-    async def enforce_max_active(self, user_id: int, *, tenant_code: str, max_active: int) -> list[str]:
+    async def enforce_max_active(self, user_id: int, *, tenant: str, max_active: int) -> list[str]:
         """多端上限：超限作废该用户最旧在线会话（为新建会话腾位）。
 
         Args:
             user_id: 用户 ID。
-            tenant_code: 租户编码。
+            tenant: 租户编码。
             max_active: 活跃会话上限。
 
         Returns:
@@ -233,10 +231,10 @@ class SessionService(BaseFrameworkObject):
             for record in targets:
                 await self._repo.revoke(record.session_id, revoked_at=now)
         for record in targets:
-            await self._after_revoke(record, tenant_code=tenant_code, reason=REASON_MAX_ACTIVE, broadcast=True, now=now)
+            await self._after_revoke(record, tenant=tenant, reason=REASON_MAX_ACTIVE, broadcast=True, now=now)
         return [record.session_id for record in targets]
 
-    async def revoke_user_sessions(self, user_id: int, *, tenant_code: str | None, reason: str) -> list[str]:
+    async def revoke_user_sessions(self, user_id: int, *, tenant: str | None, reason: str) -> list[str]:
         """按用户批量撤销全部在线会话（重置密码后即时失效；复用统一撤销原语）。
 
         - 单事务内取该用户全部在线会话并逐个 `revoked_at` 落库；提交后逐会话运行时清理
@@ -245,7 +243,7 @@ class SessionService(BaseFrameworkObject):
 
         Args:
             user_id: 用户 ID。
-            tenant_code: 租户编码（定位 Redis 标记键）。
+            tenant: 租户编码（定位 Redis 标记键）。
             reason: 撤销原因（`REASON_PASSWORD_RESET`）。
 
         Returns:
@@ -259,24 +257,24 @@ class SessionService(BaseFrameworkObject):
                 await self._repo.revoke(record.session_id, revoked_at=now)
         for record in targets:
             try:
-                await self._after_revoke(record, tenant_code=tenant_code, reason=reason, broadcast=True, now=now)
+                await self._after_revoke(record, tenant=tenant, reason=reason, broadcast=True, now=now)
             except Exception as exc:  # 运行时清理尽力而为，DB 撤销已提交
                 _LOGGER.warning("会话撤销运行时清理未完成", session_id=record.session_id, error=str(exc))
         return [record.session_id for record in targets]
 
     async def _after_revoke(
-        self, record: SysSession, *, tenant_code: str | None, reason: str, broadcast: bool, now: datetime
+        self, record: SysSession, *, tenant: str | None, reason: str, broadcast: bool, now: datetime
     ) -> None:
         """撤销后处理：清理运行时标记 +（可选）广播占位（事务已提交）。
 
         Args:
             record: 已撤销的会话记录。
-            tenant_code: 租户编码。
+            tenant: 租户编码。
             reason: 撤销原因。
             broadcast: 是否广播。
             now: 撤销时间（UTC）。
         """
-        await self._cleanup(record, tenant_code=tenant_code, now=now)
+        await self._cleanup(record, tenant=tenant, now=now)
         if broadcast:
             await self._publisher.emit(
                 RealtimeEvent(
@@ -291,14 +289,14 @@ class SessionService(BaseFrameworkObject):
                 )
             )
 
-    async def _cleanup(self, record: SysSession, *, tenant_code: str | None, now: datetime) -> None:
+    async def _cleanup(self, record: SysSession, *, tenant: str | None, now: datetime) -> None:
         """清理运行时标记：refresh 入黑名单 + 删会话标记（尽力而为）。
 
         Args:
             record: 会话记录。
-            tenant_code: 租户编码。
+            tenant: 租户编码。
             now: 当前 UTC 时间。
         """
         ttl = _remaining_ttl(record.expires_at, now)
         await self._store.blacklist(self._security.blacklist_key(record.session_id), ttl=ttl)
-        await self._store.delete(record.session_id, tenant_code=tenant_code)
+        await self._store.delete(record.session_id, tenant=tenant)

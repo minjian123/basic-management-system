@@ -47,12 +47,12 @@ async def test_authorize_success_stores_code(client: AsyncClient, oidc: OidcHarn
     assert location.startswith(REDIRECT_URI)
     assert "state=st-1" in location
     code = location.split("code=", 1)[1].split("&", 1)[0]
-    entry = oidc.states._items[build_idp_state_key(code, tenant_code=TENANT, namespace="oidccode")]  # pyright: ignore[reportPrivateUsage]
+    entry = oidc.states._items[build_idp_state_key(code, tenant=TENANT, namespace="oidccode")]  # pyright: ignore[reportPrivateUsage]
     payload = entry[0]
     assert payload["client_id"] == CLIENT_ID
     assert payload["redirect_uri"] == REDIRECT_URI
     assert payload["subject"] == "1001"
-    assert payload["tenant_code"] == TENANT
+    assert payload["tenant"] == TENANT
     assert payload["nonce"] == "n-1"
 
 
@@ -137,7 +137,7 @@ async def test_authorize_missing_params(client: AsyncClient, oidc: OidcHarness) 
 async def test_authorize_tenant_mismatch(client: AsyncClient, oidc: OidcHarness) -> None:
     """`tenant` 参数与登录态不一致：400 标准错误。"""
     await oidc.seed_client()
-    response = await client.get(_AUTHORIZE, params={**_params(), "tenant_code": "other"}, headers=TENANT_HEADERS)
+    response = await client.get(_AUTHORIZE, params={**_params(), "tenant": "other"}, headers=TENANT_HEADERS)
     assert response.status_code == 400
     assert response.json()["error"] == "invalid_request"
 

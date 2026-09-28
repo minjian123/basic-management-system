@@ -69,7 +69,7 @@ class ServiceJwtEdgeTrust(BaseEdgeTrust):
         base = EdgeIdentity.from_headers(headers)
         identity = replace(
             base,
-            tenant_code=base.tenant_code or _claim_tenant_code(claims),
+            tenant_code=base.tenant_code or _claim_tenant(claims),
             service_identity=claims.subject or base.service_identity,
         )
         return EdgeTrustDecision(allowed=True, identity=identity, reason="service token verified")
@@ -131,7 +131,7 @@ def _bearer_token(headers: Mapping[str, str]) -> str | None:
     return token or None
 
 
-def _claim_tenant_code(claims: IdentityClaims) -> str | None:
+def _claim_tenant(claims: IdentityClaims) -> str | None:
     """取服务 JWT 的租户声明。
 
     Args:
@@ -140,5 +140,5 @@ def _claim_tenant_code(claims: IdentityClaims) -> str | None:
     Returns:
         str | None: 租户编码；缺失 / 非字符串为空。
     """
-    raw = claims.payload.get("tenant_code")
+    raw = claims.payload.get("tenant")
     return raw if isinstance(raw, str) and raw else None

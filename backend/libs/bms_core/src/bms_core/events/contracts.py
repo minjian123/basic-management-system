@@ -85,7 +85,7 @@ RESERVED_PAYLOAD_KEYS: tuple[str, ...] = (
     "event_type",
     "event_version",
     "occurred_at",
-    "tenant_code",
+    "tenant_id",
     "trace_id",
     "aggregate_key",
 )

@@ -64,7 +64,7 @@ class UserTokenSpec(BaseValueObject):
     session_id: str
     """会话 id（access 与 refresh 的 `jti` 同值；与 `sys_session` / Redis 会话标记同口径）。"""
 
-    tenant_code: str | None = None
+    tenant_id: str | None = None
     """租户编码（claims `tenant_id`，可选）。"""
 
     scopes: tuple[str, ...] = ()

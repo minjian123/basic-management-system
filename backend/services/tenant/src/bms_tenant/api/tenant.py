@@ -14,7 +14,7 @@ from typing import Annotated
 from fastapi import Depends, Header, Query
 
 from bms_core.api.base import BaseRouter, require_auth
-from bms_core.api.deps import current_tenant_code_of, get_idempotency_store, get_tenant, get_tenant_self_service
+from bms_core.api.deps import current_code_of, get_idempotency_store, get_tenant, get_tenant_self_service
 from bms_core.db.tenant import TenantContext
 from bms_core.idempotency.base import IDEMPOTENCY_HEADER, IdempotencyStore, build_idempotency_key
 from bms_core.schemas.common import ApiResponse
@@ -74,7 +74,7 @@ def _overview_response(overview: TenantSelfOverview) -> TenantSelfOverviewRespon
     """
     return TenantSelfOverviewResponse(
         tenants=[_summary_response(item) for item in overview.tenants],
-        current_tenant_code=overview.current_tenant_code,
+        current_code=overview.current_code,
         multi_tenant=overview.multi_tenant,
     )
 
@@ -130,7 +130,7 @@ async def my_tenants(service: ServiceDep, tenant: TenantDep) -> ApiResponse:
     Returns:
         ApiResponse: 统一响应，data 为自助概览（`TenantSelfOverviewResponse`）。
     """
-    overview = await service.my_tenants(current_tenant_code=current_tenant_code_of(tenant))
+    overview = await service.my_tenants(current_code=current_code_of(tenant))
     return ApiResponse.ok(_overview_response(overview))
 
 
@@ -154,28 +154,28 @@ async def switch_tenant(
     Returns:
         ApiResponse: 统一响应，data 为切换结果（`TenantSwitchResponse`）。
     """
-    tenant_code = req.tenant_code
+    code = req.code
     if not idempotency_key:
-        return ApiResponse.ok(_switch_response(await service.switch(tenant_code)))
-    key = build_idempotency_key(key=idempotency_key, tenant=current_tenant_code_of(tenant))
+        return ApiResponse.ok(_switch_response(await service.switch(code)))
+    key = build_idempotency_key(key=idempotency_key, tenant=current_code_of(tenant))
     if not await idempotency.begin(key):
         payload = await idempotency.load(key)
         if payload is not None:
             return ApiResponse.ok(TenantSwitchResponse.model_validate(payload))
-    result = await service.switch(tenant_code)
+    result = await service.switch(code)
     await idempotency.save(key, result.model_dump(mode="json"))
     return ApiResponse.ok(_switch_response(result))
 
 
 @router.get("/brand")
-async def tenant_brand(service: ServiceDep, tenant_code: CodeQuery = None) -> ApiResponse:
+async def tenant_brand(service: ServiceDep, code: CodeQuery = None) -> ApiResponse:
     """取品牌信息（登录前可用；缺省当前租户）。
 
     Args:
         service: 租户自助基座。
-        tenant_code: 租户编码（可选）。
+        code: 租户编码（可选）。
 
     Returns:
         ApiResponse: 统一响应，data 为品牌信息（`TenantBrandResponse`）。
     """
-    return ApiResponse.ok(_brand_response(await service.brand(tenant_code=tenant_code)))
+    return ApiResponse.ok(_brand_response(await service.brand(code=code)))

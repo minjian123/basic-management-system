@@ -81,11 +81,11 @@ async def _optional_auth(
 OptionalAuthDep = Annotated[AuthContext | None, Depends(_optional_auth)]
 
 
-async def _resolve(tenant_code: str | None, context: TenantContext | None, source: TenantLookup) -> TenantContext:
+async def _resolve(tenant: str | None, context: TenantContext | None, source: TenantLookup) -> TenantContext:
     """解析 OIDC 端点生效租户（异步版）。
 
     Args:
-        tenant_code: 查询参数租户编码（可选）。
+        tenant: 查询参数租户编码（可选）。
         context: 请求上下文租户。
         source: 租户源。
 
@@ -95,10 +95,10 @@ async def _resolve(tenant_code: str | None, context: TenantContext | None, sourc
     Raises:
         TenantNotFoundError: 无任何租户来源（404）。
     """
-    if tenant_code:
-        if context is not None and context.code == tenant_code:
+    if tenant:
+        if context is not None and context.code == tenant:
             return context
-        return await source.by_code(tenant_code)
+        return await source.by_code(tenant)
     if context is not None:
         return context
     raise TenantNotFoundError("未提供租户标识")
@@ -145,7 +145,7 @@ async def openid_configuration(
     hasher: HasherDep,
     tenant_ctx: TenantDep,
     tenant_source: TenantSourceDep,
-    tenant_code: Annotated[str | None, Query(description="租户编码（上下文缺省时的回落）")] = None,
+    tenant: Annotated[str | None, Query(description="租户编码（上下文缺省时的回落）")] = None,
 ) -> JSONResponse:
     """OIDC Discovery 文档（标准 JSON，无统一响应包体）。
 
@@ -157,12 +157,12 @@ async def openid_configuration(
         hasher: 口令哈希（保持服务构造一致）。
         tenant_ctx: 请求上下文租户。
         tenant_source: 租户源。
-        tenant_code: 租户编码（可选）。
+        tenant: 租户编码（可选）。
 
     Returns:
         JSONResponse: Discovery 文档。
     """
-    context = await _resolve(tenant_code, tenant_ctx, tenant_source)
+    context = await _resolve(tenant, tenant_ctx, tenant_source)
     registry: EngineRegistry = request.app.state.engine_registry
     async with session_scope(registry, db_key=context.db_key, factory=request.app.state.session_factory) as session:
         service = _build_service(
@@ -186,7 +186,7 @@ async def jwks(
     hasher: HasherDep,
     tenant_ctx: TenantDep,
     tenant_source: TenantSourceDep,
-    tenant_code: Annotated[str | None, Query(description="租户编码（上下文缺省时的回落）")] = None,
+    tenant: Annotated[str | None, Query(description="租户编码（上下文缺省时的回落）")] = None,
 ) -> JSONResponse:
     """IdP 公开 JWKS（标准 JSON，无统一响应包体）。
 
@@ -198,12 +198,12 @@ async def jwks(
         hasher: 口令哈希（保持服务构造一致）。
         tenant_ctx: 请求上下文租户。
         tenant_source: 租户源。
-        tenant_code: 租户编码（可选）。
+        tenant: 租户编码（可选）。
 
     Returns:
         JSONResponse: JWKS 文档。
     """
-    await _resolve(tenant_code, tenant_ctx, tenant_source)
+    await _resolve(tenant, tenant_ctx, tenant_source)
     return JSONResponse(content=dict(provider.jwks()), headers=_GOOD_HTML)
 
 
@@ -225,7 +225,7 @@ async def authorize(
     nonce: Annotated[str | None, Query()] = None,
     code_challenge: Annotated[str | None, Query()] = None,
     code_challenge_method: Annotated[str | None, Query()] = None,
-    tenant_code: Annotated[str | None, Query(description="租户编码（上下文缺省时的回落）")] = None,
+    tenant: Annotated[str | None, Query(description="租户编码（上下文缺省时的回落）")] = None,
 ) -> Response:
     """授权端点：校验客户端并签发一次性授权码，`302` 回跳 `redirect_uri`。
 
@@ -246,7 +246,7 @@ async def authorize(
         nonce: 透传 nonce。
         code_challenge: PKCE 挑战。
         code_challenge_method: PKCE 方法。
-        tenant_code: 租户编码（可选）。
+        tenant: 租户编码（可选）。
 
     Returns:
         Response: `302` 回跳地址。
@@ -258,9 +258,9 @@ async def authorize(
     try:
         if auth is None:
             return _login_redirect(request)
-        if tenant_code and auth.tenant_code and tenant_code != auth.tenant_code:
+        if tenant and auth.tenant and tenant != auth.tenant:
             raise OidcInvalidRequestError("租户与登录态不一致")
-        context = await _resolve(auth.tenant_code or tenant_code, tenant_ctx, tenant_source)
+        context = await _resolve(auth.tenant or tenant, tenant_ctx, tenant_source)
         registry: EngineRegistry = request.app.state.engine_registry
         async with session_scope(registry, db_key=context.db_key, factory=request.app.state.session_factory) as session:
             service = _build_service(
@@ -272,7 +272,7 @@ async def authorize(
                 hasher=hasher,
             )
             result = await service.authorize(
-                tenant_code=context.code,
+                tenant=context.code,
                 client_id=client_id,
                 redirect_uri=redirect_uri,
                 response_type=response_type,
@@ -298,7 +298,7 @@ async def token(
     hasher: HasherDep,
     tenant_ctx: TenantDep,
     tenant_source: TenantSourceDep,
-    tenant_code: Annotated[str | None, Query(description="租户编码（上下文缺省时的回落）")] = None,
+    tenant: Annotated[str | None, Query(description="租户编码（上下文缺省时的回落）")] = None,
 ) -> Response:
     """令牌端点：客户端认证 + 授权码换 ID Token / access token（标准 OAuth2 JSON）。
 
@@ -310,14 +310,14 @@ async def token(
         hasher: 口令哈希（客户端密钥比对）。
         tenant_ctx: 请求上下文租户。
         tenant_source: 租户源。
-        tenant_code: 租户编码（可选）。
+        tenant: 租户编码（可选）。
 
     Returns:
         Response: 标准令牌 JSON 或标准错误 JSON。
     """
     form = await request.form()
     client_id, client_secret = _client_credentials(request, form)
-    context = await _resolve(tenant_code, tenant_ctx, tenant_source)
+    context = await _resolve(tenant, tenant_ctx, tenant_source)
     registry: EngineRegistry = request.app.state.engine_registry
     try:
         async with session_scope(registry, db_key=context.db_key, factory=request.app.state.session_factory) as session:
@@ -330,7 +330,7 @@ async def token(
                 hasher=hasher,
             )
             result = await service.token(
-                tenant_code=context.code,
+                tenant=context.code,
                 client_id=client_id,
                 client_secret=client_secret,
                 grant_type=_form_str(form, "grant_type"),
@@ -362,7 +362,7 @@ async def userinfo(
     hasher: HasherDep,
     tenant_ctx: TenantDep,
     tenant_source: TenantSourceDep,
-    tenant_code: Annotated[str | None, Query(description="租户编码（上下文缺省时的回落）")] = None,
+    tenant: Annotated[str | None, Query(description="租户编码（上下文缺省时的回落）")] = None,
 ) -> Response:
     """用户信息端点：Bearer access token → 标准 userinfo JSON。
 
@@ -374,12 +374,12 @@ async def userinfo(
         hasher: 口令哈希（保持服务构造一致）。
         tenant_ctx: 请求上下文租户。
         tenant_source: 租户源。
-        tenant_code: 租户编码（可选）。
+        tenant: 租户编码（可选）。
 
     Returns:
         Response: 标准 userinfo JSON 或 401。
     """
-    context = await _resolve(tenant_code, tenant_ctx, tenant_source)
+    context = await _resolve(tenant, tenant_ctx, tenant_source)
     token_value = _bearer(request.headers.get("authorization"))
     if not token_value:
         return _unauthorized()
@@ -394,7 +394,7 @@ async def userinfo(
                 client=client,
                 hasher=hasher,
             )
-            result = await service.userinfo(tenant_code=context.code, access_token=token_value)
+            result = await service.userinfo(tenant=context.code, access_token=token_value)
     except AuthError:
         return _unauthorized()
     return JSONResponse(

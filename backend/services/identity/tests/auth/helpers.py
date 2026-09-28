@@ -54,7 +54,7 @@ class FakeUserTokenIssuer(BaseUserTokenIssuer):
         """
         self._n += 1
         access, refresh = f"acc-{self._n}", f"ref-{self._n}"
-        base = {"sub": spec.subject, "jti": spec.session_id, "tenant_code": spec.tenant_code}
+        base = {"sub": spec.subject, "jti": spec.session_id, "tenant_id": spec.tenant_id}
         self._by_token[access] = {**base, "type": _ACCESS}
         self._by_token[refresh] = {**base, "type": _REFRESH}
         self.specs.append(spec)
@@ -98,7 +98,7 @@ class FakeUserTokenIssuer(BaseUserTokenIssuer):
         *,
         sub: str = "1",
         jti: object = None,
-        tenant_code: object = "demo",
+        tenant_id: object = "demo",
         token_type: str = _REFRESH,
     ) -> None:
         """手工登记任意外形票据（覆盖异常分支用例）。
@@ -107,10 +107,10 @@ class FakeUserTokenIssuer(BaseUserTokenIssuer):
             token: 令牌串。
             sub: 主体。
             jti: 会话 id（可为 None 覆盖缺失分支）。
-            tenant_code: 租户编码（可为 None / 任意串）。
+            tenant_id: 租户编码（可为 None / 任意串）。
             token_type: 令牌类型。
         """
-        self._by_token[token] = {"sub": sub, "jti": jti, "tenant_code": tenant_code, "type": token_type}
+        self._by_token[token] = {"sub": sub, "jti": jti, "tenant_id": tenant_id, "type": token_type}
 
 
 class FakeOrgClient(BaseServiceClient):

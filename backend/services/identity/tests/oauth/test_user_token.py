@@ -148,7 +148,7 @@ def test_constants_and_contract() -> None:
     assert issubclass(NullUserTokenIssuer, BaseUserTokenIssuer)
     assert issubclass(NullUserTokenIssuer, BaseNullObject)
     spec = UserTokenSpec(subject="1001", session_id="sess-1")
-    assert spec.tenant_code is None and spec.scopes == ()
+    assert spec.tenant_id is None and spec.scopes == ()
 
 
 @pytest.mark.kiwi_id(2193)
@@ -156,7 +156,7 @@ async def test_issue_pair_claims_and_ttls() -> None:
     """签发双 token：access / refresh claims 与 TTL、`jti` 同值、可选 tenant / scope 回填。"""
     issuer = _issuer()
     pair = await issuer.issue_pair(
-        UserTokenSpec(subject="1001", session_id="sess-1", tenant_code="acme", scopes=("user:read", "org:read"))
+        UserTokenSpec(subject="1001", session_id="sess-1", tenant_id="acme", scopes=("user:read", "org:read"))
     )
     assert isinstance(pair, UserTokenPair)
     assert pair.token_type == "Bearer"
@@ -172,7 +172,7 @@ async def test_issue_pair_claims_and_ttls() -> None:
     assert access.audience == (TOKEN_AUDIENCE_API,)
     payload = dict(access.payload)
     assert payload["type"] == USER_TOKEN_TYPE_ACCESS
-    assert payload["tenant_code"] == "acme"
+    assert payload["tenant_id"] == "acme"
     assert payload["scope"] == "user:read org:read"
     assert payload["jti"] == "sess-1"
     assert access.expires_at - access.issued_at == _ACCESS_TTL
@@ -182,7 +182,7 @@ async def test_issue_pair_claims_and_ttls() -> None:
 
     minimal = await issuer.issue_pair(UserTokenSpec(subject="1002", session_id="sess-2"))
     minimal_payload = dict(issuer.verify(minimal.access_token, expected_type=USER_TOKEN_TYPE_ACCESS).payload)
-    assert "tenant_code" not in minimal_payload
+    assert "tenant_id" not in minimal_payload
     assert "scope" not in minimal_payload
 
 
