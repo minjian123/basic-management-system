@@ -3,12 +3,12 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
-from bms_core.core.base import BaseObject
+from bms_core.core.objects import BaseDataContract
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
 
 
 @dataclass
-class ShardBinding(BaseObject):
+class ShardBinding(BaseDataContract):
     """分片解析结果：物理库键 + 物理表名。"""
 
     db_key: str = "default"
