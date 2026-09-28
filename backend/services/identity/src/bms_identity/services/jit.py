@@ -31,7 +31,7 @@ from bms_core.core.exceptions import (
     SsoProviderUnavailableError,
 )
 from bms_core.core.logging import get_logger
-from bms_core.core.objects import BaseValueObject
+from bms_core.core.objects import BaseIdentityProfileContract, BaseValueObject
 from bms_core.db.session import DbSession
 from bms_core.events.base import EventEnvelope
 from bms_core.lock.base import BaseDistributedLock, build_lock_key
@@ -63,7 +63,7 @@ _LOGGER = get_logger("bms")
 
 
 @dataclass(frozen=True)
-class ExternalIdentity(BaseValueObject):
+class ExternalIdentity(BaseIdentityProfileContract):
     """外部身份声明（ID Token / userinfo 归一化结果；JIT 建号与映射的输入）。"""
 
     subject: str

@@ -24,7 +24,7 @@ from bms_core.core.exceptions import (
     ParamError,
 )
 from bms_core.core.logging import get_logger
-from bms_core.core.objects import BaseValueObject
+from bms_core.core.objects import BaseLoginResultContract
 from bms_core.db.session import DbSession
 from bms_core.db.unit_of_work import UnitOfWork
 from bms_core.oauth.user_token import (
@@ -66,7 +66,7 @@ def _utc_now() -> datetime:
 
 
 @dataclass(frozen=True)
-class LoginOutcome(BaseValueObject):
+class LoginOutcome(BaseLoginResultContract):
     """登录编排结果（含待下发 refresh cookie 的原始票据）。"""
 
     result: LoginResult
@@ -75,7 +75,7 @@ class LoginOutcome(BaseValueObject):
 
 
 @dataclass(frozen=True)
-class RefreshOutcome(BaseValueObject):
+class RefreshOutcome(BaseLoginResultContract):
     """刷新编排结果（含轮换后的 refresh 原始票据）。"""
 
     result: RefreshResult

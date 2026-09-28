@@ -10,6 +10,8 @@
 
 from __future__ import annotations
 
+from bms_core.core.objects.auth_results import BaseAuthorizeUrlResultContract, BaseLoginResultContract
+from bms_core.core.objects.identity import BaseIdentityProfileContract, BaseRequestIdentityContract
 from bms_core.core.objects.options import BaseOptionsContract
 from bms_core.core.objects.roots import (
     FRAMEWORK_OBJECT_KIND,
@@ -17,6 +19,7 @@ from bms_core.core.objects.roots import (
     BaseFrameworkObject,
     BaseValueObject,
 )
+from bms_core.core.objects.tenant import BaseTenantViewContract
 from bms_core.core.objects.tokens import (
     BaseOidcTokenSpecContract,
     BaseRefreshableTokenContract,
@@ -28,12 +31,17 @@ from bms_core.core.objects.tokens import (
 
 __all__ = [
     "FRAMEWORK_OBJECT_KIND",
+    "BaseAuthorizeUrlResultContract",
     "BaseDataContract",
     "BaseFrameworkObject",
+    "BaseIdentityProfileContract",
+    "BaseLoginResultContract",
     "BaseOidcTokenSpecContract",
     "BaseOptionsContract",
     "BaseRefreshableTokenContract",
+    "BaseRequestIdentityContract",
     "BaseSecretMaterialContract",
+    "BaseTenantViewContract",
     "BaseTokenClaimsContract",
     "BaseTokenContract",
     "BaseTokenSpecContract",
