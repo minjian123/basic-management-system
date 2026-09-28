@@ -13,8 +13,8 @@ from typing import cast
 from redis.asyncio import Redis
 from redis.exceptions import WatchError
 
-from bms_core.core.base import ValueHolder
 from bms_core.core.exceptions import ConcurrentConflictError
+from bms_core.core.holder import ValueHolder
 from bms_core.core.objects import BaseFrameworkObject
 from bms_core.core.serialization import stable_json_dumps, stable_json_loads
 

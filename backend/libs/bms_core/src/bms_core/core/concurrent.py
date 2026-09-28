@@ -11,8 +11,8 @@ from collections.abc import Callable, Generator, Iterable, Iterator, Mapping
 from contextlib import contextmanager
 from typing import Any, TypeVar, cast
 
-from bms_core.core.base import ValueHolder
 from bms_core.core.collections import BaseSorted, SortedDict, SortedList, SortedSet
+from bms_core.core.holder import ValueHolder
 from bms_core.core.locking import LockGuard, LockStrategy, ReadWriteLock
 
 DataT = TypeVar("DataT")

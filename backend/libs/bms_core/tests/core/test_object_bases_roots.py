@@ -23,6 +23,9 @@ from bms_core.api.middleware import (
     TraceIdMiddleware,
 )
 from bms_core.audit.base import FieldChange
+from bms_core.core.exceptions import BizError
+from bms_core.core.holder import ValueHolder
+from bms_core.core.objects import BaseFrameworkObject
 from bms_core.events.base import EventEnvelope
 from bms_core.sharding.base import ShardBinding
 
@@ -79,12 +82,14 @@ OBJECT_BATCH: tuple[tuple[str, str, str], ...] = (
     ("backend/libs/bms_core/src/bms_core/services/module_registry.py", "ModuleRegistry", "BaseFrameworkObject"),
     ("backend/libs/bms_core/src/bms_core/services/table_registry.py", "TableOwnershipRegistry", "BaseFrameworkObject"),
     ("backend/libs/bms_core/src/bms_core/transfer/null.py", "_EmptyExporterStream", "BaseFrameworkObject"),
+    ("backend/libs/bms_core/src/bms_core/core/holder.py", "ValueHolder", "BaseFrameworkObject"),
+    ("backend/libs/bms_core/src/bms_core/core/exceptions.py", "BizError", "BaseFrameworkObject"),
 )
-"""已归位台账（批次 ① 数据契约 3 + 批次 ②a `bms_core` 框架类 28）——（源文件, 类名, 归位父基类）。"""
+"""已归位台账（批次 ① 数据契约 3 + 批次 ②a `bms_core` 框架类 28 + 批次 ②b 2）——（源文件, 类名, 归位父基类）。"""
 
-BASELINE_REMAINING = 19
-"""基线剩余条目数（每批次递减：批次 ① 后 47 → 批次 ②a 后 19，目标 0）。
-余量 19＝`ValueHolder` / `BizError` + 服务侧 17（批次 ②b / ③）。"""
+BASELINE_REMAINING = 17
+"""基线剩余条目数（每批次递减：批次 ① 后 47 → ②a 后 19 → ②b 后 17，目标 0）。
+余量 17＝服务侧 17（identity 12 / org 3 / tenant 2；批次 ③）。"""
 
 
 def _class_bases(rel: str, name: str) -> Sequence[str]:
@@ -120,7 +125,9 @@ def test_object_batch_declares_expected_base() -> None:
     offenders: list[str] = []
     for rel, name, expected in OBJECT_BATCH:
         bases = _class_bases(rel, name)
-        if bases != [expected] or expected not in OBJECT_BASES:
+        # 归位目标须在首位；除 `Exception`（`BizError` 多父类特例）外不允许其它父类。
+        extra = set(bases[1:]) - {"Exception"}
+        if bases[:1] != [expected] or extra or expected not in OBJECT_BASES:
             offenders.append(f"{rel}::{name} → {bases}（期望 {expected}）")
     assert not offenders, "台账条目须挂目标体系根 / 能力域基类；违规：\n" + "\n".join(offenders)
 
@@ -147,6 +154,25 @@ def test_base_middleware_common_segment_holds() -> None:
     ):
         assert issubclass(member, BaseMiddleware)
         assert {"scope", "receive", "send"} <= set(inspect.signature(member.__call__).parameters)
+
+
+@pytest.mark.kiwi_id(2217)
+def test_biz_error_keeps_exception_semantics() -> None:
+    """错误体系根归位后语义不变：`BizError` 仍是 `Exception`（可 `raise` / `except`），并带框架对象标识。"""
+    assert issubclass(BizError, Exception)
+    assert issubclass(BizError, BaseFrameworkObject)
+    assert BizError.object_kind == "biz_error"
+    assert isinstance(BizError(code=1, message="x"), Exception)
+    with pytest.raises(BizError):
+        raise BizError(code=2)
+
+
+@pytest.mark.kiwi_id(2217)
+def test_value_holder_moved_to_own_module() -> None:
+    """`ValueHolder` 迁出根系模块后仍可构造与写回（行为零变更），且不再是根系直继承。"""
+    holder = ValueHolder("v")
+    assert holder.value == "v"
+    assert not any(base.__name__ == "BaseObject" for base in ValueHolder.__bases__)
 
 
 @pytest.mark.kiwi_id(2217)

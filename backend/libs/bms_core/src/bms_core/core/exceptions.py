@@ -1,6 +1,6 @@
 """core 层异常体系：统一业务异常基类、段位基类与常用子类。
 
-- `BizError` 继承 `BaseObject`（纳入 L0 继承体系，统一序列化 / 字符串输出），同时是 `Exception`。
+- `BizError` 继承 `BaseFrameworkObject`（框架对象体系根：非数据对象 + `object_kind` 标识），同时是 `Exception`。
 - **段位基类**（按错误码段位分基）：`GeneralError`（1xxxx 通用）、`AuthError`（2xxxx 认证）、
   `UserOrgError`（3xxxx 用户与组织）、`ConfigError`（4xxxx 系统配置）、`FileError`（5xxxx 文件）、
   `OpenTenantError`（8xxxx 开放 / 租户 / SSO）；新增同段位错误码继承对应段位基。
@@ -11,12 +11,20 @@
 - `http_status` 承载传输层语义（404 / 401 / 403 / 409 / 500），其余业务失败统一 200。
 """
 
-from bms_core.core.base import BaseObject
+from typing import ClassVar
+
 from bms_core.core.error_codes import ErrorCode
+from bms_core.core.objects import BaseFrameworkObject
 
 
-class BizError(BaseObject, Exception):
-    """业务异常基类：携带业务错误码、可选消息、HTTP 状态与数据。"""
+class BizError(BaseFrameworkObject, Exception):
+    """业务异常基类：携带业务错误码、可选消息、HTTP 状态与数据。
+
+    归位（09_05 批次 ②b）：错误体系根由 `BaseObject` 改挂**框架对象体系根**（非数据对象）；
+    错误码段位（`GeneralError` / `AuthError` / … → `BizError`）与既有捕获语义不变。
+    """
+
+    object_kind: ClassVar[str] = "biz_error"
 
     code: int
     message: str | None
