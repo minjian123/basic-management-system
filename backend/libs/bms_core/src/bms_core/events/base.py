@@ -7,8 +7,8 @@ from typing import cast
 
 from fastapi import Request
 
-from bms_core.core.base import BaseObject
 from bms_core.core.config import Settings
+from bms_core.core.objects import BaseDataContract
 from bms_core.core.plugin import (
     DEFAULT_CONTRACT_VERSION,
     NULL_PLUGIN_NAME,
@@ -21,7 +21,7 @@ DEFAULT_EVENT_VERSION = "1.0.0"
 
 
 @dataclass
-class EventEnvelope(BaseObject):
+class EventEnvelope(BaseDataContract):
     """事件信封：统一事件载体（幂等键 + 类型 + 负载 + 租户 + 链路标识 + 聚合键 + 契约版本）。
 
     - `event_id`：幂等键（消费端去重）；缺省由事务性发件箱写入时生成。
