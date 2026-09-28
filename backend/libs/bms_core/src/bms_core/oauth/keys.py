@@ -12,12 +12,12 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
-from typing import cast
+from typing import ClassVar, cast
 
 from joserfc.jwk import ECKey, KeyParameters, KeySet, RSAKey
 
 from bms_core.core.exceptions import ConfigError
-from bms_core.core.objects import BaseValueObject
+from bms_core.core.objects import BaseSecretMaterialContract
 from bms_core.idp.jwks import DEFAULT_ALGORITHMS
 
 __all__ = [
@@ -38,9 +38,11 @@ JWK_USE_SIGNATURE = "sig"
 _RSA_PREFIX = "RS"
 
 
-@dataclass(frozen=True)
-class TokenKey(BaseValueObject):
+@dataclass(frozen=True, repr=False)
+class TokenKey(BaseSecretMaterialContract):
     """服务 JWT 签名 / 验签密钥（kid 为映射键，公私钥 PEM 均由配置注入）。"""
+
+    SECRET_FIELDS: ClassVar[tuple[str, ...]] = ("private_key",)
 
     kid: str
     """密钥标识（JWKS 与 JOSE header 的 `kid`，验签按此命中）。"""

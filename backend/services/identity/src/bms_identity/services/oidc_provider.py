@@ -32,7 +32,7 @@ from bms_core.core.exceptions import (
     OidcInvalidRequestError,
     OidcUnsupportedGrantError,
 )
-from bms_core.core.objects import BaseValueObject
+from bms_core.core.objects import BaseTokenContract, BaseValueObject
 from bms_core.db.session import DbSession
 from bms_core.idp.state.base import BaseIdpStateStore
 from bms_core.oauth.oidc_provider import (
@@ -88,7 +88,7 @@ class AuthorizeResult(BaseValueObject):
 
 
 @dataclass(frozen=True)
-class TokenResult(BaseValueObject):
+class TokenResult(BaseTokenContract):
     """令牌端点结果（标准 OAuth2）。"""
 
     access_token: str

@@ -23,8 +23,25 @@ import pytest
 
 from bms_core.captcha.default import CaptchaImageOptions, CaptchaSliderOptions, CaptchaSmsOptions
 from bms_core.chat.base import ChatStreamHandle
-from bms_core.core.objects import BaseFrameworkObject, BaseOptionsContract, BaseValueObject
+from bms_core.core.objects import (
+    BaseFrameworkObject,
+    BaseOidcTokenSpecContract,
+    BaseOptionsContract,
+    BaseRefreshableTokenContract,
+    BaseSecretMaterialContract,
+    BaseTokenClaimsContract,
+    BaseTokenContract,
+    BaseTokenSpecContract,
+    BaseValueObject,
+)
+from bms_core.idp.base import IdentityClaims, IdentityToken
 from bms_core.masking.default import MaskerOptions
+from bms_core.oauth.base import ClientCredentials, OAuthToken
+from bms_core.oauth.keys import TokenKey
+from bms_core.oauth.oidc_provider import AccessTokenSpec, IdTokenSpec, OidcAccessClaims
+from bms_core.oauth.token import ServiceTokenSpec
+from bms_core.oauth.user_token import UserTokenPair
+from bms_core.oauth.verify import VerifiedToken
 
 _BACKEND = Path(__file__).resolve().parents[4]
 _ROOT = _BACKEND.parent
@@ -44,8 +61,31 @@ _SYSTEM_ROOTS = frozenset(
 )
 _ROOT_BASES_MARKER = "体系根清单"
 
-VALUE_OBJECT_BASES = frozenset({"BaseValueObject", "BaseOptionsContract"})
+VALUE_OBJECT_BASES = frozenset(
+    {
+        "BaseValueObject",
+        "BaseOptionsContract",
+        "BaseOidcTokenSpecContract",
+        "BaseRefreshableTokenContract",
+        "BaseSecretMaterialContract",
+        "BaseTokenClaimsContract",
+        "BaseTokenContract",
+        "BaseTokenSpecContract",
+    }
+)
 """值对象体系合法直系父基类（体系根 + 已落地角色链层）；每批新层落地时同步扩入。"""
+
+ROLE_CHAINS: tuple[tuple[type, tuple[type, ...]], ...] = (
+    (BaseOptionsContract, (CaptchaImageOptions, CaptchaSliderOptions, CaptchaSmsOptions, MaskerOptions)),
+    (BaseTokenContract, (OAuthToken, UserTokenPair, IdentityToken)),
+    (BaseRefreshableTokenContract, (UserTokenPair, IdentityToken)),
+    (BaseTokenSpecContract, (ServiceTokenSpec, AccessTokenSpec, IdTokenSpec)),
+    (BaseOidcTokenSpecContract, (AccessTokenSpec, IdTokenSpec)),
+    (BaseTokenClaimsContract, (VerifiedToken, OidcAccessClaims, IdentityClaims)),
+    (BaseSecretMaterialContract, (ClientCredentials, TokenKey)),
+)
+"""角色链台账（层 → 成员）：仅登记**基座侧**成员——服务侧成员（`TokenResult` / `IssuedSession` 等）
+由 `VALUE_OBJECT_BATCH` 的「单一父基类」断言覆盖（`bms_identity` 在基座用例环境不可导入）。"""
 
 VALUE_OBJECT_BATCH: tuple[tuple[str, str], ...] = (
     ("backend/libs/bms_core/src/bms_core/api/base.py", "AuthContext"),
@@ -255,7 +295,7 @@ def test_value_object_batch_declares_value_object_base() -> None:
 @pytest.mark.kiwi_id(2216)
 def test_value_object_base_names_are_real_layers() -> None:
     """台账口径自洽：`VALUE_OBJECT_BASES` 列出的角色链层确实是值对象体系内的类。"""
-    layers = {"BaseValueObject": BaseValueObject, "BaseOptionsContract": BaseOptionsContract}
+    layers = {"BaseValueObject": BaseValueObject, **{layer.__name__: layer for layer, _members in ROLE_CHAINS}}
     assert set(layers) == set(VALUE_OBJECT_BASES)
     for layer in layers.values():
         assert issubclass(layer, BaseValueObject)
@@ -263,12 +303,49 @@ def test_value_object_base_names_are_real_layers() -> None:
 
 @pytest.mark.kiwi_id(2216)
 def test_options_chain_layer_contract() -> None:
-    """选项链层：4 成员挂 `BaseOptionsContract`，公共段 `from_options` 为抽象入口。"""
+    """选项链层：成员挂 `BaseOptionsContract`，公共段 `from_options` 为抽象入口。"""
     for member in (CaptchaImageOptions, CaptchaSliderOptions, CaptchaSmsOptions, MaskerOptions):
         assert issubclass(member, BaseOptionsContract)
         assert dataclasses.is_dataclass(member)
-    assert issubclass(BaseOptionsContract, BaseValueObject)
     assert getattr(BaseOptionsContract.from_options, "__isabstractmethod__", False) is True
+
+
+@pytest.mark.kiwi_id(2216)
+def test_role_chain_members_inherit_their_layer() -> None:
+    """角色链台账：层内成员全部继承本层，且层均在值对象体系根之下。"""
+    offenders: list[str] = []
+    for layer, members in ROLE_CHAINS:
+        assert issubclass(layer, BaseValueObject)
+        for member in members:
+            if not issubclass(member, layer):
+                offenders.append(f"{member.__name__} 未挂 {layer.__name__}")
+    assert not offenders, "角色链成员与层不一致：\n" + "\n".join(offenders)
+
+
+@pytest.mark.kiwi_id(2216)
+def test_role_chain_common_fields_hold_on_all_members() -> None:
+    """公共段完整性：每层声明的公共段（沿 MRO 累加）都是**全部**成员的 dataclass 字段。"""
+    offenders: list[str] = []
+    for layer, members in ROLE_CHAINS:
+        common: set[str] = set()
+        for ancestor in layer.__mro__:
+            declared: tuple[str, ...] = getattr(ancestor, "COMMON_FIELDS", ())
+            common.update(declared)
+        for member in members:
+            missing = common - {field.name for field in dataclasses.fields(member)}
+            if missing:
+                offenders.append(f"{member.__name__} 缺 {layer.__name__} 公共段：{sorted(missing)}")
+    assert not offenders, "层公共段在成员上不成立：\n" + "\n".join(offenders)
+
+
+@pytest.mark.kiwi_id(2216)
+def test_secret_material_repr_masks_declared_fields() -> None:
+    """敏感材料层：`SECRET_FIELDS` 声明的字段在 `repr` 中一律遮蔽（密钥 / 口令不入日志）。"""
+    credentials = ClientCredentials(client_id="c1", client_secret="s3cr3t")
+    assert "'s3cr3t'" not in repr(credentials)
+    assert "client_secret='***'" in repr(credentials)
+    assert ClientCredentials.SECRET_FIELDS == ("client_secret",)
+    assert TokenKey.SECRET_FIELDS == ("private_key",)
 
 
 @pytest.mark.kiwi_id(2216)

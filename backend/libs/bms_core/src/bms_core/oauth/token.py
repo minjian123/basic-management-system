@@ -21,7 +21,7 @@ from typing import cast
 from fastapi import Request
 
 from bms_core.core.config import Settings
-from bms_core.core.objects import BaseValueObject
+from bms_core.core.objects import BaseTokenSpecContract
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 from bms_core.idp.base import IdentityClaims
 from bms_core.oauth.base import OAuthToken
@@ -54,7 +54,7 @@ DEFAULT_SERVICE_TOKEN_TTL = 300
 
 
 @dataclass(frozen=True)
-class ServiceTokenSpec(BaseValueObject):
+class ServiceTokenSpec(BaseTokenSpecContract):
     """服务 JWT 签发请求。"""
 
     service: str
