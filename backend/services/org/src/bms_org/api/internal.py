@@ -17,6 +17,7 @@ from bms_core.db.unit_of_work import UnitOfWork
 from bms_core.password.base import BasePasswordPolicy
 from bms_core.schemas.common import ApiResponse
 from bms_core.security.base import BasePasswordHasher
+from bms_org.repositories.account_lock import AccountLockRepository
 from bms_org.repositories.user import UserRepository
 from bms_org.schemas.credentials import (
     CredentialVerifyRequest,
@@ -51,7 +52,8 @@ def _service(uow: UowDep, hasher: HasherDep, policy: PolicyDep) -> CredentialSer
     Returns:
         CredentialService: 凭据服务实例。
     """
-    return CredentialService(UserRepository(cast("DbSession", uow.session)), hasher, uow, policy)
+    session = cast("DbSession", uow.session)
+    return CredentialService(UserRepository(session), hasher, uow, policy, AccountLockRepository(session))
 
 
 @router.post("/verify")

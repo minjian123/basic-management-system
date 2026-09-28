@@ -2,13 +2,16 @@
   "components": {
     "schemas": {
       "ApiResponse": {},
+      "ApiResponse_BasePageResponse_LockItem__": {},
       "ApiResponse_CredentialVerifyResult_": {},
       "ApiResponse_InactiveScanResult_": {},
+      "ApiResponse_LockItem_": {},
       "ApiResponse_LoginStateResult_": {},
       "ApiResponse_UpdatePasswordResult_": {},
       "ApiResponse_UserCreateResult_": {},
       "ApiResponse_UserProfileResult_": {},
       "ApiResponse_UserResetTargetResult_": {},
+      "BasePageResponse_LockItem_": {},
       "CredentialUserSummary": {},
       "CredentialVerifyRequest": {
         "description": "凭据校验请求（账号 + 密码明文；租户经服务 JWT `tenant` claim 解析）。",
@@ -56,6 +59,7 @@
         "type": "object"
       },
       "InactiveScanResult": {},
+      "LockItem": {},
       "LoginStateRequest": {
         "description": "登录态写回请求（成功清零 / 失败计数与锁定）。",
         "properties": {
@@ -106,6 +110,28 @@
         "type": "object"
       },
       "LoginStateResult": {},
+      "ManualLockRequest": {
+        "description": "手动锁定请求（写 `manual` 型；租户经登录态解析）。",
+        "properties": {
+          "reason": {
+            "default": "",
+            "description": "锁定原因",
+            "maxLength": 255,
+            "title": "Reason",
+            "type": "string"
+          },
+          "user_id": {
+            "description": "用户主键",
+            "title": "User Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "user_id"
+        ],
+        "title": "ManualLockRequest",
+        "type": "object"
+      },
       "UpdatePasswordRequest": {
         "description": "密码更新请求（改密 / 找回密码 / 重哈希回写）。",
         "properties": {
@@ -1169,6 +1195,524 @@
         "summary": "Reset Target",
         "tags": [
           "org-internal"
+        ]
+      }
+    },
+    "/api/v1/org/locks": {
+      "get": {
+        "description": "锁定记录列表（筛选 + 分页）。\n\nArgs:\n    query: 分页与排序参数。\n    uow: 请求级工作单元。\n    config: 系统参数取数。\n    user_id: 用户主键（精确）。\n    lock_type: 锁定类型（精确）。\n    active: 是否生效中。\n    locked_from: 锁定时间下界（UTC）。\n    locked_to: 锁定时间上界（UTC）。\n\nReturns:\n    ApiResponse: 统一响应，data 为分页锁定记录列表。",
+        "operationId": "list_locks_api_v1_org_locks_get",
+        "parameters": [
+          {
+            "description": "用户主键（精确）",
+            "in": "query",
+            "name": "user_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "用户主键（精确）",
+              "title": "User Id"
+            }
+          },
+          {
+            "description": "锁定类型（fail_limit/inactive/manual）",
+            "in": "query",
+            "name": "lock_type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "锁定类型（fail_limit/inactive/manual）",
+              "title": "Lock Type"
+            }
+          },
+          {
+            "description": "是否生效中（未解锁且未到期；缺省=全部）",
+            "in": "query",
+            "name": "active",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "是否生效中（未解锁且未到期；缺省=全部）",
+              "title": "Active"
+            }
+          },
+          {
+            "description": "锁定时间下界（UTC，闭区间）",
+            "in": "query",
+            "name": "locked_from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "锁定时间下界（UTC，闭区间）",
+              "title": "Locked From"
+            }
+          },
+          {
+            "description": "锁定时间上界（UTC，闭区间）",
+            "in": "query",
+            "name": "locked_to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "锁定时间上界（UTC，闭区间）",
+              "title": "Locked To"
+            }
+          },
+          {
+            "description": "页码（从 1 起）",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "页码（从 1 起）",
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "每页条数（默认 20，上限 200）",
+            "in": "query",
+            "name": "size",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "description": "每页条数（默认 20，上限 200）",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Size",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "排序字段，逗号分隔多值（如 status,created_at）",
+            "in": "query",
+            "name": "order_by",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序字段，逗号分隔多值（如 status,created_at）",
+              "title": "Order By"
+            }
+          },
+          {
+            "description": "排序方向数组，与 order_by 位置一一对应",
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序方向数组，与 order_by 位置一一对应",
+              "title": "Order"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_BasePageResponse_LockItem__"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "List Locks",
+        "tags": [
+          "org-locks"
+        ]
+      },
+      "post": {
+        "description": "手动锁定账号（`manual` 型；已生效锁幂等返回既有）。\n\nArgs:\n    req: 手动锁定请求（用户主键 + 原因）。\n    uow: 请求级工作单元。\n    config: 系统参数取数。\n    audit: 审计捕获（占位）。\n\nReturns:\n    ApiResponse: 统一响应，data 为锁定记录行。",
+        "operationId": "lock_account_api_v1_org_locks_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ManualLockRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_LockItem_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Lock Account",
+        "tags": [
+          "org-locks"
+        ]
+      }
+    },
+    "/api/v1/org/locks/{lock_id}": {
+      "get": {
+        "description": "锁定记录详情（含已解锁）。\n\nArgs:\n    lock_id: 锁定记录主键。\n    uow: 请求级工作单元。\n    config: 系统参数取数。\n\nReturns:\n    ApiResponse: 统一响应，data 为锁定记录行。",
+        "operationId": "get_lock_api_v1_org_locks__lock_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "lock_id",
+            "required": true,
+            "schema": {
+              "title": "Lock Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_LockItem_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Get Lock",
+        "tags": [
+          "org-locks"
+        ]
+      }
+    },
+    "/api/v1/org/locks/{lock_id}/unlock": {
+      "put": {
+        "description": "手动解锁（清账号锁定状态 + 回填解锁信息 + 留痕）。\n\nArgs:\n    lock_id: 锁定记录主键。\n    uow: 请求级工作单元。\n    config: 系统参数取数。\n    audit: 审计捕获（占位）。\n\nReturns:\n    ApiResponse: 统一响应，data 为解锁后的锁定记录行。",
+        "operationId": "unlock_account_api_v1_org_locks__lock_id__unlock_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "lock_id",
+            "required": true,
+            "schema": {
+              "title": "Lock Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_LockItem_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Unlock Account",
+        "tags": [
+          "org-locks"
         ]
       }
     },

@@ -252,6 +252,109 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/org/locks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Locks
+         * @description 锁定记录列表（筛选 + 分页）。
+         *
+         *     Args:
+         *         query: 分页与排序参数。
+         *         uow: 请求级工作单元。
+         *         config: 系统参数取数。
+         *         user_id: 用户主键（精确）。
+         *         lock_type: 锁定类型（精确）。
+         *         active: 是否生效中。
+         *         locked_from: 锁定时间下界（UTC）。
+         *         locked_to: 锁定时间上界（UTC）。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为分页锁定记录列表。
+         */
+        get: operations["list_locks_api_v1_org_locks_get"];
+        put?: never;
+        /**
+         * Lock Account
+         * @description 手动锁定账号（`manual` 型；已生效锁幂等返回既有）。
+         *
+         *     Args:
+         *         req: 手动锁定请求（用户主键 + 原因）。
+         *         uow: 请求级工作单元。
+         *         config: 系统参数取数。
+         *         audit: 审计捕获（占位）。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为锁定记录行。
+         */
+        post: operations["lock_account_api_v1_org_locks_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/org/locks/{lock_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Lock
+         * @description 锁定记录详情（含已解锁）。
+         *
+         *     Args:
+         *         lock_id: 锁定记录主键。
+         *         uow: 请求级工作单元。
+         *         config: 系统参数取数。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为锁定记录行。
+         */
+        get: operations["get_lock_api_v1_org_locks__lock_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/org/locks/{lock_id}/unlock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Unlock Account
+         * @description 手动解锁（清账号锁定状态 + 回填解锁信息 + 留痕）。
+         *
+         *     Args:
+         *         lock_id: 锁定记录主键。
+         *         uow: 请求级工作单元。
+         *         config: 系统参数取数。
+         *         audit: 审计捕获（占位）。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为解锁后的锁定记录行。
+         */
+        put: operations["unlock_account_api_v1_org_locks__lock_id__unlock_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/org/posts": {
         parameters: {
             query?: never;
@@ -402,13 +505,16 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         ApiResponse: unknown;
+        ApiResponse_BasePageResponse_LockItem__: unknown;
         ApiResponse_CredentialVerifyResult_: unknown;
         ApiResponse_InactiveScanResult_: unknown;
+        ApiResponse_LockItem_: unknown;
         ApiResponse_LoginStateResult_: unknown;
         ApiResponse_UpdatePasswordResult_: unknown;
         ApiResponse_UserCreateResult_: unknown;
         ApiResponse_UserProfileResult_: unknown;
         ApiResponse_UserResetTargetResult_: unknown;
+        BasePageResponse_LockItem_: unknown;
         CredentialUserSummary: unknown;
         /**
          * CredentialVerifyRequest
@@ -438,6 +544,7 @@ export interface components {
          */
         InactiveScanRequest: Record<string, never>;
         InactiveScanResult: unknown;
+        LockItem: unknown;
         /**
          * LoginStateRequest
          * @description 登录态写回请求（成功清零 / 失败计数与锁定）。
@@ -465,6 +572,23 @@ export interface components {
             success: boolean;
         };
         LoginStateResult: unknown;
+        /**
+         * ManualLockRequest
+         * @description 手动锁定请求（写 `manual` 型；租户经登录态解析）。
+         */
+        ManualLockRequest: {
+            /**
+             * Reason
+             * @description 锁定原因
+             * @default
+             */
+            reason: string;
+            /**
+             * User Id
+             * @description 用户主键
+             */
+            user_id: number;
+        };
         /**
          * UpdatePasswordRequest
          * @description 密码更新请求（改密 / 找回密码 / 重哈希回写）。
@@ -1160,6 +1284,329 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponse_UserResetTargetResult_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    list_locks_api_v1_org_locks_get: {
+        parameters: {
+            query?: {
+                /** @description 用户主键（精确） */
+                user_id?: number | null;
+                /** @description 锁定类型（fail_limit/inactive/manual） */
+                lock_type?: string | null;
+                /** @description 是否生效中（未解锁且未到期；缺省=全部） */
+                active?: boolean | null;
+                /** @description 锁定时间下界（UTC，闭区间） */
+                locked_from?: string | null;
+                /** @description 锁定时间上界（UTC，闭区间） */
+                locked_to?: string | null;
+                /** @description 页码（从 1 起） */
+                page?: number;
+                /** @description 每页条数（默认 20，上限 200） */
+                size?: number;
+                /** @description 排序字段，逗号分隔多值（如 status,created_at） */
+                order_by?: string | null;
+                /** @description 排序方向数组，与 order_by 位置一一对应 */
+                order?: string[] | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_BasePageResponse_LockItem__"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    lock_account_api_v1_org_locks_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ManualLockRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_LockItem_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    get_lock_api_v1_org_locks__lock_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lock_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_LockItem_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    unlock_account_api_v1_org_locks__lock_id__unlock_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lock_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_LockItem_"];
                 };
             };
             /** @description 未认证 */

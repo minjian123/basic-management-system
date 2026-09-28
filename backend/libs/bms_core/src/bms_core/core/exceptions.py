@@ -600,6 +600,23 @@ class PasswordReusedError(UserOrgError):
         super().__init__(ErrorCode.PASSWORD_REUSED, message, http_status=400, data=data)
 
 
+class AccountLockError(UserOrgError):
+    """账号锁定记录段（用户与组织段内子段）异常基类；子类在构造时预置码位与 HTTP 状态。"""
+
+
+class AccountLockNotFoundError(AccountLockError):
+    """锁定记录不存在或已解锁（`30007`；业务失败 HTTP 200，解锁 / 详情幂等语义）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化锁定记录不存在异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        super().__init__(ErrorCode.ACCOUNT_LOCK_NOT_FOUND, message, data=data)
+
+
 class ConfigError(BizError):
     """系统配置段（`4xxxx`）异常基类：配置加载 / 校验失败（启动期致命，走启动失败路径）。"""
 
