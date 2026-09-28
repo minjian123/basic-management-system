@@ -4,7 +4,7 @@
  * 语义：资源登记后由 `dispose` **逆序释放**、幂等、**释放后拒绝登记**、单个失败不阻断其余。
  */
 
-import { BaseObject } from '../base/BaseObject'
+import { BaseFrameworkObject } from '../base/framework-object'
 import { BaseError } from './error'
 import { ErrorCodes } from './error-codes'
 
@@ -15,7 +15,7 @@ export interface Disposable {
 }
 
 /** 异步资源基类（抽象）。 */
-export abstract class BaseAsyncResource extends BaseObject {
+export abstract class BaseAsyncResource extends BaseFrameworkObject {
   /** 已登记资源（释放时逆序）。 */
   private readonly disposables: Disposable[] = []
 

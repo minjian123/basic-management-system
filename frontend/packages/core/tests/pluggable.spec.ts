@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from 'vitest'
 
-import { BaseCapability, BaseObject, BasePluggable, DEFAULT_CONTRACT_VERSION } from '../src'
+import { BaseCapability, BaseFrameworkObject, BaseObject, BasePluggable, DEFAULT_CONTRACT_VERSION } from '../src'
 
 class DemoPlugin extends BasePluggable {
   readonly pluginKey = 'demo'
@@ -10,9 +10,10 @@ class DemoPlugin extends BasePluggable {
 }
 
 describe('BasePluggable 插件基类', () => {
-  it('继承链 BasePluggable → BaseCapability → BaseObject', () => {
+  it('继承链 BasePluggable → BaseCapability → BaseFrameworkObject → BaseObject', () => {
     const demo = new DemoPlugin()
     expect(demo).toBeInstanceOf(BaseCapability)
+    expect(demo).toBeInstanceOf(BaseFrameworkObject)
     expect(demo).toBeInstanceOf(BaseObject)
   })
 

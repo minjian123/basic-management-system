@@ -4,7 +4,7 @@
  * 占位不请求、不写缓存、无副作用；未实现调用统一抛 `BaseError(NOT_IMPLEMENTED)`。
  */
 
-import { BaseObject } from '../base/BaseObject'
+import { BaseFrameworkObject } from '../base/framework-object'
 import { BaseError } from './error'
 import { ErrorCodes } from './error-codes'
 
@@ -12,7 +12,7 @@ import { ErrorCodes } from './error-codes'
 export type PlaceholderReason = 'pending' | 'null' | 'stub'
 
 /** 占位基类（抽象）。 */
-export abstract class BasePlaceholder extends BaseObject {
+export abstract class BasePlaceholder extends BaseFrameworkObject {
   /** 占位标记（便于启动校验与测试断言）。 */
   readonly placeholder = true
   /** 占位原因。 */

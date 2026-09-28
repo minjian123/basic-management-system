@@ -16,6 +16,7 @@ export {
   type BaseSinks,
   type LogLevel,
 } from './base/BaseObject'
+export { BaseFrameworkObject } from './base/framework-object'
 export { withBaseObject, type BaseObjectSurface } from './base/mixin'
 export {
   BaseComponent,
