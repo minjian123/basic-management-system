@@ -56,6 +56,9 @@ class EdgeIdentity(BaseRequestIdentityContract):
     tenant_code: str | None = None
     """网关验证过的租户编码；无为空。"""
 
+    tenant_id: str | None = None
+    """租户主键（雪花 id 十进制字符串）；服务 JWT `tenant_id` claim 承载，无为空。"""
+
     scopes: tuple[str, ...] = ()
     """网关验证过的 scope 集合（逗号分隔头解析）。"""
 

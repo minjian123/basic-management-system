@@ -46,6 +46,16 @@ class _Source:
                 return tenant
         raise TenantNotFoundError(f"未知租户域名：{domain}")
 
+    async def by_id(self, tenant_id: str) -> TenantContext:
+        """按租户主键（雪花 id 字符串）取租户（记账）。"""
+        self.calls.append(("id", tenant_id))
+        for tenant in self.tenants.values():
+            if tenant.tenant_id is not None and str(tenant.tenant_id) == tenant_id:
+                if tenant.code in self.suspended:
+                    raise TenantSuspendedError(f"租户已停用：{tenant.code}")
+                return tenant
+        raise TenantNotFoundError(f"未知租户主键：{tenant_id}")
+
 
 def _app(source: _Source | None, *, allow_demo_fallback: bool = True) -> FastAPI:
     """构造带租户中间件的最小应用（含请求态 / 上下文 / 依赖三视图接口）。"""
@@ -104,26 +114,26 @@ async def test_chain_priority_and_context() -> None:
 
 @pytest.mark.kiwi_id(1019)
 async def test_token_tenant_scope_state() -> None:
-    """token 租户位读请求态（认证阶段写入即生效；配合外层中间件预置）。"""
-    acme = TenantContext(code="acme", db_key="tenant_acme", name="示例租户")
+    """token 租户位读请求态（认证阶段写入雪花 id 即生效；配合外层中间件预置）。"""
+    acme = TenantContext(code="acme", db_key="tenant_acme", name="示例租户", tenant_id=2002)
     source = _Source([acme])
 
     class _AuthStub:
-        """外层认证替身：写入请求态 token 租户位。"""
+        """外层认证替身：写入请求态 token 租户位（雪花 id 字符串）。"""
 
         def __init__(self, app: ASGIApp) -> None:
             self.app = app
 
         async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
             if scope["type"] == "http":
-                scope.setdefault("state", {})["tenant_id"] = "acme"
+                scope.setdefault("state", {})["tenant_id"] = "2002"
             await self.app(scope, receive, send)
 
     app = _app(source)
     app.add_middleware(_AuthStub)
     status, body = await _get(app, API_PATH)
     assert (status, body) == (200, {"state": "acme", "context": "acme"})
-    assert source.calls == [("code", "acme")]
+    assert source.calls == [("id", "2002")]
 
 
 @pytest.mark.kiwi_id(1019)

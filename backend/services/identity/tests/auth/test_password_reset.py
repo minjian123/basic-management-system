@@ -14,6 +14,7 @@ from bms_identity.models.session import SysSession
 from tests_support.auth import issue_access_token
 
 from .helpers import (
+    TENANT_ID,
     FakeCaptcha,
     FakeOrgClient,
     FakeUserTokenIssuer,
@@ -101,7 +102,7 @@ async def test_forgot_success_sends_link(client: AsyncClient, service_app: FastA
 
     token = _token(notifier)
     assert token in message.content
-    payload = await states.consume(token, tenant="demo", namespace="pwdreset")
+    payload = await states.consume(token, tenant=TENANT_ID, namespace="pwdreset")
     assert payload is not None and payload.get("user_id") == 1001 and payload.get("account") == "admin"
 
 
@@ -180,7 +181,7 @@ async def test_reset_revokes_all_sessions_and_next_request_401(client: AsyncClie
     forgot = await client.post(API_FORGOT, json={"identifier": "admin", "captcha": CAPTCHA}, headers=TENANT_HEADERS)
     assert forgot.status_code == 200
     token = _token(notifier)
-    access = issue_access_token(session_id=session_id, tenant="demo")
+    access = issue_access_token(session_id=session_id, tenant=TENANT_ID)
 
     reset = await client.post(API_RESET, json={"token": token, "new_password": "NewSecret1!"}, headers=TENANT_HEADERS)
     assert reset.status_code == 200 and reset.json()["data"] == {"reset": True}
@@ -193,7 +194,7 @@ async def test_reset_revokes_all_sessions_and_next_request_401(client: AsyncClie
             .all()
         )
     assert len(rows) == 2 and all(row.revoked_at is not None for row in rows)
-    assert await store.load(session_id, tenant="demo") is None
+    assert await store.load(session_id, tenant=TENANT_ID) is None
     revoked_ids = {event.data.get("session_id") for event in publisher.events}
     assert {session_id, "2002"} <= revoked_ids
     assert all(event.event == "session.revoked" for event in publisher.events)

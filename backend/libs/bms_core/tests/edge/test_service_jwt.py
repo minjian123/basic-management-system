@@ -44,17 +44,17 @@ def _issuer() -> tuple[JwtServiceTokenIssuer, RSAKey]:
     return JwtServiceTokenIssuer(keys=[token_key], active_kid="k1"), key
 
 
-def _issue(issuer: JwtServiceTokenIssuer, *, tenant: str | None = "acme") -> str:
+def _issue(issuer: JwtServiceTokenIssuer, *, tenant_id: str | None = "1001") -> str:
     """签发一枚服务 JWT（网关服务身份）。
 
     Args:
         issuer: 服务 JWT 签发者。
-        tenant: 租户编码。
+        tenant_id: 租户主键（雪花 id 字符串）。
 
     Returns:
         str: 紧凑 JWT。
     """
-    spec = ServiceTokenSpec(service="gateway", scopes=("gateway",), tenant=tenant)
+    spec = ServiceTokenSpec(service="gateway", scopes=("gateway",), tenant_id=tenant_id)
     return asyncio.run(issuer.issue(spec)).access_token
 
 
@@ -78,17 +78,19 @@ def test_service_jwt_trusts_valid_token_and_parses_identity() -> None:
     assert identity.subject == "u-1"
     assert identity.service_identity == "gateway"
     assert identity.tenant_code == "acme"
+    assert identity.tenant_id == "1001"
     assert identity.scopes == ("user:read", "user:write")
 
 
+@pytest.mark.kiwi_id(2217)
 def test_service_jwt_falls_back_to_token_tenant_claim() -> None:
-    """身份头无租户时回落服务 JWT 的 `tenant` claim。"""
+    """身份头无租户时回落服务 JWT 的 `tenant_id` claim（雪花 id 字符串）。"""
     issuer, _ = _issuer()
     guard = ServiceJwtEdgeTrust(issuer=issuer)
-    decision = guard.evaluate({"Authorization": f"Bearer {_issue(issuer, tenant='beta')}"})
+    decision = guard.evaluate({"Authorization": f"Bearer {_issue(issuer, tenant_id='2002')}"})
     assert decision.allowed is True
     assert decision.identity is not None
-    assert decision.identity.tenant_code == "beta"
+    assert decision.identity.tenant_id == "2002"
     assert decision.identity.service_identity == "gateway"
 
 

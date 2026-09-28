@@ -151,8 +151,8 @@ class JwtOidcProvider(BaseOidcProvider):
             "iat": now,
             "exp": now + (spec.ttl or self._access_ttl),
         }
-        if spec.tenant:
-            claims["tenant_id"] = spec.tenant
+        if spec.tenant_id:
+            claims["tenant_id"] = spec.tenant_id
         if spec.client_id:
             claims["client_id"] = spec.client_id
         if spec.scopes:
@@ -185,13 +185,13 @@ class JwtOidcProvider(BaseOidcProvider):
             raise AuthError("令牌类型不符")
         if not claims.subject:
             raise AuthError("令牌声明缺失")
-        tenant = payload.get("tenant_id")
+        tenant_id = payload.get("tenant_id")
         client_id = payload.get("client_id")
         raw_scope = payload.get("scope")
         scopes = tuple(item for item in str(raw_scope).split() if item) if isinstance(raw_scope, str) else ()
         return OidcAccessClaims(
             subject=claims.subject,
-            tenant=tenant if isinstance(tenant, str) else "",
+            tenant_id=tenant_id if isinstance(tenant_id, str) else "",
             client_id=client_id if isinstance(client_id, str) else "",
             scopes=scopes,
             expires_at=claims.expires_at,

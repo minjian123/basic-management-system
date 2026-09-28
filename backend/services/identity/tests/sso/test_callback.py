@@ -14,7 +14,7 @@ from bms_identity.models.session import SysSession
 from bms_identity.models.user_identity import SysUserIdentity
 
 from .conftest import SsoHarness
-from .helpers import IDP_KEY, TENANT, TENANT_HEADERS
+from .helpers import IDP_KEY, TENANT, TENANT_HEADERS, TENANT_ID
 
 CALLBACK = f"/api/v1/auth/sso/{IDP_KEY}/callback"
 OTHER_CALLBACK = "/api/v1/auth/sso/azure/callback"
@@ -74,7 +74,7 @@ async def test_callback_success_issues_session_and_cookie(client: AsyncClient, s
     row = rows[0]
     assert row.user_id == 1001
     assert row.refresh_token_hash == hashlib.sha256(cookie.encode()).hexdigest()
-    assert sso.issuer.specs[-1].tenant_id == TENANT
+    assert sso.issuer.specs[-1].tenant_id == TENANT_ID
     assert sso.org.login_states[-1]["success"] is True
     assert "profile" in sso.org.calls and "login-state" in sso.org.calls
 
@@ -201,7 +201,7 @@ async def test_callback_identity_mapping_and_org_failures(client: AsyncClient, s
 
     async with sso.platform_scope() as session:
         session.add(
-            SysUserIdentity(idp_key=f"{TENANT}:{IDP_KEY}", external_id="sub-1", tenant_id="other", user_id=1001)
+            SysUserIdentity(idp_key=f"{TENANT_ID}:{IDP_KEY}", external_id="sub-1", tenant_id="other", user_id=1001)
         )
         await session.commit()
     wrong_tenant = await _flow_callback(client, sso)

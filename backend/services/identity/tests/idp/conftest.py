@@ -23,6 +23,7 @@ from bms_identity.models.identity_provider import SysIdentityProvider
 from bms_identity.services.provider_registry import ProviderRegistry
 
 TENANT_HEADERS = {"X-Tenant-ID": "demo"}
+TENANT_ID = "1001"
 ISSUER = "https://idp.example.com/realms/bms"
 CAS_SERVER = "https://cas.example.com/cas"
 

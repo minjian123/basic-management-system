@@ -24,6 +24,7 @@ from bms_core.api.deps import (
 )
 from bms_core.captcha.base import BaseCaptcha
 from bms_core.core.context import current_client_ip
+from bms_core.core.exceptions import AuthError
 from bms_core.db.registry import EngineRegistry
 from bms_core.db.session import DbSession, session_scope
 from bms_core.db.tenant import TenantContext, TenantLookup
@@ -59,6 +60,23 @@ StoreDep = Annotated[BaseSessionStore, Depends(get_session_store)]
 PublisherDep = Annotated[BaseRealtimePublisher, Depends(get_realtime_publisher)]
 TenantDep = Annotated[TenantContext | None, Depends(get_tenant)]
 TenantSourceDep = Annotated[TenantLookup, Depends(get_tenant_source)]
+
+
+def _require_tenant_id(tenant: TenantContext) -> str:
+    """取租户主键字符串（缺失抛认证错误；内部键 / org 调用依据）。
+
+    Args:
+        tenant: 生效租户上下文。
+
+    Returns:
+        str: 租户主键（雪花 id 十进制字符串）。
+
+    Raises:
+        AuthError: 租户缺少主键标识（20001 / 401）。
+    """
+    if tenant.tenant_id is None:
+        raise AuthError("租户缺少主键标识")
+    return str(tenant.tenant_id)
 
 
 def _build_service(
@@ -162,7 +180,8 @@ async def forgot_password(
         result = await service.request_reset(
             req.identifier,
             req.captcha,
-            tenant=tenant.code,
+            tenant_id=_require_tenant_id(tenant),
+            tenant_code=tenant.code,
             ip=current_client_ip.get(),
         )
     return ApiResponse.ok(result)
@@ -218,5 +237,10 @@ async def reset_password(
             store=store,
             publisher=publisher,
         )
-        result = await service.reset_password(req.token, req.new_password, tenant=tenant.code)
+        result = await service.reset_password(
+            req.token,
+            req.new_password,
+            tenant_id=_require_tenant_id(tenant),
+            tenant_code=tenant.code,
+        )
     return ApiResponse.ok(result)

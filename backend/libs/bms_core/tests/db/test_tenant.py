@@ -18,6 +18,7 @@ from bms_core.db.tenant import (
     is_local_hostname,
     is_tenant_code,
     is_tenant_domain,
+    is_tenant_id,
     parse_tenant_db_key,
     resolve_request_tenant,
     tenant_hostname,
@@ -46,6 +47,14 @@ class _RecordingSource:
             if tenant.domain == domain:
                 return tenant
         raise TenantNotFoundError(f"未知租户域名：{domain}")
+
+    async def by_id(self, tenant_id: str) -> TenantContext:
+        """按租户主键（雪花 id 字符串）取租户（记账）。"""
+        self.calls.append(("id", tenant_id))
+        for tenant in self.tenants.values():
+            if tenant.tenant_id is not None and str(tenant.tenant_id) == tenant_id:
+                return tenant
+        raise TenantNotFoundError(f"未知租户主键：{tenant_id}")
 
 
 @pytest.mark.kiwi_id(1019)
@@ -85,6 +94,7 @@ def test_tenant_hostname_and_exempt() -> None:
 
 
 @pytest.mark.kiwi_id(1019)
+@pytest.mark.kiwi_id(2217)
 def test_source_value_shape_validation() -> None:
     """来源值形态校验：编码 / 域名 / 本机名判定（形态非法一律视为未命中）。"""
     assert is_tenant_code("demo") is True
@@ -95,6 +105,13 @@ def test_source_value_shape_validation() -> None:
     assert is_tenant_code("-demo") is False
     assert is_tenant_code("") is False
     assert is_tenant_code("x" * 65) is False
+
+    assert is_tenant_id("1001") is True
+    assert is_tenant_id("730000000000000001") is True
+    assert is_tenant_id("demo") is False
+    assert is_tenant_id("12a3") is False
+    assert is_tenant_id("") is False
+    assert is_tenant_id("1" * 21) is False
 
     assert is_tenant_domain("demo.bms.example.com") is True
     assert is_tenant_domain("example.com") is True
@@ -114,25 +131,30 @@ def test_source_value_shape_validation() -> None:
 
 
 @pytest.mark.kiwi_id(1019)
+@pytest.mark.kiwi_id(2217)
 async def test_resolve_chain_priority_and_kinds() -> None:
-    """解析链次序：子域名（按 domain）→ 请求头（按 code）→ token 位（按 code）。"""
-    demo = TenantContext(code="demo", db_key="tenant_demo", name="演示租户", domain="demo.bms.example.com")
-    acme = TenantContext(code="acme", db_key="tenant_acme", name="示例租户", domain="acme.bms.example.com")
+    """解析链次序：子域名（按 domain）→ 请求头（按 code）→ 令牌租户位（按 id）。"""
+    demo = TenantContext(
+        code="demo", db_key="tenant_demo", name="演示租户", domain="demo.bms.example.com", tenant_id=1001
+    )
+    acme = TenantContext(
+        code="acme", db_key="tenant_acme", name="示例租户", domain="acme.bms.example.com", tenant_id=1002
+    )
     source = _RecordingSource({"demo": demo, "acme": acme})
 
     hit = await resolve_request_tenant(
-        path="/api/v1/x", host="demo.bms.example.com", header="acme", token_tenant="acme", source=source
+        path="/api/v1/x", host="demo.bms.example.com", header="acme", token_tenant_id="1002", source=source
     )
     assert hit == demo
     assert source.calls == [("domain", "demo.bms.example.com")]
 
-    hit = await resolve_request_tenant(path="/api/v1/x", header="acme", token_tenant="acme", source=source)
+    hit = await resolve_request_tenant(path="/api/v1/x", header="acme", token_tenant_id="1002", source=source)
     assert hit == acme
     assert source.calls[-1] == ("code", "acme")
 
-    hit = await resolve_request_tenant(path="/api/v1/x", token_tenant="acme", source=source)
+    hit = await resolve_request_tenant(path="/api/v1/x", token_tenant_id="1002", source=source)
     assert hit == acme
-    assert source.calls[-1] == ("code", "acme")
+    assert source.calls[-1] == ("id", "1002")
 
     assert await resolve_request_tenant(path="/healthz", host="demo.bms.example.com", source=source) is None
 
@@ -184,7 +206,7 @@ async def test_malformed_sources_treated_as_absent() -> None:
         await resolve_request_tenant(
             path="/api/v1/x",
             host="127.0.0.1:8000",
-            token_tenant="demo.example.com",
+            token_tenant_id="demo.example.com",
             source=source,
             allow_demo_fallback=False,
         )

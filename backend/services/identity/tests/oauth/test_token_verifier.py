@@ -102,12 +102,12 @@ async def test_verify_service_token_locally() -> None:
     issuer = _service_issuer()
     verifier = _verifier(service=issuer)
     token = (
-        await issuer.issue(ServiceTokenSpec(service="platform", scopes=("user:read",), tenant="acme"))
+        await issuer.issue(ServiceTokenSpec(service="platform", scopes=("user:read",), tenant_id="2002"))
     ).access_token
     verified = await verifier.verify(token, audience=TOKEN_AUDIENCE_SERVICE)
     assert verified.subject == "platform"
     assert verified.service == "platform"
-    assert verified.tenant == "acme"
+    assert verified.tenant_id == "2002"
     assert verified.scopes == ("user:read",)
     assert verified.token_type == "service"
     assert verified.issuer == "bms"
@@ -122,12 +122,12 @@ async def test_verify_user_token_locally() -> None:
     user = _user_issuer()
     verifier = _verifier(user=user)
     pair = await user.issue_pair(
-        UserTokenSpec(subject="1001", session_id="sess-1", tenant_id="acme", scopes=("profile",))
+        UserTokenSpec(subject="1001", session_id="sess-1", tenant_id="2002", scopes=("profile",))
     )
     verified = await verifier.verify(pair.access_token, audience=TOKEN_AUDIENCE_API)
     assert verified.subject == "1001"
     assert verified.token_type == USER_TOKEN_TYPE_ACCESS
-    assert verified.tenant == "acme"
+    assert verified.tenant_id == "2002"
     assert verified.scopes == ("profile",)
     assert verified.service == ""
     assert verified.issuer == "bms"

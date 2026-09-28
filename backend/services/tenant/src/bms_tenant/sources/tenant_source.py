@@ -87,6 +87,21 @@ class LocalTenantSource(BaseFrameworkObject):
         """
         return await self._resolve("domain", domain)
 
+    async def by_id(self, tenant_id: str) -> TenantContext:
+        """按租户主键（雪花 id 字符串）取上下文。
+
+        Args:
+            tenant_id: 租户主键十进制字符串。
+
+        Returns:
+            TenantContext: 租户上下文。
+
+        Raises:
+            TenantNotFoundError: 租户不存在（404 / 80001）。
+            TenantSuspendedError: 租户已停用（403 / 80002）。
+        """
+        return await self._resolve("id", tenant_id)
+
     async def invalidate(self, code: str | None = None, *, domain: str | None = None) -> None:
         """失效缓存（开通 / 停用 / 改名后调用）。
 
@@ -137,7 +152,7 @@ class LocalTenantSource(BaseFrameworkObject):
                 raise TenantNotFoundError(f"未知租户：{value}")
             self._cache_set(key, snapshot)
         if snapshot.status != ACTIVE_STATUS:
-            await self._registry.release(f"tenant_{snapshot.code}")
+            await self._registry.release(f"tenant_{snapshot.db_basis or snapshot.code}")
             raise TenantSuspendedError(f"租户已停用：{snapshot.code}")
         return to_tenant_context(snapshot)
 
@@ -146,8 +161,18 @@ class LocalTenantSource(BaseFrameworkObject):
 
         经统一会话入口取平台库会话：异步方言走异步会话，达梦等同步方言走同步门面。
         """
-        column = SysTenant.code if kind == "code" else SysTenant.domain
-        statement = select(SysTenant).where(column == value, SysTenant.deleted_at.is_(None)).limit(1)
+        if kind == "code":
+            column = SysTenant.code
+            bound: object = value
+        elif kind == "domain":
+            column = SysTenant.domain
+            bound = value
+        else:
+            if not value.isdigit():
+                return None
+            column = SysTenant.id
+            bound = int(value)
+        statement = select(SysTenant).where(column == bound, SysTenant.deleted_at.is_(None)).limit(1)
         async with session_scope(self._registry, db_key=PLATFORM_DB_KEY, factory=self._session_factory) as session:
             row = (await session.execute(statement)).scalar_one_or_none()
         return None if row is None else _snapshot(row)
@@ -229,4 +254,5 @@ def _snapshot(row: SysTenant) -> TenantSnapshot:
         status=row.status,
         expire_at=row.expire_at.isoformat() if row.expire_at else None,
         tenant_id=int(row.id),
+        db_basis=row.code,
     )

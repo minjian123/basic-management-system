@@ -19,7 +19,7 @@ from bms_core.api.deps import (
 )
 from bms_core.captcha.base import BaseCaptcha, CaptchaChallenge, CaptchaCredential, CaptchaKind, CaptchaScenePolicy
 from bms_core.core.exceptions import AuthError
-from bms_core.db.tenant import DEMO_TENANT, TenantContext, TenantNotFoundError
+from bms_core.db.tenant import TenantContext, TenantNotFoundError
 from bms_core.idp.base import IdentityClaims
 from bms_core.idp.state.base import BaseIdpStateStore
 from bms_core.notify.base import BaseNotifier, NotificationMessage, SendResult
@@ -31,6 +31,32 @@ from bms_core.ws.base import BaseRealtimePublisher, RealtimeEvent
 
 _ACCESS = "access"
 _REFRESH = "refresh"
+
+TENANT = "demo"
+"""演示租户编码（对外 / 请求头口径）。"""
+
+TENANT_ID = "1001"
+"""演示租户主键（雪花 id 字符串；内部键口径）。"""
+
+ACME = "acme"
+"""示例租户编码。"""
+
+ACME_ID = "2002"
+"""示例租户主键（雪花 id 字符串）。"""
+
+
+def demo_tenant() -> TenantContext:
+    """演示租户上下文（含雪花主键）。"""
+    return TenantContext(
+        code=TENANT, db_key="tenant_demo", name="演示租户", domain="demo.bms.example.com", tenant_id=int(TENANT_ID)
+    )
+
+
+def acme_tenant() -> TenantContext:
+    """示例租户上下文（含雪花主键）。"""
+    return TenantContext(
+        code=ACME, db_key="tenant_acme", name="示例租户", domain="acme.bms.example.com", tenant_id=int(ACME_ID)
+    )
 
 
 class FakeUserTokenIssuer(BaseUserTokenIssuer):
@@ -420,10 +446,10 @@ class RecordingRealtimePublisher(BaseRealtimePublisher):
 
 
 class FakeTenantSource:
-    """测试替身：固定演示租户的租户源（仅演示租户可用）。"""
+    """测试替身：固定演示 / 示例租户的租户源（带雪花主键）。"""
 
     async def by_code(self, code: str) -> TenantContext:
-        """按编码取租户（仅 demo）。
+        """按编码取租户（demo / acme）。
 
         Args:
             code: 租户编码。
@@ -432,14 +458,16 @@ class FakeTenantSource:
             TenantContext: 租户上下文。
 
         Raises:
-            TenantNotFoundError: 非演示租户（404）。
+            TenantNotFoundError: 未知租户（404）。
         """
-        if code == DEMO_TENANT.code:
-            return DEMO_TENANT
+        if code == TENANT:
+            return demo_tenant()
+        if code == ACME:
+            return acme_tenant()
         raise TenantNotFoundError(f"未知租户：{code}")
 
     async def by_domain(self, domain: str) -> TenantContext:
-        """按子域名取租户（仅回退演示租户）。
+        """按子域名取租户（demo / acme）。
 
         Args:
             domain: 子域名。
@@ -448,11 +476,31 @@ class FakeTenantSource:
             TenantContext: 租户上下文。
 
         Raises:
-            TenantNotFoundError: 非演示租户（404）。
+            TenantNotFoundError: 未知域名（404）。
         """
-        if domain == DEMO_TENANT.domain:
-            return DEMO_TENANT
+        if domain == "demo.bms.example.com":
+            return demo_tenant()
+        if domain == "acme.bms.example.com":
+            return acme_tenant()
         raise TenantNotFoundError(f"未知域名：{domain}")
+
+    async def by_id(self, tenant_id: str) -> TenantContext:
+        """按租户主键（雪花 id 字符串）取租户（1001 / 2002）。
+
+        Args:
+            tenant_id: 租户主键字符串。
+
+        Returns:
+            TenantContext: 租户上下文。
+
+        Raises:
+            TenantNotFoundError: 未知租户主键（404）。
+        """
+        if tenant_id == TENANT_ID:
+            return demo_tenant()
+        if tenant_id == ACME_ID:
+            return acme_tenant()
+        raise TenantNotFoundError(f"未知租户主键：{tenant_id}")
 
 
 def wire_auth(

@@ -112,10 +112,12 @@ def _require_tenant(tenant_ctx: TenantContext | None) -> TenantContext:
         TenantContext: 租户上下文。
 
     Raises:
-        AuthError: 缺少租户标识（20001 / 401）。
+        AuthError: 缺少租户标识 / 缺少租户主键（20001 / 401）。
     """
     if tenant_ctx is None:
         raise AuthError("缺少租户标识")
+    if tenant_ctx.tenant_id is None:
+        raise AuthError("租户缺少主键标识")
     return tenant_ctx
 
 
@@ -225,4 +227,4 @@ async def kick_session(
     factory = request.app.state.session_factory
     async with session_scope(registry, db_key=tenant.db_key, factory=factory) as session:
         service = _build_service(session=session, security=security, store=store, publisher=publisher)
-        return ApiResponse.ok(await service.kick(session_id, tenant=tenant.code, actor=current_user_id.get()))
+        return ApiResponse.ok(await service.kick(session_id, tenant=str(tenant.tenant_id), actor=current_user_id.get()))

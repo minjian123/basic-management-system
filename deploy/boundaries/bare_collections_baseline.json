@@ -2475,7 +2475,7 @@
     },
     {
       "file": "backend/services/identity/src/bms_identity/services/oidc_provider.py",
-      "line": "async def discovery(self, tenant: str) -> dict[str, object]:",
+      "line": "async def discovery(self, tenant_code: str) -> dict[str, object]:",
       "container": "dict",
       "position": "signature_return",
       "count": 1

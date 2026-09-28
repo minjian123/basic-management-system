@@ -249,7 +249,7 @@ class OrgCredentialClient(BaseFrameworkObject):
                 service=ORG_SERVICE,
                 method="POST",
                 path=path,
-                tenant=tenant,
+                tenant_id=tenant,
                 json_body=body,
                 policy=ServiceCallPolicy(scopes=scopes),
             )

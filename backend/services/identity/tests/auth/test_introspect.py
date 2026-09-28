@@ -6,13 +6,15 @@
 import asyncio
 from collections.abc import Mapping
 
+import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 from joserfc.jwk import RSAKey
 
-from bms_core.api.deps import get_service_token_issuer, get_token_verifier
+from bms_core.api.deps import get_service_token_issuer, get_tenant_source, get_token_verifier
 from bms_core.application import service_lifespan
-from bms_core.core.exceptions import AuthError, ConfigError, ServiceUnavailableError
+from bms_core.core.exceptions import AuthError, ConfigError, ServiceUnavailableError, TenantNotFoundError
+from bms_core.db.tenant import TenantContext
 from bms_core.idp.base import IdentityClaims
 from bms_core.oauth.base import OAuthToken
 from bms_core.oauth.jwt import JwtServiceTokenIssuer
@@ -83,6 +85,26 @@ class _FailingIssuer(BaseServiceTokenIssuer):
         raise ConfigError(token)
 
 
+class _TenantSource:
+    """占位租户源：按令牌主键反解租户编码（introspect 注入 `X-Tenant-Id` 依据）。"""
+
+    async def by_code(self, code: str) -> TenantContext:
+        """按编码取租户（仅 acme）。"""
+        if code == "acme":
+            return TenantContext(code="acme", db_key="tenant_acme", name="示例租户", tenant_id=2002)
+        raise TenantNotFoundError(f"未知租户：{code}")
+
+    async def by_domain(self, domain: str) -> TenantContext:
+        """按子域名取租户（本用例不使用）。"""
+        raise TenantNotFoundError(f"未知域名：{domain}")
+
+    async def by_id(self, tenant_id: str) -> TenantContext:
+        """按租户主键（雪花 id 字符串）取租户（仅 acme）。"""
+        if tenant_id == "2002":
+            return TenantContext(code="acme", db_key="tenant_acme", name="示例租户", tenant_id=2002)
+        raise TenantNotFoundError(f"未知租户主键：{tenant_id}")
+
+
 async def _request(
     *,
     verifier: BaseTokenVerifier,
@@ -103,6 +125,7 @@ async def _request(
     async with service_lifespan(app):
         app.dependency_overrides[get_token_verifier] = lambda: verifier
         app.dependency_overrides[get_service_token_issuer] = lambda: issuer
+        app.dependency_overrides[get_tenant_source] = lambda: _TenantSource()
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             response = await client.get(_INTROSPECT, headers=headers or {})
         return response.status_code, dict(response.headers)
@@ -161,11 +184,12 @@ def test_protected_path_with_minimal_claims_omits_optional_headers() -> None:
     assert "x-session-id" not in headers
 
 
+@pytest.mark.kiwi_id(2217)
 def test_protected_path_with_valid_token_issues_gateway_token() -> None:
     """受保护路径：校验通过后返回契约身份头（含会话 id）+ 网关服务 JWT（可验签）。"""
     issuer = _issuer()
     verifier = _StubVerifier(
-        result=VerifiedToken(subject="u-1", tenant="acme", scopes=("user:read", "user:write"), token_id="sess-1")
+        result=VerifiedToken(subject="u-1", tenant_id="2002", scopes=("user:read", "user:write"), token_id="sess-1")
     )
     status, headers = asyncio.run(
         _request(
@@ -182,7 +206,7 @@ def test_protected_path_with_valid_token_issues_gateway_token() -> None:
     assert headers["x-session-id"] == "sess-1"
     claims = issuer.verify(headers["authorization"].removeprefix("Bearer "))
     assert claims.subject == "gateway"
-    assert claims.payload["tenant"] == "acme"
+    assert claims.payload["tenant_id"] == "2002"
 
 
 def test_protected_path_without_token_is_unauthorized() -> None:

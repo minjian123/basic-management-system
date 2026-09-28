@@ -1,7 +1,9 @@
 """core 层请求上下文占位：跨切面的上下文变量。
 
 - `current_user_id`：供审计字段（created_by / updated_by）使用，占位默认 None。
-- `current_tenant`：当前租户编码（审计 / 日志 / 同库过滤统一来源），占位默认 None。
+- `current_tenant`：当前租户编码（展示 / 日志统一来源），占位默认 None。
+- `current_tenant_id`：当前租户主键（雪花 id 十进制字符串；内部键——缓存 / 限流 / 会话 / IdP state 等
+  租户作用域位的统一来源），占位默认 None。
 - `read_only`：只读上下文标记（读写分离路由依据），占位默认 False。
 - `current_masker`：当前请求的掩码器（`BaseSchema` 序列化期掩码依据），占位默认 None。
 - `current_trace_id` / `current_span_id`：链路追踪上下文（日志关联与链路贯穿依据），占位默认 None。
@@ -17,6 +19,8 @@ if TYPE_CHECKING:
 
 current_user_id: ContextVar[int | None] = ContextVar("current_user_id", default=None)
 current_tenant: ContextVar[str | None] = ContextVar("current_tenant", default=None)
+current_tenant_id: ContextVar[str | None] = ContextVar("current_tenant_id", default=None)
+"""当前租户主键（雪花 id 十进制字符串；内部键租户作用域位统一来源）。"""
 current_tenant_context_var: ContextVar[TenantContext | None] = ContextVar("current_tenant_context", default=None)
 """当前租户完整上下文（编码 / 库键 / 主键 / 状态；租户全局中间件设置）。"""
 read_only: ContextVar[bool] = ContextVar("read_only", default=False)
@@ -85,6 +89,36 @@ def get_current_tenant() -> str | None:
         str | None: 租户编码；无则 None。
     """
     return current_tenant.get()
+
+
+def set_current_tenant_id(tenant_id: str | None) -> Token[str | None]:
+    """设置当前租户主键上下文（雪花 id 十进制字符串）。
+
+    Args:
+        tenant_id: 租户主键字符串。
+
+    Returns:
+        Token[str | None]: 复位令牌。
+    """
+    return current_tenant_id.set(tenant_id)
+
+
+def reset_current_tenant_id(token: Token[str | None]) -> None:
+    """复位当前租户主键上下文。
+
+    Args:
+        token: `set_current_tenant_id` 返回的令牌。
+    """
+    current_tenant_id.reset(token)
+
+
+def get_current_tenant_id() -> str | None:
+    """当前租户主键（雪花 id 十进制字符串）。
+
+    Returns:
+        str | None: 租户主键字符串；无则 None。
+    """
+    return current_tenant_id.get()
 
 
 def set_tenant_context(context: TenantContext | None) -> Token[TenantContext | None]:

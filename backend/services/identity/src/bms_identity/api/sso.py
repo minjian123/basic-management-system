@@ -90,10 +90,14 @@ async def _resolve_sso_tenant(
     if tenant and context is not None and tenant != context.code:
         raise SsoProviderNotFoundError()
     if tenant:
-        return await source.by_code(tenant)
-    if context is not None:
-        return context
-    raise TenantNotFoundError("未提供租户标识")
+        resolved = await source.by_code(tenant)
+    elif context is not None:
+        resolved = context
+    else:
+        raise TenantNotFoundError("未提供租户标识")
+    if resolved.tenant_id is None:
+        raise TenantNotFoundError("租户缺少主键标识")
+    return resolved
 
 
 def _build_service(
@@ -223,7 +227,8 @@ async def authorize(
         )
         url = await service.authorize(
             idp_key,
-            tenant=context.code,
+            tenant_id=str(context.tenant_id),
+            tenant_code=context.code,
             ip=current_client_ip.get(),
             session=session,
         )
@@ -280,7 +285,8 @@ async def authorize_url(
         )
         result = await service.authorize_info(
             idp_key,
-            tenant=context.code,
+            tenant_id=str(context.tenant_id),
+            tenant_code=context.code,
             ip=current_client_ip.get(),
             session=session,
         )
@@ -356,7 +362,7 @@ async def callback(
             tenant_code=tenant_ctx.code if tenant_ctx is not None else None,
             ip=ip,
         )
-        tenant = await tenant_source.by_code(flow.tenant)
+        tenant = await tenant_source.by_id(flow.tenant_id)
         registry: EngineRegistry = request.app.state.engine_registry
         factory = request.app.state.session_factory
         async with (
@@ -399,11 +405,11 @@ def _success_response(request: Request, result: SsoLoginResult) -> Response:
     Returns:
         Response: `302` 跳转 + cookie，或 200 JSON + cookie。
     """
-    payload = ApiResponse.ok(SsoCallbackResult(tenant=result.tenant))
+    payload = ApiResponse.ok(SsoCallbackResult(tenant=result.tenant_code))
     target = request.app.state.settings.sso.success_redirect
     if target:
         response: Response = RedirectResponse(
-            _with_query(target, urlencode({"tenant": result.tenant})),
+            _with_query(target, urlencode({"tenant": result.tenant_code})),
             status_code=302,
         )
     else:

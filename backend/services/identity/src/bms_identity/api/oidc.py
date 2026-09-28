@@ -97,11 +97,16 @@ async def _resolve(tenant: str | None, context: TenantContext | None, source: Te
     """
     if tenant:
         if context is not None and context.code == tenant:
-            return context
-        return await source.by_code(tenant)
-    if context is not None:
-        return context
-    raise TenantNotFoundError("未提供租户标识")
+            resolved = context
+        else:
+            resolved = await source.by_code(tenant)
+    elif context is not None:
+        resolved = context
+    else:
+        raise TenantNotFoundError("未提供租户标识")
+    if resolved.tenant_id is None:
+        raise TenantNotFoundError("租户缺少主键标识")
+    return resolved
 
 
 def _build_service(
@@ -258,9 +263,9 @@ async def authorize(
     try:
         if auth is None:
             return _login_redirect(request)
-        if tenant and auth.tenant and tenant != auth.tenant:
+        if tenant and auth.tenant_code and tenant != auth.tenant_code:
             raise OidcInvalidRequestError("租户与登录态不一致")
-        context = await _resolve(auth.tenant or tenant, tenant_ctx, tenant_source)
+        context = await _resolve(auth.tenant_code or tenant, tenant_ctx, tenant_source)
         registry: EngineRegistry = request.app.state.engine_registry
         async with session_scope(registry, db_key=context.db_key, factory=request.app.state.session_factory) as session:
             service = _build_service(
@@ -272,7 +277,8 @@ async def authorize(
                 hasher=hasher,
             )
             result = await service.authorize(
-                tenant=context.code,
+                tenant_id=str(context.tenant_id),
+                tenant_code=context.code,
                 client_id=client_id,
                 redirect_uri=redirect_uri,
                 response_type=response_type,
@@ -330,7 +336,8 @@ async def token(
                 hasher=hasher,
             )
             result = await service.token(
-                tenant=context.code,
+                tenant_id=str(context.tenant_id),
+                tenant_code=context.code,
                 client_id=client_id,
                 client_secret=client_secret,
                 grant_type=_form_str(form, "grant_type"),
@@ -394,7 +401,9 @@ async def userinfo(
                 client=client,
                 hasher=hasher,
             )
-            result = await service.userinfo(tenant=context.code, access_token=token_value)
+            result = await service.userinfo(
+                tenant_id=str(context.tenant_id), tenant_code=context.code, access_token=token_value
+            )
     except AuthError:
         return _unauthorized()
     return JSONResponse(

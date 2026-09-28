@@ -142,7 +142,7 @@ class _FakeTenantSource:
         self.calls: list[str] = []
 
     async def by_code(self, code: str) -> TenantContext:
-        """返回租户上下文。
+        """返回租户上下文（带雪花主键）。
 
         Args:
             code: 租户编码。
@@ -151,14 +151,15 @@ class _FakeTenantSource:
             TenantContext: 租户上下文。
         """
         self.calls.append(code)
-        return TenantContext(code=code, db_key=f"tenant_{code}", name=code)
+        tenant_id = 1001 if code == "demo" else 2002
+        return TenantContext(code=code, db_key=f"tenant_{code}", name=code, tenant_id=tenant_id)
 
 
 @pytest.mark.kiwi_id(2202)
 async def test_resolve_tenant_branches() -> None:
     """`_resolve` 四分支：参数命中上下文 / 参数回落租户源 / 上下文 / 均缺报错。"""
     source = _FakeTenantSource()
-    context = TenantContext(code="demo", db_key="tenant_demo", name="demo")
+    context = TenantContext(code="demo", db_key="tenant_demo", name="demo", tenant_id=1001)
     lookup = cast("TenantLookup", source)
     assert await oidc_api._resolve("demo", context, lookup) is context  # pyright: ignore[reportPrivateUsage]
     assert await oidc_api._resolve("other", context, lookup) is not context  # pyright: ignore[reportPrivateUsage]

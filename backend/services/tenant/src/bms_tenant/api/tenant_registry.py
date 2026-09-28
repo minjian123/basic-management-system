@@ -21,8 +21,9 @@ from bms_tenant.repositories.tenant_registry import TenantRegistryRepository
 router = BaseRouter(key="tenant_registry", prefix="/tenant-registry", tags=["tenant"])
 
 SessionDep = Annotated[DbSession, Depends(get_platform_read_db)]
-CodeQuery = Annotated[str | None, Query(description="租户编码（与 domain 二选一）")]
-DomainQuery = Annotated[str | None, Query(description="子域名（与 code 二选一）")]
+CodeQuery = Annotated[str | None, Query(description="租户编码（与 domain / tenant_id 三选一）")]
+DomainQuery = Annotated[str | None, Query(description="子域名（与 code / tenant_id 三选一）")]
+TenantIdQuery = Annotated[str | None, Query(description="租户主键雪花 id 字符串（与 code / domain 三选一）")]
 
 _ACTIVE_STATUS = "active"
 
@@ -32,28 +33,38 @@ async def get_tenant_registry(
     session: SessionDep,
     code: CodeQuery = None,
     domain: DomainQuery = None,
+    tenant_id: TenantIdQuery = None,
 ) -> ApiResponse:
-    """取租户注册快照（按编码或域名二选一）。
+    """取租户注册快照（按编码 / 域名 / 主键三选一）。
 
     Args:
         session: 平台服务库只读会话。
         code: 租户编码。
         domain: 子域名。
+        tenant_id: 租户主键雪花 id 字符串。
 
     Returns:
         ApiResponse: 统一响应（data 为注册快照）。
 
     Raises:
-        ParamError: 未提供 code / domain（10001）。
+        ParamError: 未提供或多于一个来源（10001）。
         TenantNotFoundError: 未知租户（404 / 80001）。
         TenantSuspendedError: 租户已停用（403 / 80002）。
     """
-    if bool(code) == bool(domain):
-        raise ParamError("租户注册查询需且仅需提供 code 或 domain 之一")
+    provided = [value for value in (code, domain, tenant_id) if value]
+    if len(provided) != 1:
+        raise ParamError("租户注册查询需且仅需提供 code / domain / tenant_id 之一")
     repository = TenantRegistryRepository(session)
-    row = await repository.by_code(code) if code else await repository.by_domain(domain or "")
+    if code:
+        row = await repository.by_code(code)
+    elif domain:
+        row = await repository.by_domain(domain)
+    else:
+        if not str(tenant_id).isdigit():
+            raise ParamError("tenant_id 须为雪花 id 十进制字符串")
+        row = await repository.by_id(int(str(tenant_id)))
     if row is None:
-        raise TenantNotFoundError(f"未知租户：{code or domain}")
+        raise TenantNotFoundError(f"未知租户：{code or domain or tenant_id}")
     if row.status != _ACTIVE_STATUS:
         raise TenantSuspendedError(f"租户已停用：{row.code}")
     return ApiResponse.ok(_snapshot(row))
@@ -66,7 +77,7 @@ def _snapshot(row: SysTenant) -> dict[str, object]:
         row: 注册行。
 
     Returns:
-        dict[str, object]: 载荷（编码 / 名称 / 域名 / 状态 / 到期 / 主键）。
+        dict[str, object]: 载荷（编码 / 名称 / 域名 / 状态 / 到期 / 主键 / 库名基）。
     """
     return {
         "code": row.code,
@@ -75,4 +86,5 @@ def _snapshot(row: SysTenant) -> dict[str, object]:
         "status": row.status,
         "expire_at": row.expire_at.isoformat() if row.expire_at else None,
         "tenant_id": row.id,
+        "db_basis": row.code,
     }
