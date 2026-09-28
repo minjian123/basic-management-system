@@ -111,17 +111,38 @@ class RemoteTenantSource(BaseFrameworkObject):
         """
         return await self._resolve("domain", domain)
 
-    async def invalidate(self, code: str | None = None, *, domain: str | None = None) -> None:
+    async def by_id(self, tenant_id: str) -> TenantContext:
+        """按租户主键（雪花 id 字符串）取上下文。
+
+        Args:
+            tenant_id: 租户主键十进制字符串。
+
+        Returns:
+            TenantContext: 租户上下文。
+
+        Raises:
+            TenantNotFoundError: 租户不存在（404 / 80001）。
+            TenantSuspendedError: 租户已停用（403 / 80002）。
+            ServiceUnavailableError: 契约不可达或响应非法。
+        """
+        return await self._resolve("id", tenant_id)
+
+    async def invalidate(
+        self, code: str | None = None, *, domain: str | None = None, tenant_id: str | None = None
+    ) -> None:
         """失效本地缓存（租户服务写路径亦可经版本键全局失效）。
 
         Args:
             code: 租户编码。
             domain: 子域名。
+            tenant_id: 租户主键字符串。
         """
         if code:
             self._cache_delete(snapshot_cache_key("code", code))
         if domain:
             self._cache_delete(snapshot_cache_key("domain", domain))
+        if tenant_id:
+            self._cache_delete(snapshot_cache_key("id", tenant_id))
 
     async def _resolve(self, kind: str, value: str) -> TenantContext:
         """取数编排：缓存（版本比对）→ 契约回源 → 回填 → 状态判定。
@@ -156,7 +177,7 @@ class RemoteTenantSource(BaseFrameworkObject):
                 self._cache_set(key, snapshot)
         if snapshot.status != ACTIVE_STATUS:
             if self._release is not None:
-                await self._release(snapshot.code)
+                await self._release(snapshot.db_basis or snapshot.code)
             raise TenantSuspendedError(f"租户已停用：{snapshot.code}")
         return to_tenant_context(snapshot)
 
@@ -175,7 +196,12 @@ class RemoteTenantSource(BaseFrameworkObject):
             TenantSuspendedError: 403（契约侧已按停用拒绝）。
             ServiceUnavailableError: 其余非 2xx 或响应体非法。
         """
-        request = ServiceRequest(service=self._service, method="GET", path=TENANT_REGISTRY_PATH, query={kind: value})
+        request = ServiceRequest(
+            service=self._service,
+            method="GET",
+            path=TENANT_REGISTRY_PATH,
+            query={"tenant_id": value} if kind == "id" else {kind: value},
+        )
         response = await self._client.call(request)
         if response.status_code == _NOT_FOUND:
             raise TenantNotFoundError(f"未知租户：{value}")

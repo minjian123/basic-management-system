@@ -12,7 +12,7 @@ from sqlalchemy import select
 from bms_identity.models.user_identity import SysUserIdentity
 
 from .conftest import CAS_REDIRECT_URI, SsoHarness
-from .helpers import CAS_IDP_KEY, TENANT, TENANT_HEADERS
+from .helpers import CAS_IDP_KEY, TENANT, TENANT_HEADERS, TENANT_ID
 
 CALLBACK = f"/api/v1/auth/sso/{CAS_IDP_KEY}/callback"
 
@@ -65,7 +65,7 @@ async def test_cas_end_to_end_jit_creates_user_and_session(client: AsyncClient, 
     async with sso.platform_scope() as session:
         rows = (await session.execute(select(SysUserIdentity))).scalars().all()
     assert [(row.idp_key, row.external_id, row.tenant_id) for row in rows] == [
-        (f"{TENANT}:{CAS_IDP_KEY}", "cas-alice", TENANT)
+        (f"{TENANT_ID}:{CAS_IDP_KEY}", "cas-alice", TENANT_ID)
     ]
 
     # 首登发一次 JIT 事件

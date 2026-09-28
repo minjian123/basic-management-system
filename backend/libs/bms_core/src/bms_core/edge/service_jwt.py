@@ -6,7 +6,7 @@
 - 信任口径：**唯一依据是有效服务 JWT**——不再信任可伪造的网关标记头（`X-Gateway-Identity`）；直连
   后端伪造标记 / 身份头（无有效服务 JWT）一律不信任，`[edge].require_gateway_identity` 开时 401。
 - 身份解析：`service_identity` 取服务 JWT `sub`（北南向为网关注入的 `gateway`、东西向为调用方服务标识）；
-  租户优先取身份头（网关注入）、缺省回落服务 JWT `tenant` claim；用户主体 / scope / 内部 id 取身份头。
+   租户优先取身份头（网关注入）、缺省回落服务 JWT `tenant_id` claim；用户主体 / scope / 内部 id 取身份头。
 - `ServiceJwtEdgeTrustFactory`：解析 `[service_token]` 实例构造本实现；**provider 为空（null 占位）时
   拒绝装配**（`PluginError`，避免「占位验签 = 恒定信任」的安全漏洞）。
 """
@@ -69,7 +69,7 @@ class ServiceJwtEdgeTrust(BaseEdgeTrust):
         base = EdgeIdentity.from_headers(headers)
         identity = replace(
             base,
-            tenant_code=base.tenant_code or _claim_tenant(claims),
+            tenant_id=base.tenant_id or _claim_tenant(claims),
             service_identity=claims.subject or base.service_identity,
         )
         return EdgeTrustDecision(allowed=True, identity=identity, reason="service token verified")
@@ -132,13 +132,13 @@ def _bearer_token(headers: Mapping[str, str]) -> str | None:
 
 
 def _claim_tenant(claims: IdentityClaims) -> str | None:
-    """取服务 JWT 的租户声明。
+    """取服务 JWT 的租户声明（`tenant_id`，雪花 id 字符串）。
 
     Args:
         claims: 验签后的身份声明。
 
     Returns:
-        str | None: 租户编码；缺失 / 非字符串为空。
+        str | None: 租户主键字符串；缺失 / 非字符串为空。
     """
-    raw = claims.payload.get("tenant")
+    raw = claims.payload.get("tenant_id")
     return raw if isinstance(raw, str) and raw else None

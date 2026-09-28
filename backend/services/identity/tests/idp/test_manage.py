@@ -9,7 +9,7 @@ from httpx import ASGITransport, AsyncClient
 from bms_core.core.exceptions import PermissionError
 from bms_core.permission import base as permission_base
 
-from .conftest import ISSUER, TENANT_HEADERS, ManageHarness
+from .conftest import ISSUER, TENANT_HEADERS, TENANT_ID, ManageHarness
 
 _BASE = "/api/v1/idp/providers"
 _SSO_PROVIDERS = "/api/v1/auth/sso/providers"
@@ -243,7 +243,7 @@ async def test_requires_auth(service_app: FastAPI, manage: ManageHarness) -> Non
         async with AsyncClient(transport=ASGITransport(app=service_app), base_url="http://test") as client:
             from tests_support.auth import auth_headers
 
-            client.headers.update(auth_headers())
+            client.headers.update(auth_headers(tenant=TENANT_ID))
             denied = await client.get(_BASE, headers=TENANT_HEADERS)
         assert denied.status_code == 403
     finally:

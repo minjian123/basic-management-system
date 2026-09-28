@@ -63,6 +63,7 @@ async def introspect(
     request: Request,
     verifier: Annotated[BaseTokenVerifier, Depends(get_token_verifier)],
     issuer: Annotated[BaseServiceTokenIssuer, Depends(get_service_token_issuer)],
+    tenant_source: Annotated[TenantLookup, Depends(get_tenant_source)],
     authorization: Annotated[str | None, Header(alias="Authorization")] = None,
     forwarded_uri: Annotated[str | None, Header(alias="X-Forwarded-Uri")] = None,
 ) -> Response:
@@ -72,6 +73,7 @@ async def introspect(
         request: 请求对象（取应用配置）。
         verifier: 统一校验器（按 `aud=api` 校验用户 JWT）。
         issuer: 服务 JWT 签发者（换发网关服务 JWT）。
+        tenant_source: 租户源（由令牌租户主键解析租户编码，注入 `X-Tenant-Id` 头）。
         authorization: 客户端 `Authorization` 头（网关经 `request_headers` 转发）。
         forwarded_uri: 原始请求 URI（网关 `forward-auth` 添加的 `X-Forwarded-Uri`）。
 
@@ -97,7 +99,7 @@ async def introspect(
     spec = ServiceTokenSpec(
         service=settings.gateway.service_identity,
         scopes=("gateway",),
-        tenant=verified.tenant,
+        tenant_id=verified.tenant_id,
         ttl=settings.gateway.token_ttl_seconds,
     )
     try:
@@ -106,8 +108,12 @@ async def introspect(
         return Response(status_code=503)
 
     headers = {USER_SUBJECT_HEADER: verified.subject, "Authorization": f"Bearer {issued.access_token}"}
-    if verified.tenant:
-        headers[TENANT_ID_HEADER] = verified.tenant
+    if verified.tenant_id:
+        try:
+            context = await tenant_source.by_id(verified.tenant_id)
+        except Exception:
+            return Response(status_code=503)
+        headers[TENANT_ID_HEADER] = context.code
     if verified.scopes:
         headers[USER_SCOPES_HEADER] = ",".join(verified.scopes)
     if verified.token_id:
@@ -242,6 +248,8 @@ async def login(
         ApiResponse: 统一响应，data 为登录结果（`LoginResult`）。
     """
     tenant = await resolve_request_tenant(req.tenant, tenant_ctx, tenant_source)
+    if tenant.tenant_id is None:
+        raise AuthError("租户缺少主键标识")
     registry: EngineRegistry = request.app.state.engine_registry
     factory = request.app.state.session_factory
     async with session_scope(registry, db_key=tenant.db_key, factory=factory) as session:
@@ -258,7 +266,8 @@ async def login(
         )
         outcome = await service.login(
             req,
-            tenant=tenant.code,
+            tenant_id=str(tenant.tenant_id),
+            tenant_code=tenant.code,
             ip=current_client_ip.get(),
             user_agent=request.headers.get("user-agent"),
         )
@@ -301,7 +310,7 @@ async def refresh(
     token = request.cookies.get(REFRESH_COOKIE_NAME)
     if not token:
         raise AuthError("缺少刷新令牌")
-    if tenant_ctx is None:
+    if tenant_ctx is None or tenant_ctx.tenant_id is None:
         raise AuthError("缺少租户标识")
     registry: EngineRegistry = request.app.state.engine_registry
     factory = request.app.state.session_factory
@@ -319,7 +328,7 @@ async def refresh(
         )
         outcome = await service.refresh(
             token,
-            tenant=tenant_ctx.code,
+            tenant_id=str(tenant_ctx.tenant_id),
             ip=current_client_ip.get(),
             user_agent=request.headers.get("user-agent"),
         )
@@ -357,7 +366,7 @@ async def logout(
         ApiResponse: 统一响应（data 为 null）。
     """
     token = request.cookies.get(REFRESH_COOKIE_NAME)
-    if token and tenant_ctx is not None:
+    if token and tenant_ctx is not None and tenant_ctx.tenant_id is not None:
         registry: EngineRegistry = request.app.state.engine_registry
         factory = request.app.state.session_factory
         async with session_scope(registry, db_key=tenant_ctx.db_key, factory=factory) as session:
@@ -372,6 +381,6 @@ async def logout(
                 client=client,
                 publisher=publisher,
             )
-            await service.logout(token, tenant=tenant_ctx.code)
+            await service.logout(token, tenant_id=str(tenant_ctx.tenant_id))
     clear_refresh_cookie(response)
     return ApiResponse.ok(None)

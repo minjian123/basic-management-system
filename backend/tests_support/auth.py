@@ -31,8 +31,11 @@ TEST_SUBJECT = "1001"
 TEST_SESSION_ID = "1001"
 """默认测试会话 id（= access `jti`）。"""
 
-TEST_TENANT = "demo"
-"""默认测试租户编码（与演示租户一致）。"""
+TEST_TENANT_ID = "1001"
+"""默认测试租户主键（雪花 id 十进制字符串；与演示租户映射一致）。"""
+
+TEST_TENANT_CODE = "demo"
+"""默认测试租户编码（对外协议 / 展示用；内部标识一律用 `TEST_TENANT_ID`）。"""
 
 TOKEN_AUDIENCE_API = "api"
 """用户令牌受众。"""
@@ -66,7 +69,7 @@ def configure_token_env(monkeypatch: MonkeyPatch) -> None:
 def issue_access_token(
     subject: str = TEST_SUBJECT,
     session_id: str = TEST_SESSION_ID,
-    tenant: str | None = TEST_TENANT,
+    tenant: str | None = TEST_TENANT_ID,
     scopes: tuple[str, ...] = (),
 ) -> str:
     """签发一枚测试用户 access 令牌（同步，可直接在夹具内调用）。
@@ -74,7 +77,7 @@ def issue_access_token(
     Args:
         subject: 用户主体。
         session_id: 会话 id（`jti`）。
-        tenant: 租户编码（None 不写租户声明）。
+        tenant: 租户主键（雪花 id 十进制字符串；None 不写租户声明）。
         scopes: 授权范围（非空时写 `scope`）。
 
     Returns:
@@ -101,7 +104,7 @@ def issue_access_token(
 def auth_headers(
     subject: str = TEST_SUBJECT,
     session_id: str = TEST_SESSION_ID,
-    tenant: str | None = TEST_TENANT,
+    tenant: str | None = TEST_TENANT_ID,
     scopes: tuple[str, ...] = (),
 ) -> dict[str, str]:
     """默认鉴权头（`Authorization: Bearer <测试 access>`）。
@@ -109,7 +112,7 @@ def auth_headers(
     Args:
         subject: 用户主体。
         session_id: 会话 id。
-        tenant: 租户编码。
+        tenant: 租户主键（雪花 id 十进制字符串）。
         scopes: 授权范围。
 
     Returns:

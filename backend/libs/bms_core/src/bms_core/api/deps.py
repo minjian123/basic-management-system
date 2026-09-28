@@ -229,7 +229,7 @@ def get_tenant_source(request: Request) -> TenantLookup:
 
 
 def current_code_of(tenant: TenantContext | None) -> str | None:
-    """取解析链当前租户编码（供幂等 / 限流键的租户作用域位与租户自助接口复用）。
+    """取解析链当前租户编码（供展示 / 对外协议与租户自助接口复用）。
 
     Args:
         tenant: 请求级租户上下文（豁免路径为 None）。
@@ -238,3 +238,17 @@ def current_code_of(tenant: TenantContext | None) -> str | None:
         str | None: 当前租户编码；无上下文为空。
     """
     return tenant.code if tenant is not None else None
+
+
+def current_tenant_id_of(tenant: TenantContext | None) -> str | None:
+    """取解析链当前租户主键（雪花 id 字符串；供跨服务租户位 / 内部键租户作用域位复用）。
+
+    Args:
+        tenant: 请求级租户上下文（豁免路径为 None）。
+
+    Returns:
+        str | None: 当前租户主键字符串；无上下文 / 无主键为空。
+    """
+    if tenant is None or tenant.tenant_id is None:
+        return None
+    return str(tenant.tenant_id)

@@ -65,9 +65,9 @@ class OrgUserCreateResult(ServiceDto):
 class SsoIdentityItem(BaseSchema):
     """SSO 身份绑定项（`sso:bind` 只读端点）。"""
 
-    idp_key: str = Field(description="映射键（{tenant_code}:{provider_key}）")
+    idp_key: str = Field(description="映射键（{tenant_id}:{provider_key}）")
     external_id: str = Field(description="外部身份主体（OIDC 取 sub）")
-    tenant_id: str = Field(description="租户编码")
+    tenant_id: str = Field(description="租户主键（雪花 id 字符串）")
 
 
 class SsoIdentityList(BaseSchema):

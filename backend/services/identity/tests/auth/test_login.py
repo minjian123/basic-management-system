@@ -11,7 +11,14 @@ from bms_core.session.memory import MemorySessionStore
 from bms_identity.api.tenancy import resolve_request_tenant
 from bms_identity.services.session_issuer import truncate_field  # pyright: ignore[reportPrivateUsage]
 
-from .helpers import FakeCaptcha, FakeOrgClient, FakeTenantSource, FakeUserTokenIssuer, wire_auth
+from .helpers import (
+    TENANT_ID,
+    FakeCaptcha,
+    FakeOrgClient,
+    FakeTenantSource,
+    FakeUserTokenIssuer,
+    wire_auth,
+)
 
 API_LOGIN = "/api/v1/auth/login"
 
@@ -33,6 +40,7 @@ async def _login(client: AsyncClient, account: str, password: str, **extra: obje
 
 
 @pytest.mark.kiwi_id(2194)
+@pytest.mark.kiwi_id(2217)
 async def test_login_success_creates_session(client: AsyncClient, service_app: FastAPI) -> None:
     """登录成功：返回 access + 用户概要、下发 refresh cookie、落会话标记、清零失败计数。"""
     issuer, org, store, limiter = FakeUserTokenIssuer(), FakeOrgClient(), MemorySessionStore(), MemoryRateLimiter()
@@ -55,7 +63,7 @@ async def test_login_success_creates_session(client: AsyncClient, service_app: F
     cookie = client.cookies.get("bms_refresh_token")
     assert cookie
     session_id = issuer.specs[-1].session_id
-    assert await store.load(session_id, tenant="demo") is not None
+    assert await store.load(session_id, tenant=TENANT_ID) is not None
     assert org.last_state.get("failed_count") == 0
 
 

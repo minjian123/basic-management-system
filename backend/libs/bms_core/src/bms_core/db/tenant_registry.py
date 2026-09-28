@@ -34,6 +34,8 @@ class TenantSnapshot(BaseTenantViewContract):
     status: str = ACTIVE_STATUS
     expire_at: str | None = None
     tenant_id: int | None = None
+    db_basis: str | None = None
+    """库名基（创建时冻结的租户编码；库键 / 库名由其派生，租户编码变更不随之变）。"""
 
     def to_payload(self, *, version: int | None = None) -> dict[str, Any]:
         """转可缓存字典（可选附版本戳）。
@@ -51,6 +53,7 @@ class TenantSnapshot(BaseTenantViewContract):
             "status": self.status,
             "expire_at": self.expire_at,
             "tenant_id": self.tenant_id,
+            "db_basis": self.db_basis,
         }
         if version is not None:
             payload["version"] = version
@@ -73,6 +76,7 @@ class TenantSnapshot(BaseTenantViewContract):
         if not isinstance(code, str) or not code:
             raise KeyError("租户注册快照缺少 code")
         tenant_id = payload.get("tenant_id")
+        db_basis = payload.get("db_basis")
         return cls(
             code=code,
             name=str(payload.get("name") or code),
@@ -80,6 +84,7 @@ class TenantSnapshot(BaseTenantViewContract):
             status=str(payload.get("status") or ACTIVE_STATUS),
             expire_at=cast("str | None", payload.get("expire_at")),
             tenant_id=int(tenant_id) if isinstance(tenant_id, int) else None,
+            db_basis=str(db_basis) if isinstance(db_basis, str) and db_basis else code,
         )
 
 
@@ -87,8 +92,8 @@ def snapshot_cache_key(kind: str, value: str) -> str:
     """取租户注册缓存 key（平台数据：租户位取 `global`）。
 
     Args:
-        kind: `code` / `domain`。
-        value: 查询值。
+    kind: `code` / `domain` / `id`。
+    value: 查询值。
 
     Returns:
         str: 缓存 key（`bms:global:tenant:{kind}:{value}`）。
@@ -97,7 +102,7 @@ def snapshot_cache_key(kind: str, value: str) -> str:
 
 
 def to_tenant_context(snapshot: TenantSnapshot) -> TenantContext:
-    """快照 → 租户上下文（库键按本地命名口径派生）。
+    """快照 → 租户上下文（库键按**库名基 `db_basis`**派生）。
 
     Args:
         snapshot: 租户注册快照。
@@ -107,7 +112,7 @@ def to_tenant_context(snapshot: TenantSnapshot) -> TenantContext:
     """
     return TenantContext(
         code=snapshot.code,
-        db_key=build_tenant_db_key(snapshot.code),
+        db_key=build_tenant_db_key(snapshot.db_basis or snapshot.code),
         name=snapshot.name,
         tenant_id=snapshot.tenant_id,
         status=snapshot.status,

@@ -110,6 +110,7 @@ export interface paths {
          *         request: 请求对象（取应用配置）。
          *         verifier: 统一校验器（按 `aud=api` 校验用户 JWT）。
          *         issuer: 服务 JWT 签发者（换发网关服务 JWT）。
+         *         tenant_source: 租户源（由令牌租户主键解析租户编码，注入 `X-Tenant-Id` 头）。
          *         authorization: 客户端 `Authorization` 头（网关经 `request_headers` 转发）。
          *         forwarded_uri: 原始请求 URI（网关 `forward-auth` 添加的 `X-Forwarded-Uri`）。
          *
@@ -126,6 +127,7 @@ export interface paths {
          *         request: 请求对象（取应用配置）。
          *         verifier: 统一校验器（按 `aud=api` 校验用户 JWT）。
          *         issuer: 服务 JWT 签发者（换发网关服务 JWT）。
+         *         tenant_source: 租户源（由令牌租户主键解析租户编码，注入 `X-Tenant-Id` 头）。
          *         authorization: 客户端 `Authorization` 头（网关经 `request_headers` 转发）。
          *         forwarded_uri: 原始请求 URI（网关 `forward-auth` 添加的 `X-Forwarded-Uri`）。
          *

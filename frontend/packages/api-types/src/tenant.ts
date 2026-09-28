@@ -38,18 +38,19 @@ export interface paths {
         };
         /**
          * Get Tenant Registry
-         * @description 取租户注册快照（按编码或域名二选一）。
+         * @description 取租户注册快照（按编码 / 域名 / 主键三选一）。
          *
          *     Args:
          *         session: 平台服务库只读会话。
          *         code: 租户编码。
          *         domain: 子域名。
+         *         tenant_id: 租户主键雪花 id 字符串。
          *
          *     Returns:
          *         ApiResponse: 统一响应（data 为注册快照）。
          *
          *     Raises:
-         *         ParamError: 未提供 code / domain（10001）。
+         *         ParamError: 未提供或多于一个来源（10001）。
          *         TenantNotFoundError: 未知租户（404 / 80001）。
          *         TenantSuspendedError: 租户已停用（403 / 80002）。
          */
@@ -265,10 +266,12 @@ export interface operations {
     get_tenant_registry_api_v1_tenant_registry_get: {
         parameters: {
             query?: {
-                /** @description 租户编码（与 domain 二选一） */
+                /** @description 租户编码（与 domain / tenant_id 三选一） */
                 code?: string | null;
-                /** @description 子域名（与 code 二选一） */
+                /** @description 子域名（与 code / tenant_id 三选一） */
                 domain?: string | null;
+                /** @description 租户主键雪花 id 字符串（与 code / domain 三选一） */
+                tenant_id?: string | null;
             };
             header?: never;
             path?: never;

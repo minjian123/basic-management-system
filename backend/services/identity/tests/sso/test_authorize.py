@@ -8,7 +8,7 @@ import pytest
 from httpx import AsyncClient
 
 from .conftest import REDIRECT_URI, SsoHarness
-from .helpers import CLIENT_ID, IDP_KEY, ISSUER, TENANT_HEADERS
+from .helpers import CLIENT_ID, IDP_KEY, ISSUER, TENANT_HEADERS, TENANT_ID
 
 AUTHORIZE = f"/api/v1/auth/sso/{IDP_KEY}/authorize"
 
@@ -42,7 +42,8 @@ async def test_authorize_redirects_with_state_nonce_pkce(client: AsyncClient, ss
     assert query["nonce"] == [payload["nonce"]]
     verifier = str(payload["code_verifier"])
     assert len(verifier) > 0 and query["code_challenge"] == [_challenge(verifier)]
-    assert payload["tenant"] == "demo"
+    assert payload["tenant_code"] == "demo"
+    assert payload["tenant_id"] == TENANT_ID
     assert payload["idp_key"] == IDP_KEY
     assert payload["redirect_uri"] == REDIRECT_URI
 

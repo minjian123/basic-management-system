@@ -49,6 +49,17 @@ class TenantRegistryRepository(BaseFrameworkObject):
         """
         return await self._one(SysTenant.domain == domain)
 
+    async def by_id(self, tenant_id: int) -> SysTenant | None:
+        """按租户主键取未软删注册行。
+
+        Args:
+            tenant_id: 租户主键（雪花 id）。
+
+        Returns:
+            SysTenant | None: 注册行；未命中返回 None。
+        """
+        return await self._one(SysTenant.id == tenant_id)
+
     async def create(
         self,
         *,

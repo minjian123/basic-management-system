@@ -13,9 +13,10 @@ from bms_core.db.tenant import DEMO_TENANT
 from bms_core.ratelimit.memory import MemoryRateLimiter
 from bms_core.session.memory import MemorySessionStore
 from bms_identity.models.session import SysSession
-from tests_support.auth import TEST_SESSION_ID, TEST_TENANT
+from tests_support.auth import TEST_SESSION_ID
 
 from .helpers import (
+    TENANT_ID,
     FakeOrgClient,
     FakeUserTokenIssuer,
     RecordingRealtimePublisher,
@@ -62,8 +63,8 @@ async def wire_login(
     org.set_user("admin", password="secret", user_id=user_id, name="管理员")
     await store.save(
         TEST_SESSION_ID,
-        {"user_id": user_id, "tenant": TEST_TENANT},
-        tenant=TEST_TENANT,
+        {"user_id": user_id, "tenant": TENANT_ID},
+        tenant=TENANT_ID,
     )
     wire_auth(app, issuer=issuer, org=org, store=store, limiter=limiter)
     recorder = publisher or RecordingRealtimePublisher()

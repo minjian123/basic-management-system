@@ -471,16 +471,16 @@ async def test_outbound_attaches_service_token_when_enabled() -> None:
 
 @pytest.mark.kiwi_id(2194)
 async def test_outbound_service_token_carries_tenant() -> None:
-    """开启出站换券时，请求 `tenant` 随服务 JWT claim 传递（供目标服务解析租户库）。"""
+    """开启出站换券时，请求 `tenant_id`（雪花 id 字符串）随服务 JWT claim 传递（供目标服务解析租户库）。"""
     issuer = StubTokenIssuer()
 
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(200)
 
     client = _client(handler, token_issuer=issuer, attach_service_token=True)
-    await client.call(_request(method="POST", tenant="demo"))
+    await client.call(_request(method="POST", tenant_id="1001"))
     await client.aclose()
-    assert issuer.specs == [ServiceTokenSpec(service="identity", scopes=(), tenant="demo")]
+    assert issuer.specs == [ServiceTokenSpec(service="identity", scopes=(), tenant_id="1001")]
 
 
 @pytest.mark.kiwi_id(2180)

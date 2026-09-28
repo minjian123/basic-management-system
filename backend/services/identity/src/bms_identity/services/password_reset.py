@@ -93,7 +93,8 @@ class PasswordResetService(BaseFrameworkObject):
         identifier: str,
         captcha: CaptchaInput | None,
         *,
-        tenant: str,
+        tenant_id: str,
+        tenant_code: str,
         ip: str | None,
     ) -> PasswordForgotResult:
         """发起找回：限流 → 验证码 → 解析目标 → 写 token → 占位发送。
@@ -101,7 +102,8 @@ class PasswordResetService(BaseFrameworkObject):
         Args:
             identifier: 账号 / 手机号 / 邮箱。
             captcha: 验证码凭证（可选；场景策略强制时必带）。
-            tenant: 租户编码。
+            tenant_id: 租户主键（雪花 id 字符串；token 存储键与 org 调用依据）。
+            tenant_code: 租户编码（限流键 / 重置链接 / 展示）。
             ip: 客户端 IP（可选；缺失跳过 IP 维度限流）。
 
         Returns:
@@ -113,41 +115,44 @@ class PasswordResetService(BaseFrameworkObject):
             ParamError: 验证码形态非法（10001）。
             ServiceUnavailableError: org / Redis / 通知渠道不可用（10007/503）。
         """
-        await self._enforce_ip_limit(tenant, ip)
+        await self._enforce_ip_limit(tenant_code, ip)
         await self._enforce_captcha(captcha)
         await self._enforce_limit(
             _IDENTIFIER_DIMENSION,
             _normalize_identifier(identifier),
-            tenant=tenant,
+            tenant=tenant_code,
             limit=self._settings.account_rate_limit,
             window=self._settings.account_rate_window,
         )
 
-        target = await self._org.reset_target(tenant, identifier)
+        target = await self._org.reset_target(tenant_id, identifier)
         if not target.deliverable or target.user_id is None or not target.target:
-            _LOGGER.info("找回密码未送达", tenant=tenant, found=target.found, deliverable=target.deliverable)
+            _LOGGER.info("找回密码未送达", tenant=tenant_code, found=target.found, deliverable=target.deliverable)
             return PasswordForgotResult(sent=True)
 
         await self._enforce_limit(
             _USER_DIMENSION,
             str(target.user_id),
-            tenant=tenant,
+            tenant=tenant_code,
             limit=self._settings.account_rate_limit,
             window=self._settings.account_rate_window,
         )
         token = secrets.token_urlsafe(32)
-        await self._save_token(token, target, tenant=tenant)
-        await self._send_token(token, target, tenant=tenant)
-        _LOGGER.info("找回密码已发起", tenant=tenant, user_id=target.user_id, channel=target.channel)
+        await self._save_token(token, target, tenant=tenant_id)
+        await self._send_token(token, target, tenant_code=tenant_code)
+        _LOGGER.info("找回密码已发起", tenant=tenant_code, user_id=target.user_id, channel=target.channel)
         return PasswordForgotResult(sent=True)
 
-    async def reset_password(self, token: str, new_password: str, *, tenant: str) -> PasswordResetResult:
+    async def reset_password(
+        self, token: str, new_password: str, *, tenant_id: str, tenant_code: str
+    ) -> PasswordResetResult:
         """提交重置：一次性消费 token → 改密（强制过策略）→ 全部会话失效。
 
         Args:
             token: 重置令牌（单次有效）。
             new_password: 新口令明文（策略判定在 org 侧）。
-            tenant: 租户编码。
+            tenant_id: 租户主键（雪花 id 字符串；token 存储键 / org 调用 / 会话键依据）。
+            tenant_code: 租户编码（展示）。
 
         Returns:
             PasswordResetResult: `reset=True`。
@@ -158,20 +163,20 @@ class PasswordResetService(BaseFrameworkObject):
             PasswordReusedError: 命中历史密码（30006）。
             ServiceUnavailableError: org 不可用（10007/503）。
         """
-        payload = await self._state.consume(token, tenant=tenant, namespace=PASSWORD_RESET_NAMESPACE)
+        payload = await self._state.consume(token, tenant=tenant_id, namespace=PASSWORD_RESET_NAMESPACE)
         user_id, account = _parse_token_payload(payload)
-        updated = await self._org.update_password(tenant, account, new_password)
+        updated = await self._org.update_password(tenant_id, account, new_password)
         if not updated:
             raise PasswordResetTokenError("重置令牌无效或已过期")
-        revoked = await self._sessions.revoke_user_sessions(user_id, tenant=tenant, reason=REASON_PASSWORD_RESET)
-        _LOGGER.info("密码已重置", tenant=tenant, user_id=user_id, revoked_sessions=len(revoked))
+        revoked = await self._sessions.revoke_user_sessions(user_id, tenant=tenant_id, reason=REASON_PASSWORD_RESET)
+        _LOGGER.info("密码已重置", tenant=tenant_code, user_id=user_id, revoked_sessions=len(revoked))
         return PasswordResetResult(reset=True)
 
-    async def _enforce_ip_limit(self, tenant: str, ip: str | None) -> None:
+    async def _enforce_ip_limit(self, tenant_code: str, ip: str | None) -> None:
         """IP 维度限流（缺失 IP 跳过；先于验证码计数）。
 
         Args:
-            tenant: 租户编码。
+            tenant_code: 租户编码（限流键租户位 10_03 再统一改 id）。
             ip: 客户端 IP（可选）。
 
         Raises:
@@ -180,7 +185,11 @@ class PasswordResetService(BaseFrameworkObject):
         if not ip:
             return
         await self._enforce_limit(
-            _IP_DIMENSION, ip, tenant=tenant, limit=self._settings.ip_rate_limit, window=self._settings.ip_rate_window
+            _IP_DIMENSION,
+            ip,
+            tenant=tenant_code,
+            limit=self._settings.ip_rate_limit,
+            window=self._settings.ip_rate_window,
         )
 
     async def _enforce_captcha(self, captcha: CaptchaInput | None) -> None:
@@ -219,7 +228,7 @@ class PasswordResetService(BaseFrameworkObject):
         Args:
             dimension: 限流维度名。
             target: 维度目标。
-            tenant: 租户编码。
+            tenant: 租户编码（限流键租户位 10_03 再统一改 id）。
             limit: 窗口内上限。
             window: 窗口长度（秒）。
 
@@ -239,7 +248,7 @@ class PasswordResetService(BaseFrameworkObject):
         Args:
             token: 重置令牌。
             target: 重置目标（载荷带用户 / 账号）。
-            tenant: 租户编码。
+            tenant: 租户主键（雪花 id 字符串；存储键租户位）。
 
         Raises:
             ServiceUnavailableError: 存储不可用（10007/503）。
@@ -247,7 +256,7 @@ class PasswordResetService(BaseFrameworkObject):
         payload: Mapping[str, object] = {
             "user_id": target.user_id,
             "account": target.account,
-            "tenant": tenant,
+            "tenant_id": tenant,
         }
         try:
             await self._state.save(
@@ -260,18 +269,18 @@ class PasswordResetService(BaseFrameworkObject):
         except Exception as exc:
             raise ServiceUnavailableError("重置令牌写入失败") from exc
 
-    async def _send_token(self, token: str, target: OrgResetTargetResult, *, tenant: str) -> None:
+    async def _send_token(self, token: str, target: OrgResetTargetResult, *, tenant_code: str) -> None:
         """经通知基座占位发送重置信息（渠道异常 / 未送达按服务不可用）。
 
         Args:
             token: 重置令牌（内容含令牌 / 重置链接；不回显响应）。
             target: 重置目标（通道与投递地址）。
-            tenant: 租户编码。
+            tenant_code: 租户编码（重置链接参数，对外）。
 
         Raises:
             ServiceUnavailableError: 通知渠道不可用或未送达（10007/503）。
         """
-        message = self._build_message(token, target, tenant=tenant)
+        message = self._build_message(token, target, tenant_code=tenant_code)
         try:
             result = await self._notifier.send(message)
         except Exception as exc:
@@ -279,20 +288,20 @@ class PasswordResetService(BaseFrameworkObject):
         if not result.delivered:
             raise ServiceUnavailableError("重置通知发送失败")
 
-    def _build_message(self, token: str, target: OrgResetTargetResult, *, tenant: str) -> NotificationMessage:
+    def _build_message(self, token: str, target: OrgResetTargetResult, *, tenant_code: str) -> NotificationMessage:
         """构造通知消息（邮件 / 短信；内容已渲染，模板与真实渠道归阶段八）。
 
         Args:
             token: 重置令牌。
             target: 重置目标。
-            tenant: 租户编码。
+            tenant_code: 租户编码（重置链接参数，对外边界保持 code）。
 
         Returns:
             NotificationMessage: 通知消息。
         """
         minutes = max(1, self._settings.token_ttl_seconds // 60)
         if self._settings.reset_url:
-            link = f"{self._settings.reset_url}?token={token}&tenant={tenant}"
+            link = f"{self._settings.reset_url}?token={token}&tenant={tenant_code}"
             action = f"打开以下链接完成重置（每个链接仅可使用一次）：{link}"
         else:
             action = f"使用以下重置令牌完成重置（单次有效）：{token}"

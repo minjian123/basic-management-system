@@ -50,8 +50,8 @@ from .helpers import (
     DINGTALK_IDP_KEY,
     IDP_KEY,
     ISSUER,
-    TENANT,
     TENANT_HEADERS,
+    TENANT_ID,
     WECOM_AGENT_ID,
     WECOM_CORP_ID,
     WECOM_IDP_KEY,
@@ -260,7 +260,7 @@ class SsoHarness:
         *,
         idp_key: str = IDP_KEY,
         external_id: str = "sub-1",
-        tenant_id: str = TENANT,
+        tenant_id: str = TENANT_ID,
         user_id: int = USER_ID,
         duplicate: bool = False,
     ) -> None:
@@ -269,7 +269,7 @@ class SsoHarness:
         Args:
             idp_key: 身份源标识。
             external_id: 外部主体标识。
-            tenant_id: 关联租户编码。
+            tenant_id: 关联租户主键（雪花 id 字符串）。
             user_id: 本地用户主键。
             duplicate: 是否追加相同映射（触发冲突分支）。
         """

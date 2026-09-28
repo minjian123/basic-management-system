@@ -18,6 +18,7 @@ CLIENT_SECRET = "demo-secret"
 REDIRECT_URI = "http://rp.test/callback"
 ISSUER = "http://localhost:8000/api/v1/oidc"
 TENANT = "demo"
+TENANT_ID = "1001"
 TENANT_HEADERS = {"X-Tenant-ID": TENANT}
 USER_ID = 1001
 

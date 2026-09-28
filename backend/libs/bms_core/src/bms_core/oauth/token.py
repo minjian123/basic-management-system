@@ -63,8 +63,8 @@ class ServiceTokenSpec(BaseTokenSpecContract):
     scopes: tuple[str, ...] = ()
     """授权范围（`scope`，空格分隔；由调用方按需传）。"""
 
-    tenant: str | None = None
-    """租户编码（扩展 claim，可选；服务身份跨租户时留空）。"""
+    tenant_id: str | None = None
+    """租户主键（雪花 id 十进制字符串；扩展 claim `tenant_id`，可选；服务身份跨租户时留空）。"""
 
     ttl: int | None = None
     """有效期覆盖（秒；None 取签发者默认 TTL）。"""

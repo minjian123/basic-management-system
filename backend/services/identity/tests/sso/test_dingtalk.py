@@ -15,7 +15,7 @@ from sqlalchemy import select
 from bms_identity.models.user_identity import SysUserIdentity
 
 from .conftest import SsoHarness
-from .helpers import DINGTALK_CLIENT_ID, DINGTALK_IDP_KEY, TENANT, TENANT_HEADERS
+from .helpers import DINGTALK_CLIENT_ID, DINGTALK_IDP_KEY, TENANT, TENANT_HEADERS, TENANT_ID
 
 AUTHORIZE_URL = f"/api/v1/auth/sso/{DINGTALK_IDP_KEY}/authorize-url"
 CALLBACK = f"/api/v1/auth/sso/{DINGTALK_IDP_KEY}/callback"
@@ -60,7 +60,7 @@ async def test_dingtalk_authorize_url_and_end_to_end(client: AsyncClient, sso: S
     async with sso.platform_scope() as session:
         rows = (await session.execute(select(SysUserIdentity))).scalars().all()
     assert [(row.idp_key, row.external_id, row.tenant_id) for row in rows] == [
-        (f"{TENANT}:{DINGTALK_IDP_KEY}", "dingtalk-union", TENANT)
+        (f"{TENANT_ID}:{DINGTALK_IDP_KEY}", "dingtalk-union", TENANT_ID)
     ]
     assert [event.event_type for event in sso.outbox.events] == ["identity.user.jit_created"]
 

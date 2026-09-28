@@ -8,7 +8,7 @@ from bms_core.db.registry import PLATFORM_DB_KEY
 from bms_core.db.session import session_scope
 from bms_identity.models.user_identity import SysUserIdentity
 
-from .helpers import IDP_KEY, TENANT, TENANT_HEADERS
+from .helpers import IDP_KEY, TENANT, TENANT_HEADERS, TENANT_ID
 
 API = "/api/v1/users/1001/identities"
 
@@ -25,9 +25,9 @@ async def _seed(app: FastAPI, *, user_id: int = 1001) -> None:
     ) as session:
         session.add(
             SysUserIdentity(
-                idp_key=f"{TENANT}:{IDP_KEY}",
+                idp_key=f"{TENANT_ID}:{IDP_KEY}",
                 external_id="sub-1",
-                tenant_id=TENANT,
+                tenant_id=TENANT_ID,
                 user_id=user_id,
             )
         )
@@ -41,7 +41,7 @@ async def test_list_identities_returns_bindings(client: AsyncClient, service_app
     response = await client.get(API, headers=TENANT_HEADERS)
     assert response.status_code == 200
     items = response.json()["data"]["items"]
-    assert items == [{"idp_key": f"{TENANT}:{IDP_KEY}", "external_id": "sub-1", "tenant_id": TENANT}]
+    assert items == [{"idp_key": f"{TENANT_ID}:{IDP_KEY}", "external_id": "sub-1", "tenant_id": TENANT_ID}]
 
 
 @pytest.mark.kiwi_id(2198)

@@ -72,7 +72,8 @@ class OidcCode(BaseValueObject):
     client_id: str
     redirect_uri: str
     subject: str
-    tenant: str
+    tenant_id: str
+    tenant_code: str
     nonce: str = ""
     code_challenge: str = ""
     code_challenge_method: str = ""
@@ -146,31 +147,31 @@ class OidcProviderService(BaseFrameworkObject):
         self._hasher = password_hasher
         self._settings = settings
 
-    def issuer_for(self, tenant: str) -> str:
-        """按租户派生 issuer（配置可含 `{tenant}` 占位）。
+    def issuer_for(self, tenant_code: str) -> str:
+        """按租户编码派生 issuer（配置可含 `{tenant}` 占位）。
 
         Args:
-            tenant: 租户编码。
+            tenant_code: 租户编码（外部 URL 形态）。
 
         Returns:
             str: issuer（无占位时原样返回）。
         """
         template = self._settings.issuer
         try:
-            return template.format(tenant=tenant)
+            return template.format(tenant=tenant_code)
         except KeyError, IndexError, ValueError:
             return template
 
-    async def discovery(self, tenant: str) -> dict[str, object]:
-        """构造 Discovery 文档（issuer 与端点按租户派生）。
+    async def discovery(self, tenant_code: str) -> dict[str, object]:
+        """构造 Discovery 文档（issuer 与端点按租户编码派生）。
 
         Args:
-            tenant: 租户编码。
+            tenant_code: 租户编码（外部 URL 形态）。
 
         Returns:
             dict[str, object]: OIDC Discovery 文档。
         """
-        issuer = self.issuer_for(tenant)
+        issuer = self.issuer_for(tenant_code)
         return build_discovery_document(
             issuer=issuer,
             authorization_endpoint=f"{issuer}/authorize",
@@ -182,7 +183,8 @@ class OidcProviderService(BaseFrameworkObject):
     async def authorize(
         self,
         *,
-        tenant: str,
+        tenant_id: str,
+        tenant_code: str,
         client_id: str | None,
         redirect_uri: str | None,
         response_type: str | None,
@@ -197,7 +199,8 @@ class OidcProviderService(BaseFrameworkObject):
         """授权端点：校验并签发授权码，返回回跳 URL。
 
         Args:
-            tenant: 生效租户编码。
+            tenant_id: 生效租户主键（雪花 id 字符串；授权码存储键与 claims 依据）。
+            tenant_code: 生效租户编码（issuer 派生）。
             client_id: 客户端标识（请求参数）。
             redirect_uri: 回跳地址（请求参数）。
             response_type: 响应类型（须为 `code`）。
@@ -228,7 +231,8 @@ class OidcProviderService(BaseFrameworkObject):
             client_id=client.client_id,
             redirect_uri=redirect_uri,
             subject=subject,
-            tenant=tenant,
+            tenant_id=tenant_id,
+            tenant_code=tenant_code,
             nonce=nonce or "",
             code_challenge=code_challenge or "",
             code_challenge_method=code_challenge_method or "",
@@ -238,7 +242,7 @@ class OidcProviderService(BaseFrameworkObject):
         await self._state.save(
             code,
             _code_payload(payload),
-            tenant=tenant,
+            tenant=tenant_id,
             ttl=self._settings.authorization_code_ttl_seconds,
             namespace=OIDC_CODE_NAMESPACE,
         )
@@ -248,7 +252,8 @@ class OidcProviderService(BaseFrameworkObject):
     async def token(
         self,
         *,
-        tenant: str,
+        tenant_id: str,
+        tenant_code: str,
         client_id: str | None,
         client_secret: str | None,
         grant_type: str | None,
@@ -259,7 +264,8 @@ class OidcProviderService(BaseFrameworkObject):
         """令牌端点：换码签发 ID Token 与 access token。
 
         Args:
-            tenant: 生效租户编码。
+            tenant_id: 生效租户主键（雪花 id 字符串；授权码存储键与 access token claims 依据）。
+            tenant_code: 生效租户编码（issuer 派生）。
             client_id: 客户端标识（basic 头解析后或表单传入）。
             client_secret: 客户端密钥（公共客户端为空）。
             grant_type: 授权类型（须为 `authorization_code`）。
@@ -281,14 +287,14 @@ class OidcProviderService(BaseFrameworkObject):
             raise OidcInvalidGrantError("缺少 client_id / code / redirect_uri")
         client = await self._load_client(client_id, invalid_client=True)
         self._authenticate(client, client_secret)
-        raw = await self._state.consume(code, tenant=tenant, namespace=OIDC_CODE_NAMESPACE)
+        raw = await self._state.consume(code, tenant=tenant_id, namespace=OIDC_CODE_NAMESPACE)
         record = code_from_payload(raw)
         if record.client_id != client.client_id or record.redirect_uri != redirect_uri:
             raise OidcInvalidGrantError("授权码与客户端 / 回跳地址不符")
         if record.code_challenge and not verify_pkce(record.code_challenge, code_verifier):
             raise OidcInvalidGrantError("PKCE 校验失败")
-        issuer = self.issuer_for(tenant)
-        profile = await self._org.user_profile(record.tenant, int(record.subject))
+        issuer = self.issuer_for(tenant_code)
+        profile = await self._org.user_profile(record.tenant_id, int(record.subject))
         if not profile.found or profile.user is None or profile.user.status != "enabled":
             raise OidcInvalidGrantError("用户不存在或不可用")
         id_token = await self._provider.issue_id_token(
@@ -306,7 +312,7 @@ class OidcProviderService(BaseFrameworkObject):
         access_token = await self._provider.issue_access_token(
             AccessTokenSpec(
                 subject=record.subject,
-                tenant=record.tenant,
+                tenant_id=record.tenant_id,
                 client_id=client.client_id,
                 issuer=issuer,
                 scopes=tuple(record.scope.split()) if record.scope else (),
@@ -320,11 +326,12 @@ class OidcProviderService(BaseFrameworkObject):
             scope=record.scope,
         )
 
-    async def userinfo(self, *, tenant: str, access_token: str) -> UserInfoResult:
+    async def userinfo(self, *, tenant_id: str, tenant_code: str, access_token: str) -> UserInfoResult:
         """用户信息端点：校验 access token 并取用户概要。
 
         Args:
-            tenant: 生效租户编码。
+            tenant_id: 生效租户主键（雪花 id 字符串；令牌租户比对与 org 调用依据）。
+            tenant_code: 生效租户编码（issuer 派生）。
             access_token: Bearer access token。
 
         Returns:
@@ -334,11 +341,11 @@ class OidcProviderService(BaseFrameworkObject):
             AuthError: 令牌非法 / 跨租户 / 用户不可用（20001/401）。
             ServiceUnavailableError: org 接口不可达（10007/503）。
         """
-        issuer = self.issuer_for(tenant)
+        issuer = self.issuer_for(tenant_code)
         claims = self._provider.verify_access_token(access_token, issuer=issuer)
-        if claims.tenant and claims.tenant != tenant:
+        if claims.tenant_id and claims.tenant_id != tenant_id:
             raise AuthError("令牌租户与请求租户不符")
-        profile = await self._org.user_profile(tenant, int(claims.subject))
+        profile = await self._org.user_profile(tenant_id, int(claims.subject))
         if not profile.found or profile.user is None or profile.user.status != "enabled":
             raise AuthError("用户不存在或不可用")
         return UserInfoResult(
@@ -538,7 +545,8 @@ def _code_payload(code: OidcCode) -> dict[str, object]:
         "client_id": code.client_id,
         "redirect_uri": code.redirect_uri,
         "subject": code.subject,
-        "tenant": code.tenant,
+        "tenant_id": code.tenant_id,
+        "tenant_code": code.tenant_code,
         "nonce": code.nonce,
         "code_challenge": code.code_challenge,
         "code_challenge_method": code.code_challenge_method,
@@ -566,7 +574,8 @@ def code_from_payload(raw: Mapping[str, object] | None) -> OidcCode:
             client_id=str(raw["client_id"]),
             redirect_uri=str(raw["redirect_uri"]),
             subject=str(raw["subject"]),
-            tenant=str(raw["tenant"]),
+            tenant_id=str(raw["tenant_id"]),
+            tenant_code=str(raw["tenant_code"]),
             nonce=str(raw.get("nonce", "")),
             code_challenge=str(raw.get("code_challenge", "")),
             code_challenge_method=str(raw.get("code_challenge_method", "")),

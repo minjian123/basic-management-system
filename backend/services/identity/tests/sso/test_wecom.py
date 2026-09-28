@@ -15,7 +15,7 @@ from sqlalchemy import select
 from bms_identity.models.user_identity import SysUserIdentity
 
 from .conftest import WECOM_REDIRECT_URI, SsoHarness
-from .helpers import TENANT, TENANT_HEADERS, WECOM_AGENT_ID, WECOM_CORP_ID, WECOM_IDP_KEY
+from .helpers import TENANT, TENANT_HEADERS, TENANT_ID, WECOM_AGENT_ID, WECOM_CORP_ID, WECOM_IDP_KEY
 
 AUTHORIZE_URL = f"/api/v1/auth/sso/{WECOM_IDP_KEY}/authorize-url"
 AUTHORIZE = f"/api/v1/auth/sso/{WECOM_IDP_KEY}/authorize"
@@ -61,7 +61,7 @@ async def test_wecom_authorize_url_and_302_and_end_to_end(client: AsyncClient, s
     async with sso.platform_scope() as session:
         rows = (await session.execute(select(SysUserIdentity))).scalars().all()
     assert [(row.idp_key, row.external_id, row.tenant_id) for row in rows] == [
-        (f"{TENANT}:{WECOM_IDP_KEY}", "wecom-alice", TENANT)
+        (f"{TENANT_ID}:{WECOM_IDP_KEY}", "wecom-alice", TENANT_ID)
     ]
     assert [event.event_type for event in sso.outbox.events] == ["identity.user.jit_created"]
 

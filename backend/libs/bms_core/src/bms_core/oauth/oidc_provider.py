@@ -128,8 +128,8 @@ class AccessTokenSpec(BaseOidcTokenSpecContract):
     subject: str
     """用户主体（BMS 用户 id 字符串）。"""
 
-    tenant: str = ""
-    """租户编码（claims `tenant_id`）。"""
+    tenant_id: str = ""
+    """租户主键（雪花 id 十进制字符串；claims `tenant_id`）。"""
 
     client_id: str = ""
     """客户端标识（claims `client_id`）。"""
@@ -151,8 +151,8 @@ class OidcAccessClaims(BaseTokenClaimsContract):
     subject: str
     """用户主体（`sub`）。"""
 
-    tenant: str = ""
-    """租户编码（claims `tenant_id`）。"""
+    tenant_id: str = ""
+    """租户主键（雪花 id 十进制字符串；claims `tenant_id`）。"""
 
     client_id: str = ""
     """客户端标识（claims `client_id`）。"""

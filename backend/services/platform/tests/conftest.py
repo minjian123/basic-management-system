@@ -22,6 +22,7 @@ from bms_platform.main import ApplicationFactory
 from ops.seed_module import seed_modules
 from ops.seed_tenant import seed_tenants
 from tests_support.auth import auth_headers, configure_token_env
+from tests_support.tenant_source import install_fake_tenant_source
 
 
 @pytest.fixture(autouse=True)
@@ -87,6 +88,12 @@ def platform_db(platform_db_url: str, monkeypatch: pytest.MonkeyPatch) -> Iterat
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()
+
+
+@pytest.fixture(autouse=True)
+def fake_tenant_source(monkeypatch: pytest.MonkeyPatch) -> None:
+    """租户源替身：应用装配时改注入 `FakeTenantSource`（令牌主键经 `by_id` 可解析）。"""
+    install_fake_tenant_source(monkeypatch)
 
 
 @pytest.fixture(autouse=True)

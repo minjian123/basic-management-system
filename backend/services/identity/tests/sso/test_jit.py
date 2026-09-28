@@ -40,7 +40,7 @@ from bms_identity.services.jit import (
 from bms_identity.services.org_client import OrgCredentialClient
 
 from .conftest import SsoHarness
-from .helpers import IDP_KEY, TENANT, TENANT_HEADERS, FakeSsoOrgClient
+from .helpers import IDP_KEY, TENANT, TENANT_HEADERS, TENANT_ID, FakeSsoOrgClient
 
 CALLBACK = f"/api/v1/auth/sso/{IDP_KEY}/callback"
 IDENTITY = ExternalIdentity(
@@ -117,6 +117,7 @@ def test_helpers_username_and_config() -> None:
 
 
 @pytest.mark.kiwi_id(2198)
+@pytest.mark.kiwi_id(2217)
 async def test_provision_creates_user_mapping_and_event() -> None:
     """首登：建号 + 写映射 + 同事务入发件箱（事件契约校验通过）。"""
     register_platform_event_contracts()
@@ -126,7 +127,8 @@ async def test_provision_creates_user_mapping_and_event() -> None:
     service = _service(org, outbox=outbox)
 
     result = await service.provision(
-        tenant=TENANT,
+        tenant_id=TENANT_ID,
+        tenant_code=TENANT,
         idp_key=IDP_KEY,
         config='{"jit_enabled": true}',
         identity=IDENTITY,
@@ -137,7 +139,7 @@ async def test_provision_creates_user_mapping_and_event() -> None:
 
     rows = (await session.execute(select(SysUserIdentity))).scalars().all()
     assert len(rows) == 1
-    assert rows[0].idp_key == f"{TENANT}:{IDP_KEY}"
+    assert rows[0].idp_key == f"{TENANT_ID}:{IDP_KEY}"
     assert rows[0].external_id == "sub-1"
     assert rows[0].user_id == result.user_id
 
@@ -146,7 +148,7 @@ async def test_provision_creates_user_mapping_and_event() -> None:
     event = events[0]
     assert event.event_type == JIT_EVENT_TYPE
     assert event.event_version == "1.0.0"
-    assert event.payload == {"user_id": str(result.user_id), "idp_key": f"{TENANT}:{IDP_KEY}"}
+    assert event.payload == {"user_id": str(result.user_id), "idp_key": f"{TENANT_ID}:{IDP_KEY}"}
     assert resolve_event_contract(JIT_EVENT_TYPE) is not None
     await engine.dispose()  # type: ignore[attr-defined]
 
@@ -155,13 +157,14 @@ async def test_provision_creates_user_mapping_and_event() -> None:
 async def test_provision_reuses_existing_mapping() -> None:
     """二次登录：锁内二次查命中映射直接复用，不再建号 / 不发事件。"""
     session, engine = await _platform_session()
-    session.add(SysUserIdentity(idp_key=f"{TENANT}:{IDP_KEY}", external_id="sub-1", tenant_id=TENANT, user_id=88))
+    session.add(SysUserIdentity(idp_key=f"{TENANT_ID}:{IDP_KEY}", external_id="sub-1", tenant_id=TENANT_ID, user_id=88))
     await session.commit()
     org = FakeSsoOrgClient()
     service = _service(org)
 
     result = await service.provision(
-        tenant=TENANT,
+        tenant_id=TENANT_ID,
+        tenant_code=TENANT,
         idp_key=IDP_KEY,
         config='{"jit_enabled": true}',
         identity=IDENTITY,
@@ -180,7 +183,8 @@ async def test_provision_disabled_and_whitelist() -> None:
     serviceless = _service(org)
     with pytest.raises(SsoIdentityUnmatchedError):
         await serviceless.provision(
-            tenant=TENANT,
+            tenant_id=TENANT_ID,
+            tenant_code=TENANT,
             idp_key=IDP_KEY,
             config="{}",
             identity=IDENTITY,
@@ -191,7 +195,8 @@ async def test_provision_disabled_and_whitelist() -> None:
     tenant_settings.sso.jit_allowed_tenants = ["other"]
     with pytest.raises(SsoIdentityUnmatchedError):
         await _service(org, settings=tenant_settings).provision(
-            tenant=TENANT,
+            tenant_id=TENANT_ID,
+            tenant_code=TENANT,
             idp_key=IDP_KEY,
             config='{"jit_enabled": true}',
             identity=IDENTITY,
@@ -200,7 +205,8 @@ async def test_provision_disabled_and_whitelist() -> None:
 
     with pytest.raises(SsoIdentityUnmatchedError):
         await _service(org).provision(
-            tenant=TENANT,
+            tenant_id=TENANT_ID,
+            tenant_code=TENANT,
             idp_key=IDP_KEY,
             config='{"jit_enabled": true, "allowed_email_domains": ["corp.com"]}',
             identity=ExternalIdentity(subject="sub-2", username="bob", email="bob@other.com"),
@@ -208,7 +214,8 @@ async def test_provision_disabled_and_whitelist() -> None:
         )
     with pytest.raises(SsoIdentityUnmatchedError):
         await _service(org).provision(
-            tenant=TENANT,
+            tenant_id=TENANT_ID,
+            tenant_code=TENANT,
             idp_key=IDP_KEY,
             config='{"jit_enabled": true, "allowed_email_domains": ["corp.com"]}',
             identity=ExternalIdentity(subject="sub-3", username="nobody"),
@@ -226,7 +233,8 @@ async def test_provision_username_suffix_and_exhaustion() -> None:
     org.users[2] = {"username": "alice_2", "name": "a", "status": "enabled", "locale": None, "timezone": None}
     service = _service(org)
     result = await service.provision(
-        tenant=TENANT,
+        tenant_id=TENANT_ID,
+        tenant_code=TENANT,
         idp_key=IDP_KEY,
         config='{"jit_enabled": true}',
         identity=ExternalIdentity(subject="sub-9", username="alice"),
@@ -240,7 +248,8 @@ async def test_provision_username_suffix_and_exhaustion() -> None:
         org.users[100 + index] = {"username": name, "name": "b", "status": "enabled", "locale": None, "timezone": None}
     with pytest.raises(SsoIdentityUnmatchedError):
         await service.provision(
-            tenant=TENANT,
+            tenant_id=TENANT_ID,
+            tenant_code=TENANT,
             idp_key=IDP_KEY,
             config='{"jit_enabled": true}',
             identity=ExternalIdentity(subject="sub-10", username="bob"),
@@ -256,10 +265,11 @@ async def test_provision_lock_conflict_and_org_unavailable() -> None:
     lock = MemoryDistributedLock()
     settings = Settings()
     settings.sso.jit_lock_wait_seconds = 0
-    await lock.acquire(build_lock_key(tenant=TENANT, resource=f"jit:{IDP_KEY}:sub-1"))
+    await lock.acquire(build_lock_key(tenant=TENANT_ID, resource=f"jit:{IDP_KEY}:sub-1"))
     with pytest.raises(SsoIdentityConflictError):
         await _service(FakeSsoOrgClient(), lock=lock, settings=settings).provision(
-            tenant=TENANT,
+            tenant_id=TENANT_ID,
+            tenant_code=TENANT,
             idp_key=IDP_KEY,
             config='{"jit_enabled": true}',
             identity=IDENTITY,
@@ -270,7 +280,8 @@ async def test_provision_lock_conflict_and_org_unavailable() -> None:
     org.fail_create = True
     with pytest.raises(SsoProviderUnavailableError):
         await _service(org).provision(
-            tenant=TENANT,
+            tenant_id=TENANT_ID,
+            tenant_code=TENANT,
             idp_key=IDP_KEY,
             config='{"jit_enabled": true}',
             identity=IDENTITY,
@@ -298,7 +309,8 @@ async def test_provision_mapping_integrity_conflict(
     monkeypatch.setattr(UserIdentityRepository, "create", fake_create)
 
     result = await _service(FakeSsoOrgClient()).provision(
-        tenant=TENANT,
+        tenant_id=TENANT_ID,
+        tenant_code=TENANT,
         idp_key=IDP_KEY,
         config='{"jit_enabled": true}',
         identity=IDENTITY,
@@ -314,7 +326,8 @@ async def test_provision_mapping_integrity_conflict(
     monkeypatch.setattr(UserIdentityRepository, "get_by_key_external", always_none)
     with pytest.raises(SsoIdentityConflictError):
         await _service(FakeSsoOrgClient()).provision(
-            tenant=TENANT,
+            tenant_id=TENANT_ID,
+            tenant_code=TENANT,
             idp_key=IDP_KEY,
             config='{"jit_enabled": true}',
             identity=IDENTITY,
@@ -332,7 +345,7 @@ async def test_jit_endpoint_end_to_end(client: AsyncClient, sso: SsoHarness) -> 
     assert first.status_code == 200 and first.json()["data"] == {"tenant": TENANT}
     async with sso.platform_scope() as session:
         rows = (await session.execute(select(SysUserIdentity))).scalars().all()
-    assert len(rows) == 1 and rows[0].idp_key == f"{TENANT}:{IDP_KEY}" and rows[0].external_id == "sub-1"
+    assert len(rows) == 1 and rows[0].idp_key == f"{TENANT_ID}:{IDP_KEY}" and rows[0].external_id == "sub-1"
     assert len(sso.outbox.events) == 1
     assert sso.outbox.events[0].event_type == JIT_EVENT_TYPE
 

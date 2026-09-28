@@ -152,7 +152,7 @@ class SessionService(BaseFrameworkObject):
 
         Args:
             session_id: 会话 id。
-            tenant: 租户编码（定位 Redis 标记键）。
+            tenant: 租户主键（雪花 id 字符串；定位 Redis 标记键）。
             actor: 操作者用户 ID（缺失记 system）。
 
         Returns:
@@ -190,7 +190,7 @@ class SessionService(BaseFrameworkObject):
 
         Args:
             session_id: 会话 id。
-            tenant: 租户编码（定位 Redis 标记键）。
+            tenant: 租户主键（雪花 id 字符串；定位 Redis 标记键）。
             reason: 撤销原因（`REASON_LOGOUT` / `REASON_KICK` / `REASON_MAX_ACTIVE`）。
             broadcast: 是否广播 `session.revoked`（踢出 / 超限 True，登出 False）。
 
@@ -214,7 +214,7 @@ class SessionService(BaseFrameworkObject):
 
         Args:
             user_id: 用户 ID。
-            tenant: 租户编码。
+            tenant: 租户主键（雪花 id 字符串；定位 Redis 标记键）。
             max_active: 活跃会话上限。
 
         Returns:
@@ -243,7 +243,7 @@ class SessionService(BaseFrameworkObject):
 
         Args:
             user_id: 用户 ID。
-            tenant: 租户编码（定位 Redis 标记键）。
+            tenant: 租户主键（雪花 id 字符串；定位 Redis 标记键）。
             reason: 撤销原因（`REASON_PASSWORD_RESET`）。
 
         Returns:
@@ -269,7 +269,7 @@ class SessionService(BaseFrameworkObject):
 
         Args:
             record: 已撤销的会话记录。
-            tenant: 租户编码。
+            tenant: 租户主键（雪花 id 字符串）。
             reason: 撤销原因。
             broadcast: 是否广播。
             now: 撤销时间（UTC）。
@@ -294,7 +294,7 @@ class SessionService(BaseFrameworkObject):
 
         Args:
             record: 会话记录。
-            tenant: 租户编码。
+            tenant: 租户主键（雪花 id 字符串）。
             now: 当前 UTC 时间。
         """
         ttl = _remaining_ttl(record.expires_at, now)

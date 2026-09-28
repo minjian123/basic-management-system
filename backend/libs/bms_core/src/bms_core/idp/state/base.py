@@ -46,7 +46,7 @@ def build_idp_state_key(state: str, *, tenant: str | None = None, namespace: str
 
     Args:
         state: 防 CSRF 的流程状态 / 一次性码（高熵随机串）。
-        tenant: 租户编码；None 表示无租户维度（global 域）。
+        tenant: 租户主键（雪花 id 十进制字符串）；None 表示无租户维度（global 域）。
         namespace: 命名空间（默认 `idpstate`；不同用途用独立命名空间隔离，互不覆盖）。
 
     Returns:
@@ -59,8 +59,11 @@ def build_idp_state_key(state: str, *, tenant: str | None = None, namespace: str
 class IdpFlowState(BaseValueObject):
     """SSO 流程状态载荷（授权跳转写入，回调一次性消费）。"""
 
-    tenant: str = ""
-    """租户编码（回调时校验请求上下文一致性）。"""
+    tenant_code: str = ""
+    """租户编码（对外展示 / 校验请求上下文一致性）。"""
+
+    tenant_id: str = ""
+    """租户主键（雪花 id 十进制字符串；内部键与资源定位依据）。"""
 
     idp_key: str = ""
     """IdP 标识（回调时校验路由与状态一致）。"""
@@ -101,7 +104,7 @@ class BaseIdpStateStore(BasePluggable, ABC):
         Args:
             state: 流程状态（state）。
             payload: 状态数据（`IdpFlowState` 字段）。
-            tenant: 租户编码（定位 `bms:{租户}:{命名空间}:{state}` 键；None 为 global 域）。
+            tenant: 租户主键（雪花 id 十进制字符串；定位 `bms:{租户}:{命名空间}:{state}` 键；None 为 global 域）。
             ttl: 有效期（秒，默认 `DEFAULT_IDP_STATE_TTL`）。
             namespace: 命名空间（默认 `idpstate`；不同用途独立隔离）。
         """
@@ -118,7 +121,7 @@ class BaseIdpStateStore(BasePluggable, ABC):
 
         Args:
             state: 流程状态（state）。
-            tenant: 租户编码（定位键；None 为 global 域）。
+            tenant: 租户主键（雪花 id 十进制字符串；定位键；None 为 global 域）。
             namespace: 命名空间（默认 `idpstate`）。
 
         Returns:
@@ -137,7 +140,7 @@ class BaseIdpStateStore(BasePluggable, ABC):
 
         Args:
             state: 流程状态（state）。
-            tenant: 租户编码（定位键；None 为 global 域）。
+            tenant: 租户主键（雪花 id 十进制字符串；定位键；None 为 global 域）。
             namespace: 命名空间（默认 `idpstate`）。
         """
 

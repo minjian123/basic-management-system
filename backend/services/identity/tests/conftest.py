@@ -15,12 +15,68 @@ from bms_core.core.context import (
     current_request_id,
     current_tenant,
     current_tenant_context_var,
+    current_tenant_id,
     current_trace_id,
     current_user_id,
 )
+from bms_core.db.tenant import DEMO_TENANT, TenantContext, TenantNotFoundError
 from bms_identity.main import ApplicationFactory
 from ops.seed_tenant import seed_tenants
 from tests_support.auth import auth_headers, configure_token_env
+
+DEMO_TENANT_ID = "1001"
+"""演示租户主键（雪花 id 字符串；与测试令牌 / 身份映射口径一致）。"""
+
+ACME_TENANT_ID = "2002"
+"""示例租户主键（雪花 id 字符串）。"""
+
+
+class _SeedTenantSource:
+    """身份服务单测租户源替身：返回带雪花主键的演示 / 示例租户上下文。
+
+    身份服务单测禁用真实跨服务调用（`service_client` 为 Null），远端租户契约不可达时
+    仅回落无主键的演示租户；而 `code → id` 边界解析要求租户上下文带主键，故用例统一注入本替身。
+    """
+
+    async def by_code(self, code: str) -> TenantContext:
+        """按编码取租户（demo / acme）。"""
+        for tenant in self._tenants().values():
+            if tenant.code == code:
+                return tenant
+        raise TenantNotFoundError(f"未知租户：{code}")
+
+    async def by_domain(self, domain: str) -> TenantContext:
+        """按子域名取租户（demo / acme）。"""
+        for tenant in self._tenants().values():
+            if tenant.domain == domain:
+                return tenant
+        raise TenantNotFoundError(f"未知租户域名：{domain}")
+
+    async def by_id(self, tenant_id: str) -> TenantContext:
+        """按租户主键（雪花 id 字符串）取租户。"""
+        for tenant in self._tenants().values():
+            if tenant.tenant_id is not None and str(tenant.tenant_id) == tenant_id:
+                return tenant
+        raise TenantNotFoundError(f"未知租户主键：{tenant_id}")
+
+    def _tenants(self) -> dict[str, TenantContext]:
+        """演示 / 示例租户上下文（带雪花主键与固定库键）。"""
+        return {
+            "demo": TenantContext(
+                code="demo",
+                db_key=DEMO_TENANT.db_key,
+                name="演示租户",
+                domain="demo.bms.example.com",
+                tenant_id=int(DEMO_TENANT_ID),
+            ),
+            "acme": TenantContext(
+                code="acme",
+                db_key="tenant_acme",
+                name="示例租户",
+                domain="acme.bms.example.com",
+                tenant_id=int(ACME_TENANT_ID),
+            ),
+        }
 
 
 @pytest.fixture(autouse=True)
@@ -101,6 +157,7 @@ def reset_request_context() -> Iterator[None]:
     current_request_id.set(None)
     current_client_ip.set(None)
     current_tenant.set(None)
+    current_tenant_id.set(None)
     current_tenant_context_var.set(None)
     current_user_id.set(None)
 
@@ -126,6 +183,7 @@ async def service_app() -> AsyncIterator[FastAPI]:
         object: FastAPI 应用实例。
     """
     app = ApplicationFactory().create(None)
+    app.state.tenant_source = _SeedTenantSource()
     clear_tenant_cache(app)
     try:
         async with app.router.lifespan_context(app):
@@ -141,5 +199,5 @@ async def client(service_app: FastAPI) -> AsyncIterator[AsyncClient]:
     平台库与租户种子由 autouse 的 `platform_db` 夹具提供；租户缓存用例前后清空。
     """
     async with AsyncClient(transport=ASGITransport(app=service_app), base_url="http://test") as c:
-        c.headers.update(auth_headers())
+        c.headers.update(auth_headers(tenant=DEMO_TENANT_ID))
         yield c

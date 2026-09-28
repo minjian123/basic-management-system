@@ -21,7 +21,7 @@ class UserIdentityRepository(BaseDbRepository[SysUserIdentity]):
         """按映射键与外部主体取映射行（登录回调定位本地用户）。
 
         Args:
-            idp_key: 映射键（`{tenant_code}:{provider_key}`）。
+            idp_key: 映射键（`{tenant_id}:{provider_key}`）。
             external_id: 外部身份主体（OIDC 取 `sub`）。
 
         Returns:
