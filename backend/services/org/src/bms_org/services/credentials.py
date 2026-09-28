@@ -11,12 +11,15 @@ import json
 from datetime import UTC, datetime, timedelta
 from typing import cast
 
+from bms_core.core.logging import get_logger
 from bms_core.db.unit_of_work import UnitOfWork
 from bms_core.password.base import BasePasswordPolicy
 from bms_core.password.null import NullPasswordPolicy
 from bms_core.security.base import BasePasswordHasher
 from bms_core.services.base_service import BaseService
+from bms_org.models.account_lock import LOCK_TYPE_FAIL_LIMIT, UNLOCK_MODE_AUTO
 from bms_org.models.user import SysUser
+from bms_org.repositories.account_lock import AccountLockRepository
 from bms_org.repositories.user import UserRepository
 from bms_org.schemas.credentials import (
     CredentialUserSummary,
@@ -24,6 +27,11 @@ from bms_org.schemas.credentials import (
     LoginStateResult,
     UpdatePasswordResult,
 )
+
+FAIL_LIMIT_REASON = "登录失败达阈值自动锁定"
+"""`fail_limit` 型锁定原因文案。"""
+
+_LOGGER = get_logger("bms")
 
 
 def _utc_now() -> datetime:
@@ -44,6 +52,7 @@ class CredentialService(BaseService[SysUser]):
         hasher: BasePasswordHasher,
         uow: UnitOfWork,
         policy: BasePasswordPolicy | None = None,
+        locks: AccountLockRepository | None = None,
     ) -> None:
         """初始化。
 
@@ -52,11 +61,13 @@ class CredentialService(BaseService[SysUser]):
             hasher: 口令哈希实现（PBKDF2）。
             uow: 工作单元（写事务边界）。
             policy: 密码策略（复杂度 / 有效期 / 历史；缺省 `NullPasswordPolicy` 恒定通过，向后兼容）。
+            locks: 账号锁定记录仓储（登录态写回时写 `fail_limit` 锁；缺省 None 跳过，向后兼容）。
         """
         super().__init__(repository)
         self._uow = uow
         self._hasher = hasher
         self._policy = policy or NullPasswordPolicy()
+        self._locks = locks
 
     async def verify(self, account: str, password: str) -> CredentialVerifyResult:
         """校验账号口令（命中且参数过期时同事务内重算回写；超有效期置强制改密标志）。
@@ -154,7 +165,7 @@ class CredentialService(BaseService[SysUser]):
             account: 登录账号。
             success: 本次登录是否成功。
             failed_count: 失败计数（登录侧 Redis 计数结果；成功时忽略）。
-            lock_seconds: 锁定时长（秒；>0 且失败时写 `locked_until`）。
+            lock_seconds: 锁定时长（秒；>0 且失败时写 `locked_until` 并落 `fail_limit` 锁）。
 
         Returns:
             LoginStateResult: 当前失败计数 / 锁定到期 / 最近登录时间。
@@ -166,13 +177,57 @@ class CredentialService(BaseService[SysUser]):
             now = _utc_now()
             if success:
                 await self._repo().update(user.id, failed_count=0, locked_until=None, last_login_at=now)
+                await self._close_expired_fail_limit(user.id, now)
                 return LoginStateResult(failed_count=0, locked_until=None, last_login_at=now)
             count = user.failed_count if failed_count is None else failed_count
             locked_until = (
                 now + timedelta(seconds=lock_seconds) if lock_seconds and lock_seconds > 0 else user.locked_until
             )
             await self._repo().update(user.id, failed_count=count, locked_until=locked_until)
+            if lock_seconds and lock_seconds > 0:
+                await self._write_fail_limit_lock(user.id, now=now, lock_seconds=lock_seconds)
             return LoginStateResult(failed_count=count, locked_until=locked_until, last_login_at=user.last_login_at)
+
+    async def _write_fail_limit_lock(self, user_id: int, *, now: datetime, lock_seconds: int) -> None:
+        """写 `fail_limit` 锁定记录（已有生效锁则幂等跳过）。
+
+        Args:
+            user_id: 用户主键。
+            now: 当前时间（UTC naive）。
+            lock_seconds: 锁定时长（秒）。
+        """
+        if self._locks is None:
+            return
+        if await self._locks.get_active_by_user(user_id, now=now) is not None:
+            return
+        lock = await self._locks.create(
+            user_id=user_id,
+            lock_type=LOCK_TYPE_FAIL_LIMIT,
+            reason=FAIL_LIMIT_REASON,
+            locked_at=now,
+            expire_at=now + timedelta(seconds=lock_seconds),
+        )
+        _LOGGER.info("account.lock", lock_id=lock.id, user_id=user_id, lock_type=LOCK_TYPE_FAIL_LIMIT)
+
+    async def _close_expired_fail_limit(self, user_id: int, now: datetime) -> None:
+        """登录成功写回时关闭已到期的 `fail_limit` 锁记录（自动解锁留痕）。
+
+        Args:
+            user_id: 用户主键。
+            now: 当前时间（UTC naive）。
+        """
+        if self._locks is None:
+            return
+        lock = await self._locks.get_open_by_user(user_id, lock_type=LOCK_TYPE_FAIL_LIMIT)
+        if lock is None or lock.expire_at is None or lock.expire_at > now:
+            return
+        await self._locks.update(
+            lock.id,
+            unlock_at=lock.expire_at,
+            unlock_by=None,
+            unlock_mode=UNLOCK_MODE_AUTO,
+        )
+        _LOGGER.info("account.lock.auto", lock_id=lock.id, user_id=user_id)
 
     def _repo(self) -> UserRepository:
         """取用户仓储（泛型收窄）。

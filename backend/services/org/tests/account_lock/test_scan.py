@@ -130,6 +130,7 @@ async def test_scan_locks_inactive_and_never_logged_in() -> None:
 
     lock = await AccountLockRepository(session).get_active_by_user(stale.id)
     assert lock is not None and lock.lock_type == LOCK_TYPE_INACTIVE and lock.locked_at == _NOW
+    assert lock.expire_at is None and lock.unlock_at is None
     await engine.dispose()
 
 

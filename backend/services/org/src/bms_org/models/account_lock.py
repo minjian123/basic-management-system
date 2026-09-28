@@ -3,6 +3,8 @@
 - 数据所有权：**组织主数据服务**（与 `sys_user` 同库；锁定记录与账号状态一致）。
 - `lock_type` 三型：`fail_limit`（登录失败触发，认证链路写入）/ `inactive`（长期未登录扫描写入）/
   `manual`（管理员手动锁定）；本模块（阶段六 03_07）负责任务扩展与手动解锁，`inactive` 由 03_05 写入。
+- 活跃锁判定：`unlock_at IS NULL AND (expire_at IS NULL OR expire_at > now)`——`fail_limit` 到期即视为非生效，
+  `inactive` / `manual`（`expire_at=NULL`）须手动解锁。
 - 表结构以《数据库设计》数据表文件为唯一事实源（`sys_account_lock`）。
 """
 
@@ -25,9 +27,18 @@ LOCK_TYPE_MANUAL = "manual"
 LOCK_TYPES: tuple[str, ...] = (LOCK_TYPE_FAIL_LIMIT, LOCK_TYPE_INACTIVE, LOCK_TYPE_MANUAL)
 """锁定类型取值清单。"""
 
+UNLOCK_MODE_MANUAL = "manual"
+"""解锁方式：管理员手动解锁。"""
+
+UNLOCK_MODE_AUTO = "auto"
+"""解锁方式：锁定到期自动解锁。"""
+
+UNLOCK_MODES: tuple[str, ...] = (UNLOCK_MODE_MANUAL, UNLOCK_MODE_AUTO)
+"""解锁方式取值清单。"""
+
 
 class SysAccountLock(BaseModel):
-    """账号锁定记录（`sys_account_lock`）：锁定类型 / 原因 / 时间 / 操作人与解锁信息。"""
+    """账号锁定记录（`sys_account_lock`）：锁定类型 / 原因 / 时间 / 期限 / 操作人与解锁信息。"""
 
     __tablename__ = "sys_account_lock"
     __table_args__ = (
@@ -41,7 +52,13 @@ class SysAccountLock(BaseModel):
     reason: Mapped[str | None] = mapped_column(String(255), nullable=True, comment="锁定原因")
     locked_at: Mapped[datetime] = mapped_column(DateTime, comment="锁定时间（UTC）")
     locked_by: Mapped[int | None] = mapped_column(
-        BigInteger, nullable=True, comment="锁定操作人（inactive / 系统触发为 NULL）"
+        BigInteger, nullable=True, comment="锁定操作人（inactive / fail_limit 系统触发为 NULL）"
+    )
+    expire_at: Mapped[datetime | None] = mapped_column(
+        DateTime, nullable=True, comment="锁定到期时间（UTC；NULL=需手动解锁）"
     )
     unlock_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, comment="解锁时间（UTC；NULL=未解锁）")
-    unlock_by: Mapped[int | None] = mapped_column(BigInteger, nullable=True, comment="解锁操作人（NULL=未解锁）")
+    unlock_by: Mapped[int | None] = mapped_column(BigInteger, nullable=True, comment="解锁操作人（自动解锁为 NULL）")
+    unlock_mode: Mapped[str | None] = mapped_column(
+        String(16), nullable=True, comment="解锁方式（manual/auto；NULL=未解锁）"
+    )
