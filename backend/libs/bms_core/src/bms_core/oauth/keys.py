@@ -16,8 +16,8 @@ from typing import cast
 
 from joserfc.jwk import ECKey, KeyParameters, KeySet, RSAKey
 
-from bms_core.core.base import BaseObject
 from bms_core.core.exceptions import ConfigError
+from bms_core.core.objects import BaseValueObject
 from bms_core.idp.jwks import DEFAULT_ALGORITHMS
 
 __all__ = [
@@ -39,7 +39,7 @@ _RSA_PREFIX = "RS"
 
 
 @dataclass(frozen=True)
-class TokenKey(BaseObject):
+class TokenKey(BaseValueObject):
     """服务 JWT 签名 / 验签密钥（kid 为映射键，公私钥 PEM 均由配置注入）。"""
 
     kid: str

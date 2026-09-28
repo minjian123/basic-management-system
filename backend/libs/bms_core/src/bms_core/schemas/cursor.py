@@ -16,8 +16,8 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from typing import cast
 
-from bms_core.core.base import BaseObject
 from bms_core.core.exceptions import ParamError
+from bms_core.core.objects import BaseValueObject
 from bms_core.schemas.sorting import SortDirection, SortSpec
 
 CURSOR_VERSION = 1
@@ -29,7 +29,7 @@ _DATE_TYPE = "date"
 
 
 @dataclass(frozen=True)
-class CursorPayload(BaseObject):
+class CursorPayload(BaseValueObject):
     """游标载荷（排序规格指纹 + 末行排序键值 + 主键）。"""
 
     specs: tuple[tuple[str, str], ...]

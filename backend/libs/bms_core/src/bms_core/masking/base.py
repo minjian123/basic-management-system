@@ -15,10 +15,10 @@ from typing import cast
 
 from fastapi import Request
 
-from bms_core.core.base import BaseObject
 from bms_core.core.config import Settings
 from bms_core.core.context import reset_current_masker, set_current_masker
 from bms_core.core.exceptions import PluginError
+from bms_core.core.objects import BaseValueObject
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 from bms_core.permission.base import BasePermissionChecker
 
@@ -36,7 +36,7 @@ MaskStrategy = Callable[[str, str], str]
 
 
 @dataclass(frozen=True)
-class MaskRule(BaseObject):
+class MaskRule(BaseValueObject):
     """字段掩码登记项：字段名 + 掩码策略。"""
 
     field: str

@@ -17,8 +17,8 @@ from typing import cast
 
 from fastapi import Request
 
-from bms_core.core.base import BaseObject
 from bms_core.core.config import Settings
+from bms_core.core.objects import BaseValueObject
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 
 __all__ = [
@@ -56,7 +56,7 @@ def build_idp_state_key(state: str, *, tenant: str | None = None, namespace: str
 
 
 @dataclass(frozen=True)
-class IdpFlowState(BaseObject):
+class IdpFlowState(BaseValueObject):
     """SSO 流程状态载荷（授权跳转写入，回调一次性消费）。"""
 
     tenant: str = ""

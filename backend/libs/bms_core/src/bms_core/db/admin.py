@@ -21,8 +21,8 @@ from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.pool import NullPool
 
-from bms_core.core.base import BaseObject
 from bms_core.core.exceptions import ConfigError
+from bms_core.core.objects import BaseValueObject
 
 _SQLITE = "sqlite"
 _DM = "dm"
@@ -37,7 +37,7 @@ _PG_ADMIN_DATABASE = "postgres"
 
 
 @dataclass(frozen=True)
-class DatabaseTarget(BaseObject):
+class DatabaseTarget(BaseValueObject):
     """建删库目标解析结果（方言 / 目标名 / 目标连接串 / 管理连接串）。"""
 
     dialect: str

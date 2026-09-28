@@ -19,9 +19,9 @@ from typing import cast
 
 from fastapi import Request
 
-from bms_core.core.base import BaseObject
 from bms_core.core.config import Settings
 from bms_core.core.exceptions import RateLimitError
+from bms_core.core.objects import BaseValueObject
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 
 RATE_KEY_PREFIX = "bms"
@@ -52,7 +52,7 @@ def build_rate_limit_key(*, dimension: str, target: str, tenant: str | None = No
 
 
 @dataclass(frozen=True)
-class RateLimitRule(BaseObject):
+class RateLimitRule(BaseValueObject):
     """限流规则：窗口内允许的最大次数。"""
 
     limit: int
@@ -63,7 +63,7 @@ class RateLimitRule(BaseObject):
 
 
 @dataclass(frozen=True)
-class RateLimitDecision(BaseObject):
+class RateLimitDecision(BaseValueObject):
     """限流判定结果（供放行判断与 `X-RateLimit-*` 响应头）。"""
 
     allowed: bool

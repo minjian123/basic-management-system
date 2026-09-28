@@ -42,9 +42,9 @@ from sqlalchemy.engine import Engine, make_url
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.pool import NullPool
 
-from bms_core.core.base import BaseObject
 from bms_core.core.config import get_settings
 from bms_core.core.exceptions import ConfigError
+from bms_core.core.objects import BaseValueObject
 from bms_core.db.admin import create_database, resolve_target
 from bms_core.db.engine import EngineFactory
 from bms_core.db.keys import (
@@ -64,7 +64,7 @@ _DM = "dm"
 
 
 @dataclass(frozen=True)
-class ProvisionTask(BaseObject):
+class ProvisionTask(BaseValueObject):
     """单个建库任务（库类别 / 服务 / 租户 / 库键 / 连接串）。"""
 
     kind: str

@@ -16,8 +16,8 @@ from typing import cast
 
 from fastapi import Request
 
-from bms_core.core.base import BaseObject
 from bms_core.core.config import Settings
+from bms_core.core.objects import BaseValueObject
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 
 __all__ = [
@@ -32,7 +32,7 @@ REALTIME_EVENTS: tuple[str, ...] = ("approval.todo", "notification.new", "sessio
 
 
 @dataclass(frozen=True)
-class RealtimeEvent(BaseObject):
+class RealtimeEvent(BaseValueObject):
     """推送事件（目标三选一：用户 / 会话 / 房间）。"""
 
     event: str

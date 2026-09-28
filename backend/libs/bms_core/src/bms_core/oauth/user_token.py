@@ -24,8 +24,8 @@ from typing import cast
 
 from fastapi import Request
 
-from bms_core.core.base import BaseObject
 from bms_core.core.config import Settings
+from bms_core.core.objects import BaseValueObject
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 from bms_core.idp.base import IdentityClaims
 from bms_core.oauth.base import TOKEN_TYPE_BEARER
@@ -55,7 +55,7 @@ DEFAULT_USER_TOKEN_ISSUER = "bms"
 
 
 @dataclass(frozen=True)
-class UserTokenSpec(BaseObject):
+class UserTokenSpec(BaseValueObject):
     """用户令牌签发请求（access 与 refresh 一次签出、同 `jti`）。"""
 
     subject: str
@@ -72,7 +72,7 @@ class UserTokenSpec(BaseObject):
 
 
 @dataclass(frozen=True)
-class UserTokenPair(BaseObject):
+class UserTokenPair(BaseValueObject):
     """用户双 token 签发结果（access + refresh）。"""
 
     access_token: str

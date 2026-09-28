@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
 
-from bms_core.core.base import BaseObject
+from bms_core.core.objects import BaseValueObject
 
 __all__ = [
     "DEFAULT_EXCEPTIONS_RELATIVE",
@@ -55,7 +55,7 @@ _REQUIRED_FIELDS: tuple[str, ...] = (
 
 
 @dataclass(frozen=True)
-class OwnershipException(BaseObject):
+class OwnershipException(BaseValueObject):
     """一条读侧出口例外登记。"""
 
     service: str

@@ -11,13 +11,13 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bms_core.config.models import SysConfig
-from bms_core.core.base import BaseObject
+from bms_core.core.objects import BaseValueObject
 
 __all__ = ["PLATFORM_CONFIG_DEFAULTS", "SeedConfig", "seed_configs"]
 
 
 @dataclass(frozen=True)
-class SeedConfig(BaseObject):
+class SeedConfig(BaseValueObject):
     """平台默认参数项。"""
 
     config_key: str

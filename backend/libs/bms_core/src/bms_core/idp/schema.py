@@ -15,8 +15,8 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import cast
 
-from bms_core.core.base import BaseObject
 from bms_core.core.exceptions import IdpConfigInvalidError
+from bms_core.core.objects import BaseValueObject
 from bms_core.idp.ssrf import validate_browser_url, validate_outbound_url
 
 __all__ = [
@@ -30,7 +30,7 @@ _SECRET_REF_RE = re.compile(r"env:[A-Za-z_][A-Za-z0-9_]*")
 
 
 @dataclass(frozen=True)
-class _KeyRule(BaseObject):
+class _KeyRule(BaseValueObject):
     """配置键规格：值类型 + 可选枚举取值。"""
 
     kind: str

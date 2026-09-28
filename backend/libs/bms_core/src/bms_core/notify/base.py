@@ -17,8 +17,8 @@ from typing import cast
 
 from fastapi import Request
 
-from bms_core.core.base import BaseObject
 from bms_core.core.config import Settings
+from bms_core.core.objects import BaseValueObject
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 
 __all__ = [
@@ -48,7 +48,7 @@ class NotifyChannel(StrEnum):
 
 
 @dataclass(frozen=True)
-class NotificationMessage(BaseObject):
+class NotificationMessage(BaseValueObject):
     """通知消息（内容已按收件人 locale 渲染）。"""
 
     channel: NotifyChannel
@@ -71,7 +71,7 @@ class NotificationMessage(BaseObject):
 
 
 @dataclass(frozen=True)
-class SendResult(BaseObject):
+class SendResult(BaseValueObject):
     """发送结果。"""
 
     delivered: bool

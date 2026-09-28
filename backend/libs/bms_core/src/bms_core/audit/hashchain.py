@@ -18,8 +18,8 @@ from typing import cast
 
 from fastapi import Request
 
-from bms_core.core.base import BaseObject
 from bms_core.core.config import Settings
+from bms_core.core.objects import BaseValueObject
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 
 __all__ = [
@@ -60,7 +60,7 @@ def build_chain_key(*, service: str, tenant: str | None = None) -> str:
 
 
 @dataclass(frozen=True)
-class HashChainEntry(BaseObject):
+class HashChainEntry(BaseValueObject):
     """链上一条记录。"""
 
     prev_hash: str
@@ -74,7 +74,7 @@ class HashChainEntry(BaseObject):
 
 
 @dataclass(frozen=True)
-class ChainVerifyResult(BaseObject):
+class ChainVerifyResult(BaseValueObject):
     """链校验结果。"""
 
     valid: bool

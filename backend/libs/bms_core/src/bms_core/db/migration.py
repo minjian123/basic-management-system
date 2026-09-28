@@ -36,9 +36,9 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.pool import NullPool
 
 from alembic import command
-from bms_core.core.base import BaseObject
 from bms_core.core.config import Settings, get_settings
 from bms_core.core.exceptions import ConfigError
+from bms_core.core.objects import BaseValueObject
 from bms_core.db.keys import PLATFORM_SERVICE_KEY, build_platform_db_key
 from bms_core.models.base import Base
 from bms_core.services.table_registry import chain_tables, known_service_keys
@@ -114,7 +114,7 @@ _DM = "dm"
 
 
 @dataclass(frozen=True)
-class MigrationChain(BaseObject):
+class MigrationChain(BaseValueObject):
     """迁移链定义（服务 × 数据源 → 版本目录 / 表集 / 分支标签）。"""
 
     name: str

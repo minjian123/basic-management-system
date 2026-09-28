@@ -22,8 +22,8 @@ from typing import cast
 
 from fastapi import Request
 
-from bms_core.core.base import BaseObject
 from bms_core.core.config import Settings
+from bms_core.core.objects import BaseValueObject
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 
 __all__ = [
@@ -93,7 +93,7 @@ DEFAULT_IDP_ACCESS_TTL = 300
 
 
 @dataclass(frozen=True)
-class IdTokenSpec(BaseObject):
+class IdTokenSpec(BaseValueObject):
     """ID Token 签发请求（`aud=client_id`）。"""
 
     subject: str
@@ -122,7 +122,7 @@ class IdTokenSpec(BaseObject):
 
 
 @dataclass(frozen=True)
-class AccessTokenSpec(BaseObject):
+class AccessTokenSpec(BaseValueObject):
     """IdP access token 签发请求（`aud=userinfo`）。"""
 
     subject: str
@@ -145,7 +145,7 @@ class AccessTokenSpec(BaseObject):
 
 
 @dataclass(frozen=True)
-class OidcAccessClaims(BaseObject):
+class OidcAccessClaims(BaseValueObject):
     """IdP access token 校验结果（`/userinfo` 消费）。"""
 
     subject: str

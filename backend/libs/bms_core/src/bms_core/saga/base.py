@@ -22,9 +22,9 @@ from typing import cast
 
 from fastapi import Request
 
-from bms_core.core.base import BaseObject
 from bms_core.core.config import Settings
 from bms_core.core.exceptions import ParamError
+from bms_core.core.objects import BaseValueObject
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 from bms_core.db.sync import DbSession
 from bms_core.events.base import EventEnvelope
@@ -71,7 +71,7 @@ SagaAction = Callable[[DbSession], Awaitable[None]]
 
 
 @dataclass(frozen=True)
-class SagaStep(BaseObject):
+class SagaStep(BaseValueObject):
     """Saga 步骤：TCC 三态事件类型的声明式配对。"""
 
     name: str
@@ -114,7 +114,7 @@ class SagaStep(BaseObject):
 
 
 @dataclass(frozen=True)
-class SagaDefinition(BaseObject):
+class SagaDefinition(BaseValueObject):
     """Saga 流程定义：定义键 + 步骤清单（声明式，协同式下不含中心状态）。"""
 
     key: str
@@ -150,7 +150,7 @@ class SagaDefinition(BaseObject):
 
 
 @dataclass(frozen=True)
-class SagaStepOutcome(BaseObject):
+class SagaStepOutcome(BaseValueObject):
     """步骤执行结果（幂等判定与排障用）。"""
 
     kind: str

@@ -18,8 +18,8 @@ from typing import cast
 
 from fastapi import Request
 
-from bms_core.core.base import BaseObject
 from bms_core.core.config import Settings
+from bms_core.core.objects import BaseValueObject
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 
 __all__ = [
@@ -49,7 +49,7 @@ NULL_OCR_TEXT = "null-ocr-text"
 
 
 @dataclass(frozen=True)
-class ChatMessage(BaseObject):
+class ChatMessage(BaseValueObject):
     """对话消息。"""
 
     content: str
@@ -60,7 +60,7 @@ class ChatMessage(BaseObject):
 
 
 @dataclass(frozen=True)
-class ChatResult(BaseObject):
+class ChatResult(BaseValueObject):
     """对话结果。"""
 
     content: str
@@ -74,7 +74,7 @@ class ChatResult(BaseObject):
 
 
 @dataclass(frozen=True)
-class EmbeddingResult(BaseObject):
+class EmbeddingResult(BaseValueObject):
     """向量化结果。"""
 
     vectors: tuple[tuple[float, ...], ...]
@@ -88,7 +88,7 @@ class EmbeddingResult(BaseObject):
 
 
 @dataclass(frozen=True)
-class OcrResult(BaseObject):
+class OcrResult(BaseValueObject):
     """识别结果。"""
 
     text: str

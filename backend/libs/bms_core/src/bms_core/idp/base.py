@@ -20,9 +20,9 @@ from typing import cast
 
 from fastapi import Request
 
-from bms_core.core.base import BaseObject
 from bms_core.core.config import Settings
 from bms_core.core.exceptions import ConfigError
+from bms_core.core.objects import BaseValueObject
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 
 __all__ = [
@@ -40,7 +40,7 @@ IDP_PROTOCOLS: tuple[str, ...] = ("oidc", "cas", "wecom", "dingtalk")
 
 
 @dataclass(frozen=True)
-class IdentityToken(BaseObject):
+class IdentityToken(BaseValueObject):
     """身份源令牌。"""
 
     access_token: str
@@ -68,7 +68,7 @@ class IdentityToken(BaseObject):
 
 
 @dataclass(frozen=True)
-class IdentityUser(BaseObject):
+class IdentityUser(BaseValueObject):
     """身份源用户。"""
 
     subject: str
@@ -91,7 +91,7 @@ class IdentityUser(BaseObject):
 
 
 @dataclass(frozen=True)
-class IdentityClaims(BaseObject):
+class IdentityClaims(BaseValueObject):
     """票据校验后的身份声明（JWT 经 JWKS 验签结果；`payload` 为完整声明）。"""
 
     subject: str
@@ -117,7 +117,7 @@ class IdentityClaims(BaseObject):
 
 
 @dataclass(frozen=True)
-class IdpProbeResult(BaseObject):
+class IdpProbeResult(BaseValueObject):
     """身份源连通性探测结果（管理面连通性测试消费）。
 
     `detail` 只放**摘要诊断**（状态码 / 错误类别 / errcode 数值），不含原始报文、密钥或环境变量名。

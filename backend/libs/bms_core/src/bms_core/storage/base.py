@@ -27,8 +27,8 @@ from typing import cast
 from fastapi import Request
 from pydantic import Field
 
-from bms_core.core.base import BaseObject
 from bms_core.core.config import Settings
+from bms_core.core.objects import BaseValueObject
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 from bms_core.schemas.base import BaseSchema
 
@@ -71,7 +71,7 @@ NULL_UPLOAD_ID = "null-upload-id"
 
 
 @dataclass(frozen=True)
-class StoredObject(BaseObject):
+class StoredObject(BaseValueObject):
     """对象元数据。"""
 
     key: str
@@ -88,7 +88,7 @@ class StoredObject(BaseObject):
 
 
 @dataclass(frozen=True)
-class PresignedUrl(BaseObject):
+class PresignedUrl(BaseValueObject):
     """预签名结果。"""
 
     url: str

@@ -18,8 +18,8 @@ from typing import cast
 
 from fastapi import Request
 
-from bms_core.core.base import BaseObject
 from bms_core.core.config import Settings
+from bms_core.core.objects import BaseValueObject
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 
 __all__ = [
@@ -45,7 +45,7 @@ NULL_SEARCH_HIT_ID = "null-search-hit"
 
 
 @dataclass(frozen=True)
-class SearchDocument(BaseObject):
+class SearchDocument(BaseValueObject):
     """待索引文档（`tenant_id` 由实现从上下文注入，不在本契约显式声明）。"""
 
     index: str
@@ -59,7 +59,7 @@ class SearchDocument(BaseObject):
 
 
 @dataclass(frozen=True)
-class SearchQuery(BaseObject):
+class SearchQuery(BaseValueObject):
     """检索请求。"""
 
     index: str
@@ -79,7 +79,7 @@ class SearchQuery(BaseObject):
 
 
 @dataclass(frozen=True)
-class SearchHit(BaseObject):
+class SearchHit(BaseValueObject):
     """命中项（只含 id / 分数 / 高亮，详情回查数据库）。"""
 
     id: str
@@ -93,7 +93,7 @@ class SearchHit(BaseObject):
 
 
 @dataclass(frozen=True)
-class SearchResult(BaseObject):
+class SearchResult(BaseValueObject):
     """检索结果。"""
 
     hits: tuple[SearchHit, ...]

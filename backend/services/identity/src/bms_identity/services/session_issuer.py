@@ -15,6 +15,7 @@ from datetime import UTC, datetime, timedelta
 
 from bms_core.core.base import BaseObject
 from bms_core.core.config import SessionSettings
+from bms_core.core.objects import BaseValueObject
 from bms_core.db.session import DbSession
 from bms_core.db.unit_of_work import UnitOfWork
 from bms_core.oauth.base import TOKEN_TYPE_BEARER
@@ -62,7 +63,7 @@ def truncate_field(value: str | None, limit: int) -> str | None:
 
 
 @dataclass(frozen=True)
-class IssuedSession(BaseObject):
+class IssuedSession(BaseValueObject):
     """会话签发结果（双 token + 会话 id，供下发 cookie 与响应体）。"""
 
     access_token: str

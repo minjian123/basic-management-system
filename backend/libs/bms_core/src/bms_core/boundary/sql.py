@@ -10,7 +10,7 @@
 import re
 from dataclasses import dataclass
 
-from bms_core.core.base import BaseObject
+from bms_core.core.objects import BaseValueObject
 
 __all__ = ["TableRef", "analyze", "extract_tables", "operation_of"]
 
@@ -36,7 +36,7 @@ _TABLE_PATTERNS: tuple[re.Pattern[str], ...] = (
 
 
 @dataclass(frozen=True)
-class TableRef(BaseObject):
+class TableRef(BaseValueObject):
     """SQL 中引用的表（表名 + 操作）。"""
 
     table: str

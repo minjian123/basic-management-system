@@ -20,6 +20,7 @@ import httpx
 
 from bms_core.core.base import BaseObject
 from bms_core.core.exceptions import ConfigError, DingtalkConfigError, WecomConfigError
+from bms_core.core.objects import BaseValueObject
 from bms_core.idp.base import BaseIdentityProvider
 from bms_core.idp.cas import CasIdentityProvider, normalize_attribute_map
 from bms_core.idp.dingtalk import DingtalkIdentityProvider
@@ -34,7 +35,7 @@ __all__ = [
 
 
 @dataclass(frozen=True)
-class IdentityProviderSpec(BaseObject):
+class IdentityProviderSpec(BaseValueObject):
     """IdP 行配置视图（authorize / callback 按行构造实例）。"""
 
     id: int = 0

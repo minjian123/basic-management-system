@@ -25,7 +25,6 @@ from typing import Any, cast
 
 from fastapi import Request
 
-from bms_core.core.base import BaseObject
 from bms_core.core.config import Settings
 from bms_core.core.context import (
     get_current_span_id,
@@ -35,6 +34,7 @@ from bms_core.core.context import (
     set_current_span_id,
     set_current_trace_id,
 )
+from bms_core.core.objects import BaseValueObject
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 
 __all__ = [
@@ -84,7 +84,7 @@ def new_span_id() -> str:
 
 
 @dataclass(frozen=True)
-class SpanContext(BaseObject):
+class SpanContext(BaseValueObject):
     """span 上下文：链路 id / span id / 父 span / 名称 / 属性。"""
 
     trace_id: str

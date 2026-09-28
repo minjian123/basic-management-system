@@ -25,6 +25,7 @@ from typing import cast
 
 from bms_core.core.base import BaseObject
 from bms_core.core.exceptions import EventContractError
+from bms_core.core.objects import BaseValueObject
 from bms_core.core.version import contract_major
 from bms_core.events.base import DEFAULT_EVENT_VERSION, EventEnvelope
 
@@ -96,7 +97,7 @@ EVENT_SNAPSHOT_PATH = "deploy/events/contracts.json"
 
 
 @dataclass(frozen=True)
-class EventFieldSpec(BaseObject):
+class EventFieldSpec(BaseValueObject):
     """事件载荷字段规格（对外字段的契约声明）。"""
 
     type: str = "string"
@@ -127,7 +128,7 @@ class EventFieldSpec(BaseObject):
 
 
 @dataclass(frozen=True)
-class EventContract(BaseObject):
+class EventContract(BaseValueObject):
     """事件契约：事件类型 + 契约版本 + 载荷字段规格 + 说明 + 弃用标记。"""
 
     event_type: str
@@ -198,7 +199,7 @@ class EventContract(BaseObject):
 
 
 @dataclass(frozen=True)
-class EventSubscription(BaseObject):
+class EventSubscription(BaseValueObject):
     """事件订阅：消费方对某事件的支持声明（消费标识 + 支持主版本集合）。"""
 
     consumer: str
