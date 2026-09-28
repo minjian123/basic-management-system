@@ -200,7 +200,7 @@ def build_saga_event(
         kind: 步骤态（`try` / `confirm` / `cancel`）。
         payload: 事件载荷。
         saga_id: Saga 实例标识（同 Saga 事件的聚合键）。
-        tenant_id: 租户标识。
+        tenant_id: 租户主键（雪花 id 十进制字符串；无租户流程为空）。
 
     Returns:
         EventEnvelope: 事件信封。

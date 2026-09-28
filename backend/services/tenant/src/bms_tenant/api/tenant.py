@@ -14,7 +14,13 @@ from typing import Annotated
 from fastapi import Depends, Header, Query
 
 from bms_core.api.base import BaseRouter, require_auth
-from bms_core.api.deps import current_code_of, get_idempotency_store, get_tenant, get_tenant_self_service
+from bms_core.api.deps import (
+    current_code_of,
+    current_tenant_id_of,
+    get_idempotency_store,
+    get_tenant,
+    get_tenant_self_service,
+)
 from bms_core.db.tenant import TenantContext
 from bms_core.idempotency.base import IDEMPOTENCY_HEADER, IdempotencyStore, build_idempotency_key
 from bms_core.schemas.common import ApiResponse
@@ -157,7 +163,7 @@ async def switch_tenant(
     code = req.code
     if not idempotency_key:
         return ApiResponse.ok(_switch_response(await service.switch(code)))
-    key = build_idempotency_key(key=idempotency_key, tenant=current_code_of(tenant))
+    key = build_idempotency_key(key=idempotency_key, tenant=current_tenant_id_of(tenant))
     if not await idempotency.begin(key):
         payload = await idempotency.load(key)
         if payload is not None:

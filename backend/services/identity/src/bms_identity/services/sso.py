@@ -205,7 +205,7 @@ class SsoService(BaseFrameworkObject):
             EnterpriseIdpError: 企微 / 钉钉专用失败（20057~20062）。
             RateLimitError: 限流命中（10005/429）。
         """
-        await self._enforce_authorize_rate_limit(tenant_code, idp_key, ip)
+        await self._enforce_authorize_rate_limit(tenant_id, idp_key, ip)
         row = await IdentityProviderRepository(session).get_by_key(idp_key)
         if row is None or row.status != "enabled":
             raise SsoProviderNotFoundError()
@@ -529,21 +529,21 @@ class SsoService(BaseFrameworkObject):
             email=user.email,
         )
 
-    async def _enforce_authorize_rate_limit(self, tenant_code: str, idp_key: str, ip: str | None) -> None:
+    async def _enforce_authorize_rate_limit(self, tenant_id: str, idp_key: str, ip: str | None) -> None:
         """authorize 限流：IP 维度 + client 维度（target=`idp_key`）。
 
         Args:
-            tenant_code: 租户编码（限流键租户位 10_03 再统一改 id）。
+            tenant_id: 租户主键（雪花 id 字符串；限流键租户位）。
             idp_key: IdP 标识。
             ip: 客户端 IP（可选）。
         """
         if ip:
             await self._limiter.require(
-                build_rate_limit_key(dimension=_IP_DIMENSION, target=ip, tenant=tenant_code),
+                build_rate_limit_key(dimension=_IP_DIMENSION, target=ip, tenant=tenant_id),
                 RateLimitRule(limit=self._sso.ip_rate_limit),
             )
         await self._limiter.require(
-            build_rate_limit_key(dimension=_CLIENT_DIMENSION, target=idp_key, tenant=tenant_code),
+            build_rate_limit_key(dimension=_CLIENT_DIMENSION, target=idp_key, tenant=tenant_id),
             RateLimitRule(limit=self._sso.provider_rate_limit),
         )
 

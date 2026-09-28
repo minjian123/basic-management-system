@@ -90,11 +90,14 @@ async def test_authorize_provider_errors(client: AsyncClient, sso: SsoHarness) -
 
 
 @pytest.mark.kiwi_id(2197)
+@pytest.mark.kiwi_id(2218)
 async def test_authorize_rate_limited_by_provider_dimension(client: AsyncClient, sso: SsoHarness) -> None:
-    """限流：provider 维度阈值 1 时第二次请求 429（10005）。"""
+    """限流：provider 维度阈值 1 时第二次请求 429（10005）；限流键租户位为雪花 id。"""
     sso.app.state.settings.sso.provider_rate_limit = 1
     await sso.seed_provider()
     first = await client.get(AUTHORIZE, headers=TENANT_HEADERS)
     assert first.status_code == 302
     second = await client.get(AUTHORIZE, headers=TENANT_HEADERS)
     assert second.status_code == 429 and second.json()["code"] == 10005
+    keys = set(sso.limiter._windows)  # pyright: ignore[reportPrivateUsage]
+    assert any(key.startswith(f"bms:{TENANT_ID}:rate:client:{IDP_KEY}") for key in keys)

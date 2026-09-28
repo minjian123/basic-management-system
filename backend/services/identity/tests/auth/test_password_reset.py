@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from httpx import AsyncClient
 from sqlalchemy import select
 
+from bms_core.api.deps import get_rate_limiter
 from bms_core.idp.state.memory import MemoryIdpStateStore
 from bms_core.ratelimit.memory import MemoryRateLimiter
 from bms_core.session.memory import MemorySessionStore
@@ -156,10 +157,13 @@ async def test_forgot_account_rate_limited(client: AsyncClient, service_app: Fas
 
 
 @pytest.mark.kiwi_id(2210)
+@pytest.mark.kiwi_id(2218)
 async def test_forgot_ip_rate_limited(client: AsyncClient, service_app: FastAPI) -> None:
-    """IP 维度限流：同 IP 窗口内超上限即 20006（换标识不绕过）。"""
+    """IP 维度限流：同 IP 窗口内超上限即 20006（换标识不绕过）；限流键租户位为雪花 id。"""
     _ = await _wire_reset(service_app)
     service_app.state.settings.password_reset.ip_rate_limit = 1
+    limiter = MemoryRateLimiter()
+    service_app.dependency_overrides[get_rate_limiter] = lambda: limiter
 
     first = await client.post(API_FORGOT, json={"identifier": "admin", "captcha": CAPTCHA}, headers=TENANT_HEADERS)
     assert first.status_code == 200
@@ -168,6 +172,8 @@ async def test_forgot_ip_rate_limited(client: AsyncClient, service_app: FastAPI)
         API_FORGOT, json={"identifier": "someone-else", "captcha": CAPTCHA}, headers=TENANT_HEADERS
     )
     assert second.status_code == 429 and second.json()["code"] == 20006
+    keys = set(limiter._windows)  # pyright: ignore[reportPrivateUsage]
+    assert any(key.startswith(f"bms:{TENANT_ID}:rate:password-reset-ip:") for key in keys)
 
 
 @pytest.mark.kiwi_id(2210)

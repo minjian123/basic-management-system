@@ -8,6 +8,7 @@ import pytest
 from bms_core.events import platform_events
 from bms_core.events.contracts import (
     EVENT_SNAPSHOT_PATH,
+    RESERVED_PAYLOAD_KEYS,
     EventContractRegistry,
     EventSubscription,
     check_snapshot_compatibility,
@@ -19,6 +20,7 @@ from bms_core.events.contracts import (
 from bms_core.events.platform_events import (
     PLATFORM_EVENT_CONTRACTS,
     PLATFORM_EVENT_SUBSCRIPTIONS,
+    TENANT_ID_PAYLOAD_KEY,
     register_platform_event_contracts,
 )
 from bms_core.services.module_registry import known_event_domains
@@ -56,7 +58,23 @@ def test_platform_subscriptions_registered(monkeypatch: pytest.MonkeyPatch) -> N
     assert registry.subscriptions() == (subscription,)
 
 
+@pytest.mark.kiwi_id(2218)
+def test_tenant_events_payload_key_and_version() -> None:
+    """租户事件负载键改雪花 id：契约 2.0.0、`tenant_id` 必填、无 `tenant_code`；保留键不占 `tenant_id`。"""
+    contracts = {contract.event_type: contract for contract in PLATFORM_EVENT_CONTRACTS}
+    for event_type in ("tenant.created", "tenant.suspended", "tenant.activated"):
+        contract = contracts[event_type]
+        assert contract.version == "2.0.0"
+        assert "tenant_id" in contract.fields
+        assert "tenant_code" not in contract.fields
+        assert contract.fields["tenant_id"].type == "string"
+        assert contract.fields["tenant_id"].required is True
+    assert TENANT_ID_PAYLOAD_KEY == "tenant_id"
+    assert "tenant_id" not in RESERVED_PAYLOAD_KEYS
+
+
 @pytest.mark.kiwi_id(2174)
+@pytest.mark.kiwi_id(2218)
 def test_committed_snapshot_in_sync() -> None:
     """仓库内 deploy/events/contracts.json 与现行注册表逐字节一致、兼容校验通过。"""
     registry = default_event_contract_registry()

@@ -214,8 +214,9 @@ async def test_draft_build_failure(client: AsyncClient, manage: ManageHarness) -
 
 
 @pytest.mark.kiwi_id(2203)
+@pytest.mark.kiwi_id(2218)
 async def test_test_rate_limit(client: AsyncClient, manage: ManageHarness) -> None:
-    """连通性测试限流：超过阈值 10005/429。"""
+    """连通性测试限流：超过阈值 10005/429；限流键租户位与 target 租户段为雪花 id。"""
     codes: list[int] = []
     for _ in range(11):
         response = await client.post(
@@ -224,6 +225,8 @@ async def test_test_rate_limit(client: AsyncClient, manage: ManageHarness) -> No
         codes.append(response.status_code)
     assert codes[-1] == 429
     assert 200 in codes
+    keys = set(manage.limiter._windows)  # pyright: ignore[reportPrivateUsage]
+    assert any(key.startswith(f"bms:{TENANT_ID}:rate:idp_test:{TENANT_ID}:") for key in keys)
 
 
 @pytest.mark.kiwi_id(2203)

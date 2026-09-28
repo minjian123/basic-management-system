@@ -3,7 +3,8 @@
 - `SqlDictSource`：`by_type`（版本比对三态 / 关键字 / 级联父值 / 按值子集 / 探针截断 / locale 回退）与
   `batch`（多类型合并、逐类型探针）；缓存两层（Redis 共享层 + 进程内 L1）经 `DictCacheRegion`。
 - `SqlDictTranslator`：与取数共用同一份缓存；子集命中直出、缺失一次 `IN` 回填（防 N+1）；未命中不占位。
-- 租户：实现侧从上下文解析（`current_tenant`，缺省 demo）并经 `EngineRegistry` 取租户库引擎；调用方不传租户。
+- 租户：实现侧从上下文解析（库引擎经 `EngineRegistry` 按当前租户）；缓存键租户位取
+  `current_tenant_id_str()`（雪花 id，无主键落 global）；调用方不传租户。
 - locale：`by_type` 从 `current_dict_locale` 上下文解析（路由层按 `Accept-Language` 设置）；批量 / 翻译显式入参。
 - 降级：缓存异常由 Region 内部兜底（按未命中）；DB 异常抛字典错误码 `40101`；类型不存在 `40102`；语言不支持 `40103`。
 """
@@ -22,7 +23,7 @@ from bms_core.core.exceptions import BizError
 from bms_core.core.logging import get_logger
 from bms_core.db.registry import EngineRegistry
 from bms_core.db.session import DbSession, session_scope
-from bms_core.db.tenant import current_tenant_context
+from bms_core.db.tenant import current_tenant_id_str
 from bms_core.dict.base import (
     DICT_PROBE_LIMIT,
     BaseDictSource,
@@ -93,7 +94,7 @@ class SqlDictSource(BaseDictSource):
             BizError: 40102 类型不存在 / 40103 语言不支持 / 40101 数据源不可用。
         """
         locale = _current_locale()
-        tenant = current_tenant_context().code
+        tenant = current_tenant_id_str()
         version = await self._cache.aversion(tenant)
         if query.version is not None and query.version == version:
             return DictTypeResult(version=version, items=None)
@@ -137,7 +138,7 @@ class SqlDictSource(BaseDictSource):
         locale = query.locale or DEFAULT_LOCALE
         _ensure_supported_locale(locale)
         types = list(dict.fromkeys(query.types))
-        tenant = current_tenant_context().code
+        tenant = current_tenant_id_str()
         version = await self._cache.aversion(tenant)
         results: dict[str, DictTypeResult | None] = {}
         pending: list[str] = []
@@ -261,7 +262,7 @@ class SqlDictTranslator(BaseDictTranslator):
         values = list(dict.fromkeys(query.values))
         if not values:
             return {}
-        tenant = current_tenant_context().code
+        tenant = current_tenant_id_str()
         cached = await self._cache.avalue_subset(tenant, locale, query.dict_type, values)
         missing = [value for value in values if value not in cached]
         if missing:

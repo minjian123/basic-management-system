@@ -29,6 +29,8 @@ class EventEnvelope(BaseDataContract):
     - `aggregate_key`：聚合 / 分区键（同聚合按序投递）；空 = 独立事件。
     - `event_version`：事件契约版本（`X.Y.Z`）；缺省由发件箱按登记契约补齐（未登记回落
       `DEFAULT_EVENT_VERSION`），投递时经发件箱账本保真（消费方按主版本兼容）。
+    - `tenant_id`：租户主键（雪花 id 十进制字符串；与请求上下文 / 令牌租户位同源）；
+      平台链 / 审计等无租户事件为空。
     """
 
     event_type: str

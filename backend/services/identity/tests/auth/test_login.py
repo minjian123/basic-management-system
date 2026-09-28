@@ -153,8 +153,9 @@ async def test_login_captcha_verified_ok(client: AsyncClient, service_app: FastA
 
 
 @pytest.mark.kiwi_id(2194)
+@pytest.mark.kiwi_id(2218)
 async def test_login_rate_limited(client: AsyncClient, service_app: FastAPI) -> None:
-    """账号维度限流命中返回 10005（429）。"""
+    """账号维度限流命中返回 10005（429）；限流键租户位为雪花 id。"""
     issuer, org, store, limiter = FakeUserTokenIssuer(), FakeOrgClient(), MemorySessionStore(), MemoryRateLimiter()
     org.set_user("admin", password="secret")
     wire_auth(service_app, issuer=issuer, org=org, store=store, limiter=limiter)
@@ -163,6 +164,8 @@ async def test_login_rate_limited(client: AsyncClient, service_app: FastAPI) -> 
         assert (await _login(client, "admin", "secret")).status_code == 200
         limited = await _login(client, "admin", "secret")
         assert limited.status_code == 429 and limited.json()["code"] == 10005
+        keys = set(limiter._windows)  # pyright: ignore[reportPrivateUsage]
+        assert f"bms:{TENANT_ID}:rate:account:admin" in keys
     finally:
         service_app.state.settings.login.account_rate_limit = 20
 
