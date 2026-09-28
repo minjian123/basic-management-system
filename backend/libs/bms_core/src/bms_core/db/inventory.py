@@ -11,14 +11,14 @@
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-from bms_core.core.objects import BaseValueObject
+from bms_core.core.objects import BaseOpsReportContract
 from bms_core.db.keys import parse_db_key
 
 __all__ = ["DbCount", "db_count_rows", "db_counts_by_kind", "db_counts_from_keys"]
 
 
 @dataclass(frozen=True)
-class DbCount(BaseValueObject):
+class DbCount(BaseOpsReportContract):
     """库数量统计（按库类别）。"""
 
     services: int

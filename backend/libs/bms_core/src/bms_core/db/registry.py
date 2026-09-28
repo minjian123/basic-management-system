@@ -23,7 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 
 from bms_core.core.capability import BaseAsyncResource
 from bms_core.core.config import Settings
-from bms_core.core.objects import BaseValueObject
+from bms_core.core.objects import BaseOpsReportContract
 from bms_core.db.engine import EngineFactory
 from bms_core.db.inventory import db_counts_by_kind
 from bms_core.db.keys import DB_KIND_TENANT, PLATFORM_DB_KEY, parse_db_key
@@ -300,7 +300,7 @@ class EngineRegistry(BaseAsyncResource):
 
 
 @dataclass(frozen=True)
-class PoolBudgetRow(BaseValueObject):
+class PoolBudgetRow(BaseOpsReportContract):
     """连接预算核算行（服务 × 库类别；启动告警与离线核对的统一载体）。"""
 
     name: str

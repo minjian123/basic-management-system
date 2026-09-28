@@ -11,19 +11,25 @@
 from __future__ import annotations
 
 from bms_core.core.objects.auth_results import BaseAuthorizeUrlResultContract, BaseLoginResultContract
+from bms_core.core.objects.captchas import BaseCaptchaContract
 from bms_core.core.objects.decisions import BaseDecisionContract
+from bms_core.core.objects.field_rules import BaseFieldRuleContract
+from bms_core.core.objects.health import BaseHealthResultContract
 from bms_core.core.objects.identity import BaseIdentityProfileContract, BaseRequestIdentityContract
 from bms_core.core.objects.options import BaseOptionsContract
 from bms_core.core.objects.processes import BaseProcessContract
 from bms_core.core.objects.registry_records import BaseRegistryRecordContract
+from bms_core.core.objects.reports import BaseOpsReportContract
 from bms_core.core.objects.roots import (
     FRAMEWORK_OBJECT_KIND,
     BaseDataContract,
     BaseFrameworkObject,
     BaseValueObject,
 )
+from bms_core.core.objects.search import BaseSearchContract
 from bms_core.core.objects.seeds import BaseI18nSeedContract
 from bms_core.core.objects.specs import BaseFieldSpecContract
+from bms_core.core.objects.tally import BaseTallyContract
 from bms_core.core.objects.tenant import BaseTenantViewContract
 from bms_core.core.objects.tokens import (
     BaseOidcTokenSpecContract,
@@ -37,20 +43,26 @@ from bms_core.core.objects.tokens import (
 __all__ = [
     "FRAMEWORK_OBJECT_KIND",
     "BaseAuthorizeUrlResultContract",
+    "BaseCaptchaContract",
     "BaseDataContract",
     "BaseDecisionContract",
+    "BaseFieldRuleContract",
     "BaseFieldSpecContract",
     "BaseFrameworkObject",
+    "BaseHealthResultContract",
     "BaseI18nSeedContract",
     "BaseIdentityProfileContract",
     "BaseLoginResultContract",
     "BaseOidcTokenSpecContract",
+    "BaseOpsReportContract",
     "BaseOptionsContract",
     "BaseProcessContract",
     "BaseRefreshableTokenContract",
     "BaseRegistryRecordContract",
     "BaseRequestIdentityContract",
+    "BaseSearchContract",
     "BaseSecretMaterialContract",
+    "BaseTallyContract",
     "BaseTenantViewContract",
     "BaseTokenClaimsContract",
     "BaseTokenContract",
