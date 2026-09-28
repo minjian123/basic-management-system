@@ -118,10 +118,3 @@ class BaseObject:
             sequence = cast("Iterable[object]", value)
             return [cls._convert(item) for item in sequence]
         return value
-
-
-class ValueHolder[ValueT](BaseObject):
-    """`get_locked` 类上下文内可替换的值容器（进程内与 Redis 复用）。"""
-
-    def __init__(self, value: ValueT) -> None:
-        self.value = value

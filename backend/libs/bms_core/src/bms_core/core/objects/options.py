@@ -13,9 +13,11 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Self, cast
 
-from bms_core.core.exceptions import PluginError
 from bms_core.core.objects.roots import BaseValueObject
 
+# 说明：`PluginError` 由 `core.exceptions` 定义，而本模块被 `core.exceptions.BizError` 反向依赖
+# （`BizError` 挂 `BaseFrameworkObject`，09_05 批次 ②b）——顶层导入会形成 `core.exceptions ↔ core.objects`
+# 循环导入，故在**使用处**延迟导入（行为不变，仅导入时机）。
 __all__ = ["BaseOptionsContract"]
 
 
@@ -59,6 +61,8 @@ class BaseOptionsContract(BaseValueObject, ABC):
         Raises:
             PluginError: 布尔 / 非数值 / 不可转换（`{类名} 选项非法`）或超出范围（`{类名} 选项越界`）。
         """
+        from bms_core.core.exceptions import PluginError
+
         raw = options.get(key, default)
         if isinstance(raw, bool) or not isinstance(raw, (int, float, str)):
             raise PluginError(f"{cls.__name__} 选项非法：{key}={raw!r}（应为整数）")
@@ -85,6 +89,8 @@ class BaseOptionsContract(BaseValueObject, ABC):
         Raises:
             PluginError: 非字符串或空字符串。
         """
+        from bms_core.core.exceptions import PluginError
+
         raw = options.get(key, default)
         if not isinstance(raw, str) or not raw:
             raise PluginError(f"{cls.__name__} 选项非法：{key}={raw!r}（应为非空字符串）")
@@ -105,6 +111,8 @@ class BaseOptionsContract(BaseValueObject, ABC):
         Raises:
             PluginError: 长度不为 1。
         """
+        from bms_core.core.exceptions import PluginError
+
         raw = options.get(key) or default
         if not isinstance(raw, str) or len(raw) != 1:
             raise PluginError(f"{cls.__name__} 选项非法：{key}（须为单字符）")
@@ -124,6 +132,8 @@ class BaseOptionsContract(BaseValueObject, ABC):
         Raises:
             PluginError: 非映射，或键 / 值为非非空字符串。
         """
+        from bms_core.core.exceptions import PluginError
+
         raw: object = options.get(key)
         if raw is None:
             return {}
