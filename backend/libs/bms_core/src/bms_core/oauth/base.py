@@ -18,12 +18,12 @@ access / refresh `aud=api`）；外部 IdP 仅承担 SSO 授权码流程（`bms_
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import cast
+from typing import ClassVar, cast
 
 from fastapi import Request
 
 from bms_core.core.config import Settings
-from bms_core.core.objects import BaseValueObject
+from bms_core.core.objects import BaseSecretMaterialContract, BaseTokenContract
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 
 __all__ = [
@@ -48,9 +48,11 @@ NULL_ACCESS_TOKEN = "null-access-token"
 """占位令牌取值（NullOAuthServer 固定返回，便于断言与调用链贯穿）。"""
 
 
-@dataclass(frozen=True)
-class ClientCredentials(BaseValueObject):
+@dataclass(frozen=True, repr=False)
+class ClientCredentials(BaseSecretMaterialContract):
     """客户端凭证（Client Credentials 签发入参）。"""
+
+    SECRET_FIELDS: ClassVar[tuple[str, ...]] = ("client_secret",)
 
     client_id: str
     """客户端标识（`sys_client.client_id`）。"""
@@ -63,7 +65,7 @@ class ClientCredentials(BaseValueObject):
 
 
 @dataclass(frozen=True)
-class OAuthToken(BaseValueObject):
+class OAuthToken(BaseTokenContract):
     """令牌响应（OAuth2 令牌语义；占位为固定值）。"""
 
     access_token: str

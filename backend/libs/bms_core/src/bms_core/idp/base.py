@@ -22,7 +22,7 @@ from fastapi import Request
 
 from bms_core.core.config import Settings
 from bms_core.core.exceptions import ConfigError
-from bms_core.core.objects import BaseValueObject
+from bms_core.core.objects import BaseRefreshableTokenContract, BaseTokenClaimsContract, BaseValueObject
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 
 __all__ = [
@@ -40,7 +40,7 @@ IDP_PROTOCOLS: tuple[str, ...] = ("oidc", "cas", "wecom", "dingtalk")
 
 
 @dataclass(frozen=True)
-class IdentityToken(BaseValueObject):
+class IdentityToken(BaseRefreshableTokenContract):
     """身份源令牌。"""
 
     access_token: str
@@ -91,7 +91,7 @@ class IdentityUser(BaseValueObject):
 
 
 @dataclass(frozen=True)
-class IdentityClaims(BaseValueObject):
+class IdentityClaims(BaseTokenClaimsContract):
     """票据校验后的身份声明（JWT 经 JWKS 验签结果；`payload` 为完整声明）。"""
 
     subject: str

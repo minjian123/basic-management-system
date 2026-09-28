@@ -25,7 +25,7 @@ from typing import cast
 from fastapi import Request
 
 from bms_core.core.config import Settings
-from bms_core.core.objects import BaseValueObject
+from bms_core.core.objects import BaseRefreshableTokenContract, BaseValueObject
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 from bms_core.idp.base import IdentityClaims
 from bms_core.oauth.base import TOKEN_TYPE_BEARER
@@ -72,7 +72,7 @@ class UserTokenSpec(BaseValueObject):
 
 
 @dataclass(frozen=True)
-class UserTokenPair(BaseValueObject):
+class UserTokenPair(BaseRefreshableTokenContract):
     """用户双 token 签发结果（access + refresh）。"""
 
     access_token: str

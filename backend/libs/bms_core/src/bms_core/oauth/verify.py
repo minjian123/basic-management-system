@@ -24,7 +24,7 @@ from fastapi import Request
 from bms_core.core.config import Settings
 from bms_core.core.exceptions import ParamError
 from bms_core.core.factory import BasePluginFactory
-from bms_core.core.objects import BaseValueObject
+from bms_core.core.objects import BaseTokenClaimsContract
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 from bms_core.idp.base import IdentityClaims
 from bms_core.oauth.token import (
@@ -47,7 +47,7 @@ __all__ = [
 
 
 @dataclass(frozen=True)
-class VerifiedToken(BaseValueObject):
+class VerifiedToken(BaseTokenClaimsContract):
     """校验通过后的令牌身份声明（双类 JWT 归一契约）。"""
 
     subject: str
