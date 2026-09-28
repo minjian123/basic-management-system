@@ -67,6 +67,23 @@ def _require_tenant(tenant: TenantContext | None) -> TenantContext:
     return tenant
 
 
+def _require_tenant_id(tenant: TenantContext) -> str:
+    """取租户主键字符串（缺失抛认证错误；限流键租户位依据）。
+
+    Args:
+        tenant: 生效租户上下文。
+
+    Returns:
+        str: 租户主键（雪花 id 十进制字符串）。
+
+    Raises:
+        AuthError: 租户缺少主键标识（20001 / 401）。
+    """
+    if tenant.tenant_id is None:
+        raise AuthError("租户缺少主键标识")
+    return str(tenant.tenant_id)
+
+
 def _registry(request: Request) -> ProviderRegistry:
     """构造请求级 IdP 实例桥接（连通性测试）。
 
@@ -189,7 +206,7 @@ async def test_draft_provider(
             type=req.type,
             config=req.config,
             idp_key=req.idp_key,
-            tenant=tenant.code,
+            tenant_id=_require_tenant_id(tenant),
             actor=auth.user_id,
         )
     return ApiResponse.ok(_probe_result(result))
@@ -359,7 +376,7 @@ async def test_saved_provider(
     registry: EngineRegistry = request.app.state.engine_registry
     async with session_scope(registry, db_key=tenant.db_key, factory=request.app.state.session_factory) as session:
         service = _build(request, session, audit, limiter)
-        result = await service.test_saved(provider_id, tenant=tenant.code, actor=auth.user_id)
+        result = await service.test_saved(provider_id, tenant_id=_require_tenant_id(tenant), actor=auth.user_id)
     return ApiResponse.ok(_probe_result(result))
 
 

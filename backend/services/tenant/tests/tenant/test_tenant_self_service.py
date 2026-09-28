@@ -25,6 +25,7 @@ from bms_core.tenant.null import NullTenantSelfService
 from bms_tenant.api.tenant import router as tenant_router
 from bms_tenant.main import ApplicationFactory
 from tests_support.auth import auth_headers
+from tests_support.tenant_source import DEMO_TENANT_ID
 
 API = "/api/v1/tenants"
 
@@ -242,6 +243,7 @@ async def test_placeholder_route_switch(client: AsyncClient) -> None:
 
 
 @pytest.mark.kiwi_id(891)
+@pytest.mark.kiwi_id(2218)
 async def test_switch_idempotency_reuses_first_result() -> None:
     """切换按幂等键复用首次结果（作用域绑当前租户位）。"""
     app = ApplicationFactory().create(None)
@@ -254,7 +256,7 @@ async def test_switch_idempotency_reuses_first_result() -> None:
 
     assert first.json()["data"]["tenant_code"] == "acme"
     assert second.json()["data"] == first.json()["data"]
-    assert double.keys == [f"bms:{DEMO_CODE}:idem:k-1", f"bms:{DEMO_CODE}:idem:k-1"]
+    assert double.keys == [f"bms:{DEMO_TENANT_ID}:idem:k-1", f"bms:{DEMO_TENANT_ID}:idem:k-1"]
 
 
 @pytest.mark.kiwi_id(891)

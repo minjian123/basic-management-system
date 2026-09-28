@@ -18,7 +18,7 @@ from bms_core.core.exceptions import ConcurrentConflictError
 from bms_core.core.objects import BaseFrameworkObject
 from bms_core.db.registry import EngineRegistry
 from bms_core.db.session import DbSession, session_scope
-from bms_core.db.tenant import current_tenant_context
+from bms_core.db.tenant import current_tenant_id_str
 
 __all__ = ["ConfigService"]
 
@@ -80,7 +80,7 @@ class ConfigService(BaseFrameworkObject):
         Args:
             config_key: 参数键。
         """
-        tenant = current_tenant_context().code
+        tenant = current_tenant_id_str()
         await self._cache.adrop_value(tenant, config_key)
         await self._cache.aincrease_version(tenant)
 

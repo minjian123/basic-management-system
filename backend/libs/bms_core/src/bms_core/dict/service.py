@@ -18,7 +18,7 @@ from bms_core.core.exceptions import ConcurrentConflictError, ConflictError, Not
 from bms_core.core.objects import BaseFrameworkObject
 from bms_core.db.registry import EngineRegistry
 from bms_core.db.session import DbSession, session_scope
-from bms_core.db.tenant import current_tenant_context
+from bms_core.db.tenant import current_tenant_id_str
 from bms_core.dict.base import DictCacheRegion
 from bms_core.dict.cache import MemoryDictCacheRegion
 from bms_core.dict.models import SysDictAttr, SysDictItem, SysDictType
@@ -315,7 +315,7 @@ class DictService(BaseFrameworkObject):
         Args:
             dict_type: 字典类型码。
         """
-        tenant = current_tenant_context().code
+        tenant = current_tenant_id_str()
         for locale in SUPPORTED_LOCALES:
             await self._cache.adrop_type(tenant, locale, dict_type)
             self._cache.delete(self._cache.value_key(tenant, locale, dict_type))

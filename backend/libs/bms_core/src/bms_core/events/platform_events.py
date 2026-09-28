@@ -3,6 +3,8 @@
 - 覆盖平台域事件（`sys` / `wf` / `file` / `notification` / `tenant` / `identity` 事件域）；
 - 产品域事件（`pur` / `pay` / `sale` / `wh` / `sup` / `cw`）由产品仓库随服务实现声明，本模块不代声明；
 - 字段取「事件模型清单」的「主要载荷」列（字段级规格为对外契约，新增只增不删、必须可选）；
+- **租户事件**（`tenant.created` / `tenant.suspended` / `tenant.activated`）契约版本 `2.0.0`：
+  负载租户位由 `tenant_code`（编码）改 `tenant_id`（雪花 id 十进制字符串）；
 - 经 `register_platform_event_contracts()` 幂等登记进默认注册表（应用装配与快照 CLI 共用）。
 
 > 事件命名规则（首段为已登记事件域）见《命名规范》「基础设施命名」节；契约规则见
@@ -20,7 +22,7 @@ from bms_core.events.contracts import (
 __all__ = [
     "PLATFORM_EVENT_CONTRACTS",
     "PLATFORM_EVENT_SUBSCRIPTIONS",
-    "TENANT_CODE_PAYLOAD_KEY",
+    "TENANT_ID_PAYLOAD_KEY",
     "register_platform_event_contracts",
 ]
 
@@ -29,12 +31,16 @@ _STRING_OPTIONAL = EventFieldSpec(type="string")
 _INTEGER_REQUIRED = EventFieldSpec(type="integer", required=True)
 _BOOLEAN_REQUIRED = EventFieldSpec(type="boolean", required=True)
 
-TENANT_CODE_PAYLOAD_KEY = "tenant_code"
-"""平台事件负载中「租户编码」的键名（**跨服务契约键，保持不变**）。
+TENANT_ID_PAYLOAD_KEY = "tenant_id"
+"""平台事件负载中「租户主键」的键名（雪花 id 十进制字符串；**跨服务契约键**）。
 
-对象侧字段为 `TenantContext.code`（租户视图对象的**自身编码**）；事件负载键与对象字段名**解耦**，
-以本常量为事件侧单一来源——二者是显式映射，属性改名不影响负载契约。
+与事件信封 `EventEnvelope.tenant_id` 同名同值——信封与负载的租户位统一表达；对象侧字段为
+`TenantContext.tenant_id`，事件侧以本常量为单一来源。取代原 `tenant_code`（租户编码）负载键
+（三条租户事件契约升主版本 `2.0.0`）。
 """
+
+_TENANT_EVENT_VERSION = "2.0.0"
+"""租户事件契约版本：负载租户位由 `tenant_code`（编码）改 `tenant_id`（雪花 id），破坏性变更升主版本。"""
 
 _USER_PAYLOAD: dict[str, EventFieldSpec] = {
     "user_id": _STRING_REQUIRED,
@@ -50,7 +56,7 @@ _HELP_ARTICLE_PAYLOAD: dict[str, EventFieldSpec] = {
 }
 
 _TENANT_PAYLOAD: dict[str, EventFieldSpec] = {
-    TENANT_CODE_PAYLOAD_KEY: _STRING_REQUIRED,
+    TENANT_ID_PAYLOAD_KEY: _STRING_REQUIRED,
     "db_key": _STRING_REQUIRED,
     "status": _STRING_REQUIRED,
 }
@@ -148,9 +154,24 @@ PLATFORM_EVENT_CONTRACTS: tuple[EventContract, ...] = (
         description="定时任务执行完成",
         fields={"task_id": _STRING_REQUIRED, "status": _STRING_REQUIRED},
     ),
-    EventContract(event_type="tenant.created", description="租户开通", fields=dict(_TENANT_PAYLOAD)),
-    EventContract(event_type="tenant.suspended", description="租户停用", fields=dict(_TENANT_PAYLOAD)),
-    EventContract(event_type="tenant.activated", description="租户启用", fields=dict(_TENANT_PAYLOAD)),
+    EventContract(
+        event_type="tenant.created",
+        version=_TENANT_EVENT_VERSION,
+        description="租户开通",
+        fields=dict(_TENANT_PAYLOAD),
+    ),
+    EventContract(
+        event_type="tenant.suspended",
+        version=_TENANT_EVENT_VERSION,
+        description="租户停用",
+        fields=dict(_TENANT_PAYLOAD),
+    ),
+    EventContract(
+        event_type="tenant.activated",
+        version=_TENANT_EVENT_VERSION,
+        description="租户启用",
+        fields=dict(_TENANT_PAYLOAD),
+    ),
     EventContract(
         event_type="identity.user.jit_created",
         description="SSO 首登自动建号",
@@ -162,7 +183,7 @@ PLATFORM_EVENT_CONTRACTS: tuple[EventContract, ...] = (
         fields={"policy_id": _STRING_REQUIRED, "archived_count": _INTEGER_REQUIRED, "target": _STRING_REQUIRED},
     ),
 )
-"""平台默认事件契约（23 条；字段规格为对外契约，变更走兼容规则）。"""
+"""平台默认事件契约（23 条；三条租户事件 `2.0.0`，其余 `1.0.0`；字段规格为对外契约，变更走兼容规则）。"""
 
 PLATFORM_EVENT_SUBSCRIPTIONS: tuple[EventSubscription, ...] = ()
 """平台内建消费方订阅声明（本期为空；服务级订阅随消费方实现落地登记）。"""

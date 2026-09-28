@@ -156,8 +156,8 @@ class LoginService(BaseFrameworkObject):
 
         Args:
             req: 登录请求。
-            tenant_id: 生效租户主键（雪花 id 字符串；令牌 / 会话 / 跨服务租户位）。
-            tenant_code: 生效租户编码（限流键与响应展示）。
+            tenant_id: 生效租户主键（雪花 id 字符串；令牌 / 会话 / 跨服务租户位 / 限流键）。
+            tenant_code: 生效租户编码（响应展示）。
             ip: 客户端 IP（可选）。
             user_agent: 客户端 User-Agent（可选）。
 
@@ -172,14 +172,14 @@ class LoginService(BaseFrameworkObject):
             LoginFailedError: 账号或密码错误（20002/401）。
             ServiceUnavailableError: org 凭据接口不可用（10007/503）。
         """
-        await self._enforce_rate_limit(tenant_code, req.account, ip)
-        await self._enforce_captcha(req.captcha, tenant_code=tenant_code, account=req.account)
+        await self._enforce_rate_limit(tenant_id, req.account, ip)
+        await self._enforce_captcha(req.captcha, tenant_id=tenant_id, account=req.account)
 
         verified = await self._org.verify(tenant_id, req.account, req.password)
         if verified.locked:
             raise AccountLockedError()
         if not verified.found or not verified.valid:
-            await self._record_failure(tenant_id, tenant_code, req.account)
+            await self._record_failure(tenant_id, req.account)
         if verified.status != "enabled":
             raise AccountDisabledError()
         user = verified.user
@@ -189,7 +189,7 @@ class LoginService(BaseFrameworkObject):
         issued = await self._session_issuer.issue(
             user_id=user.id, tenant_id=tenant_id, tenant_code=tenant_code, ip=ip, user_agent=user_agent
         )
-        await self._limiter.reset(self._fail_key(tenant_code, req.account))
+        await self._limiter.reset(self._fail_key(tenant_id, req.account))
         await self._org.login_state(tenant_id, req.account, success=True)
         return LoginOutcome(
             result=LoginResult(
@@ -296,37 +296,37 @@ class LoginService(BaseFrameworkObject):
         except Exception as exc:  # pragma: no cover - 登出尽力而为（幂等）
             _LOGGER.warning("登出清理未全部完成", session_id=session_id, error=str(exc))
 
-    async def _enforce_rate_limit(self, tenant: str, account: str, ip: str | None) -> None:
+    async def _enforce_rate_limit(self, tenant_id: str, account: str, ip: str | None) -> None:
         """请求限流：按 IP 与账号维度各校验一次。
 
         Args:
-            tenant: 租户编码。
+            tenant_id: 租户主键（限流键租户位）。
             account: 登录账号。
             ip: 客户端 IP（可选）。
         """
         if ip:
             await self._limiter.require(
-                build_rate_limit_key(dimension=_IP_DIMENSION, target=ip, tenant=tenant),
+                build_rate_limit_key(dimension=_IP_DIMENSION, target=ip, tenant=tenant_id),
                 RateLimitRule(limit=self._login.ip_rate_limit),
             )
         await self._limiter.require(
-            build_rate_limit_key(dimension=_ACCOUNT_DIMENSION, target=account, tenant=tenant),
+            build_rate_limit_key(dimension=_ACCOUNT_DIMENSION, target=account, tenant=tenant_id),
             RateLimitRule(limit=self._login.account_rate_limit),
         )
 
-    async def _enforce_captcha(self, captcha: CaptchaInput | None, *, tenant_code: str, account: str) -> None:
+    async def _enforce_captcha(self, captcha: CaptchaInput | None, *, tenant_id: str, account: str) -> None:
         """验证码：按场景策略强制，或连续失败达阈值强制，或请求携带时校验。
 
         Args:
             captcha: 请求携带的验证码凭证（可选）。
-            tenant_code: 租户编码（失败计数键作用域；限流键租户位 10_03 统一改 id）。
+            tenant_id: 租户主键（失败计数键作用域）。
             account: 登录账号（失败计数键目标）。
 
         Raises:
             CaptchaVerifyError: 策略 / 阈值强制但未携带（20101）。
         """
         policy = await self._captcha.policy(_LOGIN_SCENE)
-        fails = await self._limiter.peek(self._fail_key(tenant_code, account))
+        fails = await self._limiter.peek(self._fail_key(tenant_id, account))
         required = policy.required or (policy.fail_threshold > 0 and fails >= policy.fail_threshold)
         if captcha is None:
             if required:
@@ -345,12 +345,11 @@ class LoginService(BaseFrameworkObject):
         )
         await self._captcha.require_credential(credential)
 
-    async def _record_failure(self, tenant_id: str, tenant_code: str, account: str) -> None:
+    async def _record_failure(self, tenant_id: str, account: str) -> None:
         """记录登录失败：Redis 计数递增，达阈值联动锁定并抛 20003。
 
         Args:
-            tenant_id: 租户主键（写入 org 登录态经服务 JWT 租户位）。
-            tenant_code: 租户编码（失败计数键作用域）。
+            tenant_id: 租户主键（失败计数键作用域；org 登录态经服务 JWT 租户位）。
             account: 登录账号。
 
         Raises:
@@ -358,7 +357,7 @@ class LoginService(BaseFrameworkObject):
             LoginFailedError: 未达阈值（20002/401）。
         """
         decision = await self._limiter.check(
-            self._fail_key(tenant_code, account),
+            self._fail_key(tenant_id, account),
             RateLimitRule(limit=self._login.max_failures, window=self._login.lock_seconds),
         )
         count = max(0, self._login.max_failures - decision.remaining)
@@ -370,14 +369,14 @@ class LoginService(BaseFrameworkObject):
         await self._org.login_state(tenant_id, account, success=False, failed_count=count)
         raise LoginFailedError()
 
-    def _fail_key(self, tenant_code: str, account: str) -> str:
-        """登录失败计数键（限流键租户位 10_03 统一改 id）。
+    def _fail_key(self, tenant_id: str, account: str) -> str:
+        """登录失败计数键（限流键租户位 = 租户主键）。
 
         Args:
-            tenant_code: 租户编码。
+            tenant_id: 租户主键（雪花 id 字符串）。
             account: 登录账号。
 
         Returns:
             str: 限流键。
         """
-        return build_rate_limit_key(dimension=_FAIL_DIMENSION, target=account, tenant=tenant_code)
+        return build_rate_limit_key(dimension=_FAIL_DIMENSION, target=account, tenant=tenant_id)

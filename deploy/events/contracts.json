@@ -309,12 +309,12 @@
           "required": true,
           "type": "string"
         },
-        "tenant_code": {
+        "tenant_id": {
           "required": true,
           "type": "string"
         }
       },
-      "version": "1.0.0"
+      "version": "2.0.0"
     },
     {
       "deprecated": false,
@@ -329,12 +329,12 @@
           "required": true,
           "type": "string"
         },
-        "tenant_code": {
+        "tenant_id": {
           "required": true,
           "type": "string"
         }
       },
-      "version": "1.0.0"
+      "version": "2.0.0"
     },
     {
       "deprecated": false,
@@ -349,12 +349,12 @@
           "required": true,
           "type": "string"
         },
-        "tenant_code": {
+        "tenant_id": {
           "required": true,
           "type": "string"
         }
       },
-      "version": "1.0.0"
+      "version": "2.0.0"
     },
     {
       "deprecated": false,

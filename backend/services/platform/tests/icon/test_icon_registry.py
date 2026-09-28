@@ -35,6 +35,7 @@ from bms_platform.api.icon import router as icon_router
 from bms_platform.main import ApplicationFactory
 from bms_platform.models.system import SysIcon, SysIconI18n
 from tests_support.auth import auth_headers
+from tests_support.tenant_source import DEMO_TENANT_ID
 
 API = "/api/v1/icons"
 
@@ -353,6 +354,7 @@ async def test_placeholder_route_create_update_delete(client: AsyncClient) -> No
 
 
 @pytest.mark.kiwi_id(927)
+@pytest.mark.kiwi_id(2218)
 async def test_icon_create_idempotency_first_call_and_reuse() -> None:
     """新增：幂等键首次登记执行并缓存，重复提交复用首次结果（作用域绑当前租户位）。"""
     app = ApplicationFactory().create(None)
@@ -365,10 +367,11 @@ async def test_icon_create_idempotency_first_call_and_reuse() -> None:
 
     assert first.json()["data"]["name"] == "采购订单"
     assert second.json()["data"] == first.json()["data"]
-    assert double.keys == ["bms:demo:idem:k-1", "bms:demo:idem:k-1"]
+    assert double.keys == [f"bms:{DEMO_TENANT_ID}:idem:k-1", f"bms:{DEMO_TENANT_ID}:idem:k-1"]
 
 
 @pytest.mark.kiwi_id(927)
+@pytest.mark.kiwi_id(2218)
 async def test_icon_update_idempotency_without_cached_result_executes() -> None:
     """更新：幂等键非首次但首次结果不可读时继续执行（并发穿透不阻断）。"""
     app = ApplicationFactory().create(None)
@@ -379,10 +382,11 @@ async def test_icon_update_idempotency_without_cached_result_executes() -> None:
         resp = await client.put(f"{API}/purchase-order", json={"name": "新名称"}, headers={"Idempotency-Key": "k-2"})
 
     assert resp.json()["data"]["name"] == "新名称"
-    assert stale.keys == ["bms:demo:idem:k-2"]
+    assert stale.keys == [f"bms:{DEMO_TENANT_ID}:idem:k-2"]
 
 
 @pytest.mark.kiwi_id(927)
+@pytest.mark.kiwi_id(2218)
 async def test_icon_update_and_delete_idempotency_reuse() -> None:
     """更新与删除：重复提交按幂等键复用首次结果。"""
     app = ApplicationFactory().create(None)
@@ -401,4 +405,9 @@ async def test_icon_update_and_delete_idempotency_reuse() -> None:
     assert updated_again.json()["data"] == updated.json()["data"]
     assert removed.json()["data"] == {"deleted": True}
     assert removed_again.json()["data"] == removed.json()["data"]
-    assert double.keys == ["bms:demo:idem:k-3", "bms:demo:idem:k-3", "bms:demo:idem:k-4", "bms:demo:idem:k-4"]
+    assert double.keys == [
+        f"bms:{DEMO_TENANT_ID}:idem:k-3",
+        f"bms:{DEMO_TENANT_ID}:idem:k-3",
+        f"bms:{DEMO_TENANT_ID}:idem:k-4",
+        f"bms:{DEMO_TENANT_ID}:idem:k-4",
+    ]

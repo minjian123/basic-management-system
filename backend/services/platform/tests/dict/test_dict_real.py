@@ -28,10 +28,13 @@ from bms_core.api.deps import (
 )
 from bms_core.application import service_lifespan as lifespan
 from bms_core.core.config import get_settings
+from bms_core.core.context import current_tenant_context_var
 from bms_core.core.exceptions import BizError, ParamError
 from bms_core.db.engine import EngineFactory
+from bms_core.db.keys import build_tenant_db_key
 from bms_core.db.migration import BACKEND_ROOT
 from bms_core.db.registry import EngineRegistry
+from bms_core.db.tenant import TenantContext
 from bms_core.dict.base import DictBatchQuery, DictQuery, DictTranslateQuery
 from bms_core.dict.cache import MemoryDictCacheRegion, RedisDictCacheRegion
 from bms_core.dict.models import SysDictItem, SysDictType
@@ -43,6 +46,24 @@ from bms_core.dict.sql import SqlDictSource, SqlDictTranslator, current_dict_loc
 from bms_core.query.local import LocalQueryProviderRegistry
 from bms_platform.main import ApplicationFactory
 from tests_support.auth import auth_headers
+
+DEMO_TENANT_ID = "1001"
+"""演示租户主键（与共享假租户源口径一致；内部键租户位）。"""
+
+
+def _demo_context() -> TenantContext:
+    """演示租户完整上下文（含雪花主键；缓存键租户位取 id）。
+
+    Returns:
+        TenantContext: 演示租户上下文。
+    """
+    return TenantContext(
+        code="demo",
+        db_key=build_tenant_db_key("demo"),
+        name="演示租户",
+        tenant_id=int(DEMO_TENANT_ID),
+    )
+
 
 EXPECTED_TABLES = {
     "sys_dict_type",
@@ -247,6 +268,7 @@ async def test_by_type_version_filters_locale_and_disabled(dict_db_url: str) -> 
 
 
 @pytest.mark.kiwi_id(963)
+@pytest.mark.kiwi_id(2218)
 async def test_cache_version_invalidate_and_batch(dict_db_url: str) -> None:
     """缓存版本比对与失效（改条目后展示同步）+ `batch` 多类型合并与版本一致。"""
     await _seed(dict_db_url)
@@ -255,32 +277,37 @@ async def test_cache_version_invalidate_and_batch(dict_db_url: str) -> None:
     source = SqlDictSource(engines=engines, cache=cache)
     service = DictService(engines=engines, cache=cache)
 
-    first = await source.by_type(DictQuery(dict_type="user_status"))
-    assert first.items is not None
-    cached = await cache.aget_type("demo", "zh-CN", "user_status")
-    assert isinstance(cached, dict)
-    assert cached["version"] == first.version
+    context_token = current_tenant_context_var.set(_demo_context())
+    try:
+        first = await source.by_type(DictQuery(dict_type="user_status"))
+        assert first.items is not None
+        cached = await cache.aget_type(DEMO_TENANT_ID, "zh-CN", "user_status")
+        assert isinstance(cached, dict)
+        assert cached["version"] == first.version
 
-    batch = await source.batch(DictBatchQuery(types=("user_status", "user_gender")))
-    assert batch.items["user_status"] is not None
-    assert batch.items["user_gender"] is not None
-    assert len(batch.items["user_gender"].items or ()) == 3
-    again = await source.batch(DictBatchQuery(types=("user_status", "user_gender"), version=batch.version))
-    assert again.items["user_status"] is None
-    assert again.items["user_gender"] is None
+        batch = await source.batch(DictBatchQuery(types=("user_status", "user_gender")))
+        assert batch.items["user_status"] is not None
+        assert batch.items["user_gender"] is not None
+        assert len(batch.items["user_gender"].items or ()) == 3
+        again = await source.batch(DictBatchQuery(types=("user_status", "user_gender"), version=batch.version))
+        assert again.items["user_status"] is None
+        assert again.items["user_gender"] is None
 
-    item_id = (await _find_item_ids(dict_db_url, "user_status", ("disabled",)))["disabled"]
-    await service.update_item(
-        item_id,
-        DictItemPayload(code="disabled", label="已停用", value="disabled", status="disabled"),
-    )
-    after = await source.by_type(DictQuery(dict_type="user_status"))
-    assert after.version == first.version + 1
-    assert after.items is not None
-    assert [item.value for item in after.items] == ["enabled"]
+        item_id = (await _find_item_ids(dict_db_url, "user_status", ("disabled",)))["disabled"]
+        await service.update_item(
+            item_id,
+            DictItemPayload(code="disabled", label="已停用", value="disabled", status="disabled"),
+        )
+        after = await source.by_type(DictQuery(dict_type="user_status"))
+        assert after.version == first.version + 1
+        assert after.items is not None
+        assert [item.value for item in after.items] == ["enabled"]
+    finally:
+        current_tenant_context_var.reset(context_token)
 
 
 @pytest.mark.kiwi_id(963)
+@pytest.mark.kiwi_id(2218)
 async def test_translate_subset_and_write_path(dict_db_url: str) -> None:
     """翻译子集回填（未命中不占位）+ 写路径 CRUD 与冲突。"""
     await _seed(dict_db_url)
@@ -289,31 +316,35 @@ async def test_translate_subset_and_write_path(dict_db_url: str) -> None:
     translator = SqlDictTranslator(engines=engines, cache=cache)
     service = DictService(engines=engines, cache=cache)
 
-    mapping = await translator.translate(DictTranslateQuery(dict_type="user_status", values=("enabled", "ghost")))
-    assert mapping == {"enabled": "启用"}
-    subset = await cache.avalue_subset("demo", "zh-CN", "user_status", ("enabled", "ghost"))
-    assert subset == {"enabled": "启用"}
+    context_token = current_tenant_context_var.set(_demo_context())
+    try:
+        mapping = await translator.translate(DictTranslateQuery(dict_type="user_status", values=("enabled", "ghost")))
+        assert mapping == {"enabled": "启用"}
+        subset = await cache.avalue_subset(DEMO_TENANT_ID, "zh-CN", "user_status", ("enabled", "ghost"))
+        assert subset == {"enabled": "启用"}
 
-    created_type = await service.create_type(DictTypePayload(type="demo_status", name="演示状态"))
-    assert created_type.id > 0
-    with pytest.raises(BizError):
-        await service.create_type(DictTypePayload(type="demo_status", name="重复"))
-    item = await service.create_item(
-        "demo_status",
-        DictItemPayload(code="a", label="甲", value="a", color="success"),
-    )
-    with pytest.raises(BizError):
-        await service.create_item("demo_status", DictItemPayload(code="a", label="重复", value="a"))
-    updated = await service.update_item(item.id, DictItemPayload(code="a", label="甲改", value="a"))
-    assert updated.label == "甲改"
-    attr = await service.upsert_attr(
-        "demo_status",
-        DictAttrPayload(attr_key="score", name="分值", data_type="number"),
-    )
-    assert attr.id > 0
-    await service.delete_attr(attr.id)
-    await service.delete_item(item.id)
-    await service.delete_type(created_type.id)
+        created_type = await service.create_type(DictTypePayload(type="demo_status", name="演示状态"))
+        assert created_type.id > 0
+        with pytest.raises(BizError):
+            await service.create_type(DictTypePayload(type="demo_status", name="重复"))
+        item = await service.create_item(
+            "demo_status",
+            DictItemPayload(code="a", label="甲", value="a", color="success"),
+        )
+        with pytest.raises(BizError):
+            await service.create_item("demo_status", DictItemPayload(code="a", label="重复", value="a"))
+        updated = await service.update_item(item.id, DictItemPayload(code="a", label="甲改", value="a"))
+        assert updated.label == "甲改"
+        attr = await service.upsert_attr(
+            "demo_status",
+            DictAttrPayload(attr_key="score", name="分值", data_type="number"),
+        )
+        assert attr.id > 0
+        await service.delete_attr(attr.id)
+        await service.delete_item(item.id)
+        await service.delete_type(created_type.id)
+    finally:
+        current_tenant_context_var.reset(context_token)
 
 
 @pytest.mark.kiwi_id(963)

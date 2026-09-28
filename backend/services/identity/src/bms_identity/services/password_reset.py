@@ -102,8 +102,8 @@ class PasswordResetService(BaseFrameworkObject):
         Args:
             identifier: 账号 / 手机号 / 邮箱。
             captcha: 验证码凭证（可选；场景策略强制时必带）。
-            tenant_id: 租户主键（雪花 id 字符串；token 存储键与 org 调用依据）。
-            tenant_code: 租户编码（限流键 / 重置链接 / 展示）。
+            tenant_id: 租户主键（雪花 id 字符串；限流键 / token 存储键与 org 调用依据）。
+            tenant_code: 租户编码（重置链接 / 展示）。
             ip: 客户端 IP（可选；缺失跳过 IP 维度限流）。
 
         Returns:
@@ -115,12 +115,12 @@ class PasswordResetService(BaseFrameworkObject):
             ParamError: 验证码形态非法（10001）。
             ServiceUnavailableError: org / Redis / 通知渠道不可用（10007/503）。
         """
-        await self._enforce_ip_limit(tenant_code, ip)
+        await self._enforce_ip_limit(tenant_id, ip)
         await self._enforce_captcha(captcha)
         await self._enforce_limit(
             _IDENTIFIER_DIMENSION,
             _normalize_identifier(identifier),
-            tenant=tenant_code,
+            tenant_id=tenant_id,
             limit=self._settings.account_rate_limit,
             window=self._settings.account_rate_window,
         )
@@ -133,7 +133,7 @@ class PasswordResetService(BaseFrameworkObject):
         await self._enforce_limit(
             _USER_DIMENSION,
             str(target.user_id),
-            tenant=tenant_code,
+            tenant_id=tenant_id,
             limit=self._settings.account_rate_limit,
             window=self._settings.account_rate_window,
         )
@@ -172,11 +172,11 @@ class PasswordResetService(BaseFrameworkObject):
         _LOGGER.info("密码已重置", tenant=tenant_code, user_id=user_id, revoked_sessions=len(revoked))
         return PasswordResetResult(reset=True)
 
-    async def _enforce_ip_limit(self, tenant_code: str, ip: str | None) -> None:
+    async def _enforce_ip_limit(self, tenant_id: str, ip: str | None) -> None:
         """IP 维度限流（缺失 IP 跳过；先于验证码计数）。
 
         Args:
-            tenant_code: 租户编码（限流键租户位 10_03 再统一改 id）。
+            tenant_id: 租户主键（雪花 id 字符串；限流键租户位）。
             ip: 客户端 IP（可选）。
 
         Raises:
@@ -187,7 +187,7 @@ class PasswordResetService(BaseFrameworkObject):
         await self._enforce_limit(
             _IP_DIMENSION,
             ip,
-            tenant=tenant_code,
+            tenant_id=tenant_id,
             limit=self._settings.ip_rate_limit,
             window=self._settings.ip_rate_window,
         )
@@ -222,13 +222,13 @@ class PasswordResetService(BaseFrameworkObject):
             )
         )
 
-    async def _enforce_limit(self, dimension: str, target: str, *, tenant: str, limit: int, window: int) -> None:
+    async def _enforce_limit(self, dimension: str, target: str, *, tenant_id: str, limit: int, window: int) -> None:
         """按维度限流（固定窗口计数；命中抛 20006）。
 
         Args:
             dimension: 限流维度名。
             target: 维度目标。
-            tenant: 租户编码（限流键租户位 10_03 再统一改 id）。
+            tenant_id: 租户主键（雪花 id 字符串；限流键租户位）。
             limit: 窗口内上限。
             window: 窗口长度（秒）。
 
@@ -236,7 +236,7 @@ class PasswordResetService(BaseFrameworkObject):
             PasswordResetTooFrequentError: 超出配额（20006/429）。
         """
         decision = await self._limiter.check(
-            build_rate_limit_key(dimension=dimension, target=target, tenant=tenant),
+            build_rate_limit_key(dimension=dimension, target=target, tenant=tenant_id),
             RateLimitRule(limit=limit, window=window),
         )
         if not decision.allowed:

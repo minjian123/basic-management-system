@@ -44,6 +44,7 @@ from bms_core.storage.base import DEFAULT_PRESIGN_TTL
 from bms_report.api.print import router as print_router
 from bms_report.main import ApplicationFactory
 from tests_support.auth import auth_headers
+from tests_support.tenant_source import DEMO_TENANT_ID
 
 API = "/api/v1/prints"
 
@@ -435,6 +436,7 @@ async def test_placeholder_route_batch(client: AsyncClient) -> None:
 
 
 @pytest.mark.kiwi_id(906)
+@pytest.mark.kiwi_id(2218)
 async def test_export_idempotency_reuses_first_result() -> None:
     """导出按幂等键复用首次结果（作用域绑当前租户位）。"""
     app = ApplicationFactory().create(None)
@@ -455,10 +457,11 @@ async def test_export_idempotency_reuses_first_result() -> None:
 
     assert first.json()["data"]["file_name"] == "order.pdf"
     assert second.json()["data"] == first.json()["data"]
-    assert double.keys == ["bms:demo:idem:k-1", "bms:demo:idem:k-1"]
+    assert double.keys == [f"bms:{DEMO_TENANT_ID}:idem:k-1", f"bms:{DEMO_TENANT_ID}:idem:k-1"]
 
 
 @pytest.mark.kiwi_id(906)
+@pytest.mark.kiwi_id(2218)
 async def test_batch_idempotency_without_cached_result_executes() -> None:
     """批量：幂等键非首次但首次结果不可读时继续执行（并发穿透不阻断）。"""
     app = ApplicationFactory().create(None)
@@ -473,10 +476,11 @@ async def test_batch_idempotency_without_cached_result_executes() -> None:
         )
 
     assert resp.json()["data"]["total"] == 1
-    assert stale.keys == ["bms:demo:idem:k-2"]
+    assert stale.keys == [f"bms:{DEMO_TENANT_ID}:idem:k-2"]
 
 
 @pytest.mark.kiwi_id(906)
+@pytest.mark.kiwi_id(2218)
 async def test_batch_idempotency_reuses_first_result() -> None:
     """批量按幂等键复用首次结果（作用域绑当前租户位）。"""
     app = ApplicationFactory().create(None)
@@ -497,7 +501,7 @@ async def test_batch_idempotency_reuses_first_result() -> None:
 
     assert first.json()["data"]["total"] == 1
     assert second.json()["data"] == first.json()["data"]
-    assert double.keys == ["bms:demo:idem:k-3", "bms:demo:idem:k-3"]
+    assert double.keys == [f"bms:{DEMO_TENANT_ID}:idem:k-3", f"bms:{DEMO_TENANT_ID}:idem:k-3"]
 
 
 @pytest.mark.kiwi_id(906)

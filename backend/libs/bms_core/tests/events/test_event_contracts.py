@@ -158,8 +158,9 @@ def test_subscription_validation_and_version_acceptance() -> None:
 
 
 @pytest.mark.kiwi_id(2174)
+@pytest.mark.kiwi_id(2218)
 def test_compatibility_rules() -> None:
-    """兼容规则逐条：只增不删 / 新增可选 / 破坏性升主版本 / 版本递增。"""
+    """兼容规则逐条：主版本内只增不删 / 新增可选 / 破坏性升主版本；主版本升级豁免破坏性字段变更。"""
     base = _contract()
 
     assert check_event_compatibility(base, _contract(version="1.0.1", description="措辞更新")) == ()
@@ -185,26 +186,27 @@ def test_compatibility_rules() -> None:
     assert any("新增字段必须可选" in error for error in errors)
     assert any("必须升主版本" in error for error in errors)
 
-    major_ok = _contract(
+    added_in_major = _contract(
         version="2.0.0", fields={**_USER_FIELDS, "extra": EventFieldSpec(type="string", required=True)}
     )
-    errors = check_event_compatibility(base, major_ok)
-    assert any("新增字段必须可选" in error for error in errors)
-    assert not any("必须升主版本" in error for error in errors)
+    assert check_event_compatibility(base, added_in_major) == ()
 
-    assert any("禁止删除" in error for error in check_event_compatibility(base, _contract(version="2.0.0", fields={})))
-    assert any(
-        "字段类型变更" in error
-        for error in check_event_compatibility(
-            base, _contract(version="2.0.0", fields={"user_id": EventFieldSpec(type="integer", required=True)})
-        )
-    )
-    assert any(
-        "必填性变更" in error
-        for error in check_event_compatibility(
-            base, _contract(version="2.0.0", fields={"user_id": EventFieldSpec(type="string")})
-        )
-    )
+    removed_in_minor = _contract(version="1.1.0", fields={})
+    errors = check_event_compatibility(base, removed_in_minor)
+    assert any("禁止删除" in error for error in errors)
+    assert any("必须升主版本" in error for error in errors)
+    assert check_event_compatibility(base, _contract(version="2.0.0", fields={})) == ()
+
+    type_changed_minor = _contract(version="1.1.0", fields={"user_id": EventFieldSpec(type="integer", required=True)})
+    assert any("字段类型变更" in error for error in check_event_compatibility(base, type_changed_minor))
+    type_changed_major = _contract(version="2.0.0", fields={"user_id": EventFieldSpec(type="integer", required=True)})
+    assert check_event_compatibility(base, type_changed_major) == ()
+
+    required_changed_minor = _contract(version="1.1.0", fields={"user_id": EventFieldSpec(type="string")})
+    assert any("必填性变更" in error for error in check_event_compatibility(base, required_changed_minor))
+    required_changed_major = _contract(version="2.0.0", fields={"user_id": EventFieldSpec(type="string")})
+    assert check_event_compatibility(base, required_changed_major) == ()
+
     assert any(
         "弃用标记不可回退" in error
         for error in check_event_compatibility(_contract(deprecated=True), _contract(version="2.0.0"))

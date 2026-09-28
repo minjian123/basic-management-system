@@ -92,7 +92,7 @@ class OutboxRecord(BaseEventRecordContract):
     aggregate_key: str | None
     """聚合 / 分区键（同聚合按序投递；空 = 独立事件）。"""
     tenant_id: str | None
-    """租户标识。"""
+    """租户主键（雪花 id 十进制字符串；无租户事件为空）。"""
     payload: dict[str, object]
     """事件负载。"""
     occurred_at: datetime
@@ -142,7 +142,7 @@ class DeadLetterRecord(BaseEventRecordContract):
     aggregate_key: str | None
     """聚合 / 分区键。"""
     tenant_id: str | None
-    """租户标识。"""
+    """租户主键（雪花 id 十进制字符串；无租户事件为空）。"""
     payload: dict[str, object]
     """事件负载。"""
     error_msg: str

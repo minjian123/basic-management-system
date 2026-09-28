@@ -14,6 +14,7 @@ from bms_core.db.tenant import (
     TenantContext,
     build_tenant_db_key,
     current_tenant_context,
+    current_tenant_id_str,
     is_exempt_path,
     is_local_hostname,
     is_tenant_code,
@@ -229,3 +230,23 @@ def test_current_tenant_context_prefers_full_context() -> None:
     reset_current_tenant(code_token)
 
     assert current_tenant_context() == DEMO_TENANT
+
+
+@pytest.mark.kiwi_id(2218)
+def test_current_tenant_id_str_prefers_full_context() -> None:
+    """服务层租户 id 助手：完整上下文优先（雪花 id 字符串）；仅有编码 / 无上下文为空（内部键落 global）。"""
+    full = TenantContext(code="acme", db_key="tenant_acme", name="示例租户", tenant_id=7)
+    token = set_tenant_context(full)
+    try:
+        assert current_tenant_id_str() == "7"
+    finally:
+        reset_tenant_context(token)
+
+    code_token = set_current_tenant("acme")
+    try:
+        assert current_tenant_context().tenant_id is None
+        assert current_tenant_id_str() is None
+    finally:
+        reset_current_tenant(code_token)
+
+    assert current_tenant_id_str() is None

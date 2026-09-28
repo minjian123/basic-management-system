@@ -29,6 +29,7 @@ from bms_core.ratelimit.base import RateLimitRule
 from bms_platform.api.codecheck import router as codecheck_router
 from bms_platform.main import ApplicationFactory
 from tests_support.auth import auth_headers
+from tests_support.tenant_source import DEMO_TENANT_ID
 
 API = "/api/v1/code"
 
@@ -257,6 +258,7 @@ async def test_route_mapping_with_stub_validator() -> None:
 
 
 @pytest.mark.kiwi_id(927)
+@pytest.mark.kiwi_id(2218)
 async def test_validate_sql_rate_limit_key() -> None:
     """限流接入：SQL 校验先经限流基座（IP 维度 + 解析链租户位）。"""
     app = ApplicationFactory().create(None)
@@ -268,5 +270,4 @@ async def test_validate_sql_rate_limit_key() -> None:
 
     assert resp.json()["data"]["valid"] is True
     assert len(limiter.keys) == 1
-    assert limiter.keys[0].startswith("bms:")
-    assert ":rate:ip:" in limiter.keys[0]
+    assert limiter.keys[0].startswith(f"bms:{DEMO_TENANT_ID}:rate:ip:")

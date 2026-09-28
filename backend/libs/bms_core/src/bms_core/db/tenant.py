@@ -1,7 +1,8 @@
 """多租户上下文与解析链编排：租户上下文、数据源键助手与请求级依赖。
 
-- 上下文：`TenantContext`（编码 / 库键 / 名称 / 主键 / 状态 / 域名）；`current_tenant` 上下文变量由
-  租户全局中间件设置，供服务层与数据访问层取值。
+- 上下文：`TenantContext`（编码 / 库键 / 名称 / 主键 / 状态 / 域名）；`current_tenant` /
+  `current_tenant_id` 上下文变量由租户全局中间件设置，供服务层与数据访问层取值；内部键
+  （缓存 / 限流 / 幂等 / 锁）租户位经 `current_tenant_id_str()` 取（完整上下文优先、无主键为空）。
 - 数据源键：`build_tenant_db_key` / `parse_tenant_db_key` 自 `bms_core/db/keys.py` **re-export**
   （键形态与库名单一来源归 `db/keys.py`，06_01）：上下文携带**相对键** `tenant_{code}`，
   随运行服务解析为 `bms_{service}_{code}`；**禁止全局单例持有租户引擎**，引擎一律经
@@ -23,7 +24,7 @@ from typing import Protocol
 
 from fastapi import Request
 
-from bms_core.core.context import current_tenant, get_tenant_context
+from bms_core.core.context import current_tenant, current_tenant_id, get_tenant_context
 from bms_core.core.exceptions import ConfigError, TenantNotFoundError
 from bms_core.core.objects import BaseTenantViewContract
 from bms_core.db.keys import (
@@ -40,6 +41,7 @@ __all__ = [
     "TenantLookup",
     "build_tenant_db_key",
     "current_tenant_context",
+    "current_tenant_id_str",
     "get_tenant",
     "is_exempt_path",
     "is_local_hostname",
@@ -270,6 +272,21 @@ def current_tenant_context() -> TenantContext:
     if not code:
         return DEMO_TENANT
     return TenantContext(code=code, db_key=build_tenant_db_key(code), name=code)
+
+
+def current_tenant_id_str() -> str | None:
+    """取当前请求上下文租户主键字符串（内部键租户位；无主键为空）。
+
+    - 完整租户上下文（含解析链产出的雪花主键）优先；
+    - 仅有编码的旧调用面 / 演示兜底返回空（内部 id 键按全局处理）。
+
+    Returns:
+        str | None: 租户主键（雪花 id 十进制字符串）；无完整上下文 / 无主键为空。
+    """
+    context = get_tenant_context()
+    if context is not None and context.tenant_id is not None:
+        return str(context.tenant_id)
+    return current_tenant_id.get()
 
 
 def _usable_code(value: str | None) -> str | None:

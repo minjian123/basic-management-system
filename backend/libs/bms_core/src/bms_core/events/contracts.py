@@ -3,7 +3,8 @@
 - **事件名规则**：`{已登记事件域}.{对象}.{动作}` 点分小写——首段必须是服务目录
   （`SERVICE_CATALOG` 的 `event_domain`）已登记的事件域，其余段 ≥1 段。
 - **契约** `EventContract`：事件类型 + 契约版本（`X.Y.Z`）+ 载荷字段规格 + 说明 + 弃用标记。
-  事件是长期契约——字段只增不删、新增必须可选、破坏性变更升主版本（见《架构设计 · 事件总线》
+  事件是长期契约——**主版本内**字段只增不删、新增必须可选；**破坏性变更升主版本**
+  （升主版本后允许删除 / 改名 / 类型与必填性变更）（见《架构设计 · 事件总线》
   「幂等与重试」节）。
 - **订阅** `EventSubscription`：消费方声明「消费标识 + 事件类型 + 支持主版本集合」，
   用于运行期版本判定与构建期主版本升级覆盖校验（消费方按订阅做新旧兼容）。
@@ -85,11 +86,13 @@ RESERVED_PAYLOAD_KEYS: tuple[str, ...] = (
     "event_type",
     "event_version",
     "occurred_at",
-    "tenant_id",
     "trace_id",
     "aggregate_key",
 )
-"""事件信封保留键（载荷字段不得占用，避免与信封语义冲突）。"""
+"""事件信封保留键（载荷字段不得占用，避免与信封语义冲突）。
+
+`tenant_id` 不在此列：它是**信封与载荷共用的租户主键键名**（同名同值，租户位统一表达）。
+"""
 
 EVENT_SNAPSHOT_PATH = "deploy/events/contracts.json"
 """事件契约快照路径（相对仓库根；导出 / 零漂移校验用）。"""
@@ -493,7 +496,12 @@ def _version_tuple(version: str) -> tuple[int, int, int] | None:
 
 
 def check_event_compatibility(previous: EventContract, current: EventContract) -> tuple[str, ...]:
-    """兼容校验（只增不删 / 新增可选 / 破坏性升主版本）。
+    """兼容校验（主版本内只增不删 / 新增可选；主版本严格升级允许破坏性变更）。
+
+    - **主版本内**（次 / 补丁升级）：字段只增不删、新增必须可选、类型 / 必填性不得变更、
+      结构变更至少升次版本；
+    - **主版本严格升级**（`current.major > previous.major`）：上述破坏性字段变更合法
+      （事件长期契约的破坏性变更走升主版本的正规通道）；弃用标记不可回退、版本不得回退等限制不变。
 
     Args:
         previous: 变更前契约（快照）。
@@ -509,23 +517,28 @@ def check_event_compatibility(previous: EventContract, current: EventContract) -
     if previous_version is None or current_version is None:
         return (f"契约版本非法：{previous.event_type}（{previous.version} → {current.version}）",)
 
+    major_upgraded = current_version[0] > previous_version[0]
     violations: list[str] = []
     breaking = False
     for name, spec in previous.fields.items():
         if name not in current.fields:
-            violations.append(f"字段只增不删，禁止删除：{current.event_type}.{name}")
+            if not major_upgraded:
+                violations.append(f"字段只增不删，禁止删除：{current.event_type}.{name}")
             breaking = True
         elif current.fields[name].type != spec.type:
-            violations.append(
-                f"字段类型变更属破坏性：{current.event_type}.{name}（{spec.type} → {current.fields[name].type}）"
-            )
+            if not major_upgraded:
+                violations.append(
+                    f"字段类型变更属破坏性：{current.event_type}.{name}（{spec.type} → {current.fields[name].type}）"
+                )
             breaking = True
         elif current.fields[name].required != spec.required:
-            violations.append(f"字段必填性变更属破坏性：{current.event_type}.{name}")
+            if not major_upgraded:
+                violations.append(f"字段必填性变更属破坏性：{current.event_type}.{name}")
             breaking = True
     for name, spec in current.fields.items():
         if name not in previous.fields and spec.required:
-            violations.append(f"新增字段必须可选：{current.event_type}.{name}")
+            if not major_upgraded:
+                violations.append(f"新增字段必须可选：{current.event_type}.{name}")
             breaking = True
     if previous.deprecated and not current.deprecated:
         violations.append(f"弃用标记不可回退：{current.event_type}")
