@@ -47,7 +47,7 @@ async def test_list_providers_tenant_mismatch(
 
     async def fake_by_code(code: str) -> TenantContext:
         if code == "other":
-            return TenantContext(tenant_code="other", db_key="tenant_other", name="其他租户")
+            return TenantContext(code="other", db_key="tenant_other", name="其他租户")
         return await original(code)
 
     monkeypatch.setattr(source, "by_code", fake_by_code)

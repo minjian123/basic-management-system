@@ -18,7 +18,7 @@ import ipaddress
 import re
 from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import ClassVar, Protocol
+from typing import Protocol
 
 from fastapi import Request
 
@@ -77,9 +77,7 @@ _LOCAL_HOSTNAMES = frozenset({"localhost", "localhost.localdomain"})
 class TenantContext(BaseTenantViewContract):
     """租户上下文：租户编码、数据源键、名称与注册要素。"""
 
-    CODE_FIELD: ClassVar[str] = "tenant_code"
-
-    tenant_code: str
+    code: str
     db_key: str
     name: str
     tenant_id: int | None = None
@@ -87,7 +85,7 @@ class TenantContext(BaseTenantViewContract):
     domain: str | None = None
 
 
-DEMO_TENANT = TenantContext(tenant_code="demo", db_key="tenant_demo", name="演示租户")
+DEMO_TENANT = TenantContext(code="demo", db_key="tenant_demo", name="演示租户")
 """内置演示租户（仅租户源不可用的兜底路径使用；正常路径经租户源取真实注册记录）。"""
 
 
@@ -238,7 +236,7 @@ def current_tenant_context() -> TenantContext:
     code = current_tenant.get()
     if not code:
         return DEMO_TENANT
-    return TenantContext(tenant_code=code, db_key=build_tenant_db_key(code), name=code)
+    return TenantContext(code=code, db_key=build_tenant_db_key(code), name=code)
 
 
 def _usable_code(value: str | None) -> str | None:
@@ -303,7 +301,7 @@ async def resolve_request_tenant(
     if source is None:
         return DEMO_TENANT
     try:
-        return await source.by_code(DEMO_TENANT.tenant_code)
+        return await source.by_code(DEMO_TENANT.code)
     except TenantNotFoundError:
         return DEMO_TENANT
 
@@ -320,7 +318,7 @@ def _builtin_lookup(code: str) -> TenantContext:
     Raises:
         TenantNotFoundError: 非演示租户。
     """
-    if code == DEMO_TENANT.tenant_code:
+    if code == DEMO_TENANT.code:
         return DEMO_TENANT
     raise TenantNotFoundError(f"未知租户：{code}")
 

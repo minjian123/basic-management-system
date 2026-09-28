@@ -64,7 +64,7 @@ class RecordingRegistry(EngineRegistry):
 async def test_session_scope_tenant_key_and_custom_factory() -> None:
     """无显式库键时按当前租户上下文库键取引擎；自定义会话工厂生效。"""
     registry = EngineRegistry(EngineFactory(_settings()))
-    token = set_tenant_context(TenantContext(tenant_code="demo", db_key="tenant_demo", name="演示租户", tenant_id=1))
+    token = set_tenant_context(TenantContext(code="demo", db_key="tenant_demo", name="演示租户", tenant_id=1))
     RecordingSessionFactory.called = False
     try:
         async with session_scope(registry, factory=RecordingSessionFactory()) as session:

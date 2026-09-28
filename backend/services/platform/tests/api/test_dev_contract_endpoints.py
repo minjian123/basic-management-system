@@ -180,5 +180,5 @@ async def test_ip_host_resolves_to_demo_tenant(dev_template_app: FastAPI) -> Non
         allow_demo_fallback=settings.tenant.allow_demo_fallback,
     )
     assert tenant is not None
-    assert tenant.tenant_code == "demo"
+    assert tenant.code == "demo"
     assert tenant.db_key == "tenant_demo"

@@ -136,7 +136,7 @@ async def test_gateway_identity_without_subject_uses_user_id() -> None:
     store = await _store_with("s2")
     state = {
         "edge_identity": EdgeIdentity(user_id=7, session_id="s2"),
-        "tenant": TenantContext(tenant_code="demo", db_key="tenant_demo", name="演示租户"),
+        "tenant": TenantContext(code="demo", db_key="tenant_demo", name="演示租户"),
     }
     context = await require_auth(_request(state=state), verifier=_StubVerifier(), store=store)
     assert context.subject == "7"
@@ -161,7 +161,7 @@ async def test_local_token_builds_context_and_adopts_tenant() -> None:
     assert context.source == "token"
     assert context.user_id == 1001
     assert context.tenant == "demo"
-    assert request.scope["state"]["tenant"].tenant_code == "demo"
+    assert request.scope["state"]["tenant"].code == "demo"
 
 
 async def test_missing_and_invalid_token_rejected() -> None:
@@ -231,7 +231,7 @@ async def test_cross_tenant_explicit_mismatch_rejected() -> None:
     store = await _store_with("s6", tenant="acme")
     request = _request(
         headers={"Authorization": f"Bearer {_TOK}", "X-Tenant-ID": "acme"},
-        state={"tenant": TenantContext(tenant_code="acme", db_key="tenant_acme", name="acme")},
+        state={"tenant": TenantContext(code="acme", db_key="tenant_acme", name="acme")},
     )
     with pytest.raises(AuthError) as excinfo:
         await require_auth(
@@ -251,4 +251,4 @@ async def test_token_tenant_overrides_fallback() -> None:
         request, verifier=_StubVerifier(result=_verified(tenant="acme", session_id="s7")), store=store
     )
     assert context.tenant == "acme"
-    assert request.scope["state"]["tenant"].tenant_code == "acme"
+    assert request.scope["state"]["tenant"].code == "acme"

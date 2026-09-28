@@ -434,7 +434,7 @@ class FakeTenantSource:
         Raises:
             TenantNotFoundError: 非演示租户（404）。
         """
-        if code == DEMO_TENANT.tenant_code:
+        if code == DEMO_TENANT.code:
             return DEMO_TENANT
         raise TenantNotFoundError(f"未知租户：{code}")
 

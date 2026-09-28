@@ -20,6 +20,7 @@ from bms_core.events.contracts import (
 __all__ = [
     "PLATFORM_EVENT_CONTRACTS",
     "PLATFORM_EVENT_SUBSCRIPTIONS",
+    "TENANT_CODE_PAYLOAD_KEY",
     "register_platform_event_contracts",
 ]
 
@@ -27,6 +28,13 @@ _STRING_REQUIRED = EventFieldSpec(type="string", required=True)
 _STRING_OPTIONAL = EventFieldSpec(type="string")
 _INTEGER_REQUIRED = EventFieldSpec(type="integer", required=True)
 _BOOLEAN_REQUIRED = EventFieldSpec(type="boolean", required=True)
+
+TENANT_CODE_PAYLOAD_KEY = "tenant_code"
+"""平台事件负载中「租户编码」的键名（**跨服务契约键，保持不变**）。
+
+对象侧字段为 `TenantContext.code`（租户视图对象的**自身编码**）；事件负载键与对象字段名**解耦**，
+以本常量为事件侧单一来源——二者是显式映射，属性改名不影响负载契约。
+"""
 
 _USER_PAYLOAD: dict[str, EventFieldSpec] = {
     "user_id": _STRING_REQUIRED,
@@ -42,7 +50,7 @@ _HELP_ARTICLE_PAYLOAD: dict[str, EventFieldSpec] = {
 }
 
 _TENANT_PAYLOAD: dict[str, EventFieldSpec] = {
-    "tenant_code": _STRING_REQUIRED,
+    TENANT_CODE_PAYLOAD_KEY: _STRING_REQUIRED,
     "db_key": _STRING_REQUIRED,
     "status": _STRING_REQUIRED,
 }

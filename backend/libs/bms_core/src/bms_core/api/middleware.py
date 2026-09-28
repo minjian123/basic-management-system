@@ -191,7 +191,7 @@ class TenantMiddleware(BaseMiddleware):
 
         state["tenant"] = tenant
         tenant_token = set_tenant_context(tenant)
-        code_token = set_current_tenant(tenant.tenant_code if tenant else None)
+        code_token = set_current_tenant(tenant.code if tenant else None)
         try:
             await self.app(scope, receive, send)
         finally:

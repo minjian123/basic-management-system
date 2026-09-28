@@ -237,4 +237,4 @@ def current_code_of(tenant: TenantContext | None) -> str | None:
     Returns:
         str | None: 当前租户编码；无上下文为空。
     """
-    return tenant.tenant_code if tenant is not None else None
+    return tenant.code if tenant is not None else None

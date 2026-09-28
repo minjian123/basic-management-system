@@ -137,7 +137,7 @@ def _demo_tenant(tenant_id: int) -> TenantContext:
     Returns:
         TenantContext: 租户上下文。
     """
-    return TenantContext(tenant_code="demo", db_key="tenant_demo", name="演示租户", tenant_id=tenant_id)
+    return TenantContext(code="demo", db_key="tenant_demo", name="演示租户", tenant_id=tenant_id)
 
 
 @pytest.mark.kiwi_id(1050)

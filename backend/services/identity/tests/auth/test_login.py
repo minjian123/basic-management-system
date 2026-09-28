@@ -185,7 +185,7 @@ def test_truncate_none_and_limit() -> None:
 async def test_resolve_login_tenant_branches() -> None:
     """登录租户解析：body 指定经租户源生效；无任何来源抛 404。"""
     ctx = await resolve_request_tenant("demo", None, FakeTenantSource())
-    assert ctx.tenant_code == "demo"
+    assert ctx.code == "demo"
     with pytest.raises(TenantNotFoundError):
         await resolve_request_tenant(None, None, FakeTenantSource())
 

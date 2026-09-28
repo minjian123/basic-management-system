@@ -25,7 +25,7 @@ from .helpers import (
 
 API_LOGIN = "/api/v1/auth/login"
 API_SESSIONS = "/api/v1/sessions"
-TENANT_HEADERS = {"X-Tenant-ID": DEMO_TENANT.tenant_code}
+TENANT_HEADERS = {"X-Tenant-ID": DEMO_TENANT.code}
 
 
 def utc_now() -> datetime:

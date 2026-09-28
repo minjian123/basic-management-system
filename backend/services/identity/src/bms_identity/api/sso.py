@@ -87,7 +87,7 @@ async def _resolve_sso_tenant(
         SsoProviderNotFoundError: 参数与上下文租户不一致（20051/404）。
         TenantNotFoundError: 无任何租户来源（既有，与 refresh 同口径）。
     """
-    if tenant and context is not None and tenant != context.tenant_code:
+    if tenant and context is not None and tenant != context.code:
         raise SsoProviderNotFoundError()
     if tenant:
         return await source.by_code(tenant)
@@ -170,7 +170,7 @@ async def providers(
             lock=lock,
             outbox_store=outbox_store,
         )
-        items = await service.list_providers(context.tenant_code, session)
+        items = await service.list_providers(context.code, session)
     return ApiResponse.ok(SsoProviderList(items=items))
 
 
@@ -223,7 +223,7 @@ async def authorize(
         )
         url = await service.authorize(
             idp_key,
-            tenant=context.tenant_code,
+            tenant=context.code,
             ip=current_client_ip.get(),
             session=session,
         )
@@ -280,7 +280,7 @@ async def authorize_url(
         )
         result = await service.authorize_info(
             idp_key,
-            tenant=context.tenant_code,
+            tenant=context.code,
             ip=current_client_ip.get(),
             session=session,
         )
@@ -353,7 +353,7 @@ async def callback(
         flow = await service.consume_flow(
             state or "",
             idp_key=idp_key,
-            tenant_code=tenant_ctx.tenant_code if tenant_ctx is not None else None,
+            tenant_code=tenant_ctx.code if tenant_ctx is not None else None,
             ip=ip,
         )
         tenant = await tenant_source.by_code(flow.tenant)

@@ -162,7 +162,7 @@ async def forgot_password(
         result = await service.request_reset(
             req.identifier,
             req.captcha,
-            tenant=tenant.tenant_code,
+            tenant=tenant.code,
             ip=current_client_ip.get(),
         )
     return ApiResponse.ok(result)
@@ -218,5 +218,5 @@ async def reset_password(
             store=store,
             publisher=publisher,
         )
-        result = await service.reset_password(req.token, req.new_password, tenant=tenant.tenant_code)
+        result = await service.reset_password(req.token, req.new_password, tenant=tenant.code)
     return ApiResponse.ok(result)

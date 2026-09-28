@@ -400,7 +400,7 @@ def _tenant_context(code: str) -> TenantContext:
     Returns:
         TenantContext: 租户上下文（含派生库键）。
     """
-    return TenantContext(tenant_code=code, db_key=build_tenant_db_key(code), name=code)
+    return TenantContext(code=code, db_key=build_tenant_db_key(code), name=code)
 
 
 def _context_from_identity(identity: EdgeIdentity) -> AuthContext:
@@ -511,16 +511,16 @@ def _wire_tenant(request: Request, context: AuthContext) -> AuthContext:
     state: dict[str, object] = request.scope.setdefault("state", {})
     resolved = cast("TenantContext | None", state.get("tenant"))
     token_tenant = context.tenant
-    if token_tenant and (resolved is None or (resolved.tenant_code != token_tenant and not _explicit_tenant(request))):
+    if token_tenant and (resolved is None or (resolved.code != token_tenant and not _explicit_tenant(request))):
         adopted = _tenant_context(token_tenant)
         state["tenant"] = adopted
         set_tenant_context(adopted)
         return context
     if resolved is not None:
-        if token_tenant and _explicit_tenant(request) and resolved.tenant_code != token_tenant:
+        if token_tenant and _explicit_tenant(request) and resolved.code != token_tenant:
             raise AuthError("跨租户访问被拒")
         if not context.tenant:
-            return replace(context, tenant=resolved.tenant_code)
+            return replace(context, tenant=resolved.code)
     return context
 
 
