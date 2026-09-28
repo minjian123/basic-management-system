@@ -23,9 +23,8 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import cast
 
-from bms_core.core.base import BaseObject
 from bms_core.core.exceptions import EventContractError
-from bms_core.core.objects import BaseFieldSpecContract, BaseSnapshotRoundTripContract
+from bms_core.core.objects import BaseFieldSpecContract, BaseFrameworkObject, BaseSnapshotRoundTripContract
 from bms_core.core.version import contract_major
 from bms_core.events.base import DEFAULT_EVENT_VERSION, EventEnvelope
 
@@ -258,7 +257,7 @@ class EventSubscription(BaseSnapshotRoundTripContract):
         )
 
 
-class EventContractRegistry(BaseObject):
+class EventContractRegistry(BaseFrameworkObject):
     """事件契约与订阅注册表（进程级默认实例经 `default_event_contract_registry()` 取用）。"""
 
     def __init__(self) -> None:

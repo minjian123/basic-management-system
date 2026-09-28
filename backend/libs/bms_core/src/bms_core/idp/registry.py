@@ -18,9 +18,8 @@ from typing import cast
 
 import httpx
 
-from bms_core.core.base import BaseObject
 from bms_core.core.exceptions import ConfigError, DingtalkConfigError, WecomConfigError
-from bms_core.core.objects import BaseValueObject
+from bms_core.core.objects import BaseFrameworkObject, BaseValueObject
 from bms_core.idp.base import BaseIdentityProvider
 from bms_core.idp.cas import CasIdentityProvider, normalize_attribute_map
 from bms_core.idp.dingtalk import DingtalkIdentityProvider
@@ -79,7 +78,7 @@ def resolve_secret_ref(ref: str) -> str:
     raise ConfigError(f"未知身份源密钥引用前缀：{ref.split(':', 1)[0]}")
 
 
-class IdentityProviderRegistry(BaseObject):
+class IdentityProviderRegistry(BaseFrameworkObject):
     """行配置 → IdP 实例（按 type 分派；`(id, updated_at, type)` 进程内缓存）。"""
 
     def __init__(

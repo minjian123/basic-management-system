@@ -19,7 +19,6 @@ from collections.abc import Callable, Mapping
 from types import MappingProxyType
 from typing import Any
 
-from bms_core.core.base import BaseObject
 from bms_core.core.capability import (
     BaseAsyncResource,
     BaseCapability,
@@ -28,6 +27,7 @@ from bms_core.core.capability import (
 )
 from bms_core.core.exceptions import PluginError
 from bms_core.core.logging import get_logger
+from bms_core.core.objects import BaseFrameworkObject
 from bms_core.core.version import CONTRACT_VERSION_RE, contract_major
 
 __all__ = [
@@ -229,7 +229,7 @@ class BasePluggable(BaseCapability, BaseAsyncResource):
         return identity
 
 
-class PluginRegistry(BaseObject):
+class PluginRegistry(BaseFrameworkObject):
     """插件注册表：两级映射 `plugin_key → {plugin_name → 实现}`（启动期构建、运行期只读）。"""
 
     def __init__(self) -> None:

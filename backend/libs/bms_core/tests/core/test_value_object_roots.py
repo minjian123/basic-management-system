@@ -529,10 +529,10 @@ def test_direct_inheritance_stays_within_roots_and_baseline() -> None:
 
 @pytest.mark.kiwi_id(2216)
 def test_direct_baseline_decreased_without_value_object() -> None:
-    """基线递减：50 条（框架对象 47 + 数据契约 3）且不含 `value_object`。"""
+    """基线递减：值对象体系条目已归零（条目数与余量口径由 09_05 台账用例维护）。"""
     entries = _baseline_entries()
-    assert len(entries) == 50
-    assert {system for _rel, _name, system in entries} == {"framework_object", "data_contract"}
+    assert "value_object" not in {system for _rel, _name, system in entries}
+    assert len(entries) <= 50, "基线只应递减（本批 110 处值对象归位后 ≤ 50）"
 
 
 @pytest.mark.kiwi_id(2216)

@@ -7,12 +7,21 @@
 
 import ast
 import dataclasses
+import inspect
 import json
 from collections.abc import Sequence
 from pathlib import Path
 
 import pytest
 
+from bms_core.api.middleware import (
+    BaseMiddleware,
+    EdgeGuardMiddleware,
+    ReadOnlyMiddleware,
+    RequestLoggingMiddleware,
+    TenantMiddleware,
+    TraceIdMiddleware,
+)
 from bms_core.audit.base import FieldChange
 from bms_core.events.base import EventEnvelope
 from bms_core.sharding.base import ShardBinding
@@ -42,11 +51,40 @@ OBJECT_BATCH: tuple[tuple[str, str, str], ...] = (
     ("backend/libs/bms_core/src/bms_core/audit/base.py", "FieldChange", "BaseDataContract"),
     ("backend/libs/bms_core/src/bms_core/events/base.py", "EventEnvelope", "BaseDataContract"),
     ("backend/libs/bms_core/src/bms_core/sharding/base.py", "ShardBinding", "BaseDataContract"),
+    ("backend/libs/bms_core/src/bms_core/api/middleware.py", "TraceIdMiddleware", "BaseMiddleware"),
+    ("backend/libs/bms_core/src/bms_core/api/middleware.py", "TenantMiddleware", "BaseMiddleware"),
+    ("backend/libs/bms_core/src/bms_core/api/middleware.py", "ReadOnlyMiddleware", "BaseMiddleware"),
+    ("backend/libs/bms_core/src/bms_core/api/middleware.py", "EdgeGuardMiddleware", "BaseMiddleware"),
+    ("backend/libs/bms_core/src/bms_core/api/middleware.py", "RequestLoggingMiddleware", "BaseMiddleware"),
+    ("backend/libs/bms_core/src/bms_core/api/base.py", "RouterRegistry", "BaseFrameworkObject"),
+    ("backend/libs/bms_core/src/bms_core/config/service.py", "ConfigService", "BaseFrameworkObject"),
+    ("backend/libs/bms_core/src/bms_core/core/id.py", "SnowflakeGenerator", "BaseFrameworkObject"),
+    ("backend/libs/bms_core/src/bms_core/core/locking.py", "LockGuard", "BaseFrameworkObject"),
+    ("backend/libs/bms_core/src/bms_core/core/locking.py", "ReadWriteLock", "BaseFrameworkObject"),
+    ("backend/libs/bms_core/src/bms_core/core/plugin.py", "PluginRegistry", "BaseFrameworkObject"),
+    ("backend/libs/bms_core/src/bms_core/core/redis_collections.py", "RedisSnapshot", "BaseFrameworkObject"),
+    ("backend/libs/bms_core/src/bms_core/core/redis_collections.py", "RedisSortedDict", "BaseFrameworkObject"),
+    ("backend/libs/bms_core/src/bms_core/core/redis_collections.py", "RedisSortedSet", "BaseFrameworkObject"),
+    ("backend/libs/bms_core/src/bms_core/core/resources.py", "ResourceManager", "BaseFrameworkObject"),
+    ("backend/libs/bms_core/src/bms_core/core/service.py", "ServiceRuntime", "BaseFrameworkObject"),
+    ("backend/libs/bms_core/src/bms_core/db/sync.py", "SyncSession", "BaseFrameworkObject"),
+    ("backend/libs/bms_core/src/bms_core/db/sync.py", "_SyncTransaction", "BaseFrameworkObject"),
+    ("backend/libs/bms_core/src/bms_core/db/tenant_remote.py", "RemoteTenantSource", "BaseFrameworkObject"),
+    ("backend/libs/bms_core/src/bms_core/dict/query.py", "DictQueryService", "BaseFrameworkObject"),
+    ("backend/libs/bms_core/src/bms_core/dict/service.py", "DictService", "BaseFrameworkObject"),
+    ("backend/libs/bms_core/src/bms_core/events/contracts.py", "EventContractRegistry", "BaseFrameworkObject"),
+    ("backend/libs/bms_core/src/bms_core/idp/jwks.py", "JwksCache", "BaseFrameworkObject"),
+    ("backend/libs/bms_core/src/bms_core/idp/registry.py", "IdentityProviderRegistry", "BaseFrameworkObject"),
+    ("backend/libs/bms_core/src/bms_core/outbox/consumed.py", "ProcessedEventStore", "BaseFrameworkObject"),
+    ("backend/libs/bms_core/src/bms_core/services/module_registry.py", "ModuleRegistry", "BaseFrameworkObject"),
+    ("backend/libs/bms_core/src/bms_core/services/table_registry.py", "TableOwnershipRegistry", "BaseFrameworkObject"),
+    ("backend/libs/bms_core/src/bms_core/transfer/null.py", "_EmptyExporterStream", "BaseFrameworkObject"),
 )
-"""已归位台账（批次 ①）——（源文件, 类名, 拟归位父基类）。"""
+"""已归位台账（批次 ① 数据契约 3 + 批次 ②a `bms_core` 框架类 28）——（源文件, 类名, 归位父基类）。"""
 
-BASELINE_REMAINING = 47
-"""基线剩余条目数（每批次递减：批次 ① 后 50 → 47，目标 0）。"""
+BASELINE_REMAINING = 19
+"""基线剩余条目数（每批次递减：批次 ① 后 47 → 批次 ②a 后 19，目标 0）。
+余量 19＝`ValueHolder` / `BizError` + 服务侧 17（批次 ②b / ③）。"""
 
 
 def _class_bases(rel: str, name: str) -> Sequence[str]:
@@ -94,6 +132,21 @@ def test_object_batch_removed_from_baseline() -> None:
     still_present = [f"{rel}::{name}" for rel, name, _expected in OBJECT_BATCH if (rel, name) in baseline]
     assert not still_present, "已归位条目仍留在基线快照（须用 --update-baseline 递减）：\n" + "\n".join(still_present)
     assert len(baseline) == BASELINE_REMAINING, f"基线条目数应为 {BASELINE_REMAINING}，实际 {len(baseline)}"
+
+
+@pytest.mark.kiwi_id(2217)
+def test_base_middleware_common_segment_holds() -> None:
+    """新增能力域基类：`BaseMiddleware` 的公共段（抽象 ASGI `__call__`）在 5 个成员上成立。"""
+    assert getattr(BaseMiddleware.__call__, "__isabstractmethod__", False) is True
+    for member in (
+        EdgeGuardMiddleware,
+        ReadOnlyMiddleware,
+        RequestLoggingMiddleware,
+        TenantMiddleware,
+        TraceIdMiddleware,
+    ):
+        assert issubclass(member, BaseMiddleware)
+        assert {"scope", "receive", "send"} <= set(inspect.signature(member.__call__).parameters)
 
 
 @pytest.mark.kiwi_id(2217)

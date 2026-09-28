@@ -22,7 +22,6 @@ from typing import Annotated, Any, cast
 from fastapi import APIRouter, Depends, Header, Query, Request, params
 from pydantic import ValidationError
 
-from bms_core.core.base import BaseObject
 from bms_core.core.context import get_current_client_ip, set_current_tenant, set_current_user_id, set_tenant_context
 from bms_core.core.exceptions import AuthError, ConflictError, ParamError, SessionAuthError
 from bms_core.core.objects import BaseFrameworkObject, BaseRequestIdentityContract
@@ -123,7 +122,7 @@ class BaseRouter(APIRouter, BaseFrameworkObject):
         return f"{self.key}（{len(self.routes)} 条路由）"
 
 
-class RouterRegistry(BaseObject):
+class RouterRegistry(BaseFrameworkObject):
     """路由登记表：登记唯一性（`key` 拒重）+ 统一挂载。"""
 
     def __init__(self) -> None:

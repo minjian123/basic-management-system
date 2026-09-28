@@ -21,6 +21,7 @@
 
 import time
 import uuid
+from abc import ABC, abstractmethod
 from collections.abc import Mapping
 from contextlib import suppress
 from contextvars import Token
@@ -30,7 +31,6 @@ from starlette.datastructures import Headers, MutableHeaders
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from bms_core.api.errors import build_error_response
-from bms_core.core.base import BaseObject
 from bms_core.core.context import (
     get_current_request_id,
     reset_current_client_ip,
@@ -50,6 +50,7 @@ from bms_core.core.context import (
 )
 from bms_core.core.exceptions import AuthError, BizError
 from bms_core.core.logging import get_logger
+from bms_core.core.objects import BaseFrameworkObject
 from bms_core.db.routing import is_read_method
 from bms_core.db.tenant import DEFAULT_EXEMPT_PATHS, is_exempt_path, resolve_request_tenant
 from bms_core.edge.base import BaseEdgeTrust, EdgeIdentity
@@ -68,6 +69,7 @@ from bms_core.metrics.base import BaseMetrics
 from bms_core.tracing.base import TRACE_ID_HEADER, new_trace_id, otel_trace_id
 
 __all__ = [
+    "BaseMiddleware",
     "EdgeGuardMiddleware",
     "ReadOnlyMiddleware",
     "RequestLoggingMiddleware",
@@ -78,7 +80,25 @@ __all__ = [
 _EXCLUDED_PATHS = frozenset({"/healthz", "/readyz", "/metrics", "/docs", "/redoc", "/openapi.json"})
 
 
-class TraceIdMiddleware(BaseObject):
+class BaseMiddleware(BaseFrameworkObject, ABC):
+    """入站链路中间件基类（API 域能力域基类）：纯 ASGI 中间件的公共约定。
+
+    公共段：`async __call__(scope, receive, send)`（ASGI 三参调用约定，5 个入站中间件一致）；
+    各中间件自带的 `__init__(app, ...)` 依赖注入参数各异，**不列入**公共段（非 HTTP 作用域一律直通）。
+    """
+
+    @abstractmethod
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        """处理请求（非 HTTP 作用域直通）。
+
+        Args:
+            scope: ASGI 连接作用域。
+            receive: ASGI 接收通道。
+            send: ASGI 发送通道。
+        """
+
+
+class TraceIdMiddleware(BaseMiddleware):
     """入站链路 id 中间件（纯 ASGI）：读请求头 → 缺省生成 → 上下文 → 回写响应头。"""
 
     def __init__(self, app: ASGIApp) -> None:
@@ -117,7 +137,7 @@ class TraceIdMiddleware(BaseObject):
             reset_current_trace_id(token)
 
 
-class TenantMiddleware(BaseObject):
+class TenantMiddleware(BaseMiddleware):
     """租户解析全局中间件（纯 ASGI）：解析链 → 请求态与租户上下文；未知 / 停用租户就地拒绝。
 
     - 来源次序（首个命中即止）：子域名（按注册表 `domain` 查）→ `X-Tenant-ID`（按 `code` 查）
@@ -179,7 +199,7 @@ class TenantMiddleware(BaseObject):
             reset_tenant_context(tenant_token)
 
 
-class ReadOnlyMiddleware(BaseObject):
+class ReadOnlyMiddleware(BaseMiddleware):
     """只读标记中间件（纯 ASGI）：按 HTTP 方法设置 `read_only` 上下文（GET/HEAD/OPTIONS 只读）。
 
     路由显式覆盖：只读数据集 / 强制从库接口声明 `Depends(get_read_db)`，写 / 事务声明
@@ -213,7 +233,7 @@ class ReadOnlyMiddleware(BaseObject):
             reset_read_only(token)
 
 
-class RequestLoggingMiddleware(BaseObject):
+class RequestLoggingMiddleware(BaseMiddleware):
     """请求日志中间件（纯 ASGI）：request_id / client_ip 上下文 + 单行访问日志（慢请求升 WARNING）。"""
 
     def __init__(self, app: ASGIApp, slow_request_ms: int = 1000) -> None:
@@ -305,7 +325,7 @@ class RequestLoggingMiddleware(BaseObject):
             logger.info("request", **fields)
 
 
-class EdgeGuardMiddleware(BaseObject):
+class EdgeGuardMiddleware(BaseMiddleware):
     """边缘请求净化与信任边界中间件（纯 ASGI，先于租户解析）。
 
     - **无条件剥除**客户端伪造身份头（`STRIPPED_HEADERS`：用户 / 租户 / scope / 服务身份 / 网关标记）；

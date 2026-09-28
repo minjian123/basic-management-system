@@ -13,8 +13,9 @@ from typing import cast
 from redis.asyncio import Redis
 from redis.exceptions import WatchError
 
-from bms_core.core.base import BaseObject, ValueHolder
+from bms_core.core.base import ValueHolder
 from bms_core.core.exceptions import ConcurrentConflictError
+from bms_core.core.objects import BaseFrameworkObject
 from bms_core.core.serialization import stable_json_dumps, stable_json_loads
 
 _SET_SCRIPT = """
@@ -102,7 +103,7 @@ def _score_for_key(key: object) -> float:
     return float(key)
 
 
-class RedisSortedSet[ItemT](BaseObject):
+class RedisSortedSet[ItemT](BaseFrameworkObject):
     """Redis 有序集合（ZSET）：按分值排序，跨副本共享。"""
 
     def __init__(self, client: Redis, key: str) -> None:
@@ -231,7 +232,7 @@ class RedisSortedSet[ItemT](BaseObject):
         return int(await self._client.incr(self._version_key))
 
 
-class RedisSortedDict[KeyT, ValueT](BaseObject):
+class RedisSortedDict[KeyT, ValueT](BaseFrameworkObject):
     """Redis 有序字典：ZSET 索引（键序）+ Hash 数据（值），Lua 保证两结构一致。"""
 
     def __init__(self, client: Redis, key: str) -> None:
@@ -467,7 +468,7 @@ class RedisSortedDict[KeyT, ValueT](BaseObject):
         return int(await self._client.incr(self._version_key))
 
 
-class RedisSnapshot[DataT](BaseObject):
+class RedisSnapshot[DataT](BaseFrameworkObject):
     """本地只读快照：远程版本号变化（或本地失效）时重载一次。"""
 
     def __init__(self, client: Redis, version_key: str, loader: Callable[[], Awaitable[DataT]]) -> None:

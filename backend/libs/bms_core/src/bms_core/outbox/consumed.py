@@ -9,14 +9,14 @@
 
 from sqlalchemy import select
 
-from bms_core.core.base import BaseObject
+from bms_core.core.objects import BaseFrameworkObject
 from bms_core.db.sync import DbSession
 from bms_core.models.outbox import SysEventConsumed
 
 __all__ = ["ProcessedEventStore"]
 
 
-class ProcessedEventStore(BaseObject):
+class ProcessedEventStore(BaseFrameworkObject):
     """消费幂等存储：会话绑定，`mark` 判定事件是否首次处理。"""
 
     def __init__(self, session: DbSession) -> None:

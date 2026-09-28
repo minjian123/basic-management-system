@@ -10,7 +10,7 @@ from collections.abc import Generator
 from contextlib import contextmanager
 from enum import StrEnum
 
-from bms_core.core.base import BaseObject
+from bms_core.core.objects import BaseFrameworkObject
 
 
 class LockStrategy(StrEnum):
@@ -29,7 +29,7 @@ class LockStrategy(StrEnum):
     """快照替换：读无锁、写复制后原子替换（读极多写极少）。"""
 
 
-class ReadWriteLock(BaseObject):
+class ReadWriteLock(BaseFrameworkObject):
     """读写锁：读并行、写独占、写优先（有等待写者时新读者排队，防饿死）。"""
 
     def __init__(self) -> None:
@@ -70,7 +70,7 @@ class ReadWriteLock(BaseObject):
                 self._condition.notify_all()
 
 
-class LockGuard(BaseObject):
+class LockGuard(BaseFrameworkObject):
     """按策略统一读/写上下文（SNAPSHOT 读不取锁、写取互斥锁）。"""
 
     def __init__(self, strategy: LockStrategy) -> None:

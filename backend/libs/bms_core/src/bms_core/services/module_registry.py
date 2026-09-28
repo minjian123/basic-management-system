@@ -14,8 +14,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any, cast
 
-from bms_core.core.base import BaseObject
-from bms_core.core.objects import BaseRegistryRecordContract
+from bms_core.core.objects import BaseFrameworkObject, BaseRegistryRecordContract
 from bms_core.core.version import CONTRACT_VERSION_RE, contract_major
 
 _PREFIX_RE = re.compile(r"^[a-z][a-z0-9]*_$")
@@ -327,7 +326,7 @@ def _duplicates(values: list[str]) -> list[str]:
     return result
 
 
-class ModuleRegistry(BaseObject):
+class ModuleRegistry(BaseFrameworkObject):
     """服务目录与注册要素校验 / 清单查询（离线）。"""
 
     def __init__(self, modules: Sequence[ModuleRecord] = SERVICE_CATALOG) -> None:

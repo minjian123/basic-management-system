@@ -14,8 +14,8 @@ from sqlalchemy.orm.exc import StaleDataError
 from bms_core.config.base import ConfigCacheRegion
 from bms_core.config.cache import MemoryConfigCacheRegion
 from bms_core.config.models import SysConfig
-from bms_core.core.base import BaseObject
 from bms_core.core.exceptions import ConcurrentConflictError
+from bms_core.core.objects import BaseFrameworkObject
 from bms_core.db.registry import EngineRegistry
 from bms_core.db.session import DbSession, session_scope
 from bms_core.db.tenant import current_tenant_context
@@ -23,7 +23,7 @@ from bms_core.db.tenant import current_tenant_context
 __all__ = ["ConfigService"]
 
 
-class ConfigService(BaseObject):
+class ConfigService(BaseFrameworkObject):
     """系统参数写 / 失效服务（无管理 API；先写库后删缓存 + 递增版本）。"""
 
     def __init__(self, *, engines: EngineRegistry, cache: ConfigCacheRegion | None = None) -> None:

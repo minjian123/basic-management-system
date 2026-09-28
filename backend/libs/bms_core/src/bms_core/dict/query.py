@@ -17,8 +17,8 @@ from pydantic import Field
 from sqlalchemy import ColumnElement, Integer, Numeric, and_, func, not_, or_, select, true
 from sqlalchemy import cast as sa_cast
 
-from bms_core.core.base import BaseObject
 from bms_core.core.exceptions import ParamError
+from bms_core.core.objects import BaseFrameworkObject
 from bms_core.db.registry import EngineRegistry
 from bms_core.db.session import DbSession, session_scope
 from bms_core.dict.models import SysDictAttr, SysDictAttrI18n, SysDictItem, SysDictItemI18n, SysDictType
@@ -147,7 +147,7 @@ class DictAdvQueryPayload(BaseSchema):
     size: int = Field(default=DICT_ADV_PAGE_SIZE_DEFAULT, description="页长（≤ 100）")
 
 
-class DictQueryService(BaseObject):
+class DictQueryService(BaseFrameworkObject):
     """字典高级查询服务（属性 schema 读取 + 条件引擎 + 分页执行）。"""
 
     def __init__(self, *, engines: EngineRegistry) -> None:
