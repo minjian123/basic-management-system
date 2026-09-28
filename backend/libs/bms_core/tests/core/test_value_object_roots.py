@@ -21,20 +21,29 @@ from pathlib import Path
 
 import pytest
 
+from bms_core.api.base import AuthContext
 from bms_core.captcha.default import CaptchaImageOptions, CaptchaSliderOptions, CaptchaSmsOptions
 from bms_core.chat.base import ChatStreamHandle
 from bms_core.core.objects import (
+    BaseAuthorizeUrlResultContract,
     BaseFrameworkObject,
+    BaseIdentityProfileContract,
+    BaseLoginResultContract,
     BaseOidcTokenSpecContract,
     BaseOptionsContract,
     BaseRefreshableTokenContract,
+    BaseRequestIdentityContract,
     BaseSecretMaterialContract,
+    BaseTenantViewContract,
     BaseTokenClaimsContract,
     BaseTokenContract,
     BaseTokenSpecContract,
     BaseValueObject,
 )
-from bms_core.idp.base import IdentityClaims, IdentityToken
+from bms_core.db.tenant import TenantContext
+from bms_core.db.tenant_registry import TenantSnapshot
+from bms_core.edge.base import EdgeIdentity
+from bms_core.idp.base import IdentityClaims, IdentityToken, IdentityUser
 from bms_core.masking.default import MaskerOptions
 from bms_core.oauth.base import ClientCredentials, OAuthToken
 from bms_core.oauth.keys import TokenKey
@@ -64,10 +73,15 @@ _ROOT_BASES_MARKER = "体系根清单"
 VALUE_OBJECT_BASES = frozenset(
     {
         "BaseValueObject",
-        "BaseOptionsContract",
+        "BaseAuthorizeUrlResultContract",
+        "BaseIdentityProfileContract",
+        "BaseLoginResultContract",
         "BaseOidcTokenSpecContract",
+        "BaseOptionsContract",
         "BaseRefreshableTokenContract",
+        "BaseRequestIdentityContract",
         "BaseSecretMaterialContract",
+        "BaseTenantViewContract",
         "BaseTokenClaimsContract",
         "BaseTokenContract",
         "BaseTokenSpecContract",
@@ -83,6 +97,11 @@ ROLE_CHAINS: tuple[tuple[type, tuple[type, ...]], ...] = (
     (BaseOidcTokenSpecContract, (AccessTokenSpec, IdTokenSpec)),
     (BaseTokenClaimsContract, (VerifiedToken, OidcAccessClaims, IdentityClaims)),
     (BaseSecretMaterialContract, (ClientCredentials, TokenKey)),
+    (BaseRequestIdentityContract, (AuthContext, EdgeIdentity)),
+    (BaseIdentityProfileContract, (IdentityUser,)),
+    (BaseTenantViewContract, (TenantContext, TenantSnapshot)),
+    (BaseLoginResultContract, ()),
+    (BaseAuthorizeUrlResultContract, ()),
 )
 """角色链台账（层 → 成员）：仅登记**基座侧**成员——服务侧成员（`TokenResult` / `IssuedSession` 等）
 由 `VALUE_OBJECT_BATCH` 的「单一父基类」断言覆盖（`bms_identity` 在基座用例环境不可导入）。"""
@@ -336,6 +355,15 @@ def test_role_chain_common_fields_hold_on_all_members() -> None:
             if missing:
                 offenders.append(f"{member.__name__} 缺 {layer.__name__} 公共段：{sorted(missing)}")
     assert not offenders, "层公共段在成员上不成立：\n" + "\n".join(offenders)
+
+
+@pytest.mark.kiwi_id(2216)
+def test_tenant_view_code_field_points_to_real_field() -> None:
+    """租户视图层：`CODE_FIELD` 统一映射声明指向真实 dataclass 字段（映射不落空、可读取）。"""
+    for member in (TenantContext, TenantSnapshot):
+        assert member.CODE_FIELD in {field.name for field in dataclasses.fields(member)}
+    context = TenantContext(tenant_code="demo", db_key="tenant_demo", name="演示租户")
+    assert getattr(context, context.CODE_FIELD) == "demo"
 
 
 @pytest.mark.kiwi_id(2216)

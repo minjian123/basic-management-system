@@ -20,7 +20,7 @@ import hashlib
 import secrets
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
-from typing import cast
+from typing import ClassVar, cast
 from urllib.parse import quote
 
 from bms_core.core.base import BaseObject
@@ -37,7 +37,7 @@ from bms_core.core.exceptions import (
     SsoProviderUnavailableError,
 )
 from bms_core.core.logging import get_logger
-from bms_core.core.objects import BaseValueObject
+from bms_core.core.objects import BaseAuthorizeUrlResultContract, BaseValueObject
 from bms_core.db.session import DbSession
 from bms_core.idp.base import BaseIdentityProvider, IdentityToken
 from bms_core.idp.state.base import BaseIdpStateStore, IdpFlowState
@@ -73,8 +73,10 @@ class SsoLoginResult(BaseValueObject):
 
 
 @dataclass(frozen=True)
-class SsoAuthorizeResult(BaseValueObject):
+class SsoAuthorizeResult(BaseAuthorizeUrlResultContract):
     """授权跳转结果（授权 URL + 流程状态，供 302 跳转或 JSON 返回）。"""
+
+    URL_FIELD: ClassVar[str] = "authorize_url"
 
     authorize_url: str
     """外部授权入口 URL。"""

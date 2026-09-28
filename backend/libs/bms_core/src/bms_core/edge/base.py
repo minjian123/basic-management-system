@@ -23,7 +23,7 @@ from fastapi import Request
 
 from bms_core.core.config import Settings
 from bms_core.core.exceptions import AuthError
-from bms_core.core.objects import BaseValueObject
+from bms_core.core.objects import BaseRequestIdentityContract, BaseValueObject
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 from bms_core.edge.headers import (
     SERVICE_IDENTITY_HEADER,
@@ -44,7 +44,7 @@ __all__ = [
 
 
 @dataclass(frozen=True)
-class EdgeIdentity(BaseValueObject):
+class EdgeIdentity(BaseRequestIdentityContract):
     """可信边缘身份（网关注入、后端信任）。"""
 
     user_id: int | None = None

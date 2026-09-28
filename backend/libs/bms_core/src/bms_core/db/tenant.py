@@ -18,13 +18,13 @@ import ipaddress
 import re
 from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Protocol
+from typing import ClassVar, Protocol
 
 from fastapi import Request
 
 from bms_core.core.context import current_tenant, get_tenant_context
 from bms_core.core.exceptions import ConfigError, TenantNotFoundError
-from bms_core.core.objects import BaseValueObject
+from bms_core.core.objects import BaseTenantViewContract
 from bms_core.db.keys import (
     TENANT_DB_KEY_PREFIX,
     build_tenant_db_key,
@@ -74,8 +74,10 @@ _LOCAL_HOSTNAMES = frozenset({"localhost", "localhost.localdomain"})
 
 
 @dataclass(frozen=True)
-class TenantContext(BaseValueObject):
+class TenantContext(BaseTenantViewContract):
     """租户上下文：租户编码、数据源键、名称与注册要素。"""
+
+    CODE_FIELD: ClassVar[str] = "tenant_code"
 
     tenant_code: str
     db_key: str

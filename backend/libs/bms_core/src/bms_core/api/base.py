@@ -25,7 +25,7 @@ from pydantic import ValidationError
 from bms_core.core.base import BaseObject
 from bms_core.core.context import get_current_client_ip, set_current_tenant, set_current_user_id, set_tenant_context
 from bms_core.core.exceptions import AuthError, ConflictError, ParamError, SessionAuthError
-from bms_core.core.objects import BaseFrameworkObject, BaseValueObject
+from bms_core.core.objects import BaseFrameworkObject, BaseRequestIdentityContract
 from bms_core.db.tenant import TenantContext, build_tenant_db_key, tenant_hostname
 from bms_core.edge.base import EdgeIdentity
 from bms_core.oauth.token import TOKEN_AUDIENCE_API, TOKEN_AUDIENCE_SERVICE
@@ -333,7 +333,7 @@ def cursor_query(
 
 
 @dataclass(frozen=True)
-class AuthContext(BaseValueObject):
+class AuthContext(BaseRequestIdentityContract):
     """登录态归一身份契约（受保护路由的统一登录态入口）。"""
 
     subject: str

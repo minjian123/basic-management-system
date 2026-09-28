@@ -20,7 +20,7 @@ import json
 import secrets
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import cast
+from typing import ClassVar, cast
 from urllib.parse import urlencode
 
 from bms_core.core.base import BaseObject
@@ -32,7 +32,7 @@ from bms_core.core.exceptions import (
     OidcInvalidRequestError,
     OidcUnsupportedGrantError,
 )
-from bms_core.core.objects import BaseTokenContract, BaseValueObject
+from bms_core.core.objects import BaseAuthorizeUrlResultContract, BaseTokenContract, BaseValueObject
 from bms_core.db.session import DbSession
 from bms_core.idp.state.base import BaseIdpStateStore
 from bms_core.oauth.oidc_provider import (
@@ -77,8 +77,10 @@ class OidcCode(BaseValueObject):
 
 
 @dataclass(frozen=True)
-class AuthorizeResult(BaseValueObject):
+class AuthorizeResult(BaseAuthorizeUrlResultContract):
     """授权端点结果（回跳 URL）。"""
+
+    URL_FIELD: ClassVar[str] = "redirect_url"
 
     redirect_url: str
     """302 回跳地址（成功带 `code` / `state`，失败带 `error` / `error_description`）。"""

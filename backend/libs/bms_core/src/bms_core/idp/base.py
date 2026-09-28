@@ -22,7 +22,12 @@ from fastapi import Request
 
 from bms_core.core.config import Settings
 from bms_core.core.exceptions import ConfigError
-from bms_core.core.objects import BaseRefreshableTokenContract, BaseTokenClaimsContract, BaseValueObject
+from bms_core.core.objects import (
+    BaseIdentityProfileContract,
+    BaseRefreshableTokenContract,
+    BaseTokenClaimsContract,
+    BaseValueObject,
+)
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 
 __all__ = [
@@ -68,7 +73,7 @@ class IdentityToken(BaseRefreshableTokenContract):
 
 
 @dataclass(frozen=True)
-class IdentityUser(BaseValueObject):
+class IdentityUser(BaseIdentityProfileContract):
     """身份源用户。"""
 
     subject: str
