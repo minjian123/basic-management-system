@@ -5,12 +5,11 @@
 （报告结论与经验教训由 AI 汇总，再交第二 AI 交叉审核；见 §25.3）。默认不写仓库文件
 （`--out` 显式指定才落 JSON）；跑测试会生成 `.coverage` / `coverage/` 等本地产物，均已被 `.gitignore` 忽略。
 
-采集四项：
+采集三项（进度与排期不采集：唯一落点为《总体项目规划》与各阶段计划）：
 
-1. **阶段工期偏差**：计划「里程碑对照」的 M1 基线 vs 本阶段实际完成日（需求文档最后完成日期）
-2. **缺陷分布与收敛**：GitLab Issue（`state=all`，按 `defect-auto` / 其他标签聚合）
-3. **覆盖率**：后端 `pytest --cov`（TOTAL 行）+ 前端双端 `coverage-summary.json`
-4. **用例执行统计**：后端 pytest 摘要 + 前端 Vitest 摘要 + Playwright（本阶段未启用）
+1. **缺陷分布与收敛**：GitLab Issue（`state=all`，按 `defect-auto` / 其他标签聚合）
+2. **覆盖率**：后端 `pytest --cov`（TOTAL 行）+ 前端双端 `coverage-summary.json`
+3. **用例执行统计**：后端 pytest 摘要 + 前端 Vitest 摘要 + Playwright（本阶段未启用）
 
 用法::
 
@@ -32,8 +31,6 @@ import urllib.request
 from datetime import date
 from pathlib import Path
 
-DATE_RE = re.compile(r"\d{4}-\d{2}-\d{2}")
-REQ_META_RE = re.compile(r"^优先级：\S+（[^）]*）\u3000\|\u3000状态：(\S+)\u3000\|\u3000完成日期：(\S+)\s*$")
 PYTEST_SUMMARY_RE = re.compile(r"(\d+) passed(?:, (\d+) skipped)?(?:, (\d+) failed)?")
 PYTEST_TOTAL_RE = re.compile(
     r"^TOTAL\s+(?P<stmts>\d+)\s+(?P<miss>\d+)\s+(?P<br>\d+)\s+(?P<brmiss>\d+)\s+(?P<pct>\d+)%", re.M
@@ -71,47 +68,6 @@ def run(cmd: list[str], cwd: Path, timeout: int = 600) -> tuple[int, str]:
     except (OSError, subprocess.TimeoutExpired) as exc:  # 命令缺失或超时按降级处理
         return 127, f"（命令未执行：{exc}）"
     return proc.returncode, (proc.stdout or "") + (proc.stderr or "")
-
-
-def collect_duration(stage_dir: Path) -> dict[str, object]:
-    """度量一：阶段工期偏差（基线取计划「里程碑对照」；偏差率 = 偏差天数 / 排期长度）。"""
-    plan_files = sorted((stage_dir / "计划").glob("01_计划_*.md"))
-    baseline: date | None = None
-    start: date | None = None
-    if plan_files:
-        plan_text = plan_files[0].read_text(encoding="utf-8")
-        match = re.search(r"自 (\d{4}-\d{2}-\d{2}) 起排", plan_text)
-        if match:
-            start = date.fromisoformat(match.group(1))
-        for line in plan_text.splitlines():
-            if line.startswith("| M1 ") and "原 M1" in line:
-                found = DATE_RE.search(line)
-                if found:
-                    baseline = date.fromisoformat(found.group(0))
-                break
-    actual: date | None = None
-    for doc in sorted((stage_dir / "需求").glob("*.md")):
-        if doc.name.startswith("00_"):
-            continue
-        for line in doc.read_text(encoding="utf-8").splitlines():
-            meta = REQ_META_RE.match(line)
-            if meta and meta.group(1) == "已完成" and DATE_RE.fullmatch(meta.group(2)):
-                value = date.fromisoformat(meta.group(2))
-                actual = value if actual is None or value > actual else actual
-    if baseline is None or actual is None:
-        return {"baseline": None, "actual": None, "delta_days": None, "delta_pct": None, "over_threshold": None}
-    delta = (actual - baseline).days
-    length = (baseline - start).days if start else 0
-    pct = round(abs(delta) / length * 100, 1) if length else None
-    return {
-        "baseline": baseline.isoformat(),
-        "plan_start": start.isoformat() if start else None,
-        "actual": actual.isoformat(),
-        "delta_days": delta,
-        "plan_days": length or None,
-        "delta_pct": pct,
-        "over_threshold": bool(pct is not None and pct > 20),
-    }
 
 
 def collect_defects(root: Path) -> dict[str, object]:
@@ -234,29 +190,17 @@ def main(argv: list[str] | None = None) -> int:
         print(f"未找到阶段目录：{stage_dir}")
         return 2
 
-    duration = collect_duration(stage_dir)
     defects = collect_defects(root)
     coverage = collect_coverage(root, args.skip_tests, args.with_frontend)
     result = {
         "stage": args.stage,
         "collected_at": date.today().isoformat(),
-        "duration": duration,
         "defects": defects,
         "coverage": coverage,
     }
 
     print(f"== 阶段度量采集（{args.stage}，{result['collected_at']}）==")
-    print("\n[1/4] 阶段工期偏差（基线：《项目骨架计划》里程碑对照 M1）")
-    if duration["baseline"]:
-        print(
-            f"  基线 {duration['baseline']} / 排期起点 {duration['plan_start']}（工期 {duration['plan_days']} 天）"
-            f" / 实际 {duration['actual']} / 偏差 {duration['delta_days']} 天（{duration['delta_pct']}%）"
-            f" / 超 20% 阈值：{'是' if duration['over_threshold'] else '否'}"
-        )
-    else:
-        print("  未能解析基线或实际完成日期")
-
-    print("\n[2/4] 缺陷分布与收敛（GitLab Issue）")
+    print("\n[1/3] 缺陷分布与收敛（GitLab Issue）")
     if defects["available"]:
         print(
             f"  总数 {defects['total']} / 打开 {defects['open']} / 已闭环 {defects['closed']}"
@@ -268,7 +212,7 @@ def main(argv: list[str] | None = None) -> int:
     else:
         print(f"  降级：{defects['reason']}")
 
-    print("\n[3/4] 覆盖率（后端行 / 分支；前端行 / 分支）")
+    print("\n[2/3] 覆盖率（后端行 / 分支；前端行 / 分支）")
     backend = coverage["backend"]
     if backend.get("ran"):
         print(
@@ -285,7 +229,7 @@ def main(argv: list[str] | None = None) -> int:
             f" → 门禁 ≥ 70%：{'达标' if (pct or 0) >= 70 else '待确认'}"
         )
 
-    print("\n[4/4] 用例执行统计")
+    print("\n[3/3] 用例执行统计")
     for name, data in coverage["frontend"].items():
         if data.get("ran"):
             print(f"  {name}：Test Files {data.get('files_passed')} passed / Tests {data.get('tests_passed')} passed")

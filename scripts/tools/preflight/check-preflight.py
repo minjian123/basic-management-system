@@ -273,6 +273,18 @@ def main() -> int:
         failures,
     )
     _run(
+        "文档：check-docs-scope（排期与工时落点护栏）",
+        [sys.executable, "scripts/tools/base-check/check-docs-scope.py", str(root)],
+        root,
+        failures,
+    )
+    _run(
+        "文档：check-docs-scope --self-test",
+        [sys.executable, "scripts/tools/base-check/check-docs-scope.py", "--self-test"],
+        root,
+        failures,
+    )
+    _run(
         "边界：boundary_metrics（越界 / 跨库 / 例外计数）",
         [sys.executable, "scripts/tools/governance/boundary_metrics.py", "--root", str(root)],
         root,
