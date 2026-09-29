@@ -11,8 +11,10 @@ uv run python -m ops.seed_tenant --dry-run
 
 - URL 解析：`--url` 参数 > `BMS_MIGRATION_URL` 环境变量 > 按库键 `platform_tenant` 解析
   （`sys_tenant` 归属租户服务，06_03 / 06_01；`url_template` 为空时回落 `database.platform.url`）；
-- 幂等：`SysTenant` 表 `create(checkfirst=True)`，按 `code` + 未软删除判存跳过；
-- `db_key` 列**已废弃不再写入**（06_01）：租户库键一律由 `tenant_{service}_{code}` 派生；
+- 幂等：`SysTenant` / `SysTenantDatabase` 表 `create(checkfirst=True)`，租户按 `code` + 未软删除判存、
+  对照行按 `tenant_id` + 未软删除判存跳过；
+- `db_key` 列**已废弃不再写入**（06_01）：租户库键一律由 `tenant_{service}_{db_basis}` 派生；
+- 对照表 `sys_tenant_database` 随种子写入（`db_basis = 当前 code`；10_04），保证解析链库键稳定；
 - 迁移与 SQLite 全量自动建表归 01_04（Alembic 落地后本脚本退化为纯种子脚本，建表分支兼容保留）。
 """
 
@@ -104,6 +106,7 @@ async def seed_tenants(url: str) -> int:
         int: 新增行数（重复执行为 0）。
     """
     from bms_tenant.models.tenant import SysTenant  # 惰性：仅本服务（tenant）镜像运行；resolve_url 供其他种子脚本复用
+    from bms_tenant.models.tenant_database import SysTenantDatabase
 
     engine = create_async_engine(url)
     factory: async_sessionmaker[AsyncSession] = async_sessionmaker(engine, expire_on_commit=False)
@@ -111,20 +114,27 @@ async def seed_tenants(url: str) -> int:
     try:
         async with engine.begin() as connection:
             await connection.run_sync(SysTenant.__table__.create, checkfirst=True)
+            await connection.run_sync(SysTenantDatabase.__table__.create, checkfirst=True)
         async with factory() as session:
             for seed in TENANT_SEEDS:
                 statement = select(SysTenant).where(SysTenant.code == seed.code, SysTenant.deleted_at.is_(None))
-                if (await session.execute(statement)).scalar_one_or_none() is not None:
-                    continue
-                session.add(
-                    SysTenant(
+                row = (await session.execute(statement)).scalar_one_or_none()
+                if row is None:
+                    row = SysTenant(
                         code=seed.code,
                         name=seed.name,
                         domain=seed.domain,
                         status=seed.status,
                     )
+                    session.add(row)
+                    await session.flush()
+                    created += 1
+                basis = select(SysTenantDatabase).where(
+                    SysTenantDatabase.tenant_id == row.id, SysTenantDatabase.deleted_at.is_(None)
                 )
-                created += 1
+                if (await session.execute(basis)).scalar_one_or_none() is None:
+                    session.add(SysTenantDatabase(tenant_id=row.id, db_basis=row.code))
+                    created += 1
             await session.commit()
     finally:
         await engine.dispose()

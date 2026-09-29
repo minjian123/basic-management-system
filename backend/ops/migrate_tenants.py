@@ -16,8 +16,11 @@ uv run python -m ops.migrate_tenants --target tenant \
 - **服务维度**：`--service`（可重复）显式指定，缺省取服务目录**已启用服务**（`enabled_service_keys()`）；
 - **租户维度**：`--code`（可重复）显式指定，或 `--all-tenants` 从**租户注册库**（键 `platform_tenant`）
   读未软删租户编码；`--target tenants|all` 需要二者之一；
+- **库名基 `db_basis`（10_04）**：库键取「租户库名对照」`sys_tenant_database.db_basis`（缺对照行回落
+  当前 `code`）——注册库不可读的显式 `--code` 模式回落 `code`（离线 / 演练可用）；库名与当前编码
+  可不一致，由对照表解释；
 - **链映射（06_02 分链）**：平台服务库 `bms_{service}` → 链 `{service}:platform`；服务租户库
-  `bms_{service}_{code}` → 链 `{service}:tenant`；归档库 `bms_archive` → 链 `platform:archive`
+  `bms_{service}_{db_basis}` → 链 `{service}:tenant`；归档库 `bms_archive` → 链 `platform:archive`
   （归档库不服务化，表集为空 → 无脚本跳过）；
 - **执行**：逐库经 Alembic 程序化接口 `command.upgrade(cfg, "head")`（配置段 = 链名，版本目录 /
   元数据子集取自 `db/migration.py` 链注册）；
@@ -73,6 +76,17 @@ class MigrationTask(BaseValueObject):
 
 
 @dataclass(frozen=True)
+class TenantRef(BaseValueObject):
+    """租户引用（编码 + 库名基）：库键按 `db_basis` 派生（10_04）。"""
+
+    code: str
+    """租户编码（当前值）。"""
+
+    db_basis: str
+    """库名基（对照表 `sys_tenant_database`；缺行回落编码）。"""
+
+
+@dataclass(frozen=True)
 class MigrationSummary(BaseValueObject):
     """批量迁移结果汇总（成功 / 跳过 / 失败 + 库数量统计）。"""
 
@@ -122,49 +136,75 @@ def _masked(url: str) -> str:
     return make_url(url).render_as_string(hide_password=True)
 
 
-def _query_sync(url: str) -> list[str]:
-    """同步枚举租户编码（达梦等无异步方言驱动的租户注册库）。
+def _tenant_refs_sync(url: str) -> Sequence[TenantRef]:
+    """同步枚举租户引用（达梦等无异步方言驱动的租户注册库）。
 
     Args:
         url: 租户注册库连接串。
 
     Returns:
-        list[str]: 租户编码列表。
+        list[TenantRef]: 租户引用列表（库名基缺对照行回落当前编码）。
     """
     from bms_tenant.models.tenant import SysTenant  # 惰性：仅读租户注册库时需要，避免单一服务镜像强依赖
+    from bms_tenant.models.tenant_database import SysTenantDatabase
 
     engine: Engine = create_engine(url, poolclass=NullPool)
     try:
         with engine.connect() as connection:
-            return [
-                str(code)
-                for (code,) in connection.execute(select(SysTenant.code).where(SysTenant.deleted_at.is_(None))).all()
-            ]
+            statement = (
+                select(SysTenant.code, SysTenantDatabase.db_basis)
+                .outerjoin(
+                    SysTenantDatabase,
+                    (SysTenantDatabase.tenant_id == SysTenant.id) & (SysTenantDatabase.deleted_at.is_(None)),
+                )
+                .where(SysTenant.deleted_at.is_(None))
+            )
+            return [_ref(code, basis) for code, basis in connection.execute(statement).all()]
     finally:
         engine.dispose()
 
 
-async def _tenant_records(registry_url: str) -> list[str]:
-    """枚举租户编码（租户注册库查询；达梦走同步驱动线程）。
+def _ref(code: object, db_basis: object) -> TenantRef:
+    """行值 → 租户引用（库名基为空回落编码）。
 
-    `sys_tenant.db_key` 已废弃（06_01）：库键一律由 `tenant_{service}_{code}` 派生，
-    故此处只取编码。
+    Args:
+        code: 租户编码。
+        db_basis: 库名基（可空）。
+
+    Returns:
+        TenantRef: 租户引用。
+    """
+    basis = str(db_basis) if isinstance(db_basis, str) and db_basis else str(code)
+    return TenantRef(code=str(code), db_basis=basis)
+
+
+async def tenant_refs(registry_url: str) -> Sequence[TenantRef]:
+    """枚举租户引用（租户注册库查询；库名基经对照表；达梦走同步驱动线程）。
 
     Args:
         registry_url: 租户注册库连接串。
 
     Returns:
-        list[str]: 租户编码列表。
+        list[TenantRef]: 租户引用列表（按主键序）。
     """
     if make_url(registry_url).get_backend_name() == _DM:
-        return await asyncio.to_thread(_query_sync, registry_url)
+        return await asyncio.to_thread(_tenant_refs_sync, registry_url)
     from bms_tenant.models.tenant import SysTenant  # 惰性：仅读租户注册库时需要
+    from bms_tenant.models.tenant_database import SysTenantDatabase
 
     engine = create_async_engine(registry_url, poolclass=NullPool)
     try:
         async with engine.connect() as connection:
-            result = await connection.execute(select(SysTenant.code).where(SysTenant.deleted_at.is_(None)))
-            return [str(code) for (code,) in result.all()]
+            statement = (
+                select(SysTenant.code, SysTenantDatabase.db_basis)
+                .outerjoin(
+                    SysTenantDatabase,
+                    (SysTenantDatabase.tenant_id == SysTenant.id) & (SysTenantDatabase.deleted_at.is_(None)),
+                )
+                .where(SysTenant.deleted_at.is_(None))
+            )
+            result = await connection.execute(statement)
+            return [_ref(code, basis) for code, basis in result.all()]
     finally:
         await engine.dispose()
 
@@ -194,7 +234,7 @@ def resolve_services(requested: Sequence[str], *, use_default: bool = True) -> t
 
 def service_tasks(
     services: Sequence[str],
-    codes: Sequence[str],
+    tenants: Sequence[TenantRef],
     *,
     settings: Settings | None = None,
     include_platform: bool = True,
@@ -205,7 +245,7 @@ def service_tasks(
 
     Args:
         services: 服务标识列表。
-        codes: 租户编码列表（`include_tenants` 为真时使用）。
+        tenants: 租户引用列表（`include_tenants` 为真时使用；库键按 `db_basis` 派生）。
         settings: 应用配置；None 取全局配置单例。
         include_platform: 是否包含各服务的平台服务库。
         include_tenants: 是否包含各服务的租户库。
@@ -227,9 +267,9 @@ def service_tasks(
             tasks.append(MigrationTask(chain=chain, label=key, url=factory.resolved_url(key)))
         if not include_tenants:
             continue
-        for code in codes:
+        for tenant in tenants:
             chain = resolve_chain(build_chain_name(service, DATASOURCE_TENANT))
-            key = build_tenant_db_key(code, service=service)
+            key = build_tenant_db_key(tenant.db_basis, service=service)
             tasks.append(MigrationTask(chain=chain, label=key, url=factory.resolved_url(key)))
     if include_archive:
         chain = archive_chain()
@@ -283,21 +323,62 @@ async def build_tasks(args: argparse.Namespace) -> list[MigrationTask]:
         return service_tasks(services, (), settings=settings, include_tenants=False)
 
     codes = list(dict.fromkeys(args.code))
-    if not codes and args.all_tenants:
-        registry_url = factory.resolved_url(build_platform_db_key(TENANT_SERVICE_KEY))
-        codes = await _tenant_records(registry_url)
-        if not codes:
+    registry_url = factory.resolved_url(build_platform_db_key(TENANT_SERVICE_KEY))
+    refs: list[TenantRef] = []
+    if codes:
+        refs = [TenantRef(code=code, db_basis=code) for code in codes]
+        refs = await enrich_refs(refs, registry_url)
+    if args.all_tenants:
+        refs = await _load_refs(registry_url)
+        if not refs:
             print("[migrate_tenants] 租户注册库未注册租户（sys_tenant 为空）")
-    if not codes and args.target in ("all", "tenants"):
+    if not refs and args.target in ("all", "tenants"):
         raise ConfigError("需 --code（可重复）或 --all-tenants 指定租户；仅迁移平台服务库请用 --target platform")
     return service_tasks(
         services,
-        codes,
+        refs,
         settings=settings,
         include_platform=args.target == "all",
-        include_tenants=bool(codes),
+        include_tenants=bool(refs),
         include_archive=args.target == "all",
     )
+
+
+async def _load_refs(registry_url: str) -> Sequence[TenantRef]:
+    """读租户注册库全部未软删租户引用（不可读即明确报错）。
+
+    Args:
+        registry_url: 租户注册库连接串。
+
+    Returns:
+        list[TenantRef]: 租户引用列表。
+
+    Raises:
+        ConfigError: 租户注册库不可读。
+    """
+    try:
+        return await tenant_refs(registry_url)
+    except Exception as exc:
+        raise ConfigError(f"租户注册库不可读（请先建库并迁移 + 种子 ops.seed_tenant，或改用 --code）：{exc}") from exc
+
+
+async def enrich_refs(refs: Sequence[TenantRef], registry_url: str) -> Sequence[TenantRef]:
+    """显式 `--code` 模式补库名基（读对照表；注册库不可读回落编码，离线 / 演练可用）。
+
+    Args:
+        refs: 待补租户引用（`db_basis` 暂为编码）。
+        registry_url: 租户注册库连接串。
+
+    Returns:
+        list[TenantRef]: 补库名基后的租户引用。
+    """
+    try:
+        records = await tenant_refs(registry_url)
+    except Exception as exc:
+        print(f"[migrate_tenants] 租户注册库不可读，显式 --code 按编码作库名基：{type(exc).__name__}: {exc}")
+        return list(refs)
+    mapping = {record.code: record.db_basis for record in records}
+    return [TenantRef(code=ref.code, db_basis=mapping.get(ref.code, ref.db_basis)) for ref in refs]
 
 
 def _counts(tasks: Sequence[MigrationTask]) -> str:

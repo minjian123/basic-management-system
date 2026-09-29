@@ -409,7 +409,7 @@ class SsoService(BaseFrameworkObject):
             f"{flow.tenant_id}:{idp_key}", identity.subject
         )
         if mapping is not None:
-            if mapping.tenant_id == flow.tenant_id:
+            if str(mapping.tenant_id) == flow.tenant_id:
                 return mapping.user_id
             _LOGGER.warning("SSO 身份映射租户不一致", idp_key=idp_key, tenant=flow.tenant_code)
             raise SsoIdentityUnmatchedError()

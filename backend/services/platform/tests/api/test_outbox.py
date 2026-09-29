@@ -57,7 +57,7 @@ async def _seed_dead_letter(*, event_type: str = "order.created") -> str:
     store = SqlOutboxStore()
     async with maker() as session:
         async with session.begin():
-            event_id = await store.enqueue(session, EventEnvelope(event_type=event_type, tenant_id="t1"))
+            event_id = await store.enqueue(session, EventEnvelope(event_type=event_type, tenant_id="1001"))
         async with session.begin():
             await store.mark_failed(session, event_id, "publish boom", max_retries=1, backoff=1)
     await engine.dispose()

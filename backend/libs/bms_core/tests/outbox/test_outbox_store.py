@@ -102,7 +102,7 @@ async def test_mark_delivered_and_failed_dead_letter(session: AsyncSession) -> N
     store = SqlOutboxStore()
     async with session.begin():
         delivered = await store.enqueue(session, EventEnvelope(event_type="e.deliver"))
-        failing = await store.enqueue(session, EventEnvelope(event_type="e.fail", tenant_id="t1"))
+        failing = await store.enqueue(session, EventEnvelope(event_type="e.fail", tenant_id="1001"))
     async with session.begin():
         await store.mark_delivered(session, delivered)
     async with session.begin():
@@ -128,7 +128,7 @@ async def test_mark_delivered_and_failed_dead_letter(session: AsyncSession) -> N
         letter = (await session.execute(select(SysEventDeadLetter))).scalars().one()
     assert letter.event_id == failing
     assert letter.source == "outbox"
-    assert letter.tenant_id == "t1"
+    assert letter.tenant_id == 1001
     assert letter.status == DEAD_LETTER_STATUS_PENDING
 
     # 不存在的事件 ID：标记为无操作 / 未命中

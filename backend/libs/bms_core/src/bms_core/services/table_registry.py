@@ -112,6 +112,12 @@ TABLE_OWNERSHIP: tuple[TableRecord, ...] = (
     ),
     # ---- 平台层表（库类别 platform）----
     TableRecord(table_name="sys_tenant", owner="tenant", datasource=Datasource.PLATFORM, note="租户注册"),
+    TableRecord(
+        table_name="sys_tenant_database",
+        owner="tenant",
+        datasource=Datasource.PLATFORM,
+        note="租户库名对照（tenant_id ↔ db_basis）",
+    ),
     TableRecord(table_name="sys_module", owner="platform", datasource=Datasource.PLATFORM, note="服务目录登记"),
     TableRecord(table_name="sys_module_i18n", owner="platform", datasource=Datasource.PLATFORM, note="服务目录多语言"),
     TableRecord(

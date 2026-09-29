@@ -91,7 +91,7 @@ class DbKey(BaseValueObject):
     """全限定键的服务段；相对键（`platform` / `tenant_{code}`）为 `None`。"""
 
     tenant_code: str | None = None
-    """租户编码（`kind == tenant` 时必有）。"""
+    """库名基 `db_basis`（`kind == tenant` 时必有；字段名保持，语义为创建时冻结的租户编码）。"""
 
     @property
     def is_qualified(self) -> bool:
@@ -127,22 +127,25 @@ def build_platform_db_key(service: str | None = None) -> str:
     return PLATFORM_DB_KEY if not service else f"{PLATFORM_DB_KEY_PREFIX}{service}"
 
 
-def build_tenant_db_key(code: str, *, service: str | None = None) -> str:
+def build_tenant_db_key(db_basis: str, *, service: str | None = None) -> str:
     """构造租户库键（`service` 为空取相对键）。
 
+    库键 code 段为**库名基 `db_basis`**（创建时冻结的租户编码；库名不随租户编码变更而变，
+    见《架构设计 · 多租户路由》与 `sys_tenant_database`）；仅开通 / 建库 / 运维建库调用。
+
     Args:
-        code: 租户编码（全小写）。
+        db_basis: 库名基（创建时租户编码，全小写）。
         service: 目标服务标识；`None` / 空串表示本服务的该租户库。
 
     Returns:
-        str: 租户库键（`tenant_{code}` 或 `tenant_{service}_{code}`）。
+        str: 租户库键（`tenant_{db_basis}` 或 `tenant_{service}_{db_basis}`）。
 
     Raises:
-        ConfigError: 租户编码为空。
+        ConfigError: 库名基为空。
     """
-    if not code:
-        raise ConfigError("租户编码不得为空（租户库键形如 tenant_{code}）")
-    return f"{TENANT_DB_KEY_PREFIX}{code}" if not service else f"{TENANT_DB_KEY_PREFIX}{service}_{code}"
+    if not db_basis:
+        raise ConfigError("库名基不得为空（租户库键形如 tenant_{db_basis}）")
+    return f"{TENANT_DB_KEY_PREFIX}{db_basis}" if not service else f"{TENANT_DB_KEY_PREFIX}{service}_{db_basis}"
 
 
 def parse_db_key(db_key: str) -> DbKey:
@@ -198,22 +201,22 @@ def platform_database_name(service: str) -> str:
     return _checked_database_name(f"bms_{service}", service=service)
 
 
-def tenant_database_name(service: str, code: str) -> str:
-    """服务租户库名（`bms_{service}_{code}`）。
+def tenant_database_name(service: str, db_basis: str) -> str:
+    """服务租户库名（`bms_{service}_{db_basis}`）。
 
     Args:
         service: 服务标识。
-        code: 租户编码。
+        db_basis: 库名基（创建时冻结的租户编码）。
 
     Returns:
         str: 服务租户库名。
 
     Raises:
-        ConfigError: 服务标识 / 租户编码为空或库名形态非法。
+        ConfigError: 服务标识 / 库名基为空或库名形态非法。
     """
-    if not code:
-        raise ConfigError("租户编码不得为空（服务租户库名形如 bms_{service}_{tenant}）")
-    return _checked_database_name(f"bms_{service}_{code}", service=service)
+    if not db_basis:
+        raise ConfigError("库名基不得为空（服务租户库名形如 bms_{service}_{tenant}）")
+    return _checked_database_name(f"bms_{service}_{db_basis}", service=service)
 
 
 def database_name(key: DbKey, *, service: str) -> str:

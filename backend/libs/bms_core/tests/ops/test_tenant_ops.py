@@ -20,9 +20,9 @@ def test_seed_tenant_resolve_url(monkeypatch: pytest.MonkeyPatch) -> None:
 
 @pytest.mark.kiwi_id(1019)
 async def test_seed_tenant_idempotent(tmp_path: Path) -> None:
-    """种子幂等：首次建表并写入 demo / acme，重复执行新增 0；重复 code 不重复插入。"""
+    """种子幂等：首次建表并写入 demo / acme（各含对照行），重复执行新增 0；重复 code 不重复插入。"""
     url = f"sqlite+aiosqlite:///{tmp_path / 'platform.db'}"
-    assert await seed_tenant.seed_tenants(url) == len(seed_tenant.TENANT_SEEDS)
+    assert await seed_tenant.seed_tenants(url) == len(seed_tenant.TENANT_SEEDS) * 2  # 租户 + 对照行
     assert await seed_tenant.seed_tenants(url) == 0
 
     engine = create_async_engine(url)
@@ -30,11 +30,14 @@ async def test_seed_tenant_idempotent(tmp_path: Path) -> None:
     try:
         from sqlalchemy import func, select
 
+        from bms_tenant.models.tenant_database import SysTenantDatabase
         from ops.seed_tenant import SysTenant  # 归属迁至租户服务：经运维脚本复用声明
 
         async with factory() as session:
             total = (await session.execute(select(func.count()).select_from(SysTenant))).scalar_one()
+            basis_total = (await session.execute(select(func.count()).select_from(SysTenantDatabase))).scalar_one()
         assert total == len(seed_tenant.TENANT_SEEDS)
+        assert basis_total == len(seed_tenant.TENANT_SEEDS)
     finally:
         await engine.dispose()
 
@@ -48,4 +51,4 @@ def test_seed_tenant_cli(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> 
     assert "demo" in out
     assert "acme" in out
     assert seed_tenant.main(["--url", url]) == 0
-    assert "新增 2 行" in capsys.readouterr().out
+    assert "新增 4 行" in capsys.readouterr().out

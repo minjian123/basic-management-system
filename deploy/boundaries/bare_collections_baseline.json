@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generated_at": "2026-09-28",
+  "generated_at": "2026-09-29",
   "entries": [
     {
       "file": "backend/libs/bms_core/src/bms_core/api/base.py",
@@ -2132,21 +2132,7 @@
     },
     {
       "file": "backend/ops/migrate_tenants.py",
-      "line": "async def _tenant_records(registry_url: str) -> list[str]:",
-      "container": "list",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "backend/ops/migrate_tenants.py",
       "line": "async def build_tasks(args: argparse.Namespace) -> list[MigrationTask]:",
-      "container": "list",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "backend/ops/migrate_tenants.py",
-      "line": "def _query_sync(url: str) -> list[str]:",
       "container": "list",
       "position": "signature_return",
       "count": 1
@@ -2160,28 +2146,7 @@
     },
     {
       "file": "backend/ops/provision_tenant.py",
-      "line": "async def _resolve_codes(args: argparse.Namespace, factory: EngineFactory) -> list[str]:",
-      "container": "list",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "backend/ops/provision_tenant.py",
-      "line": "async def _tenant_codes(registry_url: str) -> list[str]:",
-      "container": "list",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "backend/ops/provision_tenant.py",
       "line": "async def build_tasks(args: argparse.Namespace) -> list[ProvisionTask]:",
-      "container": "list",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "backend/ops/provision_tenant.py",
-      "line": "def _query_tenant_codes_sync(url: str) -> list[str]:",
       "container": "list",
       "position": "signature_return",
       "count": 1
@@ -2730,13 +2695,6 @@
       "line": "types: Annotated[list[str] | None, Query(description=\"限定域（多值，缺省 = 全部可检索域）\")] = None,",
       "container": "list",
       "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/services/tenant/src/bms_tenant/api/tenant_registry.py",
-      "line": "def _snapshot(row: SysTenant) -> dict[str, object]:",
-      "container": "dict",
-      "position": "signature_return",
       "count": 1
     },
     {

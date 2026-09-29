@@ -157,7 +157,11 @@ async def test_provision_creates_user_mapping_and_event() -> None:
 async def test_provision_reuses_existing_mapping() -> None:
     """二次登录：锁内二次查命中映射直接复用，不再建号 / 不发事件。"""
     session, engine = await _platform_session()
-    session.add(SysUserIdentity(idp_key=f"{TENANT_ID}:{IDP_KEY}", external_id="sub-1", tenant_id=TENANT_ID, user_id=88))
+    session.add(
+        SysUserIdentity(
+            idp_key=f"{TENANT_ID}:{IDP_KEY}", external_id="sub-1", tenant_id=int(TENANT_ID), user_id=88
+        )
+    )
     await session.commit()
     org = FakeSsoOrgClient()
     service = _service(org)

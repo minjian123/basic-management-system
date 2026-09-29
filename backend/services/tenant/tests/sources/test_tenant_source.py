@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import cast
 
 import pytest
-from sqlalchemy import Table
+from sqlalchemy import Table, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from bms_core.cache.base import CacheRegion
@@ -17,17 +17,21 @@ from bms_core.db.registry import EngineRegistry
 from bms_core.db.tenant_registry import snapshot_cache_key
 from bms_core.models.base import Base
 from bms_tenant.models.tenant import SysTenant
+from bms_tenant.models.tenant_database import SysTenantDatabase
 from bms_tenant.sources.tenant_source import LocalTenantSource
 
 
 @pytest.fixture
 async def platform_url(tmp_path: Path) -> AsyncIterator[str]:
-    """临时平台库：建 `sys_tenant` 表并写入 active / suspended / 软删除三类租户。"""
+    """临时平台库：建 `sys_tenant` + `sys_tenant_database` 表并写入租户（含改名租户）。"""
     url = f"sqlite+aiosqlite:///{tmp_path / 'platform.db'}"
     engine = create_async_engine(url)
     factory: async_sessionmaker[AsyncSession] = async_sessionmaker(engine, expire_on_commit=False)
     async with engine.begin() as connection:
-        await connection.run_sync(Base.metadata.create_all, tables=[cast("Table", SysTenant.__table__)])
+        await connection.run_sync(
+            Base.metadata.create_all,
+            tables=[cast("Table", SysTenant.__table__), cast("Table", SysTenantDatabase.__table__)],
+        )
     async with factory() as session:
         session.add_all(
             [
@@ -40,6 +44,16 @@ async def platform_url(tmp_path: Path) -> AsyncIterator[str]:
                     db_key="tenant_sosp",
                     status="suspended",
                 ),
+                SysTenant(code="renamed", name="改名租户", domain="renamed.bms.example.com"),
+            ]
+        )
+        await session.flush()
+        demo = (await session.execute(select(SysTenant).where(SysTenant.code == "demo"))).scalar_one()
+        renamed = (await session.execute(select(SysTenant).where(SysTenant.code == "renamed"))).scalar_one()
+        session.add_all(
+            [
+                SysTenantDatabase(tenant_id=int(demo.id), db_basis="demo"),
+                SysTenantDatabase(tenant_id=int(renamed.id), db_basis="orig"),
             ]
         )
         await session.commit()
@@ -74,6 +88,22 @@ async def test_lookup_by_code_and_domain(platform_url: str) -> None:
         acme = await source.by_domain("acme.bms.example.com")
         assert acme.code == "acme"
         assert acme.domain == "acme.bms.example.com"
+    finally:
+        await registry.aclose()
+
+
+@pytest.mark.kiwi_id(1019)
+@pytest.mark.kiwi_id(2219)
+async def test_db_basis_from_ledger_keeps_db_key_stable(platform_url: str) -> None:
+    """库名基取对照表 `db_basis`：租户改名后库键不变（code 变更不断链）。"""
+    source, registry = _source(platform_url)
+    try:
+        renamed = await source.by_code("renamed")
+        assert renamed.code == "renamed"
+        assert renamed.db_key == "tenant_orig"
+
+        acme = await source.by_code("acme")  # 无对照行：回落当前 code
+        assert acme.db_key == "tenant_acme"
     finally:
         await registry.aclose()
 

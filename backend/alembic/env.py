@@ -20,10 +20,12 @@ import re
 from collections.abc import Mapping
 from functools import partial
 
+from alembic.ddl.base import ColumnType, alter_table, format_column_name, format_type
 from alembic.ddl.impl import DefaultImpl
 from sqlalchemy import Connection, Engine, create_engine, pool
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy.ext.compiler import compiles
 
 from alembic import context
 from bms_core.core.config import get_settings
@@ -41,6 +43,27 @@ config = context.config
 
 _SYNC_ONLY_DIALECTS = frozenset({"dm"})
 """仅同步驱动的方言（达梦；无异步方言实现）。"""
+
+
+@compiles(ColumnType, "dm")
+def _dm_visit_column_type(element: ColumnType, compiler: object, **kw: object) -> str:
+    """达梦列类型变更 DDL（`ALTER TABLE … MODIFY <列> <类型>`）。
+
+    Alembic 默认模板为 PostgreSQL 式 `ALTER TABLE … ALTER COLUMN … TYPE …`，达梦不支持
+    （10_04 真库实测：第 1 行 `[TYPE]` 语法分析出错）；达梦支持 MySQL 式 `MODIFY`。
+
+    Args:
+        element: Alembic 列类型变更构造。
+        compiler: DDL 编译器。
+        kw: 编译扩展参数。
+
+    Returns:
+        str: 达梦 `ALTER TABLE … MODIFY …` 语句。
+    """
+    table = alter_table(compiler, element.table_name, element.schema)  # type: ignore[arg-type]
+    column = format_column_name(compiler, element.column_name)  # type: ignore[arg-type]
+    type_sql = format_type(compiler, element.type_)  # type: ignore[arg-type]
+    return f"{table} MODIFY {column} {type_sql}"
 
 
 class DMImpl(DefaultImpl):
@@ -140,7 +163,14 @@ def _do_run_migrations(connection: Connection, chain: MigrationChain, schema: st
         schema: 目标模式名（仅达梦生效）。
     """
     apply_session_schema(connection, schema)
-    context.configure(connection=connection, target_metadata=chain_metadata(chain))
+    # 达梦：显式声明版本表模式——达梦方言 `has_table` 不认会话 `SET SCHEMA` 后的当前模式，
+    # 增量迁移会重复建 `alembic_version` 报「对象已存在」（10_04 真库实测）；显式模式后
+    # 版本表检查 / 建表 / 读写均限定在目标模式内。
+    context.configure(
+        connection=connection,
+        target_metadata=chain_metadata(chain),
+        version_table_schema=schema or None,
+    )
     with context.begin_transaction():
         context.run_migrations()
 

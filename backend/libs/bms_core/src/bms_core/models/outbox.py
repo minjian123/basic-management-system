@@ -9,7 +9,7 @@
 
 from datetime import datetime
 
-from sqlalchemy import JSON, DateTime, Index, Integer, String, UniqueConstraint
+from sqlalchemy import JSON, BigInteger, DateTime, Index, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from bms_core.events.base import DEFAULT_EVENT_VERSION
@@ -36,7 +36,9 @@ class SysOutbox(BaseModel):
     aggregate_key: Mapped[str | None] = mapped_column(
         String(128), nullable=True, comment="聚合 / 分区键（同聚合按序投递；空 = 独立事件）"
     )
-    tenant_id: Mapped[str | None] = mapped_column(String(64), nullable=True, comment="租户标识")
+    tenant_id: Mapped[int | None] = mapped_column(
+        BigInteger, nullable=True, comment="租户主键（雪花 id；平台链不可解析保持空）"
+    )
     payload: Mapped[dict[str, object]] = mapped_column(JSON, comment="事件负载")
     occurred_at: Mapped[datetime] = mapped_column(DateTime, comment="事件发生时间（UTC）")
     status: Mapped[str] = mapped_column(String(16), default="pending", comment="投递状态（pending/delivered/dead）")
@@ -68,7 +70,9 @@ class SysEventDeadLetter(BaseModel):
     event_type: Mapped[str] = mapped_column(String(128), comment="事件类型")
     consumer: Mapped[str | None] = mapped_column(String(128), nullable=True, comment="消费者标识（source=consumer）")
     aggregate_key: Mapped[str | None] = mapped_column(String(128), nullable=True, comment="聚合 / 分区键")
-    tenant_id: Mapped[str | None] = mapped_column(String(64), nullable=True, comment="租户标识")
+    tenant_id: Mapped[int | None] = mapped_column(
+        BigInteger, nullable=True, comment="租户主键（雪花 id；平台链不可解析保持空）"
+    )
     payload: Mapped[dict[str, object]] = mapped_column(JSON, comment="事件负载（便于重投 / 排障）")
     error_msg: Mapped[str] = mapped_column(String(512), comment="失败原因（截断）")
     retry_count: Mapped[int] = mapped_column(Integer, default=0, comment="转入死信前的已重试次数")

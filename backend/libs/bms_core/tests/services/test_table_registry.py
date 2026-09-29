@@ -66,7 +66,7 @@ def test_owned_tables_and_chain_derivation() -> None:
     assert "sys_tenant" in tenant_platform_tables
     assert "sys_tenant_quota" in tenant_platform_tables
     assert owned_tables_for("tenant", datasource=Datasource.PLATFORM, include_planned=False) == frozenset(
-        {"sys_tenant"}
+        {"sys_tenant", "sys_tenant_database"}
     )
 
     platform_chain = chain_tables("platform", Datasource.PLATFORM)
@@ -85,7 +85,9 @@ def test_owned_tables_and_chain_derivation() -> None:
     # 未定稿表（骨架表 / 演示表）不进链（06_02 状态收口）
     assert {"sys_task", "sys_task_log", "sys_icon", "demo"}.isdisjoint(tenant_chain)
 
-    assert chain_tables("tenant", Datasource.PLATFORM) == frozenset({"sys_tenant", *infrastructure_tables()})
+    assert chain_tables("tenant", Datasource.PLATFORM) == frozenset(
+        {"sys_tenant", "sys_tenant_database", *infrastructure_tables()}
+    )
     assert chain_tables("org", Datasource.TENANT) == frozenset(
         {"sys_user", "sys_account_lock", *infrastructure_tables()}
     )

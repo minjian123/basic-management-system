@@ -78,15 +78,15 @@ def test_migrate_tenants_idempotent_and_single_targets(
     assert migrate_tenants.main(args) == 0
     out = capsys.readouterr().out
     assert "汇总：成功 2、跳过 0、失败 0" in out
-    assert _revisions(tmp_path / "bms_platform_demo.db") == ["0004_sys_config"]
-    assert _revisions(tmp_path / "bms_platform_acme.db") == ["0004_sys_config"]
+    assert _revisions(tmp_path / "bms_platform_demo.db") == ["0005_sys_outbox_tenant_bigint"]
+    assert _revisions(tmp_path / "bms_platform_acme.db") == ["0005_sys_outbox_tenant_bigint"]
 
     assert migrate_tenants.main(args) == 0
     assert "汇总：成功 0、跳过 2、失败 0" in capsys.readouterr().out
 
     platform_url = f"sqlite+aiosqlite:///{tmp_path / 'platform.db'}"
     assert migrate_tenants.main(["--service", "platform", "--target", "platform", "--url", platform_url]) == 0
-    assert _revisions(tmp_path / "platform.db") == ["0005_sys_table_ownership"]
+    assert _revisions(tmp_path / "platform.db") == ["0006_sys_outbox_tenant_bigint"]
     assert "汇总：成功 1、跳过 0、失败 0" in capsys.readouterr().out
 
     assert migrate_tenants.main(["--target", "archive"]) == 0
@@ -133,7 +133,7 @@ def test_init_tenant_three_steps_and_idempotent(tmp_path: Path, capsys: pytest.C
     assert "建库 → 新建" in out
     assert "platform:tenant 链 → 完成" in out
     assert "种子 → 新增" in out and "新增 0 行" not in out
-    assert _revisions(tmp_path / "tenant_acme.db") == ["0004_sys_config"]
+    assert _revisions(tmp_path / "tenant_acme.db") == ["0005_sys_outbox_tenant_bigint"]
 
     assert init_tenant.main(args) == 0
     again = capsys.readouterr().out

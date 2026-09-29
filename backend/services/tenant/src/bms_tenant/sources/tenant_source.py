@@ -13,6 +13,7 @@ from sqlalchemy import select
 from bms_core.cache.base import CacheRegion
 from bms_core.core.config import Settings
 from bms_core.core.exceptions import TenantNotFoundError, TenantSuspendedError
+from bms_core.core.logging import get_logger
 from bms_core.core.objects import BaseFrameworkObject
 from bms_core.db.registry import PLATFORM_DB_KEY, EngineRegistry
 from bms_core.db.session import SessionFactory, session_scope
@@ -26,11 +27,14 @@ from bms_core.db.tenant_registry import (
 )
 from bms_core.db.tenant_source import register_tenant_lookup
 from bms_tenant.models.tenant import SysTenant
+from bms_tenant.models.tenant_database import SysTenantDatabase
 
 __all__ = ["LOCAL_TENANT_SOURCE", "LocalTenantSource", "register_local_tenant_source"]
 
 LOCAL_TENANT_SOURCE = "local"
 """本地租户源实现名。"""
+
+_LOGGER = get_logger("bms.tenant_source")
 
 
 class LocalTenantSource(BaseFrameworkObject):
@@ -160,6 +164,7 @@ class LocalTenantSource(BaseFrameworkObject):
         """平台服务库查询（软删除过滤；未命中返回 None）。
 
         经统一会话入口取平台库会话：异步方言走异步会话，达梦等同步方言走同步门面。
+        库名基 `db_basis` 经对照表 `sys_tenant_database` 取数（左联；缺行回落当前 code 并记 WARNING）。
         """
         if kind == "code":
             column = SysTenant.code
@@ -172,10 +177,21 @@ class LocalTenantSource(BaseFrameworkObject):
                 return None
             column = SysTenant.id
             bound = int(value)
-        statement = select(SysTenant).where(column == bound, SysTenant.deleted_at.is_(None)).limit(1)
+        statement = (
+            select(SysTenant, SysTenantDatabase.db_basis)
+            .outerjoin(
+                SysTenantDatabase,
+                (SysTenantDatabase.tenant_id == SysTenant.id) & (SysTenantDatabase.deleted_at.is_(None)),
+            )
+            .where(column == bound, SysTenant.deleted_at.is_(None))
+            .limit(1)
+        )
         async with session_scope(self._registry, db_key=PLATFORM_DB_KEY, factory=self._session_factory) as session:
-            row = (await session.execute(statement)).scalar_one_or_none()
-        return None if row is None else _snapshot(row)
+            row = (await session.execute(statement)).first()
+        if row is None:
+            return None
+        tenant, db_basis = row
+        return _snapshot(tenant, db_basis)
 
     def _cache_get(self, key: str) -> TenantSnapshot | None:
         """读缓存（版本不符视为未命中）。
@@ -245,8 +261,14 @@ def register_local_tenant_source() -> None:
     register_tenant_lookup(LOCAL_TENANT_SOURCE, _factory)
 
 
-def _snapshot(row: SysTenant) -> TenantSnapshot:
-    """注册记录 → 快照（时间转 ISO 串，跨缓存实现序列化安全）。"""
+def _snapshot(row: SysTenant, db_basis: str | None = None) -> TenantSnapshot:
+    """注册记录 → 快照（时间转 ISO 串，跨缓存实现序列化安全）。
+
+    库名基取对照表 `db_basis`；缺对照行回落当前 `code` 并记 WARNING（仅过渡容错，不阻断）。
+    """
+    basis = db_basis or row.code
+    if not db_basis:
+        _LOGGER.warning("tenant_db_basis_missing", tenant_id=int(row.id), code=row.code)
     return TenantSnapshot(
         code=row.code,
         name=row.name,
@@ -254,5 +276,5 @@ def _snapshot(row: SysTenant) -> TenantSnapshot:
         status=row.status,
         expire_at=row.expire_at.isoformat() if row.expire_at else None,
         tenant_id=int(row.id),
-        db_basis=row.code,
+        db_basis=basis,
     )
