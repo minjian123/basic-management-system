@@ -7,7 +7,7 @@
 import heapq
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterable, Iterator, Mapping
-from typing import Any, Self, cast
+from typing import Any, ClassVar, Self, cast
 
 from sortedcontainers import SortedDict as _SortedDict
 from sortedcontainers import SortedList as _SortedList
@@ -18,7 +18,28 @@ from bms_core.core.serialization import stable_json_dumps
 
 
 class BaseSorted[ItemT](BaseObject, ABC):
-    """有序集合基类：稳定序列化、排序视图、分批与集合运算。"""
+    """有序集合体系根：插入即有序 + 对外输出稳定序。
+
+    本体系根只承载**语义约定**（与 `BaseValueObject` 同构，不提供可执行公共方法）：
+    集合体系成员按元素（或键）升序、插入即有序、对外输出稳定序（禁止裸无序集合）。
+    其下按**接口协议**分两条**平行角色链**（链长不限，各自承载本协议的公共段）——
+    同步有序见 `BaseSyncSorted`（进程内有序 / 进程内并发），
+    异步有序见 `BaseAsyncSorted`（`core/redis_collections.py`，跨副本形态）。
+    """
+
+    collection_kind: ClassVar[str] = "sorted"
+    """集合形态标识（子层覆写，如 `sorted_sync` / `sorted_async`）。"""
+
+
+class BaseSyncSorted[ItemT](BaseSorted[ItemT], ABC):
+    """同步有序集合角色层：稳定序列化、排序视图、分批与集合运算。
+
+    进程内形态的公共段——`SortedList` / `SortedDict` / `SortedSet` 与进程内并发集合
+    （`BaseConcurrentSorted` → `ConcurrentSorted*`）共同承载；跨副本形态为异步接口，
+    不在本链（见 `BaseAsyncSorted`）。
+    """
+
+    collection_kind: ClassVar[str] = "sorted_sync"
 
     @abstractmethod
     def to_list(self) -> list[ItemT]:
@@ -117,7 +138,7 @@ class BaseSorted[ItemT](BaseObject, ABC):
         """
 
 
-class SortedList[ItemT](_SortedList[ItemT], BaseSorted[ItemT]):
+class SortedList[ItemT](_SortedList[ItemT], BaseSyncSorted[ItemT]):
     """有序列表：按元素（或构造 key=）升序，插入即有序。"""
 
     def to_list(self) -> list[ItemT]:
@@ -137,7 +158,7 @@ class SortedList[ItemT](_SortedList[ItemT], BaseSorted[ItemT]):
         return self.to_list()
 
 
-class SortedDict[KeyT, ValueT](_SortedDict[KeyT, ValueT], BaseSorted[tuple[KeyT, ValueT]]):
+class SortedDict[KeyT, ValueT](_SortedDict[KeyT, ValueT], BaseSyncSorted[tuple[KeyT, ValueT]]):
     """有序字典：按键升序，插入即有序。"""
 
     def to_list(self) -> list[tuple[KeyT, ValueT]]:
@@ -201,7 +222,7 @@ class SortedDict[KeyT, ValueT](_SortedDict[KeyT, ValueT], BaseSorted[tuple[KeyT,
         return dict(self.items())
 
 
-class SortedSet[ItemT](_SortedSet[ItemT], BaseSorted[ItemT]):
+class SortedSet[ItemT](_SortedSet[ItemT], BaseSyncSorted[ItemT]):
     """有序集合：按元素升序去重，插入即有序。"""
 
     def to_list(self) -> list[ItemT]:
