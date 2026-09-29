@@ -11,14 +11,14 @@ from collections.abc import Callable, Generator, Iterable, Iterator, Mapping
 from contextlib import contextmanager
 from typing import Any, TypeVar, cast
 
-from bms_core.core.collections import BaseSorted, SortedDict, SortedList, SortedSet
+from bms_core.core.collections import BaseSyncSorted, SortedDict, SortedList, SortedSet
 from bms_core.core.holder import ValueHolder
 from bms_core.core.locking import LockGuard, LockStrategy, ReadWriteLock
 
 DataT = TypeVar("DataT")
 
 
-class BaseConcurrentSorted[ItemT, DataT](BaseSorted[ItemT]):
+class BaseConcurrentSorted[ItemT, DataT](BaseSyncSorted[ItemT]):
     """进程内并发有序集合基类：锁策略守卫 + SNAPSHOT 写时复制模板。
 
     子类实现 `_copy_data`（复制内部数据）；读改写由 `_guard` 按策略加锁，

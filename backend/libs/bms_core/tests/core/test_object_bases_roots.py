@@ -46,6 +46,7 @@ OBJECT_BASES = frozenset(
         "BaseServiceClient",
         "CacheRegion",
         "BaseMiddleware",
+        "BaseAsyncSorted",
     }
 )
 """允许的归位父基类（体系根 + 既有能力域基类）；新增基类须扩入本集合并在《后端基类清单》§10 登记。"""
@@ -66,8 +67,8 @@ OBJECT_BATCH: tuple[tuple[str, str, str], ...] = (
     ("backend/libs/bms_core/src/bms_core/core/locking.py", "ReadWriteLock", "BaseFrameworkObject"),
     ("backend/libs/bms_core/src/bms_core/core/plugin.py", "PluginRegistry", "BaseFrameworkObject"),
     ("backend/libs/bms_core/src/bms_core/core/redis_collections.py", "RedisSnapshot", "BaseFrameworkObject"),
-    ("backend/libs/bms_core/src/bms_core/core/redis_collections.py", "RedisSortedDict", "BaseFrameworkObject"),
-    ("backend/libs/bms_core/src/bms_core/core/redis_collections.py", "RedisSortedSet", "BaseFrameworkObject"),
+    ("backend/libs/bms_core/src/bms_core/core/redis_collections.py", "RedisSortedDict", "BaseAsyncSorted"),
+    ("backend/libs/bms_core/src/bms_core/core/redis_collections.py", "RedisSortedSet", "BaseAsyncSorted"),
     ("backend/libs/bms_core/src/bms_core/core/resources.py", "ResourceManager", "BaseFrameworkObject"),
     ("backend/libs/bms_core/src/bms_core/core/service.py", "ServiceRuntime", "BaseFrameworkObject"),
     ("backend/libs/bms_core/src/bms_core/db/sync.py", "SyncSession", "BaseFrameworkObject"),
@@ -122,7 +123,10 @@ OBJECT_BATCH: tuple[tuple[str, str, str], ...] = (
     ),
     ("backend/services/tenant/src/bms_tenant/sources/tenant_source.py", "LocalTenantSource", "BaseFrameworkObject"),
 )
-"""已归位台账（批次 ① 数据契约 3 + ②a `bms_core` 框架类 28 + ②b 2 + ③ 服务侧 17）——（源文件, 类名, 归位父基类）。"""
+"""已归位台账（批次 ① 数据契约 3 + ②a `bms_core` 框架类 28 + ②b 2 + ③ 服务侧 17）——（源文件, 类名, 归位父基类）。
+
+08_05（2026-09-29）集合体系收链：`RedisSortedDict` / `RedisSortedSet` 由 `BaseFrameworkObject`
+改挂集合体系异步角色层 `BaseAsyncSorted`（回归集合链）；`RedisSnapshot` 保持框架对象体系。"""
 
 BASELINE_REMAINING = 0
 """基线剩余条目数（批次 ① 后 47 → ②a 后 19 → ②b 后 17 → ③ 后 **0**）。
@@ -142,7 +146,8 @@ def _class_bases(rel: str, name: str) -> Sequence[str]:
     tree = ast.parse((_ROOT / rel).read_text(encoding="utf-8"))
     for node in ast.walk(tree):
         if isinstance(node, ast.ClassDef) and node.name == name:
-            return [ast.unparse(base) for base in node.bases]
+            # 去泛型参数：`BaseAsyncSorted[tuple[KeyT, ValueT]]` → `BaseAsyncSorted`
+            return [ast.unparse(base).split("[")[0] for base in node.bases]
     return []
 
 

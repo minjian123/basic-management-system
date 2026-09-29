@@ -6,13 +6,15 @@
 - 复合操作（写索引 + 写数据）用 Lua 保证原子；版本号 key 为 `{key}:version`
 """
 
+from abc import ABC, abstractmethod
 from collections.abc import AsyncGenerator, Awaitable, Callable
 from contextlib import asynccontextmanager
-from typing import cast
+from typing import ClassVar, cast
 
 from redis.asyncio import Redis
 from redis.exceptions import WatchError
 
+from bms_core.core.collections import BaseSorted
 from bms_core.core.exceptions import ConcurrentConflictError
 from bms_core.core.holder import ValueHolder
 from bms_core.core.objects import BaseFrameworkObject
@@ -103,7 +105,47 @@ def _score_for_key(key: object) -> float:
     return float(key)
 
 
-class RedisSortedSet[ItemT](BaseFrameworkObject):
+class BaseAsyncSorted[ItemT](BaseSorted[ItemT], ABC):
+    """异步有序集合角色层：跨副本形态的公共段（外部存储为事实源）。
+
+    只收两个跨副本成员**同名同义**的公共段——`async size()` / `async version()` /
+    `version_key`（同步属性）；读写方法（`add` / `incr` / `score` / `range_*` / `top` 与
+    `set` / `get` / `delete` / `items`）命名与语义不同，留在各自类
+    （不按用途强套统一接口）。
+
+    本层**不提供同步读入口**，也不做 sync → async 桥接（禁 `asyncio.run` / 线程池桥接）：
+    跨副本形态的调用方必须 `await`，进程内同步热路径不受影响。
+    """
+
+    collection_kind: ClassVar[str] = "sorted_async"
+
+    @abstractmethod
+    async def size(self) -> int:
+        """元素 / 键值对数量（跨副本实时读取）。
+
+        Returns:
+            int: 数量。
+        """
+
+    @abstractmethod
+    async def version(self) -> int:
+        """当前版本号（写操作递增，为快照比对的依据）。
+
+        Returns:
+            int: 版本号。
+        """
+
+    @property
+    @abstractmethod
+    def version_key(self) -> str:
+        """版本号键名（键名拼接不涉 IO，故为同步属性）。
+
+        Returns:
+            str: 版本号键名。
+        """
+
+
+class RedisSortedSet[ItemT](BaseAsyncSorted[ItemT]):
     """Redis 有序集合（ZSET）：按分值排序，跨副本共享。"""
 
     def __init__(self, client: Redis, key: str) -> None:
@@ -232,7 +274,7 @@ class RedisSortedSet[ItemT](BaseFrameworkObject):
         return int(await self._client.incr(self._version_key))
 
 
-class RedisSortedDict[KeyT, ValueT](BaseFrameworkObject):
+class RedisSortedDict[KeyT, ValueT](BaseAsyncSorted[tuple[KeyT, ValueT]]):
     """Redis 有序字典：ZSET 索引（键序）+ Hash 数据（值），Lua 保证两结构一致。"""
 
     def __init__(self, client: Redis, key: str) -> None:

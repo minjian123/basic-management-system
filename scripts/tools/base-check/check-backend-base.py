@@ -91,6 +91,48 @@ def parse_chains(raw_line: str) -> list[tuple[str, ...]]:
     ]
 
 
+def split_bases(raw: str) -> Sequence[str]:
+    """按**顶层**逗号切分类声明的父类列表（尊重 `[` `]` 嵌套）。
+
+    朴素 `str.split(",")` 会把泛型参数内的逗号一并切开（如
+    `BaseConcurrentSorted[ItemT, SortedList[ItemT]]` → `BaseConcurrentSorted[ItemT`），
+    导致该类在「继承链对账」中被静默跳过——故按括号深度切分。
+
+    Args:
+        raw: `class X(...)` 括号内的原始文本。
+
+    Returns:
+        Sequence[str]: 父类表达式（含泛型参数，未归一化）。
+    """
+    parts: list[str] = []
+    depth = 0
+    current = ""
+    for char in raw:
+        if char in "[(":
+            depth += 1
+        elif char in "])":
+            depth = max(0, depth - 1)
+        if char == "," and depth == 0:
+            parts.append(current)
+            current = ""
+            continue
+        current += char
+    parts.append(current)
+    return [part for part in (item.strip() for item in parts) if part]
+
+
+def normalize_parent(raw: str) -> str:
+    """归一化父类名：先去泛型参数，再取模块前缀后的末段（`bc.X[Y, Z]` → `X`）。
+
+    Args:
+        raw: 父类表达式。
+
+    Returns:
+        str: 归一化类名。
+    """
+    return re.sub(r"\[.*\]", "", raw, flags=re.S).strip().split(".")[-1].strip()
+
+
 def index_classes() -> dict[str, list[list[str]]]:
     """类名 → 父类名列表（重复定义保留全部；覆盖工作区共享库与服务全部源码）。"""
     index: dict[str, list[list[str]]] = {}
@@ -104,9 +146,7 @@ def index_classes() -> dict[str, list[list[str]]]:
                 path = os.path.join(dp, name)
                 text = open(path, encoding="utf-8", errors="ignore").read()
                 for cls, bases in CLASS_RE.findall(text):
-                    parents = [
-                        re.sub(r"\[.*\]", "", b.strip().split(".")[-1]) for b in bases.split(",") if b.strip()
-                    ]
+                    parents = [normalize_parent(base) for base in split_bases(bases)]
                     index.setdefault(cls, []).append(parents)
     return index
 
@@ -214,9 +254,7 @@ def scan_direct_base_object() -> Sequence[tuple[str, str]]:
                 path = os.path.join(dp, name)
                 text = open(path, encoding="utf-8", errors="ignore").read()
                 for cls, bases in CLASS_RE.findall(text):
-                    parents = [
-                        re.sub(r"\[.*\]", "", b.strip().split(".")[-1]) for b in bases.split(",") if b.strip()
-                    ]
+                    parents = [normalize_parent(base) for base in split_bases(bases)]
                     if "BaseObject" in parents:
                         found.append((os.path.relpath(path, ROOT), cls))
     return found
