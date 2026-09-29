@@ -65,7 +65,7 @@ async def test_cas_end_to_end_jit_creates_user_and_session(client: AsyncClient, 
     async with sso.platform_scope() as session:
         rows = (await session.execute(select(SysUserIdentity))).scalars().all()
     assert [(row.idp_key, row.external_id, row.tenant_id) for row in rows] == [
-        (f"{TENANT_ID}:{CAS_IDP_KEY}", "cas-alice", TENANT_ID)
+        (f"{TENANT_ID}:{CAS_IDP_KEY}", "cas-alice", int(TENANT_ID))
     ]
 
     # 首登发一次 JIT 事件

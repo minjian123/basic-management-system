@@ -13,8 +13,9 @@ uv run python -m ops.init_tenant --code acme \
     --url "dm+dmPython://SYSDBA:pass@host:5236" --schema BMS_MIGRCHECK  # 达梦模式（库级隔离）
 ```
 
-- **URL**：`--url` 优先；否则按库键 `tenant_{service}_{code}`（`--service` 缺省取 `[app].service`）
-  经 `url_template` 解析（配置 `database.tenants.*`）；
+- **URL**：`--url` 优先；否则按库键 `tenant_{service}_{db_basis}`（`--service` 缺省取 `[app].service`）
+  经 `url_template` 解析（配置 `database.tenants.*`）；库名基经对照表 `sys_tenant_database` 取数
+  （缺对照行 / 注册库不可读回落当前 `code`，离线可用；10_04）；
 - **单服务单租户**：只建/迁本任务指定的一个服务租户库；按「服务 × 租户」批量建库见 `ops/provision_tenant.py`；
 - **建库**：`app/db/admin.py`（MySQL / PG 建库、SQLite 建文件、达梦建模式；**幂等**，已存在跳过）；
 - **迁移**：本服务的租户链 `{service}:tenant` `upgrade head`（与 `ops/migrate_tenants.py` 同源；
@@ -39,6 +40,7 @@ from bms_core.core.exceptions import ConfigError
 from bms_core.core.objects import BaseValueObject
 from bms_core.db.admin import DatabaseTarget, create_database, resolve_target
 from bms_core.db.engine import EngineFactory
+from bms_core.db.keys import build_platform_db_key
 from bms_core.db.migration import (
     DATASOURCE_TENANT,
     build_chain_name,
@@ -48,7 +50,9 @@ from bms_core.db.migration import (
     upgrade_chain,
 )
 from bms_core.db.tenant import build_tenant_db_key
+from bms_core.db.tenant_source import TENANT_SERVICE_KEY
 from bms_core.dict.seed import seed_dicts
+from ops.migrate_tenants import tenant_refs
 
 
 @dataclass(frozen=True)
@@ -94,11 +98,11 @@ def _masked(url: str) -> str:
     return make_url(url).render_as_string(hide_password=True)
 
 
-def _resolve_url(code: str, override: str, service: str = "") -> str:
+def _resolve_url(basis: str, override: str, service: str = "") -> str:
     """取服务租户库连接串（显式覆盖优先，否则按库键经模板解析）。
 
     Args:
-        code: 租户编码。
+        basis: 库名基（对照表 `db_basis`；缺行回落当前编码）。
         override: 显式连接串（空串表示未指定）。
         service: 服务标识（空串取 `[app].service`；仍为空则用相对键，模板需服务标识时快速失败）。
 
@@ -109,9 +113,32 @@ def _resolve_url(code: str, override: str, service: str = "") -> str:
         return override
     settings = get_settings()
     effective = service or settings.app.service
-    key = build_tenant_db_key(code, service=effective or None)
+    key = build_tenant_db_key(basis, service=effective or None)
     # 运维通道：允许跨服务库键（按指定服务建该租户的库）
     return EngineFactory(settings, allow_cross_service=True).resolved_url(key)
+
+
+async def _resolve_basis(code: str) -> str:
+    """取租户库名基（对照表；注册库不可读 / 未注册回落当前编码，离线 / 演练可用）。
+
+    Args:
+        code: 租户编码。
+
+    Returns:
+        str: 库名基。
+    """
+    settings = get_settings()
+    factory = EngineFactory(settings, allow_cross_service=True)
+    try:
+        registry_url = factory.resolved_url(build_platform_db_key(TENANT_SERVICE_KEY))
+        refs = await tenant_refs(registry_url)
+    except Exception as exc:
+        print(f"[init_tenant] 租户注册库不可读，按编码作库名基：{type(exc).__name__}: {exc}")
+        return code
+    for ref in refs:
+        if ref.code == code:
+            return ref.db_basis
+    return code
 
 
 async def _seed(url: str) -> int:
@@ -145,9 +172,10 @@ async def run(args: argparse.Namespace) -> InitResult:
     if not service:
         raise ConfigError("需 `--service` 或 `[app].service` 指定服务（分链需服务段：{service}:tenant）")
     tenant_chain = resolve_chain(build_chain_name(service, DATASOURCE_TENANT))
-    url = _resolve_url(args.code, args.url, args.service)
+    basis = args.code if args.url else await _resolve_basis(args.code)
+    url = _resolve_url(basis, args.url, args.service)
     target: DatabaseTarget = resolve_target(url, admin_url=args.admin_url)
-    print(f"[init_tenant] 租户 {args.code} | 目标 {target.describe()} | {_masked(url)}")
+    print(f"[init_tenant] 租户 {args.code}（库名基 {basis}）| 目标 {target.describe()} | {_masked(url)}")
 
     created = False
     if args.skip_create_db:

@@ -69,7 +69,7 @@ def _to_record(row: SysOutbox) -> OutboxRecord:
         event_type=row.event_type,
         event_version=row.event_version,
         aggregate_key=row.aggregate_key,
-        tenant_id=row.tenant_id,
+        tenant_id=_tenant_id_str(row.tenant_id),
         payload=dict(row.payload),
         occurred_at=row.occurred_at,
         status=row.status,
@@ -78,6 +78,33 @@ def _to_record(row: SysOutbox) -> OutboxRecord:
         delivered_at=row.delivered_at,
         error_msg=row.error_msg,
     )
+
+
+def _tenant_id_str(tenant_id: int | None) -> str | None:
+    """租户主键列值 → 信封口径字符串（雪花 id 十进制字符串；空保持空）。
+
+    Args:
+        tenant_id: 租户主键（BIGINT 列）。
+
+    Returns:
+        str | None: 十进制字符串或 None。
+    """
+    return None if tenant_id is None else str(tenant_id)
+
+
+def _tenant_id_col(tenant_id: str | None) -> int | None:
+    """信封租户位 → 租户主键列值（BIGINT；空保持空）。
+
+    Args:
+        tenant_id: 租户主键（雪花 id 十进制字符串）。
+
+    Returns:
+        int | None: 租户主键或 None。
+
+    Raises:
+        ValueError: 租户位非十进制字符串（内部链路口径违规）。
+    """
+    return None if tenant_id is None else int(tenant_id)
 
 
 def _to_dead_record(row: SysEventDeadLetter) -> DeadLetterRecord:
@@ -89,7 +116,7 @@ def _to_dead_record(row: SysEventDeadLetter) -> DeadLetterRecord:
         event_type=row.event_type,
         consumer=row.consumer,
         aggregate_key=row.aggregate_key,
-        tenant_id=row.tenant_id,
+        tenant_id=_tenant_id_str(row.tenant_id),
         payload=dict(row.payload),
         error_msg=row.error_msg,
         retry_count=row.retry_count,
@@ -179,7 +206,7 @@ class SqlOutboxStore(BaseOutboxStore):
                 event_type=event.event_type,
                 event_version=event_version,
                 aggregate_key=event.aggregate_key,
-                tenant_id=event.tenant_id,
+                tenant_id=_tenant_id_col(event.tenant_id),
                 payload=dict(event.payload),
                 occurred_at=occurred_at,
                 status=OUTBOX_STATUS_PENDING,

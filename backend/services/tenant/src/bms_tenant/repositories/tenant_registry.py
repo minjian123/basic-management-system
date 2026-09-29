@@ -1,8 +1,9 @@
 """租户注册仓储（`sys_tenant` 写路径唯一入口；06_03 归租户与配置服务）。
 
-- 只读：`by_code` / `by_domain`（软删除过滤）——供本服务本地租户源与只读契约接口复用；
-- 写路径：`create` / `update_status`（开通 / 停用）**由租户管理阶段补全**，本期只落状态变更入口，
-  保证「版本键失效」有调用点（写路径与缓存失效同址）。
+- 只读：`by_code` / `by_domain` / `by_id`（软删除过滤）——供本服务本地租户源与只读契约接口复用；
+  库名基 `db_basis` 经对照表 `sys_tenant_database` 取数（`db_basis()`）；
+- 写路径：`create` / `update_status`（开通 / 停用）——`create` 同事务写 `sys_tenant` + `sys_tenant_database`
+  （开通流程「先写注册 + 对照，再建库 / 迁移」）；本期只落状态变更入口，保证「版本键失效」有调用点。
 """
 
 from datetime import datetime
@@ -12,6 +13,7 @@ from sqlalchemy import select
 from bms_core.core.objects import BaseFrameworkObject
 from bms_core.db.session import DbSession
 from bms_tenant.models.tenant import SysTenant
+from bms_tenant.models.tenant_database import SysTenantDatabase
 
 __all__ = ["TenantRegistryRepository"]
 
@@ -60,29 +62,47 @@ class TenantRegistryRepository(BaseFrameworkObject):
         """
         return await self._one(SysTenant.id == tenant_id)
 
+    async def db_basis(self, tenant_id: int) -> str | None:
+        """取租户库名基（对照表 `sys_tenant_database`；未软删）。
+
+        Args:
+            tenant_id: 租户主键（雪花 id）。
+
+        Returns:
+            str | None: 库名基；缺对照行返回 None（调用方回落当前 code）。
+        """
+        statement = (
+            select(SysTenantDatabase.db_basis)
+            .where(SysTenantDatabase.tenant_id == tenant_id, SysTenantDatabase.deleted_at.is_(None))
+            .limit(1)
+        )
+        return (await self._session.execute(statement)).scalar_one_or_none()
+
     async def create(
         self,
         *,
         code: str,
         name: str,
         domain: str | None,
-        db_key: str,
+        db_basis: str | None = None,
         expire_at: datetime | None = None,
     ) -> SysTenant:
-        """登记新租户（幂等由调用方按编码判存；本方法只插入）。
+        """登记新租户（同事务写 `sys_tenant` + `sys_tenant_database`；幂等由调用方按编码判存）。
 
         Args:
             code: 租户编码（全小写）。
             name: 租户名称。
             domain: 子域名。
-            db_key: 数据源键。
+            db_basis: 库名基（缺省取当前 `code`；创建时冻结、后续不随编码变更）。
             expire_at: 到期时间（UTC）。
 
         Returns:
             SysTenant: 新建注册行。
         """
-        row = SysTenant(code=code, name=name, domain=domain, db_key=db_key, status="active", expire_at=expire_at)
+        row = SysTenant(code=code, name=name, domain=domain, status="active", expire_at=expire_at)
         self._session.add(row)
+        await self._session.flush()
+        self._session.add(SysTenantDatabase(tenant_id=row.id, db_basis=db_basis or code))
         await self._session.flush()
         return row
 

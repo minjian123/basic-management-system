@@ -214,7 +214,7 @@ class JitService(BaseFrameworkObject):
             await repo.create(
                 idp_key=mapping_key,
                 external_id=identity.subject,
-                tenant_id=tenant_id,
+                tenant_id=int(tenant_id),
                 user_id=user.id,
             )
             await self._outbox.enqueue(

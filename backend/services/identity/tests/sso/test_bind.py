@@ -27,7 +27,7 @@ async def _seed(app: FastAPI, *, user_id: int = 1001) -> None:
             SysUserIdentity(
                 idp_key=f"{TENANT_ID}:{IDP_KEY}",
                 external_id="sub-1",
-                tenant_id=TENANT_ID,
+                tenant_id=int(TENANT_ID),
                 user_id=user_id,
             )
         )

@@ -60,7 +60,7 @@ async def test_dingtalk_authorize_url_and_end_to_end(client: AsyncClient, sso: S
     async with sso.platform_scope() as session:
         rows = (await session.execute(select(SysUserIdentity))).scalars().all()
     assert [(row.idp_key, row.external_id, row.tenant_id) for row in rows] == [
-        (f"{TENANT_ID}:{DINGTALK_IDP_KEY}", "dingtalk-union", TENANT_ID)
+        (f"{TENANT_ID}:{DINGTALK_IDP_KEY}", "dingtalk-union", int(TENANT_ID))
     ]
     assert [event.event_type for event in sso.outbox.events] == ["identity.user.jit_created"]
 

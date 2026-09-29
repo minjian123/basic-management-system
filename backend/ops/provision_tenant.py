@@ -23,7 +23,8 @@ uv run python -m ops.provision_tenant --code demo \
   服务租户库 `bms_{service}_{tenant}`（键 `tenant_{service}_{code}`）；连接串经各自
   `url_template` 解析（空模板回落 `[database.{platform,tenants}].url`）；
 - **租户维度**：`--code`（可重复）显式指定，或 `--all-tenants` 从**租户注册库**
-  （键 `platform_tenant`）读未软删租户编码（要求该库已建库 + 迁移 + 种子）；
+  （键 `platform_tenant`）读未软删租户编码（要求该库已建库 + 迁移 + 种子）；库键按对照表
+  `sys_tenant_database.db_basis` 派生（缺对照行回落编码，10_04）；
 - **幂等**：`create_database` 命中已存在即跳过（不重建、不清空）；重复执行全为「已存在（跳过）」；
 - **`--migrate`（06_02，缺省关）**：建库成功后按同一编排内核迁移本次涉及的服务 × 数据源
   （`ops/migrate_tenants.py::service_tasks`，幂等可重跑）——一条命令完成「开通（建库 + 迁移）」；
@@ -37,10 +38,7 @@ import asyncio
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-from sqlalchemy import create_engine, select
-from sqlalchemy.engine import Engine, make_url
-from sqlalchemy.ext.asyncio import create_async_engine
-from sqlalchemy.pool import NullPool
+from sqlalchemy.engine import make_url
 
 from bms_core.core.config import get_settings
 from bms_core.core.exceptions import ConfigError
@@ -58,9 +56,7 @@ from bms_core.db.keys import (
 from bms_core.db.tenant_source import TENANT_SERVICE_KEY
 from bms_core.services.module_registry import enabled_service_keys
 from bms_core.services.table_registry import known_service_keys
-from ops.migrate_tenants import report, run_tasks, service_tasks
-
-_DM = "dm"
+from ops.migrate_tenants import TenantRef, enrich_refs, report, run_tasks, service_tasks, tenant_refs
 
 
 @dataclass(frozen=True)
@@ -81,6 +77,9 @@ class ProvisionTask(BaseValueObject):
 
     tenant_code: str | None = None
     """租户编码（平台服务库为 None）。"""
+
+    tenant_basis: str | None = None
+    """库名基（库键 `tenant_{service}_{db_basis}` 的 code 段；平台服务库为 None）。"""
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -114,48 +113,6 @@ def _masked(url: str) -> str:
     return make_url(url).render_as_string(hide_password=True)
 
 
-def _query_tenant_codes_sync(url: str) -> list[str]:
-    """同步枚举租户编码（达梦等无异步方言驱动）。
-
-    Args:
-        url: 租户注册库连接串。
-
-    Returns:
-        list[str]: 租户编码列表。
-    """
-    from bms_tenant.models.tenant import SysTenant  # 惰性：仅读租户注册库时需要，避免单一服务镜像强依赖
-
-    engine: Engine = create_engine(url, poolclass=NullPool)
-    try:
-        with engine.connect() as connection:
-            rows = connection.execute(select(SysTenant.code).where(SysTenant.deleted_at.is_(None))).all()
-            return [str(code) for (code,) in rows]
-    finally:
-        engine.dispose()
-
-
-async def _tenant_codes(registry_url: str) -> list[str]:
-    """枚举租户注册库未软删租户编码（达梦走同步驱动线程）。
-
-    Args:
-        registry_url: 租户注册库连接串。
-
-    Returns:
-        list[str]: 租户编码列表（按主键序）。
-    """
-    if make_url(registry_url).get_backend_name() == _DM:
-        return await asyncio.to_thread(_query_tenant_codes_sync, registry_url)
-    from bms_tenant.models.tenant import SysTenant  # 惰性：仅读租户注册库时需要
-
-    engine = create_async_engine(registry_url, poolclass=NullPool)
-    try:
-        async with engine.connect() as connection:
-            result = await connection.execute(select(SysTenant.code).where(SysTenant.deleted_at.is_(None)))
-            return [str(code) for (code,) in result.all()]
-    finally:
-        await engine.dispose()
-
-
 def _resolve_services(requested: Sequence[str]) -> tuple[str, ...]:
     """解析服务维度（显式指定须为已登记服务标识；缺省取全部启用服务）。
 
@@ -180,34 +137,37 @@ def _resolve_services(requested: Sequence[str]) -> tuple[str, ...]:
     return services
 
 
-async def _resolve_codes(args: argparse.Namespace, factory: EngineFactory) -> list[str]:
-    """解析租户维度（`--code` 显式，或 `--all-tenants` 读租户注册库）。
+async def _resolve_refs(args: argparse.Namespace, factory: EngineFactory) -> Sequence[TenantRef]:
+    """解析租户维度（`--code` 显式，或 `--all-tenants` 读租户注册库；库名基经对照表）。
 
     Args:
         args: 命令行参数。
         factory: 引擎工厂（运维通道，用于解析租户注册库连接串）。
 
     Returns:
-        list[str]: 租户编码列表（保序去重）。
+        list[TenantRef]: 租户引用列表（保序去重）。
 
     Raises:
         ConfigError: 租户维度缺失或租户注册库不可读。
     """
     codes = list(dict.fromkeys(args.code))
-    if not codes and args.all_tenants:
-        registry_key = build_platform_db_key(TENANT_SERVICE_KEY)
-        registry_url = factory.resolved_url(registry_key)
+    refs = [TenantRef(code=code, db_basis=code) for code in codes]
+    registry_key = build_platform_db_key(TENANT_SERVICE_KEY)
+    registry_url = factory.resolved_url(registry_key)
+    if refs:
+        refs = await enrich_refs(refs, registry_url)
+    if not refs and args.all_tenants:
         try:
-            codes = await _tenant_codes(registry_url)
+            refs = await tenant_refs(registry_url)
         except Exception as exc:
             raise ConfigError(
                 f"租户注册库不可读（{registry_key}）：请先建库并迁移 + 种子（ops.seed_tenant），或改用 --code"
             ) from exc
-        if not codes:
+        if not refs:
             print("[provision_tenant] 租户注册库未注册租户（sys_tenant 为空）")
-    if not codes:
+    if not refs:
         raise ConfigError("需 --code（可重复）或 --all-tenants 指定租户；仅建平台服务库请用 --skip-tenants")
-    return codes
+    return refs
 
 
 async def build_tasks(args: argparse.Namespace) -> list[ProvisionTask]:
@@ -238,18 +198,19 @@ async def build_tasks(args: argparse.Namespace) -> list[ProvisionTask]:
     if args.skip_tenants:
         return tasks
 
-    codes = await _resolve_codes(args, factory)
+    refs = await _resolve_refs(args, factory)
 
     for service in services:
-        for code in codes:
-            key = build_tenant_db_key(code, service=service)
+        for ref in refs:
+            key = build_tenant_db_key(ref.db_basis, service=service)
             tasks.append(
                 ProvisionTask(
                     kind=DB_KIND_TENANT,
                     service=service,
                     db_key=key,
                     url=factory.resolved_url(key),
-                    tenant_code=code,
+                    tenant_code=ref.code,
+                    tenant_basis=ref.db_basis,
                 )
             )
     return tasks
@@ -302,13 +263,13 @@ async def run(args: argparse.Namespace) -> int:
     settings = get_settings()
     factory = EngineFactory(settings, allow_cross_service=True)
     services = _resolve_services(args.service)
-    codes = [] if args.skip_tenants else await _resolve_codes(args, factory)
+    refs = [] if args.skip_tenants else await _resolve_refs(args, factory)
     migration_tasks = service_tasks(
         services,
-        codes,
+        refs,
         settings=settings,
         include_platform=not args.skip_platform,
-        include_tenants=not args.skip_tenants and bool(codes),
+        include_tenants=not args.skip_tenants and bool(refs),
     )
     print(f"[provision_tenant] 迁移 → {len(migration_tasks)} 个目标（--migrate）")
     migrate_code = report(await run_tasks(migration_tasks), migration_tasks)

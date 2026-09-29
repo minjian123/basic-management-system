@@ -10,7 +10,17 @@ from alembic.migration import MigrationContext
 from sqlalchemy import Column, Integer, MetaData, Table, create_engine
 
 from alembic import command
-from bms_core.db.migration import BACKEND_ROOT, chain_metadata, config_section, has_revisions, resolve_chain
+from bms_core.db.migration import (
+    BACKEND_ROOT,
+    chain_metadata,
+    chain_names,
+    config_section,
+    has_revisions,
+    resolve_chain,
+)
+
+CHAINS_WITH_REVISIONS = tuple(name for name in chain_names() if has_revisions(resolve_chain(name)))
+"""全部有脚本的迁移链（零漂移门禁覆盖；无脚本链不迁移、无从比对）。"""
 
 
 def _config(chain_name: str) -> Config:
@@ -57,9 +67,10 @@ def _diff(url: str, metadata: object) -> list[object]:
 
 
 @pytest.mark.kiwi_id(1078)
-@pytest.mark.parametrize("chain_name", ["platform:platform", "platform:tenant"])
+@pytest.mark.kiwi_id(2219)
+@pytest.mark.parametrize("chain_name", CHAINS_WITH_REVISIONS)
 def test_chain_migration_matches_metadata(chain_name: str, tmp_path: Path) -> None:
-    """每条链迁移后的库结构与链元数据子集零漂移（表 / 列 / 索引 / 唯一约束）。"""
+    """每条有脚本链迁移后的库结构与链元数据子集零漂移（表 / 列 / 索引 / 唯一约束）。"""
     assert has_revisions(resolve_chain(chain_name)) is True
     path = tmp_path / f"{chain_name.replace(':', '_')}.db"
     _upgrade(chain_name, f"sqlite+aiosqlite:///{path}")

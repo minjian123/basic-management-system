@@ -276,7 +276,7 @@ class SsoHarness:
         row = SysUserIdentity(
             idp_key=f"{tenant_id}:{idp_key}",
             external_id=external_id,
-            tenant_id=tenant_id,
+            tenant_id=int(tenant_id),
             user_id=user_id,
         )
         async with self.platform_scope() as session:
@@ -286,7 +286,7 @@ class SsoHarness:
                     SysUserIdentity(
                         idp_key=f"{tenant_id}:{idp_key}",
                         external_id=external_id,
-                        tenant_id=tenant_id,
+                        tenant_id=int(tenant_id),
                         user_id=user_id,
                     )
                 )
