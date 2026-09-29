@@ -9,6 +9,7 @@ from httpx import ASGITransport, AsyncClient
 from bms_core.core import plugin as plugin_module
 from bms_core.core.base import BaseObject
 from bms_core.core.capability import BaseCapability, BaseNullObject
+from bms_core.core.concurrent import ConcurrentStableSet
 from bms_core.core.config import PluginSelection, Settings
 from bms_core.core.context import get_current_masker, reset_current_masker, set_current_masker
 from bms_core.core.plugin import PluginRegistry
@@ -54,7 +55,7 @@ class FixedMasker(NullMasker):
 class UserResponse(BaseSchema):
     """测试用响应模型：手机号声明为敏感字段。"""
 
-    masked_fields: ClassVar[frozenset[str]] = frozenset({"phone"})
+    masked_fields: ClassVar[ConcurrentStableSet[str]] = ConcurrentStableSet({"phone"})
 
     id: int
     name: str

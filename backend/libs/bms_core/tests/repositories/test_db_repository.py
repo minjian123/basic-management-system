@@ -11,7 +11,7 @@ from sqlalchemy.dialects import sqlite
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import Mapped, mapped_column
 
-from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.context import current_user_id, reset_tenant_context, set_tenant_context
 from bms_core.core.exceptions import ConcurrentConflictError, ConfigError, ParamError
 from bms_core.db.tenant import TenantContext
@@ -46,7 +46,7 @@ class DbItemRepository(BaseDbRepository[DbItem]):
     """测试仓储：默认软删 + 排序白名单。"""
 
     model = DbItem
-    sortable_fields = frozenset({"name", "rank"})
+    sortable_fields = ConcurrentStableSet({"name", "rank"})
 
     def apply_scope(self, scope: DataScope | None) -> None:
         """暴露数据范围注入钩子（测试用）。

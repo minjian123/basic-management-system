@@ -12,12 +12,12 @@
 """
 
 from abc import ABC, abstractmethod
-from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import cast
 
 from fastapi import Request
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.config import Settings
 from bms_core.core.objects import BaseSearchContract, BaseValueObject
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
@@ -54,7 +54,7 @@ class SearchDocument(BaseSearchContract):
     doc_id: str
     """文档 id（业务主键，字符串化）。"""
 
-    fields: Mapping[str, object]
+    fields: ConcurrentStableDict[str, object]
     """索引字段映射。"""
 
 
@@ -68,7 +68,7 @@ class SearchQuery(BaseSearchContract):
     text: str
     """检索关键词。"""
 
-    filters: Mapping[str, object] | None = None
+    filters: ConcurrentStableDict[str, object] | None = None
     """业务过滤条件（租户隔离与数据权限过滤由实现强制叠加，不在此传）。"""
 
     offset: int = 0
@@ -88,7 +88,7 @@ class SearchHit(BaseValueObject):
     score: float
     """相关度分数。"""
 
-    highlight: Mapping[str, str] | None = None
+    highlight: ConcurrentStableDict[str, str] | None = None
     """高亮片段（字段 → 片段）。"""
 
 

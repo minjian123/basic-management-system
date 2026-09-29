@@ -15,12 +15,12 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import cast
 
 from fastapi import Request
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.config import Settings
 from bms_core.core.exceptions import ParamError
 from bms_core.core.factory import BasePluginFactory
@@ -80,7 +80,7 @@ class VerifiedToken(BaseTokenClaimsContract):
     token_id: str = ""
     """令牌 id（`jti`）。"""
 
-    payload: Mapping[str, object] = field(default_factory=dict[str, object])
+    payload: ConcurrentStableDict[str, object] = field(default_factory=ConcurrentStableDict[str, object])
     """完整声明载荷（只读映射）。"""
 
 

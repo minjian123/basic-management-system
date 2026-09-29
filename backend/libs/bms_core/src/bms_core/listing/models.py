@@ -4,10 +4,11 @@
 - `target=items`（字典高级查询，填 `dict_type`）/ `target=business`（列表筛选，`field_key=form_key`）。
 """
 
-from sqlalchemy import JSON, BigInteger, Boolean, Index, String, UniqueConstraint
+from sqlalchemy import BigInteger, Boolean, Index, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
-from bms_core.models.base import BaseModel
+from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.models.base import BaseModel, StableJson
 
 __all__ = ["SysQueryScheme"]
 
@@ -37,9 +38,15 @@ class SysQueryScheme(BaseModel):
     dict_type: Mapped[str | None] = mapped_column(String(64), nullable=True, comment="字典类型（target=items）")
     field_key: Mapped[str | None] = mapped_column(String(64), nullable=True, comment="表单标识（target=business）")
     provider_key: Mapped[str | None] = mapped_column(String(64), nullable=True, comment="查询提供者键")
-    conditions: Mapped[dict[str, object] | None] = mapped_column(JSON, nullable=True, comment="条件组 JSON")
-    params: Mapped[dict[str, object] | None] = mapped_column(JSON, nullable=True, comment="额外参数 JSON")
-    layout: Mapped[dict[str, object] | None] = mapped_column(JSON, nullable=True, comment="展示配置 JSON")
+    conditions: Mapped[ConcurrentStableDict[str, object] | None] = mapped_column(
+        StableJson, nullable=True, comment="条件组 JSON"
+    )
+    params: Mapped[ConcurrentStableDict[str, object] | None] = mapped_column(
+        StableJson, nullable=True, comment="额外参数 JSON"
+    )
+    layout: Mapped[ConcurrentStableDict[str, object] | None] = mapped_column(
+        StableJson, nullable=True, comment="展示配置 JSON"
+    )
     is_default: Mapped[bool] = mapped_column(Boolean, default=False, comment="是否默认方案")
     shared: Mapped[bool] = mapped_column(Boolean, default=False, comment="是否共享")
     status: Mapped[str] = mapped_column(String(16), default="enabled", comment="状态（enabled/disabled）")

@@ -7,6 +7,7 @@
 
 from sqlalchemy import ColumnElement, func, select
 
+from bms_core.core.concurrent import ConcurrentStableSet
 from bms_core.repositories.base_db_repository import BaseDbRepository
 from bms_core.schemas.pagination import BasePageQuery
 from bms_platform.models.catalog import SysModule
@@ -20,7 +21,7 @@ class ModuleRepository(BaseDbRepository[SysModule]):
     """
 
     model = SysModule
-    sortable_fields = frozenset({"id"})
+    sortable_fields = ConcurrentStableSet({"id"})
 
     def _catalog_conditions(
         self,

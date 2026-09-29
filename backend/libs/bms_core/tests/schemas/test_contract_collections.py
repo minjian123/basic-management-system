@@ -10,7 +10,7 @@ import json
 from typing import Annotated, cast
 
 import pytest
-from pydantic import Field
+from pydantic import Field, TypeAdapter
 
 from bms_core.core.base import BaseObject
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
@@ -31,23 +31,12 @@ class _Item(BaseSchema):
     name: str
 
 
-def _empty_items() -> list[_Item]:
-    """对照契约空列表工厂。"""
-    return []
-
-
-def _empty_index() -> dict[str, _Item]:
-    """对照契约空映射工厂。"""
-    return {}
-
-
-class _PlainEnvelope(BaseSchema):
-    """对照契约：同名字段用内置容器声明。"""
-
-    items: list[_Item] = Field(default_factory=_empty_items)
-    index: dict[str, _Item] = Field(default_factory=_empty_index)
-    tags: frozenset[str] = Field(default_factory=frozenset)
-    optional_items: list[_Item] | None = None
+def _builtin_schema(adapter: TypeAdapter[object]) -> object:
+    """内置容器参照 schema（去 `$defs` / 顶层 `title` / `default`，只比字段子 schema）。"""
+    schema = cast("dict[str, object]", adapter.json_schema())
+    for key in ("$defs", "title", "default"):
+        schema.pop(key, None)
+    return schema
 
 
 class _Envelope(BaseSchema):
@@ -152,9 +141,17 @@ def test_model_dump_json_outputs_arrays_and_objects() -> None:
 def test_contract_json_schema_matches_builtin_containers() -> None:
     """契约 JSON Schema 与内置容器逐字节一致，且不产生 `$defs` 命名引用漂移。"""
     actual = _Envelope.model_json_schema()["properties"]
-    expected = _PlainEnvelope.model_json_schema()["properties"]
+    expected = {
+        "items": _builtin_schema(TypeAdapter(list[_Item])),
+        "index": _builtin_schema(TypeAdapter(dict[str, _Item])),
+        "tags": _builtin_schema(TypeAdapter(frozenset[str])),
+        "optional_items": _builtin_schema(TypeAdapter(list[_Item] | None)),
+    }
     for field in ("items", "index", "tags", "optional_items"):
-        assert actual[field] == expected[field], field
+        left = dict(cast("dict[str, object]", actual[field]))
+        left.pop("title", None)  # 模型字段名派生的 title 与内置容器参照无关
+        left.pop("default", None)  # 字段默认值与内置容器参照无关
+        assert left == expected[field], field
     defs = _Envelope.model_json_schema().get("$defs", {})
     for name in ("ConcurrentStableList", "ConcurrentStableDict", "ConcurrentStableSet"):
         assert name not in defs

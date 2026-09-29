@@ -9,11 +9,12 @@
 
 from datetime import datetime
 
-from sqlalchemy import JSON, BigInteger, DateTime, Index, Integer, String, UniqueConstraint
+from sqlalchemy import BigInteger, DateTime, Index, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.events.base import DEFAULT_EVENT_VERSION
-from bms_core.models.base import BaseModel
+from bms_core.models.base import BaseModel, StableJson
 
 __all__ = ["SysEventConsumed", "SysEventDeadLetter", "SysOutbox"]
 
@@ -39,7 +40,7 @@ class SysOutbox(BaseModel):
     tenant_id: Mapped[int | None] = mapped_column(
         BigInteger, nullable=True, comment="租户主键（雪花 id；平台链不可解析保持空）"
     )
-    payload: Mapped[dict[str, object]] = mapped_column(JSON, comment="事件负载")
+    payload: Mapped[ConcurrentStableDict[str, object]] = mapped_column(StableJson, comment="事件负载")
     occurred_at: Mapped[datetime] = mapped_column(DateTime, comment="事件发生时间（UTC）")
     status: Mapped[str] = mapped_column(String(16), default="pending", comment="投递状态（pending/delivered/dead）")
     retry_count: Mapped[int] = mapped_column(Integer, default=0, comment="已重试次数")
@@ -73,7 +74,9 @@ class SysEventDeadLetter(BaseModel):
     tenant_id: Mapped[int | None] = mapped_column(
         BigInteger, nullable=True, comment="租户主键（雪花 id；平台链不可解析保持空）"
     )
-    payload: Mapped[dict[str, object]] = mapped_column(JSON, comment="事件负载（便于重投 / 排障）")
+    payload: Mapped[ConcurrentStableDict[str, object]] = mapped_column(
+        StableJson, comment="事件负载（便于重投 / 排障）"
+    )
     error_msg: Mapped[str] = mapped_column(String(512), comment="失败原因（截断）")
     retry_count: Mapped[int] = mapped_column(Integer, default=0, comment="转入死信前的已重试次数")
     status: Mapped[str] = mapped_column(String(16), default="pending", comment="处置状态（pending/replayed/ignored）")

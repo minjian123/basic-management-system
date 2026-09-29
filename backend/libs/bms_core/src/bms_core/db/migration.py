@@ -36,6 +36,7 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.pool import NullPool
 
 from alembic import command
+from bms_core.core.concurrent import ConcurrentStableSet
 from bms_core.core.config import Settings, get_settings
 from bms_core.core.exceptions import ConfigError
 from bms_core.core.objects import BaseValueObject
@@ -126,7 +127,7 @@ class MigrationChain(BaseValueObject):
     datasource: str
     """数据源段（`platform` / `tenant` / `archive`）。"""
 
-    tables: frozenset[str]
+    tables: ConcurrentStableSet[str]
     """该链目标表集（归属登记派生；实际建表以脚本为准）。"""
 
     scope: str

@@ -5,12 +5,13 @@
   真实平台种子随字典模块阶段（阶段八）扩展。
 """
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.objects import BaseI18nSeedContract, BaseValueObject
 from bms_core.dict.models import SysDictAttr, SysDictItem, SysDictItemI18n, SysDictType, SysDictTypeI18n
 
@@ -26,7 +27,7 @@ class SeedItem(BaseI18nSeedContract):
     label: str
     color: str | None = None
     parent_value: str | None = None
-    i18n: Mapping[str, str] = field(default_factory=dict[str, str])
+    i18n: ConcurrentStableDict[str, str] = field(default_factory=ConcurrentStableDict[str, str])
 
 
 @dataclass(frozen=True)
@@ -48,7 +49,7 @@ class SeedType(BaseI18nSeedContract):
     name: str
     items: tuple[SeedItem, ...]
     sort: int = 0
-    i18n: Mapping[str, str] = field(default_factory=dict[str, str])
+    i18n: ConcurrentStableDict[str, str] = field(default_factory=ConcurrentStableDict[str, str])
     attrs: tuple[SeedAttr, ...] = ()
 
 

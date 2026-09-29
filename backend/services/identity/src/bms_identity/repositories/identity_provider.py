@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from sqlalchemy import ColumnElement, func, select
 
+from bms_core.core.concurrent import ConcurrentStableSet
 from bms_core.repositories.base_db_repository import BaseDbRepository
 from bms_core.schemas.pagination import BasePageQuery
 from bms_identity.models.identity_provider import SysIdentityProvider
@@ -13,7 +14,7 @@ class IdentityProviderRepository(BaseDbRepository[SysIdentityProvider]):
     """外部 IdP 配置仓储（`sys_identity_provider`）：入口清单 / 按标识取行 / 管理面筛选分页。"""
 
     model = SysIdentityProvider
-    sortable_fields = frozenset({"id", "name", "sort", "status", "type", "created_at"})
+    sortable_fields = ConcurrentStableSet({"id", "name", "sort", "status", "type", "created_at"})
 
     async def list_enabled(self) -> list[SysIdentityProvider]:
         """取启用中的 IdP 行（按 `sort` 升序、主键兜底；入口清单主路径）。

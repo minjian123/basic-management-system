@@ -17,6 +17,7 @@ from dataclasses import dataclass, field
 from typing import Self
 
 from bms_core.core.capability import BasePlaceholder
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.exceptions import PluginError
 from bms_core.core.objects import BaseOptionsContract, BaseValueObject
 from bms_core.masking.base import BaseMasker
@@ -119,7 +120,7 @@ class MaskerOptions(BaseOptionsContract):
     mask_char: str = DEFAULT_MASK_CHAR
     """掩码字符（单字符）。"""
 
-    rules: dict[str, str] = field(default_factory=dict[str, str])
+    rules: ConcurrentStableDict[str, str] = field(default_factory=ConcurrentStableDict[str, str])
     """字段名 → 策略名映射（缺省空）。"""
 
     @classmethod

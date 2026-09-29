@@ -10,12 +10,12 @@ RedisManager 跨实例广播、事件路由消费与断线恢复归实时推送�
 """
 
 from abc import ABC, abstractmethod
-from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import cast
 
 from fastapi import Request
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.config import Settings
 from bms_core.core.objects import BaseValueObject
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
@@ -38,7 +38,7 @@ class RealtimeEvent(BaseValueObject):
     event: str
     """事件名（建议取 `REALTIME_EVENTS` 之一）。"""
 
-    data: Mapping[str, object]
+    data: ConcurrentStableDict[str, object]
     """事件载荷。"""
 
     user_id: str | None = None
