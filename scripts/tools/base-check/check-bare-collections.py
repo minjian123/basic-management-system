@@ -1,21 +1,31 @@
 #!/usr/bin/env python3
-"""裸无序集合静态护栏（bms 基座校验，CI base-integrity 与本地 preflight 调用）。
+"""集合声明静态护栏（bms 基座校验，CI base-integrity 与本地 preflight 调用）。
 
-《后端开发规范》「后端基座体系（强制）」节「集合与排序」：**有序集合对外输出稳定序、禁止裸无序
-集合**。本脚本以 AST 检查后端 Python 的**类字段注解**与**函数签名注解**（参数 / 返回）中的裸无序
-集合（`dict` / `list` / `set` / `frozenset` 及 typing 别名 `Dict` / `List` / `Set` / `FrozenSet` /
-`DefaultDict`），存量以**基线快照**豁免、**新增违规即失败**。
+《后端开发规范》「后端基座体系（强制）」节「集合与排序」：**对外数据契约、值对象与模块类的集合
+字段与函数签名一律使用继承 `BaseConcurrentSorted` 的插入序集合类**（业务面只落 `ConcurrentStable*`），
+**禁止裸无序集合、只读 / 可变抽象落点与升序形态**。本脚本以 AST 检查后端 Python 的**类字段注解**与
+**函数签名注解**（参数 / 返回），集合声明必须命中**插入序白名单**，存量以**基线快照**豁免、
+**新增违规即失败**。
 
-口径（08-1，2026-09-28 拍板）：
+口径（08-1 交付；**08_02 白名单收紧**，2026-09-29）：
 
-- **查**：类字段注解 + 函数签名注解；**不查**函数体内局部注解（内部变量不外流）。
-- **查**：`dict` / `list` / `set` / `frozenset` 及 typing 别名；**不查** `Sequence`（有序）/ `Iterable` /
-  `Mapping`（只读抽象）与自定义基座集合类。
+- **查**：类字段注解 + 函数签名注解（参数 / 返回）。
+- **判违规**（集合声明必须命中插入序白名单，其余集合形态一律违规）：
+  - 裸容器：`dict` / `list` / `set` / `frozenset` 及 typing 别名 `Dict` / `List` / `Set` / `FrozenSet` / `DefaultDict`；
+  - 只读 / 可变抽象：`Sequence` / `Mapping` / `AbstractSet` / `Collection` / `MutableSequence` /
+    `MutableMapping` / `MutableSet`；
+  - 升序形态：`SortedList` / `SortedDict` / `SortedSet` / `ConcurrentSortedList` / `ConcurrentSortedSet` /
+    `ConcurrentSortedDict`（基座内部实现，业务与契约不得声明 / 继承）。
+- **白名单**（不报）：插入序形态 `ConcurrentStableList` / `ConcurrentStableSet` / `ConcurrentStableDict`
+  及后续登记形态。
+- **不查**：迭代与调用协议（`Iterable` / `Iterator` / `Generator` / `AsyncIterator` / `Callable`）、
+  函数体内局部变量注解、测试目录。
 - **实现文件豁免**：集合体系实现文件（`core/collections.py` / `core/concurrent.py` /
-  `core/redis_collections.py`）允许直接使用裸容器 / `Sorted*` / `ConcurrentSorted*` 承载实现底座，
+  `core/redis_collections.py`）允许内部实现使用裸容器 / `Sorted*` / `ConcurrentSorted*`，
   按**文件路径白名单**豁免（08_02，2026-09-29）。
 - **范围**：`backend/libs/bms_core/src`、`backend/services/*/src`、`backend/ops`、`scripts/tools`（排除测试）。
-- **基线**：`deploy/boundaries/bare_collections_baseline.json`（文件 + 规范化行内容指纹 + 容器 + 计数）。
+- **基线**：`deploy/boundaries/bare_collections_baseline.json`（文件 + 规范化行内容指纹 + 容器 + 计数）；
+  口径收紧后先 `--update-baseline` 如实吸收（548 → 940），随后按批次递减。
 
 用法::
 
@@ -27,7 +37,8 @@
 
 退出码：``0`` 通过（或 ``--report``）；``1`` 存在新增违规 / 基线非法 / 扫描异常。
 
-用例：Kiwi **2213**（`--self-test` 自测矩阵；覆盖检出 / 不检出 / 位置 / 排除 / 基线语义 / 模式与输出 / 实现文件豁免）。
+用例：Kiwi **2213**（`--self-test` 自测矩阵；覆盖白名单 / 抽象落点 / 升序形态 / 实现文件豁免 /
+迭代协议 / 位置 / 排除 / 基线语义 / 模式与输出）。
 """
 
 from __future__ import annotations
@@ -77,14 +88,32 @@ EXEMPT_FILES: frozenset[str] = frozenset(
 BARE_CONTAINERS: frozenset[str] = frozenset(
     {"dict", "list", "set", "frozenset", "Dict", "List", "Set", "FrozenSet", "DefaultDict"}
 )
-"""命中容器：内建可变 / 无序容器与 typing 别名。"""
+"""裸容器：内建可变 / 无序容器与 typing 别名。"""
+
+READONLY_ABSTRACTIONS: frozenset[str] = frozenset(
+    {"Sequence", "Mapping", "AbstractSet", "Collection", "MutableSequence", "MutableMapping", "MutableSet"}
+)
+"""只读 / 可变抽象落点（不再作集合落点）。"""
+
+ASCENDING_FORMS: frozenset[str] = frozenset(
+    {"SortedList", "SortedDict", "SortedSet", "ConcurrentSortedList", "ConcurrentSortedSet", "ConcurrentSortedDict"}
+)
+"""升序形态（基座内部实现，业务与契约不得声明 / 继承）。"""
+
+BANNED_FORMS: frozenset[str] = BARE_CONTAINERS | READONLY_ABSTRACTIONS | ASCENDING_FORMS
+"""判违规形态全集（集合声明必须命中插入序白名单）。"""
+
+WHITELIST_FORMS: frozenset[str] = frozenset(
+    {"ConcurrentStableList", "ConcurrentStableSet", "ConcurrentStableDict"}
+)
+"""插入序白名单（业务与契约唯一落点；后续登记形态在此追加）。"""
 
 POSITION_CLASS_FIELD = "class_field"
 POSITION_SIGNATURE_PARAM = "signature_param"
 POSITION_SIGNATURE_RETURN = "signature_return"
 
-_STRING_CONTAINER = re.compile(r"\b(" + "|".join(sorted(BARE_CONTAINERS)) + r")\b")
-"""字符串前向引用注解中的容器名（词边界近似，AST 不解析字符串注解语义）。"""
+_STRING_CONTAINER = re.compile(r"\b(" + "|".join(sorted(BANNED_FORMS)) + r")\b")
+"""字符串前向引用注解中的违规形态名（词边界近似，AST 不解析字符串注解语义）。"""
 
 problems: list[str] = []
 """全部问题（违规 + 扫描异常），main 据此决定退出码。"""
@@ -94,7 +123,7 @@ counts: Counter[str] = Counter()
 
 
 class Hit(NamedTuple):
-    """一处理命中（裸无序集合声明位置）。"""
+    """一处理命中（违规集合声明位置）。"""
 
     file: str
     line: str
@@ -126,20 +155,20 @@ def _base_name(node: ast.expr) -> str:
 
 
 def _annotation_containers(node: ast.expr | None) -> list[str]:
-    """递归取注解中出现的裸无序集合名。
+    """递归取注解中出现的违规集合形态名（裸容器 / 只读-可变抽象 / 升序形态）。
 
     Args:
         node: 注解表达式（可为 None）。
 
     Returns:
-        list[str]: 命中容器名（可能重复，调用方按需去重）。
+        list[str]: 命中形态名（可能重复，调用方按需去重）。
     """
     if node is None:
         return []
     if isinstance(node, ast.Name):
-        return [node.id] if node.id in BARE_CONTAINERS else []
+        return [node.id] if node.id in BANNED_FORMS else []
     if isinstance(node, ast.Attribute):
-        return [node.attr] if node.attr in BARE_CONTAINERS else []
+        return [node.attr] if node.attr in BANNED_FORMS else []
     if isinstance(node, ast.Subscript):
         return [*_annotation_containers(node.value), *_annotation_containers(node.slice)]
     if isinstance(node, ast.BinOp) and isinstance(node.op, ast.BitOr):
@@ -183,7 +212,7 @@ def _iter_target_files(root: Path) -> list[Path]:
 
 
 def collect(root: Path) -> list[Hit]:
-    """扫描目标文件，收集裸无序集合命中（扫描异常记入 `problems`）。
+    """扫描目标文件，收集违规集合声明命中（扫描异常记入 `problems`）。
 
     Args:
         root: 仓库根。
@@ -392,26 +421,29 @@ def _emit(as_json: bool) -> None:
             print("  " + problem)
         return
     print(
-        "[check-bare-collections] 通过：类字段与函数签名无新增裸无序集合"
+        "[check-bare-collections] 通过：类字段与函数签名无新增违规集合声明"
         f"（基线内 {counts['baseline_entries']} 处豁免）。"
     )
 
 
 _FIXTURE_FILES: dict[str, str] = {
     "backend/libs/bms_core/src/demo/mod.py": (
-        "from collections.abc import Mapping, Sequence\n"
+        "from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence\n"
+        "from typing import AbstractSet\n"
         "\n"
         "class Plain:\n"
         "    tags: list[str] = []\n"
+        "    ordered: ConcurrentStableList[str] = ConcurrentStableList()\n"
+        "    ascending: ConcurrentSortedList[int] = ConcurrentSortedList()\n"
         "\n"
         "class Model(BaseObject):\n"
         "    payload: dict[str, object] = {}\n"
         "\n"
-        "def f(a: dict[str, int], b: Sequence[str]) -> set[int]:\n"
+        "def f(a: dict[str, int], b: Sequence[str], c: Mapping[str, int], d: AbstractSet[str]) -> set[int]:\n"
         "    return set()\n"
         "\n"
-        "def g() -> Mapping[str, int]:\n"
-        "    return {}\n"
+        "def g(items: Iterable[int], stream: Iterator[int], cb: Callable[[int], int]) -> None:\n"
+        "    del items, stream, cb\n"
         "\n"
         "def h() -> 'list[int]':\n"
         "    return []\n"
@@ -454,23 +486,27 @@ def _self_test() -> int:
         problems.clear()
         hits = collect(root)
         found = {(hit.file, hit.line, hit.container, hit.position) for hit in hits}
+        demo = "backend/libs/bms_core/src/demo/mod.py"
+        func_line = "def f(a: dict[str, int], b: Sequence[str], c: Mapping[str, int], d: AbstractSet[str]) -> set[int]:"
+        expect((demo, "tags: list[str] = []", "list", "class_field") in found, "命中类字段 list（裸容器）")
         expect(
-            ("backend/libs/bms_core/src/demo/mod.py", "tags: list[str] = []", "list", "class_field") in found,
-            "命中类字段 list",
-        )
-        expect(
-            ("backend/libs/bms_core/src/demo/mod.py", "payload: dict[str, object] = {}", "dict", "class_field") in found,
+            (demo, "payload: dict[str, object] = {}", "dict", "class_field") in found,
             "命中 BaseObject 类字段 dict",
         )
+        expect((demo, func_line, "dict", "signature_param") in found, "命中签名参数 dict")
+        expect((demo, func_line, "set", "signature_return") in found, "命中签名返回 set")
+        expect((demo, func_line, "Sequence", "signature_param") in found, "抽象落点 Sequence 报")
+        expect((demo, func_line, "Mapping", "signature_param") in found, "抽象落点 Mapping 报")
+        expect((demo, func_line, "AbstractSet", "signature_param") in found, "抽象落点 AbstractSet 报")
+        ascending_line = "ascending: ConcurrentSortedList[int] = ConcurrentSortedList()"
+        expect((demo, ascending_line, "ConcurrentSortedList", "class_field") in found, "升序形态报")
         expect(
-            ("backend/libs/bms_core/src/demo/mod.py", "def f(a: dict[str, int], b: Sequence[str]) -> set[int]:", "dict", "signature_param")
-            in found,
-            "命中签名参数 dict",
+            all(hit.container != "ConcurrentStableList" for hit in hits),
+            "白名单命中不报（ConcurrentStableList）",
         )
         expect(
-            ("backend/libs/bms_core/src/demo/mod.py", "def f(a: dict[str, int], b: Sequence[str]) -> set[int]:", "set", "signature_return")
-            in found,
-            "命中签名返回 set",
+            all(hit.container not in {"Iterable", "Iterator", "Callable"} for hit in hits),
+            "迭代 / 调用协议不报",
         )
         expect(
             ("backend/services/svc/src/svc/mod.py", "data: List[int] = []", "List", "class_field") in found,
@@ -485,11 +521,7 @@ def _self_test() -> int:
             ("scripts/tools/thing.py", "def x() -> frozenset[str]:", "frozenset", "signature_return") in found,
             "命中 frozenset",
         )
-        expect(
-            ("backend/libs/bms_core/src/demo/mod.py", "def h() -> 'list[int]':", "list", "signature_return") in found,
-            "命中字符串前向引用",
-        )
-        expect(all("Sequence" != hit.container and "Mapping" != hit.container for hit in hits), "只读 / 有序抽象不报")
+        expect((demo, "def h() -> 'list[int]':", "list", "signature_return") in found, "命中字符串前向引用")
         expect(
             all(hit.file != "backend/libs/bms_core/src/bms_core/core/concurrent.py" for hit in hits),
             "实现文件豁免（集合体系实现文件不报）",

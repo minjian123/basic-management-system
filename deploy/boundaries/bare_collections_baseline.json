@@ -4,6 +4,27 @@
   "entries": [
     {
       "file": "backend/libs/bms_core/src/bms_core/api/base.py",
+      "line": "def _device_matches(request: Request, payload: Mapping[str, object]) -> bool:",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/api/base.py",
+      "line": "def mount_service_routers(routers: Sequence[BaseRouter], *, prefix: str = API_PREFIX) -> APIRouter:",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/api/base.py",
+      "line": "dependencies: Sequence[params.Depends] | None = None,",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/api/base.py",
       "line": "order: Annotated[list[str] | None, Query(description=\"排序方向数组，与 order_by 位置一一对应\")] = None,",
       "container": "list",
       "position": "signature_param",
@@ -12,7 +33,42 @@
     {
       "file": "backend/libs/bms_core/src/bms_core/api/base.py",
       "line": "responses: Mapping[int | str, dict[str, object]] | None = None,",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/api/base.py",
+      "line": "responses: Mapping[int | str, dict[str, object]] | None = None,",
       "container": "dict",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/api/base.py",
+      "line": "tags: Sequence[str] = (),",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/api/errors.py",
+      "line": "def _render(status_code: int, body: ApiResponse, scope: Mapping[str, object]) -> JSONResponse:",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/api/errors.py",
+      "line": "def _request_id(scope: Mapping[str, object]) -> str:",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/api/errors.py",
+      "line": "def build_error_response(scope: Mapping[str, object], exc: BizError) -> JSONResponse:",
+      "container": "Mapping",
       "position": "signature_param",
       "count": 1
     },
@@ -47,7 +103,63 @@
     {
       "file": "backend/libs/bms_core/src/bms_core/api/middleware.py",
       "line": "def _rewrite_headers(scope: Scope, *, drops: set[str], sets: Mapping[str, str]) -> None:",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/api/middleware.py",
+      "line": "def _rewrite_headers(scope: Scope, *, drops: set[str], sets: Mapping[str, str]) -> None:",
       "container": "set",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/application.py",
+      "line": "def service_routers(self) -> Sequence[APIRouter]:",
+      "container": "Sequence",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/archive/base.py",
+      "line": "async def archive(self, records: Sequence[Mapping[str, object]]) -> ArchiveResult:",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/archive/base.py",
+      "line": "async def archive(self, records: Sequence[Mapping[str, object]]) -> ArchiveResult:",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/archive/base.py",
+      "line": "async def matches(self, record: Mapping[str, object], *, now: datetime | None = None) -> bool:",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/archive/null.py",
+      "line": "async def archive(self, records: Sequence[Mapping[str, object]]) -> ArchiveResult:",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/archive/null.py",
+      "line": "async def archive(self, records: Sequence[Mapping[str, object]]) -> ArchiveResult:",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/archive/null.py",
+      "line": "async def matches(self, record: Mapping[str, object], *, now: datetime | None = None) -> bool:",
+      "container": "Mapping",
       "position": "signature_param",
       "count": 1
     },
@@ -59,9 +171,44 @@
       "count": 1
     },
     {
+      "file": "backend/libs/bms_core/src/bms_core/audit/hashchain.py",
+      "line": "def compute(self, prev_hash: str, record: Mapping[str, object]) -> str:",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/audit/hashchain.py",
+      "line": "def verify(self, entries: Sequence[HashChainEntry]) -> ChainVerifyResult:",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/audit/hashchain.py",
+      "line": "record: Mapping[str, object]",
+      "container": "Mapping",
+      "position": "class_field",
+      "count": 1
+    },
+    {
       "file": "backend/libs/bms_core/src/bms_core/audit/null.py",
       "line": "changes: list[FieldChange],",
       "container": "list",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/audit/null.py",
+      "line": "def compute(self, prev_hash: str, record: Mapping[str, object]) -> str:",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/audit/null.py",
+      "line": "def verify(self, entries: Sequence[HashChainEntry]) -> ChainVerifyResult:",
+      "container": "Sequence",
       "position": "signature_param",
       "count": 1
     },
@@ -130,9 +277,30 @@
     },
     {
       "file": "backend/libs/bms_core/src/bms_core/captcha/default.py",
+      "line": "async def _register_failure(self, captcha_id: str, record: Mapping[str, object], ttl_ms: int) -> None:",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/captcha/default.py",
       "line": "async def _take(self, captcha_id: str) -> tuple[dict[str, object] | None, int]:",
       "container": "dict",
       "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/captcha/default.py",
+      "line": "def _channel_enabled(kind: CaptchaKind, values: Mapping[str, object]) -> bool:",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/captcha/default.py",
+      "line": "def _dump(record: Mapping[str, object]) -> str:",
+      "container": "Mapping",
+      "position": "signature_param",
       "count": 1
     },
     {
@@ -143,10 +311,80 @@
       "count": 1
     },
     {
+      "file": "backend/libs/bms_core/src/bms_core/captcha/default.py",
+      "line": "def _matches(self, record: Mapping[str, object], credential: CaptchaCredential) -> bool:",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/captcha/default.py",
+      "line": "def _matches_code(self, record: Mapping[str, object], credential: CaptchaCredential) -> bool:",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/captcha/default.py",
+      "line": "def _matches_slider(self, record: Mapping[str, object], credential: CaptchaCredential) -> bool:",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/captcha/default.py",
+      "line": "def _resolve_channels(scene: str, values: Mapping[str, object]) -> tuple[CaptchaKind, ...]:",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/captcha/default.py",
+      "line": "def from_options(cls, options: Mapping[str, object] | None = None) -> CaptchaImageOptions:",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/captcha/default.py",
+      "line": "def from_options(cls, options: Mapping[str, object] | None = None) -> CaptchaSliderOptions:",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/captcha/default.py",
+      "line": "def from_options(cls, options: Mapping[str, object] | None = None) -> CaptchaSmsOptions:",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
       "file": "backend/libs/bms_core/src/bms_core/catalog/base.py",
       "line": ") -> list[ModuleRecord]:",
       "container": "list",
       "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/catalog/base.py",
+      "line": "def _payload_rows(response: ServiceResponse) -> Sequence[Mapping[str, object]]:",
+      "container": "Mapping",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/catalog/base.py",
+      "line": "def _payload_rows(response: ServiceResponse) -> Sequence[Mapping[str, object]]:",
+      "container": "Sequence",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/catalog/base.py",
+      "line": "def _to_record(row: Mapping[str, object]) -> ModuleRecord:",
+      "container": "Mapping",
+      "position": "signature_param",
       "count": 1
     },
     {
@@ -158,9 +396,30 @@
     },
     {
       "file": "backend/libs/bms_core/src/bms_core/chat/base.py",
+      "line": "async def list_messages(self, session_id: str) -> Sequence[ChatSessionMessage]:",
+      "container": "Sequence",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/chat/base.py",
+      "line": "async def list_sessions(self, *, module: str | None = None) -> Sequence[ChatSession]:",
+      "container": "Sequence",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/chat/base.py",
       "line": "citations: list[ChatCitation] = Field(default_factory=list[ChatCitation], description=\"引用来源\")",
       "container": "list",
       "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/chat/base.py",
+      "line": "messages: Sequence[ChatMessage],",
+      "container": "Sequence",
+      "position": "signature_param",
       "count": 1
     },
     {
@@ -182,6 +441,27 @@
       "line": "rows: list[dict[str, object]] = Field(default_factory=list[dict[str, object]], description=\"行数据\")",
       "container": "list",
       "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/chat/null.py",
+      "line": "async def list_messages(self, session_id: str) -> Sequence[ChatSessionMessage]:",
+      "container": "Sequence",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/chat/null.py",
+      "line": "async def list_sessions(self, *, module: str | None = None) -> Sequence[ChatSession]:",
+      "container": "Sequence",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/chat/null.py",
+      "line": "messages: Sequence[ChatMessage],",
+      "container": "Sequence",
+      "position": "signature_param",
       "count": 1
     },
     {
@@ -227,6 +507,90 @@
       "count": 1
     },
     {
+      "file": "backend/libs/bms_core/src/bms_core/config/base.py",
+      "line": "async def get_many(self, keys: Sequence[str]) -> Mapping[str, str]:",
+      "container": "Mapping",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/config/base.py",
+      "line": "async def get_many(self, keys: Sequence[str]) -> Mapping[str, str]:",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/config/http.py",
+      "line": "async def get_many(self, keys: Sequence[str]) -> Mapping[str, str]:",
+      "container": "Mapping",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/config/http.py",
+      "line": "async def get_many(self, keys: Sequence[str]) -> Mapping[str, str]:",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/config/null.py",
+      "line": "async def get_many(self, keys: Sequence[str]) -> Mapping[str, str]:",
+      "container": "Mapping",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/config/null.py",
+      "line": "async def get_many(self, keys: Sequence[str]) -> Mapping[str, str]:",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/config/sql.py",
+      "line": "async def _load(self, keys: Sequence[str]) -> Mapping[str, str]:",
+      "container": "Mapping",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/config/sql.py",
+      "line": "async def _load(self, keys: Sequence[str]) -> Mapping[str, str]:",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/config/sql.py",
+      "line": "async def _query_values(session: DbSession, keys: Sequence[str]) -> Mapping[str, str]:",
+      "container": "Mapping",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/config/sql.py",
+      "line": "async def _query_values(session: DbSession, keys: Sequence[str]) -> Mapping[str, str]:",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/config/sql.py",
+      "line": "async def get_many(self, keys: Sequence[str]) -> Mapping[str, str]:",
+      "container": "Mapping",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/config/sql.py",
+      "line": "async def get_many(self, keys: Sequence[str]) -> Mapping[str, str]:",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
       "file": "backend/libs/bms_core/src/bms_core/core/assembly.py",
       "line": "async def assemble_plugins(app: FastAPI, settings: Settings, resources: ResourceManager) -> dict[str, str]:",
       "container": "dict",
@@ -244,83 +608,6 @@
       "file": "backend/libs/bms_core/src/bms_core/core/base.py",
       "line": "def to_dict(self) -> dict[str, object]:",
       "container": "dict",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/core/collections.py",
-      "line": "def chunk(self, size: int) -> Iterator[list[ItemT]]:",
-      "container": "list",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/core/collections.py",
-      "line": "def sorted_by(self, key: Callable[[ItemT], Any], reverse: bool = False) -> list[ItemT]:",
-      "container": "list",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/core/collections.py",
-      "line": "def to_dict(self) -> dict[KeyT, ValueT]:  # pyright: ignore[reportIncompatibleMethodOverride]",
-      "container": "dict",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/core/collections.py",
-      "line": "def to_dict(self) -> dict[str, object]:",
-      "container": "dict",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/core/collections.py",
-      "line": "def to_list(self) -> list[ItemT]:",
-      "container": "list",
-      "position": "signature_return",
-      "count": 3
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/core/collections.py",
-      "line": "def to_list(self) -> list[tuple[KeyT, ValueT]]:",
-      "container": "list",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/core/concurrent.py",
-      "line": "def _view(self) -> list[ItemT]:",
-      "container": "list",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/core/concurrent.py",
-      "line": "def _view(self) -> list[tuple[KeyT, ValueT]]:",
-      "container": "list",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/core/concurrent.py",
-      "line": "def to_dict(self) -> dict[KeyT, ValueT]:  # pyright: ignore[reportIncompatibleMethodOverride]",
-      "container": "dict",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/core/concurrent.py",
-      "line": "def to_list(self) -> list[ItemT]:",
-      "container": "list",
-      "position": "signature_return",
-      "count": 2
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/core/concurrent.py",
-      "line": "def to_list(self) -> list[tuple[KeyT, ValueT]]:",
-      "container": "list",
       "position": "signature_return",
       "count": 1
     },
@@ -472,6 +759,90 @@
       "count": 1
     },
     {
+      "file": "backend/libs/bms_core/src/bms_core/core/objects/event_contracts.py",
+      "line": "def from_snapshot(cls, entry: Mapping[str, object]) -> Self:",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/core/objects/event_contracts.py",
+      "line": "def to_snapshot(self) -> Mapping[str, object]:",
+      "container": "Mapping",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/core/objects/options.py",
+      "line": "def _int_option(cls, options: Mapping[str, object], key: str, default: int, minimum: int, maximum: int) -> int:",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/core/objects/options.py",
+      "line": "def _mapping_option(cls, options: Mapping[str, object], key: str) -> Mapping[str, str]:",
+      "container": "Mapping",
+      "position": "signature_return",
+      "count": 2
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/core/objects/options.py",
+      "line": "def _single_char_option(cls, options: Mapping[str, object], key: str, default: str) -> str:",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/core/objects/options.py",
+      "line": "def _str_option(cls, options: Mapping[str, object], key: str, default: str) -> str:",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/core/objects/options.py",
+      "line": "def from_options(cls, options: Mapping[str, object] | None = None) -> Self:",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/core/objects/tally.py",
+      "line": "def counts(self) -> Mapping[str, int]:",
+      "container": "Mapping",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/core/plugin.py",
+      "line": "def build(self) -> Mapping[str, Mapping[str, PluginImpl]]:",
+      "container": "Mapping",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/core/plugin.py",
+      "line": "def build_plugin_registry() -> Mapping[str, Mapping[str, PluginImpl]]:",
+      "container": "Mapping",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/core/plugin.py",
+      "line": "def plugin_registry_snapshot() -> Mapping[str, Mapping[str, PluginImpl]]:",
+      "container": "Mapping",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/core/plugin.py",
+      "line": "def snapshot(self) -> Mapping[str, Mapping[str, PluginImpl]]:",
+      "container": "Mapping",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
       "file": "backend/libs/bms_core/src/bms_core/core/plugin.py",
       "line": "errors: list[str],",
       "container": "list",
@@ -486,30 +857,65 @@
       "count": 1
     },
     {
-      "file": "backend/libs/bms_core/src/bms_core/core/redis_collections.py",
-      "line": "async def items(self) -> list[tuple[KeyT, ValueT]]:",
-      "container": "list",
+      "file": "backend/libs/bms_core/src/bms_core/dashboard/base.py",
+      "line": "async def fetch(self, card_key: str, params: Mapping[str, object]) -> Mapping[str, object]:",
+      "container": "Mapping",
+      "position": "signature_return",
+      "count": 2
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/dashboard/base.py",
+      "line": "async def fetch(self, params: Mapping[str, object]) -> Mapping[str, object]:",
+      "container": "Mapping",
+      "position": "signature_return",
+      "count": 2
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/dashboard/base.py",
+      "line": "def metadata(self) -> Mapping[str, object]:",
+      "container": "Mapping",
       "position": "signature_return",
       "count": 1
     },
     {
-      "file": "backend/libs/bms_core/src/bms_core/core/redis_collections.py",
-      "line": "async def range_by_rank(self, start: int = 0, stop: int = -1) -> list[ItemT]:",
-      "container": "list",
+      "file": "backend/libs/bms_core/src/bms_core/dashboard/base.py",
+      "line": "def metadata(self, card_key: str) -> Mapping[str, object]:",
+      "container": "Mapping",
       "position": "signature_return",
       "count": 1
     },
     {
-      "file": "backend/libs/bms_core/src/bms_core/core/redis_collections.py",
-      "line": "async def range_by_score(self, minimum: float, maximum: float) -> list[ItemT]:",
-      "container": "list",
+      "file": "backend/libs/bms_core/src/bms_core/dashboard/null.py",
+      "line": "async def fetch(self, card_key: str, params: Mapping[str, object]) -> Mapping[str, object]:",
+      "container": "Mapping",
+      "position": "signature_return",
+      "count": 2
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/dashboard/null.py",
+      "line": "def metadata(self, card_key: str) -> Mapping[str, object]:",
+      "container": "Mapping",
       "position": "signature_return",
       "count": 1
     },
     {
-      "file": "backend/libs/bms_core/src/bms_core/core/redis_collections.py",
-      "line": "async def top(self, count: int) -> list[ItemT]:",
-      "container": "list",
+      "file": "backend/libs/bms_core/src/bms_core/db/admin.py",
+      "line": "async def _fetch(admin_url: str, statement: str, *, name: str) -> Sequence[object]:",
+      "container": "Sequence",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/db/admin.py",
+      "line": "async def fetch_rows(admin_url: str, statement: str, *, name: str) -> Sequence[object]:",
+      "container": "Sequence",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/db/admin.py",
+      "line": "def _fetch_sync(admin_url: str, statement: str, name: str) -> Sequence[object]:",
+      "container": "Sequence",
       "position": "signature_return",
       "count": 1
     },
@@ -543,9 +949,30 @@
     },
     {
       "file": "backend/libs/bms_core/src/bms_core/db/inventory.py",
+      "line": "def db_count_rows(services: Sequence[str], tenants: Sequence[str]) -> DbCount:",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 2
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/db/inventory.py",
+      "line": "def db_counts_by_kind(active_keys: Sequence[str]) -> dict[str, int]:",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/db/inventory.py",
       "line": "def db_counts_by_kind(active_keys: Sequence[str]) -> dict[str, int]:",
       "container": "dict",
       "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/db/inventory.py",
+      "line": "def db_counts_from_keys(active_keys: Sequence[str]) -> DbCount:",
+      "container": "Sequence",
+      "position": "signature_param",
       "count": 1
     },
     {
@@ -619,9 +1046,44 @@
       "count": 1
     },
     {
+      "file": "backend/libs/bms_core/src/bms_core/db/registry.py",
+      "line": "services: Sequence[str] | None = None,",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/db/tenant_registry.py",
+      "line": "def from_payload(cls, payload: Mapping[str, object]) -> TenantSnapshot:",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
       "file": "backend/libs/bms_core/src/bms_core/db/tenant_registry.py",
       "line": "def to_payload(self, *, version: int | None = None) -> dict[str, Any]:",
       "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/db/tenant_remote.py",
+      "line": "def _payload_data(response: ServiceResponse) -> Mapping[str, object]:",
+      "container": "Mapping",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/dict/base.py",
+      "line": ") -> Mapping[str, str]:",
+      "container": "Mapping",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/dict/base.py",
+      "line": "async def translate(self, query: DictTranslateQuery) -> Mapping[str, str]:",
+      "container": "Mapping",
       "position": "signature_return",
       "count": 1
     },
@@ -630,6 +1092,62 @@
       "line": "items: dict[str, DictTypeResult | None] = Field(",
       "container": "dict",
       "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/dict/base.py",
+      "line": "mapping: Mapping[str, str],",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/dict/base.py",
+      "line": "values: Sequence[str],",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/dict/cache.py",
+      "line": ") -> Mapping[str, str]:",
+      "container": "Mapping",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/dict/cache.py",
+      "line": "mapping: Mapping[str, str],",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/dict/cache.py",
+      "line": "values: Sequence[str],",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/dict/http.py",
+      "line": "async def _call(client: BaseServiceClient, request: ServiceRequest) -> Mapping[str, object] | None:",
+      "container": "Mapping",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/dict/http.py",
+      "line": "async def translate(self, query: DictTranslateQuery) -> Mapping[str, str]:",
+      "container": "Mapping",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/dict/http.py",
+      "line": "def _chunks(values: Sequence[str], size: int) -> list[tuple[str, ...]]:",
+      "container": "Sequence",
+      "position": "signature_param",
       "count": 1
     },
     {
@@ -644,6 +1162,27 @@
       "line": "def _headers(locale: str) -> dict[str, str]:",
       "container": "dict",
       "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/dict/http.py",
+      "line": "def _to_item(row: Mapping[str, object]) -> DictItem:",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/dict/http.py",
+      "line": "def _to_type_result(data: Mapping[str, object]) -> DictTypeResult:",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/dict/http.py",
+      "line": "values: Sequence[str] | None = None,",
+      "container": "Sequence",
+      "position": "signature_param",
       "count": 1
     },
     {
@@ -675,11 +1214,32 @@
       "count": 1
     },
     {
+      "file": "backend/libs/bms_core/src/bms_core/dict/null.py",
+      "line": "async def translate(self, query: DictTranslateQuery) -> Mapping[str, str]:",
+      "container": "Mapping",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/dict/providers.py",
+      "line": "async def query(self, params: Mapping[str, object]) -> QueryResult:",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
       "file": "backend/libs/bms_core/src/bms_core/dict/query.py",
       "line": "attr: dict[str, object] | None = Field(default=None, description=\"扩展属性子集（仅本接口返回）\")",
       "container": "dict",
       "position": "class_field",
       "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/dict/query.py",
+      "line": "attrs: Mapping[str, DictAttrInfo],",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 4
     },
     {
       "file": "backend/libs/bms_core/src/bms_core/dict/query.py",
@@ -693,6 +1253,20 @@
       "line": "def _as_list(value: object) -> list[object]:",
       "container": "list",
       "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/dict/query.py",
+      "line": "group: Mapping[str, object],",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 2
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/dict/query.py",
+      "line": "item: Mapping[str, object],",
+      "container": "Mapping",
+      "position": "signature_param",
       "count": 1
     },
     {
@@ -722,6 +1296,27 @@
       "container": "dict",
       "position": "class_field",
       "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/dict/seed.py",
+      "line": "async def _seed_attrs(session: AsyncSession, type_row: SysDictType, attrs: Sequence[SeedAttr]) -> int:",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/dict/seed.py",
+      "line": "async def _seed_items(session: AsyncSession, type_row: SysDictType, items: Sequence[SeedItem]) -> int:",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/dict/seed.py",
+      "line": "i18n: Mapping[str, str] = field(default_factory=dict[str, str])",
+      "container": "Mapping",
+      "position": "class_field",
+      "count": 2
     },
     {
       "file": "backend/libs/bms_core/src/bms_core/dict/service.py",
@@ -768,7 +1363,21 @@
     {
       "file": "backend/libs/bms_core/src/bms_core/dict/sql.py",
       "line": "async def _load_labels(self, dict_type: str, locale: str, values: Sequence[str]) -> dict[str, str]:",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/dict/sql.py",
+      "line": "async def _load_labels(self, dict_type: str, locale: str, values: Sequence[str]) -> dict[str, str]:",
       "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/dict/sql.py",
+      "line": "async def translate(self, query: DictTranslateQuery) -> Mapping[str, str]:",
+      "container": "Mapping",
       "position": "signature_return",
       "count": 1
     },
@@ -787,6 +1396,62 @@
       "count": 1
     },
     {
+      "file": "backend/libs/bms_core/src/bms_core/dict/sql.py",
+      "line": "types: Sequence[str],",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 2
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/dict/sql.py",
+      "line": "values: Sequence[str],",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/edge/base.py",
+      "line": "def evaluate(self, headers: Mapping[str, str]) -> EdgeTrustDecision:",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/edge/base.py",
+      "line": "def from_headers(cls, headers: Mapping[str, str]) -> EdgeIdentity:",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/edge/marker.py",
+      "line": "def evaluate(self, headers: Mapping[str, str]) -> EdgeTrustDecision:",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/edge/null.py",
+      "line": "def evaluate(self, headers: Mapping[str, str]) -> EdgeTrustDecision:",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/edge/service_jwt.py",
+      "line": "def _bearer_token(headers: Mapping[str, str]) -> str | None:",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/edge/service_jwt.py",
+      "line": "def evaluate(self, headers: Mapping[str, str]) -> EdgeTrustDecision:",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
       "file": "backend/libs/bms_core/src/bms_core/events/base.py",
       "line": "payload: dict[str, object] = field(default_factory=dict[str, object])",
       "container": "dict",
@@ -795,9 +1460,37 @@
     },
     {
       "file": "backend/libs/bms_core/src/bms_core/events/contracts.py",
+      "line": "def check_snapshot_compatibility(previous: Sequence[EventContract], registry: EventContractRegistry) -> tuple[str, ...]:",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/events/contracts.py",
       "line": "def event_snapshot_payload(registry: EventContractRegistry) -> dict[str, object]:",
       "container": "dict",
       "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/events/contracts.py",
+      "line": "def from_snapshot(cls, entry: Mapping[str, object]) -> EventContract:",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/events/contracts.py",
+      "line": "def from_snapshot(cls, entry: Mapping[str, object]) -> EventFieldSpec:",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/events/contracts.py",
+      "line": "def from_snapshot(cls, entry: Mapping[str, object]) -> EventSubscription:",
+      "container": "Mapping",
+      "position": "signature_param",
       "count": 1
     },
     {
@@ -816,9 +1509,72 @@
     },
     {
       "file": "backend/libs/bms_core/src/bms_core/events/contracts.py",
+      "line": "fields: Mapping[str, EventFieldSpec] = field(default_factory=dict[str, EventFieldSpec])",
+      "container": "Mapping",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/events/contracts.py",
       "line": "registry: EventContractRegistry, *, domains: frozenset[str] | None = None",
       "container": "frozenset",
       "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/events/contracts.py",
+      "line": "subscriptions: Sequence[EventSubscription],",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/fieldtype/base.py",
+      "line": "def render_metadata(self) -> Mapping[str, object]:",
+      "container": "Mapping",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/fieldtype/base.py",
+      "line": "def validate(self, value: object, *, options: Mapping[str, object] | None = None) -> tuple[str, ...]:",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/fieldtype/base.py",
+      "line": "self, field_type: str, value: object, *, options: Mapping[str, object] | None = None",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/fieldtype/local.py",
+      "line": "def render_metadata(self) -> Mapping[str, object]:",
+      "container": "Mapping",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/fieldtype/local.py",
+      "line": "def validate(self, value: object, *, options: Mapping[str, object] | None = None) -> tuple[str, ...]:",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/fieldtype/null.py",
+      "line": "self, field_type: str, value: object, *, options: Mapping[str, object] | None = None",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/globalsearch/base.py",
+      "line": "async def domains(self) -> Sequence[str]:",
+      "container": "Sequence",
+      "position": "signature_return",
       "count": 1
     },
     {
@@ -864,6 +1620,55 @@
       "count": 1
     },
     {
+      "file": "backend/libs/bms_core/src/bms_core/globalsearch/base.py",
+      "line": "types: Sequence[str] | None = None,",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/globalsearch/null.py",
+      "line": "async def domains(self) -> Sequence[str]:",
+      "container": "Sequence",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/globalsearch/null.py",
+      "line": "types: Sequence[str] | None = None,",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/i18n/base.py",
+      "line": "async def load_messages(self, locale: str) -> Mapping[str, str]:",
+      "container": "Mapping",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/i18n/base.py",
+      "line": "self, key: str, *, locale: str | None = None, params: Mapping[str, object] | None = None",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/i18n/null.py",
+      "line": "async def load_messages(self, locale: str) -> Mapping[str, str]:",
+      "container": "Mapping",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/i18n/null.py",
+      "line": "self, key: str, *, locale: str | None = None, params: Mapping[str, object] | None = None",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
       "file": "backend/libs/bms_core/src/bms_core/icon/base.py",
       "line": ") -> list[IconInfo]:",
       "container": "list",
@@ -899,6 +1704,55 @@
       "count": 1
     },
     {
+      "file": "backend/libs/bms_core/src/bms_core/idp/base.py",
+      "line": "payload: Mapping[str, object] = field(default_factory=dict[str, object])",
+      "container": "Mapping",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/idp/cas.py",
+      "line": "attribute_map: Mapping[str, Sequence[str]] | None = None,",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/idp/cas.py",
+      "line": "attribute_map: Mapping[str, Sequence[str]] | None = None,",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/idp/cas.py",
+      "line": "def _build_identity(self, principal: str, attributes: Mapping[str, str]) -> IdentityUser:",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/idp/cas.py",
+      "line": "def _first(self, attributes: Mapping[str, str], field: str) -> str:",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/idp/cas.py",
+      "line": "def _merge_attribute_map(overrides: Mapping[str, Sequence[str]] | None) -> dict[str, tuple[str, ...]]:",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/idp/cas.py",
+      "line": "def _merge_attribute_map(overrides: Mapping[str, Sequence[str]] | None) -> dict[str, tuple[str, ...]]:",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
       "file": "backend/libs/bms_core/src/bms_core/idp/cas.py",
       "line": "def _merge_attribute_map(overrides: Mapping[str, Sequence[str]] | None) -> dict[str, tuple[str, ...]]:",
       "container": "dict",
@@ -920,10 +1774,122 @@
       "count": 1
     },
     {
+      "file": "backend/libs/bms_core/src/bms_core/idp/dingtalk.py",
+      "line": ") -> Mapping[str, object]:",
+      "container": "Mapping",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/idp/dingtalk.py",
+      "line": "headers: Mapping[str, str] | None = None,",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/idp/dingtalk.py",
+      "line": "json_body: Mapping[str, str] | None = None,",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/idp/jwks.py",
+      "line": "algorithms: Collection[str] = DEFAULT_ALGORITHMS,",
+      "container": "Collection",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/idp/jwks.py",
+      "line": "async def _fetch(self, jwks_uri: str) -> Mapping[str, object]:",
+      "container": "Mapping",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/idp/oidc.py",
+      "line": ") -> Mapping[str, object]:",
+      "container": "Mapping",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/idp/oidc.py",
+      "line": "async def _metadata(self) -> Mapping[str, object]:",
+      "container": "Mapping",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/idp/oidc.py",
+      "line": "data: Mapping[str, str] | None = None,",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/idp/oidc.py",
+      "line": "def _require_str(metadata: Mapping[str, object], key: str, issuer: str) -> str:",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/idp/oidc.py",
+      "line": "headers: Mapping[str, str] | None = None,",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/idp/oidc.py",
+      "line": "scopes: Sequence[str] = _DEFAULT_SCOPES,",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/idp/registry.py",
+      "line": "config: Mapping[str, object] = field(default_factory=dict[str, object])",
+      "container": "Mapping",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/idp/registry.py",
+      "line": "def _optional_config_str(config: Mapping[str, object], key: str) -> str:",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/idp/registry.py",
+      "line": "def _optional_scopes(config: Mapping[str, object]) -> tuple[str, ...] | None:",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/idp/registry.py",
+      "line": "def _require_config_str(config: Mapping[str, object], key: str, spec: IdentityProviderSpec) -> str:",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
       "file": "backend/libs/bms_core/src/bms_core/idp/schema.py",
       "line": ") -> dict[str, object]:",
       "container": "dict",
       "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/idp/schema.py",
+      "line": "config: Mapping[str, object],",
+      "container": "Mapping",
+      "position": "signature_param",
       "count": 1
     },
     {
@@ -949,10 +1915,101 @@
     },
     {
       "file": "backend/libs/bms_core/src/bms_core/idp/schema.py",
+      "line": "def has_secret(protocol: str, config: Mapping[str, object]) -> bool:",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/idp/schema.py",
+      "line": "def mask_provider_config(protocol: str, config: Mapping[str, object]) -> dict[str, object]:",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/idp/schema.py",
       "line": "def mask_provider_config(protocol: str, config: Mapping[str, object]) -> dict[str, object]:",
       "container": "dict",
       "position": "signature_return",
       "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/idp/state/base.py",
+      "line": ") -> Mapping[str, object] | None:",
+      "container": "Mapping",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/idp/state/base.py",
+      "line": "payload: Mapping[str, object],",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/idp/state/memory.py",
+      "line": ") -> Mapping[str, object] | None:",
+      "container": "Mapping",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/idp/state/memory.py",
+      "line": "payload: Mapping[str, object],",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/idp/state/null.py",
+      "line": ") -> Mapping[str, object] | None:",
+      "container": "Mapping",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/idp/state/null.py",
+      "line": "payload: Mapping[str, object],",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/idp/state/redis.py",
+      "line": ") -> Mapping[str, object] | None:",
+      "container": "Mapping",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/idp/state/redis.py",
+      "line": "def _dump(value: Mapping[str, object]) -> str:",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/idp/state/redis.py",
+      "line": "def _load(raw: object) -> Mapping[str, object] | None:",
+      "container": "Mapping",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/idp/state/redis.py",
+      "line": "payload: Mapping[str, object],",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/idp/wecom.py",
+      "line": "async def _get(self, url: str, *, params: Mapping[str, str]) -> Mapping[str, object]:",
+      "container": "Mapping",
+      "position": "signature_return",
+      "count": 2
     },
     {
       "file": "backend/libs/bms_core/src/bms_core/listing/base.py",
@@ -1011,10 +2068,52 @@
       "count": 1
     },
     {
+      "file": "backend/libs/bms_core/src/bms_core/llm/base.py",
+      "line": "messages: Sequence[ChatMessage],",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/llm/base.py",
+      "line": "texts: Sequence[str],",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/llm/null.py",
+      "line": "messages: Sequence[ChatMessage],",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/llm/null.py",
+      "line": "texts: Sequence[str],",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
       "file": "backend/libs/bms_core/src/bms_core/masking/base.py",
       "line": "def masked_fields(self) -> frozenset[str]:",
       "container": "frozenset",
       "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/masking/default.py",
+      "line": "def from_options(cls, options: Mapping[str, object] | None = None) -> Self:",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/masking/default.py",
+      "line": "rules: Mapping[str, str] | None = None,",
+      "container": "Mapping",
+      "position": "signature_param",
       "count": 1
     },
     {
@@ -1039,6 +2138,34 @@
       "count": 1
     },
     {
+      "file": "backend/libs/bms_core/src/bms_core/notification/base.py",
+      "line": "async def mark_read(self, ids: Sequence[int]) -> int:",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/notification/null.py",
+      "line": "async def mark_read(self, ids: Sequence[int]) -> int:",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/oauth/jwt.py",
+      "line": "algorithms: Sequence[str] = DEFAULT_ALGORITHMS,",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/oauth/jwt.py",
+      "line": "def jwks(self) -> Mapping[str, object]:",
+      "container": "Mapping",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
       "file": "backend/libs/bms_core/src/bms_core/oauth/keys.py",
       "line": "def build_jwks(keys: Iterable[TokenKey]) -> dict[str, object]:",
       "container": "dict",
@@ -1053,9 +2180,72 @@
       "count": 1
     },
     {
+      "file": "backend/libs/bms_core/src/bms_core/oauth/keys.py",
+      "line": "def public_jwk(self) -> Mapping[str, object]:",
+      "container": "Mapping",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/oauth/null.py",
+      "line": "def jwks(self) -> Mapping[str, object]:",
+      "container": "Mapping",
+      "position": "signature_return",
+      "count": 3
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/oauth/oidc_jwt.py",
+      "line": "algorithms: Sequence[str] = DEFAULT_ALGORITHMS,",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/oauth/oidc_jwt.py",
+      "line": "def jwks(self) -> Mapping[str, object]:",
+      "container": "Mapping",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
       "file": "backend/libs/bms_core/src/bms_core/oauth/oidc_provider.py",
       "line": ") -> dict[str, object]:",
       "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/oauth/oidc_provider.py",
+      "line": "algorithms: Sequence[str] = (\"RS256\", \"ES256\"),",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/oauth/oidc_provider.py",
+      "line": "def jwks(self) -> Mapping[str, object]:",
+      "container": "Mapping",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/oauth/oidc_provider.py",
+      "line": "payload: Mapping[str, object] = field(default_factory=dict[str, object])",
+      "container": "Mapping",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/oauth/oidc_provider.py",
+      "line": "scopes: Sequence[str] = OIDC_DEFAULT_SCOPES,",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/oauth/token.py",
+      "line": "def jwks(self) -> Mapping[str, object]:",
+      "container": "Mapping",
       "position": "signature_return",
       "count": 1
     },
@@ -1067,10 +2257,108 @@
       "count": 1
     },
     {
+      "file": "backend/libs/bms_core/src/bms_core/oauth/user_jwt.py",
+      "line": "algorithms: Sequence[str] = DEFAULT_ALGORITHMS,",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/oauth/user_jwt.py",
+      "line": "def jwks(self) -> Mapping[str, object]:",
+      "container": "Mapping",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/oauth/user_jwt.py",
+      "line": "scopes: Sequence[str],",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/oauth/user_token.py",
+      "line": "def jwks(self) -> Mapping[str, object]:",
+      "container": "Mapping",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/oauth/verify.py",
+      "line": "payload: Mapping[str, object] = field(default_factory=dict[str, object])",
+      "container": "Mapping",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/org/base.py",
+      "line": "async def dept_tree(self, *, status: str | None = None) -> Sequence[OrgDept]:",
+      "container": "Sequence",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/org/base.py",
+      "line": "async def resolve_names(self, target: str, ids: Sequence[int]) -> Sequence[OrgNameRef]:",
+      "container": "Sequence",
+      "position": "signature_return",
+      "count": 2
+    },
+    {
       "file": "backend/libs/bms_core/src/bms_core/org/base.py",
       "line": "children: list[OrgDept] = Field(default_factory=list[\"OrgDept\"], description=\"子部门（嵌套树）\")",
       "container": "list",
       "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/org/null.py",
+      "line": "async def dept_tree(self, *, status: str | None = None) -> Sequence[OrgDept]:",
+      "container": "Sequence",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/org/null.py",
+      "line": "async def resolve_names(self, target: str, ids: Sequence[int]) -> Sequence[OrgNameRef]:",
+      "container": "Sequence",
+      "position": "signature_return",
+      "count": 2
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/outbound/http.py",
+      "line": "headers: Mapping[str, str]",
+      "container": "Mapping",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/outbound/http.py",
+      "line": "headers: Mapping[str, str] | None = None,",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/outbound/null.py",
+      "line": "async def send(self, url: str, payload: Mapping[str, object], *, secret: str | None = None) -> WebhookResult:",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/outbound/null.py",
+      "line": "headers: Mapping[str, str] | None = None,",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/outbound/webhook.py",
+      "line": "async def send(self, url: str, payload: Mapping[str, object], *, secret: str | None = None) -> WebhookResult:",
+      "container": "Mapping",
+      "position": "signature_param",
       "count": 1
     },
     {
@@ -1120,6 +2408,27 @@
       "line": "async def claim_pending(self, session: DbSession, *, now: datetime, limit: int) -> list[OutboxRecord]:",
       "container": "list",
       "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/password/base.py",
+      "line": "async def reused(self, password: str, *, history: Sequence[str]) -> bool:",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/password/default.py",
+      "line": "async def reused(self, password: str, *, history: Sequence[str]) -> bool:",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/password/null.py",
+      "line": "async def reused(self, password: str, *, history: Sequence[str]) -> bool:",
+      "container": "Sequence",
+      "position": "signature_param",
       "count": 1
     },
     {
@@ -1186,6 +2495,48 @@
       "count": 1
     },
     {
+      "file": "backend/libs/bms_core/src/bms_core/query/base.py",
+      "line": "async def query(self, key: str, params: Mapping[str, object]) -> QueryResult:",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/query/base.py",
+      "line": "async def query(self, params: Mapping[str, object]) -> QueryResult:",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/query/base.py",
+      "line": "rows: tuple[Mapping[str, object], ...]",
+      "container": "Mapping",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/query/null.py",
+      "line": "async def query(self, key: str, params: Mapping[str, object]) -> QueryResult:",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/query/null.py",
+      "line": "async def query(self, params: Mapping[str, object]) -> QueryResult:",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/repositories/base_db_repository.py",
+      "line": "async def list(self, *, sort: Sequence[SortSpec] | None = None) -> list[ModelT]:",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
       "file": "backend/libs/bms_core/src/bms_core/repositories/base_db_repository.py",
       "line": "async def list(self, *, sort: Sequence[SortSpec] | None = None) -> list[ModelT]:",
       "container": "list",
@@ -1204,6 +2555,13 @@
       "line": "async def list_page(self, query: BasePageQuery) -> list[ModelT]:",
       "container": "list",
       "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/repositories/base_db_repository.py",
+      "line": "def _apply_sort[StatementT](self, statement: StatementT, sort: Sequence[SortSpec]) -> StatementT:",
+      "container": "Sequence",
+      "position": "signature_param",
       "count": 1
     },
     {
@@ -1230,6 +2588,13 @@
     {
       "file": "backend/libs/bms_core/src/bms_core/repositories/base_memory_repository.py",
       "line": "async def list(self, *, sort: Sequence[SortSpec] | None = None) -> list[ModelT]:",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/repositories/base_memory_repository.py",
+      "line": "async def list(self, *, sort: Sequence[SortSpec] | None = None) -> list[ModelT]:",
       "container": "list",
       "position": "signature_return",
       "count": 1
@@ -1245,6 +2610,13 @@
       "file": "backend/libs/bms_core/src/bms_core/repositories/base_memory_repository.py",
       "line": "def _build(self, item_id: int, values: dict[str, object]) -> ModelT:",
       "container": "dict",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/repositories/base_repository.py",
+      "line": "async def list(self, *, sort: Sequence[SortSpec] | None = None) -> list[ModelT]:",
+      "container": "Sequence",
       "position": "signature_param",
       "count": 1
     },
@@ -1271,9 +2643,23 @@
     },
     {
       "file": "backend/libs/bms_core/src/bms_core/repositories/base_repository.py",
+      "line": "def _apply_sort[StatementT](self, statement: StatementT, sort: Sequence[SortSpec]) -> StatementT:",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/repositories/base_repository.py",
       "line": "def _resolve_sort(self, query: BaseSortQuery | None) -> list[SortSpec]:",
       "container": "list",
       "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/repositories/base_repository.py",
+      "line": "def build_cursor(self, query: BaseCursorQuery, items: Sequence[ModelT]) -> str | None:",
+      "container": "Sequence",
+      "position": "signature_param",
       "count": 1
     },
     {
@@ -1306,9 +2692,65 @@
     },
     {
       "file": "backend/libs/bms_core/src/bms_core/repositories/ordering.py",
+      "line": "def _direction_of(specs: Sequence[tuple[str, str]], index: int, spec: SortSpec) -> SortDirection:",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/repositories/ordering.py",
+      "line": "def assert_sortable_fields_indexed(model: type[Any], sortable_fields: Collection[str]) -> None:",
+      "container": "Collection",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/repositories/ordering.py",
+      "line": "def order_criteria(sort: Sequence[SortSpec], *, resolve: _Resolver, id_column: _Col) -> list[ColumnElement[Any]]:",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/repositories/ordering.py",
       "line": "def order_criteria(sort: Sequence[SortSpec], *, resolve: _Resolver, id_column: _Col) -> list[ColumnElement[Any]]:",
       "container": "list",
       "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/repositories/ordering.py",
+      "line": "items: Sequence[ItemT],",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/repositories/ordering.py",
+      "line": "payload_specs: Sequence[tuple[str, str]],",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/repositories/ordering.py",
+      "line": "sort: Sequence[SortSpec],",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 3
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/repositories/ordering.py",
+      "line": "values: Sequence[object],",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 2
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/saga/base.py",
+      "line": "payload: Mapping[str, object],",
+      "container": "Mapping",
+      "position": "signature_param",
       "count": 1
     },
     {
@@ -1410,10 +2852,45 @@
       "count": 1
     },
     {
+      "file": "backend/libs/bms_core/src/bms_core/schemas/cursor.py",
+      "line": "def decode_cursor_for(token: str, sort: Sequence[SortSpec]) -> CursorPayload:",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/schemas/cursor.py",
+      "line": "def encode_cursor(sort: Sequence[SortSpec], values: Sequence[object], item_id: int) -> str:",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 2
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/schemas/cursor.py",
+      "line": "def matches(self, sort: Sequence[SortSpec]) -> bool:",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/schemas/cursor.py",
+      "line": "def spec_fingerprint(sort: Sequence[SortSpec]) -> tuple[tuple[str, str], ...]:",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
       "file": "backend/libs/bms_core/src/bms_core/schemas/filters.py",
       "line": "def serialize(self) -> dict[str, object]:",
       "container": "dict",
       "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/schemas/filters.py",
+      "line": "def serialize_filters(filters: Sequence[FilterSpec]) -> dict[str, object]:",
+      "container": "Sequence",
+      "position": "signature_param",
       "count": 1
     },
     {
@@ -1552,6 +3029,20 @@
     {
       "file": "backend/libs/bms_core/src/bms_core/schemas/sorting.py",
       "line": "def allowed(cls, specs: Sequence[SortSpec], whitelist: Collection[str]) -> list[SortSpec]:",
+      "container": "Collection",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/schemas/sorting.py",
+      "line": "def allowed(cls, specs: Sequence[SortSpec], whitelist: Collection[str]) -> list[SortSpec]:",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/schemas/sorting.py",
+      "line": "def allowed(cls, specs: Sequence[SortSpec], whitelist: Collection[str]) -> list[SortSpec]:",
       "container": "list",
       "position": "signature_return",
       "count": 1
@@ -1559,8 +3050,22 @@
     {
       "file": "backend/libs/bms_core/src/bms_core/schemas/sorting.py",
       "line": "def parse(cls, order_by: str | None, order: Sequence[str] | None = None) -> list[SortSpec]:",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/schemas/sorting.py",
+      "line": "def parse(cls, order_by: str | None, order: Sequence[str] | None = None) -> list[SortSpec]:",
       "container": "list",
       "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/schemas/sorting.py",
+      "line": "def specs(self, whitelist: Collection[str] | None = None) -> list[SortSpec]:",
+      "container": "Collection",
+      "position": "signature_param",
       "count": 1
     },
     {
@@ -1599,6 +3104,27 @@
       "count": 1
     },
     {
+      "file": "backend/libs/bms_core/src/bms_core/search/base.py",
+      "line": "fields: Mapping[str, object]",
+      "container": "Mapping",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/search/base.py",
+      "line": "filters: Mapping[str, object] | None = None",
+      "container": "Mapping",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/search/base.py",
+      "line": "highlight: Mapping[str, str] | None = None",
+      "container": "Mapping",
+      "position": "class_field",
+      "count": 1
+    },
+    {
       "file": "backend/libs/bms_core/src/bms_core/security/base.py",
       "line": "def decode(self, token: str) -> dict[str, object]:",
       "container": "dict",
@@ -1609,6 +3135,13 @@
       "file": "backend/libs/bms_core/src/bms_core/security/base.py",
       "line": "def encode(self, claims: dict[str, object], *, expires_in: int | None = None) -> str:",
       "container": "dict",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/security/jwt.py",
+      "line": "algorithms: Sequence[str] = DEFAULT_ALGORITHMS,",
+      "container": "Sequence",
       "position": "signature_param",
       "count": 1
     },
@@ -1642,8 +3175,29 @@
     },
     {
       "file": "backend/libs/bms_core/src/bms_core/servicecall/base.py",
+      "line": "headers: Mapping[str, str] = field(default_factory=dict[str, str])",
+      "container": "Mapping",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/servicecall/base.py",
+      "line": "headers: Mapping[str, str] | None = None",
+      "container": "Mapping",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/servicecall/base.py",
       "line": "json_body: dict[str, object] | None = None",
       "container": "dict",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/servicecall/base.py",
+      "line": "query: Mapping[str, str] | None = None",
+      "container": "Mapping",
       "position": "class_field",
       "count": 1
     },
@@ -1652,6 +3206,20 @@
       "line": "async def _outbound_headers(self, request: ServiceRequest) -> dict[str, str]:",
       "container": "dict",
       "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/servicecall/http.py",
+      "line": "async def _send(self, request: ServiceRequest, url: str, headers: Mapping[str, str]) -> ServiceResponse:",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/services/base_service.py",
+      "line": "async def list(self, *, sort: Sequence[SortSpec] | None = None) -> list[ModelT]:",
+      "container": "Sequence",
+      "position": "signature_param",
       "count": 1
     },
     {
@@ -1797,6 +3365,13 @@
     {
       "file": "backend/libs/bms_core/src/bms_core/services/gateway_catalog.py",
       "line": "def validate_service_discovery(config: Mapping[str, object]) -> list[str]:",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/services/gateway_catalog.py",
+      "line": "def validate_service_discovery(config: Mapping[str, object]) -> list[str]:",
       "container": "list",
       "position": "signature_return",
       "count": 1
@@ -1806,6 +3381,27 @@
       "line": ") -> list[str]:",
       "container": "list",
       "position": "signature_return",
+      "count": 2
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/services/module_registry.py",
+      "line": "catalog: Sequence[ModuleRecord],",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/services/module_registry.py",
+      "line": "def __init__(self, modules: Sequence[ModuleRecord] = SERVICE_CATALOG) -> None:",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/services/module_registry.py",
+      "line": "def _diff_catalog(catalog: Sequence[ModuleRecord], records: Sequence[ModuleRecord]) -> list[str]:",
+      "container": "Sequence",
+      "position": "signature_param",
       "count": 2
     },
     {
@@ -1858,6 +3454,27 @@
       "count": 1
     },
     {
+      "file": "backend/libs/bms_core/src/bms_core/services/module_registry.py",
+      "line": "records: Sequence[ModuleRecord],",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 2
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/services/service_contract.py",
+      "line": "def render_contract_json(openapi: Mapping[str, object]) -> str:",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/services/service_contract.py",
+      "line": "def validate_contract(service_key: str, openapi: Mapping[str, object], record: ModuleRecord) -> list[str]:",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
       "file": "backend/libs/bms_core/src/bms_core/services/service_contract.py",
       "line": "def validate_contract(service_key: str, openapi: Mapping[str, object], record: ModuleRecord) -> list[str]:",
       "container": "list",
@@ -1876,6 +3493,20 @@
       "line": ") -> list[str]:",
       "container": "list",
       "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/services/table_registry.py",
+      "line": "def __init__(self, tables: Sequence[TableRecord] = TABLE_OWNERSHIP) -> None:",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/services/table_registry.py",
+      "line": "def _diff_ownership(ownership: Iterable[TableRecord], records: Sequence[TableRecord]) -> list[str]:",
+      "container": "Sequence",
+      "position": "signature_param",
       "count": 1
     },
     {
@@ -1970,10 +3601,339 @@
       "count": 1
     },
     {
+      "file": "backend/libs/bms_core/src/bms_core/services/table_registry.py",
+      "line": "ownership: Sequence[TableRecord],",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/services/table_registry.py",
+      "line": "records: Sequence[TableRecord],",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/session/base.py",
+      "line": "async def load(self, session_id: str, *, tenant: str | None = None) -> Mapping[str, object] | None:",
+      "container": "Mapping",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/session/base.py",
+      "line": "payload: Mapping[str, object],",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/session/memory.py",
+      "line": "async def load(self, session_id: str, *, tenant: str | None = None) -> Mapping[str, object] | None:",
+      "container": "Mapping",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/session/memory.py",
+      "line": "payload: Mapping[str, object],",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/session/null.py",
+      "line": "async def load(self, session_id: str, *, tenant: str | None = None) -> Mapping[str, object] | None:",
+      "container": "Mapping",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/session/null.py",
+      "line": "payload: Mapping[str, object],",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/session/redis.py",
+      "line": "async def load(self, session_id: str, *, tenant: str | None = None) -> Mapping[str, object] | None:",
+      "container": "Mapping",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/session/redis.py",
+      "line": "def _dump(value: Mapping[str, object]) -> str:",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/session/redis.py",
+      "line": "def _load(raw: object) -> Mapping[str, object] | None:",
+      "container": "Mapping",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/session/redis.py",
+      "line": "def _tenant_of(payload: Mapping[str, object]) -> str | None:",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/session/redis.py",
+      "line": "payload: Mapping[str, object],",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
       "file": "backend/libs/bms_core/src/bms_core/tenant/base.py",
       "line": "tenants: list[TenantSummary] = Field(default_factory=list[TenantSummary], description=\"我加入的租户列表\")",
       "container": "list",
       "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/tracing/base.py",
+      "line": "attributes: Mapping[str, object] | None = None",
+      "container": "Mapping",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/tracing/base.py",
+      "line": "attributes: Mapping[str, object] | None = None,",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 2
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/tracing/null.py",
+      "line": "attributes: Mapping[str, object] | None = None,",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/tracing/otel.py",
+      "line": "attributes: Mapping[str, object] | None = None,",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/tracing/otel.py",
+      "line": "attributes: Mapping[str, object] | None,",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/transfer/exporter.py",
+      "line": "columns: Sequence[ColumnSpec],",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/transfer/exporter.py",
+      "line": "rows: Sequence[Mapping[str, object]],",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/transfer/exporter.py",
+      "line": "rows: Sequence[Mapping[str, object]],",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/transfer/importer.py",
+      "line": "async def parse(self, data: bytes, *, columns: Sequence[ColumnSpec]) -> tuple[Mapping[str, object], ...]:",
+      "container": "Mapping",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/transfer/importer.py",
+      "line": "async def parse(self, data: bytes, *, columns: Sequence[ColumnSpec]) -> tuple[Mapping[str, object], ...]:",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/transfer/importer.py",
+      "line": "columns: Sequence[ColumnSpec],",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/transfer/importer.py",
+      "line": "rows: Sequence[Mapping[str, object]],",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/transfer/importer.py",
+      "line": "rows: Sequence[Mapping[str, object]],",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/transfer/importer.py",
+      "line": "rows: tuple[Mapping[str, object], ...]",
+      "container": "Mapping",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/transfer/null.py",
+      "line": "async def parse(self, data: bytes, *, columns: Sequence[ColumnSpec]) -> tuple[Mapping[str, object], ...]:",
+      "container": "Mapping",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/transfer/null.py",
+      "line": "async def parse(self, data: bytes, *, columns: Sequence[ColumnSpec]) -> tuple[Mapping[str, object], ...]:",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/transfer/null.py",
+      "line": "columns: Sequence[ColumnSpec],",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 2
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/transfer/null.py",
+      "line": "rows: Sequence[Mapping[str, object]],",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 2
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/transfer/null.py",
+      "line": "rows: Sequence[Mapping[str, object]],",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 2
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/workflow/base.py",
+      "line": "variables: Mapping[str, object] | None = None,",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/workflow/null.py",
+      "line": "variables: Mapping[str, object] | None = None,",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/ws/base.py",
+      "line": "data: Mapping[str, object]",
+      "container": "Mapping",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/ops/backfill_tenant_id_columns.py",
+      "line": "async def _load_records(registry_url: str) -> Sequence[TenantRecord]:",
+      "container": "Sequence",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/ops/backfill_tenant_id_columns.py",
+      "line": "async def run_database(url: str, id_map: Mapping[str, int], *, with_identity: bool, strict: bool) -> BackfillStats:",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/ops/backfill_tenant_id_columns.py",
+      "line": "async def tenant_records(registry_url: str) -> Sequence[TenantRecord]:",
+      "container": "Sequence",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/ops/backfill_tenant_id_columns.py",
+      "line": "def _resolve_code(value: str, id_map: Mapping[str, int], *, detail: str) -> int:",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/ops/backfill_tenant_id_columns.py",
+      "line": "def _run_sync(url: str, id_map: Mapping[str, int], *, with_identity: bool, strict: bool) -> BackfillStats:",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/ops/backfill_tenant_id_columns.py",
+      "line": "def _tenant_records_sync(url: str) -> Sequence[TenantRecord]:",
+      "container": "Sequence",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/ops/backfill_tenant_id_columns.py",
+      "line": "def _update_row(connection: Connection, statement: str, params: Mapping[str, object]) -> None:",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/ops/backfill_tenant_id_columns.py",
+      "line": "def backfill_outbox(connection: Connection, id_map: Mapping[str, int], *, strict: bool) -> BackfillStats:",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/ops/backfill_tenant_id_columns.py",
+      "line": "def backfill_user_identity(connection: Connection, id_map: Mapping[str, int]) -> BackfillStats:",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/ops/backfill_tenant_id_columns.py",
+      "line": "def main(argv: Sequence[str] | None = None) -> int:",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/ops/backfill_tenant_id_columns.py",
+      "line": "id_map: Mapping[str, int],",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/ops/check_budget.py",
+      "line": "def main(argv: Sequence[str] | None = None) -> int:",
+      "container": "Sequence",
+      "position": "signature_param",
       "count": 1
     },
     {
@@ -1992,6 +3952,20 @@
     },
     {
       "file": "backend/ops/check_modules.py",
+      "line": "catalog: Sequence[ModuleRecord],",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/ops/check_modules.py",
+      "line": "declarations: Mapping[str, str | None],",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/ops/check_modules.py",
       "line": "def check_catalog_db(url: str) -> list[str]:",
       "container": "list",
       "position": "signature_return",
@@ -2006,9 +3980,23 @@
     },
     {
       "file": "backend/ops/check_modules.py",
+      "line": "def main(argv: Sequence[str] | None = None) -> int:",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/ops/check_modules.py",
       "line": "def resolve_service_contracts(services_dir: Path = _SERVICES_DIR) -> dict[str, str | None]:",
       "container": "dict",
       "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/ops/check_plugins.py",
+      "line": "def main(argv: Sequence[str] | None = None) -> int:",
+      "container": "Sequence",
+      "position": "signature_param",
       "count": 1
     },
     {
@@ -2054,10 +4042,31 @@
       "count": 1
     },
     {
+      "file": "backend/ops/check_tables.py",
+      "line": "def main(argv: Sequence[str] | None = None) -> int:",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/ops/contract_gate.py",
+      "line": "def _run_command(command: Sequence[str]) -> subprocess.CompletedProcess[str]:",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
       "file": "backend/ops/contract_gate.py",
       "line": "def _select_services(service: str | None, all_services: bool) -> list[str]:",
       "container": "list",
       "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/ops/contract_gate.py",
+      "line": "def baseline_update(root: Path, *, services: Sequence[str], current_dir: Path | None = None) -> int:",
+      "container": "Sequence",
+      "position": "signature_param",
       "count": 1
     },
     {
@@ -2072,6 +4081,20 @@
       "line": "def oasdiff_args() -> list[str]:",
       "container": "list",
       "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/ops/contract_gate.py",
+      "line": "services: Sequence[str] | None = None,",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/ops/contract_smoke.py",
+      "line": "def _run_command(command: Sequence[str]) -> subprocess.CompletedProcess[str]:",
+      "container": "Sequence",
+      "position": "signature_param",
       "count": 1
     },
     {
@@ -2117,10 +4140,38 @@
       "count": 1
     },
     {
+      "file": "backend/ops/db_admin.py",
+      "line": "def main(argv: Sequence[str] | None = None) -> int:",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
       "file": "backend/ops/event_contracts.py",
       "line": "def _registry_errors(registry: EventContractRegistry) -> list[str]:",
       "container": "list",
       "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/ops/event_contracts.py",
+      "line": "def main(argv: Sequence[str] | None = None) -> int:",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/ops/gateway_config.py",
+      "line": "def main(argv: Sequence[str] | None = None) -> int:",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/ops/init_tenant.py",
+      "line": "def main(argv: Sequence[str] | None = None) -> int:",
+      "container": "Sequence",
+      "position": "signature_param",
       "count": 1
     },
     {
@@ -2132,9 +4183,86 @@
     },
     {
       "file": "backend/ops/migrate_tenants.py",
+      "line": "async def _load_refs(registry_url: str) -> Sequence[TenantRef]:",
+      "container": "Sequence",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/ops/migrate_tenants.py",
       "line": "async def build_tasks(args: argparse.Namespace) -> list[MigrationTask]:",
       "container": "list",
       "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/ops/migrate_tenants.py",
+      "line": "async def enrich_refs(refs: Sequence[TenantRef], registry_url: str) -> Sequence[TenantRef]:",
+      "container": "Sequence",
+      "position": "signature_return",
+      "count": 2
+    },
+    {
+      "file": "backend/ops/migrate_tenants.py",
+      "line": "async def run_tasks(tasks: Sequence[MigrationTask]) -> MigrationSummary:",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/ops/migrate_tenants.py",
+      "line": "async def tenant_refs(registry_url: str) -> Sequence[TenantRef]:",
+      "container": "Sequence",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/ops/migrate_tenants.py",
+      "line": "def _counts(tasks: Sequence[MigrationTask]) -> str:",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/ops/migrate_tenants.py",
+      "line": "def _tenant_refs_sync(url: str) -> Sequence[TenantRef]:",
+      "container": "Sequence",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/ops/migrate_tenants.py",
+      "line": "def main(argv: Sequence[str] | None = None) -> int:",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/ops/migrate_tenants.py",
+      "line": "def report(summary: MigrationSummary, tasks: Sequence[MigrationTask]) -> int:",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/ops/migrate_tenants.py",
+      "line": "def resolve_services(requested: Sequence[str], *, use_default: bool = True) -> tuple[str, ...]:",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/ops/migrate_tenants.py",
+      "line": "services: Sequence[str],",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/ops/migrate_tenants.py",
+      "line": "tenants: Sequence[TenantRef],",
+      "container": "Sequence",
+      "position": "signature_param",
       "count": 1
     },
     {
@@ -2146,9 +4274,30 @@
     },
     {
       "file": "backend/ops/provision_tenant.py",
+      "line": "async def _resolve_refs(args: argparse.Namespace, factory: EngineFactory) -> Sequence[TenantRef]:",
+      "container": "Sequence",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/ops/provision_tenant.py",
       "line": "async def build_tasks(args: argparse.Namespace) -> list[ProvisionTask]:",
       "container": "list",
       "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/ops/provision_tenant.py",
+      "line": "def _resolve_services(requested: Sequence[str]) -> tuple[str, ...]:",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/ops/provision_tenant.py",
+      "line": "def main(argv: Sequence[str] | None = None) -> int:",
+      "container": "Sequence",
+      "position": "signature_param",
       "count": 1
     },
     {
@@ -2156,6 +4305,20 @@
       "line": "def _fields(seed: ModuleRecord) -> dict[str, object]:",
       "container": "dict",
       "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/ops/seed_module.py",
+      "line": "def main(argv: Sequence[str] | None = None) -> int:",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/ops/seed_oidc_client.py",
+      "line": "def main(argv: Sequence[str] | None = None) -> int:",
+      "container": "Sequence",
+      "position": "signature_param",
       "count": 1
     },
     {
@@ -2180,9 +4343,44 @@
       "count": 1
     },
     {
+      "file": "backend/ops/seed_sso.py",
+      "line": "def main(argv: Sequence[str] | None = None) -> int:",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
       "file": "backend/ops/seed_tables.py",
       "line": "def _fields(seed: TableRecord) -> dict[str, object]:",
       "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/ops/seed_tables.py",
+      "line": "def main(argv: Sequence[str] | None = None) -> int:",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/ops/seed_tenant.py",
+      "line": "def main(argv: Sequence[str] | None = None) -> int:",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/services/ai/src/bms_ai/main.py",
+      "line": "def service_routers(self) -> Sequence[APIRouter]:",
+      "container": "Sequence",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/services/file/src/bms_file/main.py",
+      "line": "def service_routers(self) -> Sequence[APIRouter]:",
+      "container": "Sequence",
       "position": "signature_return",
       "count": 1
     },
@@ -2211,6 +4409,13 @@
       "file": "backend/services/identity/src/bms_identity/api/wellknown.py",
       "line": "async def get_jwks(request: Request) -> dict[str, object]:",
       "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/main.py",
+      "line": "def service_routers(self) -> Sequence[APIRouter]:",
+      "container": "Sequence",
       "position": "signature_return",
       "count": 1
     },
@@ -2399,9 +4604,44 @@
     {
       "file": "backend/services/identity/src/bms_identity/services/clients.py",
       "line": "def _dedupe(values: Sequence[str]) -> list[str]:",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/services/clients.py",
+      "line": "def _dedupe(values: Sequence[str]) -> list[str]:",
       "container": "list",
       "position": "signature_return",
       "count": 1
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/services/clients.py",
+      "line": "grant_types: Sequence[str],",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 2
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/services/clients.py",
+      "line": "ip_whitelist: Sequence[str],",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 2
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/services/clients.py",
+      "line": "redirect_uris: Sequence[str],",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 2
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/services/clients.py",
+      "line": "scopes: Sequence[str],",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 2
     },
     {
       "file": "backend/services/identity/src/bms_identity/services/identity_providers.py",
@@ -2412,9 +4652,30 @@
     },
     {
       "file": "backend/services/identity/src/bms_identity/services/identity_providers.py",
+      "line": "config: Mapping[str, object] | None,",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/services/identity_providers.py",
+      "line": "config: Mapping[str, object],",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 2
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/services/identity_providers.py",
       "line": "def _row_config(row: SysIdentityProvider) -> dict[str, object]:",
       "container": "dict",
       "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/services/identity_providers.py",
+      "line": "def _validate(self, type: str, config: Mapping[str, object]) -> dict[str, object]:",
+      "container": "Mapping",
+      "position": "signature_param",
       "count": 1
     },
     {
@@ -2454,6 +4715,13 @@
     },
     {
       "file": "backend/services/identity/src/bms_identity/services/oidc_provider.py",
+      "line": "def code_from_payload(raw: Mapping[str, object] | None) -> OidcCode:",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/services/oidc_provider.py",
       "line": "def load_list(raw: str | None) -> list[str]:",
       "container": "list",
       "position": "signature_return",
@@ -2485,6 +4753,13 @@
       "line": "def _payload(response: ServiceResponse, interface: str) -> dict[str, object]:",
       "container": "dict",
       "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/services/identity/src/bms_identity/services/password_reset.py",
+      "line": "def _parse_token_payload(payload: Mapping[str, object] | None) -> tuple[int, str]:",
+      "container": "Mapping",
+      "position": "signature_param",
       "count": 1
     },
     {
@@ -2551,9 +4826,23 @@
       "count": 1
     },
     {
+      "file": "backend/services/notification/src/bms_notification/main.py",
+      "line": "def service_routers(self) -> Sequence[APIRouter]:",
+      "container": "Sequence",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
       "file": "backend/services/org/src/bms_org/api/org.py",
       "line": "def parse_id_in(raw: str) -> list[int]:",
       "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/services/org/src/bms_org/main.py",
+      "line": "def service_routers(self) -> Sequence[APIRouter]:",
+      "container": "Sequence",
       "position": "signature_return",
       "count": 1
     },
@@ -2635,6 +4924,13 @@
       "count": 1
     },
     {
+      "file": "backend/services/platform/src/bms_platform/main.py",
+      "line": "def service_routers(self) -> Sequence[APIRouter]:",
+      "container": "Sequence",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
       "file": "backend/services/platform/src/bms_platform/repositories/demo_repository.py",
       "line": "def _apply(self, item: Demo, values: dict[str, object]) -> Demo:",
       "container": "dict",
@@ -2691,6 +4987,13 @@
       "count": 1
     },
     {
+      "file": "backend/services/report/src/bms_report/main.py",
+      "line": "def service_routers(self) -> Sequence[APIRouter]:",
+      "container": "Sequence",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
       "file": "backend/services/search/src/bms_search/api/search.py",
       "line": "types: Annotated[list[str] | None, Query(description=\"限定域（多值，缺省 = 全部可检索域）\")] = None,",
       "container": "list",
@@ -2698,9 +5001,58 @@
       "count": 1
     },
     {
+      "file": "backend/services/search/src/bms_search/main.py",
+      "line": "def service_routers(self) -> Sequence[APIRouter]:",
+      "container": "Sequence",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/services/tenant/src/bms_tenant/api/tenant_registry.py",
+      "line": "def _snapshot(row: SysTenant, db_basis: str | None = None) -> Mapping[str, object]:",
+      "container": "Mapping",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/services/tenant/src/bms_tenant/main.py",
+      "line": "def service_routers(self) -> Sequence[APIRouter]:",
+      "container": "Sequence",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/base-check/check-backend-base.py",
+      "line": "def _descendants(index: Mapping[str, Sequence[Sequence[str]]], root: str) -> Collection[str]:",
+      "container": "Collection",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/base-check/check-backend-base.py",
+      "line": "def _descendants(index: Mapping[str, Sequence[Sequence[str]]], root: str) -> Collection[str]:",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/base-check/check-backend-base.py",
+      "line": "def _descendants(index: Mapping[str, Sequence[Sequence[str]]], root: str) -> Collection[str]:",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
       "file": "scripts/tools/base-check/check-backend-base.py",
       "line": "def _iter_chain_dirs() -> list[tuple[str, str, str]]:",
       "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/base-check/check-backend-base.py",
+      "line": "def _iter_class_defs(path: str) -> Sequence[object]:",
+      "container": "Sequence",
       "position": "signature_return",
       "count": 1
     },
@@ -2755,9 +5107,58 @@
     },
     {
       "file": "scripts/tools/base-check/check-backend-base.py",
+      "line": "def load_direct_baseline() -> Sequence[tuple[str, str]]:",
+      "container": "Sequence",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/base-check/check-backend-base.py",
       "line": "def parse_chains(raw_line: str) -> list[tuple[str, ...]]:",
       "container": "list",
       "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/base-check/check-backend-base.py",
+      "line": "def parse_root_bases() -> Sequence[str]:",
+      "container": "Sequence",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/base-check/check-backend-base.py",
+      "line": "def scan_class_shapes() -> Mapping[str, Sequence[tuple[bool, bool]]]:",
+      "container": "Mapping",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/base-check/check-backend-base.py",
+      "line": "def scan_class_shapes() -> Mapping[str, Sequence[tuple[bool, bool]]]:",
+      "container": "Sequence",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/base-check/check-backend-base.py",
+      "line": "def scan_direct_base_object() -> Sequence[tuple[str, str]]:",
+      "container": "Sequence",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/base-check/check-backend-base.py",
+      "line": "def split_bases(raw: str) -> Sequence[str]:",
+      "container": "Sequence",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "scripts/tools/base-check/check-backend-base.py",
+      "line": "def write_baseline(entries: Sequence[tuple[str, str]]) -> None:",
+      "container": "Sequence",
+      "position": "signature_param",
       "count": 1
     },
     {
