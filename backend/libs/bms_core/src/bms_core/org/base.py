@@ -17,14 +17,15 @@
 
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
-from typing import cast
+from typing import Annotated, cast
 
 from fastapi import Request
 from pydantic import Field
 
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
-from bms_core.schemas.base import BaseSchema
+from bms_core.schemas.base import CONTRACT_COLLECTION, CONTRACT_STABLE_LIST, BaseSchema
 from bms_core.schemas.pagination import BasePageResponse
 
 __all__ = [
@@ -86,7 +87,9 @@ class OrgDept(BaseSchema):
     name: str = Field(description="部门名称")
     sort: int = Field(default=0, description="排序值")
     status: str = Field(default="enabled", description="状态（enabled / disabled）")
-    children: list[OrgDept] = Field(default_factory=list["OrgDept"], description="子部门（嵌套树）")
+    children: Annotated[ConcurrentStableList[OrgDept], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_LIST, description="子部门（嵌套树）"
+    )
 
 
 class OrgNameRef(BaseSchema):

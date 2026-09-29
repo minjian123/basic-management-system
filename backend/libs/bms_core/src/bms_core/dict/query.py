@@ -11,12 +11,13 @@
 
 from collections.abc import AsyncGenerator, Mapping
 from contextlib import asynccontextmanager
-from typing import Any, cast
+from typing import Annotated, Any, cast
 
 from pydantic import Field
 from sqlalchemy import ColumnElement, Integer, Numeric, and_, func, not_, or_, select, true
 from sqlalchemy import cast as sa_cast
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.exceptions import ParamError
 from bms_core.core.objects import BaseFrameworkObject
 from bms_core.db.registry import EngineRegistry
@@ -25,7 +26,7 @@ from bms_core.dict.models import SysDictAttr, SysDictAttrI18n, SysDictItem, SysD
 from bms_core.dict.sql import current_dict_locale
 from bms_core.i18n.base import DEFAULT_LOCALE
 from bms_core.query.base import BaseQueryProviderRegistry
-from bms_core.schemas.base import BaseSchema
+from bms_core.schemas.base import CONTRACT_COLLECTION, CONTRACT_STABLE_DICT, BaseSchema
 
 __all__ = [
     "DICT_ADV_FIXED_FIELDS",
@@ -98,7 +99,9 @@ class DictAttrInfo(BaseSchema):
     data_type: str = Field(description="数据类型（text/number/date/enum/bool）")
     operators: tuple[str, ...] = Field(default=(), description="可用操作符")
     widget: str | None = Field(default=None, description="值控件")
-    options: tuple[dict[str, object], ...] = Field(default=(), description="enum 选项集")
+    options: tuple[Annotated[ConcurrentStableDict[str, object], CONTRACT_COLLECTION], ...] = Field(
+        default=(), description="enum 选项集"
+    )
     sort: int = Field(default=0, description="排序值")
     scope: str = Field(default="platform", description="属性来源（platform/tenant）")
 
@@ -110,7 +113,9 @@ class DictQueryProviderInfo(BaseSchema):
     name: str = Field(description="显示名")
     target: str = Field(default="business", description="目标（items/business）")
     dict_types: tuple[str, ...] = Field(default=(), description="适用字典类型（空 = 全部）")
-    param_schema: dict[str, object] = Field(default_factory=dict[str, object], description="参数 JSON Schema 子集")
+    param_schema: Annotated[ConcurrentStableDict[str, object], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_DICT, description="参数 JSON Schema 子集"
+    )
 
 
 class DictAdvItem(BaseSchema):
@@ -123,14 +128,18 @@ class DictAdvItem(BaseSchema):
     sort: int = Field(default=0, description="排序值")
     status: str = Field(default="enabled", description="状态")
     color: str | None = Field(default=None, description="语义色")
-    attr: dict[str, object] | None = Field(default=None, description="扩展属性子集（仅本接口返回）")
+    attr: Annotated[ConcurrentStableDict[str, object] | None, CONTRACT_COLLECTION] = Field(
+        default=None, description="扩展属性子集（仅本接口返回）"
+    )
 
 
 class DictAdvQueryResult(BaseSchema):
     """高级查询结果（`items` 取项 / `rows` 业务筛选二选一）。"""
 
     items: tuple[DictAdvItem, ...] = Field(default=(), description="字典条目（target=items）")
-    rows: tuple[dict[str, object], ...] = Field(default=(), description="业务记录（target=business）")
+    rows: tuple[Annotated[ConcurrentStableDict[str, object], CONTRACT_COLLECTION], ...] = Field(
+        default=(), description="业务记录（target=business）"
+    )
     total: int = Field(default=0, description="命中总数")
     page: int = Field(default=1, description="页码（自 1）")
     size: int = Field(default=DICT_ADV_PAGE_SIZE_DEFAULT, description="页长")
@@ -140,9 +149,13 @@ class DictAdvQueryPayload(BaseSchema):
     """高级查询请求体（统一入口）。"""
 
     target: str = Field(default="items", description="目标（items/business）")
-    conditions: dict[str, object] | None = Field(default=None, description="条件组 JSON")
+    conditions: Annotated[ConcurrentStableDict[str, object] | None, CONTRACT_COLLECTION] = Field(
+        default=None, description="条件组 JSON"
+    )
     provider: str | None = Field(default=None, description="查询提供者键（target=business）")
-    params: dict[str, object] | None = Field(default=None, description="提供者参数")
+    params: Annotated[ConcurrentStableDict[str, object] | None, CONTRACT_COLLECTION] = Field(
+        default=None, description="提供者参数"
+    )
     page: int = Field(default=1, description="页码（自 1）")
     size: int = Field(default=DICT_ADV_PAGE_SIZE_DEFAULT, description="页长（≤ 100）")
 
@@ -237,7 +250,7 @@ class DictQueryService(BaseFrameworkObject):
             params["size"] = size
             result = await registry.query(key, params)
             return DictAdvQueryResult(
-                rows=tuple(dict(row) for row in result.rows),
+                rows=tuple(ConcurrentStableDict(row) for row in result.rows),
                 total=result.total,
                 page=page,
                 size=size,
@@ -280,7 +293,7 @@ class DictQueryService(BaseFrameworkObject):
                 sort=item.sort,
                 status=item.status,
                 color=item.color,
-                attr=dict(item.attr_json) if item.attr_json is not None else None,
+                attr=ConcurrentStableDict(item.attr_json) if item.attr_json is not None else None,
             )
             for item, i18n_label in rows
         )

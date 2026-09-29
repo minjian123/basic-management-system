@@ -16,14 +16,20 @@
 
 from abc import ABC, abstractmethod
 from enum import StrEnum
-from typing import cast
+from typing import Annotated, cast
 
 from fastapi import Request
 from pydantic import Field
 
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
-from bms_core.schemas.base import BaseSchema
+from bms_core.schemas.base import (
+    CONTRACT_COLLECTION,
+    CONTRACT_STABLE_DICT,
+    CONTRACT_STABLE_LIST,
+    BaseSchema,
+)
 
 __all__ = [
     "LIST_DENSITIES",
@@ -69,10 +75,14 @@ class ListColumnPreference(BaseSchema):
 class ListPreference(BaseSchema):
     """列表偏好：列配置 / 每页条数 / 密度 / 上次筛选条件。"""
 
-    columns: list[ListColumnPreference] = Field(default_factory=list[ListColumnPreference], description="列偏好列表")
+    columns: Annotated[ConcurrentStableList[ListColumnPreference], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_LIST, description="列偏好列表"
+    )
     page_size: int = Field(default=20, ge=1, le=200, description="每页条数")
     density: str = Field(default="default", description="表格密度（取 LIST_DENSITIES）")
-    query: dict[str, object] = Field(default_factory=dict, description="上次筛选条件（JSON）")
+    query: Annotated[ConcurrentStableDict[str, object], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_DICT, description="上次筛选条件（JSON）"
+    )
 
 
 class QuerySchemeScope(StrEnum):
@@ -101,9 +111,15 @@ class QueryScheme(BaseSchema):
     dict_type: str | None = Field(default=None, description="字典类型（target=items 时填）")
     field_key: str | None = Field(default=None, description="表单标识（target=business 时为 form_key）")
     provider_key: str | None = Field(default=None, description="查询提供者键（字典高级查询可选）")
-    conditions: dict[str, object] | None = Field(default=None, description="条件组 JSON")
-    params: dict[str, object] | None = Field(default=None, description="额外参数 JSON")
-    layout: dict[str, object] | None = Field(default=None, description="展示配置 JSON")
+    conditions: Annotated[ConcurrentStableDict[str, object] | None, CONTRACT_COLLECTION] = Field(
+        default=None, description="条件组 JSON"
+    )
+    params: Annotated[ConcurrentStableDict[str, object] | None, CONTRACT_COLLECTION] = Field(
+        default=None, description="额外参数 JSON"
+    )
+    layout: Annotated[ConcurrentStableDict[str, object] | None, CONTRACT_COLLECTION] = Field(
+        default=None, description="展示配置 JSON"
+    )
     is_default: bool = Field(default=False, description="是否默认方案")
     shared: bool = Field(default=False, description="是否共享")
     status: str = Field(default="enabled", description="状态")

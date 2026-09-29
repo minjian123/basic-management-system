@@ -9,9 +9,12 @@
 字段一律 snake_case（前端 camelCase 契约由宿主数据通路注入层映射）。
 """
 
+from typing import Annotated
+
 from pydantic import Field
 
-from bms_core.schemas.base import BaseSchema
+from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.schemas.base import CONTRACT_COLLECTION, CONTRACT_STABLE_LIST, BaseSchema
 
 __all__ = [
     "TenantBrandResponse",
@@ -35,8 +38,8 @@ class TenantSummaryResponse(BaseSchema):
 class TenantSelfOverviewResponse(BaseSchema):
     """租户自助概览响应。"""
 
-    tenants: list[TenantSummaryResponse] = Field(
-        default_factory=list[TenantSummaryResponse], description="我加入的租户列表"
+    tenants: Annotated[ConcurrentStableList[TenantSummaryResponse], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_LIST, description="我加入的租户列表"
     )
     current_code: str | None = Field(default=None, description="当前租户编码")
     multi_tenant: bool = Field(default=False, description="是否多租户（租户列表长度 > 1）")

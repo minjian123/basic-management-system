@@ -3,6 +3,7 @@
 from collections.abc import Sequence
 
 from bms_core.core.capability import BaseNullObject
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.org.base import (
     DEFAULT_ORG_PAGE_SIZE,
     BaseOrgDataSource,
@@ -59,7 +60,7 @@ class NullOrgDataSource(BaseOrgDataSource, BaseNullObject):
             phone="13800000000",
             email="null@example.com",
         )
-        return BasePageResponse[OrgUser](list=[item], total=1, page=page, size=size)
+        return BasePageResponse[OrgUser](list=ConcurrentStableList([item]), total=1, page=page, size=size)
 
     async def posts(
         self,
@@ -86,7 +87,7 @@ class NullOrgDataSource(BaseOrgDataSource, BaseNullObject):
         """
         del keyword, dept_id, include_children, status
         item = OrgPost(id=1, code="null-post", name="占位岗位", dept_id=1, status="enabled", sort=0)
-        return BasePageResponse[OrgPost](list=[item], total=1, page=page, size=size)
+        return BasePageResponse[OrgPost](list=ConcurrentStableList([item]), total=1, page=page, size=size)
 
     async def dept_tree(self, *, status: str | None = None) -> Sequence[OrgDept]:
         """取部门树（占位固定两节点：根 + 一子）。
@@ -99,7 +100,9 @@ class NullOrgDataSource(BaseOrgDataSource, BaseNullObject):
         """
         del status
         child = OrgDept(id=2, parent_id=1, name="占位子部门", sort=0, status="enabled")
-        root = OrgDept(id=1, parent_id=None, name="占位根部门", sort=0, status="enabled", children=[child])
+        root = OrgDept(
+            id=1, parent_id=None, name="占位根部门", sort=0, status="enabled", children=ConcurrentStableList([child])
+        )
         return (root,)
 
 

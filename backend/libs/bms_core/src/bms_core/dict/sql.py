@@ -18,6 +18,7 @@ from uuid import uuid4
 
 from sqlalchemy import ColumnElement, and_, func, or_, select
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.error_codes import ErrorCode
 from bms_core.core.exceptions import BizError
 from bms_core.core.logging import get_logger
@@ -160,7 +161,7 @@ class SqlDictSource(BaseDictSource):
                 result = DictTypeResult(version=version, items=tuple(trimmed), has_more=has_more, total=total)
                 results[name] = result
                 await self._cache.aset_type(tenant, locale, name, _snapshot_payload(result))
-        return DictBatchResult(version=version, items=results)
+        return DictBatchResult(version=version, items=ConcurrentStableDict(results))
 
     async def _load_type_page(
         self,

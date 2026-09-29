@@ -24,15 +24,21 @@
 """
 
 from abc import ABC, abstractmethod
-from typing import cast
+from typing import Annotated, cast
 
 from fastapi import Request
 from pydantic import Field
 
 from bms_core.cache.base import GLOBAL_TENANT
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
-from bms_core.schemas.base import BaseSchema
+from bms_core.schemas.base import (
+    CONTRACT_COLLECTION,
+    CONTRACT_STABLE_DICT,
+    CONTRACT_STABLE_LIST,
+    BaseSchema,
+)
 
 __all__ = [
     "DEFAULT_PAPER",
@@ -120,7 +126,9 @@ class PrintTemplateInfo(BaseSchema):
     key: str = Field(description="模板键（业务与模板来源的唯一对接标识）")
     name: str = Field(description="模板名称")
     biz_type: str | None = Field(default=None, description="单据类型（缺省不限）")
-    variables: list[PrintVariable] = Field(default_factory=list[PrintVariable], description="变量清单")
+    variables: Annotated[ConcurrentStableList[PrintVariable], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_LIST, description="变量清单"
+    )
     status: str = Field(default="active", description="模板状态（active 启用 / disabled 停用）")
 
 
@@ -128,8 +136,12 @@ class PrintDocument(BaseSchema):
     """单据数据（单据键 + 主表字段 + 明细行）。"""
 
     biz_key: str | None = Field(default=None, description="单据键（产物 key / 文件名派生与归档审计关联用）")
-    fields: dict[str, object] = Field(default_factory=dict[str, object], description="主表字段（键与模板变量键对应）")
-    rows: list[dict[str, object]] = Field(default_factory=list[dict[str, object]], description="明细行")
+    fields: Annotated[ConcurrentStableDict[str, object], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_DICT, description="主表字段（键与模板变量键对应）"
+    )
+    rows: Annotated[ConcurrentStableList[ConcurrentStableDict[str, object]], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_LIST, description="明细行"
+    )
 
 
 class PrintOptions(BaseSchema):
@@ -162,8 +174,8 @@ class PrintBatchResult(BaseSchema):
     total: int = Field(default=0, ge=0, description="单据总数")
     succeeded: int = Field(default=0, ge=0, description="成功单据数")
     failed: int = Field(default=0, ge=0, description="失败单据数")
-    items: list[PrintExportResult] = Field(
-        default_factory=list[PrintExportResult], description="产物明细（逐份多份 / 合并单份）"
+    items: Annotated[ConcurrentStableList[PrintExportResult], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_LIST, description="产物明细（逐份多份 / 合并单份）"
     )
     message: str | None = Field(default=None, description="结果提示文案")
 

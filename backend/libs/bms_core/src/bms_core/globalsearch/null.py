@@ -4,6 +4,7 @@ from collections.abc import Sequence
 from datetime import datetime
 
 from bms_core.core.capability import BaseNullObject
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.globalsearch.base import (
     DEFAULT_GLOBAL_SEARCH_SIZE,
     NULL_DEGRADE_REASON,
@@ -55,7 +56,7 @@ class NullGlobalSearch(BaseGlobalSearch, BaseNullObject):
         """
         del q, types, page, size
         return GlobalSearchResult(
-            groups=[],
+            groups=ConcurrentStableList(),
             total=0,
             degraded=True,
             degrade_reason=NULL_DEGRADE_REASON,
@@ -91,7 +92,7 @@ class NullAuditSearch(BaseAuditSearch, BaseNullObject):
         """
         del q, log_type, start_time, end_time, page, size
         return AuditSearchResult(
-            hits=[],
+            hits=ConcurrentStableList(),
             total=0,
             degraded=True,
             degrade_reason=NULL_DEGRADE_REASON,
@@ -123,7 +124,7 @@ class NullFileContentSearch(BaseFileContentSearch, BaseNullObject):
         """
         del q, file_type, page, size
         return FileContentSearchResult(
-            hits=[],
+            hits=ConcurrentStableList(),
             total=0,
             degraded=True,
             degrade_reason=NULL_DEGRADE_REASON,

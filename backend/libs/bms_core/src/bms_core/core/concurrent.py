@@ -6,6 +6,7 @@
   升序形态（`ConcurrentSorted*`）为基座内部实现（业务与契约不得直接声明 / 继承，排序走排序契约）
 """
 
+import copy
 import heapq
 import threading
 from abc import abstractmethod
@@ -30,6 +31,8 @@ from bms_core.core.holder import ValueHolder
 from bms_core.core.locking import LockGuard, LockStrategy, ReadWriteLock
 
 DataT = TypeVar("DataT")
+DefaultT = TypeVar("DefaultT")
+"""`get` 默认值类型（缺省分支返回 `ValueT | DefaultT`）。"""
 
 _MAX_INDEX = 9223372036854775807
 """`Sequence.index` 的默认上界（与内置序列一致，避免 `None` 与 `SupportsIndex` 冲突）。"""
@@ -54,6 +57,29 @@ class BaseConcurrentSorted[ItemT, DataT](BaseSyncSorted[ItemT]):
     @abstractmethod
     def _copy_data(self) -> DataT:
         """复制内部数据（SNAPSHOT 策略写时复制）。"""
+
+    def __copy__(self) -> Self:
+        """浅复制：按内容重建同类集合（锁不共享）。
+
+        Returns:
+            Self: 同类集合（内容快照）。
+        """
+        constructor = cast("Callable[[Iterable[Any]], Self]", type(self))
+        return constructor(self.to_list())
+
+    def __deepcopy__(self, memo: dict[int, Any]) -> Self:
+        """深复制：元素深拷贝后重建同类集合（锁不共享；支持配置 / 契约深拷贝场景）。
+
+        Args:
+            memo: 深拷贝对象表。
+
+        Returns:
+            Self: 同类集合（元素深拷贝）。
+        """
+        constructor = cast("Callable[[Iterable[Any]], Self]", type(self))
+        clone = constructor(copy.deepcopy(self.to_list(), memo))
+        memo[id(self)] = clone
+        return clone
 
     @contextmanager
     def _write_data(self) -> Generator[DataT]:
@@ -401,7 +427,13 @@ class ConcurrentSortedDict[KeyT, ValueT](
         with self._write_data() as data:
             data[key] = value
 
-    def get(self, key: KeyT, default: Any = None) -> ValueT | None:  # pyright: ignore[reportIncompatibleMethodOverride]
+    @overload
+    def get(self, key: KeyT) -> ValueT | None: ...
+
+    @overload
+    def get(self, key: KeyT, default: DefaultT) -> ValueT | DefaultT: ...
+
+    def get(self, key: KeyT, default: Any = None) -> Any:  # pyright: ignore[reportIncompatibleMethodOverride]
         """按键取值（不存在返回 default，默认 None）。"""
         shard = self._shard(key)
         if shard is not None:
@@ -1019,7 +1051,13 @@ class ConcurrentStableDict[KeyT, ValueT](
             existing = data.get(key)
             data[key] = (existing[0] if existing is not None else self._next_seq(), value)
 
-    def get(self, key: KeyT, default: Any = None) -> ValueT | None:  # pyright: ignore[reportIncompatibleMethodOverride]
+    @overload
+    def get(self, key: KeyT) -> ValueT | None: ...
+
+    @overload
+    def get(self, key: KeyT, default: DefaultT) -> ValueT | DefaultT: ...
+
+    def get(self, key: KeyT, default: Any = None) -> Any:  # pyright: ignore[reportIncompatibleMethodOverride]
         """按键取值（不存在返回 default，默认 None）。"""
         shard = self._shard(key)
         if shard is not None:

@@ -3,6 +3,7 @@
 import pytest
 from pydantic import ValidationError
 
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import get_settings
 from bms_core.schemas.pagination import BaseCursorQuery, BasePageQuery
 
@@ -38,7 +39,7 @@ def test_page_depth_follows_configuration(monkeypatch: pytest.MonkeyPatch) -> No
 @pytest.mark.kiwi_id(1078)
 def test_cursor_query_contract() -> None:
     """游标请求契约：首页游标为空、limit 上限 200、排序参数继承自排序契约。"""
-    query = BaseCursorQuery(limit=200, order_by="created_at", order=["desc"])
+    query = BaseCursorQuery(limit=200, order_by="created_at", order=ConcurrentStableList(["desc"]))
     assert query.cursor is None
     assert query.limit == 200
     assert [spec.field for spec in query.specs()] == ["created_at"]

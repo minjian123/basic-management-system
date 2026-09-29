@@ -18,15 +18,16 @@
 """
 
 from abc import ABC, abstractmethod
-from typing import cast
+from typing import Annotated, cast
 
 from fastapi import Request
 from pydantic import Field
 
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 from bms_core.db.tenant import build_tenant_db_key
-from bms_core.schemas.base import BaseSchema
+from bms_core.schemas.base import CONTRACT_COLLECTION, CONTRACT_STABLE_LIST, BaseSchema
 
 __all__ = [
     "DEFAULT_BRAND_PRIMARY_COLOR",
@@ -68,7 +69,9 @@ class TenantSummary(BaseSchema):
 class TenantSelfOverview(BaseSchema):
     """租户自助概览：我加入的租户列表 + 当前租户 + 是否多租户。"""
 
-    tenants: list[TenantSummary] = Field(default_factory=list[TenantSummary], description="我加入的租户列表")
+    tenants: Annotated[ConcurrentStableList[TenantSummary], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_LIST, description="我加入的租户列表"
+    )
     current_code: str | None = Field(default=None, description="当前租户编码（由调用方从解析链上下文传入）")
     multi_tenant: bool = Field(default=False, description="是否多租户（租户列表长度 > 1）")
 

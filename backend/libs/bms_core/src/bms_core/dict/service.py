@@ -9,11 +9,13 @@
 
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from typing import Annotated
 
 from pydantic import Field
 from sqlalchemy import select
 from sqlalchemy.orm.exc import StaleDataError
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.exceptions import ConcurrentConflictError, ConflictError, NotFoundError
 from bms_core.core.objects import BaseFrameworkObject
 from bms_core.db.registry import EngineRegistry
@@ -23,7 +25,7 @@ from bms_core.dict.base import DictCacheRegion
 from bms_core.dict.cache import MemoryDictCacheRegion
 from bms_core.dict.models import SysDictAttr, SysDictItem, SysDictType
 from bms_core.i18n.base import SUPPORTED_LOCALES
-from bms_core.schemas.base import BaseSchema
+from bms_core.schemas.base import CONTRACT_COLLECTION, BaseSchema
 
 __all__ = [
     "DictAttrPayload",
@@ -49,7 +51,9 @@ class DictItemPayload(BaseSchema):
     label: str = Field(description="条目标签（默认语言）")
     value: str = Field(description="条目值")
     parent_id: str | None = Field(default=None, description="级联父值")
-    attr_json: dict[str, object] | None = Field(default=None, description="扩展属性值（普通链路不返回）")
+    attr_json: Annotated[ConcurrentStableDict[str, object] | None, CONTRACT_COLLECTION] = Field(
+        default=None, description="扩展属性值（普通链路不返回）"
+    )
     color: str | None = Field(default=None, description="语义色")
     sort: int = Field(default=0, description="排序值")
     status: str = Field(default="enabled", description="状态（enabled/disabled）")
@@ -63,7 +67,9 @@ class DictAttrPayload(BaseSchema):
     data_type: str = Field(description="数据类型（text/number/date/enum/bool）")
     operators: tuple[str, ...] | None = Field(default=None, description="可用操作符集合")
     widget: str | None = Field(default=None, description="值控件")
-    options: tuple[dict[str, object], ...] | None = Field(default=None, description="enum 选项集")
+    options: tuple[Annotated[ConcurrentStableDict[str, object], CONTRACT_COLLECTION], ...] | None = Field(
+        default=None, description="enum 选项集"
+    )
     sort: int = Field(default=0, description="排序值")
     status: str = Field(default="enabled", description="状态（enabled/disabled）")
     scope: str = Field(default="platform", description="属性来源（platform/tenant）")
@@ -223,7 +229,7 @@ class DictService(BaseFrameworkObject):
             row.label = payload.label
             row.value = payload.value
             row.parent_id = payload.parent_id
-            row.attr_json = payload.attr_json
+            row.attr_json = dict(payload.attr_json) if payload.attr_json is not None else None
             row.color = payload.color
             row.sort = payload.sort
             row.status = payload.status

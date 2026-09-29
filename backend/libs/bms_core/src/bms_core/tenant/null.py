@@ -1,6 +1,7 @@
 """tenant_self_service 能力域缺省实现（Null Object）：固定返回单租户，不落库、不签发令牌、不读租户配置。"""
 
 from bms_core.core.capability import BaseNullObject
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.db.tenant import DEMO_TENANT
 from bms_core.tenant.base import (
     TENANT_SWITCH_MODES,
@@ -28,13 +29,15 @@ class NullTenantSelfService(BaseTenantSelfService, BaseNullObject):
             TenantSelfOverview: 仅含演示租户的概览（非多租户）。
         """
         return TenantSelfOverview(
-            tenants=[
-                TenantSummary(
-                    id=DEMO_TENANT.code,
-                    name=DEMO_TENANT.name,
-                    code=DEMO_TENANT.code,
-                )
-            ],
+            tenants=ConcurrentStableList(
+                [
+                    TenantSummary(
+                        id=DEMO_TENANT.code,
+                        name=DEMO_TENANT.name,
+                        code=DEMO_TENANT.code,
+                    )
+                ]
+            ),
             current_code=DEMO_TENANT.code,
             multi_tenant=False,
         )
