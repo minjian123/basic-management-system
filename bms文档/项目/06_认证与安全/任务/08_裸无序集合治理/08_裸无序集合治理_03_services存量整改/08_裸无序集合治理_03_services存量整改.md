@@ -11,7 +11,7 @@
 | 编号 | 03 |
 | 父任务 | [08 裸无序集合治理](../08_裸无序集合治理.md) |
 | 对应需求 | [08-2](../../../需求/08_需求_裸无序集合治理.md#r08-2) |
-| 工时（重估） | 10h |
+| 工时（重估） | 26h |
 | 依赖 | 08_02（批次 1 · `bms_core`） |
 | 负责人 | minjian |
 | 状态 | 未开始 |
@@ -19,15 +19,16 @@
 
 ## 2. 任务内容 <a id="content"></a>
 
-1. **存量整改（批次 2 · `services`）**：`backend/services/*/src`（identity / org / tenant 等）命中 **79 处**（类字段 22 / 签名参数 9 / 签名返回 48，2026-09-29 实测）逐处整改——以「换基座形态 / 只读抽象」为主；稳定序要求**一律落 `ConcurrentSorted*`（并发有序集合）或 `Sequence`**——**`SortedList` / `SortedDict` / `SortedSet` 为基座内部基础实现，不作为整改落点**（不得直接声明 / 继承，2026-09-29 定档）；**批内先类字段（Schema / 数据契约字段优先，impact 序列化输出）、后签名参数与返回**；仅改声明与 import，不改行为。
-2. **行为等价把握**：Pydantic / 数据契约字段由 `dict` / `list` 收窄为 `Mapping` / `Sequence` 时，校验与序列化语义须保持一致；服务出参契约（若属对外 JSON 契约）优先用 `Sequence`（有序输出），不改协议键与字段名。
-3. **基线递减**：`python3 scripts/tools/base-check/check-bare-collections.py . --update-baseline` 重写 `deploy/boundaries/bare_collections_baseline.json`（243 → 164 处），**不得手工删除基线条目**。
-4. **登记回写**：《[后端基类清单](../../../../../后端基类清单.md)》「集合体系」节批次进度与余量；盘点报告 §4 批次表状态随实施更新。
-5. **测试**：先登记 Kiwi TCMS 用例取号、后写自动化——断言 `services` 命中归零、基线递减至 164、护栏复跑「新增 0 / 残留 0」；受影响定向回归（identity / org / tenant 相关用例）与门禁全绿。
+1. **存量整改（批次 2 · `services`）**：`backend/services/*/src`（identity / org / tenant 等）命中 **104 处**（裸容器 79＝类字段 22 / 参数 9 / 返回 48；**抽象落点 25**，2026-09-29 实测）**全落插入序形态**（`ConcurrentStableList` / `ConcurrentStableSet` / `ConcurrentStableDict`，类字段 / 参数 / 返回位置全覆盖）——**口径与落点以 [08_02 详细设计](../08_裸无序集合治理_02_bms_core存量整改/设计/01_详细设计_02_bms_core存量整改.md) 为准**；`ConcurrentSorted*` 与 `SortedList` / `SortedDict` / `SortedSet` 为基座内部实现、不作为整改落点（不得直接声明 / 继承）；**批内先类字段（Schema / 数据契约字段优先，影响序列化输出）、后签名参数与返回**。
+2. **前置依赖与调用适配**：`08_02` 参数位收窄会让 `services` 调用方（`bms_core` 接口传参）报错——本批一并适配（构造集合类实例 / 按 §3.6 口径拷贝），并作为 `08_02` 前置输入清单落实。
+3. **契约一致性**：Pydantic / 数据契约字段落插入序集合类时，须以基座 `CONTRACT_COLLECTION` 元数据内联标注，**契约 JSON Schema 与前端 `api-types` 零漂移**为门禁；不改协议键与字段名。
+4. **基线递减**：`python3 scripts/tools/base-check/check-bare-collections.py . --update-baseline` 重写 `deploy/boundaries/bare_collections_baseline.json`（940 → 220 中的本批段：324 → 220），**不得手工增删基线条目**。
+5. **登记回写**：《[后端基类清单](../../../../../后端基类清单.md)》「集合体系」节批次进度与余量；盘点报告 §4 批次表状态随实施更新。
+6. **测试**：先登记 Kiwi TCMS 用例取号、后写自动化——断言 `services` 命中归零、基线递减至 220、护栏复跑「新增 0 / 残留 0」；受影响定向回归（identity / org / tenant 相关用例）与门禁全绿。
 
 ## 3. 完成标准 <a id="accept"></a>
 
-`services` 79 处全部改为**并发有序集合类或只读抽象**（稳定序落 `ConcurrentSorted*`；`Sorted*` 不作为落点）且**行为零变更**；基线快照递减至 164 处且 `check-bare-collections.py` 复跑「新增 0 / 残留 0」；对外协议键与字段名零变更；《后端基类清单》「集合体系」与代码一致；受影响定向 `pytest`、`ruff`、`pyright`、基座校验与 `preflight --fast` 全绿。
+`services` 104 处（裸 79 + 抽象 25）全部改为**插入序集合类**（`ConcurrentStable*`；`Sorted*` / `ConcurrentSorted*` 不作为落点）且**形态一致 + 逐处登记**；`08_02` 参数位收窄带来的调用适配完成；基线快照递减至 220 且 `check-bare-collections.py` 复跑「新增 0 / 残留 0」；契约 JSON Schema 与前端类型零漂移、对外协议键与字段名零变更；《后端基类清单》「集合体系」与代码一致；受影响定向 `pytest`、`ruff`、`pyright`、基座校验与 `preflight --fast` 全绿。
 
 ## 4. 参考文档 <a id="ref"></a>
 
