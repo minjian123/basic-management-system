@@ -1,75 +1,56 @@
 # opencode 部署使用说明
 
-> mjpc 开发机 opencode（桌面端 desktop + 命令行 CLI）部署与验证实录 · 2026-08-29（现状复核 2026-09-18）
+> mjpc 开发机 opencode（命令行 CLI + 桌面端 desktop）部署与验证实录 · 初版 2026-08-29，现行版本 v2（2026-09-29 完成 v1 → v2 迁移）
 
 [文档首页](../../文档首页.md) › 资料 › 开发机 › opencode 部署使用说明　|　[同级参照：中文输入法部署使用说明 →](中文输入法部署使用说明.md)　[Steamcommunity_302部署使用说明 →](Steamcommunity_302部署使用说明.md)　[防火墙部署使用说明 →](防火墙部署使用说明.md)
 
 ## 1. 目的与适用范围 <a id="purpose"></a>
 
-记录开发机 **mjpc**（Ubuntu 26.04.1 LTS，GNOME，Wayland，NVIDIA RTX 4090）上 **opencode** 三个实体的部署与使用：
+记录开发机 **mjpc**（Ubuntu 26.04.1 LTS，GNOME，Wayland，NVIDIA RTX 4090）上 **opencode v2** 的部署、配置与使用：
 
-- **opencode desktop**（桌面图形端）：**当前为 snap 版 1.18.27**。历史上曾弃用 snap、改用官方 **.deb 版**以规避本机 NVIDIA/Wayland 下的 GPU 崩溃（`--disable-gpu`），后已**回退 snap**——现 snap 1.18.27 在原生 Wayland 下稳定运行，GPU 进程正常，无需 `--disable-gpu`。deb 安装与定制作为**历史备查**保留（见[第 4 节](#deploy)）。
-- **opencode CLI**（命令行版）：官方二进制，装在 `~/.opencode/bin/opencode`，当前 **1.18.30**（见[第 5 节](#cli)）。
-- **opencode 插件**：**当前未登记任何插件**——记忆插件 `opencode-mem` 曾于 2026-09-18 登记，因导致桌面端无法会话当日卸载（现象、证据与残留清理见[第 7.3 节](#plugins)）。
+- **opencode CLI**（命令行版）：官方二进制，装于 `~/.opencode/bin/opencode`，当前 **2.0.16**；
+- **opencode desktop**（桌面图形端）：官方 `.deb`，apt 安装到 `/opt/OpenCode/`，当前 **2.0.16**；
+- **配置**：全局 `~/.config/opencode/opencode.jsonc` 与各项目配置**已全部迁移为 v2 原生格式**（[第 6 节](#config)）。
 
-> **现状复核（2026-09-18）**：桌面端 = snap 1.18.27（`/snap/opencode/current/`，**不存在** `/opt/OpenCode`、**无**用户级 `--disable-gpu` 覆盖）；CLI = `~/.opencode/bin/opencode` 1.18.30。本文第 3 节环境表与第 6 节产物表已按此更新，第 4 节的 .deb 步骤仅作历史备查（见 4.0）。
+v1 时期的 snap 部署方式、NVIDIA/Wayland 下 GPU 崩溃的排查结论与 `--disable-gpu` 规避方案属**历史备查**，保留在[第 2.3 节](#history-v1)与[第 8.2 节](#gpu-history)，遇同类现象可直接照做。
 
-历史方案（2026-08-29）：desktop 曾弃用 snap、改用官方 .deb 版；针对本机 NVIDIA/Wayland 下的 GPU 崩溃，桌面端曾默认以 `--disable-gpu` 启动；CLI 用官方二进制装到 `~/.opencode/bin`。**该决定已于后续回退**：桌面端回到 snap，以 snap 1.18.27 稳定运行。
+## 2. 现状与沿革 <a id="status"></a>
 
-## 2. 背景与结论 <a id="background"></a>
+### 2.1 现状速览 <a id="status-now"></a>
 
-### 2.1 现象 <a id="symptom"></a>
+| 实体 | 版本 | 安装位置 | 启动方式 |
+| --- | --- | --- | --- |
+| CLI | 2.0.16 | `~/.opencode/bin/opencode`（同目录 `opencode2` 为兼容别名 shim） | 终端执行 `opencode` |
+| 桌面端 | 2.0.16 | `/opt/OpenCode/`（apt 包名 `opencode`） | 应用菜单 **OpenCode**；或命令行 `/usr/bin/ai.opencode.desktop` |
 
-配置完[中文输入法（Fcitx5 + kimpanel 候选窗跟随光标）](中文输入法部署使用说明.md)之后，opencode desktop 出现「启动不了」的现象：
+两者**升级通道独立、版本号可不一致**：CLI 用 `opencode upgrade` 自更新，桌面端由包内自更新器检查下载（`~/.cache/@opencodedesktop-updater`）。
 
-- 点击桌面图标**毫无反应**，或窗口一闪而过；
-- 反复点击启动，每次都无窗口产出，就像「点了没作用」。
+> 2026-09-29 迁移当日桌面端自更新器已检到官方 **2.0.18** 并触发下载，即桌面端会自行跟进小版本；CLI 需手动 `opencode upgrade` 或不定期重下二进制。
 
-### 2.2 排查过程 <a id="diagnose"></a>
+### 2.2 v1 → v2 迁移过程（2026-09-29） <a id="migration"></a>
 
-排查中发现两件事，需要分清层次：
+v2 是一次重写（服务端 API 重做、运行时换 Node、插件 API 不兼容），官方迁移文档明确要求**先移除包管理器安装的 v1，再安装 v2**；v1 与 v2 使用同一个 `opencode` 命令、同一套配置位置，不能并存。本次迁移的实际动作：
 
-1. **进程与后台服务是活的**：主进程、渲染进程、网络/Node 服务都在，`127.0.0.1:<port>` 的后台服务也能返回「服务已就绪」（HTTP 401 即说明服务已起）。但窗口没有真正绘制出来。
-2. **GPU 进程在无限崩溃**：启动日志反复出现——
+| 步骤 | 动作 |
+| --- | --- |
+| 1 | 删除 v1 CLI 二进制 `~/.opencode/bin/opencode`（1.18.32） |
+| 2 | `sudo snap remove opencode`——一次移除 snap 版 CLI **与**其中的 `opencode+desktop` 桌面组件（snapd 2.76 无 `remove-component` 子命令，桌面组件无法单独卸） |
+| 3 | 删除 v1 会话数据：`~/.local/share/opencode/` 下 `opencode.db`（约 2.2GB）、`storage/`、`snapshot/`、`tool-output/`、`log/`；**保留** `auth.json`（旧凭据文件，可查 key） |
+| 4 | 删除 v1 桌面用户数据 `~/.config/ai.opencode.desktop/`（与 v2 桌面同 appId，避免旧窗口/工作区/崩溃状态带入） |
+| 5 | 删除 v1 插件依赖残留 `~/.config/opencode/` 下的 `node_modules/`、`package.json`、`package-lock.json`；**保留** `opencode.jsonc` 与 `skills/` |
+| 6 | 安装 v2 CLI 2.0.16（官方二进制）；安装 v2 桌面端 `.deb` 2.0.16（apt） |
+| 7 | 8 份配置全部改写为 v2 原生格式（[第 6 节](#config)） |
 
-```text
-ERROR:content/browser/gpu/gpu_process_host.cc:998
-GPU process exited unexpectedly: exit_code=139
+`~/.bashrc` 中 `~/.opencode/bin` 的 PATH 段**保留**——v2 官方安装脚本同样使用该目录，无需改动。
 
-ERROR:ui/ozone/platform/wayland/gpu/wayland_surface_factory.cc:252
-'--ozone-platform=wayland' is not compatible with Vulkan.
-Consider switching to '--ozone-platform=x11' or disabling Vulkan
+### 2.3 v1 时期的部署沿革（历史备查） <a id="history-v1"></a>
 
-ERROR:media/gpu/vaapi/vaapi_wrapper.cc:1658
-vaInitialize failed: unknown libva error
-```
+- v1 桌面端曾长期使用 **snap 版**（1.18.x，classic + `desktop` 组件），历史上一度改用官方 `.deb` 以自行控制启动参数，后回退 snap；
+- v1 CLI 与桌面端是**两个独立二进制**：snap 版同时提供 CLI 与桌面端，而 `.deb` 版只装桌面端（`/opt/OpenCode/`），故当时 CLI 单独用官方二进制装到 `~/.opencode/bin`；
+- v1 全局配置的 provider 用 `npm: "@ai-sdk/openai-compatible"` 运行时，凭据存 `~/.local/share/opencode/auth.json` 并通过 `/connect` 录入；
+- v1 插件 API 与 v2 **完全不兼容**，v1 插件实现（如工作区 `.opencode/plugins/*.js`）不会在 v2 中运行。
 
-`exit_code=139`（SIGSEGV）说明 GPU 进程在**原生 Wayland + Vulkan** 下初始化即段错误崩溃，且不停重试，最终把主进程也拖垮，导致窗口永远画不出来。
-
-### 2.3 结论 <a id="conclusion"></a>
-
-**根本原因不是 snap 版的问题，也和「输入法跟随光标」的配置无关**，而是本机 **NVIDIA 显卡（RTX 4090、驱动 595.91.07）与 Electron 应用的 Vulkan/Wayland 初始化不兼容**。
-
-- 这个崩溃在 **snap 版**和 **.deb 版**上**都能复现**，证明与打包方式无关；
-- 用 `--ozone-platform=x11` 回退 XWayland**仍然崩溃**（试图切 X11 后 GPU 进程依然 SIGSEGV），说明问题不在 Wayland 本身，而在 GPU 进程初始化；
-- 用 `--disable-gpu`（彻底禁用 GPU 进程，走软件渲染）后**不再崩溃**，主进程稳定、服务就绪、窗口正常。
-
-> **关键**：本结论与《[中文输入法部署使用说明](中文输入法部署使用说明.md)》「候选窗不跟随光标」节中"不要用 `ELECTRON_OZONE_PLATFORM_HINT=x11` 回退"的提醒是两条不同的线——那条针对的是**输入法候选窗**，本条针对的是**窗口能否渲染**。用 `--disable-gpu` 解决渲染问题，不会影响 kimpanel 候选窗跟随光标。
-
-### 2.4 为什么弃用 snap <a id="why-not-snap"></a>
-
-- 想要一个更贴近官方、不经过 snap 封装的安装方式，便于自行控制启动参数；
-- snap 版为 classic + components 结构，桌面端在其中，且不继承宿主自定义环境变量（对输入法、GPU 等排障不友好）；
-- 官方 GitHub Releases 直接发布独立的 `opencode-desktop-linux-amd64.deb`，链路上更直接。
-
-### 2.5 命令行 CLI 一并被卸载 <a id="cli-removed"></a>
-
-snap 版同时提供 **opencode CLI**（`/snap/bin/opencode` 命令）与桌面端。`sudo snap remove opencode` 把**两者**都移除了；而 `.deb` 版只安装**桌面端**（`/opt/OpenCode/`），**不含 CLI**。因此卸载 snap 后会出现：
-
-- desktop 通过 `.deb` 装回后可用；
-- **`opencode` 命令消失**，`which opencode` 为空、`/snap/bin/opencode` 无链接。
-
-CLI 需用官方二进制**单独装回**（见[第 5 节](#cli)），与 desktop 是**两个独立的二进制**，互不冲突。
+> 2026-09-18 的记忆插件 `opencode-mem` 故障处置（登记后桌面端无法会话、当日卸载）属 v1 时期事件，其排除思路（先移除 `plugin` 登记、清插件缓存、完全重启）对 v2 的 v2 版插件同样适用。
 
 ## 3. 技术环境 <a id="environment"></a>
 
@@ -78,112 +59,234 @@ CLI 需用官方二进制**单独装回**（见[第 5 节](#cli)），与 deskto
 | 系统 | Ubuntu 26.04.1 LTS（resolute），x86_64 |
 | 桌面 | GNOME（`XDG_SESSION_TYPE=wayland`） |
 | 显卡 | NVIDIA GeForce RTX 4090（AD102），驱动 595.91.07 |
-| opencode（snap 版，desktop） | 1.18.27（rev 217，`latest/stable`，classic + components） |
-| 安装路径（desktop） | `/snap/opencode/current/`（程序 `.../bin/opencode-desktop.wrapper`） |
-| 启动器（desktop） | `/snap/bin/opencode.desktop`（snap 桌面项 `/var/lib/snapd/desktop/applications/opencode_desktop.desktop`） |
-| opencode（二进制，CLI） | 1.18.30 |
-| 安装路径（CLI） | `~/.opencode/bin/opencode` |
-| 配置数据目录（desktop） | `~/.config/ai.opencode.desktop/` |
-| 数据（会话/项目）目录 | `~/.local/share/opencode/` |
-| opencode 全局配置 | `~/.config/opencode/opencode.jsonc`（provider/model；`plugin` 插件登记可选，当前未登记） |
-| npm 插件缓存 | `~/.cache/opencode/packages/`（`<spec>@<version>`；当前无插件） |
-| opencode 配置（项目级） | `<项目>/.opencode/opencode.json`（provider/model、插件登记，覆盖全局） |
+| opencode CLI | 2.0.16（官方 `opencode-linux-x64.tar.gz` 二进制） |
+| opencode 桌面端 | 2.0.16（官方 `opencode-desktop-linux-amd64.deb`，apt 包 `opencode`） |
+| 全局配置 | `~/.config/opencode/opencode.jsonc`（v2 原生格式） |
+| 数据目录 | `~/.local/share/opencode/`（`opencode.db` 为凭据与会话的唯一存储） |
+| 后台服务 | `opencode serve --service`（v2 共享后台服务，各客户端共用，随用随起） |
 
-版本说明（2026-09-18 复核）：desktop = snap **1.18.27**、CLI = **1.18.30**；两者升级通道独立，版本号可不一致。CLI 的 `.opencode/package.json` 里插件依赖 `@opencode-ai/plugin`（1.18.x 系，向后兼容）。
+## 4. 命令行 CLI 部署 <a id="cli"></a>
 
-### 3.1 依赖（按实际包名） <a id="deps"></a>
+### 4.1 安装与升级 <a id="cli-install"></a>
 
-`.deb` 包声明的依赖在 Ubuntu 26.04 下的实际包名（t64 后缀属 Ubuntu 24.04+ 的 t64 迁移约定）：
-
-| 声明依赖 | 实际包名（Ubuntu 26.04） |
-| --- | --- |
-| libgtk-3-0 | libgtk-3-0t64 |
-| libatspi2.0-0 | libatspi2.0-0t64 |
-| libnotify4 | libnotify4 |
-| libnss3 | libnss3 |
-| libxss1 | libxss1 |
-| libxtst6 | libxtst6 |
-| xdg-utils | xdg-utils |
-| libuuid1 | libuuid1 |
-| libsecret-1-0 | libsecret-1-0 |
-
-## 4. 桌面端（desktop）部署 <a id="deploy"></a>
-
-> **历史备查（2026-09-18 加注）**：本节记录 2026-08-29 从 snap 改 **.deb** 的一次尝试，**当前机器已回退 snap**：不存在 `/opt/OpenCode`，4.4 节的用户级 `--disable-gpu` 覆盖也已不存在。保留本节，是为了将来若再遇 GPU 崩溃可直接照做；当前生效的部署方式以[第 3 节](#environment)环境表为准。
-
-### 4.0 当前状态 <a id="deploy-status"></a>
+v2 官方分发渠道为 `~/.opencode/bin/opencode`，与 v1 路径一致（原地替换）。本机采用官方二进制直接安装：
 
 ```bash
-snap list opencode                  # 1.18.27，rev 217，latest/stable
-ls -l /snap/bin/opencode.desktop    # → /usr/bin/snap
-ps -eo cmd | grep opencode_desktop  # 原生 Wayland 下运行，GPU 进程正常，未带 --disable-gpu
+# 1) 下载 Linux x64（glibc 标准版）二进制包；慢时可换用官方安装脚本
+curl -fL --retry 5 --retry-delay 3 -o /tmp/opencode-linux-x64.tar.gz \
+  "https://opencode.ai/files/bin/2.0.16/opencode-linux-x64.tar.gz"
+
+# 2) 解压（包内为单个名为 opencode 的可执行文件）
+mkdir -p /tmp/oc_extract && tar -xzf /tmp/opencode-linux-x64.tar.gz -C /tmp/oc_extract
+
+# 3) 安装到官方路径
+install -Dm755 /tmp/oc_extract/opencode ~/.opencode/bin/opencode
+
+# 4) 生成 opencode2 兼容别名（官方安装脚本亦会创建，指向同一个二进制）
+printf '#!/bin/sh\nexec "$(dirname "$0")/opencode" "$@"\n' > ~/.opencode/bin/opencode2
+chmod 755 ~/.opencode/bin/opencode2
 ```
 
-以下小节（4.1–4.4）为 .deb 尝试的完整步骤，仅作历史备查。安装类命令需 sudo，下载优先走国内加速镜像（GitHub 经 `ghfast.top` 加速，见 4.2）。
-
-### 4.1 卸载 snap 版 <a id="remove-snap"></a>
+升级与卸载：
 
 ```bash
-sudo snap remove opencode
+opencode upgrade                    # 升到最新版（或 opencode upgrade <版本号>）
+opencode uninstall --dry-run        # 预览将要删除的文件与安装
+opencode uninstall --keep-config --keep-data   # 保留配置与会话数据卸载
 ```
 
-说明：
+> 官方安装脚本 `curl -fsSL https://opencode.ai/v2/install | bash` 与上述步骤等价，并会自行维护 PATH 段与 `opencode2` 别名。脚本按当前网络状况选择下载路径，网络不佳时逐段下载可能较慢，可直接用上面第 1 步替换。
 
-- 该命令**只删除 `/snap/opencode` 下的程序本体**，**不会**删除你的配置与数据（`~/.config/opencode`、`~/.config/ai.opencode.desktop`、`~/.local/share/opencode` 等），重新装好后登录态与项目都在；
-- 卸载后 `/snap/bin/opencode`、`/snap/bin/opencode.desktop` 链接一并移除。
+### 4.2 PATH 与验证 <a id="cli-verify"></a>
 
-验证卸载完成：
+`~/.bashrc` 追加段（迁移前后均保留）：
 
 ```bash
-snap list | grep -i opencode      # 无输出即已移除
-ls /snap/bin/opencode* 2>/dev/null || echo "已无 /snap/bin 链接"
+# opencode CLI (opencode/bin)
+if [ -d "$HOME/.opencode/bin" ]; then
+  export PATH="$HOME/.opencode/bin:$PATH"
+fi
 ```
 
-### 4.2 获取 .deb 安装包 <a id="get-deb"></a>
-
-确定最新版号后，从 GitHub Releases 下载。本机 `github.com` 直连下载很慢，经 **`ghfast.top`** 加速前缀可大幅提速（下游下载类命令统一走该加速的方式）。
-
 ```bash
-# 1) 用 GitHub API 查最新桌面版资产（github.com 直连 API 不走镜像）
-curl -s https://api.github.com/repos/anomalyco/opencode/releases/latest \
-  | grep -oE '"tag_name": *"[^"]*"'
-
-# 2) 经 ghfast.top 加速下载 .deb（替换下方 vX.Y.Z 为查到的版本号）
-curl -fL -o /tmp/opencode-desktop-linux-amd64.deb \
-  "https://ghfast.top/https://github.com/anomalyco/opencode/releases/download/v1.18.25/opencode-desktop-linux-amd64.deb"
+which opencode            # /home/minjian/.opencode/bin/opencode
+opencode --version        # opencode v2.0.16
+opencode debug paths      # 打印 home/data/cache/config/state/db 等路径
+script -qec "opencode models" /dev/null   # 列出可用模型（需交互终端，见 8.3）
 ```
 
-> 说明：`anomalyco/opencode` 是 opencode 当前的 GitHub 组织仓库。若下载用镜像前缀，`--retry 5 --retry-delay 3` 可增强稳定性；直连慢时优先镜像。
+> `opencode models` 在管道/非交互环境下**无输出**（命令要求可交互终端），排障时用真实终端或 `script -qec` 包一层。
 
-### 4.3 用 apt 安装 .deb <a id="install-deb"></a>
+## 5. 桌面端部署 <a id="desktop"></a>
 
-用 `apt-get install` 安装本地 .deb，让 apt 自动补齐依赖（会比直接 `dpkg -i` 省事，依赖来自已配置的国内源）。
+### 5.1 安装 <a id="desktop-install"></a>
+
+官方 Linux 桌面端提供 `.deb` / `.rpm` / AppImage；本机用 `.deb` 经 apt 安装（apt 自动补齐依赖，无需手动 `dpkg -i`）：
 
 ```bash
-sudo apt-get update
+curl -fL --retry 5 --retry-delay 3 -o /tmp/opencode-desktop-linux-amd64.deb \
+  "https://opencode.ai/files/bin/2.0.16/opencode-desktop-linux-amd64.deb"
+
 sudo apt-get install -y /tmp/opencode-desktop-linux-amd64.deb
 ```
 
-- 安装完成后注册启动器 `/usr/bin/ai.opencode.desktop`（指向 `/opt/OpenCode/ai.opencode.desktop`）；
-- 桌面应用菜单里出现 **OpenCode** 条目，图标为 `ai.opencode.desktop`；
-- 依赖（libxss1 等）由 apt 一起装好，虽见 `debconf` 提示但自动转 Noninteractive 完成，可忽略。
-
-验证安装：
+安装结果与验证：
 
 ```bash
-dpkg -s opencode | grep -E 'Status|Version'   # install ok installed / 1.18.25
-ls -l /usr/bin/ai.opencode.desktop             # 指向 /opt/OpenCode/ai.opencode.desktop
+dpkg -s opencode | grep -E '^(Package|Status|Version):'   # install ok installed / 2.0.16
+ls -l /usr/bin/ai.opencode.desktop                        # → /etc/alternatives → /opt/OpenCode/ai.opencode.desktop
 ```
 
-### 4.4 针对 GPU 崩溃：让启动自动带 --disable-gpu <a id="disable-gpu-default"></a>
+- 程序目录 `/opt/OpenCode/`，可执行文件 `ai.opencode.desktop`（Electron）；
+- 桌面项 `/usr/share/applications/ai.opencode.desktop.desktop`（菜单可见）与 `opencode-desktop.desktop`（`NoDisplay=true`）；
+- 应用菜单条目名为 **OpenCode**，启动不需要任何附加开关。
 
-**这是本项目环境的关键定制**。deb 版默认启动命令不带任何开关，直接双击仍会复现 2.2 节所述的 GPU 崩溃（窗口闪退/无窗口）。办法是在**用户级**覆盖桌面项，让启动自动带上 `--disable-gpu`，从而不碰系统文件、不影响其他用户。
+### 5.2 启动确认与自更新 <a id="desktop-verify"></a>
 
-在 `~/.local/share/applications/` 下创建与系统同名的 `.desktop` 覆盖文件（GNOME 优先读取用户级目录）。两个文件都做（系统里有两个桌面项，见 5.1）：
+正常姿态（启动日志目录 `~/.config/ai.opencode.desktop/logs/<时间戳>/`）：
 
-**`~/.local/share/applications/ai.opencode.desktop.desktop`**
+```bash
+D=$(ls -td ~/.config/ai.opencode.desktop/logs/*/ | head -1)
+grep -E "main window visible|background service ready" "$D/main.log"
+```
+
+本次验证实测（2026-09-29）：
+
+| 证据 | 取值 |
+| --- | --- |
+| `main.log` | `main window visible`（窗口已绘制） |
+| `main.log` | `v2 CLI background service ready { version: '2.0.16', url: 'http://127.0.0.1:49374' }` |
+| `utility.log` | 无 `exit_code=139` / `GPU process exited`（GPU 进程正常） |
+| 自更新器 | 检到官方 2.0.18 并开始下载（缓存目录 `~/.cache/@opencodedesktop-updater`） |
+
+> 启动时仍会打印一条 `'--ozone-platform=wayland' is not compatible with Vulkan` 警告，属历史已知的无害告警（GPU 进程未崩溃即正常），无需处理；仅当出现[第 8.2 节](#gpu-history)所述的 GPU 崩溃时才需要 `--disable-gpu`。
+
+## 6. 配置（v2 原生格式） <a id="config"></a>
+
+### 6.1 配置落点 <a id="config-paths"></a>
+
+| 层级 | 路径 | 作用 |
+| --- | --- | --- |
+| 全局 | `~/.config/opencode/opencode.jsonc` | provider / 权限 / 模型别名（本机三个远程 provider 在此） |
+| 全局 | `~/.config/opencode/skills/` | 全局技能 |
+| 项目 | `<项目>/opencode.json`、`<项目>/.opencode/opencode.json` | 项目 model、provider、MCP、命令等，覆盖全局 |
+| 客户端 | `~/.config/opencode/cli.json` | 终端客户端设置（TUI 外观/快捷键），由客户端首次启动从 `tui.json(c)` 迁移 |
+
+项目级配置一律在各自 git 仓库内跟踪，迁移时 8 份配置**全部改写为 v2 原生格式**（列表见 6.3）。
+
+### 6.2 v1 → v2 字段对照（全局配置实例） <a id="config-mapping"></a>
+
+| v1 写法 | v2 写法 | 说明 |
+| --- | --- | --- |
+| `"permission": "allow"` | `"permissions": [ {"action":"*","resource":"*","effect":"allow"}, {"action":"external_directory",…}, {"action":"read","resource":"*.env",…}, … ]` | v1 的全局字符串表示「全部允许」；v2 改为**有序规则数组**（后者覆盖前者），要保住 v1 的全允许语义需显式放开 `external_directory` 与 `*.env`（v2 默认这两项为 `ask`） |
+| `"provider": { … }` | `"providers": { … }` | 单数改复数 |
+| `"npm": "@ai-sdk/openai-compatible"` | `"package": "@opencode/ai/providers/openai-compatible"` | 采用 **v2 内置运行时包**，不再依赖 npm 包（配置目录无需 node_modules） |
+| `"options": { "baseURL": … }` | `"settings": { "baseURL": … }` | provider / 模型级请求设置统一进 `settings`（另有 `headers`、`body`） |
+| 模型条目 `"id": "deepseek/deepseek-v4.1-flash"` | `"modelID": "deepseek/deepseek-v4.1-flash"` | 模型别名键仍是 OpenCode 侧模型 ID，`modelID` 才是发给服务端的 ID |
+| 模型条目 `"options": { "reasoningEffort": … }` | 模型条目 `"settings": { "reasoningEffort": … }` | 模型级选项改名 |
+| `"tool_call": true` + `"modalities": { "input": [...], "output": [...] }` | `"capabilities": { "tools": true, "input": [...], "output": [...] }` | 能力声明收拢进 `capabilities` |
+| 模型级 `"reasoning"` / `"attachment": true` | 无对应字段（v2 忽略） | v2 的能力由 `capabilities` 描述 |
+| `"mcp": { "<名>": { … } }` | `"mcp": { "servers": { "<名>": { … } } }` | 服务器必须收进 `servers` |
+| `"enabled": true` | `"disabled": false` | 语义取反 |
+| `"experimental": { "mcp_timeout": 200000 }` | `"mcp": { "timeout": { "catalog": 200000, "execution": 200000 } }` | v1 的单一超时对应 v2 的目录读取与执行两类超时 |
+| `"plugin": [ … ]` | `"plugins": [ … ]` | **仅改名不够**：v1 插件实现在 v2 不运行，须按 v2 插件 API 重写 |
+| `"command": { … }` | `"commands": { … }` | 单数改复数；`template`、`description` 不变 |
+| 无 | `"env": ["COMMANDCODE_API_KEY"]` | 新增：为自定义 provider 指定凭据环境变量，作为 `/connect` 之外的兜底凭据来源 |
+
+### 6.3 本机配置清单 <a id="config-list"></a>
 
 ```text
+~/.config/opencode/opencode.jsonc              # 全局：permissions + providers（zhipu / siliconflow / commandcode）
+~/develop/bizs/.opencode/opencode.json         # bizs 工作区：lmstudio + llamacpp + MCP mjw-vision
+~/develop/cws/.opencode/opencode.json          # cws 工作区：同上（两文件内容一致）
+~/develop/bms_other/.opencode/opencode.json    # bms_other：lmstudio + MCP multimodal-local
+~/develop/cfsx/opencode.json                   # cfsx：shell（Windows Git bash）+ instructions
+~/story/jt/opencode.json                       # story/jt：instructions + commands
+~/story/cfsx/opencode.json                     # story/cfsx：shell + instructions
+~/story/yszl/.opencode/opencode.json           # story/yszl：lmstudio + llamacpp（多模型）
+```
+
+> 项目级配置中含 Windows 侧取值（如 `shell: "C:\\Program Files\\Git\\bin\\bash.exe"`、`D:/Develop/...` 的 MCP 命令），迁移后这些**只适用于对应平台**；v1 无法直接读取 v2 原生字段，若其他机器仍在用 v1，请先在 v1 侧确认再拉取这些改动。
+
+### 6.4 插件 <a id="plugins"></a>
+
+- v2 的插件 API 与 v1 **不兼容**：v1 插件实现（工作区 `.opencode/plugins/*.js`，如本机的 `bg.js`、`graphify.js`）**不会在 v2 中运行**，仅把配置项从 `plugin` 改名为 `plugins` 不够，须按 v2 插件 API 重写入口与钩子；
+- 本机**全局未登记任何插件**；项目级仅 `~/develop/bms_other/.opencode/opencode.json` 登记了 `plugins/graphify.js`（v1 实现）——该功能在 v2 下需重写后才可用；
+- 重新登记插件后须**完全重启**（桌面端含 sidecar 进程）并先验证会话正常，再投入日常使用。
+
+## 7. 凭据与连接 <a id="auth"></a>
+
+v2 的一个关键变化：**凭据保存在 SQLite 数据库内**（`~/.local/share/opencode/opencode.db`），官方说明仅在其「数据库迁移」时从 v1 的 `auth.json` 导入一次，此后新录入/更新的凭据**不再写回** `auth.json`。本次迁移删除了旧库，故迁移刚完成时 `opencode auth list` 为空，需逐 provider 重新连接；截至 2026-09-29 已完成重连的账号：
+
+```bash
+opencode auth list
+# OpenCode Go  OpenCode Go   stored
+# CommandCode  CommandCode   stored
+```
+
+重新连接的方式（按优先级）：
+
+```bash
+# 1) 交互式 CLI（推荐，凭据落入 SQLite）
+opencode auth login                 # 打开 provider 选择器
+opencode auth login commandcode --method key   # 指定 provider 与「API 密钥」方式
+
+# 2) TUI / 桌面端内：/connect 选择 provider 输入密钥，/models 选择模型
+
+# 3) 非交互：直接调服务端 API 的 key 连接端点
+#    （`auth login` 的 API 密钥录入要求交互终端，此路可在脚本或工具调用中用）
+opencode api post /api/integration/commandcode/connect/key \
+  --data '{"key":"<你的密钥>","label":"CommandCode"}'
+
+# 4) 兜底：用环境变量供给凭据（配置里已为三个自定义 provider 写好 env 字段）
+opencode service set env COMMANDCODE_API_KEY <你的密钥>
+opencode auth list                  # 出现 type 为 environment 的条目
+```
+
+> 排障时可用 `opencode api get /api/integration/<id>` 查看某 provider 支持的方法与已有连接（`methods` / `connections` 字段），先确认 provider ID 与可用的认证方式，再选上面任一路径重连。
+
+`~/.local/share/opencode/auth.json` 为 v1 遗留凭据文件，v2 **不读不回写**，仅供人工对照取用；2026-09-29 已移除其中的 commandcode 条目（该 provider 已在 v2 重连成功），余下 opencode-go / opencode / zhipu / siliconflow 四个条目保留，确认各 provider 重连成功后可按需自行删除该文件。
+
+## 8. 使用说明与故障排查 <a id="usage"></a>
+
+### 8.1 常用命令 <a id="usage-cli"></a>
+
+```bash
+opencode                                  # 在当前目录打开全屏 TUI
+opencode ~/develop/bizs                   # 指定目录打开
+opencode mini                             # 极简交互界面
+opencode run "帮我梳理这个仓库"            # 非交互执行一条消息（脚本/CI 可用）
+opencode run --model commandcode/deepseek-v4.1-flash "只回复两个字:正常"
+opencode serve                            # 启动 v2 API / Web 服务
+opencode pair                             # 打印 Web 配对信息（用户名/密码/URL）
+opencode models                           # 列出可用模型（需交互终端）
+opencode mcp list                         # MCP 服务器与连接状态
+opencode debug paths                      # 打印各路径（db/home/data/config/cache/state/…）
+opencode -c                               # 继续上一次会话
+opencode --standalone                     # 用私有服务运行（不共用后台服务）
+```
+
+- CLI 在项目目录运行时读该项目配置（如 `~/develop/bizs/.opencode/opencode.json`），本机默认模型为项目配置里的 `llamacpp/qwen3.8-27b-ud-q4-k-m`（连本机 `http://127.0.0.1:8080/v1` 的 llama-server）；
+- v2 默认复用**一个共享后台服务**（`opencode serve --service`），所有本地客户端（CLI/桌面端/Web）连它；排障时可用 `--standalone` 起私有服务隔离变量。
+
+### 8.2 桌面端无窗口 / GPU 崩溃（历史结论） <a id="gpu-history"></a>
+
+v1 时期（2026-08）在本机 NVIDIA + Wayland 下遇到过「点图标无窗口」，根因是 **GPU 进程在原生 Wayland + Vulkan 下初始化即 SIGSEGV（`exit_code=139`）并无限重试**，把主进程拖垮：
+
+```text
+ERROR:content/browser/gpu/gpu_process_host.cc:998
+GPU process exited unexpectedly: exit_code=139
+ERROR:ui/ozone/platform/wayland/gpu/wayland_surface_factory.cc:252
+'--ozone-platform=wayland' is not compatible with Vulkan.
+```
+
+结论与处置（当时对 snap 版与 .deb 版均复现）：
+
+- 与打包方式无关，`ELECTRON_OZONE_PLATFORM_HINT=x11` 也无用（切 X11 后 GPU 进程照样崩溃）；
+- 正解是**禁用 GPU 走软件渲染**。用 `.deb` 版时，可在用户级覆盖桌面项（不碰系统文件）：
+
+```text
+# ~/.local/share/applications/ai.opencode.desktop.desktop
 [Desktop Entry]
 Name=OpenCode
 Exec=/opt/OpenCode/ai.opencode.desktop --disable-gpu %U
@@ -195,260 +298,54 @@ MimeType=x-scheme-handler/opencode;
 Categories=Development;
 ```
 
-**`~/.local/share/applications/opencode-desktop.desktop`**（系统里这个条目是 `NoDisplay=true`，同样覆盖）
+- v1 回退到 snap 后该崩溃不再复现；v2 桌面端（`.deb` 2.0.16）本次实测 GPU 进程正常、**无需** `--disable-gpu`。仅当 v2 再现 `exit_code=139` 时，才按上面的用户级覆盖临时加上该开关。
 
-```text
-[Desktop Entry]
-Name=OpenCode
-Exec=/opt/OpenCode/ai.opencode.desktop --disable-gpu %U
-Terminal=false
-Type=Application
-Icon=ai.opencode.desktop
-StartupWMClass=ai.opencode.desktop
-NoDisplay=true
-Comment=Open source AI coding agent
-Categories=Development;
-```
-
-权限设为 644 并刷新桌面数据库：
+排查命令：
 
 ```bash
-chmod 644 ~/.local/share/applications/ai.opencode.desktop.desktop \
-          ~/.local/share/applications/opencode-desktop.desktop
-update-desktop-database ~/.local/share/applications
+ps -eo cmd | grep -E "ai\.opencode\.desktop" | grep -v grep | head    # 主进程与启动参数
+D=$(ls -td ~/.config/ai.opencode.desktop/logs/*/ | head -1)
+cat "$D/main.log"; grep -iE 'exit_code=139|GPU process exited|Vulkan' "$D/utility.log"
+ls -lt ~/.config/ai.opencode.desktop/Crashpad/pending/*.dmp 2>/dev/null | head   # 近期崩溃转储
 ```
 
-> 命令行手启动时，手动带 `--disable-gpu` 即可，效果与桌面双击一致：
-> ```bash
-> /opt/OpenCode/ai.opencode.desktop --disable-gpu
-> ```
+### 8.3 `opencode models` 无输出 <a id="models-empty"></a>
 
-## 5. 命令行（CLI）部署 <a id="cli"></a>
-
-CLI 是独立于桌面端的命令行二进制（`opencode` 命令），提供 TUI、`run`/`serve`/`web`、`models` 等子命令（见[第 7 节](#usage)）。它原本由 snap 版提供，snap 卸载后需单独装回。
-
-### 5.1 获取 CLI 二进制 <a id="cli-get"></a>
-
-opencode 的 CLI 与桌面端是**同一仓库** `anomalyco/opencode` 的不同资产，CLI 为 `opencode-linux-x64.tar.gz`（约 60MB，glibc 标准版）。同样建议经 `ghfast.top` 镜像加速。
+该命令要求可交互终端；在管道、脚本或工具调用里执行会**静默返回空**。排障用：
 
 ```bash
-# 1) 查最新版号（github.com 直连 API 不走镜像）
-curl -s https://api.github.com/repos/anomalyco/opencode/releases/latest \
-  | grep -oE '"tag_name": *"[^"]*"'
-
-# 2) 经 ghfast.top 加速下载 Linux x64 二进制（替换 vX.Y.Z 为查到的版本号）
-curl -fL -m 900 --retry 5 --retry-delay 3 \
-  -o /tmp/opencode-linux-x64.tar.gz \
-  "https://ghfast.top/https://github.com/anomalyco/opencode/releases/download/v1.18.30/opencode-linux-x64.tar.gz"
-
-# 3) 解压到临时目录（tar 内含单个名为 opencode 的二进制）
-mkdir -p /tmp/oc_extract && tar -xzf /tmp/opencode-linux-x64.tar.gz -C /tmp/oc_extract
+script -qec "opencode models" /dev/null
 ```
 
-### 5.2 安装到 ~/.opencode/bin 并配置 PATH <a id="cli-install"></a>
-
-官方安装脚本逻辑：把二进制放到 `~/.opencode/bin/`（`INSTALL_DIR=$HOME/.opencode/bin`），并修改 shell 配置让其进入 PATH。
+### 8.4 命令找不到 / 装了两个版本 <a id="cli-missing"></a>
 
 ```bash
-# 安装到官方路径
-mkdir -p ~/.opencode/bin
-cp /tmp/oc_extract/opencode ~/.opencode/bin/opencode
-chmod 755 ~/.opencode/bin/opencode
-
-# 追加 PATH 到 ~/.bashrc（去重，避免重复添加；交互终端与重启后均生效）
-if ! grep -q 'opencode/bin' ~/.bashrc; then
-  printf '\n# opencode CLI (opencode/bin)\nif [ -d "$HOME/.opencode/bin" ]; then\n  export PATH="$HOME/.opencode/bin:$PATH"\nfi\n' >> ~/.bashrc
-fi
+which -a opencode                     # 应只有 ~/.opencode/bin/opencode
+echo "$PATH" | tr ':' '\n' | grep opencode
+ls -l ~/.opencode/bin/opencode        # 二进制是否存在且有执行权限
+opencode --version                    # 期望 v2.0.16
 ```
 
-当前会话立即生效：`export PATH="$HOME/.opencode/bin:$PATH"`。
+- v1 与 v2 **不能并存**（同一个 `opencode` 命令）：若 `which -a` 出现多个路径，先卸载 v1 安装（snap 版用 `sudo snap remove opencode`）；
+- snap 版 `latest/stable` 通道仍发布 v1（1.18.x），需要回退 v1 时可用 `sudo snap install opencode` 装回 snap 版 CLI + 桌面端。
 
-### 5.3 验证 CLI <a id="cli-verify"></a>
+### 8.5 MCP 服务器与插件 <a id="mcp-trouble"></a>
 
 ```bash
-which opencode          # /home/minjian/.opencode/bin/opencode
-opencode --version      # 1.18.30
-opencode models         # 列出可访问的 provider/模型
-opencode models llamacpp  # 列出项目配置的本地 llamacpp 模型
+opencode mcp list                     # ✓ 名称 connected 即正常
+opencode mcp add <名> --url <URL>     # 加远端服务器（写入项目配置）
+opencode mcp auth <名>                # 需要时完成 OAuth
 ```
-
-端到端验证最小对话（调用本地模型）：
-
-```bash
-opencode run --model "llamacpp/qwen3.8-27b-ud-q4-k-m" "只回复两个字:正常"
-```
-
-CLI 读项目级配置 `<项目>/.opencode/opencode.json`（provider/model/插件登记），`llamacpp` provider 连本机 `http://127.0.0.1:8080/v1`（llama-server 手动脚本启动，不常驻，见《llamacpp 部署与使用说明》；模型别名 `qwen3.8-27b-ud-q4-k-m` 对应 UD 版）。
-
-## 6. 部署产物与配置 <a id="artifacts"></a>
-
-### 6.1 安装后的文件 <a id="files"></a>
-
-| 路径 | 作用 |
-| --- | --- |
-| `/snap/opencode/current/` | **桌面端主程序目录**（snap 1.18.27，`bin/opencode-desktop.wrapper`、resources/app.asar 等） |
-| `/snap/bin/opencode.desktop` | 桌面端启动入口（→ `/usr/bin/snap`） |
-| `/var/lib/snapd/desktop/applications/opencode_desktop.desktop` | snap 注册的桌面项（`Exec=/snap/bin/opencode.desktop ...`） |
-| `~/.config/ai.opencode.desktop/` | 桌面端配置数据（窗口状态、会话、日志子目录 logs/、Crashpad/ 等） |
-| `~/.local/share/opencode/` | opencode 应用数据（会话、快照、git 等） |
-| `~/.config/opencode/opencode.jsonc` | **全局配置**：provider/model；`plugin` 插件登记可选（当前未登记） |
-| `~/.cache/opencode/packages/` | npm 插件缓存（`<spec>@<version>`；更新插件即清此处；当前无插件） |
-| `~/.opencode/bin/opencode` | **CLI 二进制**（1.18.30，`opencode` 命令） |
-| `<项目>/.opencode/opencode.json` | 项目级 CLI/桌面端共享配置：provider/model/插件登记 |
-| `<项目>/.opencode/package.json` | 插件 API 依赖（`@opencode-ai/plugin`） |
-| `~/.bashrc`（追加段） | `~/.opencode/bin` 加入 PATH（CLI 可用）；`HF_ENDPOINT` 国内镜像（模型下载；原为插件嵌入模型所加，现保留） |
-
-> **历史（.deb 尝试，已回退）**：以下路径为 2026-08-29 deb 方案产物，当前**均不存在**，仅备查——`/opt/OpenCode/`、`/usr/bin/ai.opencode.desktop`、`/usr/share/applications/ai.opencode.desktop.desktop`、`/usr/share/applications/opencode-desktop.desktop`、`~/.local/share/applications/ai.opencode.desktop.desktop`、`~/.local/share/applications/opencode-desktop.desktop`。
-
-> **要点**：当前「桌面/应用菜单点 OpenCode」走 snap 桌面项，直接启动、不带任何开关（原生 Wayland 下 GPU 进程正常）。第 4.4 节那套 `~/.local/share/applications/` 用户级 `--disable-gpu` 覆盖属已回退方案，现不存在。
-
-## 7. 使用说明 <a id="usage"></a>
-
-### 7.1 桌面端（desktop） <a id="usage-desktop"></a>
-
-- **启动**：桌面/应用菜单点 **OpenCode**（走 snap 桌面项，直接启动）；或命令行 `/snap/bin/opencode.desktop`。
-- **正常姿态**：主进程 + 渲染进程 + 网络/Node/音频服务齐全，后台服务 `127.0.0.1:<port>` 返回就绪。日志目录 `~/.config/ai.opencode.desktop/logs/<时间戳>/` 出现且 `main.log` 含 `server ready` 即正常。
-- **升级（本体）**：snap 版由 snap 通道升级（`sudo snap refresh opencode`），桌面项内自更新另见 `main.log` 的 "Checking for update"。CLI 本体升级见[第 5 节](#cli)重下二进制。
-- **插件**：当前未登记（历史与排障见 [7.3](#plugins)）。重新登记插件须完全重启 opencode，并先验证会话正常再沿用。
-
-### 7.2 命令行（CLI） <a id="usage-cli"></a>
-
-```bash
-opencode --version            # 版本
-opencode models               # 列出可访问的 provider/模型
-opencode models llamacpp      # 列出项目配置的本地 llamacpp 模型
-opencode                      # 在当前目录启动 TUI（默认用 opencode.json 的 model）
-opencode run [message..]      # 非交互式跑一条消息
-opencode serve                # 启动无头 server
-opencode web                  # 启动 server 并打开 web 界面
-opencode --help               # 全部子命令
-```
-
-- CLI 在项目目录运行时读 `<项目>/.opencode/opencode.json`（含 `model` 默认值、`provider`、插件登记）。
-- 本机默认 model 走 `llamacpp` provider（连 `127.0.0.1:8080` 的 llama-server），可用 `opencode run --model <id> "..."` 临时指定。
-
-### 7.3 opencode 插件（当前未登记） <a id="plugins"></a>
-
-#### 7.3.1 opencode-mem（记忆插件）：已卸载 <a id="plugins-mem"></a>
-
-本机曾于 2026-09-18 在全局配置登记 npm 插件 `opencode-mem`（跨会话长期记忆，桌面端与 CLI 共用）。**登记并重启后桌面端无法会话，当日卸载**；当前**未登记任何插件**。
-
-**故障现象**：登记插件、重启桌面端后，会话无法使用（无法正常发起/继续会话）。
-
-**证据**（桌面端日志目录 `~/.config/ai.opencode.desktop/logs/20260918T035718/`）：
-
-| 时间 | 记录 |
-| --- | --- |
-| 11:57:18 | `main.log`：`app starting { version: '1.18.27', packaged: true }` |
-| 11:57:19 | `main.log`：`sidecar connection started` → `spawning sidecar { url: 'http://127.0.0.1:35729' }` |
-| 11:57:20 | `main.log`：`server ready`；`server.log` 仅有一条 `.opencode/plugins/bg.js` 的 MODULE_TYPELESS_PACKAGE_JSON 警告 |
-| 11:57:48 | `utility.log`：`sidecar exited { code: 0 }` |
-| 11:57:20 起 | CLI 侧日志 `~/.local/share/opencode/log/opencode.log` 停在配置加载（`loading path=…opencode.jsonc`），无后续记录 |
-
-即：server 就绪约 28 秒后 sidecar 退出、会话中断。日志未留下插件的错误栈（退出码 0，且 Crashpad 无崩溃报告），**未取证到具体异常**；仅时间上与插件登记吻合。除插件外，本次日志中唯一可见告警是工作区本地插件 `bg.js` 的模块类型警告，属另一条线。
-
-**残留清理结果**：
-
-| 项 | 处理 |
-| --- | --- |
-| `~/.config/opencode/opencode.jsonc` 的 `"plugin": ["opencode-mem"]` | 已移除（provider 配置原样保留） |
-| `~/.config/opencode/opencode-mem.jsonc`（插件独立配置） | 已删除 |
-| `~/.cache/opencode/packages/opencode-mem@latest/`（插件缓存） | 已删除 |
-| `<工作区根>/.opencode-mem-project`（记忆作用域标记） | 已删除 |
-| `~/.opencode-mem/data/`（记忆库） | **本机从未生成**，无数据丢失 |
-| 插件升级脚本与桌面快捷方式 | 已删除（该脚本当时未纳入 git，直接移除即可，无需回滚提交） |
-
-> 卸载前的配置与脚本已备份到 `~/opencode-mem-uninstall-backup-<时间戳>/`（含 `opencode.jsonc.orig`、`opencode-mem.jsonc.orig`、升级脚本与桌面快捷方式），如需回溯可从此处取。
-
-**重新登记插件时的注意点**：
-
-- 插件只在**启动时加载**：改完 `plugin` 登记必须**完全退出并重启** opencode（桌面端含 sidecar 进程）。
-- 装后**先确认会话正常**再投入日常使用；一旦出现无法会话，优先移除 `plugin` 登记、清 `~/.cache/opencode/packages/<pkg>@*/` 后重启。
-- opencode **不会自动升级** npm 插件：裸名解析为 `<pkg>@latest`，但缓存目录存在时不再查新版；升级 = 清缓存 + 重启。
-- 依赖模型下载的插件走国内镜像（`HF_ENDPOINT=https://hf-mirror.com`，已在本机 `~/.bashrc`）。
-
-#### 7.3.2 插件升级（脚本） <a id="plugins-update"></a>
-
-原「清缓存 + 重启」升级脚本与配套桌面快捷方式已随插件卸载一并删除，**当前无插件、无需升级**。若将来重新登记插件，可比照下述做法自建脚本：比对 `~/.cache/opencode/packages/<pkg>@*` 已装版本与 npm 最新版（查询走 `registry.npmmirror.com` 国内镜像），仅在有新版时删除对应缓存目录并重启 opencode；**查询失败不要清缓存**，避免把可用插件删坏。
-
-## 8. 常见问题与故障排查 <a id="troubleshoot"></a>
-
-### 8.1 桌面端启动后无窗口 / 闪退 <a id="no-window"></a>
-
-先看日志定位（GPU 崩溃是 2026-08 deb 方案时期的头号原因，当前 snap 1.18.27 已不复现）。查看启动日志：
-
-```bash
-# 最近一次会话日志
-D=$(ls -td ~/.config/ai.opencode.desktop/logs/*/ | head -1); echo "$D"
-cat "$D/main.log"         # 是否 app starting → server ready
-cat "$D/utility.log"      # 是否 GPU 崩溃
-grep -iE 'exit_code=139|GPU process exited|not compatible with Vulkan' "$D"utility.log
-```
-
-- 若有 `exit_code=139` / `not compatible with Vulkan`：这是 2026-08 deb 方案遇到过的 GPU 崩溃（见[第 4.4 节](#disable-gpu-default)）。**当前 snap 1.18.27 在原生 Wayland 下不再复现**；若再现，可按 4.4 节临时加 `--disable-gpu` 启动验证。
-- 若 `main.log` 停在 `app starting` 而无 `server ready`：多为后台服务未就绪或较早退出，可尝试手动命令行启动看错误。
-
-### 8.2 需要排除 GPU 崩溃影响时 <a id="check-gpu"></a>
-
-```bash
-# 桌面端主进程与其启动参数（当前为 snap）
-ps -eo cmd | grep -E 'opencode_desktop|/opt/OpenCode/ai.opencode.desktop' | grep -v grep | head
-
-# 是否存在 GPU 崩溃转储（pending 目录有新 .dmp 说明近期崩过）
-ls -lt ~/.config/ai.opencode.desktop/Crashpad/pending/*.dmp 2>/dev/null | head
-```
-
-### 8.3 环境变量回退 X11 的误区 <a id="ox11-misconception"></a>
-
-不要用 `ELECTRON_OZONE_PLATFORM_HINT=x11` 来解决窗口不出问题——本机实测**设成 X11 后端仍会崩溃**（GPU 进程照样 SIGSEGV），且该变量对 snap 版无效。正解是 `--disable-gpu`。详见 2.3 节。**注**：当前 snap 1.18.27 已不再复现该崩溃，本条为历史结论。
-
-### 8.4 想恢复 snap 版 <a id="revert-snap"></a>
-
-> 机器现已回退 snap（1.18.27），本节步骤即当前状态；若日后再走 .deb 想回退，可照此。
-
-```bash
-sudo snap install opencode       # 恢复 snap 版（含 CLI + 桌面端）
-# 移除用户级覆盖（让双击回到 snap 默认）：
-rm ~/.local/share/applications/ai.opencode.desktop.desktop \
-   ~/.local/share/applications/opencode-desktop.desktop
-```
-
-### 8.5 命令行 opencode 找不到 / command not found <a id="cli-missing"></a>
-
-snap 卸载后 CLI 一并消失，`opencode` 命令找不到。排查与修复：
-
-```bash
-# 1) 确认是否存在（应为空）
-which opencode; ls /snap/bin/opencode 2>/dev/null
-
-# 2) CLI 是否已装到 ~/.opencode/bin
-ls -l ~/.opencode/bin/opencode
-
-# 3) PATH 是否含 ~/.opencode/bin（当前会话与 .bashrc）
-echo "$PATH" | tr ':' '\n' | grep -q "$HOME/.opencode/bin" && echo "在PATH" || echo "不在PATH"
-grep -n 'opencode/bin' ~/.bashrc
-```
-
-- 若 2) 无文件：走[第 5 节](#cli)重新下载安装。
-- 若 3) 不在 PATH：加入 `~/.bashrc`（或 `export PATH="$HOME/.opencode/bin:$PATH"` 后重开终端）。
-- 若装了但 `opencode` 仍不可用：确认 `~/.opencode/bin/opencode` 有执行权限（`chmod 755`）。
-
-### 8.6 插件相关问题（含历史：opencode-mem） <a id="mem-faq"></a>
-
-> 记忆插件 `opencode-mem` 已于 2026-09-18 卸载（原因与证据见 [7.3](#plugins)）。下表保留排查思路，供将来重新登记插件时参考。
 
 | 现象 | 排查 |
 | --- | --- |
-| 会话无法进行 / sidecar 退出 | 先移除 `~/.config/opencode/opencode.jsonc` 的 `plugin` 登记，删除 `~/.cache/opencode/packages/<pkg>@*/`，**完全重启**后重试 |
-| 插件未生效 / 无对应工具 | 确认 `plugin` 已登记且**已重启**；检查缓存 `~/.cache/opencode/packages/<spec>@<version>/` 是否生成 |
-| 首次启动慢 / 卡在下载 | 首次启动从 npm 拉插件；依赖模型下载的插件注意走国内镜像（`HF_ENDPOINT=https://hf-mirror.com`） |
-| 插件自带 Web UI 打不开 | 确认插件配置里 Web UI 开关为真，且端口未被占用：`ss -lptn 'sport = :<端口>'` |
-
-> 查看插件加载情况：桌面端日志 `~/.config/ai.opencode.desktop/logs/<时间戳>/`（`main.log` 看 `server ready` / sidecar 状态，`utility.log` 看 sidecar 退出）；CLI 在项目目录启动时观察终端输出。
+| MCP 未连接 | 看 `opencode mcp list` 状态；本地服务器核对 `command` 与 `cwd`，远端核对 `url` 与认证 |
+| MCP 工具超时 | v2 的 `mcp.timeout` 分 `startup`（默认 30 秒）/`catalog`（默认 30 秒）/`execution`（默认 12 小时）；本机项目配置把 `catalog` 与 `execution` 设为 200 秒 |
+| 插件未生效 | v1 插件实现在 v2 不运行，须按 v2 插件 API 重写；改完完全重启客户端 |
 
 ## 9. 关联文档 <a id="related"></a>
 
-- 《[中文输入法部署使用说明](中文输入法部署使用说明.md)》：mjpc 的 Fcitx5 + kimpanel 输入法部署，其 7.4 节「候选窗跟随」与本文 2.3 节的「渲染」是两条不同的线，勿混用
+- 《[中文输入法部署使用说明](中文输入法部署使用说明.md)》：mjpc 的 Fcitx5 + kimpanel 输入法部署，其「候选窗跟随」与本文的「窗口渲染」是两条不同的线，勿混用
 - 《[Steamcommunity_302部署使用说明](Steamcommunity_302部署使用说明.md)》：mjpc 上的 Steam 社区加速反代部署与运维
 - 《[防火墙部署使用说明](防火墙部署使用说明.md)》：mjpc 开发机 ufw 防火墙规则
 - 《[llamacpp部署使用说明](../AI/llamacpp部署使用说明.md)》：本机 llama.cpp 本地推理（CLI 的 `llamacpp` provider 后端）
@@ -456,4 +353,4 @@ grep -n 'opencode/bin' ~/.bashrc
 - 《[文档生成规范](../../规范/文档生成规范.md)》：本文档的组织、格式与图形约定
 - 《[本地资源](../../用户文档/本地资源.md)》：mjpc 相关机器信息取值（已 gitignore）
 
-> 依《[文档生成规范](../../规范/文档生成规范.md)》编写 · 记录 mjpc 上 opencode 桌面端 / CLI / 插件的部署、使用与排障。
+> 依《[文档生成规范](../../规范/文档生成规范.md)》编写 · 记录 mjpc 上 opencode CLI、桌面端、配置与凭据的部署、使用与排障。
