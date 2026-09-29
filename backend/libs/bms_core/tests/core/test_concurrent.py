@@ -7,7 +7,7 @@ import pytest
 from bms_core.core.base import BaseObject
 from bms_core.core.collections import BaseSorted
 from bms_core.core.concurrent import (
-    BaseConcurrentSorted,
+    BaseConcurrent,
     ConcurrentSortedDict,
     ConcurrentSortedList,
     ConcurrentSortedSet,
@@ -191,9 +191,9 @@ def test_snapshot_reader_keeps_immutable_view() -> None:
 
 @pytest.mark.kiwi_id(16)
 def test_concurrent_sorted_inherit_base_concurrent_sorted() -> None:
-    """并发集合继承链：ConcurrentSorted* → BaseConcurrentSorted → BaseSorted → BaseObject。"""
-    assert issubclass(BaseConcurrentSorted, BaseSorted)
+    """并发集合继承链：ConcurrentSorted* → BaseConcurrent → BaseSorted → BaseObject。"""
+    assert issubclass(BaseConcurrent, BaseSorted)
     assert issubclass(BaseSorted, BaseObject)
-    assert issubclass(ConcurrentSortedList, BaseConcurrentSorted)
-    assert issubclass(ConcurrentSortedSet, BaseConcurrentSorted)
-    assert issubclass(ConcurrentSortedDict, BaseConcurrentSorted)
+    assert issubclass(ConcurrentSortedList, BaseConcurrent)
+    assert issubclass(ConcurrentSortedSet, BaseConcurrent)
+    assert issubclass(ConcurrentSortedDict, BaseConcurrent)

@@ -2,14 +2,14 @@
 """集合声明静态护栏（bms 基座校验，CI base-integrity 与本地 preflight 调用）。
 
 《后端开发规范》「后端基座体系（强制）」节「集合与排序」：**对外数据契约、值对象与模块类的集合
-字段与函数签名一律使用继承 `BaseConcurrentSorted` 的插入序集合类**（业务面只落 `ConcurrentStable*`），
-**禁止裸无序集合、只读 / 可变抽象落点与升序形态**。本脚本以 AST 检查后端 Python 的**类字段注解**与
-**函数签名注解**（参数 / 返回），集合声明必须命中**插入序白名单**，存量以**基线快照**豁免、
-**新增违规即失败**。
+字段与函数签名一律使用继承 `BaseCollection` 的插入序集合类**（业务面只落 `ConcurrentStable*`），
+**禁止裸无序集合、只读 / 可变抽象落点与升序形态**。本脚本以 AST 检查后端 Python 的**类字段注解**、
+**函数签名注解**（参数 / 返回）与**函数体局部变量注解**，集合声明必须命中**插入序白名单**，
+存量以**基线快照**豁免、**新增违规即失败**。
 
-口径（08-1 交付；**08_02 白名单收紧**，2026-09-29）：
+口径（08-1 交付；**08_02 白名单收紧 + 豁免取消**，2026-09-29）：
 
-- **查**：类字段注解 + 函数签名注解（参数 / 返回）。
+- **查**：类字段注解 + 函数签名注解（参数 / 返回）+ 函数体带注解局部变量。
 - **判违规**（集合声明必须命中插入序白名单，其余集合形态一律违规）：
   - 裸容器：`dict` / `list` / `set` / `frozenset` 及 typing 别名 `Dict` / `List` / `Set` / `FrozenSet` / `DefaultDict`；
   - 只读 / 可变抽象：`Sequence` / `Mapping` / `AbstractSet` / `Collection` / `MutableSequence` /
@@ -18,15 +18,15 @@
     `ConcurrentSortedDict`（基座内部实现，业务与契约不得声明 / 继承）。
 - **白名单**（不报）：插入序形态 `ConcurrentStableList` / `ConcurrentStableSet` / `ConcurrentStableDict`
   及后续登记形态。
-- **不查**：迭代与调用协议（`Iterable` / `Iterator` / `Generator` / `AsyncIterator` / `Callable`）、
-  `ClassVar[...]` 类级常量注解（类级配置，非数据承载字段）、`BaseSettings`（`pydantic-settings`
-  配置类）的字段注解（配置项非数据承载字段）、函数体内局部变量注解、测试目录。
-- **实现文件豁免**：集合体系实现文件（`core/collections.py` / `core/concurrent.py` /
-  `core/redis_collections.py`）允许内部实现使用裸容器 / `Sorted*` / `ConcurrentSorted*`，
-  按**文件路径白名单**豁免（08_02，2026-09-29）。
-- **范围**：`backend/libs/bms_core/src`、`backend/services/*/src`、`backend/ops`、`scripts/tools`（排除测试）。
+- **不查**：迭代与调用协议（`Iterable` / `Iterator` / `Generator` / `AsyncIterator` / `Callable`）——
+  非集合声明，不承担有序输出。
+- **不属约束对象**：集合体系**实现文件**（`core/collections.py` / `core/concurrent.py` /
+  `core/redis_collections.py`）不属本护栏的约束对象——本护栏只约束**业务侧集合声明**（对外数据契约、
+  值对象与模块类）；集合体系实现文件是体系自身，其内置容器是内部底座与序列化出口（08_02，2026-09-29）。
+- **范围**：`backend/libs/bms_core/src` + `tests`、`backend/services/*/src` + `tests`、`backend/ops`、`scripts/tools`
+  （**含测试目录与函数体局部变量**；`ClassVar` 类级常量与 `BaseSettings` 配置字段不再豁免，2026-09-29）。
 - **基线**：`deploy/boundaries/bare_collections_baseline.json`（文件 + 规范化行内容指纹 + 容器 + 计数）；
-  口径收紧后先 `--update-baseline` 如实吸收（548 → 940），随后按批次递减。
+  口径收紧后先 `--update-baseline` 如实吸收，随后按批次递减。
 
 用法::
 
@@ -38,8 +38,8 @@
 
 退出码：``0`` 通过（或 ``--report``）；``1`` 存在新增违规 / 基线非法 / 扫描异常。
 
-用例：Kiwi **2213**（`--self-test` 自测矩阵；覆盖白名单 / 抽象落点 / 升序形态 / 实现文件豁免 /
-迭代协议 / 位置 / 排除 / 基线语义 / 模式与输出）。
+用例：Kiwi **2213**（`--self-test` 自测矩阵；覆盖白名单 / 抽象落点 / 升序形态 / 实现文件不属约束对象 /
+迭代协议 / 位置（类字段 / 签名 / 局部变量）/ 测试目录纳入 / 基线语义 / 模式与输出）。
 """
 
 from __future__ import annotations
@@ -69,22 +69,24 @@ BASELINE_VERSION = 1
 
 SCAN_TARGETS: tuple[str, ...] = (
     "backend/libs/bms_core/src",
+    "backend/libs/bms_core/tests",
     "backend/services",
     "backend/ops",
     "scripts/tools",
 )
-"""扫描目标（相对仓库根）；`backend/services` 只取其下各服务的 `src`。"""
+"""扫描目标（相对仓库根）；`backend/services` 取其下各服务的 `src` 与 `tests`。"""
 
-_EXCLUDED_PARTS = frozenset({"tests", "__pycache__", ".venv", "node_modules", ".git"})
+_EXCLUDED_PARTS = frozenset({"__pycache__", ".venv", "node_modules", ".git"})
 
-EXEMPT_FILES: frozenset[str] = frozenset(
+SYSTEM_IMPLEMENTATION_FILES: frozenset[str] = frozenset(
     {
         "backend/libs/bms_core/src/bms_core/core/collections.py",
         "backend/libs/bms_core/src/bms_core/core/concurrent.py",
         "backend/libs/bms_core/src/bms_core/core/redis_collections.py",
     }
 )
-"""集合体系实现文件（按文件路径白名单豁免）：内部实现允许裸容器 / `Sorted*` / `ConcurrentSorted*`。"""
+"""集合体系实现文件：**不属本护栏的约束对象**（护栏只约束业务侧集合声明；实现文件是体系自身，
+其内置容器为内部底座与序列化出口，`Sorted*` / `ConcurrentSorted*` 为体系内部形态）。"""
 
 BARE_CONTAINERS: frozenset[str] = frozenset(
     {"dict", "list", "set", "frozenset", "Dict", "List", "Set", "FrozenSet", "DefaultDict"}
@@ -112,6 +114,7 @@ WHITELIST_FORMS: frozenset[str] = frozenset(
 POSITION_CLASS_FIELD = "class_field"
 POSITION_SIGNATURE_PARAM = "signature_param"
 POSITION_SIGNATURE_RETURN = "signature_return"
+POSITION_LOCAL = "local"
 
 _STRING_CONTAINER = re.compile(r"\b(" + "|".join(sorted(BANNED_FORMS)) + r")\b")
 """字符串前向引用注解中的违规形态名（词边界近似，AST 不解析字符串注解语义）。"""
@@ -155,20 +158,6 @@ def _base_name(node: ast.expr) -> str:
     return ""
 
 
-def _is_class_var(node: ast.expr) -> bool:
-    """判断注解是否为 `ClassVar[...]`（类级常量，非数据承载字段，不查）。
-
-    Args:
-        node: 注解表达式。
-
-    Returns:
-        bool: 是 `ClassVar[...]` 返回 True。
-    """
-    if not isinstance(node, ast.Subscript):
-        return False
-    return _base_name(node.value) == "ClassVar"
-
-
 def _annotation_containers(node: ast.expr | None) -> list[str]:
     """递归取注解中出现的违规集合形态名（裸容器 / 只读-可变抽象 / 升序形态）。
 
@@ -199,22 +188,22 @@ def _annotation_containers(node: ast.expr | None) -> list[str]:
 
 
 def _is_excluded(path: Path, root: Path) -> bool:
-    """判断文件是否在排除范围（测试目录 / 缓存目录 / `test_*.py`）。"""
+    """判断文件是否在排除范围（仅缓存 / 虚拟环境等非源码目录）。"""
     rel = path.relative_to(root)
-    if any(part in _EXCLUDED_PARTS for part in rel.parts):
-        return True
-    return path.name.startswith("test_")
+    return any(part in _EXCLUDED_PARTS for part in rel.parts)
 
 
 def _iter_target_files(root: Path) -> list[Path]:
-    """枚举扫描目标下的 Python 文件（`backend/services` 只取其下 `*/src`）。"""
+    """枚举扫描目标下的 Python 文件（`backend/services` 取其下各服务的 `src` 与 `tests`）。"""
     files: list[Path] = []
     for rel in SCAN_TARGETS:
         base = root / rel
         if not base.is_dir():
             continue
         if rel == "backend/services":
-            candidates = [child / "src" for child in sorted(base.iterdir()) if child.is_dir()]
+            candidates = [
+                child / sub for child in sorted(base.iterdir()) if child.is_dir() for sub in ("src", "tests")
+            ]
         else:
             candidates = [base]
         for candidate in candidates:
@@ -226,8 +215,60 @@ def _iter_target_files(root: Path) -> list[Path]:
     return files
 
 
+def _scan_source(rel: str, source: str) -> list[Hit]:
+    """扫描单个源文件，收集违规集合声明命中。
+
+    覆盖位置：**类字段注解** + **函数签名注解**（参数 / 返回）+ **函数体带注解局部变量**。
+
+    Args:
+        rel: 相对仓库根的路径（写入命中）。
+        source: 源码文本。
+
+    Returns:
+        list[Hit]: 命中清单（按行序稳定）。
+    """
+    tree = ast.parse(source)
+    lines = source.splitlines()
+    hits: list[Hit] = []
+
+    class_fields: dict[int, bool] = {}
+    for cls in ast.walk(tree):
+        if not isinstance(cls, ast.ClassDef):
+            continue
+        base_object = any(_base_name(base) == "BaseObject" for base in cls.bases)
+        for stmt in cls.body:
+            if isinstance(stmt, ast.AnnAssign):
+                class_fields[id(stmt)] = base_object
+
+    def add(node: ast.AST, container: str, position: str, *, base_object: bool = False) -> None:
+        """登记一处命中（行内容取声明行、规范化空白）。"""
+        lineno = getattr(node, "lineno", 0)
+        text = lines[lineno - 1].strip() if 0 < lineno <= len(lines) else ""
+        hits.append(Hit(rel, text, container, position, base_object))
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.AnnAssign):
+            is_field = id(node) in class_fields
+            position = POSITION_CLASS_FIELD if is_field else POSITION_LOCAL
+            for container in dict.fromkeys(_annotation_containers(node.annotation)):
+                add(node, container, position, base_object=is_field and class_fields[id(node)])
+        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            for container in dict.fromkeys(_annotation_containers(node.returns)):
+                add(node.returns or node, container, POSITION_SIGNATURE_RETURN)
+            args = (*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs)
+            for arg in args:
+                if arg.annotation is None:
+                    continue
+                for container in dict.fromkeys(_annotation_containers(arg.annotation)):
+                    add(arg.annotation, container, POSITION_SIGNATURE_PARAM)
+    return hits
+
+
 def collect(root: Path) -> list[Hit]:
     """扫描目标文件，收集违规集合声明命中（扫描异常记入 `problems`）。
+
+    覆盖位置：**类字段注解** + **函数签名注解**（参数 / 返回）+ **函数体带注解局部变量**。
+    `ClassVar` 类级常量与 `BaseSettings` 配置字段**不再豁免**（一律纳入扫描）。
 
     Args:
         root: 仓库根。
@@ -238,61 +279,15 @@ def collect(root: Path) -> list[Hit]:
     hits: list[Hit] = []
     for path in _iter_target_files(root):
         rel = path.relative_to(root).as_posix()
-        if rel in EXEMPT_FILES:
+        if rel in SYSTEM_IMPLEMENTATION_FILES:
             continue
         try:
             source = path.read_text(encoding="utf-8")
-            tree = ast.parse(source)
+            file_hits = _scan_source(rel, source)
         except (OSError, SyntaxError, UnicodeDecodeError) as exc:
             problems.append(f"[扫描异常] {rel}：{exc}")
             continue
-        lines = source.splitlines()
-
-        bases_by_class: dict[str, set[str]] = {
-            cls.name: {_base_name(base) for base in cls.bases}
-            for cls in ast.walk(tree)
-            if isinstance(cls, ast.ClassDef)
-        }
-
-        def is_settings_class(name: str) -> bool:
-            """判断类是否（本文件内传递地）继承 `BaseSettings`（配置类字段不查）。"""
-            seen: set[str] = set()
-            pending = [name]
-            while pending:
-                current = pending.pop()
-                if current in seen:
-                    continue
-                seen.add(current)
-                parents = bases_by_class.get(current, set())
-                if "BaseSettings" in parents:
-                    return True
-                pending.extend(parents)
-            return False
-
-        def add(node: ast.AST, container: str, position: str, *, base_object: bool = False) -> None:
-            """登记一处命中（行内容取声明行、规范化空白）。"""
-            lineno = getattr(node, "lineno", 0)
-            text = lines[lineno - 1].strip() if 0 < lineno <= len(lines) else ""
-            hits.append(Hit(rel, text, container, position, base_object))
-
-        for node in ast.walk(tree):
-            if isinstance(node, ast.ClassDef):
-                base_object = any(_base_name(base) == "BaseObject" for base in node.bases)
-                if is_settings_class(node.name):
-                    continue
-                for stmt in node.body:
-                    if isinstance(stmt, ast.AnnAssign) and not _is_class_var(stmt.annotation):
-                        for container in dict.fromkeys(_annotation_containers(stmt.annotation)):
-                            add(stmt, container, POSITION_CLASS_FIELD, base_object=base_object)
-            elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                for container in dict.fromkeys(_annotation_containers(node.returns)):
-                    add(node.returns or node, container, POSITION_SIGNATURE_RETURN)
-                args = (*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs)
-                for arg in args:
-                    if arg.annotation is None:
-                        continue
-                    for container in dict.fromkeys(_annotation_containers(arg.annotation)):
-                        add(arg.annotation, container, POSITION_SIGNATURE_PARAM)
+        hits.extend(file_hits)
     return hits
 
 
@@ -375,6 +370,7 @@ def _summarize(hits: list[Hit]) -> None:
     )
     counts["signature_param"] = sum(1 for hit in hits if hit.position == POSITION_SIGNATURE_PARAM)
     counts["signature_return"] = sum(1 for hit in hits if hit.position == POSITION_SIGNATURE_RETURN)
+    counts["local"] = sum(1 for hit in hits if hit.position == POSITION_LOCAL)
 
 
 def check(root: Path) -> None:
@@ -437,6 +433,7 @@ def _report(root: Path, *, as_json: bool) -> None:
     print(
         f"  位置：类字段 {counts['class_field']}（含 BaseObject {counts['class_field_base_object']}）"
         f" / 签名参数 {counts['signature_param']} / 签名返回 {counts['signature_return']}"
+        f" / 局部变量 {counts['local']}"
     )
     print("  容器：" + "、".join(f"{name} {num}" for name, num in sorted(by_container.items(), key=lambda kv: -kv[1])))
     print("  区域：" + "、".join(f"{name} {num}" for name, num in sorted(by_area.items(), key=lambda kv: -kv[1])))
@@ -459,8 +456,8 @@ def _emit(as_json: bool) -> None:
             print("  " + problem)
         return
     print(
-        "[check-bare-collections] 通过：类字段与函数签名无新增违规集合声明"
-        f"（基线内 {counts['baseline_entries']} 处豁免）。"
+        "[check-bare-collections] 通过：集合声明无新增违规（类字段 / 函数签名 / 局部变量）"
+        f"（基线内 {counts['baseline_entries']} 处存量）。"
     )
 
 
@@ -494,7 +491,7 @@ _FIXTURE_FILES: dict[str, str] = {
         "    local: dict[str, int] = {}\n"
         "    del local\n"
     ),
-    "backend/libs/bms_core/src/demo/tests/test_skip.py": "class X:\n    bad: list[int] = []\n",
+    "backend/libs/bms_core/src/demo/tests/test_local.py": "class X:\n    bad: list[int] = []\n",
     "backend/libs/bms_core/src/bms_core/core/concurrent.py": "def to_list(self) -> list[int]:\n    return []\n",
     "backend/services/svc/src/svc/mod.py": "class A:\n    data: List[int] = []\n",
     "backend/ops/op.py": "def run(payload: DefaultDict[str, int]) -> None:\n    del payload\n",
@@ -546,12 +543,23 @@ def _self_test() -> int:
             all(hit.container != "ConcurrentStableList" for hit in hits),
             "白名单命中不报（ConcurrentStableList）",
         )
+        expect(all(hit.container not in {"Iterable", "Iterator", "Callable"} for hit in hits), "迭代 / 调用协议不报")
         expect(
-            all(hit.container not in {"Iterable", "Iterator", "Callable"} for hit in hits),
-            "迭代 / 调用协议不报",
+            (demo, "constant: ClassVar[frozenset[str]] = frozenset()", "frozenset", "class_field") in found,
+            "ClassVar 类级常量报（豁免已取消）",
         )
-        expect(all("constant:" not in hit.line for hit in hits), "ClassVar 常量不报")
-        expect(all("paths:" not in hit.line for hit in hits), "BaseSettings 配置字段不报")
+        expect(
+            (demo, "paths: list[str] = []", "list", "class_field") in found,
+            "BaseSettings 配置字段报（豁免已取消）",
+        )
+        expect(
+            (demo, "local: dict[str, int] = {}", "dict", "local") in found,
+            "函数体局部变量报（豁免已取消）",
+        )
+        expect(
+            any(hit.file.endswith("demo/tests/test_local.py") for hit in hits),
+            "测试目录纳入扫描",
+        )
         expect(
             ("backend/services/svc/src/svc/mod.py", "data: List[int] = []", "List", "class_field") in found,
             "命中 typing 别名 List",
@@ -568,10 +576,8 @@ def _self_test() -> int:
         expect((demo, "def h() -> 'list[int]':", "list", "signature_return") in found, "命中字符串前向引用")
         expect(
             all(hit.file != "backend/libs/bms_core/src/bms_core/core/concurrent.py" for hit in hits),
-            "实现文件豁免（集合体系实现文件不报）",
+            "集合体系实现文件不属约束对象（不报）",
         )
-        expect(all("tests" not in hit.file for hit in hits), "测试目录不扫描")
-        expect(all("local:" not in hit.line for hit in hits), "函数体内局部注解不报")
 
         baseline_path = root / BASELINE_RELATIVE
         check(root)

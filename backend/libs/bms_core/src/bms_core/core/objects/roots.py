@@ -9,7 +9,7 @@
 - `BaseFrameworkObject`：框架对象体系根——**非数据对象**（不参与值语义与序列化输出），统一标识
   `object_kind`，并提供可选生命周期钩子位 `aclose`（默认空操作；`BaseAsyncResource` 覆写为抽象）。
 
-**严禁上帝基类**：`BaseObject` 仅为**唯一根系**；除**体系根**（本模块三类 + 集合 `BaseSorted` +
+**严禁上帝基类**：`BaseObject` 仅为**唯一根系**；除**体系根**（本模块三类 + 集合 `BaseCollection` +
 仓储 `BaseRepository` + 服务 `BaseService` + 事务 `UnitOfWork`，见《后端基类清单》§10「体系根清单」）外，
 **禁止直接继承 `BaseObject`**——由 `scripts/tools/base-check/check-backend-base.py` 的「直继承合法性」
 检查硬校验；存量尚未归位者以 `deploy/boundaries/direct_base_object_baseline.json` 豁免并递减。

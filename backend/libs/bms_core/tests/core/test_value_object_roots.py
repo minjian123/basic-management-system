@@ -104,7 +104,7 @@ _SYSTEM_ROOTS = frozenset(
         "BaseValueObject",
         "BaseDataContract",
         "BaseFrameworkObject",
-        "BaseSorted",
+        "BaseCollection",
         "BaseRepository",
         "BaseService",
         "UnitOfWork",

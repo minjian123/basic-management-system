@@ -26,7 +26,7 @@ from contextlib import contextmanager
 from typing import Any, ClassVar, Self, SupportsIndex, TypeVar, cast, overload
 
 from bms_core.core.base import BaseObject
-from bms_core.core.collections import BaseSyncSorted, SortedDict, SortedList, SortedSet
+from bms_core.core.collections import BaseSorted, SortedDict, SortedList, SortedSet
 from bms_core.core.holder import ValueHolder
 from bms_core.core.locking import LockGuard, LockStrategy, ReadWriteLock
 
@@ -38,8 +38,8 @@ _MAX_INDEX = 9223372036854775807
 """`Sequence.index` 的默认上界（与内置序列一致，避免 `None` 与 `SupportsIndex` 冲突）。"""
 
 
-class BaseConcurrentSorted[ItemT, DataT](BaseSyncSorted[ItemT]):
-    """进程内并发有序集合基类：锁策略守卫 + SNAPSHOT 写时复制模板。
+class BaseConcurrent[ItemT, DataT](BaseSorted[ItemT]):
+    """基础并发层：锁策略守卫 + SNAPSHOT 写时复制模板（`BaseSorted` 之并发子层）。
 
     子类实现 `_copy_data`（复制内部数据）；读改写由 `_guard` 按策略加锁，
     SNAPSHOT 策略写时复制后替换，其余策略直接操作内部数据。
@@ -47,6 +47,8 @@ class BaseConcurrentSorted[ItemT, DataT](BaseSyncSorted[ItemT]):
     分段（`SHARDED`）形态另行维护「全局读写锁（整表快照）+ 每段独立锁」，
     并把插入序号归并还原插入序；详见 `ConcurrentStable*`。
     """
+
+    collection_kind: ClassVar[str] = "sorted_concurrent"
 
     _guard: LockGuard
     _data: DataT
@@ -92,7 +94,7 @@ class BaseConcurrentSorted[ItemT, DataT](BaseSyncSorted[ItemT]):
                 self._data = data
 
 
-class ConcurrentSortedList[ItemT](BaseConcurrentSorted[ItemT, SortedList[ItemT]], Sequence[ItemT]):
+class ConcurrentSortedList[ItemT](BaseConcurrent[ItemT, SortedList[ItemT]], Sequence[ItemT]):
     """并发有序列表：RW（默认）/ RLCK / SNAPSHOT；SHARDED 自动降级为 RW。
 
     只读面按 `Sequence` 提供（索引 / 切片 / 相等），写入走显式原子方法；
@@ -191,7 +193,7 @@ class ConcurrentSortedList[ItemT](BaseConcurrentSorted[ItemT, SortedList[ItemT]]
     __hash__ = BaseObject.__hash__
 
 
-class ConcurrentSortedSet[ItemT](BaseConcurrentSorted[ItemT, SortedSet[ItemT]], Set[ItemT]):
+class ConcurrentSortedSet[ItemT](BaseConcurrent[ItemT, SortedSet[ItemT]], Set[ItemT]):
     """并发有序集合：RW（默认）/ RLCK / SHARDED / SNAPSHOT。
 
     只读面按 `Set` 提供（成员判断 / 集合运算 / 相等），写入走显式原子方法；
@@ -364,7 +366,7 @@ class ConcurrentSortedSet[ItemT](BaseConcurrentSorted[ItemT, SortedSet[ItemT]], 
 
 
 class ConcurrentSortedDict[KeyT, ValueT](
-    BaseConcurrentSorted[tuple[KeyT, ValueT], SortedDict[KeyT, ValueT]], Mapping[KeyT, ValueT]
+    BaseConcurrent[tuple[KeyT, ValueT], SortedDict[KeyT, ValueT]], Mapping[KeyT, ValueT]
 ):
     """并发有序字典：RW（默认）/ RLCK / SHARDED / SNAPSHOT。
 
@@ -610,7 +612,7 @@ class ConcurrentSortedDict[KeyT, ValueT](
     __hash__ = BaseObject.__hash__
 
 
-class ConcurrentStableList[ItemT](BaseConcurrentSorted[ItemT, list[tuple[int, ItemT]]], Sequence[ItemT]):
+class ConcurrentStableList[ItemT](BaseConcurrent[ItemT, list[tuple[int, ItemT]]], Sequence[ItemT]):
     """并发**插入序**列表：写入保插入序、不比较元素；默认分段写（`SHARDED`）。
 
     业务与契约的唯一列表落点。内部按插入序号（`seq`）分派段，段内已按序号有序，
@@ -798,7 +800,7 @@ class ConcurrentStableList[ItemT](BaseConcurrentSorted[ItemT, list[tuple[int, It
     __hash__ = BaseObject.__hash__
 
 
-class ConcurrentStableSet[ItemT](BaseConcurrentSorted[ItemT, dict[ItemT, int]], Set[ItemT]):
+class ConcurrentStableSet[ItemT](BaseConcurrent[ItemT, dict[ItemT, int]], Set[ItemT]):
     """并发**插入序**集合：写入保插入序 + 去重、不比较元素；默认分段写（`SHARDED`）。
 
     业务与契约的唯一集合落点。内部按元素哈希分派段（同元素固定落同段），
@@ -981,7 +983,7 @@ class ConcurrentStableSet[ItemT](BaseConcurrentSorted[ItemT, dict[ItemT, int]], 
 
 
 class ConcurrentStableDict[KeyT, ValueT](
-    BaseConcurrentSorted[tuple[KeyT, ValueT], dict[KeyT, tuple[int, ValueT]]], Mapping[KeyT, ValueT]
+    BaseConcurrent[tuple[KeyT, ValueT], dict[KeyT, tuple[int, ValueT]]], Mapping[KeyT, ValueT]
 ):
     """并发**插入序**字典：写入保插入序、不比较键；默认分段写（`SHARDED`）。
 

@@ -21,8 +21,8 @@ from pydantic import (
 from pydantic.json_schema import JsonSchemaValue
 from pydantic_core import CoreSchema, core_schema
 
+from bms_core.core.collections import BaseCollection
 from bms_core.core.concurrent import (
-    BaseConcurrentSorted,
     ConcurrentStableDict,
     ConcurrentStableList,
     ConcurrentStableSet,
@@ -31,8 +31,8 @@ from bms_core.core.context import get_current_masker
 from bms_core.core.objects import BaseDataContract, BaseFrameworkObject
 from bms_core.core.serialization import stringify_ids
 
-CollectionType = type[BaseConcurrentSorted[Any, Any]]
-"""基座集合类（`BaseConcurrentSorted` 子类）类型。"""
+CollectionType = type[BaseCollection[Any]]
+"""基座集合类（`BaseCollection` 子类）类型。"""
 
 
 def _collection_type(source_type: Any) -> CollectionType | None:
@@ -45,7 +45,7 @@ def _collection_type(source_type: Any) -> CollectionType | None:
         CollectionType | None: 基座集合类，或 None。
     """
     origin = get_origin(source_type)
-    if isinstance(origin, type) and issubclass(origin, BaseConcurrentSorted):
+    if isinstance(origin, type) and issubclass(origin, BaseCollection):
         return cast("CollectionType", origin)
     return None
 
@@ -129,7 +129,7 @@ class _ContractCollection(BaseFrameworkObject):
 
         def before(value: Any) -> Any:
             """已传入集合类实例时先落内置容器，交内置 schema 校验。"""
-            return to_builtin(value) if isinstance(value, BaseConcurrentSorted) else value
+            return to_builtin(value) if isinstance(value, BaseCollection) else value
 
         def after(value: Any) -> Any:
             """校验通过的内置容器转为集合类实例。"""
