@@ -8,11 +8,12 @@
 """
 
 from abc import ABC, abstractmethod
-from collections.abc import AsyncIterator, Mapping, Sequence
+from collections.abc import AsyncIterator
 from typing import cast
 
 from fastapi import Request
 
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 from bms_core.transfer.base import ColumnSpec
@@ -34,9 +35,9 @@ class BaseExporter(BasePluggable, ABC):
     @abstractmethod
     def export(
         self,
-        rows: Sequence[Mapping[str, object]],
+        rows: ConcurrentStableList[ConcurrentStableDict[str, object]],
         *,
-        columns: Sequence[ColumnSpec],
+        columns: ConcurrentStableList[ColumnSpec],
     ) -> AsyncIterator[bytes]:
         """按列定义流式写出（分块产出字节）。
 

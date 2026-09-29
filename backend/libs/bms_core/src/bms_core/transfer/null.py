@@ -1,9 +1,10 @@
 """transfer 能力域缺省实现（Null Object）：占位返回、无副作用
 （02-3 自 bms_core.transfer.exporter.py、bms_core.transfer.importer.py 迁入）。"""
 
-from collections.abc import AsyncIterator, Mapping, Sequence
+from collections.abc import AsyncIterator
 
 from bms_core.core.capability import BaseNullObject
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.objects import BaseFrameworkObject
 from bms_core.transfer.base import ColumnSpec
 from bms_core.transfer.exporter import BaseExporter
@@ -40,9 +41,9 @@ class NullExporter(BaseExporter, BaseNullObject):
 
     def export(
         self,
-        rows: Sequence[Mapping[str, object]],
+        rows: ConcurrentStableList[ConcurrentStableDict[str, object]],
         *,
-        columns: Sequence[ColumnSpec],
+        columns: ConcurrentStableList[ColumnSpec],
     ) -> AsyncIterator[bytes]:
         """返回空异步迭代流。
 
@@ -59,7 +60,9 @@ class NullExporter(BaseExporter, BaseNullObject):
 class NullImporter(BaseImporter, BaseNullObject):
     """占位导入器：空行 / 空结果（不读写文件，未接入真实实现时使用）。"""
 
-    async def parse(self, data: bytes, *, columns: Sequence[ColumnSpec]) -> tuple[Mapping[str, object], ...]:
+    async def parse(
+        self, data: bytes, *, columns: ConcurrentStableList[ColumnSpec]
+    ) -> ConcurrentStableList[ConcurrentStableDict[str, object]]:
         """返回空行。
 
         Args:
@@ -67,15 +70,15 @@ class NullImporter(BaseImporter, BaseNullObject):
             columns: 列定义（占位忽略）。
 
         Returns:
-            tuple[Mapping[str, object], ...]: 空元组。
+            ConcurrentStableList[ConcurrentStableDict[str, object]]: 空集合。
         """
-        return ()
+        return ConcurrentStableList()
 
     async def validate(
         self,
-        rows: Sequence[Mapping[str, object]],
+        rows: ConcurrentStableList[ConcurrentStableDict[str, object]],
         *,
-        columns: Sequence[ColumnSpec],
+        columns: ConcurrentStableList[ColumnSpec],
     ) -> ImportResult:
         """返回空结果。
 

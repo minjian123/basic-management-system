@@ -11,12 +11,16 @@ from support_app import ApplicationFactory, lifespan
 from bms_core.api.deps import get_exporter, get_importer
 from bms_core.core.base import BaseObject
 from bms_core.core.capability import BaseCapability, BaseNullObject
+from bms_core.core.concurrent import (
+    ConcurrentStableDict,
+    ConcurrentStableList,
+)
 from bms_core.transfer.base import ColumnSpec
 from bms_core.transfer.exporter import BaseExporter
 from bms_core.transfer.importer import BaseImporter, ImportResult, RowError
 from bms_core.transfer.null import NullExporter, NullImporter
 
-_COLUMNS = (ColumnSpec(key="name", title="姓名", required=True),)
+_COLUMNS = ConcurrentStableList([ColumnSpec(key="name", title="姓名", required=True)])
 
 
 @pytest.mark.kiwi_id(56)
@@ -66,14 +70,16 @@ async def test_null_importer_empty() -> None:
     """占位导入器：解析空行、校验空结果。"""
     importer = NullImporter()
     assert await importer.parse(b"data", columns=_COLUMNS) == ()
-    assert await importer.validate([{"name": "甲"}], columns=_COLUMNS) == ImportResult(rows=(), errors=())
+    rows = ConcurrentStableList([ConcurrentStableDict({"name": "甲"})])
+    assert await importer.validate(rows, columns=_COLUMNS) == ImportResult(rows=(), errors=())
 
 
 @pytest.mark.kiwi_id(56)
 async def test_null_exporter_empty_stream() -> None:
     """占位导出器：空流（无分块）。"""
     exporter = NullExporter()
-    chunks = [chunk async for chunk in exporter.export([{"name": "甲"}], columns=_COLUMNS)]
+    rows = ConcurrentStableList([ConcurrentStableDict({"name": "甲"})])
+    chunks = [chunk async for chunk in exporter.export(rows, columns=_COLUMNS)]
     assert chunks == []
     assert b"".join(chunks) == b""
 
@@ -91,8 +97,8 @@ async def test_dependency_providers_resolve() -> None:
             importer: Annotated[BaseImporter, Depends(get_importer)],
             exporter: Annotated[BaseExporter, Depends(get_exporter)],
         ) -> dict[str, object]:
-            parsed = await importer.parse(b"", columns=())
-            chunks = [chunk async for chunk in exporter.export([], columns=())]
+            parsed = await importer.parse(b"", columns=ConcurrentStableList())
+            chunks = [chunk async for chunk in exporter.export(ConcurrentStableList(), columns=ConcurrentStableList())]
             return {
                 "importer_key": importer.key,
                 "rows": len(parsed),
