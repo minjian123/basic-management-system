@@ -13,7 +13,7 @@ import pytest
 from bms_core.core.base import BaseObject
 from bms_core.core.collections import BaseSorted
 from bms_core.core.concurrent import (
-    BaseConcurrentSorted,
+    BaseConcurrent,
     ConcurrentSortedDict,
     ConcurrentSortedList,
     ConcurrentSortedSet,
@@ -40,9 +40,9 @@ class _Uncomparable:
 def test_stable_inherit_chain_and_kind() -> None:
     """插入序形态接入集合体系同步链，并以 `collection_kind="stable"` 区分。"""
     for member in (ConcurrentStableList, ConcurrentStableSet, ConcurrentStableDict):
-        assert issubclass(member, BaseConcurrentSorted)
+        assert issubclass(member, BaseConcurrent)
         assert member.collection_kind == "stable"
-    assert issubclass(BaseConcurrentSorted, BaseSorted)
+    assert issubclass(BaseConcurrent, BaseSorted)
     assert issubclass(BaseSorted, BaseObject)
     assert issubclass(ConcurrentStableList, Sequence)
     assert issubclass(ConcurrentStableSet, Set)

@@ -1,9 +1,17 @@
-"""集合体系收链测试（Kiwi 2221）。
+"""集合体系唯一继承链测试（Kiwi 2221）。
 
-08_05：`BaseSorted` 留作集合体系根（只承载「有序语义 + 稳定序约定」与 `collection_kind` 标记），
-其下按接口协议分**同步 / 异步两条平行角色链**——同步链 `BaseSyncSorted`（`Sorted*` 与进程内并发
-`ConcurrentSorted*`），异步链 `BaseAsyncSorted`（跨副本 `RedisSortedSet` / `RedisSortedDict`）；
-`RedisSnapshot` 为通用缓存快照、非有序集合，保持框架对象体系。同步侧行为零变更，无 sync 与 async 桥接。
+集合体系**唯一继承链**（所有集合类均（间接）继承基础集合基类 `BaseCollection`，无例外）：
+
+```
+BaseCollection（基础集合基类 · 集合体系唯根）
+├── BaseSorted（非并发有序）→ SortedList / SortedDict / SortedSet
+│   ├── BaseConcurrent（基础并发）→ ConcurrentSorted* / ConcurrentStable*
+│   └── BaseAsyncSorted（跨副本异步有序）→ RedisSortedSet / RedisSortedDict
+└── BaseCacheSnapshot（通用缓存层）→ RedisSnapshot
+```
+
+`BaseSorted` 承载同步读公共段（稳定序列化 / 排序视图 / 分批 / 集合运算）；
+`BaseAsyncSorted` 为跨副本形态，**无同步读入口**（同步读公共段显式置为不支持）。
 """
 
 import inspect
@@ -12,16 +20,19 @@ from pathlib import Path
 import pytest
 
 from bms_core.core.base import BaseObject
-from bms_core.core.collections import BaseSorted, BaseSyncSorted, SortedDict, SortedList, SortedSet
+from bms_core.core.collections import BaseCollection, BaseSorted, SortedDict, SortedList, SortedSet
 from bms_core.core.concurrent import (
-    BaseConcurrentSorted,
+    BaseConcurrent,
     ConcurrentSortedDict,
     ConcurrentSortedList,
     ConcurrentSortedSet,
+    ConcurrentStableDict,
+    ConcurrentStableList,
+    ConcurrentStableSet,
 )
-from bms_core.core.objects import BaseFrameworkObject
 from bms_core.core.redis_collections import (
     BaseAsyncSorted,
+    BaseCacheSnapshot,
     RedisSnapshot,
     RedisSortedDict,
     RedisSortedSet,
@@ -30,55 +41,80 @@ from bms_core.core.redis_collections import (
 _ROOT = Path(__file__).resolve().parents[5]
 _MANIFEST = _ROOT / "bms文档" / "后端基类清单.md"
 
+LAYERS: tuple[type, ...] = (BaseSorted, BaseConcurrent, BaseAsyncSorted, BaseCacheSnapshot)
+"""集合体系除根之外的各层基类。"""
+
+CONCRETE: tuple[type, ...] = (
+    SortedList,
+    SortedDict,
+    SortedSet,
+    ConcurrentSortedList,
+    ConcurrentSortedSet,
+    ConcurrentSortedDict,
+    ConcurrentStableList,
+    ConcurrentStableSet,
+    ConcurrentStableDict,
+    RedisSortedSet,
+    RedisSortedDict,
+    RedisSnapshot,
+)
+"""集合体系全部具体集合类。"""
+
 
 @pytest.mark.kiwi_id(2221)
-def test_root_and_two_role_chains() -> None:
-    """体系根与两条角色链：同步链挂 `BaseSyncSorted`、异步链挂 `BaseAsyncSorted`，两链互补。"""
-    assert issubclass(BaseSorted, BaseObject)
-    assert issubclass(BaseSyncSorted, BaseSorted)
-    assert issubclass(BaseAsyncSorted, BaseSorted)
-    for member in (SortedList, SortedDict, SortedSet, BaseConcurrentSorted):
-        assert issubclass(member, BaseSyncSorted)
+def test_single_root() -> None:
+    """唯一根：`BaseCollection` 直继承 `BaseObject`；各层与全部具体类均（间接）继承根（无例外）。"""
+    assert issubclass(BaseCollection, BaseObject)
+    for layer in LAYERS:
+        assert issubclass(layer, BaseCollection)
+    for member in CONCRETE:
+        assert issubclass(member, BaseCollection)
+
+
+@pytest.mark.kiwi_id(2221)
+def test_branching() -> None:
+    """分支关系：有序分支（`BaseSorted`）/ 基础并发（`BaseConcurrent`）/ 跨副本（`BaseAsyncSorted`）
+    / 通用缓存（`BaseCacheSnapshot`）。"""
+    for member in (SortedList, SortedDict, SortedSet):
+        assert issubclass(member, BaseSorted)
+        assert not issubclass(member, BaseConcurrent)
+    assert issubclass(BaseConcurrent, BaseSorted)
     for member in (ConcurrentSortedList, ConcurrentSortedSet, ConcurrentSortedDict):
-        assert issubclass(member, BaseConcurrentSorted)
+        assert issubclass(member, BaseConcurrent)
+    for member in (ConcurrentStableList, ConcurrentStableSet, ConcurrentStableDict):
+        assert issubclass(member, BaseConcurrent)
+        assert member.collection_kind == "stable"
+    assert issubclass(BaseAsyncSorted, BaseSorted)
     for member in (RedisSortedSet, RedisSortedDict):
         assert issubclass(member, BaseAsyncSorted)
-    assert not issubclass(RedisSortedSet, BaseSyncSorted)
+        assert not issubclass(member, BaseConcurrent)
     assert not issubclass(SortedList, BaseAsyncSorted)
-
-
-@pytest.mark.kiwi_id(2221)
-def test_redis_snapshot_stays_framework_object() -> None:
-    """`RedisSnapshot` 为通用缓存快照、非有序集合 → 保持框架对象体系，不入集合链。"""
-    assert issubclass(RedisSnapshot, BaseFrameworkObject)
+    assert issubclass(BaseCacheSnapshot, BaseCollection)
+    assert not issubclass(BaseCacheSnapshot, BaseSorted)
+    assert issubclass(RedisSnapshot, BaseCacheSnapshot)
     assert not issubclass(RedisSnapshot, BaseSorted)
 
 
 @pytest.mark.kiwi_id(2221)
-def test_async_role_layer_common_segment() -> None:
-    """异步角色层公共段：`async size()` / `async version()` / `version_key`（属性）为抽象声明且成员实现齐备。"""
-    declared = vars(BaseAsyncSorted)
-    assert inspect.iscoroutinefunction(declared["size"])
-    assert inspect.iscoroutinefunction(declared["version"])
-    assert getattr(declared["size"], "__isabstractmethod__", False) is True
-    assert getattr(declared["version"], "__isabstractmethod__", False) is True
-    version_key = declared["version_key"]
-    assert isinstance(version_key, property)
-    assert getattr(version_key.fget, "__isabstractmethod__", False) is True
-    for member in (RedisSortedSet, RedisSortedDict):
-        implemented = vars(member)
-        assert inspect.iscoroutinefunction(implemented["size"])
-        assert inspect.iscoroutinefunction(implemented["version"])
-        assert isinstance(implemented["version_key"], property)
+def test_async_has_no_sync_read_entry() -> None:
+    """跨副本形态**无同步读入口**：同步读公共段（`to_list` / `__iter__` / `_json_data`）恒抛 `NotImplementedError`。"""
+    instance = RedisSortedSet(None, "bms:global:demo:set")  # type: ignore[arg-type]
+    assert inspect.iscoroutinefunction(type(instance).size)
+    for call in (instance.to_list, lambda: iter(instance), instance._json_data):
+        with pytest.raises(NotImplementedError):
+            call()
 
 
 @pytest.mark.kiwi_id(2221)
 def test_collection_kind_marks_shape() -> None:
-    """形态标记：体系根 / 同步链 / 异步链各自标识（机器可判形态）。"""
+    """形态标记：根 / 有序 / 基础并发 / 跨副本 / 通用缓存 / 插入序各自标识（机器可判形态）。"""
+    assert BaseCollection.collection_kind == "collection"
     assert BaseSorted.collection_kind == "sorted"
-    assert BaseSyncSorted.collection_kind == "sorted_sync"
+    assert BaseConcurrent.collection_kind == "sorted_concurrent"
     assert BaseAsyncSorted.collection_kind == "sorted_async"
-    assert SortedList.collection_kind == "sorted_sync"
+    assert BaseCacheSnapshot.collection_kind == "cache_snapshot"
+    assert SortedList.collection_kind == "sorted"
+    assert ConcurrentStableList.collection_kind == "stable"
     assert RedisSortedDict.collection_kind == "sorted_async"
 
 
@@ -99,8 +135,8 @@ def test_sync_side_behaviour_unchanged() -> None:
 
 
 @pytest.mark.kiwi_id(2221)
-def test_manifest_registers_two_chains() -> None:
-    """清单登记：两条角色链已在《后端基类清单》登记（防止漏登记）。"""
+def test_manifest_registers_chain() -> None:
+    """清单登记：集合体系唯一链已在《后端基类清单》登记（防止漏登记）。"""
     text = _MANIFEST.read_text(encoding="utf-8")
-    assert "BaseSyncSorted" in text
-    assert "BaseAsyncSorted" in text
+    for name in ("BaseCollection", "BaseSorted", "BaseConcurrent", "BaseAsyncSorted", "BaseCacheSnapshot"):
+        assert name in text

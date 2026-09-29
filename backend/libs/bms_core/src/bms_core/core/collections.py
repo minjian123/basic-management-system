@@ -1,7 +1,17 @@
-"""core 层有序集合：BaseSorted + SortedList / SortedDict / SortedSet。
+"""core 层集合体系：BaseCollection（基础集合基类 / 集合体系唯根） + BaseSorted + SortedList / SortedDict / SortedSet。
 
 基于 sortedcontainers（插入即有序），统一稳定序列化、排序视图、分批与集合运算；
-并发安全版本见 bms_core.core.concurrent，跨副本共享版本见 bms_core.core.redis_collections。
+基础并发版本见 bms_core.core.concurrent，跨副本与通用缓存版本见 bms_core.core.redis_collections。
+
+**集合体系唯一继承链**（所有集合类均（间接）继承基础集合基类 `BaseCollection`，无例外）：
+
+```
+BaseCollection（基础集合基类 · 集合体系唯根）
+├── BaseSorted（非并发有序：无锁高效）→ SortedList / SortedDict / SortedSet
+│   ├── BaseConcurrent（基础并发：锁守卫 + 原子复合操作 + 快照遍历）→ ConcurrentSorted* / ConcurrentStable*
+│   └── BaseAsyncSorted（跨副本异步有序）→ RedisSortedSet / RedisSortedDict
+└── BaseCacheSnapshot（通用缓存层）→ RedisSnapshot
+```
 """
 
 import heapq
@@ -17,29 +27,34 @@ from bms_core.core.base import BaseObject
 from bms_core.core.serialization import stable_json_dumps
 
 
-class BaseSorted[ItemT](BaseObject, ABC):
-    """有序集合体系根：插入即有序 + 对外输出稳定序。
+class BaseCollection[ItemT](BaseObject, ABC):
+    """基础集合基类：集合体系唯根。
 
-    本体系根只承载**语义约定**（与 `BaseValueObject` 同构，不提供可执行公共方法）：
-    集合体系成员按元素（或键）升序、插入即有序、对外输出稳定序（禁止裸无序集合）。
-    其下按**接口协议**分两条**平行角色链**（链长不限，各自承载本协议的公共段）——
-    同步有序见 `BaseSyncSorted`（进程内有序 / 进程内并发），
-    异步有序见 `BaseAsyncSorted`（`core/redis_collections.py`，跨副本形态）。
+    本体系根承载**集合通用语义约定**（不提供可执行公共方法）：集合成员对外输出稳定序
+    （**禁止裸无序集合**），有序分**升序 / 插入序**两种形态（`collection_kind` 标记）。
+    **所有集合类一律继承本根、无任何例外**——其下按形态分支：
+
+    - `BaseSorted`（非并发有序：无锁、单线程高效）→ `SortedList` / `SortedDict` / `SortedSet`；
+      - `BaseConcurrent`（基础并发：锁守卫 + 原子复合操作 + 快照遍历）
+        → `ConcurrentSorted*`（升序 · 体系内部）/ `ConcurrentStable*`（插入序 · 业务与契约唯一落点）；
+      - `BaseAsyncSorted`（跨副本异步有序：并发由 Lua 原子脚本 + 版本号承载，无同步锁层）
+        → `RedisSortedSet` / `RedisSortedDict`；
+    - `BaseCacheSnapshot`（通用缓存层：版本号快照 + 惰性重载）→ `RedisSnapshot`。
+    """
+
+    collection_kind: ClassVar[str] = "collection"
+    """集合形态标识（子层覆写，如 `sorted` / `sorted_concurrent` / `sorted_async` / `stable` / `cache_snapshot`）。"""
+
+
+class BaseSorted[ItemT](BaseCollection[ItemT], ABC):
+    """有序基类（非并发有序）：稳定序列化、排序视图、分批与集合运算。
+
+    进程内**无锁**有序形态的公共段——`SortedList` / `SortedDict` / `SortedSet` 直接落本层；
+    进程内并发形态（`BaseConcurrent` → `ConcurrentSorted*` / `ConcurrentStable*`）亦承本层取得有序公共段，
+    在高并发读写外再叠加锁守卫与原子复合操作。
     """
 
     collection_kind: ClassVar[str] = "sorted"
-    """集合形态标识（子层覆写，如 `sorted_sync` / `sorted_async`）。"""
-
-
-class BaseSyncSorted[ItemT](BaseSorted[ItemT], ABC):
-    """同步有序集合角色层：稳定序列化、排序视图、分批与集合运算。
-
-    进程内形态的公共段——`SortedList` / `SortedDict` / `SortedSet` 与进程内并发集合
-    （`BaseConcurrentSorted` → `ConcurrentSorted*`）共同承载；跨副本形态为异步接口，
-    不在本链（见 `BaseAsyncSorted`）。
-    """
-
-    collection_kind: ClassVar[str] = "sorted_sync"
 
     @abstractmethod
     def to_list(self) -> list[ItemT]:
@@ -138,7 +153,7 @@ class BaseSyncSorted[ItemT](BaseSorted[ItemT], ABC):
         """
 
 
-class SortedList[ItemT](_SortedList[ItemT], BaseSyncSorted[ItemT]):
+class SortedList[ItemT](_SortedList[ItemT], BaseSorted[ItemT]):
     """有序列表：按元素（或构造 key=）升序，插入即有序。"""
 
     def to_list(self) -> list[ItemT]:
@@ -158,7 +173,7 @@ class SortedList[ItemT](_SortedList[ItemT], BaseSyncSorted[ItemT]):
         return self.to_list()
 
 
-class SortedDict[KeyT, ValueT](_SortedDict[KeyT, ValueT], BaseSyncSorted[tuple[KeyT, ValueT]]):
+class SortedDict[KeyT, ValueT](_SortedDict[KeyT, ValueT], BaseSorted[tuple[KeyT, ValueT]]):
     """有序字典：按键升序，插入即有序。"""
 
     def to_list(self) -> list[tuple[KeyT, ValueT]]:
@@ -222,7 +237,7 @@ class SortedDict[KeyT, ValueT](_SortedDict[KeyT, ValueT], BaseSyncSorted[tuple[K
         return dict(self.items())
 
 
-class SortedSet[ItemT](_SortedSet[ItemT], BaseSyncSorted[ItemT]):
+class SortedSet[ItemT](_SortedSet[ItemT], BaseSorted[ItemT]):
     """有序集合：按元素升序去重，插入即有序。"""
 
     def to_list(self) -> list[ItemT]:

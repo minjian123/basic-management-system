@@ -39,7 +39,9 @@ OBJECT_BASES = frozenset(
         "BaseFrameworkObject",
         "BaseValueObject",
         "BaseProviderRegistry",
-        "BaseSorted",
+        "BaseCollection",
+        "BaseConcurrent",
+        "BaseCacheSnapshot",
         "BaseScopedRepository",
         "BaseRepository",
         "BaseHttpClient",
@@ -66,7 +68,7 @@ OBJECT_BATCH: tuple[tuple[str, str, str], ...] = (
     ("backend/libs/bms_core/src/bms_core/core/locking.py", "LockGuard", "BaseFrameworkObject"),
     ("backend/libs/bms_core/src/bms_core/core/locking.py", "ReadWriteLock", "BaseFrameworkObject"),
     ("backend/libs/bms_core/src/bms_core/core/plugin.py", "PluginRegistry", "BaseFrameworkObject"),
-    ("backend/libs/bms_core/src/bms_core/core/redis_collections.py", "RedisSnapshot", "BaseFrameworkObject"),
+    ("backend/libs/bms_core/src/bms_core/core/redis_collections.py", "RedisSnapshot", "BaseCacheSnapshot"),
     ("backend/libs/bms_core/src/bms_core/core/redis_collections.py", "RedisSortedDict", "BaseAsyncSorted"),
     ("backend/libs/bms_core/src/bms_core/core/redis_collections.py", "RedisSortedSet", "BaseAsyncSorted"),
     ("backend/libs/bms_core/src/bms_core/core/resources.py", "ResourceManager", "BaseFrameworkObject"),
@@ -126,7 +128,8 @@ OBJECT_BATCH: tuple[tuple[str, str, str], ...] = (
 """已归位台账（批次 ① 数据契约 3 + ②a `bms_core` 框架类 28 + ②b 2 + ③ 服务侧 17）——（源文件, 类名, 归位父基类）。
 
 08_05（2026-09-29）集合体系收链：`RedisSortedDict` / `RedisSortedSet` 由 `BaseFrameworkObject`
-改挂集合体系异步角色层 `BaseAsyncSorted`（回归集合链）；`RedisSnapshot` 保持框架对象体系。"""
+改挂集合体系异步有序层 `BaseAsyncSorted`（回归集合链）；`RedisSnapshot` 改挂集合体系
+通用缓存层 `BaseCacheSnapshot`（随 08 域集合体系唯一链收口）。"""
 
 BASELINE_REMAINING = 0
 """基线剩余条目数（批次 ① 后 47 → ②a 后 19 → ②b 后 17 → ③ 后 **0**）。

@@ -7,17 +7,16 @@
 """
 
 from abc import ABC, abstractmethod
-from collections.abc import AsyncGenerator, Awaitable, Callable
+from collections.abc import AsyncGenerator, Awaitable, Callable, Iterator
 from contextlib import asynccontextmanager
 from typing import ClassVar, cast
 
 from redis.asyncio import Redis
 from redis.exceptions import WatchError
 
-from bms_core.core.collections import BaseSorted
+from bms_core.core.collections import BaseCollection, BaseSorted
 from bms_core.core.exceptions import ConcurrentConflictError
 from bms_core.core.holder import ValueHolder
-from bms_core.core.objects import BaseFrameworkObject
 from bms_core.core.serialization import stable_json_dumps, stable_json_loads
 
 _SET_SCRIPT = """
@@ -106,18 +105,49 @@ def _score_for_key(key: object) -> float:
 
 
 class BaseAsyncSorted[ItemT](BaseSorted[ItemT], ABC):
-    """异步有序集合角色层：跨副本形态的公共段（外部存储为事实源）。
+    """异步有序基类（跨副本）：有序体系之异步分支，公共段为跨副本同名同义成员。
 
     只收两个跨副本成员**同名同义**的公共段——`async size()` / `async version()` /
     `version_key`（同步属性）；读写方法（`add` / `incr` / `score` / `range_*` / `top` 与
     `set` / `get` / `delete` / `items`）命名与语义不同，留在各自类
     （不按用途强套统一接口）。
 
-    本层**不提供同步读入口**，也不做 sync → async 桥接（禁 `asyncio.run` / 线程池桥接）：
-    跨副本形态的调用方必须 `await`，进程内同步热路径不受影响。
+    本层**不提供同步读入口**（`BaseSorted` 的同步读公共段在此显式置为不支持），
+    也不做 sync → async 桥接（禁 `asyncio.run` / 线程池桥接）：跨副本形态的调用方必须 `await`；
+    其并发语义由 **Lua 原子脚本 + WATCH/MULTI 乐观重试 + 版本号**承载，不引入同步锁层。
     """
 
     collection_kind: ClassVar[str] = "sorted_async"
+
+    def to_list(self) -> list[ItemT]:
+        """跨副本形态**无同步读入口**（须 `await` 异步读写方法）。
+
+        Raises:
+            NotImplementedError: 恒抛（`to_list` 为同步读，跨副本形态不支持）。
+        """
+        raise NotImplementedError(
+            f"{type(self).__name__} 为跨副本形态、无同步读入口，请使用异步读写方法（如 range_by_rank / top / items）"
+        )
+
+    def __iter__(self) -> Iterator[ItemT]:
+        """跨副本形态**无同步读入口**（须 `await` 异步读写方法）。
+
+        Raises:
+            NotImplementedError: 恒抛（同步遍历跨副本形态不支持）。
+        """
+        raise NotImplementedError(
+            f"{type(self).__name__} 为跨副本形态、无同步读入口，请使用异步读写方法（如 range_by_rank / top / items）"
+        )
+
+    def _json_data(self) -> object:
+        """跨副本形态**无同步读入口**（须 `await` 异步读写方法）。
+
+        Raises:
+            NotImplementedError: 恒抛（同步 JSON 载荷跨副本形态不支持）。
+        """
+        raise NotImplementedError(
+            f"{type(self).__name__} 为跨副本形态、无同步读入口，请使用异步读写方法（如 range_by_rank / top / items）"
+        )
 
     @abstractmethod
     async def size(self) -> int:
@@ -510,7 +540,29 @@ class RedisSortedDict[KeyT, ValueT](BaseAsyncSorted[tuple[KeyT, ValueT]]):
         return int(await self._client.incr(self._version_key))
 
 
-class RedisSnapshot[DataT](BaseFrameworkObject):
+class BaseCacheSnapshot[DataT](BaseCollection[DataT], ABC):
+    """通用缓存层：跨副本只读快照的公共段（远程版本号变化或本地失效时重载一次）。
+
+    本层是集合体系的**通用缓存分支**（与有序分支 `BaseSorted` 平级）——缓存快照非有序集合，
+    不经有序公共段；公共段为 `async get()`（取快照）与 `async invalidate()`（本地失效）。
+    """
+
+    collection_kind: ClassVar[str] = "cache_snapshot"
+
+    @abstractmethod
+    async def get(self) -> DataT:
+        """取快照（必要时重载）。
+
+        Returns:
+            DataT: 快照数据。
+        """
+
+    @abstractmethod
+    async def invalidate(self) -> None:
+        """本地失效（下次 get 强制重载）。"""
+
+
+class RedisSnapshot[DataT](BaseCacheSnapshot[DataT]):
     """本地只读快照：远程版本号变化（或本地失效）时重载一次。"""
 
     def __init__(self, client: Redis, version_key: str, loader: Callable[[], Awaitable[DataT]]) -> None:
