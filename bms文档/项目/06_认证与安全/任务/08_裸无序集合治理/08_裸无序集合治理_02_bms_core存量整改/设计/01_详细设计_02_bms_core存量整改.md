@@ -155,10 +155,12 @@
 
 ```python
 # schemas/base.py（新增，模块级共享构件）
-class _ContractCollection:
+class _ContractCollection(BaseFrameworkObject):
     """契约集合元数据：把基座集合类接入 Pydantic 校验、序列化与 JSON Schema。"""
 
     def __get_pydantic_core_schema__(self, source_type: object, handler: object) -> object: ...
+
+    def __get_pydantic_json_schema__(self, schema: object, handler: object) -> object: ...
 
 CONTRACT_COLLECTION = _ContractCollection()
 """Pydantic 契约集合元数据：`Annotated[集合类[X], CONTRACT_COLLECTION]` 声明契约字段。"""
@@ -167,6 +169,8 @@ CONTRACT_STABLE_LIST: Callable[[], ConcurrentStableList[Any]] = ConcurrentStable
 CONTRACT_STABLE_DICT: Callable[[], ConcurrentStableDict[Any, Any]] = ConcurrentStableDict
 CONTRACT_STABLE_SET: Callable[[], ConcurrentStableSet[Any]] = ConcurrentStableSet
 ```
+
+> 元数据类落 `BaseFrameworkObject`（非数据对象；《后端开发规范》要求一切自定义类必继承基类）。
 
 ```python
 # 契约字段侧用法（内联，不得抽成 PEP 695 泛型别名）
@@ -177,8 +181,8 @@ items: Annotated[ConcurrentStableList[PrintExportResponse], CONTRACT_COLLECTION]
 
 口径：
 
-1. **元数据行为**：按 `typing.get_origin(source_type)` 分派到同类内置容器 schema（`list_schema` / `set_schema(frozen)` / `dict_schema`）→ 校验后转集合类实例 → 自定义序列化器逐元素递归（`handler`）并按其模式重组。
-2. **JSON Schema 逐字节一致**：`ConcurrentStableList[X]` → 与 `list[X]` 一致的 `array`；集合类 → 与 `frozenset[X]` 一致的 `array` + `uniqueItems`；映射类 → 与 `dict[K, V]` 一致的 `object`。契约快照与前端 `api-types` **零漂移**为门禁。
+1. **元数据行为**：按 `typing.get_origin(source_type)` 分派到同类内置容器 schema（映射 → `dict_schema`，其余 → `list_schema`；**集合类以 `list` 校验以保插入序，去重交集合类**）→ 校验后转集合类实例 → 自定义序列化器（`info.mode` 区分）逐元素递归（`handler`）后按模式重组（Python 同类 / JSON 内置容器）。
+2. **JSON Schema 逐字节一致**：`ConcurrentStableList[X]` → 与 `list[X]` 一致的 `array`；集合类 → 与 `frozenset[X]` 一致的 `array` + `uniqueItems`（由 `__get_pydantic_json_schema__` 补齐）；映射类 → 与 `dict[K, V]` 一致的 `object`。契约快照与前端 `api-types` **零漂移**为门禁。
 3. **`model_dump()` 输出集合类实例**（2026-09-29 拍板）：Python 模式重组为同类集合实例（元素递归 dump）；**`model_dump_json()` 仍输出 `array` / `object`**（JSON 模式输出内置容器）。因此 **`stringify_ids` / `BaseObject._convert` 须识别集合类并同型重组**，`stable_json_dumps` 须**前置递归规整**（集合类 → 内置容器）；`str` / `bytes` 不参与识别。
 4. **`default_factory`** 一律用上表工厂常量——既保证默认值与声明一致（不用 `validate_default`，避免全仓默认值校验口径变化），又规避 PEP 695 泛型类运行期**不可下标**与 pyright 报错。
 5. **不得**使用 `type ReadOnlySeq[T] = Annotated[...]` 形式的命名泛型别名：Pydantic 会渲染为 `$defs` 命名引用，OpenAPI 契约与前端 `api-types` 随之漂移。
