@@ -112,7 +112,12 @@ def test_concurrent_dict_behaviour(strategy: LockStrategy) -> None:
     assert data.to_dict() == {"a": 1, "b": 2, "c": 3}
     assert data.to_json() == '{"a": 1, "b": 2, "c": 3}'
     assert repr(data).startswith("ConcurrentSortedDict(")
-    assert list(iter(data)) == [("a", 1), ("b", 2), ("c", 3)]
+    assert list(iter(data)) == ["a", "b", "c"]
+    assert list(data.items()) == [("a", 1), ("b", 2), ("c", 3)]
+    assert list(data.keys()) == ["a", "b", "c"]
+    assert list(data.values()) == [1, 2, 3]
+    assert data["a"] == 1
+    assert data == {"a": 1, "b": 2, "c": 3}
     assert len(data) == 3
     data.delete("c")
     assert "c" not in data
