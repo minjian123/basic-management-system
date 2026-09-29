@@ -112,9 +112,15 @@ def test_stage_report_archived_with_sections() -> None:
 
 @pytest.mark.kiwi_id(2188)
 def test_task_and_domain_status_consistent() -> None:
-    """三类文档状态一致：任务 10_01 与域总览子任务表的状态 / 完成日期一致。"""
+    """进度口径（2026-09-30 起）：任务文档 / 域总览不承载状态与完成日期，唯一落点为阶段计划表。"""
     task_text = _TASK.read_text(encoding="utf-8")
-    assert re.search(r"^\| 状态 \| 已完成 \|$", task_text, re.M)
-    assert re.search(r"^\| 完成日期 \| 2026-09-24 \|$", task_text, re.M)
+    assert not re.search(r"^\| 状态 \|", task_text, re.M), "任务文档不得承载状态字段（进度唯一落点为计划表）"
+    assert not re.search(r"^\| 完成日期 \|", task_text, re.M), "任务文档不得承载完成日期（进度唯一落点为计划表）"
     domain_text = _DOMAIN.read_text(encoding="utf-8")
-    assert re.search(r"\|\s*01\s*\|[^|]*\|[^|]*\| 已完成 \| 2026-09-24 \|", domain_text)
+    assert not re.search(r"\|\s*01\s*\|[^|]*\|[^|]*\|\s*已完成\s*\|", domain_text), (
+        "域总览子任务表不得承载状态列（进度唯一落点为计划表）"
+    )
+    plan_text = _PLAN.read_text(encoding="utf-8")
+    assert re.search(r"^\| 10_01 \|[^|]*\|[^|]*\| 2026-09-24 \|", plan_text, re.M), (
+        "阶段计划表须登记 10_01 已完成与完成日期"
+    )
