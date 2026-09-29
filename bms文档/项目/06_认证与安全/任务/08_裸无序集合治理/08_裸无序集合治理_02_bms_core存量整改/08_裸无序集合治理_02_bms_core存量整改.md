@@ -20,16 +20,16 @@
 ## 2. 任务内容 <a id="content"></a>
 
 1. **基座能力新增（并入本任务）**：① 并发集合补齐**只读 API**——`Sequence` / `Mapping` / `Set` 只读面（索引 / 切片 / `keys` / `items` / `values` / 集合运算 / 与内置容器内容相等），**写入仍走显式原子方法**（不提供 `append` / `__setitem__`）；② 新增**插入序形态** `ConcurrentStableList` / `ConcurrentStableSet` / `ConcurrentStableDict`（继承 `BaseConcurrentSorted`、`collection_kind="stable"`、不比较元素、插入序稳定输出），**支持分段写 + 插入序号归并的高并发写**（`SHARDED`，写并发 ≈ 段数），并把体系根语义扩展为「有序＝升序或插入序两形态」；③ 新增 **Pydantic 契约元数据** `CONTRACT_COLLECTION` 与插入序空集合工厂常量（落 `schemas/base.py`，`core` 不引入 Pydantic；契约 JSON Schema 与 `list[X]` / `dict[K, V]` / `frozenset[X]` 逐字节一致）；④ 序列化链识别集合类（`stringify_ids` / `BaseObject._convert` / `stable_json_dumps`）。
-2. **存量整改（批次 1 · `bms_core`）**：`backend/libs/bms_core/src` 命中 **596 处**（裸容器 287＝类字段 111 / 参数 32 / 返回 144；**抽象落点 309**＝类字段 19 / 参数 216 / 返回 74，2026-09-29 实测）**全落插入序形态**（`ConcurrentStableList` / `ConcurrentStableSet` / `ConcurrentStableDict`，类字段 / 参数 / 返回位置全覆盖）；**升序形态 `ConcurrentSorted*` 与 `SortedList` / `SortedDict` / `SortedSet` 为基座内部实现，不作为整改落点**（业务与契约不得直接声明 / 继承，排序走排序契约）；**批内先类字段、后签名参数与返回**（契约影响面优先）；含集合体系自身公共契约。
+2. **存量整改（批次 1 · `bms_core`）**：`backend/libs/bms_core/src` 命中 **594 处**（裸容器 285＝类字段 109 / 参数 32 / 返回 144；**抽象落点 309**＝类字段 19 / 参数 216 / 返回 74，2026-09-29 实测）**全落插入序形态**（`ConcurrentStableList` / `ConcurrentStableSet` / `ConcurrentStableDict`，类字段 / 参数 / 返回位置全覆盖）；**升序形态 `ConcurrentSorted*` 与 `SortedList` / `SortedDict` / `SortedSet` 为基座内部实现，不作为整改落点**（业务与契约不得直接声明 / 继承，排序走排序契约）；**批内先类字段、后签名参数与返回**（契约影响面优先）；含集合体系自身公共契约。
 3. **验收基准**：**形态一致 + 逐处登记**（声明与运行期均为插入序集合类；加锁与插入序为预期行为；契约字段 `model_dump()` 输出集合类实例、`model_dump_json()` 输出 `array` / `object`）；原「运行期零变更」作废。
 4. **调用方适配**：只读 API 覆盖读用法；参数位落集合类后，向函数传内置容器处改为构造集合类实例；需可变操作处走集合类显式方法或显式拷贝，逐条记入实施记录（不顺手改逻辑）；`services` 侧因参数位收窄报错登记为 `08_03` 前置输入。
-5. **护栏收紧与基线递减**：`check-bare-collections.py` 改为**插入序白名单**判定（裸容器、只读 / 可变抽象、升序形态一律违规；`core/collections.py` / `core/concurrent.py` / `core/redis_collections.py` 实现文件豁免；迭代 / 调用协议不查），补 `--self-test` 矩阵；**先 `--update-baseline` 如实吸收口径收紧后的现状（548 → 920）**，批次完成后递减（`bms_core` 条目归零 → 全局 324），**不得手工增删基线条目**（基线即台账）。
+5. **护栏收紧与基线递减**：`check-bare-collections.py` 改为**插入序白名单**判定（裸容器、只读 / 可变抽象、升序形态一律违规；`core/collections.py` / `core/concurrent.py` / `core/redis_collections.py` 实现文件豁免；迭代 / 调用协议不查），补 `--self-test` 矩阵；**先 `--update-baseline` 如实吸收口径收紧后的现状（548 → 918）**，批次完成后递减（`bms_core` 条目归零 → 全局 324），**不得手工增删基线条目**（基线即台账）。
 6. **登记回写**：《[后端基类清单](../../../../../后端基类清单.md)》「集合体系」节与「体系根清单」表（新形态 / 分段写 / 只读 API / 契约元数据 / 体系根语义 / 护栏与基线）、[需求 08-2](../../../需求/08_需求_裸无序集合治理.md#r08-2)与[需求总览](../../../需求/00_需求_认证与安全.md)、《[后端开发规范](../../../../../规范/后端开发规范.md)》「集合与排序」、[父任务](../08_裸无序集合治理.md)与[计划](../../../计划/01_计划_认证与安全.md)（工时 / 排期）随实施同步；《存量盘点报告》§4 / §5 口径与状态更新。
 7. **测试**：先登记 Kiwi TCMS 用例取号（**3 条**：插入序形态与并发 / 契约零漂移与序列化 / 存量归零与护栏），后写自动化——断言 `bms_core` 命中归零（含抽象落点）、基线递减至 324、护栏复跑「新增 0 / 残留 0」、契约 schema 与前端类型零漂移、`SHARDED` 并发写后读回插入序；受影响定向回归（`bms_core` 相关用例）与门禁全绿。
 
 ## 3. 完成标准 <a id="accept"></a>
 
-`bms_core` **596 处**（裸容器 287 + 抽象 309）全部改为**插入序集合类**（`ConcurrentStable*`；`Sorted*` 与 `ConcurrentSorted*` 不作为整改落点、不得新增直接声明 / 继承）且**形态一致 + 逐处登记**；基座新增（只读 API / `ConcurrentStable*`（含分段写）/ `CONTRACT_COLLECTION` / 序列化链）落地并有用例覆盖；护栏收紧为**插入序白名单**（含实现文件豁免）、基线由 548 吸收至 920 后递减至 324 且 `check-bare-collections.py` 复跑「新增 0 / 残留 0」；契约 JSON Schema 与前端 `api-types` 零漂移；《后端基类清单》与《后端开发规范》口径与代码、基线一致；受影响定向 `pytest`、`ruff`、`pyright`、基座校验与 `preflight --fast` 全绿。
+`bms_core` **594 处**（裸容器 285 + 抽象 309）全部改为**插入序集合类**（`ConcurrentStable*`；`Sorted*` 与 `ConcurrentSorted*` 不作为整改落点、不得新增直接声明 / 继承）且**形态一致 + 逐处登记**；基座新增（只读 API / `ConcurrentStable*`（含分段写）/ `CONTRACT_COLLECTION` / 序列化链）落地并有用例覆盖；护栏收紧为**插入序白名单**（含实现文件豁免）、基线由 548 吸收至 918 后递减至 324 且 `check-bare-collections.py` 复跑「新增 0 / 残留 0」；契约 JSON Schema 与前端 `api-types` 零漂移；《后端基类清单》与《后端开发规范》口径与代码、基线一致；受影响定向 `pytest`、`ruff`、`pyright`、基座校验与 `preflight --fast` 全绿。
 
 ## 4. 参考文档 <a id="ref"></a>
 
