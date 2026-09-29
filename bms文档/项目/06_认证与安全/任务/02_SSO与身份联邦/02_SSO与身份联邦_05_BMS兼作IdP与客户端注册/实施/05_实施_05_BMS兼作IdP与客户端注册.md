@@ -86,7 +86,7 @@ flowchart LR
   1. 客户端管理页面、Client Credentials（`/api/open/token`）、`ip_whitelist` 生效、`sys_open_log` 调用审计、refresh token 与独立撤销——**归口：阶段十（系统集成与消息）**。
   2. 浏览器 SSO 会话 cookie 联动与 `return_to` 登录页落点——**归口：域五（登录前端）**。
   3. ID Token / userinfo 的 `email` 声明（`sys_user` 暂无该字段）——**归口：用户管理阶段**。
-  4. 生产 issuer 域与租户子域规划、密钥轮换演练、第三方 OIDC 一致性测试——**归口：运维 / 阶段验收（M6）**。
+ 4. 生产 issuer 域与租户子域规划、密钥轮换演练、第三方 OIDC 一致性测试——**归口：运维 / 阶段验收**。
   5. ~~真机冒烟~~ **已闭环（2026-09-27）**：mjbk 部署 `bms-identity:19a620b9` + 迁移 + 门禁通过；容器内完成授权码流程 E2E（Discovery / JWKS 经网关可达）。
   6. 浏览器场景下 `/authorize` 经网关的会话 cookie 联动（本次冒烟以容器内 Bearer + Redis 会话标记验证；网关公开路径对浏览器导航不携带 Bearer，登录页与 cookie 联动归域五）——**归口：域五**。
 

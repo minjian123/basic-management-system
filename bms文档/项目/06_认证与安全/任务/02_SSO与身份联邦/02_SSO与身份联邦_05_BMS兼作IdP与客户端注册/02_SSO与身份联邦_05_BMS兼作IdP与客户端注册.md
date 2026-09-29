@@ -11,11 +11,8 @@
 | 编号 | 05 |
 | 父任务 | [02 SSO 与身份联邦](../02_SSO与身份联邦.md) |
 | 对应需求 | [02-5](../../../需求/02_需求_SSO与身份联邦.md#r02-5) |
-| 工时（重估） | 24h |
 | 依赖 | 01_02（用户令牌密钥体系）、01_03（会话与登录）；阶段二 `07_02`（服务 JWT 与 JWKS） |
 | 负责人 | minjian |
-| 状态 | 已完成 |
-| 完成日期 | 2026-09-27 |
 
 > **前置契约（已交付，2026-09-26）**：01_02 已交付用户令牌密钥体系与签发契约——`BaseUserTokenIssuer`（`get_user_token_issuer`：`issue_pair` / `jwks()` / `verify(token, *, expected_type)`）、`JwtUserTokenIssuer`（kid 强制 `usr-` 前缀、`[user_token].issuer` + `[security]` 密钥）、`merge_jwks`（JWKS 同端点发布）；本任务 ID Token 在其上复用密钥体系（`kid` 代次与 `aud` 另立口径，与用户令牌 `aud=api` 区分）。
 
@@ -25,7 +22,7 @@
 2. **客户端注册（最小）**：`sys_client` 表文件先设计后落库（`client_id` / `client_secret` 哈希 / `redirect_uris` / `grant_types` / scope），提供内部最小注册与管理接口（创建 / 查询 / 启停 / 重置凭据；服务 JWT 或平台超管口径）；**管理页面归阶段十**。
 3. **令牌与撤销**：授权码单次有效短 TTL；客户端凭据独立撤销；签发审计经操作日志占位（`sys_open_log` 与开放接口鉴权归阶段十）。
 4. **并存边界**：BMS 兼作 IdP 与「BMS 作为外部 IdP 客户端」两向能力分列，不互相占用契约（用户令牌 / ID Token 的 `aud` 区分）。
-5. **联调演示**：以测试客户端完成一次授权码流程 E2E（授权 → 换码 → userinfo），作为 M6「BMS 作 IdP 通过」证据。
+5. **联调演示**：以测试客户端完成一次授权码流程 E2E（授权 → 换码 → userinfo），作为 「BMS 作 IdP 通过」证据。
 6. **用例**：非法 `redirect_uri` / 未知 client / 授权码重放 / PKCE 缺失分支。
 
 ## 3. 完成标准 <a id="accept"></a>

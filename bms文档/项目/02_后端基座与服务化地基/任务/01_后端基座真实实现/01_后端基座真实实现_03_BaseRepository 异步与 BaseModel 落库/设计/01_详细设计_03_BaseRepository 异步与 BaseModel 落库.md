@@ -2,7 +2,7 @@
 
 > 后端基座与服务化地基 · 01 后端基座真实实现 · 03 BaseRepository 异步与 BaseModel 落库 · 详细设计
 
-[文档首页](../../../../../../文档首页.md) › [03 BaseRepository 异步与 BaseModel 落库](../01_后端基座真实实现_03_BaseRepository 异步与 BaseModel 落库.md) › 01 详细设计　|　[父任务：后端基座真实实现](../../01_后端基座真实实现.md) · [本阶段需求](../../../../需求/01_需求_后端基座真实实现.md) · [排期计划](../../../../计划/01_计划_后端基座与服务化地基.md)
+[文档首页](../../../../../../文档首页.md) › [03 BaseRepository 异步与 BaseModel 落库](../01_后端基座真实实现_03_BaseRepository 异步与 BaseModel 落库.md) › 01 详细设计　|　[父任务：后端基座真实实现](../../01_后端基座真实实现.md) · [本阶段需求](../../../../需求/01_需求_后端基座真实实现.md) · [阶段计划](../../../../计划/01_计划_后端基座与服务化地基.md)
 
 ## 1. 概述 <a id="overview"></a>
 
@@ -120,7 +120,7 @@ bms文档/
 | `update(item_id, **values)` | 白名单校验 → 作用域内取行（缺失返回 `None`）→ `setattr` → `flush()` 并在 `_guard_version` 内转译 `StaleDataError → ConcurrentConflictError`（409） |
 | `delete(item_id)` | `soft_delete_enabled=True` 走软删除，否则走硬删除（决策 5：默认软删 + 显式出口） |
 | `soft_delete(item_id)` | 作用域内取行 → `model.soft_delete()`（置 `deleted_at`）→ `flush()`；返回是否存在 |
-| `hard_delete(item_id)` | 取行**穿透软删过滤**（保留租户与数据范围条件，供回收站物理清理已软删残留）→ `session.delete` → `flush()` | 
+| `hard_delete(item_id)` | 取行**穿透软删过滤**（保留租户与数据范围条件，供回收站物理清理已软删残留）→ `session.delete` → `flush()` |
 
 **写入字段严格白名单**（决策 3）：
 

@@ -11,11 +11,8 @@
 | 编号 | 03 |
 | 父任务 | [02 SSO 与身份联邦](../02_SSO与身份联邦.md) |
 | 对应需求 | [02-3](../../../需求/02_需求_SSO与身份联邦.md#r02-3) |
-| 工时（重估） | 12h |
 | 依赖 | 02_01（SSO 链路）；阶段二 `07_01`（`BaseIdentityProvider` 契约与 `IDP_PROTOCOLS`） |
 | 负责人 | minjian |
-| 状态 | 已完成 |
-| 完成日期 | 2026-09-27 |
 
 > **前置契约（已交付 · 02_01，2026-09-27）**：SSO 登录完整链路已交付——三端点（`providers` / `authorize` / `callback`）、流程状态能力域 `idp_state_store`（一次性消费）、`ProviderRegistry`（桥接基座 `IdentityProviderRegistry.build` 按 `type` 分派，`oidc` 之外类型当前抛 `ConfigError`）与会话签发作构件 `SessionIssuer` 均按「协议差异经同一链路承载」落地；本任务按 `BaseIdentityProvider` 契约实现 CAS 客户端并在 `IdentityProviderRegistry.build` 注册 `type="cas"` 分派，复用 authorize / callback 与 JIT（02_02），不另建链路。
 

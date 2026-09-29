@@ -13,9 +13,9 @@
 3. **客户端注册（最小）**——`sys_client` 表先设计后落库（identity 服务租户库），`client_id` 租户内唯一、`client_secret` 只存哈希；提供内部最小管理接口（创建 / 列表 / 详情 / 启停 / 重置凭据；`open:manage` 权限码占位）。
 4. **令牌与撤销**——授权码单次有效短 TTL（复用 `idp_state_store` 一次性消费）；`/token` 本期不签发 refresh token；客户端凭据重置即旧密钥失效；签发审计经操作日志占位（`sys_open_log` 与开放接口鉴权归阶段十）。
 5. **并存边界**——BMS 兼作 IdP（服务端）与「BMS 作为外部 IdP 客户端」（`bms_core/idp/`，SSO 链路 02_01~02_04）两向能力分列，互不占用契约（`aud=api` 用户令牌 / `aud=userinfo` IdP access token / `aud=service` 服务令牌 / ID Token `aud=client_id` 四向隔离）。
-6. **联调演示**——`ops/seed_oidc_client.py` 播种测试客户端，完成一次授权码流程 E2E（授权 → 换码 → userinfo），作为 M6「BMS 作 IdP 通过」证据。
+6. **联调演示**——`ops/seed_oidc_client.py` 播种测试客户端，完成一次授权码流程 E2E（授权 → 换码 → userinfo），作为 「BMS 作 IdP 通过」证据。
 
-**不在本期**：客户端管理页面、调用审计（`sys_open_log`）、开放接口鉴权（`/api/open/token` Client Credentials）与 refresh token（归阶段十）；前端登录页与扫码（域五）；ID Token 中的 `email` 声明（`sys_user` 无该字段，待用户管理阶段）；真实生产密钥轮换与第三方 IdP 一致性测试（运维 / 验收随 M6）。
+**不在本期**：客户端管理页面、调用审计（`sys_open_log`）、开放接口鉴权（`/api/open/token` Client Credentials）与 refresh token（归阶段十）；前端登录页与扫码（域五）；ID Token 中的 `email` 声明（`sys_user` 无该字段，待用户管理阶段）；真实生产密钥轮换与第三方 IdP 一致性测试（运维 / 验收随）。
 
 **安全影响（SDL）**：涉及对外签发的身份断言（ID Token）与第三方客户端凭据。专项验收点：签名算法仅非对称白名单、私钥不入库 / 不落日志；`client_secret` 只存 PBKDF2 哈希、明文仅创建 / 重置响应回显一次；`redirect_uri` 精确匹配已注册值（防开放重定向）；授权码一次性原子消费（Redis `GETDEL`）且短 TTL；PKCE S256（公共客户端强制）；`state` / `nonce` 透传校验；`/authorize` 未登录只跳配置内登录页（防开放重定向）；`aud` / `iss` / `typ` 四向隔离防令牌串用；`/token` 客户端认证常量时间比对、失败不区分原因。
 
@@ -93,7 +93,7 @@ bms文档/
 ├── 设计/架构设计/14_架构设计_子系统_认证与会话.md                 # 改：§4 BMS 兼作 IdP 口径
 ├── 后端基类清单.md                                             # 改：oidc_provider 条目
 └── 项目/06_认证与安全/…
-    ├── 计划/01_计划_认证与安全.md                              # 改：本任务状态与工时回写
+ ├── 计划/01_计划_认证与安全.md
     ├── 任务/02_SSO与身份联邦/02_SSO与身份联邦.md               # 改：子任务状态与完成日期
     └── 任务/…_05_…/                                           # 改：任务状态 + 实施 / 测试记录
 
@@ -296,7 +296,7 @@ login_url = ""                                 # /authorize 未登录跳转的�
 | 5 | `services/identity/tests/oidc/test_token.py`（新） | 成功：换码 → ID Token 验签（`aud=client_id` / `nonce` / `sub`）+ access token 验签（`aud=userinfo`）；basic 与 post 两认证；授权码重放 / 过期 → invalid_grant；`redirect_uri` 不符 / PKCE 不符 → invalid_grant；未知客户端 / 错密钥 → invalid_client；`grant_type` 非授权码 → unsupported_grant_type；无 refresh_token | 授权码流程 E2E 与错误分支 |
 | 6 | `services/identity/tests/oidc/test_userinfo.py`（新） | Bearer access token → `{sub, preferred_username, name}`；缺 / 错 / 过期 / 跨租户令牌 → 401；用户不存在 / 停用 → 401；org 不可达 → 503 | userinfo 与失败语义 |
 | 7 | `services/identity/tests/oidc/test_clients.py`（新） | 创建返回 `client_id` + 明文 secret 一次；重置后旧 secret 失效、新密钥可换码；列表 / 详情不含 secret 与哈希；启停后 authorize / token 拒绝；字段非法 → 80112；不存在 → 80111；权限依赖生效 | 注册 / 停用 / 重置可用且落库 |
-| 8 | `services/identity/tests/oidc/test_e2e.py`（新） | 单测内全链路：登录建会话 → authorize（Bearer）→ 换码 → userinfo；测试客户端种子可用 | M6「BMS 作 IdP 通过」证据 |
+| 8 | `services/identity/tests/oidc/test_e2e.py`（新） | 单测内全链路：登录建会话 → authorize（Bearer）→ 换码 → userinfo；测试客户端种子可用 | 「BMS 作 IdP 通过」证据 |
 | 9 | `services/identity/tests/oidc/test_units.py`（新） | helper 分支：`issuer` 占位派生 / scope 校验 / redirect_uri 匹配 / PKCE S256 计算 / 授权码载荷编解码非法结构 | 覆盖率 100% |
 | 10 | `libs/bms_core/tests/alembic/test_alembic_chains.py`（扩展） | `identity:tenant` 单 head 新 revision；表集含 `sys_client`；`branch_labels` 正确 | 迁移链与零漂移 |
 | 11 | `services/platform/tests/crosscut/test_plugin_registration.py`（扩展） | `_EXPECTED_PLUGIN_KEYS` 与接线一致（`oidc_provider` 登记） | 装配一致性 |
@@ -315,7 +315,7 @@ login_url = ""                                 # /authorize 未登录跳转的�
 | 错误码与口径回写 | 架构 09 行（`801xx`）；概要 26 §5.1 / §5.2；概要 20 §5.1；架构 14 §4 |
 | 契约与生成件 | `deploy/contracts/identity.json`、`frontend/packages/api-types/src/identity.ts` 重生成零漂移 |
 | 网关生成件 | `deploy/gateway/apisix.yaml`（路由 / 公开路径变化时重生成） |
-| 任务 / 父任务 / 计划状态与工时 | 本任务文档、[父任务](../../02_SSO与身份联邦.md)、[计划](../../../../计划/01_计划_认证与安全.md) |
+
 | 消费方前置契约标注 | 阶段十（`sys_client` 管理 / 开放接口 / 审计）、域五（登录页 `return_to`）、用户管理阶段（`email`） |
 | Kiwi TCMS / 测试资产仓 | 登记本任务策展用例并回读编号；`test/scripts/kiwi/cases|exports/` 对应文件 |
 | 实施 / 测试记录 | 本目录 `实施/`、`测试/` 各一份 |
