@@ -2,9 +2,9 @@
 """需求 / 任务 / 计划三类项目文档的一致性核对。
 
 用途（《需求文档规范》「进度口径」节、《任务文档规范》§7、《计划文档规范》§6）：需求文档只承载
-「做什么与验收标准」，进度（状态 / 完成日期 / 工时）以任务与计划两类文档为准；需求侧只校验
-**编号集合**（域文档 ↔ 总览总清单）。本脚本按固定规则扫描阶段目录，输出不一致清单，供阶段收口
-与 CI 常跑使用。
+「做什么与验收标准」，**进度（状态 / 完成日期 / 工时 / 排期窗口）以计划表为唯一落点**；需求侧只校验
+**编号集合**（域文档 ↔ 总览总清单），任务侧只校验编号集合与需求关联。本脚本按固定规则扫描阶段目录，
+输出不一致清单，供阶段收口与 CI 常跑使用。
 
 规则分两层：
 - **硬规则（默认阻断）**：结构性约束，任何时点都必须成立（需求编号集合、任务状态取值与日期口径、
@@ -35,6 +35,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 STATUSES = ("未开始", "进行中", "部分完成", "已完成", "搁置")
+#: 剩余排期表允许的状态（已完成任务在「已完成任务」表，不在此表）。
+TODO_STATUSES = ("未开始", "进行中", "部分完成", "搁置")
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 REQ_ID_RE = re.compile(r"^\d{2}-\d+$")
@@ -65,14 +67,11 @@ class Finding:
 
 @dataclass
 class TaskDoc:
-    """顶层任务文档的关键字段。"""
+    """顶层任务文档的关键字段（任务不承载进度）。"""
 
     path: Path
     domain: str
     seq: str
-    status: str
-    date: str
-    hours: str
     reqs: list[str]
 
 
@@ -164,15 +163,15 @@ def parse_task_meta(path: Path) -> dict[str, str]:
     return meta
 
 
-def parse_domain_overview(path: Path) -> dict[str, tuple[str, str]]:
-    """解析域总览子任务清单表：域内序号 → (状态, 完成日期)。"""
+def parse_domain_overview(path: Path) -> tuple[str, ...]:
+    """解析域总览子任务清单表：域内序号集合（进度不在任务侧）。"""
     section = read_section(path.read_text(encoding="utf-8"), r"^## 2\. 子任务清单")
-    result: dict[str, tuple[str, str]] = {}
+    result: list[str] = []
     for line in section.splitlines():
         cells = split_row(line)
-        if cells and len(cells) == 6 and re.fullmatch(r"\d{2}", cells[0]):
-            result[cells[0]] = (cells[3], cells[4])
-    return result
+        if cells and len(cells) >= 2 and re.fullmatch(r"\d{2}", cells[0]):
+            result.append(cells[0])
+    return tuple(result)
 
 
 def parse_plan(path: Path) -> dict[str, object]:
@@ -188,8 +187,8 @@ def parse_plan(path: Path) -> dict[str, object]:
             done[cells[0]] = {"hours": cells[2], "date": cells[3]}
     for line in todo_section.splitlines():
         cells = split_row(line)
-        if cells and len(cells) == 7 and PLAN_ID_RE.match(cells[0]):
-            todo[cells[0]] = {"hours": cells[2], "window": cells[4]}
+        if cells and len(cells) == 8 and PLAN_ID_RE.match(cells[0]):
+            todo[cells[0]] = {"status": cells[2], "hours": cells[3], "window": cells[5]}
     head = STATS_HEAD_RE.search(text)
     effort = EFFORT_RE.search(text)
     gantt_ids = {
@@ -238,12 +237,8 @@ def collect_tasks(stage_dir: Path, report: Report) -> dict[str, TaskDoc]:
             path = docs[0]
             meta = parse_task_meta(path)
             seq = meta.get("编号", "").strip()
-            status = meta.get("状态", "").strip()
             if TASK_ID_RE.match(seq):
-                report.ok(2)  # 嵌套子任务：只校验状态与日期口径
-                if status not in STATUSES:
-                    report.fail("硬", "H2", f"任务状态取值非法：{path} → {status}")
-                check_date(report, f"任务 {path}", status, meta.get("完成日期", "").strip())
+                report.ok()  # 嵌套子任务：只登记，不进计划编号集合
                 continue
             if not re.fullmatch(r"\d{2}", seq):
                 report.fail("硬", "H5", f"任务编号未识别：{path} → {seq!r}")
@@ -253,18 +248,12 @@ def collect_tasks(stage_dir: Path, report: Report) -> dict[str, TaskDoc]:
                 path=path,
                 domain=domain,
                 seq=seq,
-                status=status,
-                date=meta.get("完成日期", "").strip(),
-                hours=meta.get("工时（重估）", "").strip(),
                 reqs=expand_reqs(meta.get("对应需求", "")),
             )
             if plan_id in tasks:
                 report.fail("硬", "H6", f"计划编号重复：{plan_id}（{path}）")
             tasks[plan_id] = doc
-            report.ok(2)
-            if doc.status not in STATUSES:
-                report.fail("硬", "H2", f"任务状态取值非法：{path} → {doc.status}")
-            check_date(report, f"任务 {path}", doc.status, doc.date)
+            report.ok()
             for req in doc.reqs:
                 report.ok()
                 if req not in REQ_INDEX:
@@ -329,19 +318,11 @@ def check_stage(stage_dir: Path, report: Report) -> None:
         if not overview_doc.is_file():
             continue
         listed = parse_domain_overview(overview_doc)
-        for seq, (status, date) in listed.items():
+        for seq in sorted(listed):
             plan_id = f"{domain}_{seq}"
             report.ok()
-            doc = tasks.get(plan_id)
-            if doc is None:
+            if plan_id not in tasks:
                 report.fail("硬", "H5", f"域总览列出而任务文档缺失：{plan_id}（{overview_doc.name}）")
-                continue
-            if (doc.status, doc.date) != (status, date):
-                report.fail(
-                    "硬", "H5",
-                    f"域总览与任务文档不一致：{plan_id} 域总览 {status} / {date}，"
-                    f"任务 {doc.status} / {doc.date}",
-                )
         for plan_id in sorted(t for t in tasks if t.startswith(f"{domain}_")):
             report.ok()
             if plan_id.split("_")[1] not in listed:
@@ -370,23 +351,11 @@ def check_stage(stage_dir: Path, report: Report) -> None:
         if plan_id not in done and plan_id not in todo:
             report.fail("硬", "H6", f"任务文档未登记进计划：{plan_id}")
 
-    # H7：工时对齐（任务信息表 == 计划表；任务侧单元格可带「（重估：…）」说明，取前导数字）
-    # 部分完成（重开后追加嵌套子任务）的父任务：任务信息表记重估总工时（含未实施子任务），计划已完成表记
-    # 已完成部分，二者口径不同、不直接比较；其剩余子任务在计划剩余表按各自工时逐条核对。
-    for plan_id, doc in tasks.items():
-        if doc.status == "部分完成":
-            continue
-        row = done.get(plan_id) or todo.get(plan_id)
-        if not row:
-            continue
+    # H7：剩余排期表「状态」取值合法（进度唯一落点为计划表；已完成任务不在此表）
+    for plan_id, row in sorted(todo.items()):
         report.ok()
-        task_hours = docs_hours(doc.hours)
-        plan_hours = docs_hours(row["hours"])
-        if task_hours is None or plan_hours is None or task_hours != plan_hours:
-            report.fail(
-                "硬", "H7",
-                f"工时不一致：{plan_id} 任务 {doc.hours}，计划 {row['hours']}",
-            )
+        if row["status"] not in TODO_STATUSES:
+            report.fail("硬", "H7", f"剩余排期表状态取值非法：{plan_id} → {row['status']}")
 
     # H8：排期窗口格式
     for plan_id, row in sorted(todo.items()):
@@ -426,9 +395,9 @@ def check_stage(stage_dir: Path, report: Report) -> None:
     for plan_id in sorted(gantt & set(done)):
         report.fail("软", "S2", f"甘特仍含已完成任务节点：{plan_id}")
 
-    # S3：已完成任务的留痕记录齐备（父任务可由嵌套子任务目录承担）
+    # S3：已完成任务（计划已完成表）的留痕记录齐备（父任务可由嵌套子任务目录承担）
     for plan_id, doc in tasks.items():
-        if doc.status != "已完成":
+        if plan_id not in done:
             continue
         report.ok()
         base = doc.path.parent
