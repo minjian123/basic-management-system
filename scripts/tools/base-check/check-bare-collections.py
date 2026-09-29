@@ -11,6 +11,9 @@
 - **查**：类字段注解 + 函数签名注解；**不查**函数体内局部注解（内部变量不外流）。
 - **查**：`dict` / `list` / `set` / `frozenset` 及 typing 别名；**不查** `Sequence`（有序）/ `Iterable` /
   `Mapping`（只读抽象）与自定义基座集合类。
+- **实现文件豁免**：集合体系实现文件（`core/collections.py` / `core/concurrent.py` /
+  `core/redis_collections.py`）允许直接使用裸容器 / `Sorted*` / `ConcurrentSorted*` 承载实现底座，
+  按**文件路径白名单**豁免（08_02，2026-09-29）。
 - **范围**：`backend/libs/bms_core/src`、`backend/services/*/src`、`backend/ops`、`scripts/tools`（排除测试）。
 - **基线**：`deploy/boundaries/bare_collections_baseline.json`（文件 + 规范化行内容指纹 + 容器 + 计数）。
 
@@ -24,7 +27,7 @@
 
 退出码：``0`` 通过（或 ``--report``）；``1`` 存在新增违规 / 基线非法 / 扫描异常。
 
-用例：Kiwi **2213**（`--self-test` 自测矩阵；覆盖检出 / 不检出 / 位置 / 排除 / 基线语义 / 模式与输出）。
+用例：Kiwi **2213**（`--self-test` 自测矩阵；覆盖检出 / 不检出 / 位置 / 排除 / 基线语义 / 模式与输出 / 实现文件豁免）。
 """
 
 from __future__ import annotations
@@ -61,6 +64,15 @@ SCAN_TARGETS: tuple[str, ...] = (
 """扫描目标（相对仓库根）；`backend/services` 只取其下各服务的 `src`。"""
 
 _EXCLUDED_PARTS = frozenset({"tests", "__pycache__", ".venv", "node_modules", ".git"})
+
+EXEMPT_FILES: frozenset[str] = frozenset(
+    {
+        "backend/libs/bms_core/src/bms_core/core/collections.py",
+        "backend/libs/bms_core/src/bms_core/core/concurrent.py",
+        "backend/libs/bms_core/src/bms_core/core/redis_collections.py",
+    }
+)
+"""集合体系实现文件（按文件路径白名单豁免）：内部实现允许裸容器 / `Sorted*` / `ConcurrentSorted*`。"""
 
 BARE_CONTAINERS: frozenset[str] = frozenset(
     {"dict", "list", "set", "frozenset", "Dict", "List", "Set", "FrozenSet", "DefaultDict"}
@@ -182,6 +194,8 @@ def collect(root: Path) -> list[Hit]:
     hits: list[Hit] = []
     for path in _iter_target_files(root):
         rel = path.relative_to(root).as_posix()
+        if rel in EXEMPT_FILES:
+            continue
         try:
             source = path.read_text(encoding="utf-8")
             tree = ast.parse(source)
@@ -407,6 +421,7 @@ _FIXTURE_FILES: dict[str, str] = {
         "    del local\n"
     ),
     "backend/libs/bms_core/src/demo/tests/test_skip.py": "class X:\n    bad: list[int] = []\n",
+    "backend/libs/bms_core/src/bms_core/core/concurrent.py": "def to_list(self) -> list[int]:\n    return []\n",
     "backend/services/svc/src/svc/mod.py": "class A:\n    data: List[int] = []\n",
     "backend/ops/op.py": "def run(payload: DefaultDict[str, int]) -> None:\n    del payload\n",
     "scripts/tools/thing.py": "def x() -> frozenset[str]:\n    return frozenset()\n",
@@ -475,6 +490,10 @@ def _self_test() -> int:
             "命中字符串前向引用",
         )
         expect(all("Sequence" != hit.container and "Mapping" != hit.container for hit in hits), "只读 / 有序抽象不报")
+        expect(
+            all(hit.file != "backend/libs/bms_core/src/bms_core/core/concurrent.py" for hit in hits),
+            "实现文件豁免（集合体系实现文件不报）",
+        )
         expect(all("tests" not in hit.file for hit in hits), "测试目录不扫描")
         expect(all("local:" not in hit.line for hit in hits), "函数体内局部注解不报")
 
