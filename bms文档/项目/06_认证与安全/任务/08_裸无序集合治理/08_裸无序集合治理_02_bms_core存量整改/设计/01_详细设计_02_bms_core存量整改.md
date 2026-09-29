@@ -321,3 +321,43 @@ flowchart LR
 | 21 | 基座原型先行 | 先只落 `core/concurrent.py`（只读 API + `ConcurrentStable*` 分段写）并以多线程用例验证顺序与并发性，再铺开契约元数据 / 序列化链 / 护栏收紧 / 存量整改（2026-09-29 拍板） |
 
 > 本设计定稿后按《[AI开发规范](../../../../../../规范/AI开发规范.md)》「单任务交付一条龙」自动续行：实施 → 测试（Kiwi 先登记）→ 验证 → 登记回写 → 记录 → 提交。
+
+## 9. 集合体系唯一链收口（2026-09-30 回写 · 覆盖上文旧口径） <a id="unique-chain"></a>
+
+> 本节回写 08 域最终定稿的集合体系结构，**与《[后端基类清单](../../../../../../后端基类清单.md)》「集合体系」节、《[后端开发规范](../../../../../../规范/后端开发规范.md)》「集合与排序」一致**；与前文 §3 / §8 中「`BaseSorted` 为体系根」「两条角色链」「实现文件豁免」等旧口径冲突之处，**以本节为准**。
+
+**唯一继承链（所有集合类一律（间接）继承 `BaseCollection`、无任何例外）**：
+
+```mermaid
+flowchart TD
+    ROOT["BaseCollection｜基础集合基类（集合体系唯根）"]
+    S["BaseSorted｜非并发有序（无锁高效）"]
+    SORTED["SortedList / SortedDict / SortedSet"]
+    C["BaseConcurrent｜基础并发（锁守卫 + 原子复合操作 + 快照遍历）"]
+    STABLE["ConcurrentSorted*（升序 · 体系内部）/ ConcurrentStable*（插入序 · 业务与契约唯一落点）"]
+    A["BaseAsyncSorted｜跨副本异步有序（Lua + 版本号，无同步读入口）"]
+    REDIS["RedisSortedSet / RedisSortedDict"]
+    CACHE["BaseCacheSnapshot｜通用缓存层"]
+    SNAP["RedisSnapshot"]
+    ROOT --> S
+    S --> SORTED
+    S --> C --> STABLE
+    S --> A --> REDIS
+    ROOT --> CACHE --> SNAP
+```
+
+| 层 | 落点 | 职责 / 变更 |
+| --- | --- | --- |
+| `BaseCollection` | `core/collections.py` | **集合体系唯根**：集合通用语义（有序语义 + 稳定序约定）+ `collection_kind`；`BaseObject` 直继承（体系根） |
+| `BaseSorted` | `core/collections.py` | **非并发有序基类**：同步读公共段（`to_list` / `__iter__` / `_json_data` / `to_json` / `sorted_by` / `chunk` / `merge`）；`Sorted*` 无锁高效形态 |
+| `BaseConcurrent` | `core/concurrent.py` | **基础并发层**（原 `BaseConcurrentSorted` 锁守卫 + SNAPSHOT 写时复制模板）：`collection_kind="sorted_concurrent"` |
+| `BaseAsyncSorted` | `core/redis_collections.py` | 跨副本异步有序（承 `BaseSorted`）；**同步读公共段显式置为不支持**（`to_list` / `__iter__` / `_json_data` 恒抛 `NotImplementedError`），并发由 Lua + 版本号承载 |
+| `BaseCacheSnapshot` | `core/redis_collections.py` | **通用缓存层**：`async get()` / `async invalidate()`；`RedisSnapshot` 由框架对象体系**改挂**本层 |
+
+**旧名退场**：`BaseSorted`（旧语义根）/ `BaseSyncSorted` / `BaseConcurrentSorted`；`RedisSnapshot` 不再挂 `BaseFrameworkObject`。
+
+**改动落点**：`core/collections.py`、`core/concurrent.py`、`core/redis_collections.py`、`core/objects/roots.py`（体系根注释）、`schemas/base.py`（契约元数据认集合体系唯根 `BaseCollection`）；护栏 `check-bare-collections.py`（口径收紧 + **取消全部豁免**）、`check-backend-base.py`（体系根白名单改 `BaseCollection`）；基线 `bare_collections_baseline.json` 重算；测试 6 份（`test_collections_chain` / `test_collections` / `test_concurrent` / `test_concurrent_stable` / `test_object_bases_roots` / `test_value_object_roots`）。
+
+**护栏口径（本节定稿，取代 §8 对齐记录第 11 / 12 条）**：白名单**只含插入序形态**；裸容器、只读 / 可变抽象、升序形态、**`ClassVar` 类级常量**、**`BaseSettings` 配置字段**、**测试目录**（扫描目标扩至 `*/tests`）与**函数体带注解局部变量**一律纳入；仅「迭代 / 调用协议（`Iterable` / `Iterator` / `Callable`）不查」；集合体系**实现文件为不属约束对象**（护栏只约束业务侧集合声明）。基线由 918 **如实吸收至 1711**（2026-09-30 实测；`libs` 1036 / `services` 348 / `scripts/tools` 224 / `ops` 103），按批递减至归零。
+
+**验收基准**：形态一致 + 逐处登记；`check-backend-base.py` 与 `check-bare-collections.py` 全绿；契约 JSON Schema 与前端 `api-types` 零漂移；定向 `pytest`、`ruff`、`pyright` 与 `preflight --fast` 全绿。

@@ -109,3 +109,20 @@
 2. 本任务尚无运行期全量回归；594 处存量整改完成后按详细设计 §5 用例 4~6 跑门禁与文档一致性核对。
 
 > 本文档依《[文档生成规范](../../../../../../规范/文档生成规范.md)》编写
+
+## 8. 用例与执行补充 · 集合体系唯一链收口（2026-09-30） <a id="unique-chain-test"></a>
+
+| # | 用例 | 类型 | 自动化落点 | 断言 | 结果 |
+| --- | --- | --- | --- | --- | --- |
+| 1 | 集合体系唯一根 | 单测 | `tests/core/test_collections_chain.py::test_single_root`（Kiwi 2221） | `BaseCollection` 直继承 `BaseObject`；各层（`BaseSorted` / `BaseConcurrent` / `BaseAsyncSorted` / `BaseCacheSnapshot`）与 12 个具体集合类均（间接）继承 `BaseCollection` | 通过 |
+| 2 | 分支关系 | 单测 | 同上 `::test_branching` | `Sorted*` 挂 `BaseSorted` 且不挂 `BaseConcurrent`；`Concurrent*` 挂 `BaseConcurrent`；`RedisSorted*` 挂 `BaseAsyncSorted` 且不挂 `BaseConcurrent`；`RedisSnapshot` 挂 `BaseCacheSnapshot` 且不挂 `BaseSorted` | 通过 |
+| 3 | 跨副本无同步读入口 | 单测 | 同上 `::test_async_has_no_sync_read_entry` | `RedisSortedSet.to_list` / `__iter__` / `_json_data` 恒抛 `NotImplementedError`；`size` 为协程函数 | 通过 |
+| 4 | 形态标记 | 单测 | 同上 `::test_collection_kind_marks_shape` | `collection` / `sorted` / `sorted_concurrent` / `sorted_async` / `cache_snapshot` / `stable` | 通过 |
+| 5 | 同步侧行为零变更 | 单测 | 同上 `::test_sync_side_behaviour_unchanged` | 稳定序列化 / 排序视图 / 分批 / 归并 / 映射与失败分支仍可用 | 通过 |
+| 6 | 清单登记零漂移 | 单测 | 同上 `::test_manifest_registers_chain` | 清单含 `BaseCollection` / `BaseSorted` / `BaseConcurrent` / `BaseAsyncSorted` / `BaseCacheSnapshot` | 通过 |
+| 7 | 护栏口径（豁免取消） | 自测矩阵 | `check-bare-collections.py --self-test`（Kiwi 2213） | `ClassVar` 常量 / `BaseSettings` 配置字段 / 函数体局部变量 / 测试目录**均报**；实现文件**不报**；迭代协议不报 | 通过 |
+| 8 | 体系根与继承链对账 | 基座校验 | `check-backend-base.py` | 继承链 744 条相邻关系 / 直继承 7 个体系根（含 `BaseCollection`）/ 数据类语义 565 个类 | 通过 |
+
+**执行记录**：`pytest libs/bms_core/tests/core/{test_collections_chain,test_collections,test_concurrent,test_concurrent_stable,test_object_bases_roots,test_value_object_roots}.py` → **80 passed**；`check-bare-collections.py` 复跑「新增 0 / 残留 0（基线 1711）」；`preflight --fast` 全绿。
+
+**偏差**：用例 2224 的「基线递减至 324」断言口径随口径扩面改为「递减至 **0**（基线 1711 起）」，其余不变；`bms_core` 归零断言续行于存量整改完成后。
