@@ -5,13 +5,12 @@
 - 排序落地（内存排序 / ORDER BY）见 `app/repositories/base_repository.py`。
 """
 
-from collections.abc import Collection, Sequence
 from enum import StrEnum
 from typing import Annotated
 
 from pydantic import Field
 
-from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
 from bms_core.schemas.base import CONTRACT_COLLECTION, BaseSchema
 
 
@@ -41,7 +40,9 @@ class SortSpec(BaseSchema):
     direction: SortDirection = Field(default=SortDirection.DESC, description="排序方向（缺省降序）")
 
     @classmethod
-    def parse(cls, order_by: str | None, order: Sequence[str] | None = None) -> list[SortSpec]:
+    def parse(
+        cls, order_by: str | None, order: ConcurrentStableList[str] | None = None
+    ) -> ConcurrentStableList[SortSpec]:
         """解析原始排序参数为规格列表。
 
         Args:
@@ -49,22 +50,24 @@ class SortSpec(BaseSchema):
             order: 方向数组，与字段位置一一对应（缺位回退 desc）。
 
         Returns:
-            list[SortSpec]: 排序规格列表（字段去重保留首次）。
+            ConcurrentStableList[SortSpec]: 排序规格列表（字段去重保留首次）。
         """
-        names = [name.strip() for name in (order_by or "").split(",")]
-        directions = [str(item).strip().lower() for item in (order or [])]
-        specs: list[SortSpec] = []
-        seen: set[str] = set()
+        names = ConcurrentStableList(name.strip() for name in (order_by or "").split(","))
+        directions = ConcurrentStableList(str(item).strip().lower() for item in (order or []))
+        specs: ConcurrentStableList[SortSpec] = ConcurrentStableList()
+        seen: ConcurrentStableSet[str] = ConcurrentStableSet()
         for index, name in enumerate(names):
             if not name or name in seen:
                 continue
             seen.add(name)
             direction = _to_direction(directions[index] if index < len(directions) else None)
-            specs.append(cls(field=name, direction=direction))
+            specs.add(cls(field=name, direction=direction))
         return specs
 
     @classmethod
-    def allowed(cls, specs: Sequence[SortSpec], whitelist: Collection[str]) -> list[SortSpec]:
+    def allowed(
+        cls, specs: ConcurrentStableList[SortSpec], whitelist: ConcurrentStableSet[str]
+    ) -> ConcurrentStableList[SortSpec]:
         """按白名单过滤排序规格（白名单外字段忽略该项，保持原顺序）。
 
         Args:
@@ -72,9 +75,9 @@ class SortSpec(BaseSchema):
             whitelist: 可排序字段白名单。
 
         Returns:
-            list[SortSpec]: 过滤后的排序规格列表。
+            ConcurrentStableList[SortSpec]: 过滤后的排序规格列表。
         """
-        return [spec for spec in specs if spec.field in whitelist]
+        return ConcurrentStableList(spec for spec in specs if spec.field in whitelist)
 
 
 class BaseSortQuery(BaseSchema):
@@ -85,14 +88,14 @@ class BaseSortQuery(BaseSchema):
         default=None, description="排序方向数组，与 order_by 位置一一对应，缺省 desc"
     )
 
-    def specs(self, whitelist: Collection[str] | None = None) -> list[SortSpec]:
+    def specs(self, whitelist: ConcurrentStableSet[str] | None = None) -> ConcurrentStableList[SortSpec]:
         """解析为校验后的排序规格列表。
 
         Args:
             whitelist: 可排序字段白名单；None 表示不做白名单过滤（仅限内部可信调用，用户输入禁止走此路径）。
 
         Returns:
-            list[SortSpec]: 排序规格列表（白名单外字段已忽略）。
+            ConcurrentStableList[SortSpec]: 排序规格列表（白名单外字段已忽略）。
         """
         specs = SortSpec.parse(self.order_by, self.order)
         if whitelist is None:
