@@ -2,17 +2,63 @@
 
 - 全项目稳定序输出复用本模块，避免各基类 / 封装重复 JSON 参数。
 - 将来统一日期 / Decimal 等口径只改此处（单点）。
+- **基座集合类识别**（08_02）：按 `collections.abc` 只读面（`Mapping` / `Sequence` / `Set`）识别并发集合，
+  `stringify_ids` 同型重组、`stable_json_dumps` 前置规整为内置容器；**不反向 import `core.collections` /
+  `core.concurrent`**（规避循环导入），`str` / `bytes` 不参与识别。
 """
 
 import json
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable, Mapping, Sequence, Set
 from typing import cast
 
 _ID_KEYS = ("id",)
 
 
+def rebuild_mapping(original: object, items: Iterable[tuple[object, object]]) -> object:
+    """按原映射形态重建（内置 `dict` 保内置，基座映射类同型重组）。
+
+    Args:
+        original: 原映射实例（取其类型）。
+        items: 转换后的键值对。
+
+    Returns:
+        object: 同型实例（类型不可按可迭代构造时回退内置 `dict`）。
+    """
+    pairs = list(items)
+    if type(original) is dict:
+        return dict(pairs)
+    factory = cast("Callable[[Iterable[tuple[object, object]]], object]", type(original))
+    try:
+        return factory(pairs)
+    except TypeError:
+        return dict(pairs)
+
+
+def rebuild_sequence(original: object, items: Iterable[object]) -> object:
+    """按原序列 / 集合形态重建（`list` / `tuple` 按列表输出，基座集合类同型重组）。
+
+    Args:
+        original: 原序列 / 集合实例（取其类型）。
+        items: 转换后的元素。
+
+    Returns:
+        object: 同型实例（类型不可按可迭代构造时回退内置 `list`）。
+    """
+    materialized = list(items)
+    if type(original) in (list, tuple):
+        return materialized
+    factory = cast("Callable[[Iterable[object]], object]", type(original))
+    try:
+        return factory(materialized)
+    except TypeError:
+        return materialized
+
+
 def stringify_ids(value: object) -> object:
     """递归把 `id` / `*_id` 的整型值转字符串（雪花 ID 防 JS 精度丢失）。
+
+    按 `collections.abc` 只读面识别映射 / 序列 / 集合（含基座并发集合类并**同型重组**），
+    `str` / `bytes` / `bytearray` 不参与识别；内置 `set` / `frozenset` 保持原样（其元素为可哈希标量）。
 
     Args:
         value: 待转换的序列化结果。
@@ -20,23 +66,55 @@ def stringify_ids(value: object) -> object:
     Returns:
         object: 转换后的结果。
     """
-    if isinstance(value, dict):
-        mapping = cast("dict[object, object]", value)
-        result: dict[object, object] = {}
+    if isinstance(value, Mapping):
+        mapping = cast("Mapping[object, object]", value)
+        converted: list[tuple[object, object]] = []
         for key, item in mapping.items():
             is_id_key = isinstance(key, str) and (key in _ID_KEYS or key.endswith("_id"))
-            if is_id_key and type(item) is int:
-                result[key] = str(item)
-            else:
-                result[key] = stringify_ids(item)
-        return result
+            converted.append((key, str(item) if is_id_key and type(item) is int else stringify_ids(item)))
+        return rebuild_mapping(mapping, converted)
+    if isinstance(value, (str, bytes, bytearray)):
+        return value
+    if isinstance(value, Sequence):
+        sequence = cast("Sequence[object]", value)
+        return rebuild_sequence(sequence, (stringify_ids(item) for item in sequence))
+    if isinstance(value, Set):
+        members = cast("Set[object]", value)
+        if type(members) in (set, frozenset):
+            return members
+        return rebuild_sequence(members, (stringify_ids(item) for item in members))
+    return value
+
+
+def normalize_collections(value: object) -> object:
+    """把基座集合类**前置规整**为内置容器（JSON 载荷），递归处理嵌套。
+
+    内置 `set` / `frozenset` 保持原样（沿用既有 `default=str` 降级口径）；`str` / `bytes` 不参与识别。
+
+    Args:
+        value: 待规整的值。
+
+    Returns:
+        object: 仅含内置容器与标量的 JSON 载荷。
+    """
+    if isinstance(value, Mapping):
+        mapping = cast("Mapping[object, object]", value)
+        return {key: normalize_collections(item) for key, item in mapping.items()}
+    if isinstance(value, (str, bytes, bytearray)):
+        return value
     if isinstance(value, (list, tuple)):
-        return [stringify_ids(item) for item in cast("Iterable[object]", value)]
+        sequence = cast("Sequence[object]", value)
+        return [normalize_collections(item) for item in sequence]
+    if isinstance(value, (set, frozenset)):
+        return cast("object", value)
+    if isinstance(value, (Sequence, Set)):
+        collection = cast("Iterable[object]", value)
+        return [normalize_collections(item) for item in collection]
     return value
 
 
 def stable_json_dumps(value: object, *, sort_keys: bool = True) -> str:
-    """稳定 JSON 序列化。
+    """稳定 JSON 序列化（基座集合类前置规整为内置容器）。
 
     Args:
         value: 待序列化对象。
@@ -45,7 +123,7 @@ def stable_json_dumps(value: object, *, sort_keys: bool = True) -> str:
     Returns:
         str: JSON 字符串（ensure_ascii=False，不可序列化值降级 str）。
     """
-    return json.dumps(value, ensure_ascii=False, sort_keys=sort_keys, default=str)
+    return json.dumps(normalize_collections(value), ensure_ascii=False, sort_keys=sort_keys, default=str)
 
 
 def stable_json_loads(raw: bytes | str) -> object:

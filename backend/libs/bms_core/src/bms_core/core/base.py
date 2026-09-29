@@ -1,10 +1,10 @@
 """core 层根基类：所有可继承类的公共方法落点。"""
 
 import dataclasses
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence, Set
 from typing import Any, cast
 
-from bms_core.core.serialization import stable_json_dumps, stringify_ids
+from bms_core.core.serialization import rebuild_mapping, rebuild_sequence, stable_json_dumps, stringify_ids
 
 
 class BaseObject:
@@ -103,18 +103,29 @@ class BaseObject:
     def _convert(cls, value: object) -> object:
         """递归转换字段值（嵌套 BaseObject/映射/序列逐层转换）。
 
+        按 `collections.abc` 只读面识别映射 / 序列 / 集合（含基座集合类并**同型重组**）；
+        `str` / `bytes` / `bytearray` 不参与识别；内置 `set` / `frozenset` 按列表输出。
+
         Args:
             value: 原始值。
 
         Returns:
             object: 转换后的值。
         """
-        if isinstance(value, BaseObject):
-            return value.to_dict()
         if isinstance(value, Mapping):
             mapping = cast("Mapping[object, object]", value)
-            return {key: cls._convert(item) for key, item in mapping.items()}
-        if isinstance(value, (list, tuple, set, frozenset)):
-            sequence = cast("Iterable[object]", value)
-            return [cls._convert(item) for item in sequence]
+            return rebuild_mapping(mapping, ((key, cls._convert(item)) for key, item in mapping.items()))
+        if isinstance(value, (str, bytes, bytearray)):
+            return value
+        if isinstance(value, Sequence):
+            sequence = cast("Sequence[object]", value)
+            return rebuild_sequence(sequence, (cls._convert(item) for item in sequence))
+        if isinstance(value, Set):
+            members = cast("Set[object]", value)
+            if isinstance(members, BaseObject):
+                return rebuild_sequence(members, (cls._convert(item) for item in members))
+            elements = cast("Iterable[object]", members)
+            return [cls._convert(item) for item in elements]
+        if isinstance(value, BaseObject):
+            return value.to_dict()
         return value
