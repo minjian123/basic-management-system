@@ -283,7 +283,7 @@ async def test_sort_whitelist_default_and_call_override() -> None:
     assert [spec.field for spec in repo.resolve_sort(BasePageQuery(order_by="name", order=["asc"]))] == ["name"]
     ignored = await repo.list(sort=repo.resolve_sort(BasePageQuery(order_by="id")))
     assert [item.id for item in ignored] == [1, 2]
-    overridden = await repo.list(sort=BasePageQuery(order_by="id", order=["desc"]).specs({"id"}))
+    overridden = await repo.list(sort=BasePageQuery(order_by="id", order=["desc"]).specs(ConcurrentStableSet({"id"})))
     assert [item.id for item in overridden] == [2, 1]
 
 

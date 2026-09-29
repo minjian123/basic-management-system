@@ -3,7 +3,7 @@
 import pytest
 from pydantic import ValidationError
 
-from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
 from bms_core.schemas.base import BaseSchema
 from bms_core.schemas.pagination import BaseCursorQuery, BasePageQuery
 from bms_core.schemas.sorting import BaseSortQuery, SortDirection, SortSpec
@@ -12,7 +12,7 @@ from bms_core.schemas.sorting import BaseSortQuery, SortDirection, SortSpec
 @pytest.mark.kiwi_id(29)
 def test_parse_splits_fields_and_maps_directions() -> None:
     """order_by 逗号分隔多值；方向按位置对应，缺位回退 desc。"""
-    specs = SortSpec.parse("status,created_at", ["asc"])
+    specs = SortSpec.parse("status,created_at", ConcurrentStableList(["asc"]))
     assert [(spec.field, spec.direction) for spec in specs] == [
         ("status", SortDirection.ASC),
         ("created_at", SortDirection.DESC),
@@ -26,7 +26,7 @@ def test_parse_handles_empty_blank_and_duplicate_fields() -> None:
     assert SortSpec.parse("") == []
     assert SortSpec.parse(" , ") == []
 
-    specs = SortSpec.parse("name,name,created_at", ["asc", "desc", "asc"])
+    specs = SortSpec.parse("name,name,created_at", ConcurrentStableList(["asc", "desc", "asc"]))
     assert [(spec.field, spec.direction) for spec in specs] == [
         ("name", SortDirection.ASC),
         ("created_at", SortDirection.ASC),
@@ -36,7 +36,7 @@ def test_parse_handles_empty_blank_and_duplicate_fields() -> None:
 @pytest.mark.kiwi_id(29)
 def test_parse_normalizes_direction_and_ignores_extra_values() -> None:
     """方向大小写归一、非法方向回退 desc；方向数组超长忽略。"""
-    specs = SortSpec.parse("a,b,c,d", ["ASC", "up", "desc", "asc"])
+    specs = SortSpec.parse("a,b,c,d", ConcurrentStableList(["ASC", "up", "desc", "asc"]))
     assert [(spec.field, spec.direction) for spec in specs] == [
         ("a", SortDirection.ASC),
         ("b", SortDirection.DESC),
@@ -49,9 +49,9 @@ def test_parse_normalizes_direction_and_ignores_extra_values() -> None:
 def test_specs_filters_by_whitelist() -> None:
     """白名单外字段忽略该项；whitelist=None 不做过滤（内部可信调用）。"""
     query = BaseSortQuery(order_by="status,secret", order=ConcurrentStableList(["asc", "desc"]))
-    assert [spec.field for spec in query.specs({"status"})] == ["status"]
+    assert [spec.field for spec in query.specs(ConcurrentStableSet({"status"}))] == ["status"]
     assert [spec.field for spec in query.specs()] == ["status", "secret"]
-    assert query.specs(frozenset()) == []
+    assert query.specs(ConcurrentStableSet()) == []
 
 
 @pytest.mark.kiwi_id(29)
@@ -60,7 +60,7 @@ def test_sort_spec_and_query_defaults() -> None:
     assert SortSpec(field="name").direction is SortDirection.DESC
     query = BaseSortQuery()
     assert (query.order_by, query.order) == (None, None)
-    assert query.specs({"name"}) == []
+    assert query.specs(ConcurrentStableSet({"name"})) == []
 
     with pytest.raises(ValidationError):
         SortSpec.model_validate({"field": "name", "direction": "up"})
@@ -76,5 +76,5 @@ def test_inheritance_chain() -> None:
 
     page = BasePageQuery(order_by="name", order=ConcurrentStableList(["asc"]))
     assert (page.page, page.size) == (1, 20)
-    assert [spec.field for spec in page.specs({"name"})] == ["name"]
-    assert BaseCursorQuery(order_by="name").specs({"id"}) == []
+    assert [spec.field for spec in page.specs(ConcurrentStableSet({"name"}))] == ["name"]
+    assert BaseCursorQuery(order_by="name").specs(ConcurrentStableSet({"id"})) == []
