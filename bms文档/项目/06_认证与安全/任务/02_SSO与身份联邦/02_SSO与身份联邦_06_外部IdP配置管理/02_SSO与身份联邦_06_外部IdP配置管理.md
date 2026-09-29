@@ -11,11 +11,8 @@
 | 编号 | 06 |
 | 父任务 | [02 SSO 与身份联邦](../02_SSO与身份联邦.md) |
 | 对应需求 | [02-6](../../../需求/02_需求_SSO与身份联邦.md#r02-6) |
-| 工时（重估） | 12h |
 | 依赖 | 02_01（SSO 链路）；阶段二 `02-3-11`（配置基座）、限流基座 |
 | 负责人 | minjian |
-| 状态 | 已完成 |
-| 完成日期 | 2026-09-27 |
 
 > **前置契约（已交付 · 02_01，2026-09-27）**：`sys_identity_provider` 表 + ORM（`SysIdentityProvider`）+ `identity:tenant` 迁移（0002）+ 读路径（`IdentityProviderRepository.list_enabled` / `get_by_key`）已交付，本任务在其上补 CRUD / 启停 / 排序管理接口；`ProviderRegistry` / `IdentityProviderSpec` / `resolve_secret_ref`（`env:` 已实现、`secret:` 预留抛 `ConfigError`）已交付，连通性测试复用 `ProviderRegistry` 实例化；登录页入口清单 `GET /auth/sso/providers` 已按 `enabled` + `sort` 取数且永不返回 `config`。
 

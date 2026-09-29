@@ -43,8 +43,8 @@ cd backend && uv run pytest -q --cov=app --cov-branch --cov-fail-under=70
 ```bash
 $ python3 scripts/tools/governance/collect_metrics.py --with-frontend --out /tmp/bms_metrics.json
 == 阶段度量采集（01_项目骨架，2026-09-15）==
-[1/4] 阶段工期偏差（基线：《项目骨架计划》里程碑对照 M1）
-  基线 2026-09-28 / 排期起点 2026-09-14（工期 14 天） / 实际 2026-09-15 / 偏差 -13 天（92.9%） / 超 20% 阈值：是
+[1/4] 阶段进度偏差（基线：《项目骨架计划》门禁对照）
+ 基线 2026-09-28 / 进度起点 2026-09-14（周期 14 天） / 实际 2026-09-15 / 偏差 -13 天（92.9%） / 超 20% 阈值：是
 [2/4] 缺陷分布与收敛（GitLab Issue）
   总数 1 / 打开 0 / 已闭环 1 / 自动缺陷 1 / 手工缺陷 0 / P0-P1 未清零：0
     #1 [closed] [自动缺陷] main pipeline failure @ 7ef8a345 | ['defect-auto']
@@ -60,7 +60,7 @@ $ python3 scripts/tools/governance/collect_metrics.py --with-frontend --out /tmp
 
 $ python3 scripts/tools/governance/review_stage.py
 == 阶段末复盘清单（01_项目骨架）==
-[1/8] 通过 三类文档状态一致：check-status.py 退出码 0；末行：汇总：检查 374 项；硬规则不合规 0，软提示 0
+[1/8] 通过 三类文档就位（进度以阶段计划为准）：check-status.py 退出码 0；末行：汇总：检查 374 项；硬规则不合规 0，软提示 0
 [2/8] 通过 基座自检通过：check-base.py 退出码 0
 [3/8] 通过 验收门禁表结论齐备：10 行（期望 10）
 [4/8] 通过 阶段残留为 0（需求 / 任务全部已完成）：残留 0 项

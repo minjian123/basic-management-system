@@ -112,7 +112,7 @@ async def _optimistic(self, key, mutate: Callable[[str | None], str]) -> str:
 | --- | --- | --- |
 | 1 | 归属 | 01_03 下嵌套子任务 01-3-3，依赖 01-3-2 |
 | 2 | 机制 | CAS/取走删除用 Lua；update_atomic 用 WATCH 乐观重试（≤3）；get_locked WATCH 提交不重试 |
-| 3 | 工时 | 6h；01_03 重估 21h；父任务 35h；阶段总 86h |
+| 3 | 工作量 |；01_03 重估；父任务；阶段总 |
 | 4 | 测试 | fakeredis 单元 + 真实 Redis integration（标 integration，随 04_02） |
 | 5 | 基线 | 需求 01-3 追加第 7 条；状态与账目沿用前例同步 |
 
