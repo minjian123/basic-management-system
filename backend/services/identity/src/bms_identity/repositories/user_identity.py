@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+from bms_core.core.concurrent import ConcurrentStableSet
 from bms_core.core.exceptions import SsoIdentityConflictError
 from bms_core.repositories.base_db_repository import BaseDbRepository
 from bms_identity.models.user_identity import SysUserIdentity
@@ -15,7 +16,7 @@ class UserIdentityRepository(BaseDbRepository[SysUserIdentity]):
     """SSO 全局身份映射仓储（`sys_user_identity`）：按映射键 + 外部主体取行 / 按用户反查。"""
 
     model = SysUserIdentity
-    sortable_fields = frozenset({"id"})
+    sortable_fields = ConcurrentStableSet({"id"})
 
     async def get_by_key_external(self, idp_key: str, external_id: str) -> SysUserIdentity | None:
         """按映射键与外部主体取映射行（登录回调定位本地用户）。

@@ -175,7 +175,7 @@ CONTRACT_STABLE_SET: Callable[[], ConcurrentStableSet[Any]] = ConcurrentStableSe
 """插入序集合空集合工厂（`Field(default_factory=...)`）。"""
 
 
-def _apply_masking(masked_fields: frozenset[str], data: object) -> object:
+def _apply_masking(masked_fields: ConcurrentStableSet[str], data: object) -> object:
     """按当前掩码器掩码敏感字段。
 
     未注入掩码器（`current_masker` 为 None）/ 无敏感字段声明 / 序列化结果非字典时**原样返回**
@@ -209,7 +209,7 @@ class BaseSchema(BaseModel, BaseDataContract):
 
     model_config = ConfigDict(from_attributes=True, str_strip_whitespace=True)
 
-    masked_fields: ClassVar[frozenset[str]] = frozenset()
+    masked_fields: ClassVar[ConcurrentStableSet[str]] = ConcurrentStableSet()
     """需掩码的敏感字段（默认空集＝不掩码）；真实规则随性能与安全阶段回补。"""
 
     @model_serializer(mode="wrap")

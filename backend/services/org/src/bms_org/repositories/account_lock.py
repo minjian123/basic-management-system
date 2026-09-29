@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 
 from sqlalchemy import ColumnElement, and_, func, or_, select
 
+from bms_core.core.concurrent import ConcurrentStableSet
 from bms_core.repositories.base_db_repository import BaseDbRepository
 from bms_core.schemas.pagination import BasePageQuery
 from bms_org.models.account_lock import SysAccountLock
@@ -22,7 +23,7 @@ class AccountLockRepository(BaseDbRepository[SysAccountLock]):
     """账号锁定记录仓储（`sys_account_lock`）：按用户取活跃锁 + 筛选分页 + 基类 CRUD。"""
 
     model = SysAccountLock
-    sortable_fields = frozenset({"id", "locked_at"})
+    sortable_fields = ConcurrentStableSet({"id", "locked_at"})
 
     async def get_active_by_user(self, user_id: int, *, now: datetime | None = None) -> SysAccountLock | None:
         """取用户当前**生效**的锁定记录（`unlock_at IS NULL` 且未到期；多条取最近一条）。

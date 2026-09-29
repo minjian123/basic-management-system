@@ -22,6 +22,7 @@ from typing import cast
 
 from fastapi import Request
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.config import Settings
 from bms_core.core.objects import BaseOidcTokenSpecContract, BaseTokenClaimsContract
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
@@ -169,7 +170,7 @@ class OidcAccessClaims(BaseTokenClaimsContract):
     token_id: str = ""
     """令牌 id（`jti`）。"""
 
-    payload: Mapping[str, object] = field(default_factory=dict[str, object])
+    payload: ConcurrentStableDict[str, object] = field(default_factory=ConcurrentStableDict[str, object])
     """完整声明载荷（只读映射）。"""
 
 

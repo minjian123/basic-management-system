@@ -17,6 +17,7 @@ from typing import cast
 
 from fastapi import Request
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.config import Settings
 from bms_core.core.exceptions import NotFoundError
 from bms_core.core.objects import BaseValueObject
@@ -35,7 +36,7 @@ __all__ = [
 class QueryResult(BaseValueObject):
     """查询结果。"""
 
-    rows: tuple[Mapping[str, object], ...]
+    rows: tuple[ConcurrentStableDict[str, object], ...]
     """结果行（每行字段映射）。"""
 
     total: int = 0

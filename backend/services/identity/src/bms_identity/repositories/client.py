@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from sqlalchemy import ColumnElement, func, select
 
+from bms_core.core.concurrent import ConcurrentStableSet
 from bms_core.repositories.base_db_repository import BaseDbRepository
 from bms_core.schemas.pagination import BasePageQuery
 from bms_identity.models.client import SysClient
@@ -13,7 +14,7 @@ class SysClientRepository(BaseDbRepository[SysClient]):
     """客户端仓储（`sys_client`）：按标识取行 + 筛选分页。"""
 
     model = SysClient
-    sortable_fields = frozenset({"id", "name", "client_id", "created_at"})
+    sortable_fields = ConcurrentStableSet({"id", "name", "client_id", "created_at"})
 
     async def get_by_client_id(self, client_id: str) -> SysClient | None:
         """按客户端标识取行（OIDC 授权 / 换码定位客户端）。

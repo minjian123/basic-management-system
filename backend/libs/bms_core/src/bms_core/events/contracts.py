@@ -24,6 +24,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import cast
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.exceptions import EventContractError
 from bms_core.core.objects import BaseFieldSpecContract, BaseFrameworkObject, BaseSnapshotRoundTripContract
 from bms_core.core.version import contract_major
@@ -139,7 +140,7 @@ class EventContract(BaseSnapshotRoundTripContract):
     version: str = DEFAULT_EVENT_VERSION
     """契约版本（`X.Y.Z`；破坏性变更升主版本）。"""
 
-    fields: Mapping[str, EventFieldSpec] = field(default_factory=dict[str, EventFieldSpec])
+    fields: ConcurrentStableDict[str, EventFieldSpec] = field(default_factory=ConcurrentStableDict[str, EventFieldSpec])
     """载荷字段规格（字段名 → 规格）。"""
 
     description: str = ""

@@ -15,6 +15,7 @@ from typing import cast
 
 from fastapi import Request
 
+from bms_core.core.concurrent import ConcurrentStableSet
 from bms_core.core.config import Settings
 from bms_core.core.context import reset_current_masker, set_current_masker
 from bms_core.core.exceptions import PluginError
@@ -77,13 +78,13 @@ class BaseMasker(BasePluggable, ABC):
         return rule
 
     @property
-    def masked_fields(self) -> frozenset[str]:
+    def masked_fields(self) -> ConcurrentStableSet[str]:
         """已登记字段集合（供序列化层与测试核对）。
 
         Returns:
             frozenset[str]: 字段名集合。
         """
-        return frozenset(self._rules)
+        return ConcurrentStableSet(self._rules)
 
     def rules(self) -> tuple[MaskRule, ...]:
         """登记项快照（按字段名排序，输出稳定）。

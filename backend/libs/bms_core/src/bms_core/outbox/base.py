@@ -20,6 +20,7 @@ from typing import ClassVar, cast
 from fastapi import Request
 
 from bms_core.core.capability import BaseAsyncResource
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.config import Settings
 from bms_core.core.objects import BaseEventRecordContract, BaseTallyContract
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
@@ -93,7 +94,7 @@ class OutboxRecord(BaseEventRecordContract):
     """聚合 / 分区键（同聚合按序投递；空 = 独立事件）。"""
     tenant_id: str | None
     """租户主键（雪花 id 十进制字符串；无租户事件为空）。"""
-    payload: dict[str, object]
+    payload: ConcurrentStableDict[str, object]
     """事件负载。"""
     occurred_at: datetime
     """事件发生时间（UTC）。"""
@@ -143,7 +144,7 @@ class DeadLetterRecord(BaseEventRecordContract):
     """聚合 / 分区键。"""
     tenant_id: str | None
     """租户主键（雪花 id 十进制字符串；无租户事件为空）。"""
-    payload: dict[str, object]
+    payload: ConcurrentStableDict[str, object]
     """事件负载。"""
     error_msg: str
     """失败原因。"""

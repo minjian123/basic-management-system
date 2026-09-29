@@ -25,6 +25,7 @@ from typing import Any, cast
 
 from fastapi import Request
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.config import Settings
 from bms_core.core.context import (
     get_current_span_id,
@@ -99,7 +100,7 @@ class SpanContext(BaseValueObject):
     parent_span_id: str | None = None
     """父 span id；链路起点为 None。"""
 
-    attributes: Mapping[str, object] | None = None
+    attributes: ConcurrentStableDict[str, object] | None = None
     """span 属性（键值，贴 OTel `AttributeValue` 口径）。"""
 
 

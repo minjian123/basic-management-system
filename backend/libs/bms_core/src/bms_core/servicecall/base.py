@@ -16,7 +16,6 @@
 
 import json
 from abc import ABC, abstractmethod
-from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import cast
 from urllib.parse import urlencode
@@ -24,6 +23,7 @@ from urllib.parse import urlencode
 from fastapi import Request
 
 from bms_core.api.base import API_PREFIX
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.config import Settings
 from bms_core.core.exceptions import ParamError
 from bms_core.core.objects import BaseHttpResponseContract, BaseValueObject
@@ -129,13 +129,13 @@ class ServiceRequest(BaseValueObject):
     path: str
     """目标路径（须以内部公开面 `/api/v1` 开头）。"""
 
-    query: Mapping[str, str] | None = None
+    query: ConcurrentStableDict[str, str] | None = None
     """查询参数（可选）。"""
 
-    headers: Mapping[str, str] | None = None
+    headers: ConcurrentStableDict[str, str] | None = None
     """请求头（可选；出站一律剥离入站 `Authorization`，服务 JWT 由客户端按开关签发附上）。"""
 
-    json_body: dict[str, object] | None = None
+    json_body: ConcurrentStableDict[str, object] | None = None
     """JSON 请求体（可选；与 `content` 二选一）。"""
 
     content: bytes | None = None
@@ -156,7 +156,7 @@ class ServiceResponse(BaseHttpResponseContract):
     status_code: int
     """HTTP 状态码。"""
 
-    headers: Mapping[str, str] = field(default_factory=dict[str, str])
+    headers: ConcurrentStableDict[str, str] = field(default_factory=ConcurrentStableDict[str, str])
     """响应头。"""
 
     content: bytes = b""

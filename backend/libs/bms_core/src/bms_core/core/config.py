@@ -12,7 +12,7 @@ import os
 import tomllib
 from functools import lru_cache
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal, cast
+from typing import TYPE_CHECKING, Annotated, Any, Literal, cast
 
 from dotenv import dotenv_values
 from pydantic import ConfigDict, Field, ValidationError, field_validator
@@ -27,8 +27,14 @@ from pydantic_settings import (
 )
 from sqlalchemy.engine import make_url
 
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.exceptions import ConfigError
-from bms_core.schemas.base import BaseSchema
+from bms_core.schemas.base import (
+    CONTRACT_COLLECTION,
+    CONTRACT_STABLE_DICT,
+    CONTRACT_STABLE_LIST,
+    BaseSchema,
+)
 
 _ENVIRONMENTS = ("dev", "test", "prod")
 _ENV_SELECTOR = "BMS_ENV"
@@ -81,7 +87,9 @@ class ServerSettings(BaseSettings):
     host: str
     port: int
     workers: int = 1
-    workers_by_service: dict[str, int] = Field(default_factory=dict[str, int])
+    workers_by_service: Annotated[ConcurrentStableDict[str, int], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_DICT
+    )
     """按服务的 worker 数覆盖：`{服务标识 → worker 数}`；缺省回落 `workers`（连接预算按服务核算用）。"""
 
     def workers_for(self, service: str) -> int:
@@ -150,21 +158,25 @@ class TenantSettings(BaseSettings):
     """租户引擎闲置回收阈值（秒；每次访问先清扫）。"""
     allow_demo_fallback: bool = True
     """无任何来源时是否回落演示租户（开发兜底；生产应置 false 直接拒绝）。"""
-    exempt_paths: list[str] = Field(
-        default_factory=lambda: [
-            "/",
-            "/docs",
-            "/redoc",
-            "/openapi.json",
-            "/healthz",
-            "/readyz",
-            "/metrics",
-            "/.well-known/jwks.json",
-            "/api/v1/auth/introspect",
-        ]
+    exempt_paths: Annotated[ConcurrentStableList[str], CONTRACT_COLLECTION] = Field(
+        default_factory=lambda: ConcurrentStableList(
+            [
+                "/",
+                "/docs",
+                "/redoc",
+                "/openapi.json",
+                "/healthz",
+                "/readyz",
+                "/metrics",
+                "/.well-known/jwks.json",
+                "/api/v1/auth/introspect",
+            ]
+        )
     )
     """租户解析豁免路径（精确匹配；这些路径不解析租户、不设置租户上下文）。"""
-    dev_tenants: list[str] = Field(default_factory=lambda: ["demo"])
+    dev_tenants: Annotated[ConcurrentStableList[str], CONTRACT_COLLECTION] = Field(
+        default_factory=lambda: ConcurrentStableList(["demo"])
+    )
     """开发库自动建表覆盖的租户编码（仅 `[database].auto_create` 且方言为 SQLite 时生效）；
     每服务按 `tenant_{code}` 相对键建表，实际库名由 `url_template` 解析。"""
 
@@ -184,7 +196,7 @@ class DatabaseTargetSettings(BaseSettings):
     """单个数据库目标（url 不含密码；密码经环境变量注入）。"""
 
     url: str
-    replicas: list[str] = Field(default_factory=list)
+    replicas: Annotated[ConcurrentStableList[str], CONTRACT_COLLECTION] = Field(default_factory=CONTRACT_STABLE_LIST)
     url_template: str = ""
     """连接串模板（空串回落 `url` 单库）。**平台目标**占位 `{service}` / `{database}`（= `bms_{service}`）；
     **租户目标**占位 `{service}` / `{tenant}` / `{database}`（= `bms_{service}_{tenant}`）。
@@ -192,10 +204,14 @@ class DatabaseTargetSettings(BaseSettings):
     password: str = ""
     max_connections: int = Field(default=0, ge=0)
     """该库最大连接数；`0` 表示不校验连接预算。"""
-    max_connections_by_service: dict[str, int] = Field(default_factory=dict[str, int])
+    max_connections_by_service: Annotated[ConcurrentStableDict[str, int], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_DICT
+    )
     """按服务的最大连接数覆盖：`{服务标识 → max_connections}`；缺省回落目标级（每服务独立库口径）。"""
     pool: DbPoolSettings = Field(default_factory=DbPoolSettings)
-    services: dict[str, DbPoolSettings] = Field(default_factory=dict[str, DbPoolSettings])
+    services: Annotated[ConcurrentStableDict[str, DbPoolSettings], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_DICT
+    )
     """按服务的连接池覆盖：`{服务标识 → 池参数}`（服务标识取 `[app].service`）。"""
 
     def max_connections_for(self, service: str) -> int:
@@ -291,16 +307,24 @@ class SecuritySettings(BaseSettings):
     active_kid: str = ""
     """当前签名密钥 kid（用户令牌多把签名私钥时必填）。"""
 
-    keys: dict[str, TokenKeySettings] = Field(default_factory=dict[str, TokenKeySettings])
+    keys: Annotated[ConcurrentStableDict[str, TokenKeySettings], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_DICT
+    )
     """用户令牌密钥集（kid → 密钥材料；kid 须带 `usr-` 前缀；空集允许装配，使用时 fail-closed）。"""
 
 
 class CorsSettings(BaseSettings):
     """跨域。"""
 
-    allow_origins: list[str] = Field(default_factory=list)
-    allow_methods: list[str] = Field(default_factory=lambda: ["*"])
-    allow_headers: list[str] = Field(default_factory=lambda: ["*"])
+    allow_origins: Annotated[ConcurrentStableList[str], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_LIST
+    )
+    allow_methods: Annotated[ConcurrentStableList[str], CONTRACT_COLLECTION] = Field(
+        default_factory=lambda: ConcurrentStableList(["*"])
+    )
+    allow_headers: Annotated[ConcurrentStableList[str], CONTRACT_COLLECTION] = Field(
+        default_factory=lambda: ConcurrentStableList(["*"])
+    )
     allow_credentials: bool = True
 
 
@@ -310,7 +334,9 @@ class PluginSelection(BaseSettings):
     provider: str = ""
     """实现名（空串 / 未配置 → 解析到 `null` 缺省实现）。"""
 
-    options: dict[str, object] = Field(default_factory=dict[str, object])
+    options: Annotated[ConcurrentStableDict[str, object], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_DICT
+    )
     """非敏感选项（键位由各实现解读；密钥不入配置 / 不入日志）。"""
 
 
@@ -349,7 +375,9 @@ class EdgeSettings(PluginSelection):
     require_gateway_identity: bool = False
     """旁路防护开关：true 时非豁免路径缺网关注入身份即拒（dev/test 关，prod 开）。"""
 
-    exempt_paths: list[str] = Field(default_factory=list)
+    exempt_paths: Annotated[ConcurrentStableList[str], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_LIST
+    )
     """旁路拒绝 / 租户净化豁免路径（精确匹配；空取基座缺省集）。"""
 
 
@@ -366,14 +394,16 @@ class GatewaySettings(PluginSelection):
     token_ttl_seconds: int = Field(default=60, ge=1)
     """网关服务 JWT 有效期（秒；短时令牌）。"""
 
-    public_paths: list[str] = Field(
-        default_factory=lambda: [
-            "/api/identity/v1/auth/login",
-            "/api/identity/v1/auth/refresh",
-            "/api/identity/v1/captcha",
-            "/api/identity/v1/auth/sso",
-            "/api/identity/v1/oidc",
-        ]
+    public_paths: Annotated[ConcurrentStableList[str], CONTRACT_COLLECTION] = Field(
+        default_factory=lambda: ConcurrentStableList(
+            [
+                "/api/identity/v1/auth/login",
+                "/api/identity/v1/auth/refresh",
+                "/api/identity/v1/captcha",
+                "/api/identity/v1/auth/sso",
+                "/api/identity/v1/oidc",
+            ]
+        )
     )
     """公开路径（免认证，网关外部路径形态、前缀匹配；认证端点据此放行前置端点）。"""
 
@@ -393,7 +423,9 @@ class IdentityProviderSettings(PluginSelection):
     redirect_uri: str = "http://localhost:8000/api/v1/auth/callback"
     """授权回调地址（须注册于 IdP redirectUris）。"""
 
-    scopes: list[str] = Field(default_factory=lambda: ["openid", "profile", "email"])
+    scopes: Annotated[ConcurrentStableList[str], CONTRACT_COLLECTION] = Field(
+        default_factory=lambda: ConcurrentStableList(["openid", "profile", "email"])
+    )
     """请求 scope。"""
 
     discovery_cache_ttl: float = 3600.0
@@ -411,7 +443,9 @@ class IdentityProviderSettings(PluginSelection):
     cas_service_validate_path: str = "/p3/serviceValidate"
     """CAS 校验端点路径（3.0 `p3/serviceValidate` 含属性；2.0 用 `/serviceValidate`）。"""
 
-    attribute_map: dict[str, list[str]] = Field(default_factory=dict[str, list[str]])
+    attribute_map: Annotated[ConcurrentStableDict[str, ConcurrentStableList[str]], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_DICT
+    )
     """CAS 属性映射覆盖（`{username|name|email: [候选属性名…]}`；空集用内置默认映射）。"""
 
     wecom_corp_id: str = ""
@@ -472,7 +506,9 @@ class ServiceTokenSettings(PluginSelection):
     active_kid: str = ""
     """当前签名密钥 kid（多把签名私钥时必填）。"""
 
-    keys: dict[str, TokenKeySettings] = Field(default_factory=dict[str, TokenKeySettings])
+    keys: Annotated[ConcurrentStableDict[str, TokenKeySettings], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_DICT
+    )
     """密钥集（kid → 密钥材料）；空集允许（仅校验方时只需公钥，签发时无可用私钥才拒）。"""
 
 
@@ -570,7 +606,9 @@ class SsoSettings(BaseSettings):
     jit_enabled: bool = False
     """JIT 自动建号全局开关（IdP 行 `config.jit_enabled` 缺配时回落；缺省关闭，需显式开启）。"""
 
-    jit_allowed_tenants: list[str] = Field(default_factory=list[str])
+    jit_allowed_tenants: Annotated[ConcurrentStableList[str], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_LIST
+    )
     """JIT 租户白名单（空 = 不限制；非空时仅列内租户可自动建号）。"""
 
     jit_lock_ttl_seconds: int = Field(default=30, ge=1)
@@ -652,7 +690,7 @@ class OutboxSettings(PluginSelection):
     retry_backoff_seconds: float = Field(default=1.0, ge=0)
     """指数退避基数（秒）：`backoff × 2^(retry_count-1)`。"""
 
-    db_keys: list[str] = Field(default_factory=list)
+    db_keys: Annotated[ConcurrentStableList[str], CONTRACT_COLLECTION] = Field(default_factory=CONTRACT_STABLE_LIST)
     """后台轮询库键；空 = 平台库 + 引擎注册表活跃租户库键。"""
 
 

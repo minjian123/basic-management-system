@@ -7,6 +7,7 @@ from typing import cast
 
 from fastapi import Request
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.config import Settings
 from bms_core.core.objects import BaseDataContract
 from bms_core.core.plugin import (
@@ -34,7 +35,7 @@ class EventEnvelope(BaseDataContract):
     """
 
     event_type: str
-    payload: dict[str, object] = field(default_factory=dict[str, object])
+    payload: ConcurrentStableDict[str, object] = field(default_factory=ConcurrentStableDict[str, object])
     tenant_id: str | None = None
     trace_id: str | None = None
     event_id: str | None = None

@@ -18,6 +18,7 @@ from typing import cast
 
 from fastapi import Request
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.config import Settings
 from bms_core.core.objects import BaseValueObject
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
@@ -66,7 +67,7 @@ class HashChainEntry(BaseValueObject):
     prev_hash: str
     """前一条记录哈希（链头取 `GENESIS_HASH` 或上月末条）。"""
 
-    record: Mapping[str, object]
+    record: ConcurrentStableDict[str, object]
     """规范化记录内容。"""
 
     record_hash: str

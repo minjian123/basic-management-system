@@ -25,15 +25,62 @@
 每表与字段 COMMENT 必填；逻辑外键（`目标表_id`），不建物理外键。
 """
 
+from collections.abc import Mapping
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, TypeVar, cast
 
-from sqlalchemy import BigInteger, Connection, DateTime, Integer, MetaData, event
+from sqlalchemy import JSON, BigInteger, Connection, DateTime, Integer, MetaData, event
+from sqlalchemy.engine import Dialect
 from sqlalchemy.orm import DeclarativeBase, Mapped, Mapper, mapped_column
+from sqlalchemy.types import TypeDecorator
 
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.context import current_user_id
 from bms_core.core.id import id_generator
 from bms_core.core.objects import BaseDataContract
+from bms_core.core.serialization import normalize_collections
+
+StableJsonT = TypeVar("StableJsonT")
+
+
+def to_stable_value(value: object) -> object:
+    """把 JSON 读回的内置容器**递归**转为插入序集合类（`dict` → `ConcurrentStableDict` 等）。
+
+    Args:
+        value: JSON 反序列化结果。
+
+    Returns:
+        object: 集合类 / 标量（递归）。
+    """
+    if isinstance(value, str | bytes | bytearray):
+        return value
+    if isinstance(value, Mapping):
+        mapping = cast("Mapping[object, object]", value)
+        return ConcurrentStableDict({key: to_stable_value(item) for key, item in mapping.items()})
+    if isinstance(value, (list, tuple)):
+        return ConcurrentStableList(to_stable_value(item) for item in value)
+    if isinstance(value, (set, frozenset)):
+        return ConcurrentStableSet(to_stable_value(item) for item in value)
+    return value
+
+
+class StableJson(TypeDecorator[StableJsonT]):
+    """JSON 列类型（插入序）：**写入**内置容器（稳定 JSON）、**读回**插入序集合类（递归）。
+
+    模块多值字段统一用本类型替代裸 `JSON`：声明与运行期形态一致（`Mapped[ConcurrentStable*]`），
+    落库前经 `normalize_collections` 规整（免 `json.dumps` 遇非内置容器报错）。
+    """
+
+    impl = JSON
+    cache_ok = True
+
+    def process_bind_param(self, value: object, dialect: Dialect) -> object:
+        """落库：集合类前置规整为内置容器。"""
+        return None if value is None else normalize_collections(value)
+
+    def process_result_value(self, value: object, dialect: Dialect) -> object:
+        """读回：内置容器递归转为插入序集合类。"""
+        return None if value is None else to_stable_value(value)
 
 
 def _utc_now() -> datetime:

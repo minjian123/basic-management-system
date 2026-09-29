@@ -14,12 +14,12 @@ JIT 建号与完整登录链路归阶段六，本域只提供可信身份声明�
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import cast
 
 from fastapi import Request
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.config import Settings
 from bms_core.core.exceptions import ConfigError
 from bms_core.core.objects import (
@@ -117,7 +117,7 @@ class IdentityClaims(BaseTokenClaimsContract):
     issued_at: int = 0
     """签发时间（`iat`，Unix 秒）。"""
 
-    payload: Mapping[str, object] = field(default_factory=dict[str, object])
+    payload: ConcurrentStableDict[str, object] = field(default_factory=ConcurrentStableDict[str, object])
     """完整声明载荷（只读映射）。"""
 
 

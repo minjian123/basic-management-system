@@ -22,7 +22,7 @@ from typing import Annotated, cast
 from fastapi import Request
 from pydantic import Field
 
-from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.config import Settings
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 from bms_core.schemas.base import CONTRACT_COLLECTION, CONTRACT_STABLE_LIST, BaseSchema
@@ -55,7 +55,7 @@ DEFAULT_ORG_PAGE_SIZE = 20
 class OrgUser(BaseSchema):
     """组织用户（展示所需最小字段；手机号 / 邮箱默认脱敏）。"""
 
-    masked_fields = frozenset({"phone", "email"})
+    masked_fields = ConcurrentStableSet({"phone", "email"})
     """敏感字段（经 02-29 掩码器序列化自动掩码；持 `data:plain` 权限方可看明文）。"""
 
     id: int = Field(description="用户 ID")

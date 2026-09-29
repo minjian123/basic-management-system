@@ -269,13 +269,6 @@
       "count": 1
     },
     {
-      "file": "backend/libs/bms_core/src/bms_core/audit/hashchain.py",
-      "line": "record: Mapping[str, object]",
-      "container": "Mapping",
-      "position": "class_field",
-      "count": 1
-    },
-    {
       "file": "backend/libs/bms_core/src/bms_core/audit/null.py",
       "line": "changes: list[FieldChange],",
       "container": "list",
@@ -781,48 +774,6 @@
     },
     {
       "file": "backend/libs/bms_core/src/bms_core/core/config.py",
-      "line": "allow_headers: list[str] = Field(default_factory=lambda: [\"*\"])",
-      "container": "list",
-      "position": "class_field",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/core/config.py",
-      "line": "allow_methods: list[str] = Field(default_factory=lambda: [\"*\"])",
-      "container": "list",
-      "position": "class_field",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/core/config.py",
-      "line": "allow_origins: list[str] = Field(default_factory=list)",
-      "container": "list",
-      "position": "class_field",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/core/config.py",
-      "line": "attribute_map: dict[str, list[str]] = Field(default_factory=dict[str, list[str]])",
-      "container": "dict",
-      "position": "class_field",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/core/config.py",
-      "line": "attribute_map: dict[str, list[str]] = Field(default_factory=dict[str, list[str]])",
-      "container": "list",
-      "position": "class_field",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/core/config.py",
-      "line": "db_keys: list[str] = Field(default_factory=list)",
-      "container": "list",
-      "position": "class_field",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/core/config.py",
       "line": "def __call__(self) -> dict[str, Any]:",
       "container": "dict",
       "position": "signature_return",
@@ -830,93 +781,9 @@
     },
     {
       "file": "backend/libs/bms_core/src/bms_core/core/config.py",
-      "line": "dev_tenants: list[str] = Field(default_factory=lambda: [\"demo\"])",
-      "container": "list",
-      "position": "class_field",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/core/config.py",
-      "line": "exempt_paths: list[str] = Field(",
-      "container": "list",
-      "position": "class_field",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/core/config.py",
-      "line": "exempt_paths: list[str] = Field(default_factory=list)",
-      "container": "list",
-      "position": "class_field",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/core/config.py",
-      "line": "jit_allowed_tenants: list[str] = Field(default_factory=list[str])",
-      "container": "list",
-      "position": "class_field",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/core/config.py",
-      "line": "keys: dict[str, TokenKeySettings] = Field(default_factory=dict[str, TokenKeySettings])",
-      "container": "dict",
-      "position": "class_field",
-      "count": 2
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/core/config.py",
       "line": "lines: list[str] = []",
       "container": "list",
       "position": "local",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/core/config.py",
-      "line": "max_connections_by_service: dict[str, int] = Field(default_factory=dict[str, int])",
-      "container": "dict",
-      "position": "class_field",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/core/config.py",
-      "line": "options: dict[str, object] = Field(default_factory=dict[str, object])",
-      "container": "dict",
-      "position": "class_field",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/core/config.py",
-      "line": "public_paths: list[str] = Field(",
-      "container": "list",
-      "position": "class_field",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/core/config.py",
-      "line": "replicas: list[str] = Field(default_factory=list)",
-      "container": "list",
-      "position": "class_field",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/core/config.py",
-      "line": "scopes: list[str] = Field(default_factory=lambda: [\"openid\", \"profile\", \"email\"])",
-      "container": "list",
-      "position": "class_field",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/core/config.py",
-      "line": "services: dict[str, DbPoolSettings] = Field(default_factory=dict[str, DbPoolSettings])",
-      "container": "dict",
-      "position": "class_field",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/core/config.py",
-      "line": "workers_by_service: dict[str, int] = Field(default_factory=dict[str, int])",
-      "container": "dict",
-      "position": "class_field",
       "count": 1
     },
     {
@@ -1326,13 +1193,6 @@
       "count": 1
     },
     {
-      "file": "backend/libs/bms_core/src/bms_core/db/migration.py",
-      "line": "tables: frozenset[str]",
-      "container": "frozenset",
-      "position": "class_field",
-      "count": 1
-    },
-    {
       "file": "backend/libs/bms_core/src/bms_core/db/registry.py",
       "line": ") -> list[PoolBudgetRow]:",
       "container": "list",
@@ -1648,34 +1508,6 @@
       "count": 1
     },
     {
-      "file": "backend/libs/bms_core/src/bms_core/dict/models.py",
-      "line": "attr_json: Mapped[dict[str, object] | None] = mapped_column(",
-      "container": "dict",
-      "position": "class_field",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/dict/models.py",
-      "line": "operators: Mapped[list[str] | None] = mapped_column(JSON, nullable=True, comment=\"可用操作符集合（JSON 数组）\")",
-      "container": "list",
-      "position": "class_field",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/dict/models.py",
-      "line": "options: Mapped[list[dict[str, object]] | None] = mapped_column(",
-      "container": "dict",
-      "position": "class_field",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/dict/models.py",
-      "line": "options: Mapped[list[dict[str, object]] | None] = mapped_column(",
-      "container": "list",
-      "position": "class_field",
-      "count": 1
-    },
-    {
       "file": "backend/libs/bms_core/src/bms_core/dict/null.py",
       "line": "async def translate(self, query: DictTranslateQuery) -> Mapping[str, str]:",
       "container": "Mapping",
@@ -1786,13 +1618,6 @@
       "container": "Sequence",
       "position": "signature_param",
       "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/dict/seed.py",
-      "line": "i18n: Mapping[str, str] = field(default_factory=dict[str, str])",
-      "container": "Mapping",
-      "position": "class_field",
-      "count": 2
     },
     {
       "file": "backend/libs/bms_core/src/bms_core/dict/sql.py",
@@ -1963,13 +1788,6 @@
       "count": 1
     },
     {
-      "file": "backend/libs/bms_core/src/bms_core/events/base.py",
-      "line": "payload: dict[str, object] = field(default_factory=dict[str, object])",
-      "container": "dict",
-      "position": "class_field",
-      "count": 1
-    },
-    {
       "file": "backend/libs/bms_core/src/bms_core/events/contracts.py",
       "line": "def check_snapshot_compatibility(previous: Sequence[EventContract], registry: EventContractRegistry) -> tuple[str, ...]:",
       "container": "Sequence",
@@ -2024,13 +1842,6 @@
       "container": "list",
       "position": "local",
       "count": 3
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/events/contracts.py",
-      "line": "fields: Mapping[str, EventFieldSpec] = field(default_factory=dict[str, EventFieldSpec])",
-      "container": "Mapping",
-      "position": "class_field",
-      "count": 1
     },
     {
       "file": "backend/libs/bms_core/src/bms_core/events/contracts.py",
@@ -2229,13 +2040,6 @@
       "count": 1
     },
     {
-      "file": "backend/libs/bms_core/src/bms_core/idp/base.py",
-      "line": "payload: Mapping[str, object] = field(default_factory=dict[str, object])",
-      "container": "Mapping",
-      "position": "class_field",
-      "count": 1
-    },
-    {
       "file": "backend/libs/bms_core/src/bms_core/idp/cas.py",
       "line": "_DEFAULT_ATTRIBUTE_MAP: dict[str, tuple[str, ...]] = {",
       "container": "dict",
@@ -2415,13 +2219,6 @@
       "line": "self._metadata_cache: tuple[float, Mapping[str, object]] | None = None",
       "container": "Mapping",
       "position": "local",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/idp/registry.py",
-      "line": "config: Mapping[str, object] = field(default_factory=dict[str, object])",
-      "container": "Mapping",
-      "position": "class_field",
       "count": 1
     },
     {
@@ -2663,27 +2460,6 @@
       "count": 1
     },
     {
-      "file": "backend/libs/bms_core/src/bms_core/listing/models.py",
-      "line": "conditions: Mapped[dict[str, object] | None] = mapped_column(JSON, nullable=True, comment=\"条件组 JSON\")",
-      "container": "dict",
-      "position": "class_field",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/listing/models.py",
-      "line": "layout: Mapped[dict[str, object] | None] = mapped_column(JSON, nullable=True, comment=\"展示配置 JSON\")",
-      "container": "dict",
-      "position": "class_field",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/listing/models.py",
-      "line": "params: Mapped[dict[str, object] | None] = mapped_column(JSON, nullable=True, comment=\"额外参数 JSON\")",
-      "container": "dict",
-      "position": "class_field",
-      "count": 1
-    },
-    {
       "file": "backend/libs/bms_core/src/bms_core/llm/base.py",
       "line": "messages: Sequence[ChatMessage],",
       "container": "Sequence",
@@ -2716,13 +2492,6 @@
       "line": "self._locks: dict[str, tuple[str, float]] = {}",
       "container": "dict",
       "position": "local",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/masking/base.py",
-      "line": "def masked_fields(self) -> frozenset[str]:",
-      "container": "frozenset",
-      "position": "signature_return",
       "count": 1
     },
     {
@@ -2761,13 +2530,6 @@
       "count": 1
     },
     {
-      "file": "backend/libs/bms_core/src/bms_core/masking/default.py",
-      "line": "rules: dict[str, str] = field(default_factory=dict[str, str])",
-      "container": "dict",
-      "position": "class_field",
-      "count": 1
-    },
-    {
       "file": "backend/libs/bms_core/src/bms_core/metrics/prometheus.py",
       "line": "METRIC_DOCS: Mapping[str, str] = {",
       "container": "Mapping",
@@ -2786,20 +2548,6 @@
       "line": "self._metrics: dict[tuple[str, str, tuple[str, ...]], Any] = {}",
       "container": "dict",
       "position": "local",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/models/outbox.py",
-      "line": "payload: Mapped[dict[str, object]] = mapped_column(JSON, comment=\"事件负载\")",
-      "container": "dict",
-      "position": "class_field",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/models/outbox.py",
-      "line": "payload: Mapped[dict[str, object]] = mapped_column(JSON, comment=\"事件负载（便于重投 / 排障）\")",
-      "container": "dict",
-      "position": "class_field",
       "count": 1
     },
     {
@@ -2944,13 +2692,6 @@
     },
     {
       "file": "backend/libs/bms_core/src/bms_core/oauth/oidc_provider.py",
-      "line": "payload: Mapping[str, object] = field(default_factory=dict[str, object])",
-      "container": "Mapping",
-      "position": "class_field",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/oauth/oidc_provider.py",
       "line": "scopes: Sequence[str] = OIDC_DEFAULT_SCOPES,",
       "container": "Sequence",
       "position": "signature_param",
@@ -3020,13 +2761,6 @@
       "count": 1
     },
     {
-      "file": "backend/libs/bms_core/src/bms_core/oauth/verify.py",
-      "line": "payload: Mapping[str, object] = field(default_factory=dict[str, object])",
-      "container": "Mapping",
-      "position": "class_field",
-      "count": 1
-    },
-    {
       "file": "backend/libs/bms_core/src/bms_core/org/base.py",
       "line": "async def dept_tree(self, *, status: str | None = None) -> Sequence[OrgDept]:",
       "container": "Sequence",
@@ -3053,13 +2787,6 @@
       "container": "Sequence",
       "position": "signature_return",
       "count": 2
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/outbound/http.py",
-      "line": "headers: Mapping[str, str]",
-      "container": "Mapping",
-      "position": "class_field",
-      "count": 1
     },
     {
       "file": "backend/libs/bms_core/src/bms_core/outbound/http.py",
@@ -3102,13 +2829,6 @@
       "container": "list",
       "position": "signature_return",
       "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/outbox/base.py",
-      "line": "payload: dict[str, object]",
-      "container": "dict",
-      "position": "class_field",
-      "count": 2
     },
     {
       "file": "backend/libs/bms_core/src/bms_core/outbox/null.py",
@@ -3234,13 +2954,6 @@
       "line": "async def query(self, params: Mapping[str, object]) -> QueryResult:",
       "container": "Mapping",
       "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/query/base.py",
-      "line": "rows: tuple[Mapping[str, object], ...]",
-      "container": "Mapping",
-      "position": "class_field",
       "count": 1
     },
     {
@@ -3433,13 +3146,6 @@
       "count": 1
     },
     {
-      "file": "backend/libs/bms_core/src/bms_core/repositories/base_repository.py",
-      "line": "sortable_fields: ClassVar[frozenset[str]] = frozenset()",
-      "container": "frozenset",
-      "position": "class_field",
-      "count": 1
-    },
-    {
       "file": "backend/libs/bms_core/src/bms_core/repositories/base_scoped_repository.py",
       "line": "_COMPARATORS: dict[str, Callable[[Any, Any], bool]] = {",
       "container": "dict",
@@ -3563,20 +3269,6 @@
       "line": "payload: Mapping[str, object],",
       "container": "Mapping",
       "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/schemas/base.py",
-      "line": "def _apply_masking(masked_fields: frozenset[str], data: object) -> object:",
-      "container": "frozenset",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/schemas/base.py",
-      "line": "masked_fields: ClassVar[frozenset[str]] = frozenset()",
-      "container": "frozenset",
-      "position": "class_field",
       "count": 1
     },
     {
@@ -3720,27 +3412,6 @@
       "count": 1
     },
     {
-      "file": "backend/libs/bms_core/src/bms_core/search/base.py",
-      "line": "fields: Mapping[str, object]",
-      "container": "Mapping",
-      "position": "class_field",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/search/base.py",
-      "line": "filters: Mapping[str, object] | None = None",
-      "container": "Mapping",
-      "position": "class_field",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/search/base.py",
-      "line": "highlight: Mapping[str, str] | None = None",
-      "container": "Mapping",
-      "position": "class_field",
-      "count": 1
-    },
-    {
       "file": "backend/libs/bms_core/src/bms_core/security/base.py",
       "line": "def decode(self, token: str) -> dict[str, object]:",
       "container": "dict",
@@ -3801,34 +3472,6 @@
       "line": "def encode(self, claims: dict[str, object], *, expires_in: int | None = None) -> str:",
       "container": "dict",
       "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/servicecall/base.py",
-      "line": "headers: Mapping[str, str] = field(default_factory=dict[str, str])",
-      "container": "Mapping",
-      "position": "class_field",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/servicecall/base.py",
-      "line": "headers: Mapping[str, str] | None = None",
-      "container": "Mapping",
-      "position": "class_field",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/servicecall/base.py",
-      "line": "json_body: dict[str, object] | None = None",
-      "container": "dict",
-      "position": "class_field",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/servicecall/base.py",
-      "line": "query: Mapping[str, str] | None = None",
-      "container": "Mapping",
-      "position": "class_field",
       "count": 1
     },
     {
@@ -4484,13 +4127,6 @@
     },
     {
       "file": "backend/libs/bms_core/src/bms_core/tracing/base.py",
-      "line": "attributes: Mapping[str, object] | None = None",
-      "container": "Mapping",
-      "position": "class_field",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/tracing/base.py",
       "line": "attributes: Mapping[str, object] | None = None,",
       "container": "Mapping",
       "position": "signature_param",
@@ -4588,13 +4224,6 @@
       "count": 1
     },
     {
-      "file": "backend/libs/bms_core/src/bms_core/transfer/importer.py",
-      "line": "rows: tuple[Mapping[str, object], ...]",
-      "container": "Mapping",
-      "position": "class_field",
-      "count": 1
-    },
-    {
       "file": "backend/libs/bms_core/src/bms_core/transfer/null.py",
       "line": "async def parse(self, data: bytes, *, columns: Sequence[ColumnSpec]) -> tuple[Mapping[str, object], ...]:",
       "container": "Mapping",
@@ -4641,13 +4270,6 @@
       "line": "variables: Mapping[str, object] | None = None,",
       "container": "Mapping",
       "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/ws/base.py",
-      "line": "data: Mapping[str, object]",
-      "container": "Mapping",
-      "position": "class_field",
       "count": 1
     },
     {
@@ -5925,13 +5547,6 @@
       "count": 1
     },
     {
-      "file": "backend/libs/bms_core/tests/masking/test_masking.py",
-      "line": "masked_fields: ClassVar[frozenset[str]] = frozenset({\"phone\"})",
-      "container": "frozenset",
-      "position": "class_field",
-      "count": 1
-    },
-    {
       "file": "backend/libs/bms_core/tests/metrics/test_metrics.py",
       "line": ") -> dict[str, object]:",
       "container": "dict",
@@ -6374,51 +5989,9 @@
     },
     {
       "file": "backend/libs/bms_core/tests/schemas/test_contract_collections.py",
-      "line": "def _empty_index() -> dict[str, _Item]:",
-      "container": "dict",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/tests/schemas/test_contract_collections.py",
-      "line": "def _empty_items() -> list[_Item]:",
-      "container": "list",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/tests/schemas/test_contract_collections.py",
-      "line": "index: dict[str, _Item] = Field(default_factory=_empty_index)",
-      "container": "dict",
-      "position": "class_field",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/tests/schemas/test_contract_collections.py",
-      "line": "items: list[_Item] = Field(default_factory=_empty_items)",
-      "container": "list",
-      "position": "class_field",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/tests/schemas/test_contract_collections.py",
-      "line": "optional_items: list[_Item] | None = None",
-      "container": "list",
-      "position": "class_field",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/tests/schemas/test_contract_collections.py",
       "line": "payload: dict[str, object] = {",
       "container": "dict",
       "position": "local",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/tests/schemas/test_contract_collections.py",
-      "line": "tags: frozenset[str] = Field(default_factory=frozenset)",
-      "container": "frozenset",
-      "position": "class_field",
       "count": 1
     },
     {

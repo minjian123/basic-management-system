@@ -6,6 +6,7 @@ from datetime import datetime
 
 from sqlalchemy import ColumnElement, func, select
 
+from bms_core.core.concurrent import ConcurrentStableSet
 from bms_core.repositories.base_db_repository import BaseDbRepository
 from bms_core.schemas.pagination import BasePageQuery
 from bms_identity.models.session import SysSession
@@ -15,7 +16,7 @@ class SessionRepository(BaseDbRepository[SysSession]):
     """会话仓储（`sys_session`）：创建 / 按会话 id 取数 / 轮换哈希 / 撤销 / 在线查询。"""
 
     model = SysSession
-    sortable_fields = frozenset({"id", "login_at", "expires_at"})
+    sortable_fields = ConcurrentStableSet({"id", "login_at", "expires_at"})
 
     async def get_by_session_id(self, session_id: str) -> SysSession | None:
         """按会话 id 查询单条记录（作用域过滤；不存在返回 None）。

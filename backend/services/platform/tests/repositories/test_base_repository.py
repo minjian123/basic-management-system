@@ -8,6 +8,7 @@ import pytest
 
 from bms_core.core.base import BaseObject
 from bms_core.core.capability import BaseStub
+from bms_core.core.concurrent import ConcurrentStableSet
 from bms_core.core.exceptions import ParamError
 from bms_core.repositories.base_db_repository import BaseDbRepository
 from bms_core.repositories.base_memory_repository import BaseMemoryRepository
@@ -147,7 +148,7 @@ class SortableItem:
 class SortableRepository(BaseMemoryRepository[SortableItem]):
     """测试仓储：声明白名单（name / rank）。"""
 
-    sortable_fields = frozenset({"name", "rank"})
+    sortable_fields = ConcurrentStableSet({"name", "rank"})
 
     def _build(self, item_id: int, values: dict[str, object]) -> SortableItem:
         return SortableItem(item_id, str(values["name"]), cast("int | None", values.get("rank")))
@@ -172,7 +173,7 @@ class MixedItem:
 class MixedRepository(BaseMemoryRepository[MixedItem]):
     """测试仓储：混合类型字段 value。"""
 
-    sortable_fields = frozenset({"value"})
+    sortable_fields = ConcurrentStableSet({"value"})
 
     def _build(self, item_id: int, values: dict[str, object]) -> MixedItem:
         return MixedItem(item_id, values.get("value"))

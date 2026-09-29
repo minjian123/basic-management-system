@@ -5,10 +5,11 @@
 - 唯一约束按 `(唯一字段, deleted_at)` 复合口径（软删除释放唯一键）；未删除行的唯一性由服务层校验兜底。
 """
 
-from sqlalchemy import JSON, BigInteger, Index, Integer, String, UniqueConstraint
+from sqlalchemy import BigInteger, Index, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
-from bms_core.models.base import BaseModel
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.models.base import BaseModel, StableJson
 
 __all__ = [
     "SysDictAttr",
@@ -51,8 +52,8 @@ class SysDictItem(BaseModel):
     label: Mapped[str] = mapped_column(String(128), comment="条目标签（默认语言）")
     value: Mapped[str] = mapped_column(String(64), comment="条目值")
     parent_id: Mapped[str | None] = mapped_column(String(64), nullable=True, comment="级联父值（引用父条目 value）")
-    attr_json: Mapped[dict[str, object] | None] = mapped_column(
-        JSON, nullable=True, comment="扩展属性值（普通链路不返回）"
+    attr_json: Mapped[ConcurrentStableDict[str, object] | None] = mapped_column(
+        StableJson, nullable=True, comment="扩展属性值（普通链路不返回）"
     )
     color: Mapped[str | None] = mapped_column(
         String(32), nullable=True, comment="语义色（success/warning/danger/info/primary）"
@@ -96,12 +97,14 @@ class SysDictAttr(BaseModel):
     attr_key: Mapped[str] = mapped_column(String(64), comment="属性键")
     name: Mapped[str] = mapped_column(String(64), comment="属性名（默认语言）")
     data_type: Mapped[str] = mapped_column(String(16), comment="数据类型（text/number/date/enum/bool）")
-    operators: Mapped[list[str] | None] = mapped_column(JSON, nullable=True, comment="可用操作符集合（JSON 数组）")
+    operators: Mapped[ConcurrentStableList[str] | None] = mapped_column(
+        StableJson, nullable=True, comment="可用操作符集合（JSON 数组）"
+    )
     widget: Mapped[str | None] = mapped_column(
         String(32), nullable=True, comment="值控件（text/number/date/select/switch）"
     )
-    options: Mapped[list[dict[str, object]] | None] = mapped_column(
-        JSON, nullable=True, comment="enum 选项集（JSON 数组）"
+    options: Mapped[ConcurrentStableList[ConcurrentStableDict[str, object]] | None] = mapped_column(
+        StableJson, nullable=True, comment="enum 选项集（JSON 数组）"
     )
     sort: Mapped[int] = mapped_column(Integer, default=0, comment="排序值")
     status: Mapped[str] = mapped_column(String(16), default="enabled", comment="状态（enabled/disabled）")

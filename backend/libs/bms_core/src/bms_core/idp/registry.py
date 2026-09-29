@@ -18,6 +18,7 @@ from typing import cast
 
 import httpx
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.exceptions import ConfigError, DingtalkConfigError, WecomConfigError
 from bms_core.core.objects import BaseFrameworkObject, BaseValueObject
 from bms_core.idp.base import BaseIdentityProvider
@@ -46,7 +47,7 @@ class IdentityProviderSpec(BaseValueObject):
     type: str = ""
     """协议类型（`oidc` / `cas` / `wecom` / `dingtalk`）。"""
 
-    config: Mapping[str, object] = field(default_factory=dict[str, object])
+    config: ConcurrentStableDict[str, object] = field(default_factory=ConcurrentStableDict[str, object])
     """行配置 JSON（密钥仅存引用 `client_secret_ref`）。"""
 
     updated_at: str = ""

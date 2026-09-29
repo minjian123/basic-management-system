@@ -13,6 +13,7 @@ from typing import cast
 
 from fastapi import Request
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.config import Settings
 from bms_core.core.objects import BaseHttpResponseContract
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
@@ -39,7 +40,7 @@ class HttpResponse(BaseHttpResponseContract):
     status_code: int
     """HTTP 状态码。"""
 
-    headers: Mapping[str, str]
+    headers: ConcurrentStableDict[str, str]
     """响应头。"""
 
     content: bytes

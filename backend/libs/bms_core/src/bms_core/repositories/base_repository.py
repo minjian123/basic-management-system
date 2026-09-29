@@ -15,6 +15,7 @@ from typing import Any, ClassVar, cast
 from sqlalchemy.orm.exc import StaleDataError
 
 from bms_core.core.base import BaseObject
+from bms_core.core.concurrent import ConcurrentStableSet
 from bms_core.core.context import is_read_only
 from bms_core.core.exceptions import ConcurrentConflictError
 from bms_core.db.routing import READ_BINDING, WRITE_BINDING
@@ -29,7 +30,7 @@ from bms_core.sharding.base import ShardingRouter
 class BaseRepository[ModelT](BaseObject, ABC):
     """仓储契约基类：CRUD 契约 + `exists` 派生方法 + 路由 / 排序钩子。"""
 
-    sortable_fields: ClassVar[frozenset[str]] = frozenset()
+    sortable_fields: ClassVar[ConcurrentStableSet[str]] = ConcurrentStableSet()
     """可排序字段白名单（默认空＝不开放排序，排序请求被整体忽略）。"""
 
     _data_scope: DataScope | None = None
