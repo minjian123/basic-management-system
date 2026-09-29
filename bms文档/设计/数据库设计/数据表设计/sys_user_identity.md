@@ -25,9 +25,9 @@
 | 字段 | 类型 | 可空 | 约束 / 默认 | 说明 |
 | --- | --- | --- | --- | --- |
 | `id` | BIGINT | 否 | 主键，雪花 ID | 主键 |
-| `idp_key` | VARCHAR(160) | 否 | 与 `external_id`、`deleted_at` 复合唯一 | 映射键 = `{tenant_code}:{provider_key}`（跨租户共享 IdP 不冲突、issuer 变更不破坏映射） |
+| `idp_key` | VARCHAR(160) | 否 | 与 `external_id`、`deleted_at` 复合唯一 | 映射键 = `{tenant_id}:{provider_key}`（雪花租户主键前缀；跨租户共享 IdP 不冲突、issuer 变更不破坏映射） |
 | `external_id` | VARCHAR(255) | 否 | 同上 | 外部身份主体（OIDC 取 `sub`；CAS / 企微 / 钉钉取各自主体标识） |
-| `tenant_id` | VARCHAR(64) | 否 | — | 租户编码（需求字段名口径；与 `sys_tenant.code` 值传递） |
+| `tenant_id` | BIGINT | 否 | — | 租户主键（雪花 id；与 `sys_tenant.id` 值传递） |
 | `user_id` | BIGINT | 否 | — | 用户 ID（跨服务逻辑外键 → org 服务 `sys_user.id`，只持值） |
 | `created_at` | DATETIME | 否 | 审计 | 创建时间（UTC） |
 | `created_by` | BIGINT | 是 | 审计 | 创建人 |
@@ -37,7 +37,7 @@
 | `version` | INT | 否 | 默认 1 | 乐观锁版本 |
 
 - `(idp_key, external_id)` 唯一约束是并发首次登录防重复建号的事实源（02_02 写路径在唯一冲突时回读命中，不产生重复用户）。
-- `idp_key` 含租户前缀：同一 IdP 实例被多租户共享时，各租户外部身份互不串号；无租户前缀的裸 provider key 不允许落库。
+- `idp_key` 含租户主键前缀：同一 IdP 实例被多租户共享时，各租户外部身份互不串号；无租户前缀的裸 provider key 不允许落库（前缀为雪花 id 十进制字符串，10_04 起 `{tenant_id}`）。
 
 ## 3. 索引与约束 <a id="index"></a>
 
@@ -52,12 +52,13 @@
 
 - **分片**：不分片（平台库常驻；行数 = 启用 SSO 的用户数，增长可控）。
 - **归档**：不归档（身份绑定关系保留审计轨迹，随用户生命周期软删除）。
-- **迁移**：随 **`identity:platform` 链** Alembic 迁移落地（`alembic/versions/identity/platform/0001_sys_user_identity.py`，2026-09-27，新建链；命令 `alembic -n alembic:identity:platform upgrade head`）；SQLite 开发库由启动期自动建表覆盖。
+- **迁移**：随 **`identity:platform` 链** Alembic 迁移落地（`alembic/versions/identity/platform/0001_sys_user_identity.py`，2026-09-27，新建链；命令 `alembic -n alembic:identity:platform upgrade head`）；`tenant_id` 由 `VARCHAR(64)` 改 `BIGINT` 随同链 `0003_sys_user_identity_bigint`（2026-09-29；同链 `0002_sys_outbox` 补齐此前缺失的发件箱三表）；`idp_key` 值前缀 `code → tenant_id` 由 `ops/backfill_tenant_id_columns.py` 在迁移前重写；SQLite 开发库由启动期自动建表覆盖。
 
 ## 5. 变更记录 <a id="revlog"></a>
 
 | 日期 | 版本 | 变更 | 作者 |
 | --- | --- | --- | --- |
 | 2026-09-27 | v1 | 新建表结构（平台库；随 02_01 落库迁移 `0001_sys_user_identity`，新建 `identity:platform` 链） | minjian |
+| 2026-09-29 | v2 | `tenant_id` 由 `VARCHAR(64)`（租户编码）改 `BIGINT`（雪花租户主键）；`idp_key` 值前缀 `{tenant_code}` → `{tenant_id}`（随 10_04 迁移 + `ops/backfill_tenant_id_columns.py` 回填） | minjian |
 
 > 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套
