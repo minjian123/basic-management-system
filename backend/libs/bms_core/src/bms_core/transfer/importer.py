@@ -8,13 +8,12 @@
 """
 
 from abc import ABC, abstractmethod
-from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import cast
 
 from fastapi import Request
 
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.core.objects import BaseValueObject
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
@@ -62,7 +61,9 @@ class BaseImporter(BasePluggable, ABC):
     contract_version: str = DEFAULT_CONTRACT_VERSION
 
     @abstractmethod
-    async def parse(self, data: bytes, *, columns: Sequence[ColumnSpec]) -> tuple[Mapping[str, object], ...]:
+    async def parse(
+        self, data: bytes, *, columns: ConcurrentStableList[ColumnSpec]
+    ) -> ConcurrentStableList[ConcurrentStableDict[str, object]]:
         """解析文件字节为行（不做业务校验）。
 
         Args:
@@ -70,15 +71,15 @@ class BaseImporter(BasePluggable, ABC):
             columns: 列定义。
 
         Returns:
-            tuple[Mapping[str, object], ...]: 解析出的原始行。
+            ConcurrentStableList[ConcurrentStableDict[str, object]]: 解析出的原始行。
         """
 
     @abstractmethod
     async def validate(
         self,
-        rows: Sequence[Mapping[str, object]],
+        rows: ConcurrentStableList[ConcurrentStableDict[str, object]],
         *,
-        columns: Sequence[ColumnSpec],
+        columns: ConcurrentStableList[ColumnSpec],
     ) -> ImportResult:
         """行校验：筛出有效行 + 错误回执。
 
