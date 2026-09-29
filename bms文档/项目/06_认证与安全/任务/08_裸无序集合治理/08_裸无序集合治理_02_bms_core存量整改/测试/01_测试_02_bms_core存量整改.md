@@ -15,7 +15,7 @@
 | 测试日期 | 2026-09-29（基座原型先行） |
 | 测试人 | minjian |
 | 测试环境 | 本地开发机（Python 3.14；`uv run pytest` / `ruff` / `pyright`） |
-| 用例落点 | `backend/libs/bms_core/tests/core/test_concurrent_stable.py`（Kiwi 2222）+ 护栏 `--self-test` 矩阵 |
+| 用例落点 | `backend/libs/bms_core/tests/core/test_concurrent_stable.py`（Kiwi 2222）+ `backend/libs/bms_core/tests/schemas/test_contract_collections.py`（Kiwi 2223）+ 护栏 `--self-test` 矩阵 |
 | 用例编号 | Kiwi **2222**（插入序形态与并发）/ **2223**（契约零漂移与序列化形态）/ **2224**（存量归零与护栏收紧） |
 
 ## 2. 用例登记（Kiwi 先登记后编码） <a id="kiwi"></a>
@@ -27,7 +27,7 @@
 | 优先级 / 状态 / 标签 | `P2` / `CONFIRMED` / 自动化 |
 | 登记方式 | 内网 Kiwi TCMS 容器 `bms-kiwi` 的 Django shell 脚本化登记（主机、账号与访问方式见《[Kiwi TCMS 部署使用说明](../../../../../../资料/开发服务器/linux/KiwiTCMS部署使用说明.md)》「用例约定」节） |
 | 覆盖范围 | 写入用例 `text` 字段（2222 插入序形态与并发 / 2223 契约零漂移与序列化 / 2224 存量归零与护栏收紧，各含自动化文件路径与 `kiwi_id` 标注方式） |
-| 当前状态 | 2222 已落自动化；2223 / 2224 待对应基座能力与护栏收紧落地后续写 |
+| 当前状态 | 2222 / 2223 已落自动化；2224 待护栏收紧后落 |
 
 ## 3. 用例清单与执行结果 <a id="cases"></a>
 
@@ -45,7 +45,19 @@
 
 **合计**：42 项 pytest 断言通过（`test_concurrent.py` 24 + `test_concurrent_stable.py` 18）。
 
-### 3.2 护栏自测矩阵（Kiwi 2213 覆盖，本轮增 1 项） <a id="self-test"></a>
+### 3.2 用例 2223「契约零漂移与序列化形态」（`test_contract_collections.py`，9 项断言） <a id="case-2223"></a>
+
+| 组 | 断言 | 结果 |
+| --- | --- | --- |
+| 校验与形态 | 契约字段校验后落 `ConcurrentStable*`（保输入插入序）；空集合工厂默认值；`Optional` 联合可空；传入集合类实例 / ORM 属性可校验（`from_attributes`） | 通过 |
+| `model_dump()` | 输出**集合类实例**（列表 / 映射 / 集合），元素递归 dump 且 ID 字符串化 | 通过 |
+| `model_dump_json()` | 输出 `array` / `object`，无 `ConcurrentStable` 字符串泄漏；空默认输出 `[]` / `{}` / `null` | 通过 |
+| JSON Schema 逐字节一致 | `items` / `index` / `tags`（含 `uniqueItems`）/ `optional_items` 与 `list[X]` / `dict[K, V]` / `frozenset[X]` / `list[X] \| None` 一致；不产生 `$defs` 命名漂移 | 通过 |
+| 序列化链 | `stringify_ids` 同型重组（映射键 `*_id` 递归）；`BaseObject._convert` 识别集合类；`stable_json_dumps` 前置规整（无集合类字符串） | 通过 |
+
+**合计**：9 项 pytest 断言通过。
+
+### 3.3 护栏自测矩阵（Kiwi 2213 覆盖，本轮增 1 项） <a id="self-test"></a>
 
 | 组 | 断言 | 结果 |
 | --- | --- | --- |
@@ -62,12 +74,12 @@
 
 | 项 | 命令 | 结果 |
 | --- | --- | --- |
-| 定向用例 | `uv run pytest libs/bms_core/tests/core/test_concurrent.py libs/bms_core/tests/core/test_concurrent_stable.py` | 42 passed |
+| 定向回归 | `uv run pytest libs/bms_core/tests` | 1099 passed / 37 skipped |
 | 护栏自测 | `python3 scripts/tools/base-check/check-bare-collections.py --self-test` | 19 项通过 / exit 0 |
 | 护栏复跑 | `python3 scripts/tools/base-check/check-bare-collections.py .` | 通过（基线 18 处可递减提示，无新增） |
 | 静态检查 | `uv run ruff check` / `ruff format --check`（改动文件） | 通过 |
 | 类型检查 | `uv run pyright`（backend 全量） | 0 errors |
-| 本地预检 | `python3 scripts/tools/preflight/check-preflight.py --fast` | 全部通过 |
+| 本地预检 | `python3 scripts/tools/preflight/check-preflight.py --fast` | 全部通过（含契约零漂移 / `api-types` 零漂移） |
 | 阶段状态 | `python3 scripts/tools/check-docs/check-status.py --root . --stage 06_认证与安全` | 502 项 0 硬 0 软 |
 | 文档链接 | `python3 scripts/tools/base-check/check-links.py` | 0 断链 / 0 失效锚点 |
 
@@ -79,11 +91,12 @@
 | 2 | 集合对称差集 `^` 语义错误 | 改 `not in self`；实施记录 §4 问题 2 |
 | 3 | pyright strict：`AbstractSet` 导入 / `__eq__` 覆写 / `to_dict` `get` 兼容 | 逐一修正或按既有口径 `# pyright: ignore[...]`；实施记录 §4 问题 3 / 4 / 6 |
 | 4 | `ConcurrentSortedDict.__iter__` 语义变更致既有断言失败 | 适配既有用例（设计 §7 已登记）；实施记录 §4 问题 5 |
+| 5 | 集合契约 JSON 串顺序非插入序 / `model_dump_json()` 序列化报错 | 校验改 `list`（保插入序）+ `uniqueItems` 元数据补丁；移除 `return_schema`；实施记录 §4 问题 8 / 9 |
+| 6 | 「所有自定义类必须继承基类」用例拦截 `_ContractCollection` | 落 `BaseFrameworkObject`；实施记录 §4 问题 10 |
 
 ## 7. 遗留 <a id="leftover"></a>
 
-1. 用例 **2223**（契约零漂移与序列化形态）→ 随 `CONTRACT_COLLECTION` 与序列化链落地续写。
-2. 用例 **2224**（存量归零与护栏收紧）→ 随护栏白名单收紧、基线吸收至 940 与 616 处存量整改续写。
-3. 本任务尚无运行期全量回归；616 处存量整改完成后按详细设计 §5 用例 4~6 跑门禁与文档一致性核对。
+1. 用例 **2224**（存量归零与护栏收紧）→ 随护栏白名单收紧、基线吸收至 940 与 616 处存量整改续写。
+2. 本任务尚无运行期全量回归；616 处存量整改完成后按详细设计 §5 用例 4~6 跑门禁与文档一致性核对。
 
 > 本文档依《[文档生成规范](../../../../../../规范/文档生成规范.md)》编写
