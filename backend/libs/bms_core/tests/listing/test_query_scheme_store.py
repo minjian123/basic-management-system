@@ -12,6 +12,7 @@ import pytest
 from alembic.config import Config
 
 from alembic import command
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.config import get_settings
 from bms_core.core.context import current_user_id
 from bms_core.db.engine import EngineFactory
@@ -79,7 +80,7 @@ async def test_query_scheme_crud_and_default_resolution(scheme_store: SqlQuerySc
                 scope=QuerySchemeScope.USER,
                 target=QuerySchemeTarget.ITEMS,
                 dict_type="region",
-                conditions={"logic": "AND", "children": []},
+                conditions=ConcurrentStableDict({"logic": "AND", "children": []}),
                 is_default=True,
             )
         )

@@ -5,6 +5,7 @@
 """
 
 from bms_core.core.capability import BaseNullObject
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.exceptions import NotFoundError
 from bms_core.icon.base import (
     DEFAULT_ICON_STATUS,
@@ -121,7 +122,7 @@ class NullIconRegistry(BaseIconRegistry, BaseNullObject):
             code=code,
             name=name,
             category=category,
-            tags=tags,
+            tags=ConcurrentStableList(tags),
             svg=svg,
             status=status,
             icon_key=build_icon_key(code, source=ICON_CUSTOM_SOURCE),

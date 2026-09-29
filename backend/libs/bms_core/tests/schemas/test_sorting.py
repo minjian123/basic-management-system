@@ -3,6 +3,7 @@
 import pytest
 from pydantic import ValidationError
 
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.schemas.base import BaseSchema
 from bms_core.schemas.pagination import BaseCursorQuery, BasePageQuery
 from bms_core.schemas.sorting import BaseSortQuery, SortDirection, SortSpec
@@ -47,7 +48,7 @@ def test_parse_normalizes_direction_and_ignores_extra_values() -> None:
 @pytest.mark.kiwi_id(29)
 def test_specs_filters_by_whitelist() -> None:
     """白名单外字段忽略该项；whitelist=None 不做过滤（内部可信调用）。"""
-    query = BaseSortQuery(order_by="status,secret", order=["asc", "desc"])
+    query = BaseSortQuery(order_by="status,secret", order=ConcurrentStableList(["asc", "desc"]))
     assert [spec.field for spec in query.specs({"status"})] == ["status"]
     assert [spec.field for spec in query.specs()] == ["status", "secret"]
     assert query.specs(frozenset()) == []
@@ -73,7 +74,7 @@ def test_inheritance_chain() -> None:
     assert issubclass(BasePageQuery, BaseSortQuery)
     assert issubclass(BaseCursorQuery, BaseSortQuery)
 
-    page = BasePageQuery(order_by="name", order=["asc"])
+    page = BasePageQuery(order_by="name", order=ConcurrentStableList(["asc"]))
     assert (page.page, page.size) == (1, 20)
     assert [spec.field for spec in page.specs({"name"})] == ["name"]
     assert BaseCursorQuery(order_by="name").specs({"id"}) == []

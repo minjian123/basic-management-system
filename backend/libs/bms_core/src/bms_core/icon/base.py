@@ -18,14 +18,15 @@
 
 import re
 from abc import ABC, abstractmethod
-from typing import cast
+from typing import Annotated, cast
 
 from fastapi import Request
 from pydantic import Field
 
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
-from bms_core.schemas.base import BaseSchema
+from bms_core.schemas.base import CONTRACT_COLLECTION, CONTRACT_STABLE_LIST, BaseSchema
 
 __all__ = [
     "DEFAULT_ICON_STATUS",
@@ -110,7 +111,9 @@ class IconDraft(BaseSchema):
     code: str = Field(max_length=ICON_CODE_MAX_LENGTH, description="图标键（kebab-case，租户内唯一）")
     name: str = Field(max_length=ICON_NAME_MAX_LENGTH, description="图标名称（默认文案）")
     category: str = Field(description="图标分组（分类）")
-    tags: list[str] = Field(default_factory=list[str], description="标签（搜索用）")
+    tags: Annotated[ConcurrentStableList[str], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_LIST, description="标签（搜索用）"
+    )
     svg: str = Field(description="SVG 内容（内联；类型 / 大小校验与清洗随文件管理阶段）")
 
 
@@ -119,7 +122,9 @@ class IconPatch(BaseSchema):
 
     name: str | None = Field(default=None, max_length=ICON_NAME_MAX_LENGTH, description="图标名称")
     category: str | None = Field(default=None, description="图标分组")
-    tags: list[str] | None = Field(default=None, description="标签（搜索用）")
+    tags: Annotated[ConcurrentStableList[str] | None, CONTRACT_COLLECTION] = Field(
+        default=None, description="标签（搜索用）"
+    )
     svg: str | None = Field(default=None, description="SVG 内容")
     status: str | None = Field(default=None, description="状态（active 启用 / disabled 停用）")
 
@@ -131,7 +136,9 @@ class IconInfo(BaseSchema):
     code: str = Field(description="图标键（契约唯一业务标识）")
     name: str = Field(description="图标名称")
     category: str = Field(description="图标分组")
-    tags: list[str] = Field(default_factory=list[str], description="标签（搜索用）")
+    tags: Annotated[ConcurrentStableList[str], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_LIST, description="标签（搜索用）"
+    )
     svg: str = Field(description="SVG 内容")
     status: str = Field(default=DEFAULT_ICON_STATUS, description="状态（active 启用 / disabled 停用）")
     icon_key: str = Field(description="图标键派生值（custom:{图标键}，经 build_icon_key 派生）")

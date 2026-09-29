@@ -1,9 +1,12 @@
 """AI 对话占位路由请求 / 响应契约（会话 / 事件 / 动作数据契约见 `app/chat/base.py`）。"""
 
+from typing import Annotated
+
 from pydantic import Field
 
 from bms_core.chat.base import ChatStreamEvent
-from bms_core.schemas.base import BaseSchema
+from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.schemas.base import CONTRACT_COLLECTION, CONTRACT_STABLE_LIST, BaseSchema
 
 __all__ = [
     "ChatMessageInput",
@@ -24,7 +27,9 @@ class ChatMessageInput(BaseSchema):
 class ChatStreamRequest(BaseSchema):
     """发起流式对话请求。"""
 
-    messages: list[ChatMessageInput] = Field(default_factory=list[ChatMessageInput], description="多轮对话消息")
+    messages: Annotated[ConcurrentStableList[ChatMessageInput], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_LIST, description="多轮对话消息"
+    )
     module: str = Field(default="ask", description="模式（ask / report / approval / doc_qa）")
     session_id: str | None = Field(default=None, description="会话标识；缺省为新会话")
 
@@ -33,7 +38,9 @@ class ChatStreamResponse(BaseSchema):
     """流式对话响应（占位路由收集事件后一次性返回）。"""
 
     stream_id: str = Field(description="流标识")
-    events: list[ChatStreamEvent] = Field(default_factory=list[ChatStreamEvent], description="增量事件序列")
+    events: Annotated[ConcurrentStableList[ChatStreamEvent], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_LIST, description="增量事件序列"
+    )
 
 
 class ChatStopRequest(BaseSchema):

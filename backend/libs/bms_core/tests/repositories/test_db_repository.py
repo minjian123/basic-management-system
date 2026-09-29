@@ -11,6 +11,7 @@ from sqlalchemy.dialects import sqlite
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import Mapped, mapped_column
 
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.context import current_user_id, reset_tenant_context, set_tenant_context
 from bms_core.core.exceptions import ConcurrentConflictError, ConfigError, ParamError
 from bms_core.db.tenant import TenantContext
@@ -349,9 +350,9 @@ async def test_pagination_and_sort(session: AsyncSession) -> None:
     await repo.create(name="c", rank=3)
 
     assert [row.name for row in await repo.list()] == ["a", "b", "c"]
-    page = await repo.list_page(BasePageQuery(page=1, size=2, order_by="rank", order=["desc"]))
+    page = await repo.list_page(BasePageQuery(page=1, size=2, order_by="rank", order=ConcurrentStableList(["desc"])))
     assert [row.name for row in page] == ["c", "a"]
-    page2 = await repo.list_page(BasePageQuery(page=2, size=2, order_by="rank", order=["desc"]))
+    page2 = await repo.list_page(BasePageQuery(page=2, size=2, order_by="rank", order=ConcurrentStableList(["desc"])))
     assert [row.name for row in page2] == ["b"]
 
     ignored = await repo.list(sort=[SortSpec(field="ghost"), SortSpec(field="name", direction=SortDirection.DESC)])
@@ -373,7 +374,7 @@ async def test_cursor_keyset_pagination_with_nulls(session: AsyncSession) -> Non
         collected: list[str] = []
         cursor: str | None = None
         for _ in range(10):
-            query = BaseCursorQuery(limit=2, order_by="rank", order=[order], cursor=cursor)
+            query = BaseCursorQuery(limit=2, order_by="rank", order=ConcurrentStableList([order]), cursor=cursor)
             batch = await repo.list_cursor(query)
             collected.extend(row.name for row in batch)
             cursor = repo.build_cursor(query, batch)
@@ -393,7 +394,9 @@ async def test_cursor_rejects_invalid_and_mismatched(session: AsyncSession) -> N
 
     token = encode_cursor([SortSpec(field="rank", direction=SortDirection.ASC)], [1], 1)
     with pytest.raises(ParamError):
-        await repo.list_cursor(BaseCursorQuery(limit=1, order_by="name", order=["asc"], cursor=token))
+        await repo.list_cursor(
+            BaseCursorQuery(limit=1, order_by="name", order=ConcurrentStableList(["asc"]), cursor=token)
+        )
 
 
 @pytest.mark.kiwi_id(1078)

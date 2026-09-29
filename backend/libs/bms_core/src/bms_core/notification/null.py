@@ -3,6 +3,7 @@
 from collections.abc import Sequence
 
 from bms_core.core.capability import BaseNullObject
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.notification.base import BaseNotificationCenter, Notification
 from bms_core.schemas.filters import BaseFilterQuery
 from bms_core.schemas.pagination import BasePageQuery, BasePageResponse
@@ -23,7 +24,7 @@ class NullNotificationCenter(BaseNotificationCenter, BaseNullObject):
         Returns:
             BasePageResponse[Notification]: 空分页。
         """
-        return BasePageResponse[Notification](list=[], total=0, page=page.page, size=page.size)
+        return BasePageResponse[Notification](list=ConcurrentStableList(), total=0, page=page.page, size=page.size)
 
     async def detail(self, notification_id: int, *, mark_read: bool = True) -> Notification | None:
         """取通知详情（占位恒未命中）。

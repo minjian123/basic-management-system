@@ -9,9 +9,12 @@
 故此处只约束长度、不重复声明格式。
 """
 
+from typing import Annotated
+
 from pydantic import Field
 
-from bms_core.schemas.base import BaseSchema
+from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.schemas.base import CONTRACT_COLLECTION, CONTRACT_STABLE_LIST, BaseSchema
 
 __all__ = [
     "IconCreateRequest",
@@ -28,7 +31,9 @@ class IconCreateRequest(BaseSchema):
     code: str = Field(min_length=1, max_length=64, description="图标键（kebab-case，租户内唯一）")
     name: str = Field(min_length=1, max_length=128, description="图标名称")
     category: str = Field(min_length=1, description="图标分组（分类）")
-    tags: list[str] = Field(default_factory=list[str], description="标签（搜索用）")
+    tags: Annotated[ConcurrentStableList[str], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_LIST, description="标签（搜索用）"
+    )
     svg: str = Field(min_length=1, description="SVG 内容（内联）")
 
 
@@ -37,7 +42,9 @@ class IconUpdateRequest(BaseSchema):
 
     name: str | None = Field(default=None, max_length=128, description="图标名称")
     category: str | None = Field(default=None, description="图标分组")
-    tags: list[str] | None = Field(default=None, description="标签（搜索用）")
+    tags: Annotated[ConcurrentStableList[str] | None, CONTRACT_COLLECTION] = Field(
+        default=None, description="标签（搜索用）"
+    )
     svg: str | None = Field(default=None, description="SVG 内容")
     status: str | None = Field(default=None, description="状态（active 启用 / disabled 停用）")
 
@@ -49,7 +56,7 @@ class IconResponse(BaseSchema):
     code: str = Field(description="图标键（契约唯一业务标识）")
     name: str = Field(description="图标名称")
     category: str = Field(description="图标分组")
-    tags: list[str] = Field(description="标签（搜索用）")
+    tags: Annotated[ConcurrentStableList[str], CONTRACT_COLLECTION] = Field(description="标签（搜索用）")
     svg: str = Field(description="SVG 内容")
     status: str = Field(description="状态（active 启用 / disabled 停用）")
     icon_key: str = Field(description="图标键派生值（custom:{图标键}）")
@@ -58,7 +65,7 @@ class IconResponse(BaseSchema):
 class IconListResponse(BaseSchema):
     """图标清单响应。"""
 
-    icons: list[IconResponse] = Field(description="图标清单")
+    icons: Annotated[ConcurrentStableList[IconResponse], CONTRACT_COLLECTION] = Field(description="图标清单")
 
 
 class IconDeleteResponse(BaseSchema):

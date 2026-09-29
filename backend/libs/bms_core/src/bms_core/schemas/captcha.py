@@ -9,10 +9,13 @@
 图片字节在路由面以 **base64** 字符串承载（能力域契约只返回字节，传输形态由接口层决定）。
 """
 
+from typing import Annotated
+
 from pydantic import Field
 
 from bms_core.captcha.base import CaptchaKind
-from bms_core.schemas.base import BaseSchema
+from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.schemas.base import CONTRACT_COLLECTION, CONTRACT_STABLE_LIST, BaseSchema
 
 __all__ = [
     "CaptchaChallengeRequest",
@@ -44,8 +47,8 @@ class CaptchaVerifyRequest(BaseSchema):
     captcha_id: str = Field(min_length=1, description="挑战编号")
     kind: CaptchaKind = Field(default=CaptchaKind.IMAGE, description="挑战类型（决定取校验码还是轨迹）")
     code: str = Field(default="", description="用户输入的校验码（图形 / 短信）")
-    trace: list[tuple[int, int, int]] = Field(
-        default_factory=list[tuple[int, int, int]], description="滑块轨迹点序列（每点为 x / y / 相对起点毫秒）"
+    trace: Annotated[ConcurrentStableList[tuple[int, int, int]], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_LIST, description="滑块轨迹点序列（每点为 x / y / 相对起点毫秒）"
     )
     scene: str = Field(default="login", description="使用场景（取值见 CAPTCHA_SCENES）")
 
@@ -77,4 +80,6 @@ class CaptchaPolicyResponse(BaseSchema):
     fail_threshold: int = Field(description="连续失败阈值")
     ttl: int = Field(description="挑战有效期（秒）")
     cooldown: int = Field(description="重发冷却（秒）")
-    channels: list[CaptchaKind] = Field(description="该场景可用渠道（按降级顺序；末位恒为图形码 `image` 兜底）")
+    channels: Annotated[ConcurrentStableList[CaptchaKind], CONTRACT_COLLECTION] = Field(
+        description="该场景可用渠道（按降级顺序；末位恒为图形码 `image` 兜底）"
+    )

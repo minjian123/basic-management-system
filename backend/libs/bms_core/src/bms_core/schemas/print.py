@@ -9,9 +9,17 @@
 字段一律 snake_case（前端 camelCase 契约由宿主数据通路注入层映射）。
 """
 
+from typing import Annotated
+
 from pydantic import Field
 
-from bms_core.schemas.base import BaseSchema
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.schemas.base import (
+    CONTRACT_COLLECTION,
+    CONTRACT_STABLE_DICT,
+    CONTRACT_STABLE_LIST,
+    BaseSchema,
+)
 
 __all__ = [
     "PrintBatchRequest",
@@ -30,8 +38,12 @@ class PrintDocumentPayload(BaseSchema):
     """单据数据（单据键 + 主表字段 + 明细行）。"""
 
     biz_key: str | None = Field(default=None, description="单据键（产物 key / 文件名派生用）")
-    fields: dict[str, object] = Field(default_factory=dict[str, object], description="主表字段")
-    rows: list[dict[str, object]] = Field(default_factory=list[dict[str, object]], description="明细行")
+    fields: Annotated[ConcurrentStableDict[str, object], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_DICT, description="主表字段"
+    )
+    rows: Annotated[ConcurrentStableList[ConcurrentStableDict[str, object]], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_LIST, description="明细行"
+    )
 
 
 class PrintOptionsPayload(BaseSchema):
@@ -56,7 +68,9 @@ class PrintBatchRequest(BaseSchema):
     """批量打印请求：`{template_key, keys, mode?, options?}`。"""
 
     template_key: str = Field(min_length=1, description="打印模板键")
-    keys: list[str] = Field(min_length=1, description="单据键集合（至少一条）")
+    keys: Annotated[
+        ConcurrentStableList[str], CONTRACT_COLLECTION, Field(min_length=1, description="单据键集合（至少一条）")
+    ]
     mode: str = Field(default="separate", description="批量模式（separate 逐份 / merged 合并）")
     options: PrintOptionsPayload | None = Field(default=None, description="渲染选项（缺省取平台缺省）")
 
@@ -81,7 +95,9 @@ class PrintBatchResponse(BaseSchema):
     total: int = Field(ge=0, description="单据总数")
     succeeded: int = Field(ge=0, description="成功单据数")
     failed: int = Field(ge=0, description="失败单据数")
-    items: list[PrintExportResponse] = Field(description="产物明细（逐份多份 / 合并单份）")
+    items: Annotated[ConcurrentStableList[PrintExportResponse], CONTRACT_COLLECTION] = Field(
+        description="产物明细（逐份多份 / 合并单份）"
+    )
     message: str | None = Field(default=None, description="结果提示文案")
 
 
@@ -98,11 +114,15 @@ class PrintTemplateInfoResponse(BaseSchema):
     key: str = Field(description="模板键")
     name: str = Field(description="模板名称")
     biz_type: str | None = Field(default=None, description="单据类型（缺省不限）")
-    variables: list[PrintVariableResponse] = Field(description="变量清单")
+    variables: Annotated[ConcurrentStableList[PrintVariableResponse], CONTRACT_COLLECTION] = Field(
+        description="变量清单"
+    )
     status: str = Field(description="模板状态（active 启用 / disabled 停用）")
 
 
 class PrintTemplateListResponse(BaseSchema):
     """打印模板清单响应。"""
 
-    templates: list[PrintTemplateInfoResponse] = Field(description="模板清单")
+    templates: Annotated[ConcurrentStableList[PrintTemplateInfoResponse], CONTRACT_COLLECTION] = Field(
+        description="模板清单"
+    )

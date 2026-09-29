@@ -9,9 +9,16 @@
 **不抛业务异常**（只有执行侧故障由实现侧抛错，随对应阶段登记）。
 """
 
+from typing import Annotated
+
 from pydantic import Field
 
-from bms_core.schemas.base import BaseSchema
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.schemas.base import (
+    CONTRACT_COLLECTION,
+    CONTRACT_STABLE_LIST,
+    BaseSchema,
+)
 
 __all__ = [
     "ExpressionContextPayload",
@@ -35,8 +42,12 @@ class ExpressionContextPayload(BaseSchema):
     """表达式校验上下文：`{scope?, fields?, variables?}`。"""
 
     scope: str = Field(default="custom", description="表达式场景（data_scope / workflow_condition / report / custom）")
-    fields: list[str] = Field(default_factory=list[str], description="可用字段（场景侧下发）")
-    variables: list[str] = Field(default_factory=list[str], description="预置变量（场景侧下发）")
+    fields: Annotated[ConcurrentStableList[str], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_LIST, description="可用字段（场景侧下发）"
+    )
+    variables: Annotated[ConcurrentStableList[str], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_LIST, description="预置变量（场景侧下发）"
+    )
 
 
 class ExpressionValidateRequest(BaseSchema):
@@ -67,9 +78,15 @@ class SqlValidationResponse(BaseSchema):
     """SQL 校验与只读试算结果响应。"""
 
     valid: bool = Field(description="校验结论（无 error 级诊断即通过）")
-    issues: list[ValidationIssueResponse] = Field(description="诊断明细")
-    columns: list[ValidationColumnResponse] = Field(description="试算返回字段清单")
-    rows: list[dict[str, object]] = Field(description="结果预览行（上限 200）")
+    issues: Annotated[ConcurrentStableList[ValidationIssueResponse], CONTRACT_COLLECTION] = Field(
+        description="诊断明细"
+    )
+    columns: Annotated[ConcurrentStableList[ValidationColumnResponse], CONTRACT_COLLECTION] = Field(
+        description="试算返回字段清单"
+    )
+    rows: Annotated[ConcurrentStableList[ConcurrentStableDict[str, object]], CONTRACT_COLLECTION] = Field(
+        description="结果预览行（上限 200）"
+    )
     cost_ms: int = Field(ge=0, description="试算耗时（毫秒）")
     truncated: bool = Field(description="结果是否被行上限截断")
 
@@ -78,4 +95,6 @@ class ExpressionValidationResponse(BaseSchema):
     """表达式校验结果响应。"""
 
     valid: bool = Field(description="校验结论（无 error 级诊断即通过）")
-    issues: list[ValidationIssueResponse] = Field(description="诊断明细")
+    issues: Annotated[ConcurrentStableList[ValidationIssueResponse], CONTRACT_COLLECTION] = Field(
+        description="诊断明细"
+    )

@@ -6,6 +6,7 @@
 """
 
 from bms_core.core.capability import BaseNullObject
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.exceptions import PrintTemplateNotFoundError
 from bms_core.print.base import (
     NULL_PRINT_BIZ_KEY,
@@ -105,7 +106,7 @@ class NullPrintExporter(BasePrintExporter, BaseNullObject):
             total=len(keys),
             succeeded=len(keys),
             failed=0,
-            items=items,
+            items=ConcurrentStableList(items),
             message=PRINT_PLACEHOLDER_MESSAGE,
         )
 

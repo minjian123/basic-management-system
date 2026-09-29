@@ -3,6 +3,7 @@
 from collections.abc import Sequence
 
 from bms_core.core.base import BaseObject
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.exceptions import NotFoundError
 from bms_core.repositories.base_repository import BaseRepository
 from bms_core.schemas.pagination import BaseCursorQuery, BaseCursorResponse, BasePageQuery, BasePageResponse
@@ -122,7 +123,7 @@ class BaseService[ModelT](BaseObject):
         """
         items = await self._repository.list_page(query)
         total = await self._repository.count()
-        return BasePageResponse[ModelT](list=items, total=total, page=query.page, size=query.size)
+        return BasePageResponse[ModelT](list=ConcurrentStableList(items), total=total, page=query.page, size=query.size)
 
     async def cursor_page(self, query: BaseCursorQuery) -> BaseCursorResponse[ModelT]:
         """游标分页查询（keyset：下一批游标由仓储按本批末行生成）。
@@ -138,4 +139,6 @@ class BaseService[ModelT](BaseObject):
         """
         items = await self._repository.list_cursor(query)
         next_cursor = self._repository.build_cursor(query, items)
-        return BaseCursorResponse[ModelT](list=items, next_cursor=next_cursor, has_more=next_cursor is not None)
+        return BaseCursorResponse[ModelT](
+            list=ConcurrentStableList(items), next_cursor=next_cursor, has_more=next_cursor is not None
+        )

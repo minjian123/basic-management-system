@@ -1,8 +1,9 @@
 """schemas 层插件清单契约：插件注册实现、能力分组与跨服务聚合响应。"""
 
-from typing import Literal
+from typing import Annotated, Literal
 
-from bms_core.schemas.base import BaseSchema
+from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.schemas.base import CONTRACT_COLLECTION, BaseSchema
 
 
 class PluginImplementationResponse(BaseSchema):
@@ -27,7 +28,7 @@ class PluginGroupResponse(BaseSchema):
     provider: str
     """当前配置选中的实现名（空配置 → `null`）。"""
 
-    implementations: list[PluginImplementationResponse]
+    implementations: Annotated[ConcurrentStableList[PluginImplementationResponse], CONTRACT_COLLECTION]
     """已注册实现（`plugin_name` 升序）；不含 `options` 密钥。"""
 
 
@@ -43,7 +44,7 @@ class PluginAggregateServiceResponse(BaseSchema):
     status: Literal["ok", "unreachable"]
     """取数结果：`ok` 可调用；`unreachable` 调用失败（条目保留、组为空，不使整请求失败）。"""
 
-    groups: list[PluginGroupResponse]
+    groups: Annotated[ConcurrentStableList[PluginGroupResponse], CONTRACT_COLLECTION]
     """该服务插件清单分组（复用清单契约）；不含 `options` 密钥。"""
 
 
@@ -53,5 +54,5 @@ class PluginAggregateResponse(BaseSchema):
     placeholder: bool
     """占位标记：触发前恒 `true`（`services` 为空）；真实实现接入后置 `false`。"""
 
-    services: list[PluginAggregateServiceResponse]
+    services: Annotated[ConcurrentStableList[PluginAggregateServiceResponse], CONTRACT_COLLECTION]
     """各启用服务的插件清单聚合（`service_key` 升序）。"""

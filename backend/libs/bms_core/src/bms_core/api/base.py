@@ -15,13 +15,14 @@
   （20001 / 401）或 `SessionAuthError`（20012 / 401）。细粒度权限校验沿用 `require_permission`（阶段七）。
 """
 
-from collections.abc import Awaitable, Callable, Mapping, Sequence
+from collections.abc import Awaitable, Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from typing import Annotated, Any, cast
 
 from fastapi import APIRouter, Depends, Header, Query, Request, params
 from pydantic import ValidationError
 
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.context import (
     get_current_client_ip,
     set_current_tenant,
@@ -272,6 +273,18 @@ def _build_query[QueryT](build: Callable[[], QueryT]) -> QueryT:
         raise ParamError(data=exc.errors(include_context=False)) from exc
 
 
+def _orders(order: Iterable[str] | None) -> ConcurrentStableList[str] | None:
+    """查询参数排序方向数组转插入序集合（None 保持 None）。
+
+    Args:
+        order: FastAPI 绑定出的方向数组。
+
+    Returns:
+        ConcurrentStableList[str] | None: 集合类实例或 None。
+    """
+    return None if order is None else ConcurrentStableList(order)
+
+
 def page_query(
     page: Annotated[int, Query(ge=1, description="页码（从 1 起）")] = 1,
     size: Annotated[int, Query(ge=1, le=200, description="每页条数（默认 20，上限 200）")] = 20,
@@ -292,7 +305,7 @@ def page_query(
     Raises:
         ParamError: 页码限深等契约校验失败（10001）。
     """
-    return _build_query(lambda: BasePageQuery(page=page, size=size, order_by=order_by, order=order))
+    return _build_query(lambda: BasePageQuery(page=page, size=size, order_by=order_by, order=_orders(order)))
 
 
 def sort_query(
@@ -311,7 +324,7 @@ def sort_query(
     Raises:
         ParamError: 契约校验失败（10001）。
     """
-    return _build_query(lambda: BaseSortQuery(order_by=order_by, order=order))
+    return _build_query(lambda: BaseSortQuery(order_by=order_by, order=_orders(order)))
 
 
 def cursor_query(
@@ -334,7 +347,7 @@ def cursor_query(
     Raises:
         ParamError: `limit` 上限等契约校验失败（10001）。
     """
-    return _build_query(lambda: BaseCursorQuery(cursor=cursor, limit=limit, order_by=order_by, order=order))
+    return _build_query(lambda: BaseCursorQuery(cursor=cursor, limit=limit, order_by=order_by, order=_orders(order)))
 
 
 @dataclass(frozen=True)

@@ -11,6 +11,7 @@ from contextlib import asynccontextmanager
 
 from sqlalchemy import and_, func, or_, select
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.exceptions import ParamError
 from bms_core.db.registry import EngineRegistry
 from bms_core.db.session import DbSession, session_scope
@@ -64,16 +65,18 @@ class BuiltinDictQueryProvider(BaseQueryProvider):
             name="字典条目查询（内建）",
             target="business",
             dict_types=(),
-            param_schema={
-                "type": "object",
-                "properties": {
-                    "dict_type": {"type": "string", "description": "字典类型码"},
-                    "keyword": {"type": "string", "description": "关键字（label / value / code）"},
-                    "page": {"type": "integer", "minimum": 1},
-                    "size": {"type": "integer", "minimum": 1, "maximum": PAGE_SIZE_MAX},
-                },
-                "required": ["dict_type"],
-            },
+            param_schema=ConcurrentStableDict(
+                {
+                    "type": "object",
+                    "properties": {
+                        "dict_type": {"type": "string", "description": "字典类型码"},
+                        "keyword": {"type": "string", "description": "关键字（label / value / code）"},
+                        "page": {"type": "integer", "minimum": 1},
+                        "size": {"type": "integer", "minimum": 1, "maximum": PAGE_SIZE_MAX},
+                    },
+                    "required": ["dict_type"],
+                }
+            ),
         )
 
     async def query(self, params: Mapping[str, object]) -> QueryResult:

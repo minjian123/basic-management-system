@@ -20,6 +20,7 @@ from collections.abc import Mapping, Sequence
 from typing import cast
 from urllib.parse import quote
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.context import get_current_tenant
 from bms_core.core.exceptions import ServiceUnavailableError
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION
@@ -309,7 +310,9 @@ class HttpDictSource(BaseDictSource):
         )
         data = await _call(self._client, request)
         if data is None:
-            return DictBatchResult(version=0, items={name: _empty_result() for name in query.types})
+            return DictBatchResult(
+                version=0, items=ConcurrentStableDict({name: _empty_result() for name in query.types})
+            )
         raw_items = data.get("items")
         items: dict[str, DictTypeResult | None] = {}
         if isinstance(raw_items, Mapping):
@@ -320,7 +323,7 @@ class HttpDictSource(BaseDictSource):
                     items[str(name)] = _to_type_result(cast("Mapping[str, object]", value))
         for name in query.types:
             items.setdefault(name, _empty_result())
-        return DictBatchResult(version=_as_int(data.get("version")), items=items)
+        return DictBatchResult(version=_as_int(data.get("version")), items=ConcurrentStableDict(items))
 
 
 class HttpDictTranslator(BaseDictTranslator):

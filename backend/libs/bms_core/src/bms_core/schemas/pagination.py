@@ -7,10 +7,13 @@
 - 游标为 keyset 令牌（排序键 + 主键），首页不传，逐页由响应 `next_cursor` 回传。
 """
 
+from typing import Annotated
+
 from pydantic import Field, field_validator
 
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import get_settings
-from bms_core.schemas.base import BaseSchema
+from bms_core.schemas.base import CONTRACT_COLLECTION, BaseSchema
 from bms_core.schemas.sorting import BaseSortQuery
 
 
@@ -43,7 +46,7 @@ class BasePageQuery(BaseSortQuery):
 class BasePageResponse[ItemT](BaseSchema):
     """页码分页响应。"""
 
-    list: list[ItemT]
+    list: Annotated[ConcurrentStableList[ItemT], CONTRACT_COLLECTION]
     total: int
     page: int
     size: int
@@ -59,6 +62,6 @@ class BaseCursorQuery(BaseSortQuery):
 class BaseCursorResponse[ItemT](BaseSchema):
     """游标分页响应。"""
 
-    list: list[ItemT]
+    list: Annotated[ConcurrentStableList[ItemT], CONTRACT_COLLECTION]
     next_cursor: str | None
     has_more: bool

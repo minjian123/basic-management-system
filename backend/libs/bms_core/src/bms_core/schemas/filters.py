@@ -9,11 +9,12 @@
 """
 
 from collections.abc import Sequence
-from typing import cast
+from typing import Annotated, cast
 
 from pydantic import Field
 
-from bms_core.schemas.base import BaseSchema
+from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.schemas.base import CONTRACT_COLLECTION, CONTRACT_STABLE_LIST, BaseSchema
 from bms_core.scope.base import SCOPE_OPERATORS
 
 __all__ = [
@@ -81,7 +82,9 @@ class BaseFilterQuery(BaseSchema):
     """
 
     keyword: str | None = Field(default=None, description="关键字（跨字段模糊，命中列由后端定义）")
-    filters: list[FilterSpec] = Field(default_factory=list[FilterSpec], description="筛选条件列表")
+    filters: Annotated[ConcurrentStableList[FilterSpec], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_LIST, description="筛选条件列表"
+    )
 
     def to_query_params(self) -> dict[str, object]:
         """序列化为请求查询参数（筛选条件 + 关键字；空关键字不传）。

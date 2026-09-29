@@ -24,16 +24,17 @@
 
 from abc import ABC, abstractmethod
 from collections.abc import Mapping, Sequence
-from typing import cast
+from typing import Annotated, cast
 
 from fastapi import Request
 from pydantic import Field
 
 from bms_core.cache.base import CacheRegion
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.config import Settings
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 from bms_core.i18n.base import DEFAULT_LOCALE
-from bms_core.schemas.base import BaseSchema
+from bms_core.schemas.base import CONTRACT_COLLECTION, CONTRACT_STABLE_DICT, BaseSchema
 
 __all__ = [
     "DICT_CACHE_DOMAIN",
@@ -121,8 +122,8 @@ class DictBatchResult(BaseSchema):
     """批量合并取数结果（内层 `DictTypeResult.version` 与批量全局 `version` 同值）。"""
 
     version: int = Field(default=0, description="当前全局版本号")
-    items: dict[str, DictTypeResult | None] = Field(
-        default_factory=dict,
+    items: Annotated[ConcurrentStableDict[str, DictTypeResult | None], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_DICT,
         description="按类型的取数结果；None＝该类型版本一致",
     )
 

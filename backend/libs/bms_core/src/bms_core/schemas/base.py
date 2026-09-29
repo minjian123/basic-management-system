@@ -84,9 +84,22 @@ class _ContractCollection(BaseFrameworkObject):
             return handler.generate_schema(source_type)
         return self._container_schema(collection, get_args(source_type), handler)
 
-    @staticmethod
+    def _element_schema(self, arg: Any, handler: GetCoreSchemaHandler) -> CoreSchema:
+        """生成元素 / 键 / 值 schema（**嵌套基座集合类**递归经本元数据）。
+
+        Args:
+            arg: 元素 / 键 / 值类型。
+            handler: Pydantic core schema 处理器。
+
+        Returns:
+            CoreSchema: 元素 schema。
+        """
+        if _collection_type(arg) is not None:
+            return self.__get_pydantic_core_schema__(arg, handler)
+        return handler.generate_schema(arg)
+
     def _container_schema(
-        collection: CollectionType, args: tuple[Any, ...], handler: GetCoreSchemaHandler
+        self, collection: CollectionType, args: tuple[Any, ...], handler: GetCoreSchemaHandler
     ) -> CoreSchema:
         """按集合类所属映射 / 集合 / 序列分派到同类内置容器 schema。
 
@@ -103,12 +116,12 @@ class _ContractCollection(BaseFrameworkObject):
         """
         if issubclass(collection, Mapping):
             kind = "dict"
-            key_schema = handler.generate_schema(args[0]) if len(args) == 2 else core_schema.any_schema()
-            value_schema = handler.generate_schema(args[1]) if len(args) == 2 else core_schema.any_schema()
+            key_schema = self._element_schema(args[0], handler) if len(args) == 2 else core_schema.any_schema()
+            value_schema = self._element_schema(args[1], handler) if len(args) == 2 else core_schema.any_schema()
             inner = core_schema.dict_schema(key_schema, value_schema)
             to_builtin = cast("Callable[[Any], Any]", dict)
         else:
-            item_schema = handler.generate_schema(args[0]) if args else core_schema.any_schema()
+            item_schema = self._element_schema(args[0], handler) if args else core_schema.any_schema()
             inner = core_schema.list_schema(item_schema)
             to_builtin = cast("Callable[[Any], Any]", list)
             kind = "set" if issubclass(collection, Set) else "list"

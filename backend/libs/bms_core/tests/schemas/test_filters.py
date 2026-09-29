@@ -2,6 +2,7 @@
 
 import pytest
 
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.schemas.filters import (
     FILTER_MULTI_SEPARATOR,
     FILTER_OPERATORS,
@@ -41,6 +42,8 @@ def test_filter_serialization() -> None:
 @pytest.mark.kiwi_id(781)
 def test_base_filter_query_params() -> None:
     """列表筛选请求：条件 + 关键字合并；空关键字不传。"""
-    query = BaseFilterQuery(keyword="zhang", filters=[FilterSpec(field="status", value="enabled")])
+    query = BaseFilterQuery(
+        keyword="zhang", filters=ConcurrentStableList([FilterSpec(field="status", value="enabled")])
+    )
     assert query.to_query_params() == {"status": "enabled", "keyword": "zhang"}
     assert BaseFilterQuery().to_query_params() == {}

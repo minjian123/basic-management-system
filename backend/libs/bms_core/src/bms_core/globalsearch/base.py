@@ -20,14 +20,20 @@
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from datetime import datetime
-from typing import cast
+from typing import Annotated, cast
 
 from fastapi import Request
 from pydantic import Field
 
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
-from bms_core.schemas.base import BaseSchema
+from bms_core.schemas.base import (
+    CONTRACT_COLLECTION,
+    CONTRACT_STABLE_DICT,
+    CONTRACT_STABLE_LIST,
+    BaseSchema,
+)
 
 __all__ = [
     "DEFAULT_GLOBAL_SEARCH_SIZE",
@@ -76,7 +82,9 @@ class GlobalSearchHit(BaseSchema):
     doc_type: str = Field(description="域标识（user / dept / role / dict / purchase / file_meta / help_article）")
     biz_id: str = Field(description="业务标识（跳转与回查库）")
     title: str = Field(default="", description="命中标题")
-    highlight: dict[str, str] = Field(default_factory=dict[str, str], description="高亮片段（字段 → 片段）")
+    highlight: Annotated[ConcurrentStableDict[str, str], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_DICT, description="高亮片段（字段 → 片段）"
+    )
     updated_at: datetime | None = Field(default=None, description="更新时间（UTC）")
 
 
@@ -84,14 +92,18 @@ class GlobalSearchGroup(BaseSchema):
     """按域分组的检索结果。"""
 
     doc_type: str = Field(description="域标识")
-    hits: list[GlobalSearchHit] = Field(default_factory=list[GlobalSearchHit], description="本域命中")
+    hits: Annotated[ConcurrentStableList[GlobalSearchHit], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_LIST, description="本域命中"
+    )
     total: int = Field(default=0, ge=0, description="本域命中总数")
 
 
 class GlobalSearchResult(BaseSchema):
     """多域聚合检索结果（含降级字段）。"""
 
-    groups: list[GlobalSearchGroup] = Field(default_factory=list[GlobalSearchGroup], description="按域分组结果")
+    groups: Annotated[ConcurrentStableList[GlobalSearchGroup], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_LIST, description="按域分组结果"
+    )
     total: int = Field(default=0, ge=0, description="命中总数")
     degraded: bool = Field(default=False, description="是否降级")
     degrade_reason: str | None = Field(default=None, description="降级原因（unavailable / timeout / fallback）")
@@ -106,14 +118,18 @@ class AuditLogHit(BaseSchema):
     title: str = Field(default="", description="命中标题 / 摘要")
     user_id: str | None = Field(default=None, description="操作用户 ID")
     username: str | None = Field(default=None, description="操作用户名")
-    highlight: dict[str, str] = Field(default_factory=dict[str, str], description="高亮片段（字段 → 片段）")
+    highlight: Annotated[ConcurrentStableDict[str, str], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_DICT, description="高亮片段（字段 → 片段）"
+    )
     time: datetime | None = Field(default=None, description="发生时间（UTC）")
 
 
 class AuditSearchResult(BaseSchema):
     """审计日志检索结果（含降级字段）。"""
 
-    hits: list[AuditLogHit] = Field(default_factory=list[AuditLogHit], description="命中项")
+    hits: Annotated[ConcurrentStableList[AuditLogHit], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_LIST, description="命中项"
+    )
     total: int = Field(default=0, ge=0, description="命中总数")
     degraded: bool = Field(default=False, description="是否降级")
     degrade_reason: str | None = Field(default=None, description="降级原因")
@@ -126,14 +142,18 @@ class FileContentHit(BaseSchema):
     file_id: str = Field(description="文件标识")
     name: str = Field(default="", description="文件名")
     mime_type: str | None = Field(default=None, description="MIME 类型")
-    highlight: dict[str, str] = Field(default_factory=dict[str, str], description="上下文高亮片段")
+    highlight: Annotated[ConcurrentStableDict[str, str], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_DICT, description="上下文高亮片段"
+    )
     updated_at: datetime | None = Field(default=None, description="更新时间（UTC）")
 
 
 class FileContentSearchResult(BaseSchema):
     """文件内容检索结果（含降级字段）。"""
 
-    hits: list[FileContentHit] = Field(default_factory=list[FileContentHit], description="命中项")
+    hits: Annotated[ConcurrentStableList[FileContentHit], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_LIST, description="命中项"
+    )
     total: int = Field(default=0, ge=0, description="命中总数")
     degraded: bool = Field(default=False, description="是否降级")
     degrade_reason: str | None = Field(default=None, description="降级原因")

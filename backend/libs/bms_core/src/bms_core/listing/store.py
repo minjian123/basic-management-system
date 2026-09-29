@@ -13,6 +13,7 @@ from contextlib import asynccontextmanager
 from sqlalchemy import or_, select
 from sqlalchemy.orm.exc import StaleDataError
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.context import current_user_id
 from bms_core.core.exceptions import ConcurrentConflictError, NotFoundError
 from bms_core.db.registry import EngineRegistry
@@ -105,9 +106,9 @@ class SqlQuerySchemeStore(BaseQuerySchemeStore):
                         dict_type=scheme.dict_type,
                         field_key=scheme.field_key,
                         provider_key=scheme.provider_key,
-                        conditions=scheme.conditions,
-                        params=scheme.params,
-                        layout=scheme.layout,
+                        conditions=dict(scheme.conditions) if scheme.conditions is not None else None,
+                        params=dict(scheme.params) if scheme.params is not None else None,
+                        layout=dict(scheme.layout) if scheme.layout is not None else None,
                         is_default=scheme.is_default,
                         shared=scheme.shared,
                         status=scheme.status,
@@ -126,9 +127,9 @@ class SqlQuerySchemeStore(BaseQuerySchemeStore):
                 row.dict_type = scheme.dict_type
                 row.field_key = scheme.field_key
                 row.provider_key = scheme.provider_key
-                row.conditions = scheme.conditions
-                row.params = scheme.params
-                row.layout = scheme.layout
+                row.conditions = dict(scheme.conditions) if scheme.conditions is not None else None
+                row.params = dict(scheme.params) if scheme.params is not None else None
+                row.layout = dict(scheme.layout) if scheme.layout is not None else None
                 row.is_default = scheme.is_default
                 row.shared = scheme.shared
                 row.status = scheme.status
@@ -223,9 +224,9 @@ def _to_scheme(row: SysQueryScheme) -> QueryScheme:
         dict_type=row.dict_type,
         field_key=row.field_key,
         provider_key=row.provider_key,
-        conditions=dict(row.conditions) if row.conditions is not None else None,
-        params=dict(row.params) if row.params is not None else None,
-        layout=dict(row.layout) if row.layout is not None else None,
+        conditions=ConcurrentStableDict(row.conditions) if row.conditions is not None else None,
+        params=ConcurrentStableDict(row.params) if row.params is not None else None,
+        layout=ConcurrentStableDict(row.layout) if row.layout is not None else None,
         is_default=row.is_default,
         shared=row.shared,
         status=row.status,

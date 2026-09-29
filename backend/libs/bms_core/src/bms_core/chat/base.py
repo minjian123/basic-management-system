@@ -24,16 +24,21 @@
 from abc import ABC, abstractmethod
 from collections.abc import AsyncIterator, Sequence
 from datetime import datetime
-from typing import Any, ClassVar, cast
+from typing import Annotated, Any, ClassVar, cast
 
 from fastapi import Request
 from pydantic import Field
 
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.core.objects import BaseFrameworkObject
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 from bms_core.llm.base import ChatMessage
-from bms_core.schemas.base import BaseSchema
+from bms_core.schemas.base import (
+    CONTRACT_COLLECTION,
+    CONTRACT_STABLE_LIST,
+    BaseSchema,
+)
 
 __all__ = [
     "AI_AUTO_APPROVE_KEY",
@@ -116,7 +121,9 @@ class ChatMessageResult(BaseSchema):
     kind: str = Field(default="chart", description="结果形态（chart / table）")
     chart_type: str | None = Field(default=None, description="图表类型（kind=chart）")
     dataset_id: str | None = Field(default=None, description="数据集标识（问数）")
-    rows: list[dict[str, object]] = Field(default_factory=list[dict[str, object]], description="行数据")
+    rows: Annotated[ConcurrentStableList[ConcurrentStableDict[str, object]], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_LIST, description="行数据"
+    )
 
 
 class ChatSessionMessage(BaseSchema):
@@ -128,8 +135,12 @@ class ChatSessionMessage(BaseSchema):
     status: str = Field(default="done", description="状态（streaming / done / error / stopped）")
     content: str = Field(default="", description="消息文本")
     result: ChatMessageResult | None = Field(default=None, description="问数结果（chart / table）")
-    citations: list[ChatCitation] = Field(default_factory=list[ChatCitation], description="引用来源")
-    risks: list[str] = Field(default_factory=list, description="风险提示")
+    citations: Annotated[ConcurrentStableList[ChatCitation], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_LIST, description="引用来源"
+    )
+    risks: Annotated[ConcurrentStableList[str], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_LIST, description="风险提示"
+    )
     audit_id: str | None = Field(default=None, description="审计标识（对应 ai_chat_log.id）")
     created_at: datetime | None = Field(default=None, description="创建时间（UTC）")
 

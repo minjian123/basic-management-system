@@ -7,10 +7,12 @@
 
 from collections.abc import Collection, Sequence
 from enum import StrEnum
+from typing import Annotated
 
 from pydantic import Field
 
-from bms_core.schemas.base import BaseSchema
+from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.schemas.base import CONTRACT_COLLECTION, BaseSchema
 
 
 class SortDirection(StrEnum):
@@ -79,7 +81,9 @@ class BaseSortQuery(BaseSchema):
     """排序请求契约：`order_by`（逗号分隔）+ `order`（方向数组，位置对应、缺省 desc）。"""
 
     order_by: str | None = Field(default=None, description="排序字段，逗号分隔多值（如 status,created_at）")
-    order: list[str] | None = Field(default=None, description="排序方向数组，与 order_by 位置一一对应，缺省 desc")
+    order: Annotated[ConcurrentStableList[str] | None, CONTRACT_COLLECTION] = Field(
+        default=None, description="排序方向数组，与 order_by 位置一一对应，缺省 desc"
+    )
 
     def specs(self, whitelist: Collection[str] | None = None) -> list[SortSpec]:
         """解析为校验后的排序规格列表。

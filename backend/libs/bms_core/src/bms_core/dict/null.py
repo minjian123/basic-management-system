@@ -3,6 +3,7 @@
 from collections.abc import Mapping
 
 from bms_core.core.capability import BaseNullObject
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.dict.base import (
     NULL_DICT_VERSION,
     BaseDictSource,
@@ -123,10 +124,12 @@ class NullDictSource(BaseDictSource, BaseNullObject):
             DictBatchResult: 批量结果。
         """
         if query.version == NULL_DICT_VERSION:
-            return DictBatchResult(version=NULL_DICT_VERSION, items={name: None for name in query.types})
+            return DictBatchResult(
+                version=NULL_DICT_VERSION, items=ConcurrentStableDict({name: None for name in query.types})
+            )
         return DictBatchResult(
             version=NULL_DICT_VERSION,
-            items={name: _type_result(name) for name in query.types},
+            items=ConcurrentStableDict({name: _type_result(name) for name in query.types}),
         )
 
 

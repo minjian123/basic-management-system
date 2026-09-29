@@ -19,14 +19,19 @@
 """
 
 from abc import ABC, abstractmethod
-from typing import cast
+from typing import Annotated, cast
 
 from fastapi import Request
 from pydantic import Field
 
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
-from bms_core.schemas.base import BaseSchema
+from bms_core.schemas.base import (
+    CONTRACT_COLLECTION,
+    CONTRACT_STABLE_LIST,
+    BaseSchema,
+)
 
 __all__ = [
     "DEFAULT_EXPRESSION_SCOPE",
@@ -88,10 +93,14 @@ class SqlValidationResult(BaseSchema):
     """SQL 校验与只读试算结果（结论 / 诊断 / 字段清单 / 预览行 / 耗时 / 截断标记）。"""
 
     valid: bool = Field(default=True, description="校验结论（无 error 级诊断即通过）")
-    issues: list[ValidationIssue] = Field(default_factory=list[ValidationIssue], description="诊断明细")
-    columns: list[ValidationColumn] = Field(default_factory=list[ValidationColumn], description="试算返回字段清单")
-    rows: list[dict[str, object]] = Field(
-        default_factory=list[dict[str, object]], description="结果预览行（上限 SQL_ROW_LIMIT）"
+    issues: Annotated[ConcurrentStableList[ValidationIssue], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_LIST, description="诊断明细"
+    )
+    columns: Annotated[ConcurrentStableList[ValidationColumn], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_LIST, description="试算返回字段清单"
+    )
+    rows: Annotated[ConcurrentStableList[ConcurrentStableDict[str, object]], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_LIST, description="结果预览行（上限 SQL_ROW_LIMIT）"
     )
     cost_ms: int = Field(default=0, ge=0, description="试算耗时（毫秒）")
     truncated: bool = Field(default=False, description="结果是否被行上限截断")
@@ -101,15 +110,21 @@ class ExpressionContext(BaseSchema):
     """表达式校验上下文（场景 / 可用字段 / 预置变量）。"""
 
     scope: str = Field(default=DEFAULT_EXPRESSION_SCOPE, description="表达式场景（data_scope / workflow_condition）")
-    fields: list[str] = Field(default_factory=list[str], description="可用字段（场景侧下发）")
-    variables: list[str] = Field(default_factory=list[str], description="预置变量（场景侧下发，如 @current_dept）")
+    fields: Annotated[ConcurrentStableList[str], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_LIST, description="可用字段（场景侧下发）"
+    )
+    variables: Annotated[ConcurrentStableList[str], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_LIST, description="预置变量（场景侧下发，如 @current_dept）"
+    )
 
 
 class ExpressionValidationResult(BaseSchema):
     """表达式校验结果（结论 / 诊断）。"""
 
     valid: bool = Field(default=True, description="校验结论（无 error 级诊断即通过）")
-    issues: list[ValidationIssue] = Field(default_factory=list[ValidationIssue], description="诊断明细")
+    issues: Annotated[ConcurrentStableList[ValidationIssue], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_LIST, description="诊断明细"
+    )
 
 
 class BaseCodeValidator(BasePluggable, ABC):
