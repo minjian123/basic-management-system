@@ -3335,69 +3335,6 @@
       "count": 1
     },
     {
-      "file": "backend/libs/bms_core/src/bms_core/schemas/sorting.py",
-      "line": "def allowed(cls, specs: Sequence[SortSpec], whitelist: Collection[str]) -> list[SortSpec]:",
-      "container": "Collection",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/schemas/sorting.py",
-      "line": "def allowed(cls, specs: Sequence[SortSpec], whitelist: Collection[str]) -> list[SortSpec]:",
-      "container": "Sequence",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/schemas/sorting.py",
-      "line": "def allowed(cls, specs: Sequence[SortSpec], whitelist: Collection[str]) -> list[SortSpec]:",
-      "container": "list",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/schemas/sorting.py",
-      "line": "def parse(cls, order_by: str | None, order: Sequence[str] | None = None) -> list[SortSpec]:",
-      "container": "Sequence",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/schemas/sorting.py",
-      "line": "def parse(cls, order_by: str | None, order: Sequence[str] | None = None) -> list[SortSpec]:",
-      "container": "list",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/schemas/sorting.py",
-      "line": "def specs(self, whitelist: Collection[str] | None = None) -> list[SortSpec]:",
-      "container": "Collection",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/schemas/sorting.py",
-      "line": "def specs(self, whitelist: Collection[str] | None = None) -> list[SortSpec]:",
-      "container": "list",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/schemas/sorting.py",
-      "line": "seen: set[str] = set()",
-      "container": "set",
-      "position": "local",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/schemas/sorting.py",
-      "line": "specs: list[SortSpec] = []",
-      "container": "list",
-      "position": "local",
-      "count": 1
-    },
-    {
       "file": "backend/libs/bms_core/src/bms_core/scope/base.py",
       "line": "def allow_write(self, values: dict[str, object]) -> bool:",
       "container": "dict",
