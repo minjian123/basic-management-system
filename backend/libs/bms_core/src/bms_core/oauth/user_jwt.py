@@ -197,7 +197,7 @@ class JwtUserTokenIssuer(BaseUserTokenIssuer):
             session_id: 会话 id（`jti`）。
             token_type: 令牌类型（`access` / `refresh`）。
             ttl: 有效期（秒）。
-            tenant_id: 租户编码（可选）。
+            tenant_id: 租户主键（雪花 id 十进制字符串；可选）。
             scopes: 授权范围。
             now: 当前时刻（Unix 秒）。
 

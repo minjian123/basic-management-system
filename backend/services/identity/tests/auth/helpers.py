@@ -133,7 +133,7 @@ class FakeUserTokenIssuer(BaseUserTokenIssuer):
             token: 令牌串。
             sub: 主体。
             jti: 会话 id（可为 None 覆盖缺失分支）。
-            tenant_id: 租户编码（可为 None / 任意串）。
+            tenant_id: 租户主键（雪花 id 字符串；异常分支可为 None / 任意串）。
             token_type: 令牌类型。
         """
         self._by_token[token] = {"sub": sub, "jti": jti, "tenant_id": tenant_id, "type": token_type}
