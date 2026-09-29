@@ -19,7 +19,8 @@
 - **白名单**（不报）：插入序形态 `ConcurrentStableList` / `ConcurrentStableSet` / `ConcurrentStableDict`
   及后续登记形态。
 - **不查**：迭代与调用协议（`Iterable` / `Iterator` / `Generator` / `AsyncIterator` / `Callable`）、
-  函数体内局部变量注解、测试目录。
+  `ClassVar[...]` 类级常量注解（类级配置，非数据承载字段）、`BaseSettings`（`pydantic-settings`
+  配置类）的字段注解（配置项非数据承载字段）、函数体内局部变量注解、测试目录。
 - **实现文件豁免**：集合体系实现文件（`core/collections.py` / `core/concurrent.py` /
   `core/redis_collections.py`）允许内部实现使用裸容器 / `Sorted*` / `ConcurrentSorted*`，
   按**文件路径白名单**豁免（08_02，2026-09-29）。
@@ -154,6 +155,20 @@ def _base_name(node: ast.expr) -> str:
     return ""
 
 
+def _is_class_var(node: ast.expr) -> bool:
+    """判断注解是否为 `ClassVar[...]`（类级常量，非数据承载字段，不查）。
+
+    Args:
+        node: 注解表达式。
+
+    Returns:
+        bool: 是 `ClassVar[...]` 返回 True。
+    """
+    if not isinstance(node, ast.Subscript):
+        return False
+    return _base_name(node.value) == "ClassVar"
+
+
 def _annotation_containers(node: ast.expr | None) -> list[str]:
     """递归取注解中出现的违规集合形态名（裸容器 / 只读-可变抽象 / 升序形态）。
 
@@ -233,6 +248,27 @@ def collect(root: Path) -> list[Hit]:
             continue
         lines = source.splitlines()
 
+        bases_by_class: dict[str, set[str]] = {
+            cls.name: {_base_name(base) for base in cls.bases}
+            for cls in ast.walk(tree)
+            if isinstance(cls, ast.ClassDef)
+        }
+
+        def is_settings_class(name: str) -> bool:
+            """判断类是否（本文件内传递地）继承 `BaseSettings`（配置类字段不查）。"""
+            seen: set[str] = set()
+            pending = [name]
+            while pending:
+                current = pending.pop()
+                if current in seen:
+                    continue
+                seen.add(current)
+                parents = bases_by_class.get(current, set())
+                if "BaseSettings" in parents:
+                    return True
+                pending.extend(parents)
+            return False
+
         def add(node: ast.AST, container: str, position: str, *, base_object: bool = False) -> None:
             """登记一处命中（行内容取声明行、规范化空白）。"""
             lineno = getattr(node, "lineno", 0)
@@ -242,8 +278,10 @@ def collect(root: Path) -> list[Hit]:
         for node in ast.walk(tree):
             if isinstance(node, ast.ClassDef):
                 base_object = any(_base_name(base) == "BaseObject" for base in node.bases)
+                if is_settings_class(node.name):
+                    continue
                 for stmt in node.body:
-                    if isinstance(stmt, ast.AnnAssign):
+                    if isinstance(stmt, ast.AnnAssign) and not _is_class_var(stmt.annotation):
                         for container in dict.fromkeys(_annotation_containers(stmt.annotation)):
                             add(stmt, container, POSITION_CLASS_FIELD, base_object=base_object)
             elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -429,15 +467,19 @@ def _emit(as_json: bool) -> None:
 _FIXTURE_FILES: dict[str, str] = {
     "backend/libs/bms_core/src/demo/mod.py": (
         "from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence\n"
-        "from typing import AbstractSet\n"
+        "from typing import AbstractSet, ClassVar\n"
         "\n"
         "class Plain:\n"
         "    tags: list[str] = []\n"
         "    ordered: ConcurrentStableList[str] = ConcurrentStableList()\n"
         "    ascending: ConcurrentSortedList[int] = ConcurrentSortedList()\n"
+        "    constant: ClassVar[frozenset[str]] = frozenset()\n"
         "\n"
         "class Model(BaseObject):\n"
         "    payload: dict[str, object] = {}\n"
+        "\n"
+        "class Demo(BaseSettings):\n"
+        "    paths: list[str] = []\n"
         "\n"
         "def f(a: dict[str, int], b: Sequence[str], c: Mapping[str, int], d: AbstractSet[str]) -> set[int]:\n"
         "    return set()\n"
@@ -508,6 +550,8 @@ def _self_test() -> int:
             all(hit.container not in {"Iterable", "Iterator", "Callable"} for hit in hits),
             "迭代 / 调用协议不报",
         )
+        expect(all("constant:" not in hit.line for hit in hits), "ClassVar 常量不报")
+        expect(all("paths:" not in hit.line for hit in hits), "BaseSettings 配置字段不报")
         expect(
             ("backend/services/svc/src/svc/mod.py", "data: List[int] = []", "List", "class_field") in found,
             "命中 typing 别名 List",

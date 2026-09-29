@@ -2670,13 +2670,6 @@
       "count": 1
     },
     {
-      "file": "backend/libs/bms_core/src/bms_core/repositories/base_repository.py",
-      "line": "sortable_fields: ClassVar[frozenset[str]] = frozenset()",
-      "container": "frozenset",
-      "position": "class_field",
-      "count": 1
-    },
-    {
       "file": "backend/libs/bms_core/src/bms_core/repositories/base_scoped_repository.py",
       "line": "def _scope_conditions(self, *, include_soft_delete: bool = True) -> list[ScopeCondition]:",
       "container": "list",
@@ -2758,13 +2751,6 @@
       "line": "def _apply_masking(masked_fields: frozenset[str], data: object) -> object:",
       "container": "frozenset",
       "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/schemas/base.py",
-      "line": "masked_fields: ClassVar[frozenset[str]] = frozenset()",
-      "container": "frozenset",
-      "position": "class_field",
       "count": 1
     },
     {
