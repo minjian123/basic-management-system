@@ -6,11 +6,11 @@
 
 ## 1. 设计目标与范围 <a id="goal"></a>
 
-把「**对外数据契约、值对象与模块类的集合字段与函数签名一律使用继承并发有序基类（`BaseConcurrentSorted`）的集合类**」落到 `backend/libs/bms_core/src` 的**存量代码**与**基座缺失能力**上，并明确**业务面只落插入序形态**：`backend/libs/bms_core/src` 命中 **596 处**（裸无序集合 287 + 只读 / 可变抽象落点 309，2026-09-29 实测）**一律改落 `ConcurrentStableList` / `ConcurrentStableSet` / `ConcurrentStableDict`**；升序形态（`ConcurrentSorted*`）退为**基座内部实现**（业务与契约不得声明 / 继承，与 `Sorted*` 同口径）。为此新增基座能力：并发集合只读 API、**插入序形态（含分段写 + 插入序号归并的高并发写）**、Pydantic 契约元数据；并收紧护栏（集合类白名单）与递减基线（全局 548 → 920 → 逐批归零）。
+把「**对外数据契约、值对象与模块类的集合字段与函数签名一律使用继承并发有序基类（`BaseConcurrentSorted`）的集合类**」落到 `backend/libs/bms_core/src` 的**存量代码**与**基座缺失能力**上，并明确**业务面只落插入序形态**：`backend/libs/bms_core/src` 命中 **594 处**（裸无序集合 285 + 只读 / 可变抽象落点 309，2026-09-29 实测）**一律改落 `ConcurrentStableList` / `ConcurrentStableSet` / `ConcurrentStableDict`**；升序形态（`ConcurrentSorted*`）退为**基座内部实现**（业务与契约不得声明 / 继承，与 `Sorted*` 同口径）。为此新增基座能力：并发集合只读 API、**插入序形态（含分段写 + 插入序号归并的高并发写）**、Pydantic 契约元数据；并收紧护栏（集合类白名单）与递减基线（全局 548 → 918 → 逐批归零）。
 
 - **为什么业务只落插入序（2026-09-29 拍板）**：升序集合的写路径必须**比较 + 维护有序结构**，并发天生上不去；插入序形态只需「追加 + 记录插入序号」，可做**分段写 + 序号归并**，是唯一能做到高并发写的形态。排序需求一律走既有**排序契约**（请求侧统一排序参数 + 仓储可排序字段白名单），**不用集合结构排序**。
 - **口径修正（相对前版设计，整体推翻）**：前版以「只读抽象（`Sequence` / `Mapping` / `AbstractSet` / `Mutable*`）+ 运行期零变更」为落点——只读抽象在运行期仍是裸 `list` / `dict` / `frozenset`，**无序问题并未解决**，且该口径把 309 处既有抽象落点漏在护栏之外。新口径**只看声明与运行期是否为继承 `BaseConcurrentSorted` 的集合类**，验收基准为「**形态一致 + 逐处登记**」。
-- **本任务范围**：① 基座能力新增（并发集合**只读 API**、**插入序形态** `ConcurrentStable*`（含分段写）、**Pydantic 契约元数据** `CONTRACT_COLLECTION`、序列化链识别集合类）；② 596 处声明整改（**参数位、类字段、返回值全落**）；③ 调用方适配（含 `bms_core` 内部调用链，`services` 侧报错登记为 `08_03` 前置）；④ 基线吸收口径收紧后的现状并递减；⑤ **护栏收紧**（白名单只留插入序形态 + 实现文件豁免）；⑥ 规范 / 清单 / 需求 / 任务 / 计划回写；⑦ 守卫回归用例（Kiwi 先登记，3 条）。
+- **本任务范围**：① 基座能力新增（并发集合**只读 API**、**插入序形态** `ConcurrentStable*`（含分段写）、**Pydantic 契约元数据** `CONTRACT_COLLECTION`、序列化链识别集合类）；② 594 处声明整改（**参数位、类字段、返回值全落**）；③ 调用方适配（含 `bms_core` 内部调用链，`services` 侧报错登记为 `08_03` 前置）；④ 基线吸收口径收紧后的现状并递减；⑤ **护栏收紧**（白名单只留插入序形态 + 实现文件豁免）；⑥ 规范 / 清单 / 需求 / 任务 / 计划回写；⑦ 守卫回归用例（Kiwi 先登记，3 条）。
 - **不在本任务**：`services`（批次 2，`08_03`）、`backend/ops` 与 `scripts/tools`（批次 3，`08_04`）；前端 TS 侧集合契约；跨副本异步链（`BaseAsyncSorted` / `RedisSorted*`）形态。
 - **安全影响（SDL）**：本任务不直接处理敏感数据；价值在于把「顺序不可控 → 分页 / 游标 / 导出结果不稳定、脱敏接入面不清」的存量实现收敛为**确定性顺序契约**，与 [04_02 脱敏接入](../../../04_数据脱敏与安全加固/04_数据脱敏与安全加固_02_脱敏接入与明文权限口径/04_数据脱敏与安全加固_02_脱敏接入与明文权限口径.md) 的接入面口径对齐。
 
@@ -20,37 +20,37 @@
 
 | 维度 | `bms_core`（`backend/libs`） | 全局 |
 | --- | --- | --- |
-| 裸无序集合（已入基线） | **287** | 530 |
+| 裸无序集合（已入基线） | **285** | 528 |
 | **只读 / 可变抽象落点（新口径下新增违规）** | **309**（参数 216 / 返回 74 / 类字段 19） | 390 |
-| **本批合计** | **596** | **920** |
+| **本批合计** | **594** | **918** |
 
-> **数字修正（2026-09-29 实施，用户拍板）**：本设计初稿写「全局 **940**（裸 548 + 抽象 392）/ `bms_core` **616**（裸 305 + 抽象 311）」，系**未扣除实现文件豁免**（§3.7：`core/collections.py` / `core/concurrent.py` / `core/redis_collections.py`）的测绘值；按豁免口径实测为 **920（裸 530 + 抽象 390）/ `bms_core` 596（裸 287 + 抽象 309）**。批次 1 递减目标 **324** 不变——`920 − 596 = 324`，且 `324 = services 104 + ops 75 + scripts/tools 145`，与初稿完全一致（豁免文件不可整改，理应不计入台账）。
+> **数字修正（2026-09-29 实施，用户拍板）**：本设计初稿写「全局 **940**（裸 548 + 抽象 392）/ `bms_core` **616**（裸 305 + 抽象 311）」，系**未扣除两类豁免**——集合体系**实现文件豁免**（§3.7：`core/collections.py` / `core/concurrent.py` / `core/redis_collections.py`）与 **`ClassVar` 类级常量豁免**（`BaseRepository.sortable_fields` / `BaseSchema.masked_fields`）——的测绘值；按豁免口径实测为 **918（裸 528 + 抽象 390）/ `bms_core` 594（裸 285 + 抽象 309）**。批次 1 递减目标 **324** 不变——`918 − 594 = 324`，且 `324 = services 104 + ops 75 + scripts/tools 145`，与初稿完全一致（豁免项不可整改，理应不计入台账）。
 
 裸容器部分按位置 × 容器（`bms_core`）：
 
 | 位置 \ 容器 | `list` | `dict` | `frozenset` | `set` | 小计 |
 | --- | --- | --- | --- | --- | --- |
-| 类字段 | 65 | 43 | 3 | 0 | 111 |
+| 类字段 | 65 | 43 | 1 | 0 | 109 |
 | 签名参数 | 12 | 13 | 6 | 1 | 32 |
 | 签名返回 | 76 | 54 | 14 | 0 | 144 |
-| **小计** | **153** | **110** | **23** | **1** | **287** |
+| **小计** | **153** | **110** | **21** | **1** | **285** |
 
 **本批整改面（裸容器 + 抽象，`bms_core`）**：
 
 | 位置 | 裸容器 | 抽象落点 | 合计 | 整改落点 |
 | --- | --- | --- | --- | --- |
-| 类字段 | 111 | 19 | **130** | `ConcurrentStable*`（Pydantic 字段包 `CONTRACT_COLLECTION`） |
+| 类字段 | 109 | 19 | **128** | `ConcurrentStable*`（Pydantic 字段包 `CONTRACT_COLLECTION`） |
 | 签名参数 | 32 | 216 | **248** | `ConcurrentStable*` |
 | 签名返回 | 144 | 74 | **218** | `ConcurrentStable*` |
-| **合计** | **287** | **309** | **596** | — |
+| **合计** | **285** | **309** | **594** | — |
 
 抽象落点按名字：`Mapping` 191 / `Sequence` 114 / `Collection` 4（`AbstractSet` / `Mutable*` 在 `bms_core` 实测 0 处，规则仍写入护栏）。
 
-按顶层包分布（裸容器命中数）：`services` 49、`schemas` 41、`core` 27、`dict` 26、`repositories` 20、`db` 16、`api` 9、`boundary` 9、`print` 9、`idp` 8、`listing` 8、`outbox` 8、`codecheck` 7、`events` 7、`globalsearch` 7、`icon` 6、`security` 6、`chat` 4、`oauth` 4，其余单包 ≤ 2。
+按顶层包分布（裸容器命中数）：`services` 49、`schemas` 40、`core` 27、`dict` 26、`repositories` 19、`db` 16、`api` 9、`boundary` 9、`print` 9、`idp` 8、`listing` 8、`outbox` 8、`codecheck` 7、`events` 7、`globalsearch` 7、`icon` 6、`security` 6、`chat` 4、`oauth` 4，其余单包 ≤ 2。
 
 高频文件 TOP 10（裸容器）：`services/gateway_catalog.py` 21、`core/config.py` 20、`services/table_registry.py` 16、`dict/sql.py` 10、`services/module_registry.py` 10、`repositories/base_db_repository.py` 8、`codecheck/base.py` 7、`dict/query.py` 7、`globalsearch/base.py` 7、`print/base.py` 7。
 
-> **基线口径收紧登记**：白名单收紧后，既有 390 处抽象落点对护栏而言是「新增」——按既有机制**先 `--update-baseline` 如实纳入**（**548 → 920**；净额已扣除实现文件豁免的 20 处，台账不手工增删），再按批次递减（`08_02` → 324、`08_03` → 220、`08_04` → 0）。
+> **基线口径收紧登记**：白名单收紧后，既有 390 处抽象落点对护栏而言是「新增」——按既有机制**先 `--update-baseline` 如实纳入**（**548 → 918**；净额已扣除实现文件豁免 20 处与 `ClassVar` 常量 2 处，台账不手工增删），再按批次递减（`08_02` → 324、`08_03` → 220、`08_04` → 0）。
 
 > **前置实测（基座现状，2026-09-29）**：① 并发集合**不可替代内置容器**——`ConcurrentSortedList` 无 `[i]` / 切片 / `+` / `== [..]`；`ConcurrentSortedDict` 无 `[k]` / `keys()` / `items()` / `values()` / `**` 解包（`== {...}` 恒 `False`）；`ConcurrentSortedSet` 无集合运算 / `== {..}`；② 元素不可比较（`dict` / Pydantic 模型 / ORM 模型）时升序形态插入即 `TypeError`；③ `ConcurrentSortedList` 的 `key=` 参数**当前不可用**（`sortedcontainers` 要求继承 `SortedKeyList`，实测 `TypeError: inherit SortedKeyList for key argument`，且无用例覆盖；**本批已删除**）——自定义排序不能靠 `key=`，进一步支持「业务只落插入序、排序走排序契约」；④ `ConcurrentSortedList` 的 `SHARDED` 策略被**降级为 `RW`**（写并发不成）；⑤ Pydantic 直接声明集合类报 `PydanticInvalidForJsonSchema`；⑥ `Annotated[...]` + 元数据可生成与 `list[X]` **逐字节一致**的 array schema；⑦ `ConcurrentSorted*` 在 `bms_core` / `services` / `ops` 业务面**零使用**（仅 `core/concurrent.py` 内部 10 处 `Sorted*`），故「升序退为内部」不新增存量。
 
@@ -73,15 +73,15 @@
 | 2 | **插入序形态** `ConcurrentStableList` / `ConcurrentStableSet` / `ConcurrentStableDict`（`BaseConcurrentSorted` 子类，`collection_kind="stable"`，**分段写 + 插入序号归并**） | 同上（新增） |
 | 3 | **Pydantic 契约元数据** `CONTRACT_COLLECTION` + 插入序空集合工厂常量（`CONTRACT_STABLE_LIST` / `CONTRACT_STABLE_DICT` / `CONTRACT_STABLE_SET`） | `backend/libs/bms_core/src/bms_core/schemas/base.py`（新增） |
 | 4 | 序列化链识别集合类（同型重组 / JSON 前置规整） | `core/serialization.py`（`stringify_ids`、`stable_json_dumps`）、`core/base.py`（`_convert`）（修改） |
-| 5 | 存量声明整改（596 处，`bms_core` 归零，含集合体系自身公共契约） | `backend/libs/bms_core/src/**`（改注解与 import） |
+| 5 | 存量声明整改（594 处，`bms_core` 归零，含集合体系自身公共契约） | `backend/libs/bms_core/src/**`（改注解与 import） |
 | 6 | 调用方最小适配（含 `bms_core` 内部调用链） | 同上 |
-| 7 | 基线吸收与递减（548 → 920 → 324） | `deploy/boundaries/bare_collections_baseline.json` |
+| 7 | 基线吸收与递减（548 → 918 → 324） | `deploy/boundaries/bare_collections_baseline.json` |
 | 8 | **护栏收紧**（白名单只留插入序形态 + 实现文件豁免 + 自测矩阵） | `scripts/tools/base-check/check-bare-collections.py`（修改） |
 | 9 | `libs` 守卫回归用例（3 条，Kiwi 先登记；编号 **2222 / 2223 / 2224**） | `backend/libs/bms_core/tests/`（新增用例文件） |
 | 10 | 规范口径回写（业务只落插入序 + 抽象 / 升序形态均不作落点） | `bms文档/规范/后端开发规范.md`「集合与排序」（修改） |
 | 11 | 基类清单回写（新形态 / 只读 API / 契约元数据 / 体系根语义 / 护栏与基线） | `bms文档/后端基类清单.md`「体系根清单」表与「集合体系」节（修改） |
 | 12 | 需求 / 任务 / 父任务 / 计划回写（口径 + 工时 + 排期） | `08_需求_裸无序集合治理.md`、`00_需求_认证与安全.md`、本任务文档、父任务、`01_计划_认证与安全.md`（修改） |
-| 13 | 实施 / 测试记录（含 596 处逐条处置） | 本目录 `实施/`、`测试/`（新增） |
+| 13 | 实施 / 测试记录（含 594 处逐条处置） | 本目录 `实施/`、`测试/`（新增） |
 | 14 | 盘点报告批次表状态与口径更新 | `08_裸无序集合治理_01_护栏与基线盘点/实施/02_存量盘点报告_01_护栏与基线盘点.md`（修改） |
 
 ## 3. 整改口径与落点 <a id="rules"></a>
@@ -106,7 +106,7 @@
 
 | 位置 | 口径 | 说明 |
 | --- | --- | --- |
-| **类字段**（130，含 Pydantic 89 / 配置字段 20） | `ConcurrentStable*`；Pydantic 字段包 `Annotated[..., CONTRACT_COLLECTION]`（§3.5），`default_factory` 换成空集合工厂常量 | 普通类 / `dataclass` 字段不补规整——Python 对普通类注解不做运行期强制，值由构造方给定（构造方一并整改） |
+| **类字段**（128，含 Pydantic 契约字段 / 配置字段 / dataclass 与普通类字段） | `ConcurrentStable*`；Pydantic 字段包 `Annotated[..., CONTRACT_COLLECTION]`（§3.5），`default_factory` 换成空集合工厂常量 | 普通类 / `dataclass` 字段不补规整——Python 对普通类注解不做运行期强制，值由构造方给定（构造方一并整改） |
 | **签名参数**（248） | `ConcurrentStable*` | **参数位也落集合类**（2026-09-29 拍板）：让同一并发集合贯通调用链，不在入参处拷贝或重建；被就地改写的参数改走集合类显式方法（§3.3） |
 | **签名返回**（218） | `ConcurrentStable*` | 实现按落点构造（`ConcurrentStableList(...)` 等），顺序为**插入序**（构造顺序即输出顺序，确定性由形态保证） |
 
@@ -213,7 +213,7 @@ items: Annotated[ConcurrentStableList[PrintExportResponse], CONTRACT_COLLECTION]
 - **实现文件豁免**：集合体系实现文件（`backend/libs/bms_core/src/bms_core/core/collections.py`、`core/concurrent.py`、`core/redis_collections.py`）允许 `Sorted*` / `ConcurrentSorted*`（内部实现），按**文件路径白名单**豁免。
 - **不查**：迭代与调用协议（`Iterable` / `Iterator` / `Generator` / `AsyncIterator` / `Callable`）、函数体内局部变量注解、测试目录。
 - 脚本既有能力（`--report` / `--json` / `--update-baseline` / `--self-test`）与扫描范围不变；`--self-test` 矩阵补「白名单命中不报 / 抽象落点报 / 升序形态报 / 实现文件豁免 / 迭代协议不报」用例。
-- 基线：先 `--update-baseline` 如实吸收口径收紧后的现状（548 → 920），批次完成后递减（`bms_core` → 324），复跑断言「新增 0 / 残留 0」；**不得手工增删条目**。
+- 基线：先 `--update-baseline` 如实吸收口径收紧后的现状（548 → 918），批次完成后递减（`bms_core` → 324），复跑断言「新增 0 / 残留 0」；**不得手工增删条目**。
 
 ### 3.8 执行序与提交 <a id="order"></a>
 
@@ -223,7 +223,7 @@ flowchart LR
     B --> C["普通类 / dataclass 字段批"]
     C --> D["签名批（486）<br/>参数 + 返回，含集合体系自身公共契约"]
     D --> E["调用方适配<br/>pyright 报错驱动"]
-    E --> F["护栏收紧 + 基线吸收与递减<br/>548 → 920 → 324"]
+    E --> F["护栏收紧 + 基线吸收与递减<br/>548 → 918 → 324"]
     F --> G["守卫用例 + 门禁验证"]
 ```
 
@@ -261,7 +261,7 @@ flowchart LR
 | --- | --- | --- | --- |
 | 1 | **插入序形态与并发**：`ConcurrentStable*` 继承链与插入序稳定输出（不可比较元素可入）；`SHARDED` 分段写后读回仍为插入序（多线程并发写用例）；只读 API（索引 / 切片 / `keys` / `items` / 集合运算 / 与内置容器相等）；写入仅走显式方法 | `tests/core/test_concurrent_stable.py`（`@pytest.mark.kiwi_id(2222)`） | 基座新增可用且高并发写正确 |
 | 2 | **契约零漂移与序列化形态**：契约字段 OpenAPI schema 与 `list[X]` / `dict[K, V]` / `frozenset[X]` 逐字节一致；`model_dump()` 输出集合类实例、`model_dump_json()` 输出 `array` / `object`；`stringify_ids` / `stable_json_dumps` 输出内联容器（无 `ConcurrentStableList([...])` 字符串）；前端 `api-types` 零漂移 | `tests/schemas/test_contract_collections.py`（`@pytest.mark.kiwi_id(2223)`） | 契约不漂移、序列化链不损坏 |
-| 3 | **存量归零与护栏收紧**：跑护栏脚本 `--report --json` 断言 `by_area.libs == 0`（含抽象落点）；基线递减至 324 且无 `libs` 条目；复跑「新增 0 / 残留 0」；`--self-test` 覆盖白名单新规则与实现文件豁免 | `tests/boundary/test_bare_collections_guard.py`（`@pytest.mark.kiwi_id(2224)`） | 596 处全部整改、基线递减、护栏强制 |
+| 3 | **存量归零与护栏收紧**：跑护栏脚本 `--report --json` 断言 `by_area.libs == 0`（含抽象落点）；基线递减至 324 且无 `libs` 条目；复跑「新增 0 / 残留 0」；`--self-test` 覆盖白名单新规则与实现文件豁免 | `tests/boundary/test_bare_collections_guard.py`（`@pytest.mark.kiwi_id(2224)`） | 594 处全部整改、基线递减、护栏强制 |
 | 4 | 定向回归：`pytest backend/libs/bms_core/tests` 全量全绿；`ruff check` / `ruff format --check` / `pyright`（backend 全量）全绿 | 门禁 | 定向 pytest + ruff + pyright 全绿 |
 | 5 | 基座校验与本地预检：`check-base` / `check-backend-base(+--self-test)` / `check-service-boundaries(+--self-test)` / `boundary_metrics` / `check-status --stage 06_认证与安全` / `preflight --fast` 全绿；`check-links.py` 无断链 | 门禁 | 基座校验与 preflight 全绿 |
 | 6 | 清单与规范一致性：《[后端基类清单](../../../../../../后端基类清单.md)》「集合体系」节（形态表 / 继承链 / 护栏与基线）与《[后端开发规范](../../../../../../规范/后端开发规范.md)》「集合与排序」与代码、基线快照一致；业务面无 `Sorted*` / `ConcurrentSorted*` 新增声明 / 继承 | 文档核对 | 清单 / 规范 / 代码一致 |
@@ -276,10 +276,10 @@ flowchart LR
 | 体系根语义扩展（有序＝升序**或**插入序，`collection_kind` 区分；升序为基座内部实现） | 《[后端基类清单](../../../../../../后端基类清单.md)》「集合体系」节（体系根语义 + 形态表 + 继承链 + 「体系根清单」表） |
 | 新形态 `ConcurrentStable*`（含分段写 + 插入序号归并）、只读 API、`CONTRACT_COLLECTION` 与工厂常量 | 《[后端基类清单](../../../../../../后端基类清单.md)》「集合体系」节与「体系根清单」表 |
 | 护栏新规则（白名单只留插入序形态 + 实现文件豁免 + 不查迭代协议） | 《[后端开发规范](../../../../../../规范/后端开发规范.md)》「集合与排序」；《[后端基类清单](../../../../../../后端基类清单.md)》「集合体系」节「护栏与基线」小段 |
-| 批次进度与余量（`bms_core` 596 → 0；基线 920 → 324） | 《[后端基类清单](../../../../../../后端基类清单.md)》「集合体系」节「裸无序集合护栏与基线」小段 |
+| 批次进度与余量（`bms_core` 594 → 0；基线 918 → 324） | 《[后端基类清单](../../../../../../后端基类清单.md)》「集合体系」节「裸无序集合护栏与基线」小段 |
 | 口径扩面（含抽象落点 / 业务只落插入序 / 参数位也落）、工时（156h）与排期顺延 | [需求 08-2](../../../../需求/08_需求_裸无序集合治理.md#r08-2)、[需求总览](../../../../需求/00_需求_认证与安全.md)、本任务文档、[父任务](../../08_裸无序集合治理.md)、[计划](../../../../计划/01_计划_认证与安全.md) |
 | 盘点报告批次表状态与口径 | `08_裸无序集合治理_01_护栏与基线盘点/实施/02_存量盘点报告_01_护栏与基线盘点.md` §4 / §5 |
-| 实施 / 测试记录（含 596 处逐条处置方式） | 本目录 `实施/`、`测试/` |
+| 实施 / 测试记录（含 594 处逐条处置方式） | 本目录 `实施/`、`测试/` |
 
 ## 7. 边界与开放项 <a id="boundary"></a>
 
@@ -298,7 +298,7 @@ flowchart LR
 
 | # | 事项 | 结论（2026-09-29 拍板 / 二次拍板） |
 | --- | --- | --- |
-| 1 | 落点范围 | **全覆盖**：`bms_core` **596 处**（裸容器 287 + 既有抽象落点 309，含 Pydantic 契约字段与配置字段） |
+| 1 | 落点范围 | **全覆盖**：`bms_core` **594 处**（裸容器 285 + 既有抽象落点 309，含 Pydantic 契约字段与配置字段） |
 | 2 | 业务落点形态 | **一律插入序** `ConcurrentStableList` / `ConcurrentStableSet` / `ConcurrentStableDict`；升序形态退为**基座内部实现**（业务与契约不得声明 / 继承），排序需求走排序契约 |
 | 3 | 插入序的并发能力 | **分段写 + 插入序号归并**（`SHARDED`，写并发 ≈ 段数；序号分配用独立轻量锁） |
 | 4 | 参数位口径 | **参数位也落集合类**（贯通并发集合、避免入参处拷贝） |
@@ -309,12 +309,12 @@ flowchart LR
 | 9 | 立项落点 | 基座能力新增**并入 08_02**（不另立子任务） |
 | 10 | 契约序列化 | `model_dump()` **输出集合类实例**；`model_dump_json()` 输出内置容器；序列化链一并适配 |
 | 11 | 护栏 | 白名单**只留插入序形态**；抽象（含 `Collection`）与升序形态一并判违规；**集合体系实现文件豁免**；迭代协议不查 |
-| 12 | 基线口径 | 收紧后先 `--update-baseline` 如实吸收（548 → 920），批次递减（→ 324 → 220 → 0） |
+| 12 | 基线口径 | 收紧后先 `--update-baseline` 如实吸收（548 → 918），批次递减（→ 324 → 220 → 0） |
 | 13 | 验收口径 | 「**形态一致 + 逐处登记**」；原「运行期零变更」作废（加锁 / 顺序为预期） |
 | 14 | 体系根语义 | 扩展为「有序＝升序**或**插入序两形态」；业务面限定插入序 |
 | 15 | 工时与排期 | 本任务 34h → **156h**；`08_03` 10h → **26h**、`08_04` 16h → **50h**（域 08 合计 92h → **264h**）；M6 顺延至 **2026-12-04** |
 | 16 | 用例粒度 | **3 条**（插入序形态与并发 / 契约零漂移与序列化 / 存量归零与护栏） |
-| 17 | 存量口径修正 | 整改面 596 处（类字段 130 / 参数 248 / 返回 218），任务与需求文档随实施回写 |
+| 17 | 存量口径修正 | 整改面 594 处（类字段 128 / 参数 248 / 返回 218），任务与需求文档随实施回写 |
 | 18 | 插入序默认锁策略 | `ConcurrentStable*` **默认 `SHARDED`**（分段写），`RW` / `RLCK` / `SNAPSHOT` 显式选用——落点无需传参即得高并发写（2026-09-29 拍板） |
 | 19 | `ConcurrentSortedList.key=` 坏参数 | **本批删除**（`sortedcontainers` 不支持 `key`、零使用零测试，升序形态已退为内部实现）（2026-09-29 拍板） |
 | 20 | Kiwi 用例登记 | **2222 / 2223 / 2224**（插入序形态与并发 / 契约零漂移与序列化 / 存量归零与护栏），2026-09-29 已登记取号 |
