@@ -22,7 +22,7 @@
 1. **存量整改（批次 2 · `services`）**：`backend/services/*/src`（identity / org / tenant 等）命中 **104 处**（裸容器 79＝类字段 22 / 参数 9 / 返回 48；**抽象落点 25**，2026-09-29 实测）**全落插入序形态**（`ConcurrentStableList` / `ConcurrentStableSet` / `ConcurrentStableDict`，类字段 / 参数 / 返回位置全覆盖）——**口径与落点以 [08_02 详细设计](../08_裸无序集合治理_02_bms_core存量整改/设计/01_详细设计_02_bms_core存量整改.md) 为准**；`ConcurrentSorted*` 与 `SortedList` / `SortedDict` / `SortedSet` 为基座内部实现、不作为整改落点（不得直接声明 / 继承）；**批内先类字段（Schema / 数据契约字段优先，影响序列化输出）、后签名参数与返回**。
 2. **前置依赖与调用适配**：`08_02` 参数位收窄会让 `services` 调用方（`bms_core` 接口传参）报错——本批一并适配（构造集合类实例 / 按 §3.6 口径拷贝），并作为 `08_02` 前置输入清单落实。
 3. **契约一致性**：Pydantic / 数据契约字段落插入序集合类时，须以基座 `CONTRACT_COLLECTION` 元数据内联标注，**契约 JSON Schema 与前端 `api-types` 零漂移**为门禁；不改协议键与字段名。
-4. **基线递减**：`python3 scripts/tools/base-check/check-bare-collections.py . --update-baseline` 重写 `deploy/boundaries/bare_collections_baseline.json`（940 → 220 中的本批段：324 → 220），**不得手工增删基线条目**。
+4. **基线递减**：`python3 scripts/tools/base-check/check-bare-collections.py . --update-baseline` 重写 `deploy/boundaries/bare_collections_baseline.json`（920 → 220 中的本批段：324 → 220），**不得手工增删基线条目**。
 5. **登记回写**：《[后端基类清单](../../../../../后端基类清单.md)》「集合体系」节批次进度与余量；盘点报告 §4 批次表状态随实施更新。
 6. **测试**：先登记 Kiwi TCMS 用例取号、后写自动化——断言 `services` 命中归零、基线递减至 220、护栏复跑「新增 0 / 残留 0」；受影响定向回归（identity / org / tenant 相关用例）与门禁全绿。
 
