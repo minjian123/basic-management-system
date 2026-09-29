@@ -26,7 +26,7 @@
 | `event_type` | VARCHAR(128) | 否 | — | 事件类型（`{域}.{对象}.{动作}`，首段为已登记事件域） |
 | `event_version` | VARCHAR(16) | 否 | 默认 `1.0.0` | 事件契约版本（`X.Y.Z`；签发缺省按登记契约补齐、投递保真） |
 | `aggregate_key` | VARCHAR(128) | 是 | `idx_sys_outbox_aggregate` | 聚合 / 分区键（同聚合按序投递；空 = 独立事件） |
-| `tenant_id` | VARCHAR(64) | 是 | — | 租户标识 |
+| `tenant_id` | BIGINT | 是 | — | 租户主键（雪花 id；平台链不可解析的租户位保持 NULL） |
 | `payload` | JSON | 否 | — | 事件负载（事件信封 payload） |
 | `occurred_at` | DATETIME | 否 | — | 事件发生时间（UTC） |
 | `status` | VARCHAR(16) | 否 | 默认 `pending`；`idx_sys_outbox_dispatch` | 投递状态：`pending` / `delivered` / `dead` |
@@ -52,7 +52,7 @@
 
 - **分片**：不分片（一库一表；每服务 / 每租户库各自持有）。
 - **归档**：暂不归档（保留期内作事件账本可重放）；过期 `delivered` 记录清理随任务调度阶段（登记开放项）。
-- **迁移**：随**平台链** `alembic/versions/platform/0003_sys_outbox.py` 与**租户链** `alembic/versions/tenant/0002_sys_outbox.py` 落地（2026-09-23；一套方言无关脚本、四库通用）；`event_version` 列随**平台链** `0004_sys_outbox_event_version.py` 与**租户链** `0003_sys_outbox_event_version.py` 补列（05_04，2026-09-23；存量行补默认 `1.0.0`，降级经 `batch_alter_table` 兼容 SQLite）；命令 `alembic -n alembic:platform upgrade head` / `alembic -n alembic:tenant upgrade head`；SQLite 开发库由启动期自动建表覆盖。表集登记见 `bms_core/db/migration.py`（`PLATFORM_TABLES` / `TENANT_TABLES`）。
+- **迁移**：随**平台链** `alembic/versions/platform/0003_sys_outbox.py` 与**租户链** `alembic/versions/tenant/0002_sys_outbox.py` 落地（2026-09-23；一套方言无关脚本、四库通用）；`event_version` 列随**平台链** `0004_sys_outbox_event_version.py` 与**租户链** `0003_sys_outbox_event_version.py` 补列（05_04，2026-09-23；存量行补默认 `1.0.0`，降级经 `batch_alter_table` 兼容 SQLite）；`tenant_id` 列类型由 `VARCHAR(64)` 改 `BIGINT` 随 10_04 分链迁移落地（`platform:platform` `0006_sys_outbox_tenant_bigint`、`platform:tenant` `0005_sys_outbox_tenant_bigint`、`tenant:platform` `0005_sys_outbox_tenant_bigint`、`tenant:tenant` `0003_sys_outbox_tenant_bigint`，2026-09-29；存量 `code → id` 回填由 `ops/backfill_tenant_id_columns.py` 在迁移前完成）；命令 `alembic -n alembic:platform upgrade head` / `alembic -n alembic:tenant upgrade head`；SQLite 开发库由启动期自动建表覆盖。表集登记见 `bms_core/services/table_registry.py`（`chain_tables` 派生）。
 
 ## 5. 变更记录 <a id="revlog"></a>
 
@@ -60,5 +60,6 @@
 | --- | --- | --- | --- |
 | 2026-09-23 | v1 | 新建表结构（平台链 + 租户链双落；事务性发件箱，随 05_03 迁移落地） | minjian |
 | 2026-09-23 | v2 | 增 `event_version` 列（事件契约版本；平台链 0004 / 租户链 0003 补列，随 05_04 落地） | minjian |
+| 2026-09-29 | v3 | `tenant_id` 由 `VARCHAR(64)`（租户编码）改 `BIGINT`（雪花租户主键；平台链 / 租户链分链迁移，随 10_04 落地；存量 `code → id` 回填由 `ops/backfill_tenant_id_columns.py` 承载） | minjian |
 
 > 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套

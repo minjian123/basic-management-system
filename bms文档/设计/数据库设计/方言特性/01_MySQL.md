@@ -42,6 +42,7 @@
 | 索引重命名 | `ALTER TABLE … RENAME INDEX old TO new` | 迁移脚本改名索引用的形态（其余库见各自文档） |
 | 表引擎 | InnoDB（默认） | 事务与外键能力来源 |
 | `TEXT` / `BLOB` 列默认值 | **不支持字面量列级 `DEFAULT`**（报 `1101 BLOB, TEXT, GEOMETRY or JSON column … can't have a default value`；8.0.13+ 仅支持表达式默认 `DEFAULT (…)`） | 多值 JSON 列（`TEXT` 存 JSON 数组）**统一不设 DB 默认值**，默认值由应用侧写入（实测：2026-09-27 真库建 `sys_client` 暴露并修正） |
+| 列类型变更 | `ALTER TABLE … MODIFY`（Alembic `batch_alter_table` 生成）；`alembic_version.version_num` 为 `VARCHAR(32)`，revision 标识超长报 `Data too long`（**实测**） | 改类型不重写可空性 / 注释（迁移未传对应参数）；revision 标识一律 ≤ 32 字符 |
 
 - 迁移、建删库与批量迁移命令口径见《[数据库开发规范](../../../规范/数据库开发规范.md)》「迁移与建表口径」节。
 
@@ -90,6 +91,7 @@
 | 2026-09-22 | 三库真库集成（库 `bms_test_mysql` / `bms_test_mysql_t1`） | 建库 → 分链迁移（`0001_sys_tenant_module` / `0001_dict_query_scheme`）→ 集成用例 9 条通过（多数据源 / 隔离 / 副本路由 / 分片键 / 类型往返 / NULL 位次 / 复合唯一多 NULL 共存） | 01_05 测试记录「三库真库集成用例」 |
 | 2026-09-22 | 认证插件与驱动依赖 | 测试账号（`bms_test`，`caching_sha2_password`）冷缓存首连报 `cryptography package is required…`，补齐 `cryptography` 后连通 | 01_05 实施记录「问题与处置」 |
 | 2026-09-22 | JSON 值读写 | 写入读回一致（真库集成用例「类型落库往返」） | 01_05 集成用例 |
+| 2026-09-29 | 列类型变更 `VARCHAR(64)` → `BIGINT`（带存量行） | 增量迁移通过（存量数字串值保真）；revision 标识须 ≤ 32 字符（过长报 `Data too long for column 'version_num'`） | 10_04 真库实测（发件箱 / 对照表 / 身份映射三链） |
 | 待验 | 字符集与 emoji 写入、`lower_case_table_names` 变更影响、前缀索引选择性、主从只读路由、JSON 检索 | — | — |
 
 > 数据库设计 · 与《[数据库开发规范](../../../规范/数据库开发规范.md)》「表与字段口径」至「数据库设计文档体系」各节配套

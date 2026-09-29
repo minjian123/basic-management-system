@@ -27,7 +27,7 @@
 | `event_type` | VARCHAR(128) | 否 | — | 事件类型 |
 | `consumer` | VARCHAR(128) | 是 | — | 消费者标识（`source=consumer` 时填） |
 | `aggregate_key` | VARCHAR(128) | 是 | — | 聚合 / 分区键 |
-| `tenant_id` | VARCHAR(64) | 是 | — | 租户标识 |
+| `tenant_id` | BIGINT | 是 | — | 租户主键（雪花 id；平台链不可解析的租户位保持 NULL） |
 | `payload` | JSON | 否 | — | 事件负载（便于重投 / 排障） |
 | `error_msg` | VARCHAR(512) | 否 | — | 失败原因（截断） |
 | `retry_count` | INT | 否 | 默认 0 | 转入死信前的已重试次数 |
@@ -49,12 +49,13 @@
 
 - **分片**：不分片（一库一表）。
 - **归档**：暂不归档；处置完成（`replayed` / `ignored`）记录清理随任务调度阶段（登记开放项）。
-- **迁移**：随**平台链** `0003_sys_outbox` 与**租户链** `0002_sys_outbox` 落地（2026-09-23）；表集登记见 `bms_core/db/migration.py`。
+- **迁移**：随**平台链** `0003_sys_outbox` 与**租户链** `0002_sys_outbox` 落地（2026-09-23）；`tenant_id` 列类型由 `VARCHAR(64)` 改 `BIGINT` 随 10_04 分链迁移落地（与 `sys_outbox` 同批：`platform:platform` `0006_sys_outbox_tenant_bigint`、`platform:tenant` `0005_sys_outbox_tenant_bigint`、`tenant:platform` `0005_sys_outbox_tenant_bigint`、`tenant:tenant` `0003_sys_outbox_tenant_bigint`，2026-09-29；存量 `code → id` 回填由 `ops/backfill_tenant_id_columns.py` 在迁移前完成）；表集登记见 `bms_core/services/table_registry.py`。
 
 ## 5. 变更记录 <a id="revlog"></a>
 
 | 日期 | 版本 | 变更 | 作者 |
 | --- | --- | --- | --- |
 | 2026-09-23 | v1 | 新建表结构（平台链 + 租户链双落；投递 / 消费死信看板，随 05_03 迁移落地） | minjian |
+| 2026-09-29 | v2 | `tenant_id` 由 `VARCHAR(64)`（租户编码）改 `BIGINT`（雪花租户主键；平台链 / 租户链分链迁移，随 10_04 落地；存量 `code → id` 回填由 `ops/backfill_tenant_id_columns.py` 承载） | minjian |
 
 > 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套
