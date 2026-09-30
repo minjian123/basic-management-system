@@ -815,20 +815,6 @@
       "count": 1
     },
     {
-      "file": "backend/libs/bms_core/src/bms_core/core/objects/event_contracts.py",
-      "line": "def from_snapshot(cls, entry: Mapping[str, object]) -> Self:",
-      "container": "Mapping",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/core/objects/event_contracts.py",
-      "line": "def to_snapshot(self) -> Mapping[str, object]:",
-      "container": "Mapping",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
       "file": "backend/libs/bms_core/src/bms_core/core/objects/options.py",
       "line": "def _int_option(cls, options: Mapping[str, object], key: str, default: int, minimum: int, maximum: int) -> int:",
       "container": "Mapping",
@@ -1358,118 +1344,6 @@
       "line": "def evaluate(self, headers: Mapping[str, str]) -> EdgeTrustDecision:",
       "container": "Mapping",
       "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/events/contracts.py",
-      "line": "def check_snapshot_compatibility(previous: Sequence[EventContract], registry: EventContractRegistry) -> tuple[str, ...]:",
-      "container": "Sequence",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/events/contracts.py",
-      "line": "def event_snapshot_payload(registry: EventContractRegistry) -> dict[str, object]:",
-      "container": "dict",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/events/contracts.py",
-      "line": "def from_snapshot(cls, entry: Mapping[str, object]) -> EventContract:",
-      "container": "Mapping",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/events/contracts.py",
-      "line": "def from_snapshot(cls, entry: Mapping[str, object]) -> EventFieldSpec:",
-      "container": "Mapping",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/events/contracts.py",
-      "line": "def from_snapshot(cls, entry: Mapping[str, object]) -> EventSubscription:",
-      "container": "Mapping",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/events/contracts.py",
-      "line": "def to_snapshot(self) -> dict[str, object]:",
-      "container": "dict",
-      "position": "signature_return",
-      "count": 3
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/events/contracts.py",
-      "line": "def validate_event_contract(contract: EventContract, *, domains: frozenset[str] | None = None) -> tuple[str, ...]:",
-      "container": "frozenset",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/events/contracts.py",
-      "line": "errors: list[str] = []",
-      "container": "list",
-      "position": "local",
-      "count": 3
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/events/contracts.py",
-      "line": "registry: EventContractRegistry, *, domains: frozenset[str] | None = None",
-      "container": "frozenset",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/events/contracts.py",
-      "line": "self._contracts: dict[str, EventContract] = {}",
-      "container": "dict",
-      "position": "local",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/events/contracts.py",
-      "line": "self._subscriptions: dict[tuple[str, str], EventSubscription] = {}",
-      "container": "dict",
-      "position": "local",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/events/contracts.py",
-      "line": "subscriptions: Sequence[EventSubscription],",
-      "container": "Sequence",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/events/contracts.py",
-      "line": "violations: list[str] = []",
-      "container": "list",
-      "position": "local",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/events/platform_events.py",
-      "line": "_HELP_ARTICLE_PAYLOAD: dict[str, EventFieldSpec] = {",
-      "container": "dict",
-      "position": "local",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/events/platform_events.py",
-      "line": "_TENANT_PAYLOAD: dict[str, EventFieldSpec] = {",
-      "container": "dict",
-      "position": "local",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/events/platform_events.py",
-      "line": "_USER_PAYLOAD: dict[str, EventFieldSpec] = {",
-      "container": "dict",
-      "position": "local",
       "count": 1
     },
     {
@@ -3765,20 +3639,6 @@
       "file": "backend/libs/bms_core/tests/edge/test_service_jwt.py",
       "line": "def test_service_jwt_rejects_missing_or_invalid(headers: dict[str, str]) -> None:",
       "container": "dict",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/tests/events/test_event_contracts.py",
-      "line": "_USER_FIELDS: Mapping[str, EventFieldSpec] = {\"user_id\": EventFieldSpec(type=\"string\", required=True)}",
-      "container": "Mapping",
-      "position": "local",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/tests/events/test_event_contracts.py",
-      "line": "fields: Mapping[str, EventFieldSpec] | None = None,",
-      "container": "Mapping",
       "position": "signature_param",
       "count": 1
     },

@@ -9,11 +9,13 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Self
+from typing import TYPE_CHECKING, Self
 
 from bms_core.core.objects.roots import BaseValueObject
+
+if TYPE_CHECKING:  # `core.concurrent` 经 `core.holder` 反向依赖本包，运行期导入会成环
+    from bms_core.core.concurrent import ConcurrentStableDict
 
 __all__ = ["BaseSnapshotRoundTripContract"]
 
@@ -27,20 +29,20 @@ class BaseSnapshotRoundTripContract(BaseValueObject, ABC):
     """
 
     @abstractmethod
-    def to_snapshot(self) -> Mapping[str, object]:
+    def to_snapshot(self) -> ConcurrentStableDict[str, object]:
         """渲染为快照条目。
 
         Returns:
-            Mapping[str, object]: 快照条目（键为字段名）。
+            ConcurrentStableDict[str, object]: 快照条目（键为字段名；插入序）。
         """
 
     @classmethod
     @abstractmethod
-    def from_snapshot(cls, entry: Mapping[str, object]) -> Self:
+    def from_snapshot(cls, entry: ConcurrentStableDict[str, object]) -> Self:
         """由快照条目构造对象。
 
         Args:
-            entry: 快照条目。
+            entry: 快照条目（插入序映射）。
 
         Returns:
             Self: 还原后的对象。

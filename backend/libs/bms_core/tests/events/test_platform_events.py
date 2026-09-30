@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
 from bms_core.events import platform_events
 from bms_core.events.contracts import (
     EVENT_SNAPSHOT_PATH,
@@ -33,7 +34,7 @@ def test_platform_contracts_valid_and_unique() -> None:
     """平台默认契约全部合法（事件域已登记 / 命名合规 / 字段规格合法）且事件类型唯一。"""
     registry = EventContractRegistry()
     register_platform_event_contracts(registry)
-    assert validate_event_registry(registry, domains=known_event_domains()) == ()
+    assert validate_event_registry(registry, domains=ConcurrentStableSet(known_event_domains())) == ()
     assert len(PLATFORM_EVENT_CONTRACTS) == 23
     assert len({contract.event_type for contract in PLATFORM_EVENT_CONTRACTS}) == 23
     assert PLATFORM_EVENT_SUBSCRIPTIONS == ()
@@ -82,5 +83,5 @@ def test_committed_snapshot_in_sync() -> None:
     path = REPO_ROOT / EVENT_SNAPSHOT_PATH
     assert path.is_file()
     contracts, _ = parse_event_snapshot(json.loads(path.read_text(encoding="utf-8")))
-    assert check_snapshot_compatibility(contracts, registry) == ()
+    assert check_snapshot_compatibility(ConcurrentStableList(contracts), registry) == ()
     assert path.read_text(encoding="utf-8") == render_event_snapshot(registry)

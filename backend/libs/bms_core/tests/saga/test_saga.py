@@ -14,6 +14,7 @@ from support_app import ApplicationFactory, lifespan
 
 import bms_core.application as application
 import bms_core.saga.base as saga_base
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.exceptions import ConfigError, EventContractError, ParamError
 from bms_core.db.sync import DbSession
 from bms_core.events.base import EventEnvelope
@@ -104,12 +105,12 @@ def test_validate_saga_definition() -> None:
     )
 
     registry = EventContractRegistry()
-    registry.register(EventContract(event_type="sys.stock.reserved", version="1.0.0", fields={}))
+    registry.register(EventContract(event_type="sys.stock.reserved", version="1.0.0", fields=ConcurrentStableDict()))
     errors = validate_saga_definition(_DEFINITION, contracts=registry)
     assert any("未登记契约" in error for error in errors)
-    registry.register(EventContract(event_type="sys.stock.confirmed", version="1.0.0", fields={}))
-    registry.register(EventContract(event_type="sys.stock.released", version="1.0.0", fields={}))
-    registry.register(EventContract(event_type="sys.plain.tried", version="1.0.0", fields={}))
+    registry.register(EventContract(event_type="sys.stock.confirmed", version="1.0.0", fields=ConcurrentStableDict()))
+    registry.register(EventContract(event_type="sys.stock.released", version="1.0.0", fields=ConcurrentStableDict()))
+    registry.register(EventContract(event_type="sys.plain.tried", version="1.0.0", fields=ConcurrentStableDict()))
     assert validate_saga_definition(_DEFINITION, contracts=registry) == ()
     assert _DEFINITION.validate(contracts=registry) == ()
 
