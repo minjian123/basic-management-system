@@ -11,6 +11,7 @@ import asyncio
 import time
 from uuid import uuid4
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.lock.base import DEFAULT_LOCK_TTL, DEFAULT_WAIT, BaseDistributedLock
 
 __all__ = ["MemoryDistributedLock"]
@@ -24,7 +25,7 @@ class MemoryDistributedLock(BaseDistributedLock):
 
     def __init__(self) -> None:
         """初始化（空锁表）。"""
-        self._locks: dict[str, tuple[str, float]] = {}
+        self._locks: ConcurrentStableDict[str, tuple[str, float]] = ConcurrentStableDict()
 
     async def acquire(self, key: str, *, ttl: int = DEFAULT_LOCK_TTL, wait: float = DEFAULT_WAIT) -> str | None:
         """获取锁（占用则按 `wait` 轮询至超时）。
@@ -59,7 +60,7 @@ class MemoryDistributedLock(BaseDistributedLock):
         entry = self._locks.get(key)
         if entry is None or entry[0] != token:
             return False
-        del self._locks[key]
+        self._locks.delete(key)
         return True
 
     async def extend(self, key: str, token: str, *, ttl: int = DEFAULT_LOCK_TTL) -> bool:
@@ -76,12 +77,13 @@ class MemoryDistributedLock(BaseDistributedLock):
         entry = self._locks.get(key)
         if entry is None or entry[0] != token:
             return False
-        self._locks[key] = (token, time.monotonic() + max(1, ttl))
+        self._locks.set(key, (token, time.monotonic() + max(1, ttl)))
         return True
 
     def clear(self) -> None:
         """清空锁表（测试 / 调试用）。"""
-        self._locks.clear()
+        for key in list(self._locks):
+            self._locks.get_and_remove(key)
 
     def _try_acquire(self, key: str, ttl: int) -> str | None:
         """单次尝试获取锁（惰性过期）。
@@ -98,5 +100,5 @@ class MemoryDistributedLock(BaseDistributedLock):
         if entry is not None and entry[1] > now:
             return None
         token = uuid4().hex
-        self._locks[key] = (token, now + max(1, ttl))
+        self._locks.set(key, (token, now + max(1, ttl)))
         return token

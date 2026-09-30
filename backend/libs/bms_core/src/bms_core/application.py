@@ -10,7 +10,7 @@
 返回业务路由；服务专属 state 覆写 `configure_service()`，创建前调整配置覆写 `prepare_settings()`。
 """
 
-from collections.abc import AsyncGenerator, Sequence
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from typing import cast
 
@@ -254,13 +254,13 @@ class BaseServiceApplicationFactory(BaseApplicationFactory):
     contract_version: str = "0.1.0"
     """公开契约（OpenAPI）版本（取服务包 `CONTRACT_VERSION`；启动接库校验主版本兼容）。"""
 
-    def service_routers(self) -> Sequence[APIRouter]:
+    def service_routers(self) -> ConcurrentStableList[APIRouter]:
         """业务路由清单（子类覆写；探针路由由基座统一挂载，无需返回）。
 
         Returns:
-            Sequence[APIRouter]: 业务路由（挂 `/api/v1` 前缀）。
+            ConcurrentStableList[APIRouter]: 业务路由（挂 `/api/v1` 前缀）。
         """
-        return ()
+        return ConcurrentStableList()
 
     def prepare_settings(self, settings: Settings) -> None:
         """创建前配置调整钩子（默认空实现；如最小服务置空健康 provider）。

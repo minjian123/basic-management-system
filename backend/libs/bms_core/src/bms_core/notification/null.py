@@ -1,7 +1,5 @@
 """notification 能力域缺省实现（Null Object）：固定返回空集 / 零未读 / None / False，不取数落库。"""
 
-from collections.abc import Sequence
-
 from bms_core.core.capability import BaseNullObject
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.notification.base import BaseNotificationCenter, Notification
@@ -46,7 +44,7 @@ class NullNotificationCenter(BaseNotificationCenter, BaseNullObject):
         """
         return 0
 
-    async def mark_read(self, ids: Sequence[int]) -> int:
+    async def mark_read(self, ids: ConcurrentStableList[int]) -> int:
         """按 id 批量标记已读（占位恒无变更）。
 
         Args:

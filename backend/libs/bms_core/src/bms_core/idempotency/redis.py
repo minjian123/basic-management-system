@@ -13,6 +13,7 @@ from typing import cast
 
 from redis.asyncio import Redis
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.logging import get_logger
 from bms_core.idempotency.base import (
     DEFAULT_IDEMPOTENCY_TTL,
@@ -24,7 +25,7 @@ __all__ = ["RedisIdempotencyStore"]
 
 _LOGGER = get_logger("bms")
 
-_PROCESSING_MARKER: dict[str, object] = {"__processing__": True}
+_PROCESSING_MARKER: ConcurrentStableDict[str, object] = ConcurrentStableDict({"__processing__": True})
 """首次占用占位值（尚未写入结果）。"""
 
 
@@ -88,7 +89,7 @@ class RedisIdempotencyStore(IdempotencyStore):
             bool: 首次 True；重复 False。
         """
         try:
-            stored = await self._client.set(key, _dump(_PROCESSING_MARKER), nx=True, ex=ttl)
+            stored = await self._client.set(key, _dump(dict(_PROCESSING_MARKER)), nx=True, ex=ttl)
         except Exception as exc:  # Redis 不可用：放行（唯一约束兜底），不阻断写路径
             _LOGGER.warning("idempotency_redis_unavailable", op="begin", error=repr(exc))
             return True
@@ -108,7 +109,7 @@ class RedisIdempotencyStore(IdempotencyStore):
         except Exception as exc:  # Redis 不可用：按未命中处理
             _LOGGER.warning("idempotency_redis_unavailable", op="load", error=repr(exc))
             return None
-        if value == _PROCESSING_MARKER:
+        if value == dict(_PROCESSING_MARKER):
             return None
         if isinstance(value, dict):
             return cast("IDEMPOTENCY_PAYLOAD_TYPE", value)

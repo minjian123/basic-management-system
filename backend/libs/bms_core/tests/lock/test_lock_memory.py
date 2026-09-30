@@ -33,7 +33,7 @@ async def test_memory_lock_lazy_expiry_and_wait() -> None:
     key = build_lock_key(tenant="demo", resource="jit")
     token = await lock.acquire(key, ttl=1)
     assert token is not None
-    lock._locks[key] = (token, time.monotonic() - 1)  # pyright: ignore[reportPrivateUsage]
+    lock._locks.set(key, (token, time.monotonic() - 1))  # pyright: ignore[reportPrivateUsage]
     assert await lock.acquire(key) is not None
 
     assert await lock.acquire(key, wait=0.1) is None

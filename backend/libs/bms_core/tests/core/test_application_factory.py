@@ -1,7 +1,5 @@
 """服务应用装配基座测试（Kiwi 1206）：身份 / 路由与探针挂载 / 钩子 / 生命周期。"""
 
-from collections.abc import Sequence
-
 import pytest
 from fastapi import APIRouter, FastAPI
 from httpx import ASGITransport, AsyncClient
@@ -56,13 +54,13 @@ class _Factory(BaseServiceApplicationFactory):
         _calls.append("configure")
         app.state.custom = True
 
-    def service_routers(self) -> Sequence[APIRouter]:
+    def service_routers(self) -> ConcurrentStableList[APIRouter]:
         """业务路由（测试探针，经服务级登记表挂 `/api/v1`）。
 
         Returns:
-            Sequence[APIRouter]: 路由清单。
+            ConcurrentStableList[APIRouter]: 路由清单。
         """
-        return (mount_service_routers(ConcurrentStableList([_probe_router])),)
+        return ConcurrentStableList([mount_service_routers(ConcurrentStableList([_probe_router]))])
 
 
 @pytest.mark.kiwi_id(1206)

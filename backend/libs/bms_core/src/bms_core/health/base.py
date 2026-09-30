@@ -25,6 +25,7 @@ from typing import cast
 
 from fastapi import Request
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.config import Settings
 from bms_core.core.objects import BaseHealthResultContract
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, resolve_plugin
@@ -152,14 +153,14 @@ class BaseHealthCheckRegistry(BaseProviderRegistry[BaseHealthCheck], ABC):
         if not checks:
             return HealthCheckReport(ok=True)
 
-        results: dict[int, HealthCheckResult] = {}
+        results: ConcurrentStableDict[int, HealthCheckResult] = ConcurrentStableDict()
 
         async def run(index: int, check: BaseHealthCheck) -> None:
             try:
                 async with asyncio.timeout(self._check_timeout_ms / 1000):
-                    results[index] = await check.check()
+                    results.set(index, await check.check())
             except Exception as exc:  # 超时与检查项异常统一收敛为异常类名
-                results[index] = HealthCheckResult(name=check.name, ok=False, error=type(exc).__name__)
+                results.set(index, HealthCheckResult(name=check.name, ok=False, error=type(exc).__name__))
 
         with suppress(TimeoutError):
             async with asyncio.timeout(self._total_timeout_ms / 1000):

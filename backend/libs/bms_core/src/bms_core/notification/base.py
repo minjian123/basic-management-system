@@ -13,13 +13,13 @@
 """
 
 from abc import ABC, abstractmethod
-from collections.abc import Sequence
 from datetime import datetime
 from typing import cast
 
 from fastapi import Request
 from pydantic import Field
 
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 from bms_core.schemas.base import BaseSchema
@@ -103,7 +103,7 @@ class BaseNotificationCenter(BasePluggable, ABC):
         """
 
     @abstractmethod
-    async def mark_read(self, ids: Sequence[int]) -> int:
+    async def mark_read(self, ids: ConcurrentStableList[int]) -> int:
         """按 id 批量标记已读。
 
         Args:

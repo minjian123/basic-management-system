@@ -5,12 +5,11 @@
 - 启动入口见 `bms_platform/asgi.py`（`uvicorn bms_platform.asgi:app`）与 `python -m bms_platform`。
 """
 
-from collections.abc import Sequence
-
 from fastapi import APIRouter, FastAPI
 
 from bms_core.application import BaseServiceApplicationFactory
 from bms_core.catalog.loader import register_catalog_reader
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_platform import CONTRACT_VERSION, SERVICE_NAME, SERVICE_TITLE, __version__
 from bms_platform.api.router import api_router
@@ -28,13 +27,13 @@ class ApplicationFactory(BaseServiceApplicationFactory):
     version: str = __version__
     contract_version: str = CONTRACT_VERSION
 
-    def service_routers(self) -> Sequence[APIRouter]:
+    def service_routers(self) -> ConcurrentStableList[APIRouter]:
         """平台业务路由。
 
         Returns:
-            Sequence[APIRouter]: 业务聚合路由（探针由基座统一挂载）。
+            ConcurrentStableList[APIRouter]: 业务聚合路由（探针由基座统一挂载）。
         """
-        return (api_router,)
+        return ConcurrentStableList([api_router])
 
     def configure_service(self, app: FastAPI, settings: Settings) -> None:
         """注入平台专属 state（demo 服务）并登记本地权威读取器（服务目录）。

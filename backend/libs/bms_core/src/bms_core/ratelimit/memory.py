@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import time
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.ratelimit.base import BaseRateLimiter, RateLimitDecision, RateLimitRule
 
 __all__ = ["MemoryRateLimiter"]
@@ -18,7 +19,7 @@ class MemoryRateLimiter(BaseRateLimiter):
 
     def __init__(self) -> None:
         """初始化（空计数）。"""
-        self._windows: dict[str, tuple[int, float]] = {}
+        self._windows: ConcurrentStableDict[str, tuple[int, float]] = ConcurrentStableDict()
 
     async def check(self, key: str, rule: RateLimitRule) -> RateLimitDecision:
         """判定配额（固定窗口计数）。
@@ -36,7 +37,7 @@ class MemoryRateLimiter(BaseRateLimiter):
         if expires_at <= now:
             count, expires_at = 0, now + window
         count += 1
-        self._windows[key] = (count, expires_at)
+        self._windows.set(key, (count, expires_at))
         reset_after = max(0, int(expires_at - now))
         return RateLimitDecision(
             allowed=count <= rule.limit,
@@ -47,7 +48,8 @@ class MemoryRateLimiter(BaseRateLimiter):
 
     def clear(self) -> None:
         """清空计数（测试 / 调试用）。"""
-        self._windows.clear()
+        for key in list(self._windows):
+            self._windows.get_and_remove(key)
 
     async def reset(self, key: str) -> None:
         """重置配额计数（成功路径清零）。
@@ -55,7 +57,7 @@ class MemoryRateLimiter(BaseRateLimiter):
         Args:
             key: 限流 key。
         """
-        self._windows.pop(key, None)
+        self._windows.get_and_remove(key)
 
     async def peek(self, key: str) -> int:
         """读当前窗口计数（不自增；窗口已过期返回 0）。
