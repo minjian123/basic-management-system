@@ -210,3 +210,41 @@ flowchart LR
 **偏差（既有 red，非本轮引入）**：`services/platform/tests/dict/test_dict_real.py::test_http_endpoints`（`GET /dicts/query-providers`：`_provider_record` 的 `payload.model_dump()` 产出 `ConcurrentStableDict` 后由 `ApiResponse` 走 JSON 序列化报 `Unable to serialize unknown type`）在干净树同样失败，属早前契约字段落集合类遗留的序列化出口缺口；本轮**未扩大**，按用户拍板登记遗留、另轮单独修（落点 `services/platform/src/bms_platform/api/dict.py::_provider_record`，宜改 `model_dump(mode="json")`）。
 
 **遗留**：`bms_core` 剩余 **817 处**（`libs`：`tests` 约 292 / `idp` 61 / `db` 43 / `core` 36 / `api` 32 / `oauth` 31 …），按交接单 §7 顺序续推（能力域其余 → 注册表目录 → 其余 `libs` → `tests` 收尾）。
+
+## 12. 实施过程补充 · 存量整改子批 2 主体 · `idp/` 能力域（签名单轮，2026-09-30） <a id="batch2-idp"></a>
+
+**范围**：`bms_core` `idp/` 能力域 **61 处**（`schema.py` 16 / `cas.py` 12 / `oidc.py` 8 / `registry.py` 4 / `state/redis.py` 4 / `dingtalk.py`·`jwks.py`·`state/memory.py`·`wecom.py` 各 3 / `state/base.py`·`state/null.py` 各 2 / `ssrf.py` 1；`idp/base.py` 无命中），按交接单 §7 第 2 项「能力域」次项推进。
+
+**动作**：
+
+1. **IdP 契约与状态存储**：`BaseIdpStateStore.save` / `consume` 入参与返回落 `ConcurrentStableDict[str, object]`（内存 / Redis / Null 三实现同型；Redis `_dump` / `_load` 同步）；`JwksCache._cache` 与 `IdentityProviderRegistry._cache` 落 `ConcurrentStableDict`（写 / 清改 `set` / `get_and_remove` —— `ConcurrentStableDict` 无 `clear` / `pop`，清空改逐键原子取走）。
+2. **协议实现（CAS / OIDC / 企微 / 钉钉）**：`normalize_attribute_map` / `_merge_attribute_map` / `_parse_attributes` / `_build_identity` / `_first`、`OidcIdentityProvider._metadata` / `_request_json` / `_require_str` / `_metadata_cache`、`WecomIdentityProvider._get`、`DingtalkIdentityProvider._request_json` 全落集合类；`query` / `data` / `json_body` / `headers` 局部量与调用实参构造集合类；`_optional_scopes` 返回 `ConcurrentStableList`、`OidcIdentityProvider.scopes` 与 `verify_jwt.algorithms` 改 `ConcurrentStableList | None`（None 回落默认，避免可变默认参）。
+3. **行配置 schema（`schema.py`）**：`_SHARED_KEYS` / `_PROTOCOL_SPECS` / `_REQUIRED_KEYS` 落 `ConcurrentStableDict`（嵌套协议字典同型）、`validate_provider_config` / `mask_provider_config` / `has_secret` 入参与返回、`_require_str_list` / `_require_str_map` 落集合类。
+4. **SSRF 白名单**：`_ALLOWED_SCHEMES` → `ConcurrentStableSet[str]`。
+5. **外部 IO 边界显式转换（不新增豁免）**：httpx `data` / `headers` / `params` / `json` 调用处 `dict(...)`；joserfc `KeySet.import_key_set(dict(data))`。
+
+**调用方适配（系统级波及）**：
+
+- **`oauth/` 验签调用点**：`oauth/jwt.py` / `user_jwt.py` / `oidc_jwt.py` 三处 `verify_jwt(..., algorithms=self._algorithms)` 改 `ConcurrentStableList(self._algorithms)`（不改三个类自身声明，留其本域批次）。
+- **identity 服务的 IdP 与流程状态链路**（消费 `idp/schema` 与 `idp/state` 的服务侧）：
+  - `services/identity/.../services/identity_providers.py`：`_validate` 入参 `ConcurrentStableDict(config)`、返回 `dict(...)`；`item()` 的脱敏 / `has_secret` 入参构造与边界转换；
+  - `services/identity/.../services/sso.py`：`_flow_from_payload` 判定由 `dict` 改 `Mapping`（`consume` 现返回集合类）、`save` 载荷 `ConcurrentStableDict(...)`；
+  - `services/identity/.../services/oidc_provider.py` / `password_reset.py`：`save` 载荷边界构造集合类。
+- **测试同步**：`libs/bms_core/tests/idp/test_state_store.py`（12 处 `save` 载荷）、`test_schema.py`（校验 / 脱敏 / `has_secret` 调用实参）。
+
+**验证**：
+
+| 项 | 命令 | 结果 |
+| --- | --- | --- |
+| 定向用例 | `pytest libs/bms_core/tests/{idp,oauth,security} services/identity/tests/{idp,oauth,sso}` | **175 → 266 passed / 1 skipped**（identity sso 全绿） |
+| 全量后端 | `pytest`（`libs` + 9 服务） | **1876 passed / 40 skipped / 1 failed**（既有 red，见偏差） |
+| 静态检查 | `ruff check .` / `ruff format --check .`（backend 全量） | 全绿 |
+| 护栏 | `check-bare-collections.py .` | **「新增 0 / 残留 0」**；`idp/` **61 → 0** |
+| 基线递减 | `--update-baseline` | **1476 → 1415**（`libs` 817 → 756 / `services` 332 / `ops` 103 / `scripts/tools` 224） |
+| 本地预检 | `check-preflight.py --fast` | **全部通过** |
+
+**偏差（既有 red，非本轮引入）**：`services/platform/tests/dict/test_dict_real.py::test_http_endpoints`（`query-providers` 的 `model_dump` 序列化出口）仍为既有 red，本轮未扩大；另轮单独修。
+
+**过程处置（运行期回归，已闭环）**：① `MemoryIdpStateStore.clear` / `IdentityProviderRegistry.clear` 原用 `.clear()`，`ConcurrentStableDict` 不提供 → 改逐键 `get_and_remove`；② identity SSO 回调 `_flow_from_payload` 原 `isinstance(payload, dict)`，`consume` 返回集合类后判定失败（回调 400）→ 改 `isinstance(payload, Mapping)`（redis / memory 两实现与回调链路用例复绿）。
+
+**遗留**：`bms_core` 剩余 **756 处**（`libs`：`tests` 约 292 / `db` 43 / `core` 36 / `api` 32 / `oauth` 31 / `events` 20 / `boundary` 18 …），按交接单 §7 顺序续推（能力域其余 → 注册表目录 → 其余 `libs` → `tests` 收尾）。
