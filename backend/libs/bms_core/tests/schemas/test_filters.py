@@ -33,7 +33,9 @@ def test_filter_serialization() -> None:
     }
     assert FilterSpec(field="deleted_at", operator="is_null").serialize() == {"deleted_at_is_null": "1"}
     assert FilterSpec(field="deleted_at", operator="is_not_null").serialize() == {"deleted_at_is_not_null": "1"}
-    assert serialize_filters([FilterSpec(field="status", value="enabled"), FilterSpec(field="dept_id", value=3)]) == {
+    assert serialize_filters(
+        ConcurrentStableList([FilterSpec(field="status", value="enabled"), FilterSpec(field="dept_id", value=3)])
+    ) == {
         "status": "enabled",
         "dept_id": 3,
     }

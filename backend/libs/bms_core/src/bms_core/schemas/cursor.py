@@ -11,11 +11,11 @@
 import base64
 import binascii
 import json
-from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date, datetime
 from typing import cast
 
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.exceptions import ParamError
 from bms_core.core.objects import BaseValueObject
 from bms_core.schemas.sorting import SortDirection, SortSpec
@@ -41,7 +41,7 @@ class CursorPayload(BaseValueObject):
     item_id: int
     """末行主键（键集比较兜底键）。"""
 
-    def matches(self, sort: Sequence[SortSpec]) -> bool:
+    def matches(self, sort: ConcurrentStableList[SortSpec]) -> bool:
         """规格指纹是否与生效排序一致。
 
         Args:
@@ -53,7 +53,7 @@ class CursorPayload(BaseValueObject):
         return self.specs == spec_fingerprint(sort)
 
 
-def spec_fingerprint(sort: Sequence[SortSpec]) -> tuple[tuple[str, str], ...]:
+def spec_fingerprint(sort: ConcurrentStableList[SortSpec]) -> tuple[tuple[str, str], ...]:
     """排序规格指纹（字段 + 方向）。
 
     Args:
@@ -65,7 +65,7 @@ def spec_fingerprint(sort: Sequence[SortSpec]) -> tuple[tuple[str, str], ...]:
     return tuple((spec.field, spec.direction.value) for spec in sort)
 
 
-def encode_cursor(sort: Sequence[SortSpec], values: Sequence[object], item_id: int) -> str:
+def encode_cursor(sort: ConcurrentStableList[SortSpec], values: ConcurrentStableList[object], item_id: int) -> str:
     """编码 keyset 游标。
 
     Args:
@@ -125,7 +125,7 @@ def decode_cursor(token: str) -> CursorPayload:
     return CursorPayload(specs=specs, values=values, item_id=item_id)
 
 
-def decode_cursor_for(token: str, sort: Sequence[SortSpec]) -> CursorPayload:
+def decode_cursor_for(token: str, sort: ConcurrentStableList[SortSpec]) -> CursorPayload:
     """解码游标并校验与本次生效排序一致。
 
     Args:

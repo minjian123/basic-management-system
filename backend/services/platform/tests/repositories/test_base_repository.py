@@ -258,7 +258,9 @@ async def test_memory_cursor_rejects_invalid_and_mismatched() -> None:
     with pytest.raises(ParamError):
         await repo.list_cursor(BaseCursorQuery(limit=1, cursor="not-a-cursor"))
 
-    token = encode_cursor([SortSpec(field="rank", direction=SortDirection.ASC)], [1], 1)
+    token = encode_cursor(
+        ConcurrentStableList([SortSpec(field="rank", direction=SortDirection.ASC)]), ConcurrentStableList([1]), 1
+    )
     mismatched = BaseCursorQuery(limit=1, order_by="name", order=["asc"], cursor=token)
     with pytest.raises(ParamError):
         await repo.list_cursor(mismatched)

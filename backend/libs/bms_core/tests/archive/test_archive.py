@@ -13,6 +13,7 @@ from bms_core.archive.base import ARCHIVE_LOCATIONS, ArchiveResult, BaseArchiveP
 from bms_core.archive.null import NullArchivePolicy, NullArchiveQueryRouter
 from bms_core.core.base import BaseObject
 from bms_core.core.capability import BaseCapability, BaseNullObject
+from bms_core.core.concurrent import ConcurrentStableDict
 
 
 @pytest.mark.kiwi_id(58)
@@ -55,7 +56,7 @@ def test_result_defaults_and_frozen() -> None:
 async def test_null_policy_never_archives() -> None:
     """占位策略恒定不归档（不搬数据）。"""
     policy = NullArchivePolicy()
-    assert await policy.matches({"id": 1}) is False
+    assert await policy.matches(ConcurrentStableDict({"id": 1})) is False
     assert await policy.archive([{"id": 1}]) == ArchiveResult(matched=0, archived=0)
 
 

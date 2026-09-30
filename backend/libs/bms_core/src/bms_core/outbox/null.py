@@ -3,6 +3,7 @@
 from datetime import datetime
 
 from bms_core.core.capability import BaseNullObject
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.db.sync import DbSession
 from bms_core.events.base import EventEnvelope
 from bms_core.outbox.base import (
@@ -31,7 +32,9 @@ class NullOutboxStore(BaseOutboxStore, BaseNullObject):
         """
         return event.event_id or ""
 
-    async def claim_pending(self, session: DbSession, *, now: datetime, limit: int) -> list[OutboxRecord]:
+    async def claim_pending(
+        self, session: DbSession, *, now: datetime, limit: int
+    ) -> ConcurrentStableList[OutboxRecord]:
         """占位取待投递（恒定空集）。
 
         Args:
@@ -40,9 +43,9 @@ class NullOutboxStore(BaseOutboxStore, BaseNullObject):
             limit: 上限（占位忽略）。
 
         Returns:
-            list[OutboxRecord]: 空列表。
+            ConcurrentStableList[OutboxRecord]: 空列表。
         """
-        return []
+        return ConcurrentStableList()
 
     async def mark_delivered(self, session: DbSession, event_id: str) -> None:
         """占位标记已投递（空操作）。
@@ -102,7 +105,7 @@ class NullOutboxStore(BaseOutboxStore, BaseNullObject):
         source: str | None = None,
         offset: int = 0,
         limit: int = 20,
-    ) -> tuple[list[DeadLetterRecord], int]:
+    ) -> tuple[ConcurrentStableList[DeadLetterRecord], int]:
         """占位死信列表（恒定空集）。
 
         Args:
@@ -113,9 +116,9 @@ class NullOutboxStore(BaseOutboxStore, BaseNullObject):
             limit: 上限（占位忽略）。
 
         Returns:
-            tuple[list[DeadLetterRecord], int]: （空列表，0）。
+            tuple[ConcurrentStableList[DeadLetterRecord], int]: （空列表，0）。
         """
-        return [], 0
+        return ConcurrentStableList(), 0
 
     async def get_dead_letter(self, session: DbSession, dead_letter_id: int) -> DeadLetterRecord | None:
         """占位取死信（恒定 None）。
