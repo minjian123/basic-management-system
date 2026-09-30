@@ -636,3 +636,34 @@ flowchart LR
 **过程处置（集合类非内置容器超集的坑复现）**：`OtelTracer._active` 落 `ConcurrentStableDict` 后，`self._active[span_id] = …` 与 `self._active.pop(span_id, None)` 不可用（无 `__setitem__` / `pop`）→ 改 `set(...)` / `get_and_remove(...)`；首次定向用例即暴露（`test_otel_tracer` 3 项红），修复后全绿。OTel SDK 为第三方边界，`attributes` 在调用处转内置 `dict`。
 
 **遗留**：`fieldtype/` / `i18n/` / `tracing/` 归零；`bms_core` 剩余 **382 处**（`libs`：`tests` 276 / `outbox` 10 / `schemas` 10 / `security` 9 / `archive` 6 / `audit` 6 / `chat` 6 / `edge` 6 / `org` 6 …），按交接单 §7 第 1 项续推。
+
+## 25. 实施过程补充 · 存量整改子批 3 · `archive/` + `audit/` + `chat/` 能力域（签名单轮，2026-09-30） <a id="batch3-archive-audit-chat"></a>
+
+**范围**：`bms_core` 三个**低耦合叶子能力域**共 **18 处**（`archive/` 6 / `audit/` 6 / `chat/` 6），外加调用方 / 测试替身适配（`services/ai` 路由出口 2 处 + 其测试替身 3 处）。按交接单 §5 第 1 步「优先低耦合叶子模块」推进。
+
+**动作**：
+
+1. **归档（`archive/`）**：`BaseArchivePolicy.matches` 的 `record` 落 `ConcurrentStableDict[str, object]`、`archive` 的 `records` 落 `ConcurrentStableList[ConcurrentStableDict[str, object]]`；`NullArchivePolicy` 同名两处同步。
+2. **审计（`audit/`）**：`AuditCapturer.capture` 的 `changes` 落 `ConcurrentStableList[FieldChange]`；`BaseHashChain.compute` 的 `record` 落 `ConcurrentStableDict[str, object]`、`verify` 的 `entries` 落 `ConcurrentStableList[HashChainEntry]`；`NullAuditCapturer.capture` / `NullHashChain.compute` / `verify` 同步。
+3. **对话（`chat/`）**：`BaseChatStream.stream` 的 `messages` 落 `ConcurrentStableList[ChatMessage]`；`BaseChatSessionStore.list_sessions` / `list_messages` 返回落 `ConcurrentStableList[...]`；`NullChatStream` / `NullChatSessionStore` 同名三处同步（空返回 `()` → `ConcurrentStableList()`，docstring「空元组」改「空列表」）。
+4. **服务侧出口边界（`services/ai/src/bms_ai/api/chat.py`，必需）**：会话 / 消息列表经 `ApiResponse.ok(...)` 返回——`ConcurrentStableList` 直入 `ApiResponse` 时 FastAPI / Pydantic 序列化报 `Unable to serialize unknown type: ConcurrentStableList`（框架边界**运行期**失败），故两处出口显式 `list(...)`；`stream(messages=...)` 实参同步构造集合类。
+
+**调用方与测试同步**：`services/ai/tests/chat/test_chat.py` 的 `_InMemoryChatStream.stream` 与 `_InMemoryChatSessionStore.list_sessions` / `list_messages` 三处覆写随抽象契约落集合类（`sorted(...)` / `list(...)` 出口包集合类）。`libs` 侧 `archive` / `audit` / `chat` 既有用例零改动（`libs/bms_core/tests` 无覆写该三契约的替身）。断言维持内容相等，未改语义。
+
+**验证**：
+
+| 项 | 命令 | 结果 |
+| --- | --- | --- |
+| 定向用例 | `pytest libs/bms_core/tests/{archive,audit} services/ai/tests/chat` | **21 passed** |
+| 全量 `libs` | `pytest libs/bms_core/tests` | **1099 passed / 37 skipped** |
+| 全量 `services` | `pytest services` | **787 passed / 3 skipped / 1 failed**（既有 red，见偏差） |
+| 静态检查 | `ruff check .` / `ruff format --check .`（backend 全量） | 全绿（957 文件） |
+| 护栏 | `check-bare-collections.py .` | **「新增 0 / 残留 0」**；`archive/` **6 → 0**、`audit/` **6 → 0**、`chat/` **6 → 0** |
+| 基线递减 | `--update-baseline` | **1030 → 1009**（`libs` 382 → 364 / `services` 322 → 319） |
+| 本地预检 | `check-preflight.py --fast` | **全部通过**（含契约 / 事件契约 / 网关 / 前端 `api-types` 零漂移） |
+
+**偏差（既有 red，非本轮引入）**：`services/platform/tests/dict/test_dict_real.py::test_http_endpoints`（`query-providers` 的 `model_dump` 序列化出口）仍为既有 red，本轮未扩大；另轮单独修。
+
+**过程处置（新增一条边界口径）**：集合类**返回值直入 Pydantic / FastAPI 响应封装**（`ApiResponse.ok(集合类)`）会触发运行期序列化失败（`Unable to serialize unknown type: ConcurrentStableList`，首次定向用例即暴露 `test_placeholder_routes`）。处置：**未标注 `CONTRACT_COLLECTION` 的响应出口**在调用处显式 `list(...)`（承接 §3「第三方 / 框架边界调用处显式转内置容器」口径；契约字段仍走 `CONTRACT_COLLECTION` 无需转换）。
+
+**遗留**：`archive/` / `audit/` / `chat/` 归零；`bms_core` 剩余 **364 处**（`libs`：`tests` 276 / `outbox` 10 / `schemas` 10 / `security` 9 / `edge` 6 / `org` 6 …），按交接单 §7 第 1 项续推。
