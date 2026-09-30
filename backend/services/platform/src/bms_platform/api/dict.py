@@ -140,7 +140,7 @@ def _provider_record(key: str, provider: BaseQueryProvider) -> dict[str, object]
     info = getattr(provider, "info", None)
     if callable(info):
         payload = cast("DictQueryProviderInfo", info())
-        return {str(name): value for name, value in payload.model_dump().items()}
+        return {str(name): value for name, value in payload.model_dump(mode="json").items()}
     return {
         "key": key,
         "name": provider.describe(),
@@ -288,7 +288,7 @@ async def get_dict_attrs(query_service: QueryServiceDep, dict_type: str, request
     """
     with _locale_scope(request):
         attrs = await query_service.load_attrs(dict_type)
-    return ApiResponse.ok([attr.model_dump() for attr in attrs])
+    return ApiResponse.ok([attr.model_dump(mode="json") for attr in attrs])
 
 
 @router.post("/{dict_type}/advanced-query")
@@ -313,7 +313,7 @@ async def advanced_query_dict(
     """
     with _locale_scope(request):
         result = await query_service.advanced_query(dict_type, payload, registry=registry)
-    return ApiResponse.ok(result.model_dump())
+    return ApiResponse.ok(result.model_dump(mode="json"))
 
 
 @router.get("/{dict_type}")
