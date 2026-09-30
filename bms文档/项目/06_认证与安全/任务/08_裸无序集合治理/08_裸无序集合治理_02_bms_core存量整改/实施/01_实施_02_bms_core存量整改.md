@@ -508,3 +508,35 @@ flowchart LR
 **过程处置（集合类非内置容器超集的坑复现）**：`ConcurrentStableDict` 无 `pop(k, None)` / `clear` → 一律改 `get_and_remove` / 逐键取走；`[]=` → `set`。缓存写出口（Redis `json.dumps(default=str)`）须 `dict(...)`，否则集合类被 `str()` 化。
 
 **遗留**：`db/` 模块归零；`bms_core` 剩余 **479 处**（`libs`：`tests` 278 / `api` 32 / `core` 27 / `boundary` 18 / `outbox` 10 / `schemas` 10 / `security` 9 / `fieldtype` 7 / `tracing` 7 …），按交接单 §7 第 1 项续推（其余 `libs` 与 `tests` 收尾）。
+
+## 21. 实施过程补充 · 存量整改子批 3 · `api/` 模块（签名单轮 + 框架边界豁免口径，2026-09-30） <a id="batch3-api"></a>
+
+**范围**：`bms_core` `api/` 模块 **32 处**（`base.py` 15 / `middleware.py` 9 / `errors.py` 6 / `health.py` 2），并引入**框架边界豁免**口径（用户 2026-09-30 拍板）。按交接单 §7 第 1 项「其余 `libs`」续项推进。
+
+**动作**：
+
+1. **纯内部命中整改（照常落插入序集合类）**：
+   - `base.py`：`RouterRegistry._routers` 落 `ConcurrentStableDict`（`[]=` → `set`）；`mount_service_routers` 入参 `Sequence[BaseRouter]` → `ConcurrentStableList[BaseRouter]`；`_device_matches` 入参 `Mapping[str, object]` → `ConcurrentStableDict[str, object]`（会话标记 `load` 产物）。
+   - `middleware.py`：访问日志 `fields` 落 `ConcurrentStableDict`（`[]=` → `set`）；`_raw_headers` / `_identity_headers` 返回落 `ConcurrentStableDict[str, str]`（`[]=` → `set`）；`_rewrite_headers` 的 `drops` → `ConcurrentStableSet[str]`、`sets` → `ConcurrentStableDict[str, str]`；`_log_request` 的 `state` 读取落集合类。
+   - `errors.py`：`_request_id` / `_render` / `build_error_response` 的 `scope` 参数改用 Starlette 框架类型 **`Scope`**（准确且免标记）；两处 `state` 读取与一处 `fields` 落集合类（`[]=` → `set`）。
+   - `health.py`：`_service_fields` 返回落 `ConcurrentStableDict[str, str]`。
+2. **框架边界豁免（新增口径）**：FastAPI / Starlette **框架自有容器**经**行级标记** `# bare-collections:allow`（声明行行尾或紧邻上一行，附理由）豁免——`base.py` 的 `DEFAULT_RESPONSES` / `merged`（FastAPI responses 契约）、`BaseRouter.__init__` 的 `tags` / `dependencies` / `responses`、三处 `order: Annotated[list[str] | None, Query(...)]` 查询入参、两处 `request.scope.setdefault("state", {})`；`middleware.py` 两处 `scope.setdefault("state", {})`；`health.py` 的 `healthz() -> dict[str, object]` 端点返回注解。**理由**：这些容器由框架强制为内置类型（Starlette `Request.state` 的 `State.__setattr__` 走 `__setitem__`、FastAPI 查询参数绑定 / `responses` 消费 / 按端点返回注解序列化），落集合类会破坏运行期或公开契约。
+3. **护栏与文档**：`check-bare-collections.py` 新增 `ALLOW_MARKER = "# bare-collections:allow"` 与豁免逻辑（声明行或紧邻上一行命中即跳过），`--self-test` 增「框架边界标记行跳过」断言（**25 项**）；《[后端开发规范](../../../../../../规范/后端开发规范.md)》「集合与排序」与《[后端基类清单](../../../../../../后端基类清单.md)》「集合体系」节 / 护栏脚本行登记该口径（**不得**用于业务侧声明）。
+4. **调用方适配**：9 个服务的 `api/router.py` 与 `libs` 测试 `test_application_factory.py` 的 `mount_service_routers((...))` → `ConcurrentStableList([...])`（并补 import）。
+
+**验证**：
+
+| 项 | 命令 | 结果 |
+| --- | --- | --- |
+| 全量 `libs` | `pytest libs/bms_core/tests` | **1099 passed / 37 skipped** |
+| 全量 `services` | `pytest services` | **787 passed / 3 skipped / 1 failed**（既有 red，见偏差） |
+| 静态检查 | `ruff check .` / `ruff format --check .`（backend 全量） | 全绿（957 文件） |
+| 护栏 | `check-bare-collections.py .`（+ `--self-test`） | **「新增 0 / 残留 0」**；`api/` **32 → 0**；自测 **25 项**全通过 |
+| 基线递减 | `--update-baseline` | **1130 → 1098**（`libs` 479 → 447） |
+| 本地预检 | `check-preflight.py --fast` | **全部通过**（含契约 / 事件契约 / 网关 / 前端 `api-types` 零漂移） |
+
+**偏差（既有 red，非本轮引入）**：`services/platform/tests/dict/test_dict_real.py::test_http_endpoints`（`query-providers` 的 `model_dump` 序列化出口）仍为既有 red，本轮未扩大；另轮单独修。
+
+**过程处置（已闭环）**：① 框架边界容器无法落集合类（Starlette `State.__setattr__` / FastAPI 绑定与序列化）→ 引入行级标记豁免并登记规范与清单；② 标记使长声明行超 120 列 → 豁免逻辑兼容「紧邻上一行」注释形态；③ `mount_service_routers` 入参收窄 → 9 服务路由聚合 + 1 测试调用点包 `ConcurrentStableList`。
+
+**遗留**：`api/` 模块归零（框架边界经标记豁免）；`bms_core` 剩余 **447 处**（`libs`：`tests` 278 / `core` 27 / `boundary` 18 / `outbox` 10 / `schemas` 10 / `security` 9 / `fieldtype` 7 / `tracing` 7 …），按交接单 §7 第 1 项续推（其余 `libs` 与 `tests` 收尾）。
