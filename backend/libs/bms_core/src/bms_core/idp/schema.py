@@ -15,6 +15,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import cast
 
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.exceptions import IdpConfigInvalidError
 from bms_core.core.objects import BaseValueObject
 from bms_core.idp.ssrf import validate_browser_url, validate_outbound_url
@@ -37,72 +38,86 @@ class _KeyRule(BaseValueObject):
     values: tuple[str, ...] = ()
 
 
-_SHARED_KEYS: dict[str, _KeyRule] = {
-    "jit_enabled": _KeyRule("bool"),
-    "allowed_email_domains": _KeyRule("str_list"),
-}
+_SHARED_KEYS: ConcurrentStableDict[str, _KeyRule] = ConcurrentStableDict(
+    {
+        "jit_enabled": _KeyRule("bool"),
+        "allowed_email_domains": _KeyRule("str_list"),
+    }
+)
 """四协议通用键（02_02 JIT 消费）。"""
 
-_PROTOCOL_SPECS: dict[str, dict[str, _KeyRule]] = {
-    "oidc": {
-        "issuer": _KeyRule("outbound_url"),
-        "client_id": _KeyRule("str"),
-        "client_secret_ref": _KeyRule("secret_ref"),
-        "scopes": _KeyRule("str_list"),
-        "redirect_uri": _KeyRule("client_url"),
-        "discovery_cache_ttl": _KeyRule("number"),
-        "jwks_cache_ttl": _KeyRule("number"),
-        **_SHARED_KEYS,
-    },
-    "cas": {
-        "cas_server_url": _KeyRule("outbound_url"),
-        "cas_login_path": _KeyRule("str"),
-        "cas_service_validate_path": _KeyRule("str"),
-        "attribute_map": _KeyRule("str_map"),
-        "redirect_uri": _KeyRule("client_url"),
-        **_SHARED_KEYS,
-    },
-    "wecom": {
-        "corp_id": _KeyRule("str"),
-        "agent_id": _KeyRule("str"),
-        "secret_ref": _KeyRule("secret_ref"),
-        "mode": _KeyRule("enum", ("qr", "oauth")),
-        "login_url": _KeyRule("client_url"),
-        "oauth_url": _KeyRule("client_url"),
-        "api_base_url": _KeyRule("outbound_url"),
-        "scope": _KeyRule("str"),
-        "login_type": _KeyRule("str"),
-        "redirect_uri": _KeyRule("client_url"),
-        **_SHARED_KEYS,
-    },
-    "dingtalk": {
-        "client_id": _KeyRule("str"),
-        "client_secret_ref": _KeyRule("secret_ref"),
-        "login_url": _KeyRule("client_url"),
-        "api_base_url": _KeyRule("outbound_url"),
-        "scope": _KeyRule("str"),
-        "prompt": _KeyRule("str"),
-        "redirect_uri": _KeyRule("client_url"),
-        **_SHARED_KEYS,
-    },
-}
+_PROTOCOL_SPECS: ConcurrentStableDict[str, ConcurrentStableDict[str, _KeyRule]] = ConcurrentStableDict(
+    {
+        "oidc": ConcurrentStableDict(
+            {
+                "issuer": _KeyRule("outbound_url"),
+                "client_id": _KeyRule("str"),
+                "client_secret_ref": _KeyRule("secret_ref"),
+                "scopes": _KeyRule("str_list"),
+                "redirect_uri": _KeyRule("client_url"),
+                "discovery_cache_ttl": _KeyRule("number"),
+                "jwks_cache_ttl": _KeyRule("number"),
+                **_SHARED_KEYS,
+            }
+        ),
+        "cas": ConcurrentStableDict(
+            {
+                "cas_server_url": _KeyRule("outbound_url"),
+                "cas_login_path": _KeyRule("str"),
+                "cas_service_validate_path": _KeyRule("str"),
+                "attribute_map": _KeyRule("str_map"),
+                "redirect_uri": _KeyRule("client_url"),
+                **_SHARED_KEYS,
+            }
+        ),
+        "wecom": ConcurrentStableDict(
+            {
+                "corp_id": _KeyRule("str"),
+                "agent_id": _KeyRule("str"),
+                "secret_ref": _KeyRule("secret_ref"),
+                "mode": _KeyRule("enum", ("qr", "oauth")),
+                "login_url": _KeyRule("client_url"),
+                "oauth_url": _KeyRule("client_url"),
+                "api_base_url": _KeyRule("outbound_url"),
+                "scope": _KeyRule("str"),
+                "login_type": _KeyRule("str"),
+                "redirect_uri": _KeyRule("client_url"),
+                **_SHARED_KEYS,
+            }
+        ),
+        "dingtalk": ConcurrentStableDict(
+            {
+                "client_id": _KeyRule("str"),
+                "client_secret_ref": _KeyRule("secret_ref"),
+                "login_url": _KeyRule("client_url"),
+                "api_base_url": _KeyRule("outbound_url"),
+                "scope": _KeyRule("str"),
+                "prompt": _KeyRule("str"),
+                "redirect_uri": _KeyRule("client_url"),
+                **_SHARED_KEYS,
+            }
+        ),
+    }
+)
 """协议 → 键规格（键白名单；未知键拒绝）。"""
 
-_REQUIRED_KEYS: dict[str, tuple[str, ...]] = {
-    "oidc": ("issuer", "client_id", "client_secret_ref"),
-    "cas": ("cas_server_url",),
-    "wecom": ("corp_id", "agent_id", "secret_ref"),
-    "dingtalk": ("client_id", "client_secret_ref"),
-}
+_REQUIRED_KEYS: ConcurrentStableDict[str, tuple[str, ...]] = ConcurrentStableDict(
+    {
+        "oidc": ("issuer", "client_id", "client_secret_ref"),
+        "cas": ("cas_server_url",),
+        "wecom": ("corp_id", "agent_id", "secret_ref"),
+        "dingtalk": ("client_id", "client_secret_ref"),
+    }
+)
 """协议 → 必填键。"""
 
 
 def validate_provider_config(
     protocol: str,
-    config: Mapping[str, object],
+    config: ConcurrentStableDict[str, object],
     *,
     allow_private_hosts: bool,
-) -> dict[str, object]:
+) -> ConcurrentStableDict[str, object]:
     """校验并归一化 IdP 行配置（未知键拒绝）。
 
     Args:
@@ -111,7 +126,7 @@ def validate_provider_config(
         allow_private_hosts: 出站 URL 是否允许私网主机。
 
     Returns:
-        dict[str, object]: 归一化后的配置对象（新字典）。
+        ConcurrentStableDict[str, object]: 归一化后的配置对象（新映射）。
 
     Raises:
         IdpConfigInvalidError: 协议不支持 / 配置非对象 / 未知键 / 必填缺失 / 值非法（`20064`）。
@@ -124,17 +139,17 @@ def validate_provider_config(
         name = str(key)
         if name not in spec:
             raise IdpConfigInvalidError(f"IdP 配置含未知键：{name}")
-    normalized: dict[str, object] = {}
+    normalized: ConcurrentStableDict[str, object] = ConcurrentStableDict()
     for key, value in raw.items():
         name = str(key)
-        normalized[name] = _normalize_value(name, spec[name], value, allow_private_hosts=allow_private_hosts)
+        normalized.set(name, _normalize_value(name, spec[name], value, allow_private_hosts=allow_private_hosts))
     for key in _REQUIRED_KEYS[protocol]:
         if key not in normalized:
             raise IdpConfigInvalidError(f"IdP 配置缺必填字段：{key}")
     return normalized
 
 
-def mask_provider_config(protocol: str, config: Mapping[str, object]) -> dict[str, object]:
+def mask_provider_config(protocol: str, config: ConcurrentStableDict[str, object]) -> ConcurrentStableDict[str, object]:
     """响应层脱敏：敏感键值替换为「引用前缀 + `***`」，其余键原样返回。
 
     Args:
@@ -142,23 +157,23 @@ def mask_provider_config(protocol: str, config: Mapping[str, object]) -> dict[st
         config: 行配置对象（可能含历史未知键）。
 
     Returns:
-        dict[str, object]: 脱敏后的新字典。
+        ConcurrentStableDict[str, object]: 脱敏后的新映射。
     """
     spec = _PROTOCOL_SPECS.get(protocol)
     if spec is None:
-        return {}
-    masked: dict[str, object] = {}
+        return ConcurrentStableDict()
+    masked: ConcurrentStableDict[str, object] = ConcurrentStableDict()
     for key, value in config.items():
         name = str(key)
         rule = spec.get(name)
         if (rule is not None and rule.kind == "secret_ref") or (rule is None and _looks_secret(name)):
-            masked[name] = _mask_secret_ref(value)
+            masked.set(name, _mask_secret_ref(value))
         else:
-            masked[name] = value
+            masked.set(name, value)
     return masked
 
 
-def has_secret(protocol: str, config: Mapping[str, object]) -> bool:
+def has_secret(protocol: str, config: ConcurrentStableDict[str, object]) -> bool:
     """配置是否含已填写的密钥引用（前端展示「凭据已配置」）。
 
     Args:
@@ -237,7 +252,7 @@ def _require_str(name: str, value: object) -> str:
     return value.strip()
 
 
-def _require_str_list(name: str, value: object) -> list[str]:
+def _require_str_list(name: str, value: object) -> ConcurrentStableList[str]:
     """取字符串数组（去重去空白）。
 
     Args:
@@ -245,24 +260,24 @@ def _require_str_list(name: str, value: object) -> list[str]:
         value: 原始值。
 
     Returns:
-        list[str]: 字符串列表。
+        ConcurrentStableList[str]: 字符串列表。
 
     Raises:
         IdpConfigInvalidError: 非数组或含非字符串 / 空元素（`20064`）。
     """
     if not isinstance(value, (list, tuple)):
         raise IdpConfigInvalidError(f"配置项 {name} 必须是字符串数组")
-    items: list[str] = []
+    items: ConcurrentStableList[str] = ConcurrentStableList()
     for item in cast("list[object] | tuple[object, ...]", value):
         if not isinstance(item, str) or not item.strip():
             raise IdpConfigInvalidError(f"配置项 {name} 含非法元素（须为非空字符串）")
         text = item.strip()
         if text not in items:
-            items.append(text)
+            items.add(text)
     return items
 
 
-def _require_str_map(name: str, value: object) -> dict[str, list[str]]:
+def _require_str_map(name: str, value: object) -> ConcurrentStableDict[str, ConcurrentStableList[str]]:
     """取「字符串 → 字符串数组」对象。
 
     Args:
@@ -270,16 +285,16 @@ def _require_str_map(name: str, value: object) -> dict[str, list[str]]:
         value: 原始值。
 
     Returns:
-        dict[str, list[str]]: 归一化映射。
+        ConcurrentStableDict[str, ConcurrentStableList[str]]: 归一化映射。
 
     Raises:
         IdpConfigInvalidError: 非对象或值非法（`20064`）。
     """
     if not isinstance(value, Mapping):
         raise IdpConfigInvalidError(f"配置项 {name} 必须是对象")
-    result: dict[str, list[str]] = {}
+    result: ConcurrentStableDict[str, ConcurrentStableList[str]] = ConcurrentStableDict()
     for key, item in cast("Mapping[object, object]", value).items():
-        result[str(key)] = _require_str_list(f"{name}.{key}", item)
+        result.set(str(key), _require_str_list(f"{name}.{key}", item))
     return result
 
 

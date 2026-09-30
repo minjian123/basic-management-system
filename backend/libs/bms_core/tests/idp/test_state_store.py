@@ -6,6 +6,7 @@ from typing import cast
 import fakeredis.aioredis
 import pytest
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.config import Settings
 from bms_core.idp.state import base as state_base
 from bms_core.idp.state import redis as redis_module
@@ -35,8 +36,8 @@ def test_build_idp_state_key_namespace() -> None:
 async def test_memory_store_namespace_isolation() -> None:
     """内存实现：同 state 不同命名空间互不影响。"""
     store = MemoryIdpStateStore()
-    await store.save("same", {"v": "code"}, tenant="demo", namespace="oidccode", ttl=60)
-    await store.save("same", {"v": "state"}, tenant="demo", namespace="idpstate", ttl=60)
+    await store.save("same", ConcurrentStableDict({"v": "code"}), tenant="demo", namespace="oidccode", ttl=60)
+    await store.save("same", ConcurrentStableDict({"v": "state"}), tenant="demo", namespace="idpstate", ttl=60)
     assert await store.consume("same", tenant="demo", namespace="oidccode") == {"v": "code"}
     assert await store.consume("same", tenant="demo", namespace="idpstate") == {"v": "state"}
 
@@ -46,7 +47,7 @@ async def test_redis_store_namespace_key() -> None:
     """Redis 实现：命名空间进入键形（`bms:{租户}:{命名空间}:{state}`）。"""
     client = fakeredis.aioredis.FakeRedis(decode_responses=True)
     store = RedisIdpStateStore(client=client)
-    await store.save("c1", {"v": 1}, tenant="demo", namespace="oidccode", ttl=60)
+    await store.save("c1", ConcurrentStableDict({"v": 1}), tenant="demo", namespace="oidccode", ttl=60)
     assert await client.get("bms:demo:oidccode:c1") is not None
     assert await store.consume("c1", tenant="demo", namespace="oidccode") == {"v": 1}
     assert await store.consume("c1", tenant="demo", namespace="idpstate") is None
@@ -57,19 +58,19 @@ async def test_redis_store_namespace_key() -> None:
 async def test_memory_store_one_time_and_expiry() -> None:
     """内存实现：一次性消费、TTL 到期视作未命中、删除幂等与清空。"""
     store = MemoryIdpStateStore()
-    await store.save("s1", {"tenant": "demo", "nonce": "n1"}, tenant="demo", ttl=60)
+    await store.save("s1", ConcurrentStableDict({"tenant": "demo", "nonce": "n1"}), tenant="demo", ttl=60)
     assert await store.consume("s1", tenant="demo") == {"tenant": "demo", "nonce": "n1"}
     assert await store.consume("s1", tenant="demo") is None
 
-    await store.save("s2", {"tenant": "demo"}, ttl=0)
+    await store.save("s2", ConcurrentStableDict({"tenant": "demo"}), ttl=0)
     assert await store.consume("s2") is None
 
-    await store.save("s3", {"tenant": "demo"}, ttl=60)
+    await store.save("s3", ConcurrentStableDict({"tenant": "demo"}), ttl=60)
     await store.delete("s3")
     await store.delete("s3")
     assert await store.consume("s3") is None
 
-    await store.save("s4", {"tenant": "demo"}, ttl=60)
+    await store.save("s4", ConcurrentStableDict({"tenant": "demo"}), ttl=60)
     store.clear()
     assert await store.consume("s4") is None
 
@@ -79,16 +80,16 @@ async def test_redis_store_roundtrip_and_tenant_key() -> None:
     """Redis 实现（fakeredis）：存取 + 一次性 GETDEL + 租户键隔离 + 关闭。"""
     client = fakeredis.aioredis.FakeRedis(decode_responses=True)
     store = RedisIdpStateStore(client=client)
-    await store.save("r1", {"tenant": "demo", "nonce": "n"}, tenant="demo", ttl=60)
+    await store.save("r1", ConcurrentStableDict({"tenant": "demo", "nonce": "n"}), tenant="demo", ttl=60)
     assert await client.get("bms:demo:idpstate:r1") is not None
     assert await store.consume("r1", tenant="demo") == {"tenant": "demo", "nonce": "n"}
     assert await store.consume("r1", tenant="demo") is None
     assert await store.consume("r1", tenant="other") is None
 
-    await store.save("r2", {"x": 1}, ttl=0)
+    await store.save("r2", ConcurrentStableDict({"x": 1}), ttl=0)
     assert await store.consume("r2") == {"x": 1}
 
-    await store.save("r3", {"x": 1}, ttl=60)
+    await store.save("r3", ConcurrentStableDict({"x": 1}), ttl=60)
     await store.delete("r3")
     assert await store.consume("r3") is None
     await store.aclose()
@@ -119,7 +120,7 @@ async def test_redis_store_degrades_and_dirty_value() -> None:
 async def test_null_store_behaviour() -> None:
     """Null 实现：写删空操作、消费恒定未命中（fail-closed）。"""
     store = NullIdpStateStore()
-    await store.save("n1", {"tenant": "demo"}, tenant="demo", ttl=60)
+    await store.save("n1", ConcurrentStableDict({"tenant": "demo"}), tenant="demo", ttl=60)
     assert await store.consume("n1", tenant="demo") is None
     await store.delete("n1")
     assert await store.consume("n1") is None
@@ -163,7 +164,7 @@ async def test_redis_store_dirty_raw_and_lazy_client(monkeypatch: pytest.MonkeyP
 
     monkeypatch.setattr(redis_module.AsyncRedis, "from_url", staticmethod(_from_url))
     lazy = RedisIdpStateStore(url="redis://fake:6379/0")
-    await lazy.save("lazy", {"x": 1}, ttl=60)
+    await lazy.save("lazy", ConcurrentStableDict({"x": 1}), ttl=60)
     assert await lazy.consume("lazy") == {"x": 1}
     assert urls == ["redis://fake:6379/0"]
     await lazy.aclose()

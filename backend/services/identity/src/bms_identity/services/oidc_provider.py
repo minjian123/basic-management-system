@@ -23,6 +23,7 @@ from dataclasses import dataclass
 from typing import ClassVar, cast
 from urllib.parse import urlencode
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.config import OidcProviderSettings
 from bms_core.core.exceptions import (
     AuthError,
@@ -241,7 +242,7 @@ class OidcProviderService(BaseFrameworkObject):
         )
         await self._state.save(
             code,
-            _code_payload(payload),
+            ConcurrentStableDict(_code_payload(payload)),
             tenant=tenant_id,
             ttl=self._settings.authorization_code_ttl_seconds,
             namespace=OIDC_CODE_NAMESPACE,

@@ -18,6 +18,7 @@ from collections.abc import Iterable, Mapping, Sequence
 from joserfc import jwt
 from joserfc.jwk import ECKey, RSAKey
 
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.core.exceptions import AuthError, ConfigError, ParamError
 from bms_core.core.factory import BasePluginFactory
@@ -177,7 +178,7 @@ class JwtOidcProvider(BaseOidcProvider):
             self._key_set,
             issuer=issuer,
             audience=OIDC_ACCESS_AUDIENCE,
-            algorithms=self._algorithms,
+            algorithms=ConcurrentStableList(self._algorithms),
             leeway=self._leeway,
         )
         payload = claims.payload

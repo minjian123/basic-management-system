@@ -12,13 +12,13 @@
 from __future__ import annotations
 
 import os
-from collections.abc import Callable, Mapping
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import cast
 
 import httpx
 
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.exceptions import ConfigError, DingtalkConfigError, WecomConfigError
 from bms_core.core.objects import BaseFrameworkObject, BaseValueObject
 from bms_core.idp.base import BaseIdentityProvider
@@ -96,7 +96,7 @@ class IdentityProviderRegistry(BaseFrameworkObject):
         """
         self._secret_resolver = secret_resolver
         self._transport = transport
-        self._cache: dict[tuple[int, str, str], BaseIdentityProvider] = {}
+        self._cache: ConcurrentStableDict[tuple[int, str, str], BaseIdentityProvider] = ConcurrentStableDict()
 
     def build(self, spec: IdentityProviderSpec) -> BaseIdentityProvider:
         """按 `type` 构造 IdP 实例（不缓存）。
@@ -133,12 +133,13 @@ class IdentityProviderRegistry(BaseFrameworkObject):
         cached = self._cache.get(cache_key)
         if cached is None:
             cached = self.build(spec)
-            self._cache[cache_key] = cached
+            self._cache.set(cache_key, cached)
         return cached
 
     def clear(self) -> None:
         """清空实例缓存（测试 / 调试用）。"""
-        self._cache.clear()
+        for key in self._cache:
+            self._cache.get_and_remove(key)
 
     def _build_oidc(self, spec: IdentityProviderSpec) -> OidcIdentityProvider:
         """构造 OIDC 实例（读取行配置，密钥引用经解析器转明文）。
@@ -167,7 +168,7 @@ class IdentityProviderRegistry(BaseFrameworkObject):
             client_id=client_id,
             client_secret=self._secret_resolver(secret_ref),
             redirect_uri=redirect_uri,
-            scopes=scopes or ("openid", "profile", "email"),
+            scopes=scopes or ConcurrentStableList(("openid", "profile", "email")),
             discovery_cache_ttl=discovery_ttl,
             jwks_cache_ttl=jwks_ttl,
             transport=self._transport,
@@ -270,7 +271,7 @@ class IdentityProviderRegistry(BaseFrameworkObject):
         )
 
 
-def _require_config_str(config: Mapping[str, object], key: str, spec: IdentityProviderSpec) -> str:
+def _require_config_str(config: ConcurrentStableDict[str, object], key: str, spec: IdentityProviderSpec) -> str:
     """取行配置必填字符串。
 
     Args:
@@ -290,7 +291,7 @@ def _require_config_str(config: Mapping[str, object], key: str, spec: IdentityPr
     return value
 
 
-def _optional_config_str(config: Mapping[str, object], key: str) -> str:
+def _optional_config_str(config: ConcurrentStableDict[str, object], key: str) -> str:
     """取行配置可选字符串（缺失 / 非字符串返回空串）。
 
     Args:
@@ -304,20 +305,20 @@ def _optional_config_str(config: Mapping[str, object], key: str) -> str:
     return value if isinstance(value, str) else ""
 
 
-def _optional_scopes(config: Mapping[str, object]) -> tuple[str, ...] | None:
+def _optional_scopes(config: ConcurrentStableDict[str, object]) -> ConcurrentStableList[str] | None:
     """解析可选 `scopes` 配置（数组；缺省 / 空数组返回 None）。
 
     Args:
         config: 行配置视图。
 
     Returns:
-        tuple[str, ...] | None: 作用域序列；缺省返回 None（由实现取默认）。
+        ConcurrentStableList[str] | None: 作用域序列；缺省返回 None（由实现取默认）。
     """
     raw = config.get("scopes")
     if not isinstance(raw, (list, tuple)) or not raw:
         return None
     values = cast("list[object] | tuple[object, ...]", raw)
-    return tuple(str(item) for item in values)
+    return ConcurrentStableList(str(item) for item in values)
 
 
 def _as_float(value: object, default: float) -> float:

@@ -19,6 +19,7 @@ from urllib.parse import urlencode
 
 import httpx
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.config import IdentityProviderSettings, Settings
 from bms_core.core.exceptions import DingtalkAuthError, DingtalkUnavailableError, PluginError
 from bms_core.core.factory import BasePluginFactory
@@ -143,12 +144,14 @@ class DingtalkIdentityProvider(BaseIdentityProvider):
         payload = await self._request_json(
             "POST",
             f"{self._api_base_url}/v1.0/oauth2/userAccessToken",
-            json_body={
-                "clientId": self._client_id,
-                "clientSecret": self._client_secret,
-                "code": code,
-                "grantType": "authorization_code",
-            },
+            json_body=ConcurrentStableDict(
+                {
+                    "clientId": self._client_id,
+                    "clientSecret": self._client_secret,
+                    "code": code,
+                    "grantType": "authorization_code",
+                }
+            ),
         )
         access_token = _as_str(payload.get("accessToken"))
         if not access_token:
@@ -176,7 +179,7 @@ class DingtalkIdentityProvider(BaseIdentityProvider):
         payload = await self._request_json(
             "GET",
             f"{self._api_base_url}/v1.0/contact/users/me",
-            headers={"x-acs-dingtalk-access-token": access_token},
+            headers=ConcurrentStableDict({"x-acs-dingtalk-access-token": access_token}),
         )
         subject = _as_str(payload.get("unionId")) or _as_str(payload.get("openId"))
         if not subject:
@@ -230,9 +233,9 @@ class DingtalkIdentityProvider(BaseIdentityProvider):
         method: str,
         url: str,
         *,
-        json_body: Mapping[str, str] | None = None,
-        headers: Mapping[str, str] | None = None,
-    ) -> Mapping[str, object]:
+        json_body: ConcurrentStableDict[str, str] | None = None,
+        headers: ConcurrentStableDict[str, str] | None = None,
+    ) -> ConcurrentStableDict[str, object]:
         """调钉钉接口并解析 JSON 对象（按状态码区分授权失败与不可达）。
 
         Args:
@@ -242,7 +245,7 @@ class DingtalkIdentityProvider(BaseIdentityProvider):
             headers: 请求头。
 
         Returns:
-            Mapping[str, object]: 响应 JSON 对象。
+            ConcurrentStableDict[str, object]: 响应 JSON 对象。
 
         Raises:
             DingtalkAuthError: 4xx（授权码 / 令牌无效）。
@@ -250,7 +253,12 @@ class DingtalkIdentityProvider(BaseIdentityProvider):
         """
         try:
             async with httpx.AsyncClient(timeout=self._timeout, transport=self._transport) as client:
-                response = await client.request(method, url, json=json_body, headers=headers)
+                response = await client.request(
+                    method,
+                    url,
+                    json=None if json_body is None else dict(json_body),
+                    headers=None if headers is None else dict(headers),
+                )
         except httpx.HTTPError as exc:
             raise DingtalkUnavailableError(f"钉钉接口调用失败：{url}") from exc
         if response.status_code >= 500:
@@ -263,7 +271,7 @@ class DingtalkIdentityProvider(BaseIdentityProvider):
             raise DingtalkUnavailableError(f"钉钉接口响应非合法 JSON：{url}") from exc
         if not isinstance(payload, Mapping):
             raise DingtalkUnavailableError(f"钉钉接口响应非对象：{url}")
-        return cast("Mapping[str, object]", payload)
+        return ConcurrentStableDict(cast("Mapping[str, object]", payload))
 
 
 class DingtalkIdentityProviderFactory(BasePluginFactory[DingtalkIdentityProvider]):

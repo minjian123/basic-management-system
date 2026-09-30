@@ -12,7 +12,7 @@
 from __future__ import annotations
 
 import time
-from collections.abc import Collection, Mapping
+from collections.abc import Mapping
 from typing import cast
 
 import httpx
@@ -21,6 +21,7 @@ from joserfc.errors import JoseError
 from joserfc.jwk import KeySet, KeySetSerialization
 from joserfc.jwt import JWTClaimsRegistry
 
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.exceptions import AuthError, ServiceUnavailableError
 from bms_core.core.objects import BaseFrameworkObject
 from bms_core.idp.base import IdentityClaims
@@ -66,7 +67,7 @@ class JwksCache(BaseFrameworkObject):
         self._ttl = ttl
         self._timeout = timeout
         self._transport = transport
-        self._cache: dict[str, tuple[float, KeySet]] = {}
+        self._cache: ConcurrentStableDict[str, tuple[float, KeySet]] = ConcurrentStableDict()
 
     async def get(self, jwks_uri: str, *, force: bool = False) -> KeySet:
         """取 JWK Set（缓存命中直接返回；`force` 跳过缓存刷新）。
@@ -88,20 +89,20 @@ class JwksCache(BaseFrameworkObject):
             return cached[1]
         data = await self._fetch(jwks_uri)
         try:
-            key_set = KeySet.import_key_set(cast("KeySetSerialization", data))
+            key_set = KeySet.import_key_set(cast("KeySetSerialization", dict(data)))
         except (JoseError, ValueError, TypeError) as exc:
             raise AuthError("JWKS 解析失败") from exc
-        self._cache[jwks_uri] = (now + self._ttl, key_set)
+        self._cache.set(jwks_uri, (now + self._ttl, key_set))
         return key_set
 
-    async def _fetch(self, jwks_uri: str) -> Mapping[str, object]:
+    async def _fetch(self, jwks_uri: str) -> ConcurrentStableDict[str, object]:
         """拉取 JWKS JSON。
 
         Args:
             jwks_uri: JWKS 端点。
 
         Returns:
-            Mapping[str, object]: JWKS 文档。
+            ConcurrentStableDict[str, object]: JWKS 文档。
 
         Raises:
             ServiceUnavailableError: 网络 / 状态码异常（10007 / 503）。
@@ -116,7 +117,7 @@ class JwksCache(BaseFrameworkObject):
             raise ServiceUnavailableError(f"JWKS 拉取失败：{jwks_uri}") from exc
         if not isinstance(payload, Mapping):
             raise AuthError("JWKS 响应非对象")
-        return cast("Mapping[str, object]", payload)
+        return ConcurrentStableDict(cast("Mapping[str, object]", payload))
 
 
 def verify_jwt(
@@ -125,7 +126,7 @@ def verify_jwt(
     *,
     issuer: str,
     audience: str | None = None,
-    algorithms: Collection[str] = DEFAULT_ALGORITHMS,
+    algorithms: ConcurrentStableList[str] | None = None,
     leeway: int = DEFAULT_LEEWAY,
 ) -> IdentityClaims:
     """验签 JWT 并校验声明（`exp` / `iss` / 可选 `aud`）。
@@ -135,7 +136,7 @@ def verify_jwt(
         key_set: JWK Set（按 `kid` 自动选键）。
         issuer: 期望签发方（`iss`）。
         audience: 期望受众（`aud`；给定则要求命中）。
-        algorithms: 允许的签名算法白名单。
+        algorithms: 允许的签名算法白名单；None 取默认（仅非对称）。
         leeway: 时间声明容差（秒）。
 
     Returns:
@@ -144,8 +145,9 @@ def verify_jwt(
     Raises:
         AuthError: 签名 / 算法 / 声明校验失败（20001 / 401）。
     """
+    allowed = list(DEFAULT_ALGORITHMS if algorithms is None else algorithms)
     try:
-        decoded = jwt.decode(token, key_set, algorithms=list(algorithms))
+        decoded = jwt.decode(token, key_set, algorithms=allowed)
     except (JoseError, ValueError, TypeError) as exc:
         raise AuthError("票据验签失败") from exc
     claims = dict(decoded.claims)

@@ -18,11 +18,13 @@ from __future__ import annotations
 import base64
 import hashlib
 import secrets
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from typing import ClassVar, cast
 from urllib.parse import quote
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.config import SsoSettings
 from bms_core.core.exceptions import (
     AccountDisabledError,
@@ -230,7 +232,7 @@ class SsoService(BaseFrameworkObject):
         )
         await self._state.save(
             state,
-            _flow_payload(flow),
+            ConcurrentStableDict(_flow_payload(flow)),
             ttl=self._sso.state_ttl_seconds,
         )
         try:
@@ -625,9 +627,9 @@ def _flow_from_payload(payload: object) -> IdpFlowState:
     Raises:
         SsoCallbackError: payload 结构非法（20052/400）。
     """
-    if not isinstance(payload, dict):
+    if not isinstance(payload, Mapping):
         raise SsoCallbackError("流程状态无效或已过期")
-    values = cast("dict[str, object]", payload)
+    values = cast("Mapping[str, object]", payload)
     try:
         return IdpFlowState(
             tenant_code=str(values["tenant_code"]),

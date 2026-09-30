@@ -18,6 +18,7 @@ from uuid import uuid4
 from joserfc import jwt
 from joserfc.jwk import ECKey, RSAKey
 
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import ServiceTokenSettings, Settings
 from bms_core.core.exceptions import ConfigError
 from bms_core.core.factory import BasePluginFactory
@@ -129,7 +130,7 @@ class JwtServiceTokenIssuer(BaseServiceTokenIssuer):
             self._key_set,
             issuer=self._issuer,
             audience=TOKEN_AUDIENCE_SERVICE,
-            algorithms=self._algorithms,
+            algorithms=ConcurrentStableList(self._algorithms),
         )
 
     def _signing_key(self) -> tuple[str, RSAKey | ECKey]:
