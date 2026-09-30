@@ -14,81 +14,102 @@ _OIDC = {
 }
 
 
-def _validate(protocol: str, config: dict[str, object], *, allow_private: bool = False) -> dict[str, object]:
+def _validate(
+    protocol: str, config: ConcurrentStableDict[str, object], *, allow_private: bool = False
+) -> ConcurrentStableDict[str, object]:
     """调用校验（默认不允许私网）。"""
-    return dict(validate_provider_config(protocol, ConcurrentStableDict(config), allow_private_hosts=allow_private))
+    return ConcurrentStableDict(validate_provider_config(protocol, config, allow_private_hosts=allow_private))
 
 
 @pytest.mark.kiwi_id(2203)
 def test_valid_configs_and_normalization() -> None:
     """四协议合法配置通过并归一化（去空白 / 去重）。"""
-    assert _validate("oidc", dict(_OIDC))["client_id"] == "bms-backend"
-    assert _validate("oidc", {**_OIDC, "discovery_cache_ttl": 120})["discovery_cache_ttl"] == 120
-    cas = _validate("cas", {"cas_server_url": "https://cas.example.com/cas", "attribute_map": {"email": ["mail"]}})
+    assert _validate("oidc", ConcurrentStableDict(dict(_OIDC)))["client_id"] == "bms-backend"
+    assert _validate("oidc", ConcurrentStableDict({**_OIDC, "discovery_cache_ttl": 120}))["discovery_cache_ttl"] == 120
+    cas = _validate(
+        "cas",
+        ConcurrentStableDict({"cas_server_url": "https://cas.example.com/cas", "attribute_map": {"email": ["mail"]}}),
+    )
     assert cas["attribute_map"] == {"email": ["mail"]}
     wecom = _validate(
         "wecom",
-        {"corp_id": "corp-1", "agent_id": "agent-1", "secret_ref": "env:WECOM_SECRET", "mode": "oauth"},
+        ConcurrentStableDict(
+            {"corp_id": "corp-1", "agent_id": "agent-1", "secret_ref": "env:WECOM_SECRET", "mode": "oauth"}
+        ),
     )
     assert wecom["mode"] == "oauth"
-    dingtalk = _validate("dingtalk", {"client_id": "c-1", "client_secret_ref": "env:DT_SECRET"})
+    dingtalk = _validate("dingtalk", ConcurrentStableDict({"client_id": "c-1", "client_secret_ref": "env:DT_SECRET"}))
     assert dingtalk["client_id"] == "c-1"
 
 
 @pytest.mark.kiwi_id(2203)
 def test_shared_keys_types() -> None:
     """通用键 `jit_enabled`（bool）与 `allowed_email_domains`（字符串数组）类型校验。"""
-    config: dict[str, object] = {
-        **_OIDC,
-        "jit_enabled": True,
-        "allowed_email_domains": ["example.com", "example.com", "corp.cn"],
-    }
+    config: ConcurrentStableDict[str, object] = ConcurrentStableDict(
+        {
+            **_OIDC,
+            "jit_enabled": True,
+            "allowed_email_domains": ["example.com", "example.com", "corp.cn"],
+        }
+    )
     normalized = _validate("oidc", config)
     assert normalized["jit_enabled"] is True
     assert normalized["allowed_email_domains"] == ["example.com", "corp.cn"]
 
     with pytest.raises(IdpConfigInvalidError):
-        _validate("oidc", {**_OIDC, "jit_enabled": "yes"})
+        _validate("oidc", ConcurrentStableDict({**_OIDC, "jit_enabled": "yes"}))
     with pytest.raises(IdpConfigInvalidError):
-        _validate("oidc", {**_OIDC, "allowed_email_domains": "example.com"})
+        _validate("oidc", ConcurrentStableDict({**_OIDC, "allowed_email_domains": "example.com"}))
 
 
 @pytest.mark.kiwi_id(2203)
 def test_unknown_key_and_protocol_rejected() -> None:
     """未知键与不支持的协议类型拒绝（20064）。"""
     with pytest.raises(IdpConfigInvalidError):
-        _validate("oidc", {**_OIDC, "bogus": 1})
+        _validate("oidc", ConcurrentStableDict({**_OIDC, "bogus": 1}))
     with pytest.raises(IdpConfigInvalidError):
-        _validate("saml", dict(_OIDC))
+        _validate("saml", ConcurrentStableDict(dict(_OIDC)))
 
 
 @pytest.mark.kiwi_id(2203)
 def test_required_and_type_errors() -> None:
     """必填缺失 / 类型非法 / 枚举非法拒绝。"""
     with pytest.raises(IdpConfigInvalidError):
-        _validate("oidc", {"issuer": "https://idp.example.com", "client_id": "c"})
+        _validate("oidc", ConcurrentStableDict({"issuer": "https://idp.example.com", "client_id": "c"}))
     with pytest.raises(IdpConfigInvalidError):
-        _validate("oidc", {**_OIDC, "scopes": "openid"})
+        _validate("oidc", ConcurrentStableDict({**_OIDC, "scopes": "openid"}))
     with pytest.raises(IdpConfigInvalidError):
-        _validate("wecom", {"corp_id": "c", "agent_id": "a", "secret_ref": "env:S", "mode": "bogus"})
+        _validate(
+            "wecom",
+            ConcurrentStableDict({"corp_id": "c", "agent_id": "a", "secret_ref": "env:S", "mode": "bogus"}),
+        )
     with pytest.raises(IdpConfigInvalidError):
-        _validate("oidc", {**_OIDC, "discovery_cache_ttl": "soon"})
+        _validate("oidc", ConcurrentStableDict({**_OIDC, "discovery_cache_ttl": "soon"}))
     with pytest.raises(IdpConfigInvalidError):
-        _validate("oidc", {**_OIDC, "client_id": "   "})
+        _validate("oidc", ConcurrentStableDict({**_OIDC, "client_id": "   "}))
     with pytest.raises(IdpConfigInvalidError):
-        _validate("oidc", {**_OIDC, "scopes": ["openid", 7]})
+        _validate("oidc", ConcurrentStableDict({**_OIDC, "scopes": ["openid", 7]}))
     with pytest.raises(IdpConfigInvalidError):
-        _validate("cas", {"cas_server_url": "https://cas.example.com/cas", "attribute_map": ["x"]})
+        _validate(
+            "cas",
+            ConcurrentStableDict({"cas_server_url": "https://cas.example.com/cas", "attribute_map": ["x"]}),
+        )
     with pytest.raises(IdpConfigInvalidError):
-        _validate("cas", {"cas_server_url": "https://cas.example.com/cas", "attribute_map": {"email": "mail"}})
+        _validate(
+            "cas",
+            ConcurrentStableDict({"cas_server_url": "https://cas.example.com/cas", "attribute_map": {"email": "mail"}}),
+        )
 
 
 @pytest.mark.kiwi_id(2203)
 def test_outbound_url_ssrf_rejected() -> None:
     """出站键（issuer / api_base_url）经 SSRF 校验拒绝内网，放行公网。"""
     with pytest.raises(IdpConfigInvalidError):
-        _validate("oidc", {**_OIDC, "issuer": "http://10.0.0.5"})
-    assert _validate("oidc", {**_OIDC, "issuer": "https://idp.example.com"})["issuer"] == "https://idp.example.com"
+        _validate("oidc", ConcurrentStableDict({**_OIDC, "issuer": "http://10.0.0.5"}))
+    assert (
+        _validate("oidc", ConcurrentStableDict({**_OIDC, "issuer": "https://idp.example.com"}))["issuer"]
+        == "https://idp.example.com"
+    )
     private_ok = validate_provider_config(
         "oidc",
         ConcurrentStableDict({**_OIDC, "issuer": "http://127.0.0.1:8090"}),
@@ -101,11 +122,11 @@ def test_outbound_url_ssrf_rejected() -> None:
 def test_secret_ref_only_env() -> None:
     """密钥引用只接受 `env:变量名`；`secret:` 与疑似明文拒绝。"""
     with pytest.raises(IdpConfigInvalidError):
-        _validate("oidc", {**_OIDC, "client_secret_ref": "secret:abc"})
+        _validate("oidc", ConcurrentStableDict({**_OIDC, "client_secret_ref": "secret:abc"}))
     with pytest.raises(IdpConfigInvalidError):
-        _validate("oidc", {**_OIDC, "client_secret_ref": "plain-secret-value"})
+        _validate("oidc", ConcurrentStableDict({**_OIDC, "client_secret_ref": "plain-secret-value"}))
     with pytest.raises(IdpConfigInvalidError):
-        _validate("oidc", {**_OIDC, "client_secret_ref": "   "})
+        _validate("oidc", ConcurrentStableDict({**_OIDC, "client_secret_ref": "   "}))
 
 
 @pytest.mark.kiwi_id(2203)

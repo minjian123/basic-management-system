@@ -8,6 +8,7 @@ from httpx import ASGITransport, AsyncClient
 from starlette.types import Message, Receive, Scope, Send
 
 from bms_core.api.middleware import EdgeGuardMiddleware, TraceIdMiddleware
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.context import (
     get_current_trace_id,
     get_current_user_id,
@@ -38,6 +39,7 @@ def _build_app() -> FastAPI:
     app.add_middleware(TraceIdMiddleware)
 
     @app.get("/whoami")
+    # bare-collections:allow（FastAPI 端点返回注解）
     async def whoami() -> dict[str, object]:  # pyright: ignore[reportUnusedFunction]
         return {"trace_id": get_current_trace_id()}
 
@@ -104,7 +106,7 @@ async def test_falls_back_to_request_id() -> None:
 @pytest.mark.kiwi_id(44)
 async def test_non_http_scope_passthrough() -> None:
     """非 HTTP 作用域（lifespan 等）直通：下游照常执行、不进链路上下文。"""
-    sent: list[str] = []
+    sent: ConcurrentStableList[str] = ConcurrentStableList()
 
     async def downstream(scope: Scope, receive: Receive, send: Send) -> None:
         del scope, receive
@@ -114,7 +116,7 @@ async def test_non_http_scope_passthrough() -> None:
         return {"type": "lifespan.startup"}
 
     async def send(message: Message) -> None:
-        sent.append(str(message["type"]))
+        sent.add(str(message["type"]))
 
     await TraceIdMiddleware(downstream)({"type": "lifespan"}, receive, send)
     assert sent == ["lifespan.startup.complete"]
@@ -138,6 +140,7 @@ def _build_edge_app(
     app.add_middleware(EdgeGuardMiddleware)
 
     @app.get("/whoami")
+    # bare-collections:allow（FastAPI 端点返回注解）
     async def whoami(request: Request) -> dict[str, object]:  # pyright: ignore[reportUnusedFunction]
         return {
             "user_id": get_current_user_id(),
@@ -151,6 +154,7 @@ def _build_edge_app(
         }
 
     @app.get("/healthz")
+    # bare-collections:allow（FastAPI 端点返回注解）
     async def healthz() -> dict[str, str]:  # pyright: ignore[reportUnusedFunction]
         return {"ok": "true"}
 
@@ -268,7 +272,7 @@ async def test_missing_settings_is_noop_but_still_strips() -> None:
 @pytest.mark.kiwi_id(2166)
 async def test_edge_guard_non_http_passthrough() -> None:
     """非 HTTP 作用域直通（下游照常执行）。"""
-    sent: list[str] = []
+    sent: ConcurrentStableList[str] = ConcurrentStableList()
 
     async def downstream(scope: Scope, receive: Receive, send: Send) -> None:
         del scope, receive
@@ -278,7 +282,7 @@ async def test_edge_guard_non_http_passthrough() -> None:
         return {"type": "lifespan.startup"}
 
     async def send(message: Message) -> None:
-        sent.append(str(message["type"]))
+        sent.add(str(message["type"]))
 
     await EdgeGuardMiddleware(downstream)({"type": "lifespan"}, receive, send)
     assert sent == ["lifespan.startup.complete"]

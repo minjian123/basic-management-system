@@ -19,6 +19,7 @@ def _build_app(metrics: BaseMetrics) -> FastAPI:
     app.include_router(metrics_router)
 
     @app.get("/api/v1/users/{user_id}")
+    # bare-collections:allow（FastAPI 端点返回注解）
     def get_user(user_id: int) -> dict[str, int]:  # pyright: ignore[reportUnusedFunction]
         return {"user_id": user_id}
 

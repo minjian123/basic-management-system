@@ -24,6 +24,7 @@ from bms_core.captcha.default import (
 from bms_core.captcha.null import NullCaptcha
 from bms_core.core import plugin as plugin_module
 from bms_core.core.assembly import DefaultCaptchaFactory
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import PluginSelection, Settings
 from bms_core.core.context import current_client_ip
 from bms_core.core.exceptions import (
@@ -46,7 +47,7 @@ class _RecordingNotifier(BaseNotifier):
     """
 
     def __init__(self, *, delivered: bool = True, error: Exception | None = None) -> None:
-        self.messages: list[NotificationMessage] = []
+        self.messages: ConcurrentStableList[NotificationMessage] = ConcurrentStableList()
         self._delivered = delivered
         self._error = error
 
@@ -54,7 +55,7 @@ class _RecordingNotifier(BaseNotifier):
         """记录消息并返回配置的送达结果（或抛配置的异常）。"""
         if self._error is not None:
             raise self._error
-        self.messages.append(message)
+        self.messages.add(message)
         return SendResult(delivered=self._delivered, message_id="test-id")
 
 
@@ -86,7 +87,7 @@ def _captcha(
     )
 
 
-async def _record(client: Redis, captcha_id: str) -> dict[str, Any]:
+async def _record(client: Redis, captcha_id: str) -> ConcurrentStableDict[str, Any]:
     """读取挑战记录（直接查 Redis）。
 
     Args:
@@ -94,23 +95,24 @@ async def _record(client: Redis, captcha_id: str) -> dict[str, Any]:
         captcha_id: 挑战编号。
 
     Returns:
-        dict: 挑战记录。
+        ConcurrentStableDict[str, Any]: 挑战记录。
     """
     raw = await client.get(build_captcha_key(captcha_id))
     assert raw is not None
-    return cast("dict[str, Any]", json.loads(raw))
+    return ConcurrentStableDict(cast("dict[str, Any]", json.loads(raw)))
 
 
-async def _keys(client: Redis) -> list[str]:
+async def _keys(client: Redis) -> ConcurrentStableList[str]:
     """列出验证码 key（校验挑战是否被清理）。
 
     Args:
         client: Redis 客户端。
 
     Returns:
-        list[str]: 验证码 key 列表。
+        ConcurrentStableList[str]: 验证码 key 列表。
     """
-    return [str(key) for key in await client.keys(build_captcha_key("*"))]  # pyright: ignore[reportUnknownMemberType]
+    keys = await client.keys(build_captcha_key("*"))  # pyright: ignore[reportUnknownMemberType]
+    return ConcurrentStableList(str(key) for key in keys)
 
 
 @pytest.fixture
@@ -342,13 +344,13 @@ def test_sms_options_parse_and_validate() -> None:
     )
     assert (custom.code_length, custom.account_limit, custom.ip_limit, custom.window) == (8, 3, 50, 600)
 
-    bad_options: tuple[dict[str, object], ...] = (
-        {"sms_code_length": "abc"},
-        {"sms_code_length": 3},
-        {"sms_account_limit": 0},
-        {"sms_ip_limit": -1},
-        {"sms_window": 10},
-        {"sms_window": True},
+    bad_options: tuple[ConcurrentStableDict[str, object], ...] = (
+        ConcurrentStableDict({"sms_code_length": "abc"}),
+        ConcurrentStableDict({"sms_code_length": 3}),
+        ConcurrentStableDict({"sms_account_limit": 0}),
+        ConcurrentStableDict({"sms_ip_limit": -1}),
+        ConcurrentStableDict({"sms_window": 10}),
+        ConcurrentStableDict({"sms_window": True}),
     )
     for bad in bad_options:
         with pytest.raises(PluginError):

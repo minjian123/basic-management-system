@@ -13,6 +13,7 @@ from urllib.parse import parse_qs, urlparse
 import httpx
 import pytest
 
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import IdentityProviderSettings, Settings
 from bms_core.core.exceptions import DingtalkAuthError, DingtalkUnavailableError, PluginError
 from bms_core.idp.dingtalk import DingtalkIdentityProvider, DingtalkIdentityProviderFactory
@@ -36,8 +37,8 @@ class _DingtalkMock:
         self.user_body: object = {"unionId": "union-1", "openId": "open-1", "nick": "Alice", "email": "a@x"}
         self.user_status = 200
         self.user_raw: bytes | None = None
-        self.token_forms: list[str] = []
-        self.token_headers: list[str | None] = []
+        self.token_forms: ConcurrentStableList[str] = ConcurrentStableList()
+        self.token_headers: ConcurrentStableList[str | None] = ConcurrentStableList()
 
     def handle(self, request: httpx.Request) -> httpx.Response:
         """MockTransport 处理函数（按路径分派）。
@@ -49,12 +50,12 @@ class _DingtalkMock:
             httpx.Response: 模拟响应。
         """
         if request.url.path.endswith("/v1.0/oauth2/userAccessToken"):
-            self.token_forms.append(request.content.decode())
+            self.token_forms.add(request.content.decode())
             if self.token_raw is not None:
                 return httpx.Response(self.token_status, content=self.token_raw)
             return httpx.Response(self.token_status, json=self.token_body)
         if request.url.path.endswith("/v1.0/contact/users/me"):
-            self.token_headers.append(request.headers.get("x-acs-dingtalk-access-token"))
+            self.token_headers.add(request.headers.get("x-acs-dingtalk-access-token"))
             if self.user_raw is not None:
                 return httpx.Response(self.user_status, content=self.user_raw)
             return httpx.Response(self.user_status, json=self.user_body)

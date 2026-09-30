@@ -24,6 +24,7 @@ from bms_core.captcha.default import CaptchaSliderOptions, DefaultCaptcha
 from bms_core.captcha.null import NullCaptcha
 from bms_core.core import plugin as plugin_module
 from bms_core.core.assembly import DefaultCaptchaFactory
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.config import PluginSelection, Settings
 from bms_core.core.exceptions import (
     CaptchaExpiredError,
@@ -51,7 +52,7 @@ def _captcha(client: object, **options: object) -> DefaultCaptcha:
     return DefaultCaptcha(url=None, client=cast("Redis", client), slider=slider)
 
 
-async def _record(client: Redis, captcha_id: str) -> dict[str, Any]:
+async def _record(client: Redis, captcha_id: str) -> ConcurrentStableDict[str, Any]:
     """读取挑战记录（直接查 Redis）。
 
     Args:
@@ -59,23 +60,23 @@ async def _record(client: Redis, captcha_id: str) -> dict[str, Any]:
         captcha_id: 挑战编号。
 
     Returns:
-        dict: 挑战记录。
+        ConcurrentStableDict[str, Any]: 挑战记录。
     """
     raw = await client.get(build_captcha_key(captcha_id))
     assert raw is not None
-    return cast("dict[str, Any]", json.loads(raw))
+    return ConcurrentStableDict(cast("dict[str, Any]", json.loads(raw)))
 
 
-def _payload(challenge: Any) -> dict[str, Any]:
+def _payload(challenge: Any) -> ConcurrentStableDict[str, Any]:
     """解析挑战 `payload`。
 
     Args:
         challenge: 挑战值对象。
 
     Returns:
-        dict: `payload` 解析结果。
+        ConcurrentStableDict[str, Any]: `payload` 解析结果。
     """
-    return cast("dict[str, Any]", json.loads(challenge.payload))
+    return ConcurrentStableDict(cast("dict[str, Any]", json.loads(challenge.payload)))
 
 
 def _trace(gap_x: int, *, duration: int = 300, start: int = 0) -> tuple[tuple[int, int, int], ...]:
@@ -284,14 +285,14 @@ async def test_slider_options_parse_and_validate(redis_client: fakeredis.aioredi
     )
     assert (custom.width, custom.height, custom.piece_size) == (200, 100, 30)
 
-    bad_options: tuple[dict[str, object], ...] = (
-        {"slider_width": "abc"},
-        {"slider_height": []},
-        {"slider_piece_size": 999},
-        {"slider_tolerance": -1},
-        {"slider_min_duration_ms": 999999},
-        {"slider_min_points": 0},
-        {"slider_width": True},
+    bad_options: tuple[ConcurrentStableDict[str, object], ...] = (
+        ConcurrentStableDict({"slider_width": "abc"}),
+        ConcurrentStableDict({"slider_height": []}),
+        ConcurrentStableDict({"slider_piece_size": 999}),
+        ConcurrentStableDict({"slider_tolerance": -1}),
+        ConcurrentStableDict({"slider_min_duration_ms": 999999}),
+        ConcurrentStableDict({"slider_min_points": 0}),
+        ConcurrentStableDict({"slider_width": True}),
     )
     for bad in bad_options:
         with pytest.raises(PluginError):

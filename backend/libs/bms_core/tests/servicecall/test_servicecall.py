@@ -15,6 +15,7 @@ from bms_core.circuit.base import BaseCircuitBreaker, CircuitState
 from bms_core.circuit.null import NullCircuitBreaker
 from bms_core.core.base import BaseObject
 from bms_core.core.capability import BaseCapability, BaseNullObject
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.exceptions import ParamError, RateLimitError, ServiceUnavailableError
 from bms_core.fallback.base import BaseFallbackPolicy, FallbackAction
 from bms_core.fallback.null import NullFallbackPolicy
@@ -45,17 +46,17 @@ class RecordingCircuit(BaseCircuitBreaker):
 
     def __init__(self, *, allowed: bool = True) -> None:
         self.allowed = allowed
-        self.successes: list[str] = []
-        self.failures: list[str] = []
+        self.successes: ConcurrentStableList[str] = ConcurrentStableList()
+        self.failures: ConcurrentStableList[str] = ConcurrentStableList()
 
     async def allow(self, dependency: str) -> bool:
         return self.allowed
 
     async def record_success(self, dependency: str) -> None:
-        self.successes.append(dependency)
+        self.successes.add(dependency)
 
     async def record_failure(self, dependency: str) -> None:
-        self.failures.append(dependency)
+        self.failures.add(dependency)
 
     async def state(self, dependency: str) -> CircuitState:
         return CircuitState.CLOSED
@@ -83,10 +84,10 @@ class StubRateLimiter(BaseRateLimiter):
 
     def __init__(self, *, allowed: bool = True) -> None:
         self.allowed = allowed
-        self.checked: list[str] = []
+        self.checked: ConcurrentStableList[str] = ConcurrentStableList()
 
     async def check(self, key: str, rule: RateLimitRule) -> RateLimitDecision:
-        self.checked.append(key)
+        self.checked.add(key)
         return RateLimitDecision(allowed=self.allowed, limit=rule.limit, remaining=0, reset_after=rule.window)
 
 
@@ -115,8 +116,10 @@ def _client(
 
 def _request(**overrides: object) -> ServiceRequest:
     """构造标准调用请求（platform 服务公开路径）。"""
-    base: dict[str, object] = {"service": "platform", "method": "GET", "path": "/api/v1/modules"}
-    base.update(overrides)
+    base: ConcurrentStableDict[str, object] = ConcurrentStableDict(
+        {"service": "platform", "method": "GET", "path": "/api/v1/modules"}
+    )
+    base.update(overrides.items())
     return ServiceRequest(**base)  # pyright: ignore[reportArgumentType]
 
 
@@ -301,7 +304,7 @@ async def test_dependency_provider_resolves() -> None:
         @app.get("/service-client")
         async def info(  # pyright: ignore[reportUnusedFunction]
             client: Annotated[BaseServiceClient, Depends(get_service_client)],
-        ) -> dict[str, str]:
+        ) -> dict[str, str]:  # bare-collections:allow（FastAPI 端点返回注解）
             return {"key": client.key, "type": type(client).__name__}
 
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as http:
@@ -313,11 +316,11 @@ async def test_dependency_provider_resolves() -> None:
 @pytest.mark.kiwi_id(2169)
 async def test_headers_content_and_circuit_disabled() -> None:
     """请求头 / 原始体透传；关闭熔断时不记录结果。"""
-    captured: dict[str, object] = {}
+    captured: ConcurrentStableDict[str, object] = ConcurrentStableDict()
 
     def handler(request: httpx.Request) -> httpx.Response:
-        captured["headers"] = dict(request.headers)
-        captured["content"] = request.content
+        captured.set("headers", dict(request.headers))
+        captured.set("content", request.content)
         return httpx.Response(200)
 
     circuit = RecordingCircuit()
@@ -341,10 +344,10 @@ async def test_headers_content_and_circuit_disabled() -> None:
 @pytest.mark.kiwi_id(2169)
 async def test_json_body_sent() -> None:
     """JSON 请求体经 httpx `json` 发送。"""
-    captured: dict[str, object] = {}
+    captured: ConcurrentStableDict[str, object] = ConcurrentStableDict()
 
     def handler(request: httpx.Request) -> httpx.Response:
-        captured["content"] = request.content
+        captured.set("content", request.content)
         return httpx.Response(200)
 
     client = _client(handler)
@@ -417,14 +420,14 @@ class StubTokenIssuer(BaseServiceTokenIssuer):
     plugin_name = "stub"
 
     def __init__(self) -> None:
-        self.specs: list[ServiceTokenSpec] = []
+        self.specs: ConcurrentStableList[ServiceTokenSpec] = ConcurrentStableList()
 
     async def issue(self, spec: ServiceTokenSpec) -> OAuthToken:
-        self.specs.append(spec)
+        self.specs.add(spec)
         return OAuthToken(access_token="service-jwt")
 
-    def jwks(self) -> dict[str, object]:
-        return {"keys": []}
+    def jwks(self) -> ConcurrentStableDict[str, object]:
+        return ConcurrentStableDict({"keys": []})
 
     def verify(self, token: str) -> IdentityClaims:
         return IdentityClaims(subject="stub")
@@ -433,10 +436,10 @@ class StubTokenIssuer(BaseServiceTokenIssuer):
 @pytest.mark.kiwi_id(2180)
 async def test_outbound_strips_inbound_authorization() -> None:
     """出站无条件剥离入站 `Authorization`（外部 token 不透传），其余头保留。"""
-    captured: dict[str, object] = {}
+    captured: ConcurrentStableDict[str, object] = ConcurrentStableDict()
 
     def handler(request: httpx.Request) -> httpx.Response:
-        captured["headers"] = dict(request.headers)
+        captured.set("headers", dict(request.headers))
         return httpx.Response(200)
 
     client = _client(handler, token_issuer=StubTokenIssuer(), attach_service_token=False)
@@ -451,11 +454,11 @@ async def test_outbound_strips_inbound_authorization() -> None:
 @pytest.mark.kiwi_id(2180)
 async def test_outbound_attaches_service_token_when_enabled() -> None:
     """开启出站换券：剥离入站 `Authorization` 并按**调用方**服务标识附自签服务 JWT。"""
-    captured: dict[str, object] = {}
+    captured: ConcurrentStableDict[str, object] = ConcurrentStableDict()
     issuer = StubTokenIssuer()
 
     def handler(request: httpx.Request) -> httpx.Response:
-        captured["headers"] = dict(request.headers)
+        captured.set("headers", dict(request.headers))
         return httpx.Response(200)
 
     client = _client(handler, token_issuer=issuer, attach_service_token=True)
@@ -486,11 +489,11 @@ async def test_outbound_service_token_carries_tenant() -> None:
 @pytest.mark.kiwi_id(2180)
 async def test_outbound_missing_caller_not_attached() -> None:
     """开关开启但调用方标识未注入：不附令牌（不冒充目标服务）。"""
-    captured: dict[str, object] = {}
+    captured: ConcurrentStableDict[str, object] = ConcurrentStableDict()
     issuer = StubTokenIssuer()
 
     def handler(request: httpx.Request) -> httpx.Response:
-        captured["headers"] = dict(request.headers)
+        captured.set("headers", dict(request.headers))
         return httpx.Response(200)
 
     client = _client(handler, token_issuer=issuer, attach_service_token=True, caller="")
@@ -505,10 +508,10 @@ async def test_outbound_missing_caller_not_attached() -> None:
 @pytest.mark.kiwi_id(2180)
 async def test_outbound_without_issuer_still_strips() -> None:
     """开关开启但签发者未就绪：仅剥除不透传，不带服务身份（不整体失败）。"""
-    captured: dict[str, object] = {}
+    captured: ConcurrentStableDict[str, object] = ConcurrentStableDict()
 
     def handler(request: httpx.Request) -> httpx.Response:
-        captured["headers"] = dict(request.headers)
+        captured.set("headers", dict(request.headers))
         return httpx.Response(200)
 
     client = _client(handler, token_issuer=None, attach_service_token=True)
@@ -523,17 +526,17 @@ class BlankTokenIssuer(StubTokenIssuer):
     """返回空令牌的替身（覆盖空 token 不附头的分支）。"""
 
     async def issue(self, spec: ServiceTokenSpec) -> OAuthToken:
-        self.specs.append(spec)
+        self.specs.add(spec)
         return OAuthToken(access_token="")
 
 
 @pytest.mark.kiwi_id(2180)
 async def test_outbound_blank_token_not_attached() -> None:
     """签发者返回空令牌时不附加 `Authorization`（仍剥离入站授权头）。"""
-    captured: dict[str, object] = {}
+    captured: ConcurrentStableDict[str, object] = ConcurrentStableDict()
 
     def handler(request: httpx.Request) -> httpx.Response:
-        captured["headers"] = dict(request.headers)
+        captured.set("headers", dict(request.headers))
         return httpx.Response(200)
 
     client = _client(handler, token_issuer=BlankTokenIssuer(), attach_service_token=True)

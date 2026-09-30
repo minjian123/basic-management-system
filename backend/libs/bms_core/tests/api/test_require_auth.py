@@ -3,7 +3,6 @@
 直接构造请求并显式传入校验器与会话存储替身，覆盖 `require_auth` 全分支（不经服务应用框架）。
 """
 
-from collections.abc import Mapping
 from types import SimpleNamespace
 
 import pytest
@@ -30,8 +29,8 @@ _ACME_ID = "2002"
 class _FakeTenantSource:
     """最小租户源替身（本地令牌路径按 id 解析；补全 `TenantLookup` 三形态）。"""
 
-    def __init__(self, tenants: dict[str, TenantContext] | None = None) -> None:
-        self._tenants = tenants or {}
+    def __init__(self, tenants: ConcurrentStableDict[str, TenantContext] | None = None) -> None:
+        self._tenants = tenants if tenants is not None else ConcurrentStableDict[str, TenantContext]()
 
     async def by_code(self, code: str) -> TenantContext:
         """按编码取租户。"""
@@ -67,7 +66,7 @@ def _acme_tenant() -> TenantContext:
 
 def _source() -> _FakeTenantSource:
     """同时含演示 / 示例租户的源替身。"""
-    return _FakeTenantSource({"demo": _demo_tenant(), "acme": _acme_tenant()})
+    return _FakeTenantSource(ConcurrentStableDict({"demo": _demo_tenant(), "acme": _acme_tenant()}))
 
 
 class _StubVerifier(BaseTokenVerifier):
@@ -122,8 +121,8 @@ def _verified(
 
 def _request(
     *,
-    headers: dict[str, str] | None = None,
-    state: Mapping[str, object] | None = None,
+    headers: ConcurrentStableDict[str, str] | None = None,
+    state: ConcurrentStableDict[str, object] | None = None,
     device_check: bool = False,
     tenant_source: object | None = None,
 ) -> Request:
@@ -171,10 +170,12 @@ async def _store_with(session_id: str, *, tenant_id: str | None = None) -> Memor
 async def test_gateway_identity_builds_context() -> None:
     """网关路径：可信边缘身份组装 `AuthContext`、命中会话标记、写 `current_user_id`。"""
     store = await _store_with("s1")
-    state = {
-        "edge_identity": EdgeIdentity(subject="1001", tenant_code="demo", session_id="s1", scopes=("a",)),
-        "tenant": _demo_tenant(),
-    }
+    state = ConcurrentStableDict(
+        {
+            "edge_identity": EdgeIdentity(subject="1001", tenant_code="demo", session_id="s1", scopes=("a",)),
+            "tenant": _demo_tenant(),
+        }
+    )
     context = await require_auth(_request(state=state), verifier=_StubVerifier(), store=store)
     assert context == AuthContext(
         subject="1001",
@@ -191,10 +192,12 @@ async def test_gateway_identity_builds_context() -> None:
 async def test_gateway_identity_without_subject_uses_user_id() -> None:
     """网关路径：仅有内部用户 id（无主体）时主体回落为 id 字符串、租户取请求态。"""
     store = await _store_with("s2")
-    state = {
-        "edge_identity": EdgeIdentity(user_id=7, session_id="s2"),
-        "tenant": _demo_tenant(),
-    }
+    state = ConcurrentStableDict(
+        {
+            "edge_identity": EdgeIdentity(user_id=7, session_id="s2"),
+            "tenant": _demo_tenant(),
+        }
+    )
     context = await require_auth(_request(state=state), verifier=_StubVerifier(), store=store)
     assert context.subject == "7"
     assert context.user_id == 7
@@ -204,7 +207,7 @@ async def test_gateway_identity_without_subject_uses_user_id() -> None:
 
 async def test_gateway_identity_service_only_rejected() -> None:
     """网关路径：纯服务身份（无用户主体 / id）→ 20001 / 401。"""
-    state = {"edge_identity": EdgeIdentity(service_identity="svc-a")}
+    state = ConcurrentStableDict({"edge_identity": EdgeIdentity(service_identity="svc-a")})
     with pytest.raises(AuthError) as excinfo:
         await require_auth(_request(state=state), verifier=_StubVerifier(), store=MemorySessionStore())
     assert excinfo.value.code == 20001
@@ -215,7 +218,7 @@ async def test_gateway_identity_service_only_rejected() -> None:
 async def test_local_token_builds_context_and_adopts_tenant() -> None:
     """本地路径：Bearer 用户令牌组装身份；请求态无租户时经租户源按令牌 id 兜底写请求态。"""
     store = await _store_with("s3")
-    request = _request(headers={"Authorization": f"Bearer {_TOK}"}, tenant_source=_source())
+    request = _request(headers=ConcurrentStableDict({"Authorization": f"Bearer {_TOK}"}), tenant_source=_source())
     context = await require_auth(request, verifier=_StubVerifier(result=_verified(session_id="s3")), store=store)
     assert context.source == "token"
     assert context.user_id == 1001
@@ -231,7 +234,7 @@ async def test_missing_and_invalid_token_rejected() -> None:
     assert missing.value.code == 20001
     with pytest.raises(AuthError):
         await require_auth(
-            _request(headers={"Authorization": f"Bearer {_TOK}"}),
+            _request(headers=ConcurrentStableDict({"Authorization": f"Bearer {_TOK}"})),
             verifier=_StubVerifier(error=AuthError("bad")),
             store=MemorySessionStore(),
         )
@@ -239,7 +242,7 @@ async def test_missing_and_invalid_token_rejected() -> None:
 
 async def test_local_token_without_tenant_source_rejected() -> None:
     """本地路径令牌带租户 id 但租户源未装配 → 20001 / 401（不再凭编码兜底）。"""
-    request = _request(headers={"Authorization": f"Bearer {_TOK}"})
+    request = _request(headers=ConcurrentStableDict({"Authorization": f"Bearer {_TOK}"}))
     with pytest.raises(AuthError) as excinfo:
         await require_auth(
             request, verifier=_StubVerifier(result=_verified(session_id="s3")), store=await _store_with("s3")
@@ -251,7 +254,7 @@ async def test_non_numeric_subject_has_no_user_id() -> None:
     """非数字主体（外部 IdP 形态）→ `user_id` 为 None，主体保留。"""
     store = await _store_with("s4")
     context = await require_auth(
-        _request(headers={"Authorization": f"Bearer {_TOK}"}, tenant_source=_source()),
+        _request(headers=ConcurrentStableDict({"Authorization": f"Bearer {_TOK}"}), tenant_source=_source()),
         verifier=_StubVerifier(result=_verified(subject="u-42", session_id="s4")),
         store=store,
     )
@@ -261,7 +264,7 @@ async def test_non_numeric_subject_has_no_user_id() -> None:
 
 async def test_session_marker_missing_returns_20012() -> None:
     """会话标记不存在（已踢出 / 登出）→ `20012` / 401。"""
-    request = _request(headers={"Authorization": f"Bearer {_TOK}"}, tenant_source=_source())
+    request = _request(headers=ConcurrentStableDict({"Authorization": f"Bearer {_TOK}"}), tenant_source=_source())
     with pytest.raises(SessionAuthError) as excinfo:
         await require_auth(
             request, verifier=_StubVerifier(result=_verified(session_id="gone")), store=MemorySessionStore()
@@ -274,7 +277,7 @@ async def test_session_id_missing_rejected() -> None:
     """令牌缺少会话标识 → 20001 / 401。"""
     with pytest.raises(AuthError):
         await require_auth(
-            _request(headers={"Authorization": f"Bearer {_TOK}"}, tenant_source=_source()),
+            _request(headers=ConcurrentStableDict({"Authorization": f"Bearer {_TOK}"}), tenant_source=_source()),
             verifier=_StubVerifier(result=_verified(session_id="")),
             store=MemorySessionStore(),
         )
@@ -284,13 +287,17 @@ async def test_device_check_mismatch_rejected() -> None:
     """`device_check=true`：设备 / IP 不一致 → 20012 / 401；一致放行。"""
     store = MemorySessionStore()
     await store.save("s5", ConcurrentStableDict({"user_id": 1, "ip": "10.0.0.1"}), tenant=_DEMO_ID)
-    mismatch = _request(headers={"Authorization": f"Bearer {_TOK}"}, device_check=True, tenant_source=_source())
+    mismatch = _request(
+        headers=ConcurrentStableDict({"Authorization": f"Bearer {_TOK}"}), device_check=True, tenant_source=_source()
+    )
     set_current_client_ip("10.0.0.9")
     with pytest.raises(SessionAuthError) as excinfo:
         await require_auth(mismatch, verifier=_StubVerifier(result=_verified(session_id="s5")), store=store)
     assert excinfo.value.code == 20012
 
-    match = _request(headers={"Authorization": f"Bearer {_TOK}"}, device_check=True, tenant_source=_source())
+    match = _request(
+        headers=ConcurrentStableDict({"Authorization": f"Bearer {_TOK}"}), device_check=True, tenant_source=_source()
+    )
     set_current_client_ip("10.0.0.1")
     context = await require_auth(match, verifier=_StubVerifier(result=_verified(session_id="s5")), store=store)
     assert context.session_id == "s5"
@@ -300,8 +307,8 @@ async def test_cross_tenant_explicit_mismatch_rejected() -> None:
     """显式租户来源（X-Tenant-ID）解析 id 与令牌 id 不一致 → 跨租户拒绝（20001 / 401）。"""
     store = await _store_with("s6", tenant_id=_ACME_ID)
     request = _request(
-        headers={"Authorization": f"Bearer {_TOK}", "X-Tenant-ID": "acme"},
-        state={"tenant": _acme_tenant()},
+        headers=ConcurrentStableDict({"Authorization": f"Bearer {_TOK}", "X-Tenant-ID": "acme"}),
+        state=ConcurrentStableDict({"tenant": _acme_tenant()}),
     )
     with pytest.raises(AuthError) as excinfo:
         await require_auth(
@@ -314,8 +321,8 @@ async def test_token_tenant_overrides_fallback() -> None:
     """无显式来源（回落演示租户）时以令牌租户 id 经租户源解析为准并写请求态。"""
     store = await _store_with("s7", tenant_id=_ACME_ID)
     request = _request(
-        headers={"Authorization": f"Bearer {_TOK}"},
-        state={"tenant": DEMO_TENANT},
+        headers=ConcurrentStableDict({"Authorization": f"Bearer {_TOK}"}),
+        state=ConcurrentStableDict({"tenant": DEMO_TENANT}),
         tenant_source=_source(),
     )
     context = await require_auth(
