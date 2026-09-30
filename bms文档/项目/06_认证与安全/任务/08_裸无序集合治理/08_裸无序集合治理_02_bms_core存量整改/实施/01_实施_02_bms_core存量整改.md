@@ -829,3 +829,32 @@ flowchart LR
 - `services/platform/tests/dict/test_dict_real.py`：`dict_client` 的临时 `EngineRegistry` 与 `_engines()` 从不关闭 → `dict_client` teardown 显式 `await engines.aclose()`，`_engines()` 同款登记 + autouse 释放。
 
 **遗留告警经用户拍板（2026-09-30）登记为已知项、不再追**：`pytest` 的 `PytestUnhandledThreadExceptionWarning`（`Event loop is closed`）仍有残留（`services` 侧某测试持有的连接在事件循环关闭后被 GC），属测试卫生问题、**不影响门禁**（默认 `pytest` 退出码 0）；已定位的 3 处泄漏已修，其余不再深挖。详见交接单 §9。
+
+## 31. 实施过程补充 · 存量整改子批 4 · `libs` `tests` 收尾（一）· `db/` + `core/` + `ops/`（签名单轮，2026-09-30） <a id="batch4-libs-tests-1"></a>
+
+**范围**：`bms_core` **`tests`** 三目录共 **137 处 / 36 文件**（`db/` 59 / `core/` 41 / `ops/` 37），外加 §30「测试连接泄漏清理」引入而**未入基线**的 3 处 `_OPEN_ENGINES: list[EngineRegistry]`（`tests/config/test_config_real.py` 与 `tests/listing/test_query_scheme_store.py` 各 1、`services/platform/tests/dict/test_dict_real.py` 1）一并落插入序集合类。按交接单 §7 第 1 项「`libs` `tests` 收尾」首项推进。
+
+**动作**（按位置归并）：
+
+1. **测试替身 / 辅助函数签名与局部量**：`_Source` / `_StubClient` / `_Recorder` / `_LogCapture` 等替身的 `tenants` / `responses` / `calls` / `messages` 等字段与参数、各辅助函数返回（`Sequence` / `list` / `dict` / `frozenset`）全落 `ConcurrentStableList` / `ConcurrentStableDict` / `ConcurrentStableSet`；写用法 `append` → `add`、`extend` → `update`、`x[k] = v` → `set`。
+2. **框架端点返回注解（保留内置 + 行级标记）**：`db/` 侧 24 处 FastAPI 端点返回注解保持内置 `dict[...]`，加行级标记 `# bare-collections:allow（FastAPI 端点返回注解）`（超 120 列者标记单独成行）。最小复现证实：端点返回注解落集合类会在**路由注册期**直接抛 `FastAPIError: Invalid args for response field`（非序列化期问题），故不落集合类。
+3. **第三方 / 外部 IO 边界（调用处显式转换）**：httpx `headers=dict(headers) if headers else {}`；`json.dumps({"data": dict(payload)})`；`yaml.safe_load(...)` 产物入口包 `ConcurrentStableDict`；sqlalchemy `create_all(tables=list(_TABLES))`；`response.json()` 返回包 `ConcurrentStableDict`。
+4. **未入基线的 3 处 `_OPEN_ENGINES`**：`list[EngineRegistry]` → `ConcurrentStableList[EngineRegistry]`；`while _OPEN_ENGINES: await _OPEN_ENGINES.pop().aclose()`（集合类无 `pop`）改「复制遍历 `aclose` + `clear()`」。
+5. **集合类无索引赋值 / 删除**：`tests/core/test_service_catalog_startup.py` 的 `records[i] = ...` / `del records[i]` 改「按插入序 `enumerate` 重建」。
+
+**验证**：
+
+| 项 | 命令 | 结果 |
+| --- | --- | --- |
+| 全量 `libs` | `pytest libs/bms_core/tests` | **1099 passed / 37 skipped** |
+| 平台 `dict` | `pytest services/platform/tests/dict` | **18 passed** |
+| 静态检查 | `ruff check .` / `ruff format --check .`（backend 全量） | 全绿（957 文件） |
+| 护栏 | `check-bare-collections.py .` | **「新增 0 / 残留 0」**；`libs` `tests` `db/` **59 → 0**、`core/` **41 → 0**、`ops/` **37 → 0** |
+| 基线递减 | `--update-baseline` | **901 → 764**（`libs` 271 → 134 / `services` 304 / `scripts/tools` 223 / `ops` 103） |
+| 本地预检 | `check-preflight.py --fast` | **全部通过**（含契约 / 事件契约 / 网关 / 前端 `api-types` 零漂移） |
+
+**过程处置（已闭环）**：① `frozenset` 落 `ConcurrentStableSet`（按设计 §3.1 集合语义映射；`tests/core/test_tenant_id_naming.py::_fields` 的返回值被 `{...} <= names` 断言，落 `List` 会因缺 `__ge__` 抛 `TypeError`）；② 集合类无 `pop` / `clear`（dict）与索引赋值 → 分别改复制遍历 / 逐键取走 / 按插入序重建；③ 端点返回注解落集合类在**路由注册期**即失败，保留内置 + 行级标记。
+
+**偏差（水位口径修正）**：§30 引入的 3 处 `_OPEN_ENGINES` 未落集合类、也未递减基线，致本轮开工前护栏实测 **3 项新增**（实际命中 904 而非基线 901）。经用户拍板本轮一并整改，清零后 `--update-baseline` 使基线由 **901 → 764**；三目录 137 处与未入基线 3 处合计清零 **140 处**。
+
+**遗留**：全局剩余 **764 处**（`libs` `tests` 134 / `services` 304 / `scripts/tools` 223 / `ops` 103）。`libs` `tests` 其余目录（`idp` 18 / `crosscut` 17 / `servicecall` 14 / `api` 9 / `captcha` 9 / `outbox` 6 / `repositories` 5 / `saga` 5 / `tracing` 5 / `alembic` 4 / `integration` 4 …）续推，随后进 `services`（批次 2）/ `scripts/tools`（批次 3）+ `ops`。
