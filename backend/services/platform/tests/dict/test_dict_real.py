@@ -156,7 +156,27 @@ async def dict_client(dict_db_url: str) -> AsyncIterator[AsyncClient]:
     app.dependency_overrides[get_query_provider_registry] = lambda: registry
     async with lifespan(app), AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         client.headers.update(auth_headers())
-        yield client
+        try:
+            yield client
+        finally:
+            # 该注册表为依赖覆盖专用、未挂应用资源生命周期：用例结束显式释放，避免连接被 GC 时事件循环已关闭
+            await engines.aclose()
+
+
+_OPEN_ENGINES: list[EngineRegistry] = []
+"""用例内构造的引擎注册表（用例结束统一 `aclose`，避免连接在事件循环关闭后被 GC）。"""
+
+
+@pytest.fixture(autouse=True)
+async def _close_open_engines() -> AsyncIterator[None]:
+    """用例结束释放本模块内构造的引擎注册表。
+
+    Yields:
+        None: 用例运行期。
+    """
+    yield
+    while _OPEN_ENGINES:
+        await _OPEN_ENGINES.pop().aclose()
 
 
 def _engines() -> EngineRegistry:
@@ -165,7 +185,9 @@ def _engines() -> EngineRegistry:
     Returns:
         EngineRegistry: 引擎注册表。
     """
-    return EngineRegistry(EngineFactory(get_settings()))
+    registry = EngineRegistry(EngineFactory(get_settings()))
+    _OPEN_ENGINES.append(registry)
+    return registry
 
 
 async def _seed(dict_db_url: str) -> None:

@@ -9,7 +9,7 @@
 
 import json
 import sqlite3
-from collections.abc import Iterator
+from collections.abc import AsyncIterator, Iterator
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -85,13 +85,31 @@ def config_db_url(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[s
     get_settings.cache_clear()
 
 
+_OPEN_ENGINES: list[EngineRegistry] = []
+"""用例内构造的引擎注册表（用例结束统一 `aclose`，避免连接在事件循环关闭后被 GC）。"""
+
+
+@pytest.fixture(autouse=True)
+async def _close_open_engines() -> AsyncIterator[None]:
+    """用例结束释放本模块内构造的引擎注册表。
+
+    Yields:
+        None: 用例运行期。
+    """
+    yield
+    while _OPEN_ENGINES:
+        await _OPEN_ENGINES.pop().aclose()
+
+
 def _engines() -> EngineRegistry:
     """构造引擎注册表（取覆盖后的配置）。
 
     Returns:
         EngineRegistry: 引擎注册表。
     """
-    return EngineRegistry(EngineFactory(get_settings()))
+    registry = EngineRegistry(EngineFactory(get_settings()))
+    _OPEN_ENGINES.append(registry)
+    return registry
 
 
 async def _seed(url: str) -> None:
@@ -177,7 +195,9 @@ def _broken_engines() -> EngineRegistry:
     """
     settings = get_settings().model_copy(deep=True)
     settings.database.tenants.url = "sqlite+aiosqlite:////nonexistent-dir/config_broken.db"
-    return EngineRegistry(EngineFactory(settings))
+    registry = EngineRegistry(EngineFactory(settings))
+    _OPEN_ENGINES.append(registry)
+    return registry
 
 
 @pytest.mark.kiwi_id(2207)
