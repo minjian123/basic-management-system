@@ -27,6 +27,7 @@ from bms_core.boundary.exceptions import (
 from bms_core.boundary.null import NullDataOwnershipGuard
 from bms_core.boundary.sql import analyze, extract_tables, operation_of
 from bms_core.boundary.table import TableOwnershipGuard
+from bms_core.core.concurrent import ConcurrentStableSet
 from bms_core.core.exceptions import ConfigError, DataOwnershipError
 from bms_core.metrics.null import NullMetrics
 
@@ -118,9 +119,9 @@ def test_exceptions_load_and_validate(tmp_path: Path) -> None:
 
     problems = validate_exceptions(
         (_exception(service="unknown_svc"), _exception(target_prefix="zzz_"), _exception(exit="bad")),
-        known_tables=frozenset({"org_item"}),
-        known_prefixes=frozenset({"org_"}),
-        known_services=frozenset({"report"}),
+        known_tables=ConcurrentStableSet({"org_item"}),
+        known_prefixes=ConcurrentStableSet({"org_"}),
+        known_services=ConcurrentStableSet({"report"}),
     )
     assert any("service" in item for item in problems)
     assert any("目标" in item for item in problems)
@@ -194,9 +195,9 @@ def test_validate_exceptions_prefix_and_date() -> None:
     """前缀未登记与登记日期格式非法。"""
     problems = validate_exceptions(
         (_exception(target_prefix="zzz_"), _exception(registered_at="2026/09/23")),
-        known_tables=frozenset({"org_item"}),
-        known_prefixes=frozenset({"org_"}),
-        known_services=frozenset({"report"}),
+        known_tables=ConcurrentStableSet({"org_item"}),
+        known_prefixes=ConcurrentStableSet({"org_"}),
+        known_services=ConcurrentStableSet({"report"}),
     )
     assert any("目标" in item for item in problems)
     assert any("registered_at" in item for item in problems)

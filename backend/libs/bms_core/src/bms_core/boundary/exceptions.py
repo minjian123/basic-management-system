@@ -1,4 +1,4 @@
-"""读侧出口例外登记：白名单契约 + 加载 / 校验 / 匹配（仅标准库；静态校验与运行时守卫同源）。
+"""读侧出口例外登记：白名单契约 + 加载 / 校验 / 匹配（仅标准库与集合体系「无依赖面」；静态校验与运行时守卫同源）。
 
 - `OwnershipException`：一条例外登记（消费方服务 / 目标表名或前缀 / 访问类型 / 出口 / 消费方 /
   理由 / 替代方案评估 / 失效条件 / 登记日期）。
@@ -18,6 +18,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import ClassVar, cast
 
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.objects import BaseOwnershipContract
 
 __all__ = [
@@ -104,12 +105,12 @@ def _parse_exception(item: object, index: int) -> OwnershipException:
     if not isinstance(item, dict):
         raise ValueError(f"例外登记第 {index} 条须为对象")
     fields = cast("dict[object, object]", item)
-    values: dict[str, str] = {}
+    values: ConcurrentStableDict[str, str] = ConcurrentStableDict()
     for field in _REQUIRED_FIELDS:
         raw = fields.get(field)
         if not isinstance(raw, str) or not raw.strip():
             raise ValueError(f"例外登记第 {index} 条字段缺失或为空：{field}")
-        values[field] = raw.strip()
+        values.set(field, raw.strip())
     if values["access"] != EXCEPTION_ACCESS:
         raise ValueError(f"例外登记第 {index} 条 access 只允许 {EXCEPTION_ACCESS!r}（写侧硬禁无例外）")
     return OwnershipException(
@@ -158,10 +159,10 @@ def load_exceptions(path: Path) -> tuple[OwnershipException, ...]:
 def validate_exceptions(
     entries: Iterable[OwnershipException],
     *,
-    known_tables: frozenset[str],
-    known_prefixes: frozenset[str],
-    known_services: frozenset[str],
-) -> list[str]:
+    known_tables: ConcurrentStableSet[str],
+    known_prefixes: ConcurrentStableSet[str],
+    known_services: ConcurrentStableSet[str],
+) -> ConcurrentStableList[str]:
     """语义校验例外登记（服务 / 目标 / 出口 / 日期）。
 
     Args:
@@ -171,18 +172,18 @@ def validate_exceptions(
         known_services: 服务目录登记标识。
 
     Returns:
-        list[str]: 违规明细（空列表表示通过）。
+        ConcurrentStableList[str]: 违规明细（空列表表示通过）。
     """
-    problems: list[str] = []
+    problems: ConcurrentStableList[str] = ConcurrentStableList()
     for entry in entries:
         if entry.service not in known_services:
-            problems.append(f"[例外登记] service 未在服务目录：{entry.service}")
+            problems.add(f"[例外登记] service 未在服务目录：{entry.service}")
         if entry.target_prefix not in known_tables and entry.target_prefix not in known_prefixes:
-            problems.append(f"[例外登记] 目标既非已登记表名也非已知前缀：{entry.target_prefix}")
+            problems.add(f"[例外登记] 目标既非已登记表名也非已知前缀：{entry.target_prefix}")
         if entry.exit not in EXCEPTION_EXITS:
-            problems.append(f"[例外登记] exit 非法：{entry.exit}（允许 {'、'.join(EXCEPTION_EXITS)}）")
+            problems.add(f"[例外登记] exit 非法：{entry.exit}（允许 {'、'.join(EXCEPTION_EXITS)}）")
         if not _DATE_RE.fullmatch(entry.registered_at):
-            problems.append(f"[例外登记] registered_at 须为 YYYY-MM-DD：{entry.registered_at}")
+            problems.add(f"[例外登记] registered_at 须为 YYYY-MM-DD：{entry.registered_at}")
     return problems
 
 

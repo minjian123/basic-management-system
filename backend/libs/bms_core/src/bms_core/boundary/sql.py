@@ -1,4 +1,4 @@
-"""原始 SQL 的表名与操作提取（仅标准库；静态校验与运行时守卫同源复用）。
+"""原始 SQL 的表名与操作提取（仅标准库与集合体系「无依赖面」；静态校验与运行时守卫同源复用）。
 
 - `operation_of`：语句操作归类（read / write / ddl / unknown）。
 - `extract_tables`：提取语句涉及的表名（去注释 / 去标识符引号 / schema 限定取末段）。
@@ -10,15 +10,20 @@
 import re
 from dataclasses import dataclass
 
+from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.objects import BaseValueObject
 
 __all__ = ["TableRef", "analyze", "extract_tables", "operation_of"]
 
-_READ_KEYWORDS: frozenset[str] = frozenset({"select", "with"})
-_WRITE_KEYWORDS: frozenset[str] = frozenset({"insert", "update", "delete", "replace", "merge", "upsert"})
-_DDL_KEYWORDS: frozenset[str] = frozenset({"create", "drop", "alter", "truncate", "rename", "comment"})
+_READ_KEYWORDS: ConcurrentStableSet[str] = ConcurrentStableSet({"select", "with"})
+_WRITE_KEYWORDS: ConcurrentStableSet[str] = ConcurrentStableSet(
+    {"insert", "update", "delete", "replace", "merge", "upsert"}
+)
+_DDL_KEYWORDS: ConcurrentStableSet[str] = ConcurrentStableSet(
+    {"create", "drop", "alter", "truncate", "rename", "comment"}
+)
 
-_IGNORED_TABLES: frozenset[str] = frozenset(
+_IGNORED_TABLES: ConcurrentStableSet[str] = ConcurrentStableSet(
     {"select", "where", "set", "values", "on", "as", "dual", "only", "lateral", "from", "join"}
 )
 """非表名 token（子查询 / 关键字误命中防护）。"""
@@ -91,13 +96,13 @@ def extract_tables(statement: str) -> tuple[str, ...]:
         tuple[str, ...]: 表名元组（小写；schema 限定取末段）。
     """
     cleaned = _clean(statement)
-    found: list[str] = []
+    found: ConcurrentStableList[str] = ConcurrentStableList()
     for pattern in _TABLE_PATTERNS:
         for raw in pattern.findall(cleaned):
             table = raw.split(".")[-1].lower()
             if table in _IGNORED_TABLES or table in found:
                 continue
-            found.append(table)
+            found.add(table)
     return tuple(found)
 
 

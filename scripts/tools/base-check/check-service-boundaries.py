@@ -54,6 +54,7 @@ from bms_core.boundary.exceptions import (  # noqa: E402
     validate_exceptions,
 )
 from bms_core.boundary.sql import analyze, operation_of  # noqa: E402
+from bms_core.core.concurrent import ConcurrentStableList  # noqa: E402
 
 ROOT = Path(sys.argv[1] if len(sys.argv) > 1 and not sys.argv[1].startswith("-") else ".").resolve()
 
@@ -314,17 +315,17 @@ def _assess(service: str, table: str, operation: str, exceptions: tuple[Ownershi
     return assess_table(table, service=service, operation=operation, exceptions=exceptions)
 
 
-def _load_exceptions() -> tuple[tuple[OwnershipException, ...], list[str]]:
+def _load_exceptions() -> tuple[tuple[OwnershipException, ...], ConcurrentStableList[str]]:
     """载入并校验例外白名单。
 
     Returns:
-        tuple[tuple[OwnershipException, ...], list[str]]: （例外条目, 校验问题）。
+        tuple[tuple[OwnershipException, ...], ConcurrentStableList[str]]: （例外条目, 校验问题）。
     """
     path = ROOT / DEFAULT_EXCEPTIONS_RELATIVE
     try:
         entries = load_exceptions(path)
     except ValueError as exc:
-        return (), [f"[例外登记] {exc}"]
+        return (), ConcurrentStableList([f"[例外登记] {exc}"])
     problems_ = validate_exceptions(
         entries,
         known_tables=registered_tables(),

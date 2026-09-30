@@ -15,6 +15,7 @@ from typing import ClassVar
 from bms_core.boundary.directory import OWNER_EVERY_SERVICE, table_owner, table_prefix_of
 from bms_core.boundary.exceptions import OwnershipException, exception_allows
 from bms_core.boundary.sql import analyze
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.objects import BaseOwnershipContract
 
 __all__ = ["OwnershipViolation", "assess_statement", "assess_table"]
@@ -90,9 +91,9 @@ def assess_statement(
     Returns:
         tuple[OwnershipViolation, ...]: 越界项（无越界返回空元组）。
     """
-    violations: list[OwnershipViolation] = []
+    violations: ConcurrentStableList[OwnershipViolation] = ConcurrentStableList()
     for ref in analyze(statement):
         violation = assess_table(ref.table, service=service, operation=ref.operation, exceptions=exceptions)
         if violation is not None:
-            violations.append(violation)
+            violations.add(violation)
     return tuple(violations)
