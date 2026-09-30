@@ -540,3 +540,33 @@ flowchart LR
 **过程处置（已闭环）**：① 框架边界容器无法落集合类（Starlette `State.__setattr__` / FastAPI 绑定与序列化）→ 引入行级标记豁免并登记规范与清单；② 标记使长声明行超 120 列 → 豁免逻辑兼容「紧邻上一行」注释形态；③ `mount_service_routers` 入参收窄 → 9 服务路由聚合 + 1 测试调用点包 `ConcurrentStableList`。
 
 **遗留**：`api/` 模块归零（框架边界经标记豁免）；`bms_core` 剩余 **447 处**（`libs`：`tests` 278 / `core` 27 / `boundary` 18 / `outbox` 10 / `schemas` 10 / `security` 9 / `fieldtype` 7 / `tracing` 7 …），按交接单 §7 第 1 项续推（其余 `libs` 与 `tests` 收尾）。
+
+## 22. 实施过程补充 · 存量整改子批 3 · `core/` 模块（签名单轮，2026-09-30） <a id="batch3-core"></a>
+
+**范围**：`bms_core` `core/` 模块 **27 处**（`plugin.py` 12 / `assembly.py` 3 / `logging.py` 3 / `base.py` 2 / `config.py` 2 / `factory.py` 1 / `provider.py` 1 / `resources.py` 1 / `objects/tally.py` 1 / `serialization.py` 1）。按交接单 §7 第 1 项「其余 `libs`」续项推进。
+
+**动作**：
+
+1. **插件机制（`plugin.py`）**：`PluginRegistry` 的 `_candidates` / `_explicit` 落 `ConcurrentStableList`、`_instances` / `_plugins` 落 `ConcurrentStableDict`；`build` / `snapshot` / `build_plugin_registry` / `plugin_registry_snapshot` 返回落 `ConcurrentStableDict[str, ConcurrentStableDict[str, PluginImpl]]`（原 `MappingProxyType` 只读视图改为集合类）；`_add_entry` 的 `registry` / `errors` 参数与局部同型（`setdefault` → `get` + `set`、`append` → `add`）。build 重建时逐键 `get_and_remove` 清实例缓存。
+2. **装配（`assembly.py`）**：`_PREPARED_REGISTRIES` 落 `ConcurrentStableList`（`append` → `add`）；`assemble_plugins` 返回与局部 `providers` 落 `ConcurrentStableDict[str, str]`（`[]=` → `set`）。
+3. **日志（`logging.py`）**：`StdoutLogger._fields` 落 `ConcurrentStableDict`；`_emit` 入参落 `ConcurrentStableDict`（6 个级别方法构造点包集合类）；`_build_processors` 返回落 `ConcurrentStableList[Processor]`。
+4. **根基类（`base.py`）**：`BaseObject.to_dict` / `_public_fields` 返回落 `ConcurrentStableDict[str, object]`；`__str__` 改 `dict(self.to_dict())` 保持展示形态；**运行期成环**（`core.concurrent → core.base`）→ 对 `core.concurrent` 走 **`TYPE_CHECKING` + 使用处延迟导入**，返回注解用**字符串前向引用**（`# noqa: UP037`）。
+5. **配置（`config.py`）**：`_summarize` 的 `lines` 落 `ConcurrentStableList[str]`；**框架边界** pydantic-settings 配置源 `_EnvSelectorSource.__call__` 返回保持内置 `dict`（`deep_update` 依赖 `dict.copy`）→ 行级标记 `# bare-collections:allow`。
+6. **其余**：`factory.py::_FACTORY_IMPLS`、`provider.py::BaseProviderRegistry._providers` 落 `ConcurrentStableDict`（`[]=` → `set`）；`resources.py::ResourceManager._resources` 落 `ConcurrentStableList`（逆序回收改「取末位 → `remove`」）；`objects/tally.py::BaseTallyContract.counts` 落 `ConcurrentStableDict`（`core/objects/*` 对 `core.concurrent` 走 `TYPE_CHECKING` + 延迟导入）；`serialization.py::stringify_ids` 的映射分支改**生成器**（新增 `_stringify_entry` 助手）消除带注解局部列表，**保持该模块「不反向 import 集合体系」**的既有约束。
+
+**验证**：
+
+| 项 | 命令 | 结果 |
+| --- | --- | --- |
+| 全量 `libs` | `pytest libs/bms_core/tests` | **1099 passed / 37 skipped** |
+| 全量 `services` | `pytest services` | **787 passed / 3 skipped / 1 failed**（既有 red，见偏差） |
+| 静态检查 | `ruff check .` / `ruff format --check .`（backend 全量） | 全绿（957 文件） |
+| 护栏 | `check-bare-collections.py .`（+ `--self-test`） | **「新增 0 / 残留 0」**；`core/` **27 → 0**；自测 25 项全通过 |
+| 基线递减 | `--update-baseline` | **1098 → 1071**（`libs` 447 → 420） |
+| 本地预检 | `check-preflight.py --fast` | **全部通过**（含契约 / 事件契约 / 网关 / 前端 `api-types` 零漂移） |
+
+**偏差（既有 red，非本轮引入）**：`services/platform/tests/dict/test_dict_real.py::test_http_endpoints`（`query-providers` 的 `model_dump` 序列化出口）仍为既有 red，本轮未扩大；另轮单独修。
+
+**过程处置（暴露并修复）**：① `BaseObject.to_dict` 返回集合类后 `str()` 展示形态变化 → `__str__` 改 `dict(self.to_dict())` 复原；② `core/base.py` 顶层 import `core.concurrent` 触发**运行期导入成环**（`core.concurrent → core.base`）→ 改 `TYPE_CHECKING` + 使用处延迟导入 + 字符串前向引用；③ pydantic-settings 配置源 `__call__` 返回集合类触发 `deep_update` 的 `dict.copy` `AttributeError`（首次全量 `libs` 实测 **186 失败**）→ 按**框架边界豁免**保留内置 dict。**框架边界豁免类别随之扩展**：除 Starlette / FastAPI 外增列 **pydantic-settings 配置源契约**（规范 / 清单 / 交接单已同步）。
+
+**遗留**：`core/` 模块归零（`config` 一处框架边界经标记豁免）；`bms_core` 剩余 **420 处**（`libs`：`tests` 278 / `boundary` 18 / `outbox` 10 / `schemas` 10 / `security` 9 / `fieldtype` 7 / `tracing` 7 …），按交接单 §7 第 1 项续推。
