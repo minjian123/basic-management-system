@@ -1,8 +1,7 @@
 """query 能力域缺省实现（Null Object）：占位返回、无副作用（02-3 自 bms_core.query.base.py 迁入）。"""
 
-from collections.abc import Mapping
-
 from bms_core.core.capability import BaseNullObject
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.query.base import BaseQueryProvider, BaseQueryProviderRegistry, QueryResult
 
 __all__ = [
@@ -31,7 +30,7 @@ class NullQueryProvider(BaseQueryProvider, BaseNullObject):
         """
         return f"查询提供者 {self.key}（占位实现）"
 
-    async def query(self, params: Mapping[str, object]) -> QueryResult:
+    async def query(self, params: ConcurrentStableDict[str, object]) -> QueryResult:
         """恒定返回空结果。
 
         Args:
@@ -58,7 +57,7 @@ class NullQueryProviderRegistry(BaseQueryProviderRegistry, BaseNullObject):
         """
         return provider.key
 
-    async def query(self, key: str, params: Mapping[str, object]) -> QueryResult:
+    async def query(self, key: str, params: ConcurrentStableDict[str, object]) -> QueryResult:
         """固定返回空结果（占位不抛错、不执行 SQL）。
 
         Args:

@@ -23,14 +23,14 @@
 """
 
 from abc import ABC, abstractmethod
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from typing import Annotated, cast
 
 from fastapi import Request
 from pydantic import Field
 
 from bms_core.cache.base import CacheRegion
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 from bms_core.i18n.base import DEFAULT_LOCALE
@@ -168,14 +168,14 @@ class BaseDictTranslator(BasePluggable, ABC):
     contract_version: str = DEFAULT_CONTRACT_VERSION
 
     @abstractmethod
-    async def translate(self, query: DictTranslateQuery) -> Mapping[str, str]:
+    async def translate(self, query: DictTranslateQuery) -> ConcurrentStableDict[str, str]:
         """按 value 批量翻译为 label（当前 locale）。
 
         Args:
             query: 翻译参数对象。
 
         Returns:
-            Mapping[str, str]: value → label；未命中 value 回退原值（由实现定义）。
+            ConcurrentStableDict[str, str]: value → label；未命中 value 回退原值（由实现定义）。
         """
 
 
@@ -296,8 +296,8 @@ class DictCacheRegion(CacheRegion, ABC):
         tenant: str | None,
         locale: str,
         dict_type: str,
-        values: Sequence[str],
-    ) -> Mapping[str, str]:
+        values: ConcurrentStableList[str],
+    ) -> ConcurrentStableDict[str, str]:
         """读按值子集缓存（异步；缺省回退同步实现）。
 
         Args:
@@ -307,16 +307,16 @@ class DictCacheRegion(CacheRegion, ABC):
             values: 待查 value 序列。
 
         Returns:
-            Mapping[str, str]: value → label（仅命中项）。
+            ConcurrentStableDict[str, str]: value → label（仅命中项）。
         """
         cached = self.get(self.value_key(tenant, locale, dict_type))
         if not isinstance(cached, Mapping):
-            return {}
+            return ConcurrentStableDict()
         payload = cast("Mapping[str, object]", cached)
-        result: dict[str, str] = {}
+        result: ConcurrentStableDict[str, str] = ConcurrentStableDict()
         for value in values:
             if value in payload:
-                result[value] = str(payload[value])
+                result.set(value, str(payload[value]))
         return result
 
     async def aset_value_subset(
@@ -324,7 +324,7 @@ class DictCacheRegion(CacheRegion, ABC):
         tenant: str | None,
         locale: str,
         dict_type: str,
-        mapping: Mapping[str, str],
+        mapping: ConcurrentStableDict[str, str],
     ) -> None:
         """回填按值子集缓存（异步；与既有映射合并后整体写入）。
 
@@ -336,12 +336,12 @@ class DictCacheRegion(CacheRegion, ABC):
         """
         key = self.value_key(tenant, locale, dict_type)
         current = self.get(key)
-        merged: dict[str, str] = {}
+        merged: ConcurrentStableDict[str, str] = ConcurrentStableDict()
         if isinstance(current, Mapping):
             payload = cast("Mapping[str, object]", current)
-            merged.update({str(item): str(label) for item, label in payload.items()})
-        merged.update({str(item): str(label) for item, label in mapping.items()})
-        self.set(key, merged)
+            merged.update((str(item), str(label)) for item, label in payload.items())
+        merged.update((str(item), str(label)) for item, label in mapping.items())
+        self.set(key, dict(merged))
 
     async def aversion(self, tenant: str | None) -> int:
         """读全局版本号（异步；缺省回退同步实现）。

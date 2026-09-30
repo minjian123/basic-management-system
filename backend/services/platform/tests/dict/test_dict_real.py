@@ -27,6 +27,7 @@ from bms_core.api.deps import (
     get_query_provider_registry,
 )
 from bms_core.application import service_lifespan as lifespan
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import get_settings
 from bms_core.core.context import current_tenant_context_var
 from bms_core.core.exceptions import BizError, ParamError
@@ -320,7 +321,9 @@ async def test_translate_subset_and_write_path(dict_db_url: str) -> None:
     try:
         mapping = await translator.translate(DictTranslateQuery(dict_type="user_status", values=("enabled", "ghost")))
         assert mapping == {"enabled": "启用"}
-        subset = await cache.avalue_subset(DEMO_TENANT_ID, "zh-CN", "user_status", ("enabled", "ghost"))
+        subset = await cache.avalue_subset(
+            DEMO_TENANT_ID, "zh-CN", "user_status", ConcurrentStableList(("enabled", "ghost"))
+        )
         assert subset == {"enabled": "启用"}
 
         created_type = await service.create_type(DictTypePayload(type="demo_status", name="演示状态"))
@@ -493,8 +496,10 @@ async def test_redis_cache_region_with_fake_client() -> None:
     assert await region.aincrease_version(None) == 1
     assert await region.aincrease_version(None) == 2
     assert await region.aversion(None) == 2
-    await region.aset_value_subset(None, "zh-CN", "user_status", {"enabled": "启用"})
-    assert await region.avalue_subset(None, "zh-CN", "user_status", ("enabled",)) == {"enabled": "启用"}
+    await region.aset_value_subset(None, "zh-CN", "user_status", ConcurrentStableDict({"enabled": "启用"}))
+    assert await region.avalue_subset(None, "zh-CN", "user_status", ConcurrentStableList(("enabled",))) == {
+        "enabled": "启用"
+    }
     await region.adrop_type(None, "zh-CN", "user_status")
     assert await region.aget_type(None, "zh-CN", "user_status") is None
     token = "t1"

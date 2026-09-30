@@ -9,6 +9,7 @@ import pytest
 
 from bms_core.core.assembly import register_platform_plugins
 from bms_core.core.base import BaseObject
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.config import Settings, get_settings
 from bms_core.core.plugin import PluginImpl, build_plugin_registry
 from bms_core.dashboard.base import BaseDashboardCardProvider, BaseDashboardCardRegistry
@@ -149,7 +150,7 @@ class DictQueryProvider(BaseQueryProvider):
         """
         return f"查询提供者 {self.key}"
 
-    async def query(self, params: Mapping[str, object]) -> QueryResult:
+    async def query(self, params: ConcurrentStableDict[str, object]) -> QueryResult:
         """返回空结果。
 
         Args:

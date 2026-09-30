@@ -10,7 +10,7 @@
 """
 
 import asyncio
-from collections.abc import AsyncGenerator, Mapping, Sequence
+from collections.abc import AsyncGenerator, Mapping
 from contextlib import asynccontextmanager
 from contextvars import ContextVar
 from typing import cast
@@ -18,7 +18,7 @@ from uuid import uuid4
 
 from sqlalchemy import ColumnElement, and_, func, or_, select
 
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.error_codes import ErrorCode
 from bms_core.core.exceptions import BizError
 from bms_core.core.logging import get_logger
@@ -121,7 +121,7 @@ class SqlDictSource(BaseDictSource):
         result = DictTypeResult(version=version, items=tuple(items), has_more=has_more, total=total)
         cacheable_write = not filtered and (query.limit is None or not has_more)
         if cacheable_write:
-            await self._cache.aset_type(tenant, locale, query.dict_type, _snapshot_payload(result))
+            await self._cache.aset_type(tenant, locale, query.dict_type, dict(_snapshot_payload(result)))
         return result
 
     async def batch(self, query: DictBatchQuery) -> DictBatchResult:
@@ -141,33 +141,33 @@ class SqlDictSource(BaseDictSource):
         types = list(dict.fromkeys(query.types))
         tenant = current_tenant_id_str()
         version = await self._cache.aversion(tenant)
-        results: dict[str, DictTypeResult | None] = {}
-        pending: list[str] = []
+        results: ConcurrentStableDict[str, DictTypeResult | None] = ConcurrentStableDict()
+        pending: ConcurrentStableList[str] = ConcurrentStableList()
         for name in types:
             if query.version is not None and query.version == version:
-                results[name] = None
+                results.set(name, None)
                 continue
             snapshot = _cache_snapshot(await self._cache.aget_type(tenant, locale, name), version)
             if snapshot is not None:
-                results[name] = snapshot
+                results.set(name, snapshot)
             else:
-                pending.append(name)
+                pending.add(name)
         if pending:
             pages = await self._load_batch_pages(pending, locale)
             for name in pending:
-                items, total = pages.get(name, ([], 0))
+                items, total = pages.get(name, (ConcurrentStableList(), 0))
                 has_more = len(items) > DICT_PROBE_LIMIT
                 trimmed = items[:DICT_PROBE_LIMIT]
                 result = DictTypeResult(version=version, items=tuple(trimmed), has_more=has_more, total=total)
-                results[name] = result
-                await self._cache.aset_type(tenant, locale, name, _snapshot_payload(result))
-        return DictBatchResult(version=version, items=ConcurrentStableDict(results))
+                results.set(name, result)
+                await self._cache.aset_type(tenant, locale, name, dict(_snapshot_payload(result)))
+        return DictBatchResult(version=version, items=results)
 
     async def _load_type_page(
         self,
         query: DictQuery,
         locale: str,
-    ) -> tuple[list[DictItem], int, bool]:
+    ) -> tuple[ConcurrentStableList[DictItem], int, bool]:
         """查租户库单类型页（类型存在性校验 + 探针截断）。
 
         Args:
@@ -175,7 +175,7 @@ class SqlDictSource(BaseDictSource):
             locale: 语言。
 
         Returns:
-            tuple[list[DictItem], int, bool]: 条目 / 总数 / 是否截断。
+            tuple[ConcurrentStableList[DictItem], int, bool]: 条目 / 总数 / 是否截断。
 
         Raises:
             BizError: 40102 类型不存在 / 40101 数据源不可用。
@@ -194,9 +194,9 @@ class SqlDictSource(BaseDictSource):
 
     async def _load_batch_pages(
         self,
-        types: Sequence[str],
+        types: ConcurrentStableList[str],
         locale: str,
-    ) -> dict[str, tuple[list[DictItem], int]]:
+    ) -> ConcurrentStableDict[str, tuple[ConcurrentStableList[DictItem], int]]:
         """批量查租户库（一次查询按类型分组）。
 
         Args:
@@ -204,7 +204,7 @@ class SqlDictSource(BaseDictSource):
             locale: 语言。
 
         Returns:
-            dict[str, tuple[list[DictItem], int]]: 类型 → (条目, 总数)。
+            ConcurrentStableDict[str, tuple[ConcurrentStableList[DictItem], int]]: 类型 → (条目, 总数)。
 
         Raises:
             BizError: 40101 数据源不可用。
@@ -246,34 +246,37 @@ class SqlDictTranslator(BaseDictTranslator):
         self._engines = engines
         self._cache = cache or MemoryDictCacheRegion()
 
-    async def translate(self, query: DictTranslateQuery) -> Mapping[str, str]:
+    async def translate(self, query: DictTranslateQuery) -> ConcurrentStableDict[str, str]:
         """按 value 批量翻译为 label（当前 locale；未命中不占位）。
 
         Args:
             query: 翻译参数对象。
 
         Returns:
-            Mapping[str, str]: value → label（仅命中项）。
+            ConcurrentStableDict[str, str]: value → label（仅命中项）。
 
         Raises:
             BizError: 40103 语言不支持 / 40101 数据源不可用。
         """
         locale = query.locale or DEFAULT_LOCALE
         _ensure_supported_locale(locale)
-        values = list(dict.fromkeys(query.values))
+        values = ConcurrentStableList(dict.fromkeys(query.values))
         if not values:
-            return {}
+            return ConcurrentStableDict()
         tenant = current_tenant_id_str()
         cached = await self._cache.avalue_subset(tenant, locale, query.dict_type, values)
-        missing = [value for value in values if value not in cached]
+        missing = ConcurrentStableList(value for value in values if value not in cached)
         if missing:
             loaded = await self._load_labels(query.dict_type, locale, missing)
             if loaded:
                 await self._cache.aset_value_subset(tenant, locale, query.dict_type, loaded)
-            cached = {**cached, **loaded}
-        return {value: cached[value] for value in values if value in cached}
+            for key, label in loaded.items():
+                cached.set(key, label)
+        return ConcurrentStableDict((value, cached[value]) for value in values if value in cached)
 
-    async def _load_labels(self, dict_type: str, locale: str, values: Sequence[str]) -> dict[str, str]:
+    async def _load_labels(
+        self, dict_type: str, locale: str, values: ConcurrentStableList[str]
+    ) -> ConcurrentStableDict[str, str]:
         """查租户库缺失 value 的 label（一次 `IN`）。
 
         Args:
@@ -282,7 +285,7 @@ class SqlDictTranslator(BaseDictTranslator):
             values: 缺失 value 序列。
 
         Returns:
-            dict[str, str]: value → label。
+            ConcurrentStableDict[str, str]: value → label。
 
         Raises:
             BizError: 40101 数据源不可用。
@@ -291,7 +294,7 @@ class SqlDictTranslator(BaseDictTranslator):
             async with self._session() as session:
                 type_row = await _load_type(session, dict_type)
                 if type_row is None:
-                    return {}
+                    return ConcurrentStableDict()
                 return await _query_labels(session, type_row.id, locale, values)
         except BizError:
             raise
@@ -332,7 +335,7 @@ async def _query_page(
     type_id: int,
     locale: str,
     query: DictQuery,
-) -> tuple[list[DictItem], int, bool]:
+) -> tuple[ConcurrentStableList[DictItem], int, bool]:
     """单类型条目页查询（`COUNT` + 页查询 + 探针截断）。
 
     Args:
@@ -342,7 +345,7 @@ async def _query_page(
         query: 单类型取数参数。
 
     Returns:
-        tuple[list[DictItem], int, bool]: 条目 / 总数 / 是否截断。
+        tuple[ConcurrentStableList[DictItem], int, bool]: 条目 / 总数 / 是否截断。
     """
     conditions = _item_conditions(type_id, query)
     total = int((await session.execute(select(func.count()).select_from(SysDictItem).where(*conditions))).scalar_one())
@@ -363,15 +366,15 @@ async def _query_page(
     if limit is not None and limit > 0 and len(rows) > limit:
         has_more = True
         rows = rows[:limit]
-    items = [_to_item(item, i18n_label) for item, i18n_label in rows]
+    items = ConcurrentStableList(_to_item(item, i18n_label) for item, i18n_label in rows)
     return items, total, has_more
 
 
 async def _query_batch(
     session: DbSession,
-    types: Sequence[str],
+    types: ConcurrentStableList[str],
     locale: str,
-) -> dict[str, tuple[list[DictItem], int]]:
+) -> ConcurrentStableDict[str, tuple[ConcurrentStableList[DictItem], int]]:
     """多类型条目查询（一次类型查询 + 一次条目查询，按类型分组）。
 
     Args:
@@ -380,7 +383,7 @@ async def _query_batch(
         locale: 语言。
 
     Returns:
-        dict[str, tuple[list[DictItem], int]]: 类型 → (条目, 总数)。
+        ConcurrentStableDict[str, tuple[ConcurrentStableList[DictItem], int]]: 类型 → (条目, 总数)。
     """
     stmt_types = select(SysDictType).where(
         SysDictType.type.in_(tuple(types)),
@@ -389,14 +392,16 @@ async def _query_batch(
     )
     type_rows = list((await session.execute(stmt_types)).scalars().all())
     if not type_rows:
-        return {}
+        return ConcurrentStableDict()
     id_to_type = {row.id: row.type for row in type_rows}
     type_ids = tuple(id_to_type.keys())
-    conditions: list[ColumnElement[bool]] = [
-        SysDictItem.type_id.in_(type_ids),
-        SysDictItem.status == "enabled",
-        SysDictItem.deleted_at.is_(None),
-    ]
+    conditions: ConcurrentStableList[ColumnElement[bool]] = ConcurrentStableList(
+        [
+            SysDictItem.type_id.in_(type_ids),
+            SysDictItem.status == "enabled",
+            SysDictItem.deleted_at.is_(None),
+        ]
+    )
     stmt = (
         select(SysDictItem, SysDictItemI18n.label)
         .outerjoin(
@@ -407,14 +412,16 @@ async def _query_batch(
         .order_by(SysDictItem.type_id, SysDictItem.sort, SysDictItem.id)
     )
     rows = (await session.execute(stmt)).all()
-    pages: dict[str, tuple[list[DictItem], int]] = {name: ([], 0) for name in types}
+    pages: ConcurrentStableDict[str, tuple[ConcurrentStableList[DictItem], int]] = ConcurrentStableDict(
+        {name: (ConcurrentStableList(), 0) for name in types}
+    )
     for item, i18n_label in rows:
         name = id_to_type.get(item.type_id)
         if name is None:
             continue
         items, total = pages[name]
-        items.append(_to_item(item, i18n_label))
-        pages[name] = (items, total + 1)
+        items.add(_to_item(item, i18n_label))
+        pages.set(name, (items, total + 1))
     return pages
 
 
@@ -422,8 +429,8 @@ async def _query_labels(
     session: DbSession,
     type_id: int,
     locale: str,
-    values: Sequence[str],
-) -> dict[str, str]:
+    values: ConcurrentStableList[str],
+) -> ConcurrentStableDict[str, str]:
     """按 value 子集查 label（一次 `IN`，防 N+1）。
 
     Args:
@@ -433,7 +440,7 @@ async def _query_labels(
         values: value 序列。
 
     Returns:
-        dict[str, str]: value → label（仅命中项）。
+        ConcurrentStableDict[str, str]: value → label（仅命中项）。
     """
     stmt = (
         select(SysDictItem.value, SysDictItem.label, SysDictItemI18n.label)
@@ -449,13 +456,13 @@ async def _query_labels(
         )
     )
     rows = (await session.execute(stmt)).all()
-    result: dict[str, str] = {}
+    result: ConcurrentStableDict[str, str] = ConcurrentStableDict()
     for value, label, i18n_label in rows:
-        result[str(value)] = str(i18n_label or label)
+        result.set(str(value), str(i18n_label or label))
     return result
 
 
-def _item_conditions(type_id: int, query: DictQuery) -> list[ColumnElement[bool]]:
+def _item_conditions(type_id: int, query: DictQuery) -> ConcurrentStableList[ColumnElement[bool]]:
     """构造条目过滤条件（状态 / 删除 / 关键字 / 按值子集 / 级联父值）。
 
     Args:
@@ -463,17 +470,19 @@ def _item_conditions(type_id: int, query: DictQuery) -> list[ColumnElement[bool]
         query: 单类型取数参数。
 
     Returns:
-        list[ColumnElement[bool]]: SQLAlchemy 条件列表。
+        ConcurrentStableList[ColumnElement[bool]]: SQLAlchemy 条件列表。
     """
-    conditions: list[ColumnElement[bool]] = [
-        SysDictItem.type_id == type_id,
-        SysDictItem.status == "enabled",
-        SysDictItem.deleted_at.is_(None),
-    ]
+    conditions: ConcurrentStableList[ColumnElement[bool]] = ConcurrentStableList(
+        [
+            SysDictItem.type_id == type_id,
+            SysDictItem.status == "enabled",
+            SysDictItem.deleted_at.is_(None),
+        ]
+    )
     keyword = (query.keyword or "").strip()
     if keyword:
         pattern = f"%{keyword}%"
-        conditions.append(
+        conditions.add(
             or_(
                 SysDictItem.label.like(pattern),
                 SysDictItem.value.like(pattern),
@@ -481,12 +490,12 @@ def _item_conditions(type_id: int, query: DictQuery) -> list[ColumnElement[bool]
             )
         )
     if query.values:
-        conditions.append(SysDictItem.value.in_(tuple(query.values)))
+        conditions.add(SysDictItem.value.in_(tuple(query.values)))
     if query.parent_id is not None:
         if query.parent_id == "":
-            conditions.append(SysDictItem.parent_id.is_(None))
+            conditions.add(SysDictItem.parent_id.is_(None))
         else:
-            conditions.append(SysDictItem.parent_id == query.parent_id)
+            conditions.add(SysDictItem.parent_id == query.parent_id)
     return conditions
 
 
@@ -550,33 +559,35 @@ def _is_filtered(query: DictQuery) -> bool:
     return bool((query.keyword or "").strip()) or bool(query.values) or query.parent_id is not None
 
 
-def _snapshot_payload(result: DictTypeResult) -> dict[str, object]:
+def _snapshot_payload(result: DictTypeResult) -> ConcurrentStableDict[str, object]:
     """结果 → 缓存载荷（JSON 友好）。
 
     Args:
         result: 取数结果。
 
     Returns:
-        dict[str, object]: 缓存载荷。
+        ConcurrentStableDict[str, object]: 缓存载荷（嵌套条目为内置容器，便于缓存层序列化）。
     """
     items = result.items or ()
-    return {
-        "version": result.version,
-        "items": [
-            {
-                "value": item.value,
-                "label": item.label,
-                "code": item.code,
-                "parent_id": item.parent_id,
-                "sort": item.sort,
-                "status": item.status,
-                "color": item.color,
-            }
-            for item in items
-        ],
-        "has_more": result.has_more,
-        "total": result.total,
-    }
+    return ConcurrentStableDict(
+        {
+            "version": result.version,
+            "items": [
+                {
+                    "value": item.value,
+                    "label": item.label,
+                    "code": item.code,
+                    "parent_id": item.parent_id,
+                    "sort": item.sort,
+                    "status": item.status,
+                    "color": item.color,
+                }
+                for item in items
+            ],
+            "has_more": result.has_more,
+            "total": result.total,
+        }
+    )
 
 
 def _cache_snapshot(cached: object, version: int) -> DictTypeResult | None:
@@ -597,14 +608,14 @@ def _cache_snapshot(cached: object, version: int) -> DictTypeResult | None:
     raw_items = payload.get("items")
     if not isinstance(raw_items, list):
         return None
-    items: list[DictItem] = []
+    items: ConcurrentStableList[DictItem] = ConcurrentStableList()
     for raw in cast("list[object]", raw_items):
         if not isinstance(raw, Mapping):
             return None
         row = cast("Mapping[str, object]", raw)
         parent_id = row.get("parent_id")
         color = row.get("color")
-        items.append(
+        items.add(
             DictItem(
                 value=_as_str(row.get("value")),
                 label=_as_str(row.get("label")),

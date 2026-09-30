@@ -6,12 +6,12 @@
 - 数据权限 / 租户过滤由实现侧（会话按租户库）保证；只读约束（不写库）。
 """
 
-from collections.abc import AsyncGenerator, Mapping
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
 from sqlalchemy import and_, func, or_, select
 
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.exceptions import ParamError
 from bms_core.db.registry import EngineRegistry
 from bms_core.db.session import DbSession, session_scope
@@ -79,7 +79,7 @@ class BuiltinDictQueryProvider(BaseQueryProvider):
             ),
         )
 
-    async def query(self, params: Mapping[str, object]) -> QueryResult:
+    async def query(self, params: ConcurrentStableDict[str, object]) -> QueryResult:
         """只读查询字典条目（按类型 + 关键字 + 分页）。
 
         Args:
@@ -138,18 +138,20 @@ class BuiltinDictQueryProvider(BaseQueryProvider):
                 .limit(size)
             )
             rows = (await session.execute(stmt)).all()
-        result_rows: list[dict[str, object]] = []
+        result_rows: ConcurrentStableList[ConcurrentStableDict[str, object]] = ConcurrentStableList()
         for item, i18n_label in rows:
-            result_rows.append(
-                {
-                    "value": item.value,
-                    "label": str(i18n_label or item.label),
-                    "code": item.code,
-                    "parent_id": item.parent_id,
-                    "sort": item.sort,
-                    "status": item.status,
-                    "color": item.color,
-                }
+            result_rows.add(
+                ConcurrentStableDict(
+                    {
+                        "value": item.value,
+                        "label": str(i18n_label or item.label),
+                        "code": item.code,
+                        "parent_id": item.parent_id,
+                        "sort": item.sort,
+                        "status": item.status,
+                        "color": item.color,
+                    }
+                )
             )
         return QueryResult(rows=tuple(result_rows), total=total)
 
