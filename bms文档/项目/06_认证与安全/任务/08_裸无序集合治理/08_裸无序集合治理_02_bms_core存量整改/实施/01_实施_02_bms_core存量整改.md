@@ -766,3 +766,30 @@ flowchart LR
 **过程处置（集合类功能缺口复现）**：`ConcurrentStableDict` **未提供 `clear` / `pop`** → 内存锁 / 内存限流的 `clear()` 改「逐键 `get_and_remove`」、`pop(key, None)` 改 `get_and_remove(key)`；`json.dumps(default=str)` 边界显式 `dict(...)`，否则集合类被 `str()` 化。
 
 **遗留**：`libs` 源侧仅余 **29 处**（`outbox` 10 / `schemas` 10 / `security` 9）；`bms_core` 剩余 **303 处**（`libs`：`tests` 275 / `outbox` 10 / `schemas` 10 / `security` 9；`services` 304 / `scripts/tools` 223 / `ops` 103），按交接单 §7 第 1 项续推。
+
+## 29. 实施过程补充 · 存量整改子批 3 · `libs` 源侧收尾（二）· `outbox/` + `schemas/` + `security/`（源侧归零，2026-09-30） <a id="batch3-libs-src-zero"></a>
+
+**范围**：`bms_core` 源侧最后 **29 处**（`outbox/` 10 / `schemas/` 10 / `security/` 9），外加调用方 / 测试适配（`libs` 测试 `outbox` / `schemas/cursor` / `schemas/filters` / `security/jwt` / `archive` / `repositories` 六份 + `services/platform` 仓库测试 1 份）。按交接单 §7 第 1 项推进——**本轮后 `libs` 源侧归零**。
+
+**动作**：
+
+1. **发件箱（`outbox/`）**：`BaseOutboxStore.claim_pending` 返回落 `ConcurrentStableList[OutboxRecord]`、`list_dead_letters` 返回落 `tuple[ConcurrentStableList[DeadLetterRecord], int]`（`NullOutboxStore` / `SqlOutboxStore` 同步，空返回 `[]` → `ConcurrentStableList()` / `([], 0)` → `(ConcurrentStableList(), 0)`）；`SqlOutboxStore` 局部 `seen` 落 `ConcurrentStableSet[str]`、`claimed` / `conditions` 落 `ConcurrentStableList`（`append` → `add`；`select(...).where(*conditions)` 以序列解包）。
+2. **游标（`schemas/cursor.py`）**：`matches` / `spec_fingerprint` / `encode_cursor` / `decode_cursor_for` 的 `sort`（与 `values`）落 `ConcurrentStableList`（`specs` / `values` 载荷仍为元组——有序不可变，`json.dumps` 出口不变）。
+3. **筛选（`schemas/filters.py`）**：`FilterSpec.serialize` / `serialize_filters` / `BaseFilterQuery.to_query_params` 返回落 `ConcurrentStableDict[str, object]`（局部 `params` 同型；`params.update(spec.serialize())` → `.items()`，`params["keyword"] = …` → `.set(...)`；`filters` 入参落 `ConcurrentStableList`）。
+4. **安全原语（`security/`）**：`BaseTokenCodec.encode(claims)` / `decode()` 落 `ConcurrentStableDict[str, object]`（`NullTokenCodec` 同步）；`JwtTokenCodec` 的 `algorithms` 落 `ConcurrentStableList[str]`、`_signing` / `_signing_algorithms` 落 `ConcurrentStableDict`；`decode` 的 joserfc 出口 `ConcurrentStableDict(decoded.claims)`（`encode` 仍 `dict(claims)` 交 joserfc——第三方边界）。
+5. **§25 补漏**：`tests/archive/test_archive.py` 的 `policy.matches({"id": 1})` 实参补包 `ConcurrentStableDict(...)`（§25 仅改契约签名，运行期兼容的内置字典实参未同步，本轮补齐）。
+
+**验证**：
+
+| 项 | 命令 | 结果 |
+| --- | --- | --- |
+| 全量 `libs` | `pytest libs/bms_core/tests` | **1099 passed / 37 skipped** |
+| 全量 `services` | `pytest services` | **787 passed / 3 skipped / 1 failed**（既有 red，见偏差） |
+| 静态检查 | `ruff check .` / `ruff format --check .`（backend 全量） | 全绿（957 文件） |
+| 护栏 | `check-bare-collections.py .` | **「新增 0 / 残留 0」**；`outbox/` **10 → 0**、`schemas/` **10 → 0**、`security/` **9 → 0**、**`libs` 源侧 29 → 0** |
+| 基线递减 | `--update-baseline` | **933 → 901**（`libs` 303 → 271） |
+| 本地预检 | `check-preflight.py --fast` | **全部通过**（含契约 / 事件契约 / 网关 / 前端 `api-types` 零漂移） |
+
+**偏差（既有 red，非本轮引入）**：`services/platform/tests/dict/test_dict_real.py::test_http_endpoints`（`query-providers` 的 `model_dump` 序列化出口）仍为既有 red，本轮未扩大；另轮单独修。
+
+**遗留**：**`libs` 源侧归零**（`bms_core` 侧仅余 `tests`）；全局剩余 **901 处**（`libs` `tests` 271 / `services` 304 / `scripts/tools` 223 / `ops` 103）。`libs` `tests` 收尾与 `services`（批次 2）/ `scripts/tools`（批次 3，含长期口径评估）/ `ops` 续推。
