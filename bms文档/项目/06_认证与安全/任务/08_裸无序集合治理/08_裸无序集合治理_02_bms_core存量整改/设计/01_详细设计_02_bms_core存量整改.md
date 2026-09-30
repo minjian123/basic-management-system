@@ -80,6 +80,7 @@
 | 9 | `libs` 守卫回归用例（3 条，Kiwi 先登记；编号 **2222 / 2223 / 2224**） | `backend/libs/bms_core/tests/`（新增用例文件） |
 | 10 | 规范口径回写（业务只落插入序 + 抽象 / 升序形态均不作落点） | `bms文档/规范/后端开发规范.md`「集合与排序」（修改） |
 | 11 | 基类清单回写（新形态 / 只读 API / 契约元数据 / 体系根语义 / 护栏与基线） | `bms文档/后端基类清单.md`「体系根清单」表与「集合体系」节（修改） |
+| 12 | **集合体系模块拆分**（2026-09-30 实施中拍板）：升序形态与 `sortedcontainers` 依赖单列 `core/sorted_collections.py`；`core/collections.py`（根与公共段）+ `core/concurrent.py`（基础并发层与插入序形态）构成**「无依赖面」**（CI 精简镜像的边界校验脚本会导入基座模块） | `backend/libs/bms_core/src/bms_core/core/sorted_collections.py`（新增）、`core/collections.py`、`core/concurrent.py`（修改）；护栏 `SYSTEM_IMPLEMENTATION_FILES` 白名单（修改） |
 | 12 | 需求 / 任务 / 父任务 / 计划回写（口径 + 工作量 + 进度） | `08_需求_裸无序集合治理.md`、`00_需求_认证与安全.md`、本任务文档、父任务、`01_计划_认证与安全.md`（修改） |
 | 13 | 实施 / 测试记录（含 594 处逐条处置） | 本目录 `实施/`、`测试/`（新增） |
 | 14 | 盘点报告批次表状态与口径更新 | `08_裸无序集合治理_01_护栏与基线盘点/实施/02_存量盘点报告_01_护栏与基线盘点.md`（修改） |
@@ -210,7 +211,8 @@ items: Annotated[ConcurrentStableList[PrintExportResponse], CONTRACT_COLLECTION]
 ### 3.7 护栏收紧 <a id="guard"></a>
 
 - **新规则**：类字段注解与函数签名注解（参数 / 返回）中的**集合声明必须命中集合类白名单**——白名单**只含插入序形态**（`ConcurrentStableList` / `ConcurrentStableSet` / `ConcurrentStableDict` 及后续登记形态）；以下一律判违规：`dict` / `list` / `set` / `frozenset` 与 typing 别名（`Dict` / `List` / `Set` / `FrozenSet` / `DefaultDict`）、只读 / 可变抽象（`Sequence` / `Mapping` / `AbstractSet` / `Collection` / `MutableSequence` / `MutableMapping` / `MutableSet`）、**升序形态**（`ConcurrentSorted*` / `Sorted*`）。
-- **实现文件豁免**：集合体系实现文件（`backend/libs/bms_core/src/bms_core/core/collections.py`、`core/concurrent.py`、`core/redis_collections.py`）允许 `Sorted*` / `ConcurrentSorted*`（内部实现），按**文件路径白名单**豁免。
+- **实现文件豁免**：集合体系实现文件（`backend/libs/bms_core/src/bms_core/core/collections.py`、`core/concurrent.py`、`core/sorted_collections.py`、`core/redis_collections.py`）允许 `Sorted*` / `ConcurrentSorted*`（内部实现），按**文件路径白名单**豁免。
+  - **模块拆分补充（2026-09-30 实施中拍板）**：升序形态（`Sorted*` / `ConcurrentSorted*`，基于第三方 `sortedcontainers`）单列 `core/sorted_collections.py`，与体系根、公共段、基础并发层、插入序形态（`core/collections.py` / `core/concurrent.py`，**只依赖标准库**）分开——CI `base-integrity` 的精简镜像（`python:3.14-slim`）会导入基座模块做边界校验（`check-service-boundaries.py` → `boundary/` → `services/` 注册表、`ops/gateway_config.py` → `services/gateway_catalog.py`），故后两者构成集合体系**「无依赖面」**，**不得**引入第三方依赖。
 - **不查**：迭代与调用协议（`Iterable` / `Iterator` / `Generator` / `AsyncIterator` / `Callable`）、函数体内局部变量注解、测试目录。
 - 脚本既有能力（`--report` / `--json` / `--update-baseline` / `--self-test`）与扫描范围不变；`--self-test` 矩阵补「白名单命中不报 / 抽象落点报 / 升序形态报 / 实现文件豁免 / 迭代协议不报」用例。
 - 基线：先 `--update-baseline` 如实吸收口径收紧后的现状（548 → 918），批次完成后递减（`bms_core` → 324），复跑断言「新增 0 / 残留 0」；**不得手工增删条目**。
