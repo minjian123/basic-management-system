@@ -10,12 +10,12 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping
 from typing import cast
 
 from redis.asyncio import Redis as AsyncRedis
 
 from bms_core.core.capability import BaseAsyncResource
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.logging import get_logger
 from bms_core.session.base import DEFAULT_SESSION_TTL, BaseSessionStore, build_session_key
 
@@ -24,7 +24,7 @@ __all__ = ["RedisSessionStore"]
 _LOGGER = get_logger("bms")
 
 
-def _dump(value: Mapping[str, object]) -> str:
+def _dump(value: ConcurrentStableDict[str, object]) -> str:
     """序列化会话负载（JSON；不可序列化项经 `default=str` 兜底）。
 
     Args:
@@ -36,14 +36,14 @@ def _dump(value: Mapping[str, object]) -> str:
     return json.dumps(dict(value), ensure_ascii=False, default=str)
 
 
-def _load(raw: object) -> Mapping[str, object] | None:
+def _load(raw: object) -> ConcurrentStableDict[str, object] | None:
     """反序列化会话负载（失败按未命中）。
 
     Args:
         raw: Redis 原始值。
 
     Returns:
-        Mapping[str, object] | None: 会话负载；未命中 / 脏值返回 None。
+        ConcurrentStableDict[str, object] | None: 会话负载；未命中 / 脏值返回 None。
     """
     if raw is None:
         return None
@@ -57,7 +57,7 @@ def _load(raw: object) -> Mapping[str, object] | None:
         return None
     if not isinstance(parsed, dict):
         return None
-    return cast("Mapping[str, object]", parsed)
+    return ConcurrentStableDict(cast("dict[str, object]", parsed))
 
 
 class RedisSessionStore(BaseSessionStore, BaseAsyncResource):
@@ -87,7 +87,7 @@ class RedisSessionStore(BaseSessionStore, BaseAsyncResource):
     async def save(
         self,
         session_id: str,
-        payload: Mapping[str, object],
+        payload: ConcurrentStableDict[str, object],
         *,
         tenant: str | None = None,
         ttl: int = DEFAULT_SESSION_TTL,
@@ -106,7 +106,7 @@ class RedisSessionStore(BaseSessionStore, BaseAsyncResource):
         else:
             await self.client.set(key, _dump(payload))  # pyright: ignore[reportUnknownMemberType]
 
-    async def load(self, session_id: str, *, tenant: str | None = None) -> Mapping[str, object] | None:
+    async def load(self, session_id: str, *, tenant: str | None = None) -> ConcurrentStableDict[str, object] | None:
         """读取会话标记（按租户定位键）。
 
         Args:
@@ -114,7 +114,7 @@ class RedisSessionStore(BaseSessionStore, BaseAsyncResource):
             tenant: 租户编码。
 
         Returns:
-            Mapping[str, object] | None: 会话数据；不存在返回 None。
+            ConcurrentStableDict[str, object] | None: 会话数据；不存在返回 None。
         """
         try:
             raw = await self.client.get(build_session_key(session_id, tenant=tenant))  # pyright: ignore[reportUnknownMemberType]
@@ -166,7 +166,7 @@ class RedisSessionStore(BaseSessionStore, BaseAsyncResource):
                 _LOGGER.warning("会话存储关闭失败", error=str(exc))
 
 
-def _tenant_of(payload: Mapping[str, object]) -> str | None:
+def _tenant_of(payload: ConcurrentStableDict[str, object]) -> str | None:
     """从会话负载取租户编码（无则 None）。
 
     Args:

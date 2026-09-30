@@ -11,6 +11,7 @@ from fastapi import FastAPI
 from starlette.requests import Request
 
 from bms_core.api.base import AuthContext, require_auth
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.context import get_current_user_id, set_current_client_ip
 from bms_core.core.exceptions import AuthError, SessionAuthError, TenantNotFoundError
 from bms_core.db.tenant import DEMO_TENANT, TenantContext
@@ -163,7 +164,7 @@ async def _store_with(session_id: str, *, tenant_id: str | None = None) -> Memor
         MemorySessionStore: 会话存储。
     """
     store = MemorySessionStore()
-    await store.save(session_id, {"user_id": 1001, "tenant": tenant_id}, tenant=tenant_id)
+    await store.save(session_id, ConcurrentStableDict({"user_id": 1001, "tenant": tenant_id}), tenant=tenant_id)
     return store
 
 
@@ -282,7 +283,7 @@ async def test_session_id_missing_rejected() -> None:
 async def test_device_check_mismatch_rejected() -> None:
     """`device_check=true`：设备 / IP 不一致 → 20012 / 401；一致放行。"""
     store = MemorySessionStore()
-    await store.save("s5", {"user_id": 1, "ip": "10.0.0.1"}, tenant=_DEMO_ID)
+    await store.save("s5", ConcurrentStableDict({"user_id": 1, "ip": "10.0.0.1"}), tenant=_DEMO_ID)
     mismatch = _request(headers={"Authorization": f"Bearer {_TOK}"}, device_check=True, tenant_source=_source())
     set_current_client_ip("10.0.0.9")
     with pytest.raises(SessionAuthError) as excinfo:

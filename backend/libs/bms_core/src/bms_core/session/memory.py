@@ -7,8 +7,8 @@
 from __future__ import annotations
 
 import time
-from collections.abc import Mapping
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.session.base import DEFAULT_SESSION_TTL, BaseSessionStore
 
 __all__ = ["MemorySessionStore"]
@@ -19,13 +19,13 @@ class MemorySessionStore(BaseSessionStore):
 
     def __init__(self) -> None:
         """初始化（空存储）。"""
-        self._items: dict[str, tuple[dict[str, object], float]] = {}
-        self._blacklist: dict[str, float] = {}
+        self._items: ConcurrentStableDict[str, tuple[ConcurrentStableDict[str, object], float]] = ConcurrentStableDict()
+        self._blacklist: ConcurrentStableDict[str, float] = ConcurrentStableDict()
 
     async def save(
         self,
         session_id: str,
-        payload: Mapping[str, object],
+        payload: ConcurrentStableDict[str, object],
         *,
         tenant: str | None = None,
         ttl: int = DEFAULT_SESSION_TTL,
@@ -38,9 +38,9 @@ class MemorySessionStore(BaseSessionStore):
             tenant: 租户编码（进程内实现以 `会话 id` 为键，忽略租户）。
             ttl: 有效期（秒，默认 14 天）。
         """
-        self._items[session_id] = (dict(payload), time.monotonic() + ttl)
+        self._items.set(session_id, (ConcurrentStableDict(payload), time.monotonic() + ttl))
 
-    async def load(self, session_id: str, *, tenant: str | None = None) -> Mapping[str, object] | None:
+    async def load(self, session_id: str, *, tenant: str | None = None) -> ConcurrentStableDict[str, object] | None:
         """读取会话（不存在 / 已过期返回 None）。
 
         Args:
@@ -48,16 +48,16 @@ class MemorySessionStore(BaseSessionStore):
             tenant: 租户编码（忽略）。
 
         Returns:
-            Mapping[str, object] | None: 会话数据；不存在 / 已过期返回 None。
+            ConcurrentStableDict[str, object] | None: 会话数据；不存在 / 已过期返回 None。
         """
         item = self._items.get(session_id)
         if item is None:
             return None
         payload, expires_at = item
         if expires_at <= time.monotonic():
-            self._items.pop(session_id, None)
+            self._items.get_and_remove(session_id)
             return None
-        return dict(payload)
+        return ConcurrentStableDict(payload)
 
     async def delete(self, session_id: str, *, tenant: str | None = None) -> None:
         """删除会话（幂等）。
@@ -66,7 +66,7 @@ class MemorySessionStore(BaseSessionStore):
             session_id: 会话 id。
             tenant: 租户编码（忽略）。
         """
-        self._items.pop(session_id, None)
+        self._items.get_and_remove(session_id)
 
     async def blacklist(self, key: str, *, ttl: int) -> None:
         """写入黑名单标记（TTL 到期时间）。
@@ -75,7 +75,7 @@ class MemorySessionStore(BaseSessionStore):
             key: 黑名单键。
             ttl: 有效期（秒）。
         """
-        self._blacklist[key] = time.monotonic() + ttl
+        self._blacklist.set(key, time.monotonic() + ttl)
 
     async def is_blacklisted(self, key: str) -> bool:
         """判定黑名单（已过期按未命中并清理）。
@@ -90,11 +90,13 @@ class MemorySessionStore(BaseSessionStore):
         if expires_at is None:
             return False
         if expires_at <= time.monotonic():
-            self._blacklist.pop(key, None)
+            self._blacklist.get_and_remove(key)
             return False
         return True
 
     def clear(self) -> None:
         """清空全部会话与黑名单（测试 / 调试用）。"""
-        self._items.clear()
-        self._blacklist.clear()
+        for session_id in list(self._items):
+            self._items.get_and_remove(session_id)
+        for key in list(self._blacklist):
+            self._blacklist.get_and_remove(key)

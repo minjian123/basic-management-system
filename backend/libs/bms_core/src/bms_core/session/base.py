@@ -10,11 +10,11 @@
 """
 
 from abc import ABC, abstractmethod
-from collections.abc import Mapping
 from typing import cast
 
 from fastapi import Request
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.config import Settings
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 
@@ -58,7 +58,7 @@ class BaseSessionStore(BasePluggable, ABC):
     async def save(
         self,
         session_id: str,
-        payload: Mapping[str, object],
+        payload: ConcurrentStableDict[str, object],
         *,
         tenant: str | None = None,
         ttl: int = DEFAULT_SESSION_TTL,
@@ -73,7 +73,7 @@ class BaseSessionStore(BasePluggable, ABC):
         """
 
     @abstractmethod
-    async def load(self, session_id: str, *, tenant: str | None = None) -> Mapping[str, object] | None:
+    async def load(self, session_id: str, *, tenant: str | None = None) -> ConcurrentStableDict[str, object] | None:
         """读取会话（不存在返回 None）。
 
         Args:
@@ -81,7 +81,7 @@ class BaseSessionStore(BasePluggable, ABC):
             tenant: 租户编码（定位键；None 为 global 域）。
 
         Returns:
-            Mapping[str, object] | None: 会话数据；不存在返回 None。
+            ConcurrentStableDict[str, object] | None: 会话数据；不存在返回 None。
         """
 
     @abstractmethod

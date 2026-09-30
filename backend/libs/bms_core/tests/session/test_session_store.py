@@ -3,6 +3,7 @@
 import fakeredis.aioredis
 import pytest
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.session.base import build_session_key
 from bms_core.session.memory import MemorySessionStore
 from bms_core.session.null import NullSessionStore
@@ -20,12 +21,12 @@ def test_build_session_key() -> None:
 async def test_memory_store_roundtrip_and_expiry() -> None:
     """内存实现：存取删 + TTL 到期视作未命中 + 黑名单。"""
     store = MemorySessionStore()
-    await store.save("s1", {"user_id": 1}, tenant="demo", ttl=60)
+    await store.save("s1", ConcurrentStableDict({"user_id": 1}), tenant="demo", ttl=60)
     assert await store.load("s1", tenant="demo") == {"user_id": 1}
     await store.delete("s1", tenant="demo")
     assert await store.load("s1", tenant="demo") is None
 
-    await store.save("s2", {"user_id": 2}, ttl=0)
+    await store.save("s2", ConcurrentStableDict({"user_id": 2}), ttl=0)
     assert await store.load("s2") is None
 
     await store.blacklist("bk", ttl=60)
@@ -42,7 +43,7 @@ async def test_redis_store_roundtrip_and_blacklist() -> None:
     """Redis 实现（fakeredis）：存取删 + 租户键 + 黑名单 + 关闭。"""
     client = fakeredis.aioredis.FakeRedis(decode_responses=True)
     store = RedisSessionStore(client=client)
-    await store.save("r1", {"user_id": 1, "tenant": "demo"}, tenant="demo", ttl=60)
+    await store.save("r1", ConcurrentStableDict({"user_id": 1, "tenant": "demo"}), tenant="demo", ttl=60)
     assert await store.load("r1", tenant="demo") == {"user_id": 1, "tenant": "demo"}
     assert await store.load("r1", tenant="other") is None
     await store.delete("r1", tenant="demo")
@@ -73,7 +74,7 @@ async def test_redis_store_degrades_on_failure() -> None:
 async def test_null_store_behaviour() -> None:
     """Null 实现：写删空操作、读回显占位、黑名单恒 False。"""
     store = NullSessionStore()
-    await store.save("n1", {"a": 1})
+    await store.save("n1", ConcurrentStableDict({"a": 1}))
     assert await store.load("n1") == {"session_id": "n1"}
     await store.delete("n1")
     await store.blacklist("bk", ttl=10)
@@ -109,9 +110,9 @@ async def test_redis_store_load_variants() -> None:
     assert await RedisSessionStore(client=_Stub("[1, 2]")).load("x") is None  # type: ignore[arg-type]
 
     stub = _Stub(None)
-    await RedisSessionStore(client=stub).save("x", {"a": 1}, tenant="demo", ttl=0)  # type: ignore[arg-type]
+    await RedisSessionStore(client=stub).save("x", ConcurrentStableDict({"a": 1}), tenant="demo", ttl=0)  # type: ignore[arg-type]
     assert stub.store == {"bms:demo:sess:x": ('{"a": 1}', None)}
 
     # 未显式传 tenant：从负载取租户拼键
-    await RedisSessionStore(client=stub).save("y", {"tenant": "acme"}, ttl=0)  # type: ignore[arg-type]
+    await RedisSessionStore(client=stub).save("y", ConcurrentStableDict({"tenant": "acme"}), ttl=0)  # type: ignore[arg-type]
     assert "bms:acme:sess:y" in stub.store

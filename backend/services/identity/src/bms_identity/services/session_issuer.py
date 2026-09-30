@@ -13,6 +13,7 @@ import hashlib
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.config import SessionSettings
 from bms_core.core.objects import BaseFrameworkObject, BaseRefreshableTokenContract
 from bms_core.db.session import DbSession
@@ -196,7 +197,7 @@ class SessionIssuer(BaseFrameworkObject):
             )
         await self._store.save(
             session_id,
-            {"user_id": user_id, "tenant": tenant_id, "ip": ip, "ua": user_agent},
+            ConcurrentStableDict({"user_id": user_id, "tenant": tenant_id, "ip": ip, "ua": user_agent}),
             tenant=tenant_id,
             ttl=refresh_expires_in,
         )
