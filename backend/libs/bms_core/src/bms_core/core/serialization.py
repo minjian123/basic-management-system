@@ -54,6 +54,20 @@ def rebuild_sequence(original: object, items: Iterable[object]) -> object:
         return materialized
 
 
+def _stringify_entry(key: object, item: object) -> tuple[object, object]:
+    """单个键值对转换（`id` / `*_id` 的整型值转字符串，其余递归 `stringify_ids`）。
+
+    Args:
+        key: 键。
+        item: 值。
+
+    Returns:
+        tuple[object, object]: 转换后的键值对。
+    """
+    is_id_key = isinstance(key, str) and (key in _ID_KEYS or key.endswith("_id"))
+    return key, str(item) if is_id_key and type(item) is int else stringify_ids(item)
+
+
 def stringify_ids(value: object) -> object:
     """递归把 `id` / `*_id` 的整型值转字符串（雪花 ID 防 JS 精度丢失）。
 
@@ -68,11 +82,7 @@ def stringify_ids(value: object) -> object:
     """
     if isinstance(value, Mapping):
         mapping = cast("Mapping[object, object]", value)
-        converted: list[tuple[object, object]] = []
-        for key, item in mapping.items():
-            is_id_key = isinstance(key, str) and (key in _ID_KEYS or key.endswith("_id"))
-            converted.append((key, str(item) if is_id_key and type(item) is int else stringify_ids(item)))
-        return rebuild_mapping(mapping, converted)
+        return rebuild_mapping(mapping, (_stringify_entry(key, item) for key, item in mapping.items()))
     if isinstance(value, (str, bytes, bytearray)):
         return value
     if isinstance(value, Sequence):

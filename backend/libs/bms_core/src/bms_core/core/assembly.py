@@ -39,6 +39,7 @@ from bms_core.config.cache import MemoryConfigCacheRegion, RedisConfigCacheRegio
 from bms_core.config.http import HttpConfigSource
 from bms_core.config.sql import SqlConfigSource
 from bms_core.core.capability import BaseAsyncResource
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import PluginSelection, Settings
 from bms_core.core.exceptions import PluginError
 from bms_core.core.factory import BasePluginFactory
@@ -162,7 +163,7 @@ __all__ = [
 
 _LOGGER = get_logger("bms")
 
-_PREPARED_REGISTRIES: list[PluginRegistry] = []
+_PREPARED_REGISTRIES: ConcurrentStableList[PluginRegistry] = ConcurrentStableList()
 """已登记平台实现的注册表引用（持引用防 `id` 复用；同一注册表只登记一次）。"""
 
 _NULL_MODULES: tuple[str, ...] = (
@@ -394,7 +395,7 @@ def register_platform_plugins(settings: Settings, app: FastAPI, resources: Resou
     register_plugin("saga_executor", "choreography", ChoreographySagaExecutorFactory(settings))
     register_plugin("idempotency", "redis", RedisIdempotencyStoreFactory(settings))
     register_plugin("metrics", "prometheus", PrometheusMetricsFactory(settings))
-    _PREPARED_REGISTRIES.append(registry)
+    _PREPARED_REGISTRIES.add(registry)
 
 
 class PrometheusMetricsFactory(BasePluginFactory[PrometheusMetrics]):
@@ -1112,7 +1113,9 @@ class RedisIdempotencyStoreFactory(BasePluginFactory[RedisIdempotencyStore]):
         return RedisIdempotencyStore(self._settings.redis.url)
 
 
-async def assemble_plugins(app: FastAPI, settings: Settings, resources: ResourceManager) -> dict[str, str]:
+async def assemble_plugins(
+    app: FastAPI, settings: Settings, resources: ResourceManager
+) -> ConcurrentStableDict[str, str]:
     """按清单装配各能力（lifespan 调用）：解析实例化缓存 → `setup()` → 资源登记 → `app.state` → 日志。
 
     Args:
@@ -1121,12 +1124,12 @@ async def assemble_plugins(app: FastAPI, settings: Settings, resources: Resource
         resources: 异步资源登记表（`aclose` 逆序统一回收）。
 
     Returns:
-        dict[str, str]: 各能力当前 provider（`plugin_key → 实现名`，供启动日志 / 测试核对）。
+        ConcurrentStableDict[str, str]: 各能力当前 provider（`plugin_key → 实现名`，供启动日志 / 测试核对）。
 
     Raises:
         PluginError: 存在性 / 契约版本校验失败，或实例化 / `setup()` 失败（拒启）。
     """
-    providers: dict[str, str] = {}
+    providers: ConcurrentStableDict[str, str] = ConcurrentStableDict()
     for wiring in PLUGIN_WIRINGS:
         selection = getattr(settings, wiring.settings_section, None)
         provider = selection.provider if isinstance(selection, PluginSelection) else ""
@@ -1136,7 +1139,7 @@ async def assemble_plugins(app: FastAPI, settings: Settings, resources: Resource
             resources.register(instance)
         if wiring.state_attr:
             setattr(app.state, wiring.state_attr, instance)
-        providers[wiring.plugin_key] = provider or NULL_PLUGIN_NAME
+        providers.set(wiring.plugin_key, provider or NULL_PLUGIN_NAME)
     app.state.plugin_providers = providers
     _LOGGER.info("插件装配完成", providers=providers)
     return providers

@@ -13,6 +13,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable
 from typing import Any
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.exceptions import PluginError
 from bms_core.core.plugin import BasePluggable
 
@@ -86,7 +87,7 @@ class BasePluginFactory[ProductT](BaseFactory[None, ProductT]):
         return self.create(None)
 
 
-_FACTORY_IMPLS: dict[tuple[str, str], Callable[[], object]] = {}
+_FACTORY_IMPLS: ConcurrentStableDict[tuple[str, str], Callable[[], object]] = ConcurrentStableDict()
 """工厂专用注册表：`(工厂键, 实现名) → 零参构造器`（与能力注册表分离，按次新建、不缓存实例）。"""
 
 
@@ -105,7 +106,7 @@ def register_factory(plugin_key: str, plugin_name: str, impl: Callable[[], objec
     existing = _FACTORY_IMPLS.get(key)
     if existing is not None and existing is not impl:
         raise PluginError(f"工厂重复登记：{plugin_key}:{plugin_name}")
-    _FACTORY_IMPLS[key] = impl
+    _FACTORY_IMPLS.set(key, impl)
 
 
 def resolve_factory(plugin_key: str, provider: str | None = None) -> object:

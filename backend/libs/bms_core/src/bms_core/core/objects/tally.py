@@ -8,11 +8,13 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import ClassVar
+from typing import TYPE_CHECKING, ClassVar
 
 from bms_core.core.objects.roots import BaseValueObject
+
+if TYPE_CHECKING:
+    from bms_core.core.concurrent import ConcurrentStableDict
 
 __all__ = ["BaseTallyContract"]
 
@@ -38,10 +40,12 @@ class BaseTallyContract(BaseValueObject):
     """本类计数位字段名（成员声明；`counts` 按此汇总）。"""
 
     @property
-    def counts(self) -> Mapping[str, int]:
+    def counts(self) -> ConcurrentStableDict[str, int]:
         """计数位 → 计数值的只读映射（按 `COUNT_FIELDS` 汇总）。
 
         Returns:
-            Mapping[str, int]: 计数位映射（键顺序与 `COUNT_FIELDS` 一致）。
+            ConcurrentStableDict[str, int]: 计数位映射（键顺序与 `COUNT_FIELDS` 一致）。
         """
-        return {name: getattr(self, name) for name in self.COUNT_FIELDS}
+        from bms_core.core.concurrent import ConcurrentStableDict
+
+        return ConcurrentStableDict({name: getattr(self, name) for name in self.COUNT_FIELDS})

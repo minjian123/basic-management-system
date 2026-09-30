@@ -15,8 +15,7 @@
 """
 
 import inspect
-from collections.abc import Callable, Mapping
-from types import MappingProxyType
+from collections.abc import Callable
 from typing import Any
 
 from bms_core.core.capability import (
@@ -25,6 +24,7 @@ from bms_core.core.capability import (
     BaseNullObject,
     BasePlaceholder,
 )
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.exceptions import PluginError
 from bms_core.core.logging import get_logger
 from bms_core.core.objects import BaseFrameworkObject
@@ -165,8 +165,8 @@ def _impl_label(impl: PluginImpl) -> str:
 
 
 def _add_entry(
-    registry: dict[str, dict[str, PluginImpl]],
-    errors: list[str],
+    registry: ConcurrentStableDict[str, ConcurrentStableDict[str, PluginImpl]],
+    errors: ConcurrentStableList[str],
     key: str,
     name: str,
     impl: PluginImpl,
@@ -180,11 +180,14 @@ def _add_entry(
         name: 登记名。
         impl: 实现类或零参工厂。
     """
-    bucket = registry.setdefault(key, {})
+    bucket = registry.get(key)
+    if bucket is None:
+        bucket = ConcurrentStableDict()
+        registry.set(key, bucket)
     if name in bucket:
-        errors.append(f"({key}, {name}) 重名：{_impl_label(bucket[name])} / {_impl_label(impl)}")
+        errors.add(f"({key}, {name}) 重名：{_impl_label(bucket[name])} / {_impl_label(impl)}")
         return
-    bucket[name] = impl
+    bucket.set(name, impl)
 
 
 class BasePluggable(BaseCapability, BaseAsyncResource):
@@ -234,10 +237,10 @@ class PluginRegistry(BaseFrameworkObject):
 
     def __init__(self) -> None:
         """初始化空注册表（未构建）。"""
-        self._candidates: list[type[BasePluggable]] = []
-        self._explicit: list[tuple[str, str, PluginImpl]] = []
-        self._plugins: Mapping[str, Mapping[str, PluginImpl]] | None = None
-        self._instances: dict[tuple[str, str], object] = {}
+        self._candidates: ConcurrentStableList[type[BasePluggable]] = ConcurrentStableList()
+        self._explicit: ConcurrentStableList[tuple[str, str, PluginImpl]] = ConcurrentStableList()
+        self._plugins: ConcurrentStableDict[str, ConcurrentStableDict[str, PluginImpl]] | None = None
+        self._instances: ConcurrentStableDict[tuple[str, str], object] = ConcurrentStableDict()
 
     def collect(self, impl_cls: type[BasePluggable]) -> None:
         """收集自动登记候选（`__init_subclass__` 调用；构建后再收集不影响已冻结快照）。
@@ -245,7 +248,7 @@ class PluginRegistry(BaseFrameworkObject):
         Args:
             impl_cls: `BasePluggable` 子类。
         """
-        self._candidates.append(impl_cls)
+        self._candidates.add(impl_cls)
 
     def register(self, plugin_key: str, plugin_name: str, impl: PluginImpl) -> None:
         """显式登记实现（组合路径 / 延迟导入工厂）；运行期只读，构建后拒。
@@ -260,19 +263,19 @@ class PluginRegistry(BaseFrameworkObject):
         """
         if self._plugins is not None:
             raise PluginError("插件注册表已构建，运行期只读，禁止再登记")
-        self._explicit.append((plugin_key, plugin_name, impl))
+        self._explicit.add((plugin_key, plugin_name, impl))
 
-    def build(self) -> Mapping[str, Mapping[str, PluginImpl]]:
+    def build(self) -> ConcurrentStableDict[str, ConcurrentStableDict[str, PluginImpl]]:
         """构建并冻结注册表：合并双轨 → 校验（抽象剔除 / 非零参剔除 / 无名跳过 / 唯一性 / 版本格式）→ 只读快照。
 
         Returns:
-            Mapping[str, Mapping[str, PluginImpl]]: 两级映射（按 `plugin_key`、`plugin_name` 排序）。
+            ConcurrentStableDict[str, ConcurrentStableDict[str, PluginImpl]]: 两级映射（按 key、name 排序）。
 
         Raises:
             PluginError: 校验失败（全部明细聚合于消息）。
         """
-        registry: dict[str, dict[str, PluginImpl]] = {}
-        errors: list[str] = []
+        registry: ConcurrentStableDict[str, ConcurrentStableDict[str, PluginImpl]] = ConcurrentStableDict()
+        errors: ConcurrentStableList[str] = ConcurrentStableList()
         for impl_cls in self._candidates:
             if inspect.isabstract(impl_cls):
                 continue
@@ -283,34 +286,33 @@ class PluginRegistry(BaseFrameworkObject):
                 continue
             key = _registration_key(impl_cls)
             if not key:
-                errors.append(f"候选缺少 plugin_key：{_impl_label(impl_cls)}")
+                errors.add(f"候选缺少 plugin_key：{_impl_label(impl_cls)}")
                 continue
             if not CONTRACT_VERSION_RE.fullmatch(impl_cls.contract_version):
-                errors.append(
-                    f"契约版本格式非法：{_impl_label(impl_cls)} → {impl_cls.contract_version!r}（应为 X.Y.Z）"
-                )
+                errors.add(f"契约版本格式非法：{_impl_label(impl_cls)} → {impl_cls.contract_version!r}（应为 X.Y.Z）")
                 continue
             _add_entry(registry, errors, key, name, impl_cls)
         for key, name, impl in self._explicit:
             if not key or not name:
-                errors.append(f"显式登记缺少 plugin_key / plugin_name：{key!r} / {name!r}")
+                errors.add(f"显式登记缺少 plugin_key / plugin_name：{key!r} / {name!r}")
                 continue
             if isinstance(impl, type) and inspect.isabstract(impl):
-                errors.append(f"显式登记实现不可实例化（抽象类）：{key}:{name} → {_impl_label(impl)}")
+                errors.add(f"显式登记实现不可实例化（抽象类）：{key}:{name} → {_impl_label(impl)}")
                 continue
             if not callable(impl):
-                errors.append(f"显式登记实现不可调用（须实现类或零参工厂）：{key}:{name}")
+                errors.add(f"显式登记实现不可调用（须实现类或零参工厂）：{key}:{name}")
                 continue
             _add_entry(registry, errors, key, name, impl)
         if errors:
             raise PluginError("插件注册表构建失败：" + "；".join(errors))
-        self._plugins = MappingProxyType(
+        self._plugins = ConcurrentStableDict(
             {
-                key: MappingProxyType({name: registry[key][name] for name in sorted(registry[key])})
+                key: ConcurrentStableDict({name: registry[key][name] for name in sorted(registry[key])})
                 for key in sorted(registry)
             }
         )
-        self._instances.clear()
+        for cache_key in list(self._instances):
+            self._instances.get_and_remove(cache_key)
         return self._plugins
 
     def resolve(
@@ -347,14 +349,14 @@ class PluginRegistry(BaseFrameworkObject):
         if expected_version is not None:
             _ensure_contract_compatible(plugin_key, name, instance, expected_version)
         if fresh:
-            self._instances[cache_key] = instance
+            self._instances.set(cache_key, instance)
         return instance
 
-    def snapshot(self) -> Mapping[str, Mapping[str, PluginImpl]]:
+    def snapshot(self) -> ConcurrentStableDict[str, ConcurrentStableDict[str, PluginImpl]]:
         """只读快照（未构建则先构建）。
 
         Returns:
-            Mapping[str, Mapping[str, PluginImpl]]: 两级映射只读视图。
+            ConcurrentStableDict[str, ConcurrentStableDict[str, PluginImpl]]: 两级映射只读视图。
         """
         if self._plugins is None:
             return self.build()
@@ -388,11 +390,11 @@ def register_plugin(plugin_key: str, plugin_name: str, impl: PluginImpl) -> None
     _DEFAULT_REGISTRY.register(plugin_key, plugin_name, impl)
 
 
-def build_plugin_registry() -> Mapping[str, Mapping[str, PluginImpl]]:
+def build_plugin_registry() -> ConcurrentStableDict[str, ConcurrentStableDict[str, PluginImpl]]:
     """构建默认注册表并返回只读快照（启动装配入口）。
 
     Returns:
-        Mapping[str, Mapping[str, PluginImpl]]: 两级映射只读视图。
+        ConcurrentStableDict[str, ConcurrentStableDict[str, PluginImpl]]: 两级映射只读视图。
 
     Raises:
         PluginError: 校验失败（明细聚合）。
@@ -400,11 +402,11 @@ def build_plugin_registry() -> Mapping[str, Mapping[str, PluginImpl]]:
     return _DEFAULT_REGISTRY.build()
 
 
-def plugin_registry_snapshot() -> Mapping[str, Mapping[str, PluginImpl]]:
+def plugin_registry_snapshot() -> ConcurrentStableDict[str, ConcurrentStableDict[str, PluginImpl]]:
     """取默认注册表只读快照（未构建则先构建）。
 
     Returns:
-        Mapping[str, Mapping[str, PluginImpl]]: 两级映射只读视图。
+        ConcurrentStableDict[str, ConcurrentStableDict[str, PluginImpl]]: 两级映射只读视图。
     """
     return _DEFAULT_REGISTRY.snapshot()
 
