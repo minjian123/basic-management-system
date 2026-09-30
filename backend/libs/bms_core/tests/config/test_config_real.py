@@ -9,7 +9,7 @@
 
 import json
 import sqlite3
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Iterator
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -27,6 +27,7 @@ from bms_core.config.null import NullConfigCacheRegion, NullConfigSource
 from bms_core.config.seed import PLATFORM_CONFIG_DEFAULTS, seed_configs
 from bms_core.config.service import ConfigService
 from bms_core.config.sql import SqlConfigSource
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import get_settings
 from bms_core.core.exceptions import ServiceUnavailableError
 from bms_core.db.engine import EngineFactory
@@ -143,7 +144,9 @@ async def test_sql_source_read_cache_and_degrade(config_db_url: str) -> None:
     cache = MemoryConfigCacheRegion()
     source = SqlConfigSource(engines=_engines(), cache=cache)
 
-    values = await source.get_many(("captcha.scene.login.fail_threshold", "captcha.channel.sms", "missing.key"))
+    values = await source.get_many(
+        ConcurrentStableList(("captcha.scene.login.fail_threshold", "captcha.channel.sms", "missing.key"))
+    )
     assert values == {"captcha.scene.login.fail_threshold": "3", "captcha.channel.sms": "false"}
     assert await source.get("missing.key", "fallback") == "fallback"
 
@@ -158,12 +161,12 @@ async def test_sql_source_read_cache_and_degrade(config_db_url: str) -> None:
         await session.commit()
     await engine.dispose()
     # 旧值仍在缓存（未失效）
-    stale = await source.get_many(("captcha.channel.sms",))
+    stale = await source.get_many(ConcurrentStableList(("captcha.channel.sms",)))
     assert stale["captcha.channel.sms"] == "false"
 
     # DB 异常降级：无库 URL 时返回空结果（不抛）
     broken = SqlConfigSource(engines=_broken_engines(), cache=NullConfigCacheRegion())
-    assert await broken.get_many(("captcha.channel.sms",)) == {}
+    assert await broken.get_many(ConcurrentStableList(("captcha.channel.sms",))) == {}
 
 
 def _broken_engines() -> EngineRegistry:
@@ -187,13 +190,13 @@ async def test_service_invalidate_immediate_effect(config_db_url: str) -> None:
     service = ConfigService(engines=engines, cache=cache)
 
     key = "captcha.scene.login.fail_threshold"
-    _ = await source.get_many((key,))  # 预热缓存
+    _ = await source.get_many(ConcurrentStableList((key,)))  # 预热缓存
     await service.set(config_key=key, value="5")
-    assert (await source.get_many((key,)))[key] == "5"
+    assert (await source.get_many(ConcurrentStableList((key,))))[key] == "5"
     await service.set(config_key=key, value="7", remark="调阈值")
-    assert (await source.get_many((key,)))[key] == "7"
+    assert (await source.get_many(ConcurrentStableList((key,))))[key] == "7"
     await service.drop(config_key=key)
-    assert key not in await source.get_many((key,))
+    assert key not in await source.get_many(ConcurrentStableList((key,)))
 
 
 class _FakeServiceClient(BaseServiceClient):
@@ -228,18 +231,18 @@ async def test_http_source_and_degrade() -> None:
     """跨服务取数：解析 `values`；不可达 / 非法响应降级空结果。"""
     client = _FakeServiceClient({"a": "1", "b": "2", "c": "3"})
     source = HttpConfigSource(client=client)
-    assert dict(await source.get_many(("a", "b"))) == {"a": "1", "b": "2"}
+    assert dict(await source.get_many(ConcurrentStableList(("a", "b")))) == {"a": "1", "b": "2"}
     assert client.requests[0].path.endswith("/platform/internal/configs/resolve")
 
-    assert await HttpConfigSource(client=_FakeServiceClient({}, fail=True)).get_many(("a",)) == {}
-    assert await HttpConfigSource(client=_FakeServiceClient([])).get_many(("a",)) == {}
+    assert await HttpConfigSource(client=_FakeServiceClient({}, fail=True)).get_many(ConcurrentStableList(("a",))) == {}
+    assert await HttpConfigSource(client=_FakeServiceClient([])).get_many(ConcurrentStableList(("a",))) == {}
 
 
 @pytest.mark.kiwi_id(2207)
 async def test_null_source_and_cache_defaults() -> None:
     """占位实现：Null 取数恒空、Null 缓存恒未命中；内存缓存 key 与版本。"""
     null_source = NullConfigSource()
-    assert await null_source.get_many(("x",)) == {}
+    assert await null_source.get_many(ConcurrentStableList(("x",))) == {}
     assert await null_source.get("x", "d") == "d"
 
     cache = MemoryConfigCacheRegion()
@@ -286,16 +289,16 @@ def test_config_capability_is_pluggable() -> None:
 class _MappingSource(BaseConfigSource):
     """内存取数实现（用例内联）。"""
 
-    def __init__(self, values: Mapping[str, str] | None = None) -> None:
+    def __init__(self, values: ConcurrentStableDict[str, str] | None = None) -> None:
         self._values = dict(values or {})
 
-    async def get_many(self, keys: Sequence[str]) -> Mapping[str, str]:
+    async def get_many(self, keys: ConcurrentStableList[str]) -> ConcurrentStableDict[str, str]:
         """返回预置映射的子集。
 
         Args:
-            keys: 参数键序列。
+            keys: 参数键序列（插入序）。
 
         Returns:
-            Mapping[str, str]: 命中键 → 值。
+            ConcurrentStableDict[str, str]: 命中键 → 值（插入序）。
         """
-        return {key: self._values[key] for key in keys if key in self._values}
+        return ConcurrentStableDict({key: self._values[key] for key in keys if key in self._values})

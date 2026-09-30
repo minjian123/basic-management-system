@@ -10,6 +10,7 @@ from threading import Lock
 from bms_core.cache.memory import MemoryCacheRegion
 from bms_core.cache.redis import RedisCacheRegion
 from bms_core.config.base import CONFIG_CACHE_DOMAIN, ConfigCacheRegion
+from bms_core.core.concurrent import ConcurrentStableDict
 
 __all__ = ["MemoryConfigCacheRegion", "RedisConfigCacheRegion"]
 
@@ -27,7 +28,7 @@ class MemoryConfigCacheRegion(ConfigCacheRegion):
             max_items: L1 条目上限（LRU）。
         """
         self._memory = MemoryCacheRegion(domain=CONFIG_CACHE_DOMAIN, max_items=max_items)
-        self._versions: dict[str, int] = {}
+        self._versions: ConcurrentStableDict[str, int] = ConcurrentStableDict()
         self._lock = Lock()
 
     def get(self, key: str) -> object | None:
@@ -81,7 +82,7 @@ class MemoryConfigCacheRegion(ConfigCacheRegion):
         """
         with self._lock:
             version = self._versions.get(tenant or "", 0) + 1
-            self._versions[tenant or ""] = version
+            self._versions.set(tenant or "", version)
         self._memory.bump_version()
         return version
 

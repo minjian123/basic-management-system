@@ -26,7 +26,6 @@ import hmac
 import io
 import json
 import random
-from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import cast
 from uuid import uuid4
@@ -52,6 +51,7 @@ from bms_core.captcha.base import (
 )
 from bms_core.config.base import BaseConfigSource
 from bms_core.config.null import NullConfigSource
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.context import get_current_client_ip
 from bms_core.core.exceptions import (
     CaptchaExpiredError,
@@ -98,11 +98,11 @@ _SMS_IP_DIMENSION = "ip"
 """短信来源 IP 限流维度（与登录 `_IP_DIMENSION` 同口径）。"""
 
 
-def _dump(record: Mapping[str, object]) -> str:
+def _dump(record: ConcurrentStableDict[str, object]) -> str:
     """序列化挑战记录（JSON；不可序列化项经 `default=str` 兜底）。
 
     Args:
-        record: 挑战记录。
+        record: 挑战记录（插入序）。
 
     Returns:
         str: JSON 字符串。
@@ -124,14 +124,14 @@ def _png(image: Image.Image) -> bytes:
     return buffer.getvalue()
 
 
-def _load(raw: object) -> dict[str, object] | None:
+def _load(raw: object) -> ConcurrentStableDict[str, object] | None:
     """反序列化挑战记录（失败按未命中）。
 
     Args:
         raw: Redis 原始值。
 
     Returns:
-        dict[str, object] | None: 挑战记录；未命中 / 脏值返回 None。
+        ConcurrentStableDict[str, object] | None: 挑战记录（插入序）；未命中 / 脏值返回 None。
     """
     if isinstance(raw, bytes):
         raw = raw.decode("utf-8", "replace")
@@ -143,7 +143,7 @@ def _load(raw: object) -> dict[str, object] | None:
         return None
     if not isinstance(parsed, dict):
         return None
-    return cast("dict[str, object]", parsed)
+    return ConcurrentStableDict(cast("dict[str, object]", parsed))
 
 
 def _parse_bool(raw: object, default: bool) -> bool:
@@ -188,12 +188,12 @@ def _parse_int(raw: object, default: int, *, minimum: int = 0) -> int:
     return value if value >= minimum else default
 
 
-def _channel_enabled(kind: CaptchaKind, values: Mapping[str, object]) -> bool:
+def _channel_enabled(kind: CaptchaKind, values: ConcurrentStableDict[str, str]) -> bool:
     """判定渠道是否可用（缺省：图形 / 滑块可用、短信不可用）。
 
     Args:
         kind: 渠道形态。
-        values: 配置键值映射。
+        values: 配置键值映射（插入序）。
 
     Returns:
         bool: 可用为 True。
@@ -202,12 +202,12 @@ def _channel_enabled(kind: CaptchaKind, values: Mapping[str, object]) -> bool:
     return _parse_bool(values.get(f"captcha.channel.{kind.value}"), default)
 
 
-def _resolve_channels(scene: str, values: Mapping[str, object]) -> tuple[CaptchaKind, ...]:
+def _resolve_channels(scene: str, values: ConcurrentStableDict[str, str]) -> tuple[CaptchaKind, ...]:
     """按场景默认降级顺序与渠道可用性计算可用渠道（图形码恒兜底）。
 
     Args:
         scene: 使用场景。
-        values: 配置键值映射。
+        values: 配置键值映射（插入序）。
 
     Returns:
         tuple[CaptchaKind, ...]: 可用渠道（按降级顺序，末位恒为 `image`）。
@@ -245,7 +245,7 @@ class CaptchaImageOptions(BaseOptionsContract):
     """单字符最大旋转角度。"""
 
     @classmethod
-    def from_options(cls, options: Mapping[str, object] | None = None) -> CaptchaImageOptions:
+    def from_options(cls, options: ConcurrentStableDict[str, object] | None = None) -> CaptchaImageOptions:
         """从 `[captcha].options` 解析出图参数（缺失取缺省，非法拒启）。
 
         Args:
@@ -257,7 +257,7 @@ class CaptchaImageOptions(BaseOptionsContract):
         Raises:
             PluginError: 任一选项类型非法 / 越界。
         """
-        values = options or {}
+        values: ConcurrentStableDict[str, object] = options or ConcurrentStableDict()
         height = cls._int_option(values, "height", 60, 30, 200)
         return cls(
             width=cls._int_option(values, "width", 160, 80, 400),
@@ -293,7 +293,7 @@ class CaptchaSliderOptions(BaseOptionsContract):
     """轨迹最少点数。"""
 
     @classmethod
-    def from_options(cls, options: Mapping[str, object] | None = None) -> CaptchaSliderOptions:
+    def from_options(cls, options: ConcurrentStableDict[str, object] | None = None) -> CaptchaSliderOptions:
         """从 `[captcha].options` 解析滑块参数（缺失取缺省，非法拒启）。
 
         Args:
@@ -305,7 +305,7 @@ class CaptchaSliderOptions(BaseOptionsContract):
         Raises:
             PluginError: 任一选项类型非法 / 越界。
         """
-        values = options or {}
+        values: ConcurrentStableDict[str, object] = options or ConcurrentStableDict()
         width = cls._int_option(values, "slider_width", 300, 160, 600)
         height = cls._int_option(values, "slider_height", 150, 80, 300)
         max_piece = (min(width, height) - 1) // 2
@@ -336,7 +336,7 @@ class CaptchaSmsOptions(BaseOptionsContract):
     """频次窗口（秒）。"""
 
     @classmethod
-    def from_options(cls, options: Mapping[str, object] | None = None) -> CaptchaSmsOptions:
+    def from_options(cls, options: ConcurrentStableDict[str, object] | None = None) -> CaptchaSmsOptions:
         """从 `[captcha].options` 解析短信选项（缺失取缺省，非法拒启）。
 
         Args:
@@ -348,7 +348,7 @@ class CaptchaSmsOptions(BaseOptionsContract):
         Raises:
             PluginError: 任一选项类型非法 / 越界。
         """
-        values = options or {}
+        values: ConcurrentStableDict[str, object] = options or ConcurrentStableDict()
         return cls(
             code_length=cls._int_option(values, "sms_code_length", SMS_CAPTCHA_LENGTH, 4, 8),
             account_limit=cls._int_option(values, "sms_account_limit", 5, 1, 100),
@@ -430,7 +430,9 @@ class DefaultCaptcha(BaseCaptcha):
         code = self._random_code()
         image = await asyncio.to_thread(self._render, code)
         captcha_id = uuid4().hex
-        record: dict[str, object] = {"code": code, "scene": scene, "kind": kind.value, "fails": 0}
+        record: ConcurrentStableDict[str, object] = ConcurrentStableDict(
+            {"code": code, "scene": scene, "kind": kind.value, "fails": 0}
+        )
         try:
             await self.client.set(build_captcha_key(captcha_id), _dump(record), ex=CAPTCHA_TTL)  # pyright: ignore[reportUnknownMemberType]
         except Exception as exc:
@@ -459,13 +461,15 @@ class DefaultCaptcha(BaseCaptcha):
         """
         background, slider, gap_x, gap_y = await asyncio.to_thread(self._render_slider)
         captcha_id = uuid4().hex
-        record: dict[str, object] = {
-            "kind": CaptchaKind.SLIDER.value,
-            "scene": scene,
-            "gap_x": gap_x,
-            "gap_y": gap_y,
-            "fails": 0,
-        }
+        record: ConcurrentStableDict[str, object] = ConcurrentStableDict(
+            {
+                "kind": CaptchaKind.SLIDER.value,
+                "scene": scene,
+                "gap_x": gap_x,
+                "gap_y": gap_y,
+                "fails": 0,
+            }
+        )
         payload = _dump(
             {
                 "background": base64.b64encode(background).decode(),
@@ -506,7 +510,9 @@ class DefaultCaptcha(BaseCaptcha):
         await self._enforce_sms_limits(phone, scene, policy)
         code = self._random_sms_code()
         captcha_id = uuid4().hex
-        record: dict[str, object] = {"kind": CaptchaKind.SMS.value, "scene": scene, "code": code, "fails": 0}
+        record: ConcurrentStableDict[str, object] = ConcurrentStableDict(
+            {"kind": CaptchaKind.SMS.value, "scene": scene, "code": code, "fails": 0}
+        )
         try:
             await self.client.set(build_captcha_key(captcha_id), _dump(record), ex=policy.ttl)  # pyright: ignore[reportUnknownMemberType]
         except Exception as exc:
@@ -586,14 +592,16 @@ class DefaultCaptcha(BaseCaptcha):
         """
         defaults = default_scene_policy(scene)
         values = await self._config.get_many(
-            (
-                f"captcha.scene.{scene}.required",
-                f"captcha.scene.{scene}.fail_threshold",
-                f"captcha.scene.{scene}.ttl",
-                f"captcha.scene.{scene}.cooldown",
-                "captcha.channel.image",
-                "captcha.channel.slider",
-                "captcha.channel.sms",
+            ConcurrentStableList(
+                (
+                    f"captcha.scene.{scene}.required",
+                    f"captcha.scene.{scene}.fail_threshold",
+                    f"captcha.scene.{scene}.ttl",
+                    f"captcha.scene.{scene}.cooldown",
+                    "captcha.channel.image",
+                    "captcha.channel.slider",
+                    "captcha.channel.sms",
+                )
             )
         )
         return CaptchaScenePolicy(
@@ -790,15 +798,15 @@ class DefaultCaptcha(BaseCaptcha):
         noise = Image.effect_noise((width, height), 32).convert("RGB")
         return Image.blend(gradient, noise, 0.15)
 
-    async def _take(self, captcha_id: str) -> tuple[dict[str, object] | None, int]:
+    async def _take(self, captcha_id: str) -> tuple[ConcurrentStableDict[str, object] | None, int]:
         """一次性原子取出挑战记录（先取剩余 TTL 再 `GETDEL`；成功后记录即删除）。
 
         Args:
             captcha_id: 挑战编号。
 
         Returns:
-            tuple[dict[str, object] | None, int]: 挑战记录与剩余有效期（毫秒；不存在 / 无过期
-            为 Redis `PTTL` 语义值 -2 / -1）。
+            tuple[ConcurrentStableDict[str, object] | None, int]: 挑战记录（插入序）与剩余有效期
+            （毫秒；不存在 / 无过期为 Redis `PTTL` 语义值 -2 / -1）。
 
         Raises:
             ServiceUnavailableError: Redis 不可用（10007 / 503）。
@@ -811,11 +819,11 @@ class DefaultCaptcha(BaseCaptcha):
             raise ServiceUnavailableError("验证码服务暂不可用，请稍后重试") from exc
         return _load(raw), ttl_ms
 
-    def _matches(self, record: Mapping[str, object], credential: CaptchaCredential) -> bool:
+    def _matches(self, record: ConcurrentStableDict[str, object], credential: CaptchaCredential) -> bool:
         """按记录形态分派比对（滑块走轨迹判定，其余走校验码比对）。
 
         Args:
-            record: 挑战记录。
+            record: 挑战记录（插入序）。
             credential: 用户凭证。
 
         Returns:
@@ -825,11 +833,11 @@ class DefaultCaptcha(BaseCaptcha):
             return self._matches_slider(record, credential)
         return self._matches_code(record, credential)
 
-    def _matches_code(self, record: Mapping[str, object], credential: CaptchaCredential) -> bool:
+    def _matches_code(self, record: ConcurrentStableDict[str, object], credential: CaptchaCredential) -> bool:
         """比对校验码（大小写不敏感、常量时间）。
 
         Args:
-            record: 挑战记录。
+            record: 挑战记录（插入序）。
             credential: 用户凭证。
 
         Returns:
@@ -840,11 +848,11 @@ class DefaultCaptcha(BaseCaptcha):
             return False
         return hmac.compare_digest(expected.upper(), credential.code.strip().upper())
 
-    def _matches_slider(self, record: Mapping[str, object], credential: CaptchaCredential) -> bool:
+    def _matches_slider(self, record: ConcurrentStableDict[str, object], credential: CaptchaCredential) -> bool:
         """判定滑块轨迹（落点容差 + 轨迹合理性双因子；`y` 轴不校验）。
 
         Args:
-            record: 挑战记录（须含合法整数 `gap_x`）。
+            record: 挑战记录（插入序；须含合法整数 `gap_x`）。
             credential: 用户凭证（轨迹点序列 `(x, y, 相对起点毫秒)`）。
 
         Returns:
@@ -866,18 +874,18 @@ class DefaultCaptcha(BaseCaptcha):
             return False
         return abs(trace[-1][0] - gap_x) <= opts.tolerance
 
-    async def _register_failure(self, captcha_id: str, record: Mapping[str, object], ttl_ms: int) -> None:
+    async def _register_failure(self, captcha_id: str, record: ConcurrentStableDict[str, object], ttl_ms: int) -> None:
         """回写失败挑战（保留剩余 TTL）并累计失败次数（失败可重试）。
 
         Args:
             captcha_id: 挑战编号。
-            record: 挑战记录。
+            record: 挑战记录（插入序）。
             ttl_ms: 剩余有效期（毫秒；`GETDEL` 前取，>0 时按剩余重设）。
         """
-        updated = dict(record)
+        updated = ConcurrentStableDict(record)
         raw_fails = updated.get("fails")
         fails = raw_fails if isinstance(raw_fails, int) else 0
-        updated["fails"] = fails + 1
+        updated.set("fails", fails + 1)
         try:
             key = build_captcha_key(captcha_id)
             if ttl_ms > 0:

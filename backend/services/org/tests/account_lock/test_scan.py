@@ -4,7 +4,6 @@
 停用 / 已锁定 / 活跃账号排除；重复扫描幂等；`account.inactive_lock_days` 按租户覆盖。
 """
 
-from collections.abc import Mapping, Sequence
 from datetime import datetime, timedelta
 from typing import cast
 
@@ -13,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from bms_core.config.base import BaseConfigSource
 from bms_core.config.null import NullConfigSource
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.db.unit_of_work import DbUnitOfWork
 from bms_org.models.account_lock import LOCK_TYPE_INACTIVE
 from bms_org.models.user import SysUser
@@ -26,19 +26,19 @@ _NOW = datetime(2026, 9, 27, 12, 0, 0)
 class _MappingSource(BaseConfigSource):
     """内存取数替身（仅返回预置键值）。"""
 
-    def __init__(self, values: Mapping[str, object] | None = None) -> None:
+    def __init__(self, values: ConcurrentStableDict[str, object] | None = None) -> None:
         self._values = dict(values or {})
 
-    async def get_many(self, keys: Sequence[str]) -> Mapping[str, str]:
+    async def get_many(self, keys: ConcurrentStableList[str]) -> ConcurrentStableDict[str, str]:
         """返回预置映射子集。
 
         Args:
-            keys: 参数键序列。
+            keys: 参数键序列（插入序）。
 
         Returns:
-            Mapping[str, str]: 命中键 → 值。
+            ConcurrentStableDict[str, str]: 命中键 → 值（插入序）。
         """
-        return {key: cast("str", self._values[key]) for key in keys if key in self._values}
+        return ConcurrentStableDict({key: cast("str", self._values[key]) for key in keys if key in self._values})
 
 
 async def _session() -> tuple[AsyncSession, AsyncEngine]:
@@ -170,7 +170,7 @@ async def test_scan_respects_inactive_lock_days_override() -> None:
     default_report = await _service(session).scan_inactive(now=_NOW)
     assert default_report.locked == 0  # 默认 180 天不命中
 
-    override = _service(session, _MappingSource({"account.inactive_lock_days": "30"}))
+    override = _service(session, _MappingSource(ConcurrentStableDict({"account.inactive_lock_days": "30"})))
     assert (await override.scan_inactive(now=_NOW)).locked == 1
     await engine.dispose()
 

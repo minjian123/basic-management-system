@@ -6,7 +6,7 @@
 - 降级：DB 异常返回空结果 + 日志告警（调用方回落代码默认表，不抛业务错）。
 """
 
-from collections.abc import AsyncGenerator, Mapping, Sequence
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
 from sqlalchemy import select
@@ -14,6 +14,7 @@ from sqlalchemy import select
 from bms_core.config.base import BaseConfigSource, ConfigCacheRegion
 from bms_core.config.cache import MemoryConfigCacheRegion
 from bms_core.config.models import SysConfig
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.logging import get_logger
 from bms_core.db.registry import EngineRegistry
 from bms_core.db.session import DbSession, session_scope
@@ -48,50 +49,50 @@ class SqlConfigSource(BaseConfigSource):
         """
         return self._cache
 
-    async def get_many(self, keys: Sequence[str]) -> Mapping[str, str]:
+    async def get_many(self, keys: ConcurrentStableList[str]) -> ConcurrentStableDict[str, str]:
         """批量取参数值（缓存优先，未命中回源）。
 
         Args:
-            keys: 参数键序列。
+            keys: 参数键序列（插入序）。
 
         Returns:
-            Mapping[str, str]: 命中键 → 值；无命中返回空映射（降级不抛错）。
+            ConcurrentStableDict[str, str]: 命中键 → 值（插入序）；无命中返回空映射（降级不抛错）。
         """
         unique = list(dict.fromkeys(key for key in keys if key))
         if not unique:
-            return {}
+            return ConcurrentStableDict()
         tenant = current_tenant_id_str()
-        result: dict[str, str] = {}
-        missing: list[str] = []
+        result: ConcurrentStableDict[str, str] = ConcurrentStableDict()
+        missing: ConcurrentStableList[str] = ConcurrentStableList()
         for key in unique:
             cached = await self._cache.aget_value(tenant, key)
             if cached is not None:
-                result[key] = cached
+                result.set(key, cached)
             else:
-                missing.append(key)
+                missing.add(key)
         if not missing:
             return result
         loaded = await self._load(missing)
         for key, value in loaded.items():
             await self._cache.aset_value(tenant, key, value)
-        result.update(loaded)
+        result.update(loaded.items())
         return result
 
-    async def _load(self, keys: Sequence[str]) -> Mapping[str, str]:
+    async def _load(self, keys: ConcurrentStableList[str]) -> ConcurrentStableDict[str, str]:
         """回源租户库取参数值（一次 `IN` 查询；异常降级空结果）。
 
         Args:
-            keys: 缺失参数键序列。
+            keys: 缺失参数键序列（插入序）。
 
         Returns:
-            Mapping[str, str]: 命中键 → 值；异常返回空映射。
+            ConcurrentStableDict[str, str]: 命中键 → 值（插入序）；异常返回空映射。
         """
         try:
             async with self._session() as session:
                 return await _query_values(session, keys)
         except Exception as exc:
             _LOGGER.warning("系统参数取数降级", scope="get_many", keys=len(keys), error=repr(exc))
-            return {}
+            return ConcurrentStableDict()
 
     @asynccontextmanager
     async def _session(self) -> AsyncGenerator[DbSession]:
@@ -104,19 +105,19 @@ class SqlConfigSource(BaseConfigSource):
             yield session
 
 
-async def _query_values(session: DbSession, keys: Sequence[str]) -> Mapping[str, str]:
+async def _query_values(session: DbSession, keys: ConcurrentStableList[str]) -> ConcurrentStableDict[str, str]:
     """查租户库参数值（一次 `IN`）。
 
     Args:
         session: 租户库会话。
-        keys: 参数键序列。
+        keys: 参数键序列（插入序）。
 
     Returns:
-        Mapping[str, str]: 命中键 → 值（仅未删除行）。
+        ConcurrentStableDict[str, str]: 命中键 → 值（插入序；仅未删除行）。
     """
     stmt = select(SysConfig.config_key, SysConfig.value).where(
         SysConfig.config_key.in_(tuple(keys)),
         SysConfig.deleted_at.is_(None),
     )
     rows = (await session.execute(stmt)).all()
-    return {str(key): str(value) for key, value in rows}
+    return ConcurrentStableDict({str(key): str(value) for key, value in rows})

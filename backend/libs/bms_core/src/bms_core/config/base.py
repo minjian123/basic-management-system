@@ -14,12 +14,12 @@
 """
 
 from abc import ABC, abstractmethod
-from collections.abc import Mapping, Sequence
 from typing import cast
 
 from fastapi import Request
 
 from bms_core.cache.base import CacheRegion
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 
@@ -44,16 +44,16 @@ class BaseConfigSource(BasePluggable, ABC):
     contract_version: str = DEFAULT_CONTRACT_VERSION
 
     @abstractmethod
-    async def get_many(self, keys: Sequence[str]) -> Mapping[str, str]:
+    async def get_many(self, keys: ConcurrentStableList[str]) -> ConcurrentStableDict[str, str]:
         """批量取参数值（按 key）。
 
         只返回**存在的键**；缺失键不出现（调用方回落默认）。源不可达时返回空映射（降级，不抛错）。
 
         Args:
-            keys: 参数键序列（实现侧去重）。
+            keys: 参数键序列（插入序；实现侧去重）。
 
         Returns:
-            Mapping[str, str]: 命中键 → 值；无命中返回空映射。
+            ConcurrentStableDict[str, str]: 命中键 → 值（插入序）；无命中返回空映射。
         """
 
     async def get(self, key: str, default: str = "") -> str:
@@ -66,7 +66,7 @@ class BaseConfigSource(BasePluggable, ABC):
         Returns:
             str: 参数值或默认值。
         """
-        values = await self.get_many((key,))
+        values = await self.get_many(ConcurrentStableList((key,)))
         return values.get(key, default)
 
 

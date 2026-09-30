@@ -24,6 +24,7 @@ from bms_core.config.null import NullConfigCacheRegion, NullConfigSource
 from bms_core.config.seed import PLATFORM_CONFIG_DEFAULTS, seed_configs
 from bms_core.config.service import ConfigService
 from bms_core.config.sql import SqlConfigSource
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import get_settings
 from bms_core.core.context import current_tenant
 from bms_core.core.exceptions import ConcurrentConflictError
@@ -124,18 +125,18 @@ class _RawClient(BaseServiceClient):
 async def test_http_source_degrade_branches() -> None:
     """跨服务取数各降级分支：非 2xx / 非对象体 / 缺 data / values 非对象。"""
     status = HttpConfigSource(client=_RawClient(500, b"{}"))
-    assert await status.get_many(("a",)) == {}
+    assert await status.get_many(ConcurrentStableList(("a",))) == {}
 
     not_object = HttpConfigSource(client=_RawClient(200, b"[]"))
-    assert await not_object.get_many(("a",)) == {}
+    assert await not_object.get_many(ConcurrentStableList(("a",))) == {}
 
     no_data = HttpConfigSource(client=_RawClient(200, json.dumps({"code": 0}).encode()))
-    assert await no_data.get_many(("a",)) == {}
+    assert await no_data.get_many(ConcurrentStableList(("a",))) == {}
 
     bad_values = HttpConfigSource(client=_RawClient(200, json.dumps({"data": {"values": []}}).encode()))
-    assert await bad_values.get_many(("a",)) == {}
+    assert await bad_values.get_many(ConcurrentStableList(("a",))) == {}
 
-    assert await HttpConfigSource(client=_RawClient(200, b"{}")).get_many(()) == {}
+    assert await HttpConfigSource(client=_RawClient(200, b"{}")).get_many(ConcurrentStableList()) == {}
 
 
 def test_sql_source_cache_property_and_empty_keys() -> None:
@@ -147,7 +148,7 @@ def test_sql_source_cache_property_and_empty_keys() -> None:
 @pytest.mark.kiwi_id(2207)
 async def test_sql_source_empty_keys() -> None:
     """SQL 取数空键序列返回空映射（不查库）。"""
-    assert await SqlConfigSource(engines=_engines()).get_many(()) == {}
+    assert await SqlConfigSource(engines=_engines()).get_many(ConcurrentStableList()) == {}
 
 
 @pytest.mark.kiwi_id(2207)
@@ -205,8 +206,8 @@ async def test_service_set_remark_and_drop_missing(config_db_url: str) -> None:
     await service.set(config_key="captcha.channel.new", value="1")
     await service.drop(config_key="not.exists.key")
     source = SqlConfigSource(engines=_engines(), cache=cache)
-    assert (await source.get_many((key,)))[key] == "9"
-    assert (await source.get_many(("captcha.channel.new",)))["captcha.channel.new"] == "1"
+    assert (await source.get_many(ConcurrentStableList((key,))))[key] == "9"
+    assert (await source.get_many(ConcurrentStableList(("captcha.channel.new",))))["captcha.channel.new"] == "1"
 
 
 class _VersionRegion:
@@ -245,7 +246,7 @@ async def test_http_source_with_tenant() -> None:
     client = _RawClient(200, json.dumps({"data": {"values": {"a": "1"}}}).encode())
     token = current_tenant.set("demo")
     try:
-        assert dict(await HttpConfigSource(client=client).get_many(("a",))) == {"a": "1"}
+        assert dict(await HttpConfigSource(client=client).get_many(ConcurrentStableList(("a",)))) == {"a": "1"}
     finally:
         current_tenant.reset(token)
 

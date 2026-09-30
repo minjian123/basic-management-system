@@ -5,10 +5,11 @@
 - **降级（不抛业务错）**：不可达 / 超时 / 熔断 / 非 2xx / 响应体非法 → 返回空结果（调用方回落代码默认表）。
 """
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from typing import cast
 
 from bms_core.config.base import BaseConfigSource
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.context import get_current_tenant
 from bms_core.core.exceptions import ServiceUnavailableError
 from bms_core.core.logging import get_logger
@@ -41,22 +42,22 @@ class HttpConfigSource(BaseConfigSource):
         """
         self._client = client
 
-    async def get_many(self, keys: Sequence[str]) -> Mapping[str, str]:
+    async def get_many(self, keys: ConcurrentStableList[str]) -> ConcurrentStableDict[str, str]:
         """批量取参数值（契约调用 + 降级）。
 
         Args:
-            keys: 参数键序列。
+            keys: 参数键序列（插入序）。
 
         Returns:
-            Mapping[str, str]: 命中键 → 值；调用失败返回空映射（降级）。
+            ConcurrentStableDict[str, str]: 命中键 → 值（插入序）；调用失败返回空映射（降级）。
         """
         unique = [key for key in dict.fromkeys(keys) if key]
         if not unique:
-            return {}
-        headers: dict[str, str] = {}
+            return ConcurrentStableDict()
+        headers: ConcurrentStableDict[str, str] = ConcurrentStableDict()
         tenant = get_current_tenant()
         if tenant:
-            headers[TENANT_ID_HEADER] = tenant
+            headers.set(TENANT_ID_HEADER, tenant)
         request = ServiceRequest(
             service=CONFIG_SERVICE_KEY,
             method="POST",
@@ -68,19 +69,19 @@ class HttpConfigSource(BaseConfigSource):
             response = await self._client.call(request)
         except ServiceUnavailableError:
             _LOGGER.warning("系统参数跨服务取数降级", keys=len(unique))
-            return {}
+            return ConcurrentStableDict()
         if not 200 <= response.status_code < 300:
-            return {}
+            return ConcurrentStableDict()
         payload = response.payload()
         if not isinstance(payload, Mapping):
-            return {}
+            return ConcurrentStableDict()
         data = cast("Mapping[str, object]", payload).get("data")
         if not isinstance(data, Mapping):
-            return {}
+            return ConcurrentStableDict()
         values = cast("Mapping[str, object]", data).get("values")
         if not isinstance(values, Mapping):
-            return {}
+            return ConcurrentStableDict()
         allowed = set(unique)
-        return {
-            str(key): str(value) for key, value in cast("Mapping[str, object]", values).items() if str(key) in allowed
-        }
+        return ConcurrentStableDict(
+            {str(key): str(value) for key, value in cast("Mapping[str, object]", values).items() if str(key) in allowed}
+        )

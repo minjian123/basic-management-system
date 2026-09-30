@@ -18,13 +18,13 @@
 """
 
 from abc import ABC, abstractmethod
-from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from enum import StrEnum
 from typing import cast
 
 from fastapi import Request
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.config import Settings
 from bms_core.core.exceptions import CaptchaVerifyError
 from bms_core.core.objects import BaseCaptchaContract, BaseValueObject
@@ -179,13 +179,15 @@ class CaptchaScenePolicy(BaseValueObject):
 CAPTCHA_DEFAULT_CHANNELS: tuple[CaptchaKind, ...] = (CaptchaKind.SLIDER, CaptchaKind.IMAGE)
 """默认可用渠道（未登记场景回落；图形码恒兜底）。"""
 
-CAPTCHA_SCENE_CHANNELS: Mapping[str, tuple[CaptchaKind, ...]] = {
-    "login": (CaptchaKind.SLIDER, CaptchaKind.IMAGE),
-    "reset_password": (CaptchaKind.SMS, CaptchaKind.SLIDER, CaptchaKind.IMAGE),
-    "bind": (CaptchaKind.SMS, CaptchaKind.SLIDER, CaptchaKind.IMAGE),
-    "unbind": (CaptchaKind.SMS, CaptchaKind.SLIDER, CaptchaKind.IMAGE),
-    "register": (CaptchaKind.SMS, CaptchaKind.SLIDER, CaptchaKind.IMAGE),
-}
+CAPTCHA_SCENE_CHANNELS: ConcurrentStableDict[str, tuple[CaptchaKind, ...]] = ConcurrentStableDict(
+    {
+        "login": (CaptchaKind.SLIDER, CaptchaKind.IMAGE),
+        "reset_password": (CaptchaKind.SMS, CaptchaKind.SLIDER, CaptchaKind.IMAGE),
+        "bind": (CaptchaKind.SMS, CaptchaKind.SLIDER, CaptchaKind.IMAGE),
+        "unbind": (CaptchaKind.SMS, CaptchaKind.SLIDER, CaptchaKind.IMAGE),
+        "register": (CaptchaKind.SMS, CaptchaKind.SLIDER, CaptchaKind.IMAGE),
+    }
+)
 """场景渠道降级顺序（平台默认；按 `captcha.channel.{kind}` 可用性过滤，图形码恒兜底）。"""
 
 

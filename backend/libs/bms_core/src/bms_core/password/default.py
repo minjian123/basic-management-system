@@ -18,6 +18,7 @@ from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 
 from bms_core.config.base import BaseConfigSource
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.password.base import (
     PASSWORD_HISTORY_COUNT,
     BasePasswordPolicy,
@@ -133,14 +134,16 @@ class DefaultPasswordPolicy(BasePasswordPolicy):
             tuple[str, ...]: 违规原因码元组（`PASSWORD_VIOLATIONS` 子集）；空元组通过。
         """
         values = await self._config.get_many(
-            (
-                "password.min_length",
-                "password.max_length",
-                "password.require_upper",
-                "password.require_lower",
-                "password.require_digit",
-                "password.require_symbol",
-                "password.forbid_username",
+            ConcurrentStableList(
+                (
+                    "password.min_length",
+                    "password.max_length",
+                    "password.require_upper",
+                    "password.require_lower",
+                    "password.require_digit",
+                    "password.require_symbol",
+                    "password.forbid_username",
+                )
             )
         )
         violations: list[str] = []
@@ -176,7 +179,7 @@ class DefaultPasswordPolicy(BasePasswordPolicy):
         Returns:
             bool: 已过期为 True。
         """
-        values = await self._config.get_many((PASSWORD_MAX_AGE_DAYS_KEY,))
+        values = await self._config.get_many(ConcurrentStableList((PASSWORD_MAX_AGE_DAYS_KEY,)))
         days = _parse_int(values.get(PASSWORD_MAX_AGE_DAYS_KEY), DEFAULT_MAX_AGE_DAYS, minimum=1)
         current = now or datetime.now(UTC).replace(tzinfo=None)
         return current - pwd_changed_at > timedelta(days=days)
@@ -199,7 +202,7 @@ class DefaultPasswordPolicy(BasePasswordPolicy):
         Returns:
             int: 保留 / 比对条数（缺省平台默认 5）。
         """
-        values = await self._config.get_many((PASSWORD_HISTORY_COUNT_KEY,))
+        values = await self._config.get_many(ConcurrentStableList((PASSWORD_HISTORY_COUNT_KEY,)))
         return _parse_int(values.get(PASSWORD_HISTORY_COUNT_KEY), PASSWORD_HISTORY_COUNT, minimum=1)
 
 
@@ -212,5 +215,5 @@ async def resolve_inactive_lock_days(config: BaseConfigSource) -> int:
     Returns:
         int: 锁定阈值天数（≥1）。
     """
-    values = await config.get_many(("account.inactive_lock_days",))
+    values = await config.get_many(ConcurrentStableList(("account.inactive_lock_days",)))
     return _parse_int(values.get("account.inactive_lock_days"), ACCOUNT_INACTIVE_LOCK_DAYS, minimum=1)
